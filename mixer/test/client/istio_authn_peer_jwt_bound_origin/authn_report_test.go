@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package istioAuthnPeerJwtBoundOrigin
+package client_test
 
 import (
 	"encoding/base64"
@@ -24,10 +24,8 @@ import (
 
 // The Istio authn envoy config
 const authnConfig = `
-{
-  "type": "decoder",
-  "name": "istio_authn",
-  "config": {
+- name: istio_authn
+  config: {
     "policy": {
       "peers": [
         {
@@ -43,7 +41,6 @@ const authnConfig = `
       "issuer@foo.com": "sec-istio-auth-jwt-output"
     }
   }
-},
 `
 
 const secIstioAuthUserInfoHeaderKey = "sec-istio-auth-jwt-output"

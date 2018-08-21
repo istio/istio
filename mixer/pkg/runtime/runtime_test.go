@@ -30,7 +30,7 @@ import (
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/pool"
-	"istio.io/istio/mixer/pkg/runtime/config"
+	"istio.io/istio/mixer/pkg/runtime/config/constant"
 	"istio.io/istio/mixer/pkg/runtime/testing/data"
 	"istio.io/istio/pkg/probe"
 )
@@ -46,7 +46,7 @@ func TestRuntime_Basic(t *testing.T) {
 	rt := New(
 		s,
 		templates,
-		adapters, "identityAttr", "istio-system",
+		adapters, "istio-system",
 		egp,
 		hgp,
 		true)
@@ -92,7 +92,7 @@ func TestRuntime_ErrorDuringWatch(t *testing.T) {
 	rt := New(
 		s,
 		templates,
-		adapters, "identityAttr", "istio-system",
+		adapters, "istio-system",
 		egp,
 		hgp,
 		true)
@@ -111,7 +111,7 @@ func TestRuntime_OnConfigChange(t *testing.T) {
 	rt := New(
 		s,
 		templates,
-		adapters, "identityAttr", "istio-system",
+		adapters, "istio-system",
 		egp,
 		hgp,
 		true)
@@ -124,7 +124,7 @@ func TestRuntime_OnConfigChange(t *testing.T) {
 	events := []*store.Event{
 		{
 			Type: store.Update,
-			Key:  store.Key{Kind: config.AttributeManifestKind, Name: "attrs"},
+			Key:  store.Key{Kind: constant.AttributeManifestKind, Name: "attrs"},
 			Value: &store.Resource{
 				Spec: &configpb.AttributeManifest{
 					Name: "attrs",
@@ -139,25 +139,25 @@ func TestRuntime_OnConfigChange(t *testing.T) {
 	}
 	rt.onConfigChange(events)
 
-	snapshot := rt.ephemeral.BuildSnapshot()
+	snapshot, _ := rt.ephemeral.BuildSnapshot()
 
 	// expect the newly declared attribute to be received by the ephemeral state of the runtime, as part
 	// of listening.
 	expected := `
-ID: 4
-Templates:
+ID: 3
+TemplatesStatic:
   Name: tapa
   Name: tcheck
   Name: thalt
   Name: tquota
   Name: treport
-Adapters:
+AdaptersStatic:
   Name: acheck
   Name: apa
   Name: aquota
   Name: areport
-Handlers:
-Instances:
+HandlersStatic:
+InstancesStatic:
 Rules:
 Attributes:
   foo: STRING
@@ -184,7 +184,7 @@ func TestRuntime_InFlightRequestsDuringConfigChange(t *testing.T) {
 	rt := New(
 		s,
 		templates,
-		adapters, "identityAttr", "istio-system",
+		adapters, "istio-system",
 		egp,
 		hgp,
 		true)
@@ -198,7 +198,7 @@ func TestRuntime_InFlightRequestsDuringConfigChange(t *testing.T) {
 	events := []*store.Event{
 		{
 			Type: store.Update,
-			Key:  store.Key{Kind: config.AttributeManifestKind, Name: "attrs"},
+			Key:  store.Key{Kind: constant.AttributeManifestKind, Name: "attrs"},
 			Value: &store.Resource{
 				Spec: &configpb.AttributeManifest{
 					Attributes: map[string]*configpb.AttributeManifest_AttributeInfo{
@@ -245,7 +245,7 @@ func TestRuntime_InFlightRequestsDuringConfigChange(t *testing.T) {
 	rt.onConfigChange(events)
 
 	// start a dispatch session, which will block until we signal it to commence.
-	bag := attribute.GetFakeMutableBagForTesting(map[string]interface{}{
+	bag := attribute.GetMutableBagForTesting(map[string]interface{}{
 		"identityAttr": "svc.istio-system",
 	})
 	callComplete := false
@@ -253,6 +253,7 @@ func TestRuntime_InFlightRequestsDuringConfigChange(t *testing.T) {
 	callErr := errors.New("call haven't completed yet")
 	go func() {
 		_, callErr = rt.Dispatcher().Check(context.Background(), bag)
+
 		callComplete = true
 		callCompleteCh <- struct{}{}
 	}()

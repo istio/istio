@@ -35,6 +35,7 @@ mappings=(
   "google/rpc/status.proto=github.com/gogo/googleapis/google/rpc"
   "google/protobuf/any.proto=github.com/gogo/protobuf/types"
   "google/protobuf/duration.proto=github.com/gogo/protobuf/types"
+  "google/protobuf/empty.proto=github.com/gogo/protobuf/types"
   "google/protobuf/struct.proto=github.com/gogo/protobuf/types"
   "google/protobuf/timestamp.proto=github.com/gogo/protobuf/types"
   "google/protobuf/wrappers.proto=github.com/gogo/protobuf/types"

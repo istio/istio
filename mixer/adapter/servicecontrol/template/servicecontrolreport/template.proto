@@ -15,23 +15,16 @@
 syntax = "proto3";
 
 // $title: Service Control Report
-// $overview: A template used by the Google Service Control adapter.
-// $location: https://istio.io/docs/reference/config/template/servicecontrolreport.html
+// $description: A template used by the Google Service Control adapter.
+// $location: https://istio.io/docs/reference/config/policy-and-telemetry/templates/servicecontrolreport.html
+// $aliases:
+// $  - /docs/reference/config/adapters/servicecontrolreport.html
 
-// The `servicecontrolreport` template is used by the [Google Service Control](https://istio.io/docs/reference/config/adapters/servicecontrol.html)
+// The `servicecontrolreport` template is used by the [Google Service Control](https://istio.io/docs/reference/config/policy-and-telemetry/adapters/servicecontrol/)
 // adapter.
-package servicecontrolReport;
-
-import "mixer/adapter/model/v1beta1/type.proto";
-import "mixer/adapter/model/v1beta1/extensions.proto";
-
-option (istio.mixer.adapter.model.v1beta1.template_variety) = TEMPLATE_VARIETY_REPORT;
-
-// A template used by Google Service Control (servicecontrol) adapter. The adapter
-// generates metrics and logentry for each request based on the data point
-// defined by this template.
 //
-// Config example:
+// Example config:
+//
 // ```yaml
 // apiVersion: "config.istio.io/v1alpha2"
 // kind: servicecontrolreport
@@ -53,6 +46,16 @@ option (istio.mixer.adapter.model.v1beta1.template_variety) = TEMPLATE_VARIETY_R
 //   response_bytes : response.size | 0
 //   response_latency : response.duration | "0ms"
 // ```
+package servicecontrolReport;
+
+import "policy/v1beta1/type.proto";
+import "mixer/adapter/model/v1beta1/extensions.proto";
+
+option (istio.mixer.adapter.model.v1beta1.template_variety) = TEMPLATE_VARIETY_REPORT;
+
+// A template used by Google Service Control (servicecontrol) adapter. The adapter
+// generates metrics and logentry for each request based on the data point
+// defined by this template.
 message Template {
     string api_version = 1;
     string api_operation = 2;
@@ -60,13 +63,13 @@ message Template {
     string api_service = 4;
     string api_key = 5;
 
-    istio.mixer.adapter.model.v1beta1.TimeStamp request_time = 6;
+    istio.policy.v1beta1.TimeStamp request_time = 6;
     string request_method = 7;
     string request_path = 8;
     int64 request_bytes = 9;
 
-    istio.mixer.adapter.model.v1beta1.TimeStamp response_time = 10;
+    istio.policy.v1beta1.TimeStamp response_time = 10;
     int64 response_code = 11;
     int64 response_bytes = 12;
-    istio.mixer.adapter.model.v1beta1.Duration response_latency = 13;
+    istio.policy.v1beta1.Duration response_latency = 13;
 }

@@ -23,6 +23,9 @@
 // checknothing
 //go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -t mixer/template/checknothing/template.proto
 
+// edge
+//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -t mixer/template/edge/template.proto
+
 // listentry
 //go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -t mixer/template/listentry/template.proto
 

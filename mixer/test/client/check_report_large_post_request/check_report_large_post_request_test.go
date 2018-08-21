@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package checkReport
+package client_test
 
 import (
 	"fmt"
@@ -33,13 +33,12 @@ const checkAttributesOkPost = `
   "request.useragent": "Go-http-client/1.1",
   "request.method": "POST",
   "request.scheme": "http",
-  "source.ip": "[127 0 0 1]",
-  "source.port": "*",
   "target.name": "target-name",
   "target.user": "target-user",
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "connection.mtls": false,
+  "origin.ip": "[127 0 0 1]",
   "request.headers": {
      ":method": "POST",
      ":path": "/echo",
@@ -63,8 +62,6 @@ const reportAttributesOkPost = `
   "request.useragent": "Go-http-client/1.1",
   "request.method": "POST",
   "request.scheme": "http",
-  "source.ip": "[127 0 0 1]",
-  "source.port": "*",
   "destination.ip": "[127 0 0 1]",
   "destination.port": "*",
   "target.name": "target-name",
@@ -72,6 +69,7 @@ const reportAttributesOkPost = `
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "connection.mtls": false,
+  "origin.ip": "[127 0 0 1]",
   "check.cache_hit": false,
   "quota.cache_hit": false,
   "request.headers": {

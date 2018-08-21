@@ -7,6 +7,8 @@
 	The `prometheus` adapter collects Istio metrics and makes them available to
 	[Prometheus](https://prometheus.io).
 
+	This adapter supports the [metric template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/metric/).
+
 	It is generated from these files:
 		mixer/adapter/prometheus/config/config.proto
 
@@ -22,7 +24,7 @@ import _ "github.com/gogo/protobuf/gogoproto"
 
 import strconv "strconv"
 
-import encoding_binary "encoding/binary"
+import binary "encoding/binary"
 
 import strings "strings"
 import reflect "reflect"
@@ -562,13 +564,13 @@ func (m *Params_MetricInfo_BucketsDefinition_Linear) MarshalTo(dAtA []byte) (int
 	if m.Width != 0 {
 		dAtA[i] = 0x11
 		i++
-		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Width))))
+		binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Width))))
 		i += 8
 	}
 	if m.Offset != 0 {
 		dAtA[i] = 0x19
 		i++
-		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Offset))))
+		binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Offset))))
 		i += 8
 	}
 	return i, nil
@@ -597,13 +599,13 @@ func (m *Params_MetricInfo_BucketsDefinition_Exponential) MarshalTo(dAtA []byte)
 	if m.GrowthFactor != 0 {
 		dAtA[i] = 0x11
 		i++
-		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.GrowthFactor))))
+		binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.GrowthFactor))))
 		i += 8
 	}
 	if m.Scale != 0 {
 		dAtA[i] = 0x19
 		i++
-		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Scale))))
+		binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Scale))))
 		i += 8
 	}
 	return i, nil
@@ -630,7 +632,7 @@ func (m *Params_MetricInfo_BucketsDefinition_Explicit) MarshalTo(dAtA []byte) (i
 		i = encodeVarintConfig(dAtA, i, uint64(len(m.Bounds)*8))
 		for _, num := range m.Bounds {
 			f6 := math.Float64bits(float64(num))
-			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(f6))
+			binary.LittleEndian.PutUint64(dAtA[i:], uint64(f6))
 			i += 8
 		}
 	}
@@ -1419,7 +1421,7 @@ func (m *Params_MetricInfo_BucketsDefinition_Linear) Unmarshal(dAtA []byte) erro
 			if (iNdEx + 8) > l {
 				return io.ErrUnexpectedEOF
 			}
-			v = uint64(encoding_binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+			v = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 			iNdEx += 8
 			m.Width = float64(math.Float64frombits(v))
 		case 3:
@@ -1430,7 +1432,7 @@ func (m *Params_MetricInfo_BucketsDefinition_Linear) Unmarshal(dAtA []byte) erro
 			if (iNdEx + 8) > l {
 				return io.ErrUnexpectedEOF
 			}
-			v = uint64(encoding_binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+			v = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 			iNdEx += 8
 			m.Offset = float64(math.Float64frombits(v))
 		default:
@@ -1510,7 +1512,7 @@ func (m *Params_MetricInfo_BucketsDefinition_Exponential) Unmarshal(dAtA []byte)
 			if (iNdEx + 8) > l {
 				return io.ErrUnexpectedEOF
 			}
-			v = uint64(encoding_binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+			v = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 			iNdEx += 8
 			m.GrowthFactor = float64(math.Float64frombits(v))
 		case 3:
@@ -1521,7 +1523,7 @@ func (m *Params_MetricInfo_BucketsDefinition_Exponential) Unmarshal(dAtA []byte)
 			if (iNdEx + 8) > l {
 				return io.ErrUnexpectedEOF
 			}
-			v = uint64(encoding_binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+			v = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 			iNdEx += 8
 			m.Scale = float64(math.Float64frombits(v))
 		default:
@@ -1580,7 +1582,7 @@ func (m *Params_MetricInfo_BucketsDefinition_Explicit) Unmarshal(dAtA []byte) er
 				if (iNdEx + 8) > l {
 					return io.ErrUnexpectedEOF
 				}
-				v = uint64(encoding_binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+				v = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 				iNdEx += 8
 				v2 := float64(math.Float64frombits(v))
 				m.Bounds = append(m.Bounds, v2)
@@ -1612,7 +1614,7 @@ func (m *Params_MetricInfo_BucketsDefinition_Explicit) Unmarshal(dAtA []byte) er
 					if (iNdEx + 8) > l {
 						return io.ErrUnexpectedEOF
 					}
-					v = uint64(encoding_binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+					v = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 					iNdEx += 8
 					v2 := float64(math.Float64frombits(v))
 					m.Bounds = append(m.Bounds, v2)

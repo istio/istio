@@ -59,47 +59,48 @@ func (Server_TLSOptions_TLSmode) EnumDescriptor() ([]byte, []int) {
 // responsibility of the user to ensure that external traffic to these
 // ports are allowed into the mesh.
 //
-//     apiVersion: networking.istio.io/v1alpha3
-//     kind: Gateway
-//     metadata:
-//       name: my-gateway
-//     spec:
-//       selector:
-//         app: my-gatweway-controller
-//       servers:
-//       - port:
-//           number: 80
-//           name: http
-//           protocol: HTTP
-//         hosts:
-//         - uk.bookinfo.com
-//         - eu.bookinfo.com
-//         tls:
-//           httpsRedirect: true # sends 302 redirect for http requests
-//       - port:
-//           number: 443
-//           name: https
-//           protocol: HTTPS
-//         hosts:
-//         - uk.bookinfo.com
-//         - eu.bookinfo.com
-//         tls:
-//           mode: SIMPLE #enables HTTPS on this port
-//           serverCertificate: /etc/certs/servercert.pem
-//           privateKey: /etc/certs/privatekey.pem
-//       - port:
-//           number: 9080
-//           name: http-wildcard
-//           protocol: HTTP
-//         hosts:
-//         - "*"
-//       - port:
-//           number: 2379 # to expose internal service via external port 2379
-//           name: mongo
-//           protocol: MONGO
-//         hosts:
-//         - "*"
-//
+// ```yaml
+// apiVersion: networking.istio.io/v1alpha3
+// kind: Gateway
+// metadata:
+//   name: my-gateway
+// spec:
+//   selector:
+//     app: my-gatweway-controller
+//   servers:
+//   - port:
+//       number: 80
+//       name: http
+//       protocol: HTTP
+//     hosts:
+//     - uk.bookinfo.com
+//     - eu.bookinfo.com
+//     tls:
+//       httpsRedirect: true # sends 301 redirect for http requests
+//   - port:
+//       number: 443
+//       name: https
+//       protocol: HTTPS
+//     hosts:
+//     - uk.bookinfo.com
+//     - eu.bookinfo.com
+//     tls:
+//       mode: SIMPLE #enables HTTPS on this port
+//       serverCertificate: /etc/certs/servercert.pem
+//       privateKey: /etc/certs/privatekey.pem
+//   - port:
+//       number: 9080
+//       name: http-wildcard
+//       protocol: HTTP
+//     hosts:
+//     - "*"
+//   - port:
+//       number: 2379 # to expose internal service via external port 2379
+//       name: mongo
+//       protocol: MONGO
+//     hosts:
+//     - "*"
+// ```
 // The Gateway specification above describes the L4-L6 properties of a load
 // balancer. A `VirtualService` can then be bound to a gateway to control
 // the forwarding of traffic arriving at a particular host or gateway port.
@@ -111,72 +112,75 @@ func (Server_TLSOptions_TLSmode) EnumDescriptor() ([]byte, []int) {
 // an internal reviews service on port 9080. In addition, requests
 // containing the cookie "user: dev-123" will be sent to special port 7777
 // in the qa version. The same rule is also applicable inside the mesh for
-// requests to the r"eviews.prod.svc.cluster.local" service. This rule is
+// requests to the "reviews.prod.svc.cluster.local" service. This rule is
 // applicable across ports 443, 9080. Note that "http://uk.bookinfo.com"
 // gets redirected to "https://uk.bookinfo.com" (i.e. 80 redirects to 443).
 //
-//     apiVersion: networking.istio.io/v1alpha3
-//     kind: VirtualService
-//     metadata:
-//       name: bookinfo-rule
-//     spec:
-//       hosts:
-//       - reviews.prod.svc.cluster.local
-//       - uk.bookinfo.com
-//       - eu.bookinfo.com
-//       gateways:
-//       - my-gateway
-//       - mesh # applies to all the sidecars in the mesh
-//       http:
-//       - match:
-//         - headers:
-//             cookie:
-//               user: dev-123
-//         route:
-//         - destination:
-//             port:
-//               number: 7777
-//             name: reviews.qa.svc.cluster.local
-//       - match:
-//           uri:
-//             prefix: /reviews/
-//         route:
-//         - destination:
-//             port:
-//               number: 9080 # can be omitted if its the only port for reviews
-//             name: reviews.prod.svc.cluster.local
-//           weight: 80
-//         - destination:
-//             name: reviews.qa.svc.cluster.local
-//           weight: 20
+// ```yaml
+// apiVersion: networking.istio.io/v1alpha3
+// kind: VirtualService
+// metadata:
+//   name: bookinfo-rule
+// spec:
+//   hosts:
+//   - reviews.prod.svc.cluster.local
+//   - uk.bookinfo.com
+//   - eu.bookinfo.com
+//   gateways:
+//   - my-gateway
+//   - mesh # applies to all the sidecars in the mesh
+//   http:
+//   - match:
+//     - headers:
+//         cookie:
+//           user: dev-123
+//     route:
+//     - destination:
+//         port:
+//           number: 7777
+//         host: reviews.qa.svc.cluster.local
+//   - match:
+//       uri:
+//         prefix: /reviews/
+//     route:
+//     - destination:
+//         port:
+//           number: 9080 # can be omitted if its the only port for reviews
+//         host: reviews.prod.svc.cluster.local
+//       weight: 80
+//     - destination:
+//         host: reviews.qa.svc.cluster.local
+//       weight: 20
+// ```
 //
 // The following VirtualService forwards traffic arriving at (external)
-// port 27017 from "172.17.16.0/24" subnet to internal Mongo server on port
-// 5555. This rule is not applicable internally in the mesh as the gateway
-// list omits the reserved name `mesh`.
+// port 27017 to internal Mongo server on port 5555. This rule is not
+// applicable internally in the mesh as the gateway list omits the
+// reserved name `mesh`.
 //
-//     apiVersion: networking.istio.io/v1alpha3
-//     kind: VirtualService
-//     metadata:
-//       name: bookinfo-Mongo
-//     spec:
-//       hosts:
-//       - mongosvr.prod.svc.cluster.local #name of internal Mongo service
-//       gateways:
-//       - my-gateway
-//       tcp:
-//       - match:
-//         - port:
-//             number: 27017
-//           sourceSubnet: "172.17.16.0/24"
-//         route:
-//         - destination:
-//             name: mongo.prod.svc.cluster.local
-//
+// ```yaml
+// apiVersion: networking.istio.io/v1alpha3
+// kind: VirtualService
+// metadata:
+//   name: bookinfo-Mongo
+// spec:
+//   hosts:
+//   - mongosvr.prod.svc.cluster.local #name of internal Mongo service
+//   gateways:
+//   - my-gateway
+//   tcp:
+//   - match:
+//     - port: 27017
+//     route:
+//     - destination:
+//         host: mongo.prod.svc.cluster.local
+//         port:
+//           number: 5555
+// ```
 type Gateway struct {
 	// REQUIRED: A list of server specifications.
 	Servers []*Server `protobuf:"bytes,1,rep,name=servers" json:"servers,omitempty"`
-	// One or more labels that indicate a specific set of pods/VMs
+	// REQUIRED: One or more labels that indicate a specific set of pods/VMs
 	// on which this gateway configuration should be applied.
 	// The scope of label search is platform dependent.
 	// On Kubernetes, for example, the scope includes pods running in
@@ -206,59 +210,64 @@ func (m *Gateway) GetSelector() map[string]string {
 // `Server` describes the properties of the proxy on a given load balancer
 // port. For example,
 //
-//     apiVersion: networking.istio.io/v1alpha3
-//     kind: Gateway
-//     metadata:
-//       name: my-ingress
-//     spec:
-//       selector:
-//         app: my-ingress-gateway
-//       servers:
-//       - port:
-//           number: 80
-//           name: http2
-//           protocol: HTTP2
-//         hosts:
-//         - "*"
+// ```yaml
+// apiVersion: networking.istio.io/v1alpha3
+// kind: Gateway
+// metadata:
+//   name: my-ingress
+// spec:
+//   selector:
+//     app: my-ingress-gateway
+//   servers:
+//   - port:
+//       number: 80
+//       name: http2
+//       protocol: HTTP2
+//     hosts:
+//     - "*"
+// ```
 //
 // Another example
 //
-//     apiVersion: networking.istio.io/v1alpha3
-//     kind: Gateway
-//     metadata:
-//       name: my-tcp-ingress
-//     spec:
-//       selector:
-//         app: my-tcp-ingress-gateway
-//       servers:
-//       - port:
-//           number: 27018
-//           name: mongo
-//           protocol: MONGO
-//         hosts:
-//         - "*"
+// ```yaml
+// apiVersion: networking.istio.io/v1alpha3
+// kind: Gateway
+// metadata:
+//   name: my-tcp-ingress
+// spec:
+//   selector:
+//     app: my-tcp-ingress-gateway
+//   servers:
+//   - port:
+//       number: 27018
+//       name: mongo
+//       protocol: MONGO
+//     hosts:
+//     - "*"
+// ```
 //
 // The following is an example of TLS configuration for port 443
 //
-//     apiVersion: networking.istio.io/v1alpha3
-//     kind: Gateway
-//     metadata:
-//       name: my-tls-ingress
-//     spec:
-//       selector:
-//         app: my-tls-ingress-gateway
-//       servers:
-//       - port:
-//           number: 443
-//           name: https
-//           protocol: HTTPS
-//         hosts:
-//         - "*"
-//         tls:
-//           mode: SIMPLE
-//           serverCertificate: /etc/certs/server.pem
-//           privateKey: /etc/certs/privatekey.pem
-//
+// ```yaml
+// apiVersion: networking.istio.io/v1alpha3
+// kind: Gateway
+// metadata:
+//   name: my-tls-ingress
+// spec:
+//   selector:
+//     app: my-tls-ingress-gateway
+//   servers:
+//   - port:
+//       number: 443
+//       name: https
+//       protocol: HTTPS
+//     hosts:
+//     - "*"
+//     tls:
+//       mode: SIMPLE
+//       serverCertificate: /etc/certs/server.pem
+//       privateKey: /etc/certs/privatekey.pem
+// ```
 type Server struct {
 	// REQUIRED: The Port on which the proxy should listen for incoming
 	// connections
@@ -266,7 +275,9 @@ type Server struct {
 	// REQUIRED. A list of hosts exposed by this gateway. At least one
 	// host is required. While typically applicable to
 	// HTTP services, it can also be used for TCP services using TLS with
-	// SNI. Standard DNS wildcard prefix syntax is permitted.
+	// SNI. May contain a wildcard prefix for the bottom-level component of
+	// a domain name. For example `*.foo.com` matches `bar.foo.com`
+	// and `*.com` matches `bar.foo.com`, `example.com`, and so on.
 	//
 	// **Note**: A `VirtualService` that is bound to a gateway must have one
 	// or more hosts that match the hosts specified in a server. The match
@@ -309,7 +320,7 @@ func (m *Server) GetTls() *Server_TLSOptions {
 }
 
 type Server_TLSOptions struct {
-	// If set to true, the load balancer will send a 302 redirect for all
+	// If set to true, the load balancer will send a 301 redirect for all
 	// http connections, asking the clients to use HTTPS.
 	HttpsRedirect bool `protobuf:"varint,1,opt,name=https_redirect,json=httpsRedirect,proto3" json:"https_redirect,omitempty"`
 	// Optional: Indicates whether connections to this port should be
@@ -383,8 +394,8 @@ type Port struct {
 	// REQUIRED: A valid non-negative integer port number.
 	Number uint32 `protobuf:"varint,1,opt,name=number,proto3" json:"number,omitempty"`
 	// REQUIRED: The protocol exposed on the port.
-	// MUST BE one of HTTP|HTTPS|GRPC|HTTP2|MONGO|TCP|TCP-TLS.
-	// TCP-TLS is used to indicate secure connections to non HTTP services.
+	// MUST BE one of HTTP|HTTPS|GRPC|HTTP2|MONGO|TCP|TLS.
+	// TLS is used to indicate secure connections to non HTTP services.
 	Protocol string `protobuf:"bytes,2,opt,name=protocol,proto3" json:"protocol,omitempty"`
 	// Label assigned to the port.
 	Name string `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`

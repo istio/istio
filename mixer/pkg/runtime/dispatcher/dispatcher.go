@@ -17,30 +17,19 @@
 //
 // Once the dispatcher receives a request, it acquires the current routing table, and uses it until the end
 // of the request. Additionally, it acquires an executor from a pool, which is used to perform and track the
-// parallel calls that will be performed against the handlers. The executors scatter the calls
+// parallel calls that will be performed against the handlers. The executors scatter the calls.
 package dispatcher
 
 import (
-	"bytes"
 	"context"
-	"fmt"
-	"runtime/debug"
 	"sync"
-	"sync/atomic"
 	"time"
-
-	rpc "github.com/gogo/googleapis/google/rpc"
-	multierror "github.com/hashicorp/go-multierror"
-	opentracing "github.com/opentracing/opentracing-go"
 
 	tpb "istio.io/api/mixer/adapter/model/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/pool"
-	"istio.io/istio/mixer/pkg/runtime/config"
 	"istio.io/istio/mixer/pkg/runtime/routing"
-	"istio.io/istio/mixer/pkg/status"
-	"istio.io/istio/pkg/log"
 )
 
 // Dispatcher dispatches incoming API calls to configured adapters.
@@ -50,14 +39,14 @@ type Dispatcher interface {
 	Preprocess(ctx context.Context, requestBag attribute.Bag, responseBag *attribute.MutableBag) error
 
 	// Check dispatches to the set of adapters associated with the Check API method
-	Check(ctx context.Context, requestBag attribute.Bag) (*adapter.CheckResult, error)
+	Check(ctx context.Context, requestBag attribute.Bag) (adapter.CheckResult, error)
 
-	// Report dispatches to the set of adapters associated with the Report API method
-	Report(ctx context.Context, requestBag attribute.Bag) error
+	// GetReporter get an interface where reports are buffered.
+	GetReporter(ctx context.Context) Reporter
 
 	// Quota dispatches to the set of adapters associated with the Quota API method
 	Quota(ctx context.Context, requestBag attribute.Bag,
-		qma *QuotaMethodArgs) (*adapter.QuotaResult, error)
+		qma QuotaMethodArgs) (adapter.QuotaResult, error)
 }
 
 // QuotaMethodArgs is supplied by invocations of the Quota method.
@@ -81,406 +70,180 @@ type QuotaMethodArgs struct {
 
 // Impl is the runtime implementation of the Dispatcher interface.
 type Impl struct {
-	identityAttribute string
-
-	// Current dispatch context.
-	context *RoutingContext
+	// Current routing context.
+	rc *RoutingContext
 
 	// the reader-writer lock for accessing or changing the context.
-	contextLock sync.RWMutex
+	rcLock sync.RWMutex
 
 	// pool of sessions
-	sessionPool *sessionPool
+	sessionPool sync.Pool
 
 	// pool of dispatch states
-	statePool *dispatchStatePool
+	statePool sync.Pool
 
+	// pool of reporters
+	reporterPool sync.Pool
+
+	// pool of goroutines
 	gp *pool.GoroutinePool
+
+	enableTracing bool
 }
 
 var _ Dispatcher = &Impl{}
 
-// RoutingContext is the currently active dispatching context, based on a config snapshot. As config changes,
-// the current/live RoutingContext also changes.
-type RoutingContext struct {
-	// the routing table of this context.
-	Routes *routing.Table
-
-	// the current reference count. Indicates how many calls are currently using this RoutingContext.
-	refCount int32
-}
-
-// IncRef increases the reference count on the RoutingContext.
-func (t *RoutingContext) IncRef() {
-	atomic.AddInt32(&t.refCount, 1)
-}
-
-// DecRef decreases the reference count on the RoutingContext.
-func (t *RoutingContext) DecRef() {
-	atomic.AddInt32(&t.refCount, -1)
-}
-
-// GetRefs returns the current reference count on the dispatch context.
-func (t *RoutingContext) GetRefs() int32 {
-	return atomic.LoadInt32(&t.refCount)
-}
-
 // New returns a new Impl instance. The Impl instance is initialized with an empty routing table.
-func New(identityAttribute string, handlerGP *pool.GoroutinePool, enableTracing bool) *Impl {
-	return &Impl{
-		identityAttribute: identityAttribute,
-		sessionPool:       newSessionPool(enableTracing),
-		statePool:         newDispatchStatePool(),
-		gp:                handlerGP,
-		context: &RoutingContext{
+func New(handlerGP *pool.GoroutinePool, enableTracing bool) *Impl {
+	d := &Impl{
+		gp:            handlerGP,
+		enableTracing: enableTracing,
+		rc: &RoutingContext{
 			Routes: routing.Empty(),
 		},
 	}
+
+	d.sessionPool.New = func() interface{} { return &session{} }
+	d.statePool.New = func() interface{} { return &dispatchState{} }
+	d.reporterPool.New = func() interface{} { return &reporter{states: make(map[*routing.Destination]*dispatchState)} }
+
+	return d
 }
 
-// ChangeRoute changes the routing table on the Impl which, in turn, ends up creating a new RoutingContext.
-func (d *Impl) ChangeRoute(new *routing.Table) *RoutingContext {
-	newContext := &RoutingContext{
-		Routes: new,
-	}
-
-	d.contextLock.Lock()
-	old := d.context
-	d.context = newContext
-	d.contextLock.Unlock()
-
-	return old
-}
+const (
+	defaultValidDuration = 1 * time.Minute
+	defaultValidUseCount = 10000
+)
 
 // Check implementation of runtime.Impl.
-func (d *Impl) Check(ctx context.Context, bag attribute.Bag) (*adapter.CheckResult, error) {
-	s := d.beginSession(ctx, tpb.TEMPLATE_VARIETY_CHECK, bag)
+func (d *Impl) Check(ctx context.Context, bag attribute.Bag) (adapter.CheckResult, error) {
+	s := d.getSession(ctx, tpb.TEMPLATE_VARIETY_CHECK, bag)
 
-	var r *adapter.CheckResult
-	err := d.dispatch(s)
+	var r adapter.CheckResult
+	err := s.dispatch()
 	if err == nil {
 		r = s.checkResult
 		err = s.err
+
+		if err == nil {
+			// No adapters chimed in on this request, so we return a "good to go" value which can be cached
+			// for up to a minute.
+			//
+			// TODO: make these fallback values configurable
+			if r.IsDefault() {
+				r = adapter.CheckResult{
+					ValidUseCount: defaultValidUseCount,
+					ValidDuration: defaultValidDuration,
+				}
+			}
+		}
 	}
 
-	d.completeSession(s)
-
+	d.putSession(s)
 	return r, err
 }
 
-// Report implementation of runtime.Impl.
-func (d *Impl) Report(ctx context.Context, bag attribute.Bag) error {
-	s := d.beginSession(ctx, tpb.TEMPLATE_VARIETY_REPORT, bag)
-
-	err := d.dispatch(s)
-	if err == nil {
-		err = s.err
-	}
-
-	d.completeSession(s)
-
-	return err
+// GetReporter implementation of runtime.Impl.
+func (d *Impl) GetReporter(ctx context.Context) Reporter {
+	return d.getReporter(ctx)
 }
 
 // Quota implementation of runtime.Impl.
-func (d *Impl) Quota(ctx context.Context, bag attribute.Bag, qma *QuotaMethodArgs) (*adapter.QuotaResult, error) {
-	s := d.beginSession(ctx, tpb.TEMPLATE_VARIETY_QUOTA, bag)
-	s.quotaArgs.QuotaAmount = qma.Amount
-	s.quotaArgs.DeduplicationID = qma.DeduplicationID
-	s.quotaArgs.BestEffort = qma.BestEffort
+func (d *Impl) Quota(ctx context.Context, bag attribute.Bag, qma QuotaMethodArgs) (adapter.QuotaResult, error) {
+	s := d.getSession(ctx, tpb.TEMPLATE_VARIETY_QUOTA, bag)
+	s.quotaArgs = qma
 
-	err := d.dispatch(s)
+	err := s.dispatch()
 	if err == nil {
 		err = s.err
 	}
+	qr := s.quotaResult
 
-	r := s.quotaResult
-	d.completeSession(s)
-
-	return r, err
+	d.putSession(s)
+	return qr, err
 }
 
 // Preprocess implementation of runtime.Impl.
 func (d *Impl) Preprocess(ctx context.Context, bag attribute.Bag, responseBag *attribute.MutableBag) error {
-	s := d.beginSession(ctx, tpb.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR, bag)
+	s := d.getSession(ctx, tpb.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR, bag)
 	s.responseBag = responseBag
 
-	err := d.dispatch(s)
+	err := s.dispatch()
 	if err == nil {
 		err = s.err
 	}
 
-	d.completeSession(s)
-
+	d.putSession(s)
 	return err
 }
 
-func (d *Impl) dispatch(session *session) error {
-	// Lookup the value of the identity attribute, so that we can extract the namespace to use for route
-	// lookup.
-	identityAttributeValue, err := getIdentityAttributeValue(session.bag, d.identityAttribute)
-	if err != nil {
-		// early return.
-		updateRequestCounters(time.Since(session.start), 0, 0, err != nil)
-		log.Warnf("unable to determine identity attribute value: '%v', operation='%d'", err, session.variety)
-		return err
-	}
-	namespace := getNamespace(identityAttributeValue)
+func (d *Impl) getSession(context context.Context, variety tpb.TemplateVariety, bag attribute.Bag) *session {
+	s := d.sessionPool.Get().(*session)
 
-	// Capture the routing context locally. It can change underneath us. We also need to decRef before
-	// completing the call.
-	r := d.acquireRoutingContext()
-
-	destinations := r.Routes.GetDestinations(session.variety, namespace)
-
-	// Update the context after ensuring that we will not short-circuit and return. This causes allocations.
-	session.ctx = d.updateContext(session.ctx, session.bag)
-
-	// TODO(Issue #2139): This is for old-style metadata based policy decisions. This should be eventually removed.
-	ctxProtocol, _ := session.bag.Get(config.ContextProtocolAttributeName)
-	tcp := ctxProtocol == config.ContextProtocolTCP
-
-	// Ensure that we can run dispatches to all destinations in parallel.
-	session.ensureParallelism(destinations.Count())
-
-	ninputs := 0
-	ndestinations := 0
-	for _, destination := range destinations.Entries() {
-		for _, group := range destination.InstanceGroups {
-			if !group.Matches(session.bag) || group.ResourceType.IsTCP() != tcp {
-				continue
-			}
-			ndestinations++
-
-			var state *dispatchState
-			// We dispatch multiple instances together at once to a handler for report calls. pre-acquire
-			// the state, so that we can use its instances field to stage the instance values before dispatch.
-			if session.variety == tpb.TEMPLATE_VARIETY_REPORT {
-				state = d.statePool.get(session, destination)
-			}
-
-			for j, input := range group.Builders {
-				var instance interface{}
-				if instance, err = input(session.bag); err != nil {
-					log.Warnf("error creating instance: destination='%v', error='%v'", destination.FriendlyName, err)
-					continue
-				}
-				ninputs++
-
-				// For report templates, accumulate instances as much as possible before commencing dispatch.
-				if session.variety == tpb.TEMPLATE_VARIETY_REPORT {
-					state.instances = append(state.instances, instance)
-					continue
-				}
-
-				// for other templates, dispatch for each instance individually.
-				state = d.statePool.get(session, destination)
-				state.instance = instance
-				if session.variety == tpb.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR {
-					state.mapper = group.Mappers[j]
-					state.inputBag = session.bag
-				}
-
-				// Dispatch for singleton dispatches
-				state.quotaArgs = session.quotaArgs
-				d.dispatchToHandler(state)
-			}
-
-			if session.variety == tpb.TEMPLATE_VARIETY_REPORT {
-				// Do a multi-instance dispatch for report.
-				d.dispatchToHandler(state)
-			}
-		}
-	}
-
-	// wait on the dispatch states and accumulate results
-	var buf *bytes.Buffer
-	code := rpc.OK
-
-	err = nil
-	for session.activeDispatches > 0 {
-		state := <-session.completed
-		session.activeDispatches--
-
-		// Aggregate errors
-		if state.err != nil {
-			err = multierror.Append(err, state.err)
-		}
-
-		st := rpc.Status{Code: int32(rpc.OK)}
-
-		switch session.variety {
-		case tpb.TEMPLATE_VARIETY_REPORT:
-			// Do nothing
-
-		case tpb.TEMPLATE_VARIETY_CHECK:
-			if session.checkResult == nil {
-				r := state.checkResult
-				session.checkResult = &r
-			} else {
-				session.checkResult.CombineCheckResult(&state.checkResult)
-			}
-			st = state.checkResult.Status
-
-		case tpb.TEMPLATE_VARIETY_QUOTA:
-			if session.quotaResult == nil {
-				r := state.quotaResult
-				session.quotaResult = &r
-			} else {
-				log.Warnf("Skipping quota op result due to previous value: '%v', op: '%s'",
-					state.quotaResult, state.destination.FriendlyName)
-			}
-			st = state.quotaResult.Status
-
-		case tpb.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR:
-			if state.outputBag != nil {
-				session.responseBag.Merge(state.outputBag)
-			}
-		}
-
-		if !status.IsOK(st) {
-			if buf == nil {
-				buf = pool.GetBuffer()
-				// the first failure result's code becomes the result code for the output
-				code = rpc.Code(st.Code)
-			} else {
-				buf.WriteString(", ")
-			}
-
-			buf.WriteString(state.destination.HandlerName + ":" + st.Message)
-		}
-
-		d.statePool.put(state)
-	}
-
-	if buf != nil {
-		switch session.variety {
-		case tpb.TEMPLATE_VARIETY_CHECK:
-			session.checkResult.SetStatus(status.WithMessage(code, buf.String()))
-		case tpb.TEMPLATE_VARIETY_QUOTA:
-			session.quotaResult.SetStatus(status.WithMessage(code, buf.String()))
-		}
-		pool.PutBuffer(buf)
-	}
-
-	session.err = err
-
-	r.DecRef()
-	updateRequestCounters(time.Since(session.start), ndestinations, ninputs, err != nil)
-
-	return nil
-}
-
-func (d *Impl) acquireRoutingContext() *RoutingContext {
-	d.contextLock.RLock()
-	ctx := d.context
-	ctx.IncRef()
-	d.contextLock.RUnlock()
-	return ctx
-}
-
-func (d *Impl) updateContext(ctx context.Context, bag attribute.Bag) context.Context {
-	data := &adapter.RequestData{}
-
-	// fill the destination information
-	if destSrvc, found := bag.Get(d.identityAttribute); found {
-		data.DestinationService = adapter.Service{FullName: destSrvc.(string)}
-	}
-
-	return adapter.NewContextWithRequestData(ctx, data)
-}
-
-func (d *Impl) beginSession(ctx context.Context, variety tpb.TemplateVariety, bag attribute.Bag) *session {
-	s := d.sessionPool.get()
-	s.start = time.Now()
+	s.impl = d
+	s.rc = d.acquireRoutingContext()
+	s.ctx = context
 	s.variety = variety
-	s.ctx = ctx
 	s.bag = bag
 
 	return s
 }
 
-func (d *Impl) completeSession(s *session) {
+func (d *Impl) putSession(s *session) {
+	s.rc.decRef()
 	s.clear()
-	d.sessionPool.put(s)
+	d.sessionPool.Put(s)
 }
 
-func (d *Impl) dispatchToHandler(s *dispatchState) {
-	s.session.activeDispatches++
+func (d *Impl) getDispatchState(context context.Context, destination *routing.Destination) *dispatchState {
+	ds := d.statePool.Get().(*dispatchState)
 
-	d.gp.ScheduleWork(doDispatchToHandler, s)
+	ds.destination = destination
+	ds.ctx = context
+
+	return ds
 }
 
-func doDispatchToHandler(param interface{}) {
-	s := param.(*dispatchState)
+func (d *Impl) putDispatchState(ds *dispatchState) {
+	ds.clear()
+	d.statePool.Put(ds)
+}
 
-	reachedEnd := false
+func (d *Impl) getReporter(context context.Context) *reporter {
+	r := d.reporterPool.Get().(*reporter)
 
-	defer func() {
-		if reachedEnd {
-			return
-		}
+	r.impl = d
+	r.rc = d.acquireRoutingContext()
+	r.ctx = context
 
-		r := recover()
-		s.err = fmt.Errorf("panic during handler dispatch: %v", r)
-		log.Errorf("%v", s.err)
+	return r
+}
 
-		if log.DebugEnabled() {
-			log.Debugf("stack dump for handler dispatch panic:\n%s", debug.Stack())
-		}
+func (d *Impl) putReporter(r *reporter) {
+	r.rc.decRef()
+	r.clear()
+	d.reporterPool.Put(r)
+}
 
-		s.session.completed <- s
-	}()
+func (d *Impl) acquireRoutingContext() *RoutingContext {
+	d.rcLock.RLock()
+	rc := d.rc
+	rc.incRef()
+	d.rcLock.RUnlock()
 
-	ctx := s.session.ctx
-	var span opentracing.Span
-	var start time.Time
-	span, ctx, start = s.beginSpan(ctx)
+	return rc
+}
 
-	log.Debugf("begin dispatch: destination='%s'", s.destination.FriendlyName)
-
-	switch s.destination.Template.Variety {
-	case tpb.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR:
-		s.outputBag, s.err = s.destination.Template.DispatchGenAttrs(
-			ctx, s.destination.Handler, s.instance, s.inputBag, s.mapper)
-
-	case tpb.TEMPLATE_VARIETY_CHECK:
-		s.checkResult, s.err = s.destination.Template.DispatchCheck(
-			ctx, s.destination.Handler, s.instance)
-
-	case tpb.TEMPLATE_VARIETY_REPORT:
-		s.err = s.destination.Template.DispatchReport(
-			ctx, s.destination.Handler, s.instances)
-
-	case tpb.TEMPLATE_VARIETY_QUOTA:
-		s.quotaResult, s.err = s.destination.Template.DispatchQuota(
-			ctx, s.destination.Handler, s.instance, s.quotaArgs)
-
-	default:
-		panic(fmt.Sprintf("unknown variety type: '%v'", s.destination.Template.Variety))
+// ChangeRoute changes the routing table on the Impl which, in turn, ends up creating a new RoutingContext.
+func (d *Impl) ChangeRoute(new *routing.Table) *RoutingContext {
+	newRC := &RoutingContext{
+		Routes: new,
 	}
 
-	log.Debugf("complete dispatch: destination='%s' {err:%v}", s.destination.FriendlyName, s.err)
+	d.rcLock.Lock()
+	old := d.rc
+	d.rc = newRC
+	d.rcLock.Unlock()
 
-	s.completeSpan(span, time.Since(start), s.err)
-	s.session.completed <- s
-
-	reachedEnd = true
-}
-
-func (s *dispatchState) beginSpan(ctx context.Context) (opentracing.Span, context.Context, time.Time) {
-	var span opentracing.Span
-	if s.session.trace {
-		span, ctx = opentracing.StartSpanFromContext(ctx, s.destination.FriendlyName)
-	}
-
-	return span, ctx, time.Now()
-}
-
-func (s *dispatchState) completeSpan(span opentracing.Span, duration time.Duration, err error) {
-	if s.session.trace {
-		logToDispatchSpan(span, s.destination.Template.Name, s.destination.HandlerName, s.destination.AdapterName, err)
-		span.Finish()
-	}
-	s.destination.Counters.Update(duration, err != nil)
+	return old
 }

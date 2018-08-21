@@ -22,6 +22,7 @@ import (
 type (
 	// TraceID is a 16-byte identifier for a set of spans.
 	TraceID [16]byte
+
 	// SpanID is an 8-byte identifier for a single span.
 	SpanID [8]byte
 )

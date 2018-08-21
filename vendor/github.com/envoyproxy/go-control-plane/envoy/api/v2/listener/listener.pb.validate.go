@@ -110,6 +110,17 @@ func (m *FilterChainMatch) Validate() error {
 		return nil
 	}
 
+	if wrapper := m.GetDestinationPort(); wrapper != nil {
+
+		if val := wrapper.GetValue(); val < 1 || val > 65535 {
+			return FilterChainMatchValidationError{
+				Field:  "DestinationPort",
+				Reason: "value must be inside range [1, 65535]",
+			}
+		}
+
+	}
+
 	for idx, item := range m.GetPrefixRanges() {
 		_, _ = idx, item
 
@@ -167,15 +178,7 @@ func (m *FilterChainMatch) Validate() error {
 
 	}
 
-	if v, ok := interface{}(m.GetDestinationPort()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return FilterChainMatchValidationError{
-				Field:  "DestinationPort",
-				Reason: "embedded message failed validation",
-				Cause:  err,
-			}
-		}
-	}
+	// no validation rules for TransportProtocol
 
 	return nil
 }

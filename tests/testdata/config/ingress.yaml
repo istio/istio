@@ -43,6 +43,6 @@ spec:
     - destination:
         host: service3.default.svc.cluster.local
         port:
-           name: http
+           number: 80
 
 

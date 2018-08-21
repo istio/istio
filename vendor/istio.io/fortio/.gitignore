@@ -9,3 +9,5 @@ fortio
 vendor
 Gopkg.*
 .idea
+# certs for testing
+cert-tmp/

@@ -1,0 +1,8 @@
+Thank you for installing {{ .Chart.Name }}.
+
+Your release is named {{ .Release.Name }}.
+
+The chart is used to connect this remote cluster from another local cluster.
+
+To get started with istio multicluster, visit:
+https://istio.io/

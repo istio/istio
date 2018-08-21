@@ -15,11 +15,15 @@
 syntax = "proto3";
 
 // $title: StatsD
-// $overview: Adapter to deliver metrics to a StatsD backend
-// $location: https://istio.io/docs/reference/config/adapters/statsd.html
+// $description: Adapter to deliver metrics to a StatsD backend
+// $location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/statsd.html
+// $aliases:
+// $  - /docs/reference/config/adapters/statsd.html
 
 // The `statsd` adapter enables Istio to deliver metric data to a
 // [StatsD](https://github.com/etsy/statsd) monitoring backend.
+//
+// This adapter supports the [metric template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/metric/).
 package adapter.statsd.config;
 
 import "google/protobuf/duration.proto";

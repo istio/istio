@@ -29,7 +29,7 @@ import (
 	"istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
-	envoy "istio.io/istio/pilot/pkg/proxy/envoy/v1"
+	"istio.io/istio/pilot/pkg/proxy/envoy"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	agent "istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/tests/util"
@@ -148,7 +148,7 @@ func startPilot() error {
 	args := bootstrap.PilotArgs{
 		Namespace: "testing",
 		DiscoveryOptions: envoy.DiscoveryServiceOptions{
-			Port:            15007,
+			HTTPAddr:        ":15007",
 			GrpcAddr:        ":15010",
 			SecureGrpcAddr:  ":15011",
 			EnableCaching:   true,

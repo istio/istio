@@ -21,13 +21,15 @@ spec:
       annotations:
         sidecar.istio.io/inject: "false"
         checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        scheduler.alpha.kubernetes.io/critical-pod: ""
     spec:
-{{- if .Values.global.rbacEnabled }}
       serviceAccountName: prometheus
-{{ end }}
+{{- if .Values.global.priorityClassName }}
+      priorityClassName: "{{ .Values.global.priorityClassName }}"
+{{- end }}
       containers:
         - name: prometheus
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          image: "{{ .Values.hub }}/prometheus:{{ .Values.tag }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           {{- if .Values.global.aspenMeshCloud.enabled }}
           command: [ "/bin/sh" ]
@@ -54,7 +56,11 @@ spec:
               path: /-/ready
               port: 9090
           resources:
+{{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 12 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | indent 12 }}
+{{- end }}
           volumeMounts:
           - name: config-volume
             mountPath: {{ if .Values.global.aspenMeshCloud.enabled }}/etc/prom-config{{ else }}/etc/prometheus{{ end }}

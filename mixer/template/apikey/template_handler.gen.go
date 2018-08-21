@@ -24,15 +24,8 @@ import (
 )
 
 // The `apikey` template represents a single API key, which is used for authorization checks.
-
-// Fully qualified name of the template
-const TemplateName = "apikey"
-
-// Instance is constructed by Mixer for the 'apikey' template.
 //
-// The `apikey` template represents a single API key, used to authorize API calls.
-//
-// Sample config:
+// Example config:
 //
 // ```yaml
 // apiVersion: "config.istio.io/v1alpha2"
@@ -47,6 +40,13 @@ const TemplateName = "apikey"
 //   api_key: api.key | ""
 //   timestamp: request.time
 // ```
+
+// Fully qualified name of the template
+const TemplateName = "apikey"
+
+// Instance is constructed by Mixer for the 'apikey' template.
+//
+// The `apikey` template represents a single API key, used to authorize API calls.
 type Instance struct {
 	// Name of the instance as specified in configuration.
 	Name string

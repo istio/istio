@@ -1,0 +1,78 @@
+// Copyright 2018 Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+// $title: SignalFx
+// $description: Adapter that sends Istio metrics to SignalFx
+// $location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/signalfx.html
+
+// The `signalfx` adapter collects Istio metrics and sends them to
+// [SignalFx](https://signalfx.com).
+//
+// This adapter supports the [metric template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/metric/).
+package adapter.signalfx.config;
+
+import "gogoproto/gogo.proto";
+import "google/protobuf/duration.proto";
+
+option go_package = "config";
+option (gogoproto.goproto_getters_all) = false;
+option (gogoproto.equal_all) = false;
+option (gogoproto.gostring_all) = false;
+
+// Configuration format for the `signalfx` adapter.
+message Params {
+    // Describes what metrics should be sent to SignalFx and in what form.
+    message MetricConfig {
+        // Required.  The name of the metric as it is sent to the adapter.  In
+        // Kubernetes this is of the form "<name>.metric.<namespace>" where
+        // "<name>" is the name field of the metric resource, and "<namespace>"
+        // is the namespace of the metric resource.
+        string name = 1;
+
+        // Describes what kind of metric this is.
+        enum Type {
+            // None is the default and is invalid
+            NONE = 0;
+            // Values with the same set of dimensions will be added together
+            // as a continuously incrementing value.
+            COUNTER = 1;
+            // A histogram distribution.  This will result in several metrics
+            // emitted for each unique set of dimensions.
+            HISTOGRAM = 2;
+        }
+        // The metric type of the metric
+        Type type = 4;
+    }
+
+    // Required. The set of metrics to send to SignalFx. If an Istio metric is
+    // configured to be sent to this adapter, it must have a corresponding
+    // description here.
+    repeated MetricConfig metrics = 1;
+
+    // Optional. The URL of the SignalFx ingest server to use.  Will default to
+    // the global ingest server if not specified.
+    string ingest_url = 2;
+
+    // Required. The access token for the SignalFx organization that should
+    // receive the metrics.
+    string access_token = 3;
+
+    // Optional. Specifies how frequently to send metrics to SignalFx.  Metrics
+    // reported to this adapter are collected and reported as a timeseries.
+    // This will be rounded to the nearest second and rounded values less than
+    // one second are not valid. Defaults to 10 seconds if not specified.
+    google.protobuf.Duration datapoint_interval = 4 [(gogoproto.nullable) = false, (gogoproto.stdduration) = true];
+}

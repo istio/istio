@@ -1,0 +1,61 @@
+# Fortio with latest sidecar
+apiVersion: v1
+kind: Service
+metadata:
+  name: fortiomaster
+spec:
+  ports:
+  - port: 8080
+    name: http-echo
+  - port: 8079
+    name: grpc-ping
+  selector:
+    app: fortiomaster
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: fortiomaster
+spec:
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: fortiomaster
+        version: fortiomaster
+      annotations:
+        sidecar.istio.io/proxyImage: istionightly/proxyv2:nightly-release-1.0
+    spec:
+      containers:
+      - name: echosrv
+        image: istio/fortio:latest
+        imagePullPolicy: Always
+        ports:
+         - containerPort: 8080
+         - containerPort: 8079
+        args:
+          - server
+        resources:
+          requests:
+            cpu: 800m
+            memory: "1G"
+          limits:
+            cpu: 1000m
+            memory: "1G"
+
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: fortiomaster
+spec:
+  hosts:
+  - "fortiomaster.{{.Values.domain}}"
+  gateways:
+  - istio-gateway
+  http:
+  - route:
+    - destination:
+        host: fortiomaster.test.svc.cluster.local
+        port:
+          number: 8080

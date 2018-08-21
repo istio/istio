@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package quota
+package client_test
 
 import (
 	"fmt"
@@ -79,9 +79,5 @@ func TestQuotaCall(t *testing.T) {
 	s.VerifyQuota(tag, "RequestCount", 5)
 
 	// Check stats for Check, Quota and report calls.
-	if respStats, err := s.WaitForStatsUpdateAndGetStats(2); err == nil {
-		s.VerifyStats(respStats, expectedStats)
-	} else {
-		t.Errorf("Failed to get stats from Envoy %v", err)
-	}
+	s.VerifyStats(expectedStats)
 }

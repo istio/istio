@@ -6,8 +6,8 @@ package v2
 import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import envoy_api_v2_core1 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-import google_protobuf5 "github.com/gogo/protobuf/types"
+import envoy_api_v2_core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+import google_protobuf6 "github.com/gogo/protobuf/types"
 import google_rpc "github.com/gogo/googleapis/google/rpc"
 import _ "github.com/gogo/protobuf/gogoproto"
 
@@ -30,7 +30,7 @@ type DiscoveryRequest struct {
 	// (see below) has an independent version associated with it.
 	VersionInfo string `protobuf:"bytes,1,opt,name=version_info,json=versionInfo,proto3" json:"version_info,omitempty"`
 	// The node making the request.
-	Node *envoy_api_v2_core1.Node `protobuf:"bytes,2,opt,name=node" json:"node,omitempty"`
+	Node *envoy_api_v2_core.Node `protobuf:"bytes,2,opt,name=node" json:"node,omitempty"`
 	// List of resources to subscribe to, e.g. list of cluster names or a route
 	// configuration name. If this is empty, all resources for the API are
 	// returned. LDS/CDS expect empty resource_names, since this is global
@@ -67,7 +67,7 @@ func (m *DiscoveryRequest) GetVersionInfo() string {
 	return ""
 }
 
-func (m *DiscoveryRequest) GetNode() *envoy_api_v2_core1.Node {
+func (m *DiscoveryRequest) GetNode() *envoy_api_v2_core.Node {
 	if m != nil {
 		return m.Node
 	}
@@ -106,7 +106,7 @@ type DiscoveryResponse struct {
 	// The version of the response data.
 	VersionInfo string `protobuf:"bytes,1,opt,name=version_info,json=versionInfo,proto3" json:"version_info,omitempty"`
 	// The response resources. These resources are typed and depend on the API being called.
-	Resources []google_protobuf5.Any `protobuf:"bytes,2,rep,name=resources" json:"resources"`
+	Resources []google_protobuf6.Any `protobuf:"bytes,2,rep,name=resources" json:"resources"`
 	// [#not-implemented-hide:]
 	// Canary is used to support two Envoy command line flags:
 	//
@@ -149,7 +149,7 @@ func (m *DiscoveryResponse) GetVersionInfo() string {
 	return ""
 }
 
-func (m *DiscoveryResponse) GetResources() []google_protobuf5.Any {
+func (m *DiscoveryResponse) GetResources() []google_protobuf6.Any {
 	if m != nil {
 		return m.Resources
 	}
@@ -177,16 +177,216 @@ func (m *DiscoveryResponse) GetNonce() string {
 	return ""
 }
 
+// IncrementalDiscoveryRequest and IncrementalDiscoveryResponse are used in a
+// new gRPC endpoint for Incremental xDS. The feature is not supported for REST
+// management servers.
+//
+// With Incremental xDS, the IncrementalDiscoveryResponses do not need to
+// include a full snapshot of the tracked resources. Instead
+// IncrementalDiscoveryResponses are a diff to the state of a xDS client.
+// In Incremental XDS there are per resource versions which allows to track
+// state at the resource granularity.
+// An xDS Incremental session is always in the context of a gRPC bidirectional
+// stream. This allows the xDS server to keep track of the state of xDS clients
+// connected to it.
+//
+// In Incremental xDS the nonce field is required and used to pair
+// IncrementalDiscoveryResponse to a IncrementalDiscoveryRequest ACK or NACK.
+// Optionaly, a response message level system_version_info is present for
+// debugging purposes only.
+//
+// IncrementalDiscoveryRequest can be sent in 3 situations:
+//   1. Initial message in a xDS bidirectional gRPC stream.
+//   2. As a ACK or NACK response to a previous IncrementalDiscoveryResponse.
+//      In this case the response_nonce is set to the nonce value in the Response.
+//      ACK or NACK is determined by the absence or presence of error_detail.
+//   3. Spontaneous IncrementalDiscoveryRequest from the client.
+//      This can be done to dynamically add or remove elements from the tracked
+//      resource_names set. In this case response_nonce must be omitted.
+type IncrementalDiscoveryRequest struct {
+	// The node making the request.
+	Node *envoy_api_v2_core.Node `protobuf:"bytes,1,opt,name=node" json:"node,omitempty"`
+	// Type of the resource that is being requested, e.g.
+	// "type.googleapis.com/envoy.api.v2.ClusterLoadAssignment". This is implicit
+	// in requests made via singleton xDS APIs such as CDS, LDS, etc. but is
+	// required for ADS.
+	TypeUrl string `protobuf:"bytes,2,opt,name=type_url,json=typeUrl,proto3" json:"type_url,omitempty"`
+	// IncrementalDiscoveryRequests allow the client to add or remove individual
+	// resources to the set of tracked resources in the context of a stream.
+	// All resource names in the resource_names_subscribe list are added to the
+	// set of tracked resources and all resource names in the resource_names_unsubscribe
+	// list are removed from the set of tracked resources.
+	// Unlike in non incremental xDS, an empty resource_names_subscribe or
+	// resource_names_unsubscribe list simply means that no resources are to be
+	// added or removed to the resource list.
+	// The xDS server must send updates for all tracked resources but can also
+	// send updates for resources the client has not subscribed to. This behavior
+	// is similar to non incremental xDS.
+	// These two fields can be set for all types of IncrementalDiscoveryRequests
+	// (initial, ACK/NACK or spontaneous).
+	//
+	// A list of Resource names to add to the list of tracked resources.
+	ResourceNamesSubscribe []string `protobuf:"bytes,3,rep,name=resource_names_subscribe,json=resourceNamesSubscribe" json:"resource_names_subscribe,omitempty"`
+	// A list of Resource names to remove from the list of tracked resources.
+	ResourceNamesUnsubscribe []string `protobuf:"bytes,4,rep,name=resource_names_unsubscribe,json=resourceNamesUnsubscribe" json:"resource_names_unsubscribe,omitempty"`
+	// This map must be populated when the IncrementalDiscoveryRequest is the
+	// first in a stream. The keys are the resources names of the xDS resources
+	// known to the xDS client. The values in the map are the associated resource
+	// level version info.
+	InitialResourceVersions map[string]string `protobuf:"bytes,5,rep,name=initial_resource_versions,json=initialResourceVersions" json:"initial_resource_versions,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	// When the IncrementalDiscoveryRequest is a ACK or NACK message in response
+	// to a previous IncrementalDiscoveryResponse, the response_nonce must be the
+	// nonce in the IncrementalDiscoveryResponse.
+	// Otherwise response_nonce must be omitted.
+	ResponseNonce string `protobuf:"bytes,6,opt,name=response_nonce,json=responseNonce,proto3" json:"response_nonce,omitempty"`
+	// This is populated when the previous :ref:`DiscoveryResponse <envoy_api_msg_DiscoveryResponse>`
+	// failed to update configuration. The *message* field in *error_details*
+	// provides the Envoy internal exception related to the failure.
+	ErrorDetail *google_rpc.Status `protobuf:"bytes,7,opt,name=error_detail,json=errorDetail" json:"error_detail,omitempty"`
+}
+
+func (m *IncrementalDiscoveryRequest) Reset()         { *m = IncrementalDiscoveryRequest{} }
+func (m *IncrementalDiscoveryRequest) String() string { return proto.CompactTextString(m) }
+func (*IncrementalDiscoveryRequest) ProtoMessage()    {}
+func (*IncrementalDiscoveryRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptorDiscovery, []int{2}
+}
+
+func (m *IncrementalDiscoveryRequest) GetNode() *envoy_api_v2_core.Node {
+	if m != nil {
+		return m.Node
+	}
+	return nil
+}
+
+func (m *IncrementalDiscoveryRequest) GetTypeUrl() string {
+	if m != nil {
+		return m.TypeUrl
+	}
+	return ""
+}
+
+func (m *IncrementalDiscoveryRequest) GetResourceNamesSubscribe() []string {
+	if m != nil {
+		return m.ResourceNamesSubscribe
+	}
+	return nil
+}
+
+func (m *IncrementalDiscoveryRequest) GetResourceNamesUnsubscribe() []string {
+	if m != nil {
+		return m.ResourceNamesUnsubscribe
+	}
+	return nil
+}
+
+func (m *IncrementalDiscoveryRequest) GetInitialResourceVersions() map[string]string {
+	if m != nil {
+		return m.InitialResourceVersions
+	}
+	return nil
+}
+
+func (m *IncrementalDiscoveryRequest) GetResponseNonce() string {
+	if m != nil {
+		return m.ResponseNonce
+	}
+	return ""
+}
+
+func (m *IncrementalDiscoveryRequest) GetErrorDetail() *google_rpc.Status {
+	if m != nil {
+		return m.ErrorDetail
+	}
+	return nil
+}
+
+type IncrementalDiscoveryResponse struct {
+	// The version of the response data (used for debugging).
+	SystemVersionInfo string `protobuf:"bytes,1,opt,name=system_version_info,json=systemVersionInfo,proto3" json:"system_version_info,omitempty"`
+	// The response resources. These are typed resources that match the type url
+	// in the IncrementalDiscoveryRequest.
+	Resources []Resource `protobuf:"bytes,2,rep,name=resources" json:"resources"`
+	// Resources names of resources that have be deleted and to be removed from the xDS Client.
+	// Removed resources for missing resources can be ignored.
+	RemovedResources []string `protobuf:"bytes,6,rep,name=removed_resources,json=removedResources" json:"removed_resources,omitempty"`
+	// The nonce provides a way for IncrementalDiscoveryRequests to uniquely
+	// reference a IncrementalDiscoveryResponse. The nonce is required.
+	Nonce string `protobuf:"bytes,5,opt,name=nonce,proto3" json:"nonce,omitempty"`
+}
+
+func (m *IncrementalDiscoveryResponse) Reset()         { *m = IncrementalDiscoveryResponse{} }
+func (m *IncrementalDiscoveryResponse) String() string { return proto.CompactTextString(m) }
+func (*IncrementalDiscoveryResponse) ProtoMessage()    {}
+func (*IncrementalDiscoveryResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptorDiscovery, []int{3}
+}
+
+func (m *IncrementalDiscoveryResponse) GetSystemVersionInfo() string {
+	if m != nil {
+		return m.SystemVersionInfo
+	}
+	return ""
+}
+
+func (m *IncrementalDiscoveryResponse) GetResources() []Resource {
+	if m != nil {
+		return m.Resources
+	}
+	return nil
+}
+
+func (m *IncrementalDiscoveryResponse) GetRemovedResources() []string {
+	if m != nil {
+		return m.RemovedResources
+	}
+	return nil
+}
+
+func (m *IncrementalDiscoveryResponse) GetNonce() string {
+	if m != nil {
+		return m.Nonce
+	}
+	return ""
+}
+
+type Resource struct {
+	// The resource level version. It allows xDS to track the state of individual
+	// resources.
+	Version string `protobuf:"bytes,1,opt,name=version,proto3" json:"version,omitempty"`
+	// The resource being tracked.
+	Resource *google_protobuf6.Any `protobuf:"bytes,2,opt,name=resource" json:"resource,omitempty"`
+}
+
+func (m *Resource) Reset()                    { *m = Resource{} }
+func (m *Resource) String() string            { return proto.CompactTextString(m) }
+func (*Resource) ProtoMessage()               {}
+func (*Resource) Descriptor() ([]byte, []int) { return fileDescriptorDiscovery, []int{4} }
+
+func (m *Resource) GetVersion() string {
+	if m != nil {
+		return m.Version
+	}
+	return ""
+}
+
+func (m *Resource) GetResource() *google_protobuf6.Any {
+	if m != nil {
+		return m.Resource
+	}
+	return nil
+}
+
 func init() {
 	proto.RegisterType((*DiscoveryRequest)(nil), "envoy.api.v2.DiscoveryRequest")
 	proto.RegisterType((*DiscoveryResponse)(nil), "envoy.api.v2.DiscoveryResponse")
+	proto.RegisterType((*IncrementalDiscoveryRequest)(nil), "envoy.api.v2.IncrementalDiscoveryRequest")
+	proto.RegisterType((*IncrementalDiscoveryResponse)(nil), "envoy.api.v2.IncrementalDiscoveryResponse")
+	proto.RegisterType((*Resource)(nil), "envoy.api.v2.Resource")
 }
 func (this *DiscoveryRequest) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*DiscoveryRequest)
@@ -199,10 +399,7 @@ func (this *DiscoveryRequest) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -233,10 +430,7 @@ func (this *DiscoveryRequest) Equal(that interface{}) bool {
 }
 func (this *DiscoveryResponse) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*DiscoveryResponse)
@@ -249,10 +443,7 @@ func (this *DiscoveryResponse) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -274,6 +465,133 @@ func (this *DiscoveryResponse) Equal(that interface{}) bool {
 		return false
 	}
 	if this.Nonce != that1.Nonce {
+		return false
+	}
+	return true
+}
+func (this *IncrementalDiscoveryRequest) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*IncrementalDiscoveryRequest)
+	if !ok {
+		that2, ok := that.(IncrementalDiscoveryRequest)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if !this.Node.Equal(that1.Node) {
+		return false
+	}
+	if this.TypeUrl != that1.TypeUrl {
+		return false
+	}
+	if len(this.ResourceNamesSubscribe) != len(that1.ResourceNamesSubscribe) {
+		return false
+	}
+	for i := range this.ResourceNamesSubscribe {
+		if this.ResourceNamesSubscribe[i] != that1.ResourceNamesSubscribe[i] {
+			return false
+		}
+	}
+	if len(this.ResourceNamesUnsubscribe) != len(that1.ResourceNamesUnsubscribe) {
+		return false
+	}
+	for i := range this.ResourceNamesUnsubscribe {
+		if this.ResourceNamesUnsubscribe[i] != that1.ResourceNamesUnsubscribe[i] {
+			return false
+		}
+	}
+	if len(this.InitialResourceVersions) != len(that1.InitialResourceVersions) {
+		return false
+	}
+	for i := range this.InitialResourceVersions {
+		if this.InitialResourceVersions[i] != that1.InitialResourceVersions[i] {
+			return false
+		}
+	}
+	if this.ResponseNonce != that1.ResponseNonce {
+		return false
+	}
+	if !this.ErrorDetail.Equal(that1.ErrorDetail) {
+		return false
+	}
+	return true
+}
+func (this *IncrementalDiscoveryResponse) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*IncrementalDiscoveryResponse)
+	if !ok {
+		that2, ok := that.(IncrementalDiscoveryResponse)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if this.SystemVersionInfo != that1.SystemVersionInfo {
+		return false
+	}
+	if len(this.Resources) != len(that1.Resources) {
+		return false
+	}
+	for i := range this.Resources {
+		if !this.Resources[i].Equal(&that1.Resources[i]) {
+			return false
+		}
+	}
+	if len(this.RemovedResources) != len(that1.RemovedResources) {
+		return false
+	}
+	for i := range this.RemovedResources {
+		if this.RemovedResources[i] != that1.RemovedResources[i] {
+			return false
+		}
+	}
+	if this.Nonce != that1.Nonce {
+		return false
+	}
+	return true
+}
+func (this *Resource) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*Resource)
+	if !ok {
+		that2, ok := that.(Resource)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if this.Version != that1.Version {
+		return false
+	}
+	if !this.Resource.Equal(that1.Resource) {
 		return false
 	}
 	return true
@@ -407,6 +725,194 @@ func (m *DiscoveryResponse) MarshalTo(dAtA []byte) (int, error) {
 	return i, nil
 }
 
+func (m *IncrementalDiscoveryRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *IncrementalDiscoveryRequest) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Node != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintDiscovery(dAtA, i, uint64(m.Node.Size()))
+		n3, err := m.Node.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n3
+	}
+	if len(m.TypeUrl) > 0 {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.TypeUrl)))
+		i += copy(dAtA[i:], m.TypeUrl)
+	}
+	if len(m.ResourceNamesSubscribe) > 0 {
+		for _, s := range m.ResourceNamesSubscribe {
+			dAtA[i] = 0x1a
+			i++
+			l = len(s)
+			for l >= 1<<7 {
+				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
+				l >>= 7
+				i++
+			}
+			dAtA[i] = uint8(l)
+			i++
+			i += copy(dAtA[i:], s)
+		}
+	}
+	if len(m.ResourceNamesUnsubscribe) > 0 {
+		for _, s := range m.ResourceNamesUnsubscribe {
+			dAtA[i] = 0x22
+			i++
+			l = len(s)
+			for l >= 1<<7 {
+				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
+				l >>= 7
+				i++
+			}
+			dAtA[i] = uint8(l)
+			i++
+			i += copy(dAtA[i:], s)
+		}
+	}
+	if len(m.InitialResourceVersions) > 0 {
+		for k, _ := range m.InitialResourceVersions {
+			dAtA[i] = 0x2a
+			i++
+			v := m.InitialResourceVersions[k]
+			mapSize := 1 + len(k) + sovDiscovery(uint64(len(k))) + 1 + len(v) + sovDiscovery(uint64(len(v)))
+			i = encodeVarintDiscovery(dAtA, i, uint64(mapSize))
+			dAtA[i] = 0xa
+			i++
+			i = encodeVarintDiscovery(dAtA, i, uint64(len(k)))
+			i += copy(dAtA[i:], k)
+			dAtA[i] = 0x12
+			i++
+			i = encodeVarintDiscovery(dAtA, i, uint64(len(v)))
+			i += copy(dAtA[i:], v)
+		}
+	}
+	if len(m.ResponseNonce) > 0 {
+		dAtA[i] = 0x32
+		i++
+		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.ResponseNonce)))
+		i += copy(dAtA[i:], m.ResponseNonce)
+	}
+	if m.ErrorDetail != nil {
+		dAtA[i] = 0x3a
+		i++
+		i = encodeVarintDiscovery(dAtA, i, uint64(m.ErrorDetail.Size()))
+		n4, err := m.ErrorDetail.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n4
+	}
+	return i, nil
+}
+
+func (m *IncrementalDiscoveryResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *IncrementalDiscoveryResponse) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.SystemVersionInfo) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.SystemVersionInfo)))
+		i += copy(dAtA[i:], m.SystemVersionInfo)
+	}
+	if len(m.Resources) > 0 {
+		for _, msg := range m.Resources {
+			dAtA[i] = 0x12
+			i++
+			i = encodeVarintDiscovery(dAtA, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(dAtA[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
+		}
+	}
+	if len(m.Nonce) > 0 {
+		dAtA[i] = 0x2a
+		i++
+		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.Nonce)))
+		i += copy(dAtA[i:], m.Nonce)
+	}
+	if len(m.RemovedResources) > 0 {
+		for _, s := range m.RemovedResources {
+			dAtA[i] = 0x32
+			i++
+			l = len(s)
+			for l >= 1<<7 {
+				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
+				l >>= 7
+				i++
+			}
+			dAtA[i] = uint8(l)
+			i++
+			i += copy(dAtA[i:], s)
+		}
+	}
+	return i, nil
+}
+
+func (m *Resource) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *Resource) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.Version) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.Version)))
+		i += copy(dAtA[i:], m.Version)
+	}
+	if m.Resource != nil {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintDiscovery(dAtA, i, uint64(m.Resource.Size()))
+		n5, err := m.Resource.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n5
+	}
+	return i, nil
+}
+
 func encodeVarintDiscovery(dAtA []byte, offset int, v uint64) int {
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
@@ -470,6 +976,88 @@ func (m *DiscoveryResponse) Size() (n int) {
 	}
 	l = len(m.Nonce)
 	if l > 0 {
+		n += 1 + l + sovDiscovery(uint64(l))
+	}
+	return n
+}
+
+func (m *IncrementalDiscoveryRequest) Size() (n int) {
+	var l int
+	_ = l
+	if m.Node != nil {
+		l = m.Node.Size()
+		n += 1 + l + sovDiscovery(uint64(l))
+	}
+	l = len(m.TypeUrl)
+	if l > 0 {
+		n += 1 + l + sovDiscovery(uint64(l))
+	}
+	if len(m.ResourceNamesSubscribe) > 0 {
+		for _, s := range m.ResourceNamesSubscribe {
+			l = len(s)
+			n += 1 + l + sovDiscovery(uint64(l))
+		}
+	}
+	if len(m.ResourceNamesUnsubscribe) > 0 {
+		for _, s := range m.ResourceNamesUnsubscribe {
+			l = len(s)
+			n += 1 + l + sovDiscovery(uint64(l))
+		}
+	}
+	if len(m.InitialResourceVersions) > 0 {
+		for k, v := range m.InitialResourceVersions {
+			_ = k
+			_ = v
+			mapEntrySize := 1 + len(k) + sovDiscovery(uint64(len(k))) + 1 + len(v) + sovDiscovery(uint64(len(v)))
+			n += mapEntrySize + 1 + sovDiscovery(uint64(mapEntrySize))
+		}
+	}
+	l = len(m.ResponseNonce)
+	if l > 0 {
+		n += 1 + l + sovDiscovery(uint64(l))
+	}
+	if m.ErrorDetail != nil {
+		l = m.ErrorDetail.Size()
+		n += 1 + l + sovDiscovery(uint64(l))
+	}
+	return n
+}
+
+func (m *IncrementalDiscoveryResponse) Size() (n int) {
+	var l int
+	_ = l
+	l = len(m.SystemVersionInfo)
+	if l > 0 {
+		n += 1 + l + sovDiscovery(uint64(l))
+	}
+	if len(m.Resources) > 0 {
+		for _, e := range m.Resources {
+			l = e.Size()
+			n += 1 + l + sovDiscovery(uint64(l))
+		}
+	}
+	l = len(m.Nonce)
+	if l > 0 {
+		n += 1 + l + sovDiscovery(uint64(l))
+	}
+	if len(m.RemovedResources) > 0 {
+		for _, s := range m.RemovedResources {
+			l = len(s)
+			n += 1 + l + sovDiscovery(uint64(l))
+		}
+	}
+	return n
+}
+
+func (m *Resource) Size() (n int) {
+	var l int
+	_ = l
+	l = len(m.Version)
+	if l > 0 {
+		n += 1 + l + sovDiscovery(uint64(l))
+	}
+	if m.Resource != nil {
+		l = m.Resource.Size()
 		n += 1 + l + sovDiscovery(uint64(l))
 	}
 	return n
@@ -573,7 +1161,7 @@ func (m *DiscoveryRequest) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Node == nil {
-				m.Node = &envoy_api_v2_core1.Node{}
+				m.Node = &envoy_api_v2_core.Node{}
 			}
 			if err := m.Node.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -804,7 +1392,7 @@ func (m *DiscoveryResponse) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.Resources = append(m.Resources, google_protobuf5.Any{})
+			m.Resources = append(m.Resources, google_protobuf6.Any{})
 			if err := m.Resources[len(m.Resources)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
@@ -886,6 +1474,636 @@ func (m *DiscoveryResponse) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			m.Nonce = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipDiscovery(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthDiscovery
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *IncrementalDiscoveryRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowDiscovery
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: IncrementalDiscoveryRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: IncrementalDiscoveryRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Node", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowDiscovery
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthDiscovery
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Node == nil {
+				m.Node = &envoy_api_v2_core.Node{}
+			}
+			if err := m.Node.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field TypeUrl", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowDiscovery
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthDiscovery
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.TypeUrl = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ResourceNamesSubscribe", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowDiscovery
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthDiscovery
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.ResourceNamesSubscribe = append(m.ResourceNamesSubscribe, string(dAtA[iNdEx:postIndex]))
+			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ResourceNamesUnsubscribe", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowDiscovery
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthDiscovery
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.ResourceNamesUnsubscribe = append(m.ResourceNamesUnsubscribe, string(dAtA[iNdEx:postIndex]))
+			iNdEx = postIndex
+		case 5:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field InitialResourceVersions", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowDiscovery
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthDiscovery
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.InitialResourceVersions == nil {
+				m.InitialResourceVersions = make(map[string]string)
+			}
+			var mapkey string
+			var mapvalue string
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowDiscovery
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					wire |= (uint64(b) & 0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					var stringLenmapkey uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowDiscovery
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapkey |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapkey := int(stringLenmapkey)
+					if intStringLenmapkey < 0 {
+						return ErrInvalidLengthDiscovery
+					}
+					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
+					iNdEx = postStringIndexmapkey
+				} else if fieldNum == 2 {
+					var stringLenmapvalue uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowDiscovery
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapvalue |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapvalue := int(stringLenmapvalue)
+					if intStringLenmapvalue < 0 {
+						return ErrInvalidLengthDiscovery
+					}
+					postStringIndexmapvalue := iNdEx + intStringLenmapvalue
+					if postStringIndexmapvalue > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapvalue = string(dAtA[iNdEx:postStringIndexmapvalue])
+					iNdEx = postStringIndexmapvalue
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipDiscovery(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthDiscovery
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
+				}
+			}
+			m.InitialResourceVersions[mapkey] = mapvalue
+			iNdEx = postIndex
+		case 6:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ResponseNonce", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowDiscovery
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthDiscovery
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.ResponseNonce = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 7:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ErrorDetail", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowDiscovery
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthDiscovery
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.ErrorDetail == nil {
+				m.ErrorDetail = &google_rpc.Status{}
+			}
+			if err := m.ErrorDetail.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipDiscovery(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthDiscovery
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *IncrementalDiscoveryResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowDiscovery
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: IncrementalDiscoveryResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: IncrementalDiscoveryResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field SystemVersionInfo", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowDiscovery
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthDiscovery
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.SystemVersionInfo = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Resources", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowDiscovery
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthDiscovery
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Resources = append(m.Resources, Resource{})
+			if err := m.Resources[len(m.Resources)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 5:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Nonce", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowDiscovery
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthDiscovery
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Nonce = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 6:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field RemovedResources", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowDiscovery
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthDiscovery
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.RemovedResources = append(m.RemovedResources, string(dAtA[iNdEx:postIndex]))
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipDiscovery(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthDiscovery
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *Resource) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowDiscovery
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: Resource: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: Resource: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Version", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowDiscovery
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthDiscovery
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Version = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Resource", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowDiscovery
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthDiscovery
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Resource == nil {
+				m.Resource = &google_protobuf6.Any{}
+			}
+			if err := m.Resource.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -1016,30 +2234,45 @@ var (
 func init() { proto.RegisterFile("envoy/api/v2/discovery.proto", fileDescriptorDiscovery) }
 
 var fileDescriptorDiscovery = []byte{
-	// 396 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x91, 0xc1, 0x8a, 0xd4, 0x40,
-	0x10, 0x86, 0xed, 0x99, 0xd9, 0x71, 0xa7, 0x67, 0x56, 0xb4, 0x19, 0xdc, 0xde, 0x41, 0x62, 0x5c,
-	0x10, 0x02, 0x42, 0x37, 0x44, 0x04, 0xaf, 0x2e, 0x7b, 0xf1, 0x32, 0x87, 0x88, 0x17, 0x2f, 0xa1,
-	0x27, 0xa9, 0x09, 0x81, 0xd8, 0x15, 0xbb, 0x93, 0x40, 0xae, 0x3e, 0x8d, 0xaf, 0xe0, 0x1b, 0xcc,
-	0xd1, 0x27, 0x10, 0xc9, 0x93, 0x48, 0x3a, 0x09, 0x8e, 0x17, 0xf1, 0xd6, 0xf5, 0xd7, 0x47, 0xd5,
-	0x5f, 0x7f, 0xd3, 0x67, 0xa0, 0x1b, 0x6c, 0xa5, 0x2a, 0x73, 0xd9, 0x84, 0x32, 0xcd, 0x6d, 0x82,
-	0x0d, 0x98, 0x56, 0x94, 0x06, 0x2b, 0x64, 0x1b, 0xd7, 0x15, 0xaa, 0xcc, 0x45, 0x13, 0xee, 0xfe,
-	0x66, 0x13, 0x34, 0x20, 0x0f, 0xca, 0xc2, 0xc0, 0xee, 0x6e, 0x32, 0xc4, 0xac, 0x00, 0xe9, 0xaa,
-	0x43, 0x7d, 0x94, 0x4a, 0x8f, 0x63, 0x76, 0xd7, 0x63, 0xcb, 0x94, 0x89, 0xb4, 0x95, 0xaa, 0x6a,
-	0x3b, 0x36, 0xb6, 0x19, 0x66, 0xe8, 0x9e, 0xb2, 0x7f, 0x0d, 0xea, 0xed, 0xd7, 0x19, 0x7d, 0x7c,
-	0x3f, 0x39, 0x89, 0xe0, 0x4b, 0x0d, 0xb6, 0x62, 0x2f, 0xe8, 0xa6, 0x01, 0x63, 0x73, 0xd4, 0x71,
-	0xae, 0x8f, 0xc8, 0x89, 0x4f, 0x82, 0x55, 0xb4, 0x1e, 0xb5, 0xf7, 0xfa, 0x88, 0xec, 0x15, 0x5d,
-	0x68, 0x4c, 0x81, 0xcf, 0x7c, 0x12, 0xac, 0xc3, 0x6b, 0x71, 0x6e, 0x5e, 0xf4, 0x76, 0xc5, 0x1e,
-	0x53, 0x88, 0x1c, 0xc4, 0x5e, 0xd2, 0x47, 0x06, 0x2c, 0xd6, 0x26, 0x81, 0x58, 0xab, 0xcf, 0x60,
-	0xf9, 0xdc, 0x9f, 0x07, 0xab, 0xe8, 0x6a, 0x52, 0xf7, 0xbd, 0xc8, 0x6e, 0xe8, 0x65, 0xd5, 0x96,
-	0x10, 0xd7, 0xa6, 0xe0, 0x0b, 0xb7, 0xf2, 0x61, 0x5f, 0x7f, 0x34, 0xc5, 0x38, 0xa1, 0x44, 0x6d,
-	0x21, 0xd6, 0xa8, 0x13, 0xe0, 0x17, 0x0e, 0xb8, 0x9a, 0xd4, 0x7d, 0x2f, 0xb2, 0x37, 0x74, 0x03,
-	0xc6, 0xa0, 0x89, 0x53, 0xa8, 0x54, 0x5e, 0xf0, 0xa5, 0x73, 0xc7, 0xc4, 0x90, 0x89, 0x30, 0x65,
-	0x22, 0x3e, 0xb8, 0x4c, 0xa2, 0xb5, 0xe3, 0xee, 0x1d, 0x76, 0xfb, 0x9d, 0xd0, 0x27, 0x67, 0x21,
-	0x0c, 0x13, 0xff, 0x27, 0x85, 0xb7, 0x74, 0x35, 0x9d, 0x60, 0xf9, 0xcc, 0x9f, 0x07, 0xeb, 0x70,
-	0x3b, 0x2d, 0x9b, 0xfe, 0x46, 0xbc, 0xd3, 0xed, 0xdd, 0xe2, 0xf4, 0xf3, 0xf9, 0x83, 0xe8, 0x0f,
-	0xcc, 0x9e, 0xd2, 0x65, 0xa2, 0xb4, 0x32, 0x2d, 0x9f, 0xfb, 0x24, 0xb8, 0x8c, 0xc6, 0xea, 0x5f,
-	0x19, 0x6c, 0xe9, 0xc5, 0xf9, 0xe9, 0x43, 0x71, 0xb7, 0xfd, 0xd6, 0x79, 0xe4, 0xd4, 0x79, 0xe4,
-	0x47, 0xe7, 0x91, 0x5f, 0x9d, 0x47, 0x3e, 0xcd, 0x9a, 0xf0, 0xb0, 0x74, 0xdb, 0x5f, 0xff, 0x0e,
-	0x00, 0x00, 0xff, 0xff, 0x35, 0xe9, 0xc5, 0x8f, 0x73, 0x02, 0x00, 0x00,
+	// 633 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x54, 0xc1, 0x6a, 0xdb, 0x4c,
+	0x10, 0xfe, 0xd7, 0x76, 0x1c, 0x67, 0x9d, 0xfc, 0x24, 0x5b, 0x93, 0x28, 0x6e, 0x70, 0x5d, 0x43,
+	0xc1, 0x10, 0x58, 0x15, 0x97, 0x42, 0x08, 0xbd, 0x34, 0xa4, 0x85, 0xf4, 0x90, 0x83, 0x42, 0x72,
+	0xe8, 0x45, 0xac, 0xe5, 0x89, 0x11, 0x95, 0x77, 0xd5, 0x5d, 0x49, 0xa0, 0x6b, 0xce, 0x7d, 0x90,
+	0xbe, 0x42, 0xdf, 0x20, 0x97, 0x42, 0x9f, 0xa0, 0x14, 0x3f, 0x49, 0xd1, 0x6a, 0x37, 0xb6, 0x1a,
+	0x13, 0x7c, 0xdb, 0x99, 0xf9, 0xf6, 0xdb, 0x99, 0xf9, 0x3e, 0x09, 0x1f, 0x01, 0xcf, 0x44, 0xee,
+	0xb2, 0x38, 0x74, 0xb3, 0x91, 0x3b, 0x09, 0x55, 0x20, 0x32, 0x90, 0x39, 0x8d, 0xa5, 0x48, 0x04,
+	0xd9, 0xd6, 0x55, 0xca, 0xe2, 0x90, 0x66, 0xa3, 0x6e, 0x15, 0x1b, 0x08, 0x09, 0xee, 0x98, 0x29,
+	0x28, 0xb1, 0xdd, 0xc3, 0xa9, 0x10, 0xd3, 0x08, 0x5c, 0x1d, 0x8d, 0xd3, 0x5b, 0x97, 0x71, 0x43,
+	0xd3, 0x3d, 0x30, 0x25, 0x19, 0x07, 0xae, 0x4a, 0x58, 0x92, 0x2a, 0x53, 0xe8, 0x4c, 0xc5, 0x54,
+	0xe8, 0xa3, 0x5b, 0x9c, 0xca, 0xec, 0xe0, 0xae, 0x86, 0x77, 0xcf, 0x6d, 0x27, 0x1e, 0x7c, 0x4d,
+	0x41, 0x25, 0xe4, 0x25, 0xde, 0xce, 0x40, 0xaa, 0x50, 0x70, 0x3f, 0xe4, 0xb7, 0xc2, 0x41, 0x7d,
+	0x34, 0xdc, 0xf2, 0xda, 0x26, 0x77, 0xc1, 0x6f, 0x05, 0x39, 0xc6, 0x0d, 0x2e, 0x26, 0xe0, 0xd4,
+	0xfa, 0x68, 0xd8, 0x1e, 0x1d, 0xd0, 0xe5, 0xe6, 0x69, 0xd1, 0x2e, 0xbd, 0x14, 0x13, 0xf0, 0x34,
+	0x88, 0xbc, 0xc2, 0xff, 0x4b, 0x50, 0x22, 0x95, 0x01, 0xf8, 0x9c, 0xcd, 0x40, 0x39, 0xf5, 0x7e,
+	0x7d, 0xb8, 0xe5, 0xed, 0xd8, 0xec, 0x65, 0x91, 0x24, 0x87, 0xb8, 0x95, 0xe4, 0x31, 0xf8, 0xa9,
+	0x8c, 0x9c, 0x86, 0x7e, 0x72, 0xb3, 0x88, 0xaf, 0x65, 0x64, 0x18, 0x62, 0xc1, 0x15, 0xf8, 0x5c,
+	0xf0, 0x00, 0x9c, 0x0d, 0x0d, 0xd8, 0xb1, 0xd9, 0xcb, 0x22, 0x49, 0xde, 0xe2, 0x6d, 0x90, 0x52,
+	0x48, 0x7f, 0x02, 0x09, 0x0b, 0x23, 0xa7, 0xa9, 0xbb, 0x23, 0xb4, 0xdc, 0x09, 0x95, 0x71, 0x40,
+	0xaf, 0xf4, 0x4e, 0xbc, 0xb6, 0xc6, 0x9d, 0x6b, 0xd8, 0xe0, 0x07, 0xc2, 0x7b, 0x4b, 0x4b, 0x28,
+	0x19, 0xd7, 0xd9, 0xc2, 0x09, 0xde, 0xb2, 0x23, 0x28, 0xa7, 0xd6, 0xaf, 0x0f, 0xdb, 0xa3, 0x8e,
+	0x7d, 0xcc, 0x6a, 0x43, 0xdf, 0xf3, 0xfc, 0xac, 0x71, 0xff, 0xfb, 0xc5, 0x7f, 0xde, 0x02, 0x4c,
+	0xf6, 0x71, 0x33, 0x60, 0x9c, 0xc9, 0xdc, 0xa9, 0xf7, 0xd1, 0xb0, 0xe5, 0x99, 0xe8, 0xa9, 0x1d,
+	0x74, 0xf0, 0xc6, 0xf2, 0xe8, 0x65, 0x30, 0xf8, 0xd6, 0xc0, 0xcf, 0x2f, 0x78, 0x20, 0x61, 0x06,
+	0x3c, 0x61, 0xd1, 0x23, 0x2d, 0xad, 0x50, 0x68, 0x1d, 0xa1, 0x96, 0x5f, 0xaf, 0x55, 0x5f, 0x3f,
+	0xc1, 0x4e, 0x55, 0x43, 0x5f, 0xa5, 0x63, 0x15, 0xc8, 0x70, 0x0c, 0x46, 0xcd, 0xfd, 0x8a, 0x9a,
+	0x57, 0xb6, 0x4a, 0xde, 0xe1, 0xee, 0x3f, 0x37, 0x53, 0xbe, 0xb8, 0xdb, 0xd0, 0x77, 0x9d, 0xca,
+	0xdd, 0xeb, 0x45, 0x9d, 0xdc, 0x21, 0x7c, 0x18, 0xf2, 0x30, 0x09, 0x59, 0xe4, 0x3f, 0xd0, 0x18,
+	0x0d, 0x94, 0xb3, 0xa1, 0x77, 0xfe, 0xb1, 0x3a, 0xd5, 0x13, 0xeb, 0xa0, 0x17, 0x25, 0x95, 0x67,
+	0x98, 0x6e, 0x0c, 0xd1, 0x07, 0x9e, 0xc8, 0xdc, 0x3b, 0x08, 0x57, 0x57, 0x57, 0xd8, 0xaf, 0xb9,
+	0x8e, 0xfd, 0x36, 0xd7, 0xb2, 0x5f, 0xf7, 0x13, 0x3e, 0x7a, 0xaa, 0x2d, 0xb2, 0x8b, 0xeb, 0x5f,
+	0x20, 0x37, 0xfe, 0x2b, 0x8e, 0x85, 0x15, 0x32, 0x16, 0xa5, 0x60, 0x44, 0x2a, 0x83, 0xd3, 0xda,
+	0x09, 0x1a, 0xfc, 0x44, 0x05, 0xd9, 0xaa, 0xf9, 0x8d, 0xab, 0x29, 0x7e, 0xa6, 0x72, 0x95, 0xc0,
+	0xcc, 0x5f, 0x61, 0xee, 0xbd, 0xb2, 0x74, 0xb3, 0x64, 0xf1, 0xd3, 0xc7, 0x16, 0xdf, 0xaf, 0xae,
+	0xdb, 0x36, 0xfd, 0xd8, 0xe4, 0x2b, 0x1d, 0x4b, 0x8e, 0xf1, 0x9e, 0x84, 0x99, 0xc8, 0x60, 0xe2,
+	0x2f, 0x98, 0x9b, 0xda, 0x06, 0xbb, 0xa6, 0x60, 0x29, 0xd5, 0xe0, 0x06, 0xb7, 0x6c, 0x40, 0x1c,
+	0xbc, 0x69, 0x7a, 0x36, 0xed, 0xda, 0x90, 0xbc, 0xc6, 0x2d, 0x4b, 0x65, 0xfe, 0x48, 0x2b, 0x3f,
+	0x43, 0xef, 0x01, 0x75, 0xd6, 0xf9, 0x3e, 0xef, 0xa1, 0xfb, 0x79, 0x0f, 0xfd, 0x9a, 0xf7, 0xd0,
+	0x9f, 0x79, 0x0f, 0x7d, 0xae, 0x65, 0xa3, 0x71, 0x53, 0xa3, 0xdf, 0xfc, 0x0d, 0x00, 0x00, 0xff,
+	0xff, 0x29, 0x86, 0xc0, 0x01, 0xaa, 0x05, 0x00, 0x00,
 }

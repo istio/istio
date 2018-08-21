@@ -1,5 +1,0 @@
-destination:
-  name: world
-appendHeaders:
-  appendedname: appendedValue
-

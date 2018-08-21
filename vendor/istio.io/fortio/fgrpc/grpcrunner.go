@@ -43,17 +43,31 @@ const (
 	prefixHTTPS      = "https://"
 )
 
-// Dial dials grpc either using insecure or using default tls setup.
-// TODO: option to specify certs.
-func Dial(serverAddr string, tls bool) (conn *grpc.ClientConn, err error) {
-	opts := grpc.WithInsecure()
-	if tls || (strings.HasPrefix(serverAddr, "https://")) {
-		opts = grpc.WithTransportCredentials(credentials.NewTLS(nil))
+// Dial dials grpc using insecure or tls transport security when serverAddr
+// has prefixHTTPS or cert is provided. If override is set to a non empty string,
+// it will override the virtual host name of authority in requests.
+func Dial(serverAddr, cacert, override string) (conn *grpc.ClientConn, err error) {
+	var opts []grpc.DialOption
+	switch {
+	case cacert != "":
+		var creds credentials.TransportCredentials
+		creds, err = credentials.NewClientTLSFromFile(cacert, override)
+		if err != nil {
+			log.Errf("Invalid TLS credentials: %v\n", err)
+			return nil, err
+		}
+		log.Infof("Using CA certificate %v to construct TLS credentials", cacert)
+		opts = append(opts, grpc.WithTransportCredentials(creds))
+	case strings.HasPrefix(serverAddr, prefixHTTPS):
+		creds := credentials.NewTLS(nil)
+		opts = append(opts, grpc.WithTransportCredentials(creds))
+	default:
+		opts = append(opts, grpc.WithInsecure())
 	}
 	serverAddr = grpcDestination(serverAddr)
-	conn, err = grpc.Dial(serverAddr, opts)
+	conn, err = grpc.Dial(serverAddr, opts...)
 	if err != nil {
-		log.Errf("failed to conect to %s with tls %v: %v", serverAddr, tls, err)
+		log.Errf("failed to connect to %s with certificate %s and override %s: %v", serverAddr, cacert, override, err)
 	}
 	return conn, err
 }
@@ -110,7 +124,8 @@ type GRPCRunnerOptions struct {
 	Payload            string        // Payload to be sent for grpc ping service
 	Streams            int           // number of streams. total go routines and data streams will be streams*numthreads.
 	Delay              time.Duration // Delay to be sent when using grpc ping service
-	Secure             bool          // use tls transport
+	CACert             string        // Path to CA certificate for grpc TLS
+	CertOverride       string        // Override the cert virtual host of authority for testing
 	AllowInitialErrors bool          // whether initial errors don't cause an abort
 	UsePing            bool          // use our own Ping proto for grpc load instead of standard health check one.
 }
@@ -155,7 +170,7 @@ func RunGRPCTest(o *GRPCRunnerOptions) (*GRPCRunnerResults, error) {
 	for i := 0; i < numThreads; i++ {
 		r.Options().Runners[i] = &grpcstate[i]
 		if (i % o.Streams) == 0 {
-			conn, err = Dial(o.Destination, o.Secure)
+			conn, err = Dial(o.Destination, o.CACert, o.CertOverride)
 			if err != nil {
 				log.Errf("Error in grpc dial for %s %v", o.Destination, err)
 				return nil, err
@@ -251,12 +266,12 @@ func grpcDestination(dest string) (parsedDest string) {
 	// and set the port number.
 	switch {
 	case strings.HasPrefix(dest, prefixHTTP):
-		parsedDest = strings.Replace(dest, prefixHTTP, "", 1)
+		parsedDest = strings.TrimSuffix(strings.Replace(dest, prefixHTTP, "", 1), "/")
 		port = defaultHTTPPort
 		log.Infof("stripping http scheme. grpc destination: %v: grpc port: %s",
 			parsedDest, port)
 	case strings.HasPrefix(dest, prefixHTTPS):
-		parsedDest = strings.Replace(dest, prefixHTTPS, "", 1)
+		parsedDest = strings.TrimSuffix(strings.Replace(dest, prefixHTTPS, "", 1), "/")
 		port = defaultHTTPSPort
 		log.Infof("stripping https scheme. grpc destination: %v. grpc port: %s",
 			parsedDest, port)

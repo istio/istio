@@ -67,7 +67,7 @@ spec:
 )
 
 func TestReport(t *testing.T) {
-	info, pServer := getInfo(":0")
+	info, pServer := GetInfoWithAddr(":0")
 	defer pServer.Close()
 	adapter_integration.RunTest(
 		t,

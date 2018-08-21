@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package reportBatch
+package client_test
 
 import (
 	"fmt"
@@ -36,8 +36,6 @@ const reportAttributesOkGet = `
   "request.scheme": "http",
   "source.uid": "POD11",
   "source.namespace": "XYZ11",
-  "source.ip": "[127 0 0 1]",
-  "source.port": "*",
   "destination.ip": "[127 0 0 1]",
   "destination.port": "*",
   "target.name": "target-name",
@@ -45,6 +43,7 @@ const reportAttributesOkGet = `
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "connection.mtls": false,
+  "origin.ip": "[127 0 0 1]",
   "check.cache_hit": false,
   "quota.cache_hit": false,
   "request.headers": {
@@ -86,8 +85,6 @@ const reportAttributesOkPost1 = `
   "request.scheme": "http",
   "source.uid": "POD11",
   "source.namespace": "XYZ11",
-  "source.ip": "[127 0 0 1]",
-  "source.port": "*",
   "destination.ip": "[127 0 0 1]",
   "destination.port": "*",
   "target.name": "target-name",
@@ -95,6 +92,7 @@ const reportAttributesOkPost1 = `
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "connection.mtls": false,
+  "origin.ip": "[127 0 0 1]",
   "check.cache_hit": false,
   "quota.cache_hit": false,
   "request.headers": {
@@ -137,8 +135,6 @@ const reportAttributesOkPost2 = `
   "request.scheme": "http",
   "source.uid": "POD11",
   "source.namespace": "XYZ11",
-  "source.ip": "[127 0 0 1]",
-  "source.port": "*",
   "destination.ip": "[127 0 0 1]",
   "destination.port": "*",
   "target.name": "target-name",
@@ -146,6 +142,7 @@ const reportAttributesOkPost2 = `
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "connection.mtls": false,
+  "origin.ip": "[127 0 0 1]",
   "check.cache_hit": false,
   "quota.cache_hit": false,
   "request.headers": {
@@ -216,9 +213,5 @@ func TestReportBatch(t *testing.T) {
 	s.VerifyReport(tag, reportAttributesOkPost2)
 
 	// Check stats for Check, Quota and report calls.
-	if respStats, err := s.WaitForStatsUpdateAndGetStats(2); err == nil {
-		s.VerifyStats(respStats, expectedStats)
-	} else {
-		t.Errorf("Failed to get stats from Envoy %v", err)
-	}
+	s.VerifyStats(expectedStats)
 }

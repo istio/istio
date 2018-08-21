@@ -15,7 +15,7 @@ package v2
 import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import envoy_api_v2_core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+import envoy_api_v2_core1 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 import _ "github.com/gogo/protobuf/types"
 import _ "github.com/lyft/protoc-gen-validate/validate"
 
@@ -101,7 +101,7 @@ type IPTagging_IPTag struct {
 	IpTagName string `protobuf:"bytes,1,opt,name=ip_tag_name,json=ipTagName,proto3" json:"ip_tag_name,omitempty"`
 	// A list of IP address subnets that will be tagged with
 	// ip_tag_name. Both IPv4 and IPv6 are supported.
-	IpList []*envoy_api_v2_core.CidrRange `protobuf:"bytes,2,rep,name=ip_list,json=ipList" json:"ip_list,omitempty"`
+	IpList []*envoy_api_v2_core1.CidrRange `protobuf:"bytes,2,rep,name=ip_list,json=ipList" json:"ip_list,omitempty"`
 }
 
 func (m *IPTagging_IPTag) Reset()                    { *m = IPTagging_IPTag{} }
@@ -116,7 +116,7 @@ func (m *IPTagging_IPTag) GetIpTagName() string {
 	return ""
 }
 
-func (m *IPTagging_IPTag) GetIpList() []*envoy_api_v2_core.CidrRange {
+func (m *IPTagging_IPTag) GetIpList() []*envoy_api_v2_core1.CidrRange {
 	if m != nil {
 		return m.IpList
 	}
@@ -436,7 +436,7 @@ func (m *IPTagging_IPTag) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.IpList = append(m.IpList, &envoy_api_v2_core.CidrRange{})
+			m.IpList = append(m.IpList, &envoy_api_v2_core1.CidrRange{})
 			if err := m.IpList[len(m.IpList)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}

@@ -1,12 +1,17 @@
 ---
 title: RBAC
-overview: Adapter that exposes Istio's Role-Based Access Control model.
-location: https://istio.io/docs/reference/config/adapters/rbac.html
+description: Adapter that exposes Istio's Role-Based Access Control model.
+location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/rbac.html
 layout: protoc-gen-docs
+generator: protoc-gen-docs
+aliases:
+  - /docs/reference/config/adapters/rbac.html
 number_of_entries: 1
 ---
 <p>The <code>rbac</code> adapter provides Role-Based Access Control (RBAC) functionality for
 for services within the Istio mesh.</p>
+
+<p>This adapter supports the <a href="https://istio.io/docs/reference/config/policy-and-telemetry/templates/authorization/">authorization template</a>.</p>
 
 <h2 id="Params">Params</h2>
 <section>
@@ -35,7 +40,7 @@ spec:
 </tr>
 </thead>
 <tbody>
-<tr id="Params.config_store_url">
+<tr id="Params-config_store_url">
 <td><code>configStoreUrl</code></td>
 <td><code>string</code></td>
 <td>
@@ -46,7 +51,7 @@ Following are some examples of the config store URL:
 
 </td>
 </tr>
-<tr id="Params.cache_duration">
+<tr id="Params-cache_duration">
 <td><code>cacheDuration</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>

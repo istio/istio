@@ -19,14 +19,6 @@ syntax = "proto3";
 
 // The `authorization` template defines parameters for performing policy
 // enforcement within Istio. It is primarily concerned with enabling Mixer
-//
-// The `authorization` template defines parameters for performing policy
-// enforcement within Istio. It is primarily concerned with enabling Mixer
-// adapters to make decisions about who is allowed to do what.
-// In this template, the "who" is defined in a Subject message. The "what" is
-// defined in an Action message. During a Mixer Check call, these values
-// will be populated based on configuration from request attributes and
-// passed to individual authorization adapters to adjudicate.
 // 
 // Example config:
 // 
@@ -50,6 +42,14 @@ syntax = "proto3";
 //    properties:
 //      version: destination.labels[version] | ""
 //  ```
+//
+// The `authorization` template defines parameters for performing policy
+// enforcement within Istio. It is primarily concerned with enabling Mixer
+// adapters to make decisions about who is allowed to do what.
+// In this template, the "who" is defined in a Subject message. The "what" is
+// defined in an Action message. During a Mixer Check call, these values
+// will be populated based on configuration from request attributes and
+// passed to individual authorization adapters to adjudicate.
 package authorization;
 
 
@@ -58,7 +58,7 @@ import "mixer/adapter/model/v1beta1/extensions.proto";
 import "google/protobuf/any.proto";
 import "mixer/adapter/model/v1beta1/check.proto";
 import "policy/v1beta1/value_type.proto";
-import "mixer/adapter/model/v1beta1/type.proto";
+import "policy/v1beta1/type.proto";
 
 option (istio.mixer.adapter.model.v1beta1.template_variety) = TEMPLATE_VARIETY_CHECK;
 option (istio.mixer.adapter.model.v1beta1.template_name) = "authorization";
@@ -122,7 +122,7 @@ message SubjectMsg {
     string groups = 2;
     
     // Additional attributes about the subject.
-    map<string, istio.mixer.adapter.model.v1beta1.Value> properties = 3;
+    map<string, istio.policy.v1beta1.Value> properties = 3;
     
 }
 
@@ -142,7 +142,7 @@ message ActionMsg {
     string path = 4;
     
     // Additional data about the action for use in policy.
-    map<string, istio.mixer.adapter.model.v1beta1.Value> properties = 5;
+    map<string, istio.policy.v1beta1.Value> properties = 5;
     
 }
 

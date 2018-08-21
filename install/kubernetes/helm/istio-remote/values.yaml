@@ -1,58 +1,111 @@
-# Use --set to specify the endpoints of the main Istio control plane
-# NB: These defaults do not work properly - they must be overriden with
-# IP addresses
-
+# Common settings.
 global:
-  # The Istio control plane Pilot endpoint
-  pilotEndpoint: istio-pilot.istio-system
-
-  # The Istio control plane Policy endpoint
-  policyEndpoint: istio-policy.istio-system
-
-  # The Istio control plane statsd endpoint
-  statsdEndpoint: istio-statsd-prom-bridge.istio-system
+  # Default hub for Istio images.
+  # Releases are published to docker hub under 'istio' project.
+  # Daily builds from prow are on gcr.io, and nightly builds from circle on docker.io/istionightly
+  hub: gcr.io/istio-release
 
   # Default tag for Istio images.
-  hub: docker.io/istionightly
+  tag: release-1.0-latest-daily
 
-  # Default tag for Istio images.
-  # Should track latest released version.
-  # Currently using nightly build, for testing
-  tag: circleci-nightly
   proxy:
     image: proxyv2
 
+    # A minimal set of requested resources to applied to all deployments so that
+    # Horizontal Pod Autoscaler will be able to function (if set).
+    # Each component can overwrite these default values by adding its own resources
+    # block in the relevant section below and setting the desired resources values.
+    resources: 
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      # limits:
+      #   cpu: 100m
+      #   memory: 128Mi
+
+    # Configures the access log for each sidecar. Setting it to an empty string will
+    # disable access log for sidecar.
+    accessLogFile: "/dev/stdout"
+
+    # If set, newly injected sidecars will have core dumps enabled.
+    enableCoreDump: false
+
+    # istio egress capture whitelist
+    # https://istio.io/docs/tasks/traffic-management/egress.html#calling-external-services-directly
+    # example: includeIPRanges: "172.30.0.0/16,172.20.0.0/16"
+    # would only capture egress traffic on those two IP Ranges, all other outbound traffic would
+    # be allowed by the sidecar
+    includeIPRanges: "*"
+    excludeIPRanges: ""
+
+    # istio ingress capture whitelist
+    # examples:
+    #     Redirect no inbound traffic to Envoy:    --includeInboundPorts=""
+    #     Redirect all inbound traffic to Envoy:   --includeInboundPorts="*"
+    #     Redirect only selected ports:            --includeInboundPorts="80,8080"
+    includeInboundPorts: "*"
+    excludeInboundPorts: ""
+
+    # This controls the 'policy' in the sidecar injector.
+    autoInject: enabled
+
+    # Sets the destination Statsd in envoy (the value of the "--statsdUdpAddress" proxy argument
+    # would be <host>:<port>).
+    # Can also be disabled (e.g. when Mixer is not installed).
+    # For remote clusters the host should be the statsd prom bridge in the primary control plane cluster.
+    envoyStatsd:
+      enabled: false
+      host: ""
+      port: 9125
+
+  proxy_init:
+    # Base name for the proxy_init container, used to configure iptables.
+    image: proxy_init
+
   # imagePullPolicy is applied to istio control plane components.
+  # local tests require IfNotPresent, to avoid uploading to dockerhub.
+  # TODO: Switch to Always as default, and override in the local tests.
   imagePullPolicy: IfNotPresent
 
   # Not recommended for user to configure this. Hyperkube image to use when creating custom resources
   hyperkube:
-    repository: quay.io/coreos/hyperkube
+    hub: quay.io/coreos
     tag: v1.7.6_coreos.0
 
   # controlPlaneMtls enabled. Will result in delays starting the pods while secrets are
   # propagated, not recommended for tests.
   controlPlaneSecurityEnabled: false
 
+  # disablePolicyChecks disables mixer policy checks.
+  # Will set the value with same name in istio config map - pilot needs to be restarted to take effect.
+  disablePolicyChecks: false
+
+  # EnableTracing sets the value with same name in istio config map, requires pilot restart to take effect.
+  enableTracing: true
+
   # Default mtls policy. If true, mtls between services will be enabled by default.
   mtls:
     # Default setting for service-to-service mtls. Can be set explicitly using
     # destination rules or service annotations.
     enabled: false
-    # List of fully qualified services to exclude from mtls
-    # TODO: add the templating.
-    mtlsExcludedServices:
-    - "kubernetes.default.svc.cluster.local"
 
-  # create RBAC resources. Must be set for any cluster configured with rbac.
-  rbacEnabled: true
+  # ImagePullSecrets for all ServiceAccount, list of secrets in the same namespace
+  # to use for pulling any images in pods that reference this ServiceAccount.
+  # Must be set for any clustser configured with privte docker registry.
+  imagePullSecrets:
+    # - private-registry-key
 
-  ## imagePullSecrets for all ServiceAccount. Must be set for any clustser configured with privte docker registry.
-  # imagePullSecrets:
-  #   - name: "private-registry-key"
+  # If true, create a headless service and endpoint for istio-pilot with the remotePilotAddress and
+  # sets the MeshConfig configmap discoveryAddress to 'istio-pilot.<namespace>'
+  remotePilotCreateSvcEndpoint: false
 
-  # Default is 1 second
-  refreshInterval: 10s
+  # Remote Istio endpoints. Can be hostnames or IP addresses
+  # The Pilot address is required. The others are optional.
+  remotePilotAddress: ""
+  remotePolicyAddress: ""
+  remoteTelemetryAddress: ""
+  remoteZipkinAddress: ""
+
 
   # Specify pod scheduling arch(amd64, ppc64le, s390x) and weight as follows:
   #   0 - Never scheduled
@@ -64,19 +117,36 @@ global:
     s390x: 2
     ppc64le: 2
 
+  # A minimal set of requested resources to applied to all deployments so that
+  # Horizontal Pod Autoscaler will be able to function (if set).
+  # Each component can overwrite these default values by adding its own resources
+  # block in the relevant section below and setting the desired resources values.
+  defaultResources:
+    requests:
+      cpu: 10m
+    #   memory: 128Mi
+    # limits:
+    #   cpu: 100m
+    #   memory: 128Mi
+
+  # Kubernetes >=v1.11.0 will create two PriorityClass, including system-cluster-critical and
+  # system-node-critical, it is better to configure this in order to make sure your Istio pods
+  # will not be killed because of low prioroty class.
+  # Refer to https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass
+  # for more detail.
+  priorityClassName: ""
+
 #
-# security configuration
+# sidecar-injector webhook configuration
 #
+sidecarInjectorWebhook:
+  enabled: true
+  replicaCount: 1
+  image: sidecar_injector
+  enableNamespacesByDefault: false
+
 security:
-  serviceAccountName: default # used only if RBAC is not enabled
   replicaCount: 1
   image: citadel
-  imagePullPolicy: IfNotPresent
-  resources: {}
-  # limits:
-  #  cpu: 100m
-  #  memory: 128Mi
-  # requests:
-  #  cpu: 100m
-  #  memory: 128Mi
-# Any customization for istio testing should be here
+  selfSigned: true # indicate if self-signed CA is used.
+

@@ -1,0 +1,141 @@
+---
+title: SignalFx
+description: Adapter that sends Istio metrics to SignalFx
+location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/signalfx.html
+layout: protoc-gen-docs
+generator: protoc-gen-docs
+number_of_entries: 3
+---
+<p>The <code>signalfx</code> adapter collects Istio metrics and sends them to
+<a href="https://signalfx.com">SignalFx</a>.</p>
+
+<p>This adapter supports the <a href="https://istio.io/docs/reference/config/policy-and-telemetry/templates/metric/">metric template</a>.</p>
+
+<h2 id="Params">Params</h2>
+<section>
+<p>Configuration format for the <code>signalfx</code> adapter.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params-metrics">
+<td><code>metrics</code></td>
+<td><code><a href="#Params-MetricConfig">Params.MetricConfig[]</a></code></td>
+<td>
+<p>Required. The set of metrics to send to SignalFx. If an Istio metric is
+configured to be sent to this adapter, it must have a corresponding
+description here.</p>
+
+</td>
+</tr>
+<tr id="Params-ingest_url">
+<td><code>ingestUrl</code></td>
+<td><code>string</code></td>
+<td>
+<p>Optional. The URL of the SignalFx ingest server to use.  Will default to
+the global ingest server if not specified.</p>
+
+</td>
+</tr>
+<tr id="Params-access_token">
+<td><code>accessToken</code></td>
+<td><code>string</code></td>
+<td>
+<p>Required. The access token for the SignalFx organization that should
+receive the metrics.</p>
+
+</td>
+</tr>
+<tr id="Params-datapoint_interval">
+<td><code>datapointInterval</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+<p>Optional. Specifies how frequently to send metrics to SignalFx.  Metrics
+reported to this adapter are collected and reported as a timeseries.
+This will be rounded to the nearest second and rounded values less than
+one second are not valid. Defaults to 10 seconds if not specified.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Params-MetricConfig">Params.MetricConfig</h2>
+<section>
+<p>Describes what metrics should be sent to SignalFx and in what form.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params-MetricConfig-name">
+<td><code>name</code></td>
+<td><code>string</code></td>
+<td>
+<p>Required.  The name of the metric as it is sent to the adapter.  In
+Kubernetes this is of the form &ldquo;<name>.metric.<namespace>&rdquo; where
+&ldquo;<name>&rdquo; is the name field of the metric resource, and &ldquo;<namespace>&rdquo;
+is the namespace of the metric resource.</p>
+
+</td>
+</tr>
+<tr id="Params-MetricConfig-type">
+<td><code>type</code></td>
+<td><code><a href="#Params-MetricConfig-Type">Params.MetricConfig.Type</a></code></td>
+<td>
+<p>The metric type of the metric</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Params-MetricConfig-Type">Params.MetricConfig.Type</h2>
+<section>
+<p>Describes what kind of metric this is.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params-MetricConfig-Type-NONE">
+<td><code>NONE</code></td>
+<td>
+<p>None is the default and is invalid</p>
+
+</td>
+</tr>
+<tr id="Params-MetricConfig-Type-COUNTER">
+<td><code>COUNTER</code></td>
+<td>
+<p>Values with the same set of dimensions will be added together
+as a continuously incrementing value.</p>
+
+</td>
+</tr>
+<tr id="Params-MetricConfig-Type-HISTOGRAM">
+<td><code>HISTOGRAM</code></td>
+<td>
+<p>A histogram distribution.  This will result in several metrics
+emitted for each unique set of dimensions.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>

@@ -41,12 +41,9 @@ var (
 	}
 )
 
-// TODO: create gateway struct to hold state that we shuttle around in all of the _GatewayFoo(...) methods (the names, the environment, etc)
-// then refactor all the methods to hang off that type, remove the redundant "Gateway" in all the method names
-
-func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environment, node model.Proxy) ([]*xdsapi.Listener, error) {
+func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environment, node *model.Proxy, push *model.PushStatus) ([]*xdsapi.Listener, error) {
 	// collect workload labels
-	workloadInstances, err := env.GetProxyServiceInstances(&node)
+	workloadInstances, err := env.GetProxyServiceInstances(node)
 	if err != nil {
 		log.Errora("Failed to get gateway instances for router ", node.ID, err)
 		return nil, err
@@ -57,21 +54,18 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 		workloadLabels = append(workloadLabels, w.Labels)
 	}
 
-	gateways := env.Gateways(workloadLabels)
-	if len(gateways) == 0 {
+	gatewaysForWorkload := env.Gateways(workloadLabels)
+	if len(gatewaysForWorkload) == 0 {
 		log.Debuga("buildGatewayListeners: no gateways for router", node.ID)
 		return []*xdsapi.Listener{}, nil
 	}
 
-	merged := model.MergeGateways(gateways...)
-	log.Debugf("buildGatewayListeners: gateways after merging: %v", merged)
+	mergedGateway := model.MergeGateways(gatewaysForWorkload...)
+	log.Debugf("buildGatewayListeners: gateways after merging: %v", mergedGateway)
 
 	errs := &multierror.Error{}
-	listeners := make([]*xdsapi.Listener, 0, len(merged.Servers))
-	for portNumber, servers := range merged.Servers {
-		// TODO: this works because all Servers on the same port use the same protocol due to model.MergeGateways's implementation.
-		// When Envoy supports filter chain matching, we'll have to group the ports by number and protocol, so this logic will
-		// no longer work.
+	listeners := make([]*xdsapi.Listener, 0, len(mergedGateway.Servers))
+	for portNumber, servers := range mergedGateway.Servers {
 		protocol := model.ParseProtocol(servers[0].Port.Protocol)
 		if protocol == model.ProtocolHTTPS {
 			// Gateway terminates TLS connection if TLS mode is not Passthrough So, its effectively a H2 listener.
@@ -95,12 +89,14 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 			bindToPort: true,
 			protocol:   protocol,
 		}
-		listenerType := plugin.ModelProtocolToListenerType(protocol)
+		listenerType := plugin.ModelProtocolToListenerProtocol(protocol)
 		switch listenerType {
-		case plugin.ListenerTypeHTTP:
-			opts.filterChainOpts = createGatewayHTTPFilterChainOpts(env, servers, merged.Names)
-		case plugin.ListenerTypeTCP:
-			opts.filterChainOpts = createGatewayTCPFilterChainOpts(env, servers, merged.Names)
+		case plugin.ListenerProtocolHTTP:
+			// virtualService.HTTP applies here for both plain text HTTP and HTTPS termination
+			opts.filterChainOpts = configgen.createGatewayHTTPFilterChainOpts(node, env, push, servers, mergedGateway.Names)
+		case plugin.ListenerProtocolTCP:
+			// virtualService.TLS/virtualService.TCP applies here
+			opts.filterChainOpts = configgen.createGatewayTCPFilterChainOpts(node, env, push, servers, mergedGateway.Names)
 		default:
 			log.Warnf("buildGatewayListeners: unknown listener type %v", listenerType)
 			continue
@@ -113,12 +109,27 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 			// this is for.
 			FilterChains: make([]plugin.FilterChain, len(l.FilterChains)),
 		}
+
+		var si *model.ServiceInstance
+		for _, w := range workloadInstances {
+			if w.Endpoint.Port == int(portNumber) {
+				si = w
+				break
+			}
+		}
+
 		for _, p := range configgen.Plugins {
 			params := &plugin.InputParams{
-				ListenerType:   listenerType,
-				Env:            &env,
-				Node:           &node,
-				ProxyInstances: workloadInstances,
+				ListenerProtocol: listenerType,
+				Env:              env,
+				Node:             node,
+				ProxyInstances:   workloadInstances,
+				ServiceInstance:  si,
+				Port: &model.Port{
+					Name:     servers[0].Port.Name,
+					Port:     int(portNumber),
+					Protocol: protocol,
+				},
 			}
 			if err = p.OnOutboundListener(params, mutable); err != nil {
 				log.Warna("buildGatewayListeners: failed to build listener for gateway: ", err.Error())
@@ -153,53 +164,190 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 		// we have some listeners to return, but we also have some errors; log them
 		log.Info(err.Error())
 	}
-	return listeners, nil
+
+	validatedListeners := make([]*xdsapi.Listener, 0, len(mergedGateway.Servers))
+	for _, l := range listeners {
+		if err := l.Validate(); err != nil {
+			log.Warnf("buildGatewayListeners: error validating listener %s: %v.. Skipping.", l.Name, err)
+			continue
+		}
+		validatedListeners = append(validatedListeners, l)
+	}
+
+	return validatedListeners, nil
 }
 
-func createGatewayHTTPFilterChainOpts(
-	env model.Environment, servers []*networking.Server, gatewayNames map[string]bool) []*filterChainOpts {
+func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Environment, node *model.Proxy, push *model.PushStatus,
+	proxyInstances []*model.ServiceInstance, services []*model.Service, routeName string) (*xdsapi.RouteConfiguration, error) {
 
-	services, err := env.Services() // cannot panic here because gateways do not rely on services necessarily
-	if err != nil {
-		log.Errora("Failed to get services from registry")
-		return []*filterChainOpts{}
+	// collect workload labels
+	var workloadLabels model.LabelsCollection
+	for _, w := range proxyInstances {
+		workloadLabels = append(workloadLabels, w.Labels)
 	}
+
+	gateways := env.Gateways(workloadLabels)
+	if len(gateways) == 0 {
+		log.Debuga("buildGatewayRoutes: no gateways for router", node.ID)
+		return nil, nil
+	}
+
+	merged := model.MergeGateways(gateways...)
+	log.Debugf("buildGatewayRoutes: gateways after merging: %v", merged)
+
+	// make sure that there is some server listening on this port
+	if _, ok := merged.RDSRouteConfigNames[routeName]; !ok {
+		log.Errorf("buildGatewayRoutes: could not find server for routeName %s, have %v", routeName, merged.RDSRouteConfigNames)
+		return nil, fmt.Errorf("buildGatewayRoutes: could not find server for routeName %s, have %v", routeName, merged.RDSRouteConfigNames)
+	}
+
+	servers := merged.RDSRouteConfigNames[routeName]
 
 	nameToServiceMap := make(map[model.Hostname]*model.Service, len(services))
 	for _, svc := range services {
 		nameToServiceMap[svc.Hostname] = svc
 	}
 
-	httpListeners := make([]*filterChainOpts, 0, len(servers))
-	for i, server := range servers {
-		routeCfg := buildGatewayInboundHTTPRouteConfig(env, nameToServiceMap, gatewayNames, server)
-		if routeCfg == nil {
-			log.Debugf("omitting HTTP listeners for port %d filter chain %d due to no routes", server.Port, i)
-			continue
-		}
-		// if https redirect is set, we need to enable requireTls field in all the virtual hosts
-		if server.Tls != nil && server.Tls.HttpsRedirect {
-			for i := range routeCfg.VirtualHosts {
-				// TODO: should this be set to ALL ?
-				routeCfg.VirtualHosts[i].RequireTls = route.VirtualHost_EXTERNAL_ONLY
+	gatewayHosts := make(map[model.Hostname]bool)
+	tlsRedirect := make(map[model.Hostname]bool)
+
+	for _, server := range servers {
+		for _, host := range server.Hosts {
+			gatewayHosts[model.Hostname(host)] = true
+			if server.Tls != nil && server.Tls.HttpsRedirect {
+				tlsRedirect[model.Hostname(host)] = true
 			}
 		}
+	}
+
+	port := int(servers[0].Port.Number)
+	// NOTE: WE DO NOT SUPPORT two gateways on same workload binding to same virtual service
+	virtualServices := env.VirtualServices(merged.Names)
+	virtualHosts := make([]route.VirtualHost, 0, len(virtualServices))
+	vhostDomains := map[string]bool{}
+
+	for _, v := range virtualServices {
+		vs := v.Spec.(*networking.VirtualService)
+		matchingHosts := pickMatchingGatewayHosts(gatewayHosts, vs.Hosts)
+		if len(matchingHosts) == 0 {
+			log.Debugf("%s omitting virtual service %q because its hosts  don't match gateways %v server %d", node.ID, v.Name, gateways, port)
+			continue
+		}
+		routes, err := istio_route.BuildHTTPRoutesForVirtualService(node, v, nameToServiceMap, port, nil, merged.Names, env.IstioConfigStore)
+		if err != nil {
+			log.Debugf("%s omitting routes for service %v due to error: %v", node.ID, v, err)
+			continue
+		}
+
+		for vsvcHost, gatewayHost := range matchingHosts {
+			_, f := vhostDomains[vsvcHost]
+			if f {
+				// RDS would reject this, resulting in all vhosts rejection.
+				push.Add(model.DuplicatedDomains, vsvcHost, node,
+					fmt.Sprintf("%s duplicate domain %s for %s", node.ID, vsvcHost, v.Name))
+				continue
+			}
+			vhostDomains[vsvcHost] = true
+			host := route.VirtualHost{
+				Name:    fmt.Sprintf("%s:%d", v.Name, port),
+				Domains: []string{vsvcHost},
+				Routes:  routes,
+			}
+
+			if tlsRedirect[gatewayHost] {
+				host.RequireTls = route.VirtualHost_ALL
+			}
+			virtualHosts = append(virtualHosts, host)
+		}
+	}
+
+	if len(virtualHosts) == 0 {
+		log.Warnf("constructed http route config for port %d with no vhosts; Setting up a default 404 vhost", port)
+		virtualHosts = append(virtualHosts, route.VirtualHost{
+			Name:    fmt.Sprintf("blackhole:%d", port),
+			Domains: []string{"*"},
+			Routes: []route.Route{
+				{
+					Match: route.RouteMatch{
+						PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"},
+					},
+					Action: &route.Route_DirectResponse{
+						DirectResponse: &route.DirectResponseAction{
+							Status: 404,
+						},
+					},
+				},
+			},
+		})
+	}
+	util.SortVirtualHosts(virtualHosts)
+
+	routeCfg := &xdsapi.RouteConfiguration{
+		Name:             routeName,
+		VirtualHosts:     virtualHosts,
+		ValidateClusters: boolFalse,
+	}
+	// call plugins
+	for _, p := range configgen.Plugins {
+		in := &plugin.InputParams{
+			ListenerProtocol: plugin.ListenerProtocolHTTP,
+			Env:              env,
+			Node:             node,
+		}
+		p.OnOutboundRouteConfiguration(in, routeCfg)
+	}
+
+	return routeCfg, nil
+}
+
+// to process HTTP and HTTPS servers along with virtualService.HTTP rules
+func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
+	node *model.Proxy, env *model.Environment, push *model.PushStatus, servers []*networking.Server, gatewaysForWorkload map[string]bool) []*filterChainOpts {
+
+	httpListeners := make([]*filterChainOpts, 0, len(servers))
+	// Are we processing plaintext servers or HTTPS servers?
+	// If plain text, we have to combine all servers into a single listener
+	if model.ParseProtocol(servers[0].Port.Protocol).IsHTTP() {
+		rdsName := model.GatewayRDSRouteName(servers[0])
 		o := &filterChainOpts{
-			sniHosts:   getSNIHosts(server),
-			tlsContext: buildGatewayListenerTLSContext(server),
+			// This works because we validate that only HTTPS servers can have same port but still different port names
+			// and that no two non-HTTPS servers can be on same port or share port names.
+			// Validation is done per gateway and also during merging
+			sniHosts:   nil,
+			tlsContext: nil,
 			httpOpts: &httpListenerOpts{
-				routeConfig:      routeCfg,
-				rds:              "",
+				rds:              rdsName,
 				useRemoteAddress: true,
 				direction:        http_conn.EGRESS, // viewed as from gateway to internal
 			},
 		}
 		httpListeners = append(httpListeners, o)
+	} else {
+		// Build a filter chain for each HTTPS server
+		// We know that this is a HTTPS server because this function is called only for ports of type HTTP/HTTPS
+		// where HTTPS server's TLS mode is not passthrough and not nil
+		for _, server := range servers {
+			o := &filterChainOpts{
+				// This works because we validate that only HTTPS servers can have same port but still different port names
+				// and that no two non-HTTPS servers can be on same port or share port names.
+				// Validation is done per gateway and also during merging
+				sniHosts:   getSNIHostsForServer(server),
+				tlsContext: buildGatewayListenerTLSContext(server),
+				httpOpts: &httpListenerOpts{
+					rds:              model.GatewayRDSRouteName(server),
+					useRemoteAddress: true,
+					direction:        http_conn.EGRESS, // viewed as from gateway to internal
+				},
+			}
+			httpListeners = append(httpListeners, o)
+		}
 	}
+
 	return httpListeners
 }
 
 func buildGatewayListenerTLSContext(server *networking.Server) *auth.DownstreamTlsContext {
+	// Server.TLS cannot be nil or passthrough. But as a safety guard, return nil
 	if server.Tls == nil || server.Tls.Mode == networking.Server_TLSOptions_PASSTHROUGH {
 		return nil // We don't need to setup TLS context for passthrough mode
 	}
@@ -238,8 +386,10 @@ func buildGatewayListenerTLSContext(server *networking.Server) *auth.DownstreamT
 					},
 				},
 			},
-			ValidationContext: certValidationContext,
-			AlpnProtocols:     ListenersALPNProtocols,
+			ValidationContextType: &auth.CommonTlsContext_ValidationContext{
+				ValidationContext: certValidationContext,
+			},
+			AlpnProtocols: ListenersALPNProtocols,
 		},
 		RequireClientCertificate: &types.BoolValue{
 			Value: requireClientCert,
@@ -247,174 +397,174 @@ func buildGatewayListenerTLSContext(server *networking.Server) *auth.DownstreamT
 	}
 }
 
-func buildGatewayInboundHTTPRouteConfig(
-	env model.Environment,
-	svcs map[model.Hostname]*model.Service,
-	gateways map[string]bool,
-	server *networking.Server) *xdsapi.RouteConfiguration {
-
-	hosts := make(map[model.Hostname]bool)
-	for _, host := range server.Hosts {
-		hosts[model.Hostname(host)] = true
-	}
-
-	port := int(server.Port.Number)
-	// TODO: WE DO NOT SUPPORT two gateways on same workload binding to same virtual service
-	virtualServices := env.VirtualServices(gateways)
-	virtualHosts := make([]route.VirtualHost, 0, len(virtualServices))
-	for _, v := range virtualServices {
-		vs := v.Spec.(*networking.VirtualService)
-		if !hostMatch(vs.Hosts, hosts) {
-			log.Debugf("omitting virtual service %q because its hosts don't match gateways %v server %d", v.Name, gateways, port)
-			continue
-		}
-		// TODO: we need to filter the hosts this produces by those exposed on the gateway. This impl exposes the full
-		// set of hosts of the virtual service, rather than just the subset that is listed on this server.
-		routes, err := istio_route.TranslateRoutes(v, svcs, port, nil, gateways)
-		if err != nil {
-			log.Debugf("omitting routes for service %v due to error: %v", v, err)
-			continue
-		}
-		domains := vs.Hosts
-		host := route.VirtualHost{
-			Name:    fmt.Sprintf("%s:%d", v.Name, port),
-			Domains: domains,
-			Routes:  routes,
-		}
-		virtualHosts = append(virtualHosts, host)
-	}
-
-	if len(virtualHosts) == 0 {
-		log.Debugf("constructed http route config for port %d with no vhosts; Setting up a default 404 vhost", port)
-		virtualHosts = append(virtualHosts, route.VirtualHost{
-			Name:    fmt.Sprintf("blackhole:%d", port),
-			Domains: []string{"*"},
-			Routes: []route.Route{
-				{
-					Match: route.RouteMatch{
-						PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"},
-					},
-					Action: &route.Route_DirectResponse{
-						DirectResponse: &route.DirectResponseAction{
-							Status: 404,
-						},
-					},
-				},
-			},
-		})
-	}
-	util.SortVirtualHosts(virtualHosts)
-	return &xdsapi.RouteConfiguration{
-		Name:             fmt.Sprintf("%d", port),
-		VirtualHosts:     virtualHosts,
-		ValidateClusters: boolFalse,
-	}
-}
-
-func createGatewayTCPFilterChainOpts(
-	env model.Environment, servers []*networking.Server, gatewayNames map[string]bool) []*filterChainOpts {
+func (configgen *ConfigGeneratorImpl) createGatewayTCPFilterChainOpts(
+	node *model.Proxy, env *model.Environment, push *model.PushStatus, servers []*networking.Server,
+	gatewaysForWorkload map[string]bool) []*filterChainOpts {
 
 	opts := make([]*filterChainOpts, 0, len(servers))
 	for _, server := range servers {
-		opts = append(opts, &filterChainOpts{
-			sniHosts:       getSNIHosts(server),
-			tlsContext:     buildGatewayListenerTLSContext(server),
-			networkFilters: buildGatewayNetworkFilters(env, server, gatewayNames),
-		})
+		// We have a TCP/TLS server. This could be TLS termination (user specifies server.TLS with simple/mutual)
+		// or opaque TCP (server.TLS is nil). or it could be a TLS passthrough with SNI based routing.
+		// Handle the TLS termination or opaque TCP first.
+
+		// This is opaque TCP server. Find matching virtual services with TCP blocks and forward
+		if server.Tls == nil {
+			if filters := buildGatewayNetworkFiltersFromTCPRoutes(node, env, server, gatewaysForWorkload); len(filters) > 0 {
+				opts = append(opts, &filterChainOpts{
+					sniHosts:       nil,
+					tlsContext:     nil,
+					networkFilters: filters,
+				})
+			}
+		} else if server.Tls.Mode != networking.Server_TLSOptions_PASSTHROUGH {
+			// TCP with TLS termination and forwarding. Setup TLS context to terminate, find matching services with TCP blocks
+			// and forward to backend
+			// Validation ensures that non-passthrough servers will have certs
+			if filters := buildGatewayNetworkFiltersFromTCPRoutes(node, env, server, gatewaysForWorkload); len(filters) > 0 {
+				opts = append(opts, &filterChainOpts{
+					sniHosts:       getSNIHostsForServer(server),
+					tlsContext:     buildGatewayListenerTLSContext(server),
+					networkFilters: filters,
+				})
+			}
+		} else {
+			// Passthrough server.
+			opts = append(opts, buildGatewayNetworkFiltersFromTLSRoutes(node, env, server, gatewaysForWorkload)...)
+		}
 	}
 	return opts
 }
 
-// buildGatewayNetworkFilters retrieves all VirtualServices bound to the set of Gateways for this workload, filters
-// them by this server's port and hostnames, and produces network filters for each destination from the filtered services
-func buildGatewayNetworkFilters(env model.Environment, server *networking.Server, gatewayNames map[string]bool) []listener.Filter {
+// buildGatewayNetworkFiltersFromTLSRoutes builds tcp proxy routes for all VirtualServices with TCP blocks.
+// It first obtains all virtual services bound to the set of Gateways for this workload, filters them by this
+// server's port and hostnames, and produces network filters for each destination from the filtered services
+func buildGatewayNetworkFiltersFromTCPRoutes(node *model.Proxy, env *model.Environment, server *networking.Server,
+	gatewaysForWorkload map[string]bool) []listener.Filter {
 	port := &model.Port{
 		Name:     server.Port.Name,
 		Port:     int(server.Port.Number),
 		Protocol: model.ParseProtocol(server.Port.Protocol),
 	}
 
-	dests := getVirtualServiceTCPDestinations(env, server, gatewayNames)
-	// de-dupe destinations by hostname; we'll take a random destination if multiple claim the same host
-	byHost := make(map[model.Hostname]*networking.Destination, len(dests))
-	for _, dest := range dests {
-		byHost[model.Hostname(dest.Host)] = dest
-	}
-
-	filters := make([]listener.Filter, 0, len(byHost))
-	for host, dest := range byHost {
-		upstream, err := env.GetService(host)
-		if err != nil || upstream == nil {
-			log.Debugf("failed to retrieve service for destination %q: %v", host, err)
-			continue
-		}
-		filters = append(filters, buildOutboundNetworkFilters(
-			istio_route.GetDestinationCluster(dest, upstream, int(server.Port.Number)),
-			[]string{upstream.Address}, port)...)
-	}
-	return filters
-}
-
-// getVirtualServiceTCPDestinations filters virtual services by gateway names, then determines if any match the (TCP) server
-// TODO: move up to more general location so this can be re-used in sidecars
-func getVirtualServiceTCPDestinations(env model.Environment, server *networking.Server, gateways map[string]bool) []*networking.Destination {
-	hosts := make(map[model.Hostname]bool, len(server.Hosts))
+	gatewayServerHosts := make(map[model.Hostname]bool, len(server.Hosts))
 	for _, host := range server.Hosts {
-		hosts[model.Hostname(host)] = true
+		gatewayServerHosts[model.Hostname(host)] = true
 	}
 
-	virtualServices := env.VirtualServices(gateways)
-	downstreams := make([]*networking.Destination, 0, len(virtualServices))
+	virtualServices := env.VirtualServices(gatewaysForWorkload)
+	var upstream *networking.Destination
 	for _, spec := range virtualServices {
 		vsvc := spec.Spec.(*networking.VirtualService)
-		if !hostMatch(vsvc.Hosts, hosts) {
+		matchingHosts := pickMatchingGatewayHosts(gatewayServerHosts, vsvc.Hosts)
+		if len(matchingHosts) == 0 {
 			// the VirtualService's hosts don't include hosts advertised by server
 			continue
 		}
 
-		// hosts match, now we ensure we satisfy the rule's l4 match conditions, if any exist
+		// ensure we satisfy the rule's l4 match conditions, if any exist
+		// For the moment, there can be only one match that succeeds
+		// based on the match port/server port and the gateway name
 		for _, tcp := range vsvc.Tcp {
-			if l4Match(tcp.Match, server, gateways) {
-				downstreams = append(downstreams, gatherDestinations(tcp.Route)...)
+			if l4MultiMatch(tcp.Match, server, gatewaysForWorkload) {
+				upstream = tcp.Route[0].Destination // We pick first destination because TCP has no weighted cluster
+				destSvc, err := env.GetService(model.Hostname(upstream.Host))
+				if err != nil || destSvc == nil {
+					log.Debugf("failed to retrieve service for destination %q: %v", destSvc, err)
+					return nil
+				}
+
+				return buildOutboundNetworkFilters(node,
+					istio_route.GetDestinationCluster(upstream, destSvc, int(server.Port.Number)),
+					"", port)
 			}
 		}
 	}
-	return downstreams
+
+	return nil
 }
 
-func hostMatch(hosts []string, serviceHosts map[model.Hostname]bool) bool {
-	for _, host := range hosts {
-		for h := range serviceHosts {
-			if h.Matches(model.Hostname(host)) {
-				return true
+// buildGatewayNetworkFiltersFromTLSRoutes builds tcp proxy routes for all VirtualServices with TLS blocks.
+// It first obtains all virtual services bound to the set of Gateways for this workload, filters them by this
+// server's port and hostnames, and produces network filters for each destination from the filtered services
+func buildGatewayNetworkFiltersFromTLSRoutes(node *model.Proxy, env *model.Environment, server *networking.Server,
+	gatewaysForWorkload map[string]bool) []*filterChainOpts {
+	port := &model.Port{
+		Name:     server.Port.Name,
+		Port:     int(server.Port.Number),
+		Protocol: model.ParseProtocol(server.Port.Protocol),
+	}
+
+	gatewayServerHosts := make(map[model.Hostname]bool, len(server.Hosts))
+	for _, host := range server.Hosts {
+		gatewayServerHosts[model.Hostname(host)] = true
+	}
+
+	virtualServices := env.VirtualServices(gatewaysForWorkload)
+	filterChains := make([]*filterChainOpts, 0)
+	for _, spec := range virtualServices {
+		vsvc := spec.Spec.(*networking.VirtualService)
+		matchingHosts := pickMatchingGatewayHosts(gatewayServerHosts, vsvc.Hosts)
+		if len(matchingHosts) == 0 {
+			// the VirtualService's hosts don't include hosts advertised by server
+			continue
+		}
+
+		// For every matching TLS block, generate a filter chain with sni match
+		for _, tls := range vsvc.Tls {
+			for _, match := range tls.Match {
+				if l4SingleMatch(convertTLSMatchToL4Match(match), server, gatewaysForWorkload) {
+					// the sni hosts in the match will become part of a filter chain match
+					// We ignore all the weighted destinations and pick the first one
+					// since TCP has no weighted cluster
+					upstream := tls.Route[0].Destination
+					destSvc, err := env.GetService(model.Hostname(upstream.Host))
+					if err != nil || destSvc == nil {
+						log.Debugf("failed to retrieve service for destination %q: %v", destSvc, err)
+						continue
+					}
+
+					filterChains = append(filterChains, &filterChainOpts{
+						sniHosts:   match.SniHosts,
+						tlsContext: nil, // NO TLS context because this is passthrough
+						networkFilters: buildOutboundNetworkFilters(node,
+							istio_route.GetDestinationCluster(upstream, destSvc, int(server.Port.Number)),
+							"", port),
+					})
+				}
 			}
 		}
 	}
-	return false
+
+	return filterChains
 }
 
-// TODO: move up to more general location so this can be re-used in other service matching
-func l4Match(predicates []*networking.L4MatchAttributes, server *networking.Server, gatewayNames map[string]bool) bool {
+func pickMatchingGatewayHosts(gatewayServerHosts map[model.Hostname]bool, virtualServiceHosts []string) map[string]model.Hostname {
+	matchingHosts := make(map[string]model.Hostname, 0)
+	for _, vsvcHost := range virtualServiceHosts {
+		for gatewayHost := range gatewayServerHosts {
+			if gatewayHost.Matches(model.Hostname(vsvcHost)) {
+				matchingHosts[vsvcHost] = gatewayHost
+			}
+		}
+	}
+	return matchingHosts
+}
+
+func convertTLSMatchToL4Match(tlsMatch *networking.TLSMatchAttributes) *networking.L4MatchAttributes {
+	return &networking.L4MatchAttributes{
+		DestinationSubnets: tlsMatch.DestinationSubnets,
+		Port:               tlsMatch.Port,
+		SourceSubnet:       tlsMatch.SourceSubnet,
+		SourceLabels:       tlsMatch.SourceLabels,
+		Gateways:           tlsMatch.Gateways,
+	}
+}
+
+func l4MultiMatch(predicates []*networking.L4MatchAttributes, server *networking.Server, gatewaysForWorkload map[string]bool) bool {
 	// NB from proto definitions: each set of predicates is OR'd together; inside of a predicate all conditions are AND'd.
 	// This means we can return as soon as we get any match of an entire predicate.
 	for _, match := range predicates {
-		// TODO: implement more matches, like CIDR ranges, etc.
-
-		// if there's no port predicate, portMatch is true; otherwise we evaluate the port predicate against the server's port
-		portMatch := match.Port == 0
-		if match.Port != 0 {
-			portMatch = server.Port.Number == match.Port
-		}
-
-		// similarly, if there's no gateway predicate, gatewayMatch is true; otherwise we match against the gateways for this workload
-		gatewayMatch := len(match.Gateways) == 0
-		if len(match.Gateways) > 0 {
-			for _, gateway := range match.Gateways {
-				gatewayMatch = gatewayMatch || gatewayNames[gateway]
-			}
-		}
-
-		if portMatch && gatewayMatch {
+		if l4SingleMatch(match, server, gatewaysForWorkload) {
 			return true
 		}
 	}
@@ -422,15 +572,32 @@ func l4Match(predicates []*networking.L4MatchAttributes, server *networking.Serv
 	return len(predicates) == 0
 }
 
-func gatherDestinations(weights []*networking.DestinationWeight) []*networking.Destination {
-	dests := make([]*networking.Destination, 0, len(weights))
-	for _, w := range weights {
-		dests = append(dests, w.Destination)
-	}
-	return dests
+func l4SingleMatch(match *networking.L4MatchAttributes, server *networking.Server, gatewaysForWorkload map[string]bool) bool {
+	// if there's no gateway predicate, gatewayMatch is true; otherwise we match against the gateways for this workload
+	return isPortMatch(match.Port, server) && isGatewayMatch(gatewaysForWorkload, match.Gateways)
 }
 
-func getSNIHosts(server *networking.Server) []string {
+func isPortMatch(port uint32, server *networking.Server) bool {
+	// if there's no port predicate, portMatch is true; otherwise we evaluate the port predicate against the server's port
+	portMatch := port == 0
+	if port != 0 {
+		portMatch = server.Port.Number == port
+	}
+	return portMatch
+}
+
+func isGatewayMatch(gatewaysForWorkload map[string]bool, gateways []string) bool {
+	// if there's no gateway predicate, gatewayMatch is true; otherwise we match against the gateways for this workload
+	gatewayMatch := len(gateways) == 0
+	if len(gateways) > 0 {
+		for _, gateway := range gateways {
+			gatewayMatch = gatewayMatch || gatewaysForWorkload[gateway]
+		}
+	}
+	return gatewayMatch
+}
+
+func getSNIHostsForServer(server *networking.Server) []string {
 	if server.Tls == nil {
 		return nil
 	}

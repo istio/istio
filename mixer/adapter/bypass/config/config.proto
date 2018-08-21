@@ -1,0 +1,62 @@
+// Copyright 2018 Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+// $title: Bypass
+// $description: Adapter for connecting to gRPC based adapters as an inline adapter for some templates.
+// The `bypass` adapter makes it possible to connect to gRPC based remote adapters using the inline adapter
+// model.
+//
+// This adapter supports the following templates:
+// [metric](https://istio.io/docs/reference/config/template/metric/).
+// [checknothing](https://istio.io/docs/reference/config/template/checknothing/).
+// [reportnothing](https://istio.io/docs/reference/config/template/reportnothing/).
+// [quota](https://istio.io/docs/reference/config/template/quota/).
+//
+// Example configuration:
+// ```
+// # sessionBased indicates whether the client should use the Infrastructure API of the backend
+// # to create sessions. If set to true, the bypass adapter will first create a session.
+// sessionBased: false
+//
+// # backendAddress is the remote adapter service backend address.
+// backendAddress: localhost:4567
+//
+// # params is base64 encoded Any proto that should be passed to the remote backend as
+// # configuration.
+// params: RGFuJ3MgVG9vbHMgYXJlIGNvb2wh...
+// ```
+//
+package adapter.bypass.config;
+
+import "gogoproto/gogo.proto";
+import "google/protobuf/any.proto";
+
+option go_package = "config";
+option (gogoproto.goproto_getters_all) = false;
+option (gogoproto.equal_all) = false;
+option (gogoproto.gostring_all) = false;
+
+// Configuration format for the Bypass adapter.
+message Params {
+    // The backend address for the remote policy backend.
+    string backend_address = 1;
+
+    // The actual config parameters to send to the remote backend.
+    google.protobuf.Any params = 2;
+
+    // Indicates whether the protocol is session based or not.
+    bool session_based  = 3;
+}

@@ -24,8 +24,15 @@ import (
 func TestCDS(t *testing.T) {
 	initLocalPilotTestEnv(t)
 
-	cdsr := connectADS(t, util.MockPilotGrpcAddr)
-	sendCDSReq(t, sidecarId(app3Ip, "app3"), cdsr)
+	cdsr, err := connectADS(util.MockPilotGrpcAddr)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = sendCDSReq(sidecarId(app3Ip, "app3"), cdsr)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	res, err := cdsr.Recv()
 	if err != nil {

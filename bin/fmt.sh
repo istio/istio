@@ -19,12 +19,8 @@ cd $ROOTDIR
 export GOPATH=$(cd $ROOTDIR/../../..; pwd)
 export PATH=$GOPATH/bin:$PATH
 
-if which goimports; then
-  goimports=`which goimports`
-else
-  go get golang.org/x/tools/cmd/goimports
-  goimports=${GOPATH}/bin/goimports
-fi
+go get -u golang.org/x/tools/cmd/goimports
+goimports=${GOPATH}/bin/goimports
 
 PKGS=${PKGS:-"."}
 if [[ -z ${GO_FILES} ]];then
@@ -34,39 +30,14 @@ fi
 UX=$(uname)
 
 if [ $check = false ]; then
-  #remove blank lines so gofmt / goimports can do their job
-  for fl in ${GO_FILES}; do
-    if [[ ${UX} == "Darwin" ]]; then
-      sed -i '' -e "/^import[[:space:]]*(/,/)/{ /^\s*$/d;}" $fl
-    else
-      sed -i -e "/^import[[:space:]]*(/,/)/{ /^\s*$/d;}" $fl
-    fi
-  done
-
-  gofmt -s -w ${GO_FILES}
   $goimports -w -local istio.io ${GO_FILES}
   exit $?
 fi
 
-#check mode
-#remove blank lines so gofmt / goimports can do their job
-tf="/tmp/~output.go"
-ec=0
 for fl in ${GO_FILES}; do
-  if [[ ${UX} == "Darwin" ]]; then
-    sed -e "/^import[[:space:]]*(/,/)/{ /^\s*$/d;}" $fl > $tf
-  else
-    sed -e "/^import[[:space:]]*(/,/)/{ /^\s*$/d;}" $fl > $tf
-  fi
-
-  gofmt -s -w $tf
-  $goimports -w -local istio.io $tf
-  if [[ $(diff $tf $fl) ]]; then
-    echo "File $fl needs formatting. Please run bin/fmt.sh"
-    diff $tf $fl
-    ec=1
+  file_needs_formatting=$($goimports -l -local istio.io $fl)
+  if [[ ! -z "$file_needs_formatting" ]]; then
+    echo "please run bin/fmt.sh against: $file_needs_formatting"
+    exit 1
   fi
 done
-
-rm $tf
-exit $ec

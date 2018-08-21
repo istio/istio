@@ -19,7 +19,6 @@ import (
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/lang/compiled"
-	"istio.io/istio/mixer/pkg/runtime/config"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
 )
@@ -70,7 +69,7 @@ type Destination struct {
 	AdapterName string
 
 	// Template of the handler.
-	Template *template.Info
+	Template *TemplateInfo
 
 	// InstanceGroups that should be (conditionally) applied to the handler.
 	InstanceGroups []*InstanceGroup
@@ -85,6 +84,33 @@ type Destination struct {
 	Counters DestinationCounters
 }
 
+// NamedBuilder holds a builder function and the short name of the associated instance.
+type NamedBuilder struct {
+	InstanceShortName string
+	Builder           template.InstanceBuilderFn
+}
+
+// TemplateInfo is the common data that is needed from a template
+type TemplateInfo struct {
+	Name             string
+	Variety          tpb.TemplateVariety
+	DispatchReport   template.DispatchReportFn
+	DispatchCheck    template.DispatchCheckFn
+	DispatchQuota    template.DispatchQuotaFn
+	DispatchGenAttrs template.DispatchGenerateAttributesFn
+}
+
+func buildTemplateInfo(info *template.Info) *TemplateInfo {
+	return &TemplateInfo{
+		Name:             info.Name,
+		Variety:          info.Variety,
+		DispatchReport:   info.DispatchReport,
+		DispatchCheck:    info.DispatchCheck,
+		DispatchQuota:    info.DispatchQuota,
+		DispatchGenAttrs: info.DispatchGenAttrs,
+	}
+}
+
 // InstanceGroup is a set of instances that needs to be sent to a handler, grouped by a condition expression.
 type InstanceGroup struct {
 	// id of the InstanceGroup. IDs are reused every time a table is recreated. Used for debugging.
@@ -93,12 +119,8 @@ type InstanceGroup struct {
 	// Condition for applying this instance group.
 	Condition compiled.Expression
 
-	// TODO(Issue #2139): This should be removed when we stop doing resource-type based checks.
-	// ResourceType is the resource type condition for this instance group.
-	ResourceType config.ResourceType
-
 	// Builders for the instances in this group for each instance that should be applied.
-	Builders []template.InstanceBuilderFn
+	Builders []NamedBuilder
 
 	// Mappers for attribute-generating adapters that map output attributes into the main attribute set.
 	Mappers []template.OutputMapperFn

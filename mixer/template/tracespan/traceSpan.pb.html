@@ -1,19 +1,16 @@
 ---
-title: traceSpan
+title: Trace Span
+description: A template that represents\ an individual span within a distributed trace.
+location: https://istio.io/docs/reference/config/policy-and-telemetry/templates/tracespan.html
 layout: protoc-gen-docs
-number_of_entries: 3
+generator: protoc-gen-docs
+number_of_entries: 1
 ---
-<h2 id="Template">Template</h2>
-<section>
-<p>TraceSpan represents an individual span within a distributed trace.</p>
-
-<p>When writing the configuration, the value for the fields associated with this template can either be a
-literal or an <a href="https://istio.io/docs/reference/config/mixer/expression-language.html">expression</a>. Please note that if the datatype of a field is not istio.mixer.adapter.model.v1beta1.Value,
-then the expression&rsquo;s <a href="https://istio.io/docs/reference/config/mixer/expression-language.html#type-checking">inferred type</a> must match the datatype of the field.</p>
+<p>The <code>tracespan</code> template represents an individual span within a distributed trace.</p>
 
 <p>Example config:</p>
 
-<pre><code>apiVersion: &quot;config.istio.io/v1alpha2&quot;
+<pre><code class="language-yaml">apiVersion: &quot;config.istio.io/v1alpha2&quot;
 kind: tracespan
 metadata:
   name: default
@@ -25,6 +22,8 @@ spec:
   spanName: request.path | &quot;/&quot;
   startTime: request.time
   endTime: response.time
+  clientSpan: (context.reporter.local | true) == false
+  rewriteClientSpanId: false
   spanTags:
     http.method: request.method | &quot;&quot;
     http.status_code: response.code | 200
@@ -37,8 +36,16 @@ spec:
     source.version: source.labels[&quot;version&quot;] | &quot;&quot;
 </code></pre>
 
-<p>See also: <a href="https://istio.io/docs/tasks/telemetry/distributed-tracing.html">Distributed Tracing</a>
+<p>See also: <a href="https://istio.io/docs/tasks/telemetry/distributed-tracing/">Distributed Tracing</a>
 for information on tracing within Istio.</p>
+
+<h2 id="Template">Template</h2>
+<section>
+<p>TraceSpan represents an individual span within a distributed trace.</p>
+
+<p>When writing the configuration, the value for the fields associated with this template can either be a
+literal or an <a href="https://istio.io/docs/reference//config/policy-and-telemetry/expression-language/">expression</a>. Please note that if the datatype of a field is not istio.policy.v1beta1.Value,
+then the expression&rsquo;s <a href="https://istio.io/docs/reference//config/policy-and-telemetry/expression-language/#type-checking">inferred type</a> must match the datatype of the field.</p>
 
 <table class="message-fields">
 <thead>
@@ -49,7 +56,7 @@ for information on tracing within Istio.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="Template.trace_id">
+<tr id="Template-trace_id">
 <td><code>traceId</code></td>
 <td><code>string</code></td>
 <td>
@@ -60,7 +67,7 @@ trace share the same Trace ID.</p>
 
 </td>
 </tr>
-<tr id="Template.span_id">
+<tr id="Template-span_id">
 <td><code>spanId</code></td>
 <td><code>string</code></td>
 <td>
@@ -71,7 +78,7 @@ when the span is created.</p>
 
 </td>
 </tr>
-<tr id="Template.parent_span_id">
+<tr id="Template-parent_span_id">
 <td><code>parentSpanId</code></td>
 <td><code>string</code></td>
 <td>
@@ -82,7 +89,7 @@ instance. If this is a root span, then this field MUST be empty.</p>
 
 </td>
 </tr>
-<tr id="Template.span_name">
+<tr id="Template-span_name">
 <td><code>spanName</code></td>
 <td><code>string</code></td>
 <td>
@@ -97,9 +104,9 @@ This makes it easier to correlate spans in different traces.</p>
 
 </td>
 </tr>
-<tr id="Template.start_time">
+<tr id="Template-start_time">
 <td><code>startTime</code></td>
-<td><code><a href="#istio.mixer.adapter.model.v1beta1.TimeStamp">istio.mixer.adapter.model.v1beta1.TimeStamp</a></code></td>
+<td><code><a href="https://istio.io/docs/reference/config/policy-and-telemetry/istio.policy.v1beta1.html#TimeStamp">istio.policy.v1beta1.TimeStamp</a></code></td>
 <td>
 <p>The start time of the span.</p>
 
@@ -107,9 +114,9 @@ This makes it easier to correlate spans in different traces.</p>
 
 </td>
 </tr>
-<tr id="Template.end_time">
+<tr id="Template-end_time">
 <td><code>endTime</code></td>
-<td><code><a href="#istio.mixer.adapter.model.v1beta1.TimeStamp">istio.mixer.adapter.model.v1beta1.TimeStamp</a></code></td>
+<td><code><a href="https://istio.io/docs/reference/config/policy-and-telemetry/istio.policy.v1beta1.html#TimeStamp">istio.policy.v1beta1.TimeStamp</a></code></td>
 <td>
 <p>The end time of the span.</p>
 
@@ -117,135 +124,50 @@ This makes it easier to correlate spans in different traces.</p>
 
 </td>
 </tr>
-<tr id="Template.span_tags">
+<tr id="Template-span_tags">
 <td><code>spanTags</code></td>
-<td><code>map&lt;string,&nbsp;<a href="#istio.mixer.adapter.model.v1beta1.Value">istio.mixer.adapter.model.v1beta1.Value</a>&gt;</code></td>
+<td><code>map&lt;string,&nbsp;<a href="https://istio.io/docs/reference/config/policy-and-telemetry/istio.policy.v1beta1.html#Value">istio.policy.v1beta1.Value</a>&gt;</code></td>
 <td>
-<p>Span tags are a set of <key, value> pairs that provide metadata for the
+<p>Span tags are a set of &lt; key, value &gt; pairs that provide metadata for the
 entire span. The values can be specified in the form of expressions.</p>
 
 <p>Optional.</p>
 
 </td>
 </tr>
-</tbody>
-</table>
-</section>
-<h2 id="istio.mixer.adapter.model.v1beta1.TimeStamp">istio.mixer.adapter.model.v1beta1.TimeStamp</h2>
-<section>
-<p>TimeStamp is used inside templates for fields that are of ValueType &ldquo;TIMESTAMP&rdquo;</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="istio.mixer.adapter.model.v1beta1.TimeStamp.value">
-<td><code>value</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#timestamp">google.protobuf.Timestamp</a></code></td>
+<tr id="Template-httpStatusCode">
+<td><code>httpStatusCode</code></td>
+<td><code>int64</code></td>
 <td>
-<p>TimeStamp encoded as google.protobuf.Timestamp.</p>
+<p>HTTP status code used to set the span status. If unset or set to 0, the
+span status will be assumed to be successful.</p>
 
 </td>
 </tr>
-</tbody>
-</table>
-</section>
-<h2 id="istio.mixer.adapter.model.v1beta1.Value">istio.mixer.adapter.model.v1beta1.Value</h2>
-<section>
-<p>Value is used inside templates for fields that have dynamic types. The actual datatype
-of the field depends on the datatype of the expression used in the operator configuration.</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="istio.mixer.adapter.model.v1beta1.Value.string_value" class="oneof oneof-start">
-<td><code>stringValue</code></td>
-<td><code>string (oneof)</code></td>
+<tr id="Template-client_span">
+<td><code>clientSpan</code></td>
+<td><code>bool</code></td>
 <td>
-<p>Used for values of type STRING</p>
+<p>client_span indicates the span kind. True for client spans and False or
+not provided for server spans. Using bool instead of enum is a temporary
+work around since mixer expression language does not yet support enum
+type.</p>
+
+<p>Optional</p>
 
 </td>
 </tr>
-<tr id="istio.mixer.adapter.model.v1beta1.Value.int64_value" class="oneof">
-<td><code>int64Value</code></td>
-<td><code>int64 (oneof)</code></td>
+<tr id="Template-rewrite_client_span_id">
+<td><code>rewriteClientSpanId</code></td>
+<td><code>bool</code></td>
 <td>
-<p>Used for values of type INT64</p>
+<p>rewrite<em>client</em>span_id is used to indicate whether to create a new client
+span id to accommodate Zipkin shared span model. Some tracing systems like
+Stackdriver separates a RPC into client span and server span. To solve this
+incompatibility, deterministically rewriting both span id of client span and
+parent span id of server span to the same newly generated id.</p>
 
-</td>
-</tr>
-<tr id="istio.mixer.adapter.model.v1beta1.Value.double_value" class="oneof">
-<td><code>doubleValue</code></td>
-<td><code>double (oneof)</code></td>
-<td>
-<p>Used for values of type DOUBLE</p>
-
-</td>
-</tr>
-<tr id="istio.mixer.adapter.model.v1beta1.Value.bool_value" class="oneof">
-<td><code>boolValue</code></td>
-<td><code>bool (oneof)</code></td>
-<td>
-<p>Used for values of type BOOL</p>
-
-</td>
-</tr>
-<tr id="istio.mixer.adapter.model.v1beta1.Value.ip_address_value" class="oneof">
-<td><code>ipAddressValue</code></td>
-<td><code><a href="#istio.mixer.adapter.model.v1beta1.IPAddress">istio.mixer.adapter.model.v1beta1.IPAddress (oneof)</a></code></td>
-<td>
-<p>Used for values of type IPAddress</p>
-
-</td>
-</tr>
-<tr id="istio.mixer.adapter.model.v1beta1.Value.timestamp_value" class="oneof">
-<td><code>timestampValue</code></td>
-<td><code><a href="#istio.mixer.adapter.model.v1beta1.TimeStamp">istio.mixer.adapter.model.v1beta1.TimeStamp (oneof)</a></code></td>
-<td>
-<p>Used for values of type TIMESTAMP</p>
-
-</td>
-</tr>
-<tr id="istio.mixer.adapter.model.v1beta1.Value.duration_value" class="oneof">
-<td><code>durationValue</code></td>
-<td><code><a href="#istio.mixer.adapter.model.v1beta1.Duration">istio.mixer.adapter.model.v1beta1.Duration (oneof)</a></code></td>
-<td>
-<p>Used for values of type DURATION</p>
-
-</td>
-</tr>
-<tr id="istio.mixer.adapter.model.v1beta1.Value.email_address_value" class="oneof">
-<td><code>emailAddressValue</code></td>
-<td><code><a href="#istio.mixer.adapter.model.v1beta1.EmailAddress">istio.mixer.adapter.model.v1beta1.EmailAddress (oneof)</a></code></td>
-<td>
-<p>Used for values of type EmailAddress</p>
-
-</td>
-</tr>
-<tr id="istio.mixer.adapter.model.v1beta1.Value.dns_name_value" class="oneof">
-<td><code>dnsNameValue</code></td>
-<td><code><a href="#istio.mixer.adapter.model.v1beta1.DNSName">istio.mixer.adapter.model.v1beta1.DNSName (oneof)</a></code></td>
-<td>
-<p>Used for values of type DNSName</p>
-
-</td>
-</tr>
-<tr id="istio.mixer.adapter.model.v1beta1.Value.uri_value" class="oneof">
-<td><code>uriValue</code></td>
-<td><code><a href="#istio.mixer.adapter.model.v1beta1.Uri">istio.mixer.adapter.model.v1beta1.Uri (oneof)</a></code></td>
-<td>
-<p>Used for values of type Uri</p>
+<p>Optional</p>
 
 </td>
 </tr>

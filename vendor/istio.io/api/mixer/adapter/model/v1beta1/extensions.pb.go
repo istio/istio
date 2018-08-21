@@ -19,13 +19,17 @@ var _ = math.Inf
 type TemplateVariety int32
 
 const (
-	// Makes the template applicable for Mixer's check calls.
+	// Makes the template applicable for Mixer's check calls. Instances of such template are created during
+	// report calls in Mixer and passed to the handlers based on the rule configurations.
 	TEMPLATE_VARIETY_CHECK TemplateVariety = 0
-	// Makes the template applicable for Mixer's report calls.
+	// Makes the template applicable for Mixer's report calls. Instances of such template are created during
+	// check calls in Mixer and passed to the handlers based on the rule configurations.
 	TEMPLATE_VARIETY_REPORT TemplateVariety = 1
-	// Makes the template applicable for Mixer's quota calls.
+	// Makes the template applicable for Mixer's quota calls. Instances of such template are created during
+	// quota check calls in Mixer and passed to the handlers based on the rule configurations.
 	TEMPLATE_VARIETY_QUOTA TemplateVariety = 2
-	// Makes the template applicable for Mixer's quota calls.
+	// Makes the template applicable for Mixer's attribute generation phase. Instances of such template are created during
+	// pre-processing attribute generation phase and passed to the handlers based on the rule configurations.
 	TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR TemplateVariety = 3
 )
 

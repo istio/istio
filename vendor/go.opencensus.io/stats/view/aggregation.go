@@ -15,21 +15,32 @@
 
 package view
 
-//go:generate stringer -type AggType
-
 // AggType represents the type of aggregation function used on a View.
 type AggType int
 
+// All available aggregation types.
 const (
 	AggTypeNone         AggType = iota // no aggregation; reserved for future use.
 	AggTypeCount                       // the count aggregation, see Count.
 	AggTypeSum                         // the sum aggregation, see Sum.
-	AggTypeMean                        // the mean aggregation, see Mean.
 	AggTypeDistribution                // the distribution aggregation, see Distribution.
+	AggTypeLastValue                   // the last value aggregation, see LastValue.
 )
 
+func (t AggType) String() string {
+	return aggTypeName[t]
+}
+
+var aggTypeName = map[AggType]string{
+	AggTypeNone:         "None",
+	AggTypeCount:        "Count",
+	AggTypeSum:          "Sum",
+	AggTypeDistribution: "Distribution",
+	AggTypeLastValue:    "LastValue",
+}
+
 // Aggregation represents a data aggregation method. Use one of the functions:
-// Count, Sum, Mean, or Distribution to construct an Aggregation.
+// Count, Sum, or Distribution to construct an Aggregation.
 type Aggregation struct {
 	Type    AggType   // Type is the AggType of this Aggregation.
 	Buckets []float64 // Buckets are the bucket endpoints if this Aggregation represents a distribution, see Distribution.
@@ -41,19 +52,13 @@ var (
 	aggCount = &Aggregation{
 		Type: AggTypeCount,
 		newData: func() AggregationData {
-			return newCountData(0)
+			return &CountData{}
 		},
 	}
 	aggSum = &Aggregation{
 		Type: AggTypeSum,
 		newData: func() AggregationData {
-			return newSumData(0)
-		},
-	}
-	aggMean = &Aggregation{
-		Type: AggTypeMean,
-		newData: func() AggregationData {
-			return newMeanData(0, 0)
+			return &SumData{}
 		},
 	}
 )
@@ -72,14 +77,6 @@ func Count() *Aggregation {
 // Sum.
 func Sum() *Aggregation {
 	return aggSum
-}
-
-// Mean indicates that collect and aggregate data and maintain
-// the mean value.
-// For example, average latency in milliseconds can be aggregated by using
-// Mean, although in most cases it is preferable to use a Distribution.
-func Mean() *Aggregation {
-	return aggMean
 }
 
 // Distribution indicates that the desired aggregation is
@@ -107,6 +104,17 @@ func Distribution(bounds ...float64) *Aggregation {
 		Buckets: bounds,
 		newData: func() AggregationData {
 			return newDistributionData(bounds)
+		},
+	}
+}
+
+// LastValue only reports the last value recorded using this
+// aggregation. All other measurements will be dropped.
+func LastValue() *Aggregation {
+	return &Aggregation{
+		Type: AggTypeLastValue,
+		newData: func() AggregationData {
+			return &LastValueData{}
 		},
 	}
 }

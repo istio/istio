@@ -27,15 +27,13 @@ func TestResolveJwksURIUsingOpenID(t *testing.T) {
 	r := newJwksResolver(JwtPubKeyExpireDuration, JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval)
 
 	ms, err := test.NewServer()
+	defer ms.Stop()
 	if err != nil {
 		t.Fatal("failed to create mock server")
 	}
 	if err := ms.Start(); err != nil {
 		t.Fatal("failed to start mock server")
 	}
-	defer func() {
-		_ = ms.Stop()
-	}()
 
 	mockCertURL := ms.URL + "/oauth2/v3/certs"
 	cases := []struct {
@@ -78,16 +76,13 @@ func TestSetAuthenticationPolicyJwksURIs(t *testing.T) {
 	r := newJwksResolver(JwtPubKeyExpireDuration, JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval)
 
 	ms, err := test.NewServer()
+	defer ms.Stop()
 	if err != nil {
 		t.Fatal("failed to create mock server")
 	}
-
 	if err := ms.Start(); err != nil {
 		t.Fatal("failed to start mock server")
 	}
-	defer func() {
-		_ = ms.Stop()
-	}()
 
 	mockCertURL := ms.URL + "/oauth2/v3/certs"
 
@@ -162,15 +157,13 @@ func TestGetPublicKey(t *testing.T) {
 	defer r.Close()
 
 	ms, err := test.NewServer()
+	defer ms.Stop()
 	if err != nil {
 		t.Fatal("failed to create mock server")
 	}
 	if err := ms.Start(); err != nil {
 		t.Fatal("failed to start mock server")
 	}
-	defer func() {
-		_ = ms.Stop()
-	}()
 
 	mockCertURL := ms.URL + "/oauth2/v3/certs"
 
@@ -208,15 +201,13 @@ func TestJwtPubKeyRefresh(t *testing.T) {
 	defer r.Close()
 
 	ms, err := test.NewServer()
+	defer ms.Stop()
 	if err != nil {
 		t.Fatal("failed to create mock server")
 	}
 	if err := ms.Start(); err != nil {
 		t.Fatal("failed to start mock server")
 	}
-	defer func() {
-		_ = ms.Stop()
-	}()
 
 	mockCertURL := ms.URL + "/oauth2/v3/certs"
 	cases := []struct {

@@ -39,31 +39,35 @@ import (
 )
 
 const (
-	istioDashboard = "addons/grafana/dashboards/istio-dashboard.json"
-	mixerDashboard = "addons/grafana/dashboards/mixer-dashboard.json"
-	pilotDashboard = "addons/grafana/dashboards/pilot-dashboard.json"
-	fortioYaml     = "tests/e2e/tests/dashboard/fortio-rules.yaml"
-	netcatYaml     = "tests/e2e/tests/dashboard/netcat-rules.yaml"
+	istioMeshDashboard = "addons/grafana/dashboards/istio-mesh-dashboard.json"
+	serviceDashboard   = "addons/grafana/dashboards/istio-service-dashboard.json"
+	workloadDashboard  = "addons/grafana/dashboards/istio-workload-dashboard.json"
+	mixerDashboard     = "addons/grafana/dashboards/mixer-dashboard.json"
+	pilotDashboard     = "addons/grafana/dashboards/pilot-dashboard.json"
+	galleyDashboard    = "addons/grafana/dashboards/galley-dashboard.json"
+	fortioYaml         = "tests/e2e/tests/dashboard/fortio-rules.yaml"
+	netcatYaml         = "tests/e2e/tests/dashboard/netcat-rules.yaml"
 
 	prometheusPort = "9090"
 )
 
 var (
 	replacer = strings.NewReplacer(
-		"$source_version", "unknown",
-		"$source", "istio-ingress.*",
-		"$http_destination", "echosrv.*",
-		"$destination_version", "v1.*",
+		"$workload", "echosrv.*",
+		"$service", "echosrv.*",
+		"$srcwl", "istio-ingressgateway.*",
 		"$adapter", "kubernetesenv",
 		`connection_mtls=\"true\"`, "",
 		`connection_mtls=\"false\"`, "",
+		`source_workload_namespace=~"$srcns"`, "",
+		`destination_workload_namespace=~"$dstns"`, "",
+		//		"$dstwl", "",
 		`\`, "",
 	)
 
 	tcpReplacer = strings.NewReplacer(
-		"$tcp_destination", "netcat-srv.*",
-		"istio-ingress", "netcat-client",
-		"unknown", "v1.*",
+		"echosrv", "netcat-srv",
+		"istio-ingressgateway", "netcat-client",
 	)
 
 	tc *testConfig
@@ -92,9 +96,12 @@ func TestDashboards(t *testing.T) {
 		metricHost string
 		metricPort int
 	}{
-		{"Istio", istioDashboard, func(queries []string) []string { return queries }, "istio-telemetry", 42422},
+		{"Istio", istioMeshDashboard, func(queries []string) []string { return queries }, "istio-telemetry", 42422},
+		// {"Service", serviceDashboard, func(queries []string) []string { return queries }, "istio-telemetry", 42422},
+		// {"Workload", workloadDashboard, func(queries []string) []string { return queries }, "istio-telemetry", 42422},
 		{"Mixer", mixerDashboard, mixerQueryFilterFn, "istio-telemetry", 9093},
 		{"Pilot", pilotDashboard, pilotQueryFilterFn, "istio-pilot", 9093},
+		{"Galley", galleyDashboard, galleyQueryFilterFn, "istio-galley", 9093},
 	}
 
 	for _, testCase := range cases {
@@ -148,7 +155,7 @@ func sendTrafficToCluster(gateway string) (*fhttp.HTTPRunnerResults, error) {
 			Out:        os.Stderr,
 		},
 		HTTPOptions: fhttp.HTTPOptions{
-			URL: gateway + "/fortio/?status=404:10,503:15&size=1024:10,512:5",
+			URL: gateway + "/?status=418:10,520:15&size=1024:10,512:5",
 		},
 		AllowInitialErrors: true,
 	}
@@ -251,6 +258,29 @@ func pilotQueryFilterFn(queries []string) []string {
 		if strings.Contains(query, "update_failure") {
 			continue
 		}
+		if strings.Contains(query, "pilot_xds_push_errors") {
+			continue
+		}
+		if strings.Contains(query, "_reject") {
+			continue
+		}
+		filtered = append(filtered, query)
+	}
+	return filtered
+}
+
+func galleyQueryFilterFn(queries []string) []string {
+	filtered := make([]string, 0, len(queries))
+	for _, query := range queries {
+		if strings.Contains(query, "validation_cert_key_update_errors") {
+			continue
+		}
+		if strings.Contains(query, "validation_failed") {
+			continue
+		}
+		if strings.Contains(query, "validation_http_error") {
+			continue
+		}
 		filtered = append(filtered, query)
 	}
 	return filtered
@@ -328,7 +358,7 @@ func (t *testConfig) Setup() (err error) {
 		return fmt.Errorf("mixer's proxy never was ready to serve traffic: %v", err)
 	}
 
-	gateway, errGw := tc.Kube.Ingress()
+	gateway, errGw := tc.Kube.IngressGateway()
 	if errGw != nil {
 		return errGw
 	}
@@ -470,9 +500,9 @@ func waitForMetricsInPrometheus(t *testing.T) error {
 	// These are sentinel metrics that will be used to evaluate if prometheus
 	// scraping has occurred and data is available via promQL.
 	queries := []string{
-		`round(sum(irate(istio_request_count[1m])), 0.001)`,
-		`sum(irate(istio_request_count{response_code=~"4.*"}[1m]))`,
-		`sum(irate(istio_request_count{response_code=~"5.*"}[1m]))`,
+		`round(sum(irate(istio_requests_total[1m])), 0.001)`,
+		`sum(irate(istio_requests_total{response_code=~"4.*"}[1m]))`,
+		`sum(irate(istio_requests_total{response_code=~"5.*"}[1m]))`,
 	}
 
 	for _, duration := range waitDurations {

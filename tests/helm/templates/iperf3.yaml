@@ -1,0 +1,61 @@
+---
+
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: iperf3
+spec:
+  hosts:
+  - "iperf3.{{ .Values.domain }}"
+  gateways:
+  - istio-gateway
+  tcp:
+  - match:
+    - port: 5201
+    route:
+    - destination:
+        host: iperf3.test.svc.cluster.local
+        port:
+          number: 5201
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: iperf3
+spec:
+  ports:
+  - name: tcp
+    port: 5201
+    targetPort: 5201
+  selector:
+    app: iperf3
+
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: iperf3
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: iperf3
+    spec:
+      containers:
+      - image: docker.io/networkstatic/iperf3
+        imagePullPolicy: IfNotPresent
+        name: iperf3
+        ports:
+        - containerPort: 5201
+        args:
+        - '-s'
+        - '-p'
+        - '5201'
+        resources:
+          requests:
+            cpu: 1000m
+            memory: "1G"
+          limits:
+            cpu: 1000m
+            memory: "2G"

@@ -354,7 +354,7 @@ type PersistentVolumeSource struct {
 	// FlexVolume represents a generic volume resource that is
 	// provisioned/attached using an exec based plugin.
 	// +optional
-	FlexVolume *FlexVolumeSource
+	FlexVolume *FlexPersistentVolumeSource
 	// Cinder represents a cinder volume attached and mounted on kubelets host machine
 	// +optional
 	Cinder *CinderVolumeSource
@@ -391,7 +391,7 @@ type PersistentVolumeSource struct {
 	// More info: https://releases.k8s.io/HEAD/examples/volumes/storageos/README.md
 	// +optional
 	StorageOS *StorageOSPersistentVolumeSource
-	// CSI (Container Storage Interface) represents storage that handled by an external CSI driver
+	// CSI (Container Storage Interface) represents storage that handled by an external CSI driver (Beta feature).
 	// +optional
 	CSI *CSIPersistentVolumeSource
 }
@@ -467,6 +467,16 @@ type PersistentVolumeSpec struct {
 	// This is an alpha feature and may change in the future.
 	// +optional
 	VolumeMode *PersistentVolumeMode
+	// NodeAffinity defines constraints that limit what nodes this volume can be accessed from.
+	// This field influences the scheduling of pods that use this volume.
+	// +optional
+	NodeAffinity *VolumeNodeAffinity
+}
+
+// VolumeNodeAffinity defines constraints that limit what nodes this volume can be accessed from.
+type VolumeNodeAffinity struct {
+	// Required specifies hard node constraints that must be met.
+	Required *NodeSelector
 }
 
 // PersistentVolumeReclaimPolicy describes a policy for end-of-life maintenance of persistent volumes
@@ -475,6 +485,7 @@ type PersistentVolumeReclaimPolicy string
 const (
 	// PersistentVolumeReclaimRecycle means the volume will be recycled back into the pool of unbound persistent volumes on release from its claim.
 	// The volume plugin must support Recycling.
+	// DEPRECATED: The PersistentVolumeReclaimRecycle called Recycle is being deprecated. See announcement here: https://groups.google.com/forum/#!topic/kubernetes-dev/uexugCza84I
 	PersistentVolumeReclaimRecycle PersistentVolumeReclaimPolicy = "Recycle"
 	// PersistentVolumeReclaimDelete means the volume will be deleted from Kubernetes on release from its claim.
 	// The volume plugin must support Deletion.
@@ -576,6 +587,8 @@ type PersistentVolumeClaimConditionType string
 const (
 	// An user trigger resize of pvc has been started
 	PersistentVolumeClaimResizing PersistentVolumeClaimConditionType = "Resizing"
+	// PersistentVolumeClaimFileSystemResizePending - controller resize is finished and a file system resize is pending on node
+	PersistentVolumeClaimFileSystemResizePending PersistentVolumeClaimConditionType = "FileSystemResizePending"
 )
 
 type PersistentVolumeClaimCondition struct {
@@ -865,6 +878,32 @@ type FCVolumeSource struct {
 	// Either WWIDs or TargetWWNs and Lun must be set, but not both simultaneously.
 	// +optional
 	WWIDs []string
+}
+
+// FlexPersistentVolumeSource represents a generic persistent volume resource that is
+// provisioned/attached using an exec based plugin.
+type FlexPersistentVolumeSource struct {
+	// Driver is the name of the driver to use for this volume.
+	Driver string
+	// Filesystem type to mount.
+	// Must be a filesystem type supported by the host operating system.
+	// Ex. "ext4", "xfs", "ntfs". The default filesystem depends on FlexVolume script.
+	// +optional
+	FSType string
+	// Optional: SecretRef is reference to the secret object containing
+	// sensitive information to pass to the plugin scripts. This may be
+	// empty if no secret object is specified. If the secret object
+	// contains more than one secret, all secrets are passed to the plugin
+	// scripts.
+	// +optional
+	SecretRef *SecretReference
+	// Optional: Defaults to false (read/write). ReadOnly here will force
+	// the ReadOnly setting in VolumeMounts.
+	// +optional
+	ReadOnly bool
+	// Optional: Extra driver options if any.
+	// +optional
+	Options map[string]string
 }
 
 // FlexVolume represents a generic volume resource that is
@@ -1574,7 +1613,7 @@ type LocalVolumeSource struct {
 	Path string
 }
 
-// Represents storage that is managed by an external CSI volume driver
+// Represents storage that is managed by an external CSI volume driver (Beta feature)
 type CSIPersistentVolumeSource struct {
 	// Driver is the name of the driver to use for this volume.
 	// Required.
@@ -1589,6 +1628,40 @@ type CSIPersistentVolumeSource struct {
 	// Defaults to false (read/write).
 	// +optional
 	ReadOnly bool
+
+	// Filesystem type to mount.
+	// Must be a filesystem type supported by the host operating system.
+	// Ex. "ext4", "xfs", "ntfs". Implicitly inferred to be "ext4" if unspecified.
+	// +optional
+	FSType string
+
+	// Attributes of the volume to publish.
+	// +optional
+	VolumeAttributes map[string]string
+
+	// ControllerPublishSecretRef is a reference to the secret object containing
+	// sensitive information to pass to the CSI driver to complete the CSI
+	// ControllerPublishVolume and ControllerUnpublishVolume calls.
+	// This field is optional, and  may be empty if no secret is required. If the
+	// secret object contains more than one secret, all secrets are passed.
+	// +optional
+	ControllerPublishSecretRef *SecretReference
+
+	// NodeStageSecretRef is a reference to the secret object containing sensitive
+	// information to pass to the CSI driver to complete the CSI NodeStageVolume
+	// and NodeStageVolume and NodeUnstageVolume calls.
+	// This field is optional, and  may be empty if no secret is required. If the
+	// secret object contains more than one secret, all secrets are passed.
+	// +optional
+	NodeStageSecretRef *SecretReference
+
+	// NodePublishSecretRef is a reference to the secret object containing
+	// sensitive information to pass to the CSI driver to complete the CSI
+	// NodePublishVolume and NodeUnpublishVolume calls.
+	// This field is optional, and  may be empty if no secret is required. If the
+	// secret object contains more than one secret, all secrets are passed.
+	// +optional
+	NodePublishSecretRef *SecretReference
 }
 
 // ContainerPort represents a network port in a single container
@@ -1629,8 +1702,7 @@ type VolumeMount struct {
 	// mountPropagation determines how mounts are propagated from the host
 	// to container and the other way around.
 	// When not set, MountPropagationHostToContainer is used.
-	// This field is alpha in 1.8 and can be reworked or removed in a future
-	// release.
+	// This field is beta in 1.10.
 	// +optional
 	MountPropagation *MountPropagationMode
 }
@@ -1639,6 +1711,12 @@ type VolumeMount struct {
 type MountPropagationMode string
 
 const (
+	// MountPropagationNone means that the volume in a container will
+	// not receive new mounts from the host or other containers, and filesystems
+	// mounted inside the container won't be propagated to the host or other
+	// containers.
+	// Note that this mode corresponds to "private" in Linux terminology.
+	MountPropagationNone MountPropagationMode = "None"
 	// MountPropagationHostToContainer means that the volume in a container will
 	// receive new mounts from the host or other containers, but filesystems
 	// mounted inside the container won't be propagated to the host or other
@@ -2338,13 +2416,13 @@ type PodAffinityTerm struct {
 	LabelSelector *metav1.LabelSelector
 	// namespaces specifies which namespaces the labelSelector applies to (matches against);
 	// null or empty list means "this pod's namespace"
+	// +optional
 	Namespaces []string
 	// This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
 	// the labelSelector in the specified namespaces, where co-located is defined as running on a node
 	// whose value of the label with key topologyKey matches that of any node on which any of the
 	// selected pods is running.
 	// Empty topologyKey is not allowed.
-	// +optional
 	TopologyKey string
 }
 
@@ -2542,9 +2620,10 @@ type PodSpec struct {
 	// file if specified. This is only valid for non-hostNetwork pods.
 	// +optional
 	HostAliases []HostAlias
-	// If specified, indicates the pod's priority. "SYSTEM" is a special keyword
-	// which indicates the highest priority. Any other name must be defined by
-	// creating a PriorityClass object with that name.
+	// If specified, indicates the pod's priority. "system-node-critical" and
+	// "system-cluster-critical" are two special keywords which indicate the
+	// highest priorities with the former being the highest priority. Any other
+	// name must be defined by creating a PriorityClass object with that name.
 	// If not specified, the pod priority will be default or zero if there is no
 	// default.
 	// +optional
@@ -2598,6 +2677,15 @@ type PodSecurityContext struct {
 	// +k8s:conversion-gen=false
 	// +optional
 	HostIPC bool
+	// Share a single process namespace between all of the containers in a pod.
+	// When this is set containers will be able to view and signal processes from other containers
+	// in the same pod, and the first process in each container will not be assigned PID 1.
+	// HostPID and ShareProcessNamespace cannot both be set.
+	// Optional: Default to false.
+	// This field is alpha-level and is honored only by servers that enable the PodShareProcessNamespace feature.
+	// +k8s:conversion-gen=false
+	// +optional
+	ShareProcessNamespace *bool
 	// The SELinux context to be applied to all containers.
 	// If unspecified, the container runtime will allocate a random SELinux context for each
 	// container.  May also be set in SecurityContext.  If set in
@@ -2612,12 +2700,20 @@ type PodSecurityContext struct {
 	// for that container.
 	// +optional
 	RunAsUser *int64
+	// The GID to run the entrypoint of the container process.
+	// Uses runtime default if unset.
+	// May also be set in SecurityContext.  If set in both SecurityContext and
+	// PodSecurityContext, the value specified in SecurityContext takes precedence
+	// for that container.
+	// +optional
+	RunAsGroup *int64
 	// Indicates that the container must run as a non-root user.
 	// If true, the Kubelet will validate the image at runtime to ensure that it
 	// does not run as UID 0 (root) and fail to start the container if it does.
 	// If unset or false, no such validation will be performed.
 	// May also be set in SecurityContext.  If set in both SecurityContext and
-	// PodSecurityContext, the value specified in SecurityContext takes precedence.
+	// PodSecurityContext, the value specified in SecurityContext takes precedence
+	// for that container.
 	// +optional
 	RunAsNonRoot *bool
 	// A list of groups applied to the first process run in each container, in addition
@@ -2692,6 +2788,13 @@ type PodStatus struct {
 	// A brief CamelCase message indicating details about why the pod is in this state. e.g. 'Evicted'
 	// +optional
 	Reason string
+	// nominatedNodeName is set when this pod preempts other pods on the node, but it cannot be
+	// scheduled right away as preemption victims receive their graceful termination periods.
+	// This field does not guarantee that the pod will be scheduled on this node. Scheduler may decide
+	// to place the pod elsewhere if other nodes become available sooner. Scheduler may also decide to
+	// give the resources on this node to a higher priority pod that is created after preemption.
+	// +optional
+	NominatedNodeName string
 
 	// +optional
 	HostIP string
@@ -3490,8 +3593,8 @@ const (
 	NodeDiskPressure NodeConditionType = "DiskPressure"
 	// NodeNetworkUnavailable means that network for the node is not correctly configured.
 	NodeNetworkUnavailable NodeConditionType = "NetworkUnavailable"
-	// NodeConfigOK indicates whether the kubelet is correctly configured
-	NodeConfigOK NodeConditionType = "ConfigOK"
+	// NodeKubeletConfigOk indicates whether the kubelet is correctly configured
+	NodeKubeletConfigOk NodeConditionType = "KubeletConfigOk"
 )
 
 type NodeCondition struct {
@@ -4022,7 +4125,7 @@ type Event struct {
 type EventSeries struct {
 	// Number of occurrences in this series up to the last heartbeat time
 	Count int32
-	// Time of the last occurence observed
+	// Time of the last occurrence observed
 	LastObservedTime metav1.MicroTime
 	// State of this Series: Ongoing or Finished
 	State EventSeriesState
@@ -4159,6 +4262,8 @@ const (
 	// HugePages request, in bytes. (500Gi = 500GiB = 500 * 1024 * 1024 * 1024)
 	// As burst is not supported for HugePages, we would only quota its request, and ignore the limit.
 	ResourceRequestsHugePagesPrefix = "requests.hugepages-"
+	// Default resource requests prefix
+	DefaultResourceRequestsPrefix = "requests."
 )
 
 // A ResourceQuotaScope defines a filter that must match each object tracked by a quota
@@ -4357,8 +4462,21 @@ type ConfigMap struct {
 
 	// Data contains the configuration data.
 	// Each key must consist of alphanumeric characters, '-', '_' or '.'.
+	// Values with non-UTF-8 byte sequences must use the BinaryData field.
+	// The keys stored in Data must not overlap with the keys in
+	// the BinaryData field, this is enforced during validation process.
 	// +optional
 	Data map[string]string
+
+	// BinaryData contains the binary data.
+	// Each key must consist of alphanumeric characters, '-', '_' or '.'.
+	// BinaryData can contain byte sequences that are not in the UTF-8 range.
+	// The keys stored in BinaryData must not overlap with the ones in
+	// the Data field, this is enforced during validation process.
+	// Using this field will require 1.10+ apiserver and
+	// kubelet.
+	// +optional
+	BinaryData map[string][]byte
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -4480,6 +4598,12 @@ type SecurityContext struct {
 	// PodSecurityContext, the value specified in SecurityContext takes precedence.
 	// +optional
 	RunAsUser *int64
+	// The GID to run the entrypoint of the container process.
+	// Uses runtime default if unset.
+	// May also be set in PodSecurityContext.  If set in both SecurityContext and
+	// PodSecurityContext, the value specified in SecurityContext takes precedence.
+	// +optional
+	RunAsGroup *int64
 	// Indicates that the container must run as a non-root user.
 	// If true, the Kubelet will validate the image at runtime to ensure that it
 	// does not run as UID 0 (root) and fail to start the container if it does.

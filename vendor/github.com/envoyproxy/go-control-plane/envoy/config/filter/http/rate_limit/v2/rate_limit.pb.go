@@ -21,7 +21,7 @@ import _ "github.com/gogo/protobuf/gogoproto"
 
 import time "time"
 
-import github_com_gogo_protobuf_types "github.com/gogo/protobuf/types"
+import types "github.com/gogo/protobuf/types"
 
 import io "io"
 
@@ -130,8 +130,8 @@ func (m *RateLimit) MarshalTo(dAtA []byte) (int, error) {
 	if m.Timeout != nil {
 		dAtA[i] = 0x22
 		i++
-		i = encodeVarintRateLimit(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(*m.Timeout)))
-		n1, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(*m.Timeout, dAtA[i:])
+		i = encodeVarintRateLimit(dAtA, i, uint64(types.SizeOfStdDuration(*m.Timeout)))
+		n1, err := types.StdDurationMarshalTo(*m.Timeout, dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
@@ -164,7 +164,7 @@ func (m *RateLimit) Size() (n int) {
 		n += 1 + l + sovRateLimit(uint64(l))
 	}
 	if m.Timeout != nil {
-		l = github_com_gogo_protobuf_types.SizeOfStdDuration(*m.Timeout)
+		l = types.SizeOfStdDuration(*m.Timeout)
 		n += 1 + l + sovRateLimit(uint64(l))
 	}
 	return n
@@ -318,7 +318,7 @@ func (m *RateLimit) Unmarshal(dAtA []byte) error {
 			if m.Timeout == nil {
 				m.Timeout = new(time.Duration)
 			}
-			if err := github_com_gogo_protobuf_types.StdDurationUnmarshal(m.Timeout, dAtA[iNdEx:postIndex]); err != nil {
+			if err := types.StdDurationUnmarshal(m.Timeout, dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex

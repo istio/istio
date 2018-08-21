@@ -61,30 +61,15 @@ func Find(name string) (v *View) {
 	return resp.v
 }
 
-// Deprecated: Registering is a no-op. Use the Subscribe function.
-func Register(_ *View) error {
-	return nil
-}
-
-// Deprecated: Unregistering is a no-op, see: Unsubscribe.
-func Unregister(_ *View) error {
-	return nil
-}
-
-// Deprecated: Use the Subscribe function.
-func (v *View) Subscribe() error {
-	return Subscribe(v)
-}
-
-// Subscribe begins collecting data for the given views.
+// Register begins collecting data for the given views.
 // Once a view is subscribed, it reports data to the registered exporters.
-func Subscribe(views ...*View) error {
+func Register(views ...*View) error {
 	for _, v := range views {
 		if err := v.canonicalize(); err != nil {
 			return err
 		}
 	}
-	req := &subscribeToViewReq{
+	req := &registerViewReq{
 		views: views,
 		err:   make(chan error),
 	}
@@ -92,30 +77,21 @@ func Subscribe(views ...*View) error {
 	return <-req.err
 }
 
-// Unsubscribe the given views. Data will not longer be exported for these views
-// after Unsubscribe returns.
-// It is not necessary to unsubscribe from views you expect to collect for the
+// Unregister the given views. Data will not longer be exported for these views
+// after Unregister returns.
+// It is not necessary to unregister from views you expect to collect for the
 // duration of your program execution.
-func Unsubscribe(views ...*View) {
+func Unregister(views ...*View) {
 	names := make([]string, len(views))
 	for i := range views {
 		names[i] = views[i].Name
 	}
-	req := &unsubscribeFromViewReq{
+	req := &unregisterFromViewReq{
 		views: names,
 		done:  make(chan struct{}),
 	}
 	defaultWorker.c <- req
 	<-req.done
-}
-
-// Deprecated: Use the Unsubscribe function instead.
-func (v *View) Unsubscribe() error {
-	if v == nil {
-		return nil
-	}
-	Unsubscribe(v)
-	return nil
 }
 
 func RetrieveData(viewName string) ([]*Row, error) {
@@ -167,9 +143,7 @@ func (w *worker) start() {
 	for {
 		select {
 		case cmd := <-w.c:
-			if cmd != nil {
-				cmd.handleCommand(w)
-			}
+			cmd.handleCommand(w)
 		case <-w.timer.C:
 			w.reportUsage(time.Now())
 		case <-w.quit:

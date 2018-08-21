@@ -27,7 +27,8 @@ import (
 )
 
 type (
-	server interface {
+	// Server presents prometheus server endpoint
+	Server interface {
 		io.Closer
 
 		Start(adapter.Env, http.Handler) error

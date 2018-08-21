@@ -1,10 +1,7 @@
-{{- if .Values.global.rbacEnabled }}
----
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole
 metadata:
   name: prometheus-{{ .Release.Namespace }}
-  namespace: {{ .Release.Namespace }}
 rules:
 - apiGroups: [""]
   resources:
@@ -20,19 +17,3 @@ rules:
   verbs: ["get"]
 - nonResourceURLs: ["/metrics"]
   verbs: ["get"]
----
-apiVersion: rbac.authorization.k8s.io/v1beta1
-kind: ClusterRoleBinding
-metadata:
-  name: prometheus-{{ .Release.Namespace }}
-  namespace: {{ .Release.Namespace }}
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: prometheus-{{ .Release.Namespace }}
-subjects:
-- kind: ServiceAccount
-  name: prometheus
-  namespace: {{ .Release.Namespace }}
----
-{{ end }}

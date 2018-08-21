@@ -1,0 +1,114 @@
+# 2 fortio servers
+# v1 has 1 CPU, v2 has 4 CPUs
+# Services for combined app, and service for individual components
+# This creates the following targets:
+# - v1.fortio.test.svc.cluster.local - dest rule
+# - v2.fortio.test.svc.cluster.local - dest rule
+# - fortio.test.svc.cluster.local    - service
+# - fortiov1.test.svc.cluster.local  - service
+# - fortiov2.test.svc.cluster.local  - service
+
+
+# Combines both fortio server instances, using app: fortio label
+apiVersion: v1
+kind: Service
+metadata:
+  name: fortio
+spec:
+  ports:
+  - port: 8080
+    name: http-echo
+  - port: 8079
+    name: grpc-ping
+  selector:
+    app: fortio
+---
+
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: fortio
+spec:
+  hosts:
+  - fortio.{{ .Values.domain }}
+  http:
+  - route:
+    # service selects multiple deployments, has 2 subsets
+    - destination:
+        host: fortio.test.svc.cluster.local
+        port:
+          number: 8080
+
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: fortio
+spec:
+  host: fortio
+  subsets:
+    - name: v1
+      labels:
+        version: v1
+    - name: v2
+      labels:
+        version: v2
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: fortiov1
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: fortio
+        name: fortiov1
+        version: v1
+    spec:
+      containers:
+      - name: echosrv
+        image: {{ .Values.fortioImage }}
+        ports:
+         - containerPort: 8080
+         - containerPort: 8079
+        args:
+          - server
+        resources:
+          requests:
+            cpu: 800m
+            memory: "1G"
+          limits:
+            cpu: 1000m
+            memory: "1G"
+---
+apiVersion: apps/v1beta1
+# 2 pods for service inside the cluster, will get istio injected
+kind: Deployment
+metadata:
+  name: fortiov2
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: fortio
+        name: fortiov2
+        version: v2
+    spec:
+      containers:
+      - name: echosrv
+        image: {{ .Values.fortioImage }}
+        ports:
+         - containerPort: 8080
+         - containerPort: 8079
+        args:
+          - server
+        resources:
+          requests:
+            cpu: 4000m
+            memory: "1G"
+          limits:
+            cpu: 4000m
+            memory: "1G"

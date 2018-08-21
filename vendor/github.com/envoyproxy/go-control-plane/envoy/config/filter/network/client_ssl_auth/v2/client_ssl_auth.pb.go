@@ -15,14 +15,14 @@ package v2
 import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import envoy_api_v2_core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+import envoy_api_v2_core1 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 import _ "github.com/gogo/protobuf/types"
 import _ "github.com/lyft/protoc-gen-validate/validate"
 import _ "github.com/gogo/protobuf/gogoproto"
 
 import time "time"
 
-import github_com_gogo_protobuf_types "github.com/gogo/protobuf/types"
+import types "github.com/gogo/protobuf/types"
 
 import io "io"
 
@@ -55,7 +55,7 @@ type ClientSSLAuth struct {
 	// An optional list of IP address and subnet masks that should be white
 	// listed for access by the filter. If no list is provided, there is no
 	// IP white list.
-	IpWhiteList []*envoy_api_v2_core.CidrRange `protobuf:"bytes,4,rep,name=ip_white_list,json=ipWhiteList" json:"ip_white_list,omitempty"`
+	IpWhiteList []*envoy_api_v2_core1.CidrRange `protobuf:"bytes,4,rep,name=ip_white_list,json=ipWhiteList" json:"ip_white_list,omitempty"`
 }
 
 func (m *ClientSSLAuth) Reset()                    { *m = ClientSSLAuth{} }
@@ -84,7 +84,7 @@ func (m *ClientSSLAuth) GetRefreshDelay() *time.Duration {
 	return nil
 }
 
-func (m *ClientSSLAuth) GetIpWhiteList() []*envoy_api_v2_core.CidrRange {
+func (m *ClientSSLAuth) GetIpWhiteList() []*envoy_api_v2_core1.CidrRange {
 	if m != nil {
 		return m.IpWhiteList
 	}
@@ -124,8 +124,8 @@ func (m *ClientSSLAuth) MarshalTo(dAtA []byte) (int, error) {
 	if m.RefreshDelay != nil {
 		dAtA[i] = 0x1a
 		i++
-		i = encodeVarintClientSslAuth(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(*m.RefreshDelay)))
-		n1, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(*m.RefreshDelay, dAtA[i:])
+		i = encodeVarintClientSslAuth(dAtA, i, uint64(types.SizeOfStdDuration(*m.RefreshDelay)))
+		n1, err := types.StdDurationMarshalTo(*m.RefreshDelay, dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
@@ -167,7 +167,7 @@ func (m *ClientSSLAuth) Size() (n int) {
 		n += 1 + l + sovClientSslAuth(uint64(l))
 	}
 	if m.RefreshDelay != nil {
-		l = github_com_gogo_protobuf_types.SizeOfStdDuration(*m.RefreshDelay)
+		l = types.SizeOfStdDuration(*m.RefreshDelay)
 		n += 1 + l + sovClientSslAuth(uint64(l))
 	}
 	if len(m.IpWhiteList) > 0 {
@@ -308,7 +308,7 @@ func (m *ClientSSLAuth) Unmarshal(dAtA []byte) error {
 			if m.RefreshDelay == nil {
 				m.RefreshDelay = new(time.Duration)
 			}
-			if err := github_com_gogo_protobuf_types.StdDurationUnmarshal(m.RefreshDelay, dAtA[iNdEx:postIndex]); err != nil {
+			if err := types.StdDurationUnmarshal(m.RefreshDelay, dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -338,7 +338,7 @@ func (m *ClientSSLAuth) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.IpWhiteList = append(m.IpWhiteList, &envoy_api_v2_core.CidrRange{})
+			m.IpWhiteList = append(m.IpWhiteList, &envoy_api_v2_core1.CidrRange{})
 			if err := m.IpWhiteList[len(m.IpWhiteList)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}

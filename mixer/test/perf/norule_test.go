@@ -29,41 +29,37 @@ import (
 var baseNoRuleReportSetup = perf.Setup{
 	Config: perf.Config{
 		// Global setup is empty
-		Global:                  ``,
-		Service:                 minimalServiceConfig,
-		IdentityAttribute:       "destination.service",
-		IdentityAttributeDomain: "svc.cluster.local",
-		SingleThreaded:          true,
+		Global:         ``,
+		Service:        minimalServiceConfig,
+		SingleThreaded: true,
 	},
 
-	Load: perf.Load{
+	Loads: []perf.Load{{
 		Multiplier: 1,
 		Requests: []perf.Request{
 			perf.BasicReport{
 				Attributes: map[string]interface{}{},
 			},
 		},
-	},
+	}},
 }
 
 var baseNoRuleCheckSetup = perf.Setup{
 	Config: perf.Config{
 		// Global setup is empty
-		Global:                  ``,
-		Service:                 minimalServiceConfig,
-		IdentityAttribute:       "destination.service",
-		IdentityAttributeDomain: "svc.cluster.local",
-		SingleThreaded:          true,
+		Global:         ``,
+		Service:        minimalServiceConfig,
+		SingleThreaded: true,
 	},
 
-	Load: perf.Load{
+	Loads: []perf.Load{{
 		Multiplier: 1,
 		Requests: []perf.Request{
 			perf.BasicCheck{
 				Attributes: map[string]interface{}{},
 			},
 		},
-	},
+	}},
 }
 
 func Benchmark_NoRule_Report(b *testing.B) {

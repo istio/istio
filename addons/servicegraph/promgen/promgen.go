@@ -21,7 +21,6 @@ import (
 	"log"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/prometheus/client_golang/api"
@@ -31,8 +30,8 @@ import (
 	"istio.io/istio/addons/servicegraph"
 )
 
-const reqsFmt = "sum(rate(istio_request_count[%s])) by (source_service, destination_service, source_version, destination_version)"
-const tcpFmt = "sum(rate(istio_tcp_bytes_received[%s])) by (source_service, destination_service, source_version, destination_version)"
+const reqsFmt = "sum(rate(istio_requests_total{reporter=\"destination\"}[%s])) by (source_workload, destination_workload, source_app, destination_app)"
+const tcpFmt = "sum(rate(istio_tcp_received_bytes_total{reporter=\"destination\"}[%s])) by (source_workload, destination_workload, source_app, destination_app)"
 const emptyFilter = " > 0"
 
 type genOpts struct {
@@ -137,15 +136,15 @@ func extractGraph(api v1.API, query, label string) (*servicegraph.Dynamic, error
 		for _, sample := range matrix {
 			// todo: add error checking here
 			metric := sample.Metric
-			src := strings.Replace(string(metric["source_service"]), ".svc.cluster.local", "", -1)
-			srcVer := string(metric["source_version"])
-			dst := strings.Replace(string(metric["destination_service"]), ".svc.cluster.local", "", -1)
-			dstVer := string(metric["destination_version"])
+			srcWorkload := string(metric["source_workload"])
+			src := string(metric["source_app"])
+			dstWorkload := string(metric["destination_workload"])
+			dst := string(metric["destination_app"])
 
 			value := sample.Value
 			d.AddEdge(
-				src+" ("+srcVer+")",
-				dst+" ("+dstVer+")",
+				src+" ("+srcWorkload+")",
+				dst+" ("+dstWorkload+")",
 				servicegraph.Attributes{
 					label: strconv.FormatFloat(float64(value), 'f', 6, 64),
 				})

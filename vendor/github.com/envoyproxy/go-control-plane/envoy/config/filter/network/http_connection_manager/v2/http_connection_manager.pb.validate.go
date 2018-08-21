@@ -123,6 +123,16 @@ func (m *HttpConnectionManager) Validate() error {
 		}
 	}
 
+	if v, ok := interface{}(m.GetStreamIdleTimeout()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return HttpConnectionManagerValidationError{
+				Field:  "StreamIdleTimeout",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
 	if v, ok := interface{}(m.GetDrainTimeout()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HttpConnectionManagerValidationError{
@@ -160,6 +170,10 @@ func (m *HttpConnectionManager) Validate() error {
 
 	// no validation rules for XffNumTrustedHops
 
+	// no validation rules for SkipXffAppend
+
+	// no validation rules for Via
+
 	if v, ok := interface{}(m.GetGenerateRequestId()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HttpConnectionManagerValidationError{
@@ -190,6 +204,21 @@ func (m *HttpConnectionManager) Validate() error {
 	// no validation rules for Proxy_100Continue
 
 	// no validation rules for RepresentIpv4RemoteAddressAsIpv4MappedIpv6
+
+	for idx, item := range m.GetUpgradeConfigs() {
+		_, _ = idx, item
+
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return HttpConnectionManagerValidationError{
+					Field:  fmt.Sprintf("UpgradeConfigs[%v]", idx),
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
+	}
 
 	switch m.RouteSpecifier.(type) {
 
@@ -484,16 +513,6 @@ func (m *HttpConnectionManager_SetCurrentClientCertDetails) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetSan()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return HttpConnectionManager_SetCurrentClientCertDetailsValidationError{
-				Field:  "San",
-				Reason: "embedded message failed validation",
-				Cause:  err,
-			}
-		}
-	}
-
 	// no validation rules for Cert
 
 	// no validation rules for Dns
@@ -535,6 +554,66 @@ func (e HttpConnectionManager_SetCurrentClientCertDetailsValidationError) Error(
 }
 
 var _ error = HttpConnectionManager_SetCurrentClientCertDetailsValidationError{}
+
+// Validate checks the field values on HttpConnectionManager_UpgradeConfig with
+// the rules defined in the proto definition for this message. If any rules
+// are violated, an error is returned.
+func (m *HttpConnectionManager_UpgradeConfig) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	// no validation rules for UpgradeType
+
+	for idx, item := range m.GetFilters() {
+		_, _ = idx, item
+
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return HttpConnectionManager_UpgradeConfigValidationError{
+					Field:  fmt.Sprintf("Filters[%v]", idx),
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
+	}
+
+	return nil
+}
+
+// HttpConnectionManager_UpgradeConfigValidationError is the validation error
+// returned by HttpConnectionManager_UpgradeConfig.Validate if the designated
+// constraints aren't met.
+type HttpConnectionManager_UpgradeConfigValidationError struct {
+	Field  string
+	Reason string
+	Cause  error
+	Key    bool
+}
+
+// Error satisfies the builtin error interface
+func (e HttpConnectionManager_UpgradeConfigValidationError) Error() string {
+	cause := ""
+	if e.Cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
+	}
+
+	key := ""
+	if e.Key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sHttpConnectionManager_UpgradeConfig.%s: %s%s",
+		key,
+		e.Field,
+		e.Reason,
+		cause)
+}
+
+var _ error = HttpConnectionManager_UpgradeConfigValidationError{}
 
 // Validate checks the field values on HttpFilter_DeprecatedV1 with the rules
 // defined in the proto definition for this message. If any rules are

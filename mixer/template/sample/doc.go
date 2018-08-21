@@ -15,16 +15,16 @@
 // Codegen blocks
 
 // apa
-//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -t mixer/template/sample/apa/Apa.proto
+//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh  -d false -t mixer/template/sample/apa/Apa.proto
 
 // check
-//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -t mixer/template/sample/check/CheckTesterTemplate.proto
+//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh  -d false -t mixer/template/sample/check/CheckTesterTemplate.proto
 
 // quota
-//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -t mixer/template/sample/quota/QuotaTesterTemplate.proto
+//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh  -d false -t mixer/template/sample/quota/QuotaTesterTemplate.proto
 
 // report
-//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -t mixer/template/sample/report/ReportTesterTemplate.proto
+//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh  -d false -t mixer/template/sample/report/ReportTesterTemplate.proto
 
 // template.gen.go
 // nolint

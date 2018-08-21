@@ -16,7 +16,11 @@ spec:
         app: servicegraph
       annotations:
         sidecar.istio.io/inject: "false"
+        scheduler.alpha.kubernetes.io/critical-pod: ""
     spec:
+{{- if .Values.global.priorityClassName }}
+      priorityClassName: "{{ .Values.global.priorityClassName }}"
+{{- end }}
       containers:
         - name: servicegraph
           image: "{{ .Values.global.hub }}{{ .Values.global.hub_img_delim }}{{ .Values.image }}{{ .Values.global.img_tag_delim }}{{ .Values.global.tag }}"
@@ -34,6 +38,10 @@ spec:
               path: /graph
               port: {{ .Values.service.internalPort }}
           resources:
+{{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 12 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | indent 12 }}
+{{- end }}
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}

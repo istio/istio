@@ -14,9 +14,8 @@ static_resources:
         max_retries: 3
     connect_timeout: 1.000s
     hosts:
-    - socket_address:
-        address: 127.0.0.1
-        port_value: 9092
+    - pipe:
+        path: /sock/mixer.socket
     http2_protocol_options: {}
     name: in.9092
   - connect_timeout: 1.000s
@@ -34,10 +33,6 @@ static_resources:
     filter_chains:
     - filters:
       - config:
-          access_log:
-          - config:
-              path: /dev/stdout
-            name: envoy.file_access_log
           codec_type: HTTP2
           http2_protocol_options:
             max_concurrent_streams: 1073741824
@@ -55,12 +50,26 @@ static_resources:
                     attributes:
                       destination.service:
                         string_value: istio-telemetry.{{ .PodNamespace }}.svc.cluster.local
+                      destination.service.host:
+                        string_value: istio-telemetry.{{ .PodNamespace }}.svc.cluster.local
+                      destination.service.uid:
+                        string_value: istio://{{ .PodNamespace }}/services/istio-telemetry
+                      destination.service.name:
+                        string_value: istio-telemetry
+                      destination.service.namespace:
+                        string_value: {{ .PodNamespace }}
                       destination.uid:
                         string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
+                      destination.namespace:
+                        string_value: {{.PodNamespace }}
                       destination.ip:
                         bytes_value: {{ .PodIP }}
                       destination.port:
                         int64_value: 15004
+                      context.reporter.kind:
+                        string_value: inbound
+                      context.reporter.uid:
+                        string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
               transport:
                 check_cluster: mixer_check_server
                 report_cluster: in.9092
@@ -106,10 +115,6 @@ static_resources:
     filter_chains:
     - filters:
       - config:
-          access_log:
-          - config:
-              path: /dev/stdout
-            name: envoy.file_access_log
           codec_type: HTTP2
           http2_protocol_options:
             max_concurrent_streams: 1073741824
@@ -127,12 +132,26 @@ static_resources:
                     attributes:
                       destination.service:
                         string_value: istio-telemetry.{{ .PodNamespace }}.svc.cluster.local
+                      destination.service.host:
+                        string_value: istio-telemetry.{{ .PodNamespace }}.svc.cluster.local
+                      destination.service.uid:
+                        string_value: istio://{{ .PodNamespace }}/services/istio-telemetry
+                      destination.service.name:
+                        string_value: istio-telemetry
+                      destination.service.namespace:
+                        string_value: {{ .PodNamespace }}
                       destination.uid:
                         string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
+                      destination.namespace:
+                        string_value: {{.PodNamespace }}
                       destination.ip:
                         bytes_value: {{ .PodIP }}
                       destination.port:
                         int64_value: 9091
+                      context.reporter.kind:
+                        string_value: inbound
+                      context.reporter.uid:
+                        string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
               transport:
                 check_cluster: mixer_check_server
                 report_cluster: in.9092

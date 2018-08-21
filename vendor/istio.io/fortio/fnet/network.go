@@ -145,7 +145,8 @@ func Proxy(port string, dest *net.TCPAddr) *net.TCPAddr {
 				log.Critf("Proxy: error accepting: %v", err) // will this loop with error?
 			} else {
 				tcpConn := conn.(*net.TCPConn)
-				log.LogVf("Proxy: Accepted proxy connection from %v for %v", conn.RemoteAddr(), dest)
+				log.LogVf("Proxy: Accepted proxy connection from %v -> %v (for listener %v)",
+					conn.RemoteAddr(), conn.LocalAddr(), dest)
 				// TODO limit number of go request, use worker pool, etc...
 				go handleProxyRequest(tcpConn, dest)
 			}
@@ -158,4 +159,14 @@ func Proxy(port string, dest *net.TCPAddr) *net.TCPAddr {
 // all traffic to destination (host:port)
 func ProxyToDestination(listenPort string, destination string) *net.TCPAddr {
 	return Proxy(listenPort, ResolveDestination(destination))
+}
+
+// NormalizeHostPort generates host:port string for the address or uses localhost instead of [::]
+// when the original port binding input didn't specify an address
+func NormalizeHostPort(inputPort string, addr *net.TCPAddr) string {
+	urlHostPort := addr.String()
+	if strings.HasPrefix(inputPort, ":") || !strings.Contains(inputPort, ":") {
+		urlHostPort = fmt.Sprintf("localhost:%d", addr.Port)
+	}
+	return urlHostPort
 }

@@ -12,7 +12,7 @@ import _ "github.com/gogo/protobuf/gogoproto"
 
 import time "time"
 
-import github_com_gogo_protobuf_types "github.com/gogo/protobuf/types"
+import types "github.com/gogo/protobuf/types"
 
 import io "io"
 
@@ -58,7 +58,7 @@ func (ApiConfigSource_ApiType) EnumDescriptor() ([]byte, []int) {
 // will use to fetch an xDS API.
 type ApiConfigSource struct {
 	ApiType ApiConfigSource_ApiType `protobuf:"varint,1,opt,name=api_type,json=apiType,proto3,enum=envoy.api.v2.core.ApiConfigSource_ApiType" json:"api_type,omitempty"`
-	// Multiple cluster names may be provided for REST_LEGACY/REST. If > 1
+	// Cluster names should be used only with REST_LEGACY/REST. If > 1
 	// cluster is defined, clusters will be cycled through if any kind of failure
 	// occurs.
 	//
@@ -69,11 +69,6 @@ type ApiConfigSource struct {
 	ClusterNames []string `protobuf:"bytes,2,rep,name=cluster_names,json=clusterNames" json:"cluster_names,omitempty"`
 	// Multiple gRPC services be provided for GRPC. If > 1 cluster is defined,
 	// services will be cycled through if any kind of failure occurs.
-	//
-	// .. note::
-	//
-	//  If a gRPC service points to a ``cluster_name``, it must be statically
-	//  defined and its type must not be ``EDS``.
 	GrpcServices []*GrpcService `protobuf:"bytes,4,rep,name=grpc_services,json=grpcServices" json:"grpc_services,omitempty"`
 	// For REST APIs, the delay between successive polls.
 	RefreshDelay *time.Duration `protobuf:"bytes,3,opt,name=refresh_delay,json=refreshDelay,stdduration" json:"refresh_delay,omitempty"`
@@ -290,10 +285,7 @@ func init() {
 }
 func (this *ApiConfigSource) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*ApiConfigSource)
@@ -306,10 +298,7 @@ func (this *ApiConfigSource) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -345,10 +334,7 @@ func (this *ApiConfigSource) Equal(that interface{}) bool {
 }
 func (this *AggregatedConfigSource) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*AggregatedConfigSource)
@@ -361,10 +347,7 @@ func (this *AggregatedConfigSource) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -372,10 +355,7 @@ func (this *AggregatedConfigSource) Equal(that interface{}) bool {
 }
 func (this *ConfigSource) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*ConfigSource)
@@ -388,10 +368,7 @@ func (this *ConfigSource) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -408,10 +385,7 @@ func (this *ConfigSource) Equal(that interface{}) bool {
 }
 func (this *ConfigSource_Path) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*ConfigSource_Path)
@@ -424,10 +398,7 @@ func (this *ConfigSource_Path) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -438,10 +409,7 @@ func (this *ConfigSource_Path) Equal(that interface{}) bool {
 }
 func (this *ConfigSource_ApiConfigSource) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*ConfigSource_ApiConfigSource)
@@ -454,10 +422,7 @@ func (this *ConfigSource_ApiConfigSource) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -468,10 +433,7 @@ func (this *ConfigSource_ApiConfigSource) Equal(that interface{}) bool {
 }
 func (this *ConfigSource_Ads) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*ConfigSource_Ads)
@@ -484,10 +446,7 @@ func (this *ConfigSource_Ads) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -534,8 +493,8 @@ func (m *ApiConfigSource) MarshalTo(dAtA []byte) (int, error) {
 	if m.RefreshDelay != nil {
 		dAtA[i] = 0x1a
 		i++
-		i = encodeVarintConfigSource(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(*m.RefreshDelay)))
-		n1, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(*m.RefreshDelay, dAtA[i:])
+		i = encodeVarintConfigSource(dAtA, i, uint64(types.SizeOfStdDuration(*m.RefreshDelay)))
+		n1, err := types.StdDurationMarshalTo(*m.RefreshDelay, dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
@@ -657,7 +616,7 @@ func (m *ApiConfigSource) Size() (n int) {
 		}
 	}
 	if m.RefreshDelay != nil {
-		l = github_com_gogo_protobuf_types.SizeOfStdDuration(*m.RefreshDelay)
+		l = types.SizeOfStdDuration(*m.RefreshDelay)
 		n += 1 + l + sovConfigSource(uint64(l))
 	}
 	if len(m.GrpcServices) > 0 {
@@ -829,7 +788,7 @@ func (m *ApiConfigSource) Unmarshal(dAtA []byte) error {
 			if m.RefreshDelay == nil {
 				m.RefreshDelay = new(time.Duration)
 			}
-			if err := github_com_gogo_protobuf_types.StdDurationUnmarshal(m.RefreshDelay, dAtA[iNdEx:postIndex]); err != nil {
+			if err := types.StdDurationUnmarshal(m.RefreshDelay, dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex

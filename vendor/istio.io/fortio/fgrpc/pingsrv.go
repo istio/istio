@@ -22,6 +22,7 @@ import (
 
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/reflection"
@@ -56,7 +57,7 @@ func (s *pingSrv) Ping(c context.Context, in *PingMessage) (*PingMessage, error)
 // get a dynamic server). Pass the healthServiceName to use for the
 // grpc service name health check (or pass DefaultHealthServiceName)
 // to be marked as SERVING. Pass maxConcurrentStreams > 0 to set that option.
-func PingServer(port string, healthServiceName string, maxConcurrentStreams uint32) int {
+func PingServer(port, cert, key, healthServiceName string, maxConcurrentStreams uint32) int {
 	socket, addr := fnet.Listen("grpc '"+healthServiceName+"'", port)
 	if addr == nil {
 		return -1
@@ -65,6 +66,15 @@ func PingServer(port string, healthServiceName string, maxConcurrentStreams uint
 	if maxConcurrentStreams > 0 {
 		log.Infof("Setting grpc.MaxConcurrentStreams server to %d", maxConcurrentStreams)
 		grpcOptions = append(grpcOptions, grpc.MaxConcurrentStreams(maxConcurrentStreams))
+	}
+	if cert != "" && key != "" {
+		creds, err := credentials.NewServerTLSFromFile(cert, key)
+		if err != nil {
+			log.Fatalf("Invalid TLS credentials: %v\n", err)
+		}
+		log.Infof("Using server certificate %v to construct TLS credentials", cert)
+		log.Infof("Using server key %v to construct TLS credentials", key)
+		grpcOptions = append(grpcOptions, grpc.Creds(creds))
 	}
 	grpcServer := grpc.NewServer(grpcOptions...)
 	reflection.Register(grpcServer)
@@ -82,8 +92,8 @@ func PingServer(port string, healthServiceName string, maxConcurrentStreams uint
 
 // PingClientCall calls the ping service (presumably running as PingServer on
 // the destination). returns the average round trip in seconds.
-func PingClientCall(serverAddr string, tls bool, n int, payload string, delay time.Duration) (float64, error) {
-	conn, err := Dial(serverAddr, tls) // somehow this never seem to error out, error comes later
+func PingClientCall(serverAddr, cacert string, n int, payload string, delay time.Duration) (float64, error) {
+	conn, err := Dial(serverAddr, cacert, "") // somehow this never seem to error out, error comes later
 	if err != nil {
 		return -1, err // error already logged
 	}
@@ -139,9 +149,9 @@ type HealthResultMap map[grpc_health_v1.HealthCheckResponse_ServingStatus]int64
 
 // GrpcHealthCheck makes a grpc client call to the standard grpc health check
 // service.
-func GrpcHealthCheck(serverAddr string, tls bool, svcname string, n int) (*HealthResultMap, error) {
-	log.Debugf("GrpcHealthCheck for %s tls %v svc '%s', %d iterations", serverAddr, tls, svcname, n)
-	conn, err := Dial(serverAddr, tls)
+func GrpcHealthCheck(serverAddr, cacert string, svcname string, n int) (*HealthResultMap, error) {
+	log.Debugf("GrpcHealthCheck for %s svc '%s', %d iterations", serverAddr, svcname, n)
+	conn, err := Dial(serverAddr, cacert, "")
 	if err != nil {
 		return nil, err
 	}

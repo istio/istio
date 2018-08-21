@@ -36,11 +36,25 @@ func TestIsFQN(t *testing.T) {
 }
 
 func TestCanonicalize(t *testing.T) {
-	if canonicalize("foo", "bar") != "foo.bar" {
+	if a, _ := canonicalize("foo", "mykind", "bar"); a != "foo.mykind.bar" {
 		t.Fail()
 	}
 
-	if canonicalize("foo.bar.baz", "bar") != "foo.bar.baz" {
+	if a, _ := canonicalize("foo.bar.baz", "mykind", "bar"); a != "foo.bar.baz" {
+		t.Fail()
+	}
+
+	if a, _ := canonicalize("foo.bar.baz.baz2", "mykind", "bar"); a != "foo.bar.baz.baz2" {
+		t.Fail()
+	}
+}
+
+func TestExtractShortName(t *testing.T) {
+	if ExtractShortName("foo") != "foo" {
+		t.Fail()
+	}
+
+	if ExtractShortName("foo.bar.baz") != "foo" {
 		t.Fail()
 	}
 }

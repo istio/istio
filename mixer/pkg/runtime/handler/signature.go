@@ -17,12 +17,13 @@ package handler
 import (
 	"bytes"
 	"crypto/sha1"
+	"encoding/json"
 	"io"
+	"reflect"
 	"sort"
 
 	"github.com/gogo/protobuf/proto"
 
-	"istio.io/istio/mixer/pkg/runtime/config"
 	"istio.io/istio/pkg/log"
 )
 
@@ -37,26 +38,37 @@ func (s signature) equals(other signature) bool {
 	return !bytes.Equal(s[:], zeroSignature[:]) && bytes.Equal(s[:], other[:])
 }
 
-func calculateSignature(handler *config.Handler, instances []*config.Instance) signature {
+// calculateSignature returns signature given handler and array of dynamic or static instances
+func calculateSignature(handler hndlr, insts interface{}) signature {
+	if reflect.TypeOf(insts).Kind() != reflect.Slice {
+		return zeroSignature
+	}
+
+	instances := reflect.ValueOf(insts)
 
 	// sort the instances by name
-	instanceMap := make(map[string]*config.Instance)
-	instanceNames := make([]string, len(instances))
-	for i, instance := range instances {
-		instanceMap[instance.Name] = instance
-		instanceNames[i] = instance.Name
+	instanceMap := make(map[string]inst)
+	instanceNames := make([]string, instances.Len())
+	for i := 0; i < instances.Len(); i++ {
+		ii := instances.Index(i).Interface()
+		instance := ii.(inst)
+		instanceMap[instance.GetName()] = instance
+		instanceNames[i] = instance.GetName()
 	}
 	sort.Strings(instanceNames)
 
 	buf := new(bytes.Buffer)
 	encoded := true
 
-	encoded = encoded && encode(buf, handler.Adapter.Name)
-	encoded = encoded && encode(buf, handler.Params)
+	encoded = encoded && encode(buf, handler.AdapterName())
+	if handler.AdapterParams() != nil &&
+		(reflect.ValueOf(handler.AdapterParams()).Kind() != reflect.Ptr || !reflect.ValueOf(handler.AdapterParams()).IsNil()) {
+		encoded = encoded && encode(buf, handler.AdapterParams())
+	}
 	for _, name := range instanceNames {
 		instance := instanceMap[name]
-		encoded = encoded && encode(buf, instance.Template.Name)
-		encoded = encoded && encode(buf, instance.Params)
+		encoded = encoded && encode(buf, instance.TemplateName())
+		encoded = encoded && encode(buf, instance.TemplateParams())
 	}
 
 	if encoded {
@@ -68,6 +80,17 @@ func calculateSignature(handler *config.Handler, instances []*config.Instance) s
 	return zeroSignature
 }
 
+type hndlr interface {
+	GetName() string
+	AdapterName() string
+	AdapterParams() interface{}
+}
+type inst interface {
+	GetName() string
+	TemplateName() string
+	TemplateParams() interface{}
+}
+
 func encode(w io.Writer, v interface{}) bool {
 	var b []byte
 	var err error
@@ -75,11 +98,16 @@ func encode(w io.Writer, v interface{}) bool {
 	switch t := v.(type) {
 	case string:
 		b = []byte(t)
-	case proto.Message:
+	case proto.Marshaler:
 		// TODO (Issue #2539): This is likely to yield poor results, as proto serialization is not guaranteed
 		// to be stable, especially when maps are involved... We should probably have a better model here.
-		if b, err = proto.Marshal(t); err != nil {
+		if b, err = t.Marshal(); err != nil {
 			log.Warnf("Failed to marshal %v into a proto: %v", t, err)
+			b = nil
+		}
+	default:
+		if b, err = json.Marshal(t); err != nil {
+			log.Warnf("Failed to json marshal %v into a proto: %v", t, err)
 			b = nil
 		}
 	}

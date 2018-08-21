@@ -36,6 +36,7 @@ spec:
   servers:
   - port:
       number: 80
+      name: http
       protocol: http
     hosts:
     - "*.example.com"

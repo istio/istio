@@ -28,9 +28,9 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	authn "istio.io/api/authentication/v1alpha1"
-	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
 // Hostname describes a (possibly wildcarded) hostname
@@ -53,9 +53,9 @@ type Service struct {
 	// Address specifies the service IPv4 address of the load balancer
 	Address string `json:"address,omitempty"`
 
-	// Addresses specifies the service address of the load balancer
+	// ClusterVIPs specifies the service address of the load balancer
 	// in each of the clusters where the service resides
-	Addresses map[string]string `json:"addresses,omitempty"`
+	ClusterVIPs map[string]string `json:"cluster-vips,omitempty"`
 
 	// Ports is the set of network ports where the service is listening for
 	// connections
@@ -85,6 +85,9 @@ type Service struct {
 	// or use the passthrough model (i.e. proxy will forward the traffic to the network endpoint requested
 	// by the caller)
 	Resolution Resolution
+
+	// CreationTime records the time this service was created, if available.
+	CreationTime time.Time `json:"creationTime,omitempty"`
 }
 
 // Resolution indicates how the service instances need to be resolved before routing
@@ -100,8 +103,13 @@ const (
 	Passthrough
 )
 
-// UnspecifiedIP constant for empty IP address
-const UnspecifiedIP = "0.0.0.0"
+const (
+	// UnspecifiedIP constant for empty IP address
+	UnspecifiedIP = "0.0.0.0"
+
+	// IstioDefaultConfigNamespace constant for default namespace
+	IstioDefaultConfigNamespace = "default"
+)
 
 // Port represents a network port where a service is listening for
 // connections. The port should be annotated with the type of protocol
@@ -118,11 +126,6 @@ type Port struct {
 
 	// Protocol to be used for the port.
 	Protocol Protocol `json:"protocol,omitempty"`
-
-	// In combine with the mesh's AuthPolicy, controls authentication for
-	// Envoy-to-Envoy communication.
-	// This value is extracted from service annotation.
-	AuthenticationPolicy meshconfig.AuthenticationPolicy `json:"authentication_policy"`
 }
 
 // PortList is a set of ports
@@ -134,16 +137,19 @@ type Protocol string
 const (
 	// ProtocolGRPC declares that the port carries gRPC traffic
 	ProtocolGRPC Protocol = "GRPC"
-	// ProtocolHTTPS declares that the port carries HTTPS traffic
-	ProtocolHTTPS Protocol = "HTTPS"
-	// ProtocolHTTP2 declares that the port carries HTTP/2 traffic
-	ProtocolHTTP2 Protocol = "HTTP2"
 	// ProtocolHTTP declares that the port carries HTTP/1.1 traffic.
 	// Note that HTTP/1.0 or earlier may not be supported by the proxy.
 	ProtocolHTTP Protocol = "HTTP"
+	// ProtocolHTTP2 declares that the port carries HTTP/2 traffic
+	ProtocolHTTP2 Protocol = "HTTP2"
+	// ProtocolHTTPS declares that the port carries HTTPS traffic
+	ProtocolHTTPS Protocol = "HTTPS"
 	// ProtocolTCP declares the the port uses TCP.
 	// This is the default protocol for a service port.
 	ProtocolTCP Protocol = "TCP"
+	// ProtocolTLS declares that the port carries TLS traffic.
+	// TLS traffic is assumed to contain SNI as part of the handshake.
+	ProtocolTLS Protocol = "TLS"
 	// ProtocolUDP declares that the port uses UDP.
 	// Note that UDP protocol is not currently supported by the proxy.
 	ProtocolUDP Protocol = "UDP"
@@ -202,6 +208,8 @@ func ParseProtocol(s string) Protocol {
 		return ProtocolHTTP2
 	case "https":
 		return ProtocolHTTPS
+	case "tls":
+		return ProtocolTLS
 	case "mongo":
 		return ProtocolMongo
 	case "redis":
@@ -234,7 +242,17 @@ func (p Protocol) IsHTTP() bool {
 // IsTCP is true for protocols that use TCP as transport protocol
 func (p Protocol) IsTCP() bool {
 	switch p {
-	case ProtocolTCP, ProtocolHTTPS, ProtocolMongo, ProtocolRedis:
+	case ProtocolTCP, ProtocolHTTPS, ProtocolTLS, ProtocolMongo, ProtocolRedis:
+		return true
+	default:
+		return false
+	}
+}
+
+// IsTLS is true for protocols on top of TLS (e.g. HTTPS)
+func (p Protocol) IsTLS() bool {
+	switch p {
+	case ProtocolHTTPS, ProtocolTLS:
 		return true
 	default:
 		return false
@@ -277,6 +295,9 @@ type NetworkEndpoint struct {
 	// the service associated with this instance (e.g.,
 	// catalog.mystore.com)
 	ServicePort *Port
+
+	// Defines a platform-specific workload instance identifier (optional).
+	UID string
 }
 
 // Labels is a non empty set of arbitrary strings. Each version of a service can
@@ -290,6 +311,15 @@ type Labels map[string]string
 // LabelsCollection is a collection of labels used for comparing labels against a
 // collection of labels
 type LabelsCollection []Labels
+
+// Probe represents a health probe associated with an instance of service.
+type Probe struct {
+	Port *Port  `json:"port,omitempty"`
+	Path string `json:"path,omitempty"`
+}
+
+// ProbeList is a set of probes
+type ProbeList []*Probe
 
 // ServiceInstance represents an individual instance of a specific version
 // of a service. It binds a network endpoint (ip:port), the service
@@ -328,11 +358,22 @@ const (
 // - consul: defaults to 'instance.Datacenter'
 //
 // This is used by EDS to group the endpoints by AZ and by .
+// TODO: remove me?
 func (si *ServiceInstance) GetAZ() string {
 	if si.AvailabilityZone != "" {
 		return si.AvailabilityZone
 	}
 	return si.Labels[AZLabel]
+}
+
+// ServiceAttributes represents a group of custom attributes of the service.
+type ServiceAttributes struct {
+	// Name is "destination.service.name" attribute
+	Name string
+	// Namespace is "destination.service.namespace" attribute
+	Namespace string
+	// UID is "destination.service.uid" attribute
+	UID string
 }
 
 // ServiceDiscovery enumerates Istio service instances.
@@ -342,6 +383,9 @@ type ServiceDiscovery interface {
 
 	// GetService retrieves a service by host name if it exists
 	GetService(hostname Hostname) (*Service, error)
+
+	// GetServiceAttributes retrieves the custom attributes of a service
+	GetServiceAttributes(hostname Hostname) (*ServiceAttributes, error)
 
 	// Instances retrieves instances for a service and its ports that match
 	// any of the supplied labels. All instances match an empty tag list.
@@ -413,6 +457,11 @@ type ServiceDiscovery interface {
 	// the configuration generated for the proxy will not manipulate traffic destined for
 	// the management ports
 	ManagementPorts(addr string) PortList
+
+	// WorkloadHealthCheckInfo lists set of probes associated with an IPv4 address.
+	// These probes are used by the platform to identify requests that are performing
+	// health checks.
+	WorkloadHealthCheckInfo(addr string) ProbeList
 }
 
 // ServiceAccounts exposes Istio service accounts
@@ -439,18 +488,35 @@ func (h Hostname) String() string {
 //  Hostname("*.com").Matches("foo.com")     = true
 //  Hostname("*.foo.com").Matches("foo.com") = false
 func (h Hostname) Matches(o Hostname) bool {
-	if !strings.Contains(string(h), "*") && !strings.Contains(string(o), "*") {
+	if len(h) == 0 && len(o) == 0 {
+		return true
+	}
+
+	hWildcard := string(h[0]) == "*"
+	if hWildcard && len(o) == 0 {
+		return true
+	}
+
+	oWildcard := string(o[0]) == "*"
+	if !hWildcard && !oWildcard {
+		// both are non-wildcards, so do normal string comparison
 		return h == o
 	}
-	la, sa := strings.Contains(string(h), "*"), strings.Contains(string(o), "*")
-	longer, shorter := strings.TrimLeft(string(h), "*"), strings.TrimLeft(string(o), "*")
+
+	longer, shorter := string(h), string(o)
+	if hWildcard {
+		longer = string(h[1:])
+	}
+	if oWildcard {
+		shorter = string(o[1:])
+	}
 	if len(longer) < len(shorter) {
 		longer, shorter = shorter, longer
-		la, sa = sa, la
+		hWildcard, oWildcard = oWildcard, hWildcard
 	}
 
 	matches := strings.HasSuffix(longer, shorter)
-	if matches && la && !sa && strings.TrimSuffix(longer, shorter) == "." {
+	if matches && hWildcard && !oWildcard && strings.TrimSuffix(longer, shorter) == "." {
 		// we match, but the longer is a wildcard and the shorter is not; we need to ensure we don't match input
 		// like `*.foo.com` to `foo.com` in that case (to avoid matching a domain literal to a wildcard subdomain)
 		return false
@@ -475,8 +541,9 @@ func (h Hostnames) Less(i, j int) bool {
 	if len(a) == 0 && len(b) == 0 {
 		return true // doesn't matter, they're both the empty string
 	}
+
 	// we sort longest to shortest, alphabetically, with wildcards last
-	ai, aj := strings.Contains(a.String(), "*"), strings.Contains(b.String(), "*")
+	ai, aj := string(a[0]) == "*", string(b[0]) == "*"
 	if ai && !aj {
 		// h[i] is a wildcard, but h[j] isn't; therefore h[j] < h[i]
 		return false
@@ -484,10 +551,12 @@ func (h Hostnames) Less(i, j int) bool {
 		// h[j] is a wildcard, but h[i] isn't; therefore h[i] < h[j]
 		return true
 	}
+
 	// they're either both wildcards, or both not; in either case we sort them longest to shortest, alphabetically
 	if len(a) == len(b) {
 		return a < b
 	}
+
 	return len(a) > len(b)
 }
 
@@ -495,7 +564,7 @@ func (h Hostnames) Swap(i, j int) {
 	h[i], h[j] = h[j], h[i]
 }
 
-// SubsetOf is true if the tag has identical values for the keys
+// SubsetOf is true if the label has identical values for the keys
 func (l Labels) SubsetOf(that Labels) bool {
 	for k, v := range l {
 		if that[k] != v {
@@ -690,9 +759,17 @@ func BuildSubsetKey(direction TrafficDirection, subsetName string, hostname Host
 	return fmt.Sprintf("%s|%d|%s|%s", direction, port, subsetName, hostname)
 }
 
+// IsValidSubsetKey checks if a string is valid for subset key parsing.
+func IsValidSubsetKey(s string) bool {
+	return strings.Count(s, "|") == 3
+}
+
 // ParseSubsetKey is the inverse of the BuildSubsetKey method
 func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, hostname Hostname, port int) {
 	parts := strings.Split(s, "|")
+	if len(parts) < 4 {
+		return
+	}
 	direction = TrafficDirection(parts[0])
 	port, _ = strconv.Atoi(parts[1])
 	subsetName = parts[2]
@@ -742,8 +819,8 @@ func ParseLabelsString(s string) Labels {
 
 // GetServiceAddressForProxy returns a Service's IP address specific to the cluster where the node resides
 func (s Service) GetServiceAddressForProxy(node *Proxy) string {
-	if node.ClusterID != "" && s.Addresses[node.ClusterID] != "" {
-		return s.Addresses[node.ClusterID]
+	if node.ClusterID != "" && s.ClusterVIPs[node.ClusterID] != "" {
+		return s.ClusterVIPs[node.ClusterID]
 	}
 	return s.Address
 }

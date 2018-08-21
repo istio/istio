@@ -16,7 +16,6 @@ package runtime
 
 import (
 	"errors"
-	"fmt"
 	"sync"
 	"time"
 
@@ -35,24 +34,11 @@ import (
 
 var errNotListening = errors.New("runtime is not listening to the store")
 
-const (
-	// DefaultConfigNamespace holds istio wide configuration.
-	DefaultConfigNamespace = "istio-system"
-
-	// RulesKind defines the config kind name of mixer rules.
-	RulesKind = "rule"
-
-	// AttributeManifestKind define the config kind name of attribute manifests.
-	AttributeManifestKind = "attributemanifest"
-)
-
 const watchFlushDuration = time.Second
 
 // Runtime is the main entry point to the Mixer runtime environment. It listens to configuration, instantiates handler
 // instances, creates the dispatch machinery and handles incoming requests.
 type Runtime struct {
-	identityAttribute string
-
 	defaultConfigNamespace string
 
 	ephemeral *config.Ephemeral
@@ -79,19 +65,20 @@ func New(
 	s store.Store,
 	templates map[string]*template.Info,
 	adapters map[string]*adapter.Info,
-	identityAttribute string,
 	defaultConfigNamespace string,
 	executorPool *pool.GoroutinePool,
 	handlerPool *pool.GoroutinePool,
 	enableTracing bool) *Runtime {
 
+	// Ignoring the errors for bad configuration that has already made it to the store.
+	// during snapshot creation the bad configuration errors are already logged.
+	e := config.NewEphemeral(templates, adapters)
 	rt := &Runtime{
-		identityAttribute:      identityAttribute,
 		defaultConfigNamespace: defaultConfigNamespace,
-		ephemeral:              config.NewEphemeral(templates, adapters),
+		ephemeral:              e,
 		snapshot:               config.Empty(),
 		handlers:               handler.Empty(),
-		dispatcher:             dispatcher.New(identityAttribute, executorPool, enableTracing),
+		dispatcher:             dispatcher.New(executorPool, enableTracing),
 		handlerPool:            handlerPool,
 		Probe:                  probe.NewProbe(),
 		store:                  s,
@@ -159,14 +146,12 @@ func (c *Runtime) StopListening() {
 }
 
 func (c *Runtime) onConfigChange(events []*store.Event) {
-	for _, e := range events {
-		c.ephemeral.ApplyEvent(e)
-	}
+	c.ephemeral.ApplyEvent(events)
 	c.processNewConfig()
 }
 
 func (c *Runtime) processNewConfig() {
-	newSnapshot := c.ephemeral.BuildSnapshot()
+	newSnapshot, _ := c.ephemeral.BuildSnapshot()
 
 	oldHandlers := c.handlers
 
@@ -183,37 +168,32 @@ func (c *Runtime) processNewConfig() {
 
 	log.Debugf("New routes in effect:\n%s", newRoutes)
 
-	if err := cleanupHandlers(oldContext, oldHandlers, newHandlers, maxCleanupDuration); err != nil {
-		log.Errorf("Failed to cleanup handlers: %v", err)
-	}
+	cleanupHandlers(oldContext, oldHandlers, newHandlers, maxCleanupDuration)
 }
 
 // maxCleanupDuration is the maximum amount of time cleanup operation will wait
 // before resolver ref count goes to 0. It will return after this duration without
 // calling Close() on handlers.
-var maxCleanupDuration = 10 * time.Second
+const maxCleanupDuration = 10 * time.Second
 
-var cleanupSleepTime = 500 * time.Millisecond
+const cleanupSleepTime = 500 * time.Millisecond
 
-func cleanupHandlers(oldContext *dispatcher.RoutingContext, oldHandlers *handler.Table, currentHandlers *handler.Table, timeout time.Duration) error {
+func cleanupHandlers(oldContext *dispatcher.RoutingContext, oldHandlers *handler.Table, currentHandlers *handler.Table, timeout time.Duration) {
 	start := time.Now()
 	for {
 		rc := oldContext.GetRefs()
-		if rc > 0 {
-			if time.Since(start) > timeout {
-				return fmt.Errorf("unable to cleanup handlers(config id:%d) in %v time: %d requests remain", oldContext.Routes.ID(), timeout, rc)
-			}
-
-			log.Warnf("Waiting for dispatches using routes with config ID '%d' to finish: %d remaining requests", oldContext.Routes.ID(), rc)
-
-			time.Sleep(cleanupSleepTime)
-			continue
+		if rc <= 0 {
+			log.Infof("Cleaning up handler table, with config ID:%d", oldContext.Routes.ID())
+			oldHandlers.Cleanup(currentHandlers)
+			return
 		}
-		break
+
+		if time.Since(start) > timeout {
+			log.Errorf("unable to cleanup handlers(config id:%d) in %v, %d requests remain", oldContext.Routes.ID(), timeout, rc)
+			return
+		}
+
+		log.Debugf("Waiting for dispatches using routes with config ID '%d' to finish: %d remaining requests", oldContext.Routes.ID(), rc)
+		time.Sleep(cleanupSleepTime)
 	}
-
-	log.Infof("Cleaning up handler table, with config ID:%d", oldContext.Routes.ID())
-
-	oldHandlers.Cleanup(currentHandlers)
-	return nil
 }

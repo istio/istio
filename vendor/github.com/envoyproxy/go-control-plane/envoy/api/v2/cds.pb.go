@@ -14,8 +14,12 @@
 	It has these top-level messages:
 		Cluster
 		UpstreamBindConfig
+		UpstreamConnectionOptions
 		DiscoveryRequest
 		DiscoveryResponse
+		IncrementalDiscoveryRequest
+		IncrementalDiscoveryResponse
+		Resource
 		ClusterLoadAssignment
 		Listener
 		RouteConfiguration
@@ -25,9 +29,9 @@ package v2
 import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import envoy_api_v2_core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-import envoy_api_v2_auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 import envoy_api_v2_core1 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+import envoy_api_v2_auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
+import envoy_api_v2_core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 import envoy_api_v2_core3 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 import envoy_api_v2_core4 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 import envoy_api_v2_core5 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -36,19 +40,17 @@ import envoy_api_v2_cluster1 "github.com/envoyproxy/go-control-plane/envoy/api/v
 import envoy_type "github.com/envoyproxy/go-control-plane/envoy/type"
 import _ "github.com/gogo/googleapis/google/api"
 import _ "github.com/gogo/protobuf/types"
-import google_protobuf4 "github.com/gogo/protobuf/types"
 import google_protobuf "github.com/gogo/protobuf/types"
+import google_protobuf1 "github.com/gogo/protobuf/types"
 import _ "github.com/lyft/protoc-gen-validate/validate"
 import _ "github.com/gogo/protobuf/gogoproto"
 
 import time "time"
 
-import (
-	context "golang.org/x/net/context"
-	grpc "google.golang.org/grpc"
-)
+import context "golang.org/x/net/context"
+import grpc "google.golang.org/grpc"
 
-import github_com_gogo_protobuf_types "github.com/gogo/protobuf/types"
+import types "github.com/gogo/protobuf/types"
 
 import io "io"
 
@@ -254,7 +256,7 @@ func (Cluster_LbSubsetConfig_LbSubsetFallbackPolicy) EnumDescriptor() ([]byte, [
 }
 
 // Configuration for a single upstream cluster.
-// [#comment:next free field: 30]
+// [#comment:next free field: 34]
 type Cluster struct {
 	// Supplies the name of the cluster which must be unique across all clusters.
 	// The cluster name is used when emitting
@@ -279,7 +281,7 @@ type Cluster struct {
 	ConnectTimeout time.Duration `protobuf:"bytes,4,opt,name=connect_timeout,json=connectTimeout,stdduration" json:"connect_timeout"`
 	// Soft limit on size of the cluster’s connections read and write buffers. If
 	// unspecified, an implementation defined default is applied (1MiB).
-	PerConnectionBufferLimitBytes *google_protobuf.UInt32Value `protobuf:"bytes,5,opt,name=per_connection_buffer_limit_bytes,json=perConnectionBufferLimitBytes" json:"per_connection_buffer_limit_bytes,omitempty"`
+	PerConnectionBufferLimitBytes *google_protobuf1.UInt32Value `protobuf:"bytes,5,opt,name=per_connection_buffer_limit_bytes,json=perConnectionBufferLimitBytes" json:"per_connection_buffer_limit_bytes,omitempty"`
 	// The :ref:`load balancer type <arch_overview_load_balancing_types>` to use
 	// when picking a host in the cluster.
 	LbPolicy Cluster_LbPolicy `protobuf:"varint,6,opt,name=lb_policy,json=lbPolicy,proto3,enum=envoy.api.v2.Cluster_LbPolicy" json:"lb_policy,omitempty"`
@@ -288,7 +290,28 @@ type Cluster struct {
 	// :ref:`STRICT_DNS<envoy_api_enum_value_Cluster.DiscoveryType.STRICT_DNS>`
 	// or :ref:`LOGICAL_DNS<envoy_api_enum_value_Cluster.DiscoveryType.LOGICAL_DNS>`,
 	// then hosts is required.
-	Hosts []*envoy_api_v2_core.Address `protobuf:"bytes,7,rep,name=hosts" json:"hosts,omitempty"`
+	//
+	// .. attention::
+	//
+	//   **This field is deprecated**. Set the
+	//   :ref:`load_assignment<envoy_api_field_Cluster.load_assignment>` field instead.
+	//
+	Hosts []*envoy_api_v2_core1.Address `protobuf:"bytes,7,rep,name=hosts" json:"hosts,omitempty"`
+	// Setting this is required for specifying members of
+	// :ref:`STATIC<envoy_api_enum_value_Cluster.DiscoveryType.STATIC>`,
+	// :ref:`STRICT_DNS<envoy_api_enum_value_Cluster.DiscoveryType.STRICT_DNS>`
+	// or :ref:`LOGICAL_DNS<envoy_api_enum_value_Cluster.DiscoveryType.LOGICAL_DNS>` clusters.
+	// This field supersedes :ref:`hosts<envoy_api_field_Cluster.hosts>` field.
+	// [#comment:TODO(dio): Deprecate the hosts field and add it to DEPRECATED.md
+	// once load_assignment is implemented.]
+	//
+	// .. attention::
+	//
+	//   Setting this allows non-EDS cluster types to contain embedded EDS equivalent
+	//   :ref:`endpoint assignments<envoy_api_msg_ClusterLoadAssignment>`.
+	//   Setting this overrides :ref:`hosts<envoy_api_field_Cluster.hosts>` values.
+	//
+	LoadAssignment *ClusterLoadAssignment `protobuf:"bytes,33,opt,name=load_assignment,json=loadAssignment" json:"load_assignment,omitempty"`
 	// Optional :ref:`active health checking <arch_overview_health_checking>`
 	// configuration for the cluster. If no
 	// configuration is specified no health checking will be done and all cluster
@@ -298,7 +321,7 @@ type Cluster struct {
 	// is respected by both the HTTP/1.1 and HTTP/2 connection pool
 	// implementations. If not specified, there is no limit. Setting this
 	// parameter to 1 will effectively disable keep alive.
-	MaxRequestsPerConnection *google_protobuf.UInt32Value `protobuf:"bytes,9,opt,name=max_requests_per_connection,json=maxRequestsPerConnection" json:"max_requests_per_connection,omitempty"`
+	MaxRequestsPerConnection *google_protobuf1.UInt32Value `protobuf:"bytes,9,opt,name=max_requests_per_connection,json=maxRequestsPerConnection" json:"max_requests_per_connection,omitempty"`
 	// Optional :ref:`circuit breaking <arch_overview_circuit_break>` for the cluster.
 	CircuitBreakers *envoy_api_v2_cluster.CircuitBreakers `protobuf:"bytes,10,opt,name=circuit_breakers,json=circuitBreakers" json:"circuit_breakers,omitempty"`
 	// The TLS configuration for connections to the upstream cluster. If no TLS
@@ -346,7 +369,7 @@ type Cluster struct {
 	// :ref:`STRICT_DNS<envoy_api_enum_value_Cluster.DiscoveryType.STRICT_DNS>`
 	// and :ref:`LOGICAL_DNS<envoy_api_enum_value_Cluster.DiscoveryType.LOGICAL_DNS>`
 	// this setting is ignored.
-	DnsResolvers []*envoy_api_v2_core.Address `protobuf:"bytes,18,rep,name=dns_resolvers,json=dnsResolvers" json:"dns_resolvers,omitempty"`
+	DnsResolvers []*envoy_api_v2_core1.Address `protobuf:"bytes,18,rep,name=dns_resolvers,json=dnsResolvers" json:"dns_resolvers,omitempty"`
 	// If specified, outlier detection will be enabled for this upstream cluster.
 	// Each of the configuration values can be overridden via
 	// :ref:`runtime values <config_cluster_manager_cluster_runtime_outlier_detection>`.
@@ -368,7 +391,7 @@ type Cluster struct {
 	// Optional configuration used to bind newly established upstream connections.
 	// This overrides any bind_config specified in the bootstrap proto.
 	// If the address and port are empty, no bind will be performed.
-	UpstreamBindConfig *envoy_api_v2_core.BindConfig `protobuf:"bytes,21,opt,name=upstream_bind_config,json=upstreamBindConfig" json:"upstream_bind_config,omitempty"`
+	UpstreamBindConfig *envoy_api_v2_core1.BindConfig `protobuf:"bytes,21,opt,name=upstream_bind_config,json=upstreamBindConfig" json:"upstream_bind_config,omitempty"`
 	// Configuration for load balancing subsetting.
 	LbSubsetConfig *Cluster_LbSubsetConfig `protobuf:"bytes,22,opt,name=lb_subset_config,json=lbSubsetConfig" json:"lb_subset_config,omitempty"`
 	// Optional configuration for the load balancing algorithm selected by
@@ -385,15 +408,38 @@ type Cluster struct {
 	// Common configuration for all load balancer implementations.
 	CommonLbConfig *Cluster_CommonLbConfig `protobuf:"bytes,27,opt,name=common_lb_config,json=commonLbConfig" json:"common_lb_config,omitempty"`
 	// Optional custom transport socket implementation to use for upstream connections.
-	TransportSocket *envoy_api_v2_core1.TransportSocket `protobuf:"bytes,24,opt,name=transport_socket,json=transportSocket" json:"transport_socket,omitempty"`
+	TransportSocket *envoy_api_v2_core.TransportSocket `protobuf:"bytes,24,opt,name=transport_socket,json=transportSocket" json:"transport_socket,omitempty"`
 	// The Metadata field can be used to provide additional information about the
 	// cluster. It can be used for stats, logging, and varying filter behavior.
 	// Fields should use reverse DNS notation to denote which entity within Envoy
 	// will need the information. For instance, if the metadata is intended for
 	// the Router filter, the filter name should be specified as *envoy.router*.
-	Metadata *envoy_api_v2_core1.Metadata `protobuf:"bytes,25,opt,name=metadata" json:"metadata,omitempty"`
+	Metadata *envoy_api_v2_core.Metadata `protobuf:"bytes,25,opt,name=metadata" json:"metadata,omitempty"`
 	// Determines how Envoy selects the protocol used to speak to upstream hosts.
 	ProtocolSelection Cluster_ClusterProtocolSelection `protobuf:"varint,26,opt,name=protocol_selection,json=protocolSelection,proto3,enum=envoy.api.v2.Cluster_ClusterProtocolSelection" json:"protocol_selection,omitempty"`
+	// Optional options for upstream connections.
+	UpstreamConnectionOptions *UpstreamConnectionOptions `protobuf:"bytes,30,opt,name=upstream_connection_options,json=upstreamConnectionOptions" json:"upstream_connection_options,omitempty"`
+	// If an upstream host becomes unhealthy (as determined by the configured health checks
+	// or outlier detection), immediately close all connections to the failed host.
+	//
+	// .. note::
+	//
+	//   This is currently only supported for connections created by tcp_proxy.
+	//
+	// .. note::
+	//
+	//   The current implementation of this feature closes all connections immediately when
+	//   the unhealthy status is detected. If there are a large number of connections open
+	//   to an upstream host that becomes unhealthy, Envoy may spend a substantial amount of
+	//   time exclusively closing these connections, and not processing any other traffic.
+	CloseConnectionsOnHostHealthFailure bool `protobuf:"varint,31,opt,name=close_connections_on_host_health_failure,json=closeConnectionsOnHostHealthFailure,proto3" json:"close_connections_on_host_health_failure,omitempty"`
+	// If this cluster uses EDS or STRICT_DNS to configure its hosts, immediately drain
+	// connections from any hosts that are removed from service discovery.
+	//
+	// This only affects behavior for hosts that are being actively health checked.
+	// If this flag is not set to true, Envoy will wait until the hosts fail active health
+	// checking before removing it from the cluster.
+	DrainConnectionsOnHostRemoval bool `protobuf:"varint,32,opt,name=drain_connections_on_host_removal,json=drainConnectionsOnHostRemoval,proto3" json:"drain_connections_on_host_removal,omitempty"`
 }
 
 func (m *Cluster) Reset()                    { *m = Cluster{} }
@@ -456,7 +502,7 @@ func (m *Cluster) GetConnectTimeout() time.Duration {
 	return 0
 }
 
-func (m *Cluster) GetPerConnectionBufferLimitBytes() *google_protobuf.UInt32Value {
+func (m *Cluster) GetPerConnectionBufferLimitBytes() *google_protobuf1.UInt32Value {
 	if m != nil {
 		return m.PerConnectionBufferLimitBytes
 	}
@@ -470,9 +516,16 @@ func (m *Cluster) GetLbPolicy() Cluster_LbPolicy {
 	return Cluster_ROUND_ROBIN
 }
 
-func (m *Cluster) GetHosts() []*envoy_api_v2_core.Address {
+func (m *Cluster) GetHosts() []*envoy_api_v2_core1.Address {
 	if m != nil {
 		return m.Hosts
+	}
+	return nil
+}
+
+func (m *Cluster) GetLoadAssignment() *ClusterLoadAssignment {
+	if m != nil {
+		return m.LoadAssignment
 	}
 	return nil
 }
@@ -484,7 +537,7 @@ func (m *Cluster) GetHealthChecks() []*envoy_api_v2_core4.HealthCheck {
 	return nil
 }
 
-func (m *Cluster) GetMaxRequestsPerConnection() *google_protobuf.UInt32Value {
+func (m *Cluster) GetMaxRequestsPerConnection() *google_protobuf1.UInt32Value {
 	if m != nil {
 		return m.MaxRequestsPerConnection
 	}
@@ -540,7 +593,7 @@ func (m *Cluster) GetDnsLookupFamily() Cluster_DnsLookupFamily {
 	return Cluster_AUTO
 }
 
-func (m *Cluster) GetDnsResolvers() []*envoy_api_v2_core.Address {
+func (m *Cluster) GetDnsResolvers() []*envoy_api_v2_core1.Address {
 	if m != nil {
 		return m.DnsResolvers
 	}
@@ -561,7 +614,7 @@ func (m *Cluster) GetCleanupInterval() *time.Duration {
 	return nil
 }
 
-func (m *Cluster) GetUpstreamBindConfig() *envoy_api_v2_core.BindConfig {
+func (m *Cluster) GetUpstreamBindConfig() *envoy_api_v2_core1.BindConfig {
 	if m != nil {
 		return m.UpstreamBindConfig
 	}
@@ -589,14 +642,14 @@ func (m *Cluster) GetCommonLbConfig() *Cluster_CommonLbConfig {
 	return nil
 }
 
-func (m *Cluster) GetTransportSocket() *envoy_api_v2_core1.TransportSocket {
+func (m *Cluster) GetTransportSocket() *envoy_api_v2_core.TransportSocket {
 	if m != nil {
 		return m.TransportSocket
 	}
 	return nil
 }
 
-func (m *Cluster) GetMetadata() *envoy_api_v2_core1.Metadata {
+func (m *Cluster) GetMetadata() *envoy_api_v2_core.Metadata {
 	if m != nil {
 		return m.Metadata
 	}
@@ -608,6 +661,27 @@ func (m *Cluster) GetProtocolSelection() Cluster_ClusterProtocolSelection {
 		return m.ProtocolSelection
 	}
 	return Cluster_USE_CONFIGURED_PROTOCOL
+}
+
+func (m *Cluster) GetUpstreamConnectionOptions() *UpstreamConnectionOptions {
+	if m != nil {
+		return m.UpstreamConnectionOptions
+	}
+	return nil
+}
+
+func (m *Cluster) GetCloseConnectionsOnHostHealthFailure() bool {
+	if m != nil {
+		return m.CloseConnectionsOnHostHealthFailure
+	}
+	return false
+}
+
+func (m *Cluster) GetDrainConnectionsOnHostRemoval() bool {
+	if m != nil {
+		return m.DrainConnectionsOnHostRemoval
+	}
+	return false
 }
 
 // XXX_OneofFuncs is for the internal use of the proto package.
@@ -709,7 +783,7 @@ type Cluster_LbSubsetConfig struct {
 	// namespace. It is valid for no hosts to match, in which case the behavior
 	// is the same as a fallback_policy of
 	// :ref:`NO_FALLBACK<envoy_api_enum_value_Cluster.LbSubsetConfig.LbSubsetFallbackPolicy.NO_FALLBACK>`.
-	DefaultSubset *google_protobuf4.Struct `protobuf:"bytes,2,opt,name=default_subset,json=defaultSubset" json:"default_subset,omitempty"`
+	DefaultSubset *google_protobuf.Struct `protobuf:"bytes,2,opt,name=default_subset,json=defaultSubset" json:"default_subset,omitempty"`
 	// For each entry, LbEndpoint.Metadata's
 	// *envoy.lb* namespace is traversed and a subset is created for each unique
 	// combination of key and value. For example:
@@ -725,6 +799,17 @@ type Cluster_LbSubsetConfig struct {
 	// weighted cluster contains the same keys and values as the subset's
 	// metadata. The same host may appear in multiple subsets.
 	SubsetSelectors []*Cluster_LbSubsetConfig_LbSubsetSelector `protobuf:"bytes,3,rep,name=subset_selectors,json=subsetSelectors" json:"subset_selectors,omitempty"`
+	// If true, routing to subsets will take into account the localities and locality weights of the
+	// endpoints when making the routing decision.
+	//
+	// There are some potential pitfalls associated with enabling this feature, as the resulting
+	// traffic split after applying both a subset match and locality weights might be undesirable.
+	//
+	// Consider for example a situation in which you have 50/50 split across two localities X/Y
+	// which have 100 hosts each without subsetting. If the subset LB results in X having only 1
+	// host selected but Y having 100, then a lot more load is being dumped on the single host in X
+	// than originally anticipated in the load balancing assignment delivered via EDS.
+	LocalityWeightAware bool `protobuf:"varint,4,opt,name=locality_weight_aware,json=localityWeightAware,proto3" json:"locality_weight_aware,omitempty"`
 }
 
 func (m *Cluster_LbSubsetConfig) Reset()                    { *m = Cluster_LbSubsetConfig{} }
@@ -739,7 +824,7 @@ func (m *Cluster_LbSubsetConfig) GetFallbackPolicy() Cluster_LbSubsetConfig_LbSu
 	return Cluster_LbSubsetConfig_NO_FALLBACK
 }
 
-func (m *Cluster_LbSubsetConfig) GetDefaultSubset() *google_protobuf4.Struct {
+func (m *Cluster_LbSubsetConfig) GetDefaultSubset() *google_protobuf.Struct {
 	if m != nil {
 		return m.DefaultSubset
 	}
@@ -751,6 +836,13 @@ func (m *Cluster_LbSubsetConfig) GetSubsetSelectors() []*Cluster_LbSubsetConfig_
 		return m.SubsetSelectors
 	}
 	return nil
+}
+
+func (m *Cluster_LbSubsetConfig) GetLocalityWeightAware() bool {
+	if m != nil {
+		return m.LocalityWeightAware
+	}
+	return false
 }
 
 // Specifications for subsets.
@@ -782,8 +874,9 @@ type Cluster_RingHashLbConfig struct {
 	// will provide better request distribution since each host in the
 	// cluster will have more virtual nodes. Defaults to 1024. In the case
 	// that total number of hosts is greater than the minimum, each host will
-	// be allocated a single virtual node.
-	MinimumRingSize *google_protobuf.UInt64Value `protobuf:"bytes,1,opt,name=minimum_ring_size,json=minimumRingSize" json:"minimum_ring_size,omitempty"`
+	// be allocated a single virtual node. This field is limited to 8M to bound
+	// resource use.
+	MinimumRingSize *google_protobuf1.UInt64Value `protobuf:"bytes,1,opt,name=minimum_ring_size,json=minimumRingSize" json:"minimum_ring_size,omitempty"`
 	// Deprecated settings from v1 config.
 	// [#not-implemented-hide:] Hide from docs.
 	DeprecatedV1 *Cluster_RingHashLbConfig_DeprecatedV1 `protobuf:"bytes,2,opt,name=deprecated_v1,json=deprecatedV1" json:"deprecated_v1,omitempty"`
@@ -794,7 +887,7 @@ func (m *Cluster_RingHashLbConfig) String() string            { return proto.Com
 func (*Cluster_RingHashLbConfig) ProtoMessage()               {}
 func (*Cluster_RingHashLbConfig) Descriptor() ([]byte, []int) { return fileDescriptorCds, []int{0, 2} }
 
-func (m *Cluster_RingHashLbConfig) GetMinimumRingSize() *google_protobuf.UInt64Value {
+func (m *Cluster_RingHashLbConfig) GetMinimumRingSize() *google_protobuf1.UInt64Value {
 	if m != nil {
 		return m.MinimumRingSize
 	}
@@ -816,7 +909,7 @@ type Cluster_RingHashLbConfig_DeprecatedV1 struct {
 	// by default. This field exists for
 	// migration purposes and will eventually be deprecated. Set it to false
 	// to use `xxHash <https://github.com/Cyan4973/xxHash>`_ now.
-	UseStdHash *google_protobuf.BoolValue `protobuf:"bytes,1,opt,name=use_std_hash,json=useStdHash" json:"use_std_hash,omitempty"`
+	UseStdHash *google_protobuf1.BoolValue `protobuf:"bytes,1,opt,name=use_std_hash,json=useStdHash" json:"use_std_hash,omitempty"`
 }
 
 func (m *Cluster_RingHashLbConfig_DeprecatedV1) Reset()         { *m = Cluster_RingHashLbConfig_DeprecatedV1{} }
@@ -826,7 +919,7 @@ func (*Cluster_RingHashLbConfig_DeprecatedV1) Descriptor() ([]byte, []int) {
 	return fileDescriptorCds, []int{0, 2, 0}
 }
 
-func (m *Cluster_RingHashLbConfig_DeprecatedV1) GetUseStdHash() *google_protobuf.BoolValue {
+func (m *Cluster_RingHashLbConfig_DeprecatedV1) GetUseStdHash() *google_protobuf1.BoolValue {
 	if m != nil {
 		return m.UseStdHash
 	}
@@ -974,21 +1067,18 @@ func _Cluster_CommonLbConfig_OneofSizer(msg proto.Message) (n int) {
 
 // Configuration for :ref:`zone aware routing
 // <arch_overview_load_balancing_zone_aware_routing>`.
-// [#not-implemented-hide:]
 type Cluster_CommonLbConfig_ZoneAwareLbConfig struct {
-	// [#not-implemented-hide:]
 	// Configures percentage of requests that will be considered for zone aware routing
 	// if zone aware routing is configured. If not specified, the default is 100%.
 	// * :ref:`runtime values <config_cluster_manager_cluster_runtime_zone_routing>`.
 	// * :ref:`Zone aware routing support <arch_overview_load_balancing_zone_aware_routing>`.
 	RoutingEnabled *envoy_type.Percent `protobuf:"bytes,1,opt,name=routing_enabled,json=routingEnabled" json:"routing_enabled,omitempty"`
-	// [#not-implemented-hide:]
 	// Configures minimum upstream cluster size required for zone aware routing
 	// If upstream cluster size is less than specified, zone aware routing is not performed
 	// even if zone aware routing is configured. If not specified, the default is 6.
 	// * :ref:`runtime values <config_cluster_manager_cluster_runtime_zone_routing>`.
 	// * :ref:`Zone aware routing support <arch_overview_load_balancing_zone_aware_routing>`.
-	MinClusterSize *google_protobuf.UInt64Value `protobuf:"bytes,2,opt,name=min_cluster_size,json=minClusterSize" json:"min_cluster_size,omitempty"`
+	MinClusterSize *google_protobuf1.UInt64Value `protobuf:"bytes,2,opt,name=min_cluster_size,json=minClusterSize" json:"min_cluster_size,omitempty"`
 }
 
 func (m *Cluster_CommonLbConfig_ZoneAwareLbConfig) Reset() {
@@ -1007,7 +1097,7 @@ func (m *Cluster_CommonLbConfig_ZoneAwareLbConfig) GetRoutingEnabled() *envoy_ty
 	return nil
 }
 
-func (m *Cluster_CommonLbConfig_ZoneAwareLbConfig) GetMinClusterSize() *google_protobuf.UInt64Value {
+func (m *Cluster_CommonLbConfig_ZoneAwareLbConfig) GetMinClusterSize() *google_protobuf1.UInt64Value {
 	if m != nil {
 		return m.MinClusterSize
 	}
@@ -1034,7 +1124,7 @@ func (*Cluster_CommonLbConfig_LocalityWeightedLbConfig) Descriptor() ([]byte, []
 // establishing upstream connections.
 type UpstreamBindConfig struct {
 	// The address Envoy should bind to when establishing upstream connections.
-	SourceAddress *envoy_api_v2_core.Address `protobuf:"bytes,1,opt,name=source_address,json=sourceAddress" json:"source_address,omitempty"`
+	SourceAddress *envoy_api_v2_core1.Address `protobuf:"bytes,1,opt,name=source_address,json=sourceAddress" json:"source_address,omitempty"`
 }
 
 func (m *UpstreamBindConfig) Reset()                    { *m = UpstreamBindConfig{} }
@@ -1042,9 +1132,26 @@ func (m *UpstreamBindConfig) String() string            { return proto.CompactTe
 func (*UpstreamBindConfig) ProtoMessage()               {}
 func (*UpstreamBindConfig) Descriptor() ([]byte, []int) { return fileDescriptorCds, []int{1} }
 
-func (m *UpstreamBindConfig) GetSourceAddress() *envoy_api_v2_core.Address {
+func (m *UpstreamBindConfig) GetSourceAddress() *envoy_api_v2_core1.Address {
 	if m != nil {
 		return m.SourceAddress
+	}
+	return nil
+}
+
+type UpstreamConnectionOptions struct {
+	// If set then set SO_KEEPALIVE on the socket to enable TCP Keepalives.
+	TcpKeepalive *envoy_api_v2_core1.TcpKeepalive `protobuf:"bytes,1,opt,name=tcp_keepalive,json=tcpKeepalive" json:"tcp_keepalive,omitempty"`
+}
+
+func (m *UpstreamConnectionOptions) Reset()                    { *m = UpstreamConnectionOptions{} }
+func (m *UpstreamConnectionOptions) String() string            { return proto.CompactTextString(m) }
+func (*UpstreamConnectionOptions) ProtoMessage()               {}
+func (*UpstreamConnectionOptions) Descriptor() ([]byte, []int) { return fileDescriptorCds, []int{2} }
+
+func (m *UpstreamConnectionOptions) GetTcpKeepalive() *envoy_api_v2_core1.TcpKeepalive {
+	if m != nil {
+		return m.TcpKeepalive
 	}
 	return nil
 }
@@ -1060,6 +1167,7 @@ func init() {
 	proto.RegisterType((*Cluster_CommonLbConfig_ZoneAwareLbConfig)(nil), "envoy.api.v2.Cluster.CommonLbConfig.ZoneAwareLbConfig")
 	proto.RegisterType((*Cluster_CommonLbConfig_LocalityWeightedLbConfig)(nil), "envoy.api.v2.Cluster.CommonLbConfig.LocalityWeightedLbConfig")
 	proto.RegisterType((*UpstreamBindConfig)(nil), "envoy.api.v2.UpstreamBindConfig")
+	proto.RegisterType((*UpstreamConnectionOptions)(nil), "envoy.api.v2.UpstreamConnectionOptions")
 	proto.RegisterEnum("envoy.api.v2.Cluster_DiscoveryType", Cluster_DiscoveryType_name, Cluster_DiscoveryType_value)
 	proto.RegisterEnum("envoy.api.v2.Cluster_LbPolicy", Cluster_LbPolicy_name, Cluster_LbPolicy_value)
 	proto.RegisterEnum("envoy.api.v2.Cluster_DnsLookupFamily", Cluster_DnsLookupFamily_name, Cluster_DnsLookupFamily_value)
@@ -1068,10 +1176,7 @@ func init() {
 }
 func (this *Cluster) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*Cluster)
@@ -1084,10 +1189,7 @@ func (this *Cluster) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -1119,6 +1221,9 @@ func (this *Cluster) Equal(that interface{}) bool {
 		if !this.Hosts[i].Equal(that1.Hosts[i]) {
 			return false
 		}
+	}
+	if !this.LoadAssignment.Equal(that1.LoadAssignment) {
+		return false
 	}
 	if len(this.HealthChecks) != len(that1.HealthChecks) {
 		return false
@@ -1205,14 +1310,20 @@ func (this *Cluster) Equal(that interface{}) bool {
 	if this.ProtocolSelection != that1.ProtocolSelection {
 		return false
 	}
+	if !this.UpstreamConnectionOptions.Equal(that1.UpstreamConnectionOptions) {
+		return false
+	}
+	if this.CloseConnectionsOnHostHealthFailure != that1.CloseConnectionsOnHostHealthFailure {
+		return false
+	}
+	if this.DrainConnectionsOnHostRemoval != that1.DrainConnectionsOnHostRemoval {
+		return false
+	}
 	return true
 }
 func (this *Cluster_RingHashLbConfig_) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*Cluster_RingHashLbConfig_)
@@ -1225,10 +1336,7 @@ func (this *Cluster_RingHashLbConfig_) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -1239,10 +1347,7 @@ func (this *Cluster_RingHashLbConfig_) Equal(that interface{}) bool {
 }
 func (this *Cluster_EdsClusterConfig) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*Cluster_EdsClusterConfig)
@@ -1255,10 +1360,7 @@ func (this *Cluster_EdsClusterConfig) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -1272,10 +1374,7 @@ func (this *Cluster_EdsClusterConfig) Equal(that interface{}) bool {
 }
 func (this *Cluster_LbSubsetConfig) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*Cluster_LbSubsetConfig)
@@ -1288,10 +1387,7 @@ func (this *Cluster_LbSubsetConfig) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -1309,14 +1405,14 @@ func (this *Cluster_LbSubsetConfig) Equal(that interface{}) bool {
 			return false
 		}
 	}
+	if this.LocalityWeightAware != that1.LocalityWeightAware {
+		return false
+	}
 	return true
 }
 func (this *Cluster_LbSubsetConfig_LbSubsetSelector) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*Cluster_LbSubsetConfig_LbSubsetSelector)
@@ -1329,10 +1425,7 @@ func (this *Cluster_LbSubsetConfig_LbSubsetSelector) Equal(that interface{}) boo
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -1348,10 +1441,7 @@ func (this *Cluster_LbSubsetConfig_LbSubsetSelector) Equal(that interface{}) boo
 }
 func (this *Cluster_RingHashLbConfig) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*Cluster_RingHashLbConfig)
@@ -1364,10 +1454,7 @@ func (this *Cluster_RingHashLbConfig) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -1381,10 +1468,7 @@ func (this *Cluster_RingHashLbConfig) Equal(that interface{}) bool {
 }
 func (this *Cluster_RingHashLbConfig_DeprecatedV1) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*Cluster_RingHashLbConfig_DeprecatedV1)
@@ -1397,10 +1481,7 @@ func (this *Cluster_RingHashLbConfig_DeprecatedV1) Equal(that interface{}) bool 
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -1411,10 +1492,7 @@ func (this *Cluster_RingHashLbConfig_DeprecatedV1) Equal(that interface{}) bool 
 }
 func (this *Cluster_CommonLbConfig) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*Cluster_CommonLbConfig)
@@ -1427,10 +1505,7 @@ func (this *Cluster_CommonLbConfig) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -1450,10 +1525,7 @@ func (this *Cluster_CommonLbConfig) Equal(that interface{}) bool {
 }
 func (this *Cluster_CommonLbConfig_ZoneAwareLbConfig_) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*Cluster_CommonLbConfig_ZoneAwareLbConfig_)
@@ -1466,10 +1538,7 @@ func (this *Cluster_CommonLbConfig_ZoneAwareLbConfig_) Equal(that interface{}) b
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -1480,10 +1549,7 @@ func (this *Cluster_CommonLbConfig_ZoneAwareLbConfig_) Equal(that interface{}) b
 }
 func (this *Cluster_CommonLbConfig_LocalityWeightedLbConfig_) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*Cluster_CommonLbConfig_LocalityWeightedLbConfig_)
@@ -1496,10 +1562,7 @@ func (this *Cluster_CommonLbConfig_LocalityWeightedLbConfig_) Equal(that interfa
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -1510,10 +1573,7 @@ func (this *Cluster_CommonLbConfig_LocalityWeightedLbConfig_) Equal(that interfa
 }
 func (this *Cluster_CommonLbConfig_ZoneAwareLbConfig) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*Cluster_CommonLbConfig_ZoneAwareLbConfig)
@@ -1526,10 +1586,7 @@ func (this *Cluster_CommonLbConfig_ZoneAwareLbConfig) Equal(that interface{}) bo
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -1543,10 +1600,7 @@ func (this *Cluster_CommonLbConfig_ZoneAwareLbConfig) Equal(that interface{}) bo
 }
 func (this *Cluster_CommonLbConfig_LocalityWeightedLbConfig) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*Cluster_CommonLbConfig_LocalityWeightedLbConfig)
@@ -1559,10 +1613,7 @@ func (this *Cluster_CommonLbConfig_LocalityWeightedLbConfig) Equal(that interfac
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -1570,10 +1621,7 @@ func (this *Cluster_CommonLbConfig_LocalityWeightedLbConfig) Equal(that interfac
 }
 func (this *UpstreamBindConfig) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*UpstreamBindConfig)
@@ -1586,14 +1634,35 @@ func (this *UpstreamBindConfig) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
 	if !this.SourceAddress.Equal(that1.SourceAddress) {
+		return false
+	}
+	return true
+}
+func (this *UpstreamConnectionOptions) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*UpstreamConnectionOptions)
+	if !ok {
+		that2, ok := that.(UpstreamConnectionOptions)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if !this.TcpKeepalive.Equal(that1.TcpKeepalive) {
 		return false
 	}
 	return true
@@ -1611,6 +1680,7 @@ const _ = grpc.SupportPackageIsVersion4
 
 type ClusterDiscoveryServiceClient interface {
 	StreamClusters(ctx context.Context, opts ...grpc.CallOption) (ClusterDiscoveryService_StreamClustersClient, error)
+	IncrementalClusters(ctx context.Context, opts ...grpc.CallOption) (ClusterDiscoveryService_IncrementalClustersClient, error)
 	FetchClusters(ctx context.Context, in *DiscoveryRequest, opts ...grpc.CallOption) (*DiscoveryResponse, error)
 }
 
@@ -1653,6 +1723,37 @@ func (x *clusterDiscoveryServiceStreamClustersClient) Recv() (*DiscoveryResponse
 	return m, nil
 }
 
+func (c *clusterDiscoveryServiceClient) IncrementalClusters(ctx context.Context, opts ...grpc.CallOption) (ClusterDiscoveryService_IncrementalClustersClient, error) {
+	stream, err := grpc.NewClientStream(ctx, &_ClusterDiscoveryService_serviceDesc.Streams[1], c.cc, "/envoy.api.v2.ClusterDiscoveryService/IncrementalClusters", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &clusterDiscoveryServiceIncrementalClustersClient{stream}
+	return x, nil
+}
+
+type ClusterDiscoveryService_IncrementalClustersClient interface {
+	Send(*IncrementalDiscoveryRequest) error
+	Recv() (*IncrementalDiscoveryResponse, error)
+	grpc.ClientStream
+}
+
+type clusterDiscoveryServiceIncrementalClustersClient struct {
+	grpc.ClientStream
+}
+
+func (x *clusterDiscoveryServiceIncrementalClustersClient) Send(m *IncrementalDiscoveryRequest) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *clusterDiscoveryServiceIncrementalClustersClient) Recv() (*IncrementalDiscoveryResponse, error) {
+	m := new(IncrementalDiscoveryResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 func (c *clusterDiscoveryServiceClient) FetchClusters(ctx context.Context, in *DiscoveryRequest, opts ...grpc.CallOption) (*DiscoveryResponse, error) {
 	out := new(DiscoveryResponse)
 	err := grpc.Invoke(ctx, "/envoy.api.v2.ClusterDiscoveryService/FetchClusters", in, out, c.cc, opts...)
@@ -1666,6 +1767,7 @@ func (c *clusterDiscoveryServiceClient) FetchClusters(ctx context.Context, in *D
 
 type ClusterDiscoveryServiceServer interface {
 	StreamClusters(ClusterDiscoveryService_StreamClustersServer) error
+	IncrementalClusters(ClusterDiscoveryService_IncrementalClustersServer) error
 	FetchClusters(context.Context, *DiscoveryRequest) (*DiscoveryResponse, error)
 }
 
@@ -1693,6 +1795,32 @@ func (x *clusterDiscoveryServiceStreamClustersServer) Send(m *DiscoveryResponse)
 
 func (x *clusterDiscoveryServiceStreamClustersServer) Recv() (*DiscoveryRequest, error) {
 	m := new(DiscoveryRequest)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func _ClusterDiscoveryService_IncrementalClusters_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(ClusterDiscoveryServiceServer).IncrementalClusters(&clusterDiscoveryServiceIncrementalClustersServer{stream})
+}
+
+type ClusterDiscoveryService_IncrementalClustersServer interface {
+	Send(*IncrementalDiscoveryResponse) error
+	Recv() (*IncrementalDiscoveryRequest, error)
+	grpc.ServerStream
+}
+
+type clusterDiscoveryServiceIncrementalClustersServer struct {
+	grpc.ServerStream
+}
+
+func (x *clusterDiscoveryServiceIncrementalClustersServer) Send(m *IncrementalDiscoveryResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *clusterDiscoveryServiceIncrementalClustersServer) Recv() (*IncrementalDiscoveryRequest, error) {
+	m := new(IncrementalDiscoveryRequest)
 	if err := x.ServerStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
@@ -1730,6 +1858,12 @@ var _ClusterDiscoveryService_serviceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "StreamClusters",
 			Handler:       _ClusterDiscoveryService_StreamClusters_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
+		},
+		{
+			StreamName:    "IncrementalClusters",
+			Handler:       _ClusterDiscoveryService_IncrementalClusters_Handler,
 			ServerStreams: true,
 			ClientStreams: true,
 		},
@@ -1775,8 +1909,8 @@ func (m *Cluster) MarshalTo(dAtA []byte) (int, error) {
 	}
 	dAtA[i] = 0x22
 	i++
-	i = encodeVarintCds(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(m.ConnectTimeout)))
-	n2, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.ConnectTimeout, dAtA[i:])
+	i = encodeVarintCds(dAtA, i, uint64(types.SizeOfStdDuration(m.ConnectTimeout)))
+	n2, err := types.StdDurationMarshalTo(m.ConnectTimeout, dAtA[i:])
 	if err != nil {
 		return 0, err
 	}
@@ -1875,8 +2009,8 @@ func (m *Cluster) MarshalTo(dAtA []byte) (int, error) {
 		i++
 		dAtA[i] = 0x1
 		i++
-		i = encodeVarintCds(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(*m.DnsRefreshRate)))
-		n9, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(*m.DnsRefreshRate, dAtA[i:])
+		i = encodeVarintCds(dAtA, i, uint64(types.SizeOfStdDuration(*m.DnsRefreshRate)))
+		n9, err := types.StdDurationMarshalTo(*m.DnsRefreshRate, dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
@@ -1920,8 +2054,8 @@ func (m *Cluster) MarshalTo(dAtA []byte) (int, error) {
 		i++
 		dAtA[i] = 0x1
 		i++
-		i = encodeVarintCds(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(*m.CleanupInterval)))
-		n11, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(*m.CleanupInterval, dAtA[i:])
+		i = encodeVarintCds(dAtA, i, uint64(types.SizeOfStdDuration(*m.CleanupInterval)))
+		n11, err := types.StdDurationMarshalTo(*m.CleanupInterval, dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
@@ -2021,6 +2155,54 @@ func (m *Cluster) MarshalTo(dAtA []byte) (int, error) {
 		}
 		i += n18
 	}
+	if m.UpstreamConnectionOptions != nil {
+		dAtA[i] = 0xf2
+		i++
+		dAtA[i] = 0x1
+		i++
+		i = encodeVarintCds(dAtA, i, uint64(m.UpstreamConnectionOptions.Size()))
+		n19, err := m.UpstreamConnectionOptions.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n19
+	}
+	if m.CloseConnectionsOnHostHealthFailure {
+		dAtA[i] = 0xf8
+		i++
+		dAtA[i] = 0x1
+		i++
+		if m.CloseConnectionsOnHostHealthFailure {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i++
+	}
+	if m.DrainConnectionsOnHostRemoval {
+		dAtA[i] = 0x80
+		i++
+		dAtA[i] = 0x2
+		i++
+		if m.DrainConnectionsOnHostRemoval {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i++
+	}
+	if m.LoadAssignment != nil {
+		dAtA[i] = 0x8a
+		i++
+		dAtA[i] = 0x2
+		i++
+		i = encodeVarintCds(dAtA, i, uint64(m.LoadAssignment.Size()))
+		n20, err := m.LoadAssignment.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n20
+	}
 	return i, nil
 }
 
@@ -2032,11 +2214,11 @@ func (m *Cluster_RingHashLbConfig_) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1
 		i++
 		i = encodeVarintCds(dAtA, i, uint64(m.RingHashLbConfig.Size()))
-		n19, err := m.RingHashLbConfig.MarshalTo(dAtA[i:])
+		n21, err := m.RingHashLbConfig.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n19
+		i += n21
 	}
 	return i, nil
 }
@@ -2059,11 +2241,11 @@ func (m *Cluster_EdsClusterConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintCds(dAtA, i, uint64(m.EdsConfig.Size()))
-		n20, err := m.EdsConfig.MarshalTo(dAtA[i:])
+		n22, err := m.EdsConfig.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n20
+		i += n22
 	}
 	if len(m.ServiceName) > 0 {
 		dAtA[i] = 0x12
@@ -2098,11 +2280,11 @@ func (m *Cluster_LbSubsetConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintCds(dAtA, i, uint64(m.DefaultSubset.Size()))
-		n21, err := m.DefaultSubset.MarshalTo(dAtA[i:])
+		n23, err := m.DefaultSubset.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n21
+		i += n23
 	}
 	if len(m.SubsetSelectors) > 0 {
 		for _, msg := range m.SubsetSelectors {
@@ -2115,6 +2297,16 @@ func (m *Cluster_LbSubsetConfig) MarshalTo(dAtA []byte) (int, error) {
 			}
 			i += n
 		}
+	}
+	if m.LocalityWeightAware {
+		dAtA[i] = 0x20
+		i++
+		if m.LocalityWeightAware {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i++
 	}
 	return i, nil
 }
@@ -2171,21 +2363,21 @@ func (m *Cluster_RingHashLbConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintCds(dAtA, i, uint64(m.MinimumRingSize.Size()))
-		n22, err := m.MinimumRingSize.MarshalTo(dAtA[i:])
+		n24, err := m.MinimumRingSize.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n22
+		i += n24
 	}
 	if m.DeprecatedV1 != nil {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintCds(dAtA, i, uint64(m.DeprecatedV1.Size()))
-		n23, err := m.DeprecatedV1.MarshalTo(dAtA[i:])
+		n25, err := m.DeprecatedV1.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n23
+		i += n25
 	}
 	return i, nil
 }
@@ -2209,11 +2401,11 @@ func (m *Cluster_RingHashLbConfig_DeprecatedV1) MarshalTo(dAtA []byte) (int, err
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintCds(dAtA, i, uint64(m.UseStdHash.Size()))
-		n24, err := m.UseStdHash.MarshalTo(dAtA[i:])
+		n26, err := m.UseStdHash.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n24
+		i += n26
 	}
 	return i, nil
 }
@@ -2237,18 +2429,18 @@ func (m *Cluster_CommonLbConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintCds(dAtA, i, uint64(m.HealthyPanicThreshold.Size()))
-		n25, err := m.HealthyPanicThreshold.MarshalTo(dAtA[i:])
+		n27, err := m.HealthyPanicThreshold.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n25
+		i += n27
 	}
 	if m.LocalityConfigSpecifier != nil {
-		nn26, err := m.LocalityConfigSpecifier.MarshalTo(dAtA[i:])
+		nn28, err := m.LocalityConfigSpecifier.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += nn26
+		i += nn28
 	}
 	return i, nil
 }
@@ -2259,11 +2451,11 @@ func (m *Cluster_CommonLbConfig_ZoneAwareLbConfig_) MarshalTo(dAtA []byte) (int,
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintCds(dAtA, i, uint64(m.ZoneAwareLbConfig.Size()))
-		n27, err := m.ZoneAwareLbConfig.MarshalTo(dAtA[i:])
+		n29, err := m.ZoneAwareLbConfig.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n27
+		i += n29
 	}
 	return i, nil
 }
@@ -2273,11 +2465,11 @@ func (m *Cluster_CommonLbConfig_LocalityWeightedLbConfig_) MarshalTo(dAtA []byte
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintCds(dAtA, i, uint64(m.LocalityWeightedLbConfig.Size()))
-		n28, err := m.LocalityWeightedLbConfig.MarshalTo(dAtA[i:])
+		n30, err := m.LocalityWeightedLbConfig.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n28
+		i += n30
 	}
 	return i, nil
 }
@@ -2300,21 +2492,21 @@ func (m *Cluster_CommonLbConfig_ZoneAwareLbConfig) MarshalTo(dAtA []byte) (int, 
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintCds(dAtA, i, uint64(m.RoutingEnabled.Size()))
-		n29, err := m.RoutingEnabled.MarshalTo(dAtA[i:])
+		n31, err := m.RoutingEnabled.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n29
+		i += n31
 	}
 	if m.MinClusterSize != nil {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintCds(dAtA, i, uint64(m.MinClusterSize.Size()))
-		n30, err := m.MinClusterSize.MarshalTo(dAtA[i:])
+		n32, err := m.MinClusterSize.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n30
+		i += n32
 	}
 	return i, nil
 }
@@ -2356,11 +2548,39 @@ func (m *UpstreamBindConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintCds(dAtA, i, uint64(m.SourceAddress.Size()))
-		n31, err := m.SourceAddress.MarshalTo(dAtA[i:])
+		n33, err := m.SourceAddress.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n31
+		i += n33
+	}
+	return i, nil
+}
+
+func (m *UpstreamConnectionOptions) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *UpstreamConnectionOptions) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.TcpKeepalive != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintCds(dAtA, i, uint64(m.TcpKeepalive.Size()))
+		n34, err := m.TcpKeepalive.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n34
 	}
 	return i, nil
 }
@@ -2388,7 +2608,7 @@ func (m *Cluster) Size() (n int) {
 		l = m.EdsClusterConfig.Size()
 		n += 1 + l + sovCds(uint64(l))
 	}
-	l = github_com_gogo_protobuf_types.SizeOfStdDuration(m.ConnectTimeout)
+	l = types.SizeOfStdDuration(m.ConnectTimeout)
 	n += 1 + l + sovCds(uint64(l))
 	if m.PerConnectionBufferLimitBytes != nil {
 		l = m.PerConnectionBufferLimitBytes.Size()
@@ -2430,7 +2650,7 @@ func (m *Cluster) Size() (n int) {
 		n += 1 + l + sovCds(uint64(l))
 	}
 	if m.DnsRefreshRate != nil {
-		l = github_com_gogo_protobuf_types.SizeOfStdDuration(*m.DnsRefreshRate)
+		l = types.SizeOfStdDuration(*m.DnsRefreshRate)
 		n += 2 + l + sovCds(uint64(l))
 	}
 	if m.DnsLookupFamily != 0 {
@@ -2447,7 +2667,7 @@ func (m *Cluster) Size() (n int) {
 		n += 2 + l + sovCds(uint64(l))
 	}
 	if m.CleanupInterval != nil {
-		l = github_com_gogo_protobuf_types.SizeOfStdDuration(*m.CleanupInterval)
+		l = types.SizeOfStdDuration(*m.CleanupInterval)
 		n += 2 + l + sovCds(uint64(l))
 	}
 	if m.UpstreamBindConfig != nil {
@@ -2482,6 +2702,20 @@ func (m *Cluster) Size() (n int) {
 	}
 	if m.CommonHttpProtocolOptions != nil {
 		l = m.CommonHttpProtocolOptions.Size()
+		n += 2 + l + sovCds(uint64(l))
+	}
+	if m.UpstreamConnectionOptions != nil {
+		l = m.UpstreamConnectionOptions.Size()
+		n += 2 + l + sovCds(uint64(l))
+	}
+	if m.CloseConnectionsOnHostHealthFailure {
+		n += 3
+	}
+	if m.DrainConnectionsOnHostRemoval {
+		n += 3
+	}
+	if m.LoadAssignment != nil {
+		l = m.LoadAssignment.Size()
 		n += 2 + l + sovCds(uint64(l))
 	}
 	return n
@@ -2525,6 +2759,9 @@ func (m *Cluster_LbSubsetConfig) Size() (n int) {
 			l = e.Size()
 			n += 1 + l + sovCds(uint64(l))
 		}
+	}
+	if m.LocalityWeightAware {
+		n += 2
 	}
 	return n
 }
@@ -2621,6 +2858,16 @@ func (m *UpstreamBindConfig) Size() (n int) {
 	_ = l
 	if m.SourceAddress != nil {
 		l = m.SourceAddress.Size()
+		n += 1 + l + sovCds(uint64(l))
+	}
+	return n
+}
+
+func (m *UpstreamConnectionOptions) Size() (n int) {
+	var l int
+	_ = l
+	if m.TcpKeepalive != nil {
+		l = m.TcpKeepalive.Size()
 		n += 1 + l + sovCds(uint64(l))
 	}
 	return n
@@ -2775,7 +3022,7 @@ func (m *Cluster) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if err := github_com_gogo_protobuf_types.StdDurationUnmarshal(&m.ConnectTimeout, dAtA[iNdEx:postIndex]); err != nil {
+			if err := types.StdDurationUnmarshal(&m.ConnectTimeout, dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -2806,7 +3053,7 @@ func (m *Cluster) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.PerConnectionBufferLimitBytes == nil {
-				m.PerConnectionBufferLimitBytes = &google_protobuf.UInt32Value{}
+				m.PerConnectionBufferLimitBytes = &google_protobuf1.UInt32Value{}
 			}
 			if err := m.PerConnectionBufferLimitBytes.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -2857,7 +3104,7 @@ func (m *Cluster) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.Hosts = append(m.Hosts, &envoy_api_v2_core.Address{})
+			m.Hosts = append(m.Hosts, &envoy_api_v2_core1.Address{})
 			if err := m.Hosts[len(m.Hosts)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
@@ -2920,7 +3167,7 @@ func (m *Cluster) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.MaxRequestsPerConnection == nil {
-				m.MaxRequestsPerConnection = &google_protobuf.UInt32Value{}
+				m.MaxRequestsPerConnection = &google_protobuf1.UInt32Value{}
 			}
 			if err := m.MaxRequestsPerConnection.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -3087,7 +3334,7 @@ func (m *Cluster) Unmarshal(dAtA []byte) error {
 			if m.DnsRefreshRate == nil {
 				m.DnsRefreshRate = new(time.Duration)
 			}
-			if err := github_com_gogo_protobuf_types.StdDurationUnmarshal(m.DnsRefreshRate, dAtA[iNdEx:postIndex]); err != nil {
+			if err := types.StdDurationUnmarshal(m.DnsRefreshRate, dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -3136,7 +3383,7 @@ func (m *Cluster) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.DnsResolvers = append(m.DnsResolvers, &envoy_api_v2_core.Address{})
+			m.DnsResolvers = append(m.DnsResolvers, &envoy_api_v2_core1.Address{})
 			if err := m.DnsResolvers[len(m.DnsResolvers)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
@@ -3203,7 +3450,7 @@ func (m *Cluster) Unmarshal(dAtA []byte) error {
 			if m.CleanupInterval == nil {
 				m.CleanupInterval = new(time.Duration)
 			}
-			if err := github_com_gogo_protobuf_types.StdDurationUnmarshal(m.CleanupInterval, dAtA[iNdEx:postIndex]); err != nil {
+			if err := types.StdDurationUnmarshal(m.CleanupInterval, dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -3234,7 +3481,7 @@ func (m *Cluster) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.UpstreamBindConfig == nil {
-				m.UpstreamBindConfig = &envoy_api_v2_core.BindConfig{}
+				m.UpstreamBindConfig = &envoy_api_v2_core1.BindConfig{}
 			}
 			if err := m.UpstreamBindConfig.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -3332,7 +3579,7 @@ func (m *Cluster) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.TransportSocket == nil {
-				m.TransportSocket = &envoy_api_v2_core1.TransportSocket{}
+				m.TransportSocket = &envoy_api_v2_core.TransportSocket{}
 			}
 			if err := m.TransportSocket.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -3365,7 +3612,7 @@ func (m *Cluster) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Metadata == nil {
-				m.Metadata = &envoy_api_v2_core1.Metadata{}
+				m.Metadata = &envoy_api_v2_core.Metadata{}
 			}
 			if err := m.Metadata.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -3482,6 +3729,112 @@ func (m *Cluster) Unmarshal(dAtA []byte) error {
 				m.CommonHttpProtocolOptions = &envoy_api_v2_core5.HttpProtocolOptions{}
 			}
 			if err := m.CommonHttpProtocolOptions.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 30:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field UpstreamConnectionOptions", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCds
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthCds
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.UpstreamConnectionOptions == nil {
+				m.UpstreamConnectionOptions = &UpstreamConnectionOptions{}
+			}
+			if err := m.UpstreamConnectionOptions.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 31:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field CloseConnectionsOnHostHealthFailure", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCds
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.CloseConnectionsOnHostHealthFailure = bool(v != 0)
+		case 32:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DrainConnectionsOnHostRemoval", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCds
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.DrainConnectionsOnHostRemoval = bool(v != 0)
+		case 33:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field LoadAssignment", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCds
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthCds
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.LoadAssignment == nil {
+				m.LoadAssignment = &ClusterLoadAssignment{}
+			}
+			if err := m.LoadAssignment.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -3693,7 +4046,7 @@ func (m *Cluster_LbSubsetConfig) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.DefaultSubset == nil {
-				m.DefaultSubset = &google_protobuf4.Struct{}
+				m.DefaultSubset = &google_protobuf.Struct{}
 			}
 			if err := m.DefaultSubset.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -3730,6 +4083,26 @@ func (m *Cluster_LbSubsetConfig) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			iNdEx = postIndex
+		case 4:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field LocalityWeightAware", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCds
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.LocalityWeightAware = bool(v != 0)
 		default:
 			iNdEx = preIndex
 			skippy, err := skipCds(dAtA[iNdEx:])
@@ -3886,7 +4259,7 @@ func (m *Cluster_RingHashLbConfig) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.MinimumRingSize == nil {
-				m.MinimumRingSize = &google_protobuf.UInt64Value{}
+				m.MinimumRingSize = &google_protobuf1.UInt64Value{}
 			}
 			if err := m.MinimumRingSize.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -4002,7 +4375,7 @@ func (m *Cluster_RingHashLbConfig_DeprecatedV1) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.UseStdHash == nil {
-				m.UseStdHash = &google_protobuf.BoolValue{}
+				m.UseStdHash = &google_protobuf1.BoolValue{}
 			}
 			if err := m.UseStdHash.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -4265,7 +4638,7 @@ func (m *Cluster_CommonLbConfig_ZoneAwareLbConfig) Unmarshal(dAtA []byte) error 
 				return io.ErrUnexpectedEOF
 			}
 			if m.MinClusterSize == nil {
-				m.MinClusterSize = &google_protobuf.UInt64Value{}
+				m.MinClusterSize = &google_protobuf1.UInt64Value{}
 			}
 			if err := m.MinClusterSize.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -4398,9 +4771,92 @@ func (m *UpstreamBindConfig) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.SourceAddress == nil {
-				m.SourceAddress = &envoy_api_v2_core.Address{}
+				m.SourceAddress = &envoy_api_v2_core1.Address{}
 			}
 			if err := m.SourceAddress.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipCds(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthCds
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *UpstreamConnectionOptions) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowCds
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: UpstreamConnectionOptions: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: UpstreamConnectionOptions: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field TcpKeepalive", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCds
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthCds
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.TcpKeepalive == nil {
+				m.TcpKeepalive = &envoy_api_v2_core1.TcpKeepalive{}
+			}
+			if err := m.TcpKeepalive.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -4533,128 +4989,142 @@ var (
 func init() { proto.RegisterFile("envoy/api/v2/cds.proto", fileDescriptorCds) }
 
 var fileDescriptorCds = []byte{
-	// 1959 bytes of a gzipped FileDescriptorProto
+	// 2185 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x58, 0x4f, 0x6f, 0xdb, 0xc8,
-	0x15, 0x37, 0x65, 0x25, 0xb1, 0x9f, 0x2d, 0x89, 0x1e, 0x27, 0x31, 0x23, 0x27, 0x8e, 0xa3, 0x6e,
-	0xb6, 0x46, 0x50, 0xc8, 0x1b, 0x67, 0x37, 0x05, 0xb6, 0xdb, 0x2d, 0xf4, 0xcf, 0xb6, 0x76, 0x15,
-	0xc9, 0x25, 0xe9, 0x18, 0xdb, 0x6d, 0x30, 0x1d, 0x91, 0x23, 0x8b, 0x35, 0x45, 0xb2, 0x9c, 0xa1,
-	0x13, 0xe7, 0x50, 0xa0, 0x7b, 0xda, 0x7b, 0x2f, 0xed, 0x61, 0xef, 0x45, 0x3f, 0x42, 0x4f, 0x3d,
-	0xee, 0xb1, 0x40, 0xef, 0x6d, 0x11, 0x14, 0x28, 0xfa, 0x2d, 0x0a, 0x0e, 0x87, 0x8a, 0xfe, 0xd0,
-	0x59, 0x2f, 0xd0, 0x93, 0x38, 0xef, 0xfd, 0xde, 0x6f, 0xe6, 0xbd, 0x79, 0xef, 0xcd, 0x8c, 0xe0,
-	0x36, 0xf5, 0xce, 0xfd, 0x8b, 0x5d, 0x12, 0x38, 0xbb, 0xe7, 0x7b, 0xbb, 0x96, 0xcd, 0xaa, 0x41,
-	0xe8, 0x73, 0x1f, 0xad, 0x0a, 0x79, 0x95, 0x04, 0x4e, 0xf5, 0x7c, 0xaf, 0x7c, 0x7f, 0x1a, 0xe5,
-	0x87, 0x74, 0x97, 0xd8, 0x76, 0x48, 0x99, 0x84, 0x97, 0xef, 0x4e, 0x01, 0x48, 0xc4, 0x87, 0xbb,
-	0x16, 0x0d, 0x79, 0xa6, 0x56, 0x98, 0xf7, 0x09, 0xa3, 0x52, 0xfb, 0x70, 0x5e, 0x6b, 0xf9, 0xde,
-	0xc0, 0x39, 0xc5, 0xcc, 0x8f, 0x42, 0x8b, 0x66, 0x92, 0xd8, 0x0e, 0xb3, 0xfc, 0x73, 0x1a, 0x5e,
-	0x48, 0xed, 0x7b, 0xf3, 0x24, 0x43, 0x4a, 0x5c, 0x3e, 0xc4, 0xd6, 0x90, 0x5a, 0x67, 0x12, 0xb5,
-	0x3d, 0x8f, 0x12, 0x0a, 0xcb, 0x77, 0x25, 0xe2, 0xd1, 0x34, 0xc2, 0x8d, 0x18, 0xa7, 0xe1, 0xae,
-	0xe5, 0x84, 0x56, 0xe4, 0x70, 0xdc, 0x0f, 0x29, 0x39, 0xa3, 0xa1, 0xc4, 0xfe, 0x28, 0x13, 0xeb,
-	0x47, 0xdc, 0x75, 0x68, 0x88, 0x6d, 0xca, 0xa9, 0xc5, 0x1d, 0xdf, 0x93, 0x68, 0x2d, 0x41, 0xf3,
-	0x8b, 0x80, 0xee, 0x06, 0x34, 0xb4, 0xa8, 0x37, 0x0e, 0xcf, 0xa9, 0xef, 0x9f, 0xba, 0x54, 0x10,
-	0x11, 0xcf, 0xf3, 0x39, 0x89, 0xcd, 0xd2, 0xd0, 0x6e, 0x49, 0xad, 0x18, 0xf5, 0xa3, 0xc1, 0xae,
-	0x1d, 0x85, 0x64, 0x82, 0xf7, 0xee, 0xac, 0x9e, 0xf1, 0x30, 0xb2, 0xf8, 0x65, 0xd6, 0x2f, 0x43,
-	0x12, 0x04, 0x34, 0x4c, 0xd9, 0x37, 0xce, 0x89, 0xeb, 0xd8, 0x84, 0xd3, 0xdd, 0xf4, 0x43, 0x2a,
-	0x6e, 0x9e, 0xfa, 0xa7, 0xbe, 0xf8, 0xdc, 0x8d, 0xbf, 0x12, 0x69, 0xe5, 0x77, 0x5b, 0x70, 0xa3,
-	0x91, 0x38, 0x8a, 0xee, 0x41, 0xde, 0x23, 0x23, 0xaa, 0x29, 0xdb, 0xca, 0xce, 0x72, 0x7d, 0xf9,
-	0x2f, 0xff, 0xfd, 0xeb, 0x62, 0x3e, 0xcc, 0x6d, 0x2b, 0xba, 0x10, 0xa3, 0x06, 0xe4, 0x63, 0x5f,
-	0xb5, 0xdc, 0xb6, 0xb2, 0x53, 0xdc, 0xfb, 0x41, 0x75, 0x32, 0xa1, 0xaa, 0x92, 0xa3, 0xda, 0x4c,
-	0xb7, 0xd1, 0xbc, 0x08, 0x68, 0x1d, 0x62, 0x8e, 0x6b, 0x5f, 0x29, 0x39, 0x55, 0xd1, 0x85, 0x31,
-	0x32, 0x01, 0x51, 0x9b, 0x61, 0x19, 0x5b, 0x9c, 0xe4, 0x85, 0xb6, 0xb8, 0xad, 0xec, 0xac, 0xec,
-	0xbd, 0x9f, 0x4d, 0xd9, 0xb2, 0x99, 0xfc, 0x6c, 0x08, 0xb4, 0xae, 0xd2, 0x19, 0x09, 0x7a, 0x0e,
-	0x25, 0xcb, 0xf7, 0x3c, 0x6a, 0x71, 0xcc, 0x9d, 0x11, 0xf5, 0x23, 0xae, 0xe5, 0x05, 0xe5, 0x9d,
-	0x6a, 0x12, 0xae, 0x6a, 0x1a, 0xae, 0x6a, 0x53, 0x06, 0xbb, 0x8e, 0xbe, 0xfd, 0xc7, 0xfd, 0x85,
-	0x3f, 0xfc, 0xf3, 0xbe, 0x22, 0xd6, 0xf8, 0x67, 0x25, 0xf7, 0x68, 0x41, 0x2f, 0x4a, 0x16, 0x33,
-	0x21, 0x41, 0x03, 0x78, 0x10, 0x24, 0xab, 0xf4, 0x92, 0xad, 0xc7, 0xfd, 0x68, 0x30, 0xa0, 0x21,
-	0x76, 0x9d, 0x51, 0x9c, 0x3d, 0x17, 0x9c, 0x32, 0xed, 0x9a, 0x98, 0xe9, 0xee, 0xdc, 0x4c, 0xc7,
-	0x6d, 0x8f, 0x3f, 0xd9, 0x7b, 0x4e, 0xdc, 0x88, 0xea, 0xf7, 0x02, 0xb1, 0x56, 0xc9, 0x52, 0x17,
-	0x24, 0x9d, 0x98, 0xa3, 0x1e, 0x53, 0xa0, 0x03, 0x58, 0x76, 0xfb, 0x38, 0xf0, 0x5d, 0xc7, 0xba,
-	0xd0, 0xae, 0x8b, 0xf8, 0x6e, 0x65, 0x07, 0xa3, 0xd3, 0x3f, 0x12, 0xa8, 0xa9, 0xd0, 0x2e, 0xb9,
-	0x52, 0x8a, 0x3e, 0x80, 0x6b, 0x43, 0x9f, 0x71, 0xa6, 0xdd, 0xd8, 0x5e, 0xdc, 0x59, 0xd9, 0x2b,
-	0x4f, 0x93, 0xc4, 0xf5, 0x51, 0xad, 0x25, 0x75, 0xae, 0x27, 0x40, 0xd4, 0x80, 0xc2, 0x64, 0x5d,
-	0x31, 0x6d, 0x49, 0x58, 0x6e, 0x65, 0x58, 0x1e, 0x0a, 0x5c, 0x23, 0x86, 0xe9, 0xab, 0xc3, 0xb7,
-	0x03, 0x86, 0xbe, 0x84, 0xcd, 0x11, 0x79, 0x85, 0x43, 0xfa, 0x9b, 0x88, 0x32, 0xce, 0xf0, 0x74,
-	0xd0, 0xb4, 0xe5, 0x2b, 0x44, 0x48, 0x1b, 0x91, 0x57, 0xba, 0xb4, 0x3f, 0x9a, 0x0c, 0x16, 0x3a,
-	0x02, 0x75, 0xa6, 0x5c, 0x99, 0x06, 0x82, 0xf1, 0xe1, 0xcc, 0x22, 0x65, 0x8c, 0x1a, 0x09, 0xba,
-	0x2e, 0xc1, 0x7a, 0xc9, 0x9a, 0x16, 0xa0, 0x7d, 0x58, 0xe1, 0x2e, 0x8b, 0x57, 0xc8, 0xe9, 0x2b,
-	0xae, 0xad, 0x64, 0x91, 0xc5, 0x2d, 0xaf, 0x7a, 0x1c, 0x30, 0x1e, 0x52, 0x32, 0x32, 0x5d, 0xd6,
-	0x48, 0xc0, 0x3a, 0xf0, 0xf1, 0x37, 0xfa, 0x12, 0x6e, 0x0d, 0x39, 0x0f, 0x70, 0xda, 0x72, 0xb0,
-	0x1f, 0x88, 0x42, 0xd7, 0x0a, 0x82, 0xf1, 0x87, 0x59, 0x31, 0xe4, 0x3c, 0x78, 0x7c, 0x24, 0xf1,
-	0xbd, 0x04, 0xae, 0xaf, 0xc7, 0x2c, 0x33, 0x42, 0xf4, 0x02, 0x6e, 0xc7, 0xe2, 0xbd, 0x79, 0xf6,
-	0xe2, 0x3b, 0xd9, 0xf7, 0x66, 0xd9, 0x6f, 0x0e, 0x33, 0xa4, 0xc8, 0x00, 0xd5, 0xf6, 0x18, 0x0e,
-	0xe9, 0x20, 0xa4, 0x6c, 0x88, 0x43, 0xc2, 0xa9, 0xa6, 0x7e, 0x57, 0xcd, 0x14, 0x67, 0xeb, 0xc5,
-	0xf6, 0x98, 0x9e, 0x30, 0xe8, 0x84, 0x53, 0xf4, 0x02, 0xd6, 0x62, 0x52, 0xd7, 0xf7, 0xcf, 0xa2,
-	0x00, 0x0f, 0xc8, 0xc8, 0x71, 0x2f, 0xb4, 0x35, 0x91, 0xcf, 0x0f, 0x2f, 0xe9, 0x17, 0x1e, 0xeb,
-	0x08, 0xf4, 0xbe, 0x00, 0x4f, 0xa5, 0x75, 0xc9, 0x9e, 0x56, 0xa2, 0x9f, 0x41, 0x21, 0x59, 0x33,
-	0xf3, 0xdd, 0xf3, 0x38, 0x0d, 0xd0, 0x77, 0x66, 0xf9, 0xaa, 0x58, 0xa1, 0xc4, 0x23, 0x03, 0xd6,
-	0xe6, 0xba, 0xb9, 0xb6, 0x9e, 0xd5, 0x7c, 0xd2, 0x5c, 0xea, 0x25, 0xf0, 0x66, 0x8a, 0xd6, 0x55,
-	0x7f, 0x46, 0x82, 0x4c, 0x50, 0x2d, 0x97, 0x12, 0x2f, 0x0a, 0xb0, 0xe3, 0x71, 0x1a, 0x9e, 0x13,
-	0x57, 0xbb, 0xf9, 0x7d, 0x23, 0x59, 0x92, 0x14, 0x6d, 0xc9, 0x80, 0x7a, 0x70, 0x33, 0x92, 0xd9,
-	0x87, 0xfb, 0x8e, 0x67, 0xa7, 0xad, 0xf2, 0x96, 0x60, 0xbe, 0x97, 0xe1, 0x72, 0xdd, 0xf1, 0x6c,
-	0xd9, 0x21, 0x51, 0x6a, 0xfa, 0x56, 0x86, 0xba, 0xa0, 0xba, 0x7d, 0xcc, 0xa2, 0x3e, 0xa3, 0x3c,
-	0x25, 0xbb, 0x2d, 0xc8, 0xde, 0xbb, 0xac, 0xd5, 0x18, 0x02, 0x2c, 0x39, 0x8b, 0xee, 0xd4, 0x18,
-	0x9d, 0xc0, 0x7a, 0xe8, 0x78, 0xa7, 0x78, 0x48, 0xd8, 0x10, 0xbb, 0xfd, 0x94, 0x72, 0xe3, 0x5d,
-	0xad, 0x5c, 0x77, 0xbc, 0xd3, 0x43, 0xc2, 0x86, 0x9d, 0x7e, 0x42, 0x72, 0xb8, 0xa0, 0xab, 0xe1,
-	0x8c, 0x0c, 0x3d, 0x03, 0x95, 0x87, 0xc4, 0x63, 0x81, 0x1f, 0x72, 0xcc, 0x7c, 0xeb, 0x8c, 0x72,
-	0x4d, 0x13, 0xac, 0x95, 0x0c, 0xaf, 0xcd, 0x14, 0x6a, 0x08, 0xa4, 0x5e, 0xe2, 0xd3, 0x02, 0xf4,
-	0x63, 0x58, 0x1a, 0x51, 0x4e, 0x6c, 0xc2, 0x89, 0x76, 0x47, 0xd0, 0x6c, 0x66, 0xd0, 0x3c, 0x93,
-	0x10, 0x7d, 0x0c, 0x46, 0x2f, 0x00, 0x8d, 0x4b, 0x8f, 0x51, 0x57, 0x66, 0x4b, 0x59, 0x64, 0x73,
-	0x35, 0xdb, 0x3f, 0xf9, 0x9b, 0xd6, 0x9a, 0x91, 0x5a, 0xe9, 0x6b, 0xc1, 0xac, 0x28, 0xde, 0x0f,
-	0xcb, 0x1f, 0x8d, 0x7c, 0x6f, 0x22, 0x78, 0x9b, 0xef, 0xda, 0x8f, 0x86, 0x40, 0xa7, 0x61, 0x8a,
-	0xcf, 0xaa, 0xc9, 0x31, 0xaa, 0x40, 0x81, 0xb8, 0x1c, 0x33, 0x4e, 0x38, 0x16, 0xc7, 0xf8, 0xdd,
-	0xf8, 0x18, 0xd7, 0x57, 0x88, 0xcb, 0x0d, 0x4e, 0x78, 0x37, 0x3e, 0xc2, 0x4f, 0xe1, 0xae, 0x9c,
-	0x33, 0xbb, 0x6f, 0xdd, 0xcb, 0x2c, 0x85, 0xb4, 0xb3, 0xcc, 0x36, 0x96, 0x3b, 0x09, 0x57, 0x86,
-	0xaa, 0x1c, 0x81, 0x3a, 0x7b, 0x6c, 0xa3, 0x4f, 0x01, 0xc4, 0xd1, 0x9f, 0xb8, 0xaa, 0x88, 0xa9,
-	0xee, 0x67, 0x4c, 0x95, 0xc0, 0x0d, 0x71, 0x55, 0xd4, 0x97, 0xe3, 0xb3, 0x3e, 0xb1, 0x7f, 0x00,
-	0xab, 0x8c, 0x86, 0xe7, 0x8e, 0x45, 0x13, 0xff, 0x72, 0x89, 0x7f, 0x52, 0x16, 0xfb, 0x57, 0xfe,
-	0x66, 0x11, 0x8a, 0xd3, 0x69, 0x8b, 0x02, 0x28, 0x0d, 0x88, 0xeb, 0xf6, 0x89, 0x75, 0x96, 0x1e,
-	0xb0, 0x8a, 0xd8, 0xc2, 0x9f, 0x5c, 0x25, 0xeb, 0xc7, 0xc3, 0x7d, 0xc9, 0x91, 0x71, 0xfa, 0x16,
-	0x07, 0x53, 0x3a, 0xf4, 0x29, 0x14, 0x6d, 0x3a, 0x20, 0x51, 0xbc, 0x19, 0xc2, 0x56, 0xac, 0x74,
-	0x65, 0x6f, 0x63, 0xae, 0x1b, 0x18, 0xe2, 0x62, 0xa7, 0x17, 0x24, 0x3c, 0x99, 0x09, 0xfd, 0x0a,
-	0x54, 0x59, 0xa5, 0x49, 0xd6, 0xf9, 0x21, 0xd3, 0x16, 0x45, 0xa3, 0xfb, 0xe8, 0x7b, 0x2d, 0xd9,
-	0x90, 0xd6, 0x7a, 0x89, 0x4d, 0x8d, 0x59, 0xf9, 0x7d, 0x50, 0x67, 0x41, 0x08, 0x41, 0xfe, 0x8c,
-	0x5e, 0x30, 0x4d, 0xd9, 0x5e, 0xdc, 0x59, 0xd6, 0xc5, 0x77, 0xa5, 0x07, 0xb7, 0xb3, 0xfd, 0x47,
-	0x25, 0x58, 0xe9, 0xf6, 0xf0, 0x7e, 0xad, 0xd3, 0xa9, 0xd7, 0x1a, 0x9f, 0xab, 0x0b, 0x48, 0x85,
-	0xd5, 0x5a, 0xf7, 0x0b, 0xdc, 0xea, 0x36, 0x8f, 0x7a, 0xed, 0xae, 0xa9, 0x2a, 0x08, 0x41, 0xb1,
-	0xd9, 0xda, 0xaf, 0x1d, 0x77, 0x4c, 0x6c, 0x1c, 0xd7, 0x8d, 0x96, 0xa9, 0xe6, 0xca, 0x5f, 0xe7,
-	0x40, 0x9d, 0xed, 0x01, 0xe8, 0x10, 0xd6, 0x46, 0x8e, 0xe7, 0x8c, 0xa2, 0x11, 0x16, 0x0d, 0x85,
-	0x39, 0xaf, 0xa9, 0x4c, 0x8f, 0xec, 0x2b, 0xc3, 0xd3, 0x0f, 0x93, 0x2b, 0x43, 0x49, 0x9a, 0xc5,
-	0x8c, 0x86, 0xf3, 0x9a, 0xa2, 0x5f, 0x42, 0xc1, 0xa6, 0x41, 0x48, 0x2d, 0xc2, 0xa9, 0x8d, 0xcf,
-	0x1f, 0xcb, 0xc0, 0x3f, 0xb9, 0x5a, 0x33, 0xaa, 0x36, 0xc7, 0xb6, 0xcf, 0x1f, 0xd7, 0x73, 0x9a,
-	0xa2, 0xaf, 0xda, 0x13, 0x92, 0x72, 0x07, 0x56, 0x27, 0x11, 0xe8, 0x13, 0x58, 0x8d, 0x18, 0xc5,
-	0x8c, 0xdb, 0xa2, 0x07, 0xca, 0x25, 0x97, 0xe7, 0x96, 0x5c, 0xf7, 0x7d, 0x37, 0x59, 0x30, 0x44,
-	0x8c, 0x1a, 0xdc, 0x8e, 0x27, 0x2d, 0x7f, 0x93, 0x87, 0xe2, 0x74, 0x45, 0xa3, 0xcf, 0x61, 0x23,
-	0xb9, 0x55, 0x5d, 0xe0, 0x80, 0x78, 0x8e, 0x85, 0xf9, 0x30, 0x3e, 0x59, 0x7d, 0xd7, 0x96, 0xdc,
-	0xeb, 0xd2, 0x91, 0xf8, 0x26, 0x5d, 0x3d, 0x4a, 0x9e, 0x1c, 0xfa, 0x2d, 0x69, 0x73, 0x14, 0x9b,
-	0x98, 0xa9, 0x05, 0x72, 0xe0, 0xe6, 0x6b, 0xdf, 0xa3, 0x98, 0xbc, 0x24, 0x21, 0x9d, 0x68, 0x31,
-	0x49, 0x48, 0x9e, 0x5e, 0xa5, 0xc5, 0x54, 0x7f, 0xe1, 0x7b, 0xb4, 0x16, 0xdb, 0x4f, 0xf4, 0xeb,
-	0xb5, 0xd7, 0xb3, 0x42, 0xf4, 0x5b, 0xd8, 0x74, 0x7d, 0x8b, 0xb8, 0x0e, 0xbf, 0xc0, 0x2f, 0xa9,
-	0x73, 0x3a, 0x8c, 0xa3, 0xff, 0x76, 0xc6, 0xe4, 0x72, 0xff, 0xd3, 0x2b, 0xcd, 0xd8, 0x91, 0x3c,
-	0x27, 0x92, 0x66, 0x62, 0x62, 0xcd, 0xbd, 0x44, 0x57, 0xfe, 0xa3, 0x02, 0x6b, 0x73, 0x4b, 0x45,
-	0x9f, 0x40, 0x29, 0xf4, 0x23, 0x1e, 0x67, 0x14, 0xf5, 0x48, 0xdf, 0xa5, 0xef, 0x8c, 0x62, 0x51,
-	0x62, 0x5b, 0x09, 0x14, 0xed, 0x83, 0x3a, 0x72, 0xbc, 0xf1, 0x3b, 0x45, 0xe4, 0x64, 0xee, 0x0a,
-	0x39, 0x59, 0x1c, 0x39, 0x9e, 0xf4, 0x2d, 0x4e, 0xc9, 0x72, 0x19, 0xb4, 0xcb, 0x7c, 0xaa, 0x6f,
-	0xc2, 0x9d, 0x71, 0xdc, 0xd2, 0x07, 0x72, 0x40, 0x2d, 0x67, 0xe0, 0xd0, 0xb0, 0x72, 0x02, 0x85,
-	0xa9, 0xb7, 0x14, 0x02, 0xb8, 0x6e, 0x98, 0x35, 0xb3, 0xdd, 0x50, 0x17, 0x50, 0x11, 0xc0, 0x30,
-	0xf5, 0x76, 0xc3, 0xc4, 0xcd, 0xae, 0xa1, 0x2a, 0x71, 0x39, 0x76, 0x7a, 0x07, 0xed, 0x46, 0xad,
-	0x23, 0x04, 0x39, 0x74, 0x03, 0x16, 0x5b, 0x4d, 0x43, 0x5d, 0x8c, 0xeb, 0xb2, 0xa7, 0xb7, 0x0f,
-	0xda, 0xdd, 0x58, 0x65, 0x98, 0x6a, 0xbe, 0xf2, 0x6b, 0x58, 0x4a, 0x1f, 0x11, 0xb1, 0x9d, 0xde,
-	0x3b, 0xee, 0x36, 0xb1, 0xde, 0xab, 0xb7, 0xbb, 0xea, 0x02, 0x5a, 0x83, 0x42, 0xa7, 0x55, 0x33,
-	0x4c, 0xac, 0xb7, 0x7e, 0x7e, 0xdc, 0x32, 0xe2, 0x3a, 0x2e, 0xc0, 0xb2, 0xde, 0xee, 0x1e, 0xe0,
-	0xc3, 0x9a, 0x71, 0xa8, 0xe6, 0xe2, 0x65, 0xe8, 0xb5, 0x6e, 0xb3, 0xf7, 0x4c, 0x5d, 0x44, 0xeb,
-	0x50, 0x9a, 0x24, 0xc7, 0x9d, 0xba, 0x9a, 0x8f, 0x01, 0xcf, 0x6a, 0x07, 0x9d, 0xd6, 0x73, 0xf5,
-	0x5a, 0xe5, 0x23, 0x28, 0xcd, 0x5c, 0xf0, 0xd0, 0x12, 0xe4, 0x6b, 0xc7, 0x66, 0x4f, 0x5d, 0x40,
-	0x2b, 0x70, 0xe3, 0xf9, 0x87, 0xb8, 0xd7, 0xed, 0x7c, 0xa1, 0x2a, 0x62, 0xf0, 0x34, 0x19, 0xe4,
-	0x2a, 0x26, 0x68, 0x97, 0x9d, 0xa4, 0x68, 0x13, 0x36, 0x8e, 0x8d, 0x16, 0x6e, 0xf4, 0xba, 0xfb,
-	0xed, 0x83, 0x63, 0xbd, 0xd5, 0xc4, 0x47, 0x7a, 0xcf, 0xec, 0x35, 0x7a, 0x1d, 0x75, 0x21, 0x55,
-	0x36, 0x7b, 0x27, 0x5d, 0xc3, 0xd4, 0x5b, 0xb5, 0x67, 0x6f, 0x95, 0x4a, 0x7d, 0x45, 0x3c, 0xb2,
-	0x92, 0x40, 0x7f, 0x96, 0x5f, 0x5a, 0x55, 0x0b, 0x9f, 0xe5, 0x97, 0x4a, 0xaa, 0x5a, 0x39, 0x01,
-	0x74, 0x3c, 0x7f, 0x5f, 0xaa, 0x41, 0x31, 0xf9, 0xbb, 0x02, 0xcb, 0x7f, 0x46, 0xc6, 0x05, 0x7e,
-	0xf9, 0x6d, 0xb3, 0x90, 0x58, 0xc8, 0xe1, 0xde, 0x7f, 0x14, 0xd8, 0x90, 0x8e, 0x8c, 0xf7, 0xd2,
-	0x48, 0x8e, 0x2b, 0x74, 0x02, 0x45, 0x43, 0x4c, 0x29, 0x01, 0x0c, 0xcd, 0x3c, 0xb9, 0xc6, 0x16,
-	0xf2, 0x55, 0x54, 0xbe, 0x7f, 0xa9, 0x9e, 0x05, 0xbe, 0xc7, 0x68, 0x65, 0x61, 0x47, 0xf9, 0x40,
-	0x41, 0x0c, 0x0a, 0xfb, 0x94, 0x5b, 0xc3, 0xff, 0x1f, 0xef, 0x83, 0xaf, 0xfe, 0xfe, 0xef, 0xdf,
-	0xe7, 0x36, 0x2b, 0xb7, 0xa7, 0xfe, 0xa7, 0xf9, 0x58, 0xd6, 0x06, 0xfb, 0x58, 0x79, 0x54, 0x5f,
-	0xff, 0xd3, 0x9b, 0x2d, 0xe5, 0xdb, 0x37, 0x5b, 0xca, 0xdf, 0xde, 0x6c, 0x29, 0xff, 0x7a, 0xb3,
-	0xa5, 0x7c, 0xad, 0x28, 0xfd, 0xeb, 0xa2, 0x42, 0x9e, 0xfc, 0x2f, 0x00, 0x00, 0xff, 0xff, 0x9f,
-	0xca, 0x29, 0x6d, 0x93, 0x12, 0x00, 0x00,
+	0x15, 0x37, 0x65, 0x25, 0xb1, 0xc7, 0x96, 0x44, 0x8f, 0x93, 0x98, 0x91, 0x13, 0xff, 0xd1, 0x6e,
+	0xb6, 0x6e, 0x50, 0xc8, 0x8d, 0x92, 0x4d, 0x81, 0xed, 0x76, 0x0b, 0xfd, 0xb3, 0xad, 0x8d, 0x22,
+	0xb9, 0xa4, 0x6c, 0x63, 0xbb, 0x0d, 0xa6, 0x23, 0x72, 0x64, 0xb1, 0xa6, 0x38, 0x2c, 0x67, 0xe8,
+	0xc4, 0x39, 0x14, 0xc1, 0x9e, 0x7a, 0x2f, 0x50, 0xb4, 0x87, 0xa2, 0xd7, 0xa2, 0x1f, 0xa1, 0xa7,
+	0x1e, 0xf7, 0xd8, 0xa2, 0xc7, 0x02, 0x6d, 0x11, 0xf4, 0xd2, 0x6f, 0x51, 0x70, 0x38, 0x54, 0x44,
+	0x89, 0x4e, 0xbc, 0xc0, 0x9e, 0xc4, 0x79, 0xef, 0xf7, 0x7e, 0x33, 0xf3, 0xe6, 0xbd, 0x37, 0x6f,
+	0x04, 0x6e, 0x13, 0xf7, 0x9c, 0x5e, 0xec, 0x62, 0xcf, 0xde, 0x3d, 0xaf, 0xec, 0x9a, 0x16, 0x2b,
+	0x7b, 0x3e, 0xe5, 0x14, 0x2e, 0x0b, 0x79, 0x19, 0x7b, 0x76, 0xf9, 0xbc, 0x52, 0xdc, 0x4c, 0xa2,
+	0xa8, 0x4f, 0x76, 0xb1, 0x65, 0xf9, 0x84, 0x49, 0x78, 0xf1, 0x6e, 0x02, 0x80, 0x03, 0x3e, 0xdc,
+	0x35, 0x89, 0xcf, 0x53, 0xb5, 0xc2, 0xbc, 0x8f, 0x19, 0x91, 0xda, 0xfb, 0xb3, 0x5a, 0x93, 0xba,
+	0x03, 0xfb, 0x14, 0x31, 0x1a, 0xf8, 0x26, 0x49, 0x25, 0xb1, 0x6c, 0x66, 0xd2, 0x73, 0xe2, 0x5f,
+	0x48, 0xed, 0x87, 0xb3, 0x24, 0x43, 0x82, 0x1d, 0x3e, 0x44, 0xe6, 0x90, 0x98, 0x67, 0x12, 0xb5,
+	0x35, 0x8b, 0x12, 0x0a, 0x93, 0x3a, 0x12, 0xf1, 0x20, 0x89, 0x70, 0x02, 0xc6, 0x89, 0xbf, 0x6b,
+	0xda, 0xbe, 0x19, 0xd8, 0x1c, 0xf5, 0x7d, 0x82, 0xcf, 0x88, 0x2f, 0xb1, 0xdf, 0x4b, 0xc5, 0xd2,
+	0x80, 0x3b, 0x36, 0xf1, 0x91, 0x45, 0x38, 0x31, 0xb9, 0x4d, 0x5d, 0x89, 0x4e, 0x7a, 0x9a, 0xc4,
+	0x9e, 0x2e, 0x6a, 0x91, 0x9c, 0x5f, 0x78, 0x64, 0xd7, 0x23, 0xbe, 0x49, 0xdc, 0xb1, 0xdb, 0x4e,
+	0x29, 0x3d, 0x75, 0x88, 0x30, 0xc1, 0xae, 0x4b, 0x39, 0x0e, 0xe9, 0x62, 0xbb, 0x0d, 0xa9, 0x15,
+	0xa3, 0x7e, 0x30, 0xd8, 0xb5, 0x02, 0x1f, 0x4f, 0xcc, 0x77, 0x77, 0x5a, 0xcf, 0xb8, 0x1f, 0x98,
+	0xfc, 0x32, 0xeb, 0x17, 0x3e, 0xf6, 0x3c, 0xe2, 0xc7, 0xec, 0x6b, 0xe7, 0xd8, 0xb1, 0x2d, 0xcc,
+	0xc9, 0x6e, 0xfc, 0x21, 0x15, 0x37, 0x4f, 0xe9, 0x29, 0x15, 0x9f, 0xbb, 0xe1, 0x57, 0x24, 0x2d,
+	0xfd, 0x71, 0x1b, 0xdc, 0xa8, 0x47, 0x0e, 0x80, 0xf7, 0x40, 0xd6, 0xc5, 0x23, 0xa2, 0x29, 0x5b,
+	0xca, 0xce, 0x62, 0x6d, 0xf1, 0x2f, 0xff, 0xfb, 0xeb, 0x7c, 0xd6, 0xcf, 0x6c, 0x29, 0xba, 0x10,
+	0xc3, 0x3a, 0xc8, 0x86, 0x7b, 0xd5, 0x32, 0x5b, 0xca, 0x4e, 0xbe, 0xf2, 0x41, 0x79, 0x32, 0xd0,
+	0xca, 0x92, 0xa3, 0xdc, 0x88, 0x8f, 0xb7, 0x77, 0xe1, 0x91, 0x1a, 0x08, 0x39, 0xae, 0x7d, 0xa5,
+	0x64, 0x54, 0x45, 0x17, 0xc6, 0xb0, 0x07, 0x20, 0xb1, 0x18, 0x92, 0x3e, 0x47, 0x51, 0xbc, 0x68,
+	0xf3, 0x5b, 0xca, 0xce, 0x52, 0xe5, 0xa3, 0x74, 0xca, 0xa6, 0xc5, 0xe4, 0x67, 0x5d, 0xa0, 0x75,
+	0x95, 0x4c, 0x49, 0xe0, 0x31, 0x28, 0x98, 0xd4, 0x75, 0x89, 0xc9, 0x11, 0xb7, 0x47, 0x84, 0x06,
+	0x5c, 0xcb, 0x0a, 0xca, 0x3b, 0xe5, 0xc8, 0x5d, 0xe5, 0xd8, 0x5d, 0xe5, 0x86, 0x74, 0x76, 0x0d,
+	0x7e, 0xfd, 0xaf, 0xcd, 0xb9, 0xdf, 0xfd, 0x7b, 0x53, 0x11, 0x6b, 0xfc, 0xb3, 0x92, 0x79, 0x30,
+	0xa7, 0xe7, 0x25, 0x4b, 0x2f, 0x22, 0x81, 0x03, 0xb0, 0xed, 0x45, 0xab, 0x74, 0xa3, 0x90, 0x40,
+	0xfd, 0x60, 0x30, 0x20, 0x3e, 0x72, 0xec, 0x51, 0x18, 0x55, 0x17, 0x9c, 0x30, 0xed, 0x9a, 0x98,
+	0xe9, 0xee, 0xcc, 0x4c, 0x47, 0x2d, 0x97, 0x3f, 0xaa, 0x1c, 0x63, 0x27, 0x20, 0xfa, 0x3d, 0x4f,
+	0xac, 0x55, 0xb2, 0xd4, 0x04, 0x49, 0x3b, 0xe4, 0xa8, 0x85, 0x14, 0x70, 0x1f, 0x2c, 0x3a, 0x7d,
+	0xe4, 0x51, 0xc7, 0x36, 0x2f, 0xb4, 0xeb, 0xc2, 0xbf, 0x1b, 0xe9, 0xce, 0x68, 0xf7, 0x0f, 0x05,
+	0x2a, 0xe1, 0xda, 0x05, 0x47, 0x4a, 0xe1, 0x63, 0x70, 0x6d, 0x48, 0x19, 0x67, 0xda, 0x8d, 0xad,
+	0xf9, 0x9d, 0xa5, 0x4a, 0x31, 0x49, 0x12, 0xe6, 0x4d, 0xb9, 0x1a, 0xe5, 0x7f, 0x2d, 0xa3, 0x29,
+	0x7a, 0x04, 0x86, 0x75, 0x90, 0x9b, 0xcc, 0x39, 0xa6, 0x2d, 0x08, 0xeb, 0x8d, 0x14, 0xeb, 0x03,
+	0x81, 0xab, 0x87, 0x30, 0x7d, 0x79, 0xf8, 0x76, 0xc0, 0xe0, 0x97, 0x60, 0x7d, 0x84, 0x5f, 0x22,
+	0x9f, 0xfc, 0x32, 0x20, 0x8c, 0x33, 0x94, 0x74, 0x9c, 0xb6, 0x78, 0x05, 0x2f, 0x69, 0x23, 0xfc,
+	0x52, 0x97, 0xf6, 0x87, 0x93, 0x0e, 0x83, 0x87, 0x40, 0x9d, 0x4a, 0x65, 0xa6, 0x01, 0xc1, 0x78,
+	0x7f, 0x6a, 0x91, 0xd2, 0x4f, 0xf5, 0x08, 0x5d, 0x93, 0x60, 0xbd, 0x60, 0x26, 0x05, 0x70, 0x0f,
+	0x2c, 0x71, 0x87, 0x85, 0x2b, 0xe4, 0xe4, 0x25, 0xd7, 0x96, 0xd2, 0xc8, 0xc2, 0x72, 0x58, 0x3e,
+	0xf2, 0x18, 0xf7, 0x09, 0x1e, 0xf5, 0x1c, 0x56, 0x8f, 0xc0, 0x3a, 0xe0, 0xe3, 0x6f, 0xf8, 0x25,
+	0xb8, 0x35, 0xe4, 0xdc, 0x43, 0x71, 0x39, 0x42, 0xd4, 0x13, 0xc9, 0xae, 0xe5, 0x04, 0xe3, 0x77,
+	0xd2, 0x7c, 0xc8, 0xb9, 0xf7, 0xf0, 0x50, 0xe2, 0xbb, 0x11, 0x5c, 0x5f, 0x0d, 0x59, 0xa6, 0x84,
+	0xf0, 0x39, 0xb8, 0x1d, 0x8a, 0x2b, 0xb3, 0xec, 0xf9, 0x77, 0xb2, 0x57, 0xa6, 0xd9, 0x6f, 0x0e,
+	0x53, 0xa4, 0xd0, 0x00, 0xaa, 0xe5, 0x32, 0xe4, 0x93, 0x81, 0x4f, 0xd8, 0x10, 0xf9, 0x98, 0x13,
+	0x4d, 0x7d, 0x5f, 0xde, 0xe4, 0xa7, 0x73, 0xc6, 0x72, 0x99, 0x1e, 0x31, 0xe8, 0x98, 0x13, 0xf8,
+	0x1c, 0xac, 0x84, 0xa4, 0x0e, 0xa5, 0x67, 0x81, 0x87, 0x06, 0x78, 0x64, 0x3b, 0x17, 0xda, 0x8a,
+	0x88, 0xe9, 0xfb, 0x97, 0xd4, 0x0c, 0x97, 0xb5, 0x05, 0x7a, 0x4f, 0x80, 0x13, 0xa1, 0x5d, 0xb0,
+	0x92, 0x4a, 0xf8, 0x63, 0x90, 0x8b, 0xd6, 0xcc, 0xa8, 0x73, 0x1e, 0x86, 0x01, 0x7c, 0x5f, 0xa4,
+	0xeb, 0xcb, 0x62, 0x85, 0x12, 0x0f, 0x0d, 0xb0, 0x32, 0x53, 0xe9, 0xb5, 0xd5, 0xb4, 0x02, 0x14,
+	0xc7, 0x52, 0x37, 0x82, 0x37, 0x62, 0xb4, 0xae, 0xd2, 0x29, 0x09, 0xec, 0x01, 0xd5, 0x74, 0x08,
+	0x76, 0x03, 0x0f, 0xd9, 0x2e, 0x27, 0xfe, 0x39, 0x76, 0xb4, 0x9b, 0xdf, 0xd4, 0x93, 0x05, 0x49,
+	0xd1, 0x92, 0x0c, 0xb0, 0x0b, 0x6e, 0x06, 0x32, 0xfa, 0x50, 0xdf, 0x76, 0xad, 0xb8, 0x5c, 0xde,
+	0x12, 0xcc, 0xf7, 0x52, 0xb6, 0x5c, 0xb3, 0x5d, 0x4b, 0x56, 0x49, 0x18, 0x9b, 0xbe, 0x95, 0xc1,
+	0x0e, 0x50, 0x9d, 0x3e, 0x62, 0x41, 0x9f, 0x11, 0x1e, 0x93, 0xdd, 0x16, 0x64, 0x1f, 0x5e, 0x56,
+	0x6e, 0x0c, 0x01, 0x96, 0x9c, 0x79, 0x27, 0x31, 0x86, 0x27, 0x60, 0xd5, 0xb7, 0xdd, 0x53, 0x34,
+	0xc4, 0x6c, 0x88, 0x9c, 0x7e, 0x4c, 0xb9, 0xf6, 0xae, 0x72, 0xae, 0xdb, 0xee, 0xe9, 0x01, 0x66,
+	0xc3, 0x76, 0x3f, 0x22, 0x39, 0x98, 0xd3, 0x55, 0x7f, 0x4a, 0x06, 0x9f, 0x01, 0x95, 0xfb, 0xd8,
+	0x65, 0x1e, 0xf5, 0x39, 0x62, 0xd4, 0x3c, 0x23, 0x5c, 0xd3, 0x04, 0x6b, 0x29, 0x65, 0xd7, 0xbd,
+	0x18, 0x6a, 0x08, 0xa4, 0x5e, 0xe0, 0x49, 0x01, 0xfc, 0x01, 0x58, 0x18, 0x11, 0x8e, 0x2d, 0xcc,
+	0xb1, 0x76, 0x47, 0xd0, 0xac, 0xa7, 0xd0, 0x3c, 0x93, 0x10, 0x7d, 0x0c, 0x86, 0xcf, 0x01, 0x1c,
+	0xa7, 0x1e, 0x23, 0x8e, 0x8c, 0x96, 0xa2, 0x88, 0xe6, 0x72, 0xfa, 0xfe, 0xe4, 0x6f, 0x9c, 0x6b,
+	0x46, 0x6c, 0xa5, 0xaf, 0x78, 0xd3, 0xa2, 0xf0, 0x3c, 0x4c, 0x3a, 0x1a, 0x51, 0x77, 0xc2, 0x79,
+	0xeb, 0xef, 0x3a, 0x8f, 0xba, 0x40, 0xc7, 0x6e, 0x0a, 0xef, 0xab, 0xc9, 0x31, 0x2c, 0x81, 0x1c,
+	0x76, 0x38, 0x62, 0x1c, 0x73, 0x24, 0xae, 0xf2, 0xbb, 0xe1, 0x55, 0xae, 0x2f, 0x61, 0x87, 0x1b,
+	0x1c, 0xf3, 0x4e, 0x78, 0x8d, 0x9f, 0x82, 0xbb, 0x72, 0xce, 0xf4, 0xba, 0x75, 0x2f, 0x35, 0x15,
+	0xe2, 0xca, 0x32, 0x5d, 0x58, 0xee, 0x44, 0x5c, 0x29, 0x2a, 0x78, 0x0a, 0xd6, 0xc7, 0xd1, 0x3b,
+	0x71, 0x83, 0xc6, 0xf3, 0x6c, 0xa4, 0x55, 0xb0, 0xb8, 0xd8, 0xbe, 0x2d, 0xfd, 0xe3, 0x89, 0x82,
+	0xcb, 0x54, 0xf0, 0x08, 0xec, 0x98, 0x0e, 0x65, 0x64, 0x62, 0x16, 0x86, 0xc2, 0xfd, 0x51, 0xc6,
+	0x91, 0xbc, 0xd8, 0x06, 0xd8, 0x76, 0x02, 0x9f, 0x68, 0x9b, 0x5b, 0xca, 0xce, 0x82, 0xfe, 0x81,
+	0xc0, 0xbf, 0x65, 0x62, 0x5d, 0xf7, 0x80, 0x32, 0x1e, 0x5d, 0x6e, 0x7b, 0x11, 0x14, 0x1e, 0x80,
+	0x6d, 0xcb, 0xc7, 0xb6, 0x9b, 0x4a, 0xeb, 0x93, 0x11, 0x0d, 0x93, 0x7c, 0x4b, 0xf0, 0xdd, 0x13,
+	0xc0, 0x19, 0x3e, 0x3d, 0x02, 0xc1, 0x36, 0x28, 0x38, 0x14, 0x5b, 0x08, 0x33, 0x66, 0x9f, 0xba,
+	0x23, 0xe2, 0x72, 0x6d, 0x5b, 0xec, 0x3e, 0xbd, 0x89, 0x6a, 0x53, 0x6c, 0x55, 0xc7, 0x50, 0x3d,
+	0xef, 0x24, 0xc6, 0xc5, 0x00, 0xa8, 0xd3, 0x2d, 0x11, 0xfc, 0x0c, 0x00, 0xd1, 0x56, 0x45, 0x21,
+	0xa4, 0x08, 0xf2, 0xcd, 0x94, 0x23, 0x8c, 0xe0, 0x86, 0x68, 0xcf, 0xf5, 0xc5, 0xb0, 0x8f, 0x8a,
+	0xec, 0xb7, 0xc1, 0x32, 0x23, 0xfe, 0xb9, 0x6d, 0x92, 0x28, 0x6e, 0x32, 0x51, 0xdc, 0x48, 0x59,
+	0x18, 0x37, 0xc5, 0xbf, 0xcf, 0x83, 0x7c, 0xb2, 0x1c, 0x40, 0x0f, 0x14, 0x06, 0xd8, 0x71, 0xfa,
+	0xd8, 0x3c, 0x8b, 0x9b, 0x17, 0x45, 0xa4, 0xc6, 0x0f, 0xaf, 0x52, 0x4d, 0xc6, 0xc3, 0x3d, 0xc9,
+	0x91, 0xd2, 0xd9, 0xe4, 0x07, 0x09, 0x1d, 0xfc, 0x0c, 0xe4, 0x2d, 0x32, 0xc0, 0x41, 0x18, 0xe4,
+	0xc2, 0x56, 0xac, 0x74, 0xa9, 0xb2, 0x36, 0x53, 0x65, 0x0d, 0xd1, 0x34, 0xeb, 0x39, 0x09, 0x8f,
+	0x66, 0x82, 0x3f, 0x07, 0xaa, 0xac, 0x7e, 0x51, 0x36, 0x53, 0x9f, 0x69, 0xf3, 0xe2, 0x02, 0xf9,
+	0xf8, 0x1b, 0x2d, 0xd9, 0x90, 0xd6, 0x7a, 0x81, 0x25, 0xc6, 0x0c, 0x56, 0xc0, 0x2d, 0x87, 0x9a,
+	0xd8, 0xb1, 0xf9, 0x05, 0x7a, 0x41, 0xec, 0xd3, 0x21, 0x47, 0xf8, 0x05, 0xf6, 0x89, 0x68, 0x48,
+	0x17, 0xf4, 0xd5, 0x58, 0x79, 0x22, 0x74, 0xd5, 0x50, 0x55, 0xfc, 0x08, 0xa8, 0xd3, 0xc4, 0x10,
+	0x82, 0xec, 0x19, 0xb9, 0x60, 0x9a, 0xb2, 0x35, 0xbf, 0xb3, 0xa8, 0x8b, 0xef, 0x52, 0x17, 0xdc,
+	0x4e, 0xf7, 0x19, 0x2c, 0x80, 0xa5, 0x4e, 0x17, 0xed, 0x55, 0xdb, 0xed, 0x5a, 0xb5, 0xfe, 0x54,
+	0x9d, 0x83, 0x2a, 0x58, 0xae, 0x76, 0xbe, 0x40, 0xcd, 0x4e, 0xe3, 0xb0, 0xdb, 0xea, 0xf4, 0x54,
+	0x05, 0x42, 0x90, 0x6f, 0x34, 0xf7, 0xaa, 0x47, 0xed, 0x1e, 0x32, 0x8e, 0x6a, 0x46, 0xb3, 0xa7,
+	0x66, 0x8a, 0xbf, 0xcd, 0x00, 0x75, 0xba, 0x1e, 0xc3, 0x63, 0xb0, 0x32, 0xb2, 0x5d, 0x7b, 0x14,
+	0x8c, 0x90, 0x28, 0xee, 0xcc, 0x7e, 0x45, 0x64, 0x48, 0xa5, 0xb7, 0x6f, 0x4f, 0x1e, 0x8b, 0xf6,
+	0xad, 0xb6, 0x1c, 0x1e, 0xdc, 0x8d, 0xca, 0x35, 0xed, 0xf5, 0xeb, 0xd7, 0x59, 0xbd, 0x20, 0x49,
+	0x42, 0x7e, 0xc3, 0x7e, 0x45, 0xe0, 0xcf, 0x40, 0xce, 0x22, 0x9e, 0x4f, 0x4c, 0xcc, 0x89, 0x85,
+	0xce, 0x1f, 0xca, 0xa3, 0x7b, 0x74, 0xb5, 0x6b, 0xa2, 0xdc, 0x18, 0xdb, 0x1e, 0x3f, 0x14, 0xcd,
+	0xeb, 0xb2, 0x35, 0x21, 0x29, 0xb6, 0xc1, 0xf2, 0x24, 0x02, 0x7e, 0x0a, 0x96, 0x03, 0x46, 0x10,
+	0xe3, 0x96, 0xb8, 0x9d, 0xe4, 0x06, 0x8a, 0x33, 0x1b, 0xa8, 0x51, 0xea, 0x44, 0xdd, 0x27, 0x08,
+	0x18, 0x31, 0xb8, 0x15, 0x4e, 0x5a, 0xfc, 0x43, 0x16, 0xe4, 0x93, 0xb5, 0x16, 0x3e, 0x05, 0x6b,
+	0x51, 0x2d, 0xb9, 0x40, 0x1e, 0x76, 0x6d, 0x13, 0xf1, 0x61, 0xd8, 0xf3, 0x50, 0xc7, 0x92, 0xdc,
+	0xab, 0x72, 0x23, 0xe1, 0x3b, 0xa7, 0x7c, 0x18, 0x3d, 0x08, 0xf5, 0x5b, 0xd2, 0xe6, 0x30, 0x34,
+	0xe9, 0xc5, 0x16, 0xd0, 0x06, 0x37, 0x5f, 0x51, 0x97, 0x44, 0xa1, 0x31, 0x51, 0xfc, 0x23, 0x97,
+	0x3c, 0xb9, 0x4a, 0xf1, 0x2f, 0xff, 0x94, 0xba, 0x44, 0xc4, 0xcf, 0xc4, 0x4d, 0xba, 0xf2, 0x6a,
+	0x5a, 0x08, 0x7f, 0x05, 0xd6, 0xa7, 0x02, 0x92, 0x58, 0x13, 0x33, 0x46, 0x4f, 0xaf, 0x1f, 0x5d,
+	0x69, 0xc6, 0x76, 0x22, 0x76, 0x89, 0x35, 0x31, 0xb1, 0xe6, 0x5c, 0xa2, 0x2b, 0xfe, 0x5e, 0x01,
+	0x2b, 0x33, 0x4b, 0x85, 0x9f, 0x82, 0x82, 0x4f, 0x03, 0x1e, 0xc6, 0x17, 0x71, 0x71, 0xdf, 0x21,
+	0xef, 0xf4, 0x62, 0x5e, 0x62, 0x9b, 0x11, 0x14, 0xee, 0x01, 0x75, 0x14, 0x16, 0x66, 0xf9, 0x8a,
+	0x14, 0x11, 0x9a, 0x79, 0x7f, 0x84, 0xea, 0xf9, 0x91, 0xed, 0xca, 0xbd, 0x85, 0x21, 0x59, 0x2c,
+	0x02, 0xed, 0xb2, 0x3d, 0xd5, 0xd6, 0xc1, 0x9d, 0xb1, 0xdf, 0xe2, 0xbf, 0x35, 0x3c, 0x62, 0xda,
+	0x03, 0x9b, 0xf8, 0xa5, 0x13, 0x90, 0x4b, 0xbc, 0x74, 0x21, 0x00, 0xd7, 0x8d, 0x5e, 0xb5, 0xd7,
+	0xaa, 0xab, 0x73, 0x30, 0x0f, 0x80, 0xd1, 0xd3, 0x5b, 0xf5, 0x1e, 0x6a, 0x74, 0x0c, 0x55, 0x09,
+	0x93, 0xb3, 0xdd, 0xdd, 0x6f, 0xd5, 0xab, 0x6d, 0x21, 0xc8, 0xc0, 0x1b, 0x60, 0xbe, 0xd9, 0x30,
+	0xd4, 0xf9, 0x30, 0x4b, 0xbb, 0x7a, 0x6b, 0xbf, 0xd5, 0x09, 0x55, 0x46, 0x4f, 0xcd, 0x96, 0x7e,
+	0x01, 0x16, 0xe2, 0x27, 0x5e, 0x68, 0xa7, 0x77, 0x8f, 0x3a, 0x0d, 0xa4, 0x77, 0x6b, 0xad, 0x8e,
+	0x3a, 0x07, 0x57, 0x40, 0xae, 0xdd, 0xac, 0x1a, 0x3d, 0xa4, 0x37, 0x7f, 0x72, 0xd4, 0x34, 0xc2,
+	0xac, 0xce, 0x81, 0x45, 0xbd, 0xd5, 0xd9, 0x47, 0x07, 0x55, 0xe3, 0x40, 0xcd, 0x84, 0xcb, 0xd0,
+	0xab, 0x9d, 0x46, 0xf7, 0x99, 0x3a, 0x0f, 0x57, 0x41, 0x61, 0x92, 0x1c, 0xb5, 0x6b, 0x6a, 0x36,
+	0x04, 0x3c, 0xab, 0xee, 0xb7, 0x9b, 0xc7, 0xea, 0xb5, 0xd2, 0xc7, 0xa0, 0x30, 0xd5, 0x7a, 0xc3,
+	0x05, 0x90, 0xad, 0x1e, 0xf5, 0xba, 0xea, 0x1c, 0x5c, 0x02, 0x37, 0x8e, 0x1f, 0xa3, 0x6e, 0xa7,
+	0xfd, 0x85, 0xaa, 0x88, 0xc1, 0x93, 0x68, 0x90, 0x29, 0xf5, 0x80, 0x76, 0x59, 0x8f, 0x03, 0xd7,
+	0xc1, 0xda, 0x91, 0xd1, 0x44, 0xf5, 0x6e, 0x67, 0xaf, 0xb5, 0x7f, 0xa4, 0x37, 0x1b, 0xe8, 0x50,
+	0xef, 0xf6, 0xba, 0xf5, 0x6e, 0x5b, 0x9d, 0x8b, 0x95, 0x8d, 0xee, 0x49, 0xc7, 0xe8, 0xe9, 0xcd,
+	0xea, 0xb3, 0xb7, 0x4a, 0xa5, 0xb6, 0x24, 0x9e, 0xc0, 0x91, 0xa3, 0x3f, 0xcf, 0x2e, 0x2c, 0xab,
+	0xb9, 0xcf, 0xb3, 0x0b, 0x05, 0x55, 0x2d, 0x9d, 0x00, 0x78, 0x34, 0xdb, 0xc9, 0x56, 0x41, 0x3e,
+	0xfa, 0x93, 0x09, 0xc9, 0xff, 0xb3, 0xc6, 0x09, 0x7e, 0xf9, 0x3b, 0x20, 0x17, 0x59, 0xc8, 0x61,
+	0x09, 0x83, 0x3b, 0x97, 0xb6, 0x1b, 0xb0, 0x01, 0x72, 0xdc, 0xf4, 0xd0, 0x19, 0x21, 0x1e, 0x76,
+	0xec, 0x73, 0xf2, 0x8e, 0x3b, 0xb5, 0x67, 0x7a, 0x4f, 0x63, 0x98, 0xbe, 0xcc, 0x27, 0x46, 0x95,
+	0x7f, 0x66, 0xc0, 0x9a, 0xf4, 0xd5, 0x38, 0x5c, 0x8c, 0xe8, 0x4e, 0x85, 0x27, 0x20, 0x6f, 0x44,
+	0x93, 0x47, 0x00, 0x06, 0xa7, 0xde, 0xdb, 0x63, 0x0b, 0xf9, 0x24, 0x2e, 0x6e, 0x5e, 0xaa, 0x67,
+	0x1e, 0x75, 0x19, 0x29, 0xcd, 0xed, 0x28, 0xdf, 0x57, 0xa0, 0x0f, 0x56, 0x5b, 0xae, 0xe9, 0x93,
+	0xb0, 0x59, 0xc0, 0xce, 0x98, 0xfd, 0xbb, 0x49, 0xeb, 0x09, 0xc8, 0xcc, 0x44, 0x0f, 0xae, 0x02,
+	0x4d, 0xcc, 0xc9, 0x40, 0x6e, 0x8f, 0x70, 0x73, 0xf8, 0xed, 0xed, 0x65, 0xfb, 0xab, 0x7f, 0xfc,
+	0xf7, 0x37, 0x99, 0xf5, 0xd2, 0xed, 0xc4, 0x9f, 0x86, 0x9f, 0xc8, 0x94, 0x67, 0x9f, 0x28, 0x0f,
+	0x6a, 0xab, 0x7f, 0x7a, 0xb3, 0xa1, 0x7c, 0xfd, 0x66, 0x43, 0xf9, 0xdb, 0x9b, 0x0d, 0xe5, 0x3f,
+	0x6f, 0x36, 0x94, 0x5f, 0x2b, 0x4a, 0xff, 0xba, 0x48, 0xfc, 0x47, 0xff, 0x0f, 0x00, 0x00, 0xff,
+	0xff, 0xa4, 0xe5, 0x69, 0x4c, 0x20, 0x15, 0x00, 0x00,
 }

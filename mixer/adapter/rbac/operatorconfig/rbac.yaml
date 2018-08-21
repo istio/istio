@@ -1,0 +1,96 @@
+apiVersion: "config.istio.io/v1alpha2"
+kind: authorization
+metadata:
+  name: requestcontext
+  namespace: istio-system
+spec:
+  subject:
+    user: request.auth.principal | ""
+    groups: request.auth.principal | ""
+    properties:
+      service: source.service | ""
+      namespace: source.namespace | ""
+  action:
+    namespace: destination.namespace | ""
+    service: destination.service | ""
+    method: request.method | ""
+    path: request.path | ""
+    properties:
+      version: request.headers["version"] | ""
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: rbac
+metadata:
+ name: handler
+ namespace: istio-system
+spec:
+ config_store_url: "k8s://"
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: rbaccheck
+  namespace: istio-system
+spec:
+  actions:
+  # handler and instance names default to the rule's namespace.
+  - handler: handler.rbac
+    instances:
+    - requestcontext.authorization
+---
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRole
+metadata:
+  name: products-viewer
+  namespace: default
+spec:
+  rules:
+  - services: ["products.svc.cluster.local"]
+    methods: ["GET", "HEAD"]
+    constraints:
+    - key: "version"
+      values: ["v1", "v2"]
+---
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRoleBinding
+metadata:
+  name: test-binding-products
+  namespace: default
+spec:
+  subjects:
+  - user: "alice@yahoo.com"
+  - properties:
+      service: "reviews"
+      namespace: "abc"
+  roleRef:
+    kind: ServiceRole
+    name: "products-viewer"
+---
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRole
+metadata:
+  name: book-reader
+  namespace: default
+spec:
+  rules:
+  # Exact match, prefix match and suffix match are supported for service name, paths, and constraints values.
+  # e.g. "reviews*" (for service), "*/review" (for path).
+  - services: ["reviews*"]
+    methods: ["*"]
+  - services: ["bookstore.svc.cluster.local"]
+    paths: ["*/review"]
+    methods: ["GET"]
+---
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRoleBinding
+metadata:
+  name: test-binding-book
+  namespace: default
+spec:
+  subjects:
+  - properties:
+      namespace: "acme"
+  roleRef:
+    kind: ServiceRole
+    name: "book-reader"
+---

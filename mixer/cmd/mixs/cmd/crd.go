@@ -23,7 +23,7 @@ import (
 
 	"istio.io/istio/mixer/cmd/shared"
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/runtime"
+	"istio.io/istio/mixer/pkg/runtime/config/constant"
 	"istio.io/istio/mixer/pkg/template"
 )
 
@@ -43,8 +43,8 @@ func crdCmd(tmplInfos map[string]template.Info, adapters []adapter.InfoFn, print
 		Use:   "all",
 		Short: "List all CRDs",
 		Run: func(cmd *cobra.Command, args []string) {
-			printCrd(printf, fatalf, runtime.RulesKind, "istio.io.mixer", "core")
-			printCrd(printf, fatalf, runtime.AttributeManifestKind, "istio.io.mixer", "core")
+			printCrd(printf, fatalf, constant.RulesKind, "istio.io.mixer", "core")
+			printCrd(printf, fatalf, constant.AttributeManifestKind, "istio.io.mixer", "core")
 			listCrdsAdapters(printf, fatalf, adapters)
 			listCrdsInstances(printf, fatalf, tmplInfos)
 		},
@@ -144,6 +144,9 @@ spec:
     kind: {{.ShrtName}}
     plural: {{.PluralName}}
     singular: {{.ShrtName}}
+    categories:
+    - istio-io
+    - policy-istio-io
   scope: Namespaced
   version: {{.Version}}
 ---

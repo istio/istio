@@ -21,9 +21,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
+
+	"istio.io/istio/mixer/pkg/adapter/test"
 )
 
-func TestClusterInfoCache_GetPod(t *testing.T) {
+func TestClusterInfoCache_Pod(t *testing.T) {
 	clientset := fake.NewSimpleClientset(
 		&v1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
@@ -46,7 +48,7 @@ func TestClusterInfoCache_GetPod(t *testing.T) {
 
 	for _, v := range tests {
 		t.Run(v.name, func(tt *testing.T) {
-			c := newCacheController(clientset, 0)
+			c := newCacheController(clientset, 0, test.NewEnv(t))
 			stopCh := make(chan struct{})
 			defer close(stopCh)
 			go c.Run(stopCh)
@@ -54,7 +56,7 @@ func TestClusterInfoCache_GetPod(t *testing.T) {
 				tt.Fatal("Failed to sync")
 			}
 
-			_, got := c.GetPod(v.key)
+			_, got := c.Pod(v.key)
 			if got != v.want {
 				tt.Errorf("GetPod() => (_, %t), wanted (_, %t)", got, v.want)
 			}

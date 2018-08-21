@@ -1,9 +1,7 @@
-{{- if .Values.global.rbacEnabled }}
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole
 metadata:
   name: istio-pilot-{{ .Release.Namespace }}
-  namespace: {{ .Release.Namespace }}
   labels:
     app: istio-pilot
     chart: {{ .Chart.Name }}-{{ .Chart.Version }}
@@ -13,6 +11,9 @@ rules:
 - apiGroups: ["config.istio.io"]
   resources: ["*"]
   verbs: ["*"]
+- apiGroups: ["rbac.istio.io"]
+  resources: ["*"]
+  verbs: ["get", "watch", "list"]
 - apiGroups: ["networking.istio.io"]
   resources: ["*"]
   verbs: ["*"]
@@ -34,4 +35,3 @@ rules:
 - apiGroups: [""]
   resources: ["namespaces", "nodes", "secrets"]
   verbs: ["get", "list", "watch"]
-{{- end }}

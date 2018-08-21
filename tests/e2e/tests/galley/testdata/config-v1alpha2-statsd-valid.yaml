@@ -1,0 +1,7 @@
+apiVersion: "config.istio.io/v1alpha2"
+kind: statsd
+metadata:
+  name: valid-statsd
+spec:
+  address: "localhost:8125"
+  prefix: "service."

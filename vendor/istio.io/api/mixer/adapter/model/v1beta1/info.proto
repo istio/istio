@@ -32,7 +32,7 @@ message Info {
     // User-friendly description of the adapter.
     string description = 2;
 
-    // Base64 encoded proto descriptor of all the templates the adapter wants to serve.
+    // Names of the templates the adapter supports.
     repeated string templates = 3;
 
     // Base64 encoded proto descriptor of the adapter configuration.

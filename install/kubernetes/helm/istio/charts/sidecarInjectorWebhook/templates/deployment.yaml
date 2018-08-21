@@ -15,8 +15,14 @@ spec:
     metadata:
       labels:
         istio: sidecar-injector
+      annotations:
+        sidecar.istio.io/inject: "false"
+        scheduler.alpha.kubernetes.io/critical-pod: ""
     spec:
       serviceAccountName: istio-sidecar-injector-service-account
+ {{- if .Values.global.priorityClassName }}
+      priorityClassName: "{{ .Values.global.priorityClassName }}"
+{{- end }}
       containers:
         - name: sidecar-injector-webhook
           image: "{{ .Values.global.hub }}{{ .Values.global.hub_img_delim }}{{ .Values.image }}{{ .Values.global.img_tag_delim }}{{ .Values.global.tag }}"
@@ -45,7 +51,7 @@ spec:
                 - /usr/local/bin/sidecar-injector
                 - probe
                 - --probe-path=/health
-                - --interval=2s
+                - --interval=4s
             initialDelaySeconds: 4
             periodSeconds: 4
           readinessProbe:
@@ -54,13 +60,15 @@ spec:
                 - /usr/local/bin/sidecar-injector
                 - probe
                 - --probe-path=/health
-                - --interval=2s
+                - --interval=4s
             initialDelaySeconds: 4
             periodSeconds: 4
-    {{- if .Values.nodeSelector }}
           resources:
+{{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 12 }}
-    {{- end }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | indent 12 }}
+{{- end }}
       volumes:
       - name: config-volume
         configMap:

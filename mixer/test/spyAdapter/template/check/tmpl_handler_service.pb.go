@@ -23,10 +23,8 @@ import _ "istio.io/api/mixer/adapter/model/v1beta1"
 import google_protobuf1 "github.com/gogo/protobuf/types"
 import istio_mixer_adapter_model_v1beta11 "istio.io/api/mixer/adapter/model/v1beta1"
 
-import (
-	context "golang.org/x/net/context"
-	grpc "google.golang.org/grpc"
-)
+import context "golang.org/x/net/context"
+import grpc "google.golang.org/grpc"
 
 import strings "strings"
 import reflect "reflect"

@@ -47,6 +47,9 @@ spec:
     kind: foo-bar
     plural: foo-bars
     singular: foo-bar
+    categories:
+    - istio-io
+    - policy-istio-io
   scope: Namespaced
   version: v1alpha2
 ---
@@ -63,6 +66,9 @@ spec:
     kind: abcd
     plural: abcds
     singular: abcd
+    categories:
+    - istio-io
+    - policy-istio-io
   scope: Namespaced
   version: v1alpha2
 ---`
@@ -87,6 +93,9 @@ spec:
     kind: abcd-foo
     plural: abcd-foos
     singular: abcd-foo
+    categories:
+    - istio-io
+    - policy-istio-io
   scope: Namespaced
   version: v1alpha2
 ---
@@ -103,6 +112,9 @@ spec:
     kind: abcdBar
     plural: abcdBars
     singular: abcdBar
+    categories:
+    - istio-io
+    - policy-istio-io
   scope: Namespaced
   version: v1alpha2
 ---
@@ -119,6 +131,9 @@ spec:
     kind: box
     plural: boxes
     singular: box
+    categories:
+    - istio-io
+    - policy-istio-io
   scope: Namespaced
   version: v1alpha2
 ---
@@ -135,6 +150,9 @@ spec:
     kind: entry
     plural: entries
     singular: entry
+    categories:
+    - istio-io
+    - policy-istio-io
   scope: Namespaced
   version: v1alpha2
 ---
@@ -151,6 +169,9 @@ spec:
     kind: prometheus
     plural: prometheuses
     singular: prometheus
+    categories:
+    - istio-io
+    - policy-istio-io
   scope: Namespaced
   version: v1alpha2
 ---

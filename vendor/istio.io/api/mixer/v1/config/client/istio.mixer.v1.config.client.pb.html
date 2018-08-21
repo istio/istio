@@ -1,7 +1,7 @@
 ---
-title: Mixer Client
-overview: Configuration state for the Mixer client library
+title: istio.mixer.v1.config.client
 layout: protoc-gen-docs
+generator: protoc-gen-docs
 number_of_entries: 20
 ---
 <h2 id="APIKey">APIKey</h2>
@@ -21,7 +21,7 @@ for a general overview of API keys as defined by OpenAPI.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="APIKey.query" class="oneof oneof-start">
+<tr id="APIKey-query" class="oneof oneof-start">
 <td><code>query</code></td>
 <td><code>string (oneof)</code></td>
 <td>
@@ -36,7 +36,7 @@ following request:</p>
 
 </td>
 </tr>
-<tr id="APIKey.header" class="oneof">
+<tr id="APIKey-header" class="oneof">
 <td><code>header</code></td>
 <td><code>string (oneof)</code></td>
 <td>
@@ -52,7 +52,7 @@ X-API-Key: abcdef12345
 
 </td>
 </tr>
-<tr id="APIKey.cookie" class="oneof">
+<tr id="APIKey-cookie" class="oneof">
 <td><code>cookie</code></td>
 <td><code>string (oneof)</code></td>
 <td>
@@ -84,7 +84,7 @@ Cookie: X-API-KEY=abcdef12345
 </tr>
 </thead>
 <tbody>
-<tr id="AttributeMatch.clause">
+<tr id="AttributeMatch-clause">
 <td><code>clause</code></td>
 <td><code>map&lt;string,&nbsp;<a href="#StringMatch">StringMatch</a>&gt;</code></td>
 <td>
@@ -120,7 +120,7 @@ Istio. For example, a simple petstore API described by OpenAPIv2
 <a href="https://github.com/googleapis/gnostic/blob/master/examples/v2.0/yaml/petstore-simple.yaml">here</a>
 can be represented with the following HTTPAPISpec.</p>
 
-<pre><code>apiVersion: config.istio.io/v1alpha2
+<pre><code class="language-yaml">apiVersion: config.istio.io/v1alpha2
 kind: HTTPAPISpec
 metadata:
   name: petstore
@@ -159,9 +159,9 @@ spec:
 </tr>
 </thead>
 <tbody>
-<tr id="HTTPAPISpec.attributes">
+<tr id="HTTPAPISpec-attributes">
 <td><code>attributes</code></td>
-<td><code><a href="#istio.mixer.v1.Attributes">istio.mixer.v1.Attributes</a></code></td>
+<td><code><a href="#istio-mixer-v1-Attributes">istio.mixer.v1.Attributes</a></code></td>
 <td>
 <p>List of attributes that are generated when <em>any</em> of the HTTP
 patterns match. This list typically includes the &ldquo;api.service&rdquo;
@@ -169,7 +169,7 @@ and &ldquo;api.version&rdquo; attributes.</p>
 
 </td>
 </tr>
-<tr id="HTTPAPISpec.patterns">
+<tr id="HTTPAPISpec-patterns">
 <td><code>patterns</code></td>
 <td><code><a href="#HTTPAPISpecPattern">HTTPAPISpecPattern[]</a></code></td>
 <td>
@@ -177,7 +177,7 @@ and &ldquo;api.version&rdquo; attributes.</p>
 
 </td>
 </tr>
-<tr id="HTTPAPISpec.api_keys">
+<tr id="HTTPAPISpec-api_keys">
 <td><code>apiKeys</code></td>
 <td><code><a href="#APIKey">APIKey[]</a></code></td>
 <td>
@@ -202,7 +202,7 @@ i.e. &lsquo;OR&rsquo; semantics.</p>
 IstioService. For example, the following establishes a binding
 between the HTTPAPISpec <code>petstore</code> and service <code>foo</code> in namespace <code>bar</code>.</p>
 
-<pre><code>apiVersion: config.istio.io/v1alpha2
+<pre><code class="language-yaml">apiVersion: config.istio.io/v1alpha2
 kind: HTTPAPISpecBinding
 metadata:
   name: my-binding
@@ -225,7 +225,7 @@ spec:
 </tr>
 </thead>
 <tbody>
-<tr id="HTTPAPISpecBinding.services">
+<tr id="HTTPAPISpecBinding-services">
 <td><code>services</code></td>
 <td><code><a href="#IstioService">IstioService[]</a></code></td>
 <td>
@@ -233,7 +233,7 @@ spec:
 
 </td>
 </tr>
-<tr id="HTTPAPISpecBinding.api_specs">
+<tr id="HTTPAPISpecBinding-api_specs">
 <td><code>apiSpecs</code></td>
 <td><code><a href="#HTTPAPISpecReference">HTTPAPISpecReference[]</a></code></td>
 <td>
@@ -254,7 +254,7 @@ generated if both the http<em>method and uri</em>template match. In
 addition, the top-level list of attributes in the HTTPAPISpec is also
 generated.</p>
 
-<pre><code>pattern:
+<pre><code class="language-yaml">pattern:
 - attributes
     api.operation: doFooBar
   httpMethod: GET
@@ -270,9 +270,9 @@ generated.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="HTTPAPISpecPattern.attributes">
+<tr id="HTTPAPISpecPattern-attributes">
 <td><code>attributes</code></td>
-<td><code><a href="#istio.mixer.v1.Attributes">istio.mixer.v1.Attributes</a></code></td>
+<td><code><a href="#istio-mixer-v1-Attributes">istio.mixer.v1.Attributes</a></code></td>
 <td>
 <p>List of attributes that are generated if the HTTP request matches
 the specified http<em>method and uri</em>template. This typically
@@ -280,7 +280,7 @@ includes the &ldquo;api.operation&rdquo; attribute.</p>
 
 </td>
 </tr>
-<tr id="HTTPAPISpecPattern.http_method">
+<tr id="HTTPAPISpecPattern-http_method">
 <td><code>httpMethod</code></td>
 <td><code>string</code></td>
 <td>
@@ -290,7 +290,7 @@ example: GET, HEAD, POST, PUT, DELETE.</p>
 
 </td>
 </tr>
-<tr id="HTTPAPISpecPattern.uri_template" class="oneof oneof-start">
+<tr id="HTTPAPISpecPattern-uri_template" class="oneof oneof-start">
 <td><code>uriTemplate</code></td>
 <td><code>string (oneof)</code></td>
 <td>
@@ -306,7 +306,7 @@ following are valid URI templates:</p>
 
 </td>
 </tr>
-<tr id="HTTPAPISpecPattern.regex" class="oneof">
+<tr id="HTTPAPISpecPattern-regex" class="oneof">
 <td><code>regex</code></td>
 <td><code>string (oneof)</code></td>
 <td>
@@ -331,7 +331,7 @@ typically used for establishing bindings between an HTTPAPISpec and an
 IstioService. For example, the following defines an
 HTTPAPISpecReference for service <code>foo</code> in namespace <code>bar</code>.</p>
 
-<pre><code>- name: foo
+<pre><code class="language-yaml">- name: foo
   namespace: bar
 </code></pre>
 
@@ -344,7 +344,7 @@ HTTPAPISpecReference for service <code>foo</code> in namespace <code>bar</code>.
 </tr>
 </thead>
 <tbody>
-<tr id="HTTPAPISpecReference.name">
+<tr id="HTTPAPISpecReference-name">
 <td><code>name</code></td>
 <td><code>string</code></td>
 <td>
@@ -353,7 +353,7 @@ name defined by the metadata name field.</p>
 
 </td>
 </tr>
-<tr id="HTTPAPISpecReference.namespace">
+<tr id="HTTPAPISpecReference-namespace">
 <td><code>namespace</code></td>
 <td><code>string</code></td>
 <td>
@@ -378,7 +378,7 @@ HTTPAPISpecBinding&rsquo;s metadata namespace field.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="HttpClientConfig.transport">
+<tr id="HttpClientConfig-transport">
 <td><code>transport</code></td>
 <td><code><a href="#TransportConfig">TransportConfig</a></code></td>
 <td>
@@ -386,7 +386,7 @@ HTTPAPISpecBinding&rsquo;s metadata namespace field.</p>
 
 </td>
 </tr>
-<tr id="HttpClientConfig.service_configs">
+<tr id="HttpClientConfig-service_configs">
 <td><code>serviceConfigs</code></td>
 <td><code>map&lt;string,&nbsp;<a href="#ServiceConfig">ServiceConfig</a>&gt;</code></td>
 <td>
@@ -396,7 +396,7 @@ mixerclient serves multiple services.</p>
 
 </td>
 </tr>
-<tr id="HttpClientConfig.default_destination_service">
+<tr id="HttpClientConfig-default_destination_service">
 <td><code>defaultDestinationService</code></td>
 <td><code>string</code></td>
 <td>
@@ -405,9 +405,9 @@ client request.</p>
 
 </td>
 </tr>
-<tr id="HttpClientConfig.mixer_attributes">
+<tr id="HttpClientConfig-mixer_attributes">
 <td><code>mixerAttributes</code></td>
-<td><code><a href="#istio.mixer.v1.Attributes">istio.mixer.v1.Attributes</a></code></td>
+<td><code><a href="#istio-mixer-v1-Attributes">istio.mixer.v1.Attributes</a></code></td>
 <td>
 <p>Default attributes to send to Mixer in both Check and
 Report. This typically includes &ldquo;destination.ip&rdquo; and
@@ -415,9 +415,9 @@ Report. This typically includes &ldquo;destination.ip&rdquo; and
 
 </td>
 </tr>
-<tr id="HttpClientConfig.forward_attributes">
+<tr id="HttpClientConfig-forward_attributes">
 <td><code>forwardAttributes</code></td>
-<td><code><a href="#istio.mixer.v1.Attributes">istio.mixer.v1.Attributes</a></code></td>
+<td><code><a href="#istio-mixer-v1-Attributes">istio.mixer.v1.Attributes</a></code></td>
 <td>
 <p>Default attributes to forward to upstream. This typically
 includes the &ldquo;source.ip&rdquo; and &ldquo;source.uid&rdquo; attributes.</p>
@@ -442,7 +442,7 @@ The FQDN of the service is composed from the name, namespace, and implementation
 </tr>
 </thead>
 <tbody>
-<tr id="IstioService.name">
+<tr id="IstioService-name">
 <td><code>name</code></td>
 <td><code>string</code></td>
 <td>
@@ -450,7 +450,7 @@ The FQDN of the service is composed from the name, namespace, and implementation
 
 </td>
 </tr>
-<tr id="IstioService.namespace">
+<tr id="IstioService-namespace">
 <td><code>namespace</code></td>
 <td><code>string</code></td>
 <td>
@@ -458,7 +458,7 @@ The FQDN of the service is composed from the name, namespace, and implementation
 
 </td>
 </tr>
-<tr id="IstioService.domain">
+<tr id="IstioService-domain">
 <td><code>domain</code></td>
 <td><code>string</code></td>
 <td>
@@ -466,7 +466,7 @@ The FQDN of the service is composed from the name, namespace, and implementation
 
 </td>
 </tr>
-<tr id="IstioService.service">
+<tr id="IstioService-service">
 <td><code>service</code></td>
 <td><code>string</code></td>
 <td>
@@ -474,13 +474,13 @@ The FQDN of the service is composed from the name, namespace, and implementation
 
 </td>
 </tr>
-<tr id="IstioService.labels">
+<tr id="IstioService-labels">
 <td><code>labels</code></td>
 <td><code>map&lt;string,&nbsp;string&gt;</code></td>
 <td>
 <p>Optional one or more labels that uniquely identify the service version.</p>
 
-<p><em>Note:</em> When used for a RouteRule destination, labels MUST be empty.</p>
+<p><em>Note:</em> When used for a VirtualService destination, labels MUST be empty.</p>
 
 </td>
 </tr>
@@ -500,9 +500,9 @@ The FQDN of the service is composed from the name, namespace, and implementation
 </tr>
 </thead>
 <tbody>
-<tr id="NetworkFailPolicy.policy">
+<tr id="NetworkFailPolicy-policy">
 <td><code>policy</code></td>
-<td><code><a href="#NetworkFailPolicy.FailPolicy">NetworkFailPolicy.FailPolicy</a></code></td>
+<td><code><a href="#NetworkFailPolicy-FailPolicy">NetworkFailPolicy.FailPolicy</a></code></td>
 <td>
 <p>Specifies the behavior when the client is unable to connect to Mixer.</p>
 
@@ -511,7 +511,7 @@ The FQDN of the service is composed from the name, namespace, and implementation
 </tbody>
 </table>
 </section>
-<h2 id="NetworkFailPolicy.FailPolicy">NetworkFailPolicy.FailPolicy</h2>
+<h2 id="NetworkFailPolicy-FailPolicy">NetworkFailPolicy.FailPolicy</h2>
 <section>
 <p>Describes the policy.</p>
 
@@ -523,7 +523,7 @@ The FQDN of the service is composed from the name, namespace, and implementation
 </tr>
 </thead>
 <tbody>
-<tr id="NetworkFailPolicy.FailPolicy.FAIL_OPEN">
+<tr id="NetworkFailPolicy-FailPolicy-FAIL_OPEN">
 <td><code>FAIL_OPEN</code></td>
 <td>
 <p>If network connection fails, request is allowed and delivered to the
@@ -531,7 +531,7 @@ service.</p>
 
 </td>
 </tr>
-<tr id="NetworkFailPolicy.FailPolicy.FAIL_CLOSE">
+<tr id="NetworkFailPolicy-FailPolicy-FAIL_CLOSE">
 <td><code>FAIL_CLOSE</code></td>
 <td>
 <p>If network connection fails, request is rejected.</p>
@@ -554,7 +554,7 @@ service.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="Quota.quota">
+<tr id="Quota-quota">
 <td><code>quota</code></td>
 <td><code>string</code></td>
 <td>
@@ -562,7 +562,7 @@ service.</p>
 
 </td>
 </tr>
-<tr id="Quota.charge">
+<tr id="Quota-charge">
 <td><code>charge</code></td>
 <td><code>int64</code></td>
 <td>
@@ -587,7 +587,7 @@ If any clause matched, the list of quotas will be used.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="QuotaRule.match">
+<tr id="QuotaRule-match">
 <td><code>match</code></td>
 <td><code><a href="#AttributeMatch">AttributeMatch[]</a></code></td>
 <td>
@@ -596,7 +596,7 @@ If any of match is true, it is matched.</p>
 
 </td>
 </tr>
-<tr id="QuotaRule.quotas">
+<tr id="QuotaRule-quotas">
 <td><code>quotas</code></td>
 <td><code><a href="#Quota">Quota[]</a></code></td>
 <td>
@@ -620,7 +620,7 @@ If any of match is true, it is matched.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="QuotaSpec.rules">
+<tr id="QuotaSpec-rules">
 <td><code>rules</code></td>
 <td><code><a href="#QuotaRule">QuotaRule[]</a></code></td>
 <td>
@@ -645,7 +645,7 @@ IstioService.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="QuotaSpecBinding.services">
+<tr id="QuotaSpecBinding-services">
 <td><code>services</code></td>
 <td><code><a href="#IstioService">IstioService[]</a></code></td>
 <td>
@@ -653,9 +653,9 @@ IstioService.</p>
 
 </td>
 </tr>
-<tr id="QuotaSpecBinding.quota_specs">
+<tr id="QuotaSpecBinding-quota_specs">
 <td><code>quotaSpecs</code></td>
-<td><code><a href="#QuotaSpecBinding.QuotaSpecReference">QuotaSpecBinding.QuotaSpecReference[]</a></code></td>
+<td><code><a href="#QuotaSpecBinding-QuotaSpecReference">QuotaSpecBinding.QuotaSpecReference[]</a></code></td>
 <td>
 <p>REQUIRED. One or more QuotaSpec references that should be mapped to
 the specified service(s). The aggregate collection of match
@@ -666,7 +666,7 @@ conditions defined in the QuotaSpecs should not overlap.</p>
 </tbody>
 </table>
 </section>
-<h2 id="QuotaSpecBinding.QuotaSpecReference">QuotaSpecBinding.QuotaSpecReference</h2>
+<h2 id="QuotaSpecBinding-QuotaSpecReference">QuotaSpecBinding.QuotaSpecReference</h2>
 <section>
 <p>QuotaSpecReference uniquely identifies the QuotaSpec used in the
 Binding.</p>
@@ -680,7 +680,7 @@ Binding.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="QuotaSpecBinding.QuotaSpecReference.name">
+<tr id="QuotaSpecBinding-QuotaSpecReference-name">
 <td><code>name</code></td>
 <td><code>string</code></td>
 <td>
@@ -689,7 +689,7 @@ name defined by the metadata name field.</p>
 
 </td>
 </tr>
-<tr id="QuotaSpecBinding.QuotaSpecReference.namespace">
+<tr id="QuotaSpecBinding-QuotaSpecReference-namespace">
 <td><code>namespace</code></td>
 <td><code>string</code></td>
 <td>
@@ -714,7 +714,7 @@ metadata namespace field.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="ServiceConfig.disable_check_calls">
+<tr id="ServiceConfig-disable_check_calls">
 <td><code>disableCheckCalls</code></td>
 <td><code>bool</code></td>
 <td>
@@ -722,7 +722,7 @@ metadata namespace field.</p>
 
 </td>
 </tr>
-<tr id="ServiceConfig.disable_report_calls">
+<tr id="ServiceConfig-disable_report_calls">
 <td><code>disableReportCalls</code></td>
 <td><code>bool</code></td>
 <td>
@@ -730,16 +730,18 @@ metadata namespace field.</p>
 
 </td>
 </tr>
-<tr id="ServiceConfig.mixer_attributes">
+<tr id="ServiceConfig-mixer_attributes">
 <td><code>mixerAttributes</code></td>
-<td><code><a href="#istio.mixer.v1.Attributes">istio.mixer.v1.Attributes</a></code></td>
+<td><code><a href="#istio-mixer-v1-Attributes">istio.mixer.v1.Attributes</a></code></td>
 <td>
 <p>Send these attributes to Mixer in both Check and Report. This
-typically includes the &ldquo;destination.service&rdquo; attribute.</p>
+typically includes the &ldquo;destination.service&rdquo; attribute.
+In case of a per-route override, per-route attributes take precedence
+over the attributes supplied in the client configuration.</p>
 
 </td>
 </tr>
-<tr id="ServiceConfig.http_api_spec">
+<tr id="ServiceConfig-http_api_spec">
 <td><code>httpApiSpec</code></td>
 <td><code><a href="#HTTPAPISpec">HTTPAPISpec[]</a></code></td>
 <td>
@@ -747,7 +749,7 @@ typically includes the &ldquo;destination.service&rdquo; attribute.</p>
 
 </td>
 </tr>
-<tr id="ServiceConfig.quota_spec">
+<tr id="ServiceConfig-quota_spec">
 <td><code>quotaSpec</code></td>
 <td><code><a href="#QuotaSpec">QuotaSpec[]</a></code></td>
 <td>
@@ -755,7 +757,7 @@ typically includes the &ldquo;destination.service&rdquo; attribute.</p>
 
 </td>
 </tr>
-<tr id="ServiceConfig.network_fail_policy">
+<tr id="ServiceConfig-network_fail_policy">
 <td><code>networkFailPolicy</code></td>
 <td><code><a href="#NetworkFailPolicy">NetworkFailPolicy</a></code></td>
 <td>
@@ -763,6 +765,25 @@ typically includes the &ldquo;destination.service&rdquo; attribute.</p>
 This is the service-level policy. It overrides
 [mesh-level
 policy][istio.mixer.v1.config.client.TransportConfig.network<em>fail</em>policy].</p>
+
+</td>
+</tr>
+<tr id="ServiceConfig-forward_attributes">
+<td><code>forwardAttributes</code></td>
+<td><code><a href="#istio-mixer-v1-Attributes">istio.mixer.v1.Attributes</a></code></td>
+<td>
+<p>Default attributes to forward to upstream. This typically
+includes the &ldquo;source.ip&rdquo; and &ldquo;source.uid&rdquo; attributes.
+In case of a per-route override, per-route attributes take precedence
+over the attributes supplied in the client configuration.</p>
+
+<p>Forwarded attributes take precedence over the static Mixer attributes.
+The full order of application is as follows:
+1. static Mixer attributes from the filter config;
+2. static Mixer attributes from the route config;
+3. forwarded attributes from the source filter config (if any);
+4. forwarded attributes from the source route config (if any);
+5. derived attributes from the request metadata.</p>
 
 </td>
 </tr>
@@ -783,7 +804,7 @@ case-sensitive.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="StringMatch.exact" class="oneof oneof-start">
+<tr id="StringMatch-exact" class="oneof oneof-start">
 <td><code>exact</code></td>
 <td><code>string (oneof)</code></td>
 <td>
@@ -791,7 +812,7 @@ case-sensitive.</p>
 
 </td>
 </tr>
-<tr id="StringMatch.prefix" class="oneof">
+<tr id="StringMatch-prefix" class="oneof">
 <td><code>prefix</code></td>
 <td><code>string (oneof)</code></td>
 <td>
@@ -799,7 +820,7 @@ case-sensitive.</p>
 
 </td>
 </tr>
-<tr id="StringMatch.regex" class="oneof">
+<tr id="StringMatch-regex" class="oneof">
 <td><code>regex</code></td>
 <td><code>string (oneof)</code></td>
 <td>
@@ -823,7 +844,7 @@ case-sensitive.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="TcpClientConfig.transport">
+<tr id="TcpClientConfig-transport">
 <td><code>transport</code></td>
 <td><code><a href="#TransportConfig">TransportConfig</a></code></td>
 <td>
@@ -831,9 +852,9 @@ case-sensitive.</p>
 
 </td>
 </tr>
-<tr id="TcpClientConfig.mixer_attributes">
+<tr id="TcpClientConfig-mixer_attributes">
 <td><code>mixerAttributes</code></td>
-<td><code><a href="#istio.mixer.v1.Attributes">istio.mixer.v1.Attributes</a></code></td>
+<td><code><a href="#istio-mixer-v1-Attributes">istio.mixer.v1.Attributes</a></code></td>
 <td>
 <p>Default attributes to send to Mixer in both Check and
 Report. This typically includes &ldquo;destination.ip&rdquo; and
@@ -841,7 +862,7 @@ Report. This typically includes &ldquo;destination.ip&rdquo; and
 
 </td>
 </tr>
-<tr id="TcpClientConfig.disable_check_calls">
+<tr id="TcpClientConfig-disable_check_calls">
 <td><code>disableCheckCalls</code></td>
 <td><code>bool</code></td>
 <td>
@@ -849,7 +870,7 @@ Report. This typically includes &ldquo;destination.ip&rdquo; and
 
 </td>
 </tr>
-<tr id="TcpClientConfig.disable_report_calls">
+<tr id="TcpClientConfig-disable_report_calls">
 <td><code>disableReportCalls</code></td>
 <td><code>bool</code></td>
 <td>
@@ -857,7 +878,7 @@ Report. This typically includes &ldquo;destination.ip&rdquo; and
 
 </td>
 </tr>
-<tr id="TcpClientConfig.connection_quota_spec">
+<tr id="TcpClientConfig-connection_quota_spec">
 <td><code>connectionQuotaSpec</code></td>
 <td><code><a href="#QuotaSpec">QuotaSpec</a></code></td>
 <td>
@@ -866,7 +887,7 @@ It applies on the new TCP connections.</p>
 
 </td>
 </tr>
-<tr id="TcpClientConfig.report_interval">
+<tr id="TcpClientConfig-report_interval">
 <td><code>reportInterval</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
@@ -892,7 +913,7 @@ should not be less than 1 second, otherwise it will be reset to 1 second.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="TransportConfig.disable_check_cache">
+<tr id="TransportConfig-disable_check_cache">
 <td><code>disableCheckCache</code></td>
 <td><code>bool</code></td>
 <td>
@@ -900,7 +921,7 @@ should not be less than 1 second, otherwise it will be reset to 1 second.</p>
 
 </td>
 </tr>
-<tr id="TransportConfig.disable_quota_cache">
+<tr id="TransportConfig-disable_quota_cache">
 <td><code>disableQuotaCache</code></td>
 <td><code>bool</code></td>
 <td>
@@ -908,7 +929,7 @@ should not be less than 1 second, otherwise it will be reset to 1 second.</p>
 
 </td>
 </tr>
-<tr id="TransportConfig.disable_report_batch">
+<tr id="TransportConfig-disable_report_batch">
 <td><code>disableReportBatch</code></td>
 <td><code>bool</code></td>
 <td>
@@ -916,7 +937,7 @@ should not be less than 1 second, otherwise it will be reset to 1 second.</p>
 
 </td>
 </tr>
-<tr id="TransportConfig.network_fail_policy">
+<tr id="TransportConfig-network_fail_policy">
 <td><code>networkFailPolicy</code></td>
 <td><code><a href="#NetworkFailPolicy">NetworkFailPolicy</a></code></td>
 <td>
@@ -925,7 +946,7 @@ This is the mesh level policy. The default value for policy is FAIL_OPEN.</p>
 
 </td>
 </tr>
-<tr id="TransportConfig.stats_update_interval">
+<tr id="TransportConfig-stats_update_interval">
 <td><code>statsUpdateInterval</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
@@ -934,7 +955,7 @@ memory. If not specified, the interval is 10 seconds.</p>
 
 </td>
 </tr>
-<tr id="TransportConfig.check_cluster">
+<tr id="TransportConfig-check_cluster">
 <td><code>checkCluster</code></td>
 <td><code>string</code></td>
 <td>
@@ -949,7 +970,7 @@ Istio Grafana dashboards to be reconfigured to use the new name.</p>
 
 </td>
 </tr>
-<tr id="TransportConfig.report_cluster">
+<tr id="TransportConfig-report_cluster">
 <td><code>reportCluster</code></td>
 <td><code>string</code></td>
 <td>
@@ -964,10 +985,20 @@ Istio Grafana dashboards to be reconfigured to use the new name.</p>
 
 </td>
 </tr>
+<tr id="TransportConfig-attributes_for_mixer_proxy">
+<td><code>attributesForMixerProxy</code></td>
+<td><code><a href="#istio-mixer-v1-Attributes">istio.mixer.v1.Attributes</a></code></td>
+<td>
+<p>Default attributes to forward to mixer upstream. This typically
+includes the &ldquo;source.ip&rdquo; and &ldquo;source.uid&rdquo; attributes. These
+attributes are consumed by the proxy in front of mixer.</p>
+
+</td>
+</tr>
 </tbody>
 </table>
 </section>
-<h2 id="istio.mixer.v1.Attributes">istio.mixer.v1.Attributes</h2>
+<h2 id="istio-mixer-v1-Attributes">istio.mixer.v1.Attributes</h2>
 <section>
 <p>Attributes represents a set of typed name/value pairs. Many of Mixer&rsquo;s
 API either consume and/or return attributes.</p>
@@ -1013,9 +1044,9 @@ Following places may use this message:
 </tr>
 </thead>
 <tbody>
-<tr id="istio.mixer.v1.Attributes.attributes">
+<tr id="istio-mixer-v1-Attributes-attributes">
 <td><code>attributes</code></td>
-<td><code>map&lt;string,&nbsp;<a href="#istio.mixer.v1.Attributes.AttributeValue">istio.mixer.v1.Attributes.AttributeValue</a>&gt;</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#istio-mixer-v1-Attributes-AttributeValue">istio.mixer.v1.Attributes.AttributeValue</a>&gt;</code></td>
 <td>
 <p>A map of attribute name to its value.</p>
 

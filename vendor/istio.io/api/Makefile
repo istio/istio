@@ -11,7 +11,7 @@ repo_dir = .
 docker_gen = /usr/bin/protoc -I/protobuf -I$(repo_dir)
 out_path = $(OUT_PATH)
 else
-gen_img := gcr.io/istio-testing/protoc:2018-03-03
+gen_img := gcr.io/istio-testing/protoc:2018-06-12
 pwd := $(shell pwd)
 mount_dir := /src
 repo_dir := istio.io/api
@@ -52,6 +52,7 @@ importmaps := \
 	google/protobuf/any.proto=github.com/gogo/protobuf/types \
 	google/protobuf/descriptor.proto=github.com/gogo/protobuf/protoc-gen-gogo/descriptor \
 	google/protobuf/duration.proto=github.com/gogo/protobuf/types \
+	google/protobuf/struct.proto=github.com/gogo/protobuf/types \
 	google/protobuf/timestamp.proto=github.com/gogo/protobuf/types \
 	google/protobuf/wrappers.proto=github.com/gogo/protobuf/types \
 	google/rpc/status.proto=github.com/gogo/googleapis/google/rpc \
@@ -70,15 +71,15 @@ gogoslick_plugin := $(gogoslick_plugin_prefix)$(gogo_mapping):$(out_path)
 # protoc_gen_docs
 ########################
 
-protoc_gen_docs_plugin := --docs_out=warnings=true,mode=jekyll_html:$(repo_dir)/
+protoc_gen_docs_plugin := --docs_out=warnings=true,mode=html_fragment_with_front_matter:$(repo_dir)/
 
 #####################
 # Generation Rules
 #####################
 
 generate: \
-	generate-broker-go \
-	generate-broker-python \
+	generate-mcp-go \
+	generate-mcp-python \
 	generate-mesh-go \
 	generate-mesh-python \
 	generate-mixer-go \
@@ -93,30 +94,30 @@ generate: \
 	generate-envoy-python
 
 #####################
-# broker/...
+# mcp/...
 #####################
 
-broker_v1_path := broker/dev
-broker_v1_protos := $(shell find $(broker_v1_path) -type f -name '*.proto' | sort)
-broker_v1_pb_gos := $(broker_v1_protos:.proto=.pb.go)
-broker_v1_pb_pythons := $(broker_v1_protos:.proto=_pb2.py)
-broker_v1_pb_doc := $(broker_v1_path)/istio.broker.dev.pb.html
+config_mcp_path := mcp/v1alpha1
+config_mcp_protos := $(shell find $(config_mcp_path) -type f -name '*.proto' | sort)
+config_mcp_pb_gos := $(config_mcp_protos:.proto=.pb.go)
+config_mcp_pb_pythons := $(config_mcp_protos:.proto=_pb2.py)
+config_mcp_pb_doc := $(config_mcp_path)/istio.mcp.v1alpha1.pb.html
 
-generate-broker-go: $(broker_v1_pb_gos) $(broker_v1_pb_doc)
+generate-mcp-go: $(config_mcp_pb_gos) $(config_mcp_pb_doc)
 
-$(broker_v1_pb_gos) $(broker_v1_pb_doc): $(broker_v1_protos)
-	## Generate broker/dev/*.pb.go + $(broker_v1_pb_doc)
-	@$(docker_gen) $(protoc_gen_go_plugin) $(protoc_gen_docs_plugin)$(broker_v1_path) $^
+$(config_mcp_pb_gos) $(config_mcp_pb_doc): $(config_mcp_protos)
+	## Generate mcp/v1alpha1/*.pb.go + $(config_mcp_pb_doc)
+	@$(docker_gen) $(gogofast_plugin) $(protoc_gen_docs_plugin)$(config_mcp_path) $^
 
-generate-broker-python: $(broker_v1_pb_pythons)
+generate-mcp-python: $(config_mcp_pb_pythons)
 
-$(broker_v1_pb_pythons): $(broker_v1_protos)
-	## Generate python/istio_api/broker/dev/*_pb2.py
-	@$(docker_gen) $(protoc_gen_python_plugin) $(broker_v1_path) $^
+$(config_mcp_pb_pythons): $(config_mcp_protos)
+	## Generate python/istio_api/mcp/v1alpha1/*_pb2.py
+	@$(docker_gen) $(protoc_gen_python_plugin) $^
 
-clean-broker:
-	rm -f $(broker_v1_pb_gos)
-	rm -f $(broker_v1_pb_doc)
+clean-mcp:
+	rm -f $(config_mcp_pb_gos)
+	rm -f $(config_mcp_pb_doc)
 
 #####################
 # mesh/...
@@ -138,7 +139,7 @@ generate-mesh-python: $(mesh_pb_pythons)
 
 $(mesh_pb_pythons): $(mesh_protos)
 	## Generate python/istio_api/mesh/v1alpha1/*_pb2.py
-	@$(docker_gen) $(protoc_gen_python_plugin) $(mesh_path) $^
+	@$(docker_gen) $(protoc_gen_python_plugin) $^
 
 clean-mesh:
 	rm -f $(mesh_pb_gos)
@@ -211,19 +212,19 @@ generate-mixer-python: \
 
 $(mixer_v1_pb_pythons): $(mixer_v1_protos)
 	## Generate python/istio_api/mixer/v1/*_pb2.py
-	@$(docker_gen) $(protoc_gen_python_plugin) $(mixer_v1_path) $^
+	@$(docker_gen) $(protoc_gen_python_plugin) $^
 
 $(mixer_config_client_pb_pythons): $(mixer_config_client_protos)
 	## Generate python/istio_api/mixer/v1/config/client/*_pb2.py
-	@$(docker_gen) $(protoc_gen_python_plugin) $(mixer_config_client_path) $^
+	@$(docker_gen) $(protoc_gen_python_plugin) $^
 
 $(mixer_adapter_model_v1beta1_pb_pythons): $(mixer_adapter_model_v1beta1_protos)
 	## Generate python/istio_api/mixer/adapter/model/v1beta1/*_pb2.py
-	@$(docker_gen) $(protoc_gen_python_plugin) $(mixer_adapter_model_v1beta1_path) $^
+	@$(docker_gen) $(protoc_gen_python_plugin) $^
 
 $(policy_v1beta1_pb_pythons): $(policy_v1beta1_protos)
 	## Generate python/istio_api/policy/v1beta1/*_pb2.py
-	@$(docker_gen) $(protoc_gen_python_plugin) $(policy_v1beta1_path) $^
+	@$(docker_gen) $(protoc_gen_python_plugin) $^
 	## Generate python/istio_api/policy/v1beta1/cfg_pb2.py
 	@$(docker_gen) $(protoc_gen_python_plugin) policy/v1beta1/cfg.proto
 
@@ -235,41 +236,27 @@ clean-mixer:
 # routing/...
 #####################
 
-routing_v1alpha1_path := routing/v1alpha1
-routing_v1alpha1_protos := $(shell find $(routing_v1alpha1_path) -type f -name '*.proto' | sort)
-routing_v1alpha1_pb_gos := $(routing_v1alpha1_protos:.proto=.pb.go)
-routing_v1alpha1_pb_pythons := $(routing_v1alpha1_protos:.proto=_pb2.py)
-routing_v1alpha1_pb_doc := $(routing_v1alpha1_path)/istio.routing.v1alpha1.pb.html
-
 routing_v1alpha3_path := networking/v1alpha3
 routing_v1alpha3_protos := $(shell find networking/v1alpha3 -type f -name '*.proto' | sort)
 routing_v1alpha3_pb_gos := $(routing_v1alpha3_protos:.proto=.pb.go)
 routing_v1alpha3_pb_pythons := $(routing_v1alpha3_protos:.proto=_pb2.py)
 routing_v1alpha3_pb_doc := $(routing_v1alpha3_path)/istio.routing.v1alpha3.pb.html
 
-generate-routing-go: $(routing_v1alpha1_pb_gos) $(routing_v1alpha1_pb_doc) $(routing_v1alpha3_pb_gos) $(routing_v1alpha3_pb_doc)
-
-$(routing_v1alpha1_pb_gos) $(routing_v1alpha1_pb_doc): $(routing_v1alpha1_protos)
-	## Generate routing/v1alpha1/*.pb.go +
-	@$(docker_gen) $(protoc_gen_go_plugin) $(protoc_gen_docs_plugin)$(routing_v1alpha1_path) $^
+generate-routing-go: $(routing_v1alpha3_pb_gos) $(routing_v1alpha3_pb_doc)
 
 $(routing_v1alpha3_pb_gos) $(routing_v1alpha3_pb_doc): $(routing_v1alpha3_protos)
 	## Generate networking/v1alpha3/*.pb.go
 	@$(docker_gen) $(gogofast_plugin) $(protoc_gen_docs_plugin)$(routing_v1alpha3_path) $^
 
-generate-routing-python: $(routing_v1alpha1_pb_pythons) $(routing_v1alpha3_pb_pythons)
-
-$(routing_v1alpha1_pb_pythons): $(routing_v1alpha1_protos)
-	## Generate python/istio_api/routing/v1alpha1/*_pb2.py
-	@$(docker_gen) $(protoc_gen_python_plugin) $(routing_v1alpha1_path) $^
+generate-routing-python: $(routing_v1alpha3_pb_pythons)
 
 $(routing_v1alpha3_pb_pythons): $(routing_v1alpha3_protos)
 	## Generate python/istio_api/networking/v1alpha3/*_pb2.py
-	@$(docker_gen) $(protoc_gen_python_plugin) $(routing_v1alpha3_path) $^
+	@$(docker_gen) $(protoc_gen_python_plugin) $^
 
 clean-routing:
-	rm -f $(routing_v1alpha1_pb_gos) $(routing_v1alpha3_pb_gos)
-	rm -f $(routing_v1alpha1_pb_doc) $(routing_v1alpha3_pb_doc)
+	rm -f $(routing_v1alpha3_pb_gos)
+	rm -f $(routing_v1alpha3_pb_doc)
 
 #####################
 # rbac/...
@@ -291,7 +278,7 @@ generate-rbac-python: $(rbac_v1alpha1_protos)
 
 $(rbac_v1alpha1_pb_pythons): $(rbac_v1alpha1_protos)
 	## Generate python/istio_api/rbac/v1alpha1/*_pb2.py
-	@$(docker_gen) $(protoc_gen_python_plugin) $(rbac_v1alpha1_path) $^
+	@$(docker_gen) $(protoc_gen_python_plugin) $^
 
 clean-rbac:
 	rm -f $(rbac_v1alpha1_pb_gos)
@@ -318,7 +305,7 @@ generate-authn-python: $(authn_v1alpha1_pb_pythons)
 
 $(authn_v1alpha1_pb_pythons): $(authn_v1alpha1_protos)
 	## Generate python/istio_api/authentication/v1alpha1/*_pb2.py
-	@$(docker_gen) $(protoc_gen_python_plugin) $(authn_v1alpha1_path) $^
+	@$(docker_gen) $(protoc_gen_python_plugin) $^
 
 clean-authn:
 	rm -f $(authn_v1alpha1_pb_gos)
@@ -337,14 +324,14 @@ generate-envoy-go: $(envoy_pb_gos) $(envoy_pb_doc)
 
 # Envoy APIs is internal APIs, documents is not required.
 $(envoy_pb_gos): $(envoy_protos)
-  ## Generate envoy/*/*.pb.go
+	## Generate envoy/*/*.pb.go
 	@$(docker_gen) $(gogofast_plugin) $^
 
 generate-envoy-python: $(envoy_pb_pythons)
 
 # Envoy APIs is internal APIs, documents is not required.
 $(envoy_pb_pythons): $(envoy_protos)
-  ## Generate envoy/*/*_pb2.py
+	## Generate envoy/*/*_pb2.py
 	@$(docker_gen) $(protoc_gen_python_plugin) $^
 
 clean-envoy:
@@ -357,7 +344,7 @@ clean-envoy:
 clean-python:
 	rm -rf python/istio_api/*
 
-clean: clean-broker \
+clean: 	clean-mcp \
 	clean-mesh \
 	clean-mixer \
 	clean-routing \

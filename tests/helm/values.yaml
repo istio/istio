@@ -1,11 +1,16 @@
 healthPort: true
-testHub: docker.io/istio
-testTag: latest
+testHub: docker.io/istionightly
+testTag: nightly-release-1.0
+
+domain: v10.istio.webinf.info
 
 # Namespace where istio control plane is installed.
 istioNamespace: istio-system
 
-fortioImage: istio/fortio:latest
+#fortioImage: istio/fortio:latest
+fortioImage: istio/fortio:1.0.1
+
+qps: 500
 
 # Number of test cluster-IP services pointing to A. Used to create a realistic
 # number of k-8s managed endpoint sets
@@ -19,4 +24,4 @@ testVMServices: 10
 # Number of ingress routing rules, routing "/test/N/.*" to fortio.
 # Will generate envoy RDS for ingress.
 loadTestIngress: 5
-healthCheck: false
+healthCheck: true

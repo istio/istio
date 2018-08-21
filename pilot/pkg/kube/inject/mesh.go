@@ -146,8 +146,7 @@ containers:
   {{ end -}}
   resources:
     requests:
-      cpu: 100m
-      memory: 128Mi
+      cpu: 10m
   securityContext:
     {{ if eq .DebugMode true -}}
     privileged: true

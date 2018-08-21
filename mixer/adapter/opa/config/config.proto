@@ -15,11 +15,15 @@
 syntax = "proto3";
 
 // $title: OPA
-// $overview: Adapter that implements an Open Policy Agent engine
-// $location: https://istio.io/docs/reference/config/adapters/opa.html
+// $description: Adapter that implements an Open Policy Agent engine
+// $location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/opa.html
+// $aliases:
+// $  - /docs/reference/config/adapters/opa.htm l
 
 // The `opa` adapter exposes an [Open Policy Agent](http://www.openpolicyagent.org) engine
 // that provides sophisticated access control mechanisms.
+//
+// This adapter supports the [authorization template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/authorization/).
 package adapter.opa.config;
 
 import "gogoproto/gogo.proto";

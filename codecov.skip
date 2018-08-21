@@ -1,3 +1,4 @@
+istio.io/istio/mixer/pkg/adapter/test
 istio.io/istio/mixer/pkg/config/storetest
 istio.io/istio/mixer/pkg/mockapi
 istio.io/istio/mixer/pkg/perf

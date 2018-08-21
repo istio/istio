@@ -6,8 +6,9 @@ package core
 import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import google_protobuf2 "github.com/gogo/protobuf/types"
-import google_protobuf4 "github.com/gogo/protobuf/types"
+import google_protobuf3 "github.com/gogo/protobuf/types"
+import google_protobuf "github.com/gogo/protobuf/types"
+import google_protobuf5 "github.com/gogo/protobuf/types"
 import _ "github.com/lyft/protoc-gen-validate/validate"
 import _ "github.com/gogo/protobuf/gogoproto"
 
@@ -27,10 +28,7 @@ type GrpcService struct {
 	TargetSpecifier isGrpcService_TargetSpecifier `protobuf_oneof:"target_specifier"`
 	// The timeout for the gRPC request. This is the timeout for a specific
 	// request.
-	Timeout *google_protobuf2.Duration `protobuf:"bytes,3,opt,name=timeout" json:"timeout,omitempty"`
-	// A set of credentials that will be composed to form the `channel credentials
-	// <https://grpc.io/docs/guides/auth.html#credential-types>`_.
-	Credentials []*GrpcService_Credentials `protobuf:"bytes,4,rep,name=credentials" json:"credentials,omitempty"`
+	Timeout *google_protobuf3.Duration `protobuf:"bytes,3,opt,name=timeout" json:"timeout,omitempty"`
 	// Additional metadata to include in streams initiated to the GrpcService.
 	// This can be used for scenarios in which additional ad hoc authorization
 	// headers (e.g. `x-foo-bar: baz-key`) are to be injected.
@@ -80,16 +78,9 @@ func (m *GrpcService) GetGoogleGrpc() *GrpcService_GoogleGrpc {
 	return nil
 }
 
-func (m *GrpcService) GetTimeout() *google_protobuf2.Duration {
+func (m *GrpcService) GetTimeout() *google_protobuf3.Duration {
 	if m != nil {
 		return m.Timeout
-	}
-	return nil
-}
-
-func (m *GrpcService) GetCredentials() []*GrpcService_Credentials {
-	if m != nil {
-		return m.Credentials
 	}
 	return nil
 }
@@ -196,12 +187,16 @@ func (m *GrpcService_EnvoyGrpc) GetClusterName() string {
 	return ""
 }
 
+// [#proto-status: draft]
 type GrpcService_GoogleGrpc struct {
 	// The target URI when using the `Google C++ gRPC client
 	// <https://github.com/grpc/grpc>`_. SSL credentials will be supplied in
-	// :ref:`credentials <envoy_api_field_core.GrpcService.credentials>`.
-	TargetUri      string                                 `protobuf:"bytes,1,opt,name=target_uri,json=targetUri,proto3" json:"target_uri,omitempty"`
-	SslCredentials *GrpcService_GoogleGrpc_SslCredentials `protobuf:"bytes,2,opt,name=ssl_credentials,json=sslCredentials" json:"ssl_credentials,omitempty"`
+	// :ref:`channel_credentials <envoy_api_field_core.GrpcService.GoogleGrpc.channel_credentials>`.
+	TargetUri          string                                     `protobuf:"bytes,1,opt,name=target_uri,json=targetUri,proto3" json:"target_uri,omitempty"`
+	ChannelCredentials *GrpcService_GoogleGrpc_ChannelCredentials `protobuf:"bytes,2,opt,name=channel_credentials,json=channelCredentials" json:"channel_credentials,omitempty"`
+	// A set of call credentials that can be composed with `channel credentials
+	// <https://grpc.io/docs/guides/auth.html#credential-types>`_.
+	CallCredentials []*GrpcService_GoogleGrpc_CallCredentials `protobuf:"bytes,3,rep,name=call_credentials,json=callCredentials" json:"call_credentials,omitempty"`
 	// The human readable prefix to use when emitting statistics for the gRPC
 	// service.
 	//
@@ -211,10 +206,14 @@ type GrpcService_GoogleGrpc struct {
 	//
 	//    streams_total, Counter, Total number of streams opened
 	//    streams_closed_<gRPC status code>, Counter, Total streams closed with <gRPC status code>
-	StatPrefix string `protobuf:"bytes,3,opt,name=stat_prefix,json=statPrefix,proto3" json:"stat_prefix,omitempty"`
+	StatPrefix string `protobuf:"bytes,4,opt,name=stat_prefix,json=statPrefix,proto3" json:"stat_prefix,omitempty"`
+	// The name of the Google gRPC credentials factory to use. This must have been registered with
+	// Envoy. If this is empty, a default credentials factory will be used that sets up channel
+	// credentials based on other configuration parameters.
+	CredentialsFactoryName string `protobuf:"bytes,5,opt,name=credentials_factory_name,json=credentialsFactoryName,proto3" json:"credentials_factory_name,omitempty"`
 	// Additional configuration for site-specific customizations of the Google
 	// gRPC library.
-	Config *google_protobuf4.Struct `protobuf:"bytes,4,opt,name=config" json:"config,omitempty"`
+	Config *google_protobuf.Struct `protobuf:"bytes,6,opt,name=config" json:"config,omitempty"`
 }
 
 func (m *GrpcService_GoogleGrpc) Reset()         { *m = GrpcService_GoogleGrpc{} }
@@ -231,9 +230,16 @@ func (m *GrpcService_GoogleGrpc) GetTargetUri() string {
 	return ""
 }
 
-func (m *GrpcService_GoogleGrpc) GetSslCredentials() *GrpcService_GoogleGrpc_SslCredentials {
+func (m *GrpcService_GoogleGrpc) GetChannelCredentials() *GrpcService_GoogleGrpc_ChannelCredentials {
 	if m != nil {
-		return m.SslCredentials
+		return m.ChannelCredentials
+	}
+	return nil
+}
+
+func (m *GrpcService_GoogleGrpc) GetCallCredentials() []*GrpcService_GoogleGrpc_CallCredentials {
+	if m != nil {
+		return m.CallCredentials
 	}
 	return nil
 }
@@ -245,7 +251,14 @@ func (m *GrpcService_GoogleGrpc) GetStatPrefix() string {
 	return ""
 }
 
-func (m *GrpcService_GoogleGrpc) GetConfig() *google_protobuf4.Struct {
+func (m *GrpcService_GoogleGrpc) GetCredentialsFactoryName() string {
+	if m != nil {
+		return m.CredentialsFactoryName
+	}
+	return ""
+}
+
+func (m *GrpcService_GoogleGrpc) GetConfig() *google_protobuf.Struct {
 	if m != nil {
 		return m.Config
 	}
@@ -290,96 +303,131 @@ func (m *GrpcService_GoogleGrpc_SslCredentials) GetCertChain() *DataSource {
 	return nil
 }
 
-// gRPC credentials as described at
-// https://grpc.io/docs/guides/auth.html#credential-types.
-//
-// .. note::
-//
-//   Credentials are only currently implemented for the Google gRPC client.
-type GrpcService_Credentials struct {
+// See https://grpc.io/docs/guides/auth.html#credential-types to understand Channel and Call
+// credential types.
+type GrpcService_GoogleGrpc_ChannelCredentials struct {
 	// Types that are valid to be assigned to CredentialSpecifier:
-	//	*GrpcService_Credentials_AccessToken
-	CredentialSpecifier isGrpcService_Credentials_CredentialSpecifier `protobuf_oneof:"credential_specifier"`
+	//	*GrpcService_GoogleGrpc_ChannelCredentials_SslCredentials
+	//	*GrpcService_GoogleGrpc_ChannelCredentials_GoogleDefault
+	CredentialSpecifier isGrpcService_GoogleGrpc_ChannelCredentials_CredentialSpecifier `protobuf_oneof:"credential_specifier"`
 }
 
-func (m *GrpcService_Credentials) Reset()         { *m = GrpcService_Credentials{} }
-func (m *GrpcService_Credentials) String() string { return proto.CompactTextString(m) }
-func (*GrpcService_Credentials) ProtoMessage()    {}
-func (*GrpcService_Credentials) Descriptor() ([]byte, []int) {
-	return fileDescriptorGrpcService, []int{0, 2}
+func (m *GrpcService_GoogleGrpc_ChannelCredentials) Reset() {
+	*m = GrpcService_GoogleGrpc_ChannelCredentials{}
+}
+func (m *GrpcService_GoogleGrpc_ChannelCredentials) String() string { return proto.CompactTextString(m) }
+func (*GrpcService_GoogleGrpc_ChannelCredentials) ProtoMessage()    {}
+func (*GrpcService_GoogleGrpc_ChannelCredentials) Descriptor() ([]byte, []int) {
+	return fileDescriptorGrpcService, []int{0, 1, 1}
 }
 
-type isGrpcService_Credentials_CredentialSpecifier interface {
-	isGrpcService_Credentials_CredentialSpecifier()
+type isGrpcService_GoogleGrpc_ChannelCredentials_CredentialSpecifier interface {
+	isGrpcService_GoogleGrpc_ChannelCredentials_CredentialSpecifier()
 	Equal(interface{}) bool
 	MarshalTo([]byte) (int, error)
 	Size() int
 }
 
-type GrpcService_Credentials_AccessToken struct {
-	AccessToken string `protobuf:"bytes,1,opt,name=access_token,json=accessToken,proto3,oneof"`
+type GrpcService_GoogleGrpc_ChannelCredentials_SslCredentials struct {
+	SslCredentials *GrpcService_GoogleGrpc_SslCredentials `protobuf:"bytes,1,opt,name=ssl_credentials,json=sslCredentials,oneof"`
+}
+type GrpcService_GoogleGrpc_ChannelCredentials_GoogleDefault struct {
+	GoogleDefault *google_protobuf5.Empty `protobuf:"bytes,2,opt,name=google_default,json=googleDefault,oneof"`
 }
 
-func (*GrpcService_Credentials_AccessToken) isGrpcService_Credentials_CredentialSpecifier() {}
+func (*GrpcService_GoogleGrpc_ChannelCredentials_SslCredentials) isGrpcService_GoogleGrpc_ChannelCredentials_CredentialSpecifier() {
+}
+func (*GrpcService_GoogleGrpc_ChannelCredentials_GoogleDefault) isGrpcService_GoogleGrpc_ChannelCredentials_CredentialSpecifier() {
+}
 
-func (m *GrpcService_Credentials) GetCredentialSpecifier() isGrpcService_Credentials_CredentialSpecifier {
+func (m *GrpcService_GoogleGrpc_ChannelCredentials) GetCredentialSpecifier() isGrpcService_GoogleGrpc_ChannelCredentials_CredentialSpecifier {
 	if m != nil {
 		return m.CredentialSpecifier
 	}
 	return nil
 }
 
-func (m *GrpcService_Credentials) GetAccessToken() string {
-	if x, ok := m.GetCredentialSpecifier().(*GrpcService_Credentials_AccessToken); ok {
-		return x.AccessToken
-	}
-	return ""
-}
-
-// XXX_OneofFuncs is for the internal use of the proto package.
-func (*GrpcService_Credentials) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
-	return _GrpcService_Credentials_OneofMarshaler, _GrpcService_Credentials_OneofUnmarshaler, _GrpcService_Credentials_OneofSizer, []interface{}{
-		(*GrpcService_Credentials_AccessToken)(nil),
-	}
-}
-
-func _GrpcService_Credentials_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
-	m := msg.(*GrpcService_Credentials)
-	// credential_specifier
-	switch x := m.CredentialSpecifier.(type) {
-	case *GrpcService_Credentials_AccessToken:
-		_ = b.EncodeVarint(1<<3 | proto.WireBytes)
-		_ = b.EncodeStringBytes(x.AccessToken)
-	case nil:
-	default:
-		return fmt.Errorf("GrpcService_Credentials.CredentialSpecifier has unexpected type %T", x)
+func (m *GrpcService_GoogleGrpc_ChannelCredentials) GetSslCredentials() *GrpcService_GoogleGrpc_SslCredentials {
+	if x, ok := m.GetCredentialSpecifier().(*GrpcService_GoogleGrpc_ChannelCredentials_SslCredentials); ok {
+		return x.SslCredentials
 	}
 	return nil
 }
 
-func _GrpcService_Credentials_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
-	m := msg.(*GrpcService_Credentials)
+func (m *GrpcService_GoogleGrpc_ChannelCredentials) GetGoogleDefault() *google_protobuf5.Empty {
+	if x, ok := m.GetCredentialSpecifier().(*GrpcService_GoogleGrpc_ChannelCredentials_GoogleDefault); ok {
+		return x.GoogleDefault
+	}
+	return nil
+}
+
+// XXX_OneofFuncs is for the internal use of the proto package.
+func (*GrpcService_GoogleGrpc_ChannelCredentials) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
+	return _GrpcService_GoogleGrpc_ChannelCredentials_OneofMarshaler, _GrpcService_GoogleGrpc_ChannelCredentials_OneofUnmarshaler, _GrpcService_GoogleGrpc_ChannelCredentials_OneofSizer, []interface{}{
+		(*GrpcService_GoogleGrpc_ChannelCredentials_SslCredentials)(nil),
+		(*GrpcService_GoogleGrpc_ChannelCredentials_GoogleDefault)(nil),
+	}
+}
+
+func _GrpcService_GoogleGrpc_ChannelCredentials_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
+	m := msg.(*GrpcService_GoogleGrpc_ChannelCredentials)
+	// credential_specifier
+	switch x := m.CredentialSpecifier.(type) {
+	case *GrpcService_GoogleGrpc_ChannelCredentials_SslCredentials:
+		_ = b.EncodeVarint(1<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.SslCredentials); err != nil {
+			return err
+		}
+	case *GrpcService_GoogleGrpc_ChannelCredentials_GoogleDefault:
+		_ = b.EncodeVarint(2<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.GoogleDefault); err != nil {
+			return err
+		}
+	case nil:
+	default:
+		return fmt.Errorf("GrpcService_GoogleGrpc_ChannelCredentials.CredentialSpecifier has unexpected type %T", x)
+	}
+	return nil
+}
+
+func _GrpcService_GoogleGrpc_ChannelCredentials_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
+	m := msg.(*GrpcService_GoogleGrpc_ChannelCredentials)
 	switch tag {
-	case 1: // credential_specifier.access_token
+	case 1: // credential_specifier.ssl_credentials
 		if wire != proto.WireBytes {
 			return true, proto.ErrInternalBadWireType
 		}
-		x, err := b.DecodeStringBytes()
-		m.CredentialSpecifier = &GrpcService_Credentials_AccessToken{x}
+		msg := new(GrpcService_GoogleGrpc_SslCredentials)
+		err := b.DecodeMessage(msg)
+		m.CredentialSpecifier = &GrpcService_GoogleGrpc_ChannelCredentials_SslCredentials{msg}
+		return true, err
+	case 2: // credential_specifier.google_default
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(google_protobuf5.Empty)
+		err := b.DecodeMessage(msg)
+		m.CredentialSpecifier = &GrpcService_GoogleGrpc_ChannelCredentials_GoogleDefault{msg}
 		return true, err
 	default:
 		return false, nil
 	}
 }
 
-func _GrpcService_Credentials_OneofSizer(msg proto.Message) (n int) {
-	m := msg.(*GrpcService_Credentials)
+func _GrpcService_GoogleGrpc_ChannelCredentials_OneofSizer(msg proto.Message) (n int) {
+	m := msg.(*GrpcService_GoogleGrpc_ChannelCredentials)
 	// credential_specifier
 	switch x := m.CredentialSpecifier.(type) {
-	case *GrpcService_Credentials_AccessToken:
+	case *GrpcService_GoogleGrpc_ChannelCredentials_SslCredentials:
+		s := proto.Size(x.SslCredentials)
 		n += proto.SizeVarint(1<<3 | proto.WireBytes)
-		n += proto.SizeVarint(uint64(len(x.AccessToken)))
-		n += len(x.AccessToken)
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *GrpcService_GoogleGrpc_ChannelCredentials_GoogleDefault:
+		s := proto.Size(x.GoogleDefault)
+		n += proto.SizeVarint(2<<3 | proto.WireBytes)
+		n += proto.SizeVarint(uint64(s))
+		n += s
 	case nil:
 	default:
 		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
@@ -387,19 +435,360 @@ func _GrpcService_Credentials_OneofSizer(msg proto.Message) (n int) {
 	return n
 }
 
+type GrpcService_GoogleGrpc_CallCredentials struct {
+	// Types that are valid to be assigned to CredentialSpecifier:
+	//	*GrpcService_GoogleGrpc_CallCredentials_AccessToken
+	//	*GrpcService_GoogleGrpc_CallCredentials_GoogleComputeEngine
+	//	*GrpcService_GoogleGrpc_CallCredentials_GoogleRefreshToken
+	//	*GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJwtAccess
+	//	*GrpcService_GoogleGrpc_CallCredentials_GoogleIam
+	//	*GrpcService_GoogleGrpc_CallCredentials_FromPlugin
+	CredentialSpecifier isGrpcService_GoogleGrpc_CallCredentials_CredentialSpecifier `protobuf_oneof:"credential_specifier"`
+}
+
+func (m *GrpcService_GoogleGrpc_CallCredentials) Reset() {
+	*m = GrpcService_GoogleGrpc_CallCredentials{}
+}
+func (m *GrpcService_GoogleGrpc_CallCredentials) String() string { return proto.CompactTextString(m) }
+func (*GrpcService_GoogleGrpc_CallCredentials) ProtoMessage()    {}
+func (*GrpcService_GoogleGrpc_CallCredentials) Descriptor() ([]byte, []int) {
+	return fileDescriptorGrpcService, []int{0, 1, 2}
+}
+
+type isGrpcService_GoogleGrpc_CallCredentials_CredentialSpecifier interface {
+	isGrpcService_GoogleGrpc_CallCredentials_CredentialSpecifier()
+	Equal(interface{}) bool
+	MarshalTo([]byte) (int, error)
+	Size() int
+}
+
+type GrpcService_GoogleGrpc_CallCredentials_AccessToken struct {
+	AccessToken string `protobuf:"bytes,1,opt,name=access_token,json=accessToken,proto3,oneof"`
+}
+type GrpcService_GoogleGrpc_CallCredentials_GoogleComputeEngine struct {
+	GoogleComputeEngine *google_protobuf5.Empty `protobuf:"bytes,2,opt,name=google_compute_engine,json=googleComputeEngine,oneof"`
+}
+type GrpcService_GoogleGrpc_CallCredentials_GoogleRefreshToken struct {
+	GoogleRefreshToken string `protobuf:"bytes,3,opt,name=google_refresh_token,json=googleRefreshToken,proto3,oneof"`
+}
+type GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJwtAccess struct {
+	ServiceAccountJwtAccess *GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJWTAccessCredentials `protobuf:"bytes,4,opt,name=service_account_jwt_access,json=serviceAccountJwtAccess,oneof"`
+}
+type GrpcService_GoogleGrpc_CallCredentials_GoogleIam struct {
+	GoogleIam *GrpcService_GoogleGrpc_CallCredentials_GoogleIAMCredentials `protobuf:"bytes,5,opt,name=google_iam,json=googleIam,oneof"`
+}
+type GrpcService_GoogleGrpc_CallCredentials_FromPlugin struct {
+	FromPlugin *GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin `protobuf:"bytes,6,opt,name=from_plugin,json=fromPlugin,oneof"`
+}
+
+func (*GrpcService_GoogleGrpc_CallCredentials_AccessToken) isGrpcService_GoogleGrpc_CallCredentials_CredentialSpecifier() {
+}
+func (*GrpcService_GoogleGrpc_CallCredentials_GoogleComputeEngine) isGrpcService_GoogleGrpc_CallCredentials_CredentialSpecifier() {
+}
+func (*GrpcService_GoogleGrpc_CallCredentials_GoogleRefreshToken) isGrpcService_GoogleGrpc_CallCredentials_CredentialSpecifier() {
+}
+func (*GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJwtAccess) isGrpcService_GoogleGrpc_CallCredentials_CredentialSpecifier() {
+}
+func (*GrpcService_GoogleGrpc_CallCredentials_GoogleIam) isGrpcService_GoogleGrpc_CallCredentials_CredentialSpecifier() {
+}
+func (*GrpcService_GoogleGrpc_CallCredentials_FromPlugin) isGrpcService_GoogleGrpc_CallCredentials_CredentialSpecifier() {
+}
+
+func (m *GrpcService_GoogleGrpc_CallCredentials) GetCredentialSpecifier() isGrpcService_GoogleGrpc_CallCredentials_CredentialSpecifier {
+	if m != nil {
+		return m.CredentialSpecifier
+	}
+	return nil
+}
+
+func (m *GrpcService_GoogleGrpc_CallCredentials) GetAccessToken() string {
+	if x, ok := m.GetCredentialSpecifier().(*GrpcService_GoogleGrpc_CallCredentials_AccessToken); ok {
+		return x.AccessToken
+	}
+	return ""
+}
+
+func (m *GrpcService_GoogleGrpc_CallCredentials) GetGoogleComputeEngine() *google_protobuf5.Empty {
+	if x, ok := m.GetCredentialSpecifier().(*GrpcService_GoogleGrpc_CallCredentials_GoogleComputeEngine); ok {
+		return x.GoogleComputeEngine
+	}
+	return nil
+}
+
+func (m *GrpcService_GoogleGrpc_CallCredentials) GetGoogleRefreshToken() string {
+	if x, ok := m.GetCredentialSpecifier().(*GrpcService_GoogleGrpc_CallCredentials_GoogleRefreshToken); ok {
+		return x.GoogleRefreshToken
+	}
+	return ""
+}
+
+func (m *GrpcService_GoogleGrpc_CallCredentials) GetServiceAccountJwtAccess() *GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJWTAccessCredentials {
+	if x, ok := m.GetCredentialSpecifier().(*GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJwtAccess); ok {
+		return x.ServiceAccountJwtAccess
+	}
+	return nil
+}
+
+func (m *GrpcService_GoogleGrpc_CallCredentials) GetGoogleIam() *GrpcService_GoogleGrpc_CallCredentials_GoogleIAMCredentials {
+	if x, ok := m.GetCredentialSpecifier().(*GrpcService_GoogleGrpc_CallCredentials_GoogleIam); ok {
+		return x.GoogleIam
+	}
+	return nil
+}
+
+func (m *GrpcService_GoogleGrpc_CallCredentials) GetFromPlugin() *GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin {
+	if x, ok := m.GetCredentialSpecifier().(*GrpcService_GoogleGrpc_CallCredentials_FromPlugin); ok {
+		return x.FromPlugin
+	}
+	return nil
+}
+
+// XXX_OneofFuncs is for the internal use of the proto package.
+func (*GrpcService_GoogleGrpc_CallCredentials) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
+	return _GrpcService_GoogleGrpc_CallCredentials_OneofMarshaler, _GrpcService_GoogleGrpc_CallCredentials_OneofUnmarshaler, _GrpcService_GoogleGrpc_CallCredentials_OneofSizer, []interface{}{
+		(*GrpcService_GoogleGrpc_CallCredentials_AccessToken)(nil),
+		(*GrpcService_GoogleGrpc_CallCredentials_GoogleComputeEngine)(nil),
+		(*GrpcService_GoogleGrpc_CallCredentials_GoogleRefreshToken)(nil),
+		(*GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJwtAccess)(nil),
+		(*GrpcService_GoogleGrpc_CallCredentials_GoogleIam)(nil),
+		(*GrpcService_GoogleGrpc_CallCredentials_FromPlugin)(nil),
+	}
+}
+
+func _GrpcService_GoogleGrpc_CallCredentials_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
+	m := msg.(*GrpcService_GoogleGrpc_CallCredentials)
+	// credential_specifier
+	switch x := m.CredentialSpecifier.(type) {
+	case *GrpcService_GoogleGrpc_CallCredentials_AccessToken:
+		_ = b.EncodeVarint(1<<3 | proto.WireBytes)
+		_ = b.EncodeStringBytes(x.AccessToken)
+	case *GrpcService_GoogleGrpc_CallCredentials_GoogleComputeEngine:
+		_ = b.EncodeVarint(2<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.GoogleComputeEngine); err != nil {
+			return err
+		}
+	case *GrpcService_GoogleGrpc_CallCredentials_GoogleRefreshToken:
+		_ = b.EncodeVarint(3<<3 | proto.WireBytes)
+		_ = b.EncodeStringBytes(x.GoogleRefreshToken)
+	case *GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJwtAccess:
+		_ = b.EncodeVarint(4<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.ServiceAccountJwtAccess); err != nil {
+			return err
+		}
+	case *GrpcService_GoogleGrpc_CallCredentials_GoogleIam:
+		_ = b.EncodeVarint(5<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.GoogleIam); err != nil {
+			return err
+		}
+	case *GrpcService_GoogleGrpc_CallCredentials_FromPlugin:
+		_ = b.EncodeVarint(6<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.FromPlugin); err != nil {
+			return err
+		}
+	case nil:
+	default:
+		return fmt.Errorf("GrpcService_GoogleGrpc_CallCredentials.CredentialSpecifier has unexpected type %T", x)
+	}
+	return nil
+}
+
+func _GrpcService_GoogleGrpc_CallCredentials_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
+	m := msg.(*GrpcService_GoogleGrpc_CallCredentials)
+	switch tag {
+	case 1: // credential_specifier.access_token
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		x, err := b.DecodeStringBytes()
+		m.CredentialSpecifier = &GrpcService_GoogleGrpc_CallCredentials_AccessToken{x}
+		return true, err
+	case 2: // credential_specifier.google_compute_engine
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(google_protobuf5.Empty)
+		err := b.DecodeMessage(msg)
+		m.CredentialSpecifier = &GrpcService_GoogleGrpc_CallCredentials_GoogleComputeEngine{msg}
+		return true, err
+	case 3: // credential_specifier.google_refresh_token
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		x, err := b.DecodeStringBytes()
+		m.CredentialSpecifier = &GrpcService_GoogleGrpc_CallCredentials_GoogleRefreshToken{x}
+		return true, err
+	case 4: // credential_specifier.service_account_jwt_access
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJWTAccessCredentials)
+		err := b.DecodeMessage(msg)
+		m.CredentialSpecifier = &GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJwtAccess{msg}
+		return true, err
+	case 5: // credential_specifier.google_iam
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(GrpcService_GoogleGrpc_CallCredentials_GoogleIAMCredentials)
+		err := b.DecodeMessage(msg)
+		m.CredentialSpecifier = &GrpcService_GoogleGrpc_CallCredentials_GoogleIam{msg}
+		return true, err
+	case 6: // credential_specifier.from_plugin
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin)
+		err := b.DecodeMessage(msg)
+		m.CredentialSpecifier = &GrpcService_GoogleGrpc_CallCredentials_FromPlugin{msg}
+		return true, err
+	default:
+		return false, nil
+	}
+}
+
+func _GrpcService_GoogleGrpc_CallCredentials_OneofSizer(msg proto.Message) (n int) {
+	m := msg.(*GrpcService_GoogleGrpc_CallCredentials)
+	// credential_specifier
+	switch x := m.CredentialSpecifier.(type) {
+	case *GrpcService_GoogleGrpc_CallCredentials_AccessToken:
+		n += proto.SizeVarint(1<<3 | proto.WireBytes)
+		n += proto.SizeVarint(uint64(len(x.AccessToken)))
+		n += len(x.AccessToken)
+	case *GrpcService_GoogleGrpc_CallCredentials_GoogleComputeEngine:
+		s := proto.Size(x.GoogleComputeEngine)
+		n += proto.SizeVarint(2<<3 | proto.WireBytes)
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *GrpcService_GoogleGrpc_CallCredentials_GoogleRefreshToken:
+		n += proto.SizeVarint(3<<3 | proto.WireBytes)
+		n += proto.SizeVarint(uint64(len(x.GoogleRefreshToken)))
+		n += len(x.GoogleRefreshToken)
+	case *GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJwtAccess:
+		s := proto.Size(x.ServiceAccountJwtAccess)
+		n += proto.SizeVarint(4<<3 | proto.WireBytes)
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *GrpcService_GoogleGrpc_CallCredentials_GoogleIam:
+		s := proto.Size(x.GoogleIam)
+		n += proto.SizeVarint(5<<3 | proto.WireBytes)
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *GrpcService_GoogleGrpc_CallCredentials_FromPlugin:
+		s := proto.Size(x.FromPlugin)
+		n += proto.SizeVarint(6<<3 | proto.WireBytes)
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case nil:
+	default:
+		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
+	}
+	return n
+}
+
+type GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJWTAccessCredentials struct {
+	JsonKey              string `protobuf:"bytes,1,opt,name=json_key,json=jsonKey,proto3" json:"json_key,omitempty"`
+	TokenLifetimeSeconds uint64 `protobuf:"varint,2,opt,name=token_lifetime_seconds,json=tokenLifetimeSeconds,proto3" json:"token_lifetime_seconds,omitempty"`
+}
+
+func (m *GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJWTAccessCredentials) Reset() {
+	*m = GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJWTAccessCredentials{}
+}
+func (m *GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJWTAccessCredentials) String() string {
+	return proto.CompactTextString(m)
+}
+func (*GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJWTAccessCredentials) ProtoMessage() {}
+func (*GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJWTAccessCredentials) Descriptor() ([]byte, []int) {
+	return fileDescriptorGrpcService, []int{0, 1, 2, 0}
+}
+
+func (m *GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJWTAccessCredentials) GetJsonKey() string {
+	if m != nil {
+		return m.JsonKey
+	}
+	return ""
+}
+
+func (m *GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJWTAccessCredentials) GetTokenLifetimeSeconds() uint64 {
+	if m != nil {
+		return m.TokenLifetimeSeconds
+	}
+	return 0
+}
+
+type GrpcService_GoogleGrpc_CallCredentials_GoogleIAMCredentials struct {
+	AuthorizationToken string `protobuf:"bytes,1,opt,name=authorization_token,json=authorizationToken,proto3" json:"authorization_token,omitempty"`
+	AuthoritySelector  string `protobuf:"bytes,2,opt,name=authority_selector,json=authoritySelector,proto3" json:"authority_selector,omitempty"`
+}
+
+func (m *GrpcService_GoogleGrpc_CallCredentials_GoogleIAMCredentials) Reset() {
+	*m = GrpcService_GoogleGrpc_CallCredentials_GoogleIAMCredentials{}
+}
+func (m *GrpcService_GoogleGrpc_CallCredentials_GoogleIAMCredentials) String() string {
+	return proto.CompactTextString(m)
+}
+func (*GrpcService_GoogleGrpc_CallCredentials_GoogleIAMCredentials) ProtoMessage() {}
+func (*GrpcService_GoogleGrpc_CallCredentials_GoogleIAMCredentials) Descriptor() ([]byte, []int) {
+	return fileDescriptorGrpcService, []int{0, 1, 2, 1}
+}
+
+func (m *GrpcService_GoogleGrpc_CallCredentials_GoogleIAMCredentials) GetAuthorizationToken() string {
+	if m != nil {
+		return m.AuthorizationToken
+	}
+	return ""
+}
+
+func (m *GrpcService_GoogleGrpc_CallCredentials_GoogleIAMCredentials) GetAuthoritySelector() string {
+	if m != nil {
+		return m.AuthoritySelector
+	}
+	return ""
+}
+
+type GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin struct {
+	Name   string                  `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Config *google_protobuf.Struct `protobuf:"bytes,2,opt,name=config" json:"config,omitempty"`
+}
+
+func (m *GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin) Reset() {
+	*m = GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin{}
+}
+func (m *GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin) String() string {
+	return proto.CompactTextString(m)
+}
+func (*GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin) ProtoMessage() {}
+func (*GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin) Descriptor() ([]byte, []int) {
+	return fileDescriptorGrpcService, []int{0, 1, 2, 2}
+}
+
+func (m *GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin) GetName() string {
+	if m != nil {
+		return m.Name
+	}
+	return ""
+}
+
+func (m *GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin) GetConfig() *google_protobuf.Struct {
+	if m != nil {
+		return m.Config
+	}
+	return nil
+}
+
 func init() {
 	proto.RegisterType((*GrpcService)(nil), "envoy.api.v2.core.GrpcService")
 	proto.RegisterType((*GrpcService_EnvoyGrpc)(nil), "envoy.api.v2.core.GrpcService.EnvoyGrpc")
 	proto.RegisterType((*GrpcService_GoogleGrpc)(nil), "envoy.api.v2.core.GrpcService.GoogleGrpc")
 	proto.RegisterType((*GrpcService_GoogleGrpc_SslCredentials)(nil), "envoy.api.v2.core.GrpcService.GoogleGrpc.SslCredentials")
-	proto.RegisterType((*GrpcService_Credentials)(nil), "envoy.api.v2.core.GrpcService.Credentials")
+	proto.RegisterType((*GrpcService_GoogleGrpc_ChannelCredentials)(nil), "envoy.api.v2.core.GrpcService.GoogleGrpc.ChannelCredentials")
+	proto.RegisterType((*GrpcService_GoogleGrpc_CallCredentials)(nil), "envoy.api.v2.core.GrpcService.GoogleGrpc.CallCredentials")
+	proto.RegisterType((*GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJWTAccessCredentials)(nil), "envoy.api.v2.core.GrpcService.GoogleGrpc.CallCredentials.ServiceAccountJWTAccessCredentials")
+	proto.RegisterType((*GrpcService_GoogleGrpc_CallCredentials_GoogleIAMCredentials)(nil), "envoy.api.v2.core.GrpcService.GoogleGrpc.CallCredentials.GoogleIAMCredentials")
+	proto.RegisterType((*GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin)(nil), "envoy.api.v2.core.GrpcService.GoogleGrpc.CallCredentials.MetadataCredentialsFromPlugin")
 }
 func (this *GrpcService) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*GrpcService)
@@ -412,10 +801,7 @@ func (this *GrpcService) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -431,14 +817,6 @@ func (this *GrpcService) Equal(that interface{}) bool {
 	if !this.Timeout.Equal(that1.Timeout) {
 		return false
 	}
-	if len(this.Credentials) != len(that1.Credentials) {
-		return false
-	}
-	for i := range this.Credentials {
-		if !this.Credentials[i].Equal(that1.Credentials[i]) {
-			return false
-		}
-	}
 	if len(this.InitialMetadata) != len(that1.InitialMetadata) {
 		return false
 	}
@@ -451,10 +829,7 @@ func (this *GrpcService) Equal(that interface{}) bool {
 }
 func (this *GrpcService_EnvoyGrpc_) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*GrpcService_EnvoyGrpc_)
@@ -467,10 +842,7 @@ func (this *GrpcService_EnvoyGrpc_) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -481,10 +853,7 @@ func (this *GrpcService_EnvoyGrpc_) Equal(that interface{}) bool {
 }
 func (this *GrpcService_GoogleGrpc_) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*GrpcService_GoogleGrpc_)
@@ -497,10 +866,7 @@ func (this *GrpcService_GoogleGrpc_) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -511,10 +877,7 @@ func (this *GrpcService_GoogleGrpc_) Equal(that interface{}) bool {
 }
 func (this *GrpcService_EnvoyGrpc) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*GrpcService_EnvoyGrpc)
@@ -527,10 +890,7 @@ func (this *GrpcService_EnvoyGrpc) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -541,10 +901,7 @@ func (this *GrpcService_EnvoyGrpc) Equal(that interface{}) bool {
 }
 func (this *GrpcService_GoogleGrpc) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*GrpcService_GoogleGrpc)
@@ -557,20 +914,28 @@ func (this *GrpcService_GoogleGrpc) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
 	if this.TargetUri != that1.TargetUri {
 		return false
 	}
-	if !this.SslCredentials.Equal(that1.SslCredentials) {
+	if !this.ChannelCredentials.Equal(that1.ChannelCredentials) {
 		return false
 	}
+	if len(this.CallCredentials) != len(that1.CallCredentials) {
+		return false
+	}
+	for i := range this.CallCredentials {
+		if !this.CallCredentials[i].Equal(that1.CallCredentials[i]) {
+			return false
+		}
+	}
 	if this.StatPrefix != that1.StatPrefix {
+		return false
+	}
+	if this.CredentialsFactoryName != that1.CredentialsFactoryName {
 		return false
 	}
 	if !this.Config.Equal(that1.Config) {
@@ -580,10 +945,7 @@ func (this *GrpcService_GoogleGrpc) Equal(that interface{}) bool {
 }
 func (this *GrpcService_GoogleGrpc_SslCredentials) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*GrpcService_GoogleGrpc_SslCredentials)
@@ -596,10 +958,7 @@ func (this *GrpcService_GoogleGrpc_SslCredentials) Equal(that interface{}) bool 
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -614,17 +973,14 @@ func (this *GrpcService_GoogleGrpc_SslCredentials) Equal(that interface{}) bool 
 	}
 	return true
 }
-func (this *GrpcService_Credentials) Equal(that interface{}) bool {
+func (this *GrpcService_GoogleGrpc_ChannelCredentials) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
-	that1, ok := that.(*GrpcService_Credentials)
+	that1, ok := that.(*GrpcService_GoogleGrpc_ChannelCredentials)
 	if !ok {
-		that2, ok := that.(GrpcService_Credentials)
+		that2, ok := that.(GrpcService_GoogleGrpc_ChannelCredentials)
 		if ok {
 			that1 = &that2
 		} else {
@@ -632,10 +988,7 @@ func (this *GrpcService_Credentials) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -650,17 +1003,14 @@ func (this *GrpcService_Credentials) Equal(that interface{}) bool {
 	}
 	return true
 }
-func (this *GrpcService_Credentials_AccessToken) Equal(that interface{}) bool {
+func (this *GrpcService_GoogleGrpc_ChannelCredentials_SslCredentials) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
-	that1, ok := that.(*GrpcService_Credentials_AccessToken)
+	that1, ok := that.(*GrpcService_GoogleGrpc_ChannelCredentials_SslCredentials)
 	if !ok {
-		that2, ok := that.(GrpcService_Credentials_AccessToken)
+		that2, ok := that.(GrpcService_GoogleGrpc_ChannelCredentials_SslCredentials)
 		if ok {
 			that1 = &that2
 		} else {
@@ -668,14 +1018,290 @@ func (this *GrpcService_Credentials_AccessToken) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
+		return this == nil
+	} else if this == nil {
 		return false
+	}
+	if !this.SslCredentials.Equal(that1.SslCredentials) {
+		return false
+	}
+	return true
+}
+func (this *GrpcService_GoogleGrpc_ChannelCredentials_GoogleDefault) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*GrpcService_GoogleGrpc_ChannelCredentials_GoogleDefault)
+	if !ok {
+		that2, ok := that.(GrpcService_GoogleGrpc_ChannelCredentials_GoogleDefault)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if !this.GoogleDefault.Equal(that1.GoogleDefault) {
+		return false
+	}
+	return true
+}
+func (this *GrpcService_GoogleGrpc_CallCredentials) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*GrpcService_GoogleGrpc_CallCredentials)
+	if !ok {
+		that2, ok := that.(GrpcService_GoogleGrpc_CallCredentials)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if that1.CredentialSpecifier == nil {
+		if this.CredentialSpecifier != nil {
+			return false
+		}
+	} else if this.CredentialSpecifier == nil {
+		return false
+	} else if !this.CredentialSpecifier.Equal(that1.CredentialSpecifier) {
+		return false
+	}
+	return true
+}
+func (this *GrpcService_GoogleGrpc_CallCredentials_AccessToken) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*GrpcService_GoogleGrpc_CallCredentials_AccessToken)
+	if !ok {
+		that2, ok := that.(GrpcService_GoogleGrpc_CallCredentials_AccessToken)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
 	} else if this == nil {
 		return false
 	}
 	if this.AccessToken != that1.AccessToken {
+		return false
+	}
+	return true
+}
+func (this *GrpcService_GoogleGrpc_CallCredentials_GoogleComputeEngine) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*GrpcService_GoogleGrpc_CallCredentials_GoogleComputeEngine)
+	if !ok {
+		that2, ok := that.(GrpcService_GoogleGrpc_CallCredentials_GoogleComputeEngine)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if !this.GoogleComputeEngine.Equal(that1.GoogleComputeEngine) {
+		return false
+	}
+	return true
+}
+func (this *GrpcService_GoogleGrpc_CallCredentials_GoogleRefreshToken) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*GrpcService_GoogleGrpc_CallCredentials_GoogleRefreshToken)
+	if !ok {
+		that2, ok := that.(GrpcService_GoogleGrpc_CallCredentials_GoogleRefreshToken)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if this.GoogleRefreshToken != that1.GoogleRefreshToken {
+		return false
+	}
+	return true
+}
+func (this *GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJwtAccess) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJwtAccess)
+	if !ok {
+		that2, ok := that.(GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJwtAccess)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if !this.ServiceAccountJwtAccess.Equal(that1.ServiceAccountJwtAccess) {
+		return false
+	}
+	return true
+}
+func (this *GrpcService_GoogleGrpc_CallCredentials_GoogleIam) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*GrpcService_GoogleGrpc_CallCredentials_GoogleIam)
+	if !ok {
+		that2, ok := that.(GrpcService_GoogleGrpc_CallCredentials_GoogleIam)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if !this.GoogleIam.Equal(that1.GoogleIam) {
+		return false
+	}
+	return true
+}
+func (this *GrpcService_GoogleGrpc_CallCredentials_FromPlugin) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*GrpcService_GoogleGrpc_CallCredentials_FromPlugin)
+	if !ok {
+		that2, ok := that.(GrpcService_GoogleGrpc_CallCredentials_FromPlugin)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if !this.FromPlugin.Equal(that1.FromPlugin) {
+		return false
+	}
+	return true
+}
+func (this *GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJWTAccessCredentials) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJWTAccessCredentials)
+	if !ok {
+		that2, ok := that.(GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJWTAccessCredentials)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if this.JsonKey != that1.JsonKey {
+		return false
+	}
+	if this.TokenLifetimeSeconds != that1.TokenLifetimeSeconds {
+		return false
+	}
+	return true
+}
+func (this *GrpcService_GoogleGrpc_CallCredentials_GoogleIAMCredentials) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*GrpcService_GoogleGrpc_CallCredentials_GoogleIAMCredentials)
+	if !ok {
+		that2, ok := that.(GrpcService_GoogleGrpc_CallCredentials_GoogleIAMCredentials)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if this.AuthorizationToken != that1.AuthorizationToken {
+		return false
+	}
+	if this.AuthoritySelector != that1.AuthoritySelector {
+		return false
+	}
+	return true
+}
+func (this *GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin)
+	if !ok {
+		that2, ok := that.(GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if this.Name != that1.Name {
+		return false
+	}
+	if !this.Config.Equal(that1.Config) {
 		return false
 	}
 	return true
@@ -711,18 +1337,6 @@ func (m *GrpcService) MarshalTo(dAtA []byte) (int, error) {
 			return 0, err
 		}
 		i += n2
-	}
-	if len(m.Credentials) > 0 {
-		for _, msg := range m.Credentials {
-			dAtA[i] = 0x22
-			i++
-			i = encodeVarintGrpcService(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
-		}
 	}
 	if len(m.InitialMetadata) > 0 {
 		for _, msg := range m.InitialMetadata {
@@ -812,24 +1426,42 @@ func (m *GrpcService_GoogleGrpc) MarshalTo(dAtA []byte) (int, error) {
 		i = encodeVarintGrpcService(dAtA, i, uint64(len(m.TargetUri)))
 		i += copy(dAtA[i:], m.TargetUri)
 	}
-	if m.SslCredentials != nil {
+	if m.ChannelCredentials != nil {
 		dAtA[i] = 0x12
 		i++
-		i = encodeVarintGrpcService(dAtA, i, uint64(m.SslCredentials.Size()))
-		n5, err := m.SslCredentials.MarshalTo(dAtA[i:])
+		i = encodeVarintGrpcService(dAtA, i, uint64(m.ChannelCredentials.Size()))
+		n5, err := m.ChannelCredentials.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
 		i += n5
 	}
+	if len(m.CallCredentials) > 0 {
+		for _, msg := range m.CallCredentials {
+			dAtA[i] = 0x1a
+			i++
+			i = encodeVarintGrpcService(dAtA, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(dAtA[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
+		}
+	}
 	if len(m.StatPrefix) > 0 {
-		dAtA[i] = 0x1a
+		dAtA[i] = 0x22
 		i++
 		i = encodeVarintGrpcService(dAtA, i, uint64(len(m.StatPrefix)))
 		i += copy(dAtA[i:], m.StatPrefix)
 	}
+	if len(m.CredentialsFactoryName) > 0 {
+		dAtA[i] = 0x2a
+		i++
+		i = encodeVarintGrpcService(dAtA, i, uint64(len(m.CredentialsFactoryName)))
+		i += copy(dAtA[i:], m.CredentialsFactoryName)
+	}
 	if m.Config != nil {
-		dAtA[i] = 0x22
+		dAtA[i] = 0x32
 		i++
 		i = encodeVarintGrpcService(dAtA, i, uint64(m.Config.Size()))
 		n6, err := m.Config.MarshalTo(dAtA[i:])
@@ -889,7 +1521,7 @@ func (m *GrpcService_GoogleGrpc_SslCredentials) MarshalTo(dAtA []byte) (int, err
 	return i, nil
 }
 
-func (m *GrpcService_Credentials) Marshal() (dAtA []byte, err error) {
+func (m *GrpcService_GoogleGrpc_ChannelCredentials) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalTo(dAtA)
@@ -899,7 +1531,7 @@ func (m *GrpcService_Credentials) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *GrpcService_Credentials) MarshalTo(dAtA []byte) (int, error) {
+func (m *GrpcService_GoogleGrpc_ChannelCredentials) MarshalTo(dAtA []byte) (int, error) {
 	var i int
 	_ = i
 	var l int
@@ -914,7 +1546,60 @@ func (m *GrpcService_Credentials) MarshalTo(dAtA []byte) (int, error) {
 	return i, nil
 }
 
-func (m *GrpcService_Credentials_AccessToken) MarshalTo(dAtA []byte) (int, error) {
+func (m *GrpcService_GoogleGrpc_ChannelCredentials_SslCredentials) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	if m.SslCredentials != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintGrpcService(dAtA, i, uint64(m.SslCredentials.Size()))
+		n11, err := m.SslCredentials.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n11
+	}
+	return i, nil
+}
+func (m *GrpcService_GoogleGrpc_ChannelCredentials_GoogleDefault) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	if m.GoogleDefault != nil {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintGrpcService(dAtA, i, uint64(m.GoogleDefault.Size()))
+		n12, err := m.GoogleDefault.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n12
+	}
+	return i, nil
+}
+func (m *GrpcService_GoogleGrpc_CallCredentials) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *GrpcService_GoogleGrpc_CallCredentials) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.CredentialSpecifier != nil {
+		nn13, err := m.CredentialSpecifier.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += nn13
+	}
+	return i, nil
+}
+
+func (m *GrpcService_GoogleGrpc_CallCredentials_AccessToken) MarshalTo(dAtA []byte) (int, error) {
 	i := 0
 	dAtA[i] = 0xa
 	i++
@@ -922,6 +1607,163 @@ func (m *GrpcService_Credentials_AccessToken) MarshalTo(dAtA []byte) (int, error
 	i += copy(dAtA[i:], m.AccessToken)
 	return i, nil
 }
+func (m *GrpcService_GoogleGrpc_CallCredentials_GoogleComputeEngine) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	if m.GoogleComputeEngine != nil {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintGrpcService(dAtA, i, uint64(m.GoogleComputeEngine.Size()))
+		n14, err := m.GoogleComputeEngine.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n14
+	}
+	return i, nil
+}
+func (m *GrpcService_GoogleGrpc_CallCredentials_GoogleRefreshToken) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	dAtA[i] = 0x1a
+	i++
+	i = encodeVarintGrpcService(dAtA, i, uint64(len(m.GoogleRefreshToken)))
+	i += copy(dAtA[i:], m.GoogleRefreshToken)
+	return i, nil
+}
+func (m *GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJwtAccess) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	if m.ServiceAccountJwtAccess != nil {
+		dAtA[i] = 0x22
+		i++
+		i = encodeVarintGrpcService(dAtA, i, uint64(m.ServiceAccountJwtAccess.Size()))
+		n15, err := m.ServiceAccountJwtAccess.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n15
+	}
+	return i, nil
+}
+func (m *GrpcService_GoogleGrpc_CallCredentials_GoogleIam) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	if m.GoogleIam != nil {
+		dAtA[i] = 0x2a
+		i++
+		i = encodeVarintGrpcService(dAtA, i, uint64(m.GoogleIam.Size()))
+		n16, err := m.GoogleIam.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n16
+	}
+	return i, nil
+}
+func (m *GrpcService_GoogleGrpc_CallCredentials_FromPlugin) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	if m.FromPlugin != nil {
+		dAtA[i] = 0x32
+		i++
+		i = encodeVarintGrpcService(dAtA, i, uint64(m.FromPlugin.Size()))
+		n17, err := m.FromPlugin.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n17
+	}
+	return i, nil
+}
+func (m *GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJWTAccessCredentials) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJWTAccessCredentials) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.JsonKey) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintGrpcService(dAtA, i, uint64(len(m.JsonKey)))
+		i += copy(dAtA[i:], m.JsonKey)
+	}
+	if m.TokenLifetimeSeconds != 0 {
+		dAtA[i] = 0x10
+		i++
+		i = encodeVarintGrpcService(dAtA, i, uint64(m.TokenLifetimeSeconds))
+	}
+	return i, nil
+}
+
+func (m *GrpcService_GoogleGrpc_CallCredentials_GoogleIAMCredentials) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *GrpcService_GoogleGrpc_CallCredentials_GoogleIAMCredentials) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.AuthorizationToken) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintGrpcService(dAtA, i, uint64(len(m.AuthorizationToken)))
+		i += copy(dAtA[i:], m.AuthorizationToken)
+	}
+	if len(m.AuthoritySelector) > 0 {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintGrpcService(dAtA, i, uint64(len(m.AuthoritySelector)))
+		i += copy(dAtA[i:], m.AuthoritySelector)
+	}
+	return i, nil
+}
+
+func (m *GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.Name) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintGrpcService(dAtA, i, uint64(len(m.Name)))
+		i += copy(dAtA[i:], m.Name)
+	}
+	if m.Config != nil {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintGrpcService(dAtA, i, uint64(m.Config.Size()))
+		n18, err := m.Config.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n18
+	}
+	return i, nil
+}
+
 func encodeVarintGrpcService(dAtA []byte, offset int, v uint64) int {
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
@@ -940,12 +1782,6 @@ func (m *GrpcService) Size() (n int) {
 	if m.Timeout != nil {
 		l = m.Timeout.Size()
 		n += 1 + l + sovGrpcService(uint64(l))
-	}
-	if len(m.Credentials) > 0 {
-		for _, e := range m.Credentials {
-			l = e.Size()
-			n += 1 + l + sovGrpcService(uint64(l))
-		}
 	}
 	if len(m.InitialMetadata) > 0 {
 		for _, e := range m.InitialMetadata {
@@ -991,11 +1827,21 @@ func (m *GrpcService_GoogleGrpc) Size() (n int) {
 	if l > 0 {
 		n += 1 + l + sovGrpcService(uint64(l))
 	}
-	if m.SslCredentials != nil {
-		l = m.SslCredentials.Size()
+	if m.ChannelCredentials != nil {
+		l = m.ChannelCredentials.Size()
 		n += 1 + l + sovGrpcService(uint64(l))
 	}
+	if len(m.CallCredentials) > 0 {
+		for _, e := range m.CallCredentials {
+			l = e.Size()
+			n += 1 + l + sovGrpcService(uint64(l))
+		}
+	}
 	l = len(m.StatPrefix)
+	if l > 0 {
+		n += 1 + l + sovGrpcService(uint64(l))
+	}
+	l = len(m.CredentialsFactoryName)
 	if l > 0 {
 		n += 1 + l + sovGrpcService(uint64(l))
 	}
@@ -1024,7 +1870,7 @@ func (m *GrpcService_GoogleGrpc_SslCredentials) Size() (n int) {
 	return n
 }
 
-func (m *GrpcService_Credentials) Size() (n int) {
+func (m *GrpcService_GoogleGrpc_ChannelCredentials) Size() (n int) {
 	var l int
 	_ = l
 	if m.CredentialSpecifier != nil {
@@ -1033,11 +1879,121 @@ func (m *GrpcService_Credentials) Size() (n int) {
 	return n
 }
 
-func (m *GrpcService_Credentials_AccessToken) Size() (n int) {
+func (m *GrpcService_GoogleGrpc_ChannelCredentials_SslCredentials) Size() (n int) {
+	var l int
+	_ = l
+	if m.SslCredentials != nil {
+		l = m.SslCredentials.Size()
+		n += 1 + l + sovGrpcService(uint64(l))
+	}
+	return n
+}
+func (m *GrpcService_GoogleGrpc_ChannelCredentials_GoogleDefault) Size() (n int) {
+	var l int
+	_ = l
+	if m.GoogleDefault != nil {
+		l = m.GoogleDefault.Size()
+		n += 1 + l + sovGrpcService(uint64(l))
+	}
+	return n
+}
+func (m *GrpcService_GoogleGrpc_CallCredentials) Size() (n int) {
+	var l int
+	_ = l
+	if m.CredentialSpecifier != nil {
+		n += m.CredentialSpecifier.Size()
+	}
+	return n
+}
+
+func (m *GrpcService_GoogleGrpc_CallCredentials_AccessToken) Size() (n int) {
 	var l int
 	_ = l
 	l = len(m.AccessToken)
 	n += 1 + l + sovGrpcService(uint64(l))
+	return n
+}
+func (m *GrpcService_GoogleGrpc_CallCredentials_GoogleComputeEngine) Size() (n int) {
+	var l int
+	_ = l
+	if m.GoogleComputeEngine != nil {
+		l = m.GoogleComputeEngine.Size()
+		n += 1 + l + sovGrpcService(uint64(l))
+	}
+	return n
+}
+func (m *GrpcService_GoogleGrpc_CallCredentials_GoogleRefreshToken) Size() (n int) {
+	var l int
+	_ = l
+	l = len(m.GoogleRefreshToken)
+	n += 1 + l + sovGrpcService(uint64(l))
+	return n
+}
+func (m *GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJwtAccess) Size() (n int) {
+	var l int
+	_ = l
+	if m.ServiceAccountJwtAccess != nil {
+		l = m.ServiceAccountJwtAccess.Size()
+		n += 1 + l + sovGrpcService(uint64(l))
+	}
+	return n
+}
+func (m *GrpcService_GoogleGrpc_CallCredentials_GoogleIam) Size() (n int) {
+	var l int
+	_ = l
+	if m.GoogleIam != nil {
+		l = m.GoogleIam.Size()
+		n += 1 + l + sovGrpcService(uint64(l))
+	}
+	return n
+}
+func (m *GrpcService_GoogleGrpc_CallCredentials_FromPlugin) Size() (n int) {
+	var l int
+	_ = l
+	if m.FromPlugin != nil {
+		l = m.FromPlugin.Size()
+		n += 1 + l + sovGrpcService(uint64(l))
+	}
+	return n
+}
+func (m *GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJWTAccessCredentials) Size() (n int) {
+	var l int
+	_ = l
+	l = len(m.JsonKey)
+	if l > 0 {
+		n += 1 + l + sovGrpcService(uint64(l))
+	}
+	if m.TokenLifetimeSeconds != 0 {
+		n += 1 + sovGrpcService(uint64(m.TokenLifetimeSeconds))
+	}
+	return n
+}
+
+func (m *GrpcService_GoogleGrpc_CallCredentials_GoogleIAMCredentials) Size() (n int) {
+	var l int
+	_ = l
+	l = len(m.AuthorizationToken)
+	if l > 0 {
+		n += 1 + l + sovGrpcService(uint64(l))
+	}
+	l = len(m.AuthoritySelector)
+	if l > 0 {
+		n += 1 + l + sovGrpcService(uint64(l))
+	}
+	return n
+}
+
+func (m *GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin) Size() (n int) {
+	var l int
+	_ = l
+	l = len(m.Name)
+	if l > 0 {
+		n += 1 + l + sovGrpcService(uint64(l))
+	}
+	if m.Config != nil {
+		l = m.Config.Size()
+		n += 1 + l + sovGrpcService(uint64(l))
+	}
 	return n
 }
 
@@ -1174,40 +2130,9 @@ func (m *GrpcService) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Timeout == nil {
-				m.Timeout = &google_protobuf2.Duration{}
+				m.Timeout = &google_protobuf3.Duration{}
 			}
 			if err := m.Timeout.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 4:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Credentials", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowGrpcService
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthGrpcService
-			}
-			postIndex := iNdEx + msglen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Credentials = append(m.Credentials, &GrpcService_Credentials{})
-			if err := m.Credentials[len(m.Credentials)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -1402,7 +2327,7 @@ func (m *GrpcService_GoogleGrpc) Unmarshal(dAtA []byte) error {
 			iNdEx = postIndex
 		case 2:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field SslCredentials", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field ChannelCredentials", wireType)
 			}
 			var msglen int
 			for shift := uint(0); ; shift += 7 {
@@ -1426,14 +2351,45 @@ func (m *GrpcService_GoogleGrpc) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.SslCredentials == nil {
-				m.SslCredentials = &GrpcService_GoogleGrpc_SslCredentials{}
+			if m.ChannelCredentials == nil {
+				m.ChannelCredentials = &GrpcService_GoogleGrpc_ChannelCredentials{}
 			}
-			if err := m.SslCredentials.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+			if err := m.ChannelCredentials.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
 		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field CallCredentials", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGrpcService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthGrpcService
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.CallCredentials = append(m.CallCredentials, &GrpcService_GoogleGrpc_CallCredentials{})
+			if err := m.CallCredentials[len(m.CallCredentials)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 4:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field StatPrefix", wireType)
 			}
@@ -1462,7 +2418,36 @@ func (m *GrpcService_GoogleGrpc) Unmarshal(dAtA []byte) error {
 			}
 			m.StatPrefix = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
-		case 4:
+		case 5:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field CredentialsFactoryName", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGrpcService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthGrpcService
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.CredentialsFactoryName = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 6:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Config", wireType)
 			}
@@ -1489,7 +2474,7 @@ func (m *GrpcService_GoogleGrpc) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Config == nil {
-				m.Config = &google_protobuf4.Struct{}
+				m.Config = &google_protobuf.Struct{}
 			}
 			if err := m.Config.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -1665,7 +2650,7 @@ func (m *GrpcService_GoogleGrpc_SslCredentials) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *GrpcService_Credentials) Unmarshal(dAtA []byte) error {
+func (m *GrpcService_GoogleGrpc_ChannelCredentials) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -1688,10 +2673,124 @@ func (m *GrpcService_Credentials) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: Credentials: wiretype end group for non-group")
+			return fmt.Errorf("proto: ChannelCredentials: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: Credentials: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: ChannelCredentials: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field SslCredentials", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGrpcService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthGrpcService
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &GrpcService_GoogleGrpc_SslCredentials{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.CredentialSpecifier = &GrpcService_GoogleGrpc_ChannelCredentials_SslCredentials{v}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field GoogleDefault", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGrpcService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthGrpcService
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &google_protobuf5.Empty{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.CredentialSpecifier = &GrpcService_GoogleGrpc_ChannelCredentials_GoogleDefault{v}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipGrpcService(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthGrpcService
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *GrpcService_GoogleGrpc_CallCredentials) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowGrpcService
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: CallCredentials: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: CallCredentials: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
@@ -1721,7 +2820,482 @@ func (m *GrpcService_Credentials) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.CredentialSpecifier = &GrpcService_Credentials_AccessToken{string(dAtA[iNdEx:postIndex])}
+			m.CredentialSpecifier = &GrpcService_GoogleGrpc_CallCredentials_AccessToken{string(dAtA[iNdEx:postIndex])}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field GoogleComputeEngine", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGrpcService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthGrpcService
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &google_protobuf5.Empty{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.CredentialSpecifier = &GrpcService_GoogleGrpc_CallCredentials_GoogleComputeEngine{v}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field GoogleRefreshToken", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGrpcService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthGrpcService
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.CredentialSpecifier = &GrpcService_GoogleGrpc_CallCredentials_GoogleRefreshToken{string(dAtA[iNdEx:postIndex])}
+			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ServiceAccountJwtAccess", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGrpcService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthGrpcService
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJWTAccessCredentials{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.CredentialSpecifier = &GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJwtAccess{v}
+			iNdEx = postIndex
+		case 5:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field GoogleIam", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGrpcService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthGrpcService
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &GrpcService_GoogleGrpc_CallCredentials_GoogleIAMCredentials{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.CredentialSpecifier = &GrpcService_GoogleGrpc_CallCredentials_GoogleIam{v}
+			iNdEx = postIndex
+		case 6:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field FromPlugin", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGrpcService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthGrpcService
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.CredentialSpecifier = &GrpcService_GoogleGrpc_CallCredentials_FromPlugin{v}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipGrpcService(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthGrpcService
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJWTAccessCredentials) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowGrpcService
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: ServiceAccountJWTAccessCredentials: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: ServiceAccountJWTAccessCredentials: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field JsonKey", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGrpcService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthGrpcService
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.JsonKey = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field TokenLifetimeSeconds", wireType)
+			}
+			m.TokenLifetimeSeconds = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGrpcService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.TokenLifetimeSeconds |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		default:
+			iNdEx = preIndex
+			skippy, err := skipGrpcService(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthGrpcService
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *GrpcService_GoogleGrpc_CallCredentials_GoogleIAMCredentials) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowGrpcService
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: GoogleIAMCredentials: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: GoogleIAMCredentials: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field AuthorizationToken", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGrpcService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthGrpcService
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.AuthorizationToken = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field AuthoritySelector", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGrpcService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthGrpcService
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.AuthoritySelector = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipGrpcService(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthGrpcService
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowGrpcService
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MetadataCredentialsFromPlugin: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MetadataCredentialsFromPlugin: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Name", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGrpcService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthGrpcService
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Name = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Config", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGrpcService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthGrpcService
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Config == nil {
+				m.Config = &google_protobuf.Struct{}
+			}
+			if err := m.Config.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -1852,43 +3426,67 @@ var (
 func init() { proto.RegisterFile("envoy/api/v2/core/grpc_service.proto", fileDescriptorGrpcService) }
 
 var fileDescriptorGrpcService = []byte{
-	// 594 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x52, 0xcd, 0x6a, 0x14, 0x41,
-	0x10, 0xce, 0x64, 0xf3, 0xc3, 0xd6, 0x84, 0x24, 0x36, 0x81, 0x6c, 0x96, 0x64, 0x09, 0xea, 0x61,
-	0x0d, 0x32, 0x03, 0x9b, 0x8b, 0x82, 0x78, 0x48, 0x22, 0x49, 0xf0, 0x07, 0x9d, 0x55, 0xaf, 0x4d,
-	0xa7, 0xb7, 0x76, 0x6c, 0x32, 0x3b, 0x3d, 0x74, 0xf7, 0x2c, 0xe6, 0x8d, 0x7c, 0x04, 0xf1, 0x94,
-	0x8b, 0xe0, 0xc1, 0x83, 0x8f, 0x20, 0x0b, 0x1e, 0xf2, 0x16, 0xd2, 0x3d, 0xbd, 0xc9, 0xc6, 0x0d,
-	0xac, 0xb7, 0xaa, 0xfa, 0xea, 0xab, 0x9f, 0xaf, 0x0a, 0x1e, 0x62, 0x3e, 0x94, 0x17, 0x31, 0x2b,
-	0x44, 0x3c, 0xec, 0xc4, 0x5c, 0x2a, 0x8c, 0x53, 0x55, 0x70, 0xaa, 0x51, 0x0d, 0x05, 0xc7, 0xa8,
-	0x50, 0xd2, 0x48, 0x72, 0xcf, 0x65, 0x45, 0xac, 0x10, 0xd1, 0xb0, 0x13, 0xd9, 0xac, 0xe6, 0xf6,
-	0x34, 0xf1, 0x8c, 0x69, 0x4f, 0x68, 0xb6, 0x52, 0x29, 0xd3, 0x0c, 0x63, 0xe7, 0x9d, 0x95, 0xfd,
-	0xb8, 0x57, 0x2a, 0x66, 0x84, 0xcc, 0x3d, 0xbe, 0xfd, 0x2f, 0xae, 0x8d, 0x2a, 0xb9, 0xf1, 0xe8,
-	0xe6, 0x90, 0x65, 0xa2, 0xc7, 0x0c, 0xc6, 0x63, 0xc3, 0x03, 0x1b, 0xa9, 0x4c, 0xa5, 0x33, 0x63,
-	0x6b, 0x55, 0xd1, 0xfb, 0x7f, 0x96, 0x21, 0x3c, 0x56, 0x05, 0xef, 0x56, 0x33, 0x93, 0x53, 0x00,
-	0x37, 0x1c, 0xb5, 0x9b, 0x34, 0x82, 0xdd, 0xa0, 0x1d, 0x76, 0xda, 0xd1, 0xd4, 0x0a, 0xd1, 0x04,
-	0x27, 0x7a, 0x61, 0x51, 0x1b, 0x38, 0x99, 0x4b, 0xea, 0x38, 0x76, 0xc8, 0x2b, 0x08, 0xab, 0x49,
-	0xab, 0x5a, 0xf3, 0xae, 0xd6, 0xa3, 0x19, 0xb5, 0x8e, 0x1d, 0xc3, 0x17, 0x83, 0xf4, 0xda, 0x23,
-	0xfb, 0xb0, 0x6c, 0xc4, 0x00, 0x65, 0x69, 0x1a, 0x35, 0x57, 0x69, 0x2b, 0xaa, 0xd0, 0x68, 0xac,
-	0x43, 0x74, 0xe4, 0x75, 0x4a, 0xc6, 0x99, 0x76, 0x04, 0xae, 0xb0, 0x87, 0xb9, 0x11, 0x2c, 0xd3,
-	0x8d, 0x85, 0xdd, 0x5a, 0x3b, 0xec, 0xec, 0xcd, 0x18, 0xe1, 0xf0, 0x86, 0x91, 0x4c, 0xd2, 0xc9,
-	0x29, 0xac, 0x8b, 0x5c, 0x58, 0x9b, 0x0e, 0xd0, 0xb0, 0x1e, 0x33, 0xac, 0xb1, 0xe8, 0x4a, 0xb6,
-	0xee, 0x28, 0x79, 0x82, 0xac, 0x87, 0xea, 0x23, 0xcb, 0x4a, 0x4c, 0xd6, 0x3c, 0xef, 0xb5, 0xa7,
-	0x35, 0x9f, 0x42, 0xfd, 0x5a, 0x35, 0xf2, 0x18, 0x56, 0x78, 0x56, 0x6a, 0x83, 0x8a, 0xe6, 0x6c,
-	0x80, 0x4e, 0xf5, 0xfa, 0x41, 0xfd, 0xdb, 0xd5, 0x65, 0x6d, 0x41, 0xcd, 0xef, 0x06, 0x49, 0xe8,
-	0xe1, 0x37, 0x6c, 0x80, 0xcd, 0xef, 0x35, 0x80, 0x1b, 0x95, 0x48, 0x1b, 0xc0, 0x30, 0x95, 0xa2,
-	0xa1, 0xa5, 0x12, 0xd3, 0xd4, 0x7a, 0x05, 0x7e, 0x50, 0x82, 0x30, 0x58, 0xd3, 0x3a, 0xa3, 0x93,
-	0x82, 0x54, 0x37, 0x79, 0xf2, 0xdf, 0x37, 0x89, 0xba, 0x3a, 0x9b, 0x94, 0x67, 0x55, 0xdf, 0xf2,
-	0xc9, 0x1e, 0x84, 0xda, 0x30, 0x43, 0x0b, 0x85, 0x7d, 0xf1, 0xd9, 0x1d, 0xea, 0xd6, 0x34, 0x60,
-	0xd1, 0xb7, 0x0e, 0x24, 0x31, 0x2c, 0x71, 0x99, 0xf7, 0x45, 0xda, 0x58, 0x70, 0x53, 0x6c, 0x4e,
-	0xdd, 0xb3, 0xeb, 0xfe, 0x3a, 0xf1, 0x69, 0xcd, 0x9f, 0x01, 0xac, 0xde, 0xee, 0x4f, 0x9e, 0x01,
-	0x28, 0x29, 0x0d, 0xe5, 0xa8, 0x8c, 0xf6, 0xdf, 0xba, 0x73, 0xc7, 0x36, 0x47, 0xcc, 0xb0, 0xae,
-	0x2c, 0x15, 0xc7, 0xa4, 0x6e, 0x09, 0x87, 0x36, 0x9f, 0x3c, 0x87, 0xb0, 0x50, 0x62, 0xc8, 0x0c,
-	0xd2, 0x73, 0xbc, 0xf0, 0x62, 0xcc, 0xa0, 0x83, 0x67, 0xbc, 0xc4, 0x0b, 0xdb, 0xdd, 0x36, 0xa6,
-	0xfc, 0x13, 0x13, 0xb9, 0xff, 0xca, 0x59, 0xdd, 0x2d, 0xe1, 0xd0, 0xe6, 0x37, 0xdf, 0x41, 0x38,
-	0xb9, 0xca, 0x03, 0x58, 0x61, 0x9c, 0xa3, 0xd6, 0xd4, 0xc8, 0x73, 0xcc, 0xab, 0x4b, 0x9e, 0xcc,
-	0x25, 0x61, 0x15, 0x7d, 0x6f, 0x83, 0x07, 0x3b, 0xb0, 0x71, 0x73, 0x3e, 0xaa, 0x0b, 0xe4, 0xa2,
-	0x2f, 0x50, 0x91, 0xc5, 0xaf, 0x57, 0x97, 0xb5, 0xe0, 0x60, 0x0b, 0xd6, 0xfd, 0x2f, 0x4c, 0x41,
-	0xeb, 0x5f, 0x46, 0xad, 0xe0, 0xc7, 0xa8, 0x15, 0xfc, 0x1a, 0xb5, 0x82, 0xdf, 0xa3, 0x56, 0x70,
-	0xb6, 0xe4, 0x74, 0xde, 0xff, 0x1b, 0x00, 0x00, 0xff, 0xff, 0x65, 0x49, 0x51, 0x88, 0xc6, 0x04,
-	0x00, 0x00,
+	// 984 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x55, 0xcb, 0x6e, 0x1b, 0x37,
+	0x14, 0xf5, 0x58, 0xb2, 0x1d, 0xdd, 0x49, 0xfd, 0xa0, 0x5d, 0x5b, 0x9e, 0xc6, 0x82, 0x91, 0x76,
+	0xe1, 0x16, 0xed, 0x08, 0x50, 0xba, 0x48, 0x80, 0xa0, 0x85, 0x5f, 0x89, 0x9d, 0x3a, 0x41, 0x30,
+	0x4a, 0x9b, 0x4d, 0x01, 0x82, 0xa6, 0x28, 0x99, 0xc9, 0xcc, 0x70, 0xc0, 0xe1, 0x28, 0x55, 0x7e,
+	0xa0, 0x9b, 0xfe, 0x41, 0x7f, 0xa0, 0x7f, 0xd0, 0xa2, 0xab, 0x2c, 0xbb, 0xe8, 0xa2, 0xdb, 0xee,
+	0x0a, 0xef, 0xf2, 0x17, 0x05, 0x1f, 0xb2, 0x35, 0x92, 0x51, 0xb9, 0xde, 0x91, 0xf7, 0xdc, 0x73,
+	0x1f, 0x87, 0xbc, 0x24, 0x7c, 0xc2, 0xd2, 0xbe, 0x18, 0x34, 0x49, 0xc6, 0x9b, 0xfd, 0x56, 0x93,
+	0x0a, 0xc9, 0x9a, 0x3d, 0x99, 0x51, 0x9c, 0x33, 0xd9, 0xe7, 0x94, 0x85, 0x99, 0x14, 0x4a, 0xa0,
+	0x15, 0xe3, 0x15, 0x92, 0x8c, 0x87, 0xfd, 0x56, 0xa8, 0xbd, 0x82, 0x3b, 0x93, 0xc4, 0x53, 0x92,
+	0x3b, 0x42, 0xd0, 0xe8, 0x09, 0xd1, 0x8b, 0x59, 0xd3, 0xec, 0x4e, 0x8b, 0x6e, 0xb3, 0x53, 0x48,
+	0xa2, 0xb8, 0x48, 0x1d, 0x7e, 0x67, 0x1c, 0xcf, 0x95, 0x2c, 0xa8, 0x72, 0xe8, 0x47, 0xe3, 0x28,
+	0x4b, 0x32, 0x35, 0x70, 0xe0, 0x46, 0x9f, 0xc4, 0xbc, 0x43, 0x14, 0x6b, 0x0e, 0x17, 0x0e, 0x58,
+	0xeb, 0x89, 0x9e, 0x30, 0xcb, 0xa6, 0x5e, 0x59, 0xeb, 0xdd, 0x9f, 0x56, 0xc0, 0x7f, 0x2c, 0x33,
+	0xda, 0xb6, 0x0d, 0xa1, 0x63, 0x00, 0x53, 0x39, 0xd6, 0x6d, 0xd6, 0xbd, 0x6d, 0x6f, 0xc7, 0x6f,
+	0xed, 0x84, 0x13, 0xfd, 0x85, 0x23, 0x9c, 0xf0, 0x50, 0xa3, 0xda, 0x70, 0x34, 0x13, 0xd5, 0xd8,
+	0x70, 0x83, 0x4e, 0xc0, 0xb7, 0x85, 0xda, 0x58, 0xb3, 0x26, 0xd6, 0xa7, 0x53, 0x62, 0x3d, 0x36,
+	0x0c, 0x17, 0x0c, 0x7a, 0x17, 0x3b, 0x74, 0x0f, 0x16, 0x14, 0x4f, 0x98, 0x28, 0x54, 0xbd, 0x62,
+	0x22, 0x6d, 0x86, 0x16, 0x0d, 0x87, 0x32, 0x84, 0x07, 0x4e, 0xc4, 0x68, 0xe8, 0x89, 0x8e, 0x61,
+	0x99, 0xa7, 0x5c, 0x71, 0x12, 0xe3, 0x84, 0x29, 0xd2, 0x21, 0x8a, 0xd4, 0xe7, 0xb6, 0x2b, 0x3b,
+	0x7e, 0xab, 0x71, 0x45, 0x1d, 0x47, 0x8c, 0x74, 0x98, 0xfc, 0x8e, 0xc4, 0x05, 0x8b, 0x96, 0x1c,
+	0xef, 0xa9, 0xa3, 0x05, 0x0f, 0xa0, 0x76, 0xd1, 0x27, 0xfa, 0x1c, 0x6e, 0xd3, 0xb8, 0xc8, 0x15,
+	0x93, 0x38, 0x25, 0x09, 0x33, 0x3a, 0xd5, 0xf6, 0x6a, 0xbf, 0xbf, 0x7f, 0x57, 0xa9, 0xca, 0xd9,
+	0x6d, 0x2f, 0xf2, 0x1d, 0xfc, 0x8c, 0x24, 0x2c, 0xf8, 0x71, 0x11, 0xe0, 0xb2, 0x2f, 0xb4, 0x03,
+	0xa0, 0x88, 0xec, 0x31, 0x85, 0x0b, 0xc9, 0x27, 0xa9, 0x35, 0x0b, 0x7e, 0x2b, 0x39, 0x4a, 0x60,
+	0x95, 0x9e, 0x91, 0x34, 0x65, 0x31, 0xa6, 0x92, 0x75, 0x58, 0xaa, 0x2b, 0xca, 0x9d, 0x92, 0x0f,
+	0xaf, 0xad, 0x64, 0xb8, 0x6f, 0x83, 0xec, 0x5f, 0xc6, 0x88, 0x10, 0x9d, 0xb0, 0xa1, 0x0e, 0x2c,
+	0x53, 0x12, 0x97, 0x73, 0x55, 0x8c, 0x5a, 0x0f, 0xfe, 0x47, 0x2e, 0x12, 0x97, 0x12, 0x2d, 0xd1,
+	0xb2, 0x01, 0x7d, 0x06, 0x7e, 0xae, 0x88, 0xc2, 0x99, 0x64, 0x5d, 0xfe, 0x43, 0xbd, 0x3a, 0xde,
+	0x3f, 0x68, 0xf4, 0xb9, 0x01, 0xd1, 0x7d, 0xa8, 0x8f, 0x14, 0x83, 0xbb, 0x84, 0x2a, 0x21, 0x07,
+	0x56, 0xf3, 0x39, 0x4d, 0x8c, 0xd6, 0x47, 0xf0, 0x47, 0x16, 0xd6, 0x9a, 0xa3, 0x26, 0xcc, 0x53,
+	0x91, 0x76, 0x79, 0xaf, 0x3e, 0x6f, 0xd4, 0xda, 0x98, 0xb8, 0x2d, 0x6d, 0x33, 0x52, 0x91, 0x73,
+	0x0b, 0xfe, 0xf4, 0x60, 0xb1, 0x9d, 0x97, 0x2a, 0x7d, 0x08, 0x20, 0x85, 0x50, 0x98, 0x32, 0xa9,
+	0x72, 0x37, 0x0b, 0x5b, 0x57, 0x28, 0x71, 0x40, 0x14, 0x69, 0x8b, 0x42, 0x52, 0x16, 0xd5, 0x34,
+	0x61, 0x5f, 0xfb, 0xa3, 0xaf, 0xc0, 0xcf, 0x24, 0xef, 0x13, 0xc5, 0xf0, 0x6b, 0x36, 0x70, 0x87,
+	0x36, 0x85, 0x0e, 0x8e, 0xf1, 0x0d, 0x1b, 0xe8, 0xec, 0x3a, 0x31, 0xa6, 0x67, 0x84, 0xa7, 0xee,
+	0xce, 0x4f, 0xcb, 0xae, 0x09, 0xfb, 0xda, 0x3f, 0xf8, 0xdb, 0x03, 0x34, 0x79, 0xec, 0x88, 0xc2,
+	0x52, 0x9e, 0x97, 0x4f, 0xd8, 0xf6, 0x75, 0xff, 0xfa, 0x27, 0x5c, 0x56, 0xe9, 0x68, 0x26, 0x5a,
+	0xcc, 0xcb, 0xba, 0x7d, 0x0d, 0x8b, 0x6e, 0xf0, 0x3b, 0xac, 0x4b, 0x8a, 0x58, 0xb9, 0xe6, 0xd7,
+	0x27, 0xce, 0xe0, 0x50, 0x3f, 0x5c, 0x47, 0x33, 0xd1, 0x07, 0x16, 0x38, 0xb0, 0xee, 0x7b, 0x5b,
+	0xb0, 0x76, 0x59, 0x21, 0xce, 0x33, 0x46, 0x79, 0x97, 0x33, 0x89, 0xe6, 0x7e, 0x7b, 0xff, 0xae,
+	0xe2, 0x05, 0xbf, 0x2e, 0xc0, 0xd2, 0xd8, 0x35, 0x43, 0x1f, 0xc3, 0x6d, 0x42, 0x29, 0xcb, 0x73,
+	0xac, 0xc4, 0x6b, 0x96, 0xda, 0xb1, 0x3a, 0x9a, 0x89, 0x7c, 0x6b, 0x7d, 0xa1, 0x8d, 0xe8, 0x04,
+	0x3e, 0x74, 0x85, 0x51, 0x91, 0x64, 0x85, 0x62, 0x98, 0xa5, 0x3d, 0x9e, 0xb2, 0xa9, 0xf5, 0xad,
+	0x5a, 0x60, 0xdf, 0xb2, 0x0e, 0x0d, 0x09, 0xb5, 0x60, 0xcd, 0x45, 0x93, 0xac, 0x2b, 0x59, 0x7e,
+	0xe6, 0x52, 0x57, 0x5c, 0x6a, 0x64, 0xd1, 0xc8, 0x82, 0xb6, 0x82, 0x9f, 0x3d, 0x08, 0xdc, 0xdf,
+	0x81, 0x09, 0xa5, 0xa2, 0x48, 0x15, 0x7e, 0xf5, 0x46, 0x61, 0x5b, 0xa5, 0x19, 0x06, 0xbf, 0xf5,
+	0xfd, 0x8d, 0xa7, 0x2d, 0x74, 0x2e, 0xbb, 0x36, 0xf4, 0x93, 0x97, 0x2f, 0x76, 0x4d, 0xe0, 0xf2,
+	0x79, 0x6d, 0xe4, 0x65, 0xaf, 0x37, 0xca, 0x7a, 0x21, 0x01, 0xee, 0xc5, 0xc5, 0x9c, 0x24, 0x66,
+	0xc0, 0xfc, 0xd6, 0xb3, 0x9b, 0x17, 0x63, 0xa1, 0xe3, 0xdd, 0xa7, 0xe5, 0xf4, 0x35, 0x9b, 0xe3,
+	0x98, 0x24, 0xe8, 0x2d, 0xf8, 0x5d, 0x29, 0x12, 0x9c, 0xc5, 0x45, 0x8f, 0xa7, 0x6e, 0x54, 0x5f,
+	0xde, 0x3c, 0xe3, 0xf0, 0xb5, 0x1e, 0xb1, 0x3d, 0x92, 0x22, 0x79, 0x6e, 0xc2, 0xeb, 0x0f, 0xa5,
+	0x7b, 0xb1, 0x0b, 0x0a, 0xb8, 0x3b, 0x5d, 0x2d, 0xb4, 0x09, 0xb7, 0x5e, 0xe5, 0x22, 0x35, 0x23,
+	0x6c, 0xee, 0x54, 0xb4, 0xa0, 0xf7, 0x7a, 0x40, 0xbf, 0x84, 0x75, 0x73, 0xe0, 0x38, 0xe6, 0x5d,
+	0xa6, 0x7f, 0x1c, 0x9c, 0x33, 0x2a, 0xd2, 0x8e, 0x7d, 0xa0, 0xab, 0xd1, 0x9a, 0x41, 0x4f, 0x1c,
+	0xd8, 0xb6, 0x58, 0xd0, 0x87, 0xb5, 0xab, 0x74, 0x41, 0x4d, 0x58, 0x25, 0x85, 0x3a, 0x13, 0x92,
+	0xbf, 0x35, 0x9f, 0xd8, 0xe8, 0x3d, 0x8e, 0x50, 0x09, 0xb2, 0x57, 0xe9, 0x0b, 0x18, 0x5a, 0xd5,
+	0x00, 0xe7, 0x2c, 0x66, 0xfa, 0xf1, 0x33, 0xa9, 0x6b, 0xd1, 0xca, 0x05, 0xd2, 0x76, 0x40, 0xd0,
+	0x81, 0xad, 0xff, 0x54, 0x07, 0x21, 0xa8, 0x5e, 0xfe, 0x65, 0x91, 0x59, 0x8f, 0xbc, 0xa2, 0xb3,
+	0xd7, 0x7a, 0x45, 0xa7, 0x4c, 0xee, 0xde, 0x26, 0x2c, 0xbb, 0xaf, 0x6f, 0x1c, 0x7a, 0x52, 0xbd,
+	0x55, 0x5d, 0x9e, 0xdb, 0x5b, 0xfe, 0xe5, 0xbc, 0xe1, 0xfd, 0x71, 0xde, 0xf0, 0xfe, 0x3a, 0x6f,
+	0x78, 0xff, 0x9c, 0x37, 0xbc, 0xd3, 0x79, 0x93, 0xea, 0xde, 0xbf, 0x01, 0x00, 0x00, 0xff, 0xff,
+	0xdb, 0x95, 0x05, 0x77, 0x8a, 0x09, 0x00, 0x00,
 }

@@ -15,12 +15,17 @@
 syntax = "proto3";
 
 // $title: SolarWinds
-// $overview: Adapter to deliver logs and metrics to Papertrail and AppOptics backends
-// $location: https://istio.io/docs/reference/config/adapters/solarwinds.html
+// $description: Adapter to deliver logs and metrics to Papertrail and AppOptics backends
+// $location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/solarwinds.html
+// $aliases:
+// $  - /docs/reference/config/adapters/solarwinds.html
 
 // The `solarwinds` adapter enables Istio to deliver log and metric data to the
 // [Papertrail](https://www.papertrailapp.com) logging backend and the
 // [AppOptics](https://www.appoptics.com) monitoring backend.
+//
+// This adapter supports the [metric template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/metric/)
+// and the [logentry template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/metric/).
 package adapter.solarwinds.config;
 
 import "gogoproto/gogo.proto";

@@ -47,9 +47,9 @@ const (
 type cATypes int
 
 const (
-	// SelfSignedCA means the Istio CA uses a self signed certificate.
+	// selfSignedCA means the Istio CA uses a self signed certificate.
 	selfSignedCA cATypes = iota
-	// PluggedCertCA means the Istio CA uses a operator-specified key/cert.
+	// pluggedCertCA means the Istio CA uses a operator-specified key/cert.
 	pluggedCertCA
 )
 
@@ -173,23 +173,23 @@ func NewIstioCA(opts *IstioCAOptions) (*IstioCA, error) {
 func (ca *IstioCA) Sign(csrPEM []byte, ttl time.Duration, forCA bool) ([]byte, error) {
 	signingCert, signingKey, _, _ := ca.keyCertBundle.GetAll()
 	if signingCert == nil {
-		return nil, fmt.Errorf("Istio CA is not ready") // nolint
+		return nil, NewError(CANotReady, fmt.Errorf("Istio CA is not ready")) // nolint
 	}
 
 	csr, err := util.ParsePemEncodedCSR(csrPEM)
 	if err != nil {
-		return nil, err
+		return nil, NewError(CSRError, err)
 	}
 
 	// If the requested TTL is greater than maxCertTTL, return an error
 	if ttl.Seconds() > ca.maxCertTTL.Seconds() {
-		return nil, fmt.Errorf(
-			"requested TTL %s is greater than the max allowed TTL %s", ttl, ca.maxCertTTL)
+		return nil, NewError(TTLError, fmt.Errorf(
+			"requested TTL %s is greater than the max allowed TTL %s", ttl, ca.maxCertTTL))
 	}
 
 	certBytes, err := util.GenCertFromCSR(csr, signingCert, csr.PublicKey, *signingKey, ttl, forCA)
 	if err != nil {
-		return nil, err
+		return nil, NewError(CertGenError, err)
 	}
 
 	block := &pem.Block{

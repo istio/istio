@@ -15,7 +15,8 @@
 syntax = "proto3";
 
 // $title: Authentication Policy
-// $overview: Authentication policy for Istio services.
+// $description: Authentication policy for Istio services.
+// $location: https://istio.io/docs/reference/config/istio.authentication.v1alpha1.html
 
 // This package defines user-facing authentication policy.
 package istio.authentication.v1alpha1;
@@ -23,20 +24,14 @@ package istio.authentication.v1alpha1;
 option go_package = "istio.io/api/authentication/v1alpha1";
 
 // TLS authentication params.
-// TODO: consider to give it a better name, maybe TlsParams?
 message MutualTls {
   // Defines the acceptable connection TLS mode.
   enum Mode {
     // Client cert must be presented, connection is in TLS.
     STRICT = 0;
 
-    // Connection must be in TLS, but client cert can be omitted.
-    // Request will not be fully authenticate if client cert is missing, but
-    // still be accepted.
-    TLS_PERMISSIVE = 1;
-
     // Connection can be either plaintext or TLS, and client cert can be omitted.
-    PERMISSIVE = 2;
+    PERMISSIVE = 1;
   };
 
   // WILL BE DEPRECATED, if set, will translates to `TLS_PERMISSIVE` mode.
@@ -314,14 +309,9 @@ message TargetSelector {
   // fully qualified domain name will be resolved in a platform specific manner.
   string name = 1;
 
-  // The name of a subset within the service. Applicable only to services
-  // within the mesh. The subset must be defined in a corresponding
-  // DestinationRule.
-  string subset = 2;
-
   // Specifies the ports on the destination. Leave empty to match all ports
   // that are exposed.
-  repeated PortSelector ports =3;
+  repeated PortSelector ports = 2;
 }
 
 // PortSelector specifies the name or number of a port to be used for

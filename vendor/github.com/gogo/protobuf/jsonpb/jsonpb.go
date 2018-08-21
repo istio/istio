@@ -72,6 +72,31 @@ type Marshaler struct {
 
 	// Whether to use the original (.proto) name for fields.
 	OrigName bool
+
+	// A custom URL resolver to use when marshaling Any messages to JSON.
+	// If unset, the default resolution strategy is to extract the
+	// fully-qualified type name from the type URL and pass that to
+	// proto.MessageType(string).
+	AnyResolver AnyResolver
+}
+
+// AnyResolver takes a type URL, present in an Any message, and resolves it into
+// an instance of the associated message.
+type AnyResolver interface {
+	Resolve(typeUrl string) (proto.Message, error)
+}
+
+func defaultResolveAny(typeUrl string) (proto.Message, error) {
+	// Only the part of typeUrl after the last slash is relevant.
+	mname := typeUrl
+	if slash := strings.LastIndex(mname, "/"); slash >= 0 {
+		mname = mname[slash+1:]
+	}
+	mt := proto.MessageType(mname)
+	if mt == nil {
+		return nil, fmt.Errorf("unknown message type %q", mname)
+	}
+	return reflect.New(mt.Elem()).Interface().(proto.Message), nil
 }
 
 // JSONPBMarshaler is implemented by protobuf messages that customize the
@@ -364,16 +389,17 @@ func (m *Marshaler) marshalAny(out *errWriter, any proto.Message, indent string)
 	turl := v.Field(0).String()
 	val := v.Field(1).Bytes()
 
-	// Only the part of type_url after the last slash is relevant.
-	mname := turl
-	if slash := strings.LastIndex(mname, "/"); slash >= 0 {
-		mname = mname[slash+1:]
+	var msg proto.Message
+	var err error
+	if m.AnyResolver != nil {
+		msg, err = m.AnyResolver.Resolve(turl)
+	} else {
+		msg, err = defaultResolveAny(turl)
 	}
-	mt := proto.MessageType(mname)
-	if mt == nil {
-		return fmt.Errorf("unknown message type %q", mname)
+	if err != nil {
+		return err
 	}
-	msg := reflect.New(mt.Elem()).Interface().(proto.Message)
+
 	if err := proto.Unmarshal(val, msg); err != nil {
 		return err
 	}
@@ -674,6 +700,12 @@ type Unmarshaler struct {
 	// Whether to allow messages to contain unknown fields, as opposed to
 	// failing to unmarshal.
 	AllowUnknownFields bool
+
+	// A custom URL resolver to use when unmarshaling Any messages from JSON.
+	// If unset, the default resolution strategy is to extract the
+	// fully-qualified type name from the type URL and pass that to
+	// proto.MessageType(string).
+	AnyResolver AnyResolver
 }
 
 // UnmarshalNext unmarshals the next protocol buffer from a JSON object stream.
@@ -725,7 +757,8 @@ func (u *Unmarshaler) unmarshalValue(target reflect.Value, inputValue json.RawMe
 	if targetType.Kind() == reflect.Ptr {
 		// If input value is "null" and target is a pointer type, then the field should be treated as not set
 		// UNLESS the target is structpb.Value, in which case it should be set to structpb.NullValue.
-		if string(inputValue) == "null" && targetType != reflect.TypeOf(&types.Value{}) {
+		_, isJSONPBUnmarshaler := target.Interface().(JSONPBUnmarshaler)
+		if string(inputValue) == "null" && targetType != reflect.TypeOf(&types.Value{}) && !isJSONPBUnmarshaler {
 			return nil
 		}
 		target.Set(reflect.New(targetType.Elem()))
@@ -763,30 +796,31 @@ func (u *Unmarshaler) unmarshalValue(target reflect.Value, inputValue json.RawMe
 			}
 			target.Field(0).SetString(turl)
 
-			mname := turl
-			if slash := strings.LastIndex(mname, "/"); slash >= 0 {
-				mname = mname[slash+1:]
+			var m proto.Message
+			var err error
+			if u.AnyResolver != nil {
+				m, err = u.AnyResolver.Resolve(turl)
+			} else {
+				m, err = defaultResolveAny(turl)
 			}
-			mt := proto.MessageType(mname)
-			if mt == nil {
-				return fmt.Errorf("unknown message type %q", mname)
+			if err != nil {
+				return err
 			}
 
-			m := reflect.New(mt.Elem()).Interface().(proto.Message)
 			if _, ok := m.(isWkt); ok {
 				val, ok := jsonFields["value"]
 				if !ok {
 					return errors.New("Any JSON doesn't have 'value'")
 				}
 
-				if err := u.unmarshalValue(reflect.ValueOf(m).Elem(), *val, nil); err != nil {
+				if err = u.unmarshalValue(reflect.ValueOf(m).Elem(), *val, nil); err != nil {
 					return fmt.Errorf("can't unmarshal Any nested proto %T: %v", m, err)
 				}
 			} else {
 				delete(jsonFields, "@type")
-				nestedProto, err := json.Marshal(jsonFields)
-				if err != nil {
-					return fmt.Errorf("can't generate JSON for Any's nested proto to be unmarshaled: %v", err)
+				nestedProto, uerr := json.Marshal(jsonFields)
+				if uerr != nil {
+					return fmt.Errorf("can't generate JSON for Any's nested proto to be unmarshaled: %v", uerr)
 				}
 
 				if err = u.unmarshalValue(reflect.ValueOf(m).Elem(), nestedProto, nil); err != nil {

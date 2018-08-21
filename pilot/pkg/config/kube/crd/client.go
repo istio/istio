@@ -31,15 +31,15 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/wait"
+
 	// import GKE cluster authentication plugin
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	// import OIDC cluster authentication plugin, e.g. for Tectonic
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	kubecfg "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 )
 
@@ -70,7 +70,7 @@ type Client struct {
 type restClient struct {
 	apiVersion schema.GroupVersion
 
-	// descriptor from the same apiVerion.
+	// descriptor from the same apiVersion.
 	descriptor model.ConfigDescriptor
 
 	// types of the schema and objects in the descriptor.
@@ -116,8 +116,8 @@ func newClientSet(descriptor model.ConfigDescriptor) (map[string]*restClient, er
 	return cs, nil
 }
 
-func (rc *restClient) init(kubeconfig string) error {
-	cfg, err := rc.createRESTConfig(kubeconfig)
+func (rc *restClient) init(kubeconfig string, context string) error {
+	cfg, err := rc.createRESTConfig(kubeconfig, context)
 	if err != nil {
 		return err
 	}
@@ -133,8 +133,8 @@ func (rc *restClient) init(kubeconfig string) error {
 }
 
 // createRESTConfig for cluster API server, pass empty config file for in-cluster
-func (rc *restClient) createRESTConfig(kubeconfig string) (config *rest.Config, err error) {
-	config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
+func (rc *restClient) createRESTConfig(kubeconfig string, context string) (config *rest.Config, err error) {
+	config, err = kubecfg.BuildClientConfig(kubeconfig, context)
 
 	if err != nil {
 		return nil, err
@@ -162,12 +162,8 @@ func (rc *restClient) createRESTConfig(kubeconfig string) (config *rest.Config, 
 // NewClient creates a client to Kubernetes API using a kubeconfig file.
 // Use an empty value for `kubeconfig` to use the in-cluster config.
 // If the kubeconfig file is empty, defaults to in-cluster config as well.
-func NewClient(config string, descriptor model.ConfigDescriptor, domainSuffix string) (*Client, error) {
-	kubeconfig, err := kube.ResolveConfig(config)
-	if err != nil {
-		return nil, err
-	}
-
+// You can also choose a config context by providing the desired context name.
+func NewClient(config string, context string, descriptor model.ConfigDescriptor, domainSuffix string) (*Client, error) {
 	cs, err := newClientSet(descriptor)
 	if err != nil {
 		return nil, err
@@ -179,7 +175,7 @@ func NewClient(config string, descriptor model.ConfigDescriptor, domainSuffix st
 	}
 
 	for _, v := range out.clientset {
-		if err := v.init(kubeconfig); err != nil {
+		if err := v.init(config, context); err != nil {
 			return nil, err
 		}
 	}
@@ -236,6 +232,10 @@ func (rc *restClient) registerResources() error {
 	for _, schema := range rc.descriptor {
 		g := ResourceGroup(&schema)
 		name := ResourceName(schema.Plural) + "." + g
+		crdScope := apiextensionsv1beta1.NamespaceScoped
+		if schema.ClusterScoped {
+			crdScope = apiextensionsv1beta1.ClusterScoped
+		}
 		crd := &apiextensionsv1beta1.CustomResourceDefinition{
 			ObjectMeta: meta_v1.ObjectMeta{
 				Name: name,
@@ -243,7 +243,7 @@ func (rc *restClient) registerResources() error {
 			Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
 				Group:   g,
 				Version: schema.Version,
-				Scope:   apiextensionsv1beta1.NamespaceScoped,
+				Scope:   crdScope,
 				Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
 					Plural: ResourceName(schema.Plural),
 					Kind:   KabobCaseToCamelCase(schema.Type),
@@ -382,7 +382,7 @@ func (cl *Client) Create(config model.Config) (string, error) {
 		return "", fmt.Errorf("unrecognized type %q", config.Type)
 	}
 
-	if err := schema.Validate(config.Spec); err != nil {
+	if err := schema.Validate(config.Name, config.Namespace, config.Spec); err != nil {
 		return "", multierror.Prefix(err, "validation error:")
 	}
 
@@ -415,7 +415,7 @@ func (cl *Client) Update(config model.Config) (string, error) {
 		return "", fmt.Errorf("unrecognized type %q", config.Type)
 	}
 
-	if err := schema.Validate(config.Spec); err != nil {
+	if err := schema.Validate(config.Name, config.Namespace, config.Spec); err != nil {
 		return "", multierror.Prefix(err, "validation error:")
 	}
 

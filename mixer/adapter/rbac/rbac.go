@@ -12,7 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -f mixer/adapter/rbac/config/config.proto
+// nolint: lll
+//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -a mixer/adapter/rbac/config/config.proto -x "-n rbac -t authorization"
 
 // Package rbac provides Role Based Access Control (RBAC) for services in Istio mesh.
 // Seting up RBAC handler is trivial. The runtime input to RBAC handler should be an instance of
@@ -22,7 +23,7 @@
 // You can define a ServiceRole that contains a set of permissions for service/method level
 // access. You can then assign a ServiceRole to a set of subjects using ServiceRoleBinding specification.
 // ServiceRole and the corresponding ServiceRoleBindings should be in the same namespace.
-// Please see "istio.io/istio/mixer/testdata/config/rbac.yaml" for an example of RBAC handler, plus ServieRole
+// Please see "istio.io/istio/mixer/testdata/config/rbac.yaml" for an example of RBAC handler, plus ServiceRole
 // ServiceRoleBinding specifications.
 package rbac
 
@@ -30,6 +31,8 @@ import (
 	"context"
 	"net/url"
 	"time"
+
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/gogo/protobuf/proto"
 
@@ -56,11 +59,17 @@ type (
 	}
 )
 
-// ServiceRoleKind defines the config kind name of ServiceRole.
-const serviceRoleKind = "ServiceRole"
+const (
+	// API group and version string for the RBAC CRDs.
+	apiGroup   = "rbac.istio.io"
+	apiVersion = "v1alpha1"
 
-// ServiceRoleBindingKind defines the config kind name of ServiceRoleBinding.
-const serviceRoleBindingKind = "ServiceRoleBinding"
+	// ServiceRoleKind defines the config kind name of ServiceRole.
+	serviceRoleKind = "ServiceRole"
+
+	// ServiceRoleBindingKind defines the config kind name of ServiceRoleBinding.
+	serviceRoleBindingKind = "ServiceRoleBinding"
+)
 
 ///////////////// Configuration-time Methods ///////////////
 
@@ -85,11 +94,12 @@ func (b *builder) SetAuthorizationTypes(types map[string]*authorization.Type) {}
 
 func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, error) {
 	reg := store.NewRegistry(mixerconfig.StoreInventory()...)
-	s, err := reg.NewStore(b.adapterConfig.ConfigStoreUrl)
+	groupVersion := &schema.GroupVersion{Group: apiGroup, Version: apiVersion}
+	s, err := reg.NewStore(b.adapterConfig.ConfigStoreUrl, groupVersion)
 	if err != nil {
 		return nil, env.Logger().Errorf("Unable to connect to the configuration server: %v", err)
 	}
-	r := &configStore{}
+	r := &ConfigStore{}
 	h := &handler{
 		rbac:          r,
 		env:           env,
@@ -120,7 +130,7 @@ func (h *handler) startController(s store.Store) error {
 
 	c := &controller{
 		configState: data,
-		rbacStore:   h.rbac.(*configStore),
+		rbacStore:   h.rbac.(*ConfigStore),
 	}
 
 	c.processRBACRoles(h.env)
@@ -180,7 +190,7 @@ func startWatch(s store.Store) (map[store.Key]*store.Resource, <-chan store.Even
 // authorization.Handler#HandleAuthorization
 func (h *handler) HandleAuthorization(ctx context.Context, inst *authorization.Instance) (adapter.CheckResult, error) {
 	s := status.OK
-	result, err := h.rbac.CheckPermission(inst, h.env)
+	result, err := h.rbac.CheckPermission(inst, h.env.Logger())
 	if !result || err != nil {
 		s = status.WithPermissionDenied("RBAC: permission denied.")
 	}

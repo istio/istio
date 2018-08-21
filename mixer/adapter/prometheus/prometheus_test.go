@@ -35,7 +35,7 @@ type testServer struct {
 	errOnStart bool
 }
 
-var _ server = &testServer{}
+var _ Server = &testServer{}
 
 func (t testServer) Start(adapter.Env, http.Handler) error {
 	if t.errOnStart {
@@ -47,7 +47,7 @@ func (t testServer) Start(adapter.Env, http.Handler) error {
 func (testServer) Port() int    { return 0 }
 func (testServer) Close() error { return nil }
 
-func newBuilder(s server) *builder {
+func newBuilder(s Server) *builder {
 	return &builder{
 		srv:      s,
 		registry: prometheus.NewPedanticRegistry(),

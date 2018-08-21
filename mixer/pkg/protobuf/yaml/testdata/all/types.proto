@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package foo;
 
+import "policy/v1beta1/type.proto";
+
 message Empty {}
 
 message Simple {
@@ -88,6 +90,9 @@ message Simple {
   sint64 si64 = 62; //
   repeated sint64 r_si64 = 63;
   repeated sint64 r_si64_unpacked = 64 [packed = false];
+
+  istio.policy.v1beta1.Value istio_value = 65;
+  map<string, istio.policy.v1beta1.Value> map_str_istio_value = 66;
 }
 
 message other {
@@ -119,10 +124,10 @@ enum myenum {
 
 message Outer {
   message Inner {
-      string str = 1;
-      double dbl = 2;
-      int64 i64 = 3;
-      bool b = 4;
+    string str = 1;
+    double dbl = 2;
+    int64 i64 = 3;
+    bool b = 4;
   }
   Inner in = 1;
 }

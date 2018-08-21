@@ -140,7 +140,7 @@ tools.govet:
 tools.golint:
 	@command -v golint >/dev/null ; if [ $$? -ne 0 ]; then \
 		echo "--> installing golint"; \
-		go get github.com/golang/lint/golint; \
+		go get -u golang.org/x/lint/golint; \
 	fi
 
 tools.glide:

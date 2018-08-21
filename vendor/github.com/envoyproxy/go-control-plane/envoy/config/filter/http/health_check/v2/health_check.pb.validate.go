@@ -59,13 +59,6 @@ func (m *HealthCheck) Validate() error {
 		}
 	}
 
-	if len(m.GetEndpoint()) < 1 {
-		return HealthCheckValidationError{
-			Field:  "Endpoint",
-			Reason: "value length must be at least 1 bytes",
-		}
-	}
-
 	if v, ok := interface{}(m.GetCacheTime()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HealthCheckValidationError{

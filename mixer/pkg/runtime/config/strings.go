@@ -37,30 +37,40 @@ func (s *Snapshot) String() string {
 	}
 	sort.Strings(names)
 
-	fmt.Fprintln(b, "Templates:")
+	fmt.Fprintln(b, "TemplatesStatic:")
 	writeTemplates(b, s.Templates)
 
-	fmt.Fprintln(b, "Adapters:")
+	fmt.Fprintln(b, "AdaptersStatic:")
 	writeAdapters(b, s.Adapters)
 
-	fmt.Fprintln(b, "Handlers:")
-	writeHandlers(b, s.Handlers)
+	fmt.Fprintln(b, "HandlersStatic:")
+	writeStaticHandlers(b, s.HandlersStatic)
 
-	fmt.Fprintln(b, "Instances:")
-	writeInstances(b, s.Instances)
+	fmt.Fprintln(b, "InstancesStatic:")
+	writeStaticInstances(b, s.InstancesStatic)
 
 	fmt.Fprintln(b, "Rules:")
 	writeRules(b, s.Rules)
 
-	if len(s.Adapters2) != 0 {
-		fmt.Fprintln(b, "AdapterMetadata:")
-		writeAdapterMetadatas(b, s.Adapters2)
+	if len(s.AdapterMetadatas) != 0 {
+		fmt.Fprintln(b, "AdaptersDynamic:")
+		writeAdapterMetadatas(b, s.AdapterMetadatas)
 
 	}
 
-	if len(s.Templates2) != 0 {
-		fmt.Fprintln(b, "TemplateMetadata:")
-		writeTemplateMetadatas(b, s.Templates2)
+	if len(s.TemplateMetadatas) != 0 {
+		fmt.Fprintln(b, "TemplatesDynamic:")
+		writeTemplateMetadatas(b, s.TemplateMetadatas)
+	}
+
+	if len(s.HandlersDynamic) != 0 {
+		fmt.Fprintln(b, "HandlersDynamic:")
+		writeDynamicHandlers(b, s.HandlersDynamic)
+	}
+
+	if len(s.InstancesDynamic) != 0 {
+		fmt.Fprintln(b, "InstancesDynamic:")
+		writeDynamicInstances(b, s.InstancesDynamic)
 	}
 
 	fmt.Fprintf(b, "%v", s.Attributes)
@@ -100,7 +110,7 @@ func writeAdapters(w io.Writer, adapters map[string]*adapter.Info) {
 	}
 }
 
-func writeHandlers(w io.Writer, handlers map[string]*Handler) {
+func writeStaticHandlers(w io.Writer, handlers map[string]*HandlerStatic) {
 	i := 0
 	names := make([]string, len(handlers))
 	for n := range handlers {
@@ -122,7 +132,26 @@ func writeHandlers(w io.Writer, handlers map[string]*Handler) {
 	}
 }
 
-func writeInstances(w io.Writer, instances map[string]*Instance) {
+func writeDynamicHandlers(w io.Writer, handlers map[string]*HandlerDynamic) {
+	i := 0
+	names := make([]string, len(handlers))
+	for n := range handlers {
+		names[i] = n
+		i++
+	}
+	sort.Strings(names)
+
+	for _, n := range names {
+		h := handlers[n]
+		fmt.Fprintf(w, "  Name:    %s", h.Name)
+		fmt.Fprintln(w)
+
+		fmt.Fprintf(w, "  Adapter: %s", h.Adapter.Name)
+		fmt.Fprintln(w)
+	}
+}
+
+func writeStaticInstances(w io.Writer, instances map[string]*InstanceStatic) {
 	i := 0
 	names := make([]string, len(instances))
 	for n := range instances {
@@ -141,6 +170,36 @@ func writeInstances(w io.Writer, instances map[string]*Instance) {
 
 		fmt.Fprintf(w, "  Params:   %+v", h.Params)
 		fmt.Fprintln(w)
+	}
+}
+
+func writeDynamicInstances(w io.Writer, instances map[string]*InstanceDynamic) {
+	i := 0
+	names := make([]string, len(instances))
+	for n := range instances {
+		names[i] = n
+		i++
+	}
+	sort.Strings(names)
+
+	for _, n := range names {
+		h := instances[n]
+		fmt.Fprintf(w, "  Name:     %s", h.Name)
+		fmt.Fprintln(w)
+
+		fmt.Fprintf(w, "  Template: %s", h.Template.Name)
+		fmt.Fprintln(w)
+
+		keys := make([]string, 0, len(h.Params))
+		for k := range h.Params {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		fmt.Fprintln(w, "  Params:")
+		for _, k := range keys {
+			fmt.Fprintf(w, "  - %s:%v", k, h.Params[k])
+			fmt.Fprintln(w)
+		}
 	}
 }
 
@@ -165,15 +224,17 @@ func writeRules(w io.Writer, rules []*Rule) {
 		fmt.Fprintf(w, "  Match:   %+v", r.Match)
 		fmt.Fprintln(w)
 
-		fmt.Fprintf(w, "  ResourceType: %v", r.ResourceType)
-		fmt.Fprintln(w)
+		fmt.Fprintln(w, "  ActionsStatic:")
+		writeActionsStatic(w, r.ActionsStatic)
 
-		fmt.Fprintln(w, "  Actions:")
-		writeActions(w, r.Actions)
+		if len(r.ActionsDynamic) != 0 {
+			fmt.Fprintln(w, "  ActionsDynamic:")
+			writeActionsDynamic(w, r.ActionsDynamic)
+		}
 	}
 }
 
-func writeAdapterMetadatas(w io.Writer, adapters map[string]*AdapterMetadata) {
+func writeAdapterMetadatas(w io.Writer, adapters map[string]*Adapter) {
 	names := make([]string, 0, len(adapters))
 	for k := range adapters {
 		names = append(names, k)
@@ -186,12 +247,16 @@ func writeAdapterMetadatas(w io.Writer, adapters map[string]*AdapterMetadata) {
 		fmt.Fprintf(w, "  Name:      %s", a.Name)
 		fmt.Fprintln(w)
 
-		fmt.Fprintf(w, "  Templates: %s", a.SupportedTemplates)
+		fmt.Fprint(w, "  Templates:")
+		for _, tmplName := range a.SupportedTemplates {
+			fmt.Fprintln(w)
+			fmt.Fprintln(w, "  - ", tmplName.Name)
+		}
 		fmt.Fprintln(w)
 	}
 }
 
-func writeTemplateMetadatas(w io.Writer, templates map[string]*TemplateMetadata) {
+func writeTemplateMetadatas(w io.Writer, templates map[string]*Template) {
 	names := make([]string, 0, len(templates))
 	for k := range templates {
 		names = append(names, k)
@@ -201,12 +266,29 @@ func writeTemplateMetadatas(w io.Writer, templates map[string]*TemplateMetadata)
 	for _, n := range names {
 		a := templates[n]
 
-		fmt.Fprintf(w, "  Name:      %s", a.Name)
-		fmt.Fprintln(w)
+		fmt.Fprintln(w, "  Resource Name: ", n)
+		fmt.Fprintln(w, "    Name: ", a.Name)
+		fmt.Fprintln(w, "    InternalPackageDerivedName: ", a.InternalPackageDerivedName)
 	}
 }
 
-func writeActions(w io.Writer, actions []*Action) {
+func writeActionsStatic(w io.Writer, actions []*ActionStatic) {
+	// write actions without sorting. This should be acceptable, as the action order within an order is
+	// based on the order on the original content. This is stricter than simple-equality, but should be good enough
+	// for testing purposes.
+	for _, a := range actions {
+		fmt.Fprintf(w, "    Handler: %s", a.Handler.Name)
+		fmt.Fprintln(w)
+		fmt.Fprintln(w, "    Instances:")
+
+		for _, instance := range a.Instances {
+			fmt.Fprintf(w, "      Name: %s", instance.Name)
+			fmt.Fprintln(w)
+		}
+	}
+}
+
+func writeActionsDynamic(w io.Writer, actions []*ActionDynamic) {
 	// write actions without sorting. This should be acceptable, as the action order within an order is
 	// based on the order on the original content. This is stricter than simple-equality, but should be good enough
 	// for testing purposes.

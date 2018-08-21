@@ -25,14 +25,15 @@ import (
 
 // client encapsulates a Mixer client, for the purposes of perf testing.
 type client struct {
-	mixer istio_mixer_v1.MixerClient
-	conn  *grpc.ClientConn
-	setup *Setup
+	mixer    istio_mixer_v1.MixerClient
+	conn     *grpc.ClientConn
+	load     *Load
+	requests []interface{}
 }
 
 // initialize is the first method to be called. The client is expected to perform initialization by setting up
 // any local state using setup, and connecting to the Mixer rpc server at the given address.
-func (c *client) initialize(address string, setup *Setup) error {
+func (c *client) initialize(address string, load *Load) error {
 	conn, err := grpc.Dial(address, grpc.WithInsecure())
 	if err != nil {
 		return err
@@ -40,8 +41,8 @@ func (c *client) initialize(address string, setup *Setup) error {
 
 	c.mixer = istio_mixer_v1.NewMixerClient(conn)
 	c.conn = conn
-	c.setup = setup
-
+	c.load = load
+	c.requests = c.load.createRequestProtos()
 	return nil
 }
 
@@ -52,7 +53,7 @@ func (c *client) close() (err error) {
 		err = c.conn.Close()
 
 		c.conn = nil
-		c.setup = nil
+		c.load = nil
 		c.mixer = nil
 	}
 
@@ -60,11 +61,9 @@ func (c *client) close() (err error) {
 }
 
 func (c *client) run(iterations int) (err error) {
-	requests := c.setup.Load.createRequestProtos(c.setup.Config)
-
 	for i := 0; i < iterations; i++ {
 
-		for _, r := range requests {
+		for _, r := range c.requests {
 			switch r.(type) {
 			case *istio_mixer_v1.ReportRequest:
 				_, e := c.mixer.Report(context.Background(), r.(*istio_mixer_v1.ReportRequest))

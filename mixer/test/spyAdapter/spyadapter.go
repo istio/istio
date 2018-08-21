@@ -17,25 +17,30 @@
 // Codegen blocks
 
 // apa template
-//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -t mixer/test/spyAdapter/template/apa/tmpl.proto
+//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -d false -t mixer/test/spyAdapter/template/apa/tmpl.proto
 
 // check template
-//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -t mixer/test/spyAdapter/template/check/tmpl.proto
+//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -d false -t mixer/test/spyAdapter/template/check/tmpl.proto
 
 // report template
-//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -t mixer/test/spyAdapter/template/report/reporttmpl.proto
+//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -d false -t mixer/test/spyAdapter/template/report/reporttmpl.proto
+
+// quota template
+//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -t mixer/test/spyAdapter/template/quota/quotatmpl.proto
 
 // Package spyAdapter is intended for Mixer testing *ONLY*.
 package spyAdapter
 
 import (
 	"context"
+	"time"
 
 	"github.com/gogo/protobuf/types"
 
 	"istio.io/istio/mixer/pkg/adapter"
 	apaTmpl "istio.io/istio/mixer/test/spyAdapter/template/apa"
 	checkTmpl "istio.io/istio/mixer/test/spyAdapter/template/check"
+	quotaTmpl "istio.io/istio/mixer/test/spyAdapter/template/quota"
 	reportTmpl "istio.io/istio/mixer/test/spyAdapter/template/report"
 )
 
@@ -62,14 +67,22 @@ type (
 	HandlerBehavior struct {
 		HandleSampleReportErr   error
 		HandleSampleReportPanic bool
+		HandleSampleReportSleep time.Duration
 
 		HandleSampleCheckResult adapter.CheckResult
 		HandleSampleCheckErr    error
 		HandleSampleCheckPanic  bool
+		HandleSampleCheckSleep  time.Duration
+
+		HandleSampleQuotaResult adapter.QuotaResult
+		HandleSampleQuotaErr    error
+		HandleSampleQuotaPanic  bool
+		HandleSampleQuotaSleep  time.Duration
 
 		GenerateSampleApaErr    error
 		GenerateSampleApaOutput *apaTmpl.Output
 		GenerateSampleApaPanic  bool
+		GenerateSampleApaSleep  time.Duration
 
 		CloseErr   error
 		ClosePanic bool
@@ -80,6 +93,7 @@ type (
 	BuilderBehavior struct {
 		SetSampleReportTypesPanic bool
 		SetSampleCheckTypesPanic  bool
+		SetSampleQuotaTypesPanic  bool
 
 		SetAdapterConfigPanic bool
 
@@ -92,9 +106,9 @@ type (
 
 	// nolint: maligned
 	builder struct {
-		behavior        BuilderBehavior
+		builderBehavior BuilderBehavior
 		handlerBehavior HandlerBehavior
-		data            *builderData
+		builderData     *builderData
 		handlerData     *handlerData
 	}
 
@@ -118,6 +132,9 @@ type (
 	builderData struct {
 		// no of time called
 		SetSampleReportTypesCount int
+
+		// no of time called
+		SetSampleQuotaTypesCount int
 
 		// input to the method
 		SetTypes map[string]interface{}
@@ -145,59 +162,72 @@ var _ apaTmpl.Handler = handler{}
 var _ checkTmpl.Handler = handler{}
 
 func (b builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, error) {
-	b.data.BuildCount++
-	if b.behavior.BuildPanic {
+	b.builderData.BuildCount++
+	if b.builderBehavior.BuildPanic {
 		panic("Build")
 	}
 
-	b.data.BuildCtx = ctx
-	b.data.BuildEnv = env
+	b.builderData.BuildCtx = ctx
+	b.builderData.BuildEnv = env
 
-	return handler{behavior: b.handlerBehavior, data: b.handlerData}, b.behavior.BuildErr
+	return handler{behavior: b.handlerBehavior, data: b.handlerData}, b.builderBehavior.BuildErr
 }
 
 func (b builder) SetSampleCheckTypes(typeParams map[string]*checkTmpl.Type) {
-	b.data.SetSampleCheckTypesCount++
+	b.builderData.SetSampleCheckTypesCount++
 
-	b.data.SetTypes = make(map[string]interface{}, len(typeParams))
+	b.builderData.SetTypes = make(map[string]interface{}, len(typeParams))
 	for k, v := range typeParams {
-		b.data.SetTypes[k] = v
+		b.builderData.SetTypes[k] = v
 	}
 
-	if b.behavior.SetSampleCheckTypesPanic {
+	if b.builderBehavior.SetSampleCheckTypesPanic {
 		panic("SetSampleCheckTypes")
 	}
 }
 
-func (b builder) SetSampleReportTypes(typeParams map[string]*reportTmpl.Type) {
-	b.data.SetSampleReportTypesCount++
+func (b builder) SetSampleQuotaTypes(typeParams map[string]*quotaTmpl.Type) {
+	b.builderData.SetSampleQuotaTypesCount++
 
-	b.data.SetTypes = make(map[string]interface{}, len(typeParams))
+	b.builderData.SetTypes = make(map[string]interface{}, len(typeParams))
 	for k, v := range typeParams {
-		b.data.SetTypes[k] = v
+		b.builderData.SetTypes[k] = v
 	}
 
-	if b.behavior.SetSampleReportTypesPanic {
+	if b.builderBehavior.SetSampleQuotaTypesPanic {
+		panic("SetSampleQuotaTypes")
+	}
+}
+
+func (b builder) SetSampleReportTypes(typeParams map[string]*reportTmpl.Type) {
+	b.builderData.SetSampleReportTypesCount++
+
+	b.builderData.SetTypes = make(map[string]interface{}, len(typeParams))
+	for k, v := range typeParams {
+		b.builderData.SetTypes[k] = v
+	}
+
+	if b.builderBehavior.SetSampleReportTypesPanic {
 		panic("SetSampleReportTypes")
 	}
 }
 
 func (b builder) SetAdapterConfig(cfg adapter.Config) {
-	b.data.SetAdapterConfigCount++
-	b.data.SetAdapterConfigAdptCfg = cfg
+	b.builderData.SetAdapterConfigCount++
+	b.builderData.SetAdapterConfigAdptCfg = cfg
 
-	if b.behavior.SetAdapterConfigPanic {
+	if b.builderBehavior.SetAdapterConfigPanic {
 		panic("SetAdapterConfig")
 	}
 }
 
 func (b builder) Validate() *adapter.ConfigErrors {
-	b.data.ValidateCount++
-	if b.behavior.ValidatePanic {
+	b.builderData.ValidateCount++
+	if b.builderBehavior.ValidatePanic {
 		panic("Validate")
 	}
 
-	return b.behavior.ValidateErr
+	return b.builderBehavior.ValidateErr
 }
 
 func (h handler) HandleSampleCheck(ctx context.Context, instance *checkTmpl.Instance) (adapter.CheckResult, error) {
@@ -214,7 +244,26 @@ func (h handler) HandleSampleCheck(ctx context.Context, instance *checkTmpl.Inst
 		panic("HandleSampleCheck")
 	}
 
+	time.Sleep(h.behavior.HandleSampleCheckSleep)
 	return h.behavior.HandleSampleCheckResult, h.behavior.HandleSampleCheckErr
+}
+
+func (h handler) HandleSampleQuota(ctx context.Context, instance *quotaTmpl.Instance, args adapter.QuotaArgs) (adapter.QuotaResult, error) {
+	c := CapturedCall{
+		Name:      "HandleSampleQuota",
+		Instances: []interface{}{instance},
+	}
+	if h.data.CapturedCalls == nil {
+		h.data.CapturedCalls = []CapturedCall{}
+	}
+	h.data.CapturedCalls = append(h.data.CapturedCalls, c)
+
+	if h.behavior.HandleSampleQuotaPanic {
+		panic("HandleSampleQuota")
+	}
+
+	time.Sleep(h.behavior.HandleSampleQuotaSleep)
+	return h.behavior.HandleSampleQuotaResult, h.behavior.HandleSampleQuotaErr
 }
 
 func (h handler) HandleSampleReport(ctx context.Context, instances []*reportTmpl.Instance) error {
@@ -235,7 +284,7 @@ func (h handler) HandleSampleReport(ctx context.Context, instances []*reportTmpl
 	if h.behavior.HandleSampleReportPanic {
 		panic("HandleSampleReport")
 	}
-
+	time.Sleep(h.behavior.HandleSampleReportSleep)
 	return h.behavior.HandleSampleReportErr
 }
 
@@ -253,6 +302,7 @@ func (h handler) GenerateSampleApaAttributes(ctx context.Context, instance *apaT
 		panic("GenerateSampleApaAttributes")
 	}
 
+	time.Sleep(h.behavior.GenerateSampleApaSleep)
 	return h.behavior.GenerateSampleApaOutput, h.behavior.GenerateSampleApaErr
 }
 
@@ -267,6 +317,10 @@ func (h handler) Close() error {
 
 // NewSpyAdapter returns a new instance of Adapter with the given behavior
 func NewSpyAdapter(b AdapterBehavior) *Adapter {
+	if b.Handler.GenerateSampleApaOutput == nil {
+		b.Handler.GenerateSampleApaOutput = apaTmpl.NewOutput()
+	}
+
 	return &Adapter{Behavior: b, BuilderData: &builderData{}, HandlerData: &handlerData{}}
 }
 
@@ -274,13 +328,14 @@ func NewSpyAdapter(b AdapterBehavior) *Adapter {
 func (s *Adapter) GetAdptInfoFn() adapter.InfoFn {
 	return func() adapter.Info {
 		return adapter.Info{
-			Name:               s.Behavior.Name,
-			Description:        "",
-			SupportedTemplates: []string{reportTmpl.TemplateName, apaTmpl.TemplateName},
+			Name:        s.Behavior.Name,
+			Description: "",
+			SupportedTemplates: []string{reportTmpl.TemplateName, apaTmpl.TemplateName,
+				checkTmpl.TemplateName, quotaTmpl.TemplateName},
 			NewBuilder: func() adapter.HandlerBuilder {
 				return builder{
-					behavior:        s.Behavior.Builder,
-					data:            s.BuilderData,
+					builderBehavior: s.Behavior.Builder,
+					builderData:     s.BuilderData,
 					handlerBehavior: s.Behavior.Handler,
 					handlerData:     s.HandlerData,
 				}

@@ -15,8 +15,7 @@
 syntax = "proto3";
 
 // $title: Mixer Adapter Model
-// $overview: Definitions used to create adapters and templates
-// $location: https://istio.io/docs/reference/api/mixer/istio.mixer.adapter.model.v1beta1.html
+// $description: Definitions used to create adapters and templates
 
 // This package defines the service and types used by adapter code to serve requests from Mixer.
 // This package also defines the types that are used to create Mixer templates.

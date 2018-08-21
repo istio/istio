@@ -15,24 +15,14 @@
 syntax = "proto3";
 
 // $title: Kubernetes
-// $overview: A template that is used to control the production of Kubernetes-specific attributes.
-// $location: https://istio.io/docs/reference/config/template/kubernetes.html
+// $description: A template that is used to control the production of Kubernetes-specific attributes.
+// $location: https://istio.io/docs/reference/config/policy-and-telemetry/templates/kubernetes.html
 
 // The `kubernetes` template holds data that controls the production of Kubernetes-specific
 // attributes.
-package adapter.template.kubernetes;
-
-import "mixer/adapter/model/v1beta1/extensions.proto";
-import "mixer/adapter/model/v1beta1/type.proto";
-
-option (istio.mixer.adapter.model.v1beta1.template_variety) = TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR;
-
-// The `kubernetes` template represents data used to generate kubernetes-derived attributes.
-//
-// The values provided controls the manner in which the kubernetesenv adapter discovers and
-// generates values related to pod information.
 //
 // Example config:
+//
 // ```yaml
 // apiVersion: "config.istio.io/v1alpha2"
 // kind: kubernetes
@@ -59,31 +49,49 @@ option (istio.mixer.adapter.model.v1beta1.template_variety) = TEMPLATE_VARIETY_A
 //     destination.service: $out.destination_service
 //     destination.serviceAccount: $out.destination_service_account_name
 // ```
+package adapter.template.kubernetes;
+
+import "mixer/adapter/model/v1beta1/extensions.proto";
+import "policy/v1beta1/type.proto";
+
+option (istio.mixer.adapter.model.v1beta1.template_variety) = TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR;
+
+// The `kubernetes` template represents data used to generate kubernetes-derived attributes.
+//
+// The values provided controls the manner in which the kubernetesenv adapter discovers and
+// generates values related to pod information.
+// Next ID: 8
 message Template {
+    reserved 5, 6;
+    
     // Source pod's uid. Must be of the form: "kubernetes://pod.namespace"
     string source_uid = 1;
 
     // Source pod's ip.
-    istio.mixer.adapter.model.v1beta1.IPAddress source_ip = 2;
+    istio.policy.v1beta1.IPAddress source_ip = 2;
 
     // Destination pod's uid. Must be of the form: "kubernetes://pod.namespace"
     string destination_uid = 3;
 
     // Destination pod's ip.
-    istio.mixer.adapter.model.v1beta1.IPAddress destination_ip = 4;
+    istio.policy.v1beta1.IPAddress destination_ip = 4;
 
-    // Origin pod's uid. Must be of the form: "kubernetes://pod.namespace"
-    string origin_uid = 5;
-
-    // Origin pod's ip.
-    istio.mixer.adapter.model.v1beta1.IPAddress origin_ip = 6;
+    // Destination container's port number.
+    int64 destination_port = 7;
 }
 
 // OutputTemplate refers to the output from the adapter. It is used inside the attribute_binding section of the config
 // to assign values to the generated attributes using the `$out.<field name of the OutputTemplate>` syntax.
+// Next ID: 33
 message OutputTemplate {
+    reserved 5, 12, 15, 16, 17, 18, 19, 21;
+
+    // Refers to the source.uid for a pod. This is for TCP use cases where the attribute is not present.
+    // attribute_bindings can refer to this field using $out.source_pod_uid
+    string source_pod_uid = 31;
+
     // Refers to source pod ip address. attribute_bindings can refer to this field using $out.source_pod_ip
-    istio.mixer.adapter.model.v1beta1.IPAddress source_pod_ip = 1;
+    istio.policy.v1beta1.IPAddress source_pod_ip = 1;
 
     // Refers to source pod name. attribute_bindings can refer to this field using $out.source_pod_name
     string source_pod_name = 2;
@@ -94,22 +102,36 @@ message OutputTemplate {
     // Refers to source pod namespace. attribute_bindings can refer to this field using $out.source_namespace
     string source_namespace = 4;
 
-    // Refers to source service. attribute_bindings can refer to this field using $out.source_service
-    string source_service = 5;
-
     // Refers to source pod service account name. attribute_bindings can refer to this field using $out.source_service_account_name
     string source_service_account_name = 6;
 
     // Refers to source pod host ip address. attribute_bindings can refer to this field using $out.source_host_ip
-    istio.mixer.adapter.model.v1beta1.IPAddress source_host_ip = 7;
+    istio.policy.v1beta1.IPAddress source_host_ip = 7;
 
+    // Refers to the Istio workload identifier for the source pod. Attribute_bindings can refer to this field using $out.source_workload_uid
+    string source_workload_uid = 22;
 
+    // Refers to the Istio workload name for the source pod. Attribute_bindings can refer to this field using $out.source_workload_name
+    string source_workload_name = 23;
+
+    // Refers to the Istio workload namespace for the source pod. Attribute_bindings can refer to this field using $out.source_workload_namespace
+    string source_workload_namespace = 24;
+
+    // Refers to the (controlling) owner of the source pod. Attribute_bindings can refer to this field using $out.source_owner
+    string source_owner = 25;
+
+    // Refers to the destination.uid for a pod. This is for TCP use cases where the attribute is not present.
+    // attribute_bindings can refer to this field using $out.destination_pod_uid
+    string destination_pod_uid = 32;
 
     // Refers to destination pod ip address. attribute_bindings can refer to this field using $out.destination_pod_ip
-    istio.mixer.adapter.model.v1beta1.IPAddress destination_pod_ip = 8;
+    istio.policy.v1beta1.IPAddress destination_pod_ip = 8;
 
     // Refers to destination pod name. attribute_bindings can refer to this field using $out.destination_pod_name
     string destination_pod_name = 9;
+
+    // Refers to destination container name. attribute_bindings can refer to this field using $out.destination_container_name
+    string destination_container_name = 30;
 
     // Refers to destination pod labels. attribute_bindings can refer to this field using $out.destination_labels
     map<string, string> destination_labels = 10;
@@ -117,35 +139,21 @@ message OutputTemplate {
     // Refers to destination pod namespace. attribute_bindings can refer to this field using $out.destination_namespace
     string destination_namespace = 11;
 
-    // Refers to destination service. attribute_bindings can refer to this field using $out.destination_service
-    string destination_service = 12;
-
     // Refers to destination pod service account name. attribute_bindings can refer to this field using $out.destination_service_account_name
     string destination_service_account_name = 13;
 
     // Refers to destination pod host ip address. attribute_bindings can refer to this field using $out.destination_host_ip
-    istio.mixer.adapter.model.v1beta1.IPAddress destination_host_ip = 14;
+    istio.policy.v1beta1.IPAddress destination_host_ip = 14;
 
+    // Refers to the (controlling) owner of the destination pod. Attribute_bindings can refer to this field using $out.destination_owner
+    string destination_owner = 26;
 
+    // Refers to the Istio workload identifier for the destination pod. Attribute_bindings can refer to this field using $out.destination_workload_uid
+    string destination_workload_uid = 27;
 
-    // Refers to origin pod ip address. attribute_bindings can refer to this field using $out.origin_pod_ip
-    istio.mixer.adapter.model.v1beta1.IPAddress origin_pod_ip = 15;
+    // Refers to the Istio workload name for the destination pod. Attribute_bindings can refer to this field using $out.destination_workload_name
+    string destination_workload_name = 28;
 
-    // Refers to origin pod name. attribute_bindings can refer to this field using $out.origin_pod_name
-    string origin_pod_name = 16;
-
-    // Refers to origin pod labels. attribute_bindings can refer to this field using $out.origin_labels
-    map<string, string> origin_labels = 17;
-
-    // Refers to origin pod namespace. attribute_bindings can refer to this field using $out.origin_namespace
-    string origin_namespace = 18;
-
-    // Refers to origin service. attribute_bindings can refer to this field using $out.origin_service
-    string origin_service = 19;
-
-    // Refers to origin pod service account name. attribute_bindings can refer to this field using $out.origin_service_account_name
-    string origin_service_account_name = 20;
-
-    // Refers to origin pod host ip address. attribute_bindings can refer to this field using $out.origin_host_ip
-    istio.mixer.adapter.model.v1beta1.IPAddress origin_host_ip = 21;
+    // Refers to the Istio workload name for the destination pod. Attribute_bindings can refer to this field using $out.destination_workload_namespace
+    string destination_workload_namespace = 29;
 }

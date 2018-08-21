@@ -25,17 +25,20 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
+	"istio.io/istio/pilot/pkg/networking/core"
 )
 
 var (
 	// Failsafe to implement periodic refresh, in case events or cache invalidation fail.
 	// Disabled by default.
-	periodicRefreshDuration = 60 * time.Second
+	periodicRefreshDuration = 0 * time.Second
 
 	versionMutex sync.Mutex
-	// version is update by registry events.
-	version = time.Now()
+
+	// version is the timestamp of the last registry event.
+	version = "0"
+
+	periodicRefreshMetrics = 10 * time.Second
 )
 
 const (
@@ -56,14 +59,17 @@ const (
 // DiscoveryServer is Pilot's gRPC implementation for Envoy's v2 xds APIs
 type DiscoveryServer struct {
 	// env is the model environment.
-	env model.Environment
+	env *model.Environment
 
 	// MemRegistry is used for debug and load testing, allow adding services. Visible for testing.
 	MemRegistry *MemServiceDiscovery
 
 	// ConfigGenerator is responsible for generating data plane configuration using Istio networking
 	// APIs and service registry info
-	ConfigGenerator *v1alpha3.ConfigGeneratorImpl
+	ConfigGenerator core.ConfigGenerator
+
+	// ConfigController provides readiness info (if initial sync is complete)
+	ConfigController model.ConfigStoreCache
 
 	// The next fields are updated by v2 discovery, based on config change events (currently
 	// the global invalidation). They are computed once - will not change. The new alpha3
@@ -77,24 +83,16 @@ type DiscoveryServer struct {
 }
 
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
-func NewDiscoveryServer(env model.Environment, generator *v1alpha3.ConfigGeneratorImpl) *DiscoveryServer {
+func NewDiscoveryServer(env *model.Environment, generator core.ConfigGenerator) *DiscoveryServer {
 	out := &DiscoveryServer{
 		env:             env,
 		ConfigGenerator: generator,
 	}
+	env.PushStatus = model.NewStatus()
 
-	envOverride := os.Getenv("V2_REFRESH")
-	if len(envOverride) > 0 {
-		var err error
-		periodicRefreshDuration, err = time.ParseDuration(envOverride)
-		if err != nil {
-			adsLog.Warn("Invalid value for V2_REFRESH")
-			periodicRefreshDuration = 0 // this is also he default, but setting it explicitly
-		}
-	}
-	if periodicRefreshDuration > 0 {
-		go periodicRefresh()
-	}
+	go out.periodicRefresh()
+
+	go out.periodicRefreshMetrics()
 
 	return out
 }
@@ -110,23 +108,54 @@ func (s *DiscoveryServer) Register(rpcs *grpc.Server) {
 // Singleton, refresh the cache - may not be needed if events work properly, just a failsafe
 // ( will be removed after change detection is implemented, to double check all changes are
 // captured)
-func periodicRefresh() {
+func (s *DiscoveryServer) periodicRefresh() {
+	envOverride := os.Getenv("V2_REFRESH")
+	if len(envOverride) > 0 {
+		var err error
+		periodicRefreshDuration, err = time.ParseDuration(envOverride)
+		if err != nil {
+			adsLog.Warn("Invalid value for V2_REFRESH")
+		}
+	}
+	if periodicRefreshDuration == 0 {
+		return
+	}
 	ticker := time.NewTicker(periodicRefreshDuration)
 	defer ticker.Stop()
 	for range ticker.C {
-		PushAll()
+		adsLog.Infof("ADS: periodic push of envoy configs %s", versionInfo())
+		s.AdsPushAll(versionInfo())
 	}
 }
 
-// PushAll implements old style invalidation, generated when any rule or endpoint changes.
-// Primary code path is from v1 discoveryService.clearCache(), which is added as a handler
-// to the model ConfigStorageCache and Controller.
-func PushAll() {
-	versionMutex.Lock()
-	version = time.Now()
-	versionMutex.Unlock()
+// Push metrics are updated periodically (10s default)
+func (s *DiscoveryServer) periodicRefreshMetrics() {
+	envOverride := os.Getenv("V2_METRICS")
+	if len(envOverride) > 0 {
+		var err error
+		periodicRefreshMetrics, err = time.ParseDuration(envOverride)
+		if err != nil {
+			adsLog.Warn("Invalid value for V2_METRICS")
+		}
+	}
+	if periodicRefreshMetrics == 0 {
+		return
+	}
 
-	adsPushAll()
+	ticker := time.NewTicker(periodicRefreshMetrics)
+	defer ticker.Stop()
+	for range ticker.C {
+		push := s.env.PushStatus
+		if push.End != timeZero {
+			model.LastPushStatus = push
+		}
+		push.UpdateMetrics()
+		// TODO: env to customize
+		if time.Since(push.Start) > 30*time.Second {
+			// Reset the stats, some errors may still be stale.
+			s.env.PushStatus = model.NewStatus()
+		}
+	}
 }
 
 // ClearCacheFunc returns a function that invalidates v2 caches and triggers a push.
@@ -137,14 +166,21 @@ func (s *DiscoveryServer) ClearCacheFunc() func() {
 	return func() {
 		s.updateModel()
 
-		s.modelMutex.RLock()
-		adsLog.Infof("XDS: Registry event, pushing. Services: %d, "+
-			"VirtualServices: %d, ConnectedEndpoints: %d", len(s.services), len(s.virtualServices), edsClientCount())
-		monServices.Set(float64(len(s.services)))
-		monVServices.Set(float64(len(s.virtualServices)))
-		s.modelMutex.RUnlock()
+		// Reset the status during the push.
+		//afterPush := true
+		if s.env.PushStatus != nil {
+			s.env.PushStatus.OnConfigChange()
+		}
+		// PushStatus is reset after a config change. Previous status is
+		// saved.
+		s.env.PushStatus = model.NewStatus()
 
-		PushAll()
+		// TODO: propagate K8S version and use it instead
+		versionMutex.Lock()
+		version = time.Now().Format(time.RFC3339)
+		versionMutex.Unlock()
+
+		s.AdsPushAll(versionInfo())
 	}
 }
 
@@ -176,5 +212,5 @@ func nonce() string {
 func versionInfo() string {
 	versionMutex.Lock()
 	defer versionMutex.Unlock()
-	return version.String()
+	return version
 }

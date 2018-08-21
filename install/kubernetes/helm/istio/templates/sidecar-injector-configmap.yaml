@@ -1,3 +1,4 @@
+{{- if .Values.sidecarInjectorWebhook.enabled }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -11,11 +12,15 @@ metadata:
     istio: sidecar-injector
 data:
   config: |-
-    policy: {{ .Values.global.proxy.policy }}
+    policy: {{ .Values.global.proxy.autoInject }}
     template: |-
       initContainers:
       - name: istio-init
-        image: {{ .Values.global.hub }}{{ .Values.global.hub_img_delim }}{{ .Values.global.proxy_init.image }}{{ .Values.global.img_tag_delim }}{{ .Values.global.tag }}
+{{- if contains "/" .Values.global.proxy_init.image }}
+        image: "{{ .Values.global.proxy_init.image }}"
+{{- else }}
+        image: "{{ .Values.global.hub }}{{ .Values.global.hub_img_delim }}{{ .Values.global.proxy_init.image }}{{ .Values.global.img_tag_delim }}{{ .Values.global.tag }}"
+{{- end }}
         args:
         - "-p"
         - {{ "[[ .MeshConfig.ProxyListenPort ]]" }}
@@ -98,12 +103,14 @@ data:
         - {{ "[[ .ProxyConfig.ZipkinAddress ]]" }}
         - --connectTimeout
         - {{ "[[ formatDuration .ProxyConfig.ConnectTimeout ]]" }}
+      {{- if .Values.global.proxy.envoyStatsd.enabled }}
         - --statsdUdpAddress
         - {{ "[[ .ProxyConfig.StatsdUdpAddress ]]" }}
+      {{- end }}
         - --proxyAdminPort
         - {{ "[[ .ProxyConfig.ProxyAdminPort ]]" }}
         - --controlPlaneAuthPolicy
-        - {{ "[[ .ProxyConfig.ControlPlaneAuthPolicy ]]" }}
+        - {{ "[[ or (index .ObjectMeta.Annotations \"sidecar.istio.io/controlPlaneAuthPolicy\") .ProxyConfig.ControlPlaneAuthPolicy ]]" }}
         env:
         - name: POD_NAME
           valueFrom:
@@ -125,18 +132,27 @@ data:
           value: {{ "[[ or (index .ObjectMeta.Annotations \"sidecar.istio.io/interceptionMode\") .ProxyConfig.InterceptionMode.String ]]" }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
         securityContext:
-            privileged: false
-            readOnlyRootFilesystem: true
-            {{ "[[ if eq (or (index .ObjectMeta.Annotations \"sidecar.istio.io/interceptionMode\") .ProxyConfig.InterceptionMode.String) \"TPROXY\" -]]" }}
-            capabilities:
-              add:
-              - NET_ADMIN
-            {{ "[[ else -]]" }}
-            runAsUser: 1337
-            {{ "[[ end -]]" }}
+          privileged: false
+          readOnlyRootFilesystem: true
+          {{ "[[ if eq (or (index .ObjectMeta.Annotations \"sidecar.istio.io/interceptionMode\") .ProxyConfig.InterceptionMode.String) \"TPROXY\" -]]" }}
+          capabilities:
+            add:
+            - NET_ADMIN
+          runAsGroup: 1337
+          {{ "[[ else -]]" }}
+          runAsUser: 1337
+          {{ "[[ end -]]" }}
         restartPolicy: Always
         resources:
+          {{ "[[ if (isset .ObjectMeta.Annotations \"sidecar.istio.io/proxyCPU\") -]]" }}
+          requests:
+            cpu: {{ "\"[[ index .ObjectMeta.Annotations \"sidecar.istio.io/proxyCPU\" ]]\"" }}
+            memory: {{ "\"[[ index .ObjectMeta.Annotations \"sidecar.istio.io/proxyMemory\" ]]\"" }}
+        {{ "[[ else -]]" }}
+{{- if .Values.global.proxy.resources }}
 {{ toYaml .Values.global.proxy.resources | indent 10 }}
+{{- end }}
+        {{ "[[ end -]]" }}
         volumeMounts:
         - mountPath: /etc/istio/proxy
           name: istio-envoy
@@ -155,4 +171,4 @@ data:
           {{ "[[ else -]]" }}
           secretName: {{ "[[ printf \"istio.%s\" .Spec.ServiceAccountName ]]"  }}
           {{ "[[ end -]]" }}
-
+{{- end }}

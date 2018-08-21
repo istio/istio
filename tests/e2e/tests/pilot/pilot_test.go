@@ -36,20 +36,19 @@ import (
 )
 
 const (
-	defaultRetryBudget      = 50
+	defaultRetryBudget      = 10
 	retryDelay              = time.Second
 	httpOK                  = "200"
 	ingressAppName          = "ingress"
 	ingressContainerName    = "ingress"
-	defaultPropagationDelay = 10 * time.Second
+	defaultPropagationDelay = 5 * time.Second
+	primaryCluster          = framework.PrimaryCluster
 )
 
 var (
 	tc = &testConfig{
-		V1alpha1: true, //implies envoyv1
-		V1alpha3: true, //implies envoyv2
-		Ingress:  true,
-		Egress:   true,
+		Ingress: true,
+		Egress:  true,
 	}
 
 	errAgain     = errors.New("try again")
@@ -61,8 +60,6 @@ var (
 )
 
 func init() {
-	flag.BoolVar(&tc.V1alpha1, "v1alpha1", tc.V1alpha1, "Enable / disable v1alpha1 routing rules.")
-	flag.BoolVar(&tc.V1alpha3, "v1alpha3", tc.V1alpha3, "Enable / disable v1alpha3 routing rules.")
 	flag.BoolVar(&tc.Ingress, "ingress", tc.Ingress, "Enable / disable Ingress tests.")
 	flag.BoolVar(&tc.Egress, "egress", tc.Egress, "Enable / disable Egress tests.")
 }
@@ -84,9 +81,6 @@ func setTestConfig() error {
 
 	tc.Kube.InstallAddons = true // zipkin is used
 
-	// Add mTLS auth exclusion policy.
-	tc.Kube.MTLSExcludedServices = []string{fmt.Sprintf("fake-control.%s.svc.cluster.local", tc.Kube.Namespace)}
-
 	appDir, err := ioutil.TempDir(os.TempDir(), "pilot_test")
 	if err != nil {
 		return err
@@ -103,15 +97,18 @@ func setTestConfig() error {
 	}
 
 	// Extra system configuration required for the pilot tests.
-	tc.extraConfig = &deployableConfig{
-		Namespace: tc.Kube.Namespace,
-		YamlFiles: []string{
-			"testdata/headless.yaml",
-			"testdata/external-wikipedia.yaml",
-			"testdata/externalbin.yaml",
-		},
-		kubeconfig: tc.Kube.KubeConfig,
+	tc.extraConfig = make(map[string]*deployableConfig)
+	for cluster, kc := range tc.Kube.Clusters {
+		tc.extraConfig[cluster] = &deployableConfig{
+			Namespace: tc.Kube.Namespace,
+			YamlFiles: []string{
+				"testdata/external-wikipedia.yaml",
+				"testdata/externalbin.yaml",
+			},
+			kubeconfig: kc,
+		}
 	}
+
 	return nil
 }
 
@@ -123,7 +120,7 @@ func check(err error, msg string) {
 }
 
 // runRetriableTest runs the given test function the provided number of times.
-func runRetriableTest(t *testing.T, testName string, retries int, f func() error, errorFunc ...func()) {
+func runRetriableTest(t *testing.T, cluster, testName string, retries int, f func() error, errorFunc ...func()) {
 	t.Run(testName, func(t *testing.T) {
 		// Run all request tests in parallel.
 		// TODO(nmittler): Consider t.Parallel()?
@@ -201,68 +198,68 @@ func (c *deployableConfig) TeardownNoDelay() error {
 }
 
 func (c *deployableConfig) propagationDelay() time.Duration {
-	return defaultPropagationDelay
+	// With multiple clusters, it takes more time to propagate.
+	return defaultPropagationDelay * time.Duration(len(tc.Kube.Clusters))
 }
 
 type testConfig struct {
 	*framework.CommonConfig
 	AppDir      string
-	V1alpha1    bool
-	V1alpha3    bool
 	Ingress     bool
 	Egress      bool
-	extraConfig *deployableConfig
+	extraConfig map[string]*deployableConfig
 }
 
 // Setup initializes the test environment and waits for all pods to be in the running state.
-func (t *testConfig) Setup() error {
+func (t *testConfig) Setup() (err error) {
 	// Deploy additional configuration.
-	err := t.extraConfig.Setup()
-
-	// Wait for all the pods to be in the running state before starting tests.
-	if err == nil && !util.CheckPodsRunning(t.Kube.Namespace, t.Kube.KubeConfig) {
-		err = fmt.Errorf("can't get all pods running")
+	for _, ec := range t.extraConfig {
+		err = ec.Setup()
+		if err != nil {
+			return
+		}
 	}
 
-	return err
+	// Wait for all the pods to be in the running state before starting tests.
+	for cluster, kc := range t.Kube.Clusters {
+		if err == nil && !util.CheckPodsRunning(t.Kube.Namespace, kc) {
+			err = fmt.Errorf("can't get all pods running in %s cluster", cluster)
+			break
+		}
+	}
+
+	return
 }
 
 // Teardown shuts down the test environment.
-func (t *testConfig) Teardown() error {
+func (t *testConfig) Teardown() (err error) {
 	// Remove additional configuration.
-	return t.extraConfig.Teardown()
-}
-
-func configVersions() []string {
-	versions := []string{}
-	if tc.V1alpha1 {
-		versions = append(versions, "v1alpha1")
+	for _, ec := range t.extraConfig {
+		e := ec.Teardown()
+		if e != nil {
+			err = multierr.Append(err, e)
+		}
 	}
-	if tc.V1alpha3 {
-		versions = append(versions, "v1alpha3")
-	}
-	return versions
+	return
 }
 
 func getApps(tc *testConfig) []framework.App {
 	return []framework.App{
 		// deploy a healthy mix of apps, with and without proxy
-		getApp("t", "t", 8080, 80, 9090, 90, 7070, 70, "unversioned", false, false),
-		getApp("a", "a", 8080, 80, 9090, 90, 7070, 70, "v1", true, false),
-		getApp("b", "b", 80, 8080, 90, 9090, 70, 7070, "unversioned", true, false),
-		getApp("c-v1", "c", 80, 8080, 90, 9090, 70, 7070, "v1", true, false),
-		getApp("c-v2", "c", 80, 8080, 90, 9090, 70, 7070, "v2", true, false),
-		getApp("d", "d", 80, 8080, 90, 9090, 70, 7070, "per-svc-auth", true, tc.Kube.AuthEnabled),
-		// Add another service without sidecar to test mTLS blacklisting (as in the e2e test
-		// environment, pilot can see only services in the test namespaces). This service
-		// will be listed in mtlsExcludedServices in the mesh config.
-		getApp("e", "fake-control", 80, 8080, 90, 9090, 70, 7070, "fake-control", false, false),
+		getApp("t", "t", 8080, 80, 9090, 90, 7070, 70, "unversioned", false, false, false),
+		getApp("a", "a", 8080, 80, 9090, 90, 7070, 70, "v1", true, false, true),
+		getApp("b", "b", 80, 8080, 90, 9090, 70, 7070, "unversioned", true, false, true),
+		getApp("c-v1", "c", 80, 8080, 90, 9090, 70, 7070, "v1", true, false, true),
+		getApp("c-v2", "c", 80, 8080, 90, 9090, 70, 7070, "v2", true, false, true),
+		getApp("d", "d", 80, 8080, 90, 9090, 70, 7070, "per-svc-auth", true, false, true),
+		getApp("headless", "headless", 80, 8080, 10090, 19090, 70, 7070, "unversioned", true, true, true),
+		getStatefulSet("statefulset", 19090, true),
 	}
 }
 
 func getApp(deploymentName, serviceName string, port1, port2, port3, port4, port5, port6 int,
-	version string, injectProxy, perServiceAuth bool) framework.App {
-	// TODO(nmittler): Eureka does not support management ports ... should we support other registries?
+	version string, injectProxy bool, headless bool, serviceAccount bool) framework.App {
+	// TODO(nmittler): Consul does not support management ports ... should we support other registries?
 	healthPort := "true"
 
 	// Return the config.
@@ -272,7 +269,6 @@ func getApp(deploymentName, serviceName string, port1, port2, port3, port4, port
 			"Hub":             tc.Kube.PilotHub(),
 			"Tag":             tc.Kube.PilotTag(),
 			"service":         serviceName,
-			"perServiceAuth":  strconv.FormatBool(perServiceAuth),
 			"deployment":      deploymentName,
 			"port1":           strconv.Itoa(port1),
 			"port2":           strconv.Itoa(port2),
@@ -283,6 +279,8 @@ func getApp(deploymentName, serviceName string, port1, port2, port3, port4, port
 			"version":         version,
 			"istioNamespace":  tc.Kube.Namespace,
 			"injectProxy":     strconv.FormatBool(injectProxy),
+			"headless":        strconv.FormatBool(headless),
+			"serviceAccount":  strconv.FormatBool(serviceAccount),
 			"healthPort":      healthPort,
 			"ImagePullPolicy": tc.Kube.ImagePullPolicy(),
 		},
@@ -290,21 +288,39 @@ func getApp(deploymentName, serviceName string, port1, port2, port3, port4, port
 	}
 }
 
+func getStatefulSet(service string, port int, injectProxy bool) framework.App {
+
+	// Return the config.
+	return framework.App{
+		AppYamlTemplate: "testdata/statefulset.yaml.tmpl",
+		Template: map[string]string{
+			"Hub":             tc.Kube.PilotHub(),
+			"Tag":             tc.Kube.PilotTag(),
+			"service":         service,
+			"port":            strconv.Itoa(port),
+			"istioNamespace":  tc.Kube.Namespace,
+			"injectProxy":     strconv.FormatBool(injectProxy),
+			"ImagePullPolicy": tc.Kube.ImagePullPolicy(),
+		},
+		KubeInject: injectProxy,
+	}
+}
+
 // ClientRequest makes a request from inside the specified k8s container.
-func ClientRequest(app, url string, count int, extra string) ClientResponse {
+func ClientRequest(cluster, app, url string, count int, extra string) ClientResponse {
 	out := ClientResponse{}
 
-	pods := tc.Kube.GetAppPods()[app]
+	pods := tc.Kube.GetAppPods(cluster)[app]
 	if len(pods) == 0 {
-		log.Errorf("Missing pod names for app %q", app)
+		log.Errorf("Missing pod names for app %q from %s cluster", app, cluster)
 		return out
 	}
 
 	pod := pods[0]
 	cmd := fmt.Sprintf("client -url %s -count %d %s", url, count, extra)
-	request, err := util.PodExec(tc.Kube.Namespace, pod, "app", cmd, true, tc.Kube.KubeConfig)
+	request, err := util.PodExec(tc.Kube.Namespace, pod, "app", cmd, true, tc.Kube.Clusters[cluster])
 	if err != nil {
-		log.Errorf("client request error %v for %s in %s", err, url, app)
+		log.Errorf("client request error %v for %s in %s from %s cluster", err, url, app, cluster)
 		return out
 	}
 
@@ -363,8 +379,8 @@ func (r *ClientResponse) IsHTTPOk() bool {
 type accessLogs struct {
 	mu sync.Mutex
 
-	// logs is a mapping from app name to requests
-	logs map[string][]request
+	// logs is a mapping from app name to requests for both primary and remote clusters
+	logs map[string]map[string][]request
 }
 
 type request struct {
@@ -374,16 +390,20 @@ type request struct {
 
 // NewAccessLogs creates an initialized accessLogs instance.
 func newAccessLogs() *accessLogs {
+	al := make(map[string]map[string][]request)
+	for cluster := range tc.Kube.Clusters {
+		al[cluster] = make(map[string][]request)
+	}
 	return &accessLogs{
-		logs: make(map[string][]request),
+		logs: al,
 	}
 }
 
 // add an access log entry for an app
-func (a *accessLogs) add(app, id, desc string) {
+func (a *accessLogs) add(cluster, app, id, desc string) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	a.logs[app] = append(a.logs[app], request{id: id, desc: desc})
+	a.logs[cluster][app] = append(a.logs[cluster][app], request{id: id, desc: desc})
 }
 
 // CheckLogs verifies the logs against a deployment
@@ -393,37 +413,45 @@ func (a *accessLogs) checkLogs(t *testing.T) {
 	log.Infof("Checking pod logs for request IDs...")
 	log.Debuga(a.logs)
 
-	for app := range a.logs {
-		pods := a.getAppPods(t, app)
+	for cluster, apps := range a.logs {
+		for app := range apps {
+			pods := a.getAppPods(t, app)
 
-		// Check the logs for this app.
-		a.checkLog(t, app, pods)
+			// Check the logs for this app.
+			a.checkLog(t, cluster, app, pods)
+		}
 	}
 }
 
-func (a *accessLogs) getAppPods(t *testing.T, app string) []string {
+func (a *accessLogs) getAppPods(t *testing.T, app string) map[string][]string {
+	pods := make(map[string][]string)
 	if app == ingressAppName {
-		// Ingress is uses the "istio" label, not an "app" label.
-		pods, err := util.GetIngressPodNames(tc.Kube.Namespace, tc.Kube.KubeConfig)
+		// Ingress uses the "istio" label, not an "app" label.
+		ingressPods, err := util.GetIngressPodNames(tc.Kube.Namespace, tc.Kube.KubeConfig)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(pods) == 0 {
+		if len(ingressPods) == 0 {
 			t.Fatal("Missing ingress pod")
 		}
+		pods[primaryCluster] = ingressPods
 		return pods
 	}
 
 	log.Infof("Checking log for app: %q", app)
-	pods := tc.Kube.GetAppPods()[app]
-	if len(pods) == 0 {
-		t.Fatalf("Missing pods for app: %q", app)
+	// Pods for the app needs to be obtained from all the clusters.
+	for cluster := range a.logs {
+		tmpPods := tc.Kube.GetAppPods(cluster)[app]
+		if len(tmpPods) == 0 {
+			t.Fatalf("Missing pods for app: %q from %s cluster", app, cluster)
+		}
+		pods[cluster] = tmpPods
 	}
 
 	return pods
 }
 
-func (a *accessLogs) checkLog(t *testing.T, app string, pods []string) {
+func (a *accessLogs) checkLog(t *testing.T, cluster, app string, pods map[string][]string) {
 	var container string
 	if app == ingressAppName {
 		container = ingressContainerName
@@ -431,25 +459,27 @@ func (a *accessLogs) checkLog(t *testing.T, app string, pods []string) {
 		container = inject.ProxyContainerName
 	}
 
-	runRetriableTest(t, app, defaultRetryBudget, func() error {
+	runRetriableTest(t, cluster, app, defaultRetryBudget, func() error {
 		// find all ids and counts
 		// TODO: this can be optimized for many string submatching
 		counts := make(map[string]int)
-		for _, request := range a.logs[app] {
+		for _, request := range a.logs[cluster][app] {
 			counts[request.id] = counts[request.id] + 1
 		}
 
 		// Concat the logs from all pods.
 		var logs string
-		for _, pod := range pods {
-			// Retrieve the logs from the service container
-			logs += util.GetPodLogs(tc.Kube.Namespace, pod, container, false, false, tc.Kube.KubeConfig)
+		for c, cPods := range pods {
+			for _, pod := range cPods {
+				// Retrieve the logs from the service container
+				logs += util.GetPodLogs(tc.Kube.Namespace, pod, container, false, false, tc.Kube.Clusters[c])
+			}
 		}
 
 		for id, want := range counts {
 			got := strings.Count(logs, id)
 			if got < want {
-				log.Errorf("Got %d for %s in logs of %s, want %d", got, id, app, want)
+				log.Errorf("Got %d for %s in logs of %s from %s cluster, want %d", got, id, app, cluster, want)
 				// Do not dump the logs. Its virtually useless even if just one iteration fails.
 				//log.Errorf("Log: %s", logs)
 				return errAgain

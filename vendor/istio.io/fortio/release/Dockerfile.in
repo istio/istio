@@ -1,5 +1,5 @@
 # Concatenated after ../Dockerfile to create the tgz
-FROM istio/fortio.build:v7 as stage
+FROM istio/fortio.build:v8 as stage
 WORKDIR /stage
 COPY --from=release /usr/local usr/local
 RUN mkdir -p var/lib/istio/fortio

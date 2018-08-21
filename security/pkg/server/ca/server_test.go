@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"crypto/tls"
 	"crypto/x509"
-	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -127,7 +126,7 @@ func TestSign(t *testing.T) {
 			authenticators: nil,
 			code:           codes.Unauthenticated,
 			authorizer:     &mockAuthorizer{},
-			ca:             &mockca.FakeCA{SignErr: fmt.Errorf("cannot sign")},
+			ca:             &mockca.FakeCA{SignErr: ca.NewError(ca.CANotReady, fmt.Errorf("cannot sign"))},
 		},
 		"Unauthenticated request": {
 			authenticators: []authenticator{&mockAuthenticator{
@@ -135,26 +134,26 @@ func TestSign(t *testing.T) {
 			}},
 			code:       codes.Unauthenticated,
 			authorizer: &mockAuthorizer{},
-			ca:         &mockca.FakeCA{SignErr: fmt.Errorf("cannot sign")},
+			ca:         &mockca.FakeCA{SignErr: ca.NewError(ca.CANotReady, fmt.Errorf("cannot sign"))},
 		},
 		"Corrupted CSR": {
 			authorizer:     &mockAuthorizer{},
 			authenticators: []authenticator{&mockAuthenticator{}},
-			ca:             &mockca.FakeCA{SignErr: fmt.Errorf("cannot sign")},
+			ca:             &mockca.FakeCA{SignErr: ca.NewError(ca.CANotReady, fmt.Errorf("cannot sign"))},
 			csr:            "deadbeef",
 			code:           codes.InvalidArgument,
 		},
 		"Invalid SAN CSR": {
 			authorizer:     &mockAuthorizer{},
 			authenticators: []authenticator{&mockAuthenticator{}},
-			ca:             &mockca.FakeCA{SignErr: fmt.Errorf("cannot sign")},
+			ca:             &mockca.FakeCA{SignErr: ca.NewError(ca.CANotReady, fmt.Errorf("cannot sign"))},
 			csr:            badSanCsr,
 			code:           codes.InvalidArgument,
 		},
 		"Failed to sign": {
 			authorizer:     &mockAuthorizer{},
 			authenticators: []authenticator{&mockAuthenticator{}},
-			ca:             &mockca.FakeCA{SignErr: fmt.Errorf("cannot sign")},
+			ca:             &mockca.FakeCA{SignErr: ca.NewError(ca.CANotReady, fmt.Errorf("cannot sign"))},
 			csr:            csr,
 			code:           codes.Internal,
 		},
@@ -254,12 +253,12 @@ func TestRun(t *testing.T) {
 			expectedErr: "cannot listen on port -1 (error: listen tcp: address -1: invalid port)",
 		},
 		"CA sign error": {
-			ca:                          &mockca.FakeCA{SignErr: errors.New("mock CA cannot sign")},
+			ca:                          &mockca.FakeCA{SignErr: ca.NewError(ca.CANotReady, fmt.Errorf("cannot sign"))},
 			hostname:                    []string{"localhost"},
 			port:                        0,
 			expectedErr:                 "",
 			expectedAuthenticatorsLen:   2,
-			applyServerCertificateError: "mock CA cannot sign",
+			applyServerCertificateError: "cannot sign",
 		},
 		"Bad signed cert": {
 			ca:                        &mockca.FakeCA{SignedCert: []byte(csr)},

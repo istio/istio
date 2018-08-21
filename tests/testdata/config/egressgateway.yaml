@@ -14,7 +14,7 @@ spec:
       name: http
       protocol: HTTP
     hosts:
-    - eu1.bookinfo.com
+    - egressgateway.bookinfo.com
     #tls:
     #  httpsRedirect: true # sends 302 redirect for http requests
   - port:
@@ -22,7 +22,7 @@ spec:
       name: https
       protocol: HTTPS
     hosts:
-    - eu.bookinfo.com
+    - egressgateway.bookinfo.com
     tls:
       # We can reuse the standard Istio certs mounted in the gateway
       mode: SIMPLE #enables HTTPS on this port

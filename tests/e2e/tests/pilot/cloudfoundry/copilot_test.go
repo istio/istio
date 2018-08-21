@@ -43,9 +43,11 @@ import (
 )
 
 const (
-	pilotDebugPort = 5555
-	pilotGrpcPort  = 15010
-	copilotPort    = 5556
+	pilotDebugPort     = 5555
+	pilotGrpcPort      = 15010
+	copilotPort        = 5556
+	edgeServicePort    = 8080
+	sidecarServicePort = 15022
 
 	cfRouteOne          = "public.example.com"
 	cfRouteTwo          = "public2.example.com"
@@ -73,6 +75,7 @@ metadata:
 spec:
   servers:
   - port:
+      name: http
       number: %d  # load balancer will forward traffic here
       protocol: http
     hosts:
@@ -88,11 +91,8 @@ func TestWildcardHostEdgeRouterWithMockCopilot(t *testing.T) {
 	runFakeApp(backendPort2)
 	t.Logf("2nd backend is running on port %d", backendPort2)
 
-	runFakeApp(internalBackendPort)
-	t.Logf("internal backend is running on port %d", internalBackendPort)
-
 	copilotAddr := fmt.Sprintf("127.0.0.1:%d", copilotPort)
-	testState := newTestState(copilotAddr)
+	testState := newTestState(copilotAddr, edgeServicePort)
 	defer testState.tearDown()
 	copilotTLSConfig := testState.creds.ServerTLSConfig()
 
@@ -105,7 +105,6 @@ func TestWildcardHostEdgeRouterWithMockCopilot(t *testing.T) {
 
 	mockCopilot.PopulateRoute(cfRouteOne, "127.0.0.1", backendPort, cfPath)
 	mockCopilot.PopulateRoute(cfRouteTwo, "127.0.0.1", backendPort2, "")
-	mockCopilot.PopulateInternalRoute(internalBackendPort, cfInternalRoute, "127.1.1.1", "127.0.0.1")
 
 	err = testState.copilotConfig.Save(testState.copilotConfigFilePath)
 	g.Expect(err).To(gomega.BeNil())
@@ -138,13 +137,14 @@ func TestWildcardHostEdgeRouterWithMockCopilot(t *testing.T) {
 		return curlPilot(pilotURL("/debug/configz"))
 	}).Should(gomega.ContainSubstring("gateway"))
 
-	nodeIDGateway := "router~x~x~x"
-
 	t.Log("create a new envoy test environment")
 	tmpl, err := ioutil.ReadFile(util.IstioSrc + "/tests/testdata/cf_bootstrap_tmpl.json")
 	if err != nil {
 		t.Fatal("Can't read bootstrap template", err)
 	}
+
+	nodeIDGateway := "router~x~x~x"
+
 	gateway := env.NewTestSetup(25, t)
 	gateway.SetNoMixer(true)
 	gateway.SetNoProxy(true)
@@ -160,40 +160,13 @@ func TestWildcardHostEdgeRouterWithMockCopilot(t *testing.T) {
 	gateway.EnvoyParams = []string{
 		"--service-node", nodeIDGateway,
 		"--service-cluster", "x",
-		"--v2-config-only",
 	}
 
-	t.Log("run routing envoy...")
+	t.Log("run edge router envoy...")
 	if err := gateway.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)
 	}
 	defer gateway.TearDown()
-
-	nodeIDSidecar := "sidecar~127.0.0.1~x~x"
-
-	sidecar := env.NewTestSetup(26, t)
-	sidecar.SetNoMixer(true)
-	sidecar.SetNoProxy(true)
-	sidecar.SetNoBackend(true)
-	sidecar.IstioSrc = util.IstioSrc
-	sidecar.IstioOut = util.IstioOut
-	sidecar.Ports().PilotGrpcPort = pilotGrpcPort
-	sidecar.Ports().PilotHTTPPort = pilotDebugPort
-	sidecar.EnvoyConfigOpt = map[string]interface{}{
-		"NodeID": nodeIDSidecar,
-	}
-	sidecar.EnvoyTemplate = string(tmpl)
-	sidecar.EnvoyParams = []string{
-		"--service-node", nodeIDSidecar,
-		"--service-cluster", "x",
-		"--v2-config-only",
-	}
-
-	t.Log("run sidecar envoy...")
-	if err := sidecar.SetUp(); err != nil {
-		t.Fatalf("Failed to setup test: %v", err)
-	}
-	defer sidecar.TearDown()
 
 	t.Log("curling the app with expected host header")
 	g.Eventually(func() error {
@@ -244,6 +217,75 @@ func TestWildcardHostEdgeRouterWithMockCopilot(t *testing.T) {
 		}
 		return nil
 	}, "300s", "1s").Should(gomega.Succeed())
+}
+
+func TestWildcardHostSidecarRouterWithMockCopilot(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	runFakeApp(internalBackendPort)
+	t.Logf("internal backend is running on port %d", internalBackendPort)
+
+	copilotAddr := fmt.Sprintf("127.0.0.1:%d", copilotPort)
+	testState := newTestState(copilotAddr, sidecarServicePort)
+	defer testState.tearDown()
+	copilotTLSConfig := testState.creds.ServerTLSConfig()
+
+	quitCopilotServer := make(chan struct{})
+	testState.addCleanupTask(func() { close(quitCopilotServer) })
+
+	t.Log("starting mock copilot grpc server...")
+	mockCopilot, err := bootMockCopilotInBackground(copilotAddr, copilotTLSConfig, quitCopilotServer)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	mockCopilot.PopulateInternalRoute(internalBackendPort, cfInternalRoute, "127.1.1.1", "127.0.0.1")
+
+	err = testState.copilotConfig.Save(testState.copilotConfigFilePath)
+	g.Expect(err).To(gomega.BeNil())
+
+	t.Log("building pilot...")
+	pilotSession, err := runPilot(testState.copilotConfigFilePath, testState.istioConfigDir, pilotGrpcPort, pilotDebugPort)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	testState.addCleanupTask(func() {
+		pilotSession.Terminate()
+		g.Eventually(pilotSession, "5s").Should(gexec.Exit())
+	})
+
+	t.Log("checking if pilot ready")
+	g.Eventually(pilotSession.Out, "10s").Should(gbytes.Say(`READY`))
+
+	t.Log("create a new envoy test environment")
+	tmpl, err := ioutil.ReadFile(util.IstioSrc + "/tests/testdata/cf_bootstrap_tmpl.json")
+	if err != nil {
+		t.Fatal("Can't read bootstrap template", err)
+	}
+
+	nodeIDSidecar := "sidecar~127.1.1.1~x~x"
+
+	sidecar := env.NewTestSetup(26, t)
+	sidecar.SetNoMixer(true)
+	sidecar.SetNoProxy(true)
+	sidecar.SetNoBackend(true)
+	sidecar.IstioSrc = util.IstioSrc
+	sidecar.IstioOut = util.IstioOut
+	sidecar.Ports().PilotGrpcPort = pilotGrpcPort
+	sidecar.Ports().PilotHTTPPort = pilotDebugPort
+	sidecar.EnvoyConfigOpt = map[string]interface{}{
+		"NodeID": nodeIDSidecar,
+	}
+	sidecar.EnvoyTemplate = string(tmpl)
+	sidecar.EnvoyParams = []string{
+		"--service-node", nodeIDSidecar,
+		"--service-cluster", "x",
+	}
+
+	t.Log("run sidecar envoy...")
+	if err := sidecar.SetUp(); err != nil {
+		t.Fatalf("Failed to setup test: %v", err)
+	}
+	defer sidecar.TearDown()
+
+	t.Log("curling the app with expected host header")
 
 	g.Eventually(func() error {
 		hostRoute := url.URL{
@@ -252,7 +294,7 @@ func TestWildcardHostEdgeRouterWithMockCopilot(t *testing.T) {
 
 		endpoint := url.URL{
 			Scheme: "http",
-			Host:   "127.1.1.1:8080",
+			Host:   fmt.Sprintf("127.1.1.1:%d", sidecarServicePort),
 		}
 
 		respData, err := curlApp(endpoint, hostRoute)
@@ -291,7 +333,7 @@ func (testState *testState) addCleanupTask(task func()) {
 	testState.cleanupTasks = append(testState.cleanupTasks, task)
 }
 
-func newTestState(mockCopilotServerAddress string) *testState {
+func newTestState(mockCopilotServerAddress string, servicePort int) *testState {
 	creds := testhelpers.GenerateMTLS()
 	clientTLSFiles := creds.CreateClientTLSFiles()
 	return &testState{
@@ -306,7 +348,7 @@ func newTestState(mockCopilotServerAddress string) *testState {
 				Address:          mockCopilotServerAddress,
 				PollInterval:     10 * time.Second,
 			},
-			ServicePort: 8080, // does not matter right now, since CF only supports 1 port
+			ServicePort: servicePort,
 		},
 	}
 }

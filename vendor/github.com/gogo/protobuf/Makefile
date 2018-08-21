@@ -88,6 +88,7 @@ regenerate:
 	make -C test/issue42order regenerate
 	make -C proto generate-test-pbs
 	make -C test/importdedup regenerate
+	make -C test/importduplicate regenerate
 	make -C test/custombytesnonstruct regenerate
 	make -C test/required regenerate
 	make -C test/casttype regenerate

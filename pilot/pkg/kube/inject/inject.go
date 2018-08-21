@@ -118,14 +118,10 @@ func InitImageName(hub string, tag string, _ bool) string {
 // proxy image given a docker hub and tag and whether to use debug or not.
 func ProxyImageName(hub string, tag string, debug bool) string {
 	// Allow overriding the proxy image.
-	image := os.Getenv("ISTIO_PROXY_IMAGE")
-	if image != "" {
-		return hub + "/" + image + ":" + tag
-	}
 	if debug {
 		return hub + "/proxy_debug:" + tag
 	}
-	return hub + "/proxy:" + tag
+	return hub + "/proxyv2:" + tag
 }
 
 // Params describes configurable parameters for injecting istio proxy
@@ -393,6 +389,7 @@ func injectionData(sidecarTemplate, version string, spec *corev1.PodSpec, metada
 
 	var sic SidecarInjectionSpec
 	if err := yaml.Unmarshal(tmpl.Bytes(), &sic); err != nil {
+		log.Warnf("Failed to unmarshall template %v %s", err, string(tmpl.Bytes()))
 		return nil, "", err
 	}
 
@@ -511,6 +508,9 @@ func intoObject(sidecarTemplate string, meshconfig *meshconfig.MeshConfig, in ru
 	if job, ok := out.(*v2alpha1.CronJob); ok {
 		metadata = &job.Spec.JobTemplate.ObjectMeta
 		podSpec = &job.Spec.JobTemplate.Spec.Template.Spec
+	} else if pod, ok := out.(*corev1.Pod); ok {
+		metadata = &pod.ObjectMeta
+		podSpec = &pod.Spec
 	} else {
 		// `in` is a pointer to an Object. Dereference it.
 		outValue := reflect.ValueOf(out).Elem()

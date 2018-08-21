@@ -15,7 +15,8 @@
 package main
 
 import (
-	"strings"
+	"fmt"
+	"os"
 
 	"github.com/golang/protobuf/protoc-gen-go/descriptor"
 )
@@ -23,22 +24,12 @@ import (
 // packageDescriptor describes a package, which is a composition of proto files.
 type packageDescriptor struct {
 	baseDesc
-	files        []*fileDescriptor
-	name         string
-	title        string
-	overview     string
-	homeLocation string
-	frontMatter  []string
+	files     []*fileDescriptor
+	name      string
+	topMatter *frontMatter
 }
 
-const (
-	title       = "$title: "
-	overview    = "$overview: "
-	location    = "$location: "
-	frontMatter = "$front_matter: "
-)
-
-func newPackageDescriptor(name string, desc []*descriptor.FileDescriptorProto) *packageDescriptor {
+func newPackageDescriptor(name string, desc []*descriptor.FileDescriptorProto, perFile bool) *packageDescriptor {
 	p := &packageDescriptor{
 		name: name,
 	}
@@ -46,33 +37,23 @@ func newPackageDescriptor(name string, desc []*descriptor.FileDescriptorProto) *
 	for _, fd := range desc {
 		f := newFileDescriptor(fd, p)
 		p.files = append(p.files, f)
-
 		loc := f.find(newPathVector(packagePath))
-
+		// The package's file is one that documents the pkg statement.
+		// The first file to do this "wins".
 		if loc != nil {
 			if p.loc == nil {
 				if loc.GetLeadingComments() != "" || loc.GetTrailingComments() != "" {
 					p.loc = loc
 					p.file = f
+					// Inherit only f's frontMatter, don't get title from one file
 				}
-			}
-
-			if loc.LeadingDetachedComments != nil {
-				for _, para := range loc.LeadingDetachedComments {
-					lines := strings.Split(para, "\n")
-					for _, l := range lines {
-						l = strings.Trim(l, " ")
-
-						if strings.HasPrefix(l, title) {
-							p.title = l[len(title):]
-						} else if strings.HasPrefix(l, overview) {
-							p.overview = l[len(overview):]
-						} else if strings.HasPrefix(l, location) {
-							p.homeLocation = l[len(location):]
-						} else if strings.HasPrefix(l, frontMatter) {
-							p.frontMatter = append(p.frontMatter, l[len(frontMatter):])
-						}
-					}
+			} else if !perFile {
+				leading := loc.GetLeadingComments()
+				trailing := loc.GetTrailingComments()
+				if leading != "" || trailing != "" {
+					fmt.Fprintf(os.Stderr, "WARNING: package %v has a conflicting package comment in file %v.\n",
+						name, f.GetName())
+					fmt.Fprintf(os.Stderr, "Previous:\n%v\n%v\nCurrent:\n%v\n%v\n", p.loc.GetLeadingComments(), p.loc.GetTrailingComments(), leading, trailing)
 				}
 			}
 		}

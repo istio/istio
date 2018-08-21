@@ -78,3 +78,49 @@ func (e Int64RangeValidationError) Error() string {
 }
 
 var _ error = Int64RangeValidationError{}
+
+// Validate checks the field values on DoubleRange with the rules defined in
+// the proto definition for this message. If any rules are violated, an error
+// is returned.
+func (m *DoubleRange) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	// no validation rules for Start
+
+	// no validation rules for End
+
+	return nil
+}
+
+// DoubleRangeValidationError is the validation error returned by
+// DoubleRange.Validate if the designated constraints aren't met.
+type DoubleRangeValidationError struct {
+	Field  string
+	Reason string
+	Cause  error
+	Key    bool
+}
+
+// Error satisfies the builtin error interface
+func (e DoubleRangeValidationError) Error() string {
+	cause := ""
+	if e.Cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
+	}
+
+	key := ""
+	if e.Key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sDoubleRange.%s: %s%s",
+		key,
+		e.Field,
+		e.Reason,
+		cause)
+}
+
+var _ error = DoubleRangeValidationError{}

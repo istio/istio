@@ -4,62 +4,87 @@
     The set of metrics published by this process.
 </p>
 
+<style>
+    .metric-card {
+        margin-bottom: 4px;
+    }
+
+    .metric-header {
+        padding: 0.5rem;
+        cursor: pointer;
+        background-color: #5f6364;
+    }
+
+    .metric-body {
+        padding: 0;
+    }
+
+    .metric-table {
+        margin: 0;
+    }
+</style>
+
 {{ range . }}
     {{ if .Metrics }}
-        <h4>{{.Name}} [{{.Type}}]</h4>
-        <p>{{.Help}}</p>
+        <div class="card metric-card">
+            <div class="card-header metric-header" onclick="$('#{{.Name}}').collapse('toggle')" role="button" aria-expanded="false" aria-controls="{{.Name}}">
+                {{.Name}} [{{.Type}}]</a>
+            </div>
 
-        {{ if eq .Type "GAUGE" "COUNTER" "UNTYPED" }}
-            <table>
-                <thead>
-                    <tr>
-                        <th>Labels</th>
-                        <th>Value</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {{ range .Metrics }}
-                        <tr>
-                            <td>
-                                {{ range $k, $v := .Labels }}
-                                    {{$k}} : {{$v}}<br>
+            <div id="{{.Name}}" class="collapse">
+                <div class="card-body metric-body">
+                    <table class="metric-table">
+                        {{ if eq .Type "GAUGE" "COUNTER" "UNTYPED" }}
+                            <thead>
+                                <tr>
+                                    <th>Labels</th>
+                                    <th>Value</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {{ range .Metrics }}
+                                    <tr>
+                                        <td>
+                                            {{ range $k, $v := .Labels }}
+                                                {{$k}} : {{$v}}<br>
+                                            {{ end }}
+                                        </td>
+                                        <td>
+                                            {{.Value}}
+                                        </td>
+                                    </tr>
                                 {{ end }}
-                            </td>
-                            <td>
-                                {{.Value}}
-                            </td>
-                        </tr>
-                    {{ end }}
-                </tbody>
-            </table>
-        {{ else }}
-            <table>
-                <thead>
-                <tr>
-                    <th>Labels</th>
-                    <th>Count</th>
-                    <th>Sum</th>
-                </tr>
-                </thead>
-                <tbody>
-                    {{ range .Metrics }}
-                        <tr>
-                            <td>
-                                {{ range $k, $v := .Labels }}
-                                    {{$k}} : {{$v}}<br>
+                            </tbody>
+                        {{ else }}
+                            <thead>
+                                <tr>
+                                    <th>Labels</th>
+                                    <th>Count</th>
+                                    <th>Sum</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {{ range .Metrics }}
+                                    <tr>
+                                        <td>
+                                            {{ range $k, $v := .Labels }}
+                                                {{$k}} : {{$v}}<br>
+                                            {{ end }}
+                                        </td>
+                                        <td>
+                                            {{.Count}}
+                                        </td>
+                                        <td>
+                                            {{.Sum}}
+                                        </td>
+                                    </tr>
                                 {{ end }}
-                            </td>
-                            <td>
-                                {{.Count}}
-                            </td>
-                            <td>
-                                {{.Sum}}
-                            </td>
-                        </tr>
-                    {{ end }}
-                </tbody>
-            </table>
-        {{ end }}
+                            </tbody>
+                        {{ end }}
+                    </table>
+                </div>
+            </div>
+        </div>
     {{ end }}
 {{ end }}
 
@@ -80,6 +105,44 @@
         function onload() {
             if (this.status == 200) { // request succeeded
                 var families = JSON.parse(this.responseText);
+
+                for (var i = 0; i < families.length; i++) {
+                    var name = families[i].name;
+                    var div = document.getElementById(name);
+
+                    if (div) {
+                        var tbody = div.getElementsByTagName("TBODY")[0];
+                        for (var j = 0; j < tbody.children.length; j++) {
+                            var tr = tbody.children[j];
+                            var labels_td = tr.children[0];
+
+                            var labels = "";
+                            if (families[i].metrics[j].labels) {
+                                for (var key in families[i].metrics[j].labels) {
+                                    if (labels.length > 0) {
+                                        labels = labels + "<br>";
+                                    }
+
+                                    labels = labels + key + " : " + families[i].metrics[j].labels[key];
+                                }
+                            }
+
+                            labels_td.innerHTML = labels;
+
+                            if (families[i].metrics[j].value != undefined) {
+                                var value_td = tr.children[1];
+                                value_td.innerText = families[i].metrics[j].value;
+                            } else {
+                                var count_td = tr.children[1];
+                                var sum_td = tr.children[2];
+                                count_td.innerText = families[i].metrics[j].count;
+                                sum_td.innerText = families[i].metrics[j].sum;
+                            }
+                        }
+                    }
+                }
+
+
                 updateRefreshTime();
             }
         }
@@ -90,7 +153,7 @@
     }
 
     refreshMetrics();
-//    window.setInterval(refreshMetrics, 1000);
+    window.setInterval(refreshMetrics, 1000);
 
 </script>
 

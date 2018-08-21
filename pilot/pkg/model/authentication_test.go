@@ -88,11 +88,11 @@ func TestParseJwksURI(t *testing.T) {
 
 func TestLegacyAuthenticationPolicyToPolicy(t *testing.T) {
 	cases := []struct {
-		in       meshconfig.AuthenticationPolicy
+		in       meshconfig.MeshConfig_AuthPolicy
 		expected *authn.Policy
 	}{
 		{
-			in: meshconfig.AuthenticationPolicy_MUTUAL_TLS,
+			in: meshconfig.MeshConfig_MUTUAL_TLS,
 			expected: &authn.Policy{
 				Peers: []*authn.PeerAuthenticationMethod{{
 					Params: &authn.PeerAuthenticationMethod_Mtls{&authn.MutualTls{}},
@@ -100,7 +100,7 @@ func TestLegacyAuthenticationPolicyToPolicy(t *testing.T) {
 			},
 		},
 		{
-			in:       meshconfig.AuthenticationPolicy_NONE,
+			in:       meshconfig.MeshConfig_NONE,
 			expected: nil,
 		},
 	}

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package istioAuthnPeerJwtBoundPeer
+package client_test
 
 import (
 	"encoding/base64"
@@ -24,10 +24,8 @@ import (
 
 // The Istio authn envoy config
 const authnConfig = `
-{
-  "type": "decoder",
-  "name": "istio_authn",
-  "config": {
+- name: istio_authn
+  config: {
     "policy": {
       "peers": [
         {
@@ -43,7 +41,6 @@ const authnConfig = `
       "issuer@foo.com": "sec-istio-auth-jwt-output"
     }
   }
-},
 `
 
 const secIstioAuthUserInfoHeaderKey = "sec-istio-auth-jwt-output"
@@ -73,8 +70,6 @@ var checkAttributesOkGet = `
   "request.scheme": "http",
   "source.uid": "POD11",
   "source.namespace": "XYZ11",
-  "source.ip": "[127 0 0 1]",
-  "source.port": "*",
   "source.principal": "issuer@foo.com/sub@foo.com",
   "source.user": "issuer@foo.com/sub@foo.com",
   "target.name": "target-name",
@@ -82,6 +77,7 @@ var checkAttributesOkGet = `
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "connection.mtls": false,
+  "origin.ip": "[127 0 0 1]",
   "request.headers": {
      ":method": "GET",
      ":path": "/echo",
@@ -118,8 +114,6 @@ var reportAttributesOkGet = `
   "request.scheme": "http",
   "source.uid": "POD11",
   "source.namespace": "XYZ11",
-  "source.ip": "[127 0 0 1]",
-  "source.port": "*",
   "source.principal": "issuer@foo.com/sub@foo.com",
   "source.user": "issuer@foo.com/sub@foo.com",
   "destination.ip": "[127 0 0 1]",
@@ -129,6 +123,7 @@ var reportAttributesOkGet = `
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "connection.mtls": false,
+  "origin.ip": "[127 0 0 1]",
   "check.cache_hit": false,
   "quota.cache_hit": false,
   "request.headers": {

@@ -11,6 +11,8 @@
 	It has these top-level messages:
 		AttributeContext
 		CheckRequest
+		DeniedHttpResponse
+		OkHttpResponse
 		CheckResponse
 */
 package v2alpha
@@ -18,8 +20,8 @@ package v2alpha
 import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import envoy_api_v2_core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-import google_protobuf3 "github.com/gogo/protobuf/types"
+import envoy_api_v2_core1 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+import google_protobuf4 "github.com/gogo/protobuf/types"
 
 import io "io"
 
@@ -53,8 +55,8 @@ type AttributeContext struct {
 	Request *AttributeContext_Request `protobuf:"bytes,4,opt,name=request" json:"request,omitempty"`
 	// This is analogous to http_request.headers, however these contents will not be sent to the
 	// upstream server. Context_extensions provide an extension mechanism for sending additional
-	// information to the auth server without modifying the proto definition. It maps to the internal
-	// opaque context in the filter chain.
+	// information to the auth server without modifying the proto definition. It maps to the
+	// internal opaque context in the filter chain.
 	ContextExtensions map[string]string `protobuf:"bytes,10,rep,name=context_extensions,json=contextExtensions" json:"context_extensions,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 }
 
@@ -98,7 +100,7 @@ func (m *AttributeContext) GetContextExtensions() map[string]string {
 type AttributeContext_Peer struct {
 	// The address of the peer, this is typically the IP address.
 	// It can also be UDS path, or others.
-	Address *envoy_api_v2_core.Address `protobuf:"bytes,1,opt,name=address" json:"address,omitempty"`
+	Address *envoy_api_v2_core1.Address `protobuf:"bytes,1,opt,name=address" json:"address,omitempty"`
 	// The canonical service name of the peer.
 	// It should be set to :ref:`the HTTP x-envoy-downstream-service-cluster
 	// <config_http_conn_man_headers_downstream-service-cluster>`
@@ -128,7 +130,7 @@ func (*AttributeContext_Peer) Descriptor() ([]byte, []int) {
 	return fileDescriptorAttributeContext, []int{0, 0}
 }
 
-func (m *AttributeContext_Peer) GetAddress() *envoy_api_v2_core.Address {
+func (m *AttributeContext_Peer) GetAddress() *envoy_api_v2_core1.Address {
 	if m != nil {
 		return m.Address
 	}
@@ -159,7 +161,7 @@ func (m *AttributeContext_Peer) GetPrincipal() string {
 // Represents a network request, such as an HTTP request.
 type AttributeContext_Request struct {
 	// The timestamp when the proxy receives the first byte of the request.
-	Time *google_protobuf3.Timestamp `protobuf:"bytes,1,opt,name=time" json:"time,omitempty"`
+	Time *google_protobuf4.Timestamp `protobuf:"bytes,1,opt,name=time" json:"time,omitempty"`
 	// Represents an HTTP request or an HTTP-like request.
 	Http *AttributeContext_HttpRequest `protobuf:"bytes,2,opt,name=http" json:"http,omitempty"`
 }
@@ -171,7 +173,7 @@ func (*AttributeContext_Request) Descriptor() ([]byte, []int) {
 	return fileDescriptorAttributeContext, []int{0, 1}
 }
 
-func (m *AttributeContext_Request) GetTime() *google_protobuf3.Timestamp {
+func (m *AttributeContext_Request) GetTime() *google_protobuf4.Timestamp {
 	if m != nil {
 		return m.Time
 	}
@@ -1008,7 +1010,7 @@ func (m *AttributeContext_Peer) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Address == nil {
-				m.Address = &envoy_api_v2_core.Address{}
+				m.Address = &envoy_api_v2_core1.Address{}
 			}
 			if err := m.Address.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -1267,7 +1269,7 @@ func (m *AttributeContext_Request) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Time == nil {
-				m.Time = &google_protobuf3.Timestamp{}
+				m.Time = &google_protobuf4.Timestamp{}
 			}
 			if err := m.Time.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err

@@ -15,11 +15,17 @@
 syntax = "proto3";
 
 // $title: Stackdriver
-// $overview: Adapter to deliver logs and metrics to Stackdriver
-// $location: https://istio.io/docs/reference/config/adapters/stackdriver.html
+// $description: Adapter to deliver logs, metrics, and traces to Stackdriver
+// $location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/stackdriver.html
+// $aliases:
+// $  - /docs/reference/config/adapters/stackdriver.html
 
-// The `stackdriver` adapter enables Istio to deliver log and metric data to the
-// [Stackdriver](https://cloud.google.com/stackdriver/) logging and monitoring backend.
+// The `stackdriver` adapter enables Istio to deliver log, metric and traces to the
+// [Stackdriver](https://cloud.google.com/stackdriver/) backend.
+//
+// This adapter supports the [metric template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/metric/),
+// the [logentry template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/logentry/),
+// and the [tracespan template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/tracespan/).
 package adapter.stackdriver.config;
 
 import "gogoproto/gogo.proto";
@@ -222,4 +228,12 @@ message Params {
     }
     // A map of Istio LogEntry name to Stackdriver log info.
     map<string, LogInfo> log_info = 9;
+
+    // Details of Stackdriver Trace configuration for tracespan template.
+    message Trace {
+        // Proability that a particular trace ID will be sampled.
+        double sample_probability = 1;
+    }
+    // Stackdriver Trace configuration.
+    Trace trace = 10;
 }

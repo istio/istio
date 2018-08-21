@@ -1,0 +1,66 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kiali
+  labels:
+    app: kiali
+    version: master
+rules:
+- apiGroups: ["","apps", "autoscaling"]
+  resources:
+  - configmaps
+  - namespaces
+  - nodes
+  - pods
+  - projects
+  - services
+  - endpoints
+  - deployments
+  - horizontalpodautoscalers
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups: ["config.istio.io"]
+  resources:
+  - rules
+  - circonuses
+  - deniers
+  - fluentds
+  - kubernetesenvs
+  - listcheckers
+  - memquotas
+  - opas
+  - prometheuses
+  - rbacs
+  - servicecontrols
+  - solarwindses
+  - stackdrivers
+  - statsds
+  - stdios
+  - apikeys
+  - authorizations
+  - checknothings
+  - kuberneteses
+  - listentries
+  - logentries
+  - metrics
+  - quotas
+  - reportnothings
+  - servicecontrolreports
+  - quotaspecs
+  - quotaspecbindings
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups: ["networking.istio.io"]
+  resources:
+  - virtualservices
+  - destinationrules
+  - serviceentries
+  - gateways
+  verbs:
+  - get
+  - list
+  - watch

@@ -155,13 +155,13 @@ func TestInputs_Matches(t *testing.T) {
 	i := e.InstanceGroups[0]
 
 	// Value is not in bag. This should match to false due to error in resolution.
-	bag := attribute.GetFakeMutableBagForTesting(map[string]interface{}{})
+	bag := attribute.GetMutableBagForTesting(map[string]interface{}{})
 	if i.Matches(bag) {
 		t.Fatal("The group shouldn't have matched")
 	}
 
 	// Value is in the bag, but does match the condition.
-	bag = attribute.GetFakeMutableBagForTesting(map[string]interface{}{
+	bag = attribute.GetMutableBagForTesting(map[string]interface{}{
 		"destination.name": "barfoo",
 	})
 	if i.Matches(bag) {
@@ -169,7 +169,7 @@ func TestInputs_Matches(t *testing.T) {
 	}
 
 	// Value is in the bag, and matches the condition
-	bag = attribute.GetFakeMutableBagForTesting(map[string]interface{}{
+	bag = attribute.GetMutableBagForTesting(map[string]interface{}{
 		"destination.name": "foobar",
 	})
 	if !i.Matches(bag) {
@@ -193,7 +193,7 @@ func TestInputs_Matches_NoCondition(t *testing.T) {
 	i := e.InstanceGroups[0]
 
 	// There no condition. Should simply return true.
-	bag := attribute.GetFakeMutableBagForTesting(map[string]interface{}{})
+	bag := attribute.GetMutableBagForTesting(map[string]interface{}{})
 	if !i.Matches(bag) {
 		t.Fatal("The group should have matched")
 	}

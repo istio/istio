@@ -78,11 +78,21 @@ func (ms *MockOpenIDDiscoveryServer) Start() error {
 		Addr:    ":" + strconv.Itoa(ms.Port),
 		Handler: router,
 	}
+	ln, err := net.Listen("tcp", server.Addr)
+	if err != nil {
+		ms.Port++
+		server.Addr = ":" + strconv.Itoa(ms.Port)
+		ln, err = net.Listen("tcp", server.Addr)
+		if err != nil {
+			log.Errorf("Server failed to listen %d %v", ms.Port, err)
+			return err
+		}
+	}
 
 	// Starts the HTTP and waits for it to begin receiving requests.
 	// Returns an error if the server doesn't serve traffic within about 2 seconds.
 	go func() {
-		if err := server.ListenAndServe(); err != nil {
+		if err := server.Serve(ln); err != nil {
 			log.Errorf("Server failed to serve in %q: %v", ms.URL, err)
 		}
 	}()

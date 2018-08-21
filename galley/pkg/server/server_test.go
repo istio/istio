@@ -16,178 +16,104 @@ package server
 
 import (
 	"errors"
-	"sync"
+	"net"
+	"os"
 	"testing"
+	"time"
 
-	apiext "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/client-go/dynamic/fake"
-	dtesting "k8s.io/client-go/testing"
-
+	"istio.io/istio/galley/pkg/kube"
+	"istio.io/istio/galley/pkg/runtime"
 	"istio.io/istio/galley/pkg/testing/mock"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/probe"
 )
 
-func TestServer_CRDI_Error(t *testing.T) {
-	k := mock.NewKube()
-	k.AddResponse(nil, errors.New("some crdi error"))
+func TestNewServer_Errors(t *testing.T) {
 
-	s := New(k, Mapping(), 0)
+loop:
+	for i := 0; ; i++ {
+		p := defaultPatchTable()
+		mk := mock.NewKube()
+		p.newKubeFromConfigFile = func(string) (kube.Interfaces, error) { return mk, nil }
+		p.newSource = func(kube.Interfaces, time.Duration) (runtime.Source, error) {
+			return runtime.NewInMemorySource(), nil
+		}
 
-	if err := s.Start(); err == nil || err.Error() != "some crdi error" {
-		t.Fatalf("unexpected error: %v", err)
+		e := errors.New("err")
+
+		switch i {
+		case 0:
+			p.logConfigure = func(*log.Options) error { return e }
+		case 1:
+			p.newKubeFromConfigFile = func(string) (kube.Interfaces, error) { return nil, e }
+		case 2:
+			p.newSource = func(kube.Interfaces, time.Duration) (runtime.Source, error) { return nil, e }
+		case 3:
+			p.netListen = func(network, address string) (net.Listener, error) { return nil, e }
+		default:
+			break loop
+		}
+
+		_, err := newServer(DefaultArgs(), p)
+		if err == nil {
+			t.Fatalf("Expected error not found for i=%d", i)
+		}
 	}
 }
 
-func TestDoubleStart(t *testing.T) {
-	k := mock.NewKube()
-	crdi := mock.NewInterface()
-	crdi.EagerPanic = true
-	defer crdi.Close()
-	k.AddResponse(crdi, nil)
+func TestNewServer(t *testing.T) {
+	p := defaultPatchTable()
+	mk := mock.NewKube()
+	p.newKubeFromConfigFile = func(string) (kube.Interfaces, error) { return mk, nil }
+	p.newSource = func(kube.Interfaces, time.Duration) (runtime.Source, error) {
+		return runtime.NewInMemorySource(), nil
+	}
 
-	w := mock.NewWatch()
-	crdi.AddListResponse(&apiext.CustomResourceDefinitionList{}, nil)
-	crdi.AddWatchResponse(w, nil)
-
-	s := New(k, Mapping(), 0)
-
-	err := s.Start()
+	s, err := newServer(DefaultArgs(), p)
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf("Unexpected error creating service: %v", err)
 	}
 
-	err = s.Start()
-	if err == nil {
-		t.Fatal("expected error not found")
-	}
+	_ = s.Close()
+	_ = s.Wait()
 }
 
-func TestDoubleStop(t *testing.T) {
-	k := mock.NewKube()
-	crdi := mock.NewInterface()
-	crdi.EagerPanic = true
-	defer crdi.Close()
-	k.AddResponse(crdi, nil)
+func TestNewServer_ValidProbeOptions(t *testing.T) {
+	p := defaultPatchTable()
+	mk := mock.NewKube()
+	p.newKubeFromConfigFile = func(string) (kube.Interfaces, error) { return mk, nil }
+	p.newSource = func(kube.Interfaces, time.Duration) (runtime.Source, error) {
+		return runtime.NewInMemorySource(), nil
+	}
 
-	w := mock.NewWatch()
-	crdi.AddListResponse(&apiext.CustomResourceDefinitionList{}, nil)
-	crdi.AddWatchResponse(w, nil)
+	a := DefaultArgs()
+	a.LivenessProbeOptions = &probe.Options{Path: os.TempDir() + "/liveness", UpdateInterval: time.Second}
+	a.ReadinessProbeOptions = &probe.Options{Path: os.TempDir() + "/readiness", UpdateInterval: time.Second}
 
-	s := New(k, Mapping(), 0)
-
-	err := s.Start()
+	s, err := newServer(a, p)
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf("Unexpected error creating service: %v", err)
 	}
 
-	s.Stop()
-	s.Stop()
+	_ = s.Close()
+	_ = s.Wait()
 }
 
-var sourceCRD = &apiext.CustomResourceDefinition{
-	TypeMeta:   metav1.TypeMeta{Kind: "CustomResourceDefinitions"},
-	ObjectMeta: metav1.ObjectMeta{Name: "foos.config.istio.io", ResourceVersion: "v1alpha2"},
-	Spec: apiext.CustomResourceDefinitionSpec{
-		Names: apiext.CustomResourceDefinitionNames{
-			Kind:     "foo",
-			ListKind: "foolist",
-			Singular: "foo",
-			Plural:   "foos",
-		},
-		Group:   "config.istio.io",
-		Version: "v1alpha2",
-	},
-}
-
-var sourceCR = &unstructured.Unstructured{
-	Object: map[string]interface{}{
-		"metadata": map[string]interface{}{
-			"name":            "f1",
-			"kind":            "foo",
-			"resourceVersion": "config.istio.io/v1alpha2",
-		},
-	},
-}
-
-func TestBasic(t *testing.T) {
-	k := mock.NewKube()
-	crdi := mock.NewInterface()
-	crdi.EagerPanic = true
-	defer crdi.Close()
-	k.AddResponse(crdi, nil)
-
-	w := mock.NewWatch()
-	crdi.AddListResponse(&apiext.CustomResourceDefinitionList{}, nil)
-	crdi.AddWatchResponse(w, nil)
-
-	wg := sync.WaitGroup{}
-	wg.Add(1)
-	hookFn := func(e interface{}) {
-		wg.Done()
+func TestServer_Basic(t *testing.T) {
+	p := defaultPatchTable()
+	mk := mock.NewKube()
+	p.newKubeFromConfigFile = func(string) (kube.Interfaces, error) { return mk, nil }
+	p.newSource = func(kube.Interfaces, time.Duration) (runtime.Source, error) {
+		return runtime.NewInMemorySource(), nil
 	}
 
-	s := newServer(k, Mapping(), 0, hookFn)
-
-	err := s.Start()
+	s, err := newServer(DefaultArgs(), p)
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf("Unexpected error creating service: %v", err)
 	}
 
-	// Expect a create crdi operation
-	crdi.AddCreateResponse(&apiext.CustomResourceDefinition{}, nil)
+	s.Run()
 
-	// Expect two calls for dynamic interface creation, one for source, one for destination.
-	src := &fake.FakeClient{
-		Fake: &dtesting.Fake{},
-	}
-	k.AddResponse(src, nil)
-
-	dst := &fake.FakeClient{
-		Fake: &dtesting.Fake{},
-	}
-	k.AddResponse(dst, nil)
-
-	// Respond to the read request for initial scan.
-	src.AddReactor("*", "foos", func(action dtesting.Action) (handled bool, ret runtime.Object, err error) {
-		return true, &unstructured.UnstructuredList{Items: []unstructured.Unstructured{}}, nil
-	})
-
-	// Respond to the watch for source
-	wsrc := mock.NewWatch()
-	src.AddWatchReactor("foos", func(action dtesting.Action) (handled bool, ret watch.Interface, err error) {
-		return true, wsrc, nil
-	})
-
-	// Respond to the read request for initial scan.
-	dst.AddReactor("*", "foos", func(action dtesting.Action) (handled bool, ret runtime.Object, err error) {
-		return true, &unstructured.UnstructuredList{}, nil
-	})
-
-	// Respond to the watch for source
-	wdst := mock.NewWatch()
-	dst.AddWatchReactor("foos", func(action dtesting.Action) (handled bool, ret watch.Interface, err error) {
-		return true, wdst, nil
-	})
-
-	// Expect a "list" call for the destination resource.
-	dst.AddReactor("list", "foos", func(action dtesting.Action) (handled bool, ret runtime.Object, err error) {
-		return true, &unstructured.UnstructuredList{}, nil
-	})
-
-	// Send the event to trigger creation of resource synchronizer.
-	w.Send(watch.Event{Type: watch.Added, Object: sourceCRD.DeepCopy()})
-
-	wg.Wait()
-
-	// Now try delete
-	wg.Add(1)
-	// Send the event to trigger creation of resource synchronizer.
-	w.Send(watch.Event{Type: watch.Deleted, Object: sourceCRD.DeepCopy()})
-	wg.Wait()
-
-	s.Stop()
-	// no crash expected
+	_ = s.Close()
+	_ = s.Wait()
 }

@@ -7,6 +7,8 @@
 	The `dogstatsd` adapter is designed to deliver Istio metric instances to a
 	listening [DataDog](https://www.datadoghq.com/) agent.
 
+	This adapter supports the [metric template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/metric/).
+
 	It is generated from these files:
 		mixer/adapter/dogstatsd/config/config.proto
 
@@ -24,9 +26,9 @@ import strconv "strconv"
 
 import strings "strings"
 import reflect "reflect"
-import github_com_gogo_protobuf_sortkeys "github.com/gogo/protobuf/sortkeys"
+import sortkeys "github.com/gogo/protobuf/sortkeys"
 
-import encoding_binary "encoding/binary"
+import binary "encoding/binary"
 
 import io "io"
 
@@ -80,8 +82,8 @@ type Params struct {
 	// Address of the dogstatsd server.
 	// Default: localhost:8125
 	Address string `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
-	// Prefix to prepend to all metrics handled by the adapter. Metric "bar" with prefix "foo." becomes "foo.bar" in DataDog.
-	// Default: ""
+	// Prefix to prepend to all metrics handled by the adapter. Metric "bar" with prefix "foo." becomes "foo.bar" in DataDog. In order to make sure the metrics get populated into Datadog properly and avoid any billing issues, it's important to leave the metric prefix to its default value of 'istio.'
+	// Default: "istio."
 	Prefix string `protobuf:"bytes,2,opt,name=prefix,proto3" json:"prefix,omitempty"`
 	// Number of individual metrics to buffer before flushing metrics to the network. When buffered, metrics are flushed every 100ms or when the buffer is filled.
 	// When buffer is 0, metrics are not buffered.
@@ -193,10 +195,7 @@ func (x Params_MetricInfo_Type) String() string {
 }
 func (this *Params) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*Params)
@@ -209,10 +208,7 @@ func (this *Params) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -248,10 +244,7 @@ func (this *Params) Equal(that interface{}) bool {
 }
 func (this *Params_MetricInfo) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*Params_MetricInfo)
@@ -264,10 +257,7 @@ func (this *Params_MetricInfo) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -300,7 +290,7 @@ func (this *Params) GoString() string {
 	for k, _ := range this.GlobalTags {
 		keysForGlobalTags = append(keysForGlobalTags, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForGlobalTags)
+	sortkeys.Strings(keysForGlobalTags)
 	mapStringForGlobalTags := "map[string]string{"
 	for _, k := range keysForGlobalTags {
 		mapStringForGlobalTags += fmt.Sprintf("%#v: %#v,", k, this.GlobalTags[k])
@@ -314,7 +304,7 @@ func (this *Params) GoString() string {
 	for k, _ := range this.Metrics {
 		keysForMetrics = append(keysForMetrics, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForMetrics)
+	sortkeys.Strings(keysForMetrics)
 	mapStringForMetrics := "map[string]*Params_MetricInfo{"
 	for _, k := range keysForMetrics {
 		mapStringForMetrics += fmt.Sprintf("%#v: %#v,", k, this.Metrics[k])
@@ -338,7 +328,7 @@ func (this *Params_MetricInfo) GoString() string {
 	for k, _ := range this.Tags {
 		keysForTags = append(keysForTags, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForTags)
+	sortkeys.Strings(keysForTags)
 	mapStringForTags := "map[string]string{"
 	for _, k := range keysForTags {
 		mapStringForTags += fmt.Sprintf("%#v: %#v,", k, this.Tags[k])
@@ -410,7 +400,7 @@ func (m *Params) MarshalTo(dAtA []byte) (int, error) {
 	if m.SampleRate != 0 {
 		dAtA[i] = 0x29
 		i++
-		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.SampleRate))))
+		binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.SampleRate))))
 		i += 8
 	}
 	if len(m.Metrics) > 0 {
@@ -582,7 +572,7 @@ func (this *Params) String() string {
 	for k, _ := range this.GlobalTags {
 		keysForGlobalTags = append(keysForGlobalTags, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForGlobalTags)
+	sortkeys.Strings(keysForGlobalTags)
 	mapStringForGlobalTags := "map[string]string{"
 	for _, k := range keysForGlobalTags {
 		mapStringForGlobalTags += fmt.Sprintf("%v: %v,", k, this.GlobalTags[k])
@@ -592,7 +582,7 @@ func (this *Params) String() string {
 	for k, _ := range this.Metrics {
 		keysForMetrics = append(keysForMetrics, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForMetrics)
+	sortkeys.Strings(keysForMetrics)
 	mapStringForMetrics := "map[string]*Params_MetricInfo{"
 	for _, k := range keysForMetrics {
 		mapStringForMetrics += fmt.Sprintf("%v: %v,", k, this.Metrics[k])
@@ -617,7 +607,7 @@ func (this *Params_MetricInfo) String() string {
 	for k, _ := range this.Tags {
 		keysForTags = append(keysForTags, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForTags)
+	sortkeys.Strings(keysForTags)
 	mapStringForTags := "map[string]string{"
 	for _, k := range keysForTags {
 		mapStringForTags += fmt.Sprintf("%v: %v,", k, this.Tags[k])
@@ -871,7 +861,7 @@ func (m *Params) Unmarshal(dAtA []byte) error {
 			if (iNdEx + 8) > l {
 				return io.ErrUnexpectedEOF
 			}
-			v = uint64(encoding_binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+			v = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 			iNdEx += 8
 			m.SampleRate = float64(math.Float64frombits(v))
 		case 6:

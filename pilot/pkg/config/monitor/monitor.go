@@ -47,7 +47,7 @@ func NewMonitor(delegateStore model.ConfigStore, checkInterval time.Duration, ge
 // Start starts a new Monitor. Immediately checks the Monitor getSnapshotFunc
 // and updates the controller. It then kicks off an asynchronous event loop that
 // periodically polls the getSnapshotFunc for changes until a close event is sent.
-func (m *Monitor) Start(stop chan struct{}) {
+func (m *Monitor) Start(stop <-chan struct{}) {
 	m.checkAndUpdate()
 	tick := time.NewTicker(m.checkDuration)
 

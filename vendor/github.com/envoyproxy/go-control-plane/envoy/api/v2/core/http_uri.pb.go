@@ -12,7 +12,7 @@ import _ "github.com/lyft/protoc-gen-validate/validate"
 
 import time "time"
 
-import github_com_gogo_protobuf_types "github.com/gogo/protobuf/types"
+import types "github.com/gogo/protobuf/types"
 
 import io "io"
 
@@ -23,7 +23,6 @@ var _ = math.Inf
 var _ = time.Kitchen
 
 // Envoy external URI descriptor
-// [#not-implemented-hide:]
 type HttpUri struct {
 	// The HTTP server URI. It should be a full FQDN with protocol, host and path.
 	//
@@ -176,8 +175,8 @@ func (m *HttpUri) MarshalTo(dAtA []byte) (int, error) {
 	if m.Timeout != nil {
 		dAtA[i] = 0x1a
 		i++
-		i = encodeVarintHttpUri(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(*m.Timeout)))
-		n2, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(*m.Timeout, dAtA[i:])
+		i = encodeVarintHttpUri(dAtA, i, uint64(types.SizeOfStdDuration(*m.Timeout)))
+		n2, err := types.StdDurationMarshalTo(*m.Timeout, dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
@@ -214,7 +213,7 @@ func (m *HttpUri) Size() (n int) {
 		n += m.HttpUpstreamType.Size()
 	}
 	if m.Timeout != nil {
-		l = github_com_gogo_protobuf_types.SizeOfStdDuration(*m.Timeout)
+		l = types.SizeOfStdDuration(*m.Timeout)
 		n += 1 + l + sovHttpUri(uint64(l))
 	}
 	return n
@@ -357,7 +356,7 @@ func (m *HttpUri) Unmarshal(dAtA []byte) error {
 			if m.Timeout == nil {
 				m.Timeout = new(time.Duration)
 			}
-			if err := github_com_gogo_protobuf_types.StdDurationUnmarshal(m.Timeout, dAtA[iNdEx:postIndex]); err != nil {
+			if err := types.StdDurationUnmarshal(m.Timeout, dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex

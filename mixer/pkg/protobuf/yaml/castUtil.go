@@ -14,6 +14,8 @@
 
 package yaml
 
+import "strconv"
+
 // ToFloat type casts input to float64 if it is possible.
 func ToFloat(v interface{}) (float64, bool) {
 	switch c := v.(type) {
@@ -45,6 +47,14 @@ func ToInt64(v interface{}) (int64, bool) {
 		return int64(c), true
 	case int64:
 		return c, true
+	case float64:
+		// json only supports 'number'
+		// therefore even integers are encoded as float
+		ii := int64(c)
+		return ii, float64(ii) == c
+	case string:
+		ii, err := strconv.ParseInt(c, 0, 64)
+		return ii, err == nil
 	default:
 		return 0, false
 	}

@@ -29,7 +29,7 @@ import (
 // to testing code for validation of proper transport using the Mixer API.
 type AttributesHandler interface {
 	// Check will be called once per Mixer API Check() request.
-	Check(attribute.Bag, *attribute.MutableBag) (CheckResponse, rpc.Status)
+	Check(attribute.Bag) mixerpb.CheckResponse_PreconditionResult
 
 	// Quota will be called once per quota (with params) received in a Check()
 	// request.
@@ -44,9 +44,6 @@ type AttributesHandler interface {
 // configured channels (with a timeout).
 type ChannelsHandler struct {
 	AttributesHandler
-
-	// CheckResponseBag is the bag to return as part of the CheckResponse
-	CheckResponseBag *attribute.MutableBag
 
 	// QuotaResponse controls the response returned as part of Quota() calls.
 	QuotaResponse QuotaResponse
@@ -72,7 +69,6 @@ type ChannelsHandler struct {
 // and default values for ReturnStatuses and QuotaResponses.
 func NewChannelsHandler() *ChannelsHandler {
 	return &ChannelsHandler{
-		CheckResponseBag: attribute.GetMutableBag(nil),
 		QuotaResponse:    QuotaResponse{DefaultValidDuration, DefaultAmount, nil},
 		ReturnStatus:     status.OK,
 		CheckAttributes:  make(chan attribute.Bag),
@@ -82,18 +78,19 @@ func NewChannelsHandler() *ChannelsHandler {
 }
 
 // Check implements AttributesHandler interface.
-func (c *ChannelsHandler) Check(req attribute.Bag, resp *attribute.MutableBag) (CheckResponse, rpc.Status) {
+func (c *ChannelsHandler) Check(req attribute.Bag) mixerpb.CheckResponse_PreconditionResult {
 	// avoid blocked go-routines in testing
-	result := CheckResponse{
+	result := mixerpb.CheckResponse_PreconditionResult{
 		ValidDuration: DefaultValidDuration,
 		ValidUseCount: DefaultValidUseCount,
 	}
 	select {
 	case c.CheckAttributes <- attribute.CopyBag(req):
-		return result, c.ReturnStatus
+		result.Status = c.ReturnStatus
 	case <-time.After(1 * time.Second):
-		return result, status.WithDeadlineExceeded("timeout sending to Check channel")
+		result.Status = status.WithDeadlineExceeded("timeout sending to Check channel")
 	}
+	return result
 }
 
 // Quota implements AttributesHandler interface.
@@ -153,19 +150,6 @@ type QuotaResponse struct {
 
 	// The total amount of quota returned, may be less than requested.
 	Amount int64
-
-	// Referenced attributes for client
-	Referenced *mixerpb.ReferencedAttributes
-}
-
-// CheckResponse provides information on the result of a Check operation. It allows testing
-// to target precise check responses.
-type CheckResponse struct {
-	// The amount of time for which this result can be considered valid.
-	ValidDuration time.Duration
-
-	// // The number of uses for which this result can be considered valid.
-	ValidUseCount int32
 
 	// Referenced attributes for client
 	Referenced *mixerpb.ReferencedAttributes

@@ -35,6 +35,12 @@ func TestValidation(t *testing.T) {
 	if err := a.validate(); err == nil {
 		t.Errorf("Got unexpected success")
 	}
+
+	a = DefaultArgs()
+	a.NumCheckCacheEntries = -1
+	if err := a.validate(); err == nil {
+		t.Errorf("Got unexpected success")
+	}
 }
 
 func TestString(t *testing.T) {

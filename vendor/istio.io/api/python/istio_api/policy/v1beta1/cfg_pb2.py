@@ -21,7 +21,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='policy/v1beta1/cfg.proto',
   package='istio.policy.v1beta1',
   syntax='proto3',
-  serialized_pb=_b('\n\x18policy/v1beta1/cfg.proto\x12\x14istio.policy.v1beta1\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fpolicy/v1beta1/value_type.proto\"\xc5\x02\n\x11\x41ttributeManifest\x12\x10\n\x08revision\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12K\n\nattributes\x18\x03 \x03(\x0b\x32\x37.istio.policy.v1beta1.AttributeManifest.AttributesEntry\x1aY\n\rAttributeInfo\x12\x13\n\x0b\x64\x65scription\x18\x01 \x01(\t\x12\x33\n\nvalue_type\x18\x02 \x01(\x0e\x32\x1f.istio.policy.v1beta1.ValueType\x1ah\n\x0f\x41ttributesEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\x44\n\x05value\x18\x02 \x01(\x0b\x32\x35.istio.policy.v1beta1.AttributeManifest.AttributeInfo:\x02\x38\x01\"D\n\x04Rule\x12\r\n\x05match\x18\x01 \x01(\t\x12-\n\x07\x61\x63tions\x18\x02 \x03(\x0b\x32\x1c.istio.policy.v1beta1.Action\",\n\x06\x41\x63tion\x12\x0f\n\x07handler\x18\x02 \x01(\t\x12\x11\n\tinstances\x18\x03 \x03(\t\"S\n\x08Instance\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x10\n\x08template\x18\x02 \x01(\t\x12\'\n\x06params\x18\x03 \x01(\x0b\x32\x17.google.protobuf.Struct\"\x87\x01\n\x07Handler\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0f\n\x07\x61\x64\x61pter\x18\x02 \x01(\t\x12\'\n\x06params\x18\x03 \x01(\x0b\x32\x17.google.protobuf.Struct\x12\x34\n\nconnection\x18\x04 \x01(\x0b\x32 .istio.policy.v1beta1.Connection\"\x1d\n\nConnection\x12\x0f\n\x07\x61\x64\x64ress\x18\x02 \x01(\tB\x1dZ\x1bistio.io/api/policy/v1beta1b\x06proto3')
+  serialized_pb=_b('\n\x18policy/v1beta1/cfg.proto\x12\x14istio.policy.v1beta1\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fpolicy/v1beta1/value_type.proto\"\xc5\x02\n\x11\x41ttributeManifest\x12\x10\n\x08revision\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12K\n\nattributes\x18\x03 \x03(\x0b\x32\x37.istio.policy.v1beta1.AttributeManifest.AttributesEntry\x1aY\n\rAttributeInfo\x12\x13\n\x0b\x64\x65scription\x18\x01 \x01(\t\x12\x33\n\nvalue_type\x18\x02 \x01(\x0e\x32\x1f.istio.policy.v1beta1.ValueType\x1ah\n\x0f\x41ttributesEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\x44\n\x05value\x18\x02 \x01(\x0b\x32\x35.istio.policy.v1beta1.AttributeManifest.AttributeInfo:\x02\x38\x01\"D\n\x04Rule\x12\r\n\x05match\x18\x01 \x01(\t\x12-\n\x07\x61\x63tions\x18\x02 \x03(\x0b\x32\x1c.istio.policy.v1beta1.Action\",\n\x06\x41\x63tion\x12\x0f\n\x07handler\x18\x02 \x01(\t\x12\x11\n\tinstances\x18\x03 \x03(\t\"q\n\x08Instance\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x1c\n\x11\x63ompiled_template\x18\xf4\xed\xa9  \x01(\t\x12\x10\n\x08template\x18\x02 \x01(\t\x12\'\n\x06params\x18\x03 \x01(\x0b\x32\x17.google.protobuf.Struct\"\xa4\x01\n\x07Handler\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x1b\n\x10\x63ompiled_adapter\x18\xf4\xed\xa9  \x01(\t\x12\x0f\n\x07\x61\x64\x61pter\x18\x02 \x01(\t\x12\'\n\x06params\x18\x03 \x01(\x0b\x32\x17.google.protobuf.Struct\x12\x34\n\nconnection\x18\x04 \x01(\x0b\x32 .istio.policy.v1beta1.Connection\"\x1d\n\nConnection\x12\x0f\n\x07\x61\x64\x64ress\x18\x02 \x01(\tB\x1dZ\x1bistio.io/api/policy/v1beta1b\x06proto3')
   ,
   dependencies=[google_dot_protobuf_dot_struct__pb2.DESCRIPTOR,policy_dot_v1beta1_dot_value__type__pb2.DESCRIPTOR,])
 
@@ -238,14 +238,21 @@ _INSTANCE = _descriptor.Descriptor(
       is_extension=False, extension_scope=None,
       options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='template', full_name='istio.policy.v1beta1.Instance.template', index=1,
+      name='compiled_template', full_name='istio.policy.v1beta1.Instance.compiled_template', index=1,
+      number=67794676, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='template', full_name='istio.policy.v1beta1.Instance.template', index=2,
       number=2, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=_b("").decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='params', full_name='istio.policy.v1beta1.Instance.params', index=2,
+      name='params', full_name='istio.policy.v1beta1.Instance.params', index=3,
       number=3, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
@@ -264,7 +271,7 @@ _INSTANCE = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=557,
-  serialized_end=640,
+  serialized_end=670,
 )
 
 
@@ -283,21 +290,28 @@ _HANDLER = _descriptor.Descriptor(
       is_extension=False, extension_scope=None,
       options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='adapter', full_name='istio.policy.v1beta1.Handler.adapter', index=1,
+      name='compiled_adapter', full_name='istio.policy.v1beta1.Handler.compiled_adapter', index=1,
+      number=67794676, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='adapter', full_name='istio.policy.v1beta1.Handler.adapter', index=2,
       number=2, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=_b("").decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='params', full_name='istio.policy.v1beta1.Handler.params', index=2,
+      name='params', full_name='istio.policy.v1beta1.Handler.params', index=3,
       number=3, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='connection', full_name='istio.policy.v1beta1.Handler.connection', index=3,
+      name='connection', full_name='istio.policy.v1beta1.Handler.connection', index=4,
       number=4, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
@@ -315,8 +329,8 @@ _HANDLER = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=643,
-  serialized_end=778,
+  serialized_start=673,
+  serialized_end=837,
 )
 
 
@@ -346,8 +360,8 @@ _CONNECTION = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=780,
-  serialized_end=809,
+  serialized_start=839,
+  serialized_end=868,
 )
 
 _ATTRIBUTEMANIFEST_ATTRIBUTEINFO.fields_by_name['value_type'].enum_type = policy_dot_v1beta1_dot_value__type__pb2._VALUETYPE

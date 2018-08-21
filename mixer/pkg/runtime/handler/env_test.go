@@ -32,7 +32,7 @@ func TestEnv(t *testing.T) {
 		o := log.DefaultOptions()
 		_ = log.Configure(o)
 
-		env := newEnv(0, "Foo", gp)
+		env := NewEnv(0, "Foo", gp)
 		log := env.Logger()
 		log.Infof("Test%s", "ing")
 		log.Warningf("Test%s", "ing")

@@ -17,7 +17,7 @@
 //
 // Usage:
 //
-// First, you need to expose pilot gRPC port:
+// First, you can either manually expose pilot gRPC port or rely on this tool to port-forward pilot by omitting -pilot_url flag:
 //
 // * By port-forward existing pilot:
 // ```bash
@@ -53,14 +53,19 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
+	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	envoy_api_v2_core1 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"google.golang.org/grpc"
+	v1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -71,26 +76,34 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
+const (
+	LocalPortStart = 50000
+	LocalPortEnd   = 60000
+)
+
 // PodInfo holds information to identify pod.
 type PodInfo struct {
 	Name      string
 	Namespace string
 	IP        string
+	ProxyType string
 }
 
-func NewPodInfo(nameOrAppLabel string, kubeconfig string) *PodInfo {
-	log.Infof("Using kube config at %s", kubeconfig)
+func getAllPods(kubeconfig string) (*v1.PodList, error) {
 	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {
-		log.Errorf(err.Error())
-		return nil
+		return nil, err
 	}
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		log.Errorf(err.Error())
-		return nil
+		return nil, err
 	}
-	pods, err := clientset.Core().Pods("").List(meta_v1.ListOptions{})
+	return clientset.Core().Pods("").List(meta_v1.ListOptions{})
+}
+
+func NewPodInfo(nameOrAppLabel string, kubeconfig string, proxyType string) *PodInfo {
+	log.Infof("Using kube config at %s", kubeconfig)
+	pods, err := getAllPods(kubeconfig)
 	if err != nil {
 		log.Errorf(err.Error())
 		return nil
@@ -104,9 +117,19 @@ func NewPodInfo(nameOrAppLabel string, kubeconfig string) *PodInfo {
 				Name:      pod.Name,
 				Namespace: pod.Namespace,
 				IP:        pod.Status.PodIP,
+				ProxyType: proxyType,
 			}
 		}
 		if app, ok := pod.ObjectMeta.Labels["app"]; ok && app == nameOrAppLabel {
+			log.Infof("Found pod %s.%s~%s matching app label %q", pod.Name, pod.Namespace, pod.Status.PodIP, nameOrAppLabel)
+			return &PodInfo{
+				Name:      pod.Name,
+				Namespace: pod.Namespace,
+				IP:        pod.Status.PodIP,
+				ProxyType: proxyType,
+			}
+		}
+		if istio, ok := pod.ObjectMeta.Labels["istio"]; ok && istio == nameOrAppLabel {
 			log.Infof("Found pod %s.%s~%s matching app label %q", pod.Name, pod.Namespace, pod.Status.PodIP, nameOrAppLabel)
 			return &PodInfo{
 				Name:      pod.Name,
@@ -120,6 +143,15 @@ func NewPodInfo(nameOrAppLabel string, kubeconfig string) *PodInfo {
 }
 
 func (p PodInfo) makeNodeID() string {
+	if p.ProxyType != "" {
+		return fmt.Sprintf("%s~%s~%s.%s~%s.svc.cluster.local", p.ProxyType, p.IP, p.Name, p.Namespace, p.Namespace)
+	}
+	if strings.HasPrefix(p.Name, "istio-ingressgateway") || strings.HasPrefix(p.Name, "istio-egressgateway") {
+		return fmt.Sprintf("router~%s~%s.%s~%s.svc.cluster.local", p.IP, p.Name, p.Namespace, p.Namespace)
+	}
+	if strings.HasPrefix(p.Name, "istio-ingress") {
+		return fmt.Sprintf("ingress~%s~%s.%s~%s.svc.cluster.local", p.IP, p.Name, p.Namespace, p.Namespace)
+	}
 	return fmt.Sprintf("sidecar~%s~%s.%s~%s.svc.cluster.local", p.IP, p.Name, p.Namespace, p.Namespace)
 }
 
@@ -146,7 +178,7 @@ func (p PodInfo) makeRequest(configType string) *xdsapi.DiscoveryRequest {
 		TypeUrl: configTypeToTypeURL(configType)}
 }
 
-func (p PodInfo) getResource(pilotURL string, configType string) *xdsapi.DiscoveryResponse {
+func (p PodInfo) getResource(pilotURL, configType string) *xdsapi.DiscoveryResponse {
 	conn, err := grpc.Dial(pilotURL, grpc.WithInsecure())
 	if err != nil {
 		panic(err.Error())
@@ -207,20 +239,82 @@ func resolveKubeConfigPath(kubeConfig string) string {
 	return ret
 }
 
+func portForwardPilot(kubeConfig, pilotURL string) (error, *os.Process, string) {
+	if pilotURL != "" {
+		// No need to port-forward, url is already provided.
+		return nil, nil, pilotURL
+	}
+	log.Info("Pilot url is not provided, try to port-forward pilot pod.")
+
+	podName := ""
+	pods, err := getAllPods(kubeConfig)
+	if err != nil {
+		return err, nil, ""
+	}
+	for _, pod := range pods.Items {
+		if app, ok := pod.ObjectMeta.Labels["istio"]; ok && app == "pilot" {
+			podName = pod.Name
+		}
+	}
+	if podName == "" {
+		return fmt.Errorf("cannot find istio-pilot pod"), nil, ""
+	}
+
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	localPort := r.Intn(LocalPortEnd-LocalPortStart) + LocalPortStart
+	cmd := fmt.Sprintf("kubectl port-forward %s -n istio-system %d:15010", podName, localPort)
+	parts := strings.Split(cmd, " ")
+	c := exec.Command(parts[0], parts[1:]...)
+	err = c.Start()
+	if err != nil {
+		return err, nil, ""
+	}
+	// Make sure istio-pilot is reachable.
+	reachable := false
+	url := fmt.Sprintf("localhost:%d", localPort)
+	for i := 0; i < 10 && !reachable; i++ {
+		conn, err := net.Dial("tcp", url)
+		if err == nil {
+			conn.Close()
+			reachable = true
+		}
+		time.Sleep(1 * time.Second)
+	}
+	if !reachable {
+		return fmt.Errorf("cannot reach local pilot url: %s", url), nil, ""
+	}
+	return nil, c.Process, fmt.Sprintf("localhost:%d", localPort)
+}
+
 func main() {
 	kubeConfig := flag.String("kubeconfig", "~/.kube/config", "path to the kubeconfig file. Default is ~/.kube/config")
-	pilotURL := flag.String("pilot", "localhost:15010", "pilot address")
+	pilotURL := flag.String("pilot", "", "pilot address. Will try port forward if not provided.")
 	configType := flag.String("type", "lds", "lds, cds, or eds. Default lds.")
-	resources := flag.String("res", "", "Resource(s) to get config for. Should be pod name or app label for lds and cds type. For eds, it is comma separated list of cluster name.")
+	proxyType := flag.String("proxytype", "", "sidecar, ingress, router.")
+	resources := flag.String("res", "", "Resource(s) to get config for. Should be pod name or app label or istio label for lds and cds type. For eds, it is comma separated list of cluster name.")
 	outputFile := flag.String("out", "", "output file. Leave blank to go to stdout")
 	flag.Parse()
 
+	err, process, pilot := portForwardPilot(resolveKubeConfigPath(*kubeConfig), *pilotURL)
+	if err != nil {
+		log.Errorf("pilot port forward failed: %v", err)
+		return
+	}
+	defer func() {
+		if process != nil {
+			err := process.Kill()
+			if err != nil {
+				log.Errorf("Failed to kill port-forward process, pid: %d", process.Pid)
+			}
+		}
+	}()
+
 	var resp *xdsapi.DiscoveryResponse
 	if *configType == "lds" || *configType == "cds" {
-		pod := NewPodInfo(*resources, resolveKubeConfigPath(*kubeConfig))
-		resp = pod.getResource(*pilotURL, *configType)
+		pod := NewPodInfo(*resources, resolveKubeConfigPath(*kubeConfig), *proxyType)
+		resp = pod.getResource(pilot, *configType)
 	} else if *configType == "eds" {
-		resp = edsRequest(*pilotURL, makeEDSRequest(*resources))
+		resp = edsRequest(pilot, makeEDSRequest(*resources))
 	} else {
 		log.Errorf("Unknown config type: %q", *configType)
 		os.Exit(1)

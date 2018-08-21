@@ -67,6 +67,7 @@ var logYAxe = {
 }
 
 var chart = {}
+var overlayChart = {}
 var mchart = {}
 
 function myRound (v, digits = 6) {
@@ -188,8 +189,10 @@ function fortioResultToJsChartData (res) {
 }
 
 function showChart (data) {
-  toggleVisibility()
   makeChart(data)
+  // Load configuration (min, max, isLogarithmic, ...) from the update form.
+  updateChartOptions(chart)
+  toggleVisibility()
 }
 
 function toggleVisibility () {
@@ -198,10 +201,104 @@ function toggleVisibility () {
   document.getElementById('update').style.visibility = 'visible'
 }
 
+function makeOverlayChartTitle (titleA, titleB) {
+  // Each string in the array is a separate line
+  return [
+    'A: ' + titleA[0], titleA[1], // Skip 3rd line.
+    '',
+    'B: ' + titleB[0], titleB[1], // Skip 3rd line.
+  ]
+}
+
+function makeOverlayChart (dataA, dataB) {
+  var chartEl = document.getElementById('chart1')
+  chartEl.style.visibility = 'visible'
+  if (Object.keys(overlayChart).length !== 0) {
+    return
+  }
+  deleteSingleChart()
+  deleteMultiChart()
+  var ctx = chartEl.getContext('2d')
+  var title = makeOverlayChartTitle(dataA.title, dataB.title)
+  overlayChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      // "Cumulative %" datasets are listed first so they are drawn on top of the histograms.
+      datasets: [{
+        label: 'A: Cumulative %',
+        data: dataA.dataP,
+        fill: false,
+        yAxisID: 'P',
+        stepped: true,
+        backgroundColor: 'rgba(134, 87, 167, 1)',
+        borderColor: 'rgba(134, 87, 167, 1)',
+        cubicInterpolationMode: 'monotone'
+      }, {
+        label: 'B: Cumulative %',
+        data: dataB.dataP,
+        fill: false,
+        yAxisID: 'P',
+        stepped: true,
+        backgroundColor: 'rgba(204, 102, 0)',
+        borderColor: 'rgba(204, 102, 0)',
+        cubicInterpolationMode: 'monotone'
+      }, {
+        label: 'A: Histogram: Count',
+        data: dataA.dataH,
+        yAxisID: 'H',
+        pointStyle: 'rect',
+        radius: 1,
+        borderColor: 'rgba(87, 167, 134, .9)',
+        backgroundColor: 'rgba(87, 167, 134, .75)',
+        lineTension: 0
+      }, {
+        label: 'B: Histogram: Count',
+        data: dataB.dataH,
+        yAxisID: 'H',
+        pointStyle: 'rect',
+        radius: 1,
+        borderColor: 'rgba(36, 64, 238, .9)',
+        backgroundColor: 'rgba(36, 64, 238, .75)',
+        lineTension: 0
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      title: {
+        display: true,
+        fontStyle: 'normal',
+        text: title
+      },
+      scales: {
+        xAxes: [
+          linearXAxe
+        ],
+        yAxes: [{
+          id: 'P',
+          position: 'right',
+          ticks: {
+            beginAtZero: true,
+            max: 100
+          },
+          scaleLabel: {
+            display: true,
+            labelString: '%'
+          }
+        },
+          linearYAxe
+        ]
+      }
+    }
+  })
+  updateChart(overlayChart)
+}
+
 function makeChart (data) {
   var chartEl = document.getElementById('chart1')
   chartEl.style.visibility = 'visible'
   if (Object.keys(chart).length === 0) {
+    deleteOverlayChart()
     deleteMultiChart()
       // Creation (first or switch) time
     var ctx = chartEl.getContext('2d')
@@ -264,50 +361,98 @@ function makeChart (data) {
     chart.data.datasets[0].data = data.dataP
     chart.data.datasets[1].data = data.dataH
     chart.options.title.text = data.title
-    updateChart()
+    updateChart(chart)
   }
 }
 
-function setChartOptions () {
+function getUpdateForm () {
   var form = document.getElementById('updtForm')
-  var formMin = form.xmin.value.trim()
-  var formMax = form.xmax.value.trim()
-  var scales = chart.config.options.scales
-  var newXAxis
-  var newXMin = parseFloat(formMin)
-  if (form.xlog.checked) {
-    newXAxis = logXAxe
+  var xMin = form.xmin.value.trim()
+  var xMax = form.xmax.value.trim()
+  var xIsLogarithmic = form.xlog.checked
+  var yIsLogarithmic = form.ylog.checked
+  return { xMin, xMax, xIsLogarithmic, yIsLogarithmic }
+}
+
+function getSelectedResults () {
+  // Undefined if on "graph-only" page
+  var select = document.getElementById('files')
+  var selectedResults
+  if (select) {
+    var selectedOptions = select.selectedOptions
+    selectedResults = []
+    for (var option of selectedOptions) {
+      selectedResults.push(option.text)
+    }
   } else {
-    newXAxis = linearXAxe
+    selectedResults = undefined
   }
-  if (form.ylog.checked) {
-    chart.config.options.scales = {
-      xAxes: [newXAxis],
-      yAxes: [scales.yAxes[0], logYAxe]
+  return selectedResults
+}
+
+function updateQueryString () {
+  var location = document.location
+  var params = new URLSearchParams(location.search)
+  var form = getUpdateForm()
+  params.set('xMin', form.xMin)
+  params.set('xMax', form.xMax)
+  params.set('xLog', form.xIsLogarithmic)
+  params.set('yLog', form.yIsLogarithmic)
+  var selectedResults = getSelectedResults()
+  params.delete('sel')
+  if (selectedResults) {
+    for (var result of selectedResults) {
+      params.append('sel', result)
     }
-  } else {
-    chart.config.options.scales = {
-      xAxes: [newXAxis],
-      yAxes: [scales.yAxes[0], linearYAxe]
-    }
+  }
+  window.history.replaceState({}, '', `${location.pathname}?${params}`)
+}
+
+function updateChartOptions (chart) {
+  var form = getUpdateForm()
+  var scales = chart.config.options.scales
+  var newXMin = parseFloat(form.xMin)
+  var newXAxis = form.xIsLogarithmic ? logXAxe : linearXAxe
+  var newYAxis = form.yIsLogarithmic ? logYAxe : linearYAxe
+  chart.config.options.scales = {
+    xAxes: [newXAxis],
+    yAxes: [scales.yAxes[0], newYAxis]
   }
   chart.update() // needed for scales.xAxes[0] to exist
   var newNewXAxis = chart.config.options.scales.xAxes[0]
-  if (formMin !== '') {
-    newNewXAxis.ticks.min = newXMin
-  } else {
-    delete newNewXAxis.ticks.min
-  }
-  if (formMax !== '' && formMax !== 'max') {
-    newNewXAxis.ticks.max = parseFloat(formMax)
-  } else {
-    delete newNewXAxis.ticks.max
-  }
+  newNewXAxis.ticks.min = form.xMin === '' ? undefined : newXMin
+  var formXMax = form.xMax
+  newNewXAxis.ticks.max = formXMax === '' || formXMax === 'max' ?
+      undefined :
+      parseFloat(formXMax)
+  chart.update()
 }
 
-function updateChart () {
-  setChartOptions()
-  chart.update()
+function objHasProps (obj) {
+  return Object.keys(obj).length > 0
+}
+
+function getCurrentChart () {
+  var currentChart
+  if (objHasProps(chart)) {
+    currentChart = chart
+  } else if (objHasProps(overlayChart)) {
+    currentChart = overlayChart
+  } else if (objHasProps(mchart)) {
+    currentChart = mchart
+  } else {
+    currentChart = undefined
+  }
+  return currentChart
+}
+
+var timeoutID = 0
+function updateChart (chart = getCurrentChart()) {
+  updateChartOptions(chart)
+  if (timeoutID > 0) {
+    clearTimeout(timeoutID)
+  }
+  timeoutID = setTimeout("updateQueryString()", 750)
 }
 
 function multiLabel (res) {
@@ -346,6 +491,7 @@ function fortioAddToMultiResult (i, res) {
   findData(5, i, res, '99')
   findData(6, i, res, '99.9')
   mchart.data.datasets[7].data[i] = 1000.0 * res.DurationHistogram.Max
+  mchart.data.datasets[8].data[i] = res.ActualQPS
 }
 
 function endMultiChart (len) {
@@ -354,6 +500,14 @@ function endMultiChart (len) {
     mchart.data.datasets[i].data = mchart.data.datasets[i].data.slice(0, len)
   }
   mchart.update()
+}
+
+function deleteOverlayChart () {
+  if (Object.keys(overlayChart).length === 0) {
+    return
+  }
+  overlayChart.destroy()
+  overlayChart = {}
 }
 
 function deleteMultiChart () {
@@ -372,7 +526,7 @@ function deleteSingleChart () {
   chart = {}
 }
 
-function makeMultiChart (data) {
+function makeMultiChart () {
   document.getElementById('running').style.display = 'none'
   document.getElementById('update').style.visibility = 'hidden'
   var chartEl = document.getElementById('chart1')
@@ -381,6 +535,7 @@ function makeMultiChart (data) {
     return
   }
   deleteSingleChart()
+  deleteOverlayChart()
   var ctx = chartEl.getContext('2d')
   mchart = new Chart(ctx, {
     type: 'line',
@@ -443,6 +598,14 @@ function makeMultiChart (data) {
           stepped: true,
           borderColor: 'hsla(0, 100%, 40%, .8)',
           backgroundColor: 'hsla(0, 100%, 40%, .8)'
+        },
+        {
+          label: 'QPS',
+          yAxisID: 'qps',
+          fill: false,
+          stepped: true,
+          borderColor: 'rgba(0, 0, 0, .8)',
+          backgroundColor: 'rgba(0, 0, 0, .8)'
         }
       ]
     },
@@ -469,11 +632,32 @@ function makeMultiChart (data) {
             display: true,
             labelString: 'ms'
           }
-        }
-        ]
+        }, {
+          id: 'qps',
+          position: 'right',
+          ticks: {
+            beginAtZero: true
+          },
+          scaleLabel: {
+            display: true,
+            labelString: 'QPS'
+          }
+        }]
       }
     }
   })
+  // Hide QPS axis on clicking QPS dataset.
+  mchart.options.legend.onClick = (event, legendItem) => {
+    // Toggle dataset hidden (default behavior).
+    var dataset = mchart.data.datasets[legendItem.datasetIndex]
+    dataset.hidden = !dataset.hidden
+    if (dataset.label === 'QPS') {
+      // Toggle QPS y-axis.
+      var qpsYAxis = mchart.options.scales.yAxes[1]
+      qpsYAxis.display = !qpsYAxis.display
+    }
+    mchart.update()
+  }
 }
 
 function runTestForDuration (durationInSeconds) {

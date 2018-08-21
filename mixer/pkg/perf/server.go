@@ -87,8 +87,6 @@ func initializeArgs(settings *Settings, setup *Setup) (*testEnv.Args, error) {
 	args.Adapters = adapters
 	args.ConfigStoreURL = `fs://` + serverDir
 	args.ConfigDefaultNamespace = "istio-system"
-	args.ConfigIdentityAttribute = setup.Config.IdentityAttribute
-	args.ConfigIdentityAttributeDomain = setup.Config.IdentityAttributeDomain
 	args.SingleThreaded = setup.Config.SingleThreaded
 
 	if setup.Config.EnableDebugLog {
@@ -97,14 +95,18 @@ func initializeArgs(settings *Settings, setup *Setup) (*testEnv.Args, error) {
 
 		o := log.DefaultOptions()
 		o.SetOutputLevel(log.DefaultScopeName, log.DebugLevel)
+		o.SetOutputLevel("adapters", log.DebugLevel)
 		args.LoggingOptions = o
 	}
 
 	if !setup.Config.EnableLog {
 		o := log.DefaultOptions()
 		o.SetOutputLevel(log.DefaultScopeName, log.NoneLevel)
+		o.SetOutputLevel("adapters", log.NoneLevel)
 		args.LoggingOptions = o
 	}
+
+	args.LoggingOptions.LogGrpc = false // prevent race in grpclog.SetLogger
 
 	return args, nil
 }

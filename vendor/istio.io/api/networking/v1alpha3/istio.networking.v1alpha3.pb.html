@@ -1,11 +1,15 @@
 ---
-title: Route Rules v1alpha3
-overview: Configuration affecting traffic routing
+title: Traffic Routing
+description: Configuration affecting traffic routing
 location: https://istio.io/docs/reference/config/istio.networking.v1alpha3.html
 layout: protoc-gen-docs
-number_of_entries: 39
+generator: protoc-gen-docs
+aliases:
+  - /docs/reference/config/istio.routing.v1alpha1/
+number_of_entries: 49
 ---
-<h3 id="terms-and-definitions">Terms and Definitions</h3>
+<p>Configuration affecting traffic routing. Here are a few terms useful to define
+in the context of traffic routing.</p>
 
 <p><code>Service</code> a unit of application behavior bound to a unique name in a
 service registry. Services consist of multiple network <em>endpoints</em>
@@ -44,7 +48,7 @@ level as well as at HTTP level.</p>
 <p>For example, the following rule sets a limit of 100 connections to redis
 service called myredissrv with a connect timeout of 30ms</p>
 
-<pre><code>apiVersion: networking.istio.io/v1alpha3
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: bookinfo-redis
@@ -66,17 +70,17 @@ spec:
 </tr>
 </thead>
 <tbody>
-<tr id="ConnectionPoolSettings.tcp">
+<tr id="ConnectionPoolSettings-tcp">
 <td><code>tcp</code></td>
-<td><code><a href="#ConnectionPoolSettings.TCPSettings">ConnectionPoolSettings.TCPSettings</a></code></td>
+<td><code><a href="#ConnectionPoolSettings-TCPSettings">ConnectionPoolSettings.TCPSettings</a></code></td>
 <td>
 <p>Settings common to both HTTP and TCP upstream connections.</p>
 
 </td>
 </tr>
-<tr id="ConnectionPoolSettings.http">
+<tr id="ConnectionPoolSettings-http">
 <td><code>http</code></td>
-<td><code><a href="#ConnectionPoolSettings.HTTPSettings">ConnectionPoolSettings.HTTPSettings</a></code></td>
+<td><code><a href="#ConnectionPoolSettings-HTTPSettings">ConnectionPoolSettings.HTTPSettings</a></code></td>
 <td>
 <p>HTTP connection pool settings.</p>
 
@@ -85,7 +89,7 @@ spec:
 </tbody>
 </table>
 </section>
-<h2 id="ConnectionPoolSettings.HTTPSettings">ConnectionPoolSettings.HTTPSettings</h2>
+<h2 id="ConnectionPoolSettings-HTTPSettings">ConnectionPoolSettings.HTTPSettings</h2>
 <section>
 <p>Settings applicable to HTTP1.1/HTTP2/GRPC connections.</p>
 
@@ -98,7 +102,7 @@ spec:
 </tr>
 </thead>
 <tbody>
-<tr id="ConnectionPoolSettings.HTTPSettings.http1_max_pending_requests">
+<tr id="ConnectionPoolSettings-HTTPSettings-http1_max_pending_requests">
 <td><code>http1MaxPendingRequests</code></td>
 <td><code>int32</code></td>
 <td>
@@ -106,7 +110,7 @@ spec:
 
 </td>
 </tr>
-<tr id="ConnectionPoolSettings.HTTPSettings.http2_max_requests">
+<tr id="ConnectionPoolSettings-HTTPSettings-http2_max_requests">
 <td><code>http2MaxRequests</code></td>
 <td><code>int32</code></td>
 <td>
@@ -114,7 +118,7 @@ spec:
 
 </td>
 </tr>
-<tr id="ConnectionPoolSettings.HTTPSettings.max_requests_per_connection">
+<tr id="ConnectionPoolSettings-HTTPSettings-max_requests_per_connection">
 <td><code>maxRequestsPerConnection</code></td>
 <td><code>int32</code></td>
 <td>
@@ -123,7 +127,7 @@ parameter to 1 disables keep alive.</p>
 
 </td>
 </tr>
-<tr id="ConnectionPoolSettings.HTTPSettings.max_retries">
+<tr id="ConnectionPoolSettings-HTTPSettings-max_retries">
 <td><code>maxRetries</code></td>
 <td><code>int32</code></td>
 <td>
@@ -135,7 +139,7 @@ cluster at a given time. Defaults to 3.</p>
 </tbody>
 </table>
 </section>
-<h2 id="ConnectionPoolSettings.TCPSettings">ConnectionPoolSettings.TCPSettings</h2>
+<h2 id="ConnectionPoolSettings-TCPSettings">ConnectionPoolSettings.TCPSettings</h2>
 <section>
 <p>Settings common to both HTTP and TCP upstream connections.</p>
 
@@ -148,7 +152,7 @@ cluster at a given time. Defaults to 3.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="ConnectionPoolSettings.TCPSettings.max_connections">
+<tr id="ConnectionPoolSettings-TCPSettings-max_connections">
 <td><code>maxConnections</code></td>
 <td><code>int32</code></td>
 <td>
@@ -156,7 +160,7 @@ cluster at a given time. Defaults to 3.</p>
 
 </td>
 </tr>
-<tr id="ConnectionPoolSettings.TCPSettings.connect_timeout">
+<tr id="ConnectionPoolSettings-TCPSettings-connect_timeout">
 <td><code>connectTimeout</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
@@ -178,7 +182,7 @@ from example.com domain using HTTP POST/GET, and sets the
 Access-Control-Allow-Credentials header to false. In addition, it only
 exposes X-Foo-bar header and sets an expiry period of 1 day.</p>
 
-<pre><code>apiVersion: networking.istio.io/v1alpha3
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: ratings-route
@@ -211,7 +215,7 @@ spec:
 </tr>
 </thead>
 <tbody>
-<tr id="CorsPolicy.allow_origin">
+<tr id="CorsPolicy-allow_origin">
 <td><code>allowOrigin</code></td>
 <td><code>string[]</code></td>
 <td>
@@ -221,7 +225,7 @@ header. Wildcard * will allow all origins.</p>
 
 </td>
 </tr>
-<tr id="CorsPolicy.allow_methods">
+<tr id="CorsPolicy-allow_methods">
 <td><code>allowMethods</code></td>
 <td><code>string[]</code></td>
 <td>
@@ -230,7 +234,7 @@ be serialized into the Access-Control-Allow-Methods header.</p>
 
 </td>
 </tr>
-<tr id="CorsPolicy.allow_headers">
+<tr id="CorsPolicy-allow_headers">
 <td><code>allowHeaders</code></td>
 <td><code>string[]</code></td>
 <td>
@@ -239,7 +243,7 @@ resource. Serialized to Access-Control-Allow-Methods header.</p>
 
 </td>
 </tr>
-<tr id="CorsPolicy.expose_headers">
+<tr id="CorsPolicy-expose_headers">
 <td><code>exposeHeaders</code></td>
 <td><code>string[]</code></td>
 <td>
@@ -248,7 +252,7 @@ access. Serialized into Access-Control-Expose-Headers header.</p>
 
 </td>
 </tr>
-<tr id="CorsPolicy.max_age">
+<tr id="CorsPolicy-max_age">
 <td><code>maxAge</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
@@ -257,7 +261,7 @@ cached. Translates to the Access-Control-Max-Age header.</p>
 
 </td>
 </tr>
-<tr id="CorsPolicy.allow_credentials">
+<tr id="CorsPolicy-allow_credentials">
 <td><code>allowCredentials</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
 <td>
@@ -293,7 +297,7 @@ domain names over short names.</em></p>
 of the reviews service with label &ldquo;version: v1&rdquo; (i.e., subset v1), and
 some to subset v2, in a kubernetes environment.</p>
 
-<pre><code>apiVersion: networking.istio.io/v1alpha3
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: reviews-route
@@ -321,7 +325,7 @@ spec:
 
 <p>And the associated DestinationRule</p>
 
-<pre><code>apiVersion: networking.istio.io/v1alpha3
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: reviews-destination
@@ -347,7 +351,7 @@ qualified domain name of the productpage service,
 productpage.prod.svc.cluster.local. Therefore the rule&rsquo;s namespace does
 not have an impact in resolving the name of the productpage service.</p>
 
-<pre><code>apiVersion: networking.istio.io/v1alpha3
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: my-productpage-rule
@@ -368,7 +372,7 @@ ServiceEntry resource. VirtualServices can then be defined to control traffic
 bound to these external services. For example, the following rules define a
 Service for wikipedia.org and set a timeout of 5s for http requests.</p>
 
-<pre><code>apiVersion: networking.istio.io/v1alpha3
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
   name: external-svc-wikipedia
@@ -405,7 +409,7 @@ spec:
 </tr>
 </thead>
 <tbody>
-<tr id="Destination.host">
+<tr id="Destination-host">
 <td><code>host</code></td>
 <td><code>string</code></td>
 <td>
@@ -426,7 +430,7 @@ qualified domain names over short names.</em></p>
 
 </td>
 </tr>
-<tr id="Destination.subset">
+<tr id="Destination-subset">
 <td><code>subset</code></td>
 <td><code>string</code></td>
 <td>
@@ -436,19 +440,13 @@ DestinationRule.</p>
 
 </td>
 </tr>
-<tr id="Destination.port">
+<tr id="Destination-port">
 <td><code>port</code></td>
 <td><code><a href="#PortSelector">PortSelector</a></code></td>
 <td>
-<p>Specifies the port on the host that is being addressed. Many services
-only expose a single port or label ports with the protocols they support,
-in these cases it is not required to explicitly select the port. Note that
-selection priority is to first match by name and then match by number.</p>
-
-<p>Names must comply with DNS label syntax (rfc1035) and therefore cannot
-collide with numbers. If there are multiple ports on a service with
-the same protocol the names should be of the form <protocol-name>-<DNS
-label>.</p>
+<p>Specifies the port on the host that is being addressed. If a service
+exposes only a single port it is not required to explicitly select the
+port.</p>
 
 </td>
 </tr>
@@ -464,7 +462,7 @@ detection settings to detect and evict unhealthy hosts from the load
 balancing pool. For example, a simple load balancing policy for the
 ratings service would look as follows:</p>
 
-<pre><code>apiVersion: networking.istio.io/v1alpha3
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: bookinfo-ratings
@@ -481,7 +479,7 @@ following rule uses a round robin load balancing policy for all traffic
 going to a subset named testversion that is composed of endpoints (e.g.,
 pods) with labels (version:v3).</p>
 
-<pre><code>apiVersion: networking.istio.io/v1alpha3
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: bookinfo-ratings
@@ -507,7 +505,7 @@ following rule uses the least connection load balancing policy for all
 traffic to port 80, while uses a round robin load balancing setting for
 traffic to the port 9080.</p>
 
-<pre><code>apiVersion: networking.istio.io/v1alpha3
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: bookinfo-ratings-port
@@ -534,7 +532,7 @@ spec:
 </tr>
 </thead>
 <tbody>
-<tr id="DestinationRule.host">
+<tr id="DestinationRule-host">
 <td><code>host</code></td>
 <td><code>string</code></td>
 <td>
@@ -557,7 +555,7 @@ qualified domain names over short names.</em></p>
 
 </td>
 </tr>
-<tr id="DestinationRule.traffic_policy">
+<tr id="DestinationRule-traffic_policy">
 <td><code>trafficPolicy</code></td>
 <td><code><a href="#TrafficPolicy">TrafficPolicy</a></code></td>
 <td>
@@ -566,7 +564,7 @@ sizes, outlier detection).</p>
 
 </td>
 </tr>
-<tr id="DestinationRule.subsets">
+<tr id="DestinationRule-subsets">
 <td><code>subsets</code></td>
 <td><code><a href="#Subset">Subset[]</a></code></td>
 <td>
@@ -587,7 +585,7 @@ following rule will route 25% of traffic for the &ldquo;reviews&rdquo; service t
 instances with the &ldquo;v2&rdquo; tag and the remaining traffic (i.e., 75%) to
 &ldquo;v1&rdquo;.</p>
 
-<pre><code>apiVersion: networking.istio.io/v1alpha3
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: reviews-route
@@ -608,7 +606,7 @@ spec:
 
 <p>And the associated DestinationRule</p>
 
-<pre><code>apiVersion: networking.istio.io/v1alpha3
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: reviews-destination
@@ -627,7 +625,7 @@ spec:
 having to define new subsets. For example, the following rule forwards 25% of
 traffic to reviews.com to dev.reviews.com</p>
 
-<pre><code>apiVersion: networking.istio.io/v1alpha3
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: reviews-route-two-domains
@@ -653,7 +651,7 @@ spec:
 </tr>
 </thead>
 <tbody>
-<tr id="DestinationWeight.destination">
+<tr id="DestinationWeight-destination">
 <td><code>destination</code></td>
 <td><code><a href="#Destination">Destination</a></code></td>
 <td>
@@ -662,7 +660,7 @@ to which the request/connection should be forwarded to.</p>
 
 </td>
 </tr>
-<tr id="DestinationWeight.weight">
+<tr id="DestinationWeight-weight">
 <td><code>weight</code></td>
 <td><code>int32</code></td>
 <td>
@@ -670,6 +668,398 @@ to which the request/connection should be forwarded to.</p>
 version. (0-100). Sum of weights across destinations SHOULD BE == 100.
 If there is only destination in a rule, the weight value is assumed to
 be 100.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="EnvoyFilter">EnvoyFilter</h2>
+<section>
+<p><code>EnvoyFilter</code> describes Envoy proxy-specific filters that can be used to
+customize the Envoy proxy configuration generated by Istio networking
+subsystem (Pilot). This feature must be used with care, as incorrect
+configurations could potentially destabilize the entire mesh.</p>
+
+<p>NOTE 1: Since this is break glass configuration, there will not be any
+backward compatibility across different Istio releases. In other words,
+this configuration is subject to change based on internal implementation
+of Istio networking subsystem.</p>
+
+<p>NOTE 2: When multiple EnvoyFilters are bound to the same workload, all filter
+configurations will be processed sequentially in order of creation time.
+The behavior is undefined if multiple EnvoyFilter configurations conflict
+with each other.</p>
+
+<p>The following example for Kubernetes enables Envoy&rsquo;s Lua filter for all
+inbound calls arriving at service port 8080 of the reviews service pod with
+labels &ldquo;app: reviews&rdquo;.</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: reviews-lua
+spec:
+  workloadLabels:
+    app: reviews
+  filters:
+  - listenerMatch:
+      portNumber: 8080
+      listenerType: SIDECAR_INBOUND #will match with the inbound listener for reviews:8080
+    filterName: envoy.lua
+    filterType: HTTP
+    filterConfig:
+      inlineCode: |
+        ... lua code ...
+</code></pre>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="EnvoyFilter-workload_labels">
+<td><code>workloadLabels</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+<p>One or more labels that indicate a specific set of pods/VMs whose
+proxies should be configured to use these additional filters.  The
+scope of label search is platform dependent. On Kubernetes, for
+example, the scope includes pods running in all reachable
+namespaces. Omitting the selector applies the filter to all proxies in
+the mesh.
+NOTE: There can be only one EnvoyFilter bound to a specific workload.
+The behavior is undefined if multiple EnvoyFilter configurations are
+specified for the same workload.</p>
+
+</td>
+</tr>
+<tr id="EnvoyFilter-filters">
+<td><code>filters</code></td>
+<td><code><a href="#EnvoyFilter-Filter">EnvoyFilter.Filter[]</a></code></td>
+<td>
+<p>REQUIRED: Envoy network filters/http filters to be added to matching
+listeners.  When adding network filters to http connections, care
+should be taken to ensure that the filter is added before
+envoy.http<em>connection</em>manager.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="EnvoyFilter-Filter">EnvoyFilter.Filter</h2>
+<section>
+<p>Envoy filters to be added to a network or http filter chain.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="EnvoyFilter-Filter-listener_match">
+<td><code>listenerMatch</code></td>
+<td><code><a href="#EnvoyFilter-ListenerMatch">EnvoyFilter.ListenerMatch</a></code></td>
+<td>
+<p>Filter will be added to the listener only if the match conditions are true.
+If not specified, the filters will be applied to all listeners.</p>
+
+</td>
+</tr>
+<tr id="EnvoyFilter-Filter-insert_position">
+<td><code>insertPosition</code></td>
+<td><code><a href="#EnvoyFilter-InsertPosition">EnvoyFilter.InsertPosition</a></code></td>
+<td>
+<p>Insert position in the filter chain. Defaults to FIRST</p>
+
+</td>
+</tr>
+<tr id="EnvoyFilter-Filter-filter_type">
+<td><code>filterType</code></td>
+<td><code><a href="#EnvoyFilter-Filter-FilterType">EnvoyFilter.Filter.FilterType</a></code></td>
+<td>
+<p>REQUIRED: The type of filter to instantiate.</p>
+
+</td>
+</tr>
+<tr id="EnvoyFilter-Filter-filter_name">
+<td><code>filterName</code></td>
+<td><code>string</code></td>
+<td>
+<p>REQUIRED: The name of the filter to instantiate. The name must match a supported
+filter <em>compiled into</em> Envoy.</p>
+
+</td>
+</tr>
+<tr id="EnvoyFilter-Filter-filter_config">
+<td><code>filterConfig</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#struct">google.protobuf.Struct</a></code></td>
+<td>
+<p>REQUIRED: Filter specific configuration which depends on the filter being
+instantiated.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="EnvoyFilter-Filter-FilterType">EnvoyFilter.Filter.FilterType</h2>
+<section>
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="EnvoyFilter-Filter-FilterType-INVALID">
+<td><code>INVALID</code></td>
+<td>
+<p>placeholder</p>
+
+</td>
+</tr>
+<tr id="EnvoyFilter-Filter-FilterType-HTTP">
+<td><code>HTTP</code></td>
+<td>
+<p>Http filter</p>
+
+</td>
+</tr>
+<tr id="EnvoyFilter-Filter-FilterType-NETWORK">
+<td><code>NETWORK</code></td>
+<td>
+<p>Network filter</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="EnvoyFilter-InsertPosition">EnvoyFilter.InsertPosition</h2>
+<section>
+<p>Indicates the relative index in the filter chain where the filter should be inserted.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="EnvoyFilter-InsertPosition-index">
+<td><code>index</code></td>
+<td><code><a href="#EnvoyFilter-InsertPosition-Index">EnvoyFilter.InsertPosition.Index</a></code></td>
+<td>
+<p>Position of this filter in the filter chain.</p>
+
+</td>
+</tr>
+<tr id="EnvoyFilter-InsertPosition-relative_to">
+<td><code>relativeTo</code></td>
+<td><code>string</code></td>
+<td>
+<p>If BEFORE or AFTER position is specified, specify the name of the
+filter relative to which this filter should be inserted.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="EnvoyFilter-InsertPosition-Index">EnvoyFilter.InsertPosition.Index</h2>
+<section>
+<p>Index/position in the filter chain.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="EnvoyFilter-InsertPosition-Index-FIRST">
+<td><code>FIRST</code></td>
+<td>
+<p>Insert first</p>
+
+</td>
+</tr>
+<tr id="EnvoyFilter-InsertPosition-Index-LAST">
+<td><code>LAST</code></td>
+<td>
+<p>Insert last</p>
+
+</td>
+</tr>
+<tr id="EnvoyFilter-InsertPosition-Index-BEFORE">
+<td><code>BEFORE</code></td>
+<td>
+<p>Insert before the named filter.</p>
+
+</td>
+</tr>
+<tr id="EnvoyFilter-InsertPosition-Index-AFTER">
+<td><code>AFTER</code></td>
+<td>
+<p>Insert after the named filter.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="EnvoyFilter-ListenerMatch">EnvoyFilter.ListenerMatch</h2>
+<section>
+<p>Select a listener to add the filter to based on the match conditions.
+All conditions specified in the ListenerMatch must be met for the filter
+to be applied to a listener.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="EnvoyFilter-ListenerMatch-port_number">
+<td><code>portNumber</code></td>
+<td><code>uint32</code></td>
+<td>
+<p>The service port/gateway port to which traffic is being
+sent/received. If not specified, matches all listeners. Even though
+inbound listeners are generated for the instance/pod ports, only
+service ports should be used to match listeners.</p>
+
+</td>
+</tr>
+<tr id="EnvoyFilter-ListenerMatch-port_name_prefix">
+<td><code>portNamePrefix</code></td>
+<td><code>string</code></td>
+<td>
+<p>Instead of using specific port numbers, a set of ports matching a
+given port name prefix can be selected. E.g., &ldquo;mongo&rdquo; selects ports
+named mongo-port, mongo, mongoDB, MONGO, etc. Matching is case
+insensitive.</p>
+
+</td>
+</tr>
+<tr id="EnvoyFilter-ListenerMatch-listener_type">
+<td><code>listenerType</code></td>
+<td><code><a href="#EnvoyFilter-ListenerMatch-ListenerType">EnvoyFilter.ListenerMatch.ListenerType</a></code></td>
+<td>
+<p>Inbound vs outbound sidecar listener or gateway listener. If not specified,
+matches all listeners.</p>
+
+</td>
+</tr>
+<tr id="EnvoyFilter-ListenerMatch-listener_protocol">
+<td><code>listenerProtocol</code></td>
+<td><code><a href="#EnvoyFilter-ListenerMatch-ListenerProtocol">EnvoyFilter.ListenerMatch.ListenerProtocol</a></code></td>
+<td>
+<p>Selects a class of listeners for the same protocol. If not
+specified, applies to listeners on all protocols. Use the protocol
+selection to select all HTTP listeners (includes HTTP2/gRPC/HTTPS
+where Envoy terminates TLS) or all TCP listeners (includes HTTPS
+passthrough using SNI).</p>
+
+</td>
+</tr>
+<tr id="EnvoyFilter-ListenerMatch-address">
+<td><code>address</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>One or more IP addresses to which the listener is bound. If
+specified, should match at least one address in the list.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="EnvoyFilter-ListenerMatch-ListenerProtocol">EnvoyFilter.ListenerMatch.ListenerProtocol</h2>
+<section>
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="EnvoyFilter-ListenerMatch-ListenerProtocol-ALL">
+<td><code>ALL</code></td>
+<td>
+<p>All protocols</p>
+
+</td>
+</tr>
+<tr id="EnvoyFilter-ListenerMatch-ListenerProtocol-HTTP">
+<td><code>HTTP</code></td>
+<td>
+<p>HTTP or HTTPS (with termination) / HTTP2/gRPC</p>
+
+</td>
+</tr>
+<tr id="EnvoyFilter-ListenerMatch-ListenerProtocol-TCP">
+<td><code>TCP</code></td>
+<td>
+<p>Any non-HTTP listener</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="EnvoyFilter-ListenerMatch-ListenerType">EnvoyFilter.ListenerMatch.ListenerType</h2>
+<section>
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="EnvoyFilter-ListenerMatch-ListenerType-ANY">
+<td><code>ANY</code></td>
+<td>
+<p>All listeners</p>
+
+</td>
+</tr>
+<tr id="EnvoyFilter-ListenerMatch-ListenerType-SIDECAR_INBOUND">
+<td><code>SIDECAR_INBOUND</code></td>
+<td>
+<p>Inbound listener in sidecar</p>
+
+</td>
+</tr>
+<tr id="EnvoyFilter-ListenerMatch-ListenerType-SIDECAR_OUTBOUND">
+<td><code>SIDECAR_OUTBOUND</code></td>
+<td>
+<p>Outbound listener in sidecar</p>
+
+</td>
+</tr>
+<tr id="EnvoyFilter-ListenerMatch-ListenerType-GATEWAY">
+<td><code>GATEWAY</code></td>
+<td>
+<p>Gateway listener</p>
 
 </td>
 </tr>
@@ -691,7 +1081,7 @@ will configure the proxy to listen on these ports, it is the
 responsibility of the user to ensure that external traffic to these
 ports are allowed into the mesh.</p>
 
-<pre><code>apiVersion: networking.istio.io/v1alpha3
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   name: my-gateway
@@ -707,7 +1097,7 @@ spec:
     - uk.bookinfo.com
     - eu.bookinfo.com
     tls:
-      httpsRedirect: true # sends 302 redirect for http requests
+      httpsRedirect: true # sends 301 redirect for http requests
   - port:
       number: 443
       name: https
@@ -744,11 +1134,11 @@ the forwarding of traffic arriving at a particular host or gateway port.</p>
 an internal reviews service on port 9080. In addition, requests
 containing the cookie &ldquo;user: dev-123&rdquo; will be sent to special port 7777
 in the qa version. The same rule is also applicable inside the mesh for
-requests to the r&rdquo;eviews.prod.svc.cluster.local&rdquo; service. This rule is
+requests to the &ldquo;reviews.prod.svc.cluster.local&rdquo; service. This rule is
 applicable across ports 443, 9080. Note that &ldquo;http://uk.bookinfo.com&rdquo;
 gets redirected to &ldquo;https://uk.bookinfo.com&rdquo; (i.e. 80 redirects to 443).</p>
 
-<pre><code>apiVersion: networking.istio.io/v1alpha3
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: bookinfo-rule
@@ -769,7 +1159,7 @@ spec:
     - destination:
         port:
           number: 7777
-        name: reviews.qa.svc.cluster.local
+        host: reviews.qa.svc.cluster.local
   - match:
       uri:
         prefix: /reviews/
@@ -777,19 +1167,19 @@ spec:
     - destination:
         port:
           number: 9080 # can be omitted if its the only port for reviews
-        name: reviews.prod.svc.cluster.local
+        host: reviews.prod.svc.cluster.local
       weight: 80
     - destination:
-        name: reviews.qa.svc.cluster.local
+        host: reviews.qa.svc.cluster.local
       weight: 20
 </code></pre>
 
 <p>The following VirtualService forwards traffic arriving at (external)
-port 27017 from &ldquo;172.17.16.0/24&rdquo; subnet to internal Mongo server on port
-5555. This rule is not applicable internally in the mesh as the gateway
-list omits the reserved name <code>mesh</code>.</p>
+port 27017 to internal Mongo server on port 5555. This rule is not
+applicable internally in the mesh as the gateway list omits the
+reserved name <code>mesh</code>.</p>
 
-<pre><code>apiVersion: networking.istio.io/v1alpha3
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: bookinfo-Mongo
@@ -800,12 +1190,12 @@ spec:
   - my-gateway
   tcp:
   - match:
-    - port:
-        number: 27017
-      sourceSubnet: &quot;172.17.16.0/24&quot;
+    - port: 27017
     route:
     - destination:
-        name: mongo.prod.svc.cluster.local
+        host: mongo.prod.svc.cluster.local
+        port:
+          number: 5555
 </code></pre>
 
 <table class="message-fields">
@@ -817,7 +1207,7 @@ spec:
 </tr>
 </thead>
 <tbody>
-<tr id="Gateway.servers">
+<tr id="Gateway-servers">
 <td><code>servers</code></td>
 <td><code><a href="#Server">Server[]</a></code></td>
 <td>
@@ -825,11 +1215,11 @@ spec:
 
 </td>
 </tr>
-<tr id="Gateway.selector">
+<tr id="Gateway-selector">
 <td><code>selector</code></td>
 <td><code>map&lt;string,&nbsp;string&gt;</code></td>
 <td>
-<p>One or more labels that indicate a specific set of pods/VMs
+<p>REQUIRED: One or more labels that indicate a specific set of pods/VMs
 on which this gateway configuration should be applied.
 The scope of label search is platform dependent.
 On Kubernetes, for example, the scope includes pods running in
@@ -860,18 +1250,18 @@ both are specified simultaneously.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="HTTPFaultInjection.delay">
+<tr id="HTTPFaultInjection-delay">
 <td><code>delay</code></td>
-<td><code><a href="#HTTPFaultInjection.Delay">HTTPFaultInjection.Delay</a></code></td>
+<td><code><a href="#HTTPFaultInjection-Delay">HTTPFaultInjection.Delay</a></code></td>
 <td>
 <p>Delay requests before forwarding, emulating various failures such as
 network issues, overloaded upstream service, etc.</p>
 
 </td>
 </tr>
-<tr id="HTTPFaultInjection.abort">
+<tr id="HTTPFaultInjection-abort">
 <td><code>abort</code></td>
-<td><code><a href="#HTTPFaultInjection.Abort">HTTPFaultInjection.Abort</a></code></td>
+<td><code><a href="#HTTPFaultInjection-Abort">HTTPFaultInjection.Abort</a></code></td>
 <td>
 <p>Abort Http request attempts and return error codes back to downstream
 service, giving the impression that the upstream service is faulty.</p>
@@ -881,13 +1271,13 @@ service, giving the impression that the upstream service is faulty.</p>
 </tbody>
 </table>
 </section>
-<h2 id="HTTPFaultInjection.Abort">HTTPFaultInjection.Abort</h2>
+<h2 id="HTTPFaultInjection-Abort">HTTPFaultInjection.Abort</h2>
 <section>
 <p>Abort specification is used to prematurely abort a request with a
 pre-specified error code. The following example will return an HTTP
 400 error code for 10% of the requests to the &ldquo;ratings&rdquo; service &ldquo;v1&rdquo;.</p>
 
-<pre><code>apiVersion: networking.istio.io/v1alpha3
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: ratings-route
@@ -919,7 +1309,7 @@ not specified, all requests are aborted.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="HTTPFaultInjection.Abort.percent">
+<tr id="HTTPFaultInjection-Abort-percent">
 <td><code>percent</code></td>
 <td><code>int32</code></td>
 <td>
@@ -927,7 +1317,7 @@ not specified, all requests are aborted.</p>
 
 </td>
 </tr>
-<tr id="HTTPFaultInjection.Abort.http_status" class="oneof oneof-start">
+<tr id="HTTPFaultInjection-Abort-http_status" class="oneof oneof-start">
 <td><code>httpStatus</code></td>
 <td><code>int32 (oneof)</code></td>
 <td>
@@ -935,33 +1325,17 @@ not specified, all requests are aborted.</p>
 
 </td>
 </tr>
-<tr id="HTTPFaultInjection.Abort.grpc_status" class="oneof">
-<td><code>grpcStatus</code></td>
-<td><code>string (oneof)</code></td>
-<td>
-<p>(&ndash; NOT IMPLEMENTED &ndash;)</p>
-
-</td>
-</tr>
-<tr id="HTTPFaultInjection.Abort.http2_error" class="oneof">
-<td><code>http2Error</code></td>
-<td><code>string (oneof)</code></td>
-<td>
-<p>(&ndash; NOT IMPLEMENTED &ndash;)</p>
-
-</td>
-</tr>
 </tbody>
 </table>
 </section>
-<h2 id="HTTPFaultInjection.Delay">HTTPFaultInjection.Delay</h2>
+<h2 id="HTTPFaultInjection-Delay">HTTPFaultInjection.Delay</h2>
 <section>
 <p>Delay specification is used to inject latency into the request
 forwarding path. The following example will introduce a 5 second delay
 in 10% of the requests to the &ldquo;v1&rdquo; version of the &ldquo;reviews&rdquo;
 service from all pods with label env: prod</p>
 
-<pre><code>apiVersion: networking.istio.io/v1alpha3
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: reviews-route
@@ -996,7 +1370,7 @@ unspecified, all request will be delayed.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="HTTPFaultInjection.Delay.percent">
+<tr id="HTTPFaultInjection-Delay-percent">
 <td><code>percent</code></td>
 <td><code>int32</code></td>
 <td>
@@ -1004,22 +1378,12 @@ unspecified, all request will be delayed.</p>
 
 </td>
 </tr>
-<tr id="HTTPFaultInjection.Delay.fixed_delay" class="oneof oneof-start">
+<tr id="HTTPFaultInjection-Delay-fixed_delay" class="oneof oneof-start">
 <td><code>fixedDelay</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration (oneof)</a></code></td>
 <td>
 <p>REQUIRED. Add a fixed delay before forwarding the request. Format:
 1h/1m/1s/1ms. MUST be &gt;=1ms.</p>
-
-</td>
-</tr>
-<tr id="HTTPFaultInjection.Delay.exponential_delay" class="oneof">
-<td><code>exponentialDelay</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration (oneof)</a></code></td>
-<td>
-<p>(&ndash; Add a delay (based on an exponential function) before forwarding
-the request. mean delay needed to derive the exponential delay
-values &ndash;)</p>
 
 </td>
 </tr>
@@ -1031,10 +1395,10 @@ values &ndash;)</p>
 <p>HttpMatchRequest specifies a set of criterion to be met in order for the
 rule to be applied to the HTTP request. For example, the following
 restricts the rule to match only requests where the URL path
-starts with /ratings/v2/ and the request contains a <code>cookie</code> with value
-<code>user=jason</code>.</p>
+starts with /ratings/v2/ and the request contains a custom <code>end-user</code> header
+with value <code>jason</code>.</p>
 
-<pre><code>apiVersion: networking.istio.io/v1alpha3
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: ratings-route
@@ -1044,11 +1408,11 @@ spec:
   http:
   - match:
     - headers:
-        cookie:
-          regex: &quot;^(.*?;)?(user=jason)(;.*)?&quot;
-        uri:
-          prefix: &quot;/ratings/v2/&quot;
-    route: 
+        end-user:
+          exact: jason
+      uri:
+        prefix: &quot;/ratings/v2/&quot;
+    route:
     - destination:
         host: ratings.prod.svc.cluster.local
 </code></pre>
@@ -1064,7 +1428,7 @@ spec:
 </tr>
 </thead>
 <tbody>
-<tr id="HTTPMatchRequest.uri">
+<tr id="HTTPMatchRequest-uri">
 <td><code>uri</code></td>
 <td><code><a href="#StringMatch">StringMatch</a></code></td>
 <td>
@@ -1081,7 +1445,7 @@ values are case-sensitive and formatted as follows:</p>
 
 </td>
 </tr>
-<tr id="HTTPMatchRequest.scheme">
+<tr id="HTTPMatchRequest-scheme">
 <td><code>scheme</code></td>
 <td><code><a href="#StringMatch">StringMatch</a></code></td>
 <td>
@@ -1098,7 +1462,7 @@ values are case-sensitive and formatted as follows:</p>
 
 </td>
 </tr>
-<tr id="HTTPMatchRequest.method">
+<tr id="HTTPMatchRequest-method">
 <td><code>method</code></td>
 <td><code><a href="#StringMatch">StringMatch</a></code></td>
 <td>
@@ -1115,7 +1479,7 @@ values are case-sensitive and formatted as follows:</p>
 
 </td>
 </tr>
-<tr id="HTTPMatchRequest.authority">
+<tr id="HTTPMatchRequest-authority">
 <td><code>authority</code></td>
 <td><code><a href="#StringMatch">StringMatch</a></code></td>
 <td>
@@ -1132,7 +1496,7 @@ values are case-sensitive and formatted as follows:</p>
 
 </td>
 </tr>
-<tr id="HTTPMatchRequest.headers">
+<tr id="HTTPMatchRequest-headers">
 <td><code>headers</code></td>
 <td><code>map&lt;string,&nbsp;<a href="#StringMatch">StringMatch</a>&gt;</code></td>
 <td>
@@ -1153,7 +1517,7 @@ e.g. <em>x-request-id</em>.</p>
 
 </td>
 </tr>
-<tr id="HTTPMatchRequest.port">
+<tr id="HTTPMatchRequest-port">
 <td><code>port</code></td>
 <td><code>uint32</code></td>
 <td>
@@ -1163,7 +1527,7 @@ in these cases it is not required to explicitly select the port.</p>
 
 </td>
 </tr>
-<tr id="HTTPMatchRequest.source_labels">
+<tr id="HTTPMatchRequest-source_labels">
 <td><code>sourceLabels</code></td>
 <td><code>map&lt;string,&nbsp;string&gt;</code></td>
 <td>
@@ -1174,7 +1538,7 @@ gateways specified at the top, it should include the reserved gateway
 
 </td>
 </tr>
-<tr id="HTTPMatchRequest.gateways">
+<tr id="HTTPMatchRequest-gateways">
 <td><code>gateways</code></td>
 <td><code>string[]</code></td>
 <td>
@@ -1189,13 +1553,13 @@ independent of sourceLabels.</p>
 </section>
 <h2 id="HTTPRedirect">HTTPRedirect</h2>
 <section>
-<p>HTTPRedirect can be used to send a 302 redirect response to the caller,
+<p>HTTPRedirect can be used to send a 301 redirect response to the caller,
 where the Authority/Host and the URI in the response can be swapped with
 the specified values. For example, the following rule redirects
 requests for /v1/getProductRatings API on the ratings service to
 /v1/bookRatings provided by the bookratings service.</p>
 
-<pre><code>apiVersion: networking.istio.io/v1alpha3
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: ratings-route
@@ -1206,9 +1570,9 @@ spec:
   - match:
     - uri:
         exact: /v1/getProductRatings
-    redirect:
-      uri: /v1/bookRatings
-      authority: newratings.default.svc.cluster.local
+  redirect:
+    uri: /v1/bookRatings
+    authority: newratings.default.svc.cluster.local
   ...
 </code></pre>
 
@@ -1221,7 +1585,7 @@ spec:
 </tr>
 </thead>
 <tbody>
-<tr id="HTTPRedirect.uri">
+<tr id="HTTPRedirect-uri">
 <td><code>uri</code></td>
 <td><code>string</code></td>
 <td>
@@ -1231,7 +1595,7 @@ request URI being matched as an exact path or prefix.</p>
 
 </td>
 </tr>
-<tr id="HTTPRedirect.authority">
+<tr id="HTTPRedirect-authority">
 <td><code>authority</code></td>
 <td><code>string</code></td>
 <td>
@@ -1249,7 +1613,7 @@ this value.</p>
 example, the following rule sets the maximum number of retries to 3 when
 calling ratings:v1 service, with a 2s timeout per retry attempt.</p>
 
-<pre><code>apiVersion: networking.istio.io/v1alpha3
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: ratings-route
@@ -1275,7 +1639,7 @@ spec:
 </tr>
 </thead>
 <tbody>
-<tr id="HTTPRetry.attempts">
+<tr id="HTTPRetry-attempts">
 <td><code>attempts</code></td>
 <td><code>int32</code></td>
 <td>
@@ -1285,7 +1649,7 @@ number of retries attempted depends on the httpReqTimeout.</p>
 
 </td>
 </tr>
-<tr id="HTTPRetry.per_try_timeout">
+<tr id="HTTPRetry-per_try_timeout">
 <td><code>perTryTimeout</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
@@ -1304,7 +1668,7 @@ be used only with the DestinationWeights. The following example
 demonstrates how to rewrite the URL prefix for api call (/ratings) to
 ratings service before making the actual API call.</p>
 
-<pre><code>apiVersion: networking.istio.io/v1alpha3
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: ratings-route
@@ -1332,7 +1696,7 @@ spec:
 </tr>
 </thead>
 <tbody>
-<tr id="HTTPRewrite.uri">
+<tr id="HTTPRewrite-uri">
 <td><code>uri</code></td>
 <td><code>string</code></td>
 <td>
@@ -1342,7 +1706,7 @@ provided in this field will replace the corresponding matched prefix.</p>
 
 </td>
 </tr>
-<tr id="HTTPRewrite.authority">
+<tr id="HTTPRewrite-authority">
 <td><code>authority</code></td>
 <td><code>string</code></td>
 <td>
@@ -1367,7 +1731,7 @@ gRPC traffic. See VirtualService for usage examples.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="HTTPRoute.match">
+<tr id="HTTPRoute-match">
 <td><code>match</code></td>
 <td><code><a href="#HTTPMatchRequest">HTTPMatchRequest[]</a></code></td>
 <td>
@@ -1378,7 +1742,7 @@ is matched if any one of the match blocks succeed.</p>
 
 </td>
 </tr>
-<tr id="HTTPRoute.route">
+<tr id="HTTPRoute-route">
 <td><code>route</code></td>
 <td><code><a href="#DestinationWeight">DestinationWeight[]</a></code></td>
 <td>
@@ -1389,18 +1753,18 @@ service version determine the proportion of traffic it receives.</p>
 
 </td>
 </tr>
-<tr id="HTTPRoute.redirect">
+<tr id="HTTPRoute-redirect">
 <td><code>redirect</code></td>
 <td><code><a href="#HTTPRedirect">HTTPRedirect</a></code></td>
 <td>
 <p>A http rule can either redirect or forward (default) traffic. If
 traffic passthrough option is specified in the rule,
 route/redirect will be ignored. The redirect primitive can be used to
-send a HTTP 302 redirect to a different URI or Authority.</p>
+send a HTTP 301 redirect to a different URI or Authority.</p>
 
 </td>
 </tr>
-<tr id="HTTPRoute.rewrite">
+<tr id="HTTPRoute-rewrite">
 <td><code>rewrite</code></td>
 <td><code><a href="#HTTPRewrite">HTTPRewrite</a></code></td>
 <td>
@@ -1409,21 +1773,7 @@ Redirect primitive. Rewrite will be performed before forwarding.</p>
 
 </td>
 </tr>
-<tr id="HTTPRoute.websocket_upgrade">
-<td><code>websocketUpgrade</code></td>
-<td><code>bool</code></td>
-<td>
-<p>Indicates that a HTTP/1.1 client connection to this particular route
-should be allowed (and expected) to upgrade to a WebSocket connection.
-The default is false. Istio&rsquo;s reference sidecar implementation (Envoy)
-expects the first request to this route to contain the WebSocket
-upgrade headers. Otherwise, the request will be rejected. Note that
-Websocket allows secondary protocol negotiation which may then be
-subject to further routing rules based on the protocol selected.</p>
-
-</td>
-</tr>
-<tr id="HTTPRoute.timeout">
+<tr id="HTTPRoute-timeout">
 <td><code>timeout</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
@@ -1431,7 +1781,7 @@ subject to further routing rules based on the protocol selected.</p>
 
 </td>
 </tr>
-<tr id="HTTPRoute.retries">
+<tr id="HTTPRoute-retries">
 <td><code>retries</code></td>
 <td><code><a href="#HTTPRetry">HTTPRetry</a></code></td>
 <td>
@@ -1439,15 +1789,17 @@ subject to further routing rules based on the protocol selected.</p>
 
 </td>
 </tr>
-<tr id="HTTPRoute.fault">
+<tr id="HTTPRoute-fault">
 <td><code>fault</code></td>
 <td><code><a href="#HTTPFaultInjection">HTTPFaultInjection</a></code></td>
 <td>
-<p>Fault injection policy to apply on HTTP traffic.</p>
+<p>Fault injection policy to apply on HTTP traffic at the client side.
+Note that timeouts or retries will not be enabled when faults are
+enabled on the client side.</p>
 
 </td>
 </tr>
-<tr id="HTTPRoute.mirror">
+<tr id="HTTPRoute-mirror">
 <td><code>mirror</code></td>
 <td><code><a href="#Destination">Destination</a></code></td>
 <td>
@@ -1460,7 +1812,7 @@ destination.</p>
 
 </td>
 </tr>
-<tr id="HTTPRoute.cors_policy">
+<tr id="HTTPRoute-cors_policy">
 <td><code>corsPolicy</code></td>
 <td><code><a href="#CorsPolicy">CorsPolicy</a></code></td>
 <td>
@@ -1470,7 +1822,7 @@ for further details about cross origin resource sharing.</p>
 
 </td>
 </tr>
-<tr id="HTTPRoute.append_headers">
+<tr id="HTTPRoute-append_headers">
 <td><code>appendHeaders</code></td>
 <td><code>map&lt;string,&nbsp;string&gt;</code></td>
 <td>
@@ -1496,18 +1848,16 @@ is incomplete.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="L4MatchAttributes.destination_subnet">
-<td><code>destinationSubnet</code></td>
-<td><code>string</code></td>
+<tr id="L4MatchAttributes-destination_subnets">
+<td><code>destinationSubnets</code></td>
+<td><code>string[]</code></td>
 <td>
-<p>IPv4 or IPv6 ip address of destination with optional subnet.  E.g.,
-a.b.c.d/xx form or just a.b.c.d. This is only valid when the
-destination service has several IPs and the application explicitly
-specifies a particular IP.</p>
+<p>IPv4 or IPv6 ip addresses of destination with optional subnet.  E.g.,
+a.b.c.d/xx form or just a.b.c.d.</p>
 
 </td>
 </tr>
-<tr id="L4MatchAttributes.port">
+<tr id="L4MatchAttributes-port">
 <td><code>port</code></td>
 <td><code>uint32</code></td>
 <td>
@@ -1517,16 +1867,7 @@ in these cases it is not required to explicitly select the port.</p>
 
 </td>
 </tr>
-<tr id="L4MatchAttributes.source_subnet">
-<td><code>sourceSubnet</code></td>
-<td><code>string</code></td>
-<td>
-<p>IPv4 or IPv6 ip address of source with optional subnet. E.g., a.b.c.d/xx
-form or just a.b.c.d</p>
-
-</td>
-</tr>
-<tr id="L4MatchAttributes.source_labels">
+<tr id="L4MatchAttributes-source_labels">
 <td><code>sourceLabels</code></td>
 <td><code>map&lt;string,&nbsp;string&gt;</code></td>
 <td>
@@ -1537,13 +1878,13 @@ gateways specified at the top, it should include the reserved gateway
 
 </td>
 </tr>
-<tr id="L4MatchAttributes.gateways">
+<tr id="L4MatchAttributes-gateways">
 <td><code>gateways</code></td>
 <td><code>string[]</code></td>
 <td>
 <p>Names of gateways where the rule should be applied to. Gateway names
-at the top of the VirtualService (if any) are overridden. The gateway match is
-independent of sourceLabels.</p>
+at the top of the VirtualService (if any) are overridden. The gateway
+match is independent of sourceLabels.</p>
 
 </td>
 </tr>
@@ -1560,7 +1901,7 @@ for more details.</p>
 <p>For example, the following rule uses a round robin load balancing policy
 for all traffic going to the ratings service.</p>
 
-<pre><code>apiVersion: networking.istio.io/v1alpha3
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: bookinfo-ratings
@@ -1571,19 +1912,22 @@ spec:
       simple: ROUND_ROBIN
 </code></pre>
 
-<p>The following example uses the consistent hashing based load balancer
-for the same ratings service using the Cookie header as the hash key.</p>
+<p>The following example sets up sticky sessions for the ratings service
+hashing-based load balancer for the same ratings service using the
+the User cookie as the hash key.</p>
 
-<pre><code>apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: bookinfo-ratings
-spec:
-  host: ratings.prod.svc.cluster.local
-  trafficPolicy:
-    loadBalancer:
-      consistentHash:
-        http_header: Cookie
+<pre><code class="language-yaml"> apiVersion: networking.istio.io/v1alpha3
+ kind: DestinationRule
+ metadata:
+   name: bookinfo-ratings
+ spec:
+   host: ratings.prod.svc.cluster.local
+   trafficPolicy:
+     loadBalancer:
+       consistentHash:
+         httpCookie:
+           name: user
+           ttl: 0s
 </code></pre>
 
 <table class="message-fields">
@@ -1595,28 +1939,29 @@ spec:
 </tr>
 </thead>
 <tbody>
-<tr id="LoadBalancerSettings.simple" class="oneof oneof-start">
+<tr id="LoadBalancerSettings-simple" class="oneof oneof-start">
 <td><code>simple</code></td>
-<td><code><a href="#LoadBalancerSettings.SimpleLB">LoadBalancerSettings.SimpleLB (oneof)</a></code></td>
+<td><code><a href="#LoadBalancerSettings-SimpleLB">LoadBalancerSettings.SimpleLB (oneof)</a></code></td>
 <td>
 </td>
 </tr>
-<tr id="LoadBalancerSettings.consistent_hash" class="oneof">
+<tr id="LoadBalancerSettings-consistent_hash" class="oneof">
 <td><code>consistentHash</code></td>
-<td><code><a href="#LoadBalancerSettings.ConsistentHashLB">LoadBalancerSettings.ConsistentHashLB (oneof)</a></code></td>
+<td><code><a href="#LoadBalancerSettings-ConsistentHashLB">LoadBalancerSettings.ConsistentHashLB (oneof)</a></code></td>
 <td>
 </td>
 </tr>
 </tbody>
 </table>
 </section>
-<h2 id="LoadBalancerSettings.ConsistentHashLB">LoadBalancerSettings.ConsistentHashLB</h2>
+<h2 id="LoadBalancerSettings-ConsistentHashLB">LoadBalancerSettings.ConsistentHashLB</h2>
 <section>
-<p>Consistent hashing (ketama hash) based load balancer for even load
-distribution/redistribution when the connection pool changes. This
-load balancing policy is applicable only for HTTP-based
-connections. A user specified HTTP header is used as the key with
-<a href="http://cyan4973.github.io/xxHash">xxHash</a> hashing.</p>
+<p>Consistent Hash-based load balancing can be used to provide soft
+session affinity based on HTTP headers, cookies or other
+properties. This load balancing policy is applicable only for HTTP
+connections. The affinity to a particular destination host will be
+lost when one or more hosts are added/removed from the destination
+service.</p>
 
 <table class="message-fields">
 <thead>
@@ -1627,20 +1972,33 @@ connections. A user specified HTTP header is used as the key with
 </tr>
 </thead>
 <tbody>
-<tr id="LoadBalancerSettings.ConsistentHashLB.http_header">
-<td><code>httpHeader</code></td>
-<td><code>string</code></td>
+<tr id="LoadBalancerSettings-ConsistentHashLB-http_header_name" class="oneof oneof-start">
+<td><code>httpHeaderName</code></td>
+<td><code>string (oneof)</code></td>
 <td>
-<p>REQUIRED. The name of the HTTP request header that will be used to
-obtain the hash key. If the request header is not present, the load
-balancer will use a random number as the hash, effectively making
-the load balancing policy random.</p>
+<p>Hash based on a specific HTTP header.</p>
 
 </td>
 </tr>
-<tr id="LoadBalancerSettings.ConsistentHashLB.minimum_ring_size">
+<tr id="LoadBalancerSettings-ConsistentHashLB-http_cookie" class="oneof">
+<td><code>httpCookie</code></td>
+<td><code><a href="#LoadBalancerSettings-ConsistentHashLB-HTTPCookie">LoadBalancerSettings.ConsistentHashLB.HTTPCookie (oneof)</a></code></td>
+<td>
+<p>Hash based on HTTP cookie.</p>
+
+</td>
+</tr>
+<tr id="LoadBalancerSettings-ConsistentHashLB-use_source_ip" class="oneof">
+<td><code>useSourceIp</code></td>
+<td><code>bool (oneof)</code></td>
+<td>
+<p>Hash based on the source IP address.</p>
+
+</td>
+</tr>
+<tr id="LoadBalancerSettings-ConsistentHashLB-minimum_ring_size">
 <td><code>minimumRingSize</code></td>
-<td><code>uint32</code></td>
+<td><code>uint64</code></td>
 <td>
 <p>The minimum number of virtual nodes to use for the hash
 ring. Defaults to 1024. Larger ring sizes result in more granular
@@ -1653,7 +2011,49 @@ single virtual node.</p>
 </tbody>
 </table>
 </section>
-<h2 id="LoadBalancerSettings.SimpleLB">LoadBalancerSettings.SimpleLB</h2>
+<h2 id="LoadBalancerSettings-ConsistentHashLB-HTTPCookie">LoadBalancerSettings.ConsistentHashLB.HTTPCookie</h2>
+<section>
+<p>Describes a HTTP cookie that will be used as the hash key for the
+Consistent Hash load balancer. If the cookie is not present, it will
+be generated.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="LoadBalancerSettings-ConsistentHashLB-HTTPCookie-name">
+<td><code>name</code></td>
+<td><code>string</code></td>
+<td>
+<p>REQUIRED. Name of the cookie.</p>
+
+</td>
+</tr>
+<tr id="LoadBalancerSettings-ConsistentHashLB-HTTPCookie-path">
+<td><code>path</code></td>
+<td><code>string</code></td>
+<td>
+<p>Path to set for the cookie.</p>
+
+</td>
+</tr>
+<tr id="LoadBalancerSettings-ConsistentHashLB-HTTPCookie-ttl">
+<td><code>ttl</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+<p>REQUIRED. Lifetime of the cookie.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="LoadBalancerSettings-SimpleLB">LoadBalancerSettings.SimpleLB</h2>
 <section>
 <p>Standard load balancing algorithms that require no tuning.</p>
 
@@ -1665,14 +2065,14 @@ single virtual node.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="LoadBalancerSettings.SimpleLB.ROUND_ROBIN">
+<tr id="LoadBalancerSettings-SimpleLB-ROUND_ROBIN">
 <td><code>ROUND_ROBIN</code></td>
 <td>
 <p>Round Robin policy. Default</p>
 
 </td>
 </tr>
-<tr id="LoadBalancerSettings.SimpleLB.LEAST_CONN">
+<tr id="LoadBalancerSettings-SimpleLB-LEAST_CONN">
 <td><code>LEAST_CONN</code></td>
 <td>
 <p>The least request load balancer uses an O(1) algorithm which selects
@@ -1681,7 +2081,7 @@ requests.</p>
 
 </td>
 </tr>
-<tr id="LoadBalancerSettings.SimpleLB.RANDOM">
+<tr id="LoadBalancerSettings-SimpleLB-RANDOM">
 <td><code>RANDOM</code></td>
 <td>
 <p>The random load balancer selects a random healthy host. The random
@@ -1690,7 +2090,7 @@ checking policy is configured.</p>
 
 </td>
 </tr>
-<tr id="LoadBalancerSettings.SimpleLB.PASSTHROUGH">
+<tr id="LoadBalancerSettings-SimpleLB-PASSTHROUGH">
 <td><code>PASSTHROUGH</code></td>
 <td>
 <p>This option will forward the connection to the original IP address
@@ -1707,11 +2107,12 @@ Envoy for further details.</p>
 <h2 id="OutlierDetection">OutlierDetection</h2>
 <section>
 <p>A Circuit breaker implementation that tracks the status of each
-individual host in the upstream service.  While currently applicable to
-only HTTP services, future versions will support opaque TCP services as
-well. For HTTP services, hosts that continually return errors for API
-calls are ejected from the pool for a pre-defined period of time. See
-Envoy&rsquo;s <a href="https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/outlier">outlier
+individual host in the upstream service.  Applicable to both HTTP and
+TCP services.  For HTTP services, hosts that continually return 5xx
+errors for API calls are ejected from the pool for a pre-defined period
+of time. For TCP services, connection timeouts or connection
+failures to a given host counts as an error when measuring the
+consecutive errors metric. See Envoy&rsquo;s <a href="https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/outlier">outlier
 detection</a>
 for more details.</p>
 
@@ -1721,7 +2122,7 @@ for more details.</p>
 scanned every 5 mins, such that any host that fails 7 consecutive times
 with 5XX error code will be ejected for 15 minutes.</p>
 
-<pre><code>apiVersion: networking.istio.io/v1alpha3
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: reviews-cb-policy
@@ -1735,10 +2136,9 @@ spec:
         http2MaxRequests: 1000
         maxRequestsPerConnection: 10
     outlierDetection:
-      http:
-        consecutiveErrors: 7
-        interval: 5m
-        baseEjectionTime: 15m
+      consecutiveErrors: 7
+      interval: 5m
+      baseEjectionTime: 15m
 </code></pre>
 
 <table class="message-fields">
@@ -1750,40 +2150,19 @@ spec:
 </tr>
 </thead>
 <tbody>
-<tr id="OutlierDetection.http">
-<td><code>http</code></td>
-<td><code><a href="#OutlierDetection.HTTPSettings">OutlierDetection.HTTPSettings</a></code></td>
-<td>
-<p>Settings for HTTP1.1/HTTP2/GRPC connections.</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="OutlierDetection.HTTPSettings">OutlierDetection.HTTPSettings</h2>
-<section>
-<p>Outlier detection settings for HTTP1.1/HTTP2/GRPC connections.</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="OutlierDetection.HTTPSettings.consecutive_errors">
+<tr id="OutlierDetection-consecutive_errors">
 <td><code>consecutiveErrors</code></td>
 <td><code>int32</code></td>
 <td>
-<p>Number of 5XX errors before a host is ejected from the connection
-pool. Defaults to 5.</p>
+<p>Number of errors before a host is ejected from the connection
+pool. Defaults to 5. When the upstream host is accessed over HTTP, a
+5xx return code qualifies as an error. When the upstream host is
+accessed over an opaque TCP connection, connect timeouts and
+connection error/failure events qualify as an error.</p>
 
 </td>
 </tr>
-<tr id="OutlierDetection.HTTPSettings.interval">
+<tr id="OutlierDetection-interval">
 <td><code>interval</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
@@ -1792,7 +2171,7 @@ pool. Defaults to 5.</p>
 
 </td>
 </tr>
-<tr id="OutlierDetection.HTTPSettings.base_ejection_time">
+<tr id="OutlierDetection-base_ejection_time">
 <td><code>baseEjectionTime</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
@@ -1804,7 +2183,7 @@ servers. format: 1h/1m/1s/1ms. MUST BE &gt;=1ms. Default is 30s.</p>
 
 </td>
 </tr>
-<tr id="OutlierDetection.HTTPSettings.max_ejection_percent">
+<tr id="OutlierDetection-max_ejection_percent">
 <td><code>maxEjectionPercent</code></td>
 <td><code>int32</code></td>
 <td>
@@ -1829,7 +2208,7 @@ service that can be ejected. Defaults to 10%.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="Port.number">
+<tr id="Port-number">
 <td><code>number</code></td>
 <td><code>uint32</code></td>
 <td>
@@ -1837,17 +2216,17 @@ service that can be ejected. Defaults to 10%.</p>
 
 </td>
 </tr>
-<tr id="Port.protocol">
+<tr id="Port-protocol">
 <td><code>protocol</code></td>
 <td><code>string</code></td>
 <td>
 <p>REQUIRED: The protocol exposed on the port.
-MUST BE one of HTTP|HTTPS|GRPC|HTTP2|MONGO|TCP|TCP-TLS.
-TCP-TLS is used to indicate secure connections to non HTTP services.</p>
+MUST BE one of HTTP|HTTPS|GRPC|HTTP2|MONGO|TCP|TLS.
+TLS is used to indicate secure connections to non HTTP services.</p>
 
 </td>
 </tr>
-<tr id="Port.name">
+<tr id="Port-name">
 <td><code>name</code></td>
 <td><code>string</code></td>
 <td>
@@ -1860,7 +2239,7 @@ TCP-TLS is used to indicate secure connections to non HTTP services.</p>
 </section>
 <h2 id="PortSelector">PortSelector</h2>
 <section>
-<p>PortSelector specifies the name or number of a port to be used for
+<p>PortSelector specifies the number of a port to be used for
 matching or selection for final routing.</p>
 
 <table class="message-fields">
@@ -1872,19 +2251,11 @@ matching or selection for final routing.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="PortSelector.number" class="oneof oneof-start">
+<tr id="PortSelector-number" class="oneof oneof-start">
 <td><code>number</code></td>
 <td><code>uint32 (oneof)</code></td>
 <td>
 <p>Valid port number</p>
-
-</td>
-</tr>
-<tr id="PortSelector.name" class="oneof">
-<td><code>name</code></td>
-<td><code>string (oneof)</code></td>
-<td>
-<p>Port name</p>
 
 </td>
 </tr>
@@ -1896,7 +2267,7 @@ matching or selection for final routing.</p>
 <p><code>Server</code> describes the properties of the proxy on a given load balancer
 port. For example,</p>
 
-<pre><code>apiVersion: networking.istio.io/v1alpha3
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   name: my-ingress
@@ -1914,7 +2285,7 @@ spec:
 
 <p>Another example</p>
 
-<pre><code>apiVersion: networking.istio.io/v1alpha3
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   name: my-tcp-ingress
@@ -1932,7 +2303,7 @@ spec:
 
 <p>The following is an example of TLS configuration for port 443</p>
 
-<pre><code>apiVersion: networking.istio.io/v1alpha3
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   name: my-tls-ingress
@@ -1961,7 +2332,7 @@ spec:
 </tr>
 </thead>
 <tbody>
-<tr id="Server.port">
+<tr id="Server-port">
 <td><code>port</code></td>
 <td><code><a href="#Port">Port</a></code></td>
 <td>
@@ -1970,14 +2341,16 @@ connections</p>
 
 </td>
 </tr>
-<tr id="Server.hosts">
+<tr id="Server-hosts">
 <td><code>hosts</code></td>
 <td><code>string[]</code></td>
 <td>
 <p>REQUIRED. A list of hosts exposed by this gateway. At least one
 host is required. While typically applicable to
 HTTP services, it can also be used for TCP services using TLS with
-SNI. Standard DNS wildcard prefix syntax is permitted.</p>
+SNI. May contain a wildcard prefix for the bottom-level component of
+a domain name. For example <code>*.foo.com</code> matches <code>bar.foo.com</code>
+and <code>*.com</code> matches <code>bar.foo.com</code>, <code>example.com</code>, and so on.</p>
 
 <p><strong>Note</strong>: A <code>VirtualService</code> that is bound to a gateway must have one
 or more hosts that match the hosts specified in a server. The match
@@ -1989,9 +2362,9 @@ newexample.com will not match.</p>
 
 </td>
 </tr>
-<tr id="Server.tls">
+<tr id="Server-tls">
 <td><code>tls</code></td>
-<td><code><a href="#Server.TLSOptions">Server.TLSOptions</a></code></td>
+<td><code><a href="#Server-TLSOptions">Server.TLSOptions</a></code></td>
 <td>
 <p>Set of TLS related options that govern the server&rsquo;s behavior. Use
 these options to control if all http requests should be redirected to
@@ -2002,7 +2375,7 @@ https, and the TLS modes to use.</p>
 </tbody>
 </table>
 </section>
-<h2 id="Server.TLSOptions">Server.TLSOptions</h2>
+<h2 id="Server-TLSOptions">Server.TLSOptions</h2>
 <section>
 <table class="message-fields">
 <thead>
@@ -2013,18 +2386,18 @@ https, and the TLS modes to use.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="Server.TLSOptions.https_redirect">
+<tr id="Server-TLSOptions-https_redirect">
 <td><code>httpsRedirect</code></td>
 <td><code>bool</code></td>
 <td>
-<p>If set to true, the load balancer will send a 302 redirect for all
+<p>If set to true, the load balancer will send a 301 redirect for all
 http connections, asking the clients to use HTTPS.</p>
 
 </td>
 </tr>
-<tr id="Server.TLSOptions.mode">
+<tr id="Server-TLSOptions-mode">
 <td><code>mode</code></td>
-<td><code><a href="#Server.TLSOptions.TLSmode">Server.TLSOptions.TLSmode</a></code></td>
+<td><code><a href="#Server-TLSOptions-TLSmode">Server.TLSOptions.TLSmode</a></code></td>
 <td>
 <p>Optional: Indicates whether connections to this port should be
 secured using TLS. The value of this field determines how TLS is
@@ -2032,7 +2405,7 @@ enforced.</p>
 
 </td>
 </tr>
-<tr id="Server.TLSOptions.server_certificate">
+<tr id="Server-TLSOptions-server_certificate">
 <td><code>serverCertificate</code></td>
 <td><code>string</code></td>
 <td>
@@ -2041,7 +2414,7 @@ holding the server-side TLS certificate to use.</p>
 
 </td>
 </tr>
-<tr id="Server.TLSOptions.private_key">
+<tr id="Server-TLSOptions-private_key">
 <td><code>privateKey</code></td>
 <td><code>string</code></td>
 <td>
@@ -2050,7 +2423,7 @@ holding the server&rsquo;s private key.</p>
 
 </td>
 </tr>
-<tr id="Server.TLSOptions.ca_certificates">
+<tr id="Server-TLSOptions-ca_certificates">
 <td><code>caCertificates</code></td>
 <td><code>string</code></td>
 <td>
@@ -2060,7 +2433,7 @@ client side certificate.</p>
 
 </td>
 </tr>
-<tr id="Server.TLSOptions.subject_alt_names">
+<tr id="Server-TLSOptions-subject_alt_names">
 <td><code>subjectAltNames</code></td>
 <td><code>string[]</code></td>
 <td>
@@ -2072,7 +2445,7 @@ certificate presented by the client.</p>
 </tbody>
 </table>
 </section>
-<h2 id="Server.TLSOptions.TLSmode">Server.TLSOptions.TLSmode</h2>
+<h2 id="Server-TLSOptions-TLSmode">Server.TLSOptions.TLSmode</h2>
 <section>
 <p>TLS modes enforced by the proxy</p>
 
@@ -2084,7 +2457,7 @@ certificate presented by the client.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="Server.TLSOptions.TLSmode.PASSTHROUGH">
+<tr id="Server-TLSOptions-TLSmode-PASSTHROUGH">
 <td><code>PASSTHROUGH</code></td>
 <td>
 <p>Forward the connection to the upstream server selected based on
@@ -2092,14 +2465,14 @@ the SNI string presented by the client.</p>
 
 </td>
 </tr>
-<tr id="Server.TLSOptions.TLSmode.SIMPLE">
+<tr id="Server-TLSOptions-TLSmode-SIMPLE">
 <td><code>SIMPLE</code></td>
 <td>
 <p>Secure connections with standard TLS semantics.</p>
 
 </td>
 </tr>
-<tr id="Server.TLSOptions.TLSmode.MUTUAL">
+<tr id="Server-TLSOptions-TLSmode-MUTUAL">
 <td><code>MUTUAL</code></td>
 <td>
 <p>Secure connections to the upstream using mutual TLS by presenting
@@ -2125,7 +2498,7 @@ unmanaged VMs to Istio&rsquo;s registry, so that these services can be treated
 as any other service in the mesh. The associated DestinationRule is used
 to initiate mTLS connections to the database instances.</p>
 
-<pre><code>apiVersion: networking.istio.io/v1alpha3
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
   name: external-svc-mongocluster
@@ -2147,12 +2520,12 @@ spec:
 
 <p>and the associated DestinationRule</p>
 
-<pre><code>apiVersion: networking.istio.io/v1alpha3
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: mtls-mongocluster
 spec:
-  name: mymongodb.somedomain
+  host: mymongodb.somedomain
   trafficPolicy:
     tls:
       mode: MUTUAL
@@ -2161,12 +2534,138 @@ spec:
       caCertificates: /etc/certs/rootcacerts.pem
 </code></pre>
 
+<p>The following example uses a combination of service entry and TLS
+routing in virtual service to demonstrate the use of SNI routing to
+forward unterminated TLS traffic from the application to external
+services via the sidecar. The sidecar inspects the SNI value in the
+ClientHello message to route to the appropriate external service.</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: external-svc-https
+spec:
+  hosts:
+  - api.dropboxapi.com
+  - www.googleapis.com
+  - api.facebook.com
+  location: MESH_EXTERNAL
+  ports:
+  - number: 443
+    name: https
+    protocol: HTTPS
+  resolution: DNS
+</code></pre>
+
+<p>And the associated VirtualService to route based on the SNI value.</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: tls-routing
+spec:
+  hosts:
+  - api.dropboxapi.com
+  - www.googleapis.com
+  - api.facebook.com
+  tls:
+  - match:
+    - port: 443
+      sniHosts:
+      - api.dropboxapi.com
+    route:
+    - destination:
+        host: api.dropboxapi.com
+  - match:
+    - port: 443
+      sniHosts:
+      - www.googleapis.com
+    route:
+    - destination:
+        host: www.googleapis.com
+  - match:
+    - port: 443
+      sniHosts:
+      - api.facebook.com
+    route:
+    - destination:
+        host: api.facebook.com
+
+</code></pre>
+
+<p>The following example demonstrates the use of a dedicated egress gateway
+through which all external service traffic is forwarded.</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: external-svc-httpbin
+spec:
+  hosts:
+  - httpbin.com
+  location: MESH_EXTERNAL
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+  resolution: DNS
+</code></pre>
+
+<p>Define a gateway to handle all egress traffic.</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+ name: istio-egressgateway
+spec:
+ selector:
+   istio: egressgateway
+ servers:
+ - port:
+     number: 80
+     name: http
+     protocol: HTTP
+   hosts:
+   - &quot;*&quot;
+</code></pre>
+
+<p>And the associated VirtualService to route from the sidecar to the
+gateway service (istio-egressgateway.istio-system.svc.cluster.local), as
+well as route from the gateway to the external service.</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: gateway-routing
+spec:
+  hosts:
+  - httpbin.com
+  gateways:
+  - mesh
+  - istio-egressgateway
+  http:
+  - match:
+    - port: 80
+      gateways:
+      - mesh
+    route:
+    - destination:
+        host: istio-egressgateway.istio-system.svc.cluster.local
+  - match:
+    - port: 80
+      gateway:
+      - istio-egressgateway
+    route:
+    - destination:
+        host: httpbin.com
+</code></pre>
+
 <p>The following example demonstrates the use of wildcards in the hosts for
 external services. If the connection has to be routed to the IP address
 requested by the application (i.e. application resolves DNS and attempts
 to connect to a specific IP), the discovery mode must be set to <code>NONE</code>.</p>
 
-<pre><code>apiVersion: networking.istio.io/v1alpha3
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
   name: external-svc-wildcard-example
@@ -2181,15 +2680,36 @@ spec:
   resolution: NONE
 </code></pre>
 
+<p>The following example demonstrates a service that is available via a
+Unix Domain Socket on the host of the client. The resolution must be
+set to STATIC to use unix address endpoints.</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: unix-domain-socket-example
+spec:
+  hosts:
+  - &quot;example.unix.local&quot;
+  location: MESH_EXTERNAL
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+  resolution: STATIC
+  endpoints:
+  - address: unix:///var/run/example/socket
+</code></pre>
+
 <p>For HTTP based services, it is possible to create a VirtualService
-backed by multiple DNS addressible endpoints. In such a scenario, the
+backed by multiple DNS addressable endpoints. In such a scenario, the
 application can use the HTTP_PROXY environment variable to transparently
 reroute API calls for the VirtualService to a chosen backend. For
 example, the following configuration creates a non-existent external
-service called foo.bar.com backed by three domains: us.foo.bar.com:8443,
-uk.foo.bar.com:9443, and in.foo.bar.com:7443</p>
+service called foo.bar.com backed by three domains: us.foo.bar.com:8080,
+uk.foo.bar.com:9080, and in.foo.bar.com:7080</p>
 
-<pre><code>apiVersion: networking.istio.io/v1alpha3
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
   name: external-svc-dns
@@ -2198,40 +2718,26 @@ spec:
   - foo.bar.com
   location: MESH_EXTERNAL
   ports:
-  - number: 443
+  - number: 80
     name: https
     protocol: HTTP
   resolution: DNS
   endpoints:
   - address: us.foo.bar.com
     ports:
-      https: 8443
+      https: 8080
   - address: uk.foo.bar.com
     ports:
-      https: 9443
+      https: 9080
   - address: in.foo.bar.com
     ports:
-      https: 7443
+      https: 7080
 </code></pre>
 
-<p>and a DestinationRule to initiate TLS connections to the ServiceEntry.</p>
-
-<pre><code>apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: tls-foobar
-spec:
-  name: foo.bar.com
-  trafficPolicy:
-    tls:
-      mode: SIMPLE # initiates HTTPS
-</code></pre>
-
-<p>With HTTP_PROXY=http://localhost:443, calls from the application to
-http://foo.bar.com will be upgraded to HTTPS and load balanced across
-the three domains specified above. In other words, a call to
-http://foo.bar.com/baz would be translated to
-https://uk.foo.bar.com/baz.</p>
+<p>With HTTP_PROXY=http://localhost/, calls from the application to
+http://foo.bar.com will be load balanced across the three domains
+specified above. In other words, a call to http://foo.bar.com/baz would
+be translated to http://uk.foo.bar.com/baz.</p>
 
 <table class="message-fields">
 <thead>
@@ -2242,7 +2748,7 @@ https://uk.foo.bar.com/baz.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="ServiceEntry.hosts">
+<tr id="ServiceEntry-hosts">
 <td><code>hosts</code></td>
 <td><code>string[]</code></td>
 <td>
@@ -2255,7 +2761,7 @@ to uniquely identify the destination.</p>
 
 </td>
 </tr>
-<tr id="ServiceEntry.addresses">
+<tr id="ServiceEntry-addresses">
 <td><code>addresses</code></td>
 <td><code>string[]</code></td>
 <td>
@@ -2264,46 +2770,51 @@ prefix.  For HTTP services, the addresses field will be ignored and
 the destination will be identified based on the HTTP Host/Authority
 header. For non-HTTP protocols such as mongo/opaque TCP/even HTTPS,
 the hosts will be ignored. If one or more IP addresses are specified,
-the incoming traffic will be idenfified as belonging to this service
+the incoming traffic will be identified as belonging to this service
 if the destination IP matches the IP/CIDRs specified in the addresses
 field. If the Addresses field is empty, traffic will be identified
 solely based on the destination port. In such scenarios, the port on
 which the service is being accessed must not be shared by any other
 service in the mesh. In other words, the sidecar will behave as a
 simple TCP proxy, forwarding incoming traffic on a specified port to
-the specified destination endpoint IP/host.</p>
+the specified destination endpoint IP/host. Unix domain socket
+addresses are not supported in this field.</p>
 
 </td>
 </tr>
-<tr id="ServiceEntry.ports">
+<tr id="ServiceEntry-ports">
 <td><code>ports</code></td>
 <td><code><a href="#Port">Port[]</a></code></td>
 <td>
-<p>REQUIRED. The ports associated with the external service.</p>
+<p>REQUIRED. The ports associated with the external service. If the
+Endpoints are unix domain socket addresses, there must be exactly one
+port.</p>
 
 </td>
 </tr>
-<tr id="ServiceEntry.location">
+<tr id="ServiceEntry-location">
 <td><code>location</code></td>
-<td><code><a href="#ServiceEntry.Location">ServiceEntry.Location</a></code></td>
+<td><code><a href="#ServiceEntry-Location">ServiceEntry.Location</a></code></td>
 <td>
 <p>Specify whether the service should be considered external to the mesh
 or part of the mesh.</p>
 
 </td>
 </tr>
-<tr id="ServiceEntry.resolution">
+<tr id="ServiceEntry-resolution">
 <td><code>resolution</code></td>
-<td><code><a href="#ServiceEntry.Resolution">ServiceEntry.Resolution</a></code></td>
+<td><code><a href="#ServiceEntry-Resolution">ServiceEntry.Resolution</a></code></td>
 <td>
-<p>Service discovery mode for the hosts. If not set, Istio will attempt
-to infer the discovery mode based on the value of hosts and endpoints.</p>
+<p>REQUIRED: Service discovery mode for the hosts. Care must be taken
+when setting the resolution mode to NONE for a TCP port without
+accompanying IP addresses. In such cases, traffic to any IP on
+said port will be allowed (i.e. 0.0.0.0:<port>).</p>
 
 </td>
 </tr>
-<tr id="ServiceEntry.endpoints">
+<tr id="ServiceEntry-endpoints">
 <td><code>endpoints</code></td>
-<td><code><a href="#ServiceEntry.Endpoint">ServiceEntry.Endpoint[]</a></code></td>
+<td><code><a href="#ServiceEntry-Endpoint">ServiceEntry.Endpoint[]</a></code></td>
 <td>
 <p>One or more endpoints associated with the service.</p>
 
@@ -2312,7 +2823,7 @@ to infer the discovery mode based on the value of hosts and endpoints.</p>
 </tbody>
 </table>
 </section>
-<h2 id="ServiceEntry.Endpoint">ServiceEntry.Endpoint</h2>
+<h2 id="ServiceEntry-Endpoint">ServiceEntry.Endpoint</h2>
 <section>
 <p>Endpoint defines a network address (IP or hostname) associated with
 the mesh service.</p>
@@ -2326,27 +2837,28 @@ the mesh service.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="ServiceEntry.Endpoint.address">
+<tr id="ServiceEntry-Endpoint-address">
 <td><code>address</code></td>
 <td><code>string</code></td>
 <td>
 <p>REQUIRED: Address associated with the network endpoint without the
-port ( IP or fully qualified domain name without wildcards). Domain
-names can be used if and only if the resolution is set to DNS.</p>
+port.  Domain names can be used if and only if the resolution is set
+to DNS, and must be fully-qualified without wildcards. Use the form
+unix:///absolute/path/to/socket for unix domain socket endpoints.</p>
 
 </td>
 </tr>
-<tr id="ServiceEntry.Endpoint.ports">
+<tr id="ServiceEntry-Endpoint-ports">
 <td><code>ports</code></td>
 <td><code>map&lt;string,&nbsp;uint32&gt;</code></td>
 <td>
 <p>Set of ports associated with the endpoint. The ports must be
 associated with a port name that was declared as part of the
-service.</p>
+service. Do not use for unix:// addresses.</p>
 
 </td>
 </tr>
-<tr id="ServiceEntry.Endpoint.labels">
+<tr id="ServiceEntry-Endpoint-labels">
 <td><code>labels</code></td>
 <td><code>map&lt;string,&nbsp;string&gt;</code></td>
 <td>
@@ -2357,13 +2869,13 @@ service.</p>
 </tbody>
 </table>
 </section>
-<h2 id="ServiceEntry.Location">ServiceEntry.Location</h2>
+<h2 id="ServiceEntry-Location">ServiceEntry.Location</h2>
 <section>
 <p>Location specifies whether the service is part of Istio mesh or
 outside the mesh.  Location determines the behavior of several
 features, such as service-to-service mTLS authentication, policy
 enforcement, etc. When communicating with services outside the mesh,
-Istio&rsquo;s mTLS authentication is disabled, and policy enforcements are
+Istio&rsquo;s mTLS authentication is disabled, and policy enforcement is
 performed on the client-side as opposed to server-side.</p>
 
 <table class="enum-values">
@@ -2374,7 +2886,7 @@ performed on the client-side as opposed to server-side.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="ServiceEntry.Location.MESH_EXTERNAL">
+<tr id="ServiceEntry-Location-MESH_EXTERNAL">
 <td><code>MESH_EXTERNAL</code></td>
 <td>
 <p>Signifies that the service is external to the mesh. Typically used
@@ -2382,7 +2894,7 @@ to indicate external services consumed through APIs.</p>
 
 </td>
 </tr>
-<tr id="ServiceEntry.Location.MESH_INTERNAL">
+<tr id="ServiceEntry-Location-MESH_INTERNAL">
 <td><code>MESH_INTERNAL</code></td>
 <td>
 <p>Signifies that the service is part of the mesh. Typically used to
@@ -2395,7 +2907,7 @@ Kubernetes based service mesh).</p>
 </tbody>
 </table>
 </section>
-<h2 id="ServiceEntry.Resolution">ServiceEntry.Resolution</h2>
+<h2 id="ServiceEntry-Resolution">ServiceEntry.Resolution</h2>
 <section>
 <p>Resolution determines how the proxy will resolve the IP addresses of
 the network endpoints associated with the service, so that it can
@@ -2415,7 +2927,7 @@ talk to these services.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="ServiceEntry.Resolution.NONE">
+<tr id="ServiceEntry-Resolution-NONE">
 <td><code>NONE</code></td>
 <td>
 <p>Assume that incoming connections have already been resolved (to a
@@ -2427,7 +2939,7 @@ connection was bound.</p>
 
 </td>
 </tr>
-<tr id="ServiceEntry.Resolution.STATIC">
+<tr id="ServiceEntry-Resolution-STATIC">
 <td><code>STATIC</code></td>
 <td>
 <p>Use the static IP addresses specified in endpoints (see below) as the
@@ -2435,7 +2947,7 @@ backing instances associated with the service.</p>
 
 </td>
 </tr>
-<tr id="ServiceEntry.Resolution.DNS">
+<tr id="ServiceEntry-Resolution-DNS">
 <td><code>DNS</code></td>
 <td>
 <p>Attempt to resolve the IP address by querying the ambient DNS,
@@ -2443,7 +2955,8 @@ during request processing. If no endpoints are specified, the proxy
 will resolve the DNS address specified in the hosts field, if
 wildcards are not used. If endpoints are specified, the DNS
 addresses specified in the endpoints will be resolved to determine
-the destination IP address.</p>
+the destination IP address.  DNS resolution cannot be used with unix
+domain socket endpoints.</p>
 
 </td>
 </tr>
@@ -2464,7 +2977,7 @@ case-sensitive.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="StringMatch.exact" class="oneof oneof-start">
+<tr id="StringMatch-exact" class="oneof oneof-start">
 <td><code>exact</code></td>
 <td><code>string (oneof)</code></td>
 <td>
@@ -2472,7 +2985,7 @@ case-sensitive.</p>
 
 </td>
 </tr>
-<tr id="StringMatch.prefix" class="oneof">
+<tr id="StringMatch-prefix" class="oneof">
 <td><code>prefix</code></td>
 <td><code>string (oneof)</code></td>
 <td>
@@ -2480,7 +2993,7 @@ case-sensitive.</p>
 
 </td>
 </tr>
-<tr id="StringMatch.regex" class="oneof">
+<tr id="StringMatch-regex" class="oneof">
 <td><code>regex</code></td>
 <td><code>string (oneof)</code></td>
 <td>
@@ -2502,7 +3015,7 @@ uses a round robin load balancing policy for all traffic going to a
 subset named testversion that is composed of endpoints (e.g., pods) with
 labels (version:v3).</p>
 
-<pre><code>apiVersion: networking.istio.io/v1alpha3
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: bookinfo-ratings
@@ -2532,7 +3045,7 @@ a route rule explicitly sends traffic to this subset.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="Subset.name">
+<tr id="Subset-name">
 <td><code>name</code></td>
 <td><code>string</code></td>
 <td>
@@ -2541,7 +3054,7 @@ be used for traffic splitting in a route rule.</p>
 
 </td>
 </tr>
-<tr id="Subset.labels">
+<tr id="Subset-labels">
 <td><code>labels</code></td>
 <td><code>map&lt;string,&nbsp;string&gt;</code></td>
 <td>
@@ -2550,7 +3063,7 @@ service registry. See route rules for examples of usage.</p>
 
 </td>
 </tr>
-<tr id="Subset.traffic_policy">
+<tr id="Subset-traffic_policy">
 <td><code>trafficPolicy</code></td>
 <td><code><a href="#TrafficPolicy">TrafficPolicy</a></code></td>
 <td>
@@ -2568,10 +3081,9 @@ specified at the DestinationRule level.</p>
 <section>
 <p>Describes match conditions and actions for routing TCP traffic. The
 following routing rule forwards traffic arriving at port 27017 for
-mongo.prod.svc.cluster.local from 172.17.16.* subnet to another Mongo
-server on port 5555.</p>
+mongo.prod.svc.cluster.local to another Mongo server on port 5555.</p>
 
-<pre><code>apiVersion: networking.istio.io/v1alpha3
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: bookinfo-Mongo
@@ -2581,7 +3093,6 @@ spec:
   tcp:
   - match:
     - port: 27017
-      sourceSubnet: &quot;172.17.16.0/24&quot;
     route:
     - destination:
         host: mongo.backup.svc.cluster.local
@@ -2598,7 +3109,7 @@ spec:
 </tr>
 </thead>
 <tbody>
-<tr id="TCPRoute.match">
+<tr id="TCPRoute-match">
 <td><code>match</code></td>
 <td><code><a href="#L4MatchAttributes">L4MatchAttributes[]</a></code></td>
 <td>
@@ -2609,12 +3120,146 @@ is matched if any one of the match blocks succeed.</p>
 
 </td>
 </tr>
-<tr id="TCPRoute.route">
+<tr id="TCPRoute-route">
 <td><code>route</code></td>
 <td><code><a href="#DestinationWeight">DestinationWeight[]</a></code></td>
 <td>
 <p>The destination to which the connection should be forwarded to.
 Currently, only one destination is allowed for TCP services. When TCP
+weighted routing support is introduced in Envoy, multiple destinations
+with weights can be specified.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="TLSMatchAttributes">TLSMatchAttributes</h2>
+<section>
+<p>TLS connection match attributes.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="TLSMatchAttributes-sni_hosts">
+<td><code>sniHosts</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>REQUIRED. SNI (server name indicator) to match on. Wildcard prefixes
+can be used in the SNI value. E.g., *.com will match foo.example.com
+as well as example.com.</p>
+
+</td>
+</tr>
+<tr id="TLSMatchAttributes-destination_subnets">
+<td><code>destinationSubnets</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>IPv4 or IPv6 ip addresses of destination with optional subnet.  E.g.,
+a.b.c.d/xx form or just a.b.c.d.</p>
+
+</td>
+</tr>
+<tr id="TLSMatchAttributes-port">
+<td><code>port</code></td>
+<td><code>uint32</code></td>
+<td>
+<p>Specifies the port on the host that is being addressed. Many services
+only expose a single port or label ports with the protocols they
+support, in these cases it is not required to explicitly select the
+port.</p>
+
+</td>
+</tr>
+<tr id="TLSMatchAttributes-source_labels">
+<td><code>sourceLabels</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+<p>One or more labels that constrain the applicability of a rule to
+workloads with the given labels. If the VirtualService has a list of
+gateways specified at the top, it should include the reserved gateway
+<code>mesh</code> in order for this field to be applicable.</p>
+
+</td>
+</tr>
+<tr id="TLSMatchAttributes-gateways">
+<td><code>gateways</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>Names of gateways where the rule should be applied to. Gateway names
+at the top of the VirtualService (if any) are overridden. The gateway
+match is independent of sourceLabels.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="TLSRoute">TLSRoute</h2>
+<section>
+<p>Describes match conditions and actions for routing unterminated TLS
+traffic (TLS/HTTPS) The following routing rule forwards unterminated TLS
+traffic arriving at port 443 of gateway called &ldquo;mygateway&rdquo; to internal
+services in the mesh based on the SNI value.</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: bookinfo-sni
+spec:
+  hosts:
+  - &quot;*.bookinfo.com&quot;
+  gateways:
+  - mygateway
+  tls:
+  - match:
+    - port: 443
+      sniHosts:
+      - login.bookinfo.com
+    route:
+    - destination:
+        host: login.prod.svc.cluster.local
+  - match:
+    - port: 443
+      sniHosts:
+      - reviews.bookinfo.com
+    route:
+    - destination:
+        host: reviews.prod.svc.cluster.local
+</code></pre>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="TLSRoute-match">
+<td><code>match</code></td>
+<td><code><a href="#TLSMatchAttributes">TLSMatchAttributes[]</a></code></td>
+<td>
+<p>REQUIRED. Match conditions to be satisfied for the rule to be
+activated. All conditions inside a single match block have AND
+semantics, while the list of match blocks have OR semantics. The rule
+is matched if any one of the match blocks succeed.</p>
+
+</td>
+</tr>
+<tr id="TLSRoute-route">
+<td><code>route</code></td>
+<td><code><a href="#DestinationWeight">DestinationWeight[]</a></code></td>
+<td>
+<p>The destination to which the connection should be forwarded to.
+Currently, only one destination is allowed for TLS services. When TCP
 weighted routing support is introduced in Envoy, multiple destinations
 with weights can be specified.</p>
 
@@ -2632,7 +3277,7 @@ for more details. These settings are common to both HTTP and TCP upstreams.</p>
 <p>For example, the following rule configures a client to use mutual TLS
 for connections to upstream database cluster.</p>
 
-<pre><code>apiVersion: networking.istio.io/v1alpha3
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: db-mtls
@@ -2649,7 +3294,7 @@ spec:
 <p>The following rule configures a client to use TLS when talking to a
 foreign service whose domain matches *.foo.com.</p>
 
-<pre><code>apiVersion: networking.istio.io/v1alpha3
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: tls-foo
@@ -2661,16 +3306,18 @@ spec:
 </code></pre>
 
 <p>The following rule configures a client to use Istio mutual TLS when talking
-to rating services.
-    apiVersion: networking.istio.io/v1alpha3
-    kind: DestinationRule
-    metadata:
-      name: ratings-istio-mtls
-    spec:
-      host: ratings.prod.svc.cluster.local
-      trafficPolicy:
-        tls:
-          mode: ISTIO_MUTUAL</p>
+to rating services.</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: ratings-istio-mtls
+spec:
+  host: ratings.prod.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+</code></pre>
 
 <table class="message-fields">
 <thead>
@@ -2681,16 +3328,16 @@ to rating services.
 </tr>
 </thead>
 <tbody>
-<tr id="TLSSettings.mode">
+<tr id="TLSSettings-mode">
 <td><code>mode</code></td>
-<td><code><a href="#TLSSettings.TLSmode">TLSSettings.TLSmode</a></code></td>
+<td><code><a href="#TLSSettings-TLSmode">TLSSettings.TLSmode</a></code></td>
 <td>
 <p>REQUIRED: Indicates whether connections to this port should be secured
 using TLS. The value of this field determines how TLS is enforced.</p>
 
 </td>
 </tr>
-<tr id="TLSSettings.client_certificate">
+<tr id="TLSSettings-client_certificate">
 <td><code>clientCertificate</code></td>
 <td><code>string</code></td>
 <td>
@@ -2700,7 +3347,7 @@ Should be empty if mode is <code>ISTIO_MUTUAL</code>.</p>
 
 </td>
 </tr>
-<tr id="TLSSettings.private_key">
+<tr id="TLSSettings-private_key">
 <td><code>privateKey</code></td>
 <td><code>string</code></td>
 <td>
@@ -2710,7 +3357,7 @@ Should be empty if mode is <code>ISTIO_MUTUAL</code>.</p>
 
 </td>
 </tr>
-<tr id="TLSSettings.ca_certificates">
+<tr id="TLSSettings-ca_certificates">
 <td><code>caCertificates</code></td>
 <td><code>string</code></td>
 <td>
@@ -2721,7 +3368,7 @@ Should be empty if mode is <code>ISTIO_MUTUAL</code>.</p>
 
 </td>
 </tr>
-<tr id="TLSSettings.subject_alt_names">
+<tr id="TLSSettings-subject_alt_names">
 <td><code>subjectAltNames</code></td>
 <td><code>string[]</code></td>
 <td>
@@ -2732,7 +3379,7 @@ Should be empty if mode is <code>ISTIO_MUTUAL</code>.</p>
 
 </td>
 </tr>
-<tr id="TLSSettings.sni">
+<tr id="TLSSettings-sni">
 <td><code>sni</code></td>
 <td><code>string</code></td>
 <td>
@@ -2744,7 +3391,7 @@ Should be empty if mode is <code>ISTIO_MUTUAL</code>.</p>
 </tbody>
 </table>
 </section>
-<h2 id="TLSSettings.TLSmode">TLSSettings.TLSmode</h2>
+<h2 id="TLSSettings-TLSmode">TLSSettings.TLSmode</h2>
 <section>
 <p>TLS connection mode</p>
 
@@ -2756,21 +3403,21 @@ Should be empty if mode is <code>ISTIO_MUTUAL</code>.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="TLSSettings.TLSmode.DISABLE">
+<tr id="TLSSettings-TLSmode-DISABLE">
 <td><code>DISABLE</code></td>
 <td>
 <p>Do not setup a TLS connection to the upstream endpoint.</p>
 
 </td>
 </tr>
-<tr id="TLSSettings.TLSmode.SIMPLE">
+<tr id="TLSSettings-TLSmode-SIMPLE">
 <td><code>SIMPLE</code></td>
 <td>
 <p>Originate a TLS connection to the upstream endpoint.</p>
 
 </td>
 </tr>
-<tr id="TLSSettings.TLSmode.MUTUAL">
+<tr id="TLSSettings-TLSmode-MUTUAL">
 <td><code>MUTUAL</code></td>
 <td>
 <p>Secure connections to the upstream using mutual TLS by presenting
@@ -2778,7 +3425,7 @@ client certificates for authentication.</p>
 
 </td>
 </tr>
-<tr id="TLSSettings.TLSmode.ISTIO_MUTUAL">
+<tr id="TLSSettings-TLSmode-ISTIO_MUTUAL">
 <td><code>ISTIO_MUTUAL</code></td>
 <td>
 <p>Secure connections to the upstream using mutual TLS by presenting
@@ -2806,7 +3453,7 @@ destination ports. See DestinationRule for examples.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="TrafficPolicy.load_balancer">
+<tr id="TrafficPolicy-load_balancer">
 <td><code>loadBalancer</code></td>
 <td><code><a href="#LoadBalancerSettings">LoadBalancerSettings</a></code></td>
 <td>
@@ -2814,7 +3461,7 @@ destination ports. See DestinationRule for examples.</p>
 
 </td>
 </tr>
-<tr id="TrafficPolicy.connection_pool">
+<tr id="TrafficPolicy-connection_pool">
 <td><code>connectionPool</code></td>
 <td><code><a href="#ConnectionPoolSettings">ConnectionPoolSettings</a></code></td>
 <td>
@@ -2822,7 +3469,7 @@ destination ports. See DestinationRule for examples.</p>
 
 </td>
 </tr>
-<tr id="TrafficPolicy.outlier_detection">
+<tr id="TrafficPolicy-outlier_detection">
 <td><code>outlierDetection</code></td>
 <td><code><a href="#OutlierDetection">OutlierDetection</a></code></td>
 <td>
@@ -2830,7 +3477,7 @@ destination ports. See DestinationRule for examples.</p>
 
 </td>
 </tr>
-<tr id="TrafficPolicy.tls">
+<tr id="TrafficPolicy-tls">
 <td><code>tls</code></td>
 <td><code><a href="#TLSSettings">TLSSettings</a></code></td>
 <td>
@@ -2838,9 +3485,9 @@ destination ports. See DestinationRule for examples.</p>
 
 </td>
 </tr>
-<tr id="TrafficPolicy.port_level_settings">
+<tr id="TrafficPolicy-port_level_settings">
 <td><code>portLevelSettings</code></td>
-<td><code><a href="#TrafficPolicy.PortTrafficPolicy">TrafficPolicy.PortTrafficPolicy[]</a></code></td>
+<td><code><a href="#TrafficPolicy-PortTrafficPolicy">TrafficPolicy.PortTrafficPolicy[]</a></code></td>
 <td>
 <p>Traffic policies specific to individual ports. Note that port level
 settings will override the destination-level settings. Traffic
@@ -2853,7 +3500,7 @@ to fields omitted in port-level traffic policies.</p>
 </tbody>
 </table>
 </section>
-<h2 id="TrafficPolicy.PortTrafficPolicy">TrafficPolicy.PortTrafficPolicy</h2>
+<h2 id="TrafficPolicy-PortTrafficPolicy">TrafficPolicy.PortTrafficPolicy</h2>
 <section>
 <p>Traffic policies that apply to specific ports of the service</p>
 
@@ -2866,7 +3513,7 @@ to fields omitted in port-level traffic policies.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="TrafficPolicy.PortTrafficPolicy.port">
+<tr id="TrafficPolicy-PortTrafficPolicy-port">
 <td><code>port</code></td>
 <td><code><a href="#PortSelector">PortSelector</a></code></td>
 <td>
@@ -2880,7 +3527,7 @@ label>.</p>
 
 </td>
 </tr>
-<tr id="TrafficPolicy.PortTrafficPolicy.load_balancer">
+<tr id="TrafficPolicy-PortTrafficPolicy-load_balancer">
 <td><code>loadBalancer</code></td>
 <td><code><a href="#LoadBalancerSettings">LoadBalancerSettings</a></code></td>
 <td>
@@ -2888,7 +3535,7 @@ label>.</p>
 
 </td>
 </tr>
-<tr id="TrafficPolicy.PortTrafficPolicy.connection_pool">
+<tr id="TrafficPolicy-PortTrafficPolicy-connection_pool">
 <td><code>connectionPool</code></td>
 <td><code><a href="#ConnectionPoolSettings">ConnectionPoolSettings</a></code></td>
 <td>
@@ -2896,7 +3543,7 @@ label>.</p>
 
 </td>
 </tr>
-<tr id="TrafficPolicy.PortTrafficPolicy.outlier_detection">
+<tr id="TrafficPolicy-PortTrafficPolicy-outlier_detection">
 <td><code>outlierDetection</code></td>
 <td><code><a href="#OutlierDetection">OutlierDetection</a></code></td>
 <td>
@@ -2904,7 +3551,7 @@ label>.</p>
 
 </td>
 </tr>
-<tr id="TrafficPolicy.PortTrafficPolicy.tls">
+<tr id="TrafficPolicy-PortTrafficPolicy-tls">
 <td><code>tls</code></td>
 <td><code><a href="#TLSSettings">TLSSettings</a></code></td>
 <td>
@@ -2930,7 +3577,7 @@ pods of the reviews service with label &ldquo;version: v1&rdquo;. In addition,
 HTTP requests containing /wpcatalog/, /consumercatalog/ url prefixes will
 be rewritten to /newcatalog and sent to pods with label &ldquo;version: v2&rdquo;.</p>
 
-<pre><code>apiVersion: networking.istio.io/v1alpha3
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: reviews-route
@@ -2959,7 +3606,7 @@ spec:
 to a named service subset which must be declared in a corresponding
 <code>DestinationRule</code>.</p>
 
-<pre><code>apiVersion: networking.istio.io/v1alpha3
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: reviews-destination
@@ -2983,7 +3630,7 @@ spec:
 </tr>
 </thead>
 <tbody>
-<tr id="VirtualService.hosts">
+<tr id="VirtualService-hosts">
 <td><code>hosts</code></td>
 <td><code>string[]</code></td>
 <td>
@@ -3013,38 +3660,58 @@ only for services defined via the Gateway.</p>
 
 </td>
 </tr>
-<tr id="VirtualService.gateways">
+<tr id="VirtualService-gateways">
 <td><code>gateways</code></td>
 <td><code>string[]</code></td>
 <td>
 <p>The names of gateways and sidecars that should apply these routes. A
-single VirtualService is used for sidecars inside the mesh as well
-as for one or more gateways. The selection condition imposed by this field
-can be overridden using the source field in the match conditions of HTTP/TCP
-routes. The reserved word <code>mesh</code> is used to imply all the sidecars in
-the mesh. When this field is omitted, the default gateway (<code>mesh</code>)
-will be used, which would apply the rule to all sidecars in the
-mesh. If a list of gateway names is provided, the rules will apply
-only to the gateways. To apply the rules to both gateways and sidecars,
-specify <code>mesh</code> as one of the gateway names.</p>
+single VirtualService is used for sidecars inside the mesh as well as
+for one or more gateways. The selection condition imposed by this
+field can be overridden using the source field in the match conditions
+of protocol-specific routes. The reserved word <code>mesh</code> is used to imply
+all the sidecars in the mesh. When this field is omitted, the default
+gateway (<code>mesh</code>) will be used, which would apply the rule to all
+sidecars in the mesh. If a list of gateway names is provided, the
+rules will apply only to the gateways. To apply the rules to both
+gateways and sidecars, specify <code>mesh</code> as one of the gateway names.</p>
 
 </td>
 </tr>
-<tr id="VirtualService.http">
+<tr id="VirtualService-http">
 <td><code>http</code></td>
 <td><code><a href="#HTTPRoute">HTTPRoute[]</a></code></td>
 <td>
-<p>An ordered list of route rules for HTTP traffic.
-The first rule matching an incoming request is used.</p>
+<p>An ordered list of route rules for HTTP traffic. HTTP routes will be
+applied to platform service ports named &lsquo;http-<em>&rsquo;/&lsquo;http2-</em>&rsquo;/&lsquo;grpc-*&rsquo;, gateway
+ports with protocol HTTP/HTTP2/GRPC/ TLS-terminated-HTTPS and service
+entry ports using HTTP/HTTP2/GRPC protocols.  The first rule matching
+an incoming request is used.</p>
 
 </td>
 </tr>
-<tr id="VirtualService.tcp">
+<tr id="VirtualService-tls">
+<td><code>tls</code></td>
+<td><code><a href="#TLSRoute">TLSRoute[]</a></code></td>
+<td>
+<p>An ordered list of route rule for non-terminated TLS &amp; HTTPS
+traffic. Routing is typically performed using the SNI value presented
+by the ClientHello message. TLS routes will be applied to platform
+service ports named &lsquo;https-<em>&rsquo;, &lsquo;tls-</em>&rsquo;, unterminated gateway ports using
+HTTPS/TLS protocols (i.e. with &ldquo;passthrough&rdquo; TLS mode) and service
+entry ports using HTTPS/TLS protocols.  The first rule matching an
+incoming request is used.  NOTE: Traffic &lsquo;https-<em>&rsquo; or &lsquo;tls-</em>&rsquo; ports
+without associated virtual service will be treated as opaque TCP
+traffic.</p>
+
+</td>
+</tr>
+<tr id="VirtualService-tcp">
 <td><code>tcp</code></td>
 <td><code><a href="#TCPRoute">TCPRoute[]</a></code></td>
 <td>
-<p>An ordered list of route rules for TCP traffic.
-The first rule matching an incoming request is used.</p>
+<p>An ordered list of route rules for opaque TCP traffic. TCP routes will
+be applied to any port that is not a HTTP or TLS port. The first rule
+matching an incoming request is used.</p>
 
 </td>
 </tr>

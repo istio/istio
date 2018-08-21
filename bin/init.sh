@@ -35,8 +35,6 @@ GO_TOP=$(cd $(dirname $0)/../../../..; pwd)
 
 export OUT_DIR=${OUT_DIR:-${GO_TOP}/out}
 
-HELM_VER=v2.7.2
-
 export GOPATH=${GOPATH:-$GO_TOP}
 # Normally set by Makefile
 export ISTIO_BIN=${ISTIO_BIN:-${GOPATH}/bin}
@@ -45,20 +43,19 @@ export ISTIO_BIN=${ISTIO_BIN:-${GOPATH}/bin}
 export GOARCH=${GOARCH:-'amd64'}
 
 # Determine the OS. Matches logic in the Makefile.
-LOCAL_OS="`uname`"
+LOCAL_OS=${LOCAL_OS:-"`uname`"}
 case $LOCAL_OS in
   'Linux')
-    LOCAL_OS='linux'
+    export GOOS=${GOOS:-"linux"}
     ;;
   'Darwin')
-    LOCAL_OS='darwin'
+    export GOOS=${GOOS:-"darwin"}
     ;;
   *)
     echo "This system's OS ${LOCAL_OS} isn't recognized/supported"
     exit 1
     ;;
 esac
-export GOOS=${GOOS:-${LOCAL_OS}}
 
 # test scripts seem to like to run this script directly rather than use make
 export ISTIO_OUT=${ISTIO_OUT:-${ISTIO_BIN}}
@@ -113,6 +110,9 @@ if [ ! -f "$ISTIO_ENVOY_DEBUG_PATH" ] || [ ! -f "$ISTIO_ENVOY_RELEASE_PATH" ] ; 
     # Download debug envoy binary.
     mkdir -p $ISTIO_ENVOY_DEBUG_DIR
     pushd $ISTIO_ENVOY_DEBUG_DIR
+    if [ "$LOCAL_OS" == "Darwin" ] && [ "$GOOS" != "linux" ]; then
+       ISTIO_ENVOY_DEBUG_URL=${ISTIO_ENVOY_MAC_RELEASE_URL}
+    fi
     echo "Downloading envoy debug artifact: ${DOWNLOAD_COMMAND} ${ISTIO_ENVOY_DEBUG_URL}"
     time ${DOWNLOAD_COMMAND} ${ISTIO_ENVOY_DEBUG_URL} | tar xz
     cp usr/local/bin/envoy $ISTIO_ENVOY_DEBUG_PATH
@@ -122,6 +122,9 @@ if [ ! -f "$ISTIO_ENVOY_DEBUG_PATH" ] || [ ! -f "$ISTIO_ENVOY_RELEASE_PATH" ] ; 
     # Download release envoy binary.
     mkdir -p $ISTIO_ENVOY_RELEASE_DIR
     pushd $ISTIO_ENVOY_RELEASE_DIR
+    if [ "$LOCAL_OS" == "Darwin" ] && [ "$GOOS" != "linux" ]; then
+       ISTIO_ENVOY_RELEASE_URL=${ISTIO_ENVOY_MAC_RELEASE_URL}
+    fi
     echo "Downloading envoy release artifact: ${DOWNLOAD_COMMAND} ${ISTIO_ENVOY_RELEASE_URL}"
     time ${DOWNLOAD_COMMAND} ${ISTIO_ENVOY_RELEASE_URL} | tar xz
     cp usr/local/bin/envoy $ISTIO_ENVOY_RELEASE_PATH
@@ -133,7 +136,7 @@ mkdir -p ${ISTIO_OUT}
 mkdir -p ${ISTIO_BIN}
 
 # copy debug envoy binary used for local tests such as ones in mixer/test/clients
-if [ "$LOCAL_OS" == "darwin" ]; then
+if [ "$LOCAL_OS" == "Darwin" ]; then
     # Download darwin envoy binary.
     DARWIN_ENVOY_DIR=$(mktemp -d)
     pushd $DARWIN_ENVOY_DIR

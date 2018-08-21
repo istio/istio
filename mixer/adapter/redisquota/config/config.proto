@@ -15,11 +15,15 @@
 syntax = "proto3";
 
 // $title: Redis Quota
-// $overview: Adapter for a Redis-based quota management system.
-// $location: https://istio.io/docs/reference/config/adapters/redisquota.html
+// $description: Adapter for a Redis-based quota management system.
+// $location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/redisquota.html
+// $aliases:
+// $  - /docs/reference/config/adapters/redisquota.html
 
 // The `redisquota` adapter can be used to support Istio's quota management
 // system. It depends on a Redis server to store quota values.
+//
+// This adapter supports the [quota template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/quota/).
 package adapter.redisquota.config;
 
 import "google/protobuf/duration.proto";
@@ -39,7 +43,7 @@ option (gogoproto.gostring_all) = false;
 // redisServerUrl: localhost:6379
 // connectionPoolSize: 10
 // quotas:
-//   - name: requestCount.quota.istio-system
+//   - name: requestcount.quota.istio-system
 //     maxAmount: 50
 //     validDuration: 60s
 //     bucketDuration: 1s

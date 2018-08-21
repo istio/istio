@@ -8,9 +8,14 @@
 		envoy/config/filter/http/jwt_authn/v2alpha/config.proto
 
 	It has these top-level messages:
-		JwtRule
+		JwtProvider
 		RemoteJwks
 		JwtHeader
+		ProviderWithAudiences
+		JwtRequirement
+		JwtRequirementOrList
+		JwtRequirementAndList
+		RequirementRule
 		JwtAuthentication
 */
 package envoy_config_filter_http_jwt_authn_v2alpha
@@ -22,6 +27,7 @@ import envoy_api_v2_core "github.com/envoyproxy/go-control-plane/envoy/api/v2/co
 import envoy_api_v2_core1 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 import envoy_api_v2_route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 import google_protobuf3 "github.com/gogo/protobuf/types"
+import google_protobuf1 "github.com/gogo/protobuf/types"
 import _ "github.com/lyft/protoc-gen-validate/validate"
 
 import io "io"
@@ -49,16 +55,16 @@ const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 //     issuer: https://example.com
 //     audiences:
 //     - bookstore_android.apps.googleusercontent.com
-//       bookstore_web.apps.googleusercontent.com
+//     - bookstore_web.apps.googleusercontent.com
 //     remote_jwks:
-//     - http_uri:
-//       - uri: https://example.com/.well-known/jwks.json
+//       http_uri:
+//         uri: https://example.com/.well-known/jwks.json
 //         cluster: example_jwks_cluster
 //       cache_duration:
-//       - seconds: 300
+//         seconds: 300
 //
 // [#not-implemented-hide:]
-type JwtRule struct {
+type JwtProvider struct {
 	// Identifies the principal that issued the JWT. See `here
 	//  <https://tools.ietf.org/html/rfc7519#section-4.1.1>`_. Usually a URL or an email address.
 	//
@@ -76,16 +82,16 @@ type JwtRule struct {
 	//
 	//     audiences:
 	//     - bookstore_android.apps.googleusercontent.com
-	//       bookstore_web.apps.googleusercontent.com
+	//     - bookstore_web.apps.googleusercontent.com
 	//
 	Audiences []string `protobuf:"bytes,2,rep,name=audiences" json:"audiences,omitempty"`
 	// `JSON Web Key Set <https://tools.ietf.org/html/rfc7517#appendix-A>`_ is needed. to validate
 	// signature of the JWT. This field specifies where to fetch JWKS.
 	//
 	// Types that are valid to be assigned to JwksSourceSpecifier:
-	//	*JwtRule_RemoteJwks
-	//	*JwtRule_LocalJwks
-	JwksSourceSpecifier isJwtRule_JwksSourceSpecifier `protobuf_oneof:"jwks_source_specifier"`
+	//	*JwtProvider_RemoteJwks
+	//	*JwtProvider_LocalJwks
+	JwksSourceSpecifier isJwtProvider_JwksSourceSpecifier `protobuf_oneof:"jwks_source_specifier"`
 	// If false, the JWT is removed in the request after a success verification. If true, the JWT is
 	// not removed in the request. Default value is false.
 	Forward bool `protobuf:"varint,5,opt,name=forward,proto3" json:"forward,omitempty"`
@@ -128,84 +134,84 @@ type JwtRule struct {
 	ForwardPayloadHeader string `protobuf:"bytes,8,opt,name=forward_payload_header,json=forwardPayloadHeader,proto3" json:"forward_payload_header,omitempty"`
 }
 
-func (m *JwtRule) Reset()                    { *m = JwtRule{} }
-func (m *JwtRule) String() string            { return proto.CompactTextString(m) }
-func (*JwtRule) ProtoMessage()               {}
-func (*JwtRule) Descriptor() ([]byte, []int) { return fileDescriptorConfig, []int{0} }
+func (m *JwtProvider) Reset()                    { *m = JwtProvider{} }
+func (m *JwtProvider) String() string            { return proto.CompactTextString(m) }
+func (*JwtProvider) ProtoMessage()               {}
+func (*JwtProvider) Descriptor() ([]byte, []int) { return fileDescriptorConfig, []int{0} }
 
-type isJwtRule_JwksSourceSpecifier interface {
-	isJwtRule_JwksSourceSpecifier()
+type isJwtProvider_JwksSourceSpecifier interface {
+	isJwtProvider_JwksSourceSpecifier()
 	MarshalTo([]byte) (int, error)
 	Size() int
 }
 
-type JwtRule_RemoteJwks struct {
+type JwtProvider_RemoteJwks struct {
 	RemoteJwks *RemoteJwks `protobuf:"bytes,3,opt,name=remote_jwks,json=remoteJwks,oneof"`
 }
-type JwtRule_LocalJwks struct {
+type JwtProvider_LocalJwks struct {
 	LocalJwks *envoy_api_v2_core.DataSource `protobuf:"bytes,4,opt,name=local_jwks,json=localJwks,oneof"`
 }
 
-func (*JwtRule_RemoteJwks) isJwtRule_JwksSourceSpecifier() {}
-func (*JwtRule_LocalJwks) isJwtRule_JwksSourceSpecifier()  {}
+func (*JwtProvider_RemoteJwks) isJwtProvider_JwksSourceSpecifier() {}
+func (*JwtProvider_LocalJwks) isJwtProvider_JwksSourceSpecifier()  {}
 
-func (m *JwtRule) GetJwksSourceSpecifier() isJwtRule_JwksSourceSpecifier {
+func (m *JwtProvider) GetJwksSourceSpecifier() isJwtProvider_JwksSourceSpecifier {
 	if m != nil {
 		return m.JwksSourceSpecifier
 	}
 	return nil
 }
 
-func (m *JwtRule) GetIssuer() string {
+func (m *JwtProvider) GetIssuer() string {
 	if m != nil {
 		return m.Issuer
 	}
 	return ""
 }
 
-func (m *JwtRule) GetAudiences() []string {
+func (m *JwtProvider) GetAudiences() []string {
 	if m != nil {
 		return m.Audiences
 	}
 	return nil
 }
 
-func (m *JwtRule) GetRemoteJwks() *RemoteJwks {
-	if x, ok := m.GetJwksSourceSpecifier().(*JwtRule_RemoteJwks); ok {
+func (m *JwtProvider) GetRemoteJwks() *RemoteJwks {
+	if x, ok := m.GetJwksSourceSpecifier().(*JwtProvider_RemoteJwks); ok {
 		return x.RemoteJwks
 	}
 	return nil
 }
 
-func (m *JwtRule) GetLocalJwks() *envoy_api_v2_core.DataSource {
-	if x, ok := m.GetJwksSourceSpecifier().(*JwtRule_LocalJwks); ok {
+func (m *JwtProvider) GetLocalJwks() *envoy_api_v2_core.DataSource {
+	if x, ok := m.GetJwksSourceSpecifier().(*JwtProvider_LocalJwks); ok {
 		return x.LocalJwks
 	}
 	return nil
 }
 
-func (m *JwtRule) GetForward() bool {
+func (m *JwtProvider) GetForward() bool {
 	if m != nil {
 		return m.Forward
 	}
 	return false
 }
 
-func (m *JwtRule) GetFromHeaders() []*JwtHeader {
+func (m *JwtProvider) GetFromHeaders() []*JwtHeader {
 	if m != nil {
 		return m.FromHeaders
 	}
 	return nil
 }
 
-func (m *JwtRule) GetFromParams() []string {
+func (m *JwtProvider) GetFromParams() []string {
 	if m != nil {
 		return m.FromParams
 	}
 	return nil
 }
 
-func (m *JwtRule) GetForwardPayloadHeader() string {
+func (m *JwtProvider) GetForwardPayloadHeader() string {
 	if m != nil {
 		return m.ForwardPayloadHeader
 	}
@@ -213,36 +219,36 @@ func (m *JwtRule) GetForwardPayloadHeader() string {
 }
 
 // XXX_OneofFuncs is for the internal use of the proto package.
-func (*JwtRule) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
-	return _JwtRule_OneofMarshaler, _JwtRule_OneofUnmarshaler, _JwtRule_OneofSizer, []interface{}{
-		(*JwtRule_RemoteJwks)(nil),
-		(*JwtRule_LocalJwks)(nil),
+func (*JwtProvider) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
+	return _JwtProvider_OneofMarshaler, _JwtProvider_OneofUnmarshaler, _JwtProvider_OneofSizer, []interface{}{
+		(*JwtProvider_RemoteJwks)(nil),
+		(*JwtProvider_LocalJwks)(nil),
 	}
 }
 
-func _JwtRule_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
-	m := msg.(*JwtRule)
+func _JwtProvider_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
+	m := msg.(*JwtProvider)
 	// jwks_source_specifier
 	switch x := m.JwksSourceSpecifier.(type) {
-	case *JwtRule_RemoteJwks:
+	case *JwtProvider_RemoteJwks:
 		_ = b.EncodeVarint(3<<3 | proto.WireBytes)
 		if err := b.EncodeMessage(x.RemoteJwks); err != nil {
 			return err
 		}
-	case *JwtRule_LocalJwks:
+	case *JwtProvider_LocalJwks:
 		_ = b.EncodeVarint(4<<3 | proto.WireBytes)
 		if err := b.EncodeMessage(x.LocalJwks); err != nil {
 			return err
 		}
 	case nil:
 	default:
-		return fmt.Errorf("JwtRule.JwksSourceSpecifier has unexpected type %T", x)
+		return fmt.Errorf("JwtProvider.JwksSourceSpecifier has unexpected type %T", x)
 	}
 	return nil
 }
 
-func _JwtRule_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
-	m := msg.(*JwtRule)
+func _JwtProvider_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
+	m := msg.(*JwtProvider)
 	switch tag {
 	case 3: // jwks_source_specifier.remote_jwks
 		if wire != proto.WireBytes {
@@ -250,7 +256,7 @@ func _JwtRule_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer
 		}
 		msg := new(RemoteJwks)
 		err := b.DecodeMessage(msg)
-		m.JwksSourceSpecifier = &JwtRule_RemoteJwks{msg}
+		m.JwksSourceSpecifier = &JwtProvider_RemoteJwks{msg}
 		return true, err
 	case 4: // jwks_source_specifier.local_jwks
 		if wire != proto.WireBytes {
@@ -258,23 +264,23 @@ func _JwtRule_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer
 		}
 		msg := new(envoy_api_v2_core.DataSource)
 		err := b.DecodeMessage(msg)
-		m.JwksSourceSpecifier = &JwtRule_LocalJwks{msg}
+		m.JwksSourceSpecifier = &JwtProvider_LocalJwks{msg}
 		return true, err
 	default:
 		return false, nil
 	}
 }
 
-func _JwtRule_OneofSizer(msg proto.Message) (n int) {
-	m := msg.(*JwtRule)
+func _JwtProvider_OneofSizer(msg proto.Message) (n int) {
+	m := msg.(*JwtProvider)
 	// jwks_source_specifier
 	switch x := m.JwksSourceSpecifier.(type) {
-	case *JwtRule_RemoteJwks:
+	case *JwtProvider_RemoteJwks:
 		s := proto.Size(x.RemoteJwks)
 		n += proto.SizeVarint(3<<3 | proto.WireBytes)
 		n += proto.SizeVarint(uint64(s))
 		n += s
-	case *JwtRule_LocalJwks:
+	case *JwtProvider_LocalJwks:
 		s := proto.Size(x.LocalJwks)
 		n += proto.SizeVarint(4<<3 | proto.WireBytes)
 		n += proto.SizeVarint(uint64(s))
@@ -293,7 +299,7 @@ type RemoteJwks struct {
 	// .. code-block:: yaml
 	//
 	//    http_uri:
-	//    - uri: https://www.googleapis.com/oauth2/v1/certs
+	//      uri: https://www.googleapis.com/oauth2/v1/certs
 	//      cluster: jwt.www.googleapis.com|443
 	//
 	HttpUri *envoy_api_v2_core1.HttpUri `protobuf:"bytes,1,opt,name=http_uri,json=httpUri" json:"http_uri,omitempty"`
@@ -350,79 +356,501 @@ func (m *JwtHeader) GetValuePrefix() string {
 	return ""
 }
 
+// Specify a required provider with audiences.
+type ProviderWithAudiences struct {
+	// Specify a required provider name.
+	ProviderName string `protobuf:"bytes,1,opt,name=provider_name,json=providerName,proto3" json:"provider_name,omitempty"`
+	// This field overrides the one specified in the JwtProvider.
+	Audiences []string `protobuf:"bytes,2,rep,name=audiences" json:"audiences,omitempty"`
+}
+
+func (m *ProviderWithAudiences) Reset()                    { *m = ProviderWithAudiences{} }
+func (m *ProviderWithAudiences) String() string            { return proto.CompactTextString(m) }
+func (*ProviderWithAudiences) ProtoMessage()               {}
+func (*ProviderWithAudiences) Descriptor() ([]byte, []int) { return fileDescriptorConfig, []int{3} }
+
+func (m *ProviderWithAudiences) GetProviderName() string {
+	if m != nil {
+		return m.ProviderName
+	}
+	return ""
+}
+
+func (m *ProviderWithAudiences) GetAudiences() []string {
+	if m != nil {
+		return m.Audiences
+	}
+	return nil
+}
+
+// This message specifies a Jwt requirement. An empty message means JWT verification is not
+// required. Here are some config examples:
+//
+// .. code-block:: yaml
+//
+//  # Example 1: not required with an empty message
+//
+//  # Example 2: require A
+//  provider_name: "provider-A"
+//
+//  # Example 3: require A or B
+//  requires_any:
+//    requirements:
+//      - provider_name: "provider-A"
+//      - provider_name: "provider-B"
+//
+//  # Example 4: require A and B
+//  requires_all:
+//    requirements:
+//      - provider_name: "provider-A"
+//      - provider_name: "provider-B"
+//
+//  # Example 5: require A and (B or C)
+//  requires_all:
+//    requirements:
+//      - provider_name: "provider-A"
+//      - requires_any:
+//        requirements:
+//          - provider_name: "provider-B"
+//          - provider_name: "provider-C"
+//
+//  # Example 6: require A or (B and C)
+//  requires_any:
+//    requirements:
+//      - provider_name: "provider-A"
+//      - requires_all:
+//        requirements:
+//          - provider_name: "provider-B"
+//          - provider_name: "provider-C"
+//
+type JwtRequirement struct {
+	// Types that are valid to be assigned to RequiresType:
+	//	*JwtRequirement_ProviderName
+	//	*JwtRequirement_ProviderAndAudiences
+	//	*JwtRequirement_RequiresAny
+	//	*JwtRequirement_RequiresAll
+	//	*JwtRequirement_AllowMissingOrFailed
+	RequiresType isJwtRequirement_RequiresType `protobuf_oneof:"requires_type"`
+}
+
+func (m *JwtRequirement) Reset()                    { *m = JwtRequirement{} }
+func (m *JwtRequirement) String() string            { return proto.CompactTextString(m) }
+func (*JwtRequirement) ProtoMessage()               {}
+func (*JwtRequirement) Descriptor() ([]byte, []int) { return fileDescriptorConfig, []int{4} }
+
+type isJwtRequirement_RequiresType interface {
+	isJwtRequirement_RequiresType()
+	MarshalTo([]byte) (int, error)
+	Size() int
+}
+
+type JwtRequirement_ProviderName struct {
+	ProviderName string `protobuf:"bytes,1,opt,name=provider_name,json=providerName,proto3,oneof"`
+}
+type JwtRequirement_ProviderAndAudiences struct {
+	ProviderAndAudiences *ProviderWithAudiences `protobuf:"bytes,2,opt,name=provider_and_audiences,json=providerAndAudiences,oneof"`
+}
+type JwtRequirement_RequiresAny struct {
+	RequiresAny *JwtRequirementOrList `protobuf:"bytes,3,opt,name=requires_any,json=requiresAny,oneof"`
+}
+type JwtRequirement_RequiresAll struct {
+	RequiresAll *JwtRequirementAndList `protobuf:"bytes,4,opt,name=requires_all,json=requiresAll,oneof"`
+}
+type JwtRequirement_AllowMissingOrFailed struct {
+	AllowMissingOrFailed *google_protobuf1.BoolValue `protobuf:"bytes,5,opt,name=allow_missing_or_failed,json=allowMissingOrFailed,oneof"`
+}
+
+func (*JwtRequirement_ProviderName) isJwtRequirement_RequiresType()         {}
+func (*JwtRequirement_ProviderAndAudiences) isJwtRequirement_RequiresType() {}
+func (*JwtRequirement_RequiresAny) isJwtRequirement_RequiresType()          {}
+func (*JwtRequirement_RequiresAll) isJwtRequirement_RequiresType()          {}
+func (*JwtRequirement_AllowMissingOrFailed) isJwtRequirement_RequiresType() {}
+
+func (m *JwtRequirement) GetRequiresType() isJwtRequirement_RequiresType {
+	if m != nil {
+		return m.RequiresType
+	}
+	return nil
+}
+
+func (m *JwtRequirement) GetProviderName() string {
+	if x, ok := m.GetRequiresType().(*JwtRequirement_ProviderName); ok {
+		return x.ProviderName
+	}
+	return ""
+}
+
+func (m *JwtRequirement) GetProviderAndAudiences() *ProviderWithAudiences {
+	if x, ok := m.GetRequiresType().(*JwtRequirement_ProviderAndAudiences); ok {
+		return x.ProviderAndAudiences
+	}
+	return nil
+}
+
+func (m *JwtRequirement) GetRequiresAny() *JwtRequirementOrList {
+	if x, ok := m.GetRequiresType().(*JwtRequirement_RequiresAny); ok {
+		return x.RequiresAny
+	}
+	return nil
+}
+
+func (m *JwtRequirement) GetRequiresAll() *JwtRequirementAndList {
+	if x, ok := m.GetRequiresType().(*JwtRequirement_RequiresAll); ok {
+		return x.RequiresAll
+	}
+	return nil
+}
+
+func (m *JwtRequirement) GetAllowMissingOrFailed() *google_protobuf1.BoolValue {
+	if x, ok := m.GetRequiresType().(*JwtRequirement_AllowMissingOrFailed); ok {
+		return x.AllowMissingOrFailed
+	}
+	return nil
+}
+
+// XXX_OneofFuncs is for the internal use of the proto package.
+func (*JwtRequirement) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
+	return _JwtRequirement_OneofMarshaler, _JwtRequirement_OneofUnmarshaler, _JwtRequirement_OneofSizer, []interface{}{
+		(*JwtRequirement_ProviderName)(nil),
+		(*JwtRequirement_ProviderAndAudiences)(nil),
+		(*JwtRequirement_RequiresAny)(nil),
+		(*JwtRequirement_RequiresAll)(nil),
+		(*JwtRequirement_AllowMissingOrFailed)(nil),
+	}
+}
+
+func _JwtRequirement_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
+	m := msg.(*JwtRequirement)
+	// requires_type
+	switch x := m.RequiresType.(type) {
+	case *JwtRequirement_ProviderName:
+		_ = b.EncodeVarint(1<<3 | proto.WireBytes)
+		_ = b.EncodeStringBytes(x.ProviderName)
+	case *JwtRequirement_ProviderAndAudiences:
+		_ = b.EncodeVarint(2<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.ProviderAndAudiences); err != nil {
+			return err
+		}
+	case *JwtRequirement_RequiresAny:
+		_ = b.EncodeVarint(3<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.RequiresAny); err != nil {
+			return err
+		}
+	case *JwtRequirement_RequiresAll:
+		_ = b.EncodeVarint(4<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.RequiresAll); err != nil {
+			return err
+		}
+	case *JwtRequirement_AllowMissingOrFailed:
+		_ = b.EncodeVarint(5<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.AllowMissingOrFailed); err != nil {
+			return err
+		}
+	case nil:
+	default:
+		return fmt.Errorf("JwtRequirement.RequiresType has unexpected type %T", x)
+	}
+	return nil
+}
+
+func _JwtRequirement_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
+	m := msg.(*JwtRequirement)
+	switch tag {
+	case 1: // requires_type.provider_name
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		x, err := b.DecodeStringBytes()
+		m.RequiresType = &JwtRequirement_ProviderName{x}
+		return true, err
+	case 2: // requires_type.provider_and_audiences
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(ProviderWithAudiences)
+		err := b.DecodeMessage(msg)
+		m.RequiresType = &JwtRequirement_ProviderAndAudiences{msg}
+		return true, err
+	case 3: // requires_type.requires_any
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(JwtRequirementOrList)
+		err := b.DecodeMessage(msg)
+		m.RequiresType = &JwtRequirement_RequiresAny{msg}
+		return true, err
+	case 4: // requires_type.requires_all
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(JwtRequirementAndList)
+		err := b.DecodeMessage(msg)
+		m.RequiresType = &JwtRequirement_RequiresAll{msg}
+		return true, err
+	case 5: // requires_type.allow_missing_or_failed
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(google_protobuf1.BoolValue)
+		err := b.DecodeMessage(msg)
+		m.RequiresType = &JwtRequirement_AllowMissingOrFailed{msg}
+		return true, err
+	default:
+		return false, nil
+	}
+}
+
+func _JwtRequirement_OneofSizer(msg proto.Message) (n int) {
+	m := msg.(*JwtRequirement)
+	// requires_type
+	switch x := m.RequiresType.(type) {
+	case *JwtRequirement_ProviderName:
+		n += proto.SizeVarint(1<<3 | proto.WireBytes)
+		n += proto.SizeVarint(uint64(len(x.ProviderName)))
+		n += len(x.ProviderName)
+	case *JwtRequirement_ProviderAndAudiences:
+		s := proto.Size(x.ProviderAndAudiences)
+		n += proto.SizeVarint(2<<3 | proto.WireBytes)
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *JwtRequirement_RequiresAny:
+		s := proto.Size(x.RequiresAny)
+		n += proto.SizeVarint(3<<3 | proto.WireBytes)
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *JwtRequirement_RequiresAll:
+		s := proto.Size(x.RequiresAll)
+		n += proto.SizeVarint(4<<3 | proto.WireBytes)
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *JwtRequirement_AllowMissingOrFailed:
+		s := proto.Size(x.AllowMissingOrFailed)
+		n += proto.SizeVarint(5<<3 | proto.WireBytes)
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case nil:
+	default:
+		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
+	}
+	return n
+}
+
+// This message specifies a list of RequiredProvider.
+// Their results are OR-ed; if any one of them passes, the result is passed
+type JwtRequirementOrList struct {
+	// Specify a list of JwtRequirement.
+	Requirements []*JwtRequirement `protobuf:"bytes,1,rep,name=requirements" json:"requirements,omitempty"`
+}
+
+func (m *JwtRequirementOrList) Reset()                    { *m = JwtRequirementOrList{} }
+func (m *JwtRequirementOrList) String() string            { return proto.CompactTextString(m) }
+func (*JwtRequirementOrList) ProtoMessage()               {}
+func (*JwtRequirementOrList) Descriptor() ([]byte, []int) { return fileDescriptorConfig, []int{5} }
+
+func (m *JwtRequirementOrList) GetRequirements() []*JwtRequirement {
+	if m != nil {
+		return m.Requirements
+	}
+	return nil
+}
+
+// This message specifies a list of RequiredProvider.
+// Their results are AND-ed; all of them must pass, if one of them fails or missing, it fails.
+type JwtRequirementAndList struct {
+	// Specify a list of JwtRequirement.
+	Requirements []*JwtRequirement `protobuf:"bytes,1,rep,name=requirements" json:"requirements,omitempty"`
+}
+
+func (m *JwtRequirementAndList) Reset()                    { *m = JwtRequirementAndList{} }
+func (m *JwtRequirementAndList) String() string            { return proto.CompactTextString(m) }
+func (*JwtRequirementAndList) ProtoMessage()               {}
+func (*JwtRequirementAndList) Descriptor() ([]byte, []int) { return fileDescriptorConfig, []int{6} }
+
+func (m *JwtRequirementAndList) GetRequirements() []*JwtRequirement {
+	if m != nil {
+		return m.Requirements
+	}
+	return nil
+}
+
+// This message specifies a Jwt requirement for a specific Route condition.
+// Example 1:
+//
+// .. code-block:: yaml
+//
+//    - match:
+//         prefix: "/healthz"
+//
+// In above example, "requires" field is empty for /healthz prefix match,
+// it means that requests matching the path prefix don't require JWT authentication.
+//
+// Example 2:
+//
+// .. code-block:: yaml
+//
+//    - match:
+//         prefix: "/"
+//      requires: { provider_name: "provider-A" }
+//
+// In above example, all requests matched the path prefix require jwt authentication
+// from "provider-A".
+type RequirementRule struct {
+	// The route matching parameter. Only when the match is satisfied, the "requires" field will
+	// apply.
+	//
+	// For example: following match will match all requests.
+	//
+	// .. code-block:: yaml
+	//
+	//    match:
+	//       prefix: "/"
+	//
+	Match *envoy_api_v2_route.RouteMatch `protobuf:"bytes,1,opt,name=match" json:"match,omitempty"`
+	// Specify a Jwt Requirement. Please detail comment in message JwtRequirement.
+	Requires *JwtRequirement `protobuf:"bytes,2,opt,name=requires" json:"requires,omitempty"`
+}
+
+func (m *RequirementRule) Reset()                    { *m = RequirementRule{} }
+func (m *RequirementRule) String() string            { return proto.CompactTextString(m) }
+func (*RequirementRule) ProtoMessage()               {}
+func (*RequirementRule) Descriptor() ([]byte, []int) { return fileDescriptorConfig, []int{7} }
+
+func (m *RequirementRule) GetMatch() *envoy_api_v2_route.RouteMatch {
+	if m != nil {
+		return m.Match
+	}
+	return nil
+}
+
+func (m *RequirementRule) GetRequires() *JwtRequirement {
+	if m != nil {
+		return m.Requires
+	}
+	return nil
+}
+
 // This is the Envoy HTTP filter config for JWT authentication.
-// [#not-implemented-hide:]
+//
+// For example:
+//
+// .. code-block:: yaml
+//
+//   providers:
+//      provider1:
+//        issuer: issuer1
+//        audiences:
+//        - audience1
+//        - audience2
+//        remote_jwks:
+//          http_uri:
+//            uri: https://example.com/.well-known/jwks.json
+//            cluster: example_jwks_cluster
+//      provider2:
+//        issuer: issuer2
+//        local_jwks:
+//          inline_string: jwks_string
+//
+//   rules:
+//      # Not jwt verification is required for /health path
+//      - match:
+//          prefix: "/health"
+//
+//      # Jwt verification for provider1 is required for path prefixed with "prefix"
+//      - match:
+//          prefix: "/prefix"
+//        requires:
+//          provider_name: "provider1"
+//
+//      # Jwt verification for either provider1 or provider2 is required for all other requests.
+//      - match:
+//          prefix: "/"
+//        requires:
+//          requires_any:
+//            requirements:
+//              - provider_name: "provider1"
+//              - provider_name: "provider2"
+//
+// // [#not-implemented-hide:]
 type JwtAuthentication struct {
-	// List of JWT rules to valide.
-	Rules []*JwtRule `protobuf:"bytes,1,rep,name=rules" json:"rules,omitempty"`
-	// If true, the request is allowed if JWT is missing or JWT verification fails.
-	// Default is false, a request without JWT or failed JWT verification is not allowed.
-	AllowMissingOrFailed bool `protobuf:"varint,2,opt,name=allow_missing_or_failed,json=allowMissingOrFailed,proto3" json:"allow_missing_or_failed,omitempty"`
-	// This field lists the patterns allowed to bypass JWT verification. This only applies when
-	// `allow_missing_or_failed_jwt` is false. Under this config, if a request doesn't have JWT, it
-	// will be rejected. But some requests still needed to be forwarded without JWT, such as OPTIONS
-	// for CORS and some health checking paths.
-	//
-	// Examples: bypass all CORS options requests
+	// Map of provider names to JwtProviders.
 	//
 	// .. code-block:: yaml
 	//
-	//   bypass:
-	//   - headers:
-	//     - name: :method
-	//       value: OPTIONS
-	//   - headers:
-	//     - name: :path
-	//       regex_match: /.*
+	//   providers:
+	//     provider1:
+	//        issuer: issuer1
+	//        audiences:
+	//        - audience1
+	//        - audience2
+	//        remote_jwks:
+	//          http_uri:
+	//            uri: https://example.com/.well-known/jwks.json
+	//            cluster: example_jwks_cluster
+	//      provider2:
+	//        issuer: provider2
+	//        local_jwks:
+	//          inline_string: jwks_string
 	//
-	// Examples: bypass /healthz check
+	Providers map[string]*JwtProvider `protobuf:"bytes,1,rep,name=providers" json:"providers,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value"`
+	// Specifies requirements based on the route matches. The first matched requirement will be
+	// applied. If there are overlapped match conditions, please put the most specific match first.
+	//
+	// Examples
 	//
 	// .. code-block:: yaml
 	//
-	//   bypass:
-	//   - headers:
-	//     - name: :method
-	//       value: GET
-	//   - headers:
-	//     - name: :path
-	//       exact_match: /healthz
+	// rules:
+	//   - match: { prefix: "/healthz" }
+	//   - match: { prefix: "/baz" }
+	//     requires:
+	//       provider_name: "provider1"
+	//   - match: { prefix: "/foo" }
+	//     requires:
+	//       requires_any:
+	//         requirements:
+	//           - provider_name: "provider1"
+	//           - provider_name: "provider2"
+	//   - match: { prefix: "/bar" }
+	//     requires:
+	//       requires_all:
+	//         requirements:
+	//           - provider_name: "provider1"
+	//           - provider_name: "provider2"
 	//
-	Bypass []*envoy_api_v2_route.RouteMatch `protobuf:"bytes,3,rep,name=bypass" json:"bypass,omitempty"`
+	Rules []*RequirementRule `protobuf:"bytes,2,rep,name=rules" json:"rules,omitempty"`
 }
 
 func (m *JwtAuthentication) Reset()                    { *m = JwtAuthentication{} }
 func (m *JwtAuthentication) String() string            { return proto.CompactTextString(m) }
 func (*JwtAuthentication) ProtoMessage()               {}
-func (*JwtAuthentication) Descriptor() ([]byte, []int) { return fileDescriptorConfig, []int{3} }
+func (*JwtAuthentication) Descriptor() ([]byte, []int) { return fileDescriptorConfig, []int{8} }
 
-func (m *JwtAuthentication) GetRules() []*JwtRule {
+func (m *JwtAuthentication) GetProviders() map[string]*JwtProvider {
+	if m != nil {
+		return m.Providers
+	}
+	return nil
+}
+
+func (m *JwtAuthentication) GetRules() []*RequirementRule {
 	if m != nil {
 		return m.Rules
 	}
 	return nil
 }
 
-func (m *JwtAuthentication) GetAllowMissingOrFailed() bool {
-	if m != nil {
-		return m.AllowMissingOrFailed
-	}
-	return false
-}
-
-func (m *JwtAuthentication) GetBypass() []*envoy_api_v2_route.RouteMatch {
-	if m != nil {
-		return m.Bypass
-	}
-	return nil
-}
-
 func init() {
-	proto.RegisterType((*JwtRule)(nil), "envoy.config.filter.http.jwt_authn.v2alpha.JwtRule")
+	proto.RegisterType((*JwtProvider)(nil), "envoy.config.filter.http.jwt_authn.v2alpha.JwtProvider")
 	proto.RegisterType((*RemoteJwks)(nil), "envoy.config.filter.http.jwt_authn.v2alpha.RemoteJwks")
 	proto.RegisterType((*JwtHeader)(nil), "envoy.config.filter.http.jwt_authn.v2alpha.JwtHeader")
+	proto.RegisterType((*ProviderWithAudiences)(nil), "envoy.config.filter.http.jwt_authn.v2alpha.ProviderWithAudiences")
+	proto.RegisterType((*JwtRequirement)(nil), "envoy.config.filter.http.jwt_authn.v2alpha.JwtRequirement")
+	proto.RegisterType((*JwtRequirementOrList)(nil), "envoy.config.filter.http.jwt_authn.v2alpha.JwtRequirementOrList")
+	proto.RegisterType((*JwtRequirementAndList)(nil), "envoy.config.filter.http.jwt_authn.v2alpha.JwtRequirementAndList")
+	proto.RegisterType((*RequirementRule)(nil), "envoy.config.filter.http.jwt_authn.v2alpha.RequirementRule")
 	proto.RegisterType((*JwtAuthentication)(nil), "envoy.config.filter.http.jwt_authn.v2alpha.JwtAuthentication")
 }
-func (m *JwtRule) Marshal() (dAtA []byte, err error) {
+func (m *JwtProvider) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalTo(dAtA)
@@ -432,7 +860,7 @@ func (m *JwtRule) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *JwtRule) MarshalTo(dAtA []byte) (int, error) {
+func (m *JwtProvider) MarshalTo(dAtA []byte) (int, error) {
 	var i int
 	_ = i
 	var l int
@@ -511,7 +939,7 @@ func (m *JwtRule) MarshalTo(dAtA []byte) (int, error) {
 	return i, nil
 }
 
-func (m *JwtRule_RemoteJwks) MarshalTo(dAtA []byte) (int, error) {
+func (m *JwtProvider_RemoteJwks) MarshalTo(dAtA []byte) (int, error) {
 	i := 0
 	if m.RemoteJwks != nil {
 		dAtA[i] = 0x1a
@@ -525,7 +953,7 @@ func (m *JwtRule_RemoteJwks) MarshalTo(dAtA []byte) (int, error) {
 	}
 	return i, nil
 }
-func (m *JwtRule_LocalJwks) MarshalTo(dAtA []byte) (int, error) {
+func (m *JwtProvider_LocalJwks) MarshalTo(dAtA []byte) (int, error) {
 	i := 0
 	if m.LocalJwks != nil {
 		dAtA[i] = 0x22
@@ -607,6 +1035,232 @@ func (m *JwtHeader) MarshalTo(dAtA []byte) (int, error) {
 	return i, nil
 }
 
+func (m *ProviderWithAudiences) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *ProviderWithAudiences) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.ProviderName) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.ProviderName)))
+		i += copy(dAtA[i:], m.ProviderName)
+	}
+	if len(m.Audiences) > 0 {
+		for _, s := range m.Audiences {
+			dAtA[i] = 0x12
+			i++
+			l = len(s)
+			for l >= 1<<7 {
+				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
+				l >>= 7
+				i++
+			}
+			dAtA[i] = uint8(l)
+			i++
+			i += copy(dAtA[i:], s)
+		}
+	}
+	return i, nil
+}
+
+func (m *JwtRequirement) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *JwtRequirement) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.RequiresType != nil {
+		nn6, err := m.RequiresType.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += nn6
+	}
+	return i, nil
+}
+
+func (m *JwtRequirement_ProviderName) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	dAtA[i] = 0xa
+	i++
+	i = encodeVarintConfig(dAtA, i, uint64(len(m.ProviderName)))
+	i += copy(dAtA[i:], m.ProviderName)
+	return i, nil
+}
+func (m *JwtRequirement_ProviderAndAudiences) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	if m.ProviderAndAudiences != nil {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintConfig(dAtA, i, uint64(m.ProviderAndAudiences.Size()))
+		n7, err := m.ProviderAndAudiences.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n7
+	}
+	return i, nil
+}
+func (m *JwtRequirement_RequiresAny) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	if m.RequiresAny != nil {
+		dAtA[i] = 0x1a
+		i++
+		i = encodeVarintConfig(dAtA, i, uint64(m.RequiresAny.Size()))
+		n8, err := m.RequiresAny.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n8
+	}
+	return i, nil
+}
+func (m *JwtRequirement_RequiresAll) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	if m.RequiresAll != nil {
+		dAtA[i] = 0x22
+		i++
+		i = encodeVarintConfig(dAtA, i, uint64(m.RequiresAll.Size()))
+		n9, err := m.RequiresAll.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n9
+	}
+	return i, nil
+}
+func (m *JwtRequirement_AllowMissingOrFailed) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	if m.AllowMissingOrFailed != nil {
+		dAtA[i] = 0x2a
+		i++
+		i = encodeVarintConfig(dAtA, i, uint64(m.AllowMissingOrFailed.Size()))
+		n10, err := m.AllowMissingOrFailed.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n10
+	}
+	return i, nil
+}
+func (m *JwtRequirementOrList) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *JwtRequirementOrList) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.Requirements) > 0 {
+		for _, msg := range m.Requirements {
+			dAtA[i] = 0xa
+			i++
+			i = encodeVarintConfig(dAtA, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(dAtA[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
+		}
+	}
+	return i, nil
+}
+
+func (m *JwtRequirementAndList) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *JwtRequirementAndList) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.Requirements) > 0 {
+		for _, msg := range m.Requirements {
+			dAtA[i] = 0xa
+			i++
+			i = encodeVarintConfig(dAtA, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(dAtA[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
+		}
+	}
+	return i, nil
+}
+
+func (m *RequirementRule) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *RequirementRule) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Match != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintConfig(dAtA, i, uint64(m.Match.Size()))
+		n11, err := m.Match.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n11
+	}
+	if m.Requires != nil {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintConfig(dAtA, i, uint64(m.Requires.Size()))
+		n12, err := m.Requires.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n12
+	}
+	return i, nil
+}
+
 func (m *JwtAuthentication) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -622,31 +1276,37 @@ func (m *JwtAuthentication) MarshalTo(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
-	if len(m.Rules) > 0 {
-		for _, msg := range m.Rules {
+	if len(m.Providers) > 0 {
+		for k, _ := range m.Providers {
 			dAtA[i] = 0xa
 			i++
-			i = encodeVarintConfig(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
+			v := m.Providers[k]
+			msgSize := 0
+			if v != nil {
+				msgSize = v.Size()
+				msgSize += 1 + sovConfig(uint64(msgSize))
 			}
-			i += n
+			mapSize := 1 + len(k) + sovConfig(uint64(len(k))) + msgSize
+			i = encodeVarintConfig(dAtA, i, uint64(mapSize))
+			dAtA[i] = 0xa
+			i++
+			i = encodeVarintConfig(dAtA, i, uint64(len(k)))
+			i += copy(dAtA[i:], k)
+			if v != nil {
+				dAtA[i] = 0x12
+				i++
+				i = encodeVarintConfig(dAtA, i, uint64(v.Size()))
+				n13, err := v.MarshalTo(dAtA[i:])
+				if err != nil {
+					return 0, err
+				}
+				i += n13
+			}
 		}
 	}
-	if m.AllowMissingOrFailed {
-		dAtA[i] = 0x10
-		i++
-		if m.AllowMissingOrFailed {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
-		}
-		i++
-	}
-	if len(m.Bypass) > 0 {
-		for _, msg := range m.Bypass {
-			dAtA[i] = 0x1a
+	if len(m.Rules) > 0 {
+		for _, msg := range m.Rules {
+			dAtA[i] = 0x12
 			i++
 			i = encodeVarintConfig(dAtA, i, uint64(msg.Size()))
 			n, err := msg.MarshalTo(dAtA[i:])
@@ -668,7 +1328,7 @@ func encodeVarintConfig(dAtA []byte, offset int, v uint64) int {
 	dAtA[offset] = uint8(v)
 	return offset + 1
 }
-func (m *JwtRule) Size() (n int) {
+func (m *JwtProvider) Size() (n int) {
 	var l int
 	_ = l
 	l = len(m.Issuer)
@@ -706,7 +1366,7 @@ func (m *JwtRule) Size() (n int) {
 	return n
 }
 
-func (m *JwtRule_RemoteJwks) Size() (n int) {
+func (m *JwtProvider_RemoteJwks) Size() (n int) {
 	var l int
 	_ = l
 	if m.RemoteJwks != nil {
@@ -715,7 +1375,7 @@ func (m *JwtRule_RemoteJwks) Size() (n int) {
 	}
 	return n
 }
-func (m *JwtRule_LocalJwks) Size() (n int) {
+func (m *JwtProvider_LocalJwks) Size() (n int) {
 	var l int
 	_ = l
 	if m.LocalJwks != nil {
@@ -752,20 +1412,130 @@ func (m *JwtHeader) Size() (n int) {
 	return n
 }
 
-func (m *JwtAuthentication) Size() (n int) {
+func (m *ProviderWithAudiences) Size() (n int) {
 	var l int
 	_ = l
-	if len(m.Rules) > 0 {
-		for _, e := range m.Rules {
+	l = len(m.ProviderName)
+	if l > 0 {
+		n += 1 + l + sovConfig(uint64(l))
+	}
+	if len(m.Audiences) > 0 {
+		for _, s := range m.Audiences {
+			l = len(s)
+			n += 1 + l + sovConfig(uint64(l))
+		}
+	}
+	return n
+}
+
+func (m *JwtRequirement) Size() (n int) {
+	var l int
+	_ = l
+	if m.RequiresType != nil {
+		n += m.RequiresType.Size()
+	}
+	return n
+}
+
+func (m *JwtRequirement_ProviderName) Size() (n int) {
+	var l int
+	_ = l
+	l = len(m.ProviderName)
+	n += 1 + l + sovConfig(uint64(l))
+	return n
+}
+func (m *JwtRequirement_ProviderAndAudiences) Size() (n int) {
+	var l int
+	_ = l
+	if m.ProviderAndAudiences != nil {
+		l = m.ProviderAndAudiences.Size()
+		n += 1 + l + sovConfig(uint64(l))
+	}
+	return n
+}
+func (m *JwtRequirement_RequiresAny) Size() (n int) {
+	var l int
+	_ = l
+	if m.RequiresAny != nil {
+		l = m.RequiresAny.Size()
+		n += 1 + l + sovConfig(uint64(l))
+	}
+	return n
+}
+func (m *JwtRequirement_RequiresAll) Size() (n int) {
+	var l int
+	_ = l
+	if m.RequiresAll != nil {
+		l = m.RequiresAll.Size()
+		n += 1 + l + sovConfig(uint64(l))
+	}
+	return n
+}
+func (m *JwtRequirement_AllowMissingOrFailed) Size() (n int) {
+	var l int
+	_ = l
+	if m.AllowMissingOrFailed != nil {
+		l = m.AllowMissingOrFailed.Size()
+		n += 1 + l + sovConfig(uint64(l))
+	}
+	return n
+}
+func (m *JwtRequirementOrList) Size() (n int) {
+	var l int
+	_ = l
+	if len(m.Requirements) > 0 {
+		for _, e := range m.Requirements {
 			l = e.Size()
 			n += 1 + l + sovConfig(uint64(l))
 		}
 	}
-	if m.AllowMissingOrFailed {
-		n += 2
+	return n
+}
+
+func (m *JwtRequirementAndList) Size() (n int) {
+	var l int
+	_ = l
+	if len(m.Requirements) > 0 {
+		for _, e := range m.Requirements {
+			l = e.Size()
+			n += 1 + l + sovConfig(uint64(l))
+		}
 	}
-	if len(m.Bypass) > 0 {
-		for _, e := range m.Bypass {
+	return n
+}
+
+func (m *RequirementRule) Size() (n int) {
+	var l int
+	_ = l
+	if m.Match != nil {
+		l = m.Match.Size()
+		n += 1 + l + sovConfig(uint64(l))
+	}
+	if m.Requires != nil {
+		l = m.Requires.Size()
+		n += 1 + l + sovConfig(uint64(l))
+	}
+	return n
+}
+
+func (m *JwtAuthentication) Size() (n int) {
+	var l int
+	_ = l
+	if len(m.Providers) > 0 {
+		for k, v := range m.Providers {
+			_ = k
+			_ = v
+			l = 0
+			if v != nil {
+				l = v.Size()
+				l += 1 + sovConfig(uint64(l))
+			}
+			mapEntrySize := 1 + len(k) + sovConfig(uint64(len(k))) + l
+			n += mapEntrySize + 1 + sovConfig(uint64(mapEntrySize))
+		}
+	}
+	if len(m.Rules) > 0 {
+		for _, e := range m.Rules {
 			l = e.Size()
 			n += 1 + l + sovConfig(uint64(l))
 		}
@@ -786,7 +1556,7 @@ func sovConfig(x uint64) (n int) {
 func sozConfig(x uint64) (n int) {
 	return sovConfig(uint64((x << 1) ^ uint64((int64(x) >> 63))))
 }
-func (m *JwtRule) Unmarshal(dAtA []byte) error {
+func (m *JwtProvider) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -809,10 +1579,10 @@ func (m *JwtRule) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: JwtRule: wiretype end group for non-group")
+			return fmt.Errorf("proto: JwtProvider: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: JwtRule: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: JwtProvider: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
@@ -903,7 +1673,7 @@ func (m *JwtRule) Unmarshal(dAtA []byte) error {
 			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
-			m.JwksSourceSpecifier = &JwtRule_RemoteJwks{v}
+			m.JwksSourceSpecifier = &JwtProvider_RemoteJwks{v}
 			iNdEx = postIndex
 		case 4:
 			if wireType != 2 {
@@ -935,7 +1705,7 @@ func (m *JwtRule) Unmarshal(dAtA []byte) error {
 			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
-			m.JwksSourceSpecifier = &JwtRule_LocalJwks{v}
+			m.JwksSourceSpecifier = &JwtProvider_LocalJwks{v}
 			iNdEx = postIndex
 		case 5:
 			if wireType != 0 {
@@ -1291,6 +2061,599 @@ func (m *JwtHeader) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
+func (m *ProviderWithAudiences) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowConfig
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: ProviderWithAudiences: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: ProviderWithAudiences: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ProviderName", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthConfig
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.ProviderName = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Audiences", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthConfig
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Audiences = append(m.Audiences, string(dAtA[iNdEx:postIndex]))
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipConfig(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthConfig
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *JwtRequirement) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowConfig
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: JwtRequirement: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: JwtRequirement: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ProviderName", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthConfig
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.RequiresType = &JwtRequirement_ProviderName{string(dAtA[iNdEx:postIndex])}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ProviderAndAudiences", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthConfig
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &ProviderWithAudiences{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.RequiresType = &JwtRequirement_ProviderAndAudiences{v}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field RequiresAny", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthConfig
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &JwtRequirementOrList{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.RequiresType = &JwtRequirement_RequiresAny{v}
+			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field RequiresAll", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthConfig
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &JwtRequirementAndList{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.RequiresType = &JwtRequirement_RequiresAll{v}
+			iNdEx = postIndex
+		case 5:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field AllowMissingOrFailed", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthConfig
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &google_protobuf1.BoolValue{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.RequiresType = &JwtRequirement_AllowMissingOrFailed{v}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipConfig(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthConfig
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *JwtRequirementOrList) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowConfig
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: JwtRequirementOrList: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: JwtRequirementOrList: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Requirements", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthConfig
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Requirements = append(m.Requirements, &JwtRequirement{})
+			if err := m.Requirements[len(m.Requirements)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipConfig(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthConfig
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *JwtRequirementAndList) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowConfig
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: JwtRequirementAndList: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: JwtRequirementAndList: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Requirements", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthConfig
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Requirements = append(m.Requirements, &JwtRequirement{})
+			if err := m.Requirements[len(m.Requirements)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipConfig(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthConfig
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *RequirementRule) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowConfig
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: RequirementRule: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: RequirementRule: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Match", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthConfig
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Match == nil {
+				m.Match = &envoy_api_v2_route.RouteMatch{}
+			}
+			if err := m.Match.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Requires", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthConfig
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Requires == nil {
+				m.Requires = &JwtRequirement{}
+			}
+			if err := m.Requires.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipConfig(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthConfig
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
 func (m *JwtAuthentication) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
@@ -1322,6 +2685,129 @@ func (m *JwtAuthentication) Unmarshal(dAtA []byte) error {
 		switch fieldNum {
 		case 1:
 			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Providers", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthConfig
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Providers == nil {
+				m.Providers = make(map[string]*JwtProvider)
+			}
+			var mapkey string
+			var mapvalue *JwtProvider
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowConfig
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					wire |= (uint64(b) & 0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					var stringLenmapkey uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowConfig
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapkey |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapkey := int(stringLenmapkey)
+					if intStringLenmapkey < 0 {
+						return ErrInvalidLengthConfig
+					}
+					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
+					iNdEx = postStringIndexmapkey
+				} else if fieldNum == 2 {
+					var mapmsglen int
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowConfig
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						mapmsglen |= (int(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					if mapmsglen < 0 {
+						return ErrInvalidLengthConfig
+					}
+					postmsgIndex := iNdEx + mapmsglen
+					if mapmsglen < 0 {
+						return ErrInvalidLengthConfig
+					}
+					if postmsgIndex > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapvalue = &JwtProvider{}
+					if err := mapvalue.Unmarshal(dAtA[iNdEx:postmsgIndex]); err != nil {
+						return err
+					}
+					iNdEx = postmsgIndex
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipConfig(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthConfig
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
+				}
+			}
+			m.Providers[mapkey] = mapvalue
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Rules", wireType)
 			}
 			var msglen int
@@ -1346,59 +2832,8 @@ func (m *JwtAuthentication) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.Rules = append(m.Rules, &JwtRule{})
+			m.Rules = append(m.Rules, &RequirementRule{})
 			if err := m.Rules[len(m.Rules)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 2:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field AllowMissingOrFailed", wireType)
-			}
-			var v int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowConfig
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				v |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			m.AllowMissingOrFailed = bool(v != 0)
-		case 3:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Bypass", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowConfig
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthConfig
-			}
-			postIndex := iNdEx + msglen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Bypass = append(m.Bypass, &envoy_api_v2_route.RouteMatch{})
-			if err := m.Bypass[len(m.Bypass)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -1533,46 +2968,65 @@ func init() {
 }
 
 var fileDescriptorConfig = []byte{
-	// 641 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x53, 0xc1, 0x6e, 0xd3, 0x40,
-	0x10, 0xad, 0x9b, 0x36, 0x89, 0x37, 0x05, 0x89, 0x55, 0xa1, 0xa6, 0x6a, 0x83, 0x9b, 0x53, 0xc4,
-	0xc1, 0x96, 0x52, 0x5a, 0x6e, 0x08, 0xaa, 0x0a, 0x85, 0x48, 0x15, 0xd5, 0x22, 0x24, 0x38, 0x59,
-	0x13, 0x7b, 0x1d, 0x6f, 0xeb, 0x78, 0xad, 0xdd, 0x75, 0x4c, 0x3f, 0x80, 0x7f, 0x42, 0x9c, 0x7a,
-	0xe4, 0x82, 0xd4, 0x4f, 0x40, 0xbd, 0xf5, 0x2f, 0x90, 0x77, 0xed, 0x54, 0x55, 0x39, 0xd0, 0xcb,
-	0x6a, 0x67, 0xde, 0xbc, 0xb7, 0xe3, 0x37, 0x63, 0xf4, 0x9a, 0x66, 0x0b, 0x7e, 0xe1, 0x87, 0x3c,
-	0x8b, 0xd9, 0xcc, 0x8f, 0x59, 0xaa, 0xa8, 0xf0, 0x13, 0xa5, 0x72, 0xff, 0xac, 0x54, 0x01, 0x14,
-	0x2a, 0xc9, 0xfc, 0xc5, 0x08, 0xd2, 0x3c, 0x81, 0xba, 0xc8, 0xcb, 0x05, 0x57, 0x1c, 0xbf, 0xd4,
-	0x44, 0xaf, 0xce, 0x19, 0xa2, 0x57, 0x11, 0xbd, 0x25, 0xd1, 0xab, 0x89, 0xdb, 0x3b, 0xe6, 0x11,
-	0xc8, 0x99, 0xbf, 0x18, 0xf9, 0x21, 0x17, 0xd4, 0x9f, 0x82, 0xa4, 0x46, 0x69, 0xdb, 0xbd, 0x8f,
-	0x56, 0x3a, 0x41, 0x21, 0x58, 0x5d, 0xd1, 0xbf, 0x53, 0x21, 0x78, 0xa1, 0xa8, 0x39, 0x1b, 0x7c,
-	0xc6, 0xf9, 0x2c, 0xa5, 0xbe, 0x8e, 0xa6, 0x45, 0xec, 0x47, 0x85, 0x00, 0xc5, 0x78, 0x56, 0xe3,
-	0x5b, 0x0b, 0x48, 0x59, 0x04, 0x8a, 0xfa, 0xcd, 0xc5, 0x00, 0x83, 0xab, 0x16, 0xea, 0x4c, 0x4a,
-	0x45, 0x8a, 0x94, 0xe2, 0x3d, 0xd4, 0x66, 0x52, 0x16, 0x54, 0x38, 0x96, 0x6b, 0x0d, 0xed, 0x23,
-	0xfb, 0xe7, 0xcd, 0x65, 0x6b, 0x4d, 0xac, 0xba, 0x16, 0xa9, 0x01, 0xbc, 0x83, 0x6c, 0x28, 0x22,
-	0x46, 0xb3, 0x90, 0x4a, 0x67, 0xd5, 0x6d, 0x0d, 0x6d, 0x72, 0x9b, 0xc0, 0x5f, 0x51, 0x4f, 0xd0,
-	0x39, 0x57, 0x34, 0x38, 0x2b, 0xcf, 0xa5, 0xd3, 0x72, 0xad, 0x61, 0x6f, 0x74, 0xe8, 0xfd, 0xbf,
-	0x4f, 0x1e, 0xd1, 0xf4, 0x49, 0x79, 0x2e, 0xc7, 0x2b, 0x04, 0x89, 0x65, 0x84, 0xdf, 0x20, 0x94,
-	0xf2, 0x10, 0x52, 0xa3, 0xbc, 0xa6, 0x95, 0x77, 0x6b, 0x65, 0xc8, 0x99, 0xb7, 0x18, 0x79, 0x95,
-	0x6f, 0xde, 0x31, 0x28, 0xf8, 0xc4, 0x0b, 0x11, 0xd2, 0xf1, 0x0a, 0xb1, 0x35, 0x45, 0xf3, 0x1d,
-	0xd4, 0x89, 0xb9, 0x28, 0x41, 0x44, 0xce, 0xba, 0x6b, 0x0d, 0xbb, 0xa4, 0x09, 0xf1, 0x17, 0xb4,
-	0x11, 0x0b, 0x3e, 0x0f, 0x12, 0x0a, 0x11, 0x15, 0xd2, 0x69, 0xbb, 0xad, 0x61, 0x6f, 0x74, 0xf0,
-	0x90, 0xae, 0x27, 0xa5, 0x1a, 0x6b, 0x36, 0xe9, 0x55, 0x52, 0xe6, 0x2e, 0xf1, 0x0b, 0xa4, 0xc3,
-	0x20, 0x07, 0x01, 0x73, 0xe9, 0x74, 0xb4, 0x5d, 0xa8, 0x4a, 0x9d, 0xea, 0x0c, 0x7e, 0x85, 0x9e,
-	0xd5, 0x5d, 0x04, 0x39, 0x5c, 0xa4, 0x1c, 0xa2, 0xba, 0x0b, 0xa7, 0x5b, 0x0d, 0x80, 0x6c, 0xd6,
-	0xe8, 0xa9, 0x01, 0x8d, 0xee, 0x51, 0x1f, 0x3d, 0xad, 0x4c, 0x08, 0xa4, 0xfe, 0xcc, 0x40, 0xe6,
-	0x34, 0x64, 0x31, 0xa3, 0x02, 0xaf, 0xff, 0xb8, 0xb9, 0x6c, 0x59, 0x83, 0xef, 0x16, 0x42, 0xb7,
-	0x3e, 0xe2, 0x03, 0xd4, 0x6d, 0x96, 0x49, 0xcf, 0xb5, 0x37, 0xda, 0xfe, 0x87, 0x6f, 0x63, 0xa5,
-	0xf2, 0xcf, 0x82, 0x91, 0x4e, 0x62, 0x2e, 0xf8, 0x2d, 0x7a, 0x1c, 0x42, 0x98, 0xd0, 0xa0, 0xd9,
-	0x24, 0x67, 0x55, 0x93, 0x9f, 0x7b, 0x66, 0xd5, 0xbc, 0x66, 0xd5, 0xbc, 0xe3, 0xba, 0x80, 0x3c,
-	0xd2, 0x84, 0x26, 0x1c, 0x9c, 0x20, 0x7b, 0x69, 0x0c, 0xde, 0x45, 0x6b, 0x19, 0xcc, 0xe9, 0xfd,
-	0xcd, 0xd2, 0x69, 0xbc, 0x87, 0x36, 0x16, 0x90, 0x16, 0x34, 0xc8, 0x05, 0x8d, 0xd9, 0x37, 0xfd,
-	0x96, 0x4d, 0x7a, 0x3a, 0x77, 0xaa, 0x53, 0x83, 0xdf, 0x16, 0x7a, 0x32, 0x29, 0xd5, 0xbb, 0x42,
-	0x25, 0x34, 0x53, 0x2c, 0xd4, 0x8f, 0xe0, 0x0f, 0x68, 0x5d, 0x14, 0x29, 0x95, 0x8e, 0xa5, 0xc7,
-	0xb6, 0xff, 0xc0, 0xb1, 0x55, 0x7b, 0x4f, 0x8c, 0x02, 0x3e, 0x40, 0x5b, 0x90, 0xa6, 0xbc, 0x0c,
-	0xe6, 0x4c, 0x4a, 0x96, 0xcd, 0x02, 0x2e, 0x82, 0x18, 0x58, 0x4a, 0x23, 0xdd, 0x4e, 0x97, 0x6c,
-	0x6a, 0xf8, 0xc4, 0xa0, 0x1f, 0xc5, 0x7b, 0x8d, 0xe1, 0x43, 0xd4, 0x9e, 0x5e, 0xe4, 0x20, 0xab,
-	0x7d, 0xaf, 0x5a, 0xe8, 0xdf, 0x75, 0xd7, 0xfc, 0xa5, 0xa4, 0x3a, 0x4f, 0x40, 0x85, 0x09, 0xa9,
-	0xab, 0x8f, 0x36, 0x7e, 0x5d, 0xf7, 0xad, 0xab, 0xeb, 0xbe, 0xf5, 0xe7, 0xba, 0x6f, 0x4d, 0xdb,
-	0xda, 0xce, 0xfd, 0xbf, 0x01, 0x00, 0x00, 0xff, 0xff, 0x9e, 0xa4, 0x21, 0xaf, 0x8e, 0x04, 0x00,
-	0x00,
+	// 947 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xbc, 0x55, 0x4f, 0x6f, 0x1b, 0xc5,
+	0x1b, 0xf6, 0xda, 0x71, 0x62, 0xbf, 0x76, 0xd2, 0xfe, 0x46, 0x49, 0xbb, 0xbf, 0xa8, 0x35, 0xae,
+	0x11, 0x92, 0xc5, 0x61, 0x57, 0x32, 0x94, 0xa2, 0x22, 0xa1, 0xd8, 0x2a, 0xc8, 0xb2, 0x1a, 0x1a,
+	0xa6, 0xa2, 0xfc, 0xb9, 0xac, 0x26, 0xbb, 0xe3, 0x78, 0x92, 0xf5, 0xce, 0x32, 0x3b, 0xeb, 0xc5,
+	0x57, 0x10, 0x17, 0x8e, 0x7c, 0x0d, 0xbe, 0x00, 0xe2, 0xd4, 0x23, 0xdc, 0x38, 0xf0, 0x01, 0x50,
+	0x2e, 0xa8, 0xdf, 0x02, 0xed, 0xcc, 0xac, 0x1d, 0x37, 0x06, 0xe1, 0x22, 0x71, 0xb1, 0x66, 0xde,
+	0x77, 0x9e, 0xe7, 0x9d, 0xf7, 0xf1, 0x33, 0xef, 0xc2, 0x03, 0x1a, 0xcd, 0xf8, 0xdc, 0xf5, 0x79,
+	0x34, 0x66, 0x67, 0xee, 0x98, 0x85, 0x92, 0x0a, 0x77, 0x22, 0x65, 0xec, 0x9e, 0x67, 0xd2, 0x23,
+	0xa9, 0x9c, 0x44, 0xee, 0xac, 0x47, 0xc2, 0x78, 0x42, 0xcc, 0x21, 0x27, 0x16, 0x5c, 0x72, 0xf4,
+	0xa6, 0x02, 0x3a, 0x26, 0xa6, 0x81, 0x4e, 0x0e, 0x74, 0x16, 0x40, 0xc7, 0x00, 0x0f, 0xef, 0xe8,
+	0x22, 0x24, 0x66, 0xee, 0xac, 0xe7, 0xfa, 0x5c, 0x50, 0xf7, 0x94, 0x24, 0x54, 0x33, 0x1d, 0xb6,
+	0xaf, 0x67, 0x73, 0x1e, 0x2f, 0x15, 0xcc, 0x9c, 0x68, 0xad, 0x9c, 0x10, 0x3c, 0x95, 0x54, 0xff,
+	0x16, 0xf9, 0x33, 0xce, 0xcf, 0x42, 0xea, 0xaa, 0xdd, 0x69, 0x3a, 0x76, 0x83, 0x54, 0x10, 0xc9,
+	0x78, 0xf4, 0x57, 0xf9, 0x4c, 0x90, 0x38, 0xa6, 0x22, 0x31, 0xf9, 0xdb, 0x33, 0x12, 0xb2, 0x80,
+	0x48, 0xea, 0x16, 0x0b, 0x9d, 0xe8, 0xfc, 0x56, 0x81, 0xc6, 0x28, 0x93, 0x27, 0x82, 0xcf, 0x58,
+	0x40, 0x05, 0xba, 0x07, 0xdb, 0x2c, 0x49, 0x52, 0x2a, 0x6c, 0xab, 0x6d, 0x75, 0xeb, 0x83, 0xfa,
+	0x4f, 0x2f, 0x9e, 0x57, 0xb6, 0x44, 0xb9, 0x6d, 0x61, 0x93, 0x40, 0x77, 0xa0, 0x4e, 0xd2, 0x80,
+	0xd1, 0xc8, 0xa7, 0x89, 0x5d, 0x6e, 0x57, 0xba, 0x75, 0xbc, 0x0c, 0xa0, 0xcf, 0xa1, 0x21, 0xe8,
+	0x94, 0x4b, 0xea, 0x9d, 0x67, 0x17, 0x89, 0x5d, 0x69, 0x5b, 0xdd, 0x46, 0xef, 0x1d, 0xe7, 0x9f,
+	0x6b, 0xe9, 0x60, 0x05, 0x1f, 0x65, 0x17, 0xc9, 0xb0, 0x84, 0x41, 0x2c, 0x76, 0xe8, 0x7d, 0x80,
+	0x90, 0xfb, 0x24, 0xd4, 0xcc, 0x5b, 0x8a, 0xf9, 0xae, 0x61, 0x26, 0x31, 0x73, 0x66, 0x3d, 0x27,
+	0xd7, 0xd6, 0x79, 0x44, 0x24, 0x79, 0xca, 0x53, 0xe1, 0xd3, 0x61, 0x09, 0xd7, 0x15, 0x44, 0xe1,
+	0x6d, 0xd8, 0x19, 0x73, 0x91, 0x11, 0x11, 0xd8, 0xd5, 0xb6, 0xd5, 0xad, 0xe1, 0x62, 0x8b, 0x3e,
+	0x83, 0xe6, 0x58, 0xf0, 0xa9, 0x37, 0xa1, 0x24, 0xa0, 0x22, 0xb1, 0xb7, 0xdb, 0x95, 0x6e, 0xa3,
+	0x77, 0x7f, 0x93, 0x5b, 0x8f, 0x32, 0x39, 0x54, 0x68, 0xdc, 0xc8, 0xa9, 0xf4, 0x3a, 0x41, 0xaf,
+	0x81, 0xda, 0x7a, 0x31, 0x11, 0x64, 0x9a, 0xd8, 0x3b, 0x4a, 0x2e, 0xc8, 0x43, 0x27, 0x2a, 0x82,
+	0xde, 0x86, 0x5b, 0xe6, 0x16, 0x5e, 0x4c, 0xe6, 0x21, 0x27, 0x81, 0xb9, 0x85, 0x5d, 0xcb, 0xff,
+	0x00, 0xbc, 0x6f, 0xb2, 0x27, 0x3a, 0xa9, 0x79, 0x07, 0x2d, 0x38, 0xc8, 0x45, 0xf0, 0x12, 0xd5,
+	0xa6, 0x97, 0xc4, 0xd4, 0x67, 0x63, 0x46, 0x05, 0xaa, 0xfe, 0xf8, 0xe2, 0x79, 0xc5, 0xea, 0x7c,
+	0x6b, 0x01, 0x2c, 0x75, 0x44, 0xf7, 0xa1, 0x56, 0x18, 0x4e, 0xfd, 0xaf, 0x8d, 0xde, 0xe1, 0x1a,
+	0xdd, 0x86, 0x52, 0xc6, 0x9f, 0x08, 0x86, 0x77, 0x26, 0x7a, 0x81, 0x8e, 0x60, 0xcf, 0x27, 0xfe,
+	0x84, 0x7a, 0x85, 0xdb, 0xec, 0xb2, 0x02, 0xff, 0xdf, 0xd1, 0x76, 0x73, 0x0a, 0xbb, 0x39, 0x8f,
+	0xcc, 0x01, 0xbc, 0xab, 0x00, 0xc5, 0xb6, 0x73, 0x0c, 0xf5, 0x85, 0x30, 0xe8, 0x2e, 0x6c, 0x45,
+	0x64, 0x4a, 0xaf, 0x3b, 0x4b, 0x85, 0xd1, 0x3d, 0x68, 0xce, 0x48, 0x98, 0x52, 0x2f, 0x16, 0x74,
+	0xcc, 0xbe, 0x52, 0xb5, 0xea, 0xb8, 0xa1, 0x62, 0x27, 0x2a, 0xd4, 0xf9, 0x02, 0x0e, 0x0a, 0xa7,
+	0x7e, 0xca, 0xe4, 0xa4, 0xbf, 0x70, 0xdd, 0xeb, 0xb0, 0x1b, 0x9b, 0x84, 0xb7, 0xac, 0x81, 0x9b,
+	0x45, 0xf0, 0xa3, 0xbc, 0xc0, 0xdf, 0x1a, 0xb7, 0xf3, 0x47, 0x05, 0xf6, 0x46, 0x99, 0xc4, 0xf4,
+	0xcb, 0x94, 0x09, 0x3a, 0xa5, 0x91, 0x44, 0x6f, 0xac, 0x65, 0x1d, 0x96, 0x5e, 0xe2, 0x9d, 0xc3,
+	0xad, 0xc5, 0x31, 0x12, 0x05, 0xde, 0xd5, 0x22, 0xb9, 0x5c, 0xfd, 0x4d, 0x7c, 0xb4, 0xb6, 0xbf,
+	0x61, 0x09, 0xef, 0x17, 0x25, 0xfa, 0x51, 0xb0, 0xec, 0x9b, 0x42, 0x53, 0xe8, 0x0b, 0x27, 0x1e,
+	0x89, 0xe6, 0xe6, 0xb9, 0x1d, 0x6d, 0x68, 0xdc, 0x2b, 0x3d, 0x3f, 0x11, 0x8f, 0x59, 0x22, 0x87,
+	0x25, 0xdc, 0x28, 0x78, 0xfb, 0xd1, 0x1c, 0x8d, 0xaf, 0x96, 0x09, 0x43, 0xf3, 0xf6, 0xfa, 0xaf,
+	0x5e, 0xa6, 0x1f, 0x05, 0xd7, 0xea, 0x84, 0x21, 0x7a, 0x0a, 0xb7, 0x49, 0x18, 0xf2, 0xcc, 0x9b,
+	0xb2, 0x24, 0x61, 0xd1, 0x99, 0xc7, 0x85, 0x37, 0x26, 0x2c, 0xa4, 0xfa, 0xc5, 0xe6, 0xb6, 0x7d,
+	0xd9, 0x79, 0x03, 0xce, 0xc3, 0x67, 0xb9, 0x45, 0x72, 0x8d, 0x14, 0xf8, 0x58, 0x63, 0x9f, 0x88,
+	0x0f, 0x15, 0x72, 0x70, 0x03, 0x76, 0x17, 0x97, 0x97, 0xf3, 0x98, 0x76, 0xbe, 0xb6, 0x60, 0x7f,
+	0x5d, 0xd7, 0xe8, 0x7c, 0xd1, 0x66, 0x1e, 0x4c, 0x6c, 0x4b, 0x8d, 0x81, 0x87, 0xaf, 0xde, 0xe6,
+	0x00, 0x72, 0x93, 0x57, 0xbf, 0xb7, 0xca, 0xb5, 0x32, 0x5e, 0xe1, 0xee, 0x7c, 0x63, 0xc1, 0xc1,
+	0x5a, 0x4d, 0xfe, 0xd3, 0x5b, 0xfc, 0x60, 0xc1, 0x8d, 0x2b, 0x27, 0x71, 0x1a, 0x52, 0x74, 0x04,
+	0xd5, 0x29, 0x91, 0xfe, 0xc4, 0x4c, 0x8a, 0xd6, 0xea, 0xa4, 0xd0, 0x5f, 0x25, 0x9c, 0xff, 0x1e,
+	0xe7, 0xa7, 0x0c, 0xf9, 0x77, 0x56, 0xf9, 0xa6, 0x85, 0x35, 0x10, 0x3d, 0x83, 0x5a, 0xa1, 0xb8,
+	0x79, 0x02, 0xff, 0xe2, 0xf6, 0x78, 0xc1, 0xd5, 0xf9, 0xa5, 0x0c, 0xff, 0x1b, 0x65, 0xb2, 0x9f,
+	0xca, 0x09, 0x8d, 0x24, 0xf3, 0xd5, 0x8c, 0x41, 0xe7, 0x50, 0x2f, 0xde, 0x46, 0x21, 0xd6, 0xe3,
+	0x0d, 0xcb, 0xad, 0x32, 0x2e, 0xde, 0x60, 0xf2, 0x41, 0x24, 0xc5, 0x1c, 0x2f, 0xe9, 0xd1, 0xc7,
+	0x50, 0x15, 0x69, 0x68, 0xc6, 0x47, 0xa3, 0xf7, 0xde, 0x66, 0xdf, 0xb5, 0x15, 0x9d, 0xb1, 0x66,
+	0x3a, 0x4c, 0x61, 0x6f, 0xb5, 0x1e, 0xba, 0x09, 0x95, 0x0b, 0x3a, 0x37, 0x23, 0x2c, 0x5f, 0xa2,
+	0x63, 0xa8, 0xaa, 0x31, 0x68, 0xd4, 0x7c, 0xb0, 0x61, 0x7b, 0x05, 0x3f, 0xd6, 0x2c, 0x0f, 0xcb,
+	0xef, 0x5a, 0x83, 0xe6, 0xcf, 0x97, 0x2d, 0xeb, 0xd7, 0xcb, 0x96, 0xf5, 0xfb, 0x65, 0xcb, 0x3a,
+	0xdd, 0x56, 0xef, 0xe9, 0xad, 0x3f, 0x03, 0x00, 0x00, 0xff, 0xff, 0x95, 0x50, 0x0a, 0x94, 0x2d,
+	0x09, 0x00, 0x00,
 }

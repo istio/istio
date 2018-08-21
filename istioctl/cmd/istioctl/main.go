@@ -21,9 +21,10 @@ import (
 	"io/ioutil"
 	"net/url"
 	"os"
-	"path"
+	"sort"
 	"strings"
 	"text/tabwriter"
+	"time"
 
 	"github.com/ghodss/yaml"
 	multierror "github.com/hashicorp/go-multierror"
@@ -36,32 +37,37 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
+
 	// import all known client auth plugins
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
-	"k8s.io/client-go/util/homedir"
 
-	"istio.io/istio/istioctl/cmd/istioctl/convert"
+	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/istioctl/cmd/istioctl/gendeployment"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/collateral"
+	kubecfg "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
 )
 
 const (
 	kubePlatform = "kube"
+
+	// Headings for short format listing of unknown types
+	unknownShortOutputHeading = "NAME\tKIND\tNAMESPACE\tAGE"
 )
 
 var (
 	platform string
 
 	kubeconfig       string
+	configContext    string
 	namespace        string
 	istioNamespace   string
 	istioContext     string
@@ -72,12 +78,61 @@ var (
 	file string
 
 	// output format (yaml or short)
-	outputFormat string
+	outputFormat     string
+	getAllNamespaces bool
+
+	// Create a model.ConfigStore (or sortedConfigStore)
+	clientFactory = newClient
+
+	// Create a kubernetes.ExecClient (or mockExecClient)
+	clientExecFactory = newExecClient
 
 	loggingOptions = log.DefaultOptions()
 
+	// sortWeight defines the output order for "get all".  We show the V3 types first.
+	sortWeight = map[string]int{
+		model.Gateway.Type:         10,
+		model.VirtualService.Type:  5,
+		model.DestinationRule.Type: 3,
+		model.ServiceEntry.Type:    1,
+	}
+
+	// mustList tracks which Istio types we SHOULD NOT silently ignore if we can't list.
+	// The user wants reasonable error messages when doing `get all` against a different
+	// server version.
+	mustList = map[string]bool{
+		model.Gateway.Type:              true,
+		model.VirtualService.Type:       true,
+		model.DestinationRule.Type:      true,
+		model.ServiceEntry.Type:         true,
+		model.HTTPAPISpec.Type:          true,
+		model.HTTPAPISpecBinding.Type:   true,
+		model.QuotaSpec.Type:            true,
+		model.QuotaSpecBinding.Type:     true,
+		model.AuthenticationPolicy.Type: true,
+		model.ServiceRole.Type:          true,
+		model.ServiceRoleBinding.Type:   true,
+		model.RbacConfig.Type:           true,
+	}
+
+	// Headings for short format listing specific to type
+	shortOutputHeadings = map[string]string{
+		"gateway":          "GATEWAY NAME\tHOSTS\tNAMESPACE\tAGE",
+		"virtual-service":  "VIRTUAL-SERVICE NAME\tGATEWAYS\tHOSTS\t#HTTP\t#TCP\tNAMESPACE\tAGE",
+		"destination-rule": "DESTINATION-RULE NAME\tHOST\tSUBSETS\tNAMESPACE\tAGE",
+		"service-entry":    "SERVICE-ENTRY NAME\tHOSTS\tPORTS\tNAMESPACE\tAGE",
+	}
+
+	// Formatters for short format listing specific to type
+	shortOutputters = map[string]func(model.Config, io.Writer){
+		"gateway":          printShortGateway,
+		"virtual-service":  printShortVirtualService,
+		"destination-rule": printShortDestinationRule,
+		"service-entry":    printShortServiceEntry,
+	}
+
 	// all resources will be migrated out of config.istio.io to their own api group mapping to package path.
-	// TODO(xiaolanz) legacy group exists until we find out a client for mixer/broker.
+	// TODO(xiaolanz) legacy group exists until we find out a client for mixer
 	legacyIstioAPIGroupVersion = schema.GroupVersion{
 		Group:   "config.istio.io",
 		Version: "v1alpha2",
@@ -97,10 +152,6 @@ system.
 Available routing and traffic management configuration types:
 
 	[virtualservice gateway destinationrule serviceentry httpapispec httpapispecbinding quotaspec quotaspecbinding servicerole servicerolebinding policy]
-
-Legacy routing and traffic management configuration types:
-
-	[routerule egressrule destinationpolicy]
 
 See https://istio.io/docs/reference/ for an overview of Istio routing.
 
@@ -129,15 +180,15 @@ See https://istio.io/docs/reference/ for an overview of Istio routing.
 					return err
 				}
 
-				var configClient *crd.Client
-				if configClient, err = newClient(); err != nil {
+				var configClient model.ConfigStore
+				if configClient, err = clientFactory(); err != nil {
 					return err
 				}
 				var rev string
 				if rev, err = configClient.Create(config); err != nil {
 					return err
 				}
-				fmt.Printf("Created config %v at revision %v\n", config.Key(), rev)
+				c.Printf("Created config %v at revision %v\n", config.Key(), rev)
 			}
 
 			if len(others) > 0 {
@@ -199,8 +250,8 @@ See https://istio.io/docs/reference/ for an overview of Istio routing.
 					return err
 				}
 
-				var configClient *crd.Client
-				if configClient, err = newClient(); err != nil {
+				var configClient model.ConfigStore
+				if configClient, err = clientFactory(); err != nil {
 					return err
 				}
 				// fill up revision
@@ -284,7 +335,7 @@ istioctl get destinationrules
 istioctl get virtualservice bookinfo
 `,
 		RunE: func(c *cobra.Command, args []string) error {
-			configClient, err := newClient()
+			configClient, err := clientFactory()
 			if err != nil {
 				return err
 			}
@@ -294,44 +345,71 @@ istioctl get virtualservice bookinfo
 					strings.Join(supportedTypes(configClient), ", "))
 			}
 
-			typ, err := protoSchema(configClient, strings.ToLower(args[0]))
-			if err != nil {
-				c.Println(c.UsageString())
-				return err
+			getByName := len(args) > 1
+			if getAllNamespaces && getByName {
+				return errors.New("a resource cannot be retrieved by name across all namespaces")
 			}
 
+			var typs []model.ProtoSchema
+			if !getByName && strings.ToLower(args[0]) == "all" {
+				typs = configClient.ConfigDescriptor()
+			} else {
+				typ, err := protoSchema(configClient, args[0])
+				if err != nil {
+					c.Println(c.UsageString())
+					return err
+				}
+				typs = []model.ProtoSchema{typ}
+			}
+
+			var ns string
+			if getAllNamespaces {
+				ns = v1.NamespaceAll
+			} else {
+				ns, _ = handleNamespaces(namespace)
+			}
+
+			var errs error
 			var configs []model.Config
-			if len(args) > 1 {
-				ns, _ := handleNamespaces(v1.NamespaceAll)
-				config, exists := configClient.Get(typ.Type, args[1], ns)
+			if getByName {
+				config, exists := configClient.Get(typs[0].Type, args[1], ns)
 				if exists {
 					configs = append(configs, *config)
 				}
 			} else {
-				configs, err = configClient.List(typ.Type, namespace)
-				if err != nil {
-					return err
+				for _, typ := range typs {
+					typeConfigs, err := configClient.List(typ.Type, ns)
+					if err == nil {
+						configs = append(configs, typeConfigs...)
+					} else {
+						if mustList[typ.Type] {
+							errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("Can't list %v:", typ.Type)))
+						}
+					}
 				}
 			}
 
 			if len(configs) == 0 {
-				fmt.Println("No resources found.")
-				return nil
+				c.Println("No resources found.")
+				return errs
 			}
 
-			var outputters = map[string](func(*crd.Client, []model.Config)){
+			var outputters = map[string](func(io.Writer, model.ConfigStore, []model.Config)){
 				"yaml":  printYamlOutput,
 				"short": printShortOutput,
 			}
 
 			if outputFunc, ok := outputters[outputFormat]; ok {
-				outputFunc(configClient, configs)
+				outputFunc(c.OutOrStdout(), configClient, configs)
 			} else {
 				return fmt.Errorf("unknown output format %v. Types are yaml|short", outputFormat)
 			}
 
-			return nil
+			return errs
 		},
+
+		ValidArgs:  configTypeResourceNames(model.IstioConfigTypes),
+		ArgAliases: configTypePluralResourceNames(model.IstioConfigTypes),
 	}
 
 	deleteCmd = &cobra.Command{
@@ -344,7 +422,7 @@ istioctl delete -f example-routing.yaml
 istioctl delete virtualservice bookinfo
 `,
 		RunE: func(c *cobra.Command, args []string) error {
-			configClient, errs := newClient()
+			configClient, errs := clientFactory()
 			if errs != nil {
 				return errs
 			}
@@ -354,7 +432,7 @@ istioctl delete virtualservice bookinfo
 					c.Println(c.UsageString())
 					return fmt.Errorf("provide configuration type and name or -f option")
 				}
-				typ, err := protoSchema(configClient, strings.ToLower(args[0]))
+				typ, err := protoSchema(configClient, args[0])
 				if err != nil {
 					return err
 				}
@@ -367,7 +445,7 @@ istioctl delete virtualservice bookinfo
 						errs = multierror.Append(errs,
 							fmt.Errorf("cannot delete %s: %v", args[i], err))
 					} else {
-						fmt.Printf("Deleted config: %v %v\n", args[0], args[i])
+						c.Printf("Deleted config: %v %v\n", args[0], args[i])
 					}
 				}
 				return errs
@@ -394,7 +472,7 @@ istioctl delete virtualservice bookinfo
 				if err = configClient.Delete(config.Type, config.Name, config.Namespace); err != nil {
 					errs = multierror.Append(errs, fmt.Errorf("cannot delete %s: %v", config.Key(), err))
 				} else {
-					fmt.Printf("Deleted config: %v\n", config.Key())
+					c.Printf("Deleted config: %v\n", config.Key())
 				}
 			}
 			if errs != nil {
@@ -431,6 +509,9 @@ istioctl delete virtualservice bookinfo
 
 			return errs
 		},
+
+		ValidArgs:  configTypeResourceNames(model.IstioConfigTypes),
+		ArgAliases: configTypePluralResourceNames(model.IstioConfigTypes),
 	}
 
 	contextCmd = &cobra.Command{
@@ -498,33 +579,23 @@ istioctl context-create --api-server http://127.0.0.1:8080
 	}
 )
 
-const defaultKubeConfigText = "$KUBECONFIG else $HOME/.kube/config"
-
 func istioPersistentPreRunE(c *cobra.Command, args []string) error {
 	if err := log.Configure(loggingOptions); err != nil {
 		return err
 	}
 	defaultNamespace = getDefaultNamespace(kubeconfig)
-	getRealKubeConfig()
 	return nil
-}
-
-func getRealKubeConfig() {
-	// if the user didn't supply a specific value for kubeconfig, derive it from the environment
-	if kubeconfig == defaultKubeConfigText {
-		kubeconfig = path.Join(homedir.HomeDir(), ".kube/config")
-		if v := os.Getenv("KUBECONFIG"); v != "" {
-			kubeconfig = v
-		}
-	}
 }
 
 func init() {
 	rootCmd.PersistentFlags().StringVarP(&platform, "platform", "p", kubePlatform,
 		"Istio host platform")
 
-	rootCmd.PersistentFlags().StringVarP(&kubeconfig, "kubeconfig", "c", defaultKubeConfigText,
+	rootCmd.PersistentFlags().StringVarP(&kubeconfig, "kubeconfig", "c", "",
 		"Kubernetes configuration file")
+
+	rootCmd.PersistentFlags().StringVar(&configContext, "context", "",
+		"The name of the kubeconfig context to use")
 
 	rootCmd.PersistentFlags().StringVarP(&istioNamespace, "istioNamespace", "i", kube.IstioNamespace,
 		"Istio system namespace")
@@ -545,8 +616,10 @@ func init() {
 
 	getCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", "short",
 		"Output format. One of:yaml|short")
+	getCmd.PersistentFlags().BoolVar(&getAllNamespaces, "all-namespaces", false,
+		"If present, list the requested object(s) across all namespaces. Namespace in current "+
+			"context is ignored even if specified with --namespace.")
 
-	experimentalCmd.AddCommand(convert.Command())
 	experimentalCmd.AddCommand(Rbac())
 
 	// Attach the Istio logging options to the command.
@@ -580,10 +653,10 @@ func main() {
 	}
 }
 
-// The protoSchema is based on the kind (for example "routerule" or "destinationpolicy")
-func protoSchema(configClient *crd.Client, typ string) (model.ProtoSchema, error) {
+// The protoSchema is based on the kind (for example "virtualservice" or "destinationrule")
+func protoSchema(configClient model.ConfigStore, typ string) (model.ProtoSchema, error) {
 	for _, desc := range configClient.ConfigDescriptor() {
-		switch typ {
+		switch strings.ToLower(typ) {
 		case crd.ResourceName(desc.Type), crd.ResourceName(desc.Plural):
 			return desc, nil
 		case desc.Type, desc.Plural: // legacy hyphenated resources names
@@ -620,27 +693,140 @@ func readInputs() ([]model.Config, []crd.IstioKind, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	return crd.ParseInputs(string(input))
+	return crd.ParseInputsWithoutValidation(string(input))
 }
 
 // Print a simple list of names
-func printShortOutput(_ *crd.Client, configList []model.Config) {
+func printShortOutput(writer io.Writer, _ model.ConfigStore, configList []model.Config) {
+	// Sort configList by Type
+	sort.Slice(configList, func(i, j int) bool { return sortWeight[configList[i].Type] < sortWeight[configList[j].Type] })
+
 	var w tabwriter.Writer
-	w.Init(os.Stdout, 10, 4, 3, ' ', 0)
-	fmt.Fprintf(&w, "NAME\tKIND\tNAMESPACE\n")
+	w.Init(writer, 10, 4, 3, ' ', 0)
+	prevType := ""
+	var outputter func(model.Config, io.Writer)
 	for _, c := range configList {
-		kind := fmt.Sprintf("%s.%s.%s",
-			crd.KabobCaseToCamelCase(c.Type),
-			c.Group,
-			c.Version,
-		)
-		fmt.Fprintf(&w, "%s\t%s\t%s\n", c.Name, kind, c.Namespace)
+		if prevType != c.Type {
+			if prevType != "" {
+				// Place a newline between types when doing 'get all'
+				fmt.Fprintf(&w, "\n")
+			}
+			heading, ok := shortOutputHeadings[c.Type]
+			if !ok {
+				heading = unknownShortOutputHeading
+			}
+			fmt.Fprintf(&w, "%s\n", heading)
+			prevType = c.Type
+
+			if outputter, ok = shortOutputters[c.Type]; !ok {
+				outputter = printShortConfig
+			}
+		}
+
+		outputter(c, &w)
 	}
 	w.Flush() // nolint: errcheck
 }
 
+func kindAsString(config model.Config) string {
+	return fmt.Sprintf("%s.%s.%s",
+		crd.KabobCaseToCamelCase(config.Type),
+		config.Group,
+		config.Version,
+	)
+}
+
+func printShortConfig(config model.Config, w io.Writer) {
+	fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
+		config.Name,
+		kindAsString(config),
+		config.Namespace,
+		renderTimestamp(config.CreationTimestamp))
+}
+
+func printShortVirtualService(config model.Config, w io.Writer) {
+	virtualService, ok := config.Spec.(*v1alpha3.VirtualService)
+	if !ok {
+		fmt.Fprintf(w, "Not a virtualservice: %v", config)
+		return
+	}
+
+	fmt.Fprintf(w, "%s\t%s\t%s\t%5d\t%4d\t%s\t%s\n",
+		config.Name,
+		strings.Join(virtualService.Gateways, ","),
+		strings.Join(virtualService.Hosts, ","),
+		len(virtualService.Http),
+		len(virtualService.Tcp),
+		config.Namespace,
+		renderTimestamp(config.CreationTimestamp))
+}
+
+func printShortDestinationRule(config model.Config, w io.Writer) {
+	destinationRule, ok := config.Spec.(*v1alpha3.DestinationRule)
+	if !ok {
+		fmt.Fprintf(w, "Not a destinationrule: %v", config)
+		return
+	}
+
+	subsets := make([]string, 0)
+	for _, subset := range destinationRule.Subsets {
+		subsets = append(subsets, subset.Name)
+	}
+
+	fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
+		config.Name,
+		destinationRule.Host,
+		strings.Join(subsets, ","),
+		config.Namespace,
+		renderTimestamp(config.CreationTimestamp))
+}
+
+func printShortServiceEntry(config model.Config, w io.Writer) {
+	serviceEntry, ok := config.Spec.(*v1alpha3.ServiceEntry)
+	if !ok {
+		fmt.Fprintf(w, "Not a serviceentry: %v", config)
+		return
+	}
+
+	ports := make([]string, 0)
+	for _, port := range serviceEntry.Ports {
+		ports = append(ports, fmt.Sprintf("%s/%d", port.Protocol, port.Number))
+	}
+
+	fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
+		config.Name,
+		strings.Join(serviceEntry.Hosts, ","),
+		strings.Join(ports, ","),
+		config.Namespace,
+		renderTimestamp(config.CreationTimestamp))
+}
+
+func printShortGateway(config model.Config, w io.Writer) {
+	gateway, ok := config.Spec.(*v1alpha3.Gateway)
+	if !ok {
+		fmt.Fprintf(w, "Not a gateway: %v", config)
+		return
+	}
+
+	// Determine the servers
+	servers := make(map[string]bool)
+	for _, server := range gateway.Servers {
+		for _, host := range server.Hosts {
+			servers[host] = true
+		}
+	}
+	hosts := make([]string, 0)
+	for host := range servers {
+		hosts = append(hosts, host)
+	}
+
+	fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
+		config.Name, strings.Join(hosts, ","), config.Namespace,
+		renderTimestamp(config.CreationTimestamp))
+}
+
 // Print as YAML
-func printYamlOutput(configClient *crd.Client, configList []model.Config) {
+func printYamlOutput(writer io.Writer, configClient model.ConfigStore, configList []model.Config) {
 	descriptor := configClient.ConfigDescriptor()
 	for _, config := range configList {
 		schema, exists := descriptor.GetByType(config.Type)
@@ -658,32 +844,16 @@ func printYamlOutput(configClient *crd.Client, configList []model.Config) {
 			log.Errorf("Could not convert %v to YAML: %v", config, err)
 			continue
 		}
-		fmt.Print(string(bytes))
-		fmt.Println("---")
+		fmt.Fprint(writer, string(bytes))
+		fmt.Fprintln(writer, "---")
 	}
 }
 
-func newClient() (*crd.Client, error) {
-	// TODO: use model.IstioConfigTypes once model.IngressRule is deprecated
-	return crd.NewClient(kubeconfig, model.ConfigDescriptor{
-		model.RouteRule,
-		model.VirtualService,
-		model.Gateway,
-		model.EgressRule,
-		model.ServiceEntry,
-		model.DestinationPolicy,
-		model.DestinationRule,
-		model.HTTPAPISpec,
-		model.HTTPAPISpecBinding,
-		model.QuotaSpec,
-		model.QuotaSpecBinding,
-		model.AuthenticationPolicy,
-		model.ServiceRole,
-		model.ServiceRoleBinding,
-	}, "")
+func newClient() (model.ConfigStore, error) {
+	return crd.NewClient(kubeconfig, configContext, model.IstioConfigTypes, "")
 }
 
-func supportedTypes(configClient *crd.Client) []string {
+func supportedTypes(configClient model.ConfigStore) []string {
 	types := configClient.ConfigDescriptor().Types()
 	for i := range types {
 		types[i] = crd.ResourceName(types[i])
@@ -706,7 +876,7 @@ func preprocMixerConfig(configs []crd.IstioKind) error {
 }
 
 func restConfig() (config *rest.Config, err error) {
-	config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
+	config, err = kubecfg.BuildClientConfig(kubeconfig, configContext)
 
 	if err != nil {
 		return
@@ -777,8 +947,12 @@ func prepareClientForOthers(configs []crd.IstioKind) (*rest.RESTClient, map[stri
 
 func getDefaultNamespace(kubeconfig string) string {
 	configAccess := clientcmd.NewDefaultPathOptions()
-	// use specified kubeconfig file for the location of the config to read
-	configAccess.GlobalFile = kubeconfig
+
+	if kubeconfig != "" {
+		// use specified kubeconfig file for the location of the
+		// config to read
+		configAccess.GlobalFile = kubeconfig
+	}
 
 	// gets existing kubeconfig or returns new empty config
 	config, err := configAccess.GetStartingConfig()
@@ -811,4 +985,49 @@ func handleNamespaces(objectNamespace string) (string, error) {
 		return objectNamespace, nil
 	}
 	return defaultNamespace, nil
+}
+
+func configTypeResourceNames(configTypes model.ConfigDescriptor) []string {
+	resourceNames := make([]string, len(configTypes))
+	for _, typ := range configTypes {
+		resourceNames = append(resourceNames, crd.ResourceName(typ.Type))
+	}
+	return resourceNames
+}
+
+func configTypePluralResourceNames(configTypes model.ConfigDescriptor) []string {
+	resourceNames := make([]string, len(configTypes))
+	for _, typ := range configTypes {
+		resourceNames = append(resourceNames, crd.ResourceName(typ.Plural))
+	}
+	return resourceNames
+}
+
+// renderTimestamp creates a human-readable age similar to docker and kubectl CLI output
+func renderTimestamp(ts metav1.Time) string {
+	if ts.IsZero() {
+		return "<unknown>"
+	}
+
+	seconds := int(time.Since(ts.Time).Seconds())
+	if seconds < -2 {
+		return fmt.Sprintf("<invalid>")
+	} else if seconds < 0 {
+		return fmt.Sprintf("0s")
+	} else if seconds < 60 {
+		return fmt.Sprintf("%ds", seconds)
+	}
+
+	minutes := int(time.Since(ts.Time).Minutes())
+	if minutes < 60 {
+		return fmt.Sprintf("%dm", minutes)
+	}
+
+	hours := int(time.Since(ts.Time).Hours())
+	if hours < 24 {
+		return fmt.Sprintf("%dh", hours)
+	} else if hours < 365*24 {
+		return fmt.Sprintf("%dd", hours/24)
+	}
+	return fmt.Sprintf("%dy", int((hours/24)/365))
 }

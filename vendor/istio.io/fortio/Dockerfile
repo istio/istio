@@ -1,29 +1,18 @@
 # Build the binaries in larger image
-FROM istio/fortio.build:v7 as build
+FROM istio/fortio.build:v8 as build
 WORKDIR /go/src/istio.io
 COPY . fortio
 # Submodule handling
 RUN make -C fortio submodule
-# Putting spaces in linker replaced variables is hard but does work.
-RUN echo "$(date +'%Y-%m-%d %H:%M') $(cd fortio; git rev-parse HEAD)" > /build-info.txt
-# Sets up the static directory outside of the go source tree and
-# the default data directory to a /var/lib/... volume
-# + rest of build time/git/version magic.
-RUN echo "-s -X istio.io/fortio/ui.resourcesDir=/usr/local/lib/fortio -X main.defaultDataDir=/var/lib/istio/fortio \
-  -X \"istio.io/fortio/version.buildInfo=$(cat /build-info.txt)\" \
-  -X istio.io/fortio/version.tag=$(cd fortio; git describe --tags) \
-  -X istio.io/fortio/version.gitstatus=$(cd fortio; git status --porcelain | wc -l)" > /link-flags.txt
-RUN go version
-RUN CGO_ENABLED=0 GOOS=linux go build -a -ldflags "$(cat /link-flags.txt)" -o fortio_go1.10.bin istio.io/fortio
-RUN ./fortio_go1.10.bin version
+# We moved a lot of the logic into the Makefile so it can be reused in brew
+# but that also couples the 2, this expects to find binaries in the right place etc
+RUN make -C fortio official-build-version BUILD_DIR=/build OFFICIAL_BIN=../fortio_go1.10.bin
 # Check we still build with go 1.8 (and macos does not break)
-RUN /usr/local/go/bin/go version
-RUN CGO_ENABLED=0 GOOS=darwin /usr/local/go/bin/go build -a -ldflags "$(cat /link-flags.txt)" -o fortio_go1.8.mac istio.io/fortio
-# Build with 1.8 for perf comparison
-#RUN CGO_ENABLED=0 GOOS=linux /usr/local/go/bin/go build -a -ldflags "$(cat /link-flags.txt)" -o fortio_go1.8.bin istio.io/fortio
-#RUN ./fortio_go1.8.bin version
+RUN make -C fortio official-build BUILD_DIR=/build OFFICIAL_BIN=../fortio_go1.8.mac GOOS=darwin GO_BIN=/usr/local/go/bin/go
+# Optionally (comment out) Build with 1.8 for perf comparison
+# RUN make -C fortio official-build-version BUILD_DIR= OFFICIAL_BIN=../fortio_go1.8.bin GO_BIN=/usr/local/go/bin/go
 # Just check it stays compiling on Windows (would need to set the rsrcDir too)
-RUN CGO_ENABLED=0 GOOS=windows go build -a -o fortio.exe istio.io/fortio
+RUN make -C fortio official-build BUILD_DIR=/build OFFICIAL_BIN=../fortio.exe GOOS=windows
 #RUN ln -s /usr/local/bin/fortio_go1.8 /usr/local/bin/fortio
 #RUN tar cvf /tmp/symlink.tar /usr/local/bin/fortio
 # Minimal image with just the binary and certs

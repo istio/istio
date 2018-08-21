@@ -12,6 +12,8 @@
 	and if that single instance crashes, all outstanding quota values will
 	be lost.
 
+	This adapter supports the [quota template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/quota/).
+
 	It is generated from these files:
 		mixer/adapter/memquota/config/config.proto
 
@@ -28,11 +30,11 @@ import _ "github.com/gogo/protobuf/gogoproto"
 
 import time "time"
 
-import github_com_gogo_protobuf_types "github.com/gogo/protobuf/types"
+import types "github.com/gogo/protobuf/types"
 
 import strings "strings"
 import reflect "reflect"
-import github_com_gogo_protobuf_sortkeys "github.com/gogo/protobuf/sortkeys"
+import sortkeys "github.com/gogo/protobuf/sortkeys"
 
 import io "io"
 
@@ -180,8 +182,8 @@ func (m *Params) MarshalTo(dAtA []byte) (int, error) {
 	}
 	dAtA[i] = 0x12
 	i++
-	i = encodeVarintConfig(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(m.MinDeduplicationDuration)))
-	n1, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.MinDeduplicationDuration, dAtA[i:])
+	i = encodeVarintConfig(dAtA, i, uint64(types.SizeOfStdDuration(m.MinDeduplicationDuration)))
+	n1, err := types.StdDurationMarshalTo(m.MinDeduplicationDuration, dAtA[i:])
 	if err != nil {
 		return 0, err
 	}
@@ -217,8 +219,8 @@ func (m *Params_Quota) MarshalTo(dAtA []byte) (int, error) {
 	}
 	dAtA[i] = 0x1a
 	i++
-	i = encodeVarintConfig(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(m.ValidDuration)))
-	n2, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.ValidDuration, dAtA[i:])
+	i = encodeVarintConfig(dAtA, i, uint64(types.SizeOfStdDuration(m.ValidDuration)))
+	n2, err := types.StdDurationMarshalTo(m.ValidDuration, dAtA[i:])
 	if err != nil {
 		return 0, err
 	}
@@ -277,8 +279,8 @@ func (m *Params_Override) MarshalTo(dAtA []byte) (int, error) {
 	}
 	dAtA[i] = 0x1a
 	i++
-	i = encodeVarintConfig(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(m.ValidDuration)))
-	n3, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.ValidDuration, dAtA[i:])
+	i = encodeVarintConfig(dAtA, i, uint64(types.SizeOfStdDuration(m.ValidDuration)))
+	n3, err := types.StdDurationMarshalTo(m.ValidDuration, dAtA[i:])
 	if err != nil {
 		return 0, err
 	}
@@ -304,7 +306,7 @@ func (m *Params) Size() (n int) {
 			n += 1 + l + sovConfig(uint64(l))
 		}
 	}
-	l = github_com_gogo_protobuf_types.SizeOfStdDuration(m.MinDeduplicationDuration)
+	l = types.SizeOfStdDuration(m.MinDeduplicationDuration)
 	n += 1 + l + sovConfig(uint64(l))
 	return n
 }
@@ -319,7 +321,7 @@ func (m *Params_Quota) Size() (n int) {
 	if m.MaxAmount != 0 {
 		n += 1 + sovConfig(uint64(m.MaxAmount))
 	}
-	l = github_com_gogo_protobuf_types.SizeOfStdDuration(m.ValidDuration)
+	l = types.SizeOfStdDuration(m.ValidDuration)
 	n += 1 + l + sovConfig(uint64(l))
 	if len(m.Overrides) > 0 {
 		for _, e := range m.Overrides {
@@ -344,7 +346,7 @@ func (m *Params_Override) Size() (n int) {
 	if m.MaxAmount != 0 {
 		n += 1 + sovConfig(uint64(m.MaxAmount))
 	}
-	l = github_com_gogo_protobuf_types.SizeOfStdDuration(m.ValidDuration)
+	l = types.SizeOfStdDuration(m.ValidDuration)
 	n += 1 + l + sovConfig(uint64(l))
 	return n
 }
@@ -394,7 +396,7 @@ func (this *Params_Override) String() string {
 	for k, _ := range this.Dimensions {
 		keysForDimensions = append(keysForDimensions, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForDimensions)
+	sortkeys.Strings(keysForDimensions)
 	mapStringForDimensions := "map[string]string{"
 	for _, k := range keysForDimensions {
 		mapStringForDimensions += fmt.Sprintf("%v: %v,", k, this.Dimensions[k])
@@ -502,7 +504,7 @@ func (m *Params) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if err := github_com_gogo_protobuf_types.StdDurationUnmarshal(&m.MinDeduplicationDuration, dAtA[iNdEx:postIndex]); err != nil {
+			if err := types.StdDurationUnmarshal(&m.MinDeduplicationDuration, dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -630,7 +632,7 @@ func (m *Params_Quota) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if err := github_com_gogo_protobuf_types.StdDurationUnmarshal(&m.ValidDuration, dAtA[iNdEx:postIndex]); err != nil {
+			if err := types.StdDurationUnmarshal(&m.ValidDuration, dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -878,7 +880,7 @@ func (m *Params_Override) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if err := github_com_gogo_protobuf_types.StdDurationUnmarshal(&m.ValidDuration, dAtA[iNdEx:postIndex]); err != nil {
+			if err := types.StdDurationUnmarshal(&m.ValidDuration, dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex

@@ -1,4 +1,3 @@
-{{- if .Values.global.rbacEnabled }}
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole
 metadata:
@@ -11,8 +10,11 @@ metadata:
 rules:
 - apiGroups: ["admissionregistration.k8s.io"]
   resources: ["validatingwebhookconfigurations"]
-  verbs: ["get", "list", "watch", "patch"]
+  verbs: ["*"]
 - apiGroups: ["config.istio.io"] # istio mixer CRD watcher
   resources: ["*"]
   verbs: ["get", "list", "watch"]
-{{- end }}
+- apiGroups: ["*"]
+  resources: ["deployments"]
+  resourceNames: ["istio-galley"]
+  verbs: ["get"]

@@ -8,6 +8,8 @@ import fmt "fmt"
 import math "math"
 import _ "github.com/gogo/protobuf/gogoproto"
 
+import binary "encoding/binary"
+
 import io "io"
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -43,15 +45,41 @@ func (m *Int64Range) GetEnd() int64 {
 	return 0
 }
 
+// Specifies the double start and end of the range using half-open interval semantics [start,
+// end).
+type DoubleRange struct {
+	// start of the range (inclusive)
+	Start float64 `protobuf:"fixed64,1,opt,name=start,proto3" json:"start,omitempty"`
+	// end of the range (exclusive)
+	End float64 `protobuf:"fixed64,2,opt,name=end,proto3" json:"end,omitempty"`
+}
+
+func (m *DoubleRange) Reset()                    { *m = DoubleRange{} }
+func (m *DoubleRange) String() string            { return proto.CompactTextString(m) }
+func (*DoubleRange) ProtoMessage()               {}
+func (*DoubleRange) Descriptor() ([]byte, []int) { return fileDescriptorRange, []int{1} }
+
+func (m *DoubleRange) GetStart() float64 {
+	if m != nil {
+		return m.Start
+	}
+	return 0
+}
+
+func (m *DoubleRange) GetEnd() float64 {
+	if m != nil {
+		return m.End
+	}
+	return 0
+}
+
 func init() {
 	proto.RegisterType((*Int64Range)(nil), "envoy.type.Int64Range")
+	proto.RegisterType((*DoubleRange)(nil), "envoy.type.DoubleRange")
 }
 func (this *Int64Range) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*Int64Range)
@@ -64,10 +92,34 @@ func (this *Int64Range) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
+		return this == nil
+	} else if this == nil {
 		return false
+	}
+	if this.Start != that1.Start {
+		return false
+	}
+	if this.End != that1.End {
+		return false
+	}
+	return true
+}
+func (this *DoubleRange) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*DoubleRange)
+	if !ok {
+		that2, ok := that.(DoubleRange)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -107,6 +159,36 @@ func (m *Int64Range) MarshalTo(dAtA []byte) (int, error) {
 	return i, nil
 }
 
+func (m *DoubleRange) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *DoubleRange) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Start != 0 {
+		dAtA[i] = 0x9
+		i++
+		binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Start))))
+		i += 8
+	}
+	if m.End != 0 {
+		dAtA[i] = 0x11
+		i++
+		binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.End))))
+		i += 8
+	}
+	return i, nil
+}
+
 func encodeVarintRange(dAtA []byte, offset int, v uint64) int {
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
@@ -124,6 +206,18 @@ func (m *Int64Range) Size() (n int) {
 	}
 	if m.End != 0 {
 		n += 1 + sovRange(uint64(m.End))
+	}
+	return n
+}
+
+func (m *DoubleRange) Size() (n int) {
+	var l int
+	_ = l
+	if m.Start != 0 {
+		n += 9
+	}
+	if m.End != 0 {
+		n += 9
 	}
 	return n
 }
@@ -208,6 +302,78 @@ func (m *Int64Range) Unmarshal(dAtA []byte) error {
 					break
 				}
 			}
+		default:
+			iNdEx = preIndex
+			skippy, err := skipRange(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthRange
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *DoubleRange) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowRange
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: DoubleRange: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: DoubleRange: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 1 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Start", wireType)
+			}
+			var v uint64
+			if (iNdEx + 8) > l {
+				return io.ErrUnexpectedEOF
+			}
+			v = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+			iNdEx += 8
+			m.Start = float64(math.Float64frombits(v))
+		case 2:
+			if wireType != 1 {
+				return fmt.Errorf("proto: wrong wireType = %d for field End", wireType)
+			}
+			var v uint64
+			if (iNdEx + 8) > l {
+				return io.ErrUnexpectedEOF
+			}
+			v = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+			iNdEx += 8
+			m.End = float64(math.Float64frombits(v))
 		default:
 			iNdEx = preIndex
 			skippy, err := skipRange(dAtA[iNdEx:])
@@ -337,14 +503,15 @@ var (
 func init() { proto.RegisterFile("envoy/type/range.proto", fileDescriptorRange) }
 
 var fileDescriptorRange = []byte{
-	// 140 bytes of a gzipped FileDescriptorProto
+	// 159 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x12, 0x4b, 0xcd, 0x2b, 0xcb,
 	0xaf, 0xd4, 0x2f, 0xa9, 0x2c, 0x48, 0xd5, 0x2f, 0x4a, 0xcc, 0x4b, 0x4f, 0xd5, 0x2b, 0x28, 0xca,
 	0x2f, 0xc9, 0x17, 0xe2, 0x02, 0x8b, 0xeb, 0x81, 0xc4, 0xa5, 0x44, 0xd2, 0xf3, 0xd3, 0xf3, 0xc1,
 	0xc2, 0xfa, 0x20, 0x16, 0x44, 0x85, 0x92, 0x09, 0x17, 0x97, 0x67, 0x5e, 0x89, 0x99, 0x49, 0x10,
 	0x48, 0x97, 0x90, 0x08, 0x17, 0x6b, 0x71, 0x49, 0x62, 0x51, 0x89, 0x04, 0xa3, 0x02, 0xa3, 0x06,
 	0x73, 0x10, 0x84, 0x23, 0x24, 0xc0, 0xc5, 0x9c, 0x9a, 0x97, 0x22, 0xc1, 0x04, 0x16, 0x03, 0x31,
-	0x9d, 0x64, 0x56, 0x3c, 0x92, 0x63, 0x3c, 0xf1, 0x48, 0x8e, 0xf1, 0xc2, 0x23, 0x39, 0xc6, 0x07,
-	0x8f, 0xe4, 0x18, 0xa3, 0x20, 0x36, 0xc5, 0x83, 0x6c, 0x4a, 0x62, 0x03, 0x1b, 0x6d, 0x0c, 0x08,
-	0x00, 0x00, 0xff, 0xff, 0x23, 0x5f, 0xca, 0x0b, 0x96, 0x00, 0x00, 0x00,
+	0x95, 0x4c, 0xb9, 0xb8, 0x5d, 0xf2, 0x4b, 0x93, 0x72, 0x52, 0xb1, 0x68, 0x63, 0xc4, 0xa2, 0x8d,
+	0x11, 0xac, 0xcd, 0x49, 0x66, 0xc5, 0x23, 0x39, 0xc6, 0x13, 0x8f, 0xe4, 0x18, 0x2f, 0x3c, 0x92,
+	0x63, 0x7c, 0xf0, 0x48, 0x8e, 0x31, 0x0a, 0xe2, 0xc0, 0x78, 0x90, 0x03, 0x93, 0xd8, 0xc0, 0x2e,
+	0x32, 0x06, 0x04, 0x00, 0x00, 0xff, 0xff, 0xae, 0xd4, 0x26, 0x8b, 0xcd, 0x00, 0x00, 0x00,
 }

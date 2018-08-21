@@ -120,7 +120,7 @@ func (cr *store) Create(config model.Config) (string, error) {
 	if !ok {
 		return "", errors.New("unknown type")
 	}
-	if err := schema.Validate(config.Spec); err != nil {
+	if err := schema.Validate(config.Name, config.Namespace, config.Spec); err != nil {
 		return "", err
 	}
 	ns, exists := cr.data[typ][config.Namespace]
@@ -132,7 +132,14 @@ func (cr *store) Create(config model.Config) (string, error) {
 	_, exists = ns.Load(config.Name)
 
 	if !exists {
-		config.ResourceVersion = time.Now().String()
+		tnow := time.Now()
+		config.ResourceVersion = tnow.String()
+
+		// Set the creation timestamp, if not provided.
+		if config.CreationTimestamp.Time.IsZero() {
+			config.CreationTimestamp.Time = tnow
+		}
+
 		ns.Store(config.Name, config)
 		return config.ResourceVersion, nil
 	}
@@ -145,7 +152,7 @@ func (cr *store) Update(config model.Config) (string, error) {
 	if !ok {
 		return "", errors.New("unknown type")
 	}
-	if err := schema.Validate(config.Spec); err != nil {
+	if err := schema.Validate(config.Name, config.Namespace, config.Spec); err != nil {
 		return "", err
 	}
 

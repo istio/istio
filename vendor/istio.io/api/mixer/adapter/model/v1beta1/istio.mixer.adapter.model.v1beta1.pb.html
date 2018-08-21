@@ -1,9 +1,9 @@
 ---
 title: Mixer Adapter Model
-overview: Definitions used to create adapters and templates
-location: https://istio.io/docs/reference/api/mixer/istio.mixer.adapter.model.v1beta1.html
+description: Definitions used to create adapters and templates
 layout: protoc-gen-docs
-number_of_entries: 23
+generator: protoc-gen-docs
+number_of_entries: 17
 ---
 <p>This package defines the service and types used by adapter code to serve requests from Mixer.
 This package also defines the types that are used to create Mixer templates.</p>
@@ -24,13 +24,13 @@ returned from <code>CreateSession</code> is used to make subsequent request-time
 Mixer assumes that, given the <code>session_id</code>, the backend can retrieve the necessary context to serve the
 Handle calls that contains the request-time payload (template-specific instance protobuf).</p>
 
-<pre id="InfrastructureBackend.Validate"><code class="language-proto">rpc Validate(ValidateRequest) returns (ValidateResponse)
+<pre id="InfrastructureBackend-Validate"><code class="language-proto">rpc Validate(ValidateRequest) returns (ValidateResponse)
 </code></pre>
 <p>Validates the handler configuration along with the template-specific instances that would be routed to that
 handler. The <code>CreateSession</code> for a specific handler configuration is invoked only if its associated <code>Validate</code>
 call has returned success.</p>
 
-<pre id="InfrastructureBackend.CreateSession"><code class="language-proto">rpc CreateSession(CreateSessionRequest) returns (CreateSessionResponse)
+<pre id="InfrastructureBackend-CreateSession"><code class="language-proto">rpc CreateSession(CreateSessionRequest) returns (CreateSessionResponse)
 </code></pre>
 <p>Creates a session for a given handler configuration and the template-specific instances that would be routed to
 that handler. For every handler configuration, Mixer creates a separate session by invoking <code>CreateSession</code>
@@ -52,7 +52,7 @@ assumes that the backend is doing reference counting.</p>
 <p>If the backend couldn&rsquo;t create a session for a specific handler configuration and
 returns non S_OK status, Mixer will not make request-time Handle calls associated with that handler configuration.</p>
 
-<pre id="InfrastructureBackend.CloseSession"><code class="language-proto">rpc CloseSession(CloseSessionRequest) returns (CloseSessionResponse)
+<pre id="InfrastructureBackend-CloseSession"><code class="language-proto">rpc CloseSession(CloseSessionRequest) returns (CloseSessionResponse)
 </code></pre>
 <p>Closes the session associated with the <code>session_id</code>. Mixer closes a session when its associated handler
 configuration or the instance configuration changes. Backend is supposed to cleanup all the resources associated
@@ -73,16 +73,16 @@ with the session_id referenced by CloseSessionRequest.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="CheckResult.status">
+<tr id="CheckResult-status">
 <td><code>status</code></td>
-<td><code><a href="#google.rpc.Status">google.rpc.Status</a></code></td>
+<td><code><a href="#google-rpc-Status">google.rpc.Status</a></code></td>
 <td>
 <p>A status code of OK indicates preconditions were satisfied. Any other code indicates preconditions were not
 satisfied and details describe why.</p>
 
 </td>
 </tr>
-<tr id="CheckResult.valid_duration">
+<tr id="CheckResult-valid_duration">
 <td><code>validDuration</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
@@ -90,7 +90,7 @@ satisfied and details describe why.</p>
 
 </td>
 </tr>
-<tr id="CheckResult.valid_use_count">
+<tr id="CheckResult-valid_use_count">
 <td><code>validUseCount</code></td>
 <td><code>int32</code></td>
 <td>
@@ -114,7 +114,7 @@ satisfied and details describe why.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="CloseSessionRequest.session_id">
+<tr id="CloseSessionRequest-session_id">
 <td><code>sessionId</code></td>
 <td><code>string</code></td>
 <td>
@@ -138,9 +138,9 @@ satisfied and details describe why.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="CloseSessionResponse.status">
+<tr id="CloseSessionResponse-status">
 <td><code>status</code></td>
-<td><code><a href="#google.rpc.Status">google.rpc.Status</a></code></td>
+<td><code><a href="#google-rpc-Status">google.rpc.Status</a></code></td>
 <td>
 <p>The success/failure status of close session call.</p>
 
@@ -162,7 +162,7 @@ satisfied and details describe why.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="CreateSessionRequest.adapter_config">
+<tr id="CreateSessionRequest-adapter_config">
 <td><code>adapterConfig</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#any">google.protobuf.Any</a></code></td>
 <td>
@@ -170,7 +170,7 @@ satisfied and details describe why.</p>
 
 </td>
 </tr>
-<tr id="CreateSessionRequest.inferred_types">
+<tr id="CreateSessionRequest-inferred_types">
 <td><code>inferredTypes</code></td>
 <td><code>map&lt;string,&nbsp;<a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#any">google.protobuf.Any</a>&gt;</code></td>
 <td>
@@ -194,7 +194,7 @@ satisfied and details describe why.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="CreateSessionResponse.session_id">
+<tr id="CreateSessionResponse-session_id">
 <td><code>sessionId</code></td>
 <td><code>string</code></td>
 <td>
@@ -202,108 +202,11 @@ satisfied and details describe why.</p>
 
 </td>
 </tr>
-<tr id="CreateSessionResponse.status">
+<tr id="CreateSessionResponse-status">
 <td><code>status</code></td>
-<td><code><a href="#google.rpc.Status">google.rpc.Status</a></code></td>
+<td><code><a href="#google-rpc-Status">google.rpc.Status</a></code></td>
 <td>
 <p>The success/failure status of create session call.</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h3 id="DNSName">DNSName</h3>
-<section>
-<p>DNSName is used inside templates for fields that are of ValueType &ldquo;DNS_NAME&rdquo;</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="DNSName.value">
-<td><code>value</code></td>
-<td><code>string</code></td>
-<td>
-<p>DNSName encoded as string.</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h3 id="Duration">Duration</h3>
-<section>
-<p>Duration is used inside templates for fields that are of ValueType &ldquo;DURATION&rdquo;</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="Duration.value">
-<td><code>value</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
-<td>
-<p>Duration encoded as google.protobuf.Duration.</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h3 id="EmailAddress">EmailAddress</h3>
-<section>
-<p>EmailAddress is used inside templates for fields that are of ValueType &ldquo;EMAIL_ADDRESS&rdquo;
-DO NOT USE !! Under Development</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="EmailAddress.value">
-<td><code>value</code></td>
-<td><code>string</code></td>
-<td>
-<p>EmailAddress encoded as string.</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h3 id="IPAddress">IPAddress</h3>
-<section>
-<p>IPAddress is used inside templates for fields that are of ValueType &ldquo;IP_ADDRESS&rdquo;</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="IPAddress.value">
-<td><code>value</code></td>
-<td><code>bytes</code></td>
-<td>
-<p>IPAddress encoded as bytes.</p>
 
 </td>
 </tr>
@@ -324,7 +227,7 @@ out of process adapter.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="Info.name">
+<tr id="Info-name">
 <td><code>name</code></td>
 <td><code>string</code></td>
 <td>
@@ -337,7 +240,7 @@ example: mycompany-denier</p>
 
 </td>
 </tr>
-<tr id="Info.description">
+<tr id="Info-description">
 <td><code>description</code></td>
 <td><code>string</code></td>
 <td>
@@ -345,15 +248,15 @@ example: mycompany-denier</p>
 
 </td>
 </tr>
-<tr id="Info.templates">
+<tr id="Info-templates">
 <td><code>templates</code></td>
 <td><code>string[]</code></td>
 <td>
-<p>Base64 encoded proto descriptor of all the templates the adapter wants to serve.</p>
+<p>Names of the templates the adapter supports.</p>
 
 </td>
 </tr>
-<tr id="Info.config">
+<tr id="Info-config">
 <td><code>config</code></td>
 <td><code>string</code></td>
 <td>
@@ -361,7 +264,7 @@ example: mycompany-denier</p>
 
 </td>
 </tr>
-<tr id="Info.session_based">
+<tr id="Info-session_based">
 <td><code>sessionBased</code></td>
 <td><code>bool</code></td>
 <td>
@@ -397,9 +300,9 @@ only communicates with the backends during request-time through the template-spe
 </tr>
 </thead>
 <tbody>
-<tr id="QuotaRequest.quotas">
+<tr id="QuotaRequest-quotas">
 <td><code>quotas</code></td>
-<td><code>map&lt;string,&nbsp;<a href="#QuotaRequest.QuotaParams">QuotaRequest.QuotaParams</a>&gt;</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#QuotaRequest-QuotaParams">QuotaRequest.QuotaParams</a>&gt;</code></td>
 <td>
 <p>The individual quotas to allocate</p>
 
@@ -408,7 +311,7 @@ only communicates with the backends during request-time through the template-spe
 </tbody>
 </table>
 </section>
-<h3 id="QuotaRequest.QuotaParams">QuotaRequest.QuotaParams</h3>
+<h3 id="QuotaRequest-QuotaParams">QuotaRequest.QuotaParams</h3>
 <section>
 <p>parameters for a quota allocation</p>
 
@@ -421,7 +324,7 @@ only communicates with the backends during request-time through the template-spe
 </tr>
 </thead>
 <tbody>
-<tr id="QuotaRequest.QuotaParams.amount">
+<tr id="QuotaRequest-QuotaParams-amount">
 <td><code>amount</code></td>
 <td><code>int64</code></td>
 <td>
@@ -429,7 +332,7 @@ only communicates with the backends during request-time through the template-spe
 
 </td>
 </tr>
-<tr id="QuotaRequest.QuotaParams.best_effort">
+<tr id="QuotaRequest-QuotaParams-best_effort">
 <td><code>bestEffort</code></td>
 <td><code>bool</code></td>
 <td>
@@ -453,9 +356,9 @@ only communicates with the backends during request-time through the template-spe
 </tr>
 </thead>
 <tbody>
-<tr id="QuotaResult.quotas">
+<tr id="QuotaResult-quotas">
 <td><code>quotas</code></td>
-<td><code>map&lt;string,&nbsp;<a href="#QuotaResult.Result">QuotaResult.Result</a>&gt;</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#QuotaResult-Result">QuotaResult.Result</a>&gt;</code></td>
 <td>
 <p>The resulting quota, one entry per requested quota.</p>
 
@@ -464,7 +367,7 @@ only communicates with the backends during request-time through the template-spe
 </tbody>
 </table>
 </section>
-<h3 id="QuotaResult.Result">QuotaResult.Result</h3>
+<h3 id="QuotaResult-Result">QuotaResult.Result</h3>
 <section>
 <p>Expresses the result of a quota allocation.</p>
 
@@ -477,7 +380,7 @@ only communicates with the backends during request-time through the template-spe
 </tr>
 </thead>
 <tbody>
-<tr id="QuotaResult.Result.valid_duration">
+<tr id="QuotaResult-Result-valid_duration">
 <td><code>validDuration</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
@@ -485,7 +388,7 @@ only communicates with the backends during request-time through the template-spe
 
 </td>
 </tr>
-<tr id="QuotaResult.Result.granted_amount">
+<tr id="QuotaResult-Result-granted_amount">
 <td><code>grantedAmount</code></td>
 <td><code>int64</code></td>
 <td>
@@ -502,6 +405,30 @@ If <code>QuotaParams.best_effort</code> is false, this will be either 0 or &gt;=
 <p>Expresses the result of a report call.</p>
 
 </section>
+<h3 id="Template">Template</h3>
+<section>
+<p>Template provides the details of a mixer template.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Template-descriptor">
+<td><code>descriptor</code></td>
+<td><code>string</code></td>
+<td>
+<p>Base64 encoded proto descriptor of the template.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
 <h3 id="TemplateVariety">TemplateVariety</h3>
 <section>
 <p>The available varieties of templates, controlling the semantics of what an adapter does with each instance.</p>
@@ -514,80 +441,35 @@ If <code>QuotaParams.best_effort</code> is false, this will be either 0 or &gt;=
 </tr>
 </thead>
 <tbody>
-<tr id="TemplateVariety.TEMPLATE_VARIETY_CHECK">
+<tr id="TemplateVariety-TEMPLATE_VARIETY_CHECK">
 <td><code>TEMPLATE_VARIETY_CHECK</code></td>
 <td>
-<p>Makes the template applicable for Mixer&rsquo;s check calls.</p>
+<p>Makes the template applicable for Mixer&rsquo;s check calls. Instances of such template are created during
+report calls in Mixer and passed to the handlers based on the rule configurations.</p>
 
 </td>
 </tr>
-<tr id="TemplateVariety.TEMPLATE_VARIETY_REPORT">
+<tr id="TemplateVariety-TEMPLATE_VARIETY_REPORT">
 <td><code>TEMPLATE_VARIETY_REPORT</code></td>
 <td>
-<p>Makes the template applicable for Mixer&rsquo;s report calls.</p>
+<p>Makes the template applicable for Mixer&rsquo;s report calls. Instances of such template are created during
+check calls in Mixer and passed to the handlers based on the rule configurations.</p>
 
 </td>
 </tr>
-<tr id="TemplateVariety.TEMPLATE_VARIETY_QUOTA">
+<tr id="TemplateVariety-TEMPLATE_VARIETY_QUOTA">
 <td><code>TEMPLATE_VARIETY_QUOTA</code></td>
 <td>
-<p>Makes the template applicable for Mixer&rsquo;s quota calls.</p>
+<p>Makes the template applicable for Mixer&rsquo;s quota calls. Instances of such template are created during
+quota check calls in Mixer and passed to the handlers based on the rule configurations.</p>
 
 </td>
 </tr>
-<tr id="TemplateVariety.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR">
+<tr id="TemplateVariety-TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR">
 <td><code>TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR</code></td>
 <td>
-<p>Makes the template applicable for Mixer&rsquo;s quota calls.</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h3 id="TimeStamp">TimeStamp</h3>
-<section>
-<p>TimeStamp is used inside templates for fields that are of ValueType &ldquo;TIMESTAMP&rdquo;</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="TimeStamp.value">
-<td><code>value</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#timestamp">google.protobuf.Timestamp</a></code></td>
-<td>
-<p>TimeStamp encoded as google.protobuf.Timestamp.</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h3 id="Uri">Uri</h3>
-<section>
-<p>Uri is used inside templates for fields that are of ValueType &ldquo;URI&rdquo;
-DO NOT USE ! Under Development</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="Uri.value">
-<td><code>value</code></td>
-<td><code>string</code></td>
-<td>
-<p>Uri encoded as string.</p>
+<p>Makes the template applicable for Mixer&rsquo;s attribute generation phase. Instances of such template are created during
+pre-processing attribute generation phase and passed to the handlers based on the rule configurations.</p>
 
 </td>
 </tr>
@@ -607,7 +489,7 @@ DO NOT USE ! Under Development</p>
 </tr>
 </thead>
 <tbody>
-<tr id="ValidateRequest.adapter_config">
+<tr id="ValidateRequest-adapter_config">
 <td><code>adapterConfig</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#any">google.protobuf.Any</a></code></td>
 <td>
@@ -615,7 +497,7 @@ DO NOT USE ! Under Development</p>
 
 </td>
 </tr>
-<tr id="ValidateRequest.inferred_types">
+<tr id="ValidateRequest-inferred_types">
 <td><code>inferredTypes</code></td>
 <td><code>map&lt;string,&nbsp;<a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#any">google.protobuf.Any</a>&gt;</code></td>
 <td>
@@ -639,9 +521,9 @@ DO NOT USE ! Under Development</p>
 </tr>
 </thead>
 <tbody>
-<tr id="ValidateResponse.status">
+<tr id="ValidateResponse-status">
 <td><code>status</code></td>
-<td><code><a href="#google.rpc.Status">google.rpc.Status</a></code></td>
+<td><code><a href="#google-rpc-Status">google.rpc.Status</a></code></td>
 <td>
 <p>The success/failure status of validation call.</p>
 
@@ -650,104 +532,7 @@ DO NOT USE ! Under Development</p>
 </tbody>
 </table>
 </section>
-<h3 id="Value">Value</h3>
-<section>
-<p>Value is used inside templates for fields that have dynamic types. The actual datatype
-of the field depends on the datatype of the expression used in the operator configuration.</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="Value.string_value" class="oneof oneof-start">
-<td><code>stringValue</code></td>
-<td><code>string (oneof)</code></td>
-<td>
-<p>Used for values of type STRING</p>
-
-</td>
-</tr>
-<tr id="Value.int64_value" class="oneof">
-<td><code>int64Value</code></td>
-<td><code>int64 (oneof)</code></td>
-<td>
-<p>Used for values of type INT64</p>
-
-</td>
-</tr>
-<tr id="Value.double_value" class="oneof">
-<td><code>doubleValue</code></td>
-<td><code>double (oneof)</code></td>
-<td>
-<p>Used for values of type DOUBLE</p>
-
-</td>
-</tr>
-<tr id="Value.bool_value" class="oneof">
-<td><code>boolValue</code></td>
-<td><code>bool (oneof)</code></td>
-<td>
-<p>Used for values of type BOOL</p>
-
-</td>
-</tr>
-<tr id="Value.ip_address_value" class="oneof">
-<td><code>ipAddressValue</code></td>
-<td><code><a href="#IPAddress">IPAddress (oneof)</a></code></td>
-<td>
-<p>Used for values of type IPAddress</p>
-
-</td>
-</tr>
-<tr id="Value.timestamp_value" class="oneof">
-<td><code>timestampValue</code></td>
-<td><code><a href="#TimeStamp">TimeStamp (oneof)</a></code></td>
-<td>
-<p>Used for values of type TIMESTAMP</p>
-
-</td>
-</tr>
-<tr id="Value.duration_value" class="oneof">
-<td><code>durationValue</code></td>
-<td><code><a href="#Duration">Duration (oneof)</a></code></td>
-<td>
-<p>Used for values of type DURATION</p>
-
-</td>
-</tr>
-<tr id="Value.email_address_value" class="oneof">
-<td><code>emailAddressValue</code></td>
-<td><code><a href="#EmailAddress">EmailAddress (oneof)</a></code></td>
-<td>
-<p>Used for values of type EmailAddress</p>
-
-</td>
-</tr>
-<tr id="Value.dns_name_value" class="oneof">
-<td><code>dnsNameValue</code></td>
-<td><code><a href="#DNSName">DNSName (oneof)</a></code></td>
-<td>
-<p>Used for values of type DNSName</p>
-
-</td>
-</tr>
-<tr id="Value.uri_value" class="oneof">
-<td><code>uriValue</code></td>
-<td><code><a href="#Uri">Uri (oneof)</a></code></td>
-<td>
-<p>Used for values of type Uri</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h3 id="google.rpc.Status">google.rpc.Status</h3>
+<h3 id="google-rpc-Status">google.rpc.Status</h3>
 <section>
 <p>The <code>Status</code> type defines a logical error model that is suitable for different
 programming environments, including REST APIs and RPC APIs. It is used by
@@ -815,7 +600,7 @@ be used directly after any stripping needed for security/privacy reasons.</p></l
 </tr>
 </thead>
 <tbody>
-<tr id="google.rpc.Status.code">
+<tr id="google-rpc-Status-code">
 <td><code>code</code></td>
 <td><code>int32</code></td>
 <td>
@@ -823,17 +608,17 @@ be used directly after any stripping needed for security/privacy reasons.</p></l
 
 </td>
 </tr>
-<tr id="google.rpc.Status.message">
+<tr id="google-rpc-Status-message">
 <td><code>message</code></td>
 <td><code>string</code></td>
 <td>
 <p>A developer-facing error message, which should be in English. Any
 user-facing error message should be localized and sent in the
-<a href="#google.rpc.Status.details">google.rpc.Status.details</a> field, or localized by the client.</p>
+<a href="#google-rpc-Status-details">google.rpc.Status.details</a> field, or localized by the client.</p>
 
 </td>
 </tr>
-<tr id="google.rpc.Status.details">
+<tr id="google-rpc-Status-details">
 <td><code>details</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#any">google.protobuf.Any[]</a></code></td>
 <td>

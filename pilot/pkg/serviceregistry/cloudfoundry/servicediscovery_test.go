@@ -213,6 +213,33 @@ func TestServiceDiscovery_GetService_ClientError(t *testing.T) {
 	g.Expect(serviceModel).To(gomega.BeNil())
 }
 
+func TestServiceDiscovery_GetServiceAttributes_Success(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	state := newSDTestState()
+
+	state.mockClient.RoutesReturns(routesResponse, nil)
+
+	attr, err := state.serviceDiscovery.GetServiceAttributes("process-guid-b.cfapps.io")
+
+	g.Expect(err).To(gomega.BeNil())
+	g.Expect(attr).To(gomega.Equal(&model.ServiceAttributes{
+		Name:      "process-guid-b.cfapps.io",
+		Namespace: "default",
+	}))
+}
+
+func TestServiceDiscovery_GetServiceAttributes_NotFound(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	state := newSDTestState()
+
+	state.mockClient.RoutesReturns(routesResponse, nil)
+
+	attr, err := state.serviceDiscovery.GetServiceAttributes("does-not-exist.cfapps.io")
+
+	g.Expect(err).To(gomega.BeNil())
+	g.Expect(attr).To(gomega.BeNil())
+}
+
 func TestServiceDiscovery_Internal_Instances_Filtering_By_Hostname(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	state := newSDTestState()

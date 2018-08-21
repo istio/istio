@@ -23,14 +23,12 @@ import (
 
 // The following variables are measures are recorded by ClientHandler:
 var (
-	ClientErrorCount, _       = stats.Int64("grpc.io/client/error_count", "RPC Errors", stats.UnitNone)
-	ClientRequestBytes, _     = stats.Int64("grpc.io/client/request_bytes", "Request bytes", stats.UnitBytes)
-	ClientResponseBytes, _    = stats.Int64("grpc.io/client/response_bytes", "Response bytes", stats.UnitBytes)
-	ClientStartedCount, _     = stats.Int64("grpc.io/client/started_count", "Number of client RPCs (streams) started", stats.UnitNone)
-	ClientFinishedCount, _    = stats.Int64("grpc.io/client/finished_count", "Number of client RPCs (streams) finished", stats.UnitNone)
-	ClientRequestCount, _     = stats.Int64("grpc.io/client/request_count", "Number of client RPC request messages", stats.UnitNone)
-	ClientResponseCount, _    = stats.Int64("grpc.io/client/response_count", "Number of client RPC response messages", stats.UnitNone)
-	ClientRoundTripLatency, _ = stats.Float64("grpc.io/client/roundtrip_latency", "RPC roundtrip latency in msecs", stats.UnitMilliseconds)
+	ClientSentMessagesPerRPC     = stats.Int64("grpc.io/client/sent_messages_per_rpc", "Number of messages sent in the RPC (always 1 for non-streaming RPCs).", stats.UnitDimensionless)
+	ClientSentBytesPerRPC        = stats.Int64("grpc.io/client/sent_bytes_per_rpc", "Total bytes sent across all request messages per RPC.", stats.UnitBytes)
+	ClientReceivedMessagesPerRPC = stats.Int64("grpc.io/client/received_messages_per_rpc", "Number of response messages received per RPC (always 1 for non-streaming RPCs).", stats.UnitDimensionless)
+	ClientReceivedBytesPerRPC    = stats.Int64("grpc.io/client/received_bytes_per_rpc", "Total bytes received across all response messages per RPC.", stats.UnitBytes)
+	ClientRoundtripLatency       = stats.Float64("grpc.io/client/roundtrip_latency", "Time between first byte of request sent to last byte of response received, or terminal error.", stats.UnitMilliseconds)
+	ClientServerLatency          = stats.Float64("grpc.io/client/server_latency", `Propagated from the server and should have the same value as "grpc.io/server/latency".`, stats.UnitMilliseconds)
 )
 
 // Predefined views may be subscribed to collect data for the above measures.
@@ -38,63 +36,78 @@ var (
 // package. These are declared as a convenience only; none are subscribed by
 // default.
 var (
-	ClientErrorCountView = &view.View{
-		Name:        "grpc.io/client/error_count",
-		Description: "RPC Errors",
-		TagKeys:     []tag.Key{KeyStatus, KeyMethod},
-		Measure:     ClientErrorCount,
-		Aggregation: view.Mean(),
+	ClientSentBytesPerRPCView = &view.View{
+		Measure:     ClientSentBytesPerRPC,
+		Name:        "grpc.io/client/sent_bytes_per_rpc",
+		Description: "Distribution of bytes sent per RPC, by method.",
+		TagKeys:     []tag.Key{KeyClientMethod},
+		Aggregation: DefaultBytesDistribution,
 	}
 
-	ClientRoundTripLatencyView = &view.View{
+	ClientReceivedBytesPerRPCView = &view.View{
+		Measure:     ClientReceivedBytesPerRPC,
+		Name:        "grpc.io/client/received_bytes_per_rpc",
+		Description: "Distribution of bytes received per RPC, by method.",
+		TagKeys:     []tag.Key{KeyClientMethod},
+		Aggregation: DefaultBytesDistribution,
+	}
+
+	ClientRoundtripLatencyView = &view.View{
+		Measure:     ClientRoundtripLatency,
 		Name:        "grpc.io/client/roundtrip_latency",
-		Description: "Latency in msecs",
-		TagKeys:     []tag.Key{KeyMethod},
-		Measure:     ClientRoundTripLatency,
+		Description: "Distribution of round-trip latency, by method.",
+		TagKeys:     []tag.Key{KeyClientMethod},
 		Aggregation: DefaultMillisecondsDistribution,
 	}
 
-	ClientRequestBytesView = &view.View{
-		Name:        "grpc.io/client/request_bytes",
-		Description: "Request bytes",
-		TagKeys:     []tag.Key{KeyMethod},
-		Measure:     ClientRequestBytes,
-		Aggregation: DefaultBytesDistribution,
+	ClientCompletedRPCsView = &view.View{
+		Measure:     ClientRoundtripLatency,
+		Name:        "grpc.io/client/completed_rpcs",
+		Description: "Count of RPCs by method and status.",
+		TagKeys:     []tag.Key{KeyClientMethod, KeyClientStatus},
+		Aggregation: view.Count(),
 	}
 
-	ClientResponseBytesView = &view.View{
-		Name:        "grpc.io/client/response_bytes",
-		Description: "Response bytes",
-		TagKeys:     []tag.Key{KeyMethod},
-		Measure:     ClientResponseBytes,
-		Aggregation: DefaultBytesDistribution,
+	ClientSentMessagesPerRPCView = &view.View{
+		Measure:     ClientSentMessagesPerRPC,
+		Name:        "grpc.io/client/sent_messages_per_rpc",
+		Description: "Distribution of sent messages count per RPC, by method.",
+		TagKeys:     []tag.Key{KeyClientMethod},
+		Aggregation: DefaultMessageCountDistribution,
 	}
 
+	ClientReceivedMessagesPerRPCView = &view.View{
+		Measure:     ClientReceivedMessagesPerRPC,
+		Name:        "grpc.io/client/received_messages_per_rpc",
+		Description: "Distribution of received messages count per RPC, by method.",
+		TagKeys:     []tag.Key{KeyClientMethod},
+		Aggregation: DefaultMessageCountDistribution,
+	}
+
+	ClientServerLatencyView = &view.View{
+		Measure:     ClientServerLatency,
+		Name:        "grpc.io/client/server_latency",
+		Description: "Distribution of server latency as viewed by client, by method.",
+		TagKeys:     []tag.Key{KeyClientMethod},
+		Aggregation: DefaultMillisecondsDistribution,
+	}
+
+	// Deprecated: This view is going to be removed, if you need it please define it
+	// yourself.
 	ClientRequestCountView = &view.View{
-		Name:        "grpc.io/client/request_count",
-		Description: "Count of request messages per client RPC",
-		TagKeys:     []tag.Key{KeyMethod},
-		Measure:     ClientRequestCount,
-		Aggregation: DefaultMessageCountDistribution,
-	}
-
-	ClientResponseCountView = &view.View{
-		Name:        "grpc.io/client/response_count",
-		Description: "Count of response messages per client RPC",
-		TagKeys:     []tag.Key{KeyMethod},
-		Measure:     ClientResponseCount,
-		Aggregation: DefaultMessageCountDistribution,
+		Name:        "Count of request messages per client RPC",
+		TagKeys:     []tag.Key{KeyClientMethod},
+		Measure:     ClientRoundtripLatency,
+		Aggregation: view.Count(),
 	}
 )
 
 // DefaultClientViews are the default client views provided by this package.
 var DefaultClientViews = []*view.View{
-	ClientErrorCountView,
-	ClientRoundTripLatencyView,
-	ClientRequestBytesView,
-	ClientResponseBytesView,
-	ClientRequestCountView,
-	ClientResponseCountView,
+	ClientSentBytesPerRPCView,
+	ClientReceivedBytesPerRPCView,
+	ClientRoundtripLatencyView,
+	ClientCompletedRPCsView,
 }
 
 // TODO(jbd): Add roundtrip_latency, uncompressed_request_bytes, uncompressed_response_bytes, request_count, response_count.

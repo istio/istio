@@ -21,17 +21,24 @@ import (
 
 func TestGrpc(t *testing.T) {
 	srcPods := []string{"a", "b"}
-	dstPods := []string{"a", "b"}
+	dstPods := []string{"a", "b", "headless"}
 	ports := []string{"70", "7070"}
 	if !tc.Kube.AuthEnabled {
 		// t is not behind proxy, so it cannot talk in Istio auth.
 		srcPods = append(srcPods, "t")
 		dstPods = append(dstPods, "t")
-		// mTLS is not supported for headless services
-		dstPods = append(dstPods, "headless")
 	} else {
 		// Auth is enabled for d:7070 using per-service policy. We expect request
 		// from non-envoy client ("t") should fail all the time.
+		cfgs := &deployableConfig{
+			Namespace:  tc.Kube.Namespace,
+			YamlFiles:  []string{"testdata/authn/service-d-mtls-policy.yaml.tmpl"},
+			kubeconfig: tc.Kube.KubeConfig,
+		}
+		if err := cfgs.Setup(); err != nil {
+			t.Fatal(err)
+		}
+		defer cfgs.Teardown()
 		dstPods = append(dstPods, "d")
 	}
 
@@ -39,45 +46,41 @@ func TestGrpc(t *testing.T) {
 
 	// Run all request tests.
 	t.Run("request", func(t *testing.T) {
-		for _, src := range srcPods {
-			for _, dst := range dstPods {
-				if src == "t" && dst == "t" {
-					// this is flaky in minikube
-					continue
-				}
-				for _, port := range ports {
-					for _, domain := range []string{"", "." + tc.Kube.Namespace} {
-						testName := fmt.Sprintf("%s->%s%s_%s", src, dst, domain, port)
-						runRetriableTest(t, testName, defaultRetryBudget, func() error {
-							reqURL := fmt.Sprintf("grpc://%s%s:%s", dst, domain, port)
-							resp := ClientRequest(src, reqURL, 1, "")
-							if len(resp.ID) > 0 {
-								id := resp.ID[0]
-								logEntry := fmt.Sprintf("GRPC request from %s to %s%s:%s", src, dst, domain, port)
-								if src != "t" {
-									logs.add(src, id, logEntry)
-								}
-								if dst != "t" {
-									if dst == "headless" { // headless points to b
-										if src != "b" {
-											logs.add("b", id, logEntry)
-										}
-									} else {
-										logs.add(dst, id, logEntry)
+		for cluster := range tc.Kube.Clusters {
+			for _, src := range srcPods {
+				for _, dst := range dstPods {
+					if src == "t" && dst == "t" {
+						// this is flaky in minikube
+						continue
+					}
+					for _, port := range ports {
+						for _, domain := range []string{"", "." + tc.Kube.Namespace} {
+							testName := fmt.Sprintf("%s from %s cluster->%s%s_%s", src, cluster, dst, domain, port)
+							runRetriableTest(t, cluster, testName, defaultRetryBudget, func() error {
+								reqURL := fmt.Sprintf("grpc://%s%s:%s", dst, domain, port)
+								resp := ClientRequest(cluster, src, reqURL, 1, "")
+								if len(resp.ID) > 0 {
+									id := resp.ID[0]
+									logEntry := fmt.Sprintf("GRPC request from %s to %s%s:%s", src, dst, domain, port)
+									if src != "t" {
+										logs.add(cluster, src, id, logEntry)
 									}
+									if dst != "t" {
+										logs.add(cluster, dst, id, logEntry)
+									}
+									return nil
 								}
-								return nil
-							}
-							if src == "t" && dst == "t" {
-								// Expected no match for t->t
-								return nil
-							}
-							if src == "t" && dst == "d" && port == "7070" {
-								// Expected no match for t->d:7070 as d:7070 has mTLS enabled.
-								return nil
-							}
-							return errAgain
-						})
+								if src == "t" && dst == "t" {
+									// Expected no match for t->t
+									return nil
+								}
+								if src == "t" && dst == "d" && port == "7070" {
+									// Expected no match for t->d:7070 as d:7070 has mTLS enabled.
+									return nil
+								}
+								return errAgain
+							})
+						}
 					}
 				}
 			}

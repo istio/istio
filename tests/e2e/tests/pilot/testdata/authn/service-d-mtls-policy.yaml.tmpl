@@ -1,0 +1,24 @@
+apiVersion: authentication.istio.io/v1alpha1
+kind: Policy
+metadata:
+  name: d-ports-mtls-disabled
+spec:
+  targets:
+  - name: d
+    ports:
+    - number: 8080
+---
+apiVersion: authentication.istio.io/v1alpha1
+kind: Policy
+metadata:
+  name: d-ports-mtls-enabled
+spec:
+  targets:
+  - name: d
+    ports:
+    - number: 80
+    - number: 7070
+    - number: 9090
+  peers:
+  - mtls:
+---

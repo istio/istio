@@ -32,20 +32,22 @@ required = [
   "istio.io/fortio",
 ]
 
+ignored = [
+  # Context Graph depends on a locally vendored library that isn't (yet) available upstream.
+  "istio.io/istio/mixer/adapter/stackdriver/contextgraph",
+]
+
 # To use reference package:
 #   vendor/k8s.io/kubernetes/pkg/util/parsers/parsers.go:36:16: undefined: reference.ParseNormalizedNamed
 [[override]]
   name = "github.com/docker/distribution"
   branch = "master"
 
-# TODO: switch to 1.10 and newer client-go
-
-# client-go release-6.0 corresponds to k8s release-1.9 branch. See
-# https://github.com/kubernetes/client-go/tree/release-6.0#compatibility-matrix
+# https://github.com/kubernetes/client-go#compatibility-matrix
 # for details.
 [[override]]
   name = "k8s.io/client-go"
-  branch = "release-6.0"
+  branch = "release-7.0"	# For K8s 1.10.x
 
 # matching client-go 6 == k8s 1.9 == v9 (!)
 [[override]]
@@ -59,7 +61,15 @@ required = [
 
 [[constraint]]
   name = "cloud.google.com/go"
-  version = "0.20.0"
+  version = ">=0.20.0, <1.0.0"
+
+[[constraint]]
+  name = "go.opencensus.io"
+  version = ">=0.11.0"
+
+[[constraint]]
+  name = "contrib.go.opencensus.io/exporter/stackdriver"
+  version = ">=0.2.0"
 
 [[constraint]]
   branch = "master"
@@ -99,7 +109,7 @@ required = [
 
 [[constraint]]
   name = "github.com/envoyproxy/go-control-plane"
-  branch = "master"
+  branch = "revert_grpc_version_update"
 
 [[constraint]]
   name = "github.com/fluent/fluent-logger-golang"
@@ -119,11 +129,11 @@ required = [
 
 [[constraint]]
   name = "github.com/gogo/protobuf"
-  version = "0.5.0"
+  version = "1.0.0"
 
 [[constraint]]
   name = "github.com/golang/protobuf"
-  version = "1.0.0"
+  version = "1.1.0"
 
 [[constraint]]
   branch = "master"
@@ -187,7 +197,7 @@ required = [
 
 [[constraint]]
   name = "github.com/open-policy-agent/opa"
-  version = "0.7.1"
+  version = "0.8.2"
 
 [[constraint]]
   branch = "master"
@@ -287,17 +297,24 @@ required = [
 
 [[constraint]]
   name = "istio.io/api"
-  branch = "release-0.8"
+  # TODO: Setting this to release-1.0 to associate istio.io/istio and istio.io/api release-1.0 branches.
+  # Once 1.0 is released, and the changes start getting merged into master, this constraint needs to be
+  # reverted back to master.
+  branch = "release-1.0"
 
 # fortio is latest tagged by default
 
 [[constraint]]
   name = "k8s.io/api"
-  version = "kubernetes-1.9.1"
+  version = "kubernetes-1.10.4"
 
 [[constraint]]
-  branch = "release-1.9"
+  name = "k8s.io/apimachinery"
+  version = "kubernetes-1.10.4"
+
+[[constraint]]
   name = "k8s.io/apiextensions-apiserver"
+  version = "kubernetes-1.10.4"
 
 [[constraint]]
   name = "k8s.io/cluster-registry"
@@ -305,7 +322,7 @@ required = [
 
 [[constraint]]
   name = "k8s.io/helm"
-  version = "2.8.2"
+  version = "2.9.1"
 
 [[constraint]]
   name = "k8s.io/ingress"
@@ -313,7 +330,7 @@ required = [
 
 [[constraint]]
   name = "k8s.io/kubernetes"
-  branch = "release-1.9"
+  version = "v1.10.4"
 
 [prune]
   go-tests = true
@@ -339,4 +356,18 @@ required = [
     name = "github.com/gogo/protobuf"
     non-go = false
     unused-packages = false
+  [[prune.project]]
+    name = "github.com/dchest/siphash"
+    non-go = false
+  [[prune.project]]
+    name = "github.com/signalfx/com_signalfx_metrics_protobuf"
+    non-go = false
 
+
+[[constraint]]
+  name = "github.com/gogo/status"
+  revision = "d60b5acac426cb52f7e28124c6aaa862d9f339f5"
+
+[[override]]
+  name = "github.com/imdario/mergo"
+  revision = "6633656539c1639d9d78127b7d47c622b5d7b6dc"

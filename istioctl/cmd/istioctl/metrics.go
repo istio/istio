@@ -22,6 +22,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strings"
 	"text/tabwriter"
 	"time"
 
@@ -36,21 +37,22 @@ import (
 	"k8s.io/client-go/tools/portforward"
 	"k8s.io/client-go/transport/spdy"
 
+	"istio.io/istio/istioctl/pkg/kubernetes"
 	"istio.io/istio/pkg/log"
 )
 
 var (
 	metricsCmd = &cobra.Command{
-		Use:   "metrics <service name>...",
-		Short: "Prints the metrics for the specified service(s) when running in Kubernetes.",
+		Use:   "metrics <workload name>...",
+		Short: "Prints the metrics for the specified workload(s) when running in Kubernetes.",
 		Long: `
 Prints the metrics for the specified service(s) when running in Kubernetes.
 
 This command finds a Prometheus pod running in the specified istio system 
-namespace. It then executes a series of queries per requested service to
-find the following top-level service metrics: total requests per second,
+namespace. It then executes a series of queries per requested workload to
+find the following top-level workload metrics: total requests per second,
 error rate, and request latency at p50, p90, and p99 percentiles. The 
-query results are printed to the console, organized by service name.
+query results are printed to the console, organized by workload name.
 
 All metrics returned are from server-side reports. This means that latencies
 and error rates are from the perspective of the service itself and not of an
@@ -58,11 +60,11 @@ individual client (or aggregate set of clients). Rates and latencies are
 calculated over a time interval of 1 minute.
 `,
 		Example: `
-# Retrieve service metrics for productpage service
-istioctl experimental metrics productpage
+# Retrieve workload metrics for productpage-v1 workload
+istioctl experimental metrics productpage-v1
 
-# Retrieve service metrics for various services in the different namespaces
-istioctl experimental metrics productpage.foo reviews.bar ratings.baz
+# Retrieve workload metrics for various services in the different namespaces
+istioctl experimental metrics productpage-v1.foo reviews-v1.bar ratings-v1.baz
 `,
 		Aliases: []string{"m"},
 		Args:    cobra.MinimumNArgs(1),
@@ -71,21 +73,27 @@ istioctl experimental metrics productpage.foo reviews.bar ratings.baz
 	}
 )
 
+const (
+	wlabel   = "destination_workload"
+	wnslabel = "destination_workload_namespace"
+	reqTot   = "istio_requests_total"
+	reqDur   = "istio_request_duration_seconds"
+)
+
 func init() {
 	experimentalCmd.AddCommand(metricsCmd)
 }
 
-type serviceMetrics struct {
-	service                            string
+type workloadMetrics struct {
+	workload                           string
 	totalRPS, errorRPS                 float64
 	p50Latency, p90Latency, p99Latency time.Duration
 }
 
 func run(c *cobra.Command, args []string) error {
-	log.Debugf("metrics command invoked for service(s): %v", args)
+	log.Debugf("metrics command invoked for workload(s): %v", args)
 
-	config, _ := defaultRestConfig()
-	client, err := createCoreV1Client()
+	client, err := kubernetes.NewClient(kubeconfig, configContext)
 	if err != nil {
 		return fmt.Errorf("failed to create k8s client: %v", err)
 	}
@@ -107,7 +115,7 @@ func run(c *cobra.Command, args []string) error {
 
 	// only use the first pod in the list
 	promPod := pl.Items[0]
-	fw, readyCh, err := buildPortForwarder(client, config, promPod.Name, port)
+	fw, readyCh, err := buildPortForwarder(client, client.Config, promPod.Name, port)
 	if err != nil {
 		return fmt.Errorf("could not build port forwarder for prometheus: %v", err)
 	}
@@ -131,11 +139,11 @@ func run(c *cobra.Command, args []string) error {
 
 		printHeader()
 
-		services := args
-		for _, service := range services {
-			sm, err := metrics(promAPI, service)
+		workloads := args
+		for _, workload := range workloads {
+			sm, err := metrics(promAPI, workload)
 			if err != nil {
-				return fmt.Errorf("could not build metrics for service '%s': %v", service, err)
+				return fmt.Errorf("could not build metrics for workload '%s': %v", workload, err)
 			}
 
 			printMetrics(sm)
@@ -153,7 +161,7 @@ func prometheusPods(client cache.Getter) (*v1.PodList, error) {
 	return obj.(*v1.PodList), nil
 }
 
-func buildPortForwarder(client *rest.RESTClient, config *rest.Config, podName string, port int) (*portforward.PortForwarder, <-chan struct{}, error) {
+func buildPortForwarder(client *kubernetes.Client, config *rest.Config, podName string, port int) (*portforward.PortForwarder, <-chan struct{}, error) {
 	req := client.Post().Resource("pods").Namespace(istioNamespace).Name(podName).SubResource("portforward")
 
 	transport, upgrader, err := spdy.RoundTripperFor(config)
@@ -184,8 +192,7 @@ func availablePort() (int, error) {
 		return 0, err
 	}
 	port := l.Addr().(*net.TCPAddr).Port
-	l.Close()
-	return port, nil
+	return port, l.Close()
 }
 
 func prometheusAPI(port int) (promv1.API, error) {
@@ -196,16 +203,27 @@ func prometheusAPI(port int) (promv1.API, error) {
 	return promv1.NewAPI(promClient), nil
 }
 
-func metrics(promAPI promv1.API, service string) (serviceMetrics, error) {
-	rpsQuery := fmt.Sprintf(`sum(rate(istio_request_count{destination_service=~"%s.*"}[1m]))`, service)
-	errRPSQuery := fmt.Sprintf(`sum(rate(istio_request_count{destination_service=~"%s.*",response_code!="200"}[1m]))`, service)
-	p50LatencyQuery := fmt.Sprintf(`histogram_quantile(%f, sum(rate(istio_request_duration_bucket{destination_service=~"%s.*"}[1m])) by (le))`, 0.5, service)
-	p90LatencyQuery := fmt.Sprintf(`histogram_quantile(%f, sum(rate(istio_request_duration_bucket{destination_service=~"%s.*"}[1m])) by (le))`, 0.9, service)
-	p99LatencyQuery := fmt.Sprintf(`histogram_quantile(%f, sum(rate(istio_request_duration_bucket{destination_service=~"%s.*"}[1m])) by (le))`, 0.99, service)
+func metrics(promAPI promv1.API, workload string) (workloadMetrics, error) {
+
+	parts := strings.Split(workload, ".")
+	wname := parts[0]
+	wns := ""
+	if len(parts) > 1 {
+		wns = parts[1]
+	}
+
+	rpsQuery := fmt.Sprintf(`sum(rate(%s{%s=~"%s.*", %s=~"%s.*",reporter="destination"}[1m]))`, reqTot, wlabel, wname, wnslabel, wns)
+	errRPSQuery := fmt.Sprintf(`sum(rate(%s{%s=~"%s.*", %s=~"%s.*",reporter="destination",response_code!="200"}[1m]))`, reqTot, wlabel, wname, wnslabel, wns)
+	p50LatencyQuery := fmt.Sprintf(`histogram_quantile(%f, sum(rate(%s_bucket{%s=~"%s.*", %s=~"%s.*",reporter="destination"}[1m])) by (le))`,
+		0.5, reqDur, wlabel, wname, wnslabel, wns)
+	p90LatencyQuery := fmt.Sprintf(`histogram_quantile(%f, sum(rate(%s_bucket{%s=~"%s.*", %s=~"%s.*",reporter="destination"}[1m])) by (le))`,
+		0.9, reqDur, wlabel, wname, wnslabel, wns)
+	p99LatencyQuery := fmt.Sprintf(`histogram_quantile(%f, sum(rate(%s_bucket{%s=~"%s.*", %s=~"%s.*",reporter="destination"}[1m])) by (le))`,
+		0.99, reqDur, wlabel, wname, wnslabel, wns)
 
 	var me *multierror.Error
 	var err error
-	sm := serviceMetrics{service: service}
+	sm := workloadMetrics{workload: workload}
 	sm.totalRPS, err = vectorValue(promAPI, rpsQuery)
 	if err != nil {
 		me = multierror.Append(me, err)
@@ -262,17 +280,17 @@ func vectorValue(promAPI promv1.API, query string) (float64, error) {
 
 func printHeader() {
 	w := tabwriter.NewWriter(os.Stdout, 13, 1, 2, ' ', tabwriter.AlignRight)
-	fmt.Fprintf(w, "%13sSERVICE\tTOTAL RPS\tERROR RPS\tP50 LATENCY\tP90 LATENCY\tP99 LATENCY\t\n", "")
-	w.Flush()
+	fmt.Fprintf(w, "%40s\tTOTAL RPS\tERROR RPS\tP50 LATENCY\tP90 LATENCY\tP99 LATENCY\t\n", "WORKLOAD")
+	_ = w.Flush()
 }
 
-func printMetrics(sm serviceMetrics) {
+func printMetrics(wm workloadMetrics) {
 	w := tabwriter.NewWriter(os.Stdout, 13, 1, 2, ' ', tabwriter.AlignRight)
-	fmt.Fprintf(w, "%20s\t", sm.service)
-	fmt.Fprintf(w, "%.3f\t", sm.totalRPS)
-	fmt.Fprintf(w, "%.3f\t", sm.errorRPS)
-	fmt.Fprintf(w, "%s\t", sm.p50Latency)
-	fmt.Fprintf(w, "%s\t", sm.p90Latency)
-	fmt.Fprintf(w, "%s\t\n", sm.p99Latency)
-	w.Flush()
+	fmt.Fprintf(w, "%40s\t", wm.workload)
+	fmt.Fprintf(w, "%.3f\t", wm.totalRPS)
+	fmt.Fprintf(w, "%.3f\t", wm.errorRPS)
+	fmt.Fprintf(w, "%s\t", wm.p50Latency)
+	fmt.Fprintf(w, "%s\t", wm.p90Latency)
+	fmt.Fprintf(w, "%s\t\n", wm.p99Latency)
+	_ = w.Flush()
 }

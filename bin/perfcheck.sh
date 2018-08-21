@@ -65,10 +65,14 @@ SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
 
 # the root folder for the project
 ROOT=${SCRIPTPATH}/..
+TARGET_DIR=${ROOT}
+if ! [ -z "$1" ]; then
+    TARGET_DIR=$1
+fi
 
 # Search and find the baseline files within the project
 function findBaselineFiles() {
-    find ${ROOT} -name ${BASELINE_FILENAME}
+    find ${TARGET_DIR} -name ${BASELINE_FILENAME}
 }
 
 # load the baseline file with the name as first parameter
@@ -163,7 +167,7 @@ function compareBenchResults() {
             local ALLOCS_PER_OP_CMP=$(compareMetric "${BASELINE_ALLOCS_PER_OP}" "${RESULT_ALLOCS_PER_OP}" "${TOLERANCE_PERCENT_ALLOCS_PER_OP}")
 
             if [ "${TIME_PER_OP_CMP}" != "0" ] || [ "${BYTES_PER_OP_CMP}" != "0" ] || [ "${ALLOCS_PER_OP_CMP}" != "0" ]; then
-                echo "FAILED ${BENCH_NAME}"
+                echo "--FAILED ${BENCH_NAME}"
                 echo "Baseline:"
                 echo "   ${BASELINE_ENTRY}"
                 echo "Result:"
@@ -181,6 +185,7 @@ function compareBenchResults() {
                 if [ "${ALLOCS_PER_OP_CMP}" != "0" ]; then
                     echo -e "  ${RESULT_ALLOCS_PER_OP} allocs/op is not in range of: ${BASELINE_ALLOCS_PER_OP}   \t[tol: ${TOLERANCE_PERCENT_ALLOCS_PER_OP}%]"
                 fi
+                printf "\n\n"
             fi
         fi
     done

@@ -1,6 +1,6 @@
 {
   "node": {
-    "id": "{{ .Options.NodeID }}",
+    "id": "{{ .EnvoyConfigOpt.NodeID }}",
     "cluster": "mycluster",
     "locality": {
       "zone": "testzone"
@@ -13,11 +13,11 @@
     "use_all_default_tags": false
   },
   "admin": {
-    "access_log_path": "{{.AccessLog}}",
+    "access_log_path": "{{.AccessLogPath}}",
     "address": {
       "socket_address": {
         "address": "0.0.0.0",
-        "port_value": {{.AdminPort}}
+        "port_value": {{.Ports.AdminPort}}
       }
     }
   },
@@ -30,23 +30,25 @@
     },
     "ads_config": {
       "api_type": "GRPC",
+      "grpc_services": {
+        "envoy_grpc": {
+          "cluster_name": "xds-grpc"
+        }
+      },
       "refresh_delay": {
         "seconds": 30,
         "nanos": 0
-      },
-      "cluster_names": [
-        "xds-grpc"
-      ]
+      }
     }
   },
   "static_resources": {
     "listeners": [
     {
-    "name": "http_0.0.0.0_{{.ServerPort}}",
+    "name": "http_0.0.0.0_{{.Ports.ServerProxyPort}}",
     "address": {
       "socket_address": {
         "address": "0.0.0.0",
-        "port_value": {{.ServerPort}}
+        "port_value": {{.Ports.ServerProxyPort}}
       }
     },
     "filter_chains": [
@@ -93,11 +95,11 @@
     ]
   },
     {
-    "name": "http_0.0.0.0_{{.ClientPort}}",
+    "name": "http_0.0.0.0_{{.Ports.ClientProxyPort}}",
     "address": {
       "socket_address": {
         "address": "0.0.0.0",
-        "port_value": {{.ClientPort}}
+        "port_value": {{.Ports.ClientProxyPort}}
       }
     },
     "filter_chains": [
@@ -150,7 +152,7 @@
         "address": {
           "socket_address": {
             "address": "0.0.0.0",
-            "port_value": {{.TCPProxyPort}}
+            "port_value": {{.Ports.TCPProxyPort}}
           }
         },
         "filter_chains": [
@@ -208,7 +210,7 @@
                 {
                   "name": "envoy.file_access_log",
                   "config": {
-                      "path":  "{{.AccessLog}}"
+                      "path":  "{{.AccessLogPath}}"
                    }
                 }
               ]
@@ -251,7 +253,7 @@
                 {
                   "name": "envoy.file_access_log",
                   "config": {
-                      "path":  "{{.AccessLog}}"
+                      "path":  "{{.AccessLogPath}}"
                    }
                 }
               ]

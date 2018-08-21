@@ -15,8 +15,10 @@
 syntax = "proto3";
 
 // $title: Stdio
-// $overview: Adapter for outputting logs and metrics locally.
-// $location: https://istio.io/docs/reference/config/adapters/stdio.html
+// $description: Adapter for outputting logs and metrics locally.
+// $location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/stdio.html
+// $aliases:
+// $  - /docs/reference/config/adapters/stdio.html
 
 // The `stdio` adapter enables Istio to output logs and metrics to
 // the local machine. Logs and metrics can be directed to Mixer's
@@ -24,6 +26,9 @@ syntax = "proto3";
 // reachable file. When outputting to files, you can enable file rotation
 // such that the adapter will automatically manage a set of file backups
 // as data is generated.
+//
+// This adapter supports the [logentry template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/logentry/).
+// and the [metric template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/metric/).
 package adapter.stdio.config;
 
 import "gogoproto/gogo.proto";

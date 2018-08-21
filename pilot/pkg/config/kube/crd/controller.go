@@ -95,12 +95,14 @@ func (c *controller) addInformer(schema model.ProtoSchema, namespace string, res
 			if !ok {
 				return nil, fmt.Errorf("client not initialized %s", schema.Type)
 			}
-			err = rc.dynamic.Get().
-				Namespace(namespace).
+			req := rc.dynamic.Get().
 				Resource(ResourceName(schema.Plural)).
-				VersionedParams(&opts, meta_v1.ParameterCodec).
-				Do().
-				Into(result)
+				VersionedParams(&opts, meta_v1.ParameterCodec)
+
+			if !schema.ClusterScoped {
+				req = req.Namespace(namespace)
+			}
+			err = req.Do().Into(result)
 			return
 		},
 		func(opts meta_v1.ListOptions) (watch.Interface, error) {
@@ -108,12 +110,14 @@ func (c *controller) addInformer(schema model.ProtoSchema, namespace string, res
 			if !ok {
 				return nil, fmt.Errorf("client not initialized %s", schema.Type)
 			}
-			return rc.dynamic.Get().
+			req := rc.dynamic.Get().
 				Prefix("watch").
-				Namespace(namespace).
 				Resource(ResourceName(schema.Plural)).
-				VersionedParams(&opts, meta_v1.ParameterCodec).
-				Watch()
+				VersionedParams(&opts, meta_v1.ParameterCodec)
+			if !schema.ClusterScoped {
+				req = req.Namespace(namespace)
+			}
+			return req.Watch()
 		})
 }
 

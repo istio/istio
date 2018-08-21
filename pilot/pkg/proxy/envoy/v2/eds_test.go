@@ -30,7 +30,6 @@ import (
 	envoy_api_v2_core1 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"google.golang.org/grpc"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v2"
@@ -42,7 +41,7 @@ func connect(t *testing.T) xdsapi.EndpointDiscoveryService_StreamEndpointsClient
 		Node: &envoy_api_v2_core1.Node{
 			Id: sidecarId(app3Ip, "app3"),
 		},
-		ResourceNames: []string{"hello.default.svc.cluster.local|http"},
+		ResourceNames: []string{"outbound|80||hello.default.svc.cluster.local"},
 	}
 	return connectWithRequest(req, t)
 }
@@ -54,7 +53,7 @@ func reconnect(res *xdsapi.DiscoveryResponse, t *testing.T) xdsapi.EndpointDisco
 		},
 		VersionInfo:   res.VersionInfo,
 		ResponseNonce: res.Nonce,
-		ResourceNames: []string{"hello.default.svc.cluster.local|http"},
+		ResourceNames: []string{"outbound|80||hello.default.svc.cluster.local"},
 	}
 	return connectWithRequest(req, t)
 }
@@ -95,7 +94,7 @@ func TestReconnectWithNonce(t *testing.T) {
 
 // Regression for envoy restart and overlapping connections
 func TestReconnect(t *testing.T) {
-	initLocalPilotTestEnv(t)
+	s := initLocalPilotTestEnv(t)
 	edsstr := connect(t)
 	_, _ = edsstr.Recv()
 
@@ -109,7 +108,8 @@ func TestReconnect(t *testing.T) {
 	time.Sleep(1 * time.Second)
 
 	// event happens
-	v2.PushAll()
+	v2.AdsPushAll(s.EnvoyXdsServer)
+
 	// will trigger recompute and push (we may need to make a change once diff is implemented
 
 	done := make(chan struct{}, 1)
@@ -155,17 +155,18 @@ func directRequest(server *bootstrap.Server, t *testing.T) {
 			Address: "127.0.0.2",
 			Port:    int(testEnv.Ports().BackendPort),
 			ServicePort: &model.Port{
-				Name:                 "http",
-				Port:                 80,
-				Protocol:             model.ProtocolHTTP,
-				AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
+				Name:     "http",
+				Port:     80,
+				Protocol: model.ProtocolHTTP,
 			},
 		},
 		Labels:           map[string]string{"version": "v1"},
 		AvailabilityZone: "az",
 	})
 
-	v2.PushAll() // will trigger recompute and push
+	v2.AdsPushAll(server.EnvoyXdsServer)
+	// will trigger recompute and push
+
 	// This should happen in 15 seconds, for the periodic refresh
 	// TODO: verify push works
 	_, err := edsstr.Recv()
@@ -197,7 +198,7 @@ func connectAndSend(id uint32, t *testing.T) (xdsapi.EndpointDiscoveryService_St
 		Node: &envoy_api_v2_core1.Node{
 			Id: sidecarId(testIp(uint32(0x0a100000+id)), "app3"),
 		},
-		ResourceNames: []string{"hello.default.svc.cluster.local|http"}})
+		ResourceNames: []string{"outbound|80||hello.default.svc.cluster.local"}})
 	if err != nil {
 		t.Fatal("Send failed", err)
 	}
@@ -220,8 +221,15 @@ func multipleRequest(server *bootstrap.Server, t *testing.T) {
 
 	// Bad client - will not read any response. This triggers Write to block, which should
 	// be detected
-	ads := connectADS(t, util.MockPilotGrpcAddr)
-	sendCDSReq(t, sidecarId(testIp(0x0a120001), "app3"), ads)
+	ads, err := connectADS(util.MockPilotGrpcAddr)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = sendCDSReq(sidecarId(testIp(0x0a120001), "app3"), ads)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// 1000 clients * 100 pushes = ~4 sec
 	n := 10 // clients
@@ -261,7 +269,7 @@ func multipleRequest(server *bootstrap.Server, t *testing.T) {
 	}
 	log.Println("Done connecting")
 	for j := 0; j < nPushes; j++ {
-		v2.PushAll()
+		v2.AdsPushAll(server.EnvoyXdsServer)
 		log.Println("Push done ", j)
 	}
 
@@ -311,10 +319,9 @@ func udsRequest(server *bootstrap.Server, t *testing.T) {
 		Hostname: "localuds.cluster.local",
 		Ports: model.PortList{
 			{
-				Name:                 "grpc",
-				Port:                 0,
-				Protocol:             model.ProtocolGRPC,
-				AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
+				Name:     "grpc",
+				Port:     0,
+				Protocol: model.ProtocolGRPC,
 			},
 		},
 		MeshExternal: true,
@@ -326,10 +333,9 @@ func udsRequest(server *bootstrap.Server, t *testing.T) {
 			Address: udsPath,
 			Port:    0,
 			ServicePort: &model.Port{
-				Name:                 "grpc",
-				Port:                 0,
-				Protocol:             model.ProtocolGRPC,
-				AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
+				Name:     "grpc",
+				Port:     0,
+				Protocol: model.ProtocolGRPC,
 			},
 		},
 		Labels:           map[string]string{"socket": "unix"},
@@ -340,7 +346,7 @@ func udsRequest(server *bootstrap.Server, t *testing.T) {
 		Node: &envoy_api_v2_core1.Node{
 			Id: sidecarId(app3Ip, "app3"),
 		},
-		ResourceNames: []string{"localuds.cluster.local|grpc"},
+		ResourceNames: []string{"outbound|0||localuds.cluster.local"},
 	}
 	edsstr := connectWithRequest(req, t)
 
@@ -414,7 +420,7 @@ func testEdsz(t *testing.T) {
 	}
 	statusStr := string(data)
 
-	if !strings.Contains(statusStr, "\"hello.default.svc.cluster.local|http\"") {
+	if !strings.Contains(statusStr, "\"outbound|80||hello.default.svc.cluster.local\"") {
 		t.Fatal("Mock hello service not found ", statusStr)
 	}
 }

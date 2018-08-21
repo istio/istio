@@ -164,7 +164,7 @@ func WaitForHTTPServer(url string) {
 			return
 		}
 		log.Println("Will wait a second and try again.")
-		time.Sleep(time.Second)
+		time.Sleep(200 * time.Millisecond)
 	}
 	log.Println("Give up the wait, continue the test...")
 }
@@ -180,7 +180,7 @@ func WaitForPort(port uint16) {
 			return
 		}
 		log.Println("Wait a second and try again.")
-		time.Sleep(time.Second)
+		time.Sleep(200 * time.Millisecond)
 	}
 	log.Println("Give up the wait, continue the test...")
 }

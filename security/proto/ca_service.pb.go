@@ -19,10 +19,8 @@ import math "math"
 import google_rpc "github.com/gogo/googleapis/google/rpc"
 import _ "github.com/gogo/protobuf/gogoproto"
 
-import (
-	context "golang.org/x/net/context"
-	grpc "google.golang.org/grpc"
-)
+import context "golang.org/x/net/context"
+import grpc "google.golang.org/grpc"
 
 import strings "strings"
 import reflect "reflect"

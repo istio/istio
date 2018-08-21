@@ -8,6 +8,9 @@
 	[Papertrail](https://www.papertrailapp.com) logging backend and the
 	[AppOptics](https://www.appoptics.com) monitoring backend.
 
+	This adapter supports the [metric template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/metric/)
+	and the [logentry template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/metric/).
+
 	It is generated from these files:
 		mixer/adapter/solarwinds/config/config.proto
 
@@ -24,11 +27,11 @@ import _ "github.com/gogo/protobuf/types"
 
 import time "time"
 
-import github_com_gogo_protobuf_types "github.com/gogo/protobuf/types"
+import types "github.com/gogo/protobuf/types"
 
 import strings "strings"
 import reflect "reflect"
-import github_com_gogo_protobuf_sortkeys "github.com/gogo/protobuf/sortkeys"
+import sortkeys "github.com/gogo/protobuf/sortkeys"
 
 import io "io"
 
@@ -194,8 +197,8 @@ func (m *Params) MarshalTo(dAtA []byte) (int, error) {
 	if m.PapertrailLocalRetentionDuration != nil {
 		dAtA[i] = 0x22
 		i++
-		i = encodeVarintConfig(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(*m.PapertrailLocalRetentionDuration)))
-		n1, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(*m.PapertrailLocalRetentionDuration, dAtA[i:])
+		i = encodeVarintConfig(dAtA, i, uint64(types.SizeOfStdDuration(*m.PapertrailLocalRetentionDuration)))
+		n1, err := types.StdDurationMarshalTo(*m.PapertrailLocalRetentionDuration, dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
@@ -341,7 +344,7 @@ func (m *Params) Size() (n int) {
 		n += 1 + l + sovConfig(uint64(l))
 	}
 	if m.PapertrailLocalRetentionDuration != nil {
-		l = github_com_gogo_protobuf_types.SizeOfStdDuration(*m.PapertrailLocalRetentionDuration)
+		l = types.SizeOfStdDuration(*m.PapertrailLocalRetentionDuration)
 		n += 1 + l + sovConfig(uint64(l))
 	}
 	if len(m.Metrics) > 0 {
@@ -416,7 +419,7 @@ func (this *Params) String() string {
 	for k, _ := range this.Metrics {
 		keysForMetrics = append(keysForMetrics, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForMetrics)
+	sortkeys.Strings(keysForMetrics)
 	mapStringForMetrics := "map[string]*Params_MetricInfo{"
 	for _, k := range keysForMetrics {
 		mapStringForMetrics += fmt.Sprintf("%v: %v,", k, this.Metrics[k])
@@ -426,7 +429,7 @@ func (this *Params) String() string {
 	for k, _ := range this.Logs {
 		keysForLogs = append(keysForLogs, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForLogs)
+	sortkeys.Strings(keysForLogs)
 	mapStringForLogs := "map[string]*Params_LogInfo{"
 	for _, k := range keysForLogs {
 		mapStringForLogs += fmt.Sprintf("%v: %v,", k, this.Logs[k])
@@ -606,7 +609,7 @@ func (m *Params) Unmarshal(dAtA []byte) error {
 			if m.PapertrailLocalRetentionDuration == nil {
 				m.PapertrailLocalRetentionDuration = new(time.Duration)
 			}
-			if err := github_com_gogo_protobuf_types.StdDurationUnmarshal(m.PapertrailLocalRetentionDuration, dAtA[iNdEx:postIndex]); err != nil {
+			if err := types.StdDurationUnmarshal(m.PapertrailLocalRetentionDuration, dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex

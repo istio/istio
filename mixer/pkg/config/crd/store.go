@@ -33,13 +33,6 @@ import (
 )
 
 const (
-	// API group / version for istio config.
-	apiGroup        = "config.istio.io"
-	apiVersion      = "v1alpha2"
-	apiGroupVersion = apiGroup + "/" + apiVersion
-)
-
-const (
 	// initWaiterInterval is the interval to check if the initial data is ready
 	// in the cache.
 	initWaiterInterval = time.Millisecond
@@ -49,6 +42,11 @@ const (
 	// through "retry-timeout" query parameter in the config URL,
 	// like k8s://?retry-timeout=1m
 	crdRetryTimeout = time.Second * 30
+
+	// ConfigAPIGroup is the API group for the config CRDs.
+	ConfigAPIGroup = "config.istio.io"
+	// ConfigAPIVersion is the API version for the config CRDs.
+	ConfigAPIVersion = "v1alpha2"
 )
 
 // When retrying happens on initializing caches, it shouldn't log the message for
@@ -85,10 +83,11 @@ func waitForSynced(donec chan struct{}, informers map[string]cache.SharedInforme
 
 // Store offers store.StoreBackend interface through kubernetes custom resource definitions.
 type Store struct {
-	conf         *rest.Config
-	ns           map[string]bool
-	retryTimeout time.Duration
-	donec        chan struct{}
+	conf            *rest.Config
+	ns              map[string]bool
+	retryTimeout    time.Duration
+	donec           chan struct{}
+	apiGroupVersion string
 
 	cacheMutex sync.Mutex
 	caches     map[string]cache.Store
@@ -148,7 +147,11 @@ loop:
 			time.Sleep(s.retryInterval)
 		}
 		retryCount++
-		resources, err := d.ServerResourcesForGroupVersion(apiGroupVersion)
+		groupVersion := ConfigAPIGroup + "/" + ConfigAPIVersion
+		if s.apiGroupVersion != "" {
+			groupVersion = s.apiGroupVersion
+		}
+		resources, err := d.ServerResourcesForGroupVersion(groupVersion)
 		if err != nil {
 			log.Debugf("Failed to obtain resources for CRD: %v", err)
 			continue

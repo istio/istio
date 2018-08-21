@@ -15,11 +15,15 @@
 syntax = "proto3";
 
 // $title: Fluentd
-// $overview: Adapter that delivers logs to a fluentd daemon.
-// $location: https://istio.io/docs/reference/config/adapters/fluentd.html
+// $description: Adapter that delivers logs to a fluentd daemon.
+// $location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/fluentd.html
+// $aliases:
+// $  - /docs/reference/config/adapters/fluentd.html
 
 // The `fluentd` adapter is designed to deliver Istio log entries to a
 // listening [fluentd](https://www.fluentd.org) daemon.
+//
+// This adapter supports the [logentry template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/logentry/).
 package adapter.fluentd.config;
 
 import "gogoproto/gogo.proto";
@@ -40,4 +44,9 @@ message Params {
   // Address of listening fluentd daemon. Example: fluentd-server:24224
   // Default value is localhost:24224
   string address = 1;
+
+  // Convert attributes of type duration to integers of unit ms in
+  // logs. Default behaviour is a string representation including
+  // unit.
+  bool integer_duration = 2;
 }

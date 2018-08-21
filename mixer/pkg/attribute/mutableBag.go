@@ -67,12 +67,21 @@ func GetMutableBag(parent Bag) *MutableBag {
 	return mb
 }
 
-// GetFakeMutableBagForTesting returns a Mutable bag based on the specified map
+// GetMutableBagForTesting returns a Mutable bag based on the specified map
 // Use this function only for testing purposes.
-func GetFakeMutableBagForTesting(v map[string]interface{}) *MutableBag {
+func GetMutableBagForTesting(v map[string]interface{}) *MutableBag {
 	m := GetMutableBag(nil)
 	m.values = v
 	return m
+}
+
+// GetProtoForTesting returns a CompressedAttributes struct based on the specified map
+// Use this function only for testing purposes.
+func GetProtoForTesting(v map[string]interface{}) *mixerpb.CompressedAttributes {
+	b := GetMutableBagForTesting(v)
+	var ca mixerpb.CompressedAttributes
+	b.ToProto(&ca, nil, 0)
+	return &ca
 }
 
 // CopyBag makes a deep copy of a bag.
@@ -222,6 +231,12 @@ func (mb *MutableBag) ToProto(output *mixerpb.CompressedAttributes, globalDict m
 			}
 			output.Int64S[index] = t
 
+		case int:
+			if output.Int64S == nil {
+				output.Int64S = make(map[int32]int64)
+			}
+			output.Int64S[index] = int64(t)
+
 		case float64:
 			if output.Doubles == nil {
 				output.Doubles = make(map[int32]float64)
@@ -262,6 +277,8 @@ func (mb *MutableBag) ToProto(output *mixerpb.CompressedAttributes, globalDict m
 				output.StringMaps = make(map[int32]mixerpb.StringMap)
 			}
 			output.StringMaps[index] = mixerpb.StringMap{Entries: sm}
+		default:
+			scope.Errorf("Cannot convert value:%v of type:%T", v, v)
 		}
 	}
 

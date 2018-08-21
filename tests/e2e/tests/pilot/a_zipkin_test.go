@@ -38,11 +38,11 @@ func TestZipkin(t *testing.T) {
 		traceSent := false
 		var id string
 
-		runRetriableTest(t, testName, defaultRetryBudget, func() error {
+		runRetriableTest(t, primaryCluster, testName, defaultRetryBudget, func() error {
 			if !traceSent {
 				// Send a request with a trace header.
 				id = uuid.NewV4().String()
-				response := ClientRequest("a", "http://b", 1,
+				response := ClientRequest(primaryCluster, "a", "http://b", 1,
 					fmt.Sprintf("-key %v -val %v", traceHeader, id))
 				if !response.IsHTTPOk() {
 					// Keep retrying until we successfully send a trace request.
@@ -54,6 +54,7 @@ func TestZipkin(t *testing.T) {
 
 			// Check the zipkin server to verify the trace was received.
 			response := ClientRequest(
+				primaryCluster,
 				"t",
 				fmt.Sprintf("http://zipkin.%s:9411/api/v1/traces?annotationQuery=guid:x-client-trace-id=%s",
 					tc.Kube.IstioSystemNamespace(), id),

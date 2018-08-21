@@ -77,6 +77,7 @@ make init
 
 trap cleanup EXIT
 get_resource "${RESOURCE_TYPE}" "${OWNER}" "${INFO_PATH}" "${FILE_LOG}"
+check_cluster
 setup_cluster
 
 # getopts only handles single character flags
@@ -86,6 +87,9 @@ for ((i=1; i<=$#; i++)); do
         # e.g. "-s e2e_mixer" will only trigger e2e mixer_test
         -s|--single_test) SINGLE_MODE=true; ((i++)); SINGLE_TEST=${!i}
         continue
+        ;;
+        --use_galley_config_validator)
+        TEST_TARGETS+=(e2e_galley)
         ;;
     esac
     E2E_ARGS+=( ${!i} )

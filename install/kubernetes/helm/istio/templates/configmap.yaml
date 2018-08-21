@@ -1,3 +1,4 @@
+{{- if .Values.pilot.enabled }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -10,42 +11,41 @@ metadata:
     heritage: {{ .Release.Service }}
 data:
   mesh: |-
-  {{- if .Values.global.mtls.enabled }}
-    # Mutual TLS between proxies
-    authPolicy: MUTUAL_TLS
-    mtlsExcludedServices: ["kubernetes.default.svc.cluster.local"]
-  {{- end }}
-    #
-    # Edit this list to avoid using mTLS to connect to these services.
-    # Typically, these are control services (e.g kubernetes API server) that don't have istio sidecar
-    # to transparently terminate mTLS authentication.
-    # mtlsExcludedServices: ["kubernetes.default.svc.cluster.local"]
-
     # Set the following variable to true to disable policy checks by the Mixer.
     # Note that metrics will still be reported to the Mixer.
-    disablePolicyChecks: false
+    disablePolicyChecks: {{ .Values.global.disablePolicyChecks }}
+
     # Set enableTracing to false to disable request tracing.
-    enableTracing: true
+    enableTracing: {{ .Values.global.enableTracing }}
+
+    # Set accessLogFile to empty string to disable access log.
+    accessLogFile: "{{ .Values.global.proxy.accessLogFile }}"
     #
-    # To disable the mixer completely (including metrics), comment out
-    # the following lines
+    # Deprecated: mixer is using EDS
+    {{- if .Values.mixer.enabled }}
+    {{- if .Values.global.controlPlaneSecurityEnabled }}
     mixerCheckServer: istio-policy.{{ .Release.Namespace }}.svc.cluster.local:15004
     mixerReportServer: istio-telemetry.{{ .Release.Namespace }}.svc.cluster.local:15004
-    # This is the ingress service name, update if you used a different name
-    ingressService: istio-ingress
-    #
-    # Along with discoveryRefreshDelay, this setting determines how
-    # frequently should Envoy fetch and update its internal configuration
-    # from istio Pilot. Lower refresh delay results in higher CPU
-    # utilization and potential performance loss in exchange for faster
-    # convergence. Tweak this value according to your setup.
-    rdsRefreshDelay: {{ .Values.global.refreshInterval }}
+    {{- else }}
+    mixerCheckServer: istio-policy.{{ .Release.Namespace }}.svc.cluster.local:9091
+    mixerReportServer: istio-telemetry.{{ .Release.Namespace }}.svc.cluster.local:9091
+    {{- end }}
+    {{- end }}
+
+    {{- if .Values.ingress.enabled }}
+    # This is the k8s ingress service name, update if you used a different name
+    ingressService: istio-{{ .Values.global.k8sIngressSelector }}
+    {{- end }}
+
+    # Unix Domain Socket through which envoy communicates with NodeAgent SDS to get
+    # key/cert for mTLS. Use secret-mount files instead of SDS if set to empty. 
+    sdsUdsPath: ""
+    
+    # How frequently should Envoy fetch key/cert from NodeAgent.
+    sdsRefreshDelay: 15s
+
     #
     defaultConfig:
-      # NOTE: If you change any values in this section, make sure to make
-      # the same changes in start up args in istio-ingress pods.
-      # See rdsRefreshDelay for explanation about this setting.
-      discoveryRefreshDelay: {{ .Values.global.refreshInterval }}
       #
       # TCP connection timeout between Envoy & the application, and between Envoys.
       connectTimeout: 10s
@@ -84,9 +84,13 @@ data:
       #
       # Zipkin trace collector
       zipkinAddress: zipkin.{{ .Release.Namespace }}:9411
+
+    {{- if .Values.global.proxy.envoyStatsd.enabled }}
       #
       # Statsd metrics collector converts statsd metrics into Prometheus metrics.
-      statsdUdpAddress: istio-statsd-prom-bridge.{{ .Release.Namespace }}:9125
+      statsdUdpAddress: {{ .Values.global.proxy.envoyStatsd.host }}.{{ .Release.Namespace }}:{{ .Values.global.proxy.envoyStatsd.port }}
+    {{- end }}
+
     {{- if .Values.global.controlPlaneSecurityEnabled }}
       #
       # Mutual TLS authentication between sidecars and istio control plane.
@@ -102,3 +106,4 @@ data:
       # Address where istio Pilot service is running
       discoveryAddress: istio-pilot.{{ .Release.Namespace }}:15007
     {{- end }}
+{{- end }}

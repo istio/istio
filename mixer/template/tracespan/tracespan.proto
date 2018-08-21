@@ -14,21 +14,15 @@
 
 syntax = "proto3";
 
-package traceSpan;
+// $title: Trace Span
+// $description: A template that represents\ an individual span within a distributed trace.
+// $location: https://istio.io/docs/reference/config/policy-and-telemetry/templates/tracespan.html
 
-import "mixer/adapter/model/v1beta1/type.proto";
-import "mixer/adapter/model/v1beta1/extensions.proto";
-
-option (istio.mixer.adapter.model.v1beta1.template_variety) = TEMPLATE_VARIETY_REPORT;
-
-// TraceSpan represents an individual span within a distributed trace.
-//
-// When writing the configuration, the value for the fields associated with this template can either be a
-// literal or an [expression](https://istio.io/docs/reference/config/mixer/expression-language.html). Please note that if the datatype of a field is not istio.mixer.adapter.model.v1beta1.Value,
-// then the expression's [inferred type](https://istio.io/docs/reference/config/mixer/expression-language.html#type-checking) must match the datatype of the field.
+// The `tracespan` template represents an individual span within a distributed trace.
 //
 // Example config:
-// ```
+//
+// ```yaml
 // apiVersion: "config.istio.io/v1alpha2"
 // kind: tracespan
 // metadata:
@@ -41,6 +35,8 @@ option (istio.mixer.adapter.model.v1beta1.template_variety) = TEMPLATE_VARIETY_R
 //   spanName: request.path | "/"
 //   startTime: request.time
 //   endTime: response.time
+//   clientSpan: (context.reporter.local | true) == false
+//   rewriteClientSpanId: false
 //   spanTags:
 //     http.method: request.method | ""
 //     http.status_code: response.code | 200
@@ -53,8 +49,20 @@ option (istio.mixer.adapter.model.v1beta1.template_variety) = TEMPLATE_VARIETY_R
 //     source.version: source.labels["version"] | ""
 // ```
 //
-// See also: [Distributed Tracing](https://istio.io/docs/tasks/telemetry/distributed-tracing.html)
+// See also: [Distributed Tracing](https://istio.io/docs/tasks/telemetry/distributed-tracing/)
 // for information on tracing within Istio.
+package traceSpan;
+
+import "policy/v1beta1/type.proto";
+import "mixer/adapter/model/v1beta1/extensions.proto";
+
+option (istio.mixer.adapter.model.v1beta1.template_variety) = TEMPLATE_VARIETY_REPORT;
+
+// TraceSpan represents an individual span within a distributed trace.
+//
+// When writing the configuration, the value for the fields associated with this template can either be a
+// literal or an [expression](https://istio.io/docs/reference//config/policy-and-telemetry/expression-language/). Please note that if the datatype of a field is not istio.policy.v1beta1.Value,
+// then the expression's [inferred type](https://istio.io/docs/reference//config/policy-and-telemetry/expression-language/#type-checking) must match the datatype of the field.
 message Template {
     // Trace ID is the unique identifier for a trace. All spans from the same
     // trace share the same Trace ID.
@@ -87,16 +95,37 @@ message Template {
     // The start time of the span.
     //
     // Required.
-    istio.mixer.adapter.model.v1beta1.TimeStamp start_time = 5;
+    istio.policy.v1beta1.TimeStamp start_time = 5;
 
     // The end time of the span.
     //
     // Required.
-    istio.mixer.adapter.model.v1beta1.TimeStamp end_time = 6;
+    istio.policy.v1beta1.TimeStamp end_time = 6;
 
-    // Span tags are a set of <key, value> pairs that provide metadata for the
+    // Span tags are a set of < key, value > pairs that provide metadata for the
     // entire span. The values can be specified in the form of expressions.
     //
     // Optional.
-    map<string, istio.mixer.adapter.model.v1beta1.Value> span_tags = 7;
+    map<string, istio.policy.v1beta1.Value> span_tags = 7;
+
+    // HTTP status code used to set the span status. If unset or set to 0, the
+    // span status will be assumed to be successful.
+    int64 httpStatusCode = 8;
+
+    // client_span indicates the span kind. True for client spans and False or
+    // not provided for server spans. Using bool instead of enum is a temporary
+    // work around since mixer expression language does not yet support enum
+    // type.
+    //
+    // Optional
+    bool client_span = 9;
+
+    // rewrite_client_span_id is used to indicate whether to create a new client
+    // span id to accommodate Zipkin shared span model. Some tracing systems like
+    // Stackdriver separates a RPC into client span and server span. To solve this
+    // incompatibility, deterministically rewriting both span id of client span and
+    // parent span id of server span to the same newly generated id.
+    //
+    // Optional
+    bool rewrite_client_span_id = 10;
 }

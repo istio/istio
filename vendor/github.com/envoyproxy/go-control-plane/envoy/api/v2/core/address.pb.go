@@ -16,6 +16,7 @@
 	It has these top-level messages:
 		Pipe
 		SocketAddress
+		TcpKeepalive
 		BindConfig
 		Address
 		CidrRange
@@ -27,6 +28,7 @@
 		HeaderValueOption
 		DataSource
 		TransportSocket
+		SocketOption
 		ApiConfigSource
 		AggregatedConfigSource
 		ConfigSource
@@ -44,7 +46,7 @@ package core
 import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import google_protobuf "github.com/gogo/protobuf/types"
+import google_protobuf1 "github.com/gogo/protobuf/types"
 import _ "github.com/lyft/protoc-gen-validate/validate"
 import _ "github.com/gogo/protobuf/gogoproto"
 
@@ -108,14 +110,16 @@ func (m *Pipe) GetPath() string {
 type SocketAddress struct {
 	Protocol SocketAddress_Protocol `protobuf:"varint,1,opt,name=protocol,proto3,enum=envoy.api.v2.core.SocketAddress_Protocol" json:"protocol,omitempty"`
 	// The address for this socket. :ref:`Listeners <config_listeners>` will bind
-	// to the address or outbound connections will be made. An empty address is
-	// not allowed, specify ``0.0.0.0`` or ``::`` to bind any. It's still possible to
-	// distinguish on an address via the prefix/suffix matching in
-	// FilterChainMatch after connection. For :ref:`clusters
-	// <config_cluster_manager_cluster>`, an address may be either an IP or
-	// hostname to be resolved via DNS. If it is a hostname, :ref:`resolver_name
-	// <envoy_api_field_core.SocketAddress.resolver_name>` should be set unless default
-	// (i.e. DNS) resolution is expected.
+	// to the address. An empty address is not allowed. Specify ``0.0.0.0`` or ``::``
+	// to bind to any address. [#comment:TODO(zuercher) reinstate when implemented:
+	// It is possible to distinguish a Listener address via the prefix/suffix matching
+	// in :ref:`FilterChainMatch <envoy_api_msg_listener.FilterChainMatch>`.] When used
+	// within an upstream :ref:`BindConfig <envoy_api_msg_core.BindConfig>`, the address
+	// controls the source address of outbound connections. For :ref:`clusters
+	// <config_cluster_manager_cluster>`, the cluster type determines whether the
+	// address must be an IP (*STATIC* or *EDS* clusters) or a hostname resolved by DNS
+	// (*STRICT_DNS* or *LOGICAL_DNS* clusters). Address resolution can be customized
+	// via :ref:`resolver_name <envoy_api_field_core.SocketAddress.resolver_name>`.
 	Address string `protobuf:"bytes,2,opt,name=address,proto3" json:"address,omitempty"`
 	// Types that are valid to be assigned to PortSpecifier:
 	//	*SocketAddress_PortValue
@@ -269,6 +273,46 @@ func _SocketAddress_OneofSizer(msg proto.Message) (n int) {
 	return n
 }
 
+type TcpKeepalive struct {
+	// Maximum number of keepalive probes to send without response before deciding
+	// the connection is dead. Default is to use the OS level configuration (unless
+	// overridden, Linux defaults to 9.)
+	KeepaliveProbes *google_protobuf1.UInt32Value `protobuf:"bytes,1,opt,name=keepalive_probes,json=keepaliveProbes" json:"keepalive_probes,omitempty"`
+	// The number of seconds a connection needs to be idle before keep-alive probes
+	// start being sent. Default is to use the OS level configuration (unless
+	// overridden, Linux defaults to 7200s (ie 2 hours.)
+	KeepaliveTime *google_protobuf1.UInt32Value `protobuf:"bytes,2,opt,name=keepalive_time,json=keepaliveTime" json:"keepalive_time,omitempty"`
+	// The number of seconds between keep-alive probes. Default is to use the OS
+	// level configuration (unless overridden, Linux defaults to 75s.)
+	KeepaliveInterval *google_protobuf1.UInt32Value `protobuf:"bytes,3,opt,name=keepalive_interval,json=keepaliveInterval" json:"keepalive_interval,omitempty"`
+}
+
+func (m *TcpKeepalive) Reset()                    { *m = TcpKeepalive{} }
+func (m *TcpKeepalive) String() string            { return proto.CompactTextString(m) }
+func (*TcpKeepalive) ProtoMessage()               {}
+func (*TcpKeepalive) Descriptor() ([]byte, []int) { return fileDescriptorAddress, []int{2} }
+
+func (m *TcpKeepalive) GetKeepaliveProbes() *google_protobuf1.UInt32Value {
+	if m != nil {
+		return m.KeepaliveProbes
+	}
+	return nil
+}
+
+func (m *TcpKeepalive) GetKeepaliveTime() *google_protobuf1.UInt32Value {
+	if m != nil {
+		return m.KeepaliveTime
+	}
+	return nil
+}
+
+func (m *TcpKeepalive) GetKeepaliveInterval() *google_protobuf1.UInt32Value {
+	if m != nil {
+		return m.KeepaliveInterval
+	}
+	return nil
+}
+
 type BindConfig struct {
 	// The address to bind to when creating a socket.
 	SourceAddress SocketAddress `protobuf:"bytes,1,opt,name=source_address,json=sourceAddress" json:"source_address"`
@@ -279,13 +323,16 @@ type BindConfig struct {
 	// to false, the option *IP_FREEBIND* is disabled on the socket. When this
 	// flag is not set (default), the socket is not modified, i.e. the option is
 	// neither enabled nor disabled.
-	Freebind *google_protobuf.BoolValue `protobuf:"bytes,2,opt,name=freebind" json:"freebind,omitempty"`
+	Freebind *google_protobuf1.BoolValue `protobuf:"bytes,2,opt,name=freebind" json:"freebind,omitempty"`
+	// Additional socket options that may not be present in Envoy source code or
+	// precompiled binaries.
+	SocketOptions []*SocketOption `protobuf:"bytes,3,rep,name=socket_options,json=socketOptions" json:"socket_options,omitempty"`
 }
 
 func (m *BindConfig) Reset()                    { *m = BindConfig{} }
 func (m *BindConfig) String() string            { return proto.CompactTextString(m) }
 func (*BindConfig) ProtoMessage()               {}
-func (*BindConfig) Descriptor() ([]byte, []int) { return fileDescriptorAddress, []int{2} }
+func (*BindConfig) Descriptor() ([]byte, []int) { return fileDescriptorAddress, []int{3} }
 
 func (m *BindConfig) GetSourceAddress() SocketAddress {
 	if m != nil {
@@ -294,9 +341,16 @@ func (m *BindConfig) GetSourceAddress() SocketAddress {
 	return SocketAddress{}
 }
 
-func (m *BindConfig) GetFreebind() *google_protobuf.BoolValue {
+func (m *BindConfig) GetFreebind() *google_protobuf1.BoolValue {
 	if m != nil {
 		return m.Freebind
+	}
+	return nil
+}
+
+func (m *BindConfig) GetSocketOptions() []*SocketOption {
+	if m != nil {
+		return m.SocketOptions
 	}
 	return nil
 }
@@ -314,7 +368,7 @@ type Address struct {
 func (m *Address) Reset()                    { *m = Address{} }
 func (m *Address) String() string            { return proto.CompactTextString(m) }
 func (*Address) ProtoMessage()               {}
-func (*Address) Descriptor() ([]byte, []int) { return fileDescriptorAddress, []int{3} }
+func (*Address) Descriptor() ([]byte, []int) { return fileDescriptorAddress, []int{4} }
 
 type isAddress_Address interface {
 	isAddress_Address()
@@ -434,13 +488,13 @@ type CidrRange struct {
 	// IPv4 or IPv6 address, e.g. ``192.0.0.0`` or ``2001:db8::``.
 	AddressPrefix string `protobuf:"bytes,1,opt,name=address_prefix,json=addressPrefix,proto3" json:"address_prefix,omitempty"`
 	// Length of prefix, e.g. 0, 32.
-	PrefixLen *google_protobuf.UInt32Value `protobuf:"bytes,2,opt,name=prefix_len,json=prefixLen" json:"prefix_len,omitempty"`
+	PrefixLen *google_protobuf1.UInt32Value `protobuf:"bytes,2,opt,name=prefix_len,json=prefixLen" json:"prefix_len,omitempty"`
 }
 
 func (m *CidrRange) Reset()                    { *m = CidrRange{} }
 func (m *CidrRange) String() string            { return proto.CompactTextString(m) }
 func (*CidrRange) ProtoMessage()               {}
-func (*CidrRange) Descriptor() ([]byte, []int) { return fileDescriptorAddress, []int{4} }
+func (*CidrRange) Descriptor() ([]byte, []int) { return fileDescriptorAddress, []int{5} }
 
 func (m *CidrRange) GetAddressPrefix() string {
 	if m != nil {
@@ -449,7 +503,7 @@ func (m *CidrRange) GetAddressPrefix() string {
 	return ""
 }
 
-func (m *CidrRange) GetPrefixLen() *google_protobuf.UInt32Value {
+func (m *CidrRange) GetPrefixLen() *google_protobuf1.UInt32Value {
 	if m != nil {
 		return m.PrefixLen
 	}
@@ -459,6 +513,7 @@ func (m *CidrRange) GetPrefixLen() *google_protobuf.UInt32Value {
 func init() {
 	proto.RegisterType((*Pipe)(nil), "envoy.api.v2.core.Pipe")
 	proto.RegisterType((*SocketAddress)(nil), "envoy.api.v2.core.SocketAddress")
+	proto.RegisterType((*TcpKeepalive)(nil), "envoy.api.v2.core.TcpKeepalive")
 	proto.RegisterType((*BindConfig)(nil), "envoy.api.v2.core.BindConfig")
 	proto.RegisterType((*Address)(nil), "envoy.api.v2.core.Address")
 	proto.RegisterType((*CidrRange)(nil), "envoy.api.v2.core.CidrRange")
@@ -466,10 +521,7 @@ func init() {
 }
 func (this *Pipe) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*Pipe)
@@ -482,10 +534,7 @@ func (this *Pipe) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -496,10 +545,7 @@ func (this *Pipe) Equal(that interface{}) bool {
 }
 func (this *SocketAddress) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*SocketAddress)
@@ -512,10 +558,7 @@ func (this *SocketAddress) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -544,10 +587,7 @@ func (this *SocketAddress) Equal(that interface{}) bool {
 }
 func (this *SocketAddress_PortValue) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*SocketAddress_PortValue)
@@ -560,10 +600,7 @@ func (this *SocketAddress_PortValue) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -574,10 +611,7 @@ func (this *SocketAddress_PortValue) Equal(that interface{}) bool {
 }
 func (this *SocketAddress_NamedPort) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*SocketAddress_NamedPort)
@@ -590,10 +624,7 @@ func (this *SocketAddress_NamedPort) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -602,12 +633,39 @@ func (this *SocketAddress_NamedPort) Equal(that interface{}) bool {
 	}
 	return true
 }
+func (this *TcpKeepalive) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*TcpKeepalive)
+	if !ok {
+		that2, ok := that.(TcpKeepalive)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if !this.KeepaliveProbes.Equal(that1.KeepaliveProbes) {
+		return false
+	}
+	if !this.KeepaliveTime.Equal(that1.KeepaliveTime) {
+		return false
+	}
+	if !this.KeepaliveInterval.Equal(that1.KeepaliveInterval) {
+		return false
+	}
+	return true
+}
 func (this *BindConfig) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*BindConfig)
@@ -620,10 +678,7 @@ func (this *BindConfig) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -633,14 +688,19 @@ func (this *BindConfig) Equal(that interface{}) bool {
 	if !this.Freebind.Equal(that1.Freebind) {
 		return false
 	}
+	if len(this.SocketOptions) != len(that1.SocketOptions) {
+		return false
+	}
+	for i := range this.SocketOptions {
+		if !this.SocketOptions[i].Equal(that1.SocketOptions[i]) {
+			return false
+		}
+	}
 	return true
 }
 func (this *Address) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*Address)
@@ -653,10 +713,7 @@ func (this *Address) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -673,10 +730,7 @@ func (this *Address) Equal(that interface{}) bool {
 }
 func (this *Address_SocketAddress) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*Address_SocketAddress)
@@ -689,10 +743,7 @@ func (this *Address_SocketAddress) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -703,10 +754,7 @@ func (this *Address_SocketAddress) Equal(that interface{}) bool {
 }
 func (this *Address_Pipe) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*Address_Pipe)
@@ -719,10 +767,7 @@ func (this *Address_Pipe) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -733,10 +778,7 @@ func (this *Address_Pipe) Equal(that interface{}) bool {
 }
 func (this *CidrRange) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*CidrRange)
@@ -749,10 +791,7 @@ func (this *CidrRange) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -855,6 +894,54 @@ func (m *SocketAddress_NamedPort) MarshalTo(dAtA []byte) (int, error) {
 	i += copy(dAtA[i:], m.NamedPort)
 	return i, nil
 }
+func (m *TcpKeepalive) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *TcpKeepalive) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.KeepaliveProbes != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintAddress(dAtA, i, uint64(m.KeepaliveProbes.Size()))
+		n2, err := m.KeepaliveProbes.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n2
+	}
+	if m.KeepaliveTime != nil {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintAddress(dAtA, i, uint64(m.KeepaliveTime.Size()))
+		n3, err := m.KeepaliveTime.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n3
+	}
+	if m.KeepaliveInterval != nil {
+		dAtA[i] = 0x1a
+		i++
+		i = encodeVarintAddress(dAtA, i, uint64(m.KeepaliveInterval.Size()))
+		n4, err := m.KeepaliveInterval.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n4
+	}
+	return i, nil
+}
+
 func (m *BindConfig) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -873,20 +960,32 @@ func (m *BindConfig) MarshalTo(dAtA []byte) (int, error) {
 	dAtA[i] = 0xa
 	i++
 	i = encodeVarintAddress(dAtA, i, uint64(m.SourceAddress.Size()))
-	n2, err := m.SourceAddress.MarshalTo(dAtA[i:])
+	n5, err := m.SourceAddress.MarshalTo(dAtA[i:])
 	if err != nil {
 		return 0, err
 	}
-	i += n2
+	i += n5
 	if m.Freebind != nil {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintAddress(dAtA, i, uint64(m.Freebind.Size()))
-		n3, err := m.Freebind.MarshalTo(dAtA[i:])
+		n6, err := m.Freebind.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n3
+		i += n6
+	}
+	if len(m.SocketOptions) > 0 {
+		for _, msg := range m.SocketOptions {
+			dAtA[i] = 0x1a
+			i++
+			i = encodeVarintAddress(dAtA, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(dAtA[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
+		}
 	}
 	return i, nil
 }
@@ -907,11 +1006,11 @@ func (m *Address) MarshalTo(dAtA []byte) (int, error) {
 	var l int
 	_ = l
 	if m.Address != nil {
-		nn4, err := m.Address.MarshalTo(dAtA[i:])
+		nn7, err := m.Address.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += nn4
+		i += nn7
 	}
 	return i, nil
 }
@@ -922,11 +1021,11 @@ func (m *Address_SocketAddress) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintAddress(dAtA, i, uint64(m.SocketAddress.Size()))
-		n5, err := m.SocketAddress.MarshalTo(dAtA[i:])
+		n8, err := m.SocketAddress.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n5
+		i += n8
 	}
 	return i, nil
 }
@@ -936,11 +1035,11 @@ func (m *Address_Pipe) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintAddress(dAtA, i, uint64(m.Pipe.Size()))
-		n6, err := m.Pipe.MarshalTo(dAtA[i:])
+		n9, err := m.Pipe.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n6
+		i += n9
 	}
 	return i, nil
 }
@@ -969,11 +1068,11 @@ func (m *CidrRange) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintAddress(dAtA, i, uint64(m.PrefixLen.Size()))
-		n7, err := m.PrefixLen.MarshalTo(dAtA[i:])
+		n10, err := m.PrefixLen.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n7
+		i += n10
 	}
 	return i, nil
 }
@@ -1033,6 +1132,24 @@ func (m *SocketAddress_NamedPort) Size() (n int) {
 	n += 1 + l + sovAddress(uint64(l))
 	return n
 }
+func (m *TcpKeepalive) Size() (n int) {
+	var l int
+	_ = l
+	if m.KeepaliveProbes != nil {
+		l = m.KeepaliveProbes.Size()
+		n += 1 + l + sovAddress(uint64(l))
+	}
+	if m.KeepaliveTime != nil {
+		l = m.KeepaliveTime.Size()
+		n += 1 + l + sovAddress(uint64(l))
+	}
+	if m.KeepaliveInterval != nil {
+		l = m.KeepaliveInterval.Size()
+		n += 1 + l + sovAddress(uint64(l))
+	}
+	return n
+}
+
 func (m *BindConfig) Size() (n int) {
 	var l int
 	_ = l
@@ -1041,6 +1158,12 @@ func (m *BindConfig) Size() (n int) {
 	if m.Freebind != nil {
 		l = m.Freebind.Size()
 		n += 1 + l + sovAddress(uint64(l))
+	}
+	if len(m.SocketOptions) > 0 {
+		for _, e := range m.SocketOptions {
+			l = e.Size()
+			n += 1 + l + sovAddress(uint64(l))
+		}
 	}
 	return n
 }
@@ -1374,6 +1497,155 @@ func (m *SocketAddress) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
+func (m *TcpKeepalive) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowAddress
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: TcpKeepalive: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: TcpKeepalive: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field KeepaliveProbes", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowAddress
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthAddress
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.KeepaliveProbes == nil {
+				m.KeepaliveProbes = &google_protobuf1.UInt32Value{}
+			}
+			if err := m.KeepaliveProbes.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field KeepaliveTime", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowAddress
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthAddress
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.KeepaliveTime == nil {
+				m.KeepaliveTime = &google_protobuf1.UInt32Value{}
+			}
+			if err := m.KeepaliveTime.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field KeepaliveInterval", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowAddress
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthAddress
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.KeepaliveInterval == nil {
+				m.KeepaliveInterval = &google_protobuf1.UInt32Value{}
+			}
+			if err := m.KeepaliveInterval.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipAddress(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthAddress
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
 func (m *BindConfig) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
@@ -1460,9 +1732,40 @@ func (m *BindConfig) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Freebind == nil {
-				m.Freebind = &google_protobuf.BoolValue{}
+				m.Freebind = &google_protobuf1.BoolValue{}
 			}
 			if err := m.Freebind.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field SocketOptions", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowAddress
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthAddress
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.SocketOptions = append(m.SocketOptions, &SocketOption{})
+			if err := m.SocketOptions[len(m.SocketOptions)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -1686,7 +1989,7 @@ func (m *CidrRange) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.PrefixLen == nil {
-				m.PrefixLen = &google_protobuf.UInt32Value{}
+				m.PrefixLen = &google_protobuf1.UInt32Value{}
 			}
 			if err := m.PrefixLen.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -1821,41 +2124,49 @@ var (
 func init() { proto.RegisterFile("envoy/api/v2/core/address.proto", fileDescriptorAddress) }
 
 var fileDescriptorAddress = []byte{
-	// 571 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x52, 0xc1, 0x8b, 0xd3, 0x4e,
-	0x18, 0xcd, 0xb4, 0xd9, 0xdd, 0xf6, 0xdb, 0x5f, 0x4b, 0x7f, 0x41, 0xd8, 0x50, 0x34, 0x5b, 0xb2,
-	0x08, 0xab, 0x60, 0x22, 0x59, 0xf1, 0x6e, 0x2a, 0xd8, 0x05, 0x91, 0x18, 0x5d, 0x3d, 0x86, 0x69,
-	0x32, 0x8d, 0x83, 0x69, 0x66, 0x98, 0xa6, 0x51, 0x6f, 0xe2, 0x41, 0xc4, 0xbb, 0x47, 0x4f, 0x5e,
-	0xfc, 0x13, 0xc4, 0xd3, 0x1e, 0xf7, 0xe0, 0xc1, 0xbf, 0x40, 0xa4, 0xb7, 0xfd, 0x2f, 0x64, 0x26,
-	0x49, 0x51, 0x2b, 0x88, 0xb7, 0x8f, 0xf7, 0xbd, 0xef, 0xe5, 0xcd, 0xcb, 0x83, 0x7d, 0x92, 0x97,
-	0xec, 0x85, 0x8b, 0x39, 0x75, 0x4b, 0xcf, 0x8d, 0x99, 0x20, 0x2e, 0x4e, 0x12, 0x41, 0x16, 0x0b,
-	0x87, 0x0b, 0x56, 0x30, 0xe3, 0x7f, 0x45, 0x70, 0x30, 0xa7, 0x4e, 0xe9, 0x39, 0x92, 0x30, 0xb4,
-	0x52, 0xc6, 0xd2, 0x8c, 0xb8, 0x8a, 0x30, 0x5d, 0xce, 0xdc, 0x67, 0x02, 0x73, 0x4e, 0x44, 0x7d,
-	0x32, 0xdc, 0x2b, 0x71, 0x46, 0x13, 0x5c, 0x10, 0xb7, 0x19, 0xea, 0xc5, 0x85, 0x94, 0xa5, 0x4c,
-	0x8d, 0xae, 0x9c, 0x2a, 0xd4, 0xbe, 0x0c, 0x7a, 0x40, 0x39, 0x31, 0x2e, 0x81, 0xce, 0x71, 0xf1,
-	0xc4, 0x44, 0x23, 0x74, 0xd8, 0xf5, 0xbb, 0x9f, 0xcf, 0x4f, 0xdb, 0xba, 0x68, 0x8d, 0x50, 0xa8,
-	0x60, 0xfb, 0x4b, 0x0b, 0x7a, 0x0f, 0x58, 0xfc, 0x94, 0x14, 0xb7, 0x2a, 0x83, 0xc6, 0x7d, 0xe8,
-	0x28, 0x85, 0x98, 0x65, 0xea, 0xa8, 0xef, 0x5d, 0x71, 0x36, 0xdc, 0x3a, 0xbf, 0xdc, 0x38, 0x41,
-	0x7d, 0xe0, 0x83, 0xd4, 0xdf, 0x7a, 0x85, 0x5a, 0x03, 0x14, 0xae, 0x65, 0x8c, 0x03, 0xd8, 0xa9,
-	0x9f, 0x6f, 0xb6, 0x7e, 0xb7, 0xd1, 0x6c, 0x8c, 0x7d, 0x00, 0xce, 0x44, 0x11, 0x95, 0x38, 0x5b,
-	0x12, 0xb3, 0x3d, 0x42, 0x87, 0xbd, 0x89, 0x16, 0x76, 0x25, 0xf6, 0x48, 0x42, 0x92, 0x90, 0xe3,
-	0x39, 0x49, 0x22, 0x09, 0x99, 0xba, 0x14, 0x92, 0x04, 0x85, 0x05, 0x4c, 0x14, 0xc6, 0x01, 0xf4,
-	0x04, 0x59, 0xb0, 0xac, 0x24, 0x22, 0x92, 0xa8, 0xb9, 0x25, 0x39, 0xe1, 0x7f, 0x0d, 0x78, 0x0f,
-	0xcf, 0xa5, 0xca, 0x2e, 0xe5, 0xe5, 0x8d, 0x28, 0x66, 0x73, 0x8e, 0x0b, 0x73, 0x7b, 0x84, 0x0e,
-	0x3b, 0x21, 0x48, 0x68, 0xac, 0x10, 0xdb, 0x86, 0x4e, 0xf3, 0x1c, 0x63, 0x07, 0xda, 0x0f, 0xc7,
-	0xc1, 0x40, 0x93, 0xc3, 0xc9, 0xed, 0x60, 0x80, 0x86, 0xfa, 0x9b, 0x0f, 0x96, 0xe6, 0xef, 0x41,
-	0x5f, 0x79, 0x5d, 0x70, 0x12, 0xd3, 0x19, 0x25, 0xc2, 0xd8, 0xfa, 0x74, 0x7e, 0xda, 0x46, 0xf6,
-	0x7b, 0x04, 0xe0, 0xd3, 0x3c, 0x19, 0xb3, 0x7c, 0x46, 0x53, 0xe3, 0x31, 0xf4, 0x17, 0x6c, 0x29,
-	0x62, 0x12, 0x35, 0xef, 0x97, 0x89, 0xee, 0x7a, 0xa3, 0xbf, 0x25, 0xea, 0xf7, 0xcf, 0xbe, 0xed,
-	0x6b, 0x2a, 0xcc, 0xb7, 0x2a, 0xcc, 0x5e, 0xa5, 0xd3, 0xfc, 0xa4, 0x9b, 0xd0, 0x99, 0x09, 0x42,
-	0xa6, 0x34, 0x4f, 0x54, 0xa4, 0xbb, 0xde, 0xd0, 0xa9, 0xfa, 0xe3, 0x34, 0xfd, 0x71, 0x7c, 0xc6,
-	0x32, 0x95, 0x5c, 0xb8, 0xe6, 0xda, 0xef, 0x10, 0xec, 0x34, 0x1a, 0xc7, 0xd2, 0x9c, 0xfc, 0xe6,
-	0xbf, 0x9a, 0x9b, 0x68, 0xd2, 0xce, 0xcf, 0x9d, 0xb9, 0x06, 0x3a, 0xa7, 0x9c, 0xd4, 0x56, 0xf6,
-	0xfe, 0x20, 0x20, 0xbb, 0x38, 0xd1, 0x42, 0x45, 0xf3, 0x07, 0xeb, 0x3e, 0x34, 0xb9, 0xbd, 0x46,
-	0xd0, 0x1d, 0xd3, 0x44, 0x84, 0x38, 0x4f, 0x89, 0x71, 0x1d, 0xfa, 0xf5, 0x3e, 0xe2, 0x82, 0xcc,
-	0xe8, 0xf3, 0xcd, 0xf6, 0xf6, 0x6a, 0x42, 0xa0, 0xf6, 0xc6, 0x1d, 0x80, 0x8a, 0x19, 0x65, 0x24,
-	0xaf, 0x6d, 0x5c, 0xdc, 0x48, 0xe4, 0xe4, 0x38, 0x2f, 0x8e, 0x3c, 0x95, 0x49, 0xdd, 0xd4, 0xab,
-	0x6d, 0xf3, 0x25, 0x0a, 0xbb, 0xd5, 0xed, 0x5d, 0x92, 0xfb, 0x83, 0x8f, 0x2b, 0x0b, 0x9d, 0xad,
-	0x2c, 0xf4, 0x75, 0x65, 0xa1, 0xef, 0x2b, 0x0b, 0x4d, 0xb7, 0xd5, 0xf9, 0xd1, 0x8f, 0x00, 0x00,
-	0x00, 0xff, 0xff, 0x60, 0x2d, 0x0c, 0xc4, 0xd4, 0x03, 0x00, 0x00,
+	// 691 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x53, 0xc1, 0x6e, 0x13, 0x3b,
+	0x14, 0x8d, 0x33, 0x69, 0x9b, 0xdc, 0x34, 0x79, 0xa9, 0xf5, 0xa4, 0x8e, 0xa2, 0xbe, 0x24, 0x4a,
+	0xf5, 0xa4, 0x50, 0xc1, 0x0c, 0x4a, 0x11, 0x7b, 0x26, 0x88, 0xb6, 0x2a, 0x82, 0x30, 0xb4, 0xb0,
+	0x1c, 0x39, 0x89, 0x13, 0xac, 0x4e, 0xc6, 0x96, 0x67, 0x3a, 0xc0, 0x0e, 0xb1, 0x40, 0x88, 0x3d,
+	0x5f, 0xc0, 0x86, 0x4f, 0x40, 0xac, 0xba, 0xec, 0x92, 0x2d, 0x1b, 0x84, 0x22, 0xb1, 0xe8, 0x57,
+	0x14, 0xd9, 0x33, 0x93, 0x0a, 0x02, 0x2a, 0xec, 0xec, 0x73, 0xcf, 0x39, 0x3e, 0xd7, 0xbe, 0x86,
+	0x26, 0x0d, 0x62, 0xfe, 0xdc, 0x26, 0x82, 0xd9, 0x71, 0xd7, 0x1e, 0x72, 0x49, 0x6d, 0x32, 0x1a,
+	0x49, 0x1a, 0x86, 0x96, 0x90, 0x3c, 0xe2, 0x78, 0x4d, 0x13, 0x2c, 0x22, 0x98, 0x15, 0x77, 0x2d,
+	0x45, 0xa8, 0x6f, 0x2c, 0x6a, 0x06, 0x24, 0xa4, 0x89, 0xa0, 0xde, 0x98, 0x70, 0x3e, 0xf1, 0xa9,
+	0xad, 0x77, 0x83, 0xe3, 0xb1, 0xfd, 0x54, 0x12, 0x21, 0xa8, 0x4c, 0x0d, 0xeb, 0xeb, 0x31, 0xf1,
+	0xd9, 0x88, 0x44, 0xd4, 0xce, 0x16, 0x69, 0xe1, 0xdf, 0x09, 0x9f, 0x70, 0xbd, 0xb4, 0xd5, 0x2a,
+	0x41, 0xdb, 0xff, 0x43, 0xa1, 0xcf, 0x04, 0xc5, 0xff, 0x41, 0x41, 0x90, 0xe8, 0x89, 0x89, 0x5a,
+	0xa8, 0x53, 0x72, 0x4a, 0x1f, 0xcf, 0x4e, 0x8c, 0x82, 0xcc, 0xb7, 0x90, 0xab, 0xe1, 0xf6, 0xe7,
+	0x3c, 0x54, 0x1e, 0xf2, 0xe1, 0x11, 0x8d, 0x6e, 0x25, 0xf1, 0xf1, 0x03, 0x28, 0x6a, 0x87, 0x21,
+	0xf7, 0xb5, 0xa8, 0xda, 0xbd, 0x62, 0x2d, 0xf4, 0x62, 0xfd, 0xa0, 0xb1, 0xfa, 0xa9, 0xc0, 0x01,
+	0xe5, 0xbf, 0xf4, 0x12, 0xe5, 0x6b, 0xc8, 0x9d, 0xdb, 0xe0, 0x4d, 0x58, 0x49, 0x2f, 0xc7, 0xcc,
+	0xff, 0x1c, 0x23, 0xab, 0xe0, 0xab, 0x00, 0x82, 0xcb, 0xc8, 0x8b, 0x89, 0x7f, 0x4c, 0x4d, 0xa3,
+	0x85, 0x3a, 0x15, 0xa7, 0xac, 0x78, 0xcb, 0x5b, 0x05, 0xf3, 0xfc, 0xdc, 0xd8, 0xcd, 0xb9, 0x25,
+	0x45, 0x78, 0xa4, 0xea, 0xb8, 0x09, 0x10, 0x90, 0x29, 0x1d, 0x79, 0x0a, 0x32, 0x0b, 0xca, 0x55,
+	0x11, 0x34, 0xd6, 0xe7, 0x32, 0xc2, 0x9b, 0x50, 0x91, 0x34, 0xe4, 0x7e, 0x4c, 0xa5, 0xa7, 0x50,
+	0x73, 0x49, 0x71, 0xdc, 0xd5, 0x0c, 0xbc, 0x47, 0xa6, 0xca, 0xa5, 0xcc, 0x44, 0x7c, 0xc3, 0x1b,
+	0xf2, 0xa9, 0x20, 0x91, 0xb9, 0xdc, 0x42, 0x9d, 0xa2, 0x0b, 0x0a, 0xea, 0x69, 0xa4, 0xdd, 0x86,
+	0x62, 0xd6, 0x1b, 0x5e, 0x01, 0xe3, 0xa0, 0xd7, 0xaf, 0xe5, 0xd4, 0xe2, 0xf0, 0x76, 0xbf, 0x86,
+	0xea, 0x85, 0xd7, 0xef, 0x1a, 0x39, 0x67, 0x1d, 0xaa, 0x3a, 0x78, 0x28, 0xe8, 0x90, 0x8d, 0x19,
+	0x95, 0x78, 0xe9, 0xc3, 0xd9, 0x89, 0x81, 0xda, 0x67, 0x08, 0x56, 0x0f, 0x86, 0x62, 0x9f, 0x52,
+	0x41, 0x7c, 0x16, 0x53, 0xbc, 0x03, 0xb5, 0xa3, 0x6c, 0xe3, 0x09, 0xc9, 0x07, 0x34, 0xd4, 0x57,
+	0x5c, 0xee, 0x6e, 0x58, 0xc9, 0xeb, 0x5b, 0xd9, 0xeb, 0x5b, 0x87, 0x7b, 0x41, 0xb4, 0xdd, 0xd5,
+	0xcd, 0xba, 0xff, 0xcc, 0x55, 0x7d, 0x2d, 0xc2, 0x3d, 0xa8, 0x5e, 0x18, 0x45, 0x6c, 0x4a, 0xf5,
+	0xbd, 0x5e, 0x66, 0x53, 0x99, 0x6b, 0x0e, 0xd8, 0x94, 0xe2, 0x7d, 0xc0, 0x17, 0x26, 0x2c, 0x88,
+	0xa8, 0x8c, 0x89, 0xaf, 0x2f, 0xfe, 0x32, 0xa3, 0xb5, 0xb9, 0x6e, 0x2f, 0x95, 0xb5, 0xbf, 0x21,
+	0x00, 0x87, 0x05, 0xa3, 0x1e, 0x0f, 0xc6, 0x6c, 0x82, 0x1f, 0x43, 0x35, 0xe4, 0xc7, 0x72, 0x48,
+	0xbd, 0xec, 0xe1, 0x93, 0x3e, 0x5b, 0x97, 0x8d, 0x92, 0x53, 0x3d, 0xfd, 0xd2, 0xcc, 0xe9, 0x29,
+	0x7a, 0xa3, 0xa7, 0xa8, 0x92, 0xf8, 0x64, 0xd3, 0x79, 0x13, 0x8a, 0x63, 0x49, 0xe9, 0x80, 0x05,
+	0xa3, 0xb4, 0xe7, 0xfa, 0x42, 0x54, 0x87, 0x73, 0x3f, 0x09, 0x3a, 0xe7, 0xe2, 0x3b, 0x2a, 0x90,
+	0x3a, 0xc7, 0xe3, 0x22, 0x62, 0x3c, 0x08, 0x4d, 0xa3, 0x65, 0x74, 0xca, 0xdd, 0xe6, 0x6f, 0x03,
+	0xdd, 0xd7, 0x3c, 0x75, 0xfe, 0xc5, 0x2e, 0x6c, 0xbf, 0x45, 0xb0, 0x92, 0x65, 0xd9, 0x9b, 0x7b,
+	0xfe, 0x65, 0x93, 0xbb, 0xb9, 0xcc, 0x36, 0xb3, 0xba, 0x06, 0x05, 0xc1, 0x44, 0xf6, 0x8c, 0xeb,
+	0xbf, 0x30, 0x50, 0x9f, 0x79, 0x37, 0xe7, 0x6a, 0x9a, 0x53, 0x9b, 0x7f, 0xa8, 0x6c, 0xd6, 0x5e,
+	0x21, 0x28, 0xf5, 0xd8, 0x48, 0xba, 0x24, 0x98, 0x50, 0x7c, 0x1d, 0xaa, 0x69, 0xdd, 0x13, 0x92,
+	0x8e, 0xd9, 0xb3, 0xc5, 0xef, 0x5f, 0x49, 0x09, 0x7d, 0x5d, 0xc7, 0x3b, 0x00, 0x09, 0xd3, 0xf3,
+	0x69, 0xf0, 0x27, 0xd3, 0x94, 0x7e, 0xf5, 0x2d, 0xc3, 0x7c, 0x81, 0xdc, 0x52, 0xa2, 0xbd, 0x4b,
+	0x03, 0xa7, 0xf6, 0x7e, 0xd6, 0x40, 0xa7, 0xb3, 0x06, 0xfa, 0x34, 0x6b, 0xa0, 0xaf, 0xb3, 0x06,
+	0x1a, 0x2c, 0x6b, 0xf9, 0xf6, 0xf7, 0x00, 0x00, 0x00, 0xff, 0xff, 0x27, 0x78, 0x14, 0x9e, 0x33,
+	0x05, 0x00, 0x00,
 }

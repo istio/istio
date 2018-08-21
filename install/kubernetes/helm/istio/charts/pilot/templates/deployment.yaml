@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   name: istio-pilot
   namespace: {{ .Release.Namespace }}
-  # TODO: default tempate doesn't have this, which one is right ?
+  # TODO: default template doesn't have this, which one is right ?
   labels:
     app: istio-pilot
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
@@ -18,33 +18,42 @@ spec:
     metadata:
       labels:
         istio: pilot
+        app: pilot
       annotations:
         sidecar.istio.io/inject: "false"
+        scheduler.alpha.kubernetes.io/critical-pod: ""
     spec:
       serviceAccountName: istio-pilot-service-account
+{{- if .Values.global.priorityClassName }}
+      priorityClassName: "{{ .Values.global.priorityClassName }}"
+{{- end }}
       containers:
         - name: discovery
+{{- if contains "/" .Values.image }}
+          image: "{{ .Values.image }}"
+{{- else }}
           image: "{{ .Values.global.hub }}{{ .Values.global.hub_img_delim }}{{ .Values.image }}{{ .Values.global.img_tag_delim }}{{ .Values.global.tag }}"
+{{- end }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           args:
           - "discovery"
-{{- if $.Values.global.oneNamespace }}
+{{- if .Values.global.oneNamespace }}
           - "-a"
           - {{ .Release.Namespace }}
 {{- end }}
-# TODO(sdake) remove when secrets are automagically registered
-{{- if .Values.global.multicluster.enabled }}
-          - "--clusterRegistriesConfigMap"
-          - "clusterregistry"
-          - "--clusterRegistriesNamespace"
-          - "istio-system"
+{{- if not .Values.sidecar }}
+          - --secureGrpcAddr
+          - ":15011"
 {{- end }}
           ports:
           - containerPort: 8080
           - containerPort: 15010
+{{- if not .Values.sidecar }}
+          - containerPort: 15011
+{{- end }}
           readinessProbe:
             httpGet:
-              path: /v1/registration
+              path: /debug/endpointz
               port: 8080
             initialDelaySeconds: 30
             periodSeconds: 30
@@ -64,14 +73,29 @@ spec:
             value: "500"
           - name: PILOT_CACHE_SQUASH
             value: "5"
+          {{- if .Values.env }}
+          {{- range $key, $val := .Values.env }}
+          - name: {{ $key }}
+            value: "{{ $val }}"
+          {{- end }}
+          {{- end }}
+{{- if .Values.traceSampling }}
+          - name: PILOT_TRACE_SAMPLING
+            value: "{{ .Values.traceSampling }}"
+{{- end }}
           resources:
+{{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 12 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | indent 12 }}
+{{- end }}
           volumeMounts:
           - name: config-volume
             mountPath: /etc/istio/config
           - name: istio-certs
             mountPath: /etc/certs
             readOnly: true
+{{- if .Values.sidecar }}
         - name: istio-proxy
           image: "{{ .Values.global.hub }}{{ .Values.global.hub_img_delim }}proxyv2{{ .Values.global.img_tag_delim }}{{ .Values.global.tag }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
@@ -110,17 +134,22 @@ spec:
                 apiVersion: v1
                 fieldPath: status.podIP
           resources:
+{{- if .Values.global.proxy.resources }}
 {{ toYaml .Values.global.proxy.resources | indent 12 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | indent 12 }}
+{{- end }}
           volumeMounts:
           - name: istio-certs
             mountPath: /etc/certs
             readOnly: true
+{{- end }}
       volumes:
       - name: config-volume
         configMap:
           name: istio
       - name: istio-certs
         secret:
-          secretName: "istio.istio-pilot-service-account"
+          secretName: istio.istio-pilot-service-account
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}

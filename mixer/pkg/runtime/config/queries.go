@@ -16,17 +16,17 @@ package config
 
 // GetInstancesGroupedByHandlers queries the snapshot and returns all used instances, grouped by the handlers that will
 // receive them.
-func GetInstancesGroupedByHandlers(s *Snapshot) map[*Handler][]*Instance {
+func GetInstancesGroupedByHandlers(s *Snapshot) map[*HandlerStatic][]*InstanceStatic {
 	// There is no set in Go? map[<item>]bool to the rescue!
-	m := make(map[*Handler]map[*Instance]bool)
+	m := make(map[*HandlerStatic]map[*InstanceStatic]bool)
 
 	// Grovel over rules/actions and for each handler create a map entry and place all the instances in that action
 	// as values.
 	for _, r := range s.Rules {
-		for _, a := range r.Actions {
+		for _, a := range r.ActionsStatic {
 			instances, found := m[a.Handler]
 			if !found {
-				instances = make(map[*Instance]bool)
+				instances = make(map[*InstanceStatic]bool)
 				m[a.Handler] = instances
 			}
 
@@ -36,10 +36,45 @@ func GetInstancesGroupedByHandlers(s *Snapshot) map[*Handler][]*Instance {
 		}
 	}
 
-	result := make(map[*Handler][]*Instance, len(m))
+	result := make(map[*HandlerStatic][]*InstanceStatic, len(m))
 	for k, v := range m {
 		i := 0
-		instances := make([]*Instance, len(v))
+		instances := make([]*InstanceStatic, len(v))
+		for instance := range v {
+			instances[i] = instance
+			i++
+		}
+		result[k] = instances
+	}
+	return result
+}
+
+// GetInstancesGroupedByHandlersDynamic queries the snapshot and returns all used instances, grouped by the handlers that will
+// receive them.
+func GetInstancesGroupedByHandlersDynamic(s *Snapshot) map[*HandlerDynamic][]*InstanceDynamic {
+	// There is no set in Go? map[<item>]bool to the rescue!
+	m := make(map[*HandlerDynamic]map[*InstanceDynamic]bool)
+
+	// Grovel over rules/actions and for each handler create a map entry and place all the instances in that action
+	// as values.
+	for _, r := range s.Rules {
+		for _, a := range r.ActionsDynamic {
+			instances, found := m[a.Handler]
+			if !found {
+				instances = make(map[*InstanceDynamic]bool)
+				m[a.Handler] = instances
+			}
+
+			for _, i := range a.Instances {
+				instances[i] = true
+			}
+		}
+	}
+
+	result := make(map[*HandlerDynamic][]*InstanceDynamic, len(m))
+	for k, v := range m {
+		i := 0
+		instances := make([]*InstanceDynamic, len(v))
 		for instance := range v {
 			instances[i] = instance
 			i++

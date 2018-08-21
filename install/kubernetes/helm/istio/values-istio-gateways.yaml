@@ -1,0 +1,177 @@
+# Common settings.
+global:
+  # Include the crd definition when generating the template.
+  # For 'helm template' and helm install > 2.10 it should be true.
+  # For helm < 2.9, crds must be installed ahead of time with
+  # 'kubectl apply -f install/kubernetes/helm/istio/templates/crds.yaml
+  # and this options must be set off.
+  crds: false
+
+#
+# Gateways Configuration
+# By default (if enabled) a pair of Ingress and Egress Gateways will be created for the mesh.
+# You can add more gateways in addition to the defaults but make sure those are uniquely named
+# and that NodePorts are not conflicting.
+# Disable specifc gateway by setting the `enabled` to false.
+#
+gateways:
+  enabled: true
+
+  istio-ingressgateway:
+    enabled: true
+    labels:
+      app: istio-ingressgateway
+      istio: ingressgateway
+    replicaCount: 1
+    autoscaleMin: 1
+    autoscaleMax: 5
+    resources: {}
+      # limits:
+      #  cpu: 100m
+      #  memory: 128Mi
+      #requests:
+      #  cpu: 1800m
+      #  memory: 256Mi
+
+    loadBalancerIP: ""
+    serviceAnnotations: {}
+    type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
+
+    ports:
+      ## You can add custom gateway ports
+    - port: 80
+      targetPort: 80
+      name: http2
+      # nodePort: 31380
+    - port: 443
+      name: https
+      # nodePort: 31390
+    - port: 31400
+      name: tcp
+      # nodePort: 31400
+    # Pilot and Citadel MTLS ports are enabled in gateway - but will only redirect
+    # to pilot/citadel if global.meshExpansion settings are enabled.
+    - port: 15011
+      targetPort: 15011
+      name: tcp-pilot-grpc-tls
+    - port: 8060
+      targetPort: 8060
+      name: tcp-citadel-grpc-tls
+    # Telemetry-related ports are enabled in gateway - but will only redirect if
+    # the gateway configration for the various components are enabled.
+    - port: 15030
+      targetPort: 15030
+      name: http2-prometheus
+    - port: 15031
+      targetPort: 15031
+      name: http2-grafana
+    secretVolumes:
+    - name: ingressgateway-certs
+      secretName: istio-ingressgateway-certs
+      mountPath: /etc/istio/ingressgateway-certs
+    - name: ingressgateway-ca-certs
+      secretName: istio-ingressgateway-ca-certs
+      mountPath: /etc/istio/ingressgateway-ca-certs
+
+  istio-egressgateway:
+    enabled: true
+    labels:
+      app: istio-egressgateway
+      istio: egressgateway
+    replicaCount: 1
+    autoscaleMin: 1
+    autoscaleMax: 5
+    serviceAnnotations: {}
+    type: ClusterIP #change to NodePort or LoadBalancer if need be
+    ports:
+      - port: 80
+        name: http2
+      - port: 443
+        name: https
+    secretVolumes:
+      - name: egressgateway-certs
+        secretName: istio-egressgateway-certs
+        mountPath: /etc/istio/egressgateway-certs
+      - name: egressgateway-ca-certs
+        secretName: istio-egressgateway-ca-certs
+        mountPath: /etc/istio/egressgateway-ca-certs
+
+  # Mesh ILB gateway creates a gateway of type InternalLoadBalancer,
+  # for mesh expansion. It exposes the mtls ports for Pilot,CA as well
+  # as non-mtls ports to support upgrades and gradual transition.
+  istio-ilbgateway:
+      enabled: false
+      labels:
+        app: istio-ilbgateway
+        istio: ilbgateway
+      replicaCount: 1
+      autoscaleMin: 1
+      autoscaleMax: 5
+      resources:
+        requests:
+          cpu: 800m
+          memory: 512Mi
+        #limits:
+        #  cpu: 1800m
+        #  memory: 256Mi
+      loadBalancerIP: ""
+      serviceAnnotations:
+        cloud.google.com/load-balancer-type: "internal"
+      type: LoadBalancer
+      ports:
+      ## You can add custom gateway ports - google ILB default quota is 5 ports,
+      - port: 15011
+        name: grpc-pilot-mtls
+      # Insecure port - only for migration from 0.8. Will be removed in 1.1
+      - port: 15010
+        name: grpc-pilot
+      - port: 8060
+        targetPort: 8060
+        name: tcp-citadel-grpc-tls
+      # Port 5353 is forwarded to kube-dns
+      - port: 5353
+        name: tcp-dns
+      secretVolumes:
+      - name: ilbgateway-certs
+        secretName: istio-ilbgateway-certs
+        mountPath: /etc/istio/ilbgateway-certs
+      - name: ilbgateway-ca-certs
+        secretName: istio-ilbgateway-ca-certs
+        mountPath: /etc/istio/ilbgateway-ca-certs
+
+# all other components are disabled except the gateways
+ingress:
+  enabled: false
+
+security:
+  enabled: false
+
+sidecarInjectorWebhook:
+  enabled: false
+
+galley:
+  enabled: false
+
+mixer:
+  enabled: false
+
+pilot:
+  enabled: false
+
+grafana:
+  enabled: false
+
+prometheus:
+  enabled: false
+
+servicegraph:
+  enabled: false
+
+tracing:
+  enabled: false
+
+kiali:
+  enabled: false
+
+certmanager:
+  enabled: false

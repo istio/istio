@@ -24,6 +24,7 @@ import (
 	"path"
 	"runtime"
 	"strings"
+	"time"
 
 	"istio.io/fortio/bincommon"
 	"istio.io/fortio/fnet"
@@ -67,6 +68,10 @@ func usage(msgs ...interface{}) {
 // Attention: every flag that is common to http client goes to bincommon/
 // for sharing between fortio and fcurl binaries
 
+const (
+	disabled = "disabled"
+)
+
 var (
 	defaults = &periodic.DefaultRunnerOptions
 	// Very small default so people just trying with random URLs don't affect the target
@@ -78,11 +83,15 @@ var (
 	goMaxProcsFlag    = flag.Int("gomaxprocs", 0, "Setting for runtime.GOMAXPROCS, <1 doesn't change the default")
 	profileFlag       = flag.String("profile", "", "write .cpu and .mem profiles to file")
 	grpcFlag          = flag.Bool("grpc", false, "Use GRPC (health check by default, add -ping for ping) for load testing")
-	grpcSecureFlag    = flag.Bool("grpc-secure", false, "Use secure transport (tls) for GRPC")
 	httpsInsecureFlag = flag.Bool("https-insecure", false, "Long form of the -k flag")
-	echoPortFlag      = flag.String("http-port", "8080", "http echo server port. Can be in the form of host:port, ip:port or port.")
-	grpcPortFlag      = flag.String("grpc-port", fgrpc.DefaultGRPCPort,
-		"grpc server port. Can be in the form of host:port, ip:port or port.")
+	certFlag          = flag.String("cert", "", "Path to the certificate file to be used for GRPC server TLS")
+	keyFlag           = flag.String("key", "", "Path to the key file used for GRPC server TLS")
+	caCertFlag        = flag.String("cacert", "",
+		"Path to a custom CA certificate file to be used for the GRPC client TLS, "+
+			"if empty, use https:// prefix for standard internet CAs TLS")
+	echoPortFlag = flag.String("http-port", "8080", "http echo server port. Can be in the form of host:port, ip:port or port.")
+	grpcPortFlag = flag.String("grpc-port", fgrpc.DefaultGRPCPort,
+		"grpc server port. Can be in the form of host:port, ip:port or port or \""+disabled+"\" to not start the grpc server.")
 	echoDbgPathFlag = flag.String("echo-debug-path", "/debug",
 		"http echo server URI for debug, empty turns off that part (more secure)")
 	jsonFlag = flag.String("json", "",
@@ -102,11 +111,13 @@ var (
 	abortOnFlag            = flag.Int("abort-on", 0, "Http code that if encountered aborts the run. e.g. 503 or -1 for socket errors.")
 	autoSaveFlag           = flag.Bool("a", false, "Automatically save JSON result with filename based on labels & timestamp")
 	redirectFlag           = flag.String("redirect-port", "8081", "Redirect all incoming traffic to https URL"+
-		" (need ingress to work properly). Can be in the form of host:port, ip:port, port or \"disabled\" to disable the feature.")
+		" (need ingress to work properly). Can be in the form of host:port, ip:port, port or \""+disabled+"\" to disable the feature.")
 	exactlyFlag = flag.Int64("n", 0,
 		"Run for exactly this number of calls instead of duration. Default (0) is to use duration (-t). "+
 			"Default is 1 when used as grpc ping count.")
-	syncFlag    = flag.String("sync", "", "index.tsv or s3/gcs bucket xml URL to fetch at startup for server modes.")
+	syncFlag         = flag.String("sync", "", "index.tsv or s3/gcs bucket xml URL to fetch at startup for server modes.")
+	syncIntervalFlag = flag.Duration("sync-interval", 0, "Refresh the url every given interval (default, no refresh)")
+
 	baseURLFlag = flag.String("base-url", "",
 		"base URL used as prefix for data/index.tsv generation. (when empty, the url from the first request is used)")
 	newMaxPayloadSizeKb = flag.Int("maxpayloadsizekb", fhttp.MaxPayloadSize/1024,
@@ -161,7 +172,7 @@ func main() {
 		fhttp.RedirectToHTTPS(*redirectFlag)
 	case "report":
 		isServer = true
-		if *redirectFlag != "disabled" {
+		if *redirectFlag != disabled {
 			fhttp.RedirectToHTTPS(*redirectFlag)
 		}
 		if !ui.Report(baseURL, *echoPortFlag, *staticDirFlag, *dataDirFlag) {
@@ -169,8 +180,10 @@ func main() {
 		}
 	case "server":
 		isServer = true
-		fgrpc.PingServer(*grpcPortFlag, fgrpc.DefaultHealthServiceName, uint32(*maxStreamsFlag))
-		if *redirectFlag != "disabled" {
+		if *grpcPortFlag != disabled {
+			fgrpc.PingServer(*grpcPortFlag, *certFlag, *keyFlag, fgrpc.DefaultHealthServiceName, uint32(*maxStreamsFlag))
+		}
+		if *redirectFlag != disabled {
 			fhttp.RedirectToHTTPS(*redirectFlag)
 		}
 		if !ui.Serve(baseURL, *echoPortFlag, *echoDbgPathFlag, *uiPathFlag, *staticDirFlag, *dataDirFlag, percList) {
@@ -191,7 +204,17 @@ func main() {
 	if isServer {
 		// To get a start time log/timestamp in the logs
 		log.Infof("All fortio %s servers started!", version.Long())
-		select {}
+		d := *syncIntervalFlag
+		if sync != "" && d > 0 {
+			log.Infof("Will re-sync data dir every %s", d)
+			ticker := time.NewTicker(d)
+			defer ticker.Stop()
+			for range ticker.C {
+				ui.Sync(os.Stdout, sync, *dataDirFlag)
+			}
+		} else {
+			select {}
+		}
 	}
 }
 
@@ -256,7 +279,7 @@ func fortioLoad(justCurl bool, percList []float64) {
 		o := fgrpc.GRPCRunnerOptions{
 			RunnerOptions:      ro,
 			Destination:        url,
-			Secure:             *grpcSecureFlag,
+			CACert:             *caCertFlag,
 			Service:            *healthSvcFlag,
 			Streams:            *streamsFlag,
 			AllowInitialErrors: *allowInitialErrorsFlag,
@@ -332,12 +355,12 @@ func grpcClient() {
 	if count <= 0 {
 		count = 1
 	}
-	tls := *grpcSecureFlag
+	cert := *caCertFlag
 	var err error
 	if *doHealthFlag {
-		_, err = fgrpc.GrpcHealthCheck(host, tls, *healthSvcFlag, count)
+		_, err = fgrpc.GrpcHealthCheck(host, cert, *healthSvcFlag, count)
 	} else {
-		_, err = fgrpc.PingClientCall(host, tls, count, *payloadFlag, *pingDelayFlag)
+		_, err = fgrpc.PingClientCall(host, cert, count, *payloadFlag, *pingDelayFlag)
 	}
 	if err != nil {
 		// already logged

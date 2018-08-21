@@ -1,5 +1,0 @@
-targets:
-- name: world
-  ports:
-  -  name: "http"
-peers:

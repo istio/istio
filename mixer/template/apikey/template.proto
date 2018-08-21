@@ -15,20 +15,14 @@
 syntax = "proto3";
 
 // $title: API Key
-// $overview: A template that represents a single API key.
-// $location: https://istio.io/docs/reference/config/template/apikey.html
+// $description: A template that represents a single API key.
+// $location: https://istio.io/docs/reference/config/policy-and-telemetry/templates/apikey.html
+// $aliases:
+// $  - /docs/reference/config/template/apikey.html
 
 // The `apikey` template represents a single API key, which is used for authorization checks.
-package apiKey;
-
-import "mixer/adapter/model/v1beta1/type.proto";
-import "mixer/adapter/model/v1beta1/extensions.proto";
-
-option (istio.mixer.adapter.model.v1beta1.template_variety) = TEMPLATE_VARIETY_CHECK;
-
-// The `apikey` template represents a single API key, used to authorize API calls.
 //
-// Sample config:
+// Example config:
 //
 // ```yaml
 // apiVersion: "config.istio.io/v1alpha2"
@@ -43,6 +37,14 @@ option (istio.mixer.adapter.model.v1beta1.template_variety) = TEMPLATE_VARIETY_C
 //   api_key: api.key | ""
 //   timestamp: request.time
 // ```
+package apiKey;
+
+import "policy/v1beta1/type.proto";
+import "mixer/adapter/model/v1beta1/extensions.proto";
+
+option (istio.mixer.adapter.model.v1beta1.template_variety) = TEMPLATE_VARIETY_CHECK;
+
+// The `apikey` template represents a single API key, used to authorize API calls.
 message Template {
     // The API being called (api.service).
     string api = 1;
@@ -57,5 +59,5 @@ message Template {
     string api_key = 4;
 
     // Timestamp of API call.
-    istio.mixer.adapter.model.v1beta1.TimeStamp timestamp = 5;
+    istio.policy.v1beta1.TimeStamp timestamp = 5;
 }

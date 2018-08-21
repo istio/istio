@@ -30,7 +30,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 )
 
-// ConfigData is data sturct to feed to types.go template.
+// ConfigData is data struct to feed to types.go template.
 type ConfigData struct {
 	IstioKind string
 	CrdKind   string

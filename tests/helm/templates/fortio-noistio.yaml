@@ -1,0 +1,121 @@
+# 2 fortio servers, not istio injected (to baseline service-to-service without istio)
+# 0.8 CPU each.
+
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: fortionoistio
+spec:
+  hosts:
+  - "fortionoistio.{{.Values.domain}}"
+  gateways:
+  - istio-gateway
+  http:
+  - route:
+    - destination:
+        host: fortionoistio.test.svc.cluster.local
+        port:
+          number: 8080
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: fortionoistio
+spec:
+  ports:
+  - port: 8080
+    name: http-echo
+  - port: 8079
+    name: grpc-ping
+  selector:
+    name: fortionoistio
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: fortionoistio
+spec:
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: fortionoistio
+        name: fortionoistio
+        version: fortionoistio
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      containers:
+      - name: echosrv
+        image: {{ .Values.fortioImage }}
+        imagePullPolicy: Always
+        args:
+          - server
+        resources:
+          requests:
+            cpu: 800m
+            memory: "1G"
+          limits:
+            cpu: 1000m
+            memory: "1G"
+
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: fortionoistio1
+spec:
+  hosts:
+  - "fortionoistio1.{{.Values.domain}}"
+  gateways:
+  - istio-gateway
+  http:
+  - route:
+    - destination:
+        host: fortionoistio1.test.svc.cluster.local
+        port:
+          number: 8080
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: fortionoistio1
+spec:
+  ports:
+  - port: 8080
+    name: http-echo
+  - port: 8079
+    name: grpc-ping
+  selector:
+    name: fortionoistio1
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: fortionoistio1
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: fortionoistio1
+        name: fortionoistio1
+        version: fortionoistio1
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      containers:
+      - name: echosrv
+        image: {{ .Values.fortioImage }}
+        imagePullPolicy: Always
+        args:
+          - server
+        resources:
+          requests:
+            cpu: 800m
+            memory: "1G"
+          limits:
+            cpu: 1000m
+            memory: "1G"

@@ -34,60 +34,6 @@ var (
 	_ = types.DynamicAny{}
 )
 
-// Validate checks the field values on HttpService with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
-func (m *HttpService) Validate() error {
-	if m == nil {
-		return nil
-	}
-
-	if v, ok := interface{}(m.GetServerUri()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return HttpServiceValidationError{
-				Field:  "ServerUri",
-				Reason: "embedded message failed validation",
-				Cause:  err,
-			}
-		}
-	}
-
-	// no validation rules for PathPrefix
-
-	return nil
-}
-
-// HttpServiceValidationError is the validation error returned by
-// HttpService.Validate if the designated constraints aren't met.
-type HttpServiceValidationError struct {
-	Field  string
-	Reason string
-	Cause  error
-	Key    bool
-}
-
-// Error satisfies the builtin error interface
-func (e HttpServiceValidationError) Error() string {
-	cause := ""
-	if e.Cause != nil {
-		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
-	}
-
-	key := ""
-	if e.Key {
-		key = "key for "
-	}
-
-	return fmt.Sprintf(
-		"invalid %sHttpService.%s: %s%s",
-		key,
-		e.Field,
-		e.Reason,
-		cause)
-}
-
-var _ error = HttpServiceValidationError{}
-
 // Validate checks the field values on ExtAuthz with the rules defined in the
 // proto definition for this message. If any rules are violated, an error is returned.
 func (m *ExtAuthz) Validate() error {
@@ -158,3 +104,57 @@ func (e ExtAuthzValidationError) Error() string {
 }
 
 var _ error = ExtAuthzValidationError{}
+
+// Validate checks the field values on HttpService with the rules defined in
+// the proto definition for this message. If any rules are violated, an error
+// is returned.
+func (m *HttpService) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	if v, ok := interface{}(m.GetServerUri()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return HttpServiceValidationError{
+				Field:  "ServerUri",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
+	// no validation rules for PathPrefix
+
+	return nil
+}
+
+// HttpServiceValidationError is the validation error returned by
+// HttpService.Validate if the designated constraints aren't met.
+type HttpServiceValidationError struct {
+	Field  string
+	Reason string
+	Cause  error
+	Key    bool
+}
+
+// Error satisfies the builtin error interface
+func (e HttpServiceValidationError) Error() string {
+	cause := ""
+	if e.Cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
+	}
+
+	key := ""
+	if e.Key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sHttpService.%s: %s%s",
+		key,
+		e.Field,
+		e.Reason,
+		cause)
+}
+
+var _ error = HttpServiceValidationError{}

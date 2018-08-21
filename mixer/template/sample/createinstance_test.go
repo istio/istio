@@ -197,7 +197,7 @@ func TestCreateInstanceBuilder(t *testing.T) {
 				return
 			}
 
-			bag := attribute.GetFakeMutableBagForTesting(tst.attrs)
+			bag := attribute.GetMutableBagForTesting(tst.attrs)
 			actual, e2 := builder(bag)
 			assertErr(tt, "CreateInstanceBuilder", tst.expectBuildError, e2)
 			if tst.expectBuildError != "" {

@@ -1,4 +1,12 @@
 {
+  "node": {
+    "id": "sidecar~1.2.3.4~foo~bar",
+    "cluster": "istio-proxy",
+
+    "metadata": {
+      "istio": "sidecar"
+    }
+  },
   "stats_config": {
     "use_all_default_tags": false
   },
@@ -13,51 +21,25 @@
   },
   "dynamic_resources": {
     "lds_config": {
-      "api_config_source": {
-        "api_type": "REST_LEGACY",
-        "refresh_delay": {"seconds": 1, "nanos": 0},
-        "cluster_names": [
-          "rds"
-        ]
-      }
+        "ads": {}
     },
     "cds_config": {
-      "api_config_source": {
-        "api_type": "REST_LEGACY",
-        "refresh_delay": {"seconds": 1, "nanos": 0},
-        "cluster_names": [
-          "rds"
-        ]
-      }
+        "ads": {}
     },
-    "deprecated_v1": {
-      "sds_config": {
-        "api_config_source": {
-          "api_type": "GRPC",
-          "refresh_delay": {"seconds": 1, "nanos": 0},
-          "cluster_names": [
-            "xds-grpc"
-          ]
-
+    "ads_config": {
+      "api_type": "GRPC",
+      "refresh_delay": {"seconds": 1, "nanos": 0},
+      "grpc_services": [
+        {
+          "envoy_grpc": {
+            "cluster_name": "xds-grpc"
+          }
         }
-      }
+      ]
     }
   },
   "static_resources": {
     "clusters": [
-      {
-        "name": "rds",
-        "type": "STRICT_DNS",
-        "connect_timeout": {"seconds": 1, "nanos": 0},
-        "lb_policy": "ROUND_ROBIN",
-
-      "hosts": [
-          {
-            "socket_address": {"address": "istio-pilot", "port_value": 15007}
-          }
-        ]
-
-    },
     {
     "name": "xds-grpc",
     "type": "STRICT_DNS",
@@ -83,6 +65,11 @@
         "max_pending_requests": "100000",
         "max_requests": "100000"
       }]
+    },
+    "upstream_connection_options": {
+      "tcp_keepalive": {
+        "keepalive_time": 300
+      }
     },
     "http2_protocol_options": { }
     }

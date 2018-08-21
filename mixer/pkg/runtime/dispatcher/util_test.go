@@ -15,64 +15,39 @@
 package dispatcher
 
 import (
-	"strings"
 	"testing"
 
 	"istio.io/istio/mixer/pkg/attribute"
 )
 
-func TestGetIdentityAttributeValue(t *testing.T) {
-	bag := attribute.GetFakeMutableBagForTesting(map[string]interface{}{
-		"ident":     "value",
-		"nonstring": 23,
-	})
+func TestGetIdentityNamespace(t *testing.T) {
+	cases := []struct {
+		bag  attribute.Bag
+		want string
+	}{{
+		bag: attribute.GetMutableBagForTesting(map[string]interface{}{
+			"destination.namespace": "value",
+			"context.reporter.kind": "inbound",
+		}),
+		want: "value",
+	}, {
+		bag: attribute.GetMutableBagForTesting(map[string]interface{}{
+			"source.namespace":      "value",
+			"context.reporter.kind": "outbound",
+		}),
+		want: "value",
+	}, {
+		bag:  attribute.GetMutableBagForTesting(map[string]interface{}{}),
+		want: "",
+	}}
 
-	result, err := getIdentityAttributeValue(bag, "ident")
-	if err != nil {
-		t.Fail()
-	}
-	if result != "value" {
-		t.Fail()
-	}
-
-	_, err = getIdentityAttributeValue(bag, "nonstring")
-	if err == nil {
-		t.Fail()
-	}
-
-	_, err = getIdentityAttributeValue(bag, "nonexistent")
-	if err == nil {
-		t.Fail()
-	}
-}
-
-func TestGetNamespace(t *testing.T) {
-	tests := []struct {
-		dest string
-		ns   string
-	}{
-		{dest: "", ns: ""},
-		{dest: "foo", ns: ""},
-		{dest: "foo.bar", ns: "bar"},
-		{dest: "foo.bar.baz", ns: "bar"},
-	}
-
-	for _, tst := range tests {
-		t.Run(tst.dest, func(tt *testing.T) {
-			// Compare it to the original algorithm
-			actual := ""
-			splits := strings.SplitN(tst.dest, ".", 3) // we only care about service and namespace.
-			if len(splits) > 1 {
-				actual = splits[1]
-			}
-			if actual != tst.ns {
-				tt.Fatalf("'%s' != '%s' (Original)", actual, tst.ns)
-			}
-
-			actual = getNamespace(tst.dest)
-			if actual != tst.ns {
-				tt.Fatalf("'%s' != '%s'", actual, tst.ns)
-			}
-		})
+	for _, cs := range cases {
+		result, err := getIdentityNamespace(cs.bag)
+		if err != nil {
+			t.Fail()
+		}
+		if result != cs.want {
+			t.Errorf("got %q, want %q", result, cs.want)
+		}
 	}
 }

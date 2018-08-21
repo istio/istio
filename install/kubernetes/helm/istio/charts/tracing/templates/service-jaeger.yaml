@@ -1,4 +1,4 @@
-{{ if .Values.jaeger.enabled }}
+{{ if eq .Values.provider "jaeger" }}
 
 apiVersion: v1
 kind: List
@@ -8,6 +8,10 @@ items:
   metadata:
     name: jaeger-query
     namespace: {{ .Release.Namespace }}
+    annotations:
+      {{- range $key, $val := .Values.service.annotations }}
+      {{ $key }}: {{ $val }}
+      {{- end }}
     labels:
       app: jaeger
       jaeger-infra: jaeger-service
@@ -17,12 +21,11 @@ items:
   spec:
     ports:
       - name: query-http
-        port: 80
+        port: {{ .Values.jaeger.ui.port }}
         protocol: TCP
-        targetPort: {{ .Values.service.uiPort }}
+        targetPort: {{ .Values.jaeger.ui.port }}
     selector:
       app: jaeger
-    type: LoadBalancer
 - apiVersion: v1
   kind: Service
   metadata:

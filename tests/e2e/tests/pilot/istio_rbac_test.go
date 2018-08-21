@@ -22,8 +22,8 @@ import (
 )
 
 const (
-	rbacEnableTmpl = "testdata/v1alpha2/istio-rbac-enable.yaml.tmpl"
-	rbacRulesTmpl  = "testdata/v1alpha2/istio-rbac-rules.yaml.tmpl"
+	rbacEnableTmpl = "testdata/rbac/v1alpha1/istio-rbac-enable.yaml.tmpl"
+	rbacRulesTmpl  = "testdata/rbac/v1alpha1/istio-rbac-rules.yaml.tmpl"
 )
 
 func TestRBAC(t *testing.T) {
@@ -55,6 +55,12 @@ func TestRBAC(t *testing.T) {
 	}
 	defer cfgs.Teardown()
 
+	// Some services are only accessible when auth is enabled.
+	expectedCode := "403"
+	if tc.Kube.AuthEnabled {
+		expectedCode = "200"
+	}
+
 	cases := []struct {
 		dst    string
 		src    string
@@ -82,23 +88,25 @@ func TestRBAC(t *testing.T) {
 
 		{dst: "c", src: "d", path: "/", expect: "403"},
 		{dst: "c", src: "d", path: "/xyz", expect: "403"},
-		{dst: "c", src: "d", path: "/good", expect: "200"},
-		{dst: "c", src: "d", path: "/prefixXYZ", expect: "200"},
-		{dst: "c", src: "d", path: "/xyz/suffix", expect: "200"},
+		{dst: "c", src: "d", path: "/good", expect: expectedCode},
+		{dst: "c", src: "d", path: "/prefixXYZ", expect: expectedCode},
+		{dst: "c", src: "d", path: "/xyz/suffix", expect: expectedCode},
 
-		{dst: "d", src: "a", path: "/xyz", expect: "200"},
-		{dst: "d", src: "b", path: "/", expect: "200"},
-		{dst: "d", src: "c", path: "/", expect: "200"},
+		{dst: "d", src: "a", path: "/xyz", expect: expectedCode},
+		{dst: "d", src: "b", path: "/", expect: expectedCode},
+		{dst: "d", src: "c", path: "/", expect: expectedCode},
 	}
 
 	for _, req := range cases {
-		testName := fmt.Sprintf("%s->%s%s[%s]", req.src, req.dst, req.path, req.expect)
-		runRetriableTest(t, testName, defaultRetryBudget, func() error {
-			resp := ClientRequest(req.src, fmt.Sprintf("http://%s%s", req.dst, req.path), 1, "")
-			if len(resp.Code) > 0 && resp.Code[0] == req.expect {
-				return nil
-			}
-			return errAgain
-		})
+		for cluster := range tc.Kube.Clusters {
+			testName := fmt.Sprintf("%s from %s cluster->%s%s[%s]", req.src, cluster, req.dst, req.path, req.expect)
+			runRetriableTest(t, cluster, testName, defaultRetryBudget, func() error {
+				resp := ClientRequest(cluster, req.src, fmt.Sprintf("http://%s%s", req.dst, req.path), 1, "")
+				if len(resp.Code) > 0 && resp.Code[0] == req.expect {
+					return nil
+				}
+				return errAgain
+			})
+		}
 	}
 }

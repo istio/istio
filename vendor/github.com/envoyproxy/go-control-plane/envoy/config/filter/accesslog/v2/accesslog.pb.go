@@ -8,13 +8,6 @@
 		envoy/config/filter/accesslog/v2/accesslog.proto
 
 	It has these top-level messages:
-		AccessLogCommon
-		ResponseFlags
-		TLSProperties
-		TCPAccessLogEntry
-		HTTPRequestProperties
-		HTTPResponseProperties
-		HTTPAccessLogEntry
 		AccessLog
 		AccessLogFilter
 		ComparisonFilter
@@ -26,7 +19,7 @@
 		AndFilter
 		OrFilter
 		HeaderFilter
-		FileAccessLog
+		ResponseFlagFilter
 */
 package v2
 
@@ -34,20 +27,10 @@ import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
 import envoy_api_v2_core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-import envoy_api_v2_core1 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 import envoy_api_v2_route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 import envoy_type1 "github.com/envoyproxy/go-control-plane/envoy/type"
-import _ "github.com/gogo/protobuf/types"
-import google_protobuf4 "github.com/gogo/protobuf/types"
-import _ "github.com/gogo/protobuf/types"
 import google_protobuf "github.com/gogo/protobuf/types"
 import _ "github.com/lyft/protoc-gen-validate/validate"
-import _ "github.com/gogo/protobuf/gogoproto"
-
-import time "time"
-
-import encoding_binary "encoding/binary"
-import github_com_gogo_protobuf_types "github.com/gogo/protobuf/types"
 
 import io "io"
 
@@ -55,100 +38,12 @@ import io "io"
 var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
-var _ = time.Kitchen
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
-
-// Reasons why the request was unauthorized
-type ResponseFlags_Unauthorized_Reason int32
-
-const (
-	ResponseFlags_Unauthorized_REASON_UNSPECIFIED ResponseFlags_Unauthorized_Reason = 0
-	// The request was denied by the external authorization service.
-	ResponseFlags_Unauthorized_EXTERNAL_SERVICE ResponseFlags_Unauthorized_Reason = 1
-)
-
-var ResponseFlags_Unauthorized_Reason_name = map[int32]string{
-	0: "REASON_UNSPECIFIED",
-	1: "EXTERNAL_SERVICE",
-}
-var ResponseFlags_Unauthorized_Reason_value = map[string]int32{
-	"REASON_UNSPECIFIED": 0,
-	"EXTERNAL_SERVICE":   1,
-}
-
-func (x ResponseFlags_Unauthorized_Reason) String() string {
-	return proto.EnumName(ResponseFlags_Unauthorized_Reason_name, int32(x))
-}
-func (ResponseFlags_Unauthorized_Reason) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptorAccesslog, []int{1, 0, 0}
-}
-
-type TLSProperties_TLSVersion int32
-
-const (
-	TLSProperties_VERSION_UNSPECIFIED TLSProperties_TLSVersion = 0
-	TLSProperties_TLSv1               TLSProperties_TLSVersion = 1
-	TLSProperties_TLSv1_1             TLSProperties_TLSVersion = 2
-	TLSProperties_TLSv1_2             TLSProperties_TLSVersion = 3
-	TLSProperties_TLSv1_3             TLSProperties_TLSVersion = 4
-)
-
-var TLSProperties_TLSVersion_name = map[int32]string{
-	0: "VERSION_UNSPECIFIED",
-	1: "TLSv1",
-	2: "TLSv1_1",
-	3: "TLSv1_2",
-	4: "TLSv1_3",
-}
-var TLSProperties_TLSVersion_value = map[string]int32{
-	"VERSION_UNSPECIFIED": 0,
-	"TLSv1":               1,
-	"TLSv1_1":             2,
-	"TLSv1_2":             3,
-	"TLSv1_3":             4,
-}
-
-func (x TLSProperties_TLSVersion) String() string {
-	return proto.EnumName(TLSProperties_TLSVersion_name, int32(x))
-}
-func (TLSProperties_TLSVersion) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptorAccesslog, []int{2, 0}
-}
-
-// HTTP version
-type HTTPAccessLogEntry_HTTPVersion int32
-
-const (
-	HTTPAccessLogEntry_PROTOCOL_UNSPECIFIED HTTPAccessLogEntry_HTTPVersion = 0
-	HTTPAccessLogEntry_HTTP10               HTTPAccessLogEntry_HTTPVersion = 1
-	HTTPAccessLogEntry_HTTP11               HTTPAccessLogEntry_HTTPVersion = 2
-	HTTPAccessLogEntry_HTTP2                HTTPAccessLogEntry_HTTPVersion = 3
-)
-
-var HTTPAccessLogEntry_HTTPVersion_name = map[int32]string{
-	0: "PROTOCOL_UNSPECIFIED",
-	1: "HTTP10",
-	2: "HTTP11",
-	3: "HTTP2",
-}
-var HTTPAccessLogEntry_HTTPVersion_value = map[string]int32{
-	"PROTOCOL_UNSPECIFIED": 0,
-	"HTTP10":               1,
-	"HTTP11":               2,
-	"HTTP2":                3,
-}
-
-func (x HTTPAccessLogEntry_HTTPVersion) String() string {
-	return proto.EnumName(HTTPAccessLogEntry_HTTPVersion_name, int32(x))
-}
-func (HTTPAccessLogEntry_HTTPVersion) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptorAccesslog, []int{6, 0}
-}
 
 type ComparisonFilter_Op int32
 
@@ -176,657 +71,32 @@ func (x ComparisonFilter_Op) String() string {
 	return proto.EnumName(ComparisonFilter_Op_name, int32(x))
 }
 func (ComparisonFilter_Op) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptorAccesslog, []int{9, 0}
-}
-
-// Defines fields that are shared by all Envoy access logs.
-// [#not-implemented-hide:] Not configuration. TBD how to doc proto APIs.
-type AccessLogCommon struct {
-	// This field indicates the rate at which this log entry was sampled.
-	// Valid range is (0.0, 1.0].
-	SampleRate float64 `protobuf:"fixed64,1,opt,name=sample_rate,json=sampleRate,proto3" json:"sample_rate,omitempty"`
-	// This field is the remote/origin address on which the request from the user was received.
-	// Note: This may not be the physical peer. E.g, if the remote address is inferred from for
-	//       example the x-forwarder-for header, proxy protocol, etc.
-	DownstreamRemoteAddress *envoy_api_v2_core.Address `protobuf:"bytes,2,opt,name=downstream_remote_address,json=downstreamRemoteAddress" json:"downstream_remote_address,omitempty"`
-	// This field is the local/destination address on which the request from the user was received.
-	DownstreamLocalAddress *envoy_api_v2_core.Address `protobuf:"bytes,3,opt,name=downstream_local_address,json=downstreamLocalAddress" json:"downstream_local_address,omitempty"`
-	// If the connection is secure, this field will contain TLS properties.
-	TlsProperties *TLSProperties `protobuf:"bytes,4,opt,name=tls_properties,json=tlsProperties" json:"tls_properties,omitempty"`
-	// The time that Envoy started servicing this request. This is effectively the time that the first
-	// downstream byte is received.
-	StartTime *time.Time `protobuf:"bytes,5,opt,name=start_time,json=startTime,stdtime" json:"start_time,omitempty"`
-	// Interval between the first downstream byte received and the last
-	// downstream byte received (i.e. time it takes to receive a request).
-	TimeToLastRxByte *time.Duration `protobuf:"bytes,6,opt,name=time_to_last_rx_byte,json=timeToLastRxByte,stdduration" json:"time_to_last_rx_byte,omitempty"`
-	// Interval between the first downstream byte received and the first upstream byte sent. There may
-	// by considerable delta between *time_to_last_rx_byte* and this value due to filters.
-	// Additionally, the same caveats apply as documented in *time_to_last_downstream_tx_byte* about
-	// not accounting for kernel socket buffer time, etc.
-	TimeToFirstUpstreamTxByte *time.Duration `protobuf:"bytes,7,opt,name=time_to_first_upstream_tx_byte,json=timeToFirstUpstreamTxByte,stdduration" json:"time_to_first_upstream_tx_byte,omitempty"`
-	// Interval between the first downstream byte received and the last upstream byte sent. There may
-	// by considerable delta between *time_to_last_rx_byte* and this value due to filters.
-	// Additionally, the same caveats apply as documented in *time_to_last_downstream_tx_byte* about
-	// not accounting for kernel socket buffer time, etc.
-	TimeToLastUpstreamTxByte *time.Duration `protobuf:"bytes,8,opt,name=time_to_last_upstream_tx_byte,json=timeToLastUpstreamTxByte,stdduration" json:"time_to_last_upstream_tx_byte,omitempty"`
-	// Interval between the first downstream byte received and the first upstream
-	// byte received (i.e. time it takes to start receiving a response).
-	TimeToFirstUpstreamRxByte *time.Duration `protobuf:"bytes,9,opt,name=time_to_first_upstream_rx_byte,json=timeToFirstUpstreamRxByte,stdduration" json:"time_to_first_upstream_rx_byte,omitempty"`
-	// Interval between the first downstream byte received and the last upstream
-	// byte received (i.e. time it takes to receive a complete response).
-	TimeToLastUpstreamRxByte *time.Duration `protobuf:"bytes,10,opt,name=time_to_last_upstream_rx_byte,json=timeToLastUpstreamRxByte,stdduration" json:"time_to_last_upstream_rx_byte,omitempty"`
-	// Interval between the first downstream byte received and the first downstream byte sent.
-	// There may be a considerable delta between the *time_to_first_upstream_rx_byte* and this field
-	// due to filters. Additionally, the same caveats apply as documented in
-	// *time_to_last_downstream_tx_byte* about not accounting for kernel socket buffer time, etc.
-	TimeToFirstDownstreamTxByte *time.Duration `protobuf:"bytes,11,opt,name=time_to_first_downstream_tx_byte,json=timeToFirstDownstreamTxByte,stdduration" json:"time_to_first_downstream_tx_byte,omitempty"`
-	// Interval between the first downstream byte received and the last downstream byte sent.
-	// Depending on protocol, buffering, windowing, filters, etc. there may be a considerable delta
-	// between *time_to_last_upstream_rx_byte* and this field. Note also that this is an approximate
-	// time. In the current implementation it does not include kernel socket buffer time. In the
-	// current implementation it also does not include send window buffering inside the HTTP/2 codec.
-	// In the future it is likely that work will be done to make this duration more accurate.
-	TimeToLastDownstreamTxByte *time.Duration `protobuf:"bytes,12,opt,name=time_to_last_downstream_tx_byte,json=timeToLastDownstreamTxByte,stdduration" json:"time_to_last_downstream_tx_byte,omitempty"`
-	// The upstream remote/destination address that handles this exchange. This does not include
-	// retries.
-	UpstreamRemoteAddress *envoy_api_v2_core.Address `protobuf:"bytes,13,opt,name=upstream_remote_address,json=upstreamRemoteAddress" json:"upstream_remote_address,omitempty"`
-	// The upstream local/origin address that handles this exchange. This does not include retries.
-	UpstreamLocalAddress *envoy_api_v2_core.Address `protobuf:"bytes,14,opt,name=upstream_local_address,json=upstreamLocalAddress" json:"upstream_local_address,omitempty"`
-	// The upstream cluster that *upstream_remote_address* belongs to.
-	UpstreamCluster string `protobuf:"bytes,15,opt,name=upstream_cluster,json=upstreamCluster,proto3" json:"upstream_cluster,omitempty"`
-	// Flags indicating occurrences during request/response processing.
-	ResponseFlags *ResponseFlags `protobuf:"bytes,16,opt,name=response_flags,json=responseFlags" json:"response_flags,omitempty"`
-	// All metadata encountered during request processing, including endpoint
-	// selection.
-	//
-	// This can be used to associate IDs attached to the various configurations
-	// used to process this request with the access log entry. For example, a
-	// route created from a higher level forwarding rule with some ID can place
-	// that ID in this field and cross reference later. It can also be used to
-	// determine if a canary endpoint was used or not.
-	Metadata *envoy_api_v2_core1.Metadata `protobuf:"bytes,17,opt,name=metadata" json:"metadata,omitempty"`
-}
-
-func (m *AccessLogCommon) Reset()                    { *m = AccessLogCommon{} }
-func (m *AccessLogCommon) String() string            { return proto.CompactTextString(m) }
-func (*AccessLogCommon) ProtoMessage()               {}
-func (*AccessLogCommon) Descriptor() ([]byte, []int) { return fileDescriptorAccesslog, []int{0} }
-
-func (m *AccessLogCommon) GetSampleRate() float64 {
-	if m != nil {
-		return m.SampleRate
-	}
-	return 0
-}
-
-func (m *AccessLogCommon) GetDownstreamRemoteAddress() *envoy_api_v2_core.Address {
-	if m != nil {
-		return m.DownstreamRemoteAddress
-	}
-	return nil
-}
-
-func (m *AccessLogCommon) GetDownstreamLocalAddress() *envoy_api_v2_core.Address {
-	if m != nil {
-		return m.DownstreamLocalAddress
-	}
-	return nil
-}
-
-func (m *AccessLogCommon) GetTlsProperties() *TLSProperties {
-	if m != nil {
-		return m.TlsProperties
-	}
-	return nil
-}
-
-func (m *AccessLogCommon) GetStartTime() *time.Time {
-	if m != nil {
-		return m.StartTime
-	}
-	return nil
-}
-
-func (m *AccessLogCommon) GetTimeToLastRxByte() *time.Duration {
-	if m != nil {
-		return m.TimeToLastRxByte
-	}
-	return nil
-}
-
-func (m *AccessLogCommon) GetTimeToFirstUpstreamTxByte() *time.Duration {
-	if m != nil {
-		return m.TimeToFirstUpstreamTxByte
-	}
-	return nil
-}
-
-func (m *AccessLogCommon) GetTimeToLastUpstreamTxByte() *time.Duration {
-	if m != nil {
-		return m.TimeToLastUpstreamTxByte
-	}
-	return nil
-}
-
-func (m *AccessLogCommon) GetTimeToFirstUpstreamRxByte() *time.Duration {
-	if m != nil {
-		return m.TimeToFirstUpstreamRxByte
-	}
-	return nil
-}
-
-func (m *AccessLogCommon) GetTimeToLastUpstreamRxByte() *time.Duration {
-	if m != nil {
-		return m.TimeToLastUpstreamRxByte
-	}
-	return nil
-}
-
-func (m *AccessLogCommon) GetTimeToFirstDownstreamTxByte() *time.Duration {
-	if m != nil {
-		return m.TimeToFirstDownstreamTxByte
-	}
-	return nil
-}
-
-func (m *AccessLogCommon) GetTimeToLastDownstreamTxByte() *time.Duration {
-	if m != nil {
-		return m.TimeToLastDownstreamTxByte
-	}
-	return nil
-}
-
-func (m *AccessLogCommon) GetUpstreamRemoteAddress() *envoy_api_v2_core.Address {
-	if m != nil {
-		return m.UpstreamRemoteAddress
-	}
-	return nil
-}
-
-func (m *AccessLogCommon) GetUpstreamLocalAddress() *envoy_api_v2_core.Address {
-	if m != nil {
-		return m.UpstreamLocalAddress
-	}
-	return nil
-}
-
-func (m *AccessLogCommon) GetUpstreamCluster() string {
-	if m != nil {
-		return m.UpstreamCluster
-	}
-	return ""
-}
-
-func (m *AccessLogCommon) GetResponseFlags() *ResponseFlags {
-	if m != nil {
-		return m.ResponseFlags
-	}
-	return nil
-}
-
-func (m *AccessLogCommon) GetMetadata() *envoy_api_v2_core1.Metadata {
-	if m != nil {
-		return m.Metadata
-	}
-	return nil
-}
-
-// [#not-implemented-hide:] Not configuration. TBD how to doc proto APIs.
-// Flags indicating occurrences during request/response processing.
-type ResponseFlags struct {
-	// Indicates local server healthcheck failed.
-	FailedLocalHealthcheck bool `protobuf:"varint,1,opt,name=failed_local_healthcheck,json=failedLocalHealthcheck,proto3" json:"failed_local_healthcheck,omitempty"`
-	// Indicates there was no healthy upstream.
-	NoHealthyUpstream bool `protobuf:"varint,2,opt,name=no_healthy_upstream,json=noHealthyUpstream,proto3" json:"no_healthy_upstream,omitempty"`
-	// Indicates an there was an upstream request timeout.
-	UpstreamRequestTimeout bool `protobuf:"varint,3,opt,name=upstream_request_timeout,json=upstreamRequestTimeout,proto3" json:"upstream_request_timeout,omitempty"`
-	// Indicates local codec level reset was sent on the stream.
-	LocalReset bool `protobuf:"varint,4,opt,name=local_reset,json=localReset,proto3" json:"local_reset,omitempty"`
-	// Indicates remote codec level reset was received on the stream.
-	UpstreamRemoteReset bool `protobuf:"varint,5,opt,name=upstream_remote_reset,json=upstreamRemoteReset,proto3" json:"upstream_remote_reset,omitempty"`
-	// Indicates there was a local reset by a connection pool due to an initial connection failure.
-	UpstreamConnectionFailure bool `protobuf:"varint,6,opt,name=upstream_connection_failure,json=upstreamConnectionFailure,proto3" json:"upstream_connection_failure,omitempty"`
-	// Indicates the stream was reset locally due to connection termination.
-	UpstreamConnectionTermination bool `protobuf:"varint,7,opt,name=upstream_connection_termination,json=upstreamConnectionTermination,proto3" json:"upstream_connection_termination,omitempty"`
-	// Indicates the stream was reset because of a resource overflow.
-	UpstreamOverflow bool `protobuf:"varint,8,opt,name=upstream_overflow,json=upstreamOverflow,proto3" json:"upstream_overflow,omitempty"`
-	// Indicates no route was found for the request.
-	NoRouteFound bool `protobuf:"varint,9,opt,name=no_route_found,json=noRouteFound,proto3" json:"no_route_found,omitempty"`
-	// Indicates that the request was delayed before proxying.
-	DelayInjected bool `protobuf:"varint,10,opt,name=delay_injected,json=delayInjected,proto3" json:"delay_injected,omitempty"`
-	// Indicates that the request was aborted with an injected error code.
-	FaultInjected bool `protobuf:"varint,11,opt,name=fault_injected,json=faultInjected,proto3" json:"fault_injected,omitempty"`
-	// Indicates that the request was rate-limited locally.
-	RateLimited bool `protobuf:"varint,12,opt,name=rate_limited,json=rateLimited,proto3" json:"rate_limited,omitempty"`
-	// Indicates if the request was deemed unauthorized and the reason for it.
-	UnauthorizedDetails *ResponseFlags_Unauthorized `protobuf:"bytes,13,opt,name=unauthorized_details,json=unauthorizedDetails" json:"unauthorized_details,omitempty"`
-}
-
-func (m *ResponseFlags) Reset()                    { *m = ResponseFlags{} }
-func (m *ResponseFlags) String() string            { return proto.CompactTextString(m) }
-func (*ResponseFlags) ProtoMessage()               {}
-func (*ResponseFlags) Descriptor() ([]byte, []int) { return fileDescriptorAccesslog, []int{1} }
-
-func (m *ResponseFlags) GetFailedLocalHealthcheck() bool {
-	if m != nil {
-		return m.FailedLocalHealthcheck
-	}
-	return false
-}
-
-func (m *ResponseFlags) GetNoHealthyUpstream() bool {
-	if m != nil {
-		return m.NoHealthyUpstream
-	}
-	return false
-}
-
-func (m *ResponseFlags) GetUpstreamRequestTimeout() bool {
-	if m != nil {
-		return m.UpstreamRequestTimeout
-	}
-	return false
-}
-
-func (m *ResponseFlags) GetLocalReset() bool {
-	if m != nil {
-		return m.LocalReset
-	}
-	return false
-}
-
-func (m *ResponseFlags) GetUpstreamRemoteReset() bool {
-	if m != nil {
-		return m.UpstreamRemoteReset
-	}
-	return false
-}
-
-func (m *ResponseFlags) GetUpstreamConnectionFailure() bool {
-	if m != nil {
-		return m.UpstreamConnectionFailure
-	}
-	return false
-}
-
-func (m *ResponseFlags) GetUpstreamConnectionTermination() bool {
-	if m != nil {
-		return m.UpstreamConnectionTermination
-	}
-	return false
-}
-
-func (m *ResponseFlags) GetUpstreamOverflow() bool {
-	if m != nil {
-		return m.UpstreamOverflow
-	}
-	return false
-}
-
-func (m *ResponseFlags) GetNoRouteFound() bool {
-	if m != nil {
-		return m.NoRouteFound
-	}
-	return false
-}
-
-func (m *ResponseFlags) GetDelayInjected() bool {
-	if m != nil {
-		return m.DelayInjected
-	}
-	return false
-}
-
-func (m *ResponseFlags) GetFaultInjected() bool {
-	if m != nil {
-		return m.FaultInjected
-	}
-	return false
-}
-
-func (m *ResponseFlags) GetRateLimited() bool {
-	if m != nil {
-		return m.RateLimited
-	}
-	return false
-}
-
-func (m *ResponseFlags) GetUnauthorizedDetails() *ResponseFlags_Unauthorized {
-	if m != nil {
-		return m.UnauthorizedDetails
-	}
-	return nil
-}
-
-type ResponseFlags_Unauthorized struct {
-	Reason ResponseFlags_Unauthorized_Reason `protobuf:"varint,1,opt,name=reason,proto3,enum=envoy.config.filter.accesslog.v2.ResponseFlags_Unauthorized_Reason" json:"reason,omitempty"`
-}
-
-func (m *ResponseFlags_Unauthorized) Reset()         { *m = ResponseFlags_Unauthorized{} }
-func (m *ResponseFlags_Unauthorized) String() string { return proto.CompactTextString(m) }
-func (*ResponseFlags_Unauthorized) ProtoMessage()    {}
-func (*ResponseFlags_Unauthorized) Descriptor() ([]byte, []int) {
-	return fileDescriptorAccesslog, []int{1, 0}
-}
-
-func (m *ResponseFlags_Unauthorized) GetReason() ResponseFlags_Unauthorized_Reason {
-	if m != nil {
-		return m.Reason
-	}
-	return ResponseFlags_Unauthorized_REASON_UNSPECIFIED
-}
-
-// [#not-implemented-hide:] Not configuration. TBD how to doc proto APIs.
-// Properties of a negotiated TLS connection.
-type TLSProperties struct {
-	// Version of TLS that was negotiated.
-	TlsVersion TLSProperties_TLSVersion `protobuf:"varint,1,opt,name=tls_version,json=tlsVersion,proto3,enum=envoy.config.filter.accesslog.v2.TLSProperties_TLSVersion" json:"tls_version,omitempty"`
-	// TLS cipher suite negotiated during handshake. The value is a
-	// four-digit hex code defined by the IANA TLS Cipher Suite Registry
-	// (e.g. ``009C`` for ``TLS_RSA_WITH_AES_128_GCM_SHA256``).
-	//
-	// Here it is expressed as an integer.
-	TlsCipherSuite *google_protobuf.UInt32Value `protobuf:"bytes,2,opt,name=tls_cipher_suite,json=tlsCipherSuite" json:"tls_cipher_suite,omitempty"`
-	// SNI hostname from handshake.
-	TlsSniHostname string `protobuf:"bytes,3,opt,name=tls_sni_hostname,json=tlsSniHostname,proto3" json:"tls_sni_hostname,omitempty"`
-}
-
-func (m *TLSProperties) Reset()                    { *m = TLSProperties{} }
-func (m *TLSProperties) String() string            { return proto.CompactTextString(m) }
-func (*TLSProperties) ProtoMessage()               {}
-func (*TLSProperties) Descriptor() ([]byte, []int) { return fileDescriptorAccesslog, []int{2} }
-
-func (m *TLSProperties) GetTlsVersion() TLSProperties_TLSVersion {
-	if m != nil {
-		return m.TlsVersion
-	}
-	return TLSProperties_VERSION_UNSPECIFIED
-}
-
-func (m *TLSProperties) GetTlsCipherSuite() *google_protobuf.UInt32Value {
-	if m != nil {
-		return m.TlsCipherSuite
-	}
-	return nil
-}
-
-func (m *TLSProperties) GetTlsSniHostname() string {
-	if m != nil {
-		return m.TlsSniHostname
-	}
-	return ""
-}
-
-// [#not-implemented-hide:] Not configuration. TBD how to doc proto APIs.
-type TCPAccessLogEntry struct {
-	// Common properties shared by all Envoy access logs.
-	CommonProperties *AccessLogCommon `protobuf:"bytes,1,opt,name=common_properties,json=commonProperties" json:"common_properties,omitempty"`
-}
-
-func (m *TCPAccessLogEntry) Reset()                    { *m = TCPAccessLogEntry{} }
-func (m *TCPAccessLogEntry) String() string            { return proto.CompactTextString(m) }
-func (*TCPAccessLogEntry) ProtoMessage()               {}
-func (*TCPAccessLogEntry) Descriptor() ([]byte, []int) { return fileDescriptorAccesslog, []int{3} }
-
-func (m *TCPAccessLogEntry) GetCommonProperties() *AccessLogCommon {
-	if m != nil {
-		return m.CommonProperties
-	}
-	return nil
-}
-
-// [#not-implemented-hide:] Not configuration. TBD how to doc proto APIs.
-type HTTPRequestProperties struct {
-	// The request method (RFC 7231/2616).
-	// [#comment:TODO(htuch): add (validate.rules).enum.defined_only = true once
-	// https://github.com/lyft/protoc-gen-validate/issues/42 is resolved.]
-	RequestMethod envoy_api_v2_core1.RequestMethod `protobuf:"varint,1,opt,name=request_method,json=requestMethod,proto3,enum=envoy.api.v2.core.RequestMethod" json:"request_method,omitempty"`
-	// The scheme portion of the incoming request URI.
-	Scheme string `protobuf:"bytes,2,opt,name=scheme,proto3" json:"scheme,omitempty"`
-	// HTTP/2 ``:authority`` or HTTP/1.1 ``Host`` header value.
-	Authority string `protobuf:"bytes,3,opt,name=authority,proto3" json:"authority,omitempty"`
-	// The port of the incoming request URI
-	// (unused currently, as port is composed onto authority).
-	Port *google_protobuf.UInt32Value `protobuf:"bytes,4,opt,name=port" json:"port,omitempty"`
-	// The path portion from the incoming request URI.
-	Path string `protobuf:"bytes,5,opt,name=path,proto3" json:"path,omitempty"`
-	// Value of the ``User-Agent`` request header.
-	UserAgent string `protobuf:"bytes,6,opt,name=user_agent,json=userAgent,proto3" json:"user_agent,omitempty"`
-	// Value of the ``Referer`` request header.
-	Referer string `protobuf:"bytes,7,opt,name=referer,proto3" json:"referer,omitempty"`
-	// Value of the ``X-Forwarded-For`` request header.
-	ForwardedFor string `protobuf:"bytes,8,opt,name=forwarded_for,json=forwardedFor,proto3" json:"forwarded_for,omitempty"`
-	// Value of the ``X-Request-Id`` request header
-	//
-	// This header is used by Envoy to uniquely identify a request.
-	// It will be generated for all external requests and internal requests that
-	// do not already have a request ID.
-	RequestId string `protobuf:"bytes,9,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
-	// Value of the ``X-Envoy-Original-Path`` request header.
-	OriginalPath string `protobuf:"bytes,10,opt,name=original_path,json=originalPath,proto3" json:"original_path,omitempty"`
-	// Size of the HTTP request headers in bytes.
-	//
-	// This value is captured from the OSI layer 7 perspective, i.e. it does not
-	// include overhead from framing or encoding at other networking layers.
-	RequestHeadersBytes uint64 `protobuf:"varint,11,opt,name=request_headers_bytes,json=requestHeadersBytes,proto3" json:"request_headers_bytes,omitempty"`
-	// Size of the HTTP request body in bytes.
-	//
-	// This value is captured from the OSI layer 7 perspective, i.e. it does not
-	// include overhead from framing or encoding at other networking layers.
-	RequestBodyBytes uint64 `protobuf:"varint,12,opt,name=request_body_bytes,json=requestBodyBytes,proto3" json:"request_body_bytes,omitempty"`
-	// Map of additional headers that have been configured to be logged.
-	RequestHeaders map[string]string `protobuf:"bytes,13,rep,name=request_headers,json=requestHeaders" json:"request_headers,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
-}
-
-func (m *HTTPRequestProperties) Reset()                    { *m = HTTPRequestProperties{} }
-func (m *HTTPRequestProperties) String() string            { return proto.CompactTextString(m) }
-func (*HTTPRequestProperties) ProtoMessage()               {}
-func (*HTTPRequestProperties) Descriptor() ([]byte, []int) { return fileDescriptorAccesslog, []int{4} }
-
-func (m *HTTPRequestProperties) GetRequestMethod() envoy_api_v2_core1.RequestMethod {
-	if m != nil {
-		return m.RequestMethod
-	}
-	return envoy_api_v2_core1.METHOD_UNSPECIFIED
-}
-
-func (m *HTTPRequestProperties) GetScheme() string {
-	if m != nil {
-		return m.Scheme
-	}
-	return ""
-}
-
-func (m *HTTPRequestProperties) GetAuthority() string {
-	if m != nil {
-		return m.Authority
-	}
-	return ""
-}
-
-func (m *HTTPRequestProperties) GetPort() *google_protobuf.UInt32Value {
-	if m != nil {
-		return m.Port
-	}
-	return nil
-}
-
-func (m *HTTPRequestProperties) GetPath() string {
-	if m != nil {
-		return m.Path
-	}
-	return ""
-}
-
-func (m *HTTPRequestProperties) GetUserAgent() string {
-	if m != nil {
-		return m.UserAgent
-	}
-	return ""
-}
-
-func (m *HTTPRequestProperties) GetReferer() string {
-	if m != nil {
-		return m.Referer
-	}
-	return ""
-}
-
-func (m *HTTPRequestProperties) GetForwardedFor() string {
-	if m != nil {
-		return m.ForwardedFor
-	}
-	return ""
-}
-
-func (m *HTTPRequestProperties) GetRequestId() string {
-	if m != nil {
-		return m.RequestId
-	}
-	return ""
-}
-
-func (m *HTTPRequestProperties) GetOriginalPath() string {
-	if m != nil {
-		return m.OriginalPath
-	}
-	return ""
-}
-
-func (m *HTTPRequestProperties) GetRequestHeadersBytes() uint64 {
-	if m != nil {
-		return m.RequestHeadersBytes
-	}
-	return 0
-}
-
-func (m *HTTPRequestProperties) GetRequestBodyBytes() uint64 {
-	if m != nil {
-		return m.RequestBodyBytes
-	}
-	return 0
-}
-
-func (m *HTTPRequestProperties) GetRequestHeaders() map[string]string {
-	if m != nil {
-		return m.RequestHeaders
-	}
-	return nil
-}
-
-// [#not-implemented-hide:] Not configuration. TBD how to doc proto APIs.
-type HTTPResponseProperties struct {
-	// The HTTP response code returned by Envoy.
-	ResponseCode *google_protobuf.UInt32Value `protobuf:"bytes,1,opt,name=response_code,json=responseCode" json:"response_code,omitempty"`
-	// Size of the HTTP response headers in bytes.
-	//
-	// This value is captured from the OSI layer 7 perspective, i.e. it does not
-	// include overhead from framing or encoding at other networking layers.
-	ResponseHeadersBytes uint64 `protobuf:"varint,2,opt,name=response_headers_bytes,json=responseHeadersBytes,proto3" json:"response_headers_bytes,omitempty"`
-	// Size of the HTTP response body in bytes.
-	//
-	// This value is captured from the OSI layer 7 perspective, i.e. it does not
-	// include overhead from framing or encoding at other networking layers.
-	ResponseBodyBytes uint64 `protobuf:"varint,3,opt,name=response_body_bytes,json=responseBodyBytes,proto3" json:"response_body_bytes,omitempty"`
-	// Map of additional headers configured to be logged.
-	ResponseHeaders map[string]string `protobuf:"bytes,4,rep,name=response_headers,json=responseHeaders" json:"response_headers,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
-}
-
-func (m *HTTPResponseProperties) Reset()                    { *m = HTTPResponseProperties{} }
-func (m *HTTPResponseProperties) String() string            { return proto.CompactTextString(m) }
-func (*HTTPResponseProperties) ProtoMessage()               {}
-func (*HTTPResponseProperties) Descriptor() ([]byte, []int) { return fileDescriptorAccesslog, []int{5} }
-
-func (m *HTTPResponseProperties) GetResponseCode() *google_protobuf.UInt32Value {
-	if m != nil {
-		return m.ResponseCode
-	}
-	return nil
-}
-
-func (m *HTTPResponseProperties) GetResponseHeadersBytes() uint64 {
-	if m != nil {
-		return m.ResponseHeadersBytes
-	}
-	return 0
-}
-
-func (m *HTTPResponseProperties) GetResponseBodyBytes() uint64 {
-	if m != nil {
-		return m.ResponseBodyBytes
-	}
-	return 0
-}
-
-func (m *HTTPResponseProperties) GetResponseHeaders() map[string]string {
-	if m != nil {
-		return m.ResponseHeaders
-	}
-	return nil
-}
-
-// [#not-implemented-hide:] Not configuration. TBD how to doc proto APIs.
-type HTTPAccessLogEntry struct {
-	// Common properties shared by all Envoy access logs.
-	CommonProperties *AccessLogCommon               `protobuf:"bytes,1,opt,name=common_properties,json=commonProperties" json:"common_properties,omitempty"`
-	ProtocolVersion  HTTPAccessLogEntry_HTTPVersion `protobuf:"varint,2,opt,name=protocol_version,json=protocolVersion,proto3,enum=envoy.config.filter.accesslog.v2.HTTPAccessLogEntry_HTTPVersion" json:"protocol_version,omitempty"`
-	// Description of the incoming HTTP request.
-	Request *HTTPRequestProperties `protobuf:"bytes,3,opt,name=request" json:"request,omitempty"`
-	// Description of the outgoing HTTP response.
-	Response *HTTPResponseProperties `protobuf:"bytes,4,opt,name=response" json:"response,omitempty"`
-}
-
-func (m *HTTPAccessLogEntry) Reset()                    { *m = HTTPAccessLogEntry{} }
-func (m *HTTPAccessLogEntry) String() string            { return proto.CompactTextString(m) }
-func (*HTTPAccessLogEntry) ProtoMessage()               {}
-func (*HTTPAccessLogEntry) Descriptor() ([]byte, []int) { return fileDescriptorAccesslog, []int{6} }
-
-func (m *HTTPAccessLogEntry) GetCommonProperties() *AccessLogCommon {
-	if m != nil {
-		return m.CommonProperties
-	}
-	return nil
-}
-
-func (m *HTTPAccessLogEntry) GetProtocolVersion() HTTPAccessLogEntry_HTTPVersion {
-	if m != nil {
-		return m.ProtocolVersion
-	}
-	return HTTPAccessLogEntry_PROTOCOL_UNSPECIFIED
-}
-
-func (m *HTTPAccessLogEntry) GetRequest() *HTTPRequestProperties {
-	if m != nil {
-		return m.Request
-	}
-	return nil
-}
-
-func (m *HTTPAccessLogEntry) GetResponse() *HTTPResponseProperties {
-	if m != nil {
-		return m.Response
-	}
-	return nil
+	return fileDescriptorAccesslog, []int{2, 0}
 }
 
 type AccessLog struct {
 	// The name of the access log implementation to instantiate. The name must
 	// match a statically registered access log. Current built-in loggers include:
-	// 1) "envoy.file_access_log"
+	//
+	// #. "envoy.file_access_log"
+	// #. "envoy.http_grpc_access_log"
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Filter which is used to determine if the access log needs to be written.
 	Filter *AccessLogFilter `protobuf:"bytes,2,opt,name=filter" json:"filter,omitempty"`
-	// Custom configuration that depends on the access log being instantiated. built-in configurations
+	// Custom configuration that depends on the access log being instantiated. Built-in configurations
 	// include:
-	// 1) "envoy.file_access_log": :ref:`FileAccessLog
-	// <envoy_api_msg_config.filter.accesslog.v2.FileAccessLog>`
-	Config *google_protobuf4.Struct `protobuf:"bytes,3,opt,name=config" json:"config,omitempty"`
+	//
+	// #. "envoy.file_access_log": :ref:`FileAccessLog
+	//    <envoy_api_msg_config.accesslog.v2.FileAccessLog>`
+	// #. "envoy.http_grpc_access_log": :ref:`HttpGrpcAccessLogConfig
+	//    <envoy_api_msg_config.accesslog.v2.HttpGrpcAccessLogConfig>`
+	Config *google_protobuf.Struct `protobuf:"bytes,3,opt,name=config" json:"config,omitempty"`
 }
 
 func (m *AccessLog) Reset()                    { *m = AccessLog{} }
 func (m *AccessLog) String() string            { return proto.CompactTextString(m) }
 func (*AccessLog) ProtoMessage()               {}
-func (*AccessLog) Descriptor() ([]byte, []int) { return fileDescriptorAccesslog, []int{7} }
+func (*AccessLog) Descriptor() ([]byte, []int) { return fileDescriptorAccesslog, []int{0} }
 
 func (m *AccessLog) GetName() string {
 	if m != nil {
@@ -842,7 +112,7 @@ func (m *AccessLog) GetFilter() *AccessLogFilter {
 	return nil
 }
 
-func (m *AccessLog) GetConfig() *google_protobuf4.Struct {
+func (m *AccessLog) GetConfig() *google_protobuf.Struct {
 	if m != nil {
 		return m.Config
 	}
@@ -859,13 +129,14 @@ type AccessLogFilter struct {
 	//	*AccessLogFilter_AndFilter
 	//	*AccessLogFilter_OrFilter
 	//	*AccessLogFilter_HeaderFilter
+	//	*AccessLogFilter_ResponseFlagFilter
 	FilterSpecifier isAccessLogFilter_FilterSpecifier `protobuf_oneof:"filter_specifier"`
 }
 
 func (m *AccessLogFilter) Reset()                    { *m = AccessLogFilter{} }
 func (m *AccessLogFilter) String() string            { return proto.CompactTextString(m) }
 func (*AccessLogFilter) ProtoMessage()               {}
-func (*AccessLogFilter) Descriptor() ([]byte, []int) { return fileDescriptorAccesslog, []int{8} }
+func (*AccessLogFilter) Descriptor() ([]byte, []int) { return fileDescriptorAccesslog, []int{1} }
 
 type isAccessLogFilter_FilterSpecifier interface {
 	isAccessLogFilter_FilterSpecifier()
@@ -897,6 +168,9 @@ type AccessLogFilter_OrFilter struct {
 type AccessLogFilter_HeaderFilter struct {
 	HeaderFilter *HeaderFilter `protobuf:"bytes,8,opt,name=header_filter,json=headerFilter,oneof"`
 }
+type AccessLogFilter_ResponseFlagFilter struct {
+	ResponseFlagFilter *ResponseFlagFilter `protobuf:"bytes,9,opt,name=response_flag_filter,json=responseFlagFilter,oneof"`
+}
 
 func (*AccessLogFilter_StatusCodeFilter) isAccessLogFilter_FilterSpecifier()     {}
 func (*AccessLogFilter_DurationFilter) isAccessLogFilter_FilterSpecifier()       {}
@@ -906,6 +180,7 @@ func (*AccessLogFilter_RuntimeFilter) isAccessLogFilter_FilterSpecifier()       
 func (*AccessLogFilter_AndFilter) isAccessLogFilter_FilterSpecifier()            {}
 func (*AccessLogFilter_OrFilter) isAccessLogFilter_FilterSpecifier()             {}
 func (*AccessLogFilter_HeaderFilter) isAccessLogFilter_FilterSpecifier()         {}
+func (*AccessLogFilter_ResponseFlagFilter) isAccessLogFilter_FilterSpecifier()   {}
 
 func (m *AccessLogFilter) GetFilterSpecifier() isAccessLogFilter_FilterSpecifier {
 	if m != nil {
@@ -970,6 +245,13 @@ func (m *AccessLogFilter) GetHeaderFilter() *HeaderFilter {
 	return nil
 }
 
+func (m *AccessLogFilter) GetResponseFlagFilter() *ResponseFlagFilter {
+	if x, ok := m.GetFilterSpecifier().(*AccessLogFilter_ResponseFlagFilter); ok {
+		return x.ResponseFlagFilter
+	}
+	return nil
+}
+
 // XXX_OneofFuncs is for the internal use of the proto package.
 func (*AccessLogFilter) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
 	return _AccessLogFilter_OneofMarshaler, _AccessLogFilter_OneofUnmarshaler, _AccessLogFilter_OneofSizer, []interface{}{
@@ -981,6 +263,7 @@ func (*AccessLogFilter) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffe
 		(*AccessLogFilter_AndFilter)(nil),
 		(*AccessLogFilter_OrFilter)(nil),
 		(*AccessLogFilter_HeaderFilter)(nil),
+		(*AccessLogFilter_ResponseFlagFilter)(nil),
 	}
 }
 
@@ -1026,6 +309,11 @@ func _AccessLogFilter_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
 	case *AccessLogFilter_HeaderFilter:
 		_ = b.EncodeVarint(8<<3 | proto.WireBytes)
 		if err := b.EncodeMessage(x.HeaderFilter); err != nil {
+			return err
+		}
+	case *AccessLogFilter_ResponseFlagFilter:
+		_ = b.EncodeVarint(9<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.ResponseFlagFilter); err != nil {
 			return err
 		}
 	case nil:
@@ -1102,6 +390,14 @@ func _AccessLogFilter_OneofUnmarshaler(msg proto.Message, tag, wire int, b *prot
 		err := b.DecodeMessage(msg)
 		m.FilterSpecifier = &AccessLogFilter_HeaderFilter{msg}
 		return true, err
+	case 9: // filter_specifier.response_flag_filter
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(ResponseFlagFilter)
+		err := b.DecodeMessage(msg)
+		m.FilterSpecifier = &AccessLogFilter_ResponseFlagFilter{msg}
+		return true, err
 	default:
 		return false, nil
 	}
@@ -1151,6 +447,11 @@ func _AccessLogFilter_OneofSizer(msg proto.Message) (n int) {
 		n += proto.SizeVarint(8<<3 | proto.WireBytes)
 		n += proto.SizeVarint(uint64(s))
 		n += s
+	case *AccessLogFilter_ResponseFlagFilter:
+		s := proto.Size(x.ResponseFlagFilter)
+		n += proto.SizeVarint(9<<3 | proto.WireBytes)
+		n += proto.SizeVarint(uint64(s))
+		n += s
 	case nil:
 	default:
 		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
@@ -1163,13 +464,13 @@ type ComparisonFilter struct {
 	// Comparison operator.
 	Op ComparisonFilter_Op `protobuf:"varint,1,opt,name=op,proto3,enum=envoy.config.filter.accesslog.v2.ComparisonFilter_Op" json:"op,omitempty"`
 	// Value to compare against.
-	Value *envoy_api_v2_core1.RuntimeUInt32 `protobuf:"bytes,2,opt,name=value" json:"value,omitempty"`
+	Value *envoy_api_v2_core.RuntimeUInt32 `protobuf:"bytes,2,opt,name=value" json:"value,omitempty"`
 }
 
 func (m *ComparisonFilter) Reset()                    { *m = ComparisonFilter{} }
 func (m *ComparisonFilter) String() string            { return proto.CompactTextString(m) }
 func (*ComparisonFilter) ProtoMessage()               {}
-func (*ComparisonFilter) Descriptor() ([]byte, []int) { return fileDescriptorAccesslog, []int{9} }
+func (*ComparisonFilter) Descriptor() ([]byte, []int) { return fileDescriptorAccesslog, []int{2} }
 
 func (m *ComparisonFilter) GetOp() ComparisonFilter_Op {
 	if m != nil {
@@ -1178,7 +479,7 @@ func (m *ComparisonFilter) GetOp() ComparisonFilter_Op {
 	return ComparisonFilter_EQ
 }
 
-func (m *ComparisonFilter) GetValue() *envoy_api_v2_core1.RuntimeUInt32 {
+func (m *ComparisonFilter) GetValue() *envoy_api_v2_core.RuntimeUInt32 {
 	if m != nil {
 		return m.Value
 	}
@@ -1194,7 +495,7 @@ type StatusCodeFilter struct {
 func (m *StatusCodeFilter) Reset()                    { *m = StatusCodeFilter{} }
 func (m *StatusCodeFilter) String() string            { return proto.CompactTextString(m) }
 func (*StatusCodeFilter) ProtoMessage()               {}
-func (*StatusCodeFilter) Descriptor() ([]byte, []int) { return fileDescriptorAccesslog, []int{10} }
+func (*StatusCodeFilter) Descriptor() ([]byte, []int) { return fileDescriptorAccesslog, []int{3} }
 
 func (m *StatusCodeFilter) GetComparison() *ComparisonFilter {
 	if m != nil {
@@ -1212,7 +513,7 @@ type DurationFilter struct {
 func (m *DurationFilter) Reset()                    { *m = DurationFilter{} }
 func (m *DurationFilter) String() string            { return proto.CompactTextString(m) }
 func (*DurationFilter) ProtoMessage()               {}
-func (*DurationFilter) Descriptor() ([]byte, []int) { return fileDescriptorAccesslog, []int{11} }
+func (*DurationFilter) Descriptor() ([]byte, []int) { return fileDescriptorAccesslog, []int{4} }
 
 func (m *DurationFilter) GetComparison() *ComparisonFilter {
 	if m != nil {
@@ -1229,7 +530,7 @@ type NotHealthCheckFilter struct {
 func (m *NotHealthCheckFilter) Reset()                    { *m = NotHealthCheckFilter{} }
 func (m *NotHealthCheckFilter) String() string            { return proto.CompactTextString(m) }
 func (*NotHealthCheckFilter) ProtoMessage()               {}
-func (*NotHealthCheckFilter) Descriptor() ([]byte, []int) { return fileDescriptorAccesslog, []int{12} }
+func (*NotHealthCheckFilter) Descriptor() ([]byte, []int) { return fileDescriptorAccesslog, []int{5} }
 
 // Filters for requests that are traceable. See the tracing overview for more
 // information on how a request becomes traceable.
@@ -1239,7 +540,7 @@ type TraceableFilter struct {
 func (m *TraceableFilter) Reset()                    { *m = TraceableFilter{} }
 func (m *TraceableFilter) String() string            { return proto.CompactTextString(m) }
 func (*TraceableFilter) ProtoMessage()               {}
-func (*TraceableFilter) Descriptor() ([]byte, []int) { return fileDescriptorAccesslog, []int{13} }
+func (*TraceableFilter) Descriptor() ([]byte, []int) { return fileDescriptorAccesslog, []int{6} }
 
 // Filters for random sampling of requests.
 type RuntimeFilter struct {
@@ -1266,7 +567,7 @@ type RuntimeFilter struct {
 func (m *RuntimeFilter) Reset()                    { *m = RuntimeFilter{} }
 func (m *RuntimeFilter) String() string            { return proto.CompactTextString(m) }
 func (*RuntimeFilter) ProtoMessage()               {}
-func (*RuntimeFilter) Descriptor() ([]byte, []int) { return fileDescriptorAccesslog, []int{14} }
+func (*RuntimeFilter) Descriptor() ([]byte, []int) { return fileDescriptorAccesslog, []int{7} }
 
 func (m *RuntimeFilter) GetRuntimeKey() string {
 	if m != nil {
@@ -1299,7 +600,7 @@ type AndFilter struct {
 func (m *AndFilter) Reset()                    { *m = AndFilter{} }
 func (m *AndFilter) String() string            { return proto.CompactTextString(m) }
 func (*AndFilter) ProtoMessage()               {}
-func (*AndFilter) Descriptor() ([]byte, []int) { return fileDescriptorAccesslog, []int{15} }
+func (*AndFilter) Descriptor() ([]byte, []int) { return fileDescriptorAccesslog, []int{8} }
 
 func (m *AndFilter) GetFilters() []*AccessLogFilter {
 	if m != nil {
@@ -1318,7 +619,7 @@ type OrFilter struct {
 func (m *OrFilter) Reset()                    { *m = OrFilter{} }
 func (m *OrFilter) String() string            { return proto.CompactTextString(m) }
 func (*OrFilter) ProtoMessage()               {}
-func (*OrFilter) Descriptor() ([]byte, []int) { return fileDescriptorAccesslog, []int{16} }
+func (*OrFilter) Descriptor() ([]byte, []int) { return fileDescriptorAccesslog, []int{9} }
 
 func (m *OrFilter) GetFilters() []*AccessLogFilter {
 	if m != nil {
@@ -1327,7 +628,7 @@ func (m *OrFilter) GetFilters() []*AccessLogFilter {
 	return nil
 }
 
-// [#not-implemented-hide:] Filters requests based on the presence or value of a request header.
+// Filters requests based on the presence or value of a request header.
 type HeaderFilter struct {
 	// Only requests with a header which matches the specified HeaderMatcher will pass the filter
 	// check.
@@ -1337,7 +638,7 @@ type HeaderFilter struct {
 func (m *HeaderFilter) Reset()                    { *m = HeaderFilter{} }
 func (m *HeaderFilter) String() string            { return proto.CompactTextString(m) }
 func (*HeaderFilter) ProtoMessage()               {}
-func (*HeaderFilter) Descriptor() ([]byte, []int) { return fileDescriptorAccesslog, []int{17} }
+func (*HeaderFilter) Descriptor() ([]byte, []int) { return fileDescriptorAccesslog, []int{10} }
 
 func (m *HeaderFilter) GetHeader() *envoy_api_v2_route.HeaderMatcher {
 	if m != nil {
@@ -1346,45 +647,29 @@ func (m *HeaderFilter) GetHeader() *envoy_api_v2_route.HeaderMatcher {
 	return nil
 }
 
-// Custom configuration for an AccessLog that writes log entries directly to a file.
-// Configures the built-in *envoy.file_access_log* AccessLog.
-type FileAccessLog struct {
-	// A path to a local file to which to write the access log entries.
-	Path string `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
-	// Access log format. Envoy supports :ref:`custom access log formats
-	// <config_access_log_format>` as well as a :ref:`default format
-	// <config_access_log_default_format>`.
-	Format string `protobuf:"bytes,2,opt,name=format,proto3" json:"format,omitempty"`
+// Filters requests that received responses with an Envoy response flag set.
+// A list of the response flags can be found
+// in the access log formatter :ref:`documentation<config_access_log_format_response_flags>`.
+type ResponseFlagFilter struct {
+	// Only responses with the any of the flags listed in this field will be logged.
+	// This field is optional. If it is not specified, then any response flag will pass
+	// the filter check.
+	Flags []string `protobuf:"bytes,1,rep,name=flags" json:"flags,omitempty"`
 }
 
-func (m *FileAccessLog) Reset()                    { *m = FileAccessLog{} }
-func (m *FileAccessLog) String() string            { return proto.CompactTextString(m) }
-func (*FileAccessLog) ProtoMessage()               {}
-func (*FileAccessLog) Descriptor() ([]byte, []int) { return fileDescriptorAccesslog, []int{18} }
+func (m *ResponseFlagFilter) Reset()                    { *m = ResponseFlagFilter{} }
+func (m *ResponseFlagFilter) String() string            { return proto.CompactTextString(m) }
+func (*ResponseFlagFilter) ProtoMessage()               {}
+func (*ResponseFlagFilter) Descriptor() ([]byte, []int) { return fileDescriptorAccesslog, []int{11} }
 
-func (m *FileAccessLog) GetPath() string {
+func (m *ResponseFlagFilter) GetFlags() []string {
 	if m != nil {
-		return m.Path
+		return m.Flags
 	}
-	return ""
-}
-
-func (m *FileAccessLog) GetFormat() string {
-	if m != nil {
-		return m.Format
-	}
-	return ""
+	return nil
 }
 
 func init() {
-	proto.RegisterType((*AccessLogCommon)(nil), "envoy.config.filter.accesslog.v2.AccessLogCommon")
-	proto.RegisterType((*ResponseFlags)(nil), "envoy.config.filter.accesslog.v2.ResponseFlags")
-	proto.RegisterType((*ResponseFlags_Unauthorized)(nil), "envoy.config.filter.accesslog.v2.ResponseFlags.Unauthorized")
-	proto.RegisterType((*TLSProperties)(nil), "envoy.config.filter.accesslog.v2.TLSProperties")
-	proto.RegisterType((*TCPAccessLogEntry)(nil), "envoy.config.filter.accesslog.v2.TCPAccessLogEntry")
-	proto.RegisterType((*HTTPRequestProperties)(nil), "envoy.config.filter.accesslog.v2.HTTPRequestProperties")
-	proto.RegisterType((*HTTPResponseProperties)(nil), "envoy.config.filter.accesslog.v2.HTTPResponseProperties")
-	proto.RegisterType((*HTTPAccessLogEntry)(nil), "envoy.config.filter.accesslog.v2.HTTPAccessLogEntry")
 	proto.RegisterType((*AccessLog)(nil), "envoy.config.filter.accesslog.v2.AccessLog")
 	proto.RegisterType((*AccessLogFilter)(nil), "envoy.config.filter.accesslog.v2.AccessLogFilter")
 	proto.RegisterType((*ComparisonFilter)(nil), "envoy.config.filter.accesslog.v2.ComparisonFilter")
@@ -1396,650 +681,9 @@ func init() {
 	proto.RegisterType((*AndFilter)(nil), "envoy.config.filter.accesslog.v2.AndFilter")
 	proto.RegisterType((*OrFilter)(nil), "envoy.config.filter.accesslog.v2.OrFilter")
 	proto.RegisterType((*HeaderFilter)(nil), "envoy.config.filter.accesslog.v2.HeaderFilter")
-	proto.RegisterType((*FileAccessLog)(nil), "envoy.config.filter.accesslog.v2.FileAccessLog")
-	proto.RegisterEnum("envoy.config.filter.accesslog.v2.ResponseFlags_Unauthorized_Reason", ResponseFlags_Unauthorized_Reason_name, ResponseFlags_Unauthorized_Reason_value)
-	proto.RegisterEnum("envoy.config.filter.accesslog.v2.TLSProperties_TLSVersion", TLSProperties_TLSVersion_name, TLSProperties_TLSVersion_value)
-	proto.RegisterEnum("envoy.config.filter.accesslog.v2.HTTPAccessLogEntry_HTTPVersion", HTTPAccessLogEntry_HTTPVersion_name, HTTPAccessLogEntry_HTTPVersion_value)
+	proto.RegisterType((*ResponseFlagFilter)(nil), "envoy.config.filter.accesslog.v2.ResponseFlagFilter")
 	proto.RegisterEnum("envoy.config.filter.accesslog.v2.ComparisonFilter_Op", ComparisonFilter_Op_name, ComparisonFilter_Op_value)
 }
-func (m *AccessLogCommon) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *AccessLogCommon) MarshalTo(dAtA []byte) (int, error) {
-	var i int
-	_ = i
-	var l int
-	_ = l
-	if m.SampleRate != 0 {
-		dAtA[i] = 0x9
-		i++
-		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.SampleRate))))
-		i += 8
-	}
-	if m.DownstreamRemoteAddress != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintAccesslog(dAtA, i, uint64(m.DownstreamRemoteAddress.Size()))
-		n1, err := m.DownstreamRemoteAddress.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n1
-	}
-	if m.DownstreamLocalAddress != nil {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintAccesslog(dAtA, i, uint64(m.DownstreamLocalAddress.Size()))
-		n2, err := m.DownstreamLocalAddress.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n2
-	}
-	if m.TlsProperties != nil {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintAccesslog(dAtA, i, uint64(m.TlsProperties.Size()))
-		n3, err := m.TlsProperties.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n3
-	}
-	if m.StartTime != nil {
-		dAtA[i] = 0x2a
-		i++
-		i = encodeVarintAccesslog(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdTime(*m.StartTime)))
-		n4, err := github_com_gogo_protobuf_types.StdTimeMarshalTo(*m.StartTime, dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n4
-	}
-	if m.TimeToLastRxByte != nil {
-		dAtA[i] = 0x32
-		i++
-		i = encodeVarintAccesslog(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(*m.TimeToLastRxByte)))
-		n5, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(*m.TimeToLastRxByte, dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n5
-	}
-	if m.TimeToFirstUpstreamTxByte != nil {
-		dAtA[i] = 0x3a
-		i++
-		i = encodeVarintAccesslog(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(*m.TimeToFirstUpstreamTxByte)))
-		n6, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(*m.TimeToFirstUpstreamTxByte, dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n6
-	}
-	if m.TimeToLastUpstreamTxByte != nil {
-		dAtA[i] = 0x42
-		i++
-		i = encodeVarintAccesslog(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(*m.TimeToLastUpstreamTxByte)))
-		n7, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(*m.TimeToLastUpstreamTxByte, dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n7
-	}
-	if m.TimeToFirstUpstreamRxByte != nil {
-		dAtA[i] = 0x4a
-		i++
-		i = encodeVarintAccesslog(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(*m.TimeToFirstUpstreamRxByte)))
-		n8, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(*m.TimeToFirstUpstreamRxByte, dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n8
-	}
-	if m.TimeToLastUpstreamRxByte != nil {
-		dAtA[i] = 0x52
-		i++
-		i = encodeVarintAccesslog(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(*m.TimeToLastUpstreamRxByte)))
-		n9, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(*m.TimeToLastUpstreamRxByte, dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n9
-	}
-	if m.TimeToFirstDownstreamTxByte != nil {
-		dAtA[i] = 0x5a
-		i++
-		i = encodeVarintAccesslog(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(*m.TimeToFirstDownstreamTxByte)))
-		n10, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(*m.TimeToFirstDownstreamTxByte, dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n10
-	}
-	if m.TimeToLastDownstreamTxByte != nil {
-		dAtA[i] = 0x62
-		i++
-		i = encodeVarintAccesslog(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(*m.TimeToLastDownstreamTxByte)))
-		n11, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(*m.TimeToLastDownstreamTxByte, dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n11
-	}
-	if m.UpstreamRemoteAddress != nil {
-		dAtA[i] = 0x6a
-		i++
-		i = encodeVarintAccesslog(dAtA, i, uint64(m.UpstreamRemoteAddress.Size()))
-		n12, err := m.UpstreamRemoteAddress.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n12
-	}
-	if m.UpstreamLocalAddress != nil {
-		dAtA[i] = 0x72
-		i++
-		i = encodeVarintAccesslog(dAtA, i, uint64(m.UpstreamLocalAddress.Size()))
-		n13, err := m.UpstreamLocalAddress.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n13
-	}
-	if len(m.UpstreamCluster) > 0 {
-		dAtA[i] = 0x7a
-		i++
-		i = encodeVarintAccesslog(dAtA, i, uint64(len(m.UpstreamCluster)))
-		i += copy(dAtA[i:], m.UpstreamCluster)
-	}
-	if m.ResponseFlags != nil {
-		dAtA[i] = 0x82
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintAccesslog(dAtA, i, uint64(m.ResponseFlags.Size()))
-		n14, err := m.ResponseFlags.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n14
-	}
-	if m.Metadata != nil {
-		dAtA[i] = 0x8a
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintAccesslog(dAtA, i, uint64(m.Metadata.Size()))
-		n15, err := m.Metadata.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n15
-	}
-	return i, nil
-}
-
-func (m *ResponseFlags) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *ResponseFlags) MarshalTo(dAtA []byte) (int, error) {
-	var i int
-	_ = i
-	var l int
-	_ = l
-	if m.FailedLocalHealthcheck {
-		dAtA[i] = 0x8
-		i++
-		if m.FailedLocalHealthcheck {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
-		}
-		i++
-	}
-	if m.NoHealthyUpstream {
-		dAtA[i] = 0x10
-		i++
-		if m.NoHealthyUpstream {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
-		}
-		i++
-	}
-	if m.UpstreamRequestTimeout {
-		dAtA[i] = 0x18
-		i++
-		if m.UpstreamRequestTimeout {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
-		}
-		i++
-	}
-	if m.LocalReset {
-		dAtA[i] = 0x20
-		i++
-		if m.LocalReset {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
-		}
-		i++
-	}
-	if m.UpstreamRemoteReset {
-		dAtA[i] = 0x28
-		i++
-		if m.UpstreamRemoteReset {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
-		}
-		i++
-	}
-	if m.UpstreamConnectionFailure {
-		dAtA[i] = 0x30
-		i++
-		if m.UpstreamConnectionFailure {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
-		}
-		i++
-	}
-	if m.UpstreamConnectionTermination {
-		dAtA[i] = 0x38
-		i++
-		if m.UpstreamConnectionTermination {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
-		}
-		i++
-	}
-	if m.UpstreamOverflow {
-		dAtA[i] = 0x40
-		i++
-		if m.UpstreamOverflow {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
-		}
-		i++
-	}
-	if m.NoRouteFound {
-		dAtA[i] = 0x48
-		i++
-		if m.NoRouteFound {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
-		}
-		i++
-	}
-	if m.DelayInjected {
-		dAtA[i] = 0x50
-		i++
-		if m.DelayInjected {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
-		}
-		i++
-	}
-	if m.FaultInjected {
-		dAtA[i] = 0x58
-		i++
-		if m.FaultInjected {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
-		}
-		i++
-	}
-	if m.RateLimited {
-		dAtA[i] = 0x60
-		i++
-		if m.RateLimited {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
-		}
-		i++
-	}
-	if m.UnauthorizedDetails != nil {
-		dAtA[i] = 0x6a
-		i++
-		i = encodeVarintAccesslog(dAtA, i, uint64(m.UnauthorizedDetails.Size()))
-		n16, err := m.UnauthorizedDetails.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n16
-	}
-	return i, nil
-}
-
-func (m *ResponseFlags_Unauthorized) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *ResponseFlags_Unauthorized) MarshalTo(dAtA []byte) (int, error) {
-	var i int
-	_ = i
-	var l int
-	_ = l
-	if m.Reason != 0 {
-		dAtA[i] = 0x8
-		i++
-		i = encodeVarintAccesslog(dAtA, i, uint64(m.Reason))
-	}
-	return i, nil
-}
-
-func (m *TLSProperties) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *TLSProperties) MarshalTo(dAtA []byte) (int, error) {
-	var i int
-	_ = i
-	var l int
-	_ = l
-	if m.TlsVersion != 0 {
-		dAtA[i] = 0x8
-		i++
-		i = encodeVarintAccesslog(dAtA, i, uint64(m.TlsVersion))
-	}
-	if m.TlsCipherSuite != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintAccesslog(dAtA, i, uint64(m.TlsCipherSuite.Size()))
-		n17, err := m.TlsCipherSuite.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n17
-	}
-	if len(m.TlsSniHostname) > 0 {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintAccesslog(dAtA, i, uint64(len(m.TlsSniHostname)))
-		i += copy(dAtA[i:], m.TlsSniHostname)
-	}
-	return i, nil
-}
-
-func (m *TCPAccessLogEntry) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *TCPAccessLogEntry) MarshalTo(dAtA []byte) (int, error) {
-	var i int
-	_ = i
-	var l int
-	_ = l
-	if m.CommonProperties != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintAccesslog(dAtA, i, uint64(m.CommonProperties.Size()))
-		n18, err := m.CommonProperties.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n18
-	}
-	return i, nil
-}
-
-func (m *HTTPRequestProperties) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *HTTPRequestProperties) MarshalTo(dAtA []byte) (int, error) {
-	var i int
-	_ = i
-	var l int
-	_ = l
-	if m.RequestMethod != 0 {
-		dAtA[i] = 0x8
-		i++
-		i = encodeVarintAccesslog(dAtA, i, uint64(m.RequestMethod))
-	}
-	if len(m.Scheme) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintAccesslog(dAtA, i, uint64(len(m.Scheme)))
-		i += copy(dAtA[i:], m.Scheme)
-	}
-	if len(m.Authority) > 0 {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintAccesslog(dAtA, i, uint64(len(m.Authority)))
-		i += copy(dAtA[i:], m.Authority)
-	}
-	if m.Port != nil {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintAccesslog(dAtA, i, uint64(m.Port.Size()))
-		n19, err := m.Port.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n19
-	}
-	if len(m.Path) > 0 {
-		dAtA[i] = 0x2a
-		i++
-		i = encodeVarintAccesslog(dAtA, i, uint64(len(m.Path)))
-		i += copy(dAtA[i:], m.Path)
-	}
-	if len(m.UserAgent) > 0 {
-		dAtA[i] = 0x32
-		i++
-		i = encodeVarintAccesslog(dAtA, i, uint64(len(m.UserAgent)))
-		i += copy(dAtA[i:], m.UserAgent)
-	}
-	if len(m.Referer) > 0 {
-		dAtA[i] = 0x3a
-		i++
-		i = encodeVarintAccesslog(dAtA, i, uint64(len(m.Referer)))
-		i += copy(dAtA[i:], m.Referer)
-	}
-	if len(m.ForwardedFor) > 0 {
-		dAtA[i] = 0x42
-		i++
-		i = encodeVarintAccesslog(dAtA, i, uint64(len(m.ForwardedFor)))
-		i += copy(dAtA[i:], m.ForwardedFor)
-	}
-	if len(m.RequestId) > 0 {
-		dAtA[i] = 0x4a
-		i++
-		i = encodeVarintAccesslog(dAtA, i, uint64(len(m.RequestId)))
-		i += copy(dAtA[i:], m.RequestId)
-	}
-	if len(m.OriginalPath) > 0 {
-		dAtA[i] = 0x52
-		i++
-		i = encodeVarintAccesslog(dAtA, i, uint64(len(m.OriginalPath)))
-		i += copy(dAtA[i:], m.OriginalPath)
-	}
-	if m.RequestHeadersBytes != 0 {
-		dAtA[i] = 0x58
-		i++
-		i = encodeVarintAccesslog(dAtA, i, uint64(m.RequestHeadersBytes))
-	}
-	if m.RequestBodyBytes != 0 {
-		dAtA[i] = 0x60
-		i++
-		i = encodeVarintAccesslog(dAtA, i, uint64(m.RequestBodyBytes))
-	}
-	if len(m.RequestHeaders) > 0 {
-		for k, _ := range m.RequestHeaders {
-			dAtA[i] = 0x6a
-			i++
-			v := m.RequestHeaders[k]
-			mapSize := 1 + len(k) + sovAccesslog(uint64(len(k))) + 1 + len(v) + sovAccesslog(uint64(len(v)))
-			i = encodeVarintAccesslog(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintAccesslog(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x12
-			i++
-			i = encodeVarintAccesslog(dAtA, i, uint64(len(v)))
-			i += copy(dAtA[i:], v)
-		}
-	}
-	return i, nil
-}
-
-func (m *HTTPResponseProperties) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *HTTPResponseProperties) MarshalTo(dAtA []byte) (int, error) {
-	var i int
-	_ = i
-	var l int
-	_ = l
-	if m.ResponseCode != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintAccesslog(dAtA, i, uint64(m.ResponseCode.Size()))
-		n20, err := m.ResponseCode.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n20
-	}
-	if m.ResponseHeadersBytes != 0 {
-		dAtA[i] = 0x10
-		i++
-		i = encodeVarintAccesslog(dAtA, i, uint64(m.ResponseHeadersBytes))
-	}
-	if m.ResponseBodyBytes != 0 {
-		dAtA[i] = 0x18
-		i++
-		i = encodeVarintAccesslog(dAtA, i, uint64(m.ResponseBodyBytes))
-	}
-	if len(m.ResponseHeaders) > 0 {
-		for k, _ := range m.ResponseHeaders {
-			dAtA[i] = 0x22
-			i++
-			v := m.ResponseHeaders[k]
-			mapSize := 1 + len(k) + sovAccesslog(uint64(len(k))) + 1 + len(v) + sovAccesslog(uint64(len(v)))
-			i = encodeVarintAccesslog(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintAccesslog(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x12
-			i++
-			i = encodeVarintAccesslog(dAtA, i, uint64(len(v)))
-			i += copy(dAtA[i:], v)
-		}
-	}
-	return i, nil
-}
-
-func (m *HTTPAccessLogEntry) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *HTTPAccessLogEntry) MarshalTo(dAtA []byte) (int, error) {
-	var i int
-	_ = i
-	var l int
-	_ = l
-	if m.CommonProperties != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintAccesslog(dAtA, i, uint64(m.CommonProperties.Size()))
-		n21, err := m.CommonProperties.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n21
-	}
-	if m.ProtocolVersion != 0 {
-		dAtA[i] = 0x10
-		i++
-		i = encodeVarintAccesslog(dAtA, i, uint64(m.ProtocolVersion))
-	}
-	if m.Request != nil {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintAccesslog(dAtA, i, uint64(m.Request.Size()))
-		n22, err := m.Request.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n22
-	}
-	if m.Response != nil {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintAccesslog(dAtA, i, uint64(m.Response.Size()))
-		n23, err := m.Response.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n23
-	}
-	return i, nil
-}
-
 func (m *AccessLog) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -2065,21 +709,21 @@ func (m *AccessLog) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintAccesslog(dAtA, i, uint64(m.Filter.Size()))
-		n24, err := m.Filter.MarshalTo(dAtA[i:])
+		n1, err := m.Filter.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n24
+		i += n1
 	}
 	if m.Config != nil {
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintAccesslog(dAtA, i, uint64(m.Config.Size()))
-		n25, err := m.Config.MarshalTo(dAtA[i:])
+		n2, err := m.Config.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n25
+		i += n2
 	}
 	return i, nil
 }
@@ -2100,11 +744,11 @@ func (m *AccessLogFilter) MarshalTo(dAtA []byte) (int, error) {
 	var l int
 	_ = l
 	if m.FilterSpecifier != nil {
-		nn26, err := m.FilterSpecifier.MarshalTo(dAtA[i:])
+		nn3, err := m.FilterSpecifier.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += nn26
+		i += nn3
 	}
 	return i, nil
 }
@@ -2115,11 +759,11 @@ func (m *AccessLogFilter_StatusCodeFilter) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintAccesslog(dAtA, i, uint64(m.StatusCodeFilter.Size()))
-		n27, err := m.StatusCodeFilter.MarshalTo(dAtA[i:])
+		n4, err := m.StatusCodeFilter.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n27
+		i += n4
 	}
 	return i, nil
 }
@@ -2129,11 +773,11 @@ func (m *AccessLogFilter_DurationFilter) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintAccesslog(dAtA, i, uint64(m.DurationFilter.Size()))
-		n28, err := m.DurationFilter.MarshalTo(dAtA[i:])
+		n5, err := m.DurationFilter.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n28
+		i += n5
 	}
 	return i, nil
 }
@@ -2143,11 +787,11 @@ func (m *AccessLogFilter_NotHealthCheckFilter) MarshalTo(dAtA []byte) (int, erro
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintAccesslog(dAtA, i, uint64(m.NotHealthCheckFilter.Size()))
-		n29, err := m.NotHealthCheckFilter.MarshalTo(dAtA[i:])
+		n6, err := m.NotHealthCheckFilter.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n29
+		i += n6
 	}
 	return i, nil
 }
@@ -2157,11 +801,11 @@ func (m *AccessLogFilter_TraceableFilter) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x22
 		i++
 		i = encodeVarintAccesslog(dAtA, i, uint64(m.TraceableFilter.Size()))
-		n30, err := m.TraceableFilter.MarshalTo(dAtA[i:])
+		n7, err := m.TraceableFilter.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n30
+		i += n7
 	}
 	return i, nil
 }
@@ -2171,11 +815,11 @@ func (m *AccessLogFilter_RuntimeFilter) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x2a
 		i++
 		i = encodeVarintAccesslog(dAtA, i, uint64(m.RuntimeFilter.Size()))
-		n31, err := m.RuntimeFilter.MarshalTo(dAtA[i:])
+		n8, err := m.RuntimeFilter.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n31
+		i += n8
 	}
 	return i, nil
 }
@@ -2185,11 +829,11 @@ func (m *AccessLogFilter_AndFilter) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x32
 		i++
 		i = encodeVarintAccesslog(dAtA, i, uint64(m.AndFilter.Size()))
-		n32, err := m.AndFilter.MarshalTo(dAtA[i:])
+		n9, err := m.AndFilter.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n32
+		i += n9
 	}
 	return i, nil
 }
@@ -2199,11 +843,11 @@ func (m *AccessLogFilter_OrFilter) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x3a
 		i++
 		i = encodeVarintAccesslog(dAtA, i, uint64(m.OrFilter.Size()))
-		n33, err := m.OrFilter.MarshalTo(dAtA[i:])
+		n10, err := m.OrFilter.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n33
+		i += n10
 	}
 	return i, nil
 }
@@ -2213,11 +857,25 @@ func (m *AccessLogFilter_HeaderFilter) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x42
 		i++
 		i = encodeVarintAccesslog(dAtA, i, uint64(m.HeaderFilter.Size()))
-		n34, err := m.HeaderFilter.MarshalTo(dAtA[i:])
+		n11, err := m.HeaderFilter.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n34
+		i += n11
+	}
+	return i, nil
+}
+func (m *AccessLogFilter_ResponseFlagFilter) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	if m.ResponseFlagFilter != nil {
+		dAtA[i] = 0x4a
+		i++
+		i = encodeVarintAccesslog(dAtA, i, uint64(m.ResponseFlagFilter.Size()))
+		n12, err := m.ResponseFlagFilter.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n12
 	}
 	return i, nil
 }
@@ -2245,11 +903,11 @@ func (m *ComparisonFilter) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintAccesslog(dAtA, i, uint64(m.Value.Size()))
-		n35, err := m.Value.MarshalTo(dAtA[i:])
+		n13, err := m.Value.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n35
+		i += n13
 	}
 	return i, nil
 }
@@ -2273,11 +931,11 @@ func (m *StatusCodeFilter) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintAccesslog(dAtA, i, uint64(m.Comparison.Size()))
-		n36, err := m.Comparison.MarshalTo(dAtA[i:])
+		n14, err := m.Comparison.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n36
+		i += n14
 	}
 	return i, nil
 }
@@ -2301,11 +959,11 @@ func (m *DurationFilter) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintAccesslog(dAtA, i, uint64(m.Comparison.Size()))
-		n37, err := m.Comparison.MarshalTo(dAtA[i:])
+		n15, err := m.Comparison.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n37
+		i += n15
 	}
 	return i, nil
 }
@@ -2371,11 +1029,11 @@ func (m *RuntimeFilter) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintAccesslog(dAtA, i, uint64(m.PercentSampled.Size()))
-		n38, err := m.PercentSampled.MarshalTo(dAtA[i:])
+		n16, err := m.PercentSampled.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n38
+		i += n16
 	}
 	if m.UseIndependentRandomness {
 		dAtA[i] = 0x18
@@ -2469,16 +1127,16 @@ func (m *HeaderFilter) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintAccesslog(dAtA, i, uint64(m.Header.Size()))
-		n39, err := m.Header.MarshalTo(dAtA[i:])
+		n17, err := m.Header.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n39
+		i += n17
 	}
 	return i, nil
 }
 
-func (m *FileAccessLog) Marshal() (dAtA []byte, err error) {
+func (m *ResponseFlagFilter) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalTo(dAtA)
@@ -2488,22 +1146,25 @@ func (m *FileAccessLog) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *FileAccessLog) MarshalTo(dAtA []byte) (int, error) {
+func (m *ResponseFlagFilter) MarshalTo(dAtA []byte) (int, error) {
 	var i int
 	_ = i
 	var l int
 	_ = l
-	if len(m.Path) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintAccesslog(dAtA, i, uint64(len(m.Path)))
-		i += copy(dAtA[i:], m.Path)
-	}
-	if len(m.Format) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintAccesslog(dAtA, i, uint64(len(m.Format)))
-		i += copy(dAtA[i:], m.Format)
+	if len(m.Flags) > 0 {
+		for _, s := range m.Flags {
+			dAtA[i] = 0xa
+			i++
+			l = len(s)
+			for l >= 1<<7 {
+				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
+				l >>= 7
+				i++
+			}
+			dAtA[i] = uint8(l)
+			i++
+			i += copy(dAtA[i:], s)
+		}
 	}
 	return i, nil
 }
@@ -2517,265 +1178,6 @@ func encodeVarintAccesslog(dAtA []byte, offset int, v uint64) int {
 	dAtA[offset] = uint8(v)
 	return offset + 1
 }
-func (m *AccessLogCommon) Size() (n int) {
-	var l int
-	_ = l
-	if m.SampleRate != 0 {
-		n += 9
-	}
-	if m.DownstreamRemoteAddress != nil {
-		l = m.DownstreamRemoteAddress.Size()
-		n += 1 + l + sovAccesslog(uint64(l))
-	}
-	if m.DownstreamLocalAddress != nil {
-		l = m.DownstreamLocalAddress.Size()
-		n += 1 + l + sovAccesslog(uint64(l))
-	}
-	if m.TlsProperties != nil {
-		l = m.TlsProperties.Size()
-		n += 1 + l + sovAccesslog(uint64(l))
-	}
-	if m.StartTime != nil {
-		l = github_com_gogo_protobuf_types.SizeOfStdTime(*m.StartTime)
-		n += 1 + l + sovAccesslog(uint64(l))
-	}
-	if m.TimeToLastRxByte != nil {
-		l = github_com_gogo_protobuf_types.SizeOfStdDuration(*m.TimeToLastRxByte)
-		n += 1 + l + sovAccesslog(uint64(l))
-	}
-	if m.TimeToFirstUpstreamTxByte != nil {
-		l = github_com_gogo_protobuf_types.SizeOfStdDuration(*m.TimeToFirstUpstreamTxByte)
-		n += 1 + l + sovAccesslog(uint64(l))
-	}
-	if m.TimeToLastUpstreamTxByte != nil {
-		l = github_com_gogo_protobuf_types.SizeOfStdDuration(*m.TimeToLastUpstreamTxByte)
-		n += 1 + l + sovAccesslog(uint64(l))
-	}
-	if m.TimeToFirstUpstreamRxByte != nil {
-		l = github_com_gogo_protobuf_types.SizeOfStdDuration(*m.TimeToFirstUpstreamRxByte)
-		n += 1 + l + sovAccesslog(uint64(l))
-	}
-	if m.TimeToLastUpstreamRxByte != nil {
-		l = github_com_gogo_protobuf_types.SizeOfStdDuration(*m.TimeToLastUpstreamRxByte)
-		n += 1 + l + sovAccesslog(uint64(l))
-	}
-	if m.TimeToFirstDownstreamTxByte != nil {
-		l = github_com_gogo_protobuf_types.SizeOfStdDuration(*m.TimeToFirstDownstreamTxByte)
-		n += 1 + l + sovAccesslog(uint64(l))
-	}
-	if m.TimeToLastDownstreamTxByte != nil {
-		l = github_com_gogo_protobuf_types.SizeOfStdDuration(*m.TimeToLastDownstreamTxByte)
-		n += 1 + l + sovAccesslog(uint64(l))
-	}
-	if m.UpstreamRemoteAddress != nil {
-		l = m.UpstreamRemoteAddress.Size()
-		n += 1 + l + sovAccesslog(uint64(l))
-	}
-	if m.UpstreamLocalAddress != nil {
-		l = m.UpstreamLocalAddress.Size()
-		n += 1 + l + sovAccesslog(uint64(l))
-	}
-	l = len(m.UpstreamCluster)
-	if l > 0 {
-		n += 1 + l + sovAccesslog(uint64(l))
-	}
-	if m.ResponseFlags != nil {
-		l = m.ResponseFlags.Size()
-		n += 2 + l + sovAccesslog(uint64(l))
-	}
-	if m.Metadata != nil {
-		l = m.Metadata.Size()
-		n += 2 + l + sovAccesslog(uint64(l))
-	}
-	return n
-}
-
-func (m *ResponseFlags) Size() (n int) {
-	var l int
-	_ = l
-	if m.FailedLocalHealthcheck {
-		n += 2
-	}
-	if m.NoHealthyUpstream {
-		n += 2
-	}
-	if m.UpstreamRequestTimeout {
-		n += 2
-	}
-	if m.LocalReset {
-		n += 2
-	}
-	if m.UpstreamRemoteReset {
-		n += 2
-	}
-	if m.UpstreamConnectionFailure {
-		n += 2
-	}
-	if m.UpstreamConnectionTermination {
-		n += 2
-	}
-	if m.UpstreamOverflow {
-		n += 2
-	}
-	if m.NoRouteFound {
-		n += 2
-	}
-	if m.DelayInjected {
-		n += 2
-	}
-	if m.FaultInjected {
-		n += 2
-	}
-	if m.RateLimited {
-		n += 2
-	}
-	if m.UnauthorizedDetails != nil {
-		l = m.UnauthorizedDetails.Size()
-		n += 1 + l + sovAccesslog(uint64(l))
-	}
-	return n
-}
-
-func (m *ResponseFlags_Unauthorized) Size() (n int) {
-	var l int
-	_ = l
-	if m.Reason != 0 {
-		n += 1 + sovAccesslog(uint64(m.Reason))
-	}
-	return n
-}
-
-func (m *TLSProperties) Size() (n int) {
-	var l int
-	_ = l
-	if m.TlsVersion != 0 {
-		n += 1 + sovAccesslog(uint64(m.TlsVersion))
-	}
-	if m.TlsCipherSuite != nil {
-		l = m.TlsCipherSuite.Size()
-		n += 1 + l + sovAccesslog(uint64(l))
-	}
-	l = len(m.TlsSniHostname)
-	if l > 0 {
-		n += 1 + l + sovAccesslog(uint64(l))
-	}
-	return n
-}
-
-func (m *TCPAccessLogEntry) Size() (n int) {
-	var l int
-	_ = l
-	if m.CommonProperties != nil {
-		l = m.CommonProperties.Size()
-		n += 1 + l + sovAccesslog(uint64(l))
-	}
-	return n
-}
-
-func (m *HTTPRequestProperties) Size() (n int) {
-	var l int
-	_ = l
-	if m.RequestMethod != 0 {
-		n += 1 + sovAccesslog(uint64(m.RequestMethod))
-	}
-	l = len(m.Scheme)
-	if l > 0 {
-		n += 1 + l + sovAccesslog(uint64(l))
-	}
-	l = len(m.Authority)
-	if l > 0 {
-		n += 1 + l + sovAccesslog(uint64(l))
-	}
-	if m.Port != nil {
-		l = m.Port.Size()
-		n += 1 + l + sovAccesslog(uint64(l))
-	}
-	l = len(m.Path)
-	if l > 0 {
-		n += 1 + l + sovAccesslog(uint64(l))
-	}
-	l = len(m.UserAgent)
-	if l > 0 {
-		n += 1 + l + sovAccesslog(uint64(l))
-	}
-	l = len(m.Referer)
-	if l > 0 {
-		n += 1 + l + sovAccesslog(uint64(l))
-	}
-	l = len(m.ForwardedFor)
-	if l > 0 {
-		n += 1 + l + sovAccesslog(uint64(l))
-	}
-	l = len(m.RequestId)
-	if l > 0 {
-		n += 1 + l + sovAccesslog(uint64(l))
-	}
-	l = len(m.OriginalPath)
-	if l > 0 {
-		n += 1 + l + sovAccesslog(uint64(l))
-	}
-	if m.RequestHeadersBytes != 0 {
-		n += 1 + sovAccesslog(uint64(m.RequestHeadersBytes))
-	}
-	if m.RequestBodyBytes != 0 {
-		n += 1 + sovAccesslog(uint64(m.RequestBodyBytes))
-	}
-	if len(m.RequestHeaders) > 0 {
-		for k, v := range m.RequestHeaders {
-			_ = k
-			_ = v
-			mapEntrySize := 1 + len(k) + sovAccesslog(uint64(len(k))) + 1 + len(v) + sovAccesslog(uint64(len(v)))
-			n += mapEntrySize + 1 + sovAccesslog(uint64(mapEntrySize))
-		}
-	}
-	return n
-}
-
-func (m *HTTPResponseProperties) Size() (n int) {
-	var l int
-	_ = l
-	if m.ResponseCode != nil {
-		l = m.ResponseCode.Size()
-		n += 1 + l + sovAccesslog(uint64(l))
-	}
-	if m.ResponseHeadersBytes != 0 {
-		n += 1 + sovAccesslog(uint64(m.ResponseHeadersBytes))
-	}
-	if m.ResponseBodyBytes != 0 {
-		n += 1 + sovAccesslog(uint64(m.ResponseBodyBytes))
-	}
-	if len(m.ResponseHeaders) > 0 {
-		for k, v := range m.ResponseHeaders {
-			_ = k
-			_ = v
-			mapEntrySize := 1 + len(k) + sovAccesslog(uint64(len(k))) + 1 + len(v) + sovAccesslog(uint64(len(v)))
-			n += mapEntrySize + 1 + sovAccesslog(uint64(mapEntrySize))
-		}
-	}
-	return n
-}
-
-func (m *HTTPAccessLogEntry) Size() (n int) {
-	var l int
-	_ = l
-	if m.CommonProperties != nil {
-		l = m.CommonProperties.Size()
-		n += 1 + l + sovAccesslog(uint64(l))
-	}
-	if m.ProtocolVersion != 0 {
-		n += 1 + sovAccesslog(uint64(m.ProtocolVersion))
-	}
-	if m.Request != nil {
-		l = m.Request.Size()
-		n += 1 + l + sovAccesslog(uint64(l))
-	}
-	if m.Response != nil {
-		l = m.Response.Size()
-		n += 1 + l + sovAccesslog(uint64(l))
-	}
-	return n
-}
-
 func (m *AccessLog) Size() (n int) {
 	var l int
 	_ = l
@@ -2871,6 +1273,15 @@ func (m *AccessLogFilter_HeaderFilter) Size() (n int) {
 	_ = l
 	if m.HeaderFilter != nil {
 		l = m.HeaderFilter.Size()
+		n += 1 + l + sovAccesslog(uint64(l))
+	}
+	return n
+}
+func (m *AccessLogFilter_ResponseFlagFilter) Size() (n int) {
+	var l int
+	_ = l
+	if m.ResponseFlagFilter != nil {
+		l = m.ResponseFlagFilter.Size()
 		n += 1 + l + sovAccesslog(uint64(l))
 	}
 	return n
@@ -2971,16 +1382,14 @@ func (m *HeaderFilter) Size() (n int) {
 	return n
 }
 
-func (m *FileAccessLog) Size() (n int) {
+func (m *ResponseFlagFilter) Size() (n int) {
 	var l int
 	_ = l
-	l = len(m.Path)
-	if l > 0 {
-		n += 1 + l + sovAccesslog(uint64(l))
-	}
-	l = len(m.Format)
-	if l > 0 {
-		n += 1 + l + sovAccesslog(uint64(l))
+	if len(m.Flags) > 0 {
+		for _, s := range m.Flags {
+			l = len(s)
+			n += 1 + l + sovAccesslog(uint64(l))
+		}
 	}
 	return n
 }
@@ -2997,2094 +1406,6 @@ func sovAccesslog(x uint64) (n int) {
 }
 func sozAccesslog(x uint64) (n int) {
 	return sovAccesslog(uint64((x << 1) ^ uint64((int64(x) >> 63))))
-}
-func (m *AccessLogCommon) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowAccesslog
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: AccessLogCommon: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: AccessLogCommon: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 1 {
-				return fmt.Errorf("proto: wrong wireType = %d for field SampleRate", wireType)
-			}
-			var v uint64
-			if (iNdEx + 8) > l {
-				return io.ErrUnexpectedEOF
-			}
-			v = uint64(encoding_binary.LittleEndian.Uint64(dAtA[iNdEx:]))
-			iNdEx += 8
-			m.SampleRate = float64(math.Float64frombits(v))
-		case 2:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field DownstreamRemoteAddress", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAccesslog
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthAccesslog
-			}
-			postIndex := iNdEx + msglen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.DownstreamRemoteAddress == nil {
-				m.DownstreamRemoteAddress = &envoy_api_v2_core.Address{}
-			}
-			if err := m.DownstreamRemoteAddress.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 3:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field DownstreamLocalAddress", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAccesslog
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthAccesslog
-			}
-			postIndex := iNdEx + msglen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.DownstreamLocalAddress == nil {
-				m.DownstreamLocalAddress = &envoy_api_v2_core.Address{}
-			}
-			if err := m.DownstreamLocalAddress.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 4:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field TlsProperties", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAccesslog
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthAccesslog
-			}
-			postIndex := iNdEx + msglen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.TlsProperties == nil {
-				m.TlsProperties = &TLSProperties{}
-			}
-			if err := m.TlsProperties.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 5:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field StartTime", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAccesslog
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthAccesslog
-			}
-			postIndex := iNdEx + msglen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.StartTime == nil {
-				m.StartTime = new(time.Time)
-			}
-			if err := github_com_gogo_protobuf_types.StdTimeUnmarshal(m.StartTime, dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 6:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field TimeToLastRxByte", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAccesslog
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthAccesslog
-			}
-			postIndex := iNdEx + msglen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.TimeToLastRxByte == nil {
-				m.TimeToLastRxByte = new(time.Duration)
-			}
-			if err := github_com_gogo_protobuf_types.StdDurationUnmarshal(m.TimeToLastRxByte, dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 7:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field TimeToFirstUpstreamTxByte", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAccesslog
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthAccesslog
-			}
-			postIndex := iNdEx + msglen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.TimeToFirstUpstreamTxByte == nil {
-				m.TimeToFirstUpstreamTxByte = new(time.Duration)
-			}
-			if err := github_com_gogo_protobuf_types.StdDurationUnmarshal(m.TimeToFirstUpstreamTxByte, dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 8:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field TimeToLastUpstreamTxByte", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAccesslog
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthAccesslog
-			}
-			postIndex := iNdEx + msglen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.TimeToLastUpstreamTxByte == nil {
-				m.TimeToLastUpstreamTxByte = new(time.Duration)
-			}
-			if err := github_com_gogo_protobuf_types.StdDurationUnmarshal(m.TimeToLastUpstreamTxByte, dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 9:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field TimeToFirstUpstreamRxByte", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAccesslog
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthAccesslog
-			}
-			postIndex := iNdEx + msglen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.TimeToFirstUpstreamRxByte == nil {
-				m.TimeToFirstUpstreamRxByte = new(time.Duration)
-			}
-			if err := github_com_gogo_protobuf_types.StdDurationUnmarshal(m.TimeToFirstUpstreamRxByte, dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 10:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field TimeToLastUpstreamRxByte", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAccesslog
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthAccesslog
-			}
-			postIndex := iNdEx + msglen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.TimeToLastUpstreamRxByte == nil {
-				m.TimeToLastUpstreamRxByte = new(time.Duration)
-			}
-			if err := github_com_gogo_protobuf_types.StdDurationUnmarshal(m.TimeToLastUpstreamRxByte, dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 11:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field TimeToFirstDownstreamTxByte", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAccesslog
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthAccesslog
-			}
-			postIndex := iNdEx + msglen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.TimeToFirstDownstreamTxByte == nil {
-				m.TimeToFirstDownstreamTxByte = new(time.Duration)
-			}
-			if err := github_com_gogo_protobuf_types.StdDurationUnmarshal(m.TimeToFirstDownstreamTxByte, dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 12:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field TimeToLastDownstreamTxByte", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAccesslog
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthAccesslog
-			}
-			postIndex := iNdEx + msglen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.TimeToLastDownstreamTxByte == nil {
-				m.TimeToLastDownstreamTxByte = new(time.Duration)
-			}
-			if err := github_com_gogo_protobuf_types.StdDurationUnmarshal(m.TimeToLastDownstreamTxByte, dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 13:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field UpstreamRemoteAddress", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAccesslog
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthAccesslog
-			}
-			postIndex := iNdEx + msglen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.UpstreamRemoteAddress == nil {
-				m.UpstreamRemoteAddress = &envoy_api_v2_core.Address{}
-			}
-			if err := m.UpstreamRemoteAddress.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 14:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field UpstreamLocalAddress", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAccesslog
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthAccesslog
-			}
-			postIndex := iNdEx + msglen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.UpstreamLocalAddress == nil {
-				m.UpstreamLocalAddress = &envoy_api_v2_core.Address{}
-			}
-			if err := m.UpstreamLocalAddress.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 15:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field UpstreamCluster", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAccesslog
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthAccesslog
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.UpstreamCluster = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 16:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field ResponseFlags", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAccesslog
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthAccesslog
-			}
-			postIndex := iNdEx + msglen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.ResponseFlags == nil {
-				m.ResponseFlags = &ResponseFlags{}
-			}
-			if err := m.ResponseFlags.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 17:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Metadata", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAccesslog
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthAccesslog
-			}
-			postIndex := iNdEx + msglen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.Metadata == nil {
-				m.Metadata = &envoy_api_v2_core1.Metadata{}
-			}
-			if err := m.Metadata.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		default:
-			iNdEx = preIndex
-			skippy, err := skipAccesslog(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if skippy < 0 {
-				return ErrInvalidLengthAccesslog
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *ResponseFlags) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowAccesslog
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: ResponseFlags: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: ResponseFlags: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field FailedLocalHealthcheck", wireType)
-			}
-			var v int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAccesslog
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				v |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			m.FailedLocalHealthcheck = bool(v != 0)
-		case 2:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field NoHealthyUpstream", wireType)
-			}
-			var v int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAccesslog
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				v |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			m.NoHealthyUpstream = bool(v != 0)
-		case 3:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field UpstreamRequestTimeout", wireType)
-			}
-			var v int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAccesslog
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				v |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			m.UpstreamRequestTimeout = bool(v != 0)
-		case 4:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field LocalReset", wireType)
-			}
-			var v int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAccesslog
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				v |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			m.LocalReset = bool(v != 0)
-		case 5:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field UpstreamRemoteReset", wireType)
-			}
-			var v int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAccesslog
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				v |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			m.UpstreamRemoteReset = bool(v != 0)
-		case 6:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field UpstreamConnectionFailure", wireType)
-			}
-			var v int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAccesslog
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				v |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			m.UpstreamConnectionFailure = bool(v != 0)
-		case 7:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field UpstreamConnectionTermination", wireType)
-			}
-			var v int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAccesslog
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				v |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			m.UpstreamConnectionTermination = bool(v != 0)
-		case 8:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field UpstreamOverflow", wireType)
-			}
-			var v int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAccesslog
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				v |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			m.UpstreamOverflow = bool(v != 0)
-		case 9:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field NoRouteFound", wireType)
-			}
-			var v int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAccesslog
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				v |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			m.NoRouteFound = bool(v != 0)
-		case 10:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field DelayInjected", wireType)
-			}
-			var v int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAccesslog
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				v |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			m.DelayInjected = bool(v != 0)
-		case 11:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field FaultInjected", wireType)
-			}
-			var v int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAccesslog
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				v |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			m.FaultInjected = bool(v != 0)
-		case 12:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field RateLimited", wireType)
-			}
-			var v int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAccesslog
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				v |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			m.RateLimited = bool(v != 0)
-		case 13:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field UnauthorizedDetails", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAccesslog
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthAccesslog
-			}
-			postIndex := iNdEx + msglen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.UnauthorizedDetails == nil {
-				m.UnauthorizedDetails = &ResponseFlags_Unauthorized{}
-			}
-			if err := m.UnauthorizedDetails.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		default:
-			iNdEx = preIndex
-			skippy, err := skipAccesslog(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if skippy < 0 {
-				return ErrInvalidLengthAccesslog
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *ResponseFlags_Unauthorized) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowAccesslog
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: Unauthorized: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: Unauthorized: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Reason", wireType)
-			}
-			m.Reason = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAccesslog
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				m.Reason |= (ResponseFlags_Unauthorized_Reason(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-		default:
-			iNdEx = preIndex
-			skippy, err := skipAccesslog(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if skippy < 0 {
-				return ErrInvalidLengthAccesslog
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *TLSProperties) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowAccesslog
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: TLSProperties: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: TLSProperties: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field TlsVersion", wireType)
-			}
-			m.TlsVersion = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAccesslog
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				m.TlsVersion |= (TLSProperties_TLSVersion(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-		case 2:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field TlsCipherSuite", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAccesslog
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthAccesslog
-			}
-			postIndex := iNdEx + msglen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.TlsCipherSuite == nil {
-				m.TlsCipherSuite = &google_protobuf.UInt32Value{}
-			}
-			if err := m.TlsCipherSuite.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 3:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field TlsSniHostname", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAccesslog
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthAccesslog
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.TlsSniHostname = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		default:
-			iNdEx = preIndex
-			skippy, err := skipAccesslog(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if skippy < 0 {
-				return ErrInvalidLengthAccesslog
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *TCPAccessLogEntry) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowAccesslog
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: TCPAccessLogEntry: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: TCPAccessLogEntry: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field CommonProperties", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAccesslog
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthAccesslog
-			}
-			postIndex := iNdEx + msglen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.CommonProperties == nil {
-				m.CommonProperties = &AccessLogCommon{}
-			}
-			if err := m.CommonProperties.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		default:
-			iNdEx = preIndex
-			skippy, err := skipAccesslog(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if skippy < 0 {
-				return ErrInvalidLengthAccesslog
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *HTTPRequestProperties) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowAccesslog
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: HTTPRequestProperties: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: HTTPRequestProperties: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field RequestMethod", wireType)
-			}
-			m.RequestMethod = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAccesslog
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				m.RequestMethod |= (envoy_api_v2_core1.RequestMethod(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-		case 2:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Scheme", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAccesslog
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthAccesslog
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Scheme = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 3:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Authority", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAccesslog
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthAccesslog
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Authority = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 4:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Port", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAccesslog
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthAccesslog
-			}
-			postIndex := iNdEx + msglen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.Port == nil {
-				m.Port = &google_protobuf.UInt32Value{}
-			}
-			if err := m.Port.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 5:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Path", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAccesslog
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthAccesslog
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Path = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 6:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field UserAgent", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAccesslog
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthAccesslog
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.UserAgent = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 7:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Referer", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAccesslog
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthAccesslog
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Referer = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 8:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field ForwardedFor", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAccesslog
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthAccesslog
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.ForwardedFor = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 9:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field RequestId", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAccesslog
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthAccesslog
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.RequestId = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 10:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field OriginalPath", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAccesslog
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthAccesslog
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.OriginalPath = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 11:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field RequestHeadersBytes", wireType)
-			}
-			m.RequestHeadersBytes = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAccesslog
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				m.RequestHeadersBytes |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-		case 12:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field RequestBodyBytes", wireType)
-			}
-			m.RequestBodyBytes = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAccesslog
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				m.RequestBodyBytes |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-		case 13:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field RequestHeaders", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAccesslog
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthAccesslog
-			}
-			postIndex := iNdEx + msglen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.RequestHeaders == nil {
-				m.RequestHeaders = make(map[string]string)
-			}
-			var mapkey string
-			var mapvalue string
-			for iNdEx < postIndex {
-				entryPreIndex := iNdEx
-				var wire uint64
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return ErrIntOverflowAccesslog
-					}
-					if iNdEx >= l {
-						return io.ErrUnexpectedEOF
-					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					wire |= (uint64(b) & 0x7F) << shift
-					if b < 0x80 {
-						break
-					}
-				}
-				fieldNum := int32(wire >> 3)
-				if fieldNum == 1 {
-					var stringLenmapkey uint64
-					for shift := uint(0); ; shift += 7 {
-						if shift >= 64 {
-							return ErrIntOverflowAccesslog
-						}
-						if iNdEx >= l {
-							return io.ErrUnexpectedEOF
-						}
-						b := dAtA[iNdEx]
-						iNdEx++
-						stringLenmapkey |= (uint64(b) & 0x7F) << shift
-						if b < 0x80 {
-							break
-						}
-					}
-					intStringLenmapkey := int(stringLenmapkey)
-					if intStringLenmapkey < 0 {
-						return ErrInvalidLengthAccesslog
-					}
-					postStringIndexmapkey := iNdEx + intStringLenmapkey
-					if postStringIndexmapkey > l {
-						return io.ErrUnexpectedEOF
-					}
-					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
-					iNdEx = postStringIndexmapkey
-				} else if fieldNum == 2 {
-					var stringLenmapvalue uint64
-					for shift := uint(0); ; shift += 7 {
-						if shift >= 64 {
-							return ErrIntOverflowAccesslog
-						}
-						if iNdEx >= l {
-							return io.ErrUnexpectedEOF
-						}
-						b := dAtA[iNdEx]
-						iNdEx++
-						stringLenmapvalue |= (uint64(b) & 0x7F) << shift
-						if b < 0x80 {
-							break
-						}
-					}
-					intStringLenmapvalue := int(stringLenmapvalue)
-					if intStringLenmapvalue < 0 {
-						return ErrInvalidLengthAccesslog
-					}
-					postStringIndexmapvalue := iNdEx + intStringLenmapvalue
-					if postStringIndexmapvalue > l {
-						return io.ErrUnexpectedEOF
-					}
-					mapvalue = string(dAtA[iNdEx:postStringIndexmapvalue])
-					iNdEx = postStringIndexmapvalue
-				} else {
-					iNdEx = entryPreIndex
-					skippy, err := skipAccesslog(dAtA[iNdEx:])
-					if err != nil {
-						return err
-					}
-					if skippy < 0 {
-						return ErrInvalidLengthAccesslog
-					}
-					if (iNdEx + skippy) > postIndex {
-						return io.ErrUnexpectedEOF
-					}
-					iNdEx += skippy
-				}
-			}
-			m.RequestHeaders[mapkey] = mapvalue
-			iNdEx = postIndex
-		default:
-			iNdEx = preIndex
-			skippy, err := skipAccesslog(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if skippy < 0 {
-				return ErrInvalidLengthAccesslog
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *HTTPResponseProperties) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowAccesslog
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: HTTPResponseProperties: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: HTTPResponseProperties: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field ResponseCode", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAccesslog
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthAccesslog
-			}
-			postIndex := iNdEx + msglen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.ResponseCode == nil {
-				m.ResponseCode = &google_protobuf.UInt32Value{}
-			}
-			if err := m.ResponseCode.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 2:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field ResponseHeadersBytes", wireType)
-			}
-			m.ResponseHeadersBytes = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAccesslog
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				m.ResponseHeadersBytes |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-		case 3:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field ResponseBodyBytes", wireType)
-			}
-			m.ResponseBodyBytes = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAccesslog
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				m.ResponseBodyBytes |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-		case 4:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field ResponseHeaders", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAccesslog
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthAccesslog
-			}
-			postIndex := iNdEx + msglen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.ResponseHeaders == nil {
-				m.ResponseHeaders = make(map[string]string)
-			}
-			var mapkey string
-			var mapvalue string
-			for iNdEx < postIndex {
-				entryPreIndex := iNdEx
-				var wire uint64
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return ErrIntOverflowAccesslog
-					}
-					if iNdEx >= l {
-						return io.ErrUnexpectedEOF
-					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					wire |= (uint64(b) & 0x7F) << shift
-					if b < 0x80 {
-						break
-					}
-				}
-				fieldNum := int32(wire >> 3)
-				if fieldNum == 1 {
-					var stringLenmapkey uint64
-					for shift := uint(0); ; shift += 7 {
-						if shift >= 64 {
-							return ErrIntOverflowAccesslog
-						}
-						if iNdEx >= l {
-							return io.ErrUnexpectedEOF
-						}
-						b := dAtA[iNdEx]
-						iNdEx++
-						stringLenmapkey |= (uint64(b) & 0x7F) << shift
-						if b < 0x80 {
-							break
-						}
-					}
-					intStringLenmapkey := int(stringLenmapkey)
-					if intStringLenmapkey < 0 {
-						return ErrInvalidLengthAccesslog
-					}
-					postStringIndexmapkey := iNdEx + intStringLenmapkey
-					if postStringIndexmapkey > l {
-						return io.ErrUnexpectedEOF
-					}
-					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
-					iNdEx = postStringIndexmapkey
-				} else if fieldNum == 2 {
-					var stringLenmapvalue uint64
-					for shift := uint(0); ; shift += 7 {
-						if shift >= 64 {
-							return ErrIntOverflowAccesslog
-						}
-						if iNdEx >= l {
-							return io.ErrUnexpectedEOF
-						}
-						b := dAtA[iNdEx]
-						iNdEx++
-						stringLenmapvalue |= (uint64(b) & 0x7F) << shift
-						if b < 0x80 {
-							break
-						}
-					}
-					intStringLenmapvalue := int(stringLenmapvalue)
-					if intStringLenmapvalue < 0 {
-						return ErrInvalidLengthAccesslog
-					}
-					postStringIndexmapvalue := iNdEx + intStringLenmapvalue
-					if postStringIndexmapvalue > l {
-						return io.ErrUnexpectedEOF
-					}
-					mapvalue = string(dAtA[iNdEx:postStringIndexmapvalue])
-					iNdEx = postStringIndexmapvalue
-				} else {
-					iNdEx = entryPreIndex
-					skippy, err := skipAccesslog(dAtA[iNdEx:])
-					if err != nil {
-						return err
-					}
-					if skippy < 0 {
-						return ErrInvalidLengthAccesslog
-					}
-					if (iNdEx + skippy) > postIndex {
-						return io.ErrUnexpectedEOF
-					}
-					iNdEx += skippy
-				}
-			}
-			m.ResponseHeaders[mapkey] = mapvalue
-			iNdEx = postIndex
-		default:
-			iNdEx = preIndex
-			skippy, err := skipAccesslog(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if skippy < 0 {
-				return ErrInvalidLengthAccesslog
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *HTTPAccessLogEntry) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowAccesslog
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: HTTPAccessLogEntry: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: HTTPAccessLogEntry: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field CommonProperties", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAccesslog
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthAccesslog
-			}
-			postIndex := iNdEx + msglen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.CommonProperties == nil {
-				m.CommonProperties = &AccessLogCommon{}
-			}
-			if err := m.CommonProperties.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 2:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field ProtocolVersion", wireType)
-			}
-			m.ProtocolVersion = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAccesslog
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				m.ProtocolVersion |= (HTTPAccessLogEntry_HTTPVersion(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-		case 3:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Request", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAccesslog
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthAccesslog
-			}
-			postIndex := iNdEx + msglen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.Request == nil {
-				m.Request = &HTTPRequestProperties{}
-			}
-			if err := m.Request.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 4:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Response", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAccesslog
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthAccesslog
-			}
-			postIndex := iNdEx + msglen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.Response == nil {
-				m.Response = &HTTPResponseProperties{}
-			}
-			if err := m.Response.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		default:
-			iNdEx = preIndex
-			skippy, err := skipAccesslog(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if skippy < 0 {
-				return ErrInvalidLengthAccesslog
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
 }
 func (m *AccessLog) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
@@ -5204,7 +1525,7 @@ func (m *AccessLog) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Config == nil {
-				m.Config = &google_protobuf4.Struct{}
+				m.Config = &google_protobuf.Struct{}
 			}
 			if err := m.Config.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -5516,6 +1837,38 @@ func (m *AccessLogFilter) Unmarshal(dAtA []byte) error {
 			}
 			m.FilterSpecifier = &AccessLogFilter_HeaderFilter{v}
 			iNdEx = postIndex
+		case 9:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ResponseFlagFilter", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowAccesslog
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthAccesslog
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &ResponseFlagFilter{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.FilterSpecifier = &AccessLogFilter_ResponseFlagFilter{v}
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipAccesslog(dAtA[iNdEx:])
@@ -5612,7 +1965,7 @@ func (m *ComparisonFilter) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Value == nil {
-				m.Value = &envoy_api_v2_core1.RuntimeUInt32{}
+				m.Value = &envoy_api_v2_core.RuntimeUInt32{}
 			}
 			if err := m.Value.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -6282,7 +2635,7 @@ func (m *HeaderFilter) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *FileAccessLog) Unmarshal(dAtA []byte) error {
+func (m *ResponseFlagFilter) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -6305,15 +2658,15 @@ func (m *FileAccessLog) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: FileAccessLog: wiretype end group for non-group")
+			return fmt.Errorf("proto: ResponseFlagFilter: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: FileAccessLog: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: ResponseFlagFilter: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Path", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field Flags", wireType)
 			}
 			var stringLen uint64
 			for shift := uint(0); ; shift += 7 {
@@ -6338,36 +2691,7 @@ func (m *FileAccessLog) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.Path = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 2:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Format", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAccesslog
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthAccesslog
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Format = string(dAtA[iNdEx:postIndex])
+			m.Flags = append(m.Flags, string(dAtA[iNdEx:postIndex]))
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -6500,149 +2824,63 @@ func init() {
 }
 
 var fileDescriptorAccesslog = []byte{
-	// 2295 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xbc, 0x59, 0xcd, 0x73, 0x1b, 0x49,
-	0x15, 0xcf, 0xc8, 0xb6, 0x22, 0x3d, 0x59, 0xf6, 0xb8, 0xed, 0xd8, 0xb2, 0xf3, 0x61, 0x47, 0x40,
-	0x55, 0xd8, 0xa5, 0xa4, 0x44, 0x81, 0x6c, 0x6a, 0x6b, 0x8b, 0xc5, 0x76, 0xa4, 0x8d, 0x59, 0x27,
-	0x76, 0x5a, 0xb2, 0x77, 0x8b, 0x54, 0x65, 0x68, 0x6b, 0x5a, 0xd6, 0x90, 0xd1, 0xf4, 0xd0, 0xd3,
-	0x72, 0x22, 0x8e, 0x9c, 0x28, 0x4e, 0x14, 0x27, 0x28, 0x8e, 0x5c, 0xf8, 0x0f, 0xa0, 0x96, 0x4b,
-	0xb8, 0x71, 0xe4, 0xc4, 0x15, 0x2a, 0xb7, 0x14, 0x17, 0xfe, 0x03, 0xa8, 0xfe, 0x98, 0x91, 0x46,
-	0xf6, 0xae, 0x94, 0xf0, 0x91, 0x43, 0x34, 0xfd, 0xfa, 0xfd, 0x7e, 0xaf, 0xfb, 0x7d, 0x75, 0xcf,
-	0x18, 0x6e, 0xd3, 0xe0, 0x8c, 0x0d, 0xaa, 0x6d, 0x16, 0x74, 0xbc, 0xd3, 0x6a, 0xc7, 0xf3, 0x05,
-	0xe5, 0x55, 0xd2, 0x6e, 0xd3, 0x28, 0xf2, 0xd9, 0x69, 0xf5, 0xac, 0x36, 0x1c, 0x54, 0x42, 0xce,
-	0x04, 0x43, 0x5b, 0x0a, 0x51, 0xd1, 0x88, 0x8a, 0x46, 0x54, 0x86, 0x4a, 0x67, 0xb5, 0x8d, 0x4d,
-	0xcd, 0x49, 0x42, 0x4f, 0xe2, 0xdb, 0x8c, 0xd3, 0x2a, 0x71, 0x5d, 0x4e, 0xa3, 0x48, 0x53, 0x6c,
-	0x5c, 0x3b, 0xaf, 0x70, 0x42, 0x22, 0x6a, 0x66, 0x6f, 0xa4, 0x66, 0x39, 0xeb, 0x0b, 0xaa, 0xff,
-	0x37, 0xf3, 0x25, 0x3d, 0x2f, 0x06, 0x21, 0xad, 0x86, 0x94, 0xb7, 0x69, 0x20, 0x62, 0xe4, 0x29,
-	0x63, 0xa7, 0x3e, 0xad, 0xaa, 0xd1, 0x49, 0xbf, 0x53, 0x75, 0xfb, 0x9c, 0x08, 0x8f, 0x05, 0xb1,
-	0xdd, 0xf1, 0xf9, 0x48, 0xf0, 0x7e, 0x3b, 0x46, 0x6f, 0x8e, 0xcf, 0x0a, 0xaf, 0x47, 0x23, 0x41,
-	0x7a, 0xe1, 0x97, 0xd1, 0xbf, 0xe0, 0x24, 0x0c, 0x29, 0x8f, 0xb7, 0xb5, 0x76, 0x46, 0x7c, 0xcf,
-	0x25, 0x82, 0x56, 0xe3, 0x07, 0x33, 0xb1, 0x72, 0xca, 0x4e, 0x99, 0x7a, 0xac, 0xca, 0x27, 0x2d,
-	0x2d, 0xff, 0xae, 0x00, 0x8b, 0xdb, 0xca, 0x6f, 0xfb, 0xec, 0x74, 0x97, 0xf5, 0x7a, 0x2c, 0x40,
-	0xdb, 0x50, 0x88, 0x48, 0x2f, 0xf4, 0xa9, 0xc3, 0x89, 0xa0, 0x25, 0x6b, 0xcb, 0xba, 0x65, 0xed,
-	0x6c, 0x7d, 0xf1, 0xe6, 0xd5, 0x4c, 0x01, 0xe5, 0x6f, 0x5e, 0x32, 0xff, 0xcc, 0x78, 0x5d, 0x8f,
-	0xfe, 0xf9, 0x31, 0x06, 0x0d, 0xc2, 0x44, 0x50, 0x74, 0x0c, 0xeb, 0x2e, 0x7b, 0x11, 0x44, 0x82,
-	0x53, 0xd2, 0x73, 0x38, 0xed, 0x31, 0x41, 0x1d, 0xe3, 0xff, 0x52, 0x66, 0xcb, 0xba, 0x55, 0xa8,
-	0x6d, 0x54, 0x74, 0x0c, 0x49, 0xe8, 0x55, 0xce, 0x6a, 0x15, 0x19, 0x80, 0xca, 0xb6, 0xd6, 0xc0,
-	0x6b, 0x43, 0x30, 0x56, 0x58, 0x33, 0x81, 0x5a, 0x50, 0x1a, 0xe1, 0xf5, 0x59, 0x9b, 0xf8, 0x09,
-	0xed, 0xcc, 0x44, 0xda, 0xd5, 0x21, 0x76, 0x5f, 0x42, 0x63, 0xd6, 0x63, 0x58, 0x10, 0x7e, 0xe4,
-	0x84, 0x9c, 0x85, 0x94, 0x0b, 0x8f, 0x46, 0xa5, 0x59, 0xc5, 0x55, 0xad, 0x4c, 0x4a, 0xb3, 0x4a,
-	0x6b, 0xbf, 0x79, 0x98, 0xc0, 0x70, 0x51, 0xf8, 0xd1, 0x70, 0x88, 0x3e, 0x06, 0x88, 0x04, 0xe1,
-	0xc2, 0x91, 0x41, 0x2c, 0xcd, 0x99, 0xf5, 0xe9, 0x00, 0x56, 0xe2, 0x00, 0x56, 0x5a, 0x71, 0x84,
-	0x77, 0x66, 0x7f, 0xf1, 0xb7, 0x4d, 0x0b, 0xe7, 0x15, 0x46, 0x4a, 0xd1, 0x01, 0xac, 0x48, 0xa8,
-	0x23, 0x98, 0xe3, 0x93, 0x48, 0x38, 0xfc, 0xa5, 0x73, 0x32, 0x10, 0xb4, 0x94, 0x55, 0x54, 0xeb,
-	0xe7, 0xa8, 0x1e, 0x98, 0x54, 0xdb, 0x99, 0xfd, 0x95, 0x64, 0xb2, 0x25, 0xb8, 0xc5, 0xf6, 0x49,
-	0x24, 0xf0, 0xcb, 0x9d, 0x81, 0xa0, 0xe8, 0x04, 0x6e, 0xc4, 0x84, 0x1d, 0x8f, 0x47, 0xc2, 0xe9,
-	0x87, 0xc6, 0x97, 0xc2, 0x50, 0x5f, 0x9e, 0x8e, 0x7a, 0x5d, 0x53, 0x37, 0x24, 0xc9, 0x91, 0xe1,
-	0x68, 0x69, 0x1b, 0x3f, 0x84, 0xeb, 0xa9, 0x45, 0x9f, 0x33, 0x91, 0x9b, 0xce, 0x44, 0x69, 0xb8,
-	0xfa, 0x31, 0x0b, 0x5f, 0xbe, 0x8b, 0xd8, 0x41, 0xf9, 0x77, 0xdf, 0x05, 0x9e, 0xb0, 0x8b, 0xd8,
-	0x04, 0xbc, 0xf3, 0x2e, 0x8c, 0x85, 0x0e, 0x6c, 0xa5, 0x77, 0x31, 0x92, 0xd9, 0xb1, 0xab, 0x0a,
-	0xd3, 0x19, 0xb9, 0x3a, 0xb2, 0x8f, 0x07, 0x09, 0x8b, 0xf1, 0x96, 0x0b, 0x9b, 0xa9, 0x9d, 0x5c,
-	0x60, 0x66, 0x7e, 0x3a, 0x33, 0x1b, 0xc3, 0xbd, 0x9c, 0xb3, 0x82, 0x61, 0x6d, 0xe8, 0xa2, 0x74,
-	0xbd, 0x17, 0x27, 0x16, 0xe6, 0x95, 0x18, 0x9a, 0xae, 0xf6, 0x43, 0x58, 0x4d, 0x38, 0xd3, 0xb5,
-	0xbe, 0x30, 0x91, 0x72, 0x25, 0x46, 0xa6, 0x2a, 0xfd, 0x9b, 0x60, 0x27, 0x8c, 0x6d, 0xbf, 0x1f,
-	0x09, 0xca, 0x4b, 0x8b, 0x5b, 0xd6, 0xad, 0x3c, 0x5e, 0x8c, 0xe5, 0xbb, 0x5a, 0x2c, 0x9b, 0x02,
-	0xa7, 0x51, 0xc8, 0x82, 0x88, 0x3a, 0x1d, 0x9f, 0x9c, 0x46, 0x25, 0x7b, 0xda, 0xa6, 0x80, 0x0d,
-	0xae, 0x21, 0x61, 0xb8, 0xc8, 0x47, 0x87, 0xe8, 0x03, 0xc8, 0xf5, 0xa8, 0x20, 0x2e, 0x11, 0xa4,
-	0xb4, 0xa4, 0x18, 0xaf, 0x5e, 0xb0, 0x8d, 0x47, 0x46, 0x05, 0x27, 0xca, 0xe5, 0x7f, 0x64, 0xa1,
-	0x98, 0x62, 0x46, 0xf7, 0xa1, 0xd4, 0x21, 0x9e, 0x4f, 0x5d, 0xe3, 0x9d, 0x2e, 0x25, 0xbe, 0xe8,
-	0xb6, 0xbb, 0xb4, 0xfd, 0x5c, 0x75, 0xed, 0x1c, 0x5e, 0xd5, 0xf3, 0xca, 0x07, 0x0f, 0x87, 0xb3,
-	0xa8, 0x02, 0xcb, 0x01, 0x33, 0xfa, 0x83, 0x24, 0xb7, 0x55, 0x67, 0xce, 0xe1, 0xa5, 0x80, 0x69,
-	0xdd, 0x41, 0x9c, 0xb1, 0xd2, 0xd2, 0x48, 0x74, 0x7f, 0xdc, 0xa7, 0x91, 0x6e, 0x6a, 0xac, 0x2f,
-	0x54, 0xdf, 0xcd, 0xe1, 0xd5, 0x61, 0x08, 0xd5, 0x74, 0x4b, 0xcf, 0xa2, 0x4d, 0x28, 0xe8, 0xc5,
-	0x71, 0x1a, 0x51, 0xa1, 0x1a, 0x6b, 0x0e, 0x83, 0x12, 0x61, 0x29, 0x41, 0x35, 0xb8, 0x32, 0x9e,
-	0x38, 0x5a, 0x75, 0x4e, 0xa9, 0x2e, 0xa7, 0x53, 0x43, 0x63, 0xbe, 0x0b, 0x57, 0x87, 0x61, 0x64,
-	0x41, 0x40, 0xdb, 0x32, 0x4b, 0x1d, 0xb9, 0xd9, 0x3e, 0xd7, 0xed, 0x31, 0x87, 0xd7, 0x93, 0x88,
-	0x26, 0x1a, 0x0d, 0xad, 0x80, 0x1a, 0xb0, 0x79, 0x11, 0x5e, 0x50, 0xde, 0xf3, 0x02, 0x95, 0xf1,
-	0xaa, 0x0f, 0xe6, 0xf0, 0xf5, 0xf3, 0x1c, 0xad, 0xa1, 0x12, 0x7a, 0x1f, 0x96, 0x12, 0x1e, 0x76,
-	0x46, 0x79, 0xc7, 0x67, 0x2f, 0x54, 0x7b, 0xcb, 0xe1, 0x24, 0xcf, 0x0e, 0x8c, 0x1c, 0x7d, 0x1d,
-	0x16, 0x02, 0xe6, 0xa8, 0x4b, 0x84, 0xd3, 0x61, 0xfd, 0xc0, 0x55, 0x5d, 0x2a, 0x87, 0xe7, 0x03,
-	0x86, 0xa5, 0xb0, 0x21, 0x65, 0xe8, 0x1b, 0xb0, 0xe0, 0x52, 0x9f, 0x0c, 0x1c, 0x2f, 0xf8, 0x11,
-	0x6d, 0x0b, 0xea, 0xaa, 0x46, 0x93, 0xc3, 0x45, 0x25, 0xdd, 0x33, 0x42, 0xa9, 0xd6, 0x21, 0x7d,
-	0x5f, 0x0c, 0xd5, 0x0a, 0x5a, 0x4d, 0x49, 0x13, 0xb5, 0x9b, 0x30, 0x2f, 0xcf, 0x70, 0xc7, 0xf7,
-	0x7a, 0x9e, 0x54, 0x9a, 0x57, 0x4a, 0x05, 0x29, 0xdb, 0xd7, 0x22, 0xc4, 0x60, 0xa5, 0x1f, 0x90,
-	0xbe, 0xe8, 0x32, 0xee, 0xfd, 0x84, 0xba, 0x8e, 0x4b, 0x05, 0xf1, 0xfc, 0xb8, 0x6a, 0x3f, 0x7a,
-	0xcb, 0x6c, 0xaf, 0x1c, 0x8d, 0x70, 0xe1, 0xe5, 0x51, 0xe6, 0x07, 0x9a, 0x78, 0xe3, 0xb7, 0x16,
-	0xcc, 0x8f, 0x6a, 0xa1, 0xa7, 0x90, 0xe5, 0x94, 0x44, 0x2c, 0x50, 0x49, 0xbb, 0x50, 0xdb, 0xfd,
-	0x4f, 0x6c, 0x56, 0xb0, 0xa2, 0xc2, 0x86, 0xb2, 0x7c, 0x0f, 0xb2, 0x5a, 0x82, 0x56, 0x01, 0xe1,
-	0xfa, 0x76, 0xf3, 0xe0, 0xb1, 0x73, 0xf4, 0xb8, 0x79, 0x58, 0xdf, 0xdd, 0x6b, 0xec, 0xd5, 0x1f,
-	0xd8, 0x97, 0xd0, 0x0a, 0xd8, 0xf5, 0xcf, 0x5b, 0x75, 0xfc, 0x78, 0x7b, 0xdf, 0x69, 0xd6, 0xf1,
-	0xf1, 0xde, 0x6e, 0xdd, 0xb6, 0xca, 0xbf, 0xcf, 0x40, 0x31, 0x75, 0xb8, 0xa3, 0xa7, 0x50, 0x90,
-	0xb7, 0x84, 0x33, 0xca, 0x23, 0x2f, 0x59, 0xeb, 0x87, 0x6f, 0x79, 0x45, 0x90, 0xa3, 0x63, 0xcd,
-	0x80, 0x41, 0xf8, 0x91, 0x79, 0x46, 0x0d, 0xb0, 0x25, 0x79, 0xdb, 0x0b, 0xbb, 0x94, 0x3b, 0x51,
-	0xdf, 0x13, 0xd4, 0xdc, 0x93, 0xae, 0x9d, 0xeb, 0xca, 0x47, 0x7b, 0x81, 0xb8, 0x5b, 0x3b, 0x26,
-	0x7e, 0x9f, 0x62, 0x79, 0x71, 0xd9, 0x55, 0xa0, 0xa6, 0xc4, 0xa0, 0x5b, 0x9a, 0x27, 0x0a, 0x3c,
-	0xa7, 0xcb, 0x22, 0x11, 0x90, 0x1e, 0x55, 0x05, 0x9a, 0x57, 0x9a, 0xcd, 0xc0, 0x7b, 0x68, 0xa4,
-	0xe5, 0xcf, 0x00, 0x86, 0x6b, 0x41, 0x6b, 0xb0, 0x7c, 0x5c, 0xc7, 0xcd, 0xbd, 0x73, 0xde, 0xc9,
-	0xc3, 0x5c, 0x6b, 0xbf, 0x79, 0x76, 0xc7, 0xb6, 0x50, 0x01, 0x2e, 0xab, 0x47, 0xe7, 0x8e, 0x9d,
-	0x19, 0x0e, 0x6a, 0xf6, 0xcc, 0x70, 0x70, 0xd7, 0x9e, 0x2d, 0x47, 0xb0, 0xd4, 0xda, 0x3d, 0x4c,
-	0x2e, 0x95, 0xf5, 0x40, 0xf0, 0x01, 0x7a, 0x06, 0x4b, 0x6d, 0x75, 0xbb, 0x1c, 0xbd, 0x65, 0x59,
-	0x6a, 0x83, 0x77, 0x26, 0xbb, 0x70, 0xec, 0x86, 0x8a, 0x6d, 0xcd, 0x35, 0x74, 0x6b, 0xf9, 0xd7,
-	0x73, 0x70, 0xe5, 0x61, 0xab, 0x75, 0x68, 0xba, 0xcf, 0x48, 0xd8, 0x3e, 0x91, 0x7d, 0x5c, 0x77,
-	0xac, 0x1e, 0x15, 0x5d, 0xe6, 0x9a, 0xc8, 0x6d, 0x5d, 0xd0, 0x75, 0x0d, 0xfa, 0x91, 0xd2, 0x93,
-	0x8d, 0x7b, 0x64, 0x88, 0x56, 0x21, 0x1b, 0xb5, 0xbb, 0xb4, 0xa7, 0x03, 0x93, 0xc7, 0x66, 0x84,
-	0xae, 0x41, 0xde, 0xa4, 0x9f, 0x18, 0x18, 0x5f, 0x0f, 0x05, 0xe8, 0x36, 0xcc, 0x86, 0x8c, 0x0b,
-	0x73, 0xa3, 0xfc, 0xea, 0x60, 0x2a, 0x4d, 0x84, 0x60, 0x36, 0x24, 0xa2, 0xab, 0xfa, 0x5f, 0x1e,
-	0xab, 0x67, 0x74, 0x1d, 0xa0, 0x1f, 0x51, 0xee, 0x90, 0x53, 0x1a, 0x08, 0xd5, 0xdf, 0xf2, 0x38,
-	0x2f, 0x25, 0xdb, 0x52, 0x80, 0x4a, 0x70, 0x99, 0xd3, 0x0e, 0xe5, 0x94, 0xab, 0xbe, 0x95, 0xc7,
-	0xf1, 0x10, 0x7d, 0x0d, 0x8a, 0x1d, 0xc6, 0x5f, 0x10, 0xee, 0x52, 0xd7, 0xe9, 0x30, 0xae, 0xba,
-	0x53, 0x1e, 0xcf, 0x27, 0xc2, 0x06, 0xe3, 0x92, 0x3d, 0x76, 0x91, 0xa7, 0xbb, 0x52, 0x1e, 0xe7,
-	0x8d, 0x64, 0xcf, 0x95, 0x1c, 0x8c, 0x7b, 0xa7, 0x5e, 0x40, 0x7c, 0x47, 0xad, 0x0c, 0x34, 0x47,
-	0x2c, 0x3c, 0x94, 0x2b, 0xac, 0xc1, 0x95, 0x98, 0xa3, 0x4b, 0x89, 0x4b, 0x79, 0xa4, 0xae, 0x16,
-	0x91, 0xea, 0x4b, 0xb3, 0x78, 0xd9, 0x4c, 0x3e, 0xd4, 0x73, 0xf2, 0xca, 0x10, 0xa1, 0x6f, 0x01,
-	0x8a, 0x31, 0x27, 0xcc, 0x1d, 0x18, 0xc0, 0xbc, 0x02, 0xd8, 0x66, 0x66, 0x87, 0xb9, 0x03, 0xad,
-	0x2d, 0x60, 0x71, 0xcc, 0x42, 0xa9, 0xb8, 0x35, 0x73, 0xab, 0x50, 0xfb, 0x74, 0x72, 0x02, 0x5d,
-	0x98, 0x1a, 0x71, 0xb8, 0xcd, 0x9a, 0x54, 0xa2, 0xe2, 0x85, 0xf4, 0x42, 0x37, 0xb6, 0x61, 0xf9,
-	0x02, 0x35, 0x64, 0xc3, 0xcc, 0x73, 0x3a, 0x50, 0xa9, 0x94, 0xc7, 0xf2, 0x11, 0xad, 0xc0, 0xdc,
-	0x99, 0x8c, 0xa2, 0xc9, 0x0e, 0x3d, 0xf8, 0x30, 0x73, 0xdf, 0x2a, 0xff, 0x2b, 0x03, 0xab, 0x7a,
-	0x01, 0xba, 0x69, 0x8d, 0x24, 0xe7, 0x36, 0x24, 0xb7, 0x03, 0xa7, 0xcd, 0x5c, 0x6a, 0x4a, 0xe2,
-	0xab, 0xd3, 0x64, 0x3e, 0x86, 0xec, 0x32, 0x97, 0xa2, 0x6f, 0xc3, 0x6a, 0x42, 0x91, 0xf6, 0x7c,
-	0x46, 0x39, 0x72, 0x25, 0x9e, 0x4d, 0xb9, 0xbe, 0x02, 0xcb, 0x09, 0x6a, 0xc4, 0xf7, 0x33, 0x0a,
-	0xb2, 0x14, 0x4f, 0x0d, 0x9d, 0xff, 0x12, 0xec, 0x71, 0x2b, 0xa5, 0x59, 0xe5, 0xfd, 0x47, 0xd3,
-	0x7a, 0x7f, 0x7c, 0xf3, 0x49, 0x13, 0x4f, 0xf9, 0x7f, 0x71, 0x6c, 0xb9, 0x1b, 0x3b, 0xb0, 0x72,
-	0x91, 0xe2, 0x5b, 0x45, 0xe0, 0xaf, 0x33, 0x80, 0xe4, 0x22, 0xfe, 0xbf, 0x4d, 0x09, 0x3d, 0x07,
-	0x5b, 0x05, 0xb0, 0xcd, 0xfc, 0xe4, 0xd8, 0xc8, 0xa8, 0xe6, 0xf3, 0xbd, 0xe9, 0x9c, 0x96, 0x5e,
-	0xaf, 0x12, 0xc5, 0x87, 0xc7, 0x62, 0xcc, 0x1c, 0x77, 0xf0, 0x27, 0xb2, 0x07, 0xa8, 0x44, 0x35,
-	0x6f, 0xc2, 0x1f, 0xbc, 0x63, 0x59, 0xe0, 0x98, 0x07, 0xb5, 0x20, 0x17, 0x47, 0xc3, 0xf4, 0xaf,
-	0xfb, 0xef, 0x1a, 0x6c, 0x9c, 0x30, 0x95, 0xbf, 0x0f, 0x85, 0x91, 0x8d, 0xa0, 0x12, 0xac, 0x1c,
-	0xe2, 0x83, 0xd6, 0xc1, 0xee, 0xc1, 0xfe, 0xd8, 0xd1, 0x03, 0x90, 0x95, 0x8a, 0x77, 0x6e, 0xdb,
-	0x56, 0xf2, 0x2c, 0x8f, 0x9e, 0x3c, 0xcc, 0xc9, 0xe7, 0x9a, 0x3d, 0x53, 0xfe, 0x8d, 0x05, 0xf9,
-	0xc4, 0x49, 0xb2, 0x73, 0xaa, 0x03, 0x4f, 0xe7, 0x84, 0x7a, 0x46, 0x7b, 0x90, 0xd5, 0xab, 0x34,
-	0xc7, 0xe9, 0xdb, 0x04, 0xb6, 0xa1, 0x26, 0xb1, 0x21, 0x40, 0x55, 0xc8, 0x6a, 0x94, 0x71, 0xf0,
-	0xda, 0xb9, 0x2a, 0x6d, 0xaa, 0x4f, 0x39, 0xd8, 0xa8, 0x95, 0x7f, 0x96, 0x1d, 0xf9, 0xb8, 0xa2,
-	0xc9, 0xd0, 0x09, 0xa0, 0x48, 0x10, 0xd1, 0x8f, 0x54, 0xbd, 0x3b, 0x66, 0x6d, 0x3a, 0xe9, 0x6a,
-	0x93, 0xd7, 0xd6, 0x54, 0x58, 0x59, 0xf8, 0x9a, 0xef, 0xe1, 0x25, 0x6c, 0x47, 0x63, 0x32, 0xf4,
-	0x14, 0x16, 0xe3, 0x8f, 0x4e, 0x4e, 0x6a, 0xf3, 0xb7, 0x27, 0x1b, 0x88, 0x5f, 0xf9, 0x12, 0xfa,
-	0x05, 0x37, 0x25, 0x41, 0x0c, 0xd6, 0x02, 0x26, 0xcc, 0xbb, 0x83, 0xa3, 0x5e, 0x27, 0x62, 0x23,
-	0xda, 0x2d, 0xf7, 0x26, 0x1b, 0x79, 0xcc, 0x84, 0x7e, 0xc3, 0xd8, 0x95, 0xf0, 0xc4, 0xd4, 0x4a,
-	0x70, 0x81, 0x1c, 0x3d, 0x03, 0x5b, 0x70, 0xd2, 0xa6, 0xe4, 0xc4, 0x4f, 0xfc, 0x35, 0x3b, 0x6d,
-	0x2c, 0x5b, 0x31, 0x32, 0x31, 0xb2, 0x28, 0xd2, 0x22, 0xf4, 0x39, 0x2c, 0xf0, 0x7e, 0xa0, 0x5e,
-	0x91, 0x0d, 0xfb, 0xdc, 0xd4, 0x2f, 0x7a, 0x1a, 0x97, 0x70, 0x17, 0xf9, 0xa8, 0x00, 0xed, 0x03,
-	0x90, 0xc0, 0x8d, 0x59, 0xf5, 0x47, 0x9b, 0xf7, 0xa7, 0xc8, 0xbf, 0xc0, 0x4d, 0x18, 0xf3, 0x24,
-	0x1e, 0xa0, 0x3d, 0xc8, 0x33, 0x1e, 0x93, 0xe9, 0xcf, 0x34, 0xef, 0x4d, 0x26, 0x3b, 0xe0, 0x09,
-	0x57, 0x8e, 0x99, 0x67, 0x74, 0x04, 0x45, 0xdd, 0xc4, 0x63, 0x3a, 0xfd, 0x49, 0xa6, 0x32, 0x45,
-	0x75, 0x2b, 0x58, 0x42, 0x39, 0xdf, 0x1d, 0x19, 0xef, 0xac, 0x83, 0xad, 0x31, 0x4e, 0x14, 0xd2,
-	0xb6, 0xd7, 0xf1, 0x28, 0x47, 0x73, 0x7f, 0x78, 0xf3, 0x6a, 0xc6, 0x2a, 0xff, 0xd1, 0x02, 0x7b,
-	0x97, 0xf5, 0x42, 0xc2, 0xbd, 0x28, 0x49, 0xa5, 0x27, 0x90, 0x61, 0xa1, 0xb9, 0x8e, 0x7d, 0x67,
-	0xb2, 0xed, 0x71, 0x7c, 0xe5, 0x20, 0xdc, 0x81, 0x2f, 0xde, 0xbc, 0x9a, 0x99, 0xfb, 0xa9, 0x95,
-	0xb1, 0x2d, 0x9c, 0x61, 0x21, 0xba, 0x37, 0x7a, 0x06, 0x14, 0x2e, 0xbe, 0xe4, 0xe9, 0x18, 0xe9,
-	0x13, 0xd5, 0x9c, 0x12, 0xe5, 0x6b, 0x90, 0x39, 0x08, 0x51, 0x16, 0x32, 0xf5, 0x27, 0xf6, 0x25,
-	0xf9, 0xfb, 0x49, 0xdd, 0xb6, 0xe4, 0xef, 0x7e, 0xdd, 0xce, 0x94, 0x39, 0xd8, 0xe3, 0x85, 0x87,
-	0x9e, 0x01, 0xb4, 0x93, 0x05, 0x4d, 0x5f, 0xc0, 0xe3, 0x9b, 0x30, 0x3b, 0xf8, 0xb9, 0xda, 0xc1,
-	0x08, 0x63, 0x39, 0x84, 0x85, 0x74, 0x2d, 0xfe, 0xcf, 0x2d, 0xae, 0xc2, 0xca, 0x45, 0x85, 0x59,
-	0x5e, 0x82, 0xc5, 0xb1, 0x32, 0x2a, 0xff, 0xc9, 0x82, 0x62, 0x2a, 0xf9, 0xd1, 0x7b, 0x50, 0x88,
-	0xab, 0x28, 0x39, 0x96, 0x77, 0xf2, 0xd2, 0xd2, 0x2c, 0xcf, 0x6c, 0x59, 0x18, 0xcc, 0xec, 0xa7,
-	0x74, 0x80, 0x1a, 0xb0, 0x68, 0xbe, 0x99, 0x3b, 0xfa, 0x9b, 0xb1, 0x6b, 0xc2, 0x75, 0xdd, 0xec,
-	0x46, 0x0c, 0x42, 0x5a, 0x69, 0x70, 0xa2, 0x5e, 0xb8, 0x89, 0x7f, 0xa8, 0x95, 0xf1, 0x82, 0x41,
-	0x35, 0x35, 0x08, 0x7d, 0x04, 0x1b, 0xfd, 0x88, 0x3a, 0x5e, 0xe0, 0xd2, 0x90, 0x06, 0xae, 0xe4,
-	0xe3, 0x24, 0x70, 0x59, 0x2f, 0x88, 0xbf, 0x07, 0xe7, 0x70, 0xa9, 0x1f, 0xd1, 0xbd, 0xa1, 0x02,
-	0x4e, 0xe6, 0xcb, 0x2e, 0xe4, 0x93, 0x4a, 0x43, 0x9f, 0xc1, 0x65, 0xed, 0x3b, 0x79, 0x01, 0x98,
-	0x79, 0xa7, 0x73, 0xc2, 0xf8, 0xf5, 0x97, 0x56, 0x26, 0x97, 0xc1, 0x31, 0x5b, 0xb9, 0x0d, 0xb9,
-	0xb8, 0x04, 0x47, 0x8d, 0x64, 0xfe, 0xab, 0x46, 0x8e, 0x60, 0x7e, 0xb4, 0x30, 0x51, 0x1d, 0xb2,
-	0xba, 0x30, 0x4d, 0x96, 0xdc, 0x4c, 0x97, 0x81, 0xfe, 0x43, 0x86, 0x46, 0x3c, 0x22, 0xa2, 0xdd,
-	0x1d, 0x4b, 0x0a, 0x03, 0x2e, 0x37, 0xa0, 0xd8, 0xf0, 0x7c, 0x3a, 0x3c, 0x60, 0xaf, 0x9b, 0x57,
-	0x93, 0x73, 0xd1, 0xd5, 0x6f, 0x29, 0xab, 0x90, 0xed, 0x30, 0xde, 0x23, 0x22, 0x7e, 0x43, 0xd2,
-	0xa3, 0x1d, 0xfb, 0xcf, 0xaf, 0x6f, 0x58, 0x7f, 0x79, 0x7d, 0xc3, 0xfa, 0xfb, 0xeb, 0x1b, 0xd6,
-	0x0f, 0x32, 0x67, 0xb5, 0x93, 0xac, 0x3a, 0x32, 0xef, 0xfe, 0x3b, 0x00, 0x00, 0xff, 0xff, 0x88,
-	0x55, 0x93, 0x37, 0xfa, 0x19, 0x00, 0x00,
+	// 922 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x95, 0x41, 0x6f, 0xdb, 0x36,
+	0x14, 0xc7, 0x2b, 0x26, 0x71, 0xed, 0xd7, 0xc6, 0xd6, 0x88, 0x60, 0xf1, 0x82, 0x2c, 0xf0, 0x74,
+	0x2a, 0x3a, 0x40, 0xea, 0xdc, 0x2d, 0x18, 0x86, 0xed, 0x50, 0xa7, 0xf6, 0x62, 0xcc, 0x6b, 0x56,
+	0xa6, 0xc6, 0x82, 0x0d, 0xa8, 0x41, 0x4b, 0xb4, 0x2d, 0x54, 0x16, 0x05, 0x8a, 0x32, 0x90, 0xeb,
+	0x8e, 0x3b, 0xf6, 0xba, 0x2f, 0x32, 0x6c, 0x97, 0xee, 0xb6, 0xe3, 0x3e, 0xc2, 0x90, 0x5b, 0xaf,
+	0xfb, 0x04, 0x83, 0x48, 0x4a, 0xb1, 0xdd, 0x02, 0x0e, 0x86, 0xf5, 0x60, 0x4b, 0xe4, 0xe3, 0xff,
+	0xf7, 0xde, 0xa3, 0xf8, 0x1e, 0xe1, 0x01, 0x8b, 0x17, 0xfc, 0xd2, 0xf3, 0x79, 0x3c, 0x09, 0xa7,
+	0xde, 0x24, 0x8c, 0x24, 0x13, 0x1e, 0xf5, 0x7d, 0x96, 0xa6, 0x11, 0x9f, 0x7a, 0x8b, 0xf6, 0xf5,
+	0xc0, 0x4d, 0x04, 0x97, 0x1c, 0xb7, 0x94, 0xc2, 0xd5, 0x0a, 0x57, 0x2b, 0xdc, 0xeb, 0x45, 0x8b,
+	0xf6, 0xc1, 0xa1, 0x66, 0xd2, 0x24, 0xcc, 0xf5, 0x3e, 0x17, 0xcc, 0x1b, 0xd3, 0x94, 0x69, 0xfd,
+	0xc1, 0xd1, 0x8a, 0x55, 0xf0, 0x4c, 0x32, 0xfd, 0x6f, 0xec, 0x4d, 0x6d, 0x97, 0x97, 0x09, 0xf3,
+	0x12, 0x26, 0x7c, 0x16, 0x4b, 0x63, 0x39, 0x9c, 0x72, 0x3e, 0x8d, 0x98, 0xa7, 0x46, 0xe3, 0x6c,
+	0xe2, 0xa5, 0x52, 0x64, 0x7e, 0x61, 0xdd, 0x5f, 0xd0, 0x28, 0x0c, 0xa8, 0x64, 0x5e, 0xf1, 0xa2,
+	0x0d, 0xce, 0x2f, 0x16, 0xd4, 0x1e, 0xa9, 0xf8, 0x06, 0x7c, 0x8a, 0x31, 0x6c, 0xc7, 0x74, 0xce,
+	0x9a, 0x56, 0xcb, 0xba, 0x57, 0x23, 0xea, 0x1d, 0xf7, 0xa1, 0xa2, 0xf3, 0x68, 0xa2, 0x96, 0x75,
+	0xef, 0x4e, 0xfb, 0x13, 0x77, 0x53, 0x8e, 0x6e, 0x09, 0xec, 0x29, 0x23, 0x31, 0x00, 0xec, 0x41,
+	0x45, 0xab, 0x9a, 0x5b, 0x0a, 0xb5, 0xef, 0xea, 0xa0, 0xdd, 0x22, 0x68, 0xf7, 0x5c, 0x05, 0x4d,
+	0xcc, 0x32, 0xe7, 0x9f, 0x0a, 0x34, 0xd6, 0x60, 0x78, 0x0c, 0x38, 0x95, 0x54, 0x66, 0xe9, 0xc8,
+	0xe7, 0x01, 0x1b, 0x99, 0xd8, 0x2c, 0x05, 0x6c, 0x6f, 0x8e, 0xed, 0x5c, 0x69, 0x4f, 0x78, 0xc0,
+	0x34, 0xef, 0xf4, 0x16, 0xb1, 0xd3, 0xb5, 0x39, 0xfc, 0x23, 0x34, 0x82, 0x4c, 0x50, 0x19, 0xf2,
+	0x78, 0xb4, 0x92, 0xfc, 0x83, 0xcd, 0x0e, 0x1e, 0x1b, 0x61, 0x89, 0xaf, 0x07, 0x2b, 0x33, 0x98,
+	0xc3, 0x7e, 0xcc, 0xe5, 0x68, 0xc6, 0x68, 0x24, 0x67, 0x23, 0x7f, 0xc6, 0xfc, 0x17, 0x85, 0x13,
+	0xbd, 0x2d, 0xc7, 0x9b, 0x9d, 0x3c, 0xe1, 0xf2, 0x54, 0xe9, 0x4f, 0x72, 0x79, 0xe9, 0x6a, 0x2f,
+	0x7e, 0xcb, 0x3c, 0x7e, 0x0e, 0xb6, 0x14, 0xd4, 0x67, 0x74, 0x1c, 0x95, 0xfb, 0xb5, 0x7d, 0xd3,
+	0x6f, 0xf9, 0xac, 0x50, 0x96, 0x4e, 0x1a, 0x72, 0x75, 0x0a, 0x5f, 0x40, 0x5d, 0x64, 0xb1, 0x0c,
+	0xe7, 0x25, 0x7d, 0x47, 0xd1, 0xbd, 0xcd, 0x74, 0xa2, 0x75, 0x25, 0x7b, 0x57, 0x2c, 0x4f, 0xe0,
+	0x01, 0x00, 0x8d, 0x83, 0x82, 0x5a, 0x51, 0xd4, 0x8f, 0x6f, 0x70, 0xfe, 0xe2, 0xa0, 0x24, 0xd6,
+	0x68, 0x31, 0xc0, 0x7d, 0xa8, 0x71, 0x51, 0xc0, 0x6e, 0x2b, 0xd8, 0xfd, 0xcd, 0xb0, 0x33, 0x51,
+	0xb2, 0xaa, 0xdc, 0xbc, 0xe3, 0x21, 0xec, 0xce, 0x18, 0x0d, 0x58, 0x89, 0xab, 0x2a, 0x9c, 0xbb,
+	0x19, 0x77, 0xaa, 0x64, 0x25, 0xf2, 0xee, 0x6c, 0x69, 0x8c, 0x67, 0xb0, 0x27, 0x58, 0x9a, 0xf0,
+	0x38, 0x65, 0xa3, 0x49, 0x44, 0xa7, 0x05, 0xbd, 0xa6, 0xe8, 0x9f, 0xde, 0x60, 0x3f, 0x8d, 0xba,
+	0x17, 0xd1, 0x69, 0xe9, 0x03, 0x8b, 0x37, 0x66, 0x3b, 0x1f, 0x80, 0xad, 0xf5, 0xa3, 0x34, 0x61,
+	0x7e, 0x38, 0x09, 0x99, 0xc0, 0x3b, 0xbf, 0xbe, 0x7e, 0xb5, 0x65, 0x39, 0xbf, 0x5b, 0x60, 0x9f,
+	0xf0, 0x79, 0x42, 0x45, 0x98, 0x96, 0x87, 0xf6, 0x29, 0x20, 0x9e, 0xa8, 0x2a, 0xab, 0xb7, 0x3f,
+	0xdb, 0x1c, 0xc7, 0xba, 0xde, 0x3d, 0x4b, 0x3a, 0xf0, 0xdb, 0xeb, 0x57, 0x5b, 0x3b, 0x3f, 0x59,
+	0xc8, 0xb6, 0x08, 0xe2, 0x09, 0x3e, 0x86, 0x9d, 0x05, 0x8d, 0x32, 0x66, 0x4a, 0xab, 0x65, 0xa8,
+	0x34, 0x09, 0x73, 0x42, 0xde, 0x19, 0x8b, 0xe3, 0x31, 0xec, 0xc7, 0xf2, 0x61, 0x9b, 0xe8, 0xe5,
+	0xce, 0x21, 0xa0, 0xb3, 0x04, 0x57, 0x00, 0x75, 0x9f, 0xda, 0xb7, 0xf2, 0xe7, 0xd7, 0x5d, 0xdb,
+	0xca, 0x9f, 0x83, 0xae, 0x8d, 0x1c, 0x01, 0xf6, 0x7a, 0x89, 0xe3, 0xe7, 0x00, 0x7e, 0x19, 0xd0,
+	0xcd, 0x5b, 0xc5, 0x7a, 0x12, 0x26, 0x83, 0x9f, 0x55, 0x06, 0x4b, 0x44, 0x27, 0x81, 0xfa, 0x6a,
+	0xd5, 0xbf, 0x73, 0x8f, 0xef, 0xc3, 0xde, 0xdb, 0x5a, 0x80, 0xf3, 0x1e, 0x34, 0xd6, 0x0a, 0xd6,
+	0xf9, 0xc3, 0x82, 0xdd, 0x95, 0x32, 0xc3, 0xf7, 0xe1, 0x4e, 0x51, 0xaf, 0x2f, 0xd8, 0xa5, 0x6e,
+	0xf6, 0x9d, 0x5a, 0xee, 0x69, 0x5b, 0xa0, 0x96, 0x45, 0xc0, 0x58, 0xbf, 0x61, 0x97, 0xb8, 0x07,
+	0x0d, 0x73, 0xcf, 0x8c, 0x52, 0x3a, 0x4f, 0x22, 0x16, 0x98, 0xcf, 0xf5, 0xa1, 0xc9, 0x26, 0xbf,
+	0x8a, 0xdc, 0x9e, 0xa0, 0x7e, 0x9e, 0x3d, 0x8d, 0xbe, 0xd3, 0x8b, 0x49, 0xdd, 0xa8, 0xce, 0xb5,
+	0x08, 0x7f, 0x09, 0x07, 0x59, 0xca, 0x46, 0x61, 0x1c, 0xb0, 0x84, 0xc5, 0x41, 0xce, 0x13, 0x34,
+	0x0e, 0xf8, 0x3c, 0x66, 0x69, 0xaa, 0xfa, 0x5e, 0x95, 0x34, 0xb3, 0x94, 0xf5, 0xaf, 0x17, 0x90,
+	0xd2, 0xee, 0x04, 0x50, 0x2b, 0x6b, 0x1a, 0x7f, 0x0f, 0xb7, 0xf5, 0xde, 0xa5, 0x4d, 0xab, 0xb5,
+	0xf5, 0x9f, 0x6e, 0x24, 0xb3, 0xaf, 0x2f, 0x2d, 0x54, 0x45, 0xa4, 0xa0, 0x39, 0x3e, 0x54, 0x8b,
+	0x62, 0x5f, 0x76, 0x82, 0xfe, 0x57, 0x27, 0x43, 0xb8, 0xbb, 0xdc, 0x02, 0x70, 0x17, 0x2a, 0xba,
+	0x05, 0x98, 0x53, 0xf2, 0xd1, 0x6a, 0x19, 0xe8, 0xcb, 0x5f, 0x2b, 0xbe, 0xa5, 0xd2, 0x9f, 0xad,
+	0x1d, 0x0a, 0x23, 0x76, 0x62, 0xc0, 0x6f, 0xd6, 0x3e, 0xbe, 0x80, 0x9d, 0xbc, 0x8d, 0xe8, 0x8d,
+	0xaa, 0x75, 0x3a, 0xb9, 0xf0, 0xab, 0x97, 0xd6, 0x17, 0xce, 0xe7, 0xe2, 0x98, 0xa0, 0xc1, 0x29,
+	0x41, 0xc3, 0xfc, 0xf7, 0x8c, 0xa0, 0x01, 0x21, 0x68, 0x98, 0xff, 0x7a, 0x04, 0x0d, 0x4f, 0x08,
+	0x1a, 0x9e, 0x11, 0xf4, 0x84, 0x10, 0xf4, 0xb8, 0x4f, 0x50, 0xaf, 0x4f, 0x10, 0x19, 0x90, 0xed,
+	0xe1, 0xa3, 0xee, 0x05, 0xd1, 0xc0, 0x8e, 0xfd, 0xe7, 0xd5, 0x91, 0xf5, 0xd7, 0xd5, 0x91, 0xf5,
+	0xf7, 0xd5, 0x91, 0xf5, 0x03, 0x5a, 0xb4, 0xc7, 0x15, 0x75, 0x89, 0x3f, 0xfc, 0x37, 0x00, 0x00,
+	0xff, 0xff, 0xd5, 0x09, 0x4a, 0x28, 0x35, 0x09, 0x00, 0x00,
 }

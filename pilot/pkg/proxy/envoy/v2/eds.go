@@ -124,21 +124,33 @@ func newEndpoint(e *model.NetworkEndpoint) (*endpoint.LbEndpoint, error) {
 		},
 	}
 
+	// Istio telemetry depends on the metadata value being set for endpoints in the mesh.
+	// Do not remove: mixerfilter depends on this logic.
+	if e.UID != "" {
+		ep.Metadata = &core.Metadata{
+			FilterMetadata: map[string]*types.Struct{
+				"istio": {
+					Fields: map[string]*types.Value{
+						"uid": {Kind: &types.Value_StringValue{StringValue: e.UID}},
+					},
+				},
+			},
+		}
+	}
+
 	//log.Infoa("EDS: endpoint ", ipAddr, ep.String())
 	return ep, nil
 }
 
 // updateCluster is called from the event (or global cache invalidation) to update
 // the endpoints for the cluster.
-func updateCluster(clusterName string, edsCluster *EdsCluster) error {
+func (s *DiscoveryServer) updateCluster(clusterName string, edsCluster *EdsCluster) error {
 	// TODO: should we lock this as well ? Once we move to event-based it may not matter.
 	var hostname model.Hostname
-	var ports model.PortList
+	//var ports model.PortList
 	var labels model.LabelsCollection
 	var instances []*model.ServiceInstance
 	var err error
-
-	// This is a gross hack but Costin will insist on supporting everything from ancient Greece
 	if strings.Index(clusterName, "outbound") == 0 ||
 		strings.Index(clusterName, "inbound") == 0 { //new style cluster names
 		var p int
@@ -147,22 +159,11 @@ func updateCluster(clusterName string, edsCluster *EdsCluster) error {
 		labels = edsCluster.discovery.env.IstioConfigStore.SubsetToLabels(subsetName, hostname)
 		instances, err = edsCluster.discovery.env.ServiceDiscovery.InstancesByPort(hostname, p, labels)
 		if len(instances) == 0 {
-			adsLog.Infof("EDS: no instances %s (host=%s ports=%v labels=%v)", clusterName, hostname, p, labels)
-		}
-		edsInstances.With(prometheus.Labels{"cluster": clusterName}).Set(float64(len(instances)))
-	} else {
-		hostname, ports, labels = model.ParseServiceKey(clusterName)
-		var portName string
-		if len(ports) > 0 {
-			portName = ports.GetNames()[0]
-		}
-		instances, err = edsCluster.discovery.env.ServiceDiscovery.Instances(hostname, ports.GetNames(), labels)
-		if len(instances) == 0 {
-			adsLog.Warnf("EDS: no instances %s (host=%s ports=%v labels=%v)", clusterName, hostname, portName, labels)
+			s.env.PushStatus.Add(model.ProxyStatusClusterNoInstances, clusterName, nil, "")
+			//adsLog.Infof("EDS: no instances %s (host=%s ports=%v labels=%v)", clusterName, hostname, p, labels)
 		}
 		edsInstances.With(prometheus.Labels{"cluster": clusterName}).Set(float64(len(instances)))
 	}
-
 	if err != nil {
 		adsLog.Warnf("endpoints for service cluster %q returned error %q", clusterName, err)
 		return err
@@ -321,10 +322,15 @@ func (s *DiscoveryServer) pushEds(con *XdsConnection) error {
 	empty := []string{}
 
 	for _, clusterName := range con.Clusters {
-		c := s.getOrAddEdsCluster(clusterName)
+		c := s.getEdsCluster(clusterName)
+		if c == nil {
+			adsLog.Errorf("cluster %s was nil skipping it.", clusterName)
+			continue
+		}
+
 		l := loadAssignment(c)
 		if l == nil { // fresh cluster
-			if err := updateCluster(clusterName, c); err != nil {
+			if err := s.updateCluster(clusterName, c); err != nil {
 				adsLog.Errorf("error returned from updateCluster for cluster name %s, skipping it.", clusterName)
 				continue
 			}
@@ -351,8 +357,8 @@ func (s *DiscoveryServer) pushEds(con *XdsConnection) error {
 	}
 	pushes.With(prometheus.Labels{"type": "eds"}).Add(1)
 
-	adsLog.Infof("EDS: PUSH for %s %q clusters %d endpoints %d empty %d %v",
-		con.ConID, con.PeerAddr, len(con.Clusters), endpoints, emptyClusters, empty)
+	adsLog.Debugf("EDS: PUSH for %s clusters %d endpoints %d empty %d",
+		con.ConID, len(con.Clusters), endpoints, emptyClusters)
 	return nil
 }
 
@@ -426,7 +432,10 @@ func (s *DiscoveryServer) removeEdsCon(clusterName string, node string, connecti
 	if len(c.EdsClients) == 0 {
 		edsClusterMutex.Lock()
 		defer edsClusterMutex.Unlock()
-		adsLog.Infof("EDS: remove unused cluster node=%s cluster=%s all=%v", node, clusterName, edsClusters)
+		// This happens when a previously used cluster is no longer watched by any
+		// sidecar. It should not happen very often - normally all clusters are sent
+		// in CDS requests to all sidecars. It may happen if all connections are closed.
+		adsLog.Infof("EDS: remove unwatched cluster node=%s cluster=%s", node, clusterName)
 		delete(edsClusters, clusterName)
 	}
 }

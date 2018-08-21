@@ -5,7 +5,6 @@ metadata:
   labels:
     app: helloworld
 spec:
-  type: NodePort
   ports:
   - port: 5000
     name: http
@@ -56,18 +55,36 @@ spec:
         ports:
         - containerPort: 5000
 ---
-apiVersion: extensions/v1beta1
-kind: Ingress
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: helloworld-gateway
+spec:
+  selector:
+    istio: ingressgateway # use istio default controller
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "*"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
 metadata:
   name: helloworld
-  annotations:
-    kubernetes.io/ingress.class: "istio"
 spec:
-  rules:
-  - http:
-      paths:
-      - path: /hello
-        backend:
-          serviceName: helloworld
-          servicePort: 5000
----
+  hosts:
+  - "*"
+  gateways:
+  - helloworld-gateway
+  http:
+  - match:
+    - uri:
+        exact: /hello
+    route:
+    - destination:
+        host: helloworld
+        port:
+          number: 5000

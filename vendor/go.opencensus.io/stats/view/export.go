@@ -37,6 +37,8 @@ type Exporter interface {
 // registered exporters. Once you no longer
 // want data to be exported, invoke UnregisterExporter
 // with the previously registered exporter.
+//
+// Binaries can register exporters, libraries shouldn't register exporters.
 func RegisterExporter(e Exporter) {
 	exportersMu.Lock()
 	defer exportersMu.Unlock()

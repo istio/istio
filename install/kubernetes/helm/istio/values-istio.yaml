@@ -13,8 +13,6 @@ global:
 
   # Default is 10s second
   refreshInterval: 1s
-  proxy:
-    image: proxy
 
   aspenMeshCloud:
     enabled: false

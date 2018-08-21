@@ -36,11 +36,9 @@ const traceContextKey = "grpc-trace-bin"
 func (c *ClientHandler) traceTagRPC(ctx context.Context, rti *stats.RPCTagInfo) context.Context {
 	name := strings.TrimPrefix(rti.FullMethodName, "/")
 	name = strings.Replace(name, "/", ".", -1)
-	span := trace.NewSpan(name, trace.FromContext(ctx), trace.StartOptions{
-		Sampler:  c.StartOptions.Sampler,
-		SpanKind: trace.SpanKindClient,
-	}) // span is ended by traceHandleRPC
-	ctx = trace.WithSpan(ctx, span)
+	ctx, span := trace.StartSpan(ctx, name,
+		trace.WithSampler(c.StartOptions.Sampler),
+		trace.WithSpanKind(trace.SpanKindClient)) // span is ended by traceHandleRPC
 	traceContextBinary := propagation.Binary(span.SpanContext())
 	return metadata.AppendToOutgoingContext(ctx, traceContextKey, string(traceContextBinary))
 }
@@ -52,11 +50,6 @@ func (c *ClientHandler) traceTagRPC(ctx context.Context, rti *stats.RPCTagInfo) 
 //
 // It returns ctx, with the new trace span added.
 func (s *ServerHandler) traceTagRPC(ctx context.Context, rti *stats.RPCTagInfo) context.Context {
-	opts := trace.StartOptions{
-		Sampler:  s.StartOptions.Sampler,
-		SpanKind: trace.SpanKindServer,
-	}
-
 	md, _ := metadata.FromIncomingContext(ctx)
 	name := strings.TrimPrefix(rti.FullMethodName, "/")
 	name = strings.Replace(name, "/", ".", -1)
@@ -72,15 +65,20 @@ func (s *ServerHandler) traceTagRPC(ctx context.Context, rti *stats.RPCTagInfo) 
 		traceContextBinary := []byte(traceContext[0])
 		parent, haveParent = propagation.FromBinary(traceContextBinary)
 		if haveParent && !s.IsPublicEndpoint {
-			span := trace.NewSpanWithRemoteParent(name, parent, opts)
-			return trace.WithSpan(ctx, span)
+			ctx, _ := trace.StartSpanWithRemoteParent(ctx, name, parent,
+				trace.WithSpanKind(trace.SpanKindServer),
+				trace.WithSampler(s.StartOptions.Sampler),
+			)
+			return ctx
 		}
 	}
-	span := trace.NewSpan(name, nil, opts)
+	ctx, span := trace.StartSpan(ctx, name,
+		trace.WithSpanKind(trace.SpanKindServer),
+		trace.WithSampler(s.StartOptions.Sampler))
 	if haveParent {
 		span.AddLink(trace.Link{TraceID: parent.TraceID, SpanID: parent.SpanID, Type: trace.LinkTypeChild})
 	}
-	return trace.WithSpan(ctx, span)
+	return ctx
 }
 
 func traceHandleRPC(ctx context.Context, rs stats.RPCStats) {

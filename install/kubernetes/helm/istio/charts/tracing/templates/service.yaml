@@ -25,6 +25,10 @@ items:
   metadata:
     name: tracing
     namespace: {{ .Release.Namespace }}
+    annotations:
+      {{- range $key, $val := .Values.service.annotations }}
+      {{ $key }}: {{ $val }}
+      {{- end }}
     labels:
       app: jaeger
       chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
@@ -32,11 +36,9 @@ items:
       heritage: {{ .Release.Service }}
   spec:
     ports:
-      - name: query-http
+      - name: http-query
         port: 80
         protocol: TCP
-        targetPort: {{ .Values.service.uiPort }}
+        targetPort: {{ .Values.jaeger.ui.port }}
     selector:
       app: jaeger
-    type: LoadBalancer
-

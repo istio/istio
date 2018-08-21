@@ -97,12 +97,12 @@ func TestCheck(t *testing.T) {
 
 	refAttrs := srcBag.GetReferencedAttributes(attrSrv.GlobalDict, len(attribute.GlobalList()))
 
-	okCheckResp := &mixerpb.CheckResponse{Precondition: precondition(status.OK, mixerpb.CompressedAttributes{}, refAttrs)}
+	okCheckResp := &mixerpb.CheckResponse{Precondition: precondition(status.OK, refAttrs)}
 	quotaResp := &mixerpb.CheckResponse{
-		Precondition: precondition(status.OK, mixerpb.CompressedAttributes{}, refAttrs),
+		Precondition: precondition(status.OK, refAttrs),
 		Quotas: map[string]mixerpb.CheckResponse_QuotaResult{
-			"foo": {ValidDuration: 55 * time.Second, GrantedAmount: 999, ReferencedAttributes: refAttrs},
-			"bar": {ValidDuration: 55 * time.Second, GrantedAmount: 999, ReferencedAttributes: refAttrs},
+			"foo": {ValidDuration: 55 * time.Second, GrantedAmount: 999, ReferencedAttributes: *refAttrs},
+			"bar": {ValidDuration: 55 * time.Second, GrantedAmount: 999, ReferencedAttributes: *refAttrs},
 		},
 	}
 	quotaDispatches := []QuotaDispatchInfo{
@@ -304,12 +304,11 @@ func startGRPCService(attrSrv *AttributesServer) (*grpc.Server, string, error) {
 	return grpcSrv, fmt.Sprintf("localhost:%d", port), nil
 }
 
-func precondition(status rpc.Status, attrs mixerpb.CompressedAttributes, refAttrs mixerpb.ReferencedAttributes) mixerpb.CheckResponse_PreconditionResult {
+func precondition(status rpc.Status, refAttrs *mixerpb.ReferencedAttributes) mixerpb.CheckResponse_PreconditionResult {
 	return mixerpb.CheckResponse_PreconditionResult{
 		Status:               status,
 		ValidUseCount:        DefaultValidUseCount,
 		ValidDuration:        DefaultValidDuration,
-		Attributes:           attrs,
 		ReferencedAttributes: refAttrs,
 	}
 }

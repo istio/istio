@@ -32,7 +32,6 @@ bin/protoc-min-version*
 bin/protoc-gen-docs*
 # Install generated files
 install/consul/istio.yaml
-install/eureka/istio.yaml
 install/kubernetes/addons/grafana.yaml
 install/kubernetes/addons/servicegraph.yaml
 install/kubernetes/addons/zipkin-to-stackdriver.yaml
@@ -55,8 +54,9 @@ install/kubernetes/istio.yaml
 install/kubernetes/istio-all.yaml
 install/kubernetes/istio-multicluster.yaml
 install/kubernetes/istio-remote.yaml
-samples/bookinfo/consul/bookinfo.sidecars.yaml
-samples/bookinfo/eureka/bookinfo.sidecars.yaml
+install/kubernetes/istio-galley.yaml
+install/kubernetes/istio-auth-galley.yaml
+samples/bookinfo/platform/consul/bookinfo.sidecars.yaml
 *.orig
 # Avoid accidental istio.VERSION changes
 istio.VERSION

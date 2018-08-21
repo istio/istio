@@ -1,0 +1,61 @@
+# Fortio with TPROXY
+apiVersion: v1
+kind: Service
+metadata:
+  name: fortio-tproxy
+spec:
+  ports:
+  - port: 8080
+    name: http-echo
+  - port: 8079
+    name: grpc-ping
+  selector:
+    app: fortio-tproxy
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: fortio-tproxy
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: fortio-tproxy
+        name: fortio-tproxy
+        version: tproxy
+      annotations:
+        sidecar.istio.io/interceptionMode: TPROXY
+        sidecar.istio.io/proxyImage: "costinm/proxytproxy:tproxy"
+    spec:
+      containers:
+      - name: echosrv
+        image: istio/fortio:latest
+        ports:
+         - containerPort: 8080
+         - containerPort: 8079
+        args:
+          - server
+        resources:
+          requests:
+            cpu: 800m
+            memory: "1G"
+          limits:
+            cpu: 1000m
+            memory: "1G"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: fortio-tproxy
+spec:
+  hosts:
+  - "fortio-tproxy.{{.Values.domain}}"
+  gateways:
+  - istio-gateway
+  http:
+  - route:
+    - destination:
+        host: fortio-tproxy.test.svc.cluster.local
+        port:
+          number: 8080

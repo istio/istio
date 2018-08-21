@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package propagation implements the binary trace context format.
-package propagation
+package propagation // import "go.opencensus.io/trace/propagation"
 
 // TODO: link to external spec document.
 

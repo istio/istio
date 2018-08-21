@@ -23,136 +23,92 @@ import (
 )
 
 var tests = []struct {
-	yaml  string
-	setup Setup
+	yaml string
+	load Load
 }{
 	{
-		yaml: `
-config:
-  global: global
-  identityAttribute: identityAttr
-  identityAttributeDomain: identityAttrDomain
-  rpcServer: rpcServer
-load: {}
-`,
-		setup: Setup{
-			Config: Config{
-				Global:                  "global",
-				Service:                 "rpcServer",
-				IdentityAttribute:       "identityAttr",
-				IdentityAttributeDomain: "identityAttrDomain",
-			},
-			Load: Load{},
-		},
+		yaml: `{}`,
+		load: Load{},
 	},
 
 	{
 		yaml: `
-config:
-  global: global
-  identityAttribute: identityAttr
-  identityAttributeDomain: identityAttrDomain
-  rpcServer: rpcServer
-load:
-  iterations: 2
-  randomSeed: 123
-  requests:
-  - attributes:
-     baz: 42
-     foo: bar
-    type: basicReport
-  - attributes:
-     bar: baz
-     foo: 23
-    quotas:
-     q1:
-       amount: 23
-       best_effort: true
-     q2:
-       amount: 54
-    type: basicCheck
-  stableOrder: true
+iterations: 2
+randomSeed: 123
+requests:
+- attributes:
+   baz: 42
+   foo: bar
+  type: basicReport
+- attributes:
+   bar: baz
+   foo: 23
+  quotas:
+   q1:
+     amount: 23
+     best_effort: true
+   q2:
+     amount: 54
+  type: basicCheck
+stableOrder: true
   `,
-		setup: Setup{
-			Config: Config{
-				Global:                  "global",
-				Service:                 "rpcServer",
-				IdentityAttribute:       "identityAttr",
-				IdentityAttributeDomain: "identityAttrDomain",
-			},
-			Load: Load{
-				Multiplier:  2,
-				StableOrder: true,
-				RandomSeed:  123,
-				Requests: []Request{
-					BasicReport{
-						Attributes: map[string]interface{}{
-							"foo": "bar",
-							"baz": 42,
-						},
+		load: Load{
+			Multiplier:  2,
+			StableOrder: true,
+			RandomSeed:  123,
+			Requests: []Request{
+				BasicReport{
+					Attributes: map[string]interface{}{
+						"foo": "bar",
+						"baz": 42,
 					},
-					BasicCheck{
-						Attributes: map[string]interface{}{
-							"bar": "baz",
-							"foo": 23,
+				},
+				BasicCheck{
+					Attributes: map[string]interface{}{
+						"bar": "baz",
+						"foo": 23,
+					},
+					Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+						"q1": {
+							Amount:     23,
+							BestEffort: true,
 						},
-						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
-							"q1": {
-								Amount:     23,
-								BestEffort: true,
-							},
-							"q2": {
-								Amount:     54,
-								BestEffort: false,
-							},
+						"q2": {
+							Amount:     54,
+							BestEffort: false,
 						},
 					},
 				},
 			},
 		},
 	},
-
 	{
 		yaml: `
-config:
-  global: global
-  identityAttribute: destination.rpcServer
-  identityAttributeDomain: svc.cluster.local
-  rpcServer: rpcServer
-load:
-  iterations: 100
-  requests:
-  - attributes:
-      destination.name: somesrvcname
-    type: basicReport
-  - attributes:
-      destination.name: cvd
-    type: basicReport
-  - attributes:
-      destination.name: somesrvcname
-    type: basicCheck
-`,
-		setup: Setup{
-			Config: Config{
-				Global:                  "global",
-				Service:                 "rpcServer",
-				IdentityAttribute:       `destination.rpcServer`,
-				IdentityAttributeDomain: `svc.cluster.local`,
-			},
 
-			Load: Load{
-				Multiplier: 100,
-				Requests: []Request{
-					BasicReport{
-						Attributes: map[string]interface{}{"destination.name": "somesrvcname"},
-					},
-					BasicReport{
-						Attributes: map[string]interface{}{"destination.name": "cvd"},
-					},
-					BasicCheck{
-						Attributes: map[string]interface{}{
-							"destination.name": "somesrvcname",
-						},
+iterations: 100
+requests:
+- attributes:
+    destination.name: somesrvcname
+  type: basicReport
+- attributes:
+    destination.name: cvd
+  type: basicReport
+- attributes:
+    destination.name: somesrvcname
+  type: basicCheck
+`,
+		load: Load{
+			Multiplier: 100,
+			Requests: []Request{
+				BasicReport{
+					Attributes: map[string]interface{}{"destination.name": "somesrvcname"},
+				},
+				BasicReport{
+					Attributes: map[string]interface{}{"destination.name": "cvd"},
+				},
+				BasicCheck{
+					Attributes: map[string]interface{}{
+						"destination.name": "somesrvcname",
 					},
 				},
 			},
@@ -164,7 +120,7 @@ func TestSetupToYaml(t *testing.T) {
 	for i, test := range tests {
 		name := fmt.Sprintf("%d", i)
 		t.Run(name, func(tt *testing.T) {
-			actualBytes, err := marshallSetup(&test.setup)
+			actualBytes, err := marshallLoad(&test.load)
 			if err != nil {
 				tt.Fatalf("Unexpected error: %v", err)
 			}
@@ -182,11 +138,11 @@ func TestRoundtrip(t *testing.T) {
 	for i, test := range tests {
 		name := fmt.Sprintf("%d", i)
 		t.Run(name, func(tt *testing.T) {
-			var actual Setup
-			if err := unmarshallSetup([]byte(test.yaml), &actual); err != nil {
+			var actual Load
+			if err := unmarshallLoad([]byte(test.yaml), &actual); err != nil {
 				tt.Fatalf("Unexpected error: %v", err)
 			}
-			actualBytes, err := marshallSetup(&actual)
+			actualBytes, err := marshallLoad(&actual)
 			if err != nil {
 				tt.Fatalf("unexpected marshal error: %v", err)
 			}
@@ -215,35 +171,32 @@ func TestMarshallRequestError(t *testing.T) {
 func TestUnmarshal_Errors(t *testing.T) {
 	var configs = []string{
 		`
-load:
-  stableOrder: AAAA
+stableOrder: AAAA
 `,
 
 		`
-load:
-  requests:
-    - type:
-      - a: b
+
+requests:
+  - type:
+    - a: b
 `,
 
 		`
-load:
-  requests:
-    - type: boo
+requests:
+  - type: boo
 `,
 
 		`
-load:
-  requests:
-    - type: report
-      attributes: 23
+requests:
+  - type: report
+    attributes: 23
 `,
 	}
 
 	for i, config := range configs {
-		var setup Setup
+		var load Load
 		t.Run(fmt.Sprintf("%d", i), func(tt *testing.T) {
-			if err := unmarshallSetup([]byte(config), &setup); err == nil {
+			if err := unmarshallLoad([]byte(config), &load); err == nil {
 				tt.Fatal("expected error was not thrown")
 			}
 		})
@@ -272,6 +225,6 @@ func (b *BrokenRequest) MarshalJSON() ([]byte, error) {
 	return nil, fmt.Errorf("marshal error")
 }
 
-func (b *BrokenRequest) createRequestProtos(c Config) []interface{} {
+func (b *BrokenRequest) createRequestProtos() []interface{} {
 	return nil
 }

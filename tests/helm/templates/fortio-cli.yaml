@@ -1,0 +1,280 @@
+## Fortio clients generating traffic on different components.
+# Generally use the ingress gateway - to capture non-istio service as well.
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: cli-fortio-tls
+spec:
+  replicas: 4
+  template:
+    metadata:
+      labels:
+        app: cli-fortio-tls
+        version: v1-tls
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      containers:
+      - name: echosrv
+        image: istio/fortio:latest
+        imagePullPolicy: Always
+        args:
+          - load
+          - -t
+          - "0"
+          - -c
+          - "32"
+          - -qps
+          - "{{ .Values.qps }}"
+          - http://fortiotls.{{ .Values.domain }}/echo?size=5000
+        resources:
+          requests:
+            cpu: 800m
+            memory: "1G"
+          limits:
+            cpu: 1000m
+            memory: "1G"
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: fortio-cli-raw
+spec:
+  replicas: 4
+  template:
+    metadata:
+      labels:
+        app: fortio-cli-raw
+        version: v1
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      containers:
+      - name: echosrv
+        image: istio/fortio:latest
+        imagePullPolicy: Always
+        args:
+          - load
+          - -t
+          - "0"
+          - -c
+          - "32"
+          - -qps
+          - "{{ .Values.qps }}"
+          - http://fortionoistio.{{ .Values.domain }}/echo?size=5000
+        resources:
+          requests:
+            cpu: 800m
+            memory: "1G"
+          limits:
+            cpu: 1000m
+            memory: "1G"
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: fortio-cli-notls
+spec:
+  replicas: 4
+  template:
+    metadata:
+      labels:
+        app: fortio-cli1
+        version: v1
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      containers:
+      - name: echosrv
+        image: istio/fortio:latest
+        imagePullPolicy: Always
+        args:
+          - load
+          - -t
+          - "0"
+          - -c
+          - "32"
+          - -qps
+          - "{{ .Values.qps }}"
+          - http://fortiomaster.{{ .Values.domain }}/echo?size=5000
+        resources:
+          requests:
+            cpu: 800m
+            memory: "1G"
+          limits:
+            cpu: 1000m
+            memory: "1G"
+
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: cli-fortio10rc1
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: cli-fortio10rc1
+        version: cli-fortio10rc1
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      containers:
+      - name: echosrv
+        image: istio/fortio:latest
+        imagePullPolicy: Always
+        args:
+          - load
+          - -t
+          - "0"
+          - -c
+          - "32"
+          - -qps
+          - "{{ .Values.qps }}"
+          - http://fortio10rc1.{{ .Values.domain }}/echo?size=5000
+        resources:
+          requests:
+            cpu: 400m
+            memory: "1G"
+          limits:
+            cpu: 500m
+            memory: "1G"
+
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: cli-fortio080
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: cli-fortio080
+        version: cli-fortio080
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      containers:
+      - name: echosrv
+        image: istio/fortio:latest
+        imagePullPolicy: Always
+        args:
+          - load
+          - -t
+          - "0"
+          - -c
+          - "32"
+          - -qps
+          - "{{ .Values.qps }}"
+          - http://fortio080.{{ .Values.domain }}/echo?size=5000
+        resources:
+          requests:
+            cpu: 400m
+            memory: "1G"
+          limits:
+            cpu: 500m
+            memory: "1G"
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: cli-fortio-tproxy-direct
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: cli-fortio-tproxy-direct
+        version: cli-fortio-tproxy-direct
+    spec:
+      containers:
+      - name: echosrv
+        image: istio/fortio:latest
+        imagePullPolicy: Always
+        args:
+          - load
+          - -t
+          - "0"
+          - -c
+          - "32"
+          - -qps
+          - "{{ .Values.qps }}"
+          - http://fortio-tproxy.test:8080/echo?size=5000
+        resources:
+          requests:
+            cpu: 400m
+            memory: "1G"
+          limits:
+            cpu: 500m
+            memory: "1G"
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: cli-fortio-v1-direct
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        name: ncli-fortio-v1-direct
+        app: cli-fortio-v1-direct
+        version: cli-fortio-v1-direct
+    spec:
+      containers:
+      - name: echosrv
+        image: istio/fortio:latest
+        imagePullPolicy: Always
+        args:
+          - load
+          - -t
+          - "0"
+          - -c
+          - "32"
+          - -qps
+          - "{{ .Values.qps }}"
+          - http://fortiov1.test:8080/echo?size=5000
+        resources:
+          requests:
+            cpu: 400m
+            memory: "1G"
+          limits:
+            cpu: 500m
+            memory: "1G"
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: cli-fortio-noistio1
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        name: cli-fortio-noistio1
+        app: acli-fortio-noistio1
+        version: cli-fortio-noistio1
+    spec:
+      containers:
+      - name: echosrv
+        image: istio/fortio:latest
+        imagePullPolicy: Always
+        args:
+          - load
+          - -t
+          - "0"
+          - -c
+          - "32"
+          - -qps
+          - "{{ .Values.qps }}"
+          - http://fortionoistio1.test:8080/echo?size=5000
+        resources:
+          requests:
+            cpu: 400m
+            memory: "1G"
+          limits:
+            cpu: 500m
+            memory: "1G"

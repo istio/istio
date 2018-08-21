@@ -6,6 +6,7 @@
 
 	It is generated from these files:
 		networking/v1alpha3/destination_rule.proto
+		networking/v1alpha3/envoy_filter.proto
 		networking/v1alpha3/gateway.proto
 		networking/v1alpha3/service_entry.proto
 		networking/v1alpha3/virtual_service.proto
@@ -18,6 +19,7 @@
 		ConnectionPoolSettings
 		OutlierDetection
 		TLSSettings
+		EnvoyFilter
 		Gateway
 		Server
 		Port
@@ -25,10 +27,12 @@
 		VirtualService
 		Destination
 		HTTPRoute
+		TLSRoute
 		TCPRoute
 		HTTPMatchRequest
 		DestinationWeight
 		L4MatchAttributes
+		TLSMatchAttributes
 		HTTPRedirect
 		HTTPRewrite
 		StringMatch
@@ -43,6 +47,11 @@ import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
 import google_protobuf "github.com/gogo/protobuf/types"
+import _ "github.com/gogo/protobuf/gogoproto"
+
+import time "time"
+
+import types "github.com/gogo/protobuf/types"
 
 import io "io"
 
@@ -50,6 +59,7 @@ import io "io"
 var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
+var _ = time.Kitchen
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the proto package it is being compiled against.
@@ -145,15 +155,17 @@ func (TLSSettings_TLSmode) EnumDescriptor() ([]byte, []int) {
 // balancing pool. For example, a simple load balancing policy for the
 // ratings service would look as follows:
 //
-//     apiVersion: networking.istio.io/v1alpha3
-//     kind: DestinationRule
-//     metadata:
-//       name: bookinfo-ratings
-//     spec:
-//       host: ratings.prod.svc.cluster.local
-//       trafficPolicy:
-//         loadBalancer:
-//           simple: LEAST_CONN
+// ```yaml
+// apiVersion: networking.istio.io/v1alpha3
+// kind: DestinationRule
+// metadata:
+//   name: bookinfo-ratings
+// spec:
+//   host: ratings.prod.svc.cluster.local
+//   trafficPolicy:
+//     loadBalancer:
+//       simple: LEAST_CONN
+// ```
 //
 // Version specific policies can be specified by defining a named
 // `subset` and overriding the settings specified at the service level. The
@@ -161,22 +173,24 @@ func (TLSSettings_TLSmode) EnumDescriptor() ([]byte, []int) {
 // going to a subset named testversion that is composed of endpoints (e.g.,
 // pods) with labels (version:v3).
 //
-//     apiVersion: networking.istio.io/v1alpha3
-//     kind: DestinationRule
-//     metadata:
-//       name: bookinfo-ratings
-//     spec:
-//       host: ratings.prod.svc.cluster.local
-//       trafficPolicy:
-//         loadBalancer:
-//           simple: LEAST_CONN
-//       subsets:
-//       - name: testversion
-//         labels:
-//           version: v3
-//         trafficPolicy:
-//           loadBalancer:
-//             simple: ROUND_ROBIN
+// ```yaml
+// apiVersion: networking.istio.io/v1alpha3
+// kind: DestinationRule
+// metadata:
+//   name: bookinfo-ratings
+// spec:
+//   host: ratings.prod.svc.cluster.local
+//   trafficPolicy:
+//     loadBalancer:
+//       simple: LEAST_CONN
+//   subsets:
+//   - name: testversion
+//     labels:
+//       version: v3
+//     trafficPolicy:
+//       loadBalancer:
+//         simple: ROUND_ROBIN
+// ```
 //
 // **Note:** Policies specified for subsets will not take effect until
 // a route rule explicitly sends traffic to this subset.
@@ -186,23 +200,24 @@ func (TLSSettings_TLSmode) EnumDescriptor() ([]byte, []int) {
 // traffic to port 80, while uses a round robin load balancing setting for
 // traffic to the port 9080.
 //
-//     apiVersion: networking.istio.io/v1alpha3
-//     kind: DestinationRule
-//     metadata:
-//       name: bookinfo-ratings-port
-//     spec:
-//       host: ratings.prod.svc.cluster.local
-//       trafficPolicy: # Apply to all ports
-//         portLevelSettings:
-//         - port:
-//             number: 80
-//           loadBalancer:
-//             simple: LEAST_CONN
-//         - port:
-//             number: 9080
-//           loadBalancer:
-//             simple: ROUND_ROBIN
-//
+// ```yaml
+// apiVersion: networking.istio.io/v1alpha3
+// kind: DestinationRule
+// metadata:
+//   name: bookinfo-ratings-port
+// spec:
+//   host: ratings.prod.svc.cluster.local
+//   trafficPolicy: # Apply to all ports
+//     portLevelSettings:
+//     - port:
+//         number: 80
+//       loadBalancer:
+//         simple: LEAST_CONN
+//     - port:
+//         number: 9080
+//       loadBalancer:
+//         simple: ROUND_ROBIN
+// ```
 type DestinationRule struct {
 	// REQUIRED. The name of a service from the service registry. Service
 	// names are looked up from the platform's service registry (e.g.,
@@ -385,22 +400,24 @@ func (m *TrafficPolicy_PortTrafficPolicy) GetTls() *TLSSettings {
 // subset named testversion that is composed of endpoints (e.g., pods) with
 // labels (version:v3).
 //
-//     apiVersion: networking.istio.io/v1alpha3
-//     kind: DestinationRule
-//     metadata:
-//       name: bookinfo-ratings
-//     spec:
-//       host: ratings.prod.svc.cluster.local
-//       trafficPolicy:
-//         loadBalancer:
-//           simple: LEAST_CONN
-//       subsets:
-//       - name: testversion
-//         labels:
-//           version: v3
-//         trafficPolicy:
-//           loadBalancer:
-//             simple: ROUND_ROBIN
+// ```yaml
+// apiVersion: networking.istio.io/v1alpha3
+// kind: DestinationRule
+// metadata:
+//   name: bookinfo-ratings
+// spec:
+//   host: ratings.prod.svc.cluster.local
+//   trafficPolicy:
+//     loadBalancer:
+//       simple: LEAST_CONN
+//   subsets:
+//   - name: testversion
+//     labels:
+//       version: v3
+//     trafficPolicy:
+//       loadBalancer:
+//         simple: ROUND_ROBIN
+// ```
 //
 // **Note:** Policies specified for subsets will not take effect until
 // a route rule explicitly sends traffic to this subset.
@@ -452,30 +469,36 @@ func (m *Subset) GetTrafficPolicy() *TrafficPolicy {
 // For example, the following rule uses a round robin load balancing policy
 // for all traffic going to the ratings service.
 //
-//     apiVersion: networking.istio.io/v1alpha3
-//     kind: DestinationRule
-//     metadata:
-//       name: bookinfo-ratings
-//     spec:
-//       host: ratings.prod.svc.cluster.local
-//       trafficPolicy:
-//         loadBalancer:
-//           simple: ROUND_ROBIN
+// ```yaml
+// apiVersion: networking.istio.io/v1alpha3
+// kind: DestinationRule
+// metadata:
+//   name: bookinfo-ratings
+// spec:
+//   host: ratings.prod.svc.cluster.local
+//   trafficPolicy:
+//     loadBalancer:
+//       simple: ROUND_ROBIN
+// ```
 //
-// The following example uses the consistent hashing based load balancer
-// for the same ratings service using the Cookie header as the hash key.
+// The following example sets up sticky sessions for the ratings service
+// hashing-based load balancer for the same ratings service using the
+// the User cookie as the hash key.
 //
-//     apiVersion: networking.istio.io/v1alpha3
-//     kind: DestinationRule
-//     metadata:
-//       name: bookinfo-ratings
-//     spec:
-//       host: ratings.prod.svc.cluster.local
-//       trafficPolicy:
-//         loadBalancer:
-//           consistentHash:
-//             http_header: Cookie
-//
+// ```yaml
+//  apiVersion: networking.istio.io/v1alpha3
+//  kind: DestinationRule
+//  metadata:
+//    name: bookinfo-ratings
+//  spec:
+//    host: ratings.prod.svc.cluster.local
+//    trafficPolicy:
+//      loadBalancer:
+//        consistentHash:
+//          httpCookie:
+//            name: user
+//            ttl: 0s
+// ```
 type LoadBalancerSettings struct {
 	// Upstream load balancing policy.
 	//
@@ -598,23 +621,26 @@ func _LoadBalancerSettings_OneofSizer(msg proto.Message) (n int) {
 	return n
 }
 
-// Consistent hashing (ketama hash) based load balancer for even load
-// distribution/redistribution when the connection pool changes. This
-// load balancing policy is applicable only for HTTP-based
-// connections. A user specified HTTP header is used as the key with
-// [xxHash](http://cyan4973.github.io/xxHash) hashing.
+// Consistent Hash-based load balancing can be used to provide soft
+// session affinity based on HTTP headers, cookies or other
+// properties. This load balancing policy is applicable only for HTTP
+// connections. The affinity to a particular destination host will be
+// lost when one or more hosts are added/removed from the destination
+// service.
 type LoadBalancerSettings_ConsistentHashLB struct {
-	// REQUIRED. The name of the HTTP request header that will be used to
-	// obtain the hash key. If the request header is not present, the load
-	// balancer will use a random number as the hash, effectively making
-	// the load balancing policy random.
-	HttpHeader string `protobuf:"bytes,1,opt,name=http_header,json=httpHeader,proto3" json:"http_header,omitempty"`
+	// REQUIRED: The hash key to use.
+	//
+	// Types that are valid to be assigned to HashKey:
+	//	*LoadBalancerSettings_ConsistentHashLB_HttpHeaderName
+	//	*LoadBalancerSettings_ConsistentHashLB_HttpCookie
+	//	*LoadBalancerSettings_ConsistentHashLB_UseSourceIp
+	HashKey isLoadBalancerSettings_ConsistentHashLB_HashKey `protobuf_oneof:"hash_key"`
 	// The minimum number of virtual nodes to use for the hash
 	// ring. Defaults to 1024. Larger ring sizes result in more granular
 	// load distributions. If the number of hosts in the load balancing
 	// pool is larger than the ring size, each host will be assigned a
 	// single virtual node.
-	MinimumRingSize uint32 `protobuf:"varint,2,opt,name=minimum_ring_size,json=minimumRingSize,proto3" json:"minimum_ring_size,omitempty"`
+	MinimumRingSize uint64 `protobuf:"varint,4,opt,name=minimum_ring_size,json=minimumRingSize,proto3" json:"minimum_ring_size,omitempty"`
 }
 
 func (m *LoadBalancerSettings_ConsistentHashLB) Reset()         { *m = LoadBalancerSettings_ConsistentHashLB{} }
@@ -624,18 +650,194 @@ func (*LoadBalancerSettings_ConsistentHashLB) Descriptor() ([]byte, []int) {
 	return fileDescriptorDestinationRule, []int{3, 0}
 }
 
-func (m *LoadBalancerSettings_ConsistentHashLB) GetHttpHeader() string {
+type isLoadBalancerSettings_ConsistentHashLB_HashKey interface {
+	isLoadBalancerSettings_ConsistentHashLB_HashKey()
+	MarshalTo([]byte) (int, error)
+	Size() int
+}
+
+type LoadBalancerSettings_ConsistentHashLB_HttpHeaderName struct {
+	HttpHeaderName string `protobuf:"bytes,1,opt,name=http_header_name,json=httpHeaderName,proto3,oneof"`
+}
+type LoadBalancerSettings_ConsistentHashLB_HttpCookie struct {
+	HttpCookie *LoadBalancerSettings_ConsistentHashLB_HTTPCookie `protobuf:"bytes,2,opt,name=http_cookie,json=httpCookie,oneof"`
+}
+type LoadBalancerSettings_ConsistentHashLB_UseSourceIp struct {
+	UseSourceIp bool `protobuf:"varint,3,opt,name=use_source_ip,json=useSourceIp,proto3,oneof"`
+}
+
+func (*LoadBalancerSettings_ConsistentHashLB_HttpHeaderName) isLoadBalancerSettings_ConsistentHashLB_HashKey() {
+}
+func (*LoadBalancerSettings_ConsistentHashLB_HttpCookie) isLoadBalancerSettings_ConsistentHashLB_HashKey() {
+}
+func (*LoadBalancerSettings_ConsistentHashLB_UseSourceIp) isLoadBalancerSettings_ConsistentHashLB_HashKey() {
+}
+
+func (m *LoadBalancerSettings_ConsistentHashLB) GetHashKey() isLoadBalancerSettings_ConsistentHashLB_HashKey {
 	if m != nil {
-		return m.HttpHeader
+		return m.HashKey
+	}
+	return nil
+}
+
+func (m *LoadBalancerSettings_ConsistentHashLB) GetHttpHeaderName() string {
+	if x, ok := m.GetHashKey().(*LoadBalancerSettings_ConsistentHashLB_HttpHeaderName); ok {
+		return x.HttpHeaderName
 	}
 	return ""
 }
 
-func (m *LoadBalancerSettings_ConsistentHashLB) GetMinimumRingSize() uint32 {
+func (m *LoadBalancerSettings_ConsistentHashLB) GetHttpCookie() *LoadBalancerSettings_ConsistentHashLB_HTTPCookie {
+	if x, ok := m.GetHashKey().(*LoadBalancerSettings_ConsistentHashLB_HttpCookie); ok {
+		return x.HttpCookie
+	}
+	return nil
+}
+
+func (m *LoadBalancerSettings_ConsistentHashLB) GetUseSourceIp() bool {
+	if x, ok := m.GetHashKey().(*LoadBalancerSettings_ConsistentHashLB_UseSourceIp); ok {
+		return x.UseSourceIp
+	}
+	return false
+}
+
+func (m *LoadBalancerSettings_ConsistentHashLB) GetMinimumRingSize() uint64 {
 	if m != nil {
 		return m.MinimumRingSize
 	}
 	return 0
+}
+
+// XXX_OneofFuncs is for the internal use of the proto package.
+func (*LoadBalancerSettings_ConsistentHashLB) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
+	return _LoadBalancerSettings_ConsistentHashLB_OneofMarshaler, _LoadBalancerSettings_ConsistentHashLB_OneofUnmarshaler, _LoadBalancerSettings_ConsistentHashLB_OneofSizer, []interface{}{
+		(*LoadBalancerSettings_ConsistentHashLB_HttpHeaderName)(nil),
+		(*LoadBalancerSettings_ConsistentHashLB_HttpCookie)(nil),
+		(*LoadBalancerSettings_ConsistentHashLB_UseSourceIp)(nil),
+	}
+}
+
+func _LoadBalancerSettings_ConsistentHashLB_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
+	m := msg.(*LoadBalancerSettings_ConsistentHashLB)
+	// hash_key
+	switch x := m.HashKey.(type) {
+	case *LoadBalancerSettings_ConsistentHashLB_HttpHeaderName:
+		_ = b.EncodeVarint(1<<3 | proto.WireBytes)
+		_ = b.EncodeStringBytes(x.HttpHeaderName)
+	case *LoadBalancerSettings_ConsistentHashLB_HttpCookie:
+		_ = b.EncodeVarint(2<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.HttpCookie); err != nil {
+			return err
+		}
+	case *LoadBalancerSettings_ConsistentHashLB_UseSourceIp:
+		t := uint64(0)
+		if x.UseSourceIp {
+			t = 1
+		}
+		_ = b.EncodeVarint(3<<3 | proto.WireVarint)
+		_ = b.EncodeVarint(t)
+	case nil:
+	default:
+		return fmt.Errorf("LoadBalancerSettings_ConsistentHashLB.HashKey has unexpected type %T", x)
+	}
+	return nil
+}
+
+func _LoadBalancerSettings_ConsistentHashLB_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
+	m := msg.(*LoadBalancerSettings_ConsistentHashLB)
+	switch tag {
+	case 1: // hash_key.http_header_name
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		x, err := b.DecodeStringBytes()
+		m.HashKey = &LoadBalancerSettings_ConsistentHashLB_HttpHeaderName{x}
+		return true, err
+	case 2: // hash_key.http_cookie
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(LoadBalancerSettings_ConsistentHashLB_HTTPCookie)
+		err := b.DecodeMessage(msg)
+		m.HashKey = &LoadBalancerSettings_ConsistentHashLB_HttpCookie{msg}
+		return true, err
+	case 3: // hash_key.use_source_ip
+		if wire != proto.WireVarint {
+			return true, proto.ErrInternalBadWireType
+		}
+		x, err := b.DecodeVarint()
+		m.HashKey = &LoadBalancerSettings_ConsistentHashLB_UseSourceIp{x != 0}
+		return true, err
+	default:
+		return false, nil
+	}
+}
+
+func _LoadBalancerSettings_ConsistentHashLB_OneofSizer(msg proto.Message) (n int) {
+	m := msg.(*LoadBalancerSettings_ConsistentHashLB)
+	// hash_key
+	switch x := m.HashKey.(type) {
+	case *LoadBalancerSettings_ConsistentHashLB_HttpHeaderName:
+		n += proto.SizeVarint(1<<3 | proto.WireBytes)
+		n += proto.SizeVarint(uint64(len(x.HttpHeaderName)))
+		n += len(x.HttpHeaderName)
+	case *LoadBalancerSettings_ConsistentHashLB_HttpCookie:
+		s := proto.Size(x.HttpCookie)
+		n += proto.SizeVarint(2<<3 | proto.WireBytes)
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *LoadBalancerSettings_ConsistentHashLB_UseSourceIp:
+		n += proto.SizeVarint(3<<3 | proto.WireVarint)
+		n += 1
+	case nil:
+	default:
+		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
+	}
+	return n
+}
+
+// Describes a HTTP cookie that will be used as the hash key for the
+// Consistent Hash load balancer. If the cookie is not present, it will
+// be generated.
+type LoadBalancerSettings_ConsistentHashLB_HTTPCookie struct {
+	// REQUIRED. Name of the cookie.
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// Path to set for the cookie.
+	Path string `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
+	// REQUIRED. Lifetime of the cookie.
+	Ttl *time.Duration `protobuf:"bytes,3,opt,name=ttl,stdduration" json:"ttl,omitempty"`
+}
+
+func (m *LoadBalancerSettings_ConsistentHashLB_HTTPCookie) Reset() {
+	*m = LoadBalancerSettings_ConsistentHashLB_HTTPCookie{}
+}
+func (m *LoadBalancerSettings_ConsistentHashLB_HTTPCookie) String() string {
+	return proto.CompactTextString(m)
+}
+func (*LoadBalancerSettings_ConsistentHashLB_HTTPCookie) ProtoMessage() {}
+func (*LoadBalancerSettings_ConsistentHashLB_HTTPCookie) Descriptor() ([]byte, []int) {
+	return fileDescriptorDestinationRule, []int{3, 0, 0}
+}
+
+func (m *LoadBalancerSettings_ConsistentHashLB_HTTPCookie) GetName() string {
+	if m != nil {
+		return m.Name
+	}
+	return ""
+}
+
+func (m *LoadBalancerSettings_ConsistentHashLB_HTTPCookie) GetPath() string {
+	if m != nil {
+		return m.Path
+	}
+	return ""
+}
+
+func (m *LoadBalancerSettings_ConsistentHashLB_HTTPCookie) GetTtl() *time.Duration {
+	if m != nil {
+		return m.Ttl
+	}
+	return nil
 }
 
 // Connection pool settings for an upstream host. The settings apply to
@@ -647,18 +849,19 @@ func (m *LoadBalancerSettings_ConsistentHashLB) GetMinimumRingSize() uint32 {
 // For example, the following rule sets a limit of 100 connections to redis
 // service called myredissrv with a connect timeout of 30ms
 //
-//     apiVersion: networking.istio.io/v1alpha3
-//     kind: DestinationRule
-//     metadata:
-//       name: bookinfo-redis
-//     spec:
-//       host: myredissrv.prod.svc.cluster.local
-//       trafficPolicy:
-//         connectionPool:
-//           tcp:
-//             maxConnections: 100
-//             connectTimeout: 30ms
-//
+// ```yaml
+// apiVersion: networking.istio.io/v1alpha3
+// kind: DestinationRule
+// metadata:
+//   name: bookinfo-redis
+// spec:
+//   host: myredissrv.prod.svc.cluster.local
+//   trafficPolicy:
+//     connectionPool:
+//       tcp:
+//         maxConnections: 100
+//         connectTimeout: 30ms
+// ```
 type ConnectionPoolSettings struct {
 	// Settings common to both HTTP and TCP upstream connections.
 	Tcp *ConnectionPoolSettings_TCPSettings `protobuf:"bytes,1,opt,name=tcp" json:"tcp,omitempty"`
@@ -766,11 +969,12 @@ func (m *ConnectionPoolSettings_HTTPSettings) GetMaxRetries() int32 {
 }
 
 // A Circuit breaker implementation that tracks the status of each
-// individual host in the upstream service.  While currently applicable to
-// only HTTP services, future versions will support opaque TCP services as
-// well. For HTTP services, hosts that continually return errors for API
-// calls are ejected from the pool for a pre-defined period of time. See
-// Envoy's [outlier
+// individual host in the upstream service.  Applicable to both HTTP and
+// TCP services.  For HTTP services, hosts that continually return 5xx
+// errors for API calls are ejected from the pool for a pre-defined period
+// of time. For TCP services, connection timeouts or connection
+// failures to a given host counts as an error when measuring the
+// consecutive errors metric. See Envoy's [outlier
 // detection](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/outlier)
 // for more details.
 //
@@ -780,46 +984,31 @@ func (m *ConnectionPoolSettings_HTTPSettings) GetMaxRetries() int32 {
 // scanned every 5 mins, such that any host that fails 7 consecutive times
 // with 5XX error code will be ejected for 15 minutes.
 //
-//     apiVersion: networking.istio.io/v1alpha3
-//     kind: DestinationRule
-//     metadata:
-//       name: reviews-cb-policy
-//     spec:
-//       host: reviews.prod.svc.cluster.local
-//       trafficPolicy:
-//         connectionPool:
-//           tcp:
-//             maxConnections: 100
-//           http:
-//             http2MaxRequests: 1000
-//             maxRequestsPerConnection: 10
-//         outlierDetection:
-//           http:
-//             consecutiveErrors: 7
-//             interval: 5m
-//             baseEjectionTime: 15m
-//
+// ```yaml
+// apiVersion: networking.istio.io/v1alpha3
+// kind: DestinationRule
+// metadata:
+//   name: reviews-cb-policy
+// spec:
+//   host: reviews.prod.svc.cluster.local
+//   trafficPolicy:
+//     connectionPool:
+//       tcp:
+//         maxConnections: 100
+//       http:
+//         http2MaxRequests: 1000
+//         maxRequestsPerConnection: 10
+//     outlierDetection:
+//       consecutiveErrors: 7
+//       interval: 5m
+//       baseEjectionTime: 15m
+// ```
 type OutlierDetection struct {
-	// Settings for HTTP1.1/HTTP2/GRPC connections.
-	Http *OutlierDetection_HTTPSettings `protobuf:"bytes,1,opt,name=http" json:"http,omitempty"`
-}
-
-func (m *OutlierDetection) Reset()                    { *m = OutlierDetection{} }
-func (m *OutlierDetection) String() string            { return proto.CompactTextString(m) }
-func (*OutlierDetection) ProtoMessage()               {}
-func (*OutlierDetection) Descriptor() ([]byte, []int) { return fileDescriptorDestinationRule, []int{5} }
-
-func (m *OutlierDetection) GetHttp() *OutlierDetection_HTTPSettings {
-	if m != nil {
-		return m.Http
-	}
-	return nil
-}
-
-// Outlier detection settings for HTTP1.1/HTTP2/GRPC connections.
-type OutlierDetection_HTTPSettings struct {
-	// Number of 5XX errors before a host is ejected from the connection
-	// pool. Defaults to 5.
+	// Number of errors before a host is ejected from the connection
+	// pool. Defaults to 5. When the upstream host is accessed over HTTP, a
+	// 5xx return code qualifies as an error. When the upstream host is
+	// accessed over an opaque TCP connection, connect timeouts and
+	// connection error/failure events qualify as an error.
 	ConsecutiveErrors int32 `protobuf:"varint,1,opt,name=consecutive_errors,json=consecutiveErrors,proto3" json:"consecutive_errors,omitempty"`
 	// Time interval between ejection sweep analysis. format:
 	// 1h/1m/1s/1ms. MUST BE >=1ms. Default is 10s.
@@ -835,35 +1024,33 @@ type OutlierDetection_HTTPSettings struct {
 	MaxEjectionPercent int32 `protobuf:"varint,4,opt,name=max_ejection_percent,json=maxEjectionPercent,proto3" json:"max_ejection_percent,omitempty"`
 }
 
-func (m *OutlierDetection_HTTPSettings) Reset()         { *m = OutlierDetection_HTTPSettings{} }
-func (m *OutlierDetection_HTTPSettings) String() string { return proto.CompactTextString(m) }
-func (*OutlierDetection_HTTPSettings) ProtoMessage()    {}
-func (*OutlierDetection_HTTPSettings) Descriptor() ([]byte, []int) {
-	return fileDescriptorDestinationRule, []int{5, 0}
-}
+func (m *OutlierDetection) Reset()                    { *m = OutlierDetection{} }
+func (m *OutlierDetection) String() string            { return proto.CompactTextString(m) }
+func (*OutlierDetection) ProtoMessage()               {}
+func (*OutlierDetection) Descriptor() ([]byte, []int) { return fileDescriptorDestinationRule, []int{5} }
 
-func (m *OutlierDetection_HTTPSettings) GetConsecutiveErrors() int32 {
+func (m *OutlierDetection) GetConsecutiveErrors() int32 {
 	if m != nil {
 		return m.ConsecutiveErrors
 	}
 	return 0
 }
 
-func (m *OutlierDetection_HTTPSettings) GetInterval() *google_protobuf.Duration {
+func (m *OutlierDetection) GetInterval() *google_protobuf.Duration {
 	if m != nil {
 		return m.Interval
 	}
 	return nil
 }
 
-func (m *OutlierDetection_HTTPSettings) GetBaseEjectionTime() *google_protobuf.Duration {
+func (m *OutlierDetection) GetBaseEjectionTime() *google_protobuf.Duration {
 	if m != nil {
 		return m.BaseEjectionTime
 	}
 	return nil
 }
 
-func (m *OutlierDetection_HTTPSettings) GetMaxEjectionPercent() int32 {
+func (m *OutlierDetection) GetMaxEjectionPercent() int32 {
 	if m != nil {
 		return m.MaxEjectionPercent
 	}
@@ -877,43 +1064,50 @@ func (m *OutlierDetection_HTTPSettings) GetMaxEjectionPercent() int32 {
 // For example, the following rule configures a client to use mutual TLS
 // for connections to upstream database cluster.
 //
-//     apiVersion: networking.istio.io/v1alpha3
-//     kind: DestinationRule
-//     metadata:
-//       name: db-mtls
-//     spec:
-//       host: mydbserver.prod.svc.cluster.local
-//       trafficPolicy:
-//         tls:
-//           mode: MUTUAL
-//           clientCertificate: /etc/certs/myclientcert.pem
-//           privateKey: /etc/certs/client_private_key.pem
-//           caCertificates: /etc/certs/rootcacerts.pem
+// ```yaml
+// apiVersion: networking.istio.io/v1alpha3
+// kind: DestinationRule
+// metadata:
+//   name: db-mtls
+// spec:
+//   host: mydbserver.prod.svc.cluster.local
+//   trafficPolicy:
+//     tls:
+//       mode: MUTUAL
+//       clientCertificate: /etc/certs/myclientcert.pem
+//       privateKey: /etc/certs/client_private_key.pem
+//       caCertificates: /etc/certs/rootcacerts.pem
+// ```
 //
 // The following rule configures a client to use TLS when talking to a
 // foreign service whose domain matches *.foo.com.
 //
-//     apiVersion: networking.istio.io/v1alpha3
-//     kind: DestinationRule
-//     metadata:
-//       name: tls-foo
-//     spec:
-//       host: "*.foo.com"
-//       trafficPolicy:
-//         tls:
-//           mode: SIMPLE
+// ```yaml
+// apiVersion: networking.istio.io/v1alpha3
+// kind: DestinationRule
+// metadata:
+//   name: tls-foo
+// spec:
+//   host: "*.foo.com"
+//   trafficPolicy:
+//     tls:
+//       mode: SIMPLE
+// ```
 //
 // The following rule configures a client to use Istio mutual TLS when talking
 // to rating services.
-//     apiVersion: networking.istio.io/v1alpha3
-//     kind: DestinationRule
-//     metadata:
-//       name: ratings-istio-mtls
-//     spec:
-//       host: ratings.prod.svc.cluster.local
-//       trafficPolicy:
-//         tls:
-//           mode: ISTIO_MUTUAL
+//
+// ```yaml
+// apiVersion: networking.istio.io/v1alpha3
+// kind: DestinationRule
+// metadata:
+//   name: ratings-istio-mtls
+// spec:
+//   host: ratings.prod.svc.cluster.local
+//   trafficPolicy:
+//     tls:
+//       mode: ISTIO_MUTUAL
+// ```
 type TLSSettings struct {
 	// REQUIRED: Indicates whether connections to this port should be secured
 	// using TLS. The value of this field determines how TLS is enforced.
@@ -995,11 +1189,11 @@ func init() {
 	proto.RegisterType((*Subset)(nil), "istio.networking.v1alpha3.Subset")
 	proto.RegisterType((*LoadBalancerSettings)(nil), "istio.networking.v1alpha3.LoadBalancerSettings")
 	proto.RegisterType((*LoadBalancerSettings_ConsistentHashLB)(nil), "istio.networking.v1alpha3.LoadBalancerSettings.ConsistentHashLB")
+	proto.RegisterType((*LoadBalancerSettings_ConsistentHashLB_HTTPCookie)(nil), "istio.networking.v1alpha3.LoadBalancerSettings.ConsistentHashLB.HTTPCookie")
 	proto.RegisterType((*ConnectionPoolSettings)(nil), "istio.networking.v1alpha3.ConnectionPoolSettings")
 	proto.RegisterType((*ConnectionPoolSettings_TCPSettings)(nil), "istio.networking.v1alpha3.ConnectionPoolSettings.TCPSettings")
 	proto.RegisterType((*ConnectionPoolSettings_HTTPSettings)(nil), "istio.networking.v1alpha3.ConnectionPoolSettings.HTTPSettings")
 	proto.RegisterType((*OutlierDetection)(nil), "istio.networking.v1alpha3.OutlierDetection")
-	proto.RegisterType((*OutlierDetection_HTTPSettings)(nil), "istio.networking.v1alpha3.OutlierDetection.HTTPSettings")
 	proto.RegisterType((*TLSSettings)(nil), "istio.networking.v1alpha3.TLSSettings")
 	proto.RegisterEnum("istio.networking.v1alpha3.LoadBalancerSettings_SimpleLB", LoadBalancerSettings_SimpleLB_name, LoadBalancerSettings_SimpleLB_value)
 	proto.RegisterEnum("istio.networking.v1alpha3.TLSSettings_TLSmode", TLSSettings_TLSmode_name, TLSSettings_TLSmode_value)
@@ -1300,16 +1494,91 @@ func (m *LoadBalancerSettings_ConsistentHashLB) MarshalTo(dAtA []byte) (int, err
 	_ = i
 	var l int
 	_ = l
-	if len(m.HttpHeader) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintDestinationRule(dAtA, i, uint64(len(m.HttpHeader)))
-		i += copy(dAtA[i:], m.HttpHeader)
+	if m.HashKey != nil {
+		nn14, err := m.HashKey.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += nn14
 	}
 	if m.MinimumRingSize != 0 {
-		dAtA[i] = 0x10
+		dAtA[i] = 0x20
 		i++
 		i = encodeVarintDestinationRule(dAtA, i, uint64(m.MinimumRingSize))
+	}
+	return i, nil
+}
+
+func (m *LoadBalancerSettings_ConsistentHashLB_HttpHeaderName) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	dAtA[i] = 0xa
+	i++
+	i = encodeVarintDestinationRule(dAtA, i, uint64(len(m.HttpHeaderName)))
+	i += copy(dAtA[i:], m.HttpHeaderName)
+	return i, nil
+}
+func (m *LoadBalancerSettings_ConsistentHashLB_HttpCookie) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	if m.HttpCookie != nil {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintDestinationRule(dAtA, i, uint64(m.HttpCookie.Size()))
+		n15, err := m.HttpCookie.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n15
+	}
+	return i, nil
+}
+func (m *LoadBalancerSettings_ConsistentHashLB_UseSourceIp) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	dAtA[i] = 0x18
+	i++
+	if m.UseSourceIp {
+		dAtA[i] = 1
+	} else {
+		dAtA[i] = 0
+	}
+	i++
+	return i, nil
+}
+func (m *LoadBalancerSettings_ConsistentHashLB_HTTPCookie) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *LoadBalancerSettings_ConsistentHashLB_HTTPCookie) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.Name) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintDestinationRule(dAtA, i, uint64(len(m.Name)))
+		i += copy(dAtA[i:], m.Name)
+	}
+	if len(m.Path) > 0 {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintDestinationRule(dAtA, i, uint64(len(m.Path)))
+		i += copy(dAtA[i:], m.Path)
+	}
+	if m.Ttl != nil {
+		dAtA[i] = 0x1a
+		i++
+		i = encodeVarintDestinationRule(dAtA, i, uint64(types.SizeOfStdDuration(*m.Ttl)))
+		n16, err := types.StdDurationMarshalTo(*m.Ttl, dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n16
 	}
 	return i, nil
 }
@@ -1333,21 +1602,21 @@ func (m *ConnectionPoolSettings) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintDestinationRule(dAtA, i, uint64(m.Tcp.Size()))
-		n14, err := m.Tcp.MarshalTo(dAtA[i:])
+		n17, err := m.Tcp.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n14
+		i += n17
 	}
 	if m.Http != nil {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintDestinationRule(dAtA, i, uint64(m.Http.Size()))
-		n15, err := m.Http.MarshalTo(dAtA[i:])
+		n18, err := m.Http.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n15
+		i += n18
 	}
 	return i, nil
 }
@@ -1376,11 +1645,11 @@ func (m *ConnectionPoolSettings_TCPSettings) MarshalTo(dAtA []byte) (int, error)
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintDestinationRule(dAtA, i, uint64(m.ConnectTimeout.Size()))
-		n16, err := m.ConnectTimeout.MarshalTo(dAtA[i:])
+		n19, err := m.ConnectTimeout.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n16
+		i += n19
 	}
 	return i, nil
 }
@@ -1438,34 +1707,6 @@ func (m *OutlierDetection) MarshalTo(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
-	if m.Http != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintDestinationRule(dAtA, i, uint64(m.Http.Size()))
-		n17, err := m.Http.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n17
-	}
-	return i, nil
-}
-
-func (m *OutlierDetection_HTTPSettings) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *OutlierDetection_HTTPSettings) MarshalTo(dAtA []byte) (int, error) {
-	var i int
-	_ = i
-	var l int
-	_ = l
 	if m.ConsecutiveErrors != 0 {
 		dAtA[i] = 0x8
 		i++
@@ -1475,21 +1716,21 @@ func (m *OutlierDetection_HTTPSettings) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintDestinationRule(dAtA, i, uint64(m.Interval.Size()))
-		n18, err := m.Interval.MarshalTo(dAtA[i:])
+		n20, err := m.Interval.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n18
+		i += n20
 	}
 	if m.BaseEjectionTime != nil {
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintDestinationRule(dAtA, i, uint64(m.BaseEjectionTime.Size()))
-		n19, err := m.BaseEjectionTime.MarshalTo(dAtA[i:])
+		n21, err := m.BaseEjectionTime.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n19
+		i += n21
 	}
 	if m.MaxEjectionPercent != 0 {
 		dAtA[i] = 0x20
@@ -1693,12 +1934,51 @@ func (m *LoadBalancerSettings_ConsistentHash) Size() (n int) {
 func (m *LoadBalancerSettings_ConsistentHashLB) Size() (n int) {
 	var l int
 	_ = l
-	l = len(m.HttpHeader)
-	if l > 0 {
-		n += 1 + l + sovDestinationRule(uint64(l))
+	if m.HashKey != nil {
+		n += m.HashKey.Size()
 	}
 	if m.MinimumRingSize != 0 {
 		n += 1 + sovDestinationRule(uint64(m.MinimumRingSize))
+	}
+	return n
+}
+
+func (m *LoadBalancerSettings_ConsistentHashLB_HttpHeaderName) Size() (n int) {
+	var l int
+	_ = l
+	l = len(m.HttpHeaderName)
+	n += 1 + l + sovDestinationRule(uint64(l))
+	return n
+}
+func (m *LoadBalancerSettings_ConsistentHashLB_HttpCookie) Size() (n int) {
+	var l int
+	_ = l
+	if m.HttpCookie != nil {
+		l = m.HttpCookie.Size()
+		n += 1 + l + sovDestinationRule(uint64(l))
+	}
+	return n
+}
+func (m *LoadBalancerSettings_ConsistentHashLB_UseSourceIp) Size() (n int) {
+	var l int
+	_ = l
+	n += 2
+	return n
+}
+func (m *LoadBalancerSettings_ConsistentHashLB_HTTPCookie) Size() (n int) {
+	var l int
+	_ = l
+	l = len(m.Name)
+	if l > 0 {
+		n += 1 + l + sovDestinationRule(uint64(l))
+	}
+	l = len(m.Path)
+	if l > 0 {
+		n += 1 + l + sovDestinationRule(uint64(l))
+	}
+	if m.Ttl != nil {
+		l = types.SizeOfStdDuration(*m.Ttl)
+		n += 1 + l + sovDestinationRule(uint64(l))
 	}
 	return n
 }
@@ -1749,16 +2029,6 @@ func (m *ConnectionPoolSettings_HTTPSettings) Size() (n int) {
 }
 
 func (m *OutlierDetection) Size() (n int) {
-	var l int
-	_ = l
-	if m.Http != nil {
-		l = m.Http.Size()
-		n += 1 + l + sovDestinationRule(uint64(l))
-	}
-	return n
-}
-
-func (m *OutlierDetection_HTTPSettings) Size() (n int) {
 	var l int
 	_ = l
 	if m.ConsecutiveErrors != 0 {
@@ -2756,7 +3026,7 @@ func (m *LoadBalancerSettings_ConsistentHashLB) Unmarshal(dAtA []byte) error {
 		switch fieldNum {
 		case 1:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field HttpHeader", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field HttpHeaderName", wireType)
 			}
 			var stringLen uint64
 			for shift := uint(0); ; shift += 7 {
@@ -2781,9 +3051,62 @@ func (m *LoadBalancerSettings_ConsistentHashLB) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.HttpHeader = string(dAtA[iNdEx:postIndex])
+			m.HashKey = &LoadBalancerSettings_ConsistentHashLB_HttpHeaderName{string(dAtA[iNdEx:postIndex])}
 			iNdEx = postIndex
 		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field HttpCookie", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowDestinationRule
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthDestinationRule
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &LoadBalancerSettings_ConsistentHashLB_HTTPCookie{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.HashKey = &LoadBalancerSettings_ConsistentHashLB_HttpCookie{v}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field UseSourceIp", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowDestinationRule
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			b := bool(v != 0)
+			m.HashKey = &LoadBalancerSettings_ConsistentHashLB_UseSourceIp{b}
+		case 4:
 			if wireType != 0 {
 				return fmt.Errorf("proto: wrong wireType = %d for field MinimumRingSize", wireType)
 			}
@@ -2797,11 +3120,152 @@ func (m *LoadBalancerSettings_ConsistentHashLB) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.MinimumRingSize |= (uint32(b) & 0x7F) << shift
+				m.MinimumRingSize |= (uint64(b) & 0x7F) << shift
 				if b < 0x80 {
 					break
 				}
 			}
+		default:
+			iNdEx = preIndex
+			skippy, err := skipDestinationRule(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthDestinationRule
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *LoadBalancerSettings_ConsistentHashLB_HTTPCookie) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowDestinationRule
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: HTTPCookie: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: HTTPCookie: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Name", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowDestinationRule
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthDestinationRule
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Name = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Path", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowDestinationRule
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthDestinationRule
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Path = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Ttl", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowDestinationRule
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthDestinationRule
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Ttl == nil {
+				m.Ttl = new(time.Duration)
+			}
+			if err := types.StdDurationUnmarshal(m.Ttl, dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipDestinationRule(dAtA[iNdEx:])
@@ -3194,89 +3658,6 @@ func (m *OutlierDetection) Unmarshal(dAtA []byte) error {
 		}
 		if fieldNum <= 0 {
 			return fmt.Errorf("proto: OutlierDetection: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Http", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowDestinationRule
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthDestinationRule
-			}
-			postIndex := iNdEx + msglen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.Http == nil {
-				m.Http = &OutlierDetection_HTTPSettings{}
-			}
-			if err := m.Http.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		default:
-			iNdEx = preIndex
-			skippy, err := skipDestinationRule(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if skippy < 0 {
-				return ErrInvalidLengthDestinationRule
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *OutlierDetection_HTTPSettings) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowDestinationRule
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: HTTPSettings: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: HTTPSettings: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
@@ -3728,80 +4109,86 @@ func init() {
 }
 
 var fileDescriptorDestinationRule = []byte{
-	// 1192 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x56, 0xd1, 0x6e, 0x1b, 0x45,
-	0x17, 0xae, 0xbd, 0x8e, 0xdb, 0x1c, 0x37, 0xce, 0x66, 0xfe, 0xea, 0xc7, 0x35, 0x52, 0x08, 0xbe,
-	0xa0, 0xa1, 0xd0, 0x35, 0x4d, 0x85, 0x14, 0x5a, 0x15, 0x35, 0x4e, 0xac, 0x3a, 0xc2, 0x89, 0xad,
-	0xb1, 0x23, 0xa1, 0xde, 0xac, 0xc6, 0xeb, 0x49, 0x3c, 0xed, 0x7a, 0x67, 0x99, 0x99, 0x35, 0x49,
-	0x5f, 0x82, 0x2b, 0x78, 0x11, 0x5e, 0x02, 0x71, 0x85, 0xb8, 0x83, 0x2b, 0xd4, 0x17, 0xe8, 0x2b,
-	0xa0, 0x99, 0x1d, 0xdb, 0x9b, 0x34, 0xb8, 0x8d, 0xa0, 0x77, 0xeb, 0x39, 0xe7, 0xfb, 0xe6, 0xcc,
-	0x9c, 0x6f, 0xbe, 0x63, 0xb8, 0x1b, 0x51, 0xf5, 0x3d, 0x17, 0x2f, 0x58, 0x74, 0x52, 0x9f, 0xdc,
-	0x27, 0x61, 0x3c, 0x22, 0x0f, 0xea, 0x43, 0x2a, 0x15, 0x8b, 0x88, 0x62, 0x3c, 0xf2, 0x45, 0x12,
-	0x52, 0x2f, 0x16, 0x5c, 0x71, 0x74, 0x9b, 0x49, 0xc5, 0xb8, 0x37, 0x47, 0x78, 0x53, 0x44, 0x75,
-	0xfd, 0x84, 0xf3, 0x93, 0x90, 0xd6, 0x4d, 0xe2, 0x20, 0x39, 0xae, 0x0f, 0x13, 0x61, 0xf0, 0x29,
-	0xb4, 0xfa, 0xe9, 0x65, 0xdb, 0x4c, 0x98, 0x50, 0x09, 0x09, 0x7d, 0x49, 0xc5, 0x84, 0x05, 0x76,
-	0x97, 0xda, 0xcf, 0x39, 0x58, 0xdd, 0x9b, 0x17, 0x80, 0x93, 0x90, 0x22, 0x04, 0x85, 0x11, 0x97,
-	0xaa, 0x92, 0xdb, 0xc8, 0x6d, 0x2e, 0x63, 0xf3, 0x8d, 0x3a, 0x50, 0x56, 0x82, 0x1c, 0x1f, 0xb3,
-	0xc0, 0x8f, 0x79, 0xc8, 0x82, 0xb3, 0x4a, 0x7e, 0x23, 0xb7, 0x59, 0xda, 0xda, 0xf4, 0xfe, 0xb1,
-	0x4c, 0xaf, 0x9f, 0x02, 0xba, 0x26, 0x1f, 0xaf, 0xa8, 0xec, 0x4f, 0xf4, 0x08, 0xae, 0xcb, 0x64,
-	0x20, 0xa9, 0x92, 0x15, 0x67, 0xc3, 0xd9, 0x2c, 0x6d, 0x7d, 0xbc, 0x80, 0xa9, 0x67, 0x32, 0xf1,
-	0x14, 0x51, 0xfb, 0xb3, 0x08, 0x2b, 0xe7, 0xd8, 0x51, 0x1f, 0x56, 0x42, 0x4e, 0x86, 0xfe, 0x80,
-	0x84, 0x24, 0x0a, 0xa8, 0x30, 0xc5, 0x97, 0xb6, 0xea, 0x0b, 0x48, 0xdb, 0x9c, 0x0c, 0x1b, 0x36,
-	0xbd, 0x47, 0x95, 0x62, 0xd1, 0x89, 0xc4, 0x37, 0xc3, 0xcc, 0x2a, 0x7a, 0x06, 0xab, 0x01, 0x8f,
-	0x22, 0x1a, 0x98, 0xe6, 0xc4, 0x9c, 0x87, 0xf6, 0xd8, 0xf7, 0x17, 0xf0, 0xee, 0xce, 0x10, 0x5d,
-	0xce, 0xc3, 0x19, 0x73, 0x39, 0x38, 0xb7, 0x8e, 0xbe, 0x85, 0x35, 0x9e, 0xa8, 0x90, 0x51, 0xe1,
-	0x0f, 0xa9, 0x4a, 0x03, 0x15, 0xc7, 0xb0, 0x7f, 0xb6, 0x80, 0xbd, 0x93, 0x62, 0xf6, 0xa6, 0x10,
-	0xec, 0xf2, 0x0b, 0x2b, 0x68, 0x1b, 0x1c, 0x15, 0xca, 0x4a, 0xc1, 0x70, 0x7d, 0xb2, 0xa8, 0x41,
-	0xed, 0xde, 0xac, 0x3c, 0x0d, 0x41, 0xcf, 0xe1, 0x7f, 0x31, 0x17, 0xca, 0x0f, 0xe9, 0x84, 0x6a,
-	0xa5, 0xa4, 0xb1, 0xca, 0x92, 0x69, 0xd0, 0xc3, 0x77, 0x6d, 0xb5, 0xd7, 0xe5, 0x42, 0x9d, 0x6f,
-	0xfe, 0x9a, 0xa6, 0x6d, 0x6b, 0xd6, 0xe9, 0x86, 0xd5, 0x9f, 0x1c, 0x58, 0x7b, 0x23, 0x11, 0x3d,
-	0x82, 0x82, 0x4e, 0xb5, 0xed, 0xbb, 0xb3, 0x60, 0x4b, 0x8d, 0xed, 0xd1, 0x90, 0x06, 0x8a, 0x0b,
-	0x6c, 0x40, 0x6f, 0x8a, 0x20, 0xff, 0x9e, 0x44, 0xe0, 0xbc, 0x57, 0x11, 0x14, 0xfe, 0x43, 0x11,
-	0x2c, 0x5d, 0x59, 0x04, 0xb5, 0xd7, 0x39, 0x28, 0xa6, 0x0f, 0x4e, 0x3b, 0x41, 0x44, 0xc6, 0x74,
-	0xea, 0x04, 0xfa, 0x1b, 0x35, 0xa1, 0x18, 0x92, 0x01, 0x0d, 0x65, 0x25, 0x6f, 0x64, 0x71, 0xef,
-	0xad, 0xef, 0xd6, 0x6b, 0x9b, 0xfc, 0x66, 0xa4, 0xc4, 0x19, 0xb6, 0xe0, 0x4b, 0x0c, 0xc5, 0xf9,
-	0x57, 0x86, 0x52, 0xfd, 0x0a, 0x4a, 0x99, 0x7d, 0x90, 0x0b, 0xce, 0x0b, 0x7a, 0x66, 0x2b, 0xd7,
-	0x9f, 0xe8, 0x16, 0x2c, 0x4d, 0x48, 0x98, 0x50, 0xa3, 0x8a, 0x65, 0x9c, 0xfe, 0x78, 0x98, 0xdf,
-	0xce, 0xd5, 0x7e, 0x70, 0xe0, 0xd6, 0x65, 0x42, 0x40, 0x18, 0x8a, 0x92, 0x8d, 0xe3, 0x30, 0xbd,
-	0x81, 0xf2, 0xd6, 0xf6, 0x15, 0x95, 0xe4, 0xf5, 0x0c, 0xba, 0xdd, 0x68, 0x5d, 0xc3, 0x96, 0x09,
-	0xbd, 0x30, 0x72, 0x92, 0x4c, 0x2a, 0x1a, 0x29, 0x7f, 0x44, 0xe4, 0xc8, 0xca, 0xf4, 0xc9, 0x55,
-	0xc9, 0x77, 0x67, 0x34, 0x2d, 0x22, 0x47, 0x66, 0x93, 0x72, 0x70, 0x6e, 0xad, 0xea, 0x83, 0x7b,
-	0x31, 0x0b, 0x7d, 0x04, 0xa5, 0x91, 0x52, 0xb1, 0x3f, 0xa2, 0x64, 0x68, 0x8d, 0x72, 0x19, 0x83,
-	0x5e, 0x6a, 0x99, 0x15, 0x74, 0x17, 0xd6, 0xc6, 0x2c, 0x62, 0xe3, 0x64, 0xec, 0x0b, 0x16, 0x9d,
-	0xf8, 0x92, 0xbd, 0x4c, 0x2f, 0x6d, 0x05, 0xaf, 0xda, 0x00, 0x66, 0xd1, 0x49, 0x8f, 0xbd, 0xa4,
-	0xb5, 0x16, 0xdc, 0x98, 0x9e, 0x11, 0xad, 0x42, 0x09, 0x77, 0x8e, 0x0e, 0xf7, 0x7c, 0xdc, 0x69,
-	0xec, 0x1f, 0xba, 0xd7, 0x50, 0x19, 0xa0, 0xdd, 0xdc, 0xe9, 0xf5, 0xfd, 0xdd, 0xce, 0xe1, 0xa1,
-	0x9b, 0x43, 0x00, 0x45, 0xbc, 0x73, 0xb8, 0xd7, 0x39, 0x70, 0xf3, 0x3a, 0xb9, 0xbb, 0xd3, 0xeb,
-	0xf5, 0x5b, 0xb8, 0x73, 0xf4, 0xb4, 0xe5, 0x3a, 0x8d, 0x12, 0x2c, 0x87, 0x03, 0xab, 0x85, 0xda,
-	0x8f, 0x05, 0xf8, 0xff, 0xe5, 0x4f, 0x08, 0x75, 0xc0, 0x51, 0x41, 0x6c, 0x0d, 0xe2, 0xf1, 0x95,
-	0x9f, 0xa0, 0xd7, 0xdf, 0xed, 0x66, 0xf4, 0x1e, 0xc4, 0x08, 0x43, 0x41, 0x1f, 0xde, 0x76, 0xe1,
-	0xeb, 0xab, 0x33, 0xb6, 0xfa, 0xfd, 0x39, 0xa5, 0xe1, 0xaa, 0xbe, 0x84, 0x52, 0x66, 0x1f, 0x74,
-	0x07, 0x56, 0xc7, 0xe4, 0xd4, 0x9f, 0x3f, 0x7e, 0x69, 0xea, 0x5f, 0xc2, 0xe5, 0x31, 0x39, 0x9d,
-	0xb3, 0x4a, 0xd4, 0x98, 0x79, 0x8d, 0xaf, 0xd8, 0x98, 0xf2, 0x44, 0xd9, 0xb2, 0x6e, 0x7b, 0xe9,
-	0xcc, 0xf7, 0xa6, 0x33, 0xdf, 0xdb, 0xb3, 0x33, 0x7f, 0xe6, 0x29, 0xfd, 0x14, 0x50, 0xfd, 0x23,
-	0x07, 0x37, 0xb3, 0x25, 0xa1, 0x47, 0x50, 0xd5, 0x45, 0xdd, 0xf7, 0x75, 0x0d, 0x31, 0x8d, 0x86,
-	0xba, 0xa9, 0x82, 0x7e, 0x97, 0x50, 0xa9, 0xa6, 0x85, 0x7c, 0x60, 0x32, 0x0e, 0xc8, 0x69, 0x37,
-	0x8d, 0x63, 0x1b, 0x46, 0x9f, 0x03, 0xd2, 0xa1, 0x2d, 0x03, 0x9e, 0x81, 0xf2, 0x06, 0xe4, 0x9a,
-	0xc8, 0x01, 0x39, 0x9d, 0x65, 0x3f, 0x86, 0x0f, 0xb3, 0x79, 0x7e, 0x4c, 0x45, 0xe6, 0xd4, 0xe6,
-	0x89, 0x2f, 0xe1, 0xca, 0x78, 0x8e, 0xe8, 0x52, 0x31, 0x3f, 0xbf, 0x96, 0x66, 0x0a, 0x57, 0x82,
-	0xd1, 0x74, 0x82, 0x2d, 0x61, 0x30, 0xe9, 0x66, 0xa5, 0xf6, 0x7b, 0x1e, 0xdc, 0x8b, 0xe6, 0x87,
-	0xda, 0xb6, 0x81, 0xa9, 0x24, 0xb6, 0xaf, 0xe0, 0x9b, 0x97, 0xb5, 0xee, 0xf5, 0xc5, 0xeb, 0xbb,
-	0x07, 0x48, 0xbf, 0x2a, 0x1a, 0x24, 0x8a, 0x4d, 0xa8, 0x4f, 0x85, 0xe0, 0x62, 0x7a, 0x6d, 0x6b,
-	0x99, 0x48, 0xd3, 0x04, 0xd0, 0x97, 0x70, 0x83, 0x45, 0x8a, 0x8a, 0x09, 0x09, 0xdf, 0xde, 0xbb,
-	0x59, 0x2a, 0x7a, 0x0a, 0x68, 0x40, 0x24, 0xf5, 0xe9, 0x73, 0x3b, 0x68, 0x74, 0xff, 0xad, 0x27,
-	0x2e, 0x20, 0x70, 0x35, 0xa8, 0x69, 0x31, 0x5a, 0x01, 0xe8, 0x0b, 0xb8, 0xa5, 0xef, 0x70, 0xc6,
-	0x13, 0x53, 0x11, 0xd0, 0x48, 0xd9, 0xcb, 0x44, 0x63, 0x72, 0x3a, 0x4d, 0xef, 0xa6, 0x91, 0xda,
-	0xaf, 0x79, 0x28, 0x65, 0xa6, 0x00, 0x6a, 0x40, 0x61, 0xcc, 0x87, 0x53, 0xcf, 0xf3, 0xde, 0x6d,
-	0x76, 0xe8, 0x6f, 0x8d, 0xc2, 0x06, 0x6b, 0x2e, 0x2d, 0x64, 0xda, 0xe1, 0x02, 0x2a, 0x14, 0x3b,
-	0x66, 0x01, 0x51, 0x53, 0xe7, 0x5d, 0x4b, 0x23, 0xbb, 0xf3, 0x80, 0x6e, 0x7c, 0x2c, 0xd8, 0x84,
-	0x28, 0xea, 0x6b, 0xd7, 0x76, 0x52, 0x4f, 0xb2, 0x4b, 0xdf, 0xd0, 0x33, 0xfd, 0x82, 0x02, 0x92,
-	0xe5, 0x4a, 0xd5, 0xb1, 0x8c, 0xcb, 0x01, 0xc9, 0x10, 0x49, 0x6d, 0x5e, 0x32, 0x19, 0xe8, 0x13,
-	0xfa, 0x24, 0x54, 0xbe, 0x1e, 0x59, 0xe9, 0x1f, 0x98, 0x65, 0xbc, 0x6a, 0x03, 0x3b, 0xa1, 0x3a,
-	0xd4, 0xcb, 0x7a, 0x46, 0xc8, 0x88, 0x55, 0x8a, 0xe9, 0x8c, 0x90, 0x11, 0xab, 0x3d, 0x81, 0xeb,
-	0xf6, 0x1c, 0xa8, 0x04, 0xd7, 0xf7, 0xf6, 0x7b, 0x3b, 0x8d, 0x76, 0xd3, 0xbd, 0xa6, 0x9d, 0xab,
-	0xb7, 0x7f, 0xd0, 0x6d, 0x37, 0x53, 0x17, 0x3b, 0x38, 0xea, 0x1f, 0xed, 0xb4, 0xdd, 0x3c, 0x72,
-	0xe1, 0xe6, 0x7e, 0xaf, 0xbf, 0xdf, 0xf1, 0xed, 0x8a, 0xd3, 0xf0, 0x7e, 0x79, 0xb5, 0x9e, 0xfb,
-	0xed, 0xd5, 0x7a, 0xee, 0xaf, 0x57, 0xeb, 0xb9, 0x67, 0x1b, 0xe9, 0xdd, 0x31, 0x5e, 0x27, 0x31,
-	0xab, 0x5f, 0xf2, 0xb7, 0x7c, 0x50, 0x34, 0x3d, 0x7d, 0xf0, 0x77, 0x00, 0x00, 0x00, 0xff, 0xff,
-	0x5d, 0xe9, 0xfc, 0x06, 0x1b, 0x0c, 0x00, 0x00,
+	// 1292 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x57, 0xdd, 0x6e, 0x1b, 0xb7,
+	0x12, 0xb6, 0x7e, 0x63, 0x8f, 0x62, 0x79, 0xcd, 0x63, 0x9c, 0xa3, 0xe8, 0x00, 0x8e, 0x2b, 0x14,
+	0x8d, 0x9b, 0x36, 0xab, 0xda, 0x41, 0x81, 0x34, 0x41, 0x8a, 0x58, 0xb6, 0x10, 0x19, 0x91, 0x2d,
+	0x81, 0x2b, 0x03, 0x45, 0x6e, 0x16, 0xd4, 0x8a, 0x96, 0x18, 0xaf, 0x96, 0x5b, 0x92, 0xab, 0xda,
+	0x79, 0x8f, 0x16, 0x7d, 0x82, 0xbe, 0x40, 0x5f, 0xa2, 0xe8, 0x55, 0x6f, 0xdb, 0x9b, 0x16, 0x79,
+	0x81, 0x5e, 0x14, 0xbd, 0x2f, 0xc8, 0xdd, 0x95, 0xe4, 0xc4, 0x71, 0x62, 0xa4, 0xb9, 0xe3, 0x72,
+	0xe6, 0xfb, 0x38, 0xc3, 0x19, 0x7e, 0x23, 0xc1, 0xed, 0x80, 0xaa, 0x6f, 0xb8, 0x38, 0x61, 0xc1,
+	0xb0, 0x3e, 0xd9, 0x22, 0x7e, 0x38, 0x22, 0x77, 0xeb, 0x03, 0x2a, 0x15, 0x0b, 0x88, 0x62, 0x3c,
+	0x70, 0x45, 0xe4, 0x53, 0x3b, 0x14, 0x5c, 0x71, 0x74, 0x83, 0x49, 0xc5, 0xb8, 0x3d, 0x43, 0xd8,
+	0x29, 0xa2, 0xba, 0x3e, 0xe4, 0x7c, 0xe8, 0xd3, 0xba, 0x71, 0xec, 0x47, 0xc7, 0xf5, 0x41, 0x24,
+	0x0c, 0x3e, 0x86, 0x56, 0x3f, 0xbe, 0xe8, 0x98, 0x09, 0x13, 0x2a, 0x22, 0xbe, 0x2b, 0xa9, 0x98,
+	0x30, 0x2f, 0x39, 0xa5, 0xba, 0x36, 0xe4, 0x43, 0x6e, 0x96, 0x75, 0xbd, 0x8a, 0x77, 0x6b, 0x3f,
+	0x66, 0x60, 0x65, 0x6f, 0x16, 0x16, 0x8e, 0x7c, 0x8a, 0x10, 0xe4, 0x47, 0x5c, 0xaa, 0x4a, 0x66,
+	0x23, 0xb3, 0xb9, 0x84, 0xcd, 0x1a, 0x75, 0xa0, 0xac, 0x04, 0x39, 0x3e, 0x66, 0x9e, 0x1b, 0x72,
+	0x9f, 0x79, 0x67, 0x95, 0xec, 0x46, 0x66, 0xb3, 0xb4, 0xbd, 0x69, 0xbf, 0x36, 0x78, 0xbb, 0x17,
+	0x03, 0xba, 0xc6, 0x1f, 0x2f, 0xab, 0xf9, 0x4f, 0xf4, 0x00, 0xae, 0xc9, 0xa8, 0x2f, 0xa9, 0x92,
+	0x95, 0xdc, 0x46, 0x6e, 0xb3, 0xb4, 0xfd, 0xc1, 0x25, 0x4c, 0x8e, 0xf1, 0xc4, 0x29, 0xa2, 0xf6,
+	0x5b, 0x11, 0x96, 0xcf, 0xb1, 0xa3, 0x1e, 0x2c, 0xfb, 0x9c, 0x0c, 0xdc, 0x3e, 0xf1, 0x49, 0xe0,
+	0x51, 0x61, 0x82, 0x2f, 0x6d, 0xd7, 0x2f, 0x21, 0x6d, 0x73, 0x32, 0x68, 0x24, 0xee, 0x0e, 0x55,
+	0x8a, 0x05, 0x43, 0x89, 0xaf, 0xfb, 0x73, 0xbb, 0xe8, 0x29, 0xac, 0x78, 0x3c, 0x08, 0xa8, 0x67,
+	0x4a, 0x16, 0x72, 0xee, 0x27, 0x69, 0x6f, 0x5d, 0xc2, 0xbb, 0x3b, 0x45, 0x74, 0x39, 0xf7, 0xa7,
+	0xcc, 0x65, 0xef, 0xdc, 0x3e, 0xfa, 0x0a, 0x56, 0x79, 0xa4, 0x7c, 0x46, 0x85, 0x3b, 0xa0, 0x2a,
+	0x36, 0x54, 0x72, 0x86, 0xfd, 0x93, 0x4b, 0xd8, 0x3b, 0x31, 0x66, 0x2f, 0x85, 0x60, 0x8b, 0xbf,
+	0xb4, 0x83, 0xee, 0x41, 0x4e, 0xf9, 0xb2, 0x92, 0x37, 0x5c, 0x1f, 0x5d, 0x56, 0xa0, 0xb6, 0x33,
+	0x0d, 0x4f, 0x43, 0xd0, 0x33, 0xf8, 0x4f, 0xc8, 0x85, 0x72, 0x7d, 0x3a, 0xa1, 0xba, 0x7f, 0x62,
+	0x5b, 0xa5, 0x60, 0x0a, 0x74, 0xff, 0x6d, 0x4b, 0x6d, 0x77, 0xb9, 0x50, 0xe7, 0x8b, 0xbf, 0xaa,
+	0x69, 0xdb, 0x9a, 0x35, 0x3d, 0xb0, 0xfa, 0x5d, 0x0e, 0x56, 0x5f, 0x71, 0x44, 0x0f, 0x20, 0xaf,
+	0x5d, 0x93, 0xf2, 0xdd, 0xba, 0xe4, 0x48, 0x8d, 0x75, 0xa8, 0x4f, 0x3d, 0xc5, 0x05, 0x36, 0xa0,
+	0x57, 0x9b, 0x20, 0xfb, 0x9e, 0x9a, 0x20, 0xf7, 0x5e, 0x9b, 0x20, 0xff, 0x2f, 0x36, 0x41, 0xe1,
+	0xca, 0x4d, 0x50, 0xfb, 0x33, 0x03, 0xc5, 0xf8, 0xc1, 0x69, 0x25, 0x08, 0xc8, 0x98, 0xa6, 0x4a,
+	0xa0, 0xd7, 0xa8, 0x09, 0x45, 0x9f, 0xf4, 0xa9, 0x2f, 0x2b, 0x59, 0xd3, 0x16, 0x77, 0xde, 0xf8,
+	0x6e, 0xed, 0xb6, 0xf1, 0x6f, 0x06, 0x4a, 0x9c, 0xe1, 0x04, 0x7c, 0x81, 0xa0, 0xe4, 0xde, 0x49,
+	0x50, 0xaa, 0x5f, 0x40, 0x69, 0xee, 0x1c, 0x64, 0x41, 0xee, 0x84, 0x9e, 0x25, 0x91, 0xeb, 0x25,
+	0x5a, 0x83, 0xc2, 0x84, 0xf8, 0x11, 0x35, 0x5d, 0xb1, 0x84, 0xe3, 0x8f, 0xfb, 0xd9, 0x7b, 0x99,
+	0xda, 0x0f, 0x05, 0x58, 0xbb, 0xa8, 0x11, 0x10, 0x86, 0xa2, 0x64, 0xe3, 0xd0, 0x8f, 0x6f, 0xa0,
+	0xbc, 0x7d, 0xef, 0x8a, 0x9d, 0x64, 0x3b, 0x06, 0xdd, 0x6e, 0xb4, 0x16, 0x70, 0xc2, 0x84, 0x4e,
+	0x4c, 0x3b, 0x49, 0x26, 0x15, 0x0d, 0x94, 0x3b, 0x22, 0x72, 0x94, 0xb4, 0xe9, 0xa3, 0xab, 0x92,
+	0xef, 0x4e, 0x69, 0x5a, 0x44, 0x8e, 0xcc, 0x21, 0x65, 0xef, 0xdc, 0x5e, 0xf5, 0xef, 0x2c, 0x58,
+	0x2f, 0xbb, 0xa1, 0xdb, 0x60, 0x8d, 0x94, 0x0a, 0xdd, 0x11, 0x25, 0x03, 0x2a, 0xdc, 0x59, 0x85,
+	0x35, 0x81, 0xb6, 0xb4, 0x8c, 0xe1, 0x50, 0x57, 0x3b, 0x80, 0x92, 0xf1, 0xf5, 0x38, 0x3f, 0x61,
+	0x34, 0x89, 0xf4, 0xc9, 0xbb, 0x46, 0x6a, 0xb7, 0x7a, 0xbd, 0xee, 0xae, 0xa1, 0x6c, 0x2d, 0x60,
+	0xd0, 0x27, 0xc4, 0x5f, 0xe8, 0x43, 0x58, 0x8e, 0x24, 0x75, 0x25, 0x8f, 0x84, 0x47, 0x5d, 0x16,
+	0x9a, 0xae, 0x58, 0x6c, 0x2d, 0xe0, 0x52, 0x24, 0xa9, 0x63, 0x76, 0xf7, 0x43, 0x74, 0x1b, 0x56,
+	0xc7, 0x2c, 0x60, 0xe3, 0x68, 0xec, 0x0a, 0x16, 0x0c, 0x5d, 0xc9, 0x9e, 0x53, 0xf3, 0x6c, 0xf2,
+	0x78, 0x25, 0x31, 0x60, 0x16, 0x0c, 0x1d, 0xf6, 0x9c, 0x56, 0x87, 0x00, 0xb3, 0xd3, 0x2e, 0xec,
+	0x68, 0x04, 0xf9, 0x90, 0xa8, 0x51, 0xd2, 0x17, 0x66, 0x8d, 0xb6, 0x20, 0xa7, 0x54, 0xfa, 0xd0,
+	0x6f, 0xd8, 0xf1, 0x18, 0xb6, 0xd3, 0x31, 0x6c, 0xef, 0x25, 0x63, 0xb8, 0x91, 0xff, 0xfe, 0xf7,
+	0x9b, 0x19, 0xac, 0x7d, 0x1b, 0x00, 0x8b, 0xba, 0x9a, 0xee, 0x09, 0x3d, 0xab, 0xb5, 0x60, 0x31,
+	0x2d, 0x3d, 0x5a, 0x81, 0x12, 0xee, 0x1c, 0x1d, 0xee, 0xb9, 0xb8, 0xd3, 0xd8, 0x3f, 0xb4, 0x16,
+	0x50, 0x19, 0xa0, 0xdd, 0xdc, 0x71, 0x7a, 0xee, 0x6e, 0xe7, 0xf0, 0xd0, 0xca, 0x20, 0x80, 0x22,
+	0xde, 0x39, 0xdc, 0xeb, 0x1c, 0x58, 0x59, 0xed, 0xdc, 0xdd, 0x71, 0x9c, 0x5e, 0x0b, 0x77, 0x8e,
+	0x1e, 0xb7, 0xac, 0x5c, 0xa3, 0x04, 0x4b, 0x7e, 0x3f, 0x79, 0x22, 0xb5, 0x6f, 0xf3, 0xf0, 0xdf,
+	0x8b, 0x95, 0x05, 0x75, 0x20, 0xa7, 0xbc, 0x30, 0xd1, 0xcd, 0x87, 0x57, 0x56, 0x26, 0xbb, 0xb7,
+	0xdb, 0x9d, 0x93, 0x01, 0x2f, 0x44, 0x18, 0xf2, 0xba, 0x2e, 0x49, 0xc9, 0xbf, 0xbc, 0x3a, 0xa3,
+	0xbe, 0xf5, 0x29, 0xa5, 0xe1, 0xaa, 0x3e, 0x87, 0xd2, 0xdc, 0x39, 0xe8, 0x16, 0xac, 0x8c, 0xc9,
+	0xa9, 0x3b, 0xd3, 0x44, 0x69, 0xe2, 0x2f, 0xe0, 0xf2, 0x98, 0x9c, 0xce, 0x58, 0x25, 0x6a, 0x4c,
+	0x25, 0xd8, 0x55, 0x6c, 0x4c, 0x79, 0xa4, 0x92, 0xb0, 0x5e, 0x5f, 0x99, 0xa9, 0xd4, 0xf6, 0x62,
+	0x40, 0xf5, 0xd7, 0x0c, 0x5c, 0x9f, 0x0f, 0x09, 0x3d, 0x80, 0xaa, 0x0e, 0x6a, 0xcb, 0xd5, 0x31,
+	0x84, 0x34, 0x18, 0xe8, 0x4e, 0x12, 0xf4, 0xeb, 0x88, 0x4a, 0x95, 0x06, 0xf2, 0x3f, 0xe3, 0x71,
+	0x40, 0x4e, 0xbb, 0xb1, 0x1d, 0x27, 0x66, 0xf4, 0x29, 0x20, 0x6d, 0xda, 0x36, 0xe0, 0x29, 0x28,
+	0x6b, 0x40, 0xe6, 0x75, 0x6d, 0x1f, 0x90, 0xd3, 0xa9, 0xf7, 0x43, 0xf8, 0xff, 0xbc, 0x9f, 0x1b,
+	0x52, 0x31, 0x97, 0xb5, 0xe9, 0xb2, 0x02, 0xae, 0x8c, 0x67, 0x88, 0x2e, 0x15, 0xb3, 0xfc, 0xd1,
+	0x4d, 0x28, 0xc5, 0x70, 0x25, 0x18, 0x8d, 0x07, 0x7b, 0x01, 0x83, 0x71, 0x37, 0x3b, 0xb5, 0xbf,
+	0x32, 0x60, 0xbd, 0x3c, 0x13, 0xd0, 0x1d, 0x40, 0x5a, 0x0d, 0xa8, 0x17, 0x29, 0x36, 0xa1, 0x2e,
+	0x15, 0x82, 0x8b, 0x34, 0xaf, 0xd5, 0x39, 0x4b, 0xd3, 0x18, 0xd0, 0xe7, 0xb0, 0xc8, 0x02, 0x45,
+	0xc5, 0x84, 0xf8, 0x6f, 0xbe, 0xdc, 0xa9, 0x2b, 0x7a, 0x0c, 0xa8, 0x4f, 0x24, 0x75, 0xe9, 0xb3,
+	0x64, 0x40, 0xea, 0x02, 0xbd, 0xf1, 0xdd, 0x60, 0x4b, 0x83, 0x9a, 0x09, 0x46, 0x97, 0x08, 0x7d,
+	0x06, 0x6b, 0x3a, 0xc9, 0x29, 0x4f, 0x48, 0x85, 0x47, 0x03, 0x95, 0x64, 0x8b, 0xc6, 0xe4, 0x34,
+	0x75, 0xef, 0xc6, 0x96, 0xda, 0xcf, 0x59, 0x28, 0xcd, 0x4d, 0x2f, 0xd4, 0x80, 0xfc, 0x98, 0x0f,
+	0x52, 0xad, 0xb6, 0xdf, 0x6e, 0xe6, 0xe9, 0xb5, 0x46, 0x61, 0x83, 0x35, 0x97, 0xe6, 0x33, 0xad,
+	0xcc, 0x1e, 0x15, 0x8a, 0x1d, 0x33, 0x8f, 0xa8, 0x74, 0x62, 0xac, 0xc6, 0x96, 0xdd, 0x99, 0x41,
+	0x57, 0x26, 0x14, 0x6c, 0x42, 0x14, 0xd5, 0xcf, 0xde, 0xa4, 0xbd, 0x84, 0x21, 0xd9, 0x7a, 0x42,
+	0xcf, 0x74, 0x8b, 0x7b, 0x64, 0x9e, 0x2b, 0x2e, 0xdf, 0x12, 0x2e, 0x7b, 0x64, 0x8e, 0x48, 0x6a,
+	0x49, 0x93, 0x51, 0x5f, 0x67, 0xe8, 0x12, 0x5f, 0x19, 0x51, 0x8e, 0x7f, 0x78, 0x2d, 0xe1, 0x95,
+	0xc4, 0xb0, 0xe3, 0x2b, 0xad, 0xc9, 0x52, 0xcf, 0x36, 0x19, 0xb0, 0x4a, 0x31, 0x9e, 0x6d, 0x32,
+	0x60, 0xb5, 0x47, 0x70, 0x2d, 0xc9, 0x03, 0x95, 0xe0, 0xda, 0xde, 0xbe, 0xb3, 0xd3, 0x68, 0x37,
+	0xad, 0x05, 0x2d, 0x2d, 0xce, 0xfe, 0x41, 0xb7, 0xdd, 0x8c, 0x65, 0xe6, 0xe0, 0xa8, 0x77, 0xb4,
+	0xd3, 0xb6, 0xb2, 0xc8, 0x82, 0xeb, 0xfb, 0x4e, 0x6f, 0xbf, 0xe3, 0x26, 0x3b, 0xb9, 0x86, 0xfd,
+	0xd3, 0x8b, 0xf5, 0xcc, 0x2f, 0x2f, 0xd6, 0x33, 0x7f, 0xbc, 0x58, 0xcf, 0x3c, 0xdd, 0x88, 0xef,
+	0x8e, 0xf1, 0x3a, 0x09, 0x59, 0xfd, 0x82, 0x3f, 0x19, 0xfd, 0xa2, 0xa9, 0xe9, 0xdd, 0x7f, 0x02,
+	0x00, 0x00, 0xff, 0xff, 0x74, 0x27, 0x2c, 0x70, 0xe9, 0x0c, 0x00, 0x00,
 }

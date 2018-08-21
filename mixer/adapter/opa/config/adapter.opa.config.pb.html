@@ -1,12 +1,17 @@
 ---
 title: OPA
-overview: Adapter that implements an Open Policy Agent engine
-location: https://istio.io/docs/reference/config/adapters/opa.html
+description: Adapter that implements an Open Policy Agent engine
+location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/opa.html
 layout: protoc-gen-docs
+generator: protoc-gen-docs
+aliases:
+  - /docs/reference/config/adapters/opa.htm l
 number_of_entries: 1
 ---
 <p>The <code>opa</code> adapter exposes an <a href="http://www.openpolicyagent.org">Open Policy Agent</a> engine
 that provides sophisticated access control mechanisms.</p>
+
+<p>This adapter supports the <a href="https://istio.io/docs/reference/config/policy-and-telemetry/templates/authorization/">authorization template</a>.</p>
 
 <h2 id="Params">Params</h2>
 <section>
@@ -50,7 +55,7 @@ failClose: true
 </tr>
 </thead>
 <tbody>
-<tr id="Params.policy">
+<tr id="Params-policy">
 <td><code>policy</code></td>
 <td><code>string[]</code></td>
 <td>
@@ -58,7 +63,7 @@ failClose: true
 
 </td>
 </tr>
-<tr id="Params.check_method">
+<tr id="Params-check_method">
 <td><code>checkMethod</code></td>
 <td><code>string</code></td>
 <td>
@@ -67,7 +72,7 @@ Format: data.<package name>.<method name></p>
 
 </td>
 </tr>
-<tr id="Params.fail_close">
+<tr id="Params-fail_close">
 <td><code>failClose</code></td>
 <td><code>bool</code></td>
 <td>

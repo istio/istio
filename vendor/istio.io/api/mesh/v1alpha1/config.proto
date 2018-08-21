@@ -17,9 +17,10 @@ syntax = "proto3";
 import "google/protobuf/duration.proto";
 
 // $title: Service Mesh
-// $overview: Configuration affecting the service mesh as a whole
+// $description: Configuration affecting the service mesh as a whole
 // $location: https://istio.io/docs/reference/config/istio.mesh.v1alpha1.html
-// $front_matter: redirect_from: /docs/reference/config/service-mesh.html
+// $aliases:
+// $  - /docs/reference/config/service-mesh.html
 
 package istio.mesh.v1alpha1;
 
@@ -234,13 +235,7 @@ message MeshConfig {
   // at runtime and config gets distributed dynamically.
   ProxyConfig default_config = 14;
 
-  // List of remote services for which mTLS authentication should not be expected by Istio .
-  // Typically, these are control services (e.g kubernetes API server) that don't have Istio sidecar
-  // to transparently terminate mTLS authentication.
-  // It has no effect if the authentication policy is already 'NONE'.
-  // DO NOT use this setting for services that are managed by Istio (i.e. using Istio sidecar).
-  // Instead, use service-level annotations to overwrite the authentication policy.
-  repeated string mtls_excluded_services = 15;
+  reserved 15;
 
   // DEPRECATED. Mixer address. This option will be removed soon. Please
   // use mixer_check and mixer_report.
@@ -269,4 +264,14 @@ message MeshConfig {
   OutboundTrafficPolicy outbound_traffic_policy = 17;
 
   reserved 18;
+
+  // Enables clide side policy checks.
+  bool enable_client_side_policy_check = 19;
+
+  // Unix Domain Socket through which envoy communicates with NodeAgent SDS to get key/cert for mTLS.
+  // Use secret-mount files instead of SDS if set to empty. 
+  string sds_uds_path = 20;
+
+  // Polling interval for SDS (MUST BE >=1ms)
+  google.protobuf.Duration sds_refresh_delay = 21;
 }

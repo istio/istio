@@ -212,13 +212,16 @@
 
 - destination.ip
 - destination.port
+# destination.service is deprecated, please refer to destination.service.host
 - destination.service
 - destination.name
 - destination.uid
 - destination.namespace
 - destination.labels
+# destination.user is deprecated, please refer to destination.principal
 - destination.user
 
+# source.service is deprecated. please do not use moving forward.
 - source.service
 
 # api attributes
@@ -254,3 +257,35 @@
 
 # whether request is sent over mTLS enabled downstream connection.
 - connection.mtls
+- source.metadata
+- source.owner
+- source.services
+- source.workload.uid
+- source.workload.name
+- source.workload.namespace
+
+- destination.metadata
+- destination.owner
+- destination.principal
+- destination.workload.uid
+- destination.workload.name
+- destination.workload.namespace
+- destination.service.uid
+- destination.service.name
+- destination.service.namespace
+- destination.service.host
+- destination.container.name
+- destination.container.image
+
+- context.reporter.local
+- context.reporter.uid
+
+# gRPC trailer return status support
+- response.grpc_status
+- response.grpc_message
+
+- context.reporter.type
+- context.reporter.kind
+
+# SNI, for TLS connections
+- connection.requested_server_name

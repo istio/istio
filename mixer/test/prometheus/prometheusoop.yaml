@@ -1,0 +1,50 @@
+apiVersion: "config.istio.io/v1alpha2"
+kind: handler
+metadata:
+  name: prometheus-handler
+  namespace: istio-system
+spec:
+  adapter: prometheus-nosession
+  connection:
+    address: "prometheusadapter:8080"
+  params:
+    metrics:
+    - name: request_count
+      instance_name: requestcount.instance.istio-system
+      kind: COUNTER
+      label_names:
+      - source_service
+      - source_version
+      - destination_service
+      - destination_version
+      - response_code
+    - name: request_size
+      instance_name: requestsize.instance.istio-system
+      kind: DISTRIBUTION
+      label_names:
+      - source_service
+      - source_version
+      - destination_service
+      - destination_version
+      - response_code
+      buckets:
+        exponentialBuckets:
+          numFiniteBuckets: 8
+          scale: 1
+          growthFactor: 10
+---
+
+
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: promhttp-oop
+  namespace: istio-system
+spec:
+  actions:
+  - handler: prometheus-handler
+    instances:
+    - requestcount
+    - requestsize
+---
+

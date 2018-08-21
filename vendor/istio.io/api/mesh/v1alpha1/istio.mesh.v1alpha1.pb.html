@@ -1,9 +1,9 @@
 ---
-title: Service Mesh
-overview: Configuration affecting the service mesh as a whole
-location: https://istio.io/docs/reference/config/istio.mesh.v1alpha1.html
+title: istio.mesh.v1alpha1
 layout: protoc-gen-docs
-redirect_from: /docs/reference/config/service-mesh.html
+generator: protoc-gen-docs
+aliases:
+  - /docs/reference/config/service-mesh.html
 number_of_entries: 8
 ---
 <h2 id="AuthenticationPolicy">AuthenticationPolicy</h2>
@@ -21,21 +21,21 @@ Mesh policy cannot be INHERIT.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="AuthenticationPolicy.NONE">
+<tr id="AuthenticationPolicy-NONE">
 <td><code>NONE</code></td>
 <td>
 <p>Do not encrypt Envoy to Envoy traffic.</p>
 
 </td>
 </tr>
-<tr id="AuthenticationPolicy.MUTUAL_TLS">
+<tr id="AuthenticationPolicy-MUTUAL_TLS">
 <td><code>MUTUAL_TLS</code></td>
 <td>
 <p>Envoy to Envoy traffic is wrapped into mutual TLS connections.</p>
 
 </td>
 </tr>
-<tr id="AuthenticationPolicy.INHERIT">
+<tr id="AuthenticationPolicy-INHERIT">
 <td><code>INHERIT</code></td>
 <td>
 <p>Use the policy defined by the parent scope. Should not be used for mesh
@@ -67,7 +67,7 @@ tracing configuration).</p>
 </tr>
 </thead>
 <tbody>
-<tr id="MeshConfig.mixer_check_server">
+<tr id="MeshConfig-mixer_check_server">
 <td><code>mixerCheckServer</code></td>
 <td><code>string</code></td>
 <td>
@@ -82,7 +82,7 @@ equivalent to setting disablePolicyChecks to true.</p>
 
 </td>
 </tr>
-<tr id="MeshConfig.mixer_report_server">
+<tr id="MeshConfig-mixer_report_server">
 <td><code>mixerReportServer</code></td>
 <td><code>string</code></td>
 <td>
@@ -91,7 +91,7 @@ calls.</p>
 
 </td>
 </tr>
-<tr id="MeshConfig.disable_policy_checks">
+<tr id="MeshConfig-disable_policy_checks">
 <td><code>disablePolicyChecks</code></td>
 <td><code>bool</code></td>
 <td>
@@ -100,7 +100,7 @@ is false, i.e. mixer policy check is enabled by default.</p>
 
 </td>
 </tr>
-<tr id="MeshConfig.proxy_listen_port">
+<tr id="MeshConfig-proxy_listen_port">
 <td><code>proxyListenPort</code></td>
 <td><code>int32</code></td>
 <td>
@@ -109,7 +109,7 @@ other services.</p>
 
 </td>
 </tr>
-<tr id="MeshConfig.proxy_http_port">
+<tr id="MeshConfig-proxy_http_port">
 <td><code>proxyHttpPort</code></td>
 <td><code>int32</code></td>
 <td>
@@ -117,7 +117,7 @@ other services.</p>
 
 </td>
 </tr>
-<tr id="MeshConfig.connect_timeout">
+<tr id="MeshConfig-connect_timeout">
 <td><code>connectTimeout</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
@@ -125,7 +125,7 @@ other services.</p>
 
 </td>
 </tr>
-<tr id="MeshConfig.ingress_class">
+<tr id="MeshConfig-ingress_class">
 <td><code>ingressClass</code></td>
 <td><code>string</code></td>
 <td>
@@ -135,7 +135,7 @@ controller.  This corresponds to the value of
 
 </td>
 </tr>
-<tr id="MeshConfig.ingress_service">
+<tr id="MeshConfig-ingress_service">
 <td><code>ingressService</code></td>
 <td><code>string</code></td>
 <td>
@@ -143,17 +143,17 @@ controller.  This corresponds to the value of
 
 </td>
 </tr>
-<tr id="MeshConfig.ingress_controller_mode">
+<tr id="MeshConfig-ingress_controller_mode">
 <td><code>ingressControllerMode</code></td>
-<td><code><a href="#MeshConfig.IngressControllerMode">MeshConfig.IngressControllerMode</a></code></td>
+<td><code><a href="#MeshConfig-IngressControllerMode">MeshConfig.IngressControllerMode</a></code></td>
 <td>
 <p>Defines whether to use Istio ingress controller for annotated or all ingress resources.</p>
 
 </td>
 </tr>
-<tr id="MeshConfig.auth_policy" class="deprecated ">
+<tr id="MeshConfig-auth_policy" class="deprecated ">
 <td><code>authPolicy</code></td>
-<td><code><a href="#MeshConfig.AuthPolicy">MeshConfig.AuthPolicy</a></code></td>
+<td><code><a href="#MeshConfig-AuthPolicy">MeshConfig.AuthPolicy</a></code></td>
 <td>
 <p>Authentication policy defines the global switch to control authentication
 for Envoy-to-Envoy communication.
@@ -161,7 +161,7 @@ Use authentication_policy instead.</p>
 
 </td>
 </tr>
-<tr id="MeshConfig.rds_refresh_delay">
+<tr id="MeshConfig-rds_refresh_delay">
 <td><code>rdsRefreshDelay</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
@@ -169,7 +169,7 @@ Use authentication_policy instead.</p>
 
 </td>
 </tr>
-<tr id="MeshConfig.enable_tracing">
+<tr id="MeshConfig-enable_tracing">
 <td><code>enableTracing</code></td>
 <td><code>bool</code></td>
 <td>
@@ -178,7 +178,7 @@ Requires a trace span collector defined in the proxy configuration.</p>
 
 </td>
 </tr>
-<tr id="MeshConfig.access_log_file">
+<tr id="MeshConfig-access_log_file">
 <td><code>accessLogFile</code></td>
 <td><code>string</code></td>
 <td>
@@ -187,7 +187,7 @@ Empty value disables access logging.</p>
 
 </td>
 </tr>
-<tr id="MeshConfig.default_config">
+<tr id="MeshConfig-default_config">
 <td><code>defaultConfig</code></td>
 <td><code><a href="#ProxyConfig">ProxyConfig</a></code></td>
 <td>
@@ -199,20 +199,7 @@ at runtime and config gets distributed dynamically.</p>
 
 </td>
 </tr>
-<tr id="MeshConfig.mtls_excluded_services">
-<td><code>mtlsExcludedServices</code></td>
-<td><code>string[]</code></td>
-<td>
-<p>List of remote services for which mTLS authentication should not be expected by Istio .
-Typically, these are control services (e.g kubernetes API server) that don&rsquo;t have Istio sidecar
-to transparently terminate mTLS authentication.
-It has no effect if the authentication policy is already &lsquo;NONE&rsquo;.
-DO NOT use this setting for services that are managed by Istio (i.e. using Istio sidecar).
-Instead, use service-level annotations to overwrite the authentication policy.</p>
-
-</td>
-</tr>
-<tr id="MeshConfig.mixer_address">
+<tr id="MeshConfig-mixer_address">
 <td><code>mixerAddress</code></td>
 <td><code>string</code></td>
 <td>
@@ -221,9 +208,9 @@ use mixer<em>check and mixer</em>report.</p>
 
 </td>
 </tr>
-<tr id="MeshConfig.outbound_traffic_policy">
+<tr id="MeshConfig-outbound_traffic_policy">
 <td><code>outboundTrafficPolicy</code></td>
-<td><code><a href="#MeshConfig.OutboundTrafficPolicy">MeshConfig.OutboundTrafficPolicy</a></code></td>
+<td><code><a href="#MeshConfig-OutboundTrafficPolicy">MeshConfig.OutboundTrafficPolicy</a></code></td>
 <td>
 <p>Set the default behavior of the sidecar for handling outbound traffic from the application.
 While the default mode should work out of the box, if your application uses one or more external services that
@@ -234,10 +221,35 @@ instead of using allow</em>any.</p>
 
 </td>
 </tr>
+<tr id="MeshConfig-enable_client_side_policy_check">
+<td><code>enableClientSidePolicyCheck</code></td>
+<td><code>bool</code></td>
+<td>
+<p>Enables clide side policy checks.</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-sds_uds_path">
+<td><code>sdsUdsPath</code></td>
+<td><code>string</code></td>
+<td>
+<p>Unix Domain Socket through which envoy communicates with NodeAgent SDS to get key/cert for mTLS.
+Use secret-mount files instead of SDS if set to empty.</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-sds_refresh_delay">
+<td><code>sdsRefreshDelay</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+<p>Polling interval for SDS (MUST BE &gt;=1ms)</p>
+
+</td>
+</tr>
 </tbody>
 </table>
 </section>
-<h2 id="MeshConfig.AuthPolicy">MeshConfig.AuthPolicy</h2>
+<h2 id="MeshConfig-AuthPolicy">MeshConfig.AuthPolicy</h2>
 <section>
 <p>TODO AuthPolicy needs to be removed and merged with AuthPolicy defined above</p>
 
@@ -249,14 +261,14 @@ instead of using allow</em>any.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="MeshConfig.AuthPolicy.NONE">
+<tr id="MeshConfig-AuthPolicy-NONE">
 <td><code>NONE</code></td>
 <td>
 <p>Do not encrypt Envoy to Envoy traffic.</p>
 
 </td>
 </tr>
-<tr id="MeshConfig.AuthPolicy.MUTUAL_TLS">
+<tr id="MeshConfig-AuthPolicy-MUTUAL_TLS">
 <td><code>MUTUAL_TLS</code></td>
 <td>
 <p>Envoy to Envoy traffic is wrapped into mutual TLS connections.</p>
@@ -266,7 +278,7 @@ instead of using allow</em>any.</p>
 </tbody>
 </table>
 </section>
-<h2 id="MeshConfig.IngressControllerMode">MeshConfig.IngressControllerMode</h2>
+<h2 id="MeshConfig-IngressControllerMode">MeshConfig.IngressControllerMode</h2>
 <section>
 <table class="enum-values">
 <thead>
@@ -276,14 +288,14 @@ instead of using allow</em>any.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="MeshConfig.IngressControllerMode.OFF">
+<tr id="MeshConfig-IngressControllerMode-OFF">
 <td><code>OFF</code></td>
 <td>
 <p>Disables Istio ingress controller.</p>
 
 </td>
 </tr>
-<tr id="MeshConfig.IngressControllerMode.DEFAULT">
+<tr id="MeshConfig-IngressControllerMode-DEFAULT">
 <td><code>DEFAULT</code></td>
 <td>
 <p>Istio ingress controller will act on ingress resources that do not
@@ -294,7 +306,7 @@ controller for the entire kubernetes cluster.</p>
 
 </td>
 </tr>
-<tr id="MeshConfig.IngressControllerMode.STRICT">
+<tr id="MeshConfig-IngressControllerMode-STRICT">
 <td><code>STRICT</code></td>
 <td>
 <p>Istio ingress controller will only act on ingress resources whose
@@ -308,7 +320,7 @@ cloud-provided ingress controller).</p>
 </tbody>
 </table>
 </section>
-<h2 id="MeshConfig.OutboundTrafficPolicy">MeshConfig.OutboundTrafficPolicy</h2>
+<h2 id="MeshConfig-OutboundTrafficPolicy">MeshConfig.OutboundTrafficPolicy</h2>
 <section>
 <table class="message-fields">
 <thead>
@@ -319,16 +331,16 @@ cloud-provided ingress controller).</p>
 </tr>
 </thead>
 <tbody>
-<tr id="MeshConfig.OutboundTrafficPolicy.mode">
+<tr id="MeshConfig-OutboundTrafficPolicy-mode">
 <td><code>mode</code></td>
-<td><code><a href="#MeshConfig.OutboundTrafficPolicy.Mode">MeshConfig.OutboundTrafficPolicy.Mode</a></code></td>
+<td><code><a href="#MeshConfig-OutboundTrafficPolicy-Mode">MeshConfig.OutboundTrafficPolicy.Mode</a></code></td>
 <td>
 </td>
 </tr>
 </tbody>
 </table>
 </section>
-<h2 id="MeshConfig.OutboundTrafficPolicy.Mode">MeshConfig.OutboundTrafficPolicy.Mode</h2>
+<h2 id="MeshConfig-OutboundTrafficPolicy-Mode">MeshConfig.OutboundTrafficPolicy.Mode</h2>
 <section>
 <table class="enum-values">
 <thead>
@@ -338,7 +350,7 @@ cloud-provided ingress controller).</p>
 </tr>
 </thead>
 <tbody>
-<tr id="MeshConfig.OutboundTrafficPolicy.Mode.REGISTRY_ONLY">
+<tr id="MeshConfig-OutboundTrafficPolicy-Mode-REGISTRY_ONLY">
 <td><code>REGISTRY_ONLY</code></td>
 <td>
 <p>outbound traffic will be restricted to services defined in the service registry as well as those defined
@@ -346,14 +358,14 @@ through ServiceEntries</p>
 
 </td>
 </tr>
-<tr id="MeshConfig.OutboundTrafficPolicy.Mode.ALLOW_ANY">
+<tr id="MeshConfig-OutboundTrafficPolicy-Mode-ALLOW_ANY">
 <td><code>ALLOW_ANY</code></td>
 <td>
 <p>outbound traffic to unknown destinations will be allowed</p>
 
 </td>
 </tr>
-<tr id="MeshConfig.OutboundTrafficPolicy.Mode.VIRTUAL_SERVICE_ONLY">
+<tr id="MeshConfig-OutboundTrafficPolicy-Mode-VIRTUAL_SERVICE_ONLY">
 <td><code>VIRTUAL_SERVICE_ONLY</code></td>
 <td>
 <p>not implemented. outbound traffic will be restricted to destinations defined in VirtualServices only</p>
@@ -376,7 +388,7 @@ through ServiceEntries</p>
 </tr>
 </thead>
 <tbody>
-<tr id="ProxyConfig.config_path">
+<tr id="ProxyConfig-config_path">
 <td><code>configPath</code></td>
 <td><code>string</code></td>
 <td>
@@ -385,7 +397,7 @@ Proxy agent generates the actual configuration and stores it in this directory.<
 
 </td>
 </tr>
-<tr id="ProxyConfig.binary_path">
+<tr id="ProxyConfig-binary_path">
 <td><code>binaryPath</code></td>
 <td><code>string</code></td>
 <td>
@@ -393,7 +405,7 @@ Proxy agent generates the actual configuration and stores it in this directory.<
 
 </td>
 </tr>
-<tr id="ProxyConfig.service_cluster">
+<tr id="ProxyConfig-service_cluster">
 <td><code>serviceCluster</code></td>
 <td><code>string</code></td>
 <td>
@@ -413,7 +425,7 @@ located at that IP address.</p>
 
 </td>
 </tr>
-<tr id="ProxyConfig.drain_duration">
+<tr id="ProxyConfig-drain_duration">
 <td><code>drainDuration</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
@@ -422,7 +434,7 @@ restart. MUST be &gt;=1s (e.g., <em>1s/1m/1h</em>)</p>
 
 </td>
 </tr>
-<tr id="ProxyConfig.parent_shutdown_duration">
+<tr id="ProxyConfig-parent_shutdown_duration">
 <td><code>parentShutdownDuration</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
@@ -432,7 +444,7 @@ MUST BE greater than <em>drain</em>duration_ parameter.</p>
 
 </td>
 </tr>
-<tr id="ProxyConfig.discovery_address">
+<tr id="ProxyConfig-discovery_address">
 <td><code>discoveryAddress</code></td>
 <td><code>string</code></td>
 <td>
@@ -440,7 +452,7 @@ MUST BE greater than <em>drain</em>duration_ parameter.</p>
 
 </td>
 </tr>
-<tr id="ProxyConfig.discovery_refresh_delay">
+<tr id="ProxyConfig-discovery_refresh_delay">
 <td><code>discoveryRefreshDelay</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
@@ -448,7 +460,7 @@ MUST BE greater than <em>drain</em>duration_ parameter.</p>
 
 </td>
 </tr>
-<tr id="ProxyConfig.zipkin_address">
+<tr id="ProxyConfig-zipkin_address">
 <td><code>zipkinAddress</code></td>
 <td><code>string</code></td>
 <td>
@@ -456,7 +468,7 @@ MUST BE greater than <em>drain</em>duration_ parameter.</p>
 
 </td>
 </tr>
-<tr id="ProxyConfig.connect_timeout">
+<tr id="ProxyConfig-connect_timeout">
 <td><code>connectTimeout</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
@@ -464,7 +476,7 @@ MUST BE greater than <em>drain</em>duration_ parameter.</p>
 
 </td>
 </tr>
-<tr id="ProxyConfig.statsd_udp_address">
+<tr id="ProxyConfig-statsd_udp_address">
 <td><code>statsdUdpAddress</code></td>
 <td><code>string</code></td>
 <td>
@@ -472,7 +484,7 @@ MUST BE greater than <em>drain</em>duration_ parameter.</p>
 
 </td>
 </tr>
-<tr id="ProxyConfig.proxy_admin_port">
+<tr id="ProxyConfig-proxy_admin_port">
 <td><code>proxyAdminPort</code></td>
 <td><code>int32</code></td>
 <td>
@@ -480,7 +492,7 @@ MUST BE greater than <em>drain</em>duration_ parameter.</p>
 
 </td>
 </tr>
-<tr id="ProxyConfig.availability_zone">
+<tr id="ProxyConfig-availability_zone">
 <td><code>availabilityZone</code></td>
 <td><code>string</code></td>
 <td>
@@ -490,7 +502,7 @@ zones assigned to a node using failure-domain.beta.kubernetes.io/zone annotation
 
 </td>
 </tr>
-<tr id="ProxyConfig.control_plane_auth_policy">
+<tr id="ProxyConfig-control_plane_auth_policy">
 <td><code>controlPlaneAuthPolicy</code></td>
 <td><code><a href="#AuthenticationPolicy">AuthenticationPolicy</a></code></td>
 <td>
@@ -499,7 +511,7 @@ for Envoy-to-Envoy communication for istio components Mixer and Pilot.</p>
 
 </td>
 </tr>
-<tr id="ProxyConfig.custom_config_file">
+<tr id="ProxyConfig-custom_config_file">
 <td><code>customConfigFile</code></td>
 <td><code>string</code></td>
 <td>
@@ -508,7 +520,7 @@ in front of Mixer and Pilot.</p>
 
 </td>
 </tr>
-<tr id="ProxyConfig.stat_name_length">
+<tr id="ProxyConfig-stat_name_length">
 <td><code>statNameLength</code></td>
 <td><code>int32</code></td>
 <td>
@@ -520,7 +532,7 @@ Increase the value of this field if you find that the metrics from Envoys are tr
 
 </td>
 </tr>
-<tr id="ProxyConfig.concurrency">
+<tr id="ProxyConfig-concurrency">
 <td><code>concurrency</code></td>
 <td><code>int32</code></td>
 <td>
@@ -528,7 +540,7 @@ Increase the value of this field if you find that the metrics from Envoys are tr
 
 </td>
 </tr>
-<tr id="ProxyConfig.proxy_bootstrap_template_path">
+<tr id="ProxyConfig-proxy_bootstrap_template_path">
 <td><code>proxyBootstrapTemplatePath</code></td>
 <td><code>string</code></td>
 <td>
@@ -536,9 +548,9 @@ Increase the value of this field if you find that the metrics from Envoys are tr
 
 </td>
 </tr>
-<tr id="ProxyConfig.interception_mode">
+<tr id="ProxyConfig-interception_mode">
 <td><code>interceptionMode</code></td>
-<td><code><a href="#ProxyConfig.InboundInterceptionMode">ProxyConfig.InboundInterceptionMode</a></code></td>
+<td><code><a href="#ProxyConfig-InboundInterceptionMode">ProxyConfig.InboundInterceptionMode</a></code></td>
 <td>
 <p>The mode used to redirect inbound traffic to Envoy.</p>
 
@@ -547,7 +559,7 @@ Increase the value of this field if you find that the metrics from Envoys are tr
 </tbody>
 </table>
 </section>
-<h2 id="ProxyConfig.InboundInterceptionMode">ProxyConfig.InboundInterceptionMode</h2>
+<h2 id="ProxyConfig-InboundInterceptionMode">ProxyConfig.InboundInterceptionMode</h2>
 <section>
 <p>The mode used to redirect inbound traffic to Envoy.
 This setting has no effect on outbound traffic: iptables REDIRECT is always used for
@@ -561,7 +573,7 @@ outbound connections.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="ProxyConfig.InboundInterceptionMode.REDIRECT">
+<tr id="ProxyConfig-InboundInterceptionMode-REDIRECT">
 <td><code>REDIRECT</code></td>
 <td>
 <p>The REDIRECT mode uses iptables REDIRECT to NAT and redirect to Envoy. This mode loses
@@ -569,7 +581,7 @@ source IP addresses during redirection.</p>
 
 </td>
 </tr>
-<tr id="ProxyConfig.InboundInterceptionMode.TPROXY">
+<tr id="ProxyConfig-InboundInterceptionMode-TPROXY">
 <td><code>TPROXY</code></td>
 <td>
 <p>The TPROXY mode uses iptables TPROXY to redirect to Envoy. This mode preserves both the

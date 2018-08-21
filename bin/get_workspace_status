@@ -50,10 +50,10 @@ if [[ -n ${ISTIO_DOCKER_HUB} ]]; then
   DOCKER_HUB="${ISTIO_DOCKER_HUB}"
 fi
 
-# used by pkg/version
-echo buildVersion       "${VERSION}"
-echo buildGitRevision   "${BUILD_GIT_REVISION}"
-echo buildUser          "$(whoami)"
-echo buildHost          "$(hostname -f)"
-echo buildDockerHub     "${DOCKER_HUB}"
-echo buildStatus        "${tree_status}"
+# used by bin/gobuild.sh
+echo "istio.io/istio/pkg/version.buildVersion=${VERSION}"
+echo "istio.io/istio/pkg/version.buildGitRevision=${BUILD_GIT_REVISION}"
+echo "istio.io/istio/pkg/version.buildUser=$(whoami)"
+echo "istio.io/istio/pkg/version.buildHost=$(hostname -f)"
+echo "istio.io/istio/pkg/version.buildDockerHub=${DOCKER_HUB}"
+echo "istio.io/istio/pkg/version.buildStatus=${tree_status}"

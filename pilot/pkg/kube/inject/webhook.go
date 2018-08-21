@@ -93,6 +93,7 @@ func loadConfig(injectFile, meshFile string) (*Config, *meshconfig.MeshConfig, e
 	}
 	var c Config
 	if err := yaml.Unmarshal(data, &c); err != nil { // nolint: vetshadow
+		log.Warnf("Failed to parse injectFile %s", string(data))
 		return nil, nil, err
 	}
 	meshConfig, err := cmd.ReadMeshConfig(meshFile)
@@ -483,7 +484,8 @@ func (wh *Webhook) inject(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 	req := ar.Request
 	var pod corev1.Pod
 	if err := json.Unmarshal(req.Object.Raw, &pod); err != nil {
-		log.Errorf("Could not unmarshal raw object: %v", err)
+		log.Errorf("Could not unmarshal raw object: %v %s", err,
+			string(req.Object.Raw))
 		return toAdmissionResponse(err)
 	}
 

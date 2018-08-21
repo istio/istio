@@ -1,0 +1,71 @@
+---
+title: adapter.bypass.config
+layout: protoc-gen-docs
+generator: protoc-gen-docs
+number_of_entries: 1
+---
+<p>$title: Bypass
+$description: Adapter for connecting to gRPC based adapters as an inline adapter for some templates.
+The <code>bypass</code> adapter makes it possible to connect to gRPC based remote adapters using the inline adapter
+model.</p>
+
+<p>This adapter supports the following templates:
+<a href="https://istio.io/docs/reference/config/template/metric/">metric</a>.
+<a href="https://istio.io/docs/reference/config/template/checknothing/">checknothing</a>.
+<a href="https://istio.io/docs/reference/config/template/reportnothing/">reportnothing</a>.
+<a href="https://istio.io/docs/reference/config/template/quota/">quota</a>.</p>
+
+<p>Example configuration:</p>
+
+<pre><code>### sessionBased indicates whether the client should use the Infrastructure API of the backend
+### to create sessions. If set to true, the bypass adapter will first create a session.
+sessionBased: false
+
+### backendAddress is the remote adapter service backend address.
+backendAddress: localhost:4567
+
+### params is base64 encoded Any proto that should be passed to the remote backend as
+### configuration.
+params: RGFuJ3MgVG9vbHMgYXJlIGNvb2wh...
+</code></pre>
+
+<h2 id="Params">Params</h2>
+<section>
+<p>Configuration format for the Bypass adapter.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params-backend_address">
+<td><code>backendAddress</code></td>
+<td><code>string</code></td>
+<td>
+<p>The backend address for the remote policy backend.</p>
+
+</td>
+</tr>
+<tr id="Params-params">
+<td><code>params</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#any">google.protobuf.Any</a></code></td>
+<td>
+<p>The actual config parameters to send to the remote backend.</p>
+
+</td>
+</tr>
+<tr id="Params-session_based">
+<td><code>sessionBased</code></td>
+<td><code>bool</code></td>
+<td>
+<p>Indicates whether the protocol is session based or not.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>

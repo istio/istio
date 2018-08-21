@@ -84,8 +84,9 @@ func TestRefTracking(t *testing.T) {
 		{
 			name: "RefTracking",
 			attrs: map[string]interface{}{
-				"destination.service": "echosrv2.istio.svc.cluster.local",
-				"source.service":      "foo",
+				"destination.service":   "echosrv2.istio.svc.cluster.local",
+				"destination.namespace": "istio",
+				"source.service":        "foo",
 				"request.headers": map[string]interface{}{
 					"x-request-id": "foo",
 				},
@@ -93,14 +94,16 @@ func TestRefTracking(t *testing.T) {
 
 			expectAttrRefs: []expectedAttrRef{
 				{
-					name:      "context.protocol",
+					name:      "context.reporter.kind",
 					condition: istio_mixer_v1.ABSENCE,
-					mapkey:    "",
 				},
 				{
 					name:      "destination.service",
 					condition: istio_mixer_v1.EXACT,
-					mapkey:    "",
+				},
+				{
+					name:      "destination.namespace",
+					condition: istio_mixer_v1.EXACT,
 				},
 			},
 		},

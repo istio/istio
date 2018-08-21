@@ -28,14 +28,12 @@ import (
 
 var baseMultiMetricSetup = perf.Setup{
 	Config: perf.Config{
-		Global:                  minimalServiceConfig,
-		Service:                 joinConfigs(h1Noop, i3Metric, i4Metric, i5Metric, i6Metric, i7Metric, r6UsingH1AndI3To7),
-		IdentityAttribute:       "destination.service",
-		IdentityAttributeDomain: "svc.cluster.local",
-		SingleThreaded:          true,
+		Global:         minimalServiceConfig,
+		Service:        joinConfigs(h1Noop, i3Metric, i4Metric, i5Metric, i6Metric, i7Metric, r6UsingH1AndI3To7),
+		SingleThreaded: true,
 	},
 
-	Load: perf.Load{
+	Loads: []perf.Load{{
 		Multiplier: 1,
 		Requests: []perf.Request{
 			perf.BasicReport{
@@ -49,7 +47,7 @@ var baseMultiMetricSetup = perf.Setup{
 				},
 			},
 		},
-	},
+	}},
 }
 
 func Benchmark_Multi_Metric(b *testing.B) {

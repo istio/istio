@@ -21,10 +21,8 @@ import envoy_api_v2_endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v
 import google_protobuf3 "github.com/gogo/protobuf/types"
 import _ "github.com/lyft/protoc-gen-validate/validate"
 
-import (
-	context "golang.org/x/net/context"
-	grpc "google.golang.org/grpc"
-)
+import context "golang.org/x/net/context"
+import grpc "google.golang.org/grpc"
 
 import io "io"
 
@@ -73,7 +71,13 @@ func (m *LoadStatsRequest) GetClusterStats() []*envoy_api_v2_endpoint.ClusterSta
 type LoadStatsResponse struct {
 	// Clusters to report stats for.
 	Clusters []string `protobuf:"bytes,1,rep,name=clusters" json:"clusters,omitempty"`
-	// The interval of time to collect stats. The default is 10 seconds.
+	// The minimum interval of time to collect stats over. This is only a minimum for two reasons:
+	// 1. There may be some delay from when the timer fires until stats sampling occurs.
+	// 2. For clusters that were already feature in the previous *LoadStatsResponse*, any traffic
+	//    that is observed in between the corresponding previous *LoadStatsRequest* and this
+	//    *LoadStatsResponse* will also be accumulated and billed to the cluster. This avoids a period
+	//    of inobservability that might otherwise exists between the messages. New clusters are not
+	//    subject to this consideration.
 	LoadReportingInterval *google_protobuf3.Duration `protobuf:"bytes,2,opt,name=load_reporting_interval,json=loadReportingInterval" json:"load_reporting_interval,omitempty"`
 }
 

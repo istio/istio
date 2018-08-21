@@ -1,9 +1,0 @@
-FROM alpine:3.7
-
-RUN mkdir -p /usr/local/bin
-ADD start_driver.sh /usr/local/bin/
-ADD flexvolume /usr/local/bin/
-
-RUN chmod +x /usr/local/bin/start_driver.sh
-
-ENTRYPOINT ["/usr/local/bin/start_driver.sh"]

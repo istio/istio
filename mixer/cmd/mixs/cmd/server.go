@@ -55,6 +55,8 @@ func serverCmd(info map[string]template.Info, adapters []adapter.InfoFn, printf,
 		"Max number of goroutines in the adapter worker pool")
 	serverCmd.PersistentFlags().BoolVarP(&sa.SingleThreaded, "singleThreaded", "", sa.SingleThreaded,
 		"If true, each request to Mixer will be executed in a single go routine (useful for debugging)")
+	serverCmd.PersistentFlags().Int32VarP(&sa.NumCheckCacheEntries, "numCheckCacheEntries", "", sa.NumCheckCacheEntries,
+		"Max number of entries in the check result cache")
 
 	serverCmd.PersistentFlags().StringVarP(&sa.ConfigStoreURL, "configStoreURL", "", sa.ConfigStoreURL,
 		"URL of the config store. Use k8s://path_to_kubeconfig or fs:// for file system. If path_to_kubeconfig is empty, in-cluster kubeconfig is used.")
@@ -62,19 +64,6 @@ func serverCmd(info map[string]template.Info, adapters []adapter.InfoFn, printf,
 	serverCmd.PersistentFlags().StringVarP(&sa.ConfigDefaultNamespace, "configDefaultNamespace", "", sa.ConfigDefaultNamespace,
 		"Namespace used to store mesh wide configuration.")
 
-	// Hide configIdentityAttribute and configIdentityAttributeDomain until we have a need to expose them.
-	// These parameters ensure that rest of Mixer makes no assumptions about specific identity attribute.
-	// Rules selection is based on scopes.
-	serverCmd.PersistentFlags().StringVarP(&sa.ConfigIdentityAttribute, "configIdentityAttribute", "", sa.ConfigIdentityAttribute,
-		"Attribute that is used to identify applicable scopes.")
-	if err := serverCmd.PersistentFlags().MarkHidden("configIdentityAttribute"); err != nil {
-		fatalf("unable to hide: %v", err)
-	}
-	serverCmd.PersistentFlags().StringVarP(&sa.ConfigIdentityAttributeDomain, "configIdentityAttributeDomain", "", sa.ConfigIdentityAttributeDomain,
-		"The domain to which all values of the configIdentityAttribute belong. For kubernetes services it is svc.cluster.local")
-	if err := serverCmd.PersistentFlags().MarkHidden("configIdentityAttributeDomain"); err != nil {
-		fatalf("unable to hide: %v", err)
-	}
 	serverCmd.PersistentFlags().StringVar(&sa.LivenessProbeOptions.Path, "livenessProbePath", sa.LivenessProbeOptions.Path,
 		"Path to the file for the liveness probe.")
 	serverCmd.PersistentFlags().DurationVar(&sa.LivenessProbeOptions.UpdateInterval, "livenessProbeInterval", sa.LivenessProbeOptions.UpdateInterval,

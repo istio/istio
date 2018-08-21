@@ -1,3 +1,8 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{.service}}
+---
 # Test service without the proxy
 apiVersion: v1
 kind: Service
@@ -5,14 +10,10 @@ metadata:
   name: {{.service}}
   labels:
     app: {{.service}}
-{{if eq .perServiceAuth "true"}}
-  annotations:
-    auth.istio.io/80: MUTUAL_TLS
-    auth.istio.io/8080: NONE
-    auth.istio.io/7070: MUTUAL_TLS
-    auth.istio.io/9090: MUTUAL_TLS
-{{end}}
 spec:
+{{if eq .headless "true"}}
+  clusterIP: None
+{{end}}
   ports:
   - port: 80
     targetPort: {{.port1}}
@@ -20,12 +21,18 @@ spec:
   - port: 8080
     targetPort: {{.port2}}
     name: http-two
+{{if eq .headless "true"}}
+  - port: 10090
+    targetPort: {{.port3}}
+    name: tcp
+{{else}}
   - port: 90
     targetPort: {{.port3}}
     name: tcp
   - port: 9090
     targetPort: {{.port4}}
     name: https
+{{end}}
   - port: 70
     targetPort: {{.port5}}
     name: http2-example
@@ -52,6 +59,9 @@ spec:
         sidecar.istio.io/inject: "false"
 {{end}}
     spec:
+{{if eq .serviceAccount "true"}}
+      serviceAccountName: {{.service}}
+{{end}}
       containers:
       - name: app
         image: {{.Hub}}/app:{{.Tag}}
@@ -69,10 +79,6 @@ spec:
           - "{{.port5}}"
           - --grpc
           - "{{.port6}}"
-          - --port
-          - "10090"
-          - --port
-          - "19090"
 {{if eq .healthPort "true"}}
           - --port
           - "3333"
@@ -86,8 +92,6 @@ spec:
         - containerPort: {{.port4}}
         - containerPort: {{.port5}}
         - containerPort: {{.port6}}
-        - containerPort: 10090
-        - containerPort: 19090
 {{if eq .healthPort "true"}}
         - name: tcp-health-port
           containerPort: 3333

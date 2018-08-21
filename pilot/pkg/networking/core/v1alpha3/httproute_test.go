@@ -22,12 +22,12 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 )
 
-func TestBuildVirtualHostDomains(t *testing.T) {
+func TestGenerateVirtualHostDomains(t *testing.T) {
 	cases := []struct {
 		name    string
 		service *model.Service
 		port    int
-		node    model.Proxy
+		node    *model.Proxy
 		want    []string
 	}{
 		{
@@ -37,7 +37,7 @@ func TestBuildVirtualHostDomains(t *testing.T) {
 				MeshExternal: false,
 			},
 			port: 80,
-			node: model.Proxy{
+			node: &model.Proxy{
 				Domain: "local.campus.net",
 			},
 			want: []string{"foo", "foo.local", "foo.local.campus", "foo.local.campus.net",
@@ -50,7 +50,7 @@ func TestBuildVirtualHostDomains(t *testing.T) {
 				MeshExternal: false,
 			},
 			port: 80,
-			node: model.Proxy{
+			node: &model.Proxy{
 				Domain: "remote.campus.net",
 			},
 			want: []string{"foo.local", "foo.local.campus", "foo.local.campus.net",
@@ -63,7 +63,7 @@ func TestBuildVirtualHostDomains(t *testing.T) {
 				MeshExternal: false,
 			},
 			port: 80,
-			node: model.Proxy{
+			node: &model.Proxy{
 				Domain: "example.com",
 			},
 			want: []string{"foo.local.campus.net", "foo.local.campus.net:80"},
@@ -71,7 +71,7 @@ func TestBuildVirtualHostDomains(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		out := buildVirtualHostDomains(c.service, c.port, c.node)
+		out := generateVirtualHostDomains(c.service, c.port, c.node)
 		sort.SliceStable(c.want, func(i, j int) bool { return c.want[i] < c.want[j] })
 		sort.SliceStable(out, func(i, j int) bool { return out[i] < out[j] })
 		if !reflect.DeepEqual(out, c.want) {

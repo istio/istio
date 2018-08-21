@@ -8,5 +8,8 @@ metadata:
 spec:
   ports:
   - port: 443
+    name: https-validation
+  - port: 9093
+    name: http-monitoring
   selector:
     istio: galley

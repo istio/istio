@@ -22,7 +22,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
+	"time"
+
 	"istio.io/istio/pilot/pkg/model"
 )
 
@@ -71,6 +72,7 @@ func TestServiceConversion(t *testing.T) {
 
 	ip := "10.0.0.1"
 
+	tnow := time.Now()
 	localSvc := v1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      serviceName,
@@ -80,6 +82,7 @@ func TestServiceConversion(t *testing.T) {
 				CanonicalServiceAccountsOnVMAnnotation: saC + "," + saD,
 				"other/annotation":                     "test",
 			},
+			CreationTimestamp: metav1.Time{tnow},
 		},
 		Spec: v1.ServiceSpec{
 			ClusterIP: ip,
@@ -101,6 +104,10 @@ func TestServiceConversion(t *testing.T) {
 	service := convertService(localSvc, domainSuffix)
 	if service == nil {
 		t.Errorf("could not convert service")
+	}
+
+	if service.CreationTime != tnow {
+		t.Errorf("incorrect creation time => %v, want %v", service.CreationTime, tnow)
 	}
 
 	if len(service.Ports) != len(localSvc.Spec.Ports) {
@@ -174,70 +181,6 @@ func TestServiceConversionWithEmptyServiceAccountsAnnotation(t *testing.T) {
 	if len(sa) != 0 {
 		t.Errorf("number of service accounts is incorrect: %d, expected 0", len(sa))
 	}
-}
-
-func TestServiceSecurityAnnotation(t *testing.T) {
-	serviceName := "service1"
-	namespace := "default"
-
-	ip := "10.0.0.1"
-
-	testCases := []struct {
-		port            int
-		annotationValue string
-		want            meshconfig.AuthenticationPolicy
-	}{
-		{8080, "MUTUAL_TLS", meshconfig.AuthenticationPolicy_MUTUAL_TLS},
-		{8080, "NONE", meshconfig.AuthenticationPolicy_NONE},
-		{8080, "invalid-option", meshconfig.AuthenticationPolicy_INHERIT},
-		{8080, "", meshconfig.AuthenticationPolicy_INHERIT},
-		// Annotation is not for the testing port (8080), default policy (INHERIT)
-		// should be set.
-		{9999, "MUTUAL_TLS", meshconfig.AuthenticationPolicy_INHERIT},
-		// No annotation
-		{0, "", meshconfig.AuthenticationPolicy_INHERIT},
-	}
-	for _, test := range testCases {
-		localSvc := v1.Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      serviceName,
-				Namespace: namespace,
-				Annotations: func() map[string]string {
-					if test.port > 0 {
-						return map[string]string{portAuthenticationAnnotationKey(test.port): test.annotationValue}
-					}
-					return nil
-				}(),
-			},
-			Spec: v1.ServiceSpec{
-				ClusterIP: ip,
-				Ports: []v1.ServicePort{
-					{
-						Name:     "http",
-						Port:     8080,
-						Protocol: v1.ProtocolTCP,
-					},
-				},
-			},
-		}
-
-		service := convertService(localSvc, domainSuffix)
-		if service == nil {
-			t.Errorf("could not convert service")
-		}
-
-		if len(service.Ports) != 1 {
-			t.Errorf("incorrect number of ports => %v, want 1\n",
-				len(service.Ports))
-		}
-
-		if service.Ports[0].AuthenticationPolicy != test.want {
-			t.Errorf("incorrect authentication policy => %v, want %v\n",
-				service.Ports[0].AuthenticationPolicy,
-				test.want)
-		}
-	}
-
 }
 
 func TestExternalServiceConversion(t *testing.T) {
@@ -366,60 +309,5 @@ func TestProbesToPortsConversion(t *testing.T) {
 					len(mgmtPorts), len(expected))
 			}
 		}
-	}
-}
-
-func TestParseKubeServiceNode(t *testing.T) {
-	var svcNode model.Proxy
-	ipaddr := "128.0.0.1"
-	kubeNodes := make(map[string]*kubeServiceNode)
-
-	svcNode.ID = "router.default"
-	svcNode.Domain = "default.svc.cluster.local"
-
-	err := parseKubeServiceNode(ipaddr, &svcNode, kubeNodes)
-	if err != nil {
-		t.Errorf("expected successful return from parseKubeServiceNode, "+
-			"got err = %v", err)
-	}
-
-	if kubeNodes[ipaddr].PodName != "router" || kubeNodes[ipaddr].Domain != svcNode.Domain ||
-		kubeNodes[ipaddr].Namespace != "default" {
-		t.Errorf("invalid kubeNodes, expected PodName=router got %s "+
-			"expected Domain=%s got %s expected Namespace='default' got %s",
-			kubeNodes[ipaddr].PodName, svcNode.Domain, kubeNodes[ipaddr].Domain,
-			kubeNodes[ipaddr].Namespace)
-	}
-}
-
-func TestParseKubeServiceNodeErrors(t *testing.T) {
-	var svcNode model.Proxy
-	ipaddr := "128.0.0.1"
-	kubeNodes := make(map[string]*kubeServiceNode)
-
-	svcNode.ID = "invalidID"
-	err := parseKubeServiceNode(ipaddr, &svcNode, kubeNodes)
-	if err == nil {
-		t.Errorf("expected 'invalid ID' error message")
-	}
-
-	svcNode.ID = "router.default"
-	svcNode.Domain = "invalid.domain"
-	err = parseKubeServiceNode(ipaddr, &svcNode, kubeNodes)
-	if err == nil {
-		t.Errorf("expected 'invalid node domain format' error message")
-	}
-
-	svcNode.Domain = "default.svc.cluster.localinvalid"
-	err = parseKubeServiceNode(ipaddr, &svcNode, kubeNodes)
-	if err == nil {
-		t.Errorf("expected 'invalid node domain' error message")
-	}
-
-	svcNode.ID = "router.defaultDifferentNamespace"
-	svcNode.Domain = "default.svc.cluster.local"
-	err = parseKubeServiceNode(ipaddr, &svcNode, kubeNodes)
-	if err == nil {
-		t.Errorf("expected 'namespace in ID must be equal' error message")
 	}
 }

@@ -8,13 +8,13 @@ resources:
   properties:
     gkeClusterName: istio-cluster
     zone: us-central1-a
-    initialNodeCount: 3
-    instanceType: n1-standard-2
+    initialNodeCount: 4
+    instanceType: n1-standard-1
     enableAutomaticSidecarInjection: true
-    enableMutualTLS: false
+    enableMutualTLS: true
     enablePrometheus: true
     enableGrafana: true
-    enableZipkin: true
+    enableTracing: true
     enableServiceGraph: true
     enableBookInfoSample: true
-    installIstioRelease: 0.6.0
+    installIstioRelease: 1.0.0

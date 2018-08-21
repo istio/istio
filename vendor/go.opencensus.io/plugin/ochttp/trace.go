@@ -53,10 +53,11 @@ func (t *traceTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	name := spanNameFromURL(req.URL)
 	// TODO(jbd): Discuss whether we want to prefix
 	// outgoing requests with Sent.
-	parent := trace.FromContext(req.Context())
-	span := trace.NewSpan(name, parent, t.startOptions)
-	req = req.WithContext(trace.WithSpan(req.Context(), span))
+	_, span := trace.StartSpan(req.Context(), name,
+		trace.WithSampler(t.startOptions.Sampler),
+		trace.WithSpanKind(trace.SpanKindClient))
 
+	req = req.WithContext(trace.WithSpan(req.Context(), span))
 	if t.format != nil {
 		t.format.SpanContextToRequest(span.SpanContext(), req)
 	}
@@ -64,13 +65,13 @@ func (t *traceTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	span.AddAttributes(requestAttrs(req)...)
 	resp, err := t.base.RoundTrip(req)
 	if err != nil {
-		span.SetStatus(trace.Status{Code: 2, Message: err.Error()})
+		span.SetStatus(trace.Status{Code: trace.StatusCodeUnknown, Message: err.Error()})
 		span.End()
 		return resp, err
 	}
 
 	span.AddAttributes(responseAttrs(resp)...)
-	span.SetStatus(status(resp.StatusCode))
+	span.SetStatus(TraceStatus(resp.StatusCode, resp.Status))
 
 	// span.End() will be invoked after
 	// a read from resp.Body returns io.EOF or when
@@ -145,71 +146,54 @@ func responseAttrs(resp *http.Response) []trace.Attribute {
 	}
 }
 
-func status(statusCode int) trace.Status {
+// HTTPStatusToTraceStatus converts the HTTP status code to a trace.Status that
+// represents the outcome as closely as possible.
+func TraceStatus(httpStatusCode int, statusLine string) trace.Status {
 	var code int32
-	if statusCode < 200 || statusCode >= 400 {
-		code = codeUnknown
+	if httpStatusCode < 200 || httpStatusCode >= 400 {
+		code = trace.StatusCodeUnknown
 	}
-	switch statusCode {
+	switch httpStatusCode {
 	case 499:
-		code = codeCancelled
+		code = trace.StatusCodeCancelled
 	case http.StatusBadRequest:
-		code = codeInvalidArgument
+		code = trace.StatusCodeInvalidArgument
 	case http.StatusGatewayTimeout:
-		code = codeDeadlineExceeded
+		code = trace.StatusCodeDeadlineExceeded
 	case http.StatusNotFound:
-		code = codeNotFound
+		code = trace.StatusCodeNotFound
 	case http.StatusForbidden:
-		code = codePermissionDenied
+		code = trace.StatusCodePermissionDenied
 	case http.StatusUnauthorized: // 401 is actually unauthenticated.
-		code = codeUnathenticated
+		code = trace.StatusCodeUnauthenticated
 	case http.StatusTooManyRequests:
-		code = codeResourceExhausted
+		code = trace.StatusCodeResourceExhausted
 	case http.StatusNotImplemented:
-		code = codeUnimplemented
+		code = trace.StatusCodeUnimplemented
 	case http.StatusServiceUnavailable:
-		code = codeUnavailable
+		code = trace.StatusCodeUnavailable
+	case http.StatusOK:
+		code = trace.StatusCodeOK
 	}
 	return trace.Status{Code: code, Message: codeToStr[code]}
 }
 
-// TODO(jbd): Provide status codes from trace package.
-const (
-	codeOK                 = 0
-	codeCancelled          = 1
-	codeUnknown            = 2
-	codeInvalidArgument    = 3
-	codeDeadlineExceeded   = 4
-	codeNotFound           = 5
-	codeAlreadyExists      = 6
-	codePermissionDenied   = 7
-	codeResourceExhausted  = 8
-	codeFailedPrecondition = 9
-	codeAborted            = 10
-	codeOutOfRange         = 11
-	codeUnimplemented      = 12
-	codeInternal           = 13
-	codeUnavailable        = 14
-	codeDataLoss           = 15
-	codeUnathenticated     = 16
-)
-
 var codeToStr = map[int32]string{
-	codeOK:                 `"OK"`,
-	codeCancelled:          `"CANCELLED"`,
-	codeUnknown:            `"UNKNOWN"`,
-	codeInvalidArgument:    `"INVALID_ARGUMENT"`,
-	codeDeadlineExceeded:   `"DEADLINE_EXCEEDED"`,
-	codeNotFound:           `"NOT_FOUND"`,
-	codeAlreadyExists:      `"ALREADY_EXISTS"`,
-	codePermissionDenied:   `"PERMISSION_DENIED"`,
-	codeResourceExhausted:  `"RESOURCE_EXHAUSTED"`,
-	codeFailedPrecondition: `"FAILED_PRECONDITION"`,
-	codeAborted:            `"ABORTED"`,
-	codeOutOfRange:         `"OUT_OF_RANGE"`,
-	codeUnimplemented:      `"UNIMPLEMENTED"`,
-	codeInternal:           `"INTERNAL"`,
-	codeUnavailable:        `"UNAVAILABLE"`,
-	codeDataLoss:           `"DATA_LOSS"`,
-	codeUnathenticated:     `"UNAUTHENTICATED"`,
+	trace.StatusCodeOK:                 `"OK"`,
+	trace.StatusCodeCancelled:          `"CANCELLED"`,
+	trace.StatusCodeUnknown:            `"UNKNOWN"`,
+	trace.StatusCodeInvalidArgument:    `"INVALID_ARGUMENT"`,
+	trace.StatusCodeDeadlineExceeded:   `"DEADLINE_EXCEEDED"`,
+	trace.StatusCodeNotFound:           `"NOT_FOUND"`,
+	trace.StatusCodeAlreadyExists:      `"ALREADY_EXISTS"`,
+	trace.StatusCodePermissionDenied:   `"PERMISSION_DENIED"`,
+	trace.StatusCodeResourceExhausted:  `"RESOURCE_EXHAUSTED"`,
+	trace.StatusCodeFailedPrecondition: `"FAILED_PRECONDITION"`,
+	trace.StatusCodeAborted:            `"ABORTED"`,
+	trace.StatusCodeOutOfRange:         `"OUT_OF_RANGE"`,
+	trace.StatusCodeUnimplemented:      `"UNIMPLEMENTED"`,
+	trace.StatusCodeInternal:           `"INTERNAL"`,
+	trace.StatusCodeUnavailable:        `"UNAVAILABLE"`,
+	trace.StatusCodeDataLoss:           `"DATA_LOSS"`,
+	trace.StatusCodeUnauthenticated:    `"UNAUTHENTICATED"`,
 }

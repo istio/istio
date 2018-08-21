@@ -49,11 +49,14 @@
 package routing
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
 	tpb "istio.io/api/mixer/adapter/model/v1beta1"
 	descriptor "istio.io/api/policy/v1beta1"
+	"istio.io/istio/mixer/pkg/adapter"
+	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/lang/ast"
 	"istio.io/istio/mixer/pkg/lang/compiled"
 	"istio.io/istio/mixer/pkg/runtime/config"
@@ -114,10 +117,10 @@ func BuildTable(
 		nextIDCounter:          1,
 
 		matchesByID:       make(map[uint32]string, len(config.Rules)),
-		instanceNamesByID: make(map[uint32][]string, len(config.Instances)),
+		instanceNamesByID: make(map[uint32][]string, len(config.InstancesStatic)),
 
-		builders:    make(map[string]template.InstanceBuilderFn, len(config.Instances)),
-		mappers:     make(map[string]template.OutputMapperFn, len(config.Instances)),
+		builders:    make(map[string]template.InstanceBuilderFn, len(config.InstancesStatic)),
+		mappers:     make(map[string]template.OutputMapperFn, len(config.InstancesStatic)),
 		expressions: make(map[string]compiled.Expression, len(config.Rules)),
 	}
 
@@ -154,7 +157,7 @@ func (b *builder) build(config *config.Snapshot) {
 		}
 
 		// For each action, find unique instances to use, and add entries to the map.
-		for i, action := range rule.Actions {
+		for i, action := range rule.ActionsStatic {
 
 			// Find the matching handler.
 			handlerName := action.Handler.Name
@@ -178,8 +181,38 @@ func (b *builder) build(config *config.Snapshot) {
 					continue
 				}
 
-				b.add(rule.Namespace, instance.Template, entry, condition, builder, mapper,
-					entry.Name, instance.Name, rule.Match, rule.ResourceType)
+				b.add(rule.Namespace, buildTemplateInfo(instance.Template), entry, condition, builder, mapper,
+					entry.Name, instance.Name, rule.Match)
+			}
+		}
+
+		// process dynamic actions
+		for i, action := range rule.ActionsDynamic {
+
+			// Find the matching handler.
+			handlerName := action.Handler.Name
+			entry, found := b.handlers.Get(handlerName)
+			if !found {
+				// This can happen if we cannot initialize a handler, even if the config itself self-consistent.
+				log.Warnf("Unable to find a handler for action. rule[action]='%s[%d]', handler='%s'",
+					rule.Name, i, handlerName)
+
+				config.Counters.UnsatisfiedActionHandlers.Inc()
+				// Skip the rule
+				continue
+			}
+
+			for _, instance := range action.Instances {
+				// get the instance mapper and builder for this instance. Mapper is used by APA instances
+				// to map the instance result back to attributes.
+				builder, mapper, err := b.getBuilderAndMapperDynamic(config.Attributes, instance)
+				if err != nil {
+					log.Warnf("Unable to create builder/mapper for instance: instance='%s', err='%v'", instance.Name, err)
+					continue
+				}
+
+				b.add(rule.Namespace, b.templateInfo(instance.Template), entry, condition, builder, mapper,
+					entry.Name, instance.Name, rule.Match)
 			}
 		}
 	}
@@ -213,7 +246,7 @@ func (b *builder) build(config *config.Snapshot) {
 // is an attribute generator.
 func (b *builder) getBuilderAndMapper(
 	finder ast.AttributeDescriptorFinder,
-	instance *config.Instance) (template.InstanceBuilderFn, template.OutputMapperFn, error) {
+	instance *config.InstanceStatic) (template.InstanceBuilderFn, template.OutputMapperFn, error) {
 	var err error
 
 	t := instance.Template
@@ -275,15 +308,14 @@ func (b *builder) getConditionExpression(rule *config.Rule) (compiled.Expression
 
 func (b *builder) add(
 	namespace string,
-	t *template.Info,
+	t *TemplateInfo,
 	entry handler.Entry,
 	condition compiled.Expression,
 	builder template.InstanceBuilderFn,
 	mapper template.OutputMapperFn,
 	handlerName string,
 	instanceName string,
-	matchText string,
-	resourceType config.ResourceType) {
+	matchText string) {
 
 	// Find or create the variety entry.
 	byVariety, found := b.table.entries[t.Variety]
@@ -316,12 +348,12 @@ func (b *builder) add(
 		byHandler = &Destination{
 			id:             b.nextID(),
 			Handler:        entry.Handler,
-			FriendlyName:   fmt.Sprintf("%s:%s(%s)", t.Name, handlerName, entry.Adapter.Name),
+			FriendlyName:   fmt.Sprintf("%s:%s(%s)", t.Name, handlerName, entry.AdapterName),
 			HandlerName:    handlerName,
-			AdapterName:    entry.Adapter.Name,
+			AdapterName:    entry.AdapterName,
 			Template:       t,
 			InstanceGroups: []*InstanceGroup{},
-			Counters:       newDestinationCounters(t.Name, handlerName, entry.Adapter.Name),
+			Counters:       newDestinationCounters(t.Name, handlerName, entry.AdapterName),
 		}
 		byNamespace.entries = append(byNamespace.entries, byHandler)
 	}
@@ -334,7 +366,7 @@ func (b *builder) add(
 		// Try to find an input set to place the entry by comparing the compiled expression and resource type.
 		// This doesn't flatten across all actions, but only for actions coming from the same rule. We can
 		// flatten based on the expression text as well.
-		if set.Condition == condition && set.ResourceType == resourceType {
+		if set.Condition == condition {
 			instanceGroup = set
 			break
 		}
@@ -342,11 +374,10 @@ func (b *builder) add(
 
 	if instanceGroup == nil {
 		instanceGroup = &InstanceGroup{
-			id:           b.nextID(),
-			Condition:    condition,
-			ResourceType: resourceType,
-			Builders:     []template.InstanceBuilderFn{},
-			Mappers:      []template.OutputMapperFn{},
+			id:        b.nextID(),
+			Condition: condition,
+			Builders:  []NamedBuilder{},
+			Mappers:   []template.OutputMapperFn{},
 		}
 		byHandler.InstanceGroups = append(byHandler.InstanceGroups, instanceGroup)
 
@@ -363,7 +394,7 @@ func (b *builder) add(
 	}
 
 	// Append the builder & mapper.
-	instanceGroup.Builders = append(instanceGroup.Builders, builder)
+	instanceGroup.Builders = append(instanceGroup.Builders, NamedBuilder{InstanceShortName: config.ExtractShortName(instanceName), Builder: builder})
 
 	if mapper != nil {
 		instanceGroup.Mappers = append(instanceGroup.Mappers, mapper)
@@ -376,4 +407,97 @@ func (b *builder) add(
 	instanceNames := b.instanceNamesByID[instanceGroup.id]
 	instanceNames = append(instanceNames, instanceName)
 	b.instanceNamesByID[instanceGroup.id] = instanceNames
+}
+
+// templateInfo build method needed dispatch this template
+func (b *builder) templateInfo(tmpl *config.Template) *TemplateInfo {
+	ti := &TemplateInfo{
+		Name:    tmpl.Name,
+		Variety: tmpl.Variety,
+	}
+
+	// Make a call to check
+	ti.DispatchCheck = func(ctx context.Context, handler adapter.Handler, instance interface{}) (adapter.CheckResult, error) {
+		var h adapter.RemoteCheckHandler
+		var ok bool
+		var encodedInstance *adapter.EncodedInstance
+
+		if h, ok = handler.(adapter.RemoteCheckHandler); !ok {
+			return adapter.CheckResult{}, fmt.Errorf("internal: handler of incorrect type. got %T, want: RemoteCheckHandler", handler)
+		}
+
+		if encodedInstance, ok = instance.(*adapter.EncodedInstance); !ok {
+			return adapter.CheckResult{}, fmt.Errorf("internal: instance of incorrect type. got %T, want: []byte", instance)
+		}
+
+		cr, err := h.HandleRemoteCheck(ctx, encodedInstance)
+		if err != nil {
+			return adapter.CheckResult{}, err
+		}
+		return *cr, nil
+	}
+
+	ti.DispatchReport = func(ctx context.Context, handler adapter.Handler, instances []interface{}) error {
+		var h adapter.RemoteReportHandler
+		var ok bool
+		var encodedInstance *adapter.EncodedInstance
+
+		if h, ok = handler.(adapter.RemoteReportHandler); !ok {
+			return fmt.Errorf("internal: handler of incorrect type. got %T, want: RemoteReportHandler", handler)
+		}
+
+		encodedInstances := make([]*adapter.EncodedInstance, len(instances))
+
+		for i := range instances {
+			instance := instances[i]
+			if encodedInstance, ok = instance.(*adapter.EncodedInstance); !ok {
+				return fmt.Errorf("internal: instance of incorrect type. got %T, want: []byte", instance)
+			}
+			encodedInstances[i] = encodedInstance
+		}
+		return h.HandleRemoteReport(ctx, encodedInstances)
+	}
+
+	ti.DispatchQuota = func(ctx context.Context, handler adapter.Handler, instance interface{}, args adapter.QuotaArgs) (adapter.QuotaResult, error) {
+		var h adapter.RemoteQuotaHandler
+		var ok bool
+		var encodedInstance *adapter.EncodedInstance
+
+		if h, ok = handler.(adapter.RemoteQuotaHandler); !ok {
+			return adapter.QuotaResult{}, fmt.Errorf("internal: handler of incorrect type. got %T, want: RemoteQuotaHandler", handler)
+		}
+
+		if encodedInstance, ok = instance.(*adapter.EncodedInstance); !ok {
+			return adapter.QuotaResult{}, fmt.Errorf("internal: instance of incorrect type. got %T, want: []byte", instance)
+		}
+
+		qr, err := h.HandleRemoteQuota(ctx, encodedInstance, &args)
+		if err != nil {
+			return adapter.QuotaResult{}, err
+		}
+		return *qr, nil
+	}
+	return ti
+}
+
+const defaultInstanceSize = 128
+
+// get or create a builder and a mapper for the given instance. The mapper is created only if the template
+// is an attribute generator. At present this function never returns an error.
+func (b *builder) getBuilderAndMapperDynamic(_ ast.AttributeDescriptorFinder,
+	instance *config.InstanceDynamic) (template.InstanceBuilderFn, template.OutputMapperFn, error) {
+	var instBuilder template.InstanceBuilderFn = func(attrs attribute.Bag) (interface{}, error) {
+		var err error
+		ba := make([]byte, 0, defaultInstanceSize)
+		// The encoder produces
+		if ba, err = instance.Encoder.Encode(attrs, ba); err != nil {
+			return nil, err
+		}
+
+		return &adapter.EncodedInstance{
+			Name: instance.Name,
+			Data: ba,
+		}, nil
+	}
+	return instBuilder, nil, nil
 }

@@ -7,13 +7,13 @@ import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
 import _ "github.com/gogo/protobuf/types"
-import google_protobuf "github.com/gogo/protobuf/types"
+import google_protobuf1 "github.com/gogo/protobuf/types"
 import _ "github.com/lyft/protoc-gen-validate/validate"
 import _ "github.com/gogo/protobuf/gogoproto"
 
 import time "time"
 
-import github_com_gogo_protobuf_types "github.com/gogo/protobuf/types"
+import types "github.com/gogo/protobuf/types"
 
 import io "io"
 
@@ -57,7 +57,7 @@ type Http1ProtocolOptions struct {
 	// are generally sent by clients to forward/explicit proxies. This allows clients to configure
 	// envoy as their HTTP proxy. In Unix, for example, this is typically done by setting the
 	// *http_proxy* environment variable.
-	AllowAbsoluteUrl *google_protobuf.BoolValue `protobuf:"bytes,1,opt,name=allow_absolute_url,json=allowAbsoluteUrl" json:"allow_absolute_url,omitempty"`
+	AllowAbsoluteUrl *google_protobuf1.BoolValue `protobuf:"bytes,1,opt,name=allow_absolute_url,json=allowAbsoluteUrl" json:"allow_absolute_url,omitempty"`
 	// Handle incoming HTTP/1.0 and HTTP 0.9 requests.
 	// This is off by default, and not fully standards compliant. There is support for pre-HTTP/1.1
 	// style connect logic, dechunking, and handling lack of client host iff
@@ -74,7 +74,7 @@ func (m *Http1ProtocolOptions) String() string            { return proto.Compact
 func (*Http1ProtocolOptions) ProtoMessage()               {}
 func (*Http1ProtocolOptions) Descriptor() ([]byte, []int) { return fileDescriptorProtocol, []int{2} }
 
-func (m *Http1ProtocolOptions) GetAllowAbsoluteUrl() *google_protobuf.BoolValue {
+func (m *Http1ProtocolOptions) GetAllowAbsoluteUrl() *google_protobuf1.BoolValue {
 	if m != nil {
 		return m.AllowAbsoluteUrl
 	}
@@ -100,18 +100,18 @@ type Http2ProtocolOptions struct {
 	// (in octets) that the encoder is permitted to use for the dynamic HPACK table. Valid values
 	// range from 0 to 4294967295 (2^32 - 1) and defaults to 4096. 0 effectively disables header
 	// compression.
-	HpackTableSize *google_protobuf.UInt32Value `protobuf:"bytes,1,opt,name=hpack_table_size,json=hpackTableSize" json:"hpack_table_size,omitempty"`
+	HpackTableSize *google_protobuf1.UInt32Value `protobuf:"bytes,1,opt,name=hpack_table_size,json=hpackTableSize" json:"hpack_table_size,omitempty"`
 	// `Maximum concurrent streams <http://httpwg.org/specs/rfc7540.html#rfc.section.5.1.2>`_
 	// allowed for peer on one HTTP/2 connection. Valid values range from 1 to 2147483647 (2^31 - 1)
 	// and defaults to 2147483647.
-	MaxConcurrentStreams *google_protobuf.UInt32Value `protobuf:"bytes,2,opt,name=max_concurrent_streams,json=maxConcurrentStreams" json:"max_concurrent_streams,omitempty"`
+	MaxConcurrentStreams *google_protobuf1.UInt32Value `protobuf:"bytes,2,opt,name=max_concurrent_streams,json=maxConcurrentStreams" json:"max_concurrent_streams,omitempty"`
 	// This field also acts as a soft limit on the number of bytes Envoy will buffer per-stream in the
 	// HTTP/2 codec buffers. Once the buffer reaches this pointer, watermark callbacks will fire to
 	// stop the flow of data to the codec buffers.
-	InitialStreamWindowSize *google_protobuf.UInt32Value `protobuf:"bytes,3,opt,name=initial_stream_window_size,json=initialStreamWindowSize" json:"initial_stream_window_size,omitempty"`
+	InitialStreamWindowSize *google_protobuf1.UInt32Value `protobuf:"bytes,3,opt,name=initial_stream_window_size,json=initialStreamWindowSize" json:"initial_stream_window_size,omitempty"`
 	// Similar to *initial_stream_window_size*, but for connection-level flow-control
 	// window. Currently, this has the same minimum/maximum/default as *initial_stream_window_size*.
-	InitialConnectionWindowSize *google_protobuf.UInt32Value `protobuf:"bytes,4,opt,name=initial_connection_window_size,json=initialConnectionWindowSize" json:"initial_connection_window_size,omitempty"`
+	InitialConnectionWindowSize *google_protobuf1.UInt32Value `protobuf:"bytes,4,opt,name=initial_connection_window_size,json=initialConnectionWindowSize" json:"initial_connection_window_size,omitempty"`
 }
 
 func (m *Http2ProtocolOptions) Reset()                    { *m = Http2ProtocolOptions{} }
@@ -119,28 +119,28 @@ func (m *Http2ProtocolOptions) String() string            { return proto.Compact
 func (*Http2ProtocolOptions) ProtoMessage()               {}
 func (*Http2ProtocolOptions) Descriptor() ([]byte, []int) { return fileDescriptorProtocol, []int{3} }
 
-func (m *Http2ProtocolOptions) GetHpackTableSize() *google_protobuf.UInt32Value {
+func (m *Http2ProtocolOptions) GetHpackTableSize() *google_protobuf1.UInt32Value {
 	if m != nil {
 		return m.HpackTableSize
 	}
 	return nil
 }
 
-func (m *Http2ProtocolOptions) GetMaxConcurrentStreams() *google_protobuf.UInt32Value {
+func (m *Http2ProtocolOptions) GetMaxConcurrentStreams() *google_protobuf1.UInt32Value {
 	if m != nil {
 		return m.MaxConcurrentStreams
 	}
 	return nil
 }
 
-func (m *Http2ProtocolOptions) GetInitialStreamWindowSize() *google_protobuf.UInt32Value {
+func (m *Http2ProtocolOptions) GetInitialStreamWindowSize() *google_protobuf1.UInt32Value {
 	if m != nil {
 		return m.InitialStreamWindowSize
 	}
 	return nil
 }
 
-func (m *Http2ProtocolOptions) GetInitialConnectionWindowSize() *google_protobuf.UInt32Value {
+func (m *Http2ProtocolOptions) GetInitialConnectionWindowSize() *google_protobuf1.UInt32Value {
 	if m != nil {
 		return m.InitialConnectionWindowSize
 	}
@@ -173,10 +173,7 @@ func init() {
 }
 func (this *TcpProtocolOptions) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*TcpProtocolOptions)
@@ -189,10 +186,7 @@ func (this *TcpProtocolOptions) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -200,10 +194,7 @@ func (this *TcpProtocolOptions) Equal(that interface{}) bool {
 }
 func (this *HttpProtocolOptions) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*HttpProtocolOptions)
@@ -216,10 +207,7 @@ func (this *HttpProtocolOptions) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -236,10 +224,7 @@ func (this *HttpProtocolOptions) Equal(that interface{}) bool {
 }
 func (this *Http1ProtocolOptions) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*Http1ProtocolOptions)
@@ -252,10 +237,7 @@ func (this *Http1ProtocolOptions) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -272,10 +254,7 @@ func (this *Http1ProtocolOptions) Equal(that interface{}) bool {
 }
 func (this *Http2ProtocolOptions) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*Http2ProtocolOptions)
@@ -288,10 +267,7 @@ func (this *Http2ProtocolOptions) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -311,10 +287,7 @@ func (this *Http2ProtocolOptions) Equal(that interface{}) bool {
 }
 func (this *GrpcProtocolOptions) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*GrpcProtocolOptions)
@@ -327,10 +300,7 @@ func (this *GrpcProtocolOptions) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -375,8 +345,8 @@ func (m *HttpProtocolOptions) MarshalTo(dAtA []byte) (int, error) {
 	if m.IdleTimeout != nil {
 		dAtA[i] = 0xa
 		i++
-		i = encodeVarintProtocol(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(*m.IdleTimeout)))
-		n1, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(*m.IdleTimeout, dAtA[i:])
+		i = encodeVarintProtocol(dAtA, i, uint64(types.SizeOfStdDuration(*m.IdleTimeout)))
+		n1, err := types.StdDurationMarshalTo(*m.IdleTimeout, dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
@@ -534,7 +504,7 @@ func (m *HttpProtocolOptions) Size() (n int) {
 	var l int
 	_ = l
 	if m.IdleTimeout != nil {
-		l = github_com_gogo_protobuf_types.SizeOfStdDuration(*m.IdleTimeout)
+		l = types.SizeOfStdDuration(*m.IdleTimeout)
 		n += 1 + l + sovProtocol(uint64(l))
 	}
 	return n
@@ -710,7 +680,7 @@ func (m *HttpProtocolOptions) Unmarshal(dAtA []byte) error {
 			if m.IdleTimeout == nil {
 				m.IdleTimeout = new(time.Duration)
 			}
-			if err := github_com_gogo_protobuf_types.StdDurationUnmarshal(m.IdleTimeout, dAtA[iNdEx:postIndex]); err != nil {
+			if err := types.StdDurationUnmarshal(m.IdleTimeout, dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -791,7 +761,7 @@ func (m *Http1ProtocolOptions) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.AllowAbsoluteUrl == nil {
-				m.AllowAbsoluteUrl = &google_protobuf.BoolValue{}
+				m.AllowAbsoluteUrl = &google_protobuf1.BoolValue{}
 			}
 			if err := m.AllowAbsoluteUrl.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -923,7 +893,7 @@ func (m *Http2ProtocolOptions) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.HpackTableSize == nil {
-				m.HpackTableSize = &google_protobuf.UInt32Value{}
+				m.HpackTableSize = &google_protobuf1.UInt32Value{}
 			}
 			if err := m.HpackTableSize.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -956,7 +926,7 @@ func (m *Http2ProtocolOptions) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.MaxConcurrentStreams == nil {
-				m.MaxConcurrentStreams = &google_protobuf.UInt32Value{}
+				m.MaxConcurrentStreams = &google_protobuf1.UInt32Value{}
 			}
 			if err := m.MaxConcurrentStreams.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -989,7 +959,7 @@ func (m *Http2ProtocolOptions) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.InitialStreamWindowSize == nil {
-				m.InitialStreamWindowSize = &google_protobuf.UInt32Value{}
+				m.InitialStreamWindowSize = &google_protobuf1.UInt32Value{}
 			}
 			if err := m.InitialStreamWindowSize.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -1022,7 +992,7 @@ func (m *Http2ProtocolOptions) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.InitialConnectionWindowSize == nil {
-				m.InitialConnectionWindowSize = &google_protobuf.UInt32Value{}
+				m.InitialConnectionWindowSize = &google_protobuf1.UInt32Value{}
 			}
 			if err := m.InitialConnectionWindowSize.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err

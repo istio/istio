@@ -1,0 +1,201 @@
+# Gateway config, and associated virtual services
+
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: istio-gateway
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 443
+      name: https-default
+      protocol: HTTPS
+    tls:
+      mode: SIMPLE
+      serverCertificate: /etc/istio/ingressgateway-certs/tls.crt
+      privateKey: /etc/istio/ingressgateway-certs/tls.key
+    hosts:
+    - "*"
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "prom.{{ .Values.domain }}"
+    - "grafana.{{ .Values.domain }}"
+    - "trace.{{ .Values.domain }}"
+    - "pilot.{{ .Values.domain }}"
+    - "fortio.{{ .Values.domain }}"
+    - "fortio2.{{ .Values.domain }}"
+    - "fortiotls.{{ .Values.domain }}"
+    - "fortiottls.{{ .Values.domain }}"
+    - "fortionoistio.{{ .Values.domain }}"
+    - "fortionoistio1.{{ .Values.domain }}"
+    - "bookinfo.{{ .Values.domain }}"
+    - "httpbin.{{ .Values.domain }}"
+    - "fortio080.{{ .Values.domain }}"
+    - "fortio10rc1.{{ .Values.domain }}"
+    - "fortiomaster.{{ .Values.domain }}"
+    - "fortiocli.{{ .Values.domain }}"
+    - "fortio-tproxy.{{ .Values.domain }}"
+    - "servicegraph.{{ .Values.domain }}"
+    - "kiali.{{ .Values.domain }}"
+  - port:
+      number: 5201
+      protocol: TCP
+      name: tcp-iperf3
+    hosts:
+    - "*"
+  - port:
+      number: 5202
+      protocol: TCP
+      name: tcp-iperf3-noistio
+    hosts:
+    - "*"
+  - port:
+      number: 5203
+      protocol: TCP
+      name: tcp-iperf-tls
+    hosts:
+    - "*"
+---
+
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: pilot
+spec:
+  hosts:
+  - "pilot.{{ .Values.domain }}"
+  gateways:
+  - istio-gateway
+  http:
+  - route:
+    - destination:
+        host: istio-pilot.istio-system.svc.cluster.local
+        port:
+          number: 9093
+
+---
+
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: httpbin
+spec:
+  hosts:
+  - "httpbin.{{ .Values.domain }}"
+  gateways:
+  - istio-gateway
+  http:
+  - route:
+    - destination:
+        host: httpbin.test.svc.cluster.local
+        port:
+          number: 8000
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: grafana
+spec:
+  hosts:
+  - "grafana.{{ .Values.domain }}"
+  gateways:
+  - istio-gateway
+  http:
+  - route:
+    - destination:
+        host: grafana.istio-system.svc.cluster.local
+        port:
+          number: 3000
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: trace
+spec:
+  hosts:
+  - "trace.{{ .Values.domain }}"
+  gateways:
+  - istio-gateway
+  http:
+  - route:
+    - destination:
+        host: tracing.istio-system.svc.cluster.local
+        port:
+          number: 80
+---
+
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: servicegraph
+spec:
+  hosts:
+  - "servicegraph.{{ .Values.domain }}"
+  gateways:
+  - istio-gateway
+  http:
+  - route:
+    - destination:
+        host: servicegraph.istio-system.svc.cluster.local
+        port:
+          number: 8088
+---
+
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: kiali
+spec:
+  hosts:
+  - "kiali.{{ .Values.domain }}"
+  gateways:
+  - istio-gateway
+  http:
+  - route:
+    - destination:
+        host: kiali.istio-system.svc.cluster.local
+        port:
+          number: 20001
+
+
+---
+
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: prom
+spec:
+  hosts:
+  - "prom.{{ .Values.domain }}"
+  gateways:
+  - istio-gateway
+  http:
+  - route:
+    - destination:
+        host: prometheus.istio-system.svc.cluster.local
+        port:
+          number: 9090
+---
+
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: bookinfo
+spec:
+  hosts:
+  - "bookinfo.{{ .Values.domain }}"
+  gateways:
+  - istio-gateway
+  http:
+  - route:
+    - destination:
+        host: productpage.bookinfo.svc.cluster.local
+        port:
+          number: 9080
+
+---

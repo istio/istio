@@ -41,16 +41,21 @@ type getViewByNameResp struct {
 }
 
 func (cmd *getViewByNameReq) handleCommand(w *worker) {
-	cmd.c <- &getViewByNameResp{w.views[cmd.name].view}
+	v := w.views[cmd.name]
+	if v == nil {
+		cmd.c <- &getViewByNameResp{nil}
+		return
+	}
+	cmd.c <- &getViewByNameResp{v.view}
 }
 
-// subscribeToViewReq is the command to subscribe to a view.
-type subscribeToViewReq struct {
+// registerViewReq is the command to register a view.
+type registerViewReq struct {
 	views []*View
 	err   chan error
 }
 
-func (cmd *subscribeToViewReq) handleCommand(w *worker) {
+func (cmd *registerViewReq) handleCommand(w *worker) {
 	var errstr []string
 	for _, view := range cmd.views {
 		vi, err := w.tryRegisterView(view)
@@ -68,15 +73,15 @@ func (cmd *subscribeToViewReq) handleCommand(w *worker) {
 	}
 }
 
-// unsubscribeFromViewReq is the command to unsubscribe to a view. Has no
+// unregisterFromViewReq is the command to unsubscribe to a view. Has no
 // impact on the data collection for client that are pulling data from the
 // library.
-type unsubscribeFromViewReq struct {
+type unregisterFromViewReq struct {
 	views []string
 	done  chan struct{}
 }
 
-func (cmd *unsubscribeFromViewReq) handleCommand(w *worker) {
+func (cmd *unregisterFromViewReq) handleCommand(w *worker) {
 	for _, name := range cmd.views {
 		vi, ok := w.views[name]
 		if !ok {
@@ -89,6 +94,7 @@ func (cmd *unsubscribeFromViewReq) handleCommand(w *worker) {
 			// The collected data can be cleared.
 			vi.clearRows()
 		}
+		delete(w.views, name)
 	}
 	cmd.done <- struct{}{}
 }

@@ -90,23 +90,13 @@ func (a *AttributesServer) Check(ctx context.Context, req *mixerpb.CheckRequest)
 	requestBag := attribute.NewProtoBag(&req.Attributes, a.GlobalDict, attribute.GlobalList())
 	defer requestBag.Done()
 
-	responseBag := attribute.GetMutableBag(nil)
-	result, out := a.Handler.Check(requestBag, responseBag)
-
-	resp := &mixerpb.CheckResponse{
-		Precondition: mixerpb.CheckResponse_PreconditionResult{
-			Status:        out,
-			ValidUseCount: result.ValidUseCount,
-			ValidDuration: result.ValidDuration,
-		},
+	result := a.Handler.Check(requestBag)
+	if result.ReferencedAttributes == nil {
+		result.ReferencedAttributes = requestBag.GetReferencedAttributes(a.GlobalDict, int(req.GlobalWordCount))
 	}
-	if result.Referenced != nil {
-		resp.Precondition.ReferencedAttributes = *result.Referenced
-	} else {
-		resp.Precondition.ReferencedAttributes = requestBag.GetReferencedAttributes(a.GlobalDict, int(req.GlobalWordCount))
-	}
-	responseBag.ToProto(&resp.Precondition.Attributes, a.GlobalDict, int(req.GlobalWordCount))
 	requestBag.ClearReferencedAttributes()
+
+	resp := &mixerpb.CheckResponse{Precondition: result}
 
 	if len(req.Quotas) > 0 {
 		resp.Quotas = make(map[string]mixerpb.CheckResponse_QuotaResult, len(req.Quotas))
@@ -126,12 +116,12 @@ func (a *AttributesServer) Check(ctx context.Context, req *mixerpb.CheckRequest)
 			qr := mixerpb.CheckResponse_QuotaResult{
 				GrantedAmount:        result.Amount,
 				ValidDuration:        result.Expiration,
-				ReferencedAttributes: requestBag.GetReferencedAttributes(a.GlobalDict, int(req.GlobalWordCount)),
+				ReferencedAttributes: *requestBag.GetReferencedAttributes(a.GlobalDict, int(req.GlobalWordCount)),
 			}
 			if result.Referenced != nil {
 				qr.ReferencedAttributes = *result.Referenced
 			} else {
-				qr.ReferencedAttributes = requestBag.GetReferencedAttributes(a.GlobalDict, int(req.GlobalWordCount))
+				qr.ReferencedAttributes = *requestBag.GetReferencedAttributes(a.GlobalDict, int(req.GlobalWordCount))
 			}
 			resp.Quotas[name] = qr
 			requestBag.ClearReferencedAttributes()

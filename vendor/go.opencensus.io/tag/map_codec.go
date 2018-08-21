@@ -176,7 +176,7 @@ func Encode(m *Map) []byte {
 
 // Decode decodes the given []byte into a tag map.
 func Decode(bytes []byte) (*Map, error) {
-	ts := newMap(0)
+	ts := newMap()
 
 	eg := &encoderGRPC{
 		buf: bytes,

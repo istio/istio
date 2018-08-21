@@ -12,7 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -f mixer/adapter/kubernetesenv/config/config.proto
+// nolint: lll
+//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -a mixer/adapter/kubernetesenv/config/config.proto -x "-n kubernetesenv"
 //go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -t mixer/adapter/kubernetesenv/template/template.proto
 
 // Package kubernetesenv provides functionality to adapt mixer behavior to the
@@ -47,13 +48,6 @@ const (
 	// parsing
 	kubePrefix = "kubernetes://"
 
-	// value extraction
-	clusterDomain                      = "svc.cluster.local"
-	podServiceLabel                    = "app"
-	istioPodServiceLabel               = "istio"
-	lookupIngressSourceAndOriginValues = false
-	istioIngressSvc                    = "istio-ingress.istio-system.svc.cluster.local"
-
 	// k8s cache invalidation
 	// TODO: determine a reasonable default
 	defaultRefreshPeriod = 5 * time.Minute
@@ -61,13 +55,8 @@ const (
 
 var (
 	conf = &config.Params{
-		KubeconfigPath:                        "",
-		CacheRefreshDuration:                  defaultRefreshPeriod,
-		PodLabelForService:                    podServiceLabel,
-		PodLabelForIstioComponentService:      istioPodServiceLabel,
-		FullyQualifiedIstioIngressServiceName: istioIngressSvc,
-		LookupIngressSourceAndOriginValues:    lookupIngressSourceAndOriginValues,
-		ClusterDomainName:                     clusterDomain,
+		KubeconfigPath:       "",
+		CacheRefreshDuration: defaultRefreshPeriod,
 	}
 )
 
@@ -81,9 +70,9 @@ type (
 	}
 
 	handler struct {
-		pods   cacheController
-		env    adapter.Env
-		params *config.Params
+		k8sCache cacheController
+		env      adapter.Env
+		params   *config.Params
 	}
 
 	// used strictly for testing purposes
@@ -116,21 +105,6 @@ func (b *builder) SetAdapterConfig(c adapter.Config) {
 // Validate is responsible for ensuring that all the configuration state given to the builder is
 // correct.
 func (b *builder) Validate() (ce *adapter.ConfigErrors) {
-	params := b.adapterConfig
-	if len(params.PodLabelForService) == 0 {
-		ce = ce.Appendf("podLabelForService", "field must be populated")
-	}
-	if len(params.PodLabelForIstioComponentService) == 0 {
-		ce = ce.Appendf("podLabelForIstioComponentService", "field must be populated")
-	}
-	if len(params.FullyQualifiedIstioIngressServiceName) == 0 {
-		ce = ce.Appendf("fullyQualifiedIstioIngressServiceName", "field must be populated")
-	}
-	if len(params.ClusterDomainName) == 0 {
-		ce = ce.Appendf("clusterDomainName", "field must be populated")
-	} else if len(strings.Split(params.ClusterDomainName, ".")) != 3 {
-		ce = ce.Appendf("clusterDomainName", "must have three segments, separated by '.' ('svc.cluster.local', for example)")
-	}
 	return
 }
 
@@ -155,7 +129,7 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 		if err != nil {
 			return nil, fmt.Errorf("could not build kubernetes client: %v", err)
 		}
-		controller = newCacheController(clientset, refresh)
+		controller = newCacheController(clientset, refresh, env)
 		env.ScheduleDaemon(func() { controller.Run(stopChan) })
 		// ensure that any request is only handled after
 		// a sync has occurred
@@ -169,9 +143,9 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 	}
 
 	return &handler{
-		env:    env,
-		pods:   controller,
-		params: paramsProto,
+		env:      env,
+		k8sCache: controller,
+		params:   paramsProto,
 	}, nil
 }
 
@@ -185,18 +159,15 @@ func newBuilder(clientFactory clientFactoryFn) *builder {
 
 func (h *handler) GenerateKubernetesAttributes(ctx context.Context, inst *ktmpl.Instance) (*ktmpl.Output, error) {
 	out := ktmpl.NewOutput()
+
 	if inst.DestinationUid != "" {
 		if p, found := h.findPod(inst.DestinationUid); found {
-			h.fillDestinationAttrs(p, out, h.params)
+			h.fillDestinationAttrs(p, inst.DestinationPort, out, h.params)
 		}
 	} else if inst.DestinationIp != nil && !inst.DestinationIp.IsUnspecified() {
 		if p, found := h.findPod(inst.DestinationIp.String()); found {
-			h.fillDestinationAttrs(p, out, h.params)
+			h.fillDestinationAttrs(p, inst.DestinationPort, out, h.params)
 		}
-	}
-
-	if h.skipIngressLookups(out) {
-		return out, nil
 	}
 
 	if inst.SourceUid != "" {
@@ -209,15 +180,6 @@ func (h *handler) GenerateKubernetesAttributes(ctx context.Context, inst *ktmpl.
 		}
 	}
 
-	if inst.OriginUid != "" {
-		if p, found := h.findPod(inst.OriginUid); found {
-			h.fillOriginAttrs(p, out, h.params)
-		}
-	} else if inst.OriginIp != nil && !inst.OriginIp.IsUnspecified() {
-		if p, found := h.findPod(inst.OriginIp.String()); found {
-			h.fillOriginAttrs(p, out, h.params)
-		}
-	}
 	return out, nil
 }
 
@@ -227,61 +189,11 @@ func (h *handler) Close() error {
 
 func (h *handler) findPod(uid string) (*v1.Pod, bool) {
 	podKey := keyFromUID(uid)
-	pod, found := h.pods.GetPod(podKey)
+	pod, found := h.k8sCache.Pod(podKey)
 	if !found {
 		h.env.Logger().Debugf("could not find pod for (uid: %s, key: %s)", uid, podKey)
 	}
 	return pod, found
-}
-
-func (h *handler) skipIngressLookups(out *ktmpl.Output) bool {
-	return !h.params.LookupIngressSourceAndOriginValues && out.DestinationService == h.params.FullyQualifiedIstioIngressServiceName
-}
-
-// name format examples that can be currently canonicalized:
-//
-// "hello:80",
-// "hello",
-// "hello.default:80",
-// "hello.default",
-// "hello.default.svc:80",
-// "hello.default.svc",
-// "hello.default.svc.cluster:80",
-// "hello.default.svc.cluster",
-// "hello.default.svc.cluster.local:80",
-// "hello.default.svc.cluster.local",
-func canonicalName(service, namespace, clusterDomain string) (string, error) {
-	if len(service) == 0 {
-		return "", errors.New("invalid service name: cannot be empty")
-	}
-	// remove any port suffixes (ex: ":80")
-	splits := strings.SplitN(service, ":", 2)
-	s := splits[0]
-	if len(s) == 0 {
-		return "", fmt.Errorf("invalid service name '%s': starts with ':'", service)
-	}
-	// error on ip addresses for now
-	if ip := net.ParseIP(s); ip != nil {
-		return "", errors.New("invalid service name: cannot canonicalize ip addresses at this time")
-	}
-	parts := strings.SplitN(s, ".", 3)
-	if len(parts) == 1 {
-		return parts[0] + "." + namespace + "." + clusterDomain, nil
-	}
-	if len(parts) == 2 {
-		return s + "." + clusterDomain, nil
-	}
-
-	domParts := strings.Split(clusterDomain, ".")
-	nameParts := strings.Split(parts[2], ".")
-
-	if len(nameParts) >= len(domParts) {
-		return s, nil
-	}
-	for i := len(nameParts); i < len(domParts); i++ {
-		s = s + "." + domParts[i]
-	}
-	return s, nil
 }
 
 func keyFromUID(uid string) string {
@@ -298,43 +210,21 @@ func keyFromUID(uid string) string {
 	return fullname
 }
 
-func (h *handler) fillOriginAttrs(p *v1.Pod, o *ktmpl.Output, params *config.Params) {
-	if len(p.Labels) > 0 {
-		o.SetOriginLabels(p.Labels)
+func findContainer(p *v1.Pod, port int64) string {
+	if port <= 0 {
+		return ""
 	}
-	if len(p.Name) > 0 {
-		o.SetOriginPodName(p.Name)
-	}
-	if len(p.Namespace) > 0 {
-		o.SetOriginNamespace(p.Namespace)
-	}
-	if len(p.Spec.ServiceAccountName) > 0 {
-		o.SetOriginServiceAccountName(p.Spec.ServiceAccountName)
-	}
-	if len(p.Status.PodIP) > 0 {
-		o.SetOriginPodIp(net.ParseIP(p.Status.PodIP))
-	}
-	if len(p.Status.HostIP) > 0 {
-		o.SetOriginHostIp(net.ParseIP(p.Status.HostIP))
-	}
-	if app, found := p.Labels[params.PodLabelForService]; found {
-		n, err := canonicalName(app, p.Namespace, params.ClusterDomainName)
-		if err == nil {
-			o.SetOriginService(n)
-		} else {
-			h.env.Logger().Debugf("OriginService not set: %v", err)
-		}
-	} else if app, found := p.Labels[params.PodLabelForIstioComponentService]; found {
-		n, err := canonicalName(app, p.Namespace, params.ClusterDomainName)
-		if err == nil {
-			o.SetOriginService(n)
-		} else {
-			h.env.Logger().Debugf("OriginService not set: %v", err)
+	for _, c := range p.Spec.Containers {
+		for _, cp := range c.Ports {
+			if int64(cp.ContainerPort) == port {
+				return c.Name
+			}
 		}
 	}
+	return ""
 }
 
-func (h *handler) fillDestinationAttrs(p *v1.Pod, o *ktmpl.Output, params *config.Params) {
+func (h *handler) fillDestinationAttrs(p *v1.Pod, port int64, o *ktmpl.Output, params *config.Params) {
 	if len(p.Labels) > 0 {
 		o.SetDestinationLabels(p.Labels)
 	}
@@ -343,6 +233,9 @@ func (h *handler) fillDestinationAttrs(p *v1.Pod, o *ktmpl.Output, params *confi
 	}
 	if len(p.Namespace) > 0 {
 		o.SetDestinationNamespace(p.Namespace)
+	}
+	if len(p.Name) > 0 && len(p.Namespace) > 0 {
+		o.SetDestinationPodUid(kubePrefix + p.Name + "." + p.Namespace)
 	}
 	if len(p.Spec.ServiceAccountName) > 0 {
 		o.SetDestinationServiceAccountName(p.Spec.ServiceAccountName)
@@ -353,20 +246,16 @@ func (h *handler) fillDestinationAttrs(p *v1.Pod, o *ktmpl.Output, params *confi
 	if len(p.Status.HostIP) > 0 {
 		o.SetDestinationHostIp(net.ParseIP(p.Status.HostIP))
 	}
-	if app, found := p.Labels[params.PodLabelForService]; found {
-		n, err := canonicalName(app, p.Namespace, params.ClusterDomainName)
-		if err == nil {
-			o.SetDestinationService(n)
-		} else {
-			h.env.Logger().Debugf("DestinationService not set: %v", err)
+	if wl, found := h.k8sCache.Workload(p); found {
+		o.SetDestinationWorkloadUid(wl.uid)
+		o.SetDestinationWorkloadName(wl.name)
+		o.SetDestinationWorkloadNamespace(wl.namespace)
+		if len(wl.selfLinkURL) > 0 {
+			o.SetDestinationOwner(wl.selfLinkURL)
 		}
-	} else if app, found := p.Labels[params.PodLabelForIstioComponentService]; found {
-		n, err := canonicalName(istioComponentName(app), p.Namespace, params.ClusterDomainName)
-		if err == nil {
-			o.SetDestinationService(n)
-		} else {
-			h.env.Logger().Debugf("DestinationService not set: %v", err)
-		}
+	}
+	if cn := findContainer(p, port); cn != "" {
+		o.SetDestinationContainerName(cn)
 	}
 }
 
@@ -380,6 +269,9 @@ func (h *handler) fillSourceAttrs(p *v1.Pod, o *ktmpl.Output, params *config.Par
 	if len(p.Namespace) > 0 {
 		o.SetSourceNamespace(p.Namespace)
 	}
+	if len(p.Name) > 0 && len(p.Namespace) > 0 {
+		o.SetSourcePodUid(kubePrefix + p.Name + "." + p.Namespace)
+	}
 	if len(p.Spec.ServiceAccountName) > 0 {
 		o.SetSourceServiceAccountName(p.Spec.ServiceAccountName)
 	}
@@ -389,30 +281,14 @@ func (h *handler) fillSourceAttrs(p *v1.Pod, o *ktmpl.Output, params *config.Par
 	if len(p.Status.HostIP) > 0 {
 		o.SetSourceHostIp(net.ParseIP(p.Status.HostIP))
 	}
-	if app, found := p.Labels[params.PodLabelForService]; found {
-		n, err := canonicalName(app, p.Namespace, params.ClusterDomainName)
-		if err == nil {
-			o.SetSourceService(n)
-		} else {
-			h.env.Logger().Debugf("SourceService not set: %v", err)
-		}
-	} else if app, found := p.Labels[params.PodLabelForIstioComponentService]; found {
-		n, err := canonicalName(istioComponentName(app), p.Namespace, params.ClusterDomainName)
-		if err == nil {
-			o.SetSourceService(n)
-		} else {
-			h.env.Logger().Debugf("SourceService not set: %v", err)
+	if wl, found := h.k8sCache.Workload(p); found {
+		o.SetSourceWorkloadUid(wl.uid)
+		o.SetSourceWorkloadName(wl.name)
+		o.SetSourceWorkloadNamespace(wl.namespace)
+		if len(wl.selfLinkURL) > 0 {
+			o.SetSourceOwner(wl.selfLinkURL)
 		}
 	}
-}
-
-// TODO: fix this hack by using a service + endpoint cache/index (instead of
-//       guessing at the service name
-func istioComponentName(name string) string {
-	if strings.HasPrefix(name, "istio-") {
-		return name
-	}
-	return "istio-" + name
 }
 
 func newKubernetesClient(kubeconfigPath string, env adapter.Env) (k8s.Interface, error) {

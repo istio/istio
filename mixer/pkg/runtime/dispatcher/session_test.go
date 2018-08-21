@@ -19,7 +19,6 @@ import (
 	"errors"
 	"reflect"
 	"testing"
-	"time"
 
 	tpb "istio.io/api/mixer/adapter/model/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
@@ -27,64 +26,55 @@ import (
 )
 
 func TestSessionPool(t *testing.T) {
-	expected := &session{}
-
-	pool := newSessionPool(false)
+	d := New(nil, false)
 
 	// Prime the pool
 	sessions := make([]*session, 100)
 	for i := 0; i < 100; i++ {
-		s := pool.get()
+		s := d.getSession(context.TODO(), 0, nil)
 		sessions[i] = s
 	}
 	for i := 0; i < 100; i++ {
-		pool.put(sessions[i])
+		d.putSession(sessions[i])
 	}
 
 	// test cleaning
 	for i := 0; i < 100; i++ {
-		s := pool.get()
+		s := d.getSession(context.TODO(), 0, nil)
 		s.activeDispatches = 53 + i
 		sessions[i] = s
 	}
 	for i := 0; i < 100; i++ {
-		pool.put(sessions[i])
+		d.putSession(sessions[i])
 	}
 
 	for i := 0; i < 100; i++ {
-		s := pool.get()
+		s := d.getSession(context.TODO(), 0, nil)
+
+		// all fields should be clean, except for these two
+		expected := &session{
+			impl: d,
+			rc:   d.rc,
+			ctx:  context.TODO(),
+		}
+
 		if !reflect.DeepEqual(s, expected) {
 			t.Fatalf("session mismatch '%+v' != '%+v'", s, expected)
 		}
 	}
 }
 
-func TestSessionPool_TracingStickiness(t *testing.T) {
-	pool := newSessionPool(true)
-
-	s := pool.get()
-
-	expected := &session{trace: true}
-	if !reflect.DeepEqual(s, expected) {
-		t.Fatalf("session mismatch '%+v' != '%+v'", s, expected)
-	}
-	if !s.trace {
-		t.Fail()
-	}
-}
-
 func TestSession_Clear(t *testing.T) {
 	s := &session{
-		trace:            true,
-		start:            time.Now(),
+		impl:             New(nil, false),
 		activeDispatches: 23,
 		bag:              attribute.GetMutableBag(nil),
 		completed:        make(chan *dispatchState, 10),
 		err:              errors.New("some error"),
 		ctx:              context.TODO(),
-		checkResult:      &adapter.CheckResult{ValidUseCount: 53},
-		quotaResult:      &adapter.QuotaResult{Amount: 23},
-		quotaArgs:        adapter.QuotaArgs{BestEffort: true},
+		checkResult:      adapter.CheckResult{ValidUseCount: 53},
+		quotaResult:      adapter.QuotaResult{Amount: 23},
+		quotaArgs:        QuotaMethodArgs{BestEffort: true},
 		variety:          tpb.TEMPLATE_VARIETY_CHECK,
 		responseBag:      attribute.GetMutableBag(nil),
 	}
@@ -97,9 +87,7 @@ func TestSession_Clear(t *testing.T) {
 	}
 	s.completed = nil
 
-	expected := &session{
-		trace: true,
-	}
+	expected := &session{}
 
 	if !reflect.DeepEqual(s, expected) {
 		t.Fatalf("'%+v' != '%+v'", s, expected)

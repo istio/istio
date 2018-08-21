@@ -9,39 +9,38 @@ spec:
   selector:
     app: echosrv
 ---
-apiVersion: extensions/v1beta1
-kind: Ingress
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
 metadata:
-  annotations:
-    kubernetes.io/ingress.class: istio
-  name: istio-ingress
+  name: fortiogateway
 spec:
-  rules:
-    - http:
-        paths:
-          - path: /fortio/.*
-            backend:
-              serviceName: echosrv
-              servicePort: http-echo
-          - path: /tcp/.*
-            backend:
-              serviceName: tcpechosrv
-              servicePort: tcp-echo
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "*"
+
 ---
-apiVersion: config.istio.io/v1alpha2
-kind: RouteRule
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
 metadata:
-  name: fortio-redir
+  name: fortio
 spec:
-    destination:
-      name: echosrv
-    match:
-        request:
-          headers:
-            uri:
-              prefix: /fortio/ # prefix
-    rewrite:
-        uri: /  # drop the /fortio prefix when talking to fortio such as /fortio/foo -> /foo
+  hosts:
+  - "*"
+  gateways:
+  - fortiogateway
+  http:
+  - route:
+    - destination:
+        port:
+          number: 8080
+        host: echosrv
+
 ---
 apiVersion: apps/v1beta1
 kind: Deployment

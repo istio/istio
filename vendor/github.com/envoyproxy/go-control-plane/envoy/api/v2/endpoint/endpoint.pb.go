@@ -21,10 +21,10 @@ package endpoint
 import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import envoy_api_v2_core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 import envoy_api_v2_core1 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+import envoy_api_v2_core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 import envoy_api_v2_core2 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-import google_protobuf "github.com/gogo/protobuf/types"
+import google_protobuf1 "github.com/gogo/protobuf/types"
 import _ "github.com/lyft/protoc-gen-validate/validate"
 import _ "github.com/gogo/protobuf/gogoproto"
 
@@ -44,9 +44,17 @@ const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 // Upstream host identifier.
 type Endpoint struct {
 	// The upstream host address.
-	Address *envoy_api_v2_core.Address `protobuf:"bytes,1,opt,name=address" json:"address,omitempty"`
-	// [#not-implemented-hide:] The optional health check configuration is used as
-	// configuration for the health checker to contact the health checked host.
+	//
+	// .. attention::
+	//
+	//   The form of host address depends on the given cluster type. For STATIC or EDS,
+	//   it is expected to be a direct IP address (or something resolvable by the
+	//   specified :ref:`resolver <envoy_api_field_core.SocketAddress.resolver_name>`
+	//   in the Address). For LOGICAL or STRICT DNS, it is expected to be hostname,
+	//   and will be resolved via DNS.
+	Address *envoy_api_v2_core1.Address `protobuf:"bytes,1,opt,name=address" json:"address,omitempty"`
+	// The optional health check configuration is used as configuration for the
+	// health checker to contact the health checked host.
 	//
 	// .. attention::
 	//
@@ -60,7 +68,7 @@ func (m *Endpoint) String() string            { return proto.CompactTextString(m
 func (*Endpoint) ProtoMessage()               {}
 func (*Endpoint) Descriptor() ([]byte, []int) { return fileDescriptorEndpoint, []int{0} }
 
-func (m *Endpoint) GetAddress() *envoy_api_v2_core.Address {
+func (m *Endpoint) GetAddress() *envoy_api_v2_core1.Address {
 	if m != nil {
 		return m.Address
 	}
@@ -74,7 +82,7 @@ func (m *Endpoint) GetHealthCheckConfig() *Endpoint_HealthCheckConfig {
 	return nil
 }
 
-// [#not-implemented-hide:] The optional health check configuration.
+// The optional health check configuration.
 type Endpoint_HealthCheckConfig struct {
 	// Optional alternative health check port value.
 	//
@@ -111,7 +119,7 @@ type LbEndpoint struct {
 	// is *canary*, providing the optional canary status of the upstream host.
 	// This may be matched against in a route's ForwardAction metadata_match field
 	// to subset the endpoints considered in cluster load balancing.
-	Metadata *envoy_api_v2_core1.Metadata `protobuf:"bytes,3,opt,name=metadata" json:"metadata,omitempty"`
+	Metadata *envoy_api_v2_core.Metadata `protobuf:"bytes,3,opt,name=metadata" json:"metadata,omitempty"`
 	// The optional load balancing weight of the upstream host, in the range 1 -
 	// 128. Envoy uses the load balancing weight in some of the built in load
 	// balancers. The load balancing weight for an endpoint is divided by the sum
@@ -126,7 +134,7 @@ type LbEndpoint struct {
 	//   The limit of 128 is somewhat arbitrary, but is applied due to performance
 	//   concerns with the current implementation and can be removed when
 	//   `this issue <https://github.com/envoyproxy/envoy/issues/1285>`_ is fixed.
-	LoadBalancingWeight *google_protobuf.UInt32Value `protobuf:"bytes,4,opt,name=load_balancing_weight,json=loadBalancingWeight" json:"load_balancing_weight,omitempty"`
+	LoadBalancingWeight *google_protobuf1.UInt32Value `protobuf:"bytes,4,opt,name=load_balancing_weight,json=loadBalancingWeight" json:"load_balancing_weight,omitempty"`
 }
 
 func (m *LbEndpoint) Reset()                    { *m = LbEndpoint{} }
@@ -148,14 +156,14 @@ func (m *LbEndpoint) GetHealthStatus() envoy_api_v2_core2.HealthStatus {
 	return envoy_api_v2_core2.HealthStatus_UNKNOWN
 }
 
-func (m *LbEndpoint) GetMetadata() *envoy_api_v2_core1.Metadata {
+func (m *LbEndpoint) GetMetadata() *envoy_api_v2_core.Metadata {
 	if m != nil {
 		return m.Metadata
 	}
 	return nil
 }
 
-func (m *LbEndpoint) GetLoadBalancingWeight() *google_protobuf.UInt32Value {
+func (m *LbEndpoint) GetLoadBalancingWeight() *google_protobuf1.UInt32Value {
 	if m != nil {
 		return m.LoadBalancingWeight
 	}
@@ -168,7 +176,7 @@ func (m *LbEndpoint) GetLoadBalancingWeight() *google_protobuf.UInt32Value {
 // balancing weights or different priorities.
 type LocalityLbEndpoints struct {
 	// Identifies location of where the upstream hosts run.
-	Locality *envoy_api_v2_core1.Locality `protobuf:"bytes,1,opt,name=locality" json:"locality,omitempty"`
+	Locality *envoy_api_v2_core.Locality `protobuf:"bytes,1,opt,name=locality" json:"locality,omitempty"`
 	// The group of endpoints belonging to the locality specified.
 	LbEndpoints []LbEndpoint `protobuf:"bytes,2,rep,name=lb_endpoints,json=lbEndpoints" json:"lb_endpoints"`
 	// Optional: Per priority/region/zone/sub_zone weight - range 1-128. The load
@@ -187,7 +195,7 @@ type LocalityLbEndpoints struct {
 	//   The limit of 128 is somewhat arbitrary, but is applied due to performance
 	//   concerns with the current implementation and can be removed when
 	//   `this issue <https://github.com/envoyproxy/envoy/issues/1285>`_ is fixed.
-	LoadBalancingWeight *google_protobuf.UInt32Value `protobuf:"bytes,3,opt,name=load_balancing_weight,json=loadBalancingWeight" json:"load_balancing_weight,omitempty"`
+	LoadBalancingWeight *google_protobuf1.UInt32Value `protobuf:"bytes,3,opt,name=load_balancing_weight,json=loadBalancingWeight" json:"load_balancing_weight,omitempty"`
 	// Optional: the priority for this LocalityLbEndpoints. If unspecified this will
 	// default to the highest priority (0).
 	//
@@ -205,7 +213,7 @@ func (m *LocalityLbEndpoints) String() string            { return proto.CompactT
 func (*LocalityLbEndpoints) ProtoMessage()               {}
 func (*LocalityLbEndpoints) Descriptor() ([]byte, []int) { return fileDescriptorEndpoint, []int{2} }
 
-func (m *LocalityLbEndpoints) GetLocality() *envoy_api_v2_core1.Locality {
+func (m *LocalityLbEndpoints) GetLocality() *envoy_api_v2_core.Locality {
 	if m != nil {
 		return m.Locality
 	}
@@ -219,7 +227,7 @@ func (m *LocalityLbEndpoints) GetLbEndpoints() []LbEndpoint {
 	return nil
 }
 
-func (m *LocalityLbEndpoints) GetLoadBalancingWeight() *google_protobuf.UInt32Value {
+func (m *LocalityLbEndpoints) GetLoadBalancingWeight() *google_protobuf1.UInt32Value {
 	if m != nil {
 		return m.LoadBalancingWeight
 	}
@@ -241,10 +249,7 @@ func init() {
 }
 func (this *Endpoint) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*Endpoint)
@@ -257,10 +262,7 @@ func (this *Endpoint) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -274,10 +276,7 @@ func (this *Endpoint) Equal(that interface{}) bool {
 }
 func (this *Endpoint_HealthCheckConfig) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*Endpoint_HealthCheckConfig)
@@ -290,10 +289,7 @@ func (this *Endpoint_HealthCheckConfig) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -304,10 +300,7 @@ func (this *Endpoint_HealthCheckConfig) Equal(that interface{}) bool {
 }
 func (this *LbEndpoint) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*LbEndpoint)
@@ -320,10 +313,7 @@ func (this *LbEndpoint) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -343,10 +333,7 @@ func (this *LbEndpoint) Equal(that interface{}) bool {
 }
 func (this *LocalityLbEndpoints) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*LocalityLbEndpoints)
@@ -359,10 +346,7 @@ func (this *LocalityLbEndpoints) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -699,7 +683,7 @@ func (m *Endpoint) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Address == nil {
-				m.Address = &envoy_api_v2_core.Address{}
+				m.Address = &envoy_api_v2_core1.Address{}
 			}
 			if err := m.Address.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -936,7 +920,7 @@ func (m *LbEndpoint) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Metadata == nil {
-				m.Metadata = &envoy_api_v2_core1.Metadata{}
+				m.Metadata = &envoy_api_v2_core.Metadata{}
 			}
 			if err := m.Metadata.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -969,7 +953,7 @@ func (m *LbEndpoint) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.LoadBalancingWeight == nil {
-				m.LoadBalancingWeight = &google_protobuf.UInt32Value{}
+				m.LoadBalancingWeight = &google_protobuf1.UInt32Value{}
 			}
 			if err := m.LoadBalancingWeight.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -1052,7 +1036,7 @@ func (m *LocalityLbEndpoints) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Locality == nil {
-				m.Locality = &envoy_api_v2_core1.Locality{}
+				m.Locality = &envoy_api_v2_core.Locality{}
 			}
 			if err := m.Locality.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -1116,7 +1100,7 @@ func (m *LocalityLbEndpoints) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.LoadBalancingWeight == nil {
-				m.LoadBalancingWeight = &google_protobuf.UInt32Value{}
+				m.LoadBalancingWeight = &google_protobuf1.UInt32Value{}
 			}
 			if err := m.LoadBalancingWeight.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err

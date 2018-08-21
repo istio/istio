@@ -38,7 +38,6 @@ import (
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
 	rbac "istio.io/api/rbac/v1alpha1"
-	routing "istio.io/api/routing/v1alpha1"
 )
 
 const (
@@ -99,6 +98,7 @@ func (descriptor ConfigDescriptor) Validate() error {
 	var errs error
 	descriptorTypes := make(map[string]bool)
 	messages := make(map[string]bool)
+	clusterMessages := make(map[string]bool)
 
 	for _, v := range descriptor {
 		if !IsDNS1123Label(v.Type) {
@@ -114,37 +114,19 @@ func (descriptor ConfigDescriptor) Validate() error {
 			errs = multierror.Append(errs, fmt.Errorf("duplicate type: %q", v.Type))
 		}
 		descriptorTypes[v.Type] = true
-		if _, exists := messages[v.MessageName]; exists {
-			errs = multierror.Append(errs, fmt.Errorf("duplicate message type: %q", v.MessageName))
+		if v.ClusterScoped {
+			if _, exists := clusterMessages[v.MessageName]; exists {
+				errs = multierror.Append(errs, fmt.Errorf("duplicate message type: %q", v.MessageName))
+			}
+			clusterMessages[v.MessageName] = true
+		} else {
+			if _, exists := messages[v.MessageName]; exists {
+				errs = multierror.Append(errs, fmt.Errorf("duplicate message type: %q", v.MessageName))
+			}
+			messages[v.MessageName] = true
 		}
-		messages[v.MessageName] = true
 	}
 	return errs
-}
-
-// ValidateConfig ensures that the config object is well-defined
-// TODO: also check name and namespace
-func (descriptor ConfigDescriptor) ValidateConfig(typ string, obj interface{}) error {
-	if obj == nil {
-		return fmt.Errorf("invalid nil configuration object")
-	}
-
-	t, ok := descriptor.GetByType(typ)
-	if !ok {
-		return fmt.Errorf("undeclared type: %q", typ)
-	}
-
-	v, ok := obj.(proto.Message)
-	if !ok {
-		return fmt.Errorf("cannot cast to a proto message")
-	}
-
-	if proto.MessageName(v) != t.MessageName {
-		return fmt.Errorf("mismatched message type %q and type %q",
-			proto.MessageName(v), t.MessageName)
-	}
-
-	return t.Validate(v)
 }
 
 // Validate ensures that the service object is well-defined
@@ -288,16 +270,13 @@ func IsWildcardDNS1123Label(value string) bool {
 	return len(value) <= dns1123LabelMaxLength && wildcardPrefixRegexp.MatchString(value)
 }
 
-// ValidateIstioService checks for validity of a service reference
-func ValidateIstioService(svc *routing.IstioService) (errs error) {
+// ValidateMixerService checks for validity of a service reference
+func ValidateMixerService(svc *mccpb.IstioService) (errs error) {
 	if svc.Name == "" && svc.Service == "" {
 		errs = multierror.Append(errs, errors.New("name or service is mandatory for a service reference"))
 	} else if svc.Service != "" && svc.Name != "" {
 		errs = multierror.Append(errs, errors.New("specify either name or service, not both"))
 	} else if svc.Service != "" {
-		if err := ValidateEgressRuleService(svc.Service); err != nil {
-			errs = multierror.Append(errs, err)
-		}
 		if svc.Namespace != "" {
 			errs = multierror.Append(errs, errors.New("namespace is not valid when service is provided"))
 		}
@@ -327,63 +306,6 @@ func ValidateIstioService(svc *routing.IstioService) (errs error) {
 	return
 }
 
-// ValidateMatchCondition validates a match condition
-func ValidateMatchCondition(mc *routing.MatchCondition) (errs error) {
-	if mc.Source != nil {
-		if err := ValidateIstioService(mc.Source); err != nil {
-			errs = multierror.Append(errs, err)
-		}
-	}
-
-	if mc.Tcp != nil {
-		if err := ValidateL4MatchAttributes(mc.Tcp); err != nil {
-			errs = multierror.Append(errs, err)
-		}
-	}
-
-	if mc.Udp != nil {
-		if err := ValidateL4MatchAttributes(mc.Udp); err != nil {
-			errs = multierror.Append(errs, err)
-		}
-		// nolint: golint
-		errs = multierror.Append(errs, fmt.Errorf("UDP protocol not supported yet"))
-	}
-
-	if mc.Request != nil {
-		for name, value := range mc.Request.Headers {
-			if err := ValidateHTTPHeaderName(name); err != nil {
-				errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("header name %q invalid: ", name)))
-			}
-			if err := ValidateStringMatch(value); err != nil {
-				errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("header %q value invalid: ", name)))
-			}
-
-			// validate special `uri` header:
-			// absolute path must be non-empty (https://www.w3.org/Protocols/rfc2616/rfc2616-sec5.html#sec5.1.2)
-			if name == HeaderURI {
-				switch m := value.MatchType.(type) {
-				case *routing.StringMatch_Exact:
-					if m.Exact == "" {
-						errs = multierror.Append(errs, fmt.Errorf("exact header value for %q must be non-empty", HeaderURI))
-					}
-				case *routing.StringMatch_Prefix:
-					if m.Prefix == "" {
-						errs = multierror.Append(errs, fmt.Errorf("prefix header value for %q must be non-empty", HeaderURI))
-					}
-				case *routing.StringMatch_Regex:
-					if m.Regex == "" {
-						errs = multierror.Append(errs, fmt.Errorf("regex header value for %q must be non-empty", HeaderURI))
-					}
-				}
-			}
-
-			// TODO validate authority special header
-		}
-	}
-
-	return
-}
-
 // ValidateHTTPHeaderName checks that the name is lower-case
 func ValidateHTTPHeaderName(name string) error {
 	if name == "" {
@@ -395,33 +317,6 @@ func ValidateHTTPHeaderName(name string) error {
 	return nil
 }
 
-// ValidateStringMatch checks that the match types are correct
-func ValidateStringMatch(match *routing.StringMatch) error {
-	switch match.MatchType.(type) {
-	case *routing.StringMatch_Exact, *routing.StringMatch_Prefix, *routing.StringMatch_Regex:
-	default:
-		return fmt.Errorf("unrecognized string match %q", match)
-	}
-	return nil
-}
-
-// ValidateL4MatchAttributes validates L4 Match Attributes
-func ValidateL4MatchAttributes(ma *routing.L4MatchAttributes) (errs error) {
-	for _, subnet := range ma.SourceSubnet {
-		if err := ValidateSubnet(subnet); err != nil {
-			errs = multierror.Append(errs, err)
-		}
-	}
-
-	for _, subnet := range ma.DestinationSubnet {
-		if err := ValidateSubnet(subnet); err != nil {
-			errs = multierror.Append(errs, err)
-		}
-	}
-
-	return
-}
-
 // ValidatePercent checks that percent is in range
 func ValidatePercent(val int32) error {
 	if val < 0 || val > 100 {
@@ -430,120 +325,21 @@ func ValidatePercent(val int32) error {
 	return nil
 }
 
-// ValidateFloatPercent checks that percent is in range
-func ValidateFloatPercent(val float32) error {
-	if val < 0.0 || val > 100.0 {
-		return fmt.Errorf("percentage %v is not in range 0..100", val)
-	}
-	return nil
-}
-
-// ValidateDestinationWeight validates DestinationWeight
-func ValidateDestinationWeight(dw *routing.DestinationWeight) (errs error) {
-	// TODO: fix destination in destination weight to be an istio service
-
-	if err := Labels(dw.Labels).Validate(); err != nil {
-		errs = multierror.Append(errs, err)
-	}
-
-	if err := ValidatePercent(dw.Weight); err != nil {
-		errs = multierror.Append(errs, multierror.Prefix(err, "weight invalid: "))
-	}
-
-	return
-}
-
-// ValidateHTTPTimeout validates HTTP Timeout
-func ValidateHTTPTimeout(timeout *routing.HTTPTimeout) (errs error) {
-	if simple := timeout.GetSimpleTimeout(); simple != nil {
-		if err := ValidateDuration(simple.Timeout); err != nil {
-			errs = multierror.Append(errs, multierror.Prefix(err, "httpTimeout invalid: "))
-		}
-
-		// TODO validate override_header_name?
-	}
-
-	return
-}
-
-// ValidateHTTPRetries validates HTTP Retries
-func ValidateHTTPRetries(retry *routing.HTTPRetry) (errs error) {
-	if simple := retry.GetSimpleRetry(); simple != nil {
-		if simple.Attempts < 0 {
-			errs = multierror.Append(errs, fmt.Errorf("attempts must be in range [0..]"))
-		}
-
-		if err := ValidateDuration(simple.PerTryTimeout); err != nil {
-			errs = multierror.Append(errs, multierror.Prefix(err, "perTryTimeout invalid: "))
-		}
-		// We ignore override_header_name
-	}
-
-	return
-}
-
-// ValidateHTTPFault validates HTTP Fault
-func ValidateHTTPFault(fault *routing.HTTPFaultInjection) (errs error) {
-	if fault.GetDelay() != nil {
-		if err := ValidateDelay(fault.GetDelay()); err != nil {
-			errs = multierror.Append(errs, err)
-		}
-	}
-
-	if fault.GetAbort() != nil {
-		if err := ValidateAbort(fault.GetAbort()); err != nil {
-			errs = multierror.Append(errs, err)
-		}
-	}
-
-	return
-}
-
-// ValidateL4Fault validates L4 Fault
-func ValidateL4Fault(fault *routing.L4FaultInjection) (errs error) {
-	if fault.GetTerminate() != nil {
-		if err := ValidateTerminate(fault.GetTerminate()); err != nil {
-			errs = multierror.Append(errs, err)
-		}
-		errs = multierror.Append(errs, fmt.Errorf("the terminate fault not supported yet"))
-	}
-
-	if fault.GetThrottle() != nil {
-		if err := ValidateThrottle(fault.GetThrottle()); err != nil {
-			errs = multierror.Append(errs, err)
-		}
-	}
-
-	return
-}
-
-// ValidateSubnet checks that IPv4 subnet form
-func ValidateSubnet(subnet string) error {
-	// The current implementation only supports IP v4 addresses
-	return ValidateIPv4Subnet(subnet)
-}
-
-// validateCIDR checks that a string is in "CIDR notation"
-func validateCIDR(cidr string) error {
-	// We expect a string in "CIDR notation", i.e. a.b.c.d/xx form
-	ip, _, err := net.ParseCIDR(cidr)
-	if err != nil {
-		return fmt.Errorf("%v is not a valid CIDR block", cidr)
-	}
-	// The current implementation only supports IP v4 addresses
-	if ip.To4() == nil {
-		return fmt.Errorf("%v is not a valid IPv4 address", cidr)
-	}
-
-	return nil
-}
-
 // ValidateIPv4Subnet checks that a string is in "CIDR notation" or "Dot-decimal notation"
 func ValidateIPv4Subnet(subnet string) error {
 	// We expect a string in "CIDR notation" or "Dot-decimal notation"
 	// E.g., a.b.c.d/xx form or just a.b.c.d
 	if strings.Count(subnet, "/") == 1 {
-		return validateCIDR(subnet)
+		// We expect a string in "CIDR notation", i.e. a.b.c.d/xx form
+		ip, _, err := net.ParseCIDR(subnet)
+		if err != nil {
+			return fmt.Errorf("%v is not a valid CIDR block", subnet)
+		}
+		// The current implementation only supports IP v4 addresses
+		if ip.To4() == nil {
+			return fmt.Errorf("%v is not a valid IPv4 address", subnet)
+		}
+		return nil
 	}
 	return ValidateIPv4Address(subnet)
 }
@@ -576,334 +372,8 @@ func ValidateUnixAddress(addr string) error {
 	return nil
 }
 
-// ValidateDelay checks that fault injection delay is well-formed
-func ValidateDelay(delay *routing.HTTPFaultInjection_Delay) (errs error) {
-	if err := ValidateFloatPercent(delay.Percent); err != nil {
-		errs = multierror.Append(errs, multierror.Prefix(err, "percent invalid: "))
-	}
-	if err := ValidateDuration(delay.GetFixedDelay()); err != nil {
-		errs = multierror.Append(errs, multierror.Prefix(err, "fixedDelay invalid:"))
-	}
-
-	if delay.GetExponentialDelay() != nil {
-		if err := ValidateDuration(delay.GetExponentialDelay()); err != nil {
-			errs = multierror.Append(errs, multierror.Prefix(err, "exponentialDelay invalid: "))
-		}
-		errs = multierror.Append(errs, fmt.Errorf("exponentialDelay not supported yet"))
-	}
-
-	return
-}
-
-// ValidateAbortHTTPStatus checks that fault injection abort HTTP status is valid
-func ValidateAbortHTTPStatus(httpStatus *routing.HTTPFaultInjection_Abort_HttpStatus) (errs error) {
-	if httpStatus.HttpStatus < 0 || httpStatus.HttpStatus > 600 {
-		errs = multierror.Append(errs, fmt.Errorf("invalid abort http status %v", httpStatus.HttpStatus))
-	}
-
-	return
-}
-
-// ValidateAbort checks that fault injection abort is well-formed
-func ValidateAbort(abort *routing.HTTPFaultInjection_Abort) (errs error) {
-	if err := ValidateFloatPercent(abort.Percent); err != nil {
-		errs = multierror.Append(errs, multierror.Prefix(err, "percent invalid: "))
-	}
-
-	switch abort.ErrorType.(type) {
-	case *routing.HTTPFaultInjection_Abort_GrpcStatus:
-		// TODO No validation yet for grpc_status / http2_error / http_status
-		errs = multierror.Append(errs, fmt.Errorf("gRPC fault injection not supported yet"))
-	case *routing.HTTPFaultInjection_Abort_Http2Error:
-	// TODO No validation yet for grpc_status / http2_error / http_status
-	case *routing.HTTPFaultInjection_Abort_HttpStatus:
-		if err := ValidateAbortHTTPStatus(abort.ErrorType.(*routing.HTTPFaultInjection_Abort_HttpStatus)); err != nil {
-			errs = multierror.Append(errs, err)
-		}
-	}
-
-	// No validation yet for override_header_name
-
-	return
-}
-
-// ValidateTerminate checks that fault injection terminate is well-formed
-func ValidateTerminate(terminate *routing.L4FaultInjection_Terminate) (errs error) {
-	if err := ValidateFloatPercent(terminate.Percent); err != nil {
-		errs = multierror.Append(errs, multierror.Prefix(err, "terminate percent invalid: "))
-	}
-	return
-}
-
-// ValidateThrottle checks that fault injections throttle is well-formed
-func ValidateThrottle(throttle *routing.L4FaultInjection_Throttle) (errs error) {
-	if err := ValidateFloatPercent(throttle.Percent); err != nil {
-		errs = multierror.Append(errs, multierror.Prefix(err, "throttle percent invalid: "))
-	}
-
-	if throttle.DownstreamLimitBps < 0 {
-		errs = multierror.Append(errs, fmt.Errorf("downstreamLimitBps invalid"))
-	}
-
-	if throttle.UpstreamLimitBps < 0 {
-		errs = multierror.Append(errs, fmt.Errorf("upstreamLimitBps invalid"))
-	}
-
-	err := ValidateDuration(throttle.GetThrottleAfterPeriod())
-	if err != nil {
-		errs = multierror.Append(errs, fmt.Errorf("throttleAfterPeriod invalid"))
-	}
-
-	if throttle.GetThrottleAfterBytes() < 0 {
-		errs = multierror.Append(errs, fmt.Errorf("throttleAfterBytes invalid"))
-	}
-
-	// TODO Check DoubleValue throttle.GetThrottleForSeconds()
-
-	return
-}
-
-// ValidateLoadBalancing validates Load Balancing
-func ValidateLoadBalancing(lb *routing.LoadBalancing) (errs error) {
-	if lb.LbPolicy == nil {
-		errs = multierror.Append(errs, errors.New("must set load balancing if specified"))
-	}
-	// Currently the policy is just a name, and we don't validate it
-	return
-}
-
-// ValidateCircuitBreaker validates Circuit Breaker
-func ValidateCircuitBreaker(cb *routing.CircuitBreaker) (errs error) {
-	if simple := cb.GetSimpleCb(); simple != nil {
-		if simple.MaxConnections < 0 {
-			errs = multierror.Append(errs,
-				fmt.Errorf("circuitBreak maxConnections must be in range [0..]"))
-		}
-		if simple.HttpMaxPendingRequests < 0 {
-			errs = multierror.Append(errs,
-				fmt.Errorf("circuitBreaker maxPendingRequests must be in range [0..]"))
-		}
-		if simple.HttpMaxRequests < 0 {
-			errs = multierror.Append(errs,
-				fmt.Errorf("circuitBreaker maxRequests must be in range [0..]"))
-		}
-
-		err := ValidateDuration(simple.SleepWindow)
-		if err != nil {
-			errs = multierror.Append(errs,
-				fmt.Errorf("circuitBreaker sleepWindow must be in range [0..]"))
-		}
-
-		if simple.HttpConsecutiveErrors < 0 {
-			errs = multierror.Append(errs,
-				fmt.Errorf("circuitBreaker httpConsecutiveErrors must be in range [0..]"))
-		}
-
-		err = ValidateDuration(simple.HttpDetectionInterval)
-		if err != nil {
-			errs = multierror.Append(errs,
-				fmt.Errorf("circuitBreaker httpDetectionInterval must be in range [0..]"))
-		}
-
-		if simple.HttpMaxRequestsPerConnection < 0 {
-			errs = multierror.Append(errs,
-				fmt.Errorf("circuitBreaker httpMaxRequestsPerConnection must be in range [0..]"))
-		}
-		if err := ValidatePercent(simple.HttpMaxEjectionPercent); err != nil {
-			errs = multierror.Append(errs, multierror.Prefix(err, "circuitBreaker httpMaxEjectionPercent invalid: "))
-		}
-	}
-
-	return
-}
-
-// ValidateWeights checks that destination weights sum to 100
-func ValidateWeights(routes []*routing.DestinationWeight) (errs error) {
-	// Sum weights
-	sum := 0
-	for _, destWeight := range routes {
-		sum = sum + int(destWeight.Weight)
-	}
-
-	// From cfg.proto "If there is only [one] destination in a rule, the weight value is assumed to be 100."
-	if len(routes) == 1 && sum == 0 {
-		return
-	}
-
-	if sum != 100 {
-		errs = multierror.Append(errs,
-			fmt.Errorf("route weights total %v (must total 100)", sum))
-	}
-
-	return
-}
-
-// ValidateRouteRule checks routing rules
-func ValidateRouteRule(msg proto.Message) error {
-	value, ok := msg.(*routing.RouteRule)
-	if !ok {
-		return fmt.Errorf("cannot cast to routing rule")
-	}
-
-	var errs error
-	if value.Destination == nil {
-		errs = multierror.Append(errs, fmt.Errorf("route rule must have a destination service"))
-	} else {
-		if err := ValidateIstioService(value.Destination); err != nil {
-			errs = multierror.Append(errs, err)
-		}
-		if len(value.Destination.Labels) > 0 {
-			errs = multierror.Append(errs, errors.New("route rule destination labels must be empty"))
-		}
-	}
-
-	// We don't validate precedence because any int32 is legal
-	if value.Match != nil {
-		if err := ValidateMatchCondition(value.Match); err != nil {
-			errs = multierror.Append(errs, err)
-		}
-	}
-
-	if value.Rewrite != nil {
-		if value.Rewrite.GetUri() == "" && value.Rewrite.GetAuthority() == "" {
-			errs = multierror.Append(errs, errors.New("rewrite must specify path, host, or both"))
-		}
-	}
-
-	if value.Redirect != nil {
-		if len(value.Route) > 0 {
-			errs = multierror.Append(errs, errors.New("rule cannot contain both route and redirect"))
-		}
-
-		if value.HttpFault != nil {
-			errs = multierror.Append(errs, errors.New("rule cannot contain both fault and redirect"))
-		}
-
-		if value.Redirect.GetAuthority() == "" && value.Redirect.GetUri() == "" {
-			errs = multierror.Append(errs, errors.New("redirect must specify path, host, or both"))
-		}
-
-		if value.WebsocketUpgrade {
-			// nolint: golint
-			errs = multierror.Append(errs, errors.New("WebSocket upgrade is not allowed on redirect rules"))
-		}
-	}
-
-	if value.Redirect != nil && value.Rewrite != nil {
-		errs = multierror.Append(errs, errors.New("rule cannot contain both rewrite and redirect"))
-	}
-
-	if value.Route != nil {
-		for _, destWeight := range value.Route {
-			if err := ValidateDestinationWeight(destWeight); err != nil {
-				errs = multierror.Append(errs, err)
-			}
-		}
-		if err := ValidateWeights(value.Route); err != nil {
-			errs = multierror.Append(errs, err)
-		}
-	}
-
-	if value.Mirror != nil {
-		if err := ValidateIstioService(value.Mirror); err != nil {
-			errs = multierror.Append(errs, err)
-		}
-	}
-
-	for name, val := range value.AppendHeaders {
-		if err := ValidateHTTPHeaderName(name); err != nil {
-			errs = multierror.Append(errs, err)
-		}
-		if val == "" {
-			errs = multierror.Append(errs,
-				fmt.Errorf("appended header %q must have a non-empty value", name))
-		}
-	}
-
-	if value.CorsPolicy != nil {
-		if value.CorsPolicy.MaxAge != nil {
-			if err := ValidateDuration(value.CorsPolicy.MaxAge); err != nil {
-				errs = multierror.Append(errs, err)
-			}
-			if value.CorsPolicy.MaxAge.Nanos > 0 {
-				errs = multierror.Append(errs,
-					errors.New("max_age duration is accurate only to seconds precision"))
-			}
-		}
-
-		for _, name := range value.CorsPolicy.AllowHeaders {
-			if err := ValidateHTTPHeaderName(name); err != nil {
-				errs = multierror.Append(errs, err)
-			}
-		}
-
-		for _, name := range value.CorsPolicy.ExposeHeaders {
-			if err := ValidateHTTPHeaderName(name); err != nil {
-				errs = multierror.Append(errs, err)
-			}
-		}
-
-		for _, method := range value.CorsPolicy.AllowMethods {
-			if !supportedMethods[method] {
-				errs = multierror.Append(errs, fmt.Errorf("%q is not a supported HTTP method", method))
-			}
-		}
-	}
-
-	if value.HttpReqTimeout != nil {
-		if err := ValidateHTTPTimeout(value.HttpReqTimeout); err != nil {
-			errs = multierror.Append(errs, err)
-		}
-	}
-
-	if value.HttpReqRetries != nil {
-		if err := ValidateHTTPRetries(value.HttpReqRetries); err != nil {
-			errs = multierror.Append(errs, err)
-		}
-	}
-
-	if value.HttpFault != nil {
-		if err := ValidateHTTPFault(value.HttpFault); err != nil {
-			errs = multierror.Append(errs, err)
-		}
-	}
-
-	if value.L4Fault != nil {
-		if err := ValidateL4Fault(value.L4Fault); err != nil {
-			errs = multierror.Append(errs, err)
-		}
-		// nolint: golint
-		errs = multierror.Append(errs, fmt.Errorf("L4 faults are not implemented"))
-	}
-
-	return errs
-}
-
-// ValidateIngressRule checks ingress rules
-func ValidateIngressRule(msg proto.Message) error {
-	value, ok := msg.(*routing.IngressRule)
-	if !ok {
-		return fmt.Errorf("cannot cast to ingress rule")
-	}
-
-	var errs error
-	if value.Destination == nil {
-		errs = multierror.Append(errs, fmt.Errorf("ingress rule must have a destination service"))
-	} else {
-		if err := ValidateIstioService(value.Destination); err != nil {
-			errs = multierror.Append(errs, err)
-		}
-		if len(value.Destination.Labels) > 0 {
-			errs = multierror.Append(errs, errors.New("ingress rule destination labels must be empty"))
-		}
-	}
-
-	// TODO: complete validation for ingress
-	return errs
-}
-
 // ValidateGateway checks gateway specifications
-func ValidateGateway(msg proto.Message) (errs error) {
+func ValidateGateway(name, namespace string, msg proto.Message) (errs error) {
 	value, ok := msg.(*networking.Gateway)
 	if !ok {
 		errs = appendErrors(errs, fmt.Errorf("cannot cast to gateway: %#v", msg))
@@ -917,6 +387,17 @@ func ValidateGateway(msg proto.Message) (errs error) {
 			errs = appendErrors(errs, validateServer(server))
 		}
 	}
+
+	// Ensure unique port names
+	portNames := make(map[string]bool)
+
+	for _, s := range value.Servers {
+		if portNames[s.Port.Name] {
+			errs = appendErrors(errs, fmt.Errorf("port names in servers must be unique: duplicate name %s", s.Port.Name))
+		}
+		portNames[s.Port.Name] = true
+	}
+
 	return errs
 }
 
@@ -925,16 +406,39 @@ func validateServer(server *networking.Server) (errs error) {
 		errs = appendErrors(errs, fmt.Errorf("server config must contain at least one host"))
 	} else {
 		for _, host := range server.Hosts {
-			// We check if its a valid wildcard domain first; if not then we check if its a valid IPv4 address
-			// (including CIDR addresses). If it's neither, we report both errors.
+			// short name hosts are not allowed in gateways
+			if host != "*" && !strings.Contains(host, ".") {
+				errs = appendErrors(errs, fmt.Errorf("short names (non FQDN) are not allowed in Gateway server hosts"))
+			}
 			if err := ValidateWildcardDomain(host); err != nil {
-				if err2 := ValidateIPv4Subnet(host); err2 != nil {
-					errs = appendErrors(errs, err, err2)
-				}
+				errs = appendErrors(errs, err)
 			}
 		}
 	}
-	return appendErrors(errs, validateTLSOptions(server.Tls), validateServerPort(server.Port))
+	portErr := validateServerPort(server.Port)
+	if portErr != nil {
+		errs = appendErrors(errs, portErr)
+	}
+	errs = appendErrors(errs, validateTLSOptions(server.Tls))
+
+	// If port is HTTPS or TLS, make sure that server has TLS options
+	if portErr == nil {
+		protocol := ParseProtocol(server.Port.Protocol)
+		if protocol.IsTLS() && server.Tls == nil {
+			errs = appendErrors(errs, fmt.Errorf("server must have TLS settings for HTTPS/TLS protocols"))
+		} else if !protocol.IsTLS() && server.Tls != nil {
+			// only tls redirect is allowed if this is a HTTP server
+			if protocol.IsHTTP() {
+				if server.Tls.Mode != networking.Server_TLSOptions_PASSTHROUGH ||
+					server.Tls.CaCertificates != "" || server.Tls.PrivateKey != "" || server.Tls.ServerCertificate != "" {
+					errs = appendErrors(errs, fmt.Errorf("server cannot have TLS settings for plain text HTTP ports"))
+				}
+			} else {
+				errs = appendErrors(errs, fmt.Errorf("server cannot have TLS settings for non HTTPS/TLS ports"))
+			}
+		}
+	}
+	return errs
 }
 
 func validateServerPort(port *networking.Port) (errs error) {
@@ -946,8 +450,10 @@ func validateServerPort(port *networking.Port) (errs error) {
 	}
 	if port.Number > 0 {
 		errs = appendErrors(errs, ValidatePort(int(port.Number)))
-	} else if port.Name == "" {
-		errs = appendErrors(errs, fmt.Errorf("either port number or name must be set: %v", port))
+	}
+
+	if port.Name == "" {
+		errs = appendErrors(errs, fmt.Errorf("port name must be set: %v", port))
 	}
 	return
 }
@@ -972,140 +478,15 @@ func validateTLSOptions(tls *networking.Server_TLSOptions) (errs error) {
 	return
 }
 
-// ValidateEgressRule checks egress rules
-func ValidateEgressRule(msg proto.Message) error {
-	rule, ok := msg.(*routing.EgressRule)
-	if !ok {
-		return fmt.Errorf("cannot cast to egress rule")
-	}
-
-	var errs error
-	destination := rule.Destination
-
-	if err := ValidateEgressRuleDestination(destination); err != nil {
-		errs = multierror.Append(errs, err)
-	}
-
-	if len(rule.Ports) == 0 {
-		errs = multierror.Append(errs, fmt.Errorf("egress rule must have a ports list"))
-	}
-
-	cidrDestinationService := destination != nil && strings.Count(destination.Service, "/") == 1
-
-	ports := make(map[int32]bool)
-	for _, port := range rule.Ports {
-		if _, exists := ports[port.Port]; exists {
-			errs = multierror.Append(errs, fmt.Errorf("duplicate port: %d", port.Port))
-		}
-		ports[port.Port] = true
-
-		if err := ValidateEgressRulePort(port); err != nil {
-			errs = multierror.Append(errs, err)
-		}
-
-		if cidrDestinationService &&
-			!IsEgressRulesSupportedTCPProtocol(ParseProtocol(port.Protocol)) {
-			errs = multierror.Append(errs, fmt.Errorf("Only the following protocols can be defined for "+
-				"CIDR destination service notation: %s. "+
-				"This rule - port: %d protocol: %s destination.service: %s",
-				egressRulesSupportedTCPProtocols(), port.Port, port.Protocol, destination.Service))
-		}
-	}
-
-	if rule.UseEgressProxy {
-		errs = multierror.Append(errs, fmt.Errorf("directing traffic through egress proxy is not implemented yet"))
-	}
-
-	return errs
-}
-
-//ValidateEgressRuleDestination checks that valid destination is used for an egress-rule
-// only service field is allowed, all other fields are forbidden
-func ValidateEgressRuleDestination(destination *routing.IstioService) error {
-	if destination == nil {
-		return fmt.Errorf("destination of egress rule must have destination field")
-	}
-
-	var errs error
-	if destination.Name != "" {
-		errs = multierror.Append(errs, fmt.Errorf("destination of egress rule must not have name field"))
-	}
-
-	if destination.Namespace != "" {
-		errs = multierror.Append(errs,
-			fmt.Errorf("destination of egress rule must not have namespace field"))
-	}
-
-	if destination.Domain != "" {
-		errs = multierror.Append(errs, fmt.Errorf("destination of egress rule must not have domain field"))
-	}
-
-	if len(destination.Labels) > 0 {
-		errs = multierror.Append(errs, fmt.Errorf("destination of egress rule must not have labels field"))
-	}
-
-	if err := ValidateEgressRuleService(destination.Service); err != nil {
-		errs = multierror.Append(errs, err)
-	}
-	return errs
-}
-
-// ValidateEgressRuleService validates service field of egress rules. Service field of egress rule contains either
-// domain, according to the definition of Envoy's domain of virtual hosts, or CIDR, according to the definition of
-// destination_ip_list of a route in Envoy's TCP Proxy filter.
-func ValidateEgressRuleService(service string) error {
-	if strings.Count(service, "/") == 1 {
-		return validateCIDR(service)
-	}
-	return ValidateEgressRuleDomain(service)
-}
-
-// ValidateEgressRuleDomain validates domains in the egress rules
-// domains are according to the definion of Envoy's domain of virtual hosts.
-//
-// Wildcard hosts are supported in the form of “*.foo.com” or “*-bar.foo.com”.
-// Note that the wildcard will not match the empty string. e.g. “*-bar.foo.com” will match “baz-bar.foo.com”
-// but not “-bar.foo.com”.  Additionally, a special entry “*” is allowed which will match any host/authority header.
-func ValidateEgressRuleDomain(domain string) error {
-	if len(domain) < 1 {
-		return fmt.Errorf("domain must not be empty string")
-	}
-
-	if domain[0] == '*' {
-		domain = domain[1:]   // wildcard * is allowed only at the first position
-		if len(domain) == 0 { // the domain was just * and it is OK
-			return nil
-		}
-		if domain[0] == '.' || domain[0] == '-' {
-			// the domain started with '*.' or '*-' - the rest of the domain should be validate FDQN
-			domain = domain[1:]
-		}
-	}
-	return ValidateFQDN(domain)
-}
-
-// ValidateEgressRulePort checks the port of the egress rule (communication port and protocol)
-func ValidateEgressRulePort(port *routing.EgressRule_Port) error {
-	if err := ValidatePort(int(port.Port)); err != nil {
-		return err
-	}
-
-	if !IsEgressRulesSupportedProtocol(ParseProtocol(port.Protocol)) {
-		return fmt.Errorf("egress rule support is available only for the following protocols: %s",
-			egressRulesSupportedProtocols())
-	}
-	return nil
-}
-
 // ValidateDestinationRule checks proxy policies
-func ValidateDestinationRule(msg proto.Message) (errs error) {
+func ValidateDestinationRule(name, namespace string, msg proto.Message) (errs error) {
 	rule, ok := msg.(*networking.DestinationRule)
 	if !ok {
 		return fmt.Errorf("cannot cast to destination rule")
 	}
 
 	errs = appendErrors(errs,
-		validateHost(rule.Host),
+		ValidateWildcardDomain(rule.Host),
 		validateTrafficPolicy(rule.TrafficPolicy))
 
 	for _, subset := range rule.Subsets {
@@ -1115,39 +496,71 @@ func ValidateDestinationRule(msg proto.Message) (errs error) {
 	return
 }
 
+// ValidateEnvoyFilter checks envoy filter config supplied by user
+func ValidateEnvoyFilter(name, namespace string, msg proto.Message) (errs error) {
+	rule, ok := msg.(*networking.EnvoyFilter)
+	if !ok {
+		return fmt.Errorf("cannot cast to envoy filter")
+	}
+
+	if len(rule.Filters) == 0 {
+		return fmt.Errorf("envoy filter: missing filters")
+	}
+
+	for _, f := range rule.Filters {
+		if f.InsertPosition != nil {
+			if f.InsertPosition.Index == networking.EnvoyFilter_InsertPosition_BEFORE ||
+				f.InsertPosition.Index == networking.EnvoyFilter_InsertPosition_AFTER {
+				if f.InsertPosition.RelativeTo == "" {
+					errs = appendErrors(errs, fmt.Errorf("envoy filter: missing relativeTo filter with BEFORE/AFTER index"))
+				}
+			}
+		}
+		if f.FilterType == networking.EnvoyFilter_Filter_INVALID {
+			errs = appendErrors(errs, fmt.Errorf("envoy filter: missing filter type"))
+		}
+		if len(f.FilterName) == 0 {
+			errs = appendErrors(errs, fmt.Errorf("envoy filter: missing filter name"))
+		}
+
+		if f.FilterConfig == nil {
+			errs = appendErrors(errs, fmt.Errorf("envoy filter: missing filter config"))
+		}
+	}
+
+	return
+}
+
 func validateTrafficPolicy(policy *networking.TrafficPolicy) error {
 	if policy == nil {
 		return nil
 	}
-	if policy.OutlierDetection == nil && policy.ConnectionPool == nil && policy.LoadBalancer == nil && policy.Tls == nil {
+	if policy.OutlierDetection == nil && policy.ConnectionPool == nil &&
+		policy.LoadBalancer == nil && policy.Tls == nil && policy.PortLevelSettings == nil {
 		return fmt.Errorf("traffic policy must have at least one field")
 	}
 
 	return appendErrors(validateOutlierDetection(policy.OutlierDetection),
 		validateConnectionPool(policy.ConnectionPool),
 		validateLoadBalancer(policy.LoadBalancer),
-		validateTLS(policy.Tls))
+		validateTLS(policy.Tls), validatePortTrafficPolicies(policy.PortLevelSettings))
 }
 
 func validateOutlierDetection(outlier *networking.OutlierDetection) (errs error) {
 	if outlier == nil {
 		return
 	}
-	if outlier.Http == nil {
-		return fmt.Errorf("outlier detection must have at least one field")
-	}
 
-	http := outlier.Http
-	if http.BaseEjectionTime != nil {
-		errs = appendErrors(errs, ValidateDurationGogo(http.BaseEjectionTime))
+	if outlier.BaseEjectionTime != nil {
+		errs = appendErrors(errs, ValidateDurationGogo(outlier.BaseEjectionTime))
 	}
-	if http.ConsecutiveErrors < 0 {
+	if outlier.ConsecutiveErrors < 0 {
 		errs = appendErrors(errs, fmt.Errorf("outlier detection consecutive errors cannot be negative"))
 	}
-	if http.Interval != nil {
-		errs = appendErrors(errs, ValidateDurationGogo(http.Interval))
+	if outlier.Interval != nil {
+		errs = appendErrors(errs, ValidateDurationGogo(outlier.Interval))
 	}
-	errs = appendErrors(errs, ValidatePercent(http.MaxEjectionPercent))
+	errs = appendErrors(errs, ValidatePercent(outlier.MaxEjectionPercent))
 
 	return
 }
@@ -1221,39 +634,22 @@ func validateSubset(subset *networking.Subset) error {
 		validateTrafficPolicy(subset.TrafficPolicy))
 }
 
-// ValidateDestinationPolicy checks proxy policies
-func ValidateDestinationPolicy(msg proto.Message) error {
-	policy, ok := msg.(*routing.DestinationPolicy)
-	if !ok {
-		return fmt.Errorf("cannot cast to destination policy")
-	}
-
-	var errs error
-	if policy.Destination == nil {
-		errs = multierror.Append(errs, errors.New("destination is required in the destination policy"))
-	} else if err := ValidateIstioService(policy.Destination); err != nil {
-		errs = multierror.Append(errs, err)
-	}
-
-	if policy.Source != nil {
-		if err := ValidateIstioService(policy.Source); err != nil {
-			errs = multierror.Append(errs, err)
+func validatePortTrafficPolicies(pls []*networking.TrafficPolicy_PortTrafficPolicy) (errs error) {
+	for _, t := range pls {
+		if t.Port == nil {
+			errs = appendErrors(errs, fmt.Errorf("portTrafficPolicy must have valid port"))
+		}
+		if t.OutlierDetection == nil && t.ConnectionPool == nil &&
+			t.LoadBalancer == nil && t.Tls == nil {
+			errs = appendErrors(errs, fmt.Errorf("port traffic policy must have at least one field"))
+		} else {
+			errs = appendErrors(errs, validateOutlierDetection(t.OutlierDetection),
+				validateConnectionPool(t.ConnectionPool),
+				validateLoadBalancer(t.LoadBalancer),
+				validateTLS(t.Tls))
 		}
 	}
-
-	if policy.LoadBalancing != nil {
-		if err := ValidateLoadBalancing(policy.LoadBalancing); err != nil {
-			errs = multierror.Append(errs, err)
-		}
-	}
-
-	if policy.CircuitBreaker != nil {
-		if err := ValidateCircuitBreaker(policy.CircuitBreaker); err != nil {
-			errs = multierror.Append(errs, err)
-		}
-	}
-
-	return errs
+	return
 }
 
 // ValidateProxyAddress checks that a network address is well-formed
@@ -1420,7 +816,11 @@ func ValidateMeshConfig(mesh *meshconfig.MeshConfig) (errs error) {
 	}
 
 	if err := ValidateRefreshDelay(mesh.RdsRefreshDelay); err != nil {
-		errs = multierror.Append(errs, multierror.Prefix(err, "invalid refresh delay:"))
+		errs = multierror.Append(errs, multierror.Prefix(err, "invalid rds refresh delay:"))
+	}
+
+	if err := ValidateRefreshDelay(mesh.SdsRefreshDelay); err != nil {
+		errs = multierror.Append(errs, multierror.Prefix(err, "invalid sds refresh delay:"))
 	}
 
 	if mesh.DefaultConfig == nil {
@@ -1543,7 +943,7 @@ func ValidateMixerAttributes(msg proto.Message) error {
 }
 
 // ValidateHTTPAPISpec checks that HTTPAPISpec is well-formed.
-func ValidateHTTPAPISpec(msg proto.Message) error {
+func ValidateHTTPAPISpec(name, namespace string, msg proto.Message) error {
 	in, ok := msg.(*mccpb.HTTPAPISpec)
 	if !ok {
 		return errors.New("cannot case to HTTPAPISpec")
@@ -1596,7 +996,7 @@ func ValidateHTTPAPISpec(msg proto.Message) error {
 }
 
 // ValidateHTTPAPISpecBinding checks that HTTPAPISpecBinding is well-formed.
-func ValidateHTTPAPISpecBinding(msg proto.Message) error {
+func ValidateHTTPAPISpecBinding(name, namespace string, msg proto.Message) error {
 	in, ok := msg.(*mccpb.HTTPAPISpecBinding)
 	if !ok {
 		return errors.New("cannot case to HTTPAPISpecBinding")
@@ -1606,7 +1006,7 @@ func ValidateHTTPAPISpecBinding(msg proto.Message) error {
 		errs = multierror.Append(errs, errors.New("at least one service must be specified"))
 	}
 	for _, service := range in.Services {
-		if err := ValidateIstioService(mixerToProxyIstioService(service)); err != nil {
+		if err := ValidateMixerService(service); err != nil {
 			errs = multierror.Append(errs, err)
 		}
 	}
@@ -1625,7 +1025,7 @@ func ValidateHTTPAPISpecBinding(msg proto.Message) error {
 }
 
 // ValidateQuotaSpec checks that Quota is well-formed.
-func ValidateQuotaSpec(msg proto.Message) error {
+func ValidateQuotaSpec(name, namespace string, msg proto.Message) error {
 	in, ok := msg.(*mccpb.QuotaSpec)
 	if !ok {
 		return errors.New("cannot case to HTTPAPISpecBinding")
@@ -1672,7 +1072,7 @@ func ValidateQuotaSpec(msg proto.Message) error {
 }
 
 // ValidateQuotaSpecBinding checks that QuotaSpecBinding is well-formed.
-func ValidateQuotaSpecBinding(msg proto.Message) error {
+func ValidateQuotaSpecBinding(name, namespace string, msg proto.Message) error {
 	in, ok := msg.(*mccpb.QuotaSpecBinding)
 	if !ok {
 		return errors.New("cannot case to HTTPAPISpecBinding")
@@ -1682,7 +1082,7 @@ func ValidateQuotaSpecBinding(msg proto.Message) error {
 		errs = multierror.Append(errs, errors.New("at least one service must be specified"))
 	}
 	for _, service := range in.Services {
-		if err := ValidateIstioService(mixerToProxyIstioService(service)); err != nil {
+		if err := ValidateMixerService(service); err != nil {
 			errs = multierror.Append(errs, err)
 		}
 	}
@@ -1701,15 +1101,34 @@ func ValidateQuotaSpecBinding(msg proto.Message) error {
 }
 
 // ValidateAuthenticationPolicy checks that AuthenticationPolicy is well-formed.
-func ValidateAuthenticationPolicy(msg proto.Message) error {
+func ValidateAuthenticationPolicy(name, namespace string, msg proto.Message) error {
+	// Empty namespace indicate policy is from cluster-scoped CRD.
+	clusterScoped := namespace == ""
 	in, ok := msg.(*authn.Policy)
 	if !ok {
 		return errors.New("cannot cast to AuthenticationPolicy")
 	}
 	var errs error
 
-	for _, target := range in.Targets {
-		errs = appendErrors(errs, validateAuthNPolicyTarget(target))
+	if !clusterScoped {
+		if len(in.Targets) == 0 && name != DefaultAuthenticationPolicyName {
+			errs = appendErrors(errs, fmt.Errorf("authentication policy with no target rules  must be named %q, found %q",
+				DefaultAuthenticationPolicyName, name))
+		}
+		if len(in.Targets) > 0 && name == DefaultAuthenticationPolicyName {
+			errs = appendErrors(errs, fmt.Errorf("authentication policy with name %q must not have any target rules", name))
+		}
+		for _, target := range in.Targets {
+			errs = appendErrors(errs, validateAuthNPolicyTarget(target))
+		}
+	} else {
+		if name != DefaultAuthenticationPolicyName {
+			errs = appendErrors(errs, fmt.Errorf("cluster-scoped authentication policy name must be %q, found %q",
+				DefaultAuthenticationPolicyName, name))
+		}
+		if len(in.Targets) > 0 {
+			errs = appendErrors(errs, fmt.Errorf("cluster-scoped authentication policy must not have targets"))
+		}
 	}
 
 	jwtIssuers := make(map[string]bool)
@@ -1736,7 +1155,7 @@ func ValidateAuthenticationPolicy(msg proto.Message) error {
 }
 
 // ValidateServiceRole checks that ServiceRole is well-formed.
-func ValidateServiceRole(msg proto.Message) error {
+func ValidateServiceRole(name, namespace string, msg proto.Message) error {
 	in, ok := msg.(*rbac.ServiceRole)
 	if !ok {
 		return errors.New("cannot cast to ServiceRole")
@@ -1765,7 +1184,7 @@ func ValidateServiceRole(msg proto.Message) error {
 }
 
 // ValidateServiceRoleBinding checks that ServiceRoleBinding is well-formed.
-func ValidateServiceRoleBinding(msg proto.Message) error {
+func ValidateServiceRoleBinding(name, namespace string, msg proto.Message) error {
 	in, ok := msg.(*rbac.ServiceRoleBinding)
 	if !ok {
 		return errors.New("cannot cast to ServiceRoleBinding")
@@ -1792,6 +1211,28 @@ func ValidateServiceRoleBinding(msg proto.Message) error {
 		}
 	}
 	return errs
+}
+
+// ValidateRbacConfig checks that RbacConfig is well-formed.
+func ValidateRbacConfig(name, namespace string, msg proto.Message) error {
+	in, ok := msg.(*rbac.RbacConfig)
+	if !ok {
+		return errors.New("cannot cast to RbacConfig")
+	}
+
+	if name != DefaultRbacConfigName {
+		return fmt.Errorf("rbacConfig has invalid name(%s), name must be %s", name, DefaultRbacConfigName)
+	}
+
+	if in.Mode == rbac.RbacConfig_ON_WITH_INCLUSION && in.Inclusion == nil {
+		return errors.New("inclusion cannot be null (use 'inclusion: {}' for none)")
+	}
+
+	if in.Mode == rbac.RbacConfig_ON_WITH_EXCLUSION && in.Exclusion == nil {
+		return errors.New("exclusion cannot be null (use 'exclusion: {}' for none)")
+	}
+
+	return nil
 }
 
 func validateJwt(jwt *authn.Jwt) (errs error) {
@@ -1837,9 +1278,6 @@ func validateAuthNPolicyTarget(target *authn.TargetSelector) (errs error) {
 		errs = multierror.Append(errs, fmt.Errorf("target name %q must be a valid label", target.Name))
 	}
 
-	if target.Subset != "" {
-		errs = appendErrors(errs, validateSubsetName(target.Subset))
-	}
 	for _, port := range target.Ports {
 		errs = appendErrors(errs, validateAuthNPortSelector(port))
 	}
@@ -1848,7 +1286,7 @@ func validateAuthNPolicyTarget(target *authn.TargetSelector) (errs error) {
 }
 
 // ValidateVirtualService checks that a v1alpha3 route rule is well-formed.
-func ValidateVirtualService(msg proto.Message) (errs error) {
+func ValidateVirtualService(name, namespace string, msg proto.Message) (errs error) {
 	virtualService, ok := msg.(*networking.VirtualService)
 	if !ok {
 		return errors.New("cannot cast to virtual service")
@@ -1860,8 +1298,8 @@ func ValidateVirtualService(msg proto.Message) (errs error) {
 	}
 
 	for _, gateway := range virtualService.Gateways {
-		if !IsDNS1123Label(gateway) {
-			errs = appendErrors(errs, fmt.Errorf("gateway is not a valid DNS1123 label: %v", gateway))
+		if err := ValidateFQDN(gateway); err != nil {
+			errs = appendErrors(errs, err)
 		}
 		if gateway == IstioMeshGateway {
 			appliesToMesh = true
@@ -1874,8 +1312,8 @@ func ValidateVirtualService(msg proto.Message) (errs error) {
 
 	allHostsValid := true
 	for _, host := range virtualService.Hosts {
-		if err := validateHost(host); err != nil {
-			errs = appendErrors(errs, validateHost(host))
+		if err := ValidateWildcardDomain(host); err != nil {
+			errs = appendErrors(errs, err)
 			allHostsValid = false
 		} else if appliesToMesh && host == "*" {
 			errs = appendErrors(errs, fmt.Errorf("wildcard host * is not allowed for virtual services bound to the mesh gateway"))
@@ -1898,26 +1336,84 @@ func ValidateVirtualService(msg proto.Message) (errs error) {
 		}
 	}
 
-	if len(virtualService.Http) == 0 && len(virtualService.Tcp) == 0 {
-		errs = appendErrors(errs, fmt.Errorf("http or tcp must be provided in virtual service"))
+	if len(virtualService.Http) == 0 && len(virtualService.Tcp) == 0 && len(virtualService.Tls) == 0 {
+		errs = appendErrors(errs, errors.New("http, tcp or tls must be provided in virtual service"))
 	}
 	for _, httpRoute := range virtualService.Http {
 		errs = appendErrors(errs, validateHTTPRoute(httpRoute))
 	}
-	// TODO: validate TCP
+	for _, tlsRoute := range virtualService.Tls {
+		errs = appendErrors(errs, validateTLSRoute(tlsRoute))
+	}
+	for _, tcpRoute := range virtualService.Tcp {
+		errs = appendErrors(errs, validateTCPRoute(tcpRoute))
+	}
 
 	return
 }
 
-func validateHost(host string) error {
-	// We check if its a valid wildcard domain first; if not then we check if its a valid IPv4 address
-	// (including CIDR addresses). If it's neither, we report both errors.
-	if err := ValidateWildcardDomain(host); err != nil {
-		if err2 := ValidateIPv4Subnet(host); err2 != nil {
-			return appendErrors(err, err2)
-		}
+func validateTLSRoute(tls *networking.TLSRoute) (errs error) {
+	if tls == nil {
+		return nil
 	}
-	return nil
+
+	if len(tls.Match) == 0 {
+		errs = appendErrors(errs, errors.New("TLS route must have at least one match condition"))
+	}
+	for _, match := range tls.Match {
+		errs = appendErrors(errs, validateTLSMatch(match))
+	}
+	if len(tls.Route) != 1 {
+		errs = appendErrors(errs, errors.New("TLS route must have exactly one destination"))
+	}
+	errs = appendErrors(errs, validateDestinationWeights(tls.Route))
+	return
+}
+
+func validateTLSMatch(match *networking.TLSMatchAttributes) (errs error) {
+	if len(match.SniHosts) == 0 {
+		errs = appendErrors(errs, fmt.Errorf("TLS match must have at least one SNI host"))
+	}
+	for _, destinationSubnet := range match.DestinationSubnets {
+		errs = appendErrors(errs, ValidateIPv4Subnet(destinationSubnet))
+	}
+
+	if match.Port != 0 {
+		errs = appendErrors(errs, ValidatePort(int(match.Port)))
+	}
+	errs = appendErrors(errs, Labels(match.SourceLabels).Validate())
+	errs = appendErrors(errs, validateGatewayNames(match.Gateways))
+	return
+}
+
+func validateTCPRoute(tcp *networking.TCPRoute) (errs error) {
+	if tcp == nil {
+		return nil
+	}
+	for _, match := range tcp.Match {
+		errs = appendErrors(errs, validateTCPMatch(match))
+	}
+	if len(tcp.Route) != 1 {
+		errs = appendErrors(errs, errors.New("TCP route must have exactly one destination"))
+	}
+	errs = appendErrors(errs, validateDestinationWeights(tcp.Route))
+	return
+}
+
+func validateTCPMatch(match *networking.L4MatchAttributes) (errs error) {
+	for _, destinationSubnet := range match.DestinationSubnets {
+		errs = appendErrors(errs, ValidateIPv4Subnet(destinationSubnet))
+	}
+
+	if len(match.SourceSubnet) > 0 {
+		errs = appendErrors(errs, ValidateIPv4Subnet(match.SourceSubnet))
+	}
+	if match.Port != 0 {
+		errs = appendErrors(errs, ValidatePort(int(match.Port)))
+	}
+	errs = appendErrors(errs, Labels(match.SourceLabels).Validate())
+	errs = appendErrors(errs, validateGatewayNames(match.Gateways))
+	return
 }
 
 func validateHTTPRoute(http *networking.HTTPRoute) (errs error) {
@@ -1953,29 +1449,46 @@ func validateHTTPRoute(http *networking.HTTPRoute) (errs error) {
 			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
 		}
 
-		// TODO: validate match.Port
+		if match.Port != 0 {
+			errs = appendErrors(errs, ValidatePort(int(match.Port)))
+		}
 		errs = appendErrors(errs, Labels(match.SourceLabels).Validate())
+		errs = appendErrors(errs, validateGatewayNames(match.Gateways))
 	}
 	errs = appendErrors(errs, validateDestination(http.Mirror))
 	errs = appendErrors(errs, validateHTTPRedirect(http.Redirect))
 	errs = appendErrors(errs, validateHTTPRetry(http.Retries))
 	errs = appendErrors(errs, validateHTTPRewrite(http.Rewrite))
-	var totalWeight int32
-	for _, route := range http.Route {
-		if route.Destination == nil {
-			errs = multierror.Append(errs, errors.New("destination is required"))
-		}
-		errs = appendErrors(errs, validateDestination(route.Destination))
-		errs = appendErrors(errs, ValidatePercent(route.Weight))
-		totalWeight += route.Weight
-	}
-	if len(http.Route) > 1 && totalWeight > 100 {
-		errs = appendErrors(errs, fmt.Errorf("total destination weight %v > 100", totalWeight))
-	}
+	errs = appendErrors(errs, validateDestinationWeights(http.Route))
 	if http.Timeout != nil {
 		errs = appendErrors(errs, ValidateDurationGogo(http.Timeout))
 	}
 
+	return
+}
+
+func validateGatewayNames(gateways []string) (errs error) {
+	for _, gateway := range gateways {
+		if err := ValidateFQDN(gateway); err != nil {
+			errs = appendErrors(errs, err)
+		}
+	}
+	return
+}
+
+func validateDestinationWeights(weights []*networking.DestinationWeight) (errs error) {
+	var totalWeight int32
+	for _, weight := range weights {
+		if weight.Destination == nil {
+			errs = multierror.Append(errs, errors.New("destination is required"))
+		}
+		errs = appendErrors(errs, validateDestination(weight.Destination))
+		errs = appendErrors(errs, ValidatePercent(weight.Weight))
+		totalWeight += weight.Weight
+	}
+	if len(weights) > 1 && totalWeight != 100 {
+		errs = appendErrors(errs, fmt.Errorf("total destination weight %v != 100", totalWeight))
+	}
 	return
 }
 
@@ -2081,7 +1594,7 @@ func validateDestination(destination *networking.Destination) (errs error) {
 		return
 	}
 
-	errs = appendErrors(errs, validateHost(destination.Host))
+	errs = appendErrors(errs, ValidateWildcardDomain(destination.Host))
 	if destination.Subset != "" {
 		errs = appendErrors(errs, validateSubsetName(destination.Subset))
 	}
@@ -2165,7 +1678,7 @@ func validateHTTPRewrite(rewrite *networking.HTTPRewrite) error {
 }
 
 // ValidateServiceEntry validates a service entry.
-func ValidateServiceEntry(config proto.Message) (errs error) {
+func ValidateServiceEntry(name, namespace string, config proto.Message) (errs error) {
 	serviceEntry, ok := config.(*networking.ServiceEntry)
 	if !ok {
 		return fmt.Errorf("cannot cast to service entry")
@@ -2182,8 +1695,17 @@ func ValidateServiceEntry(config proto.Message) (errs error) {
 			errs = appendErrors(errs, ValidateWildcardDomain(host))
 		}
 	}
+
+	cidrFound := false
 	for _, address := range serviceEntry.Addresses {
-		errs = appendErrors(errs, validateCIDR(address))
+		cidrFound = cidrFound || strings.Contains(address, "/")
+		errs = appendErrors(errs, ValidateIPv4Subnet(address))
+	}
+
+	if cidrFound {
+		if serviceEntry.Resolution != networking.ServiceEntry_NONE && serviceEntry.Resolution != networking.ServiceEntry_STATIC {
+			errs = appendErrors(errs, fmt.Errorf("CIDR addresses are allowed only for NONE/STATIC resolution types"))
+		}
 	}
 
 	servicePortNumbers := make(map[uint32]bool)

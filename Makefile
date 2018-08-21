@@ -20,7 +20,7 @@ export ISTIO_GO
 SHELL := /bin/bash
 
 # Current version, updated after a release.
-VERSION ?= 0.8-dev
+VERSION ?= 1.0-dev
 
 # locations where artifacts are stored
 ISTIO_DOCKER_HUB ?= docker.io/istio
@@ -38,6 +38,7 @@ export GOPATH
 
 # If GOPATH is made up of several paths, use the first one for our targets in this Makefile
 GO_TOP := $(shell echo ${GOPATH} | cut -d ':' -f1)
+export GO_TOP
 
 # Note that disabling cgo here adversely affects go get.  Instead we'll rely on this
 # to be handled in bin/gobuild.sh
@@ -194,7 +195,7 @@ where-is-docker-tar:
 #-----------------------------------------------------------------------------
 # Target: depend
 #-----------------------------------------------------------------------------
-.PHONY: depend depend.diff depend.update depend.cleanlock depend.update.full init
+.PHONY: depend depend.diff init
 
 # Parse out the x.y or x.y.z version and output a single value x*10000+y*100+z (e.g., 1.9 is 10900)
 # that allows the three components to be checked in a single comparison.
@@ -237,28 +238,20 @@ ${ISTIO_ENVOY_DEBUG_PATH}: init
 ${ISTIO_ENVOY_RELEASE_PATH}: init
 
 # Pull depdendencies, based on the checked in Gopkg.lock file.
-# Developers must manually call make depend.update if adding new deps
+# Developers must manually run `dep ensure` if adding new deps
 depend: init | $(ISTIO_OUT)
 
 $(ISTIO_OUT) $(ISTIO_BIN):
 	@mkdir -p $@
 
-# Updates the dependencies and generates a git diff of the vendor files against HEAD.
-depend.diff: depend.update | $(ISTIO_OUT)
+# Used by CI to update the dependencies and generates a git diff of the vendor files against HEAD.
+depend.diff: $(ISTIO_OUT)
+	curl https://raw.githubusercontent.com/golang/dep/master/install.sh | DEP_RELEASE_TAG="v0.4.1" sh
+	dep ensure
 	git diff HEAD --exit-code -- Gopkg.lock vendor > $(ISTIO_OUT)/dep.diff
 
-depend.update.full: depend.cleanlock depend.update
-
-depend.cleanlock:
-	-rm Gopkg.lock
-
-depend.update:
-	@echo "Running dep ensure with DEPARGS=$(DEPARGS)"
-	dep version
-	time dep ensure $(DEPARGS)
-
 ${GEN_CERT}:
-	GOOS=$(GOOS_LOCAL) && GOARCH=$(GOARCH_LOCAL) && CGO_ENABLED=1 bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/generate_cert
+	GOOS=$(GOOS_LOCAL) && GOARCH=$(GOARCH_LOCAL) && CGO_ENABLED=1 bin/gobuild.sh $@ ./security/tools/generate_cert
 
 #-----------------------------------------------------------------------------
 # Target: precommit
@@ -297,54 +290,55 @@ PILOT_GO_BINS_SHORT:=pilot-discovery pilot-agent sidecar-injector
 PILOT_GO_BINS_SHORT+=proxy-ready
 define pilotbuild
 $(1):
-	bin/gobuild.sh ${ISTIO_OUT}/$(1) istio.io/istio/pkg/version ./pilot/cmd/$(1)
+	bin/gobuild.sh ${ISTIO_OUT}/$(1) ./pilot/cmd/$(1)
 
 ${ISTIO_OUT}/$(1):
-	bin/gobuild.sh ${ISTIO_OUT}/$(1) istio.io/istio/pkg/version ./pilot/cmd/$(1)
+	bin/gobuild.sh ${ISTIO_OUT}/$(1) ./pilot/cmd/$(1)
 endef
 $(foreach ITEM,$(PILOT_GO_BINS_SHORT),$(eval $(call pilotbuild,$(ITEM))))
 
 .PHONY: istioctl
 istioctl ${ISTIO_OUT}/istioctl:
-	bin/gobuild.sh ${ISTIO_OUT}/istioctl istio.io/istio/pkg/version ./istioctl/cmd/istioctl
+	bin/gobuild.sh ${ISTIO_OUT}/istioctl ./istioctl/cmd/istioctl
 
 # Non-static istioctls. These are typically a build artifact.
 ${ISTIO_OUT}/istioctl-linux: depend
-	STATIC=0 GOOS=linux   bin/gobuild.sh $@ istio.io/istio/pkg/version ./istioctl/cmd/istioctl
+	STATIC=0 GOOS=linux   bin/gobuild.sh $@ ./istioctl/cmd/istioctl
 ${ISTIO_OUT}/istioctl-osx: depend
-	STATIC=0 GOOS=darwin  bin/gobuild.sh $@ istio.io/istio/pkg/version ./istioctl/cmd/istioctl
+	STATIC=0 GOOS=darwin  bin/gobuild.sh $@ ./istioctl/cmd/istioctl
 ${ISTIO_OUT}/istioctl-win.exe: depend
-	STATIC=0 GOOS=windows bin/gobuild.sh $@ istio.io/istio/pkg/version ./istioctl/cmd/istioctl
+	STATIC=0 GOOS=windows bin/gobuild.sh $@ ./istioctl/cmd/istioctl
 
 MIXER_GO_BINS:=${ISTIO_OUT}/mixs ${ISTIO_OUT}/mixc
 mixc:
-	bin/gobuild.sh ${ISTIO_OUT}/mixc istio.io/istio/pkg/version ./mixer/cmd/mixc
+	bin/gobuild.sh ${ISTIO_OUT}/mixc ./mixer/cmd/mixc
 mixs:
-	bin/gobuild.sh ${ISTIO_OUT}/mixs istio.io/istio/pkg/version ./mixer/cmd/mixs
+	bin/gobuild.sh ${ISTIO_OUT}/mixs ./mixer/cmd/mixs
 
 $(MIXER_GO_BINS):
-	bin/gobuild.sh $@ istio.io/istio/pkg/version ./mixer/cmd/$(@F)
+	bin/gobuild.sh $@ ./mixer/cmd/$(@F)
 
-GALLEY_GO_BINS:=${ISTIO_OUT}/gals
-gals:
-	bin/gobuild.sh ${ISTIO_OUT}/gals istio.io/istio/pkg/version ./galley/cmd/gals
+.PHONY: galley
+GALLEY_GO_BINS:=${ISTIO_OUT}/galley
+galley:
+	bin/gobuild.sh ${ISTIO_OUT}/galley ./galley/cmd/galley
 
 $(GALLEY_GO_BINS):
-	bin/gobuild.sh $@ istio.io/istio/pkg/version ./galley/cmd/$(@F)
+	bin/gobuild.sh $@ ./galley/cmd/$(@F)
 
 servicegraph:
-	bin/gobuild.sh ${ISTIO_OUT}/$@ istio.io/istio/pkg/version ./addons/servicegraph/cmd/server
+	bin/gobuild.sh ${ISTIO_OUT}/$@ ./addons/servicegraph/cmd/server
 
 ${ISTIO_OUT}/servicegraph:
-	bin/gobuild.sh $@ istio.io/istio/pkg/version ./addons/$(@F)/cmd/server
+	bin/gobuild.sh $@ ./addons/$(@F)/cmd/server
 
-SECURITY_GO_BINS:=${ISTIO_OUT}/node_agent ${ISTIO_OUT}/istio_ca ${ISTIO_OUT}/flexvolume
+SECURITY_GO_BINS:=${ISTIO_OUT}/node_agent ${ISTIO_OUT}/istio_ca
 $(SECURITY_GO_BINS):
-	bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/$(@F)
+	bin/gobuild.sh $@ ./security/cmd/$(@F)
 
 .PHONY: build
 # Build will rebuild the go binaries.
-build: depend $(PILOT_GO_BINS_SHORT) mixc mixs node_agent istio_ca flexvolume istioctl gals
+build: depend $(PILOT_GO_BINS_SHORT) mixc mixs node_agent istio_ca istioctl galley
 
 # The following are convenience aliases for most of the go targets
 # The first block is for aliases that are the same as the actual binary,
@@ -354,22 +348,18 @@ build: depend $(PILOT_GO_BINS_SHORT) mixc mixs node_agent istio_ca flexvolume is
 
 .PHONY: citadel
 citadel:
-	bin/gobuild.sh ${ISTIO_OUT}/istio_ca istio.io/istio/pkg/version ./security/cmd/istio_ca
+	bin/gobuild.sh ${ISTIO_OUT}/istio_ca ./security/cmd/istio_ca
 
 .PHONY: node-agent
 node-agent:
-	bin/gobuild.sh ${ISTIO_OUT}/node-agent istio.io/istio/pkg/version ./security/cmd/node_agent
-
-.PHONY: flexvolumedriver
-flexvolumedriver:
-	bin/gobuild.sh ${ISTIO_OUT}/flexvolume istio.io/istio/pkg/version ./security/cmd/flexvolume
+	bin/gobuild.sh ${ISTIO_OUT}/node-agent ./security/cmd/node_agent
 
 .PHONY: pilot
 pilot: pilot-discovery
 
-.PHONY: node_agent istio_ca flexvolume
-node_agent istio_ca flexvolume:
-	bin/gobuild.sh ${ISTIO_OUT}/$@ istio.io/istio/pkg/version ./security/cmd/$(@F)
+.PHONY: node_agent istio_ca
+node_agent istio_ca:
+	bin/gobuild.sh ${ISTIO_OUT}/$@ ./security/cmd/$(@F)
 
 # istioctl-all makes all of the non-static istioctl executables for each supported OS
 .PHONY: istioctl-all
@@ -387,7 +377,6 @@ ${ISTIO_OUT}/archive: istioctl-all LICENSE README.md install/updateVersion.sh re
 	cp LICENSE ${ISTIO_OUT}/archive
 	cp README.md ${ISTIO_OUT}/archive
 	cp -r tools ${ISTIO_OUT}/archive
-	cp bin/dump_kubernetes.sh ${ISTIO_OUT}/archive
 	ISTIO_RELEASE=1 install/updateVersion.sh -a "$(ISTIO_DOCKER_HUB),$(VERSION)" \
 		-P "$(ISTIO_URL)/deb" \
 		-d "${ISTIO_OUT}/archive"
@@ -416,7 +405,7 @@ JUNIT_UNIT_TEST_XML ?= $(ISTIO_OUT)/junit_unit-tests.xml
 test: | $(JUNIT_REPORT)
 	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
 	set -o pipefail; \
-	$(MAKE) --keep-going common-test pilot-test mixer-test security-test broker-test galley-test istioctl-test \
+	$(MAKE) --keep-going common-test pilot-test mixer-test security-test galley-test istioctl-test \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
 
 GOTEST_PARALLEL ?= '-test.parallel=4'
@@ -425,15 +414,20 @@ GOTEST_PARALLEL ?= '-test.parallel=4'
 GOTEST_P ?=
 GOSTATIC = -ldflags '-extldflags "-static"'
 
-PILOT_TEST_BINS:=${ISTIO_OUT}/pilot-test-server ${ISTIO_OUT}/pilot-test-client ${ISTIO_OUT}/pilot-test-eurekamirror
+PILOT_TEST_BINS:=${ISTIO_OUT}/pilot-test-server ${ISTIO_OUT}/pilot-test-client
 
 $(PILOT_TEST_BINS):
+	CGO_ENABLED=0 go build ${GOSTATIC} -o $@ istio.io/istio/$(subst -,/,$(@F))
+
+MIXER_TEST_BINS:=${ISTIO_OUT}/mixer-test-policybackend
+
+$(MIXER_TEST_BINS):
 	CGO_ENABLED=0 go build ${GOSTATIC} -o $@ istio.io/istio/$(subst -,/,$(@F))
 
 hyperistio:
 	CGO_ENABLED=0 go build ${GOSTATIC} -o ${ISTIO_OUT}/hyperistio istio.io/istio/tools/hyperistio
 
-test-bins: $(PILOT_TEST_BINS)
+test-bins: $(PILOT_TEST_BINS) $(MIXER_TEST_BINS)
 
 localTestEnv: test-bins
 	bin/testEnvLocalK8S.sh ensure
@@ -457,10 +451,6 @@ mixer-test: mixs
 	# Some tests use relative path "testdata", must be run from mixer dir
 	(cd mixer; go test ${GOTEST_P} ${MIXER_TEST_T} ./...)
 
-.PHONY: broker-test
-broker-test: depend
-	go test ${T} ./broker/...
-
 .PHONY: galley-test
 galley-test: depend
 	go test ${T} ./galley/...
@@ -481,7 +471,7 @@ common-test:
 .PHONY: coverage
 
 # Run coverage tests
-coverage: pilot-coverage mixer-coverage security-coverage broker-coverage galley-coverage common-coverage istioctl-coverage
+coverage: pilot-coverage mixer-coverage security-coverage galley-coverage common-coverage istioctl-coverage
 
 .PHONY: pilot-coverage
 pilot-coverage:
@@ -494,10 +484,6 @@ istioctl-coverage:
 .PHONY: mixer-coverage
 mixer-coverage:
 	bin/codecov.sh mixer
-
-.PHONY: broker-coverage
-broker-coverage:
-	bin/codecov.sh broker
 
 .PHONY: galley-coverage
 galley-coverage:
@@ -519,7 +505,7 @@ common-coverage:
 .PHONY: racetest
 
 # Run race tests
-racetest: pilot-racetest mixer-racetest security-racetest broker-racetest galley-test common-racetest istioctl-racetest
+racetest: pilot-racetest mixer-racetest security-racetest galley-test common-racetest istioctl-racetest
 
 .PHONY: pilot-racetest
 pilot-racetest: pilot-agent
@@ -533,10 +519,6 @@ istioctl-racetest: istioctl
 mixer-racetest: mixs
 	# Some tests use relative path "testdata", must be run from mixer dir
 	(cd mixer; RACE_TEST=true go test ${T} -race ${GOTEST_PARALLEL} ./...)
-
-.PHONY: broker-racetest
-broker-racetest: depend
-	RACE_TEST=true go test ${T} -race ./broker/...
 
 .PHONY: galley-racetest
 galley-racetest: depend
@@ -592,69 +574,41 @@ installgen:
 	install/updateVersion.sh -a ${HUB},${TAG}
 	$(MAKE) istio.yaml
 
-# A make target to generate all the YAML files
-generate_yaml:
-	./install/updateVersion.sh -a ${HUB},${TAG}
-
 $(HELM):
 	bin/init_helm.sh
 
 # create istio-remote.yaml
 istio-remote.yaml: $(HELM)
-	cat install/kubernetes/templates/namespace.yaml > install/kubernetes/$@
+	cat install/kubernetes/namespace.yaml > install/kubernetes/$@
 	$(HELM) template --namespace=istio-system \
 		install/kubernetes/helm/istio-remote >> install/kubernetes/$@
 
 # creates istio.yaml istio-auth.yaml istio-one-namespace.yaml istio-one-namespace-auth.yaml
 # Ensure that values-$filename is present in install/kubernetes/helm/istio
 isti%.yaml: $(HELM)
-	cat install/kubernetes/templates/namespace.yaml > install/kubernetes/$@
+	cat install/kubernetes/namespace.yaml > install/kubernetes/$@
 	$(HELM) template --set global.tag=${TAG} \
 		--namespace=istio-system \
 		--set global.hub=${HUB} \
 		--values install/kubernetes/helm/istio/values-$@ \
 		install/kubernetes/helm/istio >> install/kubernetes/$@
 
-# This is temporary. REMOVE ME after Envoy v2 transition
-# creates istio.yaml using values-envoyv2-transition.yaml
-generate_yaml-envoyv2_transition: $(HELM)
-	./install/updateVersion_orig.sh -a ${HUB},${TAG} >/dev/null 2>&1
-	cat install/kubernetes/templates/namespace.yaml > install/kubernetes/istio.yaml
+generate_yaml: $(HELM)
+	./install/updateVersion.sh -a ${HUB},${TAG} >/dev/null 2>&1
+	cat install/kubernetes/namespace.yaml > install/kubernetes/istio.yaml
 	$(HELM) template --set global.tag=${TAG} \
 		--namespace=istio-system \
 		--set global.hub=${HUB} \
-		--values install/kubernetes/helm/istio/values-envoyv2-transition.yaml \
+		--values install/kubernetes/helm/istio/values.yaml \
 		install/kubernetes/helm/istio >> install/kubernetes/istio.yaml
 
-	cat install/kubernetes/templates/namespace.yaml > install/kubernetes/istio-auth.yaml
+	cat install/kubernetes/namespace.yaml > install/kubernetes/istio-auth.yaml
 	$(HELM) template --set global.tag=${TAG} \
 		--namespace=istio-system \
 		--set global.hub=${HUB} \
-		--values install/kubernetes/helm/istio/values-envoyv2-transition.yaml \
+		--values install/kubernetes/helm/istio/values.yaml \
 		--set global.mtls.enabled=true \
 		--set global.controlPlaneSecurityEnabled=true \
-		install/kubernetes/helm/istio >> install/kubernetes/istio-auth.yaml
-
-# This is temporary. REMOVE ME after Envoy v2 transition
-# creates istio.yaml using values-envoyv2-transition.yaml
-generate_yaml-envoyv2_transition_loadbalancer_ingressgateway: $(HELM)
-	./install/updateVersion_orig.sh -a ${HUB},${TAG} >/dev/null 2>&1
-	cat install/kubernetes/templates/namespace.yaml > install/kubernetes/istio.yaml
-	$(HELM) template --set global.tag=${TAG} \
-		--namespace=istio-system \
-		--set global.hub=${HUB} \
-		--values install/kubernetes/helm/istio/values-envoyv2-transition.yaml \
-		--set ingressgateway.service.type=LoadBalancer \
-		--set ingress.enabled=false \
-		install/kubernetes/helm/istio >> install/kubernetes/istio.yaml
-	cat install/kubernetes/templates/namespace.yaml > install/kubernetes/istio-auth.yaml
-	$(HELM) template --set global.tag=${TAG} \
-		--namespace=istio-system \
-		--set global.hub=${HUB} \
-		--values install/kubernetes/helm/istio/values-envoyv2-transition.yaml \
-		--set ingressgateway.service.type=LoadBalancer \
-		--set ingress.enabled=false \
-		--set global.mtls.enabled=true \
 		install/kubernetes/helm/istio >> install/kubernetes/istio-auth.yaml
 
 # Generate the install files, using istioctl.
@@ -667,7 +621,6 @@ generate_yaml_new:
 
 # files generated by the default invocation of updateVersion.sh
 FILES_TO_CLEAN+=install/consul/istio.yaml \
-                install/eureka/istio.yaml \
                 install/kubernetes/addons/grafana.yaml \
                 install/kubernetes/addons/servicegraph.yaml \
                 install/kubernetes/addons/zipkin-to-stackdriver.yaml \
@@ -678,8 +631,7 @@ FILES_TO_CLEAN+=install/consul/istio.yaml \
                 install/kubernetes/istio-one-namespace-auth.yaml \
                 install/kubernetes/istio-one-namespace.yaml \
                 install/kubernetes/istio.yaml \
-                samples/bookinfo/consul/bookinfo.sidecars.yaml \
-                samples/bookinfo/eureka/bookinfo.sidecars.yaml
+                samples/bookinfo/platform/consul/bookinfo.sidecars.yaml \
 
 #-----------------------------------------------------------------------------
 # Target: environment and tools

@@ -15,6 +15,7 @@
 package dispatcher
 
 import (
+	"context"
 	"errors"
 	"reflect"
 	"testing"
@@ -25,45 +26,46 @@ import (
 )
 
 func TestDispatchStatePool(t *testing.T) {
-	session := &session{}
 	dest := &routing.Destination{}
+	ctx := context.TODO()
 
-	pool := newDispatchStatePool()
+	d := New(nil, false)
 
 	// Prime the pool
 	states := make([]*dispatchState, 100)
 	for i := 0; i < 100; i++ {
-		s := pool.get(nil, nil)
+		s := d.getDispatchState(context.TODO(), nil)
 		states[i] = s
 	}
 	for i := 0; i < 100; i++ {
-		pool.put(states[i])
+		d.putDispatchState(states[i])
 	}
 
 	// test cleaning
 	for i := 0; i < 100; i++ {
-		s := pool.get(session, dest)
-		s.instance = "instanc"
+		s := d.getDispatchState(ctx, dest)
 		states[i] = s
 	}
 	for i := 0; i < 100; i++ {
-		pool.put(states[i])
+		d.putDispatchState(states[i])
 	}
 
-	expected := &dispatchState{}
+	expected := &dispatchState{
+		ctx: context.TODO(),
+	}
 
 	for i := 0; i < 100; i++ {
-		s := pool.get(nil, nil)
+		s := d.getDispatchState(context.TODO(), nil)
 		if !reflect.DeepEqual(s, expected) {
-			t.Fatalf("session mismatch '%+v' != '%+v'", s, expected)
+			t.Fatalf("mismatch '%+v' != '%+v'", s, expected)
 		}
 	}
 }
 
 func TestDispatchState_Clear(t *testing.T) {
 	state := &dispatchState{
-		instance:    "instance",
 		session:     &session{},
+		ctx:         context.TODO(),
 		quotaResult: adapter.QuotaResult{Amount: 64},
 		checkResult: adapter.CheckResult{ValidUseCount: 32},
 		err:         errors.New("err"),

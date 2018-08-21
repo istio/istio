@@ -1,0 +1,122 @@
+# istio-rbac-rules.yaml to enforce access control to services
+
+# For service a, allow non-exist-user and non-exist-namespace to access it.
+# This actually means nobody could access a.
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRole
+metadata:
+  name: access-a
+spec:
+  rules:
+  - services: ["*"]
+    methods: ["GET"]
+    constraints:
+    - key: "destination.labels[app]"
+      values: ["a"]
+---
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRoleBinding
+metadata:
+  name: bind-access-a
+spec:
+  subjects:
+  - user: "non-exist-user"
+  - properties:
+      source.namespace: "non-exist-namespace"
+  roleRef:
+    kind: ServiceRole
+    name: "access-a"
+---
+
+# For service b, allow any user to access it with GET at any paths.
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRole
+metadata:
+  name: access-b
+spec:
+  rules:
+  - services: ["b.{{ .Namespace }}.svc.cluster.local"]
+    methods: ["GET"]
+---
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRoleBinding
+metadata:
+  name: bind-access-b
+spec:
+  subjects:
+  - user: "*"
+  roleRef:
+    kind: ServiceRole
+    name: "access-b"
+---
+# For service headless, allow anyone to access it. (Necessary for service b)
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRole
+metadata:
+  name: access-headless
+spec:
+  rules:
+  - services: ["headless*"]
+    methods: ["*"]
+---
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRoleBinding
+metadata:
+  name: bind-access-headless
+spec:
+  subjects:
+  - user: "*"
+  roleRef:
+    kind: ServiceRole
+    name: "access-headless"
+---
+
+# For service c, allow d to access it with GET at paths: ["/prefix*", "*/suffix", "/good"].
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRole
+metadata:
+  name: access-c
+spec:
+  rules:
+  - services: ["c.{{ .Namespace }}.svc.cluster.local"]
+    methods: ["GET"]
+    paths: ["/prefix*", "*/suffix", "/good"]
+---
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRoleBinding
+metadata:
+  name: bind-access-c
+spec:
+  subjects:
+  - properties:
+      source.principal: "*sa/d"
+  roleRef:
+    kind: ServiceRole
+    name: "access-c"
+---
+
+# For service d, allow any pod in the same namespace to access it with GET at any paths.
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRole
+metadata:
+  name: access-d
+spec:
+  rules:
+  - services: ["d.{{ .Namespace }}.svc.cluster.local"]
+    methods: ["GET"]
+    constraints:
+    - key: "destination.labels[app]"
+      values: ["d"]
+---
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRoleBinding
+metadata:
+  name: bind-access-d
+spec:
+  subjects:
+  - properties:
+      source.namespace: "{{ .Namespace }}"
+  roleRef:
+    kind: ServiceRole
+    name: "access-d"
+---

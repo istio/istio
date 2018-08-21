@@ -20,15 +20,22 @@ import (
 	"net"
 	"strings"
 
+	"istio.io/istio/mixer/pkg/config/crd"
+
+	"k8s.io/apimachinery/pkg/runtime/schema"
+
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc"
 	ot "github.com/opentracing/opentracing-go"
 	"google.golang.org/grpc"
 
+	"os"
+
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/api"
+	"istio.io/istio/mixer/pkg/checkcache"
 	"istio.io/istio/mixer/pkg/config"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/pool"
@@ -51,6 +58,7 @@ type Server struct {
 	monitor   *monitor
 	tracer    io.Closer
 
+	checkCache *checkcache.Cache
 	dispatcher dispatcher.Dispatcher
 
 	// probes
@@ -64,7 +72,7 @@ type listenFunc func(network string, address string) (net.Listener, error)
 // replaceable set of functions for fault injection
 type patchTable struct {
 	newRuntime func(s store.Store, templates map[string]*template.Info, adapters map[string]*adapter.Info,
-		identityAttribute string, defaultConfigNamespace string, executorPool *pool.GoroutinePool,
+		defaultConfigNamespace string, executorPool *pool.GoroutinePool,
 		handlerPool *pool.GoroutinePool, enableTracing bool) *runtime.Runtime
 	configTracing func(serviceName string, options *tracing.Options) (io.Closer, error)
 	startMonitor  func(port uint16, enableProfiling bool, lf listenFunc) (*monitor, error)
@@ -154,6 +162,14 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 		}
 	}
 
+	if network == "unix" {
+		// remove Unix socket before use.
+		if err = os.Remove(address); err != nil && !os.IsNotExist(err) {
+			// Anything other than "file not found" is an error.
+			return nil, fmt.Errorf("unable to remove unix://%s: %v", address, err)
+		}
+	}
+
 	if s.listener, err = p.listen(network, address); err != nil {
 		_ = s.Close()
 		return nil, fmt.Errorf("unable to listen: %v", err)
@@ -172,7 +188,8 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 		}
 
 		reg := store.NewRegistry(config.StoreInventory()...)
-		if st, err = reg.NewStore(configStoreURL); err != nil {
+		groupVersion := &schema.GroupVersion{Group: crd.ConfigAPIGroup, Version: crd.ConfigAPIVersion}
+		if st, err = reg.NewStore(configStoreURL, groupVersion); err != nil {
 			_ = s.Close()
 			return nil, fmt.Errorf("unable to connect to the configuration server: %v", err)
 		}
@@ -185,7 +202,7 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 		templateMap[k] = &t
 	}
 
-	rt = p.newRuntime(st, templateMap, adapterMap, a.ConfigIdentityAttribute, a.ConfigDefaultNamespace,
+	rt = p.newRuntime(st, templateMap, adapterMap, a.ConfigDefaultNamespace,
 		s.gp, s.adapterGP, a.TracingOptions.TracingEnabled())
 
 	if err = p.runtimeListen(rt); err != nil {
@@ -194,10 +211,14 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 	}
 	s.dispatcher = rt.Dispatcher()
 
+	if a.NumCheckCacheEntries > 0 {
+		s.checkCache = checkcache.New(a.NumCheckCacheEntries)
+	}
+
 	// get the grpc server wired up
 	grpc.EnableTracing = a.EnableGRPCTracing
 	s.server = grpc.NewServer(grpcOptions...)
-	mixerpb.RegisterMixerServer(s.server, api.NewGRPCServer(s.dispatcher, s.gp))
+	mixerpb.RegisterMixerServer(s.server, api.NewGRPCServer(s.dispatcher, s.gp, s.checkCache))
 
 	if a.LivenessProbeOptions.IsValid() {
 		s.livenessProbe = probe.NewFileController(a.LivenessProbeOptions)
@@ -246,6 +267,10 @@ func (s *Server) Close() error {
 	if s.shutdown != nil {
 		s.server.GracefulStop()
 		_ = s.Wait()
+	}
+
+	if s.checkCache != nil {
+		_ = s.checkCache.Close()
 	}
 
 	if s.listener != nil {

@@ -163,6 +163,8 @@ func (m *ZipkinConfig) Validate() error {
 		}
 	}
 
+	// no validation rules for TraceId_128Bit
+
 	return nil
 }
 

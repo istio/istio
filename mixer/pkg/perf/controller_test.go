@@ -31,7 +31,7 @@ func TestControllerBasic(t *testing.T) {
 
 	c.waitForClient()
 
-	if err = c.initializeClients("10.10.10.10", &Setup{}); err != nil {
+	if err = c.initializeClients("10.10.10.10", &Setup{Loads: []Load{{}}}); err != nil {
 		t.Fatalf("Initialization failed: %v", err)
 	}
 

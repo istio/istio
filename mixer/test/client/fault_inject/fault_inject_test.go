@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package faultInject
+package client_test
 
 import (
 	"fmt"
@@ -67,16 +67,11 @@ const reportAttributes = `
 `
 
 const allAbortFaultFilter = `
-               {
-                   "type": "decoder",
-                   "name": "fault",
-                   "config": {
-                       "abort": {
-                           "abort_percent": 100,
-                           "http_status": 503
-                       }
-                   }
-               },
+- name: envoy.fault
+  config:
+    abort:
+      percent: 100
+      http_status: 503
 `
 
 func TestFaultInject(t *testing.T) {

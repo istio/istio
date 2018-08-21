@@ -1,7 +1,9 @@
 ---
 title: Authentication Policy
-overview: Authentication policy for Istio services.
+description: Authentication policy for Istio services.
+location: https://istio.io/docs/reference/config/istio.authentication.v1alpha1.html
 layout: protoc-gen-docs
+generator: protoc-gen-docs
 number_of_entries: 9
 ---
 <p>This package defines user-facing authentication policy.</p>
@@ -32,7 +34,7 @@ jwksUri: https://example.com/.well-known/jwks.json
 </tr>
 </thead>
 <tbody>
-<tr id="Jwt.issuer">
+<tr id="Jwt-issuer">
 <td><code>issuer</code></td>
 <td><code>string</code></td>
 <td>
@@ -45,7 +47,7 @@ Example: 1234567-compute@developer.gserviceaccount.com</p>
 
 </td>
 </tr>
-<tr id="Jwt.audiences">
+<tr id="Jwt-audiences">
 <td><code>audiences</code></td>
 <td><code>string[]</code></td>
 <td>
@@ -65,7 +67,7 @@ audiences will be accepted.</p>
 
 </td>
 </tr>
-<tr id="Jwt.jwks_uri">
+<tr id="Jwt-jwks_uri">
 <td><code>jwksUri</code></td>
 <td><code>string</code></td>
 <td>
@@ -83,7 +85,7 @@ Google service account).</p>
 
 </td>
 </tr>
-<tr id="Jwt.jwt_headers">
+<tr id="Jwt-jwt_headers">
 <td><code>jwtHeaders</code></td>
 <td><code>string[]</code></td>
 <td>
@@ -95,7 +97,7 @@ format will be x-goog-iap-jwt-assertion: <JWT>.</p>
 
 </td>
 </tr>
-<tr id="Jwt.jwt_params">
+<tr id="Jwt-jwt_params">
 <td><code>jwtParams</code></td>
 <td><code>string[]</code></td>
 <td>
@@ -111,8 +113,7 @@ query parameter name.</p>
 </section>
 <h2 id="MutualTls">MutualTls</h2>
 <section>
-<p>TLS authentication params.
-TODO: consider to give it a better name, maybe TlsParams?</p>
+<p>TLS authentication params.</p>
 
 <table class="message-fields">
 <thead>
@@ -123,7 +124,7 @@ TODO: consider to give it a better name, maybe TlsParams?</p>
 </tr>
 </thead>
 <tbody>
-<tr id="MutualTls.allow_tls">
+<tr id="MutualTls-allow_tls">
 <td><code>allowTls</code></td>
 <td><code>bool</code></td>
 <td>
@@ -136,9 +137,9 @@ When the flag is false (default), request must have client certificate.</p>
 
 </td>
 </tr>
-<tr id="MutualTls.mode">
+<tr id="MutualTls-mode">
 <td><code>mode</code></td>
-<td><code><a href="#MutualTls.Mode">MutualTls.Mode</a></code></td>
+<td><code><a href="#MutualTls-Mode">MutualTls.Mode</a></code></td>
 <td>
 <p>Defines the mode of mTLS authentication.</p>
 
@@ -147,7 +148,7 @@ When the flag is false (default), request must have client certificate.</p>
 </tbody>
 </table>
 </section>
-<h2 id="MutualTls.Mode">MutualTls.Mode</h2>
+<h2 id="MutualTls-Mode">MutualTls.Mode</h2>
 <section>
 <p>Defines the acceptable connection TLS mode.</p>
 
@@ -159,23 +160,14 @@ When the flag is false (default), request must have client certificate.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="MutualTls.Mode.STRICT">
+<tr id="MutualTls-Mode-STRICT">
 <td><code>STRICT</code></td>
 <td>
 <p>Client cert must be presented, connection is in TLS.</p>
 
 </td>
 </tr>
-<tr id="MutualTls.Mode.TLS_PERMISSIVE">
-<td><code>TLS_PERMISSIVE</code></td>
-<td>
-<p>Connection must be in TLS, but client cert can be omitted.
-Request will not be fully authenticate if client cert is missing, but
-still be accepted.</p>
-
-</td>
-</tr>
-<tr id="MutualTls.Mode.PERMISSIVE">
+<tr id="MutualTls-Mode-PERMISSIVE">
 <td><code>PERMISSIVE</code></td>
 <td>
 <p>Connection can be either plaintext or TLS, and client cert can be omitted.</p>
@@ -200,7 +192,7 @@ Currently, only JWT is supported for origin authentication.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="OriginAuthenticationMethod.jwt">
+<tr id="OriginAuthenticationMethod-jwt">
 <td><code>jwt</code></td>
 <td><code><a href="#Jwt">Jwt</a></code></td>
 <td>
@@ -228,7 +220,7 @@ The type can be progammatically determine by checking the type of the
 </tr>
 </thead>
 <tbody>
-<tr id="PeerAuthenticationMethod.mtls" class="oneof oneof-start">
+<tr id="PeerAuthenticationMethod-mtls" class="oneof oneof-start">
 <td><code>mtls</code></td>
 <td><code><a href="#MutualTls">MutualTls (oneof)</a></code></td>
 <td>
@@ -348,7 +340,7 @@ spec:
 </tr>
 </thead>
 <tbody>
-<tr id="Policy.targets">
+<tr id="Policy-targets">
 <td><code>targets</code></td>
 <td><code><a href="#TargetSelector">TargetSelector[]</a></code></td>
 <td>
@@ -357,7 +349,7 @@ If empty, policy will be used on all destinations in the same namespace.</p>
 
 </td>
 </tr>
-<tr id="Policy.peers">
+<tr id="Policy-peers">
 <td><code>peers</code></td>
 <td><code><a href="#PeerAuthenticationMethod">PeerAuthenticationMethod[]</a></code></td>
 <td>
@@ -370,7 +362,7 @@ Leave the list empty if peer authentication is not required</p>
 
 </td>
 </tr>
-<tr id="Policy.peer_is_optional">
+<tr id="Policy-peer_is_optional">
 <td><code>peerIsOptional</code></td>
 <td><code>bool</code></td>
 <td>
@@ -382,7 +374,7 @@ This flag is ignored if no authentication defined for peer (peers field is empty
 
 </td>
 </tr>
-<tr id="Policy.origins">
+<tr id="Policy-origins">
 <td><code>origins</code></td>
 <td><code><a href="#OriginAuthenticationMethod">OriginAuthenticationMethod[]</a></code></td>
 <td>
@@ -396,7 +388,7 @@ Leave the list empty if origin authentication is not required.</p>
 
 </td>
 </tr>
-<tr id="Policy.origin_is_optional">
+<tr id="Policy-origin_is_optional">
 <td><code>originIsOptional</code></td>
 <td><code>bool</code></td>
 <td>
@@ -408,7 +400,7 @@ This flag is ignored if no authentication defined for origin (origins field is e
 
 </td>
 </tr>
-<tr id="Policy.principal_binding">
+<tr id="Policy-principal_binding">
 <td><code>principalBinding</code></td>
 <td><code><a href="#PrincipalBinding">PrincipalBinding</a></code></td>
 <td>
@@ -439,7 +431,7 @@ networking API to avoid dependency.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="PortSelector.number" class="oneof oneof-start">
+<tr id="PortSelector-number" class="oneof oneof-start">
 <td><code>number</code></td>
 <td><code>uint32 (oneof)</code></td>
 <td>
@@ -447,7 +439,7 @@ networking API to avoid dependency.</p>
 
 </td>
 </tr>
-<tr id="PortSelector.name" class="oneof">
+<tr id="PortSelector-name" class="oneof">
 <td><code>name</code></td>
 <td><code>string (oneof)</code></td>
 <td>
@@ -470,14 +462,14 @@ networking API to avoid dependency.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="PrincipalBinding.USE_PEER">
+<tr id="PrincipalBinding-USE_PEER">
 <td><code>USE_PEER</code></td>
 <td>
 <p>Principal will be set to the identity from peer authentication.</p>
 
 </td>
 </tr>
-<tr id="PrincipalBinding.USE_ORIGIN">
+<tr id="PrincipalBinding-USE_ORIGIN">
 <td><code>USE_ORIGIN</code></td>
 <td>
 <p>Principal will be set to the identity from origin authentication.</p>
@@ -500,7 +492,7 @@ networking API to avoid dependency.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="TargetSelector.name">
+<tr id="TargetSelector-name">
 <td><code>name</code></td>
 <td><code>string</code></td>
 <td>
@@ -509,17 +501,7 @@ fully qualified domain name will be resolved in a platform specific manner.</p>
 
 </td>
 </tr>
-<tr id="TargetSelector.subset">
-<td><code>subset</code></td>
-<td><code>string</code></td>
-<td>
-<p>The name of a subset within the service. Applicable only to services
-within the mesh. The subset must be defined in a corresponding
-DestinationRule.</p>
-
-</td>
-</tr>
-<tr id="TargetSelector.ports">
+<tr id="TargetSelector-ports">
 <td><code>ports</code></td>
 <td><code><a href="#PortSelector">PortSelector[]</a></code></td>
 <td>

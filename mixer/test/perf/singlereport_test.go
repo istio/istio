@@ -28,14 +28,12 @@ import (
 // include any expression evaluation.
 var baseSingleReportSetup = perf.Setup{
 	Config: perf.Config{
-		Global:                  minimalServiceConfig,
-		Service:                 joinConfigs(h1Noop, i1ReportNothing, r1UsingH1AndI1),
-		IdentityAttribute:       "destination.service",
-		IdentityAttributeDomain: "svc.cluster.local",
-		SingleThreaded:          true,
+		Global:         minimalServiceConfig,
+		Service:        joinConfigs(h1Noop, i1ReportNothing, r1UsingH1AndI1),
+		SingleThreaded: true,
 	},
 
-	Load: perf.Load{
+	Loads: []perf.Load{{
 		Multiplier: 1,
 		Requests: []perf.Request{
 			perf.BasicReport{
@@ -47,7 +45,7 @@ var baseSingleReportSetup = perf.Setup{
 				},
 			},
 		},
-	},
+	}},
 }
 
 func Benchmark_Single_Report(b *testing.B) {

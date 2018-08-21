@@ -22,6 +22,7 @@ import (
 	"strings"
 	"time"
 
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -60,14 +61,14 @@ func (s *Server) HandleCSR(ctx context.Context, request *pb.CsrRequest) (*pb.Csr
 	caller := s.authenticate(ctx)
 	if caller == nil {
 		log.Warn("request authentication failure")
-		s.monitoring.AuthenticationError.Inc()
+		s.monitoring.AuthnError.Inc()
 		return nil, status.Error(codes.Unauthenticated, "request authenticate failure")
 	}
 
 	csr, err := util.ParsePemEncodedCSR(request.CsrPem)
 	if err != nil {
-		log.Warnf("CSR parsing error (error %v)", err)
-		s.monitoring.CSRParsingError.Inc()
+		log.Warnf("CSR Pem parsing error (error %v)", err)
+		s.monitoring.CSRError.Inc()
 		return nil, status.Errorf(codes.InvalidArgument, "CSR parsing error (%v)", err)
 	}
 
@@ -78,12 +79,14 @@ func (s *Server) HandleCSR(ctx context.Context, request *pb.CsrRequest) (*pb.Csr
 		return nil, status.Errorf(codes.InvalidArgument, "CSR identity extraction error (%v)", err)
 	}
 
+	// TODO: Call authorizer.
+
 	_, _, certChainBytes, _ := s.ca.GetCAKeyCertBundle().GetAll()
-	cert, err := s.ca.Sign(request.CsrPem, time.Duration(request.RequestedTtlMinutes)*time.Minute, s.forCA)
-	if err != nil {
-		log.Errorf("CSR signing error (%v)", err)
-		s.monitoring.CSRSignError.Inc()
-		return nil, status.Errorf(codes.Internal, "CSR signing error (%v)", err)
+	cert, signErr := s.ca.Sign(request.CsrPem, time.Duration(request.RequestedTtlMinutes)*time.Minute, s.forCA)
+	if signErr != nil {
+		log.Errorf("CSR signing error (%v)", signErr.Error())
+		s.monitoring.GetCertSignError(signErr.(*ca.Error).ErrorType()).Inc()
+		return nil, status.Errorf(codes.Internal, "CSR signing error (%v)", signErr.(*ca.Error))
 	}
 
 	response := &pb.CsrResponse{
@@ -92,7 +95,7 @@ func (s *Server) HandleCSR(ctx context.Context, request *pb.CsrRequest) (*pb.Csr
 		CertChain:  certChainBytes,
 	}
 	log.Info("CSR successfully signed.")
-	s.monitoring.SuccessCertIssuance.Inc()
+	s.monitoring.Success.Inc()
 
 	return response, nil
 }
@@ -104,10 +107,15 @@ func (s *Server) Run() error {
 		return fmt.Errorf("cannot listen on port %d (error: %v)", s.port, err)
 	}
 
-	serverOption := s.createTLSServerOption()
+	var grpcOptions []grpc.ServerOption
+	grpcOptions = append(grpcOptions, s.createTLSServerOption())
+	grpcOptions = append(grpcOptions, grpc.UnaryInterceptor(grpc_prometheus.UnaryServerInterceptor))
 
-	grpcServer := grpc.NewServer(serverOption)
+	grpcServer := grpc.NewServer(grpcOptions...)
 	pb.RegisterIstioCAServiceServer(grpcServer, s)
+
+	grpc_prometheus.EnableHandlingTimeHistogram()
+	grpc_prometheus.Register(grpcServer)
 
 	// grpcServer.Serve() is a blocking call, so run it in a goroutine.
 	go func() {
@@ -185,9 +193,9 @@ func (s *Server) applyServerCertificate() (*tls.Certificate, error) {
 		return nil, err
 	}
 
-	certPEM, err := s.ca.Sign(csrPEM, s.serverCertTTL, false)
-	if err != nil {
-		return nil, err
+	certPEM, signErr := s.ca.Sign(csrPEM, s.serverCertTTL, false)
+	if signErr != nil {
+		return nil, signErr.(*ca.Error)
 	}
 
 	cert, err := tls.X509KeyPair(certPEM, privPEM)

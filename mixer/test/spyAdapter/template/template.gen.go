@@ -37,6 +37,8 @@ import (
 
 	"istio.io/istio/mixer/test/spyAdapter/template/check"
 
+	"istio.io/istio/mixer/test/spyAdapter/template/quota"
+
 	"istio.io/istio/mixer/test/spyAdapter/template/report"
 )
 
@@ -234,7 +236,10 @@ var (
 				outBag := newWrapperAttrBag(
 					func(name string) (value interface{}, found bool) {
 						field := strings.TrimPrefix(name, fullOutName)
-						if len(field) != len(name) && out.WasSet(field) {
+						if len(field) != len(name) {
+							if !out.WasSet(field) {
+								return nil, false
+							}
 							switch field {
 
 							case "int64Primitive":
@@ -438,6 +443,116 @@ var (
 
 				// Instantiate a new builder for the instance.
 				builder, errp := newBuilder_samplecheck_Template(expb, param.(*samplecheck.InstanceParam))
+				if !errp.IsNil() {
+					return nil, errp.AsCompilationError(instanceName)
+				}
+
+				return func(attr attribute.Bag) (interface{}, error) {
+					// Use the instantiated builder (that this fn closes over) to construct an instance.
+					e, errp := builder.build(attr)
+					if !errp.IsNil() {
+						err := errp.AsEvaluationError(instanceName)
+						log.Error(err.Error())
+						return nil, err
+					}
+
+					e.Name = instanceName
+					return e, nil
+				}, nil
+			},
+		},
+
+		samplequota.TemplateName: {
+			Name:               samplequota.TemplateName,
+			Impl:               "samplequota",
+			CtrCfg:             &samplequota.InstanceParam{},
+			Variety:            istio_adapter_model_v1beta1.TEMPLATE_VARIETY_QUOTA,
+			BldrInterfaceName:  samplequota.TemplateName + "." + "HandlerBuilder",
+			HndlrInterfaceName: samplequota.TemplateName + "." + "Handler",
+			BuilderSupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
+				_, ok := hndlrBuilder.(samplequota.HandlerBuilder)
+				return ok
+			},
+			HandlerSupportsTemplate: func(hndlr adapter.Handler) bool {
+				_, ok := hndlr.(samplequota.Handler)
+				return ok
+			},
+			InferType: func(cp proto.Message, tEvalFn template.TypeEvalFn) (proto.Message, error) {
+
+				var BuildTemplate func(param *samplequota.InstanceParam,
+					path string) (*samplequota.Type, error)
+
+				_ = BuildTemplate
+
+				BuildTemplate = func(param *samplequota.InstanceParam,
+					path string) (*samplequota.Type, error) {
+
+					if param == nil {
+						return nil, nil
+					}
+
+					infrdType := &samplequota.Type{}
+
+					var err error = nil
+
+					infrdType.Dimensions = make(map[string]istio_policy_v1beta1.ValueType, len(param.Dimensions))
+
+					for k, v := range param.Dimensions {
+
+						if infrdType.Dimensions[k], err = tEvalFn(v); err != nil {
+
+							return nil, fmt.Errorf("failed to evaluate expression for field '%s%s[%s]'; %v", path, "Dimensions", k, err)
+						}
+					}
+
+					return infrdType, err
+
+				}
+
+				instParam := cp.(*samplequota.InstanceParam)
+
+				return BuildTemplate(instParam, "")
+			},
+
+			SetType: func(types map[string]proto.Message, builder adapter.HandlerBuilder) {
+				// Mixer framework should have ensured the type safety.
+				castedBuilder := builder.(samplequota.HandlerBuilder)
+				castedTypes := make(map[string]*samplequota.Type, len(types))
+				for k, v := range types {
+					// Mixer framework should have ensured the type safety.
+					v1 := v.(*samplequota.Type)
+					castedTypes[k] = v1
+				}
+				castedBuilder.SetSampleQuotaTypes(castedTypes)
+			},
+
+			// DispatchQuota dispatches the instance to the handler.
+			DispatchQuota: func(ctx context.Context, handler adapter.Handler, inst interface{}, args adapter.QuotaArgs) (adapter.QuotaResult, error) {
+
+				// Convert the instance from the generic interface{}, to its specialized type.
+				instance := inst.(*samplequota.Instance)
+
+				// Invoke the handler.
+				return handler.(samplequota.Handler).HandleSampleQuota(ctx, instance, args)
+			},
+
+			// CreateInstanceBuilder creates a new template.InstanceBuilderFN based on the supplied instance parameters. It uses
+			// the expression builder to create a new instance of a builder struct for the instance type. Created
+			// InstanceBuilderFn closes over this struct. When InstanceBuilderFn is called it, in turn, calls into
+			// the builder with an attribute bag.
+			//
+			// See template.CreateInstanceBuilderFn for more details.
+			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+
+				// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+				if param == nil {
+					return func(attr attribute.Bag) (interface{}, error) {
+						return nil, nil
+					}, nil
+				}
+
+				// Instantiate a new builder for the instance.
+				builder, errp := newBuilder_samplequota_Template(expb, param.(*samplequota.InstanceParam))
 				if !errp.IsNil() {
 					return nil, errp.AsCompilationError(instanceName)
 				}
@@ -834,6 +949,88 @@ func (b *builder_samplecheck_Template) build(
 			return nil, template.NewErrorPath("StringPrimitive", err)
 		}
 		r.StringPrimitive = vString
+
+	}
+
+	return r, template.ErrorPath{}
+}
+
+// builder struct for constructing an instance of Template.
+type builder_samplequota_Template struct {
+
+	// builder for field dimensions: map[string]interface{}.
+
+	bldDimensions map[string]compiled.Expression
+} // builder_samplequota_Template
+
+// Instantiates and returns a new builder for Template, based on the provided instance parameter.
+func newBuilder_samplequota_Template(
+	expb *compiled.ExpressionBuilder,
+	param *samplequota.InstanceParam) (*builder_samplequota_Template, template.ErrorPath) {
+
+	// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+	if param == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	b := &builder_samplequota_Template{}
+
+	var exp compiled.Expression
+	_ = exp
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var expType istio_policy_v1beta1.ValueType
+	_ = expType
+
+	b.bldDimensions = make(map[string]compiled.Expression, len(param.Dimensions))
+	for k, v := range param.Dimensions {
+		var exp compiled.Expression
+		if exp, expType, err = expb.Compile(v); err != nil {
+			return nil, template.NewErrorPath("Dimensions["+k+"]", err)
+		}
+
+		b.bldDimensions[k] = exp
+	}
+
+	return b, template.ErrorPath{}
+}
+
+// build and return the instance, given a set of attributes.
+func (b *builder_samplequota_Template) build(
+	attrs attribute.Bag) (*samplequota.Instance, template.ErrorPath) {
+
+	if b == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var vBool bool
+	_ = vBool
+	var vInt int64
+	_ = vInt
+	var vString string
+	_ = vString
+	var vDouble float64
+	_ = vDouble
+	var vIface interface{}
+	_ = vIface
+
+	r := &samplequota.Instance{}
+
+	r.Dimensions = make(map[string]interface{}, len(b.bldDimensions))
+
+	for k, v := range b.bldDimensions {
+
+		if vIface, err = v.Evaluate(attrs); err != nil {
+			return nil, template.NewErrorPath("Dimensions["+k+"]", err)
+		}
+
+		r.Dimensions[k] = vIface
 
 	}
 

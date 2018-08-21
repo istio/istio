@@ -15,89 +15,71 @@
 syntax = "proto3";
 
 // $title: RBAC
-// $overview: Configuration for Role Based Access Control
-// $location: https://istio.io/docs/reference/config/istio.rbac.v1alpha1.html
+// $description: Configuration for Role Based Access Control
+// $location: https://istio.io/docs/reference/config/authorization/istio.rbac.v1alpha1.html
 
 // Istio RBAC (Role Based Access Control) defines ServiceRole and ServiceRoleBinding
 // objects.
 //
 // A ServiceRole specification includes a list of rules (permissions). Each rule has
 // the following standard fields:
-// * services: a list of services.
-// * methods: HTTP methods. In the case of gRPC, this field is ignored because the value is always "POST".
-// * paths: HTTP paths or gRPC methods. Note that gRPC methods should be
-//   presented in the form of "packageName.serviceName/methodName".
 //
-// In addition to the standard fields, operators can use custom fields in the "constraints"
-// section. The name of a custom field must match one of the "properties" in the "action" part
-// of the "authorization" template (https://github.com/istio/istio/blob/master/mixer/template/authorization/template.proto).
+//   * services: a list of services.
+//   * methods: HTTP methods. In the case of gRPC, this field is ignored because the value is always "POST".
+//   * paths: HTTP paths or gRPC methods. Note that gRPC methods should be
+//     presented in the form of "/packageName.serviceName/methodName" and are case sensitive.
 //
-// For example, suppose we define an instance of the "authorization" template, named "requestcontext".
-//
-//     apiVersion: "config.istio.io/v1alpha1"
-//     kind: authorization
-//     metadata:
-//       name: requestcontext
-//       namespace: istio-system
-//     spec:
-//       subject:
-//         user: source.user | ""
-//         groups: ""
-//         properties:
-//           service: source.service | ""
-//           namespace: source.namespace | ""
-//       action:
-//         namespace: destination.namespace | ""
-//         service: destination.service | ""
-//         method: request.method | ""
-//         path: request.path | ""
-//         properties:
-//           version: request.headers["version"] | ""
+// In addition to the standard fields, operators can also use custom keys in the `constraints` field,
+// the supported keys are listed in the "constraints and properties" page.
 //
 // Below is an example of ServiceRole object "product-viewer", which has "read" ("GET" and "HEAD")
 // access to "products.svc.cluster.local" service at versions "v1" and "v2". "path" is not specified,
 // so it applies to any path in the service.
 //
-//     apiVersion: "config.istio.io/v1alpha1"
-//     kind: ServiceRole
-//     metadata:
-//       name: products-viewer
-//       namespace: default
-//     spec:
-//       rules:
-//       - services: ["products.svc.cluster.local"]
-//         methods: ["GET", "HEAD"]
-//         constraints:
-//         - key: "version"
-//           value: ["v1", "v2"]
+// ```yaml
+// apiVersion: "rbac.istio.io/v1alpha1"
+// kind: ServiceRole
+// metadata:
+//   name: products-viewer
+//   namespace: default
+// spec:
+//   rules:
+//   - services: ["products.svc.cluster.local"]
+//     methods: ["GET", "HEAD"]
+//     constraints:
+//     - key: "destination.labels[version]"
+//       value: ["v1", "v2"]
+// ```
 //
 // A ServiceRoleBinding specification includes two parts:
-// * "roleRef" refers to a ServiceRole object in the same namespace.
-// * A list of "subjects" that are assigned the roles.
 //
-// A subject is represented with a set of "properties". The name of a property must match one of
-// the fields ("user" or "groups" or one of the "properties") in the "subject" part of the "authorization"
-// template (https://github.com/istio/istio/blob/master/mixer/template/authorization/template.proto).
+//  * The `roleRef` field that refers to a ServiceRole object in the same namespace.
+//  * A list of `subjects` that are assigned the roles.
+//
+// In addition to a simple `user` field, operators can also use custom keys in the `properties` field,
+// the supported keys are listed in the "constraints and properties" page.
 //
 // Below is an example of ServiceRoleBinding object "test-binding-products", which binds two subjects
 // to ServiceRole "product-viewer":
-// * User "alice@yahoo.com"
-// * "reviews" service in "abc" namespace.
 //
-//     apiVersion: "config.istio.io/v1alpha1"
-//     kind: ServiceRoleBinding
-//     metadata:
-//       name: test-binding-products
-//       namespace: default
-//     spec:
-//       subjects:
-//       - user: alice@yahoo.com
-//       - properties:
-//           service: "reviews"
-//           namespace: "abc"
-//       roleRef:
-//         kind: ServiceRole
-//         name: "products-viewer"
+//   * User "alice@yahoo.com"
+//   * Services in "abc" namespace.
+//
+// ```yaml
+// apiVersion: "rbac.istio.io/v1alpha1"
+// kind: ServiceRoleBinding
+// metadata:
+//   name: test-binding-products
+//   namespace: default
+// spec:
+//   subjects:
+//   - user: alice@yahoo.com
+//   - properties:
+//       source.namespace: "abc"
+//   roleRef:
+//     kind: ServiceRole
+//     name: "products-viewer"
+// ```
 package istio.rbac.v1alpha1;
 
 option go_package="istio.io/api/rbac/v1alpha1";
@@ -122,7 +104,7 @@ message AccessRule {
 
   // Optional. A list of HTTP paths or gRPC methods.
   // gRPC methods must be presented as fully-qualified name in the form of
-  // packageName.serviceName/methodName.
+  // "/packageName.serviceName/methodName" and are case sensitive.
   // Exact match, prefix match, and suffix match are supported for paths.
   // For example, the path "/books/review" matches
   // "/books/review" (exact match), or "/books/*" (prefix match),
@@ -135,9 +117,7 @@ message AccessRule {
   // If set to ["*"] or not specified, it applies to any method.
   repeated string methods = 3;
 
-  // Definition of a custom constraint. The key of a custom constraint must match
-  // one of the "properties" in the "action" part of the "authorization" template
-  // (https://github.com/istio/istio/blob/master/mixer/template/authorization/template.proto).
+  // Definition of a custom constraint. The supported keys are listed in the "constraint and properties" page.
   message Constraint {
     // Key of the constraint.
     string key = 1;
@@ -151,10 +131,25 @@ message AccessRule {
   }
 
   // Optional. Extra constraints in the ServiceRole specification.
-  // The above ServiceRole examples shows an example of constraint "version".
+  // The above ServiceRole example shows an example of constraint "version".
   repeated Constraint constraints = 4;
 }
 
+// $hide_from_docs
+// RBAC ServiceRoleBinding enforcement mode, used to verify new ServiceRoleBinding
+// configs work as expected before rolling to production. RBAC engine only logs results
+// from configs that are in permissive mode, and discards result before returning
+// to the user.
+enum EnforcementMode {
+  // Policy in ENFORCED mode has impact on user experience. 
+  // Policy is in ENFORCED mode by default. 
+  ENFORCED = 0;
+
+  // Policy in PERMISSIVE mode isn't enforced and has no impact on users.
+  // RBAC engine run policies in PERMISSIVE mode and logs stats.
+  PERMISSIVE = 1;
+ }
+ 
 // ServiceRoleBinding assigns a ServiceRole to a list of subjects.
 // This represents the "Spec" part of the ServiceRoleBinding object. The name and namespace
 // of the ServiceRoleBinding is specified in "metadata" section of the ServiceRoleBinding
@@ -165,23 +160,24 @@ message ServiceRoleBinding {
 
   // Required. Reference to the ServiceRole object.
   RoleRef roleRef = 2;
+
+  // $hide_from_docs
+  // Indicates enforcement mode of the ServiceRoleBinding.
+  EnforcementMode mode = 3;
 }
 
-// Subject defines an identity or a group of identities. The identity is either a user or
-// a group or identified by a set of "properties". The name of the "properties" must match
-// the "properties" in the "subject" part of the "authorization" template
-// (https://github.com/istio/istio/blob/master/mixer/template/authorization/template.proto).
+// Subject defines an identity. The identity is either a user or identified by a set of `properties`.
+// The supported keys in `properties` are listed in "constraint and properties" page.
 message Subject {
   // Optional. The user name/ID that the subject represents.
   string user = 1;
 
+  // $hide_from_docs
   // Optional. The group that the subject belongs to.
   string group = 2;
 
   // Optional. The set of properties that identify the subject.
-  // In the above ServiceRoleBinding example, the second subject has two properties:
-  //     service: "reviews"
-  //     namespace: "abc"
+  // The above ServiceRoleBinding example shows an example of property "source.namespace".
   map<string, string> properties = 3;
 }
 
@@ -206,16 +202,17 @@ message RoleRef {
 // Below is an example of RbacConfig object "istio-rbac-config" which enables Istio RBAC for all
 // services in the default namespace.
 //
-//     apiVersion: "config.istio.io/v1alpha1"
-//     kind: RbacConfig
-//     metadata:
-//       name: istio-rbac-config
-//       namespace: istio-system
-//     spec:
-//       mode: ON_WITH_INCLUSION
-//       inclusion:
-//         namespaces: [ "default" ]
-//
+// ```yaml
+// apiVersion: "rbac.istio.io/v1alpha1"
+// kind: RbacConfig
+// metadata:
+//   name: default
+//   namespace: istio-system
+// spec:
+//   mode: ON_WITH_INCLUSION
+//   inclusion:
+//     namespaces: [ "default" ]
+// ```
 message RbacConfig {
   enum Mode {
     // Disable Istio RBAC completely, any other config in RbacConfig will be ignored and Istio RBAC policies

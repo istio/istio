@@ -74,13 +74,14 @@ func newController() (*Controller, error) {
 }
 
 func (c *Controller) initializeClients(address string, setup *Setup) error {
-	bytes, err := marshallSetup(setup)
-	if err != nil {
-		return err
-	}
-	params := ClientServerInitParams{Address: address, Setup: bytes}
-
-	for _, conn := range c.clients {
+	var err error
+	for i, conn := range c.clients {
+		var bytes []byte
+		bytes, err = marshallLoad(&setup.Loads[i])
+		if err != nil {
+			return err
+		}
+		params := ClientServerInitParams{Address: address, Load: bytes}
 		e := conn.Call("ClientServer.InitializeClient", params, nil)
 		if e != nil && err == nil {
 			// Capture the first error

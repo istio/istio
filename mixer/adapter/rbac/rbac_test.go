@@ -29,7 +29,7 @@ type fakedAllowRBACStore struct {
 	called int
 }
 
-func (f *fakedAllowRBACStore) CheckPermission(inst *authorization.Instance, env adapter.Env) (bool, error) {
+func (f *fakedAllowRBACStore) CheckPermission(inst *authorization.Instance, logger adapter.Logger) (bool, error) {
 	f.called++
 	return true, nil
 }
@@ -38,7 +38,7 @@ type fakedDenyRBACStore struct {
 	called int
 }
 
-func (f *fakedDenyRBACStore) CheckPermission(inst *authorization.Instance, env adapter.Env) (bool, error) {
+func (f *fakedDenyRBACStore) CheckPermission(inst *authorization.Instance, logger adapter.Logger) (bool, error) {
 	f.called++
 	return false, nil
 }

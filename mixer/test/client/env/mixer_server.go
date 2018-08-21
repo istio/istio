@@ -80,22 +80,27 @@ type MixerServer struct {
 	report *Handler
 	quota  *Handler
 
-	qma         mockapi.QuotaArgs
 	quotaAmount int64
 	quotaLimit  int64
 
 	checkReferenced *mixerpb.ReferencedAttributes
 	quotaReferenced *mixerpb.ReferencedAttributes
+
+	directive *mixerpb.RouteDirective
+
+	sync.Mutex
+	qma mockapi.QuotaArgs
 }
 
 // Check is called by the mock mixer api
-func (ts *MixerServer) Check(bag attribute.Bag, output *attribute.MutableBag) (mockapi.CheckResponse, rpc.Status) {
-	result := mockapi.CheckResponse{
-		ValidDuration: mockapi.DefaultValidDuration,
-		ValidUseCount: mockapi.DefaultValidUseCount,
-		Referenced:    ts.checkReferenced,
+func (ts *MixerServer) Check(bag attribute.Bag) mixerpb.CheckResponse_PreconditionResult {
+	return mixerpb.CheckResponse_PreconditionResult{
+		Status:               ts.check.run(bag),
+		ValidDuration:        mockapi.DefaultValidDuration,
+		ValidUseCount:        mockapi.DefaultValidUseCount,
+		ReferencedAttributes: ts.checkReferenced,
+		RouteDirective:       ts.directive,
 	}
-	return result, ts.check.run(bag)
 }
 
 // Report is called by the mock mixer api
@@ -105,6 +110,9 @@ func (ts *MixerServer) Report(bag attribute.Bag) rpc.Status {
 
 // Quota is called by the mock mixer api
 func (ts *MixerServer) Quota(bag attribute.Bag, qma mockapi.QuotaArgs) (mockapi.QuotaResponse, rpc.Status) {
+	ts.Lock()
+	defer ts.Unlock()
+
 	if !ts.quota.stress {
 		// In non-stress case, saved for test verification
 		ts.qma = qma

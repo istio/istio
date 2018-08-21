@@ -16,9 +16,14 @@ package config
 
 import (
 	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
+	"github.com/gogo/protobuf/types"
 
+	adptTmpl "istio.io/api/mixer/adapter/model/v1beta1"
+	"istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/lang/ast"
+	"istio.io/istio/mixer/pkg/protobuf/yaml/dynamic"
 	"istio.io/istio/mixer/pkg/template"
 )
 
@@ -35,21 +40,37 @@ type (
 		// Config store based information
 		Attributes ast.AttributeDescriptorFinder
 
-		Handlers  map[string]*Handler
-		Instances map[string]*Instance
-		Rules     []*Rule
+		HandlersStatic  map[string]*HandlerStatic
+		InstancesStatic map[string]*InstanceStatic
 
-		//  Templates2 contains template descriptors loaded from the store
-		Templates2 map[string]*TemplateMetadata
-		//  Adapters2 contains adapter metadata loaded from the store
-		Adapters2 map[string]*AdapterMetadata
+		//  TemplateMetadatas contains template descriptors loaded from the store
+		TemplateMetadatas map[string]*Template
+		//  AdapterMetadatas contains adapter metadata loaded from the store
+		AdapterMetadatas map[string]*Adapter
+
+		HandlersDynamic  map[string]*HandlerDynamic
+		InstancesDynamic map[string]*InstanceDynamic
+		Rules            []*Rule
 
 		// Perf Counters relevant to configuration.
 		Counters Counters
 	}
 
-	// Handler configuration. Fully resolved.
-	Handler struct {
+	// HandlerDynamic configuration for dynamically loaded, grpc adapters. Fully resolved.
+	HandlerDynamic struct {
+		Name string
+
+		Adapter *Adapter
+
+		// AdapterConfig used to construct the Handler. This is passed in verbatim to the remote adapter.
+		AdapterConfig *types.Any
+
+		// Connection information for the handler.
+		Connection *v1beta1.Connection
+	}
+
+	// HandlerStatic configuration for compiled in adapters. Fully resolved.
+	HandlerStatic struct {
 
 		// Name of the Handler. Fully qualified.
 		Name string
@@ -61,8 +82,21 @@ type (
 		Params proto.Message
 	}
 
-	// Instance configuration. Fully resolved.
-	Instance struct {
+	// InstanceDynamic configuration for dynamically loaded templates. Fully resolved.
+	InstanceDynamic struct {
+		Name string
+
+		Template *Template
+
+		// Encoder to create request instance bytes from attributes
+		Encoder dynamic.Encoder
+
+		// Params of the instance; used to to create the config SHA.
+		Params map[string]interface{}
+	}
+
+	// InstanceStatic configuration for compiled templates. Fully resolved.
+	InstanceStatic struct {
 		// Name of the instance. Fully qualified.
 		Name string
 
@@ -71,6 +105,9 @@ type (
 
 		// parameters used to construct the instance.
 		Params proto.Message
+
+		// inferred type for the instance.
+		InferredType proto.Message
 	}
 
 	// Rule configuration. Fully resolved.
@@ -84,18 +121,66 @@ type (
 		// Match condition
 		Match string
 
-		Actions []*Action
+		ActionsDynamic []*ActionDynamic
 
-		ResourceType ResourceType
+		ActionsStatic []*ActionStatic
 	}
 
-	// Action configuration. Fully resolved.
-	Action struct {
+	// ActionDynamic configuration. Fully resolved.
+	ActionDynamic struct {
 		// Handler that this action is resolved to.
-		Handler *Handler
+		Handler *HandlerDynamic
+		// Instances that should be generated as part of invoking action.
+		Instances []*InstanceDynamic
+	}
+
+	// ActionStatic configuration. Fully resolved.
+	ActionStatic struct {
+		// Handler that this action is resolved to.
+		Handler *HandlerStatic
 
 		// Instances that should be generated as part of invoking action.
-		Instances []*Instance
+		Instances []*InstanceStatic
+	}
+
+	// Template contains info about a template
+	Template struct {
+		// Name of the template.
+		//
+		// Note this is the template's resource name and not the template's internal name that adapter developer
+		// uses to implement adapter service.
+		Name string
+
+		// Variety of this template
+		Variety adptTmpl.TemplateVariety
+
+		// InternalPackageDerivedName is the name of the template from adapter developer point of view.
+		// The service and functions implemented by the adapter is based on this name
+		// NOTE: This name derived from template proto package and not the resource name.
+		InternalPackageDerivedName string
+
+		// Template's file descriptor set.
+		FileDescSet *descriptor.FileDescriptorSet
+
+		// package name of the `Template` message
+		PackageName string
+	}
+
+	// Adapter contains info about an adapter
+	Adapter struct {
+		Name string
+
+		// Adapter's file descriptor set.
+		ConfigDescSet *descriptor.FileDescriptorSet
+
+		// package name of the `Params` message
+		PackageName string
+
+		SupportedTemplates []*Template
+
+		SessionBased bool
+
+		Description string
 	}
 )
 
@@ -106,4 +191,64 @@ func Empty() *Snapshot {
 		Rules:    []*Rule{},
 		Counters: newCounters(-1),
 	}
+}
+
+// GetName gets name
+func (h HandlerStatic) GetName() string {
+	return h.Name
+}
+
+// AdapterName gets adapter name
+func (h HandlerStatic) AdapterName() string {
+	return h.Adapter.Name
+}
+
+// AdapterParams gets AdapterParams
+func (h HandlerStatic) AdapterParams() interface{} {
+	return h.Params
+}
+
+// GetName gets name
+func (i InstanceStatic) GetName() string {
+	return i.Name
+}
+
+// TemplateName gets TemplateName
+func (i InstanceStatic) TemplateName() string {
+	return i.Template.Name
+}
+
+// TemplateParams gets TemplateParams
+func (i InstanceStatic) TemplateParams() interface{} {
+	return i.Params
+}
+
+// GetName gets name
+func (h HandlerDynamic) GetName() string {
+	return h.Name
+}
+
+// AdapterName gets adapter name
+func (h HandlerDynamic) AdapterName() string {
+	return h.Adapter.Name
+}
+
+// AdapterParams gets AdapterParams
+func (h HandlerDynamic) AdapterParams() interface{} {
+	return h.AdapterConfig
+}
+
+// GetName gets name
+func (i InstanceDynamic) GetName() string {
+	return i.Name
+}
+
+// TemplateName gets TemplateName
+func (i InstanceDynamic) TemplateName() string {
+	return i.Template.Name
+}
+
+// TemplateParams gets TemplateParams
+func (i InstanceDynamic) TemplateParams() interface{} {
+	return i.Params
 }

@@ -15,7 +15,29 @@
     }
   },
   "stats_config": {
+{{- if .instance }}
+    "use_all_default_tags": true,
+    "stats_tags": [
+      {
+        "tag_name": "istio_service_cluster",
+        "fixed_value": "{{ .config.ServiceCluster }}"
+      },
+      {
+        "tag_name": "istio_service_node",
+        "fixed_value": "{{ .instance.service_node }}"
+      },
+      {
+        "tag_name": "pod_uid",
+        "fixed_value": "{{ .instance.pod_uid }}"
+      },
+      {
+        "tag_name": "pod_name",
+        "fixed_value": "{{ .instance.pod_name }}"
+      }
+    ]
+{{- else }}
     "use_all_default_tags": false
+{{- end }}
   },
   "admin": {
     "access_log_path": "/dev/stdout",
@@ -97,6 +119,11 @@
         "max_requests": "100000"
       }]
     },
+    "upstream_connection_options": {
+      "tcp_keepalive": {
+        "keepalive_time": 300
+      }
+    },
     "http2_protocol_options": { }
     }
 
@@ -131,7 +158,11 @@
   {{ if .statsd }}
   "stats_sinks": [
     {
+{{- if .instance }}
+      "name": "envoy.dog_statsd",
+{{- else }}
       "name": "envoy.statsd",
+{{- end }}
       "config": {
         "address": {
           "socket_address": {{ .statsd }}

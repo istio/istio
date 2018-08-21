@@ -1,0 +1,138 @@
+# This is used to generate istio.yaml for a stress/load test cluster.
+
+global:
+  imagePullPolicy: Always
+  hub: docker.io/istionightly
+  tag: nightly-release-0.8
+  meshExpansion: true
+  meshExpansionILB: true
+  refreshInterval: 30s
+  imagePullPolicy: Always
+  configValidation: false
+  k8sIngressSelector: ingressgateway
+  proxy_init:
+    image: costinm/proxy_init:tproxy
+
+  proxy:
+    accessLogFile: ""
+    resources:
+      requests:
+        cpu: 900m
+        memory: 256Mi
+
+ingress:
+  enabled: false
+
+gateways:
+  istio-ilbgateway:
+    enabled: true
+
+  istio-ingressgateway:
+    meshExpansion: true
+    enabled: true
+    secretVolumes:
+    - name: istio-ingressgateway-certs
+      secretName: istio-ingressgateway-certs
+      mountPath: /etc/istio/ingressgateway-certs
+    - name: istio-ingressgateway-certs-fortiotls
+      secretName: istio-ingressgateway-certs-fortiotls
+      mountPath: /etc/istio/ingressgateway-certs-fortiotls
+    - name: istio-ingressgateway-certs-fortionoistio
+      secretName: istio-ingressgateway-certs-fortionoistio
+      mountPath: /etc/istio/ingressgateway-certs-fortionoistio
+    labels:
+      istio: ingressgateway
+      ver: ingress10
+      app: istio-ingressgateway
+      name: gateway
+    replicas: 3
+    autoscaleMin: 3
+    autoscaleMax: 5
+    resources:
+      limits:
+        cpu: 6000m
+        memory: 512Mi
+      requests:
+        cpu: 4000m
+        memory: 512Mi
+    type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
+    ports:
+    - port: 80
+      targetPort: 80
+      name: http2
+      nodePort: 31380
+    - port: 443
+      name: https
+      nodePort: 31390
+    - port: 31400
+      name: tcp
+    - port: 15011
+      targetPort: 15011
+      name: tcp-pilot-grcp-tls
+    - port: 8060
+      targetPort: 8060
+      name: tcp-citadel-grpc-tls
+    - port: 5201
+      name: tcp-iperf-cont
+    - port: 5202
+      name: tcp-iperfraw
+    - port: 5203
+      name: tcp-iperf
+    - port: 5204
+      name: tcp-iperf-tls
+
+pilot:
+  replicaCount: 1
+  sidecar: false
+  autoscaleMax: 1
+  #image: gcr.io/istio-release/pilot:release-1.0-20180720-00-11
+  # Override for 0.8 upgrade
+  #image: costinm/pilot:costin-dev
+  resources:
+    requests:
+      cpu: 2800m
+      memory: 2G
+
+ingress:
+  enabled: false
+
+prometheus:
+  enabled: true
+
+sidecar-injector:
+  enabled: true
+
+grafana:
+  enabled: true
+  #image: gcr.io/istio-release/grafana:release-1.0-20180720-00-11
+
+mixer:
+  #image: gcr.io/istio-release/mixer:release-1.0-20180720-00-11
+  resources:
+    requests:
+      cpu: 2800m
+      memory: 2G
+
+tracing:
+  enabled: false
+  jaeger:
+    enabled: true
+
+servicegraph:
+  enabled: true
+
+prometheus:
+  enabled: true
+
+kiali:
+  enabled: true
+
+certmanager:
+  enabled: true
+  email: costin@webinf.info
+  commonName: ingress.v10.istio.webinf.info
+  certificates:
+    - "ingress.v10.istio.webinf.info"
+  #commonName: fortiotls.v10.istio.webinf.info
+  #certificates:
+  #  - "fortiotls.v10.istio.webinf.info"

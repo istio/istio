@@ -1,204 +1,13 @@
 ---
 title: Kubernetes
-overview: A template that is used to control the production of Kubernetes-specific attributes.
-location: https://istio.io/docs/reference/config/template/kubernetes.html
+description: A template that is used to control the production of Kubernetes-specific attributes.
+location: https://istio.io/docs/reference/config/policy-and-telemetry/templates/kubernetes.html
 layout: protoc-gen-docs
-number_of_entries: 3
+generator: protoc-gen-docs
+number_of_entries: 2
 ---
 <p>The <code>kubernetes</code> template holds data that controls the production of Kubernetes-specific
 attributes.</p>
-
-<h2 id="OutputTemplate">OutputTemplate</h2>
-<section>
-<p>OutputTemplate refers to the output from the adapter. It is used inside the attribute_binding section of the config
-to assign values to the generated attributes using the <code>$out.&lt;field name of the OutputTemplate&gt;</code> syntax.</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="OutputTemplate.source_pod_ip">
-<td><code>sourcePodIp</code></td>
-<td><code><a href="#istio.mixer.adapter.model.v1beta1.IPAddress">istio.mixer.adapter.model.v1beta1.IPAddress</a></code></td>
-<td>
-<p>Refers to source pod ip address. attribute<em>bindings can refer to this field using $out.source</em>pod_ip</p>
-
-</td>
-</tr>
-<tr id="OutputTemplate.source_pod_name">
-<td><code>sourcePodName</code></td>
-<td><code>string</code></td>
-<td>
-<p>Refers to source pod name. attribute<em>bindings can refer to this field using $out.source</em>pod_name</p>
-
-</td>
-</tr>
-<tr id="OutputTemplate.source_labels">
-<td><code>sourceLabels</code></td>
-<td><code>map&lt;string,&nbsp;string&gt;</code></td>
-<td>
-<p>Refers to source pod labels. attribute<em>bindings can refer to this field using $out.source</em>labels</p>
-
-</td>
-</tr>
-<tr id="OutputTemplate.source_namespace">
-<td><code>sourceNamespace</code></td>
-<td><code>string</code></td>
-<td>
-<p>Refers to source pod namespace. attribute<em>bindings can refer to this field using $out.source</em>namespace</p>
-
-</td>
-</tr>
-<tr id="OutputTemplate.source_service">
-<td><code>sourceService</code></td>
-<td><code>string</code></td>
-<td>
-<p>Refers to source service. attribute<em>bindings can refer to this field using $out.source</em>service</p>
-
-</td>
-</tr>
-<tr id="OutputTemplate.source_service_account_name">
-<td><code>sourceServiceAccountName</code></td>
-<td><code>string</code></td>
-<td>
-<p>Refers to source pod service account name. attribute<em>bindings can refer to this field using $out.source</em>service<em>account</em>name</p>
-
-</td>
-</tr>
-<tr id="OutputTemplate.source_host_ip">
-<td><code>sourceHostIp</code></td>
-<td><code><a href="#istio.mixer.adapter.model.v1beta1.IPAddress">istio.mixer.adapter.model.v1beta1.IPAddress</a></code></td>
-<td>
-<p>Refers to source pod host ip address. attribute<em>bindings can refer to this field using $out.source</em>host_ip</p>
-
-</td>
-</tr>
-<tr id="OutputTemplate.destination_pod_ip">
-<td><code>destinationPodIp</code></td>
-<td><code><a href="#istio.mixer.adapter.model.v1beta1.IPAddress">istio.mixer.adapter.model.v1beta1.IPAddress</a></code></td>
-<td>
-<p>Refers to destination pod ip address. attribute<em>bindings can refer to this field using $out.destination</em>pod_ip</p>
-
-</td>
-</tr>
-<tr id="OutputTemplate.destination_pod_name">
-<td><code>destinationPodName</code></td>
-<td><code>string</code></td>
-<td>
-<p>Refers to destination pod name. attribute<em>bindings can refer to this field using $out.destination</em>pod_name</p>
-
-</td>
-</tr>
-<tr id="OutputTemplate.destination_labels">
-<td><code>destinationLabels</code></td>
-<td><code>map&lt;string,&nbsp;string&gt;</code></td>
-<td>
-<p>Refers to destination pod labels. attribute<em>bindings can refer to this field using $out.destination</em>labels</p>
-
-</td>
-</tr>
-<tr id="OutputTemplate.destination_namespace">
-<td><code>destinationNamespace</code></td>
-<td><code>string</code></td>
-<td>
-<p>Refers to destination pod namespace. attribute<em>bindings can refer to this field using $out.destination</em>namespace</p>
-
-</td>
-</tr>
-<tr id="OutputTemplate.destination_service">
-<td><code>destinationService</code></td>
-<td><code>string</code></td>
-<td>
-<p>Refers to destination service. attribute<em>bindings can refer to this field using $out.destination</em>service</p>
-
-</td>
-</tr>
-<tr id="OutputTemplate.destination_service_account_name">
-<td><code>destinationServiceAccountName</code></td>
-<td><code>string</code></td>
-<td>
-<p>Refers to destination pod service account name. attribute<em>bindings can refer to this field using $out.destination</em>service<em>account</em>name</p>
-
-</td>
-</tr>
-<tr id="OutputTemplate.destination_host_ip">
-<td><code>destinationHostIp</code></td>
-<td><code><a href="#istio.mixer.adapter.model.v1beta1.IPAddress">istio.mixer.adapter.model.v1beta1.IPAddress</a></code></td>
-<td>
-<p>Refers to destination pod host ip address. attribute<em>bindings can refer to this field using $out.destination</em>host_ip</p>
-
-</td>
-</tr>
-<tr id="OutputTemplate.origin_pod_ip">
-<td><code>originPodIp</code></td>
-<td><code><a href="#istio.mixer.adapter.model.v1beta1.IPAddress">istio.mixer.adapter.model.v1beta1.IPAddress</a></code></td>
-<td>
-<p>Refers to origin pod ip address. attribute<em>bindings can refer to this field using $out.origin</em>pod_ip</p>
-
-</td>
-</tr>
-<tr id="OutputTemplate.origin_pod_name">
-<td><code>originPodName</code></td>
-<td><code>string</code></td>
-<td>
-<p>Refers to origin pod name. attribute<em>bindings can refer to this field using $out.origin</em>pod_name</p>
-
-</td>
-</tr>
-<tr id="OutputTemplate.origin_labels">
-<td><code>originLabels</code></td>
-<td><code>map&lt;string,&nbsp;string&gt;</code></td>
-<td>
-<p>Refers to origin pod labels. attribute<em>bindings can refer to this field using $out.origin</em>labels</p>
-
-</td>
-</tr>
-<tr id="OutputTemplate.origin_namespace">
-<td><code>originNamespace</code></td>
-<td><code>string</code></td>
-<td>
-<p>Refers to origin pod namespace. attribute<em>bindings can refer to this field using $out.origin</em>namespace</p>
-
-</td>
-</tr>
-<tr id="OutputTemplate.origin_service">
-<td><code>originService</code></td>
-<td><code>string</code></td>
-<td>
-<p>Refers to origin service. attribute<em>bindings can refer to this field using $out.origin</em>service</p>
-
-</td>
-</tr>
-<tr id="OutputTemplate.origin_service_account_name">
-<td><code>originServiceAccountName</code></td>
-<td><code>string</code></td>
-<td>
-<p>Refers to origin pod service account name. attribute<em>bindings can refer to this field using $out.origin</em>service<em>account</em>name</p>
-
-</td>
-</tr>
-<tr id="OutputTemplate.origin_host_ip">
-<td><code>originHostIp</code></td>
-<td><code><a href="#istio.mixer.adapter.model.v1beta1.IPAddress">istio.mixer.adapter.model.v1beta1.IPAddress</a></code></td>
-<td>
-<p>Refers to origin pod host ip address. attribute<em>bindings can refer to this field using $out.origin</em>host_ip</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="Template">Template</h2>
-<section>
-<p>The <code>kubernetes</code> template represents data used to generate kubernetes-derived attributes.</p>
-
-<p>The values provided controls the manner in which the kubernetesenv adapter discovers and
-generates values related to pod information.</p>
 
 <p>Example config:</p>
 
@@ -228,6 +37,12 @@ spec:
     destination.serviceAccount: $out.destination_service_account_name
 </code></pre>
 
+<h2 id="OutputTemplate">OutputTemplate</h2>
+<section>
+<p>OutputTemplate refers to the output from the adapter. It is used inside the attribute_binding section of the config
+to assign values to the generated attributes using the <code>$out.&lt;field name of the OutputTemplate&gt;</code> syntax.
+Next ID: 33</p>
+
 <table class="message-fields">
 <thead>
 <tr>
@@ -237,7 +52,213 @@ spec:
 </tr>
 </thead>
 <tbody>
-<tr id="Template.source_uid">
+<tr id="OutputTemplate-source_pod_uid">
+<td><code>sourcePodUid</code></td>
+<td><code>string</code></td>
+<td>
+<p>Refers to the source.uid for a pod. This is for TCP use cases where the attribute is not present.
+attribute<em>bindings can refer to this field using $out.source</em>pod_uid</p>
+
+</td>
+</tr>
+<tr id="OutputTemplate-source_pod_ip">
+<td><code>sourcePodIp</code></td>
+<td><code><a href="https://istio.io/docs/reference/config/policy-and-telemetry/istio.policy.v1beta1.html#IPAddress">istio.policy.v1beta1.IPAddress</a></code></td>
+<td>
+<p>Refers to source pod ip address. attribute<em>bindings can refer to this field using $out.source</em>pod_ip</p>
+
+</td>
+</tr>
+<tr id="OutputTemplate-source_pod_name">
+<td><code>sourcePodName</code></td>
+<td><code>string</code></td>
+<td>
+<p>Refers to source pod name. attribute<em>bindings can refer to this field using $out.source</em>pod_name</p>
+
+</td>
+</tr>
+<tr id="OutputTemplate-source_labels">
+<td><code>sourceLabels</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+<p>Refers to source pod labels. attribute<em>bindings can refer to this field using $out.source</em>labels</p>
+
+</td>
+</tr>
+<tr id="OutputTemplate-source_namespace">
+<td><code>sourceNamespace</code></td>
+<td><code>string</code></td>
+<td>
+<p>Refers to source pod namespace. attribute<em>bindings can refer to this field using $out.source</em>namespace</p>
+
+</td>
+</tr>
+<tr id="OutputTemplate-source_service_account_name">
+<td><code>sourceServiceAccountName</code></td>
+<td><code>string</code></td>
+<td>
+<p>Refers to source pod service account name. attribute<em>bindings can refer to this field using $out.source</em>service<em>account</em>name</p>
+
+</td>
+</tr>
+<tr id="OutputTemplate-source_host_ip">
+<td><code>sourceHostIp</code></td>
+<td><code><a href="https://istio.io/docs/reference/config/policy-and-telemetry/istio.policy.v1beta1.html#IPAddress">istio.policy.v1beta1.IPAddress</a></code></td>
+<td>
+<p>Refers to source pod host ip address. attribute<em>bindings can refer to this field using $out.source</em>host_ip</p>
+
+</td>
+</tr>
+<tr id="OutputTemplate-source_workload_uid">
+<td><code>sourceWorkloadUid</code></td>
+<td><code>string</code></td>
+<td>
+<p>Refers to the Istio workload identifier for the source pod. Attribute<em>bindings can refer to this field using $out.source</em>workload_uid</p>
+
+</td>
+</tr>
+<tr id="OutputTemplate-source_workload_name">
+<td><code>sourceWorkloadName</code></td>
+<td><code>string</code></td>
+<td>
+<p>Refers to the Istio workload name for the source pod. Attribute<em>bindings can refer to this field using $out.source</em>workload_name</p>
+
+</td>
+</tr>
+<tr id="OutputTemplate-source_workload_namespace">
+<td><code>sourceWorkloadNamespace</code></td>
+<td><code>string</code></td>
+<td>
+<p>Refers to the Istio workload namespace for the source pod. Attribute<em>bindings can refer to this field using $out.source</em>workload_namespace</p>
+
+</td>
+</tr>
+<tr id="OutputTemplate-source_owner">
+<td><code>sourceOwner</code></td>
+<td><code>string</code></td>
+<td>
+<p>Refers to the (controlling) owner of the source pod. Attribute<em>bindings can refer to this field using $out.source</em>owner</p>
+
+</td>
+</tr>
+<tr id="OutputTemplate-destination_pod_uid">
+<td><code>destinationPodUid</code></td>
+<td><code>string</code></td>
+<td>
+<p>Refers to the destination.uid for a pod. This is for TCP use cases where the attribute is not present.
+attribute<em>bindings can refer to this field using $out.destination</em>pod_uid</p>
+
+</td>
+</tr>
+<tr id="OutputTemplate-destination_pod_ip">
+<td><code>destinationPodIp</code></td>
+<td><code><a href="https://istio.io/docs/reference/config/policy-and-telemetry/istio.policy.v1beta1.html#IPAddress">istio.policy.v1beta1.IPAddress</a></code></td>
+<td>
+<p>Refers to destination pod ip address. attribute<em>bindings can refer to this field using $out.destination</em>pod_ip</p>
+
+</td>
+</tr>
+<tr id="OutputTemplate-destination_pod_name">
+<td><code>destinationPodName</code></td>
+<td><code>string</code></td>
+<td>
+<p>Refers to destination pod name. attribute<em>bindings can refer to this field using $out.destination</em>pod_name</p>
+
+</td>
+</tr>
+<tr id="OutputTemplate-destination_container_name">
+<td><code>destinationContainerName</code></td>
+<td><code>string</code></td>
+<td>
+<p>Refers to destination container name. attribute<em>bindings can refer to this field using $out.destination</em>container_name</p>
+
+</td>
+</tr>
+<tr id="OutputTemplate-destination_labels">
+<td><code>destinationLabels</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+<p>Refers to destination pod labels. attribute<em>bindings can refer to this field using $out.destination</em>labels</p>
+
+</td>
+</tr>
+<tr id="OutputTemplate-destination_namespace">
+<td><code>destinationNamespace</code></td>
+<td><code>string</code></td>
+<td>
+<p>Refers to destination pod namespace. attribute<em>bindings can refer to this field using $out.destination</em>namespace</p>
+
+</td>
+</tr>
+<tr id="OutputTemplate-destination_service_account_name">
+<td><code>destinationServiceAccountName</code></td>
+<td><code>string</code></td>
+<td>
+<p>Refers to destination pod service account name. attribute<em>bindings can refer to this field using $out.destination</em>service<em>account</em>name</p>
+
+</td>
+</tr>
+<tr id="OutputTemplate-destination_host_ip">
+<td><code>destinationHostIp</code></td>
+<td><code><a href="https://istio.io/docs/reference/config/policy-and-telemetry/istio.policy.v1beta1.html#IPAddress">istio.policy.v1beta1.IPAddress</a></code></td>
+<td>
+<p>Refers to destination pod host ip address. attribute<em>bindings can refer to this field using $out.destination</em>host_ip</p>
+
+</td>
+</tr>
+<tr id="OutputTemplate-destination_owner">
+<td><code>destinationOwner</code></td>
+<td><code>string</code></td>
+<td>
+<p>Refers to the (controlling) owner of the destination pod. Attribute<em>bindings can refer to this field using $out.destination</em>owner</p>
+
+</td>
+</tr>
+<tr id="OutputTemplate-destination_workload_uid">
+<td><code>destinationWorkloadUid</code></td>
+<td><code>string</code></td>
+<td>
+<p>Refers to the Istio workload identifier for the destination pod. Attribute<em>bindings can refer to this field using $out.destination</em>workload_uid</p>
+
+</td>
+</tr>
+<tr id="OutputTemplate-destination_workload_name">
+<td><code>destinationWorkloadName</code></td>
+<td><code>string</code></td>
+<td>
+<p>Refers to the Istio workload name for the destination pod. Attribute<em>bindings can refer to this field using $out.destination</em>workload_name</p>
+
+</td>
+</tr>
+<tr id="OutputTemplate-destination_workload_namespace">
+<td><code>destinationWorkloadNamespace</code></td>
+<td><code>string</code></td>
+<td>
+<p>Refers to the Istio workload name for the destination pod. Attribute<em>bindings can refer to this field using $out.destination</em>workload_namespace</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Template">Template</h2>
+<section>
+<p>The <code>kubernetes</code> template represents data used to generate kubernetes-derived attributes.</p>
+
+<p>The values provided controls the manner in which the kubernetesenv adapter discovers and
+generates values related to pod information.
+Next ID: 8</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Template-source_uid">
 <td><code>sourceUid</code></td>
 <td><code>string</code></td>
 <td>
@@ -245,15 +266,15 @@ spec:
 
 </td>
 </tr>
-<tr id="Template.source_ip">
+<tr id="Template-source_ip">
 <td><code>sourceIp</code></td>
-<td><code><a href="#istio.mixer.adapter.model.v1beta1.IPAddress">istio.mixer.adapter.model.v1beta1.IPAddress</a></code></td>
+<td><code><a href="https://istio.io/docs/reference/config/policy-and-telemetry/istio.policy.v1beta1.html#IPAddress">istio.policy.v1beta1.IPAddress</a></code></td>
 <td>
 <p>Source pod&rsquo;s ip.</p>
 
 </td>
 </tr>
-<tr id="Template.destination_uid">
+<tr id="Template-destination_uid">
 <td><code>destinationUid</code></td>
 <td><code>string</code></td>
 <td>
@@ -261,51 +282,19 @@ spec:
 
 </td>
 </tr>
-<tr id="Template.destination_ip">
+<tr id="Template-destination_ip">
 <td><code>destinationIp</code></td>
-<td><code><a href="#istio.mixer.adapter.model.v1beta1.IPAddress">istio.mixer.adapter.model.v1beta1.IPAddress</a></code></td>
+<td><code><a href="https://istio.io/docs/reference/config/policy-and-telemetry/istio.policy.v1beta1.html#IPAddress">istio.policy.v1beta1.IPAddress</a></code></td>
 <td>
 <p>Destination pod&rsquo;s ip.</p>
 
 </td>
 </tr>
-<tr id="Template.origin_uid">
-<td><code>originUid</code></td>
-<td><code>string</code></td>
+<tr id="Template-destination_port">
+<td><code>destinationPort</code></td>
+<td><code>int64</code></td>
 <td>
-<p>Origin pod&rsquo;s uid. Must be of the form: &ldquo;kubernetes://pod.namespace&rdquo;</p>
-
-</td>
-</tr>
-<tr id="Template.origin_ip">
-<td><code>originIp</code></td>
-<td><code><a href="#istio.mixer.adapter.model.v1beta1.IPAddress">istio.mixer.adapter.model.v1beta1.IPAddress</a></code></td>
-<td>
-<p>Origin pod&rsquo;s ip.</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="istio.mixer.adapter.model.v1beta1.IPAddress">istio.mixer.adapter.model.v1beta1.IPAddress</h2>
-<section>
-<p>IPAddress is used inside templates for fields that are of ValueType &ldquo;IP_ADDRESS&rdquo;</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="istio.mixer.adapter.model.v1beta1.IPAddress.value">
-<td><code>value</code></td>
-<td><code>bytes</code></td>
-<td>
-<p>IPAddress encoded as bytes.</p>
+<p>Destination container&rsquo;s port number.</p>
 
 </td>
 </tr>

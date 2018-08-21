@@ -23,13 +23,13 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"go.uber.org/atomic"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
 	rbac "istio.io/api/rbac/v1alpha1"
-	routing "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/test"
 	"istio.io/istio/pkg/log"
@@ -39,17 +39,6 @@ import (
 var (
 	// Types defines the mock config descriptor
 	Types = model.ConfigDescriptor{model.MockConfig}
-
-	// ExampleRouteRule is an example route rule
-	ExampleRouteRule = &routing.RouteRule{
-		Destination: &routing.IstioService{
-			Name: "world",
-		},
-		Route: []*routing.DestinationWeight{
-			{Weight: 80, Labels: map[string]string{"version": "v1"}},
-			{Weight: 20, Labels: map[string]string{"version": "v2"}},
-		},
-	}
 
 	// ExampleVirtualService is an example V2 route rule
 	ExampleVirtualService = &networking.VirtualService{
@@ -93,34 +82,6 @@ var (
 			LoadBalancer: &networking.LoadBalancerSettings{
 				new(networking.LoadBalancerSettings_Simple),
 			},
-		},
-	}
-
-	// ExampleIngressRule is an example ingress rule
-	ExampleIngressRule = &routing.IngressRule{
-		Destination: &routing.IstioService{
-			Name: "world",
-		},
-		Port: 80,
-		DestinationServicePort: &routing.IngressRule_DestinationPort{DestinationPort: 80},
-	}
-
-	// ExampleEgressRule is an example egress rule
-	ExampleEgressRule = &routing.EgressRule{
-		Destination: &routing.IstioService{
-			Service: "*cnn.com",
-		},
-		Ports:          []*routing.EgressRule_Port{{Port: 80, Protocol: "http"}},
-		UseEgressProxy: false,
-	}
-
-	// ExampleDestinationPolicy is an example destination policy
-	ExampleDestinationPolicy = &routing.DestinationPolicy{
-		Destination: &routing.IstioService{
-			Name: "world",
-		},
-		LoadBalancing: &routing.LoadBalancing{
-			LbPolicy: &routing.LoadBalancing_Name{Name: routing.LoadBalancing_RANDOM},
 		},
 	}
 
@@ -210,6 +171,13 @@ var (
 		}},
 	}
 
+	// ExampleAuthenticationMeshPolicy is an example cluster-scoped authentication Policy
+	ExampleAuthenticationMeshPolicy = &authn.Policy{
+		Peers: []*authn.PeerAuthenticationMethod{{
+			Params: &authn.PeerAuthenticationMethod_Mtls{},
+		}},
+	}
+
 	// ExampleServiceRole is an example rbac service role
 	ExampleServiceRole = &rbac.ServiceRole{Rules: []*rbac.AccessRule{
 		{
@@ -237,6 +205,11 @@ var (
 			{User: "User1", Group: "Group1", Properties: map[string]string{"prop1": "value1"}},
 		},
 		RoleRef: &rbac.RoleRef{Kind: "ServiceRole", Name: "ServiceRole001"},
+	}
+
+	// ExampleRbacConfig is an example rbac config
+	ExampleRbacConfig = &rbac.RbacConfig{
+		Mode: rbac.RbacConfig_ON,
 	}
 )
 
@@ -266,10 +239,12 @@ func Make(namespace string, i int) model.Config {
 	}
 }
 
-// Compare checks two configs ignoring revisions
+// Compare checks two configs ignoring revisions and creation time
 func Compare(a, b model.Config) bool {
 	a.ResourceVersion = ""
 	b.ResourceVersion = ""
+	a.CreationTimestamp = meta_v1.NewTime(time.Time{})
+	b.CreationTimestamp = meta_v1.NewTime(time.Time{})
 	return reflect.DeepEqual(a, b)
 }
 
@@ -440,40 +415,46 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 
 // CheckIstioConfigTypes validates that an empty store can ingest Istio config objects
 func CheckIstioConfigTypes(store model.ConfigStore, namespace string, t *testing.T) {
-	name := "example"
+	configName := "example"
+	// Global scoped policies like MeshPolicy are not isolated, can't be
+	// run as part of the normal test suites - if needed they should
+	// be run in separate environment. The test suites are setting cluster
+	// scoped policies that may interfere and would require serialization
 
 	cases := []struct {
-		name   string
-		schema model.ProtoSchema
-		spec   proto.Message
+		name       string
+		configName string
+		schema     model.ProtoSchema
+		spec       proto.Message
 	}{
-		{"RouteRule", model.RouteRule, ExampleRouteRule},
-		{"VirtualService", model.VirtualService, ExampleVirtualService},
-		{"DestinationRule", model.DestinationRule, ExampleDestinationRule},
-		{"ServiceEntry", model.ServiceEntry, ExampleServiceEntry},
-		{"Gatway", model.Gateway, ExampleGateway},
-		{"IngressRule", model.IngressRule, ExampleIngressRule},
-		{"EgressRule", model.EgressRule, ExampleEgressRule},
-		{"DestinationPolicy", model.DestinationPolicy, ExampleDestinationPolicy},
-		{"HTTPAPISpec", model.HTTPAPISpec, ExampleHTTPAPISpec},
-		{"HTTPAPISpecBinding", model.HTTPAPISpecBinding, ExampleHTTPAPISpecBinding},
-		{"QuotaSpec", model.QuotaSpec, ExampleQuotaSpec},
-		{"QuotaSpecBinding", model.QuotaSpecBinding, ExampleQuotaSpecBinding},
-		{"Policy", model.AuthenticationPolicy, ExampleAuthenticationPolicy},
-		{"ServiceRole", model.ServiceRole, ExampleServiceRole},
-		{"ServiceRoleBinding", model.ServiceRoleBinding, ExampleServiceRoleBinding},
+		{"VirtualService", configName, model.VirtualService, ExampleVirtualService},
+		{"DestinationRule", configName, model.DestinationRule, ExampleDestinationRule},
+		{"ServiceEntry", configName, model.ServiceEntry, ExampleServiceEntry},
+		{"Gateway", configName, model.Gateway, ExampleGateway},
+		{"HTTPAPISpec", configName, model.HTTPAPISpec, ExampleHTTPAPISpec},
+		{"HTTPAPISpecBinding", configName, model.HTTPAPISpecBinding, ExampleHTTPAPISpecBinding},
+		{"QuotaSpec", configName, model.QuotaSpec, ExampleQuotaSpec},
+		{"QuotaSpecBinding", configName, model.QuotaSpecBinding, ExampleQuotaSpecBinding},
+		{"Policy", configName, model.AuthenticationPolicy, ExampleAuthenticationPolicy},
+		{"ServiceRole", configName, model.ServiceRole, ExampleServiceRole},
+		{"ServiceRoleBinding", configName, model.ServiceRoleBinding, ExampleServiceRoleBinding},
+		{"RbacConfig", model.DefaultRbacConfigName, model.RbacConfig, ExampleRbacConfig},
 	}
 
 	for _, c := range cases {
+		configMeta := model.ConfigMeta{
+			Type:    c.schema.Type,
+			Name:    c.configName,
+			Group:   c.schema.Group + model.IstioAPIGroupDomain,
+			Version: c.schema.Version,
+		}
+		if !c.schema.ClusterScoped {
+			configMeta.Namespace = namespace
+		}
+
 		if _, err := store.Create(model.Config{
-			ConfigMeta: model.ConfigMeta{
-				Type:      c.schema.Type,
-				Name:      name,
-				Group:     c.schema.Group + model.IstioAPIGroupDomain,
-				Version:   c.schema.Version,
-				Namespace: namespace,
-			},
-			Spec: c.spec,
+			ConfigMeta: configMeta,
+			Spec:       c.spec,
 		}); err != nil {
 			t.Errorf("Post(%v) => got %v", c.name, err)
 		}
