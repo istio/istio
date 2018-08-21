@@ -70,6 +70,7 @@ func TestIntoResourceFile(t *testing.T) {
 		imagePullPolicy              string
 		enableCoreDump               bool
 		debugMode                    bool
+		privileged                   bool
 		duration                     time.Duration
 		includeIPRanges              string
 		excludeIPRanges              string
@@ -500,6 +501,7 @@ func TestIntoResourceFile(t *testing.T) {
 				SidecarProxyUID:              DefaultSidecarProxyUID,
 				Version:                      "12345678",
 				EnableCoreDump:               c.enableCoreDump,
+				Privileged:                   c.privileged,
 				Mesh:                         &mesh,
 				DebugMode:                    c.debugMode,
 				IncludeIPRanges:              c.includeIPRanges,

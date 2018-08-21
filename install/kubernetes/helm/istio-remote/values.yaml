@@ -62,6 +62,9 @@ global:
     # disable access log for sidecar.
     accessLogFile: "/dev/stdout"
 
+    # If set to true, istio-proxy container will have privileged securityContext
+    privileged: false
+
     # If set, newly injected sidecars will have core dumps enabled. Core dumps will always be written to the same
     # file to prevent storage filling up indefinitely. Add a timestamp option to core_pattern to keep all cores:
     # e.g. sysctl -w kernel.core_pattern=/var/lib/istio/core.%e.%p.%t
@@ -126,7 +129,7 @@ global:
   # propagated, not recommended for tests.
   controlPlaneSecurityEnabled: false
 
-  # SDS enabled. IF set to true, mTLS certificates for the sidecars will be 
+  # SDS enabled. IF set to true, mTLS certificates for the sidecars will be
   # distributed through the SecretDiscoveryService instead of using K8S secrets to mount the certificates.
   sdsEnabled: false
 
