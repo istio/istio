@@ -40,7 +40,6 @@ curl -LO https://storage.googleapis.com/minikube/releases/latest/docker-machine-
 sudo virsh net-autostart default > /dev/null 2>&1
 sudo virsh net-start default > /dev/null 2>&1
 
-
 # Install kubectl
 echo "Checking and Installing Kubectl as required"
 if ! kubectl --help > /dev/null; then
