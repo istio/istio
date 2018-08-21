@@ -106,6 +106,20 @@ spec:
           capabilities:
             add:
             - NET_ADMIN
+      - args:
+        - -c
+        - sysctl -w kernel.core_pattern=/var/istio/proxy/core.proxy && ulimit -c
+          unlimited
+        command:
+        - /bin/sh
+        image: gcr.io/istio-release/proxy_init:release-1.0-latest-daily
+        imagePullPolicy: IfNotPresent
+        terminationMessagePath: "/dev/termination-log"
+        terminationMessagePolicy: "File"
+        name: enable-core-dump
+        resources: {}
+        securityContext:
+          privileged: true
       restartPolicy: Never
       volumes:
       - emptyDir:
