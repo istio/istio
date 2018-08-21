@@ -125,8 +125,8 @@ function modify_values_command() {
 function gcr_tag_success() {
   pwd; ls
 
-  gsutil ls "gs://$GCS_FULL_STAGING_PATH/docker/"           > docker_tars.txt
-  grep -Eo "docker\\/(([a-z]|[0-9]|-|_)*).tar.gz" docker_tars.txt \
+  gsutil ls "gs://$GCS_FULL_STAGING_PATH/docker/"             > docker_tars.txt
+  grep -Eo "docker\\/(([a-z]|[0-9]|-|_)*).tar.gz"               docker_tars.txt \
       | sed -E "s/docker\\/(([a-z]|[0-9]|-|_)*).tar.gz/\\1/g" > docker_images.txt
 
   gcloud auth configure-docker  -q
