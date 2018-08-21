@@ -320,17 +320,10 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 		return err
 	}
 
-	// Sort virtual services by creation time.
-	// For each virtual service
-	// convert the Shortnames in the service into FQDNs
-	// Split into N smaller virtual services with one host and one gateway each
-	// Index virtual services by gateway and then by the hosts (since we select virtual services by gateways)
-	// If the index entry for the host already exists, concat blocks (add http to existing http, tcp to existing tcp..)
-	//   Sort the concatenated block for each protocol, and push the catch all routes (i.e. match==nil) to the end.
-
 	sortConfigByCreationTime(vservices)
+	ps.VirtualServiceConfigs = vservices
 	// convert all shortnames in virtual services into FQDNs
-	for _, r := range vservices {
+	for _, r := range ps.VirtualServiceConfigs {
 		rule := r.Spec.(*networking.VirtualService)
 		// resolve top level hosts
 		for i, h := range rule.Hosts {
@@ -384,10 +377,7 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 				w.Destination.Host = string(ResolveShortnameToFQDN(w.Destination.Host, r.ConfigMeta))
 			}
 		}
-
 	}
-
-	ps.VirtualServiceConfigs = vservices
 	return nil
 }
 
