@@ -359,6 +359,14 @@
   version = "v1.3.0"
 
 [[projects]]
+  digest = "1:1b91ae0dc69a41d4c2ed23ea5cffb721ea63f5037ca4b81e6d6771fbb8f45129"
+  name = "github.com/fsnotify/fsnotify"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "c2828203cd70a50dcccfb2761f8b1f8ceef9a8e9"
+  version = "v1.4.7"
+
+[[projects]]
   digest = "1:0594af97b2f4cec6554086eeace6597e20a4b69466eb4ada25adf9f4300dddd2"
   name = "github.com/garyburd/redigo"
   packages = [
@@ -2023,6 +2031,7 @@
     "github.com/envoyproxy/go-control-plane/pkg/util",
     "github.com/evanphx/json-patch",
     "github.com/fluent/fluent-logger-golang/fluent",
+    "github.com/fsnotify/fsnotify",
     "github.com/ghodss/yaml",
     "github.com/go-redis/redis",
     "github.com/gogo/googleapis/google/rpc",

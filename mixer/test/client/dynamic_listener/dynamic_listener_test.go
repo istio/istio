@@ -98,6 +98,7 @@ const checkAttributesOkGet = `
   "request.useragent": "Go-http-client/1.1",
   "request.method": "GET",
   "request.scheme": "http",
+  "request.url_path": "/echo",
   "target.namespace": "XYZ222",
   "target.uid": "POD222",
   "request.headers": {
