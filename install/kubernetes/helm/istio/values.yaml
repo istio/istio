@@ -37,6 +37,9 @@ global:
     # disable access log for sidecar.
     accessLogFile: "/dev/stdout"
 
+    #If set to true, istio-proxy container will have privileged securityContext
+    privileged: false
+
     # If set, newly injected sidecars will have core dumps enabled.
     enableCoreDump: false
 
