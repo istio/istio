@@ -1011,11 +1011,6 @@ type OutlierDetection struct {
 	// accessed over an opaque TCP connection, connect timeouts and
 	// connection error/failure events qualify as an error.
 	ConsecutiveErrors int32 `protobuf:"varint,1,opt,name=consecutive_errors,json=consecutiveErrors,proto3" json:"consecutive_errors,omitempty"`
-	// Number of gateway errors before a host is ejected from the connection
-	// pool. Defaults to 5. When the upstream host is accessed over HTTP, a
-	// 502, 503 or 504 return code qualifies as an error. When the upstream
-	// host is accessed over an opaque TCP connection, this setting is ignored.
-	ConsecutiveGatewayFailure int32 `protobuf:"varint,5,opt,name=consecutive_gateway_failure,json=consecutiveGatewayFailure,proto3" json:"consecutive_gateway_failure,omitempty"`
 	// Time interval between ejection sweep analysis. format:
 	// 1h/1m/1s/1ms. MUST BE >=1ms. Default is 10s.
 	Interval *google_protobuf.Duration `protobuf:"bytes,2,opt,name=interval" json:"interval,omitempty"`
@@ -1028,6 +1023,10 @@ type OutlierDetection struct {
 	// Maximum % of hosts in the load balancing pool for the upstream
 	// service that can be ejected. Defaults to 10%.
 	MaxEjectionPercent int32 `protobuf:"varint,4,opt,name=max_ejection_percent,json=maxEjectionPercent,proto3" json:"max_ejection_percent,omitempty"`
+	// Number of gatway errors before a host is ejected from the connection
+	// pool. Disabled by default. When the upstream host is accessed over
+	// HTTP, a 502, 503 or 504 return code qualifies as an error.
+	ConsecutiveGatewayFailure int32 `protobuf:"varint,5,opt,name=consecutive_gateway_failure,json=consecutiveGatewayFailure,proto3" json:"consecutive_gateway_failure,omitempty"`
 }
 
 func (m *OutlierDetection) Reset()                    { *m = OutlierDetection{} }
@@ -1038,13 +1037,6 @@ func (*OutlierDetection) Descriptor() ([]byte, []int) { return fileDescriptorDes
 func (m *OutlierDetection) GetConsecutiveErrors() int32 {
 	if m != nil {
 		return m.ConsecutiveErrors
-	}
-	return 0
-}
-
-func (m *OutlierDetection) GetConsecutiveGatewayFailure() int32 {
-	if m != nil {
-		return m.ConsecutiveGatewayFailure
 	}
 	return 0
 }
@@ -1066,6 +1058,13 @@ func (m *OutlierDetection) GetBaseEjectionTime() *google_protobuf.Duration {
 func (m *OutlierDetection) GetMaxEjectionPercent() int32 {
 	if m != nil {
 		return m.MaxEjectionPercent
+	}
+	return 0
+}
+
+func (m *OutlierDetection) GetConsecutiveGatewayFailure() int32 {
+	if m != nil {
+		return m.ConsecutiveGatewayFailure
 	}
 	return 0
 }
