@@ -1,46 +1,36 @@
 dependencies:
   - name: sidecarInjectorWebhook
     version: 1.0.0
-    # repository: file://../sidecarInjectorWebhook
     condition: sidecarInjectorWebhook.enabled
   - name: security
     version: 1.0.0
-    # repository: file://../security
     condition: security.enabled
   - name: ingress
     version: 1.0.0
-    # repository: file://../ingress
     condition: ingress.enabled
   - name: gateways
     version: 1.0.0
-    # repository: file://../gateways
     condition: gateways.enabled
   - name: mixer
     version: 1.0.0
-    # repository: file://../mixer
     condition: mixer.enabled
   - name: pilot
     version: 1.0.0
-    # repository: file://../pilot
     condition: pilot.enabled
   - name: grafana
     version: 0.1.0
-    # repository: file://../addons/grafana
     condition: grafana.enabled
   - name: prometheus
     version: 0.1.0
-    # repository: file://../addons/prometheus
     condition: prometheus.enabled
   - name: servicegraph
     version: 0.1.0
-    # repository: file://../addons/servicegraph
     condition: servicegraph.enabled
   - name: tracing
     version: 0.1.0
     condition: tracing.enabled
   - name: galley
     version: 1.0.0
-    # repository: file://../galley
     condition: galley.enabled
   - name: kiali
     version: 0.5.1
