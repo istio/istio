@@ -211,6 +211,7 @@ func (c *Controller) rebuildRules() {
 
 	virtualServices := make(map[string]*model.Config, len(resp.GetRoutes()))
 	destinationRules := make(map[string]*model.Config, len(resp.GetRoutes()))
+	httpRoutes := make(map[string]*networking.HTTPRoute)
 
 	for _, route := range resp.GetRoutes() {
 		destinationRuleName := fmt.Sprintf("dest-rule-for-%s", route.GetHostname())
@@ -232,14 +233,17 @@ func (c *Controller) rebuildRules() {
 			vs = createVirtualService(gatewayNames, route)
 		}
 
-		r := createHTTPRoute(route)
-		r.Route[0].Destination.Subset = route.GetCapiProcessGuid()
-
-		if route.GetPath() != "" {
-			r.Match = createHTTPMatchRequest(route)
-			vs.Http = append([]*networking.HTTPRoute{r}, vs.Http...)
+		if r, ok := httpRoutes[route.GetHostname()+route.GetPath()]; ok {
+			r.Route = append(r.Route, createDestinationWeight(route))
 		} else {
-			vs.Http = append(vs.Http, r)
+			r := createHTTPRoute(route)
+			if route.GetPath() != "" {
+				r.Match = createHTTPMatchRequest(route)
+				vs.Http = append([]*networking.HTTPRoute{r}, vs.Http...)
+			} else {
+				vs.Http = append(vs.Http, r)
+			}
+			httpRoutes[route.GetHostname()+route.GetPath()] = r
 		}
 
 		virtualServices[virtualServiceName] = &model.Config{
@@ -279,21 +283,24 @@ func createVirtualService(gatewayNames []string, route *copilotapi.RouteWithBack
 	}
 }
 
-func createHTTPRoute(route *copilotapi.RouteWithBackends) *networking.HTTPRoute {
-	return &networking.HTTPRoute{
-		Route: []*networking.DestinationWeight{
-			{
-				Destination: &networking.Destination{
-					Host: route.GetHostname(),
-					Port: &networking.PortSelector{
-						Port: &networking.PortSelector_Number{
-							Number: 8080,
-						},
-					},
+func createDestinationWeight(route *copilotapi.RouteWithBackends) *networking.DestinationWeight {
+	return &networking.DestinationWeight{
+		Destination: &networking.Destination{
+			Host:   route.GetHostname(),
+			Subset: route.GetCapiProcessGuid(),
+			Port: &networking.PortSelector{
+				Port: &networking.PortSelector_Number{
+					Number: 8080,
 				},
-				Weight: route.GetRouteWeight(),
 			},
 		},
+		Weight: route.GetRouteWeight(),
+	}
+}
+
+func createHTTPRoute(route *copilotapi.RouteWithBackends) *networking.HTTPRoute {
+	return &networking.HTTPRoute{
+		Route: []*networking.DestinationWeight{createDestinationWeight(route)},
 	}
 }
 
