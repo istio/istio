@@ -567,61 +567,59 @@ func TestNoSessionBackend(t *testing.T) {
 `,
 		},
 
-		/*
-			{
-				name: "multiple mix calls",
-				calls: []adapter_integration.Call{
-					// 3 report calls; varying request.size attribute and no attributes call too.
-					{
-						CallKind: adapter_integration.REPORT,
-						Attrs:    map[string]interface{}{"request.size": int64(666)},
-					},
-					{
-						CallKind: adapter_integration.REPORT,
-						Attrs:    map[string]interface{}{"request.size": int64(888)},
-					},
-					{
-						CallKind: adapter_integration.REPORT,
-					},
-
-					// 3 check calls; varying source.name attribute and no attributes call too.,
-					{
-						CallKind: adapter_integration.CHECK,
-						Attrs:    map[string]interface{}{"source.name": "foobar"},
-					},
-					{
-						CallKind: adapter_integration.CHECK,
-						Attrs:    map[string]interface{}{"source.name": "bazbaz"},
-					},
-					{
-						CallKind: adapter_integration.CHECK,
-					},
-
-					// one call with quota args
-					{
-						CallKind: adapter_integration.CHECK,
-						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
-							"requestQuota": {
-								Amount:     35,
-								BestEffort: true,
-							},
-						},
-					},
-					// one report request with request.id to match r4 rule
-					{
-						CallKind: adapter_integration.REPORT,
-						Attrs:    map[string]interface{}{"request.id": "somereqid"},
-					},
+		{
+			name: "multiple mix calls",
+			calls: []adapter_integration.Call{
+				// 3 report calls; varying request.size attribute and no attributes call too.
+				{
+					CallKind: adapter_integration.REPORT,
+					Attrs:    map[string]interface{}{"request.size": int64(666)},
+				},
+				{
+					CallKind: adapter_integration.REPORT,
+					Attrs:    map[string]interface{}{"request.size": int64(888)},
+				},
+				{
+					CallKind: adapter_integration.REPORT,
 				},
 
-				// want: --> multiple-mix-calls.golden.json
-				// * 4 i2metric.instance.istio-system for 4 report calls
-				// * 5 i1metric.instance.istio-system for 4 report calls (3 report calls without request.id attribute and 1 report calls
-				//     with request.id attribute, which result into 2 dispatch report rules to resolve successfully).
-				// * 4 i3list.instance.istio-system for 4 check calls
-				// * 1 requestQuota.instance.istio-system for 1 quota call
+				// 3 check calls; varying source.name attribute and no attributes call too.,
+				{
+					CallKind: adapter_integration.CHECK,
+					Attrs:    map[string]interface{}{"source.name": "foobar"},
+				},
+				{
+					CallKind: adapter_integration.CHECK,
+					Attrs:    map[string]interface{}{"source.name": "bazbaz"},
+				},
+				{
+					CallKind: adapter_integration.CHECK,
+				},
+
+				// one call with quota args
+				{
+					CallKind: adapter_integration.CHECK,
+					Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+						"requestQuota": {
+							Amount:     35,
+							BestEffort: true,
+						},
+					},
+				},
+				// one report request with request.id to match r4 rule
+				{
+					CallKind: adapter_integration.REPORT,
+					Attrs:    map[string]interface{}{"request.id": "somereqid"},
+				},
 			},
-		*/
+
+			// want: --> multiple-mix-calls.golden.json
+			// * 4 i2metric.instance.istio-system for 4 report calls
+			// * 5 i1metric.instance.istio-system for 4 report calls (3 report calls without request.id attribute and 1 report calls
+			//     with request.id attribute, which result into 2 dispatch report rules to resolve successfully).
+			// * 4 i3list.instance.istio-system for 4 check calls
+			// * 1 requestQuota.instance.istio-system for 1 quota call
+		},
 	}
 
 	adptCfgBytes, err := ioutil.ReadFile("nosession.yaml")

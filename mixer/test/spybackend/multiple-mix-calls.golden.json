@@ -288,63 +288,63 @@
  "Returns": [
   {
    "Check": {
-    "Status": {},
-    "ValidDuration": 0,
-    "ValidUseCount": 0
+    "status": {},
+    "valid_duration": 0,
+    "valid_use_count": 0
    },
    "Quota": null,
    "Error": null
   },
   {
    "Check": {
-    "Status": {},
-    "ValidDuration": 0,
-    "ValidUseCount": 0
+    "status": {},
+    "valid_duration": 0,
+    "valid_use_count": 0
    },
    "Quota": null,
    "Error": null
   },
   {
    "Check": {
-    "Status": {},
-    "ValidDuration": 0,
-    "ValidUseCount": 0
+    "status": {},
+    "valid_duration": 0,
+    "valid_use_count": 0
    },
    "Quota": null,
    "Error": null
   },
   {
    "Check": {
-    "Status": {},
-    "ValidDuration": 0,
-    "ValidUseCount": 31
+    "status": {},
+    "valid_duration": 0,
+    "valid_use_count": 31
    },
    "Quota": null,
    "Error": null
   },
   {
    "Check": {
-    "Status": {},
-    "ValidDuration": 0,
-    "ValidUseCount": 31
+    "status": {},
+    "valid_duration": 0,
+    "valid_use_count": 31
    },
    "Quota": null,
    "Error": null
   },
   {
    "Check": {
-    "Status": {},
-    "ValidDuration": 0,
-    "ValidUseCount": 31
+    "status": {},
+    "valid_duration": 0,
+    "valid_use_count": 31
    },
    "Quota": null,
    "Error": null
   },
   {
    "Check": {
-    "Status": {},
-    "ValidDuration": 0,
-    "ValidUseCount": 0
+    "status": {},
+    "valid_duration": 0,
+    "valid_use_count": 0
    },
    "Quota": {
     "requestQuota": {
@@ -357,9 +357,9 @@
   },
   {
    "Check": {
-    "Status": {},
-    "ValidDuration": 0,
-    "ValidUseCount": 0
+    "status": {},
+    "valid_duration": 0,
+    "valid_use_count": 0
    },
    "Quota": null,
    "Error": null
