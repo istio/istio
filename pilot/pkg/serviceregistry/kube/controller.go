@@ -269,7 +269,6 @@ func (c *Controller) ManagementPorts(addr string) model.PortList {
 	}
 
 	managementPorts, err := convertProbesToPorts(&pod.Spec)
-
 	if err != nil {
 		log.Infof("Error while parsing liveliness and readiness probe ports for %s => %v", addr, err)
 	}
