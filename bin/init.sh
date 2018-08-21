@@ -69,7 +69,7 @@ set_download_command () {
     # Try curl.
     if command -v curl > /dev/null; then
         if curl --version | grep Protocols  | grep https > /dev/null; then
-	       DOWNLOAD_COMMAND='curl -fLSs'
+	       DOWNLOAD_COMMAND='curl -fLSsO'
 	       return
         fi
         echo curl does not support https, will try wget for downloading files.
@@ -79,7 +79,7 @@ set_download_command () {
 
     # Try wget.
     if command -v wget > /dev/null; then
-        DOWNLOAD_COMMAND='wget -qO -'
+        DOWNLOAD_COMMAND='wget'
         return
     fi
     echo wget is not installed.
@@ -94,9 +94,9 @@ if [ -z ${PROXY_REPO_SHA:-} ] ; then
 fi
 
 # Normally set by the Makefile.
-ISTIO_MOSN_VERSION=${ISTIO_MOSN_VERSION:-${PROXY_REPO_SHA}}
-ISTIO_MOSN_DEBUG_URL=${ISTIO_MOSN_DEBUG_URL:-http://storage.googleapis.com/sofa-mesh/proxy/mosn-debug-${ISTIO_MOSN_VERSION}.tar.gz}
-ISTIO_MOSN_RELEASE_URL=${ISTIO_MOSN_RELEASE_URL:-http://storage.googleapis.com/sofa-mesh/proxy/mosn-alpha-${ISTIO_MOSN_VERSION}.tar.gz}
+# ISTIO_MOSN_VERSION=${ISTIO_MOSN_VERSION:-${PROXY_REPO_SHA}}
+ISTIO_MOSN_DEBUG_URL=${ISTIO_MOSN_DEBUG_URL:-https://github.com/alipay/sofa-mosn/releases/download/${ISTIO_MOSN_VERSION}/mosn}
+ISTIO_MOSN_RELEASE_URL=${ISTIO_MOSN_RELEASE_URL:-https://github.com/alipay/sofa-mosn/releases/download/${ISTIO_MOSN_VERSION}/mosn}
 # TODO Change url when official mosn release for MAC is available
 ISTIO_MOSN_MAC_RELEASE_URL=${ISTIO_MOSN_MAC_RELEASE_URL:-https://storage.googleapis.com/istio-on-macos/releases/0.7.1/istio-proxy-0.7.1-macos.tar.gz}
 
@@ -124,9 +124,9 @@ if [ ! -f "$ISTIO_MOSN_DEBUG_PATH" ] || [ ! -f "$ISTIO_MOSN_RELEASE_PATH" ] ; th
        ISTIO_MOSN_DEBUG_URL=${ISTIO_MOSN_MAC_RELEASE_URL}
     fi
     echo "Downloading mosn debug artifact: ${DOWNLOAD_COMMAND} ${ISTIO_MOSN_DEBUG_URL}"
-    time ${DOWNLOAD_COMMAND} ${ISTIO_MOSN_DEBUG_URL} | tar xz
-    cp usr/local/bin/mosn $ISTIO_MOSN_DEBUG_PATH
-    rm -rf usr
+    time ${DOWNLOAD_COMMAND} ${ISTIO_MOSN_DEBUG_URL}
+    cp mosn $ISTIO_MOSN_DEBUG_PATH
+    rm -f mosn
     popd
 
     # Download release mosn binary.
@@ -136,9 +136,9 @@ if [ ! -f "$ISTIO_MOSN_DEBUG_PATH" ] || [ ! -f "$ISTIO_MOSN_RELEASE_PATH" ] ; th
        ISTIO_MOSN_RELEASE_URL=${ISTIO_MOSN_MAC_RELEASE_URL}
     fi
     echo "Downloading mosn release artifact: ${DOWNLOAD_COMMAND} ${ISTIO_MOSN_RELEASE_URL}"
-    time ${DOWNLOAD_COMMAND} ${ISTIO_MOSN_RELEASE_URL} | tar xz
-    cp usr/local/bin/mosn $ISTIO_MOSN_RELEASE_PATH
-    rm -rf usr
+    time ${DOWNLOAD_COMMAND} ${ISTIO_MOSN_RELEASE_URL}
+    cp mosn $ISTIO_MOSN_RELEASE_PATH
+    rm -f mosn
     popd
 fi
 

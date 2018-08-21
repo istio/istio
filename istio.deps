@@ -5,5 +5,9 @@
 		"repoName": "proxy",
 		"file": "",
 		"lastStableSHA": "6166ae7ebac7f630206b2fe4e6767516bf198313"
+	},
+	{
+	    "name": "MOSN_VERSION",
+	    "version": "0.1.0"
 	}
 ]
