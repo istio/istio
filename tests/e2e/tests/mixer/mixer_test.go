@@ -1110,8 +1110,8 @@ func testRedisQuota(t *testing.T, quotaRule string) {
 	// consider only successful requests (as recorded at productpage service)
 	callsToRatings := succReqs
 
-	// the rate-limit is 1 rps
-	want200s := 1. * actualDuration
+	// the rate-limit is 0.1 rps from ratings to reviews.
+	want200s := 0.1 * actualDuration
 
 	// everything in excess of 200s should be 429s (ideally)
 	want429s := callsToRatings - want200s
