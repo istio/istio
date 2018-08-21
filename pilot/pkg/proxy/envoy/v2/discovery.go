@@ -34,7 +34,7 @@ var (
 	// Disabled by default.
 	periodicRefreshDuration = 0 * time.Second
 
-	versionMutex sync.Mutex
+	versionMutex sync.RWMutex
 
 	// version is the timestamp of the last registry event.
 	version = "0"
@@ -209,23 +209,23 @@ func (s *DiscoveryServer) ClearCacheFunc() func() {
 			// TODO: metric !!
 			return
 		}
-		initContextTime := time.Since(t0)
 
-		// TODO: propagate K8S version and use it instead
-		versionMutex.Lock()
-		s.env.PushContext = push
-		if err = s.ConfigGenerator.BuildSharedPushState(s.env); err == nil {
-			version = time.Now().Format(time.RFC3339)
-		}
-		versionMutex.Unlock()
-
-		if err != nil {
+		if err = s.ConfigGenerator.BuildSharedPushState(s.env, push); err != nil {
 			adsLog.Errorf("XDS: Failed to rebuild share state in configgen: %v", err)
 			return
 		}
-		adsLog.Infof("Context init for push %v %s", initContextTime, version)
 
-		go s.AdsPushAll(versionInfo(), push)
+		s.env.PushContext = push
+		versionLocal := time.Now().Format(time.RFC3339)
+		initContextTime := time.Since(t0)
+		adsLog.Debugf("InitContext %v for push took %s", versionLocal, initContextTime)
+
+		// TODO: propagate K8S version and use it instead
+		versionMutex.Lock()
+		version = versionLocal
+		versionMutex.Unlock()
+
+		go s.AdsPushAll(versionLocal, push)
 	}
 }
 
@@ -234,7 +234,7 @@ func nonce() string {
 }
 
 func versionInfo() string {
-	versionMutex.Lock()
-	defer versionMutex.Unlock()
+	versionMutex.RLock()
+	defer versionMutex.RUnlock()
 	return version
 }

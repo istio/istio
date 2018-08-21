@@ -48,7 +48,6 @@ const (
 func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, proxy *model.Proxy, push *model.PushContext) ([]*v2.Cluster, error) {
 	clusters := make([]*v2.Cluster, 0)
 
-	services := push.Services
 	recomputeOutboundClusters := true
 
 	switch proxy.Type {
@@ -65,7 +64,7 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 	}
 
 	if recomputeOutboundClusters {
-		clusters = append(clusters, configgen.buildOutboundClusters(env, proxy.Type, push, services)...)
+		clusters = append(clusters, configgen.buildOutboundClusters(env, proxy.Type, push)...)
 	}
 
 	if proxy.Type == model.Sidecar {
@@ -103,10 +102,9 @@ func normalizeClusters(push *model.PushContext, proxy *model.Proxy, clusters []*
 	return out
 }
 
-func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environment, proxyType model.NodeType, push *model.PushContext,
-	services []*model.Service) []*v2.Cluster {
+func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environment, proxyType model.NodeType, push *model.PushContext) []*v2.Cluster {
 	clusters := make([]*v2.Cluster, 0)
-	for _, service := range services {
+	for _, service := range push.Services {
 		config := push.DestinationRule(service.Hostname)
 		for _, port := range service.Ports {
 			if port.Protocol == model.ProtocolUDP {

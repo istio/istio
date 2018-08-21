@@ -29,7 +29,7 @@ type ConfigGenerator interface {
 	// actual BuildClusters/BuildListeners/BuildHTTPRoutes calls. The plugins will not be invoked during this call
 	// as most plugins require information about the specific proxy (e.g., mixer/authn/authz). Instead, the
 	// BuildYYY functions will invoke the plugins on the precomputed objects.
-	BuildSharedPushState(env *model.Environment) error
+	BuildSharedPushState(env *model.Environment, push *model.PushContext) error
 
 	// BuildListeners returns the list of inbound/outbound listeners for the given proxy. This is the LDS output
 	// Internally, the computation will be optimized to ensure that listeners are computed only

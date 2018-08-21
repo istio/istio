@@ -39,10 +39,8 @@ func NewConfigGenerator(plugins []plugin.Plugin) *ConfigGeneratorImpl {
 	}
 }
 
-func (configgen *ConfigGeneratorImpl) BuildSharedPushState(env *model.Environment) error {
-	configgen.OutboundClustersForSidecars = configgen.buildOutboundClusters(env, model.Sidecar,
-		env.PushContext, env.PushContext.Services)
-	configgen.OutboundClustersForGateways = configgen.buildOutboundClusters(env, model.Router,
-		env.PushContext, env.PushContext.Services)
+func (configgen *ConfigGeneratorImpl) BuildSharedPushState(env *model.Environment, push *model.PushContext) error {
+	configgen.OutboundClustersForSidecars = configgen.buildOutboundClusters(env, model.Sidecar, push)
+	configgen.OutboundClustersForGateways = configgen.buildOutboundClusters(env, model.Router, push)
 	return nil
 }
