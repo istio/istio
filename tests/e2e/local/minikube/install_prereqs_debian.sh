@@ -63,12 +63,12 @@ fi
 
 # Install minikube.
 function install_minikube() {
-  if ! curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.27.0/minikube-linux-amd64 \
-      && chmod +x minikube \
-      && sudo mv minikube /usr/local/bin/; then
-    echo "Looks like minikube installation failed."
-    echo "Please install it manually and then run this script again."
-    exit 1
+  if ! (curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.27.0/minikube-linux-amd64 && \ 
+      chmod +x minikube && \
+      sudo mv minikube /usr/local/bin/); then
+      echo "Looks like minikube installation failed."
+      echo "Please install it manually and then run this script again."
+      exit 1
   fi
 }
 
