@@ -55,7 +55,6 @@ type (
 	}
 
 	// AdapterBehavior defines the behavior of the Adapter
-	// nolint: maligned
 	AdapterBehavior struct {
 		Name    string
 		Builder BuilderBehavior
@@ -63,7 +62,6 @@ type (
 	}
 
 	// HandlerBehavior defines the behavior of the Handler
-	// nolint: maligned
 	HandlerBehavior struct {
 		HandleSampleReportErr   error
 		HandleSampleReportPanic bool
@@ -89,7 +87,6 @@ type (
 	}
 
 	// BuilderBehavior defines the behavior of the Builder
-	// nolint: maligned
 	BuilderBehavior struct {
 		SetSampleReportTypesPanic bool
 		SetSampleCheckTypesPanic  bool
@@ -104,7 +101,6 @@ type (
 		BuildPanic bool
 	}
 
-	// nolint: maligned
 	builder struct {
 		builderBehavior BuilderBehavior
 		handlerBehavior HandlerBehavior

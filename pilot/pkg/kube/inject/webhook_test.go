@@ -802,7 +802,7 @@ func createWebhook(t testing.TB, sidecarTemplate string) (*Webhook, func()) {
 		t.Fatalf("TempDir() failed: %v", err)
 	}
 	cleanup := func() {
-		os.RemoveAll(dir) // nolint: errcheck
+		os.RemoveAll(dir)
 	}
 
 	config := &Config{
@@ -823,7 +823,7 @@ func createWebhook(t testing.TB, sidecarTemplate string) (*Webhook, func()) {
 		port       = 0
 	)
 
-	if err := ioutil.WriteFile(configFile, configBytes, 0644); err != nil { // nolint: vetshadow
+	if err := ioutil.WriteFile(configFile, configBytes, 0644); err != nil {
 		cleanup()
 		t.Fatalf("WriteFile(%v) failed: %v", configFile, err)
 	}
@@ -834,22 +834,22 @@ func createWebhook(t testing.TB, sidecarTemplate string) (*Webhook, func()) {
 		Indent: "  ",
 	}
 	var meshBytes bytes.Buffer
-	if err := m.Marshal(&meshBytes, &mesh); err != nil { // nolint: vetshadow
+	if err := m.Marshal(&meshBytes, &mesh); err != nil {
 		cleanup()
 		t.Fatalf("yaml.Marshal(mesh) failed: %v", err)
 	}
-	if err := ioutil.WriteFile(meshFile, meshBytes.Bytes(), 0644); err != nil { // nolint: vetshadow
+	if err := ioutil.WriteFile(meshFile, meshBytes.Bytes(), 0644); err != nil {
 		cleanup()
 		t.Fatalf("WriteFile(%v) failed: %v", meshFile, err)
 	}
 
 	// cert
-	if err := ioutil.WriteFile(certFile, testcerts.ServerCert, 0644); err != nil { // nolint: vetshadow
+	if err := ioutil.WriteFile(certFile, testcerts.ServerCert, 0644); err != nil {
 		cleanup()
 		t.Fatalf("WriteFile(%v) failed: %v", certFile, err)
 	}
 	// key
-	if err := ioutil.WriteFile(keyFile, testcerts.ServerKey, 0644); err != nil { // nolint: vetshadow
+	if err := ioutil.WriteFile(keyFile, testcerts.ServerKey, 0644); err != nil {
 		cleanup()
 		t.Fatalf("WriteFile(%v) failed: %v", keyFile, err)
 	}
@@ -873,7 +873,6 @@ func TestRunAndServe(t *testing.T) {
 	validReview := makeTestData(t, false)
 	skipReview := makeTestData(t, true)
 
-	// nolint: lll
 	validPatch := []byte(`[
    {
       "op":"add",
@@ -1030,11 +1029,11 @@ func TestReloadCert(t *testing.T) {
 	go wh.Run(stop)
 	checkCert(t, wh, testcerts.ServerCert, testcerts.ServerKey)
 	// Update cert/key files.
-	if err := ioutil.WriteFile(wh.certFile, rotatedCert, 0644); err != nil { // nolint: vetshadow
+	if err := ioutil.WriteFile(wh.certFile, rotatedCert, 0644); err != nil {
 		cleanup()
 		t.Fatalf("WriteFile(%v) failed: %v", wh.certFile, err)
 	}
-	if err := ioutil.WriteFile(wh.keyFile, rotatedKey, 0644); err != nil { // nolint: vetshadow
+	if err := ioutil.WriteFile(wh.keyFile, rotatedKey, 0644); err != nil {
 		cleanup()
 		t.Fatalf("WriteFile(%v) failed: %v", wh.keyFile, err)
 	}

@@ -119,7 +119,7 @@ type recentRequestsJournal struct {
 	items      []RecentRequestInfo
 }
 
-func (r *recentRequestsJournal) record(req *mcp.MeshConfigRequest) { // nolint:interfacer
+func (r *recentRequestsJournal) record(req *mcp.MeshConfigRequest) {
 	r.itemsMutex.Lock()
 	defer r.itemsMutex.Unlock()
 
@@ -145,7 +145,7 @@ func (r *recentRequestsJournal) snapshot() []RecentRequestInfo {
 }
 
 // New creates a new instance of the MCP client for the specified message types.
-func New(mcpClient mcp.AggregatedMeshConfigServiceClient, supportedMessageNames []string, updater Updater, id string, metadata map[string]string) *Client { // nolint: lll
+func New(mcpClient mcp.AggregatedMeshConfigServiceClient, supportedMessageNames []string, updater Updater, id string, metadata map[string]string) *Client {
 	clientInfo := &mcp.Client{
 		Id: id,
 		Metadata: &types.Struct{

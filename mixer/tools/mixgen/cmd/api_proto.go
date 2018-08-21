@@ -1,7 +1,6 @@
 package cmd
 
 // AugmentedProtoTmpl defines the modified template proto with Type and InstanceParams
-// nolint:lll
 var augmentedProtoTmpl = `// Copyright 2017 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");

@@ -189,7 +189,7 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 		deploymentNamespace: p.DeploymentNamespace,
 	}
 
-	if galleyDeployment, err := wh.clientset.ExtensionsV1beta1().Deployments(wh.deploymentNamespace).Get(wh.deploymentName, v1.GetOptions{}); err != nil { // nolint: lll
+	if galleyDeployment, err := wh.clientset.ExtensionsV1beta1().Deployments(wh.deploymentNamespace).Get(wh.deploymentName, v1.GetOptions{}); err != nil {
 		log.Warnf("Could not find %s/%s deployment to set ownerRef. The validatingwebhookconfiguration must be deleted manually",
 			wh.deploymentNamespace, wh.deploymentName)
 	} else {
@@ -212,9 +212,9 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 }
 
 func (wh *Webhook) stop() {
-	wh.keyCertWatcher.Close() // nolint: errcheck
-	wh.configWatcher.Close()  // nolint: errcheck
-	wh.server.Close()         // nolint: errcheck
+	wh.keyCertWatcher.Close()
+	wh.configWatcher.Close()
+	wh.server.Close()
 }
 
 // Run implements the webhook server

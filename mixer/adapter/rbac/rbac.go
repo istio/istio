@@ -12,9 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// nolint: lll
 //go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -a mixer/adapter/rbac/config/config.proto -x "-n rbac -t authorization"
-
 // Package rbac provides Role Based Access Control (RBAC) for services in Istio mesh.
 // Seting up RBAC handler is trivial. The runtime input to RBAC handler should be an instance of
 // "authorization" template.

@@ -97,7 +97,7 @@ func TestInitializeBoolFlag(t *testing.T) {
 	})
 
 	_ = cmd.Flags().Parse([]string{})
-	if testBool != defaultBool { // nolint: megacheck
+	if testBool != defaultBool {
 		t.Errorf("%s: pflag parse error. Actual %t, Expected %t", testName, testBool, defaultBool)
 	}
 }

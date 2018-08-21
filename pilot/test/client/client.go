@@ -143,7 +143,7 @@ func makeWebSocketRequest(client *websocket.Dialer) job {
 				// timeout or bad handshake
 				return err
 			}
-			// nolint: errcheck
+
 			defer conn.Close()
 
 			err = conn.WriteMessage(websocket.TextMessage, []byte(msg))

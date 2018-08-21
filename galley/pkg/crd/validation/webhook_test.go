@@ -110,7 +110,7 @@ func createTestWebhook(t testing.TB, cl clientset.Interface, config *admissionre
 		t.Fatalf("TempDir() failed: %v", err)
 	}
 	cleanup := func() {
-		os.RemoveAll(dir) // nolint: errcheck
+		os.RemoveAll(dir)
 	}
 
 	var (
@@ -123,17 +123,17 @@ func createTestWebhook(t testing.TB, cl clientset.Interface, config *admissionre
 	)
 
 	// cert
-	if err := ioutil.WriteFile(certFile, testcerts.ServerCert, 0644); err != nil { // nolint: vetshadow
+	if err := ioutil.WriteFile(certFile, testcerts.ServerCert, 0644); err != nil {
 		cleanup()
 		t.Fatalf("WriteFile(%v) failed: %v", certFile, err)
 	}
 	// key
-	if err := ioutil.WriteFile(keyFile, testcerts.ServerKey, 0644); err != nil { // nolint: vetshadow
+	if err := ioutil.WriteFile(keyFile, testcerts.ServerKey, 0644); err != nil {
 		cleanup()
 		t.Fatalf("WriteFile(%v) failed: %v", keyFile, err)
 	}
 	// ca
-	if err := ioutil.WriteFile(caFile, testcerts.CACert, 0644); err != nil { // nolint: vetshadow
+	if err := ioutil.WriteFile(caFile, testcerts.CACert, 0644); err != nil {
 		cleanup()
 		t.Fatalf("WriteFile(%v) failed: %v", caFile, err)
 	}
@@ -143,7 +143,7 @@ func createTestWebhook(t testing.TB, cl clientset.Interface, config *admissionre
 		cleanup()
 		t.Fatalf("could not create fake webhook configuration data: %v", err)
 	}
-	if err := ioutil.WriteFile(configFile, configBytes, 0644); err != nil { // nolint: vetshadow
+	if err := ioutil.WriteFile(configFile, configBytes, 0644); err != nil {
 		cleanup()
 		t.Fatalf("WriteFile(%v) failed: %v", configFile, err)
 	}

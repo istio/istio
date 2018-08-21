@@ -147,11 +147,11 @@ func (g *Generator) generateInternal(fdsFile string, interfaceTmpl, augmentedPro
 	if err != nil {
 		return err
 	}
-	defer func() { _ = f1.Close() }() // nolint: gas
+	defer func() { _ = f1.Close() }()
 
-	if _, err = f1.Write(interfaceFileData); err != nil { // nolint: gas
-		_ = f1.Close()           // nolint: gas
-		_ = os.Remove(f1.Name()) // nolint: gas
+	if _, err = f1.Write(interfaceFileData); err != nil {
+		_ = f1.Close()
+		_ = os.Remove(f1.Name())
 		return err
 	}
 
@@ -159,10 +159,10 @@ func (g *Generator) generateInternal(fdsFile string, interfaceTmpl, augmentedPro
 	if err != nil {
 		return err
 	}
-	defer func() { _ = f2.Close() }() // nolint: gas
+	defer func() { _ = f2.Close() }()
 	if _, err = f2.Write(augProtoData); err != nil {
-		_ = f2.Close()           // nolint: gas
-		_ = os.Remove(f2.Name()) // nolint: gas
+		_ = f2.Close()
+		_ = os.Remove(f2.Name())
 		return err
 	}
 

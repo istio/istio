@@ -149,7 +149,7 @@ func TestRegistryAuthorizerWithClientCertificate(t *testing.T) {
 		},
 	}
 
-	for id, c := range testCases { // nolint: vet
+	for id, c := range testCases {
 		authz := &registryAuthorizor{&c.registry}
 		err := authz.authorize(&caller{authSourceClientCertificate, c.callerIDs}, c.requestedIDs)
 		if c.expectedErr != "" {

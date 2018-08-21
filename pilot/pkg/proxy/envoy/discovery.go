@@ -578,7 +578,7 @@ func (ds *DiscoveryService) invokeWebhook(path string, payload []byte, methodNam
 		return nil, err
 	}
 
-	defer resp.Body.Close() // nolint: errcheck
+	defer resp.Body.Close()
 
 	out, err := ioutil.ReadAll(resp.Body)
 	if err != nil {

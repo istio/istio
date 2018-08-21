@@ -108,7 +108,7 @@ func (s *serverInst) Start(env adapter.Env, metricsHandler http.Handler) (err er
 			if err == http.ErrServerClosed {
 				env.Logger().Infof("HTTP server stopped")
 			} else {
-				_ = env.Logger().Errorf("prometheus HTTP server error: %v", err) // nolint: gas
+				_ = env.Logger().Errorf("prometheus HTTP server error: %v", err)
 			}
 		}
 	})

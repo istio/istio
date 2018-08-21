@@ -15,7 +15,7 @@
 package template
 
 // BootstrapTemplate defines the template used to generate code that glues Mixer with generated template interfaces.
-// nolint:lll
+
 var BootstrapTemplate = `// Copyright 2017 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");

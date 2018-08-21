@@ -91,7 +91,7 @@ func withArgs(args []string, errorf func(format string, a ...interface{})) {
 func main() {
 	withArgs(os.Args[1:],
 		func(format string, a ...interface{}) {
-			fmt.Fprintf(os.Stderr, format+"\n", a...) // nolint: gas
+			fmt.Fprintf(os.Stderr, format+"\n", a...)
 			os.Exit(1)
 		})
 }

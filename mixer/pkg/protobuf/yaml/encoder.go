@@ -1004,7 +1004,6 @@ func (e *Encoder) mapType(field *descriptor.FieldDescriptorProto) *mapDescriptor
 	return m
 }
 
-// nolint: goconst
 func typeName(field *descriptor.FieldDescriptorProto) string {
 	typ := ""
 	switch *field.Type {

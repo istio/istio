@@ -197,9 +197,9 @@ func writeYAMLOutput(descriptor model.ConfigDescriptor, configs []model.Config, 
 			log.Errorf("Could not convert %v to YAML: %v", config, err)
 			continue
 		}
-		writer.Write(bytes) // nolint: errcheck
+		writer.Write(bytes)
 		if i+1 < len(configs) {
-			writer.Write([]byte("---\n")) // nolint: errcheck
+			writer.Write([]byte("---\n"))
 		}
 	}
 }

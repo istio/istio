@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// nolint: lll
 //go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -a mixer/adapter/statsd/config/config.proto -x "-n statsd -t metric"
 
 // Package statsd provides an adapter that implements the metrics template to

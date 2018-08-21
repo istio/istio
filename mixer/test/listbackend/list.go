@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// nolint:lll
 //go:generate go run $GOPATH/src/istio.io/istio/mixer/tools/mixgen/main.go adapter -n listbackend-nosession -c $GOPATH/src/istio.io/istio/mixer/adapter/list/config/config.proto_descriptor -s=false -t listentry -o nosession.yaml
 
 package listbackend

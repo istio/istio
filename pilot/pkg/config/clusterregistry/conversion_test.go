@@ -48,7 +48,7 @@ func (e *env) setup() error {
 
 func (e *env) teardown() {
 	// Remove the temp dir.
-	os.RemoveAll(e.fsRoot) // nolint: errcheck
+	os.RemoveAll(e.fsRoot)
 }
 
 func createTempDir() string {

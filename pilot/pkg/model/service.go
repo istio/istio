@@ -654,7 +654,6 @@ func (s *Service) Key(port *Port, labels Labels) string {
 // Deprecated
 //
 // Interface wants to turn `Hostname` into `fmt.Stringer`, completely defeating the purpose of the type alias.
-// nolint: interfacer
 func ServiceKey(hostname Hostname, servicePorts PortList, labelsList LabelsCollection) string {
 	// example: name.namespace|http|env=prod;env=test,version=my-v1
 	var buffer bytes.Buffer

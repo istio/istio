@@ -297,9 +297,9 @@ func (g *Generator) generateInternal(fdsFiles map[string]string,
 	if err != nil {
 		return err
 	}
-	defer func() { _ = f.Close() }() // nolint: gas
+	defer func() { _ = f.Close() }()
 	if _, err = f.Write(imptd); err != nil {
-		_ = os.Remove(f.Name()) // nolint: gas
+		_ = os.Remove(f.Name())
 		return err
 	}
 	return nil

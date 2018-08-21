@@ -215,7 +215,7 @@ func (f *FakeHandler) Close() error {
 var _ adapter.Handler = &FakeHandler{}
 
 // FakeAdapterSettings describes the behavior of a fake adapter.
-type FakeAdapterSettings struct { // nolint: maligned
+type FakeAdapterSettings struct {
 	Name                    string
 	PanicAtSetAdapterConfig bool
 	PanicData               interface{}

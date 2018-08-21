@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// nolint:lll
 //go:generate go run $GOPATH/src/istio.io/istio/mixer/tools/mixgen/main.go adapter -n spybackend-session -s=true -t metric -t quota -t listentry -o session.yaml
 
 package spybackend
@@ -53,7 +52,6 @@ func (s *sessionServer) CloseSession(c context.Context, r *adptModel.CloseSessio
 	return s.Behavior.CloseSessionResponse, s.Behavior.CloseSessionError
 }
 
-// nolint:deadcode
 func newSessionServer(a *Args) (Server, error) {
 	s := &sessionServer{NoSessionServer{Behavior: a.Behavior, Requests: a.Requests}}
 	s.server = grpc.NewServer()

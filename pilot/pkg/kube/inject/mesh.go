@@ -18,7 +18,6 @@ const (
 	sidecarTemplateDelimBegin = "[["
 	sidecarTemplateDelimEnd   = "]]"
 
-	// nolint: lll
 	parameterizedTemplate = `
 [[- $proxyImageKey                  := "sidecar.istio.io/proxyImage" -]]
 [[- $interceptionModeKey            := "sidecar.istio.io/interceptionMode" -]]

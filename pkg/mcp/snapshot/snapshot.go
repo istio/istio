@@ -81,7 +81,7 @@ func (si *StatusInfo) LastWatchRequestTime() time.Time {
 }
 
 // Watch returns a watch for an MCP request.
-func (c *Cache) Watch(request *mcp.MeshConfigRequest, responseC chan<- *server.WatchResponse) (*server.WatchResponse, server.CancelWatchFunc) { // nolint: lll
+func (c *Cache) Watch(request *mcp.MeshConfigRequest, responseC chan<- *server.WatchResponse) (*server.WatchResponse, server.CancelWatchFunc) {
 	// TODO(ayj) - use hash of clients's ID to index map.
 	nodeID := request.Client.GetId()
 

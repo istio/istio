@@ -137,7 +137,6 @@ func (h *pilotTestHandler) WebSocketEcho(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// nolint: errcheck
 	defer c.Close()
 
 	// ping
@@ -362,7 +361,7 @@ func (ec *EchoClient) makeWebSocketRequest(i int, w io.Writer) error {
 		// timeout or bad handshake
 		return err
 	}
-	// nolint: errcheck
+
 	defer conn.Close()
 
 	err = conn.WriteMessage(websocket.TextMessage, []byte(ec.msg))

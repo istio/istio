@@ -66,7 +66,7 @@ func TestCompanyFromUser(t *testing.T) {
 		checkEqual(t, tst.user, companyFromUser(tst.user, 42), tst.expected)
 	}
 	// Check what was logged:
-	w.Flush() // nolint: errcheck
+	w.Flush()
 	expectedLog := `ALogin (No Email or Company) <> has 42 contributions but no company nor (useful) email
  () <joe@gmail.com> has 42 contributions but no company nor (useful) email
 `

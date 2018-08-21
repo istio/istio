@@ -201,7 +201,7 @@ func rebuildWebhookConfigHelper(
 	if err != nil {
 		return nil, fmt.Errorf("failed to read ca bundle from %v: %v", caFile, err)
 	}
-	defer in.Close() // nolint: errcheck
+	defer in.Close()
 
 	caPem, err := loadCaCertPem(in)
 	if err != nil {

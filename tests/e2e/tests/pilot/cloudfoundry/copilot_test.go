@@ -391,9 +391,9 @@ func runFakeApp(port int) {
 			"received-host-header": r.Host,
 			"received-headers":     r.Header,
 		}
-		json.NewEncoder(w).Encode(responseData) // nolint: errcheck
+		json.NewEncoder(w).Encode(responseData)
 	})
-	go http.ListenAndServe(fmt.Sprintf(":%d", port), fakeAppHandler) // nolint: errcheck
+	go http.ListenAndServe(fmt.Sprintf(":%d", port), fakeAppHandler)
 }
 
 func runPilot(copilotConfigFile, istioConfigDir string, grpcPort, debugPort int) (*gexec.Session, error) {

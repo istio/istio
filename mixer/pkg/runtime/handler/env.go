@@ -54,7 +54,7 @@ func (e env) ScheduleWork(fn adapter.WorkFunc) {
 
 			if !reachedEnd {
 				r := recover()
-				_ = e.Logger().Errorf("Adapter worker failed: %v", r) // nolint: gas
+				_ = e.Logger().Errorf("Adapter worker failed: %v", r)
 
 				// TODO (Issue #2503): Beyond logging, we want to do something proactive here.
 				//       For example, we want to probably terminate the originating
@@ -81,7 +81,7 @@ func (e env) ScheduleDaemon(fn adapter.DaemonFunc) {
 
 			if !reachedEnd {
 				r := recover()
-				_ = e.Logger().Errorf("Adapter daemon failed: %v", r) // nolint: gas
+				_ = e.Logger().Errorf("Adapter daemon failed: %v", r)
 
 				// TODO (Issue #2503): Beyond logging, we want to do something proactive here.
 				//       For example, we want to probably terminate the originating
