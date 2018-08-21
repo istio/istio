@@ -73,7 +73,7 @@ type PushContext struct {
 	VirtualServiceConfigs []Config `json:"-,omitempty"`
 
 	destinationRuleHosts   []Hostname
-	destinationRuleByHosts map[Hostname]*Config
+	destinationRuleByHosts map[Hostname]*combinedDestinationRule
 
 	//TODO: gateways              []*networking.Gateway
 
@@ -94,6 +94,12 @@ type ProxyPushStatus struct {
 type PushMetric struct {
 	Name  string
 	gauge prometheus.Gauge
+}
+
+type combinedDestinationRule struct {
+	subsets map[string]bool // list of subsets seen so far
+	// We are not doing ports
+	config *Config
 }
 
 func newPushMetric(name, help string) *PushMetric {
@@ -320,11 +326,41 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 		return err
 	}
 
+	type combinedVirtualService struct {
+		// What are the parameters to order?
+		// Virtual services have multiple hosts and multiple protocols. We need to split it into
+		// a multiple virtual services each with one host and one protocol type http/tcp/tls.
+		// then we need to look at the set of all virtual services for the same host/protocol
+		// and try to merge these services into one
+		//   Whats the ordering algorithm?
+		//    For http, sort all the match conditions for the virtual services for the host
+		//     specific port before no port
+		//     specific gateway before no gateway
+		//     specific source label before no source label
+		//     uri match before no uri match
+		//         between two URIs,
+		//           exact before prefix
+		//           prefix before regex
+		//           longer value (exact/prefix/regex) before the shorter one
+		//     authority match before no authority match
+		//     method before no method
+		//     specific scheme before no scheme
+		//     headers before no headers
+		//     all else being equal, tie break by time
+		//    For tls,
+		//      sni without regex before sni with regex
+		//      longer sni before shorter sni
+		//      port before no port
+		//      gateway before no gateway
+		//      source label before no source label
+	}
+
 	sortConfigByCreationTime(vservices)
 	ps.VirtualServiceConfigs = vservices
 	// convert all shortnames in virtual services into FQDNs
 	for _, r := range ps.VirtualServiceConfigs {
 		rule := r.Spec.(*networking.VirtualService)
+		rule.Http[0].Match[0].
 		// resolve top level hosts
 		for i, h := range rule.Hosts {
 			rule.Hosts[i] = string(ResolveShortnameToFQDN(h, r.ConfigMeta))
@@ -397,21 +433,42 @@ func (ps *PushContext) initDestinationRules(env *Environment) error {
 func (ps *PushContext) SetDestinationRules(configs []Config) {
 	sortConfigByCreationTime(configs)
 	hosts := make([]Hostname, len(configs))
-	byHosts := make(map[Hostname]*Config, len(configs))
+	combinedDestinationRuleMap := make(map[Hostname]*combinedDestinationRule, len(configs))
+
 	for i := range configs {
 		rule := configs[i].Spec.(*networking.DestinationRule)
 		hosts[i] = ResolveShortnameToFQDN(rule.Host, configs[i].ConfigMeta)
-		byHosts[hosts[i]] = &configs[i]
+		if mdr, exists := combinedDestinationRuleMap[hosts[i]]; exists {
+			// we have an another destination rule for same host.
+			// concatenate both of them -- essentially add subsets from one to other.
+			for _, subset := range rule.Subsets {
+				if _, subsetExists := mdr.subsets[subset.Name]; !subsetExists {
+					mdr.subsets[subset.Name] = true
+					combinedRule := mdr.config.Spec.(*networking.DestinationRule)
+					combinedRule.Subsets = append(combinedRule.Subsets, subset)
+				}
+			}
+			continue
+		}
+
+		combinedDestinationRuleMap[hosts[i]] = &combinedDestinationRule{
+			config: &configs[i],
+		}
+		for _, subset := range rule.Subsets {
+			combinedDestinationRuleMap[hosts[i]].subsets[subset.Name] = true
+		}
 	}
 
+	// We don't have to update the byHosts thing again as we have been updating the
+	// pointer to the config
 	ps.destinationRuleHosts = hosts
-	ps.destinationRuleByHosts = byHosts
+	ps.destinationRuleByHosts = combinedDestinationRuleMap
 }
 
 // DestinationRule returns a destination rule for a service name in a given domain.
 func (ps *PushContext) DestinationRule(hostname Hostname) *Config {
 	if c, ok := MostSpecificHostMatch(hostname, ps.destinationRuleHosts); ok {
-		return ps.destinationRuleByHosts[c]
+		return ps.destinationRuleByHosts[c].config
 	}
 	return nil
 }
