@@ -15,7 +15,6 @@
 package client_test
 
 import (
-	"encoding/base64"
 	"fmt"
 	"testing"
 
@@ -41,8 +40,6 @@ const authnConfig = `
     }
   }
 `
-
-const secIstioAuthUserInfoHeaderKey = "sec-istio-auth-jwt-output"
 
 const secIstioAuthUserinfoHeaderValue = `{"aud":"aud1","exp":20000000000,` +
 	`"iat":1500000000,"iss":"issuer@foo.com","some-other-string-claims":"some-claims-kept",` +
@@ -125,7 +122,7 @@ var reportAttributesOkGet = `
      "x-request-id": "*"
   },
   "request.size": 0,
-  "request.total_size": 515,
+  "request.total_size": 306,
   "response.total_size": 99,
   "response.time": "*",
   "response.size": 0,
@@ -168,10 +165,7 @@ func TestAuthnCheckReportAttributesOriginJwtBoundToOrigin(t *testing.T) {
 	// Issues a GET echo request with 0 size body
 	tag := "OKGet"
 
-	// Add jwt_auth header to be consumed by Istio authn filter
 	headers := map[string]string{}
-	headers[secIstioAuthUserInfoHeaderKey] =
-		base64.StdEncoding.EncodeToString([]byte(secIstioAuthUserinfoHeaderValue))
 	headers["Authorization"] = "Bearer " + client_test.JwtTestToken
 
 	if _, _, err := env.HTTPGetWithHeaders(url, headers); err != nil {

@@ -15,7 +15,6 @@
 package client_test
 
 import (
-	"encoding/base64"
 	"fmt"
 	"testing"
 
@@ -44,10 +43,6 @@ const authnConfig = `
 
 const secIstioAuthUserInfoHeaderKey = "sec-istio-auth-jwt-output"
 
-const secIstioAuthUserinfoHeaderValue = `{"aud":"aud1","exp":20000000000,` +
-	`"iat":1500000000,"iss":"issuer@foo.com","some-other-string-claims":"some-claims-kept",` +
-	`"sub":"sub@foo.com"}`
-
 const respExpected = "Origin authentication failed."
 
 func TestAuthnCheckReportAttributesPeerJwtBoundToOrigin(t *testing.T) {
@@ -68,10 +63,7 @@ func TestAuthnCheckReportAttributesPeerJwtBoundToOrigin(t *testing.T) {
 	// Issues a GET echo request with 0 size body
 	tag := "OKGet"
 
-	// Add jwt_auth header to be consumed by Istio authn filter
 	headers := map[string]string{}
-	headers[secIstioAuthUserInfoHeaderKey] =
-		base64.StdEncoding.EncodeToString([]byte(secIstioAuthUserinfoHeaderValue))
 	headers["Authorization"] = "Bearer " + client_test.JwtTestToken
 
 	// Principal is binded to origin, but no method specified in origin policy.
