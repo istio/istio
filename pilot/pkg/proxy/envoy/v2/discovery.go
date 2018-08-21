@@ -34,7 +34,7 @@ var (
 	// Disabled by default.
 	periodicRefreshDuration = 0 * time.Second
 
-	versionMutex sync.Mutex
+	versionMutex sync.RWMutex
 
 	// version is the timestamp of the last registry event.
 	version = "0"
@@ -209,17 +209,17 @@ func (s *DiscoveryServer) ClearCacheFunc() func() {
 			// TODO: metric !!
 			return
 		}
+		s.env.PushContext = push
+		versionLocal := time.Now().Format(time.RFC3339)
 		initContextTime := time.Since(t0)
+		adsLog.Debugf("InitContext %v for push takes %s", versionLocal, initContextTime)
 
 		// TODO: propagate K8S version and use it instead
 		versionMutex.Lock()
-		s.env.PushContext = push
-		version = time.Now().Format(time.RFC3339)
+		version = versionLocal
 		versionMutex.Unlock()
 
-		adsLog.Infof("Context init for push %v %s", initContextTime, version)
-
-		go s.AdsPushAll(versionInfo(), push)
+		go s.AdsPushAll(versionLocal, push)
 	}
 }
 
@@ -228,7 +228,7 @@ func nonce() string {
 }
 
 func versionInfo() string {
-	versionMutex.Lock()
-	defer versionMutex.Unlock()
+	versionMutex.RLock()
+	defer versionMutex.RUnlock()
 	return version
 }
