@@ -52,18 +52,19 @@ func TestServiceEntry(t *testing.T) {
 			url:               "http://bing.com",
 			shouldBeReachable: false,
 		},
-		{
-			name:              "REACHABLE_wikipedia.org_over_cidr_range",
-			config:            "testdata/networking/v1alpha3/service-entry-tcp-wikipedia-cidr.yaml",
-			url:               "https://www.wikipedia.org",
-			shouldBeReachable: true,
-		},
-		{
-			name:              "UNREACHABLE_google.com_over_cidr_range",
-			config:            "testdata/networking/v1alpha3/service-entry-tcp-wikipedia-cidr.yaml",
-			url:               "https://google.com",
-			shouldBeReachable: false,
-		},
+		// See issue https://github.com/istio/istio/issues/7869
+		//{
+		//	name:              "REACHABLE_wikipedia.org_over_cidr_range",
+		//	config:            "testdata/networking/v1alpha3/service-entry-tcp-wikipedia-cidr.yaml",
+		//	url:               "https://www.wikipedia.org",
+		//	shouldBeReachable: true,
+		//},
+		//{
+		//	name:              "UNREACHABLE_google.com_over_cidr_range",
+		//	config:            "testdata/networking/v1alpha3/service-entry-tcp-wikipedia-cidr.yaml",
+		//	url:               "https://google.com",
+		//	shouldBeReachable: false,
+		//},
 	}
 
 	var cfgs *deployableConfig

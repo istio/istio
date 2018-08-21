@@ -19,6 +19,7 @@ import (
 	"net/url"
 	"reflect"
 	"testing"
+	"time"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
@@ -47,6 +48,10 @@ func (t *testStore) Stop() {
 
 func (t *testStore) Init(kinds []string) error {
 	return t.initErr
+}
+
+func (t *testStore) WaitForSynced(time.Duration) error {
+	return nil
 }
 
 func (t *testStore) Get(key Key) (*BackEndResource, error) {

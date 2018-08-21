@@ -547,7 +547,6 @@ func ResolveShortnameToFQDN(host string, meta ConfigMeta) Hostname {
 // MostSpecificHostMatch compares the elements of the stack to the needle, and returns the longest stack element
 // matching the needle, or false if no element in the stack matches the needle.
 func MostSpecificHostMatch(needle Hostname, stack []Hostname) (Hostname, bool) {
-	sort.Sort(Hostnames(stack))
 	for _, h := range stack {
 		if needle.Matches(h) {
 			return h, true

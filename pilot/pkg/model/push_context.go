@@ -16,6 +16,8 @@ package model
 
 import (
 	"encoding/json"
+	"fmt"
+	"sort"
 	"sync"
 	"time"
 
@@ -73,7 +75,7 @@ type PushContext struct {
 	VirtualServiceConfigs []Config `json:"-,omitempty"`
 
 	destinationRuleHosts   []Hostname
-	destinationRuleByHosts map[Hostname]*Config
+	destinationRuleByHosts map[Hostname]*combinedDestinationRule
 
 	//TODO: gateways              []*networking.Gateway
 
@@ -94,6 +96,12 @@ type ProxyPushStatus struct {
 type PushMetric struct {
 	Name  string
 	gauge prometheus.Gauge
+}
+
+type combinedDestinationRule struct {
+	subsets map[string]bool // list of subsets seen so far
+	// We are not doing ports
+	config *Config
 }
 
 func newPushMetric(name, help string) *PushMetric {
@@ -187,6 +195,12 @@ var (
 	DuplicatedDomains = newPushMetric(
 		"pilot_vservice_dup_domain",
 		"Virtual services with dup domains.",
+	)
+
+	// DuplicatedSubsets tracks duplicate subsets that we rejected while merging multiple destination rules for same host
+	DuplicatedSubsets = newPushMetric(
+		"pilot_destrule_subsets",
+		"Duplicate subsets across destination rules for same host",
 	)
 
 	// LastPushStatus preserves the metrics and data collected during lasts global push.
@@ -306,11 +320,20 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 	if err != nil {
 		return err
 	}
-	ps.Services = services
+	// Sort the services in order of creation.
+	ps.Services = sortServicesByCreationTime(services)
 	for _, s := range services {
 		ps.ServiceByHostname[s.Hostname] = s
 	}
 	return nil
+}
+
+// sortServicesByCreationTime sorts the list of services in ascending order by their creation time (if available).
+func sortServicesByCreationTime(services []*Service) []*Service {
+	sort.SliceStable(services, func(i, j int) bool {
+		return services[i].CreationTime.Before(services[j].CreationTime)
+	})
+	return services
 }
 
 // Caches list of virtual services
@@ -395,23 +418,58 @@ func (ps *PushContext) initDestinationRules(env *Environment) error {
 // Split out of DestinationRule expensive conversions, computed once per push.
 // This also allows tests to inject a config without having the mock.
 func (ps *PushContext) SetDestinationRules(configs []Config) {
+	// Sort by time first. So if two destination rule have top level traffic policies
+	// we take the first one.
 	sortConfigByCreationTime(configs)
-	hosts := make([]Hostname, len(configs))
-	byHosts := make(map[Hostname]*Config, len(configs))
+	hosts := make([]Hostname, 0)
+	combinedDestinationRuleMap := make(map[Hostname]*combinedDestinationRule, len(configs))
+
 	for i := range configs {
 		rule := configs[i].Spec.(*networking.DestinationRule)
-		hosts[i] = ResolveShortnameToFQDN(rule.Host, configs[i].ConfigMeta)
-		byHosts[hosts[i]] = &configs[i]
+		resolvedHost := ResolveShortnameToFQDN(rule.Host, configs[i].ConfigMeta)
+		if mdr, exists := combinedDestinationRuleMap[resolvedHost]; exists {
+			combinedRule := mdr.config.Spec.(*networking.DestinationRule)
+			// we have an another destination rule for same host.
+			// concatenate both of them -- essentially add subsets from one to other.
+			for _, subset := range rule.Subsets {
+				if _, subsetExists := mdr.subsets[subset.Name]; !subsetExists {
+					mdr.subsets[subset.Name] = true
+					combinedRule.Subsets = append(combinedRule.Subsets, subset)
+				} else {
+					ps.Add(DuplicatedSubsets, string(resolvedHost), nil,
+						fmt.Sprintf("Duplicate subset %s found while merging destination rules for %s",
+							subset.Name, string(resolvedHost)))
+				}
+
+				// If there is no top level policy and the incoming rule has top level
+				// traffic policy, use the one from the incoming rule.
+				if combinedRule.TrafficPolicy == nil && rule.TrafficPolicy != nil {
+					combinedRule.TrafficPolicy = rule.TrafficPolicy
+				}
+			}
+			continue
+		}
+
+		combinedDestinationRuleMap[resolvedHost] = &combinedDestinationRule{
+			subsets: make(map[string]bool),
+			config:  &configs[i],
+		}
+		for _, subset := range rule.Subsets {
+			combinedDestinationRuleMap[resolvedHost].subsets[subset.Name] = true
+		}
+		hosts = append(hosts, resolvedHost)
 	}
 
+	// presort it so that we don't sort it for each DestinationRule call.
+	sort.Sort(Hostnames(hosts))
 	ps.destinationRuleHosts = hosts
-	ps.destinationRuleByHosts = byHosts
+	ps.destinationRuleByHosts = combinedDestinationRuleMap
 }
 
 // DestinationRule returns a destination rule for a service name in a given domain.
 func (ps *PushContext) DestinationRule(hostname Hostname) *Config {
 	if c, ok := MostSpecificHostMatch(hostname, ps.destinationRuleHosts); ok {
-		return ps.destinationRuleByHosts[c]
+		return ps.destinationRuleByHosts[c].config
 	}
 	return nil
 }

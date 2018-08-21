@@ -335,14 +335,6 @@ type listenerEntry struct {
 	listener    *xdsapi.Listener
 }
 
-// sortServicesByCreationTime sorts the list of services in ascending order by their creation time (if available).
-func sortServicesByCreationTime(services []*model.Service) []*model.Service {
-	sort.SliceStable(services, func(i, j int) bool {
-		return services[i].CreationTime.Before(services[j].CreationTime)
-	})
-	return services
-}
-
 func protocolName(p model.Protocol) string {
 	switch plugin.ModelProtocolToListenerProtocol(p) {
 	case plugin.ListenerProtocolHTTP:
@@ -400,9 +392,6 @@ func (c outboundListenerConflict) addMetric(push *model.PushContext) {
 // IPs and ports, but requires that ports of non-load balanced service be unique.
 func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.Environment, node *model.Proxy, push *model.PushContext,
 	proxyInstances []*model.ServiceInstance, services []*model.Service) []*xdsapi.Listener {
-
-	// Sort the services in order of creation.
-	services = sortServicesByCreationTime(services)
 
 	var proxyLabels model.LabelsCollection
 	for _, w := range proxyInstances {

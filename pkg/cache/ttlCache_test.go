@@ -44,6 +44,23 @@ func TestTTLEvictExpired(t *testing.T) {
 	testCacheEvictExpired(ttl, t)
 }
 
+type callbackRecorder struct {
+	callbacks int
+}
+
+func (c *callbackRecorder) callback(key, value interface{}) {
+	c.callbacks++
+}
+
+func TestTTLEvictionCallback(t *testing.T) {
+	c := &callbackRecorder{callbacks: 0}
+	ttl := NewTTLWithCallback(50*time.Millisecond, time.Millisecond, c.callback)
+	testCacheEvicter(ttl, t)
+	if c.callbacks != 1 {
+		t.Errorf("evictExpired() => failed to invoke EvictionCallback: got %d callbacks, wanted 1", c.callbacks)
+	}
+}
+
 func TestTTLFinalizer(t *testing.T) {
 	ttl := NewTTL(5*time.Second, 1*time.Millisecond).(*ttlWrapper)
 	testCacheFinalizer(&ttl.evicterTerminated, t)
