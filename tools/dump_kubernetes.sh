@@ -146,6 +146,8 @@ copy_core_dumps_if_istio_proxy() {
 
 # Run functions on each container. Each argument should be a function which
 # takes 3 args: ${namespace} ${pod} ${container}.
+# If any of the called functions returns error, tap_containers returns
+# immediately with that error.
 tap_containers() {
   local functions=( "$@" )
 
@@ -163,7 +165,7 @@ tap_containers() {
       for container in ${containers}; do
 
         for f in "${functions[@]}"; do
-          "${f}" "${namespace}" "${pod}" "${container}" | return $?
+          "${f}" "${namespace}" "${pod}" "${container}" || return $?
         done
 
       done
