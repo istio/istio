@@ -15,15 +15,154 @@
 package creds
 
 import (
+	"crypto/tls"
+	"errors"
 	"io/ioutil"
 	"os"
 	"path"
+	"reflect"
 	"strings"
+	"sync"
 	"testing"
 
+	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/cobra"
+
 	"istio.io/istio/pkg/mcp/testing/testcerts"
 )
+
+type fakeWatcher struct {
+	events chan fsnotify.Event
+	errors chan error
+	added  chan string
+}
+
+func (w *fakeWatcher) Add(path string) error {
+	w.added <- path
+	return nil
+}
+
+func (w *fakeWatcher) Close() error                { return nil }
+func (w *fakeWatcher) Events() chan fsnotify.Event { return w.events }
+func (w *fakeWatcher) Errors() chan error          { return w.errors }
+
+func newFakeWatcherFunc() (func() (fileWatcher, error), *fakeWatcher) {
+	w := &fakeWatcher{
+		events: make(chan fsnotify.Event, 10),
+		errors: make(chan error, 10),
+		added:  make(chan string, 10),
+	}
+	newWatcher := func() (fileWatcher, error) {
+		return w, nil
+	}
+	return newWatcher, w
+}
+
+var (
+	certFile   = "foo.pem"
+	keyFile    = "key.pem"
+	caCertFile = "bar.pem"
+)
+
+func TestWatchRotation(t *testing.T) {
+	var fakeCertWatcher, fakeKeyWatcher *fakeWatcher
+	newCertFileWatcher, fakeCertWatcher = newFakeWatcherFunc()
+	newKeyFileWatcher, fakeKeyWatcher = newFakeWatcherFunc()
+
+	defer func() {
+		newCertFileWatcher = newFsnotifyWatcher
+		newKeyFileWatcher = newFsnotifyWatcher
+		readFile = ioutil.ReadFile
+		watchCertEventHandledProbe = nil
+		watchKeyEventHandledProbe = nil
+	}()
+
+	readFile = func(filename string) ([]byte, error) {
+		switch filename {
+		case certFile:
+			return testcerts.ServerCert, nil
+		case keyFile:
+			return testcerts.ServerKey, nil
+		case caCertFile:
+			return testcerts.CACert, nil
+		}
+		return nil, &os.PathError{Op: "open", Path: filename, Err: os.ErrNotExist}
+	}
+
+	stopCh := make(chan struct{})
+	defer close(stopCh)
+	options := Options{
+		CertificateFile:   certFile,
+		KeyFile:           keyFile,
+		CACertificateFile: caCertFile,
+	}
+	watcher, err := WatchFiles(stopCh, &options)
+	if err != nil {
+		t.Fatalf("Initial WatchFiles() failed: %v", err)
+	}
+
+	var wgCertEvent sync.WaitGroup
+	var wgKeyEvent sync.WaitGroup
+
+	watchCertEventHandledProbe = func() { wgCertEvent.Done() }
+	watchKeyEventHandledProbe = func() { wgKeyEvent.Done() }
+
+	// verify cert and key can be reloaded via watcher interface
+	readFile = func(filename string) ([]byte, error) {
+		switch filename {
+		case certFile:
+			return testcerts.RotatedCert, nil
+		case keyFile:
+			return testcerts.RotatedKey, nil
+		case caCertFile:
+			return testcerts.CACert, nil
+		default:
+			return nil, &os.PathError{Op: "open", Path: filename, Err: os.ErrNotExist}
+		}
+	}
+	wgCertEvent.Add(1)
+	wgKeyEvent.Add(1)
+	fakeCertWatcher.events <- fsnotify.Event{
+		Name: certFile,
+		Op:   fsnotify.Write,
+	}
+	fakeKeyWatcher.events <- fsnotify.Event{
+		Name: keyFile,
+		Op:   fsnotify.Write,
+	}
+	wgCertEvent.Wait()
+	wgKeyEvent.Wait()
+	want, _ := tls.X509KeyPair(testcerts.RotatedCert, testcerts.RotatedKey)
+	if !reflect.DeepEqual(watcher.cert, want) {
+		t.Fatalf("wrong rotated certificate: \ngot %v \nwant %v", watcher.cert, want)
+	}
+
+	// generate fake errors to increase code coverage
+	fakeCertWatcher.errors <- errors.New("fakeCertWatcher error to increase code coverage of error event path")
+	fakeKeyWatcher.errors <- errors.New("fakeCertWatcher error to increase code coverage of error event path")
+
+	// verify the previously loaded cert/key are retained if the updated files cannot be loaded.
+	readFile = func(filename string) ([]byte, error) {
+		return nil, &os.PathError{Op: "open", Path: filename, Err: os.ErrNotExist}
+	}
+	wgCertEvent.Add(1)
+	wgKeyEvent.Add(1)
+	fakeCertWatcher.events <- fsnotify.Event{
+		Name: certFile,
+		Op:   fsnotify.Write,
+	}
+	fakeKeyWatcher.events <- fsnotify.Event{
+		Name: keyFile,
+		Op:   fsnotify.Write,
+	}
+	wgCertEvent.Wait()
+	wgKeyEvent.Wait()
+
+	want, _ = tls.X509KeyPair(testcerts.RotatedCert, testcerts.RotatedKey)
+	if !reflect.DeepEqual(watcher.cert, want) {
+		t.Fatalf("wrong rotated certificate: \ngot %v \nwant %v", watcher.cert, want)
+	}
+}
 
 func TestWatchFiles(t *testing.T) {
 	var testCases = []struct {
@@ -31,6 +170,7 @@ func TestWatchFiles(t *testing.T) {
 		key    []byte
 		cert   []byte
 		cacert []byte
+		rotate bool
 		err    string
 	}{
 		{
@@ -38,12 +178,6 @@ func TestWatchFiles(t *testing.T) {
 			key:    testcerts.ServerKey,
 			cert:   testcerts.ServerCert,
 			cacert: testcerts.CACert,
-		},
-		{
-			name:   "rotated",
-			key:    testcerts.RotatedKey,
-			cert:   testcerts.RotatedCert,
-			cacert: testcerts.RotatedCert,
 		},
 		{
 			name:   "badcert",
@@ -63,13 +197,13 @@ func TestWatchFiles(t *testing.T) {
 			name:   "noclientcert",
 			key:    testcerts.ServerKey,
 			cacert: testcerts.CACert,
-			err:    "error loading client certificate files",
+			err:    "open foo.pem: file does not exist",
 		},
 		{
 			name:   "noclientkey",
 			cert:   testcerts.ServerCert,
 			cacert: testcerts.CACert,
-			err:    "error loading client certificate files",
+			err:    "open key.pem: file does not exist",
 		},
 		{
 			name: "nocacert",
@@ -81,35 +215,32 @@ func TestWatchFiles(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			dir, err := ioutil.TempDir(os.TempDir(), testCase.name)
-			if err != nil {
-				t.Fatalf("Error creating temp dir: %v", err)
-			}
-
+			newCertFileWatcher, _ = newFakeWatcherFunc()
+			newKeyFileWatcher, _ = newFakeWatcherFunc()
 			defer func() {
-				_ = os.RemoveAll(dir)
+				newCertFileWatcher = newFsnotifyWatcher
+				newKeyFileWatcher = newFsnotifyWatcher
+				readFile = ioutil.ReadFile
+				watchCertEventHandledProbe = nil
+				watchKeyEventHandledProbe = nil
 			}()
 
-			certFile := path.Join(dir, "foo.pem")
-			keyFile := path.Join(dir, "key.pem")
-			caCertFile := path.Join(dir, "bar.pem")
-
-			if testCase.cert != nil {
-				if err = ioutil.WriteFile(certFile, testCase.cert, os.ModePerm); err != nil {
-					t.Fatalf("Error writing cert file: %v", err)
+			readFile = func(filename string) ([]byte, error) {
+				switch filename {
+				case certFile:
+					if testCase.cert != nil {
+						return testCase.cert, nil
+					}
+				case keyFile:
+					if testCase.key != nil {
+						return testCase.key, nil
+					}
+				case caCertFile:
+					if testCase.cacert != nil {
+						return testCase.cacert, nil
+					}
 				}
-			}
-
-			if testCase.key != nil {
-				if err = ioutil.WriteFile(keyFile, testCase.key, os.ModePerm); err != nil {
-					t.Fatalf("Error writing key file: %v", err)
-				}
-			}
-
-			if testCase.cacert != nil {
-				if err = ioutil.WriteFile(caCertFile, testCase.cacert, os.ModePerm); err != nil {
-					t.Fatalf("Error writing CA cert file: %v", err)
-				}
+				return nil, &os.PathError{Op: "open", Path: filename, Err: os.ErrNotExist}
 			}
 
 			stopCh := make(chan struct{})
@@ -119,7 +250,7 @@ func TestWatchFiles(t *testing.T) {
 				KeyFile:           keyFile,
 				CACertificateFile: caCertFile,
 			}
-			_, err = WatchFiles(stopCh, &options)
+			_, err := WatchFiles(stopCh, &options)
 			if testCase.err != "" && err == nil {
 				t.Fatalf("Expected error not found: %v", testCase.err)
 			}

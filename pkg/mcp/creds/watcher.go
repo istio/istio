@@ -55,9 +55,12 @@ func newFsnotifyWatcher() (fileWatcher, error) {
 }
 
 var (
-	newFileWatcher         = newFsnotifyWatcher
-	readFile               = ioutil.ReadFile
-	watchEventHandledProbe func()
+	newCertFileWatcher = newFsnotifyWatcher
+	newKeyFileWatcher  = newFsnotifyWatcher
+	readFile           = ioutil.ReadFile
+
+	watchCertEventHandledProbe func()
+	watchKeyEventHandledProbe  func()
 )
 
 var scope = log.RegisterScope("mcp-creds", "MCP Credential utilities", 0)
@@ -169,12 +172,12 @@ func (c *CertificateWatcher) start() error {
 	// TODO: https://github.com/istio/istio/issues/7877
 	// It looks like fsnotify watchers have problems due to following symlinks. This needs to be handled.
 	//
-	certFileWatcher, err := newFsnotifyWatcher()
+	certFileWatcher, err := newCertFileWatcher()
 	if err != nil {
 		return err
 	}
 
-	keyFileWatcher, err := newFsnotifyWatcher()
+	keyFileWatcher, err := newKeyFileWatcher()
 	if err != nil {
 		return err
 	}
@@ -219,16 +222,24 @@ func (c *CertificateWatcher) watch(exitSignal sync.WaitGroup, certFileWatcher, k
 				cert, err := loadCertPair(c.options.CertificateFile, c.options.KeyFile)
 				if err != nil {
 					scope.Errorf("error loading certificates after watch event: %v", err)
+				} else {
+					c.set(&cert)
 				}
-				c.set(&cert)
+			}
+			if watchCertEventHandledProbe != nil {
+				watchCertEventHandledProbe()
 			}
 		case e := <-keyFileWatcher.Events():
 			if e.Op&fsnotify.Write == fsnotify.Write {
 				cert, err := loadCertPair(c.options.CertificateFile, c.options.KeyFile)
 				if err != nil {
 					scope.Errorf("error loading certificates after watch event: %v", err)
+				} else {
+					c.set(&cert)
 				}
-				c.set(&cert)
+			}
+			if watchKeyEventHandledProbe != nil {
+				watchKeyEventHandledProbe()
 			}
 		case <-c.stopCh:
 			scope.Debug("stopping watch of certificate file changes")
@@ -276,18 +287,25 @@ func (c *CertificateWatcher) get() tls.Certificate {
 
 // loadCertPair from the given set of files.
 func loadCertPair(certFile, keyFile string) (tls.Certificate, error) {
-	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+	certPEMBlock, err := readFile(certFile)
+	if err != nil {
+		return tls.Certificate{}, err
+	}
+	keyPEMBlock, err := readFile(keyFile)
+	if err != nil {
+		return tls.Certificate{}, err
+	}
+	cert, err := tls.X509KeyPair(certPEMBlock, keyPEMBlock)
 	if err != nil {
 		err = fmt.Errorf("error loading client certificate files (%s, %s): %v", certFile, keyFile, err)
 	}
-
 	return cert, err
 }
 
 // loadCACert, create a certPool and return.
 func loadCACert(caCertFile string) (*x509.CertPool, error) {
 	certPool := x509.NewCertPool()
-	ca, err := ioutil.ReadFile(caCertFile)
+	ca, err := readFile(caCertFile)
 	if err != nil {
 		err = fmt.Errorf("error loading CA certificate file (%s): %v", caCertFile, err)
 		return nil, err
