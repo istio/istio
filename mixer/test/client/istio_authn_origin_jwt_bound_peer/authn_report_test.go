@@ -19,27 +19,13 @@ import (
 	"fmt"
 	"testing"
 
-	"io/ioutil"
-
 	"istio.io/istio/mixer/test/client/env"
+	"istio.io/istio/mixer/test/client/test_data"
 )
 
 // The Istio authn envoy config
 // nolint
 const authnConfig = `
-- name: jwt-auth
-  config: {
-     "rules": [ 
-       {
-         "issuer": "issuer@foo.com",
-         "local_jwks": {
-           "inline_string": '{ "keys" : [ {"e":   "AQAB", "kid": "DHFbpoIUqrY8t2zpA2qXfCmr5VO5ZEr4RzHU_-envvQ", "kty": "RSA","n":   "xAE7eB6qugXyCAG3yhh7pkDkT65pHymX-P7KfIupjf59vsdo91bSP9C8H07pSAGQO1MV_xFj9VswgsCg4R6otmg5PV2He95lZdHtOcU5DXIg_pbhLdKXbi66GlVeK6ABZOUW3WYtnNHD-91gVuoeJT_DwtGGcp4ignkgXfkiEm4sw-4sfb4qdt5oLbyVpmW6x9cfa7vs2WTfURiCrBoUqgBo_-4WTiULmmHSGZHOjzwa8WtrtOQGsAFjIbno85jp6MnGGGZPYZbDAa_b3y5u-YpW7ypZrvD8BgtKVjgtQgZhLAGezMt0ua3DRrWnKqTZ0BJ_EyxOGuHJrLsn00fnMQ"}]}'
-         },
-         "audiences": ["aud1"],
-         "forward_payload_header": "test-jwt-payload-output"
-       }
-     ]
-  }
 - name: istio_authn
   config: {
     "policy": {
@@ -60,9 +46,6 @@ const secIstioAuthUserInfoHeaderKey = "sec-istio-auth-jwt-output"
 const secIstioAuthUserinfoHeaderValue = `{"aud":"aud1","exp":20000000000,` +
 	`"iat":1500000000,"iss":"issuer@foo.com","some-other-string-claims":"some-claims-kept",` +
 	`"sub":"sub@foo.com"}`
-
-// jwtPath stores the JWT formed from the value in secIstioAuthUserinfoHeaderValue
-const jwtPath = "../test_data/jwt_token_example_1.jwt"
 
 // Check attributes from a good GET request
 var checkAttributesOkGet = `
@@ -167,7 +150,7 @@ var reportAttributesOkGet = `
 func TestAuthnCheckReportAttributesOriginJwtNoBoundToOrigin(t *testing.T) {
 	s := env.NewTestSetup(env.CheckReportIstioAuthnAttributesTestOriginJwtBoundToPeer, t)
 	// In the Envoy config, no binding to origin, binds to peer by default.
-	s.SetFiltersBeforeMixer(authnConfig)
+	s.SetFiltersBeforeMixer(client_test.JwtAuthConfig + authnConfig)
 	// Disable the HotRestart of Envoy
 	s.SetDisableHotRestart(true)
 
@@ -186,13 +169,7 @@ func TestAuthnCheckReportAttributesOriginJwtNoBoundToOrigin(t *testing.T) {
 	headers := map[string]string{}
 	headers[secIstioAuthUserInfoHeaderKey] =
 		base64.StdEncoding.EncodeToString([]byte(secIstioAuthUserinfoHeaderValue))
-
-	jwt, err := ioutil.ReadFile(jwtPath)
-	if err != nil {
-		t.Fatalf("Failed to read the JWT file: %v", err)
-	}
-
-	headers["Authorization"] = "Bearer " + string(jwt[:])
+	headers["Authorization"] = "Bearer " + client_test.JwtTestToken
 
 	if _, _, err := env.HTTPGetWithHeaders(url, headers); err != nil {
 		t.Errorf("Failed in request %s: %v", tag, err)
