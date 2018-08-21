@@ -148,11 +148,6 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 		grpcOptions = append(grpcOptions, grpc.UnaryInterceptor(otgrpc.OpenTracingServerInterceptor(ot.GlobalTracer())))
 	}
 
-	if s.monitor, err = p.startMonitor(a.MonitoringPort, a.EnableProfiling, p.listen); err != nil {
-		_ = s.Close()
-		return nil, fmt.Errorf("unable to setup monitoring: %v", err)
-	}
-
 	// get the network stuff setup
 	network := "tcp"
 	address := fmt.Sprintf(":%d", a.APIPort)

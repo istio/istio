@@ -225,6 +225,18 @@ func TestErrors(t *testing.T) {
 				}
 			},
 		},
+		{"listener failure",
+			func(a *Args, pt *patchTable) {
+				a.MonitoringPort = 1234
+				pt.listen = func(network string, address string) (net.Listener, error) {
+					// fail any net.Listen call that's not for the monitoring port.
+					if address == ":1234" {
+						return nil, errors.New("BAD")
+					}
+					return net.Listen(network, address)
+				}
+			},
+		},
 		{"failed logging setup",
 			func(a *Args, pt *patchTable) {
 				pt.configLog = func(options *log.Options) error {
@@ -252,6 +264,11 @@ func TestErrors(t *testing.T) {
 					// panic(nil)
 					return errors.New("BAD")
 				}
+			},
+		},
+		{"unix socket removal",
+			func(a *Args, pt *patchTable) {
+				a.APIAddress = "unix:///dev/null"
 			},
 		},
 	}
