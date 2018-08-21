@@ -735,3 +735,76 @@ func getHashPolicy(push *model.PushContext, dst *networking.DestinationWeight) *
 
 	return nil
 }
+
+type envoyRouteType int
+
+const (
+	envoyPath envoyRouteType = iota
+	envoyPrefix
+	envoyRegex
+	envoyCatchAll
+)
+
+// CombineVHostRoutes will concatenate route blocks from two virtual hosts
+func CombineVHostRoutes(first []route.Route, second []route.Route) []route.Route {
+	combined := append(first, second...)
+	sort.SliceStable(combined, func(i, j int) bool {
+		var iType, jType envoyRouteType
+		var iVal, jVal string
+
+		switch iR := combined[i].Match.PathSpecifier.(type) {
+		case *route.RouteMatch_Path:
+			iType = envoyPath
+			iVal = iR.Path
+		case *route.RouteMatch_Prefix:
+			if iR.Prefix == "/" {
+				iType = envoyCatchAll
+			} else {
+				iType = envoyPrefix
+			}
+			iVal = iR.Prefix
+		case *route.RouteMatch_Regex:
+			if iR.Regex == "*" {
+				iType = envoyCatchAll
+			} else {
+				iType = envoyRegex
+			}
+			iVal = iR.Regex
+		}
+
+		switch jR := combined[j].Match.PathSpecifier.(type) {
+		case *route.RouteMatch_Path:
+			jType = envoyPath
+			jVal = jR.Path
+		case *route.RouteMatch_Prefix:
+			if jR.Prefix == "/" {
+				jType = envoyCatchAll
+			} else {
+				jType = envoyPrefix
+			}
+			jVal = jR.Prefix
+		case *route.RouteMatch_Regex:
+			if jR.Regex == "*" {
+				jType = envoyCatchAll
+			} else {
+				jType = envoyRegex
+			}
+			jVal = jR.Regex
+		}
+
+		// path before prefix
+		// prefix before regex
+		// regex before catchall prefix / or catch all regex *
+		// longest path before shorter path
+		// longest prefix before shorter prefix
+		// longest regex before shorter regex. it doesn't make any difference, but
+		// we do it anyway to get a stable ordering
+		if iType == jType {
+			return len(iVal) < len(jVal)
+		}
+
+		return iType < jType
+	})
+
+	return combined
+}

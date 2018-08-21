@@ -269,7 +269,7 @@ func (ps *PushContext) VirtualServices(gateways map[string]bool) []Config {
 		} else {
 			for _, g := range rule.Gateways {
 				// note: Gateway names do _not_ use wildcard matching, so we do not use Hostname.Matches here
-				if gateways[ResolveShortnameToFQDN(g, config.ConfigMeta).String()] {
+				if gateways[string(ResolveShortnameToFQDN(g, config.ConfigMeta))] {
 					out = append(out, config)
 					break
 				} else if g == IstioMeshGateway && gateways[g] {
@@ -343,10 +343,17 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 		return err
 	}
 
+	// Sort virtual services by creation time.
+	// For each virtual service
+	// convert the Shortnames in the service into FQDNs
+	// Split into N smaller virtual services with one host and one gateway each
+	// Index virtual services by gateway and then by the hosts (since we select virtual services by gateways)
+	// If the index entry for the host already exists, concat blocks (add http to existing http, tcp to existing tcp..)
+	//   Sort the concatenated block for each protocol, and push the catch all routes (i.e. match==nil) to the end.
+
 	sortConfigByCreationTime(vservices)
-	ps.VirtualServiceConfigs = vservices
 	// convert all shortnames in virtual services into FQDNs
-	for _, r := range ps.VirtualServiceConfigs {
+	for _, r := range vservices {
 		rule := r.Spec.(*networking.VirtualService)
 		// resolve top level hosts
 		for i, h := range rule.Hosts {
@@ -400,7 +407,10 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 				w.Destination.Host = ResolveShortnameToFQDN(w.Destination.Host, r.ConfigMeta).String()
 			}
 		}
+
 	}
+
+	ps.VirtualServiceConfigs = vservices
 	return nil
 }
 

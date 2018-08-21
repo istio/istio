@@ -225,7 +225,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 	// NOTE: WE DO NOT SUPPORT two gateways on same workload binding to same virtual service
 	virtualServices := push.VirtualServices(merged.Names)
 	virtualHosts := make([]route.VirtualHost, 0, len(virtualServices))
-	vhostDomains := map[string]bool{}
+	vHostDedupMap := make(map[string]*route.VirtualHost)
 
 	for _, v := range virtualServices {
 		vs := v.Spec.(*networking.VirtualService)
@@ -241,24 +241,20 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 		}
 
 		for vsvcHost, gatewayHost := range matchingHosts {
-			_, f := vhostDomains[vsvcHost]
-			if f {
-				// RDS would reject this, resulting in all vhosts rejection.
-				push.Add(model.DuplicatedDomains, vsvcHost, node,
-					fmt.Sprintf("%s duplicate domain %s for %s", node.ID, vsvcHost, v.Name))
-				continue
+			if currentVhost, exists := vHostDedupMap[vsvcHost]; exists {
+				currentVhost.Routes = istio_route.CombineVHostRoutes(currentVhost.Routes, routes)
+			} else {
+				newVhost := &route.VirtualHost{
+					Name:    fmt.Sprintf("%s:%d", v.Name, port),
+					Domains: []string{vsvcHost, fmt.Sprintf("%s:%d", vsvcHost, port)},
+					Routes:  routes,
+				}
+				if tlsRedirect[gatewayHost] {
+					newVhost.RequireTls = route.VirtualHost_ALL
+				}
+				virtualHosts = append(virtualHosts, *newVhost)
+				vHostDedupMap[vsvcHost] = newVhost
 			}
-			vhostDomains[vsvcHost] = true
-			host := route.VirtualHost{
-				Name:    fmt.Sprintf("%s:%d", v.Name, port),
-				Domains: []string{vsvcHost, fmt.Sprintf("%s:%d", vsvcHost, port)},
-				Routes:  routes,
-			}
-
-			if tlsRedirect[gatewayHost] {
-				host.RequireTls = route.VirtualHost_ALL
-			}
-			virtualHosts = append(virtualHosts, host)
 		}
 	}
 
