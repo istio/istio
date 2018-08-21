@@ -21,20 +21,64 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path"
+	"path/filepath"
 	"sync"
 
-	"github.com/howeyc/fsnotify"
+	"github.com/fsnotify/fsnotify"
+	"github.com/spf13/cobra"
 
 	"istio.io/istio/pkg/log"
 )
 
+type fileWatcher interface {
+	Add(path string) error
+	Close() error
+	Events() chan fsnotify.Event
+	Errors() chan error
+}
+
+type fsNotifyWatcher struct {
+	*fsnotify.Watcher
+}
+
+func (w *fsNotifyWatcher) Add(path string) error       { return w.Watcher.Add(path) }
+func (w *fsNotifyWatcher) Close() error                { return w.Watcher.Close() }
+func (w *fsNotifyWatcher) Events() chan fsnotify.Event { return w.Watcher.Events }
+func (w *fsNotifyWatcher) Errors() chan error          { return w.Watcher.Errors }
+
+func newFsnotifyWatcher() (fileWatcher, error) {
+	w, err := fsnotify.NewWatcher()
+	if err != nil {
+		return nil, err
+	}
+	return &fsNotifyWatcher{Watcher: w}, nil
+}
+
+var (
+	newCertFileWatcher = newFsnotifyWatcher
+	newKeyFileWatcher  = newFsnotifyWatcher
+	readFile           = ioutil.ReadFile
+
+	watchCertEventHandledProbe func()
+	watchKeyEventHandledProbe  func()
+)
+
 var scope = log.RegisterScope("mcp-creds", "MCP Credential utilities", 0)
+
+const (
+	// defaultCertDir is the default directory in which MCP options reside.
+	defaultCertDir = "/etc/istio/certs/"
+	// defaultCertificateFile is the default name to use for the certificate file.
+	defaultCertificateFile = "cert-chain.pem"
+	// defaultKeyFile is the default name to use for the key file.
+	defaultKeyFile = "key.pem"
+	// defaultCACertificateFile is the default name to use for the Certificate Authority's certificate file.
+	defaultCACertificateFile = "root-cert.pem"
+)
 
 // CertificateWatcher watches a x509 cert/key file and loads it up in memory as needed.
 type CertificateWatcher struct {
-	caCertFile string
-	certFile   string
-	keyFile    string
+	options Options
 
 	stopCh <-chan struct{}
 
@@ -53,23 +97,54 @@ type CertificateWatcher struct {
 //
 // Internally WatchFolder will call WatchFiles.
 func WatchFolder(stop <-chan struct{}, folder string) (*CertificateWatcher, error) {
-	certFile := path.Join(folder, "cert-chain.pem")
-	keyFile := path.Join(folder, "key.pem")
-	caCertFile := path.Join(folder, "root-cert.pem")
+	cred := &Options{
+		CertificateFile:   path.Join(folder, defaultCertificateFile),
+		KeyFile:           path.Join(folder, defaultKeyFile),
+		CACertificateFile: path.Join(folder, defaultCACertificateFile),
+	}
+	return WatchFiles(stop, cred)
+}
 
-	return WatchFiles(stop, certFile, keyFile, caCertFile)
+// Options defines the credential options required for MCP.
+type Options struct {
+	// CertificateFile to use for mTLS gRPC.
+	CertificateFile string
+	// KeyFile to use for mTLS gRPC.
+	KeyFile string
+	// CACertificateFile is the trusted root certificate authority's cert file.
+	CACertificateFile string
+}
+
+// DefaultOptions returns default credential options.
+func DefaultOptions() *Options {
+	return &Options{
+		CertificateFile:   filepath.Join(defaultCertDir, defaultCertificateFile),
+		KeyFile:           filepath.Join(defaultCertDir, defaultKeyFile),
+		CACertificateFile: filepath.Join(defaultCertDir, defaultCACertificateFile),
+	}
+}
+
+// AttachCobraFlags attaches a set of Cobra flags to the given Cobra command.
+//
+// Cobra is the command-line processor that Istio uses. This command attaches
+// the necessary set of flags to configure the MCP options.
+func (c *Options) AttachCobraFlags(cmd *cobra.Command) {
+	cmd.PersistentFlags().StringVarP(&c.CertificateFile, "certFile", "", c.CertificateFile,
+		"The location of the certificate file for mutual TLS")
+	cmd.PersistentFlags().StringVarP(&c.KeyFile, "keyFile", "", c.KeyFile,
+		"The location of the key file for mutual TLS")
+	cmd.PersistentFlags().StringVarP(&c.CACertificateFile, "caCertFile", "", c.CACertificateFile,
+		"The location of the certificate file for the root certificate authority")
 }
 
 // WatchFiles loads certificate & key files from the file system. The method will start a background
 // go-routine and watch for credential file changes. Callers should pass the return result to one of the
-// create functions to create a transport credentials that can dynamically use rotated certificates.
+// create functions to create a transport options that can dynamically use rotated certificates.
 // The supplied stop channel can be used to stop the go-routine and the watch.
-func WatchFiles(stopCh <-chan struct{}, certFile, keyFile, caCertFile string) (*CertificateWatcher, error) {
+func WatchFiles(stopCh <-chan struct{}, credentials *Options) (*CertificateWatcher, error) {
 	w := &CertificateWatcher{
-		caCertFile: caCertFile,
-		certFile:   certFile,
-		keyFile:    keyFile,
-		stopCh:     stopCh,
+		options: *credentials,
+		stopCh:  stopCh,
 	}
 
 	if err := w.start(); err != nil {
@@ -83,12 +158,12 @@ func WatchFiles(stopCh <-chan struct{}, certFile, keyFile, caCertFile string) (*
 // fails.
 func (c *CertificateWatcher) start() error {
 	// Load CA Cert file
-	caCertPool, err := loadCACert(c.caCertFile)
+	caCertPool, err := loadCACert(c.options.CACertificateFile)
 	if err != nil {
 		return err
 	}
 
-	cert, err := loadCertPair(c.certFile, c.keyFile)
+	cert, err := loadCertPair(c.options.CertificateFile, c.options.KeyFile)
 	if err != nil {
 		return err
 	}
@@ -97,26 +172,27 @@ func (c *CertificateWatcher) start() error {
 	// TODO: https://github.com/istio/istio/issues/7877
 	// It looks like fsnotify watchers have problems due to following symlinks. This needs to be handled.
 	//
-	certFileWatcher, err := fsnotify.NewWatcher()
+	certFileWatcher, err := newCertFileWatcher()
 	if err != nil {
 		return err
 	}
 
-	keyFileWatcher, err := fsnotify.NewWatcher()
+	keyFileWatcher, err := newKeyFileWatcher()
 	if err != nil {
 		return err
 	}
 
-	if err = certFileWatcher.Watch(c.certFile); err != nil {
+	if err = certFileWatcher.Add(c.options.CertificateFile); err != nil {
 		return err
 	}
 
-	if err = keyFileWatcher.Watch(c.keyFile); err != nil {
+	if err = keyFileWatcher.Add(c.options.KeyFile); err != nil {
 		_ = certFileWatcher.Close()
 		return err
 	}
 
-	scope.Debugf("Begin watching certificate files: %s, %s: ", c.certFile, c.keyFile)
+	scope.Debugf("Begin watching certificate files: %s, %s: ",
+		c.options.CertificateFile, c.options.KeyFile)
 
 	// Coordinate the goroutines for orderly shutdown
 	var exitSignal sync.WaitGroup
@@ -135,33 +211,36 @@ func (c *CertificateWatcher) start() error {
 	return nil
 }
 
-func (c *CertificateWatcher) watch(
-	exitSignal sync.WaitGroup, certFileWatcher, keyFileWatcher *fsnotify.Watcher) {
+func (c *CertificateWatcher) watch(exitSignal sync.WaitGroup, certFileWatcher, keyFileWatcher fileWatcher) {
 
 	defer exitSignal.Done()
 
 	for {
 		select {
-		case e := <-certFileWatcher.Event:
-			if e.IsCreate() || e.IsModify() {
-				cert, err := loadCertPair(c.certFile, c.keyFile)
+		case e := <-certFileWatcher.Events():
+			if e.Op&fsnotify.Write == fsnotify.Write {
+				cert, err := loadCertPair(c.options.CertificateFile, c.options.KeyFile)
 				if err != nil {
 					scope.Errorf("error loading certificates after watch event: %v", err)
+				} else {
+					c.set(&cert)
 				}
-				c.set(&cert)
 			}
-			break
-
-		case e := <-keyFileWatcher.Event:
-			if e.IsCreate() || e.IsModify() {
-				cert, err := loadCertPair(c.certFile, c.keyFile)
+			if watchCertEventHandledProbe != nil {
+				watchCertEventHandledProbe()
+			}
+		case e := <-keyFileWatcher.Events():
+			if e.Op&fsnotify.Write == fsnotify.Write {
+				cert, err := loadCertPair(c.options.CertificateFile, c.options.KeyFile)
 				if err != nil {
 					scope.Errorf("error loading certificates after watch event: %v", err)
+				} else {
+					c.set(&cert)
 				}
-				c.set(&cert)
 			}
-			break
-
+			if watchKeyEventHandledProbe != nil {
+				watchKeyEventHandledProbe()
+			}
 		case <-c.stopCh:
 			scope.Debug("stopping watch of certificate file changes")
 			return
@@ -169,21 +248,16 @@ func (c *CertificateWatcher) watch(
 	}
 }
 
-func (c *CertificateWatcher) watchErrors(
-	exitSignal sync.WaitGroup, certFileWatcher, keyFileWatcher *fsnotify.Watcher) {
+func (c *CertificateWatcher) watchErrors(exitSignal sync.WaitGroup, certFileWatcher, keyFileWatcher fileWatcher) {
 
 	defer exitSignal.Done()
 
 	for {
 		select {
-		case e := <-keyFileWatcher.Error:
+		case e := <-keyFileWatcher.Errors():
 			scope.Errorf("error event while watching key file: %v", e)
-			break
-
-		case e := <-certFileWatcher.Error:
+		case e := <-certFileWatcher.Errors():
 			scope.Errorf("error event while watching cert file: %v", e)
-			break
-
 		case <-c.stopCh:
 			scope.Debug("stopping watch of certificate file errors")
 			return
@@ -191,7 +265,7 @@ func (c *CertificateWatcher) watchErrors(
 	}
 }
 
-func closeWatchers(exitSignal sync.WaitGroup, certFileWatcher, keyFileWatcher *fsnotify.Watcher) {
+func closeWatchers(exitSignal sync.WaitGroup, certFileWatcher, keyFileWatcher fileWatcher) { // nolint: interfacer
 	exitSignal.Wait()
 	_ = certFileWatcher.Close()
 	_ = keyFileWatcher.Close()
@@ -213,18 +287,25 @@ func (c *CertificateWatcher) get() tls.Certificate {
 
 // loadCertPair from the given set of files.
 func loadCertPair(certFile, keyFile string) (tls.Certificate, error) {
-	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+	certPEMBlock, err := readFile(certFile)
+	if err != nil {
+		return tls.Certificate{}, err
+	}
+	keyPEMBlock, err := readFile(keyFile)
+	if err != nil {
+		return tls.Certificate{}, err
+	}
+	cert, err := tls.X509KeyPair(certPEMBlock, keyPEMBlock)
 	if err != nil {
 		err = fmt.Errorf("error loading client certificate files (%s, %s): %v", certFile, keyFile, err)
 	}
-
 	return cert, err
 }
 
 // loadCACert, create a certPool and return.
 func loadCACert(caCertFile string) (*x509.CertPool, error) {
 	certPool := x509.NewCertPool()
-	ca, err := ioutil.ReadFile(caCertFile)
+	ca, err := readFile(caCertFile)
 	if err != nil {
 		err = fmt.Errorf("error loading CA certificate file (%s): %v", caCertFile, err)
 		return nil, err

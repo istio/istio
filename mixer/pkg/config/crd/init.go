@@ -34,6 +34,7 @@ import (
 
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/mcp/creds"
 	"istio.io/istio/pkg/probe"
 )
 
@@ -62,7 +63,7 @@ func (b *dynamicListerWatcherBuilder) build(res metav1.APIResource) cache.Lister
 }
 
 // NewStore creates a new Store instance.
-func NewStore(u *url.URL, gv *schema.GroupVersion) (store.Backend, error) {
+func NewStore(u *url.URL, gv *schema.GroupVersion, _ *creds.Options) (store.Backend, error) {
 	kubeconfig := u.Path
 	namespaces := u.Query().Get("ns")
 	retryTimeout := crdRetryTimeout
