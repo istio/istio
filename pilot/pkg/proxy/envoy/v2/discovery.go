@@ -97,7 +97,7 @@ func NewDiscoveryServer(env *model.Environment, generator core.ConfigGenerator) 
 		env:             env,
 		ConfigGenerator: generator,
 	}
-	env.PushContext = model.NewStatus()
+	env.PushContext = model.NewPushContext()
 
 	go out.periodicRefresh()
 
@@ -181,7 +181,7 @@ func (s *DiscoveryServer) periodicRefreshMetrics() {
 		// TODO: env to customize
 		//if time.Since(push.Start) > 30*time.Second {
 		// Reset the stats, some errors may still be stale.
-		//s.env.PushContext = model.NewStatus()
+		//s.env.PushContext = model.NewPushContext()
 		//}
 	}
 }
@@ -200,7 +200,7 @@ func (s *DiscoveryServer) ClearCacheFunc() func() {
 		// PushContext is reset after a config change. Previous status is
 		// saved.
 		t0 := time.Now()
-		push := model.NewStatus()
+		push := model.NewPushContext()
 		err := push.InitContext(s.env)
 		if err != nil {
 			adsLog.Errorf("XDS: failed to update services %v", err)
