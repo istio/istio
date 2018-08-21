@@ -303,13 +303,10 @@ func ValidateMixerService(svc *mccpb.IstioService) (errs error) {
 	return
 }
 
-// ValidateHTTPHeaderName checks that the name is lower-case
+// ValidateHTTPHeaderName validates a header name
 func ValidateHTTPHeaderName(name string) error {
 	if name == "" {
 		return fmt.Errorf("header name cannot be empty")
-	}
-	if strings.ToLower(name) != name {
-		return fmt.Errorf("must be in lower case")
 	}
 	return nil
 }
