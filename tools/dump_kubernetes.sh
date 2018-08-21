@@ -120,7 +120,7 @@ copy_core_dumps_if_istio_proxy() {
   local namespace="${1}"
   local pod="${2}"
   local container="${3}"
-  local got_core_dump=0
+  local got_core_dump=false
 
   if [ "istio-proxy" = "${container}" ]; then
     local out_dir="${LOG_DIR}/${namespace}/${pod}"
@@ -136,12 +136,11 @@ copy_core_dumps_if_istio_proxy() {
           cat "${f}" > "${out_file}"
 
       log "Copied ${namespace}/${pod}/${container}:${f} to ${out_file}"
-      got_core_dump=1
+      got_core_dump=true
     done
   fi
-
-  if [[ ${got_core_dump} -eq 1 ]]; then
-    return 255
+  if [ "${got_core_dump}" = true ]; then
+    return 254
   fi
 }
 
@@ -164,12 +163,14 @@ tap_containers() {
       for container in ${containers}; do
 
         for f in "${functions[@]}"; do
-          "${f}" "${namespace}" "${pod}" "${container}"
+          "${f}" "${namespace}" "${pod}" "${container}" | return $?
         done
 
       done
     done
   done
+
+  return 0
 }
 
 dump_kubernetes_resources() {
@@ -258,18 +259,14 @@ check_logs_for_errors() {
 }
 
 main() {
+  local exit_code=0
   parse_args "$@"
   check_prerequisites kubectl
   dump_time
   dump_pilot
   dump_resources
-  tap_containers
-  dump_logs_for_container
-
-  local exit_code=0
-  if copy_core_dumps_if_istio_proxy; then
-    log "FAIL: core file detected! Please check prior message for location."
-    exit_code=255
+  if tap_containers dump_logs_for_container copy_core_dumps_if_istio_proxy; then
+      exit_code=254
   fi
 
   if [ "${SHOULD_CHECK_LOGS_FOR_ERRORS}" = true ]; then
