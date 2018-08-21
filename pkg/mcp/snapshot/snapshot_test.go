@@ -150,7 +150,7 @@ func nextStrVersion(version *int64) string {
 
 }
 
-func createTestWatch(c *Cache, typeURL, version string, responseC chan *server.WatchResponse, wantResponse, wantCancel bool) (*server.WatchResponse, server.CancelWatchFunc, error) { // nolint: lll
+func createTestWatch(c *Cache, typeURL, version string, responseC chan *server.WatchResponse, wantResponse, wantCancel bool) (*server.WatchResponse, server.CancelWatchFunc, error) {
 	req := &mcp.MeshConfigRequest{
 		TypeUrl:     typeURL,
 		VersionInfo: version,

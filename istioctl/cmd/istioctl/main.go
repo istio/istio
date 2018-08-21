@@ -725,7 +725,7 @@ func printShortOutput(writer io.Writer, _ model.ConfigStore, configList []model.
 
 		outputter(c, &w)
 	}
-	w.Flush() // nolint: errcheck
+	w.Flush()
 }
 
 func kindAsString(config model.Config) string {

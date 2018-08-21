@@ -194,7 +194,6 @@ type ConfigStoreCache interface {
 type ConfigDescriptor []ProtoSchema
 
 // ProtoSchema provides description of the configuration schema and its key function
-// nolint: maligned
 type ProtoSchema struct {
 	// ClusterScoped is true for resource in cluster-level.
 	ClusterScoped bool

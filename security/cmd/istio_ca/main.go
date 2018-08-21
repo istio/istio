@@ -84,7 +84,7 @@ type keyCertBundleRotator interface {
 	Stop()
 }
 
-type cliOptions struct { // nolint: maligned
+type cliOptions struct {
 	listenedNamespace       string
 	istioCaStorageNamespace string
 	kubeConfigFile          string

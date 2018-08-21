@@ -744,7 +744,6 @@ func buildSidecarInboundMgmtListeners(managementPorts model.PortList, management
 
 // httpListenerOpts are options for an HTTP listener
 type httpListenerOpts struct {
-	//nolint: maligned
 	routeConfig      *xdsapi.RouteConfiguration
 	rds              string
 	useRemoteAddress bool
@@ -769,7 +768,6 @@ type filterChainOpts struct {
 
 // buildListenerOpts are the options required to build a Listener
 type buildListenerOpts struct {
-	// nolint: maligned
 	env             *model.Environment
 	proxy           *model.Proxy
 	proxyInstances  []*model.ServiceInstance

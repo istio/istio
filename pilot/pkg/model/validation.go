@@ -1032,17 +1032,17 @@ func ValidateQuotaSpec(name, namespace string, msg proto.Message) error {
 				case *mccpb.StringMatch_Exact:
 					if matchType.Exact == "" {
 						errs = multierror.Append(errs,
-							fmt.Errorf("StringMatch_Exact for attribute %q cannot be empty", name)) // nolint: golint
+							fmt.Errorf("StringMatch_Exact for attribute %q cannot be empty", name))
 					}
 				case *mccpb.StringMatch_Prefix:
 					if matchType.Prefix == "" {
 						errs = multierror.Append(errs,
-							fmt.Errorf("StringMatch_Prefix for attribute %q cannot be empty", name)) // nolint: golint
+							fmt.Errorf("StringMatch_Prefix for attribute %q cannot be empty", name))
 					}
 				case *mccpb.StringMatch_Regex:
 					if matchType.Regex == "" {
 						errs = multierror.Append(errs,
-							fmt.Errorf("StringMatch_Regex for attribute %q cannot be empty", name)) // nolint: golint
+							fmt.Errorf("StringMatch_Regex for attribute %q cannot be empty", name))
 					}
 				}
 			}
@@ -1423,7 +1423,7 @@ func validateHTTPRoute(http *networking.HTTPRoute) (errs error) {
 		}
 
 		if http.WebsocketUpgrade {
-			errs = appendErrors(errs, errors.New("WebSocket upgrade is not allowed on redirect rules")) // nolint: golint
+			errs = appendErrors(errs, errors.New("WebSocket upgrade is not allowed on redirect rules"))
 		}
 	} else if len(http.Route) == 0 {
 		errs = appendErrors(errs, errors.New("HTTP route or redirect is required"))

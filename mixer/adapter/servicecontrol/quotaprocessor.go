@@ -162,7 +162,6 @@ func getAllocatedQuotaAmount(args *adapter.QuotaArgs, quotaMetrics []*sc.MetricV
 
 // ProcessQuota calls Google ServiceControl client to allocate requested quota.
 // TODO(manlinl): Support handling multiple QuotaArgs once Mixer supports it. And implement retry on retriable error.
-// nolint: vetshadow
 func (p *quotaImpl) ProcessQuota(ctx context.Context,
 	instance *quota.Instance, args adapter.QuotaArgs) (adapter.QuotaResult, error) {
 	quotaCfg, found := p.quotaIndex[instance.Name]

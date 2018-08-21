@@ -173,7 +173,7 @@ func (s *Server) newConnection(stream mcp.AggregatedMeshConfigService_StreamAggr
 }
 
 // StreamAggregatedResources implements bidirectional streaming method for MCP (ADS).
-func (s *Server) StreamAggregatedResources(stream mcp.AggregatedMeshConfigService_StreamAggregatedResourcesServer) error { // nolint: lll
+func (s *Server) StreamAggregatedResources(stream mcp.AggregatedMeshConfigService_StreamAggregatedResourcesServer) error {
 	con, err := s.newConnection(stream)
 	if err != nil {
 		return err

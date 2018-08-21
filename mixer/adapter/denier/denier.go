@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// nolint: lll
 //go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -a mixer/adapter/denier/config/config.proto -x "-n denier -t checknothing -t listentry -t quota"
 
 // Package denier provides an adapter that will return a status code (typically

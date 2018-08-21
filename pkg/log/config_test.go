@@ -176,7 +176,7 @@ func TestRotateNoStdout(t *testing.T) {
 	}
 
 	defaultScope.Error("HELLO")
-	Sync() // nolint: errcheck
+	Sync()
 
 	content, err := ioutil.ReadFile(file)
 	if err != nil {
@@ -203,7 +203,7 @@ func TestRotateAndStdout(t *testing.T) {
 		}
 
 		defaultScope.Error("HELLO")
-		Sync() // nolint: errcheck
+		Sync()
 
 		content, err := ioutil.ReadFile(file)
 		if err != nil {

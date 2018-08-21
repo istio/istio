@@ -6,12 +6,8 @@ import (
 	"github.com/golang/glog"
 )
 
-func f1() {
-	//var v int
-}
-
 func M1() {
 	glog.Infof("")
-	go f() //nolint:adapterlinter
+	go f()
 	fmt.Println("M")
 }

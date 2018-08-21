@@ -308,7 +308,7 @@ func ValidateExcludeInboundPorts(ports string) error {
 	return nil
 }
 
-func injectRequired(ignored []string, namespacePolicy InjectionPolicy, podSpec *corev1.PodSpec, metadata *metav1.ObjectMeta) bool { // nolint: lll
+func injectRequired(ignored []string, namespacePolicy InjectionPolicy, podSpec *corev1.PodSpec, metadata *metav1.ObjectMeta) bool {
 	// Skip injection when host networking is enabled. The problem is
 	// that the iptable changes are assumed to be within the pod when,
 	// in fact, they are changing the routing at the host level. This
@@ -394,7 +394,7 @@ func isset(m map[string]string, key string) bool {
 	return ok
 }
 
-func injectionData(sidecarTemplate, version string, spec *corev1.PodSpec, metadata *metav1.ObjectMeta, proxyConfig *meshconfig.ProxyConfig, meshConfig *meshconfig.MeshConfig) (*SidecarInjectionSpec, string, error) { // nolint: lll
+func injectionData(sidecarTemplate, version string, spec *corev1.PodSpec, metadata *metav1.ObjectMeta, proxyConfig *meshconfig.ProxyConfig, meshConfig *meshconfig.MeshConfig) (*SidecarInjectionSpec, string, error) {
 	if err := validateAnnotations(metadata.GetAnnotations()); err != nil {
 		return nil, "", err
 	}
@@ -466,7 +466,7 @@ func IntoResourceFile(sidecarTemplate string, meshconfig *meshconfig.MeshConfig,
 
 		var updated []byte
 		if err == nil {
-			outObject, err := intoObject(sidecarTemplate, meshconfig, obj) // nolint: vetshadow
+			outObject, err := intoObject(sidecarTemplate, meshconfig, obj)
 			if err != nil {
 				return err
 			}
@@ -524,7 +524,7 @@ func intoObject(sidecarTemplate string, meshconfig *meshconfig.MeshConfig, in ru
 				return nil, err
 			}
 
-			r, err := intoObject(sidecarTemplate, meshconfig, obj) // nolint: vetshadow
+			r, err := intoObject(sidecarTemplate, meshconfig, obj)
 			if err != nil {
 				return nil, err
 			}

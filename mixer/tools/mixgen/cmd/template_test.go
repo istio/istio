@@ -30,7 +30,6 @@ func TestTemplateCmd(t *testing.T) {
 	for i, td := range []templateCmdTestdata{
 		{
 			templateFile: "testdata/simple/foo.descriptor",
-			// nolint:lll
 			wantCfg: `# this config is created through command
 # mixgen template -d testdata/simple/foo.descriptor -n myTemplateResourceName --namespace mynamespace
 apiVersion: "config.istio.io/v1alpha2"

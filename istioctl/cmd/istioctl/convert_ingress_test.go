@@ -44,7 +44,7 @@ func TestConvertIngress(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				defer file.Close() // nolint: errcheck
+				defer file.Close()
 				readers = append(readers, file)
 			}
 
@@ -53,7 +53,7 @@ func TestConvertIngress(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer out.Close() // nolint: errcheck
+			defer out.Close()
 
 			if err := convertConfigs(readers, out); err != nil {
 				t.Fatalf("Unexpected error converting configs: %v", err)

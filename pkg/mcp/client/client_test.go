@@ -76,7 +76,7 @@ func (ts *testStream) sendResponseToClient(response *mcp.MeshConfigResponse) {
 	}
 }
 
-func (ts *testStream) StreamAggregatedResources(ctx context.Context, opts ...grpc.CallOption) (mcp.AggregatedMeshConfigService_StreamAggregatedResourcesClient, error) { // nolint: lll
+func (ts *testStream) StreamAggregatedResources(ctx context.Context, opts ...grpc.CallOption) (mcp.AggregatedMeshConfigService_StreamAggregatedResourcesClient, error) {
 	go func() {
 		<-ctx.Done()
 		ts.responseClosedC <- struct{}{}

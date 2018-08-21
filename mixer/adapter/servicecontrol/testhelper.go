@@ -77,7 +77,6 @@ func (c *mockSvcctrlClient) reset() {
 }
 
 // Work around linter bug with test code
-// nolint: deadcode
 type mockConsumerProjectIDResolver struct {
 	consumerProjectID string
 }
@@ -91,7 +90,6 @@ func (r *mockConsumerProjectIDResolver) ResolveConsumerProjectID(
 }
 
 // Work around linter bug with test code
-// nolint: deadcode
 func compareJSON(s1, s2 string) bool {
 	var o1 interface{}
 	var o2 interface{}

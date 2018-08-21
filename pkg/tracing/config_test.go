@@ -123,7 +123,7 @@ func TestSpanLogger(t *testing.T) {
 		sl.Error("ERROR")
 		sl.Infof("INFO")
 
-		log.Sync() // nolint: errcheck
+		log.Sync()
 	})
 
 	if err != nil {

@@ -103,7 +103,6 @@ func newServiceProcessor(meshServiceName string, ctx *handlerContext) (*serviceP
 }
 
 // HandleApiKey handles apikey check.
-// nolint:golint
 // Disable lint warning of HandleApiKey name
 func (h *handler) HandleApiKey(ctx context.Context, instance *apikey.Instance) (adapter.CheckResult, error) {
 	svcProc, err := h.getServiceProcessor(instance.Api)

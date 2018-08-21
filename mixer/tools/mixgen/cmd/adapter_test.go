@@ -42,7 +42,6 @@ func TestAdapterCmd(t *testing.T) {
 			name:         "myresName",
 			sessionBased: false,
 			templates:    []string{"foo.bar", "foo1.bar1"},
-			// nolint:lll
 			wantCfg: `# this config is created through command
 # mixgen adapter -n myresName -c testdata/simple/foo.descriptor --description mydescription -s=false -t=foo.bar -t=foo1.bar1
 apiVersion: "config.istio.io/v1alpha2"
@@ -65,7 +64,6 @@ spec:
 			configFile:   "testdata/simple/foo.descriptor",
 			name:         "myresName",
 			sessionBased: true,
-			// nolint:lll
 			wantCfg: `# this config is created through command
 # mixgen adapter -n myresName -c testdata/simple/foo.descriptor --description mydescription -s=true
 apiVersion: "config.istio.io/v1alpha2"

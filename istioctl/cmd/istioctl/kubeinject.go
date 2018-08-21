@@ -286,7 +286,7 @@ istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml --injectConf
 				}
 
 			} else if injectConfigFile != "" {
-				injectionConfig, err := ioutil.ReadFile(injectConfigFile) // nolint: vetshadow
+				injectionConfig, err := ioutil.ReadFile(injectConfigFile)
 				if err != nil {
 					return err
 				}

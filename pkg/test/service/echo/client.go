@@ -250,7 +250,6 @@ func (c *websocketClient) makeRequest(req *request) (response, error) {
 		// timeout or bad handshake
 		return "", err
 	}
-	// nolint: errcheck
 	defer conn.Close()
 
 	err = conn.WriteMessage(websocket.TextMessage, []byte(req.Message))

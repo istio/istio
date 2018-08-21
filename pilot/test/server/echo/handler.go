@@ -124,7 +124,6 @@ func (h handler) WebSocketEcho(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// nolint: errcheck
 	defer c.Close()
 
 	// ping

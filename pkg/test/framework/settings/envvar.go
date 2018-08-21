@@ -36,11 +36,9 @@ func (e EnvironmentVariable) Value() string {
 var (
 	// ISTIO_TEST_ENVIRONMENT indicates in which mode the test framework should run. It can be "local", or
 	// "kube".
-	// nolint: golint
 	ISTIO_TEST_ENVIRONMENT EnvironmentVariable = "ISTIO_TEST_ENVIRONMENT"
 
 	// ISTIO_TEST_KUBE_CONFIG is the Kubernetes configuration file to use for testing. If a configuration file
 	// is specified on the command-line, that takes precedence.
-	// nolint: golint
 	ISTIO_TEST_KUBE_CONFIG EnvironmentVariable = "ISTIO_TEST_KUBE_CONFIG"
 )

@@ -307,11 +307,11 @@ func TestReloadCert(t *testing.T) {
 	go wh.Run(stop)
 	checkCert(t, wh, testcerts.ServerCert, testcerts.ServerKey)
 	// Update cert/key files.
-	if err := ioutil.WriteFile(wh.certFile, testcerts.RotatedCert, 0644); err != nil { // nolint: vetshadow
+	if err := ioutil.WriteFile(wh.certFile, testcerts.RotatedCert, 0644); err != nil {
 		cleanup()
 		t.Fatalf("WriteFile(%v) failed: %v", wh.certFile, err)
 	}
-	if err := ioutil.WriteFile(wh.keyFile, testcerts.RotatedKey, 0644); err != nil { // nolint: vetshadow
+	if err := ioutil.WriteFile(wh.keyFile, testcerts.RotatedKey, 0644); err != nil {
 		cleanup()
 		t.Fatalf("WriteFile(%v) failed: %v", wh.keyFile, err)
 	}
