@@ -87,9 +87,9 @@ func TestNoSessionBackend(t *testing.T) {
     		 "Returns": [
     		  {
     		   "Check": {
-    		    "Status": {},
-    		    "ValidDuration": 60000000000,
-    		    "ValidUseCount": 10000
+    		    "status": {},
+    		    "valid_duration": 60000000000,
+    		    "valid_use_count": 10000
     		   },
     		   "Quota": null,
     		   "Error": null

@@ -27,22 +27,22 @@ func TestCheckResult(t *testing.T) {
 		t.Error("Expected valid string")
 	}
 
-	if !cr.IsDefault() {
+	if !IsDefault(&cr) {
 		t.Error("Expecting IsDefault to return true")
 	}
 
 	cr.Status = status.WithCancelled("FAIL")
-	if cr.IsDefault() {
+	if IsDefault(&cr) {
 		t.Error("Expecting IsDefault to return false")
 	}
 
 	cr = CheckResult{ValidUseCount: 1}
-	if cr.IsDefault() {
+	if IsDefault(&cr) {
 		t.Error("Expecting IsDefault to return false")
 	}
 
 	cr = CheckResult{ValidDuration: 10}
-	if cr.IsDefault() {
+	if IsDefault(&cr) {
 		t.Error("Expecting IsDefault to return false")
 	}
 }

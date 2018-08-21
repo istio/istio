@@ -15,29 +15,14 @@
 package adapter
 
 import (
-	"fmt"
-	"time"
-
-	rpc "github.com/gogo/googleapis/google/rpc"
-
+	"istio.io/api/mixer/adapter/model/v1beta1"
 	"istio.io/istio/mixer/pkg/status"
 )
 
 // CheckResult provides return value from check request call on the handler.
-type CheckResult struct {
-	// The outcome status of the operation.
-	Status rpc.Status
-	// ValidDuration represents amount of time for which this result can be considered valid.
-	ValidDuration time.Duration
-	// ValidUseCount represents the number of uses for which this result can be considered valid.
-	ValidUseCount int32
-}
+type CheckResult = v1beta1.CheckResult
 
 // IsDefault returns true if the CheckResult is in its zero state
-func (r *CheckResult) IsDefault() bool {
+func IsDefault(r *CheckResult) bool {
 	return status.IsOK(r.Status) && r.ValidDuration == 0 && r.ValidUseCount == 0
-}
-
-func (r *CheckResult) String() string {
-	return fmt.Sprintf("CheckResult: status:%s, duration:%d, usecount:%d", status.String(r.Status), r.ValidDuration, r.ValidDuration)
 }

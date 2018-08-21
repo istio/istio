@@ -123,7 +123,7 @@ func (s *nosessionServer) HandleListEntry(ctx context.Context, r *listentry.Hand
 		return nil, err
 	}
 	s.env.Logger().Infof("response for '%v' is '%v'", *r, cr)
-	return &adptModel.CheckResult{Status: cr.Status, ValidUseCount: cr.ValidUseCount, ValidDuration: cr.ValidDuration}, nil
+	return &cr, nil
 }
 
 // Addr returns the listening address of the server

@@ -240,7 +240,7 @@ func (s *session) waitForDispatched() {
 			// Do nothing
 
 		case tpb.TEMPLATE_VARIETY_CHECK:
-			if s.checkResult.IsDefault() {
+			if adapter.IsDefault(&s.checkResult) {
 				// no results so far
 				s.checkResult = state.checkResult
 			} else {

@@ -70,6 +70,9 @@ type Value struct {
 
 	// ReferencedAttributes for the Check operation
 	ReferencedAttributes mixerpb.ReferencedAttributes
+
+	// RouteDirective for the Check operation
+	RouteDirective *mixerpb.RouteDirective
 }
 
 // New creates a new instance of a check cache with the given maximum capacity. Adding more items to the

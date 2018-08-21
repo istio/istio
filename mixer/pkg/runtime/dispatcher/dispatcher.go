@@ -130,7 +130,7 @@ func (d *Impl) Check(ctx context.Context, bag attribute.Bag) (adapter.CheckResul
 			// for up to a minute.
 			//
 			// TODO: make these fallback values configurable
-			if r.IsDefault() {
+			if adapter.IsDefault(&r) {
 				r = adapter.CheckResult{
 					ValidUseCount: defaultValidUseCount,
 					ValidDuration: defaultValidDuration,

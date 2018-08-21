@@ -78,19 +78,19 @@ func TestReport(t *testing.T) {
             "Returns": [
              {
               "Check": {
-                "Status": {},
-                "ValidDuration": 300000000000,
-                "ValidUseCount": 10000
+                "status": {},
+                "valid_duration": 300000000000,
+                "valid_use_count": 10000
               }
              },
              {
               "Check": {
-               "Status": {
+               "status": {
                 "code": 5,
                 "message": "staticversion.listchecker.istio-system: is not whitelisted"
                },
-               "ValidDuration": 300000000000,
-               "ValidUseCount": 10000
+               "valid_duration": 300000000000,
+               "valid_use_count": 10000
               }
              }
             ]
