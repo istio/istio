@@ -93,6 +93,7 @@ const (
 {
 	"connection.id": "*",
   "connection.mtls": false,
+  "connection.requested_server_name": "",
   "origin.ip": "[127 0 0 1]",
   "context.protocol": "tcp",
   "context.reporter.kind": "outbound",
@@ -111,6 +112,7 @@ const (
 {
 	"connection.id": "*",
   "connection.mtls": false,
+  "connection.requested_server_name": "",
   "origin.ip": "[127 0 0 1]",
   "context.protocol": "tcp",
   "context.reporter.kind": "inbound",
