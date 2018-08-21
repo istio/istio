@@ -63,7 +63,8 @@ const reportAttributes = `
      "server": "envoy"
   },
   "response.total_size": "*",
-  "request.total_size": 0
+  "request.total_size": 0,
+  "request.url_path": "/echo"
 }
 `
 
