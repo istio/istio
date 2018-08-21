@@ -85,7 +85,10 @@ global:
   disablePolicyChecks: false
 
   # EnableTracing sets the value with same name in istio config map, requires pilot restart to take effect.
-  enableTracing: true
+  tracing:
+    enabled: true
+    namespace: istio-system 
+    service: jaeger
 
   # Default mtls policy. If true, mtls between services will be enabled by default.
   mtls:

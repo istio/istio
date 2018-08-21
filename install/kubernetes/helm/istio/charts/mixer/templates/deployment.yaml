@@ -29,7 +29,7 @@
           - unix:///sock/mixer.socket
           - --configStoreURL=k8s://
           - --configDefaultNamespace={{ $.Release.Namespace }}
-          - --trace_zipkin_url=http://zipkin:9411/api/v1/spans
+          - --trace_zipkin_url=http://{{ $.Values.global.tracing.service | default "zipkin" }}.{{ $.Values.global.tracing.namespace | default "istio-system" }}/api/v1/spans
         resources:
 {{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 10 }}
@@ -124,7 +124,7 @@
           - unix:///sock/mixer.socket
           - --configStoreURL=k8s://
           - --configDefaultNamespace={{ $.Release.Namespace }}
-          - --trace_zipkin_url=http://zipkin:9411/api/v1/spans
+          - --trace_zipkin_url=http://{{ $.Values.global.tracing.service | default "zipkin" }}.{{ $.Values.global.tracing.namespace | default "istio-system" }}/api/v1/spans
         resources:
 {{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 10 }}

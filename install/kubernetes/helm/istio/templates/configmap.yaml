@@ -83,7 +83,7 @@ data:
       proxyAdminPort: 15000
       #
       # Zipkin trace collector
-      zipkinAddress: zipkin.{{ .Release.Namespace }}:9411
+      zipkinAddress: {{ .Values.global.tracing.service | default "zipkin" }}.{{ .Values.global.tracing.namespace | default "istio-system" }}:9411
 
     {{- if .Values.global.proxy.envoyStatsd.enabled }}
       #

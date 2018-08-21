@@ -52,9 +52,9 @@ spec:
           - {{ $key }}
           - --zipkinAddress
         {{- if $.Values.global.istioNamespace }}
-          - zipkin.{{ $.Values.global.istioNamespace }}:9411
+          - {{ $.Values.global.tracing.service | default "zipkin" }}.{{ $.Values.global.tracing.namespace | default $.Values.global.istioNamespace }}:9411
         {{- else }}
-          - zipkin:9411
+          - {{ $.Values.global.tracing.service | default "zipkin" }}.{{ $.Values.global.tracing.namespace | default "istio-system" }}:9411
         {{- end }}
         {{- if $.Values.global.proxy.envoyStatsd.enabled }}
           - --statsdUdpAddress
