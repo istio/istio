@@ -47,5 +47,5 @@ TAG="${GIT_SHA}"
 time ISTIO_DOCKER_HUB="${HUB}" make push HUB="${HUB}" TAG="${TAG}"
 
 cd "$ROOT"
-OUTDIR="$(mktemp /tmp/$outdir.XXXX)"
+OUTDIR="$(mktemp /tmp/outdir.XXXX)"
 time (./release/cloud_builder.sh -p istio-release-pipeline-data/daily-build/postsubmit/"${GIT_SHA}" -q istio-release -t "${TAG}"  -o "${OUTDIR}" || echo "not failing make for now")
