@@ -136,7 +136,9 @@ data:
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
         securityContext:
           privileged: false
+          {{- if or (ne .Values.global.proxy.enableCoreDump true) (eq .Values.global.proxy.maxNumCoreDumps "0") }}
           readOnlyRootFilesystem: true
+          {{- end }}
           {{ "[[ if eq (or (index .ObjectMeta.Annotations \"sidecar.istio.io/interceptionMode\") .ProxyConfig.InterceptionMode.String) \"TPROXY\" -]]" }}
           capabilities:
             add:
