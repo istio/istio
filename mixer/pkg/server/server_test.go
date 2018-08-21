@@ -21,9 +21,9 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"strconv"
 	"testing"
 
+	"go.opencensus.io/stats/view"
 	"google.golang.org/grpc"
 
 	mixerpb "istio.io/api/mixer/v1"
@@ -186,49 +186,35 @@ func TestClient(t *testing.T) {
 func TestErrors(t *testing.T) {
 	a := defaultTestArgs()
 	a.APIWorkerPoolSize = -1
-	configStore, cerr := storetest.SetupStoreForTest(globalCfg, serviceCfg)
-	if cerr != nil {
-		t.Fatal(cerr)
-	}
-	a.ConfigStore = configStore
-
 	s, err := New(a)
 	if s != nil || err == nil {
 		t.Errorf("Got success, expecting error")
 	}
 
-	a = defaultTestArgs()
-	a.APIPort = 0
-	a.MonitoringPort = 0
-	a.TracingOptions.LogTraceSpans = true
-
-	// This test is designed to exercise the many failure paths in the server creation
-	// code. This is mostly about replacing methods in the patch table with methods that
-	// return failures in order to make sure the failure recovery code is working right.
-	// There are also some cases that tweak some parameters to tickle particular execution paths.
-	// So for all these cases, we expect to get a failure when trying to create the server instance.
-
-	for i := 0; i < 20; i++ {
-		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			a.ConfigStore = configStore
-			a.ConfigStoreURL = ""
-			pt := newPatchTable()
-			switch i {
-			case 1:
-				a.ConfigStore = nil
-				a.ConfigStoreURL = ""
-			case 2:
-				a.ConfigStore = nil
-				a.ConfigStoreURL = "DEADBEEF"
-			case 3:
-				pt.configTracing = func(_ string, _ *tracing.Options) (io.Closer, error) {
-					return nil, errors.New("BAD")
-				}
-			case 4:
+	testcases := []struct {
+		name    string
+		setupFn func(a *Args, pt *patchTable)
+	}{
+		{"empty config store URL",
+			func(a *Args, pt *patchTable) { a.ConfigStore = nil; a.ConfigStoreURL = "" }},
+		{"bad config store URL",
+			func(a *Args, pt *patchTable) { a.ConfigStore = nil; a.ConfigStoreURL = "DEADBEEF" }},
+		{"non-existent store URL",
+			func(a *Args, pt *patchTable) { a.ConfigStoreURL = "http://abogusurl.com" }},
+		{"failed tracing setup",
+			func(a *Args, pt *patchTable) {
+				pt.configTracing = func(_ string, _ *tracing.Options) (io.Closer, error) { return nil, errors.New("BAD") }
+			},
+		},
+		{"failed monitoring setup",
+			func(a *Args, pt *patchTable) {
 				pt.startMonitor = func(port uint16, enableProfiling bool, lf listenFunc) (*monitor, error) {
 					return nil, errors.New("BAD")
 				}
-			case 5:
+			},
+		},
+		{"duplicate port registration",
+			func(a *Args, pt *patchTable) {
 				a.MonitoringPort = 1234
 				pt.listen = func(network string, address string) (net.Listener, error) {
 					// fail any net.Listen call that's not for the monitoring port.
@@ -237,33 +223,70 @@ func TestErrors(t *testing.T) {
 					}
 					return net.Listen(network, address)
 				}
-			case 6:
-				a.MonitoringPort = 1234
-				pt.listen = func(network string, address string) (net.Listener, error) {
-					// fail the net.Listen call that's for the monitoring port.
-					if address == ":1234" {
-						return nil, errors.New("BAD")
-					}
-					return net.Listen(network, address)
-				}
-			case 7:
-				a.ConfigStoreURL = "http://abogusurl.com"
-			case 8:
+			},
+		},
+		{"failed logging setup",
+			func(a *Args, pt *patchTable) {
 				pt.configLog = func(options *log.Options) error {
 					return errors.New("BAD")
 				}
-			case 9:
+			},
+		},
+		{"failed runtime setup",
+			func(a *Args, pt *patchTable) {
 				pt.runtimeListen = func(rt *runtime.Runtime) error {
 					return errors.New("BAD")
 				}
-			default:
-				return
-			}
+			},
+		},
+		{"failed OpenCensus Exporter setup",
+			func(a *Args, pt *patchTable) {
+				pt.newOpenCensusExporter = func() (view.Exporter, error) {
+					return nil, errors.New("BAD")
+				}
+			},
+		},
+		{"failed OpenCensus view registration",
+			func(a *Args, pt *patchTable) {
+				pt.registerOpenCensusViews = func(...*view.View) error {
+					// panic(nil)
+					return errors.New("BAD")
+				}
+			},
+		},
+	}
 
+	// This test is designed to exercise the many failure paths in the server creation
+	// code. This is mostly about replacing methods in the patch table with methods that
+	// return failures in order to make sure the failure recovery code is working right.
+	// There are also some cases that tweak some parameters to tickle particular execution paths.
+	// So for all these cases, we expect to get a failure when trying to create the server instance.
+
+	for _, v := range testcases {
+		t.Run(v.name, func(t *testing.T) {
+
+			// setup
+			configStore, cerr := storetest.SetupStoreForTest(globalCfg, serviceCfg)
+			if cerr != nil {
+				t.Fatal(cerr)
+			}
+			a = defaultTestArgs()
+			a.APIPort = 0
+			a.MonitoringPort = 0
+			a.TracingOptions.LogTraceSpans = true
+			a.ConfigStore = configStore
+			a.ConfigStoreURL = ""
+			pt := newPatchTable()
+
+			// test
+			v.setupFn(a, pt)
 			s, err = newServer(a, pt)
 			if s != nil || err == nil {
 				t.Errorf("Got success, expecting error")
 			}
+
+			// cleanup
+			configStore.Stop()
 		})
 	}
 }

@@ -81,6 +81,10 @@ type patchTable struct {
 	listen        listenFunc
 	configLog     func(options *log.Options) error
 	runtimeListen func(runtime *runtime.Runtime) error
+
+	// monitoring-related setup
+	newOpenCensusExporter   func() (view.Exporter, error)
+	registerOpenCensusViews func(...*view.View) error
 }
 
 // New instantiates a fully functional Mixer server, ready for traffic.
@@ -96,6 +100,10 @@ func newPatchTable() *patchTable {
 		listen:        net.Listen,
 		configLog:     log.Configure,
 		runtimeListen: func(rt *runtime.Runtime) error { return rt.StartListening() },
+		newOpenCensusExporter: func() (view.Exporter, error) {
+			return prometheus.NewExporter(prometheus.Options{Registry: oprometheus.DefaultRegisterer.(*oprometheus.Registry)})
+		},
+		registerOpenCensusViews: view.Register,
 	}
 }
 
@@ -129,7 +137,6 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 	grpcOptions = append(grpcOptions, grpc.MaxConcurrentStreams(uint32(a.MaxConcurrentStreams)))
 	grpcOptions = append(grpcOptions, grpc.MaxRecvMsgSize(int(a.MaxMessageSize)))
 
-	var interceptors []grpc.UnaryServerInterceptor
 	var err error
 
 	if a.TracingOptions.TracingEnabled() {
@@ -138,7 +145,7 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 			_ = s.Close()
 			return nil, fmt.Errorf("unable to setup tracing")
 		}
-		interceptors = append(interceptors, otgrpc.OpenTracingServerInterceptor(ot.GlobalTracer()))
+		grpcOptions = append(grpcOptions, grpc.UnaryInterceptor(otgrpc.OpenTracingServerInterceptor(ot.GlobalTracer())))
 	}
 
 	if s.monitor, err = p.startMonitor(a.MonitoringPort, a.EnableProfiling, p.listen); err != nil {
@@ -228,14 +235,14 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 	// get the grpc server wired up
 	grpc.EnableTracing = a.EnableGRPCTracing
 
-	exporter, err := prometheus.NewExporter(prometheus.Options{Registry: oprometheus.DefaultRegisterer.(*oprometheus.Registry)})
+	exporter, err := p.newOpenCensusExporter()
 	if err != nil {
-		return nil, fmt.Errorf("could not build prometheus exporter: %v", err)
+		return nil, fmt.Errorf("could not build opencensus exporter: %v", err)
 	}
 	view.RegisterExporter(exporter)
 
 	// Register the views to collect server request count.
-	if err := view.Register(ocgrpc.DefaultServerViews...); err != nil {
+	if err := p.registerOpenCensusViews(ocgrpc.DefaultServerViews...); err != nil {
 		return nil, fmt.Errorf("could not register default server views: %v", err)
 	}
 
