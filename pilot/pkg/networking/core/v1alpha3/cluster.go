@@ -382,6 +382,7 @@ func applyOutlierDetection(cluster *v2.Cluster, outlier *networking.OutlierDetec
 	}
 	if outlier.ConsecutiveGatewayFailure > 0 {
 		out.ConsecutiveGatewayFailure = &types.UInt32Value{Value: uint32(outlier.ConsecutiveGatewayFailure)}
+		out.EnforcingConsecutiveGatewayFailure = &types.UInt32Value{Value: uint32(100)} // defaults to 0
 	}
 	if outlier.Interval != nil {
 		out.Interval = outlier.Interval
