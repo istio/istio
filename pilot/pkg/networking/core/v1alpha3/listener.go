@@ -234,7 +234,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 		// by outbound routes.
 		// Traffic sent to our service VIP is redirected by remote
 		// services' kubeproxy to our specific endpoint IP.
-		var listenerType plugin.ListenerProtocol
 		listenerOpts := buildListenerOpts{
 			env:            env,
 			proxy:          node,
@@ -251,10 +250,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 			// Skip building listener for the same ip port
 			continue
 		}
-		listenerType = plugin.ModelProtocolToListenerProtocol(protocol)
 		allChains := []plugin.FilterChain{}
 		var httpOpts *httpListenerOpts
 		var tcpNetworkFilters []listener.Filter
+		listenerType := plugin.ModelProtocolToListenerProtocol(protocol)
 		switch listenerType {
 		case plugin.ListenerProtocolHTTP:
 			httpOpts = &httpListenerOpts{
@@ -267,7 +266,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 			tcpNetworkFilters = buildInboundNetworkFilters(instance)
 
 		default:
-			log.Warnf("Unsupported inbound protocol %v for port %#v", protocol, instance.Endpoint.ServicePort)
+			log.Warnf("Unsupported inbound protocol %v for port %#v", protocol, endpoint.ServicePort)
 			continue
 		}
 		for _, p := range configgen.Plugins {
@@ -291,7 +290,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 		// Construct the default filter chain.
 		if len(allChains) == 0 {
 			log.Infof("Use default filter chain for %v", endpoint)
-			allChains = []plugin.FilterChain{plugin.FilterChain{}}
+			allChains = []plugin.FilterChain{{}}
 		}
 		for _, chain := range allChains {
 			listenerOpts.filterChainOpts = append(listenerOpts.filterChainOpts, &filterChainOpts{
