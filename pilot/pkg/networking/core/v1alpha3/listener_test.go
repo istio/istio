@@ -155,7 +155,11 @@ func getOldestService(services ...*model.Service) *model.Service {
 func buildOutboundListeners(p plugin.Plugin, services ...*model.Service) []*xdsapi.Listener {
 	configgen := NewConfigGenerator([]plugin.Plugin{p})
 
-	env := buildListenerEnv()
+	env := buildListenerEnv(services)
+
+	if err := env.PushContext.InitContext(&env); err != nil {
+		return nil
+	}
 
 	instances := make([]*model.ServiceInstance, len(services))
 	for i, s := range services {
@@ -221,8 +225,9 @@ func buildService(hostname string, ip string, protocol model.Protocol, creationT
 	}
 }
 
-func buildListenerEnv() model.Environment {
-	serviceDiscovery := &fakes.ServiceDiscovery{}
+func buildListenerEnv(services []*model.Service) model.Environment {
+	serviceDiscovery := new(fakes.ServiceDiscovery)
+	serviceDiscovery.ServicesReturns(services, nil)
 
 	configStore := &fakes.IstioConfigStore{}
 
