@@ -1,0 +1,17 @@
+package: github.com/aliyun/alibaba-cloud-sdk-go
+homepage: https://develop.aliyun.com/tools/sdk?spm=5176.136436.698463.22.bgrDDT#/go
+license: Apache-2.0
+import:
+- package: github.com/satori/go.uuid
+  version: ^1.1.0
+- package: github.com/jmespath/go-jmespath
+  version: ^0.2.2
+- package: github.com/json-iterator/go
+  version: ^1.0.4
+- package: github.com/sirupsen/logrus
+  version: ^1.0.5
+testImport:
+- package: github.com/stretchr/testify
+  version: ^1.1.4
+  subpackages:
+  - assert

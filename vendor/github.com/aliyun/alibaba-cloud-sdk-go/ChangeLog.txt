@@ -1,0 +1,336 @@
+2018-04-17 Version: 1.8.3
+1, EditPhotos add input param TakenAt
+2, add FetchMomentPhotos
+3, ListAlbums add return param Remark
+
+2018-04-16 Version: 1.8.2
+1, Release go sdk
+
+
+2018-04-11 Version: 1.8.1
+1, GetLibrary/FetchLibraries add return ctime
+2, Editphotos add input param takenAt
+
+2018-04-10 Version: 1.8.0
+1, Add three interfaces CreateNetworkInterfacePermission DeleteNetworkInterfacePermission DescribeNetworkInterfacePermissions.
+
+2018-04-10 Version: 1.7.3
+1, publish Project API.
+2, publish Service API.
+3, publish Service order API.
+4, publish Credential API.
+5, publish CAS API.
+
+2018-04-09 Version: 1.7.2
+1, Add api: QueryMetricData, QueryMetricTop, TaskConfigCreate, TaskConfigDelete, TaskConfigEnable, TaskConfigList, TaskConfigModify, TaskConfigUnhealthy
+2, Remove api: PutSystemEvent 
+
+2018-04-08 Version: 1.7.0
+1, Add voice asynchronous scan interface.
+
+2018-04-04 Version: 1.6.1
+1, add tablestore trigger pop api and sample code
+
+2018-04-04 Version: 1.6.0
+1, Add APIs for domain transfer in and transfer out.
+2, Add APIs for poll and acknowledge domain task.
+
+2018-04-03 Version: 1.5.0
+1, Add APIs for domain transfer in and transfer out.
+2, Add APIs for poll and acknowledge domain task.
+3, Add API for query domain group list.
+
+2018-03-30 Version: 1.4.11
+1, API QueryCustomerSaleInfo arguments update.
+
+2018-03-29 Version: 1.4.10
+1, edit FetchLibraries return param format
+
+2018-03-29 Version: 1.4.9
+1, Add APIs: CreateAlias, UpdateAlias, DeleteAlias, ListAliases, ListAliasesByKeyId.
+2, Add APIs: GetParametersForImport, ImportKeyMaterial, DeleteKeyMaterial.
+3, Update KeyMetadata for CreateKey and DescribeKey.
+
+2018-03-29 Version: 1.4.8
+1, Cloud Enterprise Network SDK initial release.
+
+2018-03-29 Version: 1.4.7
+1, Cloud Enterprise Network SDK initial release.
+
+2018-03-27 Version: 1.4.6
+1, Rename QueryCustomerSaleInfo to RegionName.
+
+2018-03-27 Version: 1.4.5
+1, publish Project API.
+2, publish Service API.
+3, publish Service order API.
+4, publish Credential API.
+5, publish CAS API.
+
+2018-03-27 Version: 1.4.4
+1, add interface FetchLibraries
+
+2018-03-23 Version: 1.4.3
+1, interface DescribeInstanceTypes output InstancePpsRx InstancePpsTx
+
+2018-03-23 Version: 1.4.2
+1, interface DescribeInstanceTypes output InstancePpsRx InstancePpsTx
+
+2018-03-23 Version: 1.4.1
+1, ModifyPrepayInstanceSpec support migrateAcrossZone.
+
+2018-03-23 Version: 1.4.0
+1, Add 'QueryDevicesByAccount' and 'QueryDevicesByAlias'  Api.
+2, Remove 'QueryPushDetail' Api.
+
+2018-03-20 Version: 1.2.7
+1, add FetchAlbumTagPhotos
+2, CreatePhoto add optional param TakenAt
+
+2018-03-16 Version: 1.2.6
+1, Update GetQuotaInstance API.
+
+2018-03-16 Version: 1.2.5
+1, Synchronize to the latest api list
+
+
+2018-03-15 Version: 1.2.4
+1, Add QueryCustomerSaleInfo API.
+
+
+2018-03-09 Version:1.2.3
+1, fix bug:modify error message when roleArn is wrong
+
+2018-03-13 Version: 1.2.2
+1, API GetQuotaHistoryInfo fix field error.
+
+2018-03-09 Version: 1.2.1
+1, complete api comments
+
+2018-03-09 Version: 1.2.0
+1, improve endpoint resolver
+
+2018-03-07 Version: 1.1.7
+1, add GetAlbumsByNames
+2, add ListEvent/CreateEvent/EditEvent/DeleteEvent/GetEvent
+3, add return IdStr for string
+
+2018-03-06 Version: 1.1.6
+1, add GetAlbumsByNames
+2, add ListEvent/CreateEvent/EditEvent/DeleteEvent/GetEvent
+3, add return IdStr for string
+
+
+2018-03-06 Version: 1.1.5
+1, add GetAlbumsByNames
+2, add ListEvent/CreateEvent/EditEvent/DeleteEvent/GetEvent
+3, add return IdStr for string
+
+2018-02-28 Version: 1.1.3
+1, Add query resource inventory API.
+2, Add query topology API.
+
+2018-02-28 Version: 1.1.2
+1, Add query topology API.
+
+2018-02-27 Version: 1.1.1
+1, Add Action API.
+
+2018-02-27 Version: 1.1.0
+1, add new api DescribeClusters,DescribeClusterLogs,DescribeClusterNodes,UpgradeClusterComponents
+
+2018-02-12 Version: 1.0.0
+1. Optimize the nested structs in all response, this will bring the following incompatibilities:
+    * Api response struct changes, conclude:
+        * ecs.DescribeNetworkInterfaces
+        * ecs.DescribeDeploymentSetTopology
+        * rds.DescribeDBInstanceIPArrayList
+        * rds.DescribeDBInstancesAsCsv
+        * slb.DescribeLoadBalancersRelatedEcs
+        * vpc.DescribeVpcAttribute
+        * vpc.DescribeVirtualBorderRouters
+        * mts.RegisterMediaDetailPerson
+        * mts.QueryEditingJobList
+        * mts.SubmitEditingJobs
+        * mts.QueryMediaListByURL
+        * mts.ListJob
+        * mts.QueryMediaList
+        * mts.QueryJobList
+        * mts.SubmitJobs
+        * ehpc.DescribeCluster
+        * aegis.GetEntityList
+        * aegis.DescribeStratety
+
+
+2018-02-09 Version: 0.12.0
+1, Aliyun E-HPC service SDK, initial version.
+2, Include APIs of E-HPC clusters, nodes, users, jobs, job templates etc.
+
+2018-02-07 Version: 0.11.4
+1, add the access interface of logs such as vulnerabilities, baselines, exceptions, etc.
+
+2018-02-06 Version: 0.11.3
+1, ModifyInstanceChargeType add instanceChargeType param, support prepay instance to postpay instance.
+2, ModifyPrepayInstanceSpec add operatorType param, support downgrade prepay ecs.
+
+2018-02-02 Version: 0.11.2
+1, this version is new of captcha management and nvc analyze
+
+2018-01-31 Version: 0.11.1
+1. Fixed bugs that could cause signature errors while a ROA request contains lots of special symbols
+2. Optimization of the serverError.Error() interface
+3. When there is an error of "SignatureDoseNotMatch", it is now possible to tell user if the AccessKeySecret is wrong or caused by a sdk bug
+
+2018-01-29 Version: 0.11.0
+1, Support dep
+2, Add 4 usage of credentials for each services
+3, Standard interface naming
+
+2018-01-29 Version: 0.10.0
+1, Add 'notificationChannel' parameter to Push API
+
+2018-01-24 Version: 0.9.3
+1,  Fixed a problem that the ActiveAlert interface name is not standard
+2,  Update ActiveAlert interface : ListProductOfActiveAlert / DisableActiveAlert / EnableActiveAlert
+
+2018-01-24 Version: 0.9.2
+1, Add ActiveAlert API : ListActiveAlertRuleRequest/ListProductOfActiceAlertRequest/EnableActiceAlertRequest/DisableActiceAlertRequest
+
+2018-01-24 Version: 0.9.1
+1. improve: asyncWithChan avoid panic of "write on closed channel"
+2. improve: asyncWithChan support select case usage
+3. bug fix: repeated signature nonce while retry
+4. bug fix: calling request.GetUrl() ahead of client.DoAction() will cause problems
+
+2018-01-24 Version: 0.9.0
+1, Publish domain config interface, allow users to create or delete a domain protect config under DDoS Pro.
+2, Publish domain config query interface, allow users to query a list of domain config or a single domain config.
+3, Publish domain proxy modify interface, allow users to set domain transmit proxy.
+4, Publish domain transmit rule config interface, including modify and delete type.
+5, Publish domain black and white list config interface.
+6, Publish domain cname auto status config interface.
+7, Publish domain certificate upload interface.
+8, Publish domain qps graph query interface.
+9, Publish ip attack events and traffic graph query interface.
+
+
+2018-01-23 Version: 0.8.3
+1, Tesla Dam API release.
+2, Add ActionDiskCheck, ActionDiskMask, ActionDiskRma, HostGets.
+
+
+2018-01-18 Version: 0.8.2
+1. Set default timeout to 10s
+2. Make integration tests more stable
+3. Fix the problem of LocationResolver in concurrency
+4. Modifying the naming specification
+
+2018-01-18 Version: 0.8.1
+1, Update ECS go SDK to catch up with other langs.
+2, DescribeImageSupportInstanceTypes add new param Filter and ActionType
+
+2018-01-16 Version: 0.8.0
+1,  Add TriggerMode param in AddMediaWorkflow.
+2, Add TriggerMode param in QueryMediaWorkflowList/SearchMediaWorkflow/UpdateMediaWorkflow.
+3, Add interface UpdateMediaWorkflowTriggerMode.
+
+2018-01-11 Version: 0.7.8
+1. complete partly missed service codes
+2. add default http method for roa requests
+
+2018-01-11 Version: 0.7.7
+1, Bug fix: Replenish user interface
+
+2018-01-11 Version: 0.7.6
+1, replace photo tag 2000 upgrade to 5000
+2, add TrashQuota
+
+2018-01-11 Version: 0.7.5
+1, Make the json.Unmarshal more robust
+
+2018-01-09 Version: 0.7.4
+1, Add integration tests
+
+2018-01-04 Version: 0.7.3
+1, Remove get entity info API, replaced by get entity instance.
+
+2018-01-03 Version: 0.7.2
+1, Bug fix: fix the ecs unmarshal bug
+
+2018-01-03 Version: 0.7.1
+1, Bug fix: fix the unmarshal bug
+
+2017-12-29 Version: 0.7.0
+1, First release for Domain-intl.
+2, Add interfaces for domain name registration and management.
+
+2017-12-29 Version: 0.6.8
+1, Allow the setting of AcceptFormat in the Request.
+
+2017-12-26 Version: 0.6.5
+1, Add video AI service interface.
+
+2017-12-26 Version: 0.6.4
+1, Add video AI service interface.
+
+2017-12-20 Version: 0.6.3
+1, support tile dataset
+2, use dimension value type to replace isDrillDown
+
+2017-12-20 Version: 0.6.2
+1, support tile dataset
+2, use dimension value type to replace isDrillDown
+
+
+2017-12-19 Version: 0.6.1
+1, InactivatePhotos support customer inactiveTime
+2, support customer tags
+3, ListPhotoTags、ListTags add param lang
+
+2017-12-18 Version: 0.6.0
+1, Add Scdn API.
+
+2017-12-18 Version: 0.5.7
+1, This is the first release of CCC Open API.
+
+2017-12-15 Version: 0.5.6
+1, Update SetReqAuthConfig.
+2, Add Scdn API.
+
+2017-12-15 Version: 0.5.5
+1, fix test cases
+
+2017-12-15 Version: 0.5.4
+1, Add scdn API.
+2, Update SetReqAuthConfig.
+
+2017-12-12 Version: 0.5.1
+1, remove unused fmt.print
+
+2017-12-08 Version: 0.5.0
+1, Add ARMSQueryDataSet, WhereInDimQuery interface.
+
+2017-12-08 Version: 0.4.0
+1, support endpoint.xml resolver
+
+2017-12-08 Version: 0.3.1
+1, Add ARMSQueryDataSet, WhereInDimQuery interface.
+
+2017-12-01 Version: 0.2.2
+1, Fix ineffassign problems
+
+2017-12-01 Version: 0.2.1
+1, Fix capitalizes the first letter in each word of header
+
+2017-11-28 Version: 0.2.0
+1, AK2.0 & StsToken
+
+2017-11-27 Version: 0.1.3
+1, format ft code with gofmt
+
+2017-11-27 Version: 0.1.2
+1, format code with gofmt
+
+2017-11-27 Version: 0.1.1
+1, add glide files
+

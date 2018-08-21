@@ -1,0 +1,26 @@
+language: go
+
+sudo: false
+
+go:
+  - 1.7.x
+  - 1.8.x
+  - 1.9.x
+  - 1.10.x
+
+install:
+  - go get -u github.com/Masterminds/glide
+  - glide install
+
+notifications:
+    webhooks: https://oapi.dingtalk.com/robot/send?access_token=096ed387df243a6d60835aadeccc47165f3813bc7cb81cdd0cfeadfd28e3acc1
+    email: false
+    on_success: change
+    on_failure: always
+
+script:
+  - go vet ./sdk
+  - go vet ./services/...
+  - go build ./sdk
+  - go build ./services/...
+  - go test -v -timeout 60m ./integration/...
