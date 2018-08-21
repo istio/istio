@@ -31,7 +31,7 @@ DEFAULT_GCR_PREFIX="istio-testing"
 GCS_PREFIX=""
 GCR_PREFIX=""
 
-VER_STRING="0.0.0"
+VER_STRING=""
 OUTPUT_PATH=""
 BUILD_ID=""
 PUSH_DOCKER="true"
@@ -43,7 +43,7 @@ function usage() {
     -o <path> src path where build output/artifacts were stored (required)
     -p <name> GCS bucket & prefix path where to store build     (optional, defaults to ${DEFAULT_GCS_PREFIX} )
     -q <name> GCR bucket & prefix path where to store build     (optional, defaults to ${DEFAULT_GCR_PREFIX} )
-    -v <ver>  version string for tag & defaulted storage paths  (optional, defaults to ${VER_STRING} )"
+    -v <ver>  version string for tag & defaulted storage paths"
   exit 1
 }
 
@@ -64,17 +64,11 @@ done
 
 # remove any trailing / from GCR_PREFIX since docker doesn't like to see //
 # do the same for GCS for consistency
-
 GCR_PREFIX=${GCR_PREFIX%/}
 GCS_PREFIX=${GCS_PREFIX%/}
-  
-if [[ -z "${GCS_PREFIX}"  ]]; then
-  GCS_PREFIX="${DEFAULT_GCS_PREFIX}"
-fi
 
-if [[ -z "${GCR_PREFIX}"  ]]; then
-  GCR_PREFIX="${DEFAULT_GCR_PREFIX}"
-fi
+GCS_PREFIX=${GCS_PREFIX:-$DEFAULT_GCS_PREFIX}
+GCR_PREFIX=${GCR_PREFIX:-$DEFAULT_GCR_PREFIX}
 
 GCS_PATH="gs://${GCS_PREFIX}"
 GCR_PATH="gcr.io/${GCR_PREFIX}"
@@ -92,8 +86,12 @@ if [[ "${PUSH_DOCKER}" == "true" ]]; then
     fi
     gcloud auth configure-docker -q
     docker load -i "${TAR_PATH}"
-    docker tag "istio/${IMAGE_NAME}:${VER_STRING}" "${GCR_PATH}/${IMAGE_NAME}:${VER_STRING}"
-    docker push "${GCR_PATH}/${IMAGE_NAME}:${VER_STRING}"
+    echo "FROM istio/${IMAGE_NAME}:${VER_STRING}
+COPY LICENSES.txt /" > Dockerfile
+    docker build -t              "${GCR_PATH}/${IMAGE_NAME}:${VER_STRING}" .
+    docker push                  "${GCR_PATH}/${IMAGE_NAME}:${VER_STRING}"
+    # Include the license text in the tarball as well (overwrite old $TAR_PATH).
+    docker save -o "${TAR_PATH}" "${GCR_PATH}/${IMAGE_NAME}:${VER_STRING}"
   done
 fi
 
