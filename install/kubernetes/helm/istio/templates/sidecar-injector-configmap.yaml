@@ -56,8 +56,8 @@ data:
           capabilities:
             add:
             - NET_ADMIN
-          {{ if .Values.global.proxy.priviledged }}
-          priviledge: true
+          {{ if .Values.global.proxy.privileged }}
+          privileged: true
           {{ end -}}
         restartPolicy: Always
       {{ if eq .Values.global.proxy.enableCoreDump true }}
@@ -134,7 +134,7 @@ data:
           value: {{ "[[ or (index .ObjectMeta.Annotations \"sidecar.istio.io/interceptionMode\") .ProxyConfig.InterceptionMode.String ]]" }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
         securityContext:
-          {{ if .Values.global.proxy.priviledged }}
+          {{ if .Values.global.proxy.privileged }}
           privileged: true
           {{ end -}}
           readOnlyRootFilesystem: true

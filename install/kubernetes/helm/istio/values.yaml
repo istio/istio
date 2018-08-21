@@ -38,9 +38,9 @@ global:
     accessLogFile: "/dev/stdout"
 
     #If set to true, istio-proxy container will have privileged securityContext
-    priviledged: false
+    privileged: false
 
-    # If set, newly injected sidecars will have core dumps enabled and priviledged securityContext
+    # If set, newly injected sidecars will have core dumps enabled and privileged securityContext
     enableCoreDump: false
 
     # istio egress capture whitelist
