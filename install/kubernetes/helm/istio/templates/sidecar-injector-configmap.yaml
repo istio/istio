@@ -41,9 +41,12 @@ data:
           capabilities:
             add:
             - NET_ADMIN
+          {{ if .Values.global.proxy.privileged }}
           privileged: true
-      {{- if .Values.global.proxy.enableCoreDump }}
-      - args:
+          {{ end -}}
+      {{ if eq .Values.global.proxy.enableCoreDump true }}
+      - name: enable-core-dump
+        args:
         - -c
         - sysctl -w kernel.core_pattern=/var/lib/istio/core.proxy && ulimit -c unlimited
         command:
@@ -54,7 +57,6 @@ data:
         image: "{{ .Values.global.hub }}/{{ .Values.global.proxy_init.image }}:{{ .Values.global.tag }}"
   {{- end }}
         imagePullPolicy: IfNotPresent
-        name: enable-core-dump
         resources: {}
         securityContext:
           privileged: true
@@ -137,7 +139,9 @@ data:
           failureThreshold: {{ "[[ annotation .ObjectMeta `readiness.status.sidecar.istio.io/failureThreshold` " }} {{ .Values.global.proxy.readinessFailureThreshold }} {{ " ]]" }}
         {{ "[[ end -]]" -}}
         securityContext:
-          privileged: false
+          {{ if .Values.global.proxy.privileged }}
+          privileged: true
+          {{ end -}}
           {{- if ne .Values.global.proxy.enableCoreDump true }}
           readOnlyRootFilesystem: true
           {{- end }}

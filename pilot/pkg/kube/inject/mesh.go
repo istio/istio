@@ -63,7 +63,7 @@ initContainers:
     capabilities:
       add:
       - NET_ADMIN
-    {{ if eq .DebugMode true -}}
+    {{ if (or (eq .DebugMode true) (eq .Privileged true)) -}}
     privileged: true
     {{ end -}}
 {{- if eq .EnableCoreDump true }}
@@ -156,11 +156,12 @@ containers:
     requests:
       cpu: 10m
   securityContext:
-    {{ if eq .DebugMode true -}}
+    {{ if (or (eq .DebugMode true) (eq .Privileged true)) -}}
     privileged: true
+    {{ end -}}
+    {{ if eq .DebugMode true -}}
     readOnlyRootFilesystem: false
     {{ else -}}
-    privileged: false
     readOnlyRootFilesystem: true
     [[ if eq (annotation .ObjectMeta $interceptionModeKey .ProxyConfig.InterceptionMode) "TPROXY" -]]
     capabilities:

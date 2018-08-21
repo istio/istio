@@ -187,6 +187,7 @@ type Params struct {
 	Version                      string                 `json:"version"`
 	EnableCoreDump               bool                   `json:"enableCoreDump"`
 	DebugMode                    bool                   `json:"debugMode"`
+	Privileged                   bool                   `json:"privileged"`
 	Mesh                         *meshconfig.MeshConfig `json:"-"`
 	ImagePullPolicy              string                 `json:"imagePullPolicy"`
 	StatusPort                   int                    `json:"statusPort"`

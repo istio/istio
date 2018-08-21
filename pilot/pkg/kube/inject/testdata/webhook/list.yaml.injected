@@ -11,7 +11,11 @@ items:
     template:
       metadata:
         annotations:
+<<<<<<< HEAD
           sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+=======
+          sidecar.istio.io/status: '{"version":"53742a1a36ff6cd539668836e95b15543d22ca54a75cb83b6f58397d9f882f8f","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+>>>>>>> d7d4dea03... Remove privilege=true (#7890)
         creationTimestamp: null
         labels:
           app: hello
@@ -90,7 +94,6 @@ items:
             requests:
               cpu: 10m
           securityContext:
-            privileged: false
             readOnlyRootFilesystem: true
             runAsUser: 1337
           volumeMounts:
@@ -143,7 +146,11 @@ items:
     template:
       metadata:
         annotations:
+<<<<<<< HEAD
           sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+=======
+          sidecar.istio.io/status: '{"version":"53742a1a36ff6cd539668836e95b15543d22ca54a75cb83b6f58397d9f882f8f","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+>>>>>>> d7d4dea03... Remove privilege=true (#7890)
         creationTimestamp: null
         labels:
           app: hello
@@ -222,7 +229,6 @@ items:
             requests:
               cpu: 10m
           securityContext:
-            privileged: false
             readOnlyRootFilesystem: true
             runAsUser: 1337
           volumeMounts:
