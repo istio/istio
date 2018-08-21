@@ -31,7 +31,7 @@ DEFAULT_GCR_PREFIX="istio-testing"
 GCS_PREFIX=""
 GCR_PREFIX=""
 
-VER_STRING="0.0.0"
+VER_STRING=""
 OUTPUT_PATH=""
 PUSH_DOCKER="true"
 
@@ -42,7 +42,7 @@ function usage() {
     -o <path> src path where build output/artifacts were stored (required)
     -p <name> GCS bucket & prefix path where to store build     (optional, defaults to ${DEFAULT_GCS_PREFIX} )
     -q <name> GCR bucket & prefix path where to store build     (optional, defaults to ${DEFAULT_GCR_PREFIX} )
-    -v <ver>  version string for tag & defaulted storage paths  (optional, defaults to ${VER_STRING} )"
+    -v <ver>  version string for tag & defaulted storage paths"
   exit 1
 }
 
