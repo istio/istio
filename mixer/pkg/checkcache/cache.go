@@ -185,8 +185,9 @@ func (cc *Cache) Set(attrs attribute.Bag, value Value) {
 }
 
 func (cc *Cache) recordStats() {
-	stats.Record(context.Background(), writesTotal.M(int64(cc.cache.Stats().Writes)))
-	stats.Record(context.Background(), hitsTotal.M(int64(cc.cache.Stats().Hits)))
-	stats.Record(context.Background(), missesTotal.M(int64(cc.cache.Stats().Misses)))
-	stats.Record(context.Background(), evictionsTotal.M(int64(cc.cache.Stats().Evictions)))
+	stats.Record(context.Background(),
+		writesTotal.M(int64(cc.cache.Stats().Writes)),
+		hitsTotal.M(int64(cc.cache.Stats().Hits)),
+		missesTotal.M(int64(cc.cache.Stats().Misses)),
+		evictionsTotal.M(int64(cc.cache.Stats().Evictions)))
 }

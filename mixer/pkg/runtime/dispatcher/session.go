@@ -107,8 +107,9 @@ func (s *session) dispatch() error {
 	namespace, err := getIdentityNamespace(s.bag)
 	if err != nil {
 		// early return.
-		stats.Record(s.ctx, monitoring.DestinationsPerRequest.M(0))
-		stats.Record(s.ctx, monitoring.InstancesPerRequest.M(0))
+		stats.Record(s.ctx,
+			monitoring.DestinationsPerRequest.M(0),
+			monitoring.InstancesPerRequest.M(0))
 
 		log.Warnf("unable to determine identity namespace: '%v', operation='%d'", err, s.variety)
 		return err
@@ -190,8 +191,9 @@ func (s *session) dispatch() error {
 		}
 	}
 
-	stats.Record(s.ctx, monitoring.DestinationsPerRequest.M(int64(ndestinations)))
-	stats.Record(s.ctx, monitoring.InstancesPerRequest.M(int64(ninputs)))
+	stats.Record(s.ctx,
+		monitoring.DestinationsPerRequest.M(int64(ndestinations)),
+		monitoring.InstancesPerRequest.M(int64(ninputs)))
 
 	s.waitForDispatched()
 
