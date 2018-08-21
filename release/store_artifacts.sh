@@ -62,17 +62,11 @@ done
 
 # remove any trailing / from GCR_PREFIX since docker doesn't like to see //
 # do the same for GCS for consistency
-
 GCR_PREFIX=${GCR_PREFIX%/}
 GCS_PREFIX=${GCS_PREFIX%/}
 
-if [[ -z "${GCS_PREFIX}"  ]]; then
-  GCS_PREFIX="${DEFAULT_GCS_PREFIX}"
-fi
-
-if [[ -z "${GCR_PREFIX}"  ]]; then
-  GCR_PREFIX="${DEFAULT_GCR_PREFIX}"
-fi
+GCS_PREFIX=${GCS_PREFIX:-$DEFAULT_GCS_PREFIX}
+GCR_PREFIX=${GCR_PREFIX:-$DEFAULT_GCR_PREFIX}
 
 GCS_PATH="gs://${GCS_PREFIX}"
 GCR_PATH="gcr.io/${GCR_PREFIX}"
@@ -91,8 +85,8 @@ if [[ "${PUSH_DOCKER}" == "true" ]]; then
     docker load -i "${TAR_PATH}"
     echo "FROM istio/${IMAGE_NAME}:${VER_STRING}
 COPY LICENSES.txt /" > Dockerfile
-    docker build -t "${GCR_PATH}/${IMAGE_NAME}:${VER_STRING}" .
-    docker push "${GCR_PATH}/${IMAGE_NAME}:${VER_STRING}"
+    docker build -t              "${GCR_PATH}/${IMAGE_NAME}:${VER_STRING}" .
+    docker push                  "${GCR_PATH}/${IMAGE_NAME}:${VER_STRING}"
     # Include the license text in the tarball as well (overwrite old $TAR_PATH).
     docker save -o "${TAR_PATH}" "${GCR_PATH}/${IMAGE_NAME}:${VER_STRING}"
   done
