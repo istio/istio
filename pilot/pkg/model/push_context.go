@@ -185,6 +185,12 @@ var (
 		"Number of conflicting inbound listeners.",
 	)
 
+	// DuplicatedClusters tracks duplicate clusters seen while computing CDS
+	DuplicatedClusters = newPushMetric(
+		"pilot_duplicate_envoy_clusters",
+		"Duplicate envoy clusters caused by service entries with same hostname",
+	)
+
 	// ProxyStatusClusterNoInstances tracks clusters (services) without workloads.
 	ProxyStatusClusterNoInstances = newPushMetric(
 		"pilot_eds_no_instances",
@@ -212,8 +218,8 @@ var (
 	metrics []*PushMetric
 )
 
-// NewStatus creates a new PushContext structure to track push status.
-func NewStatus() *PushContext {
+// NewPushContext creates a new PushContext structure to track push status.
+func NewPushContext() *PushContext {
 	// TODO: detect push in progress, don't update status if set
 	return &PushContext{
 		ServiceByHostname: map[Hostname]*Service{},
