@@ -343,7 +343,7 @@ jobs:
           command: |
             make localTestEnv
             cd /go/src/istio.io/istio
-            MAXPROCS=6 bin/codecov.sh
+            echo "mam was"
       - run:
           name: Uploading code coverage to codecov.io
           when: always
@@ -573,31 +573,4 @@ workflows:
 
   all:
     jobs:
-      - shellcheck
-      - lint
-      - build
-      - test
-      - codecov:
-          requires:
-            - build
-      - e2e-mixer-noauth-v1alpha3-v2:
-          requires:
-            - build
-      - e2e-galley:
-          requires:
-            - build
-      - e2e-simple:
-          requires:
-            - build
-      - racetest:
-          requires:
-            - test
-      - e2e-pilot-auth-v1alpha3-v2: # auth+v1alpha3+v2
-          requires:
-            - build
-      - e2e-pilot-noauth-v1alpha3-v2: # noauth+v1alpha3+v2
-          requires:
-            - build
-      - e2e-pilot-cloudfoundry-v1alpha3-v2:
-          requires:
-            - build
+      - codecov
