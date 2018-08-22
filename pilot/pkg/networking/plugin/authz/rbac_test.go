@@ -572,48 +572,8 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 		}},
 	}
 
-	policy3 := &policy.Policy{
-		Permissions: []*policy.Permission{{
-			Rule: &policy.Permission_AndRules{
-				AndRules: &policy.Permission_Set{
-					Rules: []*policy.Permission{
-						{
-							Rule: &policy.Permission_OrRules{
-								OrRules: &policy.Permission_Set{
-									Rules: []*policy.Permission{
-										{
-											Rule: &policy.Permission_Header{
-												Header: &route.HeaderMatcher{
-													Name: ":method",
-													HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{
-														ExactMatch: "GET",
-													},
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		}},
-		Principals: []*policy.Principal{{
-			Identifier: &policy.Principal_AndIds{
-				AndIds: &policy.Principal_Set{
-					Ids: []*policy.Principal{
-						{
-							Identifier: &policy.Principal_Metadata{
-								Metadata: generateMetadataListMatcher(
-									[]string{attrRequestClaims, "groups"}, "group*"),
-							},
-						},
-					},
-				},
-			},
-		}},
-	}
+	policy3 := generatePolicyWithHttpMethodAndGroupClaim("GET", "group*")
+
 	expectRbac1 := &policy.RBAC{
 		Action: policy.RBAC_ALLOW,
 		Policies: map[string]*policy.Policy{
@@ -1060,4 +1020,50 @@ func generatePrincipal(principalName string) *policy.Principal {
 			},
 		},
 	}
+}
+
+func generatePolicyWithHttpMethodAndGroupClaim(methodName, claimName string) *policy.Policy {
+	policy := &policy.Policy{
+		Permissions: []*policy.Permission{{
+			Rule: &policy.Permission_AndRules{
+				AndRules: &policy.Permission_Set{
+					Rules: []*policy.Permission{
+						{
+							Rule: &policy.Permission_OrRules{
+								OrRules: &policy.Permission_Set{
+									Rules: []*policy.Permission{
+										{
+											Rule: &policy.Permission_Header{
+												Header: &route.HeaderMatcher{
+													Name: ":method",
+													HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{
+														ExactMatch: methodName,
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}},
+		Principals: []*policy.Principal{{
+			Identifier: &policy.Principal_AndIds{
+				AndIds: &policy.Principal_Set{
+					Ids: []*policy.Principal{
+						{
+							Identifier: &policy.Principal_Metadata{
+								Metadata: generateMetadataListMatcher(
+									[]string{attrRequestClaims, "groups"}, claimName),
+							},
+						},
+					},
+				},
+			},
+		}},
+	}
+	return policy
 }
