@@ -23,6 +23,3 @@ global:
 
   aspenMeshCloud:
     enabled: false
-
-ingress:
-  enabled: true

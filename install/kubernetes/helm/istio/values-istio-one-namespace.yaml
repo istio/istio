@@ -22,8 +22,5 @@ global:
   aspenMeshCloud:
     enabled: false
 
-ingress:
-  enabled: true
-
 istiotesting:
   oneNameSpace: true

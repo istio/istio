@@ -22,9 +22,6 @@ global:
   aspenMeshCloud:
     enabled: false
 
-ingress:
-  enabled: true
-
 prometheus:
   enabled: true
 
