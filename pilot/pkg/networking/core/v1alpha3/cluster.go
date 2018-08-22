@@ -16,6 +16,7 @@ package v1alpha3
 
 import (
 	"path"
+	"strings"
 	"time"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -24,6 +25,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/gogo/protobuf/types"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -65,8 +67,13 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 			return nil, err
 		}
 
+		serviceAccounts, err := getServiceAccounts(env, proxy)
+		if err != nil {
+			return nil, err
+		}
+
 		managementPorts := env.ManagementPorts(proxy.IPAddress)
-		clusters = append(clusters, configgen.buildInboundClusters(env, proxy, push, instances, managementPorts)...)
+		clusters = append(clusters, configgen.buildInboundClusters(env, proxy, push, instances, managementPorts, serviceAccounts)...)
 	}
 
 	// Add a blackhole cluster for catching traffic to unresolved routes
@@ -95,6 +102,11 @@ func normalizeClusters(clusters []*v2.Cluster) []*v2.Cluster {
 func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environment, proxy *model.Proxy, push *model.PushContext,
 	services []*model.Service) []*v2.Cluster {
 	clusters := make([]*v2.Cluster, 0)
+	serviceAccounts, err := getServiceAccounts(env, proxy)
+	if err != nil {
+		return clusters
+	}
+
 	for _, service := range services {
 		config := push.DestinationRule(service.Hostname)
 		for _, port := range service.Ports {
@@ -106,7 +118,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 			// create default cluster
 			clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
 			upstreamServiceAccounts := env.ServiceAccounts.GetIstioServiceAccounts(service.Hostname, []int{port.Port})
-			defaultCluster := buildDefaultCluster(env, clusterName, convertResolution(service.Resolution), hosts)
+			defaultCluster := buildDefaultCluster(env, clusterName, convertResolution(service.Resolution), hosts, serviceAccounts)
 
 			updateEds(defaultCluster)
 			setUpstreamProtocol(defaultCluster, port)
@@ -115,15 +127,15 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 			if config != nil {
 				destinationRule := config.Spec.(*networking.DestinationRule)
 				convertIstioMutual(destinationRule, service, upstreamServiceAccounts)
-				applyTrafficPolicy(defaultCluster, destinationRule.TrafficPolicy, port)
+				applyTrafficPolicy(defaultCluster, destinationRule.TrafficPolicy, port, env.Mesh, serviceAccounts)
 
 				for _, subset := range destinationRule.Subsets {
 					subsetClusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port.Port)
-					subsetCluster := buildDefaultCluster(env, subsetClusterName, convertResolution(service.Resolution), hosts)
+					subsetCluster := buildDefaultCluster(env, subsetClusterName, convertResolution(service.Resolution), hosts, serviceAccounts)
 					updateEds(subsetCluster)
 					setUpstreamProtocol(subsetCluster, port)
-					applyTrafficPolicy(subsetCluster, destinationRule.TrafficPolicy, port)
-					applyTrafficPolicy(subsetCluster, subset.TrafficPolicy, port)
+					applyTrafficPolicy(subsetCluster, destinationRule.TrafficPolicy, port, env.Mesh, serviceAccounts)
+					applyTrafficPolicy(subsetCluster, subset.TrafficPolicy, port, env.Mesh, serviceAccounts)
 					// call plugins
 					for _, p := range configgen.Plugins {
 						p.OnOutboundCluster(env, proxy, push, service, port, subsetCluster)
@@ -178,13 +190,21 @@ func buildClusterHosts(env *model.Environment, service *model.Service, port int)
 
 func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environment, proxy *model.Proxy, push *model.PushContext,
 	instances []*model.ServiceInstance,
-	managementPorts []*model.Port) []*v2.Cluster {
+	managementPorts []*model.Port, serviceAccounts []string) []*v2.Cluster {
 	clusters := make([]*v2.Cluster, 0)
 	for _, instance := range instances {
+		accounts := []string{}
+		for _, port := range instance.Service.Ports {
+			if port.Port == instance.Endpoint.Port {
+				accounts = append(accounts, env.ServiceAccounts.GetIstioServiceAccounts(instance.Service.Hostname, []int{port.Port})...)
+				break
+			}
+		}
+
 		// This cluster name is mainly for stats.
 		clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "", instance.Service.Hostname, instance.Endpoint.ServicePort.Port)
 		address := util.BuildAddress("127.0.0.1", uint32(instance.Endpoint.Port))
-		localCluster := buildDefaultCluster(env, clusterName, v2.Cluster_STATIC, []*core.Address{&address})
+		localCluster := buildDefaultCluster(env, clusterName, v2.Cluster_STATIC, []*core.Address{&address}, accounts)
 		setUpstreamProtocol(localCluster, instance.Endpoint.ServicePort)
 		// call plugins
 		for _, p := range configgen.Plugins {
@@ -212,11 +232,30 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 	for _, port := range managementPorts {
 		clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "", ManagementClusterHostname, port.Port)
 		address := util.BuildAddress("127.0.0.1", uint32(port.Port))
-		mgmtCluster := buildDefaultCluster(env, clusterName, v2.Cluster_STATIC, []*core.Address{&address})
+		mgmtCluster := buildDefaultCluster(env, clusterName, v2.Cluster_STATIC, []*core.Address{&address}, serviceAccounts)
 		setUpstreamProtocol(mgmtCluster, port)
 		clusters = append(clusters, mgmtCluster)
 	}
 	return clusters
+}
+
+func getServiceAccounts(env *model.Environment, proxy *model.Proxy) ([]string, error) {
+	instances, err := env.GetProxyServiceInstances(proxy)
+	if err != nil {
+		log.Errorf("failed to get service proxy service instances: %v", err)
+		return nil, err
+	}
+	serviceAccounts := []string{}
+	for _, si := range instances {
+		for _, port := range si.Service.Ports {
+			if port.Port == si.Endpoint.Port {
+				serviceAccounts = append(serviceAccounts, env.ServiceAccounts.GetIstioServiceAccounts(si.Service.Hostname, []int{port.Port})...)
+				break
+			}
+		}
+	}
+
+	return serviceAccounts, nil
 }
 
 func convertResolution(resolution model.Resolution) v2.Cluster_DiscoveryType {
@@ -312,7 +351,7 @@ func SelectTrafficPolicyComponents(policy *networking.TrafficPolicy, port *model
 	return connectionPool, outlierDetection, loadBalancer, tls
 }
 
-func applyTrafficPolicy(cluster *v2.Cluster, policy *networking.TrafficPolicy, port *model.Port) {
+func applyTrafficPolicy(cluster *v2.Cluster, policy *networking.TrafficPolicy, port *model.Port, meshConfig *meshconfig.MeshConfig, serviceAccounts []string) {
 	if policy == nil {
 		return
 	}
@@ -321,7 +360,7 @@ func applyTrafficPolicy(cluster *v2.Cluster, policy *networking.TrafficPolicy, p
 	applyConnectionPool(cluster, connectionPool)
 	applyOutlierDetection(cluster, outlierDetection)
 	applyLoadBalancer(cluster, loadBalancer)
-	applyUpstreamTLSSettings(cluster, tls)
+	applyUpstreamTLSSettings(cluster, tls, meshConfig, serviceAccounts)
 }
 
 // FIXME: there isn't a way to distinguish between unset values and zero values
@@ -420,7 +459,7 @@ func applyLoadBalancer(cluster *v2.Cluster, lb *networking.LoadBalancerSettings)
 	}
 }
 
-func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) {
+func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings, meshConfig *meshconfig.MeshConfig, serviceAccounts []string) {
 	if tls == nil {
 		return
 	}
@@ -466,26 +505,44 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) 
 			return
 		}
 		cluster.TlsContext = &auth.UpstreamTlsContext{
-			CommonTlsContext: &auth.CommonTlsContext{
-				TlsCertificates: []*auth.TlsCertificate{
-					{
-						CertificateChain: &core.DataSource{
-							Specifier: &core.DataSource_Filename{
-								Filename: tls.ClientCertificate,
-							},
+			CommonTlsContext: &auth.CommonTlsContext{},
+			Sni:              tls.Sni,
+		}
+		if meshConfig.SdsUdsPath == "" || tls.Mode == networking.TLSSettings_MUTUAL {
+			cluster.TlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{
+				ValidationContext: certValidationContext,
+			}
+
+			cluster.TlsContext.CommonTlsContext.TlsCertificates = []*auth.TlsCertificate{
+				{
+					CertificateChain: &core.DataSource{
+						Specifier: &core.DataSource_Filename{
+							Filename: tls.ClientCertificate,
 						},
-						PrivateKey: &core.DataSource{
-							Specifier: &core.DataSource_Filename{
-								Filename: tls.PrivateKey,
-							},
+					},
+					PrivateKey: &core.DataSource{
+						Specifier: &core.DataSource_Filename{
+							Filename: tls.PrivateKey,
 						},
 					},
 				},
-				ValidationContextType: &auth.CommonTlsContext_ValidationContext{
-					ValidationContext: certValidationContext,
-				},
-			},
-			Sni: tls.Sni,
+			}
+		} else {
+			cluster.TlsContext.CommonTlsContext.ValidationContextType = model.ConstructValidationContext(model.CARootCertPath, tls.SubjectAltNames)
+			cluster.TlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = []*auth.SdsSecretConfig{}
+			//refreshDuration, _ := ptypes.Duration(meshConfig.SdsRefreshDelay)
+			refreshDuration, _ := types.DurationFromProto(meshConfig.SdsRefreshDelay)
+			for _, sa := range serviceAccounts {
+				// Skip service account which is added from annotation 'alpha.istio.io/canonical-serviceaccounts' to avoid fetching duplicated
+				// cert from CA, the service account added in annotation is only used for building VerifySubjectAltName in TLS ValidationContext.
+				if strings.HasPrefix(sa, "spiffe://accounts.google.com") {
+					continue
+				}
+
+				cluster.TlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs =
+					append(cluster.TlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
+						model.ConstructSdsSecretConfig(sa, &refreshDuration, meshConfig.SdsUdsPath))
+			}
 		}
 
 		if cluster.Http2ProtocolOptions != nil {
@@ -526,7 +583,7 @@ func buildBlackHoleCluster() *v2.Cluster {
 }
 
 func buildDefaultCluster(env *model.Environment, name string, discoveryType v2.Cluster_DiscoveryType,
-	hosts []*core.Address) *v2.Cluster {
+	hosts []*core.Address, serviceAccounts []string) *v2.Cluster {
 	cluster := &v2.Cluster{
 		Name:  name,
 		Type:  discoveryType,
@@ -538,7 +595,7 @@ func buildDefaultCluster(env *model.Environment, name string, discoveryType v2.C
 	}
 
 	defaultTrafficPolicy := buildDefaultTrafficPolicy(env, discoveryType)
-	applyTrafficPolicy(cluster, defaultTrafficPolicy, nil)
+	applyTrafficPolicy(cluster, defaultTrafficPolicy, nil, env.Mesh, serviceAccounts)
 	return cluster
 }
 

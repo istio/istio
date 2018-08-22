@@ -48,3 +48,6 @@ dependencies:
   - name: certmanager
     version: 0.1.0
     condition: certmanager.enabled
+  - name: nodeagent
+    version: 1.0.0
+    condition: nodeagent.enabled

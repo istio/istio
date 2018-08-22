@@ -80,6 +80,10 @@ global:
   # propagated, not recommended for tests.
   controlPlaneSecurityEnabled: false
 
+  # SDS API enabled. Will result in distribute key cert through SDS(secret discovery service)
+  # instread of secret-mount files.
+  sdsAPIEnabled: false
+
   # disablePolicyChecks disables mixer policy checks.
   # Will set the value with same name in istio config map - pilot needs to be restarted to take effect.
   disablePolicyChecks: false
@@ -397,6 +401,13 @@ security:
   image: citadel
   selfSigned: true # indicate if self-signed CA is used.
   identityDomain: cluster.local # indicate the domain used in SPIFFE identity URL
+
+#
+# nodeagent configuration
+#
+nodeagent:
+  enabled: false
+  image: node-agent-k8s
 
 #
 # addons configuration
