@@ -285,9 +285,7 @@ lint: buildcache
 
 PILOT_GO_BINS:=${ISTIO_OUT}/pilot-discovery ${ISTIO_OUT}/pilot-agent \
                ${ISTIO_OUT}/sidecar-injector
-PILOT_GO_BINS+=${ISTIO_OUT}/proxy-ready
 PILOT_GO_BINS_SHORT:=pilot-discovery pilot-agent sidecar-injector
-PILOT_GO_BINS_SHORT+=proxy-ready
 define pilotbuild
 $(1):
 	bin/gobuild.sh ${ISTIO_OUT}/$(1) ./pilot/cmd/$(1)

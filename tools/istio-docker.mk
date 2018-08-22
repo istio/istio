@@ -61,7 +61,6 @@ $(ISTIO_DOCKER)/node_agent.crt $(ISTIO_DOCKER)/node_agent.key: ${GEN_CERT} $(IST
 DOCKER_FILES_FROM_ISTIO_OUT:=pilot-test-client pilot-test-server \
                              pilot-discovery pilot-agent sidecar-injector servicegraph mixs \
                              istio_ca node_agent galley
-DOCKER_FILES_FROM_ISTIO_OUT+=proxy-ready
 $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT), \
         $(eval $(ISTIO_DOCKER)/$(FILE): $(ISTIO_OUT)/$(FILE) | $(ISTIO_DOCKER); cp $$< $$(@D)))
 
@@ -81,7 +80,6 @@ $(foreach FILE,$(DOCKER_FILES_FROM_SOURCE), \
 docker.proxy_init: $(ISTIO_DOCKER)/istio-iptables.sh
 docker.sidecar_injector: $(ISTIO_DOCKER)/sidecar-injector
 
-docker.proxy_debug: $(ISTIO_OUT)/proxy-ready
 docker.proxy_debug: tools/deb/envoy_bootstrap_v2.json
 docker.proxy_debug: ${ISTIO_ENVOY_DEBUG_PATH}
 docker.proxy_debug: $(ISTIO_OUT)/pilot-agent
@@ -94,7 +92,6 @@ docker.proxy_debug: pilot/docker/envoy_telemetry.yaml.tmpl
 	cp pilot/docker/*.yaml.tmpl $(DOCKER_BUILD_TOP)/proxyd/
 	# Not using $^ to avoid 2 copies of envoy
 	cp tools/deb/envoy_bootstrap_v2.json tools/deb/istio-iptables.sh $(ISTIO_OUT)/pilot-agent pilot/docker/Dockerfile.proxyv2 $(DOCKER_BUILD_TOP)/proxyd/
-	cp $(ISTIO_OUT)/proxy-ready $(DOCKER_BUILD_TOP)/proxyd/
 	time (cd $(DOCKER_BUILD_TOP)/proxyd && \
 		docker build \
 		  --build-arg proxy_version=istio-proxy:${PROXY_REPO_SHA} \
