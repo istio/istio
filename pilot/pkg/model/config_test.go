@@ -584,10 +584,11 @@ func TestMostSpecificHostMatch(t *testing.T) {
 		needle model.Hostname
 		want   model.Hostname
 	}{
+		// this has to be a sorted list
 		{[]model.Hostname{}, "*", ""},
-		{[]model.Hostname{"*.com", "*.foo.com"}, "bar.foo.com", "*.foo.com"},
-		{[]model.Hostname{"*.com", "*.foo.com"}, "foo.com", "*.com"},
-		{[]model.Hostname{"*.com", "foo.com"}, "*.foo.com", "*.com"},
+		{[]model.Hostname{"*.foo.com", "*.com"}, "bar.foo.com", "*.foo.com"},
+		{[]model.Hostname{"*.foo.com", "*.com"}, "foo.com", "*.com"},
+		{[]model.Hostname{"foo.com", "*.com"}, "*.foo.com", "*.com"},
 
 		{[]model.Hostname{"*.foo.com", "foo.com"}, "foo.com", "foo.com"},
 		{[]model.Hostname{"*.foo.com", "foo.com"}, "*.foo.com", "*.foo.com"},

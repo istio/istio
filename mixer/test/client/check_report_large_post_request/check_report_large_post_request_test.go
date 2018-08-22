@@ -33,6 +33,7 @@ const checkAttributesOkPost = `
   "request.useragent": "Go-http-client/1.1",
   "request.method": "POST",
   "request.scheme": "http",
+  "request.url_path": "/echo",
   "target.name": "target-name",
   "target.user": "target-user",
   "target.uid": "POD222",
@@ -54,6 +55,7 @@ const checkAttributesOkPost = `
 const reportAttributesOkPost = `
 {
   "context.protocol": "http",
+  "context.proxy_error_code": "-",
   "mesh1.ip": "[1 1 1 1]",
   "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
   "request.host": "*",
@@ -62,6 +64,7 @@ const reportAttributesOkPost = `
   "request.useragent": "Go-http-client/1.1",
   "request.method": "POST",
   "request.scheme": "http",
+  "request.url_path": "/echo",
   "destination.ip": "[127 0 0 1]",
   "destination.port": "*",
   "target.name": "target-name",

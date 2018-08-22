@@ -22,13 +22,13 @@ import (
 	copilotapi "code.cloudfoundry.org/copilot/api"
 )
 
-//go:generate counterfeiter -o ./fakes/copilot_client.go --fake-name CopilotClient . copilotClient
+//go:generate $GOPATH/src/istio.io/istio/bin/counterfeiter.sh -o ./fakes/copilot_client.go --fake-name CopilotClient . copilotClient
 // CopilotClient defines a local interface for interacting with Cloud Foundry Copilot
 type copilotClient interface {
 	copilotapi.IstioCopilotClient
 }
 
-//go:generate counterfeiter -o fakes/logger.go --fake-name Logger . logger
+//go:generate $GOPATH/src/istio.io/istio/bin/counterfeiter.sh -o fakes/logger.go --fake-name Logger . logger
 type logger interface {
 	Infoa(args ...interface{})
 }

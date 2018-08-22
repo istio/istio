@@ -20,7 +20,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:8a768ab68d5be3ef0f51dac417cc113a61c8d5e59af9c6daeb6dc34862e06e32"
+  digest = "1:6ed512f144d92229093795a6049d4bb8f220696262b37777efbda841961121d9"
   name = "code.cloudfoundry.org/copilot"
   packages = [
     ".",
@@ -28,7 +28,7 @@
     "testhelpers",
   ]
   pruneopts = "NUT"
-  revision = "1e7e324f8366ded261140272c9e44d0ee681bdbf"
+  revision = "6bade2a0677a5cd76f937ef4cd2e426f55742ad1"
 
 [[projects]]
   digest = "1:0a7b52c5d11037c41b6e80e72a87a0ee974096434769d347bb960a9317526af0"
@@ -183,14 +183,6 @@
   revision = "3a771d992973f24aa725d07868b467d1ddfceafb"
 
 [[projects]]
-  branch = "master"
-  digest = "1:e60ea12cc6af851334368f7df0e3e7f6827189a482324c9e3e9772f279a24df2"
-  name = "github.com/bradfitz/slice"
-  packages = ["."]
-  pruneopts = "NUT"
-  revision = "d9036e2120b5ddfa53f3ebccd618c4af275f47da"
-
-[[projects]]
   digest = "1:dbe9e40f035ae057794d474c7e1a3e862a9571a29cd9e5f98ae8a72284c1e381"
   name = "github.com/cactus/go-statsd-client"
   packages = [
@@ -312,8 +304,7 @@
   version = "v2.6.0"
 
 [[projects]]
-  branch = "revert_grpc_version_update"
-  digest = "1:a67fc4d1c5bee4ceef8778a9cdb167eaa88b7e72503d0b4780c7c1cdc77d4419"
+  digest = "1:43909fe418bab85e33e29f68baec75dd02b061b0db400798146bd5d8c2f255cd"
   name = "github.com/envoyproxy/go-control-plane"
   packages = [
     "envoy/admin/v2alpha",
@@ -335,6 +326,7 @@
     "envoy/config/filter/network/mongo_proxy/v2",
     "envoy/config/filter/network/tcp_proxy/v2",
     "envoy/config/metrics/v2",
+    "envoy/config/overload/v2alpha",
     "envoy/config/ratelimit/v2",
     "envoy/config/rbac/v2alpha",
     "envoy/config/trace/v2",
@@ -347,7 +339,8 @@
     "pkg/util",
   ]
   pruneopts = "T"
-  revision = "9d935e3a33c28e3d6ac75a9db53b0da3b511fb86"
+  revision = "676016db8193d83324a507a986a78cd3642ad713"
+  version = "v0.5.0"
 
 [[projects]]
   digest = "1:ad32dc29f37281bacb5dcedff17c9461dc1739dc8a5f63a71ab491c6e92edf8d"
@@ -364,6 +357,14 @@
   pruneopts = "NUT"
   revision = "8bbc2356beaf021b04c9bd5cdc76ea5a7ccb40ec"
   version = "v1.3.0"
+
+[[projects]]
+  digest = "1:1b91ae0dc69a41d4c2ed23ea5cffb721ea63f5037ca4b81e6d6771fbb8f45129"
+  name = "github.com/fsnotify/fsnotify"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "c2828203cd70a50dcccfb2761f8b1f8ceef9a8e9"
+  version = "v1.4.7"
 
 [[projects]]
   digest = "1:0594af97b2f4cec6554086eeace6597e20a4b69466eb4ada25adf9f4300dddd2"
@@ -438,7 +439,7 @@
   revision = "0cd9801be74a10d5ac39d69626eac8255ffcd502"
 
 [[projects]]
-  digest = "1:aba848b77ff362b03db51ac06379c36a120bc05b4cc6c5c74f6e6fa310454fa5"
+  digest = "1:da39f4a22829ca95e63566208e0ea42d6f055f41dff1b14fdab88d88f62df653"
   name = "github.com/gogo/protobuf"
   packages = [
     "gogoproto",
@@ -449,8 +450,8 @@
     "types",
   ]
   pruneopts = "T"
-  revision = "1adfc126b41513cc696b209667c8656ea7aac67c"
-  version = "v1.0.0"
+  revision = "636bf0302bc95575d69441b25a2603156ffdddf1"
+  version = "v1.1.1"
 
 [[projects]]
   digest = "1:93dfbd1ff3309dcd3573c7fec6ae3db24cba9a2373bcf303008ed8e8262b57e0"
@@ -853,12 +854,12 @@
   version = "v2.1"
 
 [[projects]]
-  digest = "1:444f6d964ae6fafecd68e991ca960bad03ca3fa9cf7434dbb2683133072e8910"
+  digest = "1:ff74f0a23b59c8bd133c5438394d274c67cdfa693d9d97e09e00086a2499c42f"
   name = "github.com/onsi/ginkgo"
   packages = ["config"]
   pruneopts = "NUT"
-  revision = "9eda700730cba42af70d53180f9dcce9266bc2bc"
-  version = "v1.4.0"
+  revision = "3774a09d95489ccaa16032e0770d08ea77ba6184"
+  version = "v1.6.0"
 
 [[projects]]
   digest = "1:c1c74479c219daed94a374e5ba7cdab754a279532e76c00df29cc616ebc0ce59"
@@ -1274,14 +1275,6 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:2d5791bbafb386740ff5ad5b3259ea6a9290e97ca1a7dff3f8dbe3bfaf261910"
-  name = "go4.org"
-  packages = ["reflectutil"]
-  pruneopts = "NUT"
-  revision = "9599cf28b011184741f249bd9f9330756b506cbc"
-
-[[projects]]
-  branch = "master"
   digest = "1:cd44c46105ba9caa27aa4547c037b084666b57fa9ae3c6a7d3a813522a59b70b"
   name = "golang.org/x/crypto"
   packages = [
@@ -1468,14 +1461,13 @@
   revision = "ab0870e398d5dd054b868c0db1481ab029b9a9f2"
 
 [[projects]]
-  digest = "1:eeef59d44fc1abcb734c6c13b6612f5e41ba91025a978c910b99c2ea014e9f7a"
+  digest = "1:e65646f48beae8b39f96e18b0ebf1b55b6ad9d840e3c6bd8e48ac517435ab851"
   name = "google.golang.org/grpc"
   packages = [
     ".",
     "balancer",
     "balancer/base",
     "balancer/roundrobin",
-    "channelz",
     "codes",
     "connectivity",
     "credentials",
@@ -1483,11 +1475,15 @@
     "encoding",
     "encoding/gzip",
     "encoding/proto",
-    "grpclb/grpc_lb_v1/messages",
     "grpclog",
     "health",
     "health/grpc_health_v1",
     "internal",
+    "internal/backoff",
+    "internal/channelz",
+    "internal/envconfig",
+    "internal/grpcrand",
+    "internal/transport",
     "keepalive",
     "metadata",
     "naming",
@@ -1500,11 +1496,10 @@
     "stats",
     "status",
     "tap",
-    "transport",
   ]
   pruneopts = "NUT"
-  revision = "41344da2231b913fa3d983840a57a6b1b7b631a1"
-  version = "v1.12.0"
+  revision = "32fb0ac620c32ba40a4626ddf94d90d12cce3455"
+  version = "v1.14.0"
 
 [[projects]]
   digest = "1:22b2dee6f30bc8601f087449a2a819df8388e54e9547349c658f14d8f8c590f2"
@@ -1584,11 +1579,10 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:74bbe5c4890ebab42b113ab87e7c84475f39d1040b9aec6e7e7fa60f549fe393"
+  digest = "1:84d1a62934b7e6dafebad2d2fc49e2d70982e47b911e109449bf292dc4612c78"
   name = "istio.io/api"
   packages = [
     "authentication/v1alpha1",
-    "common/v1alpha1",
     "envoy/config/filter/http/authn/v2alpha1",
     "envoy/config/filter/http/jwt_auth/v2alpha1",
     "mcp/v1alpha1",
@@ -1601,10 +1595,10 @@
     "rbac/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "beaacd1cd58e4cee821e391563b030bb067c7866"
+  revision = "214c7598afb74f7f4dea49f77e45832c49382a15"
 
 [[projects]]
-  digest = "1:4283d420cad315864f2fdbc0a03ae927ba63572e481169200418471a597123f7"
+  digest = "1:a0934c59fa838e950c6b4b114e13376349d4eb3e054d86322f70ac42a15d3d95"
   name = "istio.io/fortio"
   packages = [
     ".",
@@ -1619,8 +1613,8 @@
     "version",
   ]
   pruneopts = "T"
-  revision = "b508c4b471a13fbe9f2e219ab6091e8f688b9836"
-  version = "v1.0.0"
+  revision = "d13f3b92c63db22136bac4e0896562404bd4ef6e"
+  version = "v1.1.0"
 
 [[projects]]
   digest = "1:1e22c9d898674522a6155619142b4691dd225441168faa2b5a4eb88ee327a243"
@@ -2003,7 +1997,6 @@
     "github.com/aws/aws-sdk-go/awstesting/unit",
     "github.com/aws/aws-sdk-go/service/cloudwatch",
     "github.com/aws/aws-sdk-go/service/cloudwatch/cloudwatchiface",
-    "github.com/bradfitz/slice",
     "github.com/cactus/go-statsd-client/statsd",
     "github.com/cactus/go-statsd-client/statsd/statsdtest",
     "github.com/cenkalti/backoff",
@@ -2038,6 +2031,7 @@
     "github.com/envoyproxy/go-control-plane/pkg/util",
     "github.com/evanphx/json-patch",
     "github.com/fluent/fluent-logger-golang/fluent",
+    "github.com/fsnotify/fsnotify",
     "github.com/ghodss/yaml",
     "github.com/go-redis/redis",
     "github.com/gogo/googleapis/google/rpc",

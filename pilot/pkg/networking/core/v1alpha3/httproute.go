@@ -59,7 +59,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(env *mo
 	traceOperation := fmt.Sprintf("%s:%d/*", instance.Service.Hostname, instance.Endpoint.ServicePort.Port)
 	defaultRoute := istio_route.BuildDefaultHTTPRoute(node, clusterName, traceOperation)
 
-	if _, is10Proxy := node.GetProxyVersion(); !is10Proxy {
+	if !util.Is1xProxy(node) {
 		// Enable websocket on default route
 		actionRoute, ok := defaultRoute.Action.(*route.Route_Route)
 		if ok {
@@ -146,7 +146,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 		for _, host := range virtualHostWrapper.VirtualServiceHosts {
 			virtualHosts = append(virtualHosts, route.VirtualHost{
 				Name:    fmt.Sprintf("%s:%d", host, virtualHostWrapper.Port),
-				Domains: []string{host},
+				Domains: []string{host, fmt.Sprintf("%s:%d", host, virtualHostWrapper.Port)},
 				Routes:  virtualHostWrapper.Routes,
 			})
 		}

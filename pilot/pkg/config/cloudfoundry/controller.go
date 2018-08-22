@@ -30,7 +30,7 @@ import (
 var errUnsupported = errors.New("this operation is not supported by the cloudfoundry copilot controller")
 
 // CopilotClient defines a local interface for interacting with Cloud Foundry Copilot
-//go:generate counterfeiter -o fakes/copilot_client.go --fake-name CopilotClient . CopilotClient
+//go:generate $GOPATH/src/istio.io/istio/bin/counterfeiter.sh -o fakes/copilot_client.go --fake-name CopilotClient . CopilotClient
 type CopilotClient interface {
 	copilotapi.IstioCopilotClient
 }
@@ -41,7 +41,7 @@ type storage struct {
 	destinationRules map[string]*model.Config
 }
 
-//go:generate counterfeiter -o fakes/logger.go --fake-name Logger . logger
+//go:generate $GOPATH/src/istio.io/istio/bin/counterfeiter.sh -o fakes/logger.go --fake-name Logger . logger
 type logger interface {
 	Warnf(template string, args ...interface{})
 	Infof(template string, args ...interface{})
@@ -211,6 +211,7 @@ func (c *Controller) rebuildRules() {
 
 	virtualServices := make(map[string]*model.Config, len(resp.GetRoutes()))
 	destinationRules := make(map[string]*model.Config, len(resp.GetRoutes()))
+	httpRoutes := make(map[string]*networking.HTTPRoute)
 
 	for _, route := range resp.GetRoutes() {
 		destinationRuleName := fmt.Sprintf("dest-rule-for-%s", route.GetHostname())
@@ -232,14 +233,17 @@ func (c *Controller) rebuildRules() {
 			vs = createVirtualService(gatewayNames, route)
 		}
 
-		r := createHTTPRoute(route)
-		r.Route[0].Destination.Subset = route.GetCapiProcessGuid()
-
-		if route.GetPath() != "" {
-			r.Match = createHTTPMatchRequest(route)
-			vs.Http = append([]*networking.HTTPRoute{r}, vs.Http...)
+		if r, ok := httpRoutes[route.GetHostname()+route.GetPath()]; ok {
+			r.Route = append(r.Route, createDestinationWeight(route))
 		} else {
-			vs.Http = append(vs.Http, r)
+			r := createHTTPRoute(route)
+			if route.GetPath() != "" {
+				r.Match = createHTTPMatchRequest(route)
+				vs.Http = append([]*networking.HTTPRoute{r}, vs.Http...)
+			} else {
+				vs.Http = append(vs.Http, r)
+			}
+			httpRoutes[route.GetHostname()+route.GetPath()] = r
 		}
 
 		virtualServices[virtualServiceName] = &model.Config{
@@ -279,20 +283,24 @@ func createVirtualService(gatewayNames []string, route *copilotapi.RouteWithBack
 	}
 }
 
-func createHTTPRoute(route *copilotapi.RouteWithBackends) *networking.HTTPRoute {
-	return &networking.HTTPRoute{
-		Route: []*networking.DestinationWeight{
-			{
-				Destination: &networking.Destination{
-					Host: route.GetHostname(),
-					Port: &networking.PortSelector{
-						Port: &networking.PortSelector_Number{
-							Number: 8080,
-						},
-					},
+func createDestinationWeight(route *copilotapi.RouteWithBackends) *networking.DestinationWeight {
+	return &networking.DestinationWeight{
+		Destination: &networking.Destination{
+			Host:   route.GetHostname(),
+			Subset: route.GetCapiProcessGuid(),
+			Port: &networking.PortSelector{
+				Port: &networking.PortSelector_Number{
+					Number: 8080,
 				},
 			},
 		},
+		Weight: route.GetRouteWeight(),
+	}
+}
+
+func createHTTPRoute(route *copilotapi.RouteWithBackends) *networking.HTTPRoute {
+	return &networking.HTTPRoute{
+		Route: []*networking.DestinationWeight{createDestinationWeight(route)},
 	}
 }
 

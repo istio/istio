@@ -25,6 +25,7 @@ import (
 const reportAttributes = `
 {
   "context.protocol": "http",
+  "context.proxy_error_code": "FI",
   "mesh1.ip": "[1 1 1 1]",
   "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
   "mesh3.ip": "[0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 8]",
@@ -62,7 +63,8 @@ const reportAttributes = `
      "server": "envoy"
   },
   "response.total_size": "*",
-  "request.total_size": 0
+  "request.total_size": 0,
+  "request.url_path": "/echo"
 }
 `
 
@@ -70,7 +72,9 @@ const allAbortFaultFilter = `
 - name: envoy.fault
   config:
     abort:
-      percent: 100
+      percentage:
+        numerator: 100
+        denominator: HUNDRED
       http_status: 503
 `
 

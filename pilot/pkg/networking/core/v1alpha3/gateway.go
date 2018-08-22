@@ -156,14 +156,14 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 	}
 	// We'll try to return any listeners we successfully marshaled; if we have none, we'll emit the error we built up
 	err = errs.ErrorOrNil()
-	if len(listeners) == 0 {
-		log.Errorf("buildGatewayListeners: Have zero listeners: %v", err.Error())
-		return []*xdsapi.Listener{}, nil
-	}
-
 	if err != nil {
 		// we have some listeners to return, but we also have some errors; log them
 		log.Info(err.Error())
+	}
+
+	if len(listeners) == 0 {
+		log.Error("buildGatewayListeners: Have zero listeners")
+		return []*xdsapi.Listener{}, nil
 	}
 
 	validatedListeners := make([]*xdsapi.Listener, 0, len(mergedGateway.Servers))
@@ -251,7 +251,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 			vhostDomains[vsvcHost] = true
 			host := route.VirtualHost{
 				Name:    fmt.Sprintf("%s:%d", v.Name, port),
-				Domains: []string{vsvcHost},
+				Domains: []string{vsvcHost, fmt.Sprintf("%s:%d", vsvcHost, port)},
 				Routes:  routes,
 			}
 

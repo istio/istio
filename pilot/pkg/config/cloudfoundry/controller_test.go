@@ -114,7 +114,7 @@ func TestGet(t *testing.T) {
 		}).Should(gomega.Equal("get type not supported: unknown-type"))
 	})
 
-	t.Run("valid type", func(t *testing.T) {
+	t.Run("same hostname and different paths", func(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 
 		for idx, response := range routeResponses {
@@ -122,8 +122,10 @@ func TestGet(t *testing.T) {
 		}
 
 		for _, gatewayConfig := range gatewayConfigs {
-			_, err := store.Create(gatewayConfig)
-			g.Expect(err).NotTo(gomega.HaveOccurred())
+			if _, exists := store.Get(gatewayConfig.ConfigMeta.Type, gatewayConfig.ConfigMeta.Name, ""); !exists {
+				_, err := store.Create(gatewayConfig)
+				g.Expect(err).NotTo(gomega.HaveOccurred())
+			}
 		}
 
 		stop := make(chan struct{})
@@ -166,6 +168,7 @@ func TestGet(t *testing.T) {
 							},
 							Subset: "some-guid-a",
 						},
+						Weight: 100,
 					},
 				},
 			},
@@ -181,6 +184,7 @@ func TestGet(t *testing.T) {
 							},
 							Subset: "some-guid-z",
 						},
+						Weight: 100,
 					},
 				},
 			},
@@ -189,6 +193,79 @@ func TestGet(t *testing.T) {
 		g.Eventually(func() bool {
 			var found bool
 			config, found = controller.Get("destination-rule", "dest-rule-for-some-external-route.example.com", "")
+
+			return found
+		}).Should(gomega.BeTrue())
+
+		g.Expect(config).NotTo(gomega.BeNil())
+	})
+
+	t.Run("same hostname and no prefixes", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
+
+		for idx, response := range routeResponses {
+			mockCopilotClient.RoutesReturnsOnCall(idx, response, nil)
+		}
+
+		for _, gatewayConfig := range gatewayConfigs {
+			if _, exists := store.Get(gatewayConfig.ConfigMeta.Type, gatewayConfig.ConfigMeta.Name, ""); !exists {
+				_, err := store.Create(gatewayConfig)
+				g.Expect(err).NotTo(gomega.HaveOccurred())
+			}
+		}
+
+		stop := make(chan struct{})
+		defer func() { stop <- struct{}{} }()
+
+		controller.Run(stop)
+
+		var config *model.Config
+		g.Eventually(func() bool {
+			var found bool
+			config, found = controller.Get("virtual-service", "virtual-service-for-awesome-external-route.example.com", "")
+
+			return found
+		}).Should(gomega.BeTrue())
+
+		vs := config.Spec.(*networking.VirtualService)
+		g.Expect(vs.Hosts[0]).To(gomega.Equal("awesome-external-route.example.com"))
+		g.Expect(vs.Gateways).To(gomega.ConsistOf([]string{"some-gateway", "some-other-gateway"}))
+
+		g.Expect(vs.Http).To(gomega.HaveLen(1))
+		g.Expect(vs.Http).To(gomega.Equal([]*networking.HTTPRoute{
+			{
+				Route: []*networking.DestinationWeight{
+					{
+						Destination: &networking.Destination{
+							Host: "awesome-external-route.example.com",
+							Port: &networking.PortSelector{
+								Port: &networking.PortSelector_Number{
+									Number: 8080,
+								},
+							},
+							Subset: "some-guid-x",
+						},
+						Weight: 50,
+					},
+					{
+						Destination: &networking.Destination{
+							Host: "awesome-external-route.example.com",
+							Port: &networking.PortSelector{
+								Port: &networking.PortSelector_Number{
+									Number: 8080,
+								},
+							},
+							Subset: "some-guid-y",
+						},
+						Weight: 50,
+					},
+				},
+			},
+		}))
+
+		g.Eventually(func() bool {
+			var found bool
+			config, found = controller.Get("destination-rule", "dest-rule-for-awesome-external-route.example.com", "")
 
 			return found
 		}).Should(gomega.BeTrue())
@@ -254,10 +331,10 @@ func TestList(t *testing.T) {
 			configs, err = controller.List("destination-rule", "")
 
 			return configs, err
-		}).Should(gomega.HaveLen(2))
+		}).Should(gomega.HaveLen(3))
 
 		sort.Slice(configs, func(i, j int) bool { return configs[i].Key() < configs[j].Key() })
-		rule := configs[1].Spec.(*networking.DestinationRule)
+		rule := configs[2].Spec.(*networking.DestinationRule)
 
 		g.Expect(rule.Host).To(gomega.Equal("some-external-route.example.com"))
 		g.Expect(rule.Subsets).To(gomega.HaveLen(2))
@@ -272,7 +349,7 @@ func TestList(t *testing.T) {
 			},
 		}))
 
-		rule = configs[0].Spec.(*networking.DestinationRule)
+		rule = configs[1].Spec.(*networking.DestinationRule)
 		g.Expect(rule.Host).To(gomega.Equal("other.example.com"))
 		g.Expect(rule.Subsets).To(gomega.HaveLen(1))
 		g.Expect(rule.Subsets).To(gomega.ConsistOf([]*networking.Subset{
@@ -282,12 +359,26 @@ func TestList(t *testing.T) {
 			},
 		}))
 
+		rule = configs[0].Spec.(*networking.DestinationRule)
+		g.Expect(rule.Host).To(gomega.Equal("awesome-external-route.example.com"))
+		g.Expect(rule.Subsets).To(gomega.HaveLen(2))
+		g.Expect(rule.Subsets).To(gomega.ConsistOf([]*networking.Subset{
+			{
+				Name:   "some-guid-x",
+				Labels: map[string]string{"cfapp": "some-guid-x"},
+			},
+			{
+				Name:   "some-guid-y",
+				Labels: map[string]string{"cfapp": "some-guid-y"},
+			},
+		}))
+
 		g.Eventually(func() ([]model.Config, error) {
 			var err error
 			configs, err = controller.List("virtual-service", "")
 
 			return configs, err
-		}).Should(gomega.HaveLen(2))
+		}).Should(gomega.HaveLen(3))
 	})
 }
 
@@ -326,7 +417,7 @@ func TestCacheClear(t *testing.T) {
 		configs, err = controller.List("virtual-service", "")
 
 		return configs, err
-	}).Should(gomega.HaveLen(2))
+	}).Should(gomega.HaveLen(3))
 
 	g.Eventually(func() ([]model.Config, error) {
 		var err error
@@ -394,17 +485,32 @@ var routes = []*copilotapi.RouteWithBackends{
 		Hostname:        "some-external-route.example.com",
 		Backends:        nil,
 		CapiProcessGuid: "some-guid-z",
+		RouteWeight:     100,
 	},
 	{
 		Hostname:        "some-external-route.example.com",
 		Path:            "/some/path",
 		Backends:        nil,
 		CapiProcessGuid: "some-guid-a",
+		RouteWeight:     100,
 	},
 	{
 		Hostname:        "other.example.com",
 		Backends:        nil,
 		CapiProcessGuid: "some-guid-x",
+		RouteWeight:     100,
+	},
+	{
+		Hostname:        "awesome-external-route.example.com",
+		Backends:        nil,
+		CapiProcessGuid: "some-guid-x",
+		RouteWeight:     50,
+	},
+	{
+		Hostname:        "awesome-external-route.example.com",
+		Backends:        nil,
+		CapiProcessGuid: "some-guid-y",
+		RouteWeight:     50,
 	},
 }
 

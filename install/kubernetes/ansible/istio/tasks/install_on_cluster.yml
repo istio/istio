@@ -12,5 +12,13 @@
   shell: "{{ cmd_path }} create -f {{ istio_definition_full_path }}"
   ignore_errors: true
 
+- name: Create Routes in Openshift
+  shell: "{{cmd_path}} expose svc {{item}} -n istio-system"
+  with_items:
+    - istio-ingressgateway
+    - prometheus
+    - grafana
+  when: "cluster_flavour == 'ocp'"
+
 - name: Deploy Addons defined such as Grafana, ...
   import_tasks: install_addons.yml

@@ -226,6 +226,7 @@ func DefaultProxyConfig() meshconfig.ProxyConfig {
 		ControlPlaneAuthPolicy: meshconfig.AuthenticationPolicy_NONE,
 		CustomConfigFile:       "",
 		Concurrency:            0,
+		StatNameLength:         189,
 	}
 }
 

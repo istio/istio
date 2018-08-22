@@ -15,6 +15,7 @@
 package v1alpha3
 
 import (
+	"fmt"
 	"path"
 	"time"
 
@@ -35,9 +36,6 @@ const (
 	DefaultLbType = networking.LoadBalancerSettings_ROUND_ROBIN
 	// ManagementClusterHostname indicates the hostname used for building inbound clusters for management ports
 	ManagementClusterHostname = "mgmtCluster"
-
-	// CDSv2 validation requires ConnectTimeout to be > 0s. This is applied if no explicit policy is set.
-	defaultClusterConnectTimeout = 5 * time.Second
 )
 
 // TODO: Need to do inheritance of DestRules based on domain suffix match
@@ -49,15 +47,25 @@ const (
 func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, proxy *model.Proxy, push *model.PushContext) ([]*v2.Cluster, error) {
 	clusters := make([]*v2.Cluster, 0)
 
-	services := push.Services
+	recomputeOutboundClusters := true
 
-	clusters = append(clusters, configgen.buildOutboundClusters(env, proxy, push, services)...)
-	for _, c := range clusters {
-		// Envoy requires a non-zero connect timeout
-		if c.ConnectTimeout == 0 {
-			c.ConnectTimeout = defaultClusterConnectTimeout
+	switch proxy.Type {
+	case model.Sidecar:
+		if configgen.OutboundClustersForSidecars != nil {
+			clusters = append(clusters, configgen.OutboundClustersForSidecars...)
+			recomputeOutboundClusters = false
+		}
+	case model.Router:
+		if configgen.OutboundClustersForGateways != nil {
+			clusters = append(clusters, configgen.OutboundClustersForGateways...)
+			recomputeOutboundClusters = false
 		}
 	}
+
+	if recomputeOutboundClusters {
+		clusters = append(clusters, configgen.buildOutboundClusters(env, proxy.Type, push)...)
+	}
+
 	if proxy.Type == model.Sidecar {
 		instances, err := env.GetProxyServiceInstances(proxy)
 		if err != nil {
@@ -73,23 +81,42 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 	// DO NOT CALL PLUGINS for this cluster.
 	clusters = append(clusters, buildBlackHoleCluster())
 
-	return clusters, nil // TODO: normalize/dedup/order
+	return normalizeClusters(push, proxy, clusters), nil
 }
 
-func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environment, proxy *model.Proxy, push *model.PushContext,
-	services []*model.Service) []*v2.Cluster {
+// resolves cluster name conflicts. there can be duplicate cluster names if there are conflicting service definitions.
+// for any clusters that share the same name the first cluster is kept and the others are discarded.
+func normalizeClusters(push *model.PushContext, proxy *model.Proxy, clusters []*v2.Cluster) []*v2.Cluster {
+	have := make(map[string]bool)
+	out := make([]*v2.Cluster, 0, len(clusters))
+	for _, cluster := range clusters {
+		if !have[cluster.Name] {
+			out = append(out, cluster)
+		} else {
+			push.Add(model.DuplicatedClusters, cluster.Name, proxy,
+				fmt.Sprintf("Duplicate cluster %s found while pushing CDS", cluster.Name))
+		}
+		have[cluster.Name] = true
+	}
+	return out
+}
+
+func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environment, proxyType model.NodeType, push *model.PushContext) []*v2.Cluster {
 	clusters := make([]*v2.Cluster, 0)
-	for _, service := range services {
+	for _, service := range push.Services {
 		config := push.DestinationRule(service.Hostname)
 		for _, port := range service.Ports {
+			if port.Protocol == model.ProtocolUDP {
+				continue
+			}
 			hosts := buildClusterHosts(env, service, port.Port)
 
 			// create default cluster
 			clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
-			upstreamServiceAccounts := env.ServiceAccounts.GetIstioServiceAccounts(service.Hostname, []string{port.Name})
+			upstreamServiceAccounts := env.ServiceAccounts.GetIstioServiceAccounts(service.Hostname, []int{port.Port})
 			defaultCluster := buildDefaultCluster(env, clusterName, convertResolution(service.Resolution), hosts)
 
-			updateEds(env, defaultCluster, service.Hostname)
+			updateEds(defaultCluster)
 			setUpstreamProtocol(defaultCluster, port)
 			clusters = append(clusters, defaultCluster)
 
@@ -101,13 +128,13 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 				for _, subset := range destinationRule.Subsets {
 					subsetClusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port.Port)
 					subsetCluster := buildDefaultCluster(env, subsetClusterName, convertResolution(service.Resolution), hosts)
-					updateEds(env, subsetCluster, service.Hostname)
+					updateEds(subsetCluster)
 					setUpstreamProtocol(subsetCluster, port)
 					applyTrafficPolicy(subsetCluster, destinationRule.TrafficPolicy, port)
 					applyTrafficPolicy(subsetCluster, subset.TrafficPolicy, port)
 					// call plugins
 					for _, p := range configgen.Plugins {
-						p.OnOutboundCluster(env, proxy, push, service, port, subsetCluster)
+						p.OnOutboundCluster(env, push, service, port, subsetCluster)
 					}
 					clusters = append(clusters, subsetCluster)
 				}
@@ -115,7 +142,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 
 			// call plugins for the default cluster
 			for _, p := range configgen.Plugins {
-				p.OnOutboundCluster(env, proxy, push, service, port, defaultCluster)
+				p.OnOutboundCluster(env, push, service, port, defaultCluster)
 			}
 		}
 	}
@@ -123,7 +150,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 	return clusters
 }
 
-func updateEds(env *model.Environment, cluster *v2.Cluster, serviceName model.Hostname) {
+func updateEds(cluster *v2.Cluster) {
 	if cluster.Type != v2.Cluster_EDS {
 		return
 	}
@@ -401,18 +428,6 @@ func applyLoadBalancer(cluster *v2.Cluster, lb *networking.LoadBalancerSettings)
 	}
 }
 
-// ALPNH2Only advertises that Proxy is going to use HTTP/2 when talking to the cluster.
-var ALPNH2Only = []string{"h2"}
-
-// ALPNInMeshH2 advertises that Proxy is going to use HTTP/2 when talking to the in-mesh cluster.
-// The custom "istio" value indicates in-mesh traffic and it's going to be used for routing decisions.
-// Once Envoy supports client-side ALPN negotiation, this should be {"istio", "h2", "http/1.1"}.
-var ALPNInMeshH2 = []string{"istio", "h2"}
-
-// ALPNInMesh advertises that Proxy is going to talk to the in-mesh cluster.
-// The custom "istio" value indicates in-mesh traffic and it's going to be used for routing decisions.
-var ALPNInMesh = []string{"istio"}
-
 func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) {
 	if tls == nil {
 		return
@@ -450,7 +465,7 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) 
 		}
 		if cluster.Http2ProtocolOptions != nil {
 			// This is HTTP/2 cluster, advertise it with ALPN.
-			cluster.TlsContext.CommonTlsContext.AlpnProtocols = ALPNH2Only
+			cluster.TlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
 		}
 	case networking.TLSSettings_MUTUAL, networking.TLSSettings_ISTIO_MUTUAL:
 		if tls.ClientCertificate == "" || tls.PrivateKey == "" {
@@ -484,13 +499,13 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) 
 		if cluster.Http2ProtocolOptions != nil {
 			// This is HTTP/2 in-mesh cluster, advertise it with ALPN.
 			if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
-				cluster.TlsContext.CommonTlsContext.AlpnProtocols = ALPNInMeshH2
+				cluster.TlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshH2
 			} else {
-				cluster.TlsContext.CommonTlsContext.AlpnProtocols = ALPNH2Only
+				cluster.TlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
 			}
 		} else if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
 			// This is in-mesh cluster, advertise it with ALPN.
-			cluster.TlsContext.CommonTlsContext.AlpnProtocols = ALPNInMesh
+			cluster.TlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMesh
 		}
 	}
 }
@@ -512,7 +527,7 @@ func buildBlackHoleCluster() *v2.Cluster {
 	cluster := &v2.Cluster{
 		Name:           util.BlackHoleCluster,
 		Type:           v2.Cluster_STATIC,
-		ConnectTimeout: defaultClusterConnectTimeout,
+		ConnectTimeout: 1 * time.Second,
 		LbPolicy:       v2.Cluster_ROUND_ROBIN,
 	}
 	return cluster

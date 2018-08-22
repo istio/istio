@@ -34,6 +34,7 @@ const checkAttributesOkGet = `
   "request.useragent": "Go-http-client/1.1",
   "request.method": "GET",
   "request.scheme": "http",
+  "request.url_path": "/echo",
   "source.uid": "POD11",
   "source.namespace": "XYZ11",
   "target.name": "target-name",
@@ -57,6 +58,7 @@ const checkAttributesOkGet = `
 const reportAttributesOkGet = `
 {
   "context.protocol": "http",
+  "context.proxy_error_code": "-",
   "mesh1.ip": "[1 1 1 1]",
   "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
   "mesh3.ip": "[0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 8]",
@@ -66,6 +68,7 @@ const reportAttributesOkGet = `
   "request.useragent": "Go-http-client/1.1",
   "request.method": "GET",
   "request.scheme": "http",
+  "request.url_path": "/echo",
   "source.uid": "POD11",
   "source.namespace": "XYZ11",
   "destination.ip": "[127 0 0 1]",
@@ -115,6 +118,7 @@ const checkAttributesOkPost = `
   "request.useragent": "Go-http-client/1.1",
   "request.method": "POST",
   "request.scheme": "http",
+  "request.url_path": "/echo",
   "source.uid": "POD11",
   "source.namespace": "XYZ11",
   "target.name": "target-name",
@@ -138,6 +142,7 @@ const checkAttributesOkPost = `
 const reportAttributesOkPost = `
 {
   "context.protocol": "http",
+  "context.proxy_error_code": "-",
   "mesh1.ip": "[1 1 1 1]",
   "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
   "mesh3.ip": "[0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 8]",
@@ -147,6 +152,7 @@ const reportAttributesOkPost = `
   "request.useragent": "Go-http-client/1.1",
   "request.method": "POST",
   "request.scheme": "http",
+  "request.url_path": "/echo",
   "source.uid": "POD11",
   "source.namespace": "XYZ11",
   "destination.ip": "[127 0 0 1]",

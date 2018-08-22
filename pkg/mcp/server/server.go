@@ -22,6 +22,7 @@ import (
 	"sync/atomic"
 
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 
@@ -75,6 +76,18 @@ type Server struct {
 	watcher        Watcher
 	supportedTypes []string
 	nextStreamID   int64
+	authCheck      AuthChecker
+}
+
+// AuthChecker is used to check the transport auth info that is associated with each stream. If the function
+// returns nil, then the connection will be allowed. If the function returns an error, then it will be
+// percolated up to the gRPC stack.
+//
+// Note that it is possible that this method can be called with nil authInfo. This can happen either if there
+// is no peer info, or if the underlying gRPC stream is insecure. The implementations should be resilient in
+// this case and apply appropriate policy.
+type AuthChecker interface {
+	Check(authInfo credentials.AuthInfo) error
 }
 
 // watch maintains local state of the most recent watch per-type.
@@ -102,18 +115,37 @@ type connection struct {
 	watcher   Watcher
 }
 
-// New creates a new gRPC server that implements the Mesh Configuration Protocol (MCP).
-func New(watcher Watcher, supportedTypes []string) *Server {
+// New creates a new gRPC server that implements the Mesh Configuration Protocol (MCP). A nil authCheck
+// implies all incoming connections should be allowed.
+func New(watcher Watcher, supportedTypes []string, authChecker AuthChecker) *Server {
 	return &Server{
 		watcher:        watcher,
 		supportedTypes: supportedTypes,
+		authCheck:      authChecker,
 	}
 }
 
-func (s *Server) newConnection(stream mcp.AggregatedMeshConfigService_StreamAggregatedResourcesServer) *connection {
+func (s *Server) newConnection(stream mcp.AggregatedMeshConfigService_StreamAggregatedResourcesServer) (*connection, error) {
 	peerAddr := "0.0.0.0"
-	if peerInfo, ok := peer.FromContext(stream.Context()); ok {
+
+	peerInfo, ok := peer.FromContext(stream.Context())
+	if ok {
 		peerAddr = peerInfo.Addr.String()
+	} else {
+		log.Warnf("No peer info found on the incoming stream.")
+		peerInfo = nil
+	}
+
+	var authInfo credentials.AuthInfo
+	if peerInfo != nil {
+		authInfo = peerInfo.AuthInfo
+	}
+
+	if s.authCheck != nil {
+		if err := s.authCheck.Check(authInfo); err != nil {
+			log.Infof("newConnection: auth check handler returned error: %v", err)
+			return nil, status.Errorf(codes.Unauthenticated, "Authentication failure: %v", err)
+		}
 	}
 
 	con := &connection{
@@ -137,12 +169,16 @@ func (s *Server) newConnection(stream mcp.AggregatedMeshConfigService_StreamAggr
 	}
 
 	scope.Infof("MCP: connection %v: NEW, supported types: %#v", con, messageNames)
-	return con
+	return con, nil
 }
 
 // StreamAggregatedResources implements bidirectional streaming method for MCP (ADS).
 func (s *Server) StreamAggregatedResources(stream mcp.AggregatedMeshConfigService_StreamAggregatedResourcesServer) error { // nolint: lll
-	con := s.newConnection(stream)
+	con, err := s.newConnection(stream)
+	if err != nil {
+		return err
+	}
+
 	defer con.close()
 	go con.receive()
 
@@ -170,6 +206,7 @@ func (s *Server) StreamAggregatedResources(stream mcp.AggregatedMeshConfigServic
 	}
 }
 
+// String implements Stringer.String.
 func (con *connection) String() string {
 	return fmt.Sprintf("{addr=%v id=%v}", con.peerAddr, con.id)
 }

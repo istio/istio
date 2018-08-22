@@ -21,7 +21,13 @@ import (
 
 	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/mcp/creds"
 	"istio.io/istio/pkg/probe"
+)
+
+const (
+	defaultConfigMapFolder = "/etc/istio/config/"
+	defaultAccessListFile  = defaultConfigMapFolder + "accesslist.yaml"
 )
 
 // Args contains the startup arguments to instantiate Galley.
@@ -44,6 +50,15 @@ type Args struct {
 	// Maximum number of outstanding RPCs per connection
 	MaxConcurrentStreams uint
 
+	// The credential options to use for MCP.
+	CredentialOptions *creds.Options
+
+	// Insecure gRPC service is used for the MCP server. CertificateFile and KeyFile is ignored.
+	Insecure bool
+
+	// AccessListFile is the YAML file that specifies ids of the allowed mTLS peers.
+	AccessListFile string
+
 	// The logging options to use
 	LoggingOptions *log.Options
 
@@ -61,9 +76,12 @@ type Args struct {
 // DefaultArgs allocates an Args struct initialized with Mixer's default configuration.
 func DefaultArgs() *Args {
 	return &Args{
-		APIAddress:             "tcp://127.0.0.1:9901",
+		APIAddress:             "tcp://0.0.0.0:9901",
 		MaxReceivedMessageSize: 1024 * 1024,
 		MaxConcurrentStreams:   1024,
+		Insecure:               false,
+		CredentialOptions:      creds.DefaultOptions(),
+		AccessListFile:         defaultAccessListFile,
 		LoggingOptions:         log.DefaultOptions(),
 		LivenessProbeOptions:   &probe.Options{},
 		ReadinessProbeOptions:  &probe.Options{},
@@ -81,6 +99,11 @@ func (a *Args) String() string {
 	fmt.Fprintf(buf, "EnableGrpcTracing: %v\n", a.APIAddress)
 	fmt.Fprintf(buf, "MaxReceivedMessageSize: %d\n", a.MaxReceivedMessageSize)
 	fmt.Fprintf(buf, "MaxConcurrentStreams: %d\n", a.MaxConcurrentStreams)
+	fmt.Fprintf(buf, "Insecure: %v\n", a.Insecure)
+	fmt.Fprintf(buf, "KeyFile: %s\n", a.CredentialOptions.KeyFile)
+	fmt.Fprintf(buf, "CertificateFile: %s\n", a.CredentialOptions.CertificateFile)
+	fmt.Fprintf(buf, "CACertificateFile: %s\n", a.CredentialOptions.CACertificateFile)
+	fmt.Fprintf(buf, "AccessListFile: %s\n", a.AccessListFile)
 	fmt.Fprintf(buf, "LoggingOptions: %#v\n", *a.LoggingOptions)
 	fmt.Fprintf(buf, "LivenessProbeOptions: %#v\n", *a.LivenessProbeOptions)
 	fmt.Fprintf(buf, "ReadinessProbeOptions: %#v\n", *a.ReadinessProbeOptions)

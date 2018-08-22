@@ -73,6 +73,21 @@ func (m *UpstreamLocalityStats) Validate() error {
 
 	}
 
+	for idx, item := range m.GetUpstreamEndpointStats() {
+		_, _ = idx, item
+
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return UpstreamLocalityStatsValidationError{
+					Field:  fmt.Sprintf("UpstreamEndpointStats[%v]", idx),
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
+	}
+
 	// no validation rules for Priority
 
 	return nil
@@ -108,6 +123,79 @@ func (e UpstreamLocalityStatsValidationError) Error() string {
 }
 
 var _ error = UpstreamLocalityStatsValidationError{}
+
+// Validate checks the field values on UpstreamEndpointStats with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, an error is returned.
+func (m *UpstreamEndpointStats) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	if v, ok := interface{}(m.GetAddress()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return UpstreamEndpointStatsValidationError{
+				Field:  "Address",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
+	// no validation rules for TotalSuccessfulRequests
+
+	// no validation rules for TotalRequestsInProgress
+
+	// no validation rules for TotalErrorRequests
+
+	for idx, item := range m.GetLoadMetricStats() {
+		_, _ = idx, item
+
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return UpstreamEndpointStatsValidationError{
+					Field:  fmt.Sprintf("LoadMetricStats[%v]", idx),
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
+	}
+
+	return nil
+}
+
+// UpstreamEndpointStatsValidationError is the validation error returned by
+// UpstreamEndpointStats.Validate if the designated constraints aren't met.
+type UpstreamEndpointStatsValidationError struct {
+	Field  string
+	Reason string
+	Cause  error
+	Key    bool
+}
+
+// Error satisfies the builtin error interface
+func (e UpstreamEndpointStatsValidationError) Error() string {
+	cause := ""
+	if e.Cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
+	}
+
+	key := ""
+	if e.Key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sUpstreamEndpointStats.%s: %s%s",
+		key,
+		e.Field,
+		e.Reason,
+		cause)
+}
+
+var _ error = UpstreamEndpointStatsValidationError{}
 
 // Validate checks the field values on EndpointLoadMetricStats with the rules
 // defined in the proto definition for this message. If any rules are

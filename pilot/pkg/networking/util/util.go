@@ -37,6 +37,21 @@ const (
 	BlackHoleCluster = "BlackHoleCluster"
 )
 
+// ALPNH2Only advertises that Proxy is going to use HTTP/2 when talking to the cluster.
+var ALPNH2Only = []string{"h2"}
+
+// ALPNInMeshH2 advertises that Proxy is going to use HTTP/2 when talking to the in-mesh cluster.
+// The custom "istio" value indicates in-mesh traffic and it's going to be used for routing decisions.
+// Once Envoy supports client-side ALPN negotiation, this should be {"istio", "h2", "http/1.1"}.
+var ALPNInMeshH2 = []string{"istio", "h2"}
+
+// ALPNInMesh advertises that Proxy is going to talk to the in-mesh cluster.
+// The custom "istio" value indicates in-mesh traffic and it's going to be used for routing decisions.
+var ALPNInMesh = []string{"istio"}
+
+// ALPNHttp advertises that Proxy is going to talking either http2 or http 1.1.
+var ALPNHttp = []string{"h2", "http/1.1"}
+
 // ConvertAddressToCidr converts from string to CIDR proto
 func ConvertAddressToCidr(addr string) *core.CidrRange {
 	if len(addr) == 0 {
@@ -128,4 +143,20 @@ func SortVirtualHosts(hosts []route.VirtualHost) {
 	sort.SliceStable(hosts, func(i, j int) bool {
 		return hosts[i].Name < hosts[j].Name
 	})
+}
+
+// isProxyVersion checks whether the given Proxy version matches the supplied prefix.
+func isProxyVersion(node *model.Proxy, prefix string) bool {
+	ver, found := node.GetProxyVersion()
+	return found && strings.HasPrefix(ver, prefix)
+}
+
+// Is1xProxy checks whether the given Proxy version is 1.x.
+func Is1xProxy(node *model.Proxy) bool {
+	return isProxyVersion(node, "1.")
+}
+
+// Is11Proxy checks whether the given Proxy version is 1.1.
+func Is11Proxy(node *model.Proxy) bool {
+	return isProxyVersion(node, "1.1")
 }

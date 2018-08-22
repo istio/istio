@@ -72,17 +72,15 @@ func podIP(obj interface{}) ([]string, error) {
 // It configures the index informer to list/watch k8sCache and send update events
 // to a mutations channel for processing (in this case, logging).
 func newCacheController(clientset kubernetes.Interface, refreshDuration time.Duration, env adapter.Env) cacheController {
-	namespace := "" // todo: address unparam linter issue
-
 	return &controllerImpl{
 		env: env,
 		pods: cache.NewSharedIndexInformer(
 			&cache.ListWatch{
 				ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
-					return clientset.CoreV1().Pods(namespace).List(opts)
+					return clientset.CoreV1().Pods(metav1.NamespaceAll).List(opts)
 				},
 				WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
-					return clientset.CoreV1().Pods(namespace).Watch(opts)
+					return clientset.CoreV1().Pods(metav1.NamespaceAll).Watch(opts)
 				},
 			},
 			&v1.Pod{},
@@ -94,10 +92,10 @@ func newCacheController(clientset kubernetes.Interface, refreshDuration time.Dur
 		appsv1RS: cache.NewSharedIndexInformer(
 			&cache.ListWatch{
 				ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
-					return clientset.AppsV1().ReplicaSets(namespace).List(opts)
+					return clientset.AppsV1().ReplicaSets(metav1.NamespaceAll).List(opts)
 				},
 				WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
-					return clientset.AppsV1().ReplicaSets(namespace).Watch(opts)
+					return clientset.AppsV1().ReplicaSets(metav1.NamespaceAll).Watch(opts)
 				},
 			},
 			&appsv1.ReplicaSet{},
@@ -107,10 +105,10 @@ func newCacheController(clientset kubernetes.Interface, refreshDuration time.Dur
 		appsv1beta2RS: cache.NewSharedIndexInformer(
 			&cache.ListWatch{
 				ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
-					return clientset.AppsV1beta2().ReplicaSets(namespace).List(opts)
+					return clientset.AppsV1beta2().ReplicaSets(metav1.NamespaceAll).List(opts)
 				},
 				WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
-					return clientset.AppsV1beta2().ReplicaSets(namespace).Watch(opts)
+					return clientset.AppsV1beta2().ReplicaSets(metav1.NamespaceAll).Watch(opts)
 				},
 			},
 			&appsv1beta2.ReplicaSet{},
@@ -120,10 +118,10 @@ func newCacheController(clientset kubernetes.Interface, refreshDuration time.Dur
 		extv1beta1RS: cache.NewSharedIndexInformer(
 			&cache.ListWatch{
 				ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
-					return clientset.ExtensionsV1beta1().ReplicaSets(namespace).List(opts)
+					return clientset.ExtensionsV1beta1().ReplicaSets(metav1.NamespaceAll).List(opts)
 				},
 				WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
-					return clientset.ExtensionsV1beta1().ReplicaSets(namespace).Watch(opts)
+					return clientset.ExtensionsV1beta1().ReplicaSets(metav1.NamespaceAll).Watch(opts)
 				},
 			},
 			&extv1beta1.ReplicaSet{},

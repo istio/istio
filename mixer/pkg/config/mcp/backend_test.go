@@ -61,8 +61,8 @@ type testState struct {
 	server  *mcptest.Server
 	backend store.Backend
 
-	// updateWg is used to synchronize between w.r.t. to the Updater.Update call.
-	// updateWg.Done() will be called each time Updater.Update call completes successfully.
+	// updateWg is used to synchronize between w.r.t. to the Updater.Apply call.
+	// updateWg.Done() will be called each time Updater.Apply call completes successfully.
 	// Test authors need to call add on this, before sending updates through the server.
 	updateWg sync.WaitGroup
 }
@@ -91,7 +91,7 @@ func createState(t *testing.T) *testState {
 		st.updateWg.Done()
 	}
 
-	if st.backend, err = newStore(st.server.URL, hookFn); err != nil {
+	if st.backend, err = newStore(st.server.URL, nil, hookFn); err != nil {
 		t.Fatal(err)
 	}
 

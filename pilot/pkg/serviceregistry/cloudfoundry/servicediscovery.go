@@ -15,7 +15,6 @@
 package cloudfoundry
 
 import (
-	"errors"
 	"fmt"
 
 	copilotapi "code.cloudfoundry.org/copilot/api"
@@ -27,7 +26,7 @@ const (
 	cfLabel = "cfapp"
 )
 
-//go:generate counterfeiter -o ./fakes/route_cacher.go --fake-name RouteCacher . routeCacher
+//go:generate $GOPATH/src/istio.io/istio/bin/counterfeiter.sh -o ./fakes/route_cacher.go --fake-name RouteCacher . routeCacher
 type routeCacher interface {
 	Get() (*copilotapi.RoutesResponse, error)
 	GetInternal() (*copilotapi.InternalRoutesResponse, error)
@@ -106,11 +105,6 @@ func (sd *ServiceDiscovery) GetService(hostname model.Hostname) (*model.Service,
 		}
 	}
 	return nil, nil
-}
-
-// Instances implements a service catalog operation
-func (sd *ServiceDiscovery) Instances(hostname model.Hostname, _ []string, _ model.LabelsCollection) ([]*model.ServiceInstance, error) {
-	return nil, errors.New("not implemented. use InstancesByPort instead")
 }
 
 // InstancesByPort implements a service catalog operation

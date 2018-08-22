@@ -169,7 +169,7 @@ BUILD_DIR := /tmp/fortio_build
 LIB_DIR := /usr/local/lib/fortio
 DATA_DIR := /var/lib/istio/fortio
 OFFICIAL_BIN := ../fortio_go1.10.bin
-GOOS := linux
+GOOS := 
 GO_BIN := go
 GIT_STATUS := $(strip $(shell git status --porcelain | wc -l))
 GIT_TAG := $(shell git describe --tags --match 'v*')
@@ -189,7 +189,7 @@ $(BUILD_DIR)/link-flags.txt: $(BUILD_DIR)/build-info.txt
   -X istio.io/fortio/version.tag=$(GIT_TAG) \
   -X istio.io/fortio/version.gitstatus=$(GIT_STATUS)" | tee $@
 
-.PHONY: official-build official-build-version
+.PHONY: official-build official-build-version official-build-clean
 
 official-build: $(BUILD_DIR)/link-flags.txt
 	$(GO_BIN) version
@@ -197,3 +197,6 @@ official-build: $(BUILD_DIR)/link-flags.txt
 	
 official-build-version: official-build
 	$(OFFICIAL_BIN) version
+
+official-build-clean:
+	-$(RM) $(BUILD_DIR)/build-info.txt $(BUILD_DIR)/link-flags.txt $(OFFICIAL_BIN)

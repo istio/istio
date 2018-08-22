@@ -16,14 +16,14 @@ package v2
 
 import (
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
+	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
-
-	"strconv"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core"
@@ -34,7 +34,7 @@ var (
 	// Disabled by default.
 	periodicRefreshDuration = 0 * time.Second
 
-	versionMutex sync.Mutex
+	versionMutex sync.RWMutex
 
 	// version is the timestamp of the last registry event.
 	version = "0"
@@ -72,7 +72,7 @@ type DiscoveryServer struct {
 	// ConfigController provides readiness info (if initial sync is complete)
 	ConfigController model.ConfigStoreCache
 
-	throttle chan time.Time
+	rateLimiter *rate.Limiter
 
 	// DebugConfigs controls saving snapshots of configs for /debug/adsz.
 	// Defaults to false, can be enabled with PILOT_DEBUG_ADSZ_CONFIG=1
@@ -97,7 +97,7 @@ func NewDiscoveryServer(env *model.Environment, generator core.ConfigGenerator) 
 		env:             env,
 		ConfigGenerator: generator,
 	}
-	env.PushContext = model.NewStatus()
+	env.PushContext = model.NewPushContext()
 
 	go out.periodicRefresh()
 
@@ -108,19 +108,8 @@ func NewDiscoveryServer(env *model.Environment, generator core.ConfigGenerator) 
 	pushThrottle := intEnv("PILOT_PUSH_THROTTLE", 10)
 	pushBurst := intEnv("PILOT_PUSH_BURST", 100)
 
-	adsLog.Infof("Starting ADS server with throttle=%d burst=%d", pushThrottle, pushBurst)
-	rate := time.Second / time.Duration(pushThrottle)
-	burstLimit := pushBurst
-	tick := time.NewTicker(rate)
-	out.throttle = make(chan time.Time, burstLimit)
-	go func() {
-		for t := range tick.C {
-			select {
-			case out.throttle <- t:
-			default:
-			}
-		} // does not exit after tick.Stop()
-	}()
+	adsLog.Infof("Starting ADS server with rateLimiter=%d burst=%d", pushThrottle, pushBurst)
+	out.rateLimiter = rate.NewLimiter(rate.Limit(pushThrottle), pushBurst)
 
 	return out
 }
@@ -181,7 +170,7 @@ func (s *DiscoveryServer) periodicRefreshMetrics() {
 		// TODO: env to customize
 		//if time.Since(push.Start) > 30*time.Second {
 		// Reset the stats, some errors may still be stale.
-		//s.env.PushContext = model.NewStatus()
+		//s.env.PushContext = model.NewPushContext()
 		//}
 	}
 }
@@ -200,7 +189,7 @@ func (s *DiscoveryServer) ClearCacheFunc() func() {
 		// PushContext is reset after a config change. Previous status is
 		// saved.
 		t0 := time.Now()
-		push := model.NewStatus()
+		push := model.NewPushContext()
 		err := push.InitContext(s.env)
 		if err != nil {
 			adsLog.Errorf("XDS: failed to update services %v", err)
@@ -209,17 +198,23 @@ func (s *DiscoveryServer) ClearCacheFunc() func() {
 			// TODO: metric !!
 			return
 		}
+
+		if err = s.ConfigGenerator.BuildSharedPushState(s.env, push); err != nil {
+			adsLog.Errorf("XDS: Failed to rebuild share state in configgen: %v", err)
+			return
+		}
+
+		s.env.PushContext = push
+		versionLocal := time.Now().Format(time.RFC3339)
 		initContextTime := time.Since(t0)
+		adsLog.Debugf("InitContext %v for push took %s", versionLocal, initContextTime)
 
 		// TODO: propagate K8S version and use it instead
 		versionMutex.Lock()
-		s.env.PushContext = push
-		version = time.Now().Format(time.RFC3339)
+		version = versionLocal
 		versionMutex.Unlock()
 
-		adsLog.Infof("Context init for push %v %s", initContextTime, version)
-
-		go s.AdsPushAll(versionInfo(), push)
+		go s.AdsPushAll(versionLocal, push)
 	}
 }
 
@@ -228,7 +223,7 @@ func nonce() string {
 }
 
 func versionInfo() string {
-	versionMutex.Lock()
-	defer versionMutex.Unlock()
+	versionMutex.RLock()
+	defer versionMutex.RUnlock()
 	return version
 }

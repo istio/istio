@@ -157,6 +157,11 @@ global:
   # and this options must be set off.
   crds: true
 
+  # Use the Mesh Control Protocol (MCP) for configuring Mixer policy
+  # and telemetry deployments. Requires galley (`--set
+  # galley.enabled=true`).
+  useMixerMCP: false
+
 #
 # ingress configuration
 #
@@ -229,8 +234,9 @@ gateways:
     - port: 8060
       targetPort: 8060
       name: tcp-citadel-grpc-tls
-    # Telemetry-related ports are enabled in gateway - but will only redirect if
-    # the gateway configration for the various components are enabled.
+    - port: 853
+      targetPort: 853
+      name: tcp-dns-tls
     - port: 15030
       targetPort: 15030
       name: http2-prometheus
@@ -353,9 +359,15 @@ mixer:
     cpu:
       targetAverageUtilization: 80
 
+  podAnnotations: {}
+
   prometheusStatsdExporter:
     hub: docker.io/prom
     tag: v0.6.0
+
+    # Configuration to be included as the statsd_exporter mapping configuration.
+    # See https://github.com/prometheus/statsd_exporter/tree/master#metric-mapping-and-configuration
+    mapping: {}
 
 #
 # pilot configuration
@@ -384,6 +396,7 @@ security:
   replicaCount: 1
   image: citadel
   selfSigned: true # indicate if self-signed CA is used.
+  identityDomain: cluster.local # indicate the domain used in SPIFFE identity URL
 
 #
 # addons configuration
@@ -401,14 +414,17 @@ grafana:
   storageClassName: ""
   security:
     enabled: false
-    adminUser: admin
-    adminPassword: admin
+    secretName: grafana
+    usernameKey: username
+    passphraseKey: passphrase
   service:
     annotations: {}
     name: http
     type: ClusterIP
     externalPort: 3000
     internalPort: 3000
+    loadBalancerIP:
+    loadBalancerSourceRanges:
 
 prometheus:
   enabled: true
@@ -432,6 +448,8 @@ servicegraph:
     type: ClusterIP
     externalPort: 8088
     internalPort: 8088
+    loadBalancerIP:
+    loadBalancerSourceRanges:
   ingress:
     enabled: false
     # Used to create an Ingress record.
@@ -453,7 +471,7 @@ tracing:
   provider: jaeger
   jaeger:
     hub: docker.io/jaegertracing
-    tag: 1.5
+    tag: 1.6
     memory:
       max_traces: 50000
     ui:
@@ -511,10 +529,9 @@ kiali:
       #   hosts:
       #     - kiali.local
   dashboard:
-    username: admin
-    # Default admin passphrase for kiali. Must be set during setup, and
-    # changed by overriding the secret
-    passphrase: admin
+    secretName: kiali
+    usernameKey: username
+    passphraseKey: passphrase
 
     # Override the automatically detected Grafana URL, usefull when Grafana service has no ExternalIPs
     # grafanaURL:

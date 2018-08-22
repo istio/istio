@@ -8,11 +8,11 @@ import (
 )
 
 type ServiceAccounts struct {
-	GetIstioServiceAccountsStub        func(hostname model.Hostname, ports []string) []string
+	GetIstioServiceAccountsStub        func(hostname model.Hostname, ports []int) []string
 	getIstioServiceAccountsMutex       sync.RWMutex
 	getIstioServiceAccountsArgsForCall []struct {
 		hostname model.Hostname
-		ports    []string
+		ports    []int
 	}
 	getIstioServiceAccountsReturns struct {
 		result1 []string
@@ -24,17 +24,17 @@ type ServiceAccounts struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *ServiceAccounts) GetIstioServiceAccounts(hostname model.Hostname, ports []string) []string {
-	var portsCopy []string
+func (fake *ServiceAccounts) GetIstioServiceAccounts(hostname model.Hostname, ports []int) []string {
+	var portsCopy []int
 	if ports != nil {
-		portsCopy = make([]string, len(ports))
+		portsCopy = make([]int, len(ports))
 		copy(portsCopy, ports)
 	}
 	fake.getIstioServiceAccountsMutex.Lock()
 	ret, specificReturn := fake.getIstioServiceAccountsReturnsOnCall[len(fake.getIstioServiceAccountsArgsForCall)]
 	fake.getIstioServiceAccountsArgsForCall = append(fake.getIstioServiceAccountsArgsForCall, struct {
 		hostname model.Hostname
-		ports    []string
+		ports    []int
 	}{hostname, portsCopy})
 	fake.recordInvocation("GetIstioServiceAccounts", []interface{}{hostname, portsCopy})
 	fake.getIstioServiceAccountsMutex.Unlock()
@@ -53,7 +53,7 @@ func (fake *ServiceAccounts) GetIstioServiceAccountsCallCount() int {
 	return len(fake.getIstioServiceAccountsArgsForCall)
 }
 
-func (fake *ServiceAccounts) GetIstioServiceAccountsArgsForCall(i int) (model.Hostname, []string) {
+func (fake *ServiceAccounts) GetIstioServiceAccountsArgsForCall(i int) (model.Hostname, []int) {
 	fake.getIstioServiceAccountsMutex.RLock()
 	defer fake.getIstioServiceAccountsMutex.RUnlock()
 	return fake.getIstioServiceAccountsArgsForCall[i].hostname, fake.getIstioServiceAccountsArgsForCall[i].ports

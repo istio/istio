@@ -15,12 +15,14 @@
 package v2
 
 import (
+	"context"
 	"errors"
 	"io"
 	"os"
 	"reflect"
 	"sort"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
@@ -32,8 +34,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
-
-	"sync/atomic"
 
 	"istio.io/istio/pilot/pkg/model"
 	istiolog "istio.io/istio/pkg/log"
@@ -178,7 +178,7 @@ type XdsConnection struct {
 
 	modelNode *model.Proxy
 
-	// Sending on this channel results in  push. We may also make it a channel of objects so
+	// Sending on this channel results in a push. We may also make it a channel of objects so
 	// same info can be sent to all clients, without recomputing.
 	pushChannel chan *XdsEvent
 
@@ -244,7 +244,7 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 	configDump := &adminapi.ConfigDump{Configs: map[string]types.Any{}}
 
 	dynamicActiveClusters := []adminapi.ClustersConfigDump_DynamicCluster{}
-	clusters, err := s.generateRawClusters(conn, s.env.PushContext)
+	clusters, err := s.generateRawClusters(conn.modelNode, s.env.PushContext)
 	if err != nil {
 		return nil, err
 	}
@@ -354,7 +354,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 	// poor new pilot and overwhelm it.
 	// TODO: instead of readiness probe, let endpoints connect and wait here for
 	// config to become stable. Will better spread the load.
-	<-s.throttle
+	s.rateLimiter.Wait(context.TODO())
 
 	// first call - lazy loading, in tests. This should not happen if readiness
 	// check works, since it assumes ClearCache is called (and as such PushContext
@@ -392,14 +392,14 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 	go receiveThread(con, reqChannel, &receiveError)
 
 	for {
-		// Block until either a request is received or the ticker ticks
+		// Block until either a request is received or a push is triggered.
 		select {
 		case discReq, ok = <-reqChannel:
 			if !ok {
 				// Remote side closed connection.
 				return receiveError
 			}
-			if discReq.Node.Id == "" {
+			if discReq.Node == nil || discReq.Node.Id == "" {
 				adsLog.Infof("Missing node id %s", discReq.String())
 				continue
 			}
@@ -551,7 +551,7 @@ func (s *DiscoveryServer) IncrementalAggregatedResources(stream ads.AggregatedDi
 // Compute and send the new configuration. This is blocking and may be slow
 // for large configs.
 func (s *DiscoveryServer) pushAll(con *XdsConnection, pushEv *XdsEvent) error {
-	<-s.throttle // rate limit the actual push
+	s.rateLimiter.Wait(context.TODO()) // rate limit the actual push
 
 	// Prevent 2 overlapping pushes. Disabled if push suppression is disabled
 	// (as fail-safe in case of bugs)
@@ -621,7 +621,6 @@ func AdsPushAll(s *DiscoveryServer) {
 // Primary code path is from v1 discoveryService.clearCache(), which is added as a handler
 // to the model ConfigStorageCache and Controller.
 func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext) {
-	push.Mutex.RLock()
 	adsLog.Infof("XDS: Pushing %s Services: %d, "+
 		"VirtualServices: %d, ConnectedEndpoints: %d", version,
 		len(push.Services), len(push.VirtualServiceConfigs), adsClientCount())
@@ -629,8 +628,6 @@ func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext) {
 	monVServices.Set(float64(len(push.VirtualServiceConfigs)))
 
 	pushContext := s.env.PushContext
-
-	push.Mutex.RUnlock()
 
 	t0 := time.Now()
 
@@ -672,7 +669,6 @@ func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext) {
 	pendingPush := int32(len(pending))
 
 	tstart := time.Now()
-	i := 0
 	// Will keep trying to push to sidecars until another push starts.
 	for {
 		if len(pending) == 0 {
@@ -689,7 +685,6 @@ func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext) {
 		c := pending[0]
 		pending = pending[1:]
 
-		i++
 		// Using non-blocking push has problems if 2 pushes happen too close to each other
 		client := c
 		// TODO: this should be in a thread group, to do multiple pushes in parallel.

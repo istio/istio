@@ -62,27 +62,110 @@ func NewPlugin() plugin.Plugin {
 	return Plugin{}
 }
 
-// RequireTLS returns true and pointer to mTLS params if the policy use mTLS for (peer) authentication.
+// GetMutualTLS returns pointer to mTLS params if the policy use mTLS for (peer) authentication.
 // (note that mTLS params can still be nil). Otherwise, return (false, nil).
-func RequireTLS(policy *authn.Policy, proxyType model.NodeType) (bool, *authn.MutualTls) {
+// TODO(incfly): remove proxyType parameter and handle the checking from callers.
+func GetMutualTLS(policy *authn.Policy, proxyType model.NodeType) *authn.MutualTls {
 	if policy == nil {
-		return false, nil
+		return nil
 	}
 	if len(policy.Peers) > 0 {
 		for _, method := range policy.Peers {
 			switch method.GetParams().(type) {
 			case *authn.PeerAuthenticationMethod_Mtls:
 				if proxyType == model.Sidecar {
-					return true, method.GetMtls()
+					if method.GetMtls() == nil {
+						return &authn.MutualTls{Mode: authn.MutualTls_STRICT}
+					}
+					return method.GetMtls()
 				}
-
-				return false, nil
+				return nil
 			default:
 				continue
 			}
 		}
 	}
-	return false, nil
+	return nil
+}
+
+// setupFilterChains sets up filter chains based on authentication policy.
+func setupFilterChains(authnPolicy *authn.Policy) []plugin.FilterChain {
+	if authnPolicy == nil || len(authnPolicy.Peers) == 0 {
+		return nil
+	}
+	alpnIstioMatch := &ldsv2.FilterChainMatch{
+		ApplicationProtocols: util.ALPNInMesh,
+	}
+	tls := &auth.DownstreamTlsContext{
+		CommonTlsContext: &auth.CommonTlsContext{
+			TlsCertificates: []*auth.TlsCertificate{
+				{
+					CertificateChain: &core.DataSource{
+						Specifier: &core.DataSource_Filename{
+							Filename: model.AuthCertsPath + model.CertChainFilename,
+						},
+					},
+					PrivateKey: &core.DataSource{
+						Specifier: &core.DataSource_Filename{
+							Filename: model.AuthCertsPath + model.KeyFilename,
+						},
+					},
+				},
+			},
+			ValidationContextType: &auth.CommonTlsContext_ValidationContext{
+				ValidationContext: &auth.CertificateValidationContext{
+					TrustedCa: &core.DataSource{
+						Specifier: &core.DataSource_Filename{
+							Filename: model.AuthCertsPath + model.RootCertFilename,
+						},
+					},
+				},
+			},
+			// TODO(incfly): should this be {"istio", "http1.1", "h2"}?
+			// Currently it works: when server is in permissive mode, client sidear can send tls traffic.
+			AlpnProtocols: util.ALPNHttp,
+		},
+		RequireClientCertificate: &types.BoolValue{
+			Value: true,
+		},
+	}
+	mtls := GetMutualTLS(authnPolicy, model.Sidecar)
+	if mtls == nil {
+		return nil
+	}
+	if mtls.GetMode() == authn.MutualTls_STRICT {
+		log.Debug("Allow only istio mutual TLS traffic")
+		return []plugin.FilterChain{
+			{
+				TLSContext: tls,
+			}}
+	}
+	if mtls.GetMode() == authn.MutualTls_PERMISSIVE {
+		log.Debug("Allow both, ALPN istio and legacy traffic")
+		return []plugin.FilterChain{
+			{
+				FilterChainMatch: alpnIstioMatch,
+				TLSContext:       tls,
+				RequiredListenerFilters: []ldsv2.ListenerFilter{
+					{
+						Name:   EnvoyTLSInspectorFilterName,
+						Config: &types.Struct{},
+					},
+				},
+			},
+			{
+				FilterChainMatch: &ldsv2.FilterChainMatch{},
+			},
+		}
+	}
+	return nil
+}
+
+// OnInboundFilterChains setups filter chains based on the authentication policy.
+func (Plugin) OnInboundFilterChains(in *plugin.InputParams) []plugin.FilterChain {
+	port := in.ServiceInstance.Endpoint.ServicePort
+	authnPolicy := model.GetConsolidateAuthenticationPolicy(in.Env.IstioConfigStore, in.ServiceInstance.Service, port)
+	return setupFilterChains(authnPolicy)
 }
 
 // CollectJwtSpecs returns a list of all JWT specs (ponters) defined the policy. This
@@ -227,48 +310,6 @@ func BuildAuthNFilter(policy *authn.Policy, proxyType model.NodeType) *http_conn
 	}
 }
 
-// buildListenerTLSContext adds TLS to the listener if the policy requires one.
-func buildListenerTLSContext(authenticationPolicy *authn.Policy, match *ldsv2.FilterChainMatch, proxyType model.NodeType) *auth.DownstreamTlsContext {
-	if match != nil && match.TransportProtocol == EnvoyRawBufferMatch {
-		return nil
-	}
-	if requireTLS, mTLSParams := RequireTLS(authenticationPolicy, proxyType); requireTLS {
-		return &auth.DownstreamTlsContext{
-			CommonTlsContext: &auth.CommonTlsContext{
-				TlsCertificates: []*auth.TlsCertificate{
-					{
-						CertificateChain: &core.DataSource{
-							Specifier: &core.DataSource_Filename{
-								Filename: model.AuthCertsPath + model.CertChainFilename,
-							},
-						},
-						PrivateKey: &core.DataSource{
-							Specifier: &core.DataSource_Filename{
-								Filename: model.AuthCertsPath + model.KeyFilename,
-							},
-						},
-					},
-				},
-				ValidationContextType: &auth.CommonTlsContext_ValidationContext{
-					ValidationContext: &auth.CertificateValidationContext{
-						TrustedCa: &core.DataSource{
-							Specifier: &core.DataSource_Filename{
-								Filename: model.AuthCertsPath + model.RootCertFilename,
-							},
-						},
-					},
-				},
-				// Same as ListenersALPNProtocols defined in listener. Need to move that constant else where in order to share.
-				AlpnProtocols: []string{"h2", "http/1.1"},
-			},
-			RequireClientCertificate: &types.BoolValue{
-				Value: !(mTLSParams != nil && mTLSParams.AllowTls),
-			},
-		}
-	}
-	return nil
-}
-
 // OnOutboundListener is called whenever a new outbound listener is added to the LDS output for a given service
 // Can be used to add additional filters on the outbound path
 func (Plugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
@@ -304,11 +345,6 @@ func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
 		return fmt.Errorf("expected same number of filter chains in listener (%d) and mutable (%d)", len(mutable.Listener.FilterChains), len(mutable.FilterChains))
 	}
 	for i := range mutable.Listener.FilterChains {
-		if in.Node.Type == model.Sidecar {
-			// Add TLS context only for sidecars. Not for gateways that already have TLS context
-			chain := &mutable.Listener.FilterChains[i]
-			chain.TlsContext = buildListenerTLSContext(authnPolicy, chain.FilterChainMatch, in.Node.Type)
-		}
 		if in.ListenerProtocol == plugin.ListenerProtocolHTTP {
 			// Adding Jwt filter and authn filter, if needed.
 			if filter := BuildJwtFilter(authnPolicy); filter != nil {
@@ -321,25 +357,6 @@ func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
 	}
 
 	return nil
-}
-
-// RequireTLSMultiplexing returns true if any one of MTLS mode is `PERMISSIVE`.
-func (Plugin) RequireTLSMultiplexing(store model.IstioConfigStore, service *model.Service, port *model.Port) bool {
-	authnPolicy := model.GetConsolidateAuthenticationPolicy(store, service, port)
-	if authnPolicy == nil || len(authnPolicy.Peers) == 0 {
-		return false
-	}
-	for _, method := range authnPolicy.Peers {
-		switch method.GetParams().(type) {
-		case *authn.PeerAuthenticationMethod_Mtls:
-			if method.GetMtls().GetMode() == authn.MutualTls_PERMISSIVE {
-				return true
-			}
-		default:
-			continue
-		}
-	}
-	return false
 }
 
 // OnInboundCluster implements the Plugin interface method.
@@ -356,6 +373,6 @@ func (Plugin) OnInboundRouteConfiguration(in *plugin.InputParams, route *xdsapi.
 }
 
 // OnOutboundCluster implements the Plugin interface method.
-func (Plugin) OnOutboundCluster(env *model.Environment, node *model.Proxy, push *model.PushContext, service *model.Service,
+func (Plugin) OnOutboundCluster(env *model.Environment, push *model.PushContext, service *model.Service,
 	servicePort *model.Port, cluster *xdsapi.Cluster) {
 }

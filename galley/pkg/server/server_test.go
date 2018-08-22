@@ -54,7 +54,10 @@ loop:
 			break loop
 		}
 
-		_, err := newServer(DefaultArgs(), p)
+		args := DefaultArgs()
+		args.APIAddress = "tcp://0.0.0.0:0"
+		args.Insecure = true
+		_, err := newServer(args, p)
 		if err == nil {
 			t.Fatalf("Expected error not found for i=%d", i)
 		}
@@ -69,7 +72,10 @@ func TestNewServer(t *testing.T) {
 		return runtime.NewInMemorySource(), nil
 	}
 
-	s, err := newServer(DefaultArgs(), p)
+	args := DefaultArgs()
+	args.APIAddress = "tcp://0.0.0.0:0"
+	args.Insecure = true
+	s, err := newServer(args, p)
 	if err != nil {
 		t.Fatalf("Unexpected error creating service: %v", err)
 	}
@@ -86,11 +92,13 @@ func TestNewServer_ValidProbeOptions(t *testing.T) {
 		return runtime.NewInMemorySource(), nil
 	}
 
-	a := DefaultArgs()
-	a.LivenessProbeOptions = &probe.Options{Path: os.TempDir() + "/liveness", UpdateInterval: time.Second}
-	a.ReadinessProbeOptions = &probe.Options{Path: os.TempDir() + "/readiness", UpdateInterval: time.Second}
+	args := DefaultArgs()
+	args.APIAddress = "tcp://0.0.0.0:0"
+	args.Insecure = true
+	args.LivenessProbeOptions = &probe.Options{Path: os.TempDir() + "/liveness", UpdateInterval: time.Second}
+	args.ReadinessProbeOptions = &probe.Options{Path: os.TempDir() + "/readiness", UpdateInterval: time.Second}
 
-	s, err := newServer(a, p)
+	s, err := newServer(args, p)
 	if err != nil {
 		t.Fatalf("Unexpected error creating service: %v", err)
 	}
@@ -107,7 +115,10 @@ func TestServer_Basic(t *testing.T) {
 		return runtime.NewInMemorySource(), nil
 	}
 
-	s, err := newServer(DefaultArgs(), p)
+	args := DefaultArgs()
+	args.APIAddress = "tcp://0.0.0.0:0"
+	args.Insecure = true
+	s, err := newServer(args, p)
 	if err != nil {
 		t.Fatalf("Unexpected error creating service: %v", err)
 	}

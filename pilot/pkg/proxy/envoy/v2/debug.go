@@ -97,8 +97,6 @@ type SyncStatus struct {
 
 // Syncz dumps the synchronization status of all Envoys connected to this Pilot instance
 func Syncz(w http.ResponseWriter, req *http.Request) {
-	adsClientsMutex.RLock()
-	defer adsClientsMutex.RUnlock()
 	syncz := []SyncStatus{}
 	adsClientsMutex.RLock()
 	for _, con := range adsClients {
@@ -260,27 +258,6 @@ func (sd *MemServiceDiscovery) GetService(hostname model.Hostname) (*model.Servi
 	return &newSvc, sd.GetServiceError
 }
 
-// Instances filters the service instances by labels. This assumes single port, as is
-// used by EDS/ADS.
-func (sd *MemServiceDiscovery) Instances(hostname model.Hostname, ports []string,
-	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
-	sd.mutex.Lock()
-	defer sd.mutex.Unlock()
-	if sd.InstancesError != nil {
-		return nil, sd.InstancesError
-	}
-	if len(ports) != 1 {
-		adsLog.Warna("Unexpected ports ", ports)
-		return nil, nil
-	}
-	key := string(hostname) + ":" + ports[0]
-	instances, ok := sd.instancesByPortName[key]
-	if !ok {
-		return nil, nil
-	}
-	return instances, nil
-}
-
 // InstancesByPort filters the service instances by labels. This assumes single port, as is
 // used by EDS/ADS.
 func (sd *MemServiceDiscovery) InstancesByPort(hostname model.Hostname, port int,
@@ -338,7 +315,7 @@ func (sd *MemServiceDiscovery) WorkloadHealthCheckInfo(addr string) model.ProbeL
 }
 
 // GetIstioServiceAccounts gets the Istio service accounts for a service hostname.
-func (sd *MemServiceDiscovery) GetIstioServiceAccounts(hostname model.Hostname, ports []string) []string {
+func (sd *MemServiceDiscovery) GetIstioServiceAccounts(hostname model.Hostname, ports []int) []string {
 	sd.mutex.Lock()
 	defer sd.mutex.Unlock()
 	if hostname == "world.default.svc.cluster.local" {
@@ -525,8 +502,8 @@ func (s *DiscoveryServer) authenticationz(w http.ResponseWriter, req *http.Reque
 			info.AuthenticationPolicyName = configName(authnConfig)
 			if authnConfig != nil {
 				policy := authnConfig.Spec.(*authn.Policy)
-				serverSideTLS, _ := authn_plugin.RequireTLS(policy, model.Sidecar)
-				info.ServerProtocol = mTLSModeToString(serverSideTLS)
+				mtls := authn_plugin.GetMutualTLS(policy, model.Sidecar)
+				info.ServerProtocol = mTLSModeToString(mtls != nil)
 			} else {
 				info.ServerProtocol = mTLSModeToString(false)
 			}
@@ -561,7 +538,9 @@ func (s *DiscoveryServer) adsz(w http.ResponseWriter, req *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
 	if req.Form.Get("push") != "" {
 		AdsPushAll(s)
+		adsClientsMutex.RLock()
 		fmt.Fprintf(w, "Pushed to %d servers", len(adsClients))
+		adsClientsMutex.RUnlock()
 		return
 	}
 	writeAllADS(w)
@@ -669,7 +648,7 @@ func (s *DiscoveryServer) edsz(w http.ResponseWriter, req *http.Request) {
 		AdsPushAll(s)
 	}
 
-	edsClusterMutex.Lock()
+	edsClusterMutex.RLock()
 	comma := false
 	if len(edsClusters) > 0 {
 		fmt.Fprintln(w, "[")
@@ -689,7 +668,7 @@ func (s *DiscoveryServer) edsz(w http.ResponseWriter, req *http.Request) {
 	} else {
 		w.WriteHeader(404)
 	}
-	edsClusterMutex.Unlock()
+	edsClusterMutex.RUnlock()
 }
 
 // cdsz implements a status and debug interface for CDS.
