@@ -12,19 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package cmd
 
 import (
 	"os"
-
-	"istio.io/istio/mixer/cmd/shared"
-	"istio.io/istio/tests/util/localregistry/cmd"
 )
 
 func main() {
-	rootCmd := cmd.GetRootCmd(os.Args[1:], shared.Printf, shared.Fatalf)
+	rootCmd := GetRootCmd(os.Args[1:])
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(-1)
 	}
 }
+

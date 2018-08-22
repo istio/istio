@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cmd
+package localregistry
 
 import (
 	"fmt"
@@ -21,9 +21,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/spf13/cobra"
-
-	"istio.io/istio/mixer/cmd/shared"
 	"istio.io/istio/tests/util"
 )
 
@@ -34,73 +31,43 @@ const (
 	LocalRegistryPort      = 5000
 )
 
-type localRegistrySetupArgs struct {
-	remoteRegistryPort uint16
-	kubeconfig         string
-}
-
-func setupCfgCmd(rawArgs []string, printf, fatalf shared.FormatFn) *cobra.Command {
-	sa := &localRegistrySetupArgs{}
-	setupCmd := &cobra.Command{
-		Use:   "setup",
-		Short: "sets up localregistry in kubernetes cluster",
-		Run: func(cmd *cobra.Command, args []string) {
-			SetupLocalRegistry(sa.remoteRegistryPort, sa.kubeconfig, printf, fatalf)
-		},
-	}
-	setupCmd.PersistentFlags().Uint16Var(&sa.remoteRegistryPort, "remoteRegistryPort", 5000,
-		"port number where registry can be port-forwarded on user's machine. Default is 5000, same as local "+
-			"registry port.")
-	setupCmd.PersistentFlags().StringVar(&sa.kubeconfig, "kubeconfig", "",
-		"Use a Kubernetes configuration file instead of in-cluster configuration")
-	return setupCmd
-}
-
-func teardownCfgCmd(rawArgs []string, printf, fatalf shared.FormatFn) *cobra.Command {
-	sa := &localRegistrySetupArgs{}
-	teardownCmd := &cobra.Command{
-		Use:   "delete",
-		Short: "deletes localregistry in kubernetes cluster",
-		Run: func(cmd *cobra.Command, args []string) {
-			TeardownLocalRegistry(sa.kubeconfig, printf, fatalf)
-		},
-	}
-	teardownCmd.PersistentFlags().StringVar(&sa.kubeconfig, "kubeconfig", "",
-		"Use a Kubernetes configuration file instead of in-cluster configuration")
-	return teardownCmd
-}
-
-// GetLocalRegistry sets up localregistry and return th registry
-func SetupLocalRegistry(remoteRegistryPort uint16, kubeconfig string, printf, fatalf shared.FormatFn) {
+// SetupLocalRegistry sets up localregistry and returns if any error was found while doing that.
+func SetupLocalRegistry(remoteRegistryPort uint16, kubeconfig string) error {
 	goPath := os.Getenv("GOPATH")
 	if len(goPath) == 0 {
-		fatalf("GOPATH not set.")
+		return fmt.Errorf("GOPATH not set.")
 	}
 
 	localRegistryFilePath := path.Join(util.GetResourcePath(LocalRegistryFile))
 	if err := util.KubeApply(LocalRegistryNamespace, localRegistryFilePath, kubeconfig); err != nil {
-		fatalf("Kubectl apply %s failed", LocalRegistryFile)
+		return fmt.Errorf("Kubectl apply %s failed", LocalRegistryFile)
 	}
 
-	checkLocalRegistryRunning(fatalf)
+	if err := checkLocalRegistryRunning(); err != nil {
+		return fmt.Errorf("local registry not running. err:%v", err)
+	}
 
 	var err error
 	var portForwardPod string
 	// Registry is up now, try to get the registry pod for port-forwarding
 	if portForwardPod, err = util.Shell("kubectl get po -n %s | grep kube-registry-v0 | awk '{print $1;}'",
 		LocalRegistryNamespace); err != nil {
-		fatalf("Could not get registry pod for port-forwarding: %v", err)
+		TeardownLocalRegistry(kubeconfig)
+		return fmt.Errorf("Could not get registry pod for port-forwarding: %v", err)
 	}
 
 	// Setup Port-Forwarding for local registry.
 	portFwdCmd := fmt.Sprintf("kubectl port-forward %s %d:%d -n %s", strings.Trim(portForwardPod,
 		"\n\r'"), LocalRegistryPort, remoteRegistryPort, LocalRegistryNamespace)
 	if _, err = util.RunBackground(portFwdCmd); err != nil {
-		fatalf("Failed to port forward: %v", err)
+		TeardownLocalRegistry(kubeconfig)
+		return fmt.Errorf("Failed to port forward: %v", err)
 	}
+
+	return  nil
 }
 
-func checkLocalRegistryRunning(fatalf shared.FormatFn) {
+func checkLocalRegistryRunning() error{
 	count := 0
 	checkPodCmd := fmt.Sprintf("kubectl get pods -n kube-system | grep kube-registry-v0 | grep Running")
 	for count < 10 {
@@ -110,19 +77,21 @@ func checkLocalRegistryRunning(fatalf shared.FormatFn) {
 			count++
 			continue
 		}
-		return
+		return nil
 	}
 
-	fatalf("kube-registry pod is not ready yet.")
+	return fmt.Errorf("kube-registry pod is not ready yet.")
 }
 
 // TeardownLocalRegistry deletes local registry from k8s cluster and cleans-up port forward processes too.
-func TeardownLocalRegistry(kubeconfig string, printf, fatalf shared.FormatFn) {
+func TeardownLocalRegistry(kubeconfig string) error {
 	if err := util.KubeDelete(LocalRegistryNamespace, path.Join(util.GetResourcePath(LocalRegistryFile)), kubeconfig); err != nil {
-		fatalf("Kubectl delete %s failed: %v", LocalRegistryFile, err)
+		return fmt.Errorf("Kubectl delete %s failed: %v", LocalRegistryFile, err)
 	}
 	_, err := util.Shell("killall kubectl")
 	if err != nil {
-		fatalf("Failed to kill port-forward process: %v", err)
+		return fmt.Errorf("Failed to kill port-forward process: %v", err)
 	}
+
+	return nil
 }
