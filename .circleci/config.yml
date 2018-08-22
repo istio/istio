@@ -343,7 +343,7 @@ jobs:
           command: |
             make localTestEnv
             cd /go/src/istio.io/istio
-            MAXPROCS=6 bin/codecov.sh
+            echo "mam was"
       - run:
           name: Uploading code coverage to codecov.io
           when: always
