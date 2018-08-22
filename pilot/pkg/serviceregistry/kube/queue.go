@@ -15,8 +15,6 @@
 package kube
 
 import (
-	"os"
-	"strconv"
 	"sync"
 	"time"
 
@@ -24,14 +22,6 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
-)
-
-const (
-	// enableQueueThrottleEnv is an environment variable that can be set to re-enable the
-	// throttling, in case problems are discovered. This is not a flag - it would cause too
-	// many changes, and it is only intended as a short term fail-safe and A/B testing.
-	// TODO: remove in 0.7 after more testing without the throttle.
-	enableQueueThrottleEnv = "PILOT_THROTTLE"
 )
 
 // Queue of work tickets processed using a rate-limiting loop
@@ -60,7 +50,7 @@ func NewTask(handler Handler, obj interface{}, event model.Event) Task {
 type queueImpl struct {
 	delay   time.Duration
 	queue   []Task
-	lock    sync.Mutex
+	cond    *sync.Cond
 	closing bool
 }
 
@@ -70,64 +60,55 @@ func NewQueue(errorDelay time.Duration) Queue {
 		delay:   errorDelay,
 		queue:   make([]Task, 0),
 		closing: false,
-		lock:    sync.Mutex{},
+		cond:    sync.NewCond(&sync.Mutex{}),
 	}
 }
 
 func (q *queueImpl) Push(item Task) {
-	q.lock.Lock()
+	q.cond.L.Lock()
+	defer q.cond.L.Unlock()
 	if !q.closing {
 		q.queue = append(q.queue, item)
 	}
-	q.lock.Unlock()
+	q.cond.Signal()
 }
 
 func (q *queueImpl) Run(stop <-chan struct{}) {
 	go func() {
 		<-stop
-		q.lock.Lock()
+		q.cond.L.Lock()
 		q.closing = true
-		q.lock.Unlock()
+		q.cond.L.Unlock()
 	}()
 
-	rate := os.Getenv(enableQueueThrottleEnv)
 	rateLimit := 100
-	if len(rate) > 0 {
-		r, err := strconv.Atoi(rate)
-		if err == nil {
-			rateLimit = r
-		}
-	}
-	// Throttle processing up to smoothed 10 qps with bursts up to 100 qps
-	var rateLimiter flowcontrol.RateLimiter
-	if rateLimit > 0 {
-		rateLimiter = flowcontrol.NewTokenBucketRateLimiter(float32(rateLimit), 10*rateLimit)
-	}
+	rateLimiter := flowcontrol.NewTokenBucketRateLimiter(float32(rateLimit), 10*rateLimit)
 
 	var item Task
 	for {
-		if rateLimit > 0 {
-			rateLimiter.Accept()
+		rateLimiter.Accept()
+
+		q.cond.L.Lock()
+		for !q.closing && len(q.queue) == 0 {
+			q.cond.Wait()
 		}
 
-		q.lock.Lock()
-		if q.closing {
-			q.lock.Unlock()
+		if len(q.queue) == 0 {
+			q.cond.L.Unlock()
+			// We must be shutting down.
 			return
-		} else if len(q.queue) == 0 {
-			q.lock.Unlock()
-		} else {
-			item, q.queue = q.queue[0], q.queue[1:]
-			q.lock.Unlock()
+		}
 
-			for {
-				err := item.handler(item.obj, item.event)
-				if err != nil {
-					log.Infof("Work item failed (%v), repeating after delay %v", err, q.delay)
-					time.Sleep(q.delay)
-				} else {
-					break
-				}
+		item, q.queue = q.queue[0], q.queue[1:]
+		q.cond.L.Unlock()
+
+		for {
+			err := item.handler(item.obj, item.event)
+			if err != nil {
+				log.Infof("Work item failed (%v), repeating after delay %v", err, q.delay)
+				time.Sleep(q.delay)
+			} else {
+				break
 			}
 		}
 	}

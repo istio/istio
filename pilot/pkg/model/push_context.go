@@ -16,6 +16,8 @@ package model
 
 import (
 	"encoding/json"
+	"fmt"
+	"sort"
 	"sync"
 	"time"
 
@@ -30,8 +32,7 @@ import (
 // The struct is exposed in a debug endpoint - fields public to allow
 // easy serialization as json.
 type PushContext struct {
-	mutex sync.Mutex
-
+	proxyStatusMutex sync.RWMutex
 	// ProxyStatus is keyed by the error code, and holds a map keyed
 	// by the ID.
 	ProxyStatus map[string]map[string]ProxyPushStatus
@@ -39,15 +40,12 @@ type PushContext struct {
 	// Start represents the time of last config change that reset the
 	// push status.
 	Start time.Time
+	End   time.Time
 
-	End time.Time
-
-	// ContextMutex is used to sync the data cache.
-	// Currently it is used directly - to avoid making copies of the
-	// structs. All data is set when the PushContext object is populated,
-	// from a single thread - only read locks are needed, data should not
-	// be changed by plugins
-	Mutex sync.RWMutex `json:"-,omitempty"`
+	// Mutex is used to protect the below store.
+	// All data is set when the PushContext object is populated in `InitContext`,
+	// data should not be changed by plugins.
+	Mutex sync.Mutex `json:"-,omitempty"`
 
 	// Services list all services in the system at the time push started.
 	Services []*Service `json:"-,omitempty"`
@@ -73,7 +71,7 @@ type PushContext struct {
 	VirtualServiceConfigs []Config `json:"-,omitempty"`
 
 	destinationRuleHosts   []Hostname
-	destinationRuleByHosts map[Hostname]*Config
+	destinationRuleByHosts map[Hostname]*combinedDestinationRule
 
 	//TODO: gateways              []*networking.Gateway
 
@@ -96,6 +94,12 @@ type PushMetric struct {
 	gauge prometheus.Gauge
 }
 
+type combinedDestinationRule struct {
+	subsets map[string]bool // list of subsets seen so far
+	// We are not doing ports
+	config *Config
+}
+
 func newPushMetric(name, help string) *PushMetric {
 	pm := &PushMetric{
 		gauge: prometheus.NewGauge(prometheus.GaugeOpts{
@@ -115,8 +119,8 @@ func (ps *PushContext) Add(metric *PushMetric, key string, proxy *Proxy, msg str
 		log.Infof("Metric without context %s %v %s", key, proxy, msg)
 		return
 	}
-	ps.mutex.Lock()
-	defer ps.mutex.Unlock()
+	ps.proxyStatusMutex.Lock()
+	defer ps.proxyStatusMutex.Unlock()
 
 	metricMap, f := ps.ProxyStatus[metric.Name]
 	if !f {
@@ -177,6 +181,12 @@ var (
 		"Number of conflicting inbound listeners.",
 	)
 
+	// DuplicatedClusters tracks duplicate clusters seen while computing CDS
+	DuplicatedClusters = newPushMetric(
+		"pilot_duplicate_envoy_clusters",
+		"Duplicate envoy clusters caused by service entries with same hostname",
+	)
+
 	// ProxyStatusClusterNoInstances tracks clusters (services) without workloads.
 	ProxyStatusClusterNoInstances = newPushMetric(
 		"pilot_eds_no_instances",
@@ -189,6 +199,12 @@ var (
 		"Virtual services with dup domains.",
 	)
 
+	// DuplicatedSubsets tracks duplicate subsets that we rejected while merging multiple destination rules for same host
+	DuplicatedSubsets = newPushMetric(
+		"pilot_destrule_subsets",
+		"Duplicate subsets across destination rules for same host",
+	)
+
 	// LastPushStatus preserves the metrics and data collected during lasts global push.
 	// It can be used by debugging tools to inspect the push event. It will be reset after each push with the
 	// new version.
@@ -198,8 +214,8 @@ var (
 	metrics []*PushMetric
 )
 
-// NewStatus creates a new PushContext structure to track push status.
-func NewStatus() *PushContext {
+// NewPushContext creates a new PushContext structure to track push status.
+func NewPushContext() *PushContext {
 	// TODO: detect push in progress, don't update status if set
 	return &PushContext{
 		ServiceByHostname: map[Hostname]*Service{},
@@ -213,8 +229,8 @@ func (ps *PushContext) JSON() ([]byte, error) {
 	if ps == nil {
 		return []byte{'{', '}'}, nil
 	}
-	ps.mutex.Lock()
-	defer ps.mutex.Unlock()
+	ps.proxyStatusMutex.RLock()
+	defer ps.proxyStatusMutex.RUnlock()
 	return json.MarshalIndent(ps, "", "    ")
 }
 
@@ -227,8 +243,8 @@ func (ps *PushContext) OnConfigChange() {
 // UpdateMetrics will update the prometheus metrics based on the
 // current status of the push.
 func (ps *PushContext) UpdateMetrics() {
-	ps.mutex.Lock()
-	defer ps.mutex.Unlock()
+	ps.proxyStatusMutex.RLock()
+	defer ps.proxyStatusMutex.RUnlock()
 
 	for _, pm := range metrics {
 		mmap, f := ps.ProxyStatus[pm.Name]
@@ -306,11 +322,20 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 	if err != nil {
 		return err
 	}
-	ps.Services = services
+	// Sort the services in order of creation.
+	ps.Services = sortServicesByCreationTime(services)
 	for _, s := range services {
 		ps.ServiceByHostname[s.Hostname] = s
 	}
 	return nil
+}
+
+// sortServicesByCreationTime sorts the list of services in ascending order by their creation time (if available).
+func sortServicesByCreationTime(services []*Service) []*Service {
+	sort.SliceStable(services, func(i, j int) bool {
+		return services[i].CreationTime.Before(services[j].CreationTime)
+	})
+	return services
 }
 
 // Caches list of virtual services
@@ -395,23 +420,58 @@ func (ps *PushContext) initDestinationRules(env *Environment) error {
 // Split out of DestinationRule expensive conversions, computed once per push.
 // This also allows tests to inject a config without having the mock.
 func (ps *PushContext) SetDestinationRules(configs []Config) {
+	// Sort by time first. So if two destination rule have top level traffic policies
+	// we take the first one.
 	sortConfigByCreationTime(configs)
-	hosts := make([]Hostname, len(configs))
-	byHosts := make(map[Hostname]*Config, len(configs))
+	hosts := make([]Hostname, 0)
+	combinedDestinationRuleMap := make(map[Hostname]*combinedDestinationRule, len(configs))
+
 	for i := range configs {
 		rule := configs[i].Spec.(*networking.DestinationRule)
-		hosts[i] = ResolveShortnameToFQDN(rule.Host, configs[i].ConfigMeta)
-		byHosts[hosts[i]] = &configs[i]
+		resolvedHost := ResolveShortnameToFQDN(rule.Host, configs[i].ConfigMeta)
+		if mdr, exists := combinedDestinationRuleMap[resolvedHost]; exists {
+			combinedRule := mdr.config.Spec.(*networking.DestinationRule)
+			// we have an another destination rule for same host.
+			// concatenate both of them -- essentially add subsets from one to other.
+			for _, subset := range rule.Subsets {
+				if _, subsetExists := mdr.subsets[subset.Name]; !subsetExists {
+					mdr.subsets[subset.Name] = true
+					combinedRule.Subsets = append(combinedRule.Subsets, subset)
+				} else {
+					ps.Add(DuplicatedSubsets, string(resolvedHost), nil,
+						fmt.Sprintf("Duplicate subset %s found while merging destination rules for %s",
+							subset.Name, string(resolvedHost)))
+				}
+
+				// If there is no top level policy and the incoming rule has top level
+				// traffic policy, use the one from the incoming rule.
+				if combinedRule.TrafficPolicy == nil && rule.TrafficPolicy != nil {
+					combinedRule.TrafficPolicy = rule.TrafficPolicy
+				}
+			}
+			continue
+		}
+
+		combinedDestinationRuleMap[resolvedHost] = &combinedDestinationRule{
+			subsets: make(map[string]bool),
+			config:  &configs[i],
+		}
+		for _, subset := range rule.Subsets {
+			combinedDestinationRuleMap[resolvedHost].subsets[subset.Name] = true
+		}
+		hosts = append(hosts, resolvedHost)
 	}
 
+	// presort it so that we don't sort it for each DestinationRule call.
+	sort.Sort(Hostnames(hosts))
 	ps.destinationRuleHosts = hosts
-	ps.destinationRuleByHosts = byHosts
+	ps.destinationRuleByHosts = combinedDestinationRuleMap
 }
 
 // DestinationRule returns a destination rule for a service name in a given domain.
 func (ps *PushContext) DestinationRule(hostname Hostname) *Config {
 	if c, ok := MostSpecificHostMatch(hostname, ps.destinationRuleHosts); ok {
-		return ps.destinationRuleByHosts[c]
+		return ps.destinationRuleByHosts[c].config
 	}
 	return nil
 }

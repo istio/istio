@@ -44,6 +44,7 @@ type TestSetup struct {
 	noProxy           bool
 	noBackend         bool
 	disableHotRestart bool
+	checkDict         bool
 
 	FiltersBeforeMixer string
 
@@ -139,6 +140,11 @@ func (s *TestSetup) SetStress(stress bool) {
 	s.stress = stress
 }
 
+// SetCheckDict set the checkDict flag
+func (s *TestSetup) SetCheckDict(checkDict bool) {
+	s.checkDict = checkDict
+}
+
 // SetNoMixer set NoMixer flag
 func (s *TestSetup) SetNoMixer(no bool) {
 	s.noMixer = no
@@ -179,7 +185,7 @@ func (s *TestSetup) SetUp() error {
 	}
 
 	if !s.noMixer {
-		s.mixer, err = NewMixerServer(s.ports.MixerPort, s.stress)
+		s.mixer, err = NewMixerServer(s.ports.MixerPort, s.stress, s.checkDict)
 		if err != nil {
 			log.Printf("unable to create mixer server %v", err)
 		} else {

@@ -237,6 +237,7 @@ func TestEnvoyArgs(t *testing.T) {
 		"--service-cluster", "my-cluster",
 		"--service-node", "my-node",
 		"--max-obj-name-len", fmt.Sprint(config.StatNameLength),
+		"--allow-unknown-fields",
 		"-l", "trace",
 		"--concurrency", "8",
 		"--service-zone", "my-zone",

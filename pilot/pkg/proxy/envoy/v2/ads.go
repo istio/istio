@@ -621,7 +621,6 @@ func AdsPushAll(s *DiscoveryServer) {
 // Primary code path is from v1 discoveryService.clearCache(), which is added as a handler
 // to the model ConfigStorageCache and Controller.
 func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext) {
-	push.Mutex.RLock()
 	adsLog.Infof("XDS: Pushing %s Services: %d, "+
 		"VirtualServices: %d, ConnectedEndpoints: %d", version,
 		len(push.Services), len(push.VirtualServiceConfigs), adsClientCount())
@@ -629,8 +628,6 @@ func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext) {
 	monVServices.Set(float64(len(push.VirtualServiceConfigs)))
 
 	pushContext := s.env.PushContext
-
-	push.Mutex.RUnlock()
 
 	t0 := time.Now()
 
@@ -672,7 +669,6 @@ func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext) {
 	pendingPush := int32(len(pending))
 
 	tstart := time.Now()
-	i := 0
 	// Will keep trying to push to sidecars until another push starts.
 	for {
 		if len(pending) == 0 {
@@ -689,7 +685,6 @@ func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext) {
 		c := pending[0]
 		pending = pending[1:]
 
-		i++
 		// Using non-blocking push has problems if 2 pushes happen too close to each other
 		client := c
 		// TODO: this should be in a thread group, to do multiple pushes in parallel.

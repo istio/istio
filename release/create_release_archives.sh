@@ -55,9 +55,9 @@ while getopts d:i:o:v: arg ; do
   esac
 done
 
-[[ -z "${BASE_DIR}"  ]] && usage
-[[ -z "${OUTPUT_PATH}"  ]] && usage
-[[ -z "${VER_STRING}"   ]] && usage
+[[ -z "${BASE_DIR}"    ]] && usage
+[[ -z "${OUTPUT_PATH}" ]] && usage
+[[ -z "${VER_STRING}"  ]] && usage
 
 COMMON_FILES_DIR="${BASE_DIR}/istio/istio-${VER_STRING}"
 BIN_DIR="${COMMON_FILES_DIR}/bin"
@@ -66,12 +66,8 @@ mkdir -p "${BIN_DIR}"
 # On mac, brew install gnu-tar gnu-cp
 # and set CP="gcp" TAR="gtar"
 
-if [[ -z "${CP}" ]] ; then
-  CP="cp"
-fi
-if [[ -z "${TAR}" ]] ; then
-  TAR="tar"
-fi
+CP=${CP:-"cp"}
+TAR=${TAR:-"tar"}
 
 function create_linux_archive() {
   local istioctl_path="${BIN_DIR}/istioctl"
@@ -124,9 +120,9 @@ find samples install -type f \( \
   -o -name "webhook-create-signed-cert.sh" \
   -o -name "webhook-patch-ca-bundle.sh" \
   \) \
-  -exec ${CP} --parents {} "${COMMON_FILES_DIR}" \;
-find install/tools -type f -exec ${CP} --parents {} "${COMMON_FILES_DIR}" \;
-find tools -type f -not -name "githubContrib*" -not -name ".*" -exec ${CP} --parents {} "${COMMON_FILES_DIR}" \;
+  -exec "${CP}" --parents {} "${COMMON_FILES_DIR}" \;
+find install/tools -type f -exec "${CP}" --parents {} "${COMMON_FILES_DIR}" \;
+find tools -type f -not -name "githubContrib*" -not -name ".*" -exec "${CP}" --parents {} "${COMMON_FILES_DIR}" \;
 popd
 
 for unwanted_manifest in \

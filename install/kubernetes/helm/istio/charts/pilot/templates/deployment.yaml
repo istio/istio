@@ -67,8 +67,6 @@ spec:
               fieldRef:
                 apiVersion: v1
                 fieldPath: metadata.namespace
-          - name: PILOT_THROTTLE
-            value: "500"
           - name: PILOT_CACHE_SQUASH
             value: "5"
           {{- if .Values.env }}
@@ -149,5 +147,6 @@ spec:
       - name: istio-certs
         secret:
           secretName: istio.istio-pilot-service-account
+          optional: true   
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}

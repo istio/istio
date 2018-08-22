@@ -129,9 +129,11 @@ static_resources:
   "request.time": "*",
   "request.useragent": "Go-http-client/1.1",
   "request.method": "GET",
-  "request.scheme": "http"
+  "request.scheme": "http",
+  "request.url_path": "/echo"
 }
 `
+
 	checkAttributesOkInbound = `
 {
   "connection.mtls": true,
@@ -150,6 +152,7 @@ static_resources:
   "destination.service.name": "svc",
   "destination.service.namespace": "ns3",
   "destination.service.uid": "istio://ns3/services/svc",
+  "source.principal": "cluster.local/ns/default/sa/client",
   "source.uid": "kubernetes://pod2.ns2",
   "request.headers": {
      ":method": "GET",
@@ -163,7 +166,8 @@ static_resources:
   "request.time": "*",
   "request.useragent": "Go-http-client/1.1",
   "request.method": "GET",
-  "request.scheme": "http"
+  "request.scheme": "http",
+  "request.url_path": "/echo"
 }
 `
 	reportAttributesOkOutbound = `
@@ -210,7 +214,8 @@ static_resources:
      ":status": "200",
      "server": "envoy"
   },
-  "response.total_size": "*"
+  "response.total_size": "*",
+  "request.url_path": "/echo"
 }`
 
 	reportAttributesOkInbound = `
@@ -261,7 +266,9 @@ static_resources:
      ":status": "200",
      "server": "envoy"
   },
-  "response.total_size": "*"
+  "response.total_size": "*",
+  "request.url_path": "/echo",
+  "source.principal": "cluster.local/ns/default/sa/client"
 }`
 )
 
@@ -348,7 +355,7 @@ var (
 			ID:   "pod1.ns2",
 			Type: model.Sidecar,
 			Metadata: map[string]string{
-				"ISTIO_PROXY_VERSION": "1.0",
+				"ISTIO_PROXY_VERSION": "1.1",
 			},
 		},
 		ServiceInstance: &model.ServiceInstance{Service: &svc},
@@ -361,7 +368,7 @@ var (
 			ID:   "pod2.ns2",
 			Type: model.Sidecar,
 			Metadata: map[string]string{
-				"ISTIO_PROXY_VERSION": "1.0",
+				"ISTIO_PROXY_VERSION": "1.1",
 			},
 		},
 		Service: &svc,
