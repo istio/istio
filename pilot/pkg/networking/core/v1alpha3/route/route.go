@@ -260,17 +260,22 @@ func BuildHTTPRoutesForVirtualService(
 	vsName := virtualService.ConfigMeta.Name
 
 	out := make([]route.Route, 0, len(vs.Http))
+allroutes:
 	for _, http := range vs.Http {
 		if len(http.Match) == 0 {
 			if r := translateRoute(push, node, http, nil, port, vsName, serviceRegistry, proxyLabels, gatewayNames); r != nil {
 				out = append(out, *r)
 			}
-			break // we have a rule with catch all match prefix: /. Other rules are of no use
+			break allroutes // we have a rule with catch all match prefix: /. Other rules are of no use
 		} else {
-			// TODO: https://github.com/istio/istio/issues/4239
 			for _, match := range http.Match {
 				if r := translateRoute(push, node, http, match, port, vsName, serviceRegistry, proxyLabels, gatewayNames); r != nil {
 					out = append(out, *r)
+					rType, _ := getEnvoyRouteTypeAndVal(r)
+					if rType == envoyCatchAll {
+						// We have a catch all route. No point building other routes, with match conditions
+						break allroutes
+					}
 				}
 			}
 		}
@@ -780,70 +785,61 @@ const (
 	envoyCatchAll
 )
 
-// SortRoutes will reorder the routes in a virtual host
-// path before prefix
-// prefix before regex
-// regex before catchall prefix / or catch all regex *
-// longest path before shorter path
-// longest prefix before shorter prefix
-// longest regex before shorter regex. it doesn't make any difference, but
-//   we do it anyway to get a stable ordering
-// All else being equal, routes with header matches take precedence over routes without
-//  header matches
-func SortRoutes(allroutes []route.Route) {
-	sort.SliceStable(allroutes, func(i, j int) bool {
-		var iType, jType envoyRouteType
-		var iVal, jVal string
+func getEnvoyRouteTypeAndVal(r *route.Route) (envoyRouteType, string) {
+	var iType envoyRouteType
+	var iVal string
 
-		switch iR := allroutes[i].Match.PathSpecifier.(type) {
-		case *route.RouteMatch_Path:
-			iType = envoyPath
-			iVal = iR.Path
-		case *route.RouteMatch_Prefix:
-			if iR.Prefix == "/" {
-				iType = envoyCatchAll
-			} else {
-				iType = envoyPrefix
-			}
-			iVal = iR.Prefix
-		case *route.RouteMatch_Regex:
-			if iR.Regex == "*" {
-				iType = envoyCatchAll
-			} else {
-				iType = envoyRegex
-			}
-			iVal = iR.Regex
-		}
+	switch iR := r.Match.PathSpecifier.(type) {
+	case *route.RouteMatch_Path:
+		iVal = iR.Path
+		iType = envoyPath
+	case *route.RouteMatch_Prefix:
+		iVal = iR.Prefix
+		iType = envoyPrefix
+	case *route.RouteMatch_Regex:
+		iVal = iR.Regex
+		iType = envoyRegex
+	}
 
-		switch jR := allroutes[j].Match.PathSpecifier.(type) {
-		case *route.RouteMatch_Path:
-			jType = envoyPath
-			jVal = jR.Path
-		case *route.RouteMatch_Prefix:
-			if jR.Prefix == "/" {
-				jType = envoyCatchAll
-			} else {
-				jType = envoyPrefix
-			}
-			jVal = jR.Prefix
-		case *route.RouteMatch_Regex:
-			if jR.Regex == "*" {
-				jType = envoyCatchAll
-			} else {
-				jType = envoyRegex
-			}
-			jVal = jR.Regex
+	// A route is catch all if and only if it has no header/query param match
+	// and has a prefix / or regex *.
+	if (iVal == "/" && iType == envoyPrefix) || (iVal == "*" && iType == envoyRegex) {
+		if len(r.Match.Headers) == 0 && len(r.Match.QueryParameters) == 0 {
+			iType = envoyCatchAll
 		}
+	}
+	return iType, iVal
+}
 
-		if iType == jType {
-			if len(iVal) == len(jVal) {
-				if len(allroutes[i].Match.Headers) == len(allroutes[j].Match.Headers) {
-					return iVal > jVal
-				}
-				return len(allroutes[i].Match.Headers) > len(allroutes[j].Match.Headers)
-			}
-			return len(iVal) > len(jVal)
+// Concatenates two Vhost's routes into a single route set.
+// Moves the catch all routes alone to the end, while retaining
+// the relative order of other routes in the concatenated route.
+// Assumes that the virtual services that generated first and second are ordered by
+// time.
+func CombineVHostRoutes(first []route.Route, second []route.Route) []route.Route {
+	allroutes := make([]route.Route, 0, len(first)+len(second))
+	catchAllRoutes := make([]route.Route, 0)
+
+	for _, f := range first {
+		rType, _ := getEnvoyRouteTypeAndVal(&f)
+		switch rType {
+		case envoyCatchAll:
+			catchAllRoutes = append(catchAllRoutes, f)
+		default:
+			allroutes = append(allroutes, f)
 		}
-		return iType < jType
-	})
+	}
+
+	for _, s := range second {
+		rType, _ := getEnvoyRouteTypeAndVal(&s)
+		switch rType {
+		case envoyCatchAll:
+			catchAllRoutes = append(catchAllRoutes, s)
+		default:
+			allroutes = append(allroutes, s)
+		}
+	}
+
+	allroutes = append(allroutes, catchAllRoutes...)
+	return allroutes
 }

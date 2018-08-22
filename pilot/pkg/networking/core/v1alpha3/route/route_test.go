@@ -453,7 +453,7 @@ var networkingSubsetWithPortLevelSettings = &networking.Subset{
 	},
 }
 
-func TestSortRoutes(t *testing.T) {
+func TestCombineVHostRoutes(t *testing.T) {
 	first := []envoyroute.Route{
 		{Match: envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Path{Path: "/path1"}}},
 		{Match: envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Prefix{Prefix: "/prefix1"}}},
@@ -477,12 +477,12 @@ func TestSortRoutes(t *testing.T) {
 	}
 
 	want := []envoyroute.Route{
-		{Match: envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Path{Path: "/path12"}}},
 		{Match: envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Path{Path: "/path1"}}},
-		{Match: envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Prefix{Prefix: "/prefix12"}}},
 		{Match: envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Prefix{Prefix: "/prefix1"}}},
-		{Match: envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Regex{Regex: ".*?regex12"}}},
 		{Match: envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Regex{Regex: ".*?regex1"}}},
+		{Match: envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Path{Path: "/path12"}}},
+		{Match: envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Prefix{Prefix: "/prefix12"}}},
+		{Match: envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Regex{Regex: ".*?regex12"}}},
 		{Match: envoyroute.RouteMatch{
 			PathSpecifier: &envoyroute.RouteMatch_Regex{Regex: "*"},
 			Headers: []*envoyroute.HeaderMatcher{
@@ -496,8 +496,7 @@ func TestSortRoutes(t *testing.T) {
 		{Match: envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Prefix{Prefix: "/"}}},
 	}
 
-	got := append(first, second...)
-	route.SortRoutes(got)
+	got := route.CombineVHostRoutes(first, second)
 	if !reflect.DeepEqual(want, got) {
 		t.Errorf("CombineVHostRoutes: \n")
 		t.Errorf("got: \n")
