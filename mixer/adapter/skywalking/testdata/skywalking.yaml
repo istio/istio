@@ -1,0 +1,44 @@
+# instance configuration for template 'metric'
+apiVersion: "config.istio.io/v1alpha2"
+kind: metric
+metadata:
+ name: swprobe
+ namespace: istio-system
+spec:
+ value: "1"
+ dimensions:
+   sourceService: source.workload.name | ""
+   sourceUID: source.uid | ""
+   destinationService: destination.workload.name | ""
+   destinationUID: destination.uid | ""
+   requestMethod: request.method | ""
+   requestPath: request.path | ""
+   requestScheme: request.scheme | ""
+   requestTime: request.time
+   responseTime: response.time
+   responseCode: response.code | 200
+   reporter: conditional((context.reporter.kind | "inbound") == "outbound", "source", "destination")
+   apiProtocol: api.protocol | ""
+
+---
+# handler configuration for adapter 'metric'
+apiVersion: "config.istio.io/v1alpha2"
+kind: skywalking
+metadata:
+ name: swHandler
+ namespace: istio-system
+spec:
+ server_address: "localhost:11800"
+---
+# rule to dispatch to your handler
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+ name: mysamplerule
+ namespace: istio-system
+spec:
+ match: "true"
+ actions:
+ - handler: swHandler.skywalking
+   instances:
+   - swprobe.metric

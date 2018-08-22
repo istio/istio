@@ -33,6 +33,7 @@ import (
 	redisquota "istio.io/istio/mixer/adapter/redisquota"
 	servicecontrol "istio.io/istio/mixer/adapter/servicecontrol"
 	signalfx "istio.io/istio/mixer/adapter/signalfx"
+	skywalking "istio.io/istio/mixer/adapter/skywalking"
 	solarwinds "istio.io/istio/mixer/adapter/solarwinds"
 	stackdriver "istio.io/istio/mixer/adapter/stackdriver"
 	statsd "istio.io/istio/mixer/adapter/statsd"
@@ -59,6 +60,7 @@ func Inventory() []adptr.InfoFn {
 		redisquota.GetInfo,
 		servicecontrol.GetInfo,
 		signalfx.GetInfo,
+		skywalking.GetInfo,
 		solarwinds.GetInfo,
 		stackdriver.GetInfo,
 		statsd.GetInfo,

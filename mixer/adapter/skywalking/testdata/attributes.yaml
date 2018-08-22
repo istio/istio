@@ -1,0 +1,31 @@
+apiVersion: "config.istio.io/v1alpha2"
+kind: attributemanifest
+metadata:
+  name: kubernetes
+  namespace: istio-system
+spec:
+   attributes:
+      source.service: # Source Service Name
+        valueType: STRING
+      source.uid: # Source Service Instance
+        valueType: STRING
+      destination.service: # Destination Service Name
+        valueType: STRING
+      destination.uid: # Destination Service Instance
+        valueType: STRING
+      request.method: # HTTP Method: get, put, etc.
+        valueType: STRING
+      request.path: # URL
+        valueType: STRING
+      request.scheme: # HTTP/HTTPS
+        valueType: STRING
+      request.time:
+        valueType: TIMESTAMP
+      response.code: # HTTP Status Code
+        valueType: INT64
+      response.time:
+        valueType: TIMESTAMP
+      context.reporter.kind:
+        valueType: STRING
+      api.protocol:
+        valueType: STRING
