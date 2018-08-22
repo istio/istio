@@ -212,5 +212,11 @@ func (c *ttlCache) RemoveAll() {
 }
 
 func (c *ttlCache) Stats() Stats {
-	return c.stats
+	return Stats{
+		Evictions: atomic.LoadUint64(&c.stats.Evictions),
+		Hits:      atomic.LoadUint64(&c.stats.Hits),
+		Misses:    atomic.LoadUint64(&c.stats.Misses),
+		Writes:    atomic.LoadUint64(&c.stats.Writes),
+		Removals:  atomic.LoadUint64(&c.stats.Removals),
+	}
 }
