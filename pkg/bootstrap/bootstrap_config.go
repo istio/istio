@@ -64,6 +64,7 @@ func args(config *meshconfig.ProxyConfig, node, fname string, epoch int, cliarg 
 		"--service-cluster", config.ServiceCluster,
 		"--service-node", node,
 		"--max-obj-name-len", fmt.Sprint(config.StatNameLength),
+		"--allow-unknown-fields",
 	}
 
 	for _, v := range cliarg {

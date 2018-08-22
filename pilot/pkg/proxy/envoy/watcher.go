@@ -241,6 +241,7 @@ func (proxy envoy) args(fname string, epoch int) []string {
 		"--service-cluster", proxy.config.ServiceCluster,
 		"--service-node", proxy.node,
 		"--max-obj-name-len", fmt.Sprint(proxy.config.StatNameLength),
+		"--allow-unknown-fields",
 	}
 
 	startupArgs = append(startupArgs, proxy.extraArgs...)
