@@ -3,7 +3,7 @@ ARG proxy_version
 ARG istio_version
 
 # Environment variables indicating this proxy's version/capabilities as opaque string
-ENV ISTIO_META_ISTIO_PROXY_VERSION "1.0.0"
+ENV ISTIO_META_ISTIO_PROXY_VERSION "1.1.0"
 # Environment variable indicating the exact proxy sha - for debugging or version-specific configs
 ENV ISTIO_META_ISTIO_PROXY_SHA $proxy_version
 # Environment variable indicating the exact build, for debugging

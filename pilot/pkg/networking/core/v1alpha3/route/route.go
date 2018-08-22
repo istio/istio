@@ -24,6 +24,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	xdsfault "github.com/envoyproxy/go-control-plane/envoy/config/filter/fault/v2"
 	xdshttpfault "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/fault/v2"
+	xdstype "github.com/envoyproxy/go-control-plane/envoy/type"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
 	"github.com/gogo/protobuf/types"
 	"github.com/prometheus/client_golang/prometheus"
@@ -330,8 +331,6 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 		PerFilterConfig: make(map[string]*types.Struct),
 	}
 
-	_, is10Proxy := node.GetProxyVersion()
-
 	if redirect := in.Redirect; redirect != nil {
 		out.Action = &route.Route_Redirect{
 			Redirect: &route.RedirectAction{
@@ -345,7 +344,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 			Cors:        translateCORSPolicy(in.CorsPolicy),
 			RetryPolicy: translateRetryPolicy(in.Retries),
 		}
-		if !is10Proxy {
+		if !util.Is1xProxy(node) {
 			action.UseWebsocket = &types.BoolValue{Value: in.WebsocketUpgrade}
 		}
 
@@ -353,7 +352,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 			d := util.GogoDurationToDuration(in.Timeout)
 			// timeout
 			action.Timeout = &d
-			if is10Proxy {
+			if util.Is1xProxy(node) {
 				action.MaxGrpcTimeout = &d
 			}
 		} else {
@@ -361,7 +360,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 			// to reason about than assuming some defaults.
 			d := 0 * time.Second
 			action.Timeout = &d
-			if is10Proxy {
+			if util.Is1xProxy(node) {
 				action.MaxGrpcTimeout = &d
 			}
 		}
@@ -435,7 +434,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 		Operation: getRouteOperation(out, vsName, port),
 	}
 	if fault := in.Fault; fault != nil {
-		out.PerFilterConfig[xdsutil.Fault] = util.MessageToStruct(translateFault(in.Fault))
+		out.PerFilterConfig[xdsutil.Fault] = util.MessageToStruct(translateFault(node, in.Fault))
 	}
 
 	return out
@@ -573,7 +572,6 @@ func getRouteOperation(in *route.Route, vsName string, port int) string {
 // BuildDefaultHTTPRoute builds a default route.
 func BuildDefaultHTTPRoute(node *model.Proxy, clusterName string, operation string) *route.Route {
 	notimeout := 0 * time.Second
-	_, is10Proxy := node.GetProxyVersion()
 
 	defaultRoute := &route.Route{
 		Match: translateRouteMatch(nil),
@@ -588,7 +586,7 @@ func BuildDefaultHTTPRoute(node *model.Proxy, clusterName string, operation stri
 		},
 	}
 
-	if is10Proxy {
+	if util.Is1xProxy(node) {
 		defaultRoute.Action = &route.Route_Route{
 			Route: &route.RouteAction{
 				ClusterSpecifier: &route.RouteAction_Cluster{Cluster: clusterName},
@@ -600,17 +598,45 @@ func BuildDefaultHTTPRoute(node *model.Proxy, clusterName string, operation stri
 	return defaultRoute
 }
 
+// translatePercentToFractionalPercent translates an v1alpha3 Percent instance
+// to an envoy.type.FractionalPercent instance.
+func translatePercentToFractionalPercent(p *networking.Percent) *xdstype.FractionalPercent {
+	return &xdstype.FractionalPercent{
+		Numerator:   uint32(p.Value * 10000),
+		Denominator: xdstype.FractionalPercent_MILLION,
+	}
+}
+
+// translateIntegerToFractionalPercent translates an int32 instance to an
+// envoy.type.FractionalPercent instance.
+func translateIntegerToFractionalPercent(p int32) *xdstype.FractionalPercent {
+	return &xdstype.FractionalPercent{
+		Numerator:   uint32(p * 10000),
+		Denominator: xdstype.FractionalPercent_MILLION,
+	}
+}
+
 // translateFault translates networking.HTTPFaultInjection into Envoy's HTTPFault
-func translateFault(in *networking.HTTPFaultInjection) *xdshttpfault.HTTPFault {
+func translateFault(node *model.Proxy, in *networking.HTTPFaultInjection) *xdshttpfault.HTTPFault {
 	if in == nil {
 		return nil
 	}
 
 	out := xdshttpfault.HTTPFault{}
 	if in.Delay != nil {
-		out.Delay = &xdsfault.FaultDelay{
-			Type:    xdsfault.FaultDelay_FIXED,
-			Percent: uint32(in.Delay.Percent),
+		out.Delay = &xdsfault.FaultDelay{Type: xdsfault.FaultDelay_FIXED}
+		if util.Is11Proxy(node) {
+			if in.Delay.Percentage != nil {
+				out.Delay.Percentage = translatePercentToFractionalPercent(in.Delay.Percentage)
+			} else {
+				out.Delay.Percentage = translateIntegerToFractionalPercent(in.Delay.Percent)
+			}
+		} else {
+			if in.Delay.Percentage != nil {
+				out.Delay.Percent = uint32(in.Delay.Percentage.Value)
+			} else {
+				out.Delay.Percent = uint32(in.Delay.Percent)
+			}
 		}
 		switch d := in.Delay.HttpDelayType.(type) {
 		case *networking.HTTPFaultInjection_Delay_FixedDelay:
@@ -625,8 +651,19 @@ func translateFault(in *networking.HTTPFaultInjection) *xdshttpfault.HTTPFault {
 	}
 
 	if in.Abort != nil {
-		out.Abort = &xdshttpfault.FaultAbort{
-			Percent: uint32(in.Abort.Percent),
+		out.Abort = &xdshttpfault.FaultAbort{}
+		if util.Is11Proxy(node) {
+			if in.Abort.Percentage != nil {
+				out.Abort.Percentage = translatePercentToFractionalPercent(in.Abort.Percentage)
+			} else {
+				out.Abort.Percentage = translateIntegerToFractionalPercent(in.Abort.Percent)
+			}
+		} else {
+			if in.Abort.Percentage != nil {
+				out.Abort.Percent = uint32(in.Abort.Percentage.Value)
+			} else {
+				out.Abort.Percent = uint32(in.Abort.Percent)
+			}
 		}
 		switch a := in.Abort.ErrorType.(type) {
 		case *networking.HTTPFaultInjection_Abort_HttpStatus:

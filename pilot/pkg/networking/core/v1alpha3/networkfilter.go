@@ -107,9 +107,8 @@ func buildOutboundNetworkFilters(node *model.Proxy, clusterName string, deprecat
 
 	var tcpFilter *listener.Filter
 	var err error
-	_, is10Proxy := node.GetProxyVersion()
 
-	if len(deprecatedTCPFilterMatchAddress) > 0 && !is10Proxy {
+	if len(deprecatedTCPFilterMatchAddress) > 0 && !util.Is1xProxy(node) {
 		if tcpFilter, err = buildDeprecatedTCPProxyFilter(clusterName, deprecatedTCPFilterMatchAddress); err != nil {
 			return nil
 		}
