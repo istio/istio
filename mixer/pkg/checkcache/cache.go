@@ -193,9 +193,10 @@ func (cc *Cache) Set(attrs attribute.Bag, value Value) {
 }
 
 func (cc *Cache) recordStats() {
+	s := cc.cache.Stats()
 	stats.Record(context.Background(),
-		writesTotal.M(int64(cc.cache.Stats().Writes)),
-		hitsTotal.M(int64(cc.cache.Stats().Hits)),
-		missesTotal.M(int64(cc.cache.Stats().Misses)),
-		evictionsTotal.M(int64(cc.cache.Stats().Evictions)))
+		writesTotal.M(int64(s.Writes)),
+		hitsTotal.M(int64(s.Hits)),
+		missesTotal.M(int64(s.Misses)),
+		evictionsTotal.M(int64(s.Evictions)))
 }
