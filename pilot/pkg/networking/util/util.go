@@ -144,3 +144,19 @@ func SortVirtualHosts(hosts []route.VirtualHost) {
 		return hosts[i].Name < hosts[j].Name
 	})
 }
+
+// isProxyVersion checks whether the given Proxy version matches the supplied prefix.
+func isProxyVersion(node *model.Proxy, prefix string) bool {
+	ver, found := node.GetProxyVersion()
+	return found && strings.HasPrefix(ver, prefix)
+}
+
+// Is1xProxy checks whether the given Proxy version is 1.x.
+func Is1xProxy(node *model.Proxy) bool {
+	return isProxyVersion(node, "1.")
+}
+
+// Is11Proxy checks whether the given Proxy version is 1.1.
+func Is11Proxy(node *model.Proxy) bool {
+	return isProxyVersion(node, "1.1")
+}

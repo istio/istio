@@ -475,7 +475,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 
 				var svcListenAddress string
 				// This is to maintain backward compatibility with 0.8 envoy
-				if _, is10Proxy := node.GetProxyVersion(); !is10Proxy {
+				if !util.Is1xProxy(node) {
 					if service.Resolution != model.Passthrough {
 						svcListenAddress = service.GetServiceAddressForProxy(node)
 					}
@@ -788,7 +788,7 @@ func buildHTTPConnectionManager(env *model.Environment, node *model.Proxy, httpO
 	connectionManager.StatPrefix = httpOpts.statPrefix
 	connectionManager.UseRemoteAddress = &google_protobuf.BoolValue{Value: httpOpts.useRemoteAddress}
 
-	if _, is10Proxy := node.GetProxyVersion(); is10Proxy {
+	if util.Is1xProxy(node) {
 		// Allow websocket upgrades
 		websocketUpgrade := &http_conn.HttpConnectionManager_UpgradeConfig{UpgradeType: "websocket"}
 		connectionManager.UpgradeConfigs = []*http_conn.HttpConnectionManager_UpgradeConfig{websocketUpgrade}

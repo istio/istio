@@ -72,7 +72,9 @@ const allAbortFaultFilter = `
 - name: envoy.fault
   config:
     abort:
-      percent: 100
+      percentage:
+        numerator: 100
+        denominator: HUNDRED
       http_status: 503
 `
 
