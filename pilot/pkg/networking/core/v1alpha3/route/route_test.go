@@ -43,19 +43,12 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		},
 	}
 
-	node := &model.Proxy{
-		Type:      model.Sidecar,
-		IPAddress: "1.1.1.1",
-		ID:        "someID",
-		Domain:    "foo.com",
-		Metadata:  map[string]string{"ISTIO_PROXY_VERSION": "1.0"},
-	}
 	gatewayNames := map[string]bool{"some-gateway": true}
 
 	t.Run("for virtual service", func(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 
-		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServicePlain, serviceRegistry, 8080, model.LabelsCollection{}, gatewayNames)
+		routes, err := route.BuildHTTPRoutesForVirtualService(virtualServicePlain, serviceRegistry, 8080, model.LabelsCollection{}, gatewayNames, nil)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 	})
@@ -77,7 +70,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 
 		configStore.DestinationRuleReturns(cnfg)
 
-		_, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServicePlain, serviceRegistry, 8080, model.LabelsCollection{}, gatewayNames)
+		_, err := route.BuildHTTPRoutesForVirtualService(virtualServicePlain, serviceRegistry, 8080, model.LabelsCollection{}, gatewayNames, nil)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 	})
 
@@ -85,9 +78,9 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 
 		ttl := time.Duration(time.Nanosecond * 100)
-		push := &model.PushContext{}
-		push.SetDestinationRules([]model.Config{
-			{
+		configStore := &fakes.IstioConfigStore{}
+		configStore.DestinationRuleReturns(
+			&model.Config{
 				ConfigMeta: model.ConfigMeta{
 					Type:    model.DestinationRule.Type,
 					Version: model.DestinationRule.Version,
@@ -111,9 +104,9 @@ func TestBuildHTTPRoutes(t *testing.T) {
 					},
 				},
 			},
-		})
+		)
 
-		routes, err := route.BuildHTTPRoutesForVirtualService(node, push, virtualServicePlain, serviceRegistry, 8080, model.LabelsCollection{}, gatewayNames)
+		routes, err := route.BuildHTTPRoutesForVirtualService(virtualServicePlain, serviceRegistry, 8080, model.LabelsCollection{}, gatewayNames, configStore)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 
@@ -140,9 +133,9 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			Spec: virtualServiceWithSubset,
 		}
 
-		push := &model.PushContext{}
-		push.SetDestinationRules([]model.Config{
-			{
+		configStore := &fakes.IstioConfigStore{}
+		configStore.DestinationRuleReturns(
+			&model.Config{
 				ConfigMeta: model.ConfigMeta{
 					Type:    model.DestinationRule.Type,
 					Version: model.DestinationRule.Version,
@@ -152,10 +145,9 @@ func TestBuildHTTPRoutes(t *testing.T) {
 					Host:    "*.example.org",
 					Subsets: []*networking.Subset{networkingSubset},
 				},
-			},
-		})
+			})
 
-		routes, err := route.BuildHTTPRoutesForVirtualService(node, push, virtualService, serviceRegistry, 8080, model.LabelsCollection{}, gatewayNames)
+		routes, err := route.BuildHTTPRoutesForVirtualService(virtualService, serviceRegistry, 8080, model.LabelsCollection{}, gatewayNames, configStore)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 
@@ -180,19 +172,18 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			Spec: virtualServiceWithSubsetWithPortLevelSettings,
 		}
 
-		push := &model.PushContext{}
-		push.SetDestinationRules([]model.Config{
-			{
+		configStore := &fakes.IstioConfigStore{}
+		cfg := &model.Config{
+			ConfigMeta: model.ConfigMeta{
+				Type:    model.DestinationRule.Type,
+				Version: model.DestinationRule.Version,
+				Name:    "acme",
+			},
+			Spec: portLevelDestinationRuleWithSubsetPolicy,
+		}
+		configStore.DestinationRuleReturns(cfg)
 
-				ConfigMeta: model.ConfigMeta{
-					Type:    model.DestinationRule.Type,
-					Version: model.DestinationRule.Version,
-					Name:    "acme",
-				},
-				Spec: portLevelDestinationRuleWithSubsetPolicy,
-			}})
-
-		routes, err := route.BuildHTTPRoutesForVirtualService(node, push, virtualService, serviceRegistry, 8080, model.LabelsCollection{}, gatewayNames)
+		routes, err := route.BuildHTTPRoutesForVirtualService(virtualService, serviceRegistry, 8080, model.LabelsCollection{}, gatewayNames, configStore)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 
@@ -219,7 +210,8 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			Spec: virtualServiceWithSubset,
 		}
 
-		cnfg := model.Config{
+		configStore := &fakes.IstioConfigStore{}
+		cnfg := &model.Config{
 			ConfigMeta: model.ConfigMeta{
 				Type:    model.DestinationRule.Type,
 				Version: model.DestinationRule.Version,
@@ -229,12 +221,9 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		rule := networkingDestinationRule
 		rule.Subsets = []*networking.Subset{networkingSubset}
 		cnfg.Spec = networkingDestinationRule
+		configStore.DestinationRuleReturns(cnfg)
 
-		push := &model.PushContext{}
-		push.SetDestinationRules([]model.Config{
-			cnfg})
-
-		routes, err := route.BuildHTTPRoutesForVirtualService(node, push, virtualService, serviceRegistry, 8080, model.LabelsCollection{}, gatewayNames)
+		routes, err := route.BuildHTTPRoutesForVirtualService(virtualService, serviceRegistry, 8080, model.LabelsCollection{}, gatewayNames, configStore)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 
@@ -252,19 +241,19 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	t.Run("port selector based traffic policy", func(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 
-		push := &model.PushContext{}
-		push.SetDestinationRules([]model.Config{
-			{
-				ConfigMeta: model.ConfigMeta{
-					Type:    model.DestinationRule.Type,
-					Version: model.DestinationRule.Version,
-					Name:    "acme",
-				},
-				Spec: portLevelDestinationRule,
-			}})
+		configStore := &fakes.IstioConfigStore{}
+		cnfg := &model.Config{
+			ConfigMeta: model.ConfigMeta{
+				Type:    model.DestinationRule.Type,
+				Version: model.DestinationRule.Version,
+				Name:    "acme",
+			},
+			Spec: portLevelDestinationRule,
+		}
+		configStore.DestinationRuleReturns(cnfg)
 
 		gatewayNames := map[string]bool{"some-gateway": true}
-		routes, err := route.BuildHTTPRoutesForVirtualService(node, push, virtualServicePlain, serviceRegistry, 8080, model.LabelsCollection{}, gatewayNames)
+		routes, err := route.BuildHTTPRoutesForVirtualService(virtualServicePlain, serviceRegistry, 8080, model.LabelsCollection{}, gatewayNames, configStore)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 

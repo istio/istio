@@ -20,8 +20,12 @@ import (
 	"strings"
 	"testing"
 
-	// Pull in gogo well-known types
+	pgogo "github.com/gogo/protobuf/proto"
+	plang "github.com/golang/protobuf/proto"
+
+	// Pull in gogo & golang Empty
 	_ "github.com/gogo/protobuf/types"
+	_ "github.com/golang/protobuf/ptypes/empty"
 )
 
 func TestSchema_All(t *testing.T) {
@@ -30,8 +34,8 @@ func TestSchema_All(t *testing.T) {
 		byURL: make(map[string]Info),
 	}
 
-	foo := Info{TypeURL: TypeURL{"zoo.tar.com/foo"}}
-	bar := Info{TypeURL: TypeURL{"zoo.tar.com/bar"}}
+	foo := Info{TypeURL: TypeURL{"zoo.tar.com/foo"}, IsGogo: false}
+	bar := Info{TypeURL: TypeURL{"zoo.tar.com/bar"}, IsGogo: false}
 	s.byURL[foo.TypeURL.String()] = foo
 	s.byURL[bar.TypeURL.String()] = bar
 
@@ -54,11 +58,17 @@ func TestSchema_All(t *testing.T) {
 	}
 }
 
-func TestSchemaBuilder_Register_Success(t *testing.T) {
-	b := NewSchemaBuilder()
-	b.Register("type.googleapis.com/google.protobuf.Empty")
-	s := b.Build()
+func TestRegister_Success(t *testing.T) {
+	s := NewSchema()
 
+	s.Register("type.googleapis.com/google.protobuf.Empty", false)
+	if _, found := s.byURL["type.googleapis.com/google.protobuf.Empty"]; !found {
+		t.Fatalf("Empty type should have been registered")
+	}
+
+	s = NewSchema()
+
+	s.Register("type.googleapis.com/google.protobuf.Empty", true)
 	if _, found := s.byURL["type.googleapis.com/google.protobuf.Empty"]; !found {
 		t.Fatalf("Empty type should have been registered")
 	}
@@ -71,9 +81,9 @@ func TestRegister_DoubleRegistrationPanic(t *testing.T) {
 		}
 	}()
 
-	b := NewSchemaBuilder()
-	b.Register("type.googleapis.com/google.protobuf.Empty")
-	b.Register("type.googleapis.com/google.protobuf.Empty")
+	s := NewSchema()
+	s.Register("type.googleapis.com/google.protobuf.Empty", true)
+	s.Register("type.googleapis.com/google.protobuf.Empty", true)
 }
 
 func TestRegister_UnknownProto_Panic(t *testing.T) {
@@ -83,8 +93,8 @@ func TestRegister_UnknownProto_Panic(t *testing.T) {
 		}
 	}()
 
-	b := NewSchemaBuilder()
-	b.Register("type.googleapis.com/unknown")
+	s := NewSchema()
+	s.Register("type.googleapis.com/unknown", true)
 }
 
 func TestRegister_BadTypeURL(t *testing.T) {
@@ -94,111 +104,45 @@ func TestRegister_BadTypeURL(t *testing.T) {
 		}
 	}()
 
-	b := NewSchemaBuilder()
-	b.Register("ftp://type.googleapis.com/google.protobuf.Empty")
+	s := NewSchema()
+	s.Register("ftp://type.googleapis.com/google.protobuf.Empty", true)
 }
 
-func TestSchema_Lookup(t *testing.T) {
-	b := NewSchemaBuilder()
-	b.Register("type.googleapis.com/google.protobuf.Empty")
-	s := b.Build()
-
-	_, ok := s.Lookup("type.googleapis.com/google.protobuf.Empty")
-	if !ok {
-		t.Fatal("Should have found the info")
-	}
-
-	_, ok = s.Lookup("type.googleapis.com/Foo")
-	if ok {
-		t.Fatal("Shouldn't have found the info")
-	}
-
-	if _, found := s.byURL["type.googleapis.com/google.protobuf.Empty"]; !found {
-		t.Fatalf("Empty type should have been registered")
-	}
-}
-
-func TestSchema_Get_Success(t *testing.T) {
-	defer func() {
-		if r := recover(); r != nil {
-			t.Fatalf("should not have panicked: %v", r)
+func TestSchema_NewProtoInstance(t *testing.T) {
+	for _, info := range Types.All() {
+		p := info.NewProtoInstance()
+		var name string
+		if info.IsGogo {
+			name = pgogo.MessageName(p)
+		} else {
+			name = plang.MessageName(p)
 		}
-	}()
-
-	b := NewSchemaBuilder()
-	b.Register("type.googleapis.com/google.protobuf.Empty")
-	s := b.Build()
-
-	i := s.Get("type.googleapis.com/google.protobuf.Empty")
-	if i.TypeURL.String() != "type.googleapis.com/google.protobuf.Empty" {
-		t.Fatalf("Unexpected info: %v", i)
+		if name != info.TypeURL.messageName() {
+			t.Fatalf("Name/TypeURL mismatch: TypeURL:%v, Name:%v", info.TypeURL, name)
+		}
 	}
 }
 
-func TestSchema_Get_Panic(t *testing.T) {
-	defer func() {
-		if r := recover(); r == nil {
-			t.Fatal("should have panicked")
+func TestSchema_LookupByTypeURL(t *testing.T) {
+	for _, info := range Types.All() {
+		i, found := Types.Lookup(info.TypeURL.string)
+
+		if !found {
+			t.Fatalf("Expected info not found: %v", info)
 		}
-	}()
 
-	b := NewSchemaBuilder()
-	b.Register("type.googleapis.com/google.protobuf.Empty")
-	s := b.Build()
-
-	_ = s.Get("type.googleapis.com/foo")
+		if i != info {
+			t.Fatalf("Lookup mismatch. Expected:%v, Actual:%v", info, i)
+		}
+	}
 }
 
 func TestSchema_TypeURLs(t *testing.T) {
-	b := NewSchemaBuilder()
-	b.Register("type.googleapis.com/google.protobuf.Empty")
-	b.Register("type.googleapis.com/google.protobuf.Struct")
-	s := b.Build()
+	for _, url := range Types.TypeURLs() {
+		_, found := Types.Lookup(url)
 
-	actual := s.TypeURLs()
-	sort.Strings(actual)
-
-	expected := []string{
-		"type.googleapis.com/google.protobuf.Empty",
-		"type.googleapis.com/google.protobuf.Struct",
-	}
-
-	if !reflect.DeepEqual(actual, expected) {
-		t.Fatalf("Mismatch\nGot:\n%v\nWanted:\n%v\n", actual, expected)
+		if !found {
+			t.Fatalf("Expected info not found: %v", url)
+		}
 	}
 }
-
-//
-//func TestSchema_NewProtoInstance(t *testing.T) {
-//	for _, info := range Types.All() {
-//		p := info.NewProtoInstance()
-//		name := plang.MessageName(p)
-//		if name != info.TypeURL.MessageName() {
-//			t.Fatalf("Name/TypeURL mismatch: TypeURL:%v, Name:%v", info.TypeURL, name)
-//		}
-//	}
-//}
-//
-//func TestSchema_LookupByTypeURL(t *testing.T) {
-//	for _, info := range Types.All() {
-//		i, found := Types.Lookup(info.TypeURL.string)
-//
-//		if !found {
-//			t.Fatalf("Expected info not found: %v", info)
-//		}
-//
-//		if i != info {
-//			t.Fatalf("Lookup mismatch. Expected:%v, Actual:%v", info, i)
-//		}
-//	}
-//}
-//
-//func TestSchema_TypeURLs(t *testing.T) {
-//	for _, url := range Types.TypeURLs() {
-//		_, found := Types.Lookup(url)
-//
-//		if !found {
-//			t.Fatalf("Expected info not found: %v", url)
-//		}
-//	}
-//}

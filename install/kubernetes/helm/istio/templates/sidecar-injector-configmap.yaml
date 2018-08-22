@@ -1,4 +1,3 @@
-{{- if not .Values.global.omitSidecarInjectorConfigMap }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -27,15 +26,30 @@ data:
         - "-u"
         - 1337
         - "-m"
-        - {{ "[[ annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode ]]" }}
+        - {{ "[[ or (index .ObjectMeta.Annotations \"sidecar.istio.io/interceptionMode\") .ProxyConfig.InterceptionMode.String ]]" }}
         - "-i"
-        - {{ "\"[[ annotation .ObjectMeta `traffic.sidecar.istio.io/includeOutboundIPRanges` " }} "{{ .Values.global.proxy.includeIPRanges }}" {{ " ]]\"" }}
+        {{ "[[ if (isset .ObjectMeta.Annotations \"traffic.sidecar.istio.io/includeOutboundIPRanges\") -]]" }}
+        {{ "- \"[[ index .ObjectMeta.Annotations \"traffic.sidecar.istio.io/includeOutboundIPRanges\"  ]]\"" }}
+        {{ "[[ else -]]" }}
+        - "{{ .Values.global.proxy.includeIPRanges }}"
+        {{ "[[ end -]]" }}
         - "-x"
-        - {{ "\"[[ annotation .ObjectMeta `traffic.sidecar.istio.io/excludeOutboundIPRanges` " }} "{{ .Values.global.proxy.excludeIPRanges }}" {{ " ]]\"" }}
+        {{ "[[ if (isset .ObjectMeta.Annotations \"traffic.sidecar.istio.io/excludeOutboundIPRanges\") -]]" }}
+        {{ "- \"[[ index .ObjectMeta.Annotations \"traffic.sidecar.istio.io/excludeOutboundIPRanges\"  ]]\"" }}
+        {{ "[[ else -]]" }}
+        - "{{ .Values.global.proxy.excludeIPRanges }}"
+        {{ "[[ end -]]" }}
         - "-b"
-        - {{ "\"[[ annotation .ObjectMeta `traffic.sidecar.istio.io/includeInboundPorts` (includeInboundPorts .Spec.Containers) ]]\"" }}
+        {{ "[[ if (isset .ObjectMeta.Annotations \"traffic.sidecar.istio.io/includeInboundPorts\") -]]" }}
+        {{ "- \"[[ index .ObjectMeta.Annotations \"traffic.sidecar.istio.io/includeInboundPorts\"  ]]\"" }}
+        {{ "[[ else -]]" }}
+        - {{ "[[ range .Spec.Containers -]][[ range .Ports -]][[ .ContainerPort -]], [[ end -]][[ end -]][[ end]]" }}
         - "-d"
-        - {{ "\"[[ annotation .ObjectMeta `traffic.sidecar.istio.io/excludeInboundPorts` " }} "{{ .Values.global.proxy.excludeInboundPorts }}" {{ " ]]\"" }}
+        {{ "[[ if (isset .ObjectMeta.Annotations \"traffic.sidecar.istio.io/excludeInboundPorts\") -]]" }}
+        {{ "- \"[[ index .ObjectMeta.Annotations \"traffic.sidecar.istio.io/excludeInboundPorts\" ]]\"" }}
+        {{ "[[ else -]]" }}
+        - "{{ .Values.global.proxy.excludeInboundPorts }}"
+        {{ "[[ end -]]" }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
         securityContext:
           capabilities:
@@ -58,7 +72,11 @@ data:
       {{ end }}
       containers:
       - name: istio-proxy
-        image: {{ "[[ annotation .ObjectMeta `sidecar.istio.io/proxyImage` " }} "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}" {{ " ]]" }}
+        image: {{ "[[ if (isset .ObjectMeta.Annotations \"sidecar.istio.io/proxyImage\") -]]" }}
+        {{ "\"[[ index .ObjectMeta.Annotations \"sidecar.istio.io/proxyImage\" ]]\"" }}
+        {{ "[[ else -]]" }}
+        {{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}
+        {{ "[[ end -]]" }}
         args:
         - proxy
         - sidecar
@@ -91,7 +109,7 @@ data:
         - --proxyAdminPort
         - {{ "[[ .ProxyConfig.ProxyAdminPort ]]" }}
         - --controlPlaneAuthPolicy
-        - {{ "[[ annotation .ObjectMeta `sidecar.istio.io/controlPlaneAuthPolicy` .ProxyConfig.ControlPlaneAuthPolicy ]]" }}
+        - {{ "[[ .ProxyConfig.ControlPlaneAuthPolicy ]]" }}
         env:
         - name: POD_NAME
           valueFrom:
@@ -110,30 +128,25 @@ data:
             fieldRef:
               fieldPath: metadata.name
         - name: ISTIO_META_INTERCEPTION_MODE
-          value: {{ "[[ annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode ]]" }}
+          value: {{ "[[ or (index .ObjectMeta.Annotations \"sidecar.istio.io/interceptionMode\") .ProxyConfig.InterceptionMode.String ]]" }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
         securityContext:
-          privileged: false
-          readOnlyRootFilesystem: true
-          {{ "[[ if eq (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) \"TPROXY\" -]]" }}
-          capabilities:
-            add:
-            - NET_ADMIN
-          runAsGroup: 1337
-          {{ "[[ else -]]" }}
-          runAsUser: 1337
-          {{ "[[ end -]]" }}
+            privileged: false
+            readOnlyRootFilesystem: true
+            {{ "[[ if eq (or (index .ObjectMeta.Annotations \"sidecar.istio.io/interceptionMode\") .ProxyConfig.InterceptionMode.String) \"TPROXY\" -]]" }}
+            capabilities:
+              add:
+              - NET_ADMIN
+            {{ "[[ else -]]" }}
+            runAsUser: 1337
+            {{ "[[ end -]]" }}
         restartPolicy: Always
         resources:
-          {{ "[[ if (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPU`) -]]" }}
-          requests:
-            cpu: {{ "\"[[ index .ObjectMeta.Annotations `sidecar.istio.io/proxyCPU` ]]\"" }}
-            memory: {{ "\"[[ index .ObjectMeta.Annotations `sidecar.istio.io/proxyMemory` ]]\"" }}
-        {{ "[[ else -]]" }}
 {{- if .Values.global.proxy.resources }}
 {{ toYaml .Values.global.proxy.resources | indent 10 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | indent 10 }}
 {{- end }}
-        {{ "[[ end -]]" }}
         volumeMounts:
         - mountPath: /etc/istio/proxy
           name: istio-envoy
@@ -161,4 +174,4 @@ data:
           {{ "[[ else -]]" }}
           secretName: {{ "[[ printf \"istio.%s\" .Spec.ServiceAccountName ]]"  }}
           {{ "[[ end -]]" }}
-{{- end }}
+

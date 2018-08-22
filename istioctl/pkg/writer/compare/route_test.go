@@ -17,7 +17,6 @@ package compare
 import (
 	"bytes"
 	"io/ioutil"
-	"strings"
 	"testing"
 
 	"istio.io/istio/tests/util"
@@ -56,7 +55,6 @@ func TestComparator_RouteDiff(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := &bytes.Buffer{}
 			c, err := NewComparator(got, tt.pilot, tt.envoy)
-			c.location = "UTC"
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -70,7 +68,7 @@ func TestComparator_RouteDiff(t *testing.T) {
 				if err := util.Compare(got.Bytes(), want); err != nil {
 					t.Error(err.Error())
 				}
-			} else if !strings.HasPrefix(got.String(), "Routes Match") {
+			} else if got.String() != "Routes Match\n" {
 				t.Errorf("wanted match but got a diff")
 			}
 		})

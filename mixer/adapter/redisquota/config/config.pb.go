@@ -79,7 +79,7 @@ func (Params_QuotaAlgorithm) EnumDescriptor() ([]byte, []int) {
 // redisServerUrl: localhost:6379
 // connectionPoolSize: 10
 // quotas:
-//   - name: requestcount.quota.istio-system
+//   - name: requestCount.quota.istio-system
 //     maxAmount: 50
 //     validDuration: 60s
 //     bucketDuration: 1s

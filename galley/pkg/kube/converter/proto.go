@@ -16,28 +16,25 @@ package converter
 
 import (
 	"github.com/ghodss/yaml"
-	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
+	"github.com/golang/protobuf/jsonpb"
 	yaml2 "gopkg.in/yaml.v2"
 
 	"istio.io/istio/galley/pkg/runtime/resource"
 )
 
 func toProto(info resource.Info, data interface{}) (proto.Message, error) {
-	pb := info.NewProtoInstance()
-	if err := toproto(pb, data); err != nil {
-		return nil, err
-	}
 
-	return pb, nil
-}
-
-func toproto(pb proto.Message, data interface{}) error {
+	var result proto.Message
 	js, err := toJSON(data)
-	if err != nil {
-		return err
+	if err == nil {
+		pb := info.NewProtoInstance()
+		if err = jsonpb.UnmarshalString(js, pb); err == nil {
+			result = pb
+		}
 	}
-	return jsonpb.UnmarshalString(js, pb)
+
+	return result, err
 }
 
 func toJSON(data interface{}) (string, error) {

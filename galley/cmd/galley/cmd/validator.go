@@ -16,10 +16,13 @@ package cmd
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net"
 	"net/http"
+	"path/filepath"
 	"time"
 
+	"github.com/howeyc/fsnotify"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/cobra"
 
@@ -35,6 +38,7 @@ import (
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/util"
 	"istio.io/istio/pkg/version"
 )
 
@@ -51,6 +55,54 @@ func createMixerValidator() (store.BackendValidator, error) {
 	}
 	adapters := config.AdapterInfoMap(adapter.Inventory(), template.NewRepository(info).SupportsTemplate)
 	return store.NewValidator(nil, runtimeConfig.KindMap(adapters, templates)), nil
+}
+
+// patchCertLoop continually reapplies the caBundle PEM. This is required because it can be overwritten with empty
+// values if the original yaml is reapplied (https://github.com/istio/istio/issues/6069).
+// TODO(https://github.com/istio/istio/issues/6451) - only patch when caBundle changes
+func patchCertLoop(stop <-chan struct{}, caCertFile, webhookConfigName string, webhookNames []string) error {
+	client, err := kube.CreateClientset(flags.kubeConfig, "")
+	if err != nil {
+		return err
+	}
+
+	caCertPem, err := ioutil.ReadFile(caCertFile)
+	if err != nil {
+		return err
+	}
+
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		return err
+	}
+
+	watchDir, _ := filepath.Split(caCertFile)
+	if err = watcher.Watch(watchDir); err != nil {
+		return fmt.Errorf("could not watch %v: %v", caCertFile, err)
+	}
+
+	go func() {
+		tickerC := time.NewTicker(time.Second).C
+		for {
+			select {
+			case <-stop:
+				return
+			case <-tickerC:
+				if err = util.PatchValidatingWebhookConfig(client.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations(),
+					webhookConfigName, webhookNames, caCertPem); err != nil {
+					log.Errorf("Patch webhook failed: %s", err)
+				}
+			case <-watcher.Event:
+				if b, err := ioutil.ReadFile(caCertFile); err == nil {
+					caCertPem = b
+				} else {
+					log.Errorf("CA bundle file read error: %v", err)
+				}
+			}
+		}
+	}()
+
+	return nil
 }
 
 const (
@@ -91,6 +143,9 @@ func startSelfMonitoring(stop <-chan struct{}, port uint) {
 
 func validatorCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 	var (
+		webhookConfigName   string
+		pilotWebhookName    string
+		mixerWebhookName    string
 		port                uint
 		domainSuffix        string
 		certFile            string
@@ -99,9 +154,6 @@ func validatorCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 		healthCheckInterval time.Duration
 		healthCheckFile     string
 		monitoringPort      uint
-		webhookConfigFile   string
-		deploymentNamespace string
-		deploymentName      string
 	)
 
 	validatorCmd := &cobra.Command{
@@ -115,11 +167,6 @@ func validatorCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 				fatalf("cannot create mixer backend validator for %q: %v", flags.kubeConfig, err)
 			}
 
-			clientset, err := kube.CreateClientset(flags.kubeConfig, "")
-			if err != nil {
-				fatalf("could not create k8s clientset: %v", err)
-			}
-
 			params := validation.WebhookParameters{
 				MixerValidator:      mixerValidator,
 				PilotDescriptor:     model.IstioConfigTypes,
@@ -129,11 +176,6 @@ func validatorCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 				KeyFile:             keyFile,
 				HealthCheckInterval: healthCheckInterval,
 				HealthCheckFile:     healthCheckFile,
-				WebhookConfigFile:   webhookConfigFile,
-				CACertFile:          caFile,
-				Clientset:           clientset,
-				DeploymentNamespace: deploymentNamespace,
-				DeploymentName:      deploymentName,
 			}
 			wh, err := validation.NewWebhook(params)
 			if err != nil {
@@ -143,15 +185,26 @@ func validatorCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 			// Create the stop channel for all of the servers.
 			stop := make(chan struct{})
 
+			webhookNames := []string{pilotWebhookName, mixerWebhookName}
+			if err := patchCertLoop(stop, caFile, webhookConfigName, webhookNames); err != nil {
+				log.Errorf("Failed to patch webhook config: %v", err)
+			}
+
 			go wh.Run(stop)
 			go startSelfMonitoring(stop, monitoringPort)
 			cmd.WaitSignal(stop)
 		},
 	}
 
-	validatorCmd.PersistentFlags().StringVar(&webhookConfigFile,
-		"webhook-config-file", "",
-		"File that contains k8s validatingwebhookconfiguration yaml. Validation is disabled if file is not specified")
+	validatorCmd.PersistentFlags().StringVar(&webhookConfigName,
+		"webhook-name", "istio-galley",
+		"Name of the ValidatingWebhookConfiguration resource in Kubernetes")
+	validatorCmd.PersistentFlags().StringVar(&pilotWebhookName,
+		"pilot-webhook-name", "pilot.validation.istio.io",
+		"Name of the pilot webhook entry in the webhook config.")
+	validatorCmd.PersistentFlags().StringVar(&mixerWebhookName,
+		"mixer-webhook-name", "mixer.validation.istio.io",
+		"Name of the mixer webhook entry in the webhook config.")
 	validatorCmd.PersistentFlags().UintVar(&port, "port", 443,
 		"HTTPS port of the validation service. Must be 443 if service has more than one port ")
 	validatorCmd.PersistentFlags().StringVar(&certFile, "tlsCertFile", "/etc/istio/certs/cert-chain.pem",
@@ -166,11 +219,6 @@ func validatorCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 		"File that should be periodically updated if health checking is enabled")
 	validatorCmd.PersistentFlags().UintVar(&monitoringPort, "monitoringPort", 9093,
 		"Port to use for the exposing self-monitoring information")
-
-	validatorCmd.PersistentFlags().StringVar(&deploymentNamespace, "deployment-namespace", "istio-system",
-		"Namespace of the deployment for the validation pod")
-	validatorCmd.PersistentFlags().StringVar(&deploymentName, "deployment-name", "istio-galley",
-		"Name of the deployment for the validation pod")
 
 	return validatorCmd
 }

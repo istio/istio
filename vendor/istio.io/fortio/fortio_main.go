@@ -20,7 +20,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io"
 	"os"
 	"path"
 	"runtime"
@@ -53,22 +52,17 @@ func (f *proxiesFlagList) Set(value string) error {
 
 // -- end of functions for -P support
 
-// Usage to a writer
-func usage(w io.Writer, msgs ...interface{}) {
-	fmt.Fprintf(w, "Φορτίο %s usage:\n\t%s command [flags] target\n%s\n%s\n%s\n%s\n",
+// Prints usage
+func usage(msgs ...interface{}) {
+	// nolint: gas
+	fmt.Fprintf(os.Stderr, "Φορτίο %s usage:\n\t%s command [flags] target\n%s\n%s\n%s\n%s\n",
 		version.Short(),
 		os.Args[0],
 		"where command is one of: load (load testing), server (starts grpc ping and",
-		"http echo/ui/redirect/proxy servers), grpcping (grpc client), report (report",
-		"only UI server), redirect (redirect only server), or curl (single URL debug).",
+		"http echo/ui/redirect/proxy servers), grpcping (grpc client), report (report only UI",
+		"server), redirect (redirect only server), or curl (single URL debug).",
 		"where target is a url (http load tests) or host:port (grpc health test).")
-	bincommon.FlagsUsage(w, msgs...)
-}
-
-// Prints usage and error messages with StdErr writer
-func usageErr(msgs ...interface{}) {
-	usage(os.Stderr, msgs...)
-	os.Exit(1)
+	bincommon.FlagsUsage(msgs...)
 }
 
 // Attention: every flag that is common to http client goes to bincommon/
@@ -87,29 +81,27 @@ var (
 	percentilesFlag   = flag.String("p", "50,75,90,99,99.9", "List of pXX to calculate")
 	resolutionFlag    = flag.Float64("r", defaults.Resolution, "Resolution of the histogram lowest buckets in seconds")
 	goMaxProcsFlag    = flag.Int("gomaxprocs", 0, "Setting for runtime.GOMAXPROCS, <1 doesn't change the default")
-	profileFlag       = flag.String("profile", "", "write .cpu and .mem profiles to `file`")
+	profileFlag       = flag.String("profile", "", "write .cpu and .mem profiles to file")
 	grpcFlag          = flag.Bool("grpc", false, "Use GRPC (health check by default, add -ping for ping) for load testing")
 	httpsInsecureFlag = flag.Bool("https-insecure", false, "Long form of the -k flag")
-	certFlag          = flag.String("cert", "", "`Path` to the certificate file to be used for GRPC server TLS")
-	keyFlag           = flag.String("key", "", "`Path` to the key file used for GRPC server TLS")
+	certFlag          = flag.String("cert", "", "Path to the certificate file to be used for GRPC server TLS")
+	keyFlag           = flag.String("key", "", "Path to the key file used for GRPC server TLS")
 	caCertFlag        = flag.String("cacert", "",
-		"`Path` to a custom CA certificate file to be used for the GRPC client TLS, "+
+		"Path to a custom CA certificate file to be used for the GRPC client TLS, "+
 			"if empty, use https:// prefix for standard internet CAs TLS")
-	echoPortFlag = flag.String("http-port", "8080",
-		"http echo server port. Can be in the form of host:port, ip:port, port or /unix/domain/path.")
-	grpcPortFlag = flag.String("grpc-port", fnet.DefaultGRPCPort,
-		"grpc server port. Can be in the form of host:port, ip:port or port or /unix/domain/path or \""+disabled+
-			"\" to not start the grpc server.")
+	echoPortFlag = flag.String("http-port", "8080", "http echo server port. Can be in the form of host:port, ip:port or port.")
+	grpcPortFlag = flag.String("grpc-port", fgrpc.DefaultGRPCPort,
+		"grpc server port. Can be in the form of host:port, ip:port or port or \""+disabled+"\" to not start the grpc server.")
 	echoDbgPathFlag = flag.String("echo-debug-path", "/debug",
 		"http echo server URI for debug, empty turns off that part (more secure)")
 	jsonFlag = flag.String("json", "",
-		"Json output to provided file `path` or '-' for stdout (empty = no json output, unless -a is used)")
+		"Json output to provided file or '-' for stdout (empty = no json output, unless -a is used)")
 	uiPathFlag = flag.String("ui-path", "/fortio/", "http server URI for UI, empty turns off that part (more secure)")
 	curlFlag   = flag.Bool("curl", false, "Just fetch the content once")
 	labelsFlag = flag.String("labels", "",
 		"Additional config data/labels to add to the resulting JSON, defaults to target URL and hostname")
-	staticDirFlag = flag.String("static-dir", "", "Absolute `path` to the dir containing the static files dir")
-	dataDirFlag   = flag.String("data-dir", defaultDataDir, "`Directory` where JSON results are stored/read")
+	staticDirFlag = flag.String("static-dir", "", "Absolute path to the dir containing the static files dir")
+	dataDirFlag   = flag.String("data-dir", defaultDataDir, "Directory where JSON results are stored/read")
 	proxiesFlags  proxiesFlagList
 	proxies       = make([]string, 0)
 
@@ -128,7 +120,7 @@ var (
 
 	baseURLFlag = flag.String("base-url", "",
 		"base URL used as prefix for data/index.tsv generation. (when empty, the url from the first request is used)")
-	newMaxPayloadSizeKb = flag.Int("maxpayloadsizekb", fnet.MaxPayloadSize/1024,
+	newMaxPayloadSizeKb = flag.Int("maxpayloadsizekb", fhttp.MaxPayloadSize/1024,
 		"MaxPayloadSize is the maximum size of payload to be generated by the EchoHandler size= argument. In Kbytes.")
 
 	// GRPC related flags
@@ -137,6 +129,7 @@ var (
 	doHealthFlag   = flag.Bool("health", false, "grpc ping client mode: use health instead of ping")
 	doPingLoadFlag = flag.Bool("ping", false, "grpc load test: use ping instead of health")
 	healthSvcFlag  = flag.String("healthservice", "", "which service string to pass to health check")
+	payloadFlag    = flag.String("payload", "", "Payload string to send along")
 	pingDelayFlag  = flag.Duration("grpc-ping-delay", 0, "grpc ping delay in response")
 	streamsFlag    = flag.Int("s", 1, "Number of streams per grpc connection")
 
@@ -145,21 +138,21 @@ var (
 )
 
 func main() {
+	bincommon.SharedMain()
 	flag.Var(&proxiesFlags, "P", "Proxies to run, e.g -P \"localport1 dest_host1:dest_port1\" -P \"[::1]:0 www.google.com:443\" ...")
-	bincommon.SharedMain(usage)
 	if len(os.Args) < 2 {
-		usageErr("Error: need at least 1 command parameter")
+		usage("Error: need at least 1 command parameter")
 	}
 	command := os.Args[1]
 	os.Args = append([]string{os.Args[0]}, os.Args[2:]...)
 	flag.Parse()
-	fnet.ChangeMaxPayloadSize(*newMaxPayloadSizeKb * 1024)
+	fhttp.ChangeMaxPayloadSize(*newMaxPayloadSizeKb * 1024)
 	if *bincommon.QuietFlag {
 		log.SetLogLevelQuiet(log.Error)
 	}
 	percList, err := stats.ParsePercentiles(*percentilesFlag)
 	if err != nil {
-		usageErr("Unable to extract percentiles from -p: ", err)
+		usage("Unable to extract percentiles from -p: ", err)
 	}
 	baseURL := strings.Trim(*baseURLFlag, " \t\n\r/") // remove trailing slash and other whitespace
 	sync := strings.TrimSpace(*syncFlag)
@@ -206,7 +199,7 @@ func main() {
 	case "grpcping":
 		grpcClient()
 	default:
-		usageErr("Error: unknown command ", command)
+		usage("Error: unknown command ", command)
 	}
 	if isServer {
 		// To get a start time log/timestamp in the logs
@@ -227,7 +220,7 @@ func main() {
 
 func fortioLoad(justCurl bool, percList []float64) {
 	if len(flag.Args()) != 1 {
-		usageErr("Error: fortio load/curl needs a url or destination")
+		usage("Error: fortio load/curl needs a url or destination")
 	}
 	httpOpts := bincommon.SharedHTTPOptions()
 	if *httpsInsecureFlag {
@@ -290,10 +283,9 @@ func fortioLoad(justCurl bool, percList []float64) {
 			Service:            *healthSvcFlag,
 			Streams:            *streamsFlag,
 			AllowInitialErrors: *allowInitialErrorsFlag,
-			Payload:            httpOpts.PayloadString(),
+			Payload:            *payloadFlag,
 			Delay:              *pingDelayFlag,
 			UsePing:            *doPingLoadFlag,
-			UnixDomainSocket:   httpOpts.UnixDomainSocket,
 		}
 		res, err = fgrpc.RunGRPCTest(&o)
 	} else {
@@ -356,7 +348,7 @@ func fortioLoad(justCurl bool, percList []float64) {
 
 func grpcClient() {
 	if len(flag.Args()) != 1 {
-		usageErr("Error: fortio grpcping needs host argument in the form of host, host:port or ip:port")
+		usage("Error: fortio grpcping needs host argument in the form of host, host:port or ip:port")
 	}
 	host := flag.Arg(0)
 	count := int(*exactlyFlag)
@@ -368,8 +360,7 @@ func grpcClient() {
 	if *doHealthFlag {
 		_, err = fgrpc.GrpcHealthCheck(host, cert, *healthSvcFlag, count)
 	} else {
-		httpOpts := bincommon.SharedHTTPOptions()
-		_, err = fgrpc.PingClientCall(host, cert, count, httpOpts.PayloadString(), *pingDelayFlag)
+		_, err = fgrpc.PingClientCall(host, cert, count, *payloadFlag, *pingDelayFlag)
 	}
 	if err != nil {
 		// already logged

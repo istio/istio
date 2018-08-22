@@ -85,7 +85,7 @@ func builtinMax(a ast.Value) (ast.Value, error) {
 		if len(a) == 0 {
 			return nil, BuiltinEmpty{}
 		}
-		var max = ast.Value(ast.Null{})
+		var max ast.Value = ast.Null{}
 		for i := range a {
 			if ast.Compare(max, a[i].Value) <= 0 {
 				max = a[i].Value

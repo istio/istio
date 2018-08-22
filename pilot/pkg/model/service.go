@@ -28,6 +28,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
 	"time"
 
 	authn "istio.io/api/authentication/v1alpha1"
@@ -88,10 +89,6 @@ type Service struct {
 
 	// CreationTime records the time this service was created, if available.
 	CreationTime time.Time `json:"creationTime,omitempty"`
-
-	// Attributes contains additional attributes associated with the service
-	// used mostly by mixer and RBAC for policy enforcement purposes.
-	Attributes ServiceAttributes
 }
 
 // Resolution indicates how the service instances need to be resolved before routing
@@ -176,7 +173,6 @@ const (
 	AddressFamilyUnix
 )
 
-// String converts addressfamily into string (tcp/unix)
 func (f AddressFamily) String() string {
 	switch f {
 	case AddressFamilyTCP:
@@ -387,8 +383,10 @@ type ServiceDiscovery interface {
 	Services() ([]*Service, error)
 
 	// GetService retrieves a service by host name if it exists
-	// Deprecated - do not use for anything other than tests
 	GetService(hostname Hostname) (*Service, error)
+
+	// GetServiceAttributes retrieves the custom attributes of a service
+	GetServiceAttributes(hostname Hostname) (*ServiceAttributes, error)
 
 	// Instances retrieves instances for a service and its ports that match
 	// any of the supplied labels. All instances match an empty tag list.
@@ -474,6 +472,12 @@ type ServiceAccounts interface {
 	GetIstioServiceAccounts(hostname Hostname, ports []string) []string
 }
 
+// String returns Hostname as a string; Hostname is already an alias of a string, so this is really for convenience over
+// explicit casting.
+func (h Hostname) String() string {
+	return string(h)
+}
+
 // Matches returns true if this Hostname "matches" the other hostname. Hostnames match if:
 // - they're fully resolved (i.e. not wildcarded) and match exactly (i.e. an exact string match)
 // - one or both are wildcarded (e.g. "*.foo.com"), in which case we use wildcard resolution rules
@@ -485,35 +489,18 @@ type ServiceAccounts interface {
 //  Hostname("*.com").Matches("foo.com")     = true
 //  Hostname("*.foo.com").Matches("foo.com") = false
 func (h Hostname) Matches(o Hostname) bool {
-	if len(h) == 0 && len(o) == 0 {
-		return true
-	}
-
-	hWildcard := string(h[0]) == "*"
-	if hWildcard && len(o) == 0 {
-		return true
-	}
-
-	oWildcard := string(o[0]) == "*"
-	if !hWildcard && !oWildcard {
-		// both are non-wildcards, so do normal string comparison
+	if !strings.Contains(string(h), "*") && !strings.Contains(string(o), "*") {
 		return h == o
 	}
-
-	longer, shorter := string(h), string(o)
-	if hWildcard {
-		longer = string(h[1:])
-	}
-	if oWildcard {
-		shorter = string(o[1:])
-	}
+	la, sa := strings.Contains(string(h), "*"), strings.Contains(string(o), "*")
+	longer, shorter := strings.TrimLeft(string(h), "*"), strings.TrimLeft(string(o), "*")
 	if len(longer) < len(shorter) {
 		longer, shorter = shorter, longer
-		hWildcard, oWildcard = oWildcard, hWildcard
+		la, sa = sa, la
 	}
 
 	matches := strings.HasSuffix(longer, shorter)
-	if matches && hWildcard && !oWildcard && strings.TrimSuffix(longer, shorter) == "." {
+	if matches && la && !sa && strings.TrimSuffix(longer, shorter) == "." {
 		// we match, but the longer is a wildcard and the shorter is not; we need to ensure we don't match input
 		// like `*.foo.com` to `foo.com` in that case (to avoid matching a domain literal to a wildcard subdomain)
 		return false
@@ -538,9 +525,8 @@ func (h Hostnames) Less(i, j int) bool {
 	if len(a) == 0 && len(b) == 0 {
 		return true // doesn't matter, they're both the empty string
 	}
-
 	// we sort longest to shortest, alphabetically, with wildcards last
-	ai, aj := string(a[0]) == "*", string(b[0]) == "*"
+	ai, aj := strings.Contains(a.String(), "*"), strings.Contains(b.String(), "*")
 	if ai && !aj {
 		// h[i] is a wildcard, but h[j] isn't; therefore h[j] < h[i]
 		return false
@@ -548,12 +534,10 @@ func (h Hostnames) Less(i, j int) bool {
 		// h[j] is a wildcard, but h[i] isn't; therefore h[i] < h[j]
 		return true
 	}
-
 	// they're either both wildcards, or both not; in either case we sort them longest to shortest, alphabetically
 	if len(a) == len(b) {
 		return a < b
 	}
-
 	return len(a) > len(b)
 }
 
@@ -678,7 +662,7 @@ func (s *Service) Key(port *Port, labels Labels) string {
 func ServiceKey(hostname Hostname, servicePorts PortList, labelsList LabelsCollection) string {
 	// example: name.namespace|http|env=prod;env=test,version=my-v1
 	var buffer bytes.Buffer
-	buffer.WriteString(string(hostname))
+	buffer.WriteString(hostname.String())
 	np := len(servicePorts)
 	nt := len(labelsList)
 
@@ -764,9 +748,6 @@ func IsValidSubsetKey(s string) bool {
 // ParseSubsetKey is the inverse of the BuildSubsetKey method
 func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, hostname Hostname, port int) {
 	parts := strings.Split(s, "|")
-	if len(parts) < 4 {
-		return
-	}
 	direction = TrafficDirection(parts[0])
 	port, _ = strconv.Atoi(parts[1])
 	subsetName = parts[2]

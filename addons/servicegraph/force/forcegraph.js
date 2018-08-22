@@ -101,7 +101,6 @@ var endpoint = "/d3graph";
 
 (function(){
     var query={};
-    var params = [];
     var i=0;
     var tele;
     var search_values=location.search.replace('\?','').split('&');
@@ -109,14 +108,14 @@ var endpoint = "/d3graph";
         telem=search_values[i].split('=');
         query[telem[0]]=telem[1];
     }
-    for (var k in query) {
-        if (query.hasOwnProperty(k)) {
-            params.push(k + "=" + query[k]);
-        }
-    }
-    var queryParams = params.join("&");
-    if (queryParams !== "") {
-        endpoint = endpoint + "?" + queryParams;
+
+    if (query.time_horizon != undefined && query.filter_empty != undefined) {
+        endpoint = endpoint + "?time_horizon=" + query.time_horizon +
+            "&filter_empty=" + query.filter_empty;
+    } else if (query.time_horizon != undefined) {
+        endpoint = endpoint + "?time_horizon=" + query.time_horizon;
+    } else if (query.filter_empty != undefined) {
+        endpoint = endpoint + "?filter_empty=" + query.filter_empty;
     }
 }());
 

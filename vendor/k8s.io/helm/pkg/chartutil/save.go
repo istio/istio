@@ -70,12 +70,6 @@ func SaveDir(c *chart.Chart, dest string) error {
 	// Save files
 	for _, f := range c.Files {
 		n := filepath.Join(outdir, f.TypeUrl)
-
-		d := filepath.Dir(n)
-		if err := os.MkdirAll(d, 0755); err != nil {
-			return err
-		}
-
 		if err := ioutil.WriteFile(n, f.Value, 0755); err != nil {
 			return err
 		}

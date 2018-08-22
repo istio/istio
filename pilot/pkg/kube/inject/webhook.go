@@ -93,7 +93,6 @@ func loadConfig(injectFile, meshFile string) (*Config, *meshconfig.MeshConfig, e
 	}
 	var c Config
 	if err := yaml.Unmarshal(data, &c); err != nil { // nolint: vetshadow
-		log.Warnf("Failed to parse injectFile %s", string(data))
 		return nil, nil, err
 	}
 	meshConfig, err := cmd.ReadMeshConfig(meshFile)
@@ -448,7 +447,7 @@ var (
 func injectionStatus(pod *corev1.Pod) *SidecarInjectionStatus {
 	var statusBytes []byte
 	if pod.ObjectMeta.Annotations != nil {
-		if value, ok := pod.ObjectMeta.Annotations[annotationStatus.name]; ok {
+		if value, ok := pod.ObjectMeta.Annotations[sidecarAnnotationStatusKey]; ok {
 			statusBytes = []byte(value)
 		}
 	}
@@ -484,8 +483,7 @@ func (wh *Webhook) inject(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 	req := ar.Request
 	var pod corev1.Pod
 	if err := json.Unmarshal(req.Object.Raw, &pod); err != nil {
-		log.Errorf("Could not unmarshal raw object: %v %s", err,
-			string(req.Object.Raw))
+		log.Errorf("Could not unmarshal raw object: %v", err)
 		return toAdmissionResponse(err)
 	}
 
@@ -507,7 +505,7 @@ func (wh *Webhook) inject(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 	}
 
 	applyDefaultsWorkaround(spec.InitContainers, spec.Containers, spec.Volumes)
-	annotations := map[string]string{annotationStatus.name: status}
+	annotations := map[string]string{sidecarAnnotationStatusKey: status}
 
 	patchBytes, err := createPatch(&pod, injectionStatus(&pod), annotations, spec)
 	if err != nil {

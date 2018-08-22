@@ -237,7 +237,7 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 			URLHostPort                 string
 			DoStop                      bool
 			DoLoad                      bool
-		}{r, httpopts.AllHeaders(), version.Short(), logoPath, debugPath, chartJSPath,
+		}{r, httpopts.GetHeaders(), version.Short(), logoPath, debugPath, chartJSPath,
 			startTime.Format(time.ANSIC), url, labels, runid,
 			fhttp.RoundDuration(time.Since(startTime)), durSeconds, urlHostPort, mode == stop, mode == run})
 		if err != nil {
@@ -915,16 +915,11 @@ func Serve(baseurl, port, debugpath, uipath, staticRsrcDir string, datadir strin
 		mux.Handle(uiPath+"data/", LogAndFilterDataRequest(http.StripPrefix(uiPath+"data", fs)))
 	}
 	urlHostPort = fnet.NormalizeHostPort(port, addr)
-	uiMsg := "UI started - visit:\n"
-	if strings.Contains(urlHostPort, "-unix-socket=") {
-		uiMsg += fmt.Sprintf("fortio curl %s http://localhost%s", urlHostPort, uiPath)
-	} else {
-		uiMsg += fmt.Sprintf("http://%s%s", urlHostPort, uiPath)
-		if strings.Contains(urlHostPort, "localhost") {
-			uiMsg += "\n(or any host/ip reachable on this server)"
-		}
+	uiMsg := fmt.Sprintf("UI started - visit:\nhttp://%s%s", urlHostPort, uiPath)
+	if !strings.Contains(port, ":") {
+		uiMsg += "   (or any host/ip reachable on this server)"
 	}
-	fmt.Println(uiMsg)
+	fmt.Printf(uiMsg + "\n")
 	defaultPercentileList = percentileList
 	return true
 }

@@ -40,9 +40,6 @@ type Config struct {
 
 	// SecretDirectory is the directory to to save keys/certs when using file mode SecretServer.
 	SecretDirectory string
-
-	// DualUse defines whether the generated CSRs are for dual-use mode (SAN+CN).
-	DualUse bool
 }
 
 // NewConfig creates a new Config instance with default values.

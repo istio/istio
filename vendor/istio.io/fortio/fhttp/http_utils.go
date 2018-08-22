@@ -15,7 +15,6 @@
 package fhttp // import "istio.io/fortio/fhttp"
 
 import (
-	"encoding/base64"
 	"fmt"
 	"html/template"
 	"io"
@@ -26,7 +25,6 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"istio.io/fortio/fnet"
 	"istio.io/fortio/log"
 	"istio.io/fortio/stats"
 )
@@ -287,7 +285,10 @@ func generateSize(sizeInput string) (size int) {
 		}
 		size = s
 		log.Debugf("Parsed size %s -> %d", sizeInput, size)
-		fnet.ValidatePayloadSize(&size)
+		if size > MaxPayloadSize {
+			log.Warnf("Requested size %d greater than max size %d, using max instead", size, MaxPayloadSize)
+			size = MaxPayloadSize
+		}
 		return size
 	}
 	weights := make([]float32, len(lst))
@@ -305,7 +306,10 @@ func generateSize(sizeInput string) (size int) {
 			log.Warnf("Bad input size %v -> %v, not a number before colon", sizeInput, l2[0])
 			return size
 		}
-		fnet.ValidatePayloadSize(&s)
+		if s > MaxPayloadSize {
+			log.Warnf("Requested size %d greater than max size %d, using max instead", s, MaxPayloadSize)
+			s = MaxPayloadSize
+		}
 		percStr := removeTrailingPercent(l2[1])
 		p, err := strconv.ParseFloat(percStr, 32)
 		if err != nil || p < 0 || p > 100 {
@@ -446,25 +450,26 @@ func OnBehalfOf(o *HTTPOptions, r *http.Request) {
 	_ = o.AddAndValidateExtraHeader("X-On-Behalf-Of: " + r.RemoteAddr)
 }
 
+const (
+	httpPrefix  = "http://"
+	httpsPrefix = "https://"
+)
+
 // AddHTTPS replaces "http://" in url with "https://" or prepends "https://"
 // if url does not contain prefix "http://".
 func AddHTTPS(url string) string {
-	if len(url) > len(fnet.PrefixHTTP) {
-		if strings.EqualFold(url[:len(fnet.PrefixHTTP)], fnet.PrefixHTTP) {
+	if len(url) > len(httpPrefix) {
+		if strings.EqualFold(url[:len(httpPrefix)], httpPrefix) {
 			log.Infof("Replacing http scheme with https for url: %s", url)
-			return fnet.PrefixHTTPS + url[len(fnet.PrefixHTTP):]
+			return httpsPrefix + url[len(httpPrefix):]
 		}
 		// returns url with normalized lowercase https prefix
-		if strings.EqualFold(url[:len(fnet.PrefixHTTPS)], fnet.PrefixHTTPS) {
-			return fnet.PrefixHTTPS + url[len(fnet.PrefixHTTPS):]
+		if strings.EqualFold(url[:len(httpsPrefix)], httpsPrefix) {
+			return httpsPrefix + url[len(httpsPrefix):]
 		}
 	}
 	// url must not contain any prefix, so add https prefix
 	log.Infof("Prepending https:// to url: %s", url)
-	return fnet.PrefixHTTPS + url
-}
+	return httpsPrefix + url
 
-// generateBase64UserCredentials encodes the user credential to base64 and adds a Basic as prefix.
-func generateBase64UserCredentials(userCredentials string) string {
-	return "Basic " + base64.StdEncoding.EncodeToString([]byte(userCredentials))
 }

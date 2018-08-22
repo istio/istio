@@ -97,11 +97,6 @@
         "max_requests": "100000"
       }]
     },
-    "upstream_connection_options": {
-      "tcp_keepalive": {
-        "keepalive_time": 300
-      }
-    },
     "http2_protocol_options": { }
     }
 

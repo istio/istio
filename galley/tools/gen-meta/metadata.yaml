@@ -1,5 +1,5 @@
 # TODO: We should be obtaining this metadata directly from the api repository.
-resources:
+items:
 # Types from Pilot
 
   - kind:        "VirtualService"
@@ -8,6 +8,7 @@ resources:
     group:       "networking.istio.io"
     version:     "v1alpha3"
     proto:       "istio.networking.v1alpha3.VirtualService"
+    gogo:        true
 
   - kind:        "Gateway"
     singular:    "gateway"
@@ -15,6 +16,7 @@ resources:
     group:       "networking.istio.io"
     version:     "v1alpha3"
     proto:       "istio.networking.v1alpha3.Gateway"
+    gogo:        true
 
   - kind:        "ServiceEntry"
     singular:    "serviceentry"
@@ -22,6 +24,7 @@ resources:
     group:       "networking.istio.io"
     version:     "v1alpha3"
     proto:       "istio.networking.v1alpha3.ServiceEntry"
+    gogo:        true
 
   - kind:        "DestinationRule"
     singular:    "destinationrule"
@@ -29,6 +32,7 @@ resources:
     group:       "networking.istio.io"
     version:     "v1alpha3"
     proto:       "istio.networking.v1alpha3.DestinationRule"
+    gogo:        true
 
   - kind:        "EnvoyFilter"
     singular:    "envoyfilter"
@@ -36,6 +40,7 @@ resources:
     group:       "networking.istio.io"
     version:     "v1alpha3"
     proto:       "istio.networking.v1alpha3.EnvoyFilter"
+    gogo:        true
 
   - kind:        "HTTPAPISpec"
     singular:    "httpapispec"
@@ -43,6 +48,7 @@ resources:
     group:       "config.istio.io"
     version:     "v1alpha2"
     proto:       "istio.mixer.v1.config.client.HTTPAPISpec"
+    gogo:        true
 
   - kind:        "HTTPAPISpecBinding"
     singular:    "httpapispecbinding"
@@ -50,6 +56,7 @@ resources:
     group:       "config.istio.io"
     version:     "v1alpha2"
     proto:       "istio.mixer.v1.config.client.HTTPAPISpecBinding"
+    gogo:        true
 
   - kind:        "QuotaSpec"
     singular:    "quotaspec"
@@ -57,6 +64,7 @@ resources:
     group:       "config.istio.io"
     version:     "v1alpha2"
     proto:       "istio.mixer.v1.config.client.QuotaSpec"
+    gogo:        true
 
   - kind:        "QuotaSpecBinding"
     singular:    "quotaspecbinding"
@@ -64,13 +72,15 @@ resources:
     group:       "config.istio.io"
     version:     "v1alpha2"
     proto:       "istio.mixer.v1.config.client.QuotaSpecBinding"
+    gogo:        true
 
-  - kind:        "Policy"
+  - kind:        "AuthenticationPolicy"
     singular:    "policy"
     plural:      "policies"
     group:       "authentication.istio.io"
     version:     "v1alpha1"
     proto:       "istio.authentication.v1alpha1.Policy"
+    gogo:        true
 
   - kind:          "MeshPolicy"
     clusterScoped: true
@@ -79,12 +89,11 @@ resources:
     group:         "authentication.istio.io"
     version:       "v1alpha1"
     proto:         "istio.authentication.v1alpha1.Policy"
+    gogo:          true
 
   - kind:        "ServiceRole"
     singular:    "servicerole"
     plural:      "serviceroles"
-#    group:       "rbac.istio.io"
-#    version:     "v1alpha1"
     group:       "config.istio.io"
     version:     "v1alpha2"
     proto:       "istio.rbac.v1alpha1.ServiceRole"
@@ -93,8 +102,6 @@ resources:
     clusterScoped: false
     singular:      "servicerolebinding"
     plural:        "servicerolebindings"
-#    group:       "rbac.istio.io"
-#    version:     "v1alpha1"
     group:       "config.istio.io"
     version:     "v1alpha2"
     proto:         "istio.rbac.v1alpha1.ServiceRoleBinding"
@@ -103,8 +110,6 @@ resources:
     listKind:    "rbacList"
     singular:    "rbac"
     plural:      "rbacs"
-#    group:       "rbac.istio.io"
-#    version:     "v1alpha1"
     group:       "config.istio.io"
     version:     "v1alpha2"
     proto:       "istio.rbac.v1alpha1.RbacConfig"
@@ -117,6 +122,7 @@ resources:
     group:       "config.istio.io"
     version:     "v1alpha2"
     proto:       "istio.policy.v1beta1.Rule"
+    gogo:        true
 
   - kind:        "attributemanifest"
     singular:    "attributemanifest"
@@ -124,6 +130,7 @@ resources:
     group:       "config.istio.io"
     version:     "v1alpha2"
     proto:       "istio.policy.v1beta1.AttributeManifest"
+    gogo:        true
 
   - kind:        "instance"
     singular:    "instance"
@@ -131,6 +138,7 @@ resources:
     group:       "config.istio.io"
     version:     "v1alpha2"
     proto:       "istio.policy.v1beta1.Instance"
+    gogo:        true
 
   - kind:        "handler"
     singular:    "handler"
@@ -138,24 +146,25 @@ resources:
     group:       "config.istio.io"
     version:     "v1alpha2"
     proto:       "istio.policy.v1beta1.Handler"
+    gogo:        true
 
   - kind:        "template"
     singular:    "template"
     plural:      "templates"
     group:       "config.istio.io"
     version:     "v1alpha2"
-    proto:       "istio.mcp.v1alpha1.extensions.LegacyMixerResource"
-    converter:   "legacy-mixer-resource"
-    protoPackage: "istio.io/istio/galley/pkg/kube/converter/legacy"
+    proto:       "istio.mixer.adapter.model.v1beta1.Template"
+    gogo:        true
+    converter:   "old-mixer-template"
 
   - kind:        "adapter"
     singular:    "adapter"
     plural:      "adapters"
     group:       "config.istio.io"
     version:     "v1alpha2"
-    proto:       "istio.mcp.v1alpha1.extensions.LegacyMixerResource"
-    converter:   "legacy-mixer-resource"
-    protoPackage: "istio.io/istio/galley/pkg/kube/converter/legacy"
+    proto:       "istio.mixer.adapter.model.v1beta1.Info"
+    gogo:        true
+    converter:   "old-mixer-template"
 
 ## Mixer Adapter Types
 
@@ -164,240 +173,240 @@ resources:
     plural:      "bypasses"
     group:       "config.istio.io"
     version:     "v1alpha2"
-    proto:       "istio.mcp.v1alpha1.extensions.LegacyMixerResource"
-    converter:   "legacy-mixer-resource"
-    protoPackage: "istio.io/istio/galley/pkg/kube/converter/legacy"
+    proto:       "istio.mixer.adapter.model.v1beta1.Info"
+    gogo:        true
+    converter:   "old-mixer-adapter"
 
   - kind:        "circonus"
     singular:    "circonus"
     plural:      "circonuses"
     group:       "config.istio.io"
     version:     "v1alpha2"
-    proto:       "istio.mcp.v1alpha1.extensions.LegacyMixerResource"
-    converter:   "legacy-mixer-resource"
-    protoPackage: "istio.io/istio/galley/pkg/kube/converter/legacy"
+    proto:       "istio.mixer.adapter.model.v1beta1.Info"
+    gogo:        true
+    converter:   "old-mixer-adapter"
 
   - kind:        "denier"
     singular:    "denier"
     plural:      "deniers"
     group:       "config.istio.io"
     version:     "v1alpha2"
-    proto:       "istio.mcp.v1alpha1.extensions.LegacyMixerResource"
-    converter:   "legacy-mixer-resource"
-    protoPackage: "istio.io/istio/galley/pkg/kube/converter/legacy"
+    proto:       "istio.mixer.adapter.model.v1beta1.Info"
+    gogo:        true
+    converter:   "old-mixer-adapter"
 
   - kind:        "fluentd"
     singular:    "fluentd"
     plural:      "fluentds"
     group:       "config.istio.io"
     version:     "v1alpha2"
-    proto:       "istio.mcp.v1alpha1.extensions.LegacyMixerResource"
-    converter:   "legacy-mixer-resource"
-    protoPackage: "istio.io/istio/galley/pkg/kube/converter/legacy"
+    proto:       "istio.mixer.adapter.model.v1beta1.Info"
+    gogo:        true
+    converter:   "old-mixer-adapter"
 
   - kind:        "kubernetesenv"
     singular:    "kubernetesenv"
     plural:      "kubernetesenvs"
     group:       "config.istio.io"
     version:     "v1alpha2"
-    proto:       "istio.mcp.v1alpha1.extensions.LegacyMixerResource"
-    converter:   "legacy-mixer-resource"
-    protoPackage: "istio.io/istio/galley/pkg/kube/converter/legacy"
+    proto:       "istio.mixer.adapter.model.v1beta1.Info"
+    gogo:        true
+    converter:   "old-mixer-adapter"
 
   - kind:        "listchecker"
     singular:    "listchecker"
     plural:      "listcheckers"
     group:       "config.istio.io"
     version:     "v1alpha2"
-    proto:       "istio.mcp.v1alpha1.extensions.LegacyMixerResource"
-    converter:   "legacy-mixer-resource"
-    protoPackage: "istio.io/istio/galley/pkg/kube/converter/legacy"
+    proto:       "istio.mixer.adapter.model.v1beta1.Info"
+    gogo:        true
+    converter:   "old-mixer-adapter"
 
   - kind:        "memquota"
     singular:    "memquota"
     plural:      "memquotas"
     group:       "config.istio.io"
     version:     "v1alpha2"
-    proto:       "istio.mcp.v1alpha1.extensions.LegacyMixerResource"
-    converter:   "legacy-mixer-resource"
-    protoPackage: "istio.io/istio/galley/pkg/kube/converter/legacy"
+    proto:       "istio.mixer.adapter.model.v1beta1.Info"
+    gogo:        true
+    converter:   "old-mixer-adapter"
 
   - kind:        "noop"
     singular:    "noop"
     plural:      "noops"
     group:       "config.istio.io"
     version:     "v1alpha2"
-    proto:       "istio.mcp.v1alpha1.extensions.LegacyMixerResource"
-    converter:   "legacy-mixer-resource"
-    protoPackage: "istio.io/istio/galley/pkg/kube/converter/legacy"
+    proto:       "istio.mixer.adapter.model.v1beta1.Info"
+    gogo:        true
+    converter:   "old-mixer-adapter"
 
   - kind:        "opa"
     singular:    "opa"
     plural:      "opas"
     group:       "config.istio.io"
     version:     "v1alpha2"
-    proto:       "istio.mcp.v1alpha1.extensions.LegacyMixerResource"
-    converter:   "legacy-mixer-resource"
-    protoPackage: "istio.io/istio/galley/pkg/kube/converter/legacy"
+    proto:       "istio.mixer.adapter.model.v1beta1.Info"
+    gogo:        true
+    converter:   "old-mixer-adapter"
 
   - kind:        "prometheus"
     singular:    "prometheus"
     plural:      "prometheuses"
     group:       "config.istio.io"
     version:     "v1alpha2"
-    proto:       "istio.mcp.v1alpha1.extensions.LegacyMixerResource"
-    converter:   "legacy-mixer-resource"
-    protoPackage: "istio.io/istio/galley/pkg/kube/converter/legacy"
+    proto:       "istio.mixer.adapter.model.v1beta1.Info"
+    gogo:        true
+    converter:   "old-mixer-adapter"
 
   - kind:        "servicecontrol"
     singular:    "servicecontrol"
     plural:      "servicecontrols"
     group:       "config.istio.io"
     version:     "v1alpha2"
-    proto:       "istio.mcp.v1alpha1.extensions.LegacyMixerResource"
-    converter:   "legacy-mixer-resource"
-    protoPackage: "istio.io/istio/galley/pkg/kube/converter/legacy"
+    proto:       "istio.mixer.adapter.model.v1beta1.Info"
+    gogo:        true
+    converter:   "old-mixer-adapter"
 
   - kind:        "signalfx"
     group:       "config.istio.io"
     plural:      "signalfxs"
     singular:    "signalfx"
     version:     "v1alpha2"
-    proto:       "istio.mcp.v1alpha1.extensions.LegacyMixerResource"
-    converter:   "legacy-mixer-resource"
-    protoPackage: "istio.io/istio/galley/pkg/kube/converter/legacy"
+    proto:       "istio.mixer.adapter.model.v1beta1.Info"
+    gogo:        true
+    converter:   "old-mixer-adapter"
 
   - kind:        "solarwinds"
     singular:    "solarwinds"
     plural:      "solarwindses"
     group:       "config.istio.io"
     version:     "v1alpha2"
-    proto:       "istio.mcp.v1alpha1.extensions.LegacyMixerResource"
-    converter:   "legacy-mixer-resource"
-    protoPackage: "istio.io/istio/galley/pkg/kube/converter/legacy"
+    proto:       "istio.mixer.adapter.model.v1beta1.Info"
+    gogo:        true
+    converter:   "old-mixer-adapter"
 
   - kind:        "stackdriver"
     singular:    "stackdriver"
     plural:      "stackdrivers"
     group:       "config.istio.io"
     version:     "v1alpha2"
-    proto:       "istio.mcp.v1alpha1.extensions.LegacyMixerResource"
-    converter:   "legacy-mixer-resource"
-    protoPackage: "istio.io/istio/galley/pkg/kube/converter/legacy"
+    proto:       "istio.mixer.adapter.model.v1beta1.Info"
+    gogo:        true
+    converter:   "old-mixer-adapter"
 
   - kind:        "statsd"
     singular:    "statsd"
     plural:      "statsds"
     group:       "config.istio.io"
     version:     "v1alpha2"
-    proto:       "istio.mcp.v1alpha1.extensions.LegacyMixerResource"
-    converter:   "legacy-mixer-resource"
-    protoPackage: "istio.io/istio/galley/pkg/kube/converter/legacy"
+    proto:       "istio.mixer.adapter.model.v1beta1.Info"
+    gogo:        true
+    converter:   "old-mixer-adapter"
 
   - kind:        "stdio"
     singular:    "stdio"
     plural:      "stdios"
     group:       "config.istio.io"
     version:     "v1alpha2"
-    proto:       "istio.mcp.v1alpha1.extensions.LegacyMixerResource"
-    converter:   "legacy-mixer-resource"
-    protoPackage: "istio.io/istio/galley/pkg/kube/converter/legacy"
+    proto:       "istio.mixer.adapter.model.v1beta1.Info"
+    gogo:        true
+    converter:   "old-mixer-adapter"
 
   - kind:        "apikey"
     singular:    "apikey"
     plural:      "apikeys"
     group:       "config.istio.io"
     version:     "v1alpha2"
-    proto:       "istio.mcp.v1alpha1.extensions.LegacyMixerResource"
-    converter:   "legacy-mixer-resource"
-    protoPackage: "istio.io/istio/galley/pkg/kube/converter/legacy"
+    proto:       "istio.mixer.adapter.model.v1beta1.Template"
+    gogo:        true
+    converter:   "old-mixer-template"
 
   - kind:        "authorization"
     singular:    "authorization"
     plural:      "authorizations"
     group:       "config.istio.io"
     version:     "v1alpha2"
-    proto:       "istio.mcp.v1alpha1.extensions.LegacyMixerResource"
-    converter:   "legacy-mixer-resource"
-    protoPackage: "istio.io/istio/galley/pkg/kube/converter/legacy"
+    proto:       "istio.mixer.adapter.model.v1beta1.Template"
+    gogo:        true
+    converter:   "old-mixer-template"
 
   - kind:        "checknothing"
     singular:    "checknothing"
     plural:      "checknothings"
     group:       "config.istio.io"
     version:     "v1alpha2"
-    proto:       "istio.mcp.v1alpha1.extensions.LegacyMixerResource"
-    converter:   "legacy-mixer-resource"
-    protoPackage: "istio.io/istio/galley/pkg/kube/converter/legacy"
+    proto:       "istio.mixer.adapter.model.v1beta1.Template"
+    gogo:        true
+    converter:   "old-mixer-template"
 
   - kind:        "kubernetes"
     singular:    "kubernetes"
     plural:      "kuberneteses"
     group:       "config.istio.io"
     version:     "v1alpha2"
-    proto:       "istio.mcp.v1alpha1.extensions.LegacyMixerResource"
-    converter:   "legacy-mixer-resource"
-    protoPackage: "istio.io/istio/galley/pkg/kube/converter/legacy"
+    proto:       "istio.mixer.adapter.model.v1beta1.Template"
+    gogo:        true
+    converter:   "old-mixer-template"
 
   - kind:        "listentry"
     singular:    "listentry"
     plural:      "listentries"
     group:       "config.istio.io"
     version:     "v1alpha2"
-    proto:       "istio.mcp.v1alpha1.extensions.LegacyMixerResource"
-    converter:   "legacy-mixer-resource"
-    protoPackage: "istio.io/istio/galley/pkg/kube/converter/legacy"
+    proto:       "istio.mixer.adapter.model.v1beta1.Template"
+    gogo:        true
+    converter:   "old-mixer-template"
 
   - kind:        "logentry"
     singular:    "logentry"
     plural:      "logentries"
     group:       "config.istio.io"
     version:     "v1alpha2"
-    proto:       "istio.mcp.v1alpha1.extensions.LegacyMixerResource"
-    converter:   "legacy-mixer-resource"
-    protoPackage: "istio.io/istio/galley/pkg/kube/converter/legacy"
+    proto:       "istio.mixer.adapter.model.v1beta1.Template"
+    gogo:        true
+    converter:   "old-mixer-template"
 
   - kind:        "metric"
     singular:    "metric"
     plural:      "metrics"
     group:       "config.istio.io"
     version:     "v1alpha2"
-    proto:       "istio.mcp.v1alpha1.extensions.LegacyMixerResource"
-    converter:   "legacy-mixer-resource"
-    protoPackage: "istio.io/istio/galley/pkg/kube/converter/legacy"
+    proto:       "istio.mixer.adapter.model.v1beta1.Template"
+    gogo:        true
+    converter:   "old-mixer-template"
 
   - kind:        "quota"
     singular:    "quota"
     plural:      "quotas"
     group:       "config.istio.io"
     version:     "v1alpha2"
-    proto:       "istio.mcp.v1alpha1.extensions.LegacyMixerResource"
-    converter:   "legacy-mixer-resource"
-    protoPackage: "istio.io/istio/galley/pkg/kube/converter/legacy"
+    proto:       "istio.mixer.adapter.model.v1beta1.Template"
+    gogo:        true
+    converter:   "old-mixer-template"
 
   - kind:        "reportnothing"
     singular:    "reportnothing"
     plural:      "reportnothings"
     group:       "config.istio.io"
     version:     "v1alpha2"
-    proto:       "istio.mcp.v1alpha1.extensions.LegacyMixerResource"
-    converter:   "legacy-mixer-resource"
-    protoPackage: "istio.io/istio/galley/pkg/kube/converter/legacy"
+    proto:       "istio.mixer.adapter.model.v1beta1.Template"
+    gogo:        true
+    converter:   "old-mixer-template"
 
   - kind:        "servicecontrolreport"
     singular:    "servicecontrolreport"
     plural:      "servicecontrolreports"
     group:       "config.istio.io"
     version:     "v1alpha2"
-    proto:       "istio.mcp.v1alpha1.extensions.LegacyMixerResource"
-    converter:   "legacy-mixer-resource"
-    protoPackage: "istio.io/istio/galley/pkg/kube/converter/legacy"
+    proto:       "istio.mixer.adapter.model.v1beta1.Template"
+    gogo:        true
+    converter:   "old-mixer-template"
 
   - kind:        "tracespan"
     singular:    "tracespan"
     plural:      "tracespans"
     group:       "config.istio.io"
     version:     "v1alpha2"
-    proto:       "istio.mcp.v1alpha1.extensions.LegacyMixerResource"
-    converter:   "legacy-mixer-resource"
-    protoPackage: "istio.io/istio/galley/pkg/kube/converter/legacy"
+    proto:       "istio.mixer.adapter.model.v1beta1.Template"
+    gogo:        true
+    converter:   "old-mixer-template"

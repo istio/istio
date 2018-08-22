@@ -15,7 +15,7 @@
 #   limitations under the License.
 
 
-from flask import Flask, request, session, render_template, redirect, url_for
+from flask import Flask, request, render_template, redirect, url_for
 import simplejson as json
 import requests
 import sys
@@ -41,9 +41,6 @@ requests_log.setLevel(logging.DEBUG)
 requests_log.propagate = True
 app.logger.addHandler(logging.StreamHandler(sys.stdout))
 app.logger.setLevel(logging.DEBUG)
-
-# Set the secret key to some random bytes. Keep this really secret!
-app.secret_key = b'_5#y2L"F4Q8z\n\xec]/'
 
 from flask_bootstrap import Bootstrap
 Bootstrap(app)
@@ -83,8 +80,9 @@ service_dict = {
 def getForwardHeaders(request):
     headers = {}
 
-    if 'user' in session:
-        headers['end-user'] = session['user']
+    user_cookie = request.cookies.get("user")
+    if user_cookie:
+        headers['Cookie'] = 'user=' + user_cookie
 
     incoming_headers = [ 'x-request-id',
                          'x-b3-traceid',
@@ -126,14 +124,14 @@ def health():
 def login():
     user = request.values.get('username')
     response = app.make_response(redirect(request.referrer))
-    session['user'] = user
+    response.set_cookie('user', user)
     return response
 
 
 @app.route('/logout', methods=['GET'])
 def logout():
     response = app.make_response(redirect(request.referrer))
-    session.pop('user', None)
+    response.set_cookie('user', '', expires=0)
     return response
 
 
@@ -141,7 +139,7 @@ def logout():
 def front():
     product_id = 0 # TODO: replace default value
     headers = getForwardHeaders(request)
-    user = session.get('user', '')
+    user = request.cookies.get("user", "")
     product = getProduct(product_id)
     detailsStatus, details = getProductDetails(product_id, headers)
     reviewsStatus, reviews = getProductReviews(product_id, headers)

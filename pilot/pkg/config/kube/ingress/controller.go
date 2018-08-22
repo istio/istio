@@ -112,20 +112,15 @@ func (c *controller) RegisterEventHandler(typ string, f func(model.Config, model
 			return nil
 		}
 
-		// In 1.0, Pilot has a single function, clearCache, which ignores
-		// the inputs.
-		// In future we may do smarter processing - but first we'll do
-		// major refactoring. No need to recompute everything and generate
-		// multiple events.
-
 		// TODO: This works well for Add and Delete events, but not so for Update:
 		// An updated ingress may also trigger an Add or Delete for one of its constituent sub-rules.
 		switch typ {
 		case model.Gateway.Type:
-			//config, _ := ConvertIngressV1alpha3(*ingress, c.domainSuffix)
-			//f(config, event)
+			config, _ := ConvertIngressV1alpha3(*ingress, c.domainSuffix)
+			f(config, event)
 		case model.VirtualService.Type:
-			f(model.Config{}, event)
+			_, config := ConvertIngressV1alpha3(*ingress, c.domainSuffix)
+			f(config, event)
 		}
 
 		return nil
@@ -178,9 +173,6 @@ func (c *controller) List(typ, namespace string) ([]model.Config, error) {
 	}
 
 	out := make([]model.Config, 0)
-
-	ingressByHost := map[string]*model.Config{}
-
 	for _, obj := range c.informer.GetStore().List() {
 		ingress := obj.(*v1beta1.Ingress)
 		if namespace != "" && namespace != ingress.Namespace {
@@ -193,16 +185,11 @@ func (c *controller) List(typ, namespace string) ([]model.Config, error) {
 
 		switch typ {
 		case model.VirtualService.Type:
-			ConvertIngressVirtualService(*ingress, c.domainSuffix, ingressByHost)
+			_, virtualServices := ConvertIngressV1alpha3(*ingress, c.domainSuffix)
+			out = append(out, virtualServices)
 		case model.Gateway.Type:
-			gateways := ConvertIngressV1alpha3(*ingress, c.domainSuffix)
+			gateways, _ := ConvertIngressV1alpha3(*ingress, c.domainSuffix)
 			out = append(out, gateways)
-		}
-	}
-
-	if typ == model.VirtualService.Type {
-		for _, obj := range ingressByHost {
-			out = append(out, *obj)
 		}
 	}
 

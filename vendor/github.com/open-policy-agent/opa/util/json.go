@@ -8,9 +8,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
-	"reflect"
-
-	"github.com/ghodss/yaml"
 )
 
 // UnmarshalJSON parses the JSON encoded data and stores the result in the value
@@ -56,44 +53,4 @@ func MustMarshalJSON(x interface{}) []byte {
 		panic(err)
 	}
 	return bs
-}
-
-// RoundTrip encodes to JSON, and decodes the result again.
-//
-// Thereby, it is converting its argument to the representation expected by
-// rego.Input and inmem's Write operations. Works with both references and
-// values.
-func RoundTrip(x *interface{}) error {
-	bs, err := json.Marshal(x)
-	if err != nil {
-		return err
-	}
-	return UnmarshalJSON(bs, x)
-}
-
-// Reference returns a pointer to its argument unless the argument already is
-// a pointer. If the argument is **t, or ***t, etc, it will return *t.
-//
-// Used for preparing Go types (including pointers to structs) into values to be
-// put through util.RoundTrip().
-func Reference(x interface{}) *interface{} {
-	var y interface{}
-	rv := reflect.ValueOf(x)
-	if rv.Kind() == reflect.Ptr {
-		return Reference(rv.Elem().Interface())
-	}
-	if rv.Kind() != reflect.Invalid {
-		y = rv.Interface()
-		return &y
-	}
-	return &x
-}
-
-// Unmarshal decodes a YAML or JSON value into the specified type.
-func Unmarshal(bs []byte, v interface{}) error {
-	bs, err := yaml.YAMLToJSON(bs)
-	if err != nil {
-		return err
-	}
-	return UnmarshalJSON(bs, v)
 }

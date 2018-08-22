@@ -149,7 +149,6 @@ func statusInput1() []v2.SyncStatus {
 	return []v2.SyncStatus{
 		{
 			ProxyID:         "proxy1",
-			ProxyVersion:    "1.0",
 			ClusterSent:     "2009-11-10 23:00:00 +0000 UTC m=+0.000000001",
 			ClusterAcked:    "2009-11-10 22:00:00 +0000 UTC m=+0.000000001",
 			ListenerSent:    "2009-11-10 23:00:00 +0000 UTC m=+0.000000001",
@@ -165,7 +164,6 @@ func statusInput2() []v2.SyncStatus {
 	return []v2.SyncStatus{
 		{
 			ProxyID:       "proxy2",
-			ProxyVersion:  "1.0",
 			ClusterSent:   "2009-11-10 23:00:00 +0000 UTC m=+0.000000001",
 			ClusterAcked:  "2009-11-10 22:00:00 +0000 UTC m=+0.000000001",
 			ListenerSent:  "2009-11-10 23:00:00 +0000 UTC m=+0.000000001",

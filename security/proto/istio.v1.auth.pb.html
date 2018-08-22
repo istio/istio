@@ -1,7 +1,6 @@
 ---
 title: istio.v1.auth
 layout: protoc-gen-docs
-generator: protoc-gen-docs
 number_of_entries: 4
 ---
 <h2 id="Services">Services</h2>
@@ -9,7 +8,7 @@ number_of_entries: 4
 <section>
 <p>Node agent related services</p>
 
-<pre id="WorkloadService-Check"><code class="language-proto">rpc Check(CheckRequest) returns (CheckResponse)
+<pre id="WorkloadService.Check"><code class="language-proto">rpc Check(CheckRequest) returns (CheckResponse)
 </code></pre>
 </section>
 <h2 id="Types">Types</h2>
@@ -24,7 +23,7 @@ number_of_entries: 4
 </tr>
 </thead>
 <tbody>
-<tr id="CheckRequest-name">
+<tr id="CheckRequest.name">
 <td><code>name</code></td>
 <td><code>string</code></td>
 <td>
@@ -44,16 +43,16 @@ number_of_entries: 4
 </tr>
 </thead>
 <tbody>
-<tr id="CheckResponse-status">
+<tr id="CheckResponse.status">
 <td><code>status</code></td>
-<td><code><a href="#google-rpc-Status">google.rpc.Status</a></code></td>
+<td><code><a href="#google.rpc.Status">google.rpc.Status</a></code></td>
 <td>
 </td>
 </tr>
 </tbody>
 </table>
 </section>
-<h3 id="google-rpc-Status">google.rpc.Status</h3>
+<h3 id="google.rpc.Status">google.rpc.Status</h3>
 <section>
 <p>The <code>Status</code> type defines a logical error model that is suitable for different
 programming environments, including REST APIs and RPC APIs. It is used by
@@ -121,7 +120,7 @@ be used directly after any stripping needed for security/privacy reasons.</p></l
 </tr>
 </thead>
 <tbody>
-<tr id="google-rpc-Status-code">
+<tr id="google.rpc.Status.code">
 <td><code>code</code></td>
 <td><code>int32</code></td>
 <td>
@@ -129,17 +128,17 @@ be used directly after any stripping needed for security/privacy reasons.</p></l
 
 </td>
 </tr>
-<tr id="google-rpc-Status-message">
+<tr id="google.rpc.Status.message">
 <td><code>message</code></td>
 <td><code>string</code></td>
 <td>
 <p>A developer-facing error message, which should be in English. Any
 user-facing error message should be localized and sent in the
-<a href="#google-rpc-Status-details">google.rpc.Status.details</a> field, or localized by the client.</p>
+<a href="#google.rpc.Status.details">google.rpc.Status.details</a> field, or localized by the client.</p>
 
 </td>
 </tr>
-<tr id="google-rpc-Status-details">
+<tr id="google.rpc.Status.details">
 <td><code>details</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#any">google.protobuf.Any[]</a></code></td>
 <td>

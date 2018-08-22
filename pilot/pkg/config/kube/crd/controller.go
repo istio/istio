@@ -110,8 +110,8 @@ func (c *controller) addInformer(schema model.ProtoSchema, namespace string, res
 			if !ok {
 				return nil, fmt.Errorf("client not initialized %s", schema.Type)
 			}
-			opts.Watch = true
 			req := rc.dynamic.Get().
+				Prefix("watch").
 				Resource(ResourceName(schema.Plural)).
 				VersionedParams(&opts, meta_v1.ParameterCodec)
 			if !schema.ClusterScoped {

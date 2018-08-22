@@ -24,9 +24,8 @@ ISTIO_STAGING=${ISTIO_STAGING:-.}
 
 function istioVersionSource() {
   echo "Sourced ${ISTIO_STAGING}/istio.VERSION"
-  cat "${ISTIO_STAGING}/istio.VERSION"
-  # shellcheck disable=SC1090
-  source "${ISTIO_STAGING}/istio.VERSION"
+  cat ${ISTIO_STAGING}/istio.VERSION
+  source ${ISTIO_STAGING}/istio.VERSION
 }
 
 # Configure network for istio use, using DNSMasq.
@@ -40,12 +39,13 @@ function istioNetworkInit() {
   fi
 
   # Copy config files for DNS
-  chmod go+r "${ISTIO_STAGING}/kubedns"
-  cp "${ISTIO_STAGING}/kubedns" /etc/dnsmasq.d
+  chmod go+r ${ISTIO_STAGING}/kubedns
+  cp ${ISTIO_STAGING}/kubedns /etc/dnsmasq.d
   systemctl restart dnsmasq
 
   # Update DHCP - if needed
-  if ! grep "^prepend domain-name-servers 127.0.0.1;" /etc/dhcp/dhclient.conf > /dev/null; then
+  grep "^prepend domain-name-servers 127.0.0.1;" /etc/dhcp/dhclient.conf > /dev/null
+  if [[ $? != 0 ]]; then
     echo 'prepend domain-name-servers 127.0.0.1;' >> /etc/dhcp/dhclient.conf
     # TODO: find a better way to re-trigger dhclient
     dhclient -v -1
@@ -59,17 +59,17 @@ function istioInstall() {
   # Current URL for the debian files artifacts. Will be replaced by a proper apt repo.
   rm -f istio-sidecar.deb
   echo "curl -f -L ${PILOT_DEBIAN_URL}/istio-sidecar.deb > ${ISTIO_STAGING}/istio-sidecar.deb"
-  curl -f -L "${PILOT_DEBIAN_URL}/istio-sidecar.deb" > "${ISTIO_STAGING}/istio-sidecar.deb"
+  curl -f -L ${PILOT_DEBIAN_URL}/istio-sidecar.deb > ${ISTIO_STAGING}/istio-sidecar.deb
 
   # Install istio binaries
-  dpkg -i "${ISTIO_STAGING}/istio-sidecar.deb"
+  dpkg -i ${ISTIO_STAGING}/istio-sidecar.deb
 
   mkdir -p /etc/certs
 
-  cp "${ISTIO_STAGING}/*.pem" /etc/certs
+  cp ${ISTIO_STAGING}/*.pem /etc/certs
 
   # Cluster settings - the CIDR in particular.
-  cp "${ISTIO_STAGING}/cluster.env" /var/lib/istio/envoy
+  cp ${ISTIO_STAGING}/cluster.env /var/lib/istio/envoy
 
   chown -R istio-proxy /etc/certs
   chown -R istio-proxy /var/lib/istio/envoy
@@ -81,13 +81,15 @@ function istioInstall() {
 function istioRestart() {
     echo "*** Restarting istio proxy..."
     # Node agent
-    if systemctl status istio-auth-node-agent > /dev/null; then
+    systemctl status istio-auth-node-agent > /dev/null
+    if [[ $? = 0 ]]; then
       systemctl restart istio-auth-node-agent
     else
       systemctl start istio-auth-node-agent
     fi
     # Start or restart istio envoy
-    if systemctl status istio > /dev/null; then
+    systemctl status istio > /dev/null
+    if [[ $? = 0 ]]; then
       systemctl restart istio
     else
       systemctl start istio

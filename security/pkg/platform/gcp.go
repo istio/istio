@@ -60,8 +60,7 @@ func NewGcpClientImpl(rootCert, ca string) *GcpClientImpl {
 	return &GcpClientImpl{
 		rootCertFile: rootCert,
 		caAddr:       ca,
-		// The expected token is independent of the URL of the server.
-		fetcher: &cred.GcpTokenFetcher{Aud: "grpc://istio-citadel:8060"},
+		fetcher:      &cred.GcpTokenFetcher{Aud: fmt.Sprintf("grpc://%s", ca)},
 	}
 }
 
@@ -78,7 +77,7 @@ func (ci *GcpClientImpl) GetDialOptions() ([]grpc.DialOption, error) {
 		return nil, err
 	}
 
-	creds, err := credentials.NewClientTLSFromFile(ci.rootCertFile, CitadelDNSSan)
+	creds, err := credentials.NewClientTLSFromFile(ci.rootCertFile, "")
 	if err != nil {
 		return nil, err
 	}

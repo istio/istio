@@ -21,7 +21,7 @@ const (
 	RegoPartialEval   = "rego_partial_eval"
 )
 
-// Metrics defines the interface for a collection of performance metrics in the
+// Metrics defines the interface for a collection of perfomrance metrics in the
 // policy engine.
 type Metrics interface {
 	Timer(name string) Timer

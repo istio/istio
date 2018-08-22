@@ -14,11 +14,8 @@
 
 syntax = "proto3";
 
-import "common/v1alpha1/string.proto";
-
 // $title: Authentication Policy
 // $description: Authentication policy for Istio services.
-// $location: https://istio.io/docs/reference/config/istio.authentication.v1alpha1.html
 
 // This package defines user-facing authentication policy.
 package istio.authentication.v1alpha1;
@@ -126,12 +123,6 @@ message Jwt {
   //
   // For example, `query=jwt_token`.
   repeated string jwt_params = 7;
-
-  // URL paths that should be excluded from the JWT validation. If the request path is matched,
-  // the JWT validation will be skipped and the request will proceed regardless.
-  // This is useful to keep a couple of URLs public for external health checks.
-  // Example: "/health_check", "/status/cpu_usage".
-  repeated istio.common.v1alpha1.StringMatch excluded_paths = 8;
 }
 
 // PeerAuthenticationMethod defines one particular type of authentication, e.g

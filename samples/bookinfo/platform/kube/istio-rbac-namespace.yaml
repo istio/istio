@@ -1,4 +1,4 @@
-apiVersion: "rbac.istio.io/v1alpha1"
+apiVersion: "config.istio.io/v1alpha2"
 kind: ServiceRole
 metadata:
   name: service-viewer
@@ -11,7 +11,7 @@ spec:
     - key: "app"
       values: ["productpage", "details", "reviews", "ratings"]
 ---
-apiVersion: "rbac.istio.io/v1alpha1"
+apiVersion: "config.istio.io/v1alpha2"
 kind: ServiceRoleBinding
 metadata:
   name: bind-service-viewer

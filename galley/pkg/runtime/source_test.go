@@ -24,6 +24,14 @@ import (
 	"istio.io/istio/galley/pkg/runtime/resource"
 )
 
+var emptyInfo resource.Info
+
+func init() {
+	schema := resource.NewSchema()
+	schema.Register("type.googleapis.com/google.protobuf.Empty", true)
+	emptyInfo, _ = schema.Lookup("type.googleapis.com/google.protobuf.Empty")
+}
+
 func TestInMemory_Start_Empty(t *testing.T) {
 	i := NewInMemorySource()
 	ch, err := i.Start()
@@ -31,7 +39,7 @@ func TestInMemory_Start_Empty(t *testing.T) {
 		t.Fatalf("Unexpected error: %v", err)
 	}
 
-	actual := captureChannelOutput(t, ch, 1)
+	actual := logChannelOutput(ch, 1)
 	expected := strings.TrimSpace(`
 [Event](FullSync: [VKey](: @))
 `)
@@ -49,7 +57,7 @@ func TestInMemory_Start_WithItem(t *testing.T) {
 		t.Fatalf("Unexpected error: %v", err)
 	}
 
-	actual := captureChannelOutput(t, ch, 2)
+	actual := logChannelOutput(ch, 2)
 	expected := strings.TrimSpace(`
 [Event](Added: [VKey](type.googleapis.com/google.protobuf.Empty:n1/f1 @v1))
 [Event](FullSync: [VKey](: @))`)
@@ -86,7 +94,7 @@ func TestInMemory_Set(t *testing.T) {
 	i.Set(resource.Key{TypeURL: emptyInfo.TypeURL, FullName: "n1/f1"}, &types.Empty{})
 	i.Set(resource.Key{TypeURL: emptyInfo.TypeURL, FullName: "n1/f1"}, &types.Empty{})
 
-	actual := captureChannelOutput(t, ch, 3)
+	actual := logChannelOutput(ch, 3)
 	expected := strings.TrimSpace(`
 [Event](FullSync: [VKey](: @))
 [Event](Added: [VKey](type.googleapis.com/google.protobuf.Empty:n1/f1 @v1))
@@ -108,7 +116,7 @@ func TestInMemory_Delete(t *testing.T) {
 	i.Delete(resource.Key{TypeURL: emptyInfo.TypeURL, FullName: "n1/f1"})
 	i.Delete(resource.Key{TypeURL: emptyInfo.TypeURL, FullName: "n1/f1"})
 
-	actual := captureChannelOutput(t, ch, 3)
+	actual := logChannelOutput(ch, 3)
 	expected := strings.TrimSpace(`
 [Event](FullSync: [VKey](: @))
 [Event](Added: [VKey](type.googleapis.com/google.protobuf.Empty:n1/f1 @v1))
@@ -133,29 +141,11 @@ func TestInMemory_Get(t *testing.T) {
 	}
 }
 
-func captureChannelOutput(t *testing.T, ch chan resource.Event, count int) string {
-	t.Helper()
-
+func logChannelOutput(ch chan resource.Event, count int) string {
 	result := ""
 	for i := 0; i < count; i++ {
-		e := <-ch
-
-		switch e.Kind {
-		case resource.Added, resource.Updated:
-			if e.Item == nil {
-				t.Fatalf("Invalid event received: event should have item: %v", e)
-			}
-
-		case resource.Deleted, resource.FullSync:
-			if e.Item != nil {
-				t.Fatalf("Invalid event received: event should *not* have item: %v", e)
-			}
-
-		default:
-			t.Fatalf("Unrecognized event type: %v, event: %v", e.Kind, e)
-		}
-
-		result += fmt.Sprintf("%v\n", e)
+		item := <-ch
+		result += fmt.Sprintf("%v\n", item)
 	}
 
 	result = strings.TrimSpace(result)

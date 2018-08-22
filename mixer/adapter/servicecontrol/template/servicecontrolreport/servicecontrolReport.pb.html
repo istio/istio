@@ -6,7 +6,7 @@ layout: protoc-gen-docs
 generator: protoc-gen-docs
 aliases:
   - /docs/reference/config/adapters/servicecontrolreport.html
-number_of_entries: 1
+number_of_entries: 3
 ---
 <p>The <code>servicecontrolreport</code> template is used by the <a href="https://istio.io/docs/reference/config/policy-and-telemetry/adapters/servicecontrol/">Google Service Control</a>
 adapter.</p>
@@ -81,7 +81,7 @@ defined by this template.</p>
 </tr>
 <tr id="Template-request_time">
 <td><code>requestTime</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/policy-and-telemetry/istio.policy.v1beta1.html#TimeStamp">istio.policy.v1beta1.TimeStamp</a></code></td>
+<td><code><a href="#istio-policy-v1beta1-TimeStamp">istio.policy.v1beta1.TimeStamp</a></code></td>
 <td>
 </td>
 </tr>
@@ -105,7 +105,7 @@ defined by this template.</p>
 </tr>
 <tr id="Template-response_time">
 <td><code>responseTime</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/policy-and-telemetry/istio.policy.v1beta1.html#TimeStamp">istio.policy.v1beta1.TimeStamp</a></code></td>
+<td><code><a href="#istio-policy-v1beta1-TimeStamp">istio.policy.v1beta1.TimeStamp</a></code></td>
 <td>
 </td>
 </tr>
@@ -123,8 +123,64 @@ defined by this template.</p>
 </tr>
 <tr id="Template-response_latency">
 <td><code>responseLatency</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/policy-and-telemetry/istio.policy.v1beta1.html#Duration">istio.policy.v1beta1.Duration</a></code></td>
+<td><code><a href="#istio-policy-v1beta1-Duration">istio.policy.v1beta1.Duration</a></code></td>
 <td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="istio-policy-v1beta1-Duration">istio.policy.v1beta1.Duration</h2>
+<section>
+<p>An instance field of type Duration denotes that the expression for the field must evalaute to
+<em>ValueType.DURATION</em></p>
+
+<p>Objects of type Duration are also passed to the adapters during request-time for the instance fields of
+type Duration</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="istio-policy-v1beta1-Duration-value">
+<td><code>value</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+<p>Duration encoded as google.protobuf.Duration.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="istio-policy-v1beta1-TimeStamp">istio.policy.v1beta1.TimeStamp</h2>
+<section>
+<p>An instance field of type TimeStamp denotes that the expression for the field must evalaute to
+<em>ValueType.TIMESTAMP</em></p>
+
+<p>Objects of type TimeStamp are also passed to the adapters during request-time for the instance fields of
+type TimeStamp</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="istio-policy-v1beta1-TimeStamp-value">
+<td><code>value</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#timestamp">google.protobuf.Timestamp</a></code></td>
+<td>
+<p>TimeStamp encoded as google.protobuf.Timestamp.</p>
+
 </td>
 </tr>
 </tbody>

@@ -6,7 +6,6 @@ package storage
 
 import (
 	"fmt"
-	"net/url"
 	"strconv"
 	"strings"
 
@@ -29,21 +28,6 @@ func ParsePath(str string) (path Path, ok bool) {
 	}
 	parts := strings.Split(str[1:], "/")
 	return parts, true
-}
-
-// ParsePathEscaped returns a new path for the given escaped str.
-func ParsePathEscaped(str string) (path Path, ok bool) {
-	path, ok = ParsePath(str)
-	if !ok {
-		return
-	}
-	for i := range path {
-		segment, err := url.PathUnescape(path[i])
-		if err == nil {
-			path[i] = segment
-		}
-	}
-	return
 }
 
 // NewPathForRef returns a new path for the given ref.
@@ -134,11 +118,7 @@ func (p Path) Ref(head *ast.Term) (ref ast.Ref) {
 }
 
 func (p Path) String() string {
-	buf := make([]string, len(p))
-	for i := range buf {
-		buf[i] = url.PathEscape(p[i])
-	}
-	return "/" + strings.Join(buf, "/")
+	return "/" + strings.Join(p, "/")
 }
 
 // MustParsePath returns a new Path for s. If s cannot be parsed, this function

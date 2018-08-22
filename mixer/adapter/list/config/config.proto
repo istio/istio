@@ -15,7 +15,7 @@
 syntax = "proto3";
 
 // $title: List
-// $description: Adapter that performs whitelist or blacklist checks.
+// $description: Adapter that performs whitelist or blacklist checks
 // $location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/list.html
 // $aliases:
 // $  - /docs/reference/config/adapters/list.html

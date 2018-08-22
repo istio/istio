@@ -1,6 +1,4 @@
-from grafana/grafana:5.2.2
-
-USER root
+from grafana/grafana:5.0.4
 
 COPY grafana.ini /etc/grafana/
 RUN chmod 777 -R /etc/grafana/
@@ -13,5 +11,3 @@ RUN chmod 777 -R /etc/grafana/provisioning/datasources/
 
 COPY dashboards /var/lib/grafana/dashboards/
 RUN chmod 777 -R /var/lib/grafana/dashboards/
-
-USER grafana

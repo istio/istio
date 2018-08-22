@@ -15,7 +15,7 @@
 syntax = "proto3";
 
 // $title: Quota
-// $description: A template that represents a quota allocation request.
+// $description: A template that represents a quota allocation request
 // $location: https://istio.io/docs/reference/config/policy-and-telemetry/templates/quota.html
 // $aliases:
 // $  - /docs/reference/config/template/quota.html

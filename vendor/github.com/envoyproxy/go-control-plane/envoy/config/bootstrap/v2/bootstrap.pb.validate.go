@@ -178,16 +178,6 @@ func (m *Bootstrap) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetOverloadManager()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return BootstrapValidationError{
-				Field:  "OverloadManager",
-				Reason: "embedded message failed validation",
-				Cause:  err,
-			}
-		}
-	}
-
 	return nil
 }
 

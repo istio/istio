@@ -49,39 +49,11 @@ func (m *HealthCheck) Validate() error {
 		}
 	}
 
-	if d := m.GetTimeout(); d != nil {
-		dur := *d
-
-		gt := time.Duration(0*time.Second + 0*time.Nanosecond)
-
-		if dur <= gt {
-			return HealthCheckValidationError{
-				Field:  "Timeout",
-				Reason: "value must be greater than 0s",
-			}
-		}
-
-	}
-
 	if m.GetInterval() == nil {
 		return HealthCheckValidationError{
 			Field:  "Interval",
 			Reason: "value is required",
 		}
-	}
-
-	if d := m.GetInterval(); d != nil {
-		dur := *d
-
-		gt := time.Duration(0*time.Second + 0*time.Nanosecond)
-
-		if dur <= gt {
-			return HealthCheckValidationError{
-				Field:  "Interval",
-				Reason: "value must be greater than 0s",
-			}
-		}
-
 	}
 
 	if v, ok := interface{}(m.GetIntervalJitter()).(interface{ Validate() error }); ok {
@@ -93,8 +65,6 @@ func (m *HealthCheck) Validate() error {
 			}
 		}
 	}
-
-	// no validation rules for IntervalJitterPercent
 
 	if v, ok := interface{}(m.GetUnhealthyThreshold()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
@@ -176,8 +146,6 @@ func (m *HealthCheck) Validate() error {
 		}
 	}
 
-	// no validation rules for EventLogPath
-
 	switch m.HealthChecker.(type) {
 
 	case *HealthCheck_HttpHealthCheck_:
@@ -198,6 +166,18 @@ func (m *HealthCheck) Validate() error {
 			if err := v.Validate(); err != nil {
 				return HealthCheckValidationError{
 					Field:  "TcpHealthCheck",
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
+	case *HealthCheck_RedisHealthCheck_:
+
+		if v, ok := interface{}(m.GetRedisHealthCheck()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return HealthCheckValidationError{
+					Field:  "RedisHealthCheck",
 					Reason: "embedded message failed validation",
 					Cause:  err,
 				}

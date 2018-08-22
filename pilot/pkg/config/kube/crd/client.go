@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:generate sh -c "./generate.sh config.go > types.go"
+
 // Package crd provides an implementation of the config store and cache
 // using Kubernetes Custom Resources and the informer framework from Kubernetes
 package crd

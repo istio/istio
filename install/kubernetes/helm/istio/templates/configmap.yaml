@@ -1,4 +1,3 @@
-{{- if .Values.pilot.enabled }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -23,19 +22,12 @@ data:
     #
     # Deprecated: mixer is using EDS
     {{- if .Values.mixer.enabled }}
-    {{- if .Values.global.controlPlaneSecurityEnabled }}
     mixerCheckServer: istio-policy.{{ .Release.Namespace }}.svc.cluster.local:15004
     mixerReportServer: istio-telemetry.{{ .Release.Namespace }}.svc.cluster.local:15004
-    {{- else }}
-    mixerCheckServer: istio-policy.{{ .Release.Namespace }}.svc.cluster.local:9091
-    mixerReportServer: istio-telemetry.{{ .Release.Namespace }}.svc.cluster.local:9091
-    {{- end }}
     {{- end }}
 
-    {{- if .Values.ingress.enabled }}
-    # This is the k8s ingress service name, update if you used a different name
-    ingressService: istio-{{ .Values.global.k8sIngressSelector }}
-    {{- end }}
+    # This is the ingress service name, update if you used a different name
+    ingressService: istio-ingress
 
     # Unix Domain Socket through which envoy communicates with NodeAgent SDS to get
     # key/cert for mTLS. Use secret-mount files instead of SDS if set to empty. 
@@ -97,13 +89,12 @@ data:
       controlPlaneAuthPolicy: MUTUAL_TLS
       #
       # Address where istio Pilot service is running
-      discoveryAddress: istio-pilot.{{ .Release.Namespace }}:15011
+      discoveryAddress: istio-pilot.{{ .Release.Namespace }}:15005
     {{- else }}
       #
       # Mutual TLS authentication between sidecars and istio control plane.
       controlPlaneAuthPolicy: NONE
       #
       # Address where istio Pilot service is running
-      discoveryAddress: istio-pilot.{{ .Release.Namespace }}:15010
+      discoveryAddress: istio-pilot.{{ .Release.Namespace }}:15007
     {{- end }}
-{{- end }}

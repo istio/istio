@@ -68,7 +68,7 @@ func (s *InMemorySource) Start() (chan resource.Event, error) {
 
 	// publish current items
 	for _, item := range s.items {
-		s.ch <- resource.Event{Kind: resource.Added, ID: item.ID, Item: item.Item}
+		s.ch <- resource.Event{Kind: resource.Added, ID: item.ID}
 	}
 	s.ch <- resource.Event{Kind: resource.FullSync}
 

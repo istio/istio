@@ -6,7 +6,9 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: prometheus
-    {{- template "common_labels" . }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
@@ -18,15 +20,11 @@ spec:
         app: prometheus
       annotations:
         sidecar.istio.io/inject: "false"
-        scheduler.alpha.kubernetes.io/critical-pod: ""
     spec:
       serviceAccountName: prometheus
-{{- if .Values.global.priorityClassName }}
-      priorityClassName: "{{ .Values.global.priorityClassName }}"
-{{- end }}
       containers:
         - name: prometheus
-          image: "{{ .Values.hub }}/prometheus:{{ .Values.tag }}"
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           args:
             - '--storage.tsdb.retention=6h'

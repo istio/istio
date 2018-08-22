@@ -196,7 +196,6 @@ func (b *KeyCertBundleImpl) CertOptions() (*CertOptions, error) {
 		IsCA:       b.cert.IsCA,
 		TTL:        b.cert.NotAfter.Sub(b.cert.NotBefore),
 		RSAKeySize: size,
-		IsDualUse:  ids[0] == b.cert.Subject.CommonName,
 	}, nil
 }
 

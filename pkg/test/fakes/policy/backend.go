@@ -14,7 +14,7 @@
 
 package policy
 
-//go:generate $GOPATH/src/istio.io/istio/bin/protoc.sh --gogo_out=plugins=grpc:. controller.proto
+//go:generate protoc --gogo_out=plugins=grpc:. controller.proto
 
 import (
 	"context"
