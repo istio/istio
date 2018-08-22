@@ -31,44 +31,166 @@ const (
 )
 
 var (
-	// Tags
-	ConfigIDTag, InitConfigIDTag, HandlerTag, MeshFunctionTag, AdapterTag, ErrorTag tag.Key
+	// ConfigIDTag holds a config identifier for the context.
+	ConfigIDTag tag.Key
+	// InitConfigIDTag holds the config identifier used when the context was initialized.
+	InitConfigIDTag tag.Key
+	// HandlerTag holds the current handler for the context.
+	HandlerTag tag.Key
+	// MeshFunctionTag holds the current mesh function (logentry, metric, etc) for the context.
+	MeshFunctionTag tag.Key
+	// AdapterTag holds the current adapter for the context.
+	AdapterTag tag.Key
+	// ErrorTag holds the current error for the context.
+	ErrorTag tag.Key
 
 	// distribution buckets
 	durationBuckets = []float64{.0001, .00025, .0005, .001, .0025, .005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10}
 	countBuckets    = []float64{0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 15, 20}
 
-	// config measures
-	AttributesTotal           = stats.Int64("mixer/config/attributes_total", "The number of known attributes in the current config.", stats.UnitDimensionless)
-	HandlersTotal             = stats.Int64("mixer/config/handler_configs_total", "The number of known handlers in the current config.", stats.UnitDimensionless)
-	InstancesTotal            = stats.Int64("mixer/config/instance_configs_total", "The number of known instances in the current config.", stats.UnitDimensionless)
-	InstanceErrs              = stats.Int64("mixer/config/instance_config_errors_total", "The number of errors encountered during processing of the instance configuration.", stats.UnitDimensionless)
-	RulesTotal                = stats.Int64("mixer/config/rule_configs_total", "The number of known rules in the current config.", stats.UnitDimensionless)
-	RuleErrs                  = stats.Int64("mixer/config/rule_config_errors_total", "The number of errors encountered during processing of the rule configuration.", stats.UnitDimensionless)
-	AdapterInfosTotal         = stats.Int64("mixer/config/adapter_info_configs_total", "The number of known adapters in the current config.", stats.UnitDimensionless)
-	AdapterErrs               = stats.Int64("mixer/config/adapter_info_config_errors_total", "The number of errors encountered during processing of the adapter info configuration.", stats.UnitDimensionless)
-	TemplatesTotal            = stats.Int64("mixer/config/template_configs_total", "The number of known templates in the current config.", stats.UnitDimensionless)
-	TemplateErrs              = stats.Int64("mixer/config/template_config_errors_total", "The number of errors encountered during processing of the template configuration.", stats.UnitDimensionless)
-	MatchErrors               = stats.Int64("mixer/config/rule_config_match_error_total", "The number of rule conditions that was not parseable.", stats.UnitDimensionless)
-	UnsatisfiedActionHandlers = stats.Int64("mixer/config/unsatisfied_action_handler_total", "The number of actions that failed due to handlers being unavailable.", stats.UnitDimensionless)
-	HandlerValidationErrors   = stats.Int64("mixer/config/handler_validation_error_total", "The number of errors encountered because handler validation returned error.", stats.UnitDimensionless)
+	// AttributesTotal is a measure of the number of known attributes.
+	AttributesTotal = stats.Int64(
+		"mixer/config/attributes_total",
+		"The number of known attributes in the current config.",
+		stats.UnitDimensionless)
 
-	// handler measures
-	NewHandlersTotal    = stats.Int64("mixer/handler/new_handlers_total", "The number of handlers that were newly created during config transition.", stats.UnitDimensionless)
-	ReusedHandlersTotal = stats.Int64("mixer/handler/reused_handlers_total", "The number of handlers that were re-used during config transition.", stats.UnitDimensionless)
-	ClosedHandlersTotal = stats.Int64("mixer/handler/closed_handlers_total", "The number of handlers that were closed during config transition.", stats.UnitDimensionless)
-	BuildFailuresTotal  = stats.Int64("mixer/handler/handler_build_failures_total", "The number of handlers that failed creation during config transition.", stats.UnitDimensionless)
-	CloseFailuresTotal  = stats.Int64("mixer/handler/handler_close_failures_total", "The number of errors encountered while closing handlers during config transition.", stats.UnitDimensionless)
+	// HandlersTotal is a measure of the number of known handlers.
+	HandlersTotal = stats.Int64(
+		"mixer/config/handler_configs_total",
+		"The number of known handlers in the current config.",
+		stats.UnitDimensionless)
 
-	WorkersTotal = stats.Int64("mixer/handler/workers_total", "The current number of active worker routines in a given adapter environment.", stats.UnitDimensionless)
-	DaemonsTotal = stats.Int64("mixer/handler/daemons_total", "The current number of active daemon routines in a given adapter environment.", stats.UnitDimensionless)
+	// InstancesTotal is a measure of the number of known instances.
+	InstancesTotal = stats.Int64(
+		"mixer/config/instance_configs_total",
+		"The number of known instances in the current config.",
+		stats.UnitDimensionless)
 
-	// dispatch(er) measures
-	DispatchesTotal = stats.Int64("mixer/runtime/dispatches_total", "Total number of adapter dispatches handled by Mixer.", stats.UnitDimensionless)
-	// TODO: would OC support unit of Seconds ?
-	DispatchDurationsSeconds = stats.Float64("mixer/runtime/dispatch_duration_seconds", "Duration in seconds for adapter dispatches handled by Mixer.", stats.UnitDimensionless)
-	DestinationsPerRequest   = stats.Int64("mixer/dispatcher/destinations_per_request", "Number of handlers dispatched per request by Mixer", stats.UnitDimensionless)
-	InstancesPerRequest      = stats.Int64("mixer/dispatcher/instances_per_request", "Number of handlers dispatched per request by Mixer", stats.UnitDimensionless)
+	// InstancesErrs is a measure of the number of errors for processing instance config.
+	InstanceErrs = stats.Int64(
+		"mixer/config/instance_config_errors_total",
+		"The number of errors encountered during processing of the instance configuration.",
+		stats.UnitDimensionless)
+
+	// RulesTotal is a measure of the number of known rules.
+	RulesTotal = stats.Int64(
+		"mixer/config/rule_configs_total",
+		"The number of known rules in the current config.",
+		stats.UnitDimensionless)
+
+	// RulesErrs is a measure of the number of errors for processing rules config.
+	RuleErrs = stats.Int64(
+		"mixer/config/rule_config_errors_total",
+		"The number of errors encountered during processing of the rule configuration.",
+		stats.UnitDimensionless)
+
+	// AdapterInfosTotal is a measure of the number of known adapters.
+	AdapterInfosTotal = stats.Int64(
+		"mixer/config/adapter_info_configs_total",
+		"The number of known adapters in the current config.",
+		stats.UnitDimensionless)
+
+	// AdapterErrs is a measure of the number of errors for processing adapter config.
+	AdapterErrs = stats.Int64(
+		"mixer/config/adapter_info_config_errors_total",
+		"The number of errors encountered during processing of the adapter info configuration.",
+		stats.UnitDimensionless)
+
+	// TemplatesTotal is a measure of the number of known templates.
+	TemplatesTotal = stats.Int64(
+		"mixer/config/template_configs_total",
+		"The number of known templates in the current config.",
+		stats.UnitDimensionless)
+
+	// TemplateErrs is a measure of the number of errors for processing template config.
+	TemplateErrs = stats.Int64(
+		"mixer/config/template_config_errors_total",
+		"The number of errors encountered during processing of the template configuration.",
+		stats.UnitDimensionless)
+
+	// MatchErrors is a measure of the number of errors for processing rule conditions.
+	MatchErrors = stats.Int64(
+		"mixer/config/rule_config_match_error_total",
+		"The number of rule conditions that was not parseable.",
+		stats.UnitDimensionless)
+
+	// UnsatisfiedActionHandlers is a measure of the number of actions that failed due to missing handlers.
+	UnsatisfiedActionHandlers = stats.Int64(
+		"mixer/config/unsatisfied_action_handler_total",
+		"The number of actions that failed due to handlers being unavailable.",
+		stats.UnitDimensionless)
+
+	// HandlerValidationErrors is a measure of the number of errors validating handler config.
+	HandlerValidationErrors = stats.Int64(
+		"mixer/config/handler_validation_error_total",
+		"The number of errors encountered because handler validation returned error.",
+		stats.UnitDimensionless)
+
+	// NewHandlersTotal is a measure of the number of handlers newly-created during config processing.
+	NewHandlersTotal = stats.Int64(
+		"mixer/handler/new_handlers_total",
+		"The number of handlers that were newly created during config transition.",
+		stats.UnitDimensionless)
+
+	// ReusedHandlersTotal is a measure of the number of handlers reused during config processing.
+	ReusedHandlersTotal = stats.Int64(
+		"mixer/handler/reused_handlers_total",
+		"The number of handlers that were re-used during config transition.",
+		stats.UnitDimensionless)
+
+	// ClosedHandlersTotal is a measure of the number of handlers closed during config processing.
+	ClosedHandlersTotal = stats.Int64(
+		"mixer/handler/closed_handlers_total",
+		"The number of handlers that were closed during config transition.",
+		stats.UnitDimensionless)
+
+	// BuildFailuresTotal is a measure of the number of errors building handlers during config processing.
+	BuildFailuresTotal = stats.Int64(
+		"mixer/handler/handler_build_failures_total",
+		"The number of handlers that failed creation during config transition.",
+		stats.UnitDimensionless)
+
+	// CloseFailuresTotal is a measure of the number of errors closing handlers during config processing.
+	CloseFailuresTotal = stats.Int64(
+		"mixer/handler/handler_close_failures_total",
+		"The number of errors encountered while closing handlers during config transition.",
+		stats.UnitDimensionless)
+
+	// WorkersTotal is a measure of the number of active worker go-routines for a handler.
+	WorkersTotal = stats.Int64(
+		"mixer/handler/workers_total",
+		"The current number of active worker routines in a given adapter environment.",
+		stats.UnitDimensionless)
+
+	// DaemonsTotal is a measure of the number of active daemon go-routines for a handler.
+	DaemonsTotal = stats.Int64(
+		"mixer/handler/daemons_total",
+		"The current number of active daemon routines in a given adapter environment.",
+		stats.UnitDimensionless)
+
+	// DispatchesTotal is a measure of the number of handler dispatches.
+	DispatchesTotal = stats.Int64(
+		"mixer/runtime/dispatches_total",
+		"Total number of adapter dispatches handled by Mixer.",
+		stats.UnitDimensionless)
+
+	// DispatchDurationsSeconds is a measure of the number of seconds spent in dispatch.
+	DispatchDurationsSeconds = stats.Float64(
+		"mixer/runtime/dispatch_duration_seconds",
+		"Duration in seconds for adapter dispatches handled by Mixer.",
+		stats.UnitDimensionless)
+
+	// DestinationsPerRequest is a measure of the number of handlers dispatched per request.
+	DestinationsPerRequest = stats.Int64(
+		"mixer/dispatcher/destinations_per_request",
+		"Number of handlers dispatched per request by Mixer",
+		stats.UnitDimensionless)
+
+	// InstancesPerRequest is a measure of the number of instances created per request.
+	InstancesPerRequest = stats.Int64(
+		"mixer/dispatcher/instances_per_request",
+		"Number of instances created per request by Mixer",
+		stats.UnitDimensionless)
 )
 
 func newView(measure stats.Measure, keys []tag.Key, aggregation *view.Aggregation) *view.View {

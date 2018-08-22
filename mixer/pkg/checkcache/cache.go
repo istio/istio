@@ -78,10 +78,14 @@ type Value struct {
 
 var (
 	// cache stats
-	writesTotal    = stats.Int64("mixer/checkcache/cache_writes_total", "The number of times state in the cache was added or updated.", stats.UnitDimensionless)
-	hitsTotal      = stats.Int64("mixer/checkcache/cache_hits_total", "The number of times a cache lookup operation succeeded to find an entry in the cache.", stats.UnitDimensionless)
-	missesTotal    = stats.Int64("mixer/checkcache/cache_misses_total", "The number of times a cache lookup operation failed to find an entry in the cache.", stats.UnitDimensionless)
-	evictionsTotal = stats.Int64("mixer/checkcache/cache_evictions_total", "The number of entries that have been evicted from the cache.", stats.UnitDimensionless)
+	writesTotal = stats.Int64(
+		"mixer/checkcache/cache_writes_total", "The number of times state in the cache was added or updated.", stats.UnitDimensionless)
+	hitsTotal = stats.Int64(
+		"mixer/checkcache/cache_hits_total", "The number of times a cache lookup operation succeeded to find an entry in the cache.", stats.UnitDimensionless)
+	missesTotal = stats.Int64(
+		"mixer/checkcache/cache_misses_total", "The number of times a cache lookup operation failed to find an entry in the cache.", stats.UnitDimensionless)
+	evictionsTotal = stats.Int64(
+		"mixer/checkcache/cache_evictions_total", "The number of entries that have been evicted from the cache.", stats.UnitDimensionless)
 
 	writesView    = newView(writesTotal, []tag.Key{}, view.LastValue())
 	hitsView      = newView(hitsTotal, []tag.Key{}, view.LastValue())
