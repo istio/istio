@@ -80,6 +80,8 @@ service HandleTraceSpanService {
     
 }
 
+
+
 // Request message for HandleTraceSpan method.
 message HandleTraceSpanRequest {
 

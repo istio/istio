@@ -148,11 +148,13 @@ ID: 3
 TemplatesStatic:
   Name: tapa
   Name: tcheck
+  Name: tcheckoutput
   Name: thalt
   Name: tquota
   Name: treport
 AdaptersStatic:
   Name: acheck
+  Name: acheckoutput
   Name: apa
   Name: aquota
   Name: areport

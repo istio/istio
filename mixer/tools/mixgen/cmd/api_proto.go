@@ -32,6 +32,8 @@ import "mixer/adapter/model/v1beta1/extensions.proto";
 import "google/protobuf/any.proto";
 {{if eq .VarietyName "TEMPLATE_VARIETY_CHECK" -}}
 import "mixer/adapter/model/v1beta1/check.proto";
+{{- else if eq .VarietyName "TEMPLATE_VARIETY_CHECK_WITH_OUTPUT" -}}
+import "mixer/adapter/model/v1beta1/check.proto";
 {{- else if eq .VarietyName "TEMPLATE_VARIETY_REPORT" -}}
 import "mixer/adapter/model/v1beta1/report.proto";
 {{- else if eq .VarietyName "TEMPLATE_VARIETY_QUOTA" -}}
@@ -54,12 +56,31 @@ service Handle{{.InterfaceName}}Service {
     // Handle{{.InterfaceName}} is called by Mixer at request-time to deliver '{{.TemplateName}}' instances to the backend.
     {{if eq .VarietyName "TEMPLATE_VARIETY_CHECK" -}}
       rpc Handle{{.InterfaceName}}(Handle{{.InterfaceName}}Request) returns (istio.mixer.adapter.model.v1beta1.CheckResult);
+    {{else if eq .VarietyName "TEMPLATE_VARIETY_CHECK_WITH_OUTPUT" -}}
+      rpc Handle{{.InterfaceName}}(Handle{{.InterfaceName}}Request) returns (Handle{{.InterfaceName}}Response);
     {{else if eq .VarietyName "TEMPLATE_VARIETY_QUOTA" -}}
       rpc Handle{{.InterfaceName}}(Handle{{.InterfaceName}}Request) returns (istio.mixer.adapter.model.v1beta1.QuotaResult);
     {{else if eq .VarietyName "TEMPLATE_VARIETY_REPORT" -}}
       rpc Handle{{.InterfaceName}}(Handle{{.InterfaceName}}Request) returns (istio.mixer.adapter.model.v1beta1.ReportResult);
     {{end}}
 }
+
+{{ if eq .VarietyName "TEMPLATE_VARIETY_CHECK_WITH_OUTPUT" -}}
+message Handle{{.InterfaceName}}Response {
+    // Result of the check call.
+    istio.mixer.adapter.model.v1beta1.CheckResult result = 1;
+
+    // Output instance.
+    {{.InterfaceName}}Output output = 2;
+}
+
+message {{.InterfaceName}}Output {
+    {{range .OutputTemplateMessage.Fields}}
+    {{.Comment}}
+    {{typeName .ProtoType}} {{.ProtoName}} = {{.Number}};{{reportTypeUsed .ProtoType}}
+    {{end}}
+}
+{{ end }}
 
 // Request message for Handle{{.InterfaceName}} method.
 message Handle{{.InterfaceName}}Request {

@@ -182,7 +182,7 @@ func (m *Model) fillModel(templateProto *protoDesc.FileDescriptor, resourceProto
 	}
 
 	// ensure OutputTemplate is present for APA
-	if m.VarietyName == tmpl.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR.String() {
+	if m.VarietyName == tmpl.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR.String() || m.VarietyName == tmpl.TEMPLATE_VARIETY_CHECK_WITH_OUTPUT.String() {
 		if outTmplDesc, ok := getMsg(templateProto, "OutputTemplate"); !ok {
 			m.addError(templateProto.GetName(), unknownLine, "message 'OutputTemplate' not defined")
 		} else {

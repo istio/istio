@@ -36,8 +36,8 @@ func TestDestinationCounters_Update(t *testing.T) {
 	table, _ := buildTable(serviceConfig, []string{data.HandlerACheck1, data.InstanceCheck1, data.RuleCheck1}, true)
 
 	d := table.GetDestinations(tpb.TEMPLATE_VARIETY_CHECK, "istio-system")
-	d.Entries()[0].Counters.Update(time.Second, false)
-	d.Entries()[0].Counters.Update(time.Second, true)
+	d[0].Counters.Update(time.Second, false)
+	d[0].Counters.Update(time.Second, true)
 
 	reachedEnd = true
 }

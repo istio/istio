@@ -73,6 +73,8 @@ service HandleLogEntryService {
     
 }
 
+
+
 // Request message for HandleLogEntry method.
 message HandleLogEntryRequest {
 

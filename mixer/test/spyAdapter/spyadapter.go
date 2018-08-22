@@ -28,6 +28,9 @@
 // quota template
 //go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -t mixer/test/spyAdapter/template/quota/quotatmpl.proto
 
+// check with output template
+//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -d false -t mixer/test/spyAdapter/template/check_output/tmpl.proto
+
 // Package spyAdapter is intended for Mixer testing *ONLY*.
 package spyAdapter
 
@@ -40,6 +43,7 @@ import (
 	"istio.io/istio/mixer/pkg/adapter"
 	apaTmpl "istio.io/istio/mixer/test/spyAdapter/template/apa"
 	checkTmpl "istio.io/istio/mixer/test/spyAdapter/template/check"
+	checkOutputTmpl "istio.io/istio/mixer/test/spyAdapter/template/check_output"
 	quotaTmpl "istio.io/istio/mixer/test/spyAdapter/template/quota"
 	reportTmpl "istio.io/istio/mixer/test/spyAdapter/template/report"
 )
@@ -73,6 +77,12 @@ type (
 		HandleSampleCheckErr    error
 		HandleSampleCheckPanic  bool
 		HandleSampleCheckSleep  time.Duration
+
+		HandleCheckProducerResult adapter.CheckResult
+		HandleCheckProducerOutput *checkOutputTmpl.CheckProducerOutput
+		HandleCheckProducerErr    error
+		HandleCheckProducerPanic  bool
+		HandleCheckProducerSleep  time.Duration
 
 		HandleSampleQuotaResult adapter.QuotaResult
 		HandleSampleQuotaErr    error
@@ -246,6 +256,21 @@ func (h handler) HandleSampleCheck(ctx context.Context, instance *checkTmpl.Inst
 
 	time.Sleep(h.behavior.HandleSampleCheckSleep)
 	return h.behavior.HandleSampleCheckResult, h.behavior.HandleSampleCheckErr
+}
+
+func (h handler) HandleCheckProducer(ctx context.Context, instance *checkOutputTmpl.Instance) (adapter.CheckResult, *checkOutputTmpl.CheckProducerOutput, error) {
+	c := CapturedCall{
+		Name:      "HandleCheckProducer",
+		Instances: []interface{}{instance},
+	}
+	h.data.CapturedCalls = append(h.data.CapturedCalls, c)
+
+	if h.behavior.HandleCheckProducerPanic {
+		panic("HandleCheckProducer")
+	}
+
+	time.Sleep(h.behavior.HandleCheckProducerSleep)
+	return h.behavior.HandleCheckProducerResult, h.behavior.HandleCheckProducerOutput, h.behavior.HandleCheckProducerErr
 }
 
 func (h handler) HandleSampleQuota(ctx context.Context, instance *quotaTmpl.Instance, args adapter.QuotaArgs) (adapter.QuotaResult, error) {

@@ -97,6 +97,27 @@ ident                         : dest.istio-system
 	},
 
 	{
+		name: "BasicCheckOutput",
+		config: []string{
+			data.HandlerACheckOutput1,
+			data.InstanceCheckOutput1,
+			data.RuleCheckOutput1,
+		},
+		variety:             tpb.TEMPLATE_VARIETY_CHECK_WITH_OUTPUT,
+		expectedCheckResult: adapter.CheckResult{ValidDuration: 123 * time.Second, ValidUseCount: 123},
+		log: `
+[tcheckoutput] InstanceBuilderFn() => name: 'tcheckoutput', bag: '---
+ident                         : dest.istio-system
+'
+[tcheckoutput] InstanceBuilderFn() <= (SUCCESS)
+[tcheckoutput] DispatchCheckOutput => context exists: 'true'
+[tcheckoutput] DispatchCheckOutput => handler exists: 'true'
+[tcheckoutput] DispatchCheckOutput => instance:       '&Struct{Fields:map[string]*Value{},XXX_unrecognized:[],}'
+[tcheckoutput] DispatchCheckOutput <= (SUCCESS)
+		`,
+	},
+
+	{
 		name: "BasicCheckError",
 		templates: []data.FakeTemplateSettings{{
 			Name:                 "tcheck",
@@ -751,7 +772,7 @@ func TestDispatcher(t *testing.T) {
 
 			var err error
 			switch tst.variety {
-			case tpb.TEMPLATE_VARIETY_CHECK:
+			case tpb.TEMPLATE_VARIETY_CHECK, tpb.TEMPLATE_VARIETY_CHECK_WITH_OUTPUT:
 				cres, e := dispatcher.Check(context.TODO(), bag)
 
 				if e == nil {

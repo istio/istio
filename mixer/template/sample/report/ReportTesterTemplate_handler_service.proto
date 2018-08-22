@@ -42,6 +42,8 @@ service HandleReportService {
     
 }
 
+
+
 // Request message for HandleReport method.
 message HandleReportRequest {
 

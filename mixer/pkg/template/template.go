@@ -51,6 +51,9 @@ type (
 	// DispatchCheckFn dispatches the instance to the handler.
 	DispatchCheckFn func(ctx context.Context, handler adapter.Handler, instance interface{}) (adapter.CheckResult, error)
 
+	// DispatchCheckOutputFn dispatches the instance to the handler.
+	DispatchCheckOutputFn func(ctx context.Context, handler adapter.Handler, instance interface{}) (adapter.CheckResult, interface{}, error)
+
 	// DispatchReportFn dispatches the instances to the handler.
 	DispatchReportFn func(ctx context.Context, handler adapter.Handler, instances []interface{}) error
 
@@ -175,10 +178,11 @@ type (
 
 		AttributeManifests []*pb.AttributeManifest
 
-		DispatchReport   DispatchReportFn
-		DispatchCheck    DispatchCheckFn
-		DispatchQuota    DispatchQuotaFn
-		DispatchGenAttrs DispatchGenerateAttributesFn
+		DispatchReport      DispatchReportFn
+		DispatchCheck       DispatchCheckFn
+		DispatchCheckOutput DispatchCheckOutputFn
+		DispatchQuota       DispatchQuotaFn
+		DispatchGenAttrs    DispatchGenerateAttributesFn
 
 		CreateInstanceBuilder   CreateInstanceBuilderFn
 		CreateOutputExpressions CreateOutputExpressionsFn

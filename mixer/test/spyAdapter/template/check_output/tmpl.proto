@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package CheckProducer;
+
+import "mixer/adapter/model/v1beta1/extensions.proto";
+
+option (istio.mixer.adapter.model.v1beta1.template_variety) = TEMPLATE_VARIETY_CHECK_WITH_OUTPUT;
+
+message Template {
+    string stringPrimitive = 4;
+}
+
+message OutputTemplate {
+    int64 int64Primitive = 1;
+
+    bool boolPrimitive = 2;
+
+    double doublePrimitive = 3;
+
+    string stringPrimitive = 4;
+
+    map<string, string> stringMap = 5;
+}

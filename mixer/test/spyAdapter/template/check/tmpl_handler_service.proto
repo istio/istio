@@ -41,6 +41,8 @@ service HandleSampleCheckService {
     
 }
 
+
+
 // Request message for HandleSampleCheck method.
 message HandleSampleCheckRequest {
 

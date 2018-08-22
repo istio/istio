@@ -73,6 +73,8 @@ service HandleEdgeService {
     
 }
 
+
+
 // Request message for HandleEdge method.
 message HandleEdgeRequest {
 

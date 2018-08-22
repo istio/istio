@@ -1587,7 +1587,7 @@
     "rbac/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "214c7598afb74f7f4dea49f77e45832c49382a15"
+  revision = "fac61dc6aaec82b5824918f379e29ff48afcd2cb"
 
 [[projects]]
   digest = "1:a0934c59fa838e950c6b4b114e13376349d4eb3e054d86322f70ac42a15d3d95"

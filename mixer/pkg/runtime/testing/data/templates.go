@@ -41,10 +41,11 @@ func BuildTemplates(l *Logger, settings ...FakeTemplateSettings) map[string]*tem
 	}
 
 	var t = map[string]*template.Info{
-		"tcheck":  createFakeTemplate("tcheck", m["tcheck"], l, istio_mixer_v1_template.TEMPLATE_VARIETY_CHECK),
-		"treport": createFakeTemplate("treport", m["treport"], l, istio_mixer_v1_template.TEMPLATE_VARIETY_REPORT),
-		"tquota":  createFakeTemplate("tquota", m["tquota"], l, istio_mixer_v1_template.TEMPLATE_VARIETY_QUOTA),
-		"tapa":    createFakeTemplate("tapa", m["tapa"], l, istio_mixer_v1_template.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR),
+		"tcheck":       createFakeTemplate("tcheck", m["tcheck"], l, istio_mixer_v1_template.TEMPLATE_VARIETY_CHECK),
+		"tcheckoutput": createFakeTemplate("tcheckoutput", m["tcheckoutput"], l, istio_mixer_v1_template.TEMPLATE_VARIETY_CHECK_WITH_OUTPUT),
+		"treport":      createFakeTemplate("treport", m["treport"], l, istio_mixer_v1_template.TEMPLATE_VARIETY_REPORT),
+		"tquota":       createFakeTemplate("tquota", m["tquota"], l, istio_mixer_v1_template.TEMPLATE_VARIETY_QUOTA),
+		"tapa":         createFakeTemplate("tapa", m["tapa"], l, istio_mixer_v1_template.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR),
 
 		// This is another template with check.
 		"thalt": createFakeTemplate("thalt", m["thalt"], l, istio_mixer_v1_template.TEMPLATE_VARIETY_CHECK),
@@ -123,6 +124,25 @@ func createFakeTemplate(name string, s FakeTemplateSettings, l *Logger, variety 
 
 			l.Write(name, "DispatchCheck <= (SUCCESS)")
 			return result, nil
+		},
+		DispatchCheckOutput: func(ctx context.Context, handler adapter.Handler, instance interface{}) (adapter.CheckResult, interface{}, error) {
+			l.WriteFormat(name, "DispatchCheckOutput => context exists: '%+v'", ctx != nil)
+			l.WriteFormat(name, "DispatchCheckOutput => handler exists: '%+v'", handler != nil)
+			l.WriteFormat(name, "DispatchCheckOutput => instance:       '%+v'", instance)
+
+			signalCallAndWait(s)
+
+			result := adapter.CheckResult{
+				ValidUseCount: 123,
+				ValidDuration: 123 * time.Second,
+			}
+			if callCount < len(s.CheckResults) {
+				result = s.CheckResults[callCount]
+			}
+			callCount++
+
+			l.Write(name, "DispatchCheckOutput <= (SUCCESS)")
+			return result, nil, nil
 		},
 		DispatchReport: func(ctx context.Context, handler adapter.Handler, instances []interface{}) error {
 			l.WriteFormat(name, "DispatchReport => context exists: '%+v'", ctx != nil)

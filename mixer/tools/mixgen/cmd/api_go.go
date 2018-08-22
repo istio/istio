@@ -44,7 +44,7 @@ type Instance struct {
   {{end}}
 }
 
-{{if eq .VarietyName "TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR"}}
+{{if eq .VarietyName "TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR" }}
 // Output struct is returned by the attribute producing adapters that handle this template.{{if ne .OutputTemplateMessage.Comment ""}}
 //
 {{.OutputTemplateMessage.Comment}}{{end}}
@@ -114,6 +114,8 @@ type Handler interface {
   // to an adapter.
   {{if eq .VarietyName "TEMPLATE_VARIETY_CHECK" -}}
     Handle{{.InterfaceName}}(context.Context, *Instance) (adapter.CheckResult, error)
+  {{else if eq .VarietyName "TEMPLATE_VARIETY_CHECK_WITH_OUTPUT" -}}
+    Handle{{.InterfaceName}}(context.Context, *Instance) (adapter.CheckResult, *{{.InterfaceName}}Output, error)
   {{else if eq .VarietyName "TEMPLATE_VARIETY_QUOTA" -}}
     Handle{{.InterfaceName}}(context.Context, *Instance, adapter.QuotaArgs) (adapter.QuotaResult, error)
   {{else if eq .VarietyName "TEMPLATE_VARIETY_REPORT" -}}

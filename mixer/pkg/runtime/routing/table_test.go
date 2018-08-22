@@ -76,7 +76,8 @@ func TestTable_GetDestinations(t *testing.T) {
 			serviceConfig := data.ServiceConfig
 			table, snapshot := buildTable(serviceConfig, tst.Configs, true)
 
-			destinations := table.GetDestinations(tst.V, tst.Ns)
+			entries := table.GetDestinations(tst.V, tst.Ns)
+			destinations := &NamespaceTable{entries: entries}
 			actual := destinations.string(table)
 			if normalize(actual) != normalize(tst.E) {
 				tt.Logf("Snapshot:\n%v", snapshot)
@@ -102,7 +103,7 @@ func TestEmpty(t *testing.T) {
 	}
 
 	destinations := table.GetDestinations(tpb.TEMPLATE_VARIETY_CHECK, "istio-system")
-	if destinations.Count() > 0 {
+	if len(destinations) > 0 {
 		t.Fatal("destination count should be zero")
 	}
 }
@@ -126,8 +127,7 @@ func TestDestination_MaxInstances(t *testing.T) {
 		table, _ := buildTable(
 			data.ServiceConfig, tst.configs, true)
 
-		destinations := table.GetDestinations(tpb.TEMPLATE_VARIETY_CHECK, "istio-system")
-		entries := destinations.Entries()
+		entries := table.GetDestinations(tpb.TEMPLATE_VARIETY_CHECK, "istio-system")
 		if len(entries) != 1 {
 			t.Fatal("There should be one entry")
 		}
@@ -143,8 +143,7 @@ func TestInputs_Matches(t *testing.T) {
 	table, _ := buildTable(
 		data.ServiceConfig, []string{data.HandlerACheck1, data.InstanceCheck1, data.RuleCheck1WithMatchClause}, true)
 
-	destinations := table.GetDestinations(tpb.TEMPLATE_VARIETY_CHECK, "istio-system")
-	entries := destinations.Entries()
+	entries := table.GetDestinations(tpb.TEMPLATE_VARIETY_CHECK, "istio-system")
 	if len(entries) != 1 {
 		t.Fatal("There should be one entry")
 	}
@@ -181,8 +180,7 @@ func TestInputs_Matches_NoCondition(t *testing.T) {
 	table, _ := buildTable(
 		data.ServiceConfig, []string{data.HandlerACheck1, data.InstanceCheck1, data.RuleCheck1}, true)
 
-	destinations := table.GetDestinations(tpb.TEMPLATE_VARIETY_CHECK, "istio-system")
-	entries := destinations.Entries()
+	entries := table.GetDestinations(tpb.TEMPLATE_VARIETY_CHECK, "istio-system")
 	if len(entries) != 1 {
 		t.Fatal("There should be one entry")
 	}

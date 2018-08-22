@@ -2,3 +2,4 @@ apa/tmpl_proto.descriptor_set: "istio.io/istio/mixer/test/spyAdapter/template/ap
 check/tmpl_proto.descriptor_set: "istio.io/istio/mixer/test/spyAdapter/template/check"
 report/reporttmpl_proto.descriptor_set: "istio.io/istio/mixer/test/spyAdapter/template/report"
 quota/quotatmpl_proto.descriptor_set: "istio.io/istio/mixer/test/spyAdapter/template/quota"
+check_output/tmpl_proto.descriptor_set: "istio.io/istio/mixer/test/spyAdapter/template/check_output"

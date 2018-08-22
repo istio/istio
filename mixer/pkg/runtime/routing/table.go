@@ -92,22 +92,24 @@ type NamedBuilder struct {
 
 // TemplateInfo is the common data that is needed from a template
 type TemplateInfo struct {
-	Name             string
-	Variety          tpb.TemplateVariety
-	DispatchReport   template.DispatchReportFn
-	DispatchCheck    template.DispatchCheckFn
-	DispatchQuota    template.DispatchQuotaFn
-	DispatchGenAttrs template.DispatchGenerateAttributesFn
+	Name                string
+	Variety             tpb.TemplateVariety
+	DispatchReport      template.DispatchReportFn
+	DispatchCheck       template.DispatchCheckFn
+	DispatchCheckOutput template.DispatchCheckOutputFn
+	DispatchQuota       template.DispatchQuotaFn
+	DispatchGenAttrs    template.DispatchGenerateAttributesFn
 }
 
 func buildTemplateInfo(info *template.Info) *TemplateInfo {
 	return &TemplateInfo{
-		Name:             info.Name,
-		Variety:          info.Variety,
-		DispatchReport:   info.DispatchReport,
-		DispatchCheck:    info.DispatchCheck,
-		DispatchQuota:    info.DispatchQuota,
-		DispatchGenAttrs: info.DispatchGenAttrs,
+		Name:                info.Name,
+		Variety:             info.Variety,
+		DispatchReport:      info.DispatchReport,
+		DispatchCheck:       info.DispatchCheck,
+		DispatchCheckOutput: info.DispatchCheckOutput,
+		DispatchQuota:       info.DispatchQuota,
+		DispatchGenAttrs:    info.DispatchGenAttrs,
 	}
 }
 
@@ -139,12 +141,24 @@ func (t *Table) ID() int64 {
 }
 
 // GetDestinations returns the set of destinations (handlers) for the given template variety and for the given namespace.
-func (t *Table) GetDestinations(variety tpb.TemplateVariety, namespace string) *NamespaceTable {
+// Template variety CHECK and CHECK_WITH_OUTPUT are considered equivalent, and will produce the same destinations.
+func (t *Table) GetDestinations(variety tpb.TemplateVariety, namespace string) []*Destination {
+	switch variety {
+	case tpb.TEMPLATE_VARIETY_CHECK, tpb.TEMPLATE_VARIETY_CHECK_WITH_OUTPUT:
+		checkDestinations := t.getVarietyDestinations(tpb.TEMPLATE_VARIETY_CHECK, namespace)
+		checkOutputDestinations := t.getVarietyDestinations(tpb.TEMPLATE_VARIETY_CHECK_WITH_OUTPUT, namespace)
+		return append(checkDestinations, checkOutputDestinations...)
+	default:
+		return t.getVarietyDestinations(variety, namespace)
+	}
+}
+
+func (t *Table) getVarietyDestinations(variety tpb.TemplateVariety, namespace string) []*Destination {
 	destinations, ok := t.entries[variety]
 	if !ok {
 		log.Debugf("No destinations found for variety: table='%d', variety='%d'", t.id, variety)
 
-		return emptyDestinations
+		return nil
 	}
 
 	destinationSet := destinations.entries[namespace]
@@ -153,7 +167,7 @@ func (t *Table) GetDestinations(variety tpb.TemplateVariety, namespace string) *
 		destinationSet = destinations.defaultSet
 	}
 
-	return destinationSet
+	return destinationSet.Entries()
 }
 
 // Count returns the number of entries contained.

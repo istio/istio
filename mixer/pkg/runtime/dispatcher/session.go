@@ -112,12 +112,12 @@ func (s *session) dispatch() error {
 	destinations := s.rc.Routes.GetDestinations(s.variety, namespace)
 
 	// Ensure that we can run dispatches to all destinations in parallel.
-	s.ensureParallelism(destinations.Count())
+	s.ensureParallelism(len(destinations))
 
 	foundQuota := false
 	ninputs := 0
 	ndestinations := 0
-	for _, destination := range destinations.Entries() {
+	for _, destination := range destinations {
 		var state *dispatchState
 
 		if s.variety == tpb.TEMPLATE_VARIETY_REPORT {
@@ -239,7 +239,7 @@ func (s *session) waitForDispatched() {
 		case tpb.TEMPLATE_VARIETY_REPORT:
 			// Do nothing
 
-		case tpb.TEMPLATE_VARIETY_CHECK:
+		case tpb.TEMPLATE_VARIETY_CHECK, tpb.TEMPLATE_VARIETY_CHECK_WITH_OUTPUT:
 			if adapter.IsDefault(&s.checkResult) {
 				// no results so far
 				s.checkResult = state.checkResult
@@ -286,7 +286,7 @@ func (s *session) waitForDispatched() {
 
 	if buf != nil {
 		switch s.variety {
-		case tpb.TEMPLATE_VARIETY_CHECK:
+		case tpb.TEMPLATE_VARIETY_CHECK, tpb.TEMPLATE_VARIETY_CHECK_WITH_OUTPUT:
 			s.checkResult.Status = status.WithMessage(code, buf.String())
 		case tpb.TEMPLATE_VARIETY_QUOTA:
 			s.quotaResult.Status = status.WithMessage(code, buf.String())
