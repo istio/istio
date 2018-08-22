@@ -30,7 +30,7 @@ func TestRoutes(t *testing.T) {
 	samples := 100
 
 	var cfgs *deployableConfig
-	applyRuleFunc := func(t *testing.T, ruleYamls []string) {
+	applyRuleFunc := func(t *testing.T, ruleYaml string) {
 		// Delete the previous rule if there was one. No delay on the teardown, since we're going to apply
 		// a delay when we push the new config.
 		if cfgs != nil {
@@ -43,7 +43,7 @@ func TestRoutes(t *testing.T) {
 		// Apply the new rule
 		cfgs = &deployableConfig{
 			Namespace:  tc.Kube.Namespace,
-			YamlFiles:  ruleYamls,
+			YamlFiles:  []string{ruleYaml},
 			kubeconfig: tc.Kube.KubeConfig,
 		}
 		if err := cfgs.Setup(); err != nil {
@@ -60,7 +60,7 @@ func TestRoutes(t *testing.T) {
 	cases := []struct {
 		testName      string
 		description   string
-		config        []string
+		config        string
 		scheme        string
 		src           string
 		dst           string
@@ -74,7 +74,7 @@ func TestRoutes(t *testing.T) {
 			// First test default routing
 			testName:      "a->c[v1=100]",
 			description:   "routing all traffic to c-v1",
-			config:        []string{"rule-default-route.yaml"},
+			config:        "rule-default-route.yaml",
 			scheme:        "http",
 			src:           "a",
 			dst:           "c",
@@ -86,7 +86,7 @@ func TestRoutes(t *testing.T) {
 		{
 			testName:      "a->c[v1=75,v2=25]",
 			description:   "routing 75 percent to c-v1, 25 percent to c-v2",
-			config:        []string{"rule-weighted-route.yaml"},
+			config:        "rule-weighted-route.yaml",
 			scheme:        "http",
 			src:           "a",
 			dst:           "c",
@@ -97,7 +97,7 @@ func TestRoutes(t *testing.T) {
 		{
 			testName:      "a->c[v2=100]_header",
 			description:   "routing 100 percent to c-v2 using header",
-			config:        []string{"rule-content-route.yaml"},
+			config:        "rule-content-route.yaml",
 			scheme:        "http",
 			src:           "a",
 			dst:           "c",
@@ -109,7 +109,7 @@ func TestRoutes(t *testing.T) {
 		{
 			testName:      "a->c[v2=100]_regex_header",
 			description:   "routing 100 percent to c-v2 using regex header",
-			config:        []string{"rule-regex-route.yaml"},
+			config:        "rule-regex-route.yaml",
 			scheme:        "http",
 			src:           "a",
 			dst:           "c",
@@ -136,7 +136,7 @@ func TestRoutes(t *testing.T) {
 		{
 			testName:      "a->c[v1=100]_websocket",
 			description:   "routing 100 percent to c-v1 with websocket upgrades",
-			config:        []string{"rule-websocket-route.yaml"},
+			config:        "rule-websocket-route.yaml",
 			scheme:        "ws",
 			src:           "a",
 			dst:           "c",
@@ -148,7 +148,7 @@ func TestRoutes(t *testing.T) {
 		{
 			testName:      "a->c[v1=100]_append_headers",
 			description:   "routing all traffic to c-v1 with appended headers",
-			config:        []string{"rule-default-route-append-headers.yaml"},
+			config:        "rule-default-route-append-headers.yaml",
 			scheme:        "http",
 			src:           "a",
 			dst:           "c",
@@ -160,7 +160,7 @@ func TestRoutes(t *testing.T) {
 		{
 			testName:      "a->c[v1=100]_CORS_policy",
 			description:   "routing all traffic to c-v1 with CORS policy",
-			config:        []string{"rule-default-route-cors-policy.yaml"},
+			config:        "rule-default-route-cors-policy.yaml",
 			scheme:        "http",
 			src:           "a",
 			dst:           "c",
@@ -172,7 +172,7 @@ func TestRoutes(t *testing.T) {
 		{
 			testName:      "a->c[v2=100]",
 			description:   "routing tcp traffic from a to c-v2",
-			config:        []string{"virtualservice-route-tcp-a.yaml"},
+			config:        "virtualservice-route-tcp-a.yaml",
 			scheme:        "http",
 			src:           "a",
 			dst:           "c:9090",
@@ -184,7 +184,7 @@ func TestRoutes(t *testing.T) {
 		{
 			testName:      "b->c[v1=100]",
 			description:   "routing tcp traffic from b to c-v1",
-			config:        []string{"virtualservice-route-tcp-a.yaml"},
+			config:        "virtualservice-route-tcp-a.yaml",
 			scheme:        "http",
 			src:           "b",
 			dst:           "c:9090",
@@ -213,11 +213,8 @@ func TestRoutes(t *testing.T) {
 		for _, c := range cases {
 			// Run each case in a function to scope the configuration's lifecycle.
 			func() {
-				ruleYamls := make([]string, len(c.config))
-				for _, y := range c.config {
-					ruleYamls = append(ruleYamls, fmt.Sprintf("testdata/networking/v1alpha3/%s", y))
-				}
-				applyRuleFunc(t, ruleYamls)
+				ruleYaml := fmt.Sprintf("testdata/networking/v1alpha3/%s", c.config)
+				applyRuleFunc(t, ruleYaml)
 
 				for cluster := range tc.Kube.Clusters {
 					testName := fmt.Sprintf("%s from %s cluster", c.testName, cluster)
