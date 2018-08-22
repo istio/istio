@@ -289,20 +289,20 @@ func TestVirtualServiceMerging(t *testing.T) {
 				count[elt] = count[elt] + 1
 			}
 			if count["v1"] != 10 {
-				return fmt.Errorf("expected %v requests to reach %s => Got %v", 10, "v1", count["v1"])
+				return fmt.Errorf("expected %v requests to reach %s => Got %v", 10, "v1", count)
 			}
 			return nil
 		})
 
 		runRetriableTest(t, cluster, testName, 5, func() error {
-			reqURL := "http://c/b"
-			resp := ClientRequest(cluster, "b", reqURL, 10, "")
+			reqURL := "http://c/ba"
+			resp := ClientRequest(cluster, "a", reqURL, 10, "")
 			count := make(map[string]int)
 			for _, elt := range resp.Version {
 				count[elt] = count[elt] + 1
 			}
 			if count["v2"] != 10 {
-				return fmt.Errorf("expected %v requests to reach %s => Got %v", 10, "v2", count["v2"])
+				return fmt.Errorf("expected %v requests to reach %s => Got %v", 10, "v2", count)
 			}
 			return nil
 		})
