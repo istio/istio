@@ -78,7 +78,43 @@ $ helm init --service-account tiller
    EOF
    ```
 
-5. To install the chart with the release name `istio` in namespace `istio-system`:
+5. If you are using security mode for Grafana, create the secret first as follows:
+
+Encode username, you can chage the username to the name as you want:
+```
+$ echo -n 'admin' | base64
+YWRtaW4=
+```
+
+Encode passphrase, you can chage the passphrase to the passphrase as you want:
+```
+$ echo -n '1f2d1e2e67df' | base64
+MWYyZDFlMmU2N2Rm
+```
+
+Set the namespace where Istio was installed:
+```
+$ NAMESPACE=istio-system
+```
+
+Create secret for Grafana:
+```
+$ cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: Secret
+metadata:
+  name: grafana
+  namespace: $NAMESPACE
+  labels:
+    app: grafana
+type: Opaque
+data:
+  username: YWRtaW4=
+  passphrase: MWYyZDFlMmU2N2Rm
+EOF
+```
+
+6. To install the chart with the release name `istio` in namespace `istio-system`:
     - With [automatic sidecar injection](https://istio.io/docs/setup/kubernetes/sidecar-injection/#automatic-sidecar-injection) (requires Kubernetes >=1.9.0):
     ```
     $ helm install install/kubernetes/helm/istio --name istio --namespace istio-system

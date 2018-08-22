@@ -131,7 +131,7 @@ func (mixerplugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.Mut
 }
 
 // OnOutboundCluster implements the Plugin interface method.
-func (mixerplugin) OnOutboundCluster(env *model.Environment, node *model.Proxy, push *model.PushContext,
+func (mixerplugin) OnOutboundCluster(env *model.Environment, push *model.PushContext,
 	service *model.Service, servicePort *model.Port, cluster *xdsapi.Cluster) {
 	// do nothing
 }

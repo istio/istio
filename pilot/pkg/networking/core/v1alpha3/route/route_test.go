@@ -49,7 +49,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		IPAddress: "1.1.1.1",
 		ID:        "someID",
 		Domain:    "foo.com",
-		Metadata:  map[string]string{"ISTIO_PROXY_VERSION": "1.0"},
+		Metadata:  map[string]string{"ISTIO_PROXY_VERSION": "1.1"},
 	}
 	gatewayNames := map[string]bool{"some-gateway": true}
 
