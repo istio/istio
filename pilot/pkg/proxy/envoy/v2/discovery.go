@@ -108,14 +108,19 @@ func NewDiscoveryServer(env *model.Environment, generator core.ConfigGenerator) 
 	out.DebugConfigs = os.Getenv("PILOT_DEBUG_ADSZ_CONFIG") == "1"
 
 	pushThrottle := intEnv("PILOT_PUSH_THROTTLE", 25)
-	pushBurst := intEnv("PILOT_PUSH_BURST", 200)
+	pushBurst := intEnv("PILOT_PUSH_BURST", 100)
 
 	adsLog.Infof("Starting ADS server with throttle=%d burst=%d", pushThrottle, pushBurst)
 
-	// init throttle affects new connections from sidecars.
-	out.initThrottle = initThrottle("initConnection", pushBurst, pushThrottle*2)
-	// normal throttle is set to half of
+	// throttle rate limits the amount of `pushALL` work that is started as a result of events.
 	out.throttle = initThrottle("adsPushAll", pushBurst, pushThrottle)
+
+	// init throttle rate limits starting work on new connections from sidecars.
+	out.initThrottle = initThrottle("initConnection", pushBurst*2, pushThrottle*2)
+
+	// Note: in both cases it does not directly limit the amount of work being perform concurrently.
+	// If a particular push takes a long time, it will allow more and more work, and token are being replenished
+	// as work is being performed.
 
 	return out
 }
