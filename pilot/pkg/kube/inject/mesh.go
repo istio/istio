@@ -65,19 +65,19 @@ initContainers:
     capabilities:
       add:
       - NET_ADMIN
-    {{ if eq .DebugMode true -}}
+    {{ if (or (eq .DebugMode true) (eq .Privileged true)) -}}
     privileged: true
     {{ end -}}
   restartPolicy: Always
 {{ if eq .EnableCoreDump true -}}
-- args:
+- name: enable-core-dump
+  args:
   - -c
   - sysctl -w kernel.core_pattern=/etc/istio/proxy/core.%e.%p.%t && ulimit -c unlimited
   command:
   - /bin/sh
   image: {{ .InitImage }}
   imagePullPolicy: IfNotPresent
-  name: enable-core-dump
   resources: {}
   securityContext:
     privileged: true
@@ -148,18 +148,19 @@ containers:
     requests:
       cpu: 10m
   securityContext:
-    {{ if eq .DebugMode true -}}
+    {{ if (or (eq .DebugMode true) (eq .Privileged true)) -}}
     privileged: true
+    {{ end -}}
+    {{ if eq .DebugMode true -}}
     readOnlyRootFilesystem: false
-    {{ else -}}
-    privileged: false
+    {{ else }}
     readOnlyRootFilesystem: true
+    {{ end }}
     [[ if eq (or (index .ObjectMeta.Annotations "sidecar.istio.io/interceptionMode") .ProxyConfig.InterceptionMode.String) "TPROXY" -]]
     capabilities:
       add:
       - NET_ADMIN
     [[ end -]]
-    {{ end -}}
     [[ if ne (or (index .ObjectMeta.Annotations "sidecar.istio.io/interceptionMode") .ProxyConfig.InterceptionMode.String) "TPROXY" -]]
     runAsUser: 1337
     [[ end -]]

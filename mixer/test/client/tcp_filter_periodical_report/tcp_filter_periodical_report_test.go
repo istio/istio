@@ -41,8 +41,7 @@ const openReportAttributesOkPost = `
   "connection.sent.bytes": 0,
   "connection.sent.bytes_total": 0,
   "connection.id": "*",
-  "connection.event": "open",
-  "connection.requested_server_name": ""
+  "connection.event": "open"
 }
 `
 const deltaReportAttributesOkPost = `
@@ -64,8 +63,7 @@ const deltaReportAttributesOkPost = `
   "connection.sent.bytes": 0,
   "connection.sent.bytes_total": 0,
   "connection.id": "*",
-  "connection.event": "continue",
-  "connection.requested_server_name": ""
+  "connection.event": "continue"
 }
 `
 const finalReportAttributesOkPost = `
@@ -88,8 +86,7 @@ const finalReportAttributesOkPost = `
   "connection.sent.bytes_total": "*",
   "connection.duration": "*",
   "connection.id": "*",
-  "connection.event": "close",
-  "connection.requested_server_name": ""
+  "connection.event": "close"
 }
 `
 
