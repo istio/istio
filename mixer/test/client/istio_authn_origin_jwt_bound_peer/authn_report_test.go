@@ -90,8 +90,8 @@ var checkAttributesOkGet = `
      "aud": "aud1",
      "some-other-string-claims": "some-claims-kept"
   },
-	"request.auth.raw_claims": ` + fmt.Sprintf("%q", secIstioAuthUserinfoHeaderValue) +
-	`
+  "request.auth.raw_claims": ` + fmt.Sprintf("%q", secIstioAuthUserinfoHeaderValue) + `,
+  "request.url_path": "/echo"
 }
 `
 
@@ -150,8 +150,8 @@ var reportAttributesOkGet = `
      "aud": "aud1",
      "some-other-string-claims": "some-claims-kept"
   },
-	"request.auth.raw_claims": ` + fmt.Sprintf("%q", secIstioAuthUserinfoHeaderValue) +
-	`
+  "request.auth.raw_claims": ` + fmt.Sprintf("%q", secIstioAuthUserinfoHeaderValue) + `,
+  "request.url_path": "/echo"
 }
 `
 

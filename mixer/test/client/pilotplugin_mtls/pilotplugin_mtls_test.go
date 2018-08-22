@@ -134,7 +134,6 @@ static_resources:
 }
 `
 	// See issue https://github.com/istio/proxy/issues/1910
-	// "source.principal": "cluster.local/ns/default/sa/client",
 	// "source.user": "cluster.local/ns/default/sa/client",
 	checkAttributesOkInbound = `
 {
@@ -153,6 +152,7 @@ static_resources:
   "destination.service.name": "svc",
   "destination.service.namespace": "ns3",
   "destination.service.uid": "istio://ns3/services/svc",
+  "source.principal": "cluster.local/ns/default/sa/client",
   "source.uid": "kubernetes://pod2.ns2",
   "request.headers": {
      ":method": "GET",
@@ -219,7 +219,6 @@ static_resources:
 }`
 
 	// See issue https://github.com/istio/proxy/issues/1910
-	// "source.principal": "cluster.local/ns/default/sa/client",
 	// "source.user": "cluster.local/ns/default/sa/client",
 	reportAttributesOkInbound = `
 {
@@ -269,7 +268,8 @@ static_resources:
      "server": "envoy"
   },
   "response.total_size": "*",
-  "request.url_path": "/echo"
+  "request.url_path": "/echo",
+  "source.principal": "cluster.local/ns/default/sa/client"
 }`
 )
 
