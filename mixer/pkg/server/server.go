@@ -18,10 +18,9 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"os"
 	"strings"
 	"time"
-
-	"istio.io/istio/mixer/pkg/config/crd"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
@@ -31,16 +30,16 @@ import (
 	ot "github.com/opentracing/opentracing-go"
 	"google.golang.org/grpc"
 
-	"os"
-
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/api"
 	"istio.io/istio/mixer/pkg/checkcache"
 	"istio.io/istio/mixer/pkg/config"
+	"istio.io/istio/mixer/pkg/config/crd"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/runtime"
+	runtimeconfig "istio.io/istio/mixer/pkg/runtime/config"
 	"istio.io/istio/mixer/pkg/runtime/dispatcher"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/ctrlz"
@@ -199,19 +198,24 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 		templateMap[k] = &t
 	}
 
-	rt = p.newRuntime(st, templateMap, adapterMap, a.ConfigDefaultNamespace,
-		s.gp, s.adapterGP, a.TracingOptions.TracingEnabled())
-
-	// this method initializes the store
-	if err = p.runtimeListen(rt); err != nil {
-		_ = s.Close()
-		return nil, fmt.Errorf("unable to listen: %v", err)
+	kinds := runtimeconfig.KindMap(adapterMap, templateMap)
+	if err := st.Init(kinds); err != nil {
+		return nil, fmt.Errorf("unable to initialize config store: %v", err)
 	}
 
 	// block wait for the config store to sync
 	log.Info("Awaiting for config store sync...")
 	if err := st.WaitForSynced(30 * time.Second); err != nil {
 		return nil, err
+	}
+
+	log.Info("Starting runtime config watch...")
+	rt = p.newRuntime(st, templateMap, adapterMap, a.ConfigDefaultNamespace,
+		s.gp, s.adapterGP, a.TracingOptions.TracingEnabled())
+
+	if err = p.runtimeListen(rt); err != nil {
+		_ = s.Close()
+		return nil, fmt.Errorf("unable to listen: %v", err)
 	}
 
 	s.dispatcher = rt.Dispatcher()
