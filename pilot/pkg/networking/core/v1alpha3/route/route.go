@@ -774,7 +774,7 @@ func getEnvoyRouteTypeAndVal(r *route.Route) (envoyRouteType, string) {
 	return iType, iVal
 }
 
-// Concatenates two Vhost's routes into a single route set.
+// CombineVHostRoutes semi concatenates two Vhost's routes into a single route set.
 // Moves the catch all routes alone to the end, while retaining
 // the relative order of other routes in the concatenated route.
 // Assumes that the virtual services that generated first and second are ordered by
