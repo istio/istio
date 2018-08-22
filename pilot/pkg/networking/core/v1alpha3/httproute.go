@@ -132,10 +132,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 	}
 
 	// Get list of virtual services bound to the mesh gateway
-	configStore := env.IstioConfigStore
-	virtualHostWrappers := istio_route.BuildVirtualHostsFromConfigAndRegistry(node, configStore, push, nameToServiceMap, proxyLabels)
+	virtualHostWrappers := istio_route.BuildVirtualHostsFromConfigAndRegistry(node, push, nameToServiceMap, proxyLabels)
 	vHostPortMap := make(map[int][]route.VirtualHost)
-	vHostDedupMap := make(map[string]*route.VirtualHost)
 
 	for _, virtualHostWrapper := range virtualHostWrappers {
 		// If none of the routes matched by source, skip this virtual host
@@ -145,36 +143,21 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 
 		virtualHosts := make([]route.VirtualHost, 0, len(virtualHostWrapper.VirtualServiceHosts)+len(virtualHostWrapper.Services))
 		for _, host := range virtualHostWrapper.VirtualServiceHosts {
-			// check if we already generated a vhost for this host. If so, concatenate both routes
-			// and move the catch all route to the end
-			if currentVhost, exists := vHostDedupMap[host]; exists {
-				currentVhost.Routes = istio_route.CombineVHostRoutes(currentVhost.Routes, virtualHostWrapper.Routes)
-			} else {
-				newVhost := &route.VirtualHost{
-					Name:    fmt.Sprintf("%s:%d", host, virtualHostWrapper.Port),
-					Domains: []string{host, fmt.Sprintf("%s:%d", host, virtualHostWrapper.Port)},
-					Routes:  virtualHostWrapper.Routes,
-				}
-				virtualHosts = append(virtualHosts, *newVhost)
-				vHostDedupMap[host] = newVhost
-			}
+			virtualHosts = append(virtualHosts, route.VirtualHost{
+				Name:    fmt.Sprintf("%s:%d", host, virtualHostWrapper.Port),
+				Domains: []string{host, fmt.Sprintf("%s:%d", host, virtualHostWrapper.Port)},
+				Routes:  virtualHostWrapper.Routes,
+			})
 		}
 
 		for _, svc := range virtualHostWrapper.Services {
-			// check if we already generated a vhost for this host. If so, concatenate both routes
-			// and move the catch all route to the end
-			if currentVhost, exists := vHostDedupMap[string(svc.Hostname)]; exists {
-				currentVhost.Routes = istio_route.CombineVHostRoutes(currentVhost.Routes, virtualHostWrapper.Routes)
-			} else {
-				newVhost := &route.VirtualHost{
-					Name:    fmt.Sprintf("%s:%d", svc.Hostname, virtualHostWrapper.Port),
-					Domains: generateVirtualHostDomains(svc, virtualHostWrapper.Port, node),
-					Routes:  virtualHostWrapper.Routes,
-				}
-				virtualHosts = append(virtualHosts, *newVhost)
-				vHostDedupMap[string(svc.Hostname)] = newVhost
-			}
+			virtualHosts = append(virtualHosts, route.VirtualHost{
+				Name:    fmt.Sprintf("%s:%d", svc.Hostname, virtualHostWrapper.Port),
+				Domains: generateVirtualHostDomains(svc, virtualHostWrapper.Port, node),
+				Routes:  virtualHostWrapper.Routes,
+			})
 		}
+
 		vHostPortMap[virtualHostWrapper.Port] = append(vHostPortMap[virtualHostWrapper.Port], virtualHosts...)
 	}
 

@@ -453,7 +453,7 @@ var networkingSubsetWithPortLevelSettings = &networking.Subset{
 	},
 }
 
-func TestCombineVHostRoutes(t *testing.T) {
+func TestSortRoutes(t *testing.T) {
 	first := []envoyroute.Route{
 		{Match: envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Path{Path: "/path1"}}},
 		{Match: envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Prefix{Prefix: "/prefix1"}}},
@@ -496,7 +496,8 @@ func TestCombineVHostRoutes(t *testing.T) {
 		{Match: envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Prefix{Prefix: "/"}}},
 	}
 
-	got := route.CombineVHostRoutes(first, second)
+	got := append(first, second...)
+	route.SortRoutes(got)
 	if !reflect.DeepEqual(want, got) {
 		t.Errorf("CombineVHostRoutes: \n")
 		t.Errorf("got: \n")

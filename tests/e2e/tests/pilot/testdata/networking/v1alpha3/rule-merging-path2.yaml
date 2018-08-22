@@ -4,13 +4,17 @@ metadata:
   name: merge-test-route2
 spec:
   hosts:
-    - c
+  - uk.bookinfo.com
+  gateways:
+  - istio-ingressgateway
   http:
     - match:
       - uri:
-          prefix: /b
+          prefix: /route2
       route:
       - destination:
           host: c
           subset: v2
+          port:
+            number: 80
         weight: 100

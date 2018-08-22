@@ -242,23 +242,22 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 
 		for vsvcHost, gatewayHost := range matchingHosts {
 			if currentVhost, exists := vHostDedupMap[vsvcHost]; exists {
-				currentVhost.Routes = istio_route.CombineVHostRoutes(currentVhost.Routes, routes)
+				currentVhost.Routes = append(currentVhost.Routes, routes...)
 			} else {
 				newVhost := &route.VirtualHost{
-					Name:    fmt.Sprintf("%s:%d", v.Name, port),
+					Name:    fmt.Sprintf("%s:%d", vsvcHost, port),
 					Domains: []string{vsvcHost, fmt.Sprintf("%s:%d", vsvcHost, port)},
 					Routes:  routes,
 				}
 				if tlsRedirect[gatewayHost] {
 					newVhost.RequireTls = route.VirtualHost_ALL
 				}
-				virtualHosts = append(virtualHosts, *newVhost)
 				vHostDedupMap[vsvcHost] = newVhost
 			}
 		}
 	}
 
-	if len(virtualHosts) == 0 {
+	if len(vHostDedupMap) == 0 {
 		log.Warnf("constructed http route config for port %d with no vhosts; Setting up a default 404 vhost", port)
 		virtualHosts = append(virtualHosts, route.VirtualHost{
 			Name:    fmt.Sprintf("blackhole:%d", port),
@@ -276,7 +275,16 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 				},
 			},
 		})
+	} else {
+		// Since we merge multiple virtual services for same host and sort the routes in a particular order,
+		// we have to maintain the same ordering semantics for non-merged vhost routes as well.
+		// So, sort each virtual host's routes based on our custom sort criteria and build the virtual host array
+		for _, v := range vHostDedupMap {
+			istio_route.SortRoutes(v.Routes)
+			virtualHosts = append(virtualHosts, *v)
+		}
 	}
+
 	util.SortVirtualHosts(virtualHosts)
 
 	routeCfg := &xdsapi.RouteConfiguration{

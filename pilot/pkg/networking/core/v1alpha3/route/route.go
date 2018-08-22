@@ -86,7 +86,6 @@ type VirtualHostWrapper struct {
 // services from the service registry. Services are indexed by FQDN hostnames.
 func BuildVirtualHostsFromConfigAndRegistry(
 	node *model.Proxy,
-	configStore model.IstioConfigStore,
 	push *model.PushContext,
 	serviceRegistry map[model.Hostname]*model.Service,
 	proxyLabels model.LabelsCollection) []VirtualHostWrapper {
@@ -97,7 +96,7 @@ func BuildVirtualHostsFromConfigAndRegistry(
 	virtualServices := push.VirtualServices(meshGateway)
 	// translate all virtual service configs into virtual hosts
 	for _, virtualService := range virtualServices {
-		wrappers := buildVirtualHostsForVirtualService(node, configStore, push, virtualService, serviceRegistry, proxyLabels, meshGateway)
+		wrappers := buildVirtualHostsForVirtualService(node, push, virtualService, serviceRegistry, proxyLabels, meshGateway)
 		if len(wrappers) == 0 {
 			// If none of the routes matched by source (i.e. proxyLabels), then discard this entire virtual service
 			continue
@@ -167,7 +166,6 @@ func separateVSHostsAndServices(virtualService model.Config,
 // It may return an empty list if no VirtualService rule has a matching service.
 func buildVirtualHostsForVirtualService(
 	node *model.Proxy,
-	configStore model.IstioConfigStore,
 	push *model.PushContext,
 	virtualService model.Config,
 	serviceRegistry map[model.Hostname]*model.Service,
@@ -745,14 +743,22 @@ const (
 	envoyCatchAll
 )
 
-// CombineVHostRoutes will concatenate route blocks from two virtual hosts
-func CombineVHostRoutes(first []route.Route, second []route.Route) []route.Route {
-	combined := append(first, second...)
-	sort.SliceStable(combined, func(i, j int) bool {
+// SortRoutes will reorder the routes in a virtual host
+// path before prefix
+// prefix before regex
+// regex before catchall prefix / or catch all regex *
+// longest path before shorter path
+// longest prefix before shorter prefix
+// longest regex before shorter regex. it doesn't make any difference, but
+//   we do it anyway to get a stable ordering
+// All else being equal, routes with header matches take precedence over routes without
+//  header matches
+func SortRoutes(allroutes []route.Route) {
+	sort.SliceStable(allroutes, func(i, j int) bool {
 		var iType, jType envoyRouteType
 		var iVal, jVal string
 
-		switch iR := combined[i].Match.PathSpecifier.(type) {
+		switch iR := allroutes[i].Match.PathSpecifier.(type) {
 		case *route.RouteMatch_Path:
 			iType = envoyPath
 			iVal = iR.Path
@@ -772,7 +778,7 @@ func CombineVHostRoutes(first []route.Route, second []route.Route) []route.Route
 			iVal = iR.Regex
 		}
 
-		switch jR := combined[j].Match.PathSpecifier.(type) {
+		switch jR := allroutes[j].Match.PathSpecifier.(type) {
 		case *route.RouteMatch_Path:
 			jType = envoyPath
 			jVal = jR.Path
@@ -792,26 +798,15 @@ func CombineVHostRoutes(first []route.Route, second []route.Route) []route.Route
 			jVal = jR.Regex
 		}
 
-		// path before prefix
-		// prefix before regex
-		// regex before catchall prefix / or catch all regex *
-		// longest path before shorter path
-		// longest prefix before shorter prefix
-		// longest regex before shorter regex. it doesn't make any difference, but
-		//   we do it anyway to get a stable ordering
-		// All else being equal, routes with header matches take precedence over routes without
-		//  header matches
 		if iType == jType {
 			if len(iVal) == len(jVal) {
-				if len(combined[i].Match.Headers) == len(combined[j].Match.Headers) {
+				if len(allroutes[i].Match.Headers) == len(allroutes[j].Match.Headers) {
 					return iVal > jVal
 				}
-				return len(combined[i].Match.Headers) > len(combined[j].Match.Headers)
+				return len(allroutes[i].Match.Headers) > len(allroutes[j].Match.Headers)
 			}
 			return len(iVal) > len(jVal)
 		}
 		return iType < jType
 	})
-
-	return combined
 }
