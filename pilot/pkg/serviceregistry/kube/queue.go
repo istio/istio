@@ -50,7 +50,7 @@ func NewTask(handler Handler, obj interface{}, event model.Event) Task {
 type queueImpl struct {
 	delay   time.Duration
 	queue   []Task
-	lock    sync.Mutex
+	cond    *sync.Cond
 	closing bool
 }
 
@@ -60,24 +60,25 @@ func NewQueue(errorDelay time.Duration) Queue {
 		delay:   errorDelay,
 		queue:   make([]Task, 0),
 		closing: false,
-		lock:    sync.Mutex{},
+		cond:    sync.NewCond(&sync.Mutex{}),
 	}
 }
 
 func (q *queueImpl) Push(item Task) {
-	q.lock.Lock()
+	q.cond.L.Lock()
+	defer q.cond.L.Unlock()
 	if !q.closing {
 		q.queue = append(q.queue, item)
 	}
-	q.lock.Unlock()
+	q.cond.Signal()
 }
 
 func (q *queueImpl) Run(stop <-chan struct{}) {
 	go func() {
 		<-stop
-		q.lock.Lock()
+		q.cond.L.Lock()
 		q.closing = true
-		q.lock.Unlock()
+		q.cond.L.Unlock()
 	}()
 
 	rateLimit := 100
@@ -87,24 +88,27 @@ func (q *queueImpl) Run(stop <-chan struct{}) {
 	for {
 		rateLimiter.Accept()
 
-		q.lock.Lock()
-		if q.closing {
-			q.lock.Unlock()
-			return
-		} else if len(q.queue) == 0 {
-			q.lock.Unlock()
-		} else {
-			item, q.queue = q.queue[0], q.queue[1:]
-			q.lock.Unlock()
+		q.cond.L.Lock()
+		for !q.closing && len(q.queue) == 0 {
+			q.cond.Wait()
+		}
 
-			for {
-				err := item.handler(item.obj, item.event)
-				if err != nil {
-					log.Infof("Work item failed (%v), repeating after delay %v", err, q.delay)
-					time.Sleep(q.delay)
-				} else {
-					break
-				}
+		if len(q.queue) == 0 {
+			q.cond.L.Unlock()
+			// We must be shutting down.
+			return
+		}
+
+		item, q.queue = q.queue[0], q.queue[1:]
+		q.cond.L.Unlock()
+
+		for {
+			err := item.handler(item.obj, item.event)
+			if err != nil {
+				log.Infof("Work item failed (%v), repeating after delay %v", err, q.delay)
+				time.Sleep(q.delay)
+			} else {
+				break
 			}
 		}
 	}
