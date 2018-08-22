@@ -15,14 +15,15 @@
 package client_test
 
 import (
-	"encoding/base64"
 	"fmt"
 	"testing"
 
 	"istio.io/istio/mixer/test/client/env"
+	"istio.io/istio/mixer/test/client/test_data"
 )
 
 // The Istio authn envoy config
+// nolint
 const authnConfig = `
 - name: istio_authn
   config: {
@@ -36,24 +37,13 @@ const authnConfig = `
         }
       ],
       "principal_binding": 1
-    },
-    "jwt_output_payload_locations": {
-      "issuer@foo.com": "sec-istio-auth-jwt-output"
     }
   }
 `
 
-const secIstioAuthUserInfoHeaderKey = "sec-istio-auth-jwt-output"
-
-const secIstioAuthUserinfoHeaderValue = `
-{
-  "iss": "issuer@foo.com",
-  "sub": "sub@foo.com",
-  "aud": "aud1",
-  "non-string-will-be-ignored": 1512754205,
-  "some-other-string-claims": "some-claims-kept"
-}
-`
+const secIstioAuthUserinfoHeaderValue = `{"aud":"aud1","exp":20000000000,` +
+	`"iat":1500000000,"iss":"issuer@foo.com","some-other-string-claims":"some-claims-kept",` +
+	`"sub":"sub@foo.com"}`
 
 // Check attributes from a good GET request
 var checkAttributesOkGet = `
@@ -120,7 +110,6 @@ var reportAttributesOkGet = `
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "connection.mtls": false,
-  "connection.requested_server_name" : "",
   "origin.ip": "[127 0 0 1]",
   "check.cache_hit": false,
   "quota.cache_hit": false,
@@ -133,7 +122,7 @@ var reportAttributesOkGet = `
      "x-request-id": "*"
   },
   "request.size": 0,
-  "request.total_size": 777,
+  "request.total_size": 306,
   "response.total_size": 99,
   "response.time": "*",
   "response.size": 0,
@@ -159,10 +148,9 @@ var reportAttributesOkGet = `
 `
 
 func TestAuthnCheckReportAttributesOriginJwtBoundToOrigin(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/7867")
 	s := env.NewTestSetup(env.CheckReportIstioAuthnAttributesTestOriginJwtBoundToOrigin, t)
 	// In the Envoy config, principal_binding binds to origin
-	s.SetFiltersBeforeMixer(authnConfig)
+	s.SetFiltersBeforeMixer(client_test.JwtAuthConfig + authnConfig)
 	// Disable the HotRestart of Envoy
 	s.SetDisableHotRestart(true)
 
@@ -177,10 +165,8 @@ func TestAuthnCheckReportAttributesOriginJwtBoundToOrigin(t *testing.T) {
 	// Issues a GET echo request with 0 size body
 	tag := "OKGet"
 
-	// Add jwt_auth header to be consumed by Istio authn filter
 	headers := map[string]string{}
-	headers[secIstioAuthUserInfoHeaderKey] =
-		base64.StdEncoding.EncodeToString([]byte(secIstioAuthUserinfoHeaderValue))
+	headers["Authorization"] = "Bearer " + client_test.JwtTestToken
 
 	if _, _, err := env.HTTPGetWithHeaders(url, headers); err != nil {
 		t.Errorf("Failed in request %s: %v", tag, err)
