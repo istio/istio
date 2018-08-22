@@ -46,8 +46,7 @@ func (con *XdsConnection) clusters(response []*xdsapi.Cluster) *xdsapi.Discovery
 	return out
 }
 
-func (s *DiscoveryServer) pushCds(con *XdsConnection, push *model.PushContext) error {
-	// TODO: Modify interface to take services, and config instead of making library query registry
+func (s *DiscoveryServer) pushCds(con *XdsConnection, push *model.PushContext, version string) error {
 	rawClusters, err := s.generateRawClusters(con, push)
 	if err != nil {
 		return err
@@ -65,8 +64,8 @@ func (s *DiscoveryServer) pushCds(con *XdsConnection, push *model.PushContext) e
 	pushes.With(prometheus.Labels{"type": "cds"}).Add(1)
 
 	// The response can't be easily read due to 'any' marshalling.
-	adsLog.Infof("CDS: PUSH for %s %q, Clusters: %d",
-		con.modelNode.ID, con.PeerAddr, len(rawClusters))
+	adsLog.Infof("CDS: PUSH %s for %s %q, Clusters: %d, Services %d", version,
+		con.modelNode.ID, con.PeerAddr, len(rawClusters), len(push.Services))
 	return nil
 }
 

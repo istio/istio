@@ -93,7 +93,7 @@ pilot:
     GODEBUG: gctrace=2
   resources:
     requests:
-      cpu: 2800m
+      cpu: 4800m
       memory: 2G
 
 ingress:
@@ -113,8 +113,8 @@ mixer:
   #image: gcr.io/istio-release/mixer:release-1.0-20180720-00-11
   resources:
     requests:
-      cpu: 2800m
-      memory: 2G
+      cpu: 3800m
+      memory: 4G
 
 tracing:
   enabled: false
