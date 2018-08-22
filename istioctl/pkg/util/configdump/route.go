@@ -69,13 +69,10 @@ func (w *Wrapper) GetDynamicRouteDump(stripVersions bool) (*adminapi.RoutesConfi
 
 // GetRouteConfigDump retrieves the route config dump from the ConfigDump
 func (w *Wrapper) GetRouteConfigDump() (*adminapi.RoutesConfigDump, error) {
-	if w.Configs == nil {
+	if w.Configs == nil || len(w.Configs) < 4 {
 		return nil, fmt.Errorf("config dump has no route dump")
 	}
-	routeDumpAny, ok := w.Configs["routes"]
-	if !ok {
-		return nil, fmt.Errorf("config dump has no route dump")
-	}
+	routeDumpAny := w.Configs[3]
 	routeDump := &adminapi.RoutesConfigDump{}
 	err := proto.UnmarshalAny(&routeDumpAny, routeDump)
 	if err != nil {

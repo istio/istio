@@ -16,6 +16,7 @@ package configdump
 
 import (
 	"testing"
+	proto "github.com/gogo/protobuf/types"
 )
 
 func TestWrapper_GetRouteConfigDump(t *testing.T) {
@@ -46,7 +47,7 @@ func TestWrapper_GetRouteConfigDump(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			w := setupWrapper(t)
 			if tt.noRoute {
-				delete(w.Configs, "routes")
+				w.Configs = []proto.Any{}
 			}
 			if tt.noConfigs {
 				w.Configs = nil
@@ -103,7 +104,7 @@ func TestWrapper_GetDynamicRouteDump(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			w := setupWrapper(t)
 			if tt.noRoute {
-				delete(w.Configs, "routes")
+				w.Configs = []proto.Any{}
 			}
 			got, err := w.GetDynamicRouteDump(tt.stripVersion)
 			if (err != nil) != tt.wantErr {

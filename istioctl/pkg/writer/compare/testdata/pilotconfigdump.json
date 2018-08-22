@@ -1,6 +1,10 @@
 {
-    "configs": {
-        "listeners": {
+    "configs": [
+        {
+            "@type": "type.googleapis.com/envoy.admin.v2alpha.BootstrapConfigDump",
+            "bootstrap": {}
+        },
+        {
             "@type": "type.googleapis.com/envoy.admin.v2alpha.ListenersConfigDump",
             "versionInfo": "2018-05-29 20:35:10.051043472 +0000 UTC m=+615.036247510",
             "dynamicActiveListeners": [
@@ -227,7 +231,7 @@
                 }
             ]
         },
-        "clusters": {
+        {
             "@type": "type.googleapis.com/envoy.admin.v2alpha.ClustersConfigDump",
             "versionInfo": "2018-05-29 20:35:10.051043472 +0000 UTC m=+615.036247510",
             "dynamicActiveClusters": [
@@ -258,7 +262,7 @@
                 }
             ]
         },
-        "routes": {
+        {
             "@type": "type.googleapis.com/envoy.admin.v2alpha.RoutesConfigDump",
             "dynamicRouteConfigs": [
                 {
@@ -330,5 +334,5 @@
                 }
             ]
         }
-    }
+    ]
 }

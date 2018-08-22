@@ -43,13 +43,10 @@ func (w *Wrapper) GetDynamicListenerDump(stripVersions bool) (*adminapi.Listener
 
 // GetListenerConfigDump retrieves the listener config dump from the ConfigDump
 func (w *Wrapper) GetListenerConfigDump() (*adminapi.ListenersConfigDump, error) {
-	if w.Configs == nil {
+	if w.Configs == nil || len(w.Configs) < 2 {
 		return nil, fmt.Errorf("config dump has no listener dump")
 	}
-	listenerDumpAny, ok := w.Configs["listeners"]
-	if !ok {
-		return nil, fmt.Errorf("config dump has no listener dump")
-	}
+	listenerDumpAny := w.Configs[1]
 	listenerDump := &adminapi.ListenersConfigDump{}
 	err := proto.UnmarshalAny(&listenerDumpAny, listenerDump)
 	if err != nil {

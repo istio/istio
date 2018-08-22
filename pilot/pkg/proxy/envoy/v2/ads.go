@@ -241,8 +241,6 @@ type XdsConnection struct {
 // configDump converts the connection internal state into an Envoy Admin API config dump proto
 // It is used in debugging to create a consistent object for comparison between Envoy and Pilot outputs
 func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump, error) {
-	configDump := &adminapi.ConfigDump{Configs: map[string]types.Any{}}
-
 	dynamicActiveClusters := []adminapi.ClustersConfigDump_DynamicCluster{}
 	clusters, err := s.generateRawClusters(conn.modelNode, s.env.PushContext)
 	if err != nil {
@@ -258,7 +256,6 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 	if err != nil {
 		return nil, err
 	}
-	configDump.Configs["clusters"] = *clustersAny
 
 	dynamicActiveListeners := []adminapi.ListenersConfigDump_DynamicListener{}
 	listeners, err := s.generateRawListeners(conn, s.env.PushContext)
@@ -275,24 +272,25 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 	if err != nil {
 		return nil, err
 	}
-	configDump.Configs["listeners"] = *listenersAny
 
 	routes, err := s.generateRawRoutes(conn, s.env.PushContext)
 	if err != nil {
 		return nil, err
 	}
+	routeConfigAny, err := types.MarshalAny(&adminapi.RoutesConfigDump{})
 	if len(routes) > 0 {
 		dynamicRouteConfig := []adminapi.RoutesConfigDump_DynamicRouteConfig{}
 		for _, rs := range routes {
 			dynamicRouteConfig = append(dynamicRouteConfig, adminapi.RoutesConfigDump_DynamicRouteConfig{RouteConfig: rs})
 		}
-		routeConfigAny, err := types.MarshalAny(&adminapi.RoutesConfigDump{DynamicRouteConfigs: dynamicRouteConfig})
+		routeConfigAny, err = types.MarshalAny(&adminapi.RoutesConfigDump{DynamicRouteConfigs: dynamicRouteConfig})
 		if err != nil {
 			return nil, err
 		}
-		configDump.Configs["routes"] = *routeConfigAny
 	}
 
+	bootstrapAny, err := types.MarshalAny(&adminapi.BootstrapConfigDump{})
+	configDump := &adminapi.ConfigDump{Configs: []types.Any{*bootstrapAny, *listenersAny, *clustersAny, *routeConfigAny}}
 	return configDump, nil
 }
 

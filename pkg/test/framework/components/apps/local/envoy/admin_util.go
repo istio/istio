@@ -149,7 +149,10 @@ func GetConfigDump(adminPort int) (*envoy_admin_v2alpha.ConfigDump, error) {
 // IsClusterPresent inspects the given Envoy config dump, looking for the given cluster
 func IsClusterPresent(cfg *envoy_admin_v2alpha.ConfigDump, clusterName string) bool {
 	clusters := envoy_admin_v2alpha.ClustersConfigDump{}
-	if err := clusters.Unmarshal(cfg.Configs["clusters"].Value); err != nil {
+	if len(cfg.Configs) < 3 {
+		return false
+	}
+	if err := clusters.Unmarshal(cfg.Configs[2].Value); err != nil {
 		return false
 	}
 
@@ -167,7 +170,10 @@ func IsClusterPresent(cfg *envoy_admin_v2alpha.ConfigDump, clusterName string) b
 // IsOutboundListenerPresent inspects the given Envoy config dump, looking for the given listener.
 func IsOutboundListenerPresent(cfg *envoy_admin_v2alpha.ConfigDump, listenerName string) bool {
 	listeners := envoy_admin_v2alpha.ListenersConfigDump{}
-	if err := listeners.Unmarshal(cfg.Configs["listeners"].Value); err != nil {
+	if len(cfg.Configs) < 2 {
+		return false
+	}
+	if err := listeners.Unmarshal(cfg.Configs[1].Value); err != nil {
 		return false
 	}
 
@@ -182,7 +188,10 @@ func IsOutboundListenerPresent(cfg *envoy_admin_v2alpha.ConfigDump, listenerName
 // IsOutboundRoutePresent inspects the given Envoy config dump, looking for an outbound route which targets the given cluster.
 func IsOutboundRoutePresent(cfg *envoy_admin_v2alpha.ConfigDump, clusterName string) bool {
 	routes := envoy_admin_v2alpha.RoutesConfigDump{}
-	if err := routes.Unmarshal(cfg.Configs["routes"].Value); err != nil {
+	if len(cfg.Configs) < 4 {
+		return false
+	}
+	if err := routes.Unmarshal(cfg.Configs[3].Value); err != nil {
 		return false
 	}
 

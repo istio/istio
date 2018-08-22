@@ -43,13 +43,10 @@ func (w *Wrapper) GetDynamicClusterDump(stripVersions bool) (*adminapi.ClustersC
 
 // GetClusterConfigDump retrieves the cluster config dump from the ConfigDump
 func (w *Wrapper) GetClusterConfigDump() (*adminapi.ClustersConfigDump, error) {
-	if w.Configs == nil {
+	if w.Configs == nil || len(w.Configs) < 3 {
 		return nil, fmt.Errorf("config dump has no cluster dump")
 	}
-	clusterDumpAny, ok := w.Configs["clusters"]
-	if !ok {
-		return nil, fmt.Errorf("config dump has no cluster dump")
-	}
+	clusterDumpAny := w.Configs[2]
 	clusterDump := &adminapi.ClustersConfigDump{}
 	err := proto.UnmarshalAny(&clusterDumpAny, clusterDump)
 	if err != nil {
