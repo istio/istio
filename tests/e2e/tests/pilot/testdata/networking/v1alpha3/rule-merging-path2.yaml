@@ -1,0 +1,16 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: merge-test-route1
+spec:
+  hosts:
+    - c
+  http:
+    - match:
+      - uri:
+          prefix: /a
+      route:
+      - destination:
+          host: c
+          subset: v1
+        weight: 100
