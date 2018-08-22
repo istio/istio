@@ -66,7 +66,6 @@ IMPORTS=(
   "--proto_path=${ROOT}/vendor/istio.io/api"
   "--proto_path=${ROOT}/vendor/github.com/gogo/protobuf"
   "--proto_path=${ROOT}/vendor/github.com/gogo/googleapis"
-  "--proto_path=${ROOT}/vendor/github.com/gogo/protobuf/protobuf"
   "--proto_path=$optimport"
 )
 
