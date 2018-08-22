@@ -42,14 +42,14 @@ func (m *ThriftProxy) Validate() error {
 		return nil
 	}
 
-	if _, ok := ThriftProxy_TransportType_name[int32(m.GetTransport())]; !ok {
+	if _, ok := TransportType_name[int32(m.GetTransport())]; !ok {
 		return ThriftProxyValidationError{
 			Field:  "Transport",
 			Reason: "value must be one of the defined enum values",
 		}
 	}
 
-	if _, ok := ThriftProxy_ProtocolType_name[int32(m.GetProtocol())]; !ok {
+	if _, ok := ProtocolType_name[int32(m.GetProtocol())]; !ok {
 		return ThriftProxyValidationError{
 			Field:  "Protocol",
 			Reason: "value must be one of the defined enum values",
@@ -63,7 +63,9 @@ func (m *ThriftProxy) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetRouteConfig()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetRouteConfig()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return ThriftProxyValidationError{
 				Field:  "RouteConfig",
@@ -106,3 +108,59 @@ func (e ThriftProxyValidationError) Error() string {
 }
 
 var _ error = ThriftProxyValidationError{}
+
+// Validate checks the field values on ThriftProtocolOptions with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, an error is returned.
+func (m *ThriftProtocolOptions) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	if _, ok := TransportType_name[int32(m.GetTransport())]; !ok {
+		return ThriftProtocolOptionsValidationError{
+			Field:  "Transport",
+			Reason: "value must be one of the defined enum values",
+		}
+	}
+
+	if _, ok := ProtocolType_name[int32(m.GetProtocol())]; !ok {
+		return ThriftProtocolOptionsValidationError{
+			Field:  "Protocol",
+			Reason: "value must be one of the defined enum values",
+		}
+	}
+
+	return nil
+}
+
+// ThriftProtocolOptionsValidationError is the validation error returned by
+// ThriftProtocolOptions.Validate if the designated constraints aren't met.
+type ThriftProtocolOptionsValidationError struct {
+	Field  string
+	Reason string
+	Cause  error
+	Key    bool
+}
+
+// Error satisfies the builtin error interface
+func (e ThriftProtocolOptionsValidationError) Error() string {
+	cause := ""
+	if e.Cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
+	}
+
+	key := ""
+	if e.Key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sThriftProtocolOptions.%s: %s%s",
+		key,
+		e.Field,
+		e.Reason,
+		cause)
+}
+
+var _ error = ThriftProtocolOptionsValidationError{}

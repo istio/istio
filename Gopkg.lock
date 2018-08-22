@@ -324,6 +324,7 @@
     "envoy/config/filter/http/rbac/v2",
     "envoy/config/filter/network/http_connection_manager/v2",
     "envoy/config/filter/network/mongo_proxy/v2",
+    "envoy/config/filter/network/rbac/v2",
     "envoy/config/filter/network/tcp_proxy/v2",
     "envoy/config/metrics/v2",
     "envoy/config/overload/v2alpha",
@@ -339,7 +340,7 @@
     "pkg/util",
   ]
   pruneopts = "T"
-  revision = "676016db8193d83324a507a986a78cd3642ad713"
+  revision = "9abdeff70b1fcebc846b2518ccb73478fa10164e"
   version = "v0.5.0"
 
 [[projects]]

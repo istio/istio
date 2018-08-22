@@ -96,7 +96,9 @@ func (m *Policy) Validate() error {
 	for idx, item := range m.GetPermissions() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(item).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return PolicyValidationError{
 					Field:  fmt.Sprintf("Permissions[%v]", idx),
@@ -118,7 +120,9 @@ func (m *Policy) Validate() error {
 	for idx, item := range m.GetPrincipals() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(item).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return PolicyValidationError{
 					Field:  fmt.Sprintf("Principals[%v]", idx),
@@ -175,7 +179,9 @@ func (m *Permission) Validate() error {
 
 	case *Permission_AndRules:
 
-		if v, ok := interface{}(m.GetAndRules()).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(m.GetAndRules()).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return PermissionValidationError{
 					Field:  "AndRules",
@@ -187,7 +193,9 @@ func (m *Permission) Validate() error {
 
 	case *Permission_OrRules:
 
-		if v, ok := interface{}(m.GetOrRules()).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(m.GetOrRules()).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return PermissionValidationError{
 					Field:  "OrRules",
@@ -208,7 +216,9 @@ func (m *Permission) Validate() error {
 
 	case *Permission_Header:
 
-		if v, ok := interface{}(m.GetHeader()).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(m.GetHeader()).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return PermissionValidationError{
 					Field:  "Header",
@@ -220,7 +230,9 @@ func (m *Permission) Validate() error {
 
 	case *Permission_DestinationIp:
 
-		if v, ok := interface{}(m.GetDestinationIp()).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(m.GetDestinationIp()).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return PermissionValidationError{
 					Field:  "DestinationIp",
@@ -241,7 +253,9 @@ func (m *Permission) Validate() error {
 
 	case *Permission_Metadata:
 
-		if v, ok := interface{}(m.GetMetadata()).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(m.GetMetadata()).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return PermissionValidationError{
 					Field:  "Metadata",
@@ -253,7 +267,9 @@ func (m *Permission) Validate() error {
 
 	case *Permission_NotRule:
 
-		if v, ok := interface{}(m.GetNotRule()).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(m.GetNotRule()).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return PermissionValidationError{
 					Field:  "NotRule",
@@ -316,7 +332,9 @@ func (m *Principal) Validate() error {
 
 	case *Principal_AndIds:
 
-		if v, ok := interface{}(m.GetAndIds()).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(m.GetAndIds()).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return PrincipalValidationError{
 					Field:  "AndIds",
@@ -328,7 +346,9 @@ func (m *Principal) Validate() error {
 
 	case *Principal_OrIds:
 
-		if v, ok := interface{}(m.GetOrIds()).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(m.GetOrIds()).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return PrincipalValidationError{
 					Field:  "OrIds",
@@ -349,7 +369,9 @@ func (m *Principal) Validate() error {
 
 	case *Principal_Authenticated_:
 
-		if v, ok := interface{}(m.GetAuthenticated()).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(m.GetAuthenticated()).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return PrincipalValidationError{
 					Field:  "Authenticated",
@@ -361,7 +383,9 @@ func (m *Principal) Validate() error {
 
 	case *Principal_SourceIp:
 
-		if v, ok := interface{}(m.GetSourceIp()).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(m.GetSourceIp()).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return PrincipalValidationError{
 					Field:  "SourceIp",
@@ -373,7 +397,9 @@ func (m *Principal) Validate() error {
 
 	case *Principal_Header:
 
-		if v, ok := interface{}(m.GetHeader()).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(m.GetHeader()).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return PrincipalValidationError{
 					Field:  "Header",
@@ -385,7 +411,9 @@ func (m *Principal) Validate() error {
 
 	case *Principal_Metadata:
 
-		if v, ok := interface{}(m.GetMetadata()).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(m.GetMetadata()).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return PrincipalValidationError{
 					Field:  "Metadata",
@@ -397,7 +425,9 @@ func (m *Principal) Validate() error {
 
 	case *Principal_NotId:
 
-		if v, ok := interface{}(m.GetNotId()).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(m.GetNotId()).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return PrincipalValidationError{
 					Field:  "NotId",
@@ -467,7 +497,9 @@ func (m *Permission_Set) Validate() error {
 	for idx, item := range m.GetRules() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(item).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return Permission_SetValidationError{
 					Field:  fmt.Sprintf("Rules[%v]", idx),
@@ -531,7 +563,9 @@ func (m *Principal_Set) Validate() error {
 	for idx, item := range m.GetIds() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(item).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return Principal_SetValidationError{
 					Field:  fmt.Sprintf("Ids[%v]", idx),

@@ -45,7 +45,9 @@ func (m *CircuitBreakers) Validate() error {
 	for idx, item := range m.GetThresholds() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(item).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return CircuitBreakersValidationError{
 					Field:  fmt.Sprintf("Thresholds[%v]", idx),
@@ -101,7 +103,9 @@ func (m *CircuitBreakers_Thresholds) Validate() error {
 
 	// no validation rules for Priority
 
-	if v, ok := interface{}(m.GetMaxConnections()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetMaxConnections()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return CircuitBreakers_ThresholdsValidationError{
 				Field:  "MaxConnections",
@@ -111,7 +115,9 @@ func (m *CircuitBreakers_Thresholds) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetMaxPendingRequests()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetMaxPendingRequests()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return CircuitBreakers_ThresholdsValidationError{
 				Field:  "MaxPendingRequests",
@@ -121,7 +127,9 @@ func (m *CircuitBreakers_Thresholds) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetMaxRequests()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetMaxRequests()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return CircuitBreakers_ThresholdsValidationError{
 				Field:  "MaxRequests",
@@ -131,7 +139,9 @@ func (m *CircuitBreakers_Thresholds) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetMaxRetries()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetMaxRetries()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return CircuitBreakers_ThresholdsValidationError{
 				Field:  "MaxRetries",

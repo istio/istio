@@ -49,7 +49,9 @@ func (m *HealthCheck) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetPassThroughMode()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetPassThroughMode()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return HealthCheckValidationError{
 				Field:  "PassThroughMode",
@@ -59,7 +61,9 @@ func (m *HealthCheck) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetCacheTime()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetCacheTime()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return HealthCheckValidationError{
 				Field:  "CacheTime",
@@ -74,7 +78,9 @@ func (m *HealthCheck) Validate() error {
 	for idx, item := range m.GetHeaders() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(item).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return HealthCheckValidationError{
 					Field:  fmt.Sprintf("Headers[%v]", idx),

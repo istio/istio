@@ -48,7 +48,9 @@ func (m *Squash) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetAttachmentTemplate()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetAttachmentTemplate()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return SquashValidationError{
 				Field:  "AttachmentTemplate",
@@ -58,7 +60,9 @@ func (m *Squash) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetRequestTimeout()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetRequestTimeout()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return SquashValidationError{
 				Field:  "RequestTimeout",
@@ -68,7 +72,9 @@ func (m *Squash) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetAttachmentTimeout()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetAttachmentTimeout()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return SquashValidationError{
 				Field:  "AttachmentTimeout",
@@ -78,7 +84,9 @@ func (m *Squash) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetAttachmentPollPeriod()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetAttachmentPollPeriod()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return SquashValidationError{
 				Field:  "AttachmentPollPeriod",

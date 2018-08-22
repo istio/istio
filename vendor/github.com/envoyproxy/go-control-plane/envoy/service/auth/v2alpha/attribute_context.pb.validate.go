@@ -42,7 +42,9 @@ func (m *AttributeContext) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetSource()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetSource()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return AttributeContextValidationError{
 				Field:  "Source",
@@ -52,7 +54,9 @@ func (m *AttributeContext) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetDestination()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetDestination()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return AttributeContextValidationError{
 				Field:  "Destination",
@@ -62,7 +66,9 @@ func (m *AttributeContext) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetRequest()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetRequest()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return AttributeContextValidationError{
 				Field:  "Request",
@@ -116,7 +122,9 @@ func (m *AttributeContext_Peer) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetAddress()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetAddress()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return AttributeContext_PeerValidationError{
 				Field:  "Address",
@@ -174,7 +182,9 @@ func (m *AttributeContext_Request) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetTime()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetTime()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return AttributeContext_RequestValidationError{
 				Field:  "Time",
@@ -184,7 +194,9 @@ func (m *AttributeContext_Request) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetHttp()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetHttp()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return AttributeContext_RequestValidationError{
 				Field:  "Http",

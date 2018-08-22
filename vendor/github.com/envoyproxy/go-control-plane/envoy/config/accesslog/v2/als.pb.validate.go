@@ -49,7 +49,9 @@ func (m *HttpGrpcAccessLogConfig) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetCommonConfig()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetCommonConfig()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return HttpGrpcAccessLogConfigValidationError{
 				Field:  "CommonConfig",
@@ -108,7 +110,9 @@ func (m *TcpGrpcAccessLogConfig) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetCommonConfig()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetCommonConfig()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return TcpGrpcAccessLogConfigValidationError{
 				Field:  "CommonConfig",
@@ -174,7 +178,9 @@ func (m *CommonGrpcAccessLogConfig) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetGrpcService()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetGrpcService()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return CommonGrpcAccessLogConfigValidationError{
 				Field:  "GrpcService",
