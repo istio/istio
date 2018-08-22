@@ -66,7 +66,7 @@ var (
 		"The number of known instances in the current config.",
 		stats.UnitDimensionless)
 
-	// InstancesErrs is a measure of the number of errors for processing instance config.
+	// InstanceErrs is a measure of the number of errors for processing instance config.
 	InstanceErrs = stats.Int64(
 		"mixer/config/instance_config_errors_total",
 		"The number of errors encountered during processing of the instance configuration.",
@@ -78,7 +78,7 @@ var (
 		"The number of known rules in the current config.",
 		stats.UnitDimensionless)
 
-	// RulesErrs is a measure of the number of errors for processing rules config.
+	// RuleErrs is a measure of the number of errors for processing rules config.
 	RuleErrs = stats.Int64(
 		"mixer/config/rule_config_errors_total",
 		"The number of errors encountered during processing of the rule configuration.",
