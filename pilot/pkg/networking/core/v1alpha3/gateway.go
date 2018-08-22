@@ -241,7 +241,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 
 		for vsvcHost, gatewayHost := range matchingHosts {
 			if currentVhost, exists := vHostDedupMap[vsvcHost]; exists {
-				currentVhost.Routes = append(currentVhost.Routes, routes...)
+				currentVhost.Routes = istio_route.CombineVHostRoutes(currentVhost.Routes, routes)
 			} else {
 				newVhost := &route.VirtualHost{
 					Name:    fmt.Sprintf("%s:%d", vsvcHost, port),
@@ -276,11 +276,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 			},
 		})
 	} else {
-		// Since we merge multiple virtual services for same host and sort the routes in a particular order,
-		// we have to maintain the same ordering semantics for non-merged vhost routes as well.
-		// So, sort each virtual host's routes based on our custom sort criteria and build the virtual host array
 		for _, v := range vHostDedupMap {
-			istio_route.SortRoutes(v.Routes)
 			virtualHosts = append(virtualHosts, *v)
 		}
 	}
