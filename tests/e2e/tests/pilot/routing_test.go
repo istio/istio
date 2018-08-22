@@ -262,54 +262,6 @@ func TestRoutes(t *testing.T) {
 	})
 }
 
-func TestVirtualServiceMerging(t *testing.T) {
-
-	destRule1 := maybeAddTLSForDestinationRule(tc, "testdata/networking/v1alpha3/destination-rule-c.yaml")
-	virtualService1 := "testdata/networking/v1alpha3/rule-merging-path1.yaml"
-	virtualService2 := "testdata/networking/v1alpha3/rule-merging-path2.yaml"
-	cfgs := &deployableConfig{
-		Namespace:  tc.Kube.Namespace,
-		YamlFiles:  []string{destRule1, virtualService1, virtualService2},
-		kubeconfig: tc.Kube.KubeConfig,
-	}
-	if err := cfgs.Setup(); err != nil {
-		t.Fatal(err)
-	}
-	// Teardown after, but no need to wait, since a delay will be applied by either the next rule's
-	// Setup() or the Teardown() for the final rule.
-	defer cfgs.TeardownNoDelay()
-
-	for cluster := range tc.Kube.Clusters {
-		testName := fmt.Sprintf("%s from %s cluster", t.Name(), cluster)
-		runRetriableTest(t, cluster, testName, 5, func() error {
-			reqURL := "http://c/a"
-			resp := ClientRequest(cluster, "a", reqURL, 10, "")
-			count := make(map[string]int)
-			for _, elt := range resp.Version {
-				count[elt] = count[elt] + 1
-			}
-			if count["v1"] != 10 {
-				return fmt.Errorf("expected %v requests to reach %s => Got %v", 10, "v1", count)
-			}
-			return nil
-		})
-
-		runRetriableTest(t, cluster, testName, 5, func() error {
-			reqURL := "http://c/ba"
-			resp := ClientRequest(cluster, "a", reqURL, 10, "")
-			count := make(map[string]int)
-			for _, elt := range resp.Version {
-				count[elt] = count[elt] + 1
-			}
-			if count["v2"] != 10 {
-				return fmt.Errorf("expected %v requests to reach %s => Got %v", 10, "v2", count)
-			}
-			return nil
-		})
-
-	}
-}
-
 func TestRouteFaultInjection(t *testing.T) {
 	destRule := maybeAddTLSForDestinationRule(tc, "testdata/networking/v1alpha3/destination-rule-c.yaml")
 	dRule := &deployableConfig{
