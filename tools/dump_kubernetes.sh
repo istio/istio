@@ -7,7 +7,7 @@
 #   definitions, configmaps, secrets (names only) and "all" as defined by
 #   kubectl.
 
-COREDUMP_DIR="/var/istio/proxy"
+COREDUMP_DIR="/var/lib/istio"
 
 error() {
   echo "$*" >&2
