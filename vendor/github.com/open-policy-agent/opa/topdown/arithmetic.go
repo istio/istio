@@ -52,13 +52,6 @@ func arithDivide(a, b *big.Float) (*big.Float, error) {
 	return new(big.Float).Quo(a, b), nil
 }
 
-func arithRem(a, b *big.Int) (*big.Int, error) {
-	if b.Int64() == 0 {
-		return nil, fmt.Errorf("modulo by zero")
-	}
-	return new(big.Int).Rem(a, b), nil
-}
-
 func builtinArithArity1(fn arithArity1) FunctionalBuiltin1 {
 	return func(a ast.Value) (ast.Value, error) {
 		n, err := builtins.NumberOperand(a, 1)
@@ -118,25 +111,6 @@ func builtinMinus(a, b ast.Value) (ast.Value, error) {
 	return nil, builtins.NewOperandTypeErr(2, b, "number", "set")
 }
 
-func builtinRem(a, b ast.Value) (ast.Value, error) {
-	n1, ok1 := a.(ast.Number)
-	n2, ok2 := b.(ast.Number)
-
-	if ok1 && ok2 {
-		i, err := arithRem(builtins.NumberToInt(n1), builtins.NumberToInt(n2))
-		if err != nil {
-			return nil, err
-		}
-		return builtins.IntToNumber(i), nil
-	}
-
-	if !ok1 {
-		return nil, builtins.NewOperandTypeErr(1, a, "number")
-	}
-
-	return nil, builtins.NewOperandTypeErr(2, b, "number")
-}
-
 func init() {
 	RegisterFunctionalBuiltin1(ast.Abs.Name, builtinArithArity1(arithAbs))
 	RegisterFunctionalBuiltin1(ast.Round.Name, builtinArithArity1(arithRound))
@@ -144,5 +118,4 @@ func init() {
 	RegisterFunctionalBuiltin2(ast.Minus.Name, builtinMinus)
 	RegisterFunctionalBuiltin2(ast.Multiply.Name, builtinArithArity2(arithMultiply))
 	RegisterFunctionalBuiltin2(ast.Divide.Name, builtinArithArity2(arithDivide))
-	RegisterFunctionalBuiltin2(ast.Rem.Name, builtinRem)
 }

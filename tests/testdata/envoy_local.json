@@ -15,44 +15,38 @@
     "lds_config": {
       "api_config_source": {
         "api_type": "GRPC",
-        "grpc_services": {
-          "envoy_grpc": {
-            "cluster_name": "xds-grpc"
-          }
-        },
         "refresh_delay": {
           "seconds": 30,
           "nanos": 0
-        }
+        },
+        "cluster_names": [
+          "xds-grpc"
+        ]
       }
     },
     "cds_config": {
       "api_config_source": {
         "api_type": "GRPC",
-        "grpc_services": {
-          "envoy_grpc": {
-            "cluster_name": "xds-grpc"
-          }
-        },
         "refresh_delay": {
           "seconds": 30,
           "nanos": 0
-        }
+        },
+        "cluster_names": [
+          "xds-grpc"
+        ]
       }
     },
     "deprecated_v1": {
       "sds_config": {
         "api_config_source": {
           "api_type": "GRPC",
-          "grpc_services": {
-            "envoy_grpc": {
-              "cluster_name": "xds-grpc"
-            }
-          },
           "refresh_delay": {
             "seconds": 30,
             "nanos": 0
-          }
+          },
+          "cluster_names": [
+            "xds-grpc"
+          ]
         }
       }
     }

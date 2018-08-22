@@ -73,11 +73,9 @@ type ClusterStatus struct {
 	// :ref:`Cluster outlier detection <arch_overview_outlier_detection>` statistics
 	//
 	// Note: this field may be omitted in any of the three following cases:
-	//
-	// 1. There were not enough hosts with enough request volume to proceed with success rate based
-	//    outlier ejection.
-	// 2. The threshold is computed to be < 0 because a negative value implies that there was no
-	//    threshold for that interval.
+	// 1. There were not enough hosts with enough request volume to proceed with success rate based outlier ejection.
+	// 2. The threshold is computed to be < 0 because a negative value implies that there was no threshold for that
+	// interval.
 	// 3. Outlier detection is not enabled for this cluster.
 	SuccessRateEjectionThreshold *envoy_type.Percent `protobuf:"bytes,3,opt,name=success_rate_ejection_threshold,json=successRateEjectionThreshold" json:"success_rate_ejection_threshold,omitempty"`
 	// Mapping from host address to the host's current status.
@@ -172,8 +170,7 @@ type HostHealthStatus struct {
 	FailedActiveHealthCheck bool `protobuf:"varint,1,opt,name=failed_active_health_check,json=failedActiveHealthCheck,proto3" json:"failed_active_health_check,omitempty"`
 	// The host is currently considered an outlier and has been ejected.
 	FailedOutlierCheck bool `protobuf:"varint,2,opt,name=failed_outlier_check,json=failedOutlierCheck,proto3" json:"failed_outlier_check,omitempty"`
-	// Health status as reported by EDS. Note: only HEALTHY and UNHEALTHY are currently supported
-	// here.
+	// Health status as reported by EDS. Note: only HEALTHY and UNHEALTHY are currently supported here.
 	// TODO(mrice32): pipe through remaining EDS health status possibilities.
 	EdsHealthStatus envoy_api_v2_core2.HealthStatus `protobuf:"varint,3,opt,name=eds_health_status,json=edsHealthStatus,proto3,enum=envoy.api.v2.core.HealthStatus" json:"eds_health_status,omitempty"`
 }

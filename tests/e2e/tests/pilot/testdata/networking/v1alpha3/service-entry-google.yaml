@@ -9,7 +9,4 @@ spec:
   - number: 443
     name: https
     protocol: TLS
-  - number: 80
-    name: http
-    protocol: http
   resolution: DNS

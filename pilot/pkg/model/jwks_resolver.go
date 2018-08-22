@@ -29,6 +29,7 @@ import (
 
 	authn "istio.io/api/authentication/v1alpha1"
 	"istio.io/istio/pkg/cache"
+	"istio.io/istio/pkg/log"
 )
 
 const (
@@ -83,9 +84,6 @@ type jwtPubKeyEntry struct {
 type jwksResolver struct {
 	// cache for jwksURI.
 	JwksURICache cache.ExpiringCache
-
-	// Callback function to invoke when detecting jwt public key change.
-	PushFunc func()
 
 	// cache for JWT public key.
 	// map key is jwksURI, map value is jwtPubKeyEntry.
@@ -347,10 +345,7 @@ func (r *jwksResolver) refresh(t time.Time) {
 
 	if hasChange {
 		atomic.AddUint64(&r.keyChangedCount, 1)
-		// Push public key changes to sidecars.
-		if r.PushFunc != nil {
-			r.PushFunc()
-		}
+		// TODO(quanlin): send notification to update config and push config to sidecar.
 	}
 }
 

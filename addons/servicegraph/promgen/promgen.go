@@ -21,7 +21,6 @@ import (
 	"log"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/prometheus/client_golang/api"
@@ -31,17 +30,13 @@ import (
 	"istio.io/istio/addons/servicegraph"
 )
 
-const reqsFmt = "sum(rate(istio_requests_total{reporter=\"destination\"%s}[%s])) by (source_workload, destination_workload, source_app, destination_app)"
-const tcpFmt = "sum(rate(istio_tcp_received_bytes_total{reporter=\"destination\"%s}[%s])) by (source_workload, destination_workload, source_app, destination_app)"
+const reqsFmt = "sum(rate(istio_requests_total{reporter=\"server\"}[%s])) by (source_workload, destination_workload, source_app, destination_app)"
+const tcpFmt = "sum(rate(istio_tcp_received_bytes_total{reporter=\"server\"}[%s])) by (source_workload, destination_workload, source_app, destination_app)"
 const emptyFilter = " > 0"
 
 type genOpts struct {
-	timeHorizon  string
-	filterEmpty  bool
-	dstNamespace string
-	dstWorkload  string
-	srcNamespace string
-	srcWorkload  string
+	timeHorizon string
+	filterEmpty bool
 }
 
 type promHandler struct {
@@ -66,24 +61,12 @@ func (p *promHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if filterEmptyStr == "true" {
 		filterEmpty = true
 	}
-
-	dstNamespace := r.URL.Query().Get("destination_namespace")
-	dstWorkload := r.URL.Query().Get("destination_workload")
-	srcNamespace := r.URL.Query().Get("source_namespace")
-	srcWorkload := r.URL.Query().Get("source_workload")
 	// validate time_horizon
 	if _, err := model.ParseDuration(timeHorizon); err != nil {
 		writeError(w, fmt.Errorf("could not parse time_horizon: %v", err))
 		return
 	}
-	g, err := p.generate(genOpts{
-		timeHorizon,
-		filterEmpty,
-		dstNamespace,
-		dstWorkload,
-		srcNamespace,
-		srcWorkload,
-	})
+	g, err := p.generate(genOpts{timeHorizon, filterEmpty})
 	g.Merge(p.static)
 	if err != nil {
 		writeError(w, err)
@@ -109,8 +92,7 @@ func (p *promHandler) generate(opts genOpts) (*servicegraph.Dynamic, error) {
 		return nil, err
 	}
 	api := v1.NewAPI(client)
-	serviceFilter := generateServiceFilter(opts)
-	query := fmt.Sprintf(reqsFmt, serviceFilter, opts.timeHorizon)
+	query := fmt.Sprintf(reqsFmt, opts.timeHorizon)
 	if opts.filterEmpty {
 		query += emptyFilter
 	}
@@ -118,7 +100,7 @@ func (p *promHandler) generate(opts genOpts) (*servicegraph.Dynamic, error) {
 	if err != nil {
 		return nil, err
 	}
-	query = fmt.Sprintf(tcpFmt, serviceFilter, opts.timeHorizon)
+	query = fmt.Sprintf(tcpFmt, opts.timeHorizon)
 	if opts.filterEmpty {
 		query += emptyFilter
 	}
@@ -127,27 +109,6 @@ func (p *promHandler) generate(opts genOpts) (*servicegraph.Dynamic, error) {
 		return nil, err
 	}
 	return merge(graph, tcpGraph)
-}
-
-func generateServiceFilter(opts genOpts) string {
-	filterParams := make([]string, 0, 4)
-	if opts.dstNamespace != "" {
-		filterParams = append(filterParams, "destination_namespace=\""+opts.dstNamespace+"\"")
-	}
-	if opts.dstWorkload != "" {
-		filterParams = append(filterParams, "destination_workload=\""+opts.dstWorkload+"\"")
-	}
-	if opts.srcNamespace != "" {
-		filterParams = append(filterParams, "source_namespace=\""+opts.srcNamespace+"\"")
-	}
-	if opts.srcWorkload != "" {
-		filterParams = append(filterParams, "source_workload=\""+opts.srcWorkload+"\"")
-	}
-	filterStr := strings.Join(filterParams, ", ")
-	if filterStr != "" {
-		filterStr = ", " + filterStr
-	}
-	return filterStr
 }
 
 func merge(g1, g2 *servicegraph.Dynamic) (*servicegraph.Dynamic, error) {

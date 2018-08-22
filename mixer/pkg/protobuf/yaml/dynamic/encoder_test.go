@@ -894,9 +894,6 @@ func StatdardVocabulary() ast.AttributeDescriptorFinder {
 		"test.i32":                        {ValueType: v1beta1.INT64},
 		"test.i64":                        {ValueType: v1beta1.INT64},
 		"test.float":                      {ValueType: v1beta1.DOUBLE},
-		"test.uri":                        {ValueType: v1beta1.URI},
-		"test.dns_name":                   {ValueType: v1beta1.DNS_NAME},
-		"test.email_address":              {ValueType: v1beta1.EMAIL_ADDRESS},
 	}
 
 	return ast.NewFinder(attrs)

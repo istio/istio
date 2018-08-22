@@ -17,14 +17,13 @@ package runtime
 import (
 	"testing"
 
-	"istio.io/istio/pkg/mcp/snapshot"
+	"istio.io/istio/galley/pkg/mcp/snapshot"
 )
 
 func TestInMemoryDistributor_SetSnapshot(t *testing.T) {
 	d := NewInMemoryDistributor()
 
-	b := snapshot.NewInMemoryBuilder()
-	s := b.Build()
+	s := snapshot.NewInMemory()
 	d.SetSnapshot("foo", s)
 	if _, ok := d.snapshots["foo"]; !ok {
 		t.Fatal("The snapshot should have been set")
@@ -34,8 +33,7 @@ func TestInMemoryDistributor_SetSnapshot(t *testing.T) {
 func TestInMemoryDistributor_ClearSnapshot(t *testing.T) {
 	d := NewInMemoryDistributor()
 
-	b := snapshot.NewInMemoryBuilder()
-	s := b.Build()
+	s := snapshot.NewInMemory()
 	d.SetSnapshot("foo", s)
 
 	d.ClearSnapshot("foo")

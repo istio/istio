@@ -24,13 +24,13 @@ import (
 	"time"
 
 	me "github.com/hashicorp/go-multierror"
+	"github.com/signalfx/golib/errors"
 	"github.com/signalfx/golib/sfxclient"
 
 	"istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/adapter/signalfx/config"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/template/metric"
-	"istio.io/istio/mixer/template/tracespan"
 )
 
 type (
@@ -40,18 +40,23 @@ type (
 	}
 
 	handler struct {
-		*metricshandler
-		*tracinghandler
-		cancel func()
+		env                adapter.Env
+		ctx                context.Context
+		cancel             func()
+		scheduler          *sfxclient.Scheduler
+		registry           *registry
+		metricTypes        map[string]*metric.Type
+		ingestURL          string
+		accessToken        string
+		intervalSeconds    uint32
+		metricConfigByName map[string]*config.Params_MetricConfig
+		logger             adapter.Logger
 	}
 )
 
 // ensure types implement the requisite interfaces
 var _ metric.HandlerBuilder = &builder{}
 var _ metric.Handler = &handler{}
-
-var _ tracespan.HandlerBuilder = &builder{}
-var _ tracespan.Handler = &handler{}
 
 ///////////////// Configuration-time Methods ///////////////
 
@@ -62,50 +67,17 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 		confsByName[b.config.Metrics[i].Name] = b.config.Metrics[i]
 	}
 
-	ctx, cancel := context.WithCancel(ctx)
-
-	sink := sfxclient.NewHTTPSink()
-	sink.AuthToken = b.config.AccessToken
-
-	if b.config.IngestUrl != "" {
-		sink.DatapointEndpoint = fmt.Sprintf("%s/v2/datapoint", b.config.IngestUrl)
-		sink.TraceEndpoint = fmt.Sprintf("%s/v1/trace", b.config.IngestUrl)
-	}
-
 	h := &handler{
-		cancel: cancel,
+		env:                env,
+		metricTypes:        b.metricTypes,
+		ingestURL:          b.config.IngestUrl,
+		accessToken:        b.config.AccessToken,
+		intervalSeconds:    uint32(b.config.DatapointInterval.Round(time.Second).Seconds()),
+		metricConfigByName: confsByName,
+		logger:             env.Logger(),
 	}
 
-	var resErr *me.Error
-
-	if b.config.EnableMetrics && len(b.metricTypes) > 0 {
-		h.metricshandler = &metricshandler{
-			env:                env,
-			ctx:                ctx,
-			metricTypes:        b.metricTypes,
-			sink:               sink,
-			intervalSeconds:    uint32(b.config.DatapointInterval.Round(time.Second).Seconds()),
-			metricConfigByName: confsByName,
-		}
-
-		if err := h.metricshandler.InitMetrics(); err != nil {
-			resErr = me.Append(resErr, err)
-		}
-	}
-
-	if b.config.EnableTracing {
-		h.tracinghandler = &tracinghandler{
-			sink: sink,
-			env:  env,
-			ctx:  ctx,
-		}
-
-		if err := h.tracinghandler.InitTracing(int(b.config.TracingBufferSize), b.config.TracingSampleProbability); err != nil {
-			resErr = me.Append(resErr, err)
-		}
-	}
-
-	return h, resErr.ErrorOrNil()
+	return h, h.Init()
 }
 
 // adapter.HandlerBuilder#SetAdapterConfig
@@ -119,7 +91,7 @@ func (b *builder) Validate() (ce *adapter.ConfigErrors) {
 		ce = ce.Appendf("access_token", "You must specify the SignalFx access token")
 	}
 
-	if b.config.EnableMetrics && len(b.config.Metrics) == 0 {
+	if len(b.config.Metrics) == 0 {
 		ce = ce.Appendf("metrics", "There must be at least one metric definition for this to be useful")
 	}
 
@@ -155,7 +127,7 @@ func (b *builder) Validate() (ce *adapter.ConfigErrors) {
 			}
 		} else {
 			ce = ce.Appendf(fmt.Sprintf("metrics[%d].name", i),
-				"Name %s does not correspond to a metric type registered in Istio and sent to this adapter", name)
+				"Name %s does not correspond to a metric type registered in Istio", name)
 		}
 	}
 
@@ -163,14 +135,6 @@ func (b *builder) Validate() (ce *adapter.ConfigErrors) {
 		if !typesSeen[name] {
 			ce = ce.Appendf("metrics", "istio metric type %s must be configured", name)
 		}
-	}
-
-	if b.config.TracingSampleProbability < 0 || b.config.TracingSampleProbability > 1.0 {
-		ce = ce.Appendf("tracing_sample_probability", "must be between 0.0 and 1.0 inclusive")
-	}
-
-	if b.config.TracingBufferSize <= 0 {
-		ce = ce.Appendf("tracing_buffer_size", "must be greater than 0")
 	}
 
 	return
@@ -181,14 +145,53 @@ func (b *builder) SetMetricTypes(types map[string]*metric.Type) {
 	b.metricTypes = types
 }
 
-// tracespan.HandlerBuilder#SetTraceSpanTypes
-func (b *builder) SetTraceSpanTypes(entries map[string]*tracespan.Type) {
-	// We don't really care what the spans look like since we just convert
-	// everything to a string using adapter.Stringify, so we have no reason to
-	// store tracespan.Types.
+////////////////// Request-time Methods //////////////////////////
+
+func (h *handler) Init() error {
+	h.scheduler = sfxclient.NewScheduler()
+
+	h.scheduler.ReportingDelay(time.Duration(h.intervalSeconds) * time.Second)
+	h.scheduler.Sink.(*sfxclient.HTTPSink).AuthToken = h.accessToken
+
+	h.scheduler.ErrorHandler = func(err error) error {
+		return h.logger.Errorf("Error sending datapoints to SignalFx: %s", err.Error())
+	}
+
+	if h.ingestURL != "" {
+		h.scheduler.Sink.(*sfxclient.HTTPSink).DatapointEndpoint = fmt.Sprintf("%s/v2/datapoint", h.ingestURL)
+	}
+
+	h.ctx, h.cancel = context.WithCancel(context.Background())
+
+	h.registry = newRegistry(5 * time.Minute)
+	h.scheduler.AddCallback(h.registry)
+
+	h.env.ScheduleDaemon(func() {
+		err := h.scheduler.Schedule(h.ctx)
+		if err != nil {
+			if ec, ok := err.(*errors.ErrorChain); !ok || ec.Tail() != context.Canceled {
+				_ = h.logger.Errorf("SignalFx scheduler shutdown unexpectedly: %s", err.Error())
+			}
+		}
+	})
+	return nil
 }
 
-////////////////// Request-time Methods //////////////////////////
+// metric.Handler#HandleMetric
+func (h *handler) HandleMetric(ctx context.Context, insts []*metric.Instance) error {
+	var allErr *me.Error
+
+	for i := range insts {
+		name := insts[i].Name
+		if conf := h.metricConfigByName[name]; conf != nil {
+			if err := h.processMetric(conf, insts[i]); err != nil {
+				allErr = me.Append(allErr, err)
+			}
+		}
+	}
+
+	return allErr.ErrorOrNil()
+}
 
 // adapter.Handler#Close
 func (h *handler) Close() error {
@@ -204,18 +207,13 @@ func (h *handler) Close() error {
 func GetInfo() adapter.Info {
 	return adapter.Info{
 		Name:        "signalfx",
-		Description: "Sends metrics and traces to SignalFx",
+		Description: "Sends metrics to SignalFx",
 		SupportedTemplates: []string{
 			metric.TemplateName,
-			tracespan.TemplateName,
 		},
 		NewBuilder: func() adapter.HandlerBuilder { return &builder{} },
 		DefaultConfig: &config.Params{
-			EnableMetrics:            true,
-			EnableTracing:            true,
-			DatapointInterval:        10 * time.Second,
-			TracingBufferSize:        1000,
-			TracingSampleProbability: 1.0,
+			DatapointInterval: 10 * time.Second,
 		},
 	}
 }

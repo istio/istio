@@ -199,10 +199,6 @@ func makeService(hostname model.Hostname, address string, ports map[string]int, 
 		Address:      address,
 		MeshExternal: external,
 		Resolution:   resolution,
-		Attributes: model.ServiceAttributes{
-			Name:      string(hostname),
-			Namespace: "default",
-		},
 	}
 
 	svcPorts := make(model.PortList, 0, len(ports))
@@ -231,7 +227,7 @@ func makeInstance(serviceEntry *networking.ServiceEntry, address string, port in
 	services := convertServices(serviceEntry, creationTime)
 	svc := services[0] // default
 	for _, s := range services {
-		if string(s.Hostname) == address {
+		if s.Hostname.String() == address {
 			svc = s
 			break
 		}

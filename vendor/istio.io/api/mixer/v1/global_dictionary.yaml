@@ -286,6 +286,3 @@
 
 - context.reporter.type
 - context.reporter.kind
-
-# SNI, for TLS connections
-- connection.requested_server_name

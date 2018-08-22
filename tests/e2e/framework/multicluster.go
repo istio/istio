@@ -67,14 +67,11 @@ func (k *KubeInfo) getEndpointIPForService(svc string) (ip string, err error) {
 	}
 
 	if err == nil && eps != nil {
-		if len(eps.Subsets) > 0 {
-			if len(eps.Subsets[0].Addresses) != 0 {
-				ip = eps.Subsets[0].Addresses[0].IP
-			} else if len(eps.Subsets[0].NotReadyAddresses) != 0 {
-				ip = eps.Subsets[0].NotReadyAddresses[0].IP
-			}
-		}
-		if ip == "" {
+		if len(eps.Subsets[0].Addresses) != 0 {
+			ip = eps.Subsets[0].Addresses[0].IP
+		} else if len(eps.Subsets[0].NotReadyAddresses) != 0 {
+			ip = eps.Subsets[0].NotReadyAddresses[0].IP
+		} else {
 			err = fmt.Errorf("could not get endpoint addresses for service %s", svc)
 			return "", err
 		}
@@ -82,51 +79,28 @@ func (k *KubeInfo) getEndpointIPForService(svc string) (ip string, err error) {
 	return
 }
 
-func (k *KubeInfo) generateRemoteIstio(dst string, useAutoInject bool, proxyHub, proxyTag string) (err error) {
-	svcToHelmVal := map[string]string{
-		"istio-pilot":              "remotePilotAddress",
-		"istio-policy":             "remotePolicyAddress",
-		"istio-statsd-prom-bridge": "proxy.envoyStatsd.host",
-		"istio-ingressgateway":     "ingressGatewayEndpoint",
-		"istio-telemetry":          "remoteTelemetryAddress",
-		"zipkin":                   "remoteZipkinAddress",
+func (k *KubeInfo) generateRemoteIstio(src, dst string) error {
+	content, err := ioutil.ReadFile(src)
+	if err != nil {
+		return fmt.Errorf("cannot read remote yaml file %s", src)
 	}
-	var helmSetContent string
-	var ingressGatewayAddr string
-	for svc, helmVal := range svcToHelmVal {
+
+	svcs := []string{"istio-pilot", "istio-policy", "istio-statsd-prom-bridge", "istio-ingress", "istio-telemetry"}
+	for _, svc := range svcs {
 		var ip string
 		ip, err = k.getEndpointIPForService(svc)
 		if err == nil {
-			helmSetContent += " --set global." + helmVal + "=" + ip
+			replaceStr := fmt.Sprintf("%s.istio-system", svc)
+			content = replacePattern(content, replaceStr, ip)
 			log.Infof("Service %s has an endpoint IP %s", svc, ip)
-			if svc == "istio-statsd-prom-bridge" {
-				helmSetContent += " --set global.proxy.envoyStatsd.enabled=true"
-			}
-			if svc == "istio-ingressgateway" {
-				ingressGatewayAddr = ip
-			}
 		} else {
-			log.Infof("Endpoint for service %s not found", svc)
+			return err
 		}
 	}
-	if !useAutoInject {
-		helmSetContent += " --set sidecarInjectorWebhook.enabled=false"
-		log.Infof("Remote cluster auto-sidecar injection disabled")
-	} else {
-		helmSetContent += " --set sidecarInjectorWebhook.enabled=true"
-		log.Infof("Remote cluster auto-sidecar injection enabled")
-	}
-	if proxyHub != "" && proxyTag != "" {
-		helmSetContent += " --set global.hub=" + proxyHub + " --set global.tag=" + proxyTag
-	}
-	chartDir := filepath.Join(k.ReleaseDir, "install/kubernetes/helm/istio-remote")
-	util.HelmTemplate(chartDir, "istio-remote", k.Namespace, helmSetContent, dst)
+	content = replacePattern(content, istioSystem, k.Namespace)
+	err = ioutil.WriteFile(dst, content, 0600)
 	if err != nil {
-		log.Errorf("cannot write remote into generated yaml file %s: %v", dst, err)
-		return err
-	}
-	if ingressGatewayAddr != "" {
-		k.appendIngressGateway(dst, ingressGatewayAddr)
+		return fmt.Errorf("cannot write remote into generated yaml file %s", dst)
 	}
 	return nil
 }
@@ -148,58 +122,4 @@ func (k *KubeInfo) createCacerts(remoteCluster bool) (err error) {
 		log.Infof("Created Cacerts with namespace %s in %s cluster", k.Namespace, cluster)
 	}
 	return err
-}
-
-func (k *KubeInfo) appendIngressGateway(dst, ingressAddr string) (err error) {
-	var ingressGwSvc = `
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: istio-ingressgateway
-  namespace: %s
-spec:
-  type: ClusterIP
-  clusterIP: None
-  ports:
-    -
-      name: http2
-      port: 80
-    -
-      name: https
-      port: 443
-    -
-      name: tcp
-      port: 31400
----
-apiVersion: v1
-kind: Endpoints
-metadata:
-  name: istio-ingressgateway
-  namespace: istio-system
-
-subsets:
-- addresses:
-  - ip: %s
-  ports:
-    -
-      name: http2
-      port: 80
-    -
-      name: https
-      port: 443
-    -
-      name: tcp
-      port: 31400
-`
-	f, err := os.OpenFile(dst, os.O_APPEND|os.O_WRONLY, 0644)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	if _, err = f.WriteString(fmt.Sprintf(ingressGwSvc, k.Namespace, ingressAddr)); err != nil {
-		return err
-	}
-	return nil
 }

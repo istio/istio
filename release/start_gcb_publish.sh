@@ -31,8 +31,7 @@ set -o pipefail
 set -x
 
 SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
-# shellcheck source=release/gcb_build_lib.sh
-source "${SCRIPTPATH}/gcb_build_lib.sh"
+source ${SCRIPTPATH}/gcb_build_lib.sh
 
 PROJECT_ID=""
 KEY_FILE_PATH=""
@@ -62,7 +61,7 @@ function usage() {
     -m <file> name of manifest file in repo specified by -u     (optional, defaults to $REPO_FILE )
     -t <tag>  commit tag or branch for manifest repo in -u      (optional, defaults to $REPO_FILE_VER )
     -w        specify that script should wait until build done  (optional)
-
+  
     -d <hub>  docker hub                                        (optional, defaults to $DOCKER_DST )
     -r <name> GCR bucket to store build artifacts               (required)
     -s <name> GCS bucket to read build artifacts                (required)
@@ -115,7 +114,7 @@ if [[ -z "${SVC_ACCT}"  ]]; then
 fi
 
 # generate the substitutions file
-cat << EOF > "${SUBS_FILE}"
+cat << EOF > ${SUBS_FILE}
   "substitutions": {
     "_VER_STRING": "${VER_STRING}",
     "_MFEST_URL": "${REPO}",
@@ -131,9 +130,9 @@ cat << EOF > "${SUBS_FILE}"
   }
 EOF
 
-run_build "cloud_publish.template.json" \
+run_build "${REPO}" "${REPO_FILE}" "${REPO_FILE_VER}" "cloud_publish.template.json" \
   "${SUBS_FILE}" "${PROJECT_ID}" "${SVC_ACCT}" "${KEY_FILE_PATH}" "${WAIT_FOR_RESULT}"
 
 # cleanup
 rm -f "${SUBS_FILE}"
-exit "$BUILD_FAILED"
+exit $BUILD_FAILED

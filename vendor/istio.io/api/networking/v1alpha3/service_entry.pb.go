@@ -393,10 +393,8 @@ type ServiceEntry struct {
 	// Specify whether the service should be considered external to the mesh
 	// or part of the mesh.
 	Location ServiceEntry_Location `protobuf:"varint,4,opt,name=location,proto3,enum=istio.networking.v1alpha3.ServiceEntry_Location" json:"location,omitempty"`
-	// REQUIRED: Service discovery mode for the hosts. Care must be taken
-	// when setting the resolution mode to NONE for a TCP port without
-	// accompanying IP addresses. In such cases, traffic to any IP on
-	// said port will be allowed (i.e. 0.0.0.0:<port>).
+	// Service discovery mode for the hosts. If not set, Istio will attempt
+	// to infer the discovery mode based on the value of hosts and endpoints.
 	Resolution ServiceEntry_Resolution `protobuf:"varint,5,opt,name=resolution,proto3,enum=istio.networking.v1alpha3.ServiceEntry_Resolution" json:"resolution,omitempty"`
 	// One or more endpoints associated with the service.
 	Endpoints []*ServiceEntry_Endpoint `protobuf:"bytes,6,rep,name=endpoints" json:"endpoints,omitempty"`

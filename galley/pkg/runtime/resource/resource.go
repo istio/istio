@@ -21,7 +21,7 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/gogo/protobuf/proto"
+	prlang "github.com/golang/protobuf/proto"
 )
 
 // TypeURL of the resource.
@@ -49,13 +49,16 @@ type VersionedKey struct {
 // Entry is the abstract representation of a versioned config resource in Istio.
 type Entry struct {
 	ID   VersionedKey
-	Item proto.Message
+	Item prlang.Message
 }
 
 // Info is the type metadata for an Entry.
 type Info struct {
 	// TypeURL of the resource that this info is about
 	TypeURL TypeURL
+
+	// Indicates whether the proto is defined as Gogo.
+	IsGogo bool
 
 	goType reflect.Type
 }
@@ -79,8 +82,8 @@ func newTypeURL(rawurl string) (TypeURL, error) {
 	return TypeURL{rawurl}, nil
 }
 
-// MessageName portion of the type URL.
-func (t TypeURL) MessageName() string {
+// messageName portion of the type URL.
+func (t TypeURL) messageName() string {
 	parts := strings.Split(t.string, "/")
 	return parts[len(parts)-1]
 }
@@ -111,11 +114,11 @@ func (i *Info) String() string {
 }
 
 // NewProtoInstance returns a new instance of the underlying proto for this resource.
-func (i *Info) NewProtoInstance() proto.Message {
+func (i *Info) NewProtoInstance() prlang.Message {
 
 	instance := reflect.New(i.goType).Interface()
 
-	if p, ok := instance.(proto.Message); !ok {
+	if p, ok := instance.(prlang.Message); !ok {
 		panic(fmt.Sprintf(
 			"NewProtoInstance: message is not an instance of proto.Message. kind:%s, type:%v, value:%v",
 			i.TypeURL, i.goType, instance))

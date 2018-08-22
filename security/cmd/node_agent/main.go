@@ -33,7 +33,7 @@ var (
 
 	rootCmd = &cobra.Command{
 		Use:   "node_agent",
-		Short: "Istio security per-node agent.",
+		Short: "Istio security per-node agent",
 
 		Run: func(cmd *cobra.Command, args []string) {
 			runNodeAgent()
@@ -69,9 +69,6 @@ func init() {
 		"key", "/etc/certs/key.pem", "Node Agent private key file")
 	flags.StringVar(&cAClientConfig.RootCertFile, "root-cert",
 		"/etc/certs/root-cert.pem", "Root Certificate file")
-
-	flags.BoolVar(&naConfig.DualUse, "experimental-dual-use",
-		false, "Enable dual-use mode. Generates certificates with a CommonName identical to the SAN.")
 
 	naConfig.LoggingOptions.AttachCobraFlags(rootCmd)
 	cmd.InitializeFlags(rootCmd)

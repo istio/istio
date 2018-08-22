@@ -27,7 +27,7 @@ items:
     namespace: {{ .Release.Namespace }}
     annotations:
       {{- range $key, $val := .Values.service.annotations }}
-      {{ $key }}: {{ $val | quote }}
+      {{ $key }}: {{ $val }}
       {{- end }}
     labels:
       app: jaeger
@@ -36,9 +36,9 @@ items:
       heritage: {{ .Release.Service }}
   spec:
     ports:
-      - name: http-query
+      - name: query-http
         port: 80
         protocol: TCP
-        targetPort: {{ .Values.jaeger.ui.port }}
+        targetPort: {{ .Values.service.uiPort }}
     selector:
       app: jaeger

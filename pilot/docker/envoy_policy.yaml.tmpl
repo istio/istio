@@ -76,6 +76,8 @@ static_resources:
 {{- end }}
                   mixer_attributes:
                     attributes:
+                      destination.service:
+                        string_value: istio-policy.{{ .PodNamespace }}.svc.cluster.local
                       destination.service.host:
                         string_value: istio-policy.{{ .PodNamespace }}.svc.cluster.local
                       destination.service.uid:
@@ -160,6 +162,8 @@ static_resources:
 {{- end }}
                   mixer_attributes:
                     attributes:
+                      destination.service:
+                        string_value: istio-policy.{{ .PodNamespace }}.svc.cluster.local
                       destination.service.host:
                         string_value: istio-policy.{{ .PodNamespace }}.svc.cluster.local
                       destination.service.uid:

@@ -23,8 +23,8 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	mcp "istio.io/api/mcp/v1alpha1"
+	"istio.io/istio/galley/pkg/mcp/snapshot"
 	"istio.io/istio/galley/pkg/runtime/resource"
-	"istio.io/istio/pkg/mcp/snapshot"
 )
 
 // State is the in-memory state of Galley.
@@ -114,7 +114,7 @@ func (s *State) buildSnapshot() snapshot.Snapshot {
 	s.entriesLock.Lock()
 	defer s.entriesLock.Unlock()
 
-	b := snapshot.NewInMemoryBuilder()
+	sn := snapshot.NewInMemory()
 
 	for typeURL, state := range s.entries {
 		entries := make([]*mcp.Envelope, 0, len(state.entries))
@@ -123,10 +123,12 @@ func (s *State) buildSnapshot() snapshot.Snapshot {
 		}
 
 		version := fmt.Sprintf("%d", state.version)
-		b.Set(typeURL.String(), version, entries)
+		sn.Set(typeURL.String(), version, entries)
 	}
 
-	return b.Build()
+	sn.Freeze()
+
+	return sn
 }
 
 func (s *State) envelopeResource(event resource.Event) (*mcp.Envelope, bool) {

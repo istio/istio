@@ -24,7 +24,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/ptypes"
 
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/proxy/envoy"
@@ -143,7 +143,7 @@ func setup() error {
 		//TODO: start mixer first, get its address
 		Mesh: bootstrap.MeshArgs{
 			MixerAddress:    "istio-mixer.istio-system:9091",
-			RdsRefreshDelay: types.DurationProto(10 * time.Millisecond),
+			RdsRefreshDelay: ptypes.DurationProto(10 * time.Millisecond),
 		},
 		Config: bootstrap.ConfigArgs{
 			KubeConfig: IstioSrc + "/.circleci/config",
@@ -168,7 +168,8 @@ func setup() error {
 	MockTestServer = s
 
 	// Start the server.
-	if err := s.Start(stop); err != nil {
+	_, err = s.Start(stop)
+	if err != nil {
 		return err
 	}
 

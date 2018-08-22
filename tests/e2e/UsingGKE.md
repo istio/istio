@@ -1,4 +1,4 @@
-# Running E2E tests on your own kubernetes cluster
+# Running E2E tests on your own kubernets cluster
 
 * [Step 1: Create a kubernetes cluster](#step-1-create-and-setup-a-kubernetes-cluster)
 * [Step 2: Get cluster credentials](#step-2-get-cluster-credentials)

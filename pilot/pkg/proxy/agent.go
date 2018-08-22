@@ -168,7 +168,6 @@ func (a *agent) Run(ctx context.Context) {
 	// High QPS is needed to process messages on all channels.
 	rateLimiter := rate.NewLimiter(1, 10)
 
-	var reconcileTimer *time.Timer
 	for {
 		err := rateLimiter.Wait(ctx)
 		if err != nil {
@@ -181,10 +180,6 @@ func (a *agent) Run(ctx context.Context) {
 		if a.retry.restart != nil {
 			delay = time.Until(*a.retry.restart)
 		}
-		if reconcileTimer != nil {
-			reconcileTimer.Stop()
-		}
-		reconcileTimer = time.NewTimer(delay)
 
 		select {
 		case config := <-a.configCh:
@@ -243,7 +238,7 @@ func (a *agent) Run(ctx context.Context) {
 				}
 			}
 
-		case <-reconcileTimer.C:
+		case <-time.After(delay):
 			a.reconcile()
 
 		case _, more := <-ctx.Done():

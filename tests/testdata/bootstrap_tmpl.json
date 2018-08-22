@@ -30,15 +30,13 @@
     },
     "ads_config": {
       "api_type": "GRPC",
-      "grpc_services": {
-        "envoy_grpc": {
-          "cluster_name": "xds-grpc"
-        }
-      },
       "refresh_delay": {
         "seconds": 30,
         "nanos": 0
-      }
+      },
+      "cluster_names": [
+        "xds-grpc"
+      ]
     }
   },
   "static_resources": {

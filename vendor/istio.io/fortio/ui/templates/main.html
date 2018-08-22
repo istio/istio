@@ -49,8 +49,7 @@ Histogram Resolution: <input type="text" name="r" size="8" value="0.0001" /> <br
 Headers: <br />
 {{ range $name, $vals := .Headers }}{{range $val := $vals}}
 <input type="text" name="H" size=40 value="{{$name}}: {{ $val }}" /> <br />
-{{end}}{{end}} <!-- 3 extra header lines, TODO(#283): add a JS 'more headers' button -->
-<input type="text" name="H" size=40 value="" /> <br />
+{{end}}{{end}} <!-- 2 extra header lines, TODO: add a JS 'more headers' button -->
 <input type="text" name="H" size=40 value="" /> <br />
 <input type="text" name="H" size=40 value="" /> <br />
 Use standard go client instead of fastclient <input type="checkbox" name="stdclient"/> <br />

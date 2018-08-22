@@ -20,7 +20,7 @@ import (
 )
 
 // injectable function for overriding proto.MessageType, for testing purposes.
-type messageTypeFn func(name string) reflect.Type
+type messageTypeFn func(name string, isGogo bool) reflect.Type
 
 // Schema contains metadata about configuration resources.
 type Schema struct {
@@ -29,31 +29,22 @@ type Schema struct {
 	messageTypeFn messageTypeFn
 }
 
-// SchemaBuilder is a buidler for the Schema type.
-type SchemaBuilder struct {
-	schema *Schema
+// NewSchema returns a new instance of Schema.
+func NewSchema() *Schema {
+	return newSchema(getProtoMessageType)
 }
 
-// NewSchemaBuilder returns a new instance of SchemaBuilder.
-func NewSchemaBuilder() *SchemaBuilder {
-	return newSchemaBuilder(getProtoMessageType)
-}
-
-// newSchemaBuilder returns a new instance of SchemaBuilder.
-func newSchemaBuilder(messageTypeFn messageTypeFn) *SchemaBuilder {
-	s := &Schema{
+// NewSchema returns a new instance of Schema.
+func newSchema(messageTypeFn messageTypeFn) *Schema {
+	return &Schema{
 		byURL:         make(map[string]Info),
 		messageTypeFn: messageTypeFn,
-	}
-
-	return &SchemaBuilder{
-		schema: s,
 	}
 }
 
 // Register a proto into the schema.
-func (b *SchemaBuilder) Register(typeURL string) {
-	if _, found := b.schema.byURL[typeURL]; found {
+func (s *Schema) Register(typeURL string, isGogo bool) {
+	if _, found := s.byURL[typeURL]; found {
 		panic(fmt.Sprintf("Schema.Register: Proto type is registered multiple times: %q", typeURL))
 	}
 
@@ -63,42 +54,24 @@ func (b *SchemaBuilder) Register(typeURL string) {
 		panic(err)
 	}
 
-	goType := b.schema.messageTypeFn(url.MessageName())
+	goType := s.messageTypeFn(url.messageName(), isGogo)
 	if goType == nil {
-		panic(fmt.Sprintf("Schema.Register: Proto type not found: %q", url.MessageName()))
+		panic(fmt.Sprintf("Schema.Register: Proto type not found: %q, isGogo: %v", url.messageName(), isGogo))
 	}
 
 	info := Info{
 		TypeURL: url,
+		IsGogo:  isGogo,
 		goType:  goType,
 	}
 
-	b.schema.byURL[info.TypeURL.String()] = info
-}
-
-// Build a new Schema from this SchemaBuilder.
-func (b *SchemaBuilder) Build() *Schema {
-	s := b.schema
-
-	// Avoid modify after Build.
-	b.schema = nil
-
-	return s
+	s.byURL[info.TypeURL.String()] = info
 }
 
 // Lookup looks up a resource.Info by its type url.
 func (s *Schema) Lookup(url string) (Info, bool) {
 	i, ok := s.byURL[url]
 	return i, ok
-}
-
-// Get looks up a resource.Info by its type Url. Panics if it is not found.
-func (s *Schema) Get(url string) Info {
-	i, ok := s.Lookup(url)
-	if !ok {
-		panic(fmt.Sprintf("Schema.Get: matching entry not found for url: %q", url))
-	}
-	return i
 }
 
 // All returns all known info objects

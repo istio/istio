@@ -19,7 +19,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/ptypes"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -169,7 +169,7 @@ func initLocalPilot(IstioSrc string) (*bootstrap.Server, error) {
 		//TODO: start mixer first, get its address
 		Mesh: bootstrap.MeshArgs{
 			MixerAddress:    "istio-mixer.istio-system:9091",
-			RdsRefreshDelay: types.DurationProto(10 * time.Millisecond),
+			RdsRefreshDelay: ptypes.DurationProto(10 * time.Millisecond),
 		},
 		Config: bootstrap.ConfigArgs{
 			KubeConfig: IstioSrc + "/.circleci/config",
@@ -190,7 +190,7 @@ func initLocalPilot(IstioSrc string) (*bootstrap.Server, error) {
 
 func startLocalPilot(s *bootstrap.Server, stop chan struct{}) {
 	// Start the server
-	s.Start(stop)
+	_, _ = s.Start(stop)
 }
 
 // Test availability of local API Server

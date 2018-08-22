@@ -52,10 +52,7 @@ node:
 dynamic_resources:
   lds_config: { ads: {} }
   ads_config:
-    api_type: GRPC
-    grpc_services:
-      envoy_grpc:
-        cluster_name: xds
+    cluster_names: ["xds"]
 static_resources:
   clusters:
   - name: xds
@@ -87,7 +84,6 @@ static_resources:
 const checkAttributesOkGet = `
 {
   "connection.mtls": false,
-  "origin.ip": "[127 0 0 1]",
   "context.protocol": "http",
 	"key": "count%s",
   "mesh1.ip": "[1 1 1 1]",

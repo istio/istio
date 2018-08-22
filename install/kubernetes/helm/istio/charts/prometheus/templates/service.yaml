@@ -6,7 +6,7 @@ metadata:
   annotations:
     prometheus.io/scrape: 'true'
     {{- range $key, $val := .Values.service.annotations }}
-    {{ $key }}: {{ $val | quote }}
+    {{ $key }}: {{ $val }}
     {{- end }}
   labels:
     name: prometheus

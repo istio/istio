@@ -4,7 +4,9 @@
 /*
 	Package config is a generated protocol buffer package.
 
-	The `bypass` adapter makes it possible to connect to gRPC based remote adapters using the compiled-in adapter
+	$title: Bypass
+	$description: Adapter for connecting to gRPC based adapters as an inline adapter for some templates.
+	The `bypass` adapter makes it possible to connect to gRPC based remote adapters using the inline adapter
 	model.
 
 	This adapter supports the following templates:

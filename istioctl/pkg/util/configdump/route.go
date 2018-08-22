@@ -16,37 +16,11 @@ package configdump
 
 import (
 	"fmt"
-	"sort"
-	"time"
 
+	"github.com/bradfitz/slice"
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 	proto "github.com/gogo/protobuf/types"
 )
-
-// GetLastUpdatedDynamicRouteTime retrieves the LastUpdated timestamp of the
-// most recently updated DynamicRouteConfig
-func (w *Wrapper) GetLastUpdatedDynamicRouteTime() (*time.Time, error) {
-	routeDump, err := w.GetRouteConfigDump()
-	if err != nil {
-		return nil, err
-	}
-	drc := routeDump.GetDynamicRouteConfigs()
-
-	lastUpdated := time.Unix(0, 0) // get the oldest possible timestamp
-	for i := range drc {
-		if drc[i].LastUpdated != nil {
-			if drLastUpdated, err := proto.TimestampFromProto(drc[i].LastUpdated); err != nil {
-				return nil, err
-			} else if drLastUpdated.After(lastUpdated) {
-				lastUpdated = drLastUpdated
-			}
-		}
-	}
-	if lastUpdated.After(time.Unix(0, 0)) { // if a timestamp was obtained from a drc
-		return &lastUpdated, nil
-	}
-	return nil, nil
-}
 
 // GetDynamicRouteDump retrieves a route dump with just dynamic active routes in it
 func (w *Wrapper) GetDynamicRouteDump(stripVersions bool) (*adminapi.RoutesConfigDump, error) {
@@ -55,7 +29,7 @@ func (w *Wrapper) GetDynamicRouteDump(stripVersions bool) (*adminapi.RoutesConfi
 		return nil, err
 	}
 	drc := routeDump.GetDynamicRouteConfigs()
-	sort.Slice(drc, func(i, j int) bool {
+	slice.Sort(drc, func(i, j int) bool {
 		return drc[i].RouteConfig.Name < drc[j].RouteConfig.Name
 	})
 	if stripVersions {

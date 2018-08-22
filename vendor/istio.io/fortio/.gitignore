@@ -11,5 +11,3 @@ Gopkg.*
 .idea
 # certs for testing
 cert-tmp/
-# brew binary bottles create a .brew_home/ dir in source tree
-.brew_home/

@@ -70,6 +70,7 @@ const (
 	attrDestNamespace = "destination.namespace" // e.g. "default".
 	attrDestUser      = "destination.user"      // service account, e.g. "bookinfo-productpage".
 
+	userHeader   = ":user"
 	methodHeader = ":method"
 	pathHeader   = ":path"
 )
@@ -83,7 +84,7 @@ type serviceMetadata struct {
 
 func createServiceMetadata(attr *model.ServiceAttributes, in *model.ServiceInstance) *serviceMetadata {
 	return &serviceMetadata{
-		name:   string(in.Service.Hostname),
+		name:   in.Service.Hostname.String(),
 		labels: in.Labels,
 		attributes: map[string]string{
 			attrDestName:      attr.Name,
@@ -166,66 +167,36 @@ func generateMetadataStringMatcher(keys []string, v *metadata.StringMatcher) *me
 	return &metadata.MetadataMatcher{
 		Filter: authn.AuthnFilterName,
 		Path:   paths,
-		Value: &metadata.ValueMatcher{
-			MatchPattern: &metadata.ValueMatcher_StringMatch{
+		Value: &metadata.MetadataMatcher_Value{
+			MatchPattern: &metadata.MetadataMatcher_Value_StringMatch{
 				StringMatch: v,
 			},
 		},
 	}
 }
 
-//Generate a metadata list matcher for the given path keys and value.
-func generateMetadataListMatcher(keys []string, v string) *metadata.MetadataMatcher {
-	listMatcher := &metadata.ListMatcher{
-		MatchPattern: &metadata.ListMatcher_OneOf{
-			OneOf: &metadata.ValueMatcher{
-				MatchPattern: &metadata.ValueMatcher_StringMatch{
-					StringMatch: createStringMatcher(v, false),
-				},
-			},
-		},
-	}
-
-	paths := make([]*metadata.MetadataMatcher_PathSegment, 0)
-	for _, k := range keys {
-		paths = append(paths, &metadata.MetadataMatcher_PathSegment{
-			Segment: &metadata.MetadataMatcher_PathSegment_Key{Key: k},
-		})
-	}
-
-	return &metadata.MetadataMatcher{
-		Filter: authn.AuthnFilterName,
-		Path:   paths,
-		Value: &metadata.ValueMatcher{
-			MatchPattern: &metadata.ValueMatcher_ListMatch{
-				ListMatch: listMatcher,
-			},
-		},
-	}
-}
-
-// Generate keys for metadata paths
-func generateMetaKeys(k string) ([]string, error) {
+// createDynamicMetadataMatcher creates a MetadataMatcher for the given key, value pair.
+func createDynamicMetadataMatcher(k, v string) *metadata.MetadataMatcher {
 	var keys []string
+	forceRegexPattern := false
 
 	if k == attrSrcNamespace {
 		// Proxy doesn't have attrSrcNamespace directly, but the information is encoded in attrSrcPrincipal
 		// with format: cluster.local/ns/{NAMESPACE}/sa/{SERVICE-ACCOUNT}, so we change the key to
-		// attrSrcPrincipal.
+		// attrSrcPrincipal and change the value to a regular expression to match the namespace part.
 		keys = []string{attrSrcPrincipal}
+		v = fmt.Sprintf(`*/ns/%s/*`, v)
+		forceRegexPattern = true
 	} else if strings.HasPrefix(k, attrRequestClaims) {
 		claim, err := extractNameInBrackets(strings.TrimPrefix(k, attrRequestClaims))
 		if err != nil {
-			return nil, err
+			return nil
 		}
 		keys = []string{attrRequestClaims, claim}
 	} else {
 		keys = []string{k}
 	}
-	return keys, nil
-}
 
-func createStringMatcher(v string, forceRegexPattern bool) *metadata.StringMatcher {
 	var stringMatcher *metadata.StringMatcher
 	// Check if v is "*" first to make sure we won't generate an empty prefix/suffix StringMatcher,
 	// the Envoy StringMatcher doesn't allow empty prefix/suffix.
@@ -254,31 +225,6 @@ func createStringMatcher(v string, forceRegexPattern bool) *metadata.StringMatch
 			},
 		}
 	}
-	return stringMatcher
-}
-
-// createDynamicMetadataMatcher creates a MetadataMatcher for the given key, value pair.
-func createDynamicMetadataMatcher(k, v string) *metadata.MetadataMatcher {
-	keys, err := generateMetaKeys(k)
-	if err != nil {
-		rbacLog.Errorf("failed to generate meta matcher key %s, err: %v", k, err)
-		return nil
-	}
-	forceRegexPattern := false
-	if k == attrSrcNamespace {
-		// Change the value to a regular expression to match the namespace part.
-		v = fmt.Sprintf(`*/ns/%s/*`, v)
-		forceRegexPattern = true
-	}
-
-	// Handle the claims under attrRequestClaims
-	if len(keys) == 2 && keys[0] == attrRequestClaims {
-		//Generate a metadata list matcher for the given path keys and value.
-		//On proxy side, the value should be of list type.
-		return generateMetadataListMatcher(keys, v)
-	}
-
-	stringMatcher := createStringMatcher(v, forceRegexPattern)
 
 	return generateMetadataStringMatcher(keys, stringMatcher)
 }
@@ -297,11 +243,6 @@ func (Plugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mutable
 	return nil
 }
 
-// OnInboundFilterChains is called whenever a plugin needs to setup the filter chains, including relevant filter chain configuration.
-func (Plugin) OnInboundFilterChains(in *plugin.InputParams) []plugin.FilterChain {
-	return nil
-}
-
 // OnInboundListener is called whenever a new listener is added to the LDS output for a given service
 // Can be used to add additional filters (e.g., mixer filter) or add more stuff to the HTTP connection manager
 // on the inbound path
@@ -311,17 +252,17 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 		return nil
 	}
 	svc := in.ServiceInstance.Service.Hostname
-	attr := in.ServiceInstance.Service.Attributes
-	//if len(attr) == nil || err != nil {
-	//	rbacLog.Errorf("rbac plugin disabled: invalid service %s: %v", svc, err)
-	//	return nil
-	//}
-
-	if !isRbacEnabled(string(svc), attr.Namespace, in.Env.IstioConfigStore) {
+	attr, err := in.Env.GetServiceAttributes(svc)
+	if attr == nil || err != nil {
+		rbacLog.Errorf("rbac plugin disabled: invalid service %s: %v", svc, err)
 		return nil
 	}
 
-	service := createServiceMetadata(&attr, in.ServiceInstance)
+	if !isRbacEnabled(svc.String(), attr.Namespace, in.Env.IstioConfigStore) {
+		return nil
+	}
+
+	service := createServiceMetadata(attr, in.ServiceInstance)
 	rbacLog.Debugf("building filter config for %v", *service)
 	filter := buildHTTPFilter(service, in.Env.IstioConfigStore)
 	if filter != nil {
@@ -335,7 +276,7 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 }
 
 // OnInboundCluster implements the Plugin interface method.
-func (Plugin) OnInboundCluster(env *model.Environment, node *model.Proxy, push *model.PushContext, service *model.Service,
+func (Plugin) OnInboundCluster(env model.Environment, node model.Proxy, service *model.Service,
 	servicePort *model.Port, cluster *xdsapi.Cluster) {
 }
 
@@ -348,16 +289,12 @@ func (Plugin) OnInboundRouteConfiguration(in *plugin.InputParams, route *xdsapi.
 }
 
 // OnOutboundCluster implements the Plugin interface method.
-func (Plugin) OnOutboundCluster(env *model.Environment, node *model.Proxy, push *model.PushContext, service *model.Service,
+func (Plugin) OnOutboundCluster(env model.Environment, node model.Proxy, service *model.Service,
 	servicePort *model.Port, cluster *xdsapi.Cluster) {
 }
 
 // isServiceInList checks if a given service or namespace is found in the RbacConfig target list.
 func isServiceInList(svc string, namespace string, li *rbacproto.RbacConfig_Target) bool {
-	if li == nil {
-		return false
-	}
-
 	for _, ns := range li.Namespaces {
 		if namespace == ns {
 			return true
@@ -378,7 +315,7 @@ func isRbacEnabled(svc string, ns string, store model.IstioConfigStore) bool {
 		configProto = config.Spec.(*rbacproto.RbacConfig)
 	}
 	if configProto == nil {
-		rbacLog.Debugf("disabled, no RbacConfig")
+		rbacLog.Infof("disabled, no RbacConfig")
 		return false
 	}
 
@@ -556,19 +493,9 @@ func convertToPrincipal(subject *rbacproto.Subject) *policyproto.Principal {
 	}
 
 	if subject.User != "" {
-		if subject.User == "*" {
-			// Generate an any rule to grant access permission to anyone if the value is "*".
-			ids.AndIds.Ids = append(ids.AndIds.Ids, &policyproto.Principal{
-				Identifier: &policyproto.Principal_Any{
-					Any: true,
-				},
-			})
-		} else {
-			// Generate the user field with attrSrcPrincipal in the metadata.
-			id := principalForKeyValue(attrSrcPrincipal, subject.User)
-			if id != nil {
-				ids.AndIds.Ids = append(ids.AndIds.Ids, id)
-			}
+		id := principalForKeyValue(userHeader, subject.User)
+		if id != nil {
+			ids.AndIds.Ids = append(ids.AndIds.Ids, id)
 		}
 	}
 
@@ -587,11 +514,6 @@ func convertToPrincipal(subject *rbacproto.Subject) *policyproto.Principal {
 
 		for _, k := range keys {
 			v := subject.Properties[k]
-			if k == attrSrcPrincipal && subject.User != "" {
-				rbacLog.Errorf("ignored %s, duplicate with previous user value %s",
-					attrSrcPrincipal, subject.User)
-				continue
-			}
 			id := principalForKeyValue(k, v)
 			if id != nil {
 				ids.AndIds.Ids = append(ids.AndIds.Ids, id)
@@ -673,6 +595,20 @@ func permissionForKeyValues(key string, values []string) *policyproto.Permission
 
 func principalForKeyValue(key, value string) *policyproto.Principal {
 	switch {
+	case key == userHeader:
+		if value == "*" {
+			// Generate an any rule to grant access permission to anyone if the value is "*". This is the
+			// only wildcard character we could support for principal.user.
+			return &policyproto.Principal{
+				Identifier: &policyproto.Principal_Any{
+					Any: true,
+				},
+			}
+		}
+		return &policyproto.Principal{
+			Identifier: &policyproto.Principal_Authenticated_{
+				Authenticated: &policyproto.Principal_Authenticated{Name: value}},
+		}
 	case key == attrSrcIP:
 		cidr, err := convertToCidr(value)
 		if err != nil {

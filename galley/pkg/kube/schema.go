@@ -14,39 +14,30 @@
 
 package kube
 
+import (
+	"fmt"
+
+	"istio.io/istio/galley/pkg/runtime/resource"
+)
+
 // Schema represents a set of known Kubernetes resource types.
 type Schema struct {
 	entries []ResourceSpec
 }
 
-// SchemaBuilder is a builder for Schema.
-type SchemaBuilder struct {
-	schema *Schema
-}
-
-// NewSchemaBuilder returns a new instance of a SchemaBuilder.
-func NewSchemaBuilder() *SchemaBuilder {
-	return &SchemaBuilder{
-		schema: &Schema{},
-	}
-}
-
-// Add a new ResourceSpec to the schema.
-func (b *SchemaBuilder) Add(entry ResourceSpec) {
-	b.schema.entries = append(b.schema.entries, entry)
-}
-
-// Build a new instance of Schema.
-func (b *SchemaBuilder) Build() *Schema {
-	s := b.schema
-
-	// Avoid modify after Build.
-	b.schema = nil
-
-	return s
+func (e *Schema) add(entry ResourceSpec) {
+	e.entries = append(e.entries, entry)
 }
 
 // All returns information about all known types.
 func (e *Schema) All() []ResourceSpec {
 	return e.entries
+}
+
+func getTargetFor(typeURL string) resource.Info {
+	rInfo, ok := resource.Types.Lookup(typeURL)
+	if !ok {
+		panic(fmt.Sprintf("Corresponding resource spec not found for: %s", typeURL))
+	}
+	return rInfo
 }

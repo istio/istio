@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	defaultTag          = "release-1.0-latest-daily"
+	defaultTag          = "0.8.latest"
 	defaultHyperkubeTag = "v1.7.6_coreos.0"
 )
 
@@ -133,7 +133,7 @@ func defaultInstall() *installation {
 		Debug:     false,
 		NodePort:  0,
 
-		Hub:      "gcr.io/istio-release",
+		Hub:      "gcr.io/istio-testing",
 		MixerTag: defaultTag,
 		PilotTag: defaultTag,
 		CaTag:    defaultTag,

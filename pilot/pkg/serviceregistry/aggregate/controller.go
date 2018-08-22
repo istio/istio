@@ -117,28 +117,23 @@ func (c *Controller) Services() ([]*model.Service, error) {
 		// Race condition: multiple threads may call Services, and multiple services
 		// may modify one of the service's cluster ID
 		clusterAddressesMutex.Lock()
-		if r.ClusterID == "" { // Should we instead check for registry name to be on safe side?
-			// If the service is does not have a cluster ID (consul, ServiceEntries, CloudFoundry, etc.)
-			// Do not bother checking for the cluster ID.
-			// DO NOT ASSIGN CLUSTER ID to non-k8s registries. This will prevent service entries with multiple
-			// VIPs or CIDR ranges in the address field
-			services = append(services, svcs...)
-		} else {
-			// This is K8S typically
-			for _, s := range svcs {
-				sp, ok := smap[s.Hostname]
-				if !ok {
-					// First time we see a service. The result will have a single service per hostname
-					// The first cluster will be listed first, so the services in the primary cluster
-					// will be used for default settings. If a service appears in multiple clusters,
-					// the order is less clear.
-					sp = s
-					smap[s.Hostname] = sp
-					services = append(services, sp)
-				}
+		for _, s := range svcs {
+			sp, ok := smap[s.Hostname]
+			if !ok {
+				// First time we see a service. The result will have a single service per hostname
+				// The first cluster will be listed first, so the services in the primary cluster
+				// will be used for default settings. If a service appears in multiple clusters,
+				// the order is less clear.
+				sp = s
+				smap[s.Hostname] = sp
+				services = append(services, sp)
+			}
 
-				// If the registry has a cluster ID, keep track of the cluster and the
-				// local address inside the cluster.
+			// If the registry has a cluster ID, keep track of the cluster and the
+			// local address inside the cluster.
+			// TODO: what is this used for ? Do we want to support multiple VIPs, or
+			// only use the 'primary' VIP ?
+			if r.ClusterID != "" {
 				if sp.ClusterVIPs == nil {
 					sp.ClusterVIPs = make(map[string]string)
 				}
@@ -165,6 +160,20 @@ func (c *Controller) GetService(hostname model.Hostname) (*model.Service, error)
 			return service, nil
 		}
 
+	}
+	return nil, errs
+}
+
+// GetServiceAttributes retrieves the custom attributes of a service if exists
+func (c *Controller) GetServiceAttributes(hostname model.Hostname) (*model.ServiceAttributes, error) {
+	var errs error
+	for _, r := range c.GetRegistries() {
+		svc, err := r.GetService(hostname)
+		if err != nil {
+			errs = multierror.Append(errs, err)
+		} else if svc != nil {
+			return r.GetServiceAttributes(svc.Hostname)
+		}
 	}
 	return nil, errs
 }

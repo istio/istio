@@ -561,16 +561,6 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			ti64 += int64(t1) + int64(t2)<<32
 			STACK_PUSH2(uint32(ti64>>32), uint32(ti64&0xFFFFFFFF))
 
-		case il.AddS:
-			STACK_UNDERFLOW_GUARD(2)
-			STACK_POP2(t1, t2)
-			GET_HEAP_VALUE_STRING(t1, tStr)
-			GET_HEAP_VALUE_STRING(t2, tStr2)
-			tStr2 += tStr
-			NEW_HEAP_VALUE(tStr2, t3)
-			STACK_PUSH(t3)
-
-
 		case il.SubI:
 			STACK_UNDERFLOW_GUARD(4)
 			STACK_POP2(t1, t2)
