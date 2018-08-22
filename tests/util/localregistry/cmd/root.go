@@ -19,11 +19,16 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"istio.io/istio/mixer/cmd/shared"
+	"istio.io/istio/tests/util/localregistry"
 )
 
+type localRegistrySetupArgs struct {
+	remoteRegistryPort uint16
+	kubeconfig         string
+}
+
 // GetRootCmd returns the root of the cobra command-tree.
-func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
+func GetRootCmd(args []string) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "localregistry",
 		Short: "Localregistry is a tool to setup in-cluster local registry in kubernetes environment",
@@ -35,8 +40,48 @@ func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 		},
 	}
 	rootCmd.SetArgs(args)
-	rootCmd.AddCommand(setupCfgCmd(args, printf, fatalf))
-	rootCmd.AddCommand(teardownCfgCmd(args, printf, fatalf))
+	rootCmd.AddCommand(setupCfgCmd(args))
+	rootCmd.AddCommand(teardownCfgCmd(args))
 
 	return rootCmd
+}
+
+
+func setupCfgCmd(rawArgs []string) *cobra.Command {
+	sa := &localRegistrySetupArgs{}
+	setupCmd := &cobra.Command{
+		Use:   "setup",
+		Short: "sets up localregistry in kubernetes cluster",
+		Run: func(cmd *cobra.Command, args []string) {
+			if err := localregistry.SetupLocalRegistry(sa.remoteRegistryPort, sa.kubeconfig); err != nil {
+				fmt.Println("Error Setting up local registry. err %v", err)
+			} else {
+				fmt.Println("Local Registry is Setup.")
+			}
+		},
+	}
+	setupCmd.PersistentFlags().Uint16Var(&sa.remoteRegistryPort, "remoteRegistryPort", 5000,
+		"port number where registry can be port-forwarded on user's machine. Default is 5000, same as local "+
+			"registry port.")
+	setupCmd.PersistentFlags().StringVar(&sa.kubeconfig, "kubeconfig", "",
+		"Use a Kubernetes configuration file instead of in-cluster configuration")
+	return setupCmd
+}
+
+func teardownCfgCmd(rawArgs []string) *cobra.Command {
+	sa := &localRegistrySetupArgs{}
+	teardownCmd := &cobra.Command{
+		Use:   "delete",
+		Short: "deletes localregistry in kubernetes cluster",
+		Run: func(cmd *cobra.Command, args []string) {
+			if err := localregistry.TeardownLocalRegistry(sa.kubeconfig) ; err != nil {
+				fmt.Println("Error Tearing down local registry. err %v", err)
+			} else {
+				fmt.Println("Local Registry Cleaned up")
+			}
+		},
+	}
+	teardownCmd.PersistentFlags().StringVar(&sa.kubeconfig, "kubeconfig", "",
+		"Use a Kubernetes configuration file instead of in-cluster configuration")
+	return teardownCmd
 }
