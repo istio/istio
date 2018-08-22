@@ -55,6 +55,12 @@ CITADEL_ARGS="${CITADEL_ARGS} --cert-chain ${CERTS_DIR}/cert-chain.pem"
 CITADEL_ARGS="${CITADEL_ARGS} --key ${CERTS_DIR}/key.pem"
 CITADEL_ARGS="${CITADEL_ARGS} --root-cert ${CERTS_DIR}/root-cert.pem"
 
+if [ -z "${CITADEL_ENV:-}" ]; then
+  CITADEL_ARGS="${CITADEL_ARGS} --env onprem"
+else
+  CITADEL_ARGS="${CITADEL_ARGS} --env ${CITADEL_ENV}"
+fi
+
 if [ ${EXEC_USER} == ${USER:-} ] ; then
   ${ISTIO_BIN_BASE}/node_agent ${CITADEL_ARGS}
 else
