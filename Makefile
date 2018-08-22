@@ -239,6 +239,13 @@ depend.diff: $(ISTIO_OUT)
 	dep ensure
 	git diff HEAD --exit-code -- Gopkg.lock vendor > $(ISTIO_OUT)/dep.diff
 
+# Used by CI for automatic go code generation and generates a git diff of the generated files against HEAD.
+go.generate.diff: $(ISTIO_OUT)
+	git diff HEAD > $(ISTIO_OUT)/before_go_generate.diff
+	-go generate ./... 
+	git diff HEAD > $(ISTIO_OUT)/after_go_generate.diff
+	diff $(ISTIO_OUT)/before_go_generate.diff $(ISTIO_OUT)/after_go_generate.diff
+
 ${GEN_CERT}:
 	GOOS=$(GOOS_LOCAL) && GOARCH=$(GOARCH_LOCAL) && CGO_ENABLED=1 bin/gobuild.sh $@ ./security/tools/generate_cert
 
