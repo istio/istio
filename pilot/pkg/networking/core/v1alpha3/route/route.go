@@ -798,11 +798,18 @@ func CombineVHostRoutes(first []route.Route, second []route.Route) []route.Route
 		// longest path before shorter path
 		// longest prefix before shorter prefix
 		// longest regex before shorter regex. it doesn't make any difference, but
-		// we do it anyway to get a stable ordering
+		//   we do it anyway to get a stable ordering
+		// All else being equal, routes with header matches take precedence over routes without
+		//  header matches
 		if iType == jType {
-			return len(iVal) < len(jVal)
+			if len(iVal) == len(jVal) {
+				if len(combined[i].Match.Headers) == len(combined[j].Match.Headers) {
+					return iVal > jVal
+				}
+				return len(combined[i].Match.Headers) > len(combined[j].Match.Headers)
+			}
+			return len(iVal) > len(jVal)
 		}
-
 		return iType < jType
 	})
 
