@@ -517,8 +517,8 @@ func init() {
 		ListKind:  "ServiceRoleList",
 		Singular:  "servicerole",
 		Plural:    "serviceroles",
-		Version:   "v1alpha2",
-		Group:     "config.istio.io",
+		Version:   "v1alpha1",
+		Group:     "rbac.istio.io",
 		Target:    metadata.Types.Get("type.googleapis.com/istio.rbac.v1alpha1.ServiceRole"),
 		Converter: converter.Get("identity"),
 	})
@@ -528,8 +528,8 @@ func init() {
 		ListKind:  "ServiceRoleBindingList",
 		Singular:  "servicerolebinding",
 		Plural:    "servicerolebindings",
-		Version:   "v1alpha2",
-		Group:     "config.istio.io",
+		Version:   "v1alpha1",
+		Group:     "rbac.istio.io",
 		Target:    metadata.Types.Get("type.googleapis.com/istio.rbac.v1alpha1.ServiceRoleBinding"),
 		Converter: converter.Get("identity"),
 	})
