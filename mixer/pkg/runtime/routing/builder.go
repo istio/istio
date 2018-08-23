@@ -59,6 +59,7 @@ import (
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/lang/ast"
 	"istio.io/istio/mixer/pkg/lang/compiled"
+	"istio.io/istio/mixer/pkg/protobuf/yaml/dynamic"
 	"istio.io/istio/mixer/pkg/runtime/config"
 	"istio.io/istio/mixer/pkg/runtime/handler"
 	"istio.io/istio/mixer/pkg/template"
@@ -570,7 +571,7 @@ func (b *builder) buildRuleOperations(compiler *compiled.ExpressionBuilder, rule
 
 func (b *builder) compileRuleOperationTemplates(
 	location string,
-	compiler *compiled.ExpressionBuilder,
+	compiler dynamic.Compiler,
 	typ OperationType,
 	ops []*descriptor.Rule_HeaderOperationTemplate) ([]*HeaderOperation, error) {
 
