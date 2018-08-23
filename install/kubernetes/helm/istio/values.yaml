@@ -372,7 +372,8 @@ pilot:
   autoscaleMax: 5
   image: pilot
   sidecar: true
-  traceSampling: 100.0
+  # Default value for production must be low, otherwise ingress may crash.
+  traceSampling: 1.0
   # Resources for a small pilot install
   resources:
     requests:
