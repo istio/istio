@@ -33,7 +33,8 @@ import (
 const valueTypeName = ".istio.policy.v1beta1.Value"
 
 func valueTypeEncoderBuilder(_ *descriptor.DescriptorProto, fd *descriptor.FieldDescriptorProto, v interface{}, compiler Compiler) (Encoder, error) {
-	if fd.GetTypeName() != valueTypeName {
+	_, supported := vtRegistryByMsgName[fd.GetTypeName()]
+	if fd.GetTypeName() != valueTypeName && !supported {
 		return nil, fmt.Errorf("cannot process message of type:%s", fd.GetTypeName())
 	}
 
@@ -79,9 +80,23 @@ func buildExprEncoder(sval string, msgType string, compiler Compiler) (Encoder, 
 	}
 
 	var bld valueProducer
-	re, ok := vtRegistry[vt]
-	if !ok {
-		return nil, fmt.Errorf("unsupported type: %v", vt)
+	var re *vtRegistryEntry
+	var found bool
+
+	if msgType == valueTypeName {
+		re, found = vtRegistry[vt]
+	} else {
+		re, found = vtRegistryByMsgName[msgType]
+		if re.accepts != vt {
+			return nil, fmt.Errorf("incorrect type for %s. got: %v, want: %v", msgType, vt, re.accepts)
+		}
+	}
+	if !found {
+		return nil, fmt.Errorf("unsupported type: %v (%s)", vt, msgType)
+	}
+
+	if msgType != valueTypeName && msgType != re.name {
+		return nil, fmt.Errorf("incorrect message type for %s. got: %s, want: %s", vt, msgType, re.name)
 	}
 
 	bld, err = re.build(expr, vt)
@@ -90,19 +105,19 @@ func buildExprEncoder(sval string, msgType string, compiler Compiler) (Encoder, 
 		return nil, err
 	}
 
-	return &valueTypeDynamicEncoder{buildValue: bld}, nil
+	return &valueTypeDynamicEncoder{buildValue: bld, wrap: msgType == valueTypeName}, nil
 }
 
 type valueTypeDynamicEncoder struct {
 	buildValue valueProducer
+	wrap       bool
 }
 
 func (vv valueTypeDynamicEncoder) Encode(bag attribute.Bag, ba []byte) ([]byte, error) {
-	vVal, err := vv.buildValue(bag)
+	vVal, err := vv.buildValue(bag, vv.wrap)
 	if err != nil {
 		return nil, err
 	}
-
 	return marshalValWithSize(vVal, ba)
 }
 
@@ -126,7 +141,8 @@ type marshaler interface {
 }
 
 // valueProducer produces specific .istio.policy.v1beta1.XXX_Value given an attribute bag.
-type valueProducer func(bag attribute.Bag) (*v1beta1.Value, error)
+// If wrap is specified, the value is wrapped in a ValueType
+type valueProducer func(bag attribute.Bag, wrap bool) (marshaler, error)
 
 // valueProducerBuilder creates builder of a predefined type based on the given expression.
 type valueProducerBuilder func(expr compiled.Expression, vt v1beta1.ValueType) (valueProducer, error)
@@ -140,7 +156,8 @@ type vtRegistryEntry struct {
 var vtRegistryByMsgName = make(map[string]*vtRegistryEntry)
 var vtRegistry = make(map[v1beta1.ValueType]*vtRegistryEntry)
 
-func registerVT(name string, accepts v1beta1.ValueType, build valueProducerBuilder) {
+func registerVT(msgname string, accepts v1beta1.ValueType, build valueProducerBuilder) {
+	name := "." + msgname
 	ent := &vtRegistryEntry{
 		name:    name,
 		accepts: accepts,
@@ -151,102 +168,120 @@ func registerVT(name string, accepts v1beta1.ValueType, build valueProducerBuild
 }
 
 func init() {
-	registerVT(".bool", v1beta1.BOOL,
+	registerVT("bool", v1beta1.BOOL,
 		func(expr compiled.Expression, vt v1beta1.ValueType) (valueProducer, error) {
-			return func(bag attribute.Bag) (*v1beta1.Value, error) {
+			return func(bag attribute.Bag, _ bool) (marshaler, error) {
 				ev, er := expr.EvaluateBoolean(bag)
 				if er != nil {
 					return nil, er
 				}
-				return &v1beta1.Value{Value: &v1beta1.Value_BoolValue{BoolValue: ev}}, nil
+				v := &v1beta1.Value_BoolValue{BoolValue: ev}
+				return &v1beta1.Value{Value: v}, nil
 
 			}, nil
 		})
-	registerVT(".int64", v1beta1.INT64,
+	registerVT("int64", v1beta1.INT64,
 		func(expr compiled.Expression, vt v1beta1.ValueType) (valueProducer, error) {
-			return func(bag attribute.Bag) (*v1beta1.Value, error) {
+			return func(bag attribute.Bag, _ bool) (marshaler, error) {
 				ev, er := expr.EvaluateInteger(bag)
 				if er != nil {
 					return nil, er
 				}
-				return &v1beta1.Value{Value: &v1beta1.Value_Int64Value{Int64Value: ev}}, nil
+				v := &v1beta1.Value_Int64Value{Int64Value: ev}
+				return &v1beta1.Value{Value: v}, nil
 
 			}, nil
 		})
-	registerVT(".double", v1beta1.DOUBLE,
+	registerVT("double", v1beta1.DOUBLE,
 		func(expr compiled.Expression, vt v1beta1.ValueType) (valueProducer, error) {
-			return func(bag attribute.Bag) (*v1beta1.Value, error) {
+			return func(bag attribute.Bag, _ bool) (marshaler, error) {
 				ev, er := expr.EvaluateDouble(bag)
 				if er != nil {
 					return nil, er
 				}
-				return &v1beta1.Value{Value: &v1beta1.Value_DoubleValue{DoubleValue: ev}}, nil
+				v := &v1beta1.Value_DoubleValue{DoubleValue: ev}
+				return &v1beta1.Value{Value: v}, nil
 
 			}, nil
 		})
-	registerVT(".string", v1beta1.STRING,
+	registerVT("string", v1beta1.STRING,
 		func(expr compiled.Expression, vt v1beta1.ValueType) (valueProducer, error) {
-			return func(bag attribute.Bag) (*v1beta1.Value, error) {
+			return func(bag attribute.Bag, _ bool) (marshaler, error) {
 				ev, er := expr.EvaluateString(bag)
 				if er != nil {
 					return nil, er
 				}
-				return &v1beta1.Value{Value: &v1beta1.Value_StringValue{StringValue: ev}}, nil
+				v := &v1beta1.Value_StringValue{StringValue: ev}
+				return &v1beta1.Value{Value: v}, nil
 
 			}, nil
 		})
 	registerVT(proto.MessageName((*v1beta1.Uri)(nil)), v1beta1.URI,
 		func(expr compiled.Expression, vt v1beta1.ValueType) (valueProducer, error) {
-			return func(bag attribute.Bag) (*v1beta1.Value, error) {
+			return func(bag attribute.Bag, wrap bool) (marshaler, error) {
 				ev, er := expr.EvaluateString(bag)
 				if er != nil {
 					return nil, er
 				}
-				return &v1beta1.Value{Value: &v1beta1.Value_UriValue{
-					UriValue: &v1beta1.Uri{Value: ev}}}, nil
+				v := &v1beta1.Uri{Value: ev}
+				if !wrap {
+					return v, nil
+				}
+				return &v1beta1.Value{Value: &v1beta1.Value_UriValue{UriValue: v}}, nil
 			}, nil
 		})
 	registerVT(proto.MessageName((*v1beta1.DNSName)(nil)), v1beta1.DNS_NAME,
 		func(expr compiled.Expression, vt v1beta1.ValueType) (valueProducer, error) {
-			return func(bag attribute.Bag) (*v1beta1.Value, error) {
+			return func(bag attribute.Bag, wrap bool) (marshaler, error) {
 				ev, er := expr.EvaluateString(bag)
 				if er != nil {
 					return nil, er
 				}
-				return &v1beta1.Value{Value: &v1beta1.Value_DnsNameValue{
-					DnsNameValue: &v1beta1.DNSName{Value: ev}}}, nil
+				v := &v1beta1.DNSName{Value: ev}
+				if !wrap {
+					return v, nil
+				}
+				return &v1beta1.Value{Value: &v1beta1.Value_DnsNameValue{DnsNameValue: v}}, nil
 			}, nil
 		})
 	registerVT(proto.MessageName((*v1beta1.EmailAddress)(nil)), v1beta1.EMAIL_ADDRESS,
 		func(expr compiled.Expression, vt v1beta1.ValueType) (valueProducer, error) {
-			return func(bag attribute.Bag) (*v1beta1.Value, error) {
+			return func(bag attribute.Bag, wrap bool) (marshaler, error) {
 				ev, er := expr.EvaluateString(bag)
 				if er != nil {
 					return nil, er
 				}
+				v := &v1beta1.EmailAddress{Value: ev}
+				if !wrap {
+					return v, nil
+				}
 				return &v1beta1.Value{Value: &v1beta1.Value_EmailAddressValue{
-					EmailAddressValue: &v1beta1.EmailAddress{Value: ev}}}, nil
+					EmailAddressValue: v}}, nil
 			}, nil
 		})
 	registerVT(proto.MessageName((*v1beta1.IPAddress)(nil)), v1beta1.IP_ADDRESS,
 		func(expr compiled.Expression, vt v1beta1.ValueType) (valueProducer, error) {
-			return func(bag attribute.Bag) (*v1beta1.Value, error) {
+			return func(bag attribute.Bag, wrap bool) (marshaler, error) {
 				ev, er := expr.Evaluate(bag)
 				if er != nil {
 					return nil, er
 				}
 				var ok bool
-				var v net.IP
+				var ip net.IP
 
-				if v, ok = ev.(net.IP); !ok {
+				if ip, ok = ev.(net.IP); !ok {
 					return nil, incorrectTypeError(vt, ev, "[]byte")
 				}
-				return &v1beta1.Value{Value: &v1beta1.Value_IpAddressValue{IpAddressValue: &v1beta1.IPAddress{Value: v}}}, nil
+				v := &v1beta1.IPAddress{Value: ip}
+				if !wrap {
+					return v, nil
+				}
+				return &v1beta1.Value{Value: &v1beta1.Value_IpAddressValue{IpAddressValue: v}}, nil
 			}, nil
 		})
 	registerVT(proto.MessageName((*v1beta1.Duration)(nil)), v1beta1.DURATION,
 		func(expr compiled.Expression, vt v1beta1.ValueType) (valueProducer, error) {
-			return func(bag attribute.Bag) (*v1beta1.Value, error) {
+			return func(bag attribute.Bag, wrap bool) (marshaler, error) {
 				ev, er := expr.Evaluate(bag)
 				if er != nil {
 					return nil, er
@@ -254,32 +289,49 @@ func init() {
 				// for expression of type v1beta1.DURATION,
 				// expr.Evaluate ensures that only time.Duration is returned.
 				// safe to cast
-				v := ev.(time.Duration)
+				v := &v1beta1.Duration{Value: types.DurationProto(ev.(time.Duration))}
+				if !wrap {
+					return v, nil
+				}
 
-				return &v1beta1.Value{Value: &v1beta1.Value_DurationValue{
-					DurationValue: &v1beta1.Duration{Value: types.DurationProto(v)}}}, nil
+				return &v1beta1.Value{Value: &v1beta1.Value_DurationValue{DurationValue: v}}, nil
 			}, nil
 		})
 	registerVT(proto.MessageName((*v1beta1.TimeStamp)(nil)), v1beta1.TIMESTAMP,
 		func(expr compiled.Expression, vt v1beta1.ValueType) (valueProducer, error) {
-			return func(bag attribute.Bag) (*v1beta1.Value, error) {
+			return func(bag attribute.Bag, wrap bool) (marshaler, error) {
 				ev, er := expr.Evaluate(bag)
 				if er != nil {
 					return nil, er
 				}
 				var ok bool
-				var v time.Time
+				var t time.Time
 
-				if v, ok = ev.(time.Time); !ok {
+				if t, ok = ev.(time.Time); !ok {
 					return nil, incorrectTypeError(vt, ev, "time.Time")
 				}
 
-				ts, er := types.TimestampProto(v)
+				ts, er := types.TimestampProto(t)
 				if er != nil {
 					return nil, errors.Errorf("invalid timestamp: %v", er)
 				}
-
-				return &v1beta1.Value{Value: &v1beta1.Value_TimestampValue{TimestampValue: &v1beta1.TimeStamp{Value: ts}}}, nil
+				v := &v1beta1.TimeStamp{Value: ts}
+				if !wrap {
+					return v, nil
+				}
+				return &v1beta1.Value{Value: &v1beta1.Value_TimestampValue{TimestampValue: v}}, nil
 			}, nil
 		})
+}
+
+// valueTypeBuilderFuncs returns named builders for all
+func valueTypeBuilderFuncs() map[string]NamedEncoderBuilderFunc {
+	m := map[string]NamedEncoderBuilderFunc{
+		valueTypeName: valueTypeEncoderBuilder,
+	}
+
+	for msgType := range vtRegistryByMsgName {
+		m[msgType] = valueTypeEncoderBuilder
+	}
+	return m
 }
