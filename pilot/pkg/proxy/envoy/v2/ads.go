@@ -289,7 +289,10 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 		}
 	}
 
-	configDump := &adminapi.ConfigDump{Configs: []types.Any{*clustersAny, *listenersAny, *routeConfigAny}}
+	bootstrapAny, _ := types.MarshalAny(&adminapi.BootstrapConfigDump{})
+	// The config dump must have all configs with order specified in
+	// https://www.envoyproxy.io/docs/envoy/latest/api-v2/admin/v2alpha/config_dump.proto
+	configDump := &adminapi.ConfigDump{Configs: []types.Any{*bootstrapAny, *clustersAny, *listenersAny, *routeConfigAny}}
 	return configDump, nil
 }
 
