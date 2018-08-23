@@ -20,7 +20,9 @@ import (
 	"time"
 
 	"k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/istio/pkg/log"
@@ -208,4 +210,23 @@ func FetchLogs(cl kubernetes.Interface, name, namespace string, container string
 		}
 	}
 	return string(raw)
+}
+
+// WaitForValidatingWebhookConfigurationDeletion waits until given validatingwebhookconfiguration is deleted.
+// TODO: move this to framework level when more tests are in need of it.
+func WaitForValidatingWebhookConfigurationDeletion(cl kubernetes.Interface, config string) error {
+	err := wait.Poll(500*time.Millisecond, 60*time.Second, func() (bool, error) {
+		_, err2 := cl.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Get(config, meta_v1.GetOptions{})
+		if err2 == nil {
+			return false, nil
+		}
+
+		if errors.IsNotFound(err2) {
+			return true, nil
+		}
+
+		return true, err2
+	})
+
+	return err
 }

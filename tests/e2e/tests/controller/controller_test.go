@@ -66,6 +66,14 @@ func makeTempClient(t *testing.T) (*crd.Client, string, func()) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	// https://github.com/istio/istio/issues/7593
+	// Ensure validatingwebhookconfiguration is removed.
+	// We DO NOT expect the validator to take effect on the case.
+	if err := util.WaitForValidatingWebhookConfigurationDeletion(client, "istio-galley"); err != nil {
+		t.Fatal(err)
+	}
+
 	ns, err := util.CreateNamespace(client)
 	if err != nil {
 		t.Fatal(err.Error())
