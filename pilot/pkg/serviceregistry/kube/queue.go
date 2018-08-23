@@ -18,8 +18,6 @@ import (
 	"sync"
 	"time"
 
-	"k8s.io/client-go/util/flowcontrol"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 )
@@ -81,13 +79,7 @@ func (q *queueImpl) Run(stop <-chan struct{}) {
 		q.cond.L.Unlock()
 	}()
 
-	rateLimit := 100
-	rateLimiter := flowcontrol.NewTokenBucketRateLimiter(float32(rateLimit), 10*rateLimit)
-
-	var item Task
 	for {
-		rateLimiter.Accept()
-
 		q.cond.L.Lock()
 		for !q.closing && len(q.queue) == 0 {
 			q.cond.Wait()
@@ -99,18 +91,17 @@ func (q *queueImpl) Run(stop <-chan struct{}) {
 			return
 		}
 
+		var item Task
 		item, q.queue = q.queue[0], q.queue[1:]
 		q.cond.L.Unlock()
 
-		for {
-			err := item.handler(item.obj, item.event)
-			if err != nil {
-				log.Infof("Work item failed (%v), repeating after delay %v", err, q.delay)
-				time.Sleep(q.delay)
-			} else {
-				break
-			}
+		if err := item.handler(item.obj, item.event); err != nil {
+			log.Infof("Work item handle failed (%v), retry after delay %v", err, q.delay)
+			time.AfterFunc(q.delay, func() {
+				q.Push(item)
+			})
 		}
+
 	}
 }
 
