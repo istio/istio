@@ -25,8 +25,10 @@ import (
 
 	"github.com/gogo/protobuf/jsonpb"
 
-	authn "istio.io/api/authentication/v1alpha1"
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
+	"github.com/gogo/protobuf/types"
+
+	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -34,7 +36,6 @@ import (
 	authn_plugin "istio.io/istio/pilot/pkg/networking/plugin/authn"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
-	"github.com/gogo/protobuf/types"
 )
 
 // memregistry is based on mock/discovery - it is used for testing and debugging v2.
@@ -840,4 +841,3 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 
 	return configDump, nil
 }
-
