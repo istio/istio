@@ -4,6 +4,9 @@ metadata:
   name: handler
   namespace: istio-system
 spec:
+  # metricsExpirationPolicy:
+  #   metricsExpiryDuration: "15s"
+  #   expiryCheckIntervalDuration: "5s"
   metrics:
   - name: requests_total
     instance_name: requestcount.metric.istio-system
