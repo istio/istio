@@ -46,7 +46,6 @@ func GetRootCmd(args []string) *cobra.Command {
 	return rootCmd
 }
 
-
 func setupCfgCmd(rawArgs []string) *cobra.Command {
 	sa := &localRegistrySetupArgs{}
 	setupCmd := &cobra.Command{
@@ -74,7 +73,7 @@ func teardownCfgCmd(rawArgs []string) *cobra.Command {
 		Use:   "delete",
 		Short: "deletes localregistry in kubernetes cluster",
 		Run: func(cmd *cobra.Command, args []string) {
-			if err := localregistry.TeardownLocalRegistry(sa.kubeconfig) ; err != nil {
+			if err := localregistry.TeardownLocalRegistry(sa.kubeconfig); err != nil {
 				fmt.Println("Error Tearing down local registry. err %v", err)
 			} else {
 				fmt.Println("Local Registry Cleaned up")
