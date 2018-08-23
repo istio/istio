@@ -171,7 +171,6 @@ func (c *collector) Describe(ch chan<- *prometheus.Desc) {
 	for k, desc := range c.registeredViews {
 		registered[k] = desc
 	}
-
 	c.registeredViewsMu.Unlock()
 
 	for _, desc := range registered {
