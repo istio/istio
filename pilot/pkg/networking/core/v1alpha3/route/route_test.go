@@ -15,6 +15,7 @@
 package route_test
 
 import (
+	"reflect"
 	"testing"
 	"time"
 
@@ -450,4 +451,61 @@ var networkingSubsetWithPortLevelSettings = &networking.Subset{
 			},
 		},
 	},
+}
+
+func TestCombineVHostRoutes(t *testing.T) {
+	first := []envoyroute.Route{
+		{Match: envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Path{Path: "/path1"}}},
+		{Match: envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Prefix{Prefix: "/prefix1"}}},
+		{Match: envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Regex{Regex: ".*?regex1"}}},
+		{Match: envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Prefix{Prefix: "/"}}},
+	}
+	second := []envoyroute.Route{
+		{Match: envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Path{Path: "/path12"}}},
+		{Match: envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Prefix{Prefix: "/prefix12"}}},
+		{Match: envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Regex{Regex: ".*?regex12"}}},
+		{Match: envoyroute.RouteMatch{
+			PathSpecifier: &envoyroute.RouteMatch_Regex{Regex: "*"},
+			Headers: []*envoyroute.HeaderMatcher{
+				{
+					Name:                 "foo",
+					HeaderMatchSpecifier: &envoyroute.HeaderMatcher_ExactMatch{ExactMatch: "bar"},
+					InvertMatch:          false,
+				},
+			},
+		}},
+	}
+
+	want := []envoyroute.Route{
+		{Match: envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Path{Path: "/path1"}}},
+		{Match: envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Prefix{Prefix: "/prefix1"}}},
+		{Match: envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Regex{Regex: ".*?regex1"}}},
+		{Match: envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Path{Path: "/path12"}}},
+		{Match: envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Prefix{Prefix: "/prefix12"}}},
+		{Match: envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Regex{Regex: ".*?regex12"}}},
+		{Match: envoyroute.RouteMatch{
+			PathSpecifier: &envoyroute.RouteMatch_Regex{Regex: "*"},
+			Headers: []*envoyroute.HeaderMatcher{
+				{
+					Name:                 "foo",
+					HeaderMatchSpecifier: &envoyroute.HeaderMatcher_ExactMatch{ExactMatch: "bar"},
+					InvertMatch:          false,
+				},
+			},
+		}},
+		{Match: envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Prefix{Prefix: "/"}}},
+	}
+
+	got := route.CombineVHostRoutes(first, second)
+	if !reflect.DeepEqual(want, got) {
+		t.Errorf("CombineVHostRoutes: \n")
+		t.Errorf("got: \n")
+		for _, g := range got {
+			t.Errorf("%v\n", g.Match.PathSpecifier)
+		}
+		t.Errorf("want: \n")
+		for _, g := range want {
+			t.Errorf("%v\n", g.Match.PathSpecifier)
+		}
+	}
 }
