@@ -69,8 +69,6 @@ spec:
               fieldRef:
                 apiVersion: v1
                 fieldPath: metadata.namespace
-          - name: PILOT_THROTTLE
-            value: "500"
           - name: PILOT_CACHE_SQUASH
             value: "5"
           {{- if .Values.env }}

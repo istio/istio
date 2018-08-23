@@ -15,6 +15,7 @@
 package cache
 
 import (
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -45,18 +46,18 @@ func TestTTLEvictExpired(t *testing.T) {
 }
 
 type callbackRecorder struct {
-	callbacks int
+	callbacks int64
 }
 
 func (c *callbackRecorder) callback(key, value interface{}) {
-	c.callbacks++
+	atomic.AddInt64(&c.callbacks, 1)
 }
 
 func TestTTLEvictionCallback(t *testing.T) {
 	c := &callbackRecorder{callbacks: 0}
 	ttl := NewTTLWithCallback(50*time.Millisecond, time.Millisecond, c.callback)
 	testCacheEvicter(ttl, t)
-	if c.callbacks != 1 {
+	if atomic.LoadInt64(&c.callbacks) != 1 {
 		t.Errorf("evictExpired() => failed to invoke EvictionCallback: got %d callbacks, wanted 1", c.callbacks)
 	}
 }

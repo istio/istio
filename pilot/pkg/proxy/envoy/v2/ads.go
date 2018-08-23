@@ -21,6 +21,7 @@ import (
 	"reflect"
 	"sort"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -30,8 +31,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
-
-	"sync/atomic"
 
 	"istio.io/istio/pilot/pkg/model"
 	istiolog "istio.io/istio/pkg/log"
@@ -294,7 +293,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 	// poor new pilot and overwhelm it.
 	// TODO: instead of readiness probe, let endpoints connect and wait here for
 	// config to become stable. Will better spread the load.
-	<-s.throttle
+	<-s.initThrottle
 
 	// first call - lazy loading, in tests. This should not happen if readiness
 	// check works, since it assumes ClearCache is called (and as such PushContext
@@ -561,7 +560,6 @@ func AdsPushAll(s *DiscoveryServer) {
 // Primary code path is from v1 discoveryService.clearCache(), which is added as a handler
 // to the model ConfigStorageCache and Controller.
 func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext) {
-	push.Mutex.RLock()
 	adsLog.Infof("XDS: Pushing %s Services: %d, "+
 		"VirtualServices: %d, ConnectedEndpoints: %d", version,
 		len(push.Services), len(push.VirtualServiceConfigs), adsClientCount())
@@ -569,8 +567,6 @@ func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext) {
 	monVServices.Set(float64(len(push.VirtualServiceConfigs)))
 
 	pushContext := s.env.PushContext
-
-	push.Mutex.RUnlock()
 
 	t0 := time.Now()
 
@@ -612,7 +608,6 @@ func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext) {
 	pendingPush := int32(len(pending))
 
 	tstart := time.Now()
-	i := 0
 	// Will keep trying to push to sidecars until another push starts.
 	for {
 		if len(pending) == 0 {
@@ -629,7 +624,6 @@ func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext) {
 		c := pending[0]
 		pending = pending[1:]
 
-		i++
 		// Using non-blocking push has problems if 2 pushes happen too close to each other
 		client := c
 		// TODO: this should be in a thread group, to do multiple pushes in parallel.
