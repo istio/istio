@@ -10,6 +10,7 @@ import (
 	api "k8s.io/api/core/v1"
 	cache "k8s.io/client-go/tools/cache"
 	"istio.io/istio/pkg/log"
+	"k8s.io/apimachinery/pkg/labels"
 )
 
 type ServiceUpdate struct {
@@ -68,18 +69,24 @@ func (svcw *ServiceWatcher) List() []*api.Service {
 	return svcInstances
 }
 
-func (svcw *ServiceWatcher) ListBySelector(selector map[string]string) *api.Service {
-	log.Infof("selector:%v", selector)
-
+func (svcw *ServiceWatcher) ListBySelector(set map[string]string) (ret []*api.Service, err error) {
+	/*
 	objList := svcw.serviceLister.List()
+	services := make([]*api.Service, 0)
 	for _, ins := range objList {
 		service := ins.(*api.Service)
 
 		if IsMapContain(selector, service.Spec.Selector) {
-			return service
+			services = append(services, service)
 		}
 	}
-	return nil
+	return services
+	*/
+	selector := labels.SelectorFromSet(set)
+	err = cache.ListAll(svcw.serviceLister, selector, func(m interface{}) {
+		ret = append(ret, m.(*api.Service))
+	})
+	return ret, err
 }
 
 func (svcw *ServiceWatcher) HasSynced() bool {

@@ -44,9 +44,9 @@ type ServiceInterface struct {
 }
 
 type RpcWatcher struct {
-	storage              map[string]ServiceInterfaceData
-	rcSyncChan           chan *v1.RpcService
-	deleteRpcServiceChan chan *v1.RpcService
+	storage      map[string]ServiceInterfaceData
+	rcSyncChan   chan *v1.RpcService
+	rsDeleteChan chan *v1.RpcService
 
 	serviceUpdateChan chan *watchers.ServiceUpdate
 	podUpdateChan chan *watchers.PodUpdate
@@ -66,25 +66,25 @@ type RpcWatcher struct {
 	rpcInterfaceMap   map[string]string
 
 	// map k8s service to rpcservice name
-	seriviceRpcServiceMap map[string]string
+	serivice2RpcServiceMap map[string]string
 
 	// map k8s pod to rpcservice name
-	podRpcServiceMap map[string]string
+	pod2RpcServiceMap map[string]string
 }
 
 func NewRpcWatcher(lister listers.RpcServiceLister, client kubernetes.Interface, config *Config, stopCh <- chan struct {}) *RpcWatcher {
 	rw := &RpcWatcher{
-		storage:               make(map[string]ServiceInterfaceData, 0),
-		rcSyncChan:            make(chan *v1.RpcService, 10),
-		deleteRpcServiceChan:  make(chan *v1.RpcService, 10),
-		serviceUpdateChan:     make(chan *watchers.ServiceUpdate, 10),
-		podUpdateChan:         make(chan *watchers.PodUpdate, 10),
-		rpcServiceLister:      lister,
-		kubeclientset:         client,
-		tryLaterKeys:          make(map[string]bool, 0),
-		rpcInterfaceMap:       make(map[string]string, 0),
-		seriviceRpcServiceMap: make(map[string]string, 0),
-		podRpcServiceMap:      make(map[string]string, 0),
+		storage:                make(map[string]ServiceInterfaceData, 0),
+		rcSyncChan:             make(chan *v1.RpcService, 10),
+		rsDeleteChan:           make(chan *v1.RpcService, 10),
+		serviceUpdateChan:      make(chan *watchers.ServiceUpdate, 10),
+		podUpdateChan:          make(chan *watchers.PodUpdate, 10),
+		rpcServiceLister:       lister,
+		kubeclientset:          client,
+		tryLaterKeys:           make(map[string]bool, 0),
+		rpcInterfaceMap:        make(map[string]string, 0),
+		serivice2RpcServiceMap: make(map[string]string, 0),
+		pod2RpcServiceMap:      make(map[string]string, 0),
 	}
 
 	serviceWatcher, err := watchers.StartServiceWatcher(client, 2 * time.Second, stopCh)
@@ -116,7 +116,7 @@ func (rw *RpcWatcher) Sync(rs *v1.RpcService) {
 }
 
 func (rw *RpcWatcher) Delete(rs *v1.RpcService) {
-	rw.deleteRpcServiceChan <- rs
+	rw.rsDeleteChan <- rs
 }
 
 func (rw *RpcWatcher) main(stopCh <-chan struct{}) {
@@ -126,7 +126,7 @@ func (rw *RpcWatcher) main(stopCh <-chan struct{}) {
 		select {
 		case rs := <- rw.rcSyncChan:
 			rw.syncRpcServiceHandler(rs)
-		case rs := <- rw.deleteRpcServiceChan:
+		case rs := <- rw.rsDeleteChan:
 			rw.deleteRpcServiceHandler(rs)
 		case <- t.C:
 			rw.timerHandler()
@@ -156,18 +156,20 @@ func (rw *RpcWatcher) podName(s *api.Pod) string {
 func (rw *RpcWatcher) deleteRpcServiceHandler(rs *v1.RpcService) {
 	key := rw.rpcServiceName(rs)
 
-	log.Infof("delete rpcservice %s", key)
-
 	domain, exist := rw.rpcInterfaceMap[key]
 	if !exist {
 		log.Errorf("rpcservice %s interface not exist", key)
 		return
 	}
 
+	log.Infof("delete rpcservice %s, domain: %s", key, domain)
 	rw.dnsInterface.Delete(domain, rs.Spec.DomainSuffix)
 }
 
 func (rw *RpcWatcher) timerHandler() {
+	if len(rw.tryLaterKeys) == 0 {
+		return
+	}
 	keys := make([]string, len(rw.tryLaterKeys))
 	for key,_ := range rw.tryLaterKeys {
 		keys = append(keys, key)
@@ -189,13 +191,18 @@ func (rw *RpcWatcher) queryRpcInterface(key string, rs *v1.RpcService) {
 	selector := rs.Spec.Selector
 
 	// find service by selector
-	service := rw.serviceWatcher.ListBySelector(selector)
-	if service == nil {
-		log.Errorf("service selector %v not found", selector)
+	services,err := rw.serviceWatcher.ListBySelector(selector)
+	if len(services) == 0 || err != nil {
+		log.Errorf("service selector %v not found, err:%v", selector, err)
 		return
 	}
+	if len(services) != 1 {
+		log.Errorf("service selector %v found more than 1 service", selector)
+		return
+	}
+	service := services[0]
 
-	rw.seriviceRpcServiceMap[rw.serviceName(service)]= key
+	rw.serivice2RpcServiceMap[rw.serviceName(service)]= key
 
 	if service.Spec.ClusterIP == "None" {
 		log.Errorf("service %s/%s has no clusterIP", service.Namespace, service.Name)
@@ -211,7 +218,7 @@ func (rw *RpcWatcher) queryRpcInterface(key string, rs *v1.RpcService) {
 		log.Errorf("service %s/%s has no pods, try later...", service.Namespace, service.Name)
 		return
 	}
-	rw.podRpcServiceMap[rw.podName(pods[0])] = key
+	rw.pod2RpcServiceMap[rw.podName(pods[0])] = key
 
 	// get pod interface
 	interfaceStr := ""
@@ -287,7 +294,7 @@ func (rw *RpcWatcher) queryRpcInterface(key string, rs *v1.RpcService) {
 
 	// add <interface, clusterIP> to coreDNS
 	log.Infof("update dns <%s,%s>", interfaceStr, service.Spec.ClusterIP)
-	err := rw.dnsInterface.Update(interfaceStr, service.Spec.ClusterIP, rs.Spec.DomainSuffix)
+	err = rw.dnsInterface.Update(interfaceStr, service.Spec.ClusterIP, rs.Spec.DomainSuffix)
 	if err != nil {
 		log.Errorf("update dns error: %v", err)
 	}
@@ -332,7 +339,7 @@ func (rw *RpcWatcher) serviceHandler(serviceUpdate *watchers.ServiceUpdate) {
 	op := serviceUpdate.Op
 
 	log.Infof("service: %s/%s, op: %s/%d", service.Namespace, service.Name, watchers.OperationString[op], op)
-	key, exist := rw.seriviceRpcServiceMap[rw.serviceName(service)]
+	key, exist := rw.serivice2RpcServiceMap[rw.serviceName(service)]
 	if !exist {
 		log.Infof("service %s/%s not found rpc service", service.Namespace, service.Name)
 		return
@@ -360,7 +367,7 @@ func (rw *RpcWatcher)podHandler(podUpdate *watchers.PodUpdate) {
 
 	log.Infof("pod: %s/%s, labels: %s, op: %s/%d", pod.Namespace, pod.Name, rw.podName(pod), watchers.OperationString[op], op)
 
-	key, exist := rw.podRpcServiceMap[rw.podName(pod)]
+	key, exist := rw.pod2RpcServiceMap[rw.podName(pod)]
 	if !exist {
 		log.Infof("pod %s/%s not found rpc service", pod.Namespace, pod.Name)
 		return
