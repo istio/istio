@@ -1,8 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: istio-grafana-custom-resources
-  namespace: {{ .Release.Namespace }}
+  name: {{ template "grafana.fullname" . }}
   labels:
     app: istio-grafana
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
@@ -10,7 +9,16 @@ metadata:
     heritage: {{ .Release.Service }}
     istio: grafana
 data:
-  custom-resources.yaml: |-
-    {{- include "grafana-default.yaml.tpl" . | indent 4}}
-  run.sh: |-
-    {{- include "install-custom-resources.sh.tpl" . | indent 4}}
+{{- if .Values.datasources }}
+  {{- range $key, $value := .Values.datasources }}
+  {{ $key }}: |
+{{ toYaml $value | indent 4 }}
+  {{- end -}}
+{{- end -}}
+
+{{- if .Values.dashboardProviders }}
+  {{- range $key, $value := .Values.dashboardProviders }}
+  {{ $key }}: |
+{{ toYaml $value | indent 4 }}
+  {{- end -}}
+{{- end -}}
