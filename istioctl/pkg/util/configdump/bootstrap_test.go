@@ -16,6 +16,7 @@ package configdump
 
 import (
 	"testing"
+
 	proto "github.com/gogo/protobuf/types"
 )
 

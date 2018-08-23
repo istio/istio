@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"testing"
+
 	proto "github.com/gogo/protobuf/types"
 )
 

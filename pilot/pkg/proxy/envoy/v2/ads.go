@@ -277,7 +277,7 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 	if err != nil {
 		return nil, err
 	}
-	routeConfigAny, err := types.MarshalAny(&adminapi.RoutesConfigDump{})
+	routeConfigAny, _ := types.MarshalAny(&adminapi.RoutesConfigDump{})
 	if len(routes) > 0 {
 		dynamicRouteConfig := []adminapi.RoutesConfigDump_DynamicRouteConfig{}
 		for _, rs := range routes {
@@ -289,7 +289,7 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 		}
 	}
 
-	bootstrapAny, err := types.MarshalAny(&adminapi.BootstrapConfigDump{})
+	bootstrapAny, _ := types.MarshalAny(&adminapi.BootstrapConfigDump{})
 	configDump := &adminapi.ConfigDump{Configs: []types.Any{*bootstrapAny, *listenersAny, *clustersAny, *routeConfigAny}}
 	return configDump, nil
 }
