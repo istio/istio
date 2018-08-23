@@ -27,9 +27,9 @@ fi
 #Install Kvm2
 echo "Installing KVM2 as required"
 sudo modprobe kvm > /dev/null 2>&1
-sudo apt-get install libvirt-bin > /dev/null 2>&1
-sudo apt-get install libvirt-daemon-system libvirt-dev libvirt-clients virt-manager
-sudo apt-get install qemu-kvm
+sudo apt-get install -y  libvirt-bin > /dev/null 2>&1
+sudo apt-get install -y libvirt-daemon-system libvirt-dev libvirt-clients virt-manager
+sudo apt-get install -y qemu-kvm
 sudo systemctl stop libvirtd
 sudo systemctl start libvirtd
 sudo usermod -a -G libvirt "$(whoami)"
@@ -51,7 +51,9 @@ fi
 #Install Docker
 echo "Checking and Installing Docker as required"
 if ! docker --help > /dev/null; then
-  curl -L https://download.docker.com/linux/debian/dists/stretch/pool/stable/amd64/docker-ce_18.03.0~ce-0~debian_amd64.deb docker-ce.deb
+  # docker-ce depends on libltdl7
+  apt-get install -y libltdl7
+  curl -L https://download.docker.com/linux/debian/dists/stretch/pool/stable/amd64/docker-ce_18.03.0~ce-0~debian_amd64.deb -o docker-ce.deb
   if ! sudo dpkg -i docker-ce.deb; then
       echo "Looks like docker installation failed."
       echo "Please install it manually and then run this script again."
