@@ -19,6 +19,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
 	"github.com/gogo/protobuf/types"
 	"github.com/pkg/errors"
@@ -50,135 +51,7 @@ func valueTypeEncoderBuilder(_ *descriptor.DescriptorProto, fd *descriptor.Field
 		if isConstString {
 			vVal.Value = &v1beta1.Value_StringValue{sval}
 		} else {
-			var expr compiled.Expression
-			var vt v1beta1.ValueType
-			var err error
-
-			if expr, vt, err = compiler.Compile(sval); err != nil {
-				return nil, err
-			}
-
-			var enc populateValueFun
-			switch vt {
-			case v1beta1.STRING:
-				enc = func(bag attribute.Bag, vVal *v1beta1.Value) error {
-					ev, er := expr.EvaluateString(bag)
-					if er != nil {
-						return er
-					}
-					vVal.Value = &v1beta1.Value_StringValue{ev}
-					return nil
-				}
-			case v1beta1.BOOL:
-				enc = func(bag attribute.Bag, vVal *v1beta1.Value) error {
-					ev, er := expr.EvaluateBoolean(bag)
-					if er != nil {
-						return er
-					}
-					vVal.Value = &v1beta1.Value_BoolValue{ev}
-					return nil
-				}
-			case v1beta1.INT64:
-				enc = func(bag attribute.Bag, vVal *v1beta1.Value) error {
-					ev, er := expr.EvaluateInteger(bag)
-					if er != nil {
-						return er
-					}
-					vVal.Value = &v1beta1.Value_Int64Value{ev}
-					return nil
-				}
-			case v1beta1.DOUBLE:
-				enc = func(bag attribute.Bag, vVal *v1beta1.Value) error {
-					ev, er := expr.EvaluateDouble(bag)
-					if er != nil {
-						return er
-					}
-					vVal.Value = &v1beta1.Value_DoubleValue{ev}
-					return nil
-				}
-			case v1beta1.TIMESTAMP:
-				enc = func(bag attribute.Bag, vVal *v1beta1.Value) error {
-					ev, er := expr.Evaluate(bag)
-					if er != nil {
-						return er
-					}
-					var ok bool
-					var v time.Time
-
-					if v, ok = ev.(time.Time); !ok {
-						return incorrectTypeError(vt, ev, "time.Time")
-					}
-
-					ts, er := types.TimestampProto(v)
-					if er != nil {
-						return errors.Errorf("invalid timestamp: %v", er)
-					}
-					vVal.Value = &v1beta1.Value_TimestampValue{&v1beta1.TimeStamp{ts}}
-					return nil
-				}
-			case v1beta1.IP_ADDRESS:
-				enc = func(bag attribute.Bag, vVal *v1beta1.Value) error {
-					ev, er := expr.Evaluate(bag)
-					if er != nil {
-						return er
-					}
-					var ok bool
-					var v net.IP
-
-					if v, ok = ev.(net.IP); !ok {
-						return incorrectTypeError(vt, ev, "[]byte")
-					}
-
-					vVal.Value = &v1beta1.Value_IpAddressValue{IpAddressValue: &v1beta1.IPAddress{Value: v}}
-					return nil
-				}
-			case v1beta1.DURATION:
-				enc = func(bag attribute.Bag, vVal *v1beta1.Value) error {
-					ev, er := expr.Evaluate(bag)
-					if er != nil {
-						return er
-					}
-
-					// for expression of type v1beta1.DURATION,
-					// expr.Evaluate ensures that only time.Duration is returned.
-					// safe to cast
-					v := ev.(time.Duration)
-
-					vVal.Value = &v1beta1.Value_DurationValue{
-						DurationValue: &v1beta1.Duration{Value: types.DurationProto(v)}}
-					return nil
-				}
-			case v1beta1.URI:
-				enc = func(bag attribute.Bag, vVal *v1beta1.Value) error {
-					ev, er := expr.EvaluateString(bag)
-					if er != nil {
-						return er
-					}
-					vVal.Value = &v1beta1.Value_UriValue{UriValue: &v1beta1.Uri{Value: ev}}
-					return nil
-				}
-			case v1beta1.DNS_NAME:
-				enc = func(bag attribute.Bag, vVal *v1beta1.Value) error {
-					ev, er := expr.EvaluateString(bag)
-					if er != nil {
-						return er
-					}
-					vVal.Value = &v1beta1.Value_DnsNameValue{DnsNameValue: &v1beta1.DNSName{Value: ev}}
-					return nil
-				}
-			case v1beta1.EMAIL_ADDRESS:
-				enc = func(bag attribute.Bag, vVal *v1beta1.Value) error {
-					ev, er := expr.EvaluateString(bag)
-					if er != nil {
-						return er
-					}
-					vVal.Value = &v1beta1.Value_EmailAddressValue{EmailAddressValue: &v1beta1.EmailAddress{Value: ev}}
-					return nil
-				}
-			default:
-				return nil, fmt.Errorf("unsupported type: %v", vt)
-			}
-			return &valueTypeDynamicEncoder{enc}, nil
+			return buildExprEncoder(sval, fd.GetTypeName(), compiler)
 		}
 	default:
 		return nil, fmt.Errorf("unsupported type: %T of %v", v, v)
@@ -196,22 +69,44 @@ func valueTypeEncoderBuilder(_ *descriptor.DescriptorProto, fd *descriptor.Field
 	}, nil
 }
 
-type populateValueFun func(bag attribute.Bag, vVal *v1beta1.Value) error
+func buildExprEncoder(sval string, msgType string, compiler Compiler) (Encoder, error) {
+	var expr compiled.Expression
+	var vt v1beta1.ValueType
+	var err error
 
-type valueTypeDynamicEncoder struct {
-	populateValue populateValueFun
-}
-
-func (vv valueTypeDynamicEncoder) Encode(bag attribute.Bag, ba []byte) ([]byte, error) {
-	var vVal v1beta1.Value
-	if err := vv.populateValue(bag, &vVal); err != nil {
+	if expr, vt, err = compiler.Compile(sval); err != nil {
 		return nil, err
 	}
 
-	return marshalValWithSize(&vVal, ba)
+	var bld valueProducer
+	re, ok := vtRegistry[vt]
+	if !ok {
+		return nil, fmt.Errorf("unsupported type: %v", vt)
+	}
+
+	bld, err = re.build(expr, vt)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &valueTypeDynamicEncoder{buildValue: bld}, nil
 }
 
-func marshalValWithSize(vVal *v1beta1.Value, ba []byte) ([]byte, error) {
+type valueTypeDynamicEncoder struct {
+	buildValue valueProducer
+}
+
+func (vv valueTypeDynamicEncoder) Encode(bag attribute.Bag, ba []byte) ([]byte, error) {
+	vVal, err := vv.buildValue(bag)
+	if err != nil {
+		return nil, err
+	}
+
+	return marshalValWithSize(vVal, ba)
+}
+
+func marshalValWithSize(vVal marshaler, ba []byte) ([]byte, error) {
 	msgSize := vVal.Size()
 	ba, _ = EncodeVarint(ba, uint64(msgSize))
 	startIdx := len(ba)
@@ -222,4 +117,169 @@ func marshalValWithSize(vVal *v1beta1.Value, ba []byte) ([]byte, error) {
 
 func incorrectTypeError(vt v1beta1.ValueType, got interface{}, want string) error {
 	return fmt.Errorf("incorrect type for %v. got: %T, want: %s", vt, got, want)
+}
+
+// gogo codegen generates code that conforms to marshaler interface.
+type marshaler interface {
+	MarshalTo([]byte) (int, error)
+	Size() int
+}
+
+// valueProducer produces specific .istio.policy.v1beta1.XXX_Value given an attribute bag.
+type valueProducer func(bag attribute.Bag) (*v1beta1.Value, error)
+
+// valueProducerBuilder creates builder of a predefined type based on the given expression.
+type valueProducerBuilder func(expr compiled.Expression, vt v1beta1.ValueType) (valueProducer, error)
+
+type vtRegistryEntry struct {
+	name    string
+	build   valueProducerBuilder
+	accepts v1beta1.ValueType
+}
+
+var vtRegistryByMsgName = make(map[string]*vtRegistryEntry)
+var vtRegistry = make(map[v1beta1.ValueType]*vtRegistryEntry)
+
+func registerVT(name string, accepts v1beta1.ValueType, build valueProducerBuilder) {
+	ent := &vtRegistryEntry{
+		name:    name,
+		accepts: accepts,
+		build:   build,
+	}
+	vtRegistryByMsgName[name] = ent
+	vtRegistry[accepts] = ent
+}
+
+func init() {
+	registerVT(".bool", v1beta1.BOOL,
+		func(expr compiled.Expression, vt v1beta1.ValueType) (valueProducer, error) {
+			return func(bag attribute.Bag) (*v1beta1.Value, error) {
+				ev, er := expr.EvaluateBoolean(bag)
+				if er != nil {
+					return nil, er
+				}
+				return &v1beta1.Value{Value: &v1beta1.Value_BoolValue{BoolValue: ev}}, nil
+
+			}, nil
+		})
+	registerVT(".int64", v1beta1.INT64,
+		func(expr compiled.Expression, vt v1beta1.ValueType) (valueProducer, error) {
+			return func(bag attribute.Bag) (*v1beta1.Value, error) {
+				ev, er := expr.EvaluateInteger(bag)
+				if er != nil {
+					return nil, er
+				}
+				return &v1beta1.Value{Value: &v1beta1.Value_Int64Value{Int64Value: ev}}, nil
+
+			}, nil
+		})
+	registerVT(".double", v1beta1.DOUBLE,
+		func(expr compiled.Expression, vt v1beta1.ValueType) (valueProducer, error) {
+			return func(bag attribute.Bag) (*v1beta1.Value, error) {
+				ev, er := expr.EvaluateDouble(bag)
+				if er != nil {
+					return nil, er
+				}
+				return &v1beta1.Value{Value: &v1beta1.Value_DoubleValue{DoubleValue: ev}}, nil
+
+			}, nil
+		})
+	registerVT(".string", v1beta1.STRING,
+		func(expr compiled.Expression, vt v1beta1.ValueType) (valueProducer, error) {
+			return func(bag attribute.Bag) (*v1beta1.Value, error) {
+				ev, er := expr.EvaluateString(bag)
+				if er != nil {
+					return nil, er
+				}
+				return &v1beta1.Value{Value: &v1beta1.Value_StringValue{StringValue: ev}}, nil
+
+			}, nil
+		})
+	registerVT(proto.MessageName((*v1beta1.Uri)(nil)), v1beta1.URI,
+		func(expr compiled.Expression, vt v1beta1.ValueType) (valueProducer, error) {
+			return func(bag attribute.Bag) (*v1beta1.Value, error) {
+				ev, er := expr.EvaluateString(bag)
+				if er != nil {
+					return nil, er
+				}
+				return &v1beta1.Value{Value: &v1beta1.Value_UriValue{
+					UriValue: &v1beta1.Uri{Value: ev}}}, nil
+			}, nil
+		})
+	registerVT(proto.MessageName((*v1beta1.DNSName)(nil)), v1beta1.DNS_NAME,
+		func(expr compiled.Expression, vt v1beta1.ValueType) (valueProducer, error) {
+			return func(bag attribute.Bag) (*v1beta1.Value, error) {
+				ev, er := expr.EvaluateString(bag)
+				if er != nil {
+					return nil, er
+				}
+				return &v1beta1.Value{Value: &v1beta1.Value_DnsNameValue{
+					DnsNameValue: &v1beta1.DNSName{Value: ev}}}, nil
+			}, nil
+		})
+	registerVT(proto.MessageName((*v1beta1.EmailAddress)(nil)), v1beta1.EMAIL_ADDRESS,
+		func(expr compiled.Expression, vt v1beta1.ValueType) (valueProducer, error) {
+			return func(bag attribute.Bag) (*v1beta1.Value, error) {
+				ev, er := expr.EvaluateString(bag)
+				if er != nil {
+					return nil, er
+				}
+				return &v1beta1.Value{Value: &v1beta1.Value_EmailAddressValue{
+					EmailAddressValue: &v1beta1.EmailAddress{Value: ev}}}, nil
+			}, nil
+		})
+	registerVT(proto.MessageName((*v1beta1.IPAddress)(nil)), v1beta1.IP_ADDRESS,
+		func(expr compiled.Expression, vt v1beta1.ValueType) (valueProducer, error) {
+			return func(bag attribute.Bag) (*v1beta1.Value, error) {
+				ev, er := expr.Evaluate(bag)
+				if er != nil {
+					return nil, er
+				}
+				var ok bool
+				var v net.IP
+
+				if v, ok = ev.(net.IP); !ok {
+					return nil, incorrectTypeError(vt, ev, "[]byte")
+				}
+				return &v1beta1.Value{Value: &v1beta1.Value_IpAddressValue{IpAddressValue: &v1beta1.IPAddress{Value: v}}}, nil
+			}, nil
+		})
+	registerVT(proto.MessageName((*v1beta1.Duration)(nil)), v1beta1.DURATION,
+		func(expr compiled.Expression, vt v1beta1.ValueType) (valueProducer, error) {
+			return func(bag attribute.Bag) (*v1beta1.Value, error) {
+				ev, er := expr.Evaluate(bag)
+				if er != nil {
+					return nil, er
+				}
+				// for expression of type v1beta1.DURATION,
+				// expr.Evaluate ensures that only time.Duration is returned.
+				// safe to cast
+				v := ev.(time.Duration)
+
+				return &v1beta1.Value{Value: &v1beta1.Value_DurationValue{
+					DurationValue: &v1beta1.Duration{Value: types.DurationProto(v)}}}, nil
+			}, nil
+		})
+	registerVT(proto.MessageName((*v1beta1.TimeStamp)(nil)), v1beta1.TIMESTAMP,
+		func(expr compiled.Expression, vt v1beta1.ValueType) (valueProducer, error) {
+			return func(bag attribute.Bag) (*v1beta1.Value, error) {
+				ev, er := expr.Evaluate(bag)
+				if er != nil {
+					return nil, er
+				}
+				var ok bool
+				var v time.Time
+
+				if v, ok = ev.(time.Time); !ok {
+					return nil, incorrectTypeError(vt, ev, "time.Time")
+				}
+
+				ts, er := types.TimestampProto(v)
+				if er != nil {
+					return nil, errors.Errorf("invalid timestamp: %v", er)
+				}
+
+				return &v1beta1.Value{Value: &v1beta1.Value_TimestampValue{TimestampValue: &v1beta1.TimeStamp{Value: ts}}}, nil
+			}, nil
+		})
 }
