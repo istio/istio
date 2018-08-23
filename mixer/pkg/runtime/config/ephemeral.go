@@ -196,13 +196,15 @@ func (e *Ephemeral) processAttributeManifests(counters Counters, errs *multierro
 	// using the $out.<field Name> convention, where $out refers to the output object from the attribute generating adapter.
 	// The list of valid names for a given Template is available in the Template.Info.AttributeManifests object.
 	for _, info := range e.templates {
-		log.Debugf("Processing attributes from template: '%s'", info.Name)
+		if info.Variety == v1beta1.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR {
+			log.Debugf("Processing attributes from template: '%s'", info.Name)
 
-		for _, v := range info.AttributeManifests {
-			for an, at := range v.Attributes {
-				attrs[an] = at
+			for _, v := range info.AttributeManifests {
+				for an, at := range v.Attributes {
+					attrs[an] = at
 
-				log.Debugf("Attribute '%s': '%s'", an, at.ValueType)
+					log.Debugf("Attribute '%s': '%s'", an, at.ValueType)
+				}
 			}
 		}
 	}

@@ -499,11 +499,15 @@ spec:
   - handler: hcheckoutput1.acheckoutput
     instances:
     - icheckoutput1.tcheckoutput.istio-system
-    name: out
+    name: sample
   requestHeaderOperations:
-  - name: "header-key"
+  - name: '"key1"'
     values:
-    - $out.value
+    - sample.output.value
+  responseHeaderOperations:
+  - name: '"key2"'
+    values:
+    - sample.output.value
 `
 
 // RuleReport1 is a standard testing instance config with name rreport1. It references I1 and H1.

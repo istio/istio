@@ -54,6 +54,10 @@ func BuildTemplates(l *Logger, settings ...FakeTemplateSettings) map[string]*tem
 	return t
 }
 
+type outputTemplate struct {
+	value string
+}
+
 func createFakeTemplate(name string, s FakeTemplateSettings, l *Logger, variety istio_mixer_v1_template.TemplateVariety) *template.Info {
 	callCount := 0
 
@@ -65,6 +69,14 @@ func createFakeTemplate(name string, s FakeTemplateSettings, l *Logger, variety 
 			{
 				Attributes: map[string]*policy.AttributeManifest_AttributeInfo{
 					"prefix.generated.string": {
+						ValueType: policy.STRING,
+					},
+				},
+			},
+			// Output values of check adapters
+			{
+				Attributes: map[string]*policy.AttributeManifest_AttributeInfo{
+					"value": {
 						ValueType: policy.STRING,
 					},
 				},
@@ -142,7 +154,7 @@ func createFakeTemplate(name string, s FakeTemplateSettings, l *Logger, variety 
 			callCount++
 
 			l.Write(name, "DispatchCheckOutput <= (SUCCESS)")
-			return result, nil, nil
+			return result, &outputTemplate{value: "1337"}, nil
 		},
 		DispatchReport: func(ctx context.Context, handler adapter.Handler, instances []interface{}) error {
 			l.WriteFormat(name, "DispatchReport => context exists: '%+v'", ctx != nil)

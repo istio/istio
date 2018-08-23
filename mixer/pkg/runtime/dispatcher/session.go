@@ -23,6 +23,8 @@ import (
 	"github.com/hashicorp/go-multierror"
 
 	tpb "istio.io/api/mixer/adapter/model/v1beta1"
+	"istio.io/api/mixer/v1"
+	descriptor "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/pool"
@@ -54,6 +56,10 @@ type session struct {
 	quotaResult adapter.QuotaResult
 	err         error
 
+	// operation templates and directive
+	operations []*routing.HeaderOperation
+	directive  *v1.RouteDirective
+
 	// The current number of activeDispatches handler dispatches.
 	activeDispatches int
 
@@ -78,6 +84,8 @@ func (s *session) clear() {
 	s.err = nil
 	s.quotaResult = adapter.QuotaResult{}
 	s.checkResult = adapter.CheckResult{}
+	s.operations = nil
+	s.directive = nil
 
 	// Drain the channel
 	exit := false
@@ -130,7 +138,7 @@ func (s *session) dispatch() error {
 		}
 
 		for _, group := range destination.InstanceGroups {
-			groupMatched := group.Matches(s.bag)
+			groupMatched := routing.Matches(group.Condition, s.bag)
 
 			if groupMatched {
 				ndestinations++
@@ -171,6 +179,7 @@ func (s *session) dispatch() error {
 
 				// for other templates, dispatch for each instance individually.
 				state = s.impl.getDispatchState(s.ctx, destination)
+				state.actionName = input.ActionName
 				state.instances = append(state.instances, instance)
 				if s.variety == tpb.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR {
 					state.mapper = group.Mappers[j]
@@ -182,6 +191,15 @@ func (s *session) dispatch() error {
 				state.quotaArgs.DeduplicationID = s.quotaArgs.DeduplicationID
 				state.quotaArgs.QuotaAmount = s.quotaArgs.Amount
 				s.dispatchToHandler(state)
+			}
+		}
+	}
+
+	if s.variety == tpb.TEMPLATE_VARIETY_CHECK {
+		operationGroups := s.rc.Routes.GetOperations(namespace)
+		for _, group := range operationGroups {
+			if routing.Matches(group.Condition, s.bag) {
+				s.operations = append(s.operations, group.Operations...)
 			}
 		}
 	}
@@ -224,6 +242,9 @@ func (s *session) waitForDispatched() {
 	var buf *bytes.Buffer
 	code := rpc.OK
 
+	// map of action names to output template instances
+	outputs := make(map[string]interface{})
+
 	for s.activeDispatches > 0 {
 		state := <-s.completed
 		s.activeDispatches--
@@ -253,6 +274,7 @@ func (s *session) waitForDispatched() {
 				}
 			}
 			st = state.checkResult.Status
+			outputs[state.actionName] = state.checkOutput
 
 		case tpb.TEMPLATE_VARIETY_QUOTA:
 			if s.quotaResult.IsDefault() {
@@ -292,5 +314,40 @@ func (s *session) waitForDispatched() {
 			s.quotaResult.Status = status.WithMessage(code, buf.String())
 		}
 		pool.PutBuffer(buf)
+	}
+
+	// compute route directive once all dispatches finish
+	if s.variety == tpb.TEMPLATE_VARIETY_CHECK && status.IsOK(s.checkResult.Status) && len(s.operations) > 0 {
+		s.directive = &v1.RouteDirective{}
+		for _, op := range s.operations {
+			name, nerr := op.Name.EvaluateString(s.bag)
+			if nerr != nil {
+				log.Warnf("Failed to evaluate header name: %v", nerr)
+				continue
+			}
+			value, verr := op.Value.EvaluateString(s.bag)
+			if verr != nil {
+				log.Warnf("Failed to evaluate header value: %v", verr)
+				continue
+			}
+			hop := v1.HeaderOperation{
+				Name:  name,
+				Value: value,
+			}
+			switch op.Operation {
+			case descriptor.Rule_HeaderOperationTemplate_APPEND:
+				hop.Operation = v1.APPEND
+			case descriptor.Rule_HeaderOperationTemplate_REMOVE:
+				hop.Operation = v1.REMOVE
+			case descriptor.Rule_HeaderOperationTemplate_REPLACE:
+				hop.Operation = v1.REPLACE
+			}
+			switch op.Type {
+			case routing.RequestHeaderOperation:
+				s.directive.RequestHeaderOperations = append(s.directive.RequestHeaderOperations, hop)
+			case routing.ResponseHeaderOperation:
+				s.directive.ResponseHeaderOperations = append(s.directive.ResponseHeaderOperations, hop)
+			}
+		}
 	}
 }

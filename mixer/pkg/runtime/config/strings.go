@@ -19,6 +19,7 @@ import (
 	"io"
 	"sort"
 
+	"istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/template"
@@ -231,6 +232,26 @@ func writeRules(w io.Writer, rules []*Rule) {
 			fmt.Fprintln(w, "  ActionsDynamic:")
 			writeActionsDynamic(w, r.ActionsDynamic)
 		}
+
+		if len(r.RequestHeaderOperations) > 0 {
+			fmt.Fprintln(w, "  RequestHeaderOperations:")
+			writeRuleOperations(w, r.RequestHeaderOperations)
+		}
+
+		if len(r.ResponseHeaderOperations) > 0 {
+			fmt.Fprintln(w, "  ResponseHeaderOperations:")
+			writeRuleOperations(w, r.ResponseHeaderOperations)
+		}
+	}
+}
+
+func writeRuleOperations(w io.Writer, ops []*v1beta1.Rule_HeaderOperationTemplate) {
+	for _, op := range ops {
+		fmt.Fprintf(w, "    Name: %q\n", op.Name)
+		for _, value := range op.Values {
+			fmt.Fprintf(w, "    Value: %q\n", value)
+		}
+		fmt.Fprintf(w, "    Operation: %v\n", op.Operation)
 	}
 }
 
@@ -279,8 +300,10 @@ func writeActionsStatic(w io.Writer, actions []*ActionStatic) {
 	for _, a := range actions {
 		fmt.Fprintf(w, "    Handler: %s", a.Handler.Name)
 		fmt.Fprintln(w)
+		if a.Name != "" {
+			fmt.Fprintf(w, "    Name: %s\n", a.Name)
+		}
 		fmt.Fprintln(w, "    Instances:")
-
 		for _, instance := range a.Instances {
 			fmt.Fprintf(w, "      Name: %s", instance.Name)
 			fmt.Fprintln(w)
@@ -295,8 +318,10 @@ func writeActionsDynamic(w io.Writer, actions []*ActionDynamic) {
 	for _, a := range actions {
 		fmt.Fprintf(w, "    Handler: %s", a.Handler.Name)
 		fmt.Fprintln(w)
+		if a.Name != "" {
+			fmt.Fprintf(w, "    Name: %s\n", a.Name)
+		}
 		fmt.Fprintln(w, "    Instances:")
-
 		for _, instance := range a.Instances {
 			fmt.Fprintf(w, "      Name: %s", instance.Name)
 			fmt.Fprintln(w)

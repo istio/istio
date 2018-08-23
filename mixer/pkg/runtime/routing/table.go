@@ -16,6 +16,7 @@ package routing
 
 import (
 	tpb "istio.io/api/mixer/adapter/model/v1beta1"
+	descriptor "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/lang/compiled"
@@ -47,12 +48,21 @@ type varietyTable struct {
 	defaultSet *NamespaceTable
 }
 
-// NamespaceTable contains a list of destinations that should be targeted for a given namespace.
+// NamespaceTable contains a list of destinations and operations that should be targeted for a given namespace.
 type NamespaceTable struct {
-	entries []*Destination
+	entries    []*Destination
+	operations []*OperationGroup
 }
 
 var emptyDestinations = &NamespaceTable{}
+
+// OperationGroup is a group of operations, conditioned by an expression
+type OperationGroup struct {
+	// Condition is the guard for the operations
+	Condition compiled.Expression
+	// Operations is a list of rule operations
+	Operations []*HeaderOperation
+}
 
 // Destination contains a target handler, and instances to send, grouped by the conditional match that applies to them.
 type Destination struct {
@@ -88,6 +98,9 @@ type Destination struct {
 type NamedBuilder struct {
 	InstanceShortName string
 	Builder           template.InstanceBuilderFn
+
+	// ActionName is the name of the rule action. Used for computing rule operations from template output.
+	ActionName string
 }
 
 // TemplateInfo is the common data that is needed from a template
@@ -128,6 +141,24 @@ type InstanceGroup struct {
 	Mappers []template.OutputMapperFn
 }
 
+// OperationType enumeration
+type OperationType int
+
+const (
+	// RequestHeaderOperation is an operation on the request headers
+	RequestHeaderOperation OperationType = iota
+	// ResponseHeaderOperation is an operation on the response headers
+	ResponseHeaderOperation
+)
+
+// HeaderOperation is an intermediate form of a rule header operation.
+type HeaderOperation struct {
+	Type      OperationType
+	Name      compiled.Expression
+	Value     compiled.Expression
+	Operation descriptor.Rule_HeaderOperationTemplate_Operation
+}
+
 var emptyTable = &Table{id: -1}
 
 // Empty returns an empty routing table.
@@ -140,8 +171,9 @@ func (t *Table) ID() int64 {
 	return t.id
 }
 
-// GetDestinations returns the set of destinations (handlers) for the given template variety and for the given namespace.
-// Template variety CHECK and CHECK_WITH_OUTPUT are considered equivalent, and will produce the same destinations.
+// GetDestinations returns the set of destinations (handlers) for the given template variety in the given namespace.
+// Template variety CHECK and CHECK_WITH_OUTPUT are considered equivalent, and will produce the same destinations, which
+// is the union of the two.
 func (t *Table) GetDestinations(variety tpb.TemplateVariety, namespace string) []*Destination {
 	switch variety {
 	case tpb.TEMPLATE_VARIETY_CHECK, tpb.TEMPLATE_VARIETY_CHECK_WITH_OUTPUT:
@@ -151,6 +183,21 @@ func (t *Table) GetDestinations(variety tpb.TemplateVariety, namespace string) [
 	default:
 		return t.getVarietyDestinations(variety, namespace)
 	}
+}
+
+// GetOperations returns the set of rule operations for the given template variety in the given namespace.
+func (t *Table) GetOperations(namespace string) []*OperationGroup {
+	varietyEntry, ok := t.entries[tpb.TEMPLATE_VARIETY_CHECK_WITH_OUTPUT]
+	if !ok {
+		return nil
+	}
+
+	out := varietyEntry.entries[namespace]
+	if out == nil {
+		out = varietyEntry.defaultSet
+	}
+
+	return out.operations
 }
 
 func (t *Table) getVarietyDestinations(variety tpb.TemplateVariety, namespace string) []*Destination {
@@ -196,14 +243,14 @@ func (d *Destination) recalculateMaxInstances() {
 }
 
 // Matches returns true, if the instances from this input set should be used for the given attribute bag.
-func (i *InstanceGroup) Matches(bag attribute.Bag) bool {
-	if i.Condition == nil {
+func Matches(condition compiled.Expression, bag attribute.Bag) bool {
+	if condition == nil {
 		return true
 	}
 
-	matches, err := i.Condition.EvaluateBoolean(bag)
+	matches, err := condition.EvaluateBoolean(bag)
 	if err != nil {
-		log.Warnf("input set condition evaluation error: id='%d', error='%v'", i.id, err)
+		log.Warnf("input set condition evaluation error:'%v'", err)
 		return false
 	}
 

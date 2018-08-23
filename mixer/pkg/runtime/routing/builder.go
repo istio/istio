@@ -144,6 +144,7 @@ func (b *builder) nextID() uint32 {
 
 func (b *builder) build(config *config.Snapshot) {
 
+rules:
 	for _, rule := range config.Rules {
 
 		// Create a compiled expression for the rule condition first.
@@ -153,7 +154,7 @@ func (b *builder) build(config *config.Snapshot) {
 				err, rule.Name, rule.Match)
 			config.Counters.MatchErrors.Inc()
 			// Skip the rule
-			continue
+			continue rules
 		}
 
 		// For each action, find unique instances to use, and add entries to the map.
@@ -169,7 +170,7 @@ func (b *builder) build(config *config.Snapshot) {
 
 				config.Counters.UnsatisfiedActionHandlers.Inc()
 				// Skip the rule
-				continue
+				continue rules
 			}
 
 			for _, instance := range action.Instances {
@@ -178,11 +179,12 @@ func (b *builder) build(config *config.Snapshot) {
 				builder, mapper, err := b.getBuilderAndMapper(config.Attributes, instance)
 				if err != nil {
 					log.Warnf("Unable to create builder/mapper for instance: instance='%s', err='%v'", instance.Name, err)
-					continue
+					continue rules
 				}
 
+				// TODO(kuat): action names are not globally unique, we need something like a gensym to substitute with
 				b.add(rule.Namespace, buildTemplateInfo(instance.Template), entry, condition, builder, mapper,
-					entry.Name, instance.Name, rule.Match)
+					entry.Name, instance.Name, rule.Match, action.Name)
 			}
 		}
 
@@ -199,7 +201,7 @@ func (b *builder) build(config *config.Snapshot) {
 
 				config.Counters.UnsatisfiedActionHandlers.Inc()
 				// Skip the rule
-				continue
+				continue rules
 			}
 
 			for _, instance := range action.Instances {
@@ -208,13 +210,26 @@ func (b *builder) build(config *config.Snapshot) {
 				builder, mapper, err := b.getBuilderAndMapperDynamic(config.Attributes, instance)
 				if err != nil {
 					log.Warnf("Unable to create builder/mapper for instance: instance='%s', err='%v'", instance.Name, err)
-					continue
+					continue rules
 				}
 
 				b.add(rule.Namespace, b.templateInfo(instance.Template), entry, condition, builder, mapper,
-					entry.Name, instance.Name, rule.Match)
+					entry.Name, instance.Name, rule.Match, action.Name)
 			}
 		}
+
+		// Process rule operations.
+		// Note that operation expressions may span multiple actions (destinations), so we cannot re-use destination tables.
+		if len(rule.RequestHeaderOperations) > 0 && len(rule.ResponseHeaderOperations) > 0 {
+			compiler := b.buildRuleCompiler(config.Attributes, rule)
+			if ops, err := b.buildRuleOperations(compiler, rule); err != nil {
+				log.Warnf("Unable to compile rule operations: %q, rule=%q", err, rule.Name)
+				continue rules
+			} else {
+				b.addOperations(rule.Namespace, condition, ops)
+			}
+		}
+
 	}
 
 	// Capture the default namespace rule set and flatten all default namespace rule into other namespace tables for
@@ -315,7 +330,8 @@ func (b *builder) add(
 	mapper template.OutputMapperFn,
 	handlerName string,
 	instanceName string,
-	matchText string) {
+	matchText string,
+	actionName string) {
 
 	// Find or create the variety entry.
 	byVariety, found := b.table.entries[t.Variety]
@@ -394,7 +410,11 @@ func (b *builder) add(
 	}
 
 	// Append the builder & mapper.
-	instanceGroup.Builders = append(instanceGroup.Builders, NamedBuilder{InstanceShortName: config.ExtractShortName(instanceName), Builder: builder})
+	instanceGroup.Builders = append(instanceGroup.Builders, NamedBuilder{
+		InstanceShortName: config.ExtractShortName(instanceName),
+		Builder:           builder,
+		ActionName:        actionName,
+	})
 
 	if mapper != nil {
 		instanceGroup.Mappers = append(instanceGroup.Mappers, mapper)
@@ -500,4 +520,115 @@ func (b *builder) getBuilderAndMapperDynamic(_ ast.AttributeDescriptorFinder,
 		}, nil
 	}
 	return instBuilder, nil, nil
+}
+
+type ruleAttributes struct {
+	parent    ast.AttributeDescriptorFinder
+	overrides map[string]*descriptor.AttributeManifest_AttributeInfo
+}
+
+func (r *ruleAttributes) GetAttribute(name string) *descriptor.AttributeManifest_AttributeInfo {
+	if info, exists := r.overrides[name]; exists {
+		return info
+	}
+	return r.parent.GetAttribute(name)
+}
+
+// buildRuleCompiler constructs an expression compiler over an extended attribute vocabulary
+// with action name prefixed template output attributes added to the global attribute manifests.
+func (b *builder) buildRuleCompiler(parent ast.AttributeDescriptorFinder, rule *config.Rule) *compiled.ExpressionBuilder {
+	// create attribute type descriptor from action templates
+	attributeDescriptor := make(map[string]*descriptor.AttributeManifest_AttributeInfo)
+	for _, action := range rule.ActionsStatic {
+		// TODO(kuat): rationalize multi-instance check actions
+		if len(action.Instances) > 0 {
+			if template := action.Instances[0].Template; template.Variety == tpb.TEMPLATE_VARIETY_CHECK_WITH_OUTPUT {
+				for _, manifest := range template.AttributeManifests {
+					for attrName, attrInfo := range manifest.Attributes {
+						attributeDescriptor[fmt.Sprintf("%s.output.%s", action.Name, attrName)] = attrInfo
+					}
+				}
+			}
+		}
+	}
+	// TODO(kuat): add dynamic action support
+	return compiled.NewBuilder(&ruleAttributes{parent: parent, overrides: attributeDescriptor})
+}
+
+func (b *builder) buildRuleOperations(compiler *compiled.ExpressionBuilder, rule *config.Rule) ([]*HeaderOperation, error) {
+	out, err := b.compileRuleOperationTemplates(rule.Name, compiler, RequestHeaderOperation, rule.RequestHeaderOperations)
+	if err != nil {
+		return nil, err
+	}
+	respOps, err := b.compileRuleOperationTemplates(rule.Name, compiler, ResponseHeaderOperation, rule.ResponseHeaderOperations)
+	if err != nil {
+		return nil, err
+	}
+	return append(out, respOps...), nil
+}
+
+func (b *builder) compileRuleOperationTemplates(
+	location string,
+	compiler *compiled.ExpressionBuilder,
+	typ OperationType,
+	ops []*descriptor.Rule_HeaderOperationTemplate) ([]*HeaderOperation, error) {
+
+	out := make([]*HeaderOperation, 0, len(ops))
+	for _, op := range ops {
+		he, ht, herr := compiler.Compile(op.Name)
+		if herr != nil {
+			return nil, fmt.Errorf("unable to compile header operation name expression: '%v' in %q, expression=%q",
+				herr, location, op.Name)
+		}
+		if ht != descriptor.STRING {
+			return nil, fmt.Errorf("header operation name expression is not of string type: '%v' in %q, expression=%q",
+				herr, location, op.Name)
+		}
+
+		for _, value := range op.Values {
+			ve, vt, verr := compiler.Compile(value)
+			if verr != nil {
+				return nil, fmt.Errorf("unable to compile header operation value expression: '%v' in %q, expression=%q",
+					verr, location, value)
+			}
+			if vt != descriptor.STRING {
+				return nil, fmt.Errorf("header operation value expression is not of string type: '%v' in %q, expression=%q",
+					verr, location, value)
+			}
+
+			out = append(out, &HeaderOperation{
+				Type:      typ,
+				Name:      he,
+				Value:     ve,
+				Operation: op.Operation,
+			})
+		}
+	}
+	return out, nil
+}
+
+// should be called after add() to ensure table initialization
+func (b *builder) addOperations(
+	namespace string,
+	condition compiled.Expression,
+	operations []*HeaderOperation) {
+
+	byNamespace := b.table.entries[tpb.TEMPLATE_VARIETY_CHECK_WITH_OUTPUT].entries[namespace]
+
+	var operationGroup *OperationGroup
+	for _, set := range byNamespace.operations {
+		if set.Condition == condition {
+			operationGroup = set
+			break
+		}
+	}
+
+	if operationGroup == nil {
+		operationGroup = &OperationGroup{
+			Condition: condition,
+		}
+		byNamespace.operations = append(byNamespace.operations, operationGroup)
+	}
+
+	operationGroup.Operations = append(operationGroup.Operations, operations...)
 }

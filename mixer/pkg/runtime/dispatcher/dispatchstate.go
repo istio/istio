@@ -39,9 +39,10 @@ type dispatchState struct {
 	destination *routing.Destination
 	mapper      template.OutputMapperFn
 
-	inputBag  attribute.Bag
-	quotaArgs adapter.QuotaArgs
-	instances []interface{}
+	inputBag   attribute.Bag
+	quotaArgs  adapter.QuotaArgs
+	instances  []interface{}
+	actionName string
 
 	// output state that was collected from the handler.
 	err         error
