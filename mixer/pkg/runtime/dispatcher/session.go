@@ -21,11 +21,13 @@ import (
 
 	"github.com/gogo/googleapis/google/rpc"
 	"github.com/hashicorp/go-multierror"
+	"go.opencensus.io/stats"
 
 	tpb "istio.io/api/mixer/adapter/model/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/pool"
+	"istio.io/istio/mixer/pkg/runtime/monitoring"
 	"istio.io/istio/mixer/pkg/runtime/routing"
 	"istio.io/istio/mixer/pkg/status"
 	"istio.io/istio/pkg/log"
@@ -105,7 +107,10 @@ func (s *session) dispatch() error {
 	namespace, err := getIdentityNamespace(s.bag)
 	if err != nil {
 		// early return.
-		updateRequestCounters(0, 0)
+		stats.Record(s.ctx,
+			monitoring.DestinationsPerRequest.M(0),
+			monitoring.InstancesPerRequest.M(0))
+
 		log.Warnf("unable to determine identity namespace: '%v', operation='%d'", err, s.variety)
 		return err
 	}
@@ -186,7 +191,10 @@ func (s *session) dispatch() error {
 		}
 	}
 
-	updateRequestCounters(ndestinations, ninputs)
+	stats.Record(s.ctx,
+		monitoring.DestinationsPerRequest.M(int64(ndestinations)),
+		monitoring.InstancesPerRequest.M(int64(ninputs)))
+
 	s.waitForDispatched()
 
 	if s.variety == tpb.TEMPLATE_VARIETY_QUOTA && !foundQuota {

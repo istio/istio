@@ -22,13 +22,14 @@ import (
 	"strings"
 	"time"
 
-	"k8s.io/apimachinery/pkg/runtime/schema"
-
-	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
-	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc"
 	ot "github.com/opentracing/opentracing-go"
+	oprometheus "github.com/prometheus/client_golang/prometheus"
+	"go.opencensus.io/exporter/prometheus"
+	"go.opencensus.io/plugin/ocgrpc"
+	"go.opencensus.io/stats/view"
 	"google.golang.org/grpc"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/adapter"
@@ -80,6 +81,10 @@ type patchTable struct {
 	listen        listenFunc
 	configLog     func(options *log.Options) error
 	runtimeListen func(runtime *runtime.Runtime) error
+
+	// monitoring-related setup
+	newOpenCensusExporter   func() (view.Exporter, error)
+	registerOpenCensusViews func(...*view.View) error
 }
 
 // New instantiates a fully functional Mixer server, ready for traffic.
@@ -95,6 +100,10 @@ func newPatchTable() *patchTable {
 		listen:        net.Listen,
 		configLog:     log.Configure,
 		runtimeListen: func(rt *runtime.Runtime) error { return rt.StartListening() },
+		newOpenCensusExporter: func() (view.Exporter, error) {
+			return prometheus.NewExporter(prometheus.Options{Registry: oprometheus.DefaultRegisterer.(*oprometheus.Registry)})
+		},
+		registerOpenCensusViews: view.Register,
 	}
 }
 
@@ -128,7 +137,6 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 	grpcOptions = append(grpcOptions, grpc.MaxConcurrentStreams(uint32(a.MaxConcurrentStreams)))
 	grpcOptions = append(grpcOptions, grpc.MaxRecvMsgSize(int(a.MaxMessageSize)))
 
-	var interceptors []grpc.UnaryServerInterceptor
 	var err error
 
 	if a.TracingOptions.TracingEnabled() {
@@ -137,13 +145,8 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 			_ = s.Close()
 			return nil, fmt.Errorf("unable to setup tracing")
 		}
-		interceptors = append(interceptors, otgrpc.OpenTracingServerInterceptor(ot.GlobalTracer()))
+		grpcOptions = append(grpcOptions, grpc.UnaryInterceptor(otgrpc.OpenTracingServerInterceptor(ot.GlobalTracer())))
 	}
-
-	// setup server prometheus monitoring (as final interceptor in chain)
-	interceptors = append(interceptors, grpc_prometheus.UnaryServerInterceptor)
-	grpc_prometheus.EnableHandlingTimeHistogram()
-	grpcOptions = append(grpcOptions, grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(interceptors...)))
 
 	// get the network stuff setup
 	network := "tcp"
@@ -226,6 +229,20 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 
 	// get the grpc server wired up
 	grpc.EnableTracing = a.EnableGRPCTracing
+
+	exporter, err := p.newOpenCensusExporter()
+	if err != nil {
+		return nil, fmt.Errorf("could not build opencensus exporter: %v", err)
+	}
+	view.RegisterExporter(exporter)
+
+	// Register the views to collect server request count.
+	if err := p.registerOpenCensusViews(ocgrpc.DefaultServerViews...); err != nil {
+		return nil, fmt.Errorf("could not register default server views: %v", err)
+	}
+
+	grpcOptions = append(grpcOptions, grpc.StatsHandler(&ocgrpc.ServerHandler{}))
+
 	s.server = grpc.NewServer(grpcOptions...)
 	mixerpb.RegisterMixerServer(s.server, api.NewGRPCServer(s.dispatcher, s.gp, s.checkCache))
 
