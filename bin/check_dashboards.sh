@@ -9,7 +9,7 @@ if ! git diff --quiet install/kubernetes/helm/istio/charts/grafana/dashboards/; 
     exit 1
 fi
 
-install/kubernetes/helm/istio/charts//grafana/fix_datasources.sh
+install/kubernetes/helm/istio/charts/grafana/fix_datasources.sh
 
 if ! git diff --quiet install/kubernetes/helm/istio/charts/grafana/dashboards/; then
     echo "Grafana dashboards' datasources fixed, please add to commit."
