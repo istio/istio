@@ -9,7 +9,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	api "k8s.io/api/core/v1"
 	cache "k8s.io/client-go/tools/cache"
-	"istio.io/istio/pkg/log"
 	"k8s.io/apimachinery/pkg/labels"
 )
 

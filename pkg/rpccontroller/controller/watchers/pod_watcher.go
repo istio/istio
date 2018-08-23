@@ -9,6 +9,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	api "k8s.io/api/core/v1"
 	cache "k8s.io/client-go/tools/cache"
+	"k8s.io/apimachinery/pkg/labels"
 )
 
 type PodUpdate struct {
@@ -20,6 +21,7 @@ type PodWatcher struct {
 	podController cache.Controller
 	broadcaster        *Broadcaster
 	informer      cache.SharedIndexInformer
+	podLister     cache.Indexer
 }
 
 type PodUpdatesHandler interface {
@@ -58,7 +60,8 @@ func (pw *PodWatcher) RegisterHandler(handler PodUpdatesHandler) {
 	}))
 }
 
-func (pw *PodWatcher) ListBySelector(namespace string, selector map[string]string) []*api.Pod {
+func (pw *PodWatcher) ListBySelector(set map[string]string) (ret []*api.Pod, err error) {
+	/*
 	store := pw.informer.GetStore()
 	objList := store.List()
 
@@ -76,6 +79,12 @@ func (pw *PodWatcher) ListBySelector(namespace string, selector map[string]strin
 		}
 	}
 	return pods
+	*/
+	selector := labels.SelectorFromSet(set)
+	err = cache.ListAll(pw.podLister, selector, func(m interface{}) {
+		ret = append(ret, m.(*api.Pod))
+	})
+	return ret, err
 }
 
 func (pw *PodWatcher) HasSynced() bool {
@@ -95,21 +104,21 @@ func StartPodWatcher(clientset kubernetes.Interface, resyncPeriod time.Duration,
 	pw.broadcaster = NewBroadcaster()
 	lw := cache.NewListWatchFromClient(clientset.Core().RESTClient(), "pods", metav1.NamespaceAll, fields.Everything())
 
+	/*
 	pw.informer = cache.NewSharedIndexInformer(
 		lw,
 		&api.Pod{}, resyncPeriod, cache.Indexers{},
 	)
 	pw.informer.AddEventHandler(eventHandler)
 	go pw.informer.Run(stopCh)
+	*/
 
-	/*
 	pw.podLister, pw.podController = cache.NewIndexerInformer(
 		lw,
 		&api.Pod{}, resyncPeriod, eventHandler,
 		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc},
 	)
 	go pw.podController.Run(stopCh)
-	*/
 
 	return &pw, nil
 }

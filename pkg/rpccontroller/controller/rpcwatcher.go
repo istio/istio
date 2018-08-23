@@ -213,9 +213,9 @@ func (rw *RpcWatcher) queryRpcInterface(key string, rs *v1.RpcService) {
 	// first add key into tryLaterKeys
 	rw.tryLaterKeys[key] = true
 
-	pods := rw.podWatcher.ListBySelector(service.Namespace, service.Labels)
-	if len(pods) == 0 {
-		log.Errorf("service %s/%s has no pods, try later...", service.Namespace, service.Name)
+	pods, err := rw.podWatcher.ListBySelector(service.Labels)
+	if len(pods) == 0 || err != nil {
+		log.Errorf("service %s/%s has no pods, err: %v, try later...", service.Namespace, service.Name, err)
 		return
 	}
 	rw.pod2RpcServiceMap[rw.podName(pods[0])] = key
@@ -341,13 +341,13 @@ func (rw *RpcWatcher) serviceHandler(serviceUpdate *watchers.ServiceUpdate) {
 	log.Infof("service: %s/%s, op: %s/%d", service.Namespace, service.Name, watchers.OperationString[op], op)
 	key, exist := rw.serivice2RpcServiceMap[rw.serviceName(service)]
 	if !exist {
-		log.Infof("service %s/%s not found rpc service", service.Namespace, service.Name)
+		log.Debugf("service %s/%s not found rpc service", service.Namespace, service.Name)
 		return
 	}
 	rs := rw.getRpcServiceByName(key)
 
 	if rs == nil {
-		log.Infof("rpcservice %s not found", key)
+		log.Debugf("rpcservice %s not found", key)
 		return
 	}
 
@@ -369,13 +369,13 @@ func (rw *RpcWatcher)podHandler(podUpdate *watchers.PodUpdate) {
 
 	key, exist := rw.pod2RpcServiceMap[rw.podName(pod)]
 	if !exist {
-		log.Infof("pod %s/%s not found rpc service", pod.Namespace, pod.Name)
+		log.Debugf("pod %s/%s not found rpc service", pod.Namespace, pod.Name)
 		return
 	}
 
 	rs := rw.getRpcServiceByName(key)
 	if rs == nil {
-		log.Infof("rpcservice %s not found", key)
+		log.Debugf("rpcservice %s not found", key)
 		return
 	}
 
