@@ -95,7 +95,7 @@ func (b *builder) SetAuthorizationTypes(types map[string]*authorization.Type) {}
 func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, error) {
 	reg := store.NewRegistry(mixerconfig.StoreInventory()...)
 	groupVersion := &schema.GroupVersion{Group: apiGroup, Version: apiVersion}
-	s, err := reg.NewStore(b.adapterConfig.ConfigStoreUrl, groupVersion)
+	s, err := reg.NewStore(b.adapterConfig.ConfigStoreUrl, groupVersion, nil)
 	if err != nil {
 		return nil, env.Logger().Errorf("Unable to connect to the configuration server: %v", err)
 	}

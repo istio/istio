@@ -1301,7 +1301,8 @@ func TestValidateHTTPHeaderName(t *testing.T) {
 		valid bool
 	}{
 		{name: "header1", valid: true},
-		{name: "HEADER2", valid: false},
+		{name: "X-Requested-With", valid: true},
+		{name: "", valid: false},
 	}
 
 	for _, tc := range testCases {
@@ -1333,7 +1334,7 @@ func TestValidateCORSPolicy(t *testing.T) {
 		{name: "bad header", in: &networking.CorsPolicy{
 			AllowMethods:  []string{"GET", "POST"},
 			AllowHeaders:  []string{"header1", "header2"},
-			ExposeHeaders: []string{"HEADER3"},
+			ExposeHeaders: []string{""},
 			MaxAge:        &types.Duration{Seconds: 2},
 		}, valid: false},
 		{name: "bad max age", in: &networking.CorsPolicy{
@@ -1404,6 +1405,22 @@ func TestValidateHTTPFaultInjectionAbort(t *testing.T) {
 				HttpStatus: 9000,
 			},
 		}, valid: false},
+		{name: "valid percentage", in: &networking.HTTPFaultInjection_Abort{
+			Percentage: &networking.Percent{
+				Value: 0.001,
+			},
+			ErrorType: &networking.HTTPFaultInjection_Abort_HttpStatus{
+				HttpStatus: 200,
+			},
+		}, valid: true},
+		{name: "invalid fractional percent", in: &networking.HTTPFaultInjection_Abort{
+			Percentage: &networking.Percent{
+				Value: -10.0,
+			},
+			ErrorType: &networking.HTTPFaultInjection_Abort_HttpStatus{
+				HttpStatus: 200,
+			},
+		}, valid: false},
 	}
 
 	for _, tc := range testCases {
@@ -1444,6 +1461,22 @@ func TestValidateHTTPFaultInjectionDelay(t *testing.T) {
 			Percent: 20,
 			HttpDelayType: &networking.HTTPFaultInjection_Delay_FixedDelay{
 				FixedDelay: &types.Duration{Seconds: 3, Nanos: 42},
+			},
+		}, valid: false},
+		{name: "valid fractional percentage", in: &networking.HTTPFaultInjection_Delay{
+			Percentage: &networking.Percent{
+				Value: 0.001,
+			},
+			HttpDelayType: &networking.HTTPFaultInjection_Delay_FixedDelay{
+				FixedDelay: &types.Duration{Seconds: 3},
+			},
+		}, valid: true},
+		{name: "invalid fractional percentage", in: &networking.HTTPFaultInjection_Delay{
+			Percentage: &networking.Percent{
+				Value: -10.0,
+			},
+			HttpDelayType: &networking.HTTPFaultInjection_Delay_FixedDelay{
+				FixedDelay: &types.Duration{Seconds: 3},
 			},
 		}, valid: false},
 	}

@@ -30,7 +30,8 @@ const reportAttributesOkGet = `
   "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
   "mesh3.ip": "[0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 8]",
   "request.host": "*",
-  "request.path": "/echo",
+  "request.path": "/echo?a=b&c=d",
+  "request.query_params": {"a": "b", "c": "d"},
   "request.time": "*",
   "request.useragent": "Go-http-client/1.1",
   "request.method": "GET",
@@ -49,7 +50,7 @@ const reportAttributesOkGet = `
   "quota.cache_hit": false,
   "request.headers": {
      ":method": "GET",
-     ":path": "/echo",
+     ":path": "/echo?a=b&c=d",
      ":authority": "*",
      "x-forwarded-proto": "http",
      "x-istio-attributes": "-",
@@ -67,7 +68,8 @@ const reportAttributesOkGet = `
      "server": "envoy"
   },
   "response.total_size": "*",
-  "request.total_size": 306
+  "request.total_size": 314,
+  "request.url_path": "/echo"
 }
 `
 
@@ -80,7 +82,8 @@ const reportAttributesOkPost1 = `
   "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
   "mesh3.ip": "[0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 8]",
   "request.host": "*",
-  "request.path": "/echo",
+  "request.path": "/echo?a=b&c=d",
+  "request.query_params": {"a": "b", "c": "d"},
   "request.time": "*",
   "request.useragent": "Go-http-client/1.1",
   "request.method": "POST",
@@ -99,7 +102,7 @@ const reportAttributesOkPost1 = `
   "quota.cache_hit": false,
   "request.headers": {
      ":method": "POST",
-     ":path": "/echo",
+     ":path": "/echo?a=b&c=d",
      ":authority": "*",
      "x-forwarded-proto": "http",
      "x-istio-attributes": "-",
@@ -118,7 +121,8 @@ const reportAttributesOkPost1 = `
      "server": "envoy"
   },
   "response.total_size": "*",
-  "request.total_size": 342
+  "request.total_size": 350,
+  "request.url_path": "/echo"
 }
 `
 
@@ -131,7 +135,8 @@ const reportAttributesOkPost2 = `
   "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
   "mesh3.ip": "[0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 8]",
   "request.host": "*",
-  "request.path": "/echo",
+  "request.path": "/echo?a=b&c=d",
+  "request.query_params": {"a": "b", "c": "d"},
   "request.time": "*",
   "request.useragent": "Go-http-client/1.1",
   "request.method": "POST",
@@ -150,7 +155,7 @@ const reportAttributesOkPost2 = `
   "quota.cache_hit": false,
   "request.headers": {
      ":method": "POST",
-     ":path": "/echo",
+     ":path": "/echo?a=b&c=d",
      ":authority": "*",
      "x-forwarded-proto": "http",
      "x-istio-attributes": "-",
@@ -169,7 +174,8 @@ const reportAttributesOkPost2 = `
      "server": "envoy"
   },
   "response.total_size": "*",
-  "request.total_size": 348
+  "request.total_size": 356,
+  "request.url_path": "/echo"
 }
 `
 
@@ -193,7 +199,7 @@ func TestReportBatch(t *testing.T) {
 	}
 	defer s.TearDown()
 
-	url := fmt.Sprintf("http://localhost:%d/echo", s.Ports().ClientProxyPort)
+	url := fmt.Sprintf("http://localhost:%d/echo?a=b&c=d", s.Ports().ClientProxyPort)
 
 	// Issues a GET echo request with 0 size body
 	tag := "OKGet"

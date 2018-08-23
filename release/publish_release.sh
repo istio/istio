@@ -62,7 +62,7 @@ Options for disabling types of publishing:
 Options relevant to most features:
     -g <uri>   source of files on gcs (use this or -u)
     -u <dir>   source directory from which to upload artifacts (use this or -g)
-    -v <ver>   version tag of release    (optional for gcs-only publish, otherwise required)
+    -v <ver>   version tag of release
 Options specific to docker hub:
     -c         use istio cred for docker (for cloud builder) (optional)
     -d         docker hub uri (Providing the string \"<none>\" here has the same affect as -z)
@@ -110,7 +110,10 @@ while getopts cd:e:g:h:i:k:l:mn:o:qr:t:u:v:wxyz arg ; do
   esac
 done
 
-if [[ "${DOCKER_DEST}" == "<none>" ]]; then
+[[ -z "${VERSION}" ]] && usage
+
+if [[ "${DOCKER_DEST}" == "<none>" || -z "${DOCKER_DEST}" ]]; then
+  echo "NOTE: An empty string was used for docker hub setting so docker push has been disabled"
   DO_DOCKERHUB="false"
 fi
 
@@ -160,7 +163,6 @@ UPLOAD_DIR=${UPLOAD_DIR%/}
 if [[ "${DO_GITHUB_TAG}" == "true" ]]; then
   [[ -z "${TOKEN}" ]] && [[ -z "${KEYFILE}" ]] && usage
   [[ -z "${ORG}" ]] && usage
-  [[ -z "${VERSION}" ]] && usage
   # I tried using /user to automatically get name and email, but they're both null
   [[ -z "${USER_NAME}" ]] && usage
   [[ -z "${USER_EMAIL}" ]] && usage
@@ -171,7 +173,6 @@ if [[ "${DO_GITHUB_REL}" == "true" ]]; then
   [[ -z "${TOKEN}" ]] && [[ -z "${KEYFILE}" ]] && usage
   [[ -z "${ORG}" ]] && usage
   [[ -z "${REPO}" ]] && usage
-  [[ -z "${VERSION}" ]] && usage
   [[ -z "${UPLOAD_DIR}" ]] && usage
 fi
 
@@ -182,18 +183,11 @@ fi
 
 if [[ "${DO_GCRHUB}" == "true" ]]; then
   [[ -z "${GCR_DEST}" ]] && usage
-  [[ -z "${VERSION}" ]] && usage
   GCR_DEST=gcr.io/${GCR_DEST%/}
 fi
 
 if [[ "${DO_DOCKERHUB}" == "true" ]]; then
-  if [[ -z "${DOCKER_DEST}" ]]; then
-    echo "NOTE: An empty string was used for docker hub setting so docker push has been disabled"
-    DO_DOCKERHUB="false"
-  else
-    [[ -z "${VERSION}" ]] && usage
     DOCKER_DEST=docker.io/${DOCKER_DEST%/}
-  fi
 fi
 
 # if GCS source dir provided then copy files to local location
@@ -268,12 +262,12 @@ if [[ "${DO_DOCKERHUB}" == "true" || "${DO_GCRHUB}" == "true" ]]; then
 
     if [[ "${DO_DOCKERHUB}" == "true" ]]; then
       docker tag "istio/${IMAGE_NAME}:${VERSION}" "${DOCKER_DEST}/${IMAGE_NAME}:${VERSION}"
-      docker push "${DOCKER_DEST}/${IMAGE_NAME}:${VERSION}"
+      docker push                                 "${DOCKER_DEST}/${IMAGE_NAME}:${VERSION}"
     fi
     if [[ "${DO_GCRHUB}" == "true" ]]; then
       gcloud auth configure-docker -q
-      docker tag "istio/${IMAGE_NAME}:${VERSION}" "${GCR_DEST}/${IMAGE_NAME}:${VERSION}"
-      docker push "${GCR_DEST}/${IMAGE_NAME}:${VERSION}"
+      docker tag "istio/${IMAGE_NAME}:${VERSION}"    "${GCR_DEST}/${IMAGE_NAME}:${VERSION}"
+      docker push                                    "${GCR_DEST}/${IMAGE_NAME}:${VERSION}"
     fi
   done
 

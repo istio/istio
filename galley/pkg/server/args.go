@@ -21,15 +21,11 @@ import (
 
 	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/mcp/creds"
 	"istio.io/istio/pkg/probe"
 )
 
 const (
-	defaultCertDir    = "/etc/istio/certs/"
-	defaultCertFile   = defaultCertDir + "cert-chain.pem"
-	defaultCACertFile = defaultCertDir + "root-cert.pem"
-	defaultCertKey    = defaultCertDir + "key.pem"
-
 	defaultConfigMapFolder = "/etc/istio/config/"
 	defaultAccessListFile  = defaultConfigMapFolder + "accesslist.yaml"
 )
@@ -54,17 +50,11 @@ type Args struct {
 	// Maximum number of outstanding RPCs per connection
 	MaxConcurrentStreams uint
 
+	// The credential options to use for MCP.
+	CredentialOptions *creds.Options
+
 	// Insecure gRPC service is used for the MCP server. CertificateFile and KeyFile is ignored.
 	Insecure bool
-
-	// CertificateFile to use for mTLS gRPC.
-	CertificateFile string
-
-	// KeyFile to use for mTLS gRPC.
-	KeyFile string
-
-	// CACertificateFile is the trusted root certificate authority's cert file.
-	CACertificateFile string
 
 	// AccessListFile is the YAML file that specifies ids of the allowed mTLS peers.
 	AccessListFile string
@@ -90,9 +80,7 @@ func DefaultArgs() *Args {
 		MaxReceivedMessageSize: 1024 * 1024,
 		MaxConcurrentStreams:   1024,
 		Insecure:               false,
-		CertificateFile:        defaultCertFile,
-		KeyFile:                defaultCertKey,
-		CACertificateFile:      defaultCACertFile,
+		CredentialOptions:      creds.DefaultOptions(),
 		AccessListFile:         defaultAccessListFile,
 		LoggingOptions:         log.DefaultOptions(),
 		LivenessProbeOptions:   &probe.Options{},
@@ -112,9 +100,9 @@ func (a *Args) String() string {
 	fmt.Fprintf(buf, "MaxReceivedMessageSize: %d\n", a.MaxReceivedMessageSize)
 	fmt.Fprintf(buf, "MaxConcurrentStreams: %d\n", a.MaxConcurrentStreams)
 	fmt.Fprintf(buf, "Insecure: %v\n", a.Insecure)
-	fmt.Fprintf(buf, "KeyFile: %s\n", a.KeyFile)
-	fmt.Fprintf(buf, "CertificateFile: %s\n", a.CertificateFile)
-	fmt.Fprintf(buf, "CACertificateFile: %s\n", a.CACertificateFile)
+	fmt.Fprintf(buf, "KeyFile: %s\n", a.CredentialOptions.KeyFile)
+	fmt.Fprintf(buf, "CertificateFile: %s\n", a.CredentialOptions.CertificateFile)
+	fmt.Fprintf(buf, "CACertificateFile: %s\n", a.CredentialOptions.CACertificateFile)
 	fmt.Fprintf(buf, "AccessListFile: %s\n", a.AccessListFile)
 	fmt.Fprintf(buf, "LoggingOptions: %#v\n", *a.LoggingOptions)
 	fmt.Fprintf(buf, "LivenessProbeOptions: %#v\n", *a.LivenessProbeOptions)

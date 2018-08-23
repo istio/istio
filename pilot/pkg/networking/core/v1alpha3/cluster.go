@@ -15,6 +15,7 @@
 package v1alpha3
 
 import (
+	"fmt"
 	"path"
 	"time"
 
@@ -35,9 +36,6 @@ const (
 	DefaultLbType = networking.LoadBalancerSettings_ROUND_ROBIN
 	// ManagementClusterHostname indicates the hostname used for building inbound clusters for management ports
 	ManagementClusterHostname = "mgmtCluster"
-
-	// CDSv2 validation requires ConnectTimeout to be > 0s. This is applied if no explicit policy is set.
-	defaultClusterConnectTimeout = 5 * time.Second
 )
 
 // TODO: Need to do inheritance of DestRules based on domain suffix match
@@ -49,15 +47,25 @@ const (
 func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, proxy *model.Proxy, push *model.PushContext) ([]*v2.Cluster, error) {
 	clusters := make([]*v2.Cluster, 0)
 
-	services := push.Services
+	recomputeOutboundClusters := true
 
-	clusters = append(clusters, configgen.buildOutboundClusters(env, proxy, push, services)...)
-	for _, c := range clusters {
-		// Envoy requires a non-zero connect timeout
-		if c.ConnectTimeout == 0 {
-			c.ConnectTimeout = defaultClusterConnectTimeout
+	switch proxy.Type {
+	case model.Sidecar:
+		if configgen.OutboundClustersForSidecars != nil {
+			clusters = append(clusters, configgen.OutboundClustersForSidecars...)
+			recomputeOutboundClusters = false
+		}
+	case model.Router:
+		if configgen.OutboundClustersForGateways != nil {
+			clusters = append(clusters, configgen.OutboundClustersForGateways...)
+			recomputeOutboundClusters = false
 		}
 	}
+
+	if recomputeOutboundClusters {
+		clusters = append(clusters, configgen.buildOutboundClusters(env, proxy.Type, push)...)
+	}
+
 	if proxy.Type == model.Sidecar {
 		instances, err := env.GetProxyServiceInstances(proxy)
 		if err != nil {
@@ -73,29 +81,29 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 	// DO NOT CALL PLUGINS for this cluster.
 	clusters = append(clusters, buildBlackHoleCluster())
 
-	return normalizeClusters(clusters), nil
+	return normalizeClusters(push, proxy, clusters), nil
 }
 
 // resolves cluster name conflicts. there can be duplicate cluster names if there are conflicting service definitions.
 // for any clusters that share the same name the first cluster is kept and the others are discarded.
-func normalizeClusters(clusters []*v2.Cluster) []*v2.Cluster {
+func normalizeClusters(push *model.PushContext, proxy *model.Proxy, clusters []*v2.Cluster) []*v2.Cluster {
 	have := make(map[string]bool)
 	out := make([]*v2.Cluster, 0, len(clusters))
 	for _, cluster := range clusters {
 		if !have[cluster.Name] {
 			out = append(out, cluster)
 		} else {
-			log.Warnf("duplicate cluster name: %q", cluster.Name)
+			push.Add(model.DuplicatedClusters, cluster.Name, proxy,
+				fmt.Sprintf("Duplicate cluster %s found while pushing CDS", cluster.Name))
 		}
 		have[cluster.Name] = true
 	}
 	return out
 }
 
-func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environment, proxy *model.Proxy, push *model.PushContext,
-	services []*model.Service) []*v2.Cluster {
+func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environment, proxyType model.NodeType, push *model.PushContext) []*v2.Cluster {
 	clusters := make([]*v2.Cluster, 0)
-	for _, service := range services {
+	for _, service := range push.Services {
 		config := push.DestinationRule(service.Hostname)
 		for _, port := range service.Ports {
 			if port.Protocol == model.ProtocolUDP {
@@ -126,7 +134,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 					applyTrafficPolicy(subsetCluster, subset.TrafficPolicy, port)
 					// call plugins
 					for _, p := range configgen.Plugins {
-						p.OnOutboundCluster(env, proxy, push, service, port, subsetCluster)
+						p.OnOutboundCluster(env, push, service, port, subsetCluster)
 					}
 					clusters = append(clusters, subsetCluster)
 				}
@@ -134,7 +142,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 
 			// call plugins for the default cluster
 			for _, p := range configgen.Plugins {
-				p.OnOutboundCluster(env, proxy, push, service, port, defaultCluster)
+				p.OnOutboundCluster(env, push, service, port, defaultCluster)
 			}
 		}
 	}
@@ -519,7 +527,7 @@ func buildBlackHoleCluster() *v2.Cluster {
 	cluster := &v2.Cluster{
 		Name:           util.BlackHoleCluster,
 		Type:           v2.Cluster_STATIC,
-		ConnectTimeout: defaultClusterConnectTimeout,
+		ConnectTimeout: 1 * time.Second,
 		LbPolicy:       v2.Cluster_ROUND_ROBIN,
 	}
 	return cluster

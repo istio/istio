@@ -303,13 +303,10 @@ func ValidateMixerService(svc *mccpb.IstioService) (errs error) {
 	return
 }
 
-// ValidateHTTPHeaderName checks that the name is lower-case
+// ValidateHTTPHeaderName validates a header name
 func ValidateHTTPHeaderName(name string) error {
 	if name == "" {
 		return fmt.Errorf("header name cannot be empty")
-	}
-	if strings.ToLower(name) != name {
-		return fmt.Errorf("must be in lower case")
 	}
 	return nil
 }
@@ -320,6 +317,19 @@ func ValidatePercent(val int32) error {
 		return fmt.Errorf("percentage %v is not in range 0..100", val)
 	}
 	return nil
+}
+
+// validatePercentageOrDefault checks if the specified fractional percentage is
+// valid. If a nil fractional percentage is supplied, it validates the default
+// integer percent value.
+func validatePercentageOrDefault(percentage *networking.Percent, defaultPercent int32) error {
+	if percentage != nil {
+		if percentage.Value < 0.0 || percentage.Value > 100.0 || (percentage.Value > 0.0 && percentage.Value < 0.0001) {
+			return fmt.Errorf("percentage %v is neither 0.0, nor in range [0.0001, 100.0]", percentage.Value)
+		}
+		return nil
+	}
+	return ValidatePercent(defaultPercent)
 }
 
 // ValidateIPv4Subnet checks that a string is in "CIDR notation" or "Dot-decimal notation"
@@ -1541,7 +1551,7 @@ func validateHTTPFaultInjectionAbort(abort *networking.HTTPFaultInjection_Abort)
 		return
 	}
 
-	errs = appendErrors(errs, ValidatePercent(abort.Percent))
+	errs = appendErrors(errs, validatePercentageOrDefault(abort.Percentage, abort.Percent))
 
 	switch abort.ErrorType.(type) {
 	case *networking.HTTPFaultInjection_Abort_GrpcStatus:
@@ -1569,7 +1579,8 @@ func validateHTTPFaultInjectionDelay(delay *networking.HTTPFaultInjection_Delay)
 		return
 	}
 
-	errs = appendErrors(errs, ValidatePercent(delay.Percent))
+	errs = appendErrors(errs, validatePercentageOrDefault(delay.Percentage, delay.Percent))
+
 	switch v := delay.HttpDelayType.(type) {
 	case *networking.HTTPFaultInjection_Delay_FixedDelay:
 		errs = appendErrors(errs, ValidateDurationGogo(v.FixedDelay))
@@ -1577,6 +1588,7 @@ func validateHTTPFaultInjectionDelay(delay *networking.HTTPFaultInjection_Delay)
 		errs = appendErrors(errs, ValidateDurationGogo(v.ExponentialDelay))
 		errs = multierror.Append(errs, fmt.Errorf("exponentialDelay not supported yet"))
 	}
+
 	return
 }
 
