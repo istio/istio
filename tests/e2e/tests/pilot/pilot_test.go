@@ -80,7 +80,7 @@ func TestCoreDumpGenerated(t *testing.T) {
 	// Simplest way to create out of process core file.
 	crashContainer := "istio-proxy"
 	crashProgPath := "/tmp/crashing_program"
-	coreDir := "var/istio/proxy"
+	coreDir := "var/lib/istio"
 	script := `#!/bin/bash
 kill -SIGSEGV $$
 `
