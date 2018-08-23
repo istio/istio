@@ -26,6 +26,7 @@ import (
 	"time"
 
 	tpb "istio.io/api/mixer/adapter/model/v1beta1"
+	"istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/pool"
@@ -39,7 +40,7 @@ type Dispatcher interface {
 	Preprocess(ctx context.Context, requestBag attribute.Bag, responseBag *attribute.MutableBag) error
 
 	// Check dispatches to the set of adapters associated with the Check API method
-	Check(ctx context.Context, requestBag attribute.Bag) (adapter.CheckResult, error)
+	Check(ctx context.Context, requestBag attribute.Bag) (adapter.CheckResult, *v1.RouteDirective, error)
 
 	// GetReporter get an interface where reports are buffered.
 	GetReporter(ctx context.Context) Reporter
@@ -116,13 +117,15 @@ const (
 )
 
 // Check implementation of runtime.Impl.
-func (d *Impl) Check(ctx context.Context, bag attribute.Bag) (adapter.CheckResult, error) {
+func (d *Impl) Check(ctx context.Context, bag attribute.Bag) (adapter.CheckResult, *v1.RouteDirective, error) {
 	s := d.getSession(ctx, tpb.TEMPLATE_VARIETY_CHECK, bag)
 
 	var r adapter.CheckResult
+	var dir *v1.RouteDirective
 	err := s.dispatch()
 	if err == nil {
 		r = s.checkResult
+		dir = s.directive
 		err = s.err
 
 		if err == nil {
@@ -140,7 +143,7 @@ func (d *Impl) Check(ctx context.Context, bag attribute.Bag) (adapter.CheckResul
 	}
 
 	d.putSession(s)
-	return r, err
+	return r, dir, err
 }
 
 // GetReporter implementation of runtime.Impl.

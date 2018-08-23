@@ -180,6 +180,7 @@ func (s *session) dispatch() error {
 				// for other templates, dispatch for each instance individually.
 				state = s.impl.getDispatchState(s.ctx, destination)
 				state.actionName = input.ActionName
+				state.evaluateFn = input.EvaluateFn
 				state.instances = append(state.instances, instance)
 				if s.variety == tpb.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR {
 					state.mapper = group.Mappers[j]
@@ -237,13 +238,31 @@ func (s *session) dispatchToHandler(ds *dispatchState) {
 	s.impl.gp.ScheduleWork(ds.invokeHandler, nil)
 }
 
+type wrapperBag struct {
+	attribute.Bag
+	prefix   string
+	evaluate func(string) (interface{}, bool)
+}
+
+func (b *wrapperBag) Get(name string) (interface{}, bool) {
+	if strings.HasPrefix(name, b.prefix) {
+		trimmed := strings.TrimPrefix(name, b.prefix)
+		if val, ok := b.evaluate(trimmed); ok {
+			return val, ok
+		}
+	}
+	return b.Bag.Get(name)
+}
+
+var _ attribute.Bag = &wrapperBag{}
+
 func (s *session) waitForDispatched() {
 	// wait on the dispatch states and accumulate results
 	var buf *bytes.Buffer
 	code := rpc.OK
 
-	// map of action names to output template instances
-	outputs := make(map[string]interface{})
+	// bag with action outputs
+	bag := s.bag
 
 	for s.activeDispatches > 0 {
 		state := <-s.completed
@@ -274,7 +293,13 @@ func (s *session) waitForDispatched() {
 				}
 			}
 			st = state.checkResult.Status
-			outputs[state.actionName] = state.checkOutput
+			if state.evaluateFn != nil {
+				bag = &wrapperBag{
+					Bag:      bag,
+					prefix:   state.actionName + ".output.",
+					evaluate: state.evaluateFn(state.checkOutput),
+				}
+			}
 
 		case tpb.TEMPLATE_VARIETY_QUOTA:
 			if s.quotaResult.IsDefault() {
@@ -320,12 +345,12 @@ func (s *session) waitForDispatched() {
 	if s.variety == tpb.TEMPLATE_VARIETY_CHECK && status.IsOK(s.checkResult.Status) && len(s.operations) > 0 {
 		s.directive = &v1.RouteDirective{}
 		for _, op := range s.operations {
-			name, nerr := op.Name.EvaluateString(s.bag)
+			name, nerr := op.Name.EvaluateString(bag)
 			if nerr != nil {
 				log.Warnf("Failed to evaluate header name: %v", nerr)
 				continue
 			}
-			value, verr := op.Value.EvaluateString(s.bag)
+			value, verr := op.Value.EvaluateString(bag)
 			if verr != nil {
 				log.Warnf("Failed to evaluate header value: %v", verr)
 				continue

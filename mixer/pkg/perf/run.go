@@ -201,7 +201,7 @@ func runDispatcherOnly(b benchmark, setup *Setup, settings *Settings) {
 			r.Done()
 
 		case *istio_mixer_v1.CheckRequest:
-			_, err = dispatcher.Check(context.Background(), bag)
+			_, _, err = dispatcher.Check(context.Background(), bag)
 		}
 
 		if err != nil {
@@ -222,7 +222,7 @@ func runDispatcherOnly(b benchmark, setup *Setup, settings *Settings) {
 					r.Done()
 
 				case *istio_mixer_v1.CheckRequest:
-					_, _ = dispatcher.Check(context.Background(), bag)
+					_, _, _ = dispatcher.Check(context.Background(), bag)
 				}
 			}
 		}

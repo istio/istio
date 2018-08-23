@@ -414,6 +414,7 @@ func (b *builder) add(
 		InstanceShortName: config.ExtractShortName(instanceName),
 		Builder:           builder,
 		ActionName:        actionName,
+		EvaluateFn:        t.EvaluateOutput,
 	})
 
 	if mapper != nil {

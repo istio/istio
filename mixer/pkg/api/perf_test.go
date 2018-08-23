@@ -110,11 +110,11 @@ func (bs *benchState) Preprocess(ctx context.Context, requestBag attribute.Bag, 
 	return nil
 }
 
-func (bs *benchState) Check(ctx context.Context, bag attribute.Bag) (adapter.CheckResult, error) {
+func (bs *benchState) Check(ctx context.Context, bag attribute.Bag) (adapter.CheckResult, *mixerpb.RouteDirective, error) {
 	result := adapter.CheckResult{
 		Status: status.OK,
 	}
-	return result, nil
+	return result, nil, nil
 }
 
 func (bs *benchState) GetReporter(ctx context.Context) dispatcher.Reporter {

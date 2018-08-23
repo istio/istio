@@ -147,6 +147,9 @@ type (
 		finder ast.AttributeDescriptorFinder,
 		expb *compiled.ExpressionBuilder) (map[string]compiled.Expression, error)
 
+	// EvaluateOutputFn is an attribute accessor for an output instance
+	EvaluateOutputFn func(output interface{}) func(name string) (value interface{}, found bool)
+
 	// OutputMapperFn maps the results of an APA output bag, with "$out"s, by processing it through
 	// AttributeBindings.
 	//
@@ -186,6 +189,8 @@ type (
 
 		CreateInstanceBuilder   CreateInstanceBuilderFn
 		CreateOutputExpressions CreateOutputExpressionsFn
+
+		EvaluateOutput EvaluateOutputFn
 	}
 
 	// templateRepo implements Repository

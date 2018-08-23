@@ -37,7 +37,7 @@ import (
 )
 
 type preprocCallback func(ctx context.Context, requestBag attribute.Bag, responseBag *attribute.MutableBag) error
-type checkCallback func(ctx context.Context, requestBag attribute.Bag) (adapter.CheckResult, error)
+type checkCallback func(ctx context.Context, requestBag attribute.Bag) (adapter.CheckResult, *mixerpb.RouteDirective, error)
 type reportCallback func(ctx context.Context, requestBag attribute.Bag) error
 type quotaCallback func(ctx context.Context, requestBag attribute.Bag,
 	qma dispatcher.QuotaMethodArgs) (adapter.QuotaResult, error)
@@ -132,7 +132,7 @@ func (ts *testState) cleanupTestState() {
 	ts.deleteGRPCServer()
 }
 
-func (ts *testState) Check(ctx context.Context, bag attribute.Bag) (adapter.CheckResult, error) {
+func (ts *testState) Check(ctx context.Context, bag attribute.Bag) (adapter.CheckResult, *mixerpb.RouteDirective, error) {
 	return ts.check(ctx, bag)
 }
 
@@ -169,10 +169,10 @@ func TestCheck(t *testing.T) {
 	}
 	defer ts.cleanupTestState()
 
-	ts.check = func(ctx context.Context, requestBag attribute.Bag) (adapter.CheckResult, error) {
+	ts.check = func(ctx context.Context, requestBag attribute.Bag) (adapter.CheckResult, *mixerpb.RouteDirective, error) {
 		return adapter.CheckResult{
 			Status: status.WithPermissionDenied("Not Implemented"),
-		}, nil
+		}, nil, nil
 	}
 
 	ts.quota = func(ctx context.Context, requestBag attribute.Bag, qma dispatcher.QuotaMethodArgs) (adapter.QuotaResult, error) {
@@ -204,9 +204,9 @@ func TestCheck(t *testing.T) {
 		t.Errorf("Got %v granted amount, expecting 0", response.Quotas["RequestCount"].GrantedAmount)
 	}
 
-	ts.check = func(ctx context.Context, requestBag attribute.Bag) (adapter.CheckResult, error) {
+	ts.check = func(ctx context.Context, requestBag attribute.Bag) (adapter.CheckResult, *mixerpb.RouteDirective, error) {
 		// simulate an error condition
-		return adapter.CheckResult{}, errors.New("BAD")
+		return adapter.CheckResult{}, nil, errors.New("BAD")
 	}
 
 	_, err = ts.client.Check(context.Background(), &request)
@@ -214,9 +214,9 @@ func TestCheck(t *testing.T) {
 		t.Error("Got success, expecting failure")
 	}
 
-	ts.check = func(ctx context.Context, requestBag attribute.Bag) (adapter.CheckResult, error) {
+	ts.check = func(ctx context.Context, requestBag attribute.Bag) (adapter.CheckResult, *mixerpb.RouteDirective, error) {
 		// simulate a "no check performed" condition
-		return adapter.CheckResult{}, nil
+		return adapter.CheckResult{}, nil, nil
 	}
 
 	response, err = ts.client.Check(context.Background(), &request)
@@ -230,10 +230,10 @@ func TestCheck(t *testing.T) {
 		t.Errorf("Got %v, expecting success", err)
 	}
 
-	ts.check = func(ctx context.Context, requestBag attribute.Bag) (adapter.CheckResult, error) {
+	ts.check = func(ctx context.Context, requestBag attribute.Bag) (adapter.CheckResult, *mixerpb.RouteDirective, error) {
 		return adapter.CheckResult{
 			Status: status.WithPermissionDenied("Not Implemented"),
-		}, nil
+		}, nil, nil
 	}
 
 	ts.quota = func(ctx context.Context, requestBag attribute.Bag, qma dispatcher.QuotaMethodArgs) (adapter.QuotaResult, error) {
@@ -257,11 +257,11 @@ func TestCheck(t *testing.T) {
 		return nil
 	}
 
-	ts.check = func(ctx context.Context, requestBag attribute.Bag) (adapter.CheckResult, error) {
+	ts.check = func(ctx context.Context, requestBag attribute.Bag) (adapter.CheckResult, *mixerpb.RouteDirective, error) {
 		if val, _ := requestBag.Get("genAttrGen"); val != "genAttrGenValue" {
-			return adapter.CheckResult{}, errors.New("generated attribute via preproc not part of check attributes")
+			return adapter.CheckResult{}, nil, errors.New("generated attribute via preproc not part of check attributes")
 		}
-		return adapter.CheckResult{}, nil
+		return adapter.CheckResult{}, nil, nil
 	}
 
 	chkRes, err := ts.client.Check(context.Background(), &request)
@@ -277,11 +277,11 @@ func TestCheckCachedDenial(t *testing.T) {
 	}
 	defer ts.cleanupTestState()
 
-	ts.check = func(ctx context.Context, requestBag attribute.Bag) (adapter.CheckResult, error) {
+	ts.check = func(ctx context.Context, requestBag attribute.Bag) (adapter.CheckResult, *mixerpb.RouteDirective, error) {
 		return adapter.CheckResult{
 			Status:        status.WithPermissionDenied("Not Implemented"),
 			ValidDuration: time.Hour * 1000,
-		}, nil
+		}, nil, nil
 	}
 
 	attr0 := attribute.GetProtoForTesting(map[string]interface{}{
@@ -312,11 +312,11 @@ func TestCheckCachedAllow(t *testing.T) {
 	}
 	defer ts.cleanupTestState()
 
-	ts.check = func(ctx context.Context, requestBag attribute.Bag) (adapter.CheckResult, error) {
+	ts.check = func(ctx context.Context, requestBag attribute.Bag) (adapter.CheckResult, *mixerpb.RouteDirective, error) {
 		return adapter.CheckResult{
 			Status:        status.OK,
 			ValidDuration: time.Hour * 1000,
-		}, nil
+		}, nil, nil
 	}
 
 	attr0 := attribute.GetProtoForTesting(map[string]interface{}{
@@ -347,10 +347,10 @@ func TestCheckQuota(t *testing.T) {
 	}
 	defer ts.cleanupTestState()
 
-	ts.check = func(ctx context.Context, requestBag attribute.Bag) (adapter.CheckResult, error) {
+	ts.check = func(ctx context.Context, requestBag attribute.Bag) (adapter.CheckResult, *mixerpb.RouteDirective, error) {
 		return adapter.CheckResult{
 			Status: status.OK,
-		}, nil
+		}, nil, nil
 	}
 
 	ts.quota = func(ctx context.Context, requestBag attribute.Bag, qma dispatcher.QuotaMethodArgs) (adapter.QuotaResult, error) {
@@ -541,13 +541,13 @@ func TestUnknownStatus(t *testing.T) {
 	}
 	defer ts.cleanupTestState()
 
-	ts.check = func(ctx context.Context, requestBag attribute.Bag) (adapter.CheckResult, error) {
+	ts.check = func(ctx context.Context, requestBag attribute.Bag) (adapter.CheckResult, *mixerpb.RouteDirective, error) {
 		return adapter.CheckResult{
 			Status: rpc.Status{
 				Code:    12345678,
 				Message: "DEADBEEF!",
 			},
-		}, nil
+		}, nil, nil
 	}
 	request := mixerpb.CheckRequest{}
 	resp, err := ts.client.Check(context.Background(), &request)

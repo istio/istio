@@ -24,6 +24,7 @@ import (
 	"github.com/gogo/googleapis/google/rpc"
 
 	tpb "istio.io/api/mixer/adapter/model/v1beta1"
+	"istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/lang/compiled"
@@ -66,6 +67,8 @@ var tests = []struct {
 
 	expectedCheckResult adapter.CheckResult
 
+	expectedCheckDirective *v1.RouteDirective
+
 	// expected error, if specified
 	err string
 
@@ -105,6 +108,17 @@ ident                         : dest.istio-system
 		},
 		variety:             tpb.TEMPLATE_VARIETY_CHECK_WITH_OUTPUT,
 		expectedCheckResult: adapter.CheckResult{ValidDuration: 123 * time.Second, ValidUseCount: 123},
+		expectedCheckDirective: &v1.RouteDirective{
+			RequestHeaderOperations: []v1.HeaderOperation{{
+				Name:  "key1",
+				Value: "1337",
+			}},
+			ResponseHeaderOperations: []v1.HeaderOperation{{
+				Name:      "key2",
+				Value:     "1337",
+				Operation: v1.APPEND,
+			}},
+		},
 		log: `
 [tcheckoutput] InstanceBuilderFn() => name: 'tcheckoutput', bag: '---
 ident                         : dest.istio-system
@@ -773,11 +787,14 @@ func TestDispatcher(t *testing.T) {
 			var err error
 			switch tst.variety {
 			case tpb.TEMPLATE_VARIETY_CHECK, tpb.TEMPLATE_VARIETY_CHECK_WITH_OUTPUT:
-				cres, e := dispatcher.Check(context.TODO(), bag)
+				cres, dir, e := dispatcher.Check(context.TODO(), bag)
 
 				if e == nil {
 					if !reflect.DeepEqual(&cres, &tst.expectedCheckResult) {
 						tt.Fatalf("check result mismatch: '%v' != '%v'", cres, tst.expectedCheckResult)
+					}
+					if !reflect.DeepEqual(&dir, &tst.expectedCheckDirective) {
+						tt.Fatalf("check directive mismatch: '%v' != '%v'", dir, tst.expectedCheckDirective)
 					}
 				} else {
 					err = e

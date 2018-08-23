@@ -101,6 +101,9 @@ type NamedBuilder struct {
 
 	// ActionName is the name of the rule action. Used for computing rule operations from template output.
 	ActionName string
+
+	// EvaluateFn is the reverse evaluate function from the output
+	EvaluateFn template.EvaluateOutputFn
 }
 
 // TemplateInfo is the common data that is needed from a template
@@ -112,6 +115,7 @@ type TemplateInfo struct {
 	DispatchCheckOutput template.DispatchCheckOutputFn
 	DispatchQuota       template.DispatchQuotaFn
 	DispatchGenAttrs    template.DispatchGenerateAttributesFn
+	EvaluateOutput      template.EvaluateOutputFn
 }
 
 func buildTemplateInfo(info *template.Info) *TemplateInfo {
@@ -123,6 +127,7 @@ func buildTemplateInfo(info *template.Info) *TemplateInfo {
 		DispatchCheckOutput: info.DispatchCheckOutput,
 		DispatchQuota:       info.DispatchQuota,
 		DispatchGenAttrs:    info.DispatchGenAttrs,
+		EvaluateOutput:      info.EvaluateOutput,
 	}
 }
 

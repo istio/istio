@@ -311,6 +311,18 @@ func createFakeTemplate(name string, s FakeTemplateSettings, l *Logger, variety 
 			l.Write(name, "CreateOutputExpressions <= (SUCCESS)")
 			return exprs, nil
 		},
+		EvaluateOutput: func(output interface{}) func(string) (interface{}, bool) {
+			val, ok := output.(*outputTemplate)
+			if !ok || val == nil {
+				return func(string) (interface{}, bool) { return nil, false }
+			}
+			return func(name string) (interface{}, bool) {
+				if name == "value" {
+					return val.value, true
+				}
+				return nil, false
+			}
+		},
 	}
 }
 

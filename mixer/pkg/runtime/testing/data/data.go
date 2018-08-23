@@ -508,6 +508,7 @@ spec:
   - name: '"key2"'
     values:
     - sample.output.value
+    operation: APPEND
 `
 
 // RuleReport1 is a standard testing instance config with name rreport1. It references I1 and H1.

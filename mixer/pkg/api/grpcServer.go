@@ -133,7 +133,7 @@ func (s *grpcServer) check(ctx context.Context, req *mixerpb.CheckRequest,
 	// for every check + quota call.
 	snapApa := protoBag.SnapshotReferencedAttributes()
 
-	cr, err := s.dispatcher.Check(ctx, checkBag)
+	cr, dir, err := s.dispatcher.Check(ctx, checkBag)
 	if err != nil {
 		err = fmt.Errorf("performing check operation failed: %v", err)
 		lg.Errora("Check failed:", err.Error())
@@ -152,7 +152,7 @@ func (s *grpcServer) check(ctx context.Context, req *mixerpb.CheckRequest,
 			ValidUseCount:        cr.ValidUseCount,
 			Status:               cr.Status,
 			ReferencedAttributes: protoBag.GetReferencedAttributes(s.globalDict, globalWordCount),
-			// TODO(kuat): RouteDirective:       cr.RouteDirective,
+			RouteDirective:       dir,
 		},
 	}
 

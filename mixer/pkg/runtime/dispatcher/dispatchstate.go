@@ -38,6 +38,7 @@ type dispatchState struct {
 
 	destination *routing.Destination
 	mapper      template.OutputMapperFn
+	evaluateFn  template.EvaluateOutputFn
 
 	inputBag   attribute.Bag
 	quotaArgs  adapter.QuotaArgs
@@ -57,6 +58,7 @@ func (ds *dispatchState) clear() {
 	ds.ctx = nil
 	ds.destination = nil
 	ds.mapper = nil
+	ds.evaluateFn = nil
 	ds.inputBag = nil
 	ds.quotaArgs = adapter.QuotaArgs{}
 	ds.err = nil

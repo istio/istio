@@ -255,7 +255,7 @@ func TestRuntime_InFlightRequestsDuringConfigChange(t *testing.T) {
 	callCompleteCh := make(chan struct{})
 	callErr := errors.New("call haven't completed yet")
 	go func() {
-		_, callErr = rt.Dispatcher().Check(context.Background(), bag)
+		_, _, callErr = rt.Dispatcher().Check(context.Background(), bag)
 
 		callComplete = true
 		callCompleteCh <- struct{}{}
