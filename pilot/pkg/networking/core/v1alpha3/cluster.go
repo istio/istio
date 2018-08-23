@@ -378,11 +378,10 @@ func applyOutlierDetection(cluster *v2.Cluster, outlier *networking.OutlierDetec
 		out.BaseEjectionTime = outlier.BaseEjectionTime
 	}
 	if outlier.ConsecutiveErrors > 0 {
-		out.Consecutive_5Xx = &types.UInt32Value{Value: uint32(outlier.ConsecutiveErrors)}
-	}
-	if outlier.ConsecutiveGatewayFailure > 0 {
-		out.ConsecutiveGatewayFailure = &types.UInt32Value{Value: uint32(outlier.ConsecutiveGatewayFailure)}
+		// Only listen to gateway errors, see https://github.com/istio/api/pull/617
 		out.EnforcingConsecutiveGatewayFailure = &types.UInt32Value{Value: uint32(100)} // defaults to 0
+		out.EnforcingConsecutive_5Xx = &types.UInt32Value{Value: uint32(0)}             // defaults to 100
+		out.EnforcingConsecutiveGatewayFailure = &types.UInt32Value{Value: uint32(outlier.ConsecutiveErrors)}
 	}
 	if outlier.Interval != nil {
 		out.Interval = outlier.Interval
