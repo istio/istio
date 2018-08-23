@@ -33,7 +33,7 @@ spec:
             - --grpc-port=8060
             - --grpc-hostname=citadel
             - --citadel-storage-namespace={{ .Release.Namespace }}
-            - --custom-dns-names=istio-pilot-service-account.{{ .Release.Namespace }}:istio-pilot.{{ .Release.Namespace }}
+            - --custom-dns-names=istio-pilot-service-account.{{ .Release.Namespace }}:istio-pilot.{{ .Release.Namespace }},istio-ingressgateway-service-account.{{ .Release.Namespace }}:istio-ingress.{{ .Release.Namespace }}
           {{- if .Values.selfSigned }}
             - --self-signed-ca=true
           {{- else }}

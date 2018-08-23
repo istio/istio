@@ -306,8 +306,8 @@ gateways:
     - port: 8060
       targetPort: 8060
       name: tcp-citadel-grpc-tls
-    # Port 5353 is forwarded to kube-dns
-    - port: 5353
+    # Port 853 is reserved for the kube-dns gateway
+    - port: 853
       name: tcp-dns
     secretVolumes:
     - name: ilbgateway-certs
