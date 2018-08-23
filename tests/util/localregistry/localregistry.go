@@ -64,10 +64,10 @@ func SetupLocalRegistry(remoteRegistryPort uint16, kubeconfig string) error {
 		return fmt.Errorf("Failed to port forward: %v", err)
 	}
 
-	return  nil
+	return nil
 }
 
-func checkLocalRegistryRunning() error{
+func checkLocalRegistryRunning() error {
 	count := 0
 	checkPodCmd := fmt.Sprintf("kubectl get pods -n kube-system | grep kube-registry-v0 | grep Running")
 	for count < 10 {
