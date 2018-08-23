@@ -23,6 +23,10 @@ global:
       #   cpu: 100m
       #   memory: 128Mi
 
+    # Controls number of Envoy worker threads.
+    # Defaults to 0 (start worker thread for each CPU thread/core).
+    concurrency: 0
+
     # Configures the access log for each sidecar. Setting it to an empty string will
     # disable access log for sidecar.
     accessLogFile: "/dev/stdout"
