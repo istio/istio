@@ -25,7 +25,8 @@ import (
 	"path"
 	"time"
 
-	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/howeyc/fsnotify"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -35,12 +36,17 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
+const (
+	// MaxClusterNameLength is the maximum cluster name length
+	MaxClusterNameLength = 189 // TODO: use MeshConfig.StatNameLength instead
+)
+
 // convertDuration converts to golang duration and logs errors
-func convertDuration(d *types.Duration) time.Duration {
+func convertDuration(d *duration.Duration) time.Duration {
 	if d == nil {
 		return 0
 	}
-	dur, err := types.DurationFromProto(d)
+	dur, err := ptypes.Duration(d)
 	if err != nil {
 		log.Warnf("error converting duration %#v, using 0: %v", d, err)
 	}
@@ -240,7 +246,7 @@ func (proxy envoy) args(fname string, epoch int) []string {
 		"--parent-shutdown-time-s", fmt.Sprint(int(convertDuration(proxy.config.ParentShutdownDuration) / time.Second)),
 		"--service-cluster", proxy.config.ServiceCluster,
 		"--service-node", proxy.node,
-		"--max-obj-name-len", fmt.Sprint(proxy.config.StatNameLength),
+		"--max-obj-name-len", fmt.Sprint(MaxClusterNameLength), // TODO: use MeshConfig.StatNameLength instead
 	}
 
 	startupArgs = append(startupArgs, proxy.extraArgs...)

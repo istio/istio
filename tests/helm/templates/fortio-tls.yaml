@@ -42,6 +42,9 @@ spec:
   ports:
   - port: 8080
     name: http-echo
+  - port: 8081
+    targetPort: 8080
+    name: http-echo1
   - port: 8079
     name: grpc-ping
   selector:
@@ -52,13 +55,12 @@ kind: Deployment
 metadata:
   name: fortiotls
 spec:
-  replicas: 2
+  replicas: 1
   template:
     metadata:
       annotations:
-        # Pointing to the mesh gateway, with tls
         sidecar.istio.io/controlPlaneAuthPolicy: MUTUAL_TLS
-        sidecar.istio.io/discoveryAddress: pilot.{{ .Values.domain }}:15011
+        sidecar.istio.io/discoveryAddress: istio-pilot.istio-system:15005
       labels:
         app: fortiotls
         version: tls
@@ -81,38 +83,18 @@ spec:
 
 ---
 
-#apiVersion: networking.istio.io/v1alpha3
-#kind: VirtualService
-#metadata:
-#  name: fortiotls
-#spec:
-#  hosts:
-#  - "fortiotls.{{ .Values.domain }}"
-#  gateways:
-#  - istio-gateway
-#  http:
-#  - route:
-#    - destination:
-#        host: fortiotls.test.svc.cluster.local
-#        port:
-#          number: 8080
----
-apiVersion: extensions/v1beta1
-kind: Ingress
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
 metadata:
   name: fortiotls
-  annotations:
-    kubernetes.io/ingress.class: istio
 spec:
-  rules:
-  - host: fortiotls.{{ .Values.domain }}
-    http:
-      paths:
-      - path: /fortio.*
-        backend:
-          serviceName: fortiotls
-          servicePort: 8080
-      - path: /echo.*
-        backend:
-          serviceName: fortiotls
-          servicePort: 8080
+  hosts:
+  - "fortiotls.{{ .Values.domain }}"
+  gateways:
+  - istio-gateway
+  http:
+  - route:
+    - destination:
+        host: fortiotls.test.svc.cluster.local
+        port:
+          number: 8080

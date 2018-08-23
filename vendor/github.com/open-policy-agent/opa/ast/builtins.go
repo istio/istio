@@ -49,7 +49,6 @@ var DefaultBuiltins = [...]*Builtin{
 	Divide,
 	Round,
 	Abs,
-	Rem,
 
 	// Binary
 	And,
@@ -92,20 +91,13 @@ var DefaultBuiltins = [...]*Builtin{
 	// Encoding
 	JSONMarshal,
 	JSONUnmarshal,
-	Base64Encode,
-	Base64Decode,
 	Base64UrlEncode,
 	Base64UrlDecode,
-	URLQueryDecode,
-	URLQueryEncode,
-	URLQueryEncodeObject,
 	YAMLMarshal,
 	YAMLUnmarshal,
 
 	// Tokens
 	JWTDecode,
-	JWTVerifyRS256,
-	JWTVerifyHS256,
 
 	// Time
 	NowNanos,
@@ -114,9 +106,6 @@ var DefaultBuiltins = [...]*Builtin{
 	ParseDurationNanos,
 	Date,
 	Clock,
-
-	// Crypto
-	CryptoX509ParseCertificates,
 
 	// Graphs
 	WalkBuiltin,
@@ -136,22 +125,11 @@ var DefaultBuiltins = [...]*Builtin{
 
 	// HTTP
 	HTTPSend,
-
-	// Tracing
-	Trace,
 }
 
 // BuiltinMap provides a convenient mapping of built-in names to
 // built-in definitions.
 var BuiltinMap map[string]*Builtin
-
-// IgnoreDuringPartialEval is a set of built-in functions that should not be
-// evaluated during partial evaluation. These functions are not partially
-// evaluated because they are not pure.
-var IgnoreDuringPartialEval = []*Builtin{
-	NowNanos,
-	HTTPSend,
-}
 
 /**
  * Unification
@@ -307,16 +285,6 @@ var Abs = &Builtin{
 	Name: "abs",
 	Decl: types.NewFunction(
 		types.Args(types.N),
-		types.N,
-	),
-}
-
-// Rem returns the remainder for x%y for y != 0.
-var Rem = &Builtin{
-	Name:  "rem",
-	Infix: "%",
-	Decl: types.NewFunction(
-		types.Args(types.N, types.N),
 		types.N,
 	),
 }
@@ -668,24 +636,6 @@ var JSONUnmarshal = &Builtin{
 	),
 }
 
-// Base64Encode serializes the input string into base64 encoding.
-var Base64Encode = &Builtin{
-	Name: "base64.encode",
-	Decl: types.NewFunction(
-		types.Args(types.S),
-		types.S,
-	),
-}
-
-// Base64Decode deserializes the base64 encoded input string.
-var Base64Decode = &Builtin{
-	Name: "base64.decode",
-	Decl: types.NewFunction(
-		types.Args(types.S),
-		types.S,
-	),
-}
-
 // Base64UrlEncode serializes the input string into base64url encoding.
 var Base64UrlEncode = &Builtin{
 	Name: "base64url.encode",
@@ -700,41 +650,6 @@ var Base64UrlDecode = &Builtin{
 	Name: "base64url.decode",
 	Decl: types.NewFunction(
 		types.Args(types.S),
-		types.S,
-	),
-}
-
-// URLQueryDecode decodes a URL encoded input string.
-var URLQueryDecode = &Builtin{
-	Name: "urlquery.decode",
-	Decl: types.NewFunction(
-		types.Args(types.S),
-		types.S,
-	),
-}
-
-// URLQueryEncode encodes the input string into a URL encoded string.
-var URLQueryEncode = &Builtin{
-	Name: "urlquery.encode",
-	Decl: types.NewFunction(
-		types.Args(types.S),
-		types.S,
-	),
-}
-
-// URLQueryEncodeObject encodes the given JSON into a URL encoded query string.
-var URLQueryEncodeObject = &Builtin{
-	Name: "urlquery.encode_object",
-	Decl: types.NewFunction(
-		types.Args(
-			types.NewObject(
-				nil,
-				types.NewDynamicProperty(
-					types.S,
-					types.NewAny(
-						types.S,
-						types.NewArray(nil, types.S),
-						types.NewSet(types.S))))),
 		types.S,
 	),
 }
@@ -771,30 +686,6 @@ var JWTDecode = &Builtin{
 			types.NewObject(nil, types.NewDynamicProperty(types.A, types.A)),
 			types.S,
 		}, nil),
-	),
-}
-
-// JWTVerifyRS256 verifies if a RS256 JWT signature is valid or not.
-var JWTVerifyRS256 = &Builtin{
-	Name: "io.jwt.verify_rs256",
-	Decl: types.NewFunction(
-		types.Args(
-			types.S,
-			types.S,
-		),
-		types.B,
-	),
-}
-
-// JWTVerifyHS256 verifies if a HS256 (secret) JWT signature is valid or not.
-var JWTVerifyHS256 = &Builtin{
-	Name: "io.jwt.verify_hs256",
-	Decl: types.NewFunction(
-		types.Args(
-			types.S,
-			types.S,
-		),
-		types.B,
 	),
 }
 
@@ -857,21 +748,6 @@ var Clock = &Builtin{
 	Decl: types.NewFunction(
 		types.Args(types.N),
 		types.NewArray([]types.Type{types.N, types.N, types.N}, nil),
-	),
-}
-
-/**
- * Crypto.
- */
-
-// CryptoX509ParseCertificates returns one or more certificates from the given
-// base64 encoded string containing DER encoded certificates that have been
-// concatenated.
-var CryptoX509ParseCertificates = &Builtin{
-	Name: "crypto.x509.parse_certificates",
-	Decl: types.NewFunction(
-		types.Args(types.S),
-		types.NewArray(nil, types.NewObject(nil, types.NewDynamicProperty(types.S, types.A))),
 	),
 }
 
@@ -1024,21 +900,6 @@ var HTTPSend = &Builtin{
 			types.NewObject(nil, types.NewDynamicProperty(types.S, types.A)),
 		),
 		types.NewObject(nil, types.NewDynamicProperty(types.A, types.A)),
-	),
-}
-
-/**
- * Trace
- */
-
-// Trace prints a note that is included in the query explanation.
-var Trace = &Builtin{
-	Name: "trace",
-	Decl: types.NewFunction(
-		types.Args(
-			types.S,
-		),
-		types.B,
 	),
 }
 

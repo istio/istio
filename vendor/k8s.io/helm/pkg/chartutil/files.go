@@ -220,10 +220,10 @@ func ToJson(v interface{}) string {
 	return string(data)
 }
 
-// FromJson converts a JSON document into a map[string]interface{}.
+// FromJson converts a YAML document into a map[string]interface{}.
 //
 // This is not a general-purpose JSON parser, and will not parse all valid
-// JSON documents. Additionally, because its intended use is within templates
+// YAML documents. Additionally, because its intended use is within templates
 // it tolerates errors. It will insert the returned error message string into
 // m["Error"] in the returned map.
 func FromJson(str string) map[string]interface{} {

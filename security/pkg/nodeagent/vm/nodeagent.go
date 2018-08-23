@@ -118,7 +118,6 @@ func (na *nodeAgentInternal) createRequest() ([]byte, *pb.CsrRequest, error) {
 		Host:       na.identity,
 		Org:        na.config.CAClientConfig.Org,
 		RSAKeySize: na.config.CAClientConfig.RSAKeySize,
-		IsDualUse:  na.config.DualUse,
 	})
 	if err != nil {
 		return nil, nil, err

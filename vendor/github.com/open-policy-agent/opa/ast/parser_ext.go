@@ -275,7 +275,7 @@ func ParseRuleFromCallEqExpr(module *Module, lhs, rhs *Term) (*Rule, error) {
 			Args:     Args(call[1:]),
 			Value:    rhs,
 		},
-		Body:   NewBody(NewExpr(BooleanTerm(true).SetLocation(rhs.Location)).SetLocation(rhs.Location)),
+		Body:   NewBody(NewExpr(BooleanTerm(true).SetLocation(rhs.Location).SetLocation(rhs.Location))),
 		Module: module,
 	}
 

@@ -32,7 +32,7 @@ spec:
     destinationOwner: destination.owner | ""
     destinationPrincipal: destination.principal | ""
     protocol: context.protocol | "tcp"
-    connectionDuration: connection.duration | "0ms"
+    connctionDuration: connection.duration | "0ms"
     connectionMtls: connection.mtls | false
     requestedServerName: connection.requested_server_name | ""
     receivedBytes: connection.received.bytes | 0

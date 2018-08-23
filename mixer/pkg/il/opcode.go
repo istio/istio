@@ -306,10 +306,6 @@ const (
 	// parameter as the name. If a value is found, then the value is pushed into the stack
 	// Otherwise empty string is pushed onto the stack.
 	ANLookup Opcode = 214
-
-	// AddS pops two string values from the stack, adds their value and pushes the result
-	// back into stack. The operation follows Go's string concatenation semantics.
-	AddS Opcode = 215
 )
 
 const (
@@ -664,10 +660,6 @@ var opCodeInfos = map[Opcode]opcodeInfo{
 	// AddD pops two double values from the stack, adds their value and pushes the result
 	// back into stack. The operation follows Go's float addition semantics.
 	AddD: {name: "AddD", keyword: "add_d"},
-
-	// AddS pops two string values from the stack, adds their value and pushes the result
-	// back into stack. The operation follows Go's string concatenation semantics.
-	AddS: {name: "AddS", keyword: "add_s"},
 
 	// SubI pops two integer values from the stack, and subtracts the second popped value
 	// from the first one, then pushes the result back into stack.

@@ -61,7 +61,6 @@ func (p *mockProcessor) Close() error {
 
 func TestHandleApiKey(t *testing.T) {
 	instance := apikey.Instance{
-		Api:          "test_service",
 		ApiOperation: "/echo",
 		ApiKey:       "test_key",
 		Timestamp:    time.Now(),
@@ -73,7 +72,7 @@ func TestHandleApiKey(t *testing.T) {
 		Status: status.OK,
 	}
 
-	result, err := h.HandleApiKey(context.Background(), &instance)
+	result, err := h.HandleApiKey(createTestContext(), &instance)
 	if err != nil || !reflect.DeepEqual(*mock.checkResult, result) {
 		t.Errorf(`expect check result %v, but get %v`, *mock.checkResult, result)
 	}
@@ -86,7 +85,7 @@ func TestHandleReport(t *testing.T) {
 			ApiVersion:      "v1",
 			ApiOperation:    "echo.foo.bar",
 			ApiProtocol:     "gRPC",
-			ApiService:      "test_service",
+			ApiService:      "echo.googleapi.com",
 			ApiKey:          "test_key",
 			RequestTime:     now,
 			RequestMethod:   "POST",
@@ -100,7 +99,7 @@ func TestHandleReport(t *testing.T) {
 	}
 	mock := &mockProcessor{}
 	h := getTestHandler(mock, t)
-	err := h.HandleServicecontrolReport(context.Background(), instances)
+	err := h.HandleServicecontrolReport(createTestContext(), instances)
 	if err != nil {
 		t.Errorf(`expect success but failed with %v`, err)
 	}
@@ -122,20 +121,17 @@ func TestHandleQuota(t *testing.T) {
 		ValidDuration: time.Minute,
 		Amount:        10,
 	}
-	_, _ = h.HandleQuota(context.Background(), &instance, adapter.QuotaArgs{})
-
-	/*
-		if err != nil || !reflect.DeepEqual(*mock.quotaResult, result) {
-			t.Errorf(`expect quota result %v, but get %v`, *mock.checkResult, result)
-		}
-	*/
+	result, err := h.HandleQuota(createTestContext(), &instance, adapter.QuotaArgs{})
+	if err != nil || !reflect.DeepEqual(*mock.quotaResult, result) {
+		t.Errorf(`expect quota result %v, but get %v`, *mock.checkResult, result)
+	}
 }
 
 func TestUnknownService(t *testing.T) {
 	h := getTestHandler(&mockProcessor{}, t)
 	delete(h.ctx.serviceConfigIndex, "test_service")
 	delete(h.svcProcMap, "test_service")
-	_, err := h.getServiceProcessor("test_service")
+	_, err := h.getServiceProcessor(createTestContext())
 	if err == nil {
 		t.Errorf(`expect non-nil error`)
 	}
@@ -192,4 +188,12 @@ func getTestHandler(mock *mockProcessor, t *testing.T) *handler {
 			},
 		},
 	}
+}
+
+func createTestContext() context.Context {
+	return adapter.NewContextWithRequestData(context.Background(), &adapter.RequestData{
+		DestinationService: adapter.Service{
+			FullName: "test_service",
+		},
+	})
 }

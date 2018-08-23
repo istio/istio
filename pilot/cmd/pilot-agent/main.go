@@ -26,7 +26,8 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 
@@ -70,8 +71,8 @@ var (
 
 	rootCmd = &cobra.Command{
 		Use:          "pilot-agent",
-		Short:        "Istio Pilot agent.",
-		Long:         "Istio Pilot agent runs in the sidecar or gateway container and bootstraps Envoy.",
+		Short:        "Istio Pilot agent",
+		Long:         "Istio Pilot agent runs in the side car or gateway container and bootstraps envoy.",
 		SilenceUsage: true,
 	}
 
@@ -125,7 +126,7 @@ var (
 
 			log.Infof("Proxy role: %#v", role)
 
-			proxyConfig := model.DefaultProxyConfig()
+			proxyConfig := meshconfig.ProxyConfig{}
 
 			// set all flags
 			proxyConfig.AvailabilityZone = availabilityZone
@@ -133,12 +134,12 @@ var (
 			proxyConfig.ConfigPath = configPath
 			proxyConfig.BinaryPath = binaryPath
 			proxyConfig.ServiceCluster = serviceCluster
-			proxyConfig.DrainDuration = types.DurationProto(drainDuration)
-			proxyConfig.ParentShutdownDuration = types.DurationProto(parentShutdownDuration)
+			proxyConfig.DrainDuration = ptypes.DurationProto(drainDuration)
+			proxyConfig.ParentShutdownDuration = ptypes.DurationProto(parentShutdownDuration)
 			proxyConfig.DiscoveryAddress = discoveryAddress
-			proxyConfig.DiscoveryRefreshDelay = types.DurationProto(discoveryRefreshDelay)
+			proxyConfig.DiscoveryRefreshDelay = ptypes.DurationProto(discoveryRefreshDelay)
 			proxyConfig.ZipkinAddress = zipkinAddress
-			proxyConfig.ConnectTimeout = types.DurationProto(connectTimeout)
+			proxyConfig.ConnectTimeout = ptypes.DurationProto(connectTimeout)
 			proxyConfig.StatsdUdpAddress = statsdUDPAddress
 			proxyConfig.ProxyAdminPort = int32(proxyAdminPort)
 			proxyConfig.Concurrency = int32(concurrency)
@@ -158,17 +159,10 @@ var (
 						// namespace of pilot is not part of discovery address use
 						// pod namespace e.g. istio-pilot:15005
 						ns = os.Getenv("POD_NAMESPACE")
-					} else if len(parts) == 2 {
+					} else {
 						// namespace is found in the discovery address
 						// e.g. istio-pilot.istio-system:15005
 						ns = parts[1]
-					} else {
-						// discovery address is a remote address. For remote clusters
-						// only support the default config, or env variable
-						ns = os.Getenv("ISTIO_NAMESPACE")
-						if ns == "" {
-							ns = "istio-system"
-						}
 					}
 				}
 				pilotSAN = envoy.GetPilotSAN(pilotDomain, ns)
@@ -257,8 +251,8 @@ var (
 	}
 )
 
-func timeDuration(dur *types.Duration) time.Duration {
-	out, err := types.DurationFromProto(dur)
+func timeDuration(dur *duration.Duration) time.Duration {
+	out, err := ptypes.Duration(dur)
 	if err != nil {
 		log.Warna(err)
 	}

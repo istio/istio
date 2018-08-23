@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:generate $GOPATH/src/istio.io/istio/bin/go-bindata.sh --nocompress --nometadata --pkg ctrlz -o assets.gen.go assets/...
+//go:generate go-bindata --nocompress --nometadata --pkg ctrlz -o assets.gen.go assets/...
 
 // Package ctrlz implements Istio's introspection facility. When components
 // integrate with ControlZ, they automatically gain an IP port which allows operators
@@ -27,24 +27,21 @@
 package ctrlz
 
 import (
+	"fmt"
 	"html/template"
 	"net"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/gorilla/mux"
-
-	"sync"
-
-	"fmt"
-	"time"
 
 	"istio.io/istio/pkg/ctrlz/fw"
 	"istio.io/istio/pkg/ctrlz/topics"
 	"istio.io/istio/pkg/log"
 )
 
-var coreTopics = []fw.Topic{
+var allTopics = []fw.Topic{
 	topics.ScopeTopic(),
 	topics.MemTopic(),
 	topics.EnvTopic(),
@@ -52,17 +49,6 @@ var coreTopics = []fw.Topic{
 	topics.ArgsTopic(),
 	topics.VersionTopic(),
 	topics.MetricsTopic(),
-}
-
-var allTopics []fw.Topic
-var topicMutex sync.Mutex
-var listeningTestProbe func()
-
-// Server represents a running ControlZ instance.
-type Server struct {
-	shutdown   sync.WaitGroup
-	httpServer http.Server
-	listener   net.Listener
 }
 
 func augmentLayout(layout *template.Template, page string) *template.Template {
@@ -101,11 +87,7 @@ type topic struct {
 }
 
 func getTopics() []topic {
-	var topics []topic
-
-	topicMutex.Lock()
-	defer topicMutex.Unlock()
-
+	topics := []topic{}
 	for _, t := range allTopics {
 		topics = append(topics, topic{Name: t.Title(), URL: "/" + t.Prefix() + "z/"})
 	}
@@ -113,37 +95,16 @@ func getTopics() []topic {
 	return topics
 }
 
-// RegisterTopic registers a new Control-Z topic for the current process.
-func RegisterTopic(t fw.Topic) {
-	topicMutex.Lock()
-	defer topicMutex.Unlock()
-
-	allTopics = append(allTopics, t)
-}
-
 // Run starts up the ControlZ listeners.
-//
-// ControlZ uses the set of standard core topics, the
-// supplied custom topics, as well as any topics registered
-// via the RegisterTopic function.
-func Run(o *Options, customTopics []fw.Topic) (*Server, error) {
+func Run(o *Options, customTopics []fw.Topic) {
 	if o.Port == 0 {
 		// disabled
-		s := &Server{}
-		return s, nil
-	}
-
-	topicMutex.Lock()
-
-	for _, t := range coreTopics {
-		allTopics = append(allTopics, t)
+		return
 	}
 
 	for _, t := range customTopics {
 		allTopics = append(allTopics, t)
 	}
-
-	topicMutex.Unlock()
 
 	exec, _ := os.Executable()
 	instance := exec + " - " + getLocalIP()
@@ -172,47 +133,14 @@ func Run(o *Options, customTopics []fw.Topic) (*Server, error) {
 		addr = ""
 	}
 
-	s := &Server{
-		httpServer: http.Server{
-			ReadTimeout:    10 * time.Second,
-			WriteTimeout:   10 * time.Second,
-			MaxHeaderBytes: 1 << 20,
-			Addr:           fmt.Sprintf("%s:%d", addr, o.Port),
-			Handler:        router,
-		},
+	s := &http.Server{
+		Addr:           fmt.Sprintf("%s:%d", addr, o.Port),
+		Handler:        router,
+		ReadTimeout:    10 * time.Second,
+		WriteTimeout:   10 * time.Second,
+		MaxHeaderBytes: 1 << 20,
 	}
 
-	var err error
-	if s.listener, err = net.Listen("tcp", fmt.Sprintf("%s:%d", addr, o.Port)); err != nil {
-		log.Errorf("Unable to start ControlZ: %v", err)
-		return nil, err
-	}
-
-	s.shutdown.Add(1)
-	go s.listen(o.Port)
-
-	return s, nil
-}
-
-func (s *Server) listen(port uint16) {
-	log.Infof("ControlZ available at %s:%d", getLocalIP(), port)
-
-	if listeningTestProbe != nil {
-		listeningTestProbe()
-	}
-
-	_ = s.httpServer.Serve(s.listener)
-	log.Infof("ControlZ terminated")
-	s.shutdown.Done()
-}
-
-// Close terminates ControlZ.
-//
-// Close is not normally used by programs that expose ControlZ, it is primarily intended to be
-// used by tests.
-func (s *Server) Close() {
-	if s.listener != nil {
-		_ = s.listener.Close()
-		s.shutdown.Wait()
-	}
+	log.Infof("ControlZ available at %s:%d", getLocalIP(), o.Port)
+	s.ListenAndServe()
 }

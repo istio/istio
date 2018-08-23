@@ -17,8 +17,6 @@ package runtime
 import (
 	"github.com/pkg/errors"
 
-	"istio.io/istio/galley/pkg/metadata"
-
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/pkg/log"
 )
@@ -62,7 +60,7 @@ type postProcessHookFn func()
 
 // NewProcessor returns a new instance of a Processor
 func NewProcessor(src Source, distributor Distributor) *Processor {
-	return newProcessor(src, distributor, newPublishingStrategyWithDefaults(), metadata.Types, nil)
+	return newProcessor(src, distributor, newPublishingStrategyWithDefaults(), resource.Types, nil)
 }
 
 func newProcessor(
@@ -178,7 +176,6 @@ func (p *Processor) processEvent(e resource.Event) bool {
 
 func (p *Processor) publish() {
 	sn := p.state.buildSnapshot()
-
 	// TODO: Set the appropriate name for publishing
 	p.distributor.SetSnapshot("", sn)
 }

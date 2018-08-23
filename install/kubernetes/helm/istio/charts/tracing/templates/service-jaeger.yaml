@@ -1,4 +1,4 @@
-{{ if eq .Values.provider "jaeger" }}
+{{ if .Values.jaeger.enabled }}
 
 apiVersion: v1
 kind: List
@@ -10,7 +10,7 @@ items:
     namespace: {{ .Release.Namespace }}
     annotations:
       {{- range $key, $val := .Values.service.annotations }}
-      {{ $key }}: {{ $val | quote }}
+      {{ $key }}: {{ $val }}
       {{- end }}
     labels:
       app: jaeger
@@ -21,9 +21,9 @@ items:
   spec:
     ports:
       - name: query-http
-        port: {{ .Values.jaeger.ui.port }}
+        port: {{ .Values.service.uiPort }}
         protocol: TCP
-        targetPort: {{ .Values.jaeger.ui.port }}
+        targetPort: {{ .Values.service.uiPort }}
     selector:
       app: jaeger
 - apiVersion: v1

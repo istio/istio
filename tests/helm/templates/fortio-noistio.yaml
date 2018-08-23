@@ -36,7 +36,7 @@ kind: Deployment
 metadata:
   name: fortionoistio
 spec:
-  replicas: 2
+  replicas: 1
   template:
     metadata:
       labels:
@@ -81,7 +81,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: fortionoistio1
+  name: fortionoistio
 spec:
   ports:
   - port: 8080

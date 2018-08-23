@@ -19,7 +19,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io"
 	"os"
 
 	"istio.io/fortio/bincommon"
@@ -28,19 +27,18 @@ import (
 )
 
 // Prints usage
-func usage(w io.Writer, msgs ...interface{}) {
+func usage(msgs ...interface{}) {
 	// nolint: gas
-	fmt.Fprintf(w, "Φορτίο fortio-curl %s usage:\n\t%s [flags] url\n",
+	fmt.Fprintf(os.Stderr, "Φορτίο fortio-curl %s usage:\n\t%s [flags] url\n",
 		version.Short(),
 		os.Args[0])
-	bincommon.FlagsUsage(w, msgs...)
+	bincommon.FlagsUsage(msgs...)
 }
 
 func main() {
-	bincommon.SharedMain(usage)
+	bincommon.SharedMain()
 	if len(os.Args) < 2 {
-		usage(os.Stderr, "Error: need a url as parameter")
-		os.Exit(1)
+		usage("Error: need a url as parameter")
 	}
 	flag.Parse()
 	if *bincommon.QuietFlag {

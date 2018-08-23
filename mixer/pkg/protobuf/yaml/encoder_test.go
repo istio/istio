@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // nolint
-//go:generate $GOPATH/src/istio.io/istio/bin/protoc.sh testdata/all/types.proto  --include_imports  -otestdata/all/types.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
+//go:generate protoc testdata/all/types.proto  --include_imports  -otestdata/all/types.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
 //go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh  -d false -f mixer/pkg/protobuf/yaml/testdata/all/types.proto
 
 package yaml

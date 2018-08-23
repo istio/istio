@@ -21,11 +21,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/types"
-
-	"fmt"
-
-	"regexp"
+	"github.com/golang/protobuf/ptypes"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
@@ -41,12 +37,6 @@ const (
 	// Tag name should be kept in sync with value in
 	// platform/kube/inject/refresh.sh
 	unitTestTag = "unittest"
-
-	statusReplacement = "sidecar.istio.io/status: '{\"version\":\"\","
-)
-
-var (
-	statusPattern = regexp.MustCompile("sidecar.istio.io/status: '{\"version\":\"([0-9a-f]+)\",")
 )
 
 func TestImageName(t *testing.T) {
@@ -81,197 +71,197 @@ func TestIntoResourceFile(t *testing.T) {
 	}{
 		// "testdata/hello.yaml" is tested in http_test.go (with debug)
 		{
-			in:                  "hello.yaml",
-			want:                "hello.yaml.injected",
+			in:                  "testdata/hello.yaml",
+			want:                "testdata/hello.yaml.injected",
 			debugMode:           true,
 			includeIPRanges:     DefaultIncludeIPRanges,
 			includeInboundPorts: DefaultIncludeInboundPorts,
 		},
 		{
-			in:                  "hello-proxy-override.yaml",
-			want:                "hello-proxy-override.yaml.injected",
+			in:                  "testdata/hello-proxy-override.yaml",
+			want:                "testdata/hello-proxy-override.yaml.injected",
 			debugMode:           true,
 			includeIPRanges:     DefaultIncludeIPRanges,
 			includeInboundPorts: DefaultIncludeInboundPorts,
 		},
 		{
-			in:     "hello.yaml",
-			want:   "hello-tproxy.yaml.injected",
+			in:     "testdata/hello.yaml",
+			want:   "testdata/hello-tproxy.yaml.injected",
 			tproxy: true,
 		},
 		{
-			in:        "hello.yaml",
-			want:      "hello-tproxy-debug.yaml.injected",
+			in:        "testdata/hello.yaml",
+			want:      "testdata/hello-tproxy-debug.yaml.injected",
 			debugMode: true,
 			tproxy:    true,
 		},
 		{
-			in:                  "hello-probes.yaml",
-			want:                "hello-probes.yaml.injected",
+			in:                  "testdata/hello-probes.yaml",
+			want:                "testdata/hello-probes.yaml.injected",
 			includeIPRanges:     DefaultIncludeIPRanges,
 			includeInboundPorts: DefaultIncludeInboundPorts,
 		},
 		{
-			in:                  "hello.yaml",
-			want:                "hello-config-map-name.yaml.injected",
+			in:                  "testdata/hello.yaml",
+			want:                "testdata/hello-config-map-name.yaml.injected",
 			includeIPRanges:     DefaultIncludeIPRanges,
 			includeInboundPorts: DefaultIncludeInboundPorts,
 		},
 		{
-			in:                  "frontend.yaml",
-			want:                "frontend.yaml.injected",
+			in:                  "testdata/frontend.yaml",
+			want:                "testdata/frontend.yaml.injected",
 			includeIPRanges:     DefaultIncludeIPRanges,
 			includeInboundPorts: DefaultIncludeInboundPorts,
 		},
 		{
-			in:                  "hello-service.yaml",
-			want:                "hello-service.yaml.injected",
+			in:                  "testdata/hello-service.yaml",
+			want:                "testdata/hello-service.yaml.injected",
 			includeIPRanges:     DefaultIncludeIPRanges,
 			includeInboundPorts: DefaultIncludeInboundPorts,
 		},
 		{
-			in:                  "hello-multi.yaml",
-			want:                "hello-multi.yaml.injected",
+			in:                  "testdata/hello-multi.yaml",
+			want:                "testdata/hello-multi.yaml.injected",
 			includeIPRanges:     DefaultIncludeIPRanges,
 			includeInboundPorts: DefaultIncludeInboundPorts,
 		},
 		{
-			in:                  "hello.yaml",
-			want:                "hello-always.yaml.injected",
+			in:                  "testdata/hello.yaml",
+			want:                "testdata/hello-always.yaml.injected",
 			imagePullPolicy:     "Always",
 			includeIPRanges:     DefaultIncludeIPRanges,
 			includeInboundPorts: DefaultIncludeInboundPorts,
 		},
 		{
-			in:                  "hello.yaml",
-			want:                "hello-never.yaml.injected",
+			in:                  "testdata/hello.yaml",
+			want:                "testdata/hello-never.yaml.injected",
 			imagePullPolicy:     "Never",
 			includeIPRanges:     DefaultIncludeIPRanges,
 			includeInboundPorts: DefaultIncludeInboundPorts,
 		},
 		{
-			in:                  "hello-ignore.yaml",
-			want:                "hello-ignore.yaml.injected",
+			in:                  "testdata/hello-ignore.yaml",
+			want:                "testdata/hello-ignore.yaml.injected",
 			includeIPRanges:     DefaultIncludeIPRanges,
 			includeInboundPorts: DefaultIncludeInboundPorts,
 		},
 		{
-			in:                  "multi-init.yaml",
-			want:                "multi-init.yaml.injected",
+			in:                  "testdata/multi-init.yaml",
+			want:                "testdata/multi-init.yaml.injected",
 			includeIPRanges:     DefaultIncludeIPRanges,
 			includeInboundPorts: DefaultIncludeInboundPorts,
 		},
 		{
-			in:                  "statefulset.yaml",
-			want:                "statefulset.yaml.injected",
+			in:                  "testdata/statefulset.yaml",
+			want:                "testdata/statefulset.yaml.injected",
 			includeIPRanges:     DefaultIncludeIPRanges,
 			includeInboundPorts: DefaultIncludeInboundPorts,
 		},
 		{
-			in:                  "enable-core-dump.yaml",
-			want:                "enable-core-dump.yaml.injected",
+			in:                  "testdata/enable-core-dump.yaml",
+			want:                "testdata/enable-core-dump.yaml.injected",
 			enableCoreDump:      true,
 			includeIPRanges:     DefaultIncludeIPRanges,
 			includeInboundPorts: DefaultIncludeInboundPorts,
 		},
 		{
-			in:                  "auth.yaml",
-			want:                "auth.yaml.injected",
+			in:                  "testdata/auth.yaml",
+			want:                "testdata/auth.yaml.injected",
 			enableAuth:          true,
 			includeIPRanges:     DefaultIncludeIPRanges,
 			includeInboundPorts: DefaultIncludeInboundPorts,
 		},
 		{
-			in:                  "auth.non-default-service-account.yaml",
-			want:                "auth.non-default-service-account.yaml.injected",
+			in:                  "testdata/auth.non-default-service-account.yaml",
+			want:                "testdata/auth.non-default-service-account.yaml.injected",
 			enableAuth:          true,
 			includeIPRanges:     DefaultIncludeIPRanges,
 			includeInboundPorts: DefaultIncludeInboundPorts,
 		},
 		{
-			in:                  "auth.yaml",
-			want:                "auth.cert-dir.yaml.injected",
+			in:                  "testdata/auth.yaml",
+			want:                "testdata/auth.cert-dir.yaml.injected",
 			enableAuth:          true,
 			includeIPRanges:     DefaultIncludeIPRanges,
 			includeInboundPorts: DefaultIncludeInboundPorts,
 		},
 		{
-			in:                  "daemonset.yaml",
-			want:                "daemonset.yaml.injected",
+			in:                  "testdata/daemonset.yaml",
+			want:                "testdata/daemonset.yaml.injected",
 			includeIPRanges:     DefaultIncludeIPRanges,
 			includeInboundPorts: DefaultIncludeInboundPorts,
 		},
 		{
-			in:                  "job.yaml",
-			want:                "job.yaml.injected",
+			in:                  "testdata/job.yaml",
+			want:                "testdata/job.yaml.injected",
 			includeIPRanges:     DefaultIncludeIPRanges,
 			includeInboundPorts: DefaultIncludeInboundPorts,
 		},
 		{
-			in:                  "replicaset.yaml",
-			want:                "replicaset.yaml.injected",
+			in:                  "testdata/replicaset.yaml",
+			want:                "testdata/replicaset.yaml.injected",
 			includeIPRanges:     DefaultIncludeIPRanges,
 			includeInboundPorts: DefaultIncludeInboundPorts,
 		},
 		{
-			in:                  "replicationcontroller.yaml",
-			want:                "replicationcontroller.yaml.injected",
+			in:                  "testdata/replicationcontroller.yaml",
+			want:                "testdata/replicationcontroller.yaml.injected",
 			includeIPRanges:     DefaultIncludeIPRanges,
 			includeInboundPorts: DefaultIncludeInboundPorts,
 		},
 		{
-			in:                  "cronjob.yaml",
-			want:                "cronjob.yaml.injected",
+			in:                  "testdata/cronjob.yaml",
+			want:                "testdata/cronjob.yaml.injected",
 			includeIPRanges:     DefaultIncludeIPRanges,
 			includeInboundPorts: DefaultIncludeInboundPorts,
 		},
 		{
-			in:                  "pod.yaml",
-			want:                "pod.yaml.injected",
+			in:                  "testdata/pod.yaml",
+			want:                "testdata/pod.yaml.injected",
 			includeIPRanges:     DefaultIncludeIPRanges,
 			includeInboundPorts: DefaultIncludeInboundPorts,
 		},
 		{
-			in:                  "hello-host-network.yaml",
-			want:                "hello-host-network.yaml.injected",
+			in:                  "testdata/hello-host-network.yaml",
+			want:                "testdata/hello-host-network.yaml.injected",
 			includeIPRanges:     DefaultIncludeIPRanges,
 			includeInboundPorts: DefaultIncludeInboundPorts,
 		},
 		{
-			in:                  "list.yaml",
-			want:                "list.yaml.injected",
+			in:                  "testdata/list.yaml",
+			want:                "testdata/list.yaml.injected",
 			includeIPRanges:     DefaultIncludeIPRanges,
 			includeInboundPorts: DefaultIncludeInboundPorts,
 		},
 		{
-			in:                  "list-frontend.yaml",
-			want:                "list-frontend.yaml.injected",
+			in:                  "testdata/list-frontend.yaml",
+			want:                "testdata/list-frontend.yaml.injected",
 			includeIPRanges:     DefaultIncludeIPRanges,
 			includeInboundPorts: DefaultIncludeInboundPorts,
 		},
 		{
-			in:                  "deploymentconfig.yaml",
-			want:                "deploymentconfig.yaml.injected",
+			in:                  "testdata/deploymentconfig.yaml",
+			want:                "testdata/deploymentconfig.yaml.injected",
 			includeIPRanges:     DefaultIncludeIPRanges,
 			includeInboundPorts: DefaultIncludeInboundPorts,
 		},
 		{
-			in:                  "deploymentconfig-multi.yaml",
-			want:                "deploymentconfig-multi.yaml.injected",
+			in:                  "testdata/deploymentconfig-multi.yaml",
+			want:                "testdata/deploymentconfig-multi.yaml.injected",
 			includeIPRanges:     DefaultIncludeIPRanges,
 			includeInboundPorts: DefaultIncludeInboundPorts,
 		},
 		{
-			in:                  "format-duration.yaml",
-			want:                "format-duration.yaml.injected",
+			in:                  "testdata/format-duration.yaml",
+			want:                "testdata/format-duration.yaml.injected",
 			duration:            time.Duration(42 * time.Second),
 			includeIPRanges:     DefaultIncludeIPRanges,
 			includeInboundPorts: DefaultIncludeInboundPorts,
 		},
 		{
 			// Verifies that parameters are applied properly when no annotations are provided.
-			in:                  "traffic-params.yaml",
-			want:                "traffic-params.yaml.injected",
+			in:                  "testdata/traffic-params.yaml",
+			want:                "testdata/traffic-params.yaml.injected",
 			includeIPRanges:     "127.0.0.1/24,10.96.0.1/24",
 			excludeIPRanges:     "10.96.0.2/24,10.96.0.3/24",
 			includeInboundPorts: "1,2,3",
@@ -279,47 +269,47 @@ func TestIntoResourceFile(t *testing.T) {
 		},
 		{
 			// Verifies that empty include lists are applied properly from parameters.
-			in:              "traffic-params-empty-includes.yaml",
-			want:            "traffic-params-empty-includes.yaml.injected",
+			in:              "testdata/traffic-params-empty-includes.yaml",
+			want:            "testdata/traffic-params-empty-includes.yaml.injected",
 			includeIPRanges: "",
 			excludeIPRanges: "",
 		},
 		{
 			// Verifies that annotation values are applied properly. This also tests that annotation values
 			// override params when specified.
-			in:                  "traffic-annotations.yaml",
-			want:                "traffic-annotations.yaml.injected",
+			in:                  "testdata/traffic-annotations.yaml",
+			want:                "testdata/traffic-annotations.yaml.injected",
 			includeIPRanges:     DefaultIncludeIPRanges,
 			includeInboundPorts: DefaultIncludeInboundPorts,
 		},
 		{
 			// Verifies that the wildcard character "*" behaves properly when used in annotations.
-			in:                  "traffic-annotations-wildcards.yaml",
-			want:                "traffic-annotations-wildcards.yaml.injected",
+			in:                  "testdata/traffic-annotations-wildcards.yaml",
+			want:                "testdata/traffic-annotations-wildcards.yaml.injected",
 			includeIPRanges:     DefaultIncludeIPRanges,
 			includeInboundPorts: DefaultIncludeInboundPorts,
 		},
 		{
 			// Verifies that the wildcard character "*" behaves properly when used in annotations.
-			in:                  "traffic-annotations-empty-includes.yaml",
-			want:                "traffic-annotations-empty-includes.yaml.injected",
+			in:                  "testdata/traffic-annotations-empty-includes.yaml",
+			want:                "testdata/traffic-annotations-empty-includes.yaml.injected",
 			includeIPRanges:     DefaultIncludeIPRanges,
 			includeInboundPorts: DefaultIncludeInboundPorts,
 		},
 	}
 
-	for i, c := range cases {
-		testName := fmt.Sprintf("[%02d] %s", i, c.want)
+	for _, c := range cases {
+		testName := strings.Replace(c.in, "testdata/", "", -1)
 		t.Run(testName, func(t *testing.T) {
 			mesh := model.DefaultMeshConfig()
 			if c.enableAuth {
 				mesh.AuthPolicy = meshconfig.MeshConfig_MUTUAL_TLS
 			}
 			if c.duration != 0 {
-				mesh.DefaultConfig.DrainDuration = types.DurationProto(c.duration)
-				mesh.DefaultConfig.ParentShutdownDuration = types.DurationProto(c.duration)
-				mesh.DefaultConfig.DiscoveryRefreshDelay = types.DurationProto(c.duration)
-				mesh.DefaultConfig.ConnectTimeout = types.DurationProto(c.duration)
+				mesh.DefaultConfig.DrainDuration = ptypes.DurationProto(c.duration)
+				mesh.DefaultConfig.ParentShutdownDuration = ptypes.DurationProto(c.duration)
+				mesh.DefaultConfig.DiscoveryRefreshDelay = ptypes.DurationProto(c.duration)
+				mesh.DefaultConfig.ConnectTimeout = ptypes.DurationProto(c.duration)
 			}
 			if c.tproxy {
 				mesh.DefaultConfig.InterceptionMode = meshconfig.ProxyConfig_TPROXY
@@ -349,29 +339,19 @@ func TestIntoResourceFile(t *testing.T) {
 			if err != nil {
 				t.Fatalf("GenerateTemplateFromParams(%v) failed: %v", params, err)
 			}
-			inputFilePath := "testdata/inject/" + c.in
-			wantFilePath := "testdata/inject/" + c.want
-			in, err := os.Open(inputFilePath)
+			in, err := os.Open(c.in)
 			if err != nil {
-				t.Fatalf("Failed to open %q: %v", inputFilePath, err)
+				t.Fatalf("Failed to open %q: %v", c.in, err)
 			}
 			defer func() { _ = in.Close() }()
 			var got bytes.Buffer
 			if err = IntoResourceFile(sidecarTemplate, &mesh, in, &got); err != nil {
-				t.Fatalf("IntoResourceFile(%v) returned an error: %v", inputFilePath, err)
+				t.Fatalf("IntoResourceFile(%v) returned an error: %v", c.in, err)
 			}
 
-			// The version string is a maintenance pain for this test. Strip the version string before comparing.
-			wantBytes := stripVersion(util.ReadFile(wantFilePath, t))
-			gotBytes := stripVersion(got.Bytes())
-
-			util.CompareBytes(gotBytes, wantBytes, wantFilePath, t)
+			util.CompareContent(got.Bytes(), c.want, t)
 		})
 	}
-}
-
-func stripVersion(yaml []byte) []byte {
-	return statusPattern.ReplaceAllLiteral(yaml, []byte(statusReplacement))
 }
 
 func TestInvalidParams(t *testing.T) {
@@ -426,19 +406,19 @@ func TestInvalidAnnotations(t *testing.T) {
 	}{
 		{
 			annotation: "includeipranges",
-			in:         "traffic-annotations-bad-includeipranges.yaml",
+			in:         "testdata/traffic-annotations-bad-includeipranges.yaml",
 		},
 		{
 			annotation: "excludeipranges",
-			in:         "traffic-annotations-bad-excludeipranges.yaml",
+			in:         "testdata/traffic-annotations-bad-excludeipranges.yaml",
 		},
 		{
 			annotation: "includeinboundports",
-			in:         "traffic-annotations-bad-includeinboundports.yaml",
+			in:         "testdata/traffic-annotations-bad-includeinboundports.yaml",
 		},
 		{
 			annotation: "excludeinboundports",
-			in:         "traffic-annotations-bad-excludeinboundports.yaml",
+			in:         "testdata/traffic-annotations-bad-excludeinboundports.yaml",
 		},
 	}
 
@@ -449,10 +429,9 @@ func TestInvalidAnnotations(t *testing.T) {
 			if err != nil {
 				t.Fatalf("GenerateTemplateFromParams(%v) failed: %v", params, err)
 			}
-			inputFilePath := "testdata/inject/" + c.in
-			in, err := os.Open(inputFilePath)
+			in, err := os.Open(c.in)
 			if err != nil {
-				t.Fatalf("Failed to open %q: %v", inputFilePath, err)
+				t.Fatalf("Failed to open %q: %v", c.in, err)
 			}
 			defer func() { _ = in.Close() }()
 			var got bytes.Buffer

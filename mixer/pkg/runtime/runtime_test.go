@@ -325,10 +325,6 @@ func (m *mockStore) Init(kinds map[string]proto.Message) error {
 	return m.initErrorToReturn
 }
 
-func (m *mockStore) WaitForSynced(time.Duration) error {
-	return nil
-}
-
 // Watch creates a channel to receive the events. A store can conduct a single
 // watch channel at the same time. Multiple calls lead to an error.
 func (m *mockStore) Watch() (<-chan store.Event, error) {

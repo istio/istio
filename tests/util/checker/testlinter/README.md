@@ -78,8 +78,8 @@ If you want to disable all rules for a file path, you can specify `*` as the ID.
 Example:
 ```base
 var Whitelist = map[string][]string{
-    "/istio/mixer/pkg/*": {"skip_issue", "short_skip"},
-    "/istio/pilot/pkg/simply_test.go": {"*"},
+    "/istoi/mixer/pkg/*": {"skip_issue", "short_skip"},
+    "/istoi/piloy/pkg/simply_test.go": {"*"},
 }
 ```
 

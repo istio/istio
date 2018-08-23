@@ -20,6 +20,14 @@ docker_gen := docker run --rm -v $(pwd):$(repo_mount) -w $(mount_dir) $(gen_img)
 out_path = .
 endif
 
+
+########################
+# protoc_gen_go
+########################
+
+protoc_gen_go_prefix := --go_out=plugins=grpc,
+protoc_gen_go_plugin := $(protoc_gen_go_prefix):$(out_path)
+
 ########################
 # protoc_gen_gogo*
 ########################
@@ -83,9 +91,7 @@ generate: \
 	generate-authn-go \
 	generate-authn-python \
 	generate-envoy-go \
-	generate-envoy-python \
-	generate-common-go \
-    generate-common-python
+	generate-envoy-python
 
 #####################
 # mcp/...
@@ -127,7 +133,7 @@ generate-mesh-go: $(mesh_pb_gos) $(mesh_pb_doc)
 
 $(mesh_pb_gos) $(mesh_pb_doc): $(mesh_protos)
 	## Generate mesh/v1alpha1/*.pb.go + $(mesh_pb_doc)
-	@$(docker_gen) $(gogofast_plugin) $(protoc_gen_docs_plugin)$(mesh_path) $^
+	@$(docker_gen) $(protoc_gen_go_plugin) $(protoc_gen_docs_plugin)$(mesh_path) $^
 
 generate-mesh-python: $(mesh_pb_pythons)
 
@@ -230,27 +236,41 @@ clean-mixer:
 # routing/...
 #####################
 
+routing_v1alpha1_path := routing/v1alpha1
+routing_v1alpha1_protos := $(shell find $(routing_v1alpha1_path) -type f -name '*.proto' | sort)
+routing_v1alpha1_pb_gos := $(routing_v1alpha1_protos:.proto=.pb.go)
+routing_v1alpha1_pb_pythons := $(routing_v1alpha1_protos:.proto=_pb2.py)
+routing_v1alpha1_pb_doc := $(routing_v1alpha1_path)/istio.routing.v1alpha1.pb.html
+
 routing_v1alpha3_path := networking/v1alpha3
 routing_v1alpha3_protos := $(shell find networking/v1alpha3 -type f -name '*.proto' | sort)
 routing_v1alpha3_pb_gos := $(routing_v1alpha3_protos:.proto=.pb.go)
 routing_v1alpha3_pb_pythons := $(routing_v1alpha3_protos:.proto=_pb2.py)
 routing_v1alpha3_pb_doc := $(routing_v1alpha3_path)/istio.routing.v1alpha3.pb.html
 
-generate-routing-go: $(routing_v1alpha3_pb_gos) $(routing_v1alpha3_pb_doc)
+generate-routing-go: $(routing_v1alpha1_pb_gos) $(routing_v1alpha1_pb_doc) $(routing_v1alpha3_pb_gos) $(routing_v1alpha3_pb_doc)
+
+$(routing_v1alpha1_pb_gos) $(routing_v1alpha1_pb_doc): $(routing_v1alpha1_protos)
+	## Generate routing/v1alpha1/*.pb.go +
+	@$(docker_gen) $(protoc_gen_go_plugin) $(protoc_gen_docs_plugin)$(routing_v1alpha1_path) $^
 
 $(routing_v1alpha3_pb_gos) $(routing_v1alpha3_pb_doc): $(routing_v1alpha3_protos)
 	## Generate networking/v1alpha3/*.pb.go
 	@$(docker_gen) $(gogofast_plugin) $(protoc_gen_docs_plugin)$(routing_v1alpha3_path) $^
 
-generate-routing-python: $(routing_v1alpha3_pb_pythons)
+generate-routing-python: $(routing_v1alpha1_pb_pythons) $(routing_v1alpha3_pb_pythons)
+
+$(routing_v1alpha1_pb_pythons): $(routing_v1alpha1_protos)
+	## Generate python/istio_api/routing/v1alpha1/*_pb2.py
+	@$(docker_gen) $(protoc_gen_python_plugin) $^
 
 $(routing_v1alpha3_pb_pythons): $(routing_v1alpha3_protos)
 	## Generate python/istio_api/networking/v1alpha3/*_pb2.py
 	@$(docker_gen) $(protoc_gen_python_plugin) $^
 
 clean-routing:
-	rm -f $(routing_v1alpha3_pb_gos)
-	rm -f $(routing_v1alpha3_pb_doc)
+	rm -f $(routing_v1alpha1_pb_gos) $(routing_v1alpha3_pb_gos)
+	rm -f $(routing_v1alpha1_pb_doc) $(routing_v1alpha3_pb_doc)
 
 #####################
 # rbac/...
@@ -266,7 +286,7 @@ generate-rbac-go: $(rbac_v1alpha1_pb_gos) $(rbac_v1alpha1_pb_doc)
 
 $(rbac_v1alpha1_pb_gos) $(rbac_v1alpha1_pb_doc): $(rbac_v1alpha1_protos)
 	## Generate rbac/v1alpha1/*.pb.go
-	@$(docker_gen) $(gogofast_plugin) $(protoc_gen_docs_plugin)$(rbac_v1alpha1_path) $^
+	@$(docker_gen) $(protoc_gen_go_plugin) $(protoc_gen_docs_plugin)$(rbac_v1alpha1_path) $^
 
 generate-rbac-python: $(rbac_v1alpha1_protos)
 
@@ -332,32 +352,6 @@ clean-envoy:
 	rm -f $(envoy_pb_gos)
 
 #####################
-# common/...
-#####################
-
-common_v1alpha1_path := common/v1alpha1
-common_v1alpha1_protos := $(shell find $(common_v1alpha1_path) -type f -name '*.proto' | sort)
-common_v1alpha1_pb_gos := $(common_v1alpha1_protos:.proto=.pb.go)
-common_v1alpha1_pb_pythons := $(common_v1alpha1_protos:.proto=_pb2.py)
-common_v1alpha1_pb_doc := $(common_v1alpha1_path)/istio.common.v1alpha1.pb.html
-
-generate-common-go: $(common_v1alpha1_pb_gos) $(common_v1alpha1_pb_doc)
-
-$(common_v1alpha1_pb_gos) $(common_v1alpha1_pb_doc): $(common_v1alpha1_protos)
-	## Generate common/v1alpha1/*.pb.go
-	$(docker_gen) $(gogofast_plugin) $(protoc_gen_docs_plugin)$(common_v1alpha1_path) $^
-
-generate-common-python: $(common_v1alpha1_pb_pythons)
-
-$(common_v1alpha1_pb_pythons): $(common_v1alpha1_protos)
-	## Generate python/istio_api/common/v1alpha1/*_pb2.py
-	@$(docker_gen) $(protoc_gen_python_plugin) $^
-
-clean-common:
-	rm -f $(common_v1alpha1_pb_gos)
-	rm -f $(common_v1alpha1_pb_doc)
-
-#####################
 # Cleanup
 #####################
 
@@ -371,5 +365,4 @@ clean: 	clean-mcp \
 	clean-rbac \
 	clean-authn \
 	clean-envoy \
-	clean-common \
 	clean-python

@@ -16,8 +16,8 @@ package configdump
 
 import (
 	"fmt"
-	"sort"
 
+	"github.com/bradfitz/slice"
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 	proto "github.com/gogo/protobuf/types"
 )
@@ -29,7 +29,7 @@ func (w *Wrapper) GetDynamicClusterDump(stripVersions bool) (*adminapi.ClustersC
 		return nil, err
 	}
 	dac := clusterDump.GetDynamicActiveClusters()
-	sort.Slice(dac, func(i, j int) bool {
+	slice.Sort(dac, func(i, j int) bool {
 		return dac[i].Cluster.Name < dac[j].Cluster.Name
 	})
 	if stripVersions {

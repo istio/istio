@@ -17,10 +17,11 @@ package dispatcher
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/gogo/googleapis/google/rpc"
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 
 	tpb "istio.io/api/mixer/adapter/model/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
@@ -111,6 +112,18 @@ func (s *session) dispatch() error {
 	}
 	destinations := s.rc.Routes.GetDestinations(s.variety, namespace)
 
+	// TODO: some adapters assume destination service existence, pass via context
+	destinationService := ""
+	v, ok := s.bag.Get("destination.service")
+	if ok {
+		destinationService = v.(string)
+	}
+	ctx := adapter.NewContextWithRequestData(s.ctx, &adapter.RequestData{
+		DestinationService: adapter.Service{
+			FullName: destinationService,
+		},
+	})
+
 	// Ensure that we can run dispatches to all destinations in parallel.
 	s.ensureParallelism(destinations.Count())
 
@@ -124,35 +137,26 @@ func (s *session) dispatch() error {
 			// We buffer states for report calls and dispatch them later
 			state = s.reportStates[destination]
 			if state == nil {
-				state = s.impl.getDispatchState(s.ctx, destination)
+				state = s.impl.getDispatchState(ctx, destination)
 				s.reportStates[destination] = state
 			}
 		}
 
 		for _, group := range destination.InstanceGroups {
-			groupMatched := group.Matches(s.bag)
-
-			if groupMatched {
-				ndestinations++
+			if !group.Matches(s.bag) {
+				continue
 			}
+			ndestinations++
 
 			for j, input := range group.Builders {
 				if s.variety == tpb.TEMPLATE_VARIETY_QUOTA {
 					// only dispatch instances with a matching name
+
 					if !strings.EqualFold(input.InstanceShortName, s.quotaArgs.Quota) {
 						continue
 					}
-					if !groupMatched {
-						// This is a conditional quota and it does not apply to the requester
-						// return what was requested
-						s.quotaResult.Amount = s.quotaArgs.Amount
-						s.quotaResult.ValidDuration = defaultValidDuration
-					}
-					foundQuota = true
-				}
 
-				if !groupMatched {
-					continue
+					foundQuota = true
 				}
 
 				var instance interface{}
@@ -170,7 +174,7 @@ func (s *session) dispatch() error {
 				}
 
 				// for other templates, dispatch for each instance individually.
-				state = s.impl.getDispatchState(s.ctx, destination)
+				state = s.impl.getDispatchState(ctx, destination)
 				state.instances = append(state.instances, instance)
 				if s.variety == tpb.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR {
 					state.mapper = group.Mappers[j]
@@ -190,11 +194,8 @@ func (s *session) dispatch() error {
 	s.waitForDispatched()
 
 	if s.variety == tpb.TEMPLATE_VARIETY_QUOTA && !foundQuota {
-		// If quota is not found it is very likely that quotaSpec / quotaSpecBinding was applied first
-		// We still err on the side of allowing access, but warn about the fact that quota was not found.
-		s.quotaResult.Amount = s.quotaArgs.Amount
-		s.quotaResult.ValidDuration = defaultValidDuration
-		log.Warnf("Requested quota '%s' is not configured", s.quotaArgs.Quota)
+		log.Errorf("Requested quota '%s' is invalid", s.quotaArgs.Quota)
+		s.err = multierror.Append(s.err, fmt.Errorf("requested quota '%s' is invalid", s.quotaArgs.Quota))
 	}
 
 	return nil

@@ -143,8 +143,8 @@ if [[ "${KEYFILE_DECRYPT}" == "true" ]]; then
 
   cp "${KEYFILE}" "${KEYFILE_ENC}"
   gcloud kms decrypt \
-       --ciphertext-file="$KEYFILE_ENC" \
-       --plaintext-file="$KEYFILE_TEMP" \
+       --ciphertext-file=$KEYFILE_ENC \
+       --plaintext-file=$KEYFILE_TEMP \
        --location=global \
        --keyring=${KEYRING} \
        --key=${KEY}
@@ -212,18 +212,18 @@ if [[ -n "${GCS_SOURCE}" ]]; then
 
   if [[ "${DO_GCS}" == "true" ]]; then
     mkdir -p "${UPLOAD_DIR}/deb/"
-    gsutil -m cp gs://"${GCS_SOURCE}"/deb/istio*.deb "${UPLOAD_DIR}/deb/"
+    gsutil -m cp "gs://${GCS_SOURCE}/deb/istio*.deb" "${UPLOAD_DIR}/deb/"
   fi
   if [[ "${DO_GITHUB_TAG}" == "true" || "${DO_GITHUB_REL}" == "true" ]]; then
     gsutil -m cp "gs://${GCS_SOURCE}/manifest.xml" "${UPLOAD_DIR}/"
   fi
   if [[ "${DO_GITHUB_REL}" == "true" ]]; then
-    gsutil -m cp gs://"${GCS_SOURCE}"/docker.io/istio-*.zip "${UPLOAD_DIR}/"
-    gsutil -m cp gs://"${GCS_SOURCE}"/docker.io/istio-*.gz  "${UPLOAD_DIR}/"
+    gsutil -m cp "gs://${GCS_SOURCE}/docker.io/istio-*.zip" "${UPLOAD_DIR}/"
+    gsutil -m cp "gs://${GCS_SOURCE}/docker.io/istio-*.gz"  "${UPLOAD_DIR}/"
   fi
   if [[ "${DO_GCRHUB}" == "true" || "${DO_DOCKERHUB}" == "true" ]]; then
     mkdir -p "${UPLOAD_DIR}/docker/"
-    gsutil -m cp gs://"${GCS_SOURCE}"/docker/*.tar.gz  "${UPLOAD_DIR}/docker/"
+    gsutil -m cp "gs://${GCS_SOURCE}/docker/*.tar.gz"  "${UPLOAD_DIR}/docker/"
   fi
   echo "Finished downloading files from GCS source"
 fi
@@ -232,30 +232,30 @@ fi
 
 if [[ "${DO_GCS}" == "true" ]]; then
   echo "Copying to GCS destination ${GCS_DEST}"
-  gsutil -m cp "${UPLOAD_DIR}"/deb/istio*.deb "gs://${GCS_DEST}/deb/"
-  gsutil -m cp "${UPLOAD_DIR}/SHA256SUMS"     "gs://${GCS_DEST}/"
+  gsutil -m cp "${UPLOAD_DIR}/deb/istio*.deb" "gs://${GCS_DEST}/deb/"
   echo "Done copying to GCS destination"
 fi
 
 if [[ "${DO_DOCKERHUB}" == "true" || "${DO_GCRHUB}" == "true" ]]; then
-  if [[ -z "$(command -v docker)" ]]; then
+  if [[ -z "$(which docker)" ]]; then
     echo "Could not find 'docker' in path"
     exit 1
   fi
 
   if [[ "${DO_DOCKERHUB}" == "true" && "${ADD_DOCKER_KEY}" == "true" ]]; then
     echo "using istio cred for docker"
-    gsutil cp gs://istio-secrets/dockerhub_config.json.enc "$HOME/.docker/config.json.enc"
+    gsutil cp gs://istio-secrets/dockerhub_config.json.enc $HOME/.docker/config.json.enc
     gcloud kms decrypt \
-       --ciphertext-file="$HOME/.docker/config.json.enc" \
-       --plaintext-file="$HOME/.docker/config.json" \
+       --ciphertext-file=$HOME/.docker/config.json.enc \
+       --plaintext-file=$HOME/.docker/config.json \
        --location=global \
        --keyring=${KEYRING} \
        --key=${KEY}
   fi
 
   echo "pushing images to docker and/or gcr"
-  for TAR_PATH in "${UPLOAD_DIR}"/docker/*.tar.gz; do
+  for TAR_PATH in ${UPLOAD_DIR}/docker/*.tar.gz
+  do
     TAR_NAME=$(basename "$TAR_PATH")
     IMAGE_NAME="${TAR_NAME%.tar.gz}"
 
@@ -283,10 +283,10 @@ fi
 if [[ "${DO_GITHUB_TAG}" == "true" ]]; then
   echo "Beginning tag of github"
   if [[ -n "${KEYFILE}" ]]; then
-    "${SCRIPTPATH}/create_tag_reference.sh" -k "$KEYFILE" -v "$VERSION" -o "${ORG}" \
+    ${SCRIPTPATH}/create_tag_reference.sh -k "$KEYFILE" -v "$VERSION" -o "${ORG}" \
            -e "${USER_EMAIL}" -n "${USER_NAME}" -b "${UPLOAD_DIR}/manifest.xml"
   else
-    "${SCRIPTPATH}/create_tag_reference.sh" -t "$TOKEN" -v "$VERSION" -o "${ORG}" \
+    ${SCRIPTPATH}/create_tag_reference.sh -t "$TOKEN" -v "$VERSION" -o "${ORG}" \
            -e "${USER_EMAIL}" -n "${USER_NAME}" -b "${UPLOAD_DIR}/manifest.xml"
   fi
   echo "Completed tag of github"
@@ -296,14 +296,14 @@ fi
 
 if [[ "${DO_GITHUB_REL}" == "true" ]]; then
 
-  SHA=$(grep "$ORG/$REPO" "${UPLOAD_DIR}/manifest.xml" | cut -f 6 -d \")
+  SHA=`grep $ORG/$REPO ${UPLOAD_DIR}/manifest.xml | cut -f 6 -d \"`
 
   echo "Beginning release to github using sha $SHA"
   if [[ -n "${KEYFILE}" ]]; then
-    "${SCRIPTPATH}/create_github_release.sh" -o "$ORG" -r "$REPO" -k "$KEYFILE" \
+    ${SCRIPTPATH}/create_github_release.sh -o "$ORG" -r "$REPO" -k "$KEYFILE" \
            -v "$VERSION" -s "$SHA" -u "${UPLOAD_DIR}"
   else
-    "${SCRIPTPATH}/create_github_release.sh" -o "$ORG" -r "$REPO" -t "$TOKEN" \
+    ${SCRIPTPATH}/create_github_release.sh -o "$ORG" -r "$REPO" -t "$TOKEN" \
            -v "$VERSION" -s "$SHA" -u "${UPLOAD_DIR}"
   fi
   echo "Completed release to github"

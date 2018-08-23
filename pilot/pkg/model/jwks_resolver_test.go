@@ -26,10 +26,13 @@ import (
 func TestResolveJwksURIUsingOpenID(t *testing.T) {
 	r := newJwksResolver(JwtPubKeyExpireDuration, JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval)
 
-	ms, err := test.StartNewServer()
+	ms, err := test.NewServer()
 	defer ms.Stop()
 	if err != nil {
-		t.Fatal("failed to start a mock server")
+		t.Fatal("failed to create mock server")
+	}
+	if err := ms.Start(); err != nil {
+		t.Fatal("failed to start mock server")
 	}
 
 	mockCertURL := ms.URL + "/oauth2/v3/certs"
@@ -72,10 +75,13 @@ func TestResolveJwksURIUsingOpenID(t *testing.T) {
 func TestSetAuthenticationPolicyJwksURIs(t *testing.T) {
 	r := newJwksResolver(JwtPubKeyExpireDuration, JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval)
 
-	ms, err := test.StartNewServer()
+	ms, err := test.NewServer()
 	defer ms.Stop()
 	if err != nil {
-		t.Fatal("failed to start a mock server")
+		t.Fatal("failed to create mock server")
+	}
+	if err := ms.Start(); err != nil {
+		t.Fatal("failed to start mock server")
 	}
 
 	mockCertURL := ms.URL + "/oauth2/v3/certs"
@@ -150,10 +156,13 @@ func TestGetPublicKey(t *testing.T) {
 	r := newJwksResolver(JwtPubKeyExpireDuration, JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval)
 	defer r.Close()
 
-	ms, err := test.StartNewServer()
+	ms, err := test.NewServer()
 	defer ms.Stop()
 	if err != nil {
-		t.Fatal("failed to start a mock server")
+		t.Fatal("failed to create mock server")
+	}
+	if err := ms.Start(); err != nil {
+		t.Fatal("failed to start mock server")
 	}
 
 	mockCertURL := ms.URL + "/oauth2/v3/certs"
@@ -191,10 +200,13 @@ func TestJwtPubKeyRefresh(t *testing.T) {
 	r := newJwksResolver(time.Millisecond /*ExpireDuration*/, 100*time.Millisecond /*EvictionDuration*/, 2*time.Millisecond /*RefreshInterval*/)
 	defer r.Close()
 
-	ms, err := test.StartNewServer()
+	ms, err := test.NewServer()
 	defer ms.Stop()
 	if err != nil {
-		t.Fatal("failed to start a mock server")
+		t.Fatal("failed to create mock server")
+	}
+	if err := ms.Start(); err != nil {
+		t.Fatal("failed to start mock server")
 	}
 
 	mockCertURL := ms.URL + "/oauth2/v3/certs"

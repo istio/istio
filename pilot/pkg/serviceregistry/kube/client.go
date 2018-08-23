@@ -22,7 +22,6 @@ import (
 
 	multierror "github.com/hashicorp/go-multierror"
 	"k8s.io/client-go/kubernetes"
-	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
@@ -71,14 +70,6 @@ func ResolveConfig(kubeconfig string) (string, error) {
 
 // CreateInterface is a helper function to create Kubernetes interface from kubeconfig file
 func CreateInterface(kubeconfig string) (kubernetes.Interface, error) {
-	if len(kubeconfig) == 0 {
-		// Avoid the confusing "Things might not work" message
-		restConfig, err := restclient.InClusterConfig()
-		if err != nil {
-			return nil, err
-		}
-		return kubernetes.NewForConfig(restConfig)
-	}
 	restConfig, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {
 		return nil, err

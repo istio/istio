@@ -236,7 +236,7 @@ func TestEnvoyArgs(t *testing.T) {
 		"--parent-shutdown-time-s", "3",
 		"--service-cluster", "my-cluster",
 		"--service-node", "my-node",
-		"--max-obj-name-len", fmt.Sprint(config.StatNameLength),
+		"--max-obj-name-len", fmt.Sprint(MaxClusterNameLength), // TODO: use MeshConfig.StatNameLength instead
 		"-l", "trace",
 		"--concurrency", "8",
 		"--service-zone", "my-zone",

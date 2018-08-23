@@ -25,7 +25,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/ptypes"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api/v1"
@@ -204,7 +204,7 @@ func initMulticlusterPilot(IstioSrc string) (*bootstrap.Server, error) {
 		//TODO: start mixer first, get its address
 		Mesh: bootstrap.MeshArgs{
 			MixerAddress:    "istio-mixer.istio-system:9091",
-			RdsRefreshDelay: types.DurationProto(10 * time.Millisecond),
+			RdsRefreshDelay: ptypes.DurationProto(10 * time.Millisecond),
 		},
 		Config: bootstrap.ConfigArgs{
 			KubeConfig:                 IstioSrc + "/.circleci/mc-config",
@@ -227,7 +227,7 @@ func initMulticlusterPilot(IstioSrc string) (*bootstrap.Server, error) {
 
 func startMulticlusterPilot(s *bootstrap.Server, stop chan struct{}) {
 	// Start the server
-	s.Start(stop)
+	_, _ = s.Start(stop)
 }
 
 func prepareEnv(t *testing.T) error {

@@ -30,17 +30,14 @@ BUILDPATH=${2:?"path to build"}
 
 set -e
 
-BUILD_GOOS=${GOOS:-linux}
-BUILD_GOARCH=${GOARCH:-amd64}
+GOOS=${GOOS:-linux}
+GOARCH=${GOARCH:-amd64}
 GOBINARY=${GOBINARY:-go}
 GOPKG="$GOPATH/pkg"
 BUILDINFO=${BUILDINFO:-""}
 STATIC=${STATIC:-1}
 LDFLAGS="-extldflags -static"
 GOBUILDFLAGS=${GOBUILDFLAGS:-""}
-# Split GOBUILDFLAGS by spaces into an array called GOBUILDFLAGS_ARRAY.
-IFS=' ' read -r -a GOBUILDFLAGS_ARRAY <<< "$GOBUILDFLAGS"
-
 GCFLAGS=${GCFLAGS:-}
 export CGO_ENABLED=0
 
@@ -53,18 +50,15 @@ fi
 # at the beginning of the build and used throughout
 if [[ -z ${BUILDINFO} ]];then
     BUILDINFO=$(mktemp)
-    "${ROOT}/bin/get_workspace_status" > "${BUILDINFO}"
+    ${ROOT}/bin/get_workspace_status > ${BUILDINFO}
 fi
 
 # BUILD LD_EXTRAFLAGS
 LD_EXTRAFLAGS=""
-while read -r line; do
+while read line; do
     LD_EXTRAFLAGS="${LD_EXTRAFLAGS} -X ${line}"
 done < "${BUILDINFO}"
 
-# forgoing -i (incremental build) because it will be deprecated by tool chain.
-time GOOS=${BUILD_GOOS} GOARCH=${BUILD_GOARCH} ${GOBINARY} build \
-        ${V} "${GOBUILDFLAGS_ARRAY[@]}" ${GCFLAGS:+-gcflags "${GCFLAGS}"} \
-        -o "${OUT}" \
-        -pkgdir="${GOPKG}/${BUILD_GOOS}_${BUILD_GOARCH}" \
-        -ldflags "${LDFLAGS} ${LD_EXTRAFLAGS}" "${BUILDPATH}"
+# forgoing -i (incremental build) because it will be deprecated by tool chain. 
+time GOOS=${GOOS} GOARCH=${GOARCH} ${GOBINARY} build ${V} ${GOBUILDFLAGS} ${GCFLAGS:+-gcflags "${GCFLAGS}"} -o ${OUT} \
+       -pkgdir=${GOPKG}/${GOOS}_${GOARCH} -ldflags "${LDFLAGS} ${LD_EXTRAFLAGS}" "${BUILDPATH}"

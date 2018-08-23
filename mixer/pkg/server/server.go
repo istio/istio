@@ -19,19 +19,12 @@ import (
 	"io"
 	"net"
 	"strings"
-	"time"
-
-	"istio.io/istio/mixer/pkg/config/crd"
-
-	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc"
 	ot "github.com/opentracing/opentracing-go"
 	"google.golang.org/grpc"
-
-	"os"
 
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/adapter"
@@ -61,7 +54,6 @@ type Server struct {
 
 	checkCache *checkcache.Cache
 	dispatcher dispatcher.Dispatcher
-	controlZ   *ctrlz.Server
 
 	// probes
 	livenessProbe  probe.Controller
@@ -127,7 +119,7 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 
 	var grpcOptions []grpc.ServerOption
 	grpcOptions = append(grpcOptions, grpc.MaxConcurrentStreams(uint32(a.MaxConcurrentStreams)))
-	grpcOptions = append(grpcOptions, grpc.MaxRecvMsgSize(int(a.MaxMessageSize)))
+	grpcOptions = append(grpcOptions, grpc.MaxMsgSize(int(a.MaxMessageSize)))
 
 	var interceptors []grpc.UnaryServerInterceptor
 	var err error
@@ -146,6 +138,11 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 	grpc_prometheus.EnableHandlingTimeHistogram()
 	grpcOptions = append(grpcOptions, grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(interceptors...)))
 
+	if s.monitor, err = p.startMonitor(a.MonitoringPort, a.EnableProfiling, p.listen); err != nil {
+		_ = s.Close()
+		return nil, fmt.Errorf("unable to setup monitoring: %v", err)
+	}
+
 	// get the network stuff setup
 	network := "tcp"
 	address := fmt.Sprintf(":%d", a.APIPort)
@@ -156,14 +153,6 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 		} else {
 			network = a.APIAddress[:idx]
 			address = a.APIAddress[idx+3:]
-		}
-	}
-
-	if network == "unix" {
-		// remove Unix socket before use.
-		if err = os.Remove(address); err != nil && !os.IsNotExist(err) {
-			// Anything other than "file not found" is an error.
-			return nil, fmt.Errorf("unable to remove unix://%s: %v", address, err)
 		}
 	}
 
@@ -185,8 +174,7 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 		}
 
 		reg := store.NewRegistry(config.StoreInventory()...)
-		groupVersion := &schema.GroupVersion{Group: crd.ConfigAPIGroup, Version: crd.ConfigAPIVersion}
-		if st, err = reg.NewStore(configStoreURL, groupVersion); err != nil {
+		if st, err = reg.NewStore(configStoreURL); err != nil {
 			_ = s.Close()
 			return nil, fmt.Errorf("unable to connect to the configuration server: %v", err)
 		}
@@ -202,18 +190,10 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 	rt = p.newRuntime(st, templateMap, adapterMap, a.ConfigDefaultNamespace,
 		s.gp, s.adapterGP, a.TracingOptions.TracingEnabled())
 
-	// this method initializes the store
 	if err = p.runtimeListen(rt); err != nil {
 		_ = s.Close()
 		return nil, fmt.Errorf("unable to listen: %v", err)
 	}
-
-	// block wait for the config store to sync
-	log.Info("Awaiting for config store sync...")
-	if err := st.WaitForSynced(30 * time.Second); err != nil {
-		return nil, err
-	}
-
 	s.dispatcher = rt.Dispatcher()
 
 	if a.NumCheckCacheEntries > 0 {
@@ -238,13 +218,7 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 		s.readinessProbe.Start()
 	}
 
-	log.Info("Starting monitor server...")
-	if s.monitor, err = p.startMonitor(a.MonitoringPort, a.EnableProfiling, p.listen); err != nil {
-		_ = s.Close()
-		return nil, fmt.Errorf("unable to setup monitoring: %v", err)
-	}
-
-	s.controlZ, _ = ctrlz.Run(a.IntrospectionOptions, nil)
+	go ctrlz.Run(a.IntrospectionOptions, nil)
 
 	return s, nil
 }
@@ -278,10 +252,6 @@ func (s *Server) Close() error {
 	if s.shutdown != nil {
 		s.server.GracefulStop()
 		_ = s.Wait()
-	}
-
-	if s.controlZ != nil {
-		s.controlZ.Close()
 	}
 
 	if s.checkCache != nil {

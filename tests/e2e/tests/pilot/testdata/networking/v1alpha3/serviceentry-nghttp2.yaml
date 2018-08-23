@@ -1,0 +1,12 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: nghttp2
+spec:
+  hosts:
+    - "nghttp2.org"
+  ports:
+    - number: 80
+      protocol: HTTP2
+      name: http2-port
+  resolution: NONE

@@ -18,6 +18,8 @@
 # Init script downloads or updates envoy and the go dependencies. Called from Makefile, which sets
 # the needed environment variables.
 
+ROOT=$(cd $(dirname $0)/..; pwd)
+ISTIO_GO=$ROOT
 
 set -o errexit
 set -o nounset
@@ -29,16 +31,11 @@ set -x # echo on
 # TODO(nmittler): Remove these variables and require that this script be run from the Makefile
 
 # Set GOPATH to match the expected layout
-GO_TOP=$(cd "$(dirname "$0")"/../../../..; pwd)
+GO_TOP=$(cd $(dirname $0)/../../../..; pwd)
 
 export OUT_DIR=${OUT_DIR:-${GO_TOP}/out}
 
-# Current version is 2.9.1, with 2.10RC available
-# 2.7.2 was released in Nov 2017.
-# 2.10 adds proper support for CRD - we will test with it
-# For pre-2.10,
-HELM_VER=${HELM_VER:-v2.9.1}
-#HELM_VER=${HELM_VER:-v2.10.0-rc.1}
+HELM_VER=v2.7.2
 
 export GOPATH=${GOPATH:-$GO_TOP}
 # Normally set by Makefile
@@ -67,14 +64,12 @@ export GOOS=${GOOS:-${LOCAL_OS}}
 export ISTIO_OUT=${ISTIO_OUT:-${ISTIO_BIN}}
 
 # install helm if not present, it must be the local version.
-if [ ! -f "${ISTIO_OUT}/version.helm.${HELM_VER}" ] ; then
+if [ ! -f ${ISTIO_OUT}/helm ] ; then
     TD=$(mktemp -d)
     # Install helm. Please keep it in sync with .circleci
-    cd "${TD}" && \
-        curl -Lo "${TD}/helm.tgz" "https://storage.googleapis.com/kubernetes-helm/helm-${HELM_VER}-${LOCAL_OS}-amd64.tar.gz" && \
+    cd ${TD} && \
+        curl -Lo ${TD}/helm.tgz https://storage.googleapis.com/kubernetes-helm/helm-${HELM_VER}-${LOCAL_OS}-amd64.tar.gz && \
         tar xfz helm.tgz && \
-        mv ${LOCAL_OS}-amd64/helm "${ISTIO_OUT}/helm-${HELM_VER}" && \
-        cp "${ISTIO_OUT}/helm-${HELM_VER}" "${ISTIO_OUT}/helm" && \
-        rm -rf "${TD}" && \
-        touch "${ISTIO_OUT}/version.helm.${HELM_VER}"
+        mv ${LOCAL_OS}-amd64/helm ${ISTIO_OUT}/helm && \
+        rm -rf ${TD}
 fi

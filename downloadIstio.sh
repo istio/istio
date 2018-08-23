@@ -1,4 +1,4 @@
-#!/bin/sh
+#! /bin/sh
 #
 # Early version of a downloader/installer for Istio
 #
@@ -26,6 +26,6 @@ echo "Downloading $NAME from $URL ..."
 curl -L "$URL" | tar xz
 echo "Downloaded into $NAME:"
 ls $NAME
-BINDIR="$(cd $NAME/bin && pwd)"
+BINDIR="$(cd $NAME/bin; pwd)"
 echo "Add $BINDIR to your path; e.g copy paste in your shell and/or ~/.profile:"
 echo "export PATH=\"\$PATH:$BINDIR\""

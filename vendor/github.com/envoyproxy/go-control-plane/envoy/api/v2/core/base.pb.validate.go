@@ -250,12 +250,7 @@ func (m *HeaderValue) Validate() error {
 		return nil
 	}
 
-	if len(m.GetKey()) < 1 {
-		return HeaderValueValidationError{
-			Field:  "Key",
-			Reason: "value length must be at least 1 bytes",
-		}
-	}
+	// no validation rules for Key
 
 	// no validation rules for Value
 

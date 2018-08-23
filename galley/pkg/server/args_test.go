@@ -20,7 +20,7 @@ func TestDefaultArgs(t *testing.T) {
 	a := DefaultArgs()
 
 	// Spot check a few things
-	if a.APIAddress != "tcp://0.0.0.0:9901" {
+	if a.APIAddress != "tcp://127.0.0.1:9901" {
 		t.Fatalf("unexpected APIAddress: %v", a.APIAddress)
 	}
 

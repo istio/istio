@@ -574,10 +574,7 @@ func (head *Head) String() string {
 // Vars returns a set of vars found in the head.
 func (head *Head) Vars() VarSet {
 	vis := &VarVisitor{vars: VarSet{}}
-	// TODO: improve test coverage for this.
-	if head.Args != nil {
-		Walk(vis, head.Args)
-	}
+	// FIXME(tsandall): include args?
 	if head.Key != nil {
 		Walk(vis, head.Key)
 	}

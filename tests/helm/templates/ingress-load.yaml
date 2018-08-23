@@ -1,0 +1,20 @@
+# Creates a set number of ingress routes, to test ingress scalability.
+{{ $v := int .Values.loadTestIngress }}
+# {{ $v }}
+{{ range $i, $e := until $v }}
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: istio
+  name: istio-ingress-load-{{ $i }}
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /test/{{ $i }}/.*
+            backend:
+              serviceName: a
+              servicePort: http
+---
+{{ end }}

@@ -38,7 +38,7 @@ spec:
     instances:
     - requestcontext.authorization
 ---
-apiVersion: "rbac.istio.io/v1alpha1"
+apiVersion: "config.istio.io/v1alpha2"
 kind: ServiceRole
 metadata:
   name: products-viewer
@@ -51,7 +51,7 @@ spec:
     - key: "version"
       values: ["v1", "v2"]
 ---
-apiVersion: "rbac.istio.io/v1alpha1"
+apiVersion: "config.istio.io/v1alpha2"
 kind: ServiceRoleBinding
 metadata:
   name: test-binding-products
@@ -66,7 +66,7 @@ spec:
     kind: ServiceRole
     name: "products-viewer"
 ---
-apiVersion: "rbac.istio.io/v1alpha1"
+apiVersion: "config.istio.io/v1alpha2"
 kind: ServiceRole
 metadata:
   name: book-reader
@@ -81,7 +81,7 @@ spec:
     paths: ["*/review"]
     methods: ["GET"]
 ---
-apiVersion: "rbac.istio.io/v1alpha1"
+apiVersion: "config.istio.io/v1alpha2"
 kind: ServiceRoleBinding
 metadata:
   name: test-binding-book

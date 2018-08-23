@@ -15,7 +15,6 @@
 package bootstrap
 
 import (
-	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
@@ -29,14 +28,13 @@ import (
 
 	"code.cloudfoundry.org/copilot"
 	"github.com/davecgh/go-spew/spew"
-	"github.com/gogo/protobuf/types"
+	durpb "github.com/golang/protobuf/ptypes/duration"
 	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	multierror "github.com/hashicorp/go-multierror"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -44,7 +42,6 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd"
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
-	cf "istio.io/istio/pilot/pkg/config/cloudfoundry"
 	"istio.io/istio/pilot/pkg/config/clusterregistry"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/config/kube/ingress"
@@ -70,6 +67,8 @@ import (
 const (
 	// ConfigMapKey should match the expected MeshConfig file name
 	ConfigMapKey = "mesh"
+	// CopilotTimeout when to cancel remote gRPC call to copilot
+	CopilotTimeout = 5 * time.Second
 )
 
 var (
@@ -96,7 +95,7 @@ var (
 type MeshArgs struct {
 	ConfigFile      string
 	MixerAddress    string
-	RdsRefreshDelay *types.Duration
+	RdsRefreshDelay *durpb.Duration
 }
 
 // ConfigArgs provide configuration options for the configuration controller. If FileDir is set, that directory will
@@ -162,7 +161,15 @@ type Server struct {
 	discoveryService *envoy.DiscoveryService
 	istioConfigStore model.IstioConfigStore
 	mux              *http.ServeMux
-	kubeRegistry     *kube.Controller
+}
+
+func createInterface(kubeconfig string) (kubernetes.Interface, error) {
+	restConfig, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+
+	if err != nil {
+		return nil, err
+	}
+	return kubernetes.NewForConfig(restConfig)
 }
 
 // NewServer creates a new Server instance based on the provided arguments.
@@ -211,32 +218,33 @@ func NewServer(args PilotArgs) (*Server, error) {
 	}
 
 	if args.CtrlZOptions != nil {
-		_, _ = ctrlz.Run(args.CtrlZOptions, nil)
+		go ctrlz.Run(args.CtrlZOptions, nil)
 	}
 
 	return s, nil
 }
 
 // Start starts all components of the Pilot discovery service on the port specified in DiscoveryServiceOptions.
-// If Port == 0, a port number is automatically chosen. Content serving is started by this method,
-// but is executed asynchronously. Serving can be cancelled at any time by closing the provided stop channel.
-func (s *Server) Start(stop <-chan struct{}) error {
+// If Port == 0, a port number is automatically chosen. This method returns the address on which the server is
+// listening for incoming connections. Content serving is started by this method, but is executed asynchronously.
+// Serving can be cancelled at any time by closing the provided stop channel.
+func (s *Server) Start(stop chan struct{}) (net.Addr, error) {
 	// Now start all of the components.
 	for _, fn := range s.startFuncs {
 		if err := fn(stop); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
-	return nil
+	return s.HTTPListeningAddr, nil
 }
 
 // startFunc defines a function that will be used to start one or more components of the Pilot discovery service.
-type startFunc func(stop <-chan struct{}) error
+type startFunc func(stop chan struct{}) error
 
 // initMonitor initializes the configuration for the pilot monitoring server.
 func (s *Server) initMonitor(args *PilotArgs) error {
-	s.addStartFunc(func(stop <-chan struct{}) error {
+	s.addStartFunc(func(stop chan struct{}) error {
 		monitor, addr, err := startMonitor(args.DiscoveryOptions.MonitoringAddr, s.mux)
 		if err != nil {
 			return err
@@ -312,7 +320,7 @@ func GetMeshConfig(kube kubernetes.Interface, namespace, name string) (*v1.Confi
 
 	config, err := kube.CoreV1().ConfigMaps(namespace).Get(name, meta_v1.GetOptions{})
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if strings.Contains(err.Error(), fmt.Sprintf("\"%s\" not found", name)) {
 			defaultMesh := model.DefaultMeshConfig()
 			return nil, &defaultMesh, nil
 		}
@@ -387,8 +395,11 @@ func (s *Server) initMixerSan(args *PilotArgs) error {
 	return nil
 }
 
-func (s *Server) getKubeCfgFile(args *PilotArgs) string {
-	return args.Config.KubeConfig
+func (s *Server) getKubeCfgFile(args *PilotArgs) (kubeCfgFile string) {
+	if kubeCfgFile == "" {
+		kubeCfgFile = args.Config.KubeConfig
+	}
+	return
 }
 
 // initKubeClient creates the k8s client if running in an k8s environment.
@@ -402,23 +413,18 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 	}
 
 	if needToCreateClient && args.Config.FileDir == "" {
+		var client kubernetes.Interface
+		var kuberr error
+
 		kubeCfgFile := s.getKubeCfgFile(args)
-		client, kuberr := createInterface(kubeCfgFile)
+		client, kuberr = createInterface(kubeCfgFile)
+
 		if kuberr != nil {
 			return multierror.Prefix(kuberr, "failed to connect to Kubernetes API.")
 		}
 		s.kubeClient = client
 	}
 	return nil
-}
-
-func createInterface(kubeconfig string) (kubernetes.Interface, error) {
-	restConfig, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
-	if err != nil {
-		return nil, err
-	}
-
-	return kubernetes.NewForConfig(restConfig)
 }
 
 type mockController struct{}
@@ -446,32 +452,14 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 			return err
 		}
 
-		s.configController = configController
-
 		if args.Config.CFConfig != "" {
-			cfConfig, err := cloudfoundry.LoadConfig(args.Config.CFConfig)
-			if err != nil {
-				return multierror.Prefix(err, "loading cloud foundry config")
-			}
-			tlsConfig, err := cfConfig.ClientTLSConfig()
-			if err != nil {
-				return multierror.Prefix(err, "creating cloud foundry client tls config")
-			}
-			client, err := copilot.NewIstioClient(cfConfig.Copilot.Address, tlsConfig)
-			if err != nil {
-				return multierror.Prefix(err, "creating cloud foundry client")
-			}
-
-			confController, err := configaggregate.MakeCache([]model.ConfigStoreCache{
-				s.configController,
-				cf.NewController(client, configController, log.RegisterScope("cloudfoundry", "cloudfoundry debugging", 0), 30*time.Second, 10*time.Second),
-			})
+			err = s.makeCopilotMonitor(args, configController)
 			if err != nil {
 				return err
 			}
-
-			s.configController = confController
 		}
+
+		s.configController = configController
 	} else {
 		controller, err := s.makeKubeConfigController(args)
 		if err != nil {
@@ -482,7 +470,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 	}
 
 	// Defer starting the controller until after the service is created.
-	s.addStartFunc(func(stop <-chan struct{}) error {
+	s.addStartFunc(func(stop chan struct{}) error {
 		go s.configController.Run(stop)
 		return nil
 	})
@@ -505,7 +493,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 			args.Namespace, args.Config.ControllerOptions); errSyncer != nil {
 			log.Warnf("Disabled ingress status syncer due to %v", errSyncer)
 		} else {
-			s.addStartFunc(func(stop <-chan struct{}) error {
+			s.addStartFunc(func(stop chan struct{}) error {
 				go ingressSyncer.Run(stop)
 				return nil
 			})
@@ -534,11 +522,36 @@ func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCac
 
 func (s *Server) makeFileMonitor(args *PilotArgs, configController model.ConfigStore) error {
 	fileSnapshot := configmonitor.NewFileSnapshot(args.Config.FileDir, model.IstioConfigTypes)
-	fileMonitor := configmonitor.NewMonitor("file-monitor", configController, FilepathWalkInterval, fileSnapshot.ReadConfigFiles)
+	fileMonitor := configmonitor.NewMonitor(configController, FilepathWalkInterval, fileSnapshot.ReadConfigFiles)
 
 	// Defer starting the file monitor until after the service is created.
-	s.addStartFunc(func(stop <-chan struct{}) error {
+	s.addStartFunc(func(stop chan struct{}) error {
 		fileMonitor.Start(stop)
+		return nil
+	})
+
+	return nil
+}
+
+func (s *Server) makeCopilotMonitor(args *PilotArgs, configController model.ConfigStore) error {
+	cfConfig, err := cloudfoundry.LoadConfig(args.Config.CFConfig)
+	if err != nil {
+		return multierror.Prefix(err, "loading cloud foundry config")
+	}
+	tlsConfig, err := cfConfig.ClientTLSConfig()
+	if err != nil {
+		return multierror.Prefix(err, "creating cloud foundry client tls config")
+	}
+	client, err := copilot.NewIstioClient(cfConfig.Copilot.Address, tlsConfig)
+	if err != nil {
+		return multierror.Prefix(err, "creating cloud foundry client")
+	}
+
+	copilotSnapshot := configmonitor.NewCopilotSnapshot(configController, client, CopilotTimeout)
+	copilotMonitor := configmonitor.NewMonitor(configController, 1*time.Second, copilotSnapshot.ReadConfigFiles)
+
+	s.addStartFunc(func(stop chan struct{}) error {
+		copilotMonitor.Start(stop)
 		return nil
 	})
 
@@ -550,7 +563,6 @@ func (s *Server) createK8sServiceControllers(serviceControllers *aggregate.Contr
 	clusterID := string(serviceregistry.KubernetesRegistry)
 	log.Infof("Primary Cluster name: %s", clusterID)
 	kubectl := kube.NewController(s.kubeClient, args.Config.ControllerOptions)
-	s.kubeRegistry = kubectl
 	serviceControllers.AddRegistry(
 		aggregate.Registry{
 			Name:             serviceregistry.KubernetesRegistry,
@@ -620,6 +632,7 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 			serviceControllers.AddRegistry(
 				aggregate.Registry{
 					Name:             serviceregistry.ServiceRegistry(r),
+					ClusterID:        string(serviceregistry.ConsulRegistry),
 					ServiceDiscovery: conctl,
 					ServiceAccounts:  conctl,
 					Controller:       conctl,
@@ -639,12 +652,14 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 				return multierror.Prefix(err, "creating cloud foundry client")
 			}
 			serviceControllers.AddRegistry(aggregate.Registry{
-				Name: serviceregistry.ServiceRegistry(r),
+				Name:      serviceregistry.ServiceRegistry(r),
+				ClusterID: string(serviceregistry.CloudFoundryRegistry),
 				Controller: &cloudfoundry.Controller{
 					Ticker: cloudfoundry.NewTicker(cfConfig.Copilot.PollInterval),
+					Client: client,
 				},
 				ServiceDiscovery: &cloudfoundry.ServiceDiscovery{
-					RoutesRepo:  cloudfoundry.NewCachedRoutes(client, log.RegisterScope("cfcacher", "cf cacher debugging", 0), "30s"),
+					Client:      client,
 					ServicePort: cfConfig.ServicePort,
 				},
 				ServiceAccounts: cloudfoundry.NewServiceAccounts(),
@@ -659,6 +674,7 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 	// add service entry registry to aggregator by default
 	serviceEntryRegistry := aggregate.Registry{
 		Name:             "ServiceEntries",
+		ClusterID:        "ServiceEntries",
 		Controller:       serviceEntryStore,
 		ServiceDiscovery: serviceEntryStore,
 		ServiceAccounts:  serviceEntryStore,
@@ -668,7 +684,7 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 	s.ServiceController = serviceControllers
 
 	// Defer running of the service controllers.
-	s.addStartFunc(func(stop <-chan struct{}) error {
+	s.addStartFunc(func(stop chan struct{}) error {
 		go s.ServiceController.Run(stop)
 		return nil
 	})
@@ -709,6 +725,7 @@ func (s *Server) initConfigRegistry(serviceControllers *aggregate.Controller) {
 	serviceEntryStore := external.NewServiceDiscovery(s.configController, s.istioConfigStore)
 	serviceControllers.AddRegistry(aggregate.Registry{
 		Name:             serviceregistry.ConfigRegistry,
+		ClusterID:        string(serviceregistry.ConfigRegistry),
 		ServiceDiscovery: serviceEntryStore,
 		ServiceAccounts:  serviceEntryStore,
 		Controller:       serviceEntryStore,
@@ -716,7 +733,7 @@ func (s *Server) initConfigRegistry(serviceControllers *aggregate.Controller) {
 }
 
 func (s *Server) initDiscoveryService(args *PilotArgs) error {
-	environment := &model.Environment{
+	environment := model.Environment{
 		Mesh:             s.mesh,
 		IstioConfigStore: s.istioConfigStore,
 		ServiceDiscovery: s.ServiceController,
@@ -746,15 +763,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	envoy.V2ClearCache = s.EnvoyXdsServer.ClearCacheFunc()
 	s.EnvoyXdsServer.Register(s.grpcServer)
 
-	if s.kubeRegistry != nil {
-		// kubeRegistry may use the environment for push status reporting.
-		// TODO: maybe all registries should have his as an optional field ?
-		s.kubeRegistry.Env = environment
-	}
-
 	s.EnvoyXdsServer.InitDebug(s.mux, s.ServiceController)
-
-	s.EnvoyXdsServer.ConfigController = s.configController
 
 	s.httpServer = &http.Server{
 		Addr:    args.DiscoveryOptions.HTTPAddr,
@@ -779,7 +788,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	}
 	s.SecureGRPCListeningAddr = secureGrpcListener.Addr()
 
-	s.addStartFunc(func(stop <-chan struct{}) error {
+	s.addStartFunc(func(stop chan struct{}) error {
 		log.Infof("Discovery service started at http=%s grpc=%s", listener.Addr().String(), grpcListener.Addr().String())
 
 		go func() {
@@ -800,14 +809,13 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 			<-stop
 			model.JwtKeyResolver.Close()
 
-			ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
-			err = s.httpServer.Shutdown(ctx)
+			err = s.httpServer.Close()
 			if err != nil {
 				log.Warna(err)
 			}
-			s.grpcServer.GracefulStop()
+			s.grpcServer.Stop()
 			if s.secureGRPCServer != nil {
-				s.secureGRPCServer.GracefulStop()
+				s.secureGRPCServer.Stop()
 			}
 		}()
 

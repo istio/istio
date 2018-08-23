@@ -46,7 +46,7 @@ end
 local info_token = tonumber(redis.call("HGET", key_meta, "token"))
 local info_expire = tonumber(redis.call("HGET", key_meta, "expire"))
 
-if (not info_token or not info_expire) or (timestamp >= info_expire) then
+if (not info_token and not info_expire) or (timestamp >= info_expire) then
   info_token = 0
   info_expire = windowLength + timestamp
 
@@ -66,7 +66,7 @@ if info_token + token > credit then
     	-- save current request and set expiration time for auto cleanup
 			if (deduplicationid or '') ~= '' then
 		    redis.call("HMSET", deduplicationid .. "-" .. key_meta, "token", token - exceeded, "expire", info_expire)
-			  redis.call("PEXPIRE", deduplicationid .. "-" .. key_meta, math.floor((info_expire - timestamp) / 1000000))
+			  redis.call("PEXPIRE", deduplicationid .. "-" .. key_meta, (info_expire - timestamp) / 1000000)
 		  end
 
       return {token - exceeded, info_expire - timestamp}
@@ -85,7 +85,7 @@ else
 	-- save current request and set expiration time for auto cleanup
 	if (deduplicationid or '') ~= '' then
 		redis.call("HMSET", deduplicationid .. "-" .. key_meta, "token", token, "expire", info_expire)
-		redis.call("PEXPIRE", deduplicationid .. "-" .. key_meta, math.floor((info_expire - timestamp) / 1000000))
+		redis.call("PEXPIRE", deduplicationid .. "-" .. key_meta, (info_expire - timestamp) / 1000000)
 	end
 
   return {token, info_expire - timestamp}

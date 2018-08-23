@@ -227,11 +227,6 @@ func (s *fsStore) Init(kinds []string) error {
 	return nil
 }
 
-// WaitForSynced implements StoreBackend interface.
-func (s *fsStore) WaitForSynced(timeout time.Duration) error {
-	return nil
-}
-
 // Watch implements StoreBackend interface.
 func (s *fsStore) Watch() (<-chan BackendEvent, error) {
 	ch := make(chan BackendEvent)

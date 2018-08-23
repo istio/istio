@@ -5,7 +5,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   annotations:
     {{- range $key, $val := .Values.service.annotations }}
-    {{ $key }}: {{ $val | quote }}
+    {{ $key }}: {{ $val }}
     {{- end }}
   labels:
     app: {{ template "grafana.name" . }}
@@ -21,12 +21,3 @@ spec:
       name: {{ .Values.service.name }}
   selector:
     app: grafana
-{{- if .Values.service.loadBalancerIP }}
-  loadBalancerIP: "{{ .Values.service.loadBalancerIP }}"
-{{- end }}
-  {{if .Values.service.loadBalancerSourceRanges}}
-  loadBalancerSourceRanges:
-    {{range $rangeList := .Values.service.loadBalancerSourceRanges}}
-    - {{ $rangeList }}
-    {{end}}
-  {{end}}

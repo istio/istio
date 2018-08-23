@@ -1,7 +1,7 @@
 package: github.com/envoyproxy/go-control-plane
 import:
 - package: github.com/gogo/protobuf
-  version: 1adfc126b41513cc696b209667c8656ea7aac67c
+  version: ^1.0.0
   subpackages:
   - protoc-gen-gogofast
 - package: golang.org/x/net
@@ -14,10 +14,10 @@ import:
 - package: google.golang.org/grpc
   version: =1.11.1
 - package: github.com/lyft/protoc-gen-validate
-  version: f9d2b11e44149635b23a002693b76512b01ae515
+  version: cae364899cd8c08b83bfdcabf4ce4dd4a68ca6da
 - package: istio.io/gogo-genproto
 - package: github.com/gogo/googleapis
 - package: github.com/envoyproxy/data-plane-api
-  version: 60170a36bbe33becca023947f09dbca03e01c6ee
+  version: 5c1d0b213ee055a9f480ecba170a2be619585f32
 - package: github.com/sirupsen/logrus
   version: ^1.0.4

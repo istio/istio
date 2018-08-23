@@ -23,7 +23,7 @@ import (
 	"istio.io/istio/mixer/pkg/adapter"
 )
 
-// The `edge` template represents an edge in the mesh graph.
+// The `logentry` template represents an individual entry within a log.
 
 // Fully qualified name of the template
 const TemplateName = "edge"
@@ -49,7 +49,6 @@ const TemplateName = "edge"
 //   name: default
 //   namespace: istio-system
 // spec:
-//   timestamp: request.time
 //   sourceUid: source.uid | "Unknown"
 //   sourceOwner: source.owner | "Unknown"
 //   sourceWorkloadName: source.workload.name | "Unknown"
@@ -58,8 +57,6 @@ const TemplateName = "edge"
 //   destinationOwner: destination.owner | "Unknown"
 //   destinationWorkloadName: destination.workload.name | "Unknown"
 //   destinationWorkloadNamespace: destination.workload.namespace | "Unknown"
-//   apiProtocol: api.protocol | "Unknown"
-//   contextProtocol: context.protocol | "Unknown"
 // ```
 type Instance struct {
 	// Name of the instance as specified in configuration.

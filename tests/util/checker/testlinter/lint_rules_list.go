@@ -24,11 +24,16 @@ import (
 var LintRulesList = map[TestType][]checker.Rule{
 	UnitTest: { // list of rules which should apply to unit test file
 		rules.NewSkipByIssue(),
+		rules.NewNoGoroutine(),
+		rules.NewNoSleep(),
+		rules.NewNoShort(),
 	},
 	IntegTest: { // list of rules which should apply to integration test file
 		rules.NewSkipByIssue(),
+		rules.NewSkipByShort(),
 	},
 	E2eTest: { // list of rules which should apply to e2e test file
 		rules.NewSkipByIssue(),
+		rules.NewSkipByShort(),
 	},
 }

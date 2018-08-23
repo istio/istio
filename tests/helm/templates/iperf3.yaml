@@ -6,7 +6,7 @@ metadata:
   name: iperf3
 spec:
   hosts:
-  - "iperf3.{{ .Values.domain }}"
+  - "iperf.{{ .Values.domain }}"
   gateways:
   - istio-gateway
   tcp:
@@ -50,8 +50,6 @@ spec:
         - containerPort: 5201
         args:
         - '-s'
-        - '-p'
-        - '5201'
         resources:
           requests:
             cpu: 1000m
