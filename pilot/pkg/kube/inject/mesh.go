@@ -118,6 +118,8 @@ containers:
   - [[ .ProxyConfig.StatsdUdpAddress ]]
   - --proxyAdminPort
   - [[ .ProxyConfig.ProxyAdminPort ]]
+  - --concurrency
+  - [[ .ProxyConfig.Concurrency ]]
   - --controlPlaneAuthPolicy
   - [[ .ProxyConfig.ControlPlaneAuthPolicy ]]
   env:

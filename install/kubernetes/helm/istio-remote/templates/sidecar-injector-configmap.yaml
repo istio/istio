@@ -109,6 +109,8 @@ data:
       {{- end }}
         - --proxyAdminPort
         - {{ "[[ .ProxyConfig.ProxyAdminPort ]]" }}
+        - --concurrency
+        - {{ "[[ .ProxyConfig.Concurrency ]]" }}
         - --controlPlaneAuthPolicy
         - {{ "[[ or (index .ObjectMeta.Annotations \"sidecar.istio.io/controlPlaneAuthPolicy\") .ProxyConfig.ControlPlaneAuthPolicy ]]" }}
         env:
