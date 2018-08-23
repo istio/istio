@@ -48,7 +48,7 @@ func (bs *benchState) createGRPCServer() (string, error) {
 	}
 
 	// get everything wired up
-	bs.gs = grpc.NewServer(grpc.MaxConcurrentStreams(256), grpc.MaxRecvMsgSize(1024*1024))
+	bs.gs = grpc.NewServer(grpc.MaxConcurrentStreams(256), grpc.MaxMsgSize(1024*1024))
 
 	bs.gp = pool.NewGoroutinePool(32, false)
 	bs.gp.AddWorkers(32)

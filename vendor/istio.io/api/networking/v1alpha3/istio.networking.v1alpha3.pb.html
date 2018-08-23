@@ -1,11 +1,9 @@
 ---
-title: Traffic Routing
+title: Route Rules v1alpha3
 description: Configuration affecting traffic routing
 location: https://istio.io/docs/reference/config/istio.networking.v1alpha3.html
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-aliases:
-  - /docs/reference/config/istio.routing.v1alpha1/
 number_of_entries: 49
 ---
 <p>Configuration affecting traffic routing. Here are a few terms useful to define
@@ -239,7 +237,7 @@ be serialized into the Access-Control-Allow-Methods header.</p>
 <td><code>string[]</code></td>
 <td>
 <p>List of HTTP headers that can be used when requesting the
-resource. Serialized to Access-Control-Allow-Headers header.</p>
+resource. Serialized to Access-Control-Allow-Methods header.</p>
 
 </td>
 </tr>
@@ -666,7 +664,7 @@ to which the request/connection should be forwarded to.</p>
 <td>
 <p>REQUIRED. The proportion of traffic to be forwarded to the service
 version. (0-100). Sum of weights across destinations SHOULD BE == 100.
-If there is only one destination in a rule, the weight value is assumed to
+If there is only destination in a rule, the weight value is assumed to
 be 100.</p>
 
 </td>
@@ -686,10 +684,9 @@ backward compatibility across different Istio releases. In other words,
 this configuration is subject to change based on internal implementation
 of Istio networking subsystem.</p>
 
-<p>NOTE 2: When multiple EnvoyFilters are bound to the same workload, all filter
-configurations will be processed sequentially in order of creation time.
-The behavior is undefined if multiple EnvoyFilter configurations conflict
-with each other.</p>
+<p>NOTE 2: There can be only one EnvoyFilter bound to a specific workload.
+The behavior is undefined if multiple EnvoyFilter configurations are
+specified for the same workload.</p>
 
 <p>The following example for Kubernetes enables Envoy&rsquo;s Lua filter for all
 inbound calls arriving at service port 8080 of the reviews service pod with
@@ -1175,9 +1172,9 @@ spec:
 </code></pre>
 
 <p>The following VirtualService forwards traffic arriving at (external)
-port 27017 to internal Mongo server on port 5555. This rule is not
-applicable internally in the mesh as the gateway list omits the
-reserved name <code>mesh</code>.</p>
+port 27017 from &ldquo;172.17.16.0/24&rdquo; subnet to internal Mongo server on port
+5555. This rule is not applicable internally in the mesh as the gateway
+list omits the reserved name <code>mesh</code>.</p>
 
 <pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -1191,6 +1188,7 @@ spec:
   tcp:
   - match:
     - port: 27017
+      sourceSubnet: &quot;172.17.16.0/24&quot;
     route:
     - destination:
         host: mongo.prod.svc.cluster.local
@@ -1395,8 +1393,8 @@ unspecified, all request will be delayed.</p>
 <p>HttpMatchRequest specifies a set of criterion to be met in order for the
 rule to be applied to the HTTP request. For example, the following
 restricts the rule to match only requests where the URL path
-starts with /ratings/v2/ and the request contains a custom <code>end-user</code> header
-with value <code>jason</code>.</p>
+starts with /ratings/v2/ and the request contains a <code>cookie</code> with value
+<code>user=jason</code>.</p>
 
 <pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -1408,8 +1406,8 @@ spec:
   http:
   - match:
     - headers:
-        end-user:
-          exact: jason
+        cookie:
+          regex: &quot;^(.*?;)?(user=jason)(;.*)?&quot;
       uri:
         prefix: &quot;/ratings/v2/&quot;
     route:
@@ -1773,6 +1771,20 @@ Redirect primitive. Rewrite will be performed before forwarding.</p>
 
 </td>
 </tr>
+<tr id="HTTPRoute-websocket_upgrade">
+<td><code>websocketUpgrade</code></td>
+<td><code>bool</code></td>
+<td>
+<p>Indicates that a HTTP/1.1 client connection to this particular route
+should be allowed (and expected) to upgrade to a WebSocket connection.
+The default is false. Istio&rsquo;s reference sidecar implementation (Envoy)
+expects the first request to this route to contain the WebSocket
+upgrade headers. Otherwise, the request will be rejected. Note that
+Websocket allows secondary protocol negotiation which may then be
+subject to further routing rules based on the protocol selected.</p>
+
+</td>
+</tr>
 <tr id="HTTPRoute-timeout">
 <td><code>timeout</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
@@ -1793,9 +1805,7 @@ Redirect primitive. Rewrite will be performed before forwarding.</p>
 <td><code>fault</code></td>
 <td><code><a href="#HTTPFaultInjection">HTTPFaultInjection</a></code></td>
 <td>
-<p>Fault injection policy to apply on HTTP traffic at the client side.
-Note that timeouts or retries will not be enabled when faults are
-enabled on the client side.</p>
+<p>Fault injection policy to apply on HTTP traffic.</p>
 
 </td>
 </tr>
@@ -1848,12 +1858,14 @@ is incomplete.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="L4MatchAttributes-destination_subnets">
-<td><code>destinationSubnets</code></td>
-<td><code>string[]</code></td>
+<tr id="L4MatchAttributes-destination_subnet">
+<td><code>destinationSubnet</code></td>
+<td><code>string</code></td>
 <td>
-<p>IPv4 or IPv6 ip addresses of destination with optional subnet.  E.g.,
-a.b.c.d/xx form or just a.b.c.d.</p>
+<p>IPv4 or IPv6 ip address of destination with optional subnet.  E.g.,
+a.b.c.d/xx form or just a.b.c.d. This is only valid when the
+destination service has several IPs and the application explicitly
+specifies a particular IP.</p>
 
 </td>
 </tr>
@@ -2805,10 +2817,8 @@ or part of the mesh.</p>
 <td><code>resolution</code></td>
 <td><code><a href="#ServiceEntry-Resolution">ServiceEntry.Resolution</a></code></td>
 <td>
-<p>REQUIRED: Service discovery mode for the hosts. Care must be taken
-when setting the resolution mode to NONE for a TCP port without
-accompanying IP addresses. In such cases, traffic to any IP on
-said port will be allowed (i.e. 0.0.0.0:<port>).</p>
+<p>Service discovery mode for the hosts. If not set, Istio will attempt
+to infer the discovery mode based on the value of hosts and endpoints.</p>
 
 </td>
 </tr>
@@ -3157,12 +3167,14 @@ as well as example.com.</p>
 
 </td>
 </tr>
-<tr id="TLSMatchAttributes-destination_subnets">
-<td><code>destinationSubnets</code></td>
-<td><code>string[]</code></td>
+<tr id="TLSMatchAttributes-destination_subnet">
+<td><code>destinationSubnet</code></td>
+<td><code>string</code></td>
 <td>
-<p>IPv4 or IPv6 ip addresses of destination with optional subnet.  E.g.,
-a.b.c.d/xx form or just a.b.c.d.</p>
+<p>IPv4 or IPv6 ip address of destination with optional subnet.  E.g.,
+a.b.c.d/xx form or just a.b.c.d. This is only valid when the
+destination service has several IPs and the application explicitly
+specifies a particular IP.</p>
 
 </td>
 </tr>

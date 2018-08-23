@@ -43,16 +43,15 @@ var (
 
 	rootCmd = &cobra.Command{
 		Use:          "pilot-discovery",
-		Short:        "Istio Pilot.",
+		Short:        "Istio Pilot",
 		Long:         "Istio Pilot provides fleet-wide traffic management capabilities in the Istio Service Mesh.",
 		SilenceUsage: true,
 	}
 
 	discoveryCmd = &cobra.Command{
 		Use:   "discovery",
-		Short: "Start Istio proxy discovery service.",
+		Short: "Start Istio proxy discovery service",
 		RunE: func(c *cobra.Command, args []string) error {
-			cmd.PrintFlags(c.Flags())
 			if err := log.Configure(loggingOptions); err != nil {
 				return err
 			}
@@ -75,7 +74,8 @@ var (
 			}
 
 			// Start the server
-			if err := discoveryServer.Start(stop); err != nil {
+			_, err = discoveryServer.Start(stop)
+			if err != nil {
 				return fmt.Errorf("failed to start discovery service: %v", err)
 			}
 

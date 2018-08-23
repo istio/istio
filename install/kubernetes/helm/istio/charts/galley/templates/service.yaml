@@ -11,7 +11,5 @@ spec:
     name: https-validation
   - port: 9093
     name: http-monitoring
-  - port: 9901
-    name: grpc-mcp
   selector:
     istio: galley

@@ -25,8 +25,6 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"fmt"
-
-	"istio.io/istio/pkg/log"
 )
 
 // GenCSR generates a X.509 certificate sign request and private key with the given options.
@@ -62,15 +60,6 @@ func GenCSRTemplate(options CertOptions) (*x509.CertificateRequest, error) {
 		s, err := BuildSubjectAltNameExtension(h)
 		if err != nil {
 			return nil, err
-		}
-		if options.IsDualUse {
-			cn, err := DualUseCommonName(h)
-			if err != nil {
-				// log and continue
-				log.Errorf("dual-use failed for CSR template - omitting CN (%v)", err)
-			} else {
-				template.Subject.CommonName = cn
-			}
 		}
 		template.ExtraExtensions = []pkix.Extension{*s}
 	}

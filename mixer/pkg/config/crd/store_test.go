@@ -43,8 +43,6 @@ const testingRetryTimeout = 10 * time.Millisecond
 // The timeout for "waitFor" function, waiting for the expected event to come.
 const waitForTimeout = time.Second
 
-const apiGroupVersion = ConfigAPIGroup + "/" + ConfigAPIVersion
-
 func createFakeDiscovery(*rest.Config) (discovery.DiscoveryInterface, error) {
 	return &fake.FakeDiscovery{
 		Fake: &k8stesting.Fake{
@@ -298,7 +296,6 @@ func TestStoreFailToInit(t *testing.T) {
 }
 
 func TestCrdsAreNotReady(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/7958")
 	emptyDiscovery := &fake.FakeDiscovery{Fake: &k8stesting.Fake{}}
 	s, _, _ := getTempClient()
 	s.discoveryBuilder = func(*rest.Config) (discovery.DiscoveryInterface, error) {
@@ -317,7 +314,6 @@ func TestCrdsAreNotReady(t *testing.T) {
 }
 
 func TestCrdsRetryMakeSucceed(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/7958")
 	fakeDiscovery := &fake.FakeDiscovery{
 		Fake: &k8stesting.Fake{
 			Resources: []*metav1.APIResourceList{
@@ -360,7 +356,6 @@ func TestCrdsRetryMakeSucceed(t *testing.T) {
 }
 
 func TestCrdsRetryAsynchronously(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/7958")
 	fakeDiscovery := &fake.FakeDiscovery{
 		Fake: &k8stesting.Fake{
 			Resources: []*metav1.APIResourceList{

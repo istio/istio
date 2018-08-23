@@ -25,7 +25,6 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
 
@@ -72,44 +71,13 @@ func (h *HTTPOptions) Init(url string) *HTTPOptions {
 	h.URL = url
 	h.NumConnections = 1
 	if h.HTTPReqTimeOut <= 0 {
-		log.Warnf("Invalid timeout %v, setting to %v", h.HTTPReqTimeOut, HTTPReqTimeOutDefaultValue)
 		h.HTTPReqTimeOut = HTTPReqTimeOutDefaultValue
 	}
-	h.URLSchemeCheck()
-	return h
-}
-
-const (
-	contentType   = "Content-Type"
-	contentLength = "Content-Length"
-)
-
-// GenerateHeaders completes the header generation, including Content-Type/Length
-// and user credential coming from the http options in addition to extra headers
-// coming from flags and AddAndValidateExtraHeader().
-func (h *HTTPOptions) GenerateHeaders() http.Header {
 	if h.extraHeaders == nil { // not already initialized from flags.
 		h.InitHeaders()
 	}
-	allHeaders := h.extraHeaders
-	payloadLen := len(h.Payload)
-	// If content-type isn't already specified and we have a payload, let's use the
-	// standard for binary content:
-	if payloadLen > 0 && len(h.ContentType) == 0 && len(allHeaders.Get(contentType)) == 0 {
-		h.ContentType = "application/octet-stream"
-	}
-	if len(h.ContentType) > 0 {
-		allHeaders.Add(contentType, h.ContentType)
-	}
-	// Add content-length unless already set in custom headers (or we're not doing a POST)
-	if (payloadLen > 0 || len(h.ContentType) > 0) && len(allHeaders.Get(contentLength)) == 0 {
-		allHeaders.Add(contentLength, strconv.Itoa(payloadLen))
-	}
-	err := h.ValidateAndAddBasicAuthentication(allHeaders)
-	if err != nil {
-		log.Errf("User credential is not valid: %v", err)
-	}
-	return allHeaders
+	h.URLSchemeCheck()
+	return h
 }
 
 // URLSchemeCheck makes sure the client will work with the scheme requested.
@@ -117,7 +85,7 @@ func (h *HTTPOptions) GenerateHeaders() http.Header {
 func (h *HTTPOptions) URLSchemeCheck() {
 	log.LogVf("URLSchemeCheck %+v", h)
 	if len(h.URL) == 0 {
-		log.Errf("Unexpected init with empty url")
+		log.Errf("unexpected init with empty url")
 		return
 	}
 	hs := "https://" // longer of the 2 prefixes
@@ -134,7 +102,7 @@ func (h *HTTPOptions) URLSchemeCheck() {
 		return // url is good
 	}
 	if !strings.HasPrefix(lcURL, "http://") {
-		log.Warnf("Assuming http:// on missing scheme for '%s'", h.URL)
+		log.Warnf("assuming http:// on missing scheme for '%s'", h.URL)
 		h.URL = "http://" + h.URL
 	}
 }
@@ -160,75 +128,36 @@ type HTTPOptions struct {
 	FollowRedirects   bool // For the Std Client only: follow redirects.
 	initDone          bool
 	https             bool // whether URLSchemeCheck determined this was an https:// call or not
-	// ExtraHeaders to be added to each request (UserAgent and headers set through AddAndValidateExtraHeader()).
+	// ExtraHeaders to be added to each request.
 	extraHeaders http.Header
-	// Host is treated specially, remember that virtual header separately.
+	// Host is treated specially, remember that one separately.
 	hostOverride   string
 	HTTPReqTimeOut time.Duration // timeout value for http request
-
-	UserCredentials string // user credentials for authorization
-	ContentType     string // indicates request body type, implies POST instead of GET
-	Payload         []byte // body for http request, implies POST if not empty.
-
-	UnixDomainSocket string // Path of unix domain socket to use instead of host:port from URL
 }
 
-// ResetHeaders resets all the headers, including the User-Agent: one (and the Host: logical special header).
-// This is used from the UI as the user agent is settable from the form UI.
+// ResetHeaders resets all the headers, including the User-Agent one.
 func (h *HTTPOptions) ResetHeaders() {
 	h.extraHeaders = make(http.Header)
 	h.hostOverride = ""
 }
 
-// InitHeaders initialize and/or resets the default headers (ie just User-Agent).
+// InitHeaders initialize and/or resets the default headers.
 func (h *HTTPOptions) InitHeaders() {
 	h.ResetHeaders()
 	h.extraHeaders.Add("User-Agent", userAgent)
-	// No other headers should be added here based on options content as this is called only once
-	// before command line option -H are parsed/set.
 }
 
-// PayloadString returns the payload as a string. If payload is null return empty string
-// This is only needed due to grpc ping proto. It takes string instead of byte array.
-func (h *HTTPOptions) PayloadString() string {
-	if len(h.Payload) == 0 {
-		return ""
+// GetHeaders returns the current set of headers.
+func (h *HTTPOptions) GetHeaders() http.Header {
+	if h.hostOverride == "" {
+		return h.extraHeaders
 	}
-	return string(h.Payload)
+	cp := h.extraHeaders
+	cp.Add("Host", h.hostOverride)
+	return cp
 }
 
-// ValidateAndAddBasicAuthentication validates user credentials and adds basic authentication to http header,
-// if user credentials are valid.
-func (h *HTTPOptions) ValidateAndAddBasicAuthentication(headers http.Header) error {
-	if len(h.UserCredentials) <= 0 {
-		return nil // user credential is not entered
-	}
-	s := strings.SplitN(h.UserCredentials, ":", 2)
-	if len(s) != 2 {
-		return fmt.Errorf("invalid user credentials \"%s\", expecting \"user:password\"", h.UserCredentials)
-	}
-	headers.Add("Authorization", generateBase64UserCredentials(h.UserCredentials))
-	return nil
-}
-
-// AllHeaders returns the current set of headers including virtual/special Host header.
-func (h *HTTPOptions) AllHeaders() http.Header {
-	headers := h.GenerateHeaders()
-	if h.hostOverride != "" {
-		headers.Add("Host", h.hostOverride)
-	}
-	return headers
-}
-
-// Method returns the method of the http req.
-func (h *HTTPOptions) Method() string {
-	if len(h.Payload) > 0 || h.ContentType != "" {
-		return fnet.POST
-	}
-	return fnet.GET
-}
-
-// AddAndValidateExtraHeader collects extra headers (see commonflags.go for example).
+// AddAndValidateExtraHeader collects extra headers (see main.go for example).
 func (h *HTTPOptions) AddAndValidateExtraHeader(hdr string) error {
 	// This function can be called from the flag settings, before we have a URL
 	// so we can't just call h.Init(h.URL)
@@ -254,17 +183,12 @@ func (h *HTTPOptions) AddAndValidateExtraHeader(hdr string) error {
 
 // newHttpRequest makes a new http GET request for url with User-Agent.
 func newHTTPRequest(o *HTTPOptions) *http.Request {
-	method := o.Method()
-	var body io.Reader
-	if method == fnet.POST {
-		body = bytes.NewReader(o.Payload)
-	}
-	req, err := http.NewRequest(method, o.URL, body)
+	req, err := http.NewRequest("GET", o.URL, nil)
 	if err != nil {
-		log.Errf("Unable to make %s request for %s : %v", method, o.URL, err)
+		log.Errf("Unable to make request for %s : %v", o.URL, err)
 		return nil
 	}
-	req.Header = o.GenerateHeaders()
+	req.Header = o.extraHeaders
 	if o.hostOverride != "" {
 		req.Host = o.hostOverride
 	}
@@ -273,7 +197,7 @@ func newHTTPRequest(o *HTTPOptions) *http.Request {
 	}
 	bytes, err := httputil.DumpRequestOut(req, false)
 	if err != nil {
-		log.Errf("Unable to dump request: %v", err)
+		log.Errf("Unable to dump request %v", err)
 	} else {
 		log.Debugf("For URL %s, sending:\n%s", o.URL, bytes)
 	}
@@ -318,7 +242,7 @@ func (c *Client) Fetch() (int, []byte, int) {
 	// req can't be null (client itself would be null in that case)
 	resp, err := c.client.Do(c.req)
 	if err != nil {
-		log.Errf("Unable to send %s request for %s : %v", c.req.Method, c.url, err)
+		log.Errf("Unable to send request for %s : %v", c.url, err)
 		return http.StatusBadRequest, []byte(err.Error()), 0
 	}
 	var data []byte
@@ -341,16 +265,15 @@ func (c *Client) Fetch() (int, []byte, int) {
 		return code, data, 0
 	}
 	code := resp.StatusCode
-	log.Debugf("Got %d : %s for %s %s - response is %d bytes", code, resp.Status, c.req.Method, c.url, len(data))
+	log.Debugf("Got %d : %s for %s - response is %d bytes", code, resp.Status, c.url, len(data))
 	return code, data, 0
 }
 
 // NewClient creates either a standard or fast client (depending on
 // the DisableFastClient flag)
 func NewClient(o *HTTPOptions) Fetcher {
-	o.Init(o.URL) // For completely new options
-	// For changes to options after init
-	o.URLSchemeCheck()
+	o.Init(o.URL)      // For completely new options
+	o.URLSchemeCheck() // For changes to options after init
 	if o.DisableFastClient {
 		return NewStdClient(o)
 	}
@@ -359,10 +282,17 @@ func NewClient(o *HTTPOptions) Fetcher {
 
 // NewStdClient creates a client object that wraps the net/http standard client.
 func NewStdClient(o *HTTPOptions) *Client {
-	o.Init(o.URL) // also normalizes NumConnections etc to be valid.
+	o.Init(o.URL)
 	req := newHTTPRequest(o)
 	if req == nil {
 		return nil
+	}
+	if o.NumConnections < 1 {
+		o.NumConnections = 1
+	}
+	// 0 timeout for stdclient doesn't mean 0 timeout... so just warn and leave it
+	if o.HTTPReqTimeOut <= 0 {
+		log.Warnf("Std call with client timeout %v", o.HTTPReqTimeOut)
 	}
 	tr := http.Transport{
 		MaxIdleConns:        o.NumConnections,
@@ -379,13 +309,13 @@ func NewStdClient(o *HTTPOptions) *Client {
 		tr.TLSClientConfig = &tls.Config{InsecureSkipVerify: true} // nolint: gas
 	}
 	client := Client{
-		url: o.URL,
-		req: req,
-		client: &http.Client{
+		o.URL,
+		req,
+		&http.Client{
 			Timeout:   o.HTTPReqTimeOut,
 			Transport: &tr,
 		},
-		transport: &tr,
+		&tr,
 	}
 	if !o.FollowRedirects {
 		// Lets us see the raw response instead of auto following redirects.
@@ -420,8 +350,8 @@ func Fetch(httpOptions *HTTPOptions) (int, []byte) {
 type FastClient struct {
 	buffer       []byte
 	req          []byte
-	dest         net.Addr
-	socket       net.Conn
+	dest         net.TCPAddr
+	socket       *net.TCPConn
 	socketCount  int
 	size         int
 	code         int
@@ -454,8 +384,6 @@ func (c *FastClient) Close() int {
 // This function itself doesn't need to be super efficient as it is created at
 // the beginning and then reused many times.
 func NewFastClient(o *HTTPOptions) Fetcher {
-	method := o.Method()
-	payloadLen := len(o.Payload)
 	o.Init(o.URL)
 	proto := "1.1"
 	if o.HTTP10 {
@@ -479,26 +407,19 @@ func NewFastClient(o *HTTPOptions) Fetcher {
 		bc.port = url.Scheme // ie http which turns into 80 later
 		log.LogVf("No port specified, using %s", bc.port)
 	}
-	var addr net.Addr
-	if o.UnixDomainSocket != "" {
-		log.Infof("Using unix domain socket %v instead of %v %v", o.UnixDomainSocket, bc.hostname, bc.port)
-		uds := &net.UnixAddr{Name: o.UnixDomainSocket, Net: fnet.UnixDomainSocket}
-		addr = uds
-	} else {
-		addr = fnet.Resolve(bc.hostname, bc.port)
-	}
+	addr := fnet.Resolve(bc.hostname, bc.port)
 	if addr == nil {
 		// Error already logged
 		return nil
 	}
-	bc.dest = addr
+	bc.dest = *addr
 	// Create the bytes for the request:
 	host := bc.host
 	if o.hostOverride != "" {
 		host = o.hostOverride
 	}
 	var buf bytes.Buffer
-	buf.WriteString(method + " " + url.RequestURI() + " HTTP/" + proto + "\r\n")
+	buf.WriteString("GET " + url.RequestURI() + " HTTP/" + proto + "\r\n")
 	if !bc.http10 {
 		buf.WriteString("Host: " + host + "\r\n")
 		bc.parseHeaders = true
@@ -508,16 +429,16 @@ func NewFastClient(o *HTTPOptions) Fetcher {
 			buf.WriteString("Connection: close\r\n")
 		}
 	}
+	if o.HTTPReqTimeOut <= 0 {
+		log.Warnf("Invalid timeout %v, setting to %v", o.HTTPReqTimeOut, HTTPReqTimeOutDefaultValue)
+		o.HTTPReqTimeOut = HTTPReqTimeOutDefaultValue
+	}
 	bc.reqTimeout = o.HTTPReqTimeOut
 	w := bufio.NewWriter(&buf)
 	// This writes multiple valued headers properly (unlike calling Get() to do it ourselves)
-	o.GenerateHeaders().Write(w) // nolint: errcheck,gas
-	w.Flush()                    // nolint: errcheck,gas
+	o.extraHeaders.Write(w) // nolint: errcheck,gas
+	w.Flush()               // nolint: errcheck,gas
 	buf.WriteString("\r\n")
-	//Add the payload to http body
-	if payloadLen > 0 {
-		buf.Write(o.Payload)
-	}
 	bc.req = buf.Bytes()
 	log.Debugf("Created client:\n%+v\n%s", bc.dest, bc.req)
 	return &bc
@@ -529,26 +450,21 @@ func (c *FastClient) returnRes() (int, []byte, int) {
 }
 
 // connect to destination.
-func (c *FastClient) connect() net.Conn {
+func (c *FastClient) connect() *net.TCPConn {
 	c.socketCount++
-	socket, err := net.Dial(c.dest.Network(), c.dest.String())
+	socket, err := net.DialTCP("tcp", nil, &c.dest)
 	if err != nil {
 		log.Errf("Unable to connect to %v : %v", c.dest, err)
 		return nil
 	}
-	tcpSock, ok := socket.(*net.TCPConn)
-	if !ok {
-		log.LogVf("Not setting socket options on non tcp socket %v", socket.RemoteAddr())
-		return socket
-	}
 	// For now those errors are not critical/breaking
-	if err = tcpSock.SetNoDelay(true); err != nil {
+	if err = socket.SetNoDelay(true); err != nil {
 		log.Warnf("Unable to connect to set tcp no delay %v %v : %v", socket, c.dest, err)
 	}
-	if err = tcpSock.SetWriteBuffer(len(c.req)); err != nil {
+	if err = socket.SetWriteBuffer(len(c.req)); err != nil {
 		log.Warnf("Unable to connect to set write buffer %d %v %v : %v", len(c.req), socket, c.dest, err)
 	}
-	if err = tcpSock.SetReadBuffer(len(c.buffer)); err != nil {
+	if err = socket.SetReadBuffer(len(c.buffer)); err != nil {
 		log.Warnf("Unable to connect to read buffer %d %v %v : %v", len(c.buffer), socket, c.dest, err)
 	}
 	return socket
@@ -576,7 +492,7 @@ func (c *FastClient) Fetch() (int, []byte, int) {
 			return c.returnRes()
 		}
 	} else {
-		log.Debugf("Reusing socket %v", conn)
+		log.Debugf("Reusing socket %v", *conn)
 	}
 	c.socket = nil // because of error returns and single retry
 	conErr := conn.SetReadDeadline(time.Now().Add(c.reqTimeout))
@@ -585,7 +501,7 @@ func (c *FastClient) Fetch() (int, []byte, int) {
 	if err != nil || conErr != nil {
 		if reuse {
 			// it's ok for the (idle) socket to die once, auto reconnect:
-			log.Infof("Closing dead socket %v (%v)", conn, err)
+			log.Infof("Closing dead socket %v (%v)", *conn, err)
 			conn.Close() // nolint: errcheck,gas
 			c.errorCount++
 			return c.Fetch() // recurse once
@@ -598,16 +514,11 @@ func (c *FastClient) Fetch() (int, []byte, int) {
 		return c.returnRes()
 	}
 	if !c.keepAlive && c.halfClose {
-		tcpConn, ok := conn.(*net.TCPConn)
-		if ok {
-			if err = tcpConn.CloseWrite(); err != nil {
-				log.Errf("Unable to close write to %v %v : %v", conn, c.dest, err)
-				return c.returnRes()
-			} // else:
-			log.Debugf("Half closed ok after sending request %v %v", conn, c.dest)
-		} else {
-			log.Warnf("Unable to close write non tcp connection %v", conn)
-		}
+		if err = conn.CloseWrite(); err != nil {
+			log.Errf("Unable to close write to %v %v : %v", conn, c.dest, err)
+			return c.returnRes()
+		} // else:
+		log.Debugf("Half closed ok after sending request %v %v", conn, c.dest)
 	}
 	// Read the response:
 	c.readResponse(conn, reuse)
@@ -621,7 +532,7 @@ func (c *FastClient) Fetch() (int, []byte, int) {
 
 // Response reading:
 // TODO: refactor - unwiedly/ugly atm
-func (c *FastClient) readResponse(conn net.Conn, reusedSocket bool) {
+func (c *FastClient) readResponse(conn *net.TCPConn, reusedSocket bool) {
 	max := len(c.buffer)
 	parsedHeaders := false
 	// TODO: safer to start with -1 / SocketError and fix ok for http 1.0
@@ -639,11 +550,11 @@ func (c *FastClient) readResponse(conn net.Conn, reusedSocket bool) {
 			if err != nil {
 				if reusedSocket && c.size == 0 {
 					// Ok for reused socket to be dead once (close by server)
-					log.Infof("Closing dead socket %v (err %v at first read)", conn, err)
+					log.Infof("Closing dead socket %v (err %v at first read)", *conn, err)
 					c.errorCount++
 					err = conn.Close() // close the previous one
 					if err != nil {
-						log.Warnf("Error closing dead socket %v: %v", conn, err)
+						log.Warnf("Error closing dead socket %v: %v", *conn, err)
 					}
 					c.code = RetryOnce // special "retry once" code
 					return

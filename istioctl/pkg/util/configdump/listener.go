@@ -16,8 +16,8 @@ package configdump
 
 import (
 	"fmt"
-	"sort"
 
+	"github.com/bradfitz/slice"
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 	proto "github.com/gogo/protobuf/types"
 )
@@ -29,7 +29,7 @@ func (w *Wrapper) GetDynamicListenerDump(stripVersions bool) (*adminapi.Listener
 		return nil, err
 	}
 	dal := listenerDump.GetDynamicActiveListeners()
-	sort.Slice(dal, func(i, j int) bool {
+	slice.Sort(dal, func(i, j int) bool {
 		return dal[i].Listener.Name < dal[j].Listener.Name
 	})
 	if stripVersions {

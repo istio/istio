@@ -16,6 +16,7 @@ package external
 
 import (
 	"fmt"
+	"reflect"
 	"sort"
 	"testing"
 
@@ -116,6 +117,31 @@ func TestServiceDiscoveryGetService(t *testing.T) {
 	}
 	if service.Hostname != model.Hostname(host) {
 		t.Errorf("GetService(%q) => %q, want %q", host, service.Hostname, host)
+	}
+}
+
+func TestServiceDiscoveryGetServiceAttributes(t *testing.T) {
+	store, sd, stopFn := initServiceDiscovery()
+	defer stopFn()
+
+	tnow := time.Now()
+	createServiceEntries([]*networking.ServiceEntry{httpDNS, tcpStatic}, store, t, tnow)
+
+	tcpStaticSvc := convertServices(tcpStatic, tnow)
+	for _, svc := range tcpStaticSvc {
+		expect := model.ServiceAttributes{
+			Name:      svc.Hostname.String(),
+			Namespace: model.IstioDefaultConfigNamespace,
+		}
+		if attr, _ := sd.GetServiceAttributes(svc.Hostname); !reflect.DeepEqual(*attr, expect) {
+			t.Errorf("GetServiceAttributes(%q) => %v, want %v", svc.Hostname, *attr, expect)
+		}
+	}
+	tcpDNSSvc := convertServices(tcpDNS, tnow)
+	for _, svc := range tcpDNSSvc {
+		if attr, _ := sd.GetServiceAttributes(svc.Hostname); attr != nil {
+			t.Errorf(`GetServiceAttributes("tcpDNSSvc") => %q, want nil`, attr.Namespace)
+		}
 	}
 }
 

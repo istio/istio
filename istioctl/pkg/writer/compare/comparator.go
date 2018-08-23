@@ -27,7 +27,6 @@ type Comparator struct {
 	envoy, pilot *configdump.Wrapper
 	w            io.Writer
 	context      int
-	location     string
 }
 
 // NewComparator is a comparator constructor
@@ -53,7 +52,6 @@ func NewComparator(w io.Writer, pilotResponses map[string][]byte, envoyResponse 
 	c.envoy = envoyDump
 	c.w = w
 	c.context = 7
-	c.location = "Local" // the time.Location for formatting time.Time instances
 	return c, nil
 }
 

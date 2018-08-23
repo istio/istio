@@ -1,0 +1,13 @@
+- name: Set release tag to latest
+  set_fact:
+    release_tag: 'latest'
+
+- name: Get the tagged release
+  uri:
+    url: "{{ github_url }}/{{ istio_repo }}/releases/latest"
+    headers: "{{ github_api_http_headers }}"
+  register: release
+
+- name: Set version
+  set_fact:
+    istio_version_to_use: "{{ release.json.tag_name }}"

@@ -18,7 +18,6 @@ spec:
     type: COUNTER
   - name: tcpbytereceived.metric.istio-system
     type: COUNTER
-  trace_sample_probability: 0.5
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule

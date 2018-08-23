@@ -8,14 +8,11 @@
 		envoy/type/matcher/metadata.proto
 		envoy/type/matcher/number.proto
 		envoy/type/matcher/string.proto
-		envoy/type/matcher/value.proto
 
 	It has these top-level messages:
 		MetadataMatcher
 		DoubleMatcher
 		StringMatcher
-		ValueMatcher
-		ListMatcher
 */
 package matcher
 
@@ -76,8 +73,8 @@ const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 //      string_match:
 //        prefix: pr
 //
-// The following MetadataMatcher is matched as the code will match one of the string values in the
-// list at the path [a, t].
+// The following MetadataMatcher is not matched as the path [a, t] is pointing to a list value in
+// the Metadata which is not supported for now.
 //
 // .. code-block:: yaml
 //
@@ -86,10 +83,8 @@ const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 //    - key: a
 //    - key: t
 //    value:
-//      list_match:
-//        one_of:
-//          string_match:
-//            exact: m
+//      string_match:
+//        exact: m
 //
 // An example use of MetadataMatcher is specifying additional metadata in envoy.filters.http.rbac to
 // enforce access control based on dynamic metadata in a request. See :ref:`Permission
@@ -101,7 +96,7 @@ type MetadataMatcher struct {
 	// The path to retrieve the Value from the Struct.
 	Path []*MetadataMatcher_PathSegment `protobuf:"bytes,2,rep,name=path" json:"path,omitempty"`
 	// The MetadataMatcher is matched if the value retrieved by path is matched to this value.
-	Value *ValueMatcher `protobuf:"bytes,3,opt,name=value" json:"value,omitempty"`
+	Value *MetadataMatcher_Value `protobuf:"bytes,3,opt,name=value" json:"value,omitempty"`
 }
 
 func (m *MetadataMatcher) Reset()                    { *m = MetadataMatcher{} }
@@ -123,7 +118,7 @@ func (m *MetadataMatcher) GetPath() []*MetadataMatcher_PathSegment {
 	return nil
 }
 
-func (m *MetadataMatcher) GetValue() *ValueMatcher {
+func (m *MetadataMatcher) GetValue() *MetadataMatcher_Value {
 	if m != nil {
 		return m.Value
 	}
@@ -131,8 +126,8 @@ func (m *MetadataMatcher) GetValue() *ValueMatcher {
 }
 
 // Specifies the segment in a path to retrieve value from Metadata.
-// Note: Currently it's not supported to retrieve a value from a list in Metadata. This means that
-// if the segment key refers to a list, it has to be the last segment in a path.
+// Note: Currently it's not supported to retrieve a value from a list in Metadata. This means it
+// will always be not matched if the associated value of the key is a list.
 type MetadataMatcher_PathSegment struct {
 	// Types that are valid to be assigned to Segment:
 	//	*MetadataMatcher_PathSegment_Key
@@ -223,9 +218,240 @@ func _MetadataMatcher_PathSegment_OneofSizer(msg proto.Message) (n int) {
 	return n
 }
 
+// Specifies the value to match. Only primitive value are supported. For non-primitive values, the
+// result is always not matched.
+type MetadataMatcher_Value struct {
+	// Specifies how to match a value.
+	//
+	// Types that are valid to be assigned to MatchPattern:
+	//	*MetadataMatcher_Value_NullMatch_
+	//	*MetadataMatcher_Value_DoubleMatch
+	//	*MetadataMatcher_Value_StringMatch
+	//	*MetadataMatcher_Value_BoolMatch
+	//	*MetadataMatcher_Value_PresentMatch
+	MatchPattern isMetadataMatcher_Value_MatchPattern `protobuf_oneof:"match_pattern"`
+}
+
+func (m *MetadataMatcher_Value) Reset()                    { *m = MetadataMatcher_Value{} }
+func (m *MetadataMatcher_Value) String() string            { return proto.CompactTextString(m) }
+func (*MetadataMatcher_Value) ProtoMessage()               {}
+func (*MetadataMatcher_Value) Descriptor() ([]byte, []int) { return fileDescriptorMetadata, []int{0, 1} }
+
+type isMetadataMatcher_Value_MatchPattern interface {
+	isMetadataMatcher_Value_MatchPattern()
+	MarshalTo([]byte) (int, error)
+	Size() int
+}
+
+type MetadataMatcher_Value_NullMatch_ struct {
+	NullMatch *MetadataMatcher_Value_NullMatch `protobuf:"bytes,1,opt,name=null_match,json=nullMatch,oneof"`
+}
+type MetadataMatcher_Value_DoubleMatch struct {
+	DoubleMatch *DoubleMatcher `protobuf:"bytes,2,opt,name=double_match,json=doubleMatch,oneof"`
+}
+type MetadataMatcher_Value_StringMatch struct {
+	StringMatch *StringMatcher `protobuf:"bytes,3,opt,name=string_match,json=stringMatch,oneof"`
+}
+type MetadataMatcher_Value_BoolMatch struct {
+	BoolMatch bool `protobuf:"varint,4,opt,name=bool_match,json=boolMatch,proto3,oneof"`
+}
+type MetadataMatcher_Value_PresentMatch struct {
+	PresentMatch bool `protobuf:"varint,5,opt,name=present_match,json=presentMatch,proto3,oneof"`
+}
+
+func (*MetadataMatcher_Value_NullMatch_) isMetadataMatcher_Value_MatchPattern()   {}
+func (*MetadataMatcher_Value_DoubleMatch) isMetadataMatcher_Value_MatchPattern()  {}
+func (*MetadataMatcher_Value_StringMatch) isMetadataMatcher_Value_MatchPattern()  {}
+func (*MetadataMatcher_Value_BoolMatch) isMetadataMatcher_Value_MatchPattern()    {}
+func (*MetadataMatcher_Value_PresentMatch) isMetadataMatcher_Value_MatchPattern() {}
+
+func (m *MetadataMatcher_Value) GetMatchPattern() isMetadataMatcher_Value_MatchPattern {
+	if m != nil {
+		return m.MatchPattern
+	}
+	return nil
+}
+
+func (m *MetadataMatcher_Value) GetNullMatch() *MetadataMatcher_Value_NullMatch {
+	if x, ok := m.GetMatchPattern().(*MetadataMatcher_Value_NullMatch_); ok {
+		return x.NullMatch
+	}
+	return nil
+}
+
+func (m *MetadataMatcher_Value) GetDoubleMatch() *DoubleMatcher {
+	if x, ok := m.GetMatchPattern().(*MetadataMatcher_Value_DoubleMatch); ok {
+		return x.DoubleMatch
+	}
+	return nil
+}
+
+func (m *MetadataMatcher_Value) GetStringMatch() *StringMatcher {
+	if x, ok := m.GetMatchPattern().(*MetadataMatcher_Value_StringMatch); ok {
+		return x.StringMatch
+	}
+	return nil
+}
+
+func (m *MetadataMatcher_Value) GetBoolMatch() bool {
+	if x, ok := m.GetMatchPattern().(*MetadataMatcher_Value_BoolMatch); ok {
+		return x.BoolMatch
+	}
+	return false
+}
+
+func (m *MetadataMatcher_Value) GetPresentMatch() bool {
+	if x, ok := m.GetMatchPattern().(*MetadataMatcher_Value_PresentMatch); ok {
+		return x.PresentMatch
+	}
+	return false
+}
+
+// XXX_OneofFuncs is for the internal use of the proto package.
+func (*MetadataMatcher_Value) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
+	return _MetadataMatcher_Value_OneofMarshaler, _MetadataMatcher_Value_OneofUnmarshaler, _MetadataMatcher_Value_OneofSizer, []interface{}{
+		(*MetadataMatcher_Value_NullMatch_)(nil),
+		(*MetadataMatcher_Value_DoubleMatch)(nil),
+		(*MetadataMatcher_Value_StringMatch)(nil),
+		(*MetadataMatcher_Value_BoolMatch)(nil),
+		(*MetadataMatcher_Value_PresentMatch)(nil),
+	}
+}
+
+func _MetadataMatcher_Value_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
+	m := msg.(*MetadataMatcher_Value)
+	// match_pattern
+	switch x := m.MatchPattern.(type) {
+	case *MetadataMatcher_Value_NullMatch_:
+		_ = b.EncodeVarint(1<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.NullMatch); err != nil {
+			return err
+		}
+	case *MetadataMatcher_Value_DoubleMatch:
+		_ = b.EncodeVarint(2<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.DoubleMatch); err != nil {
+			return err
+		}
+	case *MetadataMatcher_Value_StringMatch:
+		_ = b.EncodeVarint(3<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.StringMatch); err != nil {
+			return err
+		}
+	case *MetadataMatcher_Value_BoolMatch:
+		t := uint64(0)
+		if x.BoolMatch {
+			t = 1
+		}
+		_ = b.EncodeVarint(4<<3 | proto.WireVarint)
+		_ = b.EncodeVarint(t)
+	case *MetadataMatcher_Value_PresentMatch:
+		t := uint64(0)
+		if x.PresentMatch {
+			t = 1
+		}
+		_ = b.EncodeVarint(5<<3 | proto.WireVarint)
+		_ = b.EncodeVarint(t)
+	case nil:
+	default:
+		return fmt.Errorf("MetadataMatcher_Value.MatchPattern has unexpected type %T", x)
+	}
+	return nil
+}
+
+func _MetadataMatcher_Value_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
+	m := msg.(*MetadataMatcher_Value)
+	switch tag {
+	case 1: // match_pattern.null_match
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(MetadataMatcher_Value_NullMatch)
+		err := b.DecodeMessage(msg)
+		m.MatchPattern = &MetadataMatcher_Value_NullMatch_{msg}
+		return true, err
+	case 2: // match_pattern.double_match
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(DoubleMatcher)
+		err := b.DecodeMessage(msg)
+		m.MatchPattern = &MetadataMatcher_Value_DoubleMatch{msg}
+		return true, err
+	case 3: // match_pattern.string_match
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(StringMatcher)
+		err := b.DecodeMessage(msg)
+		m.MatchPattern = &MetadataMatcher_Value_StringMatch{msg}
+		return true, err
+	case 4: // match_pattern.bool_match
+		if wire != proto.WireVarint {
+			return true, proto.ErrInternalBadWireType
+		}
+		x, err := b.DecodeVarint()
+		m.MatchPattern = &MetadataMatcher_Value_BoolMatch{x != 0}
+		return true, err
+	case 5: // match_pattern.present_match
+		if wire != proto.WireVarint {
+			return true, proto.ErrInternalBadWireType
+		}
+		x, err := b.DecodeVarint()
+		m.MatchPattern = &MetadataMatcher_Value_PresentMatch{x != 0}
+		return true, err
+	default:
+		return false, nil
+	}
+}
+
+func _MetadataMatcher_Value_OneofSizer(msg proto.Message) (n int) {
+	m := msg.(*MetadataMatcher_Value)
+	// match_pattern
+	switch x := m.MatchPattern.(type) {
+	case *MetadataMatcher_Value_NullMatch_:
+		s := proto.Size(x.NullMatch)
+		n += proto.SizeVarint(1<<3 | proto.WireBytes)
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *MetadataMatcher_Value_DoubleMatch:
+		s := proto.Size(x.DoubleMatch)
+		n += proto.SizeVarint(2<<3 | proto.WireBytes)
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *MetadataMatcher_Value_StringMatch:
+		s := proto.Size(x.StringMatch)
+		n += proto.SizeVarint(3<<3 | proto.WireBytes)
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *MetadataMatcher_Value_BoolMatch:
+		n += proto.SizeVarint(4<<3 | proto.WireVarint)
+		n += 1
+	case *MetadataMatcher_Value_PresentMatch:
+		n += proto.SizeVarint(5<<3 | proto.WireVarint)
+		n += 1
+	case nil:
+	default:
+		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
+	}
+	return n
+}
+
+// NullMatch is an empty message to specify a null value.
+type MetadataMatcher_Value_NullMatch struct {
+}
+
+func (m *MetadataMatcher_Value_NullMatch) Reset()         { *m = MetadataMatcher_Value_NullMatch{} }
+func (m *MetadataMatcher_Value_NullMatch) String() string { return proto.CompactTextString(m) }
+func (*MetadataMatcher_Value_NullMatch) ProtoMessage()    {}
+func (*MetadataMatcher_Value_NullMatch) Descriptor() ([]byte, []int) {
+	return fileDescriptorMetadata, []int{0, 1, 0}
+}
+
 func init() {
 	proto.RegisterType((*MetadataMatcher)(nil), "envoy.type.matcher.MetadataMatcher")
 	proto.RegisterType((*MetadataMatcher_PathSegment)(nil), "envoy.type.matcher.MetadataMatcher.PathSegment")
+	proto.RegisterType((*MetadataMatcher_Value)(nil), "envoy.type.matcher.MetadataMatcher.Value")
+	proto.RegisterType((*MetadataMatcher_Value_NullMatch)(nil), "envoy.type.matcher.MetadataMatcher.Value.NullMatch")
 }
 func (m *MetadataMatcher) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
@@ -306,6 +532,115 @@ func (m *MetadataMatcher_PathSegment_Key) MarshalTo(dAtA []byte) (int, error) {
 	i += copy(dAtA[i:], m.Key)
 	return i, nil
 }
+func (m *MetadataMatcher_Value) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MetadataMatcher_Value) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.MatchPattern != nil {
+		nn3, err := m.MatchPattern.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += nn3
+	}
+	return i, nil
+}
+
+func (m *MetadataMatcher_Value_NullMatch_) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	if m.NullMatch != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintMetadata(dAtA, i, uint64(m.NullMatch.Size()))
+		n4, err := m.NullMatch.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n4
+	}
+	return i, nil
+}
+func (m *MetadataMatcher_Value_DoubleMatch) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	if m.DoubleMatch != nil {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintMetadata(dAtA, i, uint64(m.DoubleMatch.Size()))
+		n5, err := m.DoubleMatch.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n5
+	}
+	return i, nil
+}
+func (m *MetadataMatcher_Value_StringMatch) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	if m.StringMatch != nil {
+		dAtA[i] = 0x1a
+		i++
+		i = encodeVarintMetadata(dAtA, i, uint64(m.StringMatch.Size()))
+		n6, err := m.StringMatch.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n6
+	}
+	return i, nil
+}
+func (m *MetadataMatcher_Value_BoolMatch) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	dAtA[i] = 0x20
+	i++
+	if m.BoolMatch {
+		dAtA[i] = 1
+	} else {
+		dAtA[i] = 0
+	}
+	i++
+	return i, nil
+}
+func (m *MetadataMatcher_Value_PresentMatch) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	dAtA[i] = 0x28
+	i++
+	if m.PresentMatch {
+		dAtA[i] = 1
+	} else {
+		dAtA[i] = 0
+	}
+	i++
+	return i, nil
+}
+func (m *MetadataMatcher_Value_NullMatch) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MetadataMatcher_Value_NullMatch) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	return i, nil
+}
+
 func encodeVarintMetadata(dAtA []byte, offset int, v uint64) int {
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
@@ -349,6 +684,59 @@ func (m *MetadataMatcher_PathSegment_Key) Size() (n int) {
 	_ = l
 	l = len(m.Key)
 	n += 1 + l + sovMetadata(uint64(l))
+	return n
+}
+func (m *MetadataMatcher_Value) Size() (n int) {
+	var l int
+	_ = l
+	if m.MatchPattern != nil {
+		n += m.MatchPattern.Size()
+	}
+	return n
+}
+
+func (m *MetadataMatcher_Value_NullMatch_) Size() (n int) {
+	var l int
+	_ = l
+	if m.NullMatch != nil {
+		l = m.NullMatch.Size()
+		n += 1 + l + sovMetadata(uint64(l))
+	}
+	return n
+}
+func (m *MetadataMatcher_Value_DoubleMatch) Size() (n int) {
+	var l int
+	_ = l
+	if m.DoubleMatch != nil {
+		l = m.DoubleMatch.Size()
+		n += 1 + l + sovMetadata(uint64(l))
+	}
+	return n
+}
+func (m *MetadataMatcher_Value_StringMatch) Size() (n int) {
+	var l int
+	_ = l
+	if m.StringMatch != nil {
+		l = m.StringMatch.Size()
+		n += 1 + l + sovMetadata(uint64(l))
+	}
+	return n
+}
+func (m *MetadataMatcher_Value_BoolMatch) Size() (n int) {
+	var l int
+	_ = l
+	n += 2
+	return n
+}
+func (m *MetadataMatcher_Value_PresentMatch) Size() (n int) {
+	var l int
+	_ = l
+	n += 2
+	return n
+}
+func (m *MetadataMatcher_Value_NullMatch) Size() (n int) {
+	var l int
+	_ = l
 	return n
 }
 
@@ -481,7 +869,7 @@ func (m *MetadataMatcher) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Value == nil {
-				m.Value = &ValueMatcher{}
+				m.Value = &MetadataMatcher_Value{}
 			}
 			if err := m.Value.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -566,6 +954,244 @@ func (m *MetadataMatcher_PathSegment) Unmarshal(dAtA []byte) error {
 			}
 			m.Segment = &MetadataMatcher_PathSegment_Key{string(dAtA[iNdEx:postIndex])}
 			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipMetadata(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthMetadata
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MetadataMatcher_Value) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowMetadata
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: Value: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: Value: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field NullMatch", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMetadata
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthMetadata
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &MetadataMatcher_Value_NullMatch{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.MatchPattern = &MetadataMatcher_Value_NullMatch_{v}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DoubleMatch", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMetadata
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthMetadata
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &DoubleMatcher{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.MatchPattern = &MetadataMatcher_Value_DoubleMatch{v}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field StringMatch", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMetadata
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthMetadata
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &StringMatcher{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.MatchPattern = &MetadataMatcher_Value_StringMatch{v}
+			iNdEx = postIndex
+		case 4:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field BoolMatch", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMetadata
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			b := bool(v != 0)
+			m.MatchPattern = &MetadataMatcher_Value_BoolMatch{b}
+		case 5:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field PresentMatch", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMetadata
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			b := bool(v != 0)
+			m.MatchPattern = &MetadataMatcher_Value_PresentMatch{b}
+		default:
+			iNdEx = preIndex
+			skippy, err := skipMetadata(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthMetadata
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MetadataMatcher_Value_NullMatch) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowMetadata
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: NullMatch: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: NullMatch: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
 		default:
 			iNdEx = preIndex
 			skippy, err := skipMetadata(dAtA[iNdEx:])
@@ -695,23 +1321,32 @@ var (
 func init() { proto.RegisterFile("envoy/type/matcher/metadata.proto", fileDescriptorMetadata) }
 
 var fileDescriptorMetadata = []byte{
-	// 274 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x52, 0x4c, 0xcd, 0x2b, 0xcb,
-	0xaf, 0xd4, 0x2f, 0xa9, 0x2c, 0x48, 0xd5, 0xcf, 0x4d, 0x2c, 0x49, 0xce, 0x48, 0x2d, 0xd2, 0xcf,
-	0x4d, 0x2d, 0x49, 0x4c, 0x49, 0x2c, 0x49, 0xd4, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0x12, 0x02,
-	0x2b, 0xd1, 0x03, 0x29, 0xd1, 0x83, 0x2a, 0x91, 0x92, 0xc3, 0xa2, 0xad, 0x2c, 0x31, 0xa7, 0x34,
-	0x15, 0xa2, 0x47, 0x4a, 0xbc, 0x2c, 0x31, 0x27, 0x33, 0x25, 0xb1, 0x24, 0x55, 0x1f, 0xc6, 0x80,
-	0x48, 0x28, 0x75, 0x32, 0x71, 0xf1, 0xfb, 0x42, 0xcd, 0xf7, 0x85, 0x68, 0x14, 0x52, 0xe4, 0x62,
-	0x4b, 0xcb, 0xcc, 0x29, 0x49, 0x2d, 0x92, 0x60, 0x54, 0x60, 0xd4, 0xe0, 0x74, 0xe2, 0xdc, 0xf5,
-	0xf2, 0x00, 0x33, 0x4b, 0x11, 0x93, 0x02, 0x63, 0x10, 0x54, 0x42, 0xc8, 0x9f, 0x8b, 0xa5, 0x20,
-	0xb1, 0x24, 0x43, 0x82, 0x49, 0x81, 0x59, 0x83, 0xdb, 0x48, 0x5f, 0x0f, 0xd3, 0x49, 0x7a, 0x68,
-	0xa6, 0xea, 0x05, 0x24, 0x96, 0x64, 0x04, 0xa7, 0xa6, 0xe7, 0xa6, 0xe6, 0x95, 0x38, 0x71, 0x81,
-	0x4c, 0x64, 0x9d, 0xc4, 0xc8, 0xc4, 0xc1, 0x18, 0x04, 0x36, 0x48, 0xc8, 0x89, 0x8b, 0x15, 0xec,
-	0x5e, 0x09, 0x66, 0x05, 0x46, 0x0d, 0x6e, 0x23, 0x05, 0x6c, 0x26, 0x86, 0x81, 0x14, 0x40, 0x8d,
-	0x83, 0x1a, 0xd1, 0xc5, 0xc8, 0x24, 0xc0, 0x18, 0x04, 0xd1, 0x2a, 0x65, 0xc7, 0xc5, 0x8d, 0x64,
-	0x89, 0x90, 0x2c, 0x17, 0x73, 0x76, 0x6a, 0x25, 0x86, 0x1f, 0x3c, 0x18, 0x82, 0x40, 0xe2, 0x4e,
-	0x02, 0x5c, 0xec, 0xc5, 0x50, 0x95, 0xac, 0x3b, 0x5e, 0x1e, 0x60, 0x66, 0x74, 0x12, 0x3d, 0xf1,
-	0x48, 0x8e, 0xf1, 0xc2, 0x23, 0x39, 0xc6, 0x07, 0x8f, 0xe4, 0x18, 0xa3, 0xd8, 0xa1, 0xd6, 0x26,
-	0xb1, 0x81, 0x43, 0xca, 0x18, 0x10, 0x00, 0x00, 0xff, 0xff, 0x57, 0x21, 0x06, 0xb9, 0x9b, 0x01,
-	0x00, 0x00,
+	// 422 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x92, 0x4f, 0x8b, 0xd3, 0x40,
+	0x18, 0xc6, 0x3b, 0xf9, 0xb3, 0xbb, 0x79, 0xb3, 0x8b, 0xcb, 0x80, 0x5a, 0x02, 0x76, 0x53, 0x41,
+	0x88, 0x97, 0x04, 0xda, 0xbb, 0x87, 0x20, 0x52, 0x90, 0xaa, 0xa4, 0xe2, 0xc1, 0x4b, 0x99, 0x98,
+	0xb1, 0x2d, 0x4e, 0x26, 0x61, 0x32, 0x29, 0xf4, 0x2b, 0x78, 0xf4, 0xd3, 0x88, 0xa7, 0x1e, 0x3d,
+	0x7a, 0xf6, 0x24, 0xbd, 0xf5, 0xe4, 0x57, 0x90, 0x4c, 0xa6, 0xb6, 0xd8, 0x0a, 0xbd, 0x25, 0xcf,
+	0xfc, 0xde, 0x5f, 0x9e, 0x37, 0x0c, 0xf4, 0x29, 0x5f, 0x16, 0xab, 0x48, 0xae, 0x4a, 0x1a, 0xe5,
+	0x44, 0x7e, 0x98, 0x53, 0x11, 0xe5, 0x54, 0x92, 0x8c, 0x48, 0x12, 0x96, 0xa2, 0x90, 0x05, 0xc6,
+	0x0a, 0x09, 0x1b, 0x24, 0xd4, 0x88, 0x77, 0x77, 0x62, 0xac, 0x92, 0x62, 0xc1, 0x67, 0xed, 0xd0,
+	0x49, 0x80, 0xd7, 0x79, 0x4a, 0x85, 0x06, 0x1e, 0x2e, 0x09, 0x5b, 0x64, 0x44, 0xd2, 0x68, 0xf7,
+	0xd0, 0x1e, 0x3c, 0xfe, 0x6d, 0xc1, 0xbd, 0xb1, 0x6e, 0x30, 0x6e, 0x27, 0x71, 0x1f, 0x2e, 0x3e,
+	0x2e, 0x98, 0xa4, 0xa2, 0x8b, 0x7c, 0x14, 0x38, 0xb1, 0xf3, 0x6d, 0xbb, 0x36, 0x2d, 0x61, 0xf8,
+	0x28, 0xd1, 0x07, 0xf8, 0x35, 0x58, 0x25, 0x91, 0xf3, 0xae, 0xe1, 0x9b, 0x81, 0x3b, 0x88, 0xc2,
+	0xe3, 0xd2, 0xe1, 0x3f, 0xd6, 0xf0, 0x0d, 0x91, 0xf3, 0x09, 0x9d, 0xe5, 0x94, 0xcb, 0x18, 0x1a,
+	0xa3, 0xfd, 0x05, 0x19, 0x57, 0x28, 0x51, 0x22, 0xfc, 0x12, 0xec, 0x25, 0x61, 0x35, 0xed, 0x9a,
+	0x3e, 0x0a, 0xdc, 0xc1, 0xd3, 0x73, 0x8c, 0xef, 0x9a, 0x01, 0xed, 0xfa, 0x8c, 0x8c, 0x5b, 0x94,
+	0xb4, 0x0e, 0xef, 0x19, 0xb8, 0x07, 0x5f, 0xc3, 0x8f, 0xc0, 0xfc, 0x44, 0x57, 0x47, 0xcb, 0x8c,
+	0x3a, 0x49, 0x93, 0xc7, 0xb7, 0x70, 0x59, 0x69, 0xd2, 0xfe, 0xba, 0x5d, 0x9b, 0xc8, 0xfb, 0x69,
+	0x80, 0xad, 0xe4, 0xf8, 0x2d, 0x00, 0xaf, 0x19, 0x9b, 0xaa, 0x0a, 0xca, 0xe0, 0x0e, 0x86, 0x67,
+	0x77, 0x0b, 0x5f, 0xd5, 0x8c, 0xa9, 0x64, 0xd4, 0x49, 0x1c, 0xbe, 0x7b, 0xc1, 0x2f, 0xe0, 0x3a,
+	0x2b, 0xea, 0x94, 0x51, 0xed, 0x35, 0x94, 0xb7, 0x7f, 0xca, 0xfb, 0x5c, 0x71, 0xda, 0x3a, 0xea,
+	0x24, 0x6e, 0xb6, 0x0f, 0x1a, 0x4f, 0x7b, 0x0d, 0xb4, 0xc7, 0xfc, 0xbf, 0x67, 0xa2, 0xb8, 0x03,
+	0x4f, 0xb5, 0x0f, 0xf0, 0x1d, 0x40, 0x5a, 0x14, 0xbb, 0x2d, 0x2d, 0x1f, 0x05, 0x57, 0x4d, 0xe1,
+	0x26, 0x6b, 0x81, 0x27, 0x70, 0x53, 0x0a, 0x5a, 0x51, 0x2e, 0x35, 0x63, 0x6b, 0xe6, 0x5a, 0xc7,
+	0x0a, 0xf3, 0x5c, 0x70, 0xfe, 0x6e, 0x1c, 0x3f, 0x80, 0x1b, 0xc5, 0x4e, 0x4b, 0x22, 0x25, 0x15,
+	0x5c, 0xff, 0xdc, 0xf8, 0xfe, 0xf7, 0x4d, 0x0f, 0xfd, 0xd8, 0xf4, 0xd0, 0xaf, 0x4d, 0x0f, 0xbd,
+	0xbf, 0xd4, 0x05, 0xd3, 0x0b, 0x75, 0x1f, 0x87, 0x7f, 0x02, 0x00, 0x00, 0xff, 0xff, 0xc3, 0xad,
+	0x5b, 0x3c, 0x23, 0x03, 0x00, 0x00,
 }

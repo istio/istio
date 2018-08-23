@@ -17,14 +17,23 @@ package resource
 import (
 	"reflect"
 
-	"github.com/gogo/protobuf/proto"
+	prgogo "github.com/gogo/protobuf/proto"
+	prlang "github.com/golang/protobuf/proto"
 )
 
 // getProtoMessageType returns the Go lang type of the proto with the specified name.
-func getProtoMessageType(protoMessageName string) reflect.Type {
-	t := proto.MessageType(protoMessageName)
+func getProtoMessageType(protoMessageName string, isGogo bool) reflect.Type {
+	var t reflect.Type
+
+	if isGogo {
+		t = prgogo.MessageType(protoMessageName)
+	} else {
+		t = prlang.MessageType(protoMessageName)
+	}
+
 	if t == nil {
 		return nil
 	}
+
 	return t.Elem()
 }

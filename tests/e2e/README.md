@@ -51,7 +51,7 @@ kubectl exec -it <test pod> -n <test namespace> -c app -- client -h
 
 
 # Adding New E2E Tests
-[demo_test.go](tests/bookinfo/demo_test.go) is a sample test that covers four cases: default routing, version routing, fault delay, and version migration.
+[demo_test.go](tests/bookinfo/demo_test.go) is a sample test that covers four cases: default routing, versiong routing, failt delay, and version migration.
 Each case applies traffic rules and then clean up after the test. It can serve as a reference for building new test cases.
 
 See below for guidelines for creating a new E2E testsr.

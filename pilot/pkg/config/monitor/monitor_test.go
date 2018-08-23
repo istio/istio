@@ -61,7 +61,7 @@ var updateConfigSet = []*model.Config{
 				{
 					Port: &networking.Port{
 						Number:   80,
-						Protocol: "HTTP2",
+						Protocol: "HTTPS",
 						Name:     "http",
 					},
 					Hosts: []string{"*.example.com"},
@@ -98,7 +98,7 @@ func TestMonitorForChange(t *testing.T) {
 		callCount++
 		return configs, err
 	}
-	mon := monitor.NewMonitor("", store, checkInterval, someConfigFunc)
+	mon := monitor.NewMonitor(store, checkInterval, someConfigFunc)
 	stop := make(chan struct{})
 	defer func() { stop <- struct{}{} }() // shut it down
 	mon.Start(stop)
@@ -123,7 +123,7 @@ func TestMonitorForChange(t *testing.T) {
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		gateway := c[0].Spec.(*networking.Gateway)
-		if gateway.Servers[0].Port.Protocol != "HTTP2" {
+		if gateway.Servers[0].Port.Protocol != "HTTPS" {
 			return errors.New("Protocol has not been updated")
 		}
 
@@ -165,7 +165,7 @@ func TestMonitorForError(t *testing.T) {
 		callCount++
 		return configs, err
 	}
-	mon := monitor.NewMonitor("", store, checkInterval, someConfigFunc)
+	mon := monitor.NewMonitor(store, checkInterval, someConfigFunc)
 	stop := make(chan struct{})
 	defer func() { stop <- struct{}{} }() // shut it down
 	mon.Start(stop)

@@ -50,12 +50,10 @@ type Istioctl struct {
 	yamlDir         string
 	// If true, will ignore proxyHub and proxyTag but use the default one.
 	defaultProxy bool
-	// if non-null, used for sidecar inject (note: proxyHub and proxyTag overridden)
-	injectConfigMap string
 }
 
 // NewIstioctl create a new istioctl by given temp dir.
-func NewIstioctl(yamlDir, namespace, istioNamespace, proxyHub, proxyTag, imagePullPolicy, injectConfigMap string) (*Istioctl, error) {
+func NewIstioctl(yamlDir, namespace, istioNamespace, proxyHub, proxyTag string, imagePullPolicy string) (*Istioctl, error) {
 	tmpDir, err := ioutil.TempDir(os.TempDir(), tmpPrefix)
 	if err != nil {
 		return nil, err
@@ -78,7 +76,6 @@ func NewIstioctl(yamlDir, namespace, istioNamespace, proxyHub, proxyTag, imagePu
 		imagePullPolicy: imagePullPolicy,
 		yamlDir:         filepath.Join(yamlDir, "istioctl"),
 		defaultProxy:    *defaultProxy,
-		injectConfigMap: injectConfigMap,
 	}, nil
 }
 
@@ -148,30 +145,18 @@ func (i *Istioctl) run(format string, args ...interface{}) error {
 // TODO The commands below could be generalized so that istioctl doesn't default to
 // using the in cluster kubeconfig this is useful in multicluster cases to perform
 // injection on remote clusters.
-func (i *Istioctl) KubeInject(src, dest, kubeconfig string) error {
-	injectCfgMapStr := ""
-	if i.injectConfigMap != "" {
-		injectCfgMapStr = fmt.Sprintf("--injectConfigMapName %s", i.injectConfigMap)
-	}
-	kubeconfigStr := ""
-	if kubeconfig != "" {
-		kubeconfigStr = " --kubeconfig " + kubeconfig
-	}
+func (i *Istioctl) KubeInject(src, dest string) error {
 	if i.defaultProxy {
-		return i.run(`kube-inject -f %s -o %s -n %s -i %s --meshConfigMapName=istio %s %s`,
-			src, dest, i.namespace, i.namespace, injectCfgMapStr, kubeconfigStr)
+		return i.run(`kube-inject -f %s -o %s -n %s -i %s --meshConfigMapName=istio`,
+			src, dest, i.namespace, i.namespace)
 	}
 
 	imagePullPolicyStr := ""
 	if i.imagePullPolicy != "" {
 		imagePullPolicyStr = fmt.Sprintf("--imagePullPolicy %s", i.imagePullPolicy)
 	}
-	hubAndTagStr := ""
-	if i.injectConfigMap == "" {
-		hubAndTagStr = fmt.Sprintf("--hub %s --tag %s", i.proxyHub, i.proxyTag)
-	}
-	return i.run(`kube-inject -f %s -o %s %s %s -n %s -i %s --meshConfigMapName=istio %s %s`,
-		src, dest, hubAndTagStr, imagePullPolicyStr, i.namespace, i.namespace, injectCfgMapStr, kubeconfigStr)
+	return i.run(`kube-inject -f %s -o %s --hub %s --tag %s %s -n %s -i %s --meshConfigMapName=istio`,
+		src, dest, i.proxyHub, i.proxyTag, imagePullPolicyStr, i.namespace, i.namespace)
 }
 
 // CreateRule create new rule(s)

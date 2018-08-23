@@ -25,8 +25,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
+	gogoproto "github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/duration"
 	multierror "github.com/hashicorp/go-multierror"
 
 	authn "istio.io/api/authentication/v1alpha1"
@@ -104,7 +107,7 @@ func (descriptor ConfigDescriptor) Validate() error {
 		if !IsDNS1123Label(v.Plural) {
 			errs = multierror.Append(errs, fmt.Errorf("invalid plural: %q", v.Type))
 		}
-		if proto.MessageType(v.MessageName) == nil {
+		if proto.MessageType(v.MessageName) == nil && gogoproto.MessageType(v.MessageName) == nil {
 			errs = multierror.Append(errs, fmt.Errorf("cannot discover proto message type: %q", v.MessageName))
 		}
 		if _, exists := descriptorTypes[v.Type]; exists {
@@ -132,7 +135,7 @@ func (s *Service) Validate() error {
 	if len(s.Hostname) == 0 {
 		errs = multierror.Append(errs, fmt.Errorf("invalid empty hostname"))
 	}
-	parts := strings.Split(string(s.Hostname), ".")
+	parts := strings.Split(s.Hostname.String(), ".")
 	for _, part := range parts {
 		if !IsDNS1123Label(part) {
 			errs = multierror.Append(errs, fmt.Errorf("invalid hostname part: %q", part))
@@ -403,39 +406,12 @@ func validateServer(server *networking.Server) (errs error) {
 		errs = appendErrors(errs, fmt.Errorf("server config must contain at least one host"))
 	} else {
 		for _, host := range server.Hosts {
-			// short name hosts are not allowed in gateways
-			if host != "*" && !strings.Contains(host, ".") {
-				errs = appendErrors(errs, fmt.Errorf("short names (non FQDN) are not allowed in Gateway server hosts"))
-			}
 			if err := ValidateWildcardDomain(host); err != nil {
 				errs = appendErrors(errs, err)
 			}
 		}
 	}
-	portErr := validateServerPort(server.Port)
-	if portErr != nil {
-		errs = appendErrors(errs, portErr)
-	}
-	errs = appendErrors(errs, validateTLSOptions(server.Tls))
-
-	// If port is HTTPS or TLS, make sure that server has TLS options
-	if portErr == nil {
-		protocol := ParseProtocol(server.Port.Protocol)
-		if protocol.IsTLS() && server.Tls == nil {
-			errs = appendErrors(errs, fmt.Errorf("server must have TLS settings for HTTPS/TLS protocols"))
-		} else if !protocol.IsTLS() && server.Tls != nil {
-			// only tls redirect is allowed if this is a HTTP server
-			if protocol.IsHTTP() {
-				if server.Tls.Mode != networking.Server_TLSOptions_PASSTHROUGH ||
-					server.Tls.CaCertificates != "" || server.Tls.PrivateKey != "" || server.Tls.ServerCertificate != "" {
-					errs = appendErrors(errs, fmt.Errorf("server cannot have TLS settings for plain text HTTP ports"))
-				}
-			} else {
-				errs = appendErrors(errs, fmt.Errorf("server cannot have TLS settings for non HTTPS/TLS ports"))
-			}
-		}
-	}
-	return errs
+	return appendErrors(errs, validateTLSOptions(server.Tls), validateServerPort(server.Port))
 }
 
 func validateServerPort(port *networking.Port) (errs error) {
@@ -532,15 +508,14 @@ func validateTrafficPolicy(policy *networking.TrafficPolicy) error {
 	if policy == nil {
 		return nil
 	}
-	if policy.OutlierDetection == nil && policy.ConnectionPool == nil &&
-		policy.LoadBalancer == nil && policy.Tls == nil && policy.PortLevelSettings == nil {
+	if policy.OutlierDetection == nil && policy.ConnectionPool == nil && policy.LoadBalancer == nil && policy.Tls == nil {
 		return fmt.Errorf("traffic policy must have at least one field")
 	}
 
 	return appendErrors(validateOutlierDetection(policy.OutlierDetection),
 		validateConnectionPool(policy.ConnectionPool),
 		validateLoadBalancer(policy.LoadBalancer),
-		validateTLS(policy.Tls), validatePortTrafficPolicies(policy.PortLevelSettings))
+		validateTLS(policy.Tls))
 }
 
 func validateOutlierDetection(outlier *networking.OutlierDetection) (errs error) {
@@ -631,24 +606,6 @@ func validateSubset(subset *networking.Subset) error {
 		validateTrafficPolicy(subset.TrafficPolicy))
 }
 
-func validatePortTrafficPolicies(pls []*networking.TrafficPolicy_PortTrafficPolicy) (errs error) {
-	for _, t := range pls {
-		if t.Port == nil {
-			errs = appendErrors(errs, fmt.Errorf("portTrafficPolicy must have valid port"))
-		}
-		if t.OutlierDetection == nil && t.ConnectionPool == nil &&
-			t.LoadBalancer == nil && t.Tls == nil {
-			errs = appendErrors(errs, fmt.Errorf("port traffic policy must have at least one field"))
-		} else {
-			errs = appendErrors(errs, validateOutlierDetection(t.OutlierDetection),
-				validateConnectionPool(t.ConnectionPool),
-				validateLoadBalancer(t.LoadBalancer),
-				validateTLS(t.Tls))
-		}
-	}
-	return
-}
-
 // ValidateProxyAddress checks that a network address is well-formed
 func ValidateProxyAddress(hostAddr string) error {
 	host, p, err := net.SplitHostPort(hostAddr)
@@ -688,8 +645,8 @@ func ValidateDurationGogo(pd *types.Duration) error {
 }
 
 // ValidateDuration checks that a proto duration is well-formed
-func ValidateDuration(pd *types.Duration) error {
-	dur, err := types.DurationFromProto(pd)
+func ValidateDuration(pd *duration.Duration) error {
+	dur, err := ptypes.Duration(pd)
 	if err != nil {
 		return err
 	}
@@ -702,9 +659,9 @@ func ValidateDuration(pd *types.Duration) error {
 	return nil
 }
 
-// ValidateGogoDuration validates the variant of duration.
+// ValidateGogoDuration validates the gogoproto variant of duration.
 func ValidateGogoDuration(in *types.Duration) error {
-	return ValidateDuration(&types.Duration{
+	return ValidateDuration(&duration.Duration{
 		Seconds: in.Seconds,
 		Nanos:   in.Nanos,
 	})
@@ -720,7 +677,7 @@ func ValidateDurationRange(dur, min, max time.Duration) error {
 }
 
 // ValidateParentAndDrain checks that parent and drain durations are valid
-func ValidateParentAndDrain(drainTime, parentShutdown *types.Duration) (errs error) {
+func ValidateParentAndDrain(drainTime, parentShutdown *duration.Duration) (errs error) {
 	if err := ValidateDuration(drainTime); err != nil {
 		errs = multierror.Append(errs, multierror.Prefix(err, "invalid drain duration:"))
 	}
@@ -731,8 +688,8 @@ func ValidateParentAndDrain(drainTime, parentShutdown *types.Duration) (errs err
 		return
 	}
 
-	drainDuration, _ := types.DurationFromProto(drainTime)
-	parentShutdownDuration, _ := types.DurationFromProto(parentShutdown)
+	drainDuration, _ := ptypes.Duration(drainTime)
+	parentShutdownDuration, _ := ptypes.Duration(parentShutdown)
 
 	if drainDuration%time.Second != 0 {
 		errs = multierror.Append(errs,
@@ -763,23 +720,23 @@ func ValidateParentAndDrain(drainTime, parentShutdown *types.Duration) (errs err
 }
 
 // ValidateRefreshDelay validates the discovery refresh delay time
-func ValidateRefreshDelay(refresh *types.Duration) error {
+func ValidateRefreshDelay(refresh *duration.Duration) error {
 	if err := ValidateDuration(refresh); err != nil {
 		return err
 	}
 
-	refreshDuration, _ := types.DurationFromProto(refresh)
+	refreshDuration, _ := ptypes.Duration(refresh)
 	err := ValidateDurationRange(refreshDuration, discoveryRefreshDelayMin, discoveryRefreshDelayMax)
 	return err
 }
 
 // ValidateConnectTimeout validates the envoy conncection timeout
-func ValidateConnectTimeout(timeout *types.Duration) error {
+func ValidateConnectTimeout(timeout *duration.Duration) error {
 	if err := ValidateDuration(timeout); err != nil {
 		return err
 	}
 
-	timeoutDuration, _ := types.DurationFromProto(timeout)
+	timeoutDuration, _ := ptypes.Duration(timeout)
 	err := ValidateDurationRange(timeoutDuration, connectTimeoutMin, connectTimeoutMax)
 	return err
 }
@@ -804,6 +761,12 @@ func ValidateMeshConfig(mesh *meshconfig.MeshConfig) (errs error) {
 
 	if err := ValidateConnectTimeout(mesh.ConnectTimeout); err != nil {
 		errs = multierror.Append(errs, multierror.Prefix(err, "invalid connect timeout:"))
+	}
+
+	switch mesh.AuthPolicy {
+	case meshconfig.MeshConfig_NONE, meshconfig.MeshConfig_MUTUAL_TLS:
+	default:
+		errs = multierror.Append(errs, fmt.Errorf("unrecognized auth policy %q", mesh.AuthPolicy))
 	}
 
 	if err := ValidateRefreshDelay(mesh.RdsRefreshDelay); err != nil {
@@ -1206,21 +1169,12 @@ func ValidateServiceRoleBinding(name, namespace string, msg proto.Message) error
 
 // ValidateRbacConfig checks that RbacConfig is well-formed.
 func ValidateRbacConfig(name, namespace string, msg proto.Message) error {
-	in, ok := msg.(*rbac.RbacConfig)
-	if !ok {
+	if _, ok := msg.(*rbac.RbacConfig); !ok {
 		return errors.New("cannot cast to RbacConfig")
 	}
 
 	if name != DefaultRbacConfigName {
 		return fmt.Errorf("rbacConfig has invalid name(%s), name must be %s", name, DefaultRbacConfigName)
-	}
-
-	if in.Mode == rbac.RbacConfig_ON_WITH_INCLUSION && in.Inclusion == nil {
-		return errors.New("inclusion cannot be null (use 'inclusion: {}' for none)")
-	}
-
-	if in.Mode == rbac.RbacConfig_ON_WITH_EXCLUSION && in.Exclusion == nil {
-		return errors.New("exclusion cannot be null (use 'exclusion: {}' for none)")
 	}
 
 	return nil
@@ -1365,10 +1319,9 @@ func validateTLSMatch(match *networking.TLSMatchAttributes) (errs error) {
 	if len(match.SniHosts) == 0 {
 		errs = appendErrors(errs, fmt.Errorf("TLS match must have at least one SNI host"))
 	}
-	for _, destinationSubnet := range match.DestinationSubnets {
-		errs = appendErrors(errs, ValidateIPv4Subnet(destinationSubnet))
+	if match.DestinationSubnet != "" {
+		errs = appendErrors(errs, ValidateIPv4Subnet(match.DestinationSubnet))
 	}
-
 	if match.Port != 0 {
 		errs = appendErrors(errs, ValidatePort(int(match.Port)))
 	}
@@ -1385,18 +1338,17 @@ func validateTCPRoute(tcp *networking.TCPRoute) (errs error) {
 		errs = appendErrors(errs, validateTCPMatch(match))
 	}
 	if len(tcp.Route) != 1 {
-		errs = appendErrors(errs, errors.New("TCP route must have exactly one destination"))
+		errs = appendErrors(errs, errors.New("TLS route must have exactly one destination"))
 	}
 	errs = appendErrors(errs, validateDestinationWeights(tcp.Route))
 	return
 }
 
 func validateTCPMatch(match *networking.L4MatchAttributes) (errs error) {
-	for _, destinationSubnet := range match.DestinationSubnets {
-		errs = appendErrors(errs, ValidateIPv4Subnet(destinationSubnet))
+	if match.DestinationSubnet != "" {
+		errs = appendErrors(errs, ValidateIPv4Subnet(match.DestinationSubnet))
 	}
-
-	if len(match.SourceSubnet) > 0 {
+	if match.SourceSubnet != "" {
 		errs = appendErrors(errs, ValidateIPv4Subnet(match.SourceSubnet))
 	}
 	if match.Port != 0 {
@@ -1694,8 +1646,8 @@ func ValidateServiceEntry(name, namespace string, config proto.Message) (errs er
 	}
 
 	if cidrFound {
-		if serviceEntry.Resolution != networking.ServiceEntry_NONE && serviceEntry.Resolution != networking.ServiceEntry_STATIC {
-			errs = appendErrors(errs, fmt.Errorf("CIDR addresses are allowed only for NONE/STATIC resolution types"))
+		if serviceEntry.Resolution != networking.ServiceEntry_NONE {
+			errs = appendErrors(errs, fmt.Errorf("CIDR addresses are allowed only for NONE resolution types"))
 		}
 	}
 

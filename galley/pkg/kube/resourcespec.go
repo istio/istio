@@ -15,8 +15,6 @@
 package kube
 
 import (
-	"fmt"
-
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	sc "k8s.io/apimachinery/pkg/runtime/schema"
 
@@ -71,9 +69,4 @@ func (i *ResourceSpec) GroupVersion() sc.GroupVersion {
 		Group:   i.Group,
 		Version: i.Version,
 	}
-}
-
-// CanonicalResourceName of the resource.
-func (i *ResourceSpec) CanonicalResourceName() string {
-	return fmt.Sprintf("%s.%s/%s", i.Plural, i.Group, i.Version)
 }

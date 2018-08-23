@@ -1,0 +1,51 @@
+apiVersion: config.istio.io/v1alpha2
+kind: RouteRule
+metadata:
+  name: productpage-default
+spec:
+# Route rules are the same across platforms. The rule files differ in the DNS domain used for the platform.
+  destination:
+    service: productpage.service.consul
+  precedence: 1
+  route:
+  - labels:
+      version: v1
+---
+apiVersion: config.istio.io/v1alpha2
+kind: RouteRule
+metadata:
+  name: reviews-default
+spec:
+# Route rules are the same across platforms. The rule files differ in the DNS domain used for the platform.
+  destination:
+    service: reviews.service.consul
+  precedence: 1
+  route:
+  - labels:
+      version: v1
+---
+apiVersion: config.istio.io/v1alpha2
+kind: RouteRule
+metadata:
+  name: ratings-default
+spec:
+# Route rules are the same across platforms. The rule files differ in the DNS domain used for the platform.
+  destination:
+    service: ratings.service.consul
+  precedence: 1
+  route:
+  - labels:
+      version: v1
+---
+apiVersion: config.istio.io/v1alpha2
+kind: RouteRule
+metadata:
+  name: details-default
+spec:
+# Route rules are the same across platforms. The rule files differ in the DNS domain used for the platform.
+  destination:
+    service: details.service.consul
+  precedence: 1
+  route:
+  - labels:
+      version: v1

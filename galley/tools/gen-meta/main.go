@@ -28,7 +28,7 @@ import (
 
 const usage = `
 
-gen-meta [runtime|kube] <input-yaml-path> <output-go-path>
+gen-meta [runtime|kube] <input-yaml-path> <output-go-path> 
 
 `
 
@@ -38,32 +38,33 @@ var knownProtoTypes = map[string]struct{}{
 
 // metadata is a combination of read and derived metadata.
 type metadata struct {
-	Resources       []*entry   `json:"resources"`
+	Items           []*entry   `json:"items"`
 	ProtoGoPackages []string   `json:"-"`
 	ProtoDefs       []protoDef `json:"-"`
 }
 
 // entry in a metadata file
 type entry struct {
-	Kind           string `json:"kind"`
-	ListKind       string `json:"listKind"`
-	Singular       string `json:"singular"`
-	Plural         string `json:"plural"`
-	Group          string `json:"group"`
-	Version        string `json:"version"`
-	Proto          string `json:"proto"`
-	Converter      string `json:"converter"`
-	ProtoGoPackage string `json:"protoPackage"`
+	Kind      string `json:"kind"`
+	ListKind  string `json:"listKind"`
+	Singular  string `json:"singular"`
+	Plural    string `json:"plural"`
+	Group     string `json:"group"`
+	Version   string `json:"version"`
+	Proto     string `json:"proto"`
+	Gogo      bool   `json:"gogo"`
+	Converter string `json:"converter"`
 }
 
 // proto related metadata
 type protoDef struct {
 	MessageName string `json:"-"`
+	Gogo        bool   `json:"-"`
 }
 
 func main() {
 	if len(os.Args) != 5 {
-		fmt.Print(usage)
+		fmt.Printf(usage)
 		fmt.Printf("%v\n", os.Args)
 		os.Exit(-1)
 	}
@@ -77,7 +78,7 @@ func main() {
 		isRuntime = true
 	default:
 		fmt.Printf("Unknown target: %v", os.Args[2])
-		fmt.Print(usage)
+		fmt.Printf(usage)
 		os.Exit(-1)
 	}
 
@@ -86,7 +87,7 @@ func main() {
 
 	m, err := readMetadata(input)
 	if err != nil {
-		fmt.Printf("Error reading metadata: %v", err)
+		fmt.Printf("%v", err)
 		os.Exit(-2)
 	}
 
@@ -98,12 +99,12 @@ func main() {
 	}
 
 	if err != nil {
-		fmt.Printf("Error applying template: %v", err)
+		fmt.Printf("%v", err)
 		os.Exit(-3)
 	}
 
 	if err = ioutil.WriteFile(output, contents, os.ModePerm); err != nil {
-		fmt.Printf("Error writing output file: %v", err)
+		fmt.Printf("%v", err)
 		os.Exit(-4)
 	}
 }
@@ -121,26 +122,21 @@ func readMetadata(path string) (*metadata, error) {
 	}
 
 	// Auto-complete listkind fields with defaults.
-	for _, item := range m.Resources {
+	for _, item := range m.Items {
 		if item.ListKind == "" {
 			item.ListKind = item.Kind + "List"
 		}
 	}
 
 	// Stable sort based on message name.
-	sort.Slice(m.Resources, func(i, j int) bool {
-		return strings.Compare(m.Resources[i].Proto, m.Resources[j].Proto) < 0
+	sort.Slice(m.Items, func(i, j int) bool {
+		return strings.Compare(m.Items[i].Proto, m.Items[j].Proto) < 0
 	})
 
 	// Calculate the Go packages that needs to be imported for the proto types to be registered.
 	names := make(map[string]struct{})
-	for _, e := range m.Resources {
+	for _, e := range m.Items {
 		if _, found := knownProtoTypes[e.Proto]; e.Proto == "" || found {
-			continue
-		}
-
-		if e.ProtoGoPackage != "" {
-			names[e.ProtoGoPackage] = struct{}{}
 			continue
 		}
 
@@ -161,11 +157,11 @@ func readMetadata(path string) (*metadata, error) {
 	// Calculate the proto types that needs to be handled.
 	// First, single instance the proto definitions.
 	protoDefs := make(map[string]protoDef)
-	for _, e := range m.Resources {
+	for _, e := range m.Items {
 		if _, found := knownProtoTypes[e.Proto]; e.Proto == "" || found {
 			continue
 		}
-		defn := protoDef{MessageName: e.Proto}
+		defn := protoDef{MessageName: e.Proto, Gogo: e.Gogo}
 
 		if prevDefn, ok := protoDefs[e.Proto]; ok && defn != prevDefn {
 			return nil, fmt.Errorf("proto definitions do not match: %+v != %+v", defn, prevDefn)
@@ -188,61 +184,49 @@ func readMetadata(path string) (*metadata, error) {
 const runtimeTemplate = `
 // GENERATED FILE -- DO NOT EDIT
 //
-//go:generate $GOPATH/src/istio.io/istio/galley/tools/gen-meta/gen-meta.sh runtime pkg/metadata/types.go
+//go:generate $GOPATH/src/istio.io/istio/galley/tools/gen-meta/gen-meta.sh runtime pkg/runtime/resource/types.go
 //
 
-package metadata
+package resource
 
 import (
 // Pull in all the known proto types to ensure we get their types registered.
 {{range .ProtoGoPackages}}	_ "{{.}}"
-	"istio.io/istio/galley/pkg/runtime/resource"
 {{end}}
 )
 
 // Types of known resources.
-var Types *resource.Schema
+var Types = NewSchema()
 
 func init() {
-	b := resource.NewSchemaBuilder()
-{{range .ProtoDefs}}	b.Register("type.googleapis.com/{{.MessageName}}")
-{{end}}
-    Types = b.Build()
-}
+{{range .ProtoDefs}}	Types.Register("type.googleapis.com/{{.MessageName}}", {{.Gogo}})
+{{end}}}
 `
 
 const kubeTemplate = `
 // GENERATED FILE -- DO NOT EDIT
 //
-//go:generate $GOPATH/src/istio.io/istio/galley/tools/gen-meta/gen-meta.sh kube pkg/metadata/kube/types.go
+//go:generate $GOPATH/src/istio.io/istio/galley/tools/gen-meta/gen-meta.sh kube pkg/kube/types.go
 //
 
 package kube
 
-import (
-	"istio.io/istio/galley/pkg/kube"
-	"istio.io/istio/galley/pkg/kube/converter"
-	"istio.io/istio/galley/pkg/metadata"
-)
-
 // Types in the schema.
-var Types *kube.Schema
+var Types = Schema{}
 
 func init() {
-	b := kube.NewSchemaBuilder()
-{{range .Resources}}
-	b.Add(kube.ResourceSpec{
+{{range .Items}}
+	Types.add(ResourceSpec{
 		Kind:       "{{.Kind}}",
 		ListKind:   "{{.ListKind}}",
 		Singular:   "{{.Singular}}",
 		Plural:     "{{.Plural}}",
 		Version:    "{{.Version}}",
 		Group:      "{{.Group}}",
-		Target:     metadata.Types.Get("type.googleapis.com/{{.Proto}}"),
+		Target:     getTargetFor("type.googleapis.com/{{.Proto}}"),
 		Converter:  converter.Get("{{ if .Converter }}{{.Converter}}{{ else }}identity{{end}}"),
     })
 {{end}}
-	Types = b.Build()
 }
 `
 

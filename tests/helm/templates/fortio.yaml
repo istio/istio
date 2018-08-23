@@ -8,38 +8,6 @@
 # - fortiov1.test.svc.cluster.local  - service
 # - fortiov2.test.svc.cluster.local  - service
 
-
-# Combines both fortio server instances, using app: fortio label
-apiVersion: v1
-kind: Service
-metadata:
-  name: fortio
-spec:
-  ports:
-  - port: 8080
-    name: http-echo
-  - port: 8079
-    name: grpc-ping
-  selector:
-    app: fortio
----
-
-apiVersion: networking.istio.io/v1alpha3
-kind: VirtualService
-metadata:
-  name: fortio
-spec:
-  hosts:
-  - fortio.{{ .Values.domain }}
-  http:
-  - route:
-    # service selects multiple deployments, has 2 subsets
-    - destination:
-        host: fortio.test.svc.cluster.local
-        port:
-          number: 8080
-
----
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
@@ -53,6 +21,66 @@ spec:
     - name: v2
       labels:
         version: v2
+---
+
+# Combines both fortio server instances, using app: fortio label
+apiVersion: v1
+kind: Service
+metadata:
+  name: fortio
+spec:
+  ports:
+  - port: 8080
+    name: http-echo
+  - port: 8079
+    name: grpc-ping
+  selector:
+    app: fortiosplit
+---
+# Headless version
+apiVersion: v1
+kind: Service
+metadata:
+  name: fortio-headless
+spec:
+  clusterIP: None
+  ports:
+  - port: 8080
+    name: http-echo
+  - port: 8079
+    name: grpc-ping
+  selector:
+    app: fortio-headless
+
+---
+# Only v1
+apiVersion: v1
+kind: Service
+metadata:
+  name: fortiov1
+spec:
+  ports:
+  - port: 8080
+    name: http-echo
+  - port: 8079
+    name: grpc-ping
+  selector:
+    name: fortiov1
+---
+# Only v2
+apiVersion: v1
+kind: Service
+metadata:
+  name: fortiov2
+spec:
+  ports:
+  - port: 8080
+    name: http-echo
+  - port: 8079
+    name: grpc-ping
+  selector:
+    name: fortiov2
+
 ---
 apiVersion: apps/v1beta1
 kind: Deployment
@@ -112,3 +140,24 @@ spec:
           limits:
             cpu: 4000m
             memory: "1G"
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: fortio-headless
+spec:
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: fortio-headless
+    spec:
+      containers:
+      - name: echosrv
+        image: {{ .Values.fortioImage }}
+        ports:
+         - containerPort: 8080
+         - containerPort: 8079
+        args:
+          - server
+---

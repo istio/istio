@@ -3,7 +3,7 @@ binary_path:             "/usr/local/bin/envoy"
 service_cluster:         "istio-proxy"
 drain_duration:          {seconds: 2}
 parent_shutdown_duration: {seconds: 3}
-discovery_address:       "istio-pilot:15010"
+discovery_address:       "istio-pilot:15007"
 discovery_refresh_delay:  {seconds: 1}
 zipkin_address:           ""
 connect_timeout:          {seconds: 1}

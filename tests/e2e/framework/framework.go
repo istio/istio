@@ -95,7 +95,7 @@ func NewCommonConfigWithVersion(testID, version string) (*CommonConfig, error) {
 		return nil, err
 	}
 	cl := new(testCleanup)
-	cl.skipCleanup = os.Getenv("SKIP_CLEANUP") != "" || *skipCleanup
+	cl.skipCleanup = *skipCleanup
 
 	c := &CommonConfig{
 		Info:    t,
@@ -107,7 +107,6 @@ func NewCommonConfigWithVersion(testID, version string) (*CommonConfig, error) {
 	c.Cleanup.RegisterCleanable(c.Kube.Istioctl)
 	c.Cleanup.RegisterCleanable(c.Kube.AppManager)
 	if c.Kube.RemoteKubeConfig != "" {
-		c.Cleanup.RegisterCleanable(c.Kube.RemoteAppManager.istioctl)
 		c.Cleanup.RegisterCleanable(c.Kube.RemoteAppManager)
 	}
 

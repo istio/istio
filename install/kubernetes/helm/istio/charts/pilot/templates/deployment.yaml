@@ -3,11 +3,13 @@ kind: Deployment
 metadata:
   name: istio-pilot
   namespace: {{ .Release.Namespace }}
-  # TODO: default template doesn't have this, which one is right ?
+  # TODO: default tempate doesn't have this, which one is right ?
   labels:
     app: istio-pilot
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
     istio: pilot
-    {{- template "common_labels" . }}
   annotations:
     checksum/config-volume: {{ template "istio.configmap.checksum" . }}
 spec:
@@ -19,12 +21,8 @@ spec:
         app: pilot
       annotations:
         sidecar.istio.io/inject: "false"
-        scheduler.alpha.kubernetes.io/critical-pod: ""
     spec:
       serviceAccountName: istio-pilot-service-account
-{{- if .Values.global.priorityClassName }}
-      priorityClassName: "{{ .Values.global.priorityClassName }}"
-{{- end }}
       containers:
         - name: discovery
 {{- if contains "/" .Values.image }}
@@ -39,21 +37,14 @@ spec:
           - "-a"
           - {{ .Release.Namespace }}
 {{- end }}
-{{- if not .Values.sidecar }}
-          - --secureGrpcAddr
-          - ":15011"
-{{- end }}
           ports:
           - containerPort: 8080
           - containerPort: 15010
-{{- if not .Values.sidecar }}
-          - containerPort: 15011
-{{- end }}
           readinessProbe:
             httpGet:
-              path: /ready
+              path: /v1/registration
               port: 8080
-            initialDelaySeconds: 5
+            initialDelaySeconds: 30
             periodSeconds: 30
             timeoutSeconds: 5
           env:
@@ -71,12 +62,6 @@ spec:
             value: "500"
           - name: PILOT_CACHE_SQUASH
             value: "5"
-          {{- if .Values.env }}
-          {{- range $key, $val := .Values.env }}
-          - name: {{ $key }}
-            value: "{{ $val }}"
-          {{- end }}
-          {{- end }}
 {{- if .Values.traceSampling }}
           - name: PILOT_TRACE_SAMPLING
             value: "{{ .Values.traceSampling }}"
@@ -93,9 +78,8 @@ spec:
           - name: istio-certs
             mountPath: /etc/certs
             readOnly: true
-{{- if .Values.sidecar }}
         - name: istio-proxy
-          image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}"
+          image: "{{ .Values.global.hub }}/proxyv2:{{ .Values.global.tag }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
           - containerPort: 15003
@@ -141,7 +125,6 @@ spec:
           - name: istio-certs
             mountPath: /etc/certs
             readOnly: true
-{{- end }}
       volumes:
       - name: config-volume
         configMap:

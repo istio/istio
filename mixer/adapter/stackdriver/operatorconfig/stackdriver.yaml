@@ -24,16 +24,16 @@ spec:
       # specified by their integer value, not variant name. See
       # https://github.com/googleapis/googleapis/blob/master/google/api/metric.proto
       # MetricKind and ValueType for the values to provide.
-      kind: 3 # CUMULATIVE
+      kind: 2 # DELTA
       value: 2 # INT64
     stackdriverrequestduration.metric.istio-system:
-      kind: 3 # CUMULATIVE
+      kind: 2 # DELTA
       value: 5 # DISTRIBUTION
       buckets:
         explicit_buckets:
           bounds: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10]
     stackdriverrequestsize.metric.istio-system:
-      kind: 3 # CUMULATIVE
+      kind: 2 # DELTA
       value: 5 # DISTRIBUTION
       buckets:
         exponentialBuckets:
@@ -41,7 +41,7 @@ spec:
           scale: 1
           growthFactor: 10
     stackdriverresponsesize.metric.istio-system:
-      kind: 3 # CUMULATIVE
+      kind: 2 # DELTA
       value: 5 # DISTRIBUTION
       buckets:
         exponentialBuckets:

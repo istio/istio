@@ -86,7 +86,7 @@ type IstioCA struct {
 }
 
 // NewSelfSignedIstioCAOptions returns a new IstioCAOptions instance using self-signed certificate.
-func NewSelfSignedIstioCAOptions(caCertTTL, certTTL, maxCertTTL time.Duration, org string, dualUse bool,
+func NewSelfSignedIstioCAOptions(caCertTTL, certTTL, maxCertTTL time.Duration, org string,
 	namespace string, core corev1.SecretsGetter) (caOpts *IstioCAOptions, err error) {
 	// For the first time the CA is up, it generates a self-signed key/cert pair and write it to
 	// cASecret. For subsequent restart, CA will reads key/cert from cASecret.
@@ -105,7 +105,6 @@ func NewSelfSignedIstioCAOptions(caCertTTL, certTTL, maxCertTTL time.Duration, o
 			IsCA:         true,
 			IsSelfSigned: true,
 			RSAKeySize:   caKeySize,
-			IsDualUse:    dualUse,
 		}
 		pemCert, pemKey, ckErr := util.GenCertKeyFromOptions(options)
 		if ckErr != nil {

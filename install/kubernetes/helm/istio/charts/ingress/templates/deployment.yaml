@@ -5,8 +5,10 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "istio.name" . }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
     istio: ingress
-    {{- template "common_labels" . }}
 spec:
   replicas: {{ .Values.replicaCount }}
   template:
@@ -15,15 +17,11 @@ spec:
         istio: ingress
       annotations:
         sidecar.istio.io/inject: "false"
-        scheduler.alpha.kubernetes.io/critical-pod: ""
     spec:
       serviceAccountName: istio-ingress-service-account
-{{- if .Values.global.priorityClassName }}
-      priorityClassName: "{{ .Values.global.priorityClassName }}"
-{{- end }}
       containers:
         - name: {{ template "istio.name" . }}
-          image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}"
+          image: "{{ .Values.global.hub }}/proxyv2:{{ .Values.global.tag }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
             - containerPort: 80
@@ -31,8 +29,8 @@ spec:
           args:
           - proxy
           - ingress
-          - --log_output_level
-          - 'info'
+          - -v
+          - "2"
           - --discoveryRefreshDelay
           - '1s' #discoveryRefreshDelay
           - --drainDuration
@@ -55,12 +53,12 @@ spec:
           - --controlPlaneAuthPolicy
           - MUTUAL_TLS
           - --discoveryAddress
-          - istio-pilot:15011
+          - istio-pilot:15005
         {{- else }}
           - --controlPlaneAuthPolicy
           - NONE
           - --discoveryAddress
-          - istio-pilot:15010
+          - istio-pilot:8080
         {{- end }}
           resources:
 {{- if .Values.resources }}

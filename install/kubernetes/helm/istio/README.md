@@ -47,16 +47,7 @@ $ kubectl apply -f install/kubernetes/helm/helm-service-account.yaml
 $ helm init --service-account tiller
 ```
 
-3. Install Istio’s [Custom Resource Definitions](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/#customresourcedefinitions) via `kubectl apply`, and wait a few seconds for the CRDs to be committed in the kube-apiserver:
-   ```
-   $ kubectl apply -f install/kubernetes/helm/istio/templates/crds.yaml
-   ```
-   **Note**: If you are enabling `certmanager`, you also need to install its CRDs and wait a few seconds for the CRDs to be committed in the kube-apiserver:
-   ```
-   $ kubectl apply -f install/kubernetes/helm/istio/charts/certmanager/templates/crds.yaml
-   ```
-
-4. To install the chart with the release name `istio` in namespace `istio-system`:
+3. To install the chart with the release name `istio` in namespace `istio-system`:
     - With [automatic sidecar injection](https://istio.io/docs/setup/kubernetes/sidecar-injection/#automatic-sidecar-injection) (requires Kubernetes >=1.9.0):
     ```
     $ helm install install/kubernetes/helm/istio --name istio --namespace istio-system
@@ -95,8 +86,6 @@ Helm charts expose configuration options which are currently in alpha.  The curr
 | `mixer.enabled` | Specifies whether Mixer should be installed | true/false | `true` |
 | `pilot.enabled` | Specifies whether Pilot should be installed | true/false | `true` |
 | `grafana.enabled` | Specifies whether Grafana addon should be installed | true/false | `false` |
-| `grafana.persist` | Specifies whether Grafana addon should persist config data | true/false | `false` |
-| `grafana.storageClassName` | If `grafana.persist` is true, specifies the [`StorageClass`](https://kubernetes.io/docs/concepts/storage/storage-classes/) to use for the `PersistentVolumeClaim` | `StorageClass` | "" |
 | `prometheus.enabled` | Specifies whether Prometheus addon should be installed | true/false | `true` |
 | `servicegraph.enabled` | Specifies whether Servicegraph addon should be installed | true/false | `false` |
 | `tracing.enabled` | Specifies whether Tracing(jaeger) addon should be installed | true/false | `false` |

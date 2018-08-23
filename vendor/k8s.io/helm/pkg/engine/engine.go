@@ -196,7 +196,7 @@ func (e *Engine) alterFuncMap(t *template.Template) template.FuncMap {
 }
 
 // render takes a map of templates/values and renders them.
-func (e *Engine) render(tpls map[string]renderable) (rendered map[string]string, err error) {
+func (e *Engine) render(tpls map[string]renderable) (map[string]string, error) {
 	// Basically, what we do here is start with an empty parent template and then
 	// build up a list of templates -- one for each file. Once all of the templates
 	// have been parsed, we loop through again and execute every template.
@@ -204,11 +204,6 @@ func (e *Engine) render(tpls map[string]renderable) (rendered map[string]string,
 	// The idea with this process is to make it possible for more complex templates
 	// to share common blocks, but to make the entire thing feel like a file-based
 	// template engine.
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("rendering template failed: %v", r)
-		}
-	}()
 	t := template.New("gotpl")
 	if e.Strict {
 		t.Option("missingkey=error")
@@ -246,7 +241,7 @@ func (e *Engine) render(tpls map[string]renderable) (rendered map[string]string,
 		}
 	}
 
-	rendered = make(map[string]string, len(files))
+	rendered := make(map[string]string, len(files))
 	var buf bytes.Buffer
 	for _, file := range files {
 		// Don't render partials. We don't care out the direct output of partials.

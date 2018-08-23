@@ -16,7 +16,6 @@ package config
 
 import (
 	"istio.io/istio/mixer/pkg/config/crd"
-	"istio.io/istio/mixer/pkg/config/mcp"
 	"istio.io/istio/mixer/pkg/config/store"
 )
 
@@ -24,6 +23,5 @@ import (
 func StoreInventory() []store.RegisterFunc {
 	return []store.RegisterFunc{
 		crd.Register,
-		mcp.Register,
 	}
 }

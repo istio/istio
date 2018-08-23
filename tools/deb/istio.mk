@@ -35,7 +35,6 @@ $(foreach DEP,$(SIDECAR_DEB_DEPS),\
         $(eval SIDECAR_FILES+=$(subst $(GO_TOP)/,,$(ISTIO_OUT))/$(DEP)=$(ISTIO_DEB_BIN)/$(DEP)) )
 
 ISTIO_DEB_DEST:=${ISTIO_DEB_BIN}/istio-start.sh \
-		${ISTIO_DEB_BIN}/istio-node-agent-start.sh \
 		${ISTIO_DEB_BIN}/istio-iptables.sh \
 		/lib/systemd/system/istio.service \
 		/lib/systemd/system/istio-auth-node-agent.service \

@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"strings"
 	"sync"
-	"time"
 
 	multierror "github.com/hashicorp/go-multierror"
 
@@ -47,11 +46,6 @@ func (m *Memstore) Stop() {
 
 // Init implements store.Backend interface.
 func (m *Memstore) Init(kinds []string) error {
-	return nil
-}
-
-// WaitForSynced implements store.Backend interface
-func (m *Memstore) WaitForSynced(time.Duration) error {
 	return nil
 }
 

@@ -19,9 +19,6 @@ import (
 	"net/url"
 	"reflect"
 	"testing"
-	"time"
-
-	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/gogo/protobuf/proto"
 
@@ -50,10 +47,6 @@ func (t *testStore) Init(kinds []string) error {
 	return t.initErr
 }
 
-func (t *testStore) WaitForSynced(time.Duration) error {
-	return nil
-}
-
 func (t *testStore) Get(key Key) (*BackEndResource, error) {
 	t.calledKey = key
 	return t.getResponse, t.getError
@@ -79,7 +72,7 @@ func newTestBackend() *testStore {
 }
 
 func registerTestStore(builders map[string]Builder) {
-	builders["test"] = func(u *url.URL, gv *schema.GroupVersion) (Backend, error) {
+	builders["test"] = func(u *url.URL) (Backend, error) {
 		return newTestBackend(), nil
 	}
 }
@@ -214,7 +207,6 @@ func TestStoreFail(t *testing.T) {
 }
 
 func TestRegistry(t *testing.T) {
-	groupVersion := &schema.GroupVersion{Group: "config.istio.io", Version: "v1alpha2"}
 	r := NewRegistry(registerTestStore)
 	for _, c := range []struct {
 		u  string
@@ -226,7 +218,7 @@ func TestRegistry(t *testing.T) {
 		{"://", false},
 		{"test://", true},
 	} {
-		_, err := r.NewStore(c.u, groupVersion)
+		_, err := r.NewStore(c.u)
 		ok := err == nil
 		if ok != c.ok {
 			t.Errorf("Want %v, Got %v, Err %v", c.ok, ok, err)

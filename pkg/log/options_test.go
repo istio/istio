@@ -272,6 +272,66 @@ func TestOpts(t *testing.T) {
 			RotationMaxBackups: 1234,
 			LogGrpc:            true,
 		}},
+
+		// legacy, has no effect
+		{"--v 2", Options{
+			OutputPaths:        []string{defaultOutputPath},
+			ErrorOutputPaths:   []string{defaultErrorOutputPath},
+			outputLevels:       DefaultScopeName + ":" + levelToString[defaultOutputLevel],
+			stackTraceLevels:   DefaultScopeName + ":" + levelToString[defaultStackTraceLevel],
+			RotationMaxAge:     defaultRotationMaxAge,
+			RotationMaxSize:    defaultRotationMaxSize,
+			RotationMaxBackups: defaultRotationMaxBackups,
+			LogGrpc:            true,
+		}},
+
+		// legacy, has no effect
+		{"-v 2", Options{
+			OutputPaths:        []string{defaultOutputPath},
+			ErrorOutputPaths:   []string{defaultErrorOutputPath},
+			outputLevels:       DefaultScopeName + ":" + levelToString[defaultOutputLevel],
+			stackTraceLevels:   DefaultScopeName + ":" + levelToString[defaultStackTraceLevel],
+			RotationMaxAge:     defaultRotationMaxAge,
+			RotationMaxSize:    defaultRotationMaxSize,
+			RotationMaxBackups: defaultRotationMaxBackups,
+			LogGrpc:            true,
+		}},
+
+		// legacy, has no effect
+		{"--stderrthreshold 2", Options{
+			OutputPaths:        []string{defaultOutputPath},
+			ErrorOutputPaths:   []string{defaultErrorOutputPath},
+			outputLevels:       DefaultScopeName + ":" + levelToString[defaultOutputLevel],
+			stackTraceLevels:   DefaultScopeName + ":" + levelToString[defaultStackTraceLevel],
+			RotationMaxAge:     defaultRotationMaxAge,
+			RotationMaxSize:    defaultRotationMaxSize,
+			RotationMaxBackups: defaultRotationMaxBackups,
+			LogGrpc:            true,
+		}},
+
+		// legacy, has no effect
+		{"--logtostderr", Options{
+			OutputPaths:        []string{defaultOutputPath},
+			ErrorOutputPaths:   []string{defaultErrorOutputPath},
+			outputLevels:       DefaultScopeName + ":" + levelToString[defaultOutputLevel],
+			stackTraceLevels:   DefaultScopeName + ":" + levelToString[defaultStackTraceLevel],
+			RotationMaxAge:     defaultRotationMaxAge,
+			RotationMaxSize:    defaultRotationMaxSize,
+			RotationMaxBackups: defaultRotationMaxBackups,
+			LogGrpc:            true,
+		}},
+
+		// legacy, has no effect
+		{"--alsologtostderr", Options{
+			OutputPaths:        []string{defaultOutputPath},
+			ErrorOutputPaths:   []string{defaultErrorOutputPath},
+			outputLevels:       DefaultScopeName + ":" + levelToString[defaultOutputLevel],
+			stackTraceLevels:   DefaultScopeName + ":" + levelToString[defaultStackTraceLevel],
+			RotationMaxAge:     defaultRotationMaxAge,
+			RotationMaxSize:    defaultRotationMaxSize,
+			RotationMaxBackups: defaultRotationMaxBackups,
+			LogGrpc:            true,
+		}},
 	}
 
 	for j := 0; j < 2; j++ {

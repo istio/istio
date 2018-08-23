@@ -44,11 +44,11 @@ $(ISTIO_DOCKER)/js $(ISTIO_DOCKER)/force: addons/servicegraph/$$(notdir $$@) | $
 $(ISTIO_DOCKER)/istio_ca.crt $(ISTIO_DOCKER)/istio_ca.key: ${GEN_CERT} | ${ISTIO_DOCKER}
 	${GEN_CERT} --key-size=2048 --out-cert=${ISTIO_DOCKER}/istio_ca.crt \
                     --out-priv=${ISTIO_DOCKER}/istio_ca.key --organization="k8s.cluster.local" \
-                    --mode=self-signed --ca=true
+                    --self-signed=true --ca=true
 $(ISTIO_DOCKER)/node_agent.crt $(ISTIO_DOCKER)/node_agent.key: ${GEN_CERT} $(ISTIO_DOCKER)/istio_ca.crt $(ISTIO_DOCKER)/istio_ca.key
 	${GEN_CERT} --key-size=2048 --out-cert=${ISTIO_DOCKER}/node_agent.crt \
                     --out-priv=${ISTIO_DOCKER}/node_agent.key --organization="NodeAgent" \
-										--mode=signer --host="nodeagent.google.com" --signer-cert=${ISTIO_DOCKER}/istio_ca.crt \
+                    --host="nodeagent.google.com" --signer-cert=${ISTIO_DOCKER}/istio_ca.crt \
                     --signer-priv=${ISTIO_DOCKER}/istio_ca.key
 
 # directives to copy files to docker scratch directory

@@ -25,8 +25,7 @@ set -o pipefail
 set -x
 
 SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
-# shellcheck source=release/gcb_build_lib.sh
-source "${SCRIPTPATH}/gcb_build_lib.sh"
+source ${SCRIPTPATH}/gcb_build_lib.sh
 
 PROJECT_ID=""
 KEY_FILE_PATH=""
@@ -89,7 +88,7 @@ if [[ -z "${SVC_ACCT}"  ]]; then
 fi
 
 # generate the substitutions file
-cat << EOF > "${SUBS_FILE}"
+cat << EOF > ${SUBS_FILE}
   "substitutions": {
     "_VER_STRING": "${VER_STRING}",
     "_MFEST_URL": "${REPO}",
@@ -100,9 +99,9 @@ cat << EOF > "${SUBS_FILE}"
   }
 EOF
 
-run_build "cloud_build.template.json" \
+run_build "${REPO}" "${REPO_FILE}" "${REPO_FILE_VER}" "cloud_build.template.json" \
   "${SUBS_FILE}" "${PROJECT_ID}" "${SVC_ACCT}" "${KEY_FILE_PATH}" "${WAIT_FOR_RESULT}"
 
 # cleanup
 rm -f "${SUBS_FILE}"
-exit "$BUILD_FAILED"
+exit $BUILD_FAILED

@@ -15,8 +15,6 @@
 package v1alpha3
 
 import (
-	"strings"
-
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
@@ -76,187 +74,82 @@ func getVirtualServiceForHost(host model.Hostname, configs []model.Config) *v1al
 	return nil
 }
 
-// hashRuntimeTLSMatchPredicates hashes runtime predicates of a TLS match
-func hashRuntimeTLSMatchPredicates(match *v1alpha3.TLSMatchAttributes) string {
-	return strings.Join(match.SniHosts, ",") + "|" + strings.Join(match.DestinationSubnets, ",")
-}
-
-func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushContext, destinationIPAddress string,
-	service *model.Service, listenPort *model.Port, proxyLabels model.LabelsCollection,
-	gateways map[string]bool, virtualService *v1alpha3.VirtualService) []*filterChainOpts {
-
-	if !listenPort.Protocol.IsTLS() {
-		return nil
-	}
-
-	// TLS matches are composed of runtime and static predicates.
-	// Static predicates can be evaluated during the generation of the config. Examples: gateway, source labels, etc.
-	// Runtime predicates cannot be evaluated during config generation. Instead the proxy must be configured to
-	// evaluate them. Examples: SNI hosts, source/destination subnets, etc.
-	//
-	// A list of matches may contain duplicate runtime matches, but different static matches. For example:
-	//
-	// {sni_hosts: A, sourceLabels: X} => destination M
-	// {sni_hosts: A, sourceLabels: *} => destination N
-	//
-	// For a proxy with labels X, we can evaluate the static predicates to get:
-	// {sni_hosts: A} => destination M
-	// {sni_hosts: A} => destination N
-	//
-	// The matches have the same runtime predicates. Since the second match can never be reached, we only
-	// want to generate config for the first match.
-	//
-	// To achieve this in this function we keep track of which runtime matches we have already generated config for
-	// and only add config if the we have not already generated config for that set of runtime predicates.
-	matchHasBeenHandled := make(map[string]bool) // Runtime predicate set -> have we generated config for this set?
-
-	// Is there a virtual service with a TLS block that matches us?
-	hasTLSMatch := false
+func buildOutboundTCPFilterChainOpts(env model.Environment, configs []model.Config, addresses []string,
+	service *model.Service, listenPort *model.Port, proxyLabels model.LabelsCollection, gateways map[string]bool) []*filterChainOpts {
 
 	out := make([]*filterChainOpts, 0)
+	defaultRouteAdded := false
+	virtualService := getVirtualServiceForHost(service.Hostname, configs)
+	// Ports marked as TLS will have SNI routing if and only if they have an accompanying
+	// virtual service for the same host, and the said virtual service has a TLS route block.
+	// Otherwise we treat ports marked as TLS as opaque TCP services, subject to same port
+	// collision handling.
 	if virtualService != nil {
-		// Ports marked as TLS will have SNI routing if and only if they have an accompanying
-		// virtual service for the same host, and the said virtual service has a TLS route block.
-		// Otherwise we treat ports marked as TLS as opaque TCP services.
+		// TODO: Make SNI compatible with RBAC. Deprecated tcp route configs are incompatible with SNI.
+		// RBAC requires deprecated tcp route configs, so RBAC is incompatible with SNI.
 		for _, tls := range virtualService.Tls {
 			// since we don't support weighted destinations yet there can only be exactly 1 destination
 			dest := tls.Route[0].Destination
-			destSvc, present := push.ServiceByHostname[model.Hostname(dest.Host)]
-			if !present {
-				log.Debugf("service %q does not exist in the registry", dest.Host)
+			destSvc, err := env.GetService(model.Hostname(dest.Host))
+			if err != nil {
+				log.Debugf("failed to retrieve service for destination %q: %v", service.Hostname, err)
 				continue
 			}
 			clusterName := istio_route.GetDestinationCluster(dest, destSvc, listenPort.Port)
 			for _, match := range tls.Match {
 				if matchTLS(match, proxyLabels, gateways, listenPort.Port) {
-					// Use the service's virtual address first.
-					// But if a virtual service overrides it with its own destination subnet match
-					// give preference to the user provided one
-					destinationCIDRs := []string{destinationIPAddress}
-					if len(match.DestinationSubnets) > 0 {
-						destinationCIDRs = match.DestinationSubnets
-					}
-					matchHash := hashRuntimeTLSMatchPredicates(match)
-					if !matchHasBeenHandled[matchHash] {
-						out = append(out, &filterChainOpts{
-							sniHosts:         match.SniHosts,
-							destinationCIDRs: destinationCIDRs,
-							networkFilters: buildOutboundNetworkFilters(
-								node, clusterName, destinationIPAddress, listenPort),
-						})
-						hasTLSMatch = true
-					}
-					matchHasBeenHandled[matchHash] = true
+					out = append(out, &filterChainOpts{
+						sniHosts: match.SniHosts,
+						// Do not add addresses here. Since we do filter chain match based on SNI
+						// and have multiple filter chains on a wildcard listener, each with
+						// a SNI match
+						networkFilters: buildOutboundNetworkFilters(clusterName, addresses, listenPort),
+					})
 				}
 			}
 		}
-	}
 
-	// HTTPS or TLS ports without associated virtual service will be treated as opaque TCP traffic.
-	if !hasTLSMatch {
-		clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, int(listenPort.Port))
-		out = append(out, &filterChainOpts{
-			destinationCIDRs: []string{destinationIPAddress},
-			networkFilters:   buildOutboundNetworkFilters(node, clusterName, destinationIPAddress, listenPort),
-		})
-	}
-
-	return out
-}
-
-func buildSidecarOutboundTCPFilterChainOpts(node *model.Proxy, push *model.PushContext, destinationIPAddress string,
-	service *model.Service, listenPort *model.Port, proxyLabels model.LabelsCollection,
-	gateways map[string]bool, virtualService *v1alpha3.VirtualService) []*filterChainOpts {
-
-	if listenPort.Protocol.IsTLS() {
-		return nil
-	}
-
-	out := make([]*filterChainOpts, 0)
-
-	// very basic TCP
-	// break as soon as we add one network filter with no destination addresses to match
-	// This is the terminating condition in the filter chain match list
-	defaultRouteAdded := false
-	if virtualService != nil {
+		// very basic TCP (no L4 matching)
+		// break as soon as we add one network filter with no SNI match.
+		// This is the terminating condition in the filter chain match list
+		// TODO: rbac
 	TcpLoop:
 		for _, tcp := range virtualService.Tcp {
 			// since we don't support weighted destinations yet there can only be exactly 1 destination
 			dest := tcp.Route[0].Destination
-			destSvc, present := push.ServiceByHostname[model.Hostname(dest.Host)]
-			if !present {
-				log.Debugf("service %q does not exist in the registry", dest.Host)
+			destSvc, err := env.GetService(model.Hostname(dest.Host))
+			if err != nil {
+				log.Debugf("failed to retrieve service for destination %q: %v", service.Hostname, err)
 				continue
 			}
 			clusterName := istio_route.GetDestinationCluster(dest, destSvc, listenPort.Port)
-			destinationCIDRs := []string{destinationIPAddress}
-
-			if len(tcp.Match) == 0 {
-				// implicit match
+			if len(tcp.Match) == 0 { // implicit match
 				out = append(out, &filterChainOpts{
-					destinationCIDRs: destinationCIDRs,
-					networkFilters:   buildOutboundNetworkFilters(node, clusterName, destinationIPAddress, listenPort),
+					networkFilters: buildOutboundNetworkFilters(clusterName, addresses, listenPort),
 				})
 				defaultRouteAdded = true
 				break TcpLoop
 			}
-
-			// Use the service's virtual address first.
-			// But if a virtual service overrides it with its own destination subnet match
-			// give preference to the user provided one
-			virtualServiceDestinationSubnets := make([]string, 0)
-
 			for _, match := range tcp.Match {
+				// In future, when we add proper support for src/dst IP matching in listener,
+				// we won't break out of the loop here.
 				if matchTCP(match, proxyLabels, gateways, listenPort.Port) {
-					// Scan all the match blocks
-					// if we find any match block without a runtime destination subnet match
-					// i.e. match any destination address, then we treat it as the terminal match/catch all match
-					// and break out of the loop.
-					// But if we find only runtime destination subnet matches in all match blocks, collect them
-					// (this is similar to virtual hosts in http) and create filter chain match accordingly.
-					if len(match.DestinationSubnets) == 0 {
-						out = append(out, &filterChainOpts{
-							destinationCIDRs: destinationCIDRs,
-							networkFilters:   buildOutboundNetworkFilters(node, clusterName, destinationIPAddress, listenPort),
-						})
-						defaultRouteAdded = true
-						break TcpLoop
-					} else {
-						virtualServiceDestinationSubnets = append(virtualServiceDestinationSubnets, match.DestinationSubnets...)
-					}
+					out = append(out, &filterChainOpts{
+						networkFilters: buildOutboundNetworkFilters(clusterName, addresses, listenPort),
+					})
+					break TcpLoop
 				}
-			}
-
-			if len(virtualServiceDestinationSubnets) > 0 {
-				out = append(out, &filterChainOpts{
-					destinationCIDRs: virtualServiceDestinationSubnets,
-					networkFilters:   buildOutboundNetworkFilters(node, clusterName, "", listenPort),
-				})
 			}
 		}
 	}
 
+	// Add a default TCP route
 	if !defaultRouteAdded {
 		clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, int(listenPort.Port))
 		out = append(out, &filterChainOpts{
-			destinationCIDRs: []string{destinationIPAddress},
-			networkFilters:   buildOutboundNetworkFilters(node, clusterName, destinationIPAddress, listenPort),
+			networkFilters: buildOutboundNetworkFilters(clusterName, addresses, listenPort),
 		})
 	}
-
-	return out
-}
-
-func buildSidecarOutboundTCPTLSFilterChainOpts(node *model.Proxy, push *model.PushContext, configs []model.Config, destinationIPAddress string,
-	service *model.Service, listenPort *model.Port, proxyLabels model.LabelsCollection, gateways map[string]bool) []*filterChainOpts {
-
-	virtualService := getVirtualServiceForHost(service.Hostname, configs)
-
-	out := make([]*filterChainOpts, 0)
-	out = append(out, buildSidecarOutboundTLSFilterChainOpts(node, push, destinationIPAddress, service, listenPort,
-		proxyLabels, gateways, virtualService)...)
-	out = append(out, buildSidecarOutboundTCPFilterChainOpts(node, push, destinationIPAddress, service, listenPort,
-		proxyLabels, gateways, virtualService)...)
 
 	return out
 }

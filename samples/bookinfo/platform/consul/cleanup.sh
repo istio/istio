@@ -19,7 +19,7 @@ SCRIPTDIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 # only ask if in interactive mode
 if [[ -t 0 ]];then
   echo -n "namespace ? [default] "
-  read -r NAMESPACE
+  read NAMESPACE
 fi
 
 if [[ -z ${NAMESPACE} ]];then
@@ -28,33 +28,32 @@ fi
 
 echo "using NAMESPACE=${NAMESPACE}"
 
-protos=( destinationrules virtualservices gateways )
+protos=( routerules destinationrules virtualservices gateways )
 for proto in "${protos[@]}"; do
-  for resource in $(istioctl get -n ${NAMESPACE} "$proto" | awk 'NR>1{print $1}'); do
-    istioctl delete -n ${NAMESPACE} "$proto" "$resource";
+  for resource in $(istioctl get -n ${NAMESPACE} $proto | awk 'NR>1{print $1}'); do
+    istioctl delete -n ${NAMESPACE} $proto $resource;
   done
 done
 #istioctl delete mixer-rule ratings-ratelimit
 
-OUTPUT=$(mktemp)
-export OUTPUT
+export OUTPUT=$(mktemp)
 echo "Application cleanup may take up to one minute"
-docker-compose -f "$SCRIPTDIR/bookinfo.sidecars.yaml" down > "${OUTPUT}" 2>&1
-docker-compose -f "$SCRIPTDIR/bookinfo.yaml" down > "${OUTPUT}" 2>&1
+docker-compose -f $SCRIPTDIR/bookinfo.sidecars.yaml down > ${OUTPUT} 2>&1
+docker-compose -f $SCRIPTDIR/bookinfo.yaml down > ${OUTPUT} 2>&1
 ret=$?
 function cleanup() {
-  rm -f "${OUTPUT}"
+  rm -f ${OUTPUT}
 }
 
 trap cleanup EXIT
 
 if [[ ${ret} -eq 0 ]];then
-  cat "${OUTPUT}"
+  cat ${OUTPUT}
 else
   # ignore NotFound errors
-  OUT2=$(grep -v NotFound "${OUTPUT}")
+  OUT2=$(grep -v NotFound ${OUTPUT})
   if [[ ! -z ${OUT2} ]];then
-    cat "${OUTPUT}"
+    cat ${OUTPUT}
     exit ${ret}
   fi
 fi

@@ -19,9 +19,6 @@ import (
 	"fmt"
 	"net/url"
 	"sync"
-	"time"
-
-	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/gogo/protobuf/proto"
 
@@ -119,9 +116,6 @@ type Backend interface {
 
 	Stop()
 
-	// WaitForSynced blocks and awaits for the caches to be fully populated until timeout.
-	WaitForSynced(time.Duration) error
-
 	// Watch creates a channel to receive the events.
 	Watch() (<-chan BackendEvent, error)
 
@@ -137,9 +131,6 @@ type Store interface {
 	Init(kinds map[string]proto.Message) error
 
 	Stop()
-
-	// WaitForSynced blocks and awaits for the caches to be fully populated until timeout.
-	WaitForSynced(time.Duration) error
 
 	// Watch creates a channel to receive the events. A store can conduct a single
 	// watch channel at the same time. Multiple calls lead to an error.
@@ -191,13 +182,6 @@ func (s *store) Init(kinds map[string]proto.Message) error {
 	}
 	s.kinds = kinds
 	return nil
-}
-
-// WaitForSynced awaits for the backend to sync.
-func (s *store) WaitForSynced(timeout time.Duration) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.backend.WaitForSynced(timeout)
 }
 
 // Watch creates a channel to receive the events.
@@ -262,7 +246,7 @@ func WithBackend(b Backend) Store {
 }
 
 // Builder is the type of function to build a Backend.
-type Builder func(u *url.URL, gv *schema.GroupVersion) (Backend, error)
+type Builder func(u *url.URL) (Backend, error)
 
 // RegisterFunc is the type to register a builder for URL scheme.
 type RegisterFunc func(map[string]Builder)
@@ -289,7 +273,7 @@ const (
 )
 
 // NewStore creates a new Store instance with the specified backend.
-func (r *Registry) NewStore(configURL string, groupVersion *schema.GroupVersion) (Store, error) {
+func (r *Registry) NewStore(configURL string) (Store, error) {
 	u, err := url.Parse(configURL)
 
 	if err != nil {
@@ -302,7 +286,7 @@ func (r *Registry) NewStore(configURL string, groupVersion *schema.GroupVersion)
 		b = newFsStore(u.Path)
 	default:
 		if builder, ok := r.builders[u.Scheme]; ok {
-			b, err = builder(u, groupVersion)
+			b, err = builder(u)
 			if err != nil {
 				return nil, err
 			}
