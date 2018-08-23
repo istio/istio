@@ -21,8 +21,6 @@ import (
 
 	"time"
 
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
@@ -37,7 +35,7 @@ func createServiceEntries(serviceEntries []*networking.ServiceEntry, store model
 				Name:              svc.Hosts[0],
 				Namespace:         "default",
 				Domain:            "cluster.local",
-				CreationTimestamp: meta_v1.Time{creationTime},
+				CreationTimestamp: creationTime,
 			},
 			Spec: svc,
 		}
@@ -197,7 +195,7 @@ func TestNonServiceConfig(t *testing.T) {
 			Name:              "fakeDestinationRule",
 			Namespace:         "default",
 			Domain:            "cluster.local",
-			CreationTimestamp: meta_v1.Time{tnow},
+			CreationTimestamp: tnow,
 		},
 		Spec: &networking.DestinationRule{
 			Host: "fakehost",
