@@ -258,7 +258,9 @@ func (h handler) HandleSampleCheck(ctx context.Context, instance *checkTmpl.Inst
 	return h.behavior.HandleSampleCheckResult, h.behavior.HandleSampleCheckErr
 }
 
-func (h handler) HandleCheckProducer(ctx context.Context, instance *checkOutputTmpl.Instance) (adapter.CheckResult, *checkOutputTmpl.CheckProducerOutput, error) {
+func (h handler) HandleCheckProducer(
+	ctx context.Context,
+	instance *checkOutputTmpl.Instance) (adapter.CheckResult, *checkOutputTmpl.CheckProducerOutput, error) {
 	c := CapturedCall{
 		Name:      "HandleCheckProducer",
 		Instances: []interface{}{instance},
