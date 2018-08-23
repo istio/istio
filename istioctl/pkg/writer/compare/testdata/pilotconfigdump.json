@@ -5,6 +5,37 @@
             "bootstrap": {}
         },
         {
+            "@type": "type.googleapis.com/envoy.admin.v2alpha.ClustersConfigDump",
+            "versionInfo": "2018-05-29 20:35:10.051043472 +0000 UTC m=+615.036247510",
+            "dynamicActiveClusters": [
+                {
+                    "versionInfo": "2018-05-29 20:34:37.15936519 +0000 UTC m=+582.144569116",
+                    "cluster": {
+                        "name": "outbound|15004||istio-policy.istio-system.svc.cluster.local",
+                        "type": "EDS",
+                        "edsClusterConfig": {
+                            "edsConfig": {
+                                "ads": {}
+                            },
+                            "serviceName": "outbound|15004||istio-policy.istio-system.svc.cluster.local"
+                        },
+                        "connectTimeout": "1s",
+                        "maxRequestsPerConnection": 10000,
+                        "circuitBreakers": {
+                            "thresholds": [
+                                {
+                                    "maxRequests": 10000
+                                }
+                            ]
+                        },
+                        "http2ProtocolOptions": {
+                            "maxConcurrentStreams": 1073741824
+                        }
+                    }
+                }
+            ]
+        },
+        {
             "@type": "type.googleapis.com/envoy.admin.v2alpha.ListenersConfigDump",
             "versionInfo": "2018-05-29 20:35:10.051043472 +0000 UTC m=+615.036247510",
             "dynamicActiveListeners": [
@@ -226,37 +257,6 @@
                         ],
                         "deprecatedV1": {
                             "bindToPort": false
-                        }
-                    }
-                }
-            ]
-        },
-        {
-            "@type": "type.googleapis.com/envoy.admin.v2alpha.ClustersConfigDump",
-            "versionInfo": "2018-05-29 20:35:10.051043472 +0000 UTC m=+615.036247510",
-            "dynamicActiveClusters": [
-                {
-                    "versionInfo": "2018-05-29 20:34:37.15936519 +0000 UTC m=+582.144569116",
-                    "cluster": {
-                        "name": "outbound|15004||istio-policy.istio-system.svc.cluster.local",
-                        "type": "EDS",
-                        "edsClusterConfig": {
-                            "edsConfig": {
-                                "ads": {}
-                            },
-                            "serviceName": "outbound|15004||istio-policy.istio-system.svc.cluster.local"
-                        },
-                        "connectTimeout": "1s",
-                        "maxRequestsPerConnection": 10000,
-                        "circuitBreakers": {
-                            "thresholds": [
-                                {
-                                    "maxRequests": 10000
-                                }
-                            ]
-                        },
-                        "http2ProtocolOptions": {
-                            "maxConcurrentStreams": 1073741824
                         }
                     }
                 }

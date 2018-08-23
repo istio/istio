@@ -43,10 +43,12 @@ func (w *Wrapper) GetDynamicListenerDump(stripVersions bool) (*adminapi.Listener
 
 // GetListenerConfigDump retrieves the listener config dump from the ConfigDump
 func (w *Wrapper) GetListenerConfigDump() (*adminapi.ListenersConfigDump, error) {
-	if w.Configs == nil || len(w.Configs) < 2 {
+	// The listener dump is the third one in the list.
+	// See https://www.envoyproxy.io/docs/envoy/latest/api-v2/admin/v2alpha/config_dump.proto
+	if len(w.Configs) < 3 {
 		return nil, fmt.Errorf("config dump has no listener dump")
 	}
-	listenerDumpAny := w.Configs[1]
+	listenerDumpAny := w.Configs[2]
 	listenerDump := &adminapi.ListenersConfigDump{}
 	err := proto.UnmarshalAny(&listenerDumpAny, listenerDump)
 	if err != nil {

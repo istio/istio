@@ -69,7 +69,9 @@ func (w *Wrapper) GetDynamicRouteDump(stripVersions bool) (*adminapi.RoutesConfi
 
 // GetRouteConfigDump retrieves the route config dump from the ConfigDump
 func (w *Wrapper) GetRouteConfigDump() (*adminapi.RoutesConfigDump, error) {
-	if w.Configs == nil || len(w.Configs) < 4 {
+	// The route dump is the fourth one in the list.
+	// See https://www.envoyproxy.io/docs/envoy/latest/api-v2/admin/v2alpha/config_dump.proto
+	if len(w.Configs) < 4 {
 		return nil, fmt.Errorf("config dump has no route dump")
 	}
 	routeDumpAny := w.Configs[3]

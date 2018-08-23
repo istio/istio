@@ -23,7 +23,9 @@ import (
 
 // GetBootstrapConfigDump retrieves the bootstrap config dump from the ConfigDump
 func (w *Wrapper) GetBootstrapConfigDump() (*adminapi.BootstrapConfigDump, error) {
-	if w.Configs == nil || len(w.Configs) < 1 {
+	// The bootstrap dump is the first one in the list.
+	// See https://www.envoyproxy.io/docs/envoy/latest/api-v2/admin/v2alpha/config_dump.proto
+	if len(w.Configs) < 1 {
 		return nil, fmt.Errorf("config dump has no bootstrap dump")
 	}
 	bootstrapDumpAny := w.Configs[0]

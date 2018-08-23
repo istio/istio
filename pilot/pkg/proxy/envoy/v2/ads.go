@@ -289,8 +289,7 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 		}
 	}
 
-	bootstrapAny, _ := types.MarshalAny(&adminapi.BootstrapConfigDump{})
-	configDump := &adminapi.ConfigDump{Configs: []types.Any{*bootstrapAny, *listenersAny, *clustersAny, *routeConfigAny}}
+	configDump := &adminapi.ConfigDump{Configs: []types.Any{*clustersAny, *listenersAny, *routeConfigAny}}
 	return configDump, nil
 }
 
