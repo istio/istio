@@ -15,8 +15,6 @@
 package kube
 
 import (
-	"os"
-	"strconv"
 	"sync"
 	"time"
 
@@ -24,14 +22,6 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
-)
-
-const (
-	// enableQueueThrottleEnv is an environment variable that can be set to re-enable the
-	// throttling, in case problems are discovered. This is not a flag - it would cause too
-	// many changes, and it is only intended as a short term fail-safe and A/B testing.
-	// TODO: remove in 0.7 after more testing without the throttle.
-	enableQueueThrottleEnv = "PILOT_THROTTLE"
 )
 
 // Queue of work tickets processed using a rate-limiting loop
@@ -91,25 +81,12 @@ func (q *queueImpl) Run(stop <-chan struct{}) {
 		q.cond.L.Unlock()
 	}()
 
-	rate := os.Getenv(enableQueueThrottleEnv)
 	rateLimit := 100
-	if len(rate) > 0 {
-		r, err := strconv.Atoi(rate)
-		if err == nil {
-			rateLimit = r
-		}
-	}
-	// Throttle processing up to smoothed 10 qps with bursts up to 100 qps
-	var rateLimiter flowcontrol.RateLimiter
-	if rateLimit > 0 {
-		rateLimiter = flowcontrol.NewTokenBucketRateLimiter(float32(rateLimit), 10*rateLimit)
-	}
+	rateLimiter := flowcontrol.NewTokenBucketRateLimiter(float32(rateLimit), 10*rateLimit)
 
 	var item Task
 	for {
-		if rateLimit > 0 {
-			rateLimiter.Accept()
-		}
+		rateLimiter.Accept()
 
 		q.cond.L.Lock()
 		for !q.closing && len(q.queue) == 0 {
