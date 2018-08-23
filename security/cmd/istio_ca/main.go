@@ -152,6 +152,7 @@ var (
 	rootCmd = &cobra.Command{
 		Use:   "istio_ca",
 		Short: "Istio Certificate Authority (CA).",
+		Args:  cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
 			runCA()
 		},
