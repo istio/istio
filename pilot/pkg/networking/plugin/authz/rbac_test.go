@@ -572,7 +572,7 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 		}},
 	}
 
-	policy3 := generatePolicyWithHttpMethodAndGroupClaim("GET", "group*")
+	policy3 := generatePolicyWithHTTPMethodAndGroupClaim("GET", "group*")
 
 	expectRbac1 := &policy.RBAC{
 		Action: policy.RBAC_ALLOW,
@@ -1022,7 +1022,7 @@ func generatePrincipal(principalName string) *policy.Principal {
 	}
 }
 
-func generatePolicyWithHttpMethodAndGroupClaim(methodName, claimName string) *policy.Policy {
+func generatePolicyWithHTTPMethodAndGroupClaim(methodName, claimName string) *policy.Policy {
 	policy := &policy.Policy{
 		Permissions: []*policy.Permission{{
 			Rule: &policy.Permission_AndRules{

@@ -577,8 +577,11 @@ func convertToPrincipal(subject *rbacproto.Subject) *policyproto.Principal {
 		// Treat subject.Group as the request.auth.claims[groups] property. If
 		// request.auth.claims[groups] has been defined for the subject, subject.Group
 		// overrides request.auth.claims[groups].
+		if subject.Properties[attrRequestClaimGroups] != "" {
+			rbacLog.Errorf("Both subject.group and request.auth.claims[groups] are defined.\n")
+		}
 		rbacLog.Debugf("Treat subject.Group (%s) as the request.auth.claims[groups]\n", subject.Group)
-		subject.Properties["request.auth.claims[groups]"] = subject.Group
+		subject.Properties[attrRequestClaimGroups] = subject.Group
 	}
 
 	if len(subject.Properties) != 0 {
