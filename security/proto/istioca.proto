@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,13 +15,6 @@
 syntax = "proto3";
 
 package istio.v1.auth;
-
-import "gogoproto/gogo.proto";
-
-option go_package="istio_v1_auth";
-option (gogoproto.goproto_getters_all) = false;
-option (gogoproto.equal_all) = false;
-option (gogoproto.gostring_all) = false;
 
 // Certificate request message.
 message IstioCertificateRequest {
@@ -40,7 +33,7 @@ message IstioCertificateResponse {
   repeated string cert_chain = 1;
 }
 
-// Service for managing certificates issued by the Istio CA.
+// Service for managing certificates issued by the CA.
 service IstioCertificateService {
   // Using provided CSR, returns a signed certificate.
   rpc CreateCertificate(IstioCertificateRequest)
