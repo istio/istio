@@ -338,7 +338,7 @@ func (rw *RpcWatcher) serviceHandler(serviceUpdate *watchers.ServiceUpdate) {
 	service := serviceUpdate.Service
 	op := serviceUpdate.Op
 
-	log.Infof("service: %s/%s, op: %s/%d", service.Namespace, service.Name, watchers.OperationString[op], op)
+	log.Debugf("service: %s/%s, op: %s/%d", service.Namespace, service.Name, watchers.OperationString[op], op)
 	key, exist := rw.serivice2RpcServiceMap[rw.serviceName(service)]
 	if !exist {
 		log.Debugf("service %s/%s not found rpc service", service.Namespace, service.Name)
@@ -365,7 +365,7 @@ func (rw *RpcWatcher)podHandler(podUpdate *watchers.PodUpdate) {
 	pod := podUpdate.Pod
 	op := podUpdate.Op
 
-	log.Infof("pod: %s/%s, labels: %s, op: %s/%d", pod.Namespace, pod.Name, rw.podName(pod), watchers.OperationString[op], op)
+	log.Debugf("pod: %s/%s, labels: %s, op: %s/%d", pod.Namespace, pod.Name, rw.podName(pod), watchers.OperationString[op], op)
 
 	key, exist := rw.pod2RpcServiceMap[rw.podName(pod)]
 	if !exist {
