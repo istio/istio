@@ -2197,7 +2197,6 @@
     "k8s.io/client-go/tools/portforward",
     "k8s.io/client-go/tools/remotecommand",
     "k8s.io/client-go/transport/spdy",
-    "k8s.io/client-go/util/flowcontrol",
     "k8s.io/client-go/util/workqueue",
     "k8s.io/cluster-registry/pkg/apis/clusterregistry/v1alpha1",
     "k8s.io/helm/pkg/chartutil",
