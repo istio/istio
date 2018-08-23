@@ -73,7 +73,7 @@ func clearQuotaResponse(s *AttributesServer, h *ChannelsHandler) {
 
 func TestCheck(t *testing.T) {
 	handler := NewChannelsHandler()
-	attrSrv := NewAttributesServer(handler)
+	attrSrv := NewAttributesServer(handler, true)
 	grpcSrv, addr, err := startGRPCService(attrSrv)
 	if err != nil {
 		t.Fatalf("Could not start local grpc server: %v", err)
@@ -98,6 +98,10 @@ func TestCheck(t *testing.T) {
 	refAttrs := srcBag.GetReferencedAttributes(attrSrv.GlobalDict, len(attribute.GlobalList()))
 
 	okCheckResp := &mixerpb.CheckResponse{Precondition: precondition(status.OK, refAttrs)}
+
+	okDictReq := &mixerpb.CheckRequest{Attributes: attrs, GlobalWordCount: 20}
+	badDictReq := &mixerpb.CheckRequest{Attributes: attrs, GlobalWordCount: 1000}
+
 	quotaResp := &mixerpb.CheckResponse{
 		Precondition: precondition(status.OK, refAttrs),
 		Quotas: map[string]mixerpb.CheckResponse_QuotaResult{
@@ -122,6 +126,8 @@ func TestCheck(t *testing.T) {
 	}{
 		{"basic", noQuotaReq, noop, noop, false, okCheckResp, wantBag, nil},
 		{"grpc err", noQuotaReq, setGRPCErr, clearGRPCErr, true, okCheckResp, nil, nil},
+		{"ok dictionary", okDictReq, noop, noop, false, okCheckResp, wantBag, nil},
+		{"bad dictionary", badDictReq, noop, noop, true, nil, nil, nil},
 		{"check response", quotaReq, setQuotaResponse, clearQuotaResponse, false, quotaResp, wantBag, quotaDispatches},
 	}
 
@@ -191,7 +197,7 @@ func TestCheck(t *testing.T) {
 
 func TestReport(t *testing.T) {
 	handler := NewChannelsHandler()
-	attrSrv := NewAttributesServer(handler)
+	attrSrv := NewAttributesServer(handler, false)
 	grpcSrv, addr, err := startGRPCService(attrSrv)
 	if err != nil {
 		t.Fatalf("Could not start local grpc server: %v", err)

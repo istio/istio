@@ -140,7 +140,7 @@ func (ts *MixerServer) Quota(bag attribute.Bag, qma mockapi.QuotaArgs) (mockapi.
 }
 
 // NewMixerServer creates a new Mixer server
-func NewMixerServer(port uint16, stress bool) (*MixerServer, error) {
+func NewMixerServer(port uint16, stress bool, checkDict bool) (*MixerServer, error) {
 	log.Printf("Mixer server listening on port %v\n", port)
 	s := &MixerServer{
 		check:  newHandler(stress),
@@ -156,7 +156,7 @@ func NewMixerServer(port uint16, stress bool) (*MixerServer, error) {
 		return nil, err
 	}
 
-	attrSrv := mockapi.NewAttributesServer(s)
+	attrSrv := mockapi.NewAttributesServer(s, checkDict)
 	s.gs = mockapi.NewMixerServer(attrSrv)
 	return s, nil
 }

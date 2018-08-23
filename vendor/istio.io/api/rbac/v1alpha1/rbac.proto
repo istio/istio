@@ -15,7 +15,7 @@
 syntax = "proto3";
 
 // $title: RBAC
-// $description: Configuration for Role Based Access Control
+// $description: Configuration for Role Based Access Control.
 // $location: https://istio.io/docs/reference/config/authorization/istio.rbac.v1alpha1.html
 
 // Istio RBAC (Role Based Access Control) defines ServiceRole and ServiceRoleBinding
@@ -141,15 +141,15 @@ message AccessRule {
 // from configs that are in permissive mode, and discards result before returning
 // to the user.
 enum EnforcementMode {
-  // Policy in ENFORCED mode has impact on user experience. 
-  // Policy is in ENFORCED mode by default. 
+  // Policy in ENFORCED mode has impact on user experience.
+  // Policy is in ENFORCED mode by default.
   ENFORCED = 0;
 
   // Policy in PERMISSIVE mode isn't enforced and has no impact on users.
   // RBAC engine run policies in PERMISSIVE mode and logs stats.
   PERMISSIVE = 1;
  }
- 
+
 // ServiceRoleBinding assigns a ServiceRole to a list of subjects.
 // This represents the "Spec" part of the ServiceRoleBinding object. The name and namespace
 // of the ServiceRoleBinding is specified in "metadata" section of the ServiceRoleBinding
