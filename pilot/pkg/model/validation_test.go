@@ -1859,7 +1859,7 @@ func TestValidateVirtualService(t *testing.T) {
 				Route: []*networking.DestinationWeight{{
 					Destination: &networking.Destination{Host: "foo.baz"},
 				}},
-				RemoveResponseHeaders: []string{"unwantedHeader","secretStuff"},
+				RemoveResponseHeaders: []string{"unwantedHeader", "secretStuff"},
 			}},
 		}, valid: true},
 	}
