@@ -23,7 +23,7 @@ global:
       #   cpu: 100m
       #   memory: 128Mi
 
-    # Controls number of Envoy worker threads.
+    # Controls number of Proxy worker threads.
     # Defaults to 0 (start worker thread for each CPU thread/core).
     concurrency: 0
 

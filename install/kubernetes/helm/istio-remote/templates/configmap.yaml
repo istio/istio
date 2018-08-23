@@ -22,6 +22,9 @@ data:
     enableTracing: {{ .Values.global.enableTracing }}
   {{- end }}  
 
+    # Set concurrency to a specific number to limit the number of Proxy worker threads.
+    concurrency: "{{ .Values.global.proxy.concurrency }}"
+
     # TODO: not clear if this is used - pilot generates config based on the main cluster config.
     # Set accessLogFile to empty string to disable access log.
     accessLogFile: "{{ .Values.global.proxy.accessLogFile }}"
