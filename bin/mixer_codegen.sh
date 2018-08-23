@@ -102,6 +102,7 @@ if [ "$opttemplate" = true ]; then
     "google/protobuf/duration.proto:github.com/gogo/protobuf/types"
     "google/protobuf/timestamp.proto=github.com/gogo/protobuf/types"
     "google/rpc/status.proto=github.com/gogo/googleapis/google/rpc"
+    "google/protobuf/struct.proto=github.com/gogo/protobuf/types"
   )
 
   TMPL_GEN_MAP=()

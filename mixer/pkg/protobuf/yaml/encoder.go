@@ -25,16 +25,19 @@ import (
 )
 
 type (
+	namedEncoderFn func(data interface{}) ([]byte, error)
+
 	// Encoder transforms yaml that represents protobuf data into []byte
 	Encoder struct {
-		resolver Resolver
+		resolver     Resolver
+		namedEncoder map[string]namedEncoderFn
 	}
 )
 
 // NewEncoder creates an Encoder
 func NewEncoder(fds *descriptor.FileDescriptorSet) *Encoder {
 	resolver := NewResolver(fds)
-	return &Encoder{resolver: resolver}
+	return &Encoder{resolver: resolver, namedEncoder: namedEncoderRegistry}
 }
 
 // EncodeBytes creates []byte from a yaml representation of a proto.
@@ -845,15 +848,24 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 			//		return 0, err
 			//	}
 			//	i += n1
-			v, ok := data.(map[string]interface{})
-			if !ok {
-				return badTypeError(name, strings.TrimPrefix(field.GetTypeName(), "."), data)
+			var bytes []byte
+			var err error
+			ne := e.namedEncoder[field.GetTypeName()]
+			if ne != nil {
+				bytes, err = ne(data)
+			} else {
+				v, ok := data.(map[string]interface{})
+				if !ok {
+					return badTypeError(name, strings.TrimPrefix(field.GetTypeName(), "."), data)
+				}
+
+				bytes, err = e.EncodeBytes(v, field.GetTypeName(), skipUnknown)
 			}
 
-			bytes, err := e.EncodeBytes(v, field.GetTypeName(), skipUnknown)
 			if err != nil {
 				return fmt.Errorf("/%s: '%v'", name, err)
 			}
+
 			_ = buffer.EncodeVarint(encodeIndexAndType(fieldNumber, wireType))
 			_ = buffer.EncodeRawBytes(bytes)
 
