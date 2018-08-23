@@ -16,14 +16,13 @@ package v2
 
 import (
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"google.golang.org/grpc"
-
-	"strconv"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core"
@@ -72,6 +71,9 @@ type DiscoveryServer struct {
 	// ConfigController provides readiness info (if initial sync is complete)
 	ConfigController model.ConfigStoreCache
 
+	// separate rate limiter for initial connection
+	initThrottle chan time.Time
+
 	throttle chan time.Time
 
 	// DebugConfigs controls saving snapshots of configs for /debug/adsz.
@@ -105,24 +107,37 @@ func NewDiscoveryServer(env *model.Environment, generator core.ConfigGenerator) 
 
 	out.DebugConfigs = os.Getenv("PILOT_DEBUG_ADSZ_CONFIG") == "1"
 
-	pushThrottle := intEnv("PILOT_PUSH_THROTTLE", 10)
+	pushThrottle := intEnv("PILOT_PUSH_THROTTLE", 25)
 	pushBurst := intEnv("PILOT_PUSH_BURST", 100)
 
 	adsLog.Infof("Starting ADS server with throttle=%d burst=%d", pushThrottle, pushBurst)
-	rate := time.Second / time.Duration(pushThrottle)
-	burstLimit := pushBurst
-	tick := time.NewTicker(rate)
-	out.throttle = make(chan time.Time, burstLimit)
+
+	// throttle rate limits the amount of `pushALL` work that is started as a result of events.
+	out.throttle = initThrottle("adsPushAll", pushBurst, pushThrottle)
+
+	// init throttle rate limits starting work on new connections from sidecars.
+	out.initThrottle = initThrottle("initConnection", pushBurst*2, pushThrottle*2)
+
+	// Note: in both cases it does not directly limit the amount of work being perform concurrently.
+	// If a particular push takes a long time, it will allow more and more work, and token are being replenished
+	// as work is being performed.
+
+	return out
+}
+
+// initThrottle allocates and initializes a throttle channel with burstLimit and steady state ratePerSecond.
+func initThrottle(name string, burst int, ratePerSecond int) chan time.Time {
+	tick := time.NewTicker(time.Second / time.Duration(ratePerSecond))
+	throttle := make(chan time.Time, burst)
 	go func() {
 		for t := range tick.C {
 			select {
-			case out.throttle <- t:
+			case throttle <- t:
 			default:
 			}
 		} // does not exit after tick.Stop()
 	}()
-
-	return out
+	return throttle
 }
 
 // Register adds the ADS and EDS handles to the grpc server
