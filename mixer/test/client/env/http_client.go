@@ -27,35 +27,24 @@ import (
 	"istio.io/fortio/fhttp"
 )
 
-// HTTP client time out in second.
-const httpTimeOut = 5
+const (
+	// HTTP client time out.
+	httpTimeOut = 5 * time.Second
 
-// Maximum number of ping the server to wait.
-const maxAttempts = 30
-
-// HTTPFastGet only cares about network error.
-// Issue fast request, only care about network error.
-// Don't care about server response.
-func HTTPFastGet(url string) (err error) {
-	client := &http.Client{}
-	client.Timeout = httpTimeOut * time.Second
-	_, err = client.Get(url)
-	return err
-}
+	// Maximum number of ping the server to wait.
+	maxAttempts = 30
+)
 
 // HTTPGet send GET
 func HTTPGet(url string) (code int, respBody string, err error) {
 	log.Println("HTTP GET", url)
-	client := &http.Client{}
-	client.Timeout = httpTimeOut * time.Second
+	client := &http.Client{Timeout: httpTimeOut}
 	resp, err := client.Get(url)
 	if err != nil {
 		log.Println(err)
 		return 0, "", err
 	}
-	defer func() {
-		_ = resp.Body.Close()
-	}()
+	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		log.Println(err)
@@ -70,16 +59,13 @@ func HTTPGet(url string) (code int, respBody string, err error) {
 // HTTPPost sends POST
 func HTTPPost(url string, contentType string, reqBody string) (code int, respBody string, err error) {
 	log.Println("HTTP POST", url)
-	client := &http.Client{}
-	client.Timeout = httpTimeOut * time.Second
+	client := &http.Client{Timeout: httpTimeOut}
 	resp, err := client.Post(url, contentType, strings.NewReader(reqBody))
 	if err != nil {
 		log.Println(err)
 		return 0, "", err
 	}
-	defer func() {
-		_ = resp.Body.Close()
-	}()
+	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		log.Println(err)
@@ -103,9 +89,7 @@ func ShortLiveHTTPPost(url string, contentType string, reqBody string) (code int
 		log.Println(err)
 		return 0, "", err
 	}
-	defer func() {
-		_ = resp.Body.Close()
-	}()
+	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		log.Println(err)
@@ -120,8 +104,7 @@ func ShortLiveHTTPPost(url string, contentType string, reqBody string) (code int
 // HTTPGetWithHeaders send HTTP with headers
 func HTTPGetWithHeaders(l string, headers map[string]string) (code int, respBody string, err error) {
 	log.Println("HTTP GET with headers: ", l)
-	client := &http.Client{}
-	client.Timeout = httpTimeOut * time.Second
+	client := &http.Client{Timeout: httpTimeOut}
 	req := http.Request{}
 
 	req.Header = map[string][]string{}
@@ -140,9 +123,7 @@ func HTTPGetWithHeaders(l string, headers map[string]string) (code int, respBody
 		log.Println(err)
 		return 0, "", err
 	}
-	defer func() {
-		_ = resp.Body.Close()
-	}()
+	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		log.Println(err)
@@ -155,18 +136,18 @@ func HTTPGetWithHeaders(l string, headers map[string]string) (code int, respBody
 }
 
 // WaitForHTTPServer waits for a HTTP server
-func WaitForHTTPServer(url string) {
+func WaitForHTTPServer(url string) error {
 	for i := 0; i < maxAttempts; i++ {
 		log.Println("Pinging URL: ", url)
 		code, _, err := HTTPGet(url)
 		if err == nil && code == http.StatusOK {
 			log.Println("Server is up and running...")
-			return
+			return nil
 		}
-		log.Println("Will wait a second and try again.")
+		log.Println("Will wait 200ms and try again.")
 		time.Sleep(200 * time.Millisecond)
 	}
-	log.Println("Give up the wait, continue the test...")
+	return fmt.Errorf("timeout waiting for server startup")
 }
 
 // WaitForPort waits for a TCP port
@@ -179,7 +160,7 @@ func WaitForPort(port uint16) {
 			log.Println("The port is up and running...")
 			return
 		}
-		log.Println("Wait a second and try again.")
+		log.Println("Wait 200ms and try again.")
 		time.Sleep(200 * time.Millisecond)
 	}
 	log.Println("Give up the wait, continue the test...")
