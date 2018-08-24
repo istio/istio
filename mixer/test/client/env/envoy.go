@@ -90,9 +90,7 @@ func (s *Envoy) Start() error {
 	}
 
 	url := fmt.Sprintf("http://localhost:%v/server_info", s.ports.AdminPort)
-	WaitForHTTPServer(url)
-
-	return nil
+	return WaitForHTTPServer(url)
 }
 
 // Stop stops the envoy process
