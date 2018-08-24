@@ -228,11 +228,13 @@ func setupDefaultTest() job {
 		}
 
 		var err error
-		grpcConn, err = grpc.Dial(address,
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+
+		grpcConn, err = grpc.DialContext(ctx, address,
 			security,
 			grpc.WithAuthority(authority),
-			grpc.WithBlock(),
-			grpc.WithTimeout(timeout))
+			grpc.WithBlock())
 		if err != nil {
 			log.Fatalf("did not connect: %v", err)
 			return nil
