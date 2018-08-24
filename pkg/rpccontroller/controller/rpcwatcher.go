@@ -22,8 +22,8 @@ import (
 )
 
 const (
-	rpcInterfaceVersion = "rpccontroller.istio.io/interface-version"
-	rpcInterface				= "rpccontroller.istio.io/interface"
+	rpcVersion 		= "version"
+	rpcInterface  = "interface"
 )
 
 type RpcQueryResponse struct {
@@ -63,7 +63,7 @@ type RpcWatcher struct {
 	tryLaterKeys      map[string]bool
 
 	// map rpcservice name -> interface
-	rpcInterfaceMap   map[string]string
+	rpcInterfacesMap map[string][]string
 
 	// map k8s service to rpcservice name
 	serivice2RpcServiceMap map[string]string
@@ -82,7 +82,7 @@ func NewRpcWatcher(lister listers.RpcServiceLister, client kubernetes.Interface,
 		rpcServiceLister:       lister,
 		kubeclientset:          client,
 		tryLaterKeys:           make(map[string]bool, 0),
-		rpcInterfaceMap:        make(map[string]string, 0),
+		rpcInterfacesMap:       make(map[string][]string, 0),
 		serivice2RpcServiceMap: make(map[string]string, 0),
 		pod2RpcServiceMap:      make(map[string]string, 0),
 	}
@@ -156,14 +156,16 @@ func (rw *RpcWatcher) podName(s *api.Pod) string {
 func (rw *RpcWatcher) deleteRpcServiceHandler(rs *v1.RpcService) {
 	key := rw.rpcServiceName(rs)
 
-	domain, exist := rw.rpcInterfaceMap[key]
+	domains, exist := rw.rpcInterfacesMap[key]
 	if !exist {
 		log.Errorf("rpcservice %s interface not exist", key)
 		return
 	}
 
-	log.Infof("delete rpcservice %s, domain: %s", key, domain)
-	rw.dnsInterface.Delete(domain, rs.Spec.DomainSuffix)
+	for _, domain := range domains {
+		log.Infof("delete rpcservice %s, domain: %s", key, domain)
+		rw.dnsInterface.Delete(domain, rs.Spec.DomainSuffix)
+	}
 }
 
 func (rw *RpcWatcher) timerHandler() {
@@ -210,26 +212,23 @@ func (rw *RpcWatcher) queryRpcInterface(key string, rs *v1.RpcService) {
 		return
 	}
 
-	// first add key into tryLaterKeys
-	rw.tryLaterKeys[key] = true
-
 	pods, err := rw.podWatcher.ListBySelector(service.Labels)
 	if len(pods) == 0 || err != nil {
+		rw.tryLaterKeys[key] = true
 		log.Errorf("service %s/%s has no pods, err: %v, try later...", service.Namespace, service.Name, err)
 		return
 	}
 	rw.pod2RpcServiceMap[rw.podName(pods[0])] = key
 
 	// get pod interface
-	interfaceStr := ""
 	for _, pod := range pods {
 		if pod.Status.Phase != "Running" {
 			continue
 		}
 
-		version, exist := pod.Labels[rpcInterfaceVersion]
+		version, exist := pod.Labels[rpcVersion]
 		if !exist {
-			log.Errorf("service %s/%s pod has no %s label", service.Namespace, service.Name, rpcInterfaceVersion)
+			log.Errorf("service %s/%s pod has no %s label", service.Namespace, service.Name, rpcVersion)
 			return
 		}
 
@@ -276,30 +275,24 @@ func (rw *RpcWatcher) queryRpcInterface(key string, rs *v1.RpcService) {
 				log.Infof("version %s, i %s", inter.Version, version)
 				continue
 			}
-			interfaceStr = inter.Interface
-			break
-		}
+			interfaceStr := inter.Interface
 
-		if len(interfaceStr) == 0 {
-			log.Errorf("service %s/%s interface not found", service.Namespace, service.Name)
-			rw.deleteRpcServiceHandler(rs)
-			return
+			// add <interface, clusterIP> to coreDNS
+			log.Infof("update dns <%s,%s>", interfaceStr, service.Spec.ClusterIP)
+			err = rw.dnsInterface.Update(interfaceStr, service.Spec.ClusterIP, rs.Spec.DomainSuffix)
+			if err != nil {
+				log.Errorf("update dns error: %v", err)
+			}
+			if rw.rpcInterfacesMap[key] == nil {
+				rw.rpcInterfacesMap[key] = make([]string, 0)
+			}
+			rw.rpcInterfacesMap[key] = append(rw.rpcInterfacesMap[key], interfaceStr)
+			break
 		}
 
 		break
 	}
 
-	// until now can delete key from tryLaterKeys map
-	delete(rw.tryLaterKeys, key)
-
-	// add <interface, clusterIP> to coreDNS
-	log.Infof("update dns <%s,%s>", interfaceStr, service.Spec.ClusterIP)
-	err = rw.dnsInterface.Update(interfaceStr, service.Spec.ClusterIP, rs.Spec.DomainSuffix)
-	if err != nil {
-		log.Errorf("update dns error: %v", err)
-	}
-
-	rw.rpcInterfaceMap[key] = interfaceStr
 }
 
 func (rw *RpcWatcher) getRpcServiceByName(key string) *v1.RpcService {
