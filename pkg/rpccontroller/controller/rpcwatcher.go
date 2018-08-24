@@ -166,6 +166,7 @@ func (rw *RpcWatcher) deleteRpcServiceHandler(rs *v1.RpcService) {
 		log.Infof("delete rpcservice %s, domain: %s", key, domain)
 		rw.dnsInterface.Delete(domain, rs.Spec.DomainSuffix)
 	}
+	rw.rpcInterfacesMap[key] = nil
 }
 
 func (rw *RpcWatcher) timerHandler() {
@@ -287,12 +288,8 @@ func (rw *RpcWatcher) queryRpcInterface(key string, rs *v1.RpcService) {
 				rw.rpcInterfacesMap[key] = make([]string, 0)
 			}
 			rw.rpcInterfacesMap[key] = append(rw.rpcInterfacesMap[key], interfaceStr)
-			break
 		}
-
-		break
 	}
-
 }
 
 func (rw *RpcWatcher) getRpcServiceByName(key string) *v1.RpcService {
