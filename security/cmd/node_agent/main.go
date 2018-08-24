@@ -60,7 +60,7 @@ func init() {
 		"ca-address", "istio-citadel:8060", "Istio CA address")
 
 	flags.StringVar(&cAClientConfig.Env, "env", "unspecified",
-		"Node Environment : unspecified | onprem | gcp | aws")
+		"Node Environment : unspecified | onprem | gcp | aws | vault")
 	flags.StringVar(&cAClientConfig.Platform, "platform", "vm", "The platform istio runs on: vm | k8s")
 
 	flags.StringVar(&cAClientConfig.CertChainFile, "cert-chain",
@@ -69,6 +69,8 @@ func init() {
 		"key", "/etc/certs/key.pem", "Node Agent private key file")
 	flags.StringVar(&cAClientConfig.RootCertFile, "root-cert",
 		"/etc/certs/root-cert.pem", "Root Certificate file")
+	flags.StringVar(&cAClientConfig.K8sServiceAccountFile, "k8s-service-account",
+		"", "K8s service account file")
 
 	naConfig.LoggingOptions.AttachCobraFlags(rootCmd)
 	cmd.InitializeFlags(rootCmd)

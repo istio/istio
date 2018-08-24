@@ -1,0 +1,6 @@
+FROM ubuntu:xenial
+
+ADD istio_ca /usr/local/bin/istio_ca
+
+COPY workload-2.csr /usr/local/bin/workload-2.csr
+COPY reviewer-token.jwt /usr/local/bin/reviewer-token.jwt

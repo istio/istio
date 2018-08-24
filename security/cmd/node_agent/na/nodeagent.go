@@ -57,9 +57,11 @@ func (na *nodeAgentInternal) Start() error {
 		return err
 	}
 	na.identity = identity
+	log.Infof("na.identity is %v", na.identity)
 	var success bool
 	for {
 		privateKey, req, reqErr := na.createRequest()
+		log.Infof("CSR is: %v", string(req.CsrPem[:]))
 		if reqErr != nil {
 			return reqErr
 		}
@@ -79,6 +81,9 @@ func (na *nodeAgentInternal) Start() error {
 					return err
 				}
 				log.Infof("CSR is approved successfully. Will renew cert in %s", waitTime.String())
+				log.Infof("CSR signed certificate is %v", string(resp.SignedCert[:]))
+				//TO-DO (leitang): check that the certificate chain in the response matches that of the signing CA
+				log.Infof("CSR certificate chain is %v", string(resp.CertChain[:]))
 				retries = 0
 				retrialInterval = na.config.CAClientConfig.CSRInitialRetrialInterval
 				timer := time.NewTimer(waitTime)

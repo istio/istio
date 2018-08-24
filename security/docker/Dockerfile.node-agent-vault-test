@@ -1,0 +1,11 @@
+FROM ubuntu:xenial
+
+ADD node_agent /usr/local/bin/node_agent
+
+COPY start_node_agent_vault_test.sh /usr/local/bin/start_node_agent_vault_test.sh
+COPY istio_ca.crt /usr/local/bin/istio_ca.crt
+COPY node_agent.crt /usr/local/bin/node_agent.crt
+COPY node_agent.key /usr/local/bin/node_agent.key
+COPY example-workload-pod-sa.jwt /usr/local/bin/example-workload-pod-sa.jwt
+
+ENTRYPOINT [ "/bin/bash", "/usr/local/bin/start_node_agent_vault_test.sh" ]

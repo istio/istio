@@ -180,14 +180,52 @@ $(GALLEY_DOCKER): galley/docker/Dockerfile$$(suffix $$@) $(ISTIO_DOCKER)/gals | 
 # security docker images
 
 docker.citadel:         $(ISTIO_DOCKER)/istio_ca     $(ISTIO_DOCKER)/ca-certificates.tgz
+	cp security/docker/Dockerfile.citadel $(ISTIO_DOCKER)/ && \
+	cd $(ISTIO_DOCKER) && \
+	docker build -t $(HUB)/citadel:$(TAG) -f Dockerfile.citadel . && \
+
 docker.citadel-test:    $(ISTIO_DOCKER)/istio_ca.crt $(ISTIO_DOCKER)/istio_ca.key
+
+# Vault server docker image
+docker.vault-test:  | $(ISTIO_DOCKER)
+	cp security/docker/Dockerfile.vault-test $(ISTIO_DOCKER)/ && \
+	cd $(ISTIO_DOCKER) && \
+	docker build -t $(HUB)/vault-test:$(TAG) -f Dockerfile.vault-test . && \
+	docker push $(HUB)/vault-test:$(TAG)
+
+docker.citadel-vault-test-1:  citadel $(ISTIO_DOCKER)/istio_ca security/docker/Dockerfile.citadel-vault-test-1 | $(ISTIO_DOCKER)
+	cp security/docker/Dockerfile.citadel-vault-test-1 $(ISTIO_DOCKER)/ && \
+	cp security/tests/integration/vaultTest/testdata/reviewer-token.jwt $(ISTIO_DOCKER)/ && \
+	cd $(ISTIO_DOCKER) && \
+	docker build -t $(HUB)/citadel-vault-test-1:$(TAG) -f Dockerfile.citadel-vault-test-1 . && \
+	docker push $(HUB)/citadel-vault-test-1:$(TAG)
+
+docker.citadel-vault-test-2:  citadel $(ISTIO_DOCKER)/istio_ca security/docker/Dockerfile.citadel-vault-test-2 security/tests/integration/vaultTest/testdata/workload-2.csr | $(ISTIO_DOCKER)
+	cp security/docker/Dockerfile.citadel-vault-test-2 $(ISTIO_DOCKER)/ && \
+	cp security/tests/integration/vaultTest/testdata/workload-2.csr $(ISTIO_DOCKER)/ && \
+	cp security/tests/integration/vaultTest/testdata/reviewer-token.jwt $(ISTIO_DOCKER)/ && \
+	cd $(ISTIO_DOCKER) && \
+	docker build -t $(HUB)/citadel-vault-test-2:$(TAG) -f Dockerfile.citadel-vault-test-2 . && \
+	docker push $(HUB)/citadel-vault-test-2:$(TAG)
+
 docker.node-agent:      $(ISTIO_DOCKER)/node_agent
 docker.node-agent-test: $(ISTIO_DOCKER)/node_agent $(ISTIO_DOCKER)/istio_ca.key \
                         $(ISTIO_DOCKER)/node_agent.crt $(ISTIO_DOCKER)/node_agent.key
+
+docker.node-agent-vault-test:  node_agent $(ISTIO_DOCKER)/node_agent $(ISTIO_DOCKER)/istio_ca.key \
+                  $(ISTIO_DOCKER)/node_agent.crt $(ISTIO_DOCKER)/node_agent.key
+	cp security/docker/Dockerfile.node-agent-vault-test $(ISTIO_DOCKER)/ && \
+	cp security/docker/start_node_agent_vault_test.sh $(ISTIO_DOCKER)/ && \
+	cp security/tests/integration/vaultTest/testdata/example-workload-pod-sa.jwt $(ISTIO_DOCKER)/ && \
+	cd $(ISTIO_DOCKER) && \
+	docker build -t $(HUB)/node-agent-vault-test:$(TAG) -f Dockerfile.node-agent-vault-test . && \
+	docker push $(HUB)/node-agent-vault-test:$(TAG)
+
 docker.flexvolumedriver: $(ISTIO_DOCKER)/flexvolume
 $(foreach FILE,$(FLEXVOLUMEDRIVER_FILES),$(eval docker.flexvolumedriver: $(ISTIO_DOCKER)/$(notdir $(FILE))))
 $(foreach FILE,$(NODE_AGENT_TEST_FILES),$(eval docker.node-agent-test: $(ISTIO_DOCKER)/$(notdir $(FILE))))
 
+#SECURITY_DOCKER:=docker.citadel docker.citadel-test docker.node-agent docker.node-agent-test docker.flexvolumedriver docker.vault-test
 SECURITY_DOCKER:=docker.citadel docker.citadel-test docker.node-agent docker.node-agent-test docker.flexvolumedriver
 $(SECURITY_DOCKER): security/docker/Dockerfile$$(suffix $$@) | $(ISTIO_DOCKER)
 	$(DOCKER_RULE)

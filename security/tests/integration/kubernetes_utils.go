@@ -307,6 +307,19 @@ func getServiceExternalIPAddress(clientset kubernetes.Interface, namespace strin
 	return "", fmt.Errorf("external ip address for the service %v is not ready", name)
 }
 
+func getServiceClusterIPAddress(clientset kubernetes.Interface, namespace string, name string) (string, error) {
+	service, err := clientset.CoreV1().Services(namespace).Get(name, metav1.GetOptions{})
+	if err != nil {
+		return "", fmt.Errorf("failed to get service: %v err: %v", name, err)
+	}
+
+	if len(service.Spec.ClusterIP) > 0 {
+		return service.Spec.ClusterIP, nil
+	}
+
+	return "", fmt.Errorf("Cluster ip address for the service %v is not available", name)
+}
+
 // WaitForSecretExist takes name of a secret and watches the secret. Returns the requested secret
 // if it exists, or error on timeouts.
 func WaitForSecretExist(clientset kubernetes.Interface, namespace string, secretName string,
