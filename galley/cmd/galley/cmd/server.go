@@ -48,12 +48,6 @@ func serverCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 		"Maximum number of outstanding RPCs per connection")
 	cmd.PersistentFlags().BoolVarP(&sa.Insecure, "insecure", "", sa.Insecure,
 		"Use insecure gRPC communication")
-	cmd.PersistentFlags().StringVarP(&sa.CertificateFile, "certFile", "", sa.CertificateFile,
-		"The location of the certificate file for mutual TLS")
-	cmd.PersistentFlags().StringVarP(&sa.KeyFile, "keyFile", "", sa.KeyFile,
-		"The location of the key file for mutual TLS")
-	cmd.PersistentFlags().StringVarP(&sa.CACertificateFile, "caCertFile", "", sa.CACertificateFile,
-		"The location of the certificate file for the root certificate authority")
 	cmd.PersistentFlags().StringVarP(&sa.AccessListFile, "accessListFile", "", sa.AccessListFile,
 		"The access list yaml file that contains the allowd mTLS peer ids.")
 	cmd.PersistentFlags().StringVar(&sa.LivenessProbeOptions.Path, "livenessProbePath", sa.LivenessProbeOptions.Path,
@@ -65,6 +59,7 @@ func serverCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 	cmd.PersistentFlags().DurationVar(&sa.ReadinessProbeOptions.UpdateInterval, "readinessProbeInterval", sa.ReadinessProbeOptions.UpdateInterval,
 		"Interval of updating file for the readiness probe.")
 
+	sa.CredentialOptions.AttachCobraFlags(cmd)
 	sa.LoggingOptions.AttachCobraFlags(cmd)
 	sa.IntrospectionOptions.AttachCobraFlags(cmd)
 

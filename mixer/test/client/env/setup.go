@@ -189,7 +189,10 @@ func (s *TestSetup) SetUp() error {
 		if err != nil {
 			log.Printf("unable to create mixer server %v", err)
 		} else {
-			s.mixer.Start()
+			errCh := s.mixer.Start()
+			if err = <-errCh; err != nil {
+				log.Fatalf("mixer start failed %v", err)
+			}
 		}
 	}
 
@@ -198,7 +201,10 @@ func (s *TestSetup) SetUp() error {
 		if err != nil {
 			log.Printf("unable to create HTTP server %v", err)
 		} else {
-			s.backend.Start()
+			errCh := s.backend.Start()
+			if err = <-errCh; err != nil {
+				log.Fatalf("backend server start failed %v", err)
+			}
 		}
 	}
 

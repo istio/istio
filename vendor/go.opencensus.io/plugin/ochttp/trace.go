@@ -17,7 +17,6 @@ package ochttp
 import (
 	"io"
 	"net/http"
-	"net/url"
 
 	"go.opencensus.io/plugin/ochttp/propagation/b3"
 	"go.opencensus.io/trace"
@@ -39,9 +38,10 @@ const (
 )
 
 type traceTransport struct {
-	base         http.RoundTripper
-	startOptions trace.StartOptions
-	format       propagation.HTTPFormat
+	base           http.RoundTripper
+	startOptions   trace.StartOptions
+	format         propagation.HTTPFormat
+	formatSpanName func(*http.Request) string
 }
 
 // TODO(jbd): Add message events for request and response size.
@@ -50,7 +50,7 @@ type traceTransport struct {
 // The created span can follow a parent span, if a parent is presented in
 // the request's context.
 func (t *traceTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	name := spanNameFromURL(req.URL)
+	name := t.formatSpanName(req)
 	// TODO(jbd): Discuss whether we want to prefix
 	// outgoing requests with Sent.
 	_, span := trace.StartSpan(req.Context(), name,
@@ -127,8 +127,8 @@ func (t *traceTransport) CancelRequest(req *http.Request) {
 	}
 }
 
-func spanNameFromURL(u *url.URL) string {
-	return u.Path
+func spanNameFromURL(req *http.Request) string {
+	return req.URL.Path
 }
 
 func requestAttrs(r *http.Request) []trace.Attribute {
@@ -146,7 +146,7 @@ func responseAttrs(resp *http.Response) []trace.Attribute {
 	}
 }
 
-// HTTPStatusToTraceStatus converts the HTTP status code to a trace.Status that
+// TraceStatus is a utility to convert the HTTP status code to a trace.Status that
 // represents the outcome as closely as possible.
 func TraceStatus(httpStatusCode int, statusLine string) trace.Status {
 	var code int32

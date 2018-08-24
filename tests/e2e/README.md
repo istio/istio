@@ -2,7 +2,7 @@
 
 This directory contains Istio end-to-end tests and associated test framework.
 
-E2E tests are meant for ensure functional correcttness in an E2E environment to make sure Istio works with one or more deployments. For now, these tests run with GKE in Prow and Minikube in CircleCI in both pre-submit and post-submit stages. Their results can be found in https://prow.istio.io/ and https://k8s-testgrid.appspot.com/istio.
+E2E tests are meant for ensure functional correctness in an E2E environment to make sure Istio works with one or more deployments. For now, these tests run with GKE in Prow and Minikube in CircleCI in both pre-submit and post-submit stages. Their results can be found in https://prow.istio.io/ and https://k8s-testgrid.appspot.com/istio.
 
 Developers, on the other hand, are recommended to run the tests locally before sending out any PR.
 
@@ -54,7 +54,7 @@ kubectl exec -it <test pod> -n <test namespace> -c app -- client -h
 [demo_test.go](tests/bookinfo/demo_test.go) is a sample test that covers four cases: default routing, version routing, fault delay, and version migration.
 Each case applies traffic rules and then clean up after the test. It can serve as a reference for building new test cases.
 
-See below for guidelines for creating a new E2E testsr.
+See below for guidelines for creating a new E2E test.
 1. Create a new commonConfig for framework and add app used for this test in setTestConfig().
    Each test file has a `testConfig` handling framework and test configuration.
    `testConfig` is a cleanable structure which has  `Setup` and `Teardown`. `Setup` will run before all tests and `Teardown`

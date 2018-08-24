@@ -93,7 +93,7 @@ func buildEnvForClustersWithRingHashLb() *model.Environment {
 		MixerSAN:         []string{},
 	}
 
-	env.PushContext = model.NewStatus()
+	env.PushContext = model.NewPushContext()
 	env.PushContext.InitContext(env)
 	env.PushContext.SetDestinationRules([]model.Config{
 		{ConfigMeta: model.ConfigMeta{
@@ -195,7 +195,7 @@ func buildEnvForClustersWithIstioMutualWithSNI(sniValue string) *model.Environme
 		MixerSAN:         []string{},
 	}
 
-	env.PushContext = model.NewStatus()
+	env.PushContext = model.NewPushContext()
 	env.PushContext.InitContext(env)
 	env.PushContext.SetDestinationRules([]model.Config{
 		{ConfigMeta: model.ConfigMeta{

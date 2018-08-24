@@ -137,10 +137,26 @@ func GogoDurationToDuration(d *types.Duration) time.Duration {
 
 // SortVirtualHosts sorts a slice of virtual hosts by name.
 //
-// Envoy computes a hash of the listener which is affected by order of elements in the filter. Therefore
+// Envoy computes a hash of RDS to see if things have changed - hash is affected by order of elements in the filter. Therefore
 // we sort virtual hosts by name before handing them back so the ordering is stable across HTTP Route Configs.
 func SortVirtualHosts(hosts []route.VirtualHost) {
 	sort.SliceStable(hosts, func(i, j int) bool {
 		return hosts[i].Name < hosts[j].Name
 	})
+}
+
+// isProxyVersion checks whether the given Proxy version matches the supplied prefix.
+func isProxyVersion(node *model.Proxy, prefix string) bool {
+	ver, found := node.GetProxyVersion()
+	return found && strings.HasPrefix(ver, prefix)
+}
+
+// Is1xProxy checks whether the given Proxy version is 1.x.
+func Is1xProxy(node *model.Proxy) bool {
+	return isProxyVersion(node, "1.")
+}
+
+// Is11Proxy checks whether the given Proxy version is 1.1.
+func Is11Proxy(node *model.Proxy) bool {
+	return isProxyVersion(node, "1.1")
 }

@@ -41,6 +41,10 @@ var (
 // ClientRequestCount or ServerRequestCount, since it is recorded before the status is known.
 var (
 	// Host is the value of the HTTP Host header.
+	//
+	// The value of this tag can be controlled by the HTTP client, so you need
+	// to watch out for potentially generating high-cardinality labels in your
+	// metrics backend if you use this tag in views.
 	Host, _ = tag.NewKey("http.host")
 
 	// StatusCode is the numeric HTTP response status code,
@@ -48,6 +52,10 @@ var (
 	StatusCode, _ = tag.NewKey("http.status")
 
 	// Path is the URL path (not including query string) in the request.
+	//
+	// The value of this tag can be controlled by the HTTP client, so you need
+	// to watch out for potentially generating high-cardinality labels in your
+	// metrics backend if you use this tag in views.
 	Path, _ = tag.NewKey("http.path")
 
 	// Method is the HTTP method of the request, capitalized (GET, POST, etc.).
@@ -61,7 +69,7 @@ var (
 )
 
 // Package ochttp provides some convenience views.
-// You need to subscribe to the views for data to actually be collected.
+// You need to register the views for data to actually be collected.
 var (
 	ClientRequestCountView = &view.View{
 		Name:        "opencensus.io/http/client/request_count",

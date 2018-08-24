@@ -70,7 +70,10 @@ func startAll() error {
 	if err != nil {
 		return err
 	}
-	srv.Start()
+	errCh := srv.Start()
+	if err = <-errCh; err != nil {
+		log.Fatalf("backend server start failed %v", err)
+	}
 
 	go util.RunHTTP(7072, "v1")
 	go util.RunGRPC(7073, "v1", "", "")
@@ -91,7 +94,10 @@ func startMixer() error {
 	if err != nil {
 		return err
 	}
-	srv.Start()
+	errCh := srv.Start()
+	if err = <-errCh; err != nil {
+		log.Fatalf("mixer start failed %v", err)
+	}
 
 	go func() {
 		for {
