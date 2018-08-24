@@ -1,8 +1,5 @@
 # This is used to generate istio.yaml used for deprecated CI/CD testing.
 global:
-  hub: docker.io/istio
-  hub_img_delim: "/"
-  img_tag_delim: ":"
   # controlPlaneMtls enabled. Will result in delays starting the pods while secrets are
   # propagated, not recommended for tests.
   controlPlaneSecurityEnabled: true
@@ -18,9 +15,6 @@ global:
 
   # Default is 10s second
   refreshInterval: 1s
-
-  aspenMeshCloud:
-    enabled: false
 
 istiotesting:
   oneNameSpace: true

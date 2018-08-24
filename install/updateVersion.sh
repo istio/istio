@@ -168,7 +168,7 @@ function gen_file() {
 
 function gen_istio_files() {
     if [[ ! -z ${ISTIO_RELEASE:-} ]]; then
-        for target in istio-aspenmesh.yaml istio-aspenmesh-auth.yaml; do
+        for target in aspenmesh.yaml aspenmesh-auth.yaml; do
             gen_file $target ${DEST_DIR}
         done
     else
