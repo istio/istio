@@ -20,6 +20,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/pilot/pkg/request"
+	"istio.io/istio/pkg/cmd"
 )
 
 var (
@@ -28,6 +29,7 @@ var (
 		Short: "Makes an HTTP request to Pilot metrics/debug endpoint",
 		Args:  cobra.MinimumNArgs(2),
 		RunE: func(c *cobra.Command, args []string) error {
+			cmd.PrintFlags(c.Flags())
 			command := &request.Command{
 				Address: "127.0.0.1:9093",
 				Client:  &http.Client{},
