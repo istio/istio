@@ -401,7 +401,7 @@ security:
 # nodeagent configuration
 #
 nodeagent:
-  enabled: false
+  enabled: true
   image: node-agent-k8s
 
 #
