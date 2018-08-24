@@ -29,6 +29,11 @@ gometalinter=$(command -v gometalinter.v2 2> /dev/null || echo "${ISTIO_BIN}/gom
 $gometalinter --install
 echo 'Gometalinter installed successfully ....'
 
+echo 'Installing dependencies for gometalinter ....'
+go get github.com/gogo/protobuf/protoc-gen-gofast
+git clone https://github.com/istio/api.git ../api
+echo 'dependencies OK'
+
 echo 'Running gometalinter ....'
 $gometalinter --config=./lintconfig_base.json ./...
 echo 'gometalinter OK'
