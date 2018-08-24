@@ -310,6 +310,16 @@ func (s *Span) SpanContext() SpanContext {
 	return s.spanContext
 }
 
+// SetName sets the name of the span, if it is recording events.
+func (s *Span) SetName(name string) {
+	if !s.IsRecordingEvents() {
+		return
+	}
+	s.mu.Lock()
+	s.data.Name = name
+	s.mu.Unlock()
+}
+
 // SetStatus sets the status of the span, if it is recording events.
 func (s *Span) SetStatus(status Status) {
 	if !s.IsRecordingEvents() {

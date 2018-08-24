@@ -196,10 +196,11 @@ func TestRoutes(t *testing.T) {
 	}
 
 	t.Run("v1alpha3", func(t *testing.T) {
-		destRule := maybeAddTLSForDestinationRule(tc, "testdata/networking/v1alpha3/destination-rule-c.yaml")
+		destRule1 := maybeAddTLSForDestinationRule(tc, "testdata/networking/v1alpha3/destination-rule-c.yaml")
+		destRule2 := "testdata/networking/v1alpha3/destination-rule-c-headersubset.yaml"
 		cfgs := &deployableConfig{
 			Namespace:  tc.Kube.Namespace,
-			YamlFiles:  []string{destRule},
+			YamlFiles:  []string{destRule1, destRule2},
 			kubeconfig: tc.Kube.KubeConfig,
 		}
 		if err := cfgs.Setup(); err != nil {

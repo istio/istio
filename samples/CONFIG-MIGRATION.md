@@ -201,7 +201,8 @@ spec:
       version: v1
   httpFault:
     delay:
-      percent: 100
+      percentage:
+        value: 100.0
       fixedDelay: 7s
 ```
 
@@ -225,7 +226,8 @@ spec:
       version: v1
   httpFault:
     delay:
-      percent: 100
+      percentage:
+        value: 100.0
       fixedDelay: 7s
 ```
 

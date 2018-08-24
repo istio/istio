@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/mcp/creds"
 	"istio.io/istio/pkg/probe"
 	"istio.io/istio/pkg/tracing"
 )
@@ -48,9 +49,13 @@ type Args struct {
 	// Maximum number of goroutines in the adapter worker pool
 	AdapterWorkerPoolSize int
 
-	// URL of the config store. Use k8s://path_to_kubeconfig or fs:// for file system. If path_to_kubeconfig is empty, in-cluster kubeconfig is used.")
+	// URL of the config store. Use k8s://path_to_kubeconfig, fs:// for file system, or mcp://<host> to
+	// connect to Galley. If path_to_kubeconfig is empty, in-cluster kubeconfig is used.")
 	// If this is empty (and ConfigStore isn't specified), "k8s://" will be used.
 	ConfigStoreURL string
+
+	// The certificate file locations for the MCP config backend.
+	CredentialOptions *creds.Options
 
 	// For testing; this one is used for the backend store if ConfigStoreURL is empty. Specifying both is invalid.
 	ConfigStore store.Store
@@ -108,6 +113,7 @@ func DefaultArgs() *Args {
 		MaxConcurrentStreams:   1024,
 		APIWorkerPoolSize:      1024,
 		AdapterWorkerPoolSize:  1024,
+		CredentialOptions:      creds.DefaultOptions(),
 		ConfigDefaultNamespace: constant.DefaultConfigNamespace,
 		LoggingOptions:         log.DefaultOptions(),
 		TracingOptions:         tracing.DefaultOptions(),
@@ -150,6 +156,9 @@ func (a *Args) String() string {
 	fmt.Fprint(buf, "SingleThreaded: ", a.SingleThreaded, "\n")
 	fmt.Fprint(buf, "NumCheckCacheEntries: ", a.NumCheckCacheEntries, "\n")
 	fmt.Fprint(buf, "ConfigStoreURL: ", a.ConfigStoreURL, "\n")
+	fmt.Fprint(buf, "CertificateFile: ", a.CredentialOptions.CertificateFile, "\n")
+	fmt.Fprint(buf, "KeyFile: ", a.CredentialOptions.KeyFile, "\n")
+	fmt.Fprint(buf, "CACertificateFile: ", a.CredentialOptions.CACertificateFile, "\n")
 	fmt.Fprint(buf, "ConfigDefaultNamespace: ", a.ConfigDefaultNamespace, "\n")
 	fmt.Fprintf(buf, "LoggingOptions: %#v\n", *a.LoggingOptions)
 	fmt.Fprintf(buf, "TracingOptions: %#v\n", *a.TracingOptions)
