@@ -267,9 +267,7 @@ main() {
   dump_time
   dump_pilot
   dump_resources
-  if tap_containers dump_logs_for_container copy_core_dumps_if_istio_proxy; then
-      exit_code=254
-  fi
+  exit_code=tap_containers dump_logs_for_container copy_core_dumps_if_istio_proxy
 
   if [ "${SHOULD_CHECK_LOGS_FOR_ERRORS}" = true ]; then
     if ! check_logs_for_errors; then

@@ -28,7 +28,8 @@ global:
     accessLogFile: "/dev/stdout"
 
     # If set, newly injected sidecars will have core dumps enabled. Core dumps will always be written to the same
-    # file to prevent storage filling up indefinitely. Add a timestamp option to core_pattern to keep all cores.
+    # file to prevent storage filling up indefinitely. Add a timestamp option to core_pattern to keep all cores:
+    # e.g. sysctl -w kernel.core_pattern=/var/lib/istio/core.%e.%p.%t
     enableCoreDump: false
 
     # istio egress capture whitelist
