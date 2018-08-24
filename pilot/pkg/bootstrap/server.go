@@ -797,7 +797,8 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 			<-stop
 			model.JwtKeyResolver.Close()
 
-			ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
 			err = s.httpServer.Shutdown(ctx)
 			if err != nil {
 				log.Warna(err)
