@@ -184,7 +184,7 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 		}
 	}
 	yamlDir := filepath.Join(tmpDir, "yaml")
-	i, err := NewIstioctl(yamlDir, *namespace, *namespace, *proxyHub, *proxyTag, *imagePullPolicy, "")
+	i, err := NewIstioctl(yamlDir, *namespace, *proxyHub, *proxyTag, *imagePullPolicy, "")
 	if err != nil {
 		return nil, err
 	}
@@ -233,7 +233,7 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 			return nil, err
 		}
 		// Create Istioctl for remote using injectConfigMap on remote (not the same as master cluster's)
-		remoteI, err := NewIstioctl(yamlDir, *namespace, *namespace, *proxyHub, *proxyTag, *imagePullPolicy, "istio-sidecar-injector")
+		remoteI, err := NewIstioctl(yamlDir, *namespace, *proxyHub, *proxyTag, *imagePullPolicy, "istio-sidecar-injector")
 		if err != nil {
 			return nil, err
 		}
