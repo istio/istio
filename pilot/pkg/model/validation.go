@@ -154,6 +154,12 @@ func (s *Service) Validate() error {
 		} else if !IsDNS1123Label(port.Name) {
 			errs = multierror.Append(errs, fmt.Errorf("invalid name: %q", port.Name))
 		}
+
+		if err := validateProtocol(string(port.Protocol)); err != nil {
+			errs = multierror.Append(errs,
+				fmt.Errorf("invalid service protocol for port %q: %v", port.Name, err))
+		}
+
 		if err := ValidatePort(port.Port); err != nil {
 			errs = multierror.Append(errs,
 				fmt.Errorf("invalid service port value %d for %q: %v", port.Port, port.Name, err))

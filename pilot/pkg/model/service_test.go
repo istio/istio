@@ -28,30 +28,30 @@ var validServiceKeys = map[string]struct {
 	"example-service1.default|grpc,http|a=b,c=d;e=f": {
 		service: Service{
 			Hostname: "example-service1.default",
-			Ports:    []*Port{{Name: "http", Port: 80}, {Name: "grpc", Port: 90}}},
+			Ports:    []*Port{{Name: "http", Port: 80, Protocol: ProtocolHTTP}, {Name: "grpc", Port: 90, Protocol: ProtocolGRPC}}},
 		labels: LabelsCollection{{"e": "f"}, {"c": "d", "a": "b"}}},
 	"my-service": {
 		service: Service{
 			Hostname: "my-service",
-			Ports:    []*Port{{Name: "", Port: 80}}}},
+			Ports:    []*Port{{Name: "", Port: 80, Protocol: ProtocolHTTP}}}},
 	"svc.ns": {
 		service: Service{
 			Hostname: "svc.ns",
-			Ports:    []*Port{{Name: "", Port: 80}}}},
+			Ports:    []*Port{{Name: "", Port: 80, Protocol: ProtocolHTTP}}}},
 	"svc||istio.io/my_tag-v1.test=my_value-v2.value": {
 		service: Service{
 			Hostname: "svc",
-			Ports:    []*Port{{Name: "", Port: 80}}},
+			Ports:    []*Port{{Name: "", Port: 80, Protocol: ProtocolHTTP}}},
 		labels: LabelsCollection{{"istio.io/my_tag-v1.test": "my_value-v2.value"}}},
 	"svc|test|prod": {
 		service: Service{
 			Hostname: "svc",
-			Ports:    []*Port{{Name: "test", Port: 80}}},
+			Ports:    []*Port{{Name: "test", Port: 80, Protocol: ProtocolHTTP}}},
 		labels: LabelsCollection{{"prod": ""}}},
 	"svc.default.svc.cluster.local|http-test": {
 		service: Service{
 			Hostname: "svc.default.svc.cluster.local",
-			Ports:    []*Port{{Name: "http-test", Port: 80}}}},
+			Ports:    []*Port{{Name: "http-test", Port: 80, Protocol: ProtocolHTTP}}}},
 }
 
 func TestServiceString(t *testing.T) {

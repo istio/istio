@@ -268,6 +268,11 @@ func TestServiceValidate(t *testing.T) {
 		{Name: "http", Port: -80, Protocol: ProtocolHTTP},
 	}
 
+	badProtocal := PortList{
+		{Name: "http", Port: 90, Protocol: ProtocolHTTP},
+		{Name: "http", Port: 90, Protocol: Protocol("some bad protocol")},
+	}
+
 	address := "192.168.1.1"
 
 	cases := []struct {
@@ -276,20 +281,34 @@ func TestServiceValidate(t *testing.T) {
 		valid   bool
 	}{
 		{
+			name:    "normal",
+			service: &Service{Hostname: "hostname", Address: address, Ports: ports},
+			valid:   true,
+		},
+		{
 			name:    "empty hostname",
 			service: &Service{Hostname: "", Address: address, Ports: ports},
+			valid:   false,
 		},
 		{
 			name:    "invalid hostname",
 			service: &Service{Hostname: "hostname.^.com", Address: address, Ports: ports},
+			valid:   false,
 		},
 		{
 			name:    "empty ports",
 			service: &Service{Hostname: "hostname", Address: address},
+			valid:   false,
 		},
 		{
 			name:    "bad ports",
 			service: &Service{Hostname: "hostname", Address: address, Ports: badPorts},
+			valid:   false,
+		},
+		{
+			name:    "bad protocol",
+			service: &Service{Hostname: "hostname", Address: address, Ports: badProtocal},
+			valid:   false,
 		},
 	}
 	for _, c := range cases {
