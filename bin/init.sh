@@ -64,7 +64,7 @@ export ISTIO_OUT=${ISTIO_OUT:-${ISTIO_BIN}}
 
 # Gets the download command supported by the system (currently either curl or wget)
 DOWNLOAD_COMMAND=""
-set_download_command () {
+function set_download_command () {
     # Try curl.
     if command -v curl > /dev/null; then
         if curl --version | grep Protocols  | grep https > /dev/null; then
