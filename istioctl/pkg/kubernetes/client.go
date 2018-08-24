@@ -31,6 +31,8 @@ import (
 var (
 	proxyContainer     = "istio-proxy"
 	discoveryContainer = "discovery"
+	pilotDiscoveryPath = "/usr/local/bin/pilot-discovery"
+	pilotAgentPath     = "/usr/local/bin/pilot-agent"
 )
 
 // Client is a helper wrapper around the Kube RESTClient for istioctl -> Pilot/Envoy/Mesh related things
@@ -124,17 +126,15 @@ func (client *Client) AllPilotsDiscoveryDo(pilotNamespace, method, path string, 
 	if len(pilots) == 0 {
 		return nil, errors.New("unable to find any Pilot instances")
 	}
-	cmd := []string{"/usr/local/bin/pilot-discovery", "request", method, path, string(body)}
-	var stdout, stderr *bytes.Buffer
+	cmd := []string{pilotDiscoveryPath, "request", method, path, string(body)}
 	result := map[string][]byte{}
 	for _, pilot := range pilots {
-		stdout, stderr, err = client.PodExec(pilot.Name, pilot.Namespace, discoveryContainer, cmd)
+		res, err := client.ExtractExecResult(pilot.Name, pilot.Namespace, discoveryContainer, cmd)
 		if err != nil {
-			return nil, fmt.Errorf("error execing into %v %v container: %v", pilot.Name, discoveryContainer, err)
-		} else if stdout.String() != "" {
-			result[pilot.Name] = stdout.Bytes()
-		} else if stderr.String() != "" {
-			return nil, fmt.Errorf("error execing into %v %v container: %v", pilot.Name, discoveryContainer, stderr.String())
+			return nil, err
+		}
+		if len(res) > 0 {
+			result[pilot.Name] = res
 		}
 	}
 	return result, err
@@ -149,15 +149,8 @@ func (client *Client) PilotDiscoveryDo(pilotNamespace, method, path string, body
 	if len(pilots) == 0 {
 		return nil, errors.New("unable to find any Pilot instances")
 	}
-	cmd := []string{"/usr/local/bin/pilot-discovery", "request", method, path, string(body)}
-	var stdout, stderr *bytes.Buffer
-	stdout, stderr, err = client.PodExec(pilots[0].Name, pilots[0].Namespace, discoveryContainer, cmd)
-	if err != nil {
-		return nil, fmt.Errorf("error execing into %v %v container: %v", pilots[0].Name, discoveryContainer, err)
-	} else if stderr.String() != "" {
-		return nil, fmt.Errorf("error execing into %v %v container: %v", pilots[0].Name, discoveryContainer, stderr.String())
-	}
-	return stdout.Bytes(), err
+	cmd := []string{pilotDiscoveryPath, "request", method, path, string(body)}
+	return client.ExtractExecResult(pilots[0].Name, pilots[0].Namespace, discoveryContainer, cmd)
 }
 
 // EnvoyDo makes an http request to the Envoy in the specified pod
@@ -166,12 +159,17 @@ func (client *Client) EnvoyDo(podName, podNamespace, method, path string, body [
 	if err != nil {
 		return nil, fmt.Errorf("unable to retrieve proxy container name: %v", err)
 	}
-	cmd := []string{"/usr/local/bin/pilot-agent", "request", method, path, string(body)}
+	cmd := []string{pilotAgentPath, "request", method, path, string(body)}
+	return client.ExtractExecResult(podName, podNamespace, container, cmd)
+}
+
+// ExtractExecResult wraps PodExec and return the execution result and error if has any.
+func (client *Client) ExtractExecResult(podName, podNamespace, container string, cmd []string) ([]byte, error) {
 	stdout, stderr, err := client.PodExec(podName, podNamespace, container, cmd)
 	if err != nil {
-		return stdout.Bytes(), err
+		return nil, fmt.Errorf("error execing into %v/%v %v container: %v", podName, podNamespace, container, err)
 	} else if stderr.String() != "" {
-		return nil, fmt.Errorf("error execing into %v: %v", podName, stderr.String())
+		return nil, fmt.Errorf("error execing into %v/%v %v container: %v", podName, podNamespace, container, stderr.String())
 	}
 	return stdout.Bytes(), nil
 }
