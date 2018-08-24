@@ -72,7 +72,7 @@ func checkLocalRegistryRunning() error {
 	checkPodCmd := fmt.Sprintf("kubectl get pods -n kube-system | grep kube-registry-v0 | grep Running")
 	for count < 10 {
 		// Wait for registry to be up.
-		if _, err := util.Shell(checkPodCmd); err != nil {
+		if _, err := util.ShellSilent(checkPodCmd); err != nil {
 			time.Sleep(5 * time.Second)
 			count++
 			continue

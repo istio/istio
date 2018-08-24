@@ -54,6 +54,7 @@ func SetupMinikubeEnvironment(cpus, remoteRegistryPort uint16, memory uint64, vm
 	log.Infof("")
 	log.Infof("#Minikube Setup is done#")
 	log.Infof("#Please export HUB=localhost:%d in your console#", remoteRegistryPort)
+	log.Infof("#Please run eval \"$(minikube docker-env)\" in your console#")
 
 	return nil
 }
@@ -83,7 +84,7 @@ func checkMinikubeRunning() error {
 	checkPodCmd := fmt.Sprintf("kubectl get pods -n kube-system | grep kube-proxy |  grep Running")
 	for count < 10 {
 		// Wait for registry to be up.
-		if _, err := util.Shell(checkPodCmd); err != nil {
+		if _, err := util.ShellSilent(checkPodCmd); err != nil {
 			time.Sleep(5 * time.Second)
 			count++
 			continue
