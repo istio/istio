@@ -9,7 +9,7 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/status: '{"version":"57b1dfa5a9560cbcd4772082f6168a91efe9ae4dda91c25bee28f9b89b1cc1b4","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"4ca19663f2e12e18f8c18276fe31111f92735b13affff33dd404bb8edb3e85ff","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
         app: hello
@@ -68,8 +68,6 @@ spec:
         - ""
         - --proxyAdminPort
         - "15000"
-        - --concurrency
-        - "0"
         - --controlPlaneAuthPolicy
         - NONE
         env:

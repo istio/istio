@@ -47,8 +47,6 @@ spec:
         - ""
         - --proxyAdminPort
         - "15000"
-        - --concurrency
-        - "0"
         - --controlPlaneAuthPolicy
         - NONE
         env:
