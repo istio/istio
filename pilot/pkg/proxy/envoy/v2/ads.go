@@ -206,7 +206,7 @@ type XdsConnection struct {
 	ListenerNonceSent, ListenerNonceAcked string
 	RouteNonceSent, RouteNonceAcked       string
 	EndpointNonceSent, EndpointNonceAcked string
-	RoutePercent, EndpointPercent         int
+	EndpointPercent                       int
 
 	// current list of clusters monitored by the client
 	Clusters []string
@@ -454,7 +454,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				// too verbose - sent immediately after EDS response is received
 				adsLog.Debugf("ADS:LDS: REQ %s %v", con.ConID, peerAddr)
 				con.LDSWatch = true
-				err := s.pushLds(con, s.env.PushContext, true, versionInfo())
+				err := s.pushLds(con, s.env.PushContext, versionInfo())
 				if err != nil {
 					return err
 				}
@@ -596,7 +596,7 @@ func (s *DiscoveryServer) pushAll(con *XdsConnection, pushEv *XdsEvent) error {
 		}
 	}
 	if con.LDSWatch {
-		err := s.pushLds(con, pushEv.push, false, pushEv.version)
+		err := s.pushLds(con, pushEv.push, pushEv.version)
 		if err != nil {
 			return err
 		}
