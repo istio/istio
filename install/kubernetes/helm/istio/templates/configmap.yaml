@@ -42,7 +42,7 @@ data:
     sdsUdsPath: ""
     
     # How frequently should Envoy fetch key/cert from NodeAgent.
-    sdsRefreshDelay: 15s
+    sdsRefreshDelay: 600s
 
     #
     defaultConfig:
