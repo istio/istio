@@ -32,7 +32,7 @@ spec:
           ports:
             - containerPort: {{ .Values.service.internalPort }}
           args:
-          - --prometheusAddr=http://prometheus:9090
+          - --prometheusAddr={{- .Values.prometheusAddr }}
           livenessProbe:
             httpGet:
               path: /graph

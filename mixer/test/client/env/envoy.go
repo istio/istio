@@ -49,6 +49,7 @@ func (s *TestSetup) NewEnvoy() (*Envoy, error) {
 	args := []string{"-c", confPath,
 		"--v2-config-only",
 		"--drain-time-s", "1",
+		"--allow-unknown-fields",
 		// base id is shared between restarted envoys
 		"--base-id", strconv.Itoa(int(s.testName))}
 	if s.stress {
@@ -89,9 +90,7 @@ func (s *Envoy) Start() error {
 	}
 
 	url := fmt.Sprintf("http://localhost:%v/server_info", s.ports.AdminPort)
-	WaitForHTTPServer(url)
-
-	return nil
+	return WaitForHTTPServer(url)
 }
 
 // Stop stops the envoy process

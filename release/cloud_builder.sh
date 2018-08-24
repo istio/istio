@@ -28,7 +28,7 @@ set -x
 # uses store_artifacts.sh to store the build on GCR/GCS.
 
 OUTPUT_PATH=""
-TAG_NAME="0.0.0"
+TAG_NAME=""
 BUILD_DEBIAN="true"
 BUILD_DOCKER="true"
 REL_DOCKER_HUB=docker.io/istio
@@ -43,7 +43,7 @@ function usage() {
     -o        path to store build artifacts
     -p        GCS bucket & prefix path where build will be stored for testing (optional)
     -q        path on gcr hub to use for testing (optional, alt to -h)
-    -t <tag>  tag to use (optional, defaults to ${TAG_NAME} )"
+    -t <tag>  tag to use"
   exit 1
 }
 
@@ -60,14 +60,11 @@ while getopts bch:o:p:q:t: arg ; do
   esac
 done
 
-DEFAULT_GCS_PATH="https://storage.googleapis.com/istio-release/releases/${TAG_NAME}"
-if [[ -n "${TEST_GCS_PATH}" ]]; then
-  TEST_PATH="${TEST_GCS_PATH}"
-else
-  TEST_PATH="${DEFAULT_GCS_PATH}"
-fi
-
 [[ -z "${OUTPUT_PATH}" ]] && usage
+[[ -z "${TAG_NAME}" ]] && usage
+
+DEFAULT_GCS_PATH="https://storage.googleapis.com/istio-release/releases/${TAG_NAME}"
+TEST_PATH=${TEST_GCS_PATH:-$DEFAULT_GCS_PATH}
 
 # switch to the root of the istio repo
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

@@ -47,6 +47,10 @@ spec:
       valueType: INT64
     response.time:
       valueType: TIMESTAMP
+    response.grpc_status:
+      valueType: STRING
+    response.grpc_message:
+      valueType: STRING
     source.uid:
       valueType: STRING
     source.user: # DEPRECATED
@@ -233,6 +237,8 @@ spec:
     httpAuthority: request.headers[":authority"] | request.host | ""
     xForwardedFor: request.headers["x-forwarded-for"] | "0.0.0.0"
     reporter: conditional((context.reporter.kind | "inbound") == "outbound", "source", "destination")
+    grpcStatus: response.grpc_status | ""
+    grpcMessage: response.grpc_message | ""
   monitored_resource_type: '"global"'
 ---
 apiVersion: "config.istio.io/v1alpha2"

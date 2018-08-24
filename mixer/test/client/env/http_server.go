@@ -129,7 +129,7 @@ func (s *HTTPServer) handle(w http.ResponseWriter, r *http.Request) {
 	s.reqHeaders = reqHeaders
 	s.mu.Unlock()
 
-	_, _ = w.Write(body)
+	w.Write(body)
 }
 
 // NewHTTPServer creates a new HTTP server.
@@ -147,16 +147,19 @@ func NewHTTPServer(port uint16) (*HTTPServer, error) {
 }
 
 // Start starts the server
-// TODO: Add a channel so this can return an error
-func (s *HTTPServer) Start() {
+func (s *HTTPServer) Start() <-chan error {
+	errCh := make(chan error)
 	go func() {
 		http.HandleFunc("/", s.handle)
 		http.HandleFunc("/pubkey", pubkeyHandler)
-		_ = http.Serve(s.lis, nil)
+		errCh <- http.Serve(s.lis, nil)
+	}()
+	go func() {
+		url := fmt.Sprintf("http://localhost:%v/echo", s.port)
+		errCh <- WaitForHTTPServer(url)
 	}()
 
-	url := fmt.Sprintf("http://localhost:%v/echo", s.port)
-	WaitForHTTPServer(url)
+	return errCh
 }
 
 // Stop shutdown the server

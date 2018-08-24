@@ -62,7 +62,8 @@ var (
 		Use:          "sidecar-injector",
 		Short:        "Kubernetes webhook for automatic Istio sidecar injection.",
 		SilenceUsage: true,
-		RunE: func(*cobra.Command, []string) error {
+		RunE: func(c *cobra.Command, _ []string) error {
+			cmd.PrintFlags(c.Flags())
 			if err := log.Configure(flags.loggingOptions); err != nil {
 				return err
 			}

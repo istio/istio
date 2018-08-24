@@ -660,7 +660,6 @@ func (a *pilotAgent) filterDiscoveryResponse(resp *xdsapi.DiscoveryResponse) (*x
 				}
 			}
 
-			newResponse.Resources = append(newResponse.Resources, any)
 		case clusterType:
 			// Remove any management clusters.
 			c := &xdsapi.Cluster{}
@@ -670,8 +669,6 @@ func (a *pilotAgent) filterDiscoveryResponse(resp *xdsapi.DiscoveryResponse) (*x
 			switch {
 			case strings.Contains(c.Name, "mgmtCluster"):
 				continue
-			default:
-				newResponse.Resources = append(newResponse.Resources, any)
 			}
 		}
 		newResponse.Resources = append(newResponse.Resources, any)

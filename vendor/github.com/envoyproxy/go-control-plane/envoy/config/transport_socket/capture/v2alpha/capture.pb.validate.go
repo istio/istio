@@ -86,7 +86,9 @@ func (m *Capture) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetTransportSocket()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetTransportSocket()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return CaptureValidationError{
 				Field:  "TransportSocket",
@@ -100,7 +102,9 @@ func (m *Capture) Validate() error {
 
 	case *Capture_FileSink:
 
-		if v, ok := interface{}(m.GetFileSink()).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(m.GetFileSink()).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return CaptureValidationError{
 					Field:  "FileSink",

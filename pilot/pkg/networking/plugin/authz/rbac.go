@@ -27,6 +27,10 @@ import (
 	"sort"
 	"strings"
 
+	// Imported so that `dep ensure` do not prune the unused network/rbac/v2 package. Will soon be used
+	// to support the network RBAC filter.
+	_ "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/rbac/v2"
+
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	rbacconfig "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/rbac/v2"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
@@ -348,7 +352,7 @@ func (Plugin) OnInboundRouteConfiguration(in *plugin.InputParams, route *xdsapi.
 }
 
 // OnOutboundCluster implements the Plugin interface method.
-func (Plugin) OnOutboundCluster(env *model.Environment, node *model.Proxy, push *model.PushContext, service *model.Service,
+func (Plugin) OnOutboundCluster(env *model.Environment, push *model.PushContext, service *model.Service,
 	servicePort *model.Port, cluster *xdsapi.Cluster) {
 }
 

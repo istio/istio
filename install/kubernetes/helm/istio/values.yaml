@@ -414,8 +414,9 @@ grafana:
   storageClassName: ""
   security:
     enabled: false
-    adminUser: admin
-    adminPassword: admin
+    secretName: grafana
+    usernameKey: username
+    passphraseKey: passphrase
   service:
     annotations: {}
     name: http
