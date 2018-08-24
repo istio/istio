@@ -560,7 +560,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 					destinationIPAddress, service, servicePort, proxyLabels, meshGateway)
 			case plugin.ListenerTypeX:
 				listenerMapKey = fmt.Sprintf("%s:%d", listenAddress, servicePort.Port)
-				if _, exists := listenerMap[listenerMapKey]; exists {
+				if currentListenerEntry, exists := listenerMap[listenerMapKey]; exists {
 					if !currentListenerEntry.servicePort.Protocol.IsX() {
 						outboundListenerConflict{
 							metric:          model.ProxyStatusConflictOutboundListenerHTTPOverTCP,
