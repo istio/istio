@@ -53,6 +53,8 @@ import (
 	"fmt"
 	"strings"
 
+	"go.opencensus.io/stats"
+
 	tpb "istio.io/api/mixer/adapter/model/v1beta1"
 	descriptor "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
@@ -62,6 +64,7 @@ import (
 	"istio.io/istio/mixer/pkg/protobuf/yaml/dynamic"
 	"istio.io/istio/mixer/pkg/runtime/config"
 	"istio.io/istio/mixer/pkg/runtime/handler"
+	"istio.io/istio/mixer/pkg/runtime/monitoring"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
 )
@@ -143,17 +146,17 @@ func (b *builder) nextID() uint32 {
 	return id
 }
 
-func (b *builder) build(config *config.Snapshot) {
+func (b *builder) build(snapshot *config.Snapshot) {
 
 rules:
-	for _, rule := range config.Rules {
+	for _, rule := range snapshot.Rules {
 
 		// Create a compiled expression for the rule condition first.
 		condition, err := b.getConditionExpression(rule)
 		if err != nil {
 			log.Warnf("Unable to compile match condition expression: '%v', rule='%s', expression='%s'",
 				err, rule.Name, rule.Match)
-			config.Counters.MatchErrors.Inc()
+			stats.Record(snapshot.MonitoringContext, monitoring.MatchErrors.M(1))
 			// Skip the rule
 			continue rules
 		}
@@ -169,7 +172,7 @@ rules:
 				log.Warnf("Unable to find a handler for action. rule[action]='%s[%d]', handler='%s'",
 					rule.Name, i, handlerName)
 
-				config.Counters.UnsatisfiedActionHandlers.Inc()
+				stats.Record(snapshot.MonitoringContext, monitoring.UnsatisfiedActionHandlers.M(1))
 				// Skip the rule
 				continue rules
 			}
@@ -177,7 +180,7 @@ rules:
 			for _, instance := range action.Instances {
 				// get the instance mapper and builder for this instance. Mapper is used by APA instances
 				// to map the instance result back to attributes.
-				builder, mapper, err := b.getBuilderAndMapper(config.Attributes, instance)
+				builder, mapper, err := b.getBuilderAndMapper(snapshot.Attributes, instance)
 				if err != nil {
 					log.Warnf("Unable to create builder/mapper for instance: instance='%s', err='%v'", instance.Name, err)
 					continue rules
@@ -200,7 +203,7 @@ rules:
 				log.Warnf("Unable to find a handler for action. rule[action]='%s[%d]', handler='%s'",
 					rule.Name, i, handlerName)
 
-				config.Counters.UnsatisfiedActionHandlers.Inc()
+				stats.Record(snapshot.MonitoringContext, monitoring.UnsatisfiedActionHandlers.M(1))
 				// Skip the rule
 				continue rules
 			}
@@ -208,7 +211,7 @@ rules:
 			for _, instance := range action.Instances {
 				// get the instance mapper and builder for this instance. Mapper is used by APA instances
 				// to map the instance result back to attributes.
-				builder, mapper, err := b.getBuilderAndMapperDynamic(config.Attributes, instance)
+				builder, mapper, err := b.getBuilderAndMapperDynamic(snapshot.Attributes, instance)
 				if err != nil {
 					log.Warnf("Unable to create builder/mapper for instance: instance='%s', err='%v'", instance.Name, err)
 					continue rules
@@ -222,7 +225,7 @@ rules:
 		// Process rule operations.
 		// Note that operation expressions may span multiple actions (destinations), so we cannot re-use destination tables.
 		if len(rule.RequestHeaderOperations) > 0 && len(rule.ResponseHeaderOperations) > 0 {
-			compiler := b.buildRuleCompiler(config.Attributes, rule)
+			compiler := b.buildRuleCompiler(snapshot.Attributes, rule)
 			if ops, err := b.buildRuleOperations(compiler, rule); err != nil {
 				log.Warnf("Unable to compile rule operations: %q, rule=%q", err, rule.Name)
 				continue rules
@@ -370,7 +373,6 @@ func (b *builder) add(
 			AdapterName:    entry.AdapterName,
 			Template:       t,
 			InstanceGroups: []*InstanceGroup{},
-			Counters:       newDestinationCounters(t.Name, handlerName, entry.AdapterName),
 		}
 		byNamespace.entries = append(byNamespace.entries, byHandler)
 	}

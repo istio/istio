@@ -457,7 +457,8 @@ var waitDurations = []time.Duration{0, 5 * time.Second, 15 * time.Second, 30 * t
 func waitForMixerConfigResolution() error {
 	// we are looking for confirmation that 3 handlers were configured and that none of them had
 	// build failures
-	configQuery := `topk(1, mixer_config_handler_config_count - mixer_handler_handler_build_failure_count)`
+
+	configQuery := `max(mixer_config_handler_configs_total) - max(mixer_handler_handler_build_failures_total or up * 0)`
 	handlers := 0.0
 	for _, duration := range waitDurations {
 		log.Infof("Waiting for Mixer to be configured with correct handlers: %v", duration)

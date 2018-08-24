@@ -89,9 +89,6 @@ type Destination struct {
 
 	// FriendlyName is the friendly name of this configured handler entry. Used for monitoring/logging purposes.
 	FriendlyName string
-
-	// Perf counters for keeping track of dispatches to adapters/handlers.
-	Counters DestinationCounters
 }
 
 // NamedBuilder holds a builder function and the short name of the associated instance.

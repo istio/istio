@@ -8,7 +8,7 @@ metadata:
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
 rules:
-- apiGroups: ["*"]
+- apiGroups: [""]
   resources: ["configmaps"]
   verbs: ["get", "list", "watch"]
 - apiGroups: ["admissionregistration.k8s.io"]

@@ -27,10 +27,14 @@ package checkcache
 // with each corresponding cached value?
 
 import (
+	"context"
 	"sync"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"go.opencensus.io/stats"
+	"go.opencensus.io/stats/view"
+	"go.opencensus.io/tag"
 
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/attribute"
@@ -75,6 +79,33 @@ type Value struct {
 	RouteDirective *mixerpb.RouteDirective
 }
 
+var (
+	// cache stats
+	writesTotal = stats.Int64(
+		"mixer/checkcache/cache_writes_total", "The number of times state in the cache was added or updated.", stats.UnitDimensionless)
+	hitsTotal = stats.Int64(
+		"mixer/checkcache/cache_hits_total", "The number of times a cache lookup operation succeeded to find an entry in the cache.", stats.UnitDimensionless)
+	missesTotal = stats.Int64(
+		"mixer/checkcache/cache_misses_total", "The number of times a cache lookup operation failed to find an entry in the cache.", stats.UnitDimensionless)
+	evictionsTotal = stats.Int64(
+		"mixer/checkcache/cache_evictions_total", "The number of entries that have been evicted from the cache.", stats.UnitDimensionless)
+
+	writesView    = newView(writesTotal, []tag.Key{}, view.LastValue())
+	hitsView      = newView(hitsTotal, []tag.Key{}, view.LastValue())
+	missesView    = newView(missesTotal, []tag.Key{}, view.LastValue())
+	evictionsView = newView(evictionsTotal, []tag.Key{}, view.LastValue())
+)
+
+func newView(measure stats.Measure, keys []tag.Key, aggregation *view.Aggregation) *view.View {
+	return &view.View{
+		Name:        measure.Name(),
+		Description: measure.Description(),
+		Measure:     measure,
+		TagKeys:     keys,
+		Aggregation: aggregation,
+	}
+}
+
 // New creates a new instance of a check cache with the given maximum capacity. Adding more items to the
 // cache then its capacity will cause eviction of older entries.
 func New(capacity int32) *Cache {
@@ -84,60 +115,14 @@ func New(capacity int32) *Cache {
 		getTime:     time.Now,
 	}
 
-	cc.cacheWrites = prometheus.NewCounterFunc(prometheus.CounterOpts{
-		Namespace: "mixer",
-		Subsystem: "checkcache",
-		Name:      "cache_writes",
-		Help:      "The number of times state in the cache was added or updated.",
-	}, func() float64 {
-		s := cc.cache.Stats()
-		return float64(s.Writes)
-	})
-
-	cc.cacheHits = prometheus.NewCounterFunc(prometheus.CounterOpts{
-		Namespace: "mixer",
-		Subsystem: "checkcache",
-		Name:      "cache_hits",
-		Help:      "The number of times a cache lookup operation succeeded to find an entry in the cache.",
-	}, func() float64 {
-		s := cc.cache.Stats()
-		return float64(s.Hits)
-	})
-
-	cc.cacheMisses = prometheus.NewCounterFunc(prometheus.CounterOpts{
-		Namespace: "mixer",
-		Subsystem: "checkcache",
-		Name:      "cache_misses",
-		Help:      "The number of times a cache lookup operation failed to find an entry in the cache.",
-	}, func() float64 {
-		s := cc.cache.Stats()
-		return float64(s.Misses)
-	})
-
-	cc.cacheEvictions = prometheus.NewCounterFunc(prometheus.CounterOpts{
-		Namespace: "mixer",
-		Subsystem: "checkcache",
-		Name:      "cache_evictions",
-		Help:      "The number of entries that have been evicted from the cache.",
-	}, func() float64 {
-		s := cc.cache.Stats()
-		return float64(s.Evictions)
-	})
-
-	_ = prometheus.Register(cc.cacheWrites)
-	_ = prometheus.Register(cc.cacheHits)
-	_ = prometheus.Register(cc.cacheMisses)
-	_ = prometheus.Register(cc.cacheEvictions)
+	_ = view.Register(writesView, hitsView, missesView, evictionsView)
 
 	return cc
 }
 
 // Close releases any resources used by the check cache.
 func (cc *Cache) Close() error {
-	_ = prometheus.Unregister(cc.cacheWrites)
-	_ = prometheus.Unregister(cc.cacheHits)
-	_ = prometheus.Unregister(cc.cacheMisses)
-	_ = prometheus.Unregister(cc.cacheEvictions)
+	view.Unregister(writesView, hitsView, missesView, evictionsView)
 	return nil
 }
 
@@ -161,15 +146,18 @@ func (cc *Cache) Get(attrs attribute.Bag) (Value, bool) {
 					// Entry expired. This happens because the underlying ExpiringCache only lazily cleans up
 					// expired entries. Since we want to be more precise, we do our own freshness check and throw
 					// out stale results
+					cc.recordStats()
 					return Value{}, false
 				}
 
 				// got a match!
+				cc.recordStats()
 				return result.(Value), true
 			}
 		}
 	}
 
+	cc.recordStats()
 	return Value{}, false
 }
 
@@ -178,6 +166,7 @@ func (cc *Cache) Set(attrs attribute.Bag, value Value) {
 	now := cc.getTime()
 	if value.Expiration.Before(now) {
 		// value is already expired, don't add it
+		cc.recordStats()
 		return
 	}
 
@@ -189,6 +178,7 @@ func (cc *Cache) Set(attrs attribute.Bag, value Value) {
 	for _, shape := range shapes {
 		if shape.isCompatible(attrs) {
 			cc.cache.SetWithExpiration(shape.makeKey(attrs), value, value.Expiration.Sub(now))
+			cc.recordStats()
 			return
 		}
 	}
@@ -202,4 +192,14 @@ func (cc *Cache) Set(attrs attribute.Bag, value Value) {
 	cc.keyShapesLock.Unlock()
 
 	cc.cache.SetWithExpiration(shape.makeKey(attrs), value, value.Expiration.Sub(now))
+	cc.recordStats()
+}
+
+func (cc *Cache) recordStats() {
+	s := cc.cache.Stats()
+	stats.Record(context.Background(),
+		writesTotal.M(int64(s.Writes)),
+		hitsTotal.M(int64(s.Hits)),
+		missesTotal.M(int64(s.Misses)),
+		evictionsTotal.M(int64(s.Evictions)))
 }

@@ -31,12 +31,12 @@
   revision = "6bade2a0677a5cd76f937ef4cd2e426f55742ad1"
 
 [[projects]]
-  digest = "1:0a7b52c5d11037c41b6e80e72a87a0ee974096434769d347bb960a9317526af0"
+  digest = "1:31858c4ee1ed344edf8b5b0507e3e9bc4e39cfe61e132ca064eaa82ba053a663"
   name = "contrib.go.opencensus.io/exporter/stackdriver"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "b98abe41e381c878749ef1aa9eb0798616afbb43"
-  version = "v0.2.0"
+  revision = "37aa2801fbf0205003e15636096ebf0373510288"
+  version = "v0.5.0"
 
 [[projects]]
   digest = "1:add5f01e863553e80ded66e1cba646ad947932e66f90813741d51c97a1ee7a59"
@@ -1220,9 +1220,11 @@
   revision = "84ea3a3c79b3c4b3b39606cc96f255cd63635ce0"
 
 [[projects]]
-  digest = "1:773b6907f497ea5abddc9ee90cdde179b119c0c8a04b0f02cb2fff955ed8cab4"
+  digest = "1:de92335ddd759ac9be56aba81473fb3b65c8386092cf0c554dab6c234aecddf4"
   name = "go.opencensus.io"
   packages = [
+    ".",
+    "exporter/prometheus",
     "exporter/stackdriver/propagation",
     "internal",
     "internal/tagencoding",
@@ -1238,8 +1240,8 @@
     "trace/propagation",
   ]
   pruneopts = "NUT"
-  revision = "c3ed530f775d85e577ca652cb052a52c078aad26"
-  version = "v0.11.0"
+  revision = "e262766cd0d230a1bb7c37281e345e465f19b41b"
+  version = "v0.14.0"
 
 [[projects]]
   digest = "1:8eff4c694254322268936dc162805ff95ac846435e909f011ba43805bb9b4e0f"
@@ -2097,8 +2099,13 @@
     "github.com/uber/jaeger-client-go/transport",
     "github.com/uber/jaeger-client-go/transport/zipkin",
     "github.com/uber/jaeger-client-go/zipkin",
+    "go.opencensus.io/exporter/prometheus",
+    "go.opencensus.io/plugin/ocgrpc",
     "go.opencensus.io/plugin/ochttp",
     "go.opencensus.io/plugin/ochttp/propagation/b3",
+    "go.opencensus.io/stats",
+    "go.opencensus.io/stats/view",
+    "go.opencensus.io/tag",
     "go.opencensus.io/trace",
     "go.uber.org/atomic",
     "go.uber.org/multierr",
@@ -2197,7 +2204,6 @@
     "k8s.io/client-go/tools/portforward",
     "k8s.io/client-go/tools/remotecommand",
     "k8s.io/client-go/transport/spdy",
-    "k8s.io/client-go/util/flowcontrol",
     "k8s.io/client-go/util/workqueue",
     "k8s.io/cluster-registry/pkg/apis/clusterregistry/v1alpha1",
     "k8s.io/helm/pkg/chartutil",
