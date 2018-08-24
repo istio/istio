@@ -18,7 +18,7 @@
 # Init script downloads or updates envoy and the go dependencies. Called from Makefile, which sets
 # the needed environment variables.
 
-ROOT=$(cd "$(dirname "$0")"/..; pwd)
+ROOTDIR=$(cd "$(dirname "$0")"/..; pwd)
 
 set -o errexit
 set -o nounset
@@ -115,7 +115,7 @@ set_download_command
 # Save envoy in $ISTIO_ENVOY_DIR
 if [ ! -f "$ISTIO_ENVOY_DEBUG_PATH" ] || [ ! -f "$ISTIO_ENVOY_RELEASE_PATH" ] ; then
     # Clear out any old versions of Envoy.
-    rm -f "${ISTIO_OUT}/envoy" "${ROOT}/pilot/pkg/proxy/envoy/envoy" "${ISTIO_BIN}/envoy"
+    rm -f "${ISTIO_OUT}/envoy" "${ROOTDIR}/pilot/pkg/proxy/envoy/envoy" "${ISTIO_BIN}/envoy"
 
     # Download debug envoy binary.
     mkdir -p "$ISTIO_ENVOY_DEBUG_DIR"
@@ -164,4 +164,4 @@ else
     cp "${ISTIO_ENVOY_DEBUG_PATH}" "${ISTIO_BIN}/envoy"
 fi
 
-"${ROOT}/bin/init_helm.sh"
+"${ROOTDIR}/bin/init_helm.sh"

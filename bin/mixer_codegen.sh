@@ -5,22 +5,22 @@ die () {
   exit 1
 }
 
-WD="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-ROOT="$(dirname "$WD")"
+SCRIPTPATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+ROOTDIR="$(dirname "$SCRIPTPATH")"
 
-if [ ! -e "$ROOT/Gopkg.lock" ]; then
+if [ ! -e "$ROOTDIR/Gopkg.lock" ]; then
   echo "Please run 'dep ensure' first"
   exit 1
 fi
 
 set -e
 
-outdir=$ROOT
-file=$ROOT
-protoc="$ROOT/bin/protoc.sh"
+outdir=$ROOTDIR
+file=$ROOTDIR
+protoc="$ROOTDIR/bin/protoc.sh"
 
-optimport=$ROOT
-template=$ROOT
+optimport=$ROOTDIR
+template=$ROOTDIR
 
 optproto=false
 optadapter=false
@@ -57,15 +57,15 @@ done
 # echo "outdir: ${outdir}"
 
 # Ensure expected GOPATH setup
-if [ "$ROOT" != "${GOPATH-$HOME/go}/src/istio.io/istio" ]; then
+if [ "$ROOTDIR" != "${GOPATH-$HOME/go}/src/istio.io/istio" ]; then
   die "Istio not found in GOPATH/src/istio.io/"
 fi
 
 IMPORTS=(
-  "--proto_path=${ROOT}"
-  "--proto_path=${ROOT}/vendor/istio.io/api"
-  "--proto_path=${ROOT}/vendor/github.com/gogo/protobuf"
-  "--proto_path=${ROOT}/vendor/github.com/gogo/googleapis"
+  "--proto_path=${ROOTDIR}"
+  "--proto_path=${ROOTDIR}/vendor/istio.io/api"
+  "--proto_path=${ROOTDIR}/vendor/github.com/gogo/protobuf"
+  "--proto_path=${ROOTDIR}/vendor/github.com/gogo/googleapis"
   "--proto_path=$optimport"
 )
 
