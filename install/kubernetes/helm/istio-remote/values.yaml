@@ -24,7 +24,8 @@ global:
       #   memory: 128Mi
 
     # Controls number of Proxy worker threads.
-    # concurrency: 0
+    # If set to 0 (default), then start worker thread for each CPU thread/core.
+    concurrency: 0
 
     # Configures the access log for each sidecar. Setting it to an empty string will
     # disable access log for sidecar.
