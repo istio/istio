@@ -33,9 +33,9 @@ if ! virtualbox --help > /dev/null; then
       echo "Please install those packages and then run this script again."
       exit 1
     fi
-    sudo apt-get --quite -y install -f
+    sudo apt-get -y install -f
     # Check for more recent version and update
-    if sudo apt-get --quite -y install virtualbox; then
+    if sudo apt-get -y install virtualbox; then
       echo "virtual box install done! Current Version: $(VBoxManage -v)"
     else
       echo "Looks like virtual box update failed. Please try manually. Current Version: $(VBoxManage -v)"
@@ -43,7 +43,7 @@ if ! virtualbox --help > /dev/null; then
     fi
 else
     echo "Looks like virtual is installed. Checking if it can be upgraded."
-    if ! sudo apt-get --quite -y install virtualbox; then
+    if ! sudo apt-get -y install virtualbox; then
       echo "Looks like virtual box update failed. Please try manually. Current Version: $(VBoxManage -v)"
       exit 1
     else
