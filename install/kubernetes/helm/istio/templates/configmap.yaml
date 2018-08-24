@@ -18,8 +18,10 @@ data:
     # Set enableTracing to false to disable request tracing.
     enableTracing: {{ .Values.global.enableTracing }}
 
-    # Set concurrency to a specific number to limit the number of Proxy worker threads.
+  {{- if .Values.global.proxy.concurrency }}
+    # Set concurrency to a specific number to control the number of Proxy worker threads.
     concurrency: {{ .Values.global.proxy.concurrency }}
+  {{- end }}
 
     # Set accessLogFile to empty string to disable access log.
     accessLogFile: "{{ .Values.global.proxy.accessLogFile }}"
