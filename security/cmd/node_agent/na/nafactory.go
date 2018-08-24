@@ -17,6 +17,7 @@ package na
 import (
 	"fmt"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/caclient/protocol"
 	"istio.io/istio/security/pkg/platform"
 	"istio.io/istio/security/pkg/util"
@@ -30,6 +31,7 @@ type NodeAgent interface {
 
 // NewNodeAgent is constructor for Node agent based on the provided Environment variable.
 func NewNodeAgent(cfg *Config) (NodeAgent, error) {
+	log.Infof("cfg.CAClientConfig.CAAddress is %v", cfg.CAClientConfig.CAAddress)
 	if cfg == nil {
 		return nil, fmt.Errorf("nil configuration passed")
 	}
@@ -38,8 +40,15 @@ func NewNodeAgent(cfg *Config) (NodeAgent, error) {
 		certUtil: util.NewCertUtil(cfg.CAClientConfig.CSRGracePeriodPercentage),
 	}
 
-	pc, err := platform.NewClient(cfg.CAClientConfig.Env, cfg.CAClientConfig.RootCertFile, cfg.CAClientConfig.KeyFile,
-		cfg.CAClientConfig.CertChainFile, cfg.CAClientConfig.CAAddress)
+	var pc platform.Client
+	var err error
+	if cfg.CAClientConfig.Env == "vault" && cfg.CAClientConfig.K8sServiceAccountFile != "" {
+		pc, err = platform.NewK8sVaultClientImpl(cfg.CAClientConfig.RootCertFile, cfg.CAClientConfig.KeyFile,
+			cfg.CAClientConfig.CertChainFile, cfg.CAClientConfig.K8sServiceAccountFile)
+	} else {
+		pc, err = platform.NewClient(cfg.CAClientConfig.Env, cfg.CAClientConfig.RootCertFile, cfg.CAClientConfig.KeyFile,
+			cfg.CAClientConfig.CertChainFile, cfg.CAClientConfig.CAAddress)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -50,8 +59,10 @@ func NewNodeAgent(cfg *Config) (NodeAgent, error) {
 	}
 	grpcConn, err := protocol.NewGrpcConnection(cfg.CAClientConfig.CAAddress, dialOpts)
 	if err != nil {
+		log.Infof("NewGrpcConnection() returns an error %v", err)
 		return nil, err
 	}
+	log.Infof("NewGrpcConnection() succeeds")
 	na.caProtocol = grpcConn
 	return na, nil
 }

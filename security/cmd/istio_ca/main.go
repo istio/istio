@@ -136,6 +136,15 @@ type cliOptions struct { // nolint: maligned
 	// Custom domain options, for control plane and special service accounts
 	// comma separated list of SERVICE_ACCOUNT.NAMESPACE:DOMAIN
 	customDNSNames string
+
+	// Use Vault for signing CSR
+	useVault bool
+	// Vault server IP address
+	vaultIP string
+	// Vault server port
+	vaultPort int
+	// Path to the SA reviewer's token
+	reviewerTokenPath string
 }
 
 var (
@@ -246,6 +255,14 @@ func init() {
 	flags.StringVar(&opts.customDNSNames, "custom-dns-names", "",
 		"The list of account.namespace:customdns names, separated by comma.")
 
+	// Use Vault to sign CSR
+	flags.BoolVar(&opts.useVault, "use-vault", false,
+		"Whether using Vault to sign CSR. "+
+			"When set as true, the '--signing-cert' and '--signing-key' options are ignored.")
+	flags.StringVar(&opts.reviewerTokenPath, "reviewer-token-file", "", "Path to the file containing the token of the service account reviewer")
+	flags.StringVar(&opts.vaultIP, "vault-ip", "", "The IP address of the Vault server.")
+	flags.IntVar(&opts.vaultPort, "vault-port", 0, "The port number of the Vault server. ")
+
 	rootCmd.AddCommand(version.CobraCommand())
 
 	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
@@ -350,7 +367,20 @@ func runCA() {
 
 		// The CA API uses cert with the max workload cert TTL.
 		hostnames := append(strings.Split(opts.grpcHosts, ","), fqdn())
-		caServer, startErr := caserver.New(ca, opts.maxWorkloadCertTTL, opts.signCACerts, hostnames, opts.grpcPort)
+
+		var caServer *caserver.Server
+		var startErr error
+		if opts.useVault {
+			// Use VaultCa struct to handle CSR
+			csrHandler := caserver.NewVaultCa(opts.vaultIP, opts.vaultPort, opts.reviewerTokenPath)
+			if csrHandler == nil {
+				fatalf("Failed to create Vault CSR handler")
+			}
+			caServer, startErr = caserver.New(ca, opts.maxWorkloadCertTTL, opts.signCACerts, hostnames, opts.grpcPort, csrHandler)
+		} else {
+			// When csrHandler is nil, use the default HandleCSR() interface defined in Server struct
+			caServer, startErr = caserver.New(ca, opts.maxWorkloadCertTTL, opts.signCACerts, hostnames, opts.grpcPort, nil)
+		}
 		if startErr != nil {
 			fatalf("Failed to create istio ca server: %v", startErr)
 		}
@@ -451,9 +481,18 @@ func createCA(core corev1.SecretsGetter) *ca.IstioCA {
 }
 
 func generateConfig() *rest.Config {
-	c, err := clientcmd.BuildConfigFromFlags("", opts.kubeConfigFile)
+	if opts.kubeConfigFile != "" {
+		c, err := clientcmd.BuildConfigFromFlags("", opts.kubeConfigFile)
+		if err != nil {
+			fatalf("Failed to create a config object from file %s, (error %v)", opts.kubeConfigFile, err)
+		}
+		return c
+	}
+
+	// When `kubeConfigFile` is unspecified, use the in-cluster configuration.
+	c, err := rest.InClusterConfig()
 	if err != nil {
-		fatalf("Failed to create a config (error: %s)", err)
+		fatalf("Failed to create a in-cluster config (error: %s)", err)
 	}
 	return c
 }
@@ -471,7 +510,8 @@ func createKeyCertBundleRotator(keycert pkiutil.KeyCertBundle) (keyCertBundleRot
 	config.CSRGracePeriodPercentage = defaultCSRGracePeriodPercentage
 	config.CSRMaxRetries = defaultCSRMaxRetries
 	config.CSRInitialRetrialInterval = defaultCSRInitialRetrialInterval
-	pc, err := platform.NewClient(config.Env, config.RootCertFile, config.KeyFile, config.CertChainFile, config.CAAddress)
+	pc, err := platform.NewClient(config.Env, config.RootCertFile, config.KeyFile, config.CertChainFile,
+		config.CAAddress)
 	if err != nil {
 		return nil, err
 	}
@@ -492,6 +532,22 @@ func createKeyCertBundleRotator(keycert pkiutil.KeyCertBundle) (keyCertBundleRot
 
 func verifyCommandLineOptions() {
 	if opts.selfSignedCA {
+		return
+	}
+
+	if opts.useVault {
+		if opts.vaultIP == "" {
+			fatalf(
+				"No Vault IP address has been specified.")
+		}
+		if opts.vaultPort == 0 {
+			fatalf(
+				"No Vault port number has been specified.")
+		}
+		if opts.reviewerTokenPath == "" {
+			fatalf(
+				"No token reviewer path has been specified.")
+		}
 		return
 	}
 

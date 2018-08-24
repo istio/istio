@@ -24,6 +24,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/pki/util"
 )
 
@@ -106,6 +107,7 @@ func (ci *OnPremClientImpl) GetCredentialType() string {
 // getTLSCredentials creates transport credentials that are common to
 // node agent and CA.
 func getTLSCredentials(rootCertFile, keyFile, certChainFile string) (credentials.TransportCredentials, error) {
+	log.Infof("getTLSCredentials(): rootCertFile is %v", rootCertFile)
 
 	// Load the certificate from disk
 	certificate, err := tls.LoadX509KeyPair(certChainFile, keyFile)

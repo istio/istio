@@ -49,6 +49,7 @@ type Server struct {
 	forCA          bool
 	port           int
 	monitoring     monitoringMetrics
+	csrHandler     pb.IstioCAServiceServer
 }
 
 // HandleCSR handles an incoming certificate signing request (CSR). It does
@@ -62,6 +63,13 @@ func (s *Server) HandleCSR(ctx context.Context, request *pb.CsrRequest) (*pb.Csr
 		log.Warn("request authentication failure")
 		s.monitoring.AuthenticationError.Inc()
 		return nil, status.Error(codes.Unauthenticated, "request authenticate failure")
+	}
+	log.Infof("The caller from the grpc context is %v", caller)
+	log.Infof("The request.CredentialType is %v", request.CredentialType)
+
+	if request.CredentialType == "vault" {
+		log.Infof("Need to authenticate the CSR request and SA at k8s API server")
+		log.Infof("After the authentication, the CSR and SA will be sent to Vault")
 	}
 
 	csr, err := util.ParsePemEncodedCSR(request.CsrPem)
@@ -107,7 +115,11 @@ func (s *Server) Run() error {
 	serverOption := s.createTLSServerOption()
 
 	grpcServer := grpc.NewServer(serverOption)
-	pb.RegisterIstioCAServiceServer(grpcServer, s)
+	if s.csrHandler != nil {
+		pb.RegisterIstioCAServiceServer(grpcServer, s.csrHandler)
+	} else {
+		pb.RegisterIstioCAServiceServer(grpcServer, s)
+	}
 
 	// grpcServer.Serve() is a blocking call, so run it in a goroutine.
 	go func() {
@@ -123,7 +135,9 @@ func (s *Server) Run() error {
 }
 
 // New creates a new instance of `IstioCAServiceServer`.
-func New(ca ca.CertificateAuthority, ttl time.Duration, forCA bool, hostlist []string, port int) (*Server, error) {
+// When csrHandler is nil, use the HandleCSR() interface defined in Server struct
+func New(ca ca.CertificateAuthority, ttl time.Duration, forCA bool, hostlist []string, port int,
+	csrHandler pb.IstioCAServiceServer) (*Server, error) {
 	if len(hostlist) == 0 {
 		return nil, fmt.Errorf("failed to create grpc server hostlist empty")
 	}
@@ -139,7 +153,8 @@ func New(ca ca.CertificateAuthority, ttl time.Duration, forCA bool, hostlist []s
 			authenticators = append(authenticators, jwtAuthenticator)
 		}
 	}
-	return &Server{
+
+	server := &Server{
 		authenticators: authenticators,
 		authorizer:     &registryAuthorizor{registry.GetIdentityRegistry()},
 		serverCertTTL:  ttl,
@@ -148,7 +163,16 @@ func New(ca ca.CertificateAuthority, ttl time.Duration, forCA bool, hostlist []s
 		forCA:          forCA,
 		port:           port,
 		monitoring:     newMonitoringMetrics(),
-	}, nil
+	}
+
+	if csrHandler == nil {
+		// Use the HandleCSR() interface defined in Server struct
+		server.csrHandler = server
+	} else {
+		server.csrHandler = csrHandler
+	}
+
+	return server, nil
 }
 
 func (s *Server) createTLSServerOption() grpc.ServerOption {

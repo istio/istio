@@ -1,0 +1,11 @@
+FROM vault:0.10.3
+
+ENV VAULT_DEV_ROOT_TOKEN_ID myroot
+ENV VAULT_DEV_LISTEN_ADDRESS 0.0.0.0:8200
+
+ENTRYPOINT ["docker-entrypoint.sh"]
+
+# Override the CMD in the parent image
+# By default you'll get a single-node development server that stores everything
+# in RAM and bootstraps itself. Don't use this configuration for production.
+CMD ["server", "-dev"]

@@ -62,4 +62,7 @@ type Config struct {
 
 	// RootCertFile defines the root cert of the CA client.
 	RootCertFile string
+
+	// K8sServiceAccountFile defines the k8s service account used for CSR.
+	K8sServiceAccountFile string
 }
