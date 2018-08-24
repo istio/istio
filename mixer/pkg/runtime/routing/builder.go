@@ -559,7 +559,7 @@ func (b *builder) buildRuleCompiler(parent ast.AttributeDescriptorFinder, rule *
 	return compiled.NewBuilder(&ruleAttributes{parent: parent, overrides: attributeDescriptor})
 }
 
-func (b *builder) buildRuleOperations(compiler *compiled.ExpressionBuilder, rule *config.Rule) ([]*HeaderOperation, error) {
+func (b *builder) buildRuleOperations(compiler dynamic.Compiler, rule *config.Rule) ([]*HeaderOperation, error) {
 	out, err := b.compileRuleOperationTemplates(rule.Name, compiler, RequestHeaderOperation, rule.RequestHeaderOperations)
 	if err != nil {
 		return nil, err
