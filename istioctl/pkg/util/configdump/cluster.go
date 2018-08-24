@@ -43,13 +43,12 @@ func (w *Wrapper) GetDynamicClusterDump(stripVersions bool) (*adminapi.ClustersC
 
 // GetClusterConfigDump retrieves the cluster config dump from the ConfigDump
 func (w *Wrapper) GetClusterConfigDump() (*adminapi.ClustersConfigDump, error) {
-	if w.Configs == nil {
+	// The cluster dump is the second one in the list.
+	// See https://www.envoyproxy.io/docs/envoy/latest/api-v2/admin/v2alpha/config_dump.proto
+	if len(w.Configs) < 2 {
 		return nil, fmt.Errorf("config dump has no cluster dump")
 	}
-	clusterDumpAny, ok := w.Configs["clusters"]
-	if !ok {
-		return nil, fmt.Errorf("config dump has no cluster dump")
-	}
+	clusterDumpAny := w.Configs[1]
 	clusterDump := &adminapi.ClustersConfigDump{}
 	err := proto.UnmarshalAny(&clusterDumpAny, clusterDump)
 	if err != nil {

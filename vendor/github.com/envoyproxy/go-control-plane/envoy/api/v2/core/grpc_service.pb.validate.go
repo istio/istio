@@ -42,7 +42,9 @@ func (m *GrpcService) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetTimeout()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetTimeout()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return GrpcServiceValidationError{
 				Field:  "Timeout",
@@ -55,7 +57,9 @@ func (m *GrpcService) Validate() error {
 	for idx, item := range m.GetInitialMetadata() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(item).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return GrpcServiceValidationError{
 					Field:  fmt.Sprintf("InitialMetadata[%v]", idx),
@@ -71,7 +75,9 @@ func (m *GrpcService) Validate() error {
 
 	case *GrpcService_EnvoyGrpc_:
 
-		if v, ok := interface{}(m.GetEnvoyGrpc()).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(m.GetEnvoyGrpc()).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return GrpcServiceValidationError{
 					Field:  "EnvoyGrpc",
@@ -83,7 +89,9 @@ func (m *GrpcService) Validate() error {
 
 	case *GrpcService_GoogleGrpc_:
 
-		if v, ok := interface{}(m.GetGoogleGrpc()).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(m.GetGoogleGrpc()).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return GrpcServiceValidationError{
 					Field:  "GoogleGrpc",
@@ -199,7 +207,9 @@ func (m *GrpcService_GoogleGrpc) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetChannelCredentials()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetChannelCredentials()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return GrpcService_GoogleGrpcValidationError{
 				Field:  "ChannelCredentials",
@@ -212,7 +222,9 @@ func (m *GrpcService_GoogleGrpc) Validate() error {
 	for idx, item := range m.GetCallCredentials() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(item).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return GrpcService_GoogleGrpcValidationError{
 					Field:  fmt.Sprintf("CallCredentials[%v]", idx),
@@ -233,7 +245,9 @@ func (m *GrpcService_GoogleGrpc) Validate() error {
 
 	// no validation rules for CredentialsFactoryName
 
-	if v, ok := interface{}(m.GetConfig()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetConfig()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return GrpcService_GoogleGrpcValidationError{
 				Field:  "Config",
@@ -285,7 +299,9 @@ func (m *GrpcService_GoogleGrpc_SslCredentials) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetRootCerts()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetRootCerts()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return GrpcService_GoogleGrpc_SslCredentialsValidationError{
 				Field:  "RootCerts",
@@ -295,7 +311,9 @@ func (m *GrpcService_GoogleGrpc_SslCredentials) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetPrivateKey()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetPrivateKey()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return GrpcService_GoogleGrpc_SslCredentialsValidationError{
 				Field:  "PrivateKey",
@@ -305,7 +323,9 @@ func (m *GrpcService_GoogleGrpc_SslCredentials) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetCertChain()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetCertChain()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return GrpcService_GoogleGrpc_SslCredentialsValidationError{
 				Field:  "CertChain",
@@ -362,7 +382,9 @@ func (m *GrpcService_GoogleGrpc_ChannelCredentials) Validate() error {
 
 	case *GrpcService_GoogleGrpc_ChannelCredentials_SslCredentials:
 
-		if v, ok := interface{}(m.GetSslCredentials()).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(m.GetSslCredentials()).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return GrpcService_GoogleGrpc_ChannelCredentialsValidationError{
 					Field:  "SslCredentials",
@@ -374,7 +396,9 @@ func (m *GrpcService_GoogleGrpc_ChannelCredentials) Validate() error {
 
 	case *GrpcService_GoogleGrpc_ChannelCredentials_GoogleDefault:
 
-		if v, ok := interface{}(m.GetGoogleDefault()).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(m.GetGoogleDefault()).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return GrpcService_GoogleGrpc_ChannelCredentialsValidationError{
 					Field:  "GoogleDefault",
@@ -442,7 +466,9 @@ func (m *GrpcService_GoogleGrpc_CallCredentials) Validate() error {
 
 	case *GrpcService_GoogleGrpc_CallCredentials_GoogleComputeEngine:
 
-		if v, ok := interface{}(m.GetGoogleComputeEngine()).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(m.GetGoogleComputeEngine()).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return GrpcService_GoogleGrpc_CallCredentialsValidationError{
 					Field:  "GoogleComputeEngine",
@@ -457,7 +483,9 @@ func (m *GrpcService_GoogleGrpc_CallCredentials) Validate() error {
 
 	case *GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJwtAccess:
 
-		if v, ok := interface{}(m.GetServiceAccountJwtAccess()).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(m.GetServiceAccountJwtAccess()).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return GrpcService_GoogleGrpc_CallCredentialsValidationError{
 					Field:  "ServiceAccountJwtAccess",
@@ -469,7 +497,9 @@ func (m *GrpcService_GoogleGrpc_CallCredentials) Validate() error {
 
 	case *GrpcService_GoogleGrpc_CallCredentials_GoogleIam:
 
-		if v, ok := interface{}(m.GetGoogleIam()).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(m.GetGoogleIam()).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return GrpcService_GoogleGrpc_CallCredentialsValidationError{
 					Field:  "GoogleIam",
@@ -481,7 +511,9 @@ func (m *GrpcService_GoogleGrpc_CallCredentials) Validate() error {
 
 	case *GrpcService_GoogleGrpc_CallCredentials_FromPlugin:
 
-		if v, ok := interface{}(m.GetFromPlugin()).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(m.GetFromPlugin()).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return GrpcService_GoogleGrpc_CallCredentialsValidationError{
 					Field:  "FromPlugin",
@@ -643,7 +675,9 @@ func (m *GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin) V
 
 	// no validation rules for Name
 
-	if v, ok := interface{}(m.GetConfig()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetConfig()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPluginValidationError{
 				Field:  "Config",

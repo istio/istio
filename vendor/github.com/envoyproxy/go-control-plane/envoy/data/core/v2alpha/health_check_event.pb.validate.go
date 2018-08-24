@@ -49,7 +49,9 @@ func (m *HealthCheckEvent) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetHost()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetHost()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return HealthCheckEventValidationError{
 				Field:  "Host",
@@ -66,11 +68,25 @@ func (m *HealthCheckEvent) Validate() error {
 		}
 	}
 
+	if v, ok := interface{}(m.GetTimestamp()).(interface {
+		Validate() error
+	}); ok {
+		if err := v.Validate(); err != nil {
+			return HealthCheckEventValidationError{
+				Field:  "Timestamp",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
 	switch m.Event.(type) {
 
 	case *HealthCheckEvent_EjectUnhealthyEvent:
 
-		if v, ok := interface{}(m.GetEjectUnhealthyEvent()).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(m.GetEjectUnhealthyEvent()).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return HealthCheckEventValidationError{
 					Field:  "EjectUnhealthyEvent",
@@ -82,7 +98,9 @@ func (m *HealthCheckEvent) Validate() error {
 
 	case *HealthCheckEvent_AddHealthyEvent:
 
-		if v, ok := interface{}(m.GetAddHealthyEvent()).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(m.GetAddHealthyEvent()).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return HealthCheckEventValidationError{
 					Field:  "AddHealthyEvent",

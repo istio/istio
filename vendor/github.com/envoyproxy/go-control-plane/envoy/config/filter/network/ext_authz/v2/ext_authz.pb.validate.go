@@ -48,7 +48,9 @@ func (m *ExtAuthz) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetGrpcService()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetGrpcService()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return ExtAuthzValidationError{
 				Field:  "GrpcService",
