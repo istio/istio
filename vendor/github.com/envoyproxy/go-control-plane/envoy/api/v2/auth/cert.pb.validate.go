@@ -98,7 +98,9 @@ func (m *TlsCertificate) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetCertificateChain()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetCertificateChain()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return TlsCertificateValidationError{
 				Field:  "CertificateChain",
@@ -108,7 +110,9 @@ func (m *TlsCertificate) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetPrivateKey()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetPrivateKey()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return TlsCertificateValidationError{
 				Field:  "PrivateKey",
@@ -118,7 +122,9 @@ func (m *TlsCertificate) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetPassword()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetPassword()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return TlsCertificateValidationError{
 				Field:  "Password",
@@ -128,7 +134,9 @@ func (m *TlsCertificate) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetOcspStaple()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetOcspStaple()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return TlsCertificateValidationError{
 				Field:  "OcspStaple",
@@ -141,7 +149,9 @@ func (m *TlsCertificate) Validate() error {
 	for idx, item := range m.GetSignedCertificateTimestamp() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(item).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return TlsCertificateValidationError{
 					Field:  fmt.Sprintf("SignedCertificateTimestamp[%v]", idx),
@@ -205,7 +215,9 @@ func (m *TlsSessionTicketKeys) Validate() error {
 	for idx, item := range m.GetKeys() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(item).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return TlsSessionTicketKeysValidationError{
 					Field:  fmt.Sprintf("Keys[%v]", idx),
@@ -259,7 +271,9 @@ func (m *CertificateValidationContext) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetTrustedCa()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetTrustedCa()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return CertificateValidationContextValidationError{
 				Field:  "TrustedCa",
@@ -293,7 +307,9 @@ func (m *CertificateValidationContext) Validate() error {
 
 	}
 
-	if v, ok := interface{}(m.GetRequireOcspStaple()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetRequireOcspStaple()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return CertificateValidationContextValidationError{
 				Field:  "RequireOcspStaple",
@@ -303,7 +319,9 @@ func (m *CertificateValidationContext) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetRequireSignedCertificateTimestamp()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetRequireSignedCertificateTimestamp()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return CertificateValidationContextValidationError{
 				Field:  "RequireSignedCertificateTimestamp",
@@ -313,7 +331,9 @@ func (m *CertificateValidationContext) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetCrl()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetCrl()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return CertificateValidationContextValidationError{
 				Field:  "Crl",
@@ -368,7 +388,9 @@ func (m *CommonTlsContext) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetTlsParams()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetTlsParams()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return CommonTlsContextValidationError{
 				Field:  "TlsParams",
@@ -388,7 +410,9 @@ func (m *CommonTlsContext) Validate() error {
 	for idx, item := range m.GetTlsCertificates() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(item).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return CommonTlsContextValidationError{
 					Field:  fmt.Sprintf("TlsCertificates[%v]", idx),
@@ -403,7 +427,9 @@ func (m *CommonTlsContext) Validate() error {
 	for idx, item := range m.GetTlsCertificateSdsSecretConfigs() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(item).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return CommonTlsContextValidationError{
 					Field:  fmt.Sprintf("TlsCertificateSdsSecretConfigs[%v]", idx),
@@ -415,7 +441,9 @@ func (m *CommonTlsContext) Validate() error {
 
 	}
 
-	if v, ok := interface{}(m.GetDeprecatedV1()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetDeprecatedV1()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return CommonTlsContextValidationError{
 				Field:  "DeprecatedV1",
@@ -429,7 +457,9 @@ func (m *CommonTlsContext) Validate() error {
 
 	case *CommonTlsContext_ValidationContext:
 
-		if v, ok := interface{}(m.GetValidationContext()).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(m.GetValidationContext()).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return CommonTlsContextValidationError{
 					Field:  "ValidationContext",
@@ -441,7 +471,9 @@ func (m *CommonTlsContext) Validate() error {
 
 	case *CommonTlsContext_ValidationContextSdsSecretConfig:
 
-		if v, ok := interface{}(m.GetValidationContextSdsSecretConfig()).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(m.GetValidationContextSdsSecretConfig()).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return CommonTlsContextValidationError{
 					Field:  "ValidationContextSdsSecretConfig",
@@ -495,7 +527,9 @@ func (m *UpstreamTlsContext) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetCommonTlsContext()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetCommonTlsContext()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return UpstreamTlsContextValidationError{
 				Field:  "CommonTlsContext",
@@ -556,7 +590,9 @@ func (m *DownstreamTlsContext) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetCommonTlsContext()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetCommonTlsContext()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return DownstreamTlsContextValidationError{
 				Field:  "CommonTlsContext",
@@ -566,7 +602,9 @@ func (m *DownstreamTlsContext) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetRequireClientCertificate()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetRequireClientCertificate()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return DownstreamTlsContextValidationError{
 				Field:  "RequireClientCertificate",
@@ -576,7 +614,9 @@ func (m *DownstreamTlsContext) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetRequireSni()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetRequireSni()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return DownstreamTlsContextValidationError{
 				Field:  "RequireSni",
@@ -590,7 +630,9 @@ func (m *DownstreamTlsContext) Validate() error {
 
 	case *DownstreamTlsContext_SessionTicketKeys:
 
-		if v, ok := interface{}(m.GetSessionTicketKeys()).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(m.GetSessionTicketKeys()).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return DownstreamTlsContextValidationError{
 					Field:  "SessionTicketKeys",
@@ -602,7 +644,9 @@ func (m *DownstreamTlsContext) Validate() error {
 
 	case *DownstreamTlsContext_SessionTicketKeysSdsSecretConfig:
 
-		if v, ok := interface{}(m.GetSessionTicketKeysSdsSecretConfig()).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(m.GetSessionTicketKeysSdsSecretConfig()).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return DownstreamTlsContextValidationError{
 					Field:  "SessionTicketKeysSdsSecretConfig",
@@ -658,7 +702,9 @@ func (m *SdsSecretConfig) Validate() error {
 
 	// no validation rules for Name
 
-	if v, ok := interface{}(m.GetSdsConfig()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetSdsConfig()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return SdsSecretConfigValidationError{
 				Field:  "SdsConfig",
@@ -715,7 +761,9 @@ func (m *Secret) Validate() error {
 
 	case *Secret_TlsCertificate:
 
-		if v, ok := interface{}(m.GetTlsCertificate()).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(m.GetTlsCertificate()).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return SecretValidationError{
 					Field:  "TlsCertificate",
@@ -727,7 +775,9 @@ func (m *Secret) Validate() error {
 
 	case *Secret_SessionTicketKeys:
 
-		if v, ok := interface{}(m.GetSessionTicketKeys()).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(m.GetSessionTicketKeys()).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return SecretValidationError{
 					Field:  "SessionTicketKeys",
@@ -739,7 +789,9 @@ func (m *Secret) Validate() error {
 
 	case *Secret_ValidationContext:
 
-		if v, ok := interface{}(m.GetValidationContext()).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(m.GetValidationContext()).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return SecretValidationError{
 					Field:  "ValidationContext",

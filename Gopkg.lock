@@ -304,7 +304,7 @@
   version = "v2.6.0"
 
 [[projects]]
-  digest = "1:43909fe418bab85e33e29f68baec75dd02b061b0db400798146bd5d8c2f255cd"
+  digest = "1:021347aff4c65bc7847025aae2d338d4aefb1fa8e7661c22ad1695d606ad9775"
   name = "github.com/envoyproxy/go-control-plane"
   packages = [
     "envoy/admin/v2alpha",
@@ -324,6 +324,7 @@
     "envoy/config/filter/http/rbac/v2",
     "envoy/config/filter/network/http_connection_manager/v2",
     "envoy/config/filter/network/mongo_proxy/v2",
+    "envoy/config/filter/network/rbac/v2",
     "envoy/config/filter/network/tcp_proxy/v2",
     "envoy/config/metrics/v2",
     "envoy/config/overload/v2alpha",
@@ -339,7 +340,7 @@
     "pkg/util",
   ]
   pruneopts = "T"
-  revision = "676016db8193d83324a507a986a78cd3642ad713"
+  revision = "9abdeff70b1fcebc846b2518ccb73478fa10164e"
   version = "v0.5.0"
 
 [[projects]]
@@ -2023,6 +2024,7 @@
     "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/rbac/v2",
     "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2",
     "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/mongo_proxy/v2",
+    "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/rbac/v2",
     "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2",
     "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2alpha",
     "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2",

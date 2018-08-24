@@ -84,7 +84,9 @@ func (m *StreamMetricsMessage) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetIdentifier()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetIdentifier()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return StreamMetricsMessageValidationError{
 				Field:  "Identifier",
@@ -97,7 +99,9 @@ func (m *StreamMetricsMessage) Validate() error {
 	for idx, item := range m.GetEnvoyMetrics() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(item).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return StreamMetricsMessageValidationError{
 					Field:  fmt.Sprintf("EnvoyMetrics[%v]", idx),
@@ -158,7 +162,9 @@ func (m *StreamMetricsMessage_Identifier) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetNode()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetNode()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return StreamMetricsMessage_IdentifierValidationError{
 				Field:  "Node",
