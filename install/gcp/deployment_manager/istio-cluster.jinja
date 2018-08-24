@@ -101,7 +101,7 @@ resources:
 
           kubectl create ns istio-system
 
-          ISTIO_OPTIONS=" --set global.proxy.image=proxyv2 "
+          ISTIO_OPTIONS=""
 
           {% if  properties['enableMutualTLS'] %}
             ISTIO_OPTIONS=$ISTIO_OPTIONS" --set global.mtls.enabled=true"
