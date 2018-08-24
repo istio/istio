@@ -6,7 +6,7 @@ global:
   hub: gcr.io/istio-release
 
   # Default tag for Istio images.
-  tag: release-1.0-latest-daily
+  tag: nightly-collab-gcp-identity
 
   proxy:
     image: proxyv2
