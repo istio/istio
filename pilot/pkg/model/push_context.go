@@ -21,6 +21,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/golang/protobuf/proto"
+
 	"github.com/prometheus/client_golang/prometheus"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -349,6 +351,10 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 	ps.VirtualServiceConfigs = vservices
 	// convert all shortnames in virtual services into FQDNs
 	for _, r := range ps.VirtualServiceConfigs {
+		// We make a copy of the config's spec as the code below modify fields
+		// within it and it causes data races with the monitor reading these
+		// configs in parallel.
+		r.Spec = proto.Clone(r.Spec)
 		rule := r.Spec.(*networking.VirtualService)
 		// resolve top level hosts
 		for i, h := range rule.Hosts {
