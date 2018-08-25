@@ -64,8 +64,8 @@ TOLERANCE_PERCENT_ALLOCS_PER_OP=0
 SCRIPTPATH=$( cd "$(dirname "$0")" && pwd -P )
 
 # the root folder for the project
-ROOT=${SCRIPTPATH}/..
-TARGET_DIR=${ROOT}
+ROOTDIR=${SCRIPTPATH}/..
+TARGET_DIR=${ROOTDIR}
 if ! [ -z "$1" ]; then
     TARGET_DIR=$1
 fi
@@ -272,7 +272,6 @@ run
 
 
 # The code below this line is for testing purposes.
-
 function test_compareMetric() {
     local -a ZERO_CASES
     ZERO_CASES[0]=$(compareMetric "0" "0" "0")
