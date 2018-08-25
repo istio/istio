@@ -30,7 +30,7 @@ $gometalinter --install
 echo 'Gometalinter installed successfully ....'
 
 echo 'Running gometalinter ....'
-$gometalinter --config=./lintconfig_base.json ./...
+$gometalinter -d --config=./lintconfig_base.json ./...
 echo 'gometalinter OK'
 
 echo 'Running gometalinter on adapters ....'
