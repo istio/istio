@@ -349,11 +349,11 @@ func (cl *Client) Get(typ, name, namespace string) (*model.Config, bool) {
 	}
 
 	config := s.object.DeepCopyObject().(IstioObject)
-	err := rc.dynamic.Get().
-		Namespace(namespace).
-		Resource(ResourceName(schema.Plural)).
-		Name(name).
-		Do().Into(config)
+	req := rc.dynamic.Get().Resource(ResourceName(schema.Plural)).Name(name)
+	if namespace != "" {
+		req = req.Namespace(namespace)
+	}
+	err := req.Do().Into(config)
 
 	if err != nil {
 		log.Warna(err)
@@ -455,11 +455,12 @@ func (cl *Client) Delete(typ, name, namespace string) error {
 		return fmt.Errorf("missing type %q", typ)
 	}
 
-	return rc.dynamic.Delete().
-		Namespace(namespace).
-		Resource(ResourceName(schema.Plural)).
-		Name(name).
-		Do().Error()
+	req := rc.dynamic.Delete().Resource(ResourceName(schema.Plural)).Name(name)
+	if namespace != "" {
+		req = req.Namespace(namespace)
+	}
+
+	return req.Do().Error()
 }
 
 // List implements store interface
