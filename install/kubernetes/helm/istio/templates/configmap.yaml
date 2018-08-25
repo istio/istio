@@ -39,7 +39,7 @@ data:
 
     # Unix Domain Socket through which envoy communicates with NodeAgent SDS to get
     # key/cert for mTLS. Use secret-mount files instead of SDS if set to empty. 
-    sdsUdsPath: ""
+    sdsUdsPath: {{ .Values.nodeagent.sdsudspath }}
     
     # How frequently should Envoy fetch key/cert from NodeAgent.
     sdsRefreshDelay: 600s

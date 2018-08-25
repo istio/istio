@@ -403,6 +403,7 @@ security:
 nodeagent:
   enabled: true
   image: node-agent-k8s
+  sdsudspath: ""
 
 #
 # addons configuration

@@ -33,3 +33,6 @@ servicegraph:
 
 galley:
   enabled: true
+
+nodeagent:
+  sdsudspath: "unix:/var/run/sds/uds_path"
