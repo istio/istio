@@ -348,12 +348,14 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 	}
 
 	sortConfigByCreationTime(vservices)
-	ps.VirtualServiceConfigs = vservices
+	// We make a copy of the configs as the code below modify fields
+	// within it and it causes data races with the monitor reading these
+	// configs in parallel.
+	ps.VirtualServiceConfigs = make([]Config, len(vservices))
+	copy(ps.VirtualServiceConfigs, vservices)
 	// convert all shortnames in virtual services into FQDNs
 	for _, r := range ps.VirtualServiceConfigs {
-		// We make a copy of the config's spec as the code below modify fields
-		// within it and it causes data races with the monitor reading these
-		// configs in parallel.
+		// Deep copy the config's spec by cloning the proto message
 		r.Spec = proto.Clone(r.Spec)
 		rule := r.Spec.(*networking.VirtualService)
 		// resolve top level hosts
