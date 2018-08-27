@@ -16,7 +16,6 @@ package cmd
 
 import (
 	"flag"
-	"fmt"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
@@ -36,10 +35,8 @@ func GetRootCmd(args []string, info map[string]template.Info, adapters []adapter
 		Short: "Mixer is Istio's abstraction on top of infrastructure backends.",
 		Long: "Mixer is Istio's point of integration with infrastructure backends and is the\n" +
 			"nexus for policy evaluation and telemetry reporting.",
+		Args: cobra.ExactArgs(0),
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			if len(args) > 0 {
-				return fmt.Errorf("'%s' is an invalid argument", args[0])
-			}
 			return nil
 		},
 	}
