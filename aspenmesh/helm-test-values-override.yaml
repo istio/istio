@@ -4,5 +4,16 @@
 global:
   hub_img_delim: "/"
   img_tag_delim: ":"
+  controlPlaneSecurityEnabled: false
+  mtls:
+    enabled: false
+  imagePullSecrets: []
   aspenMeshCloud:
     enabled: false
+prometheus:
+  scrapeTargets:
+    kubernetesApiservers: true
+    kubernetesCadvisor: true
+    kubernetesNodes: true
+    kubernetesServiceEndpoints: true
+    kubernetesPods: true

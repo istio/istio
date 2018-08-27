@@ -52,7 +52,7 @@ import (
 const (
 	helmChartDirectory     = "../../../../install/kubernetes/helm/istio"
 	helmConfigMapKey       = "istio/templates/sidecar-injector-configmap.yaml"
-	helmValuesFile         = "values-test-webhook-inject.yaml"
+	helmValuesFile         = "values.yaml"
 	yamlSeparator          = "\n---"
 	minimalSidecarTemplate = `
 initContainers:
@@ -512,6 +512,7 @@ func loadConfigMapWithHelm(t *testing.T) string {
 
 	values := getHelmValues(t)
 	config := &chart.Config{Raw: values, Values: map[string]*chart.Value{}}
+
 	options := chartutil.ReleaseOptions{
 		Name:      "istio",
 		Time:      timeconv.Now(),
@@ -552,10 +553,29 @@ func loadConfigMapWithHelm(t *testing.T) string {
 	return body.Template
 }
 
+type mapSI map[string]interface{}
+
 func getHelmValues(t *testing.T) string {
 	t.Helper()
 	valuesFile := filepath.Join(helmChartDirectory, helmValuesFile)
-	return string(util.ReadFile(valuesFile, t))
+	values, err := chartutil.ReadValuesFile(valuesFile)
+	if err != nil {
+		t.Fatal("Couldn't parse values file", err)
+	}
+
+	global, ok := values.AsMap()["global"].(map[string]interface{})
+	if !ok {
+		t.Fatal("Couldn't find and parse 'global' from values file")
+	}
+	global["aspenMeshCloud"] = map[string]bool{
+		"enabled": false,
+	}
+	modified, err := values.YAML()
+	if err != nil {
+		t.Fatal("Couldn't write modified values", err)
+	}
+
+	return string(modified)
 }
 
 func splitYamlDoc(yamlFile string, t *testing.T) [][]byte {

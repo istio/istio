@@ -587,7 +587,6 @@ istio-remote.yaml: $(HELM)
 	$(HELM) template --namespace=istio-system \
 		install/kubernetes/helm/istio-remote >> install/kubernetes/$@
 
-# TODO: plum this through
 # creates aspenmesh.yaml aspenmesh-auth.yaml
 # Ensure that values-$filename is present in install/kubernetes/helm/istio
 aspenmes%.yaml: $(HELM)
@@ -601,16 +600,18 @@ aspenmes%.yaml: $(HELM)
 
 # creates istio.yaml istio-auth.yaml istio-one-namespace.yaml istio-one-namespace-auth.yaml
 # Ensure that values-$filename is present in install/kubernetes/helm/istio
+# aspenmesh/helm-test-values-override.yaml goes BEFORE the values-* files, becuause the values-* files are intended to override the defaults.
 isti%.yaml: $(HELM)
 	cat install/kubernetes/namespace.yaml > install/kubernetes/$@
 	$(HELM) template --set global.tag=${TAG} \
 		--namespace=istio-system \
 		--set global.hub=${HUB} \
 		--set global.hub_public=${PUBLIC_HUB} \
-		--values install/kubernetes/helm/istio/values-$@ \
 		--values aspenmesh/helm-test-values-override.yaml \
+		--values install/kubernetes/helm/istio/values-$@ \
 		install/kubernetes/helm/istio >> install/kubernetes/$@
 
+# aspenmesh/helm-test-values-override.yaml goes AFTER the values.yaml file, becuause the values.yml file IS the chart default.
 generate_yaml: $(HELM)
 	./install/updateVersion.sh -a ${HUB},${TAG} >/dev/null 2>&1
 	cat install/kubernetes/namespace.yaml > install/kubernetes/istio.yaml

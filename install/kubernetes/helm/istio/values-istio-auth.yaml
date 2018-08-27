@@ -1,9 +1,6 @@
 # This is used to generate istio-auth.yaml for automated CI/CD test, using v1/alpha1
 # or v2/alpha3 with 'gradual migration' (using env variable at inject time).
 global:
-  hub: docker.io/istio
-  hub_img_delim: "/"
-  img_tag_delim: ":"
   # controlPlaneMtls enabled. Will result in delays starting the pods while secrets are
   # propagated, not recommended for tests.
   controlPlaneSecurityEnabled: true
@@ -21,5 +18,3 @@ global:
   # Default is 10s second
   refreshInterval: 1s
 
-  aspenMeshCloud:
-    enabled: false

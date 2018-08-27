@@ -99,7 +99,7 @@ global:
   # to use for pulling any images in pods that reference this ServiceAccount.
   # Must be set for any clustser configured with privte docker registry.
   imagePullSecrets:
-    - aspen-mesh-pull-secret
+    - name: aspen-mesh-pull-secret
 
   # Specify pod scheduling arch(amd64, ppc64le, s390x) and weight as follows:
   #   0 - Never scheduled

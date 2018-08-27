@@ -6,13 +6,7 @@
 # --set global.nodePort=true
 # --set ingressgateway.service.type=NodePort
 global:
-  hub: docker.io/istio
-  hub_img_delim: "/"
-  img_tag_delim: ":"
   nodePort: false
-
-  aspenMeshCloud:
-    enabled: false
 
 ingress:
   # Ingress is used for migration, for alpha3 we expect ingressgateway
