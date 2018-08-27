@@ -27,6 +27,10 @@ import (
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 
+	"context"
+
+	"go.opencensus.io/stats"
+	"go.opencensus.io/tag"
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/pkg/log"
 )
@@ -84,6 +88,7 @@ type Server struct {
 	authCheck                   AuthChecker
 	checkFailureRecordLimiter   *rate.Limiter
 	failureCountSinceLastRecord int
+	connections    int32
 }
 
 // AuthChecker is used to check the transport auth info that is associated with each stream. If the function
@@ -183,6 +188,9 @@ func (s *Server) newConnection(stream mcp.AggregatedMeshConfigService_StreamAggr
 		types = append(types, typeURL)
 	}
 
+	atomic.AddInt32(&s.connections, 1)
+	stats.Record(context.Background(), ClientCount.M(int64(s.connections)))
+
 	scope.Infof("MCP: connection %v: NEW, supported types: %#v", con, types)
 	return con, nil
 }
@@ -199,7 +207,7 @@ func (s *Server) StreamAggregatedResources(stream mcp.AggregatedMeshConfigServic
 		return err
 	}
 
-	defer con.close()
+	defer s.closeConnection(con)
 	go con.receive()
 
 	// fan-in per-type response channels into single response channel for the select loop below.
@@ -236,6 +244,12 @@ func (s *Server) StreamAggregatedResources(stream mcp.AggregatedMeshConfigServic
 	}
 }
 
+func (s *Server) closeConnection(con *connection) {
+	con.close()
+	atomic.AddInt32(&s.connections, -1)
+	stats.Record(context.Background(), ClientCount.M(int64(s.connections)))
+}
+
 // String implements Stringer.String.
 func (con *connection) String() string {
 	return fmt.Sprintf("{addr=%v id=%v}", con.peerAddr, con.id)
@@ -256,6 +270,10 @@ func (con *connection) send(resp *WatchResponse) (string, error) {
 	con.streamNonce = con.streamNonce + 1
 	msg.Nonce = strconv.FormatInt(con.streamNonce, 10)
 	if err := con.stream.Send(msg); err != nil {
+		ctx, err := tag.New(context.Background(),
+			tag.Insert(ErrorTag, err.Error()),
+			tag.Insert(ErrorCodeTag, strconv.FormatUint(uint64(status.Code(err)), 10)))
+		stats.Record(ctx, SendFailures.M(1))
 		return "", err
 	}
 	scope.Infof("MCP: connection %v: SEND version=%v nonce=%v", con, resp.Version, msg.Nonce)
@@ -267,12 +285,16 @@ func (con *connection) receive() {
 	for {
 		req, err := con.stream.Recv()
 		if err != nil {
-			if status.Code(err) == codes.Canceled || err == io.EOF {
+			code := status.Code(err)
+			if code == codes.Canceled || err == io.EOF {
 				scope.Infof("MCP: connection %v: TERMINATED %q", con, err)
 				return
 			}
+			ctx, err := tag.New(context.Background(),
+				tag.Insert(ErrorTag, err.Error()),
+				tag.Insert(ErrorCodeTag, strconv.FormatUint(uint64(code), 10)))
+			stats.Record(ctx, RecvFailures.M(1))
 			scope.Errorf("MCP: connection %v: TERMINATED with errors: %v", con, err)
-
 			// Save the stream error prior to closing the stream. The caller
 			// should access the error after the channel closure.
 			con.reqError = err
@@ -293,6 +315,13 @@ func (con *connection) close() {
 }
 
 func (con *connection) processClientRequest(req *mcp.MeshConfigRequest) error {
+	ctx, err := tag.New(context.Background(),
+		tag.Insert(TypeURLTag, req.TypeUrl),
+		tag.Insert(ConnectionIDTag, strconv.FormatInt(con.id, 10)))
+	stats.Record(ctx, RequestSizesBytes.M(int64(req.Size())))
+	if err != nil {
+		scope.Errorf("MCP: error creating monitoring context. %v", err)
+	}
 	watch, ok := con.watches[req.TypeUrl]
 	if !ok {
 		return status.Errorf(codes.InvalidArgument, "unsupported type_url %q", req.TypeUrl)
@@ -303,8 +332,14 @@ func (con *connection) processClientRequest(req *mcp.MeshConfigRequest) error {
 		if watch.nonce == "" {
 			scope.Debugf("MCP: connection %v: WATCH for %v", con, req.TypeUrl)
 		} else {
+<<<<<<< HEAD
 			scope.Debugf("MCP: connection %v ACK type_url=%q version=%q with nonce=%q",
 				con, req.TypeUrl, req.VersionInfo, req.ResponseNonce)
+=======
+			scope.Debugf("MCP: connection %v ACK version=%q with nonce=%q",
+				con, req.VersionInfo, req.ResponseNonce)
+			stats.Record(ctx, RequestAcks.M(1))
+>>>>>>> add opencensus metrics to mcp/server
 		}
 
 		if watch.cancel != nil {
@@ -322,6 +357,7 @@ func (con *connection) processClientRequest(req *mcp.MeshConfigRequest) error {
 	} else {
 		scope.Warnf("MCP: connection %v: NACK type_url=%v version=%v with nonce=%q (watch.nonce=%q) error=%#v",
 			con, req.TypeUrl, req.VersionInfo, req.ResponseNonce, watch.nonce, req.ErrorDetail)
+		stats.Record(ctx, RequestNacks.M(1))
 	}
 	return nil
 }
