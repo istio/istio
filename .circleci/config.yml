@@ -382,6 +382,7 @@ jobs:
     steps:
       - checkout
       - <<: *markJobStartsOnGCS
+      - run: make sync
       - run:
           command: |
             mkdir -p /go/out/tests
