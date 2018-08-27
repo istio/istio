@@ -51,6 +51,7 @@ var (
 	discoveryCmd = &cobra.Command{
 		Use:   "discovery",
 		Short: "Start Istio proxy discovery service.",
+		Args:  cobra.ExactArgs(0),
 		RunE: func(c *cobra.Command, args []string) error {
 			cmd.PrintFlags(c.Flags())
 			if err := log.Configure(loggingOptions); err != nil {

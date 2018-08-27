@@ -34,7 +34,7 @@ var (
 	rootCmd = &cobra.Command{
 		Use:   "node_agent",
 		Short: "Istio security per-node agent.",
-
+		Args:  cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
 			runNodeAgent()
 		},

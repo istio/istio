@@ -41,7 +41,7 @@ func checkCmd(rootArgs *rootArgs, printf, fatalf shared.FormatFn) *cobra.Command
 			"expects a set of attributes as input, which it uses, along with\n" +
 			"its configuration, to determine which adapters to invoke and with\n" +
 			"which parameters in order to perform the checks and allocations.",
-
+		Args: cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
 			q := make(map[string]int64)
 			if len(quotas) > 0 {
