@@ -57,6 +57,7 @@ const (
 	PilotPluginTest
 	PilotPluginTCPTest
 	PilotPluginTLSTest
+	PilotMCPTest
 
 	// The number of total tests. has to be the last one.
 	maxTestNum
