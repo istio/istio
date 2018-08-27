@@ -42,8 +42,7 @@ func (ta *TestAgent) Run(ctx context.Context) {
 	<-ctx.Done()
 }
 
-func TestRunReload(t *testing.T) {
-	called := make(chan bool)
+func TestRunSendConfig(t *testing.T) {
 	agent := &TestAgent{
 		configCh: make(chan interface{}),
 	}
@@ -59,7 +58,7 @@ func TestRunReload(t *testing.T) {
 	go watcher.Run(ctx)
 
 	select {
-	case <-called:
+	case <-agent.configCh:
 		// expected
 		cancel()
 	case <-time.After(time.Second):

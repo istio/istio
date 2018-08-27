@@ -28,7 +28,7 @@ func TestEnvoyArgs(t *testing.T) {
 	config.AvailabilityZone = "my-zone"
 	config.Concurrency = 8
 
-	test := envoy{config: config, node: "my-node", extraArgs: []string{"-l", "trace"}}
+	test := &envoy{config: config, node: "my-node", extraArgs: []string{"-l", "trace"}}
 	testProxy := NewProxy(config, "my-node", "trace", nil)
 	if !reflect.DeepEqual(testProxy, test) {
 		t.Errorf("unexpected struct got\n%v\nwant\n%v", testProxy, test)
