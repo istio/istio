@@ -136,14 +136,6 @@ var (
 )
 
 func init() {
-	// No longer used. Will be removed in 1.1
-	//prometheus.MustRegister(cacheSizeGauge)
-	//prometheus.MustRegister(cacheHitCounter)
-	//prometheus.MustRegister(cacheMissCounter)
-	//prometheus.MustRegister(callCounter)
-	//prometheus.MustRegister(errorCounter)
-	//prometheus.MustRegister(resourceCounter)
-
 	cacheSquash := os.Getenv("PILOT_CACHE_SQUASH")
 	if len(cacheSquash) > 0 {
 		t, err := strconv.Atoi(cacheSquash)
