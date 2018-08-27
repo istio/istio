@@ -15,9 +15,6 @@
 package envoy
 
 import (
-	"bytes"
-	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/http/pprof"
 	"os"
@@ -26,35 +23,25 @@ import (
 	"sync"
 	"time"
 
-	restful "github.com/emicklei/go-restful"
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/emicklei/go-restful"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/util"
 	"istio.io/istio/pkg/version"
 )
 
 const (
-	metricsNamespace     = "pilot"
-	metricsSubsystem     = "discovery"
-	metricLabelCacheName = "cache_name"
-	metricLabelMethod    = "method"
-	metricBuildVersion   = "build_version"
+	metricsNamespace   = "pilot"
+	metricsSubsystem   = "discovery"
+	metricLabelMethod  = "method"
+	metricBuildVersion = "build_version"
 )
 
 var (
 	// Save the build version information.
 	buildVersion = version.Info.String()
 
-	cacheHitCounter = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Namespace: metricsNamespace,
-			Subsystem: metricsSubsystem,
-			Name:      "cache_hit",
-			Help:      "Count of cache hits for a particular cache within Pilot",
-		}, []string{metricLabelCacheName, metricBuildVersion})
 	callCounter = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: metricsNamespace,
@@ -69,21 +56,6 @@ var (
 			Name:      "errors",
 			Help:      "Counter of errors encountered during a given method call within Pilot",
 		}, []string{metricLabelMethod, metricBuildVersion})
-	webhookCallCounter = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Namespace: metricsNamespace,
-			Subsystem: metricsSubsystem,
-			Name:      "webhook_calls",
-			Help:      "Counter of individual webhook calls made in Pilot",
-		}, []string{metricLabelMethod, metricBuildVersion})
-	webhookErrorCounter = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Namespace: metricsNamespace,
-			Subsystem: metricsSubsystem,
-			Name:      "webhook_errors",
-			Help:      "Counter of errors encountered when invoking the webhook endpoint within Pilot",
-		}, []string{metricLabelMethod, metricBuildVersion})
-
 	resourceBuckets = []float64{0, 10, 20, 30, 40, 50, 75, 100, 150, 250, 500, 1000, 10000}
 	resourceCounter = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
@@ -163,24 +135,7 @@ func envDuration(env string, def time.Duration) time.Duration {
 // DiscoveryService publishes services, clusters, and routes for all proxies
 type DiscoveryService struct {
 	*model.Environment
-
-	webhookClient   *http.Client
-	webhookEndpoint string
-
 	RestContainer *restful.Container
-}
-
-type discoveryCacheStatEntry struct {
-	Hit  uint64 `json:"hit"`
-	Miss uint64 `json:"miss"`
-}
-
-type discoveryCacheStats struct {
-	Stats map[string]*discoveryCacheStatEntry `json:"cache_stats"`
-}
-
-type hosts struct {
-	Hosts []*host `json:"hosts"`
 }
 
 type host struct {
@@ -201,12 +156,6 @@ type keyAndService struct {
 	Key   string  `json:"service-key"`
 	Hosts []*host `json:"hosts"`
 }
-
-// Request parameters for discovery services
-const (
-	ServiceCluster = "service-cluster"
-	ServiceNode    = "service-node"
-)
 
 // DiscoveryServiceOptions contains options for create a new discovery
 // service instance.
@@ -229,7 +178,6 @@ type DiscoveryServiceOptions struct {
 
 	EnableProfiling bool
 	EnableCaching   bool
-	WebhookEndpoint string
 }
 
 // NewDiscoveryService creates an Envoy discovery service on a given port
@@ -248,8 +196,6 @@ func NewDiscoveryService(ctl model.Controller, configCache model.ConfigStoreCach
 		container.ServeMux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 	}
 	out.Register(container)
-
-	out.webhookEndpoint, out.webhookClient = util.NewWebHookClient(o.WebhookEndpoint)
 	out.RestContainer = container
 
 	// Flush cached discovery responses whenever services, service
@@ -441,37 +387,6 @@ func (ds *DiscoveryService) ListAllEndpoints(_ *restful.Request, response *restf
 	}
 }
 
-func (ds *DiscoveryService) parseDiscoveryRequest(request *restful.Request) (model.Proxy, error) {
-	nodeInfo := request.PathParameter(ServiceNode)
-	svcNode, err := model.ParseServiceNode(nodeInfo)
-	if err != nil {
-		return svcNode, multierror.Prefix(err, fmt.Sprintf("unexpected %s: ", ServiceNode))
-	}
-	return svcNode, nil
-}
-
-func (ds *DiscoveryService) invokeWebhook(path string, payload []byte, methodName string) ([]byte, error) {
-	if ds.webhookClient == nil {
-		return payload, nil
-	}
-
-	incWebhookCalls(methodName)
-	resp, err := ds.webhookClient.Post(ds.webhookEndpoint+path, "application/json", bytes.NewBuffer(payload))
-	if err != nil {
-		incWebhookErrors(methodName)
-		return nil, err
-	}
-
-	defer resp.Body.Close()
-
-	out, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		incWebhookErrors(methodName)
-	}
-
-	return out, err
-}
-
 func incCalls(methodName string) {
 	callCounter.With(prometheus.Labels{
 		metricLabelMethod:  methodName,
@@ -481,20 +396,6 @@ func incCalls(methodName string) {
 
 func incErrors(methodName string) {
 	errorCounter.With(prometheus.Labels{
-		metricLabelMethod:  methodName,
-		metricBuildVersion: buildVersion,
-	}).Inc()
-}
-
-func incWebhookCalls(methodName string) {
-	webhookCallCounter.With(prometheus.Labels{
-		metricLabelMethod:  methodName,
-		metricBuildVersion: buildVersion,
-	}).Inc()
-}
-
-func incWebhookErrors(methodName string) {
-	webhookErrorCounter.With(prometheus.Labels{
 		metricLabelMethod:  methodName,
 		metricBuildVersion: buildVersion,
 	}).Inc()
