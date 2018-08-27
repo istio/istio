@@ -187,11 +187,12 @@ var (
 			// resolve statsd address
 			if proxyConfig.StatsdUdpAddress != "" {
 				addr, err := proxy.ResolveAddr(proxyConfig.StatsdUdpAddress)
-				if err == nil {
-					proxyConfig.StatsdUdpAddress = addr
+				if err != nil {
+					// If istio-mixer.istio-system can't be resolved, skip generating the statsd config.
+					// (instead of crashing). Mixer is optional.
+					log.Warnf("resolve StatsdUdpAddress failed: %v", err)
 				}
-				// If istio-mixer.istio-system can't be resolved, skip generating the statsd config.
-				// (instead of crashing). Mixer is optional.
+				proxyConfig.StatsdUdpAddress = addr
 			}
 
 			if err := model.ValidateProxyConfig(&proxyConfig); err != nil {
