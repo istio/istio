@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"io"
 	"strconv"
-	"strings"
 	"sync/atomic"
 
 	"google.golang.org/grpc/codes"
@@ -158,17 +157,13 @@ func (s *Server) newConnection(stream mcp.AggregatedMeshConfigService_StreamAggr
 		id:        atomic.AddInt64(&s.nextStreamID, 1),
 	}
 
-	var messageNames []string
+	var types []string
 	for _, typeURL := range s.supportedTypes {
 		con.watches[typeURL] = &watch{}
-
-		// extract the message name from the fully qualified type_url.
-		if slash := strings.LastIndex(typeURL, "/"); slash >= 0 {
-			messageNames = append(messageNames, typeURL[slash+1:])
-		}
+		types = append(types, typeURL)
 	}
 
-	scope.Infof("MCP: connection %v: NEW, supported types: %#v", con, messageNames)
+	scope.Infof("MCP: connection %v: NEW, supported types: %#v", con, types)
 	return con, nil
 }
 
