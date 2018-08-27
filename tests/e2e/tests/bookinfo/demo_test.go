@@ -208,7 +208,7 @@ func testVersionMigrationRule(t *testing.T, configVersion string, rule migration
 			} else if cVersionToMigrateError = util.CompareToFile(body, rule.modelToMigrate); cVersionToMigrateError == nil {
 				cVersionToMigrate++
 			} else {
-				log.Error("received unexpected version: %s")
+				log.Errorf("received unexpected version: %s", configVersion)
 				log.Infof("comparing to the original version: %v", c1CompareError)
 				log.Infof("comparing to the version to migrate to: %v", cVersionToMigrateError)
 			}
