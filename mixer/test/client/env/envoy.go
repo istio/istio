@@ -28,8 +28,9 @@ import (
 
 // Envoy stores data for Envoy process
 type Envoy struct {
-	cmd   *exec.Cmd
-	ports *Ports
+	cmd    *exec.Cmd
+	ports  *Ports
+	baseID string
 }
 
 // NewEnvoy creates a new Envoy struct and starts envoy.
@@ -45,13 +46,11 @@ func (s *TestSetup) NewEnvoy() (*Envoy, error) {
 		debugLevel = "info"
 	}
 
-	// Don't use hot-start, each Envoy re-start use different base-id
+	baseID := ""
 	args := []string{"-c", confPath,
 		"--v2-config-only",
 		"--drain-time-s", "1",
-		"--allow-unknown-fields",
-		// base id is shared between restarted envoys
-		"--base-id", strconv.Itoa(int(s.testName))}
+		"--allow-unknown-fields"}
 	if s.stress {
 		args = append(args, "--concurrency", "10")
 	} else {
@@ -61,7 +60,10 @@ func (s *TestSetup) NewEnvoy() (*Envoy, error) {
 	if s.disableHotRestart {
 		args = append(args, "--disable-hot-restart")
 	} else {
+		baseID = strconv.Itoa(int(s.testName))
 		args = append(args,
+			// base id is shared between restarted envoys
+			"--base-id", baseID,
 			"--parent-shutdown-time-s", "1",
 			"--restart-epoch", strconv.Itoa(s.epoch))
 	}
@@ -77,8 +79,9 @@ func (s *TestSetup) NewEnvoy() (*Envoy, error) {
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
 	return &Envoy{
-		cmd:   cmd,
-		ports: s.ports,
+		cmd:    cmd,
+		ports:  s.ports,
+		baseID: baseID,
 	}, nil
 }
 
@@ -114,4 +117,16 @@ func (s *Envoy) Stop() error {
 	}
 
 	return nil
+}
+
+// TearDown removes shared memory left by Envoy
+func (s *Envoy) TearDown() {
+	if s.baseID != "" {
+		path := "/dev/shm/envoy_shared_memory_" + s.baseID + "0"
+		if err := os.Remove(path); err != nil {
+			log.Printf("failed to %s\n", err)
+			return
+		}
+		log.Println("removed Envoy's shared memory")
+	}
 }
