@@ -1405,6 +1405,22 @@ func TestValidateHTTPFaultInjectionAbort(t *testing.T) {
 				HttpStatus: 9000,
 			},
 		}, valid: false},
+		{name: "valid percentage", in: &networking.HTTPFaultInjection_Abort{
+			Percentage: &networking.Percent{
+				Value: 0.001,
+			},
+			ErrorType: &networking.HTTPFaultInjection_Abort_HttpStatus{
+				HttpStatus: 200,
+			},
+		}, valid: true},
+		{name: "invalid fractional percent", in: &networking.HTTPFaultInjection_Abort{
+			Percentage: &networking.Percent{
+				Value: -10.0,
+			},
+			ErrorType: &networking.HTTPFaultInjection_Abort_HttpStatus{
+				HttpStatus: 200,
+			},
+		}, valid: false},
 	}
 
 	for _, tc := range testCases {
@@ -1445,6 +1461,22 @@ func TestValidateHTTPFaultInjectionDelay(t *testing.T) {
 			Percent: 20,
 			HttpDelayType: &networking.HTTPFaultInjection_Delay_FixedDelay{
 				FixedDelay: &types.Duration{Seconds: 3, Nanos: 42},
+			},
+		}, valid: false},
+		{name: "valid fractional percentage", in: &networking.HTTPFaultInjection_Delay{
+			Percentage: &networking.Percent{
+				Value: 0.001,
+			},
+			HttpDelayType: &networking.HTTPFaultInjection_Delay_FixedDelay{
+				FixedDelay: &types.Duration{Seconds: 3},
+			},
+		}, valid: true},
+		{name: "invalid fractional percentage", in: &networking.HTTPFaultInjection_Delay{
+			Percentage: &networking.Percent{
+				Value: -10.0,
+			},
+			HttpDelayType: &networking.HTTPFaultInjection_Delay_FixedDelay{
+				FixedDelay: &types.Duration{Seconds: 3},
 			},
 		}, valid: false},
 	}

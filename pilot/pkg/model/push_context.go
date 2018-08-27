@@ -32,8 +32,7 @@ import (
 // The struct is exposed in a debug endpoint - fields public to allow
 // easy serialization as json.
 type PushContext struct {
-	mutex sync.Mutex
-
+	proxyStatusMutex sync.RWMutex
 	// ProxyStatus is keyed by the error code, and holds a map keyed
 	// by the ID.
 	ProxyStatus map[string]map[string]ProxyPushStatus
@@ -41,15 +40,12 @@ type PushContext struct {
 	// Start represents the time of last config change that reset the
 	// push status.
 	Start time.Time
+	End   time.Time
 
-	End time.Time
-
-	// ContextMutex is used to sync the data cache.
-	// Currently it is used directly - to avoid making copies of the
-	// structs. All data is set when the PushContext object is populated,
-	// from a single thread - only read locks are needed, data should not
-	// be changed by plugins
-	Mutex sync.RWMutex `json:"-,omitempty"`
+	// Mutex is used to protect the below store.
+	// All data is set when the PushContext object is populated in `InitContext`,
+	// data should not be changed by plugins.
+	Mutex sync.Mutex `json:"-,omitempty"`
 
 	// Services list all services in the system at the time push started.
 	Services []*Service `json:"-,omitempty"`
@@ -123,8 +119,8 @@ func (ps *PushContext) Add(metric *PushMetric, key string, proxy *Proxy, msg str
 		log.Infof("Metric without context %s %v %s", key, proxy, msg)
 		return
 	}
-	ps.mutex.Lock()
-	defer ps.mutex.Unlock()
+	ps.proxyStatusMutex.Lock()
+	defer ps.proxyStatusMutex.Unlock()
 
 	metricMap, f := ps.ProxyStatus[metric.Name]
 	if !f {
@@ -185,6 +181,12 @@ var (
 		"Number of conflicting inbound listeners.",
 	)
 
+	// DuplicatedClusters tracks duplicate clusters seen while computing CDS
+	DuplicatedClusters = newPushMetric(
+		"pilot_duplicate_envoy_clusters",
+		"Duplicate envoy clusters caused by service entries with same hostname",
+	)
+
 	// ProxyStatusClusterNoInstances tracks clusters (services) without workloads.
 	ProxyStatusClusterNoInstances = newPushMetric(
 		"pilot_eds_no_instances",
@@ -212,8 +214,8 @@ var (
 	metrics []*PushMetric
 )
 
-// NewStatus creates a new PushContext structure to track push status.
-func NewStatus() *PushContext {
+// NewPushContext creates a new PushContext structure to track push status.
+func NewPushContext() *PushContext {
 	// TODO: detect push in progress, don't update status if set
 	return &PushContext{
 		ServiceByHostname: map[Hostname]*Service{},
@@ -227,8 +229,8 @@ func (ps *PushContext) JSON() ([]byte, error) {
 	if ps == nil {
 		return []byte{'{', '}'}, nil
 	}
-	ps.mutex.Lock()
-	defer ps.mutex.Unlock()
+	ps.proxyStatusMutex.RLock()
+	defer ps.proxyStatusMutex.RUnlock()
 	return json.MarshalIndent(ps, "", "    ")
 }
 
@@ -241,8 +243,8 @@ func (ps *PushContext) OnConfigChange() {
 // UpdateMetrics will update the prometheus metrics based on the
 // current status of the push.
 func (ps *PushContext) UpdateMetrics() {
-	ps.mutex.Lock()
-	defer ps.mutex.Unlock()
+	ps.proxyStatusMutex.RLock()
+	defer ps.proxyStatusMutex.RUnlock()
 
 	for _, pm := range metrics {
 		mmap, f := ps.ProxyStatus[pm.Name]

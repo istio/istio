@@ -82,8 +82,8 @@ var checkAttributesOkGet = `
      "aud": "aud1",
      "some-other-string-claims": "some-claims-kept"
   },
-	"request.auth.raw_claims": ` + fmt.Sprintf("%q", secIstioAuthUserinfoHeaderValue) +
-	`
+  "request.auth.raw_claims": ` + fmt.Sprintf("%q", secIstioAuthUserinfoHeaderValue) + `,
+  "request.url_path": "/echo"
 }
 `
 
@@ -123,7 +123,7 @@ var reportAttributesOkGet = `
   },
   "request.size": 0,
   "request.total_size": 306,
-  "response.total_size": 99,
+  "response.total_size": "*",
   "response.time": "*",
   "response.size": 0,
   "response.duration": "*",
@@ -142,8 +142,8 @@ var reportAttributesOkGet = `
      "aud": "aud1",
      "some-other-string-claims": "some-claims-kept"
   },
-	"request.auth.raw_claims": ` + fmt.Sprintf("%q", secIstioAuthUserinfoHeaderValue) +
-	`
+  "request.auth.raw_claims": ` + fmt.Sprintf("%q", secIstioAuthUserinfoHeaderValue) + `,
+  "request.url_path": "/echo"
 }
 `
 

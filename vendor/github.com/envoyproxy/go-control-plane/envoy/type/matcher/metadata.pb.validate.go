@@ -59,7 +59,9 @@ func (m *MetadataMatcher) Validate() error {
 	for idx, item := range m.GetPath() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(item).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return MetadataMatcherValidationError{
 					Field:  fmt.Sprintf("Path[%v]", idx),
@@ -78,7 +80,9 @@ func (m *MetadataMatcher) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetValue()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetValue()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return MetadataMatcherValidationError{
 				Field:  "Value",

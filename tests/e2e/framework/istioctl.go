@@ -55,7 +55,7 @@ type Istioctl struct {
 }
 
 // NewIstioctl create a new istioctl by given temp dir.
-func NewIstioctl(yamlDir, namespace, istioNamespace, proxyHub, proxyTag, imagePullPolicy, injectConfigMap string) (*Istioctl, error) {
+func NewIstioctl(yamlDir, namespace, proxyHub, proxyTag, imagePullPolicy, injectConfigMap string) (*Istioctl, error) {
 	tmpDir, err := ioutil.TempDir(os.TempDir(), tmpPrefix)
 	if err != nil {
 		return nil, err

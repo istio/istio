@@ -94,8 +94,16 @@ func TestValueTypeEncoder_Errors(t *testing.T) {
 			input:        "source.ip",
 			encoderError: errors.New("incorrect type for IP_ADDRESS"),
 			bag: map[string]interface{}{
-				"source.ip": "[]byte{1,2,4,8}",
+				"source.ip": "this should be a byte array",
 			},
+		},
+		{
+			input:        "request.path",
+			builderError: errors.New("incorrect type for .istio.policy.v1beta1.IPAddress"),
+			bag: map[string]interface{}{
+				"request.path": "this should be a byte array",
+			},
+			typeName: ".istio.policy.v1beta1.IPAddress",
 		},
 		{
 			input:        "context.timestamp",

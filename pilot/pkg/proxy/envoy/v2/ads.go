@@ -206,7 +206,7 @@ type XdsConnection struct {
 	ListenerNonceSent, ListenerNonceAcked string
 	RouteNonceSent, RouteNonceAcked       string
 	EndpointNonceSent, EndpointNonceAcked string
-	RoutePercent, EndpointPercent         int
+	EndpointPercent                       int
 
 	// current list of clusters monitored by the client
 	Clusters []string
@@ -241,8 +241,6 @@ type XdsConnection struct {
 // configDump converts the connection internal state into an Envoy Admin API config dump proto
 // It is used in debugging to create a consistent object for comparison between Envoy and Pilot outputs
 func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump, error) {
-	configDump := &adminapi.ConfigDump{Configs: map[string]types.Any{}}
-
 	dynamicActiveClusters := []adminapi.ClustersConfigDump_DynamicCluster{}
 	clusters, err := s.generateRawClusters(conn.modelNode, s.env.PushContext)
 	if err != nil {
@@ -258,7 +256,6 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 	if err != nil {
 		return nil, err
 	}
-	configDump.Configs["clusters"] = *clustersAny
 
 	dynamicActiveListeners := []adminapi.ListenersConfigDump_DynamicListener{}
 	listeners, err := s.generateRawListeners(conn, s.env.PushContext)
@@ -275,24 +272,27 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 	if err != nil {
 		return nil, err
 	}
-	configDump.Configs["listeners"] = *listenersAny
 
 	routes, err := s.generateRawRoutes(conn, s.env.PushContext)
 	if err != nil {
 		return nil, err
 	}
+	routeConfigAny, _ := types.MarshalAny(&adminapi.RoutesConfigDump{})
 	if len(routes) > 0 {
 		dynamicRouteConfig := []adminapi.RoutesConfigDump_DynamicRouteConfig{}
 		for _, rs := range routes {
 			dynamicRouteConfig = append(dynamicRouteConfig, adminapi.RoutesConfigDump_DynamicRouteConfig{RouteConfig: rs})
 		}
-		routeConfigAny, err := types.MarshalAny(&adminapi.RoutesConfigDump{DynamicRouteConfigs: dynamicRouteConfig})
+		routeConfigAny, err = types.MarshalAny(&adminapi.RoutesConfigDump{DynamicRouteConfigs: dynamicRouteConfig})
 		if err != nil {
 			return nil, err
 		}
-		configDump.Configs["routes"] = *routeConfigAny
 	}
 
+	bootstrapAny, _ := types.MarshalAny(&adminapi.BootstrapConfigDump{})
+	// The config dump must have all configs with order specified in
+	// https://www.envoyproxy.io/docs/envoy/latest/api-v2/admin/v2alpha/config_dump.proto
+	configDump := &adminapi.ConfigDump{Configs: []types.Any{*bootstrapAny, *clustersAny, *listenersAny, *routeConfigAny}}
 	return configDump, nil
 }
 
@@ -454,7 +454,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				// too verbose - sent immediately after EDS response is received
 				adsLog.Debugf("ADS:LDS: REQ %s %v", con.ConID, peerAddr)
 				con.LDSWatch = true
-				err := s.pushLds(con, s.env.PushContext, true, versionInfo())
+				err := s.pushLds(con, s.env.PushContext, versionInfo())
 				if err != nil {
 					return err
 				}
@@ -596,7 +596,7 @@ func (s *DiscoveryServer) pushAll(con *XdsConnection, pushEv *XdsEvent) error {
 		}
 	}
 	if con.LDSWatch {
-		err := s.pushLds(con, pushEv.push, false, pushEv.version)
+		err := s.pushLds(con, pushEv.push, pushEv.version)
 		if err != nil {
 			return err
 		}
@@ -621,7 +621,6 @@ func AdsPushAll(s *DiscoveryServer) {
 // Primary code path is from v1 discoveryService.clearCache(), which is added as a handler
 // to the model ConfigStorageCache and Controller.
 func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext) {
-	push.Mutex.RLock()
 	adsLog.Infof("XDS: Pushing %s Services: %d, "+
 		"VirtualServices: %d, ConnectedEndpoints: %d", version,
 		len(push.Services), len(push.VirtualServiceConfigs), adsClientCount())
@@ -629,8 +628,6 @@ func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext) {
 	monVServices.Set(float64(len(push.VirtualServiceConfigs)))
 
 	pushContext := s.env.PushContext
-
-	push.Mutex.RUnlock()
 
 	t0 := time.Now()
 
@@ -672,7 +669,6 @@ func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext) {
 	pendingPush := int32(len(pending))
 
 	tstart := time.Now()
-	i := 0
 	// Will keep trying to push to sidecars until another push starts.
 	for {
 		if len(pending) == 0 {
@@ -689,7 +685,6 @@ func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext) {
 		c := pending[0]
 		pending = pending[1:]
 
-		i++
 		// Using non-blocking push has problems if 2 pushes happen too close to each other
 		client := c
 		// TODO: this should be in a thread group, to do multiple pushes in parallel.

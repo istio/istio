@@ -27,6 +27,10 @@ import (
 	"sort"
 	"strings"
 
+	// Imported so that `dep ensure` do not prune the unused network/rbac/v2 package. Will soon be used
+	// to support the network RBAC filter.
+	_ "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/rbac/v2"
+
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	rbacconfig "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/rbac/v2"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
@@ -53,14 +57,15 @@ const (
 	attrRequestHeader = "request.headers" // header name is surrounded by brackets, e.g. "request.headers[User-Agent]".
 
 	// attributes that could be used in a ServiceRoleBinding property.
-	attrSrcIP            = "source.ip"              // supports both single ip and cidr, e.g. "10.1.2.3" or "10.1.0.0/16".
-	attrSrcNamespace     = "source.namespace"       // e.g. "default".
-	attrSrcUser          = "source.user"            // source identity, e.g. "cluster.local/ns/default/sa/productpage".
-	attrSrcPrincipal     = "source.principal"       // source identity, e,g, "cluster.local/ns/default/sa/productpage".
-	attrRequestPrincipal = "request.auth.principal" // authenticated principal of the request.
-	attrRequestAudiences = "request.auth.audiences" // intended audience(s) for this authentication information.
-	attrRequestPresenter = "request.auth.presenter" // authorized presenter of the credential.
-	attrRequestClaims    = "request.auth.claims"    // claim name is surrounded by brackets, e.g. "request.auth.claims[iss]".
+	attrSrcIP              = "source.ip"                   // supports both single ip and cidr, e.g. "10.1.2.3" or "10.1.0.0/16".
+	attrSrcNamespace       = "source.namespace"            // e.g. "default".
+	attrSrcUser            = "source.user"                 // source identity, e.g. "cluster.local/ns/default/sa/productpage".
+	attrSrcPrincipal       = "source.principal"            // source identity, e,g, "cluster.local/ns/default/sa/productpage".
+	attrRequestPrincipal   = "request.auth.principal"      // authenticated principal of the request.
+	attrRequestAudiences   = "request.auth.audiences"      // intended audience(s) for this authentication information.
+	attrRequestPresenter   = "request.auth.presenter"      // authorized presenter of the credential.
+	attrRequestClaims      = "request.auth.claims"         // claim name is surrounded by brackets, e.g. "request.auth.claims[iss]".
+	attrRequestClaimGroups = "request.auth.claims[groups]" // groups claim".
 
 	// attributes that could be used in a ServiceRole constraint.
 	attrDestIP        = "destination.ip"        // supports both single ip and cidr, e.g. "10.1.2.3" or "10.1.0.0/16".
@@ -348,7 +353,7 @@ func (Plugin) OnInboundRouteConfiguration(in *plugin.InputParams, route *xdsapi.
 }
 
 // OnOutboundCluster implements the Plugin interface method.
-func (Plugin) OnOutboundCluster(env *model.Environment, node *model.Proxy, push *model.PushContext, service *model.Service,
+func (Plugin) OnOutboundCluster(env *model.Environment, push *model.PushContext, service *model.Service,
 	servicePort *model.Port, cluster *xdsapi.Cluster) {
 }
 
@@ -573,7 +578,14 @@ func convertToPrincipal(subject *rbacproto.Subject) *policyproto.Principal {
 	}
 
 	if subject.Group != "" {
-		rbacLog.Errorf("ignored Subject.group %s, not implemented", subject.Group)
+		// Treat subject.Group as the request.auth.claims[groups] property. If
+		// request.auth.claims[groups] has been defined for the subject, subject.Group
+		// overrides request.auth.claims[groups].
+		if subject.Properties[attrRequestClaimGroups] != "" {
+			rbacLog.Errorf("Both subject.group and request.auth.claims[groups] are defined.\n")
+		}
+		rbacLog.Debugf("Treat subject.Group (%s) as the request.auth.claims[groups]\n", subject.Group)
+		subject.Properties[attrRequestClaimGroups] = subject.Group
 	}
 
 	if len(subject.Properties) != 0 {
@@ -671,6 +683,9 @@ func permissionForKeyValues(key string, values []string) *policyproto.Permission
 	return &policyproto.Permission{Rule: orRules}
 }
 
+// Create a Principal based on the key and the value.
+// key: the key of a subject property.
+// value: the value of a subject property.
 func principalForKeyValue(key, value string) *policyproto.Principal {
 	switch {
 	case key == attrSrcIP:
