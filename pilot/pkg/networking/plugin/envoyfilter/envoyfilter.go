@@ -54,13 +54,13 @@ func (envoyfilterplugin) OnInboundListener(in *plugin.InputParams, mutable *plug
 }
 
 // OnOutboundCluster implements the Plugin interface method.
-func (envoyfilterplugin) OnOutboundCluster(env *model.Environment, node *model.Proxy, push *model.PushStatus,
+func (envoyfilterplugin) OnOutboundCluster(env *model.Environment, push *model.PushContext,
 	service *model.Service, servicePort *model.Port, cluster *xdsapi.Cluster) {
 	// do nothing
 }
 
 // OnInboundCluster implements the Plugin interface method.
-func (envoyfilterplugin) OnInboundCluster(env *model.Environment, node *model.Proxy, push *model.PushStatus,
+func (envoyfilterplugin) OnInboundCluster(env *model.Environment, node *model.Proxy, push *model.PushContext,
 	service *model.Service, servicePort *model.Port, cluster *xdsapi.Cluster) {
 	// do nothing
 }
@@ -116,11 +116,7 @@ func insertUserSpecifiedFilters(in *plugin.InputParams, mutable *plugin.MutableO
 func getFilterForWorkload(in *plugin.InputParams) *networking.EnvoyFilter {
 	env := in.Env
 	// collect workload labels
-	workloadInstances, err := in.Env.GetProxyServiceInstances(in.Node)
-	if err != nil {
-		log.Errora("Failed to get gateway instances for router ", in.Node.ID, err)
-		return nil
-	}
+	workloadInstances := in.ProxyInstances
 
 	var workloadLabels model.LabelsCollection
 	for _, w := range workloadInstances {

@@ -25,6 +25,9 @@ import (
 
 	"github.com/gogo/protobuf/jsonpb"
 
+	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
+	"github.com/gogo/protobuf/types"
+
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -52,6 +55,8 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 		ServiceAccounts:  s.MemRegistry,
 		Controller:       s.MemRegistry.controller,
 	})
+
+	mux.HandleFunc("/ready", s.ready)
 
 	mux.HandleFunc("/debug/edsz", s.edsz)
 	mux.HandleFunc("/debug/adsz", s.adsz)
@@ -257,13 +262,6 @@ func (sd *MemServiceDiscovery) GetService(hostname model.Hostname) (*model.Servi
 	// Make a new service out of the existing one
 	newSvc := *val
 	return &newSvc, sd.GetServiceError
-}
-
-// GetServiceAttributes implements discovery interface.
-func (sd *MemServiceDiscovery) GetServiceAttributes(hostname model.Hostname) (*model.ServiceAttributes, error) {
-	return &model.ServiceAttributes{
-		Name:      hostname.String(),
-		Namespace: model.IstioDefaultConfigNamespace}, nil
 }
 
 // Instances filters the service instances by labels. This assumes single port, as is
@@ -530,7 +528,7 @@ func (s *DiscoveryServer) authenticationz(w http.ResponseWriter, req *http.Reque
 				Host: string(ss.Hostname),
 				Port: p.Port,
 			}
-			authnConfig := s.env.IstioConfigStore.AuthenticationPolicyByDestination(ss.Hostname, p)
+			authnConfig := s.env.IstioConfigStore.AuthenticationPolicyByDestination(ss, p)
 			info.AuthenticationPolicyName = configName(authnConfig)
 			if authnConfig != nil {
 				policy := authnConfig.Spec.(*authn.Policy)
@@ -540,7 +538,7 @@ func (s *DiscoveryServer) authenticationz(w http.ResponseWriter, req *http.Reque
 				info.ServerProtocol = mTLSModeToString(s.env.Mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS)
 			}
 
-			destConfig := s.env.IstioConfigStore.DestinationRule(ss.Hostname)
+			destConfig := s.env.PushContext.DestinationRule(ss.Hostname)
 			info.DestinationRuleName = configName(destConfig)
 			if destConfig != nil {
 				rule := destConfig.Spec.(*networking.DestinationRule)
@@ -615,7 +613,7 @@ func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
 	w.Write([]byte("You must provide a proxyID in the query string"))
 }
 
-// PushStatusHandler dumps the last PushStatus
+// PushStatusHandler dumps the last PushContext
 func (s *DiscoveryServer) PushStatusHandler(w http.ResponseWriter, req *http.Request) {
 	if model.LastPushStatus == nil {
 		return
@@ -657,6 +655,15 @@ func writeAllADS(w io.Writer) {
 		fmt.Fprint(w, "]}\n")
 	}
 	fmt.Fprint(w, "]\n")
+}
+
+func (s *DiscoveryServer) ready(w http.ResponseWriter, req *http.Request) {
+	if s.ConfigController != nil {
+		if !s.ConfigController.HasSynced() {
+			w.WriteHeader(503)
+		}
+	}
+	w.WriteHeader(200)
 }
 
 // edsz implements a status and debug interface for EDS.
@@ -719,7 +726,7 @@ func cdsz(w http.ResponseWriter, req *http.Request) {
 
 func printListeners(w io.Writer, c *XdsConnection) {
 	comma := false
-	for _, ls := range c.HTTPListeners {
+	for _, ls := range c.LDSListeners {
 		if ls == nil {
 			adsLog.Errorf("INVALID LISTENER NIL")
 			continue
@@ -739,7 +746,7 @@ func printListeners(w io.Writer, c *XdsConnection) {
 
 func printClusters(w io.Writer, c *XdsConnection) {
 	comma := false
-	for _, cl := range c.HTTPClusters {
+	for _, cl := range c.CDSClusters {
 		if cl == nil {
 			adsLog.Errorf("INVALID Cluster NIL")
 			continue
@@ -775,4 +782,62 @@ func printRoutes(w io.Writer, c *XdsConnection) {
 			return
 		}
 	}
+}
+
+// configDump converts the connection internal state into an Envoy Admin API config dump proto
+// It is used in debugging to create a consistent object for comparison between Envoy and Pilot outputs
+func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump, error) {
+	configDump := &adminapi.ConfigDump{Configs: map[string]types.Any{}}
+
+	dynamicActiveClusters := []adminapi.ClustersConfigDump_DynamicCluster{}
+	clusters, err := s.generateRawClusters(conn, s.env.PushContext)
+	if err != nil {
+		return nil, err
+	}
+	for _, cs := range clusters {
+		dynamicActiveClusters = append(dynamicActiveClusters, adminapi.ClustersConfigDump_DynamicCluster{Cluster: cs})
+	}
+	clustersAny, err := types.MarshalAny(&adminapi.ClustersConfigDump{
+		VersionInfo:           versionInfo(),
+		DynamicActiveClusters: dynamicActiveClusters,
+	})
+	if err != nil {
+		return nil, err
+	}
+	configDump.Configs["clusters"] = *clustersAny
+
+	dynamicActiveListeners := []adminapi.ListenersConfigDump_DynamicListener{}
+	listeners, err := s.generateRawListeners(conn, s.env.PushContext)
+	if err != nil {
+		return nil, err
+	}
+	for _, cs := range listeners {
+		dynamicActiveListeners = append(dynamicActiveListeners, adminapi.ListenersConfigDump_DynamicListener{Listener: cs})
+	}
+	listenersAny, err := types.MarshalAny(&adminapi.ListenersConfigDump{
+		VersionInfo:            versionInfo(),
+		DynamicActiveListeners: dynamicActiveListeners,
+	})
+	if err != nil {
+		return nil, err
+	}
+	configDump.Configs["listeners"] = *listenersAny
+
+	routes, err := s.generateRawRoutes(conn, s.env.PushContext)
+	if err != nil {
+		return nil, err
+	}
+	if len(routes) > 0 {
+		dynamicRouteConfig := []adminapi.RoutesConfigDump_DynamicRouteConfig{}
+		for _, rs := range routes {
+			dynamicRouteConfig = append(dynamicRouteConfig, adminapi.RoutesConfigDump_DynamicRouteConfig{RouteConfig: rs})
+		}
+		routeConfigAny, err := types.MarshalAny(&adminapi.RoutesConfigDump{DynamicRouteConfigs: dynamicRouteConfig})
+		if err != nil {
+			return nil, err
+		}
+		configDump.Configs["routes"] = *routeConfigAny
+	}
+
+	return configDump, nil
 }

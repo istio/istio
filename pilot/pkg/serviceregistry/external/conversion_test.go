@@ -199,6 +199,10 @@ func makeService(hostname model.Hostname, address string, ports map[string]int, 
 		Address:      address,
 		MeshExternal: external,
 		Resolution:   resolution,
+		Attributes: model.ServiceAttributes{
+			Name:      string(hostname),
+			Namespace: "default",
+		},
 	}
 
 	svcPorts := make(model.PortList, 0, len(ports))

@@ -7,6 +7,26 @@ global:
   # and this options must be set off.
   crds: false
 
+  # Omit the istio-sidecar-injector configmap when generate a
+  # standalone gateway. Gateways may be created in namespaces other
+  # than `istio-system` and we don't want to re-create the injector
+  # configmap in those.
+  omitSidecarInjectorConfigMap: true
+
+  # Istio control plane namespace: This specifies where the Istio control
+  # plane was installed earlier.  Modify this if you installed the control
+  # plane in a different namespace than istio-system.
+  istioNamespace: istio-system
+
+  proxy:
+    # Sets the destination Statsd in envoy (the value of the "--statsdUdpAddress" proxy argument
+    # would be <host>:<port>).
+    # Can also be disabled (e.g. when Mixer is not installed).
+    envoyStatsd:
+      enabled: true
+      host: istio-statsd-prom-bridge.istio-system
+      port: 9125
+
 #
 # Gateways Configuration
 # By default (if enabled) a pair of Ingress and Egress Gateways will be created for the mesh.
@@ -17,11 +37,10 @@ global:
 gateways:
   enabled: true
 
-  istio-ingressgateway:
+  custom-gateway:
     enabled: true
     labels:
-      app: istio-ingressgateway
-      istio: ingressgateway
+      app: custom-gateway
     replicaCount: 1
     autoscaleMin: 1
     autoscaleMax: 5
@@ -66,78 +85,12 @@ gateways:
       targetPort: 15031
       name: http2-grafana
     secretVolumes:
-    - name: ingressgateway-certs
-      secretName: istio-ingressgateway-certs
-      mountPath: /etc/istio/ingressgateway-certs
-    - name: ingressgateway-ca-certs
-      secretName: istio-ingressgateway-ca-certs
-      mountPath: /etc/istio/ingressgateway-ca-certs
-
-  istio-egressgateway:
-    enabled: true
-    labels:
-      app: istio-egressgateway
-      istio: egressgateway
-    replicaCount: 1
-    autoscaleMin: 1
-    autoscaleMax: 5
-    serviceAnnotations: {}
-    type: ClusterIP #change to NodePort or LoadBalancer if need be
-    ports:
-      - port: 80
-        name: http2
-      - port: 443
-        name: https
-    secretVolumes:
-      - name: egressgateway-certs
-        secretName: istio-egressgateway-certs
-        mountPath: /etc/istio/egressgateway-certs
-      - name: egressgateway-ca-certs
-        secretName: istio-egressgateway-ca-certs
-        mountPath: /etc/istio/egressgateway-ca-certs
-
-  # Mesh ILB gateway creates a gateway of type InternalLoadBalancer,
-  # for mesh expansion. It exposes the mtls ports for Pilot,CA as well
-  # as non-mtls ports to support upgrades and gradual transition.
-  istio-ilbgateway:
-      enabled: false
-      labels:
-        app: istio-ilbgateway
-        istio: ilbgateway
-      replicaCount: 1
-      autoscaleMin: 1
-      autoscaleMax: 5
-      resources:
-        requests:
-          cpu: 800m
-          memory: 512Mi
-        #limits:
-        #  cpu: 1800m
-        #  memory: 256Mi
-      loadBalancerIP: ""
-      serviceAnnotations:
-        cloud.google.com/load-balancer-type: "internal"
-      type: LoadBalancer
-      ports:
-      ## You can add custom gateway ports - google ILB default quota is 5 ports,
-      - port: 15011
-        name: grpc-pilot-mtls
-      # Insecure port - only for migration from 0.8. Will be removed in 1.1
-      - port: 15010
-        name: grpc-pilot
-      - port: 8060
-        targetPort: 8060
-        name: tcp-citadel-grpc-tls
-      # Port 5353 is forwarded to kube-dns
-      - port: 5353
-        name: tcp-dns
-      secretVolumes:
-      - name: ilbgateway-certs
-        secretName: istio-ilbgateway-certs
-        mountPath: /etc/istio/ilbgateway-certs
-      - name: ilbgateway-ca-certs
-        secretName: istio-ilbgateway-ca-certs
-        mountPath: /etc/istio/ilbgateway-ca-certs
+    - name: customgateway-certs
+      secretName: istio-customgateway-certs
+      mountPath: /etc/istio/customgateway-certs
+    - name: customgateway-ca-certs
+      secretName: istio-customgateway-ca-certs
+      mountPath: /etc/istio/customgateway-ca-certs
 
 # all other components are disabled except the gateways
 ingress:

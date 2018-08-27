@@ -134,6 +134,7 @@ type Params struct {
 	Version         string                 `json:"version"`
 	EnableCoreDump  bool                   `json:"enableCoreDump"`
 	DebugMode       bool                   `json:"debugMode"`
+	Privileged      bool                   `json:"privileged"`
 	Mesh            *meshconfig.MeshConfig `json:"-"`
 	ImagePullPolicy string                 `json:"imagePullPolicy"`
 	// Comma separated list of IP ranges in CIDR form. If set, only redirect outbound traffic to Envoy for these IP
@@ -281,6 +282,8 @@ func injectRequired(ignored []string, namespacePolicy InjectionPolicy, podSpec *
 	var required bool
 	switch namespacePolicy {
 	default: // InjectionPolicyOff
+		log.Errorf("Illegal value for autoInject:%s, must be one of [%s,%s]. Auto injection disabled!",
+			namespacePolicy, InjectionPolicyDisabled, InjectionPolicyEnabled)
 		required = false
 	case InjectionPolicyDisabled:
 		if useDefault {

@@ -30,7 +30,7 @@ import (
 )
 
 // BuildHTTPRoutes produces a list of routes for the proxy
-func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(env *model.Environment, node *model.Proxy, push *model.PushStatus,
+func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(env *model.Environment, node *model.Proxy, push *model.PushContext,
 	routeName string) (*xdsapi.RouteConfiguration, error) {
 	// TODO: Move all this out
 	proxyInstances, err := env.GetProxyServiceInstances(node)
@@ -38,14 +38,11 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(env *model.Environment, no
 		return nil, err
 	}
 
-	services, err := env.Services()
-	if err != nil {
-		return nil, err
-	}
+	services := push.Services
 
 	switch node.Type {
 	case model.Sidecar:
-		return configgen.buildSidecarOutboundHTTPRouteConfig(env, node, proxyInstances, services, routeName), nil
+		return configgen.buildSidecarOutboundHTTPRouteConfig(env, node, push, proxyInstances, services, routeName), nil
 	case model.Router, model.Ingress:
 		return configgen.buildGatewayHTTPRouteConfig(env, node, push, proxyInstances, services, routeName)
 	}
@@ -55,12 +52,12 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(env *model.Environment, no
 // buildSidecarInboundHTTPRouteConfig builds the route config with a single wildcard virtual host on the inbound path
 // TODO: trace decorators, inbound timeouts
 func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(env *model.Environment,
-	node *model.Proxy, instance *model.ServiceInstance) *xdsapi.RouteConfiguration {
+	node *model.Proxy, push *model.PushContext, instance *model.ServiceInstance) *xdsapi.RouteConfiguration {
 
 	clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "",
 		instance.Service.Hostname, instance.Endpoint.ServicePort.Port)
 	traceOperation := fmt.Sprintf("%s:%d/*", instance.Service.Hostname, instance.Endpoint.ServicePort.Port)
-	defaultRoute := istio_route.BuildDefaultHTTPRoute(clusterName, traceOperation)
+	defaultRoute := istio_route.BuildDefaultHTTPRoute(node, clusterName, traceOperation)
 
 	if _, is10Proxy := node.GetProxyVersion(); !is10Proxy {
 		// Enable websocket on default route
@@ -89,6 +86,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(env *mo
 			Node:             node,
 			ServiceInstance:  instance,
 			Service:          instance.Service,
+			Push:             push,
 		}
 		p.OnInboundRouteConfiguration(in, r)
 	}
@@ -98,7 +96,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(env *mo
 
 // buildSidecarOutboundHTTPRouteConfig builds an outbound HTTP Route for sidecar.
 // Based on port, will determine all virtual hosts that listen on the port.
-func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *model.Environment, node *model.Proxy,
+func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *model.Environment, node *model.Proxy, push *model.PushContext,
 	proxyInstances []*model.ServiceInstance, services []*model.Service, routeName string) *xdsapi.RouteConfiguration {
 
 	listenerPort := 0
@@ -134,8 +132,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 	}
 
 	// Get list of virtual services bound to the mesh gateway
-	configStore := env.IstioConfigStore
-	virtualHostWrappers := istio_route.BuildVirtualHostsFromConfigAndRegistry(node, configStore, nameToServiceMap, proxyLabels)
+	virtualHostWrappers := istio_route.BuildVirtualHostsFromConfigAndRegistry(node, push, nameToServiceMap, proxyLabels)
 	vHostPortMap := make(map[int][]route.VirtualHost)
 
 	for _, virtualHostWrapper := range virtualHostWrappers {
@@ -148,7 +145,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 		for _, host := range virtualHostWrapper.VirtualServiceHosts {
 			virtualHosts = append(virtualHosts, route.VirtualHost{
 				Name:    fmt.Sprintf("%s:%d", host, virtualHostWrapper.Port),
-				Domains: []string{host},
+				Domains: []string{host, fmt.Sprintf("%s:%d", host, virtualHostWrapper.Port)},
 				Routes:  virtualHostWrapper.Routes,
 			})
 		}
@@ -184,6 +181,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 			ListenerProtocol: plugin.ListenerProtocolHTTP,
 			Env:              env,
 			Node:             node,
+			Push:             push,
 		}
 		p.OnOutboundRouteConfiguration(in, out)
 	}

@@ -16,6 +16,7 @@ package v2
 
 import (
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -23,7 +24,6 @@ import (
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"google.golang.org/grpc"
 
-	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core"
 )
@@ -33,7 +33,7 @@ var (
 	// Disabled by default.
 	periodicRefreshDuration = 0 * time.Second
 
-	versionMutex sync.Mutex
+	versionMutex sync.RWMutex
 
 	// version is the timestamp of the last registry event.
 	version = "0"
@@ -68,15 +68,29 @@ type DiscoveryServer struct {
 	// APIs and service registry info
 	ConfigGenerator core.ConfigGenerator
 
-	// The next fields are updated by v2 discovery, based on config change events (currently
-	// the global invalidation). They are computed once - will not change. The new alpha3
-	// API should use this instead of directly accessing ServiceDiscovery or IstioConfigStore.
-	modelMutex      sync.RWMutex
-	services        []*model.Service
-	virtualServices []*networking.VirtualService
-	// Temp: the code in alpha3 should use VirtualService directly
-	virtualServiceConfigs []model.Config
-	//TODO: gateways              []*networking.Gateway
+	// ConfigController provides readiness info (if initial sync is complete)
+	ConfigController model.ConfigStoreCache
+
+	// separate rate limiter for initial connection
+	initThrottle chan time.Time
+
+	throttle chan time.Time
+
+	// DebugConfigs controls saving snapshots of configs for /debug/adsz.
+	// Defaults to false, can be enabled with PILOT_DEBUG_ADSZ_CONFIG=1
+	DebugConfigs bool
+}
+
+func intEnv(env string, def int) int {
+	envValue := os.Getenv(env)
+	if len(envValue) == 0 {
+		return def
+	}
+	n, err := strconv.Atoi(envValue)
+	if err == nil && n > 0 {
+		return n
+	}
+	return def
 }
 
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
@@ -85,13 +99,45 @@ func NewDiscoveryServer(env *model.Environment, generator core.ConfigGenerator) 
 		env:             env,
 		ConfigGenerator: generator,
 	}
-	env.PushStatus = model.NewStatus()
+	env.PushContext = model.NewPushContext()
 
 	go out.periodicRefresh()
 
 	go out.periodicRefreshMetrics()
 
+	out.DebugConfigs = os.Getenv("PILOT_DEBUG_ADSZ_CONFIG") == "1"
+
+	pushThrottle := intEnv("PILOT_PUSH_THROTTLE", 25)
+	pushBurst := intEnv("PILOT_PUSH_BURST", 100)
+
+	adsLog.Infof("Starting ADS server with throttle=%d burst=%d", pushThrottle, pushBurst)
+
+	// throttle rate limits the amount of `pushALL` work that is started as a result of events.
+	out.throttle = initThrottle("adsPushAll", pushBurst, pushThrottle)
+
+	// init throttle rate limits starting work on new connections from sidecars.
+	out.initThrottle = initThrottle("initConnection", pushBurst*2, pushThrottle*2)
+
+	// Note: in both cases it does not directly limit the amount of work being perform concurrently.
+	// If a particular push takes a long time, it will allow more and more work, and token are being replenished
+	// as work is being performed.
+
 	return out
+}
+
+// initThrottle allocates and initializes a throttle channel with burstLimit and steady state ratePerSecond.
+func initThrottle(name string, burst int, ratePerSecond int) chan time.Time {
+	tick := time.NewTicker(time.Second / time.Duration(ratePerSecond))
+	throttle := make(chan time.Time, burst)
+	go func() {
+		for t := range tick.C {
+			select {
+			case throttle <- t:
+			default:
+			}
+		} // does not exit after tick.Stop()
+	}()
+	return throttle
 }
 
 // Register adds the ADS and EDS handles to the grpc server
@@ -121,7 +167,7 @@ func (s *DiscoveryServer) periodicRefresh() {
 	defer ticker.Stop()
 	for range ticker.C {
 		adsLog.Infof("ADS: periodic push of envoy configs %s", versionInfo())
-		s.AdsPushAll(versionInfo())
+		s.AdsPushAll(versionInfo(), s.env.PushContext)
 	}
 }
 
@@ -142,16 +188,16 @@ func (s *DiscoveryServer) periodicRefreshMetrics() {
 	ticker := time.NewTicker(periodicRefreshMetrics)
 	defer ticker.Stop()
 	for range ticker.C {
-		push := s.env.PushStatus
+		push := s.env.PushContext
 		if push.End != timeZero {
 			model.LastPushStatus = push
 		}
 		push.UpdateMetrics()
 		// TODO: env to customize
-		if time.Since(push.Start) > 30*time.Second {
-			// Reset the stats, some errors may still be stale.
-			s.env.PushStatus = model.NewStatus()
-		}
+		//if time.Since(push.Start) > 30*time.Second {
+		// Reset the stats, some errors may still be stale.
+		//s.env.PushContext = model.NewPushContext()
+		//}
 	}
 }
 
@@ -161,44 +207,40 @@ func (s *DiscoveryServer) periodicRefreshMetrics() {
 // This is currently called from v1 and has attenuation/throttling.
 func (s *DiscoveryServer) ClearCacheFunc() func() {
 	return func() {
-		s.updateModel()
-
 		// Reset the status during the push.
 		//afterPush := true
-		if s.env.PushStatus != nil {
-			s.env.PushStatus.OnConfigChange()
+		if s.env.PushContext != nil {
+			s.env.PushContext.OnConfigChange()
 		}
-		// PushStatus is reset after a config change. Previous status is
+		// PushContext is reset after a config change. Previous status is
 		// saved.
-		s.env.PushStatus = model.NewStatus()
+		t0 := time.Now()
+		push := model.NewPushContext()
+		err := push.InitContext(s.env)
+		if err != nil {
+			adsLog.Errorf("XDS: failed to update services %v", err)
+			// We can't push if we can't read the data - stick with previous version.
+			// TODO: metric !!
+			// TODO: metric !!
+			return
+		}
+
+		if err = s.ConfigGenerator.BuildSharedPushState(s.env, push); err != nil {
+			adsLog.Errorf("XDS: Failed to rebuild share state in configgen: %v", err)
+			return
+		}
+
+		s.env.PushContext = push
+		versionLocal := time.Now().Format(time.RFC3339)
+		initContextTime := time.Since(t0)
+		adsLog.Debugf("InitContext %v for push took %s", versionLocal, initContextTime)
 
 		// TODO: propagate K8S version and use it instead
 		versionMutex.Lock()
-		version = time.Now().Format(time.RFC3339)
+		version = versionLocal
 		versionMutex.Unlock()
 
-		s.AdsPushAll(versionInfo())
-	}
-}
-
-func (s *DiscoveryServer) updateModel() {
-	s.modelMutex.Lock()
-	defer s.modelMutex.Unlock()
-	services, err := s.env.Services()
-	if err != nil {
-		adsLog.Errorf("XDS: failed to update services %v", err)
-	} else {
-		s.services = services
-	}
-	vservices, err := s.env.List(model.VirtualService.Type, model.NamespaceAll)
-	if err != nil {
-		adsLog.Errorf("XDS: failed to update virtual services %v", err)
-	} else {
-		s.virtualServiceConfigs = vservices
-		s.virtualServices = make([]*networking.VirtualService, 0, len(vservices))
-		for _, ss := range vservices {
-			s.virtualServices = append(s.virtualServices, ss.Spec.(*networking.VirtualService))
-		}
+		go s.AdsPushAll(versionLocal, push)
 	}
 }
 
@@ -207,7 +249,7 @@ func nonce() string {
 }
 
 func versionInfo() string {
-	versionMutex.Lock()
-	defer versionMutex.Unlock()
+	versionMutex.RLock()
+	defer versionMutex.RUnlock()
 	return version
 }

@@ -17,22 +17,20 @@ package v2
 import (
 	"errors"
 	"io"
+	"os"
 	"reflect"
 	"sort"
 	"sync"
+	"sync/atomic"
 	"time"
 
-	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
-	"github.com/gogo/protobuf/types"
 	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
-
-	"sync/atomic"
 
 	"istio.io/istio/pilot/pkg/model"
 	istiolog "istio.io/istio/pkg/log"
@@ -58,6 +56,8 @@ var (
 	// clients and pushes them serially for now, to avoid large CPU/memory spikes.
 	// We measure and reports cases where pusing a client takes longer.
 	PushTimeout = 5 * time.Second
+
+	allowConcurrentPush = false
 )
 
 var (
@@ -140,6 +140,14 @@ func init() {
 	prometheus.MustRegister(pushTimeouts)
 	prometheus.MustRegister(pushes)
 	prometheus.MustRegister(pushErrors)
+
+	// Experimental env to disable push suppression
+	// By default a pod will not receive a push from an older version if a
+	// push for a newer version has started. This behavior can be disabled
+	// for testing or in special cases (bugs or corner cases found, etc)
+	// Setting the env variable to any non-empty value will result in 0.8
+	// behaviour, default is to cancel old pushes when possible and lock.
+	allowConcurrentPush = os.Getenv("PILOT_ALLOW_CONCURRENT") != ""
 }
 
 // DiscoveryStream is a common interface for EDS and ADS. It also has a
@@ -171,6 +179,14 @@ type XdsConnection struct {
 	// same info can be sent to all clients, without recomputing.
 	pushChannel chan *XdsEvent
 
+	// Set to the current push status when a push is started.
+	// Null after the pushall completes for the node.
+	currentPush *model.PushContext
+
+	// Set if a push request is received while a push is in progress.
+	// Will keep getting updated with the latest push version.
+	nextPush *model.PushContext
+
 	// doneChannel will be closed when the client is closed.
 	doneChannel chan int
 
@@ -178,9 +194,9 @@ type XdsConnection struct {
 
 	//HttpConnectionManagers map[string]*http_conn.HttpConnectionManager
 
-	HTTPListeners []*xdsapi.Listener                    `json:"-"`
-	RouteConfigs  map[string]*xdsapi.RouteConfiguration `json:"-"`
-	HTTPClusters  []*xdsapi.Cluster
+	LDSListeners []*xdsapi.Listener                    `json:"-"`
+	RouteConfigs map[string]*xdsapi.RouteConfiguration `json:"-"`
+	CDSClusters  []*xdsapi.Cluster
 
 	// Last nonce sent and ack'd (timestamps) used for debugging
 	ClusterNonceSent, ClusterNonceAcked   string
@@ -214,64 +230,9 @@ type XdsConnection struct {
 
 	// Time of last push failure.
 	LastPushFailure time.Time
-}
 
-// configDump converts the connection internal state into an Envoy Admin API config dump proto
-// It is used in debugging to create a consistent object for comparison between Envoy and Pilot outputs
-func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump, error) {
-	configDump := &adminapi.ConfigDump{Configs: map[string]types.Any{}}
-
-	dynamicActiveClusters := []adminapi.ClustersConfigDump_DynamicCluster{}
-	clusters, err := s.generateRawClusters(conn)
-	if err != nil {
-		return nil, err
-	}
-	for _, cs := range clusters {
-		dynamicActiveClusters = append(dynamicActiveClusters, adminapi.ClustersConfigDump_DynamicCluster{Cluster: cs})
-	}
-	clustersAny, err := types.MarshalAny(&adminapi.ClustersConfigDump{
-		VersionInfo:           versionInfo(),
-		DynamicActiveClusters: dynamicActiveClusters,
-	})
-	if err != nil {
-		return nil, err
-	}
-	configDump.Configs["clusters"] = *clustersAny
-
-	dynamicActiveListeners := []adminapi.ListenersConfigDump_DynamicListener{}
-	listeners, err := s.generateRawListeners(conn, s.env.PushStatus)
-	if err != nil {
-		return nil, err
-	}
-	for _, cs := range listeners {
-		dynamicActiveListeners = append(dynamicActiveListeners, adminapi.ListenersConfigDump_DynamicListener{Listener: cs})
-	}
-	listenersAny, err := types.MarshalAny(&adminapi.ListenersConfigDump{
-		VersionInfo:            versionInfo(),
-		DynamicActiveListeners: dynamicActiveListeners,
-	})
-	if err != nil {
-		return nil, err
-	}
-	configDump.Configs["listeners"] = *listenersAny
-
-	routes, err := s.generateRawRoutes(conn, s.env.PushStatus)
-	if err != nil {
-		return nil, err
-	}
-	if len(routes) > 0 {
-		dynamicRouteConfig := []adminapi.RoutesConfigDump_DynamicRouteConfig{}
-		for _, rs := range routes {
-			dynamicRouteConfig = append(dynamicRouteConfig, adminapi.RoutesConfigDump_DynamicRouteConfig{RouteConfig: rs})
-		}
-		routeConfigAny, err := types.MarshalAny(&adminapi.RoutesConfigDump{DynamicRouteConfigs: dynamicRouteConfig})
-		if err != nil {
-			return nil, err
-		}
-		configDump.Configs["routes"] = *routeConfigAny
-	}
-
-	return configDump, nil
+	// pushMutex prevents 2 overlapping pushes for this connection.
+	pushMutex sync.Mutex
 }
 
 // XdsEvent represents a config or registry event that results in a push.
@@ -281,7 +242,7 @@ type XdsEvent struct {
 	// Only EDS for the listed clusters will be sent.
 	clusters []string
 
-	push *model.PushStatus
+	push *model.PushContext
 
 	pending *int32
 
@@ -290,14 +251,14 @@ type XdsEvent struct {
 
 func newXdsConnection(peerAddr string, stream DiscoveryStream) *XdsConnection {
 	return &XdsConnection{
-		pushChannel:   make(chan *XdsEvent, 1),
-		doneChannel:   make(chan int, 1),
-		PeerAddr:      peerAddr,
-		Clusters:      []string{},
-		Connect:       time.Now(),
-		stream:        stream,
-		HTTPListeners: []*xdsapi.Listener{},
-		RouteConfigs:  map[string]*xdsapi.RouteConfiguration{},
+		pushChannel:  make(chan *XdsEvent, 1),
+		doneChannel:  make(chan int, 1),
+		PeerAddr:     peerAddr,
+		Clusters:     []string{},
+		Connect:      time.Now(),
+		stream:       stream,
+		LDSListeners: []*xdsapi.Listener{},
+		RouteConfigs: map[string]*xdsapi.RouteConfiguration{},
 	}
 }
 
@@ -327,9 +288,29 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 	}
 	var discReq *xdsapi.DiscoveryRequest
 
-	if s.services == nil {
-		// first call - lazy loading.
-		s.updateModel()
+	t0 := time.Now()
+	// rate limit the herd, after restart all endpoints will reconnect to the
+	// poor new pilot and overwhelm it.
+	// TODO: instead of readiness probe, let endpoints connect and wait here for
+	// config to become stable. Will better spread the load.
+	<-s.initThrottle
+
+	// first call - lazy loading, in tests. This should not happen if readiness
+	// check works, since it assumes ClearCache is called (and as such PushContext
+	// is initialized)
+	// InitContext returns immediately if the context was already initialized.
+	err := s.env.PushContext.InitContext(s.env)
+	if err != nil {
+		// Error accessing the data - log and close, maybe a different pilot replica
+		// has more luck
+		adsLog.Warnf("Error reading config %v", err)
+		return err
+	}
+	if s.env.PushContext.Services == nil {
+		// Error accessing the data - log and close, maybe a different pilot replica
+		// has more luck
+		adsLog.Warnf("Not initialized %v", s.env.PushContext)
+		return err
 	}
 
 	con := newXdsConnection(peerAddr, stream)
@@ -357,7 +338,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				// Remote side closed connection.
 				return receiveError
 			}
-			if discReq.Node.Id == "" {
+			if discReq.Node == nil || discReq.Node.Id == "" {
 				adsLog.Infof("Missing node id %s", discReq.String())
 				continue
 			}
@@ -390,9 +371,9 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				// CDS REQ is the first request an envoy makes. This shows up
 				// immediately after connect. It is followed by EDS REQ as
 				// soon as the CDS push is returned.
-				adsLog.Infof("ADS:CDS: REQ %s %v raw: %s ", con.ConID, peerAddr, discReq.String())
+				adsLog.Infof("ADS:CDS: REQ %v %s %v raw: %s", peerAddr, con.ConID, time.Since(t0), discReq.String())
 				con.CDSWatch = true
-				err := s.pushCds(con)
+				err := s.pushCds(con, s.env.PushContext, versionInfo())
 				if err != nil {
 					return err
 				}
@@ -412,7 +393,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				// too verbose - sent immediately after EDS response is received
 				adsLog.Debugf("ADS:LDS: REQ %s %v", con.ConID, peerAddr)
 				con.LDSWatch = true
-				err := s.pushLds(con, s.env.PushStatus, true, versionInfo())
+				err := s.pushLds(con, s.env.PushContext, true, versionInfo())
 				if err != nil {
 					return err
 				}
@@ -438,7 +419,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				}
 				con.Routes = routes
 				adsLog.Debugf("ADS:RDS: REQ %s %s  routes: %d", peerAddr, con.ConID, len(con.Routes))
-				err := s.pushRoute(con, s.env.PushStatus)
+				err := s.pushRoute(con, s.env.PushContext)
 				if err != nil {
 					return err
 				}
@@ -474,7 +455,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 
 				con.Clusters = clusters
 				adsLog.Debugf("ADS:EDS: REQ %s %s clusters: %d", peerAddr, con.ConID, len(con.Clusters))
-				err := s.pushEds(con)
+				err := s.pushEds(s.env.PushContext, con)
 				if err != nil {
 					return err
 				}
@@ -506,7 +487,18 @@ func (s *DiscoveryServer) IncrementalAggregatedResources(stream ads.AggregatedDi
 	return status.Errorf(codes.Unimplemented, "not implemented")
 }
 
+// Compute and send the new configuration. This is blocking and may be slow
+// for large configs.
 func (s *DiscoveryServer) pushAll(con *XdsConnection, pushEv *XdsEvent) error {
+	<-s.throttle // rate limit the actual push
+
+	// Prevent 2 overlapping pushes. Disabled if push suppression is disabled
+	// (as fail-safe in case of bugs)
+	if !allowConcurrentPush {
+		con.pushMutex.Lock()
+		defer con.pushMutex.Unlock()
+	}
+
 	defer func() {
 		n := atomic.AddInt32(pushEv.pending, -1)
 		if n <= 0 && pushEv.push.End == timeZero {
@@ -517,9 +509,15 @@ func (s *DiscoveryServer) pushAll(con *XdsConnection, pushEv *XdsEvent) error {
 				time.Since(pushEv.push.Start), string(out))
 		}
 	}()
-	// TODO: check version, suppress if changed
+	// check version, suppress if changed.
+	currentVersion := versionInfo()
+	if !allowConcurrentPush && pushEv.version != currentVersion {
+		adsLog.Infof("Suppress push for %s at %s, push with newer version %s in progress", con.ConID, pushEv.version, currentVersion)
+		return nil
+	}
+
 	if con.CDSWatch {
-		err := s.pushCds(con)
+		err := s.pushCds(con, pushEv.push, pushEv.version)
 		if err != nil {
 			return err
 		}
@@ -531,7 +529,7 @@ func (s *DiscoveryServer) pushAll(con *XdsConnection, pushEv *XdsEvent) error {
 		}
 	}
 	if len(con.Clusters) > 0 {
-		err := s.pushEds(con)
+		err := s.pushEds(pushEv.push, con)
 		if err != nil {
 			return err
 		}
@@ -555,23 +553,22 @@ func adsClientCount() int {
 
 // AdsPushAll is used only by tests (after refactoring)
 func AdsPushAll(s *DiscoveryServer) {
-	s.AdsPushAll(versionInfo())
+	s.AdsPushAll(versionInfo(), s.env.PushContext)
 }
 
 // AdsPushAll implements old style invalidation, generated when any rule or endpoint changes.
 // Primary code path is from v1 discoveryService.clearCache(), which is added as a handler
 // to the model ConfigStorageCache and Controller.
-func (s *DiscoveryServer) AdsPushAll(version string) {
-	s.modelMutex.RLock()
+func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext) {
 	adsLog.Infof("XDS: Pushing %s Services: %d, "+
 		"VirtualServices: %d, ConnectedEndpoints: %d", version,
-		len(s.services), len(s.virtualServices), adsClientCount())
-	monServices.Set(float64(len(s.services)))
-	monVServices.Set(float64(len(s.virtualServices)))
+		len(push.Services), len(push.VirtualServiceConfigs), adsClientCount())
+	monServices.Set(float64(len(push.Services)))
+	monVServices.Set(float64(len(push.VirtualServiceConfigs)))
 
-	pushStatus := s.env.PushStatus
+	pushContext := s.env.PushContext
 
-	s.modelMutex.RUnlock()
+	t0 := time.Now()
 
 	// First update all cluster load assignments. This is computed for each cluster once per config change
 	// instead of once per endpoint.
@@ -587,18 +584,19 @@ func (s *DiscoveryServer) AdsPushAll(version string) {
 	// the update may be duplicated if multiple goroutines compute at the same time).
 	// In general this code is called from the 'event' callback that is throttled.
 	for clusterName, edsCluster := range cMap {
-		if err := s.updateCluster(clusterName, edsCluster); err != nil {
+		if err := s.updateCluster(push, clusterName, edsCluster); err != nil {
 			adsLog.Errorf("updateCluster failed with clusterName %s", clusterName)
 		}
 	}
+	adsLog.Infof("Cluster init time %v %s", time.Since(t0), version)
 
 	// Push config changes, iterating over connected envoys. This cover ADS and EDS(0.7), both share
 	// the same connection table
 	adsClientsMutex.RLock()
 	// Create a temp map to avoid locking the add/remove
-	tmpMap := make(map[string]*XdsConnection, len(adsClients))
-	for k, v := range adsClients {
-		tmpMap[k] = v
+	pending := []*XdsConnection{}
+	for _, v := range adsClients {
+		pending = append(pending, v)
 	}
 	adsClientsMutex.RUnlock()
 
@@ -607,34 +605,54 @@ func (s *DiscoveryServer) AdsPushAll(version string) {
 	// TODO: get service, serviceinstances, configs once, to avoid repeated redundant calls.
 	// TODO: indicate the specific events, to only push what changed.
 
-	pendingPush := int32(len(tmpMap))
+	pendingPush := int32(len(pending))
 
-	for _, c := range tmpMap {
+	tstart := time.Now()
+	// Will keep trying to push to sidecars until another push starts.
+	for {
+		if len(pending) == 0 {
+			adsLog.Infof("PushAll done %s %v", version, time.Since(tstart))
+			return
+		}
+		currentVersion := versionInfo()
+		// Stop attempting to push
+		if !allowConcurrentPush && version != currentVersion {
+			adsLog.Infof("PushAll abort %s, push with newer version %s in progress %v", version, currentVersion, time.Since(tstart))
+			return
+		}
+
+		c := pending[0]
+		pending = pending[1:]
+
 		// Using non-blocking push has problems if 2 pushes happen too close to each other
 		client := c
 		// TODO: this should be in a thread group, to do multiple pushes in parallel.
 		to := time.After(PushTimeout)
 		select {
 		case client.pushChannel <- &XdsEvent{
-			push:    pushStatus,
+			push:    pushContext,
 			pending: &pendingPush,
 			version: version,
 		}:
 			client.LastPush = time.Now()
 			client.LastPushFailure = timeZero
 		case <-client.doneChannel: // connection was closed
+			adsLog.Infof("Client closed connection %v", client.ConID)
 		case <-to:
 			pushTimeouts.Add(1)
 			//default:
 			// This may happen to some clients if the other side is in a bad state and can't receive.
 			// The tests were catching this - one of the client was not reading.
+
+			pending = append(pending, c)
+
 			if client.LastPushFailure.IsZero() {
 				client.LastPushFailure = time.Now()
-				adsLog.Warnf("Failed to push, client busy %s", client.ConID)
+				adsLog.Warnf("Failed to push, client busy %d %s", len(pending), client.ConID)
 				pushErrors.With(prometheus.Labels{"type": "short"}).Add(1)
 			} else {
 				if time.Since(client.LastPushFailure) > 10*time.Second {
-					adsLog.Warnf("Repeated failure to push %s", client.ConID)
+					adsLog.Warnf("Repeated failure to push %d %s", len(pending), client.ConID)
 					// unfortunately grpc go doesn't allow closing (unblocking) the stream.
 					pushErrors.With(prometheus.Labels{"type": "long"}).Add(1)
 				}

@@ -213,5 +213,6 @@ var (
 		"response.grpc_message",
 		"context.reporter.type",
 		"context.reporter.kind",
+		"connection.requested_server_name",
     }
 )

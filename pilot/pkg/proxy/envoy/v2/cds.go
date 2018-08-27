@@ -20,6 +20,8 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/gogo/protobuf/types"
 	"github.com/prometheus/client_golang/prometheus"
+
+	"istio.io/istio/pilot/pkg/model"
 )
 
 // clusters aggregate a DiscoveryResponse for pushing.
@@ -44,13 +46,14 @@ func (con *XdsConnection) clusters(response []*xdsapi.Cluster) *xdsapi.Discovery
 	return out
 }
 
-func (s *DiscoveryServer) pushCds(con *XdsConnection) error {
-	// TODO: Modify interface to take services, and config instead of making library query registry
-	rawClusters, err := s.generateRawClusters(con)
+func (s *DiscoveryServer) pushCds(con *XdsConnection, push *model.PushContext, version string) error {
+	rawClusters, err := s.generateRawClusters(con, push)
 	if err != nil {
 		return err
 	}
-	con.HTTPClusters = rawClusters
+	if s.DebugConfigs {
+		con.CDSClusters = rawClusters
+	}
 	response := con.clusters(rawClusters)
 	err = con.send(response)
 	if err != nil {
@@ -61,13 +64,13 @@ func (s *DiscoveryServer) pushCds(con *XdsConnection) error {
 	pushes.With(prometheus.Labels{"type": "cds"}).Add(1)
 
 	// The response can't be easily read due to 'any' marshalling.
-	adsLog.Infof("CDS: PUSH for %s %q, Clusters: %d",
-		con.modelNode.ID, con.PeerAddr, len(rawClusters))
+	adsLog.Infof("CDS: PUSH %s for %s %q, Clusters: %d, Services %d", version,
+		con.modelNode.ID, con.PeerAddr, len(rawClusters), len(push.Services))
 	return nil
 }
 
-func (s *DiscoveryServer) generateRawClusters(con *XdsConnection) ([]*xdsapi.Cluster, error) {
-	rawClusters, err := s.ConfigGenerator.BuildClusters(s.env, con.modelNode, s.env.PushStatus)
+func (s *DiscoveryServer) generateRawClusters(con *XdsConnection, push *model.PushContext) ([]*xdsapi.Cluster, error) {
+	rawClusters, err := s.ConfigGenerator.BuildClusters(s.env, con.modelNode, push)
 	if err != nil {
 		adsLog.Warnf("CDS: Failed to generate clusters for node %s: %v", con.modelNode, err)
 		pushes.With(prometheus.Labels{"type": "cds_builderr"}).Add(1)

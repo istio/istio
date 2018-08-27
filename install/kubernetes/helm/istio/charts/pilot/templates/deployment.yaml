@@ -53,9 +53,9 @@ spec:
 {{- end }}
           readinessProbe:
             httpGet:
-              path: /debug/endpointz
+              path: /ready
               port: 8080
-            initialDelaySeconds: 30
+            initialDelaySeconds: 5
             periodSeconds: 30
             timeoutSeconds: 5
           env:
@@ -69,10 +69,14 @@ spec:
               fieldRef:
                 apiVersion: v1
                 fieldPath: metadata.namespace
-          - name: PILOT_THROTTLE
-            value: "500"
           - name: PILOT_CACHE_SQUASH
             value: "5"
+          {{- if .Values.env }}
+          {{- range $key, $val := .Values.env }}
+          - name: {{ $key }}
+            value: "{{ $val }}"
+          {{- end }}
+          {{- end }}
 {{- if .Values.traceSampling }}
           - name: PILOT_TRACE_SAMPLING
             value: "{{ .Values.traceSampling }}"
@@ -145,5 +149,6 @@ spec:
       - name: istio-certs
         secret:
           secretName: istio.istio-pilot-service-account
+          optional: true   
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}

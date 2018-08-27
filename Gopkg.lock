@@ -13,8 +13,8 @@
     "monitoring/apiv3",
     "trace/apiv2"
   ]
-  revision = "0fd7230b2a7505833d5f69b75cbd6c9582401479"
-  version = "v0.23.0"
+  revision = "64a2037ec6be8a4b0c1d1f706ed35b428b989239"
+  version = "v0.26.0"
 
 [[projects]]
   branch = "master"
@@ -252,7 +252,7 @@
   version = "v2.6.0"
 
 [[projects]]
-  branch = "master"
+  branch = "revert_grpc_version_update"
   name = "github.com/envoyproxy/go-control-plane"
   packages = [
     "envoy/admin/v2alpha",
@@ -285,7 +285,7 @@
     "pkg/server",
     "pkg/util"
   ]
-  revision = "8cef83f9eabf344b48191d3b9929287988782e54"
+  revision = "9d935e3a33c28e3d6ac75a9db53b0da3b511fb86"
 
 [[projects]]
   name = "github.com/evanphx/json-patch"
@@ -1305,7 +1305,7 @@
     "policy/v1beta1",
     "rbac/v1alpha1"
   ]
-  revision = "de406f0ce2aa35c1f426364ec4aef642caf4b097"
+  revision = "123b0a79a4dba5bd653dcac09cf731b8002e5341"
 
 [[projects]]
   name = "istio.io/fortio"
@@ -1603,6 +1603,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "37d162eb4b65cc5d429f9df45d2ad4999383685776ff2e438720faa056eb1540"
+  inputs-digest = "8026248fa65b57ac76cf457d405f1773627fdc1fb1351037bc4add7e4d108c0b"
   solver-name = "gps-cdcl"
   solver-version = 1

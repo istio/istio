@@ -33,9 +33,16 @@ global:
       #   cpu: 100m
       #   memory: 128Mi
 
+    # Controls number of Proxy worker threads.
+    # If set to 0 (default), then start worker thread for each CPU thread/core.
+    concurrency: 0
+
     # Configures the access log for each sidecar. Setting it to an empty string will
     # disable access log for sidecar.
     accessLogFile: "/dev/stdout"
+
+    #If set to true, istio-proxy container will have privileged securityContext
+    privileged: false
 
     # If set, newly injected sidecars will have core dumps enabled.
     enableCoreDump: false
@@ -201,7 +208,8 @@ gateways:
       #requests:
       #  cpu: 1800m
       #  memory: 256Mi
-
+    cpu:
+      targetAverageUtilization: 80
     loadBalancerIP: ""
     serviceAnnotations: {}
     type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
@@ -226,8 +234,9 @@ gateways:
     - port: 8060
       targetPort: 8060
       name: tcp-citadel-grpc-tls
-    # Telemetry-related ports are enabled in gateway - but will only redirect if
-    # the gateway configration for the various components are enabled.
+    - port: 853
+      targetPort: 853
+      name: tcp-dns-tls
     - port: 15030
       targetPort: 15030
       name: http2-prometheus
@@ -250,6 +259,8 @@ gateways:
     replicaCount: 1
     autoscaleMin: 1
     autoscaleMax: 5
+    cpu:
+      targetAverageUtilization: 80
     serviceAnnotations: {}
     type: ClusterIP #change to NodePort or LoadBalancer if need be
     ports:
@@ -269,45 +280,46 @@ gateways:
   # for mesh expansion. It exposes the mtls ports for Pilot,CA as well
   # as non-mtls ports to support upgrades and gradual transition.
   istio-ilbgateway:
-      enabled: false
-      labels:
-        app: istio-ilbgateway
-        istio: ilbgateway
-      replicaCount: 1
-      autoscaleMin: 1
-      autoscaleMax: 5
-      resources:
-        requests:
-          cpu: 800m
-          memory: 512Mi
-        #limits:
-        #  cpu: 1800m
-        #  memory: 256Mi
-      loadBalancerIP: ""
-      serviceAnnotations:
-        cloud.google.com/load-balancer-type: "internal"
-      type: LoadBalancer
-      ports:
-      ## You can add custom gateway ports - google ILB default quota is 5 ports,
-      - port: 15011
-        name: grpc-pilot-mtls
-      # Insecure port - only for migration from 0.8. Will be removed in 1.1
-      - port: 15010
-        name: grpc-pilot
-      - port: 8060
-        targetPort: 8060
-        name: tcp-citadel-grpc-tls
-      # Port 5353 is forwarded to kube-dns
-      - port: 5353
-        name: tcp-dns
-      secretVolumes:
-      - name: ilbgateway-certs
-        secretName: istio-ilbgateway-certs
-        mountPath: /etc/istio/ilbgateway-certs
-      - name: ilbgateway-ca-certs
-        secretName: istio-ilbgateway-ca-certs
-        mountPath: /etc/istio/ilbgateway-ca-certs
-
+    enabled: false
+    labels:
+      app: istio-ilbgateway
+      istio: ilbgateway
+    replicaCount: 1
+    autoscaleMin: 1
+    autoscaleMax: 5
+    resources:
+      requests:
+        cpu: 800m
+        memory: 512Mi
+      #limits:
+      #  cpu: 1800m
+      #  memory: 256Mi
+    cpu:
+      targetAverageUtilization: 80      
+    loadBalancerIP: ""
+    serviceAnnotations:
+      cloud.google.com/load-balancer-type: "internal"
+    type: LoadBalancer
+    ports:
+    ## You can add custom gateway ports - google ILB default quota is 5 ports,
+    - port: 15011
+      name: grpc-pilot-mtls
+    # Insecure port - only for migration from 0.8. Will be removed in 1.1
+    - port: 15010
+      name: grpc-pilot
+    - port: 8060
+      targetPort: 8060
+      name: tcp-citadel-grpc-tls
+    # Port 853 is reserved for the kube-dns gateway
+    - port: 853
+      name: tcp-dns
+    secretVolumes:
+    - name: ilbgateway-certs
+      secretName: istio-ilbgateway-certs
+      mountPath: /etc/istio/ilbgateway-certs
+    - name: ilbgateway-ca-certs
+      secretName: istio-ilbgateway-ca-certs
+      mountPath: /etc/istio/ilbgateway-ca-certs
 
 #
 # sidecar-injector webhook configuration
@@ -361,7 +373,7 @@ pilot:
   enabled: true
   replicaCount: 1
   autoscaleMin: 1
-  autoscaleMax: 1
+  autoscaleMax: 5
   image: pilot
   sidecar: true
   traceSampling: 100.0
@@ -370,6 +382,11 @@ pilot:
     requests:
       cpu: 500m
       memory: 2048Mi
+  env:
+    PILOT_PUSH_THROTTLE_COUNT: 100
+    GODEBUG: gctrace=2
+  cpu:
+    targetAverageUtilization: 80
 
 #
 # security configuration
@@ -444,8 +461,12 @@ tracing:
   enabled: false
   provider: jaeger
   jaeger:
+    hub: docker.io/jaegertracing
+    tag: 1.5
     memory:
       max_traces: 50000
+    ui:
+      port: 16686
     ingress:
       enabled: false
       # Used to create an Ingress record.
@@ -460,15 +481,12 @@ tracing:
         #   hosts:
         #     - jaeger.local
   replicaCount: 1
-  hub: docker.io/jaegertracing
-  tag: 1.5
   service:
     annotations: {}
     name: http
     type: ClusterIP
     externalPort: 9411
     internalPort: 9411
-    uiPort: 16686
   ingress:
     enabled: false
     # Used to create an Ingress record.
@@ -487,7 +505,7 @@ kiali:
   enabled: false
   replicaCount: 1
   hub: docker.io/kiali
-  tag: v0.5.0
+  tag: istio-release-1.0
   ingress:
     enabled: false
     ## Used to create an Ingress record.
@@ -506,6 +524,12 @@ kiali:
     # Default admin passphrase for kiali. Must be set during setup, and
     # changed by overriding the secret
     passphrase: admin
+
+    # Override the automatically detected Grafana URL, usefull when Grafana service has no ExternalIPs
+    # grafanaURL:
+
+    # Override the automatically detected Jaeger URL, usefull when Jaeger service has no ExternalIPs
+    # jaegerURL:
 
 # Certmanager uses ACME to sign certificates. Since Istio gateways are
 # mounting the TLS secrets the Certificate CRDs must be created in the

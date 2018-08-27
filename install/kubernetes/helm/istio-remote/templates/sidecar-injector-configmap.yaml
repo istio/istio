@@ -1,3 +1,4 @@
+{{- if not .Values.global.omitSidecarInjectorConfigMap }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -52,20 +53,27 @@ data:
             drop:
             - "all"
             add:
+<<<<<<< HEAD
             - "NET_ADMIN"
             - "NET_RAW"
           privileged: false
           allowPrivilegeEscalation: false
+=======
+            - NET_ADMIN
+          {{ if .Values.global.proxy.privileged }}
+          privileged: true
+          {{ end }}
+>>>>>>> 5d1c208d9342e430ff56d20de93952fb8d3f59ef
         restartPolicy: Always
       {{ if eq .Values.global.proxy.enableCoreDump true }}
-      - args:
+      - name: enable-core-dump
+        args:
         - -c
         - sysctl -w kernel.core_pattern=/etc/istio/proxy/core.%e.%p.%t && ulimit -c unlimited
         command:
           - /bin/sh
         image: {{ .Values.global.hub }}/proxy_init:{{ .Values.global.tag }}
         imagePullPolicy: IfNotPresent
-        name: enable-core-dump
         resources: {}
         securityContext:
           privileged: true
@@ -110,6 +118,10 @@ data:
       {{- end }}
         - --proxyAdminPort
         - {{ "[[ .ProxyConfig.ProxyAdminPort ]]" }}
+        {{ "[[ if gt .ProxyConfig.Concurrency 0 -]]" }}
+        - --concurrency
+        - {{ "[[ .ProxyConfig.Concurrency ]]" }}
+        {{ "[[ end -]]" }}
         - --controlPlaneAuthPolicy
         - {{ "[[ or (index .ObjectMeta.Annotations \"sidecar.istio.io/controlPlaneAuthPolicy\") .ProxyConfig.ControlPlaneAuthPolicy ]]" }}
         env:
@@ -133,7 +145,6 @@ data:
           value: {{ "[[ or (index .ObjectMeta.Annotations \"sidecar.istio.io/interceptionMode\") .ProxyConfig.InterceptionMode.String ]]" }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
         securityContext:
-          privileged: false
           readOnlyRootFilesystem: true
           {{ "[[ if eq (or (index .ObjectMeta.Annotations \"sidecar.istio.io/interceptionMode\") .ProxyConfig.InterceptionMode.String) \"TPROXY\" -]]" }}
           capabilities:
@@ -172,4 +183,4 @@ data:
           {{ "[[ else -]]" }}
           secretName: {{ "[[ printf \"istio.%s\" .Spec.ServiceAccountName ]]"  }}
           {{ "[[ end -]]" }}
-
+{{- end }}

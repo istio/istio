@@ -95,7 +95,7 @@ func NewCommonConfigWithVersion(testID, version string) (*CommonConfig, error) {
 		return nil, err
 	}
 	cl := new(testCleanup)
-	cl.skipCleanup = *skipCleanup
+	cl.skipCleanup = os.Getenv("SKIP_CLEANUP") != "" || *skipCleanup
 
 	c := &CommonConfig{
 		Info:    t,
