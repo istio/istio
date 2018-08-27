@@ -24,7 +24,6 @@ import (
 	"sort"
 	"strconv"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	restful "github.com/emicklei/go-restful"
@@ -167,13 +166,6 @@ type DiscoveryService struct {
 
 	webhookClient   *http.Client
 	webhookEndpoint string
-	// TODO Profile and optimize cache eviction policy to avoid
-	// flushing the entire cache when any route, service, or endpoint
-	// changes. An explicit cache expiration policy should be
-	// considered with this change to avoid memory exhaustion as the
-	// entire cache will no longer be periodically flushed and stale
-	// entries can linger in the cache indefinitely.
-	sdsCache *discoveryCache
 
 	RestContainer *restful.Container
 }
@@ -185,78 +177,6 @@ type discoveryCacheStatEntry struct {
 
 type discoveryCacheStats struct {
 	Stats map[string]*discoveryCacheStatEntry `json:"cache_stats"`
-}
-
-type discoveryCacheEntry struct {
-	data          []byte
-	hit           uint64 // atomic
-	miss          uint64 // atomic
-	resourceCount uint32
-}
-
-type discoveryCache struct {
-	name     string
-	disabled bool
-	mu       sync.RWMutex
-	cache    map[string]*discoveryCacheEntry
-}
-
-func newDiscoveryCache(name string, enabled bool) *discoveryCache {
-	return &discoveryCache{
-		name:     name,
-		disabled: !enabled,
-		cache:    make(map[string]*discoveryCacheEntry),
-	}
-}
-
-func (c *discoveryCache) cachedDiscoveryResponse(key string) ([]byte, uint32, bool) {
-	if c.disabled {
-		return nil, 0, false
-	}
-
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
-	// Miss - entry.miss is updated in updateCachedDiscoveryResponse
-	entry, ok := c.cache[key]
-	if !ok || entry.data == nil {
-		return nil, 0, false
-	}
-
-	// Hit
-	atomic.AddUint64(&entry.hit, 1)
-	cacheHitCounter.With(c.cacheSizeLabels()).Inc()
-	return entry.data, entry.resourceCount, true
-}
-
-func (c *discoveryCache) resetStats() {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	for _, v := range c.cache {
-		atomic.StoreUint64(&v.hit, 0)
-		atomic.StoreUint64(&v.miss, 0)
-	}
-}
-
-func (c *discoveryCache) stats() map[string]*discoveryCacheStatEntry {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
-	stats := make(map[string]*discoveryCacheStatEntry, len(c.cache))
-	for k, v := range c.cache {
-		stats[k] = &discoveryCacheStatEntry{
-			Hit:  atomic.LoadUint64(&v.hit),
-			Miss: atomic.LoadUint64(&v.miss),
-		}
-	}
-	return stats
-}
-
-func (c *discoveryCache) cacheSizeLabels() prometheus.Labels {
-	return prometheus.Labels{
-		metricLabelCacheName: c.name,
-		metricBuildVersion:   buildVersion,
-	}
 }
 
 type hosts struct {
@@ -317,7 +237,6 @@ func NewDiscoveryService(ctl model.Controller, configCache model.ConfigStoreCach
 	environment *model.Environment, o DiscoveryServiceOptions) (*DiscoveryService, error) {
 	out := &DiscoveryService{
 		Environment: environment,
-		sdsCache:    newDiscoveryCache("sds", o.EnableCaching),
 	}
 
 	container := restful.NewContainer()
@@ -370,34 +289,7 @@ func (ds *DiscoveryService) Register(container *restful.Container) {
 		To(ds.ListAllEndpoints).
 		Doc("Services in SDS"))
 
-	ws.Route(ws.
-		GET("/cache_stats").
-		To(ds.GetCacheStats).
-		Doc("Get discovery service cache stats").
-		Writes(discoveryCacheStats{}))
-
-	ws.Route(ws.
-		POST("/cache_stats_delete").
-		To(ds.ClearCacheStats).
-		Doc("Clear discovery service cache stats"))
-
 	container.Add(ws)
-}
-
-// GetCacheStats returns the statistics for cached discovery responses.
-func (ds *DiscoveryService) GetCacheStats(_ *restful.Request, response *restful.Response) {
-	stats := make(map[string]*discoveryCacheStatEntry)
-	for k, v := range ds.sdsCache.stats() {
-		stats[k] = v
-	}
-	if err := response.WriteEntity(discoveryCacheStats{stats}); err != nil {
-		log.Warna(err)
-	}
-}
-
-// ClearCacheStats clear the statistics for cached discovery responses.
-func (ds *DiscoveryService) ClearCacheStats(_ *restful.Request, _ *restful.Response) {
-	ds.sdsCache.resetStats()
 }
 
 // ClearCache is wrapper for clearCache method, used when new controller gets
@@ -570,7 +462,7 @@ func (ds *DiscoveryService) invokeWebhook(path string, payload []byte, methodNam
 		return nil, err
 	}
 
-	defer resp.Body.Close() // nolint: errcheck
+	defer resp.Body.Close()
 
 	out, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
