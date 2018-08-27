@@ -245,8 +245,10 @@ var (
 
 			envoyProxy := envoy.NewProxy(proxyConfig, role.ServiceNode(), proxyLogLevel, pilotSAN)
 			agent := proxy.NewAgent(envoyProxy, proxy.DefaultRetry)
-			watcher := envoy.NewWatcher(proxyConfig, agent, role, certs, pilotSAN)
+			watcher := envoy.NewWatcher(proxyConfig, role, certs, pilotSAN, agent.ConfigCh())
+
 			ctx, cancel := context.WithCancel(context.Background())
+			go agent.Run(ctx)
 			go watcher.Run(ctx)
 
 			stop := make(chan struct{})
