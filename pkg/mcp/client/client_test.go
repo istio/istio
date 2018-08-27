@@ -76,6 +76,10 @@ func (ts *testStream) sendResponseToClient(response *mcp.MeshConfigResponse) {
 	}
 }
 
+func (ts *testStream) IncrementalAggregatedResources(ctx context.Context, opts ...grpc.CallOption) (mcp.AggregatedMeshConfigService_IncrementalAggregatedResourcesClient, error) { // nolint: lll
+	return nil, status.Errorf(codes.Unimplemented, "not implemented")
+}
+
 func (ts *testStream) StreamAggregatedResources(ctx context.Context, opts ...grpc.CallOption) (mcp.AggregatedMeshConfigService_StreamAggregatedResourcesClient, error) { // nolint: lll
 	go func() {
 		<-ctx.Done()
