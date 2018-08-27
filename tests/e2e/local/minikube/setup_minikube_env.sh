@@ -9,4 +9,3 @@ if ! docker info | grep "localhost:5000" > /dev/null; then
     fi
 fi
 echo "Minikube docker environment is setup for this shell"
-echo "To verify that localhost:5000 is added as insecure registry, please run docker info"
