@@ -107,7 +107,6 @@ func convertService(svc v1.Service, domainSuffix string) *model.Service {
 		Hostname:              serviceHostname(svc.Name, svc.Namespace, domainSuffix),
 		Ports:                 ports,
 		Address:               addr,
-		ExternalName:          model.Hostname(external),
 		ServiceAccounts:       serviceaccounts,
 		LoadBalancingDisabled: loadBalancingDisabled,
 		MeshExternal:          meshExternal,
