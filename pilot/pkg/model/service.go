@@ -61,12 +61,6 @@ type Service struct {
 	// connections
 	Ports PortList `json:"ports,omitempty"`
 
-	// ExternalName is only set for external services and holds the external
-	// service DNS name.  External services are name-based solution to represent
-	// external service instances as a service inside the cluster.
-	// Deprecated : made obsolete by the MeshExternal and Resolution flags.
-	ExternalName Hostname `json:"external"`
-
 	// ServiceAccounts specifies the service accounts that run the service.
 	ServiceAccounts []string `json:"serviceaccounts,omitempty"`
 
