@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/gogo/protobuf/types"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -124,10 +125,14 @@ func (c *Controller) Apply(change *mcpclient.Change) error {
 	for _, obj := range change.Objects {
 		name, nameSpace := extractNameNamespace(obj.Metadata.Name)
 
-		createTime, err := types.TimestampFromProto(obj.Metadata.CreateTime)
-		if err != nil {
-			return fmt.Errorf("failed to parse create_time for %v: %v", obj.Metadata.Name, err)
+		createTime := time.Now()
+		if obj.Metadata.CreateTime != nil {
+			var err error
+			if createTime, err = types.TimestampFromProto(obj.Metadata.CreateTime); err != nil {
+				return fmt.Errorf("failed to parse %v create_time: %v", obj.Metadata.Name, err)
+			}
 		}
+
 		conf := model.Config{
 			ConfigMeta: model.ConfigMeta{
 				Type:              descriptor.Type,
