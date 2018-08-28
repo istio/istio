@@ -463,11 +463,10 @@ func getServerAuthProtocol(mtls *authn.MutualTls) int {
 	if mtls == nil {
 		return authnHTTP
 	}
-	if mtls.Mode == authn.MutualTls_STRICT {
-		return authnMTls
-	} else {
+	if mtls.Mode == authn.MutualTls_PERMISSIVE {
 		return authnPermissive
 	}
+	return authnMTls
 }
 
 // AuthenticationDebug holds debug information for service authentication policy.
