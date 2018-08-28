@@ -8,7 +8,7 @@ domain: v10.istio.webinf.info
 istioNamespace: istio-system
 
 #fortioImage: fortio/fortio:latest
-fortioImage: fortio/fortio:1.0.1
+fortioImage: fortio/fortio:1.2.0
 
 qps: 500
 
