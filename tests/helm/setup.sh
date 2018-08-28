@@ -30,7 +30,7 @@ function testInstall() {
 
 # Apply the helm template
 function testApply() {
-   local F=${1:-"istio/fortio:latest"}
+   local F=${1:-"fortio/fortio:latest"}
    pushd "$TOP/src/istio.io/istio" || return
    helm -n test template \
     --set fortioImage="$F" \
@@ -39,7 +39,7 @@ function testApply() {
 }
 
 function testApply1() {
-    testApply istio/fortio:1.0.1
+    testApply fortio/fortio:1.0.1
 }
 
 # Setup DNS entries - currently using gcloud

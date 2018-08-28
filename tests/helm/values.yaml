@@ -7,8 +7,8 @@ domain: v10.istio.webinf.info
 # Namespace where istio control plane is installed.
 istioNamespace: istio-system
 
-#fortioImage: istio/fortio:latest
-fortioImage: istio/fortio:1.0.1
+#fortioImage: fortio/fortio:latest
+fortioImage: fortio/fortio:1.0.1
 
 qps: 500
 
