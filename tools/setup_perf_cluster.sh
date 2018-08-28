@@ -113,7 +113,7 @@ function delete_vm_firewall() {
 
 function update_fortio_on_vm() {
   # shellcheck disable=SC2016
-  run_on_vm 'go get fortio.org/fortio && cd go/src/fortio.org/fortio && git fetch --tags && git checkout latest_release && make submodule-sync && go build -o ~/go/bin/fortio -ldflags "-X fortio.org/fortio/version.tag=$(git describe --tag --match v\*) -X fortio.org/fortio/version.buildInfo=$(git rev-parse HEAD)" . && sudo setcap 'cap_net_bind_service=+ep' `which fortio` && fortio version'
+  run_on_vm 'go get fortio.org/fortio && cd go/src/fortio.org/fortio && git fetch --tags && git checkout latest_release && make submodule-sync && make official-build-version OFFICIAL_BIN=~/go/bin/fortio && sudo setcap 'cap_net_bind_service=+ep' `which fortio` && fortio version'
 }
 
 function run_fortio_on_vm() {
