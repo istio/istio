@@ -4,6 +4,8 @@ package fakes
 import (
 	"sync"
 
+	aspenmeshconfig "github.com/aspenmesh/aspenmesh-crd/pkg/apis/config/v1alpha1"
+
 	"istio.io/istio/pilot/pkg/model"
 )
 
@@ -259,6 +261,15 @@ type IstioConfigStore struct {
 	}
 	rbacConfigReturnsOnCall map[int]struct {
 		result1 *model.Config
+	}
+	AspenMeshExperimentsStub        func() map[string][]*aspenmeshconfig.ExperimentSpec
+	aspenMeshExperimentsMutex       sync.RWMutex
+	aspenMeshExperimentsArgsForCall []struct{}
+	aspenMeshExperimentsReturns     struct {
+		result1 map[string][]*aspenmeshconfig.ExperimentSpec
+	}
+	aspenMeshExperimentsReturnsOnCall map[int]struct {
+		result1 map[string][]*aspenmeshconfig.ExperimentSpec
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
@@ -1325,6 +1336,46 @@ func (fake *IstioConfigStore) RbacConfigReturnsOnCall(i int, result1 *model.Conf
 	}{result1}
 }
 
+func (fake *IstioConfigStore) AspenMeshExperiments() map[string][]*aspenmeshconfig.ExperimentSpec {
+	fake.aspenMeshExperimentsMutex.Lock()
+	ret, specificReturn := fake.aspenMeshExperimentsReturnsOnCall[len(fake.aspenMeshExperimentsArgsForCall)]
+	fake.aspenMeshExperimentsArgsForCall = append(fake.aspenMeshExperimentsArgsForCall, struct{}{})
+	fake.recordInvocation("AspenMeshExperiments", []interface{}{})
+	fake.aspenMeshExperimentsMutex.Unlock()
+	if fake.AspenMeshExperimentsStub != nil {
+		return fake.AspenMeshExperimentsStub()
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fake.aspenMeshExperimentsReturns.result1
+}
+
+func (fake *IstioConfigStore) AspenMeshExperimentsCallCount() int {
+	fake.aspenMeshExperimentsMutex.RLock()
+	defer fake.aspenMeshExperimentsMutex.RUnlock()
+	return len(fake.aspenMeshExperimentsArgsForCall)
+}
+
+func (fake *IstioConfigStore) AspenMeshExperimentsReturns(result1 map[string][]*aspenmeshconfig.ExperimentSpec) {
+	fake.AspenMeshExperimentsStub = nil
+	fake.aspenMeshExperimentsReturns = struct {
+		result1 map[string][]*aspenmeshconfig.ExperimentSpec
+	}{result1}
+}
+
+func (fake *IstioConfigStore) AspenMeshExperimentsReturnsOnCall(i int, result1 map[string][]*aspenmeshconfig.ExperimentSpec) {
+	fake.AspenMeshExperimentsStub = nil
+	if fake.aspenMeshExperimentsReturnsOnCall == nil {
+		fake.aspenMeshExperimentsReturnsOnCall = make(map[int]struct {
+			result1 map[string][]*aspenmeshconfig.ExperimentSpec
+		})
+	}
+	fake.aspenMeshExperimentsReturnsOnCall[i] = struct {
+		result1 map[string][]*aspenmeshconfig.ExperimentSpec
+	}{result1}
+}
+
 func (fake *IstioConfigStore) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
@@ -1372,6 +1423,8 @@ func (fake *IstioConfigStore) Invocations() map[string][][]interface{} {
 	defer fake.serviceRoleBindingsMutex.RUnlock()
 	fake.rbacConfigMutex.RLock()
 	defer fake.rbacConfigMutex.RUnlock()
+	fake.aspenMeshExperimentsMutex.RLock()
+	defer fake.aspenMeshExperimentsMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value
