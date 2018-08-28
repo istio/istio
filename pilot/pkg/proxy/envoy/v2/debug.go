@@ -439,15 +439,35 @@ func (s *DiscoveryServer) configz(w http.ResponseWriter, req *http.Request) {
 	fmt.Fprint(w, "\n{}]")
 }
 
+const (
+	authnHTTP       = 1
+	authnMTls       = 2
+	authnPermissive = authnHTTP | authnMTls
+)
+
 // Returns whether the given destination rule use (Istio) mutual TLS setting for given port.
 // TODO: check subsets possibly conflicts between subsets.
-func isMTlsOn(rule *networking.DestinationRule, port *model.Port) bool {
+func clientAuthProtocol(rule *networking.DestinationRule, port *model.Port) int {
 	if rule.TrafficPolicy == nil {
-		return false
+		return authnHTTP
 	}
 	_, _, _, tls := networking_core.SelectTrafficPolicyComponents(rule.TrafficPolicy, port)
 
-	return tls != nil && tls.Mode == networking.TLSSettings_ISTIO_MUTUAL
+	if tls != nil && tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
+		return authnMTls
+	}
+	return authnHTTP
+}
+
+func getServerAuthProtocol(mtls *authn.MutualTls) int {
+	if mtls == nil {
+		return authnHTTP
+	}
+	if mtls.Mode == authn.MutualTls_STRICT {
+		return authnMTls
+	} else {
+		return authnPermissive
+	}
 }
 
 // AuthenticationDebug holds debug information for service authentication policy.
@@ -468,11 +488,17 @@ func configName(config *model.Config) string {
 	return "-"
 }
 
-func mTLSModeToString(useTLS bool) string {
-	if useTLS {
+func authProtocolToString(protocol int) string {
+	switch protocol {
+	case authnHTTP:
+		return "HTTP"
+	case authnMTls:
 		return "mTLS"
+	case authnPermissive:
+		return "HTTP/mTLS"
+	default:
+		return "UNKNOWN"
 	}
-	return "HTTP"
 }
 
 // Authentication debugging
@@ -500,24 +526,27 @@ func (s *DiscoveryServer) authenticationz(w http.ResponseWriter, req *http.Reque
 			}
 			authnConfig := s.env.IstioConfigStore.AuthenticationPolicyByDestination(ss, p)
 			info.AuthenticationPolicyName = configName(authnConfig)
+			var serverProtocol, clientProtocol int
 			if authnConfig != nil {
 				policy := authnConfig.Spec.(*authn.Policy)
 				mtls := authn_plugin.GetMutualTLS(policy, model.Sidecar)
-				info.ServerProtocol = mTLSModeToString(mtls != nil)
+				serverProtocol = getServerAuthProtocol(mtls)
 			} else {
-				info.ServerProtocol = mTLSModeToString(false)
+				serverProtocol = getServerAuthProtocol(nil)
 			}
+			info.ServerProtocol = authProtocolToString(serverProtocol)
 
 			destConfig := s.env.PushContext.DestinationRule(ss.Hostname)
 			info.DestinationRuleName = configName(destConfig)
 			if destConfig != nil {
 				rule := destConfig.Spec.(*networking.DestinationRule)
-				info.ClientProtocol = mTLSModeToString(isMTlsOn(rule, p))
+				clientProtocol = clientAuthProtocol(rule, p)
 			} else {
-				info.ClientProtocol = mTLSModeToString(false)
+				clientProtocol = authnHTTP
 			}
+			info.ClientProtocol = authProtocolToString(clientProtocol)
 
-			if info.ClientProtocol != info.ServerProtocol {
+			if (clientProtocol & serverProtocol) == 0 {
 				info.TLSConflictStatus = "CONFLICT"
 			} else {
 				info.TLSConflictStatus = "OK"
