@@ -26,7 +26,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"testing"
-	"time"
 
 	"github.com/ghodss/yaml"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
@@ -116,7 +115,6 @@ func createTestWebhook(t testing.TB, cl clientset.Interface, config *admissionre
 	var (
 		certFile   = filepath.Join(dir, "cert-file.yaml")
 		keyFile    = filepath.Join(dir, "key-file.yaml")
-		healthFile = filepath.Join(dir, "health-file.yaml")
 		caFile     = filepath.Join(dir, "ca-file.yaml")
 		configFile = filepath.Join(dir, "config-file.yaml")
 		port       = uint(0)
@@ -155,8 +153,6 @@ func createTestWebhook(t testing.TB, cl clientset.Interface, config *admissionre
 		DomainSuffix:        testDomainSuffix,
 		PilotDescriptor:     mock.Types,
 		MixerValidator:      &fakeValidator{},
-		HealthCheckFile:     healthFile,
-		HealthCheckInterval: 10 * time.Millisecond,
 		WebhookConfigFile:   configFile,
 		CACertFile:          caFile,
 		Clientset:           cl,
