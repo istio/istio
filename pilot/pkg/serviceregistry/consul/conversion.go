@@ -56,7 +56,7 @@ func convertPort(port int, name string) *model.Port {
 }
 
 func convertService(endpoints []*api.CatalogService) *model.Service {
-	name, externalName := "", ""
+	name := ""
 
 	meshExternal := false
 	resolution := model.ClientSideLB
@@ -77,7 +77,6 @@ func convertService(endpoints []*api.CatalogService) *model.Service {
 		// TODO This will not work if service is a mix of external and local services
 		// or if a service has more than one external name
 		if endpoint.NodeMeta[externalTagName] != "" {
-			externalName = endpoint.NodeMeta[externalTagName]
 			meshExternal = true
 			resolution = model.Passthrough
 		}
@@ -93,7 +92,6 @@ func convertService(endpoints []*api.CatalogService) *model.Service {
 		Hostname:     hostname,
 		Address:      "0.0.0.0",
 		Ports:        svcPorts,
-		ExternalName: model.Hostname(externalName),
 		MeshExternal: meshExternal,
 		Resolution:   resolution,
 		Attributes: model.ServiceAttributes{
@@ -131,11 +129,9 @@ func convertInstance(instance *api.CatalogService) *model.ServiceInstance {
 		},
 		AvailabilityZone: instance.Datacenter,
 		Service: &model.Service{
-			Hostname: hostname,
-			Address:  instance.ServiceAddress,
-			Ports:    model.PortList{port},
-			// TODO ExternalName come from metadata?
-			ExternalName: model.Hostname(externalName),
+			Hostname:     hostname,
+			Address:      instance.ServiceAddress,
+			Ports:        model.PortList{port},
 			MeshExternal: meshExternal,
 			Resolution:   resolution,
 			Attributes: model.ServiceAttributes{
