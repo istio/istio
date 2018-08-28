@@ -218,6 +218,8 @@ func (s *TestSetup) TearDown() {
 	if err := s.envoy.Stop(); err != nil {
 		s.t.Errorf("error quitting envoy: %v", err)
 	}
+	s.envoy.TearDown()
+
 	if s.mixer != nil {
 		s.mixer.Stop()
 	}
