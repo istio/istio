@@ -55,7 +55,8 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	t.Run("for virtual service", func(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 
-		routes, err := route.BuildHTTPRoutesForVirtualService(node, virtualServicePlain, serviceRegistry, 8080, model.LabelsCollection{}, gatewayNames, nil)
+		routes, err := route.BuildHTTPRoutesForVirtualService(node, virtualServicePlain, serviceRegistry, 8080, model.LabelsCollection{}, gatewayNames,
+			&fakes.IstioConfigStore{})
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 	})
@@ -77,7 +78,8 @@ func TestBuildHTTPRoutes(t *testing.T) {
 
 		configStore.DestinationRuleReturns(cnfg)
 
-		_, err := route.BuildHTTPRoutesForVirtualService(node, virtualServicePlain, serviceRegistry, 8080, model.LabelsCollection{}, gatewayNames, nil)
+		_, err := route.BuildHTTPRoutesForVirtualService(node, virtualServicePlain, serviceRegistry, 8080, model.LabelsCollection{}, gatewayNames,
+			&fakes.IstioConfigStore{})
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 	})
 

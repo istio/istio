@@ -20,7 +20,6 @@ import (
 	"strings"
 	"time"
 
-	aspenmeshconfig "github.com/aspenmesh/aspenmesh-crd/pkg/apis/config/v1alpha1"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	xdsfault "github.com/envoyproxy/go-control-plane/envoy/config/filter/fault/v2"
@@ -127,7 +126,7 @@ func BuildVirtualHostsFromConfigAndRegistry(
 				out = append(out, VirtualHostWrapper{
 					Port:     port.Port,
 					Services: []*model.Service{svc},
-					Routes:   AddExperimentRoutes(*BuildDefaultHTTPRoute(node, cluster, traceOperation), amExperiments...),
+					Routes:   AddExperimentRoutes(BuildDefaultHTTPRoute(node, cluster, traceOperation), amExperiments),
 				})
 			}
 		}

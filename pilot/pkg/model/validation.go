@@ -1263,7 +1263,7 @@ func isExperimentValid(exp *aspenmeshconfig.ExperimentSpec) (bool, error) {
 }
 
 // ValidateExperiment checks that AspenMeshExperiment is well-formed.
-func ValidateExperiment(msg proto.Message) error {
+func ValidateExperiment(name, namespace string, msg proto.Message) error {
 	exp, ok := msg.(*aspenmeshconfig.ExperimentSpec)
 	if !ok {
 		return errors.New("cannot cast to Aspen Mesh Experiment")

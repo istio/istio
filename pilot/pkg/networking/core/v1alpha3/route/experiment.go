@@ -107,9 +107,9 @@ func createHeaderMatchRoutes(exp *aspenmeshconfig.ExperimentSpec,
 		newRoute.Match.Headers = append(newRoute.Match.Headers, &hm)
 		// guarantee ordering of headers
 		sort.Slice(newRoute.Match.Headers, func(i, j int) bool {
-			if newRoute.Match.Headers[i].Name == newRoute.Match.Headers[j].Name {
-				return newRoute.Match.Headers[i].Value < newRoute.Match.Headers[j].Value
-			}
+			// TODO: match by values as well. But we have about 5-6 types of values
+			// in a header matcher. Not sorting by values "might" cause unnecessary
+			// RDS churn in some cases.
 			return newRoute.Match.Headers[i].Name < newRoute.Match.Headers[j].Name
 		})
 		newRoute.Decorator = &envoyroute.Decorator{}

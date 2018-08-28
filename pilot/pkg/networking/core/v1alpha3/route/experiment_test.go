@@ -53,30 +53,6 @@ func createTestWeightedCluster() []*envoyroute.WeightedCluster_ClusterWeight {
 	return weighted
 }
 
-func TestDefaultRouteWithNoExperiments(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	clusterName := model.BuildSubsetKey("outbound", "", testSvc1Hostname,
-		testSvcPort)
-	expRoutes := []envoyroute.Route{
-		envoyroute.Route{
-			Match: envoyroute.RouteMatch{
-				PathSpecifier: &envoyroute.RouteMatch_Prefix{
-					Prefix: "/"},
-			},
-			Decorator: &envoyroute.Decorator{
-				Operation: "default-route",
-			},
-			Action: &envoyroute.Route_Route{
-				Route: &envoyroute.RouteAction{
-					ClusterSpecifier: &envoyroute.RouteAction_Cluster{Cluster: clusterName},
-				},
-			},
-		},
-	}
-	out := route.BuildDefaultHTTPRoute(clusterName, nil)
-	g.Expect(out).To(gomega.Equal(expRoutes))
-}
-
 func TestWeightedClusterRouteWithNoExperiment(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	in := envoyroute.Route{
@@ -212,9 +188,10 @@ func TestSingleClusterWithExperiments(t *testing.T) {
 				},
 				Headers: []*envoyroute.HeaderMatcher{
 					&envoyroute.HeaderMatcher{
-						Name:  "x-b3-traceid",
-						Value: ".*abcd1234$",
-						Regex: &types.BoolValue{Value: true},
+						Name: "x-b3-traceid",
+						HeaderMatchSpecifier: &envoyroute.HeaderMatcher_RegexMatch{
+							RegexMatch: ".*abcd1234$",
+						},
 					},
 				},
 			},
@@ -237,9 +214,10 @@ func TestSingleClusterWithExperiments(t *testing.T) {
 				},
 				Headers: []*envoyroute.HeaderMatcher{
 					&envoyroute.HeaderMatcher{
-						Name:  "cookie",
-						Value: "^(.*?;)?(dev-experiment=abcd1234efgh5678)(;.*)?$",
-						Regex: &types.BoolValue{Value: true},
+						Name: "cookie",
+						HeaderMatchSpecifier: &envoyroute.HeaderMatcher_RegexMatch{
+							RegexMatch: "^(.*?;)?(dev-experiment=abcd1234efgh5678)(;.*)?$",
+						},
 					},
 				},
 			},
@@ -262,9 +240,10 @@ func TestSingleClusterWithExperiments(t *testing.T) {
 				},
 				Headers: []*envoyroute.HeaderMatcher{
 					&envoyroute.HeaderMatcher{
-						Name:  "x-b3-traceid",
-						Value: ".*ijkl2468$",
-						Regex: &types.BoolValue{Value: true},
+						Name: "x-b3-traceid",
+						HeaderMatchSpecifier: &envoyroute.HeaderMatcher_RegexMatch{
+							RegexMatch: ".*ijkl2468$",
+						},
 					},
 				},
 			},
@@ -287,9 +266,10 @@ func TestSingleClusterWithExperiments(t *testing.T) {
 				},
 				Headers: []*envoyroute.HeaderMatcher{
 					&envoyroute.HeaderMatcher{
-						Name:  "cookie",
-						Value: "^(.*?;)?(dev-experiment=ijkl2468mnop1012)(;.*)?$",
-						Regex: &types.BoolValue{Value: true},
+						Name: "cookie",
+						HeaderMatchSpecifier: &envoyroute.HeaderMatcher_RegexMatch{
+							RegexMatch: "^(.*?;)?(dev-experiment=ijkl2468mnop1012)(;.*)?$",
+						},
 					},
 				},
 			},
@@ -312,9 +292,10 @@ func TestSingleClusterWithExperiments(t *testing.T) {
 				},
 				Headers: []*envoyroute.HeaderMatcher{
 					&envoyroute.HeaderMatcher{
-						Name:  "x-b3-traceid",
-						Value: ".*12345678$",
-						Regex: &types.BoolValue{Value: true},
+						Name: "x-b3-traceid",
+						HeaderMatchSpecifier: &envoyroute.HeaderMatcher_RegexMatch{
+							RegexMatch: ".*12345678$",
+						},
 					},
 				},
 			},
@@ -337,9 +318,10 @@ func TestSingleClusterWithExperiments(t *testing.T) {
 				},
 				Headers: []*envoyroute.HeaderMatcher{
 					&envoyroute.HeaderMatcher{
-						Name:  "cookie",
-						Value: "^(.*?;)?(dev-experiment=12345678abcdefgh)(;.*)?$",
-						Regex: &types.BoolValue{Value: true},
+						Name: "cookie",
+						HeaderMatchSpecifier: &envoyroute.HeaderMatcher_RegexMatch{
+							RegexMatch: "^(.*?;)?(dev-experiment=12345678abcdefgh)(;.*)?$",
+						},
 					},
 				},
 			},
@@ -523,9 +505,10 @@ func TestWeightedClusterWithExperiments(t *testing.T) {
 				},
 				Headers: []*envoyroute.HeaderMatcher{
 					&envoyroute.HeaderMatcher{
-						Name:  "x-b3-traceid",
-						Value: ".*abcd1234$",
-						Regex: &types.BoolValue{Value: true},
+						Name: "x-b3-traceid",
+						HeaderMatchSpecifier: &envoyroute.HeaderMatcher_RegexMatch{
+							RegexMatch: ".*abcd1234$",
+						},
 					},
 				},
 			},
@@ -559,9 +542,10 @@ func TestWeightedClusterWithExperiments(t *testing.T) {
 				},
 				Headers: []*envoyroute.HeaderMatcher{
 					&envoyroute.HeaderMatcher{
-						Name:  "cookie",
-						Value: "^(.*?;)?(dev-experiment=abcd1234efgh5678)(;.*)?$",
-						Regex: &types.BoolValue{Value: true},
+						Name: "cookie",
+						HeaderMatchSpecifier: &envoyroute.HeaderMatcher_RegexMatch{
+							RegexMatch: "^(.*?;)?(dev-experiment=abcd1234efgh5678)(;.*)?$",
+						},
 					},
 				},
 			},
@@ -595,9 +579,10 @@ func TestWeightedClusterWithExperiments(t *testing.T) {
 				},
 				Headers: []*envoyroute.HeaderMatcher{
 					&envoyroute.HeaderMatcher{
-						Name:  "x-b3-traceid",
-						Value: ".*ijkl2468$",
-						Regex: &types.BoolValue{Value: true},
+						Name: "x-b3-traceid",
+						HeaderMatchSpecifier: &envoyroute.HeaderMatcher_RegexMatch{
+							RegexMatch: ".*ijkl2468$",
+						},
 					},
 				},
 			},
@@ -631,9 +616,10 @@ func TestWeightedClusterWithExperiments(t *testing.T) {
 				},
 				Headers: []*envoyroute.HeaderMatcher{
 					&envoyroute.HeaderMatcher{
-						Name:  "cookie",
-						Value: "^(.*?;)?(dev-experiment=ijkl2468mnop1012)(;.*)?$",
-						Regex: &types.BoolValue{Value: true},
+						Name: "cookie",
+						HeaderMatchSpecifier: &envoyroute.HeaderMatcher_RegexMatch{
+							RegexMatch: "^(.*?;)?(dev-experiment=ijkl2468mnop1012)(;.*)?$",
+						},
 					},
 				},
 			},
@@ -668,9 +654,10 @@ func TestWeightedClusterWithExperiments(t *testing.T) {
 				},
 				Headers: []*envoyroute.HeaderMatcher{
 					&envoyroute.HeaderMatcher{
-						Name:  "x-b3-traceid",
-						Value: ".*12345678$",
-						Regex: &types.BoolValue{Value: true},
+						Name: "x-b3-traceid",
+						HeaderMatchSpecifier: &envoyroute.HeaderMatcher_RegexMatch{
+							RegexMatch: ".*12345678$",
+						},
 					},
 				},
 			},
@@ -704,9 +691,10 @@ func TestWeightedClusterWithExperiments(t *testing.T) {
 				},
 				Headers: []*envoyroute.HeaderMatcher{
 					&envoyroute.HeaderMatcher{
-						Name:  "cookie",
-						Value: "^(.*?;)?(dev-experiment=12345678abcdefgh)(;.*)?$",
-						Regex: &types.BoolValue{Value: true},
+						Name: "cookie",
+						HeaderMatchSpecifier: &envoyroute.HeaderMatcher_RegexMatch{
+							RegexMatch: "^(.*?;)?(dev-experiment=12345678abcdefgh)(;.*)?$",
+						},
 					},
 				},
 			},
