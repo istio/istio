@@ -1,8 +1,26 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package controller
 
 import (
 	"fmt"
 	"time"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -14,13 +32,14 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
+	"reflect"
+
+	"istio.io/istio/pkg/api/rpccontroller.istio.io/v1"
+	"istio.io/istio/pkg/log"
 	clientset "istio.io/istio/pkg/rpccontroller/clientset/versioned"
 	watcherscheme "istio.io/istio/pkg/rpccontroller/clientset/versioned/scheme"
 	informers "istio.io/istio/pkg/rpccontroller/informers/externalversions/rpccontroller.istio.io/v1"
 	listers "istio.io/istio/pkg/rpccontroller/listers/rpccontroller.istio.io/v1"
-	"istio.io/istio/pkg/log"
-	"reflect"
-	"istio.io/istio/pkg/api/rpccontroller.istio.io/v1"
 )
 
 const controllerAgentName = "rpc-controller"
@@ -32,8 +51,8 @@ type Controller struct {
 	// controllerclientset is a clientset for our own API group
 	controllerclientset clientset.Interface
 
-	rpcServiceLister        listers.RpcServiceLister
-	rpcServiceSynced        cache.InformerSynced
+	rpcServiceLister listers.RpcServiceLister
+	rpcServiceSynced cache.InformerSynced
 
 	// workqueue is a rate limited work queue. This is used to queue work to be
 	// processed instead of performing it as soon as a change happens. This
@@ -49,7 +68,7 @@ type Controller struct {
 
 	store Store
 
-	stopCh <- chan struct{}
+	stopCh <-chan struct{}
 }
 
 func NewController(
@@ -57,7 +76,7 @@ func NewController(
 	controllerclientset clientset.Interface,
 	rsInformer informers.RpcServiceInformer,
 	config *Config,
-	stopCh <- chan struct {}) *Controller {
+	stopCh <-chan struct{}) *Controller {
 	// Create event broadcaster
 	// Add rpc-controller types to the default Kubernetes Scheme so Events can be
 	utilruntime.Must(watcherscheme.AddToScheme(scheme.Scheme))
@@ -68,13 +87,13 @@ func NewController(
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
 
 	controller := &Controller{
-		kubeclientset:     kubeclientset,
-		controllerclientset:  controllerclientset,
-		rpcServiceLister:  rsInformer.Lister(),
-		rpcServiceSynced:  rsInformer.Informer().HasSynced,
-		workqueue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "rpc controller"),
-		recorder:          recorder,
-		stopCh:						 stopCh,
+		kubeclientset:       kubeclientset,
+		controllerclientset: controllerclientset,
+		rpcServiceLister:    rsInformer.Lister(),
+		rpcServiceSynced:    rsInformer.Informer().HasSynced,
+		workqueue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "rpc controller"),
+		recorder:            recorder,
+		stopCh:              stopCh,
 	}
 
 	log.Info("Setting up event handlers")

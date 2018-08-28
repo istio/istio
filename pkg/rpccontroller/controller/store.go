@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package controller
 
 import (
@@ -5,12 +22,12 @@ import (
 
 	"istio.io/istio/pkg/log"
 
-	"io/ioutil"
-	"time"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"io/ioutil"
+	"time"
 )
 
 type Store interface {
@@ -24,14 +41,14 @@ type EtcdStore struct {
 }
 
 var (
-	dialTimeout = 5 * time.Second
+	dialTimeout    = 5 * time.Second
 	requestTimeout = 2 * time.Second
-	etcdPrefix = "/rpc-service-data/"
+	etcdPrefix     = "/rpc-service-data/"
 )
 
 func NewEtcdStore(config *Config) *EtcdStore {
 	return &EtcdStore{
-		Client:NewEtcdClient(config),
+		Client: NewEtcdClient(config),
 	}
 }
 
@@ -59,9 +76,9 @@ func NewEtcdClient(config *Config) *clientv3.Client {
 	}
 	tlsConfig.BuildNameToCertificate()
 	client, err := clientv3.New(clientv3.Config{
-		Endpoints:      config.EtcdEndpoints,
-		TLS : tlsConfig,
-		DialTimeout:    dialTimeout,
+		Endpoints:   config.EtcdEndpoints,
+		TLS:         tlsConfig,
+		DialTimeout: dialTimeout,
 	})
 	if err != nil {
 		log.Errora("new client v3 err:%v", err)
@@ -73,7 +90,7 @@ func NewEtcdClient(config *Config) *clientv3.Client {
 
 func (es *EtcdStore) Put(service string, data string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
-	resp, err := es.Client.Put(ctx, etcdPrefix + service, data)
+	resp, err := es.Client.Put(ctx, etcdPrefix+service, data)
 	cancel()
 	if err != nil {
 		log.Errorf("etcd put %s err: %v", service, err)
@@ -86,11 +103,11 @@ func (es *EtcdStore) Put(service string, data string) error {
 
 func (es *EtcdStore) Get(k string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
-	resp, err := es.Client.Get(ctx, etcdPrefix + k)
+	resp, err := es.Client.Get(ctx, etcdPrefix+k)
 	cancel()
 	if err != nil {
 		log.Errorf("etcd get %s err: %v", k, err)
-		return "",err
+		return "", err
 	}
 
 	if resp == nil || len(resp.Kvs) == 0 {

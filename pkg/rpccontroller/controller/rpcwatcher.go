@@ -1,45 +1,63 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package controller
 
 import (
 	"fmt"
 
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/client-go/tools/cache"
-	"k8s.io/apimachinery/pkg/util/runtime"
 	listers "istio.io/istio/pkg/rpccontroller/listers/rpccontroller.istio.io/v1"
 	api "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pkg/api/rpccontroller.istio.io/v1"
-	"istio.io/istio/pkg/rpccontroller/controller/watchers"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/rpccontroller/controller/watchers"
 
-	"k8s.io/client-go/kubernetes"
-	"time"
-	"net/http"
 	"encoding/json"
 	"io/ioutil"
+	"net/http"
 	"strings"
+	"time"
+
+	"k8s.io/client-go/kubernetes"
 )
 
 const (
-	rpcVersion 		= "version"
-	rpcInterface  = "interface"
+	rpcVersion   = "version"
+	rpcInterface = "interface"
 )
 
 type RpcQueryResponse struct {
-	Success bool 							`json:"success"`
-	Data 		ServiceInterfaceData `json:"data"`
+	Success bool                 `json:"success"`
+	Data    ServiceInterfaceData `json:"data"`
 }
 
 type ServiceInterfaceData struct {
 	Providers []ServiceInterface `json:"providers"`
-	Protocol  string `json:"protocal"`
+	Protocol  string             `json:"protocal"`
 }
 
 type ServiceInterface struct {
 	Interface string `json:"interface"`
 	Version   string `json:"version"`
-	Group   	string `json:"group"`
+	Group     string `json:"group"`
 	Serialize string `json:"serialize"`
 }
 
@@ -49,18 +67,18 @@ type RpcWatcher struct {
 	rsDeleteChan chan *v1.RpcService
 
 	serviceUpdateChan chan *watchers.ServiceUpdate
-	podUpdateChan chan *watchers.PodUpdate
+	podUpdateChan     chan *watchers.PodUpdate
 
-	rpcServiceLister        listers.RpcServiceLister
+	rpcServiceLister listers.RpcServiceLister
 	// kubeclientset is a standard kubernetes clientset
 	kubeclientset kubernetes.Interface
 
-	serviceWatcher  *watchers.ServiceWatcher
-	podWatcher *watchers.PodWatcher
+	serviceWatcher *watchers.ServiceWatcher
+	podWatcher     *watchers.PodWatcher
 
-	dnsInterface      DNSInterface
+	dnsInterface DNSInterface
 
-	tryLaterKeys      map[string]bool
+	tryLaterKeys map[string]bool
 
 	// map rpcservice name -> interface
 	rpcInterfacesMap map[string][]string
@@ -72,7 +90,7 @@ type RpcWatcher struct {
 	pod2RpcServiceMap map[string]string
 }
 
-func NewRpcWatcher(lister listers.RpcServiceLister, client kubernetes.Interface, config *Config, stopCh <- chan struct {}) *RpcWatcher {
+func NewRpcWatcher(lister listers.RpcServiceLister, client kubernetes.Interface, config *Config, stopCh <-chan struct{}) *RpcWatcher {
 	rw := &RpcWatcher{
 		storage:                make(map[string]ServiceInterfaceData, 0),
 		rcSyncChan:             make(chan *v1.RpcService, 10),
@@ -87,14 +105,14 @@ func NewRpcWatcher(lister listers.RpcServiceLister, client kubernetes.Interface,
 		pod2RpcServiceMap:      make(map[string]string, 0),
 	}
 
-	serviceWatcher, err := watchers.StartServiceWatcher(client, 2 * time.Second, stopCh)
+	serviceWatcher, err := watchers.StartServiceWatcher(client, 2*time.Second, stopCh)
 	if err != nil {
 
 	}
 	rw.serviceWatcher = serviceWatcher
 	serviceWatcher.RegisterHandler(rw)
 
-	podWatcher, err := watchers.StartPodWatcher(client, 2 * time.Second, stopCh)
+	podWatcher, err := watchers.StartPodWatcher(client, 2*time.Second, stopCh)
 	if err != nil {
 
 	}
@@ -124,17 +142,17 @@ func (rw *RpcWatcher) main(stopCh <-chan struct{}) {
 
 	for {
 		select {
-		case rs := <- rw.rcSyncChan:
+		case rs := <-rw.rcSyncChan:
 			rw.syncRpcServiceHandler(rs)
-		case rs := <- rw.rsDeleteChan:
+		case rs := <-rw.rsDeleteChan:
 			rw.deleteRpcServiceHandler(rs)
-		case <- t.C:
+		case <-t.C:
 			rw.timerHandler()
-		case seviceUpdate := <- rw.serviceUpdateChan:
+		case seviceUpdate := <-rw.serviceUpdateChan:
 			rw.serviceHandler(seviceUpdate)
-		case podUpdate := <- rw.podUpdateChan:
+		case podUpdate := <-rw.podUpdateChan:
 			rw.podHandler(podUpdate)
-		case <- stopCh:
+		case <-stopCh:
 			log.Infof("rpc watcher exit")
 			return
 		}
@@ -174,7 +192,7 @@ func (rw *RpcWatcher) timerHandler() {
 		return
 	}
 	keys := make([]string, len(rw.tryLaterKeys))
-	for key,_ := range rw.tryLaterKeys {
+	for key, _ := range rw.tryLaterKeys {
 		keys = append(keys, key)
 	}
 
@@ -194,7 +212,7 @@ func (rw *RpcWatcher) queryRpcInterface(key string, rs *v1.RpcService) {
 	selector := rs.Spec.Selector
 
 	// find service by selector
-	services,err := rw.serviceWatcher.ListBySelector(selector)
+	services, err := rw.serviceWatcher.ListBySelector(selector)
 	if len(services) == 0 || err != nil {
 		log.Errorf("service selector %v not found, err:%v", selector, err)
 		return
@@ -205,7 +223,7 @@ func (rw *RpcWatcher) queryRpcInterface(key string, rs *v1.RpcService) {
 	}
 	service := services[0]
 
-	rw.serivice2RpcServiceMap[rw.serviceName(service)]= key
+	rw.serivice2RpcServiceMap[rw.serviceName(service)] = key
 
 	if service.Spec.ClusterIP == "None" {
 		log.Errorf("service %s/%s has no clusterIP", service.Namespace, service.Name)
@@ -267,7 +285,7 @@ func (rw *RpcWatcher) queryRpcInterface(key string, rs *v1.RpcService) {
 			return
 		}
 
-		for _, inter := range(rpcResponse.Data.Providers) {
+		for _, inter := range rpcResponse.Data.Providers {
 			if !strings.ContainsAny(inter.Interface, i) {
 				log.Infof("interface %s, i %s", inter.Interface, i)
 				continue
@@ -351,7 +369,7 @@ func (rw *RpcWatcher) serviceHandler(serviceUpdate *watchers.ServiceUpdate) {
 	}
 }
 
-func (rw *RpcWatcher)podHandler(podUpdate *watchers.PodUpdate) {
+func (rw *RpcWatcher) podHandler(podUpdate *watchers.PodUpdate) {
 	pod := podUpdate.Pod
 	op := podUpdate.Op
 
@@ -379,7 +397,7 @@ func (rw *RpcWatcher)podHandler(podUpdate *watchers.PodUpdate) {
 	}
 }
 
-func (rw *RpcWatcher)OnPodUpdate(podUpdate *watchers.PodUpdate) {
+func (rw *RpcWatcher) OnPodUpdate(podUpdate *watchers.PodUpdate) {
 	if podUpdate.Op != watchers.SYNCED {
 		rw.podUpdateChan <- podUpdate
 	}
