@@ -102,6 +102,10 @@ containers:
   - [[ .ProxyConfig.StatsdUdpAddress ]]
   - --proxyAdminPort
   - [[ .ProxyConfig.ProxyAdminPort ]]
+  [[ if gt .ProxyConfig.Concurrency 0 -]]
+  - --concurrency
+  - [[ .ProxyConfig.Concurrency ]]
+  [[ end -]]
   - --controlPlaneAuthPolicy
   - [[ .ProxyConfig.ControlPlaneAuthPolicy ]]
   env:

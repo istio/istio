@@ -72,6 +72,10 @@ data:
       # https://lyft.github.io/envoy/docs/operations/admin.html
       # for more details
       proxyAdminPort: 15000
+      #
+      # Set concurrency to a specific number to control the number of Proxy worker threads.
+      # If set to 0 (default), then start worker thread for each CPU thread/core.
+      concurrency: {{ .Values.global.proxy.concurrency }}
 
     {{- if .Values.global.remoteZipkinAddress }}
       #
