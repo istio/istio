@@ -593,6 +593,7 @@ aspenmes%.yaml: $(HELM)
 	cat install/kubernetes/namespace.yaml > install/kubernetes/$@
 	$(HELM) template --set global.tag=${TAG} \
 		--namespace=istio-system \
+		--name=aspenmes$*-${TAG} \
 		--set global.hub=${HUB} \
 		--set global.hub_public=${PUBLIC_HUB} \
 		--values install/kubernetes/helm/istio/values-$@ \

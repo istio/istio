@@ -29,6 +29,7 @@ BASE_DIR="$TEMP_DIR"
 ISTIOCTL_SUBDIR=istioctl
 OUTPUT_PATH=""
 VER_STRING=""
+PKG_NAME="aspenmesh"
 
 function usage() {
   echo "$0
@@ -59,7 +60,7 @@ done
 [[ -z "${OUTPUT_PATH}"  ]] && usage
 [[ -z "${VER_STRING}"   ]] && usage
 
-COMMON_FILES_DIR="${BASE_DIR}/istio/istio-${VER_STRING}"
+COMMON_FILES_DIR="${BASE_DIR}/istio/${PKG_NAME}-${VER_STRING}"
 BIN_DIR="${COMMON_FILES_DIR}/bin"
 mkdir -p "${BIN_DIR}"
 
@@ -73,14 +74,19 @@ if [[ -z "${TAR}" ]] ; then
   TAR=tar
 fi
 
+aspenctl_s3_path=s3://aspenmesh-ci-artifacts/aspenctl/jenkins-apiserver/215
+
 function create_linux_archive() {
   local istioctl_path="${BIN_DIR}/istioctl"
 
   ${CP} "${OUTPUT_PATH}/${ISTIOCTL_SUBDIR}/istioctl-linux" "${istioctl_path}"
   chmod 755 "${istioctl_path}"
 
+  aws s3 cp "${aspenctl_s3_path}/aspenctl-linux-amd64" "${BIN_DIR}/aspenctl"
+  chmod 755 "${BIN_DIR}/aspenctl"
+
   ${TAR} --owner releng --group releng -czvf \
-    "${OUTPUT_PATH}/istio-${VER_STRING}-linux.tar.gz" "istio-${VER_STRING}" \
+    "${OUTPUT_PATH}/${PKG_NAME}-${VER_STRING}-linux.tar.gz" "${PKG_NAME}-${VER_STRING}" \
     || error_exit 'Could not create linux archive'
   rm "${istioctl_path}"
 }
@@ -91,8 +97,11 @@ function create_osx_archive() {
   ${CP} "${OUTPUT_PATH}/${ISTIOCTL_SUBDIR}/istioctl-osx" "${istioctl_path}"
   chmod 755 "${istioctl_path}"
 
+  aws s3 cp "${aspenctl_s3_path}/aspenctl-darwin-amd64" "${BIN_DIR}/aspenctl"
+  chmod 755 "${BIN_DIR}/aspenctl"
+
   ${TAR} --owner releng --group releng -czvf \
-    "${OUTPUT_PATH}/istio-${VER_STRING}-osx.tar.gz" "istio-${VER_STRING}" \
+    "${OUTPUT_PATH}/${PKG_NAME}-${VER_STRING}-osx.tar.gz" "${PKG_NAME}-${VER_STRING}" \
     || error_exit 'Could not create osx archive'
   rm "${istioctl_path}"
 }
@@ -102,7 +111,7 @@ function create_windows_archive() {
 
   ${CP} "${OUTPUT_PATH}/${ISTIOCTL_SUBDIR}/istioctl-win.exe" "${istioctl_path}"
 
-  zip -r "${OUTPUT_PATH}/istio-${VER_STRING}-win.zip" "istio-${VER_STRING}" \
+  zip -r "${OUTPUT_PATH}/${PKG_NAME}-${VER_STRING}-win.zip" "${PKG_NAME}-${VER_STRING}" \
     || error_exit 'Could not create windows archive'
   rm "${istioctl_path}"
 }
