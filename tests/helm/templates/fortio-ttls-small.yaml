@@ -59,7 +59,7 @@ spec:
     spec:
       containers:
       - name: fortio
-        image: istio/fortio:latest
+        image: fortio/fortio:latest
         ports:
          - containerPort: 8080
          - containerPort: 8079
@@ -88,7 +88,7 @@ spec:
     spec:
       containers:
       - name: echosrv
-        image: istio/fortio:latest
+        image: fortio/fortio:latest
         imagePullPolicy: Always
         args:
           - load
