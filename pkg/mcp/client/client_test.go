@@ -216,23 +216,23 @@ func init() {
 	proto.RegisterType((*unmarshalErrorType)(nil), unmarshalErrorMessageName)
 
 	fakeResource0_0 = &mcp.Envelope{
-		Metadata: &mcp.Metadata{Name: "f0_0"},
+		Metadata: &mcp.Metadata{Name: "f0_0", Version: "type0/v0"},
 		Resource: mustMarshalAny(fake0_0),
 	}
 	fakeResource0_1 = &mcp.Envelope{
-		Metadata: &mcp.Metadata{Name: "f0_1"},
+		Metadata: &mcp.Metadata{Name: "f0_1", Version: "type0/v1"},
 		Resource: mustMarshalAny(fake0_1),
 	}
 	fakeResource0_2 = &mcp.Envelope{
-		Metadata: &mcp.Metadata{Name: "f0_2"},
+		Metadata: &mcp.Metadata{Name: "f0_2", Version: "type0/v2"},
 		Resource: mustMarshalAny(fake0_2),
 	}
 	fakeResource1 = &mcp.Envelope{
-		Metadata: &mcp.Metadata{Name: "f1"},
+		Metadata: &mcp.Metadata{Name: "f1", Version: "type1/v0"},
 		Resource: mustMarshalAny(fake1),
 	}
 	fakeResource2 = &mcp.Envelope{
-		Metadata: &mcp.Metadata{Name: "f2"},
+		Metadata: &mcp.Metadata{Name: "f2", Version: "type2/v0"},
 		Resource: mustMarshalAny(fake2),
 	}
 	badUnmarshalEnvelope = &mcp.Envelope{
@@ -340,7 +340,6 @@ func TestSingleTypeCases(t *testing.T) {
 					TypeURL:  fakeType0TypeURL,
 					Metadata: fakeResource0_0.Metadata,
 					Resource: fake0_0,
-					Version:  "type0/v0",
 				}},
 			},
 		},
@@ -354,7 +353,6 @@ func TestSingleTypeCases(t *testing.T) {
 					TypeURL:  fakeType1TypeURL,
 					Metadata: fakeResource1.Metadata,
 					Resource: fake1,
-					Version:  "type1/v0",
 				}},
 			},
 		},
@@ -368,7 +366,6 @@ func TestSingleTypeCases(t *testing.T) {
 					TypeURL:  fakeType2TypeURL,
 					Metadata: fakeResource2.Metadata,
 					Resource: fake2,
-					Version:  "type2/v0",
 				}},
 			},
 		},
@@ -382,7 +379,6 @@ func TestSingleTypeCases(t *testing.T) {
 					TypeURL:  fakeType0TypeURL,
 					Metadata: fakeResource0_0.Metadata,
 					Resource: fake0_0,
-					Version:  "type0/v0",
 				}},
 			},
 		},
@@ -396,7 +392,6 @@ func TestSingleTypeCases(t *testing.T) {
 					TypeURL:  fakeType0TypeURL,
 					Metadata: fakeResource0_0.Metadata,
 					Resource: fake0_0,
-					Version:  "type0/v0",
 				}},
 			},
 		},
@@ -410,7 +405,6 @@ func TestSingleTypeCases(t *testing.T) {
 					TypeURL:  fakeType0TypeURL,
 					Metadata: fakeResource0_0.Metadata,
 					Resource: fake0_0,
-					Version:  "type0/v0",
 				}},
 			},
 		},
@@ -425,7 +419,6 @@ func TestSingleTypeCases(t *testing.T) {
 					TypeURL:  fakeType0TypeURL,
 					Metadata: fakeResource0_0.Metadata,
 					Resource: fake0_0,
-					Version:  "type0/v0",
 				}},
 			},
 		},
@@ -439,12 +432,10 @@ func TestSingleTypeCases(t *testing.T) {
 					TypeURL:  fakeType0TypeURL,
 					Metadata: fakeResource0_1.Metadata,
 					Resource: fake0_1,
-					Version:  "type0/v1",
 				}, {
 					TypeURL:  fakeType0TypeURL,
 					Metadata: fakeResource0_2.Metadata,
 					Resource: fake0_2,
-					Version:  "type0/v1",
 				}},
 			},
 			wantJournal: nil,
@@ -517,7 +508,6 @@ func TestReconnect(t *testing.T) {
 					TypeURL:  fakeType0TypeURL,
 					Metadata: fakeResource0_0.Metadata,
 					Resource: fake0_0,
-					Version:  "type0/v0",
 				}},
 			},
 		},
@@ -531,7 +521,6 @@ func TestReconnect(t *testing.T) {
 					TypeURL:  fakeType0TypeURL,
 					Metadata: fakeResource0_0.Metadata,
 					Resource: fake0_0,
-					Version:  "type0/v0",
 				}},
 			},
 		},
@@ -545,7 +534,6 @@ func TestReconnect(t *testing.T) {
 					TypeURL:  fakeType0TypeURL,
 					Metadata: fakeResource0_0.Metadata,
 					Resource: fake0_0,
-					Version:  "type0/v0",
 				}},
 			},
 			sendError: true,
@@ -560,7 +548,6 @@ func TestReconnect(t *testing.T) {
 					TypeURL:  fakeType0TypeURL,
 					Metadata: fakeResource0_1.Metadata,
 					Resource: fake0_1,
-					Version:  "type0/v1",
 				}},
 			},
 		},
@@ -574,7 +561,6 @@ func TestReconnect(t *testing.T) {
 					TypeURL:  fakeType0TypeURL,
 					Metadata: fakeResource0_1.Metadata,
 					Resource: fake0_1,
-					Version:  "type0/v1",
 				}},
 			},
 			recvError: true,
@@ -589,7 +575,6 @@ func TestReconnect(t *testing.T) {
 					TypeURL:  fakeType0TypeURL,
 					Metadata: fakeResource0_2.Metadata,
 					Resource: fake0_2,
-					Version:  "type0/v2",
 				}},
 			},
 		},
