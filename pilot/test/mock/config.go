@@ -23,7 +23,6 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"go.uber.org/atomic"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	mpb "istio.io/api/mixer/v1"
@@ -243,8 +242,8 @@ func Make(namespace string, i int) model.Config {
 func Compare(a, b model.Config) bool {
 	a.ResourceVersion = ""
 	b.ResourceVersion = ""
-	a.CreationTimestamp = meta_v1.NewTime(time.Time{})
-	b.CreationTimestamp = meta_v1.NewTime(time.Time{})
+	a.CreationTimestamp = time.Time{}
+	b.CreationTimestamp = time.Time{}
 	return reflect.DeepEqual(a, b)
 }
 

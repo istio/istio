@@ -73,14 +73,14 @@ func NewServiceDiscovery(callbacks model.ConfigStoreCache, store model.IstioConf
 			c.updateNeeded = true
 			c.changeMutex.Unlock()
 
-			services := convertServices(serviceEntry, config.CreationTimestamp.Time)
+			services := convertServices(serviceEntry, config.CreationTimestamp)
 			for _, handler := range c.serviceHandlers {
 				for _, service := range services {
 					go handler(service, event)
 				}
 			}
 
-			instances := convertInstances(serviceEntry, config.CreationTimestamp.Time)
+			instances := convertInstances(serviceEntry, config.CreationTimestamp)
 			for _, handler := range c.instanceHandlers {
 				for _, instance := range instances {
 					go handler(instance, event)
@@ -116,7 +116,7 @@ func (d *ServiceEntryStore) Services() ([]*model.Service, error) {
 	services := make([]*model.Service, 0)
 	for _, config := range d.store.ServiceEntries() {
 		serviceEntry := config.Spec.(*networking.ServiceEntry)
-		services = append(services, convertServices(serviceEntry, config.CreationTimestamp.Time)...)
+		services = append(services, convertServices(serviceEntry, config.CreationTimestamp)...)
 	}
 
 	return services, nil
@@ -139,7 +139,7 @@ func (d *ServiceEntryStore) getServices() []*model.Service {
 	services := make([]*model.Service, 0)
 	for _, config := range d.store.ServiceEntries() {
 		serviceEntry := config.Spec.(*networking.ServiceEntry)
-		services = append(services, convertServices(serviceEntry, config.CreationTimestamp.Time)...)
+		services = append(services, convertServices(serviceEntry, config.CreationTimestamp)...)
 	}
 	return services
 }
@@ -197,7 +197,7 @@ func (d *ServiceEntryStore) update() {
 
 	for _, config := range d.store.ServiceEntries() {
 		serviceEntry := config.Spec.(*networking.ServiceEntry)
-		for _, instance := range convertInstances(serviceEntry, config.CreationTimestamp.Time) {
+		for _, instance := range convertInstances(serviceEntry, config.CreationTimestamp) {
 			key := string(instance.Service.Hostname)
 			out, found := di[key]
 			if !found {

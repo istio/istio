@@ -21,8 +21,6 @@ import (
 	"sync"
 	"time"
 
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 	mcpclient "istio.io/istio/pkg/mcp/client"
@@ -133,7 +131,7 @@ func (c *Controller) Apply(change *mcpclient.Change) error {
 				Name:              name,
 				Namespace:         nameSpace,
 				ResourceVersion:   now.String(),
-				CreationTimestamp: meta_v1.Time{Time: now},
+				CreationTimestamp: now,
 			},
 			Spec: obj.Resource,
 		}
