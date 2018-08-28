@@ -39,7 +39,7 @@ function testApply() {
 }
 
 function testApply1() {
-    testApply fortio/fortio:1.0.1
+    testApply fortio/fortio:1.2.0
 }
 
 # Setup DNS entries - currently using gcloud
