@@ -125,8 +125,8 @@ func (s *Envoy) TearDown() {
 		path := "/dev/shm/envoy_shared_memory_" + s.baseID + "0"
 		if err := os.Remove(path); err != nil {
 			log.Printf("failed to %s\n", err)
-			return
+		} else {
+			log.Printf("removed Envoy's shared memory\n")
 		}
-		log.Println("removed Envoy's shared memory")
 	}
 }
