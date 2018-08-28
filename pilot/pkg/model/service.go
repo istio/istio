@@ -74,10 +74,6 @@ type Service struct {
 	// These services are defined using Istio's ServiceEntry spec.
 	MeshExternal bool
 
-	// LoadBalancingDisabled indicates that no load balancing should be done for this service.
-	// Deprecated : made obsolete by the MeshExternal and Resolution flags.
-	LoadBalancingDisabled bool `json:"-"`
-
 	// Resolution indicates how the service instances need to be resolved before routing
 	// traffic. Most services in the service registry will use static load balancing wherein
 	// the proxy will decide the service instance that will receive the traffic. Service entries
