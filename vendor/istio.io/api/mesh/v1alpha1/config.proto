@@ -274,4 +274,7 @@ message MeshConfig {
 
   // Polling interval for SDS (MUST BE >=1ms)
   google.protobuf.Duration sds_refresh_delay = 21;
+
+  // Address of the galley service exposing the Mesh Control Protocol (MCP).
+  string galley_address = 22;
 }
