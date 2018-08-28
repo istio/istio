@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
@@ -59,15 +60,22 @@ func (b *InMemoryBuilder) Set(typeURL string, version string, resources []*mcp.E
 
 // SetEntry sets a single entry. Note that this is a slow operation, as update requires scanning
 // through existing entries.
-func (b *InMemoryBuilder) SetEntry(typeURL string, name string, m proto.Message) error {
+func (b *InMemoryBuilder) SetEntry(typeURL, name, version string, createTime time.Time, m proto.Message) error {
 	contents, err := proto.Marshal(m)
+	if err != nil {
+		return err
+	}
+
+	createTimeProto, err := types.TimestampProto(createTime)
 	if err != nil {
 		return err
 	}
 
 	e := &mcp.Envelope{
 		Metadata: &mcp.Metadata{
-			Name: name,
+			Name:       name,
+			CreateTime: createTimeProto,
+			Version:    version,
 		},
 		Resource: &types.Any{
 			Value:   contents,
@@ -113,7 +121,7 @@ func (b *InMemoryBuilder) DeleteEntry(typeURL string, name string) {
 	}
 }
 
-// SetVersion ets the version for the given type URL.
+// SetVersion sets the version for the given type URL.
 func (b *InMemoryBuilder) SetVersion(typeURL string, version string) {
 	b.snapshot.versions[typeURL] = version
 }
