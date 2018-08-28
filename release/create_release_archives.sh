@@ -153,19 +153,21 @@ done
 ls -l  ${COMMON_FILES_DIR}/install/kubernetes/
 
 # Remove unsupported files from aspen mesh
-rm -rf ${COMMON_FILES_DIR}/install/tools
-rm -rf ${COMMON_FILES_DIR}/install/{ansible,consul,eureka,gcp,tools}
-rm -rf ${COMMON_FILES_DIR}/install/kubernetes/mesh-expansion.yaml
+rm -rf ${COMMON_FILES_DIR}/install/consul
+rm -rf ${COMMON_FILES_DIR}/install/gcp
 rm -rf ${COMMON_FILES_DIR}/install/kubernetes/addons
+rm -rf ${COMMON_FILES_DIR}/install/kubernetes/ansible
 rm -rf ${COMMON_FILES_DIR}/install/kubernetes/helm/istio-remote
 rm -rf ${COMMON_FILES_DIR}/install/kubernetes/helm/istio/values-*.yaml
-rm -rf ${COMMON_FILES_DIR}/install/kubernetes/templates
 rm -rf ${COMMON_FILES_DIR}/install/kubernetes/istio-citadel*.yaml
 rm -rf ${COMMON_FILES_DIR}/install/kubernetes/istio-demo*.yaml
+rm -rf ${COMMON_FILES_DIR}/install/kubernetes/mesh-expansion.yaml
+rm -rf ${COMMON_FILES_DIR}/install/kubernetes/templates
+rm -rf ${COMMON_FILES_DIR}/install/tools
+rm -rf ${COMMON_FILES_DIR}/tools
 rm -rf ${COMMON_FILES_DIR}/samples/kubernetes-blog
 rm -rf ${COMMON_FILES_DIR}/samples/certs
-rm -rf ${COMMON_FILES_DIR}/samples/bookinfo/eureka
-rm -rf ${COMMON_FILES_DIR}/samples/bookinfo/consul
+rm -rf ${COMMON_FILES_DIR}/samples/bookinfo/platform/consul
 
 ls -l  ${COMMON_FILES_DIR}/install/kubernetes/
 
