@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: citadel-vault-test-bash
+spec:
+  #use default service account  
+  serviceAccountName: vault-citadel-sa
+  containers:
+  - name: citadel-vault-test
+    image: gcr.io/endpoints-authz-test1/citadel-vault-test-1:leitang 
+    imagePullPolicy: Always
+  restartPolicy: Never

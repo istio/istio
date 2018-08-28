@@ -1,0 +1,52 @@
+# Instructions for running Istio Vault CA demo
+
+# First, configure the k8s cluster used for demo
+kubectl config current-context
+# To choose the k8s cluster, run the following command.
+# The cluster name in this example is "vault-server" and the project is "endpoints-authz-test1".
+# You need to change to your own cluster and project before running the command.
+gcloud container clusters get-credentials vault-server --zone us-west1-b --project endpoints-authz-test1
+
+# Grant cluster admin permissions to the current user (admin permissions are required to create the necessary RBAC rules for Istio).
+kubectl create clusterrolebinding cluster-admin-binding \ --clusterrole=cluster-admin \ --user=$(gcloud config get-value core/account)
+
+# Provision the Vault server
+./vault-provision.sh
+
+# After running ./vault-provision.sh:
+# - update the "--vault-ip", "35.233.139.234" in $GOPATH/src/istio.io/istio/security/docker/Dockerfile.citadel-vault-test-1.
+# - copy the updated reviewer-token.jwt to $GOPATH/src/istio.io/istio/security/tests/integration/vaultTest/testdata/reviewer-token.jwt
+# - rebuild and push the Dockerfile.citadel-vault-test-1
+
+# Build the Citadel docker image.
+# Citadel service account must have the role of sign CSR.
+pushd $GOPATH/src/istio.io/istio
+make docker.citadel-vault-test-1
+
+# Run Citadel in the default namespace
+popd
+kubectl create -f ./citadel/istio-citadel-vault-demo.yaml
+# View logs to verify Citadel is running correctly
+# kubectl get pods
+# kubectl logs istio-standalone-citadel-b64f77fc9-h65ql
+
+# Build a node-agent to request for CSR signing
+pushd $GOPATH/src/istio.io/istio
+make docker.node-agent-vault-test
+popd
+
+# Run a pod as client to request for CSR signing
+kubectl create -f ./client/node-agent-pod-1.yaml
+# To view the certitificate generated
+# kubectl logs node-agent-vault-test
+# The service account from a workload pod is set as the parameter of -- k8s-service-account of Node Agent.
+# The identity in the pod service account must match that in the CSR.
+# The example pod service account is in
+$GOPATH/src/istio.io/istio/security/tests/integration/vaultTest/testdata/example-workload-pod-sa.jwt.
+
+# For debugging only: to run Citadel vault test without Node Agent
+# pushd $GOPATH/src/istio.io/istio
+# make docker.citadel-vault-test-2
+# To run the tests
+# popd
+# kubectl apply -f citadel-pod-2.yaml; sleep 4; kubectl logs citadel-vault-test

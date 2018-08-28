@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: node-agent-vault-test
+spec:
+  containers:
+  - name: node-agent-vault-test 
+    image: gcr.io/endpoints-authz-test1/node-agent-vault-test:leitang 
+    imagePullPolicy: Always
+  restartPolicy: Never
+
