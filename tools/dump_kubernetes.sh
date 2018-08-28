@@ -140,7 +140,7 @@ copy_core_dumps_if_istio_proxy() {
 # Run functions on each container. Each argument should be a function which
 # takes 3 args: ${namespace} ${pod} ${container}.
 tap_containers() {
-  local functions=( "$@" )
+  local functions=("$@")
 
   local namespaces
   namespaces=$(kubectl get \

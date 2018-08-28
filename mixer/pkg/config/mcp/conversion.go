@@ -99,18 +99,13 @@ func constructMapping(allKinds []string, schema *kube.Schema) (*mapping, error) 
 	}, nil
 }
 
-// messageNames returns all MessageNames that should be requested from the MCP server.
-func (m *mapping) messageNames() []string {
-	messageName := func(s string) string {
-		idx := strings.LastIndex(s, "/")
-		return s[idx+1:]
-	}
-
+// typeURLs returns all TypeURLs that should be requested from the MCP server.
+func (m *mapping) typeURLs() []string {
 	result := make([]string, 0, len(m.typeURLsToKinds)+1)
 	for u := range m.typeURLsToKinds {
-		result = append(result, messageName(u))
+		result = append(result, u)
 	}
-	result = append(result, legacyMixerResourceMessageName)
+	result = append(result, legacyMixerResourceTypeURL)
 
 	return result
 }

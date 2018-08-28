@@ -97,9 +97,9 @@ func init() {
 
 // EnsureTestServer will ensure a pilot server is running in process and initializes
 // the MockPilotUrl and MockPilotGrpcAddr to allow connections to the test pilot.
-func EnsureTestServer() *bootstrap.Server {
+func EnsureTestServer(args ...func(*bootstrap.PilotArgs)) *bootstrap.Server {
 	if MockTestServer == nil {
-		err := setup()
+		err := setup(args...)
 		if err != nil {
 			log.Fatal("Failed to start in-process server", err)
 		}
@@ -107,7 +107,7 @@ func EnsureTestServer() *bootstrap.Server {
 	return MockTestServer
 }
 
-func setup() error {
+func setup(additionalArgs ...func(*bootstrap.PilotArgs)) error {
 	// TODO: point to test data directory
 	// Setting FileDir (--configDir) disables k8s client initialization, including for registries,
 	// and uses a 100ms scan. Must be used with the mock registry (or one of the others)
@@ -151,6 +151,10 @@ func setup() error {
 	args.Config.FileDir = IstioSrc + "/tests/testdata/config"
 
 	bootstrap.PilotCertDir = IstioSrc + "/tests/testdata/certs/pilot"
+
+	for _, apply := range additionalArgs {
+		apply(&args)
+	}
 
 	// Create and setup the controller.
 	s, err := bootstrap.NewServer(args)

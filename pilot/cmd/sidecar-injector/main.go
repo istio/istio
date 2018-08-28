@@ -22,7 +22,7 @@ import (
 	"path/filepath"
 	"time"
 
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 	"github.com/howeyc/fsnotify"
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
@@ -62,6 +62,7 @@ var (
 		Use:          "sidecar-injector",
 		Short:        "Kubernetes webhook for automatic Istio sidecar injection.",
 		SilenceUsage: true,
+		Args:         cobra.ExactArgs(0),
 		RunE: func(c *cobra.Command, _ []string) error {
 			cmd.PrintFlags(c.Flags())
 			if err := log.Configure(flags.loggingOptions); err != nil {
@@ -98,6 +99,7 @@ var (
 	probeCmd = &cobra.Command{
 		Use:   "probe",
 		Short: "Check the liveness or readiness of a locally-running server",
+		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !flags.probeOptions.IsValid() {
 				return errors.New("some options are not valid")

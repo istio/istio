@@ -1,4 +1,0 @@
-sut:
-  build: .
-  dockerfile: Dockerfile.test
-  command: go test -race -v -timeout 60s istio.io/fortio/...
