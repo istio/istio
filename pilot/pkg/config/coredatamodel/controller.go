@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
@@ -141,7 +140,7 @@ func (c *Controller) Apply(change *mcpclient.Change) error {
 				Name:              name,
 				Namespace:         nameSpace,
 				ResourceVersion:   obj.Metadata.Version,
-				CreationTimestamp: meta_v1.Time{Time: createTime},
+				CreationTimestamp: createTime,
 			},
 			Spec: obj.Resource,
 		}

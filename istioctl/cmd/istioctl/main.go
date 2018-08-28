@@ -1004,12 +1004,12 @@ func configTypePluralResourceNames(configTypes model.ConfigDescriptor) []string 
 }
 
 // renderTimestamp creates a human-readable age similar to docker and kubectl CLI output
-func renderTimestamp(ts metav1.Time) string {
+func renderTimestamp(ts time.Time) string {
 	if ts.IsZero() {
 		return "<unknown>"
 	}
 
-	seconds := int(time.Since(ts.Time).Seconds())
+	seconds := int(time.Since(ts).Seconds())
 	if seconds < -2 {
 		return fmt.Sprintf("<invalid>")
 	} else if seconds < 0 {
@@ -1018,12 +1018,12 @@ func renderTimestamp(ts metav1.Time) string {
 		return fmt.Sprintf("%ds", seconds)
 	}
 
-	minutes := int(time.Since(ts.Time).Minutes())
+	minutes := int(time.Since(ts).Minutes())
 	if minutes < 60 {
 		return fmt.Sprintf("%dm", minutes)
 	}
 
-	hours := int(time.Since(ts.Time).Hours())
+	hours := int(time.Since(ts).Hours())
 	if hours < 24 {
 		return fmt.Sprintf("%dh", hours)
 	} else if hours < 365*24 {
