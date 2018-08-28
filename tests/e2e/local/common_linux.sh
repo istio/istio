@@ -46,7 +46,8 @@ function check_apt_get() {
   if ! apt-get --help > /dev/null; then
     echo "apt-get not installed. Please install it and run this script again."
     exit 1
-fi
+  fi
+}
 
 # Install Docker
 function install_docker() {
