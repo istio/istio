@@ -9,12 +9,7 @@ rules:
     resources: ["certificates", "issuers", "clusterissuers"]
     verbs: ["*"]
   - apiGroups: [""]
-    # TODO: remove endpoints once 0.4 is released. We include it here in case
-    # users use the 'master' version of the Helm chart with a 0.2.x release of
-    # certManager that still performs leader election with Endpoint resources.
-    # We advise users don't do this, but some will anyway and this will reduce
-    # friction.
-    resources: ["endpoints", "configmaps", "secrets", "events", "services", "pods"]
+    resources: ["configmaps", "secrets", "events", "services", "pods"]
     verbs: ["*"]
   - apiGroups: ["extensions"]
     resources: ["ingresses"]
