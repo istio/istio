@@ -27,11 +27,11 @@ You can run the following script to check/install of all pre-requisites, or use 
 ```
 
 ## 2. Build istio images
-Push images from your local dev environment to the local registry on host:
+Build images on your host machine:
 ```bash
 . ./setup_test.sh
 ```
-You should push new images whenever you modify istio source code.
+Minikube reuses the Docker daemon on your host machine to access images.
 
 ## 2. Run tests!
 You can issue test commands on your host machine.

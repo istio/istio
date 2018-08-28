@@ -149,6 +149,7 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 
 	if a.ReadinessProbeOptions.IsValid() {
 		s.readinessProbe = probe.NewFileController(a.ReadinessProbeOptions)
+		s.RegisterProbe(s.readinessProbe, "server")
 		s.readinessProbe.Start()
 	}
 

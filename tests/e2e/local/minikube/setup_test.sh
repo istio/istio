@@ -15,9 +15,5 @@ fi
 # Set GOOS=linux to make sure linux binaries are built on macOS
 cd "$ISTIO/istio" || exit
 GOOS=linux make docker HUB=localhost:5000 TAG=latest
-GOOS=linux make push HUB=localhost:5000 TAG=latest
 
-# Verify images are pushed in repository.
-echo "Check images present in repositories"
-curl localhost:5000/v2/_catalog
 echo "Setup done."
