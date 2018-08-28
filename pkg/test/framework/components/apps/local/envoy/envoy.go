@@ -117,6 +117,7 @@ func (e *Envoy) Start() (err error) {
 }
 
 // Stop kills the Envoy process.
+// TODO: separate returning of baseID, to make it work with Envoy's hot restart.
 func (e *Envoy) Stop() error {
 	// Make sure we return the base ID.
 	defer e.returnBaseID()
@@ -148,9 +149,14 @@ func (e *Envoy) takeBaseID() {
 }
 
 func (e *Envoy) returnBaseID() {
-	idGenerator.returnBaseID(e.baseID)
-	// Restore the zero value.
-	e.baseID = 0
+	if e.baseID != 0 {
+		path := "/dev/shm/envoy_shared_memory_" + strconv.FormatUint(uint64(e.baseID), 10) + "0"
+		if err := os.Remove(path); err == nil || os.IsNotExist(err) {
+			idGenerator.returnBaseID(e.baseID)
+			// Restore the zero value.
+			e.baseID = 0
+		}
+	}
 }
 
 func (e *Envoy) getCommandArgs() []string {
