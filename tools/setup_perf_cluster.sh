@@ -113,7 +113,7 @@ function delete_vm_firewall() {
 
 function update_fortio_on_vm() {
   # shellcheck disable=SC2016
-  run_on_vm 'go get istio.io/fortio && cd go/src/istio.io/fortio && git fetch --tags && git checkout latest_release && make submodule-sync && go build -o ~/go/bin/fortio -ldflags "-X istio.io/fortio/version.tag=$(git describe --tag --match v\*) -X istio.io/fortio/version.buildInfo=$(git rev-parse HEAD)" . && sudo setcap 'cap_net_bind_service=+ep' `which fortio` && fortio version'
+  run_on_vm 'go get fortio.org/fortio && cd go/src/fortio.org/fortio && git fetch --tags && git checkout latest_release && make submodule-sync && make official-build-version OFFICIAL_BIN=~/go/bin/fortio && sudo setcap 'cap_net_bind_service=+ep' `which fortio` && fortio version'
 }
 
 function run_fortio_on_vm() {
@@ -153,9 +153,9 @@ function kubectl_setup() {
 
 function install_non_istio_svc() {
  Execute kubectl create namespace "$FORTIO_NAMESPACE"
- Execute kubectl -n "$FORTIO_NAMESPACE" run fortio1 --image=istio/fortio:latest_release --port=8080
+ Execute kubectl -n "$FORTIO_NAMESPACE" run fortio1 --image=fortio/fortio:latest_release --port=8080
  Execute kubectl -n "$FORTIO_NAMESPACE" expose deployment fortio1 --target-port=8080 --type=LoadBalancer
- Execute kubectl -n "$FORTIO_NAMESPACE" run fortio2 --image=istio/fortio:latest_release --port=8080
+ Execute kubectl -n "$FORTIO_NAMESPACE" run fortio2 --image=fortio/fortio:latest_release --port=8080
  Execute kubectl -n "$FORTIO_NAMESPACE" expose deployment fortio2 --target-port=8080
 }
 

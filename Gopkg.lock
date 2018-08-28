@@ -39,6 +39,25 @@
   version = "v0.5.0"
 
 [[projects]]
+  digest = "1:c1cdf31e8b0454e518f59226b222b48aec62a884015304e5b82a704bef056cd3"
+  name = "fortio.org/fortio"
+  packages = [
+    ".",
+    "bincommon",
+    "fgrpc",
+    "fhttp",
+    "fnet",
+    "log",
+    "periodic",
+    "stats",
+    "ui",
+    "version",
+  ]
+  pruneopts = "T"
+  revision = "36bffaa50c7cc47038fc7572c83221640a603425"
+  version = "v1.2.0"
+
+[[projects]]
   digest = "1:add5f01e863553e80ded66e1cba646ad947932e66f90813741d51c97a1ee7a59"
   name = "github.com/Azure/go-autorest"
   packages = [
@@ -1601,25 +1620,6 @@
   revision = "214c7598afb74f7f4dea49f77e45832c49382a15"
 
 [[projects]]
-  digest = "1:a0934c59fa838e950c6b4b114e13376349d4eb3e054d86322f70ac42a15d3d95"
-  name = "istio.io/fortio"
-  packages = [
-    ".",
-    "bincommon",
-    "fgrpc",
-    "fhttp",
-    "fnet",
-    "log",
-    "periodic",
-    "stats",
-    "ui",
-    "version",
-  ]
-  pruneopts = "T"
-  revision = "d13f3b92c63db22136bac4e0896562404bd4ef6e"
-  version = "v1.1.0"
-
-[[projects]]
   digest = "1:1e22c9d898674522a6155619142b4691dd225441168faa2b5a4eb88ee327a243"
   name = "k8s.io/api"
   packages = [
@@ -1991,6 +1991,9 @@
     "code.cloudfoundry.org/copilot/api",
     "code.cloudfoundry.org/copilot/testhelpers",
     "contrib.go.opencensus.io/exporter/stackdriver",
+    "fortio.org/fortio",
+    "fortio.org/fortio/fhttp",
+    "fortio.org/fortio/periodic",
     "github.com/DataDog/datadog-go/statsd",
     "github.com/alicebob/miniredis",
     "github.com/alicebob/miniredis/server",
@@ -2153,9 +2156,6 @@
     "istio.io/api/networking/v1alpha3",
     "istio.io/api/policy/v1beta1",
     "istio.io/api/rbac/v1alpha1",
-    "istio.io/fortio",
-    "istio.io/fortio/fhttp",
-    "istio.io/fortio/periodic",
     "k8s.io/api/admission/v1beta1",
     "k8s.io/api/admissionregistration/v1beta1",
     "k8s.io/api/apps/v1",

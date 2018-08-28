@@ -34,8 +34,9 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/fortio/fhttp"
-	"istio.io/fortio/periodic"
+	"fortio.org/fortio/fhttp"
+	"fortio.org/fortio/periodic"
+
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/e2e/framework"
 	"istio.io/istio/tests/util"
@@ -357,7 +358,7 @@ func setTestConfig() error {
 	tag := os.Getenv("FORTIO_TAG")
 	image := hub + "/fortio:" + tag
 	if hub == "" || tag == "" {
-		image = "istio/fortio:latest_release"
+		image = "fortio/fortio:latest_release"
 	}
 	log.Infof("Fortio hub %s tag %s -> image %s", hub, tag, image)
 	services := []framework.App{

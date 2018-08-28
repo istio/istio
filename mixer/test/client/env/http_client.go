@@ -24,7 +24,7 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/fortio/fhttp"
+	"fortio.org/fortio/fhttp"
 )
 
 const (
