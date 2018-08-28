@@ -43,7 +43,7 @@ func TestGet_Panic(t *testing.T) {
 	_ = Get("zzzzz")
 }
 
-const fakeCreateTime = "2009-02-04T21:00:57-08:00"
+var fakeCreateTime, _ = time.Parse(time.RFC3339, time.RFC3339)
 
 func TestIdentity(t *testing.T) {
 	b := resource.NewSchemaBuilder()
@@ -74,9 +74,9 @@ func TestIdentity(t *testing.T) {
 		t.Fatalf("Keys mismatch. Wanted=%s, Got=%s", key, outkey)
 	}
 
-	if createTime.Format(time.RFC3339) != fakeCreateTime {
+	if createTime != fakeCreateTime {
 		t.Fatalf("createTime mismatch: got %q want %q",
-			createTime.Format(time.RFC3339), fakeCreateTime)
+			createTime, fakeCreateTime)
 	}
 
 	actual, ok := pb.(*types.Struct)
@@ -154,9 +154,9 @@ func TestLegacyMixerResource(t *testing.T) {
 		t.Fatalf("Keys mismatch. Wanted=%s, Got=%s", expectedKey, outkey)
 	}
 
-	if createTime.Format(time.RFC3339) != fakeCreateTime {
+	if createTime != fakeCreateTime {
 		t.Fatalf("createTime mismatch: got %q want %q",
-			createTime.Format(time.RFC3339), fakeCreateTime)
+			createTime, fakeCreateTime)
 	}
 
 	actual, ok := pb.(*legacy.LegacyMixerResource)
