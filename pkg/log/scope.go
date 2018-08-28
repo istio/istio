@@ -42,7 +42,7 @@ type Scope struct {
 }
 
 var scopes = make(map[string]*Scope)
-var lock = sync.Mutex{}
+var lock = sync.RWMutex{}
 
 // set by the Configure method
 var writeFn atomic.Value
@@ -83,8 +83,8 @@ func RegisterScope(name string, description string, callerSkip int) *Scope {
 
 // FindScope returns a previously registered scope, or nil if the named scope wasn't previously registered
 func FindScope(scope string) *Scope {
-	lock.Lock()
-	defer lock.Unlock()
+	lock.RLock()
+	defer lock.RUnlock()
 
 	s := scopes[scope]
 	return s
@@ -92,8 +92,8 @@ func FindScope(scope string) *Scope {
 
 // Scopes returns a snapshot of the currently defined set of scopes
 func Scopes() map[string]*Scope {
-	lock.Lock()
-	defer lock.Unlock()
+	lock.RLock()
+	defer lock.RUnlock()
 
 	s := make(map[string]*Scope, len(scopes))
 	for k, v := range scopes {
