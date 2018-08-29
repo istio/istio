@@ -117,7 +117,7 @@ func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 	rootCmd.PersistentFlags().DurationVar(&readinessProbeOptions.UpdateInterval, "readinessProbeInterval", server.DefaultProbeCheckInterval,
 		"Interval of updating file for the Galley readiness probe.")
 	rootCmd.PersistentFlags().UintVar(&monitoringPort, "monitoringPort", 9093,
-		"Port to use for the exposing self-monitoring information")
+		"Port to use for exposing self-monitoring information")
 	rootCmd.PersistentFlags().StringVar(&validationArgs.DeploymentNamespace, "deployment-namespace", "istio-system",
 		"Namespace of the deployment for the validation pod")
 	rootCmd.PersistentFlags().StringVar(&validationArgs.DeploymentName, "deployment-name", "istio-galley",
