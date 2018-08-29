@@ -276,8 +276,8 @@ lint: buildcache
 # Params: OUT VERSION_PKG SRC
 
 PILOT_GO_BINS:=${ISTIO_OUT}/pilot-discovery ${ISTIO_OUT}/pilot-agent \
-               ${ISTIO_OUT}/sidecar-injector
-PILOT_GO_BINS_SHORT:=pilot-discovery pilot-agent sidecar-injector
+               ${ISTIO_OUT}/sidecar-injector ${ISTIO_OUT}/rpc-controller
+PILOT_GO_BINS_SHORT:=pilot-discovery pilot-agent sidecar-injector rpc-controller
 define pilotbuild
 $(1):
 	bin/gobuild.sh ${ISTIO_OUT}/$(1) ./pilot/cmd/$(1)
