@@ -168,7 +168,7 @@ var (
 						// only support the default config, or env variable
 						ns = os.Getenv("ISTIO_NAMESPACE")
 						if ns == "" {
-							ns = "istio-system"
+							ns = model.IstioSystemNamespace
 						}
 					}
 				}

@@ -41,6 +41,9 @@ const (
 	// E.g., on kubenetes, this file can be usually copied from .kube/config
 	ClusterAccessConfigSecret          = "config.istio.io/accessConfigSecret"
 	ClusterAccessConfigSecretNamespace = "config.istio.io/accessConfigSecretNamespace"
+
+	// Default namespace to fetch cluster's access configuration secret.
+	DefaultAccessConfigSecretNamespace = "istio-system"
 )
 
 // RemoteCluster defines cluster struct
@@ -130,7 +133,7 @@ func getClustersConfigs(k8s kubernetes.Interface, configMapName, configMapNamesp
 
 		}
 		if len(secretNamespace) == 0 {
-			secretNamespace = "istio-system"
+			secretNamespace = DefaultAccessConfigSecretNamespace
 		}
 		kubeconfig, err := getClusterConfigFromSecret(k8s, secretName, secretNamespace, key)
 		if err != nil {
@@ -194,7 +197,7 @@ func validateCluster(cluster *k8s_cr.Cluster) (err error) {
 		cluster.ObjectMeta.Annotations[ClusterAccessConfigSecretNamespace] = cluster.Name
 	}
 	if cluster.ObjectMeta.Annotations[ClusterAccessConfigSecretNamespace] == "" {
-		cluster.ObjectMeta.Annotations[ClusterAccessConfigSecretNamespace] = "istio-system"
+		cluster.ObjectMeta.Annotations[ClusterAccessConfigSecretNamespace] = DefaultAccessConfigSecretNamespace
 	}
 
 	return
