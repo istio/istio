@@ -258,7 +258,7 @@ mixer:
 
   prometheusStatsdExporter:
     repository: prom/statsd-exporter
-    tag: latest
+    tag: v0.6.0
     resources: {}
 
 #
