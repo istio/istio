@@ -429,8 +429,9 @@ func debouncePush(startDebounce time.Time) {
 			since, time.Since(lastClearCache))
 		clearCacheMutex.Lock()
 		clearCacheTimerSet = false
-		lastClearCache = time.Now()
 		clearCacheMutex.Unlock()
+		// no need to protect, no data race in case DebounceAfter > 0
+		lastClearCache = time.Now()
 		V2ClearCache()
 	} else {
 		log.Infof("Push debounce %d: %v since last change, %v since last push",
@@ -482,7 +483,6 @@ func (ds *DiscoveryService) clearCache() {
 
 	// If last config change was < 1 second ago, but last push is > clearCacheTime ago -
 	// also push
-
 	if time.Since(lastClearCache) > time.Duration(clearCacheTime)*time.Second {
 		log.Infof("Timer push %d: %v since last change, %v since last push",
 			clearCacheCounter, time.Since(lastClearCacheEvent), time.Since(lastClearCache))
