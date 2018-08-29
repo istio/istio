@@ -223,11 +223,9 @@ func RunServer(sa *Args, printf, fatalf shared.FormatFn, livenessProbeController
 		serverReadinessProbe.RegisterProbe(readinessProbeController, "serverReadiness")
 		defer serverReadinessProbe.SetAvailable(errors.New("stopped"))
 	}
-
 	err = s.Wait()
 	if err != nil {
 		fatalf("Galley Server unexpectedly terminated: %v", err)
 	}
 	_ = s.Close()
-
 }

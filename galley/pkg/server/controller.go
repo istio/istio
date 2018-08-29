@@ -40,5 +40,4 @@ func StartProbeCheck(livenessProbeController, readinessProbeController probe.Con
 		defer readinessProbeController.Close()
 	}
 	<-stop
-
 }
