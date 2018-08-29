@@ -501,6 +501,8 @@ func (h Hostname) Matches(o Hostname) bool {
 	return matches
 }
 
+// SubsetOf returns true if this hostname is a valid subset of the other hostname. The semantics are
+// the same as "Matches", but only in one direction.
 func (h Hostname) SubsetOf(o Hostname) bool {
 	if len(h) == 0 && len(o) == 0 {
 		return true
