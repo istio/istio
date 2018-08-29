@@ -87,6 +87,10 @@ var (
 			role.Type = model.Sidecar
 			if len(args) > 0 {
 				role.Type = model.NodeType(args[0])
+				if !model.IsApplicationNodeType(role.Type) {
+					log.Errorf("Invalid role Type: %#v", role.Type)
+					return fmt.Errorf("Invalid role Type: " + string(role.Type))
+				}
 			}
 
 			// set values from registry platform
