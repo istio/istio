@@ -1,11 +1,11 @@
 # Common settings.
 global:
-  hub: quay.io/aspenmesh/jenkins-artifacts
-  hub_public: quay.io/aspenmesh/jenkins-artifacts
+  hub: quay.io/aspenmesh/istio-private
+  hub_public: quay.io/aspenmesh/istio
   hub_img_delim: ":"
   # image: per deployment
   img_tag_delim: "-"
-  tag: circle-istio-private-2087
+  tag: 1.0.0-am1
 
   aspenMeshCloud:
     enabled: true
