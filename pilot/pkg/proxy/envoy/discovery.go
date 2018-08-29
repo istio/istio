@@ -106,8 +106,8 @@ var (
 	// lastClearCacheEvent is the time of the last config event
 	lastClearCacheEvent time.Time
 
-	// clearCacheEvents is the counter of 'clearCache' calls
-	clearCacheEvents int
+	// clearCacheCounter is the counter of 'clearCache' calls
+	clearCacheCounter int
 
 	// clearCacheTimerSet is true if we are in squash mode, and a timer is already set
 	clearCacheTimerSet bool
@@ -418,7 +418,7 @@ func (ds *DiscoveryService) ClearCache() {
 func debouncePush(startDebounce time.Time) {
 	clearCacheMutex.Lock()
 	since := time.Since(lastClearCacheEvent)
-	events := clearCacheEvents
+	events := clearCacheCounter
 	clearCacheMutex.Unlock()
 
 	if since > 2*DebounceAfter ||
@@ -448,7 +448,7 @@ func (ds *DiscoveryService) clearCache() {
 	clearCacheMutex.Lock()
 	defer clearCacheMutex.Unlock()
 
-	clearCacheEvents++
+	clearCacheCounter++
 
 	if DebounceAfter > 0 {
 		lastClearCacheEvent = time.Now()
@@ -459,7 +459,7 @@ func (ds *DiscoveryService) clearCache() {
 			time.AfterFunc(DebounceAfter, func() {
 				debouncePush(startDebounce)
 			})
-		} // else: debunce in progress - it'll keep delaying the push
+		} // else: debounce in progress - it'll keep delaying the push
 
 		return
 	}
@@ -468,7 +468,7 @@ func (ds *DiscoveryService) clearCache() {
 	// If last config change was > 1 second ago, push.
 	if time.Since(lastClearCacheEvent) > 1*time.Second {
 		log.Infof("Push %d: %v since last change, %v since last push",
-			clearCacheEvents,
+			clearCacheCounter,
 			time.Since(lastClearCacheEvent), time.Since(lastClearCache))
 		lastClearCacheEvent = time.Now()
 		lastClearCache = time.Now()
@@ -485,7 +485,7 @@ func (ds *DiscoveryService) clearCache() {
 
 	if time.Since(lastClearCache) > time.Duration(clearCacheTime)*time.Second {
 		log.Infof("Timer push %d: %v since last change, %v since last push",
-			clearCacheEvents, time.Since(lastClearCacheEvent), time.Since(lastClearCache))
+			clearCacheCounter, time.Since(lastClearCacheEvent), time.Since(lastClearCache))
 		lastClearCache = time.Now()
 		V2ClearCache()
 		return
