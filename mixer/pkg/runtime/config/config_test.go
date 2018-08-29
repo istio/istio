@@ -520,6 +520,86 @@ Attributes:
 	},
 
 	{
+		Name: "basic handler cr config",
+		Events1: []*store.Event{
+			{
+				Key: store.Key{
+					Name:      "a1",
+					Namespace: "ns",
+					Kind:      "handler",
+				},
+				Type: store.Update,
+				Value: &store.Resource{
+					Spec: &configpb.Handler{
+						Name:            "a1",
+						CompiledAdapter: "adapter1",
+						Adapter:         "adapter1",
+					},
+				},
+			},
+		},
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+  Name:    a1.ns
+  Adapter: adapter1
+  Params:  &Struct{Fields:map[string]*Value{},XXX_unrecognized:[],}
+InstancesStatic:
+Rules:
+Attributes:
+  template.attr: BOOL
+`,
+	},
+	{
+		Name: "basic handler cr config with params",
+		Events1: []*store.Event{
+			{
+				Key: store.Key{
+					Name:      "a2",
+					Namespace: "ns",
+					Kind:      "handler",
+				},
+				Type: store.Update,
+				Value: &store.Resource{
+					Spec: &configpb.Handler{
+						Name:            "a2",
+						CompiledAdapter: "adapter2",
+						Adapter:         "adapter2",
+						Params:          adapter2Params,
+					},
+				},
+			},
+		},
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+  Name:    a2.ns
+  Adapter: adapter2
+  Params:  &Struct{Fields:map[string]*Value{pqr: &Value{Kind:&Value_StringValue{StringValue:abcstring,},XXX_unrecognized:[],},},XXX_unrecognized:[],}
+InstancesStatic:
+Rules:
+Attributes:
+  template.attr: BOOL
+`,
+	},
+
+	{
 		Name: "no handler due to adapter mismatch",
 		Events1: []*store.Event{
 			{

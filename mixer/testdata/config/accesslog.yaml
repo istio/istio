@@ -1,10 +1,13 @@
 apiVersion: "config.istio.io/v1alpha2"
-kind: stdio
+kind: handler
 metadata:
-  name: handler
+  name: stdio
   namespace: istio-system
 spec:
-  outputAsJson: true
+  compiledAdapter: stdio
+  adapter: stdio
+  params:
+    outputAsJson: true
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: logentry
@@ -62,6 +65,6 @@ metadata:
 spec:
   match: context.protocol == "http" || context.protocol == "grpc"
   actions:
-  - handler: handler.stdio
+  - handler: stdio
     instances:
     - accesslog.logentry

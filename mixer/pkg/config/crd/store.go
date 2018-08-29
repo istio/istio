@@ -142,6 +142,9 @@ func (s *Store) Init(kinds []string) error {
 	if err != nil {
 		return err
 	}
+
+	log.Infof("Kinds: %#v", kinds)
+
 	s.caches = make(map[string]cache.Store, len(kinds))
 	s.informers = make(map[string]cache.SharedInformer, len(kinds))
 	remaining := s.checkAndCreateCaches(d, lwBuilder, kinds)
