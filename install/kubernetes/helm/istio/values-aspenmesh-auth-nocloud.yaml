@@ -1,0 +1,12 @@
+# Used to generate aspen mesh release manifest
+
+global:
+  controlPlaneSecurityEnabled: true
+  mtls:
+    enabled: true
+  aspenMeshCloud:
+    enabled: false
+
+prometheus:
+  enabled: false
+ 

@@ -385,6 +385,7 @@ ${ISTIO_OUT}/archive: istioctl-all LICENSE README.md install/updateVersion.sh re
 		-P "$(ISTIO_URL)/deb" \
 		-d "${ISTIO_OUT}/archive"
 	release/create_release_archives.sh -v "$(VERSION)" -o "${ISTIO_OUT}/archive"
+	release/create_release_archives.sh -v "$(VERSION)" -o "${ISTIO_OUT}/archive" -f nocloud
 
 # istioctl-install builds then installs istioctl into $GOPATH/BIN
 # Used for debugging istioctl during dev work
@@ -587,7 +588,7 @@ istio-remote.yaml: $(HELM)
 	$(HELM) template --namespace=istio-system \
 		install/kubernetes/helm/istio-remote >> install/kubernetes/$@
 
-# creates aspenmesh.yaml aspenmesh-auth.yaml
+# creates aspenmesh.yaml aspenmesh-auth.yaml, etc
 # Ensure that values-$filename is present in install/kubernetes/helm/istio
 aspenmes%.yaml: $(HELM)
 	cat install/kubernetes/namespace.yaml > install/kubernetes/$@
