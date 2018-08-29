@@ -98,7 +98,7 @@ var (
 
 var (
 	// Variables associated with clear cache squashing.
-	clearCacheMutex sync.Mutex
+	clearCacheMutex sync.RWMutex
 
 	// lastClearCache is the time we last pushed
 	lastClearCache time.Time
@@ -416,10 +416,10 @@ func (ds *DiscoveryService) ClearCache() {
 
 // debouncePush is called on clear cache, to initiate a push.
 func debouncePush(startDebounce time.Time) {
-	clearCacheMutex.Lock()
+	clearCacheMutex.RLock()
 	since := time.Since(lastClearCacheEvent)
 	events := clearCacheCounter
-	clearCacheMutex.Unlock()
+	clearCacheMutex.RUnlock()
 
 	if since > 2*DebounceAfter ||
 		time.Since(startDebounce) > DebounceMax {
@@ -503,7 +503,6 @@ func (ds *DiscoveryService) clearCache() {
 			ds.clearCache() // re-evaluate after 1 second. If no activity - push will happen
 		})
 	}
-
 }
 
 // ListAllEndpoints responds with all Services and is not restricted to a single service-key
