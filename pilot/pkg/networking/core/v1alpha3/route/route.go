@@ -94,6 +94,7 @@ func BuildVirtualHostsFromConfigAndRegistry(
 
 	meshGateway := map[string]bool{model.IstioMeshGateway: true}
 	virtualServices := configStore.VirtualServices(meshGateway)
+	amExperiments := configStore.AspenMeshExperiments()
 	// translate all virtual service configs into virtual hosts
 	for _, virtualService := range virtualServices {
 		wrappers := buildVirtualHostsForVirtualService(node, configStore, virtualService, serviceRegistry, proxyLabels, meshGateway)
@@ -125,7 +126,7 @@ func BuildVirtualHostsFromConfigAndRegistry(
 				out = append(out, VirtualHostWrapper{
 					Port:     port.Port,
 					Services: []*model.Service{svc},
-					Routes:   []route.Route{*BuildDefaultHTTPRoute(node, cluster, traceOperation)},
+					Routes:   AddExperimentRoutes(BuildDefaultHTTPRoute(node, cluster, traceOperation), amExperiments),
 				})
 			}
 		}
@@ -251,6 +252,7 @@ func BuildHTTPRoutesForVirtualService(
 	gatewayNames map[string]bool,
 	configStore model.IstioConfigStore) ([]route.Route, error) {
 
+	amExperiments := configStore.AspenMeshExperiments()
 	vs, ok := virtualService.Spec.(*networking.VirtualService)
 	if !ok { // should never happen
 		return nil, fmt.Errorf("in not a virtual service: %#v", virtualService)
@@ -262,14 +264,14 @@ func BuildHTTPRoutesForVirtualService(
 	for _, http := range vs.Http {
 		if len(http.Match) == 0 {
 			if r := translateRoute(node, http, nil, port, vsName, serviceRegistry, proxyLabels, gatewayNames, configStore); r != nil {
-				out = append(out, *r)
+				out = append(out, AddExperimentRoutes(r, amExperiments)...)
 			}
 			break // we have a rule with catch all match prefix: /. Other rules are of no use
 		} else {
 			// TODO: https://github.com/istio/istio/issues/4239
 			for _, match := range http.Match {
 				if r := translateRoute(node, http, match, port, vsName, serviceRegistry, proxyLabels, gatewayNames, configStore); r != nil {
-					out = append(out, *r)
+					out = append(out, AddExperimentRoutes(r, amExperiments)...)
 				}
 			}
 		}

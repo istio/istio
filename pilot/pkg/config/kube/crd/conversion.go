@@ -92,6 +92,9 @@ func ResourceName(s string) string {
 
 // ResourceGroup generates the k8s API group for each schema.
 func ResourceGroup(schema *model.ProtoSchema) string {
+	if schema.MessageName == model.Experiment.MessageName {
+		return schema.Group + model.AspenMeshAPIGroupDomain
+	}
 	return schema.Group + model.IstioAPIGroupDomain
 }
 

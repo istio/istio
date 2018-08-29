@@ -110,6 +110,15 @@
   version = "0.10.0"
 
 [[projects]]
+  branch = "apimachinery-1.10"
+  name = "github.com/aspenmesh/aspenmesh-crd"
+  packages = [
+    "pkg/apis/config",
+    "pkg/apis/config/v1alpha1"
+  ]
+  revision = "73bb27be2dd06c40320dcfa7e511329392605465"
+
+[[projects]]
   name = "github.com/aws/aws-sdk-go"
   packages = [
     "aws",
@@ -1603,6 +1612,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "8026248fa65b57ac76cf457d405f1773627fdc1fb1351037bc4add7e4d108c0b"
+  inputs-digest = "24aefef27a13e7964a7f8e90eaddb6915e78f122ddda2803c1a464323194ee59"
   solver-name = "gps-cdcl"
   solver-version = 1
