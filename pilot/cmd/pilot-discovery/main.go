@@ -137,12 +137,12 @@ func init() {
 		"Enable profiling via web interface host:port/debug/pprof")
 	discoveryCmd.PersistentFlags().BoolVar(&serverArgs.DiscoveryOptions.EnableCaching, "discoveryCache", true,
 		"Enable caching discovery service responses")
-	// TODO (rshriram): Need v1/v2 endpoints and option to selectively
-	// enable webhook for specific xDS config (cds/lds/etc).
-	discoveryCmd.PersistentFlags().StringVar(&serverArgs.DiscoveryOptions.WebhookEndpoint, "webhookEndpoint", "",
-		"Webhook API endpoint (supports http://sockethost, and unix:///absolute/path/to/socket")
 
 	// Deprecated flags.
+	var dummy string
+	discoveryCmd.PersistentFlags().StringVar(&dummy, "webhookEndpoint", "",
+		"Webhook API endpoint (supports http://sockethost, and unix:///absolute/path/to/socket")
+	discoveryCmd.PersistentFlags().MarkDeprecated("webhookEndpoint", "Stop using, it will be remove in a future release")
 	discoveryCmd.PersistentFlags().IntVar(&httpPort, "port", 8080, "Discovery service port")
 	discoveryCmd.PersistentFlags().MarkDeprecated("port", "Use --httpAddr instead")
 	discoveryCmd.PersistentFlags().IntVar(&monitoringPort, "monitoringPort", 9093,
