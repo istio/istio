@@ -1,4 +1,4 @@
-package register_agent
+package main
 
 import (
 	"fmt"

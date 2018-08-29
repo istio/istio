@@ -19,7 +19,7 @@ func NewConfig() *Config {
 		log.Errorf("get pwd error : %v", err)
 		panic(err)
 	}
-	configFile := path.Join(baseDir, "agent.yaml")
+	configFile := path.Join(baseDir, "config", "agent.yaml")
 
 	data, err := ioutil.ReadFile(configFile)
 	if err != nil {
