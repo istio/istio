@@ -144,9 +144,6 @@
 {{- end }}
           - --configDefaultNamespace={{ $.Release.Namespace }}
           - --trace_zipkin_url=http://zipkin:9411/api/v1/spans
-          - --certFile=/etc/certs/cert-chain.pem
-          - --keyFile=/etc/certs/key.pem
-          - --caCertFile=/etc/certs/root-cert.pem
         resources:
 {{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 10 }}
