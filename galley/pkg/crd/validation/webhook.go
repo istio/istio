@@ -95,7 +95,7 @@ type WebhookParameters struct {
 
 	Clientset clientset.Interface
 
-	// Enable running galley validation mode
+	// Enable galley validation mode
 	EnableValidation bool
 }
 

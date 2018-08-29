@@ -61,7 +61,7 @@ type Args struct {
 	// The introspection options to use
 	IntrospectionOptions *ctrlz.Options
 
-	// Enable running galley server mode
+	// Enable galley server mode
 	EnableServer bool
 
 	// AccessListFile is the YAML file that specifies ids of the allowed mTLS peers.
