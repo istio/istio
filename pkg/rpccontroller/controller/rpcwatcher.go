@@ -44,16 +44,19 @@ const (
 	rpcInterface = "interface"
 )
 
-type RpcQueryResponse struct {
+// RPCQueryResponse for query RPC interface
+type RPCQueryResponse struct {
 	Success bool                 `json:"success"`
 	Data    ServiceInterfaceData `json:"data"`
 }
 
+// ServiceInterfaceData for interface data
 type ServiceInterfaceData struct {
 	Providers []ServiceInterface `json:"providers"`
 	Protocol  string             `json:"protocal"`
 }
 
+// ServiceInterface struct
 type ServiceInterface struct {
 	Interface string `json:"interface"`
 	Version   string `json:"version"`
@@ -61,7 +64,7 @@ type ServiceInterface struct {
 	Serialize string `json:"serialize"`
 }
 
-type RpcWatcher struct {
+type rpcWatcher struct {
 	storage      map[string]ServiceInterfaceData
 	rcSyncChan   chan *v1.RpcService
 	rsDeleteChan chan *v1.RpcService
@@ -90,8 +93,8 @@ type RpcWatcher struct {
 	pod2RpcServiceMap map[string]string
 }
 
-func NewRpcWatcher(lister listers.RpcServiceLister, client kubernetes.Interface, config *Config, stopCh <-chan struct{}) *RpcWatcher {
-	rw := &RpcWatcher{
+func newRPCWatcher(lister listers.RpcServiceLister, client kubernetes.Interface, config *Config, stopCh <-chan struct{}) *rpcWatcher {
+	rw := &rpcWatcher{
 		storage:                make(map[string]ServiceInterfaceData, 0),
 		rcSyncChan:             make(chan *v1.RpcService, 10),
 		rsDeleteChan:           make(chan *v1.RpcService, 10),
@@ -119,33 +122,33 @@ func NewRpcWatcher(lister listers.RpcServiceLister, client kubernetes.Interface,
 	rw.podWatcher = podWatcher
 	podWatcher.RegisterHandler(rw)
 
-	etcdClient := NewEtcdClient(config)
-	rw.dnsInterface = NewCoreDNS(etcdClient)
+	etcdClient := newEtcdClient(config)
+	rw.dnsInterface = newCoreDNS(etcdClient)
 
 	return rw
 }
 
-func (rw *RpcWatcher) Run(stopCh <-chan struct{}) {
+func (rw *rpcWatcher) Run(stopCh <-chan struct{}) {
 	go rw.main(stopCh)
 }
 
-func (rw *RpcWatcher) Sync(rs *v1.RpcService) {
+func (rw *rpcWatcher) Sync(rs *v1.RpcService) {
 	rw.rcSyncChan <- rs
 }
 
-func (rw *RpcWatcher) Delete(rs *v1.RpcService) {
+func (rw *rpcWatcher) Delete(rs *v1.RpcService) {
 	rw.rsDeleteChan <- rs
 }
 
-func (rw *RpcWatcher) main(stopCh <-chan struct{}) {
+func (rw *rpcWatcher) main(stopCh <-chan struct{}) {
 	t := time.NewTimer(10 * time.Second)
 
 	for {
 		select {
 		case rs := <-rw.rcSyncChan:
-			rw.syncRpcServiceHandler(rs)
+			rw.syncRPCServiceHandler(rs)
 		case rs := <-rw.rsDeleteChan:
-			rw.deleteRpcServiceHandler(rs)
+			rw.deleteRPCServiceHandler(rs)
 		case <-t.C:
 			rw.timerHandler()
 		case seviceUpdate := <-rw.serviceUpdateChan:
@@ -159,19 +162,19 @@ func (rw *RpcWatcher) main(stopCh <-chan struct{}) {
 	}
 }
 
-func (rw *RpcWatcher) rpcServiceName(rs *v1.RpcService) string {
+func (rw *rpcWatcher) rpcServiceName(rs *v1.RpcService) string {
 	return fmt.Sprintf("%s/%s", rs.Namespace, rs.Name)
 }
 
-func (rw *RpcWatcher) serviceName(s *api.Service) string {
+func (rw *rpcWatcher) serviceName(s *api.Service) string {
 	return fmt.Sprintf("%s/%s", s.Namespace, s.Name)
 }
 
-func (rw *RpcWatcher) podName(s *api.Pod) string {
+func (rw *rpcWatcher) podName(s *api.Pod) string {
 	return fmt.Sprintf("%s/%s", s.Namespace, s.GenerateName)
 }
 
-func (rw *RpcWatcher) deleteRpcServiceHandler(rs *v1.RpcService) {
+func (rw *rpcWatcher) deleteRPCServiceHandler(rs *v1.RpcService) {
 	key := rw.rpcServiceName(rs)
 
 	domains, exist := rw.rpcInterfacesMap[key]
@@ -187,28 +190,28 @@ func (rw *RpcWatcher) deleteRpcServiceHandler(rs *v1.RpcService) {
 	rw.rpcInterfacesMap[key] = nil
 }
 
-func (rw *RpcWatcher) timerHandler() {
+func (rw *rpcWatcher) timerHandler() {
 	if len(rw.tryLaterKeys) == 0 {
 		return
 	}
 	keys := make([]string, len(rw.tryLaterKeys))
-	for key, _ := range rw.tryLaterKeys {
+	for key := range rw.tryLaterKeys {
 		keys = append(keys, key)
 	}
 
 	rw.tryLaterKeys = make(map[string]bool, 0)
 
 	for _, key := range keys {
-		rs := rw.getRpcServiceByName(key)
+		rs := rw.getRPCServiceByName(key)
 		if rs == nil {
 			//rw.tryLaterKeys[key] = true
 			continue
 		}
-		rw.queryRpcInterface(key, rs)
+		rw.queryRPCInterface(key, rs)
 	}
 }
 
-func (rw *RpcWatcher) queryRpcInterface(key string, rs *v1.RpcService) {
+func (rw *rpcWatcher) queryRPCInterface(key string, rs *v1.RpcService) {
 	selector := rs.Spec.Selector
 
 	// find service by selector
@@ -227,7 +230,7 @@ func (rw *RpcWatcher) queryRpcInterface(key string, rs *v1.RpcService) {
 
 	if service.Spec.ClusterIP == "None" {
 		log.Errorf("service %s/%s has no clusterIP", service.Namespace, service.Name)
-		rw.deleteRpcServiceHandler(rs)
+		rw.deleteRPCServiceHandler(rs)
 		return
 	}
 
@@ -273,7 +276,7 @@ func (rw *RpcWatcher) queryRpcInterface(key string, rs *v1.RpcService) {
 
 		log.Infof("url: %s, resp: %s", url, string(body))
 
-		var rpcResponse RpcQueryResponse
+		var rpcResponse RPCQueryResponse
 		err = json.Unmarshal(body, &rpcResponse)
 		if err != nil {
 			log.Errorf("json Unmarshal RpcResponse error: %v", err)
@@ -310,7 +313,7 @@ func (rw *RpcWatcher) queryRpcInterface(key string, rs *v1.RpcService) {
 	}
 }
 
-func (rw *RpcWatcher) getRpcServiceByName(key string) *v1.RpcService {
+func (rw *rpcWatcher) getRPCServiceByName(key string) *v1.RpcService {
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
 		runtime.HandleError(fmt.Errorf("invalid resource key: %s", key))
@@ -330,19 +333,19 @@ func (rw *RpcWatcher) getRpcServiceByName(key string) *v1.RpcService {
 	return rs
 }
 
-func (rw *RpcWatcher) syncRpcServiceHandler(rs *v1.RpcService) {
+func (rw *rpcWatcher) syncRPCServiceHandler(rs *v1.RpcService) {
 	key := rw.rpcServiceName(rs)
 	log.Infof("rpc service:%s", key)
-	rw.queryRpcInterface(key, rs)
+	rw.queryRPCInterface(key, rs)
 }
 
-func (rw *RpcWatcher) OnServiceUpdate(serviceUpdate *watchers.ServiceUpdate) {
+func (rw *rpcWatcher) OnServiceUpdate(serviceUpdate *watchers.ServiceUpdate) {
 	if serviceUpdate.Op != watchers.SYNCED {
 		rw.serviceUpdateChan <- serviceUpdate
 	}
 }
 
-func (rw *RpcWatcher) serviceHandler(serviceUpdate *watchers.ServiceUpdate) {
+func (rw *rpcWatcher) serviceHandler(serviceUpdate *watchers.ServiceUpdate) {
 	service := serviceUpdate.Service
 	op := serviceUpdate.Op
 
@@ -352,7 +355,7 @@ func (rw *RpcWatcher) serviceHandler(serviceUpdate *watchers.ServiceUpdate) {
 		log.Debugf("service %s/%s not found rpc service", service.Namespace, service.Name)
 		return
 	}
-	rs := rw.getRpcServiceByName(key)
+	rs := rw.getRPCServiceByName(key)
 
 	if rs == nil {
 		log.Debugf("rpcservice %s not found", key)
@@ -361,15 +364,15 @@ func (rw *RpcWatcher) serviceHandler(serviceUpdate *watchers.ServiceUpdate) {
 
 	switch op {
 	case watchers.ADD:
-		rw.syncRpcServiceHandler(rs)
+		rw.syncRPCServiceHandler(rs)
 	case watchers.UPDATE:
-		rw.syncRpcServiceHandler(rs)
+		rw.syncRPCServiceHandler(rs)
 	case watchers.REMOVE:
-		rw.deleteRpcServiceHandler(rs)
+		rw.deleteRPCServiceHandler(rs)
 	}
 }
 
-func (rw *RpcWatcher) podHandler(podUpdate *watchers.PodUpdate) {
+func (rw *rpcWatcher) podHandler(podUpdate *watchers.PodUpdate) {
 	pod := podUpdate.Pod
 	op := podUpdate.Op
 
@@ -381,7 +384,7 @@ func (rw *RpcWatcher) podHandler(podUpdate *watchers.PodUpdate) {
 		return
 	}
 
-	rs := rw.getRpcServiceByName(key)
+	rs := rw.getRPCServiceByName(key)
 	if rs == nil {
 		log.Debugf("rpcservice %s not found", key)
 		return
@@ -389,15 +392,15 @@ func (rw *RpcWatcher) podHandler(podUpdate *watchers.PodUpdate) {
 
 	switch op {
 	case watchers.ADD:
-		rw.syncRpcServiceHandler(rs)
+		rw.syncRPCServiceHandler(rs)
 	case watchers.UPDATE:
-		rw.syncRpcServiceHandler(rs)
+		rw.syncRPCServiceHandler(rs)
 	case watchers.REMOVE:
-		rw.syncRpcServiceHandler(rs)
+		rw.syncRPCServiceHandler(rs)
 	}
 }
 
-func (rw *RpcWatcher) OnPodUpdate(podUpdate *watchers.PodUpdate) {
+func (rw *rpcWatcher) OnPodUpdate(podUpdate *watchers.PodUpdate) {
 	if podUpdate.Op != watchers.SYNCED {
 		rw.podUpdateChan <- podUpdate
 	}

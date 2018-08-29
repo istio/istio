@@ -29,11 +29,13 @@ import (
 	cache "k8s.io/client-go/tools/cache"
 )
 
+// PodUpdate struct
 type PodUpdate struct {
 	Pod *api.Pod
 	Op  Operation
 }
 
+// PodWatcher struct
 type PodWatcher struct {
 	podController cache.Controller
 	broadcaster   *Broadcaster
@@ -41,6 +43,7 @@ type PodWatcher struct {
 	podLister     cache.Indexer
 }
 
+// PodUpdatesHandler interface
 type PodUpdatesHandler interface {
 	OnPodUpdate(podUpdate *PodUpdate)
 }
@@ -71,12 +74,14 @@ func (pw *PodWatcher) updateEventHandler(oldObj, npwObj interface{}) {
 	}
 }
 
+// RegisterHandler for register pod update interface
 func (pw *PodWatcher) RegisterHandler(handler PodUpdatesHandler) {
 	pw.broadcaster.Add(ListenerFunc(func(instance interface{}) {
 		handler.OnPodUpdate(instance.(*PodUpdate))
 	}))
 }
 
+// ListBySelector for list pods with labels
 func (pw *PodWatcher) ListBySelector(set map[string]string) (ret []*api.Pod, err error) {
 	selector := labels.SelectorFromSet(set)
 	err = cache.ListAll(pw.podLister, selector, func(m interface{}) {
@@ -85,11 +90,12 @@ func (pw *PodWatcher) ListBySelector(set map[string]string) (ret []*api.Pod, err
 	return ret, err
 }
 
+// HasSynced return true if podController.HasSynced()
 func (pw *PodWatcher) HasSynced() bool {
 	return pw.podController.HasSynced()
 }
 
-// StartPodWatcher: start watching updates for pods from Kuberentes API server
+// StartPodWatcher start watching updates for pods from Kuberentes API server
 func StartPodWatcher(clientset kubernetes.Interface, resyncPeriod time.Duration, stopCh <-chan struct{}) (*PodWatcher, error) {
 	pw := PodWatcher{}
 

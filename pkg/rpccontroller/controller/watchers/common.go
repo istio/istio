@@ -21,8 +21,10 @@ import (
 	"sync"
 )
 
+// Operation type for K8S resource
 type Operation int
 
+// Operation enum
 const (
 	ADD Operation = iota
 	UPDATE
@@ -31,15 +33,19 @@ const (
 )
 
 var (
+	// OperationString array for Operation type
 	OperationString = []string{"ADD", "UPDATE", "REMOVE", "SYNCED"}
 )
 
+// Listener interface for K8S resource
 type Listener interface {
 	OnUpdate(instance interface{})
 }
 
+// ListenerFunc is callback of listener
 type ListenerFunc func(instance interface{})
 
+// OnUpdate callback
 func (f ListenerFunc) OnUpdate(instance interface{}) {
 	f(instance)
 }
@@ -70,15 +76,4 @@ func (b *Broadcaster) Notify(instance interface{}) {
 	for _, listener := range listeners {
 		go listener.OnUpdate(instance)
 	}
-}
-
-func IsMapContain(map1, map2 map[string]string) bool {
-	for k, v := range map1 {
-		v1, exist := map2[k]
-		if !exist || v1 != v {
-			return false
-		}
-	}
-
-	return true
 }

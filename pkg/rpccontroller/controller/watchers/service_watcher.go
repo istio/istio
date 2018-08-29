@@ -29,17 +29,20 @@ import (
 	cache "k8s.io/client-go/tools/cache"
 )
 
+// ServiceUpdate struct
 type ServiceUpdate struct {
 	Service *api.Service
 	Op      Operation
 }
 
+// ServiceWatcher struct
 type ServiceWatcher struct {
 	serviceController cache.Controller
 	serviceLister     cache.Indexer
 	broadcaster       *Broadcaster
 }
 
+// ServiceUpdatesHandler interface
 type ServiceUpdatesHandler interface {
 	OnServiceUpdate(serviceUpdate *ServiceUpdate)
 }
@@ -70,21 +73,14 @@ func (svcw *ServiceWatcher) updateEventHandler(oldObj, newObj interface{}) {
 	}
 }
 
+// RegisterHandler for register service update interface
 func (svcw *ServiceWatcher) RegisterHandler(handler ServiceUpdatesHandler) {
 	svcw.broadcaster.Add(ListenerFunc(func(instance interface{}) {
 		handler.OnServiceUpdate(instance.(*ServiceUpdate))
 	}))
 }
 
-func (svcw *ServiceWatcher) List() []*api.Service {
-	objList := svcw.serviceLister.List()
-	svcInstances := make([]*api.Service, len(objList))
-	for i, ins := range objList {
-		svcInstances[i] = ins.(*api.Service)
-	}
-	return svcInstances
-}
-
+// ListBySelector for list services with labels
 func (svcw *ServiceWatcher) ListBySelector(set map[string]string) (ret []*api.Service, err error) {
 	selector := labels.SelectorFromSet(set)
 	err = cache.ListAll(svcw.serviceLister, selector, func(m interface{}) {
@@ -93,11 +89,12 @@ func (svcw *ServiceWatcher) ListBySelector(set map[string]string) (ret []*api.Se
 	return ret, err
 }
 
+// HasSynced return true if serviceController.HasSynced()
 func (svcw *ServiceWatcher) HasSynced() bool {
 	return svcw.serviceController.HasSynced()
 }
 
-// StartServiceWatcher: start watching updates for services from Kuberentes API server
+// StartServiceWatcher start watching updates for services from Kuberentes API server
 func StartServiceWatcher(clientset kubernetes.Interface, resyncPeriod time.Duration, stopCh <-chan struct{}) (*ServiceWatcher, error) {
 	svcw := ServiceWatcher{}
 

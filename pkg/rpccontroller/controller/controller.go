@@ -64,9 +64,7 @@ type Controller struct {
 	// Kubernetes API.
 	recorder record.EventRecorder
 
-	rpcWatcher *RpcWatcher
-
-	store Store
+	rpcWatcher *rpcWatcher
 
 	stopCh <-chan struct{}
 }
@@ -110,12 +108,7 @@ func NewController(
 		DeleteFunc: controller.deleteRPCService,
 	})
 
-	controller.rpcWatcher = NewRpcWatcher(controller.rpcServiceLister, controller.kubeclientset, config, stopCh)
-	controller.store = NewEtcdStore(config)
-	if controller.store == nil {
-		log.Errora("NewController fail")
-		return nil
-	}
+	controller.rpcWatcher = newRPCWatcher(controller.rpcServiceLister, controller.kubeclientset, config, stopCh)
 
 	return controller
 }

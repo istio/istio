@@ -28,26 +28,28 @@ import (
 )
 
 const (
-	skyDnsPrefix = "/skydns"
+	skyDNSPrefix = "/skydns"
 	defaultTTL   = 3600
 )
 
+// HostData to store
 type HostData struct {
 	Host string `json:"host"`
 	TTL  int    `json:"ttl"`
 }
 
+// DNSInterface for DNS
 type DNSInterface interface {
-	Update(domain, clusterIp, suffix string) error
+	Update(domain, ip, suffix string) error
 	Delete(domain, suffix string) error
 }
 
-type CoreDNS struct {
+type coreDNS struct {
 	Client *clientv3.Client
 }
 
-func NewCoreDNS(client *clientv3.Client) *CoreDNS {
-	return &CoreDNS{
+func newCoreDNS(client *clientv3.Client) *coreDNS {
+	return &coreDNS{
 		Client: client,
 	}
 }
@@ -55,19 +57,20 @@ func NewCoreDNS(client *clientv3.Client) *CoreDNS {
 func convertDomainToKey(domain string) string {
 	keys := strings.Split(domain, ".")
 
-	key := skyDnsPrefix
-	for i := len(keys) - 1; i >= 0; i -= 1 {
+	key := skyDNSPrefix
+	for i := len(keys) - 1; i >= 0; i -- {
 		key += "/" + keys[i]
 	}
 
 	return strings.ToLower(key)
 }
 
-func (cd *CoreDNS) Update(domain, clusterIp, suffix string) error {
+// Update
+func (cd *coreDNS) Update(domain, ip, suffix string) error {
 	key := convertDomainToKey(domain + suffix)
 
 	hostData := HostData{
-		Host: clusterIp,
+		Host: ip,
 		TTL:  defaultTTL,
 	}
 	data, _ := json.Marshal(&hostData)
@@ -81,7 +84,8 @@ func (cd *CoreDNS) Update(domain, clusterIp, suffix string) error {
 	return err
 }
 
-func (cd *CoreDNS) Delete(domain, suffix string) error {
+// Delete
+func (cd *coreDNS) Delete(domain, suffix string) error {
 	key := convertDomainToKey(domain + suffix)
 	log.Infof("delete %s", key)
 
