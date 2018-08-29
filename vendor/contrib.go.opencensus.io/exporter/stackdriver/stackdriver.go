@@ -56,6 +56,7 @@ import (
 	"time"
 
 	traceapi "cloud.google.com/go/trace/apiv2"
+	"contrib.go.opencensus.io/exporter/stackdriver/monitoredresource"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/trace"
 	"golang.org/x/oauth2/google"
@@ -116,8 +117,31 @@ type Options struct {
 	// with type global and no resource labels will be used. If you explicitly
 	// set this field, you may also want to set custom DefaultMonitoringLabels.
 	//
-	// Optional, but encouraged.
+	// Deprecated: Use MonitoredResource instead.
 	Resource *monitoredrespb.MonitoredResource
+
+	// MonitoredResource sets the MonitoredResource against which all views will be
+	// recorded by this exporter.
+	//
+	// All Stackdriver metrics created by this exporter are custom metrics,
+	// so only a limited number of MonitoredResource types are supported, see:
+	// https://cloud.google.com/monitoring/custom-metrics/creating-metrics#which-resource
+	//
+	// An important consideration when setting the MonitoredResource here is that
+	// Stackdriver Monitoring only allows a single writer per
+	// TimeSeries, see: https://cloud.google.com/monitoring/api/v3/metrics-details#intro-time-series
+	// A TimeSeries is uniquely defined by the metric type name
+	// (constructed from the view name and the MetricPrefix), the MonitoredResource field,
+	// and the set of label key/value pairs (in OpenCensus terminology: tag).
+	//
+	// If no custom MonitoredResource is set AND if Resource is also not set then
+	// a default MonitoredResource with type global and no resource labels will be used.
+	// If you explicitly set this field, you may also want to set custom DefaultMonitoringLabels.
+	//
+	// This field replaces Resource field. If this is set then it will override the
+	// Resource field.
+	// Optional, but encouraged.
+	MonitoredResource monitoredresource.Interface
 
 	// MetricPrefix overrides the prefix of a Stackdriver metric type names.
 	// Optional. If unset defaults to "OpenCensus".
@@ -144,6 +168,15 @@ type Options struct {
 	// default "opencensus_task" label. You should only do this if you know that
 	// the Resource you set uniquely identifies this Go process.
 	DefaultMonitoringLabels *Labels
+
+	// Context allows users to provide a custom context for API calls.
+	//
+	// This context will be used several times: first, to create Stackdriver
+	// trace and metric clients, and then every time a new batch of traces or
+	// stats needs to be uploaded.
+	//
+	// If unset, context.Background() will be used.
+	Context context.Context
 }
 
 // Exporter is a stats.Exporter and trace.Exporter
@@ -156,8 +189,11 @@ type Exporter struct {
 // NewExporter creates a new Exporter that implements both stats.Exporter and
 // trace.Exporter.
 func NewExporter(o Options) (*Exporter, error) {
+	if o.Context == nil {
+		o.Context = context.Background()
+	}
 	if o.ProjectID == "" {
-		creds, err := google.FindDefaultCredentials(context.Background(), traceapi.DefaultAuthScopes()...)
+		creds, err := google.FindDefaultCredentials(o.Context, traceapi.DefaultAuthScopes()...)
 		if err != nil {
 			return nil, fmt.Errorf("stackdriver: %v", err)
 		}
@@ -166,6 +202,11 @@ func NewExporter(o Options) (*Exporter, error) {
 		}
 		o.ProjectID = creds.ProjectID
 	}
+
+	if o.MonitoredResource != nil {
+		o.Resource = convertMonitoredResourceToPB(o.MonitoredResource)
+	}
+
 	se, err := newStatsExporter(o, true)
 	if err != nil {
 		return nil, err
@@ -221,4 +262,17 @@ func (o Options) handleError(err error) {
 		return
 	}
 	log.Printf("Failed to export to Stackdriver: %v", err)
+}
+
+// convertMonitoredResourceToPB converts MonitoredResource data in to
+// protocol buffer.
+func convertMonitoredResourceToPB(mr monitoredresource.Interface) *monitoredrespb.MonitoredResource {
+	mrpb := new(monitoredrespb.MonitoredResource)
+	var labels map[string]string
+	mrpb.Type, labels = mr.MonitoredResource()
+	mrpb.Labels = make(map[string]string)
+	for k, v := range labels {
+		mrpb.Labels[k] = v
+	}
+	return mrpb
 }

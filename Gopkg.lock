@@ -31,12 +31,15 @@
   revision = "6bade2a0677a5cd76f937ef4cd2e426f55742ad1"
 
 [[projects]]
-  digest = "1:31858c4ee1ed344edf8b5b0507e3e9bc4e39cfe61e132ca064eaa82ba053a663"
+  digest = "1:631d6f34f86c4e4cb42a37b611f25bfb4f90c5f443439eb73a9aa4ee7bc557a3"
   name = "contrib.go.opencensus.io/exporter/stackdriver"
-  packages = ["."]
+  packages = [
+    ".",
+    "monitoredresource",
+  ]
   pruneopts = "NUT"
-  revision = "37aa2801fbf0205003e15636096ebf0373510288"
-  version = "v0.5.0"
+  revision = "2b93072101d466aa4120b3c23c2e1b08af01541c"
+  version = "v0.6.0"
 
 [[projects]]
   digest = "1:c1cdf31e8b0454e518f59226b222b48aec62a884015304e5b82a704bef056cd3"
@@ -1601,7 +1604,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:65cd9734171802eec414a9963b35a58880f53443b93c562174937ae9e8fa4a1a"
+  digest = "1:bc6824880b54dfb2b1e7f7d8a278d458992f5b52fca06f4d8486afdecad31ea6"
   name = "istio.io/api"
   packages = [
     "authentication/v1alpha1",
@@ -1617,7 +1620,7 @@
     "rbac/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "2198cccdc25d649859bc39912e25f114a17fa358"
+  revision = "d96294810379bc28083e88a2633a1f52736498e0"
 
 [[projects]]
   digest = "1:1e22c9d898674522a6155619142b4691dd225441168faa2b5a4eb88ee327a243"
