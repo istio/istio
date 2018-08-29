@@ -136,6 +136,19 @@ data:
               fieldPath: metadata.name
         - name: ISTIO_META_INTERCEPTION_MODE
           value: {{ "[[ or (index .ObjectMeta.Annotations \"sidecar.istio.io/interceptionMode\") .ProxyConfig.InterceptionMode.String ]]" }}
+        {{ "[[ range $k,$v := .ObjectMeta.Annotations ]]" }}
+        {{ "[[ if index $k \".istio.io\" ]]"}}
+       `{{$ke := $k | split "/"}}{{$v._1}}`
+        - name: ISTIO_META_A_{{ "[[ $ke ]]" }}
+          value: {{ "[[ $v ]]" }}
+        {{ "[[ end ]]" }}
+        {{ "[[ end ]]" }}
+        {{ "[[ range $k,$v := .ObjectMeta.Labels ]]" }}
+        {{ "[[ if index $k \".istio.io\" ]]"}}
+        - name: ISTIO_META_L_{{ "[[ $k ]]" }}
+          value: {{ "[[ $v ]]" }}
+        {{ "[[ end ]]" }}
+        {{ "[[ end ]]" }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
         securityContext:
           {{ if .Values.global.proxy.privileged }}

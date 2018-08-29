@@ -1,4 +1,3 @@
-{{- if .Values.pilot.enabled }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -110,4 +109,6 @@ data:
       # Address where istio Pilot service is running
       discoveryAddress: istio-pilot.{{ .Release.Namespace }}:15007
     {{- end }}
-{{- end }}
+
+  config:
+{{ toYaml .Values | indent 4 }}
