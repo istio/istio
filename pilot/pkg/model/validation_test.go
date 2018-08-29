@@ -22,7 +22,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -2156,6 +2156,72 @@ func TestValidateConnectionPool(t *testing.T) {
 	for _, c := range cases {
 		if got := validateConnectionPool(&c.in); (got == nil) != c.valid {
 			t.Errorf("ValidateConnectionSettings failed on %v: got valid=%v but wanted valid=%v: %v",
+				c.name, got == nil, c.valid, got)
+		}
+	}
+}
+
+func TestValidateLoadBalancer(t *testing.T) {
+	duration := time.Duration(time.Hour)
+	cases := []struct {
+		name  string
+		in    networking.LoadBalancerSettings
+		valid bool
+	}{
+		{name: "valid load balancer with simple load balancing", in: networking.LoadBalancerSettings{
+			LbPolicy: &networking.LoadBalancerSettings_Simple{
+				Simple: networking.LoadBalancerSettings_ROUND_ROBIN,
+			},
+		},
+			valid: true},
+
+		{name: "valid load balancer with consistentHash load balancing", in: networking.LoadBalancerSettings{
+			LbPolicy: &networking.LoadBalancerSettings_ConsistentHash{
+				ConsistentHash: &networking.LoadBalancerSettings_ConsistentHashLB{
+					MinimumRingSize: 1024,
+					HashKey: &networking.LoadBalancerSettings_ConsistentHashLB_HttpCookie{
+						HttpCookie: &networking.LoadBalancerSettings_ConsistentHashLB_HTTPCookie{
+							Name: "test",
+							Ttl:  &duration,
+						},
+					},
+				},
+			},
+		},
+			valid: true},
+
+		{name: "invalid load balancer with consistentHash load balancing, missing ttl", in: networking.LoadBalancerSettings{
+			LbPolicy: &networking.LoadBalancerSettings_ConsistentHash{
+				ConsistentHash: &networking.LoadBalancerSettings_ConsistentHashLB{
+					MinimumRingSize: 1024,
+					HashKey: &networking.LoadBalancerSettings_ConsistentHashLB_HttpCookie{
+						HttpCookie: &networking.LoadBalancerSettings_ConsistentHashLB_HTTPCookie{
+							Name: "test",
+						},
+					},
+				},
+			},
+		},
+			valid: false},
+
+		{name: "invalid load balancer with consistentHash load balancing, missing name", in: networking.LoadBalancerSettings{
+			LbPolicy: &networking.LoadBalancerSettings_ConsistentHash{
+				ConsistentHash: &networking.LoadBalancerSettings_ConsistentHashLB{
+					MinimumRingSize: 1024,
+					HashKey: &networking.LoadBalancerSettings_ConsistentHashLB_HttpCookie{
+						HttpCookie: &networking.LoadBalancerSettings_ConsistentHashLB_HTTPCookie{
+							Ttl: &duration,
+						},
+					},
+				},
+			},
+		},
+			valid: false},
+	}
+
+	for _, c := range cases {
+		if got := validateLoadBalancer(&c.in); (got == nil) != c.valid {
+			t.Errorf("validateLoadBalancer failed on %v: got valid=%v but wanted valid=%v: %v",
 				c.name, got == nil, c.valid, got)
 		}
 	}
