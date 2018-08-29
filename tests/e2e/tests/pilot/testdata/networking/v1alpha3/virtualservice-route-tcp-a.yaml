@@ -19,7 +19,7 @@ spec:
   tls:
   - match:
     - sni_hosts:
-      - "*"
+      - c
       port: 9090
       source_labels:
         app: a
@@ -32,7 +32,7 @@ spec:
       weight: 100
   - match:
     - sni_hosts:
-      - "*"
+      - c
       port: 9090
     route:
     - destination:
