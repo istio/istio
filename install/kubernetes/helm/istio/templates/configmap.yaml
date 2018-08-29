@@ -110,5 +110,5 @@ data:
       discoveryAddress: istio-pilot.{{ .Release.Namespace }}:15007
     {{- end }}
 
-  config:
+  values.yaml: |-
 {{ toYaml .Values | indent 4 }}
