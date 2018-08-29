@@ -3,11 +3,12 @@ package hsf
 import (
 	"encoding/json"
 	"fmt"
-	log "github.com/cihub/seelog"
-	"github.com/gin-gonic/gin"
 	"io/ioutil"
 	"net/http"
 	"strings"
+
+	"github.com/gin-gonic/gin"
+	"istio.io/istio/pkg/log"
 )
 
 type SimpleRpcInfoExporter struct {
