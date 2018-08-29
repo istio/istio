@@ -259,8 +259,8 @@ if [[ "${DO_DOCKERHUB}" == "true" || "${DO_GCRHUB}" == "true" ]]; then
       exit 1
     fi
     DOCKER_OUT=$(docker load -i "${TAR_PATH}")
-    DOCKER_SRC=$(echo $DOCKER_OUT | cut -f 2 -d : | xargs dirname)
-    echo DOCKER_SRC is $DOCKER_SRC
+    DOCKER_SRC=$(echo "$DOCKER_OUT" | cut -f 2 -d : | xargs dirname)
+    echo DOCKER_SRC is "$DOCKER_SRC"
 
     if [[ "${DO_DOCKERHUB}" == "true" ]]; then
       docker tag "${DOCKER_SRC}/${IMAGE_NAME}:${VERSION}" "${DOCKER_DEST}/${IMAGE_NAME}:${VERSION}"
