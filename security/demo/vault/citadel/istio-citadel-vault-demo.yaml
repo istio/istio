@@ -1,0 +1,72 @@
+################################
+# Deploy Citadel as a stand alone service in a cluster
+################################
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: istio-citadel-default
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["create", "get", "watch", "list", "update", "delete"]
+- apiGroups: [""]
+  resources: ["serviceaccounts"]
+  verbs: ["get", "watch", "list"]
+- apiGroups: [""]
+  resources: ["services"]
+  verbs: ["get", "watch", "list"]
+---
+# Grant permissions to Citadel.
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: istio-citadel-role-binding-default
+subjects:
+- kind: ServiceAccount
+  name: vault-citadel-sa
+  namespace: default
+roleRef:
+  kind: ClusterRole
+  name: istio-citadel-default
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: v1
+kind: Deployment
+apiVersion: extensions/v1beta1
+metadata:
+  name: istio-standalone-citadel
+  namespace:  default
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        istio: standalone-citadel
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      serviceAccountName: vault-citadel-sa
+      containers:
+      - name: citadel
+        image: gcr.io/endpoints-authz-test1/citadel-vault-test-1:leitang
+        imagePullPolicy: "Always"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  # {service name}.{namespace}.svc.cluster.local will be automatically added to kubernetes DNS,
+  # so Node Agent can connect to Citadel grpc service.
+  name: istio-standalone-citadel
+  namespace: default
+  annotations:
+    cloud.google.com/load-balancer-type: "internal"
+  labels:
+    istio: standalone-citadel
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 8060
+    protocol: TCP
+  selector:
+    istio: standalone-citadel

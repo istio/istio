@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: citadel-vault-test
+spec:
+  serviceAccountName: vault-citadel-sa
+  containers:
+  - name: citadel-vault-test
+    image: gcr.io/endpoints-authz-test1/citadel-vault-test-2:leitang 
+    imagePullPolicy: Always
+    command: [ "/usr/local/bin/istio_ca", "--workload-to-vault"]
+    args: [ "--csr-to-sign", "/usr/local/bin/workload-2.csr",
+            "--reviewer-token-file", "/usr/local/bin/reviewer-token.jwt",
+            "--vault-ip", "35.233.175.217",
+            "--vault-port", "8200"
+    ]
+  restartPolicy: Never

@@ -1,0 +1,14 @@
+# Commands that may be used in the demo
+
+gcloud container clusters get-credentials vault-server --zone us-west1-b --project endpoints-authz-test1
+kubectl get pods
+kubectl delete -f ./citadel/istio-citadel-vault-demo.yaml
+kubectl delete pods node-agent-vault-test 
+kubectl get pods
+kubectl create -f ./citadel/istio-citadel-vault-demo.yaml
+kubectl create -f ./client/node-agent-pod-1.yaml
+kubectl get pods
+kubectl logs node-agent-vault-test
+# Save the certificate output in the log to cert.pem
+gvim cert.pem
+openssl x509 -in cert.pem -text -noout
