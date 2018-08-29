@@ -653,6 +653,17 @@ message DestinationWeight {
   // If there is only one destination in a rule, the weight value is assumed to
   // be 100.
   int32 weight = 2;
+
+  // Additional HTTP headers to add before forwarding a request to the
+  // destination service.
+  map<string, string> append_headers = 3;
+
+  // Http headers to remove before returning the response to the caller
+  repeated string remove_response_headers = 4;
+
+  // Additional HTTP headers to add before returning a response to the
+  // caller.
+  map<string, string> append_response_headers = 5;
 }
 
 // L4 connection match attributes. Note that L4 connection matching support

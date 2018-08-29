@@ -1483,6 +1483,15 @@ func validateDestinationWeights(weights []*networking.DestinationWeight) (errs e
 		if weight.Destination == nil {
 			errs = multierror.Append(errs, errors.New("destination is required"))
 		}
+		for name := range weight.AppendHeaders {
+			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+		}
+		for _, name := range weight.RemoveResponseHeaders {
+			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+		}
+		for name := range weight.AppendResponseHeaders {
+			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+		}
 		errs = appendErrors(errs, validateDestination(weight.Destination))
 		errs = appendErrors(errs, ValidatePercent(weight.Weight))
 		totalWeight += weight.Weight

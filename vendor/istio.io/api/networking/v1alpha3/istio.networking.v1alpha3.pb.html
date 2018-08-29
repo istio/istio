@@ -671,6 +671,32 @@ be 100.</p>
 
 </td>
 </tr>
+<tr id="DestinationWeight-append_headers">
+<td><code>appendHeaders</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+<p>Additional HTTP headers to add before forwarding a request to the
+destination service.</p>
+
+</td>
+</tr>
+<tr id="DestinationWeight-remove_response_headers">
+<td><code>removeResponseHeaders</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>Http headers to remove before returning the response to the caller</p>
+
+</td>
+</tr>
+<tr id="DestinationWeight-append_response_headers">
+<td><code>appendResponseHeaders</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+<p>Additional HTTP headers to add before returning a response to the
+caller.</p>
+
+</td>
+</tr>
 </tbody>
 </table>
 </section>
