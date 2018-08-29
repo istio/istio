@@ -201,6 +201,11 @@ func (s *Server) StreamAggregatedResources(stream mcp.AggregatedMeshConfigServic
 	}
 }
 
+// IncrementalAggregatedResources provides the ability to incrementally update the resources on the client.
+func (s *Server) IncrementalAggregatedResources(mcp.AggregatedMeshConfigService_IncrementalAggregatedResourcesServer) error {
+	return nil
+}
+
 // String implements Stringer.String.
 func (con *connection) String() string {
 	return fmt.Sprintf("{addr=%v id=%v}", con.peerAddr, con.id)

@@ -16,6 +16,8 @@
 		Client
 		MeshConfigRequest
 		MeshConfigResponse
+		IncrementalMeshConfigRequest
+		IncrementalMeshConfigResponse
 		Metadata
 */
 package v1alpha1

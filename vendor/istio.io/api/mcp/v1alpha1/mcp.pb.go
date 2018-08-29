@@ -6,7 +6,7 @@ package v1alpha1
 import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import google_protobuf2 "github.com/gogo/protobuf/types"
+import google_protobuf3 "github.com/gogo/protobuf/types"
 import google_rpc "github.com/gogo/googleapis/google/rpc"
 import _ "github.com/gogo/protobuf/gogoproto"
 
@@ -29,7 +29,7 @@ type Client struct {
 	// An opaque identifier for the MCP client.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	// Opaque metadata extending the client identifier.
-	Metadata *google_protobuf2.Struct `protobuf:"bytes,2,opt,name=metadata" json:"metadata,omitempty"`
+	Metadata *google_protobuf3.Struct `protobuf:"bytes,2,opt,name=metadata" json:"metadata,omitempty"`
 }
 
 func (m *Client) Reset()                    { *m = Client{} }
@@ -44,7 +44,7 @@ func (m *Client) GetId() string {
 	return ""
 }
 
-func (m *Client) GetMetadata() *google_protobuf2.Struct {
+func (m *Client) GetMetadata() *google_protobuf3.Struct {
 	if m != nil {
 		return m.Metadata
 	}
@@ -178,10 +178,144 @@ func (m *MeshConfigResponse) GetNonce() string {
 	return ""
 }
 
+// IncrementalMeshConfigRequest are be sent in 2 situations:
+//
+//   1. Initial message in a MCP bidirectional gRPC stream.
+//
+//   2. As a ACK or NACK response to a previous IncrementalMeshConfigResponse.
+//      In this case the response_nonce is set to the nonce value in the Response.
+//      ACK or NACK is determined by the absence or presence of error_detail.
+type IncrementalMeshConfigRequest struct {
+	// The client making the request.
+	Client *Client `protobuf:"bytes,1,opt,name=client" json:"client,omitempty"`
+	// Type of the resource that is being requested, e.g.
+	// "type.googleapis.com/istio.io.networking.v1alpha3.VirtualService".
+	TypeUrl string `protobuf:"bytes,2,opt,name=type_url,json=typeUrl,proto3" json:"type_url,omitempty"`
+	// When the IncrementalMeshConfigRequest is the first in a stream,
+	// the initial_resource_versions must be populated. Otherwise,
+	// initial_resource_versions must be omitted. The keys are the
+	// resources names of the MCP resources known to the MCP client. The
+	// values in the map are the associated resource level version info.
+	InitialResourceVersions map[string]string `protobuf:"bytes,3,rep,name=initial_resource_versions,json=initialResourceVersions" json:"initial_resource_versions,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	// When the IncrementalMeshConfigRequest is a ACK or NACK message in response
+	// to a previous IncrementalMeshConfigResponse, the response_nonce must be the
+	// nonce in the IncrementalMeshConfigResponse.
+	// Otherwise response_nonce must be omitted.
+	ResponseNonce string `protobuf:"bytes,4,opt,name=response_nonce,json=responseNonce,proto3" json:"response_nonce,omitempty"`
+	// This is populated when the previous IncrementalMeshConfigResponses
+	// failed to update configuration. The *message* field in *error_details*
+	// provides the client internal exception related to the failure.
+	ErrorDetail *google_rpc.Status `protobuf:"bytes,5,opt,name=error_detail,json=errorDetail" json:"error_detail,omitempty"`
+}
+
+func (m *IncrementalMeshConfigRequest) Reset()                    { *m = IncrementalMeshConfigRequest{} }
+func (m *IncrementalMeshConfigRequest) String() string            { return proto.CompactTextString(m) }
+func (*IncrementalMeshConfigRequest) ProtoMessage()               {}
+func (*IncrementalMeshConfigRequest) Descriptor() ([]byte, []int) { return fileDescriptorMcp, []int{3} }
+
+func (m *IncrementalMeshConfigRequest) GetClient() *Client {
+	if m != nil {
+		return m.Client
+	}
+	return nil
+}
+
+func (m *IncrementalMeshConfigRequest) GetTypeUrl() string {
+	if m != nil {
+		return m.TypeUrl
+	}
+	return ""
+}
+
+func (m *IncrementalMeshConfigRequest) GetInitialResourceVersions() map[string]string {
+	if m != nil {
+		return m.InitialResourceVersions
+	}
+	return nil
+}
+
+func (m *IncrementalMeshConfigRequest) GetResponseNonce() string {
+	if m != nil {
+		return m.ResponseNonce
+	}
+	return ""
+}
+
+func (m *IncrementalMeshConfigRequest) GetErrorDetail() *google_rpc.Status {
+	if m != nil {
+		return m.ErrorDetail
+	}
+	return nil
+}
+
+// IncrementalMeshConfigResponses do not need to include a full
+// snapshot of the tracked resources. Instead they are a diff to the
+// state of a MCP client. Per resource versions allow servers and
+// clients to track state at the resource granularity. An MCP
+// incremental session is always in the context of a gRPC
+// bidirectional stream. This allows the MCP server to keep track of
+// the state of MCP clients connected to it.
+//
+// In Incremental MCP the nonce field is required and used to pair
+// IncrementalMeshConfigResponse to an IncrementalMeshConfigRequest
+// ACK or NACK.  Optionally, a response message level
+// system_version_info is present for debugging purposes only.
+type IncrementalMeshConfigResponse struct {
+	// The version of the response data (used for debugging).
+	SystemVersionInfo string `protobuf:"bytes,1,opt,name=system_version_info,json=systemVersionInfo,proto3" json:"system_version_info,omitempty"`
+	// The response resources wrapped in the common MCP *Envelope*
+	// message. These are typed resources that match the type url in the
+	// IncrementalMeshConfigRequest.
+	Envelopes []Envelope `protobuf:"bytes,2,rep,name=envelopes" json:"envelopes"`
+	// Resources names of resources that have be deleted and to be
+	// removed from the MCP Client.  Removed resources for missing
+	// resources can be ignored.
+	RemovedResources []string `protobuf:"bytes,3,rep,name=removed_resources,json=removedResources" json:"removed_resources,omitempty"`
+	// The nonce provides a way for IncrementalMeshConfigRequests to
+	// uniquely reference an IncrementalMeshConfigResponse. The nonce is
+	// required.
+	Nonce string `protobuf:"bytes,4,opt,name=nonce,proto3" json:"nonce,omitempty"`
+}
+
+func (m *IncrementalMeshConfigResponse) Reset()                    { *m = IncrementalMeshConfigResponse{} }
+func (m *IncrementalMeshConfigResponse) String() string            { return proto.CompactTextString(m) }
+func (*IncrementalMeshConfigResponse) ProtoMessage()               {}
+func (*IncrementalMeshConfigResponse) Descriptor() ([]byte, []int) { return fileDescriptorMcp, []int{4} }
+
+func (m *IncrementalMeshConfigResponse) GetSystemVersionInfo() string {
+	if m != nil {
+		return m.SystemVersionInfo
+	}
+	return ""
+}
+
+func (m *IncrementalMeshConfigResponse) GetEnvelopes() []Envelope {
+	if m != nil {
+		return m.Envelopes
+	}
+	return nil
+}
+
+func (m *IncrementalMeshConfigResponse) GetRemovedResources() []string {
+	if m != nil {
+		return m.RemovedResources
+	}
+	return nil
+}
+
+func (m *IncrementalMeshConfigResponse) GetNonce() string {
+	if m != nil {
+		return m.Nonce
+	}
+	return ""
+}
+
 func init() {
 	proto.RegisterType((*Client)(nil), "istio.mcp.v1alpha1.Client")
 	proto.RegisterType((*MeshConfigRequest)(nil), "istio.mcp.v1alpha1.MeshConfigRequest")
 	proto.RegisterType((*MeshConfigResponse)(nil), "istio.mcp.v1alpha1.MeshConfigResponse")
+	proto.RegisterType((*IncrementalMeshConfigRequest)(nil), "istio.mcp.v1alpha1.IncrementalMeshConfigRequest")
+	proto.RegisterType((*IncrementalMeshConfigResponse)(nil), "istio.mcp.v1alpha1.IncrementalMeshConfigResponse")
 }
 func (this *Client) Equal(that interface{}) bool {
 	if that == nil {
@@ -284,6 +418,90 @@ func (this *MeshConfigResponse) Equal(that interface{}) bool {
 	}
 	return true
 }
+func (this *IncrementalMeshConfigRequest) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*IncrementalMeshConfigRequest)
+	if !ok {
+		that2, ok := that.(IncrementalMeshConfigRequest)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if !this.Client.Equal(that1.Client) {
+		return false
+	}
+	if this.TypeUrl != that1.TypeUrl {
+		return false
+	}
+	if len(this.InitialResourceVersions) != len(that1.InitialResourceVersions) {
+		return false
+	}
+	for i := range this.InitialResourceVersions {
+		if this.InitialResourceVersions[i] != that1.InitialResourceVersions[i] {
+			return false
+		}
+	}
+	if this.ResponseNonce != that1.ResponseNonce {
+		return false
+	}
+	if !this.ErrorDetail.Equal(that1.ErrorDetail) {
+		return false
+	}
+	return true
+}
+func (this *IncrementalMeshConfigResponse) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*IncrementalMeshConfigResponse)
+	if !ok {
+		that2, ok := that.(IncrementalMeshConfigResponse)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if this.SystemVersionInfo != that1.SystemVersionInfo {
+		return false
+	}
+	if len(this.Envelopes) != len(that1.Envelopes) {
+		return false
+	}
+	for i := range this.Envelopes {
+		if !this.Envelopes[i].Equal(&that1.Envelopes[i]) {
+			return false
+		}
+	}
+	if len(this.RemovedResources) != len(that1.RemovedResources) {
+		return false
+	}
+	for i := range this.RemovedResources {
+		if this.RemovedResources[i] != that1.RemovedResources[i] {
+			return false
+		}
+	}
+	if this.Nonce != that1.Nonce {
+		return false
+	}
+	return true
+}
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ context.Context
@@ -301,6 +519,10 @@ type AggregatedMeshConfigServiceClient interface {
 	// is used with multiple independent MeshConfigRequest /
 	// MeshConfigResponses sequences multiplexed via the type URL.
 	StreamAggregatedResources(ctx context.Context, opts ...grpc.CallOption) (AggregatedMeshConfigService_StreamAggregatedResourcesClient, error)
+	// IncrementalAggregatedResources provides the ability to incrementally
+	// update the resources on the client. This supports the goal of
+	// scalability of MCP resources.
+	IncrementalAggregatedResources(ctx context.Context, opts ...grpc.CallOption) (AggregatedMeshConfigService_IncrementalAggregatedResourcesClient, error)
 }
 
 type aggregatedMeshConfigServiceClient struct {
@@ -342,6 +564,37 @@ func (x *aggregatedMeshConfigServiceStreamAggregatedResourcesClient) Recv() (*Me
 	return m, nil
 }
 
+func (c *aggregatedMeshConfigServiceClient) IncrementalAggregatedResources(ctx context.Context, opts ...grpc.CallOption) (AggregatedMeshConfigService_IncrementalAggregatedResourcesClient, error) {
+	stream, err := grpc.NewClientStream(ctx, &_AggregatedMeshConfigService_serviceDesc.Streams[1], c.cc, "/istio.mcp.v1alpha1.AggregatedMeshConfigService/IncrementalAggregatedResources", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &aggregatedMeshConfigServiceIncrementalAggregatedResourcesClient{stream}
+	return x, nil
+}
+
+type AggregatedMeshConfigService_IncrementalAggregatedResourcesClient interface {
+	Send(*IncrementalMeshConfigRequest) error
+	Recv() (*IncrementalMeshConfigResponse, error)
+	grpc.ClientStream
+}
+
+type aggregatedMeshConfigServiceIncrementalAggregatedResourcesClient struct {
+	grpc.ClientStream
+}
+
+func (x *aggregatedMeshConfigServiceIncrementalAggregatedResourcesClient) Send(m *IncrementalMeshConfigRequest) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *aggregatedMeshConfigServiceIncrementalAggregatedResourcesClient) Recv() (*IncrementalMeshConfigResponse, error) {
+	m := new(IncrementalMeshConfigResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // Server API for AggregatedMeshConfigService service
 
 type AggregatedMeshConfigServiceServer interface {
@@ -350,6 +603,10 @@ type AggregatedMeshConfigServiceServer interface {
 	// is used with multiple independent MeshConfigRequest /
 	// MeshConfigResponses sequences multiplexed via the type URL.
 	StreamAggregatedResources(AggregatedMeshConfigService_StreamAggregatedResourcesServer) error
+	// IncrementalAggregatedResources provides the ability to incrementally
+	// update the resources on the client. This supports the goal of
+	// scalability of MCP resources.
+	IncrementalAggregatedResources(AggregatedMeshConfigService_IncrementalAggregatedResourcesServer) error
 }
 
 func RegisterAggregatedMeshConfigServiceServer(s *grpc.Server, srv AggregatedMeshConfigServiceServer) {
@@ -382,6 +639,32 @@ func (x *aggregatedMeshConfigServiceStreamAggregatedResourcesServer) Recv() (*Me
 	return m, nil
 }
 
+func _AggregatedMeshConfigService_IncrementalAggregatedResources_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(AggregatedMeshConfigServiceServer).IncrementalAggregatedResources(&aggregatedMeshConfigServiceIncrementalAggregatedResourcesServer{stream})
+}
+
+type AggregatedMeshConfigService_IncrementalAggregatedResourcesServer interface {
+	Send(*IncrementalMeshConfigResponse) error
+	Recv() (*IncrementalMeshConfigRequest, error)
+	grpc.ServerStream
+}
+
+type aggregatedMeshConfigServiceIncrementalAggregatedResourcesServer struct {
+	grpc.ServerStream
+}
+
+func (x *aggregatedMeshConfigServiceIncrementalAggregatedResourcesServer) Send(m *IncrementalMeshConfigResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *aggregatedMeshConfigServiceIncrementalAggregatedResourcesServer) Recv() (*IncrementalMeshConfigRequest, error) {
+	m := new(IncrementalMeshConfigRequest)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 var _AggregatedMeshConfigService_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "istio.mcp.v1alpha1.AggregatedMeshConfigService",
 	HandlerType: (*AggregatedMeshConfigServiceServer)(nil),
@@ -390,6 +673,12 @@ var _AggregatedMeshConfigService_serviceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "StreamAggregatedResources",
 			Handler:       _AggregatedMeshConfigService_StreamAggregatedResources_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
+		},
+		{
+			StreamName:    "IncrementalAggregatedResources",
+			Handler:       _AggregatedMeshConfigService_IncrementalAggregatedResources_Handler,
 			ServerStreams: true,
 			ClientStreams: true,
 		},
@@ -535,6 +824,130 @@ func (m *MeshConfigResponse) MarshalTo(dAtA []byte) (int, error) {
 	return i, nil
 }
 
+func (m *IncrementalMeshConfigRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *IncrementalMeshConfigRequest) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Client != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintMcp(dAtA, i, uint64(m.Client.Size()))
+		n4, err := m.Client.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n4
+	}
+	if len(m.TypeUrl) > 0 {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintMcp(dAtA, i, uint64(len(m.TypeUrl)))
+		i += copy(dAtA[i:], m.TypeUrl)
+	}
+	if len(m.InitialResourceVersions) > 0 {
+		for k, _ := range m.InitialResourceVersions {
+			dAtA[i] = 0x1a
+			i++
+			v := m.InitialResourceVersions[k]
+			mapSize := 1 + len(k) + sovMcp(uint64(len(k))) + 1 + len(v) + sovMcp(uint64(len(v)))
+			i = encodeVarintMcp(dAtA, i, uint64(mapSize))
+			dAtA[i] = 0xa
+			i++
+			i = encodeVarintMcp(dAtA, i, uint64(len(k)))
+			i += copy(dAtA[i:], k)
+			dAtA[i] = 0x12
+			i++
+			i = encodeVarintMcp(dAtA, i, uint64(len(v)))
+			i += copy(dAtA[i:], v)
+		}
+	}
+	if len(m.ResponseNonce) > 0 {
+		dAtA[i] = 0x22
+		i++
+		i = encodeVarintMcp(dAtA, i, uint64(len(m.ResponseNonce)))
+		i += copy(dAtA[i:], m.ResponseNonce)
+	}
+	if m.ErrorDetail != nil {
+		dAtA[i] = 0x2a
+		i++
+		i = encodeVarintMcp(dAtA, i, uint64(m.ErrorDetail.Size()))
+		n5, err := m.ErrorDetail.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n5
+	}
+	return i, nil
+}
+
+func (m *IncrementalMeshConfigResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *IncrementalMeshConfigResponse) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.SystemVersionInfo) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintMcp(dAtA, i, uint64(len(m.SystemVersionInfo)))
+		i += copy(dAtA[i:], m.SystemVersionInfo)
+	}
+	if len(m.Envelopes) > 0 {
+		for _, msg := range m.Envelopes {
+			dAtA[i] = 0x12
+			i++
+			i = encodeVarintMcp(dAtA, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(dAtA[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
+		}
+	}
+	if len(m.RemovedResources) > 0 {
+		for _, s := range m.RemovedResources {
+			dAtA[i] = 0x1a
+			i++
+			l = len(s)
+			for l >= 1<<7 {
+				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
+				l >>= 7
+				i++
+			}
+			dAtA[i] = uint8(l)
+			i++
+			i += copy(dAtA[i:], s)
+		}
+	}
+	if len(m.Nonce) > 0 {
+		dAtA[i] = 0x22
+		i++
+		i = encodeVarintMcp(dAtA, i, uint64(len(m.Nonce)))
+		i += copy(dAtA[i:], m.Nonce)
+	}
+	return i, nil
+}
+
 func encodeVarintMcp(dAtA []byte, offset int, v uint64) int {
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
@@ -600,6 +1013,62 @@ func (m *MeshConfigResponse) Size() (n int) {
 	l = len(m.TypeUrl)
 	if l > 0 {
 		n += 1 + l + sovMcp(uint64(l))
+	}
+	l = len(m.Nonce)
+	if l > 0 {
+		n += 1 + l + sovMcp(uint64(l))
+	}
+	return n
+}
+
+func (m *IncrementalMeshConfigRequest) Size() (n int) {
+	var l int
+	_ = l
+	if m.Client != nil {
+		l = m.Client.Size()
+		n += 1 + l + sovMcp(uint64(l))
+	}
+	l = len(m.TypeUrl)
+	if l > 0 {
+		n += 1 + l + sovMcp(uint64(l))
+	}
+	if len(m.InitialResourceVersions) > 0 {
+		for k, v := range m.InitialResourceVersions {
+			_ = k
+			_ = v
+			mapEntrySize := 1 + len(k) + sovMcp(uint64(len(k))) + 1 + len(v) + sovMcp(uint64(len(v)))
+			n += mapEntrySize + 1 + sovMcp(uint64(mapEntrySize))
+		}
+	}
+	l = len(m.ResponseNonce)
+	if l > 0 {
+		n += 1 + l + sovMcp(uint64(l))
+	}
+	if m.ErrorDetail != nil {
+		l = m.ErrorDetail.Size()
+		n += 1 + l + sovMcp(uint64(l))
+	}
+	return n
+}
+
+func (m *IncrementalMeshConfigResponse) Size() (n int) {
+	var l int
+	_ = l
+	l = len(m.SystemVersionInfo)
+	if l > 0 {
+		n += 1 + l + sovMcp(uint64(l))
+	}
+	if len(m.Envelopes) > 0 {
+		for _, e := range m.Envelopes {
+			l = e.Size()
+			n += 1 + l + sovMcp(uint64(l))
+		}
+	}
+	if len(m.RemovedResources) > 0 {
+		for _, s := range m.RemovedResources {
+			l = len(s)
+			n += 1 + l + sovMcp(uint64(l))
+		}
 	}
 	l = len(m.Nonce)
 	if l > 0 {
@@ -706,7 +1175,7 @@ func (m *Client) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Metadata == nil {
-				m.Metadata = &google_protobuf2.Struct{}
+				m.Metadata = &google_protobuf3.Struct{}
 			}
 			if err := m.Metadata.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -1104,6 +1573,466 @@ func (m *MeshConfigResponse) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
+func (m *IncrementalMeshConfigRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowMcp
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: IncrementalMeshConfigRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: IncrementalMeshConfigRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Client", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMcp
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthMcp
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Client == nil {
+				m.Client = &Client{}
+			}
+			if err := m.Client.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field TypeUrl", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMcp
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthMcp
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.TypeUrl = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field InitialResourceVersions", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMcp
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthMcp
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.InitialResourceVersions == nil {
+				m.InitialResourceVersions = make(map[string]string)
+			}
+			var mapkey string
+			var mapvalue string
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowMcp
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					wire |= (uint64(b) & 0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					var stringLenmapkey uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowMcp
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapkey |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapkey := int(stringLenmapkey)
+					if intStringLenmapkey < 0 {
+						return ErrInvalidLengthMcp
+					}
+					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
+					iNdEx = postStringIndexmapkey
+				} else if fieldNum == 2 {
+					var stringLenmapvalue uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowMcp
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapvalue |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapvalue := int(stringLenmapvalue)
+					if intStringLenmapvalue < 0 {
+						return ErrInvalidLengthMcp
+					}
+					postStringIndexmapvalue := iNdEx + intStringLenmapvalue
+					if postStringIndexmapvalue > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapvalue = string(dAtA[iNdEx:postStringIndexmapvalue])
+					iNdEx = postStringIndexmapvalue
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipMcp(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthMcp
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
+				}
+			}
+			m.InitialResourceVersions[mapkey] = mapvalue
+			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ResponseNonce", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMcp
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthMcp
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.ResponseNonce = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 5:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ErrorDetail", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMcp
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthMcp
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.ErrorDetail == nil {
+				m.ErrorDetail = &google_rpc.Status{}
+			}
+			if err := m.ErrorDetail.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipMcp(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthMcp
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *IncrementalMeshConfigResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowMcp
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: IncrementalMeshConfigResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: IncrementalMeshConfigResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field SystemVersionInfo", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMcp
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthMcp
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.SystemVersionInfo = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Envelopes", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMcp
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthMcp
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Envelopes = append(m.Envelopes, Envelope{})
+			if err := m.Envelopes[len(m.Envelopes)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field RemovedResources", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMcp
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthMcp
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.RemovedResources = append(m.RemovedResources, string(dAtA[iNdEx:postIndex]))
+			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Nonce", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMcp
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthMcp
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Nonce = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipMcp(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthMcp
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
 func skipMcp(dAtA []byte) (n int, err error) {
 	l := len(dAtA)
 	iNdEx := 0
@@ -1212,34 +2141,45 @@ var (
 func init() { proto.RegisterFile("mcp/v1alpha1/mcp.proto", fileDescriptorMcp) }
 
 var fileDescriptorMcp = []byte{
-	// 461 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x52, 0xc1, 0x6e, 0x13, 0x31,
-	0x10, 0xad, 0xd3, 0x36, 0xb4, 0x4e, 0xa9, 0x84, 0x55, 0xd1, 0x4d, 0x5a, 0x85, 0x10, 0xa9, 0x28,
-	0x12, 0xd2, 0x2e, 0x4d, 0xc5, 0x1d, 0x5a, 0x38, 0x70, 0x28, 0x87, 0x8d, 0xb8, 0x70, 0x89, 0x5c,
-	0xef, 0x64, 0x6b, 0x69, 0xe3, 0x31, 0xb6, 0x37, 0x12, 0x5f, 0xc1, 0x6f, 0x20, 0xbe, 0xa4, 0x47,
-	0xbe, 0x00, 0xa1, 0xf0, 0x23, 0x68, 0xbd, 0x5e, 0x12, 0xd4, 0x0a, 0x7a, 0xb3, 0xdf, 0xbc, 0xf1,
-	0x7b, 0x6f, 0x3c, 0xf4, 0xf1, 0x5c, 0xe8, 0x64, 0x71, 0xca, 0x0b, 0x7d, 0xcd, 0x4f, 0x93, 0xb9,
-	0xd0, 0xb1, 0x36, 0xe8, 0x90, 0x31, 0x69, 0x9d, 0xc4, 0xb8, 0x02, 0x9a, 0x6a, 0xef, 0x38, 0x47,
-	0xcc, 0x0b, 0x48, 0x3c, 0xe3, 0xaa, 0x9c, 0x25, 0xd6, 0x99, 0x52, 0xb8, 0xba, 0xa3, 0x77, 0x18,
-	0xaa, 0x46, 0x8b, 0xc4, 0x3a, 0xee, 0x4a, 0x1b, 0x0a, 0x07, 0x39, 0xe6, 0xe8, 0x8f, 0x49, 0x75,
-	0x0a, 0xe8, 0xd1, 0x5f, 0xc2, 0xa0, 0x16, 0x50, 0xa0, 0x86, 0xba, 0x38, 0xbc, 0xa4, 0xed, 0x8b,
-	0x42, 0x82, 0x72, 0x6c, 0x9f, 0xb6, 0x64, 0x16, 0x91, 0x01, 0x19, 0xed, 0xa6, 0x2d, 0x99, 0xb1,
-	0x33, 0xba, 0x33, 0x07, 0xc7, 0x33, 0xee, 0x78, 0xd4, 0x1a, 0x90, 0x51, 0x67, 0x7c, 0x18, 0xd7,
-	0xc2, 0x71, 0x63, 0x2b, 0x9e, 0x78, 0x5b, 0xe9, 0x1f, 0xe2, 0xf0, 0x17, 0xa1, 0x8f, 0x2e, 0xc1,
-	0x5e, 0x5f, 0xa0, 0x9a, 0xc9, 0x3c, 0x85, 0x4f, 0x25, 0x58, 0xc7, 0x9e, 0xd2, 0xbd, 0x05, 0x18,
-	0x2b, 0x51, 0x4d, 0xa5, 0x9a, 0x61, 0x10, 0xe9, 0x04, 0xec, 0x9d, 0x9a, 0x21, 0x1b, 0xd3, 0xb6,
-	0xf0, 0x3e, 0x82, 0x56, 0x2f, 0xbe, 0x3d, 0x96, 0xb8, 0x76, 0x9a, 0x06, 0x26, 0xeb, 0xd2, 0x1d,
-	0xf7, 0x59, 0xc3, 0xb4, 0x34, 0x45, 0xb4, 0xe9, 0x9f, 0x7c, 0x50, 0xdd, 0x3f, 0x98, 0x82, 0x9d,
-	0xd0, 0x7d, 0x03, 0x56, 0xa3, 0xb2, 0x30, 0x55, 0xa8, 0x04, 0x44, 0x5b, 0x9e, 0xf0, 0xb0, 0x41,
-	0xdf, 0x57, 0x20, 0x7b, 0x49, 0xf7, 0xc0, 0x18, 0x34, 0xd3, 0x0c, 0x1c, 0x97, 0x45, 0xb4, 0xed,
-	0xb5, 0x59, 0x93, 0xd3, 0x68, 0x11, 0x4f, 0xfc, 0x80, 0xd3, 0x8e, 0xe7, 0xbd, 0xf1, 0xb4, 0xe1,
-	0x37, 0x42, 0xd9, 0x7a, 0xca, 0xfa, 0xc9, 0xfb, 0xc4, 0x7c, 0x45, 0x77, 0x9b, 0x0f, 0xb0, 0x51,
-	0x6b, 0xb0, 0x39, 0xea, 0x8c, 0x8f, 0xef, 0x4a, 0xfa, 0x36, 0x90, 0xce, 0xb7, 0x6e, 0x7e, 0x3c,
-	0xd9, 0x48, 0x57, 0x4d, 0xff, 0x0a, 0x7d, 0x40, 0xb7, 0xd7, 0xb3, 0xd6, 0x97, 0xf1, 0x17, 0x42,
-	0x8f, 0x5e, 0xe7, 0xb9, 0x81, 0x9c, 0x3b, 0xc8, 0x56, 0xb6, 0x27, 0x60, 0x16, 0x52, 0x00, 0xd3,
-	0xb4, 0x3b, 0x71, 0x06, 0xf8, 0x7c, 0x45, 0x4a, 0xc1, 0x62, 0x69, 0x04, 0x58, 0x76, 0x72, 0x97,
-	0xb9, 0x5b, 0x1f, 0xdc, 0x7b, 0xf6, 0x3f, 0x5a, 0x3d, 0xa1, 0xe1, 0xc6, 0x88, 0xbc, 0x20, 0xe7,
-	0xcf, 0xbf, 0x2e, 0xfb, 0xe4, 0x66, 0xd9, 0x27, 0xdf, 0x97, 0x7d, 0xf2, 0x73, 0xd9, 0x27, 0x1f,
-	0xbb, 0x75, 0xbb, 0xc4, 0x84, 0x6b, 0x99, 0xac, 0xef, 0xeb, 0x55, 0xdb, 0x2f, 0xdb, 0xd9, 0xef,
-	0x00, 0x00, 0x00, 0xff, 0xff, 0xec, 0xf3, 0xd6, 0xfe, 0x3f, 0x03, 0x00, 0x00,
+	// 635 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x54, 0x41, 0x4f, 0x13, 0x4f,
+	0x14, 0x67, 0xb6, 0xc0, 0x1f, 0xa6, 0xfc, 0x09, 0x8c, 0x44, 0xb6, 0x05, 0x2b, 0x36, 0xc1, 0x34,
+	0x21, 0xd9, 0x85, 0x12, 0x13, 0xe3, 0x49, 0x41, 0x0e, 0x98, 0xe0, 0x61, 0x1b, 0x39, 0x78, 0xd9,
+	0x0c, 0xdb, 0xd7, 0x65, 0xe2, 0xee, 0xcc, 0x3a, 0x33, 0xdb, 0xa4, 0x1f, 0xc1, 0xf8, 0x19, 0x3c,
+	0x79, 0x31, 0x7e, 0x12, 0x8e, 0x1e, 0x3c, 0x1b, 0x53, 0xbf, 0x88, 0xd9, 0xdd, 0x29, 0x2d, 0xe9,
+	0x82, 0x62, 0xf4, 0x36, 0xf3, 0xde, 0x6f, 0xde, 0xfb, 0xfd, 0x7e, 0xef, 0x65, 0xf0, 0xdd, 0x38,
+	0x48, 0xdc, 0xfe, 0x1e, 0x8d, 0x92, 0x73, 0xba, 0xe7, 0xc6, 0x41, 0xe2, 0x24, 0x52, 0x68, 0x41,
+	0x08, 0x53, 0x9a, 0x09, 0x27, 0x0b, 0x8c, 0xb2, 0xf5, 0xcd, 0x50, 0x88, 0x30, 0x02, 0x37, 0x47,
+	0x9c, 0xa5, 0x3d, 0x57, 0x69, 0x99, 0x06, 0xba, 0x78, 0x51, 0x5f, 0x37, 0x59, 0x99, 0x04, 0xae,
+	0xd2, 0x54, 0xa7, 0xca, 0x24, 0xd6, 0x42, 0x11, 0x8a, 0xfc, 0xe8, 0x66, 0x27, 0x13, 0xdd, 0xb8,
+	0xd2, 0x18, 0x78, 0x1f, 0x22, 0x91, 0x40, 0x91, 0x6c, 0x9e, 0xe0, 0xf9, 0xc3, 0x88, 0x01, 0xd7,
+	0x64, 0x19, 0x5b, 0xac, 0x6b, 0xa3, 0x2d, 0xd4, 0x5a, 0xf4, 0x2c, 0xd6, 0x25, 0xfb, 0x78, 0x21,
+	0x06, 0x4d, 0xbb, 0x54, 0x53, 0xdb, 0xda, 0x42, 0xad, 0x6a, 0x7b, 0xdd, 0x29, 0x1a, 0x3b, 0x23,
+	0x5a, 0x4e, 0x27, 0xa7, 0xe5, 0x5d, 0x02, 0x9b, 0x3f, 0x10, 0x5e, 0x3d, 0x01, 0x75, 0x7e, 0x28,
+	0x78, 0x8f, 0x85, 0x1e, 0xbc, 0x4d, 0x41, 0x69, 0xf2, 0x00, 0x2f, 0xf5, 0x41, 0x2a, 0x26, 0xb8,
+	0xcf, 0x78, 0x4f, 0x98, 0x26, 0x55, 0x13, 0x3b, 0xe6, 0x3d, 0x41, 0xda, 0x78, 0x3e, 0xc8, 0x79,
+	0x98, 0x5e, 0x75, 0x67, 0xda, 0x16, 0xa7, 0x60, 0xea, 0x19, 0x24, 0xa9, 0xe1, 0x05, 0x3d, 0x48,
+	0xc0, 0x4f, 0x65, 0x64, 0x57, 0xf2, 0x92, 0xff, 0x65, 0xf7, 0x57, 0x32, 0x22, 0xdb, 0x78, 0x59,
+	0x82, 0x4a, 0x04, 0x57, 0xe0, 0x73, 0xc1, 0x03, 0xb0, 0x67, 0x73, 0xc0, 0xff, 0xa3, 0xe8, 0xcb,
+	0x2c, 0x48, 0x1e, 0xe1, 0x25, 0x90, 0x52, 0x48, 0xbf, 0x0b, 0x9a, 0xb2, 0xc8, 0x9e, 0xcb, 0x7b,
+	0x93, 0x91, 0x4e, 0x99, 0x04, 0x4e, 0x27, 0x37, 0xd8, 0xab, 0xe6, 0xb8, 0xe7, 0x39, 0xac, 0xf9,
+	0x19, 0x61, 0x32, 0xa9, 0xb2, 0x28, 0xf9, 0x3b, 0x32, 0x9f, 0xe2, 0xc5, 0xd1, 0x00, 0x94, 0x6d,
+	0x6d, 0x55, 0x5a, 0xd5, 0xf6, 0x66, 0x99, 0xd2, 0x23, 0x03, 0x3a, 0x98, 0xbd, 0xf8, 0x76, 0x7f,
+	0xc6, 0x1b, 0x3f, 0xba, 0x49, 0xf4, 0x1a, 0x9e, 0x9b, 0xd4, 0x5a, 0x5c, 0x9a, 0x1f, 0x2b, 0x78,
+	0xf3, 0x98, 0x07, 0x12, 0x62, 0xe0, 0x9a, 0x46, 0xd3, 0xd3, 0x19, 0x5b, 0x8f, 0xfe, 0xc8, 0x7a,
+	0xeb, 0x2a, 0x8b, 0x77, 0x08, 0xd7, 0x18, 0x67, 0x9a, 0xd1, 0xc8, 0x97, 0xa0, 0x44, 0x2a, 0x03,
+	0xf0, 0x8d, 0x07, 0xca, 0xae, 0xe4, 0x9a, 0x4f, 0xca, 0x5a, 0xdc, 0x44, 0xd2, 0x39, 0x2e, 0x2a,
+	0x7a, 0xa6, 0xe0, 0xa9, 0xa9, 0x77, 0xc4, 0xb5, 0x1c, 0x78, 0xeb, 0xac, 0x3c, 0xfb, 0x6f, 0xd7,
+	0xa0, 0xfe, 0x22, 0x33, 0xf6, 0x7a, 0x5a, 0x64, 0x05, 0x57, 0xde, 0xc0, 0xc0, 0xac, 0x41, 0x76,
+	0xcc, 0x26, 0xd4, 0xa7, 0x51, 0x0a, 0xc6, 0xb3, 0xe2, 0xf2, 0xc4, 0x7a, 0x8c, 0x9a, 0x5f, 0x11,
+	0xbe, 0x77, 0x8d, 0x01, 0x66, 0xbb, 0x1c, 0x7c, 0x47, 0x0d, 0x94, 0x86, 0xd8, 0x2f, 0x59, 0xb2,
+	0xd5, 0x22, 0x75, 0xfa, 0x57, 0x57, 0x6d, 0x07, 0xaf, 0x4a, 0x88, 0x45, 0x1f, 0xba, 0x97, 0x83,
+	0x2c, 0x06, 0xb8, 0xe8, 0xad, 0x98, 0xc4, 0x48, 0xb8, 0x2a, 0x5f, 0xbe, 0xf6, 0x07, 0x0b, 0x6f,
+	0x3c, 0x0b, 0x43, 0x09, 0x21, 0xd5, 0xd0, 0x1d, 0xab, 0xea, 0x80, 0xec, 0xb3, 0x00, 0x48, 0x82,
+	0x6b, 0x1d, 0x2d, 0x81, 0xc6, 0x63, 0xd0, 0xb8, 0xe4, 0x76, 0x19, 0xdd, 0xa9, 0xd5, 0xa8, 0x3f,
+	0xfc, 0x15, 0xac, 0x30, 0xb0, 0x39, 0xd3, 0x42, 0xbb, 0x88, 0xbc, 0x47, 0xb8, 0x31, 0x61, 0x74,
+	0x59, 0xdf, 0xdd, 0xdb, 0x6e, 0x67, 0x7d, 0xef, 0x16, 0x2f, 0x26, 0xd9, 0x1c, 0xec, 0x7c, 0x1a,
+	0x36, 0xd0, 0xc5, 0xb0, 0x81, 0xbe, 0x0c, 0x1b, 0xe8, 0xfb, 0xb0, 0x81, 0x5e, 0xd7, 0x8a, 0x4a,
+	0x4c, 0xb8, 0x34, 0x61, 0xee, 0xe4, 0xd7, 0x7d, 0x36, 0x9f, 0xff, 0xbb, 0xfb, 0x3f, 0x03, 0x00,
+	0x00, 0xff, 0xff, 0x7b, 0x9d, 0xce, 0x14, 0x4a, 0x06, 0x00, 0x00,
 }

@@ -30,6 +30,7 @@ import (
 	"github.com/gogo/status"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	gm "google.golang.org/grpc/metadata"
 
 	mcp "istio.io/api/mcp/v1alpha1"
 )
@@ -109,6 +110,45 @@ func (ts *testStream) Recv() (*mcp.MeshConfigResponse, error) {
 	case <-ts.responseClosedC:
 		return nil, io.EOF
 	}
+}
+
+type testIncrementalStream struct {
+}
+
+func (ts *testStream) IncrementalAggregatedResources(ctx context.Context, opts ...grpc.CallOption) (mcp.AggregatedMeshConfigService_IncrementalAggregatedResourcesClient, error) { // nolint: lll
+	return &testIncrementalStream{}, nil
+}
+
+func (ts *testIncrementalStream) Send(request *mcp.IncrementalMeshConfigRequest) error {
+	return nil
+}
+
+func (ts *testIncrementalStream) Recv() (*mcp.IncrementalMeshConfigResponse, error) {
+	return nil, nil
+}
+
+func (ts *testIncrementalStream) Header() (gm.MD, error) {
+	return gm.MD{}, nil
+}
+
+func (ts *testIncrementalStream) Trailer() gm.MD {
+	return gm.MD{}
+}
+
+func (ts *testIncrementalStream) CloseSend() error {
+	return nil
+}
+
+func (ts *testIncrementalStream) Context() context.Context {
+	return nil
+}
+
+func (ts *testIncrementalStream) SendMsg(m interface{}) error {
+	return nil
+}
+
+func (ts *testIncrementalStream) RecvMsg(m interface{}) error {
+	return nil
 }
 
 func (ts *testStream) Apply(change *Change) error {
