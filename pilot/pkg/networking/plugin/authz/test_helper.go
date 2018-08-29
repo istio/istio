@@ -24,6 +24,7 @@ import (
 	rbacproto "istio.io/api/rbac/v1alpha1"
 )
 
+// nolint:deadcode
 func generateServiceRole(services, methods []string) *rbacproto.ServiceRole {
 	return &rbacproto.ServiceRole{
 		Rules: []*rbacproto.AccessRule{
@@ -35,6 +36,7 @@ func generateServiceRole(services, methods []string) *rbacproto.ServiceRole {
 	}
 }
 
+// nolint:deadcode
 func generateServiceBinding(subject, serviceRoleRef string, mode rbacproto.EnforcementMode) *rbacproto.ServiceRoleBinding {
 	return &rbacproto.ServiceRoleBinding{
 		Mode: mode,
@@ -50,6 +52,7 @@ func generateServiceBinding(subject, serviceRoleRef string, mode rbacproto.Enfor
 	}
 }
 
+// nolint:deadcode
 func generatePermission(headerName, matchSpecifier string) *policy.Permission {
 	return &policy.Permission{
 		Rule: &policy.Permission_AndRules{
@@ -79,6 +82,7 @@ func generatePermission(headerName, matchSpecifier string) *policy.Permission {
 	}
 }
 
+// nolint:deadcode
 func generateHeaderRule(headers []*route.HeaderMatcher) *policy.Permission_OrRules {
 	rules := &policy.Permission_OrRules{
 		OrRules: &policy.Permission_Set{},
@@ -91,6 +95,7 @@ func generateHeaderRule(headers []*route.HeaderMatcher) *policy.Permission_OrRul
 	return rules
 }
 
+// nolint:deadcode
 func generateDestinationPortRule(destinationPort []uint32) *policy.Permission_OrRules {
 	rules := &policy.Permission_OrRules{
 		OrRules: &policy.Permission_Set{},
@@ -102,6 +107,7 @@ func generateDestinationPortRule(destinationPort []uint32) *policy.Permission_Or
 	return rules
 }
 
+// nolint:deadcode
 func generateDestinationCidrRule(destinationPrefix []string, PrefixLen []uint32) *policy.Permission_OrRules {
 	rules := &policy.Permission_OrRules{
 		OrRules: &policy.Permission_Set{},
@@ -118,6 +124,7 @@ func generateDestinationCidrRule(destinationPrefix []string, PrefixLen []uint32)
 	return rules
 }
 
+// nolint:deadcode
 func generatePrincipal(principalName string) *policy.Principal {
 	return &policy.Principal{
 		Identifier: &policy.Principal_AndIds{
@@ -136,6 +143,7 @@ func generatePrincipal(principalName string) *policy.Principal {
 	}
 }
 
+// nolint:deadcode
 func generatePolicyWithHTTPMethodAndGroupClaim(methodName, claimName string) *policy.Policy {
 	return &policy.Policy{
 		Permissions: []*policy.Permission{{

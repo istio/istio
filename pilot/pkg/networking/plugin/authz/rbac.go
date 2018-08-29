@@ -518,7 +518,8 @@ func convertRbacRulesToFilterConfig(service *serviceMetadata, option rbacOption)
 						// It's a user misconfiguration if a HTTP rule is specified to a TCP service.
 						// For safety consideration, we ignore the whole rule which means no access is opened to
 						// the TCP service in this case.
-						rbacLog.Errorf("rules[%d] ignored, found HTTP only rule for a TCP service: %v", i, err)
+						// TODO(yangminzhu): Add metrics for this.
+						rbacLog.Debugf("rules[%d] ignored, found HTTP only rule for a TCP service: %v", i, err)
 						continue
 					}
 				}
@@ -535,7 +536,7 @@ func convertRbacRulesToFilterConfig(service *serviceMetadata, option rbacOption)
 		bindings := roleToBindings[role.Name]
 		if option.forTCPFilter {
 			if err := validateBindingsForTCPFilter(bindings); err != nil {
-				rbacLog.Errorf("role %s skipped, found HTTP only binding for a TCP service: %v", role.Name, err)
+				rbacLog.Debugf("role %s skipped, found HTTP only binding for a TCP service: %v", role.Name, err)
 				continue
 			}
 		}
