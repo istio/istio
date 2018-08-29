@@ -71,6 +71,7 @@ type Controller struct {
 	stopCh <-chan struct{}
 }
 
+// NewController for create controller struct
 func NewController(
 	kubeclientset kubernetes.Interface,
 	controllerclientset clientset.Interface,
@@ -106,7 +107,7 @@ func NewController(
 				controller.enqueue(new)
 			}
 		},
-		DeleteFunc: controller.deleteRpcService,
+		DeleteFunc: controller.deleteRPCService,
 	})
 
 	controller.rpcWatcher = NewRpcWatcher(controller.rpcServiceLister, controller.kubeclientset, config, stopCh)
@@ -119,7 +120,7 @@ func NewController(
 	return controller
 }
 
-func (c *Controller) deleteRpcService(obj interface{}) {
+func (c *Controller) deleteRPCService(obj interface{}) {
 	rs, ok := obj.(*v1.RpcService)
 	if !ok {
 		return
@@ -132,6 +133,7 @@ func (c *Controller) enqueue(obj interface{}) {
 	c.workqueue.AddRateLimited(obj)
 }
 
+// Run is controller's main routine
 func (c *Controller) Run(threadiness int) error {
 	defer runtime.HandleCrash()
 	defer c.workqueue.ShutDown()
