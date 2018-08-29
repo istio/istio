@@ -246,7 +246,7 @@ func RunGRPCTest(o *GRPCRunnerOptions) (*GRPCRunnerResults, error) {
 		which = "Ping"
 	}
 	for _, k := range keys {
-		fmt.Fprintf(out, "%s %s : %d\n", which, k, total.RetCodes[k])
+		_, _ = fmt.Fprintf(out, "%s %s : %d\n", which, k, total.RetCodes[k])
 	}
 	return &total, nil
 }

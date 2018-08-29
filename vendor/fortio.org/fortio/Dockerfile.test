@@ -1,5 +1,5 @@
 # Getting the source tree ready for running tests (sut)
-FROM docker.io/fortio/fortio.build:v10
+FROM docker.io/fortio/fortio.build:v11
 WORKDIR /go/src/fortio.org
 COPY . fortio
 RUN make -C fortio dependencies

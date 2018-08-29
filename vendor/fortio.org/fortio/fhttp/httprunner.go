@@ -137,7 +137,7 @@ func RunHTTPTest(o *HTTPRunnerOptions) (*HTTPRunnerResults, error) {
 		runtime.GC()               // get up-to-date statistics
 		pprof.WriteHeapProfile(fm) // nolint:gas,errcheck
 		fm.Close()                 // nolint:gas,errcheck
-		fmt.Fprintf(out, "Wrote profile data to %s.{cpu|mem}\n", o.Profiler)
+		_, _ = fmt.Fprintf(out, "Wrote profile data to %s.{cpu|mem}\n", o.Profiler)
 	}
 	// Numthreads may have reduced but it should be ok to accumulate 0s from
 	// unused ones. We also must cleanup all the created clients.
@@ -158,9 +158,9 @@ func RunHTTPTest(o *HTTPRunnerOptions) (*HTTPRunnerResults, error) {
 	r.Options().ReleaseRunners()
 	sort.Ints(keys)
 	totalCount := float64(total.DurationHistogram.Count)
-	fmt.Fprintf(out, "Sockets used: %d (for perfect keepalive, would be %d)\n", total.SocketCount, r.Options().NumThreads)
+	_, _ = fmt.Fprintf(out, "Sockets used: %d (for perfect keepalive, would be %d)\n", total.SocketCount, r.Options().NumThreads)
 	for _, k := range keys {
-		fmt.Fprintf(out, "Code %3d : %d (%.1f %%)\n", k, total.RetCodes[k], 100.*float64(total.RetCodes[k])/totalCount)
+		_, _ = fmt.Fprintf(out, "Code %3d : %d (%.1f %%)\n", k, total.RetCodes[k], 100.*float64(total.RetCodes[k])/totalCount)
 	}
 	total.HeaderSizes = total.headerSizes.Export()
 	total.Sizes = total.sizes.Export()

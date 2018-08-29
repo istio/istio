@@ -1,4 +1,17 @@
 #! /bin/bash
+# Copyright 2017 Istio Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 set -x
 # Check we can build the image
 make docker-internal TAG=webtest || exit 1
@@ -78,7 +91,7 @@ docker exec $DOCKERNAME /usr/local/bin/fortio grpcping localhost
 PPROF_URL="$BASE_URL/debug/pprof/heap?debug=1"
 $CURL $PPROF_URL | grep -i TotalAlloc # should find this in memory profile
 # creating dummy container to hold a volume for test certs due to remote docker bind mount limitation.
-DOCKERVOLID=$(docker create -v $TEST_CERT_VOL --name $DOCKERSECVOLNAME docker.io/fortio/fortio.build:v10 /bin/true)
+DOCKERVOLID=$(docker create -v $TEST_CERT_VOL --name $DOCKERSECVOLNAME docker.io/fortio/fortio.build:v11 /bin/true)
 # copying cert files into the certs volume of the dummy container
 for f in ca.crt server.crt server.key; do docker cp $PWD/cert-tmp/$f $DOCKERSECVOLNAME:$TEST_CERT_VOL/$f; done
 # start server in secure grpc mode. uses non-default ports to avoid conflicts with fortio_server container.
