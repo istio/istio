@@ -30,6 +30,7 @@ ISTIOCTL_SUBDIR=istioctl
 OUTPUT_PATH=""
 VER_STRING=""
 PKG_NAME="aspenmesh"
+FLAVOR=""
 
 function usage() {
   echo "$0
@@ -46,12 +47,13 @@ function error_exit() {
   exit ${2:-1}
 }
 
-while getopts d:i:o:v: arg ; do
+while getopts d:f:i:o:v: arg ; do
   case "${arg}" in
     d) BASE_DIR="${OPTARG}";;
     i) ISTIOCTL_SUBDIR="${OPTARG}";;
     o) OUTPUT_PATH="${OPTARG}";;
     v) VER_STRING="${OPTARG}";;
+    f) FLAVOR="${OPTARG}";;
     *) usage;;
   esac
 done
@@ -59,6 +61,10 @@ done
 [[ -z "${BASE_DIR}"  ]] && usage
 [[ -z "${OUTPUT_PATH}"  ]] && usage
 [[ -z "${VER_STRING}"   ]] && usage
+
+if [[ -n "${FLAVOR}" ]]; then
+  PKG_NAME="${PKG_NAME}-${FLAVOR}"
+fi
 
 COMMON_FILES_DIR="${BASE_DIR}/istio/${PKG_NAME}-${VER_STRING}"
 BIN_DIR="${COMMON_FILES_DIR}/bin"
@@ -153,19 +159,25 @@ done
 ls -l  ${COMMON_FILES_DIR}/install/kubernetes/
 
 # Remove unsupported files from aspen mesh
-rm -rf ${COMMON_FILES_DIR}/install/tools
-rm -rf ${COMMON_FILES_DIR}/install/{ansible,consul,eureka,gcp,tools}
-rm -rf ${COMMON_FILES_DIR}/install/kubernetes/mesh-expansion.yaml
+rm -rf ${COMMON_FILES_DIR}/install/consul
+rm -rf ${COMMON_FILES_DIR}/install/gcp
 rm -rf ${COMMON_FILES_DIR}/install/kubernetes/addons
+rm -rf ${COMMON_FILES_DIR}/install/kubernetes/ansible
 rm -rf ${COMMON_FILES_DIR}/install/kubernetes/helm/istio-remote
 rm -rf ${COMMON_FILES_DIR}/install/kubernetes/helm/istio/values-*.yaml
-rm -rf ${COMMON_FILES_DIR}/install/kubernetes/templates
 rm -rf ${COMMON_FILES_DIR}/install/kubernetes/istio-citadel*.yaml
 rm -rf ${COMMON_FILES_DIR}/install/kubernetes/istio-demo*.yaml
+rm -rf ${COMMON_FILES_DIR}/install/kubernetes/mesh-expansion.yaml
+rm -rf ${COMMON_FILES_DIR}/install/kubernetes/templates
+rm -rf ${COMMON_FILES_DIR}/install/tools
+rm -rf ${COMMON_FILES_DIR}/tools
 rm -rf ${COMMON_FILES_DIR}/samples/kubernetes-blog
 rm -rf ${COMMON_FILES_DIR}/samples/certs
-rm -rf ${COMMON_FILES_DIR}/samples/bookinfo/eureka
-rm -rf ${COMMON_FILES_DIR}/samples/bookinfo/consul
+rm -rf ${COMMON_FILES_DIR}/samples/bookinfo/platform/consul
+
+if [[ "${FLAVOR}" != "nocloud" ]]; then
+  rm -f ${COMMON_FILES_DIR}/install/kubernetes/aspenmesh*nocloud*.yaml
+fi
 
 ls -l  ${COMMON_FILES_DIR}/install/kubernetes/
 
