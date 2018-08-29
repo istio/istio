@@ -258,7 +258,11 @@ func (e *Ephemeral) processStaticAdapterHandlerConfigs(ctx context.Context, errs
 				Params:  a.DefaultConfig,
 			}
 			if handlerProto.Params != nil {
+<<<<<<< HEAD
 				c := proto.Clone(staticConfig.Adapter.DefaultConfig)
+=======
+				c := staticConfig.Adapter.DefaultConfig
+>>>>>>> Refactor Mixer Adapter CRDs
 				switch v := handlerProto.Params.(type) {
 				case map[string]interface{}:
 					if err := convert(v, c); err != nil {
