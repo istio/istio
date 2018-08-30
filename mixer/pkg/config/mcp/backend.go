@@ -274,7 +274,8 @@ func (b *backend) Apply(change *client.Change) error {
 		var contents proto.Message
 
 		if scope.DebugEnabled() {
-			scope.Debugf("Processing incoming resource: %q @%s [%s]", o.Metadata.Name, o.Version, o.TypeURL)
+			scope.Debugf("Processing incoming resource: %q @%s [%s]",
+				o.Metadata.Name, o.Metadata.Version, o.TypeURL)
 		}
 
 		// Demultiplex the resource, if it is a legacy type, and figure out its kind.
@@ -300,7 +301,7 @@ func (b *backend) Apply(change *client.Change) error {
 		// Map it to Mixer's store model, and put it in the new collection.
 
 		key := toKey(kind, name)
-		resource, err := toBackendResource(key, contents, o.Version)
+		resource, err := toBackendResource(key, contents, o.Metadata.Version)
 		if err != nil {
 			return err
 		}

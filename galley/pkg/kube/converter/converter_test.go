@@ -17,6 +17,7 @@ package converter
 import (
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/gogo/protobuf/types"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -42,6 +43,8 @@ func TestGet_Panic(t *testing.T) {
 	_ = Get("zzzzz")
 }
 
+var fakeCreateTime, _ = time.Parse(time.RFC3339, time.RFC3339)
+
 func TestIdentity(t *testing.T) {
 	b := resource.NewSchemaBuilder()
 	b.Register("type.googleapis.com/google.protobuf.Struct")
@@ -51,6 +54,9 @@ func TestIdentity(t *testing.T) {
 
 	u := &unstructured.Unstructured{
 		Object: map[string]interface{}{
+			"metadata": map[string]interface{}{
+				"creationTimestamp": fakeCreateTime,
+			},
 			"spec": map[string]interface{}{
 				"foo": "bar",
 			},
@@ -59,13 +65,18 @@ func TestIdentity(t *testing.T) {
 
 	key := "key"
 
-	outkey, pb, err := identity(info, key, u)
+	outkey, createTime, pb, err := identity(info, key, u)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
 
 	if key != outkey {
 		t.Fatalf("Keys mismatch. Wanted=%s, Got=%s", key, outkey)
+	}
+
+	if createTime != fakeCreateTime {
+		t.Fatalf("createTime mismatch: got %q want %q",
+			createTime, fakeCreateTime)
 	}
 
 	actual, ok := pb.(*types.Struct)
@@ -106,7 +117,7 @@ func TestIdentity_Error(t *testing.T) {
 
 	key := "key"
 
-	_, _, err := identity(info, key, u)
+	_, _, _, err := identity(info, key, u)
 	if err == nil {
 		t.Fatal("Expected error not found")
 	}
@@ -122,6 +133,9 @@ func TestLegacyMixerResource(t *testing.T) {
 	u := &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"kind": "k1",
+			"metadata": map[string]interface{}{
+				"creationTimestamp": fakeCreateTime,
+			},
 			"spec": map[string]interface{}{
 				"foo": "bar",
 			},
@@ -130,7 +144,7 @@ func TestLegacyMixerResource(t *testing.T) {
 
 	key := "key"
 
-	outkey, pb, err := legacyMixerResource(info, key, u)
+	outkey, createTime, pb, err := legacyMixerResource(info, key, u)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -138,6 +152,11 @@ func TestLegacyMixerResource(t *testing.T) {
 	expectedKey := "k1/" + key
 	if outkey != expectedKey {
 		t.Fatalf("Keys mismatch. Wanted=%s, Got=%s", expectedKey, outkey)
+	}
+
+	if createTime != fakeCreateTime {
+		t.Fatalf("createTime mismatch: got %q want %q",
+			createTime, fakeCreateTime)
 	}
 
 	actual, ok := pb.(*legacy.LegacyMixerResource)
@@ -180,7 +199,7 @@ func TestLegayMixerResource_Error(t *testing.T) {
 
 	key := "key"
 
-	_, _, err := legacyMixerResource(info, key, u)
+	_, _, _, err := legacyMixerResource(info, key, u)
 	if err == nil {
 		t.Fatalf("expected error not found")
 	}

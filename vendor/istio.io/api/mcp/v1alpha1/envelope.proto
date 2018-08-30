@@ -27,7 +27,6 @@ option (gogoproto.equal_all) = true;
 // Envelope for a configuration resource as transferred via the Mesh Configuration Protocol.
 // Each envelope is made up of common metadata, and a type-specific resource payload.
 message Envelope {
-
     // Common metadata describing the resource.
     istio.mcp.v1alpha1.Metadata metadata = 1;
 

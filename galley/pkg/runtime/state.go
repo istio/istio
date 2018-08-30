@@ -132,13 +132,21 @@ func (s *State) buildSnapshot() snapshot.Snapshot {
 func (s *State) envelopeResource(event resource.Event) (*mcp.Envelope, bool) {
 	serialized, err := proto.Marshal(event.Item)
 	if err != nil {
-		scope.Errorf("Error serializing proto from source event: %v", event)
+		scope.Errorf("Error serializing proto from source event: %v:", event)
+		return nil, false
+	}
+
+	createTime, err := types.TimestampProto(event.ID.CreateTime)
+	if err != nil {
+		scope.Errorf("Error parsing resource create_time: %v", event, err)
 		return nil, false
 	}
 
 	entry := &mcp.Envelope{
 		Metadata: &mcp.Metadata{
-			Name: event.ID.FullName,
+			Name:       event.ID.FullName,
+			CreateTime: createTime,
+			Version:    string(event.ID.Version),
 		},
 		Resource: &types.Any{
 			TypeUrl: event.ID.TypeURL.String(),

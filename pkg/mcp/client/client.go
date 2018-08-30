@@ -38,7 +38,6 @@ type Object struct {
 	TypeURL  string
 	Metadata *mcp.Metadata
 	Resource proto.Message
-	Version  string
 }
 
 // Change is a collection of configuration objects of the same protobuf type.
@@ -216,7 +215,6 @@ func (c *Client) handleResponse(response *mcp.MeshConfigResponse) *mcp.MeshConfi
 			TypeURL:  response.TypeUrl,
 			Metadata: envelope.Metadata,
 			Resource: dynamicAny.Message,
-			Version:  response.VersionInfo,
 		}
 		change.Objects = append(change.Objects, object)
 	}

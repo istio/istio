@@ -21,6 +21,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gogo/protobuf/types"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 	mcpclient "istio.io/istio/pkg/mcp/client"
@@ -122,7 +124,14 @@ func (c *Controller) Apply(change *mcpclient.Change) error {
 	for _, obj := range change.Objects {
 		name, nameSpace := extractNameNamespace(obj.Metadata.Name)
 
-		now := time.Now()
+		createTime := time.Now()
+		if obj.Metadata.CreateTime != nil {
+			var err error
+			if createTime, err = types.TimestampFromProto(obj.Metadata.CreateTime); err != nil {
+				return fmt.Errorf("failed to parse %v create_time: %v", obj.Metadata.Name, err)
+			}
+		}
+
 		conf := model.Config{
 			ConfigMeta: model.ConfigMeta{
 				Type:              descriptor.Type,
@@ -130,8 +139,8 @@ func (c *Controller) Apply(change *mcpclient.Change) error {
 				Version:           descriptor.Version,
 				Name:              name,
 				Namespace:         nameSpace,
-				ResourceVersion:   now.String(),
-				CreationTimestamp: now,
+				ResourceVersion:   obj.Metadata.Version,
+				CreationTimestamp: createTime,
 			},
 			Spec: obj.Resource,
 		}
