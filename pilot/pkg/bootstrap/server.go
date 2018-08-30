@@ -159,6 +159,7 @@ type Server struct {
 
 	mesh             *meshconfig.MeshConfig
 	configController model.ConfigStoreCache
+	mcpController    coredatamodel.CoreDataModel
 	mixerSAN         []string
 	kubeClient       kubernetes.Interface
 	startFuncs       []startFunc
@@ -437,11 +438,15 @@ func (c *mockController) AppendInstanceHandler(f func(*model.ServiceInstance, mo
 
 func (c *mockController) Run(<-chan struct{}) {}
 
+func mcpEnabled(args *PilotArgs) bool {
+	return len(args.MCPServerAddrs) > 0
+}
+
 // initConfigController creates the config controller in the pilotConfig.
 func (s *Server) initConfigController(args *PilotArgs) error {
 	mcpServerAddrs := args.MCPServerAddrs
 
-	if len(mcpServerAddrs) > 0 {
+	if mcpEnabled(args) {
 		clientNodeID := args.Namespace
 		supportedTypes := make([]string, len(model.IstioConfigTypes))
 		for i, model := range model.IstioConfigTypes {
@@ -472,6 +477,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 			return nil
 		})
 
+		s.mcpController = mcpController
 		s.configController = mcpController
 
 	} else if args.Config.Controller != nil {
@@ -755,12 +761,23 @@ func (s *Server) initConfigRegistry(serviceControllers *aggregate.Controller) {
 }
 
 func (s *Server) initDiscoveryService(args *PilotArgs) error {
-	environment := &model.Environment{
-		Mesh:             s.mesh,
-		IstioConfigStore: s.istioConfigStore,
-		ServiceDiscovery: s.ServiceController,
-		ServiceAccounts:  s.ServiceController,
-		MixerSAN:         s.mixerSAN,
+	var environment *model.Environment
+	if mcpEnabled(args) {
+		environment = &model.Environment{
+			Mesh:             s.mesh,
+			IstioConfigStore: s.istioConfigStore,
+			ServiceDiscovery: s.mcpController,
+			ServiceAccounts:  s.mcpController,
+			MixerSAN:         s.mixerSAN,
+		}
+	} else {
+		environment = &model.Environment{
+			Mesh:             s.mesh,
+			IstioConfigStore: s.istioConfigStore,
+			ServiceDiscovery: s.ServiceController,
+			ServiceAccounts:  s.ServiceController,
+			MixerSAN:         s.mixerSAN,
+		}
 	}
 
 	// Set up discovery service

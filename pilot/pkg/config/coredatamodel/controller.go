@@ -22,7 +22,7 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
-
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 	mcpclient "istio.io/istio/pkg/mcp/client"
@@ -35,6 +35,8 @@ var errUnsupported = errors.New("this operation is not supported by mcp controll
 type CoreDataModel interface {
 	model.ConfigStoreCache
 	mcpclient.Updater
+	model.ServiceDiscovery
+	model.ServiceAccounts
 }
 
 // Controller is a temporary storage for the changes received
@@ -213,6 +215,140 @@ func (c *Controller) Create(config model.Config) (revision string, err error) {
 // Delete is not implemented
 func (c *Controller) Delete(typ, name, namespace string) error {
 	return errUnsupported
+}
+
+// GetService retrieves a service by host name if it exists
+// Deprecated - do not use for anything other than tests
+func (c *Controller) GetService(hostname model.Hostname) (*model.Service, error) {
+	services, err := c.Services()
+	if err != nil {
+		return nil, err
+	}
+	for _, service := range services {
+		if service.Hostname == hostname {
+			return service, nil
+		}
+	}
+
+	return nil, nil
+}
+
+// Services list declarations of all services in the system
+func (c *Controller) Services() ([]*model.Service, error) {
+	c.configStoreMu.Lock()
+	serviceEntries, ok := c.configStore[model.ServiceEntry.Type]
+	c.configStoreMu.Unlock()
+	if !ok {
+		return nil, nil
+	}
+
+	services := make([]*model.Service, 0, len(serviceEntries))
+	for namespace, serviceEntriesAllNamespaces := range serviceEntries {
+		for _, serviceEntry := range serviceEntriesAllNamespaces {
+			se := serviceEntry.Spec.(*networking.ServiceEntry)
+			services = append(services, ConvertServices(se, namespace, time.Now())...)
+		}
+	}
+
+	return services, nil
+}
+
+// InstancesByPort retrieves instances for a service on the given ports with labels that match
+// any of the supplied labels. All instances match an empty tag list.
+func (c *Controller) InstancesByPort(
+	hostname model.Hostname,
+	servicePort int,
+	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
+
+	c.configStoreMu.Lock()
+	serviceEntries, ok := c.configStore[model.ServiceEntry.Type]
+	c.configStoreMu.Unlock()
+	if !ok {
+		return nil, nil
+	}
+
+	instances := []*model.ServiceInstance{}
+	for namespace, serviceEntriesAllNamespaces := range serviceEntries {
+		for _, serviceEntry := range serviceEntriesAllNamespaces {
+			se := serviceEntry.Spec.(*networking.ServiceEntry)
+			if matchByHost(se, hostname) {
+				convertedInstances := ConvertInstances(se, namespace, time.Now(), filterByPortAndLabel(servicePort, labels))
+				instances = append(instances, convertedInstances...)
+			}
+		}
+	}
+
+	return instances, nil
+}
+
+// GetProxyServiceInstances returns the service instances that co-located with a given Proxy
+func (c *Controller) GetProxyServiceInstances(node *model.Proxy) ([]*model.ServiceInstance, error) {
+	c.configStoreMu.Lock()
+	serviceEntries, ok := c.configStore[model.ServiceEntry.Type]
+	c.configStoreMu.Unlock()
+	if !ok {
+		return nil, nil
+	}
+
+	instances := []*model.ServiceInstance{}
+	for namespace, serviceEntriesAllNamespaces := range serviceEntries {
+		for _, serviceEntry := range serviceEntriesAllNamespaces {
+			se := serviceEntry.Spec.(*networking.ServiceEntry)
+			convertedInstances := ConvertInstances(se, namespace, time.Now(), filterByIPAddress(node.IPAddress))
+			instances = append(instances, convertedInstances...)
+		}
+	}
+
+	return instances, nil
+}
+
+// ManagementPorts lists set of management ports associated with an IPv4 address.
+func (c *Controller) ManagementPorts(addr string) model.PortList {
+	return nil
+}
+
+// WorkloadHealthCheckInfo lists set of probes associated with an IPv4 address.
+func (c *Controller) WorkloadHealthCheckInfo(addr string) model.ProbeList {
+	return nil
+}
+
+// GetIstioServiceAccounts returns a list of service accounts looked up from
+// the specified service hostname and ports.
+func (c *Controller) GetIstioServiceAccounts(hostname model.Hostname, ports []int) []string {
+	return nil
+}
+
+func filterByIPAddress(address string) func(*model.ServiceInstance) bool {
+	return func(instance *model.ServiceInstance) bool {
+		return instance.Endpoint.Address == address
+	}
+}
+
+func filterByPortAndLabel(port int, labels model.LabelsCollection) func(*model.ServiceInstance) bool {
+	return func(instance *model.ServiceInstance) bool {
+		return labels.HasSubsetOf(instance.Labels) && portMatchSingle(instance, port)
+	}
+}
+
+func portMatchSingle(instance *model.ServiceInstance, port int) bool {
+	return port == 0 || port == instance.Endpoint.ServicePort.Port
+}
+
+func matchByHost(se *networking.ServiceEntry, hostname model.Hostname) bool {
+	for _, host := range se.Hosts {
+		if host == string(hostname) {
+			return true
+		}
+	}
+	return false
+}
+
+func convertPort(port *networking.Port) *model.Port {
+	return &model.Port{
+		Name:     port.Name,
+		Port:     int(port.Number),
+		Protocol: model.ParseProtocol(port.Protocol),
+	}
 }
 
 func extractNameNamespace(metadataName string) (string, string) {
