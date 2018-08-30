@@ -14,15 +14,16 @@ _sym_db = _symbol_database.Default()
 
 
 from gogoproto import gogo_pb2 as gogoproto_dot_gogo__pb2
+from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
 DESCRIPTOR = _descriptor.FileDescriptor(
   name='mcp/v1alpha1/metadata.proto',
   package='istio.mcp.v1alpha1',
   syntax='proto3',
-  serialized_pb=_b('\n\x1bmcp/v1alpha1/metadata.proto\x12\x12istio.mcp.v1alpha1\x1a\x14gogoproto/gogo.proto\"\x18\n\x08Metadata\x12\x0c\n\x04name\x18\x01 \x01(\tB\x1fZ\x19istio.io/api/mcp/v1alpha1\xa8\xe2\x1e\x01\x62\x06proto3')
+  serialized_pb=_b('\n\x1bmcp/v1alpha1/metadata.proto\x12\x12istio.mcp.v1alpha1\x1a\x14gogoproto/gogo.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"Z\n\x08Metadata\x12\x0c\n\x04name\x18\x01 \x01(\t\x12/\n\x0b\x63reate_time\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x0f\n\x07version\x18\x03 \x01(\tB\x1fZ\x19istio.io/api/mcp/v1alpha1\xa8\xe2\x1e\x01\x62\x06proto3')
   ,
-  dependencies=[gogoproto_dot_gogo__pb2.DESCRIPTOR,])
+  dependencies=[gogoproto_dot_gogo__pb2.DESCRIPTOR,google_dot_protobuf_dot_timestamp__pb2.DESCRIPTOR,])
 
 
 
@@ -41,6 +42,20 @@ _METADATA = _descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='create_time', full_name='istio.mcp.v1alpha1.Metadata.create_time', index=1,
+      number=2, type=11, cpp_type=10, label=1,
+      has_default_value=False, default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='version', full_name='istio.mcp.v1alpha1.Metadata.version', index=2,
+      number=3, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None, file=DESCRIPTOR),
   ],
   extensions=[
   ],
@@ -53,10 +68,11 @@ _METADATA = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=73,
-  serialized_end=97,
+  serialized_start=106,
+  serialized_end=196,
 )
 
+_METADATA.fields_by_name['create_time'].message_type = google_dot_protobuf_dot_timestamp__pb2._TIMESTAMP
 DESCRIPTOR.message_types_by_name['Metadata'] = _METADATA
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
 

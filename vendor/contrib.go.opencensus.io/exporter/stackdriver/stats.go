@@ -48,7 +48,7 @@ const (
 	opencensusTaskKey         = "opencensus_task"
 	opencensusTaskDescription = "Opencensus task identifier"
 	defaultDisplayNamePrefix  = "OpenCensus"
-	version                   = "0.4.0"
+	version                   = "0.6.0"
 )
 
 var userAgent = fmt.Sprintf("opencensus-go %s; stackdriver-exporter %s", opencensus.Version(), version)
@@ -78,7 +78,7 @@ func newStatsExporter(o Options, enforceProjectUniqueness bool) (*statsExporter,
 	}
 
 	opts := append(o.MonitoringClientOptions, option.WithUserAgent(userAgent))
-	client, err := monitoring.NewMetricClient(context.Background(), opts...)
+	client, err := monitoring.NewMetricClient(o.Context, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -150,7 +150,7 @@ func (e *statsExporter) Flush() {
 
 func (e *statsExporter) uploadStats(vds []*view.Data) error {
 	ctx, span := trace.StartSpan(
-		context.Background(),
+		e.o.Context,
 		"contrib.go.opencensus.io/exporter/stackdriver.uploadStats",
 		trace.WithSampler(trace.NeverSample()),
 	)
@@ -163,7 +163,7 @@ func (e *statsExporter) uploadStats(vds []*view.Data) error {
 		}
 	}
 	for _, req := range e.makeReq(vds, maxTimeSeriesPerUpload) {
-		if err := e.c.CreateTimeSeries(ctx, req); err != nil {
+		if err := createTimeSeries(ctx, e.c, req); err != nil {
 			span.SetStatus(trace.Status{Code: 2, Message: err.Error()})
 			// TODO(jbd): Don't fail fast here, batch errors?
 			return err
@@ -464,4 +464,8 @@ var createMetricDescriptor = func(ctx context.Context, c *monitoring.MetricClien
 
 var getMetricDescriptor = func(ctx context.Context, c *monitoring.MetricClient, mdr *monitoringpb.GetMetricDescriptorRequest) (*metric.MetricDescriptor, error) {
 	return c.GetMetricDescriptor(ctx, mdr)
+}
+
+var createTimeSeries = func(ctx context.Context, c *monitoring.MetricClient, ts *monitoringpb.CreateTimeSeriesRequest) error {
+	return c.CreateTimeSeries(ctx, ts)
 }

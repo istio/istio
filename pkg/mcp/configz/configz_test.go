@@ -81,7 +81,7 @@ func TestConfigZ(t *testing.T) {
 
 	b := snapshot.NewInMemoryBuilder()
 	b.SetVersion("type.googleapis.com/google.protobuf.Empty", "23")
-	err = b.SetEntry("type.googleapis.com/google.protobuf.Empty", "foo", &types.Empty{})
+	err = b.SetEntry("type.googleapis.com/google.protobuf.Empty", "foo", "v0", time.Time{}, &types.Empty{})
 	if err != nil {
 		t.Fatalf("Setting an entry should not have failed: %v", err)
 	}

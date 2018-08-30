@@ -1007,8 +1007,8 @@ func (m *ConnectionPoolSettings_HTTPSettings) GetMaxRetries() int32 {
 type OutlierDetection struct {
 	// Number of errors before a host is ejected from the connection
 	// pool. Defaults to 5. When the upstream host is accessed over HTTP, a
-	// 5xx return code qualifies as an error. When the upstream host is
-	// accessed over an opaque TCP connection, connect timeouts and
+	// 502, 503 or 504 return code qualifies as an error. When the upstream host
+	// is accessed over an opaque TCP connection, connect timeouts and
 	// connection error/failure events qualify as an error.
 	ConsecutiveErrors int32 `protobuf:"varint,1,opt,name=consecutive_errors,json=consecutiveErrors,proto3" json:"consecutive_errors,omitempty"`
 	// Time interval between ejection sweep analysis. format:
