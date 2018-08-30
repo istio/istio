@@ -18,7 +18,6 @@ sudo apt-get install -y qemu-kvm
 sudo systemctl stop libvirtd
 sudo systemctl start libvirtd
 sudo usermod -a -G libvirt "$(whoami)"
-newgrp libvirt
 curl -LO https://storage.googleapis.com/minikube/releases/latest/docker-machine-driver-kvm2 && chmod +x docker-machine-driver-kvm2 && sudo mv docker-machine-driver-kvm2 /usr/local/bin/
 # We run following commands only for making scripts resilient to failures. Hence
 # ignoring any errors from them too.
