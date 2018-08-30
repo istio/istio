@@ -439,15 +439,17 @@ func (s *DiscoveryServer) configz(w http.ResponseWriter, req *http.Request) {
 	fmt.Fprint(w, "\n{}]")
 }
 
+type authProtocol int
+
 const (
-	authnHTTP       = 1
-	authnMTls       = 2
-	authnPermissive = authnHTTP | authnMTls
+	authnHTTP       authProtocol = 1
+	authnMTls       authProtocol = 2
+	authnPermissive authProtocol = authnHTTP | authnMTls
 )
 
 // Returns whether the given destination rule use (Istio) mutual TLS setting for given port.
 // TODO: check subsets possibly conflicts between subsets.
-func clientAuthProtocol(rule *networking.DestinationRule, port *model.Port) int {
+func clientAuthProtocol(rule *networking.DestinationRule, port *model.Port) authProtocol {
 	if rule.TrafficPolicy == nil {
 		return authnHTTP
 	}
@@ -459,7 +461,7 @@ func clientAuthProtocol(rule *networking.DestinationRule, port *model.Port) int 
 	return authnHTTP
 }
 
-func getServerAuthProtocol(mtls *authn.MutualTls) int {
+func getServerAuthProtocol(mtls *authn.MutualTls) authProtocol {
 	if mtls == nil {
 		return authnHTTP
 	}
@@ -487,7 +489,7 @@ func configName(config *model.Config) string {
 	return "-"
 }
 
-func authProtocolToString(protocol int) string {
+func authProtocolToString(protocol authProtocol) string {
 	switch protocol {
 	case authnHTTP:
 		return "HTTP"
@@ -525,7 +527,7 @@ func (s *DiscoveryServer) authenticationz(w http.ResponseWriter, req *http.Reque
 			}
 			authnConfig := s.env.IstioConfigStore.AuthenticationPolicyByDestination(ss, p)
 			info.AuthenticationPolicyName = configName(authnConfig)
-			var serverProtocol, clientProtocol int
+			var serverProtocol, clientProtocol authProtocol
 			if authnConfig != nil {
 				policy := authnConfig.Spec.(*authn.Policy)
 				mtls := authn_plugin.GetMutualTLS(policy, model.Sidecar)
