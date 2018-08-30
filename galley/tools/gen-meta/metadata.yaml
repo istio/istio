@@ -128,12 +128,12 @@ resources:
     version:     "v1alpha2"
     proto:       "istio.policy.v1beta1.Instance"
 
-  - kind:        "handler"
-    singular:    "handler"
-    plural:      "handlers"
-    group:       "config.istio.io"
-    version:     "v1alpha2"
-    proto:       "istio.policy.v1beta1.Handler"
+  # - kind:        "handler"
+  #   singular:    "handler"
+  #   plural:      "handlers"
+  #   group:       "config.istio.io"
+  #   version:     "v1alpha2"
+  #   proto:       "istio.policy.v1beta1.Handler"
 
   - kind:        "template"
     singular:    "template"
