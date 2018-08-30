@@ -845,7 +845,7 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		rbac := convertRbacRulesToFilterConfig(tc.service, tc.option, false /*global permissive mode*/)
+		rbac := convertRbacRulesToFilterConfig(tc.service, tc.option)
 		if !reflect.DeepEqual(*tc.rbac, *rbac.Rules) {
 			t.Errorf("%s want:\n%v\nbut got:\n%v", tc.name, *tc.rbac, *rbac.Rules)
 		}
@@ -978,7 +978,7 @@ func TestConvertRbacRulesToFilterConfigForServiceWithBothHTTPAndTCP(t *testing.T
 	}
 
 	for _, tc := range testCases {
-		rbac := convertRbacRulesToFilterConfig(&serviceMetadata{name: "svc_http_tcp"}, tc.option, false /*global permissive mode*/)
+		rbac := convertRbacRulesToFilterConfig(&serviceMetadata{name: "svc_http_tcp"}, tc.option)
 		if rbac.ShadowRules != nil && len(rbac.ShadowRules.Policies) != 0 {
 			t.Errorf("%s: expecting empty shadow rules but found: %v", tc.name, rbac.ShadowRules)
 		}
@@ -1069,19 +1069,11 @@ func TestConvertRbacRulesToFilterConfigPermissive(t *testing.T) {
 		},
 	}
 
-	globalPermissiveConfig := &http_config.RBAC{
-		ShadowRules: &policy.RBAC{
-			Action:   policy.RBAC_ALLOW,
-			Policies: map[string]*policy.Policy{},
-		},
-	}
-
 	testCases := []struct {
-		name             string
-		service          *serviceMetadata
-		option           rbacOption
-		expectConfig     *http_config.RBAC
-		globalPermissive bool
+		name         string
+		service      *serviceMetadata
+		option       rbacOption
+		expectConfig *http_config.RBAC
 	}{
 		{
 			name:    "exact matched service",
@@ -1114,16 +1106,18 @@ func TestConvertRbacRulesToFilterConfigPermissive(t *testing.T) {
 			name:    "global permissive",
 			service: &serviceMetadata{name: "service"},
 			option: rbacOption{
-				roles:    roles,
-				bindings: []model.Config{},
+				roles:                roles,
+				bindings:             bindings,
+				globalPermissiveMode: true,
 			},
-			expectConfig:     globalPermissiveConfig,
-			globalPermissive: true,
+			expectConfig: &http_config.RBAC{
+				ShadowRules: rbacConfig.GetShadowRules(),
+			},
 		},
 	}
 
 	for _, tc := range testCases {
-		rbac := convertRbacRulesToFilterConfig(tc.service, tc.option, tc.globalPermissive)
+		rbac := convertRbacRulesToFilterConfig(tc.service, tc.option)
 		if !reflect.DeepEqual(*tc.expectConfig, *rbac) {
 			t.Errorf("%s rbac config want:\n%v\nbut got:\n%v", tc.name, *tc.expectConfig, *rbac)
 		}

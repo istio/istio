@@ -91,9 +91,10 @@ type serviceMetadata struct {
 }
 
 type rbacOption struct {
-	roles        []model.Config
-	bindings     []model.Config
-	forTCPFilter bool // The generated config is to be used by the Envoy network filter when true.
+	roles                []model.Config
+	bindings             []model.Config
+	forTCPFilter         bool // The generated config is to be used by the Envoy network filter when true.
+	globalPermissiveMode bool // True if global RBAC config is in permissive mode.
 }
 
 func createServiceMetadata(attr *model.ServiceAttributes, in *model.ServiceInstance) *serviceMetadata {
@@ -465,7 +466,7 @@ func buildTCPFilter(service *serviceMetadata, store model.IstioConfigStore, glob
 
 	// The result of convertRbacRulesToFilterConfig() is wrapped in a config for http filter, here we
 	// need to extract the generated rules and put in a config for network filter.
-	config := convertRbacRulesToFilterConfig(service, rbacOption{roles: roles, bindings: bindings, forTCPFilter: true}, globalPermissive)
+	config := convertRbacRulesToFilterConfig(service, rbacOption{roles: roles, bindings: bindings, forTCPFilter: true, globalPermissiveMode: globalPermissive})
 	tcpConfig := listener.Filter{
 		Name: rbacTCPFilterName,
 		Config: util.MessageToStruct(&network_config.RBAC{
@@ -487,7 +488,7 @@ func buildHTTPFilter(service *serviceMetadata, store model.IstioConfigStore, glo
 		return nil
 	}
 
-	config := convertRbacRulesToFilterConfig(service, rbacOption{roles: roles, bindings: bindings, forTCPFilter: false}, globalPermissive)
+	config := convertRbacRulesToFilterConfig(service, rbacOption{roles: roles, bindings: bindings, forTCPFilter: false, globalPermissiveMode: globalPermissive})
 	rbacLog.Debugf("generated http filter config: %v", *config)
 	return &http_conn.HttpFilter{
 		Name:   rbacHTTPFilterName,
@@ -498,7 +499,7 @@ func buildHTTPFilter(service *serviceMetadata, store model.IstioConfigStore, glo
 // convertRbacRulesToFilterConfig converts the current RBAC rules (ServiceRole and ServiceRoleBindings)
 // in service mesh to the corresponding proxy config for the specified service. The generated proxy config
 // will be consumed by envoy RBAC filter to enforce access control on the specified service.
-func convertRbacRulesToFilterConfig(service *serviceMetadata, option rbacOption, globalPermissive bool) *http_config.RBAC {
+func convertRbacRulesToFilterConfig(service *serviceMetadata, option rbacOption) *http_config.RBAC {
 	rbac := &policyproto.RBAC{
 		Action:   policyproto.RBAC_ALLOW,
 		Policies: map[string]*policyproto.Policy{},
@@ -565,7 +566,7 @@ func convertRbacRulesToFilterConfig(service *serviceMetadata, option rbacOption,
 
 	// If RBAC Config is set to permissive mode globally, RBAC is transparent to users;
 	// when mapping to rbac filter config, there is only shadow rules(no normal rules).
-	if globalPermissive {
+	if option.globalPermissiveMode {
 		return &http_config.RBAC{
 			ShadowRules: permissiveRbac}
 	}
