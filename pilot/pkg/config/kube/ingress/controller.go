@@ -165,7 +165,7 @@ func (c *controller) Get(typ, name, namespace string) (*model.Config, bool) {
 	}
 
 	ingress := obj.(*v1beta1.Ingress)
-	if !shouldProcessIngress(c.mesh, ingress) {
+	if ingress == nil || !shouldProcessIngress(c.mesh, ingress) {
 		return nil, false
 	}
 
@@ -187,7 +187,7 @@ func (c *controller) List(typ, namespace string) ([]model.Config, error) {
 			continue
 		}
 
-		if !shouldProcessIngress(c.mesh, ingress) {
+		if ingress == nil || !shouldProcessIngress(c.mesh, ingress) {
 			continue
 		}
 
