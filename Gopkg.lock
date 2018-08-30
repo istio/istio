@@ -42,7 +42,7 @@
   version = "v0.6.0"
 
 [[projects]]
-  digest = "1:c1cdf31e8b0454e518f59226b222b48aec62a884015304e5b82a704bef056cd3"
+  digest = "1:ca58755cd68a0c97d7d2791b0123c10a119f6384fa222b439c74a2aed49b470a"
   name = "fortio.org/fortio"
   packages = [
     ".",
@@ -57,8 +57,8 @@
     "version",
   ]
   pruneopts = "T"
-  revision = "36bffaa50c7cc47038fc7572c83221640a603425"
-  version = "v1.2.0"
+  revision = "4a5012fb92ee87ecbdd80ed2cb031f5cf9c50cbc"
+  version = "v1.2.1"
 
 [[projects]]
   digest = "1:add5f01e863553e80ded66e1cba646ad947932e66f90813741d51c97a1ee7a59"
