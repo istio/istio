@@ -4,16 +4,16 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/alipay/sofa-mesh)](https://goreportcard.com/report/github.com/alipay/sofa-mesh)
 [![codecov.io](https://codecov.io/github/alipay/sofa-mosn/coverage.svg?branch=master)](https://codecov.io/github/alipay/sofa-mesh?branch=master)
 
-SOFAMesh ÊÇ»ùÓÚ Istio ¸Ä½øºÍÀ©Õ¹¶øÀ´µÄ Service Mesh ´ó¹æÄ£ÂäµØÊµ¼ù·½°¸¡£ÔÚ¼Ì³Ğ Istio Ç¿´ó¹¦ÄÜºÍ·á¸»ÌØĞÔµÄ»ù´¡ÉÏ£¬ÎªÂú×ã´ó¹æÄ£²¿ÊğÏÂµÄĞÔÄÜÒªÇóÒÔ¼°Ó¦¶ÔÂäµØÊµ¼ùÖĞµÄÊµ¼ÊÇé¿ö£¬ÓĞÈçÏÂ¸Ä½ø£º
+SOFAMesh æ˜¯åŸºäº [Istio](https://istio.io) æ”¹è¿›å’Œæ‰©å±•è€Œæ¥çš„ Service Mesh å¤§è§„æ¨¡è½åœ°å®è·µæ–¹æ¡ˆã€‚åœ¨ç»§æ‰¿ Istio å¼ºå¤§åŠŸèƒ½å’Œä¸°å¯Œç‰¹æ€§çš„åŸºç¡€ä¸Šï¼Œä¸ºæ»¡è¶³å¤§è§„æ¨¡éƒ¨ç½²ä¸‹çš„æ€§èƒ½è¦æ±‚ä»¥åŠåº”å¯¹è½åœ°å®è·µä¸­çš„å®é™…æƒ…å†µï¼Œæœ‰å¦‚ä¸‹æ”¹è¿›ï¼š
 
-- ²ÉÓÃ Golang ±àĞ´µÄ [MOSN](https://github.com/alipay/sofa-mosn) È¡´ú [Envoy](https://github.com/envoyproxy/envoy)
-- ºÏ²¢Mixerµ½Êı¾İÆ½ÃæÒÔ½â¾öĞÔÄÜÆ¿¾±
-- ÔöÇ¿ Pilot ÒÔÊµÏÖ¸üÁé»îµÄ·şÎñ·¢ÏÖ»úÖÆ
-- Ôö¼Ó¶Ô [SOFA RPC](https://github.com/alipay/sofa-rpc)¡¢Dubbo µÄÖ§³Ö
+- é‡‡ç”¨ Golang ç¼–å†™çš„ [MOSN](https://github.com/alipay/sofa-mosn) å–ä»£ [Envoy](https://github.com/envoyproxy/envoy)
+- åˆå¹¶ Mixer åˆ°æ•°æ®å¹³é¢ä»¥è§£å†³æ€§èƒ½ç“¶é¢ˆ
+- å¢å¼º Pilot ä»¥å®ç°æ›´çµæ´»çš„æœåŠ¡å‘ç°æœºåˆ¶
+- å¢åŠ å¯¹ [SOFA RPC](https://github.com/alipay/sofa-rpc)ã€Dubbo çš„æ”¯æŒ
 
-³õÊ¼°æ±¾ÓÉÂìÒÏ½ğ·şºÍ°¢Àï´óÎÄÓéUCÊÂÒµ²¿Ğ¯ÊÖ¹±Ï×£¬ÆÚ´ıÉçÇøÒ»ÆğÀ´²ÎÓëºóĞø¿ª·¢£¬¹²½¨Ò»¸ö¿ªÔ´¾«Æ·ÏîÄ¿¡£
+åˆå§‹ç‰ˆæœ¬ç”±èš‚èšé‡‘æœå’Œé˜¿é‡Œå¤§æ–‡å¨±UCäº‹ä¸šéƒ¨æºæ‰‹è´¡çŒ®ï¼ŒæœŸå¾…ç¤¾åŒºä¸€èµ·æ¥å‚ä¸åç»­å¼€å‘ï¼Œå…±å»ºä¸€ä¸ªå¼€æºç²¾å“é¡¹ç›®ã€‚
 
-- [SOFAMesh ÎÄµµ](http://www.sofastack.tech/sofa-mesh/docs/Home)
+- [SOFAMesh æ–‡æ¡£](http://www.sofastack.tech/sofa-mesh/docs/Home)
 - [Istio Community](https://github.com/istio/community) - describes how to get involved and contribute to the Istio project
 - [Istio Developer's Guide](https://github.com/istio/istio/wiki/Dev-Guide) - explains how to set up and use an Istio development environment
 - [Project Conventions](https://github.com/istio/istio/wiki/Dev-Conventions) - describes the conventions we use within the code base
