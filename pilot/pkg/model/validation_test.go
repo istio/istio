@@ -2750,28 +2750,6 @@ func TestValidateServiceRole(t *testing.T) {
 			expectErrMsg: "at least 1 service must be specified for rule 1",
 		},
 		{
-			name: "no method",
-			in: &rbac.ServiceRole{Rules: []*rbac.AccessRule{
-				{
-					Services: []string{"service0"},
-					Methods:  []string{"GET", "POST"},
-					Constraints: []*rbac.AccessRule_Constraint{
-						{Key: "key", Values: []string{"value"}},
-						{Key: "key", Values: []string{"value"}},
-					},
-				},
-				{
-					Services: []string{"service0"},
-					Methods:  []string{},
-					Constraints: []*rbac.AccessRule_Constraint{
-						{Key: "key", Values: []string{"value"}},
-						{Key: "key", Values: []string{"value"}},
-					},
-				},
-			}},
-			expectErrMsg: "at least 1 method must be specified for rule 1",
-		},
-		{
 			name: "no key in constraint",
 			in: &rbac.ServiceRole{Rules: []*rbac.AccessRule{
 				{

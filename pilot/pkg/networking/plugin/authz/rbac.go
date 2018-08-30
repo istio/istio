@@ -15,11 +15,11 @@
 // Package authz converts Istio RBAC (role-based-access-control) policies (ServiceRole and ServiceRoleBinding)
 // to corresponding filter config that is used by the envoy RBAC filter to enforce access control to
 // the service co-located with envoy.
-// Currently the config is only generated for sidecar node on inbound HTTP listener. The generation
+// Currently the config is only generated for sidecar node on inbound HTTP/TCP listener. The generation
 // is controlled by RbacConfig (a singleton custom resource with cluster scope). User could disable
 // this plugin by either deleting the RbacConfig or set the RbacConfig.mode to OFF.
-// Note: no RbacConfig is created in the deployment of Istio which means this plugin doesn't generate
-// any RBAC config by default.
+// Note: RbacConfig is not created with default istio installation which means this plugin doesn't
+// generate any RBAC config by default.
 package authz
 
 import (
@@ -27,13 +27,11 @@ import (
 	"sort"
 	"strings"
 
-	// Imported so that `dep ensure` do not prune the unused network/rbac/v2 package. Will soon be used
-	// to support the network RBAC filter.
-	_ "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/rbac/v2"
-
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	rbacconfig "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/rbac/v2"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	http_config "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/rbac/v2"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	network_config "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/rbac/v2"
 	policyproto "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2alpha"
 	metadata "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
 
@@ -50,8 +48,12 @@ var (
 )
 
 const (
-	// rbacFilterName is the name of the RBAC filter in envoy.
-	rbacFilterName = "envoy.filters.http.rbac"
+	// rbacHTTPFilterName is the name of the RBAC http filter in envoy.
+	rbacHTTPFilterName = "envoy.filters.http.rbac"
+
+	// rbacTCPFilterName is the name of the RBAC network filter in envoy.
+	rbacTCPFilterName       = "envoy.filters.network.rbac"
+	rbacTCPFilterStatPrefix = "tcp."
 
 	// attributes that could be used in both ServiceRoleBinding and ServiceRole.
 	attrRequestHeader = "request.headers" // header name is surrounded by brackets, e.g. "request.headers[User-Agent]".
@@ -77,6 +79,8 @@ const (
 
 	methodHeader = ":method"
 	pathHeader   = ":path"
+
+	spiffePrefix = "spiffe://"
 )
 
 // serviceMetadata is a collection of different kind of information about a service.
@@ -84,6 +88,12 @@ type serviceMetadata struct {
 	name       string            // full qualified service name, e.g. "productpage.default.svc.cluster.local
 	labels     map[string]string // labels of the service instance
 	attributes map[string]string // additional attributes of the service
+}
+
+type rbacOption struct {
+	roles        []model.Config
+	bindings     []model.Config
+	forTCPFilter bool // The generated config is to be used by the Envoy network filter when true.
 }
 
 func createServiceMetadata(attr *model.ServiceAttributes, in *model.ServiceInstance) *serviceMetadata {
@@ -311,28 +321,36 @@ func (Plugin) OnInboundFilterChains(in *plugin.InputParams) []plugin.FilterChain
 // Can be used to add additional filters (e.g., mixer filter) or add more stuff to the HTTP connection manager
 // on the inbound path
 func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
-	// Only supports sidecar proxy of HTTP listener for now.
-	if in.Node.Type != model.Sidecar || in.ListenerProtocol != plugin.ListenerProtocolHTTP {
+	// Only supports sidecar proxy for now.
+	if in.Node.Type != model.Sidecar {
 		return nil
 	}
 	svc := in.ServiceInstance.Service.Hostname
 	attr := in.ServiceInstance.Service.Attributes
-	//if len(attr) == nil || err != nil {
-	//	rbacLog.Errorf("rbac plugin disabled: invalid service %s: %v", svc, err)
-	//	return nil
-	//}
-
 	if !isRbacEnabled(string(svc), attr.Namespace, in.Env.IstioConfigStore) {
 		return nil
 	}
 
-	service := createServiceMetadata(&attr, in.ServiceInstance)
-	rbacLog.Debugf("building filter config for %v", *service)
-	filter := buildHTTPFilter(service, in.Env.IstioConfigStore)
-	if filter != nil {
-		rbacLog.Infof("built filter config for %s", service.name)
-		for cnum := range mutable.FilterChains {
-			mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, filter)
+	switch in.ListenerProtocol {
+	case plugin.ListenerProtocolTCP:
+		service := createServiceMetadata(&attr, in.ServiceInstance)
+		rbacLog.Debugf("building tcp filter config for %v", *service)
+		filter := buildTCPFilter(service, in.Env.IstioConfigStore)
+		if filter != nil {
+			rbacLog.Infof("built tcp filter config for %s", service.name)
+			for cnum := range mutable.FilterChains {
+				mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, *filter)
+			}
+		}
+	case plugin.ListenerProtocolHTTP:
+		service := createServiceMetadata(&attr, in.ServiceInstance)
+		rbacLog.Debugf("building http filter config for %v", *service)
+		filter := buildHTTPFilter(service, in.Env.IstioConfigStore)
+		if filter != nil {
+			rbacLog.Infof("built http filter config for %s", service.name)
+			for cnum := range mutable.FilterChains {
+				mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, filter)
+			}
 		}
 	}
 
@@ -400,13 +418,12 @@ func isRbacEnabled(svc string, ns string, store model.IstioConfigStore) bool {
 	}
 }
 
-// buildHTTPFilter builds the RBAC http filter that enforces the access control to the specified
-// service which is co-located with the sidecar proxy.
-func buildHTTPFilter(service *serviceMetadata, store model.IstioConfigStore) *http_conn.HttpFilter {
+// rbacPolicyForService returns the (ServiceRole, ServiceRoleBinding, error) for the service.
+func rbacPolicyForService(service *serviceMetadata, store model.IstioConfigStore) (
+	[]model.Config, []model.Config, error) {
 	namespace, present := service.attributes[attrDestNamespace]
 	if !present {
-		rbacLog.Errorf("no namespace for service %v", service)
-		return nil
+		return nil, nil, fmt.Errorf("no namespace for service %v", service)
 	}
 
 	roles := store.ServiceRoles(namespace)
@@ -418,20 +435,11 @@ func buildHTTPFilter(service *serviceMetadata, store model.IstioConfigStore) *ht
 		rbacLog.Infof("no service role binding in namespace %s", namespace)
 	}
 
-	config := convertRbacRulesToFilterConfig(service, roles, bindings)
-	rbacLog.Debugf("generated filter config: %v", *config)
-	return &http_conn.HttpFilter{
-		Name:   rbacFilterName,
-		Config: util.MessageToStruct(config),
-	}
+	return roles, bindings, nil
 }
 
-// convertRbacRulesToFilterConfig converts the current RBAC rules (ServiceRole and ServiceRoleBindings)
-// in service mesh to the corresponding proxy config for the specified service. The generated proxy config
-// will be consumed by envoy RBAC filter to enforce access control on the specified service.
-func convertRbacRulesToFilterConfig(
-	service *serviceMetadata, roles []model.Config, bindings []model.Config) *rbacconfig.RBAC {
-	// roleToBinding maps ServiceRole name to a list of ServiceRoleBindings.
+// roleToBindings returns a map that maps role name to its associated bindings.
+func roleToBindings(bindings []model.Config) map[string][]*rbacproto.ServiceRoleBinding {
 	roleToBinding := map[string][]*rbacproto.ServiceRoleBinding{}
 	for _, binding := range bindings {
 		bindingProto := binding.Spec.(*rbacproto.ServiceRoleBinding)
@@ -443,35 +451,98 @@ func convertRbacRulesToFilterConfig(
 		}
 		roleToBinding[roleName] = append(roleToBinding[roleName], bindingProto)
 	}
+	return roleToBinding
+}
 
+func buildTCPFilter(service *serviceMetadata, store model.IstioConfigStore) *listener.Filter {
+	roles, bindings, err := rbacPolicyForService(service, store)
+	if err != nil {
+		rbacLog.Errorf("failed to get rbac policy: %v", err)
+		return nil
+	}
+
+	// The result of convertRbacRulesToFilterConfig() is wrapped in a config for http filter, here we
+	// need to extract the generated rules and put in a config for network filter.
+	config := convertRbacRulesToFilterConfig(service, rbacOption{roles: roles, bindings: bindings, forTCPFilter: true})
+	tcpConfig := listener.Filter{
+		Name: rbacTCPFilterName,
+		Config: util.MessageToStruct(&network_config.RBAC{
+			Rules:       config.Rules,
+			ShadowRules: config.ShadowRules,
+			StatPrefix:  rbacTCPFilterStatPrefix,
+		}),
+	}
+	rbacLog.Debugf("generated tcp filter config: %v", tcpConfig)
+	return &tcpConfig
+}
+
+// buildHTTPFilter builds the RBAC http filter that enforces the access control to the specified
+// service which is co-located with the sidecar proxy.
+func buildHTTPFilter(service *serviceMetadata, store model.IstioConfigStore) *http_conn.HttpFilter {
+	roles, bindings, err := rbacPolicyForService(service, store)
+	if err != nil {
+		rbacLog.Errorf("failed to get rbac policy: %v", err)
+		return nil
+	}
+
+	config := convertRbacRulesToFilterConfig(service, rbacOption{roles: roles, bindings: bindings, forTCPFilter: false})
+	rbacLog.Debugf("generated http filter config: %v", *config)
+	return &http_conn.HttpFilter{
+		Name:   rbacHTTPFilterName,
+		Config: util.MessageToStruct(config),
+	}
+}
+
+// convertRbacRulesToFilterConfig converts the current RBAC rules (ServiceRole and ServiceRoleBindings)
+// in service mesh to the corresponding proxy config for the specified service. The generated proxy config
+// will be consumed by envoy RBAC filter to enforce access control on the specified service.
+func convertRbacRulesToFilterConfig(service *serviceMetadata, option rbacOption) *http_config.RBAC {
 	rbac := &policyproto.RBAC{
 		Action:   policyproto.RBAC_ALLOW,
 		Policies: map[string]*policyproto.Policy{},
 	}
-
 	permissiveRbac := &policyproto.RBAC{
 		Action:   policyproto.RBAC_ALLOW,
 		Policies: map[string]*policyproto.Policy{},
 	}
 
-	for _, role := range roles {
-		enforcedPrincipals, permissivePrincipals := convertToPrincipals(roleToBinding[role.Name])
-		if len(enforcedPrincipals) == 0 && len(permissivePrincipals) == 0 {
-			rbacLog.Debugf("role skipped for no principals found")
-			continue
-		}
-
+	roleToBindings := roleToBindings(option.bindings)
+	for _, role := range option.roles {
 		rbacLog.Debugf("checking role %v", role.Name)
 		permissions := make([]*policyproto.Permission, 0)
 		for i, rule := range role.Spec.(*rbacproto.ServiceRole).Rules {
 			if service.match(rule) {
-				// Generate the policy if the service is matched to the services specified in ServiceRole.
-				rbacLog.Debugf("matched AccessRule[%d]", i)
-				permissions = append(permissions, convertToPermission(rule))
+				rbacLog.Debugf("rules[%d] matched", i)
+				if option.forTCPFilter {
+					if err := validateRuleForTCPFilter(rule); err != nil {
+						// It's a user misconfiguration if a HTTP rule is specified to a TCP service.
+						// For safety consideration, we ignore the whole rule which means no access is opened to
+						// the TCP service in this case.
+						// TODO(yangminzhu): Add metrics for this.
+						rbacLog.Debugf("rules[%d] ignored, found HTTP only rule for a TCP service: %v", i, err)
+						continue
+					}
+				}
+				// Generate the policy if the service is matched and validated to the services specified in
+				// ServiceRole.
+				permissions = append(permissions, convertToPermission(rule, option.forTCPFilter))
 			}
 		}
 		if len(permissions) == 0 {
-			rbacLog.Debugf("role skipped for no AccessRule matched")
+			rbacLog.Debugf("role %s skipped for no rule matched", role.Name)
+			continue
+		}
+
+		bindings := roleToBindings[role.Name]
+		if option.forTCPFilter {
+			if err := validateBindingsForTCPFilter(bindings); err != nil {
+				rbacLog.Debugf("role %s skipped, found HTTP only binding for a TCP service: %v", role.Name, err)
+				continue
+			}
+		}
+		enforcedPrincipals, permissivePrincipals := convertToPrincipals(bindings, option.forTCPFilter)
+		if len(enforcedPrincipals) == 0 && len(permissivePrincipals) == 0 {
+			rbacLog.Debugf("role %s skipped for no principals found", role.Name)
 			continue
 		}
 
@@ -490,13 +561,11 @@ func convertRbacRulesToFilterConfig(
 		}
 	}
 
-	return &rbacconfig.RBAC{
-		Rules:       rbac,
-		ShadowRules: permissiveRbac}
+	return &http_config.RBAC{Rules: rbac, ShadowRules: permissiveRbac}
 }
 
 // convertToPermission converts a single AccessRule to a Permission.
-func convertToPermission(rule *rbacproto.AccessRule) *policyproto.Permission {
+func convertToPermission(rule *rbacproto.AccessRule, forTCPFilter bool) *policyproto.Permission {
 	rules := &policyproto.Permission_AndRules{
 		AndRules: &policyproto.Permission_Set{
 			Rules: make([]*policyproto.Permission, 0),
@@ -528,23 +597,29 @@ func convertToPermission(rule *rbacproto.AccessRule) *policyproto.Permission {
 		}
 	}
 
+	if len(rules.AndRules.Rules) == 0 {
+		// None of above rule satisfied means the permission applies to all paths/methods/constraints.
+		rules.AndRules.Rules = append(rules.AndRules.Rules,
+			&policyproto.Permission{Rule: &policyproto.Permission_Any{Any: true}})
+	}
+
 	return &policyproto.Permission{Rule: rules}
 }
 
 // convertToPrincipals converts subjects to two lists of principals, one from enforced mode ServiceBindings,
 // and the other from permissive mode ServiceBindings.
-func convertToPrincipals(bindings []*rbacproto.ServiceRoleBinding) ([]*policyproto.Principal, []*policyproto.Principal) {
+func convertToPrincipals(bindings []*rbacproto.ServiceRoleBinding, forTCPFilter bool) ([]*policyproto.Principal, []*policyproto.Principal) {
 	enforcedPrincipals := make([]*policyproto.Principal, 0)
 	permissivePrincipals := make([]*policyproto.Principal, 0)
 
 	for _, binding := range bindings {
 		if binding.Mode == rbacproto.EnforcementMode_ENFORCED {
 			for _, subject := range binding.Subjects {
-				enforcedPrincipals = append(enforcedPrincipals, convertToPrincipal(subject))
+				enforcedPrincipals = append(enforcedPrincipals, convertToPrincipal(subject, forTCPFilter))
 			}
 		} else {
 			for _, subject := range binding.Subjects {
-				permissivePrincipals = append(permissivePrincipals, convertToPrincipal(subject))
+				permissivePrincipals = append(permissivePrincipals, convertToPrincipal(subject, forTCPFilter))
 			}
 		}
 	}
@@ -553,7 +628,7 @@ func convertToPrincipals(bindings []*rbacproto.ServiceRoleBinding) ([]*policypro
 }
 
 // convertToPrincipal converts a single subject to principal.
-func convertToPrincipal(subject *rbacproto.Subject) *policyproto.Principal {
+func convertToPrincipal(subject *rbacproto.Subject, forTCPFilter bool) *policyproto.Principal {
 	ids := &policyproto.Principal_AndIds{
 		AndIds: &policyproto.Principal_Set{
 			Ids: make([]*policyproto.Principal, 0),
@@ -569,15 +644,32 @@ func convertToPrincipal(subject *rbacproto.Subject) *policyproto.Principal {
 				},
 			})
 		} else {
-			// Generate the user field with attrSrcPrincipal in the metadata.
-			id := principalForKeyValue(attrSrcPrincipal, subject.User)
-			if id != nil {
-				ids.AndIds.Ids = append(ids.AndIds.Ids, id)
+			if forTCPFilter {
+				// Generate the user directly in Authenticated principal as metadata is not supported in
+				// TCP filter.
+				// TODO(yangminzhu): Support attrSrcNamespace and attrSrcPrincipal once
+				// https://github.com/envoyproxy/envoy/pull/4250 is merged.
+				ids.AndIds.Ids = append(ids.AndIds.Ids, &policyproto.Principal{
+					Identifier: &policyproto.Principal_Authenticated_{
+						Authenticated: &policyproto.Principal_Authenticated{
+							Name: spiffePrefix + subject.User,
+						},
+					},
+				})
+			} else {
+				// Generate the user field with attrSrcPrincipal in the metadata.
+				id := principalForKeyValue(attrSrcPrincipal, subject.User)
+				if id != nil {
+					ids.AndIds.Ids = append(ids.AndIds.Ids, id)
+				}
 			}
 		}
 	}
 
 	if subject.Group != "" {
+		if subject.Properties == nil {
+			subject.Properties = make(map[string]string)
+		}
 		// Treat subject.Group as the request.auth.claims[groups] property. If
 		// request.auth.claims[groups] has been defined for the subject, subject.Group
 		// overrides request.auth.claims[groups].
@@ -609,6 +701,16 @@ func convertToPrincipal(subject *rbacproto.Subject) *policyproto.Principal {
 				ids.AndIds.Ids = append(ids.AndIds.Ids, id)
 			}
 		}
+	}
+
+	if len(ids.AndIds.Ids) == 0 {
+		// None of above principal satisfied means nobody has the permission.
+		ids.AndIds.Ids = append(ids.AndIds.Ids,
+			&policyproto.Principal{Identifier: &policyproto.Principal_NotId{
+				NotId: &policyproto.Principal{
+					Identifier: &policyproto.Principal_Any{Any: true},
+				},
+			}})
 	}
 
 	return &policyproto.Principal{Identifier: ids}

@@ -19,7 +19,8 @@ import (
 	"testing"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
-	rbacconfig "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/rbac/v2"
+	http_config "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/rbac/v2"
+	network_config "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/rbac/v2"
 	policy "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2alpha"
 	metadata "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
 	"github.com/envoyproxy/go-control-plane/pkg/util"
@@ -118,6 +119,117 @@ func TestIsRbacEnabled(t *testing.T) {
 	}
 }
 
+func TestBuildTCPFilter(t *testing.T) {
+	roleCfg := model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type: model.ServiceRole.Type, Name: "test-role-1", Namespace: "default"},
+		Spec: &rbacproto.ServiceRole{
+			Rules: []*rbacproto.AccessRule{{Services: []string{"mongoDB1.default"}}},
+		},
+	}
+	bindingCfg := model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type: model.ServiceRoleBinding.Type, Name: "test-binding-1", Namespace: "default"},
+		Spec: &rbacproto.ServiceRoleBinding{
+			Subjects: []*rbacproto.Subject{{User: "test-user-1"}},
+			RoleRef:  &rbacproto.RoleRef{Kind: "ServiceRole", Name: "test-role-1"},
+		},
+	}
+
+	roleCfg2 := model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type: model.ServiceRole.Type, Name: "test-role-2", Namespace: "default"},
+		Spec: &rbacproto.ServiceRole{
+			Rules: []*rbacproto.AccessRule{{Services: []string{"mongoDB2.default"}}},
+		},
+	}
+	bindingCfg2 := model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type: model.ServiceRoleBinding.Type, Name: "test-binding-group", Namespace: "default"},
+		Spec: &rbacproto.ServiceRoleBinding{
+			Subjects: []*rbacproto.Subject{{Group: "test-group"}},
+			RoleRef:  &rbacproto.RoleRef{Kind: "ServiceRole", Name: "test-role-2"},
+		},
+	}
+
+	roleCfg3 := model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type: model.ServiceRole.Type, Name: "test-role-3", Namespace: "default"},
+		Spec: &rbacproto.ServiceRole{
+			Rules: []*rbacproto.AccessRule{
+				{Services: []string{"mongoDB3.default"}, Methods: []string{"GET-method"}},
+			},
+		},
+	}
+	bindingCfg3 := model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type: model.ServiceRoleBinding.Type, Name: "test-binding-3", Namespace: "default"},
+		Spec: &rbacproto.ServiceRoleBinding{
+			Subjects: []*rbacproto.Subject{{User: "test-user-3"}},
+			RoleRef:  &rbacproto.RoleRef{Kind: "ServiceRole", Name: "test-role-3"},
+		},
+	}
+
+	store := newIstioStoreWithConfigs([]model.Config{
+		roleCfg, roleCfg2, roleCfg3, bindingCfg, bindingCfg2, bindingCfg3}, t)
+	testCases := []struct {
+		Name    string
+		Service *serviceMetadata
+		Store   model.IstioConfigStore
+		Policy  string
+	}{
+		{
+			Name: "role with binding",
+			Service: &serviceMetadata{
+				name: "mongoDB1.default", attributes: map[string]string{attrDestName: "mongoDB1", attrDestNamespace: "default"}},
+			Store:  store,
+			Policy: "test-role-1",
+		},
+		{
+			Name: "no group binding for role",
+			Service: &serviceMetadata{
+				name: "mongoDB2.default", attributes: map[string]string{attrDestName: "mongoDB2", attrDestNamespace: "default"}},
+			Store: store,
+		},
+		{
+			Name: "no binding for role with HTTP method",
+			Service: &serviceMetadata{
+				name: "mongoDB3.default", attributes: map[string]string{attrDestName: "mongoDB3", attrDestNamespace: "default"}},
+			Store: store,
+		},
+	}
+
+	for _, tc := range testCases {
+		filter := buildTCPFilter(tc.Service, tc.Store)
+		if fn := "envoy.filters.network.rbac"; filter.Name != fn {
+			t.Errorf("%s: expecting filter name %s, but got %s", tc.Name, fn, filter.Name)
+		}
+		if filter == nil {
+			t.Errorf("%s: expecting valid config, but got nil", tc.Name)
+		} else {
+			rbacConfig := &network_config.RBAC{}
+			if err := util.StructToMessage(filter.Config, rbacConfig); err != nil {
+				t.Errorf("%s: bad rbac config: %v", tc.Name, err)
+			} else {
+				if rbacConfig.StatPrefix != "tcp." {
+					t.Errorf("%s: expecting stat prefix tcp. but got %v", tc.Name, rbacConfig.StatPrefix)
+				}
+				rbac := rbacConfig.Rules
+				if rbac.Action != policy.RBAC_ALLOW {
+					t.Errorf("%s: expecting allow action but got %v", tc.Name, rbac.Action.String())
+				}
+				if tc.Policy == "" {
+					if len(rbac.Policies) != 0 {
+						t.Errorf("%s: expecting empty policies but got %v", tc.Name, rbac.Policies)
+					}
+				} else if _, ok := rbac.Policies[tc.Policy]; !ok {
+					t.Errorf("%s: expecting policy %s but got %v", tc.Name, tc.Policy, rbac.Policies)
+				}
+			}
+		}
+	}
+}
+
 func TestBuildHTTPFilter(t *testing.T) {
 	roleCfg := model.Config{
 		ConfigMeta: model.ConfigMeta{
@@ -181,7 +293,7 @@ func TestBuildHTTPFilter(t *testing.T) {
 		if filter == nil {
 			t.Errorf("%s: expecting valid config, but got nil", tc.Name)
 		} else {
-			rbacConfig := &rbacconfig.RBAC{}
+			rbacConfig := &http_config.RBAC{}
 			if err := util.StructToMessage(filter.Config, rbacConfig); err != nil {
 				t.Errorf("%s: bad rbac config: %v", tc.Name, err)
 			} else {
@@ -244,6 +356,38 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 				},
 			},
 		},
+		{
+			ConfigMeta: model.ConfigMeta{Name: "service-role-4"},
+			Spec: &rbacproto.ServiceRole{
+				Rules: []*rbacproto.AccessRule{
+					{
+						Services: []string{"mongoDB1"},
+					},
+				},
+			},
+		},
+		{
+			ConfigMeta: model.ConfigMeta{Name: "service-role-5"},
+			Spec: &rbacproto.ServiceRole{
+				Rules: []*rbacproto.AccessRule{
+					{
+						Services: []string{"mongoDB2"},
+						Constraints: []*rbacproto.AccessRule_Constraint{
+							{Key: "destination.port", Values: []string{"80", "443"}},
+							{Key: "destination.ip", Values: []string{"192.1.2.0/24", "2001:db8::/28"}},
+						},
+					},
+				},
+			},
+		},
+		{
+			ConfigMeta: model.ConfigMeta{Name: "service-role-6"},
+			Spec: &rbacproto.ServiceRole{
+				Rules: []*rbacproto.AccessRule{
+					{Services: []string{"service_empty"}},
+				},
+			},
+		},
 	}
 	bindings := []model.Config{
 		{
@@ -300,107 +444,89 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 				},
 			},
 		},
+		{
+			ConfigMeta: model.ConfigMeta{Name: "service-role-binding-4"},
+			Spec: &rbacproto.ServiceRoleBinding{
+				Subjects: []*rbacproto.Subject{
+					{
+						User: "admin",
+					},
+				},
+				RoleRef: &rbacproto.RoleRef{
+					Kind: "ServiceRole",
+					Name: "service-role-4",
+				},
+			},
+		},
+		{
+			ConfigMeta: model.ConfigMeta{Name: "service-role-binding-5"},
+			Spec: &rbacproto.ServiceRoleBinding{
+				Subjects: []*rbacproto.Subject{
+					{
+						Properties: map[string]string{
+							"source.ip": "192.1.2.0/24",
+						},
+					},
+				},
+				RoleRef: &rbacproto.RoleRef{
+					Kind: "ServiceRole",
+					Name: "service-role-5",
+				},
+			},
+		},
+		{
+			ConfigMeta: model.ConfigMeta{Name: "service-role-binding-6"},
+			Spec: &rbacproto.ServiceRoleBinding{
+				Subjects: []*rbacproto.Subject{
+					{},
+				},
+				RoleRef: &rbacproto.RoleRef{
+					Kind: "ServiceRole",
+					Name: "service-role-6",
+				},
+			},
+		},
 	}
 
 	policy1 := &policy.Policy{
-		Permissions: []*policy.Permission{{
-			Rule: &policy.Permission_AndRules{
-				AndRules: &policy.Permission_Set{
-					Rules: []*policy.Permission{
-						{
-							Rule: &policy.Permission_OrRules{
-								OrRules: &policy.Permission_Set{
-									Rules: []*policy.Permission{
-										{
-											Rule: &policy.Permission_Header{
-												Header: &route.HeaderMatcher{
-													Name: ":method",
-													HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{
-														ExactMatch: "GET",
-													},
-												},
-											},
-										},
-										{
-											Rule: &policy.Permission_Header{
-												Header: &route.HeaderMatcher{
-													Name: ":method",
-													HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{
-														ExactMatch: "POST",
-													},
-												},
-											},
-										},
-									},
-								},
+		Permissions: []*policy.Permission{
+			{
+				Rule: &policy.Permission_AndRules{
+					AndRules: &policy.Permission_Set{
+						Rules: []*policy.Permission{
+							{
+								Rule: generateHeaderRule([]*route.HeaderMatcher{
+									{Name: ":method", HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{ExactMatch: "GET"}},
+									{Name: ":method", HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{ExactMatch: "POST"}},
+								}),
 							},
-						},
-						{
-							Rule: &policy.Permission_OrRules{
-								OrRules: &policy.Permission_Set{
-									Rules: []*policy.Permission{
-										{
-											Rule: &policy.Permission_Header{
-												Header: &route.HeaderMatcher{
-													Name: ":path",
-													HeaderMatchSpecifier: &route.HeaderMatcher_SuffixMatch{
-														SuffixMatch: "/suffix",
-													},
-												},
-											},
-										},
-										{
-											Rule: &policy.Permission_Header{
-												Header: &route.HeaderMatcher{
-													Name: ":path",
-													HeaderMatchSpecifier: &route.HeaderMatcher_PrefixMatch{
-														PrefixMatch: "/prefix",
-													},
-												},
-											},
-										},
-										{
-											Rule: &policy.Permission_Header{
-												Header: &route.HeaderMatcher{
-													Name: ":path",
-													HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{
-														ExactMatch: "/exact",
-													},
-												},
-											},
-										},
-										{
-											Rule: &policy.Permission_Header{
-												Header: &route.HeaderMatcher{
-													Name: ":path",
-													HeaderMatchSpecifier: &route.HeaderMatcher_PresentMatch{
-														PresentMatch: true,
-													},
-												},
-											},
-										},
-									},
-								},
+							{
+								Rule: generateHeaderRule([]*route.HeaderMatcher{
+									{Name: ":path", HeaderMatchSpecifier: &route.HeaderMatcher_SuffixMatch{SuffixMatch: "/suffix"}},
+									{Name: ":path", HeaderMatchSpecifier: &route.HeaderMatcher_PrefixMatch{PrefixMatch: "/prefix"}},
+									{Name: ":path", HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{ExactMatch: "/exact"}},
+									{Name: ":path", HeaderMatchSpecifier: &route.HeaderMatcher_PresentMatch{PresentMatch: true}},
+								}),
 							},
 						},
 					},
 				},
 			},
 		},
-		},
-		Principals: []*policy.Principal{{
-			Identifier: &policy.Principal_AndIds{
-				AndIds: &policy.Principal_Set{
-					Ids: []*policy.Principal{
-						{
-							Identifier: &policy.Principal_Any{
-								Any: true,
+		Principals: []*policy.Principal{
+			{
+				Identifier: &policy.Principal_AndIds{
+					AndIds: &policy.Principal_Set{
+						Ids: []*policy.Principal{
+							{
+								Identifier: &policy.Principal_Any{
+									Any: true,
+								},
 							},
 						},
 					},
 				},
 			},
-		},
 			{
 				Identifier: &policy.Principal_AndIds{
 					AndIds: &policy.Principal_Set{
@@ -424,102 +550,19 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 			Rule: &policy.Permission_AndRules{
 				AndRules: &policy.Permission_Set{
 					Rules: []*policy.Permission{
+						{Rule: generateDestinationPortRule([]uint32{80, 443})},
+						{Rule: generateDestinationCidrRule([]string{"192.1.2.0", "2001:db8::"}, []uint32{24, 28})},
 						{
-							Rule: &policy.Permission_OrRules{
-								OrRules: &policy.Permission_Set{
-									Rules: []*policy.Permission{
-										{
-											Rule: &policy.Permission_DestinationPort{
-												DestinationPort: 80,
-											},
-										},
-										{
-											Rule: &policy.Permission_DestinationPort{
-												DestinationPort: 443,
-											},
-										},
-									},
-								},
-							},
+							Rule: generateHeaderRule([]*route.HeaderMatcher{
+								{Name: "key1", HeaderMatchSpecifier: &route.HeaderMatcher_PrefixMatch{PrefixMatch: "prefix"}},
+								{Name: "key1", HeaderMatchSpecifier: &route.HeaderMatcher_SuffixMatch{SuffixMatch: "suffix"}},
+							}),
 						},
 						{
-							Rule: &policy.Permission_OrRules{
-								OrRules: &policy.Permission_Set{
-									Rules: []*policy.Permission{
-										{
-											Rule: &policy.Permission_DestinationIp{
-												DestinationIp: &core.CidrRange{
-													AddressPrefix: "192.1.2.0",
-													PrefixLen:     &types.UInt32Value{Value: 24},
-												},
-											},
-										},
-										{
-											Rule: &policy.Permission_DestinationIp{
-												DestinationIp: &core.CidrRange{
-													AddressPrefix: "2001:db8::",
-													PrefixLen:     &types.UInt32Value{Value: 28},
-												},
-											}},
-									},
-								},
-							},
-						},
-						{
-							Rule: &policy.Permission_OrRules{
-								OrRules: &policy.Permission_Set{
-									Rules: []*policy.Permission{
-										{
-											Rule: &policy.Permission_Header{
-												Header: &route.HeaderMatcher{
-													Name: "key1",
-													HeaderMatchSpecifier: &route.HeaderMatcher_PrefixMatch{
-														PrefixMatch: "prefix",
-													},
-												},
-											},
-										},
-										{
-											Rule: &policy.Permission_Header{
-												Header: &route.HeaderMatcher{
-													Name: "key1",
-													HeaderMatchSpecifier: &route.HeaderMatcher_SuffixMatch{
-														SuffixMatch: "suffix",
-													},
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-						{
-							Rule: &policy.Permission_OrRules{
-								OrRules: &policy.Permission_Set{
-									Rules: []*policy.Permission{
-										{
-											Rule: &policy.Permission_Header{
-												Header: &route.HeaderMatcher{
-													Name: "key2",
-													HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{
-														ExactMatch: "simple",
-													},
-												},
-											},
-										},
-										{
-											Rule: &policy.Permission_Header{
-												Header: &route.HeaderMatcher{
-													Name: "key2",
-													HeaderMatchSpecifier: &route.HeaderMatcher_PresentMatch{
-														PresentMatch: true,
-													},
-												},
-											},
-										},
-									},
-								},
-							},
+							Rule: generateHeaderRule([]*route.HeaderMatcher{
+								{Name: "key2", HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{ExactMatch: "simple"}},
+								{Name: "key2", HeaderMatchSpecifier: &route.HeaderMatcher_PresentMatch{PresentMatch: true}},
+							}),
 						},
 					},
 				},
@@ -574,6 +617,102 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 
 	policy3 := generatePolicyWithHTTPMethodAndGroupClaim("GET", "group*")
 
+	policy4 := &policy.Policy{
+		Permissions: []*policy.Permission{{
+			Rule: &policy.Permission_AndRules{
+				AndRules: &policy.Permission_Set{
+					Rules: []*policy.Permission{
+						{
+							Rule: &policy.Permission_Any{
+								Any: true,
+							},
+						},
+					},
+				},
+			},
+		},
+		},
+		Principals: []*policy.Principal{
+			{
+				Identifier: &policy.Principal_AndIds{
+					AndIds: &policy.Principal_Set{
+						Ids: []*policy.Principal{
+							{
+								Identifier: &policy.Principal_Authenticated_{
+									Authenticated: &policy.Principal_Authenticated{
+										Name: "spiffe://admin",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	policy5 := &policy.Policy{
+		Permissions: []*policy.Permission{{
+			Rule: &policy.Permission_AndRules{
+				AndRules: &policy.Permission_Set{
+					Rules: []*policy.Permission{
+						{Rule: generateDestinationPortRule([]uint32{80, 443})},
+						{Rule: generateDestinationCidrRule([]string{"192.1.2.0", "2001:db8::"}, []uint32{24, 28})},
+					},
+				},
+			},
+		},
+		},
+		Principals: []*policy.Principal{
+			{
+				Identifier: &policy.Principal_AndIds{
+					AndIds: &policy.Principal_Set{
+						Ids: []*policy.Principal{
+							{
+								Identifier: &policy.Principal_SourceIp{
+									SourceIp: &core.CidrRange{
+										AddressPrefix: "192.1.2.0",
+										PrefixLen:     &types.UInt32Value{Value: 24},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	policy6 := &policy.Policy{
+		Permissions: []*policy.Permission{{
+			Rule: &policy.Permission_AndRules{
+				AndRules: &policy.Permission_Set{
+					Rules: []*policy.Permission{
+						{Rule: &policy.Permission_Any{Any: true}},
+					},
+				},
+			},
+		},
+		},
+		Principals: []*policy.Principal{
+			{
+				Identifier: &policy.Principal_AndIds{
+					AndIds: &policy.Principal_Set{
+						Ids: []*policy.Principal{
+							{
+								Identifier: &policy.Principal_NotId{
+									NotId: &policy.Principal{
+										Identifier: &policy.Principal_Any{Any: true},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
 	expectRbac1 := &policy.RBAC{
 		Action: policy.RBAC_ALLOW,
 		Policies: map[string]*policy.Policy{
@@ -593,10 +732,29 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 			"service-role-3": policy3,
 		},
 	}
+	expectRbac4 := &policy.RBAC{
+		Action: policy.RBAC_ALLOW,
+		Policies: map[string]*policy.Policy{
+			"service-role-4": policy4,
+		},
+	}
+	expectRbac5 := &policy.RBAC{
+		Action: policy.RBAC_ALLOW,
+		Policies: map[string]*policy.Policy{
+			"service-role-5": policy5,
+		},
+	}
+	expectRbac6 := &policy.RBAC{
+		Action: policy.RBAC_ALLOW,
+		Policies: map[string]*policy.Policy{
+			"service-role-6": policy6,
+		},
+	}
 	testCases := []struct {
 		name    string
 		service *serviceMetadata
 		rbac    *policy.RBAC
+		option  rbacOption
 	}{
 		{
 			name: "prefix matched service",
@@ -605,7 +763,8 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 				labels:     map[string]string{"version": "v10"},
 				attributes: map[string]string{"destination.name": "attr-name"},
 			},
-			rbac: expectRbac1,
+			rbac:   expectRbac1,
+			option: rbacOption{roles: roles, bindings: bindings},
 		},
 		{
 			name: "suffix matched service",
@@ -614,7 +773,8 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 				labels:     map[string]string{"version": "v10"},
 				attributes: map[string]string{"destination.name": "attr-name"},
 			},
-			rbac: expectRbac1,
+			rbac:   expectRbac1,
+			option: rbacOption{roles: roles, bindings: bindings},
 		},
 		{
 			name: "exact matched service",
@@ -623,7 +783,8 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 				labels:     map[string]string{"version": "v10"},
 				attributes: map[string]string{"destination.name": "attr-name"},
 			},
-			rbac: expectRbac1,
+			rbac:   expectRbac1,
+			option: rbacOption{roles: roles, bindings: bindings},
 		},
 		{
 			name: "* matched service",
@@ -632,21 +793,194 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 				labels:     map[string]string{"version": "v10"},
 				attributes: map[string]string{"destination.name": "attr-name"},
 			},
-			rbac: expectRbac2,
+			rbac:   expectRbac2,
+			option: rbacOption{roles: roles, bindings: bindings},
 		},
 		{
 			name: "test group",
 			service: &serviceMetadata{
 				name: "allow-group",
 			},
-			rbac: expectRbac3,
+			rbac:   expectRbac3,
+			option: rbacOption{roles: roles, bindings: bindings},
+		},
+		{
+			name: "tcp service without properties and constraints",
+			service: &serviceMetadata{
+				name: "mongoDB1",
+			},
+			rbac:   expectRbac4,
+			option: rbacOption{roles: roles, bindings: bindings, forTCPFilter: true},
+		},
+		{
+			name: "tcp service with properties and constraints",
+			service: &serviceMetadata{
+				name: "mongoDB2",
+			},
+			rbac:   expectRbac5,
+			option: rbacOption{roles: roles, bindings: bindings, forTCPFilter: true},
+		},
+		{
+			name: "empty service",
+			service: &serviceMetadata{
+				name: "service_empty",
+			},
+			rbac:   expectRbac6,
+			option: rbacOption{roles: roles, bindings: bindings},
 		},
 	}
 
 	for _, tc := range testCases {
-		rbac := convertRbacRulesToFilterConfig(tc.service, roles, bindings)
+		rbac := convertRbacRulesToFilterConfig(tc.service, tc.option)
 		if !reflect.DeepEqual(*tc.rbac, *rbac.Rules) {
 			t.Errorf("%s want:\n%v\nbut got:\n%v", tc.name, *tc.rbac, *rbac.Rules)
+		}
+	}
+}
+
+func TestConvertRbacRulesToFilterConfigForServiceWithBothHTTPAndTCP(t *testing.T) {
+	roles := []model.Config{
+		{
+			ConfigMeta: model.ConfigMeta{Name: "service-role-3"},
+			Spec: &rbacproto.ServiceRole{
+				Rules: []*rbacproto.AccessRule{
+					{
+						Services: []string{"svc_http_tcp"},
+					},
+				},
+			},
+		},
+		{
+			ConfigMeta: model.ConfigMeta{Name: "service-role-2"},
+			Spec: &rbacproto.ServiceRole{
+				Rules: []*rbacproto.AccessRule{
+					{
+						Services: []string{"svc_http_tcp"},
+						Constraints: []*rbacproto.AccessRule_Constraint{
+							{Key: "destination.port", Values: []string{"9090"}},
+						},
+					},
+					{
+						Services: []string{"svc_http_tcp"},
+						Methods:  []string{"GET"},
+					},
+				},
+			},
+		},
+		{
+			ConfigMeta: model.ConfigMeta{Name: "service-role-1"},
+			Spec: &rbacproto.ServiceRole{
+				Rules: []*rbacproto.AccessRule{
+					{
+						Services: []string{"svc_http_tcp"},
+						Methods:  []string{"GET"},
+					},
+					{
+						Services: []string{"svc_http_tcp"},
+					},
+					{
+						Services: []string{"svc_http_tcp"},
+						Constraints: []*rbacproto.AccessRule_Constraint{
+							{Key: "destination.port", Values: []string{"9090"}},
+						},
+					},
+				},
+			},
+		},
+	}
+	bindings := []model.Config{
+		{
+			ConfigMeta: model.ConfigMeta{Name: "service-role-binding-1"},
+			Spec: &rbacproto.ServiceRoleBinding{
+				Subjects: []*rbacproto.Subject{
+					{User: "admin"},
+				},
+				RoleRef: &rbacproto.RoleRef{
+					Kind: "ServiceRole",
+					Name: "service-role-1",
+				},
+			},
+		},
+		{
+			ConfigMeta: model.ConfigMeta{Name: "service-role-binding-2"},
+			Spec: &rbacproto.ServiceRoleBinding{
+				Subjects: []*rbacproto.Subject{
+					{User: "admin"},
+					{Properties: map[string]string{attrSrcIP: "1.2.3.4"}},
+				},
+				RoleRef: &rbacproto.RoleRef{
+					Kind: "ServiceRole",
+					Name: "service-role-2",
+				},
+			},
+		},
+		{
+			ConfigMeta: model.ConfigMeta{Name: "service-role-binding-3"},
+			Spec: &rbacproto.ServiceRoleBinding{
+				Subjects: []*rbacproto.Subject{
+					{User: "user"},
+					{Group: "group"},
+				},
+				RoleRef: &rbacproto.RoleRef{
+					Kind: "ServiceRole",
+					Name: "service-role-3",
+				},
+			},
+		},
+	}
+
+	testCases := []struct {
+		name           string
+		expectPolicies map[string]struct {
+			permissionCount int
+			principalCount  int
+		}
+		option rbacOption
+	}{
+		{
+			name: "http",
+			expectPolicies: map[string]struct {
+				permissionCount int
+				principalCount  int
+			}{
+				"service-role-1": {permissionCount: 3, principalCount: 1},
+				"service-role-2": {permissionCount: 2, principalCount: 2},
+				"service-role-3": {permissionCount: 1, principalCount: 2},
+			},
+			option: rbacOption{roles: roles, bindings: bindings},
+		},
+		{
+			name: "tcp",
+			expectPolicies: map[string]struct {
+				permissionCount int
+				principalCount  int
+			}{
+				"service-role-1": {permissionCount: 2, principalCount: 1},
+				"service-role-2": {permissionCount: 1, principalCount: 2},
+			},
+			option: rbacOption{roles: roles, bindings: bindings, forTCPFilter: true},
+		},
+	}
+
+	for _, tc := range testCases {
+		rbac := convertRbacRulesToFilterConfig(&serviceMetadata{name: "svc_http_tcp"}, tc.option)
+		if rbac.ShadowRules != nil && len(rbac.ShadowRules.Policies) != 0 {
+			t.Errorf("%s: expecting empty shadow rules but found: %v", tc.name, rbac.ShadowRules)
+		}
+		if rbac.Rules == nil {
+			t.Errorf("%s: expecting rules but found nil", tc.name)
+		}
+		for expectPolicy, value := range tc.expectPolicies {
+			actual, ok := rbac.Rules.Policies[expectPolicy]
+			if !ok {
+				t.Errorf("%s: expecting policy %s but not found in %v", tc.name, expectPolicy, rbac.Rules)
+			}
+			if len(actual.Principals) != value.principalCount {
+				t.Errorf("%s: expecting %d principal but found %v", tc.name, value.principalCount, actual.Principals)
+			}
+			if len(actual.Permissions) != value.permissionCount {
+				t.Errorf("%s: expecting %d permission but found %v", tc.name, value.permissionCount, actual.Permissions)
+			}
 		}
 	}
 }
@@ -681,7 +1015,7 @@ func TestConvertRbacRulesToFilterConfigPermissive(t *testing.T) {
 		},
 	}
 
-	rbacConfig := &rbacconfig.RBAC{
+	rbacConfig := &http_config.RBAC{
 		Rules: &policy.RBAC{
 			Action: policy.RBAC_ALLOW,
 			Policies: map[string]*policy.Policy{
@@ -709,7 +1043,7 @@ func TestConvertRbacRulesToFilterConfigPermissive(t *testing.T) {
 			},
 		},
 	}
-	emptyConfig := &rbacconfig.RBAC{
+	emptyConfig := &http_config.RBAC{
 		Rules: &policy.RBAC{
 			Action:   policy.RBAC_ALLOW,
 			Policies: map[string]*policy.Policy{},
@@ -723,35 +1057,40 @@ func TestConvertRbacRulesToFilterConfigPermissive(t *testing.T) {
 	testCases := []struct {
 		name         string
 		service      *serviceMetadata
-		roles        []model.Config
-		bindings     []model.Config
-		expectConfig *rbacconfig.RBAC
+		option       rbacOption
+		expectConfig *http_config.RBAC
 	}{
 		{
-			name:         "exact matched service",
-			service:      &serviceMetadata{name: "service"},
-			roles:        roles,
-			bindings:     bindings,
+			name:    "exact matched service",
+			service: &serviceMetadata{name: "service"},
+			option: rbacOption{
+				roles:    roles,
+				bindings: bindings,
+			},
 			expectConfig: rbacConfig,
 		},
 		{
-			name:         "empty roles",
-			service:      &serviceMetadata{name: "service"},
-			roles:        []model.Config{},
-			bindings:     bindings,
+			name:    "empty roles",
+			service: &serviceMetadata{name: "service"},
+			option: rbacOption{
+				roles:    []model.Config{},
+				bindings: bindings,
+			},
 			expectConfig: emptyConfig,
 		},
 		{
-			name:         "empty bindings",
-			service:      &serviceMetadata{name: "service"},
-			roles:        roles,
-			bindings:     []model.Config{},
+			name:    "empty bindings",
+			service: &serviceMetadata{name: "service"},
+			option: rbacOption{
+				roles:    roles,
+				bindings: []model.Config{},
+			},
 			expectConfig: emptyConfig,
 		},
 	}
 
 	for _, tc := range testCases {
-		rbac := convertRbacRulesToFilterConfig(tc.service, tc.roles, tc.bindings)
+		rbac := convertRbacRulesToFilterConfig(tc.service, tc.option)
 		if !reflect.DeepEqual(*tc.expectConfig, *rbac) {
 			t.Errorf("%s rbac config want:\n%v\nbut got:\n%v", tc.name, *tc.expectConfig, *rbac)
 		}
@@ -947,123 +1286,4 @@ func TestCreateDynamicMetadataMatcher(t *testing.T) {
 			t.Errorf("(%s, %v): expecting %v, but got %v", tc.k, tc.v, *tc.expect, *actual)
 		}
 	}
-}
-
-func generateServiceRole(services, methods []string) *rbacproto.ServiceRole {
-	return &rbacproto.ServiceRole{
-		Rules: []*rbacproto.AccessRule{
-			{
-				Services: services,
-				Methods:  methods,
-			},
-		},
-	}
-}
-
-func generateServiceBinding(subject, serviceRoleRef string, mode rbacproto.EnforcementMode) *rbacproto.ServiceRoleBinding {
-	return &rbacproto.ServiceRoleBinding{
-		Mode: mode,
-		Subjects: []*rbacproto.Subject{
-			{
-				User: subject,
-			},
-		},
-		RoleRef: &rbacproto.RoleRef{
-			Kind: "ServiceRole",
-			Name: serviceRoleRef,
-		},
-	}
-}
-
-func generatePermission(headerName, matchSpecifier string) *policy.Permission {
-	return &policy.Permission{
-		Rule: &policy.Permission_AndRules{
-			AndRules: &policy.Permission_Set{
-				Rules: []*policy.Permission{
-					{
-						Rule: &policy.Permission_OrRules{
-							OrRules: &policy.Permission_Set{
-								Rules: []*policy.Permission{
-									{
-										Rule: &policy.Permission_Header{
-											Header: &route.HeaderMatcher{
-												Name: headerName,
-												HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{
-													ExactMatch: matchSpecifier,
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
-func generatePrincipal(principalName string) *policy.Principal {
-	return &policy.Principal{
-		Identifier: &policy.Principal_AndIds{
-			AndIds: &policy.Principal_Set{
-				Ids: []*policy.Principal{
-					{
-						Identifier: &policy.Principal_Metadata{
-							Metadata: generateMetadataStringMatcher(
-								[]string{"source.principal"}, &metadata.StringMatcher{
-									MatchPattern: &metadata.StringMatcher_Exact{Exact: principalName}}),
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
-func generatePolicyWithHTTPMethodAndGroupClaim(methodName, claimName string) *policy.Policy {
-	policy := &policy.Policy{
-		Permissions: []*policy.Permission{{
-			Rule: &policy.Permission_AndRules{
-				AndRules: &policy.Permission_Set{
-					Rules: []*policy.Permission{
-						{
-							Rule: &policy.Permission_OrRules{
-								OrRules: &policy.Permission_Set{
-									Rules: []*policy.Permission{
-										{
-											Rule: &policy.Permission_Header{
-												Header: &route.HeaderMatcher{
-													Name: ":method",
-													HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{
-														ExactMatch: methodName,
-													},
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		}},
-		Principals: []*policy.Principal{{
-			Identifier: &policy.Principal_AndIds{
-				AndIds: &policy.Principal_Set{
-					Ids: []*policy.Principal{
-						{
-							Identifier: &policy.Principal_Metadata{
-								Metadata: generateMetadataListMatcher(
-									[]string{attrRequestClaims, "groups"}, claimName),
-							},
-						},
-					},
-				},
-			},
-		}},
-	}
-	return policy
 }
