@@ -22,6 +22,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
+	"time"
+
 	"istio.io/istio/pilot/pkg/model"
 )
 
@@ -70,6 +72,7 @@ func TestServiceConversion(t *testing.T) {
 
 	ip := "10.0.0.1"
 
+	tnow := time.Now()
 	localSvc := v1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      serviceName,
@@ -79,6 +82,7 @@ func TestServiceConversion(t *testing.T) {
 				CanonicalServiceAccountsOnVMAnnotation: saC + "," + saD,
 				"other/annotation":                     "test",
 			},
+			CreationTimestamp: metav1.Time{tnow},
 		},
 		Spec: v1.ServiceSpec{
 			ClusterIP: ip,
@@ -100,6 +104,10 @@ func TestServiceConversion(t *testing.T) {
 	service := convertService(localSvc, domainSuffix)
 	if service == nil {
 		t.Errorf("could not convert service")
+	}
+
+	if service.CreationTime != tnow {
+		t.Errorf("incorrect creation time => %v, want %v", service.CreationTime, tnow)
 	}
 
 	if len(service.Ports) != len(localSvc.Spec.Ports) {
@@ -207,7 +215,7 @@ func TestExternalServiceConversion(t *testing.T) {
 			len(service.Ports), len(extSvc.Spec.Ports))
 	}
 
-	if service.ExternalName != model.Hostname(extSvc.Spec.ExternalName) || !service.External() {
+	if !service.External() {
 		t.Error("service should be external")
 	}
 

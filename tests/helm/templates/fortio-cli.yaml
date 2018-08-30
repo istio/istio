@@ -6,7 +6,7 @@ kind: Deployment
 metadata:
   name: cli-fortio-tls
 spec:
-  replicas: 1
+  replicas: 4
   template:
     metadata:
       labels:
@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: echosrv
-        image: istio/fortio:latest
+        image: fortio/fortio:latest
         imagePullPolicy: Always
         args:
           - load
@@ -26,7 +26,7 @@ spec:
           - -c
           - "32"
           - -qps
-          - "1000"
+          - "{{ .Values.qps }}"
           - http://fortiotls.{{ .Values.domain }}/echo?size=5000
         resources:
           requests:
@@ -41,7 +41,7 @@ kind: Deployment
 metadata:
   name: fortio-cli-raw
 spec:
-  replicas: 1
+  replicas: 4
   template:
     metadata:
       labels:
@@ -52,7 +52,7 @@ spec:
     spec:
       containers:
       - name: echosrv
-        image: istio/fortio:latest
+        image: fortio/fortio:latest
         imagePullPolicy: Always
         args:
           - load
@@ -61,7 +61,7 @@ spec:
           - -c
           - "32"
           - -qps
-          - "1000"
+          - "{{ .Values.qps }}"
           - http://fortionoistio.{{ .Values.domain }}/echo?size=5000
         resources:
           requests:
@@ -76,7 +76,7 @@ kind: Deployment
 metadata:
   name: fortio-cli-notls
 spec:
-  replicas: 1
+  replicas: 4
   template:
     metadata:
       labels:
@@ -87,7 +87,7 @@ spec:
     spec:
       containers:
       - name: echosrv
-        image: istio/fortio:latest
+        image: fortio/fortio:latest
         imagePullPolicy: Always
         args:
           - load
@@ -96,7 +96,7 @@ spec:
           - -c
           - "32"
           - -qps
-          - "1000"
+          - "{{ .Values.qps }}"
           - http://fortiomaster.{{ .Values.domain }}/echo?size=5000
         resources:
           requests:
@@ -123,7 +123,7 @@ spec:
     spec:
       containers:
       - name: echosrv
-        image: istio/fortio:latest
+        image: fortio/fortio:latest
         imagePullPolicy: Always
         args:
           - load
@@ -132,7 +132,7 @@ spec:
           - -c
           - "32"
           - -qps
-          - "1000"
+          - "{{ .Values.qps }}"
           - http://fortio10rc1.{{ .Values.domain }}/echo?size=5000
         resources:
           requests:
@@ -159,7 +159,7 @@ spec:
     spec:
       containers:
       - name: echosrv
-        image: istio/fortio:latest
+        image: fortio/fortio:latest
         imagePullPolicy: Always
         args:
           - load
@@ -168,8 +168,109 @@ spec:
           - -c
           - "32"
           - -qps
-          - "1000"
+          - "{{ .Values.qps }}"
           - http://fortio080.{{ .Values.domain }}/echo?size=5000
+        resources:
+          requests:
+            cpu: 400m
+            memory: "1G"
+          limits:
+            cpu: 500m
+            memory: "1G"
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: cli-fortio-tproxy-direct
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: cli-fortio-tproxy-direct
+        version: cli-fortio-tproxy-direct
+    spec:
+      containers:
+      - name: echosrv
+        image: fortio/fortio:latest
+        imagePullPolicy: Always
+        args:
+          - load
+          - -t
+          - "0"
+          - -c
+          - "32"
+          - -qps
+          - "{{ .Values.qps }}"
+          - http://fortio-tproxy.test:8080/echo?size=5000
+        resources:
+          requests:
+            cpu: 400m
+            memory: "1G"
+          limits:
+            cpu: 500m
+            memory: "1G"
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: cli-fortio-v1-direct
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        name: ncli-fortio-v1-direct
+        app: cli-fortio-v1-direct
+        version: cli-fortio-v1-direct
+    spec:
+      containers:
+      - name: echosrv
+        image: fortio/fortio:latest
+        imagePullPolicy: Always
+        args:
+          - load
+          - -t
+          - "0"
+          - -c
+          - "32"
+          - -qps
+          - "{{ .Values.qps }}"
+          - http://fortiov1.test:8080/echo?size=5000
+        resources:
+          requests:
+            cpu: 400m
+            memory: "1G"
+          limits:
+            cpu: 500m
+            memory: "1G"
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: cli-fortio-noistio1
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        name: cli-fortio-noistio1
+        app: acli-fortio-noistio1
+        version: cli-fortio-noistio1
+    spec:
+      containers:
+      - name: echosrv
+        image: fortio/fortio:latest
+        imagePullPolicy: Always
+        args:
+          - load
+          - -t
+          - "0"
+          - -c
+          - "32"
+          - -qps
+          - "{{ .Values.qps }}"
+          - http://fortionoistio1.test:8080/echo?size=5000
         resources:
           requests:
             cpu: 400m

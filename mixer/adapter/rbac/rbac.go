@@ -32,6 +32,8 @@ import (
 	"net/url"
 	"time"
 
+	"k8s.io/apimachinery/pkg/runtime/schema"
+
 	"github.com/gogo/protobuf/proto"
 
 	rbacproto "istio.io/api/rbac/v1alpha1"
@@ -57,11 +59,17 @@ type (
 	}
 )
 
-// ServiceRoleKind defines the config kind name of ServiceRole.
-const serviceRoleKind = "ServiceRole"
+const (
+	// API group and version string for the RBAC CRDs.
+	apiGroup   = "rbac.istio.io"
+	apiVersion = "v1alpha1"
 
-// ServiceRoleBindingKind defines the config kind name of ServiceRoleBinding.
-const serviceRoleBindingKind = "ServiceRoleBinding"
+	// ServiceRoleKind defines the config kind name of ServiceRole.
+	serviceRoleKind = "ServiceRole"
+
+	// ServiceRoleBindingKind defines the config kind name of ServiceRoleBinding.
+	serviceRoleBindingKind = "ServiceRoleBinding"
+)
 
 ///////////////// Configuration-time Methods ///////////////
 
@@ -86,7 +94,8 @@ func (b *builder) SetAuthorizationTypes(types map[string]*authorization.Type) {}
 
 func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, error) {
 	reg := store.NewRegistry(mixerconfig.StoreInventory()...)
-	s, err := reg.NewStore(b.adapterConfig.ConfigStoreUrl)
+	groupVersion := &schema.GroupVersion{Group: apiGroup, Version: apiVersion}
+	s, err := reg.NewStore(b.adapterConfig.ConfigStoreUrl, groupVersion, nil)
 	if err != nil {
 		return nil, env.Logger().Errorf("Unable to connect to the configuration server: %v", err)
 	}

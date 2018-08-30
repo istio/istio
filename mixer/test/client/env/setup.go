@@ -44,6 +44,7 @@ type TestSetup struct {
 	noProxy           bool
 	noBackend         bool
 	disableHotRestart bool
+	checkDict         bool
 
 	FiltersBeforeMixer string
 
@@ -139,6 +140,11 @@ func (s *TestSetup) SetStress(stress bool) {
 	s.stress = stress
 }
 
+// SetCheckDict set the checkDict flag
+func (s *TestSetup) SetCheckDict(checkDict bool) {
+	s.checkDict = checkDict
+}
+
 // SetNoMixer set NoMixer flag
 func (s *TestSetup) SetNoMixer(no bool) {
 	s.noMixer = no
@@ -179,11 +185,14 @@ func (s *TestSetup) SetUp() error {
 	}
 
 	if !s.noMixer {
-		s.mixer, err = NewMixerServer(s.ports.MixerPort, s.stress)
+		s.mixer, err = NewMixerServer(s.ports.MixerPort, s.stress, s.checkDict)
 		if err != nil {
 			log.Printf("unable to create mixer server %v", err)
 		} else {
-			s.mixer.Start()
+			errCh := s.mixer.Start()
+			if err = <-errCh; err != nil {
+				log.Fatalf("mixer start failed %v", err)
+			}
 		}
 	}
 
@@ -192,7 +201,10 @@ func (s *TestSetup) SetUp() error {
 		if err != nil {
 			log.Printf("unable to create HTTP server %v", err)
 		} else {
-			s.backend.Start()
+			errCh := s.backend.Start()
+			if err = <-errCh; err != nil {
+				log.Fatalf("backend server start failed %v", err)
+			}
 		}
 	}
 
@@ -206,6 +218,8 @@ func (s *TestSetup) TearDown() {
 	if err := s.envoy.Stop(); err != nil {
 		s.t.Errorf("error quitting envoy: %v", err)
 	}
+	s.envoy.TearDown()
+
 	if s.mixer != nil {
 		s.mixer.Stop()
 	}
@@ -280,6 +294,26 @@ func (s *TestSetup) VerifyReport(tag string, result string) {
 	if err := Verify(bag, result); err != nil {
 		s.t.Fatalf("Failed to verify %s report: %v\n, Attributes: %+v",
 			tag, err, bag)
+	}
+}
+
+// VerifyTwoReports verifies two Report bags, in any order.
+func (s *TestSetup) VerifyTwoReports(tag string, result1, result2 string) {
+	s.t.Helper()
+	bag1 := <-s.mixer.report.ch
+	bag2 := <-s.mixer.report.ch
+	if err1 := Verify(bag1, result1); err1 != nil {
+		// try the other way
+		if err2 := Verify(bag1, result2); err2 != nil {
+			s.t.Fatalf("Failed to verify %s report: %v\n%v\n, Attributes: %+v",
+				tag, err1, err2, bag1)
+		} else if err3 := Verify(bag2, result1); err3 != nil {
+			s.t.Fatalf("Failed to verify %s report: %v\n, Attributes: %+v",
+				tag, err3, bag2)
+		}
+	} else if err4 := Verify(bag2, result2); err4 != nil {
+		s.t.Fatalf("Failed to verify %s report: %v\n, Attributes: %+v",
+			tag, err4, bag2)
 	}
 }
 

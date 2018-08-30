@@ -11,6 +11,10 @@ metadata:
     istio: security
 data:
   custom-resources.yaml: |-
-    {{- include "security-default.yaml.tpl" . | indent 4}}
+    {{- if .Values.global.mtls.enabled }}
+      {{- include "security-default.yaml.tpl" . | indent 4}}
+    {{- else }}
+      {{- include "security-permissive.yaml.tpl" . | indent 4}}
+    {{- end }}
   run.sh: |-
     {{- include "install-custom-resources.sh.tpl" . | indent 4}}

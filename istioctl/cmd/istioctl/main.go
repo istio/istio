@@ -45,7 +45,6 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 	"istio.io/api/networking/v1alpha3"
-	"istio.io/istio/istioctl/cmd/istioctl/convert"
 	"istio.io/istio/istioctl/cmd/istioctl/gendeployment"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
@@ -82,29 +81,20 @@ var (
 	outputFormat     string
 	getAllNamespaces bool
 
-	// Create a model.ConfigStore (or mockCrdClient)
+	// Create a model.ConfigStore (or sortedConfigStore)
 	clientFactory = newClient
+
+	// Create a kubernetes.ExecClient (or mockExecClient)
+	clientExecFactory = newExecClient
 
 	loggingOptions = log.DefaultOptions()
 
 	// sortWeight defines the output order for "get all".  We show the V3 types first.
 	sortWeight = map[string]int{
-		model.Gateway.Type:           -10,
-		model.VirtualService.Type:    -5,
-		model.DestinationRule.Type:   -3,
-		model.ServiceEntry.Type:      -1,
-		model.IngressRule.Type:       1,
-		model.RouteRule.Type:         5,
-		model.DestinationPolicy.Type: 10,
-		model.EgressRule.Type:        20,
-	}
-
-	// deprecatedTypes tracks if a deprecation warning is needed
-	deprecatedTypes = map[string]bool{
-		model.RouteRule.Type:         true,
-		model.IngressRule.Type:       true,
-		model.DestinationPolicy.Type: true,
-		model.EgressRule.Type:        true,
+		model.Gateway.Type:         10,
+		model.VirtualService.Type:  5,
+		model.DestinationRule.Type: 3,
+		model.ServiceEntry.Type:    1,
 	}
 
 	// mustList tracks which Istio types we SHOULD NOT silently ignore if we can't list.
@@ -141,29 +131,8 @@ var (
 		"service-entry":    printShortServiceEntry,
 	}
 
-	// configTypes is the Istio types supported by the client
-	// TODO: use model.IstioConfigTypes once model.IngressRule is deprecated
-	configTypes = model.ConfigDescriptor{
-		model.RouteRule,
-		model.VirtualService,
-		model.Gateway,
-		model.EgressRule,
-		model.ServiceEntry,
-		model.DestinationPolicy,
-		model.DestinationRule,
-		model.HTTPAPISpec,
-		model.HTTPAPISpecBinding,
-		model.QuotaSpec,
-		model.QuotaSpecBinding,
-		model.AuthenticationPolicy,
-		model.AuthenticationMeshPolicy,
-		model.ServiceRole,
-		model.ServiceRoleBinding,
-		model.RbacConfig,
-	}
-
 	// all resources will be migrated out of config.istio.io to their own api group mapping to package path.
-	// TODO(xiaolanz) legacy group exists until we find out a client for mixer/broker.
+	// TODO(xiaolanz) legacy group exists until we find out a client for mixer
 	legacyIstioAPIGroupVersion = schema.GroupVersion{
 		Group:   "config.istio.io",
 		Version: "v1alpha2",
@@ -171,7 +140,7 @@ var (
 
 	rootCmd = &cobra.Command{
 		Use:               "istioctl",
-		Short:             "Istio control interface",
+		Short:             "Istio control interface.",
 		SilenceUsage:      true,
 		DisableAutoGenTag: true,
 		Long: `
@@ -183,10 +152,6 @@ system.
 Available routing and traffic management configuration types:
 
 	[virtualservice gateway destinationrule serviceentry httpapispec httpapispecbinding quotaspec quotaspecbinding servicerole servicerolebinding policy]
-
-Legacy routing and traffic management configuration types:
-
-	[routerule egressrule destinationpolicy]
 
 See https://istio.io/docs/reference/ for an overview of Istio routing.
 
@@ -220,9 +185,6 @@ See https://istio.io/docs/reference/ for an overview of Istio routing.
 					return err
 				}
 				var rev string
-				if deprecated, _ := deprecatedTypes[config.Type]; deprecated {
-					c.Printf("Warning: %s is deprecated and will not be supported in future Istio versions (%s).\n", config.Type, config.Name)
-				}
 				if rev, err = configClient.Create(config); err != nil {
 					return err
 				}
@@ -446,8 +408,8 @@ istioctl get virtualservice bookinfo
 			return errs
 		},
 
-		ValidArgs:  configTypeResourceNames(configTypes),
-		ArgAliases: configTypePluralResourceNames(configTypes),
+		ValidArgs:  configTypeResourceNames(model.IstioConfigTypes),
+		ArgAliases: configTypePluralResourceNames(model.IstioConfigTypes),
 	}
 
 	deleteCmd = &cobra.Command{
@@ -548,8 +510,8 @@ istioctl delete virtualservice bookinfo
 			return errs
 		},
 
-		ValidArgs:  configTypeResourceNames(configTypes),
-		ArgAliases: configTypePluralResourceNames(configTypes),
+		ValidArgs:  configTypeResourceNames(model.IstioConfigTypes),
+		ArgAliases: configTypePluralResourceNames(model.IstioConfigTypes),
 	}
 
 	contextCmd = &cobra.Command{
@@ -658,7 +620,6 @@ func init() {
 		"If present, list the requested object(s) across all namespaces. Namespace in current "+
 			"context is ignored even if specified with --namespace.")
 
-	experimentalCmd.AddCommand(convert.Command())
 	experimentalCmd.AddCommand(Rbac())
 
 	// Attach the Istio logging options to the command.
@@ -692,7 +653,7 @@ func main() {
 	}
 }
 
-// The protoSchema is based on the kind (for example "routerule" or "destinationpolicy")
+// The protoSchema is based on the kind (for example "virtualservice" or "destinationrule")
 func protoSchema(configClient model.ConfigStore, typ string) (model.ProtoSchema, error) {
 	for _, desc := range configClient.ConfigDescriptor() {
 		switch strings.ToLower(typ) {
@@ -889,7 +850,7 @@ func printYamlOutput(writer io.Writer, configClient model.ConfigStore, configLis
 }
 
 func newClient() (model.ConfigStore, error) {
-	return crd.NewClient(kubeconfig, configContext, configTypes, "")
+	return crd.NewClient(kubeconfig, configContext, model.IstioConfigTypes, "")
 }
 
 func supportedTypes(configClient model.ConfigStore) []string {
@@ -1043,12 +1004,12 @@ func configTypePluralResourceNames(configTypes model.ConfigDescriptor) []string 
 }
 
 // renderTimestamp creates a human-readable age similar to docker and kubectl CLI output
-func renderTimestamp(ts metav1.Time) string {
+func renderTimestamp(ts time.Time) string {
 	if ts.IsZero() {
 		return "<unknown>"
 	}
 
-	seconds := int(time.Since(ts.Time).Seconds())
+	seconds := int(time.Since(ts).Seconds())
 	if seconds < -2 {
 		return fmt.Sprintf("<invalid>")
 	} else if seconds < 0 {
@@ -1057,12 +1018,12 @@ func renderTimestamp(ts metav1.Time) string {
 		return fmt.Sprintf("%ds", seconds)
 	}
 
-	minutes := int(time.Since(ts.Time).Minutes())
+	minutes := int(time.Since(ts).Minutes())
 	if minutes < 60 {
 		return fmt.Sprintf("%dm", minutes)
 	}
 
-	hours := int(time.Since(ts.Time).Hours())
+	hours := int(time.Since(ts).Hours())
 	if hours < 24 {
 		return fmt.Sprintf("%dh", hours)
 	} else if hours < 365*24 {

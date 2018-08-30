@@ -208,23 +208,6 @@ func (fake *ServiceDiscovery) GetServiceReturnsOnCall(i int, result1 *model.Serv
 	}{result1, result2}
 }
 
-func (fake *ServiceDiscovery) GetServiceAttributes(hostname model.Hostname) (*model.ServiceAttributes, error) {
-	fake.getServiceAttributesMutex.Lock()
-	ret, specificReturn := fake.getServiceAttributesReturnsOnCall[len(fake.getServiceAttributesArgsForCall)]
-	fake.getServiceAttributesArgsForCall = append(fake.getServiceAttributesArgsForCall, struct {
-		hostname model.Hostname
-	}{hostname})
-	fake.recordInvocation("GetServiceAttributes", []interface{}{hostname})
-	fake.getServiceAttributesMutex.Unlock()
-	if fake.GetServiceAttributesStub != nil {
-		return fake.GetServiceAttributesStub(hostname)
-	}
-	if specificReturn {
-		return ret.result1, ret.result2
-	}
-	return fake.getServiceAttributesReturns.result1, fake.getServiceAttributesReturns.result2
-}
-
 func (fake *ServiceDiscovery) GetServiceAttributesCallCount() int {
 	fake.getServiceAttributesMutex.RLock()
 	defer fake.getServiceAttributesMutex.RUnlock()
@@ -257,30 +240,6 @@ func (fake *ServiceDiscovery) GetServiceAttributesReturnsOnCall(i int, result1 *
 		result1 *model.ServiceAttributes
 		result2 error
 	}{result1, result2}
-}
-
-func (fake *ServiceDiscovery) Instances(hostname model.Hostname, ports []string, labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
-	var portsCopy []string
-	if ports != nil {
-		portsCopy = make([]string, len(ports))
-		copy(portsCopy, ports)
-	}
-	fake.instancesMutex.Lock()
-	ret, specificReturn := fake.instancesReturnsOnCall[len(fake.instancesArgsForCall)]
-	fake.instancesArgsForCall = append(fake.instancesArgsForCall, struct {
-		hostname model.Hostname
-		ports    []string
-		labels   model.LabelsCollection
-	}{hostname, portsCopy, labels})
-	fake.recordInvocation("Instances", []interface{}{hostname, portsCopy, labels})
-	fake.instancesMutex.Unlock()
-	if fake.InstancesStub != nil {
-		return fake.InstancesStub(hostname, ports, labels)
-	}
-	if specificReturn {
-		return ret.result1, ret.result2
-	}
-	return fake.instancesReturns.result1, fake.instancesReturns.result2
 }
 
 func (fake *ServiceDiscovery) InstancesCallCount() int {

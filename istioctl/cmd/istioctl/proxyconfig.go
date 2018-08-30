@@ -16,12 +16,11 @@ package main
 
 import (
 	"fmt"
-	"os"
+	"io"
 
 	"github.com/spf13/cobra"
 	"k8s.io/api/core/v1"
 
-	"istio.io/istio/istioctl/pkg/kubernetes"
 	"istio.io/istio/istioctl/pkg/writer/envoy/configdump"
 	"istio.io/istio/pilot/pkg/model"
 )
@@ -37,7 +36,7 @@ var (
 		Short: "Retrieve information about proxy configuration from Envoy [kube only]",
 		Long:  `A group of commands used to retrieve information about proxy configuration from the Envoy config dump`,
 		Example: `  # Retrieve information about proxy configuration from an Envoy instance.
-  istioctl proxy-config <clusters|listeners|routes|bootstap> <pod-name>`,
+  istioctl proxy-config <clusters|listeners|routes|bootstrap> <pod-name>`,
 		Aliases: []string{"pc"},
 	}
 
@@ -62,7 +61,7 @@ var (
 		RunE: func(c *cobra.Command, args []string) error {
 			podName := args[0]
 			ns := handleNamespace()
-			configWriter, err := setupEnvoyConfigWriter(podName, ns)
+			configWriter, err := setupEnvoyConfigWriter(podName, ns, c.OutOrStdout())
 			if err != nil {
 				return err
 			}
@@ -103,7 +102,7 @@ var (
 		RunE: func(c *cobra.Command, args []string) error {
 			podName := args[0]
 			ns := handleNamespace()
-			configWriter, err := setupEnvoyConfigWriter(podName, ns)
+			configWriter, err := setupEnvoyConfigWriter(podName, ns, c.OutOrStdout())
 			if err != nil {
 				return err
 			}
@@ -144,7 +143,7 @@ var (
 		RunE: func(c *cobra.Command, args []string) error {
 			podName := args[0]
 			ns := handleNamespace()
-			configWriter, err := setupEnvoyConfigWriter(podName, ns)
+			configWriter, err := setupEnvoyConfigWriter(podName, ns, c.OutOrStdout())
 			if err != nil {
 				return err
 			}
@@ -174,7 +173,7 @@ var (
 		RunE: func(c *cobra.Command, args []string) error {
 			podName := args[0]
 			ns := handleNamespace()
-			configWriter, err := setupEnvoyConfigWriter(podName, ns)
+			configWriter, err := setupEnvoyConfigWriter(podName, ns, c.OutOrStdout())
 			if err != nil {
 				return err
 			}
@@ -191,8 +190,8 @@ func handleNamespace() string {
 	return ns
 }
 
-func setupEnvoyConfigWriter(podName, podNamespace string) (*configdump.ConfigWriter, error) {
-	kubeClient, err := kubernetes.NewClient(kubeconfig, configContext)
+func setupEnvoyConfigWriter(podName, podNamespace string, out io.Writer) (*configdump.ConfigWriter, error) {
+	kubeClient, err := clientExecFactory(kubeconfig, configContext)
 	if err != nil {
 		return nil, err
 	}
@@ -201,7 +200,7 @@ func setupEnvoyConfigWriter(podName, podNamespace string) (*configdump.ConfigWri
 	if err != nil {
 		return nil, err
 	}
-	cw := &configdump.ConfigWriter{Stdout: os.Stdout}
+	cw := &configdump.ConfigWriter{Stdout: out}
 	err = cw.Prime(debug)
 	if err != nil {
 		return nil, err

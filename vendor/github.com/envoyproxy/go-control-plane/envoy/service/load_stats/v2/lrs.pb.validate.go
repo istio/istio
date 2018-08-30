@@ -42,7 +42,9 @@ func (m *LoadStatsRequest) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetNode()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetNode()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return LoadStatsRequestValidationError{
 				Field:  "Node",
@@ -55,7 +57,9 @@ func (m *LoadStatsRequest) Validate() error {
 	for idx, item := range m.GetClusterStats() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(item).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return LoadStatsRequestValidationError{
 					Field:  fmt.Sprintf("ClusterStats[%v]", idx),
@@ -116,7 +120,9 @@ func (m *LoadStatsResponse) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetLoadReportingInterval()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetLoadReportingInterval()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return LoadStatsResponseValidationError{
 				Field:  "LoadReportingInterval",
@@ -125,6 +131,8 @@ func (m *LoadStatsResponse) Validate() error {
 			}
 		}
 	}
+
+	// no validation rules for ReportEndpointGranularity
 
 	return nil
 }

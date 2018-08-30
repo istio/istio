@@ -58,8 +58,10 @@ spec:
         weight: 100
       fault:
         delay:
-          percent: 100
+          percentage:
+            value: 100.0
           fixedDelay: 5s
         abort:
-          percent: 100
+          percentage:
+            value: 100.0
           httpStatus: 503

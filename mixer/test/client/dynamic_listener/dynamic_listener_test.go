@@ -52,7 +52,10 @@ node:
 dynamic_resources:
   lds_config: { ads: {} }
   ads_config:
-    cluster_names: ["xds"]
+    api_type: GRPC
+    grpc_services:
+      envoy_grpc:
+        cluster_name: xds
 static_resources:
   clusters:
   - name: xds
@@ -84,6 +87,7 @@ static_resources:
 const checkAttributesOkGet = `
 {
   "connection.mtls": false,
+  "origin.ip": "[127 0 0 1]",
   "context.protocol": "http",
 	"key": "count%s",
   "mesh1.ip": "[1 1 1 1]",
@@ -93,6 +97,7 @@ const checkAttributesOkGet = `
   "request.useragent": "Go-http-client/1.1",
   "request.method": "GET",
   "request.scheme": "http",
+  "request.url_path": "/echo",
   "target.namespace": "XYZ222",
   "target.uid": "POD222",
   "request.headers": {

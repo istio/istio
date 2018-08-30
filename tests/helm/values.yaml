@@ -1,13 +1,16 @@
 healthPort: true
 testHub: docker.io/istionightly
-testTag: nightly-release-0.8
+testTag: nightly-release-1.0
 
 domain: v10.istio.webinf.info
 
 # Namespace where istio control plane is installed.
 istioNamespace: istio-system
 
-fortioImage: istio/fortio:latest
+#fortioImage: fortio/fortio:latest
+fortioImage: fortio/fortio:1.2.0
+
+qps: 500
 
 # Number of test cluster-IP services pointing to A. Used to create a realistic
 # number of k-8s managed endpoint sets

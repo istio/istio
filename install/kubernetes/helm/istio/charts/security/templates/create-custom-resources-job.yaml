@@ -1,4 +1,3 @@
-{{- if .Values.global.mtls.enabled }}
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -59,7 +58,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   annotations:
     "helm.sh/hook": post-install
-    "helm.sh/hook-delete-policy": before-hook-creation
+    "helm.sh/hook-delete-policy": hook-succeeded
   labels:
     app: istio-security
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
@@ -76,7 +75,7 @@ spec:
       serviceAccountName: istio-security-post-install-account
       containers:
         - name: hyperkube
-          image: "{{ .Values.global.hyperkube.repository }}:{{ .Values.global.hyperkube.tag }}"
+          image: "{{ .Values.global.hyperkube.hub }}/hyperkube:{{ .Values.global.hyperkube.tag }}"
           command: [ "/bin/bash", "/tmp/security/run.sh", "/tmp/security/custom-resources.yaml" ]
           volumeMounts:
             - mountPath: "/tmp/security"
@@ -86,4 +85,3 @@ spec:
           configMap:
             name: istio-security-custom-resources
       restartPolicy: OnFailure
-{{- end }}

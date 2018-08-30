@@ -5,18 +5,22 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "sidecar-injector.name" . }}
-    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    release: {{ .Release.Name }}
-    heritage: {{ .Release.Service }}
     istio: sidecar-injector
+    {{- template "common_labels" . }}
 spec:
   replicas: {{ .Values.replicaCount }}
   template:
     metadata:
       labels:
         istio: sidecar-injector
+      annotations:
+        sidecar.istio.io/inject: "false"
+        scheduler.alpha.kubernetes.io/critical-pod: ""
     spec:
       serviceAccountName: istio-sidecar-injector-service-account
+{{- if .Values.global.priorityClassName }}
+      priorityClassName: "{{ .Values.global.priorityClassName }}"
+{{- end }}
       containers:
         - name: sidecar-injector-webhook
           image: "{{ .Values.global.hub }}/{{ .Values.image }}:{{ .Values.global.tag }}"
@@ -58,7 +62,11 @@ spec:
             initialDelaySeconds: 4
             periodSeconds: 4
           resources:
+{{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 12 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | indent 12 }}
+{{- end }}
       volumes:
       - name: config-volume
         configMap:

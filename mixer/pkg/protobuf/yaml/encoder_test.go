@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // nolint
-//go:generate protoc testdata/all/types.proto  --include_imports  -otestdata/all/types.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
+//go:generate $GOPATH/src/istio.io/istio/bin/protoc.sh testdata/all/types.proto  --include_imports  -otestdata/all/types.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
 //go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh  -d false -f mixer/pkg/protobuf/yaml/testdata/all/types.proto
 
 package yaml
@@ -259,6 +259,9 @@ map_str_sint32:
     key1: 123
 map_str_sint64:
     key1: 123
+
+google_protobuf_duration: 10s
+google_protobuf_timestamp: 2018-08-15T00:00:01Z
 `
 
 	simpleNoValues = `

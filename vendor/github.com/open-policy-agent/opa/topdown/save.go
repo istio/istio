@@ -42,9 +42,23 @@ func (n *saveSet) Contains(x *ast.Term) bool {
 	return false
 }
 
-func (n *saveSet) ContainsAny(xs []*ast.Term) bool {
+func (n *saveSet) ContainsRecursive(x *ast.Term) bool {
+	stop := false
+	ast.WalkTerms(x, func(t *ast.Term) bool {
+		if stop {
+			return true
+		}
+		if n.Contains(t) {
+			stop = true
+		}
+		return stop
+	})
+	return stop
+}
+
+func (n *saveSet) ContainsRecursiveAny(xs []*ast.Term) bool {
 	for i := range xs {
-		if n.Contains(xs[i]) {
+		if n.ContainsRecursive(xs[i]) {
 			return true
 		}
 	}
@@ -57,6 +71,21 @@ func (n *saveSet) Push(x *saveSetElem) {
 
 func (n *saveSet) Pop() {
 	n.s = n.s[:len(n.s)-1]
+}
+
+func (n *saveSet) Vars() ast.VarSet {
+	if n == nil {
+		return nil
+	}
+	result := ast.NewVarSet()
+	for i := 0; i < len(n.s); i++ {
+		for k := range n.s[i].children {
+			if v, ok := k.(ast.Var); ok {
+				result.Add(v)
+			}
+		}
+	}
+	return result
 }
 
 type saveSetElem struct {
@@ -142,7 +171,7 @@ type saveStack struct {
 func newSaveStack() *saveStack {
 	return &saveStack{
 		Stack: []saveStackQuery{
-			saveStackQuery{},
+			{},
 		},
 	}
 }
@@ -202,6 +231,9 @@ func (e saveStackElem) Plug(caller *bindings) *ast.Expr {
 		}
 	case *ast.Term:
 		expr.Terms = e.B1.PlugNamespaced(terms, caller)
+	}
+	for i := range expr.With {
+		expr.With[i].Value = e.B1.PlugNamespaced(expr.With[i].Value, caller)
 	}
 	return expr
 }

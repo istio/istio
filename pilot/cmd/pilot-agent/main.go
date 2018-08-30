@@ -26,8 +26,7 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/duration"
+	"github.com/gogo/protobuf/types"
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 
@@ -50,7 +49,7 @@ var (
 	configPath               string
 	binaryPath               string
 	serviceCluster           string
-	availabilityZone         string
+	availabilityZone         string // TODO: remove me?
 	drainDuration            time.Duration
 	parentShutdownDuration   time.Duration
 	discoveryAddress         string
@@ -71,8 +70,8 @@ var (
 
 	rootCmd = &cobra.Command{
 		Use:          "pilot-agent",
-		Short:        "Istio Pilot agent",
-		Long:         "Istio Pilot agent runs in the side car or gateway container and bootstraps envoy.",
+		Short:        "Istio Pilot agent.",
+		Long:         "Istio Pilot agent runs in the sidecar or gateway container and bootstraps Envoy.",
 		SilenceUsage: true,
 	}
 
@@ -80,6 +79,7 @@ var (
 		Use:   "proxy",
 		Short: "Envoy proxy agent",
 		RunE: func(c *cobra.Command, args []string) error {
+			cmd.PrintFlags(c.Flags())
 			if err := log.Configure(loggingOptions); err != nil {
 				return err
 			}
@@ -87,6 +87,10 @@ var (
 			role.Type = model.Sidecar
 			if len(args) > 0 {
 				role.Type = model.NodeType(args[0])
+				if !model.IsApplicationNodeType(role.Type) {
+					log.Errorf("Invalid role Type: %#v", role.Type)
+					return fmt.Errorf("Invalid role Type: " + string(role.Type))
+				}
 			}
 
 			// set values from registry platform
@@ -126,7 +130,7 @@ var (
 
 			log.Infof("Proxy role: %#v", role)
 
-			proxyConfig := meshconfig.ProxyConfig{}
+			proxyConfig := model.DefaultProxyConfig()
 
 			// set all flags
 			proxyConfig.AvailabilityZone = availabilityZone
@@ -134,12 +138,12 @@ var (
 			proxyConfig.ConfigPath = configPath
 			proxyConfig.BinaryPath = binaryPath
 			proxyConfig.ServiceCluster = serviceCluster
-			proxyConfig.DrainDuration = ptypes.DurationProto(drainDuration)
-			proxyConfig.ParentShutdownDuration = ptypes.DurationProto(parentShutdownDuration)
+			proxyConfig.DrainDuration = types.DurationProto(drainDuration)
+			proxyConfig.ParentShutdownDuration = types.DurationProto(parentShutdownDuration)
 			proxyConfig.DiscoveryAddress = discoveryAddress
-			proxyConfig.DiscoveryRefreshDelay = ptypes.DurationProto(discoveryRefreshDelay)
+			proxyConfig.DiscoveryRefreshDelay = types.DurationProto(discoveryRefreshDelay)
 			proxyConfig.ZipkinAddress = zipkinAddress
-			proxyConfig.ConnectTimeout = ptypes.DurationProto(connectTimeout)
+			proxyConfig.ConnectTimeout = types.DurationProto(connectTimeout)
 			proxyConfig.StatsdUdpAddress = statsdUDPAddress
 			proxyConfig.ProxyAdminPort = int32(proxyAdminPort)
 			proxyConfig.Concurrency = int32(concurrency)
@@ -159,10 +163,17 @@ var (
 						// namespace of pilot is not part of discovery address use
 						// pod namespace e.g. istio-pilot:15005
 						ns = os.Getenv("POD_NAMESPACE")
-					} else {
+					} else if len(parts) == 2 {
 						// namespace is found in the discovery address
 						// e.g. istio-pilot.istio-system:15005
 						ns = parts[1]
+					} else {
+						// discovery address is a remote address. For remote clusters
+						// only support the default config, or env variable
+						ns = os.Getenv("ISTIO_NAMESPACE")
+						if ns == "" {
+							ns = model.IstioSystemNamespace
+						}
 					}
 				}
 				pilotSAN = envoy.GetPilotSAN(pilotDomain, ns)
@@ -238,8 +249,10 @@ var (
 
 			envoyProxy := envoy.NewProxy(proxyConfig, role.ServiceNode(), proxyLogLevel, pilotSAN)
 			agent := proxy.NewAgent(envoyProxy, proxy.DefaultRetry)
-			watcher := envoy.NewWatcher(proxyConfig, agent, role, certs, pilotSAN)
+			watcher := envoy.NewWatcher(proxyConfig, role, certs, pilotSAN, agent.ConfigCh())
+
 			ctx, cancel := context.WithCancel(context.Background())
+			go agent.Run(ctx)
 			go watcher.Run(ctx)
 
 			stop := make(chan struct{})
@@ -251,8 +264,8 @@ var (
 	}
 )
 
-func timeDuration(dur *duration.Duration) time.Duration {
-	out, err := ptypes.Duration(dur)
+func timeDuration(dur *types.Duration) time.Duration {
+	out, err := types.DurationFromProto(dur)
 	if err != nil {
 		log.Warna(err)
 	}
@@ -262,8 +275,8 @@ func timeDuration(dur *duration.Duration) time.Duration {
 func init() {
 	proxyCmd.PersistentFlags().StringVar((*string)(&registry), "serviceregistry",
 		string(serviceregistry.KubernetesRegistry),
-		fmt.Sprintf("Select the platform for service registry, options are {%s, %s, %s, %s, %s, %s}",
-			serviceregistry.KubernetesRegistry, serviceregistry.ConsulRegistry, serviceregistry.EurekaRegistry,
+		fmt.Sprintf("Select the platform for service registry, options are {%s, %s, %s, %s, %s}",
+			serviceregistry.KubernetesRegistry, serviceregistry.ConsulRegistry,
 			serviceregistry.CloudFoundryRegistry, serviceregistry.MockRegistry, serviceregistry.ConfigRegistry))
 	proxyCmd.PersistentFlags().StringVar(&role.IPAddress, "ip", "",
 		"Proxy IP address. If not provided uses ${INSTANCE_IP} environment variable.")

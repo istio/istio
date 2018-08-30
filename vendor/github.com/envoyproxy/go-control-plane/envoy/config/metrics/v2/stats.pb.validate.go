@@ -43,7 +43,9 @@ func (m *StatsSink) Validate() error {
 
 	// no validation rules for Name
 
-	if v, ok := interface{}(m.GetConfig()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetConfig()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return StatsSinkValidationError{
 				Field:  "Config",
@@ -98,7 +100,9 @@ func (m *StatsConfig) Validate() error {
 	for idx, item := range m.GetStatsTags() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(item).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return StatsConfigValidationError{
 					Field:  fmt.Sprintf("StatsTags[%v]", idx),
@@ -110,7 +114,9 @@ func (m *StatsConfig) Validate() error {
 
 	}
 
-	if v, ok := interface{}(m.GetUseAllDefaultTags()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetUseAllDefaultTags()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return StatsConfigValidationError{
 				Field:  "UseAllDefaultTags",
@@ -167,7 +173,13 @@ func (m *TagSpecifier) Validate() error {
 	switch m.TagValue.(type) {
 
 	case *TagSpecifier_Regex:
-		// no validation rules for Regex
+
+		if len(m.GetRegex()) > 1024 {
+			return TagSpecifierValidationError{
+				Field:  "Regex",
+				Reason: "value length must be at most 1024 bytes",
+			}
+		}
 
 	case *TagSpecifier_FixedValue:
 		// no validation rules for FixedValue
@@ -221,7 +233,9 @@ func (m *StatsdSink) Validate() error {
 
 	case *StatsdSink_Address:
 
-		if v, ok := interface{}(m.GetAddress()).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(m.GetAddress()).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return StatsdSinkValidationError{
 					Field:  "Address",
@@ -288,7 +302,9 @@ func (m *DogStatsdSink) Validate() error {
 
 	case *DogStatsdSink_Address:
 
-		if v, ok := interface{}(m.GetAddress()).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(m.GetAddress()).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return DogStatsdSinkValidationError{
 					Field:  "Address",
@@ -339,3 +355,47 @@ func (e DogStatsdSinkValidationError) Error() string {
 }
 
 var _ error = DogStatsdSinkValidationError{}
+
+// Validate checks the field values on HystrixSink with the rules defined in
+// the proto definition for this message. If any rules are violated, an error
+// is returned.
+func (m *HystrixSink) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	// no validation rules for NumBuckets
+
+	return nil
+}
+
+// HystrixSinkValidationError is the validation error returned by
+// HystrixSink.Validate if the designated constraints aren't met.
+type HystrixSinkValidationError struct {
+	Field  string
+	Reason string
+	Cause  error
+	Key    bool
+}
+
+// Error satisfies the builtin error interface
+func (e HystrixSinkValidationError) Error() string {
+	cause := ""
+	if e.Cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
+	}
+
+	key := ""
+	if e.Key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sHystrixSink.%s: %s%s",
+		key,
+		e.Field,
+		e.Reason,
+		cause)
+}
+
+var _ error = HystrixSinkValidationError{}

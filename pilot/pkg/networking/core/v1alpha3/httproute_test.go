@@ -27,7 +27,7 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 		name    string
 		service *model.Service
 		port    int
-		node    model.Proxy
+		node    *model.Proxy
 		want    []string
 	}{
 		{
@@ -37,7 +37,7 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 				MeshExternal: false,
 			},
 			port: 80,
-			node: model.Proxy{
+			node: &model.Proxy{
 				Domain: "local.campus.net",
 			},
 			want: []string{"foo", "foo.local", "foo.local.campus", "foo.local.campus.net",
@@ -50,7 +50,7 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 				MeshExternal: false,
 			},
 			port: 80,
-			node: model.Proxy{
+			node: &model.Proxy{
 				Domain: "remote.campus.net",
 			},
 			want: []string{"foo.local", "foo.local.campus", "foo.local.campus.net",
@@ -63,7 +63,7 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 				MeshExternal: false,
 			},
 			port: 80,
-			node: model.Proxy{
+			node: &model.Proxy{
 				Domain: "example.com",
 			},
 			want: []string{"foo.local.campus.net", "foo.local.campus.net:80"},

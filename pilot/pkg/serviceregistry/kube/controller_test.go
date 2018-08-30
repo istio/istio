@@ -116,11 +116,6 @@ func TestServices(t *testing.T) {
 	if svc.Hostname != hostname {
 		t.Errorf("GetService(%q) => %q", hostname, svc.Hostname)
 	}
-	attr, err := sds.GetServiceAttributes(svc.Hostname)
-	expect := model.ServiceAttributes{Name: testService, Namespace: ns, UID: fmt.Sprintf("istio://%s/services/%s", ns, testService)}
-	if !reflect.DeepEqual(*attr, expect) {
-		t.Errorf("GetServiceAttributes(%q) => %v, but want %v", svc.Hostname, *attr, expect)
-	}
 
 	ep, err := sds.InstancesByPort(hostname, 80, nil)
 	if err != nil {
@@ -334,7 +329,7 @@ func TestController_GetIstioServiceAccounts(t *testing.T) {
 	createEndpoints(controller, "svc2", "nsA", portNames, svc2Ips, t)
 
 	hostname := serviceHostname("svc1", "nsA", domainSuffix)
-	sa := controller.GetIstioServiceAccounts(hostname, []string{"test-port"})
+	sa := controller.GetIstioServiceAccounts(hostname, []int{1001, 8080})
 	sort.Sort(sort.StringSlice(sa))
 	expected := []string{
 		"spiffe://" + canonicalSaOnVM,
@@ -346,7 +341,7 @@ func TestController_GetIstioServiceAccounts(t *testing.T) {
 	}
 
 	hostname = serviceHostname("svc2", "nsA", domainSuffix)
-	sa = controller.GetIstioServiceAccounts(hostname, []string{})
+	sa = controller.GetIstioServiceAccounts(hostname, []int{})
 	if len(sa) != 0 {
 		t.Error("Failure: Expected to resolve 0 service accounts, but got: ", sa)
 	}

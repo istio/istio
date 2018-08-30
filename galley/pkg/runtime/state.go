@@ -22,9 +22,9 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 
-	mcp "istio.io/api/config/mcp/v1alpha1"
-	"istio.io/istio/galley/pkg/mcp/snapshot"
+	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/galley/pkg/runtime/resource"
+	"istio.io/istio/pkg/mcp/snapshot"
 )
 
 // State is the in-memory state of Galley.
@@ -114,7 +114,7 @@ func (s *State) buildSnapshot() snapshot.Snapshot {
 	s.entriesLock.Lock()
 	defer s.entriesLock.Unlock()
 
-	sn := snapshot.NewInMemory()
+	b := snapshot.NewInMemoryBuilder()
 
 	for typeURL, state := range s.entries {
 		entries := make([]*mcp.Envelope, 0, len(state.entries))
@@ -123,24 +123,30 @@ func (s *State) buildSnapshot() snapshot.Snapshot {
 		}
 
 		version := fmt.Sprintf("%d", state.version)
-		sn.Set(typeURL.String(), version, entries)
+		b.Set(typeURL.String(), version, entries)
 	}
 
-	sn.Freeze()
-
-	return sn
+	return b.Build()
 }
 
 func (s *State) envelopeResource(event resource.Event) (*mcp.Envelope, bool) {
 	serialized, err := proto.Marshal(event.Item)
 	if err != nil {
-		scope.Errorf("Error serializing proto from source event: %v", event)
+		scope.Errorf("Error serializing proto from source event: %v:", event)
+		return nil, false
+	}
+
+	createTime, err := types.TimestampProto(event.ID.CreateTime)
+	if err != nil {
+		scope.Errorf("Error parsing resource create_time: %v", event, err)
 		return nil, false
 	}
 
 	entry := &mcp.Envelope{
 		Metadata: &mcp.Metadata{
-			Name: event.ID.FullName,
+			Name:       event.ID.FullName,
+			CreateTime: createTime,
+			Version:    string(event.ID.Version),
 		},
 		Resource: &types.Any{
 			TypeUrl: event.ID.TypeURL.String(),

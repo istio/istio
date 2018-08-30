@@ -17,8 +17,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"net"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
@@ -548,6 +550,15 @@ map_str_istio_value:
     test.i64: test.i64
     float: 5.5
     str: request.path
+    ip: source.ip
+ipaddress_istio_value: source.ip
+map_str_ipaddress_istio_value:
+    host1: source.ip
+timestamp_istio_value: context.timestamp
+duration_istio_value: response.duration
+dnsname_istio_value: test.dns_name
+uri_istio_value: test.uri
+emailaddress_istio_value: test.email_address
 `
 
 const valueStr = `
@@ -560,6 +571,37 @@ map_str_istio_value:
          double_value: 5.5
     str:
          string_value: "INNERTHREE"
+    ip:
+         ip_address_value:
+             value:
+             - 8
+             - 0
+             - 0
+             - 1
+
+ipaddress_istio_value:
+    value:
+    - 8
+    - 0
+    - 0
+    - 1
+map_str_ipaddress_istio_value:
+    host1:
+        value:
+        - 8
+        - 0
+        - 0
+        - 1
+timestamp_istio_value:
+    value: 2018-08-15T00:00:01Z
+duration_istio_value:
+    value: 10s
+dnsname_istio_value:
+    value: google.com
+uri_istio_value:
+    value: https://maps.google.com
+emailaddress_istio_value:
+    value: istio@google.com
 `
 
 type testdata struct {
@@ -783,6 +825,12 @@ func testMsg(t *testing.T, input string, output string, res protoyaml.Resolver,
 		"test.i64":              int64(-123),
 		"test.i32":              int64(123),
 		"test.bool":             true,
+		"source.ip":             net.IP{8, 0, 0, 1},
+		"response.duration":     10 * time.Second,
+		"context.timestamp":     time.Date(2018, 8, 15, 0, 0, 1, 0, time.UTC).UTC(),
+		"test.dns_name":         "google.com",
+		"test.uri":              "https://maps.google.com",
+		"test.email_address":    "istio@google.com",
 	})
 	ba, err = de.Encode(bag, ba)
 	if err != nil {
@@ -894,6 +942,9 @@ func StatdardVocabulary() ast.AttributeDescriptorFinder {
 		"test.i32":                        {ValueType: v1beta1.INT64},
 		"test.i64":                        {ValueType: v1beta1.INT64},
 		"test.float":                      {ValueType: v1beta1.DOUBLE},
+		"test.uri":                        {ValueType: v1beta1.URI},
+		"test.dns_name":                   {ValueType: v1beta1.DNS_NAME},
+		"test.email_address":              {ValueType: v1beta1.EMAIL_ADDRESS},
 	}
 
 	return ast.NewFinder(attrs)

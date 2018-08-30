@@ -1,15 +1,15 @@
-hash: 6b630b5325d46765595365cef71c4c551f4a516a9dd83058fc447dcb5cdc1125
-updated: 2018-06-27T15:06:45.79764699-07:00
+hash: d07bf6ef47022e5470f5ef94f2e7dc301ec64c7552d5b1431f12938d7ed89563
+updated: 2018-08-21T18:58:33.820384463-07:00
 imports:
 - name: github.com/envoyproxy/data-plane-api
-  version: 5c1d0b213ee055a9f480ecba170a2be619585f32
+  version: 8e09edd8fe81be46dc179c678f5f65c40ae7af63
 - name: github.com/gogo/googleapis
   version: 0cd9801be74a10d5ac39d69626eac8255ffcd502
   subpackages:
   - google/api
   - google/rpc
 - name: github.com/gogo/protobuf
-  version: 1adfc126b41513cc696b209667c8656ea7aac67c
+  version: 636bf0302bc95575d69441b25a2603156ffdddf1
   subpackages:
   - gogoproto
   - jsonpb
@@ -28,11 +28,11 @@ imports:
   - ptypes/duration
   - ptypes/timestamp
 - name: github.com/lyft/protoc-gen-validate
-  version: cae364899cd8c08b83bfdcabf4ce4dd4a68ca6da
+  version: f9d2b11e44149635b23a002693b76512b01ae515
   subpackages:
   - validate
 - name: github.com/sirupsen/logrus
-  version: c155da19408a8799da419ed3eeb0cb5db0ad5dbc
+  version: 3e01752db0189b9157070a0e1668a620f9a85da2
 - name: golang.org/x/crypto
   version: 5119cf507ed5294cc409c092980c7497ee5d6fd2
   subpackages:
@@ -48,7 +48,7 @@ imports:
   - lex/httplex
   - trace
 - name: golang.org/x/sys
-  version: 37707fdb30a5b38865cfb95e5aab41707daec7fd
+  version: acbc56fc7007d2a01796d5bde54f39e3b3e95945
   subpackages:
   - unix
   - windows
@@ -66,7 +66,7 @@ imports:
   - googleapis/rpc/status
   - opencensus
 - name: google.golang.org/grpc
-  version: 1e2570b1b19ade82d8dbb31bba4e65e9f9ef5b34
+  version: 32fb0ac620c32ba40a4626ddf94d90d12cce3455
   subpackages:
   - balancer
   - balancer/base
@@ -76,9 +76,13 @@ imports:
   - credentials
   - encoding
   - encoding/proto
-  - grpclb/grpc_lb_v1/messages
   - grpclog
   - internal
+  - internal/backoff
+  - internal/channelz
+  - internal/envconfig
+  - internal/grpcrand
+  - internal/transport
   - keepalive
   - metadata
   - naming
@@ -89,7 +93,6 @@ imports:
   - stats
   - status
   - tap
-  - transport
 - name: istio.io/gogo-genproto
   version: dd2b5b6a8f1400838165245e704a011a30154a44
   subpackages:

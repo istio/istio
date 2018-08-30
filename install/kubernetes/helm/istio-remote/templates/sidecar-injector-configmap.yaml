@@ -1,3 +1,4 @@
+{{- if not .Values.global.omitSidecarInjectorConfigMap }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -53,10 +54,10 @@ data:
             - NET_ADMIN
           privileged: true
         restartPolicy: Always
-      {{ if eq .Values.global.proxy.enableCoreDump true }}
+      {{- if .Values.global.proxy.enableCoreDump }}
       - args:
         - -c
-        - sysctl -w kernel.core_pattern=/etc/istio/proxy/core.%e.%p.%t && ulimit -c unlimited
+        - sysctl -w kernel.core_pattern=/var/lib/istio/core.proxy && ulimit -c unlimited
         command:
           - /bin/sh
         image: {{ .Values.global.hub }}/proxy_init:{{ .Values.global.tag }}
@@ -91,11 +92,13 @@ data:
         - --parentShutdownDuration
         - {{ "[[ formatDuration .ProxyConfig.ParentShutdownDuration ]]" }}
         - --discoveryAddress
-        - {{ "[[ .ProxyConfig.DiscoveryAddress ]]" }}
+        - {{ "[[ or (index .ObjectMeta.Annotations \"sidecar.istio.io/discoveryAddress\") .ProxyConfig.DiscoveryAddress ]]" }}
         - --discoveryRefreshDelay
         - {{ "[[ formatDuration .ProxyConfig.DiscoveryRefreshDelay ]]" }}
+      {{- if .Values.global.zipkinAddress }}
         - --zipkinAddress
         - {{ "[[ .ProxyConfig.ZipkinAddress ]]" }}
+      {{- end }}
         - --connectTimeout
         - {{ "[[ formatDuration .ProxyConfig.ConnectTimeout ]]" }}
       {{- if .Values.global.proxy.envoyStatsd.enabled }}
@@ -104,8 +107,12 @@ data:
       {{- end }}
         - --proxyAdminPort
         - {{ "[[ .ProxyConfig.ProxyAdminPort ]]" }}
+        {{ "[[ if gt .ProxyConfig.Concurrency 0 -]]" }}
+        - --concurrency
+        - {{ "[[ .ProxyConfig.Concurrency ]]" }}
+        {{ "[[ end -]]" }}
         - --controlPlaneAuthPolicy
-        - {{ "[[ .ProxyConfig.ControlPlaneAuthPolicy ]]" }}
+        - {{ "[[ or (index .ObjectMeta.Annotations \"sidecar.istio.io/controlPlaneAuthPolicy\") .ProxyConfig.ControlPlaneAuthPolicy ]]" }}
         env:
         - name: POD_NAME
           valueFrom:
@@ -127,18 +134,29 @@ data:
           value: {{ "[[ or (index .ObjectMeta.Annotations \"sidecar.istio.io/interceptionMode\") .ProxyConfig.InterceptionMode.String ]]" }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
         securityContext:
-            privileged: false
-            readOnlyRootFilesystem: true
-            {{ "[[ if eq (or (index .ObjectMeta.Annotations \"sidecar.istio.io/interceptionMode\") .ProxyConfig.InterceptionMode.String) \"TPROXY\" -]]" }}
-            capabilities:
-              add:
-              - NET_ADMIN
-            {{ "[[ else -]]" }}
-            runAsUser: 1337
-            {{ "[[ end -]]" }}
+          privileged: false
+          {{- if ne .Values.global.proxy.enableCoreDump true }}
+          readOnlyRootFilesystem: true
+          {{- end }}
+          {{ "[[ if eq (or (index .ObjectMeta.Annotations \"sidecar.istio.io/interceptionMode\") .ProxyConfig.InterceptionMode.String) \"TPROXY\" -]]" }}
+          capabilities:
+            add:
+            - NET_ADMIN
+          runAsGroup: 1337
+          {{ "[[ else -]]" }}
+          runAsUser: 1337
+          {{ "[[ end -]]" }}
         restartPolicy: Always
         resources:
+          {{ "[[ if (isset .ObjectMeta.Annotations \"sidecar.istio.io/proxyCPU\") -]]" }}
+          requests:
+            cpu: {{ "\"[[ index .ObjectMeta.Annotations \"sidecar.istio.io/proxyCPU\" ]]\"" }}
+            memory: {{ "\"[[ index .ObjectMeta.Annotations \"sidecar.istio.io/proxyMemory\" ]]\"" }}
+        {{ "[[ else -]]" }}
+{{- if .Values.global.proxy.resources }}
 {{ toYaml .Values.global.proxy.resources | indent 10 }}
+{{- end }}
+        {{ "[[ end -]]" }}
         volumeMounts:
         - mountPath: /etc/istio/proxy
           name: istio-envoy
@@ -157,4 +175,4 @@ data:
           {{ "[[ else -]]" }}
           secretName: {{ "[[ printf \"istio.%s\" .Spec.ServiceAccountName ]]"  }}
           {{ "[[ end -]]" }}
-
+{{- end }}

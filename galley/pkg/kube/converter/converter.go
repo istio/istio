@@ -16,20 +16,23 @@ package converter
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	"istio.io/istio/galley/pkg/kube/converter/legacy"
 
 	"istio.io/istio/galley/pkg/runtime/resource"
 )
 
 // Fn is a conversion function that converts the given unstructured CRD into the destination resource.
-type Fn func(destination resource.Info, u *unstructured.Unstructured) (proto.Message, error)
+type Fn func(destination resource.Info, name string, u *unstructured.Unstructured) (string, time.Time, proto.Message, error)
 
 var converters = map[string]Fn{
-	"identity":           identity,
-	"old-mixer-adapter":  mixerAdapter,
-	"old-mixer-template": mixerTemplate,
+	"identity":              identity,
+	"legacy-mixer-resource": legacyMixerResource,
 }
 
 // Get returns the named converter function, or panics if it is not found.
@@ -42,16 +45,26 @@ func Get(name string) Fn {
 	return fn
 }
 
-func identity(destination resource.Info, u *unstructured.Unstructured) (proto.Message, error) {
-	return toProto(destination, u.Object["spec"])
+func identity(destination resource.Info, name string, u *unstructured.Unstructured) (string, time.Time, proto.Message, error) {
+	p, err := toProto(destination, u.Object["spec"])
+	if err != nil {
+		return "", time.Time{}, nil, err
+	}
+	return name, u.GetCreationTimestamp().Time, p, nil
 }
 
-func mixerTemplate(destination resource.Info, u *unstructured.Unstructured) (proto.Message, error) {
-	// TODO
-	panic("mixer instance converter NYI")
-}
+func legacyMixerResource(_ resource.Info, name string, u *unstructured.Unstructured) (string, time.Time, proto.Message, error) {
+	spec := u.Object["spec"]
+	s := &types.Struct{}
+	if err := toproto(s, spec); err != nil {
+		return "", time.Time{}, nil, err
+	}
 
-func mixerAdapter(destination resource.Info, u *unstructured.Unstructured) (proto.Message, error) {
-	// TODO
-	panic("mixer instance converter NYI")
+	newName := fmt.Sprintf("%s/%s", u.GetKind(), name)
+
+	return newName, u.GetCreationTimestamp().Time, &legacy.LegacyMixerResource{
+		Name:     name,
+		Kind:     u.GetKind(),
+		Contents: s,
+	}, nil
 }

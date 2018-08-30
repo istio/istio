@@ -510,6 +510,21 @@ spec:
     - iquota1.tquota.istio-system
 `
 
+// RuleQuota1Conditional conditionally selects iquota1
+var RuleQuota1Conditional = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: rquota1
+  namespace: istio-system
+spec:
+  match: attr.string == "select"
+  actions:
+  - handler: hquota1.aquota
+    instances:
+    - iquota1.tquota.istio-system
+`
+
 // RuleQuota2 references iquota1 and hquota1.
 var RuleQuota2 = `
 apiVersion: "config.istio.io/v1alpha2"

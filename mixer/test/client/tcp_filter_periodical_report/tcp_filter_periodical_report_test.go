@@ -22,6 +22,28 @@ import (
 )
 
 // Report attributes from a good POST request
+const openReportAttributesOkPost = `
+{
+  "context.protocol": "tcp",
+  "context.time": "*",
+  "mesh1.ip": "[1 1 1 1]",
+  "source.ip": "[127 0 0 1]",
+  "target.uid": "POD222",
+  "target.namespace": "XYZ222",
+  "destination.ip": "[127 0 0 1]",
+  "destination.port": "*",
+  "connection.mtls": false,
+  "origin.ip": "[127 0 0 1]",
+  "check.cache_hit": false,
+  "quota.cache_hit": false,
+  "connection.received.bytes": 191,
+  "connection.received.bytes_total": 191,
+  "connection.sent.bytes": 0,
+  "connection.sent.bytes_total": 0,
+  "connection.id": "*",
+  "connection.event": "open"
+}
+`
 const deltaReportAttributesOkPost = `
 {
   "context.protocol": "tcp",
@@ -33,6 +55,7 @@ const deltaReportAttributesOkPost = `
   "destination.ip": "[127 0 0 1]",
   "destination.port": "*",
   "connection.mtls": false,
+  "origin.ip": "[127 0 0 1]",
   "check.cache_hit": false,
   "quota.cache_hit": false,
   "connection.received.bytes": 191,
@@ -54,6 +77,7 @@ const finalReportAttributesOkPost = `
   "destination.ip": "[127 0 0 1]",
   "destination.port": "*",
   "connection.mtls": false,
+  "origin.ip": "[127 0 0 1]",
   "check.cache_hit": false,
   "quota.cache_hit": false,
   "connection.received.bytes": 0,
@@ -74,8 +98,8 @@ var expectedStats = map[string]int{
 	"tcp_mixer_filter.total_quota_calls":                 0,
 	"tcp_mixer_filter.total_remote_check_calls":          1,
 	"tcp_mixer_filter.total_remote_quota_calls":          0,
-	"tcp_mixer_filter.total_remote_report_calls":         2,
-	"tcp_mixer_filter.total_report_calls":                2,
+	"tcp_mixer_filter.total_remote_report_calls":         3,
+	"tcp_mixer_filter.total_report_calls":                3,
 }
 
 func TestTCPMixerFilterPeriodicalReport(t *testing.T) {
@@ -99,6 +123,7 @@ func TestTCPMixerFilterPeriodicalReport(t *testing.T) {
 		t.Errorf("Failed in request %s: %v", tag, err)
 	}
 
+	s.VerifyReport("openReport", openReportAttributesOkPost)
 	s.VerifyReport("deltaReport", deltaReportAttributesOkPost)
 	s.VerifyReport("finalReport", finalReportAttributesOkPost)
 

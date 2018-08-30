@@ -140,7 +140,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "round(sum(irate(istio_requests_total{reporter=\"server\"}[1m])), 0.001)",
+          "expr": "round(sum(irate(istio_requests_total{reporter=\"destination\"}[1m])), 0.001)",
           "intervalFactor": 1,
           "refId": "A",
           "step": 4
@@ -221,7 +221,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "sum(rate(istio_requests_total{reporter=\"server\", response_code!~\"5.*\"}[1m])) / sum(rate(istio_requests_total{reporter=\"server\"}[1m]))",
+          "expr": "sum(rate(istio_requests_total{reporter=\"destination\", response_code!~\"5.*\"}[1m])) / sum(rate(istio_requests_total{reporter=\"destination\"}[1m]))",
           "format": "time_series",
           "intervalFactor": 1,
           "refId": "A",
@@ -303,7 +303,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "sum(irate(istio_requests_total{reporter=\"server\", response_code=~\"4.*\"}[1m])) ",
+          "expr": "sum(irate(istio_requests_total{reporter=\"destination\", response_code=~\"4.*\"}[1m])) ",
           "format": "time_series",
           "intervalFactor": 1,
           "refId": "A",
@@ -385,7 +385,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "sum(irate(istio_requests_total{reporter=\"server\", response_code=~\"5.*\"}[1m])) ",
+          "expr": "sum(irate(istio_requests_total{reporter=\"destination\", response_code=~\"5.*\"}[1m])) ",
           "format": "time_series",
           "intervalFactor": 1,
           "refId": "A",
@@ -461,22 +461,6 @@
           "dateFormat": "YYYY-MM-DD HH:mm:ss",
           "decimals": 2,
           "pattern": "Time",
-          "thresholds": [],
-          "type": "hidden",
-          "unit": "short"
-        },
-        {
-          "alias": "Namespace",
-          "colorMode": null,
-          "colors": [
-            "rgba(245, 54, 54, 0.9)",
-            "rgba(237, 129, 40, 0.89)",
-            "rgba(50, 172, 45, 0.97)"
-          ],
-          "dateFormat": "YYYY-MM-DD HH:mm:ss",
-          "decimals": 2,
-          "pattern": "destination_namespace",
-          "sanitize": false,
           "thresholds": [],
           "type": "hidden",
           "unit": "short"
@@ -613,49 +597,49 @@
       ],
       "targets": [
         {
-          "expr": "label_join(sum(rate(istio_requests_total{reporter=\"server\", response_code=\"200\"}[1m])) by (destination_workload, destination_workload_namespace, destination_service), \"destination_workload_var\", \".\", \"destination_workload\", \"destination_workload_namespace\")",
+          "expr": "label_join(sum(rate(istio_requests_total{reporter=\"destination\", response_code=\"200\"}[1m])) by (destination_workload, destination_workload_namespace, destination_service), \"destination_workload_var\", \".\", \"destination_workload\", \"destination_workload_namespace\")",
           "format": "table",
           "hide": false,
           "instant": true,
           "intervalFactor": 1,
-          "legendFormat": "{{ destination_workload_namespace }}.{{ destination_namespace }}",
+          "legendFormat": "{{ destination_workload}}.{{ destination_workload_namespace }}",
           "refId": "A"
         },
         {
-          "expr": "label_join(histogram_quantile(0.50, sum(rate(istio_request_duration_seconds_bucket{reporter=\"server\"}[1m])) by (le, destination_workload, destination_workload_namespace)), \"destination_workload_var\", \".\", \"destination_workload\", \"destination_workload_namespace\")",
+          "expr": "label_join(histogram_quantile(0.50, sum(rate(istio_request_duration_seconds_bucket{reporter=\"destination\"}[1m])) by (le, destination_workload, destination_workload_namespace)), \"destination_workload_var\", \".\", \"destination_workload\", \"destination_workload_namespace\")",
           "format": "table",
           "hide": false,
           "instant": true,
           "intervalFactor": 1,
-          "legendFormat": "{{ destination_workload_namespace }}.{{ destination_namespace }}",
+          "legendFormat": "{{ destination_workload}}.{{ destination_workload_namespace }}",
           "refId": "B"
         },
         {
-          "expr": "label_join(histogram_quantile(0.90, sum(rate(istio_request_duration_seconds_bucket{reporter=\"server\"}[1m])) by (le, destination_workload, destination_workload_namespace)), \"destination_workload_var\", \".\", \"destination_workload\", \"destination_workload_namespace\")",
+          "expr": "label_join(histogram_quantile(0.90, sum(rate(istio_request_duration_seconds_bucket{reporter=\"destination\"}[1m])) by (le, destination_workload, destination_workload_namespace)), \"destination_workload_var\", \".\", \"destination_workload\", \"destination_workload_namespace\")",
           "format": "table",
           "hide": false,
           "instant": true,
           "intervalFactor": 1,
-          "legendFormat": "{{ destination_workload }}.{{ destination_namespace }}",
+          "legendFormat": "{{ destination_workload }}.{{ destination_workload_namespace }}",
           "refId": "D"
         },
         {
-          "expr": "label_join(histogram_quantile(0.99, sum(rate(istio_request_duration_seconds_bucket{reporter=\"server\"}[1m])) by (le, destination_workload, destination_workload_namespace)), \"destination_workload_var\", \".\", \"destination_workload\", \"destination_workload_namespace\")",
+          "expr": "label_join(histogram_quantile(0.99, sum(rate(istio_request_duration_seconds_bucket{reporter=\"destination\"}[1m])) by (le, destination_workload, destination_workload_namespace)), \"destination_workload_var\", \".\", \"destination_workload\", \"destination_workload_namespace\")",
           "format": "table",
           "hide": false,
           "instant": true,
           "intervalFactor": 1,
-          "legendFormat": "{{ destination_workload }}.{{ destination_namespace }}",
+          "legendFormat": "{{ destination_workload }}.{{ destination_workload_namespace }}",
           "refId": "E"
         },
         {
-          "expr": "label_join((sum(rate(istio_requests_total{reporter=\"server\", response_code!~\"5.*\"}[1m])) by (destination_workload, destination_workload_namespace) / sum(rate(istio_requests_total{reporter=\"server\"}[1m])) by (destination_workload, destination_workload_namespace)), \"destination_workload_var\", \".\", \"destination_workload\", \"destination_workload_namespace\")",
+          "expr": "label_join((sum(rate(istio_requests_total{reporter=\"destination\", response_code!~\"5.*\"}[1m])) by (destination_workload, destination_workload_namespace) / sum(rate(istio_requests_total{reporter=\"destination\"}[1m])) by (destination_workload, destination_workload_namespace)), \"destination_workload_var\", \".\", \"destination_workload\", \"destination_workload_namespace\")",
           "format": "table",
           "hide": false,
           "instant": true,
           "interval": "",
           "intervalFactor": 1,
-          "legendFormat": "{{ destination_workload }}.{{ destination_namespace }}",
+          "legendFormat": "{{ destination_workload }}.{{ destination_workload_namespace }}",
           "refId": "F"
         }
       ],
@@ -809,7 +793,7 @@
       ],
       "targets": [
         {
-          "expr": "label_join(sum(rate(istio_tcp_received_bytes_total{reporter=\"client\"}[1m])) by (destination_workload, destination_workload_namespace, destination_service), \"destination_workload_var\", \".\", \"destination_workload\", \"destination_workload_namespace\")",
+          "expr": "label_join(sum(rate(istio_tcp_received_bytes_total{reporter=\"source\"}[1m])) by (destination_workload, destination_workload_namespace, destination_service), \"destination_workload_var\", \".\", \"destination_workload\", \"destination_workload_namespace\")",
           "format": "table",
           "hide": false,
           "instant": true,
@@ -818,7 +802,7 @@
           "refId": "C"
         },
         {
-          "expr": "label_join(sum(rate(istio_tcp_sent_bytes_total{reporter=\"client\"}[1m])) by (destination_workload, destination_workload_namespace, destination_service), \"destination_workload_var\", \".\", \"destination_workload\", \"destination_workload_namespace\")",
+          "expr": "label_join(sum(rate(istio_tcp_sent_bytes_total{reporter=\"source\"}[1m])) by (destination_workload, destination_workload_namespace, destination_service), \"destination_workload_var\", \".\", \"destination_workload\", \"destination_workload_namespace\")",
           "format": "table",
           "hide": false,
           "instant": true,
@@ -873,5 +857,5 @@
   "timezone": "browser",
   "title": "Istio Mesh Dashboard",
   "uid": "1",
-  "version": 3
+  "version": 2
 }

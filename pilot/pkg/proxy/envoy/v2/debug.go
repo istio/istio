@@ -26,7 +26,6 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 
 	authn "istio.io/api/authentication/v1alpha1"
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	networking_core "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
@@ -53,8 +52,10 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 		Controller:       s.MemRegistry.controller,
 	})
 
-	mux.HandleFunc("/debug/edsz", edsz)
-	mux.HandleFunc("/debug/adsz", adsz)
+	mux.HandleFunc("/ready", s.ready)
+
+	mux.HandleFunc("/debug/edsz", s.edsz)
+	mux.HandleFunc("/debug/adsz", s.adsz)
 	mux.HandleFunc("/debug/cdsz", cdsz)
 	mux.HandleFunc("/debug/syncz", Syncz)
 
@@ -63,7 +64,8 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 	mux.HandleFunc("/debug/configz", s.configz)
 
 	mux.HandleFunc("/debug/authenticationz", s.authenticationz)
-	mux.HandleFunc("/debug/config_dump", ConfigDump)
+	mux.HandleFunc("/debug/config_dump", s.ConfigDump)
+	mux.HandleFunc("/debug/push_status", s.PushStatusHandler)
 }
 
 // NewMemServiceDiscovery builds an in-memory MemServiceDiscovery
@@ -81,6 +83,7 @@ func NewMemServiceDiscovery(services map[model.Hostname]*model.Service, versions
 // SyncStatus is the synchronization status between Pilot and a given Envoy
 type SyncStatus struct {
 	ProxyID         string `json:"proxy,omitempty"`
+	ProxyVersion    string `json:"proxy_version,omitempty"`
 	ClusterSent     string `json:"cluster_sent,omitempty"`
 	ClusterAcked    string `json:"cluster_acked,omitempty"`
 	ListenerSent    string `json:"listener_sent,omitempty"`
@@ -94,15 +97,15 @@ type SyncStatus struct {
 
 // Syncz dumps the synchronization status of all Envoys connected to this Pilot instance
 func Syncz(w http.ResponseWriter, req *http.Request) {
-	adsClientsMutex.RLock()
-	defer adsClientsMutex.RUnlock()
 	syncz := []SyncStatus{}
 	adsClientsMutex.RLock()
 	for _, con := range adsClients {
 		con.mu.RLock()
 		if con.modelNode != nil {
+			proxyVersion, _ := con.modelNode.GetProxyVersion()
 			syncz = append(syncz, SyncStatus{
 				ProxyID:         con.modelNode.ID,
+				ProxyVersion:    proxyVersion,
 				ClusterSent:     con.ClusterNonceSent,
 				ClusterAcked:    con.ClusterNonceAcked,
 				ListenerSent:    con.ListenerNonceSent,
@@ -255,34 +258,6 @@ func (sd *MemServiceDiscovery) GetService(hostname model.Hostname) (*model.Servi
 	return &newSvc, sd.GetServiceError
 }
 
-// GetServiceAttributes implements discovery interface.
-func (sd *MemServiceDiscovery) GetServiceAttributes(hostname model.Hostname) (*model.ServiceAttributes, error) {
-	return &model.ServiceAttributes{
-		Name:      hostname.String(),
-		Namespace: model.IstioDefaultConfigNamespace}, nil
-}
-
-// Instances filters the service instances by labels. This assumes single port, as is
-// used by EDS/ADS.
-func (sd *MemServiceDiscovery) Instances(hostname model.Hostname, ports []string,
-	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
-	sd.mutex.Lock()
-	defer sd.mutex.Unlock()
-	if sd.InstancesError != nil {
-		return nil, sd.InstancesError
-	}
-	if len(ports) != 1 {
-		adsLog.Warna("Unexpected ports ", ports)
-		return nil, nil
-	}
-	key := hostname.String() + ":" + ports[0]
-	instances, ok := sd.instancesByPortName[key]
-	if !ok {
-		return nil, nil
-	}
-	return instances, nil
-}
-
 // InstancesByPort filters the service instances by labels. This assumes single port, as is
 // used by EDS/ADS.
 func (sd *MemServiceDiscovery) InstancesByPort(hostname model.Hostname, port int,
@@ -292,7 +267,7 @@ func (sd *MemServiceDiscovery) InstancesByPort(hostname model.Hostname, port int
 	if sd.InstancesError != nil {
 		return nil, sd.InstancesError
 	}
-	key := fmt.Sprintf("%s:%d", hostname.String(), port)
+	key := fmt.Sprintf("%s:%d", string(hostname), port)
 	instances, ok := sd.instancesByPortNum[key]
 	if !ok {
 		return nil, nil
@@ -340,7 +315,7 @@ func (sd *MemServiceDiscovery) WorkloadHealthCheckInfo(addr string) model.ProbeL
 }
 
 // GetIstioServiceAccounts gets the Istio service accounts for a service hostname.
-func (sd *MemServiceDiscovery) GetIstioServiceAccounts(hostname model.Hostname, ports []string) []string {
+func (sd *MemServiceDiscovery) GetIstioServiceAccounts(hostname model.Hostname, ports []int) []string {
 	sd.mutex.Lock()
 	defer sd.mutex.Unlock()
 	if hostname == "world.default.svc.cluster.local" {
@@ -414,9 +389,9 @@ func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 					return
 				}
 				for _, svc := range all {
-					fmt.Fprintf(w, "%s:%s %v %s:%d %v %v %s\n", ss.Hostname,
+					fmt.Fprintf(w, "%s:%s %v %s:%d %v %s\n", ss.Hostname,
 						p.Name, svc.Endpoint.Family, svc.Endpoint.Address, svc.Endpoint.Port, svc.Labels,
-						svc.GetAZ(), svc.ServiceAccount)
+						svc.ServiceAccount)
 				}
 			}
 		}
@@ -466,10 +441,7 @@ func (s *DiscoveryServer) configz(w http.ResponseWriter, req *http.Request) {
 
 // Returns whether the given destination rule use (Istio) mutual TLS setting for given port.
 // TODO: check subsets possibly conflicts between subsets.
-func isMTlsOn(mesh *meshconfig.MeshConfig, rule *networking.DestinationRule, port *model.Port) bool {
-	if rule == nil {
-		return mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS
-	}
+func isMTlsOn(rule *networking.DestinationRule, port *model.Port) bool {
 	if rule.TrafficPolicy == nil {
 		return false
 	}
@@ -518,7 +490,7 @@ func (s *DiscoveryServer) authenticationz(w http.ResponseWriter, req *http.Reque
 	fmt.Fprintf(w, "\n[\n")
 	svc, _ := s.env.ServiceDiscovery.Services()
 	for _, ss := range svc {
-		if interestedSvc != "" && interestedSvc != ss.Hostname.String() {
+		if interestedSvc != "" && interestedSvc != string(ss.Hostname) {
 			continue
 		}
 		for _, p := range ss.Ports {
@@ -526,23 +498,23 @@ func (s *DiscoveryServer) authenticationz(w http.ResponseWriter, req *http.Reque
 				Host: string(ss.Hostname),
 				Port: p.Port,
 			}
-			authnConfig := s.env.IstioConfigStore.AuthenticationPolicyByDestination(ss.Hostname, p)
+			authnConfig := s.env.IstioConfigStore.AuthenticationPolicyByDestination(ss, p)
 			info.AuthenticationPolicyName = configName(authnConfig)
 			if authnConfig != nil {
 				policy := authnConfig.Spec.(*authn.Policy)
-				serverSideTLS, _ := authn_plugin.RequireTLS(policy, model.Sidecar)
-				info.ServerProtocol = mTLSModeToString(serverSideTLS)
+				mtls := authn_plugin.GetMutualTLS(policy, model.Sidecar)
+				info.ServerProtocol = mTLSModeToString(mtls != nil)
 			} else {
-				info.ServerProtocol = mTLSModeToString(s.env.Mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS)
+				info.ServerProtocol = mTLSModeToString(false)
 			}
 
-			destConfig := s.env.IstioConfigStore.DestinationRule(ss.Hostname)
+			destConfig := s.env.PushContext.DestinationRule(ss.Hostname)
 			info.DestinationRuleName = configName(destConfig)
 			if destConfig != nil {
 				rule := destConfig.Spec.(*networking.DestinationRule)
-				info.ClientProtocol = mTLSModeToString(isMTlsOn(s.env.Mesh, rule, p))
+				info.ClientProtocol = mTLSModeToString(isMTlsOn(rule, p))
 			} else {
-				info.ClientProtocol = mTLSModeToString(s.env.Mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS)
+				info.ClientProtocol = mTLSModeToString(false)
 			}
 
 			if info.ClientProtocol != info.ServerProtocol {
@@ -561,12 +533,14 @@ func (s *DiscoveryServer) authenticationz(w http.ResponseWriter, req *http.Reque
 
 // adsz implements a status and debug interface for ADS.
 // It is mapped to /debug/adsz
-func adsz(w http.ResponseWriter, req *http.Request) {
+func (s *DiscoveryServer) adsz(w http.ResponseWriter, req *http.Request) {
 	_ = req.ParseForm()
 	w.Header().Add("Content-Type", "application/json")
 	if req.Form.Get("push") != "" {
-		adsPushAll()
+		AdsPushAll(s)
+		adsClientsMutex.RLock()
 		fmt.Fprintf(w, "Pushed to %d servers", len(adsClients))
+		adsClientsMutex.RUnlock()
 		return
 	}
 	writeAllADS(w)
@@ -575,7 +549,7 @@ func adsz(w http.ResponseWriter, req *http.Request) {
 // ConfigDump returns information in the form of the Envoy admin API config dump for the specified proxy
 // The dump will only contain dynamic listeners/clusters/routes and can be used to compare what an Envoy instance
 // should look like according to Pilot vs what it currently does look like.
-func ConfigDump(w http.ResponseWriter, req *http.Request) {
+func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
 	if proxyID := req.URL.Query().Get("proxyID"); proxyID != "" {
 		adsClientsMutex.RLock()
 		defer adsClientsMutex.RUnlock()
@@ -593,7 +567,7 @@ func ConfigDump(w http.ResponseWriter, req *http.Request) {
 				mostRecent = key
 			}
 		}
-		dump, err := connections[mostRecent].configDump()
+		dump, err := s.configDump(connections[mostRecent])
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte(err.Error()))
@@ -609,6 +583,22 @@ func ConfigDump(w http.ResponseWriter, req *http.Request) {
 	}
 	w.WriteHeader(http.StatusBadRequest)
 	w.Write([]byte("You must provide a proxyID in the query string"))
+}
+
+// PushStatusHandler dumps the last PushContext
+func (s *DiscoveryServer) PushStatusHandler(w http.ResponseWriter, req *http.Request) {
+	if model.LastPushStatus == nil {
+		return
+	}
+	out, err := model.LastPushStatus.JSON()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, "unable to marshal push information: %v", err)
+		return
+	}
+	w.Header().Add("Content-Type", "application/json")
+	w.Write(out)
+	w.WriteHeader(http.StatusOK)
 }
 
 func writeAllADS(w io.Writer) {
@@ -639,17 +629,26 @@ func writeAllADS(w io.Writer) {
 	fmt.Fprint(w, "]\n")
 }
 
+func (s *DiscoveryServer) ready(w http.ResponseWriter, req *http.Request) {
+	if s.ConfigController != nil {
+		if !s.ConfigController.HasSynced() {
+			w.WriteHeader(503)
+		}
+	}
+	w.WriteHeader(200)
+}
+
 // edsz implements a status and debug interface for EDS.
 // It is mapped to /debug/edsz on the monitor port (9093).
-func edsz(w http.ResponseWriter, req *http.Request) {
+func (s *DiscoveryServer) edsz(w http.ResponseWriter, req *http.Request) {
 	_ = req.ParseForm()
 	w.Header().Add("Content-Type", "application/json")
 
 	if req.Form.Get("push") != "" {
-		PushAll()
+		AdsPushAll(s)
 	}
 
-	edsClusterMutex.Lock()
+	edsClusterMutex.RLock()
 	comma := false
 	if len(edsClusters) > 0 {
 		fmt.Fprintln(w, "[")
@@ -669,7 +668,7 @@ func edsz(w http.ResponseWriter, req *http.Request) {
 	} else {
 		w.WriteHeader(404)
 	}
-	edsClusterMutex.Unlock()
+	edsClusterMutex.RUnlock()
 }
 
 // cdsz implements a status and debug interface for CDS.
@@ -699,7 +698,7 @@ func cdsz(w http.ResponseWriter, req *http.Request) {
 
 func printListeners(w io.Writer, c *XdsConnection) {
 	comma := false
-	for _, ls := range c.HTTPListeners {
+	for _, ls := range c.LDSListeners {
 		if ls == nil {
 			adsLog.Errorf("INVALID LISTENER NIL")
 			continue
@@ -719,7 +718,7 @@ func printListeners(w io.Writer, c *XdsConnection) {
 
 func printClusters(w io.Writer, c *XdsConnection) {
 	comma := false
-	for _, cl := range c.HTTPClusters {
+	for _, cl := range c.CDSClusters {
 		if cl == nil {
 			adsLog.Errorf("INVALID Cluster NIL")
 			continue

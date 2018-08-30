@@ -15,6 +15,7 @@
 package server
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"strings"
@@ -22,15 +23,21 @@ import (
 
 	"google.golang.org/grpc"
 
-	mcp "istio.io/api/config/mcp/v1alpha1"
+	"istio.io/istio/pkg/mcp/creds"
+
+	mcp "istio.io/api/mcp/v1alpha1"
+	"istio.io/istio/galley/pkg/kube/source"
+	"istio.io/istio/galley/pkg/metadata"
+
+	"istio.io/istio/galley/cmd/shared"
 	"istio.io/istio/galley/pkg/kube"
-	"istio.io/istio/galley/pkg/mcp/server"
-	"istio.io/istio/galley/pkg/mcp/snapshot"
 	"istio.io/istio/galley/pkg/runtime"
-	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/mcp/server"
+	"istio.io/istio/pkg/mcp/snapshot"
 	"istio.io/istio/pkg/probe"
+	"istio.io/istio/pkg/version"
 )
 
 // Server is the main entry point into the Galley code.
@@ -41,11 +48,8 @@ type Server struct {
 	processor  *runtime.Processor
 	mcp        *server.Server
 	listener   net.Listener
-
-	// probes
-	livenessProbe  probe.Controller
-	readinessProbe probe.Controller
-	*probe.Probe
+	controlZ   *ctrlz.Server
+	stopCh     chan struct{}
 }
 
 type patchTable struct {
@@ -59,7 +63,7 @@ func defaultPatchTable() patchTable {
 	return patchTable{
 		logConfigure:          log.Configure,
 		newKubeFromConfigFile: kube.NewKubeFromConfigFile,
-		newSource:             kube.NewSource,
+		newSource:             source.New,
 		netListen:             net.Listen,
 	}
 }
@@ -89,14 +93,31 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 	distributor := snapshot.New()
 	s.processor = runtime.NewProcessor(src, distributor)
 
-	s.mcp = server.New(distributor, resource.Types.TypeURLs())
-
 	var grpcOptions []grpc.ServerOption
 	grpcOptions = append(grpcOptions, grpc.MaxConcurrentStreams(uint32(a.MaxConcurrentStreams)))
 	grpcOptions = append(grpcOptions, grpc.MaxRecvMsgSize(int(a.MaxReceivedMessageSize)))
 
+	s.stopCh = make(chan struct{})
+	var checker *server.ListAuthChecker
+	if !a.Insecure {
+
+		checker, err = watchAccessList(s.stopCh, a.AccessListFile)
+		if err != nil {
+			return nil, err
+		}
+
+		watcher, err := creds.WatchFiles(s.stopCh, a.CredentialOptions)
+		if err != nil {
+			return nil, err
+		}
+		credentials := creds.CreateForServer(watcher)
+
+		grpcOptions = append(grpcOptions, grpc.Creds(credentials))
+	}
 	grpc.EnableTracing = a.EnableGRPCTracing
 	s.grpcServer = grpc.NewServer(grpcOptions...)
+
+	s.mcp = server.New(distributor, metadata.Types.TypeURLs(), checker)
 
 	// get the network stuff setup
 	network := "tcp"
@@ -116,20 +137,7 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 
 	mcp.RegisterAggregatedMeshConfigServiceServer(s.grpcServer, s.mcp)
 
-	s.Probe = probe.NewProbe()
-
-	if a.LivenessProbeOptions.IsValid() {
-		s.livenessProbe = probe.NewFileController(a.LivenessProbeOptions)
-		s.RegisterProbe(s.livenessProbe, "server")
-		s.livenessProbe.Start()
-	}
-
-	if a.ReadinessProbeOptions.IsValid() {
-		s.readinessProbe = probe.NewFileController(a.ReadinessProbeOptions)
-		s.readinessProbe.Start()
-	}
-
-	go ctrlz.Run(a.IntrospectionOptions, nil)
+	s.controlZ, _ = ctrlz.Run(a.IntrospectionOptions, nil)
 
 	return s, nil
 }
@@ -137,7 +145,6 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 // Run enables Galley to start receiving gRPC requests on its main API port.
 func (s *Server) Run() {
 	s.shutdown = make(chan error, 1)
-	s.SetAvailable(nil)
 	go func() {
 		err := s.processor.Start()
 		if err != nil {
@@ -165,9 +172,18 @@ func (s *Server) Wait() error {
 
 // Close cleans up resources used by the server.
 func (s *Server) Close() error {
+	if s.stopCh != nil {
+		close(s.stopCh)
+		s.stopCh = nil
+	}
+
 	if s.shutdown != nil {
 		s.grpcServer.GracefulStop()
 		_ = s.Wait()
+	}
+
+	if s.controlZ != nil {
+		s.controlZ.Close()
 	}
 
 	if s.processor != nil {
@@ -178,16 +194,38 @@ func (s *Server) Close() error {
 		_ = s.listener.Close()
 	}
 
-	if s.livenessProbe != nil {
-		_ = s.livenessProbe.Close()
-	}
-
-	if s.readinessProbe != nil {
-		_ = s.readinessProbe.Close()
-	}
-
 	// final attempt to purge buffered logs
 	_ = log.Sync()
 
 	return nil
+}
+
+//RunServer start Galley Server mode
+func RunServer(sa *Args, printf, fatalf shared.FormatFn, livenessProbeController,
+	readinessProbeController probe.Controller) {
+	printf("Galley started with\n%s", sa)
+	s, err := New(sa)
+	if err != nil {
+		fatalf("Unable to initialize Galley Server: %v", err)
+	}
+	printf("Istio Galley: %s", version.Info)
+	printf("Starting gRPC server on %v", sa.APIAddress)
+	s.Run()
+	if livenessProbeController != nil {
+		serverLivenessProbe := probe.NewProbe()
+		serverLivenessProbe.SetAvailable(nil)
+		serverLivenessProbe.RegisterProbe(livenessProbeController, "serverLiveness")
+		defer serverLivenessProbe.SetAvailable(errors.New("stopped"))
+	}
+	if readinessProbeController != nil {
+		serverReadinessProbe := probe.NewProbe()
+		serverReadinessProbe.SetAvailable(nil)
+		serverReadinessProbe.RegisterProbe(readinessProbeController, "serverReadiness")
+		defer serverReadinessProbe.SetAvailable(errors.New("stopped"))
+	}
+	err = s.Wait()
+	if err != nil {
+		fatalf("Galley Server unexpectedly terminated: %v", err)
+	}
+	_ = s.Close()
 }

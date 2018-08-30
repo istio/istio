@@ -27,7 +27,6 @@ package simple
 import (
 	"bytes"
 	"flag"
-	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -35,8 +34,9 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/fortio/fhttp"
-	"istio.io/fortio/periodic"
+	"fortio.org/fortio/fhttp"
+	"fortio.org/fortio/periodic"
+
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/e2e/framework"
 	"istio.io/istio/tests/util"
@@ -62,25 +62,15 @@ type testConfig struct {
 var (
 	tc        *testConfig
 	testFlags = &framework.TestFlags{
-		V1alpha1: true,  //implies envoyv1
-		V1alpha3: false, //implies envoyv2
-		Ingress:  true,
-		Egress:   true,
+		Ingress: true,
+		Egress:  true,
 	}
-	configVersion = ""
-	versionSubdir = ""
+	versionSubdir = v1alpha3Subdir
 )
 
 func init() {
 	testFlags.Init()
 	flag.Parse()
-	if len(testFlags.ConfigVersions()) != 1 {
-		panic(fmt.Sprintf("must set exactly one of v1alpha1 or v1alpha3, have %v", testFlags.ConfigVersions()))
-	}
-	configVersion = testFlags.ConfigVersions()[0]
-	if testFlags.V1alpha3 {
-		versionSubdir = v1alpha3Subdir
-	}
 }
 
 func TestMain(m *testing.M) {
@@ -158,11 +148,10 @@ func TestSvc2Svc(t *testing.T) {
 			t.Fatalf("Pod readyness failed after %v - last error: %s", timeToWaitForPods, res)
 		}
 		ready := 0
-		for i := range podList {
-			pod := podList[i]
+		for i, pod := range podList {
 			res, err := util.Shell("kubectl exec -n %s %s -c echosrv -- /usr/local/bin/fortio curl http://echosrv:8080/echo", ns, pod)
 			if err != nil {
-				log.Infof("Pod %i %s not ready: %s", i, pod, res)
+				log.Infof("Pod %d %s not ready: %s", i, pod, res)
 			} else {
 				ready++
 			}
@@ -257,7 +246,7 @@ func TestAuthWithHeaders(t *testing.T) {
 }
 
 func Test503sDuringChanges(t *testing.T) {
-	t.Skip("Skipping Test503sDuringChanges until bug #1038 is fixed") // TODO fix me!
+	t.Skip("https://github.com/istio/istio/issues/1038")
 	url := tc.Kube.IngressOrFail(t) + "/fortio/debug"
 	rulePath1 := util.GetResourcePath(yamlPath(routingR1Yaml))
 	rulePath2 := util.GetResourcePath(yamlPath(routingR2Yaml))
@@ -302,7 +291,7 @@ func Test503sDuringChanges(t *testing.T) {
 // This one may need to be fixed through some retries or health check
 // config/setup/policy in envoy (through pilot)
 func Test503sWithBadClusters(t *testing.T) {
-	t.Skip("Skipping Test503sWithBadClusters until bug #1038 is fixed") // TODO fix me!
+	t.Skip("https://github.com/istio/istio/issues/1038")
 	url := tc.Kube.IngressOrFail(t) + "/fortio/debug"
 	rulePath := util.GetResourcePath(yamlPath(routingRNPYaml))
 	go func() {
@@ -369,7 +358,7 @@ func setTestConfig() error {
 	tag := os.Getenv("FORTIO_TAG")
 	image := hub + "/fortio:" + tag
 	if hub == "" || tag == "" {
-		image = "istio/fortio:latest_release"
+		image = "fortio/fortio:latest_release"
 	}
 	log.Infof("Fortio hub %s tag %s -> image %s", hub, tag, image)
 	services := []framework.App{
@@ -395,14 +384,10 @@ func setTestConfig() error {
 }
 
 func getIngressOrGatewayOrFail(t *testing.T) string {
-	if testFlags.V1alpha3 {
-		log.Infof("vialpha3 getting Gateway")
-		return tc.Kube.IngressGatewayOrFail(t)
-	}
-	return tc.Kube.IngressOrFail(t)
+	return tc.Kube.IngressGatewayOrFail(t)
 }
 
-// yamlPath returns the appropriate yaml path depending on whether v1alpha1 or 3 is set.
+// yamlPath returns the appropriate yaml path
 func yamlPath(filename string) string {
 	return filepath.Join(baseDir, versionSubdir, filename)
 }

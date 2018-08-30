@@ -10,21 +10,21 @@ metadata:
     heritage: {{ .Release.Service }}
 data:
   mesh: |-
-  {{- if .Values.global.mtls.enabled }}
-    # Mutual TLS between proxies
-    authPolicy: MUTUAL_TLS
-  {{- end }}
 
   {{- if .Values.global.remotePolicyAddress }}
     # Set the following variable to true to disable policy checks by the Mixer.
     # Note that metrics will still be reported to the Mixer.
-    disablePolicyChecks: false
+    disablePolicyChecks: {{ .Values.global.disablePolicyChecks }}
   {{- end }}  
 
   {{- if .Values.global.remoteZipkinAddress }}
     # Set enableTracing to false to disable request tracing.
-    enableTracing: true
+    enableTracing: {{ .Values.global.enableTracing }}
   {{- end }}  
+
+    # TODO: not clear if this is used - pilot generates config based on the main cluster config.
+    # Set accessLogFile to empty string to disable access log.
+    accessLogFile: "{{ .Values.global.proxy.accessLogFile }}"
     #
     # To disable the mixer completely (including metrics), comment out
     # the following lines
@@ -36,19 +36,7 @@ data:
     mixerReportServer: {{ .Values.global.remoteTelemetryAddress }}:15004
   {{- end }}
 
-    #
-    # Along with discoveryRefreshDelay, this setting determines how
-    # frequently should Envoy fetch and update its internal configuration
-    # from istio Pilot. Lower refresh delay results in higher CPU
-    # utilization and potential performance loss in exchange for faster
-    # convergence. Tweak this value according to your setup.
-    rdsRefreshDelay: {{ .Values.global.refreshInterval }}
-    #
     defaultConfig:
-      # NOTE: If you change any values in this section, make sure to make
-      # the same changes in start up args in istio-ingress pods.
-      # See rdsRefreshDelay for explanation about this setting.
-      discoveryRefreshDelay: {{ .Values.global.refreshInterval }}
       #
       # TCP connection timeout between Envoy & the application, and between Envoys.
       connectTimeout: 10s
@@ -84,11 +72,15 @@ data:
       # https://lyft.github.io/envoy/docs/operations/admin.html
       # for more details
       proxyAdminPort: 15000
+      #
+      # Set concurrency to a specific number to control the number of Proxy worker threads.
+      # If set to 0 (default), then start worker thread for each CPU thread/core.
+      concurrency: {{ .Values.global.proxy.concurrency }}
 
     {{- if .Values.global.remoteZipkinAddress }}
       #
       # Zipkin trace collector
-      zipkinAddress: zipkin.{{ .Release.Namespace }}:9411
+      zipkinAddress: {{ .Values.global.remoteZipkinAddress }}:9411
     {{- end }}
 
     {{- if .Values.global.proxy.envoyStatsd.enabled }}
@@ -97,18 +89,28 @@ data:
       statsdUdpAddress: {{ .Values.global.proxy.envoyStatsd.host }}:{{ .Values.global.proxy.envoyStatsd.port }}
     {{- end }}
 
+    {{- $defPilotHostname := printf "istio-pilot.%s" .Release.Namespace }}
+    {{- $pilotAddress := .Values.global.remotePilotAddress | default $defPilotHostname }}
     {{- if .Values.global.controlPlaneSecurityEnabled }}
       #
       # Mutual TLS authentication between sidecars and istio control plane.
       controlPlaneAuthPolicy: MUTUAL_TLS
       #
       # Address where istio Pilot service is running
-      discoveryAddress: {{ .Values.global.remotePilotAddress }}:15005
+      {{- if .Values.global.remotePilotCreateSvcEndpoint }}
+      discoveryAddress: {{ $defPilotHostname }}:15011
+      {{- else }}
+      discoveryAddress: {{ $pilotAddress }}:15011
+      {{- end }}
     {{- else }}
       #
       # Mutual TLS authentication between sidecars and istio control plane.
       controlPlaneAuthPolicy: NONE
       #
       # Address where istio Pilot service is running
-      discoveryAddress: {{ .Values.global.remotePilotAddress }}:15007
+      {{- if .Values.global.remotePilotCreateSvcEndpoint }}
+      discoveryAddress: {{ $defPilotHostname }}:15010
+      {{- else }}
+      discoveryAddress: {{ $pilotAddress }}:15010
+      {{- end }}
     {{- end }}

@@ -31,8 +31,9 @@ import (
 	"github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 
-	"istio.io/fortio/fhttp"
-	"istio.io/fortio/periodic"
+	"fortio.org/fortio/fhttp"
+	"fortio.org/fortio/periodic"
+
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/e2e/framework"
 	"istio.io/istio/tests/util"
@@ -44,6 +45,7 @@ const (
 	workloadDashboard  = "addons/grafana/dashboards/istio-workload-dashboard.json"
 	mixerDashboard     = "addons/grafana/dashboards/mixer-dashboard.json"
 	pilotDashboard     = "addons/grafana/dashboards/pilot-dashboard.json"
+	galleyDashboard    = "addons/grafana/dashboards/galley-dashboard.json"
 	fortioYaml         = "tests/e2e/tests/dashboard/fortio-rules.yaml"
 	netcatYaml         = "tests/e2e/tests/dashboard/netcat-rules.yaml"
 
@@ -100,6 +102,7 @@ func TestDashboards(t *testing.T) {
 		// {"Workload", workloadDashboard, func(queries []string) []string { return queries }, "istio-telemetry", 42422},
 		{"Mixer", mixerDashboard, mixerQueryFilterFn, "istio-telemetry", 9093},
 		{"Pilot", pilotDashboard, pilotQueryFilterFn, "istio-pilot", 9093},
+		{"Galley", galleyDashboard, galleyQueryFilterFn, "istio-galley", 9093},
 	}
 
 	for _, testCase := range cases {
@@ -256,6 +259,29 @@ func pilotQueryFilterFn(queries []string) []string {
 		if strings.Contains(query, "update_failure") {
 			continue
 		}
+		if strings.Contains(query, "pilot_xds_push_errors") {
+			continue
+		}
+		if strings.Contains(query, "_reject") {
+			continue
+		}
+		filtered = append(filtered, query)
+	}
+	return filtered
+}
+
+func galleyQueryFilterFn(queries []string) []string {
+	filtered := make([]string, 0, len(queries))
+	for _, query := range queries {
+		if strings.Contains(query, "validation_cert_key_update_errors") {
+			continue
+		}
+		if strings.Contains(query, "validation_failed") {
+			continue
+		}
+		if strings.Contains(query, "validation_http_error") {
+			continue
+		}
 		filtered = append(filtered, query)
 	}
 	return filtered
@@ -289,7 +315,7 @@ func setTestConfig() error {
 	tag := os.Getenv("FORTIO_TAG")
 	image := hub + "/fortio:" + tag
 	if hub == "" || tag == "" {
-		image = "istio/fortio:latest" // TODO: change
+		image = "fortio/fortio:latest" // TODO: change
 	}
 	log.Infof("Fortio hub %s tag %s -> image %s", hub, tag, image)
 	services := []framework.App{
@@ -432,7 +458,8 @@ var waitDurations = []time.Duration{0, 5 * time.Second, 15 * time.Second, 30 * t
 func waitForMixerConfigResolution() error {
 	// we are looking for confirmation that 3 handlers were configured and that none of them had
 	// build failures
-	configQuery := `topk(1, mixer_config_handler_config_count - mixer_handler_handler_build_failure_count)`
+
+	configQuery := `max(mixer_config_handler_configs_total) - max(mixer_handler_handler_build_failures_total or up * 0)`
 	handlers := 0.0
 	for _, duration := range waitDurations {
 		log.Infof("Waiting for Mixer to be configured with correct handlers: %v", duration)

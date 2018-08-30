@@ -302,7 +302,7 @@ message LoadBalancerSettings {
       HTTPCookie http_cookie = 2;
 
       // Hash based on the source IP address.
-      string source_ip = 3;
+      bool use_source_ip = 3;
     };
 
     // The minimum number of virtual nodes to use for the hash
@@ -417,8 +417,8 @@ message ConnectionPoolSettings {
 message OutlierDetection {
   // Number of errors before a host is ejected from the connection
   // pool. Defaults to 5. When the upstream host is accessed over HTTP, a
-  // 5xx return code qualifies as an error. When the upstream host is
-  // accessed over an opaque TCP connection, connect timeouts and
+  // 502, 503 or 504 return code qualifies as an error. When the upstream host
+  // is accessed over an opaque TCP connection, connect timeouts and
   // connection error/failure events qualify as an error.
   int32 consecutive_errors = 1;
 

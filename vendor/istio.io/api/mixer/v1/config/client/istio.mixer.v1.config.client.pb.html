@@ -127,23 +127,34 @@ metadata:
   namespace: default
 spec:
   attributes:
-    api.service: petstore.swagger.io
-    api.version: 1.0.0
+    attributes:
+      api.service:
+        stringValue: petstore.swagger.io
+      api.version:
+        stringValue: 1.0.0
   patterns:
   - attributes:
-      api.operation: findPets
+      attributes:
+        api.operation:
+          stringValue: findPets
     httpMethod: GET
     uriTemplate: /api/pets
   - attributes:
-      api.operation: addPet
+      attributes:
+        api.operation:
+          stringValue: addPet
     httpMethod: POST
     uriTemplate: /api/pets
   - attributes:
-      api.operation: findPetById
+      attributes:
+        api.operation:
+          stringValue: findPetById
     httpMethod: GET
     uriTemplate: /api/pets/&lbrace;id}
   - attributes:
-      api.operation: deletePet
+      attributes:
+        api.operation:
+          stringValue: deletePet
     httpMethod: DELETE
     uriTemplate: /api/pets/&lbrace;id}
   api_keys:
@@ -480,7 +491,7 @@ The FQDN of the service is composed from the name, namespace, and implementation
 <td>
 <p>Optional one or more labels that uniquely identify the service version.</p>
 
-<p><em>Note:</em> When used for a RouteRule destination, labels MUST be empty.</p>
+<p><em>Note:</em> When used for a VirtualService destination, labels MUST be empty.</p>
 
 </td>
 </tr>

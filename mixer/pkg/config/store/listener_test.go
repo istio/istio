@@ -41,6 +41,9 @@ func TestStartWatch_Basic(t *testing.T) {
 		"foo": &mockProto{},
 	}
 
+	if err := s.Init(kinds); err != nil {
+		t.Fatalf("unexpected error %v", err)
+	}
 	initialResources, _, err := StartWatch(s, kinds)
 
 	if !s.initCalled {
@@ -65,21 +68,6 @@ func TestStartWatch_Basic(t *testing.T) {
 
 	if !reflect.DeepEqual(initialResources, s.listResultToReturn) {
 		t.Fatalf("Expected initial resource mismatch. Got: %v\nwanted: %v\n", initialResources, s.listResultToReturn)
-	}
-}
-
-func TestStartWatch_InitFailure(t *testing.T) {
-	s := &mockStore{
-		initErrorToReturn: errors.New("cannot init"),
-	}
-
-	kinds := map[string]proto.Message{
-		"foo": &mockProto{},
-	}
-
-	_, _, err := StartWatch(s, kinds)
-	if err != s.initErrorToReturn {
-		t.Fatalf("Expected error was not returned: %v", err)
 	}
 }
 
@@ -156,6 +144,10 @@ func (m *mockStore) Init(kinds map[string]proto.Message) error {
 	m.initKinds = kinds
 
 	return m.initErrorToReturn
+}
+
+func (m *mockStore) WaitForSynced(time.Duration) error {
+	return nil
 }
 
 // Watch creates a channel to receive the events. A store can conduct a single

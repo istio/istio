@@ -129,12 +129,6 @@ class XDS(object):
                 "/v1/registration/{service_key}".format(service_key=service_key))
         return self.sds_info[service_key]
 
-    def cache_stats(self):
-        return self.query("/cache_stats")
-
-    def clear_cache_stats(self):
-        return self.query("/cache_stats_delete", post=True)
-
 # Class XDS end
 
 # Proxy class
@@ -323,24 +317,6 @@ def main(args):
                        allow_unicode=False, indent=2)
         print "Wrote ", output_file
 
-        if args.cache_stats:
-            output_file = output_dir + "/" + "stats_xds.yaml"
-            op = open(output_file, "wt")
-            data = xds.cache_stats()
-            logging.info("Fetching Pilot cache stats")
-            yaml.safe_dump(data, op, default_flow_style=False,
-                           allow_unicode=False, indent=2)
-            print "Wrote ", output_file
-
-            if args.show_ssl_summary:
-                for l in data["listeners"]:
-                    state = "SSL" if "ssl_context" in l else "PLAINTEXT"
-                    logging.info(
-                        "Listener {0:30s} : {1:10s}".format(l["name"], state))
-
-        if args.clear_cache_stats:
-            xds.clear_cache_stats()
-
         if pilot_port_forward_pid:
             subprocess.call(["kill", "%s" % pilot_port_forward_pid])
 
@@ -395,9 +371,5 @@ if __name__ == "__main__":
         "--show_ssl_summary",
         action="store_true",
         help="If set, show summary for ssl context for listeners that have it")
-    parser.add_argument(
-        "--cache_stats", action='store_true', help="Fetch Pilot cache stats")
-    parser.add_argument(
-        "--clear_cache_stats", action='store_true', help="Clear Pilot cache stats")
     args = parser.parse_args()
     sys.exit(main(args))

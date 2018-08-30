@@ -17,7 +17,6 @@ package v1alpha3
 import (
 	"bytes"
 	"encoding/json"
-	"sort"
 	"strings"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
@@ -47,15 +46,12 @@ func buildInboundNetworkFilters(instance *model.ServiceInstance) []listener.Filt
 	}
 }
 
-func buildDeprecatedTCPProxyFilter(clusterName string, addresses []string) (*listener.Filter, error) {
+func buildDeprecatedTCPProxyFilter(clusterName string, addr string) (*listener.Filter, error) {
 	route := &DeprecatedTCPRoute{
 		Cluster: clusterName,
 	}
-	sort.Sort(sort.StringSlice(addresses))
-	for _, addr := range addresses {
-		if addr == model.UnspecifiedIP {
-			continue
-		}
+
+	if addr != model.UnspecifiedIP {
 		tcpRouteAddr := addr
 		if !strings.Contains(addr, "/") {
 			tcpRouteAddr = addr + "/32"
@@ -107,12 +103,13 @@ func buildDeprecatedTCPProxyFilter(clusterName string, addresses []string) (*lis
 // buildOutboundNetworkFilters generates TCP proxy network filter for outbound connections. In addition, it generates
 // protocol specific filters (e.g., Mongo filter)
 // this function constructs deprecated_v1 routes, until the filter chain match is ready
-func buildOutboundNetworkFilters(clusterName string, addresses []string, port *model.Port) []listener.Filter {
+func buildOutboundNetworkFilters(node *model.Proxy, clusterName string, deprecatedTCPFilterMatchAddress string, port *model.Port) []listener.Filter {
 
 	var tcpFilter *listener.Filter
 	var err error
-	if len(addresses) > 0 {
-		if tcpFilter, err = buildDeprecatedTCPProxyFilter(clusterName, addresses); err != nil {
+
+	if len(deprecatedTCPFilterMatchAddress) > 0 && !util.Is1xProxy(node) {
+		if tcpFilter, err = buildDeprecatedTCPProxyFilter(clusterName, deprecatedTCPFilterMatchAddress); err != nil {
 			return nil
 		}
 	} else {

@@ -28,6 +28,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	authn "istio.io/api/authentication/v1alpha1"
 )
@@ -60,22 +61,12 @@ type Service struct {
 	// connections
 	Ports PortList `json:"ports,omitempty"`
 
-	// ExternalName is only set for external services and holds the external
-	// service DNS name.  External services are name-based solution to represent
-	// external service instances as a service inside the cluster.
-	// Deprecated : made obsolete by the MeshExternal and Resolution flags.
-	ExternalName Hostname `json:"external"`
-
 	// ServiceAccounts specifies the service accounts that run the service.
 	ServiceAccounts []string `json:"serviceaccounts,omitempty"`
 
 	// MeshExternal (if true) indicates that the service is external to the mesh.
 	// These services are defined using Istio's ServiceEntry spec.
 	MeshExternal bool
-
-	// LoadBalancingDisabled indicates that no load balancing should be done for this service.
-	// Deprecated : made obsolete by the MeshExternal and Resolution flags.
-	LoadBalancingDisabled bool `json:"-"`
 
 	// Resolution indicates how the service instances need to be resolved before routing
 	// traffic. Most services in the service registry will use static load balancing wherein
@@ -84,6 +75,13 @@ type Service struct {
 	// or use the passthrough model (i.e. proxy will forward the traffic to the network endpoint requested
 	// by the caller)
 	Resolution Resolution
+
+	// CreationTime records the time this service was created, if available.
+	CreationTime time.Time `json:"creationTime,omitempty"`
+
+	// Attributes contains additional attributes associated with the service
+	// used mostly by mixer and RBAC for policy enforcement purposes.
+	Attributes ServiceAttributes
 }
 
 // Resolution indicates how the service instances need to be resolved before routing
@@ -168,6 +166,7 @@ const (
 	AddressFamilyUnix
 )
 
+// String converts addressfamily into string (tcp/unix)
 func (f AddressFamily) String() string {
 	switch f {
 	case AddressFamilyTCP:
@@ -354,6 +353,7 @@ const (
 // - consul: defaults to 'instance.Datacenter'
 //
 // This is used by EDS to group the endpoints by AZ and by .
+// TODO: remove me?
 func (si *ServiceInstance) GetAZ() string {
 	if si.AvailabilityZone != "" {
 		return si.AvailabilityZone
@@ -377,30 +377,8 @@ type ServiceDiscovery interface {
 	Services() ([]*Service, error)
 
 	// GetService retrieves a service by host name if it exists
+	// Deprecated - do not use for anything other than tests
 	GetService(hostname Hostname) (*Service, error)
-
-	// GetServiceAttributes retrieves the custom attributes of a service
-	GetServiceAttributes(hostname Hostname) (*ServiceAttributes, error)
-
-	// Instances retrieves instances for a service and its ports that match
-	// any of the supplied labels. All instances match an empty tag list.
-	//
-	// For example, consider the example of catalog.mystore.com as described in NetworkEndpoints
-	// Instances(catalog.myservice.com, 80) ->
-	//      --> NetworkEndpoint(172.16.0.1:8888), Service(catalog.myservice.com), Labels(foo=bar)
-	//      --> NetworkEndpoint(172.16.0.2:8888), Service(catalog.myservice.com), Labels(foo=bar)
-	//      --> NetworkEndpoint(172.16.0.3:8888), Service(catalog.myservice.com), Labels(kitty=cat)
-	//      --> NetworkEndpoint(172.16.0.4:8888), Service(catalog.myservice.com), Labels(kitty=cat)
-	//
-	// Calling Instances with specific labels returns a trimmed list.
-	// e.g., Instances(catalog.myservice.com, 80, foo=bar) ->
-	//      --> NetworkEndpoint(172.16.0.1:8888), Service(catalog.myservice.com), Labels(foo=bar)
-	//      --> NetworkEndpoint(172.16.0.2:8888), Service(catalog.myservice.com), Labels(foo=bar)
-	//
-	// Similar concepts apply for calling this function with a specific
-	// port, hostname and labels.
-	// Deprecated: made obsolete by InstancesByPort
-	Instances(hostname Hostname, ports []string, labels LabelsCollection) ([]*ServiceInstance, error)
 
 	// InstancesByPort retrieves instances for a service on the given ports with labels that match
 	// any of the supplied labels. All instances match an empty tag list.
@@ -463,13 +441,7 @@ type ServiceDiscovery interface {
 type ServiceAccounts interface {
 	// GetIstioServiceAccounts returns a list of service accounts looked up from
 	// the specified service hostname and ports.
-	GetIstioServiceAccounts(hostname Hostname, ports []string) []string
-}
-
-// String returns Hostname as a string; Hostname is already an alias of a string, so this is really for convenience over
-// explicit casting.
-func (h Hostname) String() string {
-	return string(h)
+	GetIstioServiceAccounts(hostname Hostname, ports []int) []string
 }
 
 // Matches returns true if this Hostname "matches" the other hostname. Hostnames match if:
@@ -483,18 +455,35 @@ func (h Hostname) String() string {
 //  Hostname("*.com").Matches("foo.com")     = true
 //  Hostname("*.foo.com").Matches("foo.com") = false
 func (h Hostname) Matches(o Hostname) bool {
-	if !strings.Contains(string(h), "*") && !strings.Contains(string(o), "*") {
+	if len(h) == 0 && len(o) == 0 {
+		return true
+	}
+
+	hWildcard := string(h[0]) == "*"
+	if hWildcard && len(o) == 0 {
+		return true
+	}
+
+	oWildcard := string(o[0]) == "*"
+	if !hWildcard && !oWildcard {
+		// both are non-wildcards, so do normal string comparison
 		return h == o
 	}
-	la, sa := strings.Contains(string(h), "*"), strings.Contains(string(o), "*")
-	longer, shorter := strings.TrimLeft(string(h), "*"), strings.TrimLeft(string(o), "*")
+
+	longer, shorter := string(h), string(o)
+	if hWildcard {
+		longer = string(h[1:])
+	}
+	if oWildcard {
+		shorter = string(o[1:])
+	}
 	if len(longer) < len(shorter) {
 		longer, shorter = shorter, longer
-		la, sa = sa, la
+		hWildcard, oWildcard = oWildcard, hWildcard
 	}
 
 	matches := strings.HasSuffix(longer, shorter)
-	if matches && la && !sa && strings.TrimSuffix(longer, shorter) == "." {
+	if matches && hWildcard && !oWildcard && strings.TrimSuffix(longer, shorter) == "." {
 		// we match, but the longer is a wildcard and the shorter is not; we need to ensure we don't match input
 		// like `*.foo.com` to `foo.com` in that case (to avoid matching a domain literal to a wildcard subdomain)
 		return false
@@ -519,8 +508,9 @@ func (h Hostnames) Less(i, j int) bool {
 	if len(a) == 0 && len(b) == 0 {
 		return true // doesn't matter, they're both the empty string
 	}
+
 	// we sort longest to shortest, alphabetically, with wildcards last
-	ai, aj := strings.Contains(a.String(), "*"), strings.Contains(b.String(), "*")
+	ai, aj := string(a[0]) == "*", string(b[0]) == "*"
 	if ai && !aj {
 		// h[i] is a wildcard, but h[j] isn't; therefore h[j] < h[i]
 		return false
@@ -528,10 +518,12 @@ func (h Hostnames) Less(i, j int) bool {
 		// h[j] is a wildcard, but h[i] isn't; therefore h[i] < h[j]
 		return true
 	}
+
 	// they're either both wildcards, or both not; in either case we sort them longest to shortest, alphabetically
 	if len(a) == len(b) {
 		return a < b
 	}
+
 	return len(a) > len(b)
 }
 
@@ -636,7 +628,7 @@ func (ports PortList) GetByPort(num int) (*Port, bool) {
 
 // External predicate checks whether the service is external
 func (s *Service) External() bool {
-	return s.ExternalName != ""
+	return s.MeshExternal
 }
 
 // Key generates a unique string referencing service instances for a given port and labels.
@@ -656,7 +648,7 @@ func (s *Service) Key(port *Port, labels Labels) string {
 func ServiceKey(hostname Hostname, servicePorts PortList, labelsList LabelsCollection) string {
 	// example: name.namespace|http|env=prod;env=test,version=my-v1
 	var buffer bytes.Buffer
-	buffer.WriteString(hostname.String())
+	buffer.WriteString(string(hostname))
 	np := len(servicePorts)
 	nt := len(labelsList)
 
@@ -742,6 +734,9 @@ func IsValidSubsetKey(s string) bool {
 // ParseSubsetKey is the inverse of the BuildSubsetKey method
 func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, hostname Hostname, port int) {
 	parts := strings.Split(s, "|")
+	if len(parts) < 4 {
+		return
+	}
 	direction = TrafficDirection(parts[0])
 	port, _ = strconv.Atoi(parts[1])
 	subsetName = parts[2]

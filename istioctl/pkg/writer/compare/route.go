@@ -17,6 +17,7 @@ package compare
 import (
 	"bytes"
 	"fmt"
+	"time"
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/pmezard/go-difflib/difflib"
@@ -49,10 +50,21 @@ func (c *Comparator) RouteDiff() error {
 	if err != nil {
 		return err
 	}
+	lastUpdatedStr := ""
+	if lastUpdated, err := c.envoy.GetLastUpdatedDynamicRouteTime(); err != nil {
+		return err
+	} else if lastUpdated != nil {
+		loc, err := time.LoadLocation(c.location)
+		if err != nil {
+			loc, _ = time.LoadLocation("UTC")
+		}
+		lastUpdatedStr = fmt.Sprintf(" (RDS last loaded at %s)", lastUpdated.In(loc).Format(time.RFC1123))
+	}
 	if text != "" {
+		fmt.Fprintln(c.w, fmt.Sprintf("Routes Don't Match%s", lastUpdatedStr))
 		fmt.Fprintln(c.w, text)
 	} else {
-		fmt.Fprintln(c.w, "Routes Match")
+		fmt.Fprintln(c.w, fmt.Sprintf("Routes Match%s", lastUpdatedStr))
 	}
 	return nil
 }

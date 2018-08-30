@@ -15,50 +15,52 @@ limitations under the License.
 
 EMAIL_LIST = ['istio-release@google.com']
 
-AIRFLOW_CONFIG = dict(
-    BRANCH='{branch}',
+# fixed airflow configuration for the istio dags
+airflow_fixed_config = dict(
     CHECK_GREEN_SHA_AGE='true',
     GCR_STAGING_DEST='istio-release',
     GCS_BUILD_BUCKET='istio-release-pipeline-data',
-    GCS_BUILD_PATH='{gcs_build_bucket}/{gcs_path}',
-    GCS_FULL_STAGING_PATH='{gcs_staging_bucket}/{gcs_path}',
-    GCS_RELEASE_TOOLS_PATH='{gcs_build_bucket}/release-tools/{gcs_path}',
     GCS_STAGING_BUCKET='istio-prerelease',
-    GCS_STAGING_PATH='{gcs_path}',
     GITHUB_ORG='istio',
     GITHUB_REPO='istio',
-    ISTIO_REPO='https://github.com/{github_org}/{github_repo}.git',
-    MFEST_COMMIT='{mfest_commit}',
     MFEST_FILE='build.xml',
     MFEST_URL='https://github.com/istio/green-builds',
     PROJECT_ID='istio-release',
     SVC_ACCT='202987436673-compute@developer.gserviceaccount.com',
-    TOKEN_FILE='/var/run/secrets/kubernetes.io/serviceaccount/tokenFile',
-    VERIFY_CONSISTENCY='{verify_consistency}',
-    VERSION='{version}')
+    TOKEN_FILE='/var/run/secrets/kubernetes.io/serviceaccount/tokenFile')
 
 
-def get_default_config(branch, gcs_path, mfest_commit,
+def GetDefaultAirflowConfig(branch, gcs_path, mfest_commit, pipeline_type,
 			verify_consistency, version):
   """Return a dict of the configuration for the Pipeline."""
-  config = dict(AIRFLOW_CONFIG)
+  config = dict(airflow_fixed_config)
 
-  config['BRANCH'] = AIRFLOW_CONFIG['BRANCH'].format(branch=branch)
-  config['GCS_BUILD_PATH'] = AIRFLOW_CONFIG['GCS_BUILD_PATH'].format(
-		gcs_build_bucket=AIRFLOW_CONFIG['GCS_BUILD_BUCKET'], gcs_path=gcs_path)
-  config['GCS_FULL_STAGING_PATH'] = AIRFLOW_CONFIG['GCS_FULL_STAGING_PATH'].format(
-		gcs_staging_bucket=AIRFLOW_CONFIG['GCS_STAGING_BUCKET'], gcs_path=gcs_path)
-  config['GCS_RELEASE_TOOLS_PATH'] = AIRFLOW_CONFIG['GCS_RELEASE_TOOLS_PATH'].format(
-		gcs_build_bucket=AIRFLOW_CONFIG['GCS_BUILD_BUCKET'], gcs_path=gcs_path)
-  config['GCS_STAGING_PATH'] = AIRFLOW_CONFIG['GCS_STAGING_PATH'].format(
-		gcs_path=gcs_path)
-  config['ISTIO_REPO'] = AIRFLOW_CONFIG['ISTIO_REPO'].format(
-		github_org=AIRFLOW_CONFIG['GITHUB_ORG'],
-		github_repo=AIRFLOW_CONFIG['GITHUB_REPO'])
-  config['MFEST_COMMIT'] = AIRFLOW_CONFIG['MFEST_COMMIT'].format(
-                mfest_commit=mfest_commit)
-  config['VERIFY_CONSISTENCY'] = AIRFLOW_CONFIG['VERIFY_CONSISTENCY'].format(
-                verify_consistency=verify_consistency)
-  config['VERSION'] = AIRFLOW_CONFIG['VERSION'].format(version=version)
+  # direct config
+  config['BRANCH']             = branch
+  config['GCS_STAGING_PATH']   = gcs_path
+  config['MFEST_COMMIT']       = mfest_commit
+  config['PIPELINE_TYPE']      = pipeline_type
+  config['VERIFY_CONSISTENCY'] = verify_consistency
+  config['VERSION']            = version
+
+
+  # derivative and more convoluted config
+
+
+  # build path is of the form         '{gcs_build_bucket}/{gcs_path}',
+  config['GCS_BUILD_PATH']          = '%s/%s' % (config['GCS_BUILD_BUCKET'], gcs_path)
+  # full staging path is of the form  '{gcs_staging_bucket}/{gcs_path}',
+  config['GCS_FULL_STAGING_PATH']   = '%s/%s' % (config['GCS_STAGING_BUCKET'], gcs_path)
+  # release tools path is of the form '{gcs_build_bucket}/release-tools/{gcs_path}',
+  config['GCS_RELEASE_TOOLS_PATH']  = '%s/release-tools/%s' % (config['GCS_BUILD_BUCKET'], gcs_path)
+  #                                   'https://github.com/{github_org}/{github_repo}.git',
+  config['ISTIO_REPO']              = 'https://github.com/%s/%s.git' % (config['GITHUB_ORG'], config['GITHUB_REPO'])
 
   return config
+
+
+def GetDefaultAirflowConfigKeys():
+  """Return a list of the keys of configuration for the Pipeline."""
+  dc = GetDefaultAirflowConfig(branch="", gcs_path="", mfest_commit="", pipeline_type="",
+			verify_consistency="", version="")
+  return list(dc.keys())

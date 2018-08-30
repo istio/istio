@@ -70,7 +70,7 @@ func TestSyncz(t *testing.T) {
 			}
 		}
 		node, _ := model.ParseServiceNode(sidecarId(app3Ip, "syncApp"))
-		verifySyncStatus(t, getSyncStatus(t), node.ID, true, true)
+		verifySyncStatus(t, node.ID, true, true)
 	})
 	t.Run("sync status not set when Nackd", func(t *testing.T) {
 		initLocalPilotTestEnv(t)
@@ -111,7 +111,7 @@ func TestSyncz(t *testing.T) {
 			}
 		}
 		node, _ := model.ParseServiceNode(sidecarId(app3Ip, "syncApp2"))
-		verifySyncStatus(t, getSyncStatus(t), node.ID, true, false)
+		verifySyncStatus(t, node.ID, true, false)
 	})
 }
 
@@ -130,42 +130,55 @@ func getSyncStatus(t *testing.T) []v2.SyncStatus {
 	return got
 }
 
-func verifySyncStatus(t *testing.T, gotStatus []v2.SyncStatus, nodeID string, wantSent, wantAcked bool) {
+func verifySyncStatus(t *testing.T, nodeID string, wantSent, wantAcked bool) {
 	// This is a mostly horrible hack because the single pilot instance is shared across multiple tests
-	// This makes this test contaminated by others
-	for _, ss := range gotStatus {
-		if ss.ProxyID == nodeID {
-			if (ss.ClusterSent != "") != wantSent {
-				t.Errorf("wanted ClusterSent set %v got %v for %v", wantSent, ss.ClusterSent, nodeID)
-			}
-			if (ss.ClusterAcked != "") != wantAcked {
-				t.Errorf("wanted ClusterAcked set %v got %v for %v", wantAcked, ss.ClusterAcked, nodeID)
-			}
-			if (ss.ListenerSent != "") != wantSent {
-				t.Errorf("wanted ListenerSent set %v got %v for %v", wantSent, ss.ListenerSent, nodeID)
-			}
-			if (ss.ListenerAcked != "") != wantAcked {
-				t.Errorf("wanted ListenerAcked set %v got %v for %v", wantAcked, ss.ListenerAcked, nodeID)
-			}
-			if (ss.RouteSent != "") != wantSent {
-				t.Errorf("wanted RouteSent set %v got %v for %v", wantSent, ss.RouteSent, nodeID)
-			}
-			if (ss.RouteAcked != "") != wantAcked {
-				t.Errorf("wanted RouteAcked set %v got %v for %v", wantAcked, ss.RouteAcked, nodeID)
-			}
-			if (ss.EndpointSent != "") != wantSent {
-				t.Errorf("wanted EndpointSent set %v got %v for %v", wantSent, ss.EndpointSent, nodeID)
-			}
-			if (ss.EndpointAcked != "") != wantAcked {
-				t.Errorf("wanted EndpointAcked set %v got %v for %v", wantAcked, ss.EndpointAcked, nodeID)
-			}
-			if (ss.EndpointPercent != 0) != wantAcked {
-				t.Errorf("wanted EndpointPercent set %v got %v for %v", wantAcked, ss.EndpointPercent, nodeID)
-			}
-			return
+	// This makes this test contaminated by others and gives it horrible timing windows
+	attempts := 5
+	for i := 0; i < attempts; i++ {
+		gotStatus := getSyncStatus(t)
+		var errorHandler func(string, ...interface{})
+		if i == attempts-1 {
+			errorHandler = t.Errorf
+		} else {
+			errorHandler = t.Logf
 		}
+		for _, ss := range gotStatus {
+			if ss.ProxyID == nodeID {
+				if ss.ProxyVersion == "" {
+					errorHandler("ProxyVersion should always be set for %v", nodeID)
+				}
+				if (ss.ClusterSent != "") != wantSent {
+					errorHandler("wanted ClusterSent set %v got %v for %v", wantSent, ss.ClusterSent, nodeID)
+				}
+				if (ss.ClusterAcked != "") != wantAcked {
+					errorHandler("wanted ClusterAcked set %v got %v for %v", wantAcked, ss.ClusterAcked, nodeID)
+				}
+				if (ss.ListenerSent != "") != wantSent {
+					errorHandler("wanted ListenerSent set %v got %v for %v", wantSent, ss.ListenerSent, nodeID)
+				}
+				if (ss.ListenerAcked != "") != wantAcked {
+					errorHandler("wanted ListenerAcked set %v got %v for %v", wantAcked, ss.ListenerAcked, nodeID)
+				}
+				if (ss.RouteSent != "") != wantSent {
+					errorHandler("wanted RouteSent set %v got %v for %v", wantSent, ss.RouteSent, nodeID)
+				}
+				if (ss.RouteAcked != "") != wantAcked {
+					errorHandler("wanted RouteAcked set %v got %v for %v", wantAcked, ss.RouteAcked, nodeID)
+				}
+				if (ss.EndpointSent != "") != wantSent {
+					errorHandler("wanted EndpointSent set %v got %v for %v", wantSent, ss.EndpointSent, nodeID)
+				}
+				if (ss.EndpointAcked != "") != wantAcked {
+					errorHandler("wanted EndpointAcked set %v got %v for %v", wantAcked, ss.EndpointAcked, nodeID)
+				}
+				if (ss.EndpointPercent != 0) != wantAcked {
+					errorHandler("wanted EndpointPercent set %v got %v for %v", wantAcked, ss.EndpointPercent, nodeID)
+				}
+				return
+			}
+		}
+		errorHandler("node id %v not found", nodeID)
 	}
-	t.Errorf("node id %v not found", nodeID)
 }
 
 func TestConfigDump(t *testing.T) {
@@ -192,7 +205,7 @@ func TestConfigDump(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			initLocalPilotTestEnv(t)
+			s := initLocalPilotTestEnv(t)
 			for i := 0; i < 2; i++ {
 				envoy, err := connectADS(util.MockPilotGrpcAddr)
 				if err != nil {
@@ -222,7 +235,7 @@ func TestConfigDump(t *testing.T) {
 					}
 				}
 			}
-			wrapper := getConfigDump(t, tt.proxyID, tt.wantCode)
+			wrapper := getConfigDump(t, s.EnvoyXdsServer, tt.proxyID, tt.wantCode)
 			if wrapper != nil {
 				if rs, err := wrapper.GetDynamicRouteDump(false); err != nil || len(rs.DynamicRouteConfigs) == 0 {
 					t.Errorf("routes were present, must have received an older connection's dump")
@@ -234,7 +247,7 @@ func TestConfigDump(t *testing.T) {
 	}
 }
 
-func getConfigDump(t *testing.T, proxyID string, wantCode int) *configdump.Wrapper {
+func getConfigDump(t *testing.T, s *v2.DiscoveryServer, proxyID string, wantCode int) *configdump.Wrapper {
 	path := "/config_dump"
 	if proxyID != "" {
 		path += fmt.Sprintf("?proxyID=%v", proxyID)
@@ -244,7 +257,7 @@ func getConfigDump(t *testing.T, proxyID string, wantCode int) *configdump.Wrapp
 		t.Fatal(err)
 	}
 	rr := httptest.NewRecorder()
-	syncz := http.HandlerFunc(v2.ConfigDump)
+	syncz := http.HandlerFunc(s.ConfigDump)
 	syncz.ServeHTTP(rr, req)
 	if rr.Code != wantCode {
 		t.Errorf("wanted response code %v, got %v", wantCode, rr.Code)

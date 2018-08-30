@@ -26,108 +26,10 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-	routing "istio.io/api/routing/v1alpha1"
-	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/log"
 )
-
-func convertIngress(ingress v1beta1.Ingress, domainSuffix string) []model.Config {
-	out := make([]model.Config, 0)
-	tls := ""
-
-	if len(ingress.Spec.TLS) > 0 {
-		// TODO(istio/istio/issues/1424): implement SNI
-		if len(ingress.Spec.TLS) > 1 {
-			log.Warnf("ingress %s requires several TLS secrets but Envoy can only serve one", ingress.Name)
-		}
-		secret := ingress.Spec.TLS[0]
-		tls = fmt.Sprintf("%s.%s", secret.SecretName, ingress.Namespace)
-	}
-
-	if ingress.Spec.Backend != nil {
-		name := EncodeIngressRuleName(ingress.Name, 0, 0)
-		ingressRule := createIngressRule(name, "", "", domainSuffix, ingress, *ingress.Spec.Backend, tls)
-		out = append(out, ingressRule)
-	}
-
-	for i, rule := range ingress.Spec.Rules {
-		if rule.HTTP == nil {
-			log.Warnf("invalid ingress rule for host %q, no paths defined", rule.Host)
-			continue
-		}
-		for j, path := range rule.HTTP.Paths {
-			name := EncodeIngressRuleName(ingress.Name, i+1, j+1)
-			ingressRule := createIngressRule(name, rule.Host, path.Path,
-				domainSuffix, ingress, path.Backend, tls)
-			out = append(out, ingressRule)
-		}
-	}
-	return out
-}
-
-func createIngressRule(name, host, path, domainSuffix string,
-	ingress v1beta1.Ingress, backend v1beta1.IngressBackend, tlsSecret string) model.Config {
-	rule := &routing.IngressRule{
-		Destination: &routing.IstioService{
-			Name: backend.ServiceName,
-		},
-		TlsSecret: tlsSecret,
-		Match: &routing.MatchCondition{
-			Request: &routing.MatchRequest{
-				Headers: make(map[string]*routing.StringMatch, 2),
-			},
-		},
-	}
-	switch backend.ServicePort.Type {
-	case intstr.Int:
-		rule.DestinationServicePort = &routing.IngressRule_DestinationPort{
-			DestinationPort: int32(backend.ServicePort.IntValue()),
-		}
-	case intstr.String:
-		rule.DestinationServicePort = &routing.IngressRule_DestinationPortName{
-			DestinationPortName: backend.ServicePort.String(),
-		}
-	}
-
-	if host != "" {
-		rule.Match.Request.Headers[model.HeaderAuthority] = &routing.StringMatch{
-			MatchType: &routing.StringMatch_Exact{Exact: host},
-		}
-	}
-
-	if path != "" {
-		if strings.HasSuffix(path, ".*") {
-			rule.Match.Request.Headers[model.HeaderURI] = &routing.StringMatch{
-				MatchType: &routing.StringMatch_Prefix{Prefix: strings.TrimSuffix(path, ".*")},
-			}
-		} else {
-			rule.Match.Request.Headers[model.HeaderURI] = &routing.StringMatch{
-				MatchType: &routing.StringMatch_Exact{Exact: path},
-			}
-		}
-	} else {
-		rule.Match.Request.Headers[model.HeaderURI] = &routing.StringMatch{
-			MatchType: &routing.StringMatch_Prefix{Prefix: "/"},
-		}
-	}
-
-	return model.Config{
-		ConfigMeta: model.ConfigMeta{
-			Type:            model.IngressRule.Type,
-			Group:           crd.ResourceGroup(&model.IngressRule),
-			Version:         model.IngressRule.Version,
-			Name:            name,
-			Namespace:       ingress.Namespace,
-			Domain:          domainSuffix,
-			Labels:          ingress.Labels,
-			Annotations:     ingress.Annotations,
-			ResourceVersion: ingress.ResourceVersion,
-		},
-		Spec: rule,
-	}
-}
 
 // EncodeIngressRuleName encodes an ingress rule name for a given ingress resource name,
 // as well as the position of the rule and path specified within it, counting from 1.
@@ -158,9 +60,8 @@ func decodeIngressRuleName(name string) (ingressName string, ruleNum, pathNum in
 	return
 }
 
-// ConvertIngressV1alpha3 converts from ingress spec to Istio Gateway + VirtualServices
-// TODO: handle multiple ingress specs
-func ConvertIngressV1alpha3(ingress v1beta1.Ingress, domainSuffix string) (model.Config, model.Config) {
+// ConvertIngressV1alpha3 converts from ingress spec to Istio Gateway
+func ConvertIngressV1alpha3(ingress v1beta1.Ingress, domainSuffix string) model.Config {
 	gateway := &networking.Gateway{
 		Selector: model.IstioIngressWorkloadLabels,
 	}
@@ -203,40 +104,6 @@ func ConvertIngressV1alpha3(ingress v1beta1.Ingress, domainSuffix string) (model
 		Hosts: []string{"*"},
 	})
 
-	virtualService := &networking.VirtualService{
-		Hosts:    []string{"*"},
-		Gateways: []string{model.IstioIngressGatewayName},
-	}
-
-	var httpRoutes []*networking.HTTPRoute
-	for _, rule := range ingress.Spec.Rules {
-		if rule.HTTP == nil {
-			log.Infof("invalid ingress rule for host %q, no paths defined", rule.Host)
-			continue
-		}
-
-		for _, path := range rule.HTTP.Paths {
-			httpMatch := &networking.HTTPMatchRequest{
-				Uri:       createStringMatch(path.Path),
-				Authority: createStringMatch(rule.Host),
-			}
-
-			httpRoute := ingressBackendToHTTPRoute(&path.Backend, ingress.Namespace, domainSuffix)
-			if httpRoute == nil {
-				log.Infof("invalid ingress rule for host %q, no backend defined for path", rule.Host)
-				continue
-			}
-			httpRoute.Match = []*networking.HTTPMatchRequest{httpMatch}
-			httpRoutes = append(httpRoutes, httpRoute)
-		}
-	}
-
-	if ingress.Spec.Backend != nil {
-		httpRoutes = append(httpRoutes, ingressBackendToHTTPRoute(ingress.Spec.Backend, ingress.Namespace, domainSuffix))
-	}
-
-	virtualService.Http = httpRoutes
-
 	gatewayConfig := model.Config{
 		ConfigMeta: model.ConfigMeta{
 			Type:      model.Gateway.Type,
@@ -249,20 +116,79 @@ func ConvertIngressV1alpha3(ingress v1beta1.Ingress, domainSuffix string) (model
 		Spec: gateway,
 	}
 
-	virtualServiceConfig := model.Config{
-		ConfigMeta: model.ConfigMeta{
-			Type:      model.VirtualService.Type,
-			Group:     model.VirtualService.Group,
-			Version:   model.VirtualService.Version,
-			Name:      ingress.Name + "-" + model.IstioIngressGatewayName,
-			Namespace: model.IstioIngressNamespace,
-			Domain:    domainSuffix,
-		},
-		Spec: virtualService,
+	return gatewayConfig
+}
+
+// ConvertIngressVirtualService converts from ingress spec to Istio VirtualServices
+func ConvertIngressVirtualService(ingress v1beta1.Ingress, domainSuffix string, ingressByHost map[string]*model.Config) {
+	// Ingress allows a single host - if missing '*' is assumed
+	// We need to merge all rules with a particular host across
+	// all ingresses, and return a separate VirtualService for each
+	// host.
+
+	for _, rule := range ingress.Spec.Rules {
+		if rule.HTTP == nil {
+			log.Infof("invalid ingress rule %s:%s for host %q, no paths defined", ingress.Namespace, ingress.Name, rule.Host)
+			continue
+		}
+
+		host := rule.Host
+		namePrefix := strings.Replace(host, ".", "-", -1)
+		if host == "" {
+			host = "*"
+		}
+		virtualService := &networking.VirtualService{
+			Hosts:    []string{},
+			Gateways: []string{model.IstioIngressGatewayName},
+		}
+
+		virtualService.Hosts = []string{host}
+
+		httpRoutes := []*networking.HTTPRoute{}
+		for _, path := range rule.HTTP.Paths {
+			httpMatch := &networking.HTTPMatchRequest{
+				Uri: createStringMatch(path.Path),
+			}
+
+			httpRoute := ingressBackendToHTTPRoute(&path.Backend, ingress.Namespace, domainSuffix)
+			if httpRoute == nil {
+				log.Infof("invalid ingress rule %s:%s for host %q, no backend defined for path", ingress.Namespace, ingress.Name, rule.Host)
+				continue
+			}
+			httpRoute.Match = []*networking.HTTPMatchRequest{httpMatch}
+			httpRoutes = append(httpRoutes, httpRoute)
+		}
+
+		virtualService.Http = httpRoutes
+
+		virtualServiceConfig := model.Config{
+			ConfigMeta: model.ConfigMeta{
+				Type:      model.VirtualService.Type,
+				Group:     model.VirtualService.Group,
+				Version:   model.VirtualService.Version,
+				Name:      namePrefix + "-" + ingress.Name + "-" + model.IstioIngressGatewayName,
+				Namespace: model.IstioIngressNamespace,
+				Domain:    domainSuffix,
+			},
+			Spec: virtualService,
+		}
+
+		old, f := ingressByHost[host]
+		if f {
+			vs := old.Spec.(*networking.VirtualService)
+			vs.Http = append(vs.Http, httpRoutes...)
+		} else {
+			ingressByHost[host] = &virtualServiceConfig
+		}
 	}
 
-	return gatewayConfig, virtualServiceConfig
+	// Matches * and "/". Currently not supported - would conflict
+	// with any other explicit VirtualService.
+	if ingress.Spec.Backend != nil {
+		log.Infof("Ignore default wildcard ingress, use VirtualService %s:%s",
+			ingress.Namespace, ingress.Name)
 
+	}
 }
 
 func ingressBackendToHTTPRoute(backend *v1beta1.IngressBackend, namespace string, domainSuffix string) *networking.HTTPRoute {
@@ -329,6 +255,11 @@ func createStringMatch(s string) *networking.StringMatch {
 	if strings.HasSuffix(s, ".*") {
 		return &networking.StringMatch{
 			MatchType: &networking.StringMatch_Prefix{Prefix: strings.TrimSuffix(s, ".*")},
+		}
+	}
+	if strings.HasSuffix(s, "/*") {
+		return &networking.StringMatch{
+			MatchType: &networking.StringMatch_Prefix{Prefix: strings.TrimSuffix(s, "/*")},
 		}
 	}
 

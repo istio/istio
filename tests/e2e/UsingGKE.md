@@ -1,4 +1,4 @@
-# Running E2E tests on your own kubernets cluster
+# Running E2E tests on your own kubernetes cluster
 
 * [Step 1: Create a kubernetes cluster](#step-1-create-and-setup-a-kubernetes-cluster)
 * [Step 2: Get cluster credentials](#step-2-get-cluster-credentials)
@@ -129,7 +129,7 @@ Please see golang testing options for more information.
   go test --help
   ```
 
-* For **simple test** specific, you can run test multiple time against the same environement setup by `skip_setup`:
+* For **simple test** specific, you can run test multiple time against the same environment setup by `skip_setup`:
   ```bash
   # First time you want to run: deploy in namespace e2e and leave it running:
   make e2e_simple E2E_ARGS="--skip_cleanup --namespace=e2e -istioctl ~/istioctl-osx --auth_enable"

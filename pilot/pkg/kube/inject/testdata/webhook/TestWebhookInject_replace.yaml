@@ -1,0 +1,25 @@
+metadata:
+  name: replace
+  annotations:
+    sidecar.istio.io/status: '{
+        "version":"",
+          "initContainers":[
+            "injected0"
+          ],
+          "containers":[
+            "injected1"
+          ],
+          "volumes":[
+            "injected2"
+          ]
+       }'
+spec:
+  initContainers:
+    - name: c0
+    - name: injected0
+  containers:
+    - name: c1
+    - name: injected1
+  volumes:
+    - name: v0
+    - name: injected2

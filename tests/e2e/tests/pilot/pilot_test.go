@@ -30,18 +30,19 @@ import (
 	"go.uber.org/multierr"
 
 	"istio.io/istio/pilot/pkg/kube/inject"
+	util2 "istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/e2e/framework"
 	"istio.io/istio/tests/util"
 )
 
 const (
-	defaultRetryBudget      = 50
+	defaultRetryBudget      = 10
 	retryDelay              = time.Second
 	httpOK                  = "200"
 	ingressAppName          = "ingress"
 	ingressContainerName    = "ingress"
-	defaultPropagationDelay = 10 * time.Second
+	defaultPropagationDelay = 5 * time.Second
 	primaryCluster          = framework.PrimaryCluster
 )
 
@@ -70,6 +71,73 @@ func TestMain(m *testing.M) {
 	check(setTestConfig(), "could not create TestConfig")
 	tc.Cleanup.RegisterCleanable(tc)
 	os.Exit(tc.RunTest(m))
+}
+
+func TestCoreDumpGenerated(t *testing.T) {
+	if strings.Contains(os.Getenv("TEST_ENV"), "minikube") {
+		t.Skipf("Skipping %s in minikube environment", t.Name())
+	}
+	// Simplest way to create out of process core file.
+	crashContainer := "istio-proxy"
+	crashProgPath := "/tmp/crashing_program"
+	coreDir := "var/lib/istio"
+	script := `#!/bin/bash
+kill -SIGSEGV $$
+`
+	err := ioutil.WriteFile(crashProgPath, []byte(script), 0755)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ingressGatewayPod, err := getIngressGatewayPodName()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := util2.CopyFilesToPod(crashContainer, ingressGatewayPod, tc.Kube.Namespace, crashProgPath, crashProgPath); err != nil {
+		t.Fatalf("could not copy file to pod %s: %v", ingressGatewayPod, err)
+	}
+
+	out, err := util.PodExec(tc.Kube.Namespace, ingressGatewayPod, crashContainer, crashProgPath, false, "")
+	if !strings.HasPrefix(out, "command terminated with exit code 139") {
+		t.Fatalf("did not get expected crash error for %s in pod %s, got: %v", crashProgPath, ingressGatewayPod, err)
+	}
+
+	// No easy way to look for a specific core file.
+	response, err := util.PodExec(tc.Kube.Namespace, ingressGatewayPod, crashContainer, "find "+coreDir, false, "")
+	if !strings.Contains(response, "core.") {
+		t.Fatalf("%s did not contain core file, contents: %s, err:%v", coreDir, response, err)
+	}
+
+	response, err = util.PodExec(tc.Kube.Namespace, ingressGatewayPod, crashContainer, "rm "+getCorefilename(response), false, "")
+	if err != nil {
+		t.Fatalf("could not remove core file, response:%s, err:%v", response, err)
+	}
+}
+
+func getIngressGatewayPodName() (string, error) {
+	label := "istio=ingressgateway"
+	res, err := util.Shell("kubectl -n %s -l=%s get pods -o=jsonpath='{range .items[*]}{.metadata.name}{\" \"}{"+
+		".metadata.labels.%s}{\"\\n\"}{end}'", tc.Kube.Namespace, label, label)
+	if err != nil {
+		return "", err
+	}
+
+	rv := strings.Split(res, "\n")
+	if len(rv) < 2 {
+		return "", fmt.Errorf("bad response for get ingressgateway: %s", res)
+	}
+
+	return strings.TrimSpace(rv[0]), nil
+}
+
+func getCorefilename(resp string) string {
+	for _, line := range strings.Split(resp, "\n") {
+		if strings.Contains(line, "core.") {
+			return strings.TrimSpace(line)
+		}
+	}
+	return ""
 }
 
 func setTestConfig() error {
@@ -102,7 +170,6 @@ func setTestConfig() error {
 		tc.extraConfig[cluster] = &deployableConfig{
 			Namespace: tc.Kube.Namespace,
 			YamlFiles: []string{
-				"testdata/headless.yaml",
 				"testdata/external-wikipedia.yaml",
 				"testdata/externalbin.yaml",
 			},
@@ -153,16 +220,44 @@ func runRetriableTest(t *testing.T, cluster, testName string, retries int, f fun
 	})
 }
 
+type resource struct {
+	// Kind of the resource
+	Kind string
+	// Name of the resource
+	Name string
+}
+
 // deployableConfig is a collection of configs that are applied/deleted as a single unit.
 type deployableConfig struct {
-	Namespace  string
-	YamlFiles  []string
+	Namespace string
+	YamlFiles []string
+	// List of resources must be removed during deployableConfig setup, and restored
+	// during teardown. These resources must exist before deployableConfig setup runs, and should be
+	// in the same namespace defined above. Typically, they are added by the default Istio installation
+	// (e.g the default global authentication policy) and need to be modified for tests.
+	Removes    []resource
 	applied    []string
+	removed    []string
 	kubeconfig string
 }
 
 // Setup pushes the config and waits for it to propagate to all nodes in the cluster.
 func (c *deployableConfig) Setup() error {
+	c.removed = []string{}
+	for _, r := range c.Removes {
+		content, err := util.KubeGetYaml(c.Namespace, r.Kind, r.Name, c.kubeconfig)
+		if err != nil {
+			// Run the teardown function now and return
+			_ = c.Teardown()
+			return err
+		}
+		if err := util.KubeDeleteContents(c.Namespace, content, c.kubeconfig); err != nil {
+			// Run the teardown function now and return
+			_ = c.Teardown()
+			return err
+		}
+		c.removed = append(c.removed, content)
+	}
 	c.applied = []string{}
 	// Apply the configs.
 	for _, yamlFile := range c.YamlFiles {
@@ -193,6 +288,10 @@ func (c *deployableConfig) TeardownNoDelay() error {
 	var err error
 	for _, yamlFile := range c.applied {
 		err = multierr.Append(err, util.KubeDelete(c.Namespace, yamlFile, c.kubeconfig))
+	}
+	// Restore configs that was removed
+	for _, yaml := range c.removed {
+		err = multierr.Append(err, util.KubeApplyContents(c.Namespace, yaml, c.kubeconfig))
 	}
 	c.applied = []string{}
 	return err
@@ -247,18 +346,20 @@ func (t *testConfig) Teardown() (err error) {
 func getApps(tc *testConfig) []framework.App {
 	return []framework.App{
 		// deploy a healthy mix of apps, with and without proxy
-		getApp("t", "t", 8080, 80, 9090, 90, 7070, 70, "unversioned", false),
-		getApp("a", "a", 8080, 80, 9090, 90, 7070, 70, "v1", true),
-		getApp("b", "b", 80, 8080, 90, 9090, 70, 7070, "unversioned", true),
-		getApp("c-v1", "c", 80, 8080, 90, 9090, 70, 7070, "v1", true),
-		getApp("c-v2", "c", 80, 8080, 90, 9090, 70, 7070, "v2", true),
-		getApp("d", "d", 80, 8080, 90, 9090, 70, 7070, "per-svc-auth", true),
+		getApp("t", "t", 8080, 80, 9090, 90, 7070, 70, "unversioned", false, false, false),
+		getApp("a", "a", 8080, 80, 9090, 90, 7070, 70, "v1", true, false, true),
+		getApp("b", "b", 80, 8080, 90, 9090, 70, 7070, "unversioned", true, false, true),
+		getApp("c-v1", "c", 80, 8080, 90, 9090, 70, 7070, "v1", true, false, true),
+		getApp("c-v2", "c", 80, 8080, 90, 9090, 70, 7070, "v2", true, false, true),
+		getApp("d", "d", 80, 8080, 90, 9090, 70, 7070, "per-svc-auth", true, false, true),
+		getApp("headless", "headless", 80, 8080, 10090, 19090, 70, 7070, "unversioned", true, true, true),
+		getStatefulSet("statefulset", 19090, true),
 	}
 }
 
 func getApp(deploymentName, serviceName string, port1, port2, port3, port4, port5, port6 int,
-	version string, injectProxy bool) framework.App {
-	// TODO(nmittler): Eureka does not support management ports ... should we support other registries?
+	version string, injectProxy bool, headless bool, serviceAccount bool) framework.App {
+	// TODO(nmittler): Consul does not support management ports ... should we support other registries?
 	healthPort := "true"
 
 	// Return the config.
@@ -278,7 +379,27 @@ func getApp(deploymentName, serviceName string, port1, port2, port3, port4, port
 			"version":         version,
 			"istioNamespace":  tc.Kube.Namespace,
 			"injectProxy":     strconv.FormatBool(injectProxy),
+			"headless":        strconv.FormatBool(headless),
+			"serviceAccount":  strconv.FormatBool(serviceAccount),
 			"healthPort":      healthPort,
+			"ImagePullPolicy": tc.Kube.ImagePullPolicy(),
+		},
+		KubeInject: injectProxy,
+	}
+}
+
+func getStatefulSet(service string, port int, injectProxy bool) framework.App {
+
+	// Return the config.
+	return framework.App{
+		AppYamlTemplate: "testdata/statefulset.yaml.tmpl",
+		Template: map[string]string{
+			"Hub":             tc.Kube.PilotHub(),
+			"Tag":             tc.Kube.PilotTag(),
+			"service":         service,
+			"port":            strconv.Itoa(port),
+			"istioNamespace":  tc.Kube.Namespace,
+			"injectProxy":     strconv.FormatBool(injectProxy),
 			"ImagePullPolicy": tc.Kube.ImagePullPolicy(),
 		},
 		KubeInject: injectProxy,

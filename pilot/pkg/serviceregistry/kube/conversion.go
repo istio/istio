@@ -62,24 +62,21 @@ func convertPort(port v1.ServicePort, obj meta_v1.ObjectMeta) *model.Port {
 }
 
 func convertService(svc v1.Service, domainSuffix string) *model.Service {
-	addr, external := "", ""
+	addr, external := model.UnspecifiedIP, ""
 	if svc.Spec.ClusterIP != "" && svc.Spec.ClusterIP != v1.ClusterIPNone {
 		addr = svc.Spec.ClusterIP
 	}
 
 	resolution := model.ClientSideLB
 	meshExternal := false
-	loadBalancingDisabled := false
 
 	if svc.Spec.Type == v1.ServiceTypeExternalName && svc.Spec.ExternalName != "" {
 		external = svc.Spec.ExternalName
 		resolution = model.Passthrough
 		meshExternal = true
-		loadBalancingDisabled = true
 	}
 
-	if addr == "" && external == "" { // headless services should not be load balanced
-		loadBalancingDisabled = true
+	if addr == model.UnspecifiedIP && external == "" { // headless services should not be load balanced
 		resolution = model.Passthrough
 	}
 
@@ -104,14 +101,18 @@ func convertService(svc v1.Service, domainSuffix string) *model.Service {
 	sort.Sort(sort.StringSlice(serviceaccounts))
 
 	return &model.Service{
-		Hostname:              serviceHostname(svc.Name, svc.Namespace, domainSuffix),
-		Ports:                 ports,
-		Address:               addr,
-		ExternalName:          model.Hostname(external),
-		ServiceAccounts:       serviceaccounts,
-		LoadBalancingDisabled: loadBalancingDisabled,
-		MeshExternal:          meshExternal,
-		Resolution:            resolution,
+		Hostname:        serviceHostname(svc.Name, svc.Namespace, domainSuffix),
+		Ports:           ports,
+		Address:         addr,
+		ServiceAccounts: serviceaccounts,
+		MeshExternal:    meshExternal,
+		Resolution:      resolution,
+		CreationTime:    svc.CreationTimestamp.Time,
+		Attributes: model.ServiceAttributes{
+			Name:      svc.Name,
+			Namespace: svc.Namespace,
+			UID:       fmt.Sprintf("istio://%s/services/%s", svc.Namespace, svc.Name),
+		},
 	}
 }
 
@@ -141,7 +142,7 @@ func KeyFunc(name, namespace string) string {
 
 // parseHostname extracts service name and namespace from the service hostname
 func parseHostname(hostname model.Hostname) (name string, namespace string, err error) {
-	parts := strings.Split(hostname.String(), ".")
+	parts := strings.Split(string(hostname), ".")
 	if len(parts) < 2 {
 		err = fmt.Errorf("missing service name and namespace from the service hostname %q", hostname)
 		return

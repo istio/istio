@@ -67,7 +67,7 @@ func (s *StatusWriter) PrintSingle(statuses map[string][]byte, proxyName string)
 
 func (s *StatusWriter) setupStatusPrint(statuses map[string][]byte) (*tabwriter.Writer, []*writerStatus, error) {
 	w := new(tabwriter.Writer).Init(s.Writer, 0, 8, 5, ' ', 0)
-	fmt.Fprintln(w, "PROXY\tCDS\tLDS\tEDS\tRDS\tPILOT")
+	fmt.Fprintln(w, "PROXY\tCDS\tLDS\tEDS\tRDS\tPILOT\tVERSION")
 	fullStatus := []*writerStatus{}
 	for pilot, status := range statuses {
 		ss := []*writerStatus{}
@@ -91,8 +91,8 @@ func statusPrintln(w io.Writer, status *writerStatus) error {
 	listenerSynced := xdsStatus(status.ListenerSent, status.ListenerAcked)
 	routeSynced := xdsStatus(status.RouteSent, status.RouteAcked)
 	endpointSynced := xdsStatus(status.EndpointSent, status.EndpointAcked)
-	fmt.Fprintf(w, "%v\t%v\t%v\t%v (%v%%)\t%v\t%v\n",
-		status.ProxyID, clusterSynced, listenerSynced, endpointSynced, status.EndpointPercent, routeSynced, status.pilot)
+	fmt.Fprintf(w, "%v\t%v\t%v\t%v (%v%%)\t%v\t%v\t%v\n",
+		status.ProxyID, clusterSynced, listenerSynced, endpointSynced, status.EndpointPercent, routeSynced, status.pilot, status.ProxyVersion)
 	return nil
 }
 

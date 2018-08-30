@@ -22,8 +22,11 @@ import (
 )
 
 // Transport is an http.RoundTripper that instruments all outgoing requests with
-// stats and tracing. The zero value is intended to be a useful default, but for
-// now it's recommended that you explicitly set Propagation.
+// OpenCensus stats and tracing.
+//
+// The zero value is intended to be a useful default, but for
+// now it's recommended that you explicitly set Propagation, since the default
+// for this may change.
 type Transport struct {
 	// Base may be set to wrap another http.RoundTripper that does the actual
 	// requests. By default http.DefaultTransport is used.
@@ -43,6 +46,11 @@ type Transport struct {
 	// for spans started by this transport.
 	StartOptions trace.StartOptions
 
+	// NameFromRequest holds the function to use for generating the span name
+	// from the information found in the outgoing HTTP Request. By default the
+	// name equals the URL Path.
+	FormatSpanName func(*http.Request) string
+
 	// TODO: Implement tag propagation for HTTP.
 }
 
@@ -54,6 +62,10 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	if format == nil {
 		format = defaultFormat
 	}
+	spanNameFormatter := t.FormatSpanName
+	if spanNameFormatter == nil {
+		spanNameFormatter = spanNameFromURL
+	}
 	rt = &traceTransport{
 		base:   rt,
 		format: format,
@@ -61,6 +73,7 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 			Sampler:  t.StartOptions.Sampler,
 			SpanKind: trace.SpanKindClient,
 		},
+		formatSpanName: spanNameFormatter,
 	}
 	rt = statsTransport{base: rt}
 	return rt.RoundTrip(req)

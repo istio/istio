@@ -52,7 +52,9 @@ func (m *ApiConfigSource) Validate() error {
 	for idx, item := range m.GetGrpcServices() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(item).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return ApiConfigSourceValidationError{
 					Field:  fmt.Sprintf("GrpcServices[%v]", idx),
@@ -64,7 +66,9 @@ func (m *ApiConfigSource) Validate() error {
 
 	}
 
-	if v, ok := interface{}(m.GetRefreshDelay()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetRefreshDelay()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return ApiConfigSourceValidationError{
 				Field:  "RefreshDelay",
@@ -72,6 +76,20 @@ func (m *ApiConfigSource) Validate() error {
 				Cause:  err,
 			}
 		}
+	}
+
+	if d := m.GetRequestTimeout(); d != nil {
+		dur := *d
+
+		gt := time.Duration(0*time.Second + 0*time.Nanosecond)
+
+		if dur <= gt {
+			return ApiConfigSourceValidationError{
+				Field:  "RequestTimeout",
+				Reason: "value must be greater than 0s",
+			}
+		}
+
 	}
 
 	return nil
@@ -165,7 +183,9 @@ func (m *ConfigSource) Validate() error {
 
 	case *ConfigSource_ApiConfigSource:
 
-		if v, ok := interface{}(m.GetApiConfigSource()).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(m.GetApiConfigSource()).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return ConfigSourceValidationError{
 					Field:  "ApiConfigSource",
@@ -177,7 +197,9 @@ func (m *ConfigSource) Validate() error {
 
 	case *ConfigSource_Ads:
 
-		if v, ok := interface{}(m.GetAds()).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(m.GetAds()).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return ConfigSourceValidationError{
 					Field:  "Ads",

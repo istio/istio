@@ -21,16 +21,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/proto"
+	"github.com/gogo/protobuf/proto"
 	"go.uber.org/atomic"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
 	rbac "istio.io/api/rbac/v1alpha1"
-	routing "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/test"
 	"istio.io/istio/pkg/log"
@@ -40,17 +38,6 @@ import (
 var (
 	// Types defines the mock config descriptor
 	Types = model.ConfigDescriptor{model.MockConfig}
-
-	// ExampleRouteRule is an example route rule
-	ExampleRouteRule = &routing.RouteRule{
-		Destination: &routing.IstioService{
-			Name: "world",
-		},
-		Route: []*routing.DestinationWeight{
-			{Weight: 80, Labels: map[string]string{"version": "v1"}},
-			{Weight: 20, Labels: map[string]string{"version": "v2"}},
-		},
-	}
 
 	// ExampleVirtualService is an example V2 route rule
 	ExampleVirtualService = &networking.VirtualService{
@@ -94,34 +81,6 @@ var (
 			LoadBalancer: &networking.LoadBalancerSettings{
 				new(networking.LoadBalancerSettings_Simple),
 			},
-		},
-	}
-
-	// ExampleIngressRule is an example ingress rule
-	ExampleIngressRule = &routing.IngressRule{
-		Destination: &routing.IstioService{
-			Name: "world",
-		},
-		Port: 80,
-		DestinationServicePort: &routing.IngressRule_DestinationPort{DestinationPort: 80},
-	}
-
-	// ExampleEgressRule is an example egress rule
-	ExampleEgressRule = &routing.EgressRule{
-		Destination: &routing.IstioService{
-			Service: "*cnn.com",
-		},
-		Ports:          []*routing.EgressRule_Port{{Port: 80, Protocol: "http"}},
-		UseEgressProxy: false,
-	}
-
-	// ExampleDestinationPolicy is an example destination policy
-	ExampleDestinationPolicy = &routing.DestinationPolicy{
-		Destination: &routing.IstioService{
-			Name: "world",
-		},
-		LoadBalancing: &routing.LoadBalancing{
-			LbPolicy: &routing.LoadBalancing_Name{Name: routing.LoadBalancing_RANDOM},
 		},
 	}
 
@@ -283,8 +242,8 @@ func Make(namespace string, i int) model.Config {
 func Compare(a, b model.Config) bool {
 	a.ResourceVersion = ""
 	b.ResourceVersion = ""
-	a.CreationTimestamp = meta_v1.NewTime(time.Time{})
-	b.CreationTimestamp = meta_v1.NewTime(time.Time{})
+	a.CreationTimestamp = time.Time{}
+	b.CreationTimestamp = time.Time{}
 	return reflect.DeepEqual(a, b)
 }
 
@@ -456,6 +415,10 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 // CheckIstioConfigTypes validates that an empty store can ingest Istio config objects
 func CheckIstioConfigTypes(store model.ConfigStore, namespace string, t *testing.T) {
 	configName := "example"
+	// Global scoped policies like MeshPolicy are not isolated, can't be
+	// run as part of the normal test suites - if needed they should
+	// be run in separate environment. The test suites are setting cluster
+	// scoped policies that may interfere and would require serialization
 
 	cases := []struct {
 		name       string
@@ -463,20 +426,15 @@ func CheckIstioConfigTypes(store model.ConfigStore, namespace string, t *testing
 		schema     model.ProtoSchema
 		spec       proto.Message
 	}{
-		{"RouteRule", configName, model.RouteRule, ExampleRouteRule},
 		{"VirtualService", configName, model.VirtualService, ExampleVirtualService},
 		{"DestinationRule", configName, model.DestinationRule, ExampleDestinationRule},
 		{"ServiceEntry", configName, model.ServiceEntry, ExampleServiceEntry},
-		{"Gatway", configName, model.Gateway, ExampleGateway},
-		{"IngressRule", configName, model.IngressRule, ExampleIngressRule},
-		{"EgressRule", configName, model.EgressRule, ExampleEgressRule},
-		{"DestinationPolicy", configName, model.DestinationPolicy, ExampleDestinationPolicy},
+		{"Gateway", configName, model.Gateway, ExampleGateway},
 		{"HTTPAPISpec", configName, model.HTTPAPISpec, ExampleHTTPAPISpec},
 		{"HTTPAPISpecBinding", configName, model.HTTPAPISpecBinding, ExampleHTTPAPISpecBinding},
 		{"QuotaSpec", configName, model.QuotaSpec, ExampleQuotaSpec},
 		{"QuotaSpecBinding", configName, model.QuotaSpecBinding, ExampleQuotaSpecBinding},
 		{"Policy", configName, model.AuthenticationPolicy, ExampleAuthenticationPolicy},
-		{"MeshPolicy", model.DefaultAuthenticationPolicyName, model.AuthenticationMeshPolicy, ExampleAuthenticationMeshPolicy},
 		{"ServiceRole", configName, model.ServiceRole, ExampleServiceRole},
 		{"ServiceRoleBinding", configName, model.ServiceRoleBinding, ExampleServiceRoleBinding},
 		{"RbacConfig", model.DefaultRbacConfigName, model.RbacConfig, ExampleRbacConfig},

@@ -120,7 +120,6 @@ const defaultIgnore = `# Patterns to ignore when building packages.
 
 const defaultIngress = `{{- if .Values.ingress.enabled -}}
 {{- $fullName := include "<CHARTNAME>.fullname" . -}}
-{{- $servicePort := .Values.service.port -}}
 {{- $ingressPath := .Values.ingress.path -}}
 apiVersion: extensions/v1beta1
 kind: Ingress

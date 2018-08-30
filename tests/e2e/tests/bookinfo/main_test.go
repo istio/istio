@@ -35,12 +35,10 @@ import (
 )
 
 const (
-	u1                                 = "normal-user"
-	u2                                 = "test-user"
 	bookinfoSampleDir                  = "samples/bookinfo"
 	yamlExtension                      = "yaml"
-	deploymentDir                      = "kube"
-	routeRulesDir                      = "kube"
+	deploymentDir                      = "platform/kube"
+	routeRulesDir                      = "networking"
 	bookinfoYaml                       = "bookinfo"
 	bookinfoRatingsv2Yaml              = "bookinfo-ratings-v2"
 	bookinfoRatingsMysqlYaml           = "bookinfo-ratings-v2-mysql"
@@ -49,26 +47,34 @@ const (
 	bookinfoDetailsExternalServiceYaml = "bookinfo-details-v2"
 	modelDir                           = "tests/apps/bookinfo/output"
 	bookinfoGateway                    = routeRulesDir + "/" + "bookinfo-gateway"
-	allRule                            = routeRulesDir + "/" + "route-rule-all-v1"
-	delayRule                          = routeRulesDir + "/" + "route-rule-ratings-test-delay"
-	tenRule                            = routeRulesDir + "/" + "/route-rule-reviews-90-10"
-	twentyRule                         = routeRulesDir + "/" + "route-rule-reviews-80-20"
-	fiftyRule                          = routeRulesDir + "/" + "route-rule-reviews-50-v3"
-	testRule                           = routeRulesDir + "/" + "route-rule-reviews-test-v2"
-	testDbRule                         = routeRulesDir + "/" + "route-rule-ratings-db"
-	testMysqlRule                      = routeRulesDir + "/" + "route-rule-ratings-mysql"
-	detailsExternalServiceRouteRule    = routeRulesDir + "/" + "route-rule-details-v2"
+	destRule                           = routeRulesDir + "/" + "destination-rule-all"
+	destRuleMtls                       = routeRulesDir + "/" + "destination-rule-all-mtls"
+	allRule                            = routeRulesDir + "/" + "virtual-service-all-v1"
+	delayRule                          = routeRulesDir + "/" + "virtual-service-ratings-test-delay"
+	tenRule                            = routeRulesDir + "/" + "virtual-service-reviews-90-10"
+	twentyRule                         = routeRulesDir + "/" + "virtual-service-reviews-80-20"
+	fiftyRule                          = routeRulesDir + "/" + "virtual-service-reviews-50-v3"
+	testRule                           = routeRulesDir + "/" + "virtual-service-reviews-test-v2"
+	testDbRule                         = routeRulesDir + "/" + "virtual-service-ratings-db"
+	testMysqlRule                      = routeRulesDir + "/" + "virtual-service-ratings-mysql"
+	detailsExternalServiceRouteRule    = routeRulesDir + "/" + "virtual-service-details-v2"
 	detailsExternalServiceEgressRule   = routeRulesDir + "/" + "egress-rule-google-apis"
 	reviewsDestinationRule             = routeRulesDir + "/" + "destination-policy-reviews"
 )
 
 var (
+	u1 = user{
+		username:      "normal-user",
+		sessionCookie: "eyJ1c2VyIjoibm9ybWFsLXVzZXIifQ.DlkrOg.1H1njRTWsTxNXH2Hk3iLnxenGVQ",
+	}
+	u2 = user{
+		username:      "test-user",
+		sessionCookie: "eyJ1c2VyIjoidGVzdC11c2VyIn0.DlkvPA.oPmahjAJkFSjPr4NWcbhaP_maZA",
+	}
 	tc *testConfig
 	tf = &framework.TestFlags{
-		V1alpha1: true,  //implies envoyv1
-		V1alpha3: false, //implies envoyv2
-		Ingress:  true,
-		Egress:   true,
+		Ingress: true,
+		Egress:  true,
 	}
 	testRetryTimes = 5
 	defaultRules   = []string{bookinfoGateway}
@@ -109,20 +115,19 @@ func closeResponseBody(r *http.Response) {
 }
 
 func getPreprocessedRulePath(t *testConfig, version, rule string) string {
-	// transform, for example "routing/route-rule" into
-	// "{t.rulesDir}/routing/v1aplha3/route-rule.yaml"
+	// transform, for example "routing/virtual-service" into
+	// "{t.rulesDir}/routing/v1aplha3/virtual-service.yaml"
 	parts := strings.Split(rule, string(os.PathSeparator))
 	parts[len(parts)-1] = parts[len(parts)-1] + "." + yamlExtension
 
-	return util.GetResourcePath(filepath.Join(t.rulesDir, "routing", version,
+	return util.GetResourcePath(filepath.Join(t.rulesDir, routeRulesDir, version,
 		strings.Join(parts[1:], string(os.PathSeparator))))
 }
 
 func getOriginalRulePath(version, rule string) string {
 	parts := strings.Split(rule, string(os.PathSeparator))
-	if version == "v1alpha3" {
-		parts[0] = "routing"
-	}
+
+	parts[0] = routeRulesDir
 	parts[len(parts)-1] = parts[len(parts)-1] + "." + yamlExtension
 	return util.GetResourcePath(filepath.Join(bookinfoSampleDir,
 		strings.Join(parts, string(os.PathSeparator))))
@@ -137,7 +142,7 @@ func preprocessRule(t *testConfig, version, rule string) error {
 		return err
 	}
 	content := string(ori)
-	content = strings.Replace(content, "jason", u2, -1)
+	content = strings.Replace(content, "jason", u2.username, -1)
 
 	err = os.MkdirAll(filepath.Dir(dest), 0700)
 	if err != nil {
@@ -157,18 +162,18 @@ func preprocessRule(t *testConfig, version, rule string) error {
 func (t *testConfig) Setup() error {
 	//generate rule yaml files, replace "jason" with actual user
 	if tc.Kube.AuthEnabled {
-		allRules = append(allRules, routeRulesDir+"/"+"route-rule-all-v1-mtls")
-		defaultRules = append(defaultRules, routeRulesDir+"/"+"route-rule-all-v1-mtls")
+		allRules = append(allRules, routeRulesDir+"/"+"destination-rule-all-mtls")
+		defaultRules = append(defaultRules, routeRulesDir+"/"+"destination-rule-all-mtls")
 	} else {
-		allRules = append(allRules, routeRulesDir+"/"+"route-rule-all-v1")
-		defaultRules = append(defaultRules, routeRulesDir+"/"+"route-rule-all-v1")
+		allRules = append(allRules, routeRulesDir+"/"+"destination-rule-all")
+		defaultRules = append(defaultRules, routeRulesDir+"/"+"destination-rule-all")
 	}
+	allRules = append(allRules, routeRulesDir+"/"+"virtual-service-all-v1")
+	defaultRules = append(defaultRules, routeRulesDir+"/"+"virtual-service-all-v1")
 	for _, rule := range allRules {
-		for _, configVersion := range tf.ConfigVersions() {
-			err := preprocessRule(t, configVersion, rule)
-			if err != nil {
-				return nil
-			}
+		err := preprocessRule(t, "v1alpha3", rule)
+		if err != nil {
+			return nil
 		}
 	}
 
@@ -200,51 +205,43 @@ func inspect(err error, fMsg, sMsg string, t *testing.T) {
 }
 
 func setUpDefaultRouting() error {
-	for _, configVersion := range tf.ConfigVersions() { // should be only one version applied, checked in TestMain
-		if err := applyRules(configVersion, defaultRules); err != nil {
-			return fmt.Errorf("could not apply rules '%s': %v", defaultRules, err)
-		}
-		standby := 0
-		for i := 0; i <= testRetryTimes; i++ {
-			time.Sleep(time.Duration(standby) * time.Second)
-			var gateway string
-			var errGw error
-
-			if configVersion == "v1alpha3" {
-				gateway, errGw = tc.Kube.IngressGateway()
-			} else {
-				gateway, errGw = tc.Kube.Ingress()
-			}
-
-			if errGw != nil {
-				return errGw
-			}
-
-			resp, err := http.Get(fmt.Sprintf("%s/productpage", gateway))
-			if err != nil {
-				log.Infof("Error talking to productpage: %s", err)
-			} else {
-				log.Infof("Get from page: %d", resp.StatusCode)
-				if resp.StatusCode == http.StatusOK {
-					log.Info("Get response from product page!")
-					break
-				}
-				closeResponseBody(resp)
-			}
-			if i == testRetryTimes {
-				return errors.New("unable to set default route")
-			}
-			standby += 5
-			log.Errorf("Couldn't get to the bookinfo product page, trying again in %d second", standby)
-		}
-
-		log.Info("Success! Default route got expected response")
-		return nil
+	if err := applyRules("v1alpha3", defaultRules); err != nil {
+		return fmt.Errorf("could not apply rules '%s': %v", defaultRules, err)
 	}
+	standby := 0
+	for i := 0; i <= testRetryTimes; i++ {
+		time.Sleep(time.Duration(standby) * time.Second)
+		var gateway string
+		var errGw error
+
+		gateway, errGw = tc.Kube.IngressGateway()
+		if errGw != nil {
+			return errGw
+		}
+
+		resp, err := http.Get(fmt.Sprintf("%s/productpage", gateway))
+		if err != nil {
+			log.Infof("Error talking to productpage: %s", err)
+		} else {
+			log.Infof("Get from page: %d", resp.StatusCode)
+			if resp.StatusCode == http.StatusOK {
+				log.Info("Get response from product page!")
+				break
+			}
+			closeResponseBody(resp)
+		}
+		if i == testRetryTimes {
+			return errors.New("unable to set default route")
+		}
+		standby += 5
+		log.Errorf("Couldn't get to the bookinfo product page, trying again in %d second", standby)
+	}
+
+	log.Info("Success! Default route got expected response")
 	return nil
 }
 
-func checkRoutingResponse(user, version, gateway, modelFile string) (int, error) {
+func checkRoutingResponse(user user, version, gateway, modelFile string) (int, error) {
 	startT := time.Now()
 	cookies := []http.Cookie{
 		{
@@ -252,8 +249,8 @@ func checkRoutingResponse(user, version, gateway, modelFile string) (int, error)
 			Value: "bar",
 		},
 		{
-			Name:  "user",
-			Value: user,
+			Name:  "session",
+			Value: user.sessionCookie,
 		},
 	}
 	resp, err := getWithCookie(fmt.Sprintf("%s/productpage", gateway), cookies)
@@ -277,7 +274,7 @@ func checkRoutingResponse(user, version, gateway, modelFile string) (int, error)
 	return duration, err
 }
 
-func checkHTTPResponse(user, gateway, expr string, count int) (int, error) {
+func checkHTTPResponse(gateway, expr string, count int) (int, error) {
 	resp, err := http.Get(fmt.Sprintf("%s/productpage", gateway))
 	if err != nil {
 		return -1, err
@@ -386,20 +383,11 @@ func setTestConfig() error {
 func TestMain(m *testing.M) {
 	flag.Parse()
 	check(framework.InitLogging(), "cannot setup logging")
-
-	if tf.V1alpha1 && tf.V1alpha3 {
-		check(errors.New("both v1alpha1 and v1alpha3 are requested"),
-			"cannot test both v1alpha1 and alpha3 simultaneously")
-	}
-
 	check(setTestConfig(), "could not create TestConfig")
 	tc.Cleanup.RegisterCleanable(tc)
 	os.Exit(tc.RunTest(m))
 }
 
 func getIngressOrFail(t *testing.T, configVersion string) string {
-	if configVersion == "v1alpha3" {
-		return tc.Kube.IngressGatewayOrFail(t)
-	}
-	return tc.Kube.IngressOrFail(t)
+	return tc.Kube.IngressGatewayOrFail(t)
 }

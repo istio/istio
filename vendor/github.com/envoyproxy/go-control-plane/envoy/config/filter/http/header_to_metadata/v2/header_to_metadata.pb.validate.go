@@ -44,7 +44,9 @@ func (m *Config) Validate() error {
 	for idx, item := range m.GetRequestRules() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(item).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return ConfigValidationError{
 					Field:  fmt.Sprintf("RequestRules[%v]", idx),
@@ -59,7 +61,9 @@ func (m *Config) Validate() error {
 	for idx, item := range m.GetResponseRules() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(item).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return ConfigValidationError{
 					Field:  fmt.Sprintf("ResponseRules[%v]", idx),
@@ -175,7 +179,9 @@ func (m *Config_Rule) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetOnHeaderPresent()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetOnHeaderPresent()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return Config_RuleValidationError{
 				Field:  "OnHeaderPresent",
@@ -185,7 +191,9 @@ func (m *Config_Rule) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetOnHeaderMissing()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetOnHeaderMissing()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return Config_RuleValidationError{
 				Field:  "OnHeaderMissing",

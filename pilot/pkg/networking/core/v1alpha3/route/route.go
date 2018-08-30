@@ -16,7 +16,6 @@ package route
 
 import (
 	"fmt"
-	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -25,6 +24,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	xdsfault "github.com/envoyproxy/go-control-plane/envoy/config/filter/fault/v2"
 	xdshttpfault "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/fault/v2"
+	xdstype "github.com/envoyproxy/go-control-plane/envoy/type"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
 	"github.com/gogo/protobuf/types"
 	"github.com/prometheus/client_golang/prometheus"
@@ -86,17 +86,18 @@ type VirtualHostWrapper struct {
 // BuildVirtualHostsFromConfigAndRegistry creates virtual hosts from the given set of virtual services and a list of
 // services from the service registry. Services are indexed by FQDN hostnames.
 func BuildVirtualHostsFromConfigAndRegistry(
-	configStore model.IstioConfigStore,
+	node *model.Proxy,
+	push *model.PushContext,
 	serviceRegistry map[model.Hostname]*model.Service,
 	proxyLabels model.LabelsCollection) []VirtualHostWrapper {
 
 	out := make([]VirtualHostWrapper, 0)
 
 	meshGateway := map[string]bool{model.IstioMeshGateway: true}
-	virtualServices := configStore.VirtualServices(meshGateway)
+	virtualServices := push.VirtualServices(meshGateway)
 	// translate all virtual service configs into virtual hosts
 	for _, virtualService := range virtualServices {
-		wrappers := buildVirtualHostsForVirtualService(configStore, virtualService, serviceRegistry, proxyLabels, meshGateway)
+		wrappers := buildVirtualHostsForVirtualService(node, push, virtualService, serviceRegistry, proxyLabels, meshGateway)
 		if len(wrappers) == 0 {
 			// If none of the routes matched by source (i.e. proxyLabels), then discard this entire virtual service
 			continue
@@ -125,7 +126,7 @@ func BuildVirtualHostsFromConfigAndRegistry(
 				out = append(out, VirtualHostWrapper{
 					Port:     port.Port,
 					Services: []*model.Service{svc},
-					Routes:   []route.Route{*BuildDefaultHTTPRoute(cluster, traceOperation)},
+					Routes:   []route.Route{*BuildDefaultHTTPRoute(node, cluster, traceOperation)},
 				})
 			}
 		}
@@ -165,7 +166,8 @@ func separateVSHostsAndServices(virtualService model.Config,
 // Called for each port to determine the list of vhosts on the given port.
 // It may return an empty list if no VirtualService rule has a matching service.
 func buildVirtualHostsForVirtualService(
-	configStore model.IstioConfigStore,
+	node *model.Proxy,
+	push *model.PushContext,
 	virtualService model.Config,
 	serviceRegistry map[model.Hostname]*model.Service,
 	proxyLabels model.LabelsCollection,
@@ -196,7 +198,7 @@ func buildVirtualHostsForVirtualService(
 	}
 	out := make([]VirtualHostWrapper, 0, len(serviceByPort))
 	for port, portServices := range serviceByPort {
-		routes, err := BuildHTTPRoutesForVirtualService(virtualService, serviceRegistry, port, proxyLabels, gatewayName, configStore)
+		routes, err := BuildHTTPRoutesForVirtualService(node, push, virtualService, serviceRegistry, port, proxyLabels, gatewayName)
 		if err != nil || len(routes) == 0 {
 			continue
 		}
@@ -242,12 +244,13 @@ func GetDestinationCluster(destination *networking.Destination, service *model.S
 // Each VirtualService is tried, with a list of services that listen on the port.
 // Error indicates the given virtualService can't be used on the port.
 func BuildHTTPRoutesForVirtualService(
+	node *model.Proxy,
+	push *model.PushContext,
 	virtualService model.Config,
 	serviceRegistry map[model.Hostname]*model.Service,
 	port int,
 	proxyLabels model.LabelsCollection,
-	gatewayNames map[string]bool,
-	configStore model.IstioConfigStore) ([]route.Route, error) {
+	gatewayNames map[string]bool) ([]route.Route, error) {
 
 	vs, ok := virtualService.Spec.(*networking.VirtualService)
 	if !ok { // should never happen
@@ -257,17 +260,22 @@ func BuildHTTPRoutesForVirtualService(
 	vsName := virtualService.ConfigMeta.Name
 
 	out := make([]route.Route, 0, len(vs.Http))
+allroutes:
 	for _, http := range vs.Http {
 		if len(http.Match) == 0 {
-			if r := translateRoute(http, nil, port, vsName, serviceRegistry, proxyLabels, gatewayNames, configStore); r != nil {
+			if r := translateRoute(push, node, http, nil, port, vsName, serviceRegistry, proxyLabels, gatewayNames); r != nil {
 				out = append(out, *r)
 			}
-			break // we have a rule with catch all match prefix: /. Other rules are of no use
+			break allroutes // we have a rule with catch all match prefix: /. Other rules are of no use
 		} else {
-			// TODO: https://github.com/istio/istio/issues/4239
 			for _, match := range http.Match {
-				if r := translateRoute(http, match, port, vsName, serviceRegistry, proxyLabels, gatewayNames, configStore); r != nil {
+				if r := translateRoute(push, node, http, match, port, vsName, serviceRegistry, proxyLabels, gatewayNames); r != nil {
 					out = append(out, *r)
+					rType, _ := getEnvoyRouteTypeAndVal(r)
+					if rType == envoyCatchAll {
+						// We have a catch all route. No point building other routes, with match conditions
+						break allroutes
+					}
 				}
 			}
 		}
@@ -301,13 +309,12 @@ func sourceMatchHTTP(match *networking.HTTPMatchRequest, proxyLabels model.Label
 }
 
 // translateRoute translates HTTP routes
-func translateRoute(in *networking.HTTPRoute,
+func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.HTTPRoute,
 	match *networking.HTTPMatchRequest, port int,
 	vsName string,
 	serviceRegistry map[model.Hostname]*model.Service,
 	proxyLabels model.LabelsCollection,
-	gatewayNames map[string]bool,
-	configStore model.IstioConfigStore) *route.Route {
+	gatewayNames map[string]bool) *route.Route {
 
 	// When building routes, its okay if the target cluster cannot be
 	// resolved Traffic to such clusters will blackhole.
@@ -337,19 +344,28 @@ func translateRoute(in *networking.HTTPRoute,
 			}}
 	} else {
 		action := &route.RouteAction{
-			Cors:         translateCORSPolicy(in.CorsPolicy),
-			RetryPolicy:  translateRetryPolicy(in.Retries),
-			UseWebsocket: &types.BoolValue{Value: in.WebsocketUpgrade},
+			Cors:        translateCORSPolicy(in.CorsPolicy),
+			RetryPolicy: translateRetryPolicy(in.Retries),
 		}
+		if !util.Is1xProxy(node) {
+			action.UseWebsocket = &types.BoolValue{Value: in.WebsocketUpgrade}
+		}
+
 		if in.Timeout != nil {
 			d := util.GogoDurationToDuration(in.Timeout)
 			// timeout
 			action.Timeout = &d
+			if util.Is1xProxy(node) {
+				action.MaxGrpcTimeout = &d
+			}
 		} else {
 			// if no timeout is specified, disable timeouts. This is easier
 			// to reason about than assuming some defaults.
 			d := 0 * time.Second
 			action.Timeout = &d
+			if util.Is1xProxy(node) {
+				action.MaxGrpcTimeout = &d
+			}
 		}
 
 		out.Action = &route.Route_Route{Route: action}
@@ -399,7 +415,7 @@ func translateRoute(in *networking.HTTPRoute,
 				Weight: weight,
 			})
 
-			hashPolicy := getHashPolicy(configStore, hostname)
+			hashPolicy := getHashPolicy(push, dst)
 			if hashPolicy != nil {
 				action.HashPolicy = append(action.HashPolicy, hashPolicy)
 			}
@@ -421,7 +437,7 @@ func translateRoute(in *networking.HTTPRoute,
 		Operation: getRouteOperation(out, vsName, port),
 	}
 	if fault := in.Fault; fault != nil {
-		out.PerFilterConfig[xdsutil.Fault] = util.MessageToStruct(translateFault(in.Fault))
+		out.PerFilterConfig[xdsutil.Fault] = util.MessageToStruct(translateFault(node, in.Fault))
 	}
 
 	return out
@@ -441,9 +457,9 @@ func translateRouteMatch(in *networking.HTTPMatchRequest) route.RouteMatch {
 
 	// guarantee ordering of headers
 	sort.Slice(out.Headers, func(i, j int) bool {
-		if out.Headers[i].Name == out.Headers[j].Name {
-			return out.Headers[i].Value < out.Headers[j].Value
-		}
+		// TODO: match by values as well. But we have about 5-6 types of values
+		// in a header matcher. Not sorting by values "might" cause unnecessary
+		// RDS churn in some cases.
 		return out.Headers[i].Name < out.Headers[j].Name
 	})
 
@@ -484,15 +500,13 @@ func translateHeaderMatch(name string, in *networking.StringMatch) route.HeaderM
 
 	switch m := in.MatchType.(type) {
 	case *networking.StringMatch_Exact:
-		out.Value = m.Exact
+		out.HeaderMatchSpecifier = &route.HeaderMatcher_ExactMatch{ExactMatch: m.Exact}
 	case *networking.StringMatch_Prefix:
 		// Envoy regex grammar is ECMA-262 (http://en.cppreference.com/w/cpp/regex/ecmascript)
 		// Golang has a slightly different regex grammar
-		out.Value = fmt.Sprintf("^%s.*", regexp.QuoteMeta(m.Prefix))
-		out.Regex = &types.BoolValue{Value: true}
+		out.HeaderMatchSpecifier = &route.HeaderMatcher_PrefixMatch{PrefixMatch: m.Prefix}
 	case *networking.StringMatch_Regex:
-		out.Value = m.Regex
-		out.Regex = &types.BoolValue{Value: true}
+		out.HeaderMatchSpecifier = &route.HeaderMatcher_RegexMatch{RegexMatch: m.Regex}
 	}
 
 	return out
@@ -551,7 +565,6 @@ func getRouteOperation(in *route.Route, vsName string, port int) string {
 	// Otherwise there are multiple destination clusters and destination host is not clear. For that case
 	// return virtual serivce name:port/uri as substitute.
 	if c := in.GetRoute().GetCluster(); model.IsValidSubsetKey(c) {
-		log.Infof("cluster name %s", c)
 		// Parse host and port from cluster name.
 		_, _, h, p := model.ParseSubsetKey(c)
 		return fmt.Sprintf("%s:%d%s", h, p, path)
@@ -560,9 +573,10 @@ func getRouteOperation(in *route.Route, vsName string, port int) string {
 }
 
 // BuildDefaultHTTPRoute builds a default route.
-func BuildDefaultHTTPRoute(clusterName string, operation string) *route.Route {
+func BuildDefaultHTTPRoute(node *model.Proxy, clusterName string, operation string) *route.Route {
 	notimeout := 0 * time.Second
-	return &route.Route{
+
+	defaultRoute := &route.Route{
 		Match: translateRouteMatch(nil),
 		Decorator: &route.Decorator{
 			Operation: operation,
@@ -574,19 +588,58 @@ func BuildDefaultHTTPRoute(clusterName string, operation string) *route.Route {
 			},
 		},
 	}
+
+	if util.Is1xProxy(node) {
+		defaultRoute.Action = &route.Route_Route{
+			Route: &route.RouteAction{
+				ClusterSpecifier: &route.RouteAction_Cluster{Cluster: clusterName},
+				Timeout:          &notimeout,
+				MaxGrpcTimeout:   &notimeout,
+			},
+		}
+	}
+	return defaultRoute
+}
+
+// translatePercentToFractionalPercent translates an v1alpha3 Percent instance
+// to an envoy.type.FractionalPercent instance.
+func translatePercentToFractionalPercent(p *networking.Percent) *xdstype.FractionalPercent {
+	return &xdstype.FractionalPercent{
+		Numerator:   uint32(p.Value * 10000),
+		Denominator: xdstype.FractionalPercent_MILLION,
+	}
+}
+
+// translateIntegerToFractionalPercent translates an int32 instance to an
+// envoy.type.FractionalPercent instance.
+func translateIntegerToFractionalPercent(p int32) *xdstype.FractionalPercent {
+	return &xdstype.FractionalPercent{
+		Numerator:   uint32(p * 10000),
+		Denominator: xdstype.FractionalPercent_MILLION,
+	}
 }
 
 // translateFault translates networking.HTTPFaultInjection into Envoy's HTTPFault
-func translateFault(in *networking.HTTPFaultInjection) *xdshttpfault.HTTPFault {
+func translateFault(node *model.Proxy, in *networking.HTTPFaultInjection) *xdshttpfault.HTTPFault {
 	if in == nil {
 		return nil
 	}
 
 	out := xdshttpfault.HTTPFault{}
 	if in.Delay != nil {
-		out.Delay = &xdsfault.FaultDelay{
-			Type:    xdsfault.FaultDelay_FIXED,
-			Percent: uint32(in.Delay.Percent),
+		out.Delay = &xdsfault.FaultDelay{Type: xdsfault.FaultDelay_FIXED}
+		if util.Is11Proxy(node) {
+			if in.Delay.Percentage != nil {
+				out.Delay.Percentage = translatePercentToFractionalPercent(in.Delay.Percentage)
+			} else {
+				out.Delay.Percentage = translateIntegerToFractionalPercent(in.Delay.Percent)
+			}
+		} else {
+			if in.Delay.Percentage != nil {
+				out.Delay.Percent = uint32(in.Delay.Percentage.Value)
+			} else {
+				out.Delay.Percent = uint32(in.Delay.Percent)
+			}
 		}
 		switch d := in.Delay.HttpDelayType.(type) {
 		case *networking.HTTPFaultInjection_Delay_FixedDelay:
@@ -601,8 +654,19 @@ func translateFault(in *networking.HTTPFaultInjection) *xdshttpfault.HTTPFault {
 	}
 
 	if in.Abort != nil {
-		out.Abort = &xdshttpfault.FaultAbort{
-			Percent: uint32(in.Abort.Percent),
+		out.Abort = &xdshttpfault.FaultAbort{}
+		if util.Is11Proxy(node) {
+			if in.Abort.Percentage != nil {
+				out.Abort.Percentage = translatePercentToFractionalPercent(in.Abort.Percentage)
+			} else {
+				out.Abort.Percentage = translateIntegerToFractionalPercent(in.Abort.Percent)
+			}
+		} else {
+			if in.Abort.Percentage != nil {
+				out.Abort.Percent = uint32(in.Abort.Percentage.Value)
+			} else {
+				out.Abort.Percent = uint32(in.Abort.Percent)
+			}
 		}
 		switch a := in.Abort.ErrorType.(type) {
 		case *networking.HTTPFaultInjection_Abort_HttpStatus:
@@ -622,30 +686,160 @@ func translateFault(in *networking.HTTPFaultInjection) *xdshttpfault.HTTPFault {
 	return &out
 }
 
-func getHashPolicy(configStore model.IstioConfigStore, hostname model.Hostname) *route.RouteAction_HashPolicy {
-	if configStore == nil {
+func portLevelSettingsConsistentHash(dst *networking.Destination,
+	pls []*networking.TrafficPolicy_PortTrafficPolicy) *networking.LoadBalancerSettings_ConsistentHashLB {
+	if dst.Port != nil {
+		switch dst.Port.Port.(type) {
+		case *networking.PortSelector_Name:
+			log.Warnf("using deprecated name on port selector - ignoring")
+		case *networking.PortSelector_Number:
+			portNumber := dst.GetPort().GetNumber()
+			for _, setting := range pls {
+				number := setting.GetPort().GetNumber()
+				if number == portNumber {
+					return setting.GetLoadBalancer().GetConsistentHash()
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+func getHashPolicy(push *model.PushContext, dst *networking.DestinationWeight) *route.RouteAction_HashPolicy {
+	if push == nil {
 		return nil
 	}
 
-	destinationRule := configStore.DestinationRule(hostname)
+	destination := dst.GetDestination()
+	destinationRule := push.DestinationRule(model.Hostname(destination.GetHost()))
 	if destinationRule == nil {
 		return nil
 	}
-
 	rule := destinationRule.Spec.(*networking.DestinationRule)
+
 	consistentHash := rule.GetTrafficPolicy().GetLoadBalancer().GetConsistentHash()
-	if consistentHash == nil {
-		return nil
+	portLevelSettings := rule.GetTrafficPolicy().GetPortLevelSettings()
+	plsHash := portLevelSettingsConsistentHash(destination, portLevelSettings)
+
+	var subsetHash, subsetPLSHash *networking.LoadBalancerSettings_ConsistentHashLB
+	for _, subset := range rule.GetSubsets() {
+		if subset.GetName() == destination.GetSubset() {
+			subsetPortLevelSettings := subset.GetTrafficPolicy().GetPortLevelSettings()
+			subsetHash = subset.GetTrafficPolicy().GetLoadBalancer().GetConsistentHash()
+			subsetPLSHash = portLevelSettingsConsistentHash(destination, subsetPortLevelSettings)
+
+			break
+		}
 	}
 
-	cookie := consistentHash.GetHttpCookie()
-	return &route.RouteAction_HashPolicy{
-		PolicySpecifier: &route.RouteAction_HashPolicy_Cookie_{
-			Cookie: &route.RouteAction_HashPolicy_Cookie{
-				Name: cookie.GetName(),
-				Ttl:  cookie.GetTtl(),
-				Path: cookie.GetPath(),
-			},
-		},
+	switch {
+	case subsetPLSHash != nil:
+		consistentHash = subsetPLSHash
+	case subsetHash != nil:
+		consistentHash = subsetHash
+	case plsHash != nil:
+		consistentHash = plsHash
 	}
+
+	switch consistentHash.GetHashKey().(type) {
+	case *networking.LoadBalancerSettings_ConsistentHashLB_HttpHeaderName:
+		return &route.RouteAction_HashPolicy{
+			PolicySpecifier: &route.RouteAction_HashPolicy_Header_{
+				Header: &route.RouteAction_HashPolicy_Header{
+					HeaderName: consistentHash.GetHttpHeaderName(),
+				},
+			},
+		}
+	case *networking.LoadBalancerSettings_ConsistentHashLB_HttpCookie:
+		cookie := consistentHash.GetHttpCookie()
+
+		return &route.RouteAction_HashPolicy{
+			PolicySpecifier: &route.RouteAction_HashPolicy_Cookie_{
+				Cookie: &route.RouteAction_HashPolicy_Cookie{
+					Name: cookie.GetName(),
+					Ttl:  cookie.GetTtl(),
+					Path: cookie.GetPath(),
+				},
+			},
+		}
+	case *networking.LoadBalancerSettings_ConsistentHashLB_UseSourceIp:
+		return &route.RouteAction_HashPolicy{
+			PolicySpecifier: &route.RouteAction_HashPolicy_ConnectionProperties_{
+				ConnectionProperties: &route.RouteAction_HashPolicy_ConnectionProperties{
+					SourceIp: consistentHash.GetUseSourceIp(),
+				},
+			},
+		}
+	}
+
+	return nil
+}
+
+type envoyRouteType int
+
+const (
+	envoyPath envoyRouteType = iota
+	envoyPrefix
+	envoyRegex
+	envoyCatchAll
+)
+
+func getEnvoyRouteTypeAndVal(r *route.Route) (envoyRouteType, string) {
+	var iType envoyRouteType
+	var iVal string
+
+	switch iR := r.Match.PathSpecifier.(type) {
+	case *route.RouteMatch_Path:
+		iVal = iR.Path
+		iType = envoyPath
+	case *route.RouteMatch_Prefix:
+		iVal = iR.Prefix
+		iType = envoyPrefix
+	case *route.RouteMatch_Regex:
+		iVal = iR.Regex
+		iType = envoyRegex
+	}
+
+	// A route is catch all if and only if it has no header/query param match
+	// and has a prefix / or regex *.
+	if (iVal == "/" && iType == envoyPrefix) || (iVal == "*" && iType == envoyRegex) {
+		if len(r.Match.Headers) == 0 && len(r.Match.QueryParameters) == 0 {
+			iType = envoyCatchAll
+		}
+	}
+	return iType, iVal
+}
+
+// CombineVHostRoutes semi concatenates two Vhost's routes into a single route set.
+// Moves the catch all routes alone to the end, while retaining
+// the relative order of other routes in the concatenated route.
+// Assumes that the virtual services that generated first and second are ordered by
+// time.
+func CombineVHostRoutes(first []route.Route, second []route.Route) []route.Route {
+	allroutes := make([]route.Route, 0, len(first)+len(second))
+	catchAllRoutes := make([]route.Route, 0)
+
+	for _, f := range first {
+		rType, _ := getEnvoyRouteTypeAndVal(&f)
+		switch rType {
+		case envoyCatchAll:
+			catchAllRoutes = append(catchAllRoutes, f)
+		default:
+			allroutes = append(allroutes, f)
+		}
+	}
+
+	for _, s := range second {
+		rType, _ := getEnvoyRouteTypeAndVal(&s)
+		switch rType {
+		case envoyCatchAll:
+			catchAllRoutes = append(catchAllRoutes, s)
+		default:
+			allroutes = append(allroutes, s)
+		}
+	}
+
+	allroutes = append(allroutes, catchAllRoutes...)
+	return allroutes
 }

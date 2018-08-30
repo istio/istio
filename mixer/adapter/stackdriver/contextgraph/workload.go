@@ -83,8 +83,12 @@ func (wi workloadInstance) Reify(logger adapter.Logger) ([]entity, []edge) {
 		[4]string{meshUID, workloadNamespace, workloadName, ""},
 	}
 	// TODO: Figure out what the container is for non-GCE clusters.
-	clusterContainer := fmt.Sprintf("//container.googleapis.com/projects/%s/zones/%s/clusters/%s",
-		wi.clusterProject, wi.clusterLocation, wi.clusterName)
+	clusterLocationType := "locations"
+	if strings.Count(clusterLocation, "-") == 2 {
+		clusterLocationType = "zones"
+	}
+	clusterContainer := fmt.Sprintf("//container.googleapis.com/projects/%s/%s/%s/clusters/%s",
+		wi.clusterProject, clusterLocationType, wi.clusterLocation, wi.clusterName)
 
 	var ownerK8sFullName string
 	t := strings.Split(wi.owner, "/")

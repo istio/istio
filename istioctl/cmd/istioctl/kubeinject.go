@@ -157,7 +157,7 @@ ConfigMap, Deployment, etc. definitions for a complex application. Its
 best to do this when the resource is initially created.
 
 k8s.io/docs/concepts/workloads/pods/pod-overview/#pod-templates is
-updated for Job, DaemonSet, ReplicaSet, and Deployment YAML resource
+updated for Job, DaemonSet, ReplicaSet, Pod and Deployment YAML resource
 documents. Support for additional pod-based resource types can be
 added as necessary.
 

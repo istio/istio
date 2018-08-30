@@ -749,6 +749,659 @@
           "show": true
         }
       ]
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "Prometheus",
+      "fill": 1,
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 19
+      },
+      "id": 45,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "links": [],
+      "nullPointMode": "null",
+      "percentage": false,
+      "pointradius": 5,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "pilot_conflict_inbound_listener{job=\"pilot\"}",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "Inbound Listeners",
+          "refId": "B"
+        },
+        {
+          "expr": "pilot_conflict_outbound_listener_http_over_current_tcp{job=\"pilot\"}",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "Outbound Listeners (http over current tcp)",
+          "refId": "A"
+        },
+        {
+          "expr": "pilot_conflict_outbound_listener_tcp_over_current_tcp{job=\"pilot\"}",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "Outbound Listeners (tcp over current tcp)",
+          "refId": "C"
+        },
+        {
+          "expr": "pilot_conflict_outbound_listener_tcp_over_current_http{job=\"pilot\"}",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "Outbound Listeners (tcp over current http)",
+          "refId": "D"
+        },
+        {
+          "expr": "pilot_conf_filter_chains{job=\"pilot\"}",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "Filter Chains",
+          "refId": "E"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "Conflicts",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ]
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "Prometheus",
+      "fill": 1,
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 19
+      },
+      "id": 47,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "links": [],
+      "nullPointMode": "null",
+      "percentage": false,
+      "pointradius": 5,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "pilot_virt_services{job=\"pilot\"}",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "Virtual Services",
+          "refId": "A"
+        },
+        {
+          "expr": "pilot_services{job=\"pilot\"}",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "Services",
+          "refId": "B"
+        },
+        {
+          "expr": "label_replace(sum(pilot_xds_cds_reject{job=\"pilot\"}) by (node, err), \"node\", \"$1\", \"node\", \".*~.*~(.*)~.*\")",
+          "format": "time_series",
+          "hide": true,
+          "intervalFactor": 1,
+          "legendFormat": "Rejected CDS Configs - {{ node }}: {{ err }}",
+          "refId": "C"
+        },
+        {
+          "expr": "pilot_xds_eds_reject{job=\"pilot\"}",
+          "format": "time_series",
+          "hide": true,
+          "intervalFactor": 1,
+          "legendFormat": "Rejected EDS Configs",
+          "refId": "D"
+        },
+        {
+          "expr": "pilot_xds{job=\"pilot\"}",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "Connected Endpoints",
+          "refId": "E"
+        },
+        {
+          "expr": "rate(pilot_xds_write_timeout{job=\"pilot\"}[1m])",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "Write Timeouts",
+          "refId": "F"
+        },
+        {
+          "expr": "rate(pilot_xds_push_timeout{job=\"pilot\"}[1m])",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "Push Timeouts",
+          "refId": "G"
+        },
+        {
+          "expr": "rate(pilot_xds_pushes{job=\"pilot\"}[1m])",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "Pushes ({{ type }})",
+          "refId": "H"
+        },
+        {
+          "expr": "rate(pilot_xds_push_errors{job=\"pilot\"}[1m])",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "Push Errors ({{ type }})",
+          "refId": "I"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "ADS Monitoring",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ]
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "Prometheus",
+      "fill": 1,
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 19
+      },
+      "id": 49,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "links": [],
+      "nullPointMode": "null",
+      "percentage": false,
+      "pointradius": 5,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "label_replace(sum(pilot_xds_cds_reject{job=\"pilot\"}) by (node, err), \"node\", \"$1\", \"node\", \".*~.*~(.*)~.*\")",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "{{ node }}  ({{ err }})",
+          "refId": "A"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "Rejected CDS Configs",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ]
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "Prometheus",
+      "fill": 1,
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 0,
+        "y": 27
+      },
+      "id": 52,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "links": [],
+      "nullPointMode": "null",
+      "percentage": false,
+      "pointradius": 5,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "label_replace(sum(pilot_xds_eds_reject{job=\"pilot\"}) by (node, err), \"node\", \"$1\", \"node\", \".*~.*~(.*)~.*\")",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "{{ node }} ({{err}})",
+          "refId": "A"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "Rejected EDS Configs",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ]
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "Prometheus",
+      "fill": 1,
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 8,
+        "y": 27
+      },
+      "id": 54,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "links": [],
+      "nullPointMode": "null",
+      "percentage": false,
+      "pointradius": 5,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "label_replace(sum(pilot_xds_lds_reject{job=\"pilot\"}) by (node, err), \"node\", \"$1\", \"node\", \".*~.*~(.*)~.*\")",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "{{ node }} ({{err}})",
+          "refId": "A"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "Rejected LDS Configs",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ]
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "Prometheus",
+      "fill": 1,
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 16,
+        "y": 27
+      },
+      "id": 53,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "links": [],
+      "nullPointMode": "null",
+      "percentage": false,
+      "pointradius": 5,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "label_replace(sum(pilot_xds_rds_reject{job=\"pilot\"}) by (node, err), \"node\", \"$1\", \"node\", \".*~.*~(.*)~.*\")",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "{{ node }} ({{err}})",
+          "refId": "A"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "Rejected RDS Configs",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ]
+    },
+    {
+      "aliasColors": {
+        "outbound|80||default-http-backend.kube-system.svc.cluster.local": "rgba(255, 255, 255, 0.97)"
+      },
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "Prometheus",
+      "fill": 1,
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 0,
+        "y": 34
+      },
+      "id": 51,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "links": [],
+      "nullPointMode": "null",
+      "percentage": false,
+      "pointradius": 5,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [
+        {
+          "alias": "outbound|80||default-http-backend.kube-system.svc.cluster.local",
+          "yaxis": 1
+        }
+      ],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "sum(pilot_xds_eds_instances{job=\"pilot\"}) by (cluster)",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "{{ cluster }}",
+          "refId": "A"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "EDS Instances",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ]
     }
   ],
   "refresh": "5s",
@@ -790,5 +1443,5 @@
   "timezone": "browser",
   "title": "Pilot Dashboard",
   "uid": "3",
-  "version": 3
+  "version": 5
 }

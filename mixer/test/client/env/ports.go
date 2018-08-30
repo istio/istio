@@ -33,6 +33,7 @@ const (
 	DisableTCPCheckCallsTest
 	FailedRequestTest
 	FaultInjectTest
+	GlobalDictionaryTest
 	JWTAuthTest
 	MixerInternalFailTest
 	NetworkFailureTest
@@ -53,6 +54,10 @@ const (
 	RouteDirectiveTest
 	DynamicAttributeTest
 	DynamicListenerTest
+	PilotPluginTest
+	PilotPluginTCPTest
+	PilotPluginTLSTest
+	PilotMCPTest
 
 	// The number of total tests. has to be the last one.
 	maxTestNum

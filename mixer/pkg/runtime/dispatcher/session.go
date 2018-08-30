@@ -17,16 +17,17 @@ package dispatcher
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"strings"
 
 	"github.com/gogo/googleapis/google/rpc"
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
+	"go.opencensus.io/stats"
 
 	tpb "istio.io/api/mixer/adapter/model/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/pool"
+	"istio.io/istio/mixer/pkg/runtime/monitoring"
 	"istio.io/istio/mixer/pkg/runtime/routing"
 	"istio.io/istio/mixer/pkg/status"
 	"istio.io/istio/pkg/log"
@@ -106,23 +107,14 @@ func (s *session) dispatch() error {
 	namespace, err := getIdentityNamespace(s.bag)
 	if err != nil {
 		// early return.
-		updateRequestCounters(0, 0)
+		stats.Record(s.ctx,
+			monitoring.DestinationsPerRequest.M(0),
+			monitoring.InstancesPerRequest.M(0))
+
 		log.Warnf("unable to determine identity namespace: '%v', operation='%d'", err, s.variety)
 		return err
 	}
 	destinations := s.rc.Routes.GetDestinations(s.variety, namespace)
-
-	// TODO: some adapters assume destination service existence, pass via context
-	destinationService := ""
-	v, ok := s.bag.Get("destination.service")
-	if ok {
-		destinationService = v.(string)
-	}
-	ctx := adapter.NewContextWithRequestData(s.ctx, &adapter.RequestData{
-		DestinationService: adapter.Service{
-			FullName: destinationService,
-		},
-	})
 
 	// Ensure that we can run dispatches to all destinations in parallel.
 	s.ensureParallelism(destinations.Count())
@@ -137,26 +129,35 @@ func (s *session) dispatch() error {
 			// We buffer states for report calls and dispatch them later
 			state = s.reportStates[destination]
 			if state == nil {
-				state = s.impl.getDispatchState(ctx, destination)
+				state = s.impl.getDispatchState(s.ctx, destination)
 				s.reportStates[destination] = state
 			}
 		}
 
 		for _, group := range destination.InstanceGroups {
-			if !group.Matches(s.bag) {
-				continue
+			groupMatched := group.Matches(s.bag)
+
+			if groupMatched {
+				ndestinations++
 			}
-			ndestinations++
 
 			for j, input := range group.Builders {
 				if s.variety == tpb.TEMPLATE_VARIETY_QUOTA {
 					// only dispatch instances with a matching name
-
 					if !strings.EqualFold(input.InstanceShortName, s.quotaArgs.Quota) {
 						continue
 					}
-
+					if !groupMatched {
+						// This is a conditional quota and it does not apply to the requester
+						// return what was requested
+						s.quotaResult.Amount = s.quotaArgs.Amount
+						s.quotaResult.ValidDuration = defaultValidDuration
+					}
 					foundQuota = true
+				}
+
+				if !groupMatched {
+					continue
 				}
 
 				var instance interface{}
@@ -174,7 +175,7 @@ func (s *session) dispatch() error {
 				}
 
 				// for other templates, dispatch for each instance individually.
-				state = s.impl.getDispatchState(ctx, destination)
+				state = s.impl.getDispatchState(s.ctx, destination)
 				state.instances = append(state.instances, instance)
 				if s.variety == tpb.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR {
 					state.mapper = group.Mappers[j]
@@ -190,12 +191,18 @@ func (s *session) dispatch() error {
 		}
 	}
 
-	updateRequestCounters(ndestinations, ninputs)
+	stats.Record(s.ctx,
+		monitoring.DestinationsPerRequest.M(int64(ndestinations)),
+		monitoring.InstancesPerRequest.M(int64(ninputs)))
+
 	s.waitForDispatched()
 
 	if s.variety == tpb.TEMPLATE_VARIETY_QUOTA && !foundQuota {
-		log.Errorf("Requested quota '%s' is invalid", s.quotaArgs.Quota)
-		s.err = multierror.Append(s.err, fmt.Errorf("requested quota '%s' is invalid", s.quotaArgs.Quota))
+		// If quota is not found it is very likely that quotaSpec / quotaSpecBinding was applied first
+		// We still err on the side of allowing access, but warn about the fact that quota was not found.
+		s.quotaResult.Amount = s.quotaArgs.Amount
+		s.quotaResult.ValidDuration = defaultValidDuration
+		log.Warnf("Requested quota '%s' is not configured", s.quotaArgs.Quota)
 	}
 
 	return nil

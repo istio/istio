@@ -12,7 +12,6 @@
 set -ex
 
 SECURITY_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"
-DOCKER_IMAGE="citadel,citadel-test,node-agent,node-agent-test"
 
 ARGS=""
 HUB=""
@@ -50,11 +49,11 @@ if [[ -z $CERT_DIR ]]; then
 fi
 
 # Run integration tests
-go test -v istio.io/istio/security/tests/integration/certificateRotationTest $ARGS  \
--kube-config=$HOME/.kube/config
+go test -v istio.io/istio/security/tests/integration/certificateRotationTest "$ARGS"  \
+-kube-config="$HOME/.kube/config"
 
-go test -v istio.io/istio/security/tests/integration/secretCreationTest $ARGS  \
--kube-config=$HOME/.kube/config
+go test -v istio.io/istio/security/tests/integration/secretCreationTest "$ARGS"  \
+-kube-config="$HOME/.kube/config"
 
 #See issue #3181 test below fails automated tests
 #go test -v istio.io/istio/security/tests/integration/nodeAgentTest $ARGS  \

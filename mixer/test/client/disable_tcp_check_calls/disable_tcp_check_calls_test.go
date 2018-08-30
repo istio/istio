@@ -22,7 +22,7 @@ import (
 )
 
 // Report attributes from a good POST request
-const reportAttributesOkPost = `
+const reportAttributesOkPostOpen = `
 {
   "context.protocol": "tcp",
   "context.time": "*",
@@ -33,6 +33,27 @@ const reportAttributesOkPost = `
   "destination.ip": "[127 0 0 1]",
   "destination.port": "*",
   "connection.mtls": false,
+  "origin.ip": "[127 0 0 1]",
+  "connection.received.bytes": "*",
+  "connection.received.bytes_total": "*",
+  "connection.sent.bytes": "*",
+  "connection.sent.bytes_total": "*",
+  "connection.id": "*",
+  "connection.event": "open"
+}
+`
+const reportAttributesOkPostClose = `
+{
+  "context.protocol": "tcp",
+  "context.time": "*",
+  "mesh1.ip": "[1 1 1 1]",
+  "source.ip": "[127 0 0 1]",
+  "target.uid": "POD222",
+  "target.namespace": "XYZ222",
+  "destination.ip": "[127 0 0 1]",
+  "destination.port": "*",
+  "connection.mtls": false,
+  "origin.ip": "[127 0 0 1]",
   "connection.received.bytes": "*",
   "connection.received.bytes_total": "*",
   "connection.sent.bytes": "*",
@@ -52,7 +73,7 @@ var expectedStats = map[string]int{
 	"tcp_mixer_filter.total_remote_check_calls":          0,
 	"tcp_mixer_filter.total_remote_quota_calls":          0,
 	"tcp_mixer_filter.total_remote_report_calls":         1,
-	"tcp_mixer_filter.total_report_calls":                1,
+	"tcp_mixer_filter.total_report_calls":                2,
 }
 
 func TestDisableTCPCheckCalls(t *testing.T) {
@@ -74,6 +95,6 @@ func TestDisableTCPCheckCalls(t *testing.T) {
 		t.Errorf("Failed in request %s: %v", tag, err)
 	}
 	s.VerifyCheckCount(tag, 0)
-	s.VerifyReport(tag, reportAttributesOkPost)
+	s.VerifyTwoReports(tag, reportAttributesOkPostOpen, reportAttributesOkPostClose)
 	s.VerifyStats(expectedStats)
 }

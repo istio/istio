@@ -23,5 +23,14 @@ webhooks:
         resources: ["pods"]
     failurePolicy: Fail
     namespaceSelector:
+{{- if .Values.enableNamespacesByDefault }}
+      matchExpressions:
+      - key: istio-injection
+        operator: NotIn
+        values:
+        - disabled
+{{- else }}
       matchLabels:
         istio-injection: enabled
+{{- end }}
+
