@@ -72,6 +72,12 @@ func (s *grpcServer) Check(ctx context.Context, req *mixerpb.CheckRequest) (*mix
 	lg.Debugf("Check (GlobalWordCount:%d, DeduplicationID:%s, Quota:%v)", req.GlobalWordCount, req.DeduplicationId, req.Quotas)
 	lg.Debug("Dispatching Preprocess Check")
 
+	if req.GlobalWordCount > uint32(len(s.globalWordList)) {
+		err := fmt.Errorf("inconsistent global dictionary versions used: mixer knows %d words, caller knows %d", len(s.globalWordList), req.GlobalWordCount)
+		lg.Errora("Check failed:", err.Error())
+		return nil, grpc.Errorf(codes.Internal, err.Error())
+	}
+
 	// bag around the input proto that keeps track of reference attributes
 	protoBag := attribute.NewProtoBag(&req.Attributes, s.globalDict, s.globalWordList)
 
@@ -211,6 +217,12 @@ var reportResp = &mixerpb.ReportResponse{}
 // Report is the entry point for the external Report method
 func (s *grpcServer) Report(ctx context.Context, req *mixerpb.ReportRequest) (*mixerpb.ReportResponse, error) {
 	lg.Debugf("Report (Count: %d)", len(req.Attributes))
+
+	if req.GlobalWordCount > uint32(len(s.globalWordList)) {
+		err := fmt.Errorf("inconsistent global dictionary versions used: mixer knows %d words, caller knows %d", len(s.globalWordList), req.GlobalWordCount)
+		lg.Errora("Report failed:", err.Error())
+		return nil, grpc.Errorf(codes.Internal, err.Error())
+	}
 
 	if len(req.Attributes) == 0 {
 		// early out

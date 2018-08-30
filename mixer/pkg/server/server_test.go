@@ -21,6 +21,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strconv"
 	"testing"
 
 	"go.opencensus.io/stats/view"
@@ -271,6 +272,12 @@ func TestErrors(t *testing.T) {
 				a.APIAddress = "unix:///dev/null"
 			},
 		},
+		{"Unix API address failed",
+			func(a *Args, pt *patchTable) {
+				a.APIAddress = "unix://a/b/c"
+				pt.remove = func(name string) error { return errors.New("BAD") }
+			},
+		},
 	}
 
 	// This test is designed to exercise the many failure paths in the server creation
@@ -304,6 +311,30 @@ func TestErrors(t *testing.T) {
 
 			// cleanup
 			configStore.Stop()
+		})
+	}
+}
+
+func TestExtractNetAddress(t *testing.T) {
+	cases := []struct {
+		apiPort       uint16
+		apiAddress    string
+		resultNetwork string
+		resultAddress string
+	}{
+		{0, "tcp://127.0.0.1:0", "tcp", "127.0.0.1:0"},
+		{0, ":0", "tcp", ":0"},
+		{0, "unix://a/b/c", "unix", "a/b/c"},
+		{132, "", "tcp", ":132"},
+	}
+
+	for i, c := range cases {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			n, a := extractNetAddress(c.apiPort, c.apiAddress)
+
+			if n != c.resultNetwork || a != c.resultAddress {
+				t.Errorf("Expecting %s:%s, got %s:%s", c.resultNetwork, c.resultAddress, n, a)
+			}
 		})
 	}
 }

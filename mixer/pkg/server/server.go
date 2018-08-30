@@ -81,6 +81,7 @@ type patchTable struct {
 	listen        listenFunc
 	configLog     func(options *log.Options) error
 	runtimeListen func(runtime *runtime.Runtime) error
+	remove        func(name string) error
 
 	// monitoring-related setup
 	newOpenCensusExporter   func() (view.Exporter, error)
@@ -100,6 +101,7 @@ func newPatchTable() *patchTable {
 		listen:        net.Listen,
 		configLog:     log.Configure,
 		runtimeListen: func(rt *runtime.Runtime) error { return rt.StartListening() },
+		remove:        os.Remove,
 		newOpenCensusExporter: func() (view.Exporter, error) {
 			return prometheus.NewExporter(prometheus.Options{Registry: oprometheus.DefaultRegisterer.(*oprometheus.Registry)})
 		},
@@ -149,21 +151,11 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 	}
 
 	// get the network stuff setup
-	network := "tcp"
-	address := fmt.Sprintf(":%d", a.APIPort)
-	if a.APIAddress != "" {
-		idx := strings.Index(a.APIAddress, "://")
-		if idx < 0 {
-			address = a.APIAddress
-		} else {
-			network = a.APIAddress[:idx]
-			address = a.APIAddress[idx+3:]
-		}
-	}
+	network, address := extractNetAddress(a.APIPort, a.APIAddress)
 
 	if network == "unix" {
 		// remove Unix socket before use.
-		if err = os.Remove(address); err != nil && !os.IsNotExist(err) {
+		if err = p.remove(address); err != nil && !os.IsNotExist(err) {
 			// Anything other than "file not found" is an error.
 			return nil, fmt.Errorf("unable to remove unix://%s: %v", address, err)
 		}
@@ -268,6 +260,19 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 	s.controlZ, _ = ctrlz.Run(a.IntrospectionOptions, nil)
 
 	return s, nil
+}
+
+func extractNetAddress(apiPort uint16, apiAddress string) (string, string) {
+	if apiAddress != "" {
+		idx := strings.Index(apiAddress, "://")
+		if idx < 0 {
+			return "tcp", apiAddress
+		}
+
+		return apiAddress[:idx], apiAddress[idx+3:]
+	}
+
+	return "tcp", fmt.Sprintf(":%d", apiPort)
 }
 
 // Run enables Mixer to start receiving gRPC requests on its main API port.
