@@ -191,10 +191,6 @@ metadata:
   namespace: {{ .Release.Namespace }}
 spec:
   compiledAdapter: stdio
-<<<<<<< HEAD
-=======
-  adapter: stdio
->>>>>>> Refactor Mixer Adapter CRDs
   params:
     outputAsJson: true
 ---
@@ -472,10 +468,6 @@ metadata:
   namespace: {{ .Release.Namespace }}
 spec:
   compiledAdapter: prometheus
-<<<<<<< HEAD
-=======
-  adapter: prometheus
->>>>>>> Refactor Mixer Adapter CRDs
   params:
     metrics:
     - name: requests_total
@@ -650,10 +642,6 @@ metadata:
   namespace: {{ .Release.Namespace }}
 spec:
   compiledAdapter: kubernetesenv
-<<<<<<< HEAD
-=======
-  adapter: kubernetesenv
->>>>>>> Refactor Mixer Adapter CRDs
   params:
     # when running from mixer root, use the following config after adding a
     # symbolic link to a kubernetes config file via:
