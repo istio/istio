@@ -261,7 +261,7 @@ func (e *Ephemeral) processStaticAdapterHandlerConfigs(ctx context.Context, errs
 				c := staticConfig.Adapter.DefaultConfig
 				switch v := handlerProto.Params.(type) {
 				case map[string]interface{}:
-					if err := convert(v, c); err != nil {
+					if err := convert(v, proto.Clone(c)); err != nil {
 						log.Warnf("could not convert handler params; using default config: %v", err)
 					}
 				default:

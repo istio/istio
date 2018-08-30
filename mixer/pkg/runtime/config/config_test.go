@@ -533,7 +533,6 @@ Attributes:
 					Spec: &configpb.Handler{
 						Name:            "a1",
 						CompiledAdapter: "adapter1",
-						Adapter:         "adapter1",
 					},
 				},
 			},
@@ -572,7 +571,6 @@ Attributes:
 					Spec: &configpb.Handler{
 						Name:            "a2",
 						CompiledAdapter: "adapter2",
-						Adapter:         "adapter2",
 						Params:          adapter2Params,
 					},
 				},
@@ -591,11 +589,118 @@ AdaptersStatic:
 HandlersStatic:
   Name:    a2.ns
   Adapter: adapter2
-  Params:  &Struct{Fields:map[string]*Value{pqr: &Value{Kind:&Value_StringValue{StringValue:abcstring,},XXX_unrecognized:[],},},XXX_unrecognized:[],}
+  Params:  &Struct{Fields:map[string]*Value{},XXX_unrecognized:[],}
 InstancesStatic:
 Rules:
 Attributes:
   template.attr: BOOL
+`,
+	},
+
+	{
+		Name: "basic static handler cr with dynamic cr",
+		Events1: []*store.Event{
+			{
+				Key: store.Key{
+					Name:      "h1",
+					Namespace: "ns",
+					Kind:      "handler",
+				},
+				Type: store.Update,
+				Value: &store.Resource{
+					Spec: &configpb.Handler{
+						Name:            "a2",
+						CompiledAdapter: "adapter2",
+					},
+				},
+			},
+			updateEvent("a1.adapter.default", &adapter_model.Info{
+				Description:  "testAdapter description",
+				SessionBased: true,
+				Config:       adpt1DescBase64,
+				Templates:    []string{},
+			}),
+			updateEvent("h1.handler.default", &descriptorpb.Handler{
+				Adapter: "a1.default",
+				Params:  adapter1Params,
+			}),
+		},
+		E: `
+ID: 0
+TemplatesStatic:
+	Name: apa
+	Name: check
+	Name: quota
+	Name: report
+AdaptersStatic:
+	Name: adapter1
+	Name: adapter2
+HandlersStatic:
+	Name:    h1.ns
+	Adapter: adapter2
+	Params:  &Struct{Fields:map[string]*Value{},XXX_unrecognized:[],}
+InstancesStatic:
+Rules:
+AdaptersDynamic:
+	Name:      a1.adapter.default
+	Templates:
+HandlersDynamic:
+	Name:    h1.handler.default
+	Adapter: a1.adapter.default
+Attributes:
+	template.attr: BOOL
+`,
+	},
+
+	{
+		Name: "basic static handler cr with same-name dynamic cr",
+		Events1: []*store.Event{
+			{
+				Key: store.Key{
+					Name:      "h1",
+					Namespace: "ns",
+					Kind:      "handler",
+				},
+				Type: store.Update,
+				Value: &store.Resource{
+					Spec: &configpb.Handler{
+						Name:            "a2",
+						CompiledAdapter: "adapter2",
+					},
+				},
+			},
+			updateEvent("a1.adapter.default", &adapter_model.Info{
+				Description:  "testAdapter description",
+				SessionBased: true,
+				Config:       adpt1DescBase64,
+				Templates:    []string{},
+			}),
+			updateEvent("h1.handler.ns", &descriptorpb.Handler{
+				Adapter: "a1.default",
+				Params:  adapter1Params,
+			}),
+		},
+		E: `
+ID: 0
+TemplatesStatic:
+	Name: apa
+	Name: check
+	Name: quota
+	Name: report
+AdaptersStatic:
+	Name: adapter1
+	Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+AdaptersDynamic:
+	Name:      a1.adapter.default
+	Templates:
+HandlersDynamic:
+	Name:    h1.handler.ns
+	Adapter: a1.adapter.default
+Attributes:
+	template.attr: BOOL
 `,
 	},
 
