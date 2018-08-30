@@ -5,7 +5,6 @@ metadata:
   namespace: istio-system
 spec:
   compiledAdapter: stdio
-  adapter: stdio
   params:
     outputAsJson: true
 ---

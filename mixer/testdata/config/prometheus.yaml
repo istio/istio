@@ -158,7 +158,6 @@ spec:
     - connection_mtls
 =======
   compiledAdapter: prometheus
-  adapter: prometheus
   params:
     metrics:
     - name: requests_total

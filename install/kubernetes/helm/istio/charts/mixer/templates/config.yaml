@@ -191,7 +191,6 @@ metadata:
   namespace: {{ .Release.Namespace }}
 spec:
   compiledAdapter: stdio
-  adapter: stdio
   params:
     outputAsJson: true
 ---
@@ -469,7 +468,6 @@ metadata:
   namespace: {{ .Release.Namespace }}
 spec:
   compiledAdapter: prometheus
-  adapter: prometheus
   params:
     metrics:
     - name: requests_total
@@ -644,7 +642,6 @@ metadata:
   namespace: {{ .Release.Namespace }}
 spec:
   compiledAdapter: kubernetesenv
-  adapter: kubernetesenv
   params:
     # when running from mixer root, use the following config after adding a
     # symbolic link to a kubernetes config file via:
