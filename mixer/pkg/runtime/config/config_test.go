@@ -589,7 +589,7 @@ AdaptersStatic:
 HandlersStatic:
   Name:    a2.ns
   Adapter: adapter2
-  Params:  &Struct{Fields:map[string]*Value{pqr: &Value{Kind:&Value_StringValue{StringValue:abcstring,},XXX_unrecognized:[],},},XXX_unrecognized:[],}
+  Params:  &Struct{Fields:map[string]*Value{},XXX_unrecognized:[],}
 InstancesStatic:
 Rules:
 Attributes:
