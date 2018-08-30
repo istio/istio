@@ -269,7 +269,7 @@ func TestErrors(t *testing.T) {
 		},
 		{"unix socket removal",
 			func(a *Args, pt *patchTable) {
-				a.APIAddress = "unix:///dev/null"
+				a.APIAddress = "unix:///dev"
 			},
 		},
 		{"Unix API address failed",
