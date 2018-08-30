@@ -45,14 +45,15 @@ func newIstioStoreWithConfigs(configs []model.Config, t *testing.T) model.IstioC
 }
 
 func newRbacConfig(mode rbacproto.RbacConfig_Mode,
-	include *rbacproto.RbacConfig_Target, exclude *rbacproto.RbacConfig_Target) model.Config {
+	include *rbacproto.RbacConfig_Target, exclude *rbacproto.RbacConfig_Target, enforceMode rbacproto.EnforcementMode) model.Config {
 	return model.Config{
 		ConfigMeta: model.ConfigMeta{
 			Type: model.RbacConfig.Type, Name: model.DefaultRbacConfigName},
 		Spec: &rbacproto.RbacConfig{
-			Mode:      mode,
-			Inclusion: include,
-			Exclusion: exclude,
+			Mode:            mode,
+			Inclusion:       include,
+			Exclusion:       exclude,
+			EnforcementMode: enforceMode,
 		},
 	}
 }
@@ -62,40 +63,42 @@ func TestIsRbacEnabled(t *testing.T) {
 		Services:   []string{"review.default.svc", "product.default.svc"},
 		Namespaces: []string{"special"},
 	}
-	cfg1 := newRbacConfig(rbacproto.RbacConfig_ON, nil, nil)
-	cfg2 := newRbacConfig(rbacproto.RbacConfig_OFF, nil, nil)
-	cfg3 := newRbacConfig(rbacproto.RbacConfig_ON_WITH_INCLUSION, target, nil)
-	cfg4 := newRbacConfig(rbacproto.RbacConfig_ON_WITH_EXCLUSION, nil, target)
+	cfg1 := newRbacConfig(rbacproto.RbacConfig_ON, nil, nil, rbacproto.EnforcementMode_ENFORCED)
+	cfg2 := newRbacConfig(rbacproto.RbacConfig_OFF, nil, nil, rbacproto.EnforcementMode_ENFORCED)
+	cfg3 := newRbacConfig(rbacproto.RbacConfig_ON_WITH_INCLUSION, target, nil, rbacproto.EnforcementMode_ENFORCED)
+	cfg4 := newRbacConfig(rbacproto.RbacConfig_ON_WITH_EXCLUSION, nil, target, rbacproto.EnforcementMode_ENFORCED)
+	cfg5 := newRbacConfig(rbacproto.RbacConfig_ON, nil, nil, rbacproto.EnforcementMode_PERMISSIVE)
 
 	testCases := []struct {
-		Name      string
-		Store     model.IstioConfigStore
-		Service   string
-		Namespace string
-		Ret       bool
+		Name               string
+		Store              model.IstioConfigStore
+		Service            string
+		Namespace          string
+		ExpectedEnabled    bool
+		ExpectedPermissive bool
 	}{
 		{
-			Name:  "rbac plugin enabled",
-			Store: newIstioStoreWithConfigs([]model.Config{cfg1}, t),
-			Ret:   true,
+			Name:            "rbac plugin enabled",
+			Store:           newIstioStoreWithConfigs([]model.Config{cfg1}, t),
+			ExpectedEnabled: true,
 		},
 		{
 			Name:  "rbac plugin disabled",
 			Store: newIstioStoreWithConfigs([]model.Config{cfg2}, t),
 		},
 		{
-			Name:      "rbac plugin enabled by inclusion.service",
-			Store:     newIstioStoreWithConfigs([]model.Config{cfg3}, t),
-			Service:   "product.default.svc",
-			Namespace: "default",
-			Ret:       true,
+			Name:            "rbac plugin enabled by inclusion.service",
+			Store:           newIstioStoreWithConfigs([]model.Config{cfg3}, t),
+			Service:         "product.default.svc",
+			Namespace:       "default",
+			ExpectedEnabled: true,
 		},
 		{
-			Name:      "rbac plugin enabled by inclusion.namespace",
-			Store:     newIstioStoreWithConfigs([]model.Config{cfg3}, t),
-			Service:   "other.special.svc",
-			Namespace: "special",
-			Ret:       true,
+			Name:            "rbac plugin enabled by inclusion.namespace",
+			Store:           newIstioStoreWithConfigs([]model.Config{cfg3}, t),
+			Service:         "other.special.svc",
+			Namespace:       "special",
+			ExpectedEnabled: true,
 		},
 		{
 			Name:      "rbac plugin disabled by exclusion.service",
@@ -109,12 +112,22 @@ func TestIsRbacEnabled(t *testing.T) {
 			Service:   "other.special.svc",
 			Namespace: "special",
 		},
+		{
+			Name:               "rbac plugin enabled with permissive",
+			Store:              newIstioStoreWithConfigs([]model.Config{cfg5}, t),
+			ExpectedEnabled:    true,
+			ExpectedPermissive: true,
+		},
 	}
 
 	for _, tc := range testCases {
-		ret := isRbacEnabled(tc.Service, tc.Namespace, tc.Store)
-		if tc.Ret != ret {
-			t.Errorf("%s: expecting %v but got %v", tc.Name, tc.Ret, ret)
+		gotEnabled, gotPermissive := isRbacEnabled(tc.Service, tc.Namespace, tc.Store)
+		if tc.ExpectedEnabled != gotEnabled {
+			t.Errorf("%s: expecting %v but got %v", tc.Name, tc.ExpectedEnabled, gotEnabled)
+		}
+
+		if tc.ExpectedPermissive != gotPermissive {
+			t.Errorf("%s: expecting %v but got %v", tc.Name, tc.ExpectedPermissive, gotPermissive)
 		}
 	}
 }
@@ -200,7 +213,7 @@ func TestBuildTCPFilter(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		filter := buildTCPFilter(tc.Service, tc.Store)
+		filter := buildTCPFilter(tc.Service, tc.Store, false /*global permissive mode*/)
 		if fn := "envoy.filters.network.rbac"; filter.Name != fn {
 			t.Errorf("%s: expecting filter name %s, but got %s", tc.Name, fn, filter.Name)
 		}
@@ -259,10 +272,11 @@ func TestBuildHTTPFilter(t *testing.T) {
 	}
 	store := newIstioStoreWithConfigs([]model.Config{roleCfg, roleCfgWithoutBinding, bindingCfg}, t)
 	testCases := []struct {
-		Name    string
-		Service *serviceMetadata
-		Store   model.IstioConfigStore
-		Policy  string
+		Name             string
+		Service          *serviceMetadata
+		Store            model.IstioConfigStore
+		Policy           string
+		globalPermissive bool
 	}{
 		{
 			Name: "no matched role",
@@ -286,7 +300,7 @@ func TestBuildHTTPFilter(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		filter := buildHTTPFilter(tc.Service, tc.Store)
+		filter := buildHTTPFilter(tc.Service, tc.Store, tc.globalPermissive)
 		if fn := "envoy.filters.http.rbac"; filter.Name != fn {
 			t.Errorf("%s: expecting filter name %s, but got %s", tc.Name, fn, filter.Name)
 		}
@@ -831,10 +845,11 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		rbac := convertRbacRulesToFilterConfig(tc.service, tc.option)
+		rbac := convertRbacRulesToFilterConfig(tc.service, tc.option, false /*global permissive mode*/)
 		if !reflect.DeepEqual(*tc.rbac, *rbac.Rules) {
 			t.Errorf("%s want:\n%v\nbut got:\n%v", tc.name, *tc.rbac, *rbac.Rules)
 		}
+
 	}
 }
 
@@ -963,7 +978,7 @@ func TestConvertRbacRulesToFilterConfigForServiceWithBothHTTPAndTCP(t *testing.T
 	}
 
 	for _, tc := range testCases {
-		rbac := convertRbacRulesToFilterConfig(&serviceMetadata{name: "svc_http_tcp"}, tc.option)
+		rbac := convertRbacRulesToFilterConfig(&serviceMetadata{name: "svc_http_tcp"}, tc.option, false /*global permissive mode*/)
 		if rbac.ShadowRules != nil && len(rbac.ShadowRules.Policies) != 0 {
 			t.Errorf("%s: expecting empty shadow rules but found: %v", tc.name, rbac.ShadowRules)
 		}
@@ -1054,11 +1069,19 @@ func TestConvertRbacRulesToFilterConfigPermissive(t *testing.T) {
 		},
 	}
 
+	globalPermissiveConfig := &http_config.RBAC{
+		ShadowRules: &policy.RBAC{
+			Action:   policy.RBAC_ALLOW,
+			Policies: map[string]*policy.Policy{},
+		},
+	}
+
 	testCases := []struct {
-		name         string
-		service      *serviceMetadata
-		option       rbacOption
-		expectConfig *http_config.RBAC
+		name             string
+		service          *serviceMetadata
+		option           rbacOption
+		expectConfig     *http_config.RBAC
+		globalPermissive bool
 	}{
 		{
 			name:    "exact matched service",
@@ -1087,10 +1110,20 @@ func TestConvertRbacRulesToFilterConfigPermissive(t *testing.T) {
 			},
 			expectConfig: emptyConfig,
 		},
+		{
+			name:    "global permissive",
+			service: &serviceMetadata{name: "service"},
+			option: rbacOption{
+				roles:    roles,
+				bindings: []model.Config{},
+			},
+			expectConfig:     globalPermissiveConfig,
+			globalPermissive: true,
+		},
 	}
 
 	for _, tc := range testCases {
-		rbac := convertRbacRulesToFilterConfig(tc.service, tc.option)
+		rbac := convertRbacRulesToFilterConfig(tc.service, tc.option, tc.globalPermissive)
 		if !reflect.DeepEqual(*tc.expectConfig, *rbac) {
 			t.Errorf("%s rbac config want:\n%v\nbut got:\n%v", tc.name, *tc.expectConfig, *rbac)
 		}
