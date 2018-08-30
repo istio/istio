@@ -163,11 +163,8 @@ See https://istio.io/docs/reference/ for an overview of Istio routing.
 		Use:     "create",
 		Short:   "Create policies and rules",
 		Example: "istioctl create -f example-routing.yaml",
+		Args:    cobra.ExactArgs(0),
 		RunE: func(c *cobra.Command, args []string) error {
-			if len(args) != 0 {
-				c.Println(c.UsageString())
-				return fmt.Errorf("create takes no arguments")
-			}
 			varr, others, err := readInputs()
 			if err != nil {
 				return err
@@ -233,11 +230,8 @@ See https://istio.io/docs/reference/ for an overview of Istio routing.
 		Use:     "replace",
 		Short:   "Replace existing policies and rules",
 		Example: "istioctl replace -f example-routing.yaml",
+		Args:    cobra.ExactArgs(0),
 		RunE: func(c *cobra.Command, args []string) error {
-			if len(args) != 0 {
-				c.Println(c.UsageString())
-				return fmt.Errorf("replace takes no arguments")
-			}
 			varr, others, err := readInputs()
 			if err != nil {
 				return err
@@ -334,15 +328,11 @@ istioctl get destinationrules
 # Get a specific virtual service named bookinfo
 istioctl get virtualservice bookinfo
 `,
+		Args: cobra.MinimumNArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
 			configClient, err := clientFactory()
 			if err != nil {
 				return err
-			}
-			if len(args) < 1 {
-				c.Println(c.UsageString())
-				return fmt.Errorf("specify the type of resource to get. Types are %v",
-					strings.Join(supportedTypes(configClient), ", "))
 			}
 
 			getByName := len(args) > 1
