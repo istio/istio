@@ -2,7 +2,7 @@
 apiVersion: "config.istio.io/v1alpha2"
 kind: logentry
 metadata:
-  name: newlog
+  name: rbacsamplelog
   namespace: istio-system
 spec:
   severity: '"warning"'
@@ -14,15 +14,15 @@ spec:
     responseCode: response.code | 0
     responseSize: response.size | 0
     latency: response.duration | "0ms"
-    shadowResponseCode: rbac.permissive.response_code | ""
-    shadowResponsePolicyID: rbac.permissive.effective_policy_id | ""
+    permissiveResponseCode: rbac.permissive.response_code | ""
+    permissiveResponsePolicyID: rbac.permissive.effective_policy_id | ""
   monitored_resource_type: '"UNSPECIFIED"'
 ---
 # Configuration for a stdio handler
 apiVersion: "config.istio.io/v1alpha2"
 kind: stdio
 metadata:
-  name: newhandler
+  name: rbacsamplehandler
   namespace: istio-system
 spec:
  severity_levels:
@@ -33,13 +33,13 @@ spec:
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
-  name: newlogstdio
+  name: rabcsamplestdio
   namespace: istio-system
 spec:
   match: "true" # match for all requests
   actions:
-   - handler: newhandler.stdio
+   - handler: rbacsamplehandler.stdio
      instances:
-     - newlog.logentry
+     - rbacsamplelog.logentry
 ---
 
