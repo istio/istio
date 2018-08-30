@@ -90,6 +90,11 @@ func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		body.WriteString("codes error: " + err.Error() + "\n")
 	}
 
+	// If the request has form ?headers=name:value[,name:value]* return those headers in response
+	if err := setHeaderResponseFromHeaders(r, w); err != nil {
+		body.WriteString("response headers error: " + err.Error() + "\n")
+	}
+
 	h.addResponsePayload(r, &body)
 
 	w.Header().Set("Content-Type", "application/text")
@@ -141,6 +146,28 @@ func (h handler) WebSocketEcho(w http.ResponseWriter, r *http.Request) {
 		log.Warna("websocket-echo write failed:", err)
 		return
 	}
+}
+
+func setHeaderResponseFromHeaders(request *http.Request, response http.ResponseWriter) error {
+	responseHeadersString := request.FormValue("headers")
+
+	responseHeaders := strings.Split(responseHeadersString, ",")
+
+	for _, responseHeader := range responseHeaders {
+		headerAndValue := strings.Split(responseHeader, ":")
+
+		// Demand name:value
+		if len(headerAndValue) != 2 {
+			return fmt.Errorf("invalid %q (want name:value)", responseHeader)
+		}
+		name := headerAndValue[0]
+		value := headerAndValue[1]
+
+		response.Header().Set(name, value)
+
+	}
+
+	return nil
 }
 
 func setResponseFromCodes(request *http.Request, response http.ResponseWriter) error {

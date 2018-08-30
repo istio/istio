@@ -98,6 +98,12 @@ func makeHTTPRequest(client *http.Client) job {
 
 			log.Printf("[%d] StatusCode=%d\n", i, resp.StatusCode)
 
+			for name, headers := range resp.Header {
+				for _, h := range headers {
+					log.Printf("[%d] ResponseHeader=%s:%s\n", i, name, h)
+				}
+			}
+
 			data, err := ioutil.ReadAll(resp.Body)
 			defer func() {
 				if err = resp.Body.Close(); err != nil {
