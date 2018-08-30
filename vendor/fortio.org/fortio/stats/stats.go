@@ -78,7 +78,7 @@ func (c *Counter) StdDev() float64 {
 
 // Print prints stats.
 func (c *Counter) Print(out io.Writer, msg string) {
-	fmt.Fprintf(out, "%s : count %d avg %.8g +/- %.4g min %g max %g sum %.9g\n", // nolint(errorcheck)
+	_, _ = fmt.Fprintf(out, "%s : count %d avg %.8g +/- %.4g min %g max %g sum %.9g\n", // nolint(errorcheck)
 		msg, c.Count, c.Avg(), c.StdDev(), c.Min, c.Max, c.Sum)
 }
 
@@ -387,25 +387,24 @@ func (e *HistogramData) CalcPercentiles(percentiles []float64) *HistogramData {
 // Also calculates the percentile.
 func (e *HistogramData) Print(out io.Writer, msg string) {
 	if len(e.Data) == 0 {
-		fmt.Fprintf(out, "%s : no data\n", msg) // nolint: gas
+		_, _ = fmt.Fprintf(out, "%s : no data\n", msg) // nolint: gas
 		return
 	}
 	// the base counter part:
-	fmt.Fprintf(out, "%s : count %d avg %.8g +/- %.4g min %g max %g sum %.9g\n", // nolint(errorcheck)
+	_, _ = fmt.Fprintf(out, "%s : count %d avg %.8g +/- %.4g min %g max %g sum %.9g\n",
 		msg, e.Count, e.Avg, e.StdDev, e.Min, e.Max, e.Sum)
-	fmt.Fprintln(out, "# range, mid point, percentile, count") // nolint: gas
+	_, _ = fmt.Fprintln(out, "# range, mid point, percentile, count")
 	sep := ">="
 	for i, b := range e.Data {
 		if i > 0 {
 			sep = ">" // last interval is inclusive (of max value)
 		}
-		// nolint: gas
-		fmt.Fprintf(out, "%s %.6g <= %.6g , %.6g , %.2f, %d\n", sep, b.Start, b.End, (b.Start+b.End)/2., b.Percent, b.Count)
+		_, _ = fmt.Fprintf(out, "%s %.6g <= %.6g , %.6g , %.2f, %d\n", sep, b.Start, b.End, (b.Start+b.End)/2., b.Percent, b.Count)
 	}
 
 	// print the information of target percentiles
 	for _, p := range e.Percentiles {
-		fmt.Fprintf(out, "# target %g%% %.6g\n", p.Percentile, p.Value) // nolint: gas
+		_, _ = fmt.Fprintf(out, "# target %g%% %.6g\n", p.Percentile, p.Value) // nolint: gas
 	}
 }
 

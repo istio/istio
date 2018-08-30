@@ -30,7 +30,7 @@ import (
 // Prints usage
 func usage(w io.Writer, msgs ...interface{}) {
 	// nolint: gas
-	fmt.Fprintf(w, "Φορτίο fortio-curl %s usage:\n\t%s [flags] url\n",
+	_, _ = fmt.Fprintf(w, "Φορτίο fortio-curl %s usage:\n\t%s [flags] url\n",
 		version.Short(),
 		os.Args[0])
 	bincommon.FlagsUsage(w, msgs...)

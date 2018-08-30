@@ -71,7 +71,11 @@ func (h *HTTPOptions) Init(url string) *HTTPOptions {
 	h.initDone = true
 	h.URL = url
 	h.NumConnections = 1
-	if h.HTTPReqTimeOut <= 0 {
+	if h.HTTPReqTimeOut == 0 {
+		log.Debugf("Request timeout not set, using default %v", HTTPReqTimeOutDefaultValue)
+		h.HTTPReqTimeOut = HTTPReqTimeOutDefaultValue
+	}
+	if h.HTTPReqTimeOut < 0 {
 		log.Warnf("Invalid timeout %v, setting to %v", h.HTTPReqTimeOut, HTTPReqTimeOutDefaultValue)
 		h.HTTPReqTimeOut = HTTPReqTimeOutDefaultValue
 	}
