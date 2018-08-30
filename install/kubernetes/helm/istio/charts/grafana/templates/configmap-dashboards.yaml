@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ template "grafana.fullname" . }}-dashboards
+  name: istio-grafana-configuration-dashboards
   namespace: {{ .Release.Namespace }}
   labels:
     app: istio-grafana

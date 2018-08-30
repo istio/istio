@@ -4,7 +4,7 @@ metadata:
   name: grafana
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "grafana.name" . }}
+    app: istio-grafana
     {{- template "common_labels" . }}
 spec:
   replicas: {{ .Values.replicaCount }}
@@ -87,7 +87,7 @@ spec:
       volumes:
       - name: config
         configMap:
-          name: {{ template "grafana.fullname" . }}
+          name: istio-grafana
       - name: data
 {{- if .Values.persist }}
         persistentVolumeClaim:
@@ -96,5 +96,5 @@ spec:
         emptyDir: {}
       - name: dashboards-istio
         configMap:
-          name:  {{ template "grafana.fullname" . }}-dashboards
+          name:  istio-grafana-configuration-dashboards
 {{- end }}

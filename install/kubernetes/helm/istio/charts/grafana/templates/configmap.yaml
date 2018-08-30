@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ template "grafana.fullname" . }}
+  name: istio-grafana
   namespace: {{ .Release.Namespace }}
   labels:
     app: istio-grafana
