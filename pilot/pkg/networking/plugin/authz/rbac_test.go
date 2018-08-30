@@ -1058,6 +1058,23 @@ func TestConvertRbacRulesToFilterConfigPermissive(t *testing.T) {
 			},
 		},
 	}
+
+	globalPermissiveConfig := &http_config.RBAC{
+		ShadowRules: &policy.RBAC{
+			Action: policy.RBAC_ALLOW,
+			Policies: map[string]*policy.Policy{
+				"service-role-1": {
+					Permissions: []*policy.Permission{generatePermission(":method", "GET")},
+					Principals:  []*policy.Principal{generatePrincipal("user1"), generatePrincipal("user2")},
+				},
+				"service-role-2": {
+					Permissions: []*policy.Permission{generatePermission(":method", "POST")},
+					Principals:  []*policy.Principal{generatePrincipal("user3"), generatePrincipal("user4")},
+				},
+			},
+		},
+	}
+
 	emptyConfig := &http_config.RBAC{
 		Rules: &policy.RBAC{
 			Action:   policy.RBAC_ALLOW,
@@ -1110,9 +1127,7 @@ func TestConvertRbacRulesToFilterConfigPermissive(t *testing.T) {
 				bindings:             bindings,
 				globalPermissiveMode: true,
 			},
-			expectConfig: &http_config.RBAC{
-				ShadowRules: rbacConfig.GetShadowRules(),
-			},
+			expectConfig: globalPermissiveConfig,
 		},
 	}
 

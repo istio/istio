@@ -549,17 +549,30 @@ func convertRbacRulesToFilterConfig(service *serviceMetadata, option rbacOption)
 			continue
 		}
 
-		if len(enforcedPrincipals) != 0 {
-			rbac.Policies[role.Name] = &policyproto.Policy{
-				Permissions: permissions,
-				Principals:  enforcedPrincipals,
+		if option.globalPermissiveMode {
+			// If RBAC Config is set to permissive mode globally, all policies will be in
+			// permissive mode regardless its own mode.
+			ps := enforcedPrincipals
+			ps = append(ps, permissivePrincipals...)
+			if len(ps) != 0 {
+				permissiveRbac.Policies[role.Name] = &policyproto.Policy{
+					Permissions: permissions,
+					Principals:  ps,
+				}
 			}
-		}
+		} else {
+			if len(enforcedPrincipals) != 0 {
+				rbac.Policies[role.Name] = &policyproto.Policy{
+					Permissions: permissions,
+					Principals:  enforcedPrincipals,
+				}
+			}
 
-		if len(permissivePrincipals) != 0 {
-			permissiveRbac.Policies[role.Name] = &policyproto.Policy{
-				Permissions: permissions,
-				Principals:  permissivePrincipals,
+			if len(permissivePrincipals) != 0 {
+				permissiveRbac.Policies[role.Name] = &policyproto.Policy{
+					Permissions: permissions,
+					Principals:  permissivePrincipals,
+				}
 			}
 		}
 	}
