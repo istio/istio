@@ -19,6 +19,7 @@ RUN apt-get update && \
       elvis-tiny \
       lsof \
       busybox \
+      linux-tools-generic \
       sudo &&  apt-get upgrade -y && \
     rm -rf /var/lib/apt/lists/*
 
