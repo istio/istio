@@ -18,196 +18,52 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	"fmt"
 	"io/ioutil"
-	"net/http"
-	"net/http/httptest"
-	"net/url"
 	"os"
 	"path"
-	"reflect"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/howeyc/fsnotify"
-	"github.com/stretchr/testify/assert"
 
 	"istio.io/istio/pilot/pkg/model"
 )
 
 type TestAgent struct {
-	schedule func(interface{})
+	configCh chan interface{}
 }
 
-func (ta TestAgent) ScheduleConfigUpdate(config interface{}) {
-	ta.schedule(config)
+func (ta *TestAgent) ConfigCh() chan<- interface{} {
+	return ta.configCh
 }
 
-func (ta TestAgent) Run(ctx context.Context) {
+func (ta *TestAgent) Run(ctx context.Context) {
 	<-ctx.Done()
 }
 
-func TestRunReload(t *testing.T) {
-	called := make(chan bool)
-	agent := TestAgent{
-		schedule: func(_ interface{}) {
-			called <- true
-		},
+func TestRunSendConfig(t *testing.T) {
+	agent := &TestAgent{
+		configCh: make(chan interface{}),
 	}
 	config := model.DefaultProxyConfig()
 	node := model.Proxy{
 		Type: model.Ingress,
 		ID:   "random",
 	}
-	watcher := NewWatcher(config, agent, node, []CertSource{{Directory: "random"}}, nil)
+	watcher := NewWatcher(config, node, []CertSource{{Directory: "random"}}, nil, agent.ConfigCh())
 	ctx, cancel := context.WithCancel(context.Background())
 
 	// watcher starts agent and schedules a config update
 	go watcher.Run(ctx)
 
 	select {
-	case <-called:
+	case <-agent.configCh:
 		// expected
 		cancel()
 	case <-time.After(time.Second):
 		t.Errorf("The callback is not called within time limit " + time.Now().String())
 		cancel()
-	}
-}
-
-type pilotStubHandler struct {
-	sync.Mutex
-	States []pilotStubState
-}
-
-type pilotStubState struct {
-	StatusCode int
-	Response   string
-}
-
-func (p *pilotStubHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	p.Lock()
-	w.WriteHeader(p.States[0].StatusCode)
-	_, _ = w.Write([]byte(p.States[0].Response))
-	p.States = p.States[1:]
-	p.Unlock()
-}
-
-func Test_watcher_retrieveAZ(t *testing.T) {
-	tests := []struct {
-		name        string
-		az          string
-		retries     int
-		nodeType    model.NodeType
-		wantReload  bool
-		wantAZ      string
-		pilotStates []pilotStubState
-	}{
-		{
-			name:       "retrieves an AZ and calls for a reload",
-			wantReload: true,
-			wantAZ:     "az1",
-			nodeType:   model.Ingress,
-			retries:    5,
-			pilotStates: []pilotStubState{
-				{StatusCode: 200, Response: "az1"},
-			},
-		},
-		{
-			name:       "retries if it receives an error",
-			wantReload: true,
-			wantAZ:     "az1",
-			nodeType:   model.Ingress,
-			retries:    5,
-			pilotStates: []pilotStubState{
-				{StatusCode: 301, Response: ""},
-				{StatusCode: 200, Response: "az1"},
-			},
-		},
-		{
-			name:       "retries if it receives non 200 status from pilot",
-			wantReload: true,
-			wantAZ:     "az1",
-			nodeType:   model.Ingress,
-			retries:    5,
-			pilotStates: []pilotStubState{
-				{StatusCode: 500, Response: ""},
-				{StatusCode: 200, Response: "az1"},
-			},
-		},
-		{
-			name:       "do nothing if az is set",
-			az:         "az1",
-			wantAZ:     "az1",
-			nodeType:   model.Ingress,
-			retries:    5,
-			wantReload: false,
-		},
-		{
-			name:       "do nothing if node type is pilot",
-			nodeType:   "pilot",
-			wantReload: false,
-		},
-		{
-			name:       "do nothing if node type is mixer",
-			nodeType:   "mixer",
-			wantReload: false,
-		},
-		{
-			name:     "give up after retry count is reached",
-			nodeType: model.Ingress,
-			retries:  2,
-			pilotStates: []pilotStubState{
-				{StatusCode: 500, Response: ""},
-				{StatusCode: 500, Response: ""},
-				{StatusCode: 500, Response: ""},
-				{StatusCode: 200, Response: "az1"},
-			},
-			wantReload: false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			called := make(chan bool)
-			agent := TestAgent{
-				schedule: func(_ interface{}) {
-					called <- true
-				},
-			}
-			node := model.Proxy{
-				Type:      tt.nodeType,
-				ID:        "id",
-				Domain:    "domain",
-				IPAddress: "ip",
-			}
-			config := model.DefaultProxyConfig()
-			config.AvailabilityZone = tt.az
-			pilotStub := httptest.NewServer(
-				&pilotStubHandler{States: tt.pilotStates},
-			)
-			stubURL, _ := url.Parse(pilotStub.URL)
-			config.DiscoveryAddress = stubURL.Host
-			w := NewWatcher(config, agent, node, nil, nil)
-			ctx, cancel := context.WithCancel(context.Background())
-
-			go w.(*watcher).retrieveAZ(ctx, 0, tt.retries)
-
-			select {
-			case <-called:
-				if !tt.wantReload {
-					t.Errorf("Unexpected reload called")
-				}
-				assert.Equal(t, tt.wantAZ, w.(*watcher).config.AvailabilityZone)
-				cancel()
-			case <-time.After(time.Second):
-				if tt.wantReload {
-					t.Errorf("The callback is not called within time limit " + time.Now().String())
-				}
-				cancel()
-			}
-
-		})
 	}
 }
 
@@ -335,35 +191,3 @@ func TestGenerateCertHash(t *testing.T) {
 		t.Error("hash should not be affected by empty directory")
 	}
 }
-
-func TestEnvoyArgs(t *testing.T) {
-	config := model.DefaultProxyConfig()
-	config.ServiceCluster = "my-cluster"
-	config.AvailabilityZone = "my-zone"
-	config.Concurrency = 8
-
-	test := envoy{config: config, node: "my-node", extraArgs: []string{"-l", "trace"}}
-	testProxy := NewProxy(config, "my-node", "trace", nil)
-	if !reflect.DeepEqual(testProxy, test) {
-		t.Errorf("unexpected struct got\n%v\nwant\n%v", testProxy, test)
-	}
-
-	got := test.args("test.json", 5)
-	want := []string{
-		"-c", "test.json",
-		"--restart-epoch", "5",
-		"--drain-time-s", "2",
-		"--parent-shutdown-time-s", "3",
-		"--service-cluster", "my-cluster",
-		"--service-node", "my-node",
-		"--max-obj-name-len", fmt.Sprint(MaxClusterNameLength), // TODO: use MeshConfig.StatNameLength instead
-		"-l", "trace",
-		"--concurrency", "8",
-		"--service-zone", "my-zone",
-	}
-	if !reflect.DeepEqual(got, want) {
-		t.Errorf("envoyArgs() => got %v, want %v", got, want)
-	}
-}
-
-// TestEnvoyRun is no longer used - we are now using v2 bootstrap API.

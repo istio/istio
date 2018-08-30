@@ -17,6 +17,7 @@ package mixer
 import (
 	"fmt"
 	"net"
+	"strconv"
 	"strings"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -42,15 +43,11 @@ type attribute = *mpb.Attributes_AttributeValue
 type attributes map[string]attribute
 
 const (
-	//mixerPortName       = "grpc-mixer"
-	// defined in install/kubernetes/helm/istio/charts/mixer/templates/service.yaml
-	mixerPortNumber = 9091
-
-	//mixerMTLSPortName   = "grpc-mixer-mtls"
-	mixerMTLSPortNumber = 15004
-
 	// mixer filter name
 	mixer = "mixer"
+
+	// defaultConfig is the default service config (that does not correspond to an actual service)
+	defaultConfig = "default"
 )
 
 // NewPlugin returns an ptr to an initialized mixer.Plugin.
@@ -65,9 +62,10 @@ func (mixerplugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mu
 	}
 
 	attrs := attributes{
-		"source.uid":             attrUID(in.Node),
-		"context.reporter.uid":   attrUID(in.Node),
-		"context.reporter.local": attrBoolValue(false),
+		"source.uid":            attrUID(in.Node),
+		"source.namespace":      attrNamespace(in.Node),
+		"context.reporter.uid":  attrUID(in.Node),
+		"context.reporter.kind": attrStringValue("outbound"),
 	}
 
 	switch in.ListenerProtocol {
@@ -78,7 +76,7 @@ func (mixerplugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mu
 		}
 		return nil
 	case plugin.ListenerProtocolTCP:
-		filter := buildOutboundTCPFilter(in.Env.Mesh, attrs, in.Node, in.Service)
+		filter := buildOutboundTCPFilter(in.Env.Mesh, attrs, in.Node, in.Service, in.Push)
 		for cnum := range mutable.FilterChains {
 			mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, filter)
 		}
@@ -95,9 +93,10 @@ func (mixerplugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.Mut
 	}
 
 	attrs := attributes{
-		"destination.uid":        attrUID(in.Node),
-		"context.reporter.uid":   attrUID(in.Node),
-		"context.reporter.local": attrBoolValue(true),
+		"destination.uid":       attrUID(in.Node),
+		"destination.namespace": attrNamespace(in.Node),
+		"context.reporter.uid":  attrUID(in.Node),
+		"context.reporter.kind": attrStringValue("inbound"),
 	}
 
 	switch address := mutable.Listener.Address.Address.(type) {
@@ -121,7 +120,7 @@ func (mixerplugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.Mut
 		}
 		return nil
 	case plugin.ListenerProtocolTCP:
-		filter := buildInboundTCPFilter(in.Env.Mesh, in.Node, attrs, in.ProxyInstances)
+		filter := buildInboundTCPFilter(in.Env.Mesh, in.Node, attrs)
 		for cnum := range mutable.FilterChains {
 			mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, filter)
 		}
@@ -132,12 +131,14 @@ func (mixerplugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.Mut
 }
 
 // OnOutboundCluster implements the Plugin interface method.
-func (mixerplugin) OnOutboundCluster(env model.Environment, node model.Proxy, service *model.Service, servicePort *model.Port, cluster *xdsapi.Cluster) {
+func (mixerplugin) OnOutboundCluster(env *model.Environment, push *model.PushContext,
+	service *model.Service, servicePort *model.Port, cluster *xdsapi.Cluster) {
 	// do nothing
 }
 
 // OnInboundCluster implements the Plugin interface method.
-func (mixerplugin) OnInboundCluster(env model.Environment, node model.Proxy, service *model.Service, servicePort *model.Port, cluster *xdsapi.Cluster) {
+func (mixerplugin) OnInboundCluster(env *model.Environment, node *model.Proxy, push *model.PushContext,
+	service *model.Service, servicePort *model.Port, cluster *xdsapi.Cluster) {
 	// do nothing
 }
 
@@ -146,7 +147,7 @@ func (mixerplugin) OnOutboundRouteConfiguration(in *plugin.InputParams, routeCon
 	for i := 0; i < len(routeConfiguration.VirtualHosts); i++ {
 		host := routeConfiguration.VirtualHosts[i]
 		for j := 0; j < len(host.Routes); j++ {
-			host.Routes[j] = modifyOutboundRouteConfig(in, host.Routes[j])
+			host.Routes[j] = modifyOutboundRouteConfig(in.Push, in, host.Routes[j])
 		}
 		routeConfiguration.VirtualHosts[i] = host
 	}
@@ -161,7 +162,7 @@ func (mixerplugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeConf
 			host := routeConfiguration.VirtualHosts[i]
 			for j := 0; j < len(host.Routes); j++ {
 				route := host.Routes[j]
-				route.PerFilterConfig = addServiceConfig(route.PerFilterConfig, buildInboundRouteConfig(in, in.ServiceInstance))
+				route.PerFilterConfig = addServiceConfig(in.Node, route.PerFilterConfig, buildInboundRouteConfig(in.Push, in, in.ServiceInstance))
 				host.Routes[j] = route
 			}
 			routeConfiguration.VirtualHosts[i] = host
@@ -173,56 +174,73 @@ func (mixerplugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeConf
 	}
 }
 
-func buildTransport(mesh *meshconfig.MeshConfig, uid attribute) *mccpb.TransportConfig {
-	policy, _, _ := net.SplitHostPort(mesh.MixerCheckServer)
-	telemetry, _, _ := net.SplitHostPort(mesh.MixerReportServer)
+// OnInboundFilterChains is called whenever a plugin needs to setup the filter chains, including relevant filter chain configuration.
+func (mixerplugin) OnInboundFilterChains(in *plugin.InputParams) []plugin.FilterChain {
+	return nil
+}
 
-	port := mixerPortNumber
-	if mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS {
-		port = mixerMTLSPortNumber
-	}
+func buildUpstreamName(address string) string {
+	host, port, _ := net.SplitHostPort(address)
+	v, _ := strconv.Atoi(port)
+	return model.BuildSubsetKey(model.TrafficDirectionOutbound, "", model.Hostname(host), v)
+}
 
-	return &mccpb.TransportConfig{
-		CheckCluster:  model.BuildSubsetKey(model.TrafficDirectionOutbound, "", model.Hostname(policy), port),
-		ReportCluster: model.BuildSubsetKey(model.TrafficDirectionOutbound, "", model.Hostname(telemetry), port),
+func buildTransport(mesh *meshconfig.MeshConfig, node *model.Proxy) *mccpb.TransportConfig {
+	res := &mccpb.TransportConfig{
+		CheckCluster:      buildUpstreamName(mesh.MixerCheckServer),
+		ReportCluster:     buildUpstreamName(mesh.MixerReportServer),
+		NetworkFailPolicy: &mccpb.NetworkFailPolicy{Policy: mccpb.FAIL_CLOSE},
 		// internal telemetry forwarding
-		AttributesForMixerProxy: &mpb.Attributes{Attributes: attributes{"source.uid": uid}},
+		AttributesForMixerProxy: &mpb.Attributes{Attributes: attributes{"source.uid": attrUID(node)}},
 	}
+
+	// These settings are not backward compatible with 0.8.
+	// Proxy version is only available from 1.0 onwards.
+	if _, found := node.GetProxyVersion(); !found {
+		res.AttributesForMixerProxy = nil
+	}
+
+	return res
 }
 
 func buildOutboundHTTPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node *model.Proxy) *http_conn.HttpFilter {
 	return &http_conn.HttpFilter{
 		Name: mixer,
 		Config: util.MessageToStruct(&mccpb.HttpClientConfig{
+			DefaultDestinationService: defaultConfig,
+			ServiceConfigs: map[string]*mccpb.ServiceConfig{
+				defaultConfig: {
+					DisableCheckCalls: disableClientPolicyChecks(mesh, node),
+				},
+			},
 			MixerAttributes: &mpb.Attributes{Attributes: attrs},
 			ForwardAttributes: &mpb.Attributes{Attributes: attributes{
 				"source.uid": attrUID(node),
 			}},
-			Transport: buildTransport(mesh, attrUID(node)),
+			Transport: buildTransport(mesh, node),
 		}),
 	}
 }
 
 func buildInboundHTTPFilter(mesh *meshconfig.MeshConfig, node *model.Proxy, attrs attributes) *http_conn.HttpFilter {
-	ingress := "ingress"
 	return &http_conn.HttpFilter{
 		Name: mixer,
 		Config: util.MessageToStruct(&mccpb.HttpClientConfig{
-			DefaultDestinationService: ingress,
+			DefaultDestinationService: defaultConfig,
 			ServiceConfigs: map[string]*mccpb.ServiceConfig{
-				ingress: {
+				defaultConfig: {
 					DisableCheckCalls: mesh.DisablePolicyChecks,
 				},
 			},
 			MixerAttributes: &mpb.Attributes{Attributes: attrs},
-			Transport:       buildTransport(mesh, attrUID(node)),
+			Transport:       buildTransport(mesh, node),
 		}),
 	}
 }
 
-func modifyOutboundRouteConfig(in *plugin.InputParams, httpRoute route.Route) route.Route {
+func modifyOutboundRouteConfig(push *model.PushContext, in *plugin.InputParams, httpRoute route.Route) route.Route {
 	// default config, to be overridden by per-weighted cluster
-	httpRoute.PerFilterConfig = addServiceConfig(httpRoute.PerFilterConfig, &mccpb.ServiceConfig{
+	httpRoute.PerFilterConfig = addServiceConfig(in.Node, httpRoute.PerFilterConfig, &mccpb.ServiceConfig{
 		DisableCheckCalls: disableClientPolicyChecks(in.Env.Mesh, in.Node),
 	})
 	switch action := httpRoute.Action.(type) {
@@ -230,9 +248,8 @@ func modifyOutboundRouteConfig(in *plugin.InputParams, httpRoute route.Route) ro
 		switch upstreams := action.Route.ClusterSpecifier.(type) {
 		case *route.RouteAction_Cluster:
 			_, _, hostname, _ := model.ParseSubsetKey(upstreams.Cluster)
-			attrs := make(attributes)
-			addDestinationServiceAttributes(attrs, hostname.String(), in.Node.Domain)
-			httpRoute.PerFilterConfig = addServiceConfig(httpRoute.PerFilterConfig, &mccpb.ServiceConfig{
+			attrs := addDestinationServiceAttributes(make(attributes), push, hostname)
+			httpRoute.PerFilterConfig = addServiceConfig(in.Node, httpRoute.PerFilterConfig, &mccpb.ServiceConfig{
 				DisableCheckCalls: disableClientPolicyChecks(in.Env.Mesh, in.Node),
 				MixerAttributes:   &mpb.Attributes{Attributes: attrs},
 				ForwardAttributes: &mpb.Attributes{Attributes: attrs},
@@ -240,9 +257,8 @@ func modifyOutboundRouteConfig(in *plugin.InputParams, httpRoute route.Route) ro
 		case *route.RouteAction_WeightedClusters:
 			for _, weighted := range upstreams.WeightedClusters.Clusters {
 				_, _, hostname, _ := model.ParseSubsetKey(weighted.Name)
-				attrs := make(attributes)
-				addDestinationServiceAttributes(attrs, hostname.String(), in.Node.Domain)
-				weighted.PerFilterConfig = addServiceConfig(weighted.PerFilterConfig, &mccpb.ServiceConfig{
+				attrs := addDestinationServiceAttributes(make(attributes), push, hostname)
+				weighted.PerFilterConfig = addServiceConfig(in.Node, weighted.PerFilterConfig, &mccpb.ServiceConfig{
 					DisableCheckCalls: disableClientPolicyChecks(in.Env.Mesh, in.Node),
 					MixerAttributes:   &mpb.Attributes{Attributes: attrs},
 					ForwardAttributes: &mpb.Attributes{Attributes: attrs},
@@ -259,92 +275,94 @@ func modifyOutboundRouteConfig(in *plugin.InputParams, httpRoute route.Route) ro
 	return httpRoute
 }
 
-func buildInboundRouteConfig(in *plugin.InputParams, instance *model.ServiceInstance) *mccpb.ServiceConfig {
+func buildInboundRouteConfig(push *model.PushContext, in *plugin.InputParams, instance *model.ServiceInstance) *mccpb.ServiceConfig {
 	config := in.Env.IstioConfigStore
 
-	attrs := make(attributes)
-	addDestinationServiceAttributes(attrs, instance.Service.Hostname.String(), in.Node.Domain)
-
+	attrs := addDestinationServiceAttributes(make(attributes), push, instance.Service.Hostname)
 	out := &mccpb.ServiceConfig{
 		DisableCheckCalls: in.Env.Mesh.DisablePolicyChecks,
 		MixerAttributes:   &mpb.Attributes{Attributes: attrs},
 	}
 
-	apiSpecs := config.HTTPAPISpecByDestination(instance)
-	model.SortHTTPAPISpec(apiSpecs)
-	for _, config := range apiSpecs {
-		out.HttpApiSpec = append(out.HttpApiSpec, config.Spec.(*mccpb.HTTPAPISpec))
-	}
+	if config != nil {
+		apiSpecs := config.HTTPAPISpecByDestination(instance)
+		model.SortHTTPAPISpec(apiSpecs)
+		for _, config := range apiSpecs {
+			out.HttpApiSpec = append(out.HttpApiSpec, config.Spec.(*mccpb.HTTPAPISpec))
+		}
 
-	quotaSpecs := config.QuotaSpecByDestination(instance)
-	model.SortQuotaSpec(quotaSpecs)
-	for _, config := range quotaSpecs {
-		out.QuotaSpec = append(out.QuotaSpec, config.Spec.(*mccpb.QuotaSpec))
+		quotaSpecs := config.QuotaSpecByDestination(instance)
+		model.SortQuotaSpec(quotaSpecs)
+		for _, config := range quotaSpecs {
+			out.QuotaSpec = append(out.QuotaSpec, config.Spec.(*mccpb.QuotaSpec))
+		}
 	}
 
 	return out
 }
 
-func buildOutboundTCPFilter(mesh *meshconfig.MeshConfig, attrsIn attributes, node *model.Proxy, destination *model.Service) listener.Filter {
+func buildOutboundTCPFilter(mesh *meshconfig.MeshConfig, attrsIn attributes, node *model.Proxy, destination *model.Service,
+	push *model.PushContext) listener.Filter {
 	attrs := attrsCopy(attrsIn)
 	if destination != nil {
-		addDestinationServiceAttributes(attrs, string(destination.Hostname), node.Domain)
+		attrs = addDestinationServiceAttributes(attrs, push, destination.Hostname)
 	}
 	return listener.Filter{
 		Name: mixer,
 		Config: util.MessageToStruct(&mccpb.TcpClientConfig{
 			DisableCheckCalls: disableClientPolicyChecks(mesh, node),
 			MixerAttributes:   &mpb.Attributes{Attributes: attrs},
-			Transport:         buildTransport(mesh, attrUID(node)),
+			Transport:         buildTransport(mesh, node),
 		}),
 	}
 }
 
-func buildInboundTCPFilter(mesh *meshconfig.MeshConfig, node *model.Proxy, attrs attributes, instances []*model.ServiceInstance) listener.Filter {
+func buildInboundTCPFilter(mesh *meshconfig.MeshConfig, node *model.Proxy, attrs attributes) listener.Filter {
 	return listener.Filter{
 		Name: mixer,
 		Config: util.MessageToStruct(&mccpb.TcpClientConfig{
 			DisableCheckCalls: mesh.DisablePolicyChecks,
 			MixerAttributes:   &mpb.Attributes{Attributes: attrs},
-			Transport:         buildTransport(mesh, attrUID(node)),
+			Transport:         buildTransport(mesh, node),
 		}),
 	}
 }
 
-func addServiceConfig(filterConfigs map[string]*types.Struct, config *mccpb.ServiceConfig) map[string]*types.Struct {
+func addServiceConfig(node *model.Proxy, filterConfigs map[string]*types.Struct, config *mccpb.ServiceConfig) map[string]*types.Struct {
 	if filterConfigs == nil {
 		filterConfigs = make(map[string]*types.Struct)
+	}
+	// These settings are not backward compatible with 0.8.
+	// Proxy version is only available from 1.0 onwards.
+	if _, found := node.GetProxyVersion(); !found {
+		config.ForwardAttributes = nil
 	}
 	filterConfigs[mixer] = util.MessageToStruct(config)
 	return filterConfigs
 }
 
-func addDestinationServiceAttributes(attrs attributes, destinationHostname, domain string) {
+func addDestinationServiceAttributes(attrs attributes, push *model.PushContext, destinationHostname model.Hostname) attributes {
+	// TODO: pass Service directly.
 	if destinationHostname == "" {
-		return
+		return attrs
 	}
-	svcName, svcNamespace := nameAndNamespace(destinationHostname, domain)
-	attrs["destination.service"] = attrStringValue(destinationHostname) // DEPRECATED. Remove when fully out of use.
-	attrs["destination.service.host"] = attrStringValue(destinationHostname)
-	attrs["destination.service.uid"] = attrStringValue(fmt.Sprintf("istio://%s/services/%s", svcNamespace, svcName))
-	attrs["destination.service.name"] = attrStringValue(svcName)
-	if len(svcNamespace) > 0 {
-		attrs["destination.service.namespace"] = attrStringValue(svcNamespace)
-	}
-}
+	attrs["destination.service.host"] = attrStringValue(string(destinationHostname))
 
-func nameAndNamespace(serviceHostname, proxyDomain string) (name, namespace string) {
-	domainParts := strings.SplitN(proxyDomain, ".", 2)
-	if !strings.HasSuffix(serviceHostname, domainParts[1]) {
-		return serviceHostname, ""
+	svc := push.ServiceByHostname[destinationHostname]
+	if svc == nil {
+		return attrs
 	}
-
-	parts := strings.Split(serviceHostname, ".")
-	if len(parts) > 1 {
-		return parts[0], parts[1]
+	serviceAttributes := svc.Attributes
+	if serviceAttributes.Name != "" {
+		attrs["destination.service.name"] = attrStringValue(serviceAttributes.Name)
 	}
-
-	return serviceHostname, ""
+	if serviceAttributes.Namespace != "" {
+		attrs["destination.service.namespace"] = attrStringValue(serviceAttributes.Namespace)
+	}
+	if serviceAttributes.UID != "" {
+		attrs["destination.service.uid"] = attrStringValue(serviceAttributes.UID)
+	}
+	return attrs
 }
 
 func disableClientPolicyChecks(mesh *meshconfig.MeshConfig, node *model.Proxy) bool {
@@ -368,8 +386,12 @@ func attrUID(node *model.Proxy) attribute {
 	return attrStringValue("kubernetes://" + node.ID)
 }
 
-func attrBoolValue(value bool) attribute {
-	return &mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_BoolValue{BoolValue: value}}
+func attrNamespace(node *model.Proxy) attribute {
+	parts := strings.Split(node.ID, ".")
+	if len(parts) >= 2 {
+		return attrStringValue(parts[1])
+	}
+	return attrStringValue("")
 }
 
 func attrIntValue(value int64) attribute {

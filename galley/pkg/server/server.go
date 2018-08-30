@@ -16,186 +16,216 @@ package server
 
 import (
 	"errors"
-	"sync"
+	"fmt"
+	"net"
+	"strings"
 	"time"
 
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/util/workqueue"
+	"google.golang.org/grpc"
 
-	"istio.io/istio/galley/pkg/common"
-	"istio.io/istio/galley/pkg/crd"
-	"istio.io/istio/galley/pkg/resource"
+	"istio.io/istio/pkg/mcp/creds"
+
+	mcp "istio.io/api/mcp/v1alpha1"
+	"istio.io/istio/galley/pkg/kube/source"
+	"istio.io/istio/galley/pkg/metadata"
+
+	"istio.io/istio/galley/cmd/shared"
+	"istio.io/istio/galley/pkg/kube"
+	"istio.io/istio/galley/pkg/runtime"
+	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/log"
-	// import GKE cluster authentication plugin
-	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-	// Force loading of MCP protos. Once we have them in the main repo, we can land the code
-	// that uses them.
-	_ "istio.io/api/config/mcp/v1alpha1"
+	"istio.io/istio/pkg/mcp/server"
+	"istio.io/istio/pkg/mcp/snapshot"
+	"istio.io/istio/pkg/probe"
+	"istio.io/istio/pkg/version"
 )
 
 // Server is the main entry point into the Galley code.
 type Server struct {
-	// stateLock for internal synchronizer state.
-	stateLock sync.Mutex
-	started   bool
+	shutdown chan error
 
-	mapping      crd.Mapping
-	kube         common.Kube
-	resyncPeriod time.Duration
-
-	queue workqueue.RateLimitingInterface
-
-	// wait until the background process task is completed.
-	waitForProcess sync.WaitGroup
-
-	// The main CRD synchronizer
-	crdSynchronizer *crd.Synchronizer
-
-	resourceSynchronizers map[string]*resource.Synchronizer
-
-	// event hook that gets called after every completion of event processing loop. Useful for testing.
-	eventHook eventHookFn
+	grpcServer *grpc.Server
+	processor  *runtime.Processor
+	mcp        *server.Server
+	listener   net.Listener
+	controlZ   *ctrlz.Server
+	stopCh     chan struct{}
 }
 
-type eventHookFn func(e interface{})
+type patchTable struct {
+	logConfigure          func(*log.Options) error
+	newKubeFromConfigFile func(string) (kube.Interfaces, error)
+	newSource             func(kube.Interfaces, time.Duration) (runtime.Source, error)
+	netListen             func(network, address string) (net.Listener, error)
+}
 
-type event struct {
-	added    bool
-	name     string
-	kind     string
-	listKind string
+func defaultPatchTable() patchTable {
+	return patchTable{
+		logConfigure:          log.Configure,
+		newKubeFromConfigFile: kube.NewKubeFromConfigFile,
+		newSource:             source.New,
+		netListen:             net.Listen,
+	}
 }
 
 // New returns a new instance of a Server.
-func New(k common.Kube, mapping crd.Mapping, resyncPeriod time.Duration) *Server {
-	return newServer(k, mapping, resyncPeriod, nil)
+func New(a *Args) (*Server, error) {
+	return newServer(a, defaultPatchTable())
 }
 
-func newServer(
-	k common.Kube, mapping crd.Mapping, resyncPeriod time.Duration, eventHook eventHookFn) *Server {
+func newServer(a *Args, p patchTable) (*Server, error) {
+	s := &Server{}
 
-	return &Server{
-		mapping:               mapping,
-		kube:                  k,
-		resyncPeriod:          resyncPeriod,
-		eventHook:             eventHook,
-		resourceSynchronizers: make(map[string]*resource.Synchronizer),
-	}
-}
-
-// Start the server instance. It will start synchronizing CRDs.
-func (s *Server) Start() error {
-	s.stateLock.Lock()
-	defer s.stateLock.Unlock()
-	if s.started {
-		return errors.New("already started")
+	if err := p.logConfigure(a.LoggingOptions); err != nil {
+		return nil, err
 	}
 
-	crdi, err := s.kube.CustomResourceDefinitionInterface()
+	k, err := p.newKubeFromConfigFile(a.KubeConfig)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	s.queue = workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "server")
-	listener := crd.SyncListener{
-		OnDestinationAdded: func(name string, kind string, listKind string) {
-			s.queue.AddRateLimited(&event{added: true, name: name, kind: kind, listKind: listKind})
-		},
-		OnDestinationRemoved: func(name string) {
-			s.queue.AddRateLimited(&event{added: false, name: name})
-		},
+	src, err := p.newSource(k, a.ResyncPeriod)
+	if err != nil {
+		return nil, err
 	}
 
-	s.crdSynchronizer = crd.NewSynchronizer(crdi, s.mapping, s.resyncPeriod, listener)
+	distributor := snapshot.New()
+	s.processor = runtime.NewProcessor(src, distributor)
 
-	s.waitForProcess.Add(1)
-	go s.process()
+	var grpcOptions []grpc.ServerOption
+	grpcOptions = append(grpcOptions, grpc.MaxConcurrentStreams(uint32(a.MaxConcurrentStreams)))
+	grpcOptions = append(grpcOptions, grpc.MaxRecvMsgSize(int(a.MaxReceivedMessageSize)))
 
-	if err := s.crdSynchronizer.Start(); err != nil {
-		return err
+	s.stopCh = make(chan struct{})
+	var checker *server.ListAuthChecker
+	if !a.Insecure {
+
+		checker, err = watchAccessList(s.stopCh, a.AccessListFile)
+		if err != nil {
+			return nil, err
+		}
+
+		watcher, err := creds.WatchFiles(s.stopCh, a.CredentialOptions)
+		if err != nil {
+			return nil, err
+		}
+		credentials := creds.CreateForServer(watcher)
+
+		grpcOptions = append(grpcOptions, grpc.Creds(credentials))
+	}
+	grpc.EnableTracing = a.EnableGRPCTracing
+	s.grpcServer = grpc.NewServer(grpcOptions...)
+
+	s.mcp = server.New(distributor, metadata.Types.TypeURLs(), checker)
+
+	// get the network stuff setup
+	network := "tcp"
+	var address string
+	idx := strings.Index(a.APIAddress, "://")
+	if idx < 0 {
+		address = a.APIAddress
+	} else {
+		network = a.APIAddress[:idx]
+		address = a.APIAddress[idx+3:]
 	}
 
-	s.started = true
+	if s.listener, err = p.netListen(network, address); err != nil {
+		_ = s.Close()
+		return nil, fmt.Errorf("unable to listen: %v", err)
+	}
+
+	mcp.RegisterAggregatedMeshConfigServiceServer(s.grpcServer, s.mcp)
+
+	s.controlZ, _ = ctrlz.Run(a.IntrospectionOptions, nil)
+
+	return s, nil
+}
+
+// Run enables Galley to start receiving gRPC requests on its main API port.
+func (s *Server) Run() {
+	s.shutdown = make(chan error, 1)
+	go func() {
+		err := s.processor.Start()
+		if err != nil {
+			s.shutdown <- err
+			return
+		}
+
+		// start serving
+		err = s.grpcServer.Serve(s.listener)
+		// notify closer we're done
+		s.shutdown <- err
+	}()
+}
+
+// Wait waits for the server to exit.
+func (s *Server) Wait() error {
+	if s.shutdown == nil {
+		return fmt.Errorf("server not running")
+	}
+
+	err := <-s.shutdown
+	s.shutdown = nil
+	return err
+}
+
+// Close cleans up resources used by the server.
+func (s *Server) Close() error {
+	if s.stopCh != nil {
+		close(s.stopCh)
+		s.stopCh = nil
+	}
+
+	if s.shutdown != nil {
+		s.grpcServer.GracefulStop()
+		_ = s.Wait()
+	}
+
+	if s.controlZ != nil {
+		s.controlZ.Close()
+	}
+
+	if s.processor != nil {
+		s.processor.Stop()
+	}
+
+	if s.listener != nil {
+		_ = s.listener.Close()
+	}
+
+	// final attempt to purge buffered logs
+	_ = log.Sync()
+
 	return nil
 }
 
-// Stop the server instance.
-func (s *Server) Stop() {
-	s.stateLock.Lock()
-	defer s.stateLock.Unlock()
-	if !s.started {
-		return
+//RunServer start Galley Server mode
+func RunServer(sa *Args, printf, fatalf shared.FormatFn, livenessProbeController,
+	readinessProbeController probe.Controller) {
+	printf("Galley started with\n%s", sa)
+	s, err := New(sa)
+	if err != nil {
+		fatalf("Unable to initialize Galley Server: %v", err)
 	}
-
-	s.queue.ShutDown()
-
-	s.crdSynchronizer.Stop()
-	for _, rsync := range s.resourceSynchronizers {
-		rsync.Stop()
+	printf("Istio Galley: %s", version.Info)
+	printf("Starting gRPC server on %v", sa.APIAddress)
+	s.Run()
+	if livenessProbeController != nil {
+		serverLivenessProbe := probe.NewProbe()
+		serverLivenessProbe.SetAvailable(nil)
+		serverLivenessProbe.RegisterProbe(livenessProbeController, "serverLiveness")
+		defer serverLivenessProbe.SetAvailable(errors.New("stopped"))
 	}
-	s.resourceSynchronizers = make(map[string]*resource.Synchronizer)
-
-	s.waitForProcess.Wait()
-
-	s.started = false
-}
-
-func (s *Server) process() {
-	for {
-		item, shutdown := s.queue.Get()
-		if shutdown {
-			break
-		}
-
-		if e, ok := item.(*event); !ok {
-			log.Errorf("Got a non-event item from the queue: %v", item)
-		} else if s.processEvent(e) {
-			s.queue.Forget(item)
-			log.Debugf("item processing completed successfully: %v", item)
-		}
-
-		s.queue.Done(item)
-		if s.eventHook != nil {
-			s.eventHook(item)
-		}
-		log.Debugf("marked item as done: %v", item)
+	if readinessProbeController != nil {
+		serverReadinessProbe := probe.NewProbe()
+		serverReadinessProbe.SetAvailable(nil)
+		serverReadinessProbe.RegisterProbe(readinessProbeController, "serverReadiness")
+		defer serverReadinessProbe.SetAvailable(errors.New("stopped"))
 	}
-
-	s.waitForProcess.Done()
-}
-
-func (s *Server) processEvent(e *event) bool {
-	s.stateLock.Lock()
-	defer s.stateLock.Unlock()
-
-	if e.added {
-		if _, found := s.resourceSynchronizers[e.name]; found {
-			log.Errorf("found an already existing synchronizer for '%s', ignoring add event.", e.name)
-			return true
-		}
-
-		gr := schema.ParseGroupResource(e.name)
-
-		publicGv, internalGv, _ := s.mapping.GetGroupVersion(gr.Group)
-
-		rs, err := resource.NewSynchronizer(s.kube, s.resyncPeriod, publicGv, internalGv, gr.Resource, e.kind, e.listKind)
-		if err != nil {
-			log.Errorf("error during resource synchronizer creation: name='%s', err='%v'", e.name, err)
-			return false
-		}
-
-		rs.Start()
-		s.resourceSynchronizers[e.name] = rs
-
-	} else {
-		if existing, found := s.resourceSynchronizers[e.name]; !found {
-			log.Errorf("no existing synchronizer found for '%s', ignoring delete event.", e.name)
-		} else {
-			existing.Stop()
-
-			delete(s.resourceSynchronizers, e.name)
-		}
+	err = s.Wait()
+	if err != nil {
+		fatalf("Galley Server unexpectedly terminated: %v", err)
 	}
-
-	return true
+	_ = s.Close()
 }

@@ -22,11 +22,9 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/ptypes"
 	multierror "github.com/hashicorp/go-multierror"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pkg/log"
 )
 
 // Environment provides an aggregate environmental API for Pilot
@@ -46,8 +44,14 @@ type Environment struct {
 	// Mixer subject alternate name for mutual TLS
 	MixerSAN []string
 
-	// RDS flag. This is a temporary hack. Will be removed in few days
-	DisableRDS bool
+	// PushContext holds informations during push generation. It is reset on config change, at the beginning
+	// of the pushAll. It will hold all errors and stats and possibly caches needed during the entire cache computation.
+	// DO NOT USE EXCEPT FOR TESTS AND HANDLING OF NEW CONNECTIONS.
+	// ALL USE DURING A PUSH SHOULD USE THE ONE CREATED AT THE
+	// START OF THE PUSH, THE GLOBAL ONE MAY CHANGE AND REFLECT A DIFFERENT
+	// CONFIG AND PUSH
+	// Deprecated - a local config for ads will be used instead
+	PushContext *PushContext
 }
 
 // Proxy defines the proxy attributes used by xDS identification
@@ -103,6 +107,12 @@ func (node *Proxy) ServiceNode() string {
 		string(node.Type), node.IPAddress, node.ID, node.Domain,
 	}, serviceNodeSeparator)
 
+}
+
+// GetProxyVersion returns the proxy version string identifier, and whether it is present.
+func (node *Proxy) GetProxyVersion() (string, bool) {
+	version, found := node.Metadata["ISTIO_PROXY_VERSION"]
+	return version, found
 }
 
 // ParseMetadata parses the opaque Metadata from an Envoy Node into string key-value pairs.
@@ -177,8 +187,6 @@ const (
 	IngressKeyFilename = "tls.key"
 
 	// ConfigPathDir config directory for storing envoy json config files.
-	// It also stores core files as per
-	// https://github.com/istio/istio/blob/master/install/kubernetes/templates/istio-sidecar-injector-configmap-debug.yaml.tmpl#L27
 	ConfigPathDir = "/etc/istio/proxy"
 
 	// BinaryPathFilename envoy binary location
@@ -207,17 +215,18 @@ func DefaultProxyConfig() meshconfig.ProxyConfig {
 		BinaryPath:             BinaryPathFilename,
 		ServiceCluster:         ServiceClusterName,
 		AvailabilityZone:       "", //no service zone by default, i.e. AZ-aware routing is disabled
-		DrainDuration:          ptypes.DurationProto(2 * time.Second),
-		ParentShutdownDuration: ptypes.DurationProto(3 * time.Second),
+		DrainDuration:          types.DurationProto(2 * time.Second),
+		ParentShutdownDuration: types.DurationProto(3 * time.Second),
 		DiscoveryAddress:       DiscoveryPlainAddress,
-		DiscoveryRefreshDelay:  ptypes.DurationProto(1 * time.Second),
+		DiscoveryRefreshDelay:  types.DurationProto(1 * time.Second),
 		ZipkinAddress:          "",
-		ConnectTimeout:         ptypes.DurationProto(1 * time.Second),
+		ConnectTimeout:         types.DurationProto(1 * time.Second),
 		StatsdUdpAddress:       "",
 		ProxyAdminPort:         15000,
 		ControlPlaneAuthPolicy: meshconfig.AuthenticationPolicy_NONE,
 		CustomConfigFile:       "",
 		Concurrency:            0,
+		StatNameLength:         189,
 	}
 }
 
@@ -225,20 +234,19 @@ func DefaultProxyConfig() meshconfig.ProxyConfig {
 func DefaultMeshConfig() meshconfig.MeshConfig {
 	config := DefaultProxyConfig()
 	return meshconfig.MeshConfig{
-		// TODO(mixeraddress is deprecated. Remove)
-		MixerAddress:          "",
 		MixerCheckServer:      "",
 		MixerReportServer:     "",
 		DisablePolicyChecks:   false,
 		ProxyListenPort:       15001,
-		ConnectTimeout:        ptypes.DurationProto(1 * time.Second),
+		ConnectTimeout:        types.DurationProto(1 * time.Second),
 		IngressClass:          "istio",
 		IngressControllerMode: meshconfig.MeshConfig_STRICT,
-		AuthPolicy:            meshconfig.MeshConfig_NONE,
-		RdsRefreshDelay:       ptypes.DurationProto(1 * time.Second),
+		RdsRefreshDelay:       types.DurationProto(1 * time.Second),
 		EnableTracing:         true,
 		AccessLogFile:         "/dev/stdout",
 		DefaultConfig:         &config,
+		SdsUdsPath:            "",
+		SdsRefreshDelay:       types.DurationProto(15 * time.Second),
 	}
 }
 
@@ -266,14 +274,6 @@ func ApplyMeshConfigDefaults(yaml string) (*meshconfig.MeshConfig, error) {
 		if err := ApplyYAML(origProxyConfigYAML, out.DefaultConfig); err != nil {
 			return nil, multierror.Prefix(err, "failed to convert to proto.")
 		}
-	}
-
-	// Backward compat option: if mixer address is set but
-	// mixer_check_server and mixer_report_server are unset, copy the value
-	// into these two config vars.
-	if out.MixerAddress != "" && out.MixerCheckServer == "" && out.MixerReportServer == "" {
-		out.MixerCheckServer = out.MixerAddress
-		out.MixerReportServer = out.MixerAddress
 	}
 
 	if err := ValidateMeshConfig(&out); err != nil {

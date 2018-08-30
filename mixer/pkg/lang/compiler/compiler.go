@@ -265,7 +265,6 @@ func (g *generator) generateVariable(v *ast.Variable, mode nilMode, valueJmpLabe
 }
 
 func (g *generator) generateFunction(f *ast.Function, depth int, mode nilMode, valueJmpLabel string) {
-
 	switch f.Name {
 	case "EQ":
 		g.generateEq(f, depth)
@@ -279,6 +278,10 @@ func (g *generator) generateFunction(f *ast.Function, depth int, mode nilMode, v
 		g.generateIndex(f, depth, mode, valueJmpLabel)
 	case "OR":
 		g.generateOr(f, depth, mode, valueJmpLabel)
+	case "conditional":
+		g.generateConditional(f, depth, mode, valueJmpLabel)
+	case "ADD":
+		g.generateAdd(f, depth)
 	default:
 		// The parameters to a function (and the function itself) is expected to exist, regardless of whether
 		// we're in a nillable context. The call will either succeed or error out.
@@ -496,6 +499,43 @@ func (g *generator) generateOr(f *ast.Function, depth int, mode nilMode, valueJm
 	case nmJmpOnValue:
 		g.generate(f.Args[0], depth+1, nmJmpOnValue, valueJmpLabel)
 		g.generate(f.Args[1], depth+1, nmJmpOnValue, valueJmpLabel)
+	}
+}
+
+func (g *generator) generateConditional(f *ast.Function, depth int, mode nilMode, valueJmplLabel string) {
+	g.generate(f.Args[0], depth+1, nmNone, "")
+
+	labelFalse := g.builder.AllocateLabel()
+	g.builder.Jz(labelFalse)
+	g.generate(f.Args[1], depth+1, nmNone, "")
+
+	labelEnd := g.builder.AllocateLabel()
+	g.builder.Jmp(labelEnd)
+
+	g.builder.SetLabelPos(labelFalse)
+	g.generate(f.Args[2], depth+1, nmNone, "")
+
+	g.builder.SetLabelPos(labelEnd)
+
+	if mode == nmJmpOnValue {
+		g.builder.Jmp(valueJmplLabel)
+	}
+}
+
+func (g *generator) generateAdd(f *ast.Function, depth int) {
+	exprType := g.evalType(f.Args[0])
+	g.generate(f.Args[0], depth+1, nmNone, "")
+	g.generate(f.Args[1], depth+1, nmNone, "")
+
+	switch exprType {
+	case il.String:
+		g.builder.AddString()
+	case il.Double:
+		g.builder.AddDouble()
+	case il.Integer:
+		g.builder.AddInteger()
+	default:
+		g.internalError("Add for type not yet implemented: %v", exprType)
 	}
 }
 

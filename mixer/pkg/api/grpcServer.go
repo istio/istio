@@ -15,6 +15,7 @@
 package api
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -22,7 +23,6 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 	opentracing "github.com/opentracing/opentracing-go"
 	otlog "github.com/opentracing/opentracing-go/log"
-	legacyContext "golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	grpc "google.golang.org/grpc/status"
 
@@ -34,11 +34,6 @@ import (
 	"istio.io/istio/mixer/pkg/status"
 	"istio.io/istio/pkg/log"
 )
-
-// We have a slightly messy situation around the use of context objects. gRPC stubs are
-// generated to expect the old "x/net/context" types instead of the more modern "context".
-// We end up doing a quick switcharoo from the gRPC defined type to the modern type so we can
-// use the modern type elsewhere in the code.
 
 type (
 	// grpcServer holds the dispatchState for the gRPC API server.
@@ -73,9 +68,15 @@ func NewGRPCServer(dispatcher dispatcher.Dispatcher, gp *pool.GoroutinePool, cac
 }
 
 // Check is the entry point for the external Check method
-func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRequest) (*mixerpb.CheckResponse, error) {
+func (s *grpcServer) Check(ctx context.Context, req *mixerpb.CheckRequest) (*mixerpb.CheckResponse, error) {
 	lg.Debugf("Check (GlobalWordCount:%d, DeduplicationID:%s, Quota:%v)", req.GlobalWordCount, req.DeduplicationId, req.Quotas)
 	lg.Debug("Dispatching Preprocess Check")
+
+	if req.GlobalWordCount > uint32(len(s.globalWordList)) {
+		err := fmt.Errorf("inconsistent global dictionary versions used: mixer knows %d words, caller knows %d", len(s.globalWordList), req.GlobalWordCount)
+		lg.Errora("Check failed:", err.Error())
+		return nil, grpc.Errorf(codes.Internal, err.Error())
+	}
 
 	// bag around the input proto that keeps track of reference attributes
 	protoBag := attribute.NewProtoBag(&req.Attributes, s.globalDict, s.globalWordList)
@@ -110,7 +111,7 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 	// This holds the output state of preprocess operations
 	checkBag := attribute.GetMutableBag(protoBag)
 
-	resp, err := s.check(legacyCtx, req, protoBag, checkBag)
+	resp, err := s.check(ctx, req, protoBag, checkBag)
 
 	protoBag.Done()
 	checkBag.Done()
@@ -118,12 +119,12 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 	return resp, err
 }
 
-func (s *grpcServer) check(legacyCtx legacyContext.Context, req *mixerpb.CheckRequest,
+func (s *grpcServer) check(ctx context.Context, req *mixerpb.CheckRequest,
 	protoBag *attribute.ProtoBag, checkBag *attribute.MutableBag) (*mixerpb.CheckResponse, error) {
 
 	globalWordCount := int(req.GlobalWordCount)
 
-	if err := s.dispatcher.Preprocess(legacyCtx, protoBag, checkBag); err != nil {
+	if err := s.dispatcher.Preprocess(ctx, protoBag, checkBag); err != nil {
 		err = fmt.Errorf("preprocessing attributes failed: %v", err)
 		lg.Errora("Check failed:", err.Error())
 		return nil, grpc.Errorf(codes.Internal, err.Error())
@@ -137,7 +138,7 @@ func (s *grpcServer) check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 	// for every check + quota call.
 	snapApa := protoBag.SnapshotReferencedAttributes()
 
-	cr, err := s.dispatcher.Check(legacyCtx, checkBag)
+	cr, err := s.dispatcher.Check(ctx, checkBag)
 	if err != nil {
 		err = fmt.Errorf("performing check operation failed: %v", err)
 		lg.Errora("Check failed:", err.Error())
@@ -188,7 +189,7 @@ func (s *grpcServer) check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 
 			crqr := mixerpb.CheckResponse_QuotaResult{}
 
-			qr, err := s.dispatcher.Quota(legacyCtx, checkBag, qma)
+			qr, err := s.dispatcher.Quota(ctx, checkBag, qma)
 			if err != nil {
 				err = fmt.Errorf("performing quota alloc failed: %v", err)
 				lg.Errora("Quota failure:", err.Error())
@@ -214,8 +215,14 @@ func (s *grpcServer) check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 var reportResp = &mixerpb.ReportResponse{}
 
 // Report is the entry point for the external Report method
-func (s *grpcServer) Report(legacyCtx legacyContext.Context, req *mixerpb.ReportRequest) (*mixerpb.ReportResponse, error) {
+func (s *grpcServer) Report(ctx context.Context, req *mixerpb.ReportRequest) (*mixerpb.ReportResponse, error) {
 	lg.Debugf("Report (Count: %d)", len(req.Attributes))
+
+	if req.GlobalWordCount > uint32(len(s.globalWordList)) {
+		err := fmt.Errorf("inconsistent global dictionary versions used: mixer knows %d words, caller knows %d", len(s.globalWordList), req.GlobalWordCount)
+		lg.Errora("Report failed:", err.Error())
+		return nil, grpc.Errorf(codes.Internal, err.Error())
+	}
 
 	if len(req.Attributes) == 0 {
 		// early out
@@ -238,7 +245,7 @@ func (s *grpcServer) Report(legacyCtx legacyContext.Context, req *mixerpb.Report
 	// This holds the output state of preprocess operations, which ends up as a delta over the current accumBag.
 	reportBag := attribute.GetMutableBag(accumBag)
 
-	reportSpan, reportCtx := opentracing.StartSpanFromContext(legacyCtx, "Report")
+	reportSpan, reportCtx := opentracing.StartSpanFromContext(ctx, "Report")
 	reporter := s.dispatcher.GetReporter(reportCtx)
 
 	var errors *multierror.Error

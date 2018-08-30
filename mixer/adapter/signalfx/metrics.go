@@ -15,15 +15,76 @@
 package signalfx
 
 import (
-	"errors"
+	"context"
 	"time"
+
+	me "github.com/hashicorp/go-multierror"
+	"github.com/signalfx/golib/errors"
+	"github.com/signalfx/golib/sfxclient"
 
 	"istio.io/istio/mixer/adapter/signalfx/config"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/template/metric"
 )
 
-func (h *handler) processMetric(conf *config.Params_MetricConfig, inst *metric.Instance) error {
+// How long time series continue reporting from the registry since their last
+// update.
+const registryExpiry = 5 * time.Minute
+
+type metricshandler struct {
+	env                adapter.Env
+	ctx                context.Context
+	scheduler          *sfxclient.Scheduler
+	sink               *sfxclient.HTTPSink
+	registry           *registry
+	metricTypes        map[string]*metric.Type
+	intervalSeconds    uint32
+	metricConfigByName map[string]*config.Params_MetricConfig
+}
+
+func (mh *metricshandler) InitMetrics() error {
+	mh.scheduler = sfxclient.NewScheduler()
+	mh.scheduler.Sink = mh.sink
+	mh.scheduler.ReportingDelay(time.Duration(mh.intervalSeconds) * time.Second)
+
+	mh.scheduler.ErrorHandler = func(err error) error {
+		return mh.env.Logger().Errorf("Error sending datapoints: %v", err)
+	}
+
+	mh.registry = newRegistry(registryExpiry)
+	mh.scheduler.AddCallback(mh.registry)
+
+	mh.env.ScheduleDaemon(func() {
+		err := mh.scheduler.Schedule(mh.ctx)
+		if err != nil {
+			if ec, ok := err.(*errors.ErrorChain); !ok || ec.Tail() != context.Canceled {
+				_ = mh.env.Logger().Errorf("Scheduler shutdown unexpectedly: %v", err)
+			}
+		}
+	})
+	return nil
+}
+
+// metric.Handler#HandleMetric
+func (mh *metricshandler) HandleMetric(ctx context.Context, insts []*metric.Instance) error {
+	if mh == nil {
+		return nil
+	}
+	var allErr *me.Error
+
+	for i := range insts {
+		name := insts[i].Name
+		if conf := mh.metricConfigByName[name]; conf != nil {
+			if err := mh.processMetric(conf, insts[i]); err != nil {
+				allErr = me.Append(allErr, err)
+			}
+		}
+	}
+
+	return allErr.ErrorOrNil()
+}
+
+func (mh *metricshandler) processMetric(conf *config.Params_MetricConfig, inst *metric.Instance) error {
 	name := inst.Name
 	dims := sfxDimsForInstance(inst)
 
@@ -34,10 +95,10 @@ func (h *handler) processMetric(conf *config.Params_MetricConfig, inst *metric.I
 
 	switch conf.Type {
 	case config.COUNTER:
-		cu := h.registry.RegisterOrGetCumulative(name, dims)
+		cu := mh.registry.RegisterOrGetCumulative(name, dims)
 		cu.Add(int64(val))
 	case config.HISTOGRAM:
-		rb := h.registry.RegisterOrGetRollingBucket(name, dims, h.intervalSeconds)
+		rb := mh.registry.RegisterOrGetRollingBucket(name, dims, mh.intervalSeconds)
 		rb.Add(val)
 	}
 	return nil

@@ -172,7 +172,7 @@ func runDispatcherOnly(b benchmark, setup *Setup, settings *Settings) {
 		b.fatalf("for `InProcessBypassGrpc`, load must contain exactly 1 entry")
 		return
 	}
-	requests := setup.Loads[0].createRequestProtos(setup.Config.IdentityAttribute, setup.Config.IdentityAttributeDomain)
+	requests := setup.Loads[0].createRequestProtos()
 	bags := make([]attribute.Bag, len(requests)) // precreate bags to avoid polluting allocation data.
 	for i, r := range requests {
 		switch req := r.(type) {

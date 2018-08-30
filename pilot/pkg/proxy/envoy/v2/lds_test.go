@@ -26,8 +26,14 @@ func TestLDS(t *testing.T) {
 	initLocalPilotTestEnv(t)
 
 	t.Run("sidecar", func(t *testing.T) {
-		ldsr := connectADS(t, util.MockPilotGrpcAddr)
-		sendLDSReq(t, sidecarId(app3Ip, "app3"), ldsr)
+		ldsr, err := connectADS(util.MockPilotGrpcAddr)
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = sendLDSReq(sidecarId(app3Ip, "app3"), ldsr)
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		res, err := ldsr.Recv()
 		if err != nil {
@@ -45,13 +51,18 @@ func TestLDS(t *testing.T) {
 
 	// 'router' or 'gateway' type of listener
 	t.Run("gateway", func(t *testing.T) {
-		ldsr := connectADS(t, util.MockPilotGrpcAddr)
-		sendLDSReq(t, gatewayId(gatewayIP), ldsr)
+		ldsr, err := connectADS(util.MockPilotGrpcAddr)
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = sendLDSReq(gatewayId(gatewayIP), ldsr)
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		res, err := ldsr.Recv()
 		if err != nil {
 			t.Fatal("Failed to receive LDS", err)
-			return
 		}
 
 		strResponse, _ := model.ToJSONWithIndent(res, " ")
@@ -64,8 +75,15 @@ func TestLDS(t *testing.T) {
 	})
 
 	t.Run("ingress", func(t *testing.T) {
-		ldsr := connectADS(t, util.MockPilotGrpcAddr)
-		sendLDSReq(t, ingressId(ingressIP), ldsr)
+		ldsr, err := connectADS(util.MockPilotGrpcAddr)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		err = sendLDSReq(ingressId(ingressIP), ldsr)
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		res, err := ldsr.Recv()
 		if err != nil {

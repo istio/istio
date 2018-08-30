@@ -6,11 +6,12 @@ package endpoint
 import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import envoy_api_v2_core1 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-import _ "github.com/lyft/protoc-gen-validate/validate"
+import core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 import _ "github.com/gogo/protobuf/gogoproto"
+import types "github.com/gogo/protobuf/types"
+import _ "github.com/lyft/protoc-gen-validate/validate"
 
-import binary "encoding/binary"
+import encoding_binary "encoding/binary"
 
 import io "io"
 
@@ -18,6 +19,12 @@ import io "io"
 var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
+
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
 // These are stats Envoy reports to GLB every so often. Report frequency is
 // defined by
@@ -27,11 +34,10 @@ var _ = math.Inf
 type UpstreamLocalityStats struct {
 	// Name of zone, region and optionally endpoint group these metrics were
 	// collected from. Zone and region names could be empty if unknown.
-	Locality *envoy_api_v2_core1.Locality `protobuf:"bytes,1,opt,name=locality" json:"locality,omitempty"`
-	// The total number of requests sent by this Envoy since the last report. A
-	// single HTTP or gRPC request or stream is counted as one request. A TCP
-	// connection is also treated as one request. There is no explicit
-	// total_requests field below for a locality, but it may be inferred from:
+	Locality *core.Locality `protobuf:"bytes,1,opt,name=locality" json:"locality,omitempty"`
+	// The total number of requests sent by this Envoy since the last report. This
+	// information is aggregated over all the upstream Endpoints. total_requests
+	// can be inferred from:
 	//
 	// .. code-block:: none
 	//
@@ -39,36 +45,61 @@ type UpstreamLocalityStats struct {
 	//     total_error_requests
 	//
 	// The total number of requests successfully completed by the endpoints in the
-	// locality. These include non-5xx responses for HTTP, where errors
-	// originate at the client and the endpoint responded successfully. For gRPC,
-	// the grpc-status values are those not covered by total_error_requests below.
+	// locality.
 	TotalSuccessfulRequests uint64 `protobuf:"varint,2,opt,name=total_successful_requests,json=totalSuccessfulRequests,proto3" json:"total_successful_requests,omitempty"`
 	// The total number of unfinished requests
 	TotalRequestsInProgress uint64 `protobuf:"varint,3,opt,name=total_requests_in_progress,json=totalRequestsInProgress,proto3" json:"total_requests_in_progress,omitempty"`
-	// The total number of requests that failed due to errors at the endpoint.
-	// For HTTP these are responses with 5xx status codes and for gRPC the
-	// grpc-status values:
-	//
-	//   - DeadlineExceeded
-	//   - Unimplemented
-	//   - Internal
-	//   - Unavailable
-	//   - Unknown
-	//   - DataLoss
+	// The total number of requests that failed due to errors at the endpoint,
+	// aggregated over all endpoints in the locality.
 	TotalErrorRequests uint64 `protobuf:"varint,4,opt,name=total_error_requests,json=totalErrorRequests,proto3" json:"total_error_requests,omitempty"`
 	// Stats for multi-dimensional load balancing.
 	LoadMetricStats []*EndpointLoadMetricStats `protobuf:"bytes,5,rep,name=load_metric_stats,json=loadMetricStats" json:"load_metric_stats,omitempty"`
+	// Endpoint granularity stats information for this locality. This information
+	// is populated if the Server requests it by setting
+	// :ref:`LoadStatsResponse.report_endpoint_granularity<envoy_api_field_load_stats.LoadStatsResponse.report_endpoint_granularity>`.
+	UpstreamEndpointStats []*UpstreamEndpointStats `protobuf:"bytes,7,rep,name=upstream_endpoint_stats,json=upstreamEndpointStats" json:"upstream_endpoint_stats,omitempty"`
 	// [#not-implemented-hide:] The priority of the endpoint group these metrics
 	// were collected from.
-	Priority uint32 `protobuf:"varint,6,opt,name=priority,proto3" json:"priority,omitempty"`
+	Priority             uint32   `protobuf:"varint,6,opt,name=priority,proto3" json:"priority,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *UpstreamLocalityStats) Reset()                    { *m = UpstreamLocalityStats{} }
-func (m *UpstreamLocalityStats) String() string            { return proto.CompactTextString(m) }
-func (*UpstreamLocalityStats) ProtoMessage()               {}
-func (*UpstreamLocalityStats) Descriptor() ([]byte, []int) { return fileDescriptorLoadReport, []int{0} }
+func (m *UpstreamLocalityStats) Reset()         { *m = UpstreamLocalityStats{} }
+func (m *UpstreamLocalityStats) String() string { return proto.CompactTextString(m) }
+func (*UpstreamLocalityStats) ProtoMessage()    {}
+func (*UpstreamLocalityStats) Descriptor() ([]byte, []int) {
+	return fileDescriptor_load_report_f37a4b76945e0aeb, []int{0}
+}
+func (m *UpstreamLocalityStats) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *UpstreamLocalityStats) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_UpstreamLocalityStats.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (dst *UpstreamLocalityStats) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_UpstreamLocalityStats.Merge(dst, src)
+}
+func (m *UpstreamLocalityStats) XXX_Size() int {
+	return m.Size()
+}
+func (m *UpstreamLocalityStats) XXX_DiscardUnknown() {
+	xxx_messageInfo_UpstreamLocalityStats.DiscardUnknown(m)
+}
 
-func (m *UpstreamLocalityStats) GetLocality() *envoy_api_v2_core1.Locality {
+var xxx_messageInfo_UpstreamLocalityStats proto.InternalMessageInfo
+
+func (m *UpstreamLocalityStats) GetLocality() *core.Locality {
 	if m != nil {
 		return m.Locality
 	}
@@ -103,11 +134,124 @@ func (m *UpstreamLocalityStats) GetLoadMetricStats() []*EndpointLoadMetricStats 
 	return nil
 }
 
+func (m *UpstreamLocalityStats) GetUpstreamEndpointStats() []*UpstreamEndpointStats {
+	if m != nil {
+		return m.UpstreamEndpointStats
+	}
+	return nil
+}
+
 func (m *UpstreamLocalityStats) GetPriority() uint32 {
 	if m != nil {
 		return m.Priority
 	}
 	return 0
+}
+
+type UpstreamEndpointStats struct {
+	// Upstream host address.
+	Address *core.Address `protobuf:"bytes,1,opt,name=address" json:"address,omitempty"`
+	// The total number of requests successfully completed by the endpoint. A
+	// single HTTP or gRPC request or stream is counted as one request. A TCP
+	// connection is also treated as one request. There is no explicit
+	// total_requests field below for an endpoint, but it may be inferred from:
+	//
+	// .. code-block:: none
+	//
+	//   total_requests = total_successful_requests + total_requests_in_progress +
+	//     total_error_requests
+	//
+	// The total number of requests successfully completed by the endpoints in the
+	// locality. These include non-5xx responses for HTTP, where errors
+	// originate at the client and the endpoint responded successfully. For gRPC,
+	// the grpc-status values are those not covered by total_error_requests below.
+	TotalSuccessfulRequests uint64 `protobuf:"varint,2,opt,name=total_successful_requests,json=totalSuccessfulRequests,proto3" json:"total_successful_requests,omitempty"`
+	// The total number of unfinished requests for this endpoint.
+	TotalRequestsInProgress uint64 `protobuf:"varint,3,opt,name=total_requests_in_progress,json=totalRequestsInProgress,proto3" json:"total_requests_in_progress,omitempty"`
+	// The total number of requests that failed due to errors at the endpoint.
+	// For HTTP these are responses with 5xx status codes and for gRPC the
+	// grpc-status values:
+	//
+	//   - DeadlineExceeded
+	//   - Unimplemented
+	//   - Internal
+	//   - Unavailable
+	//   - Unknown
+	//   - DataLoss
+	TotalErrorRequests uint64 `protobuf:"varint,4,opt,name=total_error_requests,json=totalErrorRequests,proto3" json:"total_error_requests,omitempty"`
+	// Stats for multi-dimensional load balancing.
+	LoadMetricStats      []*EndpointLoadMetricStats `protobuf:"bytes,5,rep,name=load_metric_stats,json=loadMetricStats" json:"load_metric_stats,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}                   `json:"-"`
+	XXX_unrecognized     []byte                     `json:"-"`
+	XXX_sizecache        int32                      `json:"-"`
+}
+
+func (m *UpstreamEndpointStats) Reset()         { *m = UpstreamEndpointStats{} }
+func (m *UpstreamEndpointStats) String() string { return proto.CompactTextString(m) }
+func (*UpstreamEndpointStats) ProtoMessage()    {}
+func (*UpstreamEndpointStats) Descriptor() ([]byte, []int) {
+	return fileDescriptor_load_report_f37a4b76945e0aeb, []int{1}
+}
+func (m *UpstreamEndpointStats) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *UpstreamEndpointStats) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_UpstreamEndpointStats.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (dst *UpstreamEndpointStats) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_UpstreamEndpointStats.Merge(dst, src)
+}
+func (m *UpstreamEndpointStats) XXX_Size() int {
+	return m.Size()
+}
+func (m *UpstreamEndpointStats) XXX_DiscardUnknown() {
+	xxx_messageInfo_UpstreamEndpointStats.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_UpstreamEndpointStats proto.InternalMessageInfo
+
+func (m *UpstreamEndpointStats) GetAddress() *core.Address {
+	if m != nil {
+		return m.Address
+	}
+	return nil
+}
+
+func (m *UpstreamEndpointStats) GetTotalSuccessfulRequests() uint64 {
+	if m != nil {
+		return m.TotalSuccessfulRequests
+	}
+	return 0
+}
+
+func (m *UpstreamEndpointStats) GetTotalRequestsInProgress() uint64 {
+	if m != nil {
+		return m.TotalRequestsInProgress
+	}
+	return 0
+}
+
+func (m *UpstreamEndpointStats) GetTotalErrorRequests() uint64 {
+	if m != nil {
+		return m.TotalErrorRequests
+	}
+	return 0
+}
+
+func (m *UpstreamEndpointStats) GetLoadMetricStats() []*EndpointLoadMetricStats {
+	if m != nil {
+		return m.LoadMetricStats
+	}
+	return nil
 }
 
 // [#not-implemented-hide:] Not configuration. TBD how to doc proto APIs.
@@ -118,15 +262,44 @@ type EndpointLoadMetricStats struct {
 	NumRequestsFinishedWithMetric uint64 `protobuf:"varint,2,opt,name=num_requests_finished_with_metric,json=numRequestsFinishedWithMetric,proto3" json:"num_requests_finished_with_metric,omitempty"`
 	// Sum of metric values across all calls that finished with this metric for
 	// load_reporting_interval.
-	TotalMetricValue float64 `protobuf:"fixed64,3,opt,name=total_metric_value,json=totalMetricValue,proto3" json:"total_metric_value,omitempty"`
+	TotalMetricValue     float64  `protobuf:"fixed64,3,opt,name=total_metric_value,json=totalMetricValue,proto3" json:"total_metric_value,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *EndpointLoadMetricStats) Reset()         { *m = EndpointLoadMetricStats{} }
 func (m *EndpointLoadMetricStats) String() string { return proto.CompactTextString(m) }
 func (*EndpointLoadMetricStats) ProtoMessage()    {}
 func (*EndpointLoadMetricStats) Descriptor() ([]byte, []int) {
-	return fileDescriptorLoadReport, []int{1}
+	return fileDescriptor_load_report_f37a4b76945e0aeb, []int{2}
 }
+func (m *EndpointLoadMetricStats) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *EndpointLoadMetricStats) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_EndpointLoadMetricStats.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (dst *EndpointLoadMetricStats) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_EndpointLoadMetricStats.Merge(dst, src)
+}
+func (m *EndpointLoadMetricStats) XXX_Size() int {
+	return m.Size()
+}
+func (m *EndpointLoadMetricStats) XXX_DiscardUnknown() {
+	xxx_messageInfo_EndpointLoadMetricStats.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_EndpointLoadMetricStats proto.InternalMessageInfo
 
 func (m *EndpointLoadMetricStats) GetMetricName() string {
 	if m != nil {
@@ -170,12 +343,51 @@ type ClusterStats struct {
 	// The total number of dropped requests. This covers requests
 	// deliberately dropped by the drop_overload policy and circuit breaking.
 	TotalDroppedRequests uint64 `protobuf:"varint,3,opt,name=total_dropped_requests,json=totalDroppedRequests,proto3" json:"total_dropped_requests,omitempty"`
+	// Information about deliberately dropped requests for each category specified
+	// in the DropOverload policy.
+	DroppedRequests []*ClusterStats_DroppedRequests `protobuf:"bytes,5,rep,name=dropped_requests,json=droppedRequests" json:"dropped_requests,omitempty"`
+	// Period over which the actual load report occurred. This will be guaranteed to include every
+	// request reported. Due to system load and delays between the *LoadStatsRequest* sent from Envoy
+	// and the *LoadStatsResponse* message sent from the management server, this may be longer than
+	// the requested load reporting interval in the *LoadStatsResponse*.
+	LoadReportInterval   *types.Duration `protobuf:"bytes,4,opt,name=load_report_interval,json=loadReportInterval" json:"load_report_interval,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}        `json:"-"`
+	XXX_unrecognized     []byte          `json:"-"`
+	XXX_sizecache        int32           `json:"-"`
 }
 
-func (m *ClusterStats) Reset()                    { *m = ClusterStats{} }
-func (m *ClusterStats) String() string            { return proto.CompactTextString(m) }
-func (*ClusterStats) ProtoMessage()               {}
-func (*ClusterStats) Descriptor() ([]byte, []int) { return fileDescriptorLoadReport, []int{2} }
+func (m *ClusterStats) Reset()         { *m = ClusterStats{} }
+func (m *ClusterStats) String() string { return proto.CompactTextString(m) }
+func (*ClusterStats) ProtoMessage()    {}
+func (*ClusterStats) Descriptor() ([]byte, []int) {
+	return fileDescriptor_load_report_f37a4b76945e0aeb, []int{3}
+}
+func (m *ClusterStats) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *ClusterStats) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_ClusterStats.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (dst *ClusterStats) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ClusterStats.Merge(dst, src)
+}
+func (m *ClusterStats) XXX_Size() int {
+	return m.Size()
+}
+func (m *ClusterStats) XXX_DiscardUnknown() {
+	xxx_messageInfo_ClusterStats.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ClusterStats proto.InternalMessageInfo
 
 func (m *ClusterStats) GetClusterName() string {
 	if m != nil {
@@ -198,10 +410,83 @@ func (m *ClusterStats) GetTotalDroppedRequests() uint64 {
 	return 0
 }
 
+func (m *ClusterStats) GetDroppedRequests() []*ClusterStats_DroppedRequests {
+	if m != nil {
+		return m.DroppedRequests
+	}
+	return nil
+}
+
+func (m *ClusterStats) GetLoadReportInterval() *types.Duration {
+	if m != nil {
+		return m.LoadReportInterval
+	}
+	return nil
+}
+
+type ClusterStats_DroppedRequests struct {
+	// Identifier for the policy specifying the drop.
+	Category string `protobuf:"bytes,1,opt,name=category,proto3" json:"category,omitempty"`
+	// Total number of deliberately dropped requests for the category.
+	DroppedCount         uint64   `protobuf:"varint,2,opt,name=dropped_count,json=droppedCount,proto3" json:"dropped_count,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *ClusterStats_DroppedRequests) Reset()         { *m = ClusterStats_DroppedRequests{} }
+func (m *ClusterStats_DroppedRequests) String() string { return proto.CompactTextString(m) }
+func (*ClusterStats_DroppedRequests) ProtoMessage()    {}
+func (*ClusterStats_DroppedRequests) Descriptor() ([]byte, []int) {
+	return fileDescriptor_load_report_f37a4b76945e0aeb, []int{3, 0}
+}
+func (m *ClusterStats_DroppedRequests) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *ClusterStats_DroppedRequests) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_ClusterStats_DroppedRequests.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (dst *ClusterStats_DroppedRequests) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ClusterStats_DroppedRequests.Merge(dst, src)
+}
+func (m *ClusterStats_DroppedRequests) XXX_Size() int {
+	return m.Size()
+}
+func (m *ClusterStats_DroppedRequests) XXX_DiscardUnknown() {
+	xxx_messageInfo_ClusterStats_DroppedRequests.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ClusterStats_DroppedRequests proto.InternalMessageInfo
+
+func (m *ClusterStats_DroppedRequests) GetCategory() string {
+	if m != nil {
+		return m.Category
+	}
+	return ""
+}
+
+func (m *ClusterStats_DroppedRequests) GetDroppedCount() uint64 {
+	if m != nil {
+		return m.DroppedCount
+	}
+	return 0
+}
+
 func init() {
 	proto.RegisterType((*UpstreamLocalityStats)(nil), "envoy.api.v2.endpoint.UpstreamLocalityStats")
+	proto.RegisterType((*UpstreamEndpointStats)(nil), "envoy.api.v2.endpoint.UpstreamEndpointStats")
 	proto.RegisterType((*EndpointLoadMetricStats)(nil), "envoy.api.v2.endpoint.EndpointLoadMetricStats")
 	proto.RegisterType((*ClusterStats)(nil), "envoy.api.v2.endpoint.ClusterStats")
+	proto.RegisterType((*ClusterStats_DroppedRequests)(nil), "envoy.api.v2.endpoint.ClusterStats.DroppedRequests")
 }
 func (m *UpstreamLocalityStats) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
@@ -260,6 +545,79 @@ func (m *UpstreamLocalityStats) MarshalTo(dAtA []byte) (int, error) {
 		i++
 		i = encodeVarintLoadReport(dAtA, i, uint64(m.Priority))
 	}
+	if len(m.UpstreamEndpointStats) > 0 {
+		for _, msg := range m.UpstreamEndpointStats {
+			dAtA[i] = 0x3a
+			i++
+			i = encodeVarintLoadReport(dAtA, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(dAtA[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
+		}
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
+func (m *UpstreamEndpointStats) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *UpstreamEndpointStats) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Address != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintLoadReport(dAtA, i, uint64(m.Address.Size()))
+		n2, err := m.Address.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n2
+	}
+	if m.TotalSuccessfulRequests != 0 {
+		dAtA[i] = 0x10
+		i++
+		i = encodeVarintLoadReport(dAtA, i, uint64(m.TotalSuccessfulRequests))
+	}
+	if m.TotalRequestsInProgress != 0 {
+		dAtA[i] = 0x18
+		i++
+		i = encodeVarintLoadReport(dAtA, i, uint64(m.TotalRequestsInProgress))
+	}
+	if m.TotalErrorRequests != 0 {
+		dAtA[i] = 0x20
+		i++
+		i = encodeVarintLoadReport(dAtA, i, uint64(m.TotalErrorRequests))
+	}
+	if len(m.LoadMetricStats) > 0 {
+		for _, msg := range m.LoadMetricStats {
+			dAtA[i] = 0x2a
+			i++
+			i = encodeVarintLoadReport(dAtA, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(dAtA[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
+		}
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
 	return i, nil
 }
 
@@ -292,8 +650,11 @@ func (m *EndpointLoadMetricStats) MarshalTo(dAtA []byte) (int, error) {
 	if m.TotalMetricValue != 0 {
 		dAtA[i] = 0x19
 		i++
-		binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.TotalMetricValue))))
+		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.TotalMetricValue))))
 		i += 8
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	return i, nil
 }
@@ -336,6 +697,63 @@ func (m *ClusterStats) MarshalTo(dAtA []byte) (int, error) {
 		i++
 		i = encodeVarintLoadReport(dAtA, i, uint64(m.TotalDroppedRequests))
 	}
+	if m.LoadReportInterval != nil {
+		dAtA[i] = 0x22
+		i++
+		i = encodeVarintLoadReport(dAtA, i, uint64(m.LoadReportInterval.Size()))
+		n3, err := m.LoadReportInterval.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n3
+	}
+	if len(m.DroppedRequests) > 0 {
+		for _, msg := range m.DroppedRequests {
+			dAtA[i] = 0x2a
+			i++
+			i = encodeVarintLoadReport(dAtA, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(dAtA[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
+		}
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
+func (m *ClusterStats_DroppedRequests) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *ClusterStats_DroppedRequests) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.Category) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintLoadReport(dAtA, i, uint64(len(m.Category)))
+		i += copy(dAtA[i:], m.Category)
+	}
+	if m.DroppedCount != 0 {
+		dAtA[i] = 0x10
+		i++
+		i = encodeVarintLoadReport(dAtA, i, uint64(m.DroppedCount))
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
 	return i, nil
 }
 
@@ -373,6 +791,43 @@ func (m *UpstreamLocalityStats) Size() (n int) {
 	if m.Priority != 0 {
 		n += 1 + sovLoadReport(uint64(m.Priority))
 	}
+	if len(m.UpstreamEndpointStats) > 0 {
+		for _, e := range m.UpstreamEndpointStats {
+			l = e.Size()
+			n += 1 + l + sovLoadReport(uint64(l))
+		}
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *UpstreamEndpointStats) Size() (n int) {
+	var l int
+	_ = l
+	if m.Address != nil {
+		l = m.Address.Size()
+		n += 1 + l + sovLoadReport(uint64(l))
+	}
+	if m.TotalSuccessfulRequests != 0 {
+		n += 1 + sovLoadReport(uint64(m.TotalSuccessfulRequests))
+	}
+	if m.TotalRequestsInProgress != 0 {
+		n += 1 + sovLoadReport(uint64(m.TotalRequestsInProgress))
+	}
+	if m.TotalErrorRequests != 0 {
+		n += 1 + sovLoadReport(uint64(m.TotalErrorRequests))
+	}
+	if len(m.LoadMetricStats) > 0 {
+		for _, e := range m.LoadMetricStats {
+			l = e.Size()
+			n += 1 + l + sovLoadReport(uint64(l))
+		}
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
 	return n
 }
 
@@ -388,6 +843,9 @@ func (m *EndpointLoadMetricStats) Size() (n int) {
 	}
 	if m.TotalMetricValue != 0 {
 		n += 9
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
 	}
 	return n
 }
@@ -407,6 +865,35 @@ func (m *ClusterStats) Size() (n int) {
 	}
 	if m.TotalDroppedRequests != 0 {
 		n += 1 + sovLoadReport(uint64(m.TotalDroppedRequests))
+	}
+	if m.LoadReportInterval != nil {
+		l = m.LoadReportInterval.Size()
+		n += 1 + l + sovLoadReport(uint64(l))
+	}
+	if len(m.DroppedRequests) > 0 {
+		for _, e := range m.DroppedRequests {
+			l = e.Size()
+			n += 1 + l + sovLoadReport(uint64(l))
+		}
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *ClusterStats_DroppedRequests) Size() (n int) {
+	var l int
+	_ = l
+	l = len(m.Category)
+	if l > 0 {
+		n += 1 + l + sovLoadReport(uint64(l))
+	}
+	if m.DroppedCount != 0 {
+		n += 1 + sovLoadReport(uint64(m.DroppedCount))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
 	}
 	return n
 }
@@ -480,7 +967,7 @@ func (m *UpstreamLocalityStats) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Locality == nil {
-				m.Locality = &envoy_api_v2_core1.Locality{}
+				m.Locality = &core.Locality{}
 			}
 			if err := m.Locality.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -593,6 +1080,37 @@ func (m *UpstreamLocalityStats) Unmarshal(dAtA []byte) error {
 					break
 				}
 			}
+		case 7:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field UpstreamEndpointStats", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowLoadReport
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthLoadReport
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.UpstreamEndpointStats = append(m.UpstreamEndpointStats, &UpstreamEndpointStats{})
+			if err := m.UpstreamEndpointStats[len(m.UpstreamEndpointStats)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipLoadReport(dAtA[iNdEx:])
@@ -605,6 +1123,179 @@ func (m *UpstreamLocalityStats) Unmarshal(dAtA []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *UpstreamEndpointStats) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowLoadReport
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: UpstreamEndpointStats: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: UpstreamEndpointStats: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Address", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowLoadReport
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthLoadReport
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Address == nil {
+				m.Address = &core.Address{}
+			}
+			if err := m.Address.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field TotalSuccessfulRequests", wireType)
+			}
+			m.TotalSuccessfulRequests = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowLoadReport
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.TotalSuccessfulRequests |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 3:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field TotalRequestsInProgress", wireType)
+			}
+			m.TotalRequestsInProgress = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowLoadReport
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.TotalRequestsInProgress |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 4:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field TotalErrorRequests", wireType)
+			}
+			m.TotalErrorRequests = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowLoadReport
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.TotalErrorRequests |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 5:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field LoadMetricStats", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowLoadReport
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthLoadReport
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.LoadMetricStats = append(m.LoadMetricStats, &EndpointLoadMetricStats{})
+			if err := m.LoadMetricStats[len(m.LoadMetricStats)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipLoadReport(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthLoadReport
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -699,7 +1390,7 @@ func (m *EndpointLoadMetricStats) Unmarshal(dAtA []byte) error {
 			if (iNdEx + 8) > l {
 				return io.ErrUnexpectedEOF
 			}
-			v = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+			v = uint64(encoding_binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 			iNdEx += 8
 			m.TotalMetricValue = float64(math.Float64frombits(v))
 		default:
@@ -714,6 +1405,7 @@ func (m *EndpointLoadMetricStats) Unmarshal(dAtA []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -831,6 +1523,70 @@ func (m *ClusterStats) Unmarshal(dAtA []byte) error {
 					break
 				}
 			}
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field LoadReportInterval", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowLoadReport
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthLoadReport
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.LoadReportInterval == nil {
+				m.LoadReportInterval = &types.Duration{}
+			}
+			if err := m.LoadReportInterval.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 5:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DroppedRequests", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowLoadReport
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthLoadReport
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.DroppedRequests = append(m.DroppedRequests, &ClusterStats_DroppedRequests{})
+			if err := m.DroppedRequests[len(m.DroppedRequests)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipLoadReport(dAtA[iNdEx:])
@@ -843,6 +1599,106 @@ func (m *ClusterStats) Unmarshal(dAtA []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *ClusterStats_DroppedRequests) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowLoadReport
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: DroppedRequests: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: DroppedRequests: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Category", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowLoadReport
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthLoadReport
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Category = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DroppedCount", wireType)
+			}
+			m.DroppedCount = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowLoadReport
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.DroppedCount |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		default:
+			iNdEx = preIndex
+			skippy, err := skipLoadReport(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthLoadReport
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -957,41 +1813,54 @@ var (
 	ErrIntOverflowLoadReport   = fmt.Errorf("proto: integer overflow")
 )
 
-func init() { proto.RegisterFile("envoy/api/v2/endpoint/load_report.proto", fileDescriptorLoadReport) }
+func init() {
+	proto.RegisterFile("envoy/api/v2/endpoint/load_report.proto", fileDescriptor_load_report_f37a4b76945e0aeb)
+}
 
-var fileDescriptorLoadReport = []byte{
-	// 520 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x74, 0x93, 0xc1, 0x8e, 0xd3, 0x30,
-	0x10, 0x86, 0xe5, 0xb6, 0xbb, 0xea, 0xba, 0x45, 0x80, 0xb5, 0xa5, 0xa5, 0x40, 0x09, 0xbd, 0xd0,
-	0x43, 0x95, 0xa0, 0x82, 0x84, 0x04, 0xb7, 0xc2, 0x22, 0x90, 0x16, 0x84, 0xb2, 0x02, 0x24, 0x2e,
-	0x91, 0x37, 0x99, 0x6d, 0x2d, 0x25, 0xb1, 0xb1, 0x9d, 0xa0, 0x7d, 0x0d, 0x1e, 0x85, 0x23, 0x27,
-	0x8e, 0x1c, 0x79, 0x04, 0x54, 0x71, 0xe1, 0xcc, 0x0b, 0xac, 0x62, 0x3b, 0xed, 0x56, 0xea, 0xde,
-	0xc6, 0xf3, 0xcf, 0x9f, 0x99, 0xf9, 0x34, 0xc1, 0x0f, 0x21, 0x2f, 0xf9, 0x79, 0x40, 0x05, 0x0b,
-	0xca, 0x59, 0x00, 0x79, 0x22, 0x38, 0xcb, 0x75, 0x90, 0x72, 0x9a, 0x44, 0x12, 0x04, 0x97, 0xda,
-	0x17, 0x92, 0x6b, 0x4e, 0x7a, 0xa6, 0xd0, 0xa7, 0x82, 0xf9, 0xe5, 0xcc, 0xaf, 0x0b, 0x87, 0x77,
-	0xb7, 0xfc, 0x31, 0x97, 0x10, 0x9c, 0x52, 0x05, 0xd6, 0x34, 0xec, 0x97, 0x34, 0x65, 0x09, 0xd5,
-	0x10, 0xd4, 0x81, 0x13, 0x0e, 0x17, 0x7c, 0xc1, 0x4d, 0x18, 0x54, 0x91, 0xcd, 0x8e, 0xff, 0x37,
-	0x70, 0xef, 0x83, 0x50, 0x5a, 0x02, 0xcd, 0x8e, 0x79, 0x4c, 0x53, 0xa6, 0xcf, 0x4f, 0x34, 0xd5,
-	0x8a, 0x3c, 0xc5, 0xed, 0xd4, 0x25, 0x06, 0xc8, 0x43, 0x93, 0xce, 0xec, 0x8e, 0xbf, 0x35, 0x50,
-	0xd5, 0xd9, 0xaf, 0x3d, 0xe1, 0xba, 0x98, 0x3c, 0xc3, 0xb7, 0x35, 0xd7, 0x34, 0x8d, 0x54, 0x11,
-	0xc7, 0xa0, 0xd4, 0x59, 0x91, 0x46, 0x12, 0xbe, 0x14, 0xa0, 0xb4, 0x1a, 0x34, 0x3c, 0x34, 0x69,
-	0x85, 0x7d, 0x53, 0x70, 0xb2, 0xd6, 0x43, 0x27, 0x93, 0xe7, 0x78, 0x68, 0xbd, 0xb5, 0x21, 0x62,
-	0x79, 0x24, 0x24, 0x5f, 0x48, 0x50, 0x6a, 0xd0, 0xbc, 0x64, 0xae, 0x2d, 0x6f, 0xf2, 0xf7, 0x4e,
-	0x26, 0x8f, 0xf0, 0xa1, 0x35, 0x83, 0x94, 0x5c, 0x6e, 0x7a, 0xb6, 0x8c, 0x8d, 0x18, 0xed, 0xa8,
-	0x92, 0xd6, 0xed, 0x3e, 0xe3, 0x9b, 0x06, 0x7b, 0x06, 0x5a, 0xb2, 0x38, 0x52, 0xd5, 0xe2, 0x83,
-	0x3d, 0xaf, 0x39, 0xe9, 0xcc, 0x7c, 0x7f, 0x27, 0x7d, 0xff, 0xc8, 0x05, 0xc7, 0x9c, 0x26, 0x6f,
-	0x8d, 0xcd, 0xe0, 0x0a, 0xaf, 0xa7, 0xdb, 0x09, 0x32, 0xc4, 0x6d, 0x21, 0x19, 0x97, 0x15, 0xbf,
-	0x7d, 0x0f, 0x4d, 0xae, 0x85, 0xeb, 0xf7, 0xf8, 0x3b, 0xc2, 0xfd, 0x2b, 0x3e, 0x44, 0xee, 0xe3,
-	0x8e, 0x1b, 0x27, 0xa7, 0x19, 0x18, 0xf4, 0x07, 0x21, 0xb6, 0xa9, 0x77, 0x34, 0x03, 0xf2, 0x1a,
-	0x3f, 0xc8, 0x8b, 0x6c, 0x43, 0xe8, 0x8c, 0xe5, 0x4c, 0x2d, 0x21, 0x89, 0xbe, 0x32, 0xbd, 0x74,
-	0xab, 0x38, 0xce, 0xf7, 0xf2, 0x22, 0xab, 0x97, 0x7d, 0xe5, 0xca, 0x3e, 0x31, 0xbd, 0xb4, 0xfd,
-	0xc8, 0x14, 0x5b, 0x28, 0xf5, 0xfe, 0x25, 0x4d, 0x0b, 0x30, 0x94, 0x51, 0x78, 0xc3, 0x28, 0xb6,
-	0xf0, 0x63, 0x95, 0x1f, 0xff, 0x45, 0xb8, 0xfb, 0x22, 0x2d, 0x94, 0x06, 0x69, 0x27, 0x9d, 0xe2,
-	0x6e, 0x6c, 0xdf, 0x97, 0x46, 0x9d, 0x1f, 0xfc, 0xf8, 0xf7, 0xb3, 0xd9, 0x92, 0x0d, 0x0f, 0x85,
-	0x1d, 0x27, 0x9b, 0xb1, 0x05, 0xee, 0x17, 0xee, 0xd0, 0xa2, 0xfa, 0x56, 0x1c, 0xf1, 0x86, 0x21,
-	0x3e, 0xbd, 0x82, 0xf8, 0xce, 0xf3, 0x9c, 0xe3, 0xaa, 0xcd, 0xde, 0x37, 0xd4, 0x68, 0xa3, 0xb0,
-	0x57, 0xec, 0xbc, 0xe0, 0x27, 0xf8, 0x96, 0x5d, 0x2f, 0x91, 0x5c, 0x08, 0x48, 0x36, 0x17, 0x61,
-	0x0f, 0xc9, 0x5e, 0xcb, 0x4b, 0x2b, 0xd6, 0x98, 0xe6, 0xdd, 0x5f, 0xab, 0x11, 0xfa, 0xbd, 0x1a,
-	0xa1, 0x3f, 0xab, 0x11, 0x3a, 0xdd, 0x37, 0xbf, 0xc9, 0xe3, 0x8b, 0x00, 0x00, 0x00, 0xff, 0xff,
-	0xfa, 0x65, 0x57, 0xf9, 0xb5, 0x03, 0x00, 0x00,
+var fileDescriptor_load_report_f37a4b76945e0aeb = []byte{
+	// 691 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xec, 0x54, 0xcb, 0x6e, 0xd3, 0x40,
+	0x14, 0x95, 0x93, 0x3e, 0xd2, 0x49, 0xaa, 0x96, 0x51, 0x4b, 0xd2, 0x00, 0x69, 0x28, 0x42, 0x64,
+	0x51, 0x8d, 0x51, 0x5a, 0x09, 0x09, 0x56, 0xf4, 0x81, 0xa8, 0x28, 0x08, 0xb9, 0x02, 0x24, 0x24,
+	0xb0, 0xa6, 0xf6, 0x34, 0x1d, 0xc9, 0xf1, 0x98, 0x79, 0x04, 0xf5, 0x37, 0xf8, 0x14, 0x96, 0xac,
+	0x58, 0xb2, 0x64, 0xc1, 0x86, 0x1d, 0xea, 0x8e, 0x1d, 0x9f, 0x80, 0x3c, 0x0f, 0x27, 0x6e, 0x1b,
+	0x89, 0x0f, 0x60, 0x37, 0xbe, 0xe7, 0x9e, 0xdc, 0x7b, 0xcf, 0xb9, 0xb9, 0xe0, 0x1e, 0x49, 0x47,
+	0xec, 0xcc, 0xc7, 0x19, 0xf5, 0x47, 0x7d, 0x9f, 0xa4, 0x71, 0xc6, 0x68, 0x2a, 0xfd, 0x84, 0xe1,
+	0x38, 0xe4, 0x24, 0x63, 0x5c, 0xa2, 0x8c, 0x33, 0xc9, 0xe0, 0xaa, 0x4e, 0x44, 0x38, 0xa3, 0x68,
+	0xd4, 0x47, 0x2e, 0xb1, 0xbd, 0x5e, 0xe2, 0x47, 0x8c, 0x13, 0x1f, 0xc7, 0x31, 0x27, 0x42, 0x18,
+	0x5e, 0xfb, 0xe6, 0xe5, 0x84, 0x63, 0x2c, 0x88, 0x45, 0x3b, 0x03, 0xc6, 0x06, 0x09, 0xf1, 0xf5,
+	0xd7, 0xb1, 0x3a, 0xf1, 0x63, 0xc5, 0xb1, 0xa4, 0x2c, 0xb5, 0x78, 0x73, 0x84, 0x13, 0x1a, 0x63,
+	0x49, 0x7c, 0xf7, 0xb0, 0xc0, 0xca, 0x80, 0x0d, 0x98, 0x7e, 0xfa, 0xf9, 0xcb, 0x44, 0x37, 0x7e,
+	0x56, 0xc1, 0xea, 0xab, 0x4c, 0x48, 0x4e, 0xf0, 0xf0, 0x90, 0x45, 0x38, 0xa1, 0xf2, 0xec, 0x48,
+	0x62, 0x29, 0xe0, 0x03, 0x50, 0x4b, 0x6c, 0xa0, 0xe5, 0x75, 0xbd, 0x5e, 0xbd, 0x7f, 0x03, 0x95,
+	0x26, 0xca, 0x3b, 0x43, 0x8e, 0x13, 0x14, 0xc9, 0xf0, 0x21, 0x58, 0x93, 0x4c, 0xe2, 0x24, 0x14,
+	0x2a, 0x8a, 0x88, 0x10, 0x27, 0x2a, 0x09, 0x39, 0xf9, 0xa0, 0x88, 0x90, 0xa2, 0x55, 0xe9, 0x7a,
+	0xbd, 0x99, 0xa0, 0xa9, 0x13, 0x8e, 0x0a, 0x3c, 0xb0, 0x30, 0x7c, 0x04, 0xda, 0x86, 0xeb, 0x08,
+	0x21, 0x4d, 0xc3, 0x8c, 0xb3, 0x41, 0xae, 0x4f, 0xab, 0x3a, 0x41, 0x76, 0x94, 0x83, 0xf4, 0xa5,
+	0x85, 0xe1, 0x7d, 0xb0, 0x62, 0xc8, 0x84, 0x73, 0xc6, 0xc7, 0x35, 0x67, 0x34, 0x0d, 0x6a, 0x6c,
+	0x3f, 0x87, 0x8a, 0x72, 0x6f, 0xc1, 0x35, 0xed, 0xdb, 0x90, 0x48, 0x4e, 0xa3, 0x50, 0xe4, 0x83,
+	0xb7, 0x66, 0xbb, 0xd5, 0x5e, 0xbd, 0x8f, 0xd0, 0x95, 0xf6, 0xa1, 0x7d, 0xfb, 0x38, 0x64, 0x38,
+	0x7e, 0xae, 0x69, 0x5a, 0xae, 0x60, 0x29, 0x29, 0x07, 0x60, 0x1b, 0xd4, 0x32, 0x4e, 0x19, 0xcf,
+	0xf5, 0x9b, 0xeb, 0x7a, 0xbd, 0xc5, 0xa0, 0xf8, 0x86, 0x31, 0x68, 0x2a, 0x2b, 0x7a, 0xe8, 0x7e,
+	0xd9, 0x56, 0x9f, 0xd7, 0xd5, 0x37, 0xa7, 0x54, 0x77, 0x56, 0xb9, 0x2e, 0x4c, 0xed, 0x55, 0x75,
+	0x55, 0x78, 0xe3, 0x47, 0x65, 0xec, 0x6d, 0x09, 0x81, 0xdb, 0x60, 0xde, 0xee, 0x9c, 0xb5, 0xb6,
+	0x7d, 0x85, 0xb5, 0x8f, 0x4d, 0x46, 0xe0, 0x52, 0xff, 0x1b, 0x6b, 0x64, 0xfd, 0xec, 0x81, 0xe6,
+	0x94, 0x64, 0xb8, 0x0e, 0xea, 0xb6, 0x64, 0x8a, 0x87, 0x44, 0x8b, 0xbb, 0x10, 0x00, 0x13, 0x7a,
+	0x81, 0x87, 0x04, 0x3e, 0x05, 0xb7, 0x53, 0x35, 0x1c, 0xab, 0x70, 0x42, 0x53, 0x2a, 0x4e, 0x49,
+	0x1c, 0x7e, 0xa4, 0xf2, 0xd4, 0xb6, 0x6b, 0xb5, 0xbc, 0x95, 0xaa, 0xa1, 0x1b, 0xe8, 0x89, 0x4d,
+	0x7b, 0x43, 0xe5, 0xa9, 0xa9, 0x07, 0x37, 0x81, 0x19, 0xdc, 0xcd, 0x38, 0xc2, 0x89, 0x22, 0x5a,
+	0x49, 0x2f, 0x58, 0xd6, 0x88, 0x49, 0x7c, 0x9d, 0xc7, 0x37, 0xfe, 0x54, 0x41, 0x63, 0x37, 0x51,
+	0x42, 0x12, 0x6e, 0x3a, 0xdd, 0x04, 0x8d, 0xc8, 0x7c, 0x4f, 0xb4, 0xba, 0xb3, 0xf0, 0xe5, 0xf7,
+	0xd7, 0xea, 0x0c, 0xaf, 0x74, 0xbd, 0xa0, 0x6e, 0x61, 0xdd, 0x76, 0x36, 0xb1, 0xb0, 0xee, 0x8f,
+	0x6e, 0x55, 0xad, 0xfc, 0xd3, 0xc2, 0x96, 0x6e, 0xcb, 0x0e, 0xc8, 0xcb, 0xcc, 0x7e, 0xf2, 0x2a,
+	0x35, 0x6f, 0xbc, 0xbc, 0xe5, 0xf3, 0xb3, 0x0d, 0xae, 0x9b, 0xf1, 0x62, 0xce, 0xb2, 0x8c, 0xc4,
+	0x63, 0xd7, 0xcd, 0xb2, 0x98, 0x8d, 0xd8, 0x33, 0x60, 0xe1, 0xfb, 0x33, 0xb0, 0x32, 0x71, 0x88,
+	0x43, 0x9a, 0x4a, 0xc2, 0x47, 0x38, 0xd1, 0x9b, 0x52, 0xef, 0xaf, 0x21, 0x73, 0x3c, 0x91, 0x3b,
+	0x9e, 0x68, 0xcf, 0x1e, 0xcf, 0x00, 0xe6, 0xb4, 0x40, 0xb3, 0x0e, 0x2c, 0x09, 0xbe, 0x07, 0xcb,
+	0x97, 0x8a, 0x9b, 0x1d, 0xda, 0x9a, 0x32, 0xed, 0xa4, 0xc2, 0xe8, 0x42, 0x6f, 0xc1, 0x52, 0x5c,
+	0x0e, 0xb4, 0xdf, 0x81, 0xa5, 0x8b, 0xfd, 0xdf, 0x05, 0xb5, 0x08, 0x4b, 0x32, 0x60, 0xfc, 0xec,
+	0xb2, 0x23, 0x05, 0x04, 0xef, 0x80, 0x45, 0xd7, 0x59, 0xc4, 0x54, 0x2a, 0xed, 0xc6, 0x34, 0x6c,
+	0x70, 0x37, 0x8f, 0xed, 0x34, 0xbe, 0x9d, 0x77, 0xbc, 0xef, 0xe7, 0x1d, 0xef, 0xd7, 0x79, 0xc7,
+	0x3b, 0x9e, 0xd3, 0x33, 0x6f, 0xfd, 0x0d, 0x00, 0x00, 0xff, 0xff, 0x64, 0x96, 0x8e, 0xbf, 0xbf,
+	0x06, 0x00, 0x00,
 }

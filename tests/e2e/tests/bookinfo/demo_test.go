@@ -27,8 +27,13 @@ import (
 	"istio.io/istio/tests/util"
 )
 
+type user struct {
+	username      string
+	sessionCookie string
+}
+
 type userVersion struct {
-	user    string
+	user    user
 	version string
 	model   string
 }
@@ -59,9 +64,7 @@ func TestVersionRouting(t *testing.T) {
 		},
 	}
 
-	for _, configVersion := range tf.ConfigVersions() {
-		testVersionRoutingRules(t, configVersion, rules)
-	}
+	testVersionRoutingRules(t, "v1alpha3", rules)
 }
 
 func testVersionRoutingRules(t *testing.T, configVersion string, rules []versionRoutingRule) {
@@ -90,9 +93,7 @@ func testVersionRoutingRule(t *testing.T, configVersion string, rule versionRout
 
 func TestFaultDelay(t *testing.T) {
 	var rules = []string{testRule, delayRule}
-	for _, configVersion := range tf.ConfigVersions() {
-		doTestFaultDelay(t, configVersion, rules)
-	}
+	doTestFaultDelay(t, "v1alpha3", rules)
 }
 
 func doTestFaultDelay(t *testing.T, configVersion string, rules []string) {
@@ -134,9 +135,7 @@ type migrationRule struct {
 }
 
 func TestVersionMigration(t *testing.T) {
-	for _, configVersion := range tf.ConfigVersions() {
-		doTestVersionMigration(t, configVersion)
-	}
+	doTestVersionMigration(t, "v1alpha3")
 }
 
 func doTestVersionMigration(t *testing.T, configVersion string) {
@@ -182,8 +181,8 @@ func testVersionMigrationRule(t *testing.T, configVersion string, rule migration
 			Value: "bar",
 		},
 		{
-			Name:  "user",
-			Value: "normal-user",
+			Name:  "session",
+			Value: u1.sessionCookie,
 		},
 	}
 
@@ -209,7 +208,7 @@ func testVersionMigrationRule(t *testing.T, configVersion string, rule migration
 			} else if cVersionToMigrateError = util.CompareToFile(body, rule.modelToMigrate); cVersionToMigrateError == nil {
 				cVersionToMigrate++
 			} else {
-				log.Error("received unexpected version: %s")
+				log.Errorf("received unexpected version: %s", configVersion)
 				log.Infof("comparing to the original version: %v", c1CompareError)
 				log.Infof("comparing to the version to migrate to: %v", cVersionToMigrateError)
 			}
@@ -239,9 +238,7 @@ func isWithinPercentage(count int, total int, rate float64, tolerance float64) b
 
 func TestDbRoutingMongo(t *testing.T) {
 	var rules = []string{testDbRule}
-	for _, configVersion := range tf.ConfigVersions() {
-		doTestDbRoutingMongo(t, configVersion, rules)
-	}
+	doTestDbRoutingMongo(t, "v1alpha3", rules)
 }
 
 func doTestDbRoutingMongo(t *testing.T, configVersion string, rules []string) {
@@ -256,7 +253,7 @@ func doTestDbRoutingMongo(t *testing.T, configVersion string, rules []string) {
 
 	respExpr := "glyphicon-star" // not great test for v2 or v3 being alive
 
-	_, err = checkHTTPResponse(u1, getIngressOrFail(t, configVersion), respExpr, 10)
+	_, err = checkHTTPResponse(getIngressOrFail(t, configVersion), respExpr, 10)
 	inspect(
 		err, fmt.Sprintf("Failed database routing! %s in v1", u1),
 		fmt.Sprintf("Success! Response matches with expected! %s", respExpr), t)
@@ -265,9 +262,7 @@ func doTestDbRoutingMongo(t *testing.T, configVersion string, rules []string) {
 func TestDbRoutingMysql(t *testing.T) {
 	var rules = []string{testMysqlRule}
 
-	for _, configVersion := range tf.ConfigVersions() {
-		doTestDbRoutingMysql(t, configVersion, rules)
-	}
+	doTestDbRoutingMysql(t, "v1alpha3", rules)
 }
 
 func doTestDbRoutingMysql(t *testing.T, configVersion string, rules []string) {
@@ -282,7 +277,7 @@ func doTestDbRoutingMysql(t *testing.T, configVersion string, rules []string) {
 
 	respExpr := "glyphicon-star" // not great test for v2 or v3 being alive
 
-	_, err = checkHTTPResponse(u1, getIngressOrFail(t, configVersion), respExpr, 10)
+	_, err = checkHTTPResponse(getIngressOrFail(t, configVersion), respExpr, 10)
 	inspect(
 		err, fmt.Sprintf("Failed database routing! %s in v1", u1),
 		fmt.Sprintf("Success! Response matches with expected! %s", respExpr), t)
@@ -315,9 +310,7 @@ func TestExternalDetailsService(t *testing.T) {
 
 	var rules = []string{detailsExternalServiceRouteRule, detailsExternalServiceEgressRule}
 
-	for _, configVersion := range tf.ConfigVersions() {
-		doTestExternalDetailsService(t, configVersion, rules)
-	}
+	doTestExternalDetailsService(t, "v1alpha3", rules)
 }
 
 func doTestExternalDetailsService(t *testing.T, configVersion string, rules []string) {
@@ -330,7 +323,7 @@ func doTestExternalDetailsService(t *testing.T, configVersion string, rules []st
 
 	isbnFetchedFromExternalService := "0486424618"
 
-	_, err = checkHTTPResponse(u1, getIngressOrFail(t, configVersion), isbnFetchedFromExternalService, 1)
+	_, err = checkHTTPResponse(getIngressOrFail(t, configVersion), isbnFetchedFromExternalService, 1)
 	inspect(
 		err, fmt.Sprintf("Failed external details routing! %s in v1", u1),
 		fmt.Sprintf("Success! Response matches with expected! %s", isbnFetchedFromExternalService), t)

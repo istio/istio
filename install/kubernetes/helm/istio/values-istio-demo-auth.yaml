@@ -18,6 +18,7 @@ prometheus:
 
 sidecarInjectorWebhook:
   enabled: true
+  enableNamespacesByDefault: false
 
 grafana:
   enabled: true

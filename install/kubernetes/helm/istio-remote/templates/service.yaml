@@ -1,9 +1,9 @@
-
+{{- if .Values.global.remotePilotCreateSvcEndpoint }}
 apiVersion: v1
 kind: Service
 metadata:
   name: istio-pilot
-  namespace: istio-system
+  namespace: {{ .Release.Namespace }}
 spec:
   ports:
   - port: 15003
@@ -21,93 +21,4 @@ spec:
   - port: 9093
     name: http-monitoring
   clusterIP: None
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: istio-policy
-  namespace: istio-system
-spec:
-  ports:
-  - name: grpc-mixer
-    port: 9091
-  - name: grpc-mixer-mtls
-    port: 15004
-  - name: http-monitoring
-    port: 9093
-  - name: configapi
-    port: 9094
-  - name: statsd-prom
-    port: 9102
-  - name: statsd-udp
-    port: 9125
-    protocol: UDP
-  - name: prometheus
-    port: 42422
-  clusterIP: None
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: istio-statsd-prom-bridge
-  namespace: istio-system
-spec:
-  ports:
-  - name: statsd-prom
-    port: 9102
-  - name: statsd-udp
-    port: 9125
-    protocol: UDP
-  clusterIP: None
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: istio-telemetry
-  namespace: istio-system
-spec:
-  ports:
-  - name: http2-mixer
-    port: 9091
-    protocol: TCP
-    targetPort: 9091
-  - name: tcp-mtls
-    port: 15004
-    protocol: TCP
-    targetPort: 15004
-  - name: http-monitoring
-    port: 9093
-    protocol: TCP
-    targetPort: 9093
-  - name: prometheus
-    port: 42422
-    protocol: TCP
-    targetPort: 42422
-  clusterIP: None
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: istio-ingress
-  namespace: istio-system
-spec:
-  ports:
-  - name: http
-    port: 80
-    protocol: TCP
-  - name: https
-    port: 443
-    protocol: TCP
-  clusterIP: None
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: zipkin
-  namespace: istio-system
-spec:
-  ports:
-  - name: http-zipkin
-    port: 9411
-  clusterIP: None
----
+{{- end }}

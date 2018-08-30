@@ -92,7 +92,9 @@ func (m *Node) Validate() error {
 
 	// no validation rules for Cluster
 
-	if v, ok := interface{}(m.GetMetadata()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetMetadata()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return NodeValidationError{
 				Field:  "Metadata",
@@ -102,7 +104,9 @@ func (m *Node) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetLocality()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetLocality()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return NodeValidationError{
 				Field:  "Locality",
@@ -250,7 +254,12 @@ func (m *HeaderValue) Validate() error {
 		return nil
 	}
 
-	// no validation rules for Key
+	if len(m.GetKey()) < 1 {
+		return HeaderValueValidationError{
+			Field:  "Key",
+			Reason: "value length must be at least 1 bytes",
+		}
+	}
 
 	// no validation rules for Value
 
@@ -296,7 +305,9 @@ func (m *HeaderValueOption) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetHeader()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetHeader()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return HeaderValueOptionValidationError{
 				Field:  "Header",
@@ -306,7 +317,9 @@ func (m *HeaderValueOption) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetAppend()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetAppend()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return HeaderValueOptionValidationError{
 				Field:  "Append",
@@ -443,7 +456,9 @@ func (m *TransportSocket) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetConfig()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetConfig()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return TransportSocketValidationError{
 				Field:  "Config",
@@ -486,3 +501,74 @@ func (e TransportSocketValidationError) Error() string {
 }
 
 var _ error = TransportSocketValidationError{}
+
+// Validate checks the field values on SocketOption with the rules defined in
+// the proto definition for this message. If any rules are violated, an error
+// is returned.
+func (m *SocketOption) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	// no validation rules for Description
+
+	// no validation rules for Level
+
+	// no validation rules for Name
+
+	if _, ok := SocketOption_SocketState_name[int32(m.GetState())]; !ok {
+		return SocketOptionValidationError{
+			Field:  "State",
+			Reason: "value must be one of the defined enum values",
+		}
+	}
+
+	switch m.Value.(type) {
+
+	case *SocketOption_IntValue:
+		// no validation rules for IntValue
+
+	case *SocketOption_BufValue:
+		// no validation rules for BufValue
+
+	default:
+		return SocketOptionValidationError{
+			Field:  "Value",
+			Reason: "value is required",
+		}
+
+	}
+
+	return nil
+}
+
+// SocketOptionValidationError is the validation error returned by
+// SocketOption.Validate if the designated constraints aren't met.
+type SocketOptionValidationError struct {
+	Field  string
+	Reason string
+	Cause  error
+	Key    bool
+}
+
+// Error satisfies the builtin error interface
+func (e SocketOptionValidationError) Error() string {
+	cause := ""
+	if e.Cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
+	}
+
+	key := ""
+	if e.Key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sSocketOption.%s: %s%s",
+		key,
+		e.Field,
+		e.Reason,
+		cause)
+}
+
+var _ error = SocketOptionValidationError{}

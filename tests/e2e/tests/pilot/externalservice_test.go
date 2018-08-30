@@ -16,19 +16,10 @@ package pilot
 
 import (
 	"fmt"
-	"strings"
 	"testing"
-	"time"
 )
 
 func TestServiceEntry(t *testing.T) {
-	if !tc.V1alpha3 {
-		t.Skipf("Skipping %s: v1alpha3=false", t.Name())
-	}
-	if !tc.Egress {
-		t.Skipf("Skipping %s: egress=false", t.Name())
-	}
-
 	// This list is ordered so that cases that use the same egress rule are adjacent. This is
 	// done to avoid applying config changes more than necessary.
 	cases := []struct {
@@ -38,48 +29,42 @@ func TestServiceEntry(t *testing.T) {
 		shouldBeReachable bool
 	}{
 		{
-			name:              "REACHABLE_httpbin.org",
-			config:            "testdata/v1alpha3/serviceentry-httpbin.yaml",
-			url:               "http://httpbin.org/headers",
+			name:              "REACHABLE_www.google.com_over_google_80",
+			config:            "testdata/networking/v1alpha3/service-entry-google.yaml",
+			url:               "http://www.google.com",
 			shouldBeReachable: true,
 		},
 		{
-			name:              "UNREACHABLE_httpbin.org_443",
-			config:            "testdata/v1alpha3/serviceentry-httpbin.yaml",
-			url:               "https://httpbin.org:443/headers",
+			name:              "UNREACHABLE_bing.com_over_google_80",
+			config:            "testdata/networking/v1alpha3/service-entry-google.yaml",
+			url:               "http://bing.com",
 			shouldBeReachable: false,
 		},
 		{
-			name:              "REACHABLE_www.httpbin.org",
-			config:            "testdata/v1alpha3/serviceentry-wildcard-httpbin.yaml",
-			url:               "http://www.httpbin.org/headers",
+			name:              "REACHABLE_www.bing.com_over_bing_wildcard_80",
+			config:            "testdata/networking/v1alpha3/service-entry-wildcard-bing.yaml",
+			url:               "http://www.bing.com",
 			shouldBeReachable: true,
 		},
 		{
-			name:              "UNREACHABLE_httpbin.org",
-			config:            "testdata/v1alpha3/serviceentry-wildcard-httpbin.yaml",
-			url:               "http://httpbin.org/headers",
+			name:              "UNREACHABLE_bing.com_over_bing_wildcard_80",
+			config:            "testdata/networking/v1alpha3/service-entry-wildcard-bing.yaml",
+			url:               "http://bing.com",
 			shouldBeReachable: false,
 		},
-		{
-			name:              "REACHABLE_wikipedia_sni",
-			config:            "testdata/v1alpha3/serviceentry-tcp-wikipedia-sni.yaml",
-			url:               "https://www.wikipedia.org",
-			shouldBeReachable: true,
-		},
-		// FIXME: re-enable once we get this working
+		// See issue https://github.com/istio/istio/issues/7869
 		//{
-		//	name:              "REACHABLE_wikipedia_range",
-		//	config:            "testdata/v1alpha3/serviceentry-tcp-wikipedia-cidr.yaml",
+		//	name:              "REACHABLE_wikipedia.org_over_cidr_range",
+		//	config:            "testdata/networking/v1alpha3/service-entry-tcp-wikipedia-cidr.yaml",
 		//	url:               "https://www.wikipedia.org",
 		//	shouldBeReachable: true,
 		//},
-		{
-			name:              "UNREACHABLE_cnn",
-			config:            "testdata/v1alpha3/serviceentry-tcp-wikipedia-cidr.yaml",
-			url:               "https://cnn.com",
-			shouldBeReachable: false,
-		},
+		//{
+		//	name:              "UNREACHABLE_google.com_over_cidr_range",
+		//	config:            "testdata/networking/v1alpha3/service-entry-tcp-wikipedia-cidr.yaml",
+		//	url:               "https://google.com",
+		//	shouldBeReachable: false,
+		//},
 	}
 
 	var cfgs *deployableConfig
@@ -120,11 +105,10 @@ func TestServiceEntry(t *testing.T) {
 
 			for cluster := range tc.Kube.Clusters {
 				// Make the requests and verify the reachability
-				for _, src := range []string{"a", "b"} {
+				for _, src := range []string{"a"} {
 					runRetriableTest(t, cluster, "from_"+src, 3, func() error {
-						trace := fmt.Sprint(time.Now().UnixNano())
-						resp := ClientRequest(cluster, src, cs.url, 1, fmt.Sprintf("-key Trace-Id -val %q", trace))
-						reachable := resp.IsHTTPOk() && strings.Contains(resp.Body, trace)
+						resp := ClientRequest(cluster, src, cs.url, 1, "")
+						reachable := resp.IsHTTPOk()
 						if reachable && !cs.shouldBeReachable {
 							return fmt.Errorf("%s is reachable from %s (should be unreachable)", cs.url, src)
 						}

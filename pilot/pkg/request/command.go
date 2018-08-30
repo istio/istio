@@ -51,8 +51,8 @@ func (c *Command) Do(method, path, body string) error {
 	if err != nil {
 		return err
 	}
-	if resp.StatusCode > 399 {
-		return fmt.Errorf("received non-successful status code %v: %v", resp.StatusCode, string(respBody))
+	if resp.StatusCode > 399 && resp.StatusCode != 404 {
+		return fmt.Errorf("received unsuccessful status code %v: %v", resp.StatusCode, string(respBody))
 	}
 	fmt.Println(string(respBody))
 	return nil

@@ -8,5 +8,10 @@ metadata:
 spec:
   ports:
   - port: 443
+    name: https-validation
+  - port: 9093
+    name: http-monitoring
+  - port: 9901
+    name: grpc-mcp
   selector:
     istio: galley

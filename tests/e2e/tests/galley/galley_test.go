@@ -166,12 +166,6 @@ func TestValidation(t *testing.T) {
 		{"config-v1alpha2-rule-invalid", false},
 		{"config-v1alpha2-rule-valid", true},
 
-		{"config-v1alpha2-RouteRule-invalid", false},
-		{"config-v1alpha2-RouteRule-valid", true},
-		{"config-v1alpha2-DestinationPolicy-invalid", false},
-		{"config-v1alpha2-DestinationPolicy-valid", true},
-		{"config-v1alpha2-EgressRule-invalid", false},
-		{"config-v1alpha2-EgressRule-valid", true},
 		{"config-v1alpha2-HTTPAPISpec-invalid", false},
 		{"config-v1alpha2-HTTPAPISpec-valid", true},
 		{"config-v1alpha2-HTTPAPISpecBinding-invalid", false},
@@ -181,17 +175,20 @@ func TestValidation(t *testing.T) {
 		{"config-v1alpha2-QuotaSpecBinding-invalid", false},
 		{"config-v1alpha2-QuotaSpecBinding-valid", true},
 
-		{"config-v1alpha2-ServiceRole-invalid", false},
-		{"config-v1alpha2-ServiceRole-valid", true},
-		{"config-v1alpha2-ServiceRoleBinding-invalid", false},
-		{"config-v1alpha2-ServiceRoleBinding-valid", true},
+		{"rbac-v1alpha1-ServiceRole-invalid", false},
+		{"rbac-v1alpha1-ServiceRole-valid", true},
+		{"rbac-v1alpha1-ServiceRoleBinding-invalid", false},
+		{"rbac-v1alpha1-ServiceRoleBinding-valid", true},
 
 		{"authentication-v1alpha1-Policy-invalid", false},
 		{"authentication-v1alpha1-Policy-valid", true},
 
 		{"networking-v1alpha3-DestinationRule-invalid", false},
 		{"networking-v1alpha3-DestinationRule-valid", true},
-		{"networking-v1alpha3-ServiceEntry-invalid", false},
+		// TODO(https://github.com/istio/istio/issues/6689)
+		// ServiceEntry is temporarily disabled. Verify that invalid
+		// configuration is not rejected by galley.
+		{"networking-v1alpha3-ServiceEntry-invalid", true},
 		{"networking-v1alpha3-ServiceEntry-valid", true},
 		{"networking-v1alpha3-VirtualService-invalid", false},
 		{"networking-v1alpha3-VirtualService-valid", true},

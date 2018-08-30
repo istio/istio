@@ -132,7 +132,14 @@ func (cr *store) Create(config model.Config) (string, error) {
 	_, exists = ns.Load(config.Name)
 
 	if !exists {
-		config.ResourceVersion = time.Now().String()
+		tnow := time.Now()
+		config.ResourceVersion = tnow.String()
+
+		// Set the creation timestamp, if not provided.
+		if config.CreationTimestamp.IsZero() {
+			config.CreationTimestamp = tnow
+		}
+
 		ns.Store(config.Name, config)
 		return config.ResourceVersion, nil
 	}

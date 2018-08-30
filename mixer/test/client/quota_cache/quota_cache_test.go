@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package quotaCache
+package client_test
 
 import (
 	"fmt"
@@ -86,8 +86,8 @@ func TestQuotaCache(t *testing.T) {
 	}
 
 	// Check stats for Check, Quota and report calls.
+	s.VerifyStats(expectedStats)
 	if respStats, err := s.WaitForStatsUpdateAndGetStats(2); err == nil {
-		s.VerifyStats(respStats, expectedStats)
 		// Because prefetch code may have some margin, actual number of check and quota calls are not
 		// determined.
 		s.VerifyStatsLT(respStats, "http_mixer_filter.total_remote_check_calls", 5)

@@ -15,39 +15,3 @@ spec:
         port:
           number: 8080
 
----
-
-apiVersion: networking.istio.io/v1alpha3
-kind: VirtualService
-metadata:
-  name: fortiov1
-spec:
-  hosts:
-  - fortio.v08.istio.webinf.info
-  - fortiov1.test.svc.cluster.local
-  http:
-  - route:
-    # service selects multiple deployments, has 2 subsets
-    - destination:
-        host: fortiov1.test.svc.cluster.local
-        port:
-          number: 8080
-
----
-
-apiVersion: networking.istio.io/v1alpha3
-kind: VirtualService
-metadata:
-  name: fortiotls
-spec:
-  hosts:
-  - fortio2.v08.istio.webinf.info
-  #- fortio-tls.test.svc.cluster.local
-  http:
-  - route:
-    # service selects multiple deployments, has 2 subsets
-    - destination:
-        host: fortiov-tls.test.svc.cluster.local
-        port:
-          number: 8080
-

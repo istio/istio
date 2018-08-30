@@ -1,6 +1,6 @@
 {
   "node": {
-    "id": "{{ .Options.NodeID }}",
+    "id": "{{ .EnvoyConfigOpt.NodeID }}",
     "cluster": "mycluster"
   },
   "admin": {
@@ -44,11 +44,15 @@
     },
     "ads_config": {
       "api_type": "GRPC",
+      "grpc_services": {
+        "envoy_grpc": {
+          "cluster_name": "xds-grpc"
+        }
+      },
       "refresh_delay": {
         "seconds": 0,
         "nanos": 150000000
-      },
-      "cluster_names": [ "xds-grpc" ]
+      }
     }
   }
 }

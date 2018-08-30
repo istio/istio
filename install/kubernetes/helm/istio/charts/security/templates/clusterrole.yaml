@@ -2,7 +2,6 @@ apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole
 metadata:
   name: istio-citadel-{{ .Release.Namespace }}
-  namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "security.name" . }}
     chart: {{ .Chart.Name }}-{{ .Chart.Version }}
@@ -18,24 +17,3 @@ rules:
 - apiGroups: [""]
   resources: ["services"]
   verbs: ["get", "watch", "list"]
-
-{{- if $.Values.cleanUpOldCA }}
----
-apiVersion: rbac.authorization.k8s.io/v1beta1
-kind: Role
-metadata:
-  name: istio-cleanup-old-ca-{{ .Release.Namespace }}
-  namespace: {{ .Release.Namespace }}
-  labels:
-    app: {{ template "security.name" . }}
-    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
-rules:
-- apiGroups: [""]
-  resources: ["deployments", "serviceaccounts", "services"]
-  verbs: ["get", "delete"]
-- apiGroups: ["extensions"]
-  resources: ["deployments", "replicasets"]
-  verbs: ["get", "list", "update", "delete"]
-{{- end }}

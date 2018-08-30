@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,54 +14,230 @@
 
 package aggregate_test
 
-//import (
-//	"testing"
-//
-//	"istio.io/istio/pilot/pkg/config/aggregate"
-//	"istio.io/istio/pilot/pkg/config/memory"
-//	"istio.io/istio/pilot/pkg/model"
-//	"istio.io/istio/pilot/test/mock"
-//)
+import (
+	"testing"
 
-const (
-	// TestNamespace for testing
-	TestNamespace = "test"
+	"github.com/onsi/gomega"
+
+	"istio.io/istio/pilot/pkg/config/aggregate"
+	"istio.io/istio/pilot/pkg/config/aggregate/fakes"
+	"istio.io/istio/pilot/pkg/model"
 )
 
-// FIXME: these tests do not work on a read-only store
-//func TestStoreInvariant(t *testing.T) {
-//	store, _ := makeCache(t)
-//	mock.CheckMapInvariant(store, t, "", 10)
-//}
-//
-//func makeCache(t *testing.T) (model.ConfigStore, model.ConfigStoreCache) {
-//	mockStore := memory.Make(mock.Types)
-//	mockStoreCache := memory.NewController(mockStore)
-//	istioStore := memory.Make(model.IstioConfigTypes)
-//	istioStoreCache := memory.NewController(istioStore)
-//
-//	store, err := aggregate.Make([]model.ConfigStore{mockStore, istioStore})
-//	if err != nil {
-//		t.Fatalf("unexpected error %v", err)
-//	}
-//	ctl, err := aggregate.MakeCache([]model.ConfigStoreCache{mockStoreCache, istioStoreCache})
-//	if err != nil {
-//		t.Fatalf("unexpected error %v", err)
-//	}
-//	return store, ctl
-//}
-//
-//func TestControllerCacheFreshness(t *testing.T) {
-//	_, ctl := makeCache(t)
-//	mock.CheckCacheFreshness(ctl, TestNamespace, t)
-//}
-//
-//func TestControllerEvents(t *testing.T) {
-//	_, ctl := makeCache(t)
-//	mock.CheckCacheEvents(ctl, ctl, TestNamespace, 5, t)
-//}
-//
-//func TestControllerClientSync(t *testing.T) {
-//	store, ctl := makeCache(t)
-//	mock.CheckCacheSync(store, ctl, TestNamespace, 5, t)
-//}
+func TestAggregateStoreBasicMake(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	storeOne := &fakes.ConfigStoreCache{}
+	storeTwo := &fakes.ConfigStoreCache{}
+
+	storeOne.ConfigDescriptorReturns([]model.ProtoSchema{{
+		Type:        "some-config",
+		Plural:      "some-configs",
+		MessageName: "istio.networking.v1alpha3.DestinationRule",
+	}})
+
+	storeTwo.ConfigDescriptorReturns([]model.ProtoSchema{{
+		Type:        "other-config",
+		Plural:      "other-configs",
+		MessageName: "istio.networking.v1alpha3.Gateway",
+	}})
+
+	stores := []model.ConfigStore{storeOne, storeTwo}
+
+	store, err := aggregate.Make(stores)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	descriptors := store.ConfigDescriptor()
+	g.Expect(descriptors).To(gomega.HaveLen(2))
+	g.Expect(descriptors).To(gomega.ConsistOf([]model.ProtoSchema{
+		{
+			Type:        "some-config",
+			Plural:      "some-configs",
+			MessageName: "istio.networking.v1alpha3.DestinationRule",
+		},
+		{
+			Type:        "other-config",
+			Plural:      "other-configs",
+			MessageName: "istio.networking.v1alpha3.Gateway",
+		},
+	}))
+}
+
+func TestAggregateStoreMakeValidationFailure(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	storeOne := &fakes.ConfigStoreCache{}
+	storeOne.ConfigDescriptorReturns([]model.ProtoSchema{{
+		Type:        "some-config",
+		Plural:      "some-configs",
+		MessageName: "broken message name",
+	}})
+
+	stores := []model.ConfigStore{storeOne}
+
+	store, err := aggregate.Make(stores)
+	g.Expect(err).To(gomega.MatchError(gomega.ContainSubstring("cannot discover proto message type")))
+	g.Expect(store).To(gomega.BeNil())
+}
+
+func TestAggregateStoreGet(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	storeOne := &fakes.ConfigStoreCache{}
+	storeTwo := &fakes.ConfigStoreCache{}
+
+	storeOne.ConfigDescriptorReturns([]model.ProtoSchema{{
+		Type:        "some-config",
+		Plural:      "some-configs",
+		MessageName: "istio.networking.v1alpha3.DestinationRule",
+	}})
+
+	configReturn := &model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type: "some-config",
+			Name: "other",
+		},
+	}
+
+	storeOne.GetReturns(configReturn, true)
+
+	stores := []model.ConfigStore{storeOne, storeTwo}
+
+	store, err := aggregate.Make(stores)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	c, exists := store.Get("some-config", "other", "")
+	g.Expect(exists).To(gomega.BeTrue())
+	g.Expect(c).To(gomega.Equal(configReturn))
+}
+
+func TestAggregateStoreList(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	storeOne := &fakes.ConfigStoreCache{}
+	storeTwo := &fakes.ConfigStoreCache{}
+
+	storeTwo.ConfigDescriptorReturns([]model.ProtoSchema{{
+		Type:        "some-config",
+		Plural:      "some-configs",
+		MessageName: "istio.networking.v1alpha3.Gateway",
+	}})
+
+	storeOne.ConfigDescriptorReturns([]model.ProtoSchema{{
+		Type:        "some-config",
+		Plural:      "some-configs",
+		MessageName: "istio.networking.v1alpha3.DestinationRule",
+	}})
+
+	storeOne.ListReturns([]model.Config{
+		{
+			ConfigMeta: model.ConfigMeta{
+				Type: "some-config",
+				Name: "other",
+			},
+		},
+	}, nil)
+	storeTwo.ListReturns([]model.Config{
+		{
+			ConfigMeta: model.ConfigMeta{
+				Type: "some-config",
+				Name: "another",
+			},
+		},
+	}, nil)
+
+	stores := []model.ConfigStore{storeOne, storeTwo}
+
+	store, err := aggregate.Make(stores)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	l, err := store.List("some-config", "")
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(l).To(gomega.HaveLen(2))
+}
+
+func TestAggregateStoreFails(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	storeOne := &fakes.ConfigStoreCache{}
+	storeOne.ConfigDescriptorReturns([]model.ProtoSchema{{
+		Type:        "other-config",
+		Plural:      "other-configs",
+		MessageName: "istio.networking.v1alpha3.Gateway",
+	}})
+
+	stores := []model.ConfigStore{storeOne}
+
+	store, err := aggregate.Make(stores)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	t.Run("Fails to Delete", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
+
+		err = store.Delete("not", "gonna", "work")
+		g.Expect(err).To(gomega.MatchError(gomega.ContainSubstring("unsupported operation")))
+	})
+
+	t.Run("Fails to Create", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
+
+		c, err := store.Create(model.Config{})
+		g.Expect(err).To(gomega.MatchError(gomega.ContainSubstring("unsupported operation")))
+		g.Expect(c).To(gomega.BeEmpty())
+	})
+
+	t.Run("Fails to Update", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
+
+		c, err := store.Update(model.Config{})
+		g.Expect(err).To(gomega.MatchError(gomega.ContainSubstring("unsupported operation")))
+		g.Expect(c).To(gomega.BeEmpty())
+	})
+}
+
+func TestAggregateStoreCache(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	storeOne := &fakes.ConfigStoreCache{}
+	storeTwo := &fakes.ConfigStoreCache{}
+
+	storeOne.ConfigDescriptorReturns([]model.ProtoSchema{{
+		Type:        "some-config",
+		Plural:      "some-configs",
+		MessageName: "istio.networking.v1alpha3.DestinationRule",
+	}})
+
+	storeTwo.ConfigDescriptorReturns([]model.ProtoSchema{{
+		Type:        "other-config",
+		Plural:      "other-configs",
+		MessageName: "istio.networking.v1alpha3.Gateway",
+	}})
+
+	stores := []model.ConfigStoreCache{storeOne, storeTwo}
+
+	cacheStore, err := aggregate.MakeCache(stores)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	t.Run("it checks sync status", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
+
+		//TODO: there is a corner case here what happens when
+		//the first store has not sync'ed but the second one has?
+		//you end up with true in that case but is that right?
+		storeOne.HasSyncedReturns(true)
+		storeTwo.HasSyncedReturns(true)
+
+		ss := cacheStore.HasSynced()
+		g.Expect(ss).To(gomega.BeTrue())
+	})
+
+	t.Run("it registers an event handler", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
+
+		cacheStore.RegisterEventHandler("some-config", func(model.Config, model.Event) {})
+
+		typ, h := storeOne.RegisterEventHandlerArgsForCall(0)
+		g.Expect(typ).To(gomega.Equal("some-config"))
+		g.Expect(h).ToNot(gomega.BeNil())
+	})
+}

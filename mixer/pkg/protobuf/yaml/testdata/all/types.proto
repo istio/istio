@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package foo;
 
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
 import "policy/v1beta1/type.proto";
 
 message Empty {}
@@ -93,6 +95,27 @@ message Simple {
 
   istio.policy.v1beta1.Value istio_value = 65;
   map<string, istio.policy.v1beta1.Value> map_str_istio_value = 66;
+
+  istio.policy.v1beta1.IPAddress ipaddress_istio_value = 67;
+  map<string, istio.policy.v1beta1.IPAddress> map_str_ipaddress_istio_value = 68;
+
+  istio.policy.v1beta1.Duration duration_istio_value = 69;
+  map<string, istio.policy.v1beta1.Duration> map_str_duration_istio_value = 70;
+
+  istio.policy.v1beta1.TimeStamp timestamp_istio_value = 71;
+  map<string, istio.policy.v1beta1.TimeStamp> map_str_timestamp_istio_value = 72;
+
+  istio.policy.v1beta1.DNSName dnsname_istio_value = 73;
+  map<string, istio.policy.v1beta1.DNSName> map_str_dnsname_istio_value = 74;
+
+  istio.policy.v1beta1.EmailAddress emailaddress_istio_value = 75;
+  map<string, istio.policy.v1beta1.EmailAddress> map_str_emailaddress_istio_value = 76;
+
+  istio.policy.v1beta1.Uri uri_istio_value = 77;
+  map<string, istio.policy.v1beta1.Uri> map_str_uri_istio_value = 78;
+
+  google.protobuf.Duration google_protobuf_duration = 79;
+  google.protobuf.Timestamp google_protobuf_timestamp = 80;
 }
 
 message other {

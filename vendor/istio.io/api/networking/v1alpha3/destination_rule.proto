@@ -15,6 +15,7 @@ syntax = "proto3";
 
 import "google/protobuf/duration.proto";
 import "networking/v1alpha3/virtual_service.proto";
+import "gogoproto/gogo.proto";
 
 package istio.networking.v1alpha3;
 
@@ -231,8 +232,9 @@ message Subset {
 //       simple: ROUND_ROBIN
 // ```
 //
-// The following example uses the consistent hashing based load balancer
-// for the same ratings service using the Cookie header as the hash key.
+// The following example sets up sticky sessions for the ratings service
+// hashing-based load balancer for the same ratings service using the
+// the User cookie as the hash key.
 //
 // ```yaml
 //  apiVersion: networking.istio.io/v1alpha3
@@ -244,7 +246,9 @@ message Subset {
 //    trafficPolicy:
 //      loadBalancer:
 //        consistentHash:
-//          http_header: Cookie
+//          httpCookie:
+//            name: user
+//            ttl: 0s
 // ```
 message LoadBalancerSettings {
   // Standard load balancing algorithms that require no tuning.
@@ -270,25 +274,43 @@ message LoadBalancerSettings {
     PASSTHROUGH = 3;
   };
 
-  // Consistent hashing (ketama hash) based load balancer for even load
-  // distribution/redistribution when the connection pool changes. This
-  // load balancing policy is applicable only for HTTP-based
-  // connections. A user specified HTTP header is used as the key with
-  // [xxHash](http://cyan4973.github.io/xxHash) hashing.
-  // $hide_from_docs
+  // Consistent Hash-based load balancing can be used to provide soft
+  // session affinity based on HTTP headers, cookies or other
+  // properties. This load balancing policy is applicable only for HTTP
+  // connections. The affinity to a particular destination host will be
+  // lost when one or more hosts are added/removed from the destination
+  // service.
   message ConsistentHashLB {
-    // REQUIRED. The name of the HTTP request header that will be used to
-    // obtain the hash key. If the request header is not present, the load
-    // balancer will use a random number as the hash, effectively making
-    // the load balancing policy random.
-    string http_header = 1;
+    // Describes a HTTP cookie that will be used as the hash key for the
+    // Consistent Hash load balancer. If the cookie is not present, it will
+    // be generated.
+    message HTTPCookie {
+      // REQUIRED. Name of the cookie.
+      string name = 1;
+      // Path to set for the cookie.
+      string path = 2;
+      // REQUIRED. Lifetime of the cookie.
+      google.protobuf.Duration ttl = 3 [(gogoproto.stdduration) = true];
+    };
+
+    // REQUIRED: The hash key to use.
+    oneof hash_key {
+      // Hash based on a specific HTTP header.
+      string http_header_name = 1;
+
+      // Hash based on HTTP cookie.
+      HTTPCookie http_cookie = 2;
+
+      // Hash based on the source IP address.
+      bool use_source_ip = 3;
+    };
 
     // The minimum number of virtual nodes to use for the hash
     // ring. Defaults to 1024. Larger ring sizes result in more granular
     // load distributions. If the number of hosts in the load balancing
     // pool is larger than the ring size, each host will be assigned a
     // single virtual node.
-    uint32 minimum_ring_size = 2;
+    uint64 minimum_ring_size = 4;
   };
 
   // (-- TODO: Enable Subset load balancing after moving to v2 API Also
@@ -393,32 +415,10 @@ message ConnectionPoolSettings {
 //       baseEjectionTime: 15m
 // ```
 message OutlierDetection {
-  // Outlier detection settings for HTTP1.1/HTTP2/GRPC connections.
-  message HTTPSettings {
-    // Number of 5XX errors before a host is ejected from the connection
-    // pool. Defaults to 5.
-    int32 consecutive_errors = 1;
-
-    // Time interval between ejection sweep analysis. format:
-    // 1h/1m/1s/1ms. MUST BE >=1ms. Default is 10s.
-    google.protobuf.Duration interval = 2;
-
-    // Minimum ejection duration. A host will remain ejected for a period
-    // equal to the product of minimum ejection duration and the number of
-    // times the host has been ejected. This technique allows the system to
-    // automatically increase the ejection period for unhealthy upstream
-    // servers. format: 1h/1m/1s/1ms. MUST BE >=1ms. Default is 30s.
-    google.protobuf.Duration base_ejection_time = 3;
-
-    // Maximum % of hosts in the load balancing pool for the upstream
-    // service that can be ejected. Defaults to 10%.
-    int32 max_ejection_percent = 4;
-  };
-
   // Number of errors before a host is ejected from the connection
   // pool. Defaults to 5. When the upstream host is accessed over HTTP, a
-  // 5xx return code qualifies as an error. When the upstream host is
-  // accessed over an opaque TCP connection, connect timeouts and
+  // 502, 503 or 504 return code qualifies as an error. When the upstream host
+  // is accessed over an opaque TCP connection, connect timeouts and
   // connection error/failure events qualify as an error.
   int32 consecutive_errors = 1;
 
@@ -436,9 +436,6 @@ message OutlierDetection {
   // Maximum % of hosts in the load balancing pool for the upstream
   // service that can be ejected. Defaults to 10%.
   int32 max_ejection_percent = 4;
-
-  // DEPRECATED.
-  HTTPSettings http = 6;
 }
 
 // SSL/TLS related settings for upstream connections. See Envoy's [TLS

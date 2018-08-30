@@ -37,6 +37,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
+
 	// import all known client auth plugins
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
@@ -44,7 +45,6 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 	"istio.io/api/networking/v1alpha3"
-	"istio.io/istio/istioctl/cmd/istioctl/convert"
 	"istio.io/istio/istioctl/cmd/istioctl/gendeployment"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
@@ -81,29 +81,38 @@ var (
 	outputFormat     string
 	getAllNamespaces bool
 
-	// Create a model.ConfigStore (or mockCrdClient)
+	// Create a model.ConfigStore (or sortedConfigStore)
 	clientFactory = newClient
+
+	// Create a kubernetes.ExecClient (or mockExecClient)
+	clientExecFactory = newExecClient
 
 	loggingOptions = log.DefaultOptions()
 
 	// sortWeight defines the output order for "get all".  We show the V3 types first.
 	sortWeight = map[string]int{
-		model.Gateway.Type:           -10,
-		model.VirtualService.Type:    -5,
-		model.DestinationRule.Type:   -3,
-		model.ServiceEntry.Type:      -1,
-		model.IngressRule.Type:       1,
-		model.RouteRule.Type:         5,
-		model.DestinationPolicy.Type: 10,
-		model.EgressRule.Type:        20,
+		model.Gateway.Type:         10,
+		model.VirtualService.Type:  5,
+		model.DestinationRule.Type: 3,
+		model.ServiceEntry.Type:    1,
 	}
 
-	// deprecatedTypes tracks if a deprecation warning is needed
-	deprecatedTypes = map[string]bool{
-		model.RouteRule.Type:         true,
-		model.IngressRule.Type:       true,
-		model.DestinationPolicy.Type: true,
-		model.EgressRule.Type:        true,
+	// mustList tracks which Istio types we SHOULD NOT silently ignore if we can't list.
+	// The user wants reasonable error messages when doing `get all` against a different
+	// server version.
+	mustList = map[string]bool{
+		model.Gateway.Type:              true,
+		model.VirtualService.Type:       true,
+		model.DestinationRule.Type:      true,
+		model.ServiceEntry.Type:         true,
+		model.HTTPAPISpec.Type:          true,
+		model.HTTPAPISpecBinding.Type:   true,
+		model.QuotaSpec.Type:            true,
+		model.QuotaSpecBinding.Type:     true,
+		model.AuthenticationPolicy.Type: true,
+		model.ServiceRole.Type:          true,
+		model.ServiceRoleBinding.Type:   true,
+		model.RbacConfig.Type:           true,
 	}
 
 	// Headings for short format listing specific to type
@@ -122,29 +131,8 @@ var (
 		"service-entry":    printShortServiceEntry,
 	}
 
-	// configTypes is the Istio types supported by the client
-	// TODO: use model.IstioConfigTypes once model.IngressRule is deprecated
-	configTypes = model.ConfigDescriptor{
-		model.RouteRule,
-		model.VirtualService,
-		model.Gateway,
-		model.EgressRule,
-		model.ServiceEntry,
-		model.DestinationPolicy,
-		model.DestinationRule,
-		model.HTTPAPISpec,
-		model.HTTPAPISpecBinding,
-		model.QuotaSpec,
-		model.QuotaSpecBinding,
-		model.AuthenticationPolicy,
-		model.AuthenticationMeshPolicy,
-		model.ServiceRole,
-		model.ServiceRoleBinding,
-		model.RbacConfig,
-	}
-
 	// all resources will be migrated out of config.istio.io to their own api group mapping to package path.
-	// TODO(xiaolanz) legacy group exists until we find out a client for mixer/broker.
+	// TODO(xiaolanz) legacy group exists until we find out a client for mixer
 	legacyIstioAPIGroupVersion = schema.GroupVersion{
 		Group:   "config.istio.io",
 		Version: "v1alpha2",
@@ -152,7 +140,7 @@ var (
 
 	rootCmd = &cobra.Command{
 		Use:               "istioctl",
-		Short:             "Istio control interface",
+		Short:             "Istio control interface.",
 		SilenceUsage:      true,
 		DisableAutoGenTag: true,
 		Long: `
@@ -164,10 +152,6 @@ system.
 Available routing and traffic management configuration types:
 
 	[virtualservice gateway destinationrule serviceentry httpapispec httpapispecbinding quotaspec quotaspecbinding servicerole servicerolebinding policy]
-
-Legacy routing and traffic management configuration types:
-
-	[routerule egressrule destinationpolicy]
 
 See https://istio.io/docs/reference/ for an overview of Istio routing.
 
@@ -201,9 +185,6 @@ See https://istio.io/docs/reference/ for an overview of Istio routing.
 					return err
 				}
 				var rev string
-				if deprecated, _ := deprecatedTypes[config.Type]; deprecated {
-					c.Printf("Warning: %s is deprecated and will not be supported in future Istio versions (%s).\n", config.Type, config.Name)
-				}
 				if rev, err = configClient.Create(config); err != nil {
 					return err
 				}
@@ -388,6 +369,7 @@ istioctl get virtualservice bookinfo
 				ns, _ = handleNamespaces(namespace)
 			}
 
+			var errs error
 			var configs []model.Config
 			if getByName {
 				config, exists := configClient.Get(typs[0].Type, args[1], ns)
@@ -397,16 +379,19 @@ istioctl get virtualservice bookinfo
 			} else {
 				for _, typ := range typs {
 					typeConfigs, err := configClient.List(typ.Type, ns)
-					if err != nil {
-						return multierror.Prefix(err, fmt.Sprintf("Can't list %v:", typ.Type))
+					if err == nil {
+						configs = append(configs, typeConfigs...)
+					} else {
+						if mustList[typ.Type] {
+							errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("Can't list %v:", typ.Type)))
+						}
 					}
-					configs = append(configs, typeConfigs...)
 				}
 			}
 
 			if len(configs) == 0 {
 				c.Println("No resources found.")
-				return nil
+				return errs
 			}
 
 			var outputters = map[string](func(io.Writer, model.ConfigStore, []model.Config)){
@@ -420,11 +405,11 @@ istioctl get virtualservice bookinfo
 				return fmt.Errorf("unknown output format %v. Types are yaml|short", outputFormat)
 			}
 
-			return nil
+			return errs
 		},
 
-		ValidArgs:  configTypeResourceNames(configTypes),
-		ArgAliases: configTypePluralResourceNames(configTypes),
+		ValidArgs:  configTypeResourceNames(model.IstioConfigTypes),
+		ArgAliases: configTypePluralResourceNames(model.IstioConfigTypes),
 	}
 
 	deleteCmd = &cobra.Command{
@@ -525,8 +510,8 @@ istioctl delete virtualservice bookinfo
 			return errs
 		},
 
-		ValidArgs:  configTypeResourceNames(configTypes),
-		ArgAliases: configTypePluralResourceNames(configTypes),
+		ValidArgs:  configTypeResourceNames(model.IstioConfigTypes),
+		ArgAliases: configTypePluralResourceNames(model.IstioConfigTypes),
 	}
 
 	contextCmd = &cobra.Command{
@@ -635,7 +620,6 @@ func init() {
 		"If present, list the requested object(s) across all namespaces. Namespace in current "+
 			"context is ignored even if specified with --namespace.")
 
-	experimentalCmd.AddCommand(convert.Command())
 	experimentalCmd.AddCommand(Rbac())
 
 	// Attach the Istio logging options to the command.
@@ -669,7 +653,7 @@ func main() {
 	}
 }
 
-// The protoSchema is based on the kind (for example "routerule" or "destinationpolicy")
+// The protoSchema is based on the kind (for example "virtualservice" or "destinationrule")
 func protoSchema(configClient model.ConfigStore, typ string) (model.ProtoSchema, error) {
 	for _, desc := range configClient.ConfigDescriptor() {
 		switch strings.ToLower(typ) {
@@ -709,7 +693,7 @@ func readInputs() ([]model.Config, []crd.IstioKind, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	return crd.ParseInputs(string(input))
+	return crd.ParseInputsWithoutValidation(string(input))
 }
 
 // Print a simple list of names
@@ -866,7 +850,7 @@ func printYamlOutput(writer io.Writer, configClient model.ConfigStore, configLis
 }
 
 func newClient() (model.ConfigStore, error) {
-	return crd.NewClient(kubeconfig, configContext, configTypes, "")
+	return crd.NewClient(kubeconfig, configContext, model.IstioConfigTypes, "")
 }
 
 func supportedTypes(configClient model.ConfigStore) []string {
@@ -1020,12 +1004,12 @@ func configTypePluralResourceNames(configTypes model.ConfigDescriptor) []string 
 }
 
 // renderTimestamp creates a human-readable age similar to docker and kubectl CLI output
-func renderTimestamp(ts metav1.Time) string {
+func renderTimestamp(ts time.Time) string {
 	if ts.IsZero() {
 		return "<unknown>"
 	}
 
-	seconds := int(time.Since(ts.Time).Seconds())
+	seconds := int(time.Since(ts).Seconds())
 	if seconds < -2 {
 		return fmt.Sprintf("<invalid>")
 	} else if seconds < 0 {
@@ -1034,12 +1018,12 @@ func renderTimestamp(ts metav1.Time) string {
 		return fmt.Sprintf("%ds", seconds)
 	}
 
-	minutes := int(time.Since(ts.Time).Minutes())
+	minutes := int(time.Since(ts).Minutes())
 	if minutes < 60 {
 		return fmt.Sprintf("%dm", minutes)
 	}
 
-	hours := int(time.Since(ts.Time).Hours())
+	hours := int(time.Since(ts).Hours())
 	if hours < 24 {
 		return fmt.Sprintf("%dh", hours)
 	} else if hours < 365*24 {

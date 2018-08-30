@@ -11,18 +11,4 @@ metadata:
     istio: mixer
 data:
   mapping.conf: |-
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: istio-mixer-custom-resources
-  namespace: {{ .Release.Namespace }}
-  labels:
-    app: istio-mixer
-    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    release: {{ .Release.Name }}
-    heritage: {{ .Release.Service }}
-    istio: mixer
-data:
-  custom-resources.yaml: |-
-    {{- include "config.yaml.tpl" . | indent 4}}
+{{ toYaml .Values.prometheusStatsdExporter.mapping | indent 4 }}

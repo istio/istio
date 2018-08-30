@@ -30,7 +30,7 @@ def generate(src, dst):
     code = HEADER
     for line in src:
         if line.startswith("-"):
-            code += "\t\t\"" + line[1:].strip() + "\",\n"
+            code += "\t\t\"" + line[1:].strip().replace("\"", "\\\"") + "\",\n"
     code += FOOTER
     dst.write(code)
 

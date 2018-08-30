@@ -5,9 +5,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "grafana.name" . }}
-    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    release: {{ .Release.Name }}
-    heritage: {{ .Release.Service }}
+    {{- template "common_labels" . }}
 spec:
   replicas: {{ .Values.replicaCount }}
   template:
@@ -16,10 +14,24 @@ spec:
         app: grafana
       annotations:
         sidecar.istio.io/inject: "false"
+        scheduler.alpha.kubernetes.io/critical-pod: ""
     spec:
+{{- if .Values.global.priorityClassName }}
+      priorityClassName: "{{ .Values.global.priorityClassName }}"
+{{- end }}
+{{- if .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+{{- range .Values.global.imagePullSecrets }}
+        - name: {{ . }}
+{{- end }}
+{{- end }}
       containers:
         - name: {{ .Chart.Name }}
+{{- if contains "/" .Values.image }}
+          image: "{{ .Values.image }}"
+{{- else }}
           image: "{{ .Values.global.hub }}/{{ .Values.image }}:{{ .Values.global.tag }}"
+{{- end }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
             - containerPort: {{ .Values.service.internalPort }}
@@ -30,16 +42,39 @@ spec:
           env:
           - name: GRAFANA_PORT
             value: {{ .Values.service.internalPort | quote }}
+{{- if .Values.security.enabled }}
+          - name: GF_SECURITY_ADMIN_USER
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.security.secretName }}
+                key: {{ .Values.security.usernameKey }}
+          - name: GF_SECURITY_ADMIN_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.security.secretName }}
+                key: {{ .Values.security.passphraseKey }}
+          - name: GF_AUTH_BASIC_ENABLED
+            value: "true"
+          - name: GF_AUTH_ANONYMOUS_ENABLED
+            value: "false"
+          - name: GF_AUTH_DISABLE_LOGIN_FORM
+            value: "false"
+{{- else }}
           - name: GF_AUTH_BASIC_ENABLED
             value: "false"
           - name: GF_AUTH_ANONYMOUS_ENABLED
             value: "true"
           - name: GF_AUTH_ANONYMOUS_ORG_ROLE
             value: Admin
+{{- end }}
           - name: GF_PATHS_DATA
             value: /data/grafana
           resources:
+{{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 12 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | indent 12 }}
+{{- end }}
           volumeMounts:
           - name: data
             mountPath: /data/grafana
@@ -47,4 +82,9 @@ spec:
       {{- include "nodeaffinity" . | indent 6 }}
       volumes:
       - name: data
+{{- if .Values.persist }}
+        persistentVolumeClaim:
+          claimName: istio-grafana-pvc
+{{- else }}
         emptyDir: {}
+{{- end }}

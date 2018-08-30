@@ -15,16 +15,18 @@
 package util
 
 import (
-	"bytes"
+	"io/ioutil"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	"runtime"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
+	"github.com/gogo/protobuf/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/proxy/envoy"
@@ -54,8 +56,7 @@ var (
 	// MockPilotGrpcPort is the dynamic port for pilot grpc
 	MockPilotGrpcPort int
 
-	fsRoot string
-	stop   chan struct{}
+	stop chan struct{}
 )
 
 var (
@@ -70,14 +71,6 @@ var (
 
 	// IstioOut is the location of the output directory ($TOP/out)
 	IstioOut = os.Getenv("ISTIO_OUT")
-
-	// EnvoyOutWriter captures envoy output
-	// Redirect out and err from envoy to buffer - coverage tests get confused if we write to out.
-	// TODO: use files
-	EnvoyOutWriter bytes.Buffer
-
-	// EnvoyErrWriter captures envoy errors
-	EnvoyErrWriter bytes.Buffer
 )
 
 func init() {
@@ -104,9 +97,9 @@ func init() {
 
 // EnsureTestServer will ensure a pilot server is running in process and initializes
 // the MockPilotUrl and MockPilotGrpcAddr to allow connections to the test pilot.
-func EnsureTestServer() *bootstrap.Server {
+func EnsureTestServer(args ...func(*bootstrap.PilotArgs)) *bootstrap.Server {
 	if MockTestServer == nil {
-		err := setup()
+		err := setup(args...)
 		if err != nil {
 			log.Fatal("Failed to start in-process server", err)
 		}
@@ -114,7 +107,7 @@ func EnsureTestServer() *bootstrap.Server {
 	return MockTestServer
 }
 
-func setup() error {
+func setup(additionalArgs ...func(*bootstrap.PilotArgs)) error {
 	// TODO: point to test data directory
 	// Setting FileDir (--configDir) disables k8s client initialization, including for registries,
 	// and uses a 100ms scan. Must be used with the mock registry (or one of the others)
@@ -143,7 +136,7 @@ func setup() error {
 		//TODO: start mixer first, get its address
 		Mesh: bootstrap.MeshArgs{
 			MixerAddress:    "istio-mixer.istio-system:9091",
-			RdsRefreshDelay: ptypes.DurationProto(10 * time.Millisecond),
+			RdsRefreshDelay: types.DurationProto(10 * time.Millisecond),
 		},
 		Config: bootstrap.ConfigArgs{
 			KubeConfig: IstioSrc + "/.circleci/config",
@@ -159,6 +152,10 @@ func setup() error {
 
 	bootstrap.PilotCertDir = IstioSrc + "/tests/testdata/certs/pilot"
 
+	for _, apply := range additionalArgs {
+		apply(&args)
+	}
+
 	// Create and setup the controller.
 	s, err := bootstrap.NewServer(args)
 	if err != nil {
@@ -168,8 +165,7 @@ func setup() error {
 	MockTestServer = s
 
 	// Start the server.
-	_, err = s.Start(stop)
-	if err != nil {
+	if err := s.Start(stop); err != nil {
 		return err
 	}
 
@@ -196,16 +192,19 @@ func setup() error {
 	MockPilotSecurePort, _ = strconv.Atoi(port)
 
 	// Wait a bit for the server to come up.
-	// TODO(nmittler): Change to polling health endpoint once https://github.com/istio/istio/pull/2002 lands.
-	time.Sleep(time.Second)
+	err = wait.Poll(500*time.Millisecond, 5*time.Second, func() (bool, error) {
+		client := &http.Client{Timeout: 1 * time.Second}
+		resp, err := client.Get(MockPilotURL + "/ready")
+		if err != nil {
+			return false, nil
+		}
+		defer resp.Body.Close()
+		ioutil.ReadAll(resp.Body)
+		if resp.StatusCode == http.StatusOK {
+			return true, nil
+		}
+		return false, nil
+	})
 
-	return nil
-}
-
-// Teardown will cleanup the temp dir and remove the test data.
-func Teardown() {
-	close(stop)
-
-	// Remove the temp dir.
-	_ = os.RemoveAll(fsRoot)
+	return err
 }

@@ -19,18 +19,19 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"time"
 
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
+	"github.com/howeyc/fsnotify"
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
-	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-	"k8s.io/client-go/tools/clientcmd"
 
 	"istio.io/istio/pilot/pkg/kube/inject"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/collateral"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/probe"
 	"istio.io/istio/pkg/util"
@@ -59,9 +60,11 @@ var (
 
 	rootCmd = &cobra.Command{
 		Use:          "sidecar-injector",
-		Short:        "Kubernetes webhook for automatic Istio sidecar injection",
+		Short:        "Kubernetes webhook for automatic Istio sidecar injection.",
 		SilenceUsage: true,
-		RunE: func(*cobra.Command, []string) error {
+		Args:         cobra.ExactArgs(0),
+		RunE: func(c *cobra.Command, _ []string) error {
+			cmd.PrintFlags(c.Flags())
 			if err := log.Configure(flags.loggingOptions); err != nil {
 				return err
 			}
@@ -82,8 +85,8 @@ var (
 				return multierror.Prefix(err, "failed to create injection webhook")
 			}
 
-			if err := patchCert(); err != nil {
-				return multierror.Prefix(err, "failed to patch webhook config")
+			if err := patchCertLoop(); err != nil {
+				return multierror.Prefix(err, "failed to start patch cert loop")
 			}
 
 			stop := make(chan struct{})
@@ -96,6 +99,7 @@ var (
 	probeCmd = &cobra.Command{
 		Use:   "probe",
 		Short: "Check the liveness or readiness of a locally-running server",
+		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !flags.probeOptions.IsValid() {
 				return errors.New("some options are not valid")
@@ -109,35 +113,51 @@ var (
 	}
 )
 
-func patchCert() error {
-	const retryTimes = 6 // Try for one minute.
-	client, err := createClientset(flags.kubeconfigFile)
+// patchCertLoop continually reapplies the caBundle PEM. This is required because it can be overwritten with empty
+// values if the original yaml is reapplied (https://github.com/istio/istio/issues/6069).
+// TODO(https://github.com/istio/istio/issues/6451) - only patch when caBundle changes
+func patchCertLoop() error {
+	client, err := kube.CreateClientset(flags.kubeconfigFile, "")
 	if err != nil {
 		return err
 	}
+
 	caCertPem, err := ioutil.ReadFile(flags.caCertFile)
 	if err != nil {
 		return err
 	}
-	for i := 0; i < retryTimes; i++ {
-		err = util.PatchMutatingWebhookConfig(client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations(),
-			flags.webhookConfigName, flags.webhookName, caCertPem)
-		if err == nil {
-			return nil
-		}
-		log.Errorf("Register webhook failed: %s. Retrying...", err)
-		time.Sleep(time.Second * 10)
-	}
-	return err
-}
 
-func createClientset(kubeconfigFile string) (*kubernetes.Clientset, error) {
-	c, err := clientcmd.BuildConfigFromFlags("", kubeconfigFile)
-
+	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return kubernetes.NewForConfig(c)
+
+	watchDir, _ := filepath.Split(flags.caCertFile)
+	if err = watcher.Watch(watchDir); err != nil {
+		return fmt.Errorf("could not watch %v: %v", flags.caCertFile, err)
+	}
+
+	go func() {
+		tickerC := time.NewTicker(time.Second).C
+		for {
+			select {
+			case <-tickerC:
+				if err = util.PatchMutatingWebhookConfig(client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations(),
+					flags.webhookConfigName, flags.webhookName, caCertPem); err != nil {
+					log.Errorf("Patch webhook failed: %s", err)
+				}
+
+			case <-watcher.Event:
+				if b, err := ioutil.ReadFile(flags.caCertFile); err == nil {
+					caCertPem = b
+				} else {
+					log.Errorf("CA bundle file read error: %v", err)
+				}
+			}
+		}
+	}()
+
+	return nil
 }
 
 func init() {

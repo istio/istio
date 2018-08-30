@@ -26,6 +26,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
+
 	// import GKE cluster authentication plugin
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	// import OIDC cluster authentication plugin, e.g. for Tectonic
@@ -33,6 +34,7 @@ import (
 
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/mcp/creds"
 	"istio.io/istio/pkg/probe"
 )
 
@@ -61,7 +63,7 @@ func (b *dynamicListerWatcherBuilder) build(res metav1.APIResource) cache.Lister
 }
 
 // NewStore creates a new Store instance.
-func NewStore(u *url.URL) (store.Backend, error) {
+func NewStore(u *url.URL, gv *schema.GroupVersion, _ *creds.Options) (store.Backend, error) {
 	kubeconfig := u.Path
 	namespaces := u.Query().Get("ns")
 	retryTimeout := crdRetryTimeout
@@ -78,7 +80,7 @@ func NewStore(u *url.URL) (store.Backend, error) {
 		return nil, err
 	}
 	conf.APIPath = "/apis"
-	conf.GroupVersion = &schema.GroupVersion{Group: apiGroup, Version: apiVersion}
+	conf.GroupVersion = gv
 	s := &Store{
 		conf:                 conf,
 		retryTimeout:         retryTimeout,
@@ -86,6 +88,7 @@ func NewStore(u *url.URL) (store.Backend, error) {
 		discoveryBuilder:     defaultDiscoveryBuilder,
 		listerWatcherBuilder: newDynamicListenerWatcherBuilder,
 		Probe:                probe.NewProbe(),
+		apiGroupVersion:      gv.String(),
 	}
 	if len(namespaces) > 0 {
 		s.ns = map[string]bool{}

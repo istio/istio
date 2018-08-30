@@ -20,7 +20,6 @@ import (
 	"fmt"
 
 	"go.opencensus.io/plugin/ochttp"
-	"go.opencensus.io/plugin/ochttp/propagation/b3"
 	"go.opencensus.io/trace"
 
 	"istio.io/istio/mixer/adapter/stackdriver/config"
@@ -32,7 +31,7 @@ import (
 type (
 	builder struct {
 		types map[string]*tracespan.Type
-		mg    *helper.MetadataGenerator
+		mg    helper.MetadataGenerator
 		cfg   *config.Params
 	}
 
@@ -46,12 +45,14 @@ var (
 	// compile-time assertion that we implement the interfaces we promise
 	_ tracespan.HandlerBuilder = &builder{}
 	_ tracespan.Handler        = &handler{}
+
+	pad = [8]byte{0x3f, 0x6a, 0x2e, 0xc3, 0xc8, 0x10, 0xc2, 0xab}
 )
 
 const attrHTTPStatusCode = "http.status_code"
 
 // NewBuilder returns a builder implementing the tracespan.HandlerBuilder interface.
-func NewBuilder(mg *helper.MetadataGenerator) tracespan.HandlerBuilder {
+func NewBuilder(mg helper.MetadataGenerator) tracespan.HandlerBuilder {
 	return &builder{mg: mg}
 }
 
@@ -88,10 +89,10 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 		te: exporter,
 	}
 	traceCfg := b.cfg.Trace
-	if traceCfg == nil {
-		h.sampler = trace.NeverSample()
-	} else if sampleProbability := traceCfg.SampleProbability; sampleProbability > 0 {
-		h.sampler = trace.ProbabilitySampler(traceCfg.SampleProbability)
+	if traceCfg != nil {
+		if sampleProbability := traceCfg.SampleProbability; sampleProbability > 0 {
+			h.sampler = trace.ProbabilitySampler(traceCfg.SampleProbability)
+		}
 	}
 	return h, nil
 }
@@ -104,11 +105,11 @@ func (h *handler) HandleTraceSpan(_ context.Context, values []*tracespan.Instanc
 
 	numExported := 0
 	for _, val := range values {
-		parentContext, ok := extractParentContext(val)
+		parentContext, ok := adapter.ExtractParentContext(val.TraceId, val.ParentSpanId)
 		if !ok {
 			continue
 		}
-		spanContext, ok := extractSpanContext(val, parentContext)
+		spanContext, ok := adapter.ExtractSpanContext(val.SpanId, parentContext)
 		if !ok {
 			continue
 		}
@@ -138,30 +139,6 @@ func (h *handler) HandleTraceSpan(_ context.Context, values []*tracespan.Instanc
 	return
 }
 
-func extractParentContext(val *tracespan.Instance) (trace.SpanContext, bool) {
-	var (
-		parentContext trace.SpanContext
-		ok            bool
-	)
-	if parentContext.TraceID, ok = b3.ParseTraceID(val.TraceId); !ok {
-		return trace.SpanContext{}, false
-	}
-	parentContext.SpanID, _ = b3.ParseSpanID(val.ParentSpanId)
-	return parentContext, true
-}
-
-func extractSpanContext(val *tracespan.Instance, parent trace.SpanContext) (trace.SpanContext, bool) {
-	var (
-		spanContext trace.SpanContext
-		ok          bool
-	)
-	spanContext.TraceID = parent.TraceID
-	if spanContext.SpanID, ok = b3.ParseSpanID(val.SpanId); !ok {
-		return trace.SpanContext{}, false
-	}
-	return spanContext, true
-}
-
 func buildSpanData(val *tracespan.Instance, parentContext trace.SpanContext, spanContext trace.SpanContext) *trace.SpanData {
 	attributes := make(map[string]interface{})
 	for k, v := range val.SpanTags {
@@ -182,24 +159,46 @@ func buildSpanData(val *tracespan.Instance, parentContext trace.SpanContext, spa
 	}
 
 	spanKind := trace.SpanKindServer
+	parentSpanID := parentContext.SpanID
+	spanID := spanContext.SpanID
 	if val.ClientSpan {
 		spanKind = trace.SpanKindClient
+		// If this is a client span and rewriteClientSpanId is true, deterministically create a new span
+		// ID and rewrite span id to that one. This id should also be used as server span's parent span
+		// id.
+		if val.RewriteClientSpanId {
+			spanID = rewriteSpanID(spanID)
+		}
+	} else if val.RewriteClientSpanId {
+		// If this is a server span and rewriteClientSpanId is true, deterministically create a new span
+		// ID and rewrite parent id to that one, which makes this span attached to the client span as a
+		// child span.
+		parentSpanID = rewriteSpanID(spanID)
 	}
 	return &trace.SpanData{
 		SpanKind:     spanKind,
 		Name:         val.SpanName,
 		StartTime:    val.StartTime,
 		EndTime:      val.EndTime,
-		ParentSpanID: parentContext.SpanID,
+		ParentSpanID: parentSpanID,
 		SpanContext: trace.SpanContext{
 			TraceOptions: spanContext.TraceOptions,
 			TraceID:      spanContext.TraceID,
-			SpanID:       spanContext.SpanID,
+			SpanID:       spanID,
 		},
 		HasRemoteParent: true,
 		Status:          status,
 		Attributes:      attributes,
 	}
+}
+
+// rewriteSpanID deterministically creates a new span id base on the given span id by XOR with a pad.
+func rewriteSpanID(spanID trace.SpanID) trace.SpanID {
+	var newID trace.SpanID
+	for i, b := range spanID {
+		newID[i] = b ^ pad[i]
+	}
+	return newID
 }
 
 func (h *handler) Close() error {

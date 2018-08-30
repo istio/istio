@@ -23,13 +23,15 @@ set -e
 # Load optional config variables
 ISTIO_SIDECAR_CONFIG=${ISTIO_SIDECAR_CONFIG:-/var/lib/istio/envoy/sidecar.env}
 if [[ -r ${ISTIO_SIDECAR_CONFIG} ]]; then
-  . $ISTIO_SIDECAR_CONFIG
+  # shellcheck disable=SC1090
+  . "$ISTIO_SIDECAR_CONFIG"
 fi
 
 # Load config variables ISTIO_SYSTEM_NAMESPACE, CONTROL_PLANE_AUTH_POLICY
 ISTIO_CLUSTER_CONFIG=${ISTIO_CLUSTER_CONFIG:-/var/lib/istio/envoy/cluster.env}
 if [[ -r ${ISTIO_CLUSTER_CONFIG} ]]; then
-  . $ISTIO_CLUSTER_CONFIG
+  # shellcheck disable=SC1090
+  . "$ISTIO_CLUSTER_CONFIG"
 fi
 
 # Set defaults
@@ -41,12 +43,12 @@ ISTIO_SYSTEM_NAMESPACE=${ISTIO_SYSTEM_NAMESPACE:-istio-system}
 
 # The default matches the default istio.yaml - use sidecar.env to override this if you
 # enable auth. This requires node-agent to be running.
-ISTIO_PILOT_PORT=${ISTIO_PILOT_PORT:-8080}
+ISTIO_PILOT_PORT=${ISTIO_PILOT_PORT:-15011}
 
-# If set, add the flag
-CONTROL_PLANE_AUTH_POLICY=""
+# If set, override the default
+CONTROL_PLANE_AUTH_POLICY=("--controlPlaneAuthPolicy" "MUTUAL_TLS")
 if [ ! -z "${ISTIO_CP_AUTH:-}" ]; then
-  CONTROL_PLANE_AUTH_POLICY="--controlPlaneAuthPolicy ${ISTIO_CP_AUTH}"
+  CONTROL_PLANE_AUTH_POLICY=("--controlPlaneAuthPolicy" "${ISTIO_CP_AUTH}")
 fi
 
 if [ -z "${ISTIO_SVC_IP:-}" ]; then
@@ -61,23 +63,44 @@ fi
 if [[ ${1-} == "init" || ${1-} == "-p" ]] ; then
   # Update iptables, based on current config. This is for backward compatibility with the init image mode.
   # The sidecar image can replace the k8s init image, to avoid downloading 2 different images.
-  ${ISTIO_BIN_BASE}/istio-iptables.sh "${@}"
+  "${ISTIO_BIN_BASE}/istio-iptables.sh" "${@}"
   exit 0
 fi
 
-# Update iptables, based on config file
-${ISTIO_BIN_BASE}/istio-iptables.sh
+if [[ ${1-} != "run" ]] ; then
+  # Update iptables, based on config file
+  "${ISTIO_BIN_BASE}/istio-iptables.sh"
+fi
 
-EXEC_USER=istio-proxy
+EXEC_USER=${EXEC_USER:-istio-proxy}
 if [ "${ISTIO_INBOUND_INTERCEPTION_MODE}" = "TPROXY" ] ; then
   # In order to allow redirect inbound traffic using TPROXY, run envoy with the CAP_NET_ADMIN capability.
   # This allows configuring listeners with the "transparent" socket option set to true.
   EXEC_USER=root
 fi
 
-# Will run: ${ISTIO_BIN_BASE}/envoy -c $ENVOY_CFG --restart-epoch 0 --drain-time-s 2 --parent-shutdown-time-s 3 --service-cluster $SVC --service-node 'sidecar~${ISTIO_SVC_IP}~${POD_NAME}.${NS}.svc.cluster.local~${NS}.svc.cluster.local' $ISTIO_DEBUG >${ISTIO_LOG_DIR}/istio.log" istio-proxy
-exec su -s /bin/bash -c "INSTANCE_IP=${ISTIO_SVC_IP} POD_NAME=${POD_NAME} POD_NAMESPACE=${NS} exec ${ISTIO_BIN_BASE}/pilot-agent proxy ${ISTIO_AGENT_FLAGS:-} \
+if [ -z "${PILOT_ADDRESS:-}" ]; then
+  PILOT_ADDRESS=istio-pilot.${ISTIO_SYSTEM_NAMESPACE}:${ISTIO_PILOT_PORT}
+fi
+
+# If predefined ISTIO_AGENT_FLAGS is null, make it an empty string.
+ISTIO_AGENT_FLAGS=${ISTIO_AGENT_FLAGS:-}
+# Split ISTIO_AGENT_FLAGS by spaces.
+IFS=' ' read -r -a ISTIO_AGENT_FLAGS_ARRAY <<< "$ISTIO_AGENT_FLAGS"
+
+if [ ${EXEC_USER} == "${USER:-}" ] ; then
+  # if started as istio-proxy (or current user), do a normal start, without
+  # redirecting stderr.
+  INSTANCE_IP=${ISTIO_SVC_IP} POD_NAME=${POD_NAME} POD_NAMESPACE=${NS} "${ISTIO_BIN_BASE}/pilot-agent" proxy "${ISTIO_AGENT_FLAGS_ARRAY[@]}" \
+    --serviceCluster "$SVC" \
+    --discoveryAddress "${PILOT_ADDRESS}" \
+    "${CONTROL_PLANE_AUTH_POLICY[@]}"
+else
+
+# Will run: ${ISTIO_BIN_BASE}/envoy -c $ENVOY_CFG --restart-epoch 0 --drain-time-s 2 --parent-shutdown-time-s 3 --service-cluster $SVC --service-node 'sidecar~${ISTIO_SVC_IP}~${POD_NAME}.${NS}.svc.cluster.local~${NS}.svc.cluster.local' --allow-unknown-fields $ISTIO_DEBUG >${ISTIO_LOG_DIR}/istio.log" istio-proxy
+exec su -s /bin/bash -c "INSTANCE_IP=${ISTIO_SVC_IP} POD_NAME=${POD_NAME} POD_NAMESPACE=${NS} exec ${ISTIO_BIN_BASE}/pilot-agent proxy ${ISTIO_AGENT_FLAGS_ARRAY[*]} \
     --serviceCluster $SVC \
-    --discoveryAddress istio-pilot.${ISTIO_SYSTEM_NAMESPACE}:${ISTIO_PILOT_PORT} \
-    $CONTROL_PLANE_AUTH_POLICY \
+    --discoveryAddress ${PILOT_ADDRESS} \
+    ${CONTROL_PLANE_AUTH_POLICY[*]} \
     2> ${ISTIO_LOG_DIR}/istio.err.log > ${ISTIO_LOG_DIR}/istio.log" ${EXEC_USER}
+fi

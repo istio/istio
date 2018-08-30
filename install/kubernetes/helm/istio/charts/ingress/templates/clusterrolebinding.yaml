@@ -1,4 +1,3 @@
-{{- if .Values.global.rbacEnabled }}
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
 metadata:
@@ -6,9 +5,8 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: istio-ingress-{{ .Release.Namespace }}
+  name: istio-pilot-{{ .Release.Namespace }}
 subjects:
   - kind: ServiceAccount
     name: istio-ingress-service-account
     namespace: {{ .Release.Namespace }}
-{{- end }}

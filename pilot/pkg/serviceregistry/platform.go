@@ -26,8 +26,6 @@ const (
 	KubernetesRegistry ServiceRegistry = "Kubernetes"
 	// ConsulRegistry is a service registry backed by Consul
 	ConsulRegistry ServiceRegistry = "Consul"
-	// EurekaRegistry is a service registry backed by Eureka
-	EurekaRegistry ServiceRegistry = "Eureka"
 	// CloudFoundryRegistry is a service registry backed by Cloud Foundry.
 	CloudFoundryRegistry ServiceRegistry = "CloudFoundry"
 )

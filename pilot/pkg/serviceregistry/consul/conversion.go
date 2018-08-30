@@ -56,7 +56,7 @@ func convertPort(port int, name string) *model.Port {
 }
 
 func convertService(endpoints []*api.CatalogService) *model.Service {
-	name, externalName := "", ""
+	name := ""
 
 	meshExternal := false
 	resolution := model.ClientSideLB
@@ -77,7 +77,6 @@ func convertService(endpoints []*api.CatalogService) *model.Service {
 		// TODO This will not work if service is a mix of external and local services
 		// or if a service has more than one external name
 		if endpoint.NodeMeta[externalTagName] != "" {
-			externalName = endpoint.NodeMeta[externalTagName]
 			meshExternal = true
 			resolution = model.Passthrough
 		}
@@ -88,13 +87,17 @@ func convertService(endpoints []*api.CatalogService) *model.Service {
 		svcPorts = append(svcPorts, port)
 	}
 
+	hostname := serviceHostname(name)
 	out := &model.Service{
-		Hostname:     serviceHostname(name),
+		Hostname:     hostname,
 		Address:      "0.0.0.0",
 		Ports:        svcPorts,
-		ExternalName: model.Hostname(externalName),
 		MeshExternal: meshExternal,
 		Resolution:   resolution,
+		Attributes: model.ServiceAttributes{
+			Name:      string(hostname),
+			Namespace: model.IstioDefaultConfigNamespace,
+		},
 	}
 
 	return out
@@ -117,6 +120,7 @@ func convertInstance(instance *api.CatalogService) *model.ServiceInstance {
 		resolution = model.DNSLB
 	}
 
+	hostname := serviceHostname(instance.ServiceName)
 	return &model.ServiceInstance{
 		Endpoint: model.NetworkEndpoint{
 			Address:     addr,
@@ -125,13 +129,15 @@ func convertInstance(instance *api.CatalogService) *model.ServiceInstance {
 		},
 		AvailabilityZone: instance.Datacenter,
 		Service: &model.Service{
-			Hostname: serviceHostname(instance.ServiceName),
-			Address:  instance.ServiceAddress,
-			Ports:    model.PortList{port},
-			// TODO ExternalName come from metadata?
-			ExternalName: model.Hostname(externalName),
+			Hostname:     hostname,
+			Address:      instance.ServiceAddress,
+			Ports:        model.PortList{port},
 			MeshExternal: meshExternal,
 			Resolution:   resolution,
+			Attributes: model.ServiceAttributes{
+				Name:      string(hostname),
+				Namespace: model.IstioDefaultConfigNamespace,
+			},
 		},
 		Labels: labels,
 	}
@@ -146,7 +152,7 @@ func serviceHostname(name string) model.Hostname {
 
 // parseHostname extracts service name from the service hostname
 func parseHostname(hostname model.Hostname) (name string, err error) {
-	parts := strings.Split(hostname.String(), ".")
+	parts := strings.Split(string(hostname), ".")
 	if len(parts) < 1 || parts[0] == "" {
 		err = fmt.Errorf("missing service name from the service hostname %q", hostname)
 		return

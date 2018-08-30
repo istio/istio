@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
 #
 # Shell script for checking go benchmarks against baseline files.
@@ -61,31 +61,34 @@ TOLERANCE_PERCENT_BYTES_PER_OP=1
 TOLERANCE_PERCENT_ALLOCS_PER_OP=0
 
 # the location of this script
-SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
+SCRIPTPATH=$( cd "$(dirname "$0")" && pwd -P )
 
 # the root folder for the project
-ROOT=${SCRIPTPATH}/..
-TARGET_DIR=${ROOT}
+ROOTDIR=${SCRIPTPATH}/..
+TARGET_DIR=${ROOTDIR}
 if ! [ -z "$1" ]; then
     TARGET_DIR=$1
 fi
 
 # Search and find the baseline files within the project
 function findBaselineFiles() {
-    find ${TARGET_DIR} -name ${BASELINE_FILENAME}
+    find "${TARGET_DIR}" -name ${BASELINE_FILENAME}
 }
 
 # load the baseline file with the name as first parameter
 # filters comments/empty lines and cleans up the file.
 function loadBaselineFile() {
     local FILENAME="${1}"
-    local CONTENTS=$(cat "${FILENAME}")
+    local CONTENTS
+    CONTENTS=$(cat "${FILENAME}")
 
     # Filter comment lines
-    local CONTENTS=$(echo "${CONTENTS}" | sed -e 's/#.*$//')
+    # shellcheck disable=SC2001
+    CONTENTS=$(echo "${CONTENTS}" | sed -e 's/#.*$//')
 
     # Filter empty lines
-    local CONTENTS=$(echo "${CONTENTS}" | sed -e '/^$/d')
+    # shellcheck disable=SC2001
+    CONTENTS=$(echo "${CONTENTS}" | sed -e '/^$/d')
 
     printf "%s" "${CONTENTS}"
 }
@@ -94,8 +97,8 @@ function loadBaselineFile() {
 function getColumn() {
     local ENTRY="${1}"
     local COLUMN="${2}"
-    local PARTS=( ${ENTRY} )
-    echo ${PARTS[${COLUMN}]}
+    local PARTS=( "${ENTRY}" )
+    echo "${PARTS[${COLUMN}]}"
 }
 
 # given the cleaned-up contents of the baseline or the result output, find and return the entry matching the named benchmark.
@@ -123,10 +126,13 @@ function compareMetric() {
         echo "0"
     else
         # calculate tolerance as absolute value, and perform comparison.
-        local TOLERANCE=$(echo - | awk "{print ${BASELINE} * ${TOLERANCE_PERCENT} / 100}")
+        local TOLERANCE
+        TOLERANCE=$(echo - | awk "{print ${BASELINE} * ${TOLERANCE_PERCENT} / 100}")
 
-        local IS_HIGH=$(echo - | awk "{print (${RESULT} > (${BASELINE} + ${TOLERANCE}))}")
-        local IS_LOW=$(echo - | awk "{print (${RESULT} < (${BASELINE} - ${TOLERANCE}))}")
+        local IS_HIGH
+        IS_HIGH=$(echo - | awk "{print (${RESULT} > (${BASELINE} + ${TOLERANCE}))}")
+        local IS_LOW
+        IS_LOW=$(echo - | awk "{print (${RESULT} < (${BASELINE} - ${TOLERANCE}))}")
 
         if [ "${IS_HIGH}" == 1 ]; then
             echo "1"
@@ -143,9 +149,11 @@ function compareBenchResults() {
     local BASELINE="${1}"
     local RESULTS="${2}"
 
-    printf "${BASELINE}" | while read -r BASELINE_ENTRY; do
-        local BENCH_NAME=$(getColumn "${BASELINE_ENTRY}" "0")
-        local RESULT_ENTRY=$(findEntry "${RESULTS}", "${BENCH_NAME}")
+    printf '%s' "${BASELINE}" | while read -r BASELINE_ENTRY; do
+        local BENCH_NAME
+        BENCH_NAME=$(getColumn "${BASELINE_ENTRY}" "0")
+        local RESULT_ENTRY
+        RESULT_ENTRY=$(findEntry "${RESULTS}", "${BENCH_NAME}")
 
         if [ -z "${RESULT_ENTRY// }" ]; then
             echo "FAILED ${BENCH_NAME}"
@@ -154,17 +162,26 @@ function compareBenchResults() {
             echo "Details:"
             echo "   No matching benchmark encountered."
         else
-            local BASELINE_TIME_PER_OP=$(getColumn "${BASELINE_ENTRY}" "2")
-            local BASELINE_BYTES_PER_OP=$(getColumn "${BASELINE_ENTRY}" "4")
-            local BASELINE_ALLOCS_PER_OP=$(getColumn "${BASELINE_ENTRY}" "6")
+            local BASELINE_TIME_PER_OP
+            BASELINE_TIME_PER_OP=$(getColumn "${BASELINE_ENTRY}" "2")
+            local BASELINE_BYTES_PER_OP
+            BASELINE_BYTES_PER_OP=$(getColumn "${BASELINE_ENTRY}" "4")
+            local BASELINE_ALLOCS_PER_OP
+            BASELINE_ALLOCS_PER_OP=$(getColumn "${BASELINE_ENTRY}" "6")
 
-            local RESULT_TIME_PER_OP=$(getColumn "${RESULT_ENTRY}" "2")
-            local RESULT_BYTES_PER_OP=$(getColumn "${RESULT_ENTRY}" "4")
-            local RESULT_ALLOCS_PER_OP=$(getColumn "${RESULT_ENTRY}" "6")
+            local RESULT_TIME_PER_OP
+            RESULT_TIME_PER_OP=$(getColumn "${RESULT_ENTRY}" "2")
+            local RESULT_BYTES_PER_OP
+            RESULT_BYTES_PER_OP=$(getColumn "${RESULT_ENTRY}" "4")
+            local RESULT_ALLOCS_PER_OP
+            RESULT_ALLOCS_PER_OP=$(getColumn "${RESULT_ENTRY}" "6")
 
-            local TIME_PER_OP_CMP=$(compareMetric "${BASELINE_TIME_PER_OP}" "${RESULT_TIME_PER_OP}" "${TOLERANCE_PERCENT_TIME_PER_OP}")
-            local BYTES_PER_OP_CMP=$(compareMetric "${BASELINE_BYTES_PER_OP}" "${RESULT_BYTES_PER_OP}" "${TOLERANCE_PERCENT_BYTES_PER_OP}")
-            local ALLOCS_PER_OP_CMP=$(compareMetric "${BASELINE_ALLOCS_PER_OP}" "${RESULT_ALLOCS_PER_OP}" "${TOLERANCE_PERCENT_ALLOCS_PER_OP}")
+            local TIME_PER_OP_CMP
+            TIME_PER_OP_CMP=$(compareMetric "${BASELINE_TIME_PER_OP}" "${RESULT_TIME_PER_OP}" "${TOLERANCE_PERCENT_TIME_PER_OP}")
+            local BYTES_PER_OP_CMP
+            BYTES_PER_OP_CMP=$(compareMetric "${BASELINE_BYTES_PER_OP}" "${RESULT_BYTES_PER_OP}" "${TOLERANCE_PERCENT_BYTES_PER_OP}")
+            local ALLOCS_PER_OP_CMP
+            ALLOCS_PER_OP_CMP=$(compareMetric "${BASELINE_ALLOCS_PER_OP}" "${RESULT_ALLOCS_PER_OP}" "${TOLERANCE_PERCENT_ALLOCS_PER_OP}")
 
             if [ "${TIME_PER_OP_CMP}" != "0" ] || [ "${BYTES_PER_OP_CMP}" != "0" ] || [ "${ALLOCS_PER_OP_CMP}" != "0" ]; then
                 echo "--FAILED ${BENCH_NAME}"
@@ -175,17 +192,17 @@ function compareBenchResults() {
                 echo "Details:"
 
                 if [ "${TIME_PER_OP_CMP}" != "0" ]; then
-                    echo -e "  ${RESULT_TIME_PER_OP} ns/op is not in range of: ${BASELINE_TIME_PER_OP}   \t[tol: ${TOLERANCE_PERCENT_TIME_PER_OP}%]"
+                    echo -e "  ${RESULT_TIME_PER_OP} ns/op is not in range of: ${BASELINE_TIME_PER_OP}   \\t[tol: ${TOLERANCE_PERCENT_TIME_PER_OP}%]"
                 fi
 
                 if [ "${BYTES_PER_OP_CMP}" != "0" ]; then
-                    echo -e "  ${RESULT_BYTES_PER_OP} B/s is not in range of: ${BASELINE_BYTES_PER_OP}        \t[tol: ${TOLERANCE_PERCENT_BYTES_PER_OP}%]"
+                    echo -e "  ${RESULT_BYTES_PER_OP} B/s is not in range of: ${BASELINE_BYTES_PER_OP}        \\t[tol: ${TOLERANCE_PERCENT_BYTES_PER_OP}%]"
                 fi
 
                 if [ "${ALLOCS_PER_OP_CMP}" != "0" ]; then
-                    echo -e "  ${RESULT_ALLOCS_PER_OP} allocs/op is not in range of: ${BASELINE_ALLOCS_PER_OP}   \t[tol: ${TOLERANCE_PERCENT_ALLOCS_PER_OP}%]"
+                    echo -e "  ${RESULT_ALLOCS_PER_OP} allocs/op is not in range of: ${BASELINE_ALLOCS_PER_OP}   \\t[tol: ${TOLERANCE_PERCENT_ALLOCS_PER_OP}%]"
                 fi
-                printf "\n\n"
+                printf '\n\n'
             fi
         fi
     done
@@ -193,14 +210,15 @@ function compareBenchResults() {
 
 # sanitizes the scraped output obtained from "go test"
 function cleanupBenchResult() {
-    local OUTPUT=${1}
+    local OUTPUT
+    OUTPUT=${1}
     # Remove known extraneous lines
-    local OUTPUT=$(printf "${OUTPUT}" | sed -e 's/^goos:.*$//')
-    local OUTPUT=$(printf "${OUTPUT}" | sed -e 's/^goarch:.*$//')
-    local OUTPUT=$(printf "${OUTPUT}" | sed -e 's/^pkg:.*$//')
-    local OUTPUT=$(printf "${OUTPUT}" | sed -e 's/^PASS.*$//')
-    local OUTPUT=$(printf "${OUTPUT}" | sed -e 's/^ok.*$//')
-    printf "%s" "${OUTPUT}" | sed -e "/^$/d"
+    OUTPUT=$(printf '%s' "${OUTPUT}" | sed -e 's/^goos:.*$//')
+    OUTPUT=$(printf '%s' "${OUTPUT}" | sed -e 's/^goarch:.*$//')
+    OUTPUT=$(printf '%s' "${OUTPUT}" | sed -e 's/^pkg:.*$//')
+    OUTPUT=$(printf '%s' "${OUTPUT}" | sed -e 's/^PASS.*$//')
+    OUTPUT=$(printf '%s' "${OUTPUT}" | sed -e 's/^ok.*$//')
+    printf '%s' "${OUTPUT}" | sed -e "/^$/d"
 }
 
 # main entry point.
@@ -216,28 +234,33 @@ function run() {
     echo
 
     for BASELINE_FILENAME in ${BASELINE_FILES}; do
-        local BENCH_DIR=$(dirname "${BASELINE_FILENAME}")
+        local BENCH_DIR
+        BENCH_DIR=$(dirname "${BASELINE_FILENAME}")
 
         echo "Running benchmarks in dir: ${BENCH_DIR}"
 
-        local BASELINE=$(loadBaselineFile "${BASELINE_FILENAME}")
+        local BASELINE
+        BASELINE=$(loadBaselineFile "${BASELINE_FILENAME}")
 
-        pushd "${BENCH_DIR}"  > /dev/null 2>&1
+        pushd "${BENCH_DIR}"  > /dev/null 2>&1 || return
 
-        local BENCH_RESULT=$(go test -bench=. -benchmem -run=^$)
-        local BENCH_RESULT=$(cleanupBenchResult "${BENCH_RESULT}")
+        local BENCH_RESULT
+        BENCH_RESULT=$(go test -bench=. -benchmem -run=^$)
+        local BENCH_RESULT
+        BENCH_RESULT=$(cleanupBenchResult "${BENCH_RESULT}")
 
-        printf "Current benchmark results:\n"
-        printf "%s" "${BENCH_RESULT}"
-        printf "\n\n"
+        printf 'Current benchmark results:\n'
+        printf '%s' "${BENCH_RESULT}"
+        printf '\n\n'
 
-        local CMP_RESULT=$(compareBenchResults "${BASELINE}" "${BENCH_RESULT}")
+        local CMP_RESULT
+        CMP_RESULT=$(compareBenchResults "${BASELINE}" "${BENCH_RESULT}")
 
         if [[ -n "${CMP_RESULT// }" ]]; then
             printf "%s" "${CMP_RESULT}"
             ERR="-1"
         fi
-        popd > /dev/null 2>&1
+        popd > /dev/null 2>&1 || return
 
     done
 
@@ -249,148 +272,144 @@ run
 
 
 # The code below this line is for testing purposes.
-
 function test_compareMetric() {
-    local ZERO_CASES[0]=`(compareMetric "0" "0" "0")`
-    local ZERO_CASES[1]=`(compareMetric "100" "100" "0")`
-    local ZERO_CASES[2]=`(compareMetric "100" "110" "10")`
-    local ZERO_CASES[3]=`(compareMetric "100" "91" "10")`
-    local ZERO_CASES[4]=`(compareMetric "-" "55" "0")`
+    local -a ZERO_CASES
+    ZERO_CASES[0]=$(compareMetric "0" "0" "0")
+    ZERO_CASES[1]=$(compareMetric "100" "100" "0")
+    ZERO_CASES[2]=$(compareMetric "100" "110" "10")
+    ZERO_CASES[3]=$(compareMetric "100" "91" "10")
+    ZERO_CASES[4]=$(compareMetric "-" "55" "0")
 
     for i in "${ZERO_CASES[@]}"; do
         if [ "${i}" != "0" ]; then
-            echo "Zero case failure: ${ZERO_CASES[@]}"
+            echo "Zero case failure: ${ZERO_CASES[*]}"
             exit -1
         fi
     done
 
-    local ONE_CASES[0]=`(compareMetric "0" "1" "0")`
-    local ONE_CASES[1]=`(compareMetric "100" "111" "10")`
+    local -a ONE_CASES
+    ONE_CASES[0]=$(compareMetric "0" "1" "0")
+    ONE_CASES[1]=$(compareMetric "100" "111" "10")
 
     for i in "${ONE_CASES[@]}"; do
         if [ "${i}" != "1" ]; then
-            echo "One case failure: ${ONE_CASES[@]}"
+            echo "One case failure: ${ONE_CASES[*]}"
             exit -1
         fi
     done
 
-    local MINUS_ONE_CASES[0]=`(compareMetric "0" "-1" "0")`
-    local MINUS_ONE_CASES[1]=`(compareMetric "100" "89" "10")`
+    local -a MINUS_ONE_CASES
+    MINUS_ONE_CASES[0]=$(compareMetric "0" "-1" "0")
+    MINUS_ONE_CASES[1]=$(compareMetric "100" "89" "10")
 
     for i in "${MINUS_ONE_CASES[@]}"; do
         if [ "${i}" != "-1" ]; then
-            echo "Minus one case failure: ${MINUS_ONE_CASES[@]}"
+            echo "Minus one case failure: ${MINUS_ONE_CASES[*]}"
             exit -1
         fi
     done
 }
 
 function test_compareBenchResult() {
-    local SUCCESS_CASES[0]=`(compareBenchResults \
+    local -a SUCCESS_CASES
+    SUCCESS_CASES[0]=$(compareBenchResults \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       136 ns/op	       0 B/op	       0 allocs/op
 " \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       136 ns/op	       0 B/op	       0 allocs/op
-")`
+")
 
-    local SUCCESS_CASES[1]=`(compareBenchResults \
+    SUCCESS_CASES[1]=$(compareBenchResults \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       - ns/op	           0 B/op	       0 allocs/op
 " \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       136 ns/op	       0 B/op	       0 allocs/op
-")`
+")
 
-    local SUCCESS_CASES[2]=`(compareBenchResults \
+    SUCCESS_CASES[2]=$(compareBenchResults \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       140 ns/op	       0 B/op	       0 allocs/op
 " \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       136 ns/op	       0 B/op	       0 allocs/op
-")`
+")
 
-    local SUCCESS_CASES[3]=`(compareBenchResults \
+    SUCCESS_CASES[3]=$(compareBenchResults \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       140 ns/op	       0 B/op	       0 allocs/op
 " \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       150 ns/op	       0 B/op	       0 allocs/op
-")`
+")
 
-    local SUCCESS_CASES[4]=`(compareBenchResults \
+    SUCCESS_CASES[4]=$(compareBenchResults \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       136 ns/op	       - B/op	       0 allocs/op
 " \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       136 ns/op	       25 B/op	       0 allocs/op
-")`
+")
 
-    local SUCCESS_CASES[5]=`(compareBenchResults \
+    SUCCESS_CASES[5]=$(compareBenchResults \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       136 ns/op	       0 B/op	       - allocs/op
 " \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       136 ns/op	       0 B/op	       0 allocs/op
-")`
+")
 
-    local SUCCESS_CASES[6]=`(compareBenchResults \
+    SUCCESS_CASES[6]=$(compareBenchResults \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       136 ns/op	       0 B/op	       - allocs/op
 " \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       136 ns/op	       0 B/op	       0 allocs/op
 BenchmarkInterpreter/ExprBench/ExtraBench-8        	10000000	       136 ns/op	       0 B/op	       0 allocs/op
-")`
+")
 
-    local SUCCESS_CASES[7]=`(compareBenchResults \
-"BenchmarkInterpreter/ExprBench/ok_1st-8            10000000           136 ns/op           0 B/op          0 allocs/op
-" \
-"BenchmarkInterpreter/ExprBench/ok_1st-32           10000000           136 ns/op           0 B/op          0 allocs/op
-")`
-
-
-    local SUCCESS_CASES[7]=`(compareBenchResults \
+    SUCCESS_CASES[7]=$(compareBenchResults \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       136 ns/op	       0 B/op	       0 allocs/op
 " \
 "BenchmarkInterpreter/ExprBench/ok_1st-32         	10000000	       136 ns/op	       0 B/op	       0 allocs/op
-")`
-
+")
 
     for i in "${SUCCESS_CASES[@]}"; do
         if [[ -n "${i// }" ]]; then
-            echo "Success case failure: ${SUCCESS_CASES[@]}"
+            echo "Success case failure: ${SUCCESS_CASES[*]}"
             exit -1
         fi
     done
 
-        local FAILURE_CASES[0]=`(compareBenchResults \
+    local -a FAILURE_CASES
+    FAILURE_CASES[0]=$(compareBenchResults \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       150 ns/op	       0 B/op	       0 allocs/op
 " \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       100 ns/op	       0 B/op	       0 allocs/op
-")`
+")
 
-        local FAILURE_CASES[1]=`(compareBenchResults \
+    FAILURE_CASES[1]=$(compareBenchResults \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       150 ns/op	       0 B/op	       0 allocs/op
 " \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       181 ns/op	       0 B/op	       0 allocs/op
-")`
+")
 
-        local FAILURE_CASES[2]=`(compareBenchResults \
+    FAILURE_CASES[2]=$(compareBenchResults \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       150 ns/op	       0 B/op	       0 allocs/op
 " \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       150 ns/op	       1 B/op	       0 allocs/op
-")`
+")
 
-        local FAILURE_CASES[3]=`(compareBenchResults \
+    FAILURE_CASES[3]=$(compareBenchResults \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       150 ns/op	       1 B/op	       0 allocs/op
 " \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       150 ns/op	       0 B/op	       0 allocs/op
-")`
+")
 
-        local FAILURE_CASES[4]=`(compareBenchResults \
+    FAILURE_CASES[4]=$(compareBenchResults \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       150 ns/op	       0 B/op	       1 allocs/op
 " \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       150 ns/op	       0 B/op	       10 allocs/op
-")`
+")
 
-        local FAILURE_CASES[5]=`(compareBenchResults \
+    FAILURE_CASES[5]=$(compareBenchResults \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       150 ns/op	       0 B/op	       10 allocs/op
 " \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       150 ns/op	       0 B/op	       1 allocs/op
-")`
+")
 
-        local FAILURE_CASES[5]=`(compareBenchResults \
+    FAILURE_CASES[5]=$(compareBenchResults \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       150 ns/op	       0 B/op	       10 allocs/op
 " \
 "BenchmarkInterpreter/ExprBench/some-other-8       	10000000	       150 ns/op	       0 B/op	       10 allocs/op
-")`
+")
 
     for i in "${FAILURE_CASES[@]}"; do
         if [[ -z "${i// }" ]]; then

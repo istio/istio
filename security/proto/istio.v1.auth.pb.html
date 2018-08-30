@@ -1,18 +1,27 @@
 ---
 title: istio.v1.auth
 layout: protoc-gen-docs
+generator: protoc-gen-docs
 number_of_entries: 4
 ---
 <h2 id="Services">Services</h2>
-<h3 id="WorkloadService">WorkloadService</h3>
+<h3 id="IstioCAService">IstioCAService</h3>
 <section>
-<p>Node agent related services</p>
+<p>Service definition of IstioCAService that can dynamically verify the CSR for
+service identities for Istio services running on various platforms and
+approve or disapprove the request after verifying the Node Agent credentials
+provided as a part of the Request.</p>
 
-<pre id="WorkloadService.Check"><code class="language-proto">rpc Check(CheckRequest) returns (CheckResponse)
+<pre id="IstioCAService-HandleCSR"><code class="language-proto">rpc HandleCSR(CsrRequest) returns (CsrResponse)
 </code></pre>
+<p>A request object includes a PEM-encoded certificate signing request that
+is generated on the Node Agent. Additionaly credential can be attached
+within the request object for a server to authenticate the originating
+node agent.</p>
+
 </section>
 <h2 id="Types">Types</h2>
-<h3 id="CheckRequest">CheckRequest</h3>
+<h3 id="CsrRequest">CsrRequest</h3>
 <section>
 <table class="message-fields">
 <thead>
@@ -23,16 +32,42 @@ number_of_entries: 4
 </tr>
 </thead>
 <tbody>
-<tr id="CheckRequest.name">
-<td><code>name</code></td>
+<tr id="CsrRequest-csr_pem">
+<td><code>csrPem</code></td>
+<td><code>bytes</code></td>
+<td>
+<p>PEM-encoded certificate signing request</p>
+
+</td>
+</tr>
+<tr id="CsrRequest-node_agent_credential">
+<td><code>nodeAgentCredential</code></td>
+<td><code>bytes</code></td>
+<td>
+<p>opaque credential for node agent</p>
+
+</td>
+</tr>
+<tr id="CsrRequest-credential_type">
+<td><code>credentialType</code></td>
 <td><code>string</code></td>
 <td>
+<p>type of the node<em>agent</em>credential (aws/gcp/onprem/custom&hellip;)</p>
+
+</td>
+</tr>
+<tr id="CsrRequest-requested_ttl_minutes">
+<td><code>requestedTtlMinutes</code></td>
+<td><code>int32</code></td>
+<td>
+<p>the requested ttl of the certificate in minutes</p>
+
 </td>
 </tr>
 </tbody>
 </table>
 </section>
-<h3 id="CheckResponse">CheckResponse</h3>
+<h3 id="CsrResponse">CsrResponse</h3>
 <section>
 <table class="message-fields">
 <thead>
@@ -43,16 +78,41 @@ number_of_entries: 4
 </tr>
 </thead>
 <tbody>
-<tr id="CheckResponse.status">
-<td><code>status</code></td>
-<td><code><a href="#google.rpc.Status">google.rpc.Status</a></code></td>
+<tr id="CsrResponse-is_approved">
+<td><code>isApproved</code></td>
+<td><code>bool</code></td>
 <td>
+<p>Whether the CSR is approved.</p>
+
+</td>
+</tr>
+<tr id="CsrResponse-status">
+<td><code>status</code></td>
+<td><code><a href="#google-rpc-Status">google.rpc.Status</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="CsrResponse-signed_cert">
+<td><code>signedCert</code></td>
+<td><code>bytes</code></td>
+<td>
+<p>The signed target cert.</p>
+
+</td>
+</tr>
+<tr id="CsrResponse-cert_chain">
+<td><code>certChain</code></td>
+<td><code>bytes</code></td>
+<td>
+<p>The cert chain up to the trusted root cert. It includes all the certs between the
+newly signed cert and the root cert.</p>
+
 </td>
 </tr>
 </tbody>
 </table>
 </section>
-<h3 id="google.rpc.Status">google.rpc.Status</h3>
+<h3 id="google-rpc-Status">google.rpc.Status</h3>
 <section>
 <p>The <code>Status</code> type defines a logical error model that is suitable for different
 programming environments, including REST APIs and RPC APIs. It is used by
@@ -120,7 +180,7 @@ be used directly after any stripping needed for security/privacy reasons.</p></l
 </tr>
 </thead>
 <tbody>
-<tr id="google.rpc.Status.code">
+<tr id="google-rpc-Status-code">
 <td><code>code</code></td>
 <td><code>int32</code></td>
 <td>
@@ -128,17 +188,17 @@ be used directly after any stripping needed for security/privacy reasons.</p></l
 
 </td>
 </tr>
-<tr id="google.rpc.Status.message">
+<tr id="google-rpc-Status-message">
 <td><code>message</code></td>
 <td><code>string</code></td>
 <td>
 <p>A developer-facing error message, which should be in English. Any
 user-facing error message should be localized and sent in the
-<a href="#google.rpc.Status.details">google.rpc.Status.details</a> field, or localized by the client.</p>
+<a href="#google-rpc-Status-details">google.rpc.Status.details</a> field, or localized by the client.</p>
 
 </td>
 </tr>
-<tr id="google.rpc.Status.details">
+<tr id="google-rpc-Status-details">
 <td><code>details</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#any">google.protobuf.Any[]</a></code></td>
 <td>

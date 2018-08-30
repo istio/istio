@@ -1,0 +1,6 @@
+dependencies:
+  - name: sidecarInjectorWebhook
+    version: 1.1.0
+    condition: sidecarInjectorWebhook.enabled
+  - name: security
+    version: 1.1.0

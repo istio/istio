@@ -10,6 +10,7 @@
 		authentication/v1alpha1/policy.proto
 
 	It has these top-level messages:
+		StringMatch
 		MutualTls
 		Jwt
 		PeerAuthenticationMethod
@@ -83,7 +84,177 @@ var MutualTls_Mode_value = map[string]int32{
 func (x MutualTls_Mode) String() string {
 	return proto.EnumName(MutualTls_Mode_name, int32(x))
 }
-func (MutualTls_Mode) EnumDescriptor() ([]byte, []int) { return fileDescriptorPolicy, []int{0, 0} }
+func (MutualTls_Mode) EnumDescriptor() ([]byte, []int) { return fileDescriptorPolicy, []int{1, 0} }
+
+// Describes how to match a given string. Match is case-sensitive.
+type StringMatch struct {
+	// Types that are valid to be assigned to MatchType:
+	//	*StringMatch_Exact
+	//	*StringMatch_Prefix
+	//	*StringMatch_Suffix
+	//	*StringMatch_Regex
+	MatchType isStringMatch_MatchType `protobuf_oneof:"match_type"`
+}
+
+func (m *StringMatch) Reset()                    { *m = StringMatch{} }
+func (m *StringMatch) String() string            { return proto.CompactTextString(m) }
+func (*StringMatch) ProtoMessage()               {}
+func (*StringMatch) Descriptor() ([]byte, []int) { return fileDescriptorPolicy, []int{0} }
+
+type isStringMatch_MatchType interface {
+	isStringMatch_MatchType()
+	MarshalTo([]byte) (int, error)
+	Size() int
+}
+
+type StringMatch_Exact struct {
+	Exact string `protobuf:"bytes,1,opt,name=exact,proto3,oneof"`
+}
+type StringMatch_Prefix struct {
+	Prefix string `protobuf:"bytes,2,opt,name=prefix,proto3,oneof"`
+}
+type StringMatch_Suffix struct {
+	Suffix string `protobuf:"bytes,3,opt,name=suffix,proto3,oneof"`
+}
+type StringMatch_Regex struct {
+	Regex string `protobuf:"bytes,4,opt,name=regex,proto3,oneof"`
+}
+
+func (*StringMatch_Exact) isStringMatch_MatchType()  {}
+func (*StringMatch_Prefix) isStringMatch_MatchType() {}
+func (*StringMatch_Suffix) isStringMatch_MatchType() {}
+func (*StringMatch_Regex) isStringMatch_MatchType()  {}
+
+func (m *StringMatch) GetMatchType() isStringMatch_MatchType {
+	if m != nil {
+		return m.MatchType
+	}
+	return nil
+}
+
+func (m *StringMatch) GetExact() string {
+	if x, ok := m.GetMatchType().(*StringMatch_Exact); ok {
+		return x.Exact
+	}
+	return ""
+}
+
+func (m *StringMatch) GetPrefix() string {
+	if x, ok := m.GetMatchType().(*StringMatch_Prefix); ok {
+		return x.Prefix
+	}
+	return ""
+}
+
+func (m *StringMatch) GetSuffix() string {
+	if x, ok := m.GetMatchType().(*StringMatch_Suffix); ok {
+		return x.Suffix
+	}
+	return ""
+}
+
+func (m *StringMatch) GetRegex() string {
+	if x, ok := m.GetMatchType().(*StringMatch_Regex); ok {
+		return x.Regex
+	}
+	return ""
+}
+
+// XXX_OneofFuncs is for the internal use of the proto package.
+func (*StringMatch) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
+	return _StringMatch_OneofMarshaler, _StringMatch_OneofUnmarshaler, _StringMatch_OneofSizer, []interface{}{
+		(*StringMatch_Exact)(nil),
+		(*StringMatch_Prefix)(nil),
+		(*StringMatch_Suffix)(nil),
+		(*StringMatch_Regex)(nil),
+	}
+}
+
+func _StringMatch_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
+	m := msg.(*StringMatch)
+	// match_type
+	switch x := m.MatchType.(type) {
+	case *StringMatch_Exact:
+		_ = b.EncodeVarint(1<<3 | proto.WireBytes)
+		_ = b.EncodeStringBytes(x.Exact)
+	case *StringMatch_Prefix:
+		_ = b.EncodeVarint(2<<3 | proto.WireBytes)
+		_ = b.EncodeStringBytes(x.Prefix)
+	case *StringMatch_Suffix:
+		_ = b.EncodeVarint(3<<3 | proto.WireBytes)
+		_ = b.EncodeStringBytes(x.Suffix)
+	case *StringMatch_Regex:
+		_ = b.EncodeVarint(4<<3 | proto.WireBytes)
+		_ = b.EncodeStringBytes(x.Regex)
+	case nil:
+	default:
+		return fmt.Errorf("StringMatch.MatchType has unexpected type %T", x)
+	}
+	return nil
+}
+
+func _StringMatch_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
+	m := msg.(*StringMatch)
+	switch tag {
+	case 1: // match_type.exact
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		x, err := b.DecodeStringBytes()
+		m.MatchType = &StringMatch_Exact{x}
+		return true, err
+	case 2: // match_type.prefix
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		x, err := b.DecodeStringBytes()
+		m.MatchType = &StringMatch_Prefix{x}
+		return true, err
+	case 3: // match_type.suffix
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		x, err := b.DecodeStringBytes()
+		m.MatchType = &StringMatch_Suffix{x}
+		return true, err
+	case 4: // match_type.regex
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		x, err := b.DecodeStringBytes()
+		m.MatchType = &StringMatch_Regex{x}
+		return true, err
+	default:
+		return false, nil
+	}
+}
+
+func _StringMatch_OneofSizer(msg proto.Message) (n int) {
+	m := msg.(*StringMatch)
+	// match_type
+	switch x := m.MatchType.(type) {
+	case *StringMatch_Exact:
+		n += proto.SizeVarint(1<<3 | proto.WireBytes)
+		n += proto.SizeVarint(uint64(len(x.Exact)))
+		n += len(x.Exact)
+	case *StringMatch_Prefix:
+		n += proto.SizeVarint(2<<3 | proto.WireBytes)
+		n += proto.SizeVarint(uint64(len(x.Prefix)))
+		n += len(x.Prefix)
+	case *StringMatch_Suffix:
+		n += proto.SizeVarint(3<<3 | proto.WireBytes)
+		n += proto.SizeVarint(uint64(len(x.Suffix)))
+		n += len(x.Suffix)
+	case *StringMatch_Regex:
+		n += proto.SizeVarint(4<<3 | proto.WireBytes)
+		n += proto.SizeVarint(uint64(len(x.Regex)))
+		n += len(x.Regex)
+	case nil:
+	default:
+		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
+	}
+	return n
+}
 
 // TLS authentication params.
 type MutualTls struct {
@@ -101,7 +272,7 @@ type MutualTls struct {
 func (m *MutualTls) Reset()                    { *m = MutualTls{} }
 func (m *MutualTls) String() string            { return proto.CompactTextString(m) }
 func (*MutualTls) ProtoMessage()               {}
-func (*MutualTls) Descriptor() ([]byte, []int) { return fileDescriptorPolicy, []int{0} }
+func (*MutualTls) Descriptor() ([]byte, []int) { return fileDescriptorPolicy, []int{1} }
 
 func (m *MutualTls) GetAllowTls() bool {
 	if m != nil {
@@ -123,7 +294,9 @@ func (m *MutualTls) GetMode() MutualTls_Mode {
 // 1.0](http://openid.net/connect) for how this is used in the whole
 // authentication flow.
 //
-// Example,
+// For example:
+//
+// A JWT for any requests:
 //
 // ```yaml
 // issuer: https://example.com
@@ -131,6 +304,44 @@ func (m *MutualTls) GetMode() MutualTls_Mode {
 // - bookstore_android.apps.googleusercontent.com
 //   bookstore_web.apps.googleusercontent.com
 // jwksUri: https://example.com/.well-known/jwks.json
+// ```
+//
+// A JWT for all requests except request at path `/health_check` and path with
+// prefix `/status/`. This is useful to expose some paths for public access but
+// keep others JWT validated.
+//
+// ```yaml
+// issuer: https://example.com
+// jwks_uri: https://example.com/.well-known/jwks.json
+// trigger_rules:
+// - excluded_paths:
+//   - exact: /health_check
+//   - prefix: /status/
+// ```
+//
+// A JWT only for requests at path `/admin`. This is useful to only require JWT
+// validation on a specific set of paths but keep others public accessible.
+//
+// ```yaml
+// issuer: https://example.com
+// jwks_uri: https://example.com/.well-known/jwks.json
+// trigger_rules:
+// - included_paths:
+//   - prefix: /admin
+// ```
+//
+// A JWT only for requests at path of prefix `/status/` but except the path of
+// `/status/version`. This means for any request path with prefix `/status/` except
+// `/status/version` will require a valid JWT to proceed.
+//
+// ```yaml
+// issuer: https://example.com
+// jwks_uri: https://example.com/.well-known/jwks.json
+// trigger_rules:
+// - excluded_paths:
+//   - exact: /status/version
+//   included_paths:
+//   - prefix: /status/
 // ```
 type Jwt struct {
 	// Identifies the issuer that issued the JWT. See
@@ -178,12 +389,18 @@ type Jwt struct {
 	//
 	// For example, `query=jwt_token`.
 	JwtParams []string `protobuf:"bytes,7,rep,name=jwt_params,json=jwtParams" json:"jwt_params,omitempty"`
+	// List of trigger rules to decide if this JWT should be used to validate the
+	// request. The JWT validation happens if any one of the rules matched.
+	// If the list is not empty and none of the rules matched, authentication will
+	// skip the JWT validation.
+	// Leave this empty to always trigger the JWT validation.
+	TriggerRules []*Jwt_TriggerRule `protobuf:"bytes,9,rep,name=trigger_rules,json=triggerRules" json:"trigger_rules,omitempty"`
 }
 
 func (m *Jwt) Reset()                    { *m = Jwt{} }
 func (m *Jwt) String() string            { return proto.CompactTextString(m) }
 func (*Jwt) ProtoMessage()               {}
-func (*Jwt) Descriptor() ([]byte, []int) { return fileDescriptorPolicy, []int{1} }
+func (*Jwt) Descriptor() ([]byte, []int) { return fileDescriptorPolicy, []int{2} }
 
 func (m *Jwt) GetIssuer() string {
 	if m != nil {
@@ -220,6 +437,44 @@ func (m *Jwt) GetJwtParams() []string {
 	return nil
 }
 
+func (m *Jwt) GetTriggerRules() []*Jwt_TriggerRule {
+	if m != nil {
+		return m.TriggerRules
+	}
+	return nil
+}
+
+// Trigger rule to match against a request. The trigger rule is satisfied if
+// and only if both rules, excluded_paths and include_paths are satisfied.
+type Jwt_TriggerRule struct {
+	// List of paths to be excluded from the request. The rule is satisfied if
+	// request path does not match to any of the path in this list.
+	ExcludedPaths []*StringMatch `protobuf:"bytes,1,rep,name=excluded_paths,json=excludedPaths" json:"excluded_paths,omitempty"`
+	// List of paths that the request must include. If the list is not empty, the
+	// rule is satisfied if request path matches at least one of the path in the list.
+	// If the list is empty, the rule is ignored, in other words the rule is always satisfied.
+	IncludedPaths []*StringMatch `protobuf:"bytes,2,rep,name=included_paths,json=includedPaths" json:"included_paths,omitempty"`
+}
+
+func (m *Jwt_TriggerRule) Reset()                    { *m = Jwt_TriggerRule{} }
+func (m *Jwt_TriggerRule) String() string            { return proto.CompactTextString(m) }
+func (*Jwt_TriggerRule) ProtoMessage()               {}
+func (*Jwt_TriggerRule) Descriptor() ([]byte, []int) { return fileDescriptorPolicy, []int{2, 0} }
+
+func (m *Jwt_TriggerRule) GetExcludedPaths() []*StringMatch {
+	if m != nil {
+		return m.ExcludedPaths
+	}
+	return nil
+}
+
+func (m *Jwt_TriggerRule) GetIncludedPaths() []*StringMatch {
+	if m != nil {
+		return m.IncludedPaths
+	}
+	return nil
+}
+
 // PeerAuthenticationMethod defines one particular type of authentication, e.g
 // mutual TLS, JWT etc, (no authentication is one type by itself) that can
 // be used for peer authentication.
@@ -235,7 +490,7 @@ type PeerAuthenticationMethod struct {
 func (m *PeerAuthenticationMethod) Reset()                    { *m = PeerAuthenticationMethod{} }
 func (m *PeerAuthenticationMethod) String() string            { return proto.CompactTextString(m) }
 func (*PeerAuthenticationMethod) ProtoMessage()               {}
-func (*PeerAuthenticationMethod) Descriptor() ([]byte, []int) { return fileDescriptorPolicy, []int{2} }
+func (*PeerAuthenticationMethod) Descriptor() ([]byte, []int) { return fileDescriptorPolicy, []int{3} }
 
 type isPeerAuthenticationMethod_Params interface {
 	isPeerAuthenticationMethod_Params()
@@ -359,7 +614,7 @@ type OriginAuthenticationMethod struct {
 func (m *OriginAuthenticationMethod) Reset()                    { *m = OriginAuthenticationMethod{} }
 func (m *OriginAuthenticationMethod) String() string            { return proto.CompactTextString(m) }
 func (*OriginAuthenticationMethod) ProtoMessage()               {}
-func (*OriginAuthenticationMethod) Descriptor() ([]byte, []int) { return fileDescriptorPolicy, []int{3} }
+func (*OriginAuthenticationMethod) Descriptor() ([]byte, []int) { return fileDescriptorPolicy, []int{4} }
 
 func (m *OriginAuthenticationMethod) GetJwt() *Jwt {
 	if m != nil {
@@ -409,8 +664,8 @@ func (m *OriginAuthenticationMethod) GetJwt() *Jwt {
 //   targets:
 //   - name: productpage
 // ```
-// Policy to require mTLS for peer authentication, and JWT for origin authenticationn
-// for productpage:9000. Principal is set from origin identity.
+// Policy to require mTLS for peer authentication, and JWT for origin authentication
+// for productpage:9000 except the path '/health_check' . Principal is set from origin identity.
 //
 // ```yaml
 // apiVersion: authentication.istio.io/v1alpha1
@@ -433,38 +688,9 @@ func (m *OriginAuthenticationMethod) GetJwt() *Jwt {
 //       jwksUri: "https://www.googleapis.com/oauth2/v1/certs"
 //       jwt_headers:
 //       - "x-goog-iap-jwt-assertion"
-//   principaBinding: USE_ORIGIN
-// ```
-//
-// Policy to require mTLS for peer authentication, and JWT for origin authenticationn
-// for productpage:9000, but allow origin authentication failed. Principal is set
-// from origin identity.
-// Note: this example can be used for use cases when we want to allow request from
-// certain peers, given it comes with an approperiate authorization poicy to check
-// and reject request accoridingly.
-//
-// ```yaml
-// apiVersion: authentication.istio.io/v1alpha1
-// kind: Policy
-// metadata:
-//   name: mTLS_enable
-//   namespace: frod
-// spec:
-//   target:
-//   - name: productpage
-//     ports:
-//     - number: 9000
-//   peers:
-//   - mtls:
-//   origins:
-//   - jwt:
-//       issuer: "https://securetoken.google.com"
-//       audiences:
-//       - "productpage"
-//       jwksUri: "https://www.googleapis.com/oauth2/v1/certs"
-//       jwt_headers:
-//       - "x-goog-iap-jwt-assertion"
-//   originIsOptional: true
+//       trigger_rules:
+//       - excluded_paths:
+//         - exact: /health_check
 //   principalBinding: USE_ORIGIN
 // ```
 type Policy struct {
@@ -474,10 +700,11 @@ type Policy struct {
 	// List of authentication methods that can be used for peer authentication.
 	// They will be evaluated in order; the first validate one will be used to
 	// set peer identity (source.user) and other peer attributes. If none of
-	// these methods pass, and peer_is_optional flag is false (see below),
-	// request will be rejected with authentication failed error (401).
+	// these methods pass, request will be rejected with authentication failed error (401).
 	// Leave the list empty if peer authentication is not required
 	Peers []*PeerAuthenticationMethod `protobuf:"bytes,2,rep,name=peers" json:"peers,omitempty"`
+	// $hide_from_docs
+	// WILL BE DEPRECATED
 	// Set this flag to true to accept request (for peer authentication perspective),
 	// even when none of the peer authentication methods defined above satisfied.
 	// Typically, this is used to delay the rejection decision to next layer (e.g
@@ -487,11 +714,14 @@ type Policy struct {
 	// List of authentication methods that can be used for origin authentication.
 	// Similar to peers, these will be evaluated in order; the first validate one
 	// will be used to set origin identity and attributes (i.e request.auth.user,
-	// request.auth.issuer etc). If none of these methods pass, and origin_is_optional
-	// is false (see below), request will be rejected with authentication failed
-	// error (401).
+	// request.auth.issuer etc). If none of these methods pass, request will be
+	// rejected with authentication failed error (401).
+	// A method may be skipped, depends on its trigger rule. If all of these methods
+	// are skipped, origin authentication will be ignored, as if it is not defined.
 	// Leave the list empty if origin authentication is not required.
 	Origins []*OriginAuthenticationMethod `protobuf:"bytes,4,rep,name=origins" json:"origins,omitempty"`
+	// $hide_from_docs
+	// WILL BE DEPRECATED
 	// Set this flag to true to accept request (for origin authentication perspective),
 	// even when none of the origin authentication methods defined above satisfied.
 	// Typically, this is used to delay the rejection decision to next layer (e.g
@@ -500,7 +730,7 @@ type Policy struct {
 	OriginIsOptional bool `protobuf:"varint,5,opt,name=origin_is_optional,json=originIsOptional,proto3" json:"origin_is_optional,omitempty"`
 	// Define whether peer or origin identity should be use for principal. Default
 	// value is USE_PEER.
-	// If peer (or orgin) identity is not available, either because of peer/origin
+	// If peer (or origin) identity is not available, either because of peer/origin
 	// authentication is not defined, or failed, principal will be left unset.
 	// In other words, binding rule does not affect the decision to accept or
 	// reject request.
@@ -510,7 +740,7 @@ type Policy struct {
 func (m *Policy) Reset()                    { *m = Policy{} }
 func (m *Policy) String() string            { return proto.CompactTextString(m) }
 func (*Policy) ProtoMessage()               {}
-func (*Policy) Descriptor() ([]byte, []int) { return fileDescriptorPolicy, []int{4} }
+func (*Policy) Descriptor() ([]byte, []int) { return fileDescriptorPolicy, []int{5} }
 
 func (m *Policy) GetTargets() []*TargetSelector {
 	if m != nil {
@@ -567,7 +797,7 @@ type TargetSelector struct {
 func (m *TargetSelector) Reset()                    { *m = TargetSelector{} }
 func (m *TargetSelector) String() string            { return proto.CompactTextString(m) }
 func (*TargetSelector) ProtoMessage()               {}
-func (*TargetSelector) Descriptor() ([]byte, []int) { return fileDescriptorPolicy, []int{5} }
+func (*TargetSelector) Descriptor() ([]byte, []int) { return fileDescriptorPolicy, []int{6} }
 
 func (m *TargetSelector) GetName() string {
 	if m != nil {
@@ -584,7 +814,7 @@ func (m *TargetSelector) GetPorts() []*PortSelector {
 }
 
 // PortSelector specifies the name or number of a port to be used for
-// matching targets for authenticationn policy. This is copied from
+// matching targets for authentication policy. This is copied from
 // networking API to avoid dependency.
 type PortSelector struct {
 	// Types that are valid to be assigned to Port:
@@ -596,7 +826,7 @@ type PortSelector struct {
 func (m *PortSelector) Reset()                    { *m = PortSelector{} }
 func (m *PortSelector) String() string            { return proto.CompactTextString(m) }
 func (*PortSelector) ProtoMessage()               {}
-func (*PortSelector) Descriptor() ([]byte, []int) { return fileDescriptorPolicy, []int{6} }
+func (*PortSelector) Descriptor() ([]byte, []int) { return fileDescriptorPolicy, []int{7} }
 
 type isPortSelector_Port interface {
 	isPortSelector_Port()
@@ -701,8 +931,10 @@ func _PortSelector_OneofSizer(msg proto.Message) (n int) {
 }
 
 func init() {
+	proto.RegisterType((*StringMatch)(nil), "istio.authentication.v1alpha1.StringMatch")
 	proto.RegisterType((*MutualTls)(nil), "istio.authentication.v1alpha1.MutualTls")
 	proto.RegisterType((*Jwt)(nil), "istio.authentication.v1alpha1.Jwt")
+	proto.RegisterType((*Jwt_TriggerRule)(nil), "istio.authentication.v1alpha1.Jwt.TriggerRule")
 	proto.RegisterType((*PeerAuthenticationMethod)(nil), "istio.authentication.v1alpha1.PeerAuthenticationMethod")
 	proto.RegisterType((*OriginAuthenticationMethod)(nil), "istio.authentication.v1alpha1.OriginAuthenticationMethod")
 	proto.RegisterType((*Policy)(nil), "istio.authentication.v1alpha1.Policy")
@@ -710,6 +942,63 @@ func init() {
 	proto.RegisterType((*PortSelector)(nil), "istio.authentication.v1alpha1.PortSelector")
 	proto.RegisterEnum("istio.authentication.v1alpha1.PrincipalBinding", PrincipalBinding_name, PrincipalBinding_value)
 	proto.RegisterEnum("istio.authentication.v1alpha1.MutualTls_Mode", MutualTls_Mode_name, MutualTls_Mode_value)
+}
+func (m *StringMatch) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *StringMatch) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.MatchType != nil {
+		nn1, err := m.MatchType.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += nn1
+	}
+	return i, nil
+}
+
+func (m *StringMatch_Exact) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	dAtA[i] = 0xa
+	i++
+	i = encodeVarintPolicy(dAtA, i, uint64(len(m.Exact)))
+	i += copy(dAtA[i:], m.Exact)
+	return i, nil
+}
+func (m *StringMatch_Prefix) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	dAtA[i] = 0x12
+	i++
+	i = encodeVarintPolicy(dAtA, i, uint64(len(m.Prefix)))
+	i += copy(dAtA[i:], m.Prefix)
+	return i, nil
+}
+func (m *StringMatch_Suffix) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	dAtA[i] = 0x1a
+	i++
+	i = encodeVarintPolicy(dAtA, i, uint64(len(m.Suffix)))
+	i += copy(dAtA[i:], m.Suffix)
+	return i, nil
+}
+func (m *StringMatch_Regex) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	dAtA[i] = 0x22
+	i++
+	i = encodeVarintPolicy(dAtA, i, uint64(len(m.Regex)))
+	i += copy(dAtA[i:], m.Regex)
+	return i, nil
 }
 func (m *MutualTls) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
@@ -816,6 +1105,60 @@ func (m *Jwt) MarshalTo(dAtA []byte) (int, error) {
 			i += copy(dAtA[i:], s)
 		}
 	}
+	if len(m.TriggerRules) > 0 {
+		for _, msg := range m.TriggerRules {
+			dAtA[i] = 0x4a
+			i++
+			i = encodeVarintPolicy(dAtA, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(dAtA[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
+		}
+	}
+	return i, nil
+}
+
+func (m *Jwt_TriggerRule) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *Jwt_TriggerRule) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.ExcludedPaths) > 0 {
+		for _, msg := range m.ExcludedPaths {
+			dAtA[i] = 0xa
+			i++
+			i = encodeVarintPolicy(dAtA, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(dAtA[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
+		}
+	}
+	if len(m.IncludedPaths) > 0 {
+		for _, msg := range m.IncludedPaths {
+			dAtA[i] = 0x12
+			i++
+			i = encodeVarintPolicy(dAtA, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(dAtA[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
+		}
+	}
 	return i, nil
 }
 
@@ -835,11 +1178,11 @@ func (m *PeerAuthenticationMethod) MarshalTo(dAtA []byte) (int, error) {
 	var l int
 	_ = l
 	if m.Params != nil {
-		nn1, err := m.Params.MarshalTo(dAtA[i:])
+		nn2, err := m.Params.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += nn1
+		i += nn2
 	}
 	return i, nil
 }
@@ -850,11 +1193,11 @@ func (m *PeerAuthenticationMethod_Mtls) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintPolicy(dAtA, i, uint64(m.Mtls.Size()))
-		n2, err := m.Mtls.MarshalTo(dAtA[i:])
+		n3, err := m.Mtls.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n2
+		i += n3
 	}
 	return i, nil
 }
@@ -864,11 +1207,11 @@ func (m *PeerAuthenticationMethod_Jwt) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintPolicy(dAtA, i, uint64(m.Jwt.Size()))
-		n3, err := m.Jwt.MarshalTo(dAtA[i:])
+		n4, err := m.Jwt.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n3
+		i += n4
 	}
 	return i, nil
 }
@@ -891,11 +1234,11 @@ func (m *OriginAuthenticationMethod) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintPolicy(dAtA, i, uint64(m.Jwt.Size()))
-		n4, err := m.Jwt.MarshalTo(dAtA[i:])
+		n5, err := m.Jwt.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n4
+		i += n5
 	}
 	return i, nil
 }
@@ -1031,11 +1374,11 @@ func (m *PortSelector) MarshalTo(dAtA []byte) (int, error) {
 	var l int
 	_ = l
 	if m.Port != nil {
-		nn5, err := m.Port.MarshalTo(dAtA[i:])
+		nn6, err := m.Port.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += nn5
+		i += nn6
 	}
 	return i, nil
 }
@@ -1063,6 +1406,43 @@ func encodeVarintPolicy(dAtA []byte, offset int, v uint64) int {
 	}
 	dAtA[offset] = uint8(v)
 	return offset + 1
+}
+func (m *StringMatch) Size() (n int) {
+	var l int
+	_ = l
+	if m.MatchType != nil {
+		n += m.MatchType.Size()
+	}
+	return n
+}
+
+func (m *StringMatch_Exact) Size() (n int) {
+	var l int
+	_ = l
+	l = len(m.Exact)
+	n += 1 + l + sovPolicy(uint64(l))
+	return n
+}
+func (m *StringMatch_Prefix) Size() (n int) {
+	var l int
+	_ = l
+	l = len(m.Prefix)
+	n += 1 + l + sovPolicy(uint64(l))
+	return n
+}
+func (m *StringMatch_Suffix) Size() (n int) {
+	var l int
+	_ = l
+	l = len(m.Suffix)
+	n += 1 + l + sovPolicy(uint64(l))
+	return n
+}
+func (m *StringMatch_Regex) Size() (n int) {
+	var l int
+	_ = l
+	l = len(m.Regex)
+	n += 1 + l + sovPolicy(uint64(l))
+	return n
 }
 func (m *MutualTls) Size() (n int) {
 	var l int
@@ -1102,6 +1482,30 @@ func (m *Jwt) Size() (n int) {
 	if len(m.JwtParams) > 0 {
 		for _, s := range m.JwtParams {
 			l = len(s)
+			n += 1 + l + sovPolicy(uint64(l))
+		}
+	}
+	if len(m.TriggerRules) > 0 {
+		for _, e := range m.TriggerRules {
+			l = e.Size()
+			n += 1 + l + sovPolicy(uint64(l))
+		}
+	}
+	return n
+}
+
+func (m *Jwt_TriggerRule) Size() (n int) {
+	var l int
+	_ = l
+	if len(m.ExcludedPaths) > 0 {
+		for _, e := range m.ExcludedPaths {
+			l = e.Size()
+			n += 1 + l + sovPolicy(uint64(l))
+		}
+	}
+	if len(m.IncludedPaths) > 0 {
+		for _, e := range m.IncludedPaths {
+			l = e.Size()
 			n += 1 + l + sovPolicy(uint64(l))
 		}
 	}
@@ -1229,6 +1633,172 @@ func sovPolicy(x uint64) (n int) {
 }
 func sozPolicy(x uint64) (n int) {
 	return sovPolicy(uint64((x << 1) ^ uint64((int64(x) >> 63))))
+}
+func (m *StringMatch) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowPolicy
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: StringMatch: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: StringMatch: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Exact", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowPolicy
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthPolicy
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.MatchType = &StringMatch_Exact{string(dAtA[iNdEx:postIndex])}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Prefix", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowPolicy
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthPolicy
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.MatchType = &StringMatch_Prefix{string(dAtA[iNdEx:postIndex])}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Suffix", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowPolicy
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthPolicy
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.MatchType = &StringMatch_Suffix{string(dAtA[iNdEx:postIndex])}
+			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Regex", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowPolicy
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthPolicy
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.MatchType = &StringMatch_Regex{string(dAtA[iNdEx:postIndex])}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipPolicy(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthPolicy
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
 }
 func (m *MutualTls) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
@@ -1492,6 +2062,149 @@ func (m *Jwt) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			m.JwtParams = append(m.JwtParams, string(dAtA[iNdEx:postIndex]))
+			iNdEx = postIndex
+		case 9:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field TriggerRules", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowPolicy
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthPolicy
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.TriggerRules = append(m.TriggerRules, &Jwt_TriggerRule{})
+			if err := m.TriggerRules[len(m.TriggerRules)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipPolicy(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthPolicy
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *Jwt_TriggerRule) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowPolicy
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: TriggerRule: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: TriggerRule: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ExcludedPaths", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowPolicy
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthPolicy
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.ExcludedPaths = append(m.ExcludedPaths, &StringMatch{})
+			if err := m.ExcludedPaths[len(m.ExcludedPaths)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field IncludedPaths", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowPolicy
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthPolicy
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.IncludedPaths = append(m.IncludedPaths, &StringMatch{})
+			if err := m.IncludedPaths[len(m.IncludedPaths)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -2230,45 +2943,54 @@ var (
 func init() { proto.RegisterFile("authentication/v1alpha1/policy.proto", fileDescriptorPolicy) }
 
 var fileDescriptorPolicy = []byte{
-	// 633 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x54, 0x4d, 0x6e, 0x13, 0x31,
-	0x18, 0x8d, 0x9b, 0x74, 0x92, 0x7c, 0x29, 0xd1, 0x60, 0x21, 0x34, 0xfc, 0xb4, 0x54, 0xa3, 0x2e,
-	0x22, 0x7e, 0x12, 0x1a, 0x10, 0x88, 0x0d, 0x52, 0x83, 0x42, 0x93, 0x4a, 0xa1, 0x91, 0x93, 0xb2,
-	0x40, 0x48, 0x23, 0x37, 0xb1, 0x12, 0x87, 0xc9, 0x78, 0x64, 0x7b, 0x18, 0x71, 0x0a, 0x76, 0xac,
-	0xb8, 0x01, 0x17, 0x61, 0xc9, 0x11, 0x50, 0x4f, 0x82, 0xec, 0x49, 0x68, 0x53, 0x51, 0xd2, 0x9d,
-	0xbf, 0x67, 0xbf, 0xe7, 0xe7, 0xe7, 0xcf, 0x86, 0x3d, 0x9a, 0xe8, 0x29, 0x8b, 0x34, 0x1f, 0x51,
-	0xcd, 0x45, 0xd4, 0xf8, 0xbc, 0x4f, 0xc3, 0x78, 0x4a, 0xf7, 0x1b, 0xb1, 0x08, 0xf9, 0xe8, 0x4b,
-	0x3d, 0x96, 0x42, 0x0b, 0xbc, 0xcd, 0x95, 0xe6, 0xa2, 0xbe, 0xba, 0xb6, 0xbe, 0x5c, 0xeb, 0x7f,
-	0x45, 0x50, 0xee, 0x25, 0x3a, 0xa1, 0xe1, 0x30, 0x54, 0xf8, 0x1e, 0x94, 0x69, 0x18, 0x8a, 0x34,
-	0xd0, 0xa1, 0xf2, 0xd0, 0x2e, 0xaa, 0x95, 0x48, 0xc9, 0x02, 0x66, 0xf2, 0x00, 0x0a, 0x73, 0x31,
-	0x66, 0xde, 0xc6, 0x2e, 0xaa, 0x55, 0x9b, 0x4f, 0xea, 0xff, 0x15, 0xae, 0xff, 0x15, 0xad, 0xf7,
-	0xc4, 0x98, 0x11, 0x4b, 0xf5, 0x7d, 0x28, 0x98, 0x0a, 0x03, 0x38, 0x83, 0x21, 0xe9, 0xbe, 0x19,
-	0xba, 0x39, 0x5c, 0x05, 0xe8, 0xb7, 0x49, 0xaf, 0x3b, 0x18, 0x74, 0xdf, 0xb7, 0x5d, 0xe4, 0x7f,
-	0x43, 0x90, 0x3f, 0x4a, 0x35, 0xbe, 0x0d, 0x0e, 0x57, 0x2a, 0x61, 0xd2, 0x1a, 0x29, 0x93, 0x45,
-	0x85, 0xef, 0x43, 0x99, 0x26, 0x63, 0xce, 0xa2, 0x11, 0x53, 0xde, 0xc6, 0x6e, 0xbe, 0x56, 0x26,
-	0xe7, 0x00, 0xbe, 0x03, 0xa5, 0x59, 0xfa, 0x49, 0x05, 0x89, 0xe4, 0x5e, 0xde, 0xf2, 0x8a, 0xa6,
-	0x3e, 0x91, 0x1c, 0x3f, 0x80, 0xca, 0x2c, 0xd5, 0xc1, 0x94, 0xd1, 0x31, 0x93, 0xca, 0x73, 0x2c,
-	0x15, 0x66, 0xa9, 0xee, 0x64, 0x08, 0xde, 0x06, 0x53, 0x05, 0x31, 0x95, 0x74, 0xae, 0xbc, 0x62,
-	0x26, 0x3d, 0x4b, 0x75, 0xdf, 0x02, 0xfe, 0x77, 0x04, 0x5e, 0x9f, 0x31, 0x79, 0xb0, 0x72, 0xe2,
-	0x1e, 0xd3, 0x53, 0x31, 0xc6, 0xaf, 0xa1, 0x30, 0x5f, 0x86, 0x56, 0x69, 0xd6, 0xae, 0x1b, 0x4e,
-	0x27, 0x47, 0x2c, 0x0f, 0xbf, 0x80, 0xfc, 0x2c, 0xd5, 0x36, 0xdb, 0x4a, 0xd3, 0x5f, 0x43, 0x3f,
-	0x4a, 0x75, 0x27, 0x47, 0x0c, 0xa1, 0x55, 0x02, 0x27, 0xf3, 0xeb, 0x13, 0xb8, 0x7b, 0x2c, 0xf9,
-	0x84, 0x47, 0xff, 0xf4, 0xf7, 0x3c, 0xd3, 0x47, 0xd7, 0xd5, 0xb7, 0xea, 0xfe, 0x8f, 0x3c, 0x38,
-	0x7d, 0xdb, 0x4d, 0xf8, 0x10, 0x8a, 0x9a, 0xca, 0x09, 0xd3, 0xe6, 0x8c, 0xf9, 0x5a, 0x65, 0x6d,
-	0x03, 0x0c, 0xed, 0xea, 0x01, 0x0b, 0xd9, 0x48, 0x0b, 0x49, 0x96, 0x6c, 0xdc, 0x83, 0xcd, 0x98,
-	0x99, 0x0b, 0xd8, 0xb0, 0x32, 0x2f, 0xd7, 0xc8, 0x5c, 0x95, 0x38, 0xc9, 0x54, 0x70, 0x0d, 0x5c,
-	0x33, 0x08, 0xb8, 0x0a, 0x44, 0x6c, 0xa6, 0x69, 0x68, 0x2f, 0xbe, 0x44, 0xaa, 0x06, 0xef, 0xaa,
-	0xe3, 0x05, 0x8a, 0x07, 0x50, 0x14, 0x36, 0x20, 0xe5, 0x15, 0xec, 0xd6, 0xaf, 0xd6, 0x6c, 0x7d,
-	0x75, 0x9c, 0x64, 0xa9, 0x84, 0x1f, 0x03, 0xce, 0x86, 0x2b, 0x06, 0x36, 0xad, 0x01, 0x37, 0x9b,
-	0xb9, 0x60, 0xe1, 0x23, 0xdc, 0x8c, 0x25, 0x8f, 0x46, 0x3c, 0xa6, 0x61, 0x70, 0xca, 0xa3, 0x31,
-	0x8f, 0x26, 0x9e, 0x63, 0xdf, 0x53, 0x63, 0x5d, 0x0e, 0x4b, 0x5e, 0x2b, 0xa3, 0x11, 0x37, 0xbe,
-	0x84, 0xf8, 0x13, 0xa8, 0xae, 0x86, 0x8e, 0x31, 0x14, 0x22, 0x3a, 0x67, 0x8b, 0x17, 0x64, 0xc7,
-	0xf8, 0x00, 0x36, 0x63, 0x21, 0xf5, 0x32, 0xff, 0x47, 0xeb, 0xf6, 0x15, 0xf2, 0xfc, 0x12, 0x33,
-	0xa6, 0xff, 0x16, 0xb6, 0x2e, 0xc2, 0xd8, 0x03, 0x27, 0x4a, 0xe6, 0xa7, 0x8b, 0xa7, 0x7a, 0xa3,
-	0x93, 0x23, 0x8b, 0x1a, 0xdf, 0x5a, 0x18, 0x30, 0x7d, 0x5d, 0x36, 0xcd, 0x6e, 0xaa, 0x96, 0x03,
-	0x05, 0x23, 0xf4, 0xf0, 0x29, 0xb8, 0x97, 0x8f, 0x85, 0xb7, 0xa0, 0x74, 0x32, 0x68, 0x07, 0xfd,
-	0x76, 0x9b, 0x64, 0x9f, 0x83, 0xa9, 0x8e, 0x49, 0xf7, 0xb0, 0xfb, 0xce, 0x45, 0xad, 0xe6, 0xcf,
-	0xb3, 0x1d, 0xf4, 0xeb, 0x6c, 0x07, 0xfd, 0x3e, 0xdb, 0x41, 0x1f, 0xf6, 0x32, 0xeb, 0x5c, 0x34,
-	0x68, 0xcc, 0x1b, 0x57, 0x7c, 0x87, 0xa7, 0x8e, 0xfd, 0x08, 0x9f, 0xfd, 0x09, 0x00, 0x00, 0xff,
-	0xff, 0x25, 0xc6, 0x28, 0xd8, 0x30, 0x05, 0x00, 0x00,
+	// 783 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x55, 0xdd, 0x8e, 0xdb, 0x44,
+	0x14, 0x8e, 0xf3, 0xe3, 0x24, 0x27, 0xd9, 0x28, 0x8c, 0x50, 0x65, 0x0a, 0x5d, 0x56, 0x56, 0x2f,
+	0xa2, 0x02, 0x4e, 0x1b, 0x10, 0x88, 0x1b, 0xa4, 0x0d, 0x0a, 0x4d, 0x2a, 0x85, 0x0d, 0xe3, 0x94,
+	0x0b, 0x84, 0x64, 0xcd, 0xda, 0x53, 0x67, 0x82, 0x63, 0x5b, 0xe3, 0x31, 0x4e, 0xaf, 0x78, 0x04,
+	0x5e, 0x80, 0x1b, 0x9e, 0xa1, 0x2f, 0xc1, 0x25, 0x8f, 0x80, 0xf6, 0x49, 0xd0, 0xcc, 0xc4, 0xdd,
+	0xa4, 0x62, 0x71, 0x7b, 0x37, 0xdf, 0x39, 0xf3, 0x7d, 0xe7, 0xf8, 0x9c, 0x33, 0xc7, 0xf0, 0x90,
+	0xe4, 0x62, 0x43, 0x63, 0xc1, 0x7c, 0x22, 0x58, 0x12, 0x8f, 0x7f, 0x7d, 0x42, 0xa2, 0x74, 0x43,
+	0x9e, 0x8c, 0xd3, 0x24, 0x62, 0xfe, 0x4b, 0x27, 0xe5, 0x89, 0x48, 0xd0, 0x03, 0x96, 0x09, 0x96,
+	0x38, 0xa7, 0x77, 0x9d, 0xf2, 0xae, 0xfd, 0x1b, 0xf4, 0x5c, 0xc1, 0x59, 0x1c, 0x2e, 0x89, 0xf0,
+	0x37, 0xe8, 0x1e, 0xb4, 0xe8, 0x9e, 0xf8, 0xc2, 0x32, 0x2e, 0x8c, 0x51, 0x77, 0x5e, 0xc3, 0x1a,
+	0x22, 0x0b, 0xcc, 0x94, 0xd3, 0x17, 0x6c, 0x6f, 0xd5, 0x0f, 0x8e, 0x03, 0x96, 0x9e, 0x2c, 0x7f,
+	0x21, 0x3d, 0x8d, 0xd2, 0xa3, 0xb1, 0xd4, 0xe2, 0x34, 0xa4, 0x7b, 0xab, 0x59, 0x6a, 0x29, 0x38,
+	0xed, 0x03, 0xec, 0x64, 0x30, 0x4f, 0xbc, 0x4c, 0xa9, 0xfd, 0xbb, 0x01, 0xdd, 0x65, 0x2e, 0x72,
+	0x12, 0xad, 0xa3, 0x0c, 0x7d, 0x08, 0x5d, 0x12, 0x45, 0x49, 0xe1, 0x89, 0x28, 0x53, 0x39, 0x74,
+	0x70, 0x47, 0x19, 0xa4, 0xf3, 0x12, 0x9a, 0xbb, 0x24, 0xa0, 0x2a, 0x85, 0xc1, 0xe4, 0x33, 0xe7,
+	0x7f, 0xbf, 0xcc, 0x79, 0x2d, 0xea, 0x2c, 0x93, 0x80, 0x62, 0x45, 0xb5, 0x6d, 0x68, 0x4a, 0x84,
+	0x00, 0x4c, 0x77, 0x8d, 0x17, 0xdf, 0xae, 0x87, 0x35, 0x34, 0x00, 0x58, 0xcd, 0xf0, 0x72, 0xe1,
+	0xba, 0x8b, 0x1f, 0x67, 0x43, 0xc3, 0xfe, 0xb3, 0x01, 0x8d, 0x67, 0x85, 0x40, 0xf7, 0xc0, 0x64,
+	0x59, 0x96, 0x53, 0xae, 0x8b, 0x81, 0x0f, 0x08, 0x7d, 0x04, 0x5d, 0x92, 0x07, 0x8c, 0xc6, 0x3e,
+	0xcd, 0xac, 0xfa, 0x45, 0x63, 0xd4, 0xc5, 0xb7, 0x06, 0xf4, 0x01, 0x74, 0xb6, 0xc5, 0x2f, 0x99,
+	0x97, 0x73, 0xa6, 0x2b, 0x82, 0xdb, 0x12, 0x3f, 0xe7, 0x0c, 0x7d, 0x0c, 0xbd, 0x6d, 0x21, 0xbc,
+	0x0d, 0x25, 0x01, 0xe5, 0x99, 0x65, 0x2a, 0x2a, 0x6c, 0x0b, 0x31, 0xd7, 0x16, 0xf4, 0x00, 0x24,
+	0xf2, 0x52, 0xc2, 0xc9, 0x2e, 0xb3, 0xda, 0x5a, 0x7a, 0x5b, 0x88, 0x95, 0x32, 0x20, 0x17, 0xce,
+	0x04, 0x67, 0x61, 0x48, 0xb9, 0xc7, 0xf3, 0x88, 0x66, 0x56, 0xf7, 0xa2, 0x31, 0xea, 0x4d, 0x9c,
+	0x8a, 0x42, 0x3c, 0x2b, 0x84, 0xb3, 0xd6, 0x3c, 0x9c, 0x47, 0x14, 0xf7, 0xc5, 0x2d, 0xc8, 0xee,
+	0xbf, 0x32, 0xa0, 0x77, 0xe4, 0x45, 0x3f, 0xc0, 0x80, 0xee, 0xfd, 0x28, 0x0f, 0x68, 0xe0, 0xa5,
+	0x44, 0x6c, 0x64, 0x1b, 0x64, 0x94, 0x47, 0x15, 0x51, 0x8e, 0xa6, 0x08, 0x9f, 0x95, 0x0a, 0x2b,
+	0x29, 0x20, 0x25, 0x59, 0x7c, 0x22, 0x59, 0x7f, 0x77, 0xc9, 0x52, 0x41, 0x49, 0xda, 0x7f, 0x18,
+	0x60, 0xad, 0x28, 0xe5, 0x97, 0x27, 0xd4, 0x25, 0x15, 0x9b, 0x24, 0x40, 0xdf, 0x40, 0x73, 0x57,
+	0xce, 0x4f, 0x6f, 0x32, 0x7a, 0xdb, 0x39, 0x99, 0xd7, 0xb0, 0xe2, 0xa1, 0x2f, 0xa1, 0xb1, 0x2d,
+	0x84, 0x1a, 0xb3, 0xde, 0xc4, 0xae, 0xae, 0xee, 0xbc, 0x86, 0x25, 0x61, 0xda, 0x01, 0x53, 0xb7,
+	0xce, 0xc6, 0x70, 0xff, 0x8a, 0xb3, 0x90, 0xc5, 0xff, 0x99, 0xdf, 0x17, 0x5a, 0xdf, 0x78, 0x5b,
+	0x7d, 0xa5, 0x6e, 0xbf, 0x6a, 0x80, 0xb9, 0x52, 0x2f, 0x1b, 0x3d, 0x85, 0xb6, 0x20, 0x3c, 0xa4,
+	0xa2, 0x6c, 0x4e, 0xd5, 0x5b, 0x58, 0xab, 0xdb, 0x2e, 0x8d, 0xa8, 0x2f, 0x12, 0x8e, 0x4b, 0x36,
+	0x5a, 0x42, 0x2b, 0xa5, 0x72, 0x16, 0x75, 0x43, 0xbe, 0xaa, 0x90, 0xb9, 0xab, 0xe2, 0x58, 0xab,
+	0xa0, 0x4f, 0x61, 0x28, 0x0f, 0x1e, 0xcb, 0xbc, 0x24, 0x95, 0x6e, 0x12, 0xa9, 0x37, 0xd0, 0x99,
+	0xd6, 0x2d, 0x03, 0x0f, 0xa4, 0x6f, 0x91, 0x5d, 0x1d, 0x3c, 0xc8, 0x85, 0x76, 0xa2, 0x8a, 0x94,
+	0x59, 0x4d, 0x15, 0xfe, 0xeb, 0x8a, 0xf0, 0x77, 0x97, 0x14, 0x97, 0x4a, 0xe8, 0x31, 0x20, 0x7d,
+	0x3c, 0x49, 0xa2, 0xf5, 0x3a, 0x89, 0xa1, 0xf6, 0x1e, 0xa5, 0xf1, 0x33, 0xbc, 0x97, 0x72, 0x16,
+	0xfb, 0x2c, 0x25, 0x91, 0x77, 0xcd, 0xe2, 0x80, 0xc5, 0xa1, 0x65, 0xaa, 0x15, 0x33, 0xae, 0xaa,
+	0x47, 0xc9, 0x9b, 0x6a, 0x1a, 0x1e, 0xa6, 0x6f, 0x58, 0xec, 0x10, 0x06, 0xa7, 0xc5, 0x47, 0x08,
+	0x9a, 0x31, 0xd9, 0xd1, 0xc3, 0x52, 0x51, 0x67, 0x74, 0x09, 0xad, 0x34, 0xe1, 0xa2, 0xec, 0xc3,
+	0x27, 0x55, 0x71, 0x13, 0x7e, 0xdb, 0x4c, 0xcd, 0xb4, 0xbf, 0x83, 0xfe, 0xb1, 0x59, 0xee, 0xe5,
+	0x38, 0xdf, 0x5d, 0x1f, 0xb6, 0xd7, 0x99, 0xdc, 0xcb, 0x1a, 0xa3, 0xf7, 0x0f, 0x09, 0x94, 0x9b,
+	0x5c, 0xa1, 0xa9, 0x09, 0x4d, 0x29, 0xf4, 0xe8, 0x31, 0x0c, 0xdf, 0xfc, 0x2c, 0xd4, 0x87, 0xce,
+	0x73, 0x77, 0xe6, 0xad, 0x66, 0x33, 0xac, 0xf7, 0xa5, 0x44, 0x57, 0x78, 0xf1, 0x74, 0xf1, 0xfd,
+	0xd0, 0x98, 0x4e, 0xfe, 0xba, 0x39, 0x37, 0xfe, 0xbe, 0x39, 0x37, 0xfe, 0xb9, 0x39, 0x37, 0x7e,
+	0x7a, 0xa8, 0x53, 0x67, 0xc9, 0x98, 0xa4, 0x6c, 0x7c, 0xc7, 0x2f, 0xea, 0xda, 0x54, 0x3f, 0xa7,
+	0xcf, 0xff, 0x0d, 0x00, 0x00, 0xff, 0xff, 0x37, 0xff, 0x7b, 0x2f, 0xc4, 0x06, 0x00, 0x00,
 }

@@ -1,4 +1,3 @@
-{{- if .Values.global.mtls.enabled }}
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -14,7 +13,6 @@ apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole
 metadata:
   name: istio-security-post-install-{{ .Release.Namespace }}
-  namespace: {{ .Release.Namespace }}
   labels:
     app: istio-security
     chart: {{ .Chart.Name }}-{{ .Chart.Version }}
@@ -27,6 +25,12 @@ rules:
 - apiGroups: ["networking.istio.io"] # needed to create security destination rules
   resources: ["*"]
   verbs: ["*"]
+- apiGroups: ["admissionregistration.k8s.io"]
+  resources: ["validatingwebhookconfigurations"]
+  verbs: ["get"]
+- apiGroups: ["extensions"]
+  resources: ["deployments", "replicasets"]
+  verbs: ["get", "list", "watch"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
@@ -54,7 +58,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   annotations:
     "helm.sh/hook": post-install
-    "helm.sh/hook-delete-policy": before-hook-creation
+    "helm.sh/hook-delete-policy": hook-succeeded
   labels:
     app: istio-security
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
@@ -71,12 +75,8 @@ spec:
       serviceAccountName: istio-security-post-install-account
       containers:
         - name: hyperkube
-          image: "{{ .Values.global.hyperkube.repository }}:{{ .Values.global.hyperkube.tag }}"
-          command:
-            - ./kubectl
-            - apply
-            - -f
-            - /tmp/security/custom-resources.yaml
+          image: "{{ .Values.global.hyperkube.hub }}/hyperkube:{{ .Values.global.hyperkube.tag }}"
+          command: [ "/bin/bash", "/tmp/security/run.sh", "/tmp/security/custom-resources.yaml" ]
           volumeMounts:
             - mountPath: "/tmp/security"
               name: tmp-configmap-security
@@ -84,5 +84,4 @@ spec:
         - name: tmp-configmap-security
           configMap:
             name: istio-security-custom-resources
-      restartPolicy: Never # CRD might take some time till they are available to consume
-{{- end }}
+      restartPolicy: OnFailure

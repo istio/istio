@@ -26,7 +26,7 @@ import (
 )
 
 func TestSessionPool(t *testing.T) {
-	d := New("", nil, false)
+	d := New(nil, false)
 
 	// Prime the pool
 	sessions := make([]*session, 100)
@@ -66,7 +66,7 @@ func TestSessionPool(t *testing.T) {
 
 func TestSession_Clear(t *testing.T) {
 	s := &session{
-		impl:             New("", nil, false),
+		impl:             New(nil, false),
 		activeDispatches: 23,
 		bag:              attribute.GetMutableBag(nil),
 		completed:        make(chan *dispatchState, 10),

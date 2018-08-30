@@ -55,7 +55,7 @@ func ConvertObject(schema model.ProtoSchema, object IstioObject, domain string) 
 			Labels:            meta.Labels,
 			Annotations:       meta.Annotations,
 			ResourceVersion:   meta.ResourceVersion,
-			CreationTimestamp: meta.CreationTimestamp,
+			CreationTimestamp: meta.CreationTimestamp.Time,
 		},
 		Spec: data,
 	}, nil
@@ -140,15 +140,7 @@ func CamelCaseToKabobCase(s string) string {
 	}
 }
 
-// ParseInputs reads multiple documents from `kubectl` output and checks with
-// the schema. It also returns the list of unrecognized kinds as the second
-// response.
-//
-// NOTE: This function only decodes a subset of the complete k8s
-// ObjectMeta as identified by the fields in model.ConfigMeta. This
-// would typically only be a problem if a user dumps an configuration
-// object with kubectl and then re-ingests it.
-func ParseInputs(inputs string) ([]model.Config, []IstioKind, error) {
+func parseInputsImpl(inputs string, withValidate bool) ([]model.Config, []IstioKind, error) {
 	var varr []model.Config
 	var others []IstioKind
 	reader := bytes.NewReader([]byte(inputs))
@@ -181,12 +173,31 @@ func ParseInputs(inputs string) ([]model.Config, []IstioKind, error) {
 			return nil, nil, fmt.Errorf("cannot parse proto message: %v", err)
 		}
 
-		if err := schema.Validate(config.Name, config.Namespace, config.Spec); err != nil {
-			return nil, nil, fmt.Errorf("configuration is invalid: %v", err)
+		if withValidate {
+			if err := schema.Validate(config.Name, config.Namespace, config.Spec); err != nil {
+				return nil, nil, fmt.Errorf("configuration is invalid: %v", err)
+			}
 		}
 
 		varr = append(varr, *config)
 	}
 
 	return varr, others, nil
+}
+
+// ParseInputs reads multiple documents from `kubectl` output and checks with
+// the schema. It also returns the list of unrecognized kinds as the second
+// response.
+//
+// NOTE: This function only decodes a subset of the complete k8s
+// ObjectMeta as identified by the fields in model.ConfigMeta. This
+// would typically only be a problem if a user dumps an configuration
+// object with kubectl and then re-ingests it.
+func ParseInputs(inputs string) ([]model.Config, []IstioKind, error) {
+	return parseInputsImpl(inputs, true)
+}
+
+// ParseInputsWithoutValidation same as ParseInputs, but do not apply schema validation.
+func ParseInputsWithoutValidation(inputs string) ([]model.Config, []IstioKind, error) {
+	return parseInputsImpl(inputs, false)
 }

@@ -1,2 +1,2 @@
-HOST:PORT	STATUS		SERVER		CLIENT		AUTHN POLICY			DESTINATION RULE
-host2:    2	OK		HTTP		HTTP		auth-policy2/namespace2		destination-rule2/namespace2
+HOST:PORT     STATUS     SERVER     CLIENT     AUTHN POLICY                DESTINATION RULE
+host2:2       OK         HTTP       HTTP       auth-policy2/namespace2     destination-rule2/namespace2

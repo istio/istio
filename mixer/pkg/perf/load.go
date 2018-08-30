@@ -117,10 +117,10 @@ func (l *Load) UnmarshalJSON(bytes []byte) error {
 	return nil
 }
 
-func (l *Load) createRequestProtos(iattr, iattrDomain string) []interface{} {
+func (l *Load) createRequestProtos() []interface{} {
 	initialSet := []interface{}{}
 	for _, r := range l.Requests {
-		initialSet = append(initialSet, r.createRequestProtos(iattr, iattrDomain)...)
+		initialSet = append(initialSet, r.createRequestProtos()...)
 	}
 
 	requests := initialSet

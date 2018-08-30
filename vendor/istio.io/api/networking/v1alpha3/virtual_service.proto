@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2017-2018 Istio Authors
 //
 //   Licensed under the Apache License, Version 2.0 (the "License");
 //   you may not use this file except in compliance with the License.
@@ -17,9 +17,11 @@ syntax = "proto3";
 import "google/protobuf/duration.proto";
 import "google/protobuf/wrappers.proto";
 
-// $title: Route Rules v1alpha3
-// $description: Configuration affecting traffic routing
+// $title: Traffic Routing
+// $description: Configuration affecting traffic routing.
 // $location: https://istio.io/docs/reference/config/istio.networking.v1alpha3.html
+// $aliases:
+// $  - /docs/reference/config/istio.routing.v1alpha1/
 
 // Configuration affecting traffic routing. Here are a few terms useful to define
 // in the context of traffic routing.
@@ -355,13 +357,8 @@ message HTTPRoute {
   // Redirect primitive. Rewrite will be performed before forwarding.
   HTTPRewrite rewrite = 4;
 
-  // Indicates that a HTTP/1.1 client connection to this particular route
-  // should be allowed (and expected) to upgrade to a WebSocket connection.
-  // The default is false. Istio's reference sidecar implementation (Envoy)
-  // expects the first request to this route to contain the WebSocket
-  // upgrade headers. Otherwise, the request will be rejected. Note that
-  // Websocket allows secondary protocol negotiation which may then be
-  // subject to further routing rules based on the protocol selected.
+  // Deprecated. Websocket upgrades are done automatically starting from Istio 1.0.
+  // $hide_from_docs
   bool websocket_upgrade = 5;
 
   // Timeout for HTTP requests.
@@ -370,7 +367,9 @@ message HTTPRoute {
   // Retry policy for HTTP requests.
   HTTPRetry retries = 7;
 
-  //Fault injection policy to apply on HTTP traffic.
+  // Fault injection policy to apply on HTTP traffic at the client side.
+  // Note that timeouts or retries will not be enabled when faults are
+  // enabled on the client side.
   HTTPFaultInjection fault = 8;
 
   // Mirror HTTP traffic to a another destination in addition to forwarding
@@ -389,10 +388,10 @@ message HTTPRoute {
   // Additional HTTP headers to add before forwarding a request to the
   // destination service.
   map<string, string> append_headers = 11;
-  
+
   // Http headers to remove before returning the response to the caller
   // $hide_from_docs
-  map<string, string> remove_response_headers = 12;
+  repeated string remove_response_headers = 12;
 }
 
 // Describes match conditions and actions for routing unterminated TLS
@@ -408,6 +407,8 @@ message HTTPRoute {
 // spec:
 //   hosts:
 //   - "*.bookinfo.com"
+//   gateways:
+//   - mygateway
 //   tls:
 //   - match:
 //     - port: 443
@@ -425,10 +426,10 @@ message HTTPRoute {
 //         host: reviews.prod.svc.cluster.local
 // ```
 message TLSRoute {
-  // Match conditions to be satisfied for the rule to be activated. All
-  // conditions inside a single match block have AND semantics, while the
-  // list of match blocks have OR semantics. The rule is matched if any one
-  // of the match blocks succeed.
+  // REQUIRED. Match conditions to be satisfied for the rule to be
+  // activated. All conditions inside a single match block have AND
+  // semantics, while the list of match blocks have OR semantics. The rule
+  // is matched if any one of the match blocks succeed.
   repeated TLSMatchAttributes match = 1;
 
   // The destination to which the connection should be forwarded to.
@@ -476,8 +477,8 @@ message TCPRoute {
 // HttpMatchRequest specifies a set of criterion to be met in order for the
 // rule to be applied to the HTTP request. For example, the following
 // restricts the rule to match only requests where the URL path
-// starts with /ratings/v2/ and the request contains a `cookie` with value
-// `user=jason`.
+// starts with /ratings/v2/ and the request contains a custom `end-user` header
+// with value `jason`.
 //
 // ```yaml
 // apiVersion: networking.istio.io/v1alpha3
@@ -490,8 +491,8 @@ message TCPRoute {
 //   http:
 //   - match:
 //     - headers:
-//         cookie:
-//           regex: "^(.*?;)?(user=jason)(;.*)?"
+//         end-user:
+//           exact: jason
 //       uri:
 //         prefix: "/ratings/v2/"
 //     route:
@@ -544,7 +545,7 @@ message HTTPMatchRequest {
   // - `regex: "value"` for ECMAscript style regex-based match
   //
   StringMatch authority = 4;
-  
+
   // The header keys must be lowercase and use hyphen as the separator,
   // e.g. _x-request-id_.
   //
@@ -649,7 +650,7 @@ message DestinationWeight {
 
   // REQUIRED. The proportion of traffic to be forwarded to the service
   // version. (0-100). Sum of weights across destinations SHOULD BE == 100.
-  // If there is only destination in a rule, the weight value is assumed to
+  // If there is only one destination in a rule, the weight value is assumed to
   // be 100.
   int32 weight = 2;
 }
@@ -657,18 +658,16 @@ message DestinationWeight {
 // L4 connection match attributes. Note that L4 connection matching support
 // is incomplete.
 message L4MatchAttributes {
-  // IPv4 or IPv6 ip address of destination with optional subnet.  E.g.,
-  // a.b.c.d/xx form or just a.b.c.d. This is only valid when the
-  // destination service has several IPs and the application explicitly
-  // specifies a particular IP.
-  string destination_subnet = 1;
+  // IPv4 or IPv6 ip addresses of destination with optional subnet.  E.g.,
+  // a.b.c.d/xx form or just a.b.c.d.
+  repeated string destination_subnets = 1;
 
   // Specifies the port on the host that is being addressed. Many services
   // only expose a single port or label ports with the protocols they support,
   // in these cases it is not required to explicitly select the port.
   uint32 port = 2;
 
-  // IPv4 or IPv6 ip address of source with optional subnet. E.g., a.b.c.d/xx 
+  // IPv4 or IPv6 ip address of source with optional subnet. E.g., a.b.c.d/xx
   // form or just a.b.c.d
   // $hide_from_docs
   string source_subnet = 3;
@@ -687,33 +686,36 @@ message L4MatchAttributes {
 
 // TLS connection match attributes.
 message TLSMatchAttributes {
-  // IPv4 or IPv6 ip address of destination with optional subnet.  E.g.,
-  // a.b.c.d/xx form or just a.b.c.d. This is only valid when the
-  // destination service has several IPs and the application explicitly
-  // specifies a particular IP.
-  string destination_subnet = 1;
+  // REQUIRED. SNI (server name indicator) to match on. Wildcard prefixes
+  // can be used in the SNI value. E.g., *.com will match foo.example.com
+  // as well as example.com.
+  repeated string sni_hosts = 1;
+
+  // IPv4 or IPv6 ip addresses of destination with optional subnet.  E.g.,
+  // a.b.c.d/xx form or just a.b.c.d.
+  repeated string destination_subnets = 2;
 
   // Specifies the port on the host that is being addressed. Many services
   // only expose a single port or label ports with the protocols they
   // support, in these cases it is not required to explicitly select the
   // port.
-  uint32 port = 2;
+  uint32 port = 3;
 
-  // SNI (server name indicator) to match on. Wildcard prefixes can be used
-  // in the SNI value. E.g., *.com will match foo.example.com as well as
-  // example.com.
-  repeated string sni_hosts = 3;
+  // IPv4 or IPv6 ip address of source with optional subnet. E.g., a.b.c.d/xx
+  // form or just a.b.c.d
+  // $hide_from_docs
+  string source_subnet = 4;
 
   // One or more labels that constrain the applicability of a rule to
   // workloads with the given labels. If the VirtualService has a list of
   // gateways specified at the top, it should include the reserved gateway
   // `mesh` in order for this field to be applicable.
-  map<string, string> source_labels = 4;
+  map<string, string> source_labels = 5;
 
   // Names of gateways where the rule should be applied to. Gateway names
   // at the top of the VirtualService (if any) are overridden. The gateway
   // match is independent of sourceLabels.
-  repeated string gateways = 5;
+  repeated string gateways = 6;
 }
 
 // HTTPRedirect can be used to send a 301 redirect response to the caller,
@@ -744,12 +746,12 @@ message HTTPRedirect {
   // value. Note that the entire path will be replaced, irrespective of the
   // request URI being matched as an exact path or prefix.
   string uri = 1;
-   
+
   // On a redirect, overwrite the Authority/Host portion of the URL with
   // this value.
   string authority = 2;
 }
- 
+
 // HTTPRewrite can be used to rewrite specific parts of a HTTP request
 // before forwarding the request to the destination. Rewrite primitive can
 // be used only with the DestinationWeights. The following example
@@ -879,7 +881,7 @@ message CorsPolicy {
   repeated string allow_methods = 2;
 
   // List of HTTP headers that can be used when requesting the
-  // resource. Serialized to Access-Control-Allow-Methods header.
+  // resource. Serialized to Access-Control-Allow-Headers header.
   repeated string allow_headers = 3;
 
   // A white list of HTTP headers that the browsers are allowed to
@@ -915,7 +917,7 @@ message HTTPFaultInjection {
 
   // Delay specification is used to inject latency into the request
   // forwarding path. The following example will introduce a 5 second delay
-  // in 10% of the requests to the "v1" version of the "reviews"
+  // in 1 out of every 1000 requests to the "v1" version of the "reviews"
   // service from all pods with label env: prod
   //
   // ```yaml
@@ -936,17 +938,19 @@ message HTTPFaultInjection {
   //         subset: v1
   //     fault:
   //       delay:
-  //         percent: 10
+  //         percentage:
+  //           value: 0.001
   //         fixedDelay: 5s
   // ```
   //
-  // The _fixedDelay_ field is used to indicate the amount of delay in
-  // seconds. An optional _percent_ field, a value between 0 and 100, can
-  // be used to only delay a certain percentage of requests. If left
-  // unspecified, all request will be delayed.
+  // The _fixedDelay_ field is used to indicate the amount of delay in seconds.
+  // The optional _percentage_ field can be used to only delay a certain
+  // percentage of requests. If left unspecified, all request will be delayed.
   message Delay {
     // Percentage of requests on which the delay will be injected (0-100).
-    int32 percent = 1;
+    // Use of integer `percent` value is deprecated. Use the double `percentage`
+    // field instead.
+    int32 percent = 1 [deprecated=true];
 
     oneof http_delay_type {
       // REQUIRED. Add a fixed delay before forwarding the request. Format:
@@ -956,11 +960,14 @@ message HTTPFaultInjection {
       // $hide_from_docs
       google.protobuf.Duration exponential_delay = 3 ;
     }
+
+    // Percentage of requests on which the delay will be injected.
+    Percent percentage = 5;
   }
 
   // Abort specification is used to prematurely abort a request with a
-  // pre-specified error code. The following example will return an HTTP
-  // 400 error code for 10% of the requests to the "ratings" service "v1".
+  // pre-specified error code. The following example will return an HTTP 400
+  // error code for 1 out of every 1000 requests to the "ratings" service "v1".
   //
   // ```yaml
   // apiVersion: networking.istio.io/v1alpha3
@@ -977,17 +984,20 @@ message HTTPFaultInjection {
   //         subset: v1
   //     fault:
   //       abort:
-  //         percent: 10
+  //         percentage:
+  //           value: 0.001
   //         httpStatus: 400
   // ```
   //
   // The _httpStatus_ field is used to indicate the HTTP status code to
-  // return to the caller. The optional _percent_ field, a value between 0
-  // and 100, is used to only abort a certain percentage of requests. If
-  // not specified, all requests are aborted.
+  // return to the caller. The optional _percentage_ field can be used to only
+  // abort a certain percentage of requests. If not specified, all requests are
+  // aborted.
   message Abort {
     // Percentage of requests to be aborted with the error code provided (0-100).
-    int32 percent = 1;
+    // Use of integer `percent` value is deprecated. Use the double `percentage`
+    // field instead.
+    int32 percent = 1 [deprecated=true];
 
     oneof error_type {
       // REQUIRED. HTTP status code to use to abort the Http request.
@@ -999,6 +1009,9 @@ message HTTPFaultInjection {
       // $hide_from_docs
       string http2_error = 4;
     }
+
+    // Percentage of requests to be aborted with the error code provided.
+    Percent percentage = 5;
   }
 }
 
@@ -1011,4 +1024,9 @@ message PortSelector {
     // $hide_from_docs
     string name = 2;
   }
+}
+
+// Percent specifies a percentage in the range of [0.0, 100.0].
+message Percent {
+  double value = 1;
 }

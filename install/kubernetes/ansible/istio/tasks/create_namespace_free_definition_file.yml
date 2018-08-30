@@ -1,0 +1,17 @@
+- name: Create temp directory that will the modified definition file
+  command: mktemp -d -t ansible.XXXXXXXXXX
+  register: temp_output
+
+- name: Define var containing copied definition file
+  set_fact:
+    istio_copied_definition_file_full_path: "{{ temp_output.stdout }}/def.yml"
+
+- name: Copy definition file
+  command: "cp {{ istio_definition_full_path }} {{ istio_copied_definition_file_full_path }}"
+
+- name: Remove lines corresponding to namespace
+  replace:
+    path: "{{ istio_copied_definition_file_full_path }}"
+    regexp: '^\s*apiVersion: v1\s*\n+\s*kind: Namespace\s*\n+\s*metadata:\s*\n+\s*name: {{ istio_namespace }}\s*$'
+    replace: ''
+

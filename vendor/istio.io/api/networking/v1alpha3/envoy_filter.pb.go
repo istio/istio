@@ -6,7 +6,7 @@ package v1alpha3
 import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import google_protobuf2 "github.com/gogo/protobuf/types"
+import google_protobuf3 "github.com/gogo/protobuf/types"
 
 import io "io"
 
@@ -150,31 +150,33 @@ func (EnvoyFilter_Filter_FilterType) EnumDescriptor() ([]byte, []int) {
 // this configuration is subject to change based on internal implementation
 // of Istio networking subsystem.
 //
-// NOTE 2: There can be only one EnvoyFilter bound to a specific workload.
-// The behavior is undefined if multiple EnvoyFilter configurations are
-// specified for the same workload.
+// NOTE 2: When multiple EnvoyFilters are bound to the same workload, all filter
+// configurations will be processed sequentially in order of creation time.
+// The behavior is undefined if multiple EnvoyFilter configurations conflict
+// with each other.
 //
 // The following example for Kubernetes enables Envoy's Lua filter for all
 // inbound calls arriving at service port 8080 of the reviews service pod with
 // labels "app: reviews".
 //
-//     apiVersion: networking.istio.io/v1alpha3
-//     kind: EnvoyFilter
-//     metadata:
-//       name: reviews-lua
-//     spec:
-//       workloadLabels:
-//         app: reviews
-//       filters:
-//       - listenerMatch:
-//           portNumber: 8080
-//           listenerType: SIDECAR_INBOUND #will match with the inbound listener for reviews:8080
-//         filterName: envoy.lua
-//         filterType: HTTP
-//         filterConfig:
-//           inlineCode: |
-//             ... lua code ...
-//
+// ```yaml
+// apiVersion: networking.istio.io/v1alpha3
+// kind: EnvoyFilter
+// metadata:
+//   name: reviews-lua
+// spec:
+//   workloadLabels:
+//     app: reviews
+//   filters:
+//   - listenerMatch:
+//       portNumber: 8080
+//       listenerType: SIDECAR_INBOUND #will match with the inbound listener for reviews:8080
+//     filterName: envoy.lua
+//     filterType: HTTP
+//     filterConfig:
+//       inlineCode: |
+//         ... lua code ...
+// ```
 type EnvoyFilter struct {
 	// One or more labels that indicate a specific set of pods/VMs whose
 	// proxies should be configured to use these additional filters.  The
@@ -217,7 +219,7 @@ func (m *EnvoyFilter) GetFilters() []*EnvoyFilter_Filter {
 // to be applied to a listener.
 type EnvoyFilter_ListenerMatch struct {
 	// The service port/gateway port to which traffic is being
-	// sent/received. If not specified, matches all listeners. Eventhough
+	// sent/received. If not specified, matches all listeners. Even though
 	// inbound listeners are generated for the instance/pod ports, only
 	// service ports should be used to match listeners.
 	PortNumber uint32 `protobuf:"varint,1,opt,name=port_number,json=portNumber,proto3" json:"port_number,omitempty"`
@@ -236,7 +238,7 @@ type EnvoyFilter_ListenerMatch struct {
 	// passthrough using SNI).
 	ListenerProtocol EnvoyFilter_ListenerMatch_ListenerProtocol `protobuf:"varint,4,opt,name=listener_protocol,json=listenerProtocol,proto3,enum=istio.networking.v1alpha3.EnvoyFilter_ListenerMatch_ListenerProtocol" json:"listener_protocol,omitempty"`
 	// One or more IP addresses to which the listener is bound. If
-	// specified, should match atleast one address in the list.
+	// specified, should match at least one address in the list.
 	Address []string `protobuf:"bytes,5,rep,name=address" json:"address,omitempty"`
 }
 
@@ -314,7 +316,7 @@ func (m *EnvoyFilter_InsertPosition) GetRelativeTo() string {
 
 // Envoy filters to be added to a network or http filter chain.
 type EnvoyFilter_Filter struct {
-	// Filter will be added to the listner only if the match conditions are true.
+	// Filter will be added to the listener only if the match conditions are true.
 	// If not specified, the filters will be applied to all listeners.
 	ListenerMatch *EnvoyFilter_ListenerMatch `protobuf:"bytes,1,opt,name=listener_match,json=listenerMatch" json:"listener_match,omitempty"`
 	// Insert position in the filter chain. Defaults to FIRST
@@ -326,7 +328,7 @@ type EnvoyFilter_Filter struct {
 	FilterName string `protobuf:"bytes,4,opt,name=filter_name,json=filterName,proto3" json:"filter_name,omitempty"`
 	// REQUIRED: Filter specific configuration which depends on the filter being
 	// instantiated.
-	FilterConfig *google_protobuf2.Struct `protobuf:"bytes,5,opt,name=filter_config,json=filterConfig" json:"filter_config,omitempty"`
+	FilterConfig *google_protobuf3.Struct `protobuf:"bytes,5,opt,name=filter_config,json=filterConfig" json:"filter_config,omitempty"`
 }
 
 func (m *EnvoyFilter_Filter) Reset()                    { *m = EnvoyFilter_Filter{} }
@@ -362,7 +364,7 @@ func (m *EnvoyFilter_Filter) GetFilterName() string {
 	return ""
 }
 
-func (m *EnvoyFilter_Filter) GetFilterConfig() *google_protobuf2.Struct {
+func (m *EnvoyFilter_Filter) GetFilterConfig() *google_protobuf3.Struct {
 	if m != nil {
 		return m.FilterConfig
 	}
@@ -1305,7 +1307,7 @@ func (m *EnvoyFilter_Filter) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.FilterConfig == nil {
-				m.FilterConfig = &google_protobuf2.Struct{}
+				m.FilterConfig = &google_protobuf3.Struct{}
 			}
 			if err := m.FilterConfig.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err

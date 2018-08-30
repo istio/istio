@@ -487,3 +487,11 @@ func TestExternEmptyStringMap(t *testing.T) {
 		t.Errorf("emptyStringMap() returned non-empty map: %#v", m)
 	}
 }
+
+func TestExternConditionalString(t *testing.T) {
+	boolExpr := true
+	got := externConditionalString(boolExpr, "yes", "no")
+	if got != "yes" {
+		t.Errorf("externIfElse(%t, \"yes\", \"no\") => %s, wanted: %s", boolExpr, got, "yes")
+	}
+}

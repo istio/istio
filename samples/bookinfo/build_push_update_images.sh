@@ -23,8 +23,13 @@ if [ "$#" -ne 1 ]; then
 fi
 
 VERSION=$1
-src/build-services.sh $VERSION
-IMAGES=$(docker images -f reference=istio/examples-bookinfo*:$VERSION --format "{{.Repository}}:$VERSION")
-for IMAGE in $IMAGES; do docker push $IMAGE; done
-sed -i "s/\(istio\/examples-bookinfo-.*\):[[:digit:]]\.[[:digit:]]\.[[:digit:]]/\1:$VERSION/g" */bookinfo*.yaml
+src/build-services.sh "${VERSION}"
+
+for v in ${VERSION} "latest"
+do
+  IMAGES+=$(docker images -f reference=istio/examples-bookinfo*:"$v" --format "{{.Repository}}:$v")
+done
+
+for IMAGE in ${IMAGES}; do docker push "${IMAGE}"; done
+sed -i "s/\\(istio\\/examples-bookinfo-.*\\):[[:digit:]]\\.[[:digit:]]\\.[[:digit:]]/\\1:$VERSION/g" -- */bookinfo*.yaml
 

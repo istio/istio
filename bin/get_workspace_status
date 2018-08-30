@@ -14,12 +14,8 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-
-BUILD_GIT_REVISION=$(git rev-parse HEAD 2> /dev/null)
-if [[  $? == 0 ]]; then
-    git diff-index --quiet HEAD
-    if [[  $? != 0 ]]; then
+if BUILD_GIT_REVISION=$(git rev-parse HEAD 2> /dev/null); then
+    if ! git diff-index --quiet HEAD; then
         BUILD_GIT_REVISION=${BUILD_GIT_REVISION}"-dirty"
     fi
 else
@@ -27,9 +23,7 @@ else
 fi
 
 # Check for local changes
-git diff-index --quiet HEAD --
-if [[ $? == 0 ]];
-then
+if git diff-index --quiet HEAD --; then
   tree_status="Clean"
 else
   tree_status="Modified"
@@ -51,10 +45,10 @@ if [[ -n ${ISTIO_DOCKER_HUB} ]]; then
   DOCKER_HUB="${ISTIO_DOCKER_HUB}"
 fi
 
-# used by pkg/version
-echo buildVersion       "${VERSION}"
-echo buildGitRevision   "${BUILD_GIT_REVISION}"
-echo buildUser          "$(whoami)"
-echo buildHost          "$(hostname -f)"
-echo buildDockerHub     "${DOCKER_HUB}"
-echo buildStatus        "${tree_status}"
+# used by bin/gobuild.sh
+echo "istio.io/istio/pkg/version.buildVersion=${VERSION}"
+echo "istio.io/istio/pkg/version.buildGitRevision=${BUILD_GIT_REVISION}"
+echo "istio.io/istio/pkg/version.buildUser=$(whoami)"
+echo "istio.io/istio/pkg/version.buildHost=$(hostname -f)"
+echo "istio.io/istio/pkg/version.buildDockerHub=${DOCKER_HUB}"
+echo "istio.io/istio/pkg/version.buildStatus=${tree_status}"

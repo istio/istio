@@ -26,16 +26,11 @@ import (
 func TestResolveJwksURIUsingOpenID(t *testing.T) {
 	r := newJwksResolver(JwtPubKeyExpireDuration, JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval)
 
-	ms, err := test.NewServer()
+	ms, err := test.StartNewServer()
+	defer ms.Stop()
 	if err != nil {
-		t.Fatal("failed to create mock server")
+		t.Fatal("failed to start a mock server")
 	}
-	if err := ms.Start(); err != nil {
-		t.Fatal("failed to start mock server")
-	}
-	defer func() {
-		_ = ms.Stop()
-	}()
 
 	mockCertURL := ms.URL + "/oauth2/v3/certs"
 	cases := []struct {
@@ -77,17 +72,11 @@ func TestResolveJwksURIUsingOpenID(t *testing.T) {
 func TestSetAuthenticationPolicyJwksURIs(t *testing.T) {
 	r := newJwksResolver(JwtPubKeyExpireDuration, JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval)
 
-	ms, err := test.NewServer()
+	ms, err := test.StartNewServer()
+	defer ms.Stop()
 	if err != nil {
-		t.Fatal("failed to create mock server")
+		t.Fatal("failed to start a mock server")
 	}
-
-	if err := ms.Start(); err != nil {
-		t.Fatal("failed to start mock server")
-	}
-	defer func() {
-		_ = ms.Stop()
-	}()
 
 	mockCertURL := ms.URL + "/oauth2/v3/certs"
 
@@ -161,16 +150,11 @@ func TestGetPublicKey(t *testing.T) {
 	r := newJwksResolver(JwtPubKeyExpireDuration, JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval)
 	defer r.Close()
 
-	ms, err := test.NewServer()
+	ms, err := test.StartNewServer()
+	defer ms.Stop()
 	if err != nil {
-		t.Fatal("failed to create mock server")
+		t.Fatal("failed to start a mock server")
 	}
-	if err := ms.Start(); err != nil {
-		t.Fatal("failed to start mock server")
-	}
-	defer func() {
-		_ = ms.Stop()
-	}()
 
 	mockCertURL := ms.URL + "/oauth2/v3/certs"
 
@@ -207,16 +191,11 @@ func TestJwtPubKeyRefresh(t *testing.T) {
 	r := newJwksResolver(time.Millisecond /*ExpireDuration*/, 100*time.Millisecond /*EvictionDuration*/, 2*time.Millisecond /*RefreshInterval*/)
 	defer r.Close()
 
-	ms, err := test.NewServer()
+	ms, err := test.StartNewServer()
+	defer ms.Stop()
 	if err != nil {
-		t.Fatal("failed to create mock server")
+		t.Fatal("failed to start a mock server")
 	}
-	if err := ms.Start(); err != nil {
-		t.Fatal("failed to start mock server")
-	}
-	defer func() {
-		_ = ms.Stop()
-	}()
 
 	mockCertURL := ms.URL + "/oauth2/v3/certs"
 	cases := []struct {

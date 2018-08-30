@@ -1,6 +1,6 @@
-{{- range $key, $spec := .Values -}}
-{{- if and (ne $key "global") (ne $key "enabled") -}}
-{{- if and $spec.enabled $spec.autoscaleMin -}}
+{{- range $key, $spec := .Values }}
+{{- if and (ne $key "global") (ne $key "enabled") }}
+{{- if and $spec.enabled $spec.autoscaleMin }}
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
@@ -17,8 +17,8 @@ spec:
       - type: Resource
         resource:
           name: cpu
-          targetAverageUtilization: 80
+          targetAverageUtilization: 60
 ---
-{{ end }}
-{{ end }}
-{{ end }}
+{{- end }}
+{{- end }}
+{{- end }}

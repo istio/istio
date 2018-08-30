@@ -13,10 +13,10 @@
 // limitations under the License.
 
 // nolint
-//go:generate protoc testdata/tmpl1.proto -otestdata/tmpl1.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
-//go:generate protoc testdata/tmpl2.proto -otestdata/tmpl2.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
-//go:generate protoc testdata/adptCfg.proto -otestdata/adptCfg.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
-//go:generate protoc testdata/adptCfg2.proto -otestdata/adptCfg2.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
+//go:generate $GOPATH/src/istio.io/istio/bin/protoc.sh testdata/tmpl1.proto -otestdata/tmpl1.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
+//go:generate $GOPATH/src/istio.io/istio/bin/protoc.sh testdata/tmpl2.proto -otestdata/tmpl2.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
+//go:generate $GOPATH/src/istio.io/istio/bin/protoc.sh testdata/adptCfg.proto -otestdata/adptCfg.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
+//go:generate $GOPATH/src/istio.io/istio/bin/protoc.sh testdata/adptCfg2.proto -otestdata/adptCfg2.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
 
 package config
 
@@ -37,7 +37,6 @@ import (
 	descriptorpb "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/config/store"
-	"istio.io/istio/mixer/pkg/runtime/config/constant"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
 )
@@ -830,7 +829,6 @@ Rules:
   Name:      rule1.rule.ns
   Namespace: ns
   Match:
-  ResourceType: ResourceType:{HTTP / Check Report Preprocess}
   ActionsStatic:
     Handler: handler1.adapter1.ns
     Instances:
@@ -1009,7 +1007,6 @@ Rules:
   Name:      rule1.rule.ns
   Namespace: ns
   Match:
-  ResourceType: ResourceType:{HTTP /Check Report Preprocess}
   ActionsStatic:
     Handler: handler1.adapter1.ns
     Instances:
@@ -1022,7 +1019,6 @@ Rules:
   Name:      rule2.rule.ns
   Namespace: ns
   Match:   destination.service == "foo"
-  ResourceType: ResourceType:{HTTP /Check Report Preprocess}
   ActionsStatic:
     Handler: handler2.adapter2.ns
     Instances:
@@ -1035,88 +1031,6 @@ Rules:
       Name: instance1.check.ns
 Attributes:
   destination.service: STRING
-  template.attr: BOOL
-`,
-	},
-
-	// TODO(Issue #2139): Once that issue is resolved, this test can be removed.
-	{
-		Name: "basic rule with istio protocol label",
-		Events1: []*store.Event{
-			{
-				Key: store.Key{
-					Name:      "handler1",
-					Namespace: "ns",
-					Kind:      "adapter1",
-				},
-				Type: store.Update,
-				Value: &store.Resource{
-					Spec: testParam1,
-				},
-			},
-			{
-				Key: store.Key{
-					Name:      "instance1",
-					Namespace: "ns",
-					Kind:      "check",
-				},
-				Type: store.Update,
-				Value: &store.Resource{
-					Spec: testParam2,
-				},
-			},
-			{
-				Key: store.Key{
-					Name:      "rule1",
-					Namespace: "ns",
-					Kind:      "rule",
-				},
-				Type: store.Update,
-				Value: &store.Resource{
-					Metadata: store.ResourceMeta{
-						Labels: map[string]string{constant.IstioProtocol: constant.ContextProtocolTCP},
-					},
-					Spec: &configpb.Rule{
-						Actions: []*configpb.Action{
-							{
-								Handler: "handler1.adapter1",
-								Instances: []string{
-									"instance1.check.ns",
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-		E: `
-ID: 0
-TemplatesStatic:
-  Name: apa
-  Name: check
-  Name: quota
-  Name: report
-AdaptersStatic:
-  Name: adapter1
-  Name: adapter2
-HandlersStatic:
-  Name:    handler1.adapter1.ns
-  Adapter: adapter1
-  Params:  value:"param1"
-InstancesStatic:
-  Name:     instance1.check.ns
-  Template: check
-  Params:   value:"param2"
-Rules:
-  Name:      rule1.rule.ns
-  Namespace: ns
-  Match:
-  ResourceType: ResourceType:{TCP / Check Report Preprocess}
-  ActionsStatic:
-    Handler: handler1.adapter1.ns
-    Instances:
-      Name: instance1.check.ns
-Attributes:
   template.attr: BOOL
 `,
 	},
@@ -1190,7 +1104,6 @@ Rules:
   Name:      rule1.rule.ns
   Namespace: ns
   Match:
-  ResourceType: ResourceType:{HTTP /Check Report Preprocess}
   ActionsStatic:
     Handler: handler1.adapter1.ns
     Instances:
@@ -1340,7 +1253,6 @@ Rules:
   Name:      rule1.rule.ns
   Namespace: ns
   Match:
-  ResourceType: ResourceType:{HTTP /Check Report Preprocess}
   ActionsStatic:
     Handler: handler1.adapter1.ns
     Instances:
@@ -1421,7 +1333,6 @@ Rules:
   Name:      rule1.rule.ns
   Namespace: ns
   Match:   flurb++
-  ResourceType: ResourceType:{HTTP /Check Report Preprocess}
   ActionsStatic:
     Handler: handler1.adapter1.ns
     Instances:
@@ -1503,7 +1414,6 @@ Rules:
   Name:      rule1.rule.ns
   Namespace: ns
   Match:   foo == bar && context.protocol == "tcp"
-  ResourceType: ResourceType:{TCP /Check Report Preprocess}
   ActionsStatic:
     Handler: handler1.adapter1.ns
     Instances:
@@ -1974,7 +1884,7 @@ TemplatesDynamic:
 Attributes:
   template.attr: BOOL
 `,
-		wantErr: "instance='i1.instance.default'.params: config does not conforms to schema of template " +
+		wantErr: "instance='i1.instance.default'.params: config does not conform to schema of template " +
 			"'t1.default': fieldEncoder 's1' not found in message 'InstanceMsg'",
 	},
 	{
@@ -2308,7 +2218,6 @@ Rules:
   Name:      r1.rule.default
   Namespace: default
   Match:   true
-  ResourceType: ResourceType:{HTTP /Check Report Preprocess}
   ActionsStatic:
   ActionsDynamic:
     Handler: h1.handler.default
@@ -2690,7 +2599,6 @@ Rules:
   Name:      r1.rule.default
   Namespace: default
   Match:   true
-  ResourceType: ResourceType:{HTTP /Check Report Preprocess}
   ActionsStatic:
   ActionsDynamic:
     Handler: h1.handler.default
@@ -3013,7 +2921,7 @@ TemplatesDynamic:
 Attributes:
   template.attr: BOOL
 `,
-		wantErr: "instance='i1.instance.default'.params: config does not conforms to schema of template " +
+		wantErr: "instance='i1.instance.default'.params: config does not conform to schema of template " +
 			"'t1.default': fieldEncoder 'badFld' not found in message 'InstanceMsg'",
 	},
 	{
@@ -3039,7 +2947,6 @@ Rules:
   Name:      r1.rule.default
   Namespace: default
   Match:   true
-  ResourceType: ResourceType:{HTTP /Check Report Preprocess}
   ActionsStatic:
   ActionsDynamic:
     Handler: h1.handler.default
@@ -3293,7 +3200,6 @@ Rules:
   Name:      r1.rule.default
   Namespace: default
   Match:   true
-  ResourceType: ResourceType:{HTTP /Check Report Preprocess}
   ActionsStatic:
   ActionsDynamic:
     Handler: h1.handler.default
@@ -3342,7 +3248,6 @@ Rules:
   Name:      r1.rule.default
   Namespace: default
   Match:   true
-  ResourceType: ResourceType:{HTTP /Check Report Preprocess}
   ActionsStatic:
   ActionsDynamic:
     Handler: h1.handler.default
@@ -3352,7 +3257,6 @@ Rules:
   Name:      r2.rule.default
   Namespace: default
   Match:   true
-  ResourceType: ResourceType:{HTTP /Check Report Preprocess}
   ActionsStatic:
   ActionsDynamic:
     Handler: h2.handler.default
@@ -3821,7 +3725,6 @@ Rules:
   Name:      r1.rule.default
   Namespace: default
   Match:   true
-  ResourceType: ResourceType:{HTTP /Check Report Preprocess}
   ActionsStatic:
   ActionsDynamic:
     Handler: h1.handler.default

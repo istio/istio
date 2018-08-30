@@ -4,7 +4,7 @@ description: A template that is used to control the production of Kubernetes-spe
 location: https://istio.io/docs/reference/config/policy-and-telemetry/templates/kubernetes.html
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 3
+number_of_entries: 2
 ---
 <p>The <code>kubernetes</code> template holds data that controls the production of Kubernetes-specific
 attributes.</p>
@@ -41,7 +41,7 @@ spec:
 <section>
 <p>OutputTemplate refers to the output from the adapter. It is used inside the attribute_binding section of the config
 to assign values to the generated attributes using the <code>$out.&lt;field name of the OutputTemplate&gt;</code> syntax.
-Next ID: 31</p>
+Next ID: 33</p>
 
 <table class="message-fields">
 <thead>
@@ -52,9 +52,18 @@ Next ID: 31</p>
 </tr>
 </thead>
 <tbody>
+<tr id="OutputTemplate-source_pod_uid">
+<td><code>sourcePodUid</code></td>
+<td><code>string</code></td>
+<td>
+<p>Refers to the source.uid for a pod. This is for TCP use cases where the attribute is not present.
+attribute<em>bindings can refer to this field using $out.source</em>pod_uid</p>
+
+</td>
+</tr>
 <tr id="OutputTemplate-source_pod_ip">
 <td><code>sourcePodIp</code></td>
-<td><code><a href="#istio-policy-v1beta1-IPAddress">istio.policy.v1beta1.IPAddress</a></code></td>
+<td><code><a href="https://istio.io/docs/reference/config/policy-and-telemetry/istio.policy.v1beta1.html#IPAddress">istio.policy.v1beta1.IPAddress</a></code></td>
 <td>
 <p>Refers to source pod ip address. attribute<em>bindings can refer to this field using $out.source</em>pod_ip</p>
 
@@ -94,7 +103,7 @@ Next ID: 31</p>
 </tr>
 <tr id="OutputTemplate-source_host_ip">
 <td><code>sourceHostIp</code></td>
-<td><code><a href="#istio-policy-v1beta1-IPAddress">istio.policy.v1beta1.IPAddress</a></code></td>
+<td><code><a href="https://istio.io/docs/reference/config/policy-and-telemetry/istio.policy.v1beta1.html#IPAddress">istio.policy.v1beta1.IPAddress</a></code></td>
 <td>
 <p>Refers to source pod host ip address. attribute<em>bindings can refer to this field using $out.source</em>host_ip</p>
 
@@ -132,9 +141,18 @@ Next ID: 31</p>
 
 </td>
 </tr>
+<tr id="OutputTemplate-destination_pod_uid">
+<td><code>destinationPodUid</code></td>
+<td><code>string</code></td>
+<td>
+<p>Refers to the destination.uid for a pod. This is for TCP use cases where the attribute is not present.
+attribute<em>bindings can refer to this field using $out.destination</em>pod_uid</p>
+
+</td>
+</tr>
 <tr id="OutputTemplate-destination_pod_ip">
 <td><code>destinationPodIp</code></td>
-<td><code><a href="#istio-policy-v1beta1-IPAddress">istio.policy.v1beta1.IPAddress</a></code></td>
+<td><code><a href="https://istio.io/docs/reference/config/policy-and-telemetry/istio.policy.v1beta1.html#IPAddress">istio.policy.v1beta1.IPAddress</a></code></td>
 <td>
 <p>Refers to destination pod ip address. attribute<em>bindings can refer to this field using $out.destination</em>pod_ip</p>
 
@@ -182,7 +200,7 @@ Next ID: 31</p>
 </tr>
 <tr id="OutputTemplate-destination_host_ip">
 <td><code>destinationHostIp</code></td>
-<td><code><a href="#istio-policy-v1beta1-IPAddress">istio.policy.v1beta1.IPAddress</a></code></td>
+<td><code><a href="https://istio.io/docs/reference/config/policy-and-telemetry/istio.policy.v1beta1.html#IPAddress">istio.policy.v1beta1.IPAddress</a></code></td>
 <td>
 <p>Refers to destination pod host ip address. attribute<em>bindings can refer to this field using $out.destination</em>host_ip</p>
 
@@ -250,7 +268,7 @@ Next ID: 8</p>
 </tr>
 <tr id="Template-source_ip">
 <td><code>sourceIp</code></td>
-<td><code><a href="#istio-policy-v1beta1-IPAddress">istio.policy.v1beta1.IPAddress</a></code></td>
+<td><code><a href="https://istio.io/docs/reference/config/policy-and-telemetry/istio.policy.v1beta1.html#IPAddress">istio.policy.v1beta1.IPAddress</a></code></td>
 <td>
 <p>Source pod&rsquo;s ip.</p>
 
@@ -266,7 +284,7 @@ Next ID: 8</p>
 </tr>
 <tr id="Template-destination_ip">
 <td><code>destinationIp</code></td>
-<td><code><a href="#istio-policy-v1beta1-IPAddress">istio.policy.v1beta1.IPAddress</a></code></td>
+<td><code><a href="https://istio.io/docs/reference/config/policy-and-telemetry/istio.policy.v1beta1.html#IPAddress">istio.policy.v1beta1.IPAddress</a></code></td>
 <td>
 <p>Destination pod&rsquo;s ip.</p>
 
@@ -277,34 +295,6 @@ Next ID: 8</p>
 <td><code>int64</code></td>
 <td>
 <p>Destination container&rsquo;s port number.</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="istio-policy-v1beta1-IPAddress">istio.policy.v1beta1.IPAddress</h2>
-<section>
-<p>An instance field of type IPAddress denotes that the expression for the field must evalaute to
-<em>ValueType.IP_ADDRESS</em></p>
-
-<p>Objects of type IPAddress are also passed to the adapters during request-time for the instance fields of
-type IPAddress</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="istio-policy-v1beta1-IPAddress-value">
-<td><code>value</code></td>
-<td><code>bytes</code></td>
-<td>
-<p>IPAddress encoded as bytes.</p>
 
 </td>
 </tr>

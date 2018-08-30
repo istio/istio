@@ -76,16 +76,24 @@ static_resources:
 {{- end }}
                   mixer_attributes:
                     attributes:
-                      destination.service:
+                      destination.service.host:
                         string_value: istio-policy.{{ .PodNamespace }}.svc.cluster.local
+                      destination.service.uid:
+                        string_value: istio://{{ .PodNamespace }}/services/istio-policy
+                      destination.service.name:
+                        string_value: istio-policy
+                      destination.service.namespace:
+                        string_value: {{ .PodNamespace }}
                       destination.uid:
                         string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
+                      destination.namespace:
+                        string_value: {{.PodNamespace }}
                       destination.ip:
                         bytes_value: {{ .PodIP }}
                       destination.port:
                         int64_value: 15004
-                      context.reporter.local:
-                        bool_value: true
+                      context.reporter.kind:
+                        string_value: inbound
                       context.reporter.uid:
                         string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
               transport:
@@ -152,16 +160,24 @@ static_resources:
 {{- end }}
                   mixer_attributes:
                     attributes:
-                      destination.service:
+                      destination.service.host:
                         string_value: istio-policy.{{ .PodNamespace }}.svc.cluster.local
+                      destination.service.uid:
+                        string_value: istio://{{ .PodNamespace }}/services/istio-policy
+                      destination.service.name:
+                        string_value: istio-policy
+                      destination.service.namespace:
+                        string_value: {{ .PodNamespace }}
                       destination.uid:
                         string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
+                      destination.namespace:
+                        string_value: {{.PodNamespace }}
                       destination.ip:
                         bytes_value: {{ .PodIP }}
                       destination.port:
                         int64_value: 9091
-                      context.reporter.local:
-                        bool_value: true
+                      context.reporter.kind:
+                        string_value: inbound
                       context.reporter.uid:
                         string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
               transport:

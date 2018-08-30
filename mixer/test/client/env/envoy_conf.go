@@ -16,293 +16,172 @@
 package env
 
 import (
-	"encoding/base64"
 	"fmt"
 	"os"
+	"strings"
 	"text/template"
 
-	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/proto"
+	"github.com/gogo/protobuf/jsonpb"
+	"github.com/gogo/protobuf/proto"
 )
 
-type confParam struct {
-	ClientPort         uint16
-	ServerPort         uint16
-	TCPProxyPort       uint16
-	AdminPort          uint16
-	MixerServer        string
-	Backend            string
-	ClientConfig       string
-	ServerConfig       string
-	TCPServerConfig    string
-	AccessLog          string
-	MixerRouteFlags    string
-	FiltersBeforeMixer string
-
-	// Ports contains the allocated ports.
-	Ports    *Ports
-	IstioSrc string
-	IstioOut string
-
-	// Options are additional config options for the template
-	Options map[string]interface{}
-}
-
-// TODO: convert to v2, real clients use bootstrap v2 and all configs are switching !!!
-// The envoy config template
-const envoyConfTempl = `
-{
-  "listeners": [
-    {
-      "address": "tcp://0.0.0.0:{{.ServerPort}}",
-      "bind_to_port": true,
-      "filters": [
-        {
-          "type": "read",
-          "name": "http_connection_manager",
-          "config": {
-            "codec_type": "auto",
-            "stat_prefix": "ingress_http",
-            "route_config": {
-              "virtual_hosts": [
-                {
-                  "name": "backend",
-                  "domains": ["*"],
-                  "routes": [
-                    {
-                      "timeout_ms": 0,
-                      "prefix": "/",
-                      "cluster": "service1",
-                      "opaque_config": {
-{{.MixerRouteFlags}}
-                      }
-                    }
-                  ]
-                }
-              ]
-            },
-            "access_log": [
-              {
-                "path": "{{.AccessLog}}"
-              }
-            ],
-            "filters": [
-{{.FiltersBeforeMixer}}
-              {
-                "type": "decoder",
-                "name": "mixer",
-                "config": {
-{{.ServerConfig}}
-                }
-              },
-              {
-                "type": "decoder",
-                "name": "router",
-                "config": {}
-              }
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "address": "tcp://0.0.0.0:{{.ClientPort}}",
-      "bind_to_port": true,
-      "filters": [
-        {
-          "type": "read",
-          "name": "http_connection_manager",
-          "config": {
-            "codec_type": "auto",
-            "stat_prefix": "ingress_http",
-            "route_config": {
-              "virtual_hosts": [
-                {
-                  "name": "backend",
-                  "domains": ["*"],
-                  "routes": [
-                    {
-                      "timeout_ms": 0,
-                      "prefix": "/",
-                      "cluster": "service2",
-                      "opaque_config": {
-                      }
-                    }
-                  ]
-                }
-              ]
-            },
-            "access_log": [
-              {
-                "path": "{{.AccessLog}}"
-              }
-            ],
-            "filters": [
-              {
-                "type": "decoder",
-                "name": "mixer",
-                "config": {
-{{.ClientConfig}}
-                }
-              },
-              {
-                "type": "decoder",
-                "name": "router",
-                "config": {}
-              }
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "address": "tcp://0.0.0.0:{{.TCPProxyPort}}",
-      "bind_to_port": true,
-      "filters": [
-        {
-          "type": "both",
-          "name": "mixer",
-          "config": {
-{{.TCPServerConfig}}
-          }
-        },
-        {
-          "type": "read",
-          "name": "tcp_proxy",
-          "config": {
-            "stat_prefix": "tcp",
-            "route_config": {
-              "routes": [
-                {
-                  "cluster": "service1"
-                }
-              ]
-            }
-          }
-        }
-      ]
-    }
-  ],
-  "admin": {
-    "access_log_path": "{{.AccessLog}}",
-    "address": "tcp://0.0.0.0:{{.AdminPort}}"
-  },
-  "cluster_manager": {
-    "clusters": [
-      {
-        "name": "service1",
-        "connect_timeout_ms": 5000,
-        "type": "strict_dns",
-        "lb_type": "round_robin",
-        "hosts": [
-          {
-            "url": "tcp://{{.Backend}}"
-          }
-        ]
-      },
-      {
-        "name": "service2",
-        "connect_timeout_ms": 5000,
-        "type": "strict_dns",
-        "lb_type": "round_robin",
-        "hosts": [
-          {
-            "url": "tcp://localhost:{{.ServerPort}}"
-          }
-        ]
-      },
-      {
-        "name": "mixer_server",
-        "connect_timeout_ms": 5000,
-        "type": "strict_dns",
-	"circuit_breakers": {
-           "default": {
-	      "max_pending_requests": 10000,
-	      "max_requests": 10000
-            }
-	},
-        "lb_type": "round_robin",
-        "features": "http2",
-        "hosts": [
-          {
-            "url": "tcp://{{.MixerServer}}"
-          }
-        ]
-      }
-    ]
-  }
-}
+const envoyConfTemplYAML = `
+admin:
+  access_log_path: {{.AccessLogPath}}
+  address:
+    socket_address:
+      address: 127.0.0.1
+      port_value: {{.Ports.AdminPort}}
+static_resources:
+  clusters:
+  - name: backend
+    connect_timeout: 5s
+    type: STATIC
+    hosts:
+    - socket_address:
+        address: 127.0.0.1
+        port_value: {{.Ports.BackendPort}}
+  - name: loop
+    connect_timeout: 5s
+    type: STATIC
+    hosts:
+    - socket_address:
+        address: 127.0.0.1
+        port_value: {{.Ports.ServerProxyPort}}
+  - name: mixer_server
+    http2_protocol_options: {}
+    connect_timeout: 5s
+    type: STATIC
+    hosts:
+    - socket_address:
+        address: 127.0.0.1
+        port_value: {{.Ports.MixerPort}}
+    circuit_breakers:
+      thresholds:
+      - max_connections: 10000
+        max_pending_requests: 10000
+        max_requests: 10000
+        max_retries: 3
+  listeners:
+  - name: server
+    address:
+      socket_address:
+        address: 127.0.0.1
+        port_value: {{.Ports.ServerProxyPort}}
+    filter_chains:
+    - filters:
+      - name: envoy.http_connection_manager
+        config:
+          codec_type: AUTO
+          stat_prefix: inbound_http
+          access_log:
+          - name: envoy.file_access_log
+            config:
+              path: {{.AccessLogPath}}
+          http_filters:
+{{.FiltersBeforeMixer | indent 10 }}
+          - name: mixer
+            config: {{.MfConfig.HTTPServerConf | toJSON }}
+          - name: envoy.router
+          route_config:
+            name: backend
+            virtual_hosts:
+            - name: backend
+              domains: ["*"]
+              routes:
+              - match:
+                  prefix: /
+                route:
+                  cluster: backend
+                  timeout: 0s
+                per_filter_config:
+                  mixer: {{.MfConfig.PerRouteConf | toJSON }}
+  - name: client
+    address:
+      socket_address:
+        address: 127.0.0.1
+        port_value: {{.Ports.ClientProxyPort}}
+    filter_chains:
+    - filters:
+      - name: envoy.http_connection_manager
+        config:
+          codec_type: AUTO
+          stat_prefix: outbound_http
+          access_log:
+          - name: envoy.file_access_log
+            config:
+              path: {{.AccessLogPath}}
+          http_filters:
+          - name: mixer
+            config: {{.MfConfig.HTTPClientConf | toJSON }}
+          - name: envoy.router
+          route_config:
+            name: loop
+            virtual_hosts:
+            - name: loop
+              domains: ["*"]
+              routes:
+              - match:
+                  prefix: /
+                route:
+                  cluster: loop
+                  timeout: 0s
+  - name: tcp_server
+    address:
+      socket_address:
+        address: 127.0.0.1
+        port_value: {{.Ports.TCPProxyPort}}
+    filter_chains:
+    - filters:
+      - name: mixer
+        config: {{.MfConfig.TCPServerConf | toJSON }}
+      - name: envoy.tcp_proxy
+        config:
+          stat_prefix: inbound_tcp
+          cluster: backend
 `
 
-func (c *confParam) write(outPath, confTmpl string) error {
-	tmpl, err := template.New("test").Parse(confTmpl)
+// CreateEnvoyConf create envoy config.
+func (s *TestSetup) CreateEnvoyConf(path string) error {
+	if s.stress {
+		s.AccessLogPath = "/dev/null"
+	}
+
+	confTmpl := envoyConfTemplYAML
+	if s.EnvoyTemplate != "" {
+		confTmpl = s.EnvoyTemplate
+	}
+
+	tmpl, err := template.New("test").Funcs(template.FuncMap{
+		"toJSON": toJSON,
+		"indent": indent,
+	}).Parse(confTmpl)
 	if err != nil {
 		return fmt.Errorf("failed to parse config template: %v", err)
 	}
+	tmpl.Funcs(template.FuncMap{})
 
-	f, err := os.Create(outPath)
+	f, err := os.Create(path)
 	if err != nil {
-		return fmt.Errorf("failed to create file %v: %v", outPath, err)
+		return fmt.Errorf("failed to create file %v: %v", path, err)
 	}
 	defer func() {
 		_ = f.Close()
 	}()
-	return tmpl.Execute(f, *c)
+
+	return tmpl.Execute(f, s)
 }
 
-// CreateEnvoyConf create envoy config.
-func (s *TestSetup) CreateEnvoyConf(path string, stress bool, filtersBeforeMixer string, mfConfig *MixerFilterConf, ports *Ports,
-	confVersion string) error {
-	c := &confParam{
-		ClientPort:      ports.ClientProxyPort,
-		ServerPort:      ports.ServerProxyPort,
-		TCPProxyPort:    ports.TCPProxyPort,
-		AdminPort:       ports.AdminPort,
-		MixerServer:     fmt.Sprintf("localhost:%d", ports.MixerPort),
-		Backend:         fmt.Sprintf("localhost:%d", ports.BackendPort),
-		AccessLog:       s.AccessLogPath,
-		ServerConfig:    getConfig(mfConfig.HTTPServerConf, confVersion),
-		ClientConfig:    getConfig(mfConfig.HTTPClientConf, confVersion),
-		TCPServerConfig: getConfig(mfConfig.TCPServerConf, confVersion),
-		MixerRouteFlags: getPerRouteConfig(mfConfig.PerRouteConf),
-		Ports:           ports,
-		IstioSrc:        s.IstioSrc,
-		IstioOut:        s.IstioOut,
-		Options:         s.EnvoyConfigOpt,
-	}
-	// TODO: use fields from s directly instead of copying
-
-	if stress {
-		c.AccessLog = "/dev/null"
-	}
-	if len(filtersBeforeMixer) > 0 {
-		c.FiltersBeforeMixer = filtersBeforeMixer
-	}
-
-	confTmpl := envoyConfTempl
-	if s.EnvoyTemplate != "" {
-		confTmpl = s.EnvoyTemplate
-	}
-	return c.write(path, confTmpl)
-}
-
-func getConfig(mixerFilterConfig proto.Message, configVersion string) string {
-	m := jsonpb.Marshaler{
-		Indent: "  ",
-	}
+func toJSON(mixerFilterConfig proto.Message) string {
+	m := jsonpb.Marshaler{OrigName: true}
 	str, err := m.MarshalToString(mixerFilterConfig)
 	if err != nil {
 		return ""
 	}
-	return configVersion + str
+	return str
 }
 
-func getPerRouteConfig(cfg proto.Message) string {
-	m := jsonpb.Marshaler{}
-	str, err := m.MarshalToString(cfg)
-	if err != nil {
-		return ""
-	}
-	return fmt.Sprintf("\"mixer_sha\": \"id111\", \"mixer\": \"%v\"",
-		base64.StdEncoding.EncodeToString([]byte(str)))
+func indent(n int, s string) string {
+	pad := strings.Repeat(" ", n)
+	return pad + strings.Replace(s, "\n", "\n"+pad, -1)
 }

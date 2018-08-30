@@ -14,9 +14,9 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-WD=$(dirname $0)
-WD=$(cd $WD; pwd)
-ROOT=$(dirname $WD)
+WD=$(dirname "$0")
+WD=$(cd "$WD"; pwd)
+ROOT=$(dirname "$WD")
 
 # Runs after a submit is merged to master:
 # - run the unit tests, in local environment
@@ -29,10 +29,11 @@ set -u
 # Print commands
 set -x
 
-source ${ROOT}/prow/lib.sh
+# shellcheck source=prow/lib.sh
+source "${ROOT}/prow/lib.sh"
 setup_and_export_git_sha
 
-cd $ROOT
+cd "$ROOT"
 make init
 
 echo 'Running Unit Tests'
@@ -44,3 +45,7 @@ HUB="gcr.io/istio-testing"
 TAG="${GIT_SHA}"
 # upload images
 time ISTIO_DOCKER_HUB="${HUB}" make push HUB="${HUB}" TAG="${TAG}"
+
+cd "$ROOT"
+OUTDIR="$(mktemp -d /tmp/outdir.XXXX)"
+time (./release/cloud_builder.sh -p istio-release-pipeline-data/daily-build/postsubmit/"${GIT_SHA}" -q istio-release -t "${GIT_SHA}"  -o "${OUTDIR}" || echo "not failing make for now")

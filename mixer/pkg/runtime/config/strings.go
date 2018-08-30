@@ -224,9 +224,6 @@ func writeRules(w io.Writer, rules []*Rule) {
 		fmt.Fprintf(w, "  Match:   %+v", r.Match)
 		fmt.Fprintln(w)
 
-		fmt.Fprintf(w, "  ResourceType: %v", r.ResourceType)
-		fmt.Fprintln(w)
-
 		fmt.Fprintln(w, "  ActionsStatic:")
 		writeActionsStatic(w, r.ActionsStatic)
 

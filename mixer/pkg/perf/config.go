@@ -17,13 +17,11 @@ package perf
 // Config is the Mixer server configuration to use during perf tests.
 // TODO: We should ideally combine this file with pkg/server/Args. Unfortunately, pkg/serverArgs is not serializable.
 type Config struct {
-	Global                  string `json:"global"`
-	Service                 string `json:"rpcServer"`
-	IdentityAttribute       string `json:"identityAttribute"`
-	IdentityAttributeDomain string `json:"identityAttributeDomain"`
-	EnableLog               bool   `json:"enableLog,omitempty"`
-	EnableDebugLog          bool   `json:"enableDebugLog,omitempty"`
-	SingleThreaded          bool   `json:"singleThreaded,omitempty"`
+	Global         string `json:"global"`
+	Service        string `json:"rpcServer"`
+	EnableLog      bool   `json:"enableLog,omitempty"`
+	EnableDebugLog bool   `json:"enableDebugLog,omitempty"`
+	SingleThreaded bool   `json:"singleThreaded,omitempty"`
 
 	// Templates is the name of the templates to use in this test. If left empty, a standard set of templates
 	// will be used.

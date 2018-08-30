@@ -15,14 +15,17 @@
 package v2
 
 import (
+	"context"
 	"errors"
-	"fmt"
 	"io"
+	"os"
 	"reflect"
 	"sort"
 	"sync"
+	"sync/atomic"
 	"time"
 
+	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/gogo/protobuf/types"
@@ -56,6 +59,8 @@ var (
 	// clients and pushes them serially for now, to avoid large CPU/memory spikes.
 	// We measure and reports cases where pusing a client takes longer.
 	PushTimeout = 5 * time.Second
+
+	allowConcurrentPush = false
 )
 
 var (
@@ -138,6 +143,14 @@ func init() {
 	prometheus.MustRegister(pushTimeouts)
 	prometheus.MustRegister(pushes)
 	prometheus.MustRegister(pushErrors)
+
+	// Experimental env to disable push suppression
+	// By default a pod will not receive a push from an older version if a
+	// push for a newer version has started. This behavior can be disabled
+	// for testing or in special cases (bugs or corner cases found, etc)
+	// Setting the env variable to any non-empty value will result in 0.8
+	// behaviour, default is to cancel old pushes when possible and lock.
+	allowConcurrentPush = os.Getenv("PILOT_ALLOW_CONCURRENT") != ""
 }
 
 // DiscoveryStream is a common interface for EDS and ADS. It also has a
@@ -150,6 +163,9 @@ type DiscoveryStream interface {
 
 // XdsConnection is a listener connection type.
 type XdsConnection struct {
+	// Mutex to protect changes to this XDS connection
+	mu sync.RWMutex
+
 	// PeerAddr is the address of the client envoy, from network layer
 	PeerAddr string
 
@@ -162,9 +178,17 @@ type XdsConnection struct {
 
 	modelNode *model.Proxy
 
-	// Sending on this channel results in  push. We may also make it a channel of objects so
+	// Sending on this channel results in a push. We may also make it a channel of objects so
 	// same info can be sent to all clients, without recomputing.
 	pushChannel chan *XdsEvent
+
+	// Set to the current push status when a push is started.
+	// Null after the pushall completes for the node.
+	currentPush *model.PushContext
+
+	// Set if a push request is received while a push is in progress.
+	// Will keep getting updated with the latest push version.
+	nextPush *model.PushContext
 
 	// doneChannel will be closed when the client is closed.
 	doneChannel chan int
@@ -173,16 +197,16 @@ type XdsConnection struct {
 
 	//HttpConnectionManagers map[string]*http_conn.HttpConnectionManager
 
-	HTTPListeners []*xdsapi.Listener                    `json:"-"`
-	RouteConfigs  map[string]*xdsapi.RouteConfiguration `json:"-"`
-	HTTPClusters  []*xdsapi.Cluster
+	LDSListeners []*xdsapi.Listener                    `json:"-"`
+	RouteConfigs map[string]*xdsapi.RouteConfiguration `json:"-"`
+	CDSClusters  []*xdsapi.Cluster
 
 	// Last nonce sent and ack'd (timestamps) used for debugging
 	ClusterNonceSent, ClusterNonceAcked   string
 	ListenerNonceSent, ListenerNonceAcked string
 	RouteNonceSent, RouteNonceAcked       string
 	EndpointNonceSent, EndpointNonceAcked string
-	RoutePercent, EndpointPercent         int
+	EndpointPercent                       int
 
 	// current list of clusters monitored by the client
 	Clusters []string
@@ -209,6 +233,67 @@ type XdsConnection struct {
 
 	// Time of last push failure.
 	LastPushFailure time.Time
+
+	// pushMutex prevents 2 overlapping pushes for this connection.
+	pushMutex sync.Mutex
+}
+
+// configDump converts the connection internal state into an Envoy Admin API config dump proto
+// It is used in debugging to create a consistent object for comparison between Envoy and Pilot outputs
+func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump, error) {
+	dynamicActiveClusters := []adminapi.ClustersConfigDump_DynamicCluster{}
+	clusters, err := s.generateRawClusters(conn.modelNode, s.env.PushContext)
+	if err != nil {
+		return nil, err
+	}
+	for _, cs := range clusters {
+		dynamicActiveClusters = append(dynamicActiveClusters, adminapi.ClustersConfigDump_DynamicCluster{Cluster: cs})
+	}
+	clustersAny, err := types.MarshalAny(&adminapi.ClustersConfigDump{
+		VersionInfo:           versionInfo(),
+		DynamicActiveClusters: dynamicActiveClusters,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	dynamicActiveListeners := []adminapi.ListenersConfigDump_DynamicListener{}
+	listeners, err := s.generateRawListeners(conn, s.env.PushContext)
+	if err != nil {
+		return nil, err
+	}
+	for _, cs := range listeners {
+		dynamicActiveListeners = append(dynamicActiveListeners, adminapi.ListenersConfigDump_DynamicListener{Listener: cs})
+	}
+	listenersAny, err := types.MarshalAny(&adminapi.ListenersConfigDump{
+		VersionInfo:            versionInfo(),
+		DynamicActiveListeners: dynamicActiveListeners,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	routes, err := s.generateRawRoutes(conn, s.env.PushContext)
+	if err != nil {
+		return nil, err
+	}
+	routeConfigAny, _ := types.MarshalAny(&adminapi.RoutesConfigDump{})
+	if len(routes) > 0 {
+		dynamicRouteConfig := []adminapi.RoutesConfigDump_DynamicRouteConfig{}
+		for _, rs := range routes {
+			dynamicRouteConfig = append(dynamicRouteConfig, adminapi.RoutesConfigDump_DynamicRouteConfig{RouteConfig: rs})
+		}
+		routeConfigAny, err = types.MarshalAny(&adminapi.RoutesConfigDump{DynamicRouteConfigs: dynamicRouteConfig})
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	bootstrapAny, _ := types.MarshalAny(&adminapi.BootstrapConfigDump{})
+	// The config dump must have all configs with order specified in
+	// https://www.envoyproxy.io/docs/envoy/latest/api-v2/admin/v2alpha/config_dump.proto
+	configDump := &adminapi.ConfigDump{Configs: []types.Any{*bootstrapAny, *clustersAny, *listenersAny, *routeConfigAny}}
+	return configDump, nil
 }
 
 // XdsEvent represents a config or registry event that results in a push.
@@ -217,18 +302,24 @@ type XdsEvent struct {
 	// If not empty, it is used to indicate the event is caused by a change in the clusters.
 	// Only EDS for the listed clusters will be sent.
 	clusters []string
+
+	push *model.PushContext
+
+	pending *int32
+
+	version string
 }
 
 func newXdsConnection(peerAddr string, stream DiscoveryStream) *XdsConnection {
 	return &XdsConnection{
-		pushChannel:   make(chan *XdsEvent, 1),
-		doneChannel:   make(chan int, 1),
-		PeerAddr:      peerAddr,
-		Clusters:      []string{},
-		Connect:       time.Now(),
-		stream:        stream,
-		HTTPListeners: []*xdsapi.Listener{},
-		RouteConfigs:  map[string]*xdsapi.RouteConfiguration{},
+		pushChannel:  make(chan *XdsEvent, 1),
+		doneChannel:  make(chan int, 1),
+		PeerAddr:     peerAddr,
+		Clusters:     []string{},
+		Connect:      time.Now(),
+		stream:       stream,
+		LDSListeners: []*xdsapi.Listener{},
+		RouteConfigs: map[string]*xdsapi.RouteConfiguration{},
 	}
 }
 
@@ -258,9 +349,29 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 	}
 	var discReq *xdsapi.DiscoveryRequest
 
-	if s.services == nil {
-		// first call - lazy loading.
-		s.updateModel()
+	t0 := time.Now()
+	// rate limit the herd, after restart all endpoints will reconnect to the
+	// poor new pilot and overwhelm it.
+	// TODO: instead of readiness probe, let endpoints connect and wait here for
+	// config to become stable. Will better spread the load.
+	s.rateLimiter.Wait(context.TODO())
+
+	// first call - lazy loading, in tests. This should not happen if readiness
+	// check works, since it assumes ClearCache is called (and as such PushContext
+	// is initialized)
+	// InitContext returns immediately if the context was already initialized.
+	err := s.env.PushContext.InitContext(s.env)
+	if err != nil {
+		// Error accessing the data - log and close, maybe a different pilot replica
+		// has more luck
+		adsLog.Warnf("Error reading config %v", err)
+		return err
+	}
+	if s.env.PushContext.Services == nil {
+		// Error accessing the data - log and close, maybe a different pilot replica
+		// has more luck
+		adsLog.Warnf("Not initialized %v", s.env.PushContext)
+		return err
 	}
 
 	con := newXdsConnection(peerAddr, stream)
@@ -281,14 +392,14 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 	go receiveThread(con, reqChannel, &receiveError)
 
 	for {
-		// Block until either a request is received or the ticker ticks
+		// Block until either a request is received or a push is triggered.
 		select {
 		case discReq, ok = <-reqChannel:
 			if !ok {
 				// Remote side closed connection.
 				return receiveError
 			}
-			if discReq.Node.Id == "" {
+			if discReq.Node == nil || discReq.Node.Id == "" {
 				adsLog.Infof("Missing node id %s", discReq.String())
 				continue
 			}
@@ -297,7 +408,9 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				return err
 			}
 			nt.Metadata = model.ParseMetadata(discReq.Node.Metadata)
+			con.mu.Lock()
 			con.modelNode = &nt
+			con.mu.Unlock()
 			if con.ConID == "" {
 				// first request
 				con.ConID = connectionID(discReq.Node.Id)
@@ -310,21 +423,20 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					if discReq.ErrorDetail != nil {
 						adsLog.Warnf("ADS:CDS: ACK ERROR %v %s %v", peerAddr, con.ConID, discReq.String())
 						cdsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": discReq.ErrorDetail.Message}).Add(1)
-					}
-					adsLog.Debugf("ADS:CDS: ACK %v %v", peerAddr, discReq.String())
-					if discReq.ResponseNonce != "" {
+					} else if discReq.ResponseNonce != "" {
 						con.ClusterNonceAcked = discReq.ResponseNonce
 					}
+					adsLog.Debugf("ADS:CDS: ACK %v %v", peerAddr, discReq.String())
 					continue
 				}
-				adsLog.Infof("ADS:CDS: REQ %s %v raw: %s ", con.ConID, peerAddr, discReq.String())
+				// CDS REQ is the first request an envoy makes. This shows up
+				// immediately after connect. It is followed by EDS REQ as
+				// soon as the CDS push is returned.
+				adsLog.Infof("ADS:CDS: REQ %v %s %v raw: %s", peerAddr, con.ConID, time.Since(t0), discReq.String())
 				con.CDSWatch = true
-				err := s.pushCds(con)
+				err := s.pushCds(con, s.env.PushContext)
 				if err != nil {
 					return err
-				}
-				if discReq.ResponseNonce != "" {
-					con.ClusterNonceAcked = discReq.ResponseNonce
 				}
 
 			case ListenerType:
@@ -333,21 +445,18 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					if discReq.ErrorDetail != nil {
 						adsLog.Warnf("ADS:LDS: ACK ERROR %v %s %v", peerAddr, con.modelNode.ID, discReq.String())
 						ldsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": discReq.ErrorDetail.Message}).Add(1)
-					}
-					adsLog.Debugf("ADS:LDS: ACK %v", discReq.String())
-					if discReq.ResponseNonce != "" {
+					} else if discReq.ResponseNonce != "" {
 						con.ListenerNonceAcked = discReq.ResponseNonce
 					}
+					adsLog.Debugf("ADS:LDS: ACK %v", discReq.String())
 					continue
 				}
-				adsLog.Infof("ADS:LDS: REQ %s %v", con.ConID, peerAddr)
+				// too verbose - sent immediately after EDS response is received
+				adsLog.Debugf("ADS:LDS: REQ %s %v", con.ConID, peerAddr)
 				con.LDSWatch = true
-				err := s.pushLds(con)
+				err := s.pushLds(con, s.env.PushContext, versionInfo())
 				if err != nil {
 					return err
-				}
-				if discReq.ResponseNonce != "" {
-					con.ListenerNonceAcked = discReq.ResponseNonce
 				}
 
 			case RouteType:
@@ -359,22 +468,21 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					}
 					// Not logging full request, can be very long.
 					adsLog.Debugf("ADS:RDS: ACK %s %s (%s) %s %s", peerAddr, con.ConID, con.modelNode, discReq.VersionInfo, discReq.ResponseNonce)
-					if discReq.ResponseNonce != "" {
-						con.RouteNonceAcked = discReq.ResponseNonce
-					}
 					if len(con.Routes) > 0 {
 						// Already got a list of routes to watch and has same length as the request, this is an ack
+						if discReq.ErrorDetail == nil && discReq.ResponseNonce != "" {
+							con.mu.Lock()
+							con.RouteNonceAcked = discReq.ResponseNonce
+							con.mu.Unlock()
+						}
 						continue
 					}
 				}
 				con.Routes = routes
-				adsLog.Infof("ADS:RDS: REQ %s %s (%s) routes: %d", peerAddr, con.ConID, con.modelNode, len(con.Routes))
-				err := s.pushRoute(con)
+				adsLog.Debugf("ADS:RDS: REQ %s %s  routes: %d", peerAddr, con.ConID, len(con.Routes))
+				err := s.pushRoute(con, s.env.PushContext)
 				if err != nil {
 					return err
-				}
-				if discReq.ResponseNonce != "" {
-					con.RouteNonceAcked = discReq.ResponseNonce
 				}
 
 			case EndpointType:
@@ -387,7 +495,14 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				sort.Strings(clusters)
 				sort.Strings(con.Clusters)
 
+				// Already got a list of endpoints to watch and it is the same as the request, this is an ack
 				if reflect.DeepEqual(con.Clusters, clusters) {
+					if discReq.ErrorDetail == nil && discReq.ResponseNonce != "" {
+						con.EndpointNonceAcked = discReq.ResponseNonce
+						if len(edsClusters) != 0 {
+							con.EndpointPercent = int((float64(len(clusters)) / float64(len(edsClusters))) * float64(100))
+						}
+					}
 					continue
 				}
 
@@ -400,13 +515,10 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				}
 
 				con.Clusters = clusters
-				adsLog.Infof("ADS:EDS: REQ %s %s clusters: %d", peerAddr, con.ConID, len(con.Clusters))
-				err := s.pushEds(con)
+				adsLog.Debugf("ADS:EDS: REQ %s %s clusters: %d", peerAddr, con.ConID, len(con.Clusters))
+				err := s.pushEds(s.env.PushContext, con)
 				if err != nil {
 					return err
-				}
-				if discReq.ResponseNonce != "" {
-					con.EndpointNonceAcked = discReq.ResponseNonce
 				}
 
 			default:
@@ -418,50 +530,107 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				s.addCon(con.ConID, con)
 				defer s.removeCon(con.ConID, con)
 			}
-		case <-con.pushChannel:
+		case pushEv, _ := <-con.pushChannel:
 			// It is called when config changes.
 			// This is not optimized yet - we should detect what changed based on event and only
 			// push resources that need to be pushed.
-			if con.CDSWatch {
-				err := s.pushCds(con)
-				if err != nil {
-					return err
-				}
-			}
-			if len(con.Routes) > 0 {
-				err := s.pushRoute(con)
-				if err != nil {
-					return err
-				}
-			}
-			if len(con.Clusters) > 0 {
-				err := s.pushEds(con)
-				if err != nil {
-					return err
-				}
-			}
-			if con.LDSWatch {
-				err := s.pushLds(con)
-				if err != nil {
-					return err
-				}
+
+			err := s.pushAll(con, pushEv)
+			if err != nil {
+				return nil
 			}
 		}
 	}
 }
 
-func edsClientCount() int {
+// IncrementalAggregatedResources is not implemented.
+func (s *DiscoveryServer) IncrementalAggregatedResources(stream ads.AggregatedDiscoveryService_IncrementalAggregatedResourcesServer) error {
+	return status.Errorf(codes.Unimplemented, "not implemented")
+}
+
+// Compute and send the new configuration. This is blocking and may be slow
+// for large configs.
+func (s *DiscoveryServer) pushAll(con *XdsConnection, pushEv *XdsEvent) error {
+	s.rateLimiter.Wait(context.TODO()) // rate limit the actual push
+
+	// Prevent 2 overlapping pushes. Disabled if push suppression is disabled
+	// (as fail-safe in case of bugs)
+	if !allowConcurrentPush {
+		con.pushMutex.Lock()
+		defer con.pushMutex.Unlock()
+	}
+
+	defer func() {
+		n := atomic.AddInt32(pushEv.pending, -1)
+		if n <= 0 && pushEv.push.End == timeZero {
+			// Display again the push status
+			pushEv.push.End = time.Now()
+			out, _ := pushEv.push.JSON()
+			adsLog.Infof("Push finished: %v %s",
+				time.Since(pushEv.push.Start), string(out))
+		}
+	}()
+	// check version, suppress if changed.
+	currentVersion := versionInfo()
+	if !allowConcurrentPush && pushEv.version != currentVersion {
+		adsLog.Infof("Suppress push for %s at %s, push with newer version %s in progress", con.ConID, pushEv.version, currentVersion)
+		return nil
+	}
+
+	if con.CDSWatch {
+		err := s.pushCds(con, pushEv.push)
+		if err != nil {
+			return err
+		}
+	}
+	if len(con.Routes) > 0 {
+		err := s.pushRoute(con, pushEv.push)
+		if err != nil {
+			return err
+		}
+	}
+	if len(con.Clusters) > 0 {
+		err := s.pushEds(pushEv.push, con)
+		if err != nil {
+			return err
+		}
+	}
+	if con.LDSWatch {
+		err := s.pushLds(con, pushEv.push, pushEv.version)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func adsClientCount() int {
 	var n int
-	edsClusterMutex.Lock()
+	adsClientsMutex.RLock()
 	n = len(adsClients)
-	edsClusterMutex.Unlock()
+	adsClientsMutex.RUnlock()
 	return n
 }
 
-// adsPushAll implements old style invalidation, generated when any rule or endpoint changes.
+// AdsPushAll is used only by tests (after refactoring)
+func AdsPushAll(s *DiscoveryServer) {
+	s.AdsPushAll(versionInfo(), s.env.PushContext)
+}
+
+// AdsPushAll implements old style invalidation, generated when any rule or endpoint changes.
 // Primary code path is from v1 discoveryService.clearCache(), which is added as a handler
 // to the model ConfigStorageCache and Controller.
-func adsPushAll() {
+func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext) {
+	adsLog.Infof("XDS: Pushing %s Services: %d, "+
+		"VirtualServices: %d, ConnectedEndpoints: %d", version,
+		len(push.Services), len(push.VirtualServiceConfigs), adsClientCount())
+	monServices.Set(float64(len(push.Services)))
+	monVServices.Set(float64(len(push.VirtualServiceConfigs)))
+
+	pushContext := s.env.PushContext
+
+	t0 := time.Now()
+
 	// First update all cluster load assignments. This is computed for each cluster once per config change
 	// instead of once per endpoint.
 	edsClusterMutex.Lock()
@@ -476,18 +645,19 @@ func adsPushAll() {
 	// the update may be duplicated if multiple goroutines compute at the same time).
 	// In general this code is called from the 'event' callback that is throttled.
 	for clusterName, edsCluster := range cMap {
-		if err := updateCluster(clusterName, edsCluster); err != nil {
+		if err := s.updateCluster(push, clusterName, edsCluster); err != nil {
 			adsLog.Errorf("updateCluster failed with clusterName %s", clusterName)
 		}
 	}
+	adsLog.Infof("Cluster init time %v %s", time.Since(t0), version)
 
 	// Push config changes, iterating over connected envoys. This cover ADS and EDS(0.7), both share
 	// the same connection table
 	adsClientsMutex.RLock()
 	// Create a temp map to avoid locking the add/remove
-	tmpMap := make(map[string]*XdsConnection, len(adsClients))
-	for k, v := range adsClients {
-		tmpMap[k] = v
+	pending := []*XdsConnection{}
+	for _, v := range adsClients {
+		pending = append(pending, v)
 	}
 	adsClientsMutex.RUnlock()
 
@@ -495,37 +665,60 @@ func adsPushAll() {
 	// It will include sending all configs that envoy is listening for, including EDS.
 	// TODO: get service, serviceinstances, configs once, to avoid repeated redundant calls.
 	// TODO: indicate the specific events, to only push what changed.
-	for _, c := range tmpMap {
+
+	pendingPush := int32(len(pending))
+
+	tstart := time.Now()
+	// Will keep trying to push to sidecars until another push starts.
+	for {
+		if len(pending) == 0 {
+			adsLog.Infof("PushAll done %s %v", version, time.Since(tstart))
+			return
+		}
+		currentVersion := versionInfo()
+		// Stop attempting to push
+		if !allowConcurrentPush && version != currentVersion {
+			adsLog.Infof("PushAll abort %s, push with newer version %s in progress %v", version, currentVersion, time.Since(tstart))
+			return
+		}
+
+		c := pending[0]
+		pending = pending[1:]
+
 		// Using non-blocking push has problems if 2 pushes happen too close to each other
 		client := c
 		// TODO: this should be in a thread group, to do multiple pushes in parallel.
-		// Commented out - since we don't have throttling or rate control for push - need to experiment
-		// with larger clusters.
-		//go func(client *XdsConnection) {
 		to := time.After(PushTimeout)
 		select {
-		case client.pushChannel <- &XdsEvent{}:
+		case client.pushChannel <- &XdsEvent{
+			push:    pushContext,
+			pending: &pendingPush,
+			version: version,
+		}:
 			client.LastPush = time.Now()
 			client.LastPushFailure = timeZero
 		case <-client.doneChannel: // connection was closed
+			adsLog.Infof("Client closed connection %v", client.ConID)
 		case <-to:
 			pushTimeouts.Add(1)
 			//default:
 			// This may happen to some clients if the other side is in a bad state and can't receive.
 			// The tests were catching this - one of the client was not reading.
+
+			pending = append(pending, c)
+
 			if client.LastPushFailure.IsZero() {
 				client.LastPushFailure = time.Now()
-				adsLog.Warnf("Failed to push, client busy %s", client.ConID)
+				adsLog.Warnf("Failed to push, client busy %d %s", len(pending), client.ConID)
 				pushErrors.With(prometheus.Labels{"type": "short"}).Add(1)
 			} else {
 				if time.Since(client.LastPushFailure) > 10*time.Second {
-					adsLog.Warnf("Repeated failure to push %s", client.ConID)
+					adsLog.Warnf("Repeated failure to push %d %s", len(pending), client.ConID)
 					// unfortunately grpc go doesn't allow closing (unblocking) the stream.
 					pushErrors.With(prometheus.Labels{"type": "long"}).Add(1)
 				}
 			}
 		}
-		//}(client)
 	}
 }
 
@@ -570,104 +763,33 @@ func (s *DiscoveryServer) removeCon(conID string, con *XdsConnection) {
 //	return proxyInstances, err
 //}
 
-func (s *DiscoveryServer) pushRoute(con *XdsConnection) error {
-	rc := make([]*xdsapi.RouteConfiguration, 0)
-	// TODO: Follow this logic for other xDS resources as well
-	// And cache/retrieve this info on-demand, not for every request from every proxy
-	//var services []*model.Service
-	//s.modelMutex.RLock()
-	//services = s.services
-	//s.modelMutex.RUnlock()
-	//
-	//proxyInstances, err := s.getServicesForEndpoint(con.modelNode)
-	//if err != nil {
-	//	adsLog.Warnf("ADS: RDS: Failed to retrieve proxy service instances %v", err)
-	//	pushes.With(prometheus.Labels{"type": "rds_conferr"}).Add(1)
-	//	return err
-	//}
-
-	// TODO: once per config update
-	for _, routeName := range con.Routes {
-		r, err := s.ConfigGenerator.BuildHTTPRoutes(s.env, *con.modelNode, routeName)
-		if err != nil {
-			retErr := fmt.Errorf("RDS: Failed to generate route %s for node %s: %v", routeName, con.modelNode, err)
-			adsLog.Warnf("RDS: Failed to generate routes for route %s for node %s: %v", routeName, con.modelNode, err)
-			pushes.With(prometheus.Labels{"type": "rds_builderr"}).Add(1)
-			return retErr
-		}
-
-		if r == nil {
-			adsLog.Warnf("RDS: got nil value for route %s for node %s: %v", routeName, con.modelNode, err)
-			continue
-		}
-
-		if err = r.Validate(); err != nil {
-			retErr := fmt.Errorf("RDS: Generated invalid route %s for node %s: %v", routeName, con.modelNode, err)
-			adsLog.Errorf("RDS: Generated invalid routes for route %s for node %s: %v, %v", routeName, con.modelNode, err, r)
-			pushes.With(prometheus.Labels{"type": "rds_builderr"}).Add(1)
-			// Generating invalid routes is a bug.
-			// Panic instead of trying to recover from that, since we can't
-			// assume anything about the state.
-			panic(retErr.Error())
-		}
-
-		rc = append(rc, r)
-		con.RouteConfigs[routeName] = r
-		resp, _ := model.ToJSONWithIndent(r, " ")
-		adsLog.Debugf("RDS: Adding route %s for node %s", resp, con.modelNode)
-	}
-	response := routeDiscoveryResponse(rc, *con.modelNode)
-	err := con.send(response)
-	if err != nil {
-		adsLog.Warnf("ADS: RDS: Send failure for %s, closing grpc %v", con.modelNode, err)
-		pushes.With(prometheus.Labels{"type": "rds_senderr"}).Add(1)
-		return err
-	}
-	pushes.With(prometheus.Labels{"type": "rds"}).Add(1)
-
-	adsLog.Infof("ADS: RDS: PUSH for node: %s addr:%s routes:%d", con.modelNode, con.PeerAddr, len(rc))
-	return nil
-}
-
-func routeDiscoveryResponse(ls []*xdsapi.RouteConfiguration, node model.Proxy) *xdsapi.DiscoveryResponse {
-	resp := &xdsapi.DiscoveryResponse{
-		TypeUrl:     RouteType,
-		VersionInfo: versionInfo(),
-		Nonce:       nonce(),
-	}
-	for _, ll := range ls {
-		lr, _ := types.MarshalAny(ll)
-		resp.Resources = append(resp.Resources, *lr)
-	}
-
-	return resp
-}
-
 // Send with timeout
-func (con *XdsConnection) send(res *xdsapi.DiscoveryResponse) error {
+func (conn *XdsConnection) send(res *xdsapi.DiscoveryResponse) error {
 	done := make(chan error, 1)
 	// hardcoded for now - not sure if we need a setting
 	t := time.NewTimer(SendTimeout)
 	go func() {
-		err := con.stream.Send(res)
+		err := conn.stream.Send(res)
 		done <- err
+		conn.mu.Lock()
 		if res.Nonce != "" {
 			switch res.TypeUrl {
 			case ClusterType:
-				con.ClusterNonceSent = res.Nonce
+				conn.ClusterNonceSent = res.Nonce
 			case ListenerType:
-				con.ListenerNonceSent = res.Nonce
+				conn.ListenerNonceSent = res.Nonce
 			case RouteType:
-				con.RouteNonceSent = res.Nonce
+				conn.RouteNonceSent = res.Nonce
 			case EndpointType:
-				con.EndpointNonceSent = res.Nonce
+				conn.EndpointNonceSent = res.Nonce
 			}
 		}
+		conn.mu.Unlock()
 	}()
 	select {
 	case <-t.C:
 		// TODO: wait for ACK
-		adsLog.Infof("Timeout writing %s", con.ConID)
+		adsLog.Infof("Timeout writing %s", conn.ConID)
 		writeTimeout.Add(1)
 		return errors.New("timeout sending")
 	case err, _ := <-done:

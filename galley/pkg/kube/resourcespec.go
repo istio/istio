@@ -15,9 +15,12 @@
 package kube
 
 import (
+	"fmt"
+
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	sc "k8s.io/apimachinery/pkg/runtime/schema"
 
+	"istio.io/istio/galley/pkg/kube/converter"
 	"istio.io/istio/galley/pkg/runtime/resource"
 )
 
@@ -45,6 +48,9 @@ type ResourceSpec struct {
 
 	// Target resource type of the resource
 	Target resource.Info
+
+	// The converter to use
+	Converter converter.Fn
 }
 
 // APIResource generated from this type.
@@ -65,4 +71,9 @@ func (i *ResourceSpec) GroupVersion() sc.GroupVersion {
 		Group:   i.Group,
 		Version: i.Version,
 	}
+}
+
+// CanonicalResourceName of the resource.
+func (i *ResourceSpec) CanonicalResourceName() string {
+	return fmt.Sprintf("%s.%s/%s", i.Plural, i.Group, i.Version)
 }

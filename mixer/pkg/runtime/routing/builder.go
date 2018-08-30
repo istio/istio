@@ -53,6 +53,8 @@ import (
 	"fmt"
 	"strings"
 
+	"go.opencensus.io/stats"
+
 	tpb "istio.io/api/mixer/adapter/model/v1beta1"
 	descriptor "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
@@ -61,6 +63,7 @@ import (
 	"istio.io/istio/mixer/pkg/lang/compiled"
 	"istio.io/istio/mixer/pkg/runtime/config"
 	"istio.io/istio/mixer/pkg/runtime/handler"
+	"istio.io/istio/mixer/pkg/runtime/monitoring"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
 )
@@ -142,16 +145,16 @@ func (b *builder) nextID() uint32 {
 	return id
 }
 
-func (b *builder) build(config *config.Snapshot) {
+func (b *builder) build(snapshot *config.Snapshot) {
 
-	for _, rule := range config.Rules {
+	for _, rule := range snapshot.Rules {
 
 		// Create a compiled expression for the rule condition first.
 		condition, err := b.getConditionExpression(rule)
 		if err != nil {
 			log.Warnf("Unable to compile match condition expression: '%v', rule='%s', expression='%s'",
 				err, rule.Name, rule.Match)
-			config.Counters.MatchErrors.Inc()
+			stats.Record(snapshot.MonitoringContext, monitoring.MatchErrors.M(1))
 			// Skip the rule
 			continue
 		}
@@ -167,7 +170,7 @@ func (b *builder) build(config *config.Snapshot) {
 				log.Warnf("Unable to find a handler for action. rule[action]='%s[%d]', handler='%s'",
 					rule.Name, i, handlerName)
 
-				config.Counters.UnsatisfiedActionHandlers.Inc()
+				stats.Record(snapshot.MonitoringContext, monitoring.UnsatisfiedActionHandlers.M(1))
 				// Skip the rule
 				continue
 			}
@@ -175,14 +178,14 @@ func (b *builder) build(config *config.Snapshot) {
 			for _, instance := range action.Instances {
 				// get the instance mapper and builder for this instance. Mapper is used by APA instances
 				// to map the instance result back to attributes.
-				builder, mapper, err := b.getBuilderAndMapper(config.Attributes, instance)
+				builder, mapper, err := b.getBuilderAndMapper(snapshot.Attributes, instance)
 				if err != nil {
 					log.Warnf("Unable to create builder/mapper for instance: instance='%s', err='%v'", instance.Name, err)
 					continue
 				}
 
 				b.add(rule.Namespace, buildTemplateInfo(instance.Template), entry, condition, builder, mapper,
-					entry.Name, instance.Name, rule.Match, rule.ResourceType)
+					entry.Name, instance.Name, rule.Match)
 			}
 		}
 
@@ -197,7 +200,7 @@ func (b *builder) build(config *config.Snapshot) {
 				log.Warnf("Unable to find a handler for action. rule[action]='%s[%d]', handler='%s'",
 					rule.Name, i, handlerName)
 
-				config.Counters.UnsatisfiedActionHandlers.Inc()
+				stats.Record(snapshot.MonitoringContext, monitoring.UnsatisfiedActionHandlers.M(1))
 				// Skip the rule
 				continue
 			}
@@ -205,14 +208,14 @@ func (b *builder) build(config *config.Snapshot) {
 			for _, instance := range action.Instances {
 				// get the instance mapper and builder for this instance. Mapper is used by APA instances
 				// to map the instance result back to attributes.
-				builder, mapper, err := b.getBuilderAndMapperDynamic(config.Attributes, instance)
+				builder, mapper, err := b.getBuilderAndMapperDynamic(snapshot.Attributes, instance)
 				if err != nil {
 					log.Warnf("Unable to create builder/mapper for instance: instance='%s', err='%v'", instance.Name, err)
 					continue
 				}
 
 				b.add(rule.Namespace, b.templateInfo(instance.Template), entry, condition, builder, mapper,
-					entry.Name, instance.Name, rule.Match, rule.ResourceType)
+					entry.Name, instance.Name, rule.Match)
 			}
 		}
 	}
@@ -315,8 +318,7 @@ func (b *builder) add(
 	mapper template.OutputMapperFn,
 	handlerName string,
 	instanceName string,
-	matchText string,
-	resourceType config.ResourceType) {
+	matchText string) {
 
 	// Find or create the variety entry.
 	byVariety, found := b.table.entries[t.Variety]
@@ -354,7 +356,6 @@ func (b *builder) add(
 			AdapterName:    entry.AdapterName,
 			Template:       t,
 			InstanceGroups: []*InstanceGroup{},
-			Counters:       newDestinationCounters(t.Name, handlerName, entry.AdapterName),
 		}
 		byNamespace.entries = append(byNamespace.entries, byHandler)
 	}
@@ -367,7 +368,7 @@ func (b *builder) add(
 		// Try to find an input set to place the entry by comparing the compiled expression and resource type.
 		// This doesn't flatten across all actions, but only for actions coming from the same rule. We can
 		// flatten based on the expression text as well.
-		if set.Condition == condition && set.ResourceType == resourceType {
+		if set.Condition == condition {
 			instanceGroup = set
 			break
 		}
@@ -375,11 +376,10 @@ func (b *builder) add(
 
 	if instanceGroup == nil {
 		instanceGroup = &InstanceGroup{
-			id:           b.nextID(),
-			Condition:    condition,
-			ResourceType: resourceType,
-			Builders:     []NamedBuilder{},
-			Mappers:      []template.OutputMapperFn{},
+			id:        b.nextID(),
+			Condition: condition,
+			Builders:  []NamedBuilder{},
+			Mappers:   []template.OutputMapperFn{},
 		}
 		byHandler.InstanceGroups = append(byHandler.InstanceGroups, instanceGroup)
 

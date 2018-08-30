@@ -6,10 +6,8 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "security.name" . }}
-    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    release: {{ .Release.Name }}
-    heritage: {{ .Release.Service }}
     istio: citadel
+    {{- template "common_labels" . }}
 spec:
   replicas: {{ .Values.replicaCount }}
   template:
@@ -18,9 +16,11 @@ spec:
         istio: citadel
       annotations:
         sidecar.istio.io/inject: "false"
+        scheduler.alpha.kubernetes.io/critical-pod: ""
     spec:
-{{- if .Values.global.rbacEnabled }}
       serviceAccountName: istio-citadel-service-account
+{{- if .Values.global.priorityClassName }}
+      priorityClassName: "{{ .Values.global.priorityClassName }}"
 {{- end }}
       containers:
         - name: citadel
@@ -31,6 +31,7 @@ spec:
             - --grpc-port=8060
             - --grpc-hostname=citadel
             - --citadel-storage-namespace={{ .Release.Namespace }}
+            - --custom-dns-names=istio-pilot-service-account.{{ .Release.Namespace }}:istio-pilot.{{ .Release.Namespace }}
           {{- if .Values.selfSigned }}
             - --self-signed-ca=true
           {{- else }}
@@ -40,8 +41,15 @@ spec:
             - --root-cert=/etc/cacerts/root-cert.pem
             - --cert-chain=/etc/cacerts/cert-chain.pem
           {{- end }}
+          {{- if .Values.identityDomain }}
+            - --identity-domain={{ .Values.identityDomain }}
+          {{- end }}
           resources:
+{{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 12 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | indent 12 }}
+{{- end }}
 {{- if not .Values.selfSigned }}
           volumeMounts:
           - name: cacerts

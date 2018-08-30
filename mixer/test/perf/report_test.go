@@ -31,10 +31,8 @@ func Benchmark_Report_1Client_1Call(b *testing.B) {
 
 	setup := perf.Setup{
 		Config: perf.Config{
-			Global:                  mixerGlobalCfg,
-			Service:                 logentryToNoop + metricsToSpyAdapter + attrGenToSpyAdapter,
-			IdentityAttribute:       "destination.service",
-			IdentityAttributeDomain: "svc.cluster.local",
+			Global:  mixerGlobalCfg,
+			Service: logentryToNoop + metricsToSpyAdapter + attrGenToSpyAdapter,
 		},
 
 		Loads: []perf.Load{{
@@ -58,10 +56,8 @@ func Benchmark_Report_1Client_5SameCalls(b *testing.B) {
 	settings.RunMode = perf.InProcess
 	setup := perf.Setup{
 		Config: perf.Config{
-			Global:                  mixerGlobalCfg,
-			Service:                 logentryToNoop + metricsToSpyAdapter + attrGenToSpyAdapter,
-			IdentityAttribute:       "destination.service",
-			IdentityAttributeDomain: "svc.cluster.local",
+			Global:  mixerGlobalCfg,
+			Service: logentryToNoop + metricsToSpyAdapter + attrGenToSpyAdapter,
 		},
 
 		Loads: []perf.Load{{
@@ -85,10 +81,8 @@ func Benchmark_Report_1Client_5DifferentCalls(b *testing.B) {
 	settings.RunMode = perf.InProcess
 	setup := perf.Setup{
 		Config: perf.Config{
-			Global:                  mixerGlobalCfg,
-			Service:                 logentryToNoop + metricsToSpyAdapter + attrGenToSpyAdapter,
-			IdentityAttribute:       "destination.service",
-			IdentityAttributeDomain: "svc.cluster.local",
+			Global:  mixerGlobalCfg,
+			Service: logentryToNoop + metricsToSpyAdapter + attrGenToSpyAdapter,
 		},
 
 		Loads: []perf.Load{
@@ -127,10 +121,8 @@ func Benchmark_Report_4Clients_5SameCallsEach(b *testing.B) {
 	settings.RunMode = perf.InProcess
 	setup := perf.Setup{
 		Config: perf.Config{
-			Global:                  mixerGlobalCfg,
-			Service:                 logentryToNoop + metricsToSpyAdapter + attrGenToSpyAdapter,
-			IdentityAttribute:       "destination.service",
-			IdentityAttributeDomain: "svc.cluster.local",
+			Global:  mixerGlobalCfg,
+			Service: logentryToNoop + metricsToSpyAdapter + attrGenToSpyAdapter,
 		},
 
 		Loads: []perf.Load{
@@ -181,10 +173,8 @@ func Benchmark_Report_4Clients_5DifferentCallsEach(b *testing.B) {
 	settings.RunMode = perf.InProcess
 	setup := perf.Setup{
 		Config: perf.Config{
-			Global:                  mixerGlobalCfg,
-			Service:                 logentryToNoop + metricsToSpyAdapter + attrGenToSpyAdapter,
-			IdentityAttribute:       "destination.service",
-			IdentityAttributeDomain: "svc.cluster.local",
+			Global:  mixerGlobalCfg,
+			Service: logentryToNoop + metricsToSpyAdapter + attrGenToSpyAdapter,
 		},
 
 		Loads: []perf.Load{
@@ -283,10 +273,8 @@ func Benchmark_Report_4Clients_5SameCallsEach_1MilliSecSlowApa(b *testing.B) {
 	settings.RunMode = perf.InProcess
 	setup := perf.Setup{
 		Config: perf.Config{
-			Global:                  mixerGlobalCfg,
-			Service:                 logentryToNoop + metricsToSpyAdapter + attrGenToSpyAdapter,
-			IdentityAttribute:       "destination.service",
-			IdentityAttributeDomain: "svc.cluster.local",
+			Global:  mixerGlobalCfg,
+			Service: logentryToNoop + metricsToSpyAdapter + attrGenToSpyAdapter,
 		},
 
 		Loads: []perf.Load{
@@ -481,8 +469,6 @@ kind: samplereport
 metadata:
   name: tcpbytesent
   namespace: istio-system
-  labels:
-    istio-protocol: tcp # needed so that mixer will only generate when context.protocol == tcp
 spec:
   value: connection.sent.bytes | 0
   dimensions:
@@ -497,8 +483,6 @@ kind: samplereport
 metadata:
   name: tcpbytereceived
   namespace: istio-system
-  labels:
-    istio-protocol: tcp # needed so that mixer will only generate when context.protocol == tcp
 spec:
   value: connection.received.bytes | 0
   dimensions:
@@ -535,8 +519,6 @@ kind: rule
 metadata:
   name: promtcp
   namespace: istio-system
-  labels:
-    istio-protocol: tcp # needed so that mixer will only generate when context.protocol == tcp
 spec:
   match: context.protocol == "tcp"
   actions:

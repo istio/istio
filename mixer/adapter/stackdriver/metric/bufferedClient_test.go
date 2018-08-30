@@ -43,7 +43,7 @@ func TestBuffered_Record(t *testing.T) {
 
 func TestBuffered_Send(t *testing.T) {
 	env := test.NewEnv(t)
-	b := buffered{l: env}
+	b := buffered{l: env, timeSeriesBatchSize: 100}
 
 	// We'll panic if we call the pushMetrics fn
 	panicFn := func(ctx xcontext.Context, req *monitoring.CreateTimeSeriesRequest, opts ...gax.CallOption) error {
@@ -80,7 +80,7 @@ func TestBuffered_Send(t *testing.T) {
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
 			env = test.NewEnv(t)
-			b = buffered{l: env, pushMetrics: tt.fn}
+			b = buffered{l: env, pushMetrics: tt.fn, timeSeriesBatchSize: 100}
 			b.Record(tt.in)
 			b.Send()
 			found := false
@@ -89,6 +89,37 @@ func TestBuffered_Send(t *testing.T) {
 			}
 			if !found {
 				t.Errorf("b.Send() with errorFn didn't log an expected error; got logs: %v", env.GetLogs())
+			}
+		})
+	}
+}
+
+func TestBuffered_BatchSend(t *testing.T) {
+	in := []*monitoring.TimeSeries{makeTS(m1, mr1, 1, 1), makeTS(m2, mr2, 1, 1), makeTS(m3, mr3, 1, 1)}
+
+	tests := []struct {
+		name      string
+		batchSize int
+		pushTimes int
+	}{
+		{"two pushes", 2, 2},
+		{"single push", 4, 1},
+		{"batch size", 3, 1},
+	}
+
+	for idx, tt := range tests {
+		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
+			env := test.NewEnv(t)
+			pushTimes := 0
+			pushFunc := func(ctx xcontext.Context, req *monitoring.CreateTimeSeriesRequest, opts ...gax.CallOption) error {
+				pushTimes++
+				return nil
+			}
+			b := buffered{l: env, pushMetrics: pushFunc, timeSeriesBatchSize: tt.batchSize}
+			b.Record(in)
+			b.Send()
+			if pushTimes != tt.pushTimes {
+				t.Errorf("pushMetrics is called with unexpected times. got %v want %v", pushTimes, tt.pushTimes)
 			}
 		})
 	}
@@ -105,7 +136,7 @@ func (c *closeMe) Close() error {
 
 func TestBuffered_Close(t *testing.T) {
 	closeMe := &closeMe{}
-	b := &buffered{closeMe: closeMe, l: test.NewEnv(t).Logger()}
+	b := &buffered{closeMe: closeMe, l: test.NewEnv(t).Logger(), timeSeriesBatchSize: 100}
 	if err := b.Close(); err != nil {
 		t.Errorf("Unexpected error calling close on buffered client: %v", err)
 	}

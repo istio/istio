@@ -172,7 +172,9 @@ func (m *TcpKeepalive) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetKeepaliveProbes()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetKeepaliveProbes()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return TcpKeepaliveValidationError{
 				Field:  "KeepaliveProbes",
@@ -182,7 +184,9 @@ func (m *TcpKeepalive) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetKeepaliveTime()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetKeepaliveTime()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return TcpKeepaliveValidationError{
 				Field:  "KeepaliveTime",
@@ -192,7 +196,9 @@ func (m *TcpKeepalive) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetKeepaliveInterval()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetKeepaliveInterval()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return TcpKeepaliveValidationError{
 				Field:  "KeepaliveInterval",
@@ -243,7 +249,9 @@ func (m *BindConfig) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetSourceAddress()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetSourceAddress()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return BindConfigValidationError{
 				Field:  "SourceAddress",
@@ -253,7 +261,9 @@ func (m *BindConfig) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetFreebind()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetFreebind()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return BindConfigValidationError{
 				Field:  "Freebind",
@@ -261,6 +271,23 @@ func (m *BindConfig) Validate() error {
 				Cause:  err,
 			}
 		}
+	}
+
+	for idx, item := range m.GetSocketOptions() {
+		_, _ = idx, item
+
+		if v, ok := interface{}(item).(interface {
+			Validate() error
+		}); ok {
+			if err := v.Validate(); err != nil {
+				return BindConfigValidationError{
+					Field:  fmt.Sprintf("SocketOptions[%v]", idx),
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
 	}
 
 	return nil
@@ -308,7 +335,9 @@ func (m *Address) Validate() error {
 
 	case *Address_SocketAddress:
 
-		if v, ok := interface{}(m.GetSocketAddress()).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(m.GetSocketAddress()).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return AddressValidationError{
 					Field:  "SocketAddress",
@@ -320,7 +349,9 @@ func (m *Address) Validate() error {
 
 	case *Address_Pipe:
 
-		if v, ok := interface{}(m.GetPipe()).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(m.GetPipe()).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return AddressValidationError{
 					Field:  "Pipe",

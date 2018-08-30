@@ -48,124 +48,12 @@ func TestConfigWriter_Prime(t *testing.T) {
 			cw := &ConfigWriter{}
 			cd, _ := ioutil.ReadFile(tt.inputFile)
 			err := cw.Prime(cd)
-			if len(cw.configDump.Configs) != tt.wantConfigs {
+			if cw.configDump == nil {
+				if tt.wantConfigs != 0 {
+					t.Errorf("wanted some configs loaded but config dump was nil")
+				}
+			} else if len(cw.configDump.Configs) != tt.wantConfigs {
 				t.Errorf("wanted %v configs loaded in got %v", tt.wantConfigs, len(cw.configDump.Configs))
-			}
-			if tt.wantErr {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-			}
-		})
-	}
-}
-
-func TestConfigWriter_PrintClusterDump(t *testing.T) {
-	tests := []struct {
-		name           string
-		wantOutputFile string
-		callPrime      bool
-		wantErr        bool
-	}{
-		{
-			name:           "returns expected cluster dump from Envoy onto Stdout",
-			callPrime:      true,
-			wantOutputFile: "testdata/clusterdump.json",
-		},
-		{
-			name:    "errors if config dump is not primed",
-			wantErr: true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			gotOut := &bytes.Buffer{}
-			cw := &ConfigWriter{Stdout: gotOut}
-			cd, _ := ioutil.ReadFile("testdata/configdump.json")
-			if tt.callPrime {
-				cw.Prime(cd)
-			}
-			err := cw.PrintClusterDump()
-			if tt.wantOutputFile != "" {
-				util.CompareContent(gotOut.Bytes(), tt.wantOutputFile, t)
-			}
-			if tt.wantErr {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-			}
-		})
-	}
-}
-
-func TestConfigWriter_PrintListenerDump(t *testing.T) {
-	tests := []struct {
-		name           string
-		wantOutputFile string
-		callPrime      bool
-		wantErr        bool
-	}{
-		// TODO: Turn on when protobuf bug is resolved - https://github.com/golang/protobuf/issues/632
-		// {
-		// 	name:           "returns expected listener dump from Envoy onto Stdout",
-		// 	callPrime:      true,
-		// 	wantOutputFile: "testdata/listenerdump.json",
-		// },
-		{
-			name:    "errors if config dump is not primed",
-			wantErr: true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			gotOut := &bytes.Buffer{}
-			cw := &ConfigWriter{Stdout: gotOut}
-			cd, _ := ioutil.ReadFile("testdata/configdump.json")
-			if tt.callPrime {
-				cw.Prime(cd)
-			}
-			err := cw.PrintListenerDump()
-			if tt.wantOutputFile != "" {
-				util.CompareContent(gotOut.Bytes(), tt.wantOutputFile, t)
-			}
-			if tt.wantErr {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-			}
-		})
-	}
-}
-
-func TestConfigWriter_PrintRoutesDump(t *testing.T) {
-	tests := []struct {
-		name           string
-		wantOutputFile string
-		callPrime      bool
-		wantErr        bool
-	}{
-		// TODO: Turn on when protobuf bug is resolved - https://github.com/golang/protobuf/issues/632
-		// {
-		// 	name:           "returns expected routes dump from Envoy onto Stdout",
-		// 	callPrime:      true,
-		// 	wantOutputFile: "testdata/routesdump.json",
-		// },
-		{
-			name:    "errors if config dump is not primed",
-			wantErr: true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			gotOut := &bytes.Buffer{}
-			cw := &ConfigWriter{Stdout: gotOut}
-			cd, _ := ioutil.ReadFile("testdata/configdump.json")
-			if tt.callPrime {
-				cw.Prime(cd)
-			}
-			err := cw.PrintRoutesDump()
-			if tt.wantOutputFile != "" {
-				util.CompareContent(gotOut.Bytes(), tt.wantOutputFile, t)
 			}
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -206,10 +94,10 @@ func TestConfigWriter_PrintBootstrapDump(t *testing.T) {
 			if tt.wantOutputFile != "" {
 				util.CompareContent(gotOut.Bytes(), tt.wantOutputFile, t)
 			}
-			if tt.wantErr {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
+			if err == nil && tt.wantErr {
+				t.Errorf("PrintBootstrapDump (%v) did not produce expected err", tt.name)
+			} else if err != nil && !tt.wantErr {
+				t.Errorf("PrintBootstrapDump (%v) produced unexpected err: %v", tt.name, err)
 			}
 		})
 	}

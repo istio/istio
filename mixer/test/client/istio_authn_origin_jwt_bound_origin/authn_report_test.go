@@ -12,22 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package istioAuthnOriginJwtBoundOrigin
+package client_test
 
 import (
-	"encoding/base64"
 	"fmt"
 	"testing"
 
 	"istio.io/istio/mixer/test/client/env"
+	"istio.io/istio/mixer/test/client/test_data"
 )
 
 // The Istio authn envoy config
+// nolint
 const authnConfig = `
-{
-  "type": "decoder",
-  "name": "istio_authn",
-  "config": {
+- name: istio_authn
+  config: {
     "policy": {
       "origins": [
         {
@@ -38,25 +37,13 @@ const authnConfig = `
         }
       ],
       "principal_binding": 1
-    },
-    "jwt_output_payload_locations": {
-      "issuer@foo.com": "sec-istio-auth-jwt-output"
     }
   }
-},
 `
 
-const secIstioAuthUserInfoHeaderKey = "sec-istio-auth-jwt-output"
-
-const secIstioAuthUserinfoHeaderValue = `
-{
-  "iss": "issuer@foo.com",
-  "sub": "sub@foo.com",
-  "aud": "aud1",
-  "non-string-will-be-ignored": 1512754205,
-  "some-other-string-claims": "some-claims-kept"
-}
-`
+const secIstioAuthUserinfoHeaderValue = `{"aud":"aud1","exp":20000000000,` +
+	`"iat":1500000000,"iss":"issuer@foo.com","some-other-string-claims":"some-claims-kept",` +
+	`"sub":"sub@foo.com"}`
 
 // Check attributes from a good GET request
 var checkAttributesOkGet = `
@@ -78,6 +65,7 @@ var checkAttributesOkGet = `
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "connection.mtls": false,
+  "origin.ip": "[127 0 0 1]",
   "request.headers": {
      ":method": "GET",
      ":path": "/echo",
@@ -94,8 +82,8 @@ var checkAttributesOkGet = `
      "aud": "aud1",
      "some-other-string-claims": "some-claims-kept"
   },
-	"request.auth.raw_claims": ` + fmt.Sprintf("%q", secIstioAuthUserinfoHeaderValue) +
-	`
+  "request.auth.raw_claims": ` + fmt.Sprintf("%q", secIstioAuthUserinfoHeaderValue) + `,
+  "request.url_path": "/echo"
 }
 `
 
@@ -103,6 +91,7 @@ var checkAttributesOkGet = `
 var reportAttributesOkGet = `
 {
   "context.protocol": "http",
+  "context.proxy_error_code": "-",
   "mesh1.ip": "[1 1 1 1]",
   "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
   "mesh3.ip": "[0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 8]",
@@ -121,6 +110,7 @@ var reportAttributesOkGet = `
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "connection.mtls": false,
+  "origin.ip": "[127 0 0 1]",
   "check.cache_hit": false,
   "quota.cache_hit": false,
   "request.headers": {
@@ -132,8 +122,8 @@ var reportAttributesOkGet = `
      "x-request-id": "*"
   },
   "request.size": 0,
-  "request.total_size": 777,
-  "response.total_size": 99,
+  "request.total_size": 306,
+  "response.total_size": "*",
   "response.time": "*",
   "response.size": 0,
   "response.duration": "*",
@@ -152,15 +142,15 @@ var reportAttributesOkGet = `
      "aud": "aud1",
      "some-other-string-claims": "some-claims-kept"
   },
-	"request.auth.raw_claims": ` + fmt.Sprintf("%q", secIstioAuthUserinfoHeaderValue) +
-	`
+  "request.auth.raw_claims": ` + fmt.Sprintf("%q", secIstioAuthUserinfoHeaderValue) + `,
+  "request.url_path": "/echo"
 }
 `
 
 func TestAuthnCheckReportAttributesOriginJwtBoundToOrigin(t *testing.T) {
 	s := env.NewTestSetup(env.CheckReportIstioAuthnAttributesTestOriginJwtBoundToOrigin, t)
 	// In the Envoy config, principal_binding binds to origin
-	s.SetFiltersBeforeMixer(authnConfig)
+	s.SetFiltersBeforeMixer(client_test.JwtAuthConfig + authnConfig)
 	// Disable the HotRestart of Envoy
 	s.SetDisableHotRestart(true)
 
@@ -175,10 +165,8 @@ func TestAuthnCheckReportAttributesOriginJwtBoundToOrigin(t *testing.T) {
 	// Issues a GET echo request with 0 size body
 	tag := "OKGet"
 
-	// Add jwt_auth header to be consumed by Istio authn filter
 	headers := map[string]string{}
-	headers[secIstioAuthUserInfoHeaderKey] =
-		base64.StdEncoding.EncodeToString([]byte(secIstioAuthUserinfoHeaderValue))
+	headers["Authorization"] = "Bearer " + client_test.JwtTestToken
 
 	if _, _, err := env.HTTPGetWithHeaders(url, headers); err != nil {
 		t.Errorf("Failed in request %s: %v", tag, err)

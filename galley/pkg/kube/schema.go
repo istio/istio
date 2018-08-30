@@ -14,32 +14,39 @@
 
 package kube
 
-import (
-	"fmt"
-
-	"istio.io/istio/galley/pkg/runtime/resource"
-)
-
 // Schema represents a set of known Kubernetes resource types.
 type Schema struct {
 	entries []ResourceSpec
 }
 
-func (e *Schema) add(entry ResourceSpec) {
-	e.entries = append(e.entries, entry)
+// SchemaBuilder is a builder for Schema.
+type SchemaBuilder struct {
+	schema *Schema
+}
+
+// NewSchemaBuilder returns a new instance of a SchemaBuilder.
+func NewSchemaBuilder() *SchemaBuilder {
+	return &SchemaBuilder{
+		schema: &Schema{},
+	}
+}
+
+// Add a new ResourceSpec to the schema.
+func (b *SchemaBuilder) Add(entry ResourceSpec) {
+	b.schema.entries = append(b.schema.entries, entry)
+}
+
+// Build a new instance of Schema.
+func (b *SchemaBuilder) Build() *Schema {
+	s := b.schema
+
+	// Avoid modify after Build.
+	b.schema = nil
+
+	return s
 }
 
 // All returns information about all known types.
 func (e *Schema) All() []ResourceSpec {
 	return e.entries
-}
-
-// TODO: Remove nolint: This gets used in the next CL
-// nolint: deadcode
-func getTargetFor(name string) resource.Info {
-	rInfo, ok := resource.Types.LookupByKind(resource.Kind(name))
-	if !ok {
-		panic(fmt.Sprintf("Corresponding resource info not found for: %s", name))
-	}
-	return rInfo
 }

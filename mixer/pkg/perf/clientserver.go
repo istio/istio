@@ -139,12 +139,6 @@ type ClientServerInitParams struct {
 
 	// Address of the Mixer Server.
 	Address string
-
-	// IdentityAttribute for Mixer server
-	IdentityAttribute string
-
-	// IdentityAttributeDomain for the request
-	IdentityAttributeDomain string
 }
 
 // InitializeClient is a remote RPC call that is invoked by the controller to initiate setup of the client environment.
@@ -158,7 +152,7 @@ func (s *ClientServer) InitializeClient(params ClientServerInitParams, _ *struct
 	if err := unmarshallLoad(params.Load, &load); err != nil {
 		return err
 	}
-	return s.client.initialize(params.Address, &load, params.IdentityAttribute, params.IdentityAttributeDomain)
+	return s.client.initialize(params.Address, &load)
 }
 
 // Shutdown is a remote RPC call that is invoked by the controller after the benchmark execution has completed.

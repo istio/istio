@@ -4,13 +4,14 @@ This image is Grafana configured to work with Istio, and a few
 pre-loaded dashboards:
 
 ### Istio Mesh Dashboard
-This is the primary dashboard with an overview of the whole mesh.
+This is the primary dashboard with an overview of the whole mesh. Workload names
+in the workload tables are hyperlinked to individual workload dashboards.
 
-### Istio HTTP/GRPC Service Dashboard
-Provides a dashboard for an individual HTTP or GRPC service in the mesh.
+### Istio HTTP/GRPC Workload Dashboard
+Provides a dashboard for an individual HTTP or GRPC workload in the mesh.
 
-### Istio TCP Service Dashboard
-Provides a dashboard for an individual TCP service in the mesh.
+### Istio TCP Workload Dashboard
+Provides a dashboard for an individual TCP workload in the mesh.
 
 ### Mixer Dashboard
 This dashboard focuses on
@@ -46,4 +47,4 @@ hard-coded instead of using the randomly generated one. This is to
 allow easy direct hyperlinks to dashboards.
 
 Environment-specific config is set in the [install
-config](/install/kubernetes/templates/addons/grafana.yaml.tmpl).
+config](/install/kubernetes/helm/istio/values.yaml).

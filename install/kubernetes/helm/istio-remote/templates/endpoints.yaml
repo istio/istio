@@ -1,11 +1,12 @@
+{{- if .Values.global.remotePilotCreateSvcEndpoint }}
 apiVersion: v1
 kind: Endpoints
 metadata:
   name: istio-pilot
-  namespace: istio-system
+  namespace: {{ .Release.Namespace }}
 subsets:
 - addresses:
-  - ip: {{ .Values.global.pilotEndpoint }}
+  - ip: {{ .Values.global.remotePilotAddress }}
   ports:
   - port: 15003
     name: http-old-discovery # mTLS or non-mTLS depending on auth setting
@@ -21,93 +22,4 @@ subsets:
     name: http-legacy-discovery # direct
   - port: 9093
     name: http-monitoring
----
-apiVersion: v1
-kind: Endpoints
-metadata:
-  name: istio-policy
-  namespace: istio-system
-subsets:
-- addresses:
-  - ip: {{ .Values.global.policyEndpoint }}
-  ports:
-  - name: grpc-mixer
-    port: 9091
-  - name: grpc-mixer-mtls
-    port: 15004
-  - name: http-monitoring
-    port: 9093
-  - name: configapi
-    port: 9094
-  - name: statsd-prom
-    port: 9102
-  - name: statsd-udp
-    port: 9125
-    protocol: UDP
-  - name: prometheus
-    port: 42422
----
-apiVersion: v1
-kind: Endpoints
-metadata:
-  name: istio-statsd-prom-bridge
-  namespace: istio-system
-subsets:
-- addresses:
-  - ip: {{ .Values.global.statsdEndpoint }}
-  ports:
-  - name: statsd-prom
-    port: 9102
-  - name: statsd-udp
-    port: 9125
-    protocol: UDP
----
-apiVersion: v1
-kind: Endpoints
-metadata:
-  name: istio-telemetry
-  namespace: istio-system
-subsets:
-- addresses:
-  - ip: {{ .Values.global.telemetryEndpoint }}
-  ports:
-  - name: prometheus
-    port: 42422
-    protocol: TCP
-  - name: http-monitoring
-    port: 9093
-    protocol: TCP
-  - name: http2-mixer
-    port: 9091
-    protocol: TCP
-  - name: tcp-mtls
-    port: 15004
-    protocol: TCP
----
-apiVersion: v1
-kind: Endpoints
-metadata:
-  name: istio-ingress
-  namespace: istio-system
-subsets:
-- addresses:
-  - ip: {{ .Values.global.ingressEndpoint }}
-  ports:
-  - name: http
-    port: 80
-    protocol: TCP
-  - name: https
-    port: 443
-    protocol: TCP
----
-apiVersion: v1
-kind: Endpoints
-metadata:
-  name: zipkin
-  namespace: istio-system
-subsets:
-- addresses:
-  - ip: {{ .Values.global.zipkinEndpoint }}
-  ports:
-  - name: http-zipkin
-    port: 9411
+{{- end }}

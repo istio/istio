@@ -29,7 +29,12 @@ required = [
   "github.com/istio/tools/protoc-gen-docs",
   ### END Mixer codegen deps
   # fortio is built in vendor for the testing framework
-  "istio.io/fortio",
+  "fortio.org/fortio",
+]
+
+ignored = [
+  # Context Graph depends on a locally vendored library that isn't (yet) available upstream.
+  "istio.io/istio/mixer/adapter/stackdriver/contextgraph",
 ]
 
 # To use reference package:
@@ -38,14 +43,11 @@ required = [
   name = "github.com/docker/distribution"
   branch = "master"
 
-# TODO: switch to 1.10 and newer client-go
-
-# client-go release-6.0 corresponds to k8s release-1.9 branch. See
-# https://github.com/kubernetes/client-go/tree/release-6.0#compatibility-matrix
+# https://github.com/kubernetes/client-go#compatibility-matrix
 # for details.
 [[override]]
   name = "k8s.io/client-go"
-  branch = "release-6.0"
+  branch = "release-7.0"	# For K8s 1.10.x
 
 # matching client-go 6 == k8s 1.9 == v9 (!)
 [[override]]
@@ -107,7 +109,7 @@ required = [
 
 [[constraint]]
   name = "github.com/envoyproxy/go-control-plane"
-  branch = "master"
+  version = "^0.5.0"
 
 [[constraint]]
   name = "github.com/fluent/fluent-logger-golang"
@@ -127,7 +129,7 @@ required = [
 
 [[constraint]]
   name = "github.com/gogo/protobuf"
-  version = "1.0.0"
+  version = "^1.1.1"
 
 [[constraint]]
   name = "github.com/golang/protobuf"
@@ -195,7 +197,7 @@ required = [
 
 [[constraint]]
   name = "github.com/open-policy-agent/opa"
-  version = "0.7.1"
+  version = "0.8.2"
 
 [[constraint]]
   branch = "master"
@@ -283,7 +285,7 @@ required = [
 
 [[constraint]]
   name = "google.golang.org/grpc"
-  version = "1.11.1"
+  version = "^1.13.0"
 
 [[constraint]]
   branch = "v2"
@@ -301,11 +303,15 @@ required = [
 
 [[constraint]]
   name = "k8s.io/api"
-  version = "kubernetes-1.9.1"
+  version = "kubernetes-1.10.4"
 
 [[constraint]]
-  branch = "release-1.9"
+  name = "k8s.io/apimachinery"
+  version = "kubernetes-1.10.4"
+
+[[constraint]]
   name = "k8s.io/apiextensions-apiserver"
+  version = "kubernetes-1.10.4"
 
 [[constraint]]
   name = "k8s.io/cluster-registry"
@@ -313,7 +319,7 @@ required = [
 
 [[constraint]]
   name = "k8s.io/helm"
-  version = "2.8.2"
+  version = "2.9.1"
 
 [[constraint]]
   name = "k8s.io/ingress"
@@ -321,14 +327,14 @@ required = [
 
 [[constraint]]
   name = "k8s.io/kubernetes"
-  branch = "release-1.9"
+  version = "v1.10.4"
 
 [prune]
   go-tests = true
   unused-packages = true
   non-go = true
   [[prune.project]]
-    name = "istio.io/fortio"
+    name = "fortio.org/fortio"
     non-go = false
     unused-packages = false
   [[prune.project]]
@@ -347,4 +353,19 @@ required = [
     name = "github.com/gogo/protobuf"
     non-go = false
     unused-packages = false
+  [[prune.project]]
+    name = "github.com/dchest/siphash"
+    non-go = false
+  [[prune.project]]
+    name = "github.com/signalfx/com_signalfx_metrics_protobuf"
+    non-go = false
+
+
+[[constraint]]
+  name = "github.com/gogo/status"
+  revision = "d60b5acac426cb52f7e28124c6aaa862d9f339f5"
+
+[[override]]
+  name = "github.com/imdario/mergo"
+  revision = "6633656539c1639d9d78127b7d47c622b5d7b6dc"
 

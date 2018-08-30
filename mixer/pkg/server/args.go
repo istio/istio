@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/mcp/creds"
 	"istio.io/istio/pkg/probe"
 	"istio.io/istio/pkg/tracing"
 )
@@ -48,9 +49,13 @@ type Args struct {
 	// Maximum number of goroutines in the adapter worker pool
 	AdapterWorkerPoolSize int
 
-	// URL of the config store. Use k8s://path_to_kubeconfig or fs:// for file system. If path_to_kubeconfig is empty, in-cluster kubeconfig is used.")
+	// URL of the config store. Use k8s://path_to_kubeconfig, fs:// for file system, or mcp://<host> to
+	// connect to Galley. If path_to_kubeconfig is empty, in-cluster kubeconfig is used.")
 	// If this is empty (and ConfigStore isn't specified), "k8s://" will be used.
 	ConfigStoreURL string
+
+	// The certificate file locations for the MCP config backend.
+	CredentialOptions *creds.Options
 
 	// For testing; this one is used for the backend store if ConfigStoreURL is empty. Specifying both is invalid.
 	ConfigStore store.Store
@@ -60,13 +65,6 @@ type Args struct {
 
 	// Configuration fetch interval in seconds
 	ConfigFetchIntervalSec uint
-
-	// Attribute that is used to identify applicable scopes.
-	ConfigIdentityAttribute string
-
-	// The domain to which all values of the ConfigIdentityAttribute belong.
-	// For kubernetes services it is svc.cluster.local
-	ConfigIdentityAttributeDomain string
 
 	// The logging options to use
 	LoggingOptions *log.Options
@@ -109,22 +107,21 @@ type Args struct {
 // DefaultArgs allocates an Args struct initialized with Mixer's default configuration.
 func DefaultArgs() *Args {
 	return &Args{
-		APIPort:                       9091,
-		MonitoringPort:                9093,
-		MaxMessageSize:                1024 * 1024,
-		MaxConcurrentStreams:          1024,
-		APIWorkerPoolSize:             1024,
-		AdapterWorkerPoolSize:         1024,
-		ConfigDefaultNamespace:        constant.DefaultConfigNamespace,
-		ConfigIdentityAttribute:       "destination.service",
-		ConfigIdentityAttributeDomain: "svc.cluster.local",
-		LoggingOptions:                log.DefaultOptions(),
-		TracingOptions:                tracing.DefaultOptions(),
-		LivenessProbeOptions:          &probe.Options{},
-		ReadinessProbeOptions:         &probe.Options{},
-		IntrospectionOptions:          ctrlz.DefaultOptions(),
-		EnableProfiling:               true,
-		NumCheckCacheEntries:          5000 * 5 * 60, // 5000 QPS with average TTL of 5 minutes
+		APIPort:                9091,
+		MonitoringPort:         9093,
+		MaxMessageSize:         1024 * 1024,
+		MaxConcurrentStreams:   1024,
+		APIWorkerPoolSize:      1024,
+		AdapterWorkerPoolSize:  1024,
+		CredentialOptions:      creds.DefaultOptions(),
+		ConfigDefaultNamespace: constant.DefaultConfigNamespace,
+		LoggingOptions:         log.DefaultOptions(),
+		TracingOptions:         tracing.DefaultOptions(),
+		LivenessProbeOptions:   &probe.Options{},
+		ReadinessProbeOptions:  &probe.Options{},
+		IntrospectionOptions:   ctrlz.DefaultOptions(),
+		EnableProfiling:        true,
+		NumCheckCacheEntries:   5000 * 5 * 60, // 5000 QPS with average TTL of 5 minutes
 	}
 }
 
@@ -159,9 +156,10 @@ func (a *Args) String() string {
 	fmt.Fprint(buf, "SingleThreaded: ", a.SingleThreaded, "\n")
 	fmt.Fprint(buf, "NumCheckCacheEntries: ", a.NumCheckCacheEntries, "\n")
 	fmt.Fprint(buf, "ConfigStoreURL: ", a.ConfigStoreURL, "\n")
+	fmt.Fprint(buf, "CertificateFile: ", a.CredentialOptions.CertificateFile, "\n")
+	fmt.Fprint(buf, "KeyFile: ", a.CredentialOptions.KeyFile, "\n")
+	fmt.Fprint(buf, "CACertificateFile: ", a.CredentialOptions.CACertificateFile, "\n")
 	fmt.Fprint(buf, "ConfigDefaultNamespace: ", a.ConfigDefaultNamespace, "\n")
-	fmt.Fprint(buf, "ConfigIdentityAttribute: ", a.ConfigIdentityAttribute, "\n")
-	fmt.Fprint(buf, "ConfigIdentityAttributeDomain: ", a.ConfigIdentityAttributeDomain, "\n")
 	fmt.Fprintf(buf, "LoggingOptions: %#v\n", *a.LoggingOptions)
 	fmt.Fprintf(buf, "TracingOptions: %#v\n", *a.TracingOptions)
 	fmt.Fprintf(buf, "IntrospectionOptions: %#v\n", *a.IntrospectionOptions)

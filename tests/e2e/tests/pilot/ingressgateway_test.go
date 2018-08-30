@@ -43,10 +43,6 @@ func maybeAddTLSForDestinationRule(tc *testConfig, templateFile string) string {
 // default (kube service level) to expose ports 80/443. So our gateway specs also expose
 // ports 80/443.
 func TestGateway_HTTPIngress(t *testing.T) {
-	if !tc.V1alpha3 {
-		t.Skipf("Skipping %s: v1alpha3=false", t.Name())
-	}
-
 	istioNamespace := tc.Kube.IstioSystemNamespace()
 	ingressGatewayServiceName := tc.Kube.IstioIngressGatewayService()
 
@@ -54,9 +50,9 @@ func TestGateway_HTTPIngress(t *testing.T) {
 	cfgs := &deployableConfig{
 		Namespace: tc.Kube.Namespace,
 		YamlFiles: []string{
-			"testdata/v1alpha3/ingressgateway.yaml",
-			maybeAddTLSForDestinationRule(tc, "testdata/v1alpha3/destination-rule-c.yaml"),
-			"testdata/v1alpha3/rule-ingressgateway.yaml"},
+			"testdata/networking/v1alpha3/ingressgateway.yaml",
+			maybeAddTLSForDestinationRule(tc, "testdata/networking/v1alpha3/destination-rule-c.yaml"),
+			"testdata/networking/v1alpha3/rule-ingressgateway.yaml"},
 		kubeconfig: tc.Kube.KubeConfig,
 	}
 	if err := cfgs.Setup(); err != nil {
@@ -65,14 +61,14 @@ func TestGateway_HTTPIngress(t *testing.T) {
 	defer cfgs.Teardown()
 
 	for cluster := range tc.Kube.Clusters {
-		runRetriableTest(t, cluster, "VersionRouting", defaultRetryBudget, func() error {
+		runRetriableTest(t, cluster, "HTTPIngressGateway", defaultRetryBudget, func() error {
 			reqURL := fmt.Sprintf("http://%s.%s/c", ingressGatewayServiceName, istioNamespace)
-			resp := ClientRequest(cluster, "t", reqURL, 100, "-key Host -val uk.bookinfo.com")
+			resp := ClientRequest(cluster, "t", reqURL, 100, "-key Host -val uk.bookinfo.com:80")
 			count := make(map[string]int)
 			for _, elt := range resp.Version {
 				count[elt] = count[elt] + 1
 			}
-			log.Infof("request counts %v", count)
+			log.Infof("request counts %+v", count)
 			if count["v2"] >= 95 {
 				return nil
 			}
@@ -81,48 +77,115 @@ func TestGateway_HTTPIngress(t *testing.T) {
 	}
 }
 
-func TestIngressGateway503DuringRuleChange(t *testing.T) {
-	if !tc.V1alpha3 {
-		t.Skipf("Skipping %s: v1alpha3=false", t.Name())
+func TestGateway_HTTPSIngress(t *testing.T) {
+	istioNamespace := tc.Kube.IstioSystemNamespace()
+	ingressGatewayServiceName := tc.Kube.IstioIngressGatewayService()
+
+	// Configure a route from us.bookinfo.com to "c-v2" only
+	cfgs := &deployableConfig{
+		Namespace: tc.Kube.Namespace,
+		YamlFiles: []string{
+			"testdata/networking/v1alpha3/ingressgateway.yaml",
+			maybeAddTLSForDestinationRule(tc, "testdata/networking/v1alpha3/destination-rule-c.yaml"),
+			"testdata/networking/v1alpha3/rule-ingressgateway.yaml"},
+		kubeconfig: tc.Kube.KubeConfig,
 	}
+	if err := cfgs.Setup(); err != nil {
+		t.Fatal(err)
+	}
+	defer cfgs.Teardown()
+
+	for cluster := range tc.Kube.Clusters {
+		runRetriableTest(t, cluster, "HTTPSIngressGateway", defaultRetryBudget, func() error {
+			reqURL := fmt.Sprintf("https://%s.%s/c", ingressGatewayServiceName, istioNamespace)
+			resp := ClientRequest(cluster, "t", reqURL, 100, "-key Host -val uk.bookinfo.com")
+			count := make(map[string]int)
+			for _, elt := range resp.Version {
+				count[elt] = count[elt] + 1
+			}
+			log.Infof("request counts %+v", count)
+			if count["v2"] >= 95 {
+				return nil
+			}
+			return errAgain
+		})
+	}
+}
+
+func TestGateway_TCPIngress(t *testing.T) {
+	istioNamespace := tc.Kube.IstioSystemNamespace()
+	ingressGatewayServiceName := tc.Kube.IstioIngressGatewayService()
+
+	// Configure a route from us.bookinfo.com to "c-v2" only
+	cfgs := &deployableConfig{
+		Namespace: tc.Kube.Namespace,
+		YamlFiles: []string{
+			"testdata/networking/v1alpha3/ingressgateway.yaml",
+			maybeAddTLSForDestinationRule(tc, "testdata/networking/v1alpha3/destination-rule-c.yaml"),
+			"testdata/networking/v1alpha3/rule-ingressgateway.yaml"},
+		kubeconfig: tc.Kube.KubeConfig,
+	}
+	if err := cfgs.Setup(); err != nil {
+		t.Fatal(err)
+	}
+	defer cfgs.Teardown()
+
+	for cluster := range tc.Kube.Clusters {
+		runRetriableTest(t, cluster, "TCPIngressGateway", defaultRetryBudget, func() error {
+			reqURL := fmt.Sprintf("http://%s.%s:31400/c", ingressGatewayServiceName, istioNamespace)
+			resp := ClientRequest(cluster, "t", reqURL, 100, "-key Host -val uk.bookinfo.com")
+			count := make(map[string]int)
+			for _, elt := range resp.Version {
+				count[elt] = count[elt] + 1
+			}
+			log.Infof("request counts %+v", count)
+			if count["v1"] >= 95 {
+				return nil
+			}
+			return errAgain
+		})
+	}
+}
+
+func TestIngressGateway503DuringRuleChange(t *testing.T) {
 	istioNamespace := tc.Kube.IstioSystemNamespace()
 	ingressGatewayServiceName := tc.Kube.IstioIngressGatewayService()
 
 	gateway := &deployableConfig{
 		Namespace:  tc.Kube.Namespace,
-		YamlFiles:  []string{"testdata/v1alpha3/ingressgateway.yaml"},
+		YamlFiles:  []string{"testdata/networking/v1alpha3/ingressgateway.yaml"},
 		kubeconfig: tc.Kube.KubeConfig,
 	}
 
 	// Add subsets
 	newDestRule := &deployableConfig{
 		Namespace:  tc.Kube.Namespace,
-		YamlFiles:  []string{maybeAddTLSForDestinationRule(tc, "testdata/v1alpha3/rule-503test-destinationrule-c.yaml")},
+		YamlFiles:  []string{maybeAddTLSForDestinationRule(tc, "testdata/networking/v1alpha3/rule-503test-destinationrule-c.yaml")},
 		kubeconfig: tc.Kube.KubeConfig,
 	}
 
 	// route to subsets
 	newVirtService := &deployableConfig{
 		Namespace:  tc.Kube.Namespace,
-		YamlFiles:  []string{"testdata/v1alpha3/rule-503test-virtualservice.yaml"},
+		YamlFiles:  []string{"testdata/networking/v1alpha3/rule-503test-virtualservice.yaml"},
 		kubeconfig: tc.Kube.KubeConfig,
 	}
 
 	addMoreSubsets := &deployableConfig{
 		Namespace:  tc.Kube.Namespace,
-		YamlFiles:  []string{maybeAddTLSForDestinationRule(tc, "testdata/v1alpha3/rule-503test-destinationrule-c-add-subset.yaml")},
+		YamlFiles:  []string{maybeAddTLSForDestinationRule(tc, "testdata/networking/v1alpha3/rule-503test-destinationrule-c-add-subset.yaml")},
 		kubeconfig: tc.Kube.KubeConfig,
 	}
 
 	routeToNewSubsets := &deployableConfig{
 		Namespace:  tc.Kube.Namespace,
-		YamlFiles:  []string{"testdata/v1alpha3/rule-503test-update-virtualservice.yaml"},
+		YamlFiles:  []string{"testdata/networking/v1alpha3/rule-503test-update-virtualservice.yaml"},
 		kubeconfig: tc.Kube.KubeConfig,
 	}
 
 	deleteOldSubsets := &deployableConfig{
 		Namespace:  tc.Kube.Namespace,
-		YamlFiles:  []string{maybeAddTLSForDestinationRule(tc, "testdata/v1alpha3/rule-503test-destinationrule-c-del-subset.yaml")},
+		YamlFiles:  []string{maybeAddTLSForDestinationRule(tc, "testdata/networking/v1alpha3/rule-503test-destinationrule-c-del-subset.yaml")},
 		kubeconfig: tc.Kube.KubeConfig,
 	}
 
@@ -191,7 +254,7 @@ cleanup:
 			}
 			if count["200"] != len(resp.Code) {
 				// have entries other than 200
-				t.Errorf("Got non 200 status code while changing rules: %v", count)
+				t.Errorf("Got non 200 status code while changing rules: %+v", count)
 			} else {
 				log.Infof("No 503s were encountered while changing rules (total %d requests)", len(resp.Code))
 			}
@@ -201,24 +264,17 @@ cleanup:
 	}
 }
 
-// TODO: rename this file gateway_test.go, merge w/ egress too? At least this test and test above
-// use gateway as an "ingress" of sorts.
-func TestGateway_TCP(t *testing.T) {
-	if !tc.V1alpha3 {
-		t.Skipf("Skipping %s: V1alpha3=false", t.Name())
-	}
-	// TODO: use current namespace so test doesn't require --cluster_wide flag
-	// circle CI always runs with --cluster_wide, and its required for gateway tests atm due to
-	// gateway resource only being created in istio-system namespace
+func TestVirtualServiceMergingAtGateway(t *testing.T) {
 	istioNamespace := tc.Kube.IstioSystemNamespace()
+	ingressGatewayServiceName := tc.Kube.IstioIngressGatewayService()
 
 	cfgs := &deployableConfig{
-		Namespace: istioNamespace,
+		Namespace: tc.Kube.Namespace,
 		YamlFiles: []string{
-			"testdata/v1alpha3/rule-force-a-through-ingress-gateway.yaml",
-			"testdata/v1alpha3/rule-gateway-a.yaml",
-			"testdata/v1alpha3/gateway-tcp-a.yaml",
-		},
+			"testdata/networking/v1alpha3/ingressgateway.yaml",
+			maybeAddTLSForDestinationRule(tc, "testdata/networking/v1alpha3/destination-rule-c.yaml"),
+			"testdata/networking/v1alpha3/rule-merging-path1.yaml",
+			"testdata/networking/v1alpha3/rule-merging-path2.yaml"},
 		kubeconfig: tc.Kube.KubeConfig,
 	}
 	if err := cfgs.Setup(); err != nil {
@@ -226,27 +282,33 @@ func TestGateway_TCP(t *testing.T) {
 	}
 	defer cfgs.Teardown()
 
-	cases := []struct {
-		// empty destination to expect 404
-		dst string
-		url string
-	}{
-		{
-			dst: "a",
-			url: fmt.Sprintf("http://%s.%s:%d", "a", istioNamespace, 9090),
-		},
-	}
-	t.Run("tcp_requests", func(t *testing.T) {
-		for _, c := range cases {
-			for cluster := range tc.Kube.Clusters {
-				runRetriableTest(t, cluster, c.url, defaultRetryBudget, func() error {
-					resp := ClientRequest(cluster, "b", c.url, 1, "")
-					if resp.IsHTTPOk() {
-						return nil
-					}
-					return errAgain
-				})
+	for cluster := range tc.Kube.Clusters {
+		runRetriableTest(t, cluster, "VirtualServiceMergingAtGateway-route1", defaultRetryBudget, func() error {
+			reqURL := fmt.Sprintf("http://%s.%s/route1", ingressGatewayServiceName, istioNamespace)
+			resp := ClientRequest(cluster, "t", reqURL, 10, "-key Host -val uk.bookinfo.com:80")
+			count := make(map[string]int)
+			for _, elt := range resp.Version {
+				count[elt] = count[elt] + 1
 			}
-		}
-	})
+			log.Infof("request counts %v", count)
+			if count["v1"] == 10 {
+				return nil
+			}
+			return fmt.Errorf("expected %v requests to reach %s => Got %v", 10, "v1", count)
+		})
+
+		runRetriableTest(t, cluster, "VirtualServiceMergingAtGateway-route2", defaultRetryBudget, func() error {
+			reqURL := fmt.Sprintf("http://%s.%s/route2", ingressGatewayServiceName, istioNamespace)
+			resp := ClientRequest(cluster, "t", reqURL, 10, "-key Host -val uk.bookinfo.com:80")
+			count := make(map[string]int)
+			for _, elt := range resp.Version {
+				count[elt] = count[elt] + 1
+			}
+			log.Infof("request counts %v", count)
+			if count["v2"] == 10 {
+				return nil
+			}
+			return fmt.Errorf("expected %v requests to reach %s => Got %v", 10, "v2", count)
+		})
+	}
 }

@@ -23,6 +23,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+
 	// import GKE cluster authentication plugin
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 )
@@ -111,7 +112,7 @@ func addTypeToScheme(s *runtime.Scheme, gv schema.GroupVersion, kind, listKind s
 		}
 
 		c := &unstructured.UnstructuredList{}
-		o.SetAPIVersion(gv.Group)
+		o.SetAPIVersion(gv.Version)
 		o.SetKind(listKind)
 		s.AddKnownTypeWithName(gvk, c)
 

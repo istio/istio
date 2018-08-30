@@ -26,13 +26,18 @@ func TestRDS(t *testing.T) {
 	initLocalPilotTestEnv(t)
 
 	t.Run("sidecar", func(t *testing.T) {
-		rdsr := connectADS(t, util.MockPilotGrpcAddr)
-		sendRDSReq(t, sidecarId(app3Ip, "app3"), []string{"80", "8080"}, rdsr)
+		rdsr, err := connectADS(util.MockPilotGrpcAddr)
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = sendRDSReq(sidecarId(app3Ip, "app3"), []string{"80", "8080"}, rdsr)
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		res, err := rdsr.Recv()
 		if err != nil {
 			t.Fatal("Failed to receive RDS", err)
-			return
 		}
 
 		strResponse, _ := model.ToJSONWithIndent(res, " ")
@@ -44,8 +49,14 @@ func TestRDS(t *testing.T) {
 	})
 
 	t.Run("gateway", func(t *testing.T) {
-		rdsr := connectADS(t, util.MockPilotGrpcAddr)
-		sendRDSReq(t, gatewayId(gatewayIP), []string{"http.80", "https.443.https"}, rdsr)
+		rdsr, err := connectADS(util.MockPilotGrpcAddr)
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = sendRDSReq(gatewayId(gatewayIP), []string{"http.80", "https.443.https"}, rdsr)
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		res, err := rdsr.Recv()
 		if err != nil {

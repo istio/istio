@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package reportBatch
+package client_test
 
 import (
 	"fmt"
@@ -25,11 +25,13 @@ import (
 const reportAttributesOkGet = `
 {
   "context.protocol": "http",
+  "context.proxy_error_code": "-",
   "mesh1.ip": "[1 1 1 1]",
   "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
   "mesh3.ip": "[0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 8]",
   "request.host": "*",
-  "request.path": "/echo",
+  "request.path": "/echo?a=b&c=d",
+  "request.query_params": {"a": "b", "c": "d"},
   "request.time": "*",
   "request.useragent": "Go-http-client/1.1",
   "request.method": "GET",
@@ -43,11 +45,12 @@ const reportAttributesOkGet = `
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "connection.mtls": false,
+  "origin.ip": "[127 0 0 1]",
   "check.cache_hit": false,
   "quota.cache_hit": false,
   "request.headers": {
      ":method": "GET",
-     ":path": "/echo",
+     ":path": "/echo?a=b&c=d",
      ":authority": "*",
      "x-forwarded-proto": "http",
      "x-istio-attributes": "-",
@@ -65,7 +68,8 @@ const reportAttributesOkGet = `
      "server": "envoy"
   },
   "response.total_size": "*",
-  "request.total_size": 306
+  "request.total_size": 314,
+  "request.url_path": "/echo"
 }
 `
 
@@ -73,11 +77,13 @@ const reportAttributesOkGet = `
 const reportAttributesOkPost1 = `
 {
   "context.protocol": "http",
+  "context.proxy_error_code": "-",
   "mesh1.ip": "[1 1 1 1]",
   "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
   "mesh3.ip": "[0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 8]",
   "request.host": "*",
-  "request.path": "/echo",
+  "request.path": "/echo?a=b&c=d",
+  "request.query_params": {"a": "b", "c": "d"},
   "request.time": "*",
   "request.useragent": "Go-http-client/1.1",
   "request.method": "POST",
@@ -91,11 +97,12 @@ const reportAttributesOkPost1 = `
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "connection.mtls": false,
+  "origin.ip": "[127 0 0 1]",
   "check.cache_hit": false,
   "quota.cache_hit": false,
   "request.headers": {
      ":method": "POST",
-     ":path": "/echo",
+     ":path": "/echo?a=b&c=d",
      ":authority": "*",
      "x-forwarded-proto": "http",
      "x-istio-attributes": "-",
@@ -114,7 +121,8 @@ const reportAttributesOkPost1 = `
      "server": "envoy"
   },
   "response.total_size": "*",
-  "request.total_size": 342
+  "request.total_size": 350,
+  "request.url_path": "/echo"
 }
 `
 
@@ -122,11 +130,13 @@ const reportAttributesOkPost1 = `
 const reportAttributesOkPost2 = `
 {
   "context.protocol": "http",
+  "context.proxy_error_code": "-",
   "mesh1.ip": "[1 1 1 1]",
   "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
   "mesh3.ip": "[0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 8]",
   "request.host": "*",
-  "request.path": "/echo",
+  "request.path": "/echo?a=b&c=d",
+  "request.query_params": {"a": "b", "c": "d"},
   "request.time": "*",
   "request.useragent": "Go-http-client/1.1",
   "request.method": "POST",
@@ -140,11 +150,12 @@ const reportAttributesOkPost2 = `
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "connection.mtls": false,
+  "origin.ip": "[127 0 0 1]",
   "check.cache_hit": false,
   "quota.cache_hit": false,
   "request.headers": {
      ":method": "POST",
-     ":path": "/echo",
+     ":path": "/echo?a=b&c=d",
      ":authority": "*",
      "x-forwarded-proto": "http",
      "x-istio-attributes": "-",
@@ -163,7 +174,8 @@ const reportAttributesOkPost2 = `
      "server": "envoy"
   },
   "response.total_size": "*",
-  "request.total_size": 348
+  "request.total_size": 356,
+  "request.url_path": "/echo"
 }
 `
 
@@ -187,7 +199,7 @@ func TestReportBatch(t *testing.T) {
 	}
 	defer s.TearDown()
 
-	url := fmt.Sprintf("http://localhost:%d/echo", s.Ports().ClientProxyPort)
+	url := fmt.Sprintf("http://localhost:%d/echo?a=b&c=d", s.Ports().ClientProxyPort)
 
 	// Issues a GET echo request with 0 size body
 	tag := "OKGet"
@@ -210,9 +222,5 @@ func TestReportBatch(t *testing.T) {
 	s.VerifyReport(tag, reportAttributesOkPost2)
 
 	// Check stats for Check, Quota and report calls.
-	if respStats, err := s.WaitForStatsUpdateAndGetStats(2); err == nil {
-		s.VerifyStats(respStats, expectedStats)
-	} else {
-		t.Errorf("Failed to get stats from Envoy %v", err)
-	}
+	s.VerifyStats(expectedStats)
 }

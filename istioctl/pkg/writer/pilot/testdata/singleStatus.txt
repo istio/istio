@@ -1,2 +1,2 @@
-PROXY		CDS		LDS		EDS		RDS		PILOT
-proxy2		STALE		SYNCED		STALE (0%)	SYNCED		pilot2
+PROXY      CDS       LDS        EDS            RDS        PILOT      VERSION
+proxy2     STALE     SYNCED     STALE (0%)     SYNCED     pilot2     1.0

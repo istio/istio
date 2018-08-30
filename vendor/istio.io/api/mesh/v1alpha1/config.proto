@@ -17,7 +17,7 @@ syntax = "proto3";
 import "google/protobuf/duration.proto";
 
 // $title: Service Mesh
-// $description: Configuration affecting the service mesh as a whole
+// $description: Configuration affecting the service mesh as a whole.
 // $location: https://istio.io/docs/reference/config/istio.mesh.v1alpha1.html
 // $aliases:
 // $  - /docs/reference/config/service-mesh.html
@@ -269,9 +269,12 @@ message MeshConfig {
   bool enable_client_side_policy_check = 19;
 
   // Unix Domain Socket through which envoy communicates with NodeAgent SDS to get key/cert for mTLS.
-  // Use secret-mount files instead of SDS if set to empty. 
+  // Use secret-mount files instead of SDS if set to empty.
   string sds_uds_path = 20;
 
   // Polling interval for SDS (MUST BE >=1ms)
   google.protobuf.Duration sds_refresh_delay = 21;
+
+  // Address of the galley service exposing the Mesh Control Protocol (MCP).
+  string galley_address = 22;
 }

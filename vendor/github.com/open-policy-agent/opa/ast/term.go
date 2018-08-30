@@ -71,6 +71,32 @@ func (loc *Location) String() string {
 	return fmt.Sprintf("%v:%v", loc.Row, loc.Col)
 }
 
+// Compare returns -1, 0, or 1 to indicate if this loc is less than, equal to,
+// or greater than the other. Comparison is performed on the file, row, and
+// column of the Location (but not on the text.)
+func (loc *Location) Compare(other *Location) int {
+	if loc == nil && other == nil {
+		return 0
+	} else if loc == nil {
+		return 1
+	} else if other == nil {
+		return -1
+	} else if loc.File < other.File {
+		return -1
+	} else if loc.File > other.File {
+		return 1
+	} else if loc.Row < other.Row {
+		return -1
+	} else if loc.Row > other.Row {
+		return 1
+	} else if loc.Col < other.Col {
+		return -1
+	} else if loc.Col > other.Col {
+		return 1
+	}
+	return 0
+}
+
 // Value declares the common interface for all Term values. Every kind of Term value
 // in the language is represented as a type that implements this interface:
 //
@@ -544,8 +570,7 @@ func NumberTerm(n json.Number) *Term {
 
 // IntNumberTerm creates a new Term with an integer Number value.
 func IntNumberTerm(i int) *Term {
-	num := Number(json.Number(fmt.Sprintf("%d", i)))
-	return &Term{Value: num}
+	return &Term{Value: Number(strconv.Itoa(i))}
 }
 
 // FloatNumberTerm creates a new Term with a floating point Number value.
@@ -598,6 +623,15 @@ func (num Number) Int() (int, bool) {
 	return int(i), true
 }
 
+// Float64 returns the float64 representation of num if possible.
+func (num Number) Float64() (float64, bool) {
+	f, err := json.Number(num).Float64()
+	if err != nil {
+		return 0, false
+	}
+	return f, true
+}
+
 // IsGround always returns true.
 func (num Number) IsGround() bool {
 	return true
@@ -613,11 +647,11 @@ func (num Number) String() string {
 }
 
 func intNumber(i int) Number {
-	return Number(json.Number(fmt.Sprintf("%d", i)))
+	return Number(strconv.Itoa(i))
 }
 
 func int64Number(i int64) Number {
-	return Number(json.Number(fmt.Sprintf("%d", i)))
+	return Number(strconv.FormatInt(i, 10))
 }
 
 func floatNumber(f float64) Number {
@@ -910,7 +944,7 @@ func (ref Ref) String() string {
 		switch p := p.Value.(type) {
 		case String:
 			str := string(p)
-			if varRegexp.MatchString(str) && len(buf) > 0 {
+			if varRegexp.MatchString(str) && len(buf) > 0 && !IsKeyword(str) {
 				buf = append(buf, "."+str)
 			} else {
 				buf = append(buf, "["+p.String()+"]")
@@ -1323,9 +1357,7 @@ type Object interface {
 
 // NewObject creates a new Object with t.
 func NewObject(t ...[2]*Term) Object {
-	obj := &object{
-		elems: map[int]*objectElem{},
-	}
+	obj := newobject(len(t))
 	for i := range t {
 		obj.Insert(t[i][0], t[i][1])
 	}
@@ -1338,8 +1370,16 @@ func ObjectTerm(o ...[2]*Term) *Term {
 }
 
 type object struct {
-	elems map[int]*objectElem
-	keys  []*Term
+	elems  map[int]*objectElem
+	keys   []*Term
+	ground bool
+}
+
+func newobject(n int) *object {
+	return &object{
+		elems:  make(map[int]*objectElem, n),
+		ground: true,
+	}
 }
 
 type objectElem struct {
@@ -1434,9 +1474,7 @@ func (obj *object) Hash() int {
 
 // IsGround returns true if all of the Object key/value pairs are ground.
 func (obj *object) IsGround() bool {
-	return !obj.Until(func(k, v *Term) bool {
-		return !k.IsGround() || !v.IsGround()
-	})
+	return obj.ground
 }
 
 // Copy returns a deep copy of obj.
@@ -1510,9 +1548,7 @@ func (obj *object) Foreach(f func(*Term, *Term)) {
 // Map returns a new Object constructed by mapping each element in the object
 // using the function f.
 func (obj *object) Map(f func(*Term, *Term) (*Term, *Term, error)) (Object, error) {
-	cpy := &object{
-		elems: make(map[int]*objectElem, obj.Len()),
-	}
+	cpy := newobject(obj.Len())
 	err := obj.Iter(func(k, v *Term) error {
 		var err error
 		k, v, err = f(k, v)
@@ -1615,6 +1651,7 @@ func (obj *object) insert(k, v *Term) {
 		next:  head,
 	}
 	obj.keys = append(obj.keys, k)
+	obj.ground = obj.ground && k.IsGround() && v.IsGround()
 }
 
 // ArrayComprehension represents an array comprehension as defined in the language.

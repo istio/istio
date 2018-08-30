@@ -29,11 +29,9 @@ import (
 var baseNoRuleReportSetup = perf.Setup{
 	Config: perf.Config{
 		// Global setup is empty
-		Global:                  ``,
-		Service:                 minimalServiceConfig,
-		IdentityAttribute:       "destination.service",
-		IdentityAttributeDomain: "svc.cluster.local",
-		SingleThreaded:          true,
+		Global:         ``,
+		Service:        minimalServiceConfig,
+		SingleThreaded: true,
 	},
 
 	Loads: []perf.Load{{
@@ -49,11 +47,9 @@ var baseNoRuleReportSetup = perf.Setup{
 var baseNoRuleCheckSetup = perf.Setup{
 	Config: perf.Config{
 		// Global setup is empty
-		Global:                  ``,
-		Service:                 minimalServiceConfig,
-		IdentityAttribute:       "destination.service",
-		IdentityAttributeDomain: "svc.cluster.local",
-		SingleThreaded:          true,
+		Global:         ``,
+		Service:        minimalServiceConfig,
+		SingleThreaded: true,
 	},
 
 	Loads: []perf.Load{{

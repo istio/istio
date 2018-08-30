@@ -2,14 +2,14 @@
 apiVersion: "authentication.istio.io/v1alpha1"
 kind: "Policy"
 metadata:
-  name: "fortio-mtls"
+  name: fortiotls
 spec:
   peers:
   - mtls: {}
   peer_is_optional: true
   targets:
   # Must be short name of service
-  - name: "fortio-tls"
+  - name: fortiotls
     # subsets: "v2"
     ports:
     # name also supported
@@ -19,9 +19,9 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
-  name: fortio-tls
+  name: fortiotls
 spec:
-  host:  fortio-tls.test.svc.cluster.local
+  host:  fortiotls.test.svc.cluster.local
   trafficPolicy:
     tls:
       # Equivalent with ISTIO_MUTUAL
@@ -37,37 +37,35 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: fortio-tls
+  name: fortiotls
 spec:
   ports:
   - port: 8080
     name: http-echo
-  - port: 8081
-    targetPort: 8080
-    name: http-echo1
   - port: 8079
     name: grpc-ping
   selector:
-    app: fortio-tls
+    app: fortiotls
 ---
 apiVersion: apps/v1beta1
 kind: Deployment
 metadata:
-  name: fortio-tls
+  name: fortiotls
 spec:
-  replicas: 1
+  replicas: 2
   template:
     metadata:
       annotations:
+        # Pointing to the mesh gateway, with tls
         sidecar.istio.io/controlPlaneAuthPolicy: MUTUAL_TLS
-        sidecar.istio.io/discoveryAddress: istio-pilot.istio-system:15005
+        sidecar.istio.io/discoveryAddress: pilot.{{ .Values.domain }}:15011
       labels:
-        app: fortio-tls
+        app: fortiotls
         version: tls
     spec:
       containers:
       - name: fortio
-        image: istio/fortio:latest
+        image: {{ .Values.fortioImage }}
         ports:
          - containerPort: 8080
          - containerPort: 8079
@@ -80,3 +78,41 @@ spec:
           limits:
             cpu: 1000m
             memory: "1G"
+
+---
+
+#apiVersion: networking.istio.io/v1alpha3
+#kind: VirtualService
+#metadata:
+#  name: fortiotls
+#spec:
+#  hosts:
+#  - "fortiotls.{{ .Values.domain }}"
+#  gateways:
+#  - istio-gateway
+#  http:
+#  - route:
+#    - destination:
+#        host: fortiotls.test.svc.cluster.local
+#        port:
+#          number: 8080
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: fortiotls
+  annotations:
+    kubernetes.io/ingress.class: istio
+spec:
+  rules:
+  - host: fortiotls.{{ .Values.domain }}
+    http:
+      paths:
+      - path: /fortio.*
+        backend:
+          serviceName: fortiotls
+          servicePort: 8080
+      - path: /echo.*
+        backend:
+          serviceName: fortiotls
+          servicePort: 8080

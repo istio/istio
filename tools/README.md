@@ -1,7 +1,7 @@
 # Istio Load Testing User Guide
 ### Introduction
 This guide provides step-by-step instructions for using the `setup_perf_cluster.sh` load testing script.
-The script deploys a GKE cluster, an Istio service mesh and a GCE VM. The script then runs [Fortio](https://github.com/istio/fortio/#fortio)
+The script deploys a GKE cluster, an Istio service mesh and a GCE VM. The script then runs [Fortio](https://github.com/fortio/fortio/#fortio)
 on the VM, 2 pods within the cluster (non-Istio) and 2 pods within the Istio mesh.
 
 It should not be too difficult to adapt the script to other cloud providers or environments and contributions for additional automated setup are welcome.
@@ -30,7 +30,7 @@ $ git clone https://github.com/istio/istio.git && cd istio
 Optional but recommended:
 
 If not already present from building from source,
-Install fortio: `go get istio.io/fortio` (so you can run `fortio report` to visualize the results)
+Install fortio: `go get fortio.org/fortio` (so you can run `fortio report` to visualize the results)
 
 ### Prepare the Istio Deployment Manifest and Istio Client
 
@@ -177,7 +177,7 @@ Compare the test results to understand the load differential between the 3 test 
 
 ### Interactive Testing / UI Graphing of results
 
-Fortio provides a [Web UI](https://github.com/istio/fortio#webgraphical-ui) that
+Fortio provides a [Web UI](https://github.com/fortio/fortio#webgraphical-ui) that
 can be used to perform load testing. You can call the `get_ips` function to obtain Fortio endpoint information for further load testing:
 ```
 $ get_ips
@@ -193,7 +193,7 @@ to one of the Fortio echo servers:
 `echosrv1.istio.svc.cluster.local:8080` or `echosrv2.istio.svc.cluster.local:8080`.
 
 Fortio provides additional load testing capabilities not covered by this document. For more information, refer to the
-[Fortio documentation](https://github.com/istio/fortio/blob/master/README.md)
+[Fortio documentation](https://github.com/fortio/fortio/blob/master/README.md)
 
 ### Canonical Tests
 

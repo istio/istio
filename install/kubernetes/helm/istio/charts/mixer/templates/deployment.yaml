@@ -1,7 +1,8 @@
 {{- define "policy_container" }}
     spec:
-{{- if .Values.global.rbacEnabled }}
       serviceAccountName: istio-mixer-service-account
+{{- if $.Values.global.priorityClassName }}
+      priorityClassName: "{{ $.Values.global.priorityClassName }}"
 {{- end }}
       volumes:
       - name: istio-certs
@@ -14,7 +15,11 @@
       {{- include "nodeaffinity" . | indent 6 }}
       containers:
       - name: mixer
+{{- if contains "/" .Values.image }}
+        image: "{{ .Values.image }}"
+{{- else }}
         image: "{{ $.Values.global.hub }}/{{ $.Values.image }}:{{ $.Values.global.tag }}"
+{{- end }}
         imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
         ports:
         - containerPort: 9093
@@ -22,16 +27,38 @@
         args:
           - --address
           - unix:///sock/mixer.socket
+{{- if $.Values.global.useMixerMCP }}
+          - --configStoreURL=mcp://istio-galley.{{ $.Release.Namespace }}.svc:9901
+          - --certFile=/etc/certs/cert-chain.pem
+          - --keyFile=/etc/certs/key.pem
+          - --caCertFile=/etc/certs/root-cert.pem
+{{- else }}
           - --configStoreURL=k8s://
+{{- end }}
           - --configDefaultNamespace={{ $.Release.Namespace }}
           - --trace_zipkin_url=http://zipkin:9411/api/v1/spans
         resources:
-{{ toYaml $.Values.resources | indent 12 }}
+{{- if .Values.resources }}
+{{ toYaml .Values.resources | indent 10 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | indent 10 }}
+{{- end }}
         volumeMounts:
+{{- if $.Values.global.useMixerMCP }}
+        - name: istio-certs
+          mountPath: /etc/certs
+          readOnly: true
+{{- end }}
         - name: uds-socket
           mountPath: /sock
+        livenessProbe:
+          httpGet:
+            path: /version
+            port: 9093
+          initialDelaySeconds: 5
+          periodSeconds: 5
       - name: istio-proxy
-        image: "{{ $.Values.global.hub }}/proxyv2:{{ $.Values.global.tag }}"
+        image: "{{ $.Values.global.hub }}/{{ $.Values.global.proxy.image }}:{{ $.Values.global.tag }}"
         imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
         ports:
         - containerPort: 9091
@@ -66,7 +93,11 @@
               apiVersion: v1
               fieldPath: status.podIP
         resources:
-{{ toYaml $.Values.global.proxy.resources | indent 12 }}
+{{- if $.Values.global.proxy.resources }}
+{{ toYaml $.Values.global.proxy.resources | indent 10 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | indent 10 }}
+{{- end }}
         volumeMounts:
         - name: istio-certs
           mountPath: /etc/certs
@@ -77,9 +108,7 @@
 
 {{- define "telemetry_container" }}
     spec:
-{{- if .Values.global.rbacEnabled }}
       serviceAccountName: istio-mixer-service-account
-{{- end }}
       volumes:
       - name: istio-certs
         secret:
@@ -93,7 +122,11 @@
     {{- end }}
       containers:
       - name: mixer
+{{- if contains "/" .Values.image }}
+        image: "{{ .Values.image }}"
+{{- else }}
         image: "{{ $.Values.global.hub }}/{{ $.Values.image }}:{{ $.Values.global.tag }}"
+{{- end }}
         imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
         ports:
         - containerPort: 9093
@@ -101,14 +134,36 @@
         args:
           - --address
           - unix:///sock/mixer.socket
+{{- if $.Values.global.useMixerMCP }}
+          - --configStoreURL=mcp://istio-galley.{{ $.Release.Namespace }}.svc:9901
+          - --certFile=/etc/certs/cert-chain.pem
+          - --keyFile=/etc/certs/key.pem
+          - --caCertFile=/etc/certs/root-cert.pem
+{{- else }}
           - --configStoreURL=k8s://
+{{- end }}
           - --configDefaultNamespace={{ $.Release.Namespace }}
           - --trace_zipkin_url=http://zipkin:9411/api/v1/spans
         resources:
-{{ toYaml $.Values.resources | indent 12 }}
+{{- if .Values.resources }}
+{{ toYaml .Values.resources | indent 10 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | indent 10 }}
+{{- end }}
         volumeMounts:
+{{- if $.Values.global.useMixerMCP }}
+        - name: istio-certs
+          mountPath: /etc/certs
+          readOnly: true
+{{- end }}
         - name: uds-socket
           mountPath: /sock
+        livenessProbe:
+          httpGet:
+            path: /version
+            port: 9093
+          initialDelaySeconds: 5
+          periodSeconds: 5
       - name: istio-proxy
         image: "{{ $.Values.global.hub }}/{{ $.Values.global.proxy.image }}:{{ $.Values.global.tag }}"
         imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
@@ -145,7 +200,11 @@
               apiVersion: v1
               fieldPath: status.podIP
         resources:
-{{ toYaml $.Values.global.proxy.resources | indent 12 }}
+{{- if $.Values.global.proxy.resources }}
+{{ toYaml $.Values.global.proxy.resources | indent 10 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | indent 10 }}
+{{- end }}
         volumeMounts:
         - name: istio-certs
           mountPath: /etc/certs
@@ -163,18 +222,23 @@ metadata:
   name: istio-{{ $mname }}
   namespace: {{ $.Release.Namespace }}
   labels:
-    chart: {{ $.Chart.Name }}-{{ $.Chart.Version | replace "+" "_" }}
-    release: {{ $.Release.Name }}
+    app: istio-mixer
     istio: mixer
+    {{- template "common_labels" $ }}
 spec:
   replicas: {{ $.Values.replicaCount }}
   template:
     metadata:
       labels:
+        app: {{ $mname }}
         istio: mixer
         istio-mixer-type: {{ $mname }}
       annotations:
         sidecar.istio.io/inject: "false"
+        scheduler.alpha.kubernetes.io/critical-pod: ""
+{{- with $.Values.podAnnotations }}
+{{ toYaml . | indent 8 }}
+{{- end }}
 {{- if eq $mname "policy"}}
 {{- template "policy_container" $ }}
 {{- else }}

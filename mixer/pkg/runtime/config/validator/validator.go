@@ -41,9 +41,12 @@ type Validator struct {
 
 // NewValidator creates a new store.Validator instance which validates runtime semantics of
 // the configs.
-func NewValidator(tc checker.TypeChecker, identityAttribute string, s store.Store,
+func NewValidator(tc checker.TypeChecker, s store.Store,
 	adapterInfo map[string]*adapter.Info, templateInfo map[string]*template.Info) (store.Validator, error) {
 	kinds := config.KindMap(adapterInfo, templateInfo)
+	if err := s.Init(kinds); err != nil {
+		return nil, err
+	}
 	data, ch, err := store.StartWatch(s, kinds)
 	if err != nil {
 		return nil, err

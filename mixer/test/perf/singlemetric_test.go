@@ -28,11 +28,9 @@ import (
 
 var baseSingleMetricSetup = perf.Setup{
 	Config: perf.Config{
-		Global:                  minimalServiceConfig,
-		Service:                 joinConfigs(h1Noop, i3Metric, r5UsingH1AndI3),
-		IdentityAttribute:       "destination.service",
-		IdentityAttributeDomain: "svc.cluster.local",
-		SingleThreaded:          true,
+		Global:         minimalServiceConfig,
+		Service:        joinConfigs(h1Noop, i3Metric, r5UsingH1AndI3),
+		SingleThreaded: true,
 	},
 
 	Loads: []perf.Load{{

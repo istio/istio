@@ -17,7 +17,7 @@ package runtime
 import (
 	"sync"
 
-	sn "istio.io/istio/galley/pkg/mcp/snapshot"
+	sn "istio.io/istio/pkg/mcp/snapshot"
 )
 
 // Distributor interface allows processor to distribute snapshots of configuration.

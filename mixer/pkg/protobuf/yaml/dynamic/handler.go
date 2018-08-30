@@ -138,7 +138,7 @@ func (h *Handler) connect() (err error) {
 		return errors.WithStack(err)
 	}
 
-	handlerLog.Infof("Connected to:%s %v", h.connConfig.GetAddress(), h.conn)
+	handlerLog.Infof("Connected to: %s", h.connConfig.GetAddress())
 	return nil
 }
 

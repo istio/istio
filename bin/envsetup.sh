@@ -1,11 +1,12 @@
-#!/usr/bin/env bash
+#!/bin/bash
 # Setup and document common environment variables used for building and testing Istio
 # User-specific settings can be added to .istiorc in the project workspace or $HOME/.istiorc
 # This may include dockerhub settings or other customizations.
 
 # Source the file with: ". envsetup.sh"
 
-export TOP=$(cd ../../..; pwd)
+TOP=$(cd ../../.. && pwd)
+export TOP
 
 # Used in the shell scripts.
 export ISTIO_SRC=$TOP
@@ -21,17 +22,19 @@ export TAG=${ISTIO_TAG:-$USER}
 export OUT=${GOPATH}/out
 
 if [ -f .istiorc ] ; then
+  # shellcheck disable=SC1091
   source .istiorc
 fi
 
-if [ -f $HOME/.istiorc ] ; then
-  source $HOME/.istiorc
+if [ -f "$HOME/.istiorc" ] ; then
+  # shellcheck disable=SC1090
+  source "$HOME/.istiorc"
 fi
 
 
 # Runs make at the top of the tree.
 function m() {
-    (cd $TOP; make $*)
+    (cd "$TOP" && make "$@")
 }
 
 # Image used by the circleci, including all tools
@@ -39,14 +42,14 @@ export DOCKER_BUILDER=${DOCKER_BUILDER:-istio/ci:go1.9-k8s1.7.4}
 
 # Runs the Istio docker builder image, using the current workspace and user id.
 function dbuild() {
-  docker run --rm -u $(id -u) -it \
+  docker run --rm -u "$(id -u)" -it \
 	  --volume /var/run/docker.sock:/var/run/docker.sock \
-    -v $TOP:$TOP -w $TOP \
-    -e GID=$(id -g) \
-    -e USER=$USER \
-    -e HOME=$TOP \
+    -v "$TOP:$TOP" -w "$TOP" \
+    -e GID="$(id -g)" \
+    -e USER="$USER" \
+    -e HOME="$TOP" \
     --entrypoint /bin/bash \
-    $DOCKER_BUILDER \
+    "$DOCKER_BUILDER" \
     -c "$*"
 }
 
@@ -65,13 +68,13 @@ function lunch() {
     local env=$1
 
     if [[ -f $HOME/.istio/${env} ]]; then
-        source $HOME/.istio/${env}
+        # shellcheck disable=SC1090
+        source "$HOME/.istio/${env}"
     fi
 
     if [ "$env" == "minikube" ]; then
         export KUBECONFIG=${OUT}/minikube.conf
-        minikube status
-        if [ "$?" != "0" ]  || [ ! -f ${KUBECONFIG} ] ; then
+        if minikube status; then
           minikube start
         fi
     fi

@@ -1,7 +1,6 @@
 ---
 title: Mixer Adapter Model
-description: Definitions used to create adapters and templates
-location: https://istio.io/docs/reference/api/mixer/istio.mixer.adapter.model.v1beta1.html
+description: Definitions used to create adapters and templates.
 layout: protoc-gen-docs
 generator: protoc-gen-docs
 number_of_entries: 17
@@ -446,7 +445,7 @@ If <code>QuotaParams.best_effort</code> is false, this will be either 0 or &gt;=
 <td><code>TEMPLATE_VARIETY_CHECK</code></td>
 <td>
 <p>Makes the template applicable for Mixer&rsquo;s check calls. Instances of such template are created during
-report calls in Mixer and passed to the handlers based on the rule configurations.</p>
+check calls in Mixer and passed to the handlers based on the rule configurations.</p>
 
 </td>
 </tr>
@@ -454,7 +453,7 @@ report calls in Mixer and passed to the handlers based on the rule configuration
 <td><code>TEMPLATE_VARIETY_REPORT</code></td>
 <td>
 <p>Makes the template applicable for Mixer&rsquo;s report calls. Instances of such template are created during
-check calls in Mixer and passed to the handlers based on the rule configurations.</p>
+report calls in Mixer and passed to the handlers based on the rule configurations.</p>
 
 </td>
 </tr>
@@ -471,6 +470,14 @@ quota check calls in Mixer and passed to the handlers based on the rule configur
 <td>
 <p>Makes the template applicable for Mixer&rsquo;s attribute generation phase. Instances of such template are created during
 pre-processing attribute generation phase and passed to the handlers based on the rule configurations.</p>
+
+</td>
+</tr>
+<tr id="TemplateVariety-TEMPLATE_VARIETY_CHECK_WITH_OUTPUT">
+<td><code>TEMPLATE_VARIETY_CHECK_WITH_OUTPUT</code></td>
+<td>
+<p>Makes the template applicable for Mixer&rsquo;s check calls. Instances of such template are created during
+check calls in Mixer and passed to the handlers that produce values.</p>
 
 </td>
 </tr>

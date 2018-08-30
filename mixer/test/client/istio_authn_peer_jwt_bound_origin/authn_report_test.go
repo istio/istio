@@ -12,22 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package istioAuthnPeerJwtBoundOrigin
+package client_test
 
 import (
-	"encoding/base64"
 	"fmt"
 	"testing"
 
 	"istio.io/istio/mixer/test/client/env"
+	"istio.io/istio/mixer/test/client/test_data"
 )
 
 // The Istio authn envoy config
+// nolint
 const authnConfig = `
-{
-  "type": "decoder",
-  "name": "istio_authn",
-  "config": {
+- name: istio_authn
+  config: {
     "policy": {
       "peers": [
         {
@@ -38,32 +37,18 @@ const authnConfig = `
         }
       ],
       "principal_binding": 1
-    },
-    "jwt_output_payload_locations": {
-      "issuer@foo.com": "sec-istio-auth-jwt-output"
     }
   }
-},
 `
 
 const secIstioAuthUserInfoHeaderKey = "sec-istio-auth-jwt-output"
-
-const secIstioAuthUserinfoHeaderValue = `
-{
-  "iss": "issuer@foo.com",
-  "sub": "sub@foo.com",
-  "aud": "aud1",
-  "non-string-will-be-ignored": 1512754205,
-  "some-other-string-claims": "some-claims-kept"
-}
-`
 
 const respExpected = "Origin authentication failed."
 
 func TestAuthnCheckReportAttributesPeerJwtBoundToOrigin(t *testing.T) {
 	s := env.NewTestSetup(env.CheckReportIstioAuthnAttributesTestPeerJwtBoundToOrigin, t)
 	// In the Envoy config, principal_binding binds to origin
-	s.SetFiltersBeforeMixer(authnConfig)
+	s.SetFiltersBeforeMixer(client_test.JwtAuthConfig + authnConfig)
 	// Disable the HotRestart of Envoy
 	s.SetDisableHotRestart(true)
 
@@ -78,10 +63,8 @@ func TestAuthnCheckReportAttributesPeerJwtBoundToOrigin(t *testing.T) {
 	// Issues a GET echo request with 0 size body
 	tag := "OKGet"
 
-	// Add jwt_auth header to be consumed by Istio authn filter
 	headers := map[string]string{}
-	headers[secIstioAuthUserInfoHeaderKey] =
-		base64.StdEncoding.EncodeToString([]byte(secIstioAuthUserinfoHeaderValue))
+	headers["Authorization"] = "Bearer " + client_test.JwtTestToken
 
 	// Principal is binded to origin, but no method specified in origin policy.
 	// The request will be rejected by Istio authn filter.

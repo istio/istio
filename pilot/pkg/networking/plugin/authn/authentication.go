@@ -29,7 +29,6 @@ import (
 	authn "istio.io/api/authentication/v1alpha1"
 	authn_filter "istio.io/api/envoy/config/filter/http/authn/v2alpha1"
 	jwtfilter "istio.io/api/envoy/config/filter/http/jwt_auth/v2alpha1"
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -47,9 +46,6 @@ const (
 	// https://github.com/istio/proxy/blob/master/src/envoy/http/authn/http_filter_factory.cc#L30
 	AuthnFilterName = "istio_authn"
 
-	// Defautl cache duration for JWT public key. This should be moved to a global config.
-	jwtPublicKeyCacheSeconds = 60 * 5
-
 	// EnvoyTLSInspectorFilterName is the name for Envoy TLS sniffing listener filter.
 	EnvoyTLSInspectorFilterName = "envoy.listener.tls_inspector"
 	// EnvoyRawBufferMatch is the transport protocol name when tls multiplexed is used.
@@ -66,41 +62,113 @@ func NewPlugin() plugin.Plugin {
 	return Plugin{}
 }
 
-// RequireTLS returns true and pointer to mTLS params if the policy use mTLS for (peer) authentication.
+// GetMutualTLS returns pointer to mTLS params if the policy use mTLS for (peer) authentication.
 // (note that mTLS params can still be nil). Otherwise, return (false, nil).
-func RequireTLS(policy *authn.Policy) (bool, *authn.MutualTls) {
+// TODO(incfly): remove proxyType parameter and handle the checking from callers.
+func GetMutualTLS(policy *authn.Policy, proxyType model.NodeType) *authn.MutualTls {
 	if policy == nil {
-		return false, nil
+		return nil
 	}
 	if len(policy.Peers) > 0 {
 		for _, method := range policy.Peers {
 			switch method.GetParams().(type) {
 			case *authn.PeerAuthenticationMethod_Mtls:
-				return true, method.GetMtls()
+				if proxyType == model.Sidecar {
+					if method.GetMtls() == nil {
+						return &authn.MutualTls{Mode: authn.MutualTls_STRICT}
+					}
+					return method.GetMtls()
+				}
+				return nil
 			default:
 				continue
 			}
 		}
 	}
-	return false, nil
+	return nil
 }
 
-// JwksURIClusterName returns cluster name for the jwks URI. This should be used
-// to override the name for outbound cluster that are added for Jwks URI so that they
-// can be referred correctly in the JWT filter config.
-func JwksURIClusterName(hostname string, port *model.Port) string {
-	const clusterPrefix = "jwks."
-	const maxClusterNameLength = 189 - len(clusterPrefix)
-	name := hostname + "|" + port.Name
-	if len(name) > maxClusterNameLength {
-		prefix := name[:maxClusterNameLength-sha1.Size*2]
-		sum := sha1.Sum([]byte(name))
-		name = fmt.Sprintf("%s%x", prefix, sum)
+// setupFilterChains sets up filter chains based on authentication policy.
+func setupFilterChains(authnPolicy *authn.Policy) []plugin.FilterChain {
+	if authnPolicy == nil || len(authnPolicy.Peers) == 0 {
+		return nil
 	}
-	return clusterPrefix + name
+	alpnIstioMatch := &ldsv2.FilterChainMatch{
+		ApplicationProtocols: util.ALPNInMesh,
+	}
+	tls := &auth.DownstreamTlsContext{
+		CommonTlsContext: &auth.CommonTlsContext{
+			TlsCertificates: []*auth.TlsCertificate{
+				{
+					CertificateChain: &core.DataSource{
+						Specifier: &core.DataSource_Filename{
+							Filename: model.AuthCertsPath + model.CertChainFilename,
+						},
+					},
+					PrivateKey: &core.DataSource{
+						Specifier: &core.DataSource_Filename{
+							Filename: model.AuthCertsPath + model.KeyFilename,
+						},
+					},
+				},
+			},
+			ValidationContextType: &auth.CommonTlsContext_ValidationContext{
+				ValidationContext: &auth.CertificateValidationContext{
+					TrustedCa: &core.DataSource{
+						Specifier: &core.DataSource_Filename{
+							Filename: model.AuthCertsPath + model.RootCertFilename,
+						},
+					},
+				},
+			},
+			// TODO(incfly): should this be {"istio", "http1.1", "h2"}?
+			// Currently it works: when server is in permissive mode, client sidear can send tls traffic.
+			AlpnProtocols: util.ALPNHttp,
+		},
+		RequireClientCertificate: &types.BoolValue{
+			Value: true,
+		},
+	}
+	mtls := GetMutualTLS(authnPolicy, model.Sidecar)
+	if mtls == nil {
+		return nil
+	}
+	if mtls.GetMode() == authn.MutualTls_STRICT {
+		log.Debug("Allow only istio mutual TLS traffic")
+		return []plugin.FilterChain{
+			{
+				TLSContext: tls,
+			}}
+	}
+	if mtls.GetMode() == authn.MutualTls_PERMISSIVE {
+		log.Debug("Allow both, ALPN istio and legacy traffic")
+		return []plugin.FilterChain{
+			{
+				FilterChainMatch: alpnIstioMatch,
+				TLSContext:       tls,
+				RequiredListenerFilters: []ldsv2.ListenerFilter{
+					{
+						Name:   EnvoyTLSInspectorFilterName,
+						Config: &types.Struct{},
+					},
+				},
+			},
+			{
+				FilterChainMatch: &ldsv2.FilterChainMatch{},
+			},
+		}
+	}
+	return nil
 }
 
-// CollectJwtSpecs returns a list of all JWT specs (ponters) defined the policy. This
+// OnInboundFilterChains setups filter chains based on the authentication policy.
+func (Plugin) OnInboundFilterChains(in *plugin.InputParams) []plugin.FilterChain {
+	port := in.ServiceInstance.Endpoint.ServicePort
+	authnPolicy := model.GetConsolidateAuthenticationPolicy(in.Env.IstioConfigStore, in.ServiceInstance.Service, port)
+	return setupFilterChains(authnPolicy)
+}
+
+// CollectJwtSpecs returns a list of all JWT specs (pointers) defined the policy. This
 // provides a convenient way to iterate all Jwt specs.
 func CollectJwtSpecs(policy *authn.Policy) []*authn.Jwt {
 	ret := []*authn.Jwt{}
@@ -128,7 +196,7 @@ func OutputLocationForJwtIssuer(issuer string) string {
 }
 
 // ConvertPolicyToJwtConfig converts policy into Jwt filter config for envoy.
-func ConvertPolicyToJwtConfig(policy *authn.Policy, useInlinePublicKey bool) *jwtfilter.JwtAuthentication {
+func ConvertPolicyToJwtConfig(policy *authn.Policy) *jwtfilter.JwtAuthentication {
 	policyJwts := CollectJwtSpecs(policy)
 	if len(policyJwts) == 0 {
 		return nil
@@ -151,37 +219,18 @@ func ConvertPolicyToJwtConfig(policy *authn.Policy, useInlinePublicKey bool) *jw
 		}
 		jwt.FromParams = policyJwt.JwtParams
 
-		if useInlinePublicKey {
-			jwtPubKey, err := model.JwtKeyResolver.GetPublicKey(policyJwt.JwksUri)
-			if err != nil {
-				log.Warnf("Failed to fetch jwt public key from %q", policyJwt.JwksUri)
-			}
+		jwtPubKey, err := model.JwtKeyResolver.GetPublicKey(policyJwt.JwksUri)
+		if err != nil {
+			log.Warnf("Failed to fetch jwt public key from %q", policyJwt.JwksUri)
+		}
 
-			// Put empty string in config even if above ResolveJwtPubKey fails.
-			jwt.JwksSourceSpecifier = &jwtfilter.JwtRule_LocalJwks{
-				LocalJwks: &jwtfilter.DataSource{
-					Specifier: &jwtfilter.DataSource_InlineString{
-						InlineString: jwtPubKey,
-					},
+		// Put empty string in config even if above ResolveJwtPubKey fails.
+		jwt.JwksSourceSpecifier = &jwtfilter.JwtRule_LocalJwks{
+			LocalJwks: &jwtfilter.DataSource{
+				Specifier: &jwtfilter.DataSource_InlineString{
+					InlineString: jwtPubKey,
 				},
-			}
-		} else {
-			hostname, port, _, err := model.ParseJwksURI(policyJwt.JwksUri)
-			if err != nil {
-				log.Warnf("Cannot parse jwks_uri %q: %v", policyJwt.JwksUri, err)
-			}
-
-			jwt.JwksSourceSpecifier = &jwtfilter.JwtRule_RemoteJwks{
-				RemoteJwks: &jwtfilter.RemoteJwks{
-					HttpUri: &jwtfilter.HttpUri{
-						Uri: policyJwt.JwksUri,
-						HttpUpstreamType: &jwtfilter.HttpUri_Cluster{
-							Cluster: JwksURIClusterName(hostname, port),
-						},
-					},
-					CacheDuration: &types.Duration{Seconds: jwtPublicKeyCacheSeconds},
-				},
-			}
+			},
 		}
 
 		ret.Rules = append(ret.Rules, jwt)
@@ -190,23 +239,35 @@ func ConvertPolicyToJwtConfig(policy *authn.Policy, useInlinePublicKey bool) *jw
 }
 
 // ConvertPolicyToAuthNFilterConfig returns an authn filter config corresponding for the input policy.
-func ConvertPolicyToAuthNFilterConfig(policy *authn.Policy) *authn_filter.FilterConfig {
+func ConvertPolicyToAuthNFilterConfig(policy *authn.Policy, proxyType model.NodeType) *authn_filter.FilterConfig {
 	if policy == nil || (len(policy.Peers) == 0 && len(policy.Origins) == 0) {
 		return nil
 	}
-	filterConfig := &authn_filter.FilterConfig{
-		Policy: proto.Clone(policy).(*authn.Policy),
-	}
+
+	p := proto.Clone(policy).(*authn.Policy)
 	// Create default mTLS params for params type mTLS but value is nil.
 	// This walks around the issue https://github.com/istio/istio/issues/4763
-	for _, peer := range filterConfig.Policy.Peers {
+	var usedPeers []*authn.PeerAuthenticationMethod
+	for _, peer := range p.Peers {
 		switch peer.GetParams().(type) {
 		case *authn.PeerAuthenticationMethod_Mtls:
-			if peer.GetMtls() == nil {
-				peer.Params = &authn.PeerAuthenticationMethod_Mtls{&authn.MutualTls{}}
+			// Only enable mTLS for sidecar, not Ingress/Router for now.
+			if proxyType == model.Sidecar {
+				if peer.GetMtls() == nil {
+					peer.Params = &authn.PeerAuthenticationMethod_Mtls{&authn.MutualTls{}}
+				}
+				usedPeers = append(usedPeers, peer)
 			}
+		case *authn.PeerAuthenticationMethod_Jwt:
+			usedPeers = append(usedPeers, peer)
 		}
 	}
+
+	p.Peers = usedPeers
+	filterConfig := &authn_filter.FilterConfig{
+		Policy: p,
+	}
+
 	// Remove targets part.
 	filterConfig.Policy.Targets = nil
 	locations := make(map[string]string)
@@ -216,13 +277,18 @@ func ConvertPolicyToAuthNFilterConfig(policy *authn.Policy) *authn_filter.Filter
 	if len(locations) > 0 {
 		filterConfig.JwtOutputPayloadLocations = locations
 	}
+
+	if len(filterConfig.Policy.Peers) == 0 && len(filterConfig.Policy.Origins) == 0 {
+		return nil
+	}
+
 	return filterConfig
 }
 
 // BuildJwtFilter returns a Jwt filter for all Jwt specs in the policy.
 func BuildJwtFilter(policy *authn.Policy) *http_conn.HttpFilter {
 	// v2 api will use inline public key.
-	filterConfigProto := ConvertPolicyToJwtConfig(policy, true /*useInlinePublicKey*/)
+	filterConfigProto := ConvertPolicyToJwtConfig(policy)
 	if filterConfigProto == nil {
 		return nil
 	}
@@ -233,8 +299,8 @@ func BuildJwtFilter(policy *authn.Policy) *http_conn.HttpFilter {
 }
 
 // BuildAuthNFilter returns authn filter for the given policy. If policy is nil, returns nil.
-func BuildAuthNFilter(policy *authn.Policy) *http_conn.HttpFilter {
-	filterConfigProto := ConvertPolicyToAuthNFilterConfig(policy)
+func BuildAuthNFilter(policy *authn.Policy, proxyType model.NodeType) *http_conn.HttpFilter {
+	filterConfigProto := ConvertPolicyToAuthNFilterConfig(policy, proxyType)
 	if filterConfigProto == nil {
 		return nil
 	}
@@ -244,53 +310,19 @@ func BuildAuthNFilter(policy *authn.Policy) *http_conn.HttpFilter {
 	}
 }
 
-// buildSidecarListenerTLSContext adds TLS to the listener if the policy requires one.
-func buildSidecarListenerTLSContext(authenticationPolicy *authn.Policy, match *ldsv2.FilterChainMatch) *auth.DownstreamTlsContext {
-	if match != nil && match.TransportProtocol == EnvoyRawBufferMatch {
-		return nil
-	}
-	if requireTLS, mTLSParams := RequireTLS(authenticationPolicy); requireTLS {
-		return &auth.DownstreamTlsContext{
-			CommonTlsContext: &auth.CommonTlsContext{
-				TlsCertificates: []*auth.TlsCertificate{
-					{
-						CertificateChain: &core.DataSource{
-							Specifier: &core.DataSource_Filename{
-								Filename: model.AuthCertsPath + model.CertChainFilename,
-							},
-						},
-						PrivateKey: &core.DataSource{
-							Specifier: &core.DataSource_Filename{
-								Filename: model.AuthCertsPath + model.KeyFilename,
-							},
-						},
-					},
-				},
-				ValidationContextType: &auth.CommonTlsContext_ValidationContext{
-					ValidationContext: &auth.CertificateValidationContext{
-						TrustedCa: &core.DataSource{
-							Specifier: &core.DataSource_Filename{
-								Filename: model.AuthCertsPath + model.RootCertFilename,
-							},
-						},
-					},
-				},
-				// Same as ListenersALPNProtocols defined in listener. Need to move that constant else where in order to share.
-				AlpnProtocols: []string{"h2", "http/1.1"},
-			},
-			RequireClientCertificate: &types.BoolValue{
-				Value: !(mTLSParams != nil && mTLSParams.AllowTls),
-			},
-		}
-	}
-	return nil
-}
-
 // OnOutboundListener is called whenever a new outbound listener is added to the LDS output for a given service
 // Can be used to add additional filters on the outbound path
 func (Plugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
-	// TODO: implementation
-	return nil
+	if in.ServiceInstance == nil {
+		return nil
+	}
+
+	if in.Node.Type != model.Ingress && in.Node.Type != model.Router {
+		// Only care about ingress and router.
+		return nil
+	}
+
+	return buildFilter(in, mutable)
 }
 
 // OnInboundListener is called whenever a new listener is added to the LDS output for a given service
@@ -301,49 +333,34 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 		// Only care about sidecar.
 		return nil
 	}
+
+	return buildFilter(in, mutable)
+}
+
+func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
 	authnPolicy := model.GetConsolidateAuthenticationPolicy(
-		in.Env.Mesh, in.Env.IstioConfigStore, in.ServiceInstance.Service.Hostname, in.ServiceInstance.Endpoint.ServicePort)
+		in.Env.IstioConfigStore, in.ServiceInstance.Service, in.ServiceInstance.Endpoint.ServicePort)
 
 	if mutable.Listener == nil || (len(mutable.Listener.FilterChains) != len(mutable.FilterChains)) {
 		return fmt.Errorf("expected same number of filter chains in listener (%d) and mutable (%d)", len(mutable.Listener.FilterChains), len(mutable.FilterChains))
 	}
 	for i := range mutable.Listener.FilterChains {
-		chain := &mutable.Listener.FilterChains[i]
-		chain.TlsContext = buildSidecarListenerTLSContext(authnPolicy, chain.FilterChainMatch)
 		if in.ListenerProtocol == plugin.ListenerProtocolHTTP {
 			// Adding Jwt filter and authn filter, if needed.
 			if filter := BuildJwtFilter(authnPolicy); filter != nil {
 				mutable.FilterChains[i].HTTP = append(mutable.FilterChains[i].HTTP, filter)
 			}
-			if filter := BuildAuthNFilter(authnPolicy); filter != nil {
+			if filter := BuildAuthNFilter(authnPolicy, in.Node.Type); filter != nil {
 				mutable.FilterChains[i].HTTP = append(mutable.FilterChains[i].HTTP, filter)
 			}
 		}
 	}
+
 	return nil
 }
 
-// RequireTLSMultiplexing returns true if any one of MTLS mode is `PERMISSIVE`.
-func (Plugin) RequireTLSMultiplexing(mesh *meshconfig.MeshConfig, store model.IstioConfigStore, hostname model.Hostname, port *model.Port) bool {
-	authnPolicy := model.GetConsolidateAuthenticationPolicy(mesh, store, hostname, port)
-	if authnPolicy == nil || len(authnPolicy.Peers) == 0 {
-		return false
-	}
-	for _, method := range authnPolicy.Peers {
-		switch method.GetParams().(type) {
-		case *authn.PeerAuthenticationMethod_Mtls:
-			if method.GetMtls().GetMode() == authn.MutualTls_PERMISSIVE {
-				return true
-			}
-		default:
-			continue
-		}
-	}
-	return false
-}
-
 // OnInboundCluster implements the Plugin interface method.
-func (Plugin) OnInboundCluster(env model.Environment, node model.Proxy, service *model.Service,
+func (Plugin) OnInboundCluster(env *model.Environment, node *model.Proxy, push *model.PushContext, service *model.Service,
 	servicePort *model.Port, cluster *xdsapi.Cluster) {
 }
 
@@ -356,6 +373,6 @@ func (Plugin) OnInboundRouteConfiguration(in *plugin.InputParams, route *xdsapi.
 }
 
 // OnOutboundCluster implements the Plugin interface method.
-func (Plugin) OnOutboundCluster(env model.Environment, node model.Proxy, service *model.Service,
+func (Plugin) OnOutboundCluster(env *model.Environment, push *model.PushContext, service *model.Service,
 	servicePort *model.Port, cluster *xdsapi.Cluster) {
 }

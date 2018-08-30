@@ -57,6 +57,8 @@ services:
         aliases:
           - istio-pilot
     expose:
+      - "15003"
+      - "15005"
       - "15007"
     ports:
       - "8081:15007"

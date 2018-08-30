@@ -44,19 +44,19 @@ $(ISTIO_DOCKER)/js $(ISTIO_DOCKER)/force: addons/servicegraph/$$(notdir $$@) | $
 $(ISTIO_DOCKER)/istio_ca.crt $(ISTIO_DOCKER)/istio_ca.key: ${GEN_CERT} | ${ISTIO_DOCKER}
 	${GEN_CERT} --key-size=2048 --out-cert=${ISTIO_DOCKER}/istio_ca.crt \
                     --out-priv=${ISTIO_DOCKER}/istio_ca.key --organization="k8s.cluster.local" \
-                    --self-signed=true --ca=true
+                    --mode=self-signed --ca=true
 $(ISTIO_DOCKER)/node_agent.crt $(ISTIO_DOCKER)/node_agent.key: ${GEN_CERT} $(ISTIO_DOCKER)/istio_ca.crt $(ISTIO_DOCKER)/istio_ca.key
 	${GEN_CERT} --key-size=2048 --out-cert=${ISTIO_DOCKER}/node_agent.crt \
                     --out-priv=${ISTIO_DOCKER}/node_agent.key --organization="NodeAgent" \
-                    --host="nodeagent.google.com" --signer-cert=${ISTIO_DOCKER}/istio_ca.crt \
+										--mode=signer --host="nodeagent.google.com" --signer-cert=${ISTIO_DOCKER}/istio_ca.crt \
                     --signer-priv=${ISTIO_DOCKER}/istio_ca.key
 
 # directives to copy files to docker scratch directory
 
 # tell make which files are copied form go/out
-DOCKER_FILES_FROM_ISTIO_OUT:=pilot-test-client pilot-test-server pilot-test-eurekamirror \
+DOCKER_FILES_FROM_ISTIO_OUT:=pilot-test-client pilot-test-server \
                              pilot-discovery pilot-agent sidecar-injector servicegraph mixs \
-                             istio_ca node_agent gals
+                             istio_ca node_agent galley
 $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT), \
         $(eval $(ISTIO_DOCKER)/$(FILE): $(ISTIO_OUT)/$(FILE) | $(ISTIO_DOCKER); cp $$< $$(@D)))
 
@@ -65,7 +65,7 @@ $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT), \
 # 	cp $$< $$(@D))
 
 # tell make which files are copied from the source tree
-DOCKER_FILES_FROM_SOURCE:=tools/deb/istio-iptables.sh docker/ca-certificates.tgz tools/deb/envoy_bootstrap_tmpl.json \
+DOCKER_FILES_FROM_SOURCE:=tools/deb/istio-iptables.sh docker/ca-certificates.tgz \
                           $(NODE_AGENT_TEST_FILES) $(GRAFANA_FILES) \
                           pilot/docker/certs/cert.crt pilot/docker/certs/cert.key pilot/docker/certs/cacert.pem
 $(foreach FILE,$(DOCKER_FILES_FROM_SOURCE), \
@@ -73,29 +73,13 @@ $(foreach FILE,$(DOCKER_FILES_FROM_SOURCE), \
 
 # pilot docker imagesDOCKER_BUILD_TOP
 
-docker.eurekamirror: $(ISTIO_DOCKER)/pilot-test-eurekamirror
 docker.proxy_init: $(ISTIO_DOCKER)/istio-iptables.sh
 docker.sidecar_injector: $(ISTIO_DOCKER)/sidecar-injector
 
-docker.proxy: tools/deb/envoy_bootstrap_tmpl.json
-docker.proxy: ${ISTIO_ENVOY_RELEASE_PATH}
-docker.proxy: $(ISTIO_OUT)/pilot-agent
-docker.proxy: pilot/docker/${DOCKER_PROXY_CFG}
-docker.proxy: pilot/docker/envoy_pilot.yaml.tmpl
-docker.proxy: pilot/docker/envoy_policy.yaml.tmpl
-docker.proxy: pilot/docker/envoy_telemetry.yaml.tmpl
-	mkdir -p $(DOCKER_BUILD_TOP)/proxy
-	# Not using $^ to avoid 2 copies of envoy
-	cp tools/deb/envoy_bootstrap_tmpl.json $(ISTIO_OUT)/pilot-agent pilot/docker/${DOCKER_PROXY_CFG} $(DOCKER_BUILD_TOP)/proxy/
-	cp pilot/docker/*.yaml.tmpl $(DOCKER_BUILD_TOP)/proxy/
-	cp ${ISTIO_ENVOY_RELEASE_PATH} $(DOCKER_BUILD_TOP)/proxy/envoy
-	time (cd $(DOCKER_BUILD_TOP)/proxy && \
-		docker build -t $(HUB)/proxy:$(TAG) -f ${DOCKER_PROXY_CFG} .)
-
-docker.proxy_debug: tools/deb/envoy_bootstrap_tmpl.json
+docker.proxy_debug: tools/deb/envoy_bootstrap_v2.json
 docker.proxy_debug: ${ISTIO_ENVOY_DEBUG_PATH}
 docker.proxy_debug: $(ISTIO_OUT)/pilot-agent
-docker.proxy_debug: pilot/docker/Dockerfile.proxy_debug
+docker.proxy_debug: pilot/docker/Dockerfile.proxyv2
 docker.proxy_debug: pilot/docker/envoy_pilot.yaml.tmpl
 docker.proxy_debug: pilot/docker/envoy_policy.yaml.tmpl
 docker.proxy_debug: pilot/docker/envoy_telemetry.yaml.tmpl
@@ -103,19 +87,19 @@ docker.proxy_debug: pilot/docker/envoy_telemetry.yaml.tmpl
 	cp ${ISTIO_ENVOY_DEBUG_PATH} $(DOCKER_BUILD_TOP)/proxyd/envoy
 	cp pilot/docker/*.yaml.tmpl $(DOCKER_BUILD_TOP)/proxyd/
 	# Not using $^ to avoid 2 copies of envoy
-	cp tools/deb/envoy_bootstrap_tmpl.json $(ISTIO_OUT)/pilot-agent pilot/docker/Dockerfile.proxy_debug $(DOCKER_BUILD_TOP)/proxyd/
+	cp tools/deb/envoy_bootstrap_v2.json tools/deb/istio-iptables.sh $(ISTIO_OUT)/pilot-agent pilot/docker/Dockerfile.proxyv2 $(DOCKER_BUILD_TOP)/proxyd/
 	time (cd $(DOCKER_BUILD_TOP)/proxyd && \
-		docker build -t $(HUB)/proxy_debug:$(TAG) -f Dockerfile.proxy_debug .)
+		docker build \
+		  --build-arg proxy_version=istio-proxy:${PROXY_REPO_SHA} \
+		  --build-arg istio_version=${VERSION} \
+		-t $(HUB)/proxy_debug:$(TAG) -f Dockerfile.proxyv2 .)
 
 # The file must be named 'envoy', depends on the release.
 ${ISTIO_ENVOY_RELEASE_DIR}/envoy: ${ISTIO_ENVOY_RELEASE_PATH}
 	mkdir -p $(DOCKER_BUILD_TOP)/proxyv2
 	cp ${ISTIO_ENVOY_RELEASE_PATH} ${ISTIO_ENVOY_RELEASE_DIR}/envoy
 
-# Target to build a proxy image with v2 interfaces enabled. Partial implementation, but
-# will scale better and have v2-specific features. Not built automatically until it passes
-# all tests. Developers working on v2 are currently expected to call this manually as
-# make docker.proxyv2; docker push ${HUB}/proxy:${TAG}
+# Default proxy image.
 docker.proxyv2: tools/deb/envoy_bootstrap_v2.json
 docker.proxyv2: $(ISTIO_ENVOY_RELEASE_DIR)/envoy
 docker.proxyv2: $(ISTIO_OUT)/pilot-agent
@@ -127,7 +111,30 @@ docker.proxyv2: pilot/docker/envoy_telemetry.yaml.tmpl
 	mkdir -p $(DOCKER_BUILD_TOP)/proxyv2
 	cp $^ $(DOCKER_BUILD_TOP)/proxyv2/
 	time (cd $(DOCKER_BUILD_TOP)/proxyv2 && \
-		docker build -t $(HUB)/proxyv2:$(TAG) -f Dockerfile.proxyv2 .)
+		docker build  \
+		  --build-arg proxy_version=istio-proxy:${PROXY_REPO_SHA} \
+		  --build-arg istio_version=${VERSION} \
+		-t $(HUB)/proxyv2:$(TAG) -f Dockerfile.proxyv2 .)
+
+# Proxy using TPROXY interception - but no core dumps
+docker.proxytproxy: tools/deb/envoy_bootstrap_v2.json
+docker.proxytproxy: $(ISTIO_ENVOY_RELEASE_DIR)/envoy
+docker.proxytproxy: $(ISTIO_OUT)/pilot-agent
+docker.proxytproxy: pilot/docker/Dockerfile.proxytproxy
+docker.proxytproxy: pilot/docker/envoy_pilot.yaml.tmpl
+docker.proxytproxy: pilot/docker/envoy_policy.yaml.tmpl
+docker.proxytproxy: tools/deb/istio-iptables.sh
+docker.proxytproxy: pilot/docker/envoy_telemetry.yaml.tmpl
+	mkdir -p $(DOCKER_BUILD_TOP)/proxyv2
+	cp $^ $(DOCKER_BUILD_TOP)/proxyv2/
+	time (cd $(DOCKER_BUILD_TOP)/proxyv2 && \
+		docker build  \
+		  --build-arg proxy_version=istio-proxy:${PROXY_REPO_SHA} \
+		  --build-arg istio_version=${VERSION} \
+		-t $(HUB)/proxytproxy:$(TAG) -f Dockerfile.proxytproxy .)
+
+push.proxytproxy: docker.proxytproxy
+	docker push $(HUB)/proxytproxy:$(TAG)
 
 docker.pilot: $(ISTIO_OUT)/pilot-discovery pilot/docker/certs/cacert.pem pilot/docker/Dockerfile.pilot
 	mkdir -p $(ISTIO_DOCKER)/pilot
@@ -157,8 +164,7 @@ docker.test_policybackend: $(ISTIO_OUT)/mixer-test-policybackend \
 	time (cd $(ISTIO_DOCKER)/test_policybackend && \
 		docker build -t $(HUB)/test_policybackend:$(TAG) -f Dockerfile.test_policybackend .)
 
-PILOT_DOCKER:=docker.eurekamirror \
-              docker.proxy_init docker.sidecar_injector
+PILOT_DOCKER:=docker.proxy_init docker.sidecar_injector
 $(PILOT_DOCKER): pilot/docker/Dockerfile$$(suffix $$@) | $(ISTIO_DOCKER)
 	$(DOCKER_RULE)
 
@@ -179,7 +185,7 @@ $(MIXER_DOCKER): mixer/docker/Dockerfile$$(suffix $$@) \
 # galley docker images
 
 GALLEY_DOCKER:=docker.galley
-$(GALLEY_DOCKER): galley/docker/Dockerfile$$(suffix $$@) $(ISTIO_DOCKER)/gals | $(ISTIO_DOCKER)
+$(GALLEY_DOCKER): galley/docker/Dockerfile$$(suffix $$@) $(ISTIO_DOCKER)/galley | $(ISTIO_DOCKER)
 	$(DOCKER_RULE)
 
 # security docker images
@@ -201,7 +207,7 @@ $(foreach FILE,$(GRAFANA_FILES),$(eval docker.grafana: $(ISTIO_DOCKER)/$(notdir 
 docker.grafana: addons/grafana/Dockerfile$$(suffix $$@) $(GRAFANA_FILES) $(ISTIO_DOCKER)/dashboards
 	$(DOCKER_RULE)
 
-DOCKER_TARGETS:=docker.pilot docker.proxy docker.proxy_debug docker.proxyv2 docker.app docker.test_policybackend $(PILOT_DOCKER) $(SERVICEGRAPH_DOCKER) $(MIXER_DOCKER) $(SECURITY_DOCKER) docker.grafana $(GALLEY_DOCKER)
+DOCKER_TARGETS:=docker.pilot docker.proxy_debug docker.proxyv2 docker.app docker.test_policybackend $(PILOT_DOCKER) $(SERVICEGRAPH_DOCKER) $(MIXER_DOCKER) $(SECURITY_DOCKER) docker.grafana $(GALLEY_DOCKER)
 
 DOCKER_RULE=time (cp $< $(ISTIO_DOCKER)/ && cd $(ISTIO_DOCKER) && \
             docker build -t $(HUB)/$(subst docker.,,$@):$(TAG) -f Dockerfile$(suffix $@) .)

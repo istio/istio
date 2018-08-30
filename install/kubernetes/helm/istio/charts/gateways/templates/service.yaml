@@ -1,6 +1,6 @@
-{{- range $key, $spec := .Values -}}
-{{- if and (ne $key "global") (ne $key "enabled") -}}
-{{- if $spec.enabled -}}
+{{- range $key, $spec := .Values }}
+{{- if and (ne $key "global") (ne $key "enabled") }}
+{{- if $spec.enabled }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -8,7 +8,7 @@ metadata:
   namespace: {{ $spec.namespace | default $.Release.Namespace }}
   annotations:
     {{- range $key, $val := $spec.serviceAnnotations }}
-    {{ $key }}: {{ $val }}
+    {{ $key }}: {{ $val | quote }}
     {{- end }}
   labels:
     chart: {{ $.Chart.Name }}-{{ $.Chart.Version | replace "+" "_" }}
@@ -20,6 +20,10 @@ metadata:
 spec:
 {{- if $spec.loadBalancerIP }}
   loadBalancerIP: "{{ $spec.loadBalancerIP }}"
+{{- end }}
+{{- if $spec.loadBalancerSourceRanges }}
+  loadBalancerSourceRanges:
+{{ toYaml $spec.loadBalancerSourceRanges | indent 4 }}
 {{- end }}
   type: {{ .type }}
   selector:
@@ -34,6 +38,6 @@ spec:
       {{- end }}
     {{- end }}
 ---
-{{ end }}
-{{ end }}
-{{ end }}
+{{- end }}
+{{- end }}
+{{- end }}

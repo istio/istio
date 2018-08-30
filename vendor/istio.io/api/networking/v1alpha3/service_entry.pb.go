@@ -230,7 +230,7 @@ func (ServiceEntry_Resolution) EnumDescriptor() ([]byte, []int) {
 //   resolution: DNS
 // ```
 //
-// Define a gateway to to handle all egress traffic.
+// Define a gateway to handle all egress traffic.
 //
 // ```yaml
 // apiVersion: networking.istio.io/v1alpha3
@@ -247,6 +247,7 @@ func (ServiceEntry_Resolution) EnumDescriptor() ([]byte, []int) {
 //      protocol: HTTP
 //    hosts:
 //    - "*"
+// ```
 //
 // And the associated VirtualService to route from the sidecar to the
 // gateway service (istio-egressgateway.istio-system.svc.cluster.local), as
@@ -301,26 +302,27 @@ func (ServiceEntry_Resolution) EnumDescriptor() ([]byte, []int) {
 //   resolution: NONE
 // ```
 //
-//
 // The following example demonstrates a service that is available via a
 // Unix Domain Socket on the host of the client. The resolution must be
 // set to STATIC to use unix address endpoints.
 //
-//     apiVersion: networking.istio.io/v1alpha3
-//     kind: ServiceEntry
-//     metadata:
-//       name: unix-domain-socket-example
-//     spec:
-//       hosts:
-//       - "example.unix.local"
-//       location: MESH_EXTERNAL
-//       ports:
-//       - number: 80
-//         name: http
-//         protocol: HTTP
-//       resolution: STATIC
-//       endpoints:
-//       - address: unix:///var/run/example/socket
+// ```yaml
+// apiVersion: networking.istio.io/v1alpha3
+// kind: ServiceEntry
+// metadata:
+//   name: unix-domain-socket-example
+// spec:
+//   hosts:
+//   - "example.unix.local"
+//   location: MESH_EXTERNAL
+//   ports:
+//   - number: 80
+//     name: http
+//     protocol: HTTP
+//   resolution: STATIC
+//   endpoints:
+//   - address: unix:///var/run/example/socket
+// ```
 //
 // For HTTP based services, it is possible to create a VirtualService
 // backed by multiple DNS addressable endpoints. In such a scenario, the
@@ -374,7 +376,7 @@ type ServiceEntry struct {
 	// the destination will be identified based on the HTTP Host/Authority
 	// header. For non-HTTP protocols such as mongo/opaque TCP/even HTTPS,
 	// the hosts will be ignored. If one or more IP addresses are specified,
-	// the incoming traffic will be idenfified as belonging to this service
+	// the incoming traffic will be identified as belonging to this service
 	// if the destination IP matches the IP/CIDRs specified in the addresses
 	// field. If the Addresses field is empty, traffic will be identified
 	// solely based on the destination port. In such scenarios, the port on
@@ -391,8 +393,10 @@ type ServiceEntry struct {
 	// Specify whether the service should be considered external to the mesh
 	// or part of the mesh.
 	Location ServiceEntry_Location `protobuf:"varint,4,opt,name=location,proto3,enum=istio.networking.v1alpha3.ServiceEntry_Location" json:"location,omitempty"`
-	// Service discovery mode for the hosts. If not set, Istio will attempt
-	// to infer the discovery mode based on the value of hosts and endpoints.
+	// REQUIRED: Service discovery mode for the hosts. Care must be taken
+	// when setting the resolution mode to NONE for a TCP port without
+	// accompanying IP addresses. In such cases, traffic to any IP on
+	// said port will be allowed (i.e. 0.0.0.0:<port>).
 	Resolution ServiceEntry_Resolution `protobuf:"varint,5,opt,name=resolution,proto3,enum=istio.networking.v1alpha3.ServiceEntry_Resolution" json:"resolution,omitempty"`
 	// One or more endpoints associated with the service.
 	Endpoints []*ServiceEntry_Endpoint `protobuf:"bytes,6,rep,name=endpoints" json:"endpoints,omitempty"`

@@ -29,7 +29,7 @@ func TestDispatchStatePool(t *testing.T) {
 	dest := &routing.Destination{}
 	ctx := context.TODO()
 
-	d := New("", nil, false)
+	d := New(nil, false)
 
 	// Prime the pool
 	states := make([]*dispatchState, 100)

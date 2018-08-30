@@ -53,9 +53,7 @@ Istio is composed of these components:
 
 - **Node Agent** - A per-node component responsible for certificate issuance and rotation.
 
-- **Broker** - A component implementing the [Open Service Broker API](https://github.com/openservicebrokerapi/servicebroker) for Istio-based services. (Under development)
-
-Istio currently supports Kubernetes, Consul, and Eureka-based environments. We plan support for additional platforms such as
+Istio currently supports Kubernetes and Consul-based environments. We plan support for additional platforms such as
 Cloud Foundry, and Mesos in the near future.
 
 ## Repositories
@@ -80,8 +78,6 @@ contains code to enforce various policies for traffic passing through the
 proxies, and collect telemetry data from proxies and services. There
 are plugins for interfacing with various cloud platforms, policy
 management services, and monitoring services.
-  - [broker](broker/). This directory
-contains code for Istio's implementation of the Open Service Broker API.
 
 - [istio/api](https://github.com/istio/api). This repository defines
 component-level APIs and common configuration formats for the Istio platform.

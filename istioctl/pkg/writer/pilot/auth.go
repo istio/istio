@@ -43,8 +43,7 @@ func (t *TLSCheckWriter) setupTLSCheckPrint(authDebug []byte) (*tabwriter.Writer
 		}
 		return dat[i].Host < dat[j].Host
 	})
-	w := new(tabwriter.Writer)
-	w.Init(t.Writer, 0, 8, 5, '\t', 0)
+	w := new(tabwriter.Writer).Init(t.Writer, 0, 8, 5, ' ', 0)
 	fmt.Fprintln(w, "HOST:PORT\tSTATUS\tSERVER\tCLIENT\tAUTHN POLICY\tDESTINATION RULE")
 	return w, dat, nil
 }
@@ -80,7 +79,7 @@ func tlsCheckPrintln(w io.Writer, entry v2.AuthenticationDebug) {
 	if entry.Host == "" {
 		return
 	}
-	host := fmt.Sprintf("%s:%5d", entry.Host, entry.Port)
+	host := fmt.Sprintf("%s:%d", entry.Host, entry.Port)
 	fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n", host, entry.TLSConflictStatus,
 		entry.ServerProtocol, entry.ClientProtocol,
 		entry.AuthenticationPolicyName, entry.DestinationRuleName)

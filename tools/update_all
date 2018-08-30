@@ -1,4 +1,4 @@
-#! /bin/bash
+#!/bin/bash
 # update and rebuild from source
 set -e
 set -x
@@ -8,6 +8,6 @@ bazel build -c opt mixer/cmd/mixs:mixs
 cd ../proxy
 git pull
 bazel build -c opt src/envoy/mixer:envoy
-go get -u istio.io/fortio
+go get -u fortio.org/fortio
 set +x
 echo "### All done... source istio/tools/setup_run   now"

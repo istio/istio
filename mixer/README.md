@@ -1,5 +1,4 @@
 # Mixer
-![Mixer](doc/img/logo.png)
 
 Mixer enables extensible policy enforcement and control within the Istio service
 mesh. It is responsible for insulating the proxy (Envoy) from details of the
@@ -22,13 +21,13 @@ Mixer provides three distinct features:
   as for its consumers.
 
 Learn more about Mixer
-[here](https://istio.io/docs/concepts/policy-and-control/mixer.html).
+[here](https://istio.io/docs/concepts/policies-and-telemetry/).
 
 Mixer's 
 [Adapter Developer's Guide](https://github.com/istio/istio/wiki/Mixer-Adapter-Dev-Guide) 
 presents everything you need to know about extending Mixer to provide support 
 for new backends through the development of new
-[adapters](https://istio.io/docs/concepts/policy-and-control/mixer.html#adapters).
+[adapters](https://istio.io/docs/concepts/policies-and-telemetry/#adapters).
 
 Mixer's 
 [Template Developer's Guide](https://github.com/istio/istio/wiki/Mixer-Template-Dev-Guide) 

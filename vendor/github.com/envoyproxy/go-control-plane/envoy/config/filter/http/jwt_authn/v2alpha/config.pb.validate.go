@@ -34,15 +34,16 @@ var (
 	_ = types.DynamicAny{}
 )
 
-// Validate checks the field values on JwtRule with the rules defined in the
-// proto definition for this message. If any rules are violated, an error is returned.
-func (m *JwtRule) Validate() error {
+// Validate checks the field values on JwtProvider with the rules defined in
+// the proto definition for this message. If any rules are violated, an error
+// is returned.
+func (m *JwtProvider) Validate() error {
 	if m == nil {
 		return nil
 	}
 
 	if len(m.GetIssuer()) < 1 {
-		return JwtRuleValidationError{
+		return JwtProviderValidationError{
 			Field:  "Issuer",
 			Reason: "value length must be at least 1 bytes",
 		}
@@ -53,9 +54,11 @@ func (m *JwtRule) Validate() error {
 	for idx, item := range m.GetFromHeaders() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(item).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
-				return JwtRuleValidationError{
+				return JwtProviderValidationError{
 					Field:  fmt.Sprintf("FromHeaders[%v]", idx),
 					Reason: "embedded message failed validation",
 					Cause:  err,
@@ -69,11 +72,13 @@ func (m *JwtRule) Validate() error {
 
 	switch m.JwksSourceSpecifier.(type) {
 
-	case *JwtRule_RemoteJwks:
+	case *JwtProvider_RemoteJwks:
 
-		if v, ok := interface{}(m.GetRemoteJwks()).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(m.GetRemoteJwks()).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
-				return JwtRuleValidationError{
+				return JwtProviderValidationError{
 					Field:  "RemoteJwks",
 					Reason: "embedded message failed validation",
 					Cause:  err,
@@ -81,11 +86,13 @@ func (m *JwtRule) Validate() error {
 			}
 		}
 
-	case *JwtRule_LocalJwks:
+	case *JwtProvider_LocalJwks:
 
-		if v, ok := interface{}(m.GetLocalJwks()).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(m.GetLocalJwks()).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
-				return JwtRuleValidationError{
+				return JwtProviderValidationError{
 					Field:  "LocalJwks",
 					Reason: "embedded message failed validation",
 					Cause:  err,
@@ -94,7 +101,7 @@ func (m *JwtRule) Validate() error {
 		}
 
 	default:
-		return JwtRuleValidationError{
+		return JwtProviderValidationError{
 			Field:  "JwksSourceSpecifier",
 			Reason: "value is required",
 		}
@@ -104,9 +111,9 @@ func (m *JwtRule) Validate() error {
 	return nil
 }
 
-// JwtRuleValidationError is the validation error returned by JwtRule.Validate
-// if the designated constraints aren't met.
-type JwtRuleValidationError struct {
+// JwtProviderValidationError is the validation error returned by
+// JwtProvider.Validate if the designated constraints aren't met.
+type JwtProviderValidationError struct {
 	Field  string
 	Reason string
 	Cause  error
@@ -114,7 +121,7 @@ type JwtRuleValidationError struct {
 }
 
 // Error satisfies the builtin error interface
-func (e JwtRuleValidationError) Error() string {
+func (e JwtProviderValidationError) Error() string {
 	cause := ""
 	if e.Cause != nil {
 		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
@@ -126,14 +133,14 @@ func (e JwtRuleValidationError) Error() string {
 	}
 
 	return fmt.Sprintf(
-		"invalid %sJwtRule.%s: %s%s",
+		"invalid %sJwtProvider.%s: %s%s",
 		key,
 		e.Field,
 		e.Reason,
 		cause)
 }
 
-var _ error = JwtRuleValidationError{}
+var _ error = JwtProviderValidationError{}
 
 // Validate checks the field values on RemoteJwks with the rules defined in the
 // proto definition for this message. If any rules are violated, an error is returned.
@@ -142,7 +149,9 @@ func (m *RemoteJwks) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetHttpUri()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetHttpUri()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return RemoteJwksValidationError{
 				Field:  "HttpUri",
@@ -152,7 +161,9 @@ func (m *RemoteJwks) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetCacheDuration()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetCacheDuration()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return RemoteJwksValidationError{
 				Field:  "CacheDuration",
@@ -246,21 +257,113 @@ func (e JwtHeaderValidationError) Error() string {
 
 var _ error = JwtHeaderValidationError{}
 
-// Validate checks the field values on JwtAuthentication with the rules defined
-// in the proto definition for this message. If any rules are violated, an
-// error is returned.
-func (m *JwtAuthentication) Validate() error {
+// Validate checks the field values on ProviderWithAudiences with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, an error is returned.
+func (m *ProviderWithAudiences) Validate() error {
 	if m == nil {
 		return nil
 	}
 
-	for idx, item := range m.GetRules() {
-		_, _ = idx, item
+	// no validation rules for ProviderName
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+	return nil
+}
+
+// ProviderWithAudiencesValidationError is the validation error returned by
+// ProviderWithAudiences.Validate if the designated constraints aren't met.
+type ProviderWithAudiencesValidationError struct {
+	Field  string
+	Reason string
+	Cause  error
+	Key    bool
+}
+
+// Error satisfies the builtin error interface
+func (e ProviderWithAudiencesValidationError) Error() string {
+	cause := ""
+	if e.Cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
+	}
+
+	key := ""
+	if e.Key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sProviderWithAudiences.%s: %s%s",
+		key,
+		e.Field,
+		e.Reason,
+		cause)
+}
+
+var _ error = ProviderWithAudiencesValidationError{}
+
+// Validate checks the field values on JwtRequirement with the rules defined in
+// the proto definition for this message. If any rules are violated, an error
+// is returned.
+func (m *JwtRequirement) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	switch m.RequiresType.(type) {
+
+	case *JwtRequirement_ProviderName:
+		// no validation rules for ProviderName
+
+	case *JwtRequirement_ProviderAndAudiences:
+
+		if v, ok := interface{}(m.GetProviderAndAudiences()).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
-				return JwtAuthenticationValidationError{
-					Field:  fmt.Sprintf("Rules[%v]", idx),
+				return JwtRequirementValidationError{
+					Field:  "ProviderAndAudiences",
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
+	case *JwtRequirement_RequiresAny:
+
+		if v, ok := interface{}(m.GetRequiresAny()).(interface {
+			Validate() error
+		}); ok {
+			if err := v.Validate(); err != nil {
+				return JwtRequirementValidationError{
+					Field:  "RequiresAny",
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
+	case *JwtRequirement_RequiresAll:
+
+		if v, ok := interface{}(m.GetRequiresAll()).(interface {
+			Validate() error
+		}); ok {
+			if err := v.Validate(); err != nil {
+				return JwtRequirementValidationError{
+					Field:  "RequiresAll",
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
+	case *JwtRequirement_AllowMissingOrFailed:
+
+		if v, ok := interface{}(m.GetAllowMissingOrFailed()).(interface {
+			Validate() error
+		}); ok {
+			if err := v.Validate(); err != nil {
+				return JwtRequirementValidationError{
+					Field:  "AllowMissingOrFailed",
 					Reason: "embedded message failed validation",
 					Cause:  err,
 				}
@@ -269,15 +372,264 @@ func (m *JwtAuthentication) Validate() error {
 
 	}
 
-	// no validation rules for AllowMissingOrFailed
+	return nil
+}
 
-	for idx, item := range m.GetBypass() {
+// JwtRequirementValidationError is the validation error returned by
+// JwtRequirement.Validate if the designated constraints aren't met.
+type JwtRequirementValidationError struct {
+	Field  string
+	Reason string
+	Cause  error
+	Key    bool
+}
+
+// Error satisfies the builtin error interface
+func (e JwtRequirementValidationError) Error() string {
+	cause := ""
+	if e.Cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
+	}
+
+	key := ""
+	if e.Key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sJwtRequirement.%s: %s%s",
+		key,
+		e.Field,
+		e.Reason,
+		cause)
+}
+
+var _ error = JwtRequirementValidationError{}
+
+// Validate checks the field values on JwtRequirementOrList with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, an error is returned.
+func (m *JwtRequirementOrList) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	if len(m.GetRequirements()) < 2 {
+		return JwtRequirementOrListValidationError{
+			Field:  "Requirements",
+			Reason: "value must contain at least 2 item(s)",
+		}
+	}
+
+	for idx, item := range m.GetRequirements() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(item).(interface {
+			Validate() error
+		}); ok {
+			if err := v.Validate(); err != nil {
+				return JwtRequirementOrListValidationError{
+					Field:  fmt.Sprintf("Requirements[%v]", idx),
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
+	}
+
+	return nil
+}
+
+// JwtRequirementOrListValidationError is the validation error returned by
+// JwtRequirementOrList.Validate if the designated constraints aren't met.
+type JwtRequirementOrListValidationError struct {
+	Field  string
+	Reason string
+	Cause  error
+	Key    bool
+}
+
+// Error satisfies the builtin error interface
+func (e JwtRequirementOrListValidationError) Error() string {
+	cause := ""
+	if e.Cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
+	}
+
+	key := ""
+	if e.Key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sJwtRequirementOrList.%s: %s%s",
+		key,
+		e.Field,
+		e.Reason,
+		cause)
+}
+
+var _ error = JwtRequirementOrListValidationError{}
+
+// Validate checks the field values on JwtRequirementAndList with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, an error is returned.
+func (m *JwtRequirementAndList) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	if len(m.GetRequirements()) < 2 {
+		return JwtRequirementAndListValidationError{
+			Field:  "Requirements",
+			Reason: "value must contain at least 2 item(s)",
+		}
+	}
+
+	for idx, item := range m.GetRequirements() {
+		_, _ = idx, item
+
+		if v, ok := interface{}(item).(interface {
+			Validate() error
+		}); ok {
+			if err := v.Validate(); err != nil {
+				return JwtRequirementAndListValidationError{
+					Field:  fmt.Sprintf("Requirements[%v]", idx),
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
+	}
+
+	return nil
+}
+
+// JwtRequirementAndListValidationError is the validation error returned by
+// JwtRequirementAndList.Validate if the designated constraints aren't met.
+type JwtRequirementAndListValidationError struct {
+	Field  string
+	Reason string
+	Cause  error
+	Key    bool
+}
+
+// Error satisfies the builtin error interface
+func (e JwtRequirementAndListValidationError) Error() string {
+	cause := ""
+	if e.Cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
+	}
+
+	key := ""
+	if e.Key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sJwtRequirementAndList.%s: %s%s",
+		key,
+		e.Field,
+		e.Reason,
+		cause)
+}
+
+var _ error = JwtRequirementAndListValidationError{}
+
+// Validate checks the field values on RequirementRule with the rules defined
+// in the proto definition for this message. If any rules are violated, an
+// error is returned.
+func (m *RequirementRule) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	if m.GetMatch() == nil {
+		return RequirementRuleValidationError{
+			Field:  "Match",
+			Reason: "value is required",
+		}
+	}
+
+	if v, ok := interface{}(m.GetMatch()).(interface {
+		Validate() error
+	}); ok {
+		if err := v.Validate(); err != nil {
+			return RequirementRuleValidationError{
+				Field:  "Match",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
+	if v, ok := interface{}(m.GetRequires()).(interface {
+		Validate() error
+	}); ok {
+		if err := v.Validate(); err != nil {
+			return RequirementRuleValidationError{
+				Field:  "Requires",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
+	return nil
+}
+
+// RequirementRuleValidationError is the validation error returned by
+// RequirementRule.Validate if the designated constraints aren't met.
+type RequirementRuleValidationError struct {
+	Field  string
+	Reason string
+	Cause  error
+	Key    bool
+}
+
+// Error satisfies the builtin error interface
+func (e RequirementRuleValidationError) Error() string {
+	cause := ""
+	if e.Cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
+	}
+
+	key := ""
+	if e.Key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sRequirementRule.%s: %s%s",
+		key,
+		e.Field,
+		e.Reason,
+		cause)
+}
+
+var _ error = RequirementRuleValidationError{}
+
+// Validate checks the field values on JwtAuthentication with the rules defined
+// in the proto definition for this message. If any rules are violated, an
+// error is returned.
+func (m *JwtAuthentication) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	// no validation rules for Providers
+
+	for idx, item := range m.GetRules() {
+		_, _ = idx, item
+
+		if v, ok := interface{}(item).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return JwtAuthenticationValidationError{
-					Field:  fmt.Sprintf("Bypass[%v]", idx),
+					Field:  fmt.Sprintf("Rules[%v]", idx),
 					Reason: "embedded message failed validation",
 					Cause:  err,
 				}

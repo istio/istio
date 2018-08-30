@@ -24,17 +24,17 @@ import (
 	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
-	"istio.io/istio/security/cmd/node_agent/na"
 	"istio.io/istio/security/pkg/cmd"
+	nvm "istio.io/istio/security/pkg/nodeagent/vm"
 )
 
 var (
-	naConfig = na.NewConfig()
+	naConfig = nvm.NewConfig()
 
 	rootCmd = &cobra.Command{
 		Use:   "node_agent",
-		Short: "Istio security per-node agent",
-
+		Short: "Istio security per-node agent.",
+		Args:  cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
 			runNodeAgent()
 		},
@@ -70,6 +70,9 @@ func init() {
 	flags.StringVar(&cAClientConfig.RootCertFile, "root-cert",
 		"/etc/certs/root-cert.pem", "Root Certificate file")
 
+	flags.BoolVar(&naConfig.DualUse, "experimental-dual-use",
+		false, "Enable dual-use mode. Generates certificates with a CommonName identical to the SAN.")
+
 	naConfig.LoggingOptions.AttachCobraFlags(rootCmd)
 	cmd.InitializeFlags(rootCmd)
 }
@@ -94,7 +97,7 @@ func runNodeAgent() {
 		log.Errora(err)
 		os.Exit(-1)
 	}
-	nodeAgent, err := na.NewNodeAgent(naConfig)
+	nodeAgent, err := nvm.NewNodeAgent(naConfig)
 	if err != nil {
 		log.Errora(err)
 		os.Exit(-1)

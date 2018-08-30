@@ -21,6 +21,7 @@ import (
 	"net"
 	"net/http"
 	"strconv"
+	"sync"
 	"time"
 )
 
@@ -70,15 +71,18 @@ const publicKey = `
 type HTTPServer struct {
 	port uint16
 	lis  net.Listener
+
+	reqHeaders http.Header
+	mu         sync.Mutex
 }
 
 func pubkeyHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "%v", publicKey)
 }
 
-// handler handles a request and sends response. If ?delay=n is in request URL, then sleeps for
+// handle handles a request and sends response. If ?delay=n is in request URL, then sleeps for
 // n second and sends response.
-func handler(w http.ResponseWriter, r *http.Request) {
+func (s *HTTPServer) handle(w http.ResponseWriter, r *http.Request) {
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -110,7 +114,22 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write(body)
+
+	reqHeaders := make(http.Header)
+	reqHeaders[":method"] = []string{r.Method}
+	reqHeaders[":authority"] = []string{r.Host}
+	reqHeaders[":path"] = []string{r.URL.String()}
+	for name, headers := range r.Header {
+		for _, h := range headers {
+			reqHeaders[name] = append(reqHeaders[name], h)
+		}
+	}
+
+	s.mu.Lock()
+	s.reqHeaders = reqHeaders
+	s.mu.Unlock()
+
+	w.Write(body)
 }
 
 // NewHTTPServer creates a new HTTP server.
@@ -128,16 +147,19 @@ func NewHTTPServer(port uint16) (*HTTPServer, error) {
 }
 
 // Start starts the server
-// TODO: Add a channel so this can return an error
-func (s *HTTPServer) Start() {
+func (s *HTTPServer) Start() <-chan error {
+	errCh := make(chan error)
 	go func() {
-		http.HandleFunc("/", handler)
+		http.HandleFunc("/", s.handle)
 		http.HandleFunc("/pubkey", pubkeyHandler)
-		_ = http.Serve(s.lis, nil)
+		errCh <- http.Serve(s.lis, nil)
+	}()
+	go func() {
+		url := fmt.Sprintf("http://localhost:%v/echo", s.port)
+		errCh <- WaitForHTTPServer(url)
 	}()
 
-	url := fmt.Sprintf("http://localhost:%v/echo", s.port)
-	WaitForHTTPServer(url)
+	return errCh
 }
 
 // Stop shutdown the server
@@ -145,4 +167,14 @@ func (s *HTTPServer) Stop() {
 	log.Printf("Close HTTP server\n")
 	_ = s.lis.Close()
 	log.Printf("Close HTTP server -- Done\n")
+}
+
+// LastRequestHeaders returns the headers from the last request and clears the value
+func (s *HTTPServer) LastRequestHeaders() http.Header {
+	s.mu.Lock()
+	out := s.reqHeaders
+	s.reqHeaders = nil
+	s.mu.Unlock()
+
+	return out
 }

@@ -15,8 +15,6 @@
 package main
 
 import (
-	"os"
-
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/istioctl/pkg/kubernetes"
@@ -33,10 +31,10 @@ service registry, and check if TLS settings are compatible between them.
 `,
 		Example: `
 # Check settings for all known services in the service registry:
-istioclt authn tls-check
+istioctl authn tls-check
 
 # Check settings for a specific service
-istioclt authn tls-check foo.bar.svc.cluster.local
+istioctl authn tls-check foo.bar.svc.cluster.local
 `,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -48,7 +46,7 @@ istioclt authn tls-check foo.bar.svc.cluster.local
 			if err != nil {
 				return err
 			}
-			tcw := pilot.TLSCheckWriter{Writer: os.Stdout}
+			tcw := pilot.TLSCheckWriter{Writer: cmd.OutOrStdout()}
 			if len(args) > 0 {
 				return tcw.PrintSingle(debug, args[0])
 			}

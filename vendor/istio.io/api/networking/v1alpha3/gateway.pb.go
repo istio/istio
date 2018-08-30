@@ -154,9 +154,9 @@ func (Server_TLSOptions_TLSmode) EnumDescriptor() ([]byte, []int) {
 // ```
 //
 // The following VirtualService forwards traffic arriving at (external)
-// port 27017 from "172.17.16.0/24" subnet to internal Mongo server on port
-// 5555. This rule is not applicable internally in the mesh as the gateway
-// list omits the reserved name `mesh`.
+// port 27017 to internal Mongo server on port 5555. This rule is not
+// applicable internally in the mesh as the gateway list omits the
+// reserved name `mesh`.
 //
 // ```yaml
 // apiVersion: networking.istio.io/v1alpha3
@@ -170,12 +170,12 @@ func (Server_TLSOptions_TLSmode) EnumDescriptor() ([]byte, []int) {
 //   - my-gateway
 //   tcp:
 //   - match:
-//     - port:
-//         number: 27017
-//       sourceSubnet: "172.17.16.0/24"
+//     - port: 27017
 //     route:
 //     - destination:
 //         host: mongo.prod.svc.cluster.local
+//         port:
+//           number: 5555
 // ```
 type Gateway struct {
 	// REQUIRED: A list of server specifications.

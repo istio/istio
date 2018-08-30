@@ -21,22 +21,23 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"time"
 
 	"istio.io/istio/tests/util"
 )
 
 // Envoy stores data for Envoy process
 type Envoy struct {
-	cmd   *exec.Cmd
-	ports *Ports
+	cmd    *exec.Cmd
+	ports  *Ports
+	baseID string
 }
 
 // NewEnvoy creates a new Envoy struct and starts envoy.
-func (s *TestSetup) NewEnvoy(stress bool, filtersBeforeMixer string, mfConf *MixerFilterConf, ports *Ports, epoch int,
-	confVersion string, disableHotRestart bool) (*Envoy, error) {
-	confPath := filepath.Join(util.IstioOut, fmt.Sprintf("config.conf.%v.json", ports.AdminPort))
+func (s *TestSetup) NewEnvoy() (*Envoy, error) {
+	confPath := filepath.Join(util.IstioOut, fmt.Sprintf("config.conf.%v.yaml", s.ports.AdminPort))
 	log.Printf("Envoy config: in %v\n", confPath)
-	if err := s.CreateEnvoyConf(confPath, stress, filtersBeforeMixer, mfConf, ports, confVersion); err != nil {
+	if err := s.CreateEnvoyConf(confPath); err != nil {
 		return nil, err
 	}
 
@@ -45,17 +46,26 @@ func (s *TestSetup) NewEnvoy(stress bool, filtersBeforeMixer string, mfConf *Mix
 		debugLevel = "info"
 	}
 
-	// Don't use hot-start, each Envoy re-start use different base-id
+	baseID := ""
 	args := []string{"-c", confPath,
-		"--base-id", strconv.Itoa(int(ports.AdminPort) + epoch)}
-	if stress {
+		"--v2-config-only",
+		"--drain-time-s", "1",
+		"--allow-unknown-fields"}
+	if s.stress {
 		args = append(args, "--concurrency", "10")
 	} else {
 		// debug is far too verbose.
 		args = append(args, "-l", debugLevel, "--concurrency", "1")
 	}
-	if disableHotRestart {
+	if s.disableHotRestart {
 		args = append(args, "--disable-hot-restart")
+	} else {
+		baseID = strconv.Itoa(int(s.testName))
+		args = append(args,
+			// base id is shared between restarted envoys
+			"--base-id", baseID,
+			"--parent-shutdown-time-s", "1",
+			"--restart-epoch", strconv.Itoa(s.epoch))
 	}
 	if s.EnvoyParams != nil {
 		args = append(args, s.EnvoyParams...)
@@ -69,8 +79,9 @@ func (s *TestSetup) NewEnvoy(stress bool, filtersBeforeMixer string, mfConf *Mix
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
 	return &Envoy{
-		cmd:   cmd,
-		ports: ports,
+		cmd:    cmd,
+		ports:  s.ports,
+		baseID: baseID,
 	}, nil
 }
 
@@ -82,15 +93,40 @@ func (s *Envoy) Start() error {
 	}
 
 	url := fmt.Sprintf("http://localhost:%v/server_info", s.ports.AdminPort)
-	WaitForHTTPServer(url)
-
-	return nil
+	return WaitForHTTPServer(url)
 }
 
 // Stop stops the envoy process
 func (s *Envoy) Stop() error {
-	log.Printf("Kill Envoy ...\n")
-	err := s.cmd.Process.Kill()
-	log.Printf("Kill Envoy ... Done\n")
-	return err
+	log.Printf("stop envoy ...\n")
+	_, _, _ = HTTPPost(fmt.Sprintf("http://127.0.0.1:%v/quitquitquit", s.ports.AdminPort), "", "")
+	done := make(chan error, 1)
+	go func() {
+		done <- s.cmd.Wait()
+	}()
+
+	select {
+	case <-time.After(3 * time.Second):
+		log.Println("envoy killed as timeout reached")
+		if err := s.cmd.Process.Kill(); err != nil {
+			return err
+		}
+	case err := <-done:
+		log.Printf("stop envoy ... done\n")
+		return err
+	}
+
+	return nil
+}
+
+// TearDown removes shared memory left by Envoy
+func (s *Envoy) TearDown() {
+	if s.baseID != "" {
+		path := "/dev/shm/envoy_shared_memory_" + s.baseID + "0"
+		if err := os.Remove(path); err != nil {
+			log.Printf("failed to %s\n", err)
+		} else {
+			log.Printf("removed Envoy's shared memory\n")
+		}
+	}
 }

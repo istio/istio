@@ -1,6 +1,6 @@
 ---
 title: Fluentd
-description: Adapter that delivers logs to a fluentd daemon.
+description: Adapter that delivers logs to a Fluentd daemon.
 location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/fluentd.html
 layout: protoc-gen-docs
 generator: protoc-gen-docs
@@ -38,6 +38,16 @@ a variable &ldquo;tag&rdquo;.</p>
 <td>
 <p>Address of listening fluentd daemon. Example: fluentd-server:24224
 Default value is localhost:24224</p>
+
+</td>
+</tr>
+<tr id="Params-integer_duration">
+<td><code>integerDuration</code></td>
+<td><code>bool</code></td>
+<td>
+<p>Convert attributes of type duration to integers of unit ms in
+logs. Default behaviour is a string representation including
+unit.</p>
 
 </td>
 </tr>

@@ -19,9 +19,9 @@
 
 # Separate (and parallel) jobs are doing lint, coverage, etc.
 
-WD=$(dirname $0)
-WD=$(cd $WD; pwd)
-ROOT=$(dirname $WD)
+WD=$(dirname "$0")
+WD=$(cd "$WD"; pwd)
+ROOT=$(dirname "$WD")
 
 # No unset vars, print commands as they're executed, and exit on any non-zero
 # return code
@@ -29,11 +29,12 @@ set -u
 set -x
 set -e
 
-source ${ROOT}/prow/lib.sh
+# shellcheck source=prow/lib.sh
+source "${ROOT}/prow/lib.sh"
 setup_and_export_git_sha
 
 echo 'Build'
-(cd ${ROOT}; make build)
+(cd "${ROOT}"; make build)
 
 if [[ -n $(git diff) ]]; then
   echo "Uncommitted changes found:"
@@ -43,8 +44,3 @@ fi
 # Upload images - needed by the subsequent tests
 time ISTIO_DOCKER_HUB="gcr.io/istio-testing" make push HUB="gcr.io/istio-testing" TAG="${GIT_SHA}"
 
-# Run integration framework sample
-./tests/integration/example/integration.sh
-
-# Run security e2e test
-CERT_DIR=$(make where-is-docker-temp) ${ROOT}/security/bin/e2e.sh --hub "gcr.io/istio-testing" --tag "${GIT_SHA}"

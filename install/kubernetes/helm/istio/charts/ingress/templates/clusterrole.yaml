@@ -1,4 +1,3 @@
-{{- if .Values.global.rbacEnabled }}
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole
 metadata:
@@ -10,9 +9,8 @@ metadata:
   name: istio-ingress-{{ .Release.Namespace }}
 rules:
 - apiGroups: ["extensions"]
-  resources: ["thirdpartyresources", "ingresses"]
+  resources: ["ingresses"]
   verbs: ["get", "watch", "list", "update"]
 - apiGroups: [""]
   resources: ["configmaps", "pods", "endpoints", "services"]
   verbs: ["get", "watch", "list"]
-{{- end }}

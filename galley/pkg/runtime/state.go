@@ -15,15 +15,16 @@
 package runtime
 
 import (
+	"bytes"
 	"fmt"
 	"sync"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 
-	mcp "istio.io/api/config/mcp/v1alpha1"
-	"istio.io/istio/galley/pkg/mcp/snapshot"
+	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/galley/pkg/runtime/resource"
+	"istio.io/istio/pkg/mcp/snapshot"
 )
 
 // State is the in-memory state of Galley.
@@ -33,13 +34,13 @@ type State struct {
 	// version counter is a nonce that generates unique ids for each updated view of State.
 	versionCounter int64
 
-	// entries for per-kind State.
+	// entries for per-message-type State.
 	entriesLock sync.Mutex
-	entries     map[resource.Kind]*kindState
+	entries     map[resource.TypeURL]*resourceTypeState
 }
 
-// per-kind State.
-type kindState struct {
+// per-resource-type State.
+type resourceTypeState struct {
 	// The version number for the current State of the object. Every time entries or versions change,
 	// the version number also change
 	version  int64
@@ -50,17 +51,12 @@ type kindState struct {
 func newState(schema *resource.Schema) *State {
 	return &State{
 		schema:  schema,
-		entries: make(map[resource.Kind]*kindState),
+		entries: make(map[resource.TypeURL]*resourceTypeState),
 	}
 }
 
 func (s *State) apply(event resource.Event) bool {
-	if _, ok := s.schema.LookupByKind(event.ID.Kind); !ok {
-		scope.Errorf("Received an source event for unknown kind: %v", event)
-		return false
-	}
-
-	pks := s.getKindState(event.ID.Kind)
+	pks := s.getResourceTypeState(event.ID.TypeURL)
 
 	switch event.Kind {
 	case resource.Added, resource.Updated:
@@ -93,20 +89,22 @@ func (s *State) apply(event resource.Event) bool {
 	s.versionCounter++
 	pks.version = s.versionCounter
 
+	scope.Debugf("In-memory state has changed:\n%v\n", s)
+
 	return true
 }
 
-func (s *State) getKindState(kind resource.Kind) *kindState {
+func (s *State) getResourceTypeState(name resource.TypeURL) *resourceTypeState {
 	s.entriesLock.Lock()
 	defer s.entriesLock.Unlock()
 
-	pks, found := s.entries[kind]
+	pks, found := s.entries[name]
 	if !found {
-		pks = &kindState{
+		pks = &resourceTypeState{
 			entries:  make(map[string]*mcp.Envelope),
 			versions: make(map[string]resource.Version),
 		}
-		s.entries[kind] = pks
+		s.entries[name] = pks
 	}
 
 	return pks
@@ -116,41 +114,57 @@ func (s *State) buildSnapshot() snapshot.Snapshot {
 	s.entriesLock.Lock()
 	defer s.entriesLock.Unlock()
 
-	sn := snapshot.NewInMemory()
+	b := snapshot.NewInMemoryBuilder()
 
-	for kind, state := range s.entries {
+	for typeURL, state := range s.entries {
 		entries := make([]*mcp.Envelope, 0, len(state.entries))
 		for _, entry := range state.entries {
 			entries = append(entries, entry)
 		}
 
 		version := fmt.Sprintf("%d", state.version)
-		sn.Set(string(kind), version, entries)
+		b.Set(typeURL.String(), version, entries)
 	}
 
-	sn.Freeze()
-
-	return sn
+	return b.Build()
 }
 
 func (s *State) envelopeResource(event resource.Event) (*mcp.Envelope, bool) {
-	info, _ := s.schema.LookupByKind(event.ID.Kind)
-
 	serialized, err := proto.Marshal(event.Item)
 	if err != nil {
-		scope.Errorf("Error serializing proto from source event: %v", event)
+		scope.Errorf("Error serializing proto from source event: %v:", event)
+		return nil, false
+	}
+
+	createTime, err := types.TimestampProto(event.ID.CreateTime)
+	if err != nil {
+		scope.Errorf("Error parsing resource create_time: %v", event, err)
 		return nil, false
 	}
 
 	entry := &mcp.Envelope{
 		Metadata: &mcp.Metadata{
-			Name: event.ID.FullName,
+			Name:       event.ID.FullName,
+			CreateTime: createTime,
+			Version:    string(event.ID.Version),
 		},
 		Resource: &types.Any{
-			TypeUrl: info.TypeURL,
+			TypeUrl: event.ID.TypeURL.String(),
 			Value:   serialized,
 		},
 	}
 
 	return entry, true
+}
+
+// String implements fmt.Stringer
+func (s *State) String() string {
+	var b bytes.Buffer
+
+	fmt.Fprintf(&b, "[State @%v]\n", s.versionCounter)
+
+	sn := s.buildSnapshot().(*snapshot.InMemory)
+	fmt.Fprintf(&b, "%v", sn)
+
+	return b.String()
 }

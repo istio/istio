@@ -46,7 +46,7 @@ func TestRuntime_Basic(t *testing.T) {
 	rt := New(
 		s,
 		templates,
-		adapters, "identityAttr", "istio-system",
+		adapters, "istio-system",
 		egp,
 		hgp,
 		true)
@@ -92,7 +92,7 @@ func TestRuntime_ErrorDuringWatch(t *testing.T) {
 	rt := New(
 		s,
 		templates,
-		adapters, "identityAttr", "istio-system",
+		adapters, "istio-system",
 		egp,
 		hgp,
 		true)
@@ -111,7 +111,7 @@ func TestRuntime_OnConfigChange(t *testing.T) {
 	rt := New(
 		s,
 		templates,
-		adapters, "identityAttr", "istio-system",
+		adapters, "istio-system",
 		egp,
 		hgp,
 		true)
@@ -184,7 +184,7 @@ func TestRuntime_InFlightRequestsDuringConfigChange(t *testing.T) {
 	rt := New(
 		s,
 		templates,
-		adapters, "identityAttr", "istio-system",
+		adapters, "istio-system",
 		egp,
 		hgp,
 		true)
@@ -323,6 +323,10 @@ func (m *mockStore) Init(kinds map[string]proto.Message) error {
 	m.initKinds = kinds
 
 	return m.initErrorToReturn
+}
+
+func (m *mockStore) WaitForSynced(time.Duration) error {
+	return nil
 }
 
 // Watch creates a channel to receive the events. A store can conduct a single

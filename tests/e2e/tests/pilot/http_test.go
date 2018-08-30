@@ -21,13 +21,11 @@ import (
 
 func TestHttp(t *testing.T) {
 	srcPods := []string{"a", "b", "t"}
-	dstPods := []string{"a", "b"}
+	dstPods := []string{"a", "b", "headless"}
 	ports := []string{"", "80", "8080"}
 	if !tc.Kube.AuthEnabled {
 		// t is not behind proxy, so it cannot talk in Istio auth.
 		dstPods = append(dstPods, "t")
-		// mTLS is not supported for headless services
-		dstPods = append(dstPods, "headless")
 	} else {
 		// Auth is enabled for d:80, and disabled for d:8080 using per-service policy.
 		// We expect request from non-envoy client ("t") to d:80 should always fail,
@@ -37,9 +35,7 @@ func TestHttp(t *testing.T) {
 			YamlFiles:  []string{"testdata/authn/service-d-mtls-policy.yaml.tmpl"},
 			kubeconfig: tc.Kube.KubeConfig,
 		}
-		if tc.V1alpha3 {
-			cfgs.YamlFiles = append(cfgs.YamlFiles, "testdata/authn/destination-rule-d8080.yaml.tmpl")
-		}
+		cfgs.YamlFiles = append(cfgs.YamlFiles, "testdata/authn/destination-rule-d8080.yaml.tmpl")
 		if err := cfgs.Setup(); err != nil {
 			t.Fatal(err)
 		}
@@ -85,13 +81,7 @@ func TestHttp(t *testing.T) {
 										logs.add(cluster, src, id, logEntry)
 									}
 									if dst != "t" {
-										if dst == "headless" { // headless points to b
-											if src != "b" {
-												logs.add(cluster, "b", id, logEntry)
-											}
-										} else {
-											logs.add(cluster, dst, id, logEntry)
-										}
+										logs.add(cluster, dst, id, logEntry)
 									}
 									return nil
 								}

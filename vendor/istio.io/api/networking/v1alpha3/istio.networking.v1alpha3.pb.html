@@ -1,10 +1,12 @@
 ---
-title: Route Rules v1alpha3
-description: Configuration affecting traffic routing
+title: Traffic Routing
+description: Configuration affecting traffic routing.
 location: https://istio.io/docs/reference/config/istio.networking.v1alpha3.html
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 48
+aliases:
+  - /docs/reference/config/istio.routing.v1alpha1/
+number_of_entries: 50
 ---
 <p>Configuration affecting traffic routing. Here are a few terms useful to define
 in the context of traffic routing.</p>
@@ -237,7 +239,7 @@ be serialized into the Access-Control-Allow-Methods header.</p>
 <td><code>string[]</code></td>
 <td>
 <p>List of HTTP headers that can be used when requesting the
-resource. Serialized to Access-Control-Allow-Methods header.</p>
+resource. Serialized to Access-Control-Allow-Headers header.</p>
 
 </td>
 </tr>
@@ -664,7 +666,7 @@ to which the request/connection should be forwarded to.</p>
 <td>
 <p>REQUIRED. The proportion of traffic to be forwarded to the service
 version. (0-100). Sum of weights across destinations SHOULD BE == 100.
-If there is only destination in a rule, the weight value is assumed to
+If there is only one destination in a rule, the weight value is assumed to
 be 100.</p>
 
 </td>
@@ -684,15 +686,16 @@ backward compatibility across different Istio releases. In other words,
 this configuration is subject to change based on internal implementation
 of Istio networking subsystem.</p>
 
-<p>NOTE 2: There can be only one EnvoyFilter bound to a specific workload.
-The behavior is undefined if multiple EnvoyFilter configurations are
-specified for the same workload.</p>
+<p>NOTE 2: When multiple EnvoyFilters are bound to the same workload, all filter
+configurations will be processed sequentially in order of creation time.
+The behavior is undefined if multiple EnvoyFilter configurations conflict
+with each other.</p>
 
 <p>The following example for Kubernetes enables Envoy&rsquo;s Lua filter for all
 inbound calls arriving at service port 8080 of the reviews service pod with
 labels &ldquo;app: reviews&rdquo;.</p>
 
-<pre><code>apiVersion: networking.istio.io/v1alpha3
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: reviews-lua
@@ -701,7 +704,7 @@ spec:
     app: reviews
   filters:
   - listenerMatch:
-      portNumber: 8080 
+      portNumber: 8080
       listenerType: SIDECAR_INBOUND #will match with the inbound listener for reviews:8080
     filterName: envoy.lua
     filterType: HTTP
@@ -766,7 +769,7 @@ envoy.http<em>connection</em>manager.</p>
 <td><code>listenerMatch</code></td>
 <td><code><a href="#EnvoyFilter-ListenerMatch">EnvoyFilter.ListenerMatch</a></code></td>
 <td>
-<p>Filter will be added to the listner only if the match conditions are true.
+<p>Filter will be added to the listener only if the match conditions are true.
 If not specified, the filters will be applied to all listeners.</p>
 
 </td>
@@ -938,7 +941,7 @@ to be applied to a listener.</p>
 <td><code>uint32</code></td>
 <td>
 <p>The service port/gateway port to which traffic is being
-sent/received. If not specified, matches all listeners. Eventhough
+sent/received. If not specified, matches all listeners. Even though
 inbound listeners are generated for the instance/pod ports, only
 service ports should be used to match listeners.</p>
 
@@ -981,7 +984,7 @@ passthrough using SNI).</p>
 <td><code>string[]</code></td>
 <td>
 <p>One or more IP addresses to which the listener is bound. If
-specified, should match atleast one address in the list.</p>
+specified, should match at least one address in the list.</p>
 
 </td>
 </tr>
@@ -1172,9 +1175,9 @@ spec:
 </code></pre>
 
 <p>The following VirtualService forwards traffic arriving at (external)
-port 27017 from &ldquo;172.17.16.0/24&rdquo; subnet to internal Mongo server on port
-5555. This rule is not applicable internally in the mesh as the gateway
-list omits the reserved name <code>mesh</code>.</p>
+port 27017 to internal Mongo server on port 5555. This rule is not
+applicable internally in the mesh as the gateway list omits the
+reserved name <code>mesh</code>.</p>
 
 <pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -1187,12 +1190,12 @@ spec:
   - my-gateway
   tcp:
   - match:
-    - port:
-        number: 27017
-      sourceSubnet: &quot;172.17.16.0/24&quot;
+    - port: 27017
     route:
     - destination:
         host: mongo.prod.svc.cluster.local
+        port:
+          number: 5555
 </code></pre>
 
 <table class="message-fields">
@@ -1271,8 +1274,8 @@ service, giving the impression that the upstream service is faulty.</p>
 <h2 id="HTTPFaultInjection-Abort">HTTPFaultInjection.Abort</h2>
 <section>
 <p>Abort specification is used to prematurely abort a request with a
-pre-specified error code. The following example will return an HTTP
-400 error code for 10% of the requests to the &ldquo;ratings&rdquo; service &ldquo;v1&rdquo;.</p>
+pre-specified error code. The following example will return an HTTP 400
+error code for 1 out of every 1000 requests to the &ldquo;ratings&rdquo; service &ldquo;v1&rdquo;.</p>
 
 <pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -1288,14 +1291,15 @@ spec:
         subset: v1
     fault:
       abort:
-        percent: 10
+        percentage:
+          value: 0.001
         httpStatus: 400
 </code></pre>
 
 <p>The <em>httpStatus</em> field is used to indicate the HTTP status code to
-return to the caller. The optional <em>percent</em> field, a value between 0
-and 100, is used to only abort a certain percentage of requests. If
-not specified, all requests are aborted.</p>
+return to the caller. The optional <em>percentage</em> field can be used to only
+abort a certain percentage of requests. If not specified, all requests are
+aborted.</p>
 
 <table class="message-fields">
 <thead>
@@ -1306,11 +1310,13 @@ not specified, all requests are aborted.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="HTTPFaultInjection-Abort-percent">
+<tr id="HTTPFaultInjection-Abort-percent" class="deprecated ">
 <td><code>percent</code></td>
 <td><code>int32</code></td>
 <td>
-<p>Percentage of requests to be aborted with the error code provided (0-100).</p>
+<p>Percentage of requests to be aborted with the error code provided (0-100).
+Use of integer <code>percent</code> value is deprecated. Use the double <code>percentage</code>
+field instead.</p>
 
 </td>
 </tr>
@@ -1322,6 +1328,14 @@ not specified, all requests are aborted.</p>
 
 </td>
 </tr>
+<tr id="HTTPFaultInjection-Abort-percentage">
+<td><code>percentage</code></td>
+<td><code><a href="#Percent">Percent</a></code></td>
+<td>
+<p>Percentage of requests to be aborted with the error code provided.</p>
+
+</td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -1329,7 +1343,7 @@ not specified, all requests are aborted.</p>
 <section>
 <p>Delay specification is used to inject latency into the request
 forwarding path. The following example will introduce a 5 second delay
-in 10% of the requests to the &ldquo;v1&rdquo; version of the &ldquo;reviews&rdquo;
+in 1 out of every 1000 requests to the &ldquo;v1&rdquo; version of the &ldquo;reviews&rdquo;
 service from all pods with label env: prod</p>
 
 <pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
@@ -1349,14 +1363,14 @@ spec:
         subset: v1
     fault:
       delay:
-        percent: 10
+        percentage:
+          value: 0.001
         fixedDelay: 5s
 </code></pre>
 
-<p>The <em>fixedDelay</em> field is used to indicate the amount of delay in
-seconds. An optional <em>percent</em> field, a value between 0 and 100, can
-be used to only delay a certain percentage of requests. If left
-unspecified, all request will be delayed.</p>
+<p>The <em>fixedDelay</em> field is used to indicate the amount of delay in seconds.
+The optional <em>percentage</em> field can be used to only delay a certain
+percentage of requests. If left unspecified, all request will be delayed.</p>
 
 <table class="message-fields">
 <thead>
@@ -1367,11 +1381,13 @@ unspecified, all request will be delayed.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="HTTPFaultInjection-Delay-percent">
+<tr id="HTTPFaultInjection-Delay-percent" class="deprecated ">
 <td><code>percent</code></td>
 <td><code>int32</code></td>
 <td>
-<p>Percentage of requests on which the delay will be injected (0-100).</p>
+<p>Percentage of requests on which the delay will be injected (0-100).
+Use of integer <code>percent</code> value is deprecated. Use the double <code>percentage</code>
+field instead.</p>
 
 </td>
 </tr>
@@ -1384,6 +1400,14 @@ unspecified, all request will be delayed.</p>
 
 </td>
 </tr>
+<tr id="HTTPFaultInjection-Delay-percentage">
+<td><code>percentage</code></td>
+<td><code><a href="#Percent">Percent</a></code></td>
+<td>
+<p>Percentage of requests on which the delay will be injected.</p>
+
+</td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -1392,8 +1416,8 @@ unspecified, all request will be delayed.</p>
 <p>HttpMatchRequest specifies a set of criterion to be met in order for the
 rule to be applied to the HTTP request. For example, the following
 restricts the rule to match only requests where the URL path
-starts with /ratings/v2/ and the request contains a <code>cookie</code> with value
-<code>user=jason</code>.</p>
+starts with /ratings/v2/ and the request contains a custom <code>end-user</code> header
+with value <code>jason</code>.</p>
 
 <pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -1405,8 +1429,8 @@ spec:
   http:
   - match:
     - headers:
-        cookie:
-          regex: &quot;^(.*?;)?(user=jason)(;.*)?&quot;
+        end-user:
+          exact: jason
       uri:
         prefix: &quot;/ratings/v2/&quot;
     route:
@@ -1770,20 +1794,6 @@ Redirect primitive. Rewrite will be performed before forwarding.</p>
 
 </td>
 </tr>
-<tr id="HTTPRoute-websocket_upgrade">
-<td><code>websocketUpgrade</code></td>
-<td><code>bool</code></td>
-<td>
-<p>Indicates that a HTTP/1.1 client connection to this particular route
-should be allowed (and expected) to upgrade to a WebSocket connection.
-The default is false. Istio&rsquo;s reference sidecar implementation (Envoy)
-expects the first request to this route to contain the WebSocket
-upgrade headers. Otherwise, the request will be rejected. Note that
-Websocket allows secondary protocol negotiation which may then be
-subject to further routing rules based on the protocol selected.</p>
-
-</td>
-</tr>
 <tr id="HTTPRoute-timeout">
 <td><code>timeout</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
@@ -1804,7 +1814,9 @@ subject to further routing rules based on the protocol selected.</p>
 <td><code>fault</code></td>
 <td><code><a href="#HTTPFaultInjection">HTTPFaultInjection</a></code></td>
 <td>
-<p>Fault injection policy to apply on HTTP traffic.</p>
+<p>Fault injection policy to apply on HTTP traffic at the client side.
+Note that timeouts or retries will not be enabled when faults are
+enabled on the client side.</p>
 
 </td>
 </tr>
@@ -1857,14 +1869,12 @@ is incomplete.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="L4MatchAttributes-destination_subnet">
-<td><code>destinationSubnet</code></td>
-<td><code>string</code></td>
+<tr id="L4MatchAttributes-destination_subnets">
+<td><code>destinationSubnets</code></td>
+<td><code>string[]</code></td>
 <td>
-<p>IPv4 or IPv6 ip address of destination with optional subnet.  E.g.,
-a.b.c.d/xx form or just a.b.c.d. This is only valid when the
-destination service has several IPs and the application explicitly
-specifies a particular IP.</p>
+<p>IPv4 or IPv6 ip addresses of destination with optional subnet.  E.g.,
+a.b.c.d/xx form or just a.b.c.d.</p>
 
 </td>
 </tr>
@@ -1923,8 +1933,9 @@ spec:
       simple: ROUND_ROBIN
 </code></pre>
 
-<p>The following example uses the consistent hashing based load balancer
-for the same ratings service using the Cookie header as the hash key.</p>
+<p>The following example sets up sticky sessions for the ratings service
+hashing-based load balancer for the same ratings service using the
+the User cookie as the hash key.</p>
 
 <pre><code class="language-yaml"> apiVersion: networking.istio.io/v1alpha3
  kind: DestinationRule
@@ -1935,7 +1946,9 @@ for the same ratings service using the Cookie header as the hash key.</p>
    trafficPolicy:
      loadBalancer:
        consistentHash:
-         http_header: Cookie
+         httpCookie:
+           name: user
+           ttl: 0s
 </code></pre>
 
 <table class="message-fields">
@@ -1957,6 +1970,105 @@ for the same ratings service using the Cookie header as the hash key.</p>
 <td><code>consistentHash</code></td>
 <td><code><a href="#LoadBalancerSettings-ConsistentHashLB">LoadBalancerSettings.ConsistentHashLB (oneof)</a></code></td>
 <td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="LoadBalancerSettings-ConsistentHashLB">LoadBalancerSettings.ConsistentHashLB</h2>
+<section>
+<p>Consistent Hash-based load balancing can be used to provide soft
+session affinity based on HTTP headers, cookies or other
+properties. This load balancing policy is applicable only for HTTP
+connections. The affinity to a particular destination host will be
+lost when one or more hosts are added/removed from the destination
+service.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="LoadBalancerSettings-ConsistentHashLB-http_header_name" class="oneof oneof-start">
+<td><code>httpHeaderName</code></td>
+<td><code>string (oneof)</code></td>
+<td>
+<p>Hash based on a specific HTTP header.</p>
+
+</td>
+</tr>
+<tr id="LoadBalancerSettings-ConsistentHashLB-http_cookie" class="oneof">
+<td><code>httpCookie</code></td>
+<td><code><a href="#LoadBalancerSettings-ConsistentHashLB-HTTPCookie">LoadBalancerSettings.ConsistentHashLB.HTTPCookie (oneof)</a></code></td>
+<td>
+<p>Hash based on HTTP cookie.</p>
+
+</td>
+</tr>
+<tr id="LoadBalancerSettings-ConsistentHashLB-use_source_ip" class="oneof">
+<td><code>useSourceIp</code></td>
+<td><code>bool (oneof)</code></td>
+<td>
+<p>Hash based on the source IP address.</p>
+
+</td>
+</tr>
+<tr id="LoadBalancerSettings-ConsistentHashLB-minimum_ring_size">
+<td><code>minimumRingSize</code></td>
+<td><code>uint64</code></td>
+<td>
+<p>The minimum number of virtual nodes to use for the hash
+ring. Defaults to 1024. Larger ring sizes result in more granular
+load distributions. If the number of hosts in the load balancing
+pool is larger than the ring size, each host will be assigned a
+single virtual node.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="LoadBalancerSettings-ConsistentHashLB-HTTPCookie">LoadBalancerSettings.ConsistentHashLB.HTTPCookie</h2>
+<section>
+<p>Describes a HTTP cookie that will be used as the hash key for the
+Consistent Hash load balancer. If the cookie is not present, it will
+be generated.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="LoadBalancerSettings-ConsistentHashLB-HTTPCookie-name">
+<td><code>name</code></td>
+<td><code>string</code></td>
+<td>
+<p>REQUIRED. Name of the cookie.</p>
+
+</td>
+</tr>
+<tr id="LoadBalancerSettings-ConsistentHashLB-HTTPCookie-path">
+<td><code>path</code></td>
+<td><code>string</code></td>
+<td>
+<p>Path to set for the cookie.</p>
+
+</td>
+</tr>
+<tr id="LoadBalancerSettings-ConsistentHashLB-HTTPCookie-ttl">
+<td><code>ttl</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+<p>REQUIRED. Lifetime of the cookie.</p>
+
 </td>
 </tr>
 </tbody>
@@ -2065,8 +2177,8 @@ spec:
 <td>
 <p>Number of errors before a host is ejected from the connection
 pool. Defaults to 5. When the upstream host is accessed over HTTP, a
-5xx return code qualifies as an error. When the upstream host is
-accessed over an opaque TCP connection, connect timeouts and
+502, 503 or 504 return code qualifies as an error. When the upstream host
+is accessed over an opaque TCP connection, connect timeouts and
 connection error/failure events qualify as an error.</p>
 
 </td>
@@ -2101,20 +2213,12 @@ service that can be ejected. Defaults to 10%.</p>
 
 </td>
 </tr>
-<tr id="OutlierDetection-http">
-<td><code>http</code></td>
-<td><code><a href="#OutlierDetection-HTTPSettings">OutlierDetection.HTTPSettings</a></code></td>
-<td>
-<p>DEPRECATED.</p>
-
-</td>
-</tr>
 </tbody>
 </table>
 </section>
-<h2 id="OutlierDetection-HTTPSettings">OutlierDetection.HTTPSettings</h2>
+<h2 id="Percent">Percent</h2>
 <section>
-<p>Outlier detection settings for HTTP1.1/HTTP2/GRPC connections.</p>
+<p>Percent specifies a percentage in the range of [0.0, 100.0].</p>
 
 <table class="message-fields">
 <thead>
@@ -2125,43 +2229,10 @@ service that can be ejected. Defaults to 10%.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="OutlierDetection-HTTPSettings-consecutive_errors">
-<td><code>consecutiveErrors</code></td>
-<td><code>int32</code></td>
+<tr id="Percent-value">
+<td><code>value</code></td>
+<td><code>double</code></td>
 <td>
-<p>Number of 5XX errors before a host is ejected from the connection
-pool. Defaults to 5.</p>
-
-</td>
-</tr>
-<tr id="OutlierDetection-HTTPSettings-interval">
-<td><code>interval</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
-<td>
-<p>Time interval between ejection sweep analysis. format:
-1h/1m/1s/1ms. MUST BE &gt;=1ms. Default is 10s.</p>
-
-</td>
-</tr>
-<tr id="OutlierDetection-HTTPSettings-base_ejection_time">
-<td><code>baseEjectionTime</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
-<td>
-<p>Minimum ejection duration. A host will remain ejected for a period
-equal to the product of minimum ejection duration and the number of
-times the host has been ejected. This technique allows the system to
-automatically increase the ejection period for unhealthy upstream
-servers. format: 1h/1m/1s/1ms. MUST BE &gt;=1ms. Default is 30s.</p>
-
-</td>
-</tr>
-<tr id="OutlierDetection-HTTPSettings-max_ejection_percent">
-<td><code>maxEjectionPercent</code></td>
-<td><code>int32</code></td>
-<td>
-<p>Maximum % of hosts in the load balancing pool for the upstream
-service that can be ejected. Defaults to 10%.</p>
-
 </td>
 </tr>
 </tbody>
@@ -2583,7 +2654,7 @@ spec:
   resolution: DNS
 </code></pre>
 
-<p>Define a gateway to to handle all egress traffic.</p>
+<p>Define a gateway to handle all egress traffic.</p>
 
 <pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
@@ -2599,13 +2670,13 @@ spec:
      protocol: HTTP
    hosts:
    - &quot;*&quot;
+</code></pre>
 
-And the associated VirtualService to route from the sidecar to the
+<p>And the associated VirtualService to route from the sidecar to the
 gateway service (istio-egressgateway.istio-system.svc.cluster.local), as
-well as route from the gateway to the external service.
+well as route from the gateway to the external service.</p>
 
-```yaml
-apiVersion: networking.istio.io/v1alpha3
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: gateway-routing
@@ -2656,7 +2727,7 @@ spec:
 Unix Domain Socket on the host of the client. The resolution must be
 set to STATIC to use unix address endpoints.</p>
 
-<pre><code>apiVersion: networking.istio.io/v1alpha3
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
   name: unix-domain-socket-example
@@ -2742,7 +2813,7 @@ prefix.  For HTTP services, the addresses field will be ignored and
 the destination will be identified based on the HTTP Host/Authority
 header. For non-HTTP protocols such as mongo/opaque TCP/even HTTPS,
 the hosts will be ignored. If one or more IP addresses are specified,
-the incoming traffic will be idenfified as belonging to this service
+the incoming traffic will be identified as belonging to this service
 if the destination IP matches the IP/CIDRs specified in the addresses
 field. If the Addresses field is empty, traffic will be identified
 solely based on the destination port. In such scenarios, the port on
@@ -2777,8 +2848,10 @@ or part of the mesh.</p>
 <td><code>resolution</code></td>
 <td><code><a href="#ServiceEntry-Resolution">ServiceEntry.Resolution</a></code></td>
 <td>
-<p>Service discovery mode for the hosts. If not set, Istio will attempt
-to infer the discovery mode based on the value of hosts and endpoints.</p>
+<p>REQUIRED: Service discovery mode for the hosts. Care must be taken
+when setting the resolution mode to NONE for a TCP port without
+accompanying IP addresses. In such cases, traffic to any IP on
+said port will be allowed (i.e. 0.0.0.0:<port>).</p>
 
 </td>
 </tr>
@@ -3117,14 +3190,22 @@ with weights can be specified.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="TLSMatchAttributes-destination_subnet">
-<td><code>destinationSubnet</code></td>
-<td><code>string</code></td>
+<tr id="TLSMatchAttributes-sni_hosts">
+<td><code>sniHosts</code></td>
+<td><code>string[]</code></td>
 <td>
-<p>IPv4 or IPv6 ip address of destination with optional subnet.  E.g.,
-a.b.c.d/xx form or just a.b.c.d. This is only valid when the
-destination service has several IPs and the application explicitly
-specifies a particular IP.</p>
+<p>REQUIRED. SNI (server name indicator) to match on. Wildcard prefixes
+can be used in the SNI value. E.g., *.com will match foo.example.com
+as well as example.com.</p>
+
+</td>
+</tr>
+<tr id="TLSMatchAttributes-destination_subnets">
+<td><code>destinationSubnets</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>IPv4 or IPv6 ip addresses of destination with optional subnet.  E.g.,
+a.b.c.d/xx form or just a.b.c.d.</p>
 
 </td>
 </tr>
@@ -3136,16 +3217,6 @@ specifies a particular IP.</p>
 only expose a single port or label ports with the protocols they
 support, in these cases it is not required to explicitly select the
 port.</p>
-
-</td>
-</tr>
-<tr id="TLSMatchAttributes-sni_hosts">
-<td><code>sniHosts</code></td>
-<td><code>string[]</code></td>
-<td>
-<p>SNI (server name indicator) to match on. Wildcard prefixes can be used
-in the SNI value. E.g., *.com will match foo.example.com as well as
-example.com.</p>
 
 </td>
 </tr>
@@ -3187,6 +3258,8 @@ metadata:
 spec:
   hosts:
   - &quot;*.bookinfo.com&quot;
+  gateways:
+  - mygateway
   tls:
   - match:
     - port: 443
@@ -3217,10 +3290,10 @@ spec:
 <td><code>match</code></td>
 <td><code><a href="#TLSMatchAttributes">TLSMatchAttributes[]</a></code></td>
 <td>
-<p>Match conditions to be satisfied for the rule to be activated. All
-conditions inside a single match block have AND semantics, while the
-list of match blocks have OR semantics. The rule is matched if any one
-of the match blocks succeed.</p>
+<p>REQUIRED. Match conditions to be satisfied for the rule to be
+activated. All conditions inside a single match block have AND
+semantics, while the list of match blocks have OR semantics. The rule
+is matched if any one of the match blocks succeed.</p>
 
 </td>
 </tr>

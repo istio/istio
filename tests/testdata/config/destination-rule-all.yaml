@@ -54,7 +54,9 @@ spec:
       trafficPolicy:
         loadBalancer:
           consistentHash:
-            http_header: Cookie
+            httpCookie:
+              name: Cookie
+              ttl: 30s
             minimumRingSize: 42
 
 ---

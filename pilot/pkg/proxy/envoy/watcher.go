@@ -17,49 +17,28 @@ package envoy
 import (
 	"context"
 	"crypto/sha256"
-	"fmt"
 	"hash"
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"path"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/howeyc/fsnotify"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/proxy"
-	"istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/pkg/log"
 )
 
 const (
-	// MaxClusterNameLength is the maximum cluster name length
-	MaxClusterNameLength = 189 // TODO: use MeshConfig.StatNameLength instead
+	// defaultMinDelay is the minimum amount of time between delivery of two successive events via updateFunc.
+	defaultMinDelay = 10 * time.Second
 )
-
-// convertDuration converts to golang duration and logs errors
-func convertDuration(d *duration.Duration) time.Duration {
-	if d == nil {
-		return 0
-	}
-	dur, err := ptypes.Duration(d)
-	if err != nil {
-		log.Warnf("error converting duration %#v, using 0: %v", d, err)
-	}
-	return dur
-}
 
 // Watcher triggers reloads on changes to the proxy config
 type Watcher interface {
 	// Run the watcher loop (blocking call)
 	Run(context.Context)
-
-	// Reload the agent with the latest configuration
-	Reload()
 }
 
 // CertSource is file source for certificates
@@ -71,39 +50,33 @@ type CertSource struct {
 }
 
 type watcher struct {
-	agent    proxy.Agent
 	role     model.Proxy
 	config   meshconfig.ProxyConfig
 	certs    []CertSource
 	pilotSAN []string
+	updates  chan<- interface{}
 }
 
 // NewWatcher creates a new watcher instance from a proxy agent and a set of monitored certificate paths
 // (directories with files in them)
-func NewWatcher(config meshconfig.ProxyConfig, agent proxy.Agent, role model.Proxy,
-	certs []CertSource, pilotSAN []string) Watcher {
+func NewWatcher(
+	config meshconfig.ProxyConfig,
+	role model.Proxy,
+	certs []CertSource,
+	pilotSAN []string,
+	updates chan<- interface{}) Watcher {
 	return &watcher{
-		agent:    agent,
 		role:     role,
 		config:   config,
 		certs:    certs,
 		pilotSAN: pilotSAN,
+		updates:  updates,
 	}
 }
 
-const (
-	// defaultMinDelay is the minimum amount of time between delivery of two successive events via updateFunc.
-	defaultMinDelay = 10 * time.Second
-	azRetryInterval = time.Second * 30
-	azRetryAttempts = 10
-)
-
 func (w *watcher) Run(ctx context.Context) {
-	// agent consumes notifications from the controller
-	go w.agent.Run(ctx)
-
-	// kickstart the proxy with partial state (in case there are no notifications coming)
-	w.Reload()
+	// kick start the proxy with partial state (in case there are no notifications coming)
+	w.SendConfig()
 
 	// monitor certificates
 	certDirs := make([]string, 0, len(w.certs))
@@ -111,41 +84,18 @@ func (w *watcher) Run(ctx context.Context) {
 		certDirs = append(certDirs, cert.Directory)
 	}
 
-	go watchCerts(ctx, certDirs, watchFileEvents, defaultMinDelay, w.Reload)
-	go w.retrieveAZ(ctx, azRetryInterval, azRetryAttempts)
+	go watchCerts(ctx, certDirs, watchFileEvents, defaultMinDelay, w.SendConfig)
 
 	<-ctx.Done()
 }
 
-func (w *watcher) Reload() {
+func (w *watcher) SendConfig() {
 	h := sha256.New()
 	for _, cert := range w.certs {
 		generateCertHash(h, cert.Directory, cert.Files)
 	}
 
-	w.agent.ScheduleConfigUpdate(h.Sum(nil))
-}
-
-// retrieveAZ will only run once and then exit because AZ won't change over a proxy's lifecycle
-// it has to use a reload due to limitations with envoy (az has to be passed in as a flag)
-func (w *watcher) retrieveAZ(ctx context.Context, delay time.Duration, retries int) {
-	if !model.IsApplicationNodeType(w.role.Type) {
-		return
-	}
-	if len(w.config.AvailabilityZone) > 0 {
-		return // already loaded
-	}
-
-	checkin, err := bootstrap.Checkin(w.config.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS,
-		w.config.DiscoveryAddress, w.config.ServiceCluster, w.role.ServiceNode(), delay, retries)
-	if err != nil {
-		// TODO: turn back on when fully implemented, commented out to avoid confusing users
-		// log.Errorf("Failed to connect to pilot. Fallback to starting with defaults and no AZ %v", err)
-		// TODO: should we exit ? Envoy is unlikely to start without pilot.
-	} else {
-		w.config.AvailabilityZone = checkin.AvailabilityZone
-		w.Reload()
-	}
+	w.updates <- h.Sum(nil)
 }
 
 type watchFileEventsFn func(ctx context.Context, wch <-chan *fsnotify.FileEvent,
@@ -228,134 +178,4 @@ func generateCertHash(h hash.Hash, certsDir string, files []string) {
 			log.Warna(err)
 		}
 	}
-}
-
-const (
-	// EpochFileTemplate is a template for the root config JSON
-	EpochFileTemplate = "envoy-rev%d.json"
-)
-
-func configFile(config string, epoch int) string {
-	return path.Join(config, fmt.Sprintf(EpochFileTemplate, epoch))
-}
-
-type envoy struct {
-	config    meshconfig.ProxyConfig
-	node      string
-	extraArgs []string
-	pilotSAN  []string
-	opts      map[string]interface{}
-	errChan   chan error
-}
-
-// NewProxy creates an instance of the proxy control commands
-func NewProxy(config meshconfig.ProxyConfig, node string, logLevel string, pilotSAN []string) proxy.Proxy {
-	// inject tracing flag for higher levels
-	var args []string
-	if logLevel != "" {
-		args = append(args, "-l", logLevel)
-	}
-
-	return envoy{
-		config:    config,
-		node:      node,
-		extraArgs: args,
-		pilotSAN:  pilotSAN,
-	}
-}
-
-func (proxy envoy) args(fname string, epoch int) []string {
-	startupArgs := []string{"-c", fname,
-		"--restart-epoch", fmt.Sprint(epoch),
-		"--drain-time-s", fmt.Sprint(int(convertDuration(proxy.config.DrainDuration) / time.Second)),
-		"--parent-shutdown-time-s", fmt.Sprint(int(convertDuration(proxy.config.ParentShutdownDuration) / time.Second)),
-		"--service-cluster", proxy.config.ServiceCluster,
-		"--service-node", proxy.node,
-		"--max-obj-name-len", fmt.Sprint(MaxClusterNameLength), // TODO: use MeshConfig.StatNameLength instead
-	}
-
-	startupArgs = append(startupArgs, proxy.extraArgs...)
-
-	if proxy.config.Concurrency > 0 {
-		startupArgs = append(startupArgs, "--concurrency", fmt.Sprint(proxy.config.Concurrency))
-	}
-
-	if len(proxy.config.AvailabilityZone) > 0 {
-		startupArgs = append(startupArgs, []string{"--service-zone", proxy.config.AvailabilityZone}...)
-	}
-
-	return startupArgs
-}
-
-func (proxy envoy) Run(config interface{}, epoch int, abort <-chan error) error {
-
-	var fname string
-	// Note: the cert checking still works, the generated file is updated if certs are changed.
-	// We just don't save the generated file, but use a custom one instead. Pilot will keep
-	// monitoring the certs and restart if the content of the certs changes.
-	if len(proxy.config.CustomConfigFile) > 0 {
-		// there is a custom configuration. Don't write our own config - but keep watching the certs.
-		fname = proxy.config.CustomConfigFile
-	} else {
-		out, err := bootstrap.WriteBootstrap(&proxy.config, proxy.node, epoch, proxy.pilotSAN, proxy.opts)
-		if err != nil {
-			log.Errora("Failed to generate bootstrap config", err)
-			os.Exit(1) // Prevent infinite loop attempting to write the file, let k8s/systemd report
-			return err
-		}
-		fname = out
-	}
-
-	// spin up a new Envoy process
-	args := proxy.args(fname, epoch)
-	if len(proxy.config.CustomConfigFile) == 0 {
-		args = append(args, "--v2-config-only")
-	}
-	log.Infof("Envoy command: %v", args)
-
-	/* #nosec */
-	cmd := exec.Command(proxy.config.BinaryPath, args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Start(); err != nil {
-		return err
-	}
-
-	// Set if the caller is monitoring envoy, for example in tests or if envoy runs in same
-	// container with the app.
-	if proxy.errChan != nil {
-		// Caller passed a channel, will wait itself for termination
-		go func() {
-			proxy.errChan <- cmd.Wait()
-		}()
-		return nil
-	}
-
-	done := make(chan error, 1)
-	go func() {
-		done <- cmd.Wait()
-	}()
-
-	select {
-	case err := <-abort:
-		log.Warnf("Aborting epoch %d", epoch)
-		if errKill := cmd.Process.Kill(); errKill != nil {
-			log.Warnf("killing epoch %d caused an error %v", epoch, errKill)
-		}
-		return err
-	case err := <-done:
-		return err
-	}
-}
-
-func (proxy envoy) Cleanup(epoch int) {
-	filePath := configFile(proxy.config.ConfigPath, epoch)
-	if err := os.Remove(filePath); err != nil {
-		log.Warnf("Failed to delete config file %s for %d, %v", filePath, epoch, err)
-	}
-}
-
-func (proxy envoy) Panic(_ interface{}) {
-	log.Error("cannot start the proxy with the desired configuration")
-	os.Exit(-1)
 }

@@ -33,7 +33,7 @@ type client struct {
 
 // initialize is the first method to be called. The client is expected to perform initialization by setting up
 // any local state using setup, and connecting to the Mixer rpc server at the given address.
-func (c *client) initialize(address string, load *Load, identityAttr string, identityAttrDomain string) error {
+func (c *client) initialize(address string, load *Load) error {
 	conn, err := grpc.Dial(address, grpc.WithInsecure())
 	if err != nil {
 		return err
@@ -42,7 +42,7 @@ func (c *client) initialize(address string, load *Load, identityAttr string, ide
 	c.mixer = istio_mixer_v1.NewMixerClient(conn)
 	c.conn = conn
 	c.load = load
-	c.requests = c.load.createRequestProtos(identityAttr, identityAttrDomain)
+	c.requests = c.load.createRequestProtos()
 	return nil
 }
 

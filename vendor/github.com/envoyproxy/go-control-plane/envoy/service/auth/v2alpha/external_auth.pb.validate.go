@@ -42,7 +42,9 @@ func (m *CheckRequest) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetAttributes()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetAttributes()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return CheckRequestValidationError{
 				Field:  "Attributes",
@@ -86,6 +88,145 @@ func (e CheckRequestValidationError) Error() string {
 
 var _ error = CheckRequestValidationError{}
 
+// Validate checks the field values on DeniedHttpResponse with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, an error is returned.
+func (m *DeniedHttpResponse) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	if m.GetStatus() == nil {
+		return DeniedHttpResponseValidationError{
+			Field:  "Status",
+			Reason: "value is required",
+		}
+	}
+
+	if v, ok := interface{}(m.GetStatus()).(interface {
+		Validate() error
+	}); ok {
+		if err := v.Validate(); err != nil {
+			return DeniedHttpResponseValidationError{
+				Field:  "Status",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
+	for idx, item := range m.GetHeaders() {
+		_, _ = idx, item
+
+		if v, ok := interface{}(item).(interface {
+			Validate() error
+		}); ok {
+			if err := v.Validate(); err != nil {
+				return DeniedHttpResponseValidationError{
+					Field:  fmt.Sprintf("Headers[%v]", idx),
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
+	}
+
+	// no validation rules for Body
+
+	return nil
+}
+
+// DeniedHttpResponseValidationError is the validation error returned by
+// DeniedHttpResponse.Validate if the designated constraints aren't met.
+type DeniedHttpResponseValidationError struct {
+	Field  string
+	Reason string
+	Cause  error
+	Key    bool
+}
+
+// Error satisfies the builtin error interface
+func (e DeniedHttpResponseValidationError) Error() string {
+	cause := ""
+	if e.Cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
+	}
+
+	key := ""
+	if e.Key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sDeniedHttpResponse.%s: %s%s",
+		key,
+		e.Field,
+		e.Reason,
+		cause)
+}
+
+var _ error = DeniedHttpResponseValidationError{}
+
+// Validate checks the field values on OkHttpResponse with the rules defined in
+// the proto definition for this message. If any rules are violated, an error
+// is returned.
+func (m *OkHttpResponse) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	for idx, item := range m.GetHeaders() {
+		_, _ = idx, item
+
+		if v, ok := interface{}(item).(interface {
+			Validate() error
+		}); ok {
+			if err := v.Validate(); err != nil {
+				return OkHttpResponseValidationError{
+					Field:  fmt.Sprintf("Headers[%v]", idx),
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
+	}
+
+	return nil
+}
+
+// OkHttpResponseValidationError is the validation error returned by
+// OkHttpResponse.Validate if the designated constraints aren't met.
+type OkHttpResponseValidationError struct {
+	Field  string
+	Reason string
+	Cause  error
+	Key    bool
+}
+
+// Error satisfies the builtin error interface
+func (e OkHttpResponseValidationError) Error() string {
+	cause := ""
+	if e.Cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
+	}
+
+	key := ""
+	if e.Key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sOkHttpResponse.%s: %s%s",
+		key,
+		e.Field,
+		e.Reason,
+		cause)
+}
+
+var _ error = OkHttpResponseValidationError{}
+
 // Validate checks the field values on CheckResponse with the rules defined in
 // the proto definition for this message. If any rules are violated, an error
 // is returned.
@@ -94,7 +235,9 @@ func (m *CheckResponse) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetStatus()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetStatus()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return CheckResponseValidationError{
 				Field:  "Status",
@@ -102,6 +245,38 @@ func (m *CheckResponse) Validate() error {
 				Cause:  err,
 			}
 		}
+	}
+
+	switch m.HttpResponse.(type) {
+
+	case *CheckResponse_DeniedResponse:
+
+		if v, ok := interface{}(m.GetDeniedResponse()).(interface {
+			Validate() error
+		}); ok {
+			if err := v.Validate(); err != nil {
+				return CheckResponseValidationError{
+					Field:  "DeniedResponse",
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
+	case *CheckResponse_OkResponse:
+
+		if v, ok := interface{}(m.GetOkResponse()).(interface {
+			Validate() error
+		}); ok {
+			if err := v.Validate(); err != nil {
+				return CheckResponseValidationError{
+					Field:  "OkResponse",
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
 	}
 
 	return nil
@@ -137,56 +312,3 @@ func (e CheckResponseValidationError) Error() string {
 }
 
 var _ error = CheckResponseValidationError{}
-
-// Validate checks the field values on CheckResponse_HttpResponse with the
-// rules defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
-func (m *CheckResponse_HttpResponse) Validate() error {
-	if m == nil {
-		return nil
-	}
-
-	if val := m.GetStatusCode(); val < 100 || val >= 600 {
-		return CheckResponse_HttpResponseValidationError{
-			Field:  "StatusCode",
-			Reason: "value must be inside range [100, 600)",
-		}
-	}
-
-	// no validation rules for Headers
-
-	// no validation rules for Body
-
-	return nil
-}
-
-// CheckResponse_HttpResponseValidationError is the validation error returned
-// by CheckResponse_HttpResponse.Validate if the designated constraints aren't met.
-type CheckResponse_HttpResponseValidationError struct {
-	Field  string
-	Reason string
-	Cause  error
-	Key    bool
-}
-
-// Error satisfies the builtin error interface
-func (e CheckResponse_HttpResponseValidationError) Error() string {
-	cause := ""
-	if e.Cause != nil {
-		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
-	}
-
-	key := ""
-	if e.Key {
-		key = "key for "
-	}
-
-	return fmt.Sprintf(
-		"invalid %sCheckResponse_HttpResponse.%s: %s%s",
-		key,
-		e.Field,
-		e.Reason,
-		cause)
-}
-
-var _ error = CheckResponse_HttpResponseValidationError{}

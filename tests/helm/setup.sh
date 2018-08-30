@@ -1,17 +1,16 @@
-#/bin/bash
+#!/bin/bash
 
 
 
 function testIstioSystem() {
-   pushd $TOP/src/istio.io/istio
+   pushd "$TOP/src/istio.io/istio" || return
    helm -n istio-system template \
+    --set global.tag="$TAG" \
+    --set global.hub="$HUB" \
     --values tests/helm/values-istio-test.yaml \
-    --set global.refreshInterval=30s \
-    --set global.tag=$TAG \
-    --set global.hub=$HUB \
     install/kubernetes/helm/istio  | \
         kubectl apply -n istio-system -f -
-   popd
+   popd || return
 }
 
 # Install istio
@@ -20,11 +19,10 @@ function testInstall() {
     kubectl create ns istio-system
     testIstioSystem
 
-    kubectl -n test apply -f samples/httpbin/httpbin.yaml
-
     kubectl create ns test
     kubectl label namespace test istio-injection=enabled
 
+    kubectl -n test apply -f samples/httpbin/httpbin.yaml
     kubectl create ns bookinfo
     kubectl label namespace bookinfo istio-injection=enabled
     kubectl -n bookinfo apply -f samples/bookinfo/kube/bookinfo.yaml
@@ -32,9 +30,16 @@ function testInstall() {
 
 # Apply the helm template
 function testApply() {
-   pushd $TOP/src/istio.io/istio
-   helm -n test template tests/helm |kubectl -n test apply -f -
-   popd
+   local F=${1:-"fortio/fortio:latest"}
+   pushd "$TOP/src/istio.io/istio" || return
+   helm -n test template \
+    --set fortioImage="$F" \
+    tests/helm |kubectl -n test apply -f -
+   popd || return
+}
+
+function testApply1() {
+    testApply fortio/fortio:1.2.0
 }
 
 # Setup DNS entries - currently using gcloud
@@ -44,19 +49,29 @@ function testApply() {
 # Similar scripts can setup DNS using a different provider
 function testCreateDNS() {
 
-    gcloud dns --project=$DNS_PROJECT record-sets transaction start --zone=$DNS_ZONE
+    gcloud dns --project="$DNS_PROJECT" record-sets transaction start --zone="$DNS_ZONE"
 
-    gcloud dns --project=$DNS_PROJECT record-sets transaction add ingress08.$DNS_DOMAIN --name=grafana.v08.$DNS_DOMAIN --ttl=300 --type=CNAME --zone=$DNS_ZONE
-    gcloud dns --project=$DNS_PROJECT record-sets transaction add ingress08.$DNS_DOMAIN --name=prom.v08.$DNS_DOMAIN --ttl=300 --type=CNAME --zone=$DNS_ZONE
-    gcloud dns --project=$DNS_PROJECT record-sets transaction add ingress08.$DNS_DOMAIN --name=fortio2.v08.$DNS_DOMAIN --ttl=300 --type=CNAME --zone=$DNS_ZONE
-    gcloud dns --project=$DNS_PROJECT record-sets transaction add ingress08.$DNS_DOMAIN --name=pilot.v08.$DNS_DOMAIN --ttl=300 --type=CNAME --zone=$DNS_ZONE
-    gcloud dns --project=$DNS_PROJECT record-sets transaction add ingress08.$DNS_DOMAIN --name=fortio.v08.$DNS_DOMAIN --ttl=300 --type=CNAME --zone=$DNS_ZONE
-    gcloud dns --project=$DNS_PROJECT record-sets transaction add ingress08.$DNS_DOMAIN --name=fortioraw.v08.$DNS_DOMAIN --ttl=300 --type=CNAME --zone=$DNS_ZONE
-    gcloud dns --project=$DNS_PROJECT record-sets transaction add ingress08.$DNS_DOMAIN --name=bookinfo.v08.$DNS_DOMAIN --ttl=300 --type=CNAME --zone=$DNS_ZONE
-    gcloud dns --project=$DNS_PROJECT record-sets transaction add ingress08.$DNS_DOMAIN --name=httpbin.v08.$DNS_DOMAIN --ttl=300 --type=CNAME --zone=$DNS_ZONE
-    gcloud dns --project=$DNS_PROJECT record-sets transaction add ingress08.$DNS_DOMAIN --name=citadel.v08.$DNS_DOMAIN --ttl=300 --type=CNAME --zone=$DNS_ZONE
-    gcloud dns --project=$DNS_PROJECT record-sets transaction add ingress08.$DNS_DOMAIN --name=mixer.v08.$DNS_DOMAIN --ttl=300 --type=CNAME --zone=$DNS_ZONE
+  #  gcloud dns --project=$DNS_PROJECT record-sets transaction add ingress10.${DNS_DOMAIN}. --name=grafana.v10.${DNS_DOMAIN}. --ttl=300 --type=CNAME --zone=$DNS_ZONE
+    gcloud dns --project="$DNS_PROJECT" record-sets transaction add "ingress10.${DNS_DOMAIN}." --name="prom.v10.${DNS_DOMAIN}." --ttl=300 --type=CNAME --zone="$DNS_ZONE"
+    gcloud dns --project="$DNS_PROJECT" record-sets transaction add "ingress10.${DNS_DOMAIN}." --name="fortio2.v10.${DNS_DOMAIN}." --ttl=300 --type=CNAME --zone="$DNS_ZONE"
+    gcloud dns --project="$DNS_PROJECT" record-sets transaction add "ingress10.${DNS_DOMAIN}." --name="pilot.v10.${DNS_DOMAIN}." --ttl=300 --type=CNAME --zone="$DNS_ZONE"
+    gcloud dns --project="$DNS_PROJECT" record-sets transaction add "ingress10.${DNS_DOMAIN}." --name="fortio.v10.${DNS_DOMAIN}." --ttl=300 --type=CNAME --zone="$DNS_ZONE"
+    gcloud dns --project="$DNS_PROJECT" record-sets transaction add "ingress10.${DNS_DOMAIN}." --name="fortioraw.v10.${DNS_DOMAIN}." --ttl=300 --type=CNAME --zone="$DNS_ZONE"
+    gcloud dns --project="$DNS_PROJECT" record-sets transaction add "ingress10.${DNS_DOMAIN}." --name="bookinfo.v10.${DNS_DOMAIN}." --ttl=300 --type=CNAME --zone="$DNS_ZONE"
+    gcloud dns --project="$DNS_PROJECT" record-sets transaction add "ingress10.${DNS_DOMAIN}." --name="httpbin.v10.${DNS_DOMAIN}." --ttl=300 --type=CNAME --zone="$DNS_ZONE"
+    gcloud dns --project="$DNS_PROJECT" record-sets transaction add "ingress10.${DNS_DOMAIN}." --name="citadel.v10.${DNS_DOMAIN}." --ttl=300 --type=CNAME --zone="$DNS_ZONE"
+    gcloud dns --project="$DNS_PROJECT" record-sets transaction add "ingress10.${DNS_DOMAIN}." --name="mixer.v10.${DNS_DOMAIN}." --ttl=300 --type=CNAME --zone="$DNS_ZONE"
 
-    gcloud dns --project=$DNS_PROJECT record-sets transaction execute --zone=$DNS_ZONE
+    gcloud dns --project="$DNS_PROJECT" record-sets transaction execute --zone="$DNS_ZONE"
 }
 
+# Run this after adding a new name for ingress testing
+function testAddDNS() {
+    local N=$1
+
+    gcloud dns --project="$DNS_PROJECT" record-sets transaction start --zone="$DNS_ZONE"
+
+    gcloud dns --project="$DNS_PROJECT" record-sets transaction add "ingress10.${DNS_DOMAIN}." --name="${N}.v10.${DNS_DOMAIN}." --ttl=300 --type=CNAME --zone="$DNS_ZONE"
+
+    gcloud dns --project="$DNS_PROJECT" record-sets transaction execute --zone="$DNS_ZONE"
+}

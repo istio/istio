@@ -1,0 +1,19 @@
+{{- range $key, $spec := .Values }}
+{{- if and (ne $key "global") (ne $key "enabled") }}
+{{- if $spec.enabled }}
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ $key }}-{{ $.Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ $key }}-{{ $.Release.Namespace }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $key }}-service-account
+    namespace: {{ $.Release.Namespace }}
+---
+{{- end }}
+{{- end }}
+{{- end }}

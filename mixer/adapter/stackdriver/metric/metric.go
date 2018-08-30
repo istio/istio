@@ -56,7 +56,7 @@ type (
 		createClient createClientFunc
 		metrics      map[string]*metric.Type
 		cfg          *config.Params
-		mg           *helper.MetadataGenerator
+		mg           helper.MetadataGenerator
 	}
 
 	info struct {
@@ -80,6 +80,9 @@ type (
 const (
 	// From https://github.com/GoogleCloudPlatform/golang-samples/blob/master/monitoring/custommetric/custommetric.go
 	customMetricPrefix = "custom.googleapis.com/"
+
+	// To limit the time series included in each CreateTimeSeries API call.
+	timeSeriesBatchLimit = 200
 )
 
 var (
@@ -105,7 +108,7 @@ var (
 )
 
 // NewBuilder returns a builder implementing the metric.HandlerBuilder interface.
-func NewBuilder(mg *helper.MetadataGenerator) metric.HandlerBuilder {
+func NewBuilder(mg helper.MetadataGenerator) metric.HandlerBuilder {
 	return &builder{createClient: createClient, mg: mg}
 }
 
@@ -164,11 +167,12 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 		return nil, err
 	}
 	buffered := &buffered{
-		pushMetrics: client.CreateTimeSeries,
-		closeMe:     client,
-		project:     cfg.ProjectId,
-		m:           sync.Mutex{},
-		l:           env.Logger(),
+		pushMetrics:         client.CreateTimeSeries,
+		closeMe:             client,
+		project:             cfg.ProjectId,
+		m:                   sync.Mutex{},
+		l:                   env.Logger(),
+		timeSeriesBatchSize: timeSeriesBatchLimit,
 	}
 	// We hold on to the ref to the ticker so we can stop it later
 	buffered.start(env, ticker)

@@ -48,7 +48,7 @@ type (
 		makeClient     makeClientFn
 		makeSyncClient makeSyncClientFn
 		types          map[string]*logentry.Type
-		mg             *helper.MetadataGenerator
+		mg             helper.MetadataGenerator
 		cfg            *config.Params
 	}
 
@@ -77,7 +77,7 @@ var (
 )
 
 // NewBuilder returns a builder implementing the logentry.HandlerBuilder interface.
-func NewBuilder(mg *helper.MetadataGenerator) logentry.HandlerBuilder {
+func NewBuilder(mg helper.MetadataGenerator) logentry.HandlerBuilder {
 	return &builder{makeClient: logging.NewClient, makeSyncClient: logadmin.NewClient, mg: mg}
 }
 

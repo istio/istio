@@ -1,4 +1,4 @@
-# Running E2E tests on your own kubernets cluster
+# Running E2E tests on your own kubernetes cluster
 
 * [Step 1: Create a kubernetes cluster](#step-1-create-and-setup-a-kubernetes-cluster)
 * [Step 2: Get cluster credentials](#step-2-get-cluster-credentials)
@@ -105,28 +105,7 @@ make e2e_all E2E_ARGS="--skip_cleanup"
 ```
 
 Each test has its own directory and can be run independently as a
-go_test target. The script has a number of options:
-
-* `--skip_cleanup` - to skip cleanup steps
-* `--namespace <namespace>` : If you don't specify `namespace`, a random namespace is generated for each test.
-* `--verbose <debug level noise from proxies>`
-* `--istioctl <local istioctl path>`: Use local istioctl binary (i.e. `${GOPATH}/out/linux_amd64/release/istioctl`).
-* `--istioctl_url <remote istioctl url>`: If local path is not defined, download istioctl from a remote location.
-* `--use_local_cluster`: If running on minikube, this should be set to true.
-* `--auth_enable` - if you want to include auth
-* `--cluster_wide` - if you want to run the cluster wide installation and tests
-* `--use_automatic_injection` - if you want to do transparent sidecar injection
-* `--use_galley_config_validator` - if you want to enable automatic configuration validation
-* `--mixer_hub <mixer image hub>`
-* `--mixer_tag <mixer image tag>`
-* `--pilot_hub <pilot image hub>`
-* `--pilot_tag <pilot image tag>`
-* `--proxy_hub <proxy image hub>`
-* `--proxy_tag <proxy image tag>`
-* `--ca_hub <CA image hub>`
-* `--ca_tag <CA image tag>`
-* `--galley_hub <galley image hub>`
-* `--galley_tag <galley image tag>`
+go_test target. The script has a number of options available [here](README.md#options-for-e2e-tests)
 
 ## Examples
 
@@ -150,7 +129,7 @@ Please see golang testing options for more information.
   go test --help
   ```
 
-* For **simple test** specific, you can run test multiple time against the same environement setup by `skip_setup`:
+* For **simple test** specific, you can run test multiple time against the same environment setup by `skip_setup`:
   ```bash
   # First time you want to run: deploy in namespace e2e and leave it running:
   make e2e_simple E2E_ARGS="--skip_cleanup --namespace=e2e -istioctl ~/istioctl-osx --auth_enable"

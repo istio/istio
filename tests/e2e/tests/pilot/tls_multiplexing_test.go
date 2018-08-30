@@ -25,9 +25,6 @@ func TestTLSMultiplexing(t *testing.T) {
 	if tc.Kube.AuthEnabled {
 		t.Skip("Skipping because multiplexing is used when mesh config auth_enabled is turned off...")
 	}
-	if tc.V1alpha1 {
-		t.Skip("Skipping because multiplexing requires v1alpha3 api...")
-	}
 
 	cfgs := &deployableConfig{
 		Namespace: tc.Kube.Namespace,

@@ -15,6 +15,12 @@ var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
 
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
+
 // Custom configuration for an :ref:`AccessLog <envoy_api_msg_config.filter.accesslog.v2.AccessLog>`
 // that writes log entries directly to a file. Configures the built-in *envoy.file_access_log*
 // AccessLog.
@@ -24,13 +30,44 @@ type FileAccessLog struct {
 	// Access log format. Envoy supports :ref:`custom access log formats
 	// <config_access_log_format>` as well as a :ref:`default format
 	// <config_access_log_default_format>`.
-	Format string `protobuf:"bytes,2,opt,name=format,proto3" json:"format,omitempty"`
+	Format               string   `protobuf:"bytes,2,opt,name=format,proto3" json:"format,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *FileAccessLog) Reset()                    { *m = FileAccessLog{} }
-func (m *FileAccessLog) String() string            { return proto.CompactTextString(m) }
-func (*FileAccessLog) ProtoMessage()               {}
-func (*FileAccessLog) Descriptor() ([]byte, []int) { return fileDescriptorFile, []int{0} }
+func (m *FileAccessLog) Reset()         { *m = FileAccessLog{} }
+func (m *FileAccessLog) String() string { return proto.CompactTextString(m) }
+func (*FileAccessLog) ProtoMessage()    {}
+func (*FileAccessLog) Descriptor() ([]byte, []int) {
+	return fileDescriptor_file_d4ad3206bc2b758b, []int{0}
+}
+func (m *FileAccessLog) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *FileAccessLog) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_FileAccessLog.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (dst *FileAccessLog) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_FileAccessLog.Merge(dst, src)
+}
+func (m *FileAccessLog) XXX_Size() int {
+	return m.Size()
+}
+func (m *FileAccessLog) XXX_DiscardUnknown() {
+	xxx_messageInfo_FileAccessLog.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_FileAccessLog proto.InternalMessageInfo
 
 func (m *FileAccessLog) GetPath() string {
 	if m != nil {
@@ -76,6 +113,9 @@ func (m *FileAccessLog) MarshalTo(dAtA []byte) (int, error) {
 		i = encodeVarintFile(dAtA, i, uint64(len(m.Format)))
 		i += copy(dAtA[i:], m.Format)
 	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
 	return i, nil
 }
 
@@ -98,6 +138,9 @@ func (m *FileAccessLog) Size() (n int) {
 	l = len(m.Format)
 	if l > 0 {
 		n += 1 + l + sovFile(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
 	}
 	return n
 }
@@ -214,6 +257,7 @@ func (m *FileAccessLog) Unmarshal(dAtA []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -328,9 +372,11 @@ var (
 	ErrIntOverflowFile   = fmt.Errorf("proto: integer overflow")
 )
 
-func init() { proto.RegisterFile("envoy/config/accesslog/v2/file.proto", fileDescriptorFile) }
+func init() {
+	proto.RegisterFile("envoy/config/accesslog/v2/file.proto", fileDescriptor_file_d4ad3206bc2b758b)
+}
 
-var fileDescriptorFile = []byte{
+var fileDescriptor_file_d4ad3206bc2b758b = []byte{
 	// 173 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x52, 0x49, 0xcd, 0x2b, 0xcb,
 	0xaf, 0xd4, 0x4f, 0xce, 0xcf, 0x4b, 0xcb, 0x4c, 0xd7, 0x4f, 0x4c, 0x4e, 0x4e, 0x2d, 0x2e, 0xce,

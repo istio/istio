@@ -20,11 +20,14 @@ data:
 
       kubernetes_sd_configs:
       - role: endpoints
+        namespaces:
+          names:
+          - {{ .Release.Namespace }}
 
       relabel_configs:
-      - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+      - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
         action: keep
-        regex: {{ .Release.Namespace }};istio-telemetry;prometheus
+        regex: istio-telemetry;prometheus
 
     - job_name: 'envoy'
       # Override the global default and scrape targets from this job every 5 seconds.
@@ -34,11 +37,14 @@ data:
 
       kubernetes_sd_configs:
       - role: endpoints
+        namespaces:
+          names:
+          - {{ .Release.Namespace }}
 
       relabel_configs:
-      - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+      - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
         action: keep
-        regex: {{ .Release.Namespace }};istio-statsd-prom-bridge;statsd-prom
+        regex: istio-statsd-prom-bridge;statsd-prom
 
     - job_name: 'istio-policy'
       # Override the global default and scrape targets from this job every 5 seconds.
@@ -48,11 +54,15 @@ data:
 
       kubernetes_sd_configs:
       - role: endpoints
+        namespaces:
+          names:
+          - {{ .Release.Namespace }}
+
 
       relabel_configs:
-      - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+      - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
         action: keep
-        regex: {{ .Release.Namespace }};istio-policy;http-monitoring
+        regex: istio-policy;http-monitoring
 
     - job_name: 'istio-telemetry'
       # Override the global default and scrape targets from this job every 5 seconds.
@@ -62,11 +72,14 @@ data:
 
       kubernetes_sd_configs:
       - role: endpoints
+        namespaces:
+          names:
+          - {{ .Release.Namespace }}
 
       relabel_configs:
-      - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+      - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
         action: keep
-        regex: {{ .Release.Namespace }};istio-telemetry;http-monitoring
+        regex: istio-telemetry;http-monitoring
 
     - job_name: 'pilot'
       # Override the global default and scrape targets from this job every 5 seconds.
@@ -76,24 +89,47 @@ data:
 
       kubernetes_sd_configs:
       - role: endpoints
+        namespaces:
+          names:
+          - {{ .Release.Namespace }}
 
       relabel_configs:
-      - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+      - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
         action: keep
-        regex: {{ .Release.Namespace }};istio-pilot;http-monitoring
+        regex: istio-pilot;http-monitoring
+
+    - job_name: 'galley'
+      # Override the global default and scrape targets from this job every 5 seconds.
+      scrape_interval: 5s
+      # metrics_path defaults to '/metrics'
+      # scheme defaults to 'http'.
+
+      kubernetes_sd_configs:
+      - role: endpoints
+        namespaces:
+          names:
+          - {{ .Release.Namespace }}
+
+      relabel_configs:
+      - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+        action: keep
+        regex: istio-galley;http-monitoring
 
     # scrape config for API servers
     - job_name: 'kubernetes-apiservers'
       kubernetes_sd_configs:
       - role: endpoints
+        namespaces:
+          names:
+          - default
       scheme: https
       tls_config:
         ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
       bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
       relabel_configs:
-      - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+      - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
         action: keep
-        regex: default;kubernetes;https
+        regex: kubernetes;https
 
     # scrape config for nodes (kubelet)
     - job_name: 'kubernetes-nodes'

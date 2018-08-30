@@ -225,6 +225,6 @@ func (b *BrokenRequest) MarshalJSON() ([]byte, error) {
 	return nil, fmt.Errorf("marshal error")
 }
 
-func (b *BrokenRequest) createRequestProtos(iattr, iattrdomain string) []interface{} {
+func (b *BrokenRequest) createRequestProtos() []interface{} {
 	return nil
 }

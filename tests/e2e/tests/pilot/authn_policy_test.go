@@ -27,10 +27,16 @@ func TestMTlsWithAuthNPolicy(t *testing.T) {
 		// The whole authn test suites should be rewritten after PR #TBD for better consistency.
 		t.Skipf("Skipping %s: authn=true", t.Name())
 	}
-	// This policy will enable mTLS globally (mesh policy)
+	// Define the default permissive global mesh resource.
+	globalPermissive := resource{
+		Kind: "MeshPolicy",
+		Name: "default",
+	}
+	// This policy will remove the permissive policy and enable mTLS mesh policy.
 	globalCfg := &deployableConfig{
 		Namespace:  "", // Use blank for cluster CRD.
 		YamlFiles:  []string{"testdata/authn/v1alpha1/global-mtls.yaml.tmpl"},
+		Removes:    []resource{globalPermissive},
 		kubeconfig: tc.Kube.KubeConfig,
 	}
 	// This policy disable mTLS for c and d:80.
@@ -65,7 +71,7 @@ func TestMTlsWithAuthNPolicy(t *testing.T) {
 								resp := ClientRequest(cluster, src, reqURL, 1, "")
 								if src == "t" && (dst == "b" || (dst == "d" && port == "8080")) {
 									if len(resp.ID) == 0 {
-										// t cannot talk to b nor d:80
+										// t cannot talk to b nor d:8080
 										return nil
 									}
 									return errAgain
@@ -130,9 +136,22 @@ func TestAuthNJwt(t *testing.T) {
 		{dst: "c", src: "b", port: "", token: "random", expect: "401"},
 		{dst: "c", src: "d", port: "80", token: validJwtToken, expect: "200"},
 
-		//{dst: "d", src: "a", port: "", token: validJwtToken, expect: "200"},
-		{dst: "d", src: "b", port: "80", token: "foo", expect: "401"},
 		{dst: "d", src: "c", port: "8080", token: "bar", expect: "200"},
+	}
+
+	if !tc.Kube.AuthEnabled {
+		extraCases := []struct {
+			dst    string
+			src    string
+			port   string
+			token  string
+			expect string
+		}{
+			// This needs to be de-flaked when authN is enabled https://github.com/istio/istio/issues/6288
+			{dst: "d", src: "a", port: "", token: validJwtToken, expect: "200"},
+			{dst: "d", src: "b", port: "80", token: "foo", expect: "401"},
+		}
+		cases = append(cases, extraCases...)
 	}
 
 	for _, c := range cases {
@@ -149,4 +168,33 @@ func TestAuthNJwt(t *testing.T) {
 			return errAgain
 		})
 	}
+}
+
+func TestGatewayIngress_AuthN_JWT(t *testing.T) {
+	istioNamespace := tc.Kube.IstioSystemNamespace()
+	ingressGatewayServiceName := tc.Kube.IstioIngressGatewayService()
+
+	// Configure a route from us.bookinfo.com to "c-v2" only
+	cfgs := &deployableConfig{
+		Namespace: tc.Kube.Namespace,
+		YamlFiles: []string{
+			"testdata/networking/v1alpha3/ingressgateway.yaml",
+			maybeAddTLSForDestinationRule(tc, "testdata/networking/v1alpha3/destination-rule-c.yaml"),
+			"testdata/networking/v1alpha3/rule-ingressgateway.yaml",
+			"testdata/authn/v1alpha1/authn-policy-ingressgateway-jwt.yaml"},
+	}
+
+	if err := cfgs.Setup(); err != nil {
+		t.Fatal(err)
+	}
+	defer cfgs.Teardown()
+
+	runRetriableTest(t, primaryCluster, "GatewayIngress_AuthN_JWT", defaultRetryBudget, func() error {
+		reqURL := fmt.Sprintf("http://%s.%s/c", ingressGatewayServiceName, istioNamespace)
+		resp := ClientRequest(primaryCluster, "t", reqURL, 1, "-key Host -val uk.bookinfo.com")
+		if len(resp.Code) > 0 && resp.Code[0] == "401" {
+			return nil
+		}
+		return errAgain
+	})
 }

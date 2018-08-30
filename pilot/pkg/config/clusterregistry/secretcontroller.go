@@ -16,7 +16,6 @@ package clusterregistry
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -29,7 +28,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/workqueue"
-	k8s_cr "k8s.io/cluster-registry/pkg/apis/clusterregistry/v1alpha1"
 
 	"istio.io/istio/pilot/pkg/model"
 	envoy "istio.io/istio/pilot/pkg/proxy/envoy/v2"
@@ -167,119 +165,111 @@ func (c *Controller) runWorker() {
 }
 
 func (c *Controller) processNextItem() bool {
-	key, quit := c.queue.Get()
+	secretName, quit := c.queue.Get()
 
 	if quit {
 		return false
 	}
-	defer c.queue.Done(key)
+	defer c.queue.Done(secretName)
 
-	err := c.processItem(key.(string))
+	err := c.processItem(secretName.(string))
 	if err == nil {
 		// No error, reset the ratelimit counters
-		c.queue.Forget(key)
-	} else if c.queue.NumRequeues(key) < maxRetries {
-		log.Errorf("Error processing %s (will retry): %v", key, err)
-		c.queue.AddRateLimited(key)
+		c.queue.Forget(secretName)
+	} else if c.queue.NumRequeues(secretName) < maxRetries {
+		log.Errorf("Error processing %s (will retry): %v", secretName, err)
+		c.queue.AddRateLimited(secretName)
 	} else {
-		log.Errorf("Error processing %s (giving up): %v", key, err)
-		c.queue.Forget(key)
+		log.Errorf("Error processing %s (giving up): %v", secretName, err)
+		c.queue.Forget(secretName)
 		utilruntime.HandleError(err)
 	}
 
 	return true
 }
 
-func (c *Controller) processItem(key string) error {
-	obj, exists, err := c.informer.GetIndexer().GetByKey(key)
+func (c *Controller) processItem(secretName string) error {
+	obj, exists, err := c.informer.GetIndexer().GetByKey(secretName)
 	if err != nil {
-		return fmt.Errorf("error fetching object with key %s from store: %v", key, err)
+		return fmt.Errorf("error fetching object %s from store: %v", secretName, err)
 	}
 
 	if !exists {
-		c.secretDelete(key)
+		c.deleteMemberCluster(secretName)
 		return nil
 	}
-	c.secretAdd(obj)
+	c.addMemberCluster(secretName, obj.(*corev1.Secret))
 
 	return nil
 }
 
-func addMemberCluster(s *corev1.Secret, c *Controller) {
+func (c *Controller) addMemberCluster(secretName string, s *corev1.Secret) {
 	c.cs.storeLock.Lock()
 	defer c.cs.storeLock.Unlock()
 	// Check if there is already a cluster member with the specified
-	key := Metadata{Name: s.ObjectMeta.Name, Namespace: s.ObjectMeta.Namespace}
-	if _, ok := c.cs.rc[key]; !ok {
-		log.Infof("Adding new cluster member: %s", s.ObjectMeta.Name)
-		clientConfig, err := clientcmd.Load(s.Data[s.ObjectMeta.Name])
-		if err != nil {
-			log.Errorf("failed to load client config from secret %s in namespace %s with error: %v",
-				s.ObjectMeta.Name, s.ObjectMeta.Namespace, err)
-		}
-		cluster := k8s_cr.Cluster{
-			TypeMeta: meta_v1.TypeMeta{
-				Kind:       "Cluster",
-				APIVersion: "clusterregistry.k8s.io/v1alpha1",
-			},
-			ObjectMeta: meta_v1.ObjectMeta{
-				Name:      s.ObjectMeta.Name,
-				Namespace: s.ObjectMeta.Namespace,
-			},
-		}
-		c.cs.rc[key] = &RemoteCluster{}
-		c.cs.rc[key].Client = clientConfig
-		c.cs.rc[key].Cluster = &cluster
-		client, _ := kube.CreateInterfaceFromClusterConfig(clientConfig)
-		kubectl := kube.NewController(client, kube.ControllerOptions{
-			WatchedNamespace: c.watchedNamespace,
-			ResyncPeriod:     c.resyncInterval,
-			DomainSuffix:     c.domainSufix,
-		})
-		c.cs.rc[key].Controller = kubectl
-		c.serviceController.AddRegistry(
-			aggregate.Registry{
-				Name:             serviceregistry.KubernetesRegistry,
-				ClusterID:        GetClusterID(&cluster),
-				ServiceDiscovery: kubectl,
-				ServiceAccounts:  kubectl,
-				Controller:       kubectl,
+	for clusterID, kubeConfig := range s.Data {
+		if _, ok := c.cs.rc[clusterID]; !ok {
+			// Disregard it if it's empty
+			if len(kubeConfig) == 0 {
+				log.Infof("Data '%s' in the secret %s in namespace %s is empty, and disregarded ",
+					clusterID, secretName, s.ObjectMeta.Namespace)
+				continue
+			}
+			clientConfig, err := clientcmd.Load(kubeConfig)
+			if err != nil {
+				log.Infof("Data '%s' in the secret %s in namespace %s is not a kubeconfig: %v",
+					clusterID, secretName, s.ObjectMeta.Namespace, err)
+				continue
+			}
+			log.Infof("Adding new cluster member: %s", clusterID)
+			c.cs.rc[clusterID] = &RemoteCluster{}
+			c.cs.rc[clusterID].Client = clientConfig
+			c.cs.rc[clusterID].FromSecret = secretName
+			client, _ := kube.CreateInterfaceFromClusterConfig(clientConfig)
+			kubectl := kube.NewController(client, kube.ControllerOptions{
+				WatchedNamespace: c.watchedNamespace,
+				ResyncPeriod:     c.resyncInterval,
+				DomainSuffix:     c.domainSufix,
 			})
-		stopCh := make(chan struct{})
-		c.cs.rc[key].ControlChannel = stopCh
-		_ = kubectl.AppendServiceHandler(func(*model.Service, model.Event) { c.discoveryServer.ClearCacheFunc() })
-		_ = kubectl.AppendInstanceHandler(func(*model.ServiceInstance, model.Event) { c.discoveryServer.ClearCacheFunc() })
-
-		go kubectl.Run(stopCh)
+			c.cs.rc[clusterID].Controller = kubectl
+			c.serviceController.AddRegistry(
+				aggregate.Registry{
+					Name:             serviceregistry.KubernetesRegistry,
+					ClusterID:        clusterID,
+					ServiceDiscovery: kubectl,
+					ServiceAccounts:  kubectl,
+					Controller:       kubectl,
+				})
+			stopCh := make(chan struct{})
+			c.cs.rc[clusterID].ControlChannel = stopCh
+			_ = kubectl.AppendServiceHandler(func(*model.Service, model.Event) { c.discoveryServer.ClearCacheFunc() })
+			_ = kubectl.AppendInstanceHandler(func(*model.ServiceInstance, model.Event) { c.discoveryServer.ClearCacheFunc() })
+			go kubectl.Run(stopCh)
+		} else {
+			log.Infof("Cluster %s in the secret %s in namespace %s already exists",
+				clusterID, secretName, s.ObjectMeta.Namespace)
+		}
 	}
 	// TODO Add exporting a number of cluster to Prometheus
 	// for now for debbuging purposes, print it to the log.
 	log.Infof("Number of clusters in the cluster store: %d", len(c.cs.rc))
 }
 
-func deleteMemberCluster(s Metadata, c *Controller) {
+func (c *Controller) deleteMemberCluster(secretName string) {
 	c.cs.storeLock.Lock()
 	defer c.cs.storeLock.Unlock()
 	// Check if there is a cluster member with the specified name
-	if _, ok := c.cs.rc[s]; ok {
-		log.Infof("Deleting cluster member: %s", s)
-		// Deleting Service registry associated with controller
-		c.serviceController.DeleteRegistry(GetClusterID(c.cs.rc[s].Cluster))
-		// Stop controller
-		close(c.cs.rc[s].ControlChannel)
-		<-c.cs.rc[s].ControlChannel
-		// Deleting remote cluster entry from clusters store
-		delete(c.cs.rc, s)
+	for clusterID, cluster := range c.cs.rc {
+		if cluster.FromSecret == secretName {
+			log.Infof("Deleting cluster member: %s", clusterID)
+			// Deleting Service registry associated with controller
+			c.serviceController.DeleteRegistry(clusterID)
+			// Stop controller
+			close(c.cs.rc[clusterID].ControlChannel)
+			<-c.cs.rc[clusterID].ControlChannel
+			// Deleting remote cluster entry from clusters store
+			delete(c.cs.rc, clusterID)
+		}
 	}
 	log.Infof("Number of clusters in the cluster store: %d", len(c.cs.rc))
-}
-
-func (c *Controller) secretAdd(obj interface{}) {
-	s := obj.(*corev1.Secret)
-	addMemberCluster(s, c)
-}
-
-func (c *Controller) secretDelete(key string) {
-	s := Metadata{Name: strings.Split(key, "/")[1], Namespace: strings.Split(key, "/")[0]}
-	deleteMemberCluster(s, c)
 }

@@ -29,7 +29,7 @@ import (
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/config/storetest"
-	testEnv "istio.io/istio/mixer/pkg/server"
+	"istio.io/istio/mixer/pkg/server"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/mixer/test/spyAdapter"
 )
@@ -57,7 +57,7 @@ func (tt *testData) run(t *testing.T, variety v1beta1.TemplateVariety, globalCfg
 	// Do common setup
 	adapterInfos, spyAdapters := constructAdapterInfos(tt.behaviors)
 
-	args := testEnv.DefaultArgs()
+	args := server.DefaultArgs()
 	args.APIPort = 0
 	args.MonitoringPort = 0
 	args.Templates = tt.templates
@@ -67,16 +67,16 @@ func (tt *testData) run(t *testing.T, variety v1beta1.TemplateVariety, globalCfg
 		t.Fatal(cerr)
 	}
 
-	env, err := testEnv.New(args)
+	s, err := server.New(args)
 	if err != nil {
 		t.Fatalf("fail to create mixer: %v", err)
 	}
 
-	env.Run()
+	s.Run()
 
-	defer closeHelper(env)
+	defer closeHelper(s)
 
-	conn, err := grpc.Dial(env.Addr().String(), grpc.WithInsecure())
+	conn, err := grpc.Dial(s.Addr().String(), grpc.WithInsecure())
 	if err != nil {
 		t.Fatalf("Unable to connect to gRPC server: %v", err)
 	}
@@ -90,9 +90,7 @@ func (tt *testData) run(t *testing.T, variety v1beta1.TemplateVariety, globalCfg
 	case v1beta1.TEMPLATE_VARIETY_REPORT:
 		req := istio_mixer_v1.ReportRequest{
 			Attributes: []istio_mixer_v1.CompressedAttributes{
-				getAttrBag(tt.attrs,
-					args.ConfigIdentityAttribute,
-					args.ConfigIdentityAttributeDomain)},
+				getAttrBag(tt.attrs)},
 		}
 		_, err = client.Report(context.Background(), &req)
 		tt.checkReturnError(t, err)
@@ -100,9 +98,7 @@ func (tt *testData) run(t *testing.T, variety v1beta1.TemplateVariety, globalCfg
 
 	case v1beta1.TEMPLATE_VARIETY_CHECK:
 		req := istio_mixer_v1.CheckRequest{
-			Attributes: getAttrBag(tt.attrs,
-				args.ConfigIdentityAttribute,
-				args.ConfigIdentityAttributeDomain),
+			Attributes: getAttrBag(tt.attrs),
 		}
 
 		response, err := client.Check(context.Background(), &req)
@@ -205,9 +201,8 @@ func closeHelper(c io.Closer) {
 	}
 }
 
-func getAttrBag(attrs map[string]interface{}, identityAttr, identityAttrDomain string) istio_mixer_v1.CompressedAttributes {
+func getAttrBag(attrs map[string]interface{}) istio_mixer_v1.CompressedAttributes {
 	requestBag := attribute.GetMutableBag(nil)
-	requestBag.Set(identityAttr, identityAttrDomain)
 	for k, v := range attrs {
 		requestBag.Set(k, v)
 	}

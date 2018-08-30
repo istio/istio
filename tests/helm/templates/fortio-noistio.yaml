@@ -1,22 +1,27 @@
 # 2 fortio servers, not istio injected (to baseline service-to-service without istio)
 # 0.8 CPU each.
-apiVersion: v1
-kind: Service
+
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
 metadata:
-  name: fortio-noistio1
+  name: fortionoistio
 spec:
-  ports:
-  - port: 8080
-    name: http-echo
-  - port: 8079
-    name: grpc-ping
-  selector:
-    name: fortio-noistio1
+  hosts:
+  - "fortionoistio.{{.Values.domain}}"
+  gateways:
+  - istio-gateway
+  http:
+  - route:
+    - destination:
+        host: fortionoistio.test.svc.cluster.local
+        port:
+          number: 8080
 ---
+
 apiVersion: v1
 kind: Service
 metadata:
-  name: fortio-noistio2
+  name: fortionoistio
 spec:
   ports:
   - port: 8080
@@ -24,52 +29,26 @@ spec:
   - port: 8079
     name: grpc-ping
   selector:
-    name: fortio-noistio2
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: fortio-noistio
-spec:
-  ports:
-  - port: 8080
-    name: http-echo
-  - port: 8079
-    name: grpc-ping
-  selector:
-    app: fortio-noistio
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: fortio-noistio-headless
-spec:
-  clusterIP: None
-  ports:
-  - port: 8080
-    name: http-echo
-  - port: 8079
-    name: grpc-ping
-  selector:
-    app: fortio-noistio
+    name: fortionoistio
 ---
 apiVersion: apps/v1beta1
 kind: Deployment
 metadata:
-  name: fortio-noistio1
+  name: fortionoistio
 spec:
-  replicas: 1
+  replicas: 2
   template:
     metadata:
       labels:
-        app: fortio-noistio
-        name: fortio-noistio1
+        app: fortionoistio
+        name: fortionoistio
+        version: fortionoistio
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
       containers:
       - name: echosrv
-        image: istio/fortio:latest
+        image: {{ .Values.fortioImage }}
         imagePullPolicy: Always
         args:
           - server
@@ -80,24 +59,56 @@ spec:
           limits:
             cpu: 1000m
             memory: "1G"
+
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: fortionoistio1
+spec:
+  hosts:
+  - "fortionoistio1.{{.Values.domain}}"
+  gateways:
+  - istio-gateway
+  http:
+  - route:
+    - destination:
+        host: fortionoistio1.test.svc.cluster.local
+        port:
+          number: 8080
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: fortionoistio1
+spec:
+  ports:
+  - port: 8080
+    name: http-echo
+  - port: 8079
+    name: grpc-ping
+  selector:
+    name: fortionoistio1
 ---
 apiVersion: apps/v1beta1
 kind: Deployment
 metadata:
-  name: fortio-noistio2
+  name: fortionoistio1
 spec:
   replicas: 1
   template:
     metadata:
       labels:
-        app: fortio-noistio
-        name: fortio-noistio2
+        app: fortionoistio1
+        name: fortionoistio1
+        version: fortionoistio1
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
       containers:
       - name: echosrv
-        image: istio/fortio:latest
+        image: {{ .Values.fortioImage }}
         imagePullPolicy: Always
         args:
           - server

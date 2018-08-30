@@ -102,6 +102,15 @@ func Test_command_do(t *testing.T) {
 			},
 		},
 		{
+			name:   "doesn't error on 404",
+			method: "GET",
+			path:   "/want/path",
+			body:   "",
+			pilotStates: []pilotStubState{
+				{StatusCode: 404, Response: "not-found", wantMethod: "GET", wantPath: "/want/path", wantBody: nil},
+			},
+		},
+		{
 			name:              "errors if Pilot is unreachable",
 			method:            "GET",
 			path:              "/want/path",

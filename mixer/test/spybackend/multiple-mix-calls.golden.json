@@ -7,7 +7,7 @@
      "dimensions": {
       "destination_service": {
        "Value": {
-        "StringValue": "myservice2"
+        "StringValue": "unknown"
        }
       },
       "response_code": {
@@ -32,7 +32,7 @@
      "dimensions": {
       "destination_service": {
        "Value": {
-        "StringValue": "myservice"
+        "StringValue": "unknown"
        }
       },
       "response_code": {
@@ -57,7 +57,7 @@
      "dimensions": {
       "destination_service": {
        "Value": {
-        "StringValue": "myservice2"
+        "StringValue": "unknown"
        }
       },
       "response_code": {
@@ -82,7 +82,7 @@
      "dimensions": {
       "destination_service": {
        "Value": {
-        "StringValue": "myservice"
+        "StringValue": "unknown"
        }
       },
       "response_code": {
@@ -107,7 +107,7 @@
      "dimensions": {
       "destination_service": {
        "Value": {
-        "StringValue": "myservice2"
+        "StringValue": "unknown"
        }
       },
       "response_code": {
@@ -132,7 +132,7 @@
      "dimensions": {
       "destination_service": {
        "Value": {
-        "StringValue": "myservice2"
+        "StringValue": "unknown"
        }
       },
       "response_code": {
@@ -157,7 +157,7 @@
      "dimensions": {
       "destination_service": {
        "Value": {
-        "StringValue": "myservice"
+        "StringValue": "unknown"
        }
       },
       "response_code": {
@@ -182,7 +182,7 @@
      "dimensions": {
       "destination_service": {
        "Value": {
-        "StringValue": "myservice"
+        "StringValue": "unknown"
        }
       },
       "response_code": {
@@ -202,7 +202,7 @@
      "dimensions": {
       "destination_service": {
        "Value": {
-        "StringValue": "myservice"
+        "StringValue": "unknown"
        }
       },
       "response_code": {
@@ -254,7 +254,7 @@
     "dimensions": {
      "destination": {
       "Value": {
-       "StringValue": "svc.cluster.local"
+       "StringValue": "unknown"
       }
      },
      "destinationVersion": {

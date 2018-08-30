@@ -257,7 +257,6 @@ func TestServer(t *testing.T) {
 
 	for id, c := range cases {
 		requestBag := attribute.GetMutableBag(nil)
-		requestBag.Set(args.ConfigIdentityAttribute, args.ConfigIdentityAttributeDomain)
 
 		for k, v := range c.attrs {
 			requestBag.Set(k, v)

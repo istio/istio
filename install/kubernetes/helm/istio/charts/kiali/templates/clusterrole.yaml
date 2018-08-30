@@ -1,4 +1,3 @@
-{{- if .Values.global.rbacEnabled }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -8,7 +7,6 @@ metadata:
     version: master
 rules:
 - apiGroups: ["","apps", "autoscaling"]
-  attributeRestrictions: null
   resources:
   - configmaps
   - namespaces
@@ -24,10 +22,7 @@ rules:
   - list
   - watch
 - apiGroups: ["config.istio.io"]
-  attributeRestrictions: null
   resources:
-  - routerules
-  - destinationpolicies
   - rules
   - circonuses
   - deniers
@@ -53,18 +48,19 @@ rules:
   - quotas
   - reportnothings
   - servicecontrolreports
+  - quotaspecs
+  - quotaspecbindings
   verbs:
   - get
   - list
   - watch
 - apiGroups: ["networking.istio.io"]
-  attributeRestrictions: null
   resources:
   - virtualservices
   - destinationrules
+  - serviceentries
   - gateways
   verbs:
   - get
   - list
   - watch
-{{- end }}

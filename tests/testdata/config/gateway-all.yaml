@@ -13,6 +13,7 @@ spec:
     hosts:
     - uk.bookinfo.com
     - eu.bookinfo.com
+    - c.foo
     tls:
       httpsRedirect: true # sends 302 redirect for http requests
   - port:
