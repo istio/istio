@@ -25,9 +25,9 @@ function fix_values_yaml() {
   local tarball_name
   tarball_name="$4"
 
-  gsutil cp "${GCS_PATH}/${tarball_name}" .
-  eval $unzip_cmd        ${tarball_name}
-  rm                     ${tarball_name}
+  gsutil -q cp "${GCS_PATH}/${tarball_name}" .
+  eval    "$unzip_cmd"     "${tarball_name}"
+  rm                       "${tarball_name}"
 
   sed -i     "s|hub: gcr.io/istio-release|hub: ${HUB}|g" ./${folder_name}/install/kubernetes/helm/istio*/values.yaml
   sed -i "s|tag: release-1.0-latest-daily|tag: ${TAG}|g" ./${folder_name}/install/kubernetes/helm/istio*/values.yaml
