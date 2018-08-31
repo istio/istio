@@ -139,14 +139,16 @@ func New(ca ca.CertificateAuthority, ttl time.Duration, forCA bool, hostlist []s
 	// authenticators are activated sequentially and the first successful attempt
 	// is used as the authentication result.
 	authenticators := []authenticator{&clientCertAuthenticator{}}
-	for _, host := range hostlist {
-		aud := fmt.Sprintf("grpc://%s:%d", host, port)
-		if jwtAuthenticator, err := newIDTokenAuthenticator(aud); err != nil {
-			log.Errorf("failed to create JWT authenticator (error %v)", err)
-		} else {
-			authenticators = append(authenticators, jwtAuthenticator)
-		}
-	}
+	// Temporarily disable ID token authenticator.
+	// [TODO](myidpt): enable ID token authenticator when the authz can work correctly.
+	//for _, host := range hostlist {
+	//	aud := fmt.Sprintf("grpc://%s:%d", host, port)
+	//	if jwtAuthenticator, err := newIDTokenAuthenticator(aud); err != nil {
+	//		log.Errorf("failed to create JWT authenticator (error %v)", err)
+	//	} else {
+	//		authenticators = append(authenticators, jwtAuthenticator)
+	//	}
+	//}
 	return &Server{
 		authenticators: authenticators,
 		authorizer:     &registryAuthorizor{registry.GetIdentityRegistry()},

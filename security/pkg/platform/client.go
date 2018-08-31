@@ -41,14 +41,18 @@ func NewClient(platform, rootCertFile, keyFile, certChainFile, caAddr string) (C
 	case "onprem":
 		return NewOnPremClientImpl(rootCertFile, keyFile, certChainFile)
 	case "gcp":
-		// Temporarily disable GCP JWT authentication on CSR API.
-		return nil, fmt.Errorf("GCP JWT authentication in CSR API is disabled")
+		// Temporarily disable GCP credential authentication on CSR API.
+		// [TODO](myidpt): enable when the Citadel authz can work correctly.
+		return nil, fmt.Errorf("GCP credential authentication in CSR API is disabled")
 	case "aws":
-		return NewAwsClientImpl(rootCertFile), nil
+		// Temporarily disable AWS credential authentication on CSR API.
+		// [TODO](myidpt): enable when the Citadel authz can work correctly.
+		return nil, fmt.Errorf("AWS credential authentication in CSR API is disabled")
 	case "unspecified":
 		if metadata.OnGCE() {
-			// Temporarily disable GCP JWT authentication on CSR API.
-			return nil, fmt.Errorf("GCP JWT authentication in CSR API is disabled")
+			// Temporarily disable GCP credential authentication on CSR API.
+			// [TODO](myidpt): enable when the Citadel authz can work correctly.
+			return nil, fmt.Errorf("GCP credential authentication in CSR API is disabled")
 		}
 		return NewOnPremClientImpl(rootCertFile, keyFile, certChainFile)
 	default:
