@@ -5,7 +5,7 @@
 # $ kubectl port-forward --namespace docker-registry $POD 5000:5000
 
 apiVersion: apps/v1
-kind: StatefulSet
+kind: Deployment
 metadata:
   name: kube-registry
   namespace: docker-registry
@@ -14,7 +14,6 @@ spec:
     matchLabels:
       k8s-app: kube-registry
   replicas: 1
-  serviceName: kube-registry
   template:
     metadata:
       labels:
