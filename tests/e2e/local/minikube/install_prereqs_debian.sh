@@ -1,6 +1,9 @@
 #!/bin/bash
 
-source "../common_linux.sh"
+SCRIPTPATH="$(cd "$(dirname "$0")" ; pwd -P)"
+ROOTDIR="$(dirname "${SCRIPTPATH}")"
+# shellcheck source=tests/e2e/local/common_linux.sh
+source "${ROOTDIR}/common_linux.sh"
 
 check_apt_get
 sudo apt-get --quiet -y update
@@ -30,7 +33,7 @@ install_docker
 
 # Install minikube.
 function install_minikube() {
-  if ! (curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.27.0/minikube-linux-amd64 && \ 
+  if ! (curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.27.0/minikube-linux-amd64 && \
       chmod +x minikube && \
       sudo mv minikube /usr/local/bin/); then
       echo "Looks like minikube installation failed."
