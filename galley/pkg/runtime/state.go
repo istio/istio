@@ -138,7 +138,7 @@ func (s *State) envelopeResource(event resource.Event) (*mcp.Envelope, bool) {
 
 	createTime, err := types.TimestampProto(event.ID.CreateTime)
 	if err != nil {
-		scope.Errorf("Error parsing resource create_time: %v", event, err)
+		scope.Errorf("Error parsing resource create_time for event (%v): %v", event, err)
 		return nil, false
 	}
 
