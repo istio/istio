@@ -347,62 +347,6 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 
 	sortConfigByCreationTime(vservices)
 	ps.VirtualServiceConfigs = vservices
-	// convert all shortnames in virtual services into FQDNs
-	for _, r := range ps.VirtualServiceConfigs {
-		rule := r.Spec.(*networking.VirtualService)
-		// resolve top level hosts
-		for i, h := range rule.Hosts {
-			rule.Hosts[i] = string(ResolveShortnameToFQDN(h, r.ConfigMeta))
-		}
-		// resolve gateways to bind to
-		for i, g := range rule.Gateways {
-			if g != IstioMeshGateway {
-				rule.Gateways[i] = string(ResolveShortnameToFQDN(g, r.ConfigMeta))
-			}
-		}
-		// resolve host in http route.destination, route.mirror
-		for _, d := range rule.Http {
-			for _, m := range d.Match {
-				for i, g := range m.Gateways {
-					if g != IstioMeshGateway {
-						m.Gateways[i] = string(ResolveShortnameToFQDN(g, r.ConfigMeta))
-					}
-				}
-			}
-			for _, w := range d.Route {
-				w.Destination.Host = string(ResolveShortnameToFQDN(w.Destination.Host, r.ConfigMeta))
-			}
-			if d.Mirror != nil {
-				d.Mirror.Host = string(ResolveShortnameToFQDN(d.Mirror.Host, r.ConfigMeta))
-			}
-		}
-		//resolve host in tcp route.destination
-		for _, d := range rule.Tcp {
-			for _, m := range d.Match {
-				for i, g := range m.Gateways {
-					if g != IstioMeshGateway {
-						m.Gateways[i] = string(ResolveShortnameToFQDN(g, r.ConfigMeta))
-					}
-				}
-			}
-			for _, w := range d.Route {
-				w.Destination.Host = string(ResolveShortnameToFQDN(w.Destination.Host, r.ConfigMeta))
-			}
-		}
-		//resolve host in tls route.destination
-		for _, tls := range rule.Tls {
-			for _, m := range tls.Match {
-				for i, g := range m.Gateways {
-					if g != IstioMeshGateway {
-						m.Gateways[i] = string(ResolveShortnameToFQDN(g, r.ConfigMeta))
-					}
-				}
-			}
-			for _, w := range tls.Route {
-				w.Destination.Host = string(ResolveShortnameToFQDN(w.Destination.Host, r.ConfigMeta))
-			}
-		}
-	}
 	return nil
 }
 
