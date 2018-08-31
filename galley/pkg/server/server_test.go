@@ -17,7 +17,6 @@ package server
 import (
 	"errors"
 	"net"
-	"os"
 	"testing"
 	"time"
 
@@ -25,7 +24,6 @@ import (
 	"istio.io/istio/galley/pkg/runtime"
 	"istio.io/istio/galley/pkg/testing/mock"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/probe"
 )
 
 func TestNewServer_Errors(t *testing.T) {
@@ -55,6 +53,7 @@ loop:
 		}
 
 		args := DefaultArgs()
+		args.APIAddress = "tcp://0.0.0.0:0"
 		args.Insecure = true
 		_, err := newServer(args, p)
 		if err == nil {
@@ -72,30 +71,9 @@ func TestNewServer(t *testing.T) {
 	}
 
 	args := DefaultArgs()
+	args.APIAddress = "tcp://0.0.0.0:0"
 	args.Insecure = true
 	s, err := newServer(args, p)
-	if err != nil {
-		t.Fatalf("Unexpected error creating service: %v", err)
-	}
-
-	_ = s.Close()
-	_ = s.Wait()
-}
-
-func TestNewServer_ValidProbeOptions(t *testing.T) {
-	p := defaultPatchTable()
-	mk := mock.NewKube()
-	p.newKubeFromConfigFile = func(string) (kube.Interfaces, error) { return mk, nil }
-	p.newSource = func(kube.Interfaces, time.Duration) (runtime.Source, error) {
-		return runtime.NewInMemorySource(), nil
-	}
-
-	a := DefaultArgs()
-	a.Insecure = true
-	a.LivenessProbeOptions = &probe.Options{Path: os.TempDir() + "/liveness", UpdateInterval: time.Second}
-	a.ReadinessProbeOptions = &probe.Options{Path: os.TempDir() + "/readiness", UpdateInterval: time.Second}
-
-	s, err := newServer(a, p)
 	if err != nil {
 		t.Fatalf("Unexpected error creating service: %v", err)
 	}
@@ -113,6 +91,7 @@ func TestServer_Basic(t *testing.T) {
 	}
 
 	args := DefaultArgs()
+	args.APIAddress = "tcp://0.0.0.0:0"
 	args.Insecure = true
 	s, err := newServer(args, p)
 	if err != nil {

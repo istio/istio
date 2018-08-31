@@ -60,7 +60,7 @@ initContainers:
 {{ if eq .EnableCoreDump true -}}
 - args:
   - -c
-  - sysctl -w kernel.core_pattern=/etc/istio/proxy/core.%e.%p.%t && ulimit -c unlimited
+  - sysctl -w kernel.core_pattern=/var/lib/istio/core.proxy && ulimit -c unlimited
   command:
   - /bin/sh
   image: {{ .InitImage }}
@@ -102,6 +102,10 @@ containers:
   - [[ .ProxyConfig.StatsdUdpAddress ]]
   - --proxyAdminPort
   - [[ .ProxyConfig.ProxyAdminPort ]]
+  [[ if gt .ProxyConfig.Concurrency 0 -]]
+  - --concurrency
+  - [[ .ProxyConfig.Concurrency ]]
+  [[ end -]]
   - --controlPlaneAuthPolicy
   - [[ .ProxyConfig.ControlPlaneAuthPolicy ]]
   env:

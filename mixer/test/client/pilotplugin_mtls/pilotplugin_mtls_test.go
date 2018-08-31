@@ -129,16 +129,15 @@ static_resources:
   "request.time": "*",
   "request.useragent": "Go-http-client/1.1",
   "request.method": "GET",
-  "request.scheme": "http"
+  "request.scheme": "http",
+  "request.url_path": "/echo"
 }
 `
-	// See issue https://github.com/istio/proxy/issues/1910
-	// "source.principal": "cluster.local/ns/default/sa/client",
-	// "source.user": "cluster.local/ns/default/sa/client",
-	// "connection.requested_server_name": "istio.io",
+
 	checkAttributesOkInbound = `
 {
   "connection.mtls": true,
+  "connection.requested_server_name": "istio.io",
   "destination.principal": "cluster.local/ns/default/sa/server",
   "origin.ip": "[127 0 0 1]",
   "context.protocol": "http",
@@ -152,6 +151,7 @@ static_resources:
   "destination.service.name": "svc",
   "destination.service.namespace": "ns3",
   "destination.service.uid": "istio://ns3/services/svc",
+  "source.principal": "cluster.local/ns/default/sa/client",
   "source.uid": "kubernetes://pod2.ns2",
   "request.headers": {
      ":method": "GET",
@@ -165,7 +165,8 @@ static_resources:
   "request.time": "*",
   "request.useragent": "Go-http-client/1.1",
   "request.method": "GET",
-  "request.scheme": "http"
+  "request.scheme": "http",
+  "request.url_path": "/echo"
 }
 `
 	reportAttributesOkOutbound = `
@@ -212,15 +213,14 @@ static_resources:
      ":status": "200",
      "server": "envoy"
   },
-  "response.total_size": "*"
+  "response.total_size": "*",
+  "request.url_path": "/echo"
 }`
 
-	// See issue https://github.com/istio/proxy/issues/1910
-	// "source.principal": "cluster.local/ns/default/sa/client",
-	// "source.user": "cluster.local/ns/default/sa/client",
 	reportAttributesOkInbound = `
 {
   "connection.mtls": true,
+  "connection.requested_server_name": "istio.io",
   "destination.principal": "cluster.local/ns/default/sa/server",
   "origin.ip": "[127 0 0 1]",
   "context.protocol": "http",
@@ -264,7 +264,9 @@ static_resources:
      ":status": "200",
      "server": "envoy"
   },
-  "response.total_size": "*"
+  "response.total_size": "*",
+  "request.url_path": "/echo",
+  "source.principal": "cluster.local/ns/default/sa/client"
 }`
 )
 
@@ -311,9 +313,6 @@ func (mock) GetProxyServiceInstances(_ *model.Proxy) ([]*model.ServiceInstance, 
 	return nil, nil
 }
 func (mock) GetService(_ model.Hostname) (*model.Service, error) { return nil, nil }
-func (mock) Instances(_ model.Hostname, _ []string, _ model.LabelsCollection) ([]*model.ServiceInstance, error) {
-	return nil, nil
-}
 func (mock) InstancesByPort(_ model.Hostname, _ int, _ model.LabelsCollection) ([]*model.ServiceInstance, error) {
 	return nil, nil
 }
@@ -354,7 +353,7 @@ var (
 			ID:   "pod1.ns2",
 			Type: model.Sidecar,
 			Metadata: map[string]string{
-				"ISTIO_PROXY_VERSION": "1.0",
+				"ISTIO_PROXY_VERSION": "1.1",
 			},
 		},
 		ServiceInstance: &model.ServiceInstance{Service: &svc},
@@ -367,7 +366,7 @@ var (
 			ID:   "pod2.ns2",
 			Type: model.Sidecar,
 			Metadata: map[string]string{
-				"ISTIO_PROXY_VERSION": "1.0",
+				"ISTIO_PROXY_VERSION": "1.1",
 			},
 		},
 		Service: &svc,
@@ -397,6 +396,9 @@ func makeListener(port uint16, route string) (*v2.Listener, *hcm.HttpConnectionM
 			Address: core.Address{Address: &core.Address_SocketAddress{SocketAddress: &core.SocketAddress{
 				Address:       "127.0.0.1",
 				PortSpecifier: &core.SocketAddress_PortValue{PortValue: uint32(port)}}}},
+			ListenerFilters: []listener.ListenerFilter{{
+				Name: "envoy.listener.tls_inspector",
+			}},
 		}, &hcm.HttpConnectionManager{
 			CodecType:  hcm.AUTO,
 			StatPrefix: route,

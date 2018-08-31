@@ -18,7 +18,6 @@ import (
 	"context"
 	"io"
 	"sort"
-	"strings"
 	"sync"
 	"time"
 
@@ -34,22 +33,17 @@ import (
 // try to re-establish the bi-directional grpc stream after this delay.
 var reestablishStreamDelay = time.Second
 
-const (
-	typeURLBase = "type.googleapis.com/"
-)
-
 // Object contains a decoded versioned object with metadata received from the server.
 type Object struct {
-	MessageName string
-	Metadata    *mcp.Metadata
-	Resource    proto.Message
-	Version     string
+	TypeURL  string
+	Metadata *mcp.Metadata
+	Resource proto.Message
 }
 
-// Change is a collection of configuration objects of the same protobuf message type.
+// Change is a collection of configuration objects of the same protobuf type.
 type Change struct {
-	MessageName string
-	Objects     []*Object
+	TypeURL string
+	Objects []*Object
 
 	// TODO(ayj) add incremental add/remove enum when the mcp protocol supports it.
 }
@@ -145,7 +139,7 @@ func (r *recentRequestsJournal) snapshot() []RecentRequestInfo {
 }
 
 // New creates a new instance of the MCP client for the specified message types.
-func New(mcpClient mcp.AggregatedMeshConfigServiceClient, supportedMessageNames []string, updater Updater, id string, metadata map[string]string) *Client { // nolint: lll
+func New(mcpClient mcp.AggregatedMeshConfigServiceClient, supportedTypeURLs []string, updater Updater, id string, metadata map[string]string) *Client { // nolint: lll
 	clientInfo := &mcp.Client{
 		Id: id,
 		Metadata: &types.Struct{
@@ -159,8 +153,7 @@ func New(mcpClient mcp.AggregatedMeshConfigServiceClient, supportedMessageNames 
 	}
 
 	state := make(map[string]*perTypeState)
-	for _, messageName := range supportedMessageNames {
-		typeURL := typeURLBase + messageName
+	for _, typeURL := range supportedTypeURLs {
 		state[typeURL] = &perTypeState{}
 	}
 
@@ -201,15 +194,9 @@ func (c *Client) handleResponse(response *mcp.MeshConfigResponse) *mcp.MeshConfi
 		return c.sendNACKRequest(response, "", errDetails)
 	}
 
-	responseMessageName := response.TypeUrl
-	// extract the message name from the fully qualified type_url.
-	if slash := strings.LastIndex(response.TypeUrl, "/"); slash >= 0 {
-		responseMessageName = response.TypeUrl[slash+1:]
-	}
-
 	change := &Change{
-		MessageName: responseMessageName,
-		Objects:     make([]*Object, 0, len(response.Envelopes)),
+		TypeURL: response.TypeUrl,
+		Objects: make([]*Object, 0, len(response.Envelopes)),
 	}
 	for _, envelope := range response.Envelopes {
 		var dynamicAny types.DynamicAny
@@ -225,10 +212,9 @@ func (c *Client) handleResponse(response *mcp.MeshConfigResponse) *mcp.MeshConfi
 		}
 
 		object := &Object{
-			MessageName: responseMessageName,
-			Metadata:    envelope.Metadata,
-			Resource:    dynamicAny.Message,
-			Version:     response.VersionInfo,
+			TypeURL:  response.TypeUrl,
+			Metadata: envelope.Metadata,
+			Resource: dynamicAny.Message,
 		}
 		change.Objects = append(change.Objects, object)
 	}

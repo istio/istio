@@ -145,7 +145,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 
 		var transparent *google_protobuf.BoolValue
 		if mode := node.Metadata["INTERCEPTION_MODE"]; mode == "TPROXY" {
-			transparent = &google_protobuf.BoolValue{true}
+			transparent = &google_protobuf.BoolValue{Value: true}
 		}
 
 		// add an extra listener that binds to the port that is the recipient of the iptables redirect
@@ -153,7 +153,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 			Name:           VirtualListenerName,
 			Address:        util.BuildAddress(WildcardAddress, uint32(mesh.ProxyListenPort)),
 			Transparent:    transparent,
-			UseOriginalDst: &google_protobuf.BoolValue{true},
+			UseOriginalDst: &google_protobuf.BoolValue{Value: true},
 			FilterChains: []listener.FilterChain{
 				{
 					Filters: []listener.Filter{
@@ -234,7 +234,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 		// by outbound routes.
 		// Traffic sent to our service VIP is redirected by remote
 		// services' kubeproxy to our specific endpoint IP.
-		var listenerType plugin.ListenerProtocol
 		listenerOpts := buildListenerOpts{
 			env:            env,
 			proxy:          node,
@@ -251,10 +250,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 			// Skip building listener for the same ip port
 			continue
 		}
-		listenerType = plugin.ModelProtocolToListenerProtocol(protocol)
 		allChains := []plugin.FilterChain{}
 		var httpOpts *httpListenerOpts
 		var tcpNetworkFilters []listener.Filter
+		listenerType := plugin.ModelProtocolToListenerProtocol(protocol)
 		switch listenerType {
 		case plugin.ListenerProtocolHTTP:
 			httpOpts = &httpListenerOpts{
@@ -267,7 +266,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 			tcpNetworkFilters = buildInboundNetworkFilters(instance)
 
 		default:
-			log.Warnf("Unsupported inbound protocol %v for port %#v", protocol, instance.Endpoint.ServicePort)
+			log.Warnf("Unsupported inbound protocol %v for port %#v", protocol, endpoint.ServicePort)
 			continue
 		}
 		for _, p := range configgen.Plugins {
@@ -291,7 +290,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 		// Construct the default filter chain.
 		if len(allChains) == 0 {
 			log.Infof("Use default filter chain for %v", endpoint)
-			allChains = []plugin.FilterChain{plugin.FilterChain{}}
+			// add one empty entry to the list so we generate a default listener below
+			allChains = []plugin.FilterChain{{}}
 		}
 		for _, chain := range allChains {
 			listenerOpts.filterChainOpts = append(listenerOpts.filterChainOpts, &filterChainOpts{
@@ -339,14 +339,6 @@ type listenerEntry struct {
 	services    []*model.Service
 	servicePort *model.Port
 	listener    *xdsapi.Listener
-}
-
-// sortServicesByCreationTime sorts the list of services in ascending order by their creation time (if available).
-func sortServicesByCreationTime(services []*model.Service) []*model.Service {
-	sort.SliceStable(services, func(i, j int) bool {
-		return services[i].CreationTime.Before(services[j].CreationTime)
-	})
-	return services
 }
 
 func protocolName(p model.Protocol) string {
@@ -406,9 +398,6 @@ func (c outboundListenerConflict) addMetric(push *model.PushContext) {
 // IPs and ports, but requires that ports of non-load balanced service be unique.
 func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.Environment, node *model.Proxy, push *model.PushContext,
 	proxyInstances []*model.ServiceInstance, services []*model.Service) []*xdsapi.Listener {
-
-	// Sort the services in order of creation.
-	services = sortServicesByCreationTime(services)
 
 	var proxyLabels model.LabelsCollection
 	for _, w := range proxyInstances {
@@ -486,7 +475,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 
 				var svcListenAddress string
 				// This is to maintain backward compatibility with 0.8 envoy
-				if _, is10Proxy := node.GetProxyVersion(); !is10Proxy {
+				if !util.Is1xProxy(node) {
 					if service.Resolution != model.Passthrough {
 						svcListenAddress = service.GetServiceAddressForProxy(node)
 					}
@@ -797,9 +786,9 @@ func buildHTTPConnectionManager(env *model.Environment, node *model.Proxy, httpO
 	connectionManager.AccessLog = []*accesslog.AccessLog{}
 	connectionManager.HttpFilters = filters
 	connectionManager.StatPrefix = httpOpts.statPrefix
-	connectionManager.UseRemoteAddress = &google_protobuf.BoolValue{httpOpts.useRemoteAddress}
+	connectionManager.UseRemoteAddress = &google_protobuf.BoolValue{Value: httpOpts.useRemoteAddress}
 
-	if _, is10Proxy := node.GetProxyVersion(); is10Proxy {
+	if util.Is1xProxy(node) {
 		// Allow websocket upgrades
 		websocketUpgrade := &http_conn.HttpConnectionManager_UpgradeConfig{UpgradeType: "websocket"}
 		connectionManager.UpgradeConfigs = []*http_conn.HttpConnectionManager_UpgradeConfig{websocketUpgrade}

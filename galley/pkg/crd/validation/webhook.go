@@ -77,15 +77,6 @@ type WebhookParameters struct {
 	// KeyFile is the path to the x509 private key matching `CertFile`.
 	KeyFile string
 
-	// HealthCheckInterval configures how frequently the health check
-	// file is updated. Value of zero disables the health check
-	// update.
-	HealthCheckInterval time.Duration
-
-	// HealthCheckFile specifies the path to the health check file
-	// that is periodically updated.
-	HealthCheckFile string
-
 	// WebhookConfigFile is the path to the validatingwebhookconfiguration
 	// file that should be used for self-registration.
 	WebhookConfigFile string
@@ -103,6 +94,9 @@ type WebhookParameters struct {
 	DeploymentName string
 
 	Clientset clientset.Interface
+
+	// Enable galley validation mode
+	EnableValidation bool
 }
 
 // Webhook implements the validating admission webhook for validating Istio configuration.
@@ -117,8 +111,6 @@ type Webhook struct {
 	// mixer
 	validator store.BackendValidator
 
-	healthCheckInterval  time.Duration
-	healthCheckFile      string
 	server               *http.Server
 	keyCertWatcher       *fsnotify.Watcher
 	configWatcher        *fsnotify.Watcher
@@ -140,7 +132,6 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	certKeyWatcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, err
@@ -175,8 +166,6 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 		},
 		keyCertWatcher:      certKeyWatcher,
 		configWatcher:       configWatcher,
-		healthCheckInterval: p.HealthCheckInterval,
-		healthCheckFile:     p.HealthCheckFile,
 		certFile:            p.CertFile,
 		keyFile:             p.KeyFile,
 		cert:                &pair,
@@ -226,13 +215,6 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 	}()
 	defer wh.stop()
 
-	var healthC <-chan time.Time
-	if wh.healthCheckInterval != 0 && wh.healthCheckFile != "" {
-		t := time.NewTicker(wh.healthCheckInterval)
-		healthC = t.C
-		defer t.Stop()
-	}
-
 	// use a timer to debounce file updates
 	var keyCertTimerC <-chan time.Time
 	var configTimerC <-chan time.Time
@@ -278,11 +260,6 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 			log.Errorf("keyCertWatcher error: %v", err)
 		case err := <-wh.configWatcher.Error:
 			log.Errorf("configWatcher error: %v", err)
-		case <-healthC:
-			content := []byte(`ok`)
-			if err := ioutil.WriteFile(wh.healthCheckFile, content, 0644); err != nil {
-				log.Errorf("Health check update of %q failed: %v", wh.healthCheckFile, err)
-			}
 		case <-stop:
 			return
 		}

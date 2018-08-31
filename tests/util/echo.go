@@ -447,11 +447,13 @@ func (ec *EchoClient) setupDefaultTest() (job, error) {
 		}
 
 		var err error
-		ec.grpcConn, err = grpc.Dial(address,
+		ctx, cancel := context.WithTimeout(context.Background(), ec.timeout)
+		defer cancel()
+
+		ec.grpcConn, err = grpc.DialContext(ctx, address,
 			security,
 			grpc.WithAuthority(authority),
-			grpc.WithBlock(),
-			grpc.WithTimeout(ec.timeout))
+			grpc.WithBlock())
 		if err != nil {
 			return nil, err
 		}

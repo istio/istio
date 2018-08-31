@@ -50,10 +50,11 @@ type testState struct {
 	s          *grpcServer
 	ctx        context.Context
 
-	check   checkCallback
-	report  reportCallback
-	quota   quotaCallback
-	preproc preprocCallback
+	check      checkCallback
+	report     reportCallback
+	quota      quotaCallback
+	preproc    preprocCallback
+	flushError error
 }
 
 func (ts *testState) createGRPCServer() (string, error) {
@@ -146,7 +147,7 @@ func (ts *testState) Report(bag attribute.Bag) error {
 }
 
 func (ts *testState) Flush() error {
-	return nil
+	return ts.flushError
 }
 
 func (ts *testState) Done() {
@@ -442,6 +443,13 @@ func TestReport(t *testing.T) {
 		t.Errorf("Expected success, got error: %v", err)
 	}
 
+	ts.flushError = errors.New("BADFOOD")
+	_, err = ts.client.Report(context.Background(), &request)
+	if err == nil {
+		t.Errorf("Expected error, got success")
+	}
+	ts.flushError = nil
+
 	ts.report = func(ctx context.Context, requestBag attribute.Bag) error {
 		return errors.New("not Implemented")
 	}
@@ -592,6 +600,40 @@ func TestFailingPreproc(t *testing.T) {
 			t.Error("Got success, expected failure")
 		} else if !strings.Contains(err.Error(), "123 preproc failed") {
 			t.Errorf("Got '%s', expected '123 preproc failed'", err.Error())
+		}
+	}
+}
+
+func TestOutOfSyncDict(t *testing.T) {
+	ts, err := prepTestState()
+	if err != nil {
+		t.Fatalf("Unable to prep test state: %v", err)
+	}
+	defer ts.cleanupTestState()
+
+	{
+		request := mixerpb.CheckRequest{GlobalWordCount: 9999}
+		resp, err := ts.client.Check(context.Background(), &request)
+		if resp != nil {
+			t.Error("Expecting no response, got one")
+		}
+		if err == nil {
+			t.Error("Got success, expected failure")
+		} else if !strings.Contains(err.Error(), "inconsistent global dictionary versions") {
+			t.Errorf("Got '%s', expected 'inconsistent global dictionary versions'", err.Error())
+		}
+	}
+
+	{
+		request := mixerpb.ReportRequest{Attributes: []mixerpb.CompressedAttributes{{}}, GlobalWordCount: 9999}
+		resp, err := ts.client.Report(context.Background(), &request)
+		if resp != nil {
+			t.Error("Expecting no response, got one")
+		}
+		if err == nil {
+			t.Error("Got success, expected failure")
+		} else if !strings.Contains(err.Error(), "inconsistent global dictionary versions") {
+			t.Errorf("Got '%s', expected 'inconsistent global dictionary versions'", err.Error())
 		}
 	}
 }

@@ -46,7 +46,6 @@ const (
 )
 
 func TestAgent(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/7910")
 	p, configStore, pilotStopFn := newPilot(namespace, t)
 	defer pilotStopFn()
 
@@ -239,8 +238,7 @@ func newPilot(namespace string, t *testing.T) (*bootstrap.Server, model.ConfigSt
 
 	// Start the server
 	stop := make(chan struct{})
-	_, err = server.Start(stop)
-	if err != nil {
+	if err := server.Start(stop); err != nil {
 		t.Fatal(err)
 	}
 

@@ -43,13 +43,17 @@ data:
             - NET_ADMIN
           privileged: true
         restartPolicy: Always
-      {{ if eq .Values.global.proxy.enableCoreDump true }}
+      {{- if .Values.global.proxy.enableCoreDump }}
       - args:
         - -c
-        - sysctl -w kernel.core_pattern=/etc/istio/proxy/core.%e.%p.%t && ulimit -c unlimited
+        - sysctl -w kernel.core_pattern=/var/lib/istio/core.proxy && ulimit -c unlimited
         command:
           - /bin/sh
-        image: {{ .Values.global.hub }}/proxy_init:{{ .Values.global.tag }}
+  {{- if contains "/" .Values.global.proxy_init.image }}
+        image: "{{ .Values.global.proxy_init.image }}"
+  {{- else }}
+        image: "{{ .Values.global.hub }}/{{ .Values.global.proxy_init.image }}:{{ .Values.global.tag }}"
+  {{- end }}
         imagePullPolicy: IfNotPresent
         name: enable-core-dump
         resources: {}
@@ -90,6 +94,10 @@ data:
       {{- end }}
         - --proxyAdminPort
         - {{ "[[ .ProxyConfig.ProxyAdminPort ]]" }}
+        {{ "[[ if gt .ProxyConfig.Concurrency 0 -]]" }}
+        - --concurrency
+        - {{ "[[ .ProxyConfig.Concurrency ]]" }}
+        {{ "[[ end -]]" }}
         - --controlPlaneAuthPolicy
         - {{ "[[ annotation .ObjectMeta `sidecar.istio.io/controlPlaneAuthPolicy` .ProxyConfig.ControlPlaneAuthPolicy ]]" }}
         env:
@@ -114,7 +122,9 @@ data:
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
         securityContext:
           privileged: false
+          {{- if ne .Values.global.proxy.enableCoreDump true }}
           readOnlyRootFilesystem: true
+          {{- end }}
           {{ "[[ if eq (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) \"TPROXY\" -]]" }}
           capabilities:
             add:

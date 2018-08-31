@@ -103,7 +103,7 @@ e2e_simple_noauth_run: out_dir
 	--rbac_enable=false --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
 e2e_mixer_run: out_dir
-	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/mixer \
+	set -o pipefail; go test -v -timeout 35m ./tests/e2e/tests/mixer \
 	--auth_enable=false --egress=false --ingress=false --rbac_enable=false \
 	--cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
@@ -168,7 +168,7 @@ test/local/noauth/e2e_simple: out_dir generate_yaml
 	--rbac_enable=false --use_local_cluster --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
 test/local/e2e_mixer: out_dir generate_yaml
-	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/mixer \
+	set -o pipefail; go test -v -timeout 35m ./tests/e2e/tests/mixer \
 	--auth_enable=false --egress=false --ingress=false --rbac_enable=false \
 	--cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
@@ -178,7 +178,7 @@ test/local/e2e_galley: out_dir istioctl generate_yaml
 	${CAPTURE_LOG}
 
 # v1alpha3+envoyv2 test without MTLS
-test/local/noauth/e2e_pilotv2: out_dir generate_yaml
+test/local/noauth/e2e_pilotv2: out_dir generate_yaml_coredump
 	set -o pipefail; go test -v -timeout ${E2E_TIMEOUT}m ./tests/e2e/tests/pilot \
 		--auth_enable=false --ingress=false --rbac_enable=true --cluster_wide \
 		${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
@@ -186,7 +186,7 @@ test/local/noauth/e2e_pilotv2: out_dir generate_yaml
 	set -o pipefail; go test -v -timeout ${E2E_TIMEOUT}m ./tests/e2e/tests/controller ${CAPTURE_LOG}
 
 # v1alpha3+envoyv2 test with MTLS
-test/local/auth/e2e_pilotv2: out_dir generate_yaml
+test/local/auth/e2e_pilotv2: out_dir generate_yaml_coredump
 	set -o pipefail; go test -v -timeout ${E2E_TIMEOUT}m ./tests/e2e/tests/pilot \
 		--auth_enable=true --ingress=false --rbac_enable=true --cluster_wide \
 		${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
@@ -207,7 +207,7 @@ test/local/auth/e2e_bookinfo_envoyv2: out_dir generate_yaml
 		--cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
 test/local/noauth/e2e_mixer_envoyv2: out_dir generate_yaml
-	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/mixer \
+	set -o pipefail; go test -v -timeout 35m ./tests/e2e/tests/mixer \
 	--auth_enable=false --egress=false --ingress=false --rbac_enable=false \
 	--cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 

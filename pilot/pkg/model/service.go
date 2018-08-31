@@ -61,22 +61,12 @@ type Service struct {
 	// connections
 	Ports PortList `json:"ports,omitempty"`
 
-	// ExternalName is only set for external services and holds the external
-	// service DNS name.  External services are name-based solution to represent
-	// external service instances as a service inside the cluster.
-	// Deprecated : made obsolete by the MeshExternal and Resolution flags.
-	ExternalName Hostname `json:"external"`
-
 	// ServiceAccounts specifies the service accounts that run the service.
 	ServiceAccounts []string `json:"serviceaccounts,omitempty"`
 
 	// MeshExternal (if true) indicates that the service is external to the mesh.
 	// These services are defined using Istio's ServiceEntry spec.
 	MeshExternal bool
-
-	// LoadBalancingDisabled indicates that no load balancing should be done for this service.
-	// Deprecated : made obsolete by the MeshExternal and Resolution flags.
-	LoadBalancingDisabled bool `json:"-"`
 
 	// Resolution indicates how the service instances need to be resolved before routing
 	// traffic. Most services in the service registry will use static load balancing wherein
@@ -390,26 +380,6 @@ type ServiceDiscovery interface {
 	// Deprecated - do not use for anything other than tests
 	GetService(hostname Hostname) (*Service, error)
 
-	// Instances retrieves instances for a service and its ports that match
-	// any of the supplied labels. All instances match an empty tag list.
-	//
-	// For example, consider the example of catalog.mystore.com as described in NetworkEndpoints
-	// Instances(catalog.myservice.com, 80) ->
-	//      --> NetworkEndpoint(172.16.0.1:8888), Service(catalog.myservice.com), Labels(foo=bar)
-	//      --> NetworkEndpoint(172.16.0.2:8888), Service(catalog.myservice.com), Labels(foo=bar)
-	//      --> NetworkEndpoint(172.16.0.3:8888), Service(catalog.myservice.com), Labels(kitty=cat)
-	//      --> NetworkEndpoint(172.16.0.4:8888), Service(catalog.myservice.com), Labels(kitty=cat)
-	//
-	// Calling Instances with specific labels returns a trimmed list.
-	// e.g., Instances(catalog.myservice.com, 80, foo=bar) ->
-	//      --> NetworkEndpoint(172.16.0.1:8888), Service(catalog.myservice.com), Labels(foo=bar)
-	//      --> NetworkEndpoint(172.16.0.2:8888), Service(catalog.myservice.com), Labels(foo=bar)
-	//
-	// Similar concepts apply for calling this function with a specific
-	// port, hostname and labels.
-	// Deprecated: made obsolete by InstancesByPort
-	Instances(hostname Hostname, ports []string, labels LabelsCollection) ([]*ServiceInstance, error)
-
 	// InstancesByPort retrieves instances for a service on the given ports with labels that match
 	// any of the supplied labels. All instances match an empty tag list.
 	//
@@ -471,7 +441,7 @@ type ServiceDiscovery interface {
 type ServiceAccounts interface {
 	// GetIstioServiceAccounts returns a list of service accounts looked up from
 	// the specified service hostname and ports.
-	GetIstioServiceAccounts(hostname Hostname, ports []string) []string
+	GetIstioServiceAccounts(hostname Hostname, ports []int) []string
 }
 
 // Matches returns true if this Hostname "matches" the other hostname. Hostnames match if:
@@ -658,7 +628,7 @@ func (ports PortList) GetByPort(num int) (*Port, bool) {
 
 // External predicate checks whether the service is external
 func (s *Service) External() bool {
-	return s.ExternalName != ""
+	return s.MeshExternal
 }
 
 // Key generates a unique string referencing service instances for a given port and labels.

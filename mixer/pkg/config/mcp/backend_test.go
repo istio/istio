@@ -21,8 +21,10 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/davecgh/go-spew/spew"
+	"github.com/gogo/protobuf/types"
 
 	"istio.io/api/policy/v1beta1"
 	"istio.io/istio/galley/pkg/metadata/kube"
@@ -44,7 +46,18 @@ var (
 	r3 = &v1beta1.Rule{
 		Match: "baz",
 	}
+
+	fakeCreateTime      = time.Date(2018, time.January, 1, 2, 3, 4, 5, time.UTC)
+	fakeCreateTimeProto *types.Timestamp
 )
+
+func init() {
+	var err error
+	fakeCreateTimeProto, err = types.TimestampProto(fakeCreateTime)
+	if err != nil {
+		panic(err)
+	}
+}
 
 func typeURLOf(nonLegacyKind string) string {
 	for _, u := range kube.Types.All() {
@@ -91,7 +104,7 @@ func createState(t *testing.T) *testState {
 		st.updateWg.Done()
 	}
 
-	if st.backend, err = newStore(st.server.URL, hookFn); err != nil {
+	if st.backend, err = newStore(st.server.URL, nil, hookFn); err != nil {
 		t.Fatal(err)
 	}
 
@@ -117,10 +130,10 @@ func TestBackend_List(t *testing.T) {
 	defer st.close(t)
 
 	b := snapshot.NewInMemoryBuilder()
-	_ = b.SetEntry(typeURLOf(constant.RulesKind), "ns1/e1", r1)
-	_ = b.SetEntry(typeURLOf(constant.RulesKind), "ns2/e2", r2)
-	_ = b.SetEntry(typeURLOf(constant.RulesKind), "e3", r3)
-	b.SetVersion(typeURLOf(constant.RulesKind), "v1")
+	_ = b.SetEntry(typeURLOf(constant.RulesKind), "ns1/e1", "v1", fakeCreateTime, r1)
+	_ = b.SetEntry(typeURLOf(constant.RulesKind), "ns2/e2", "v2", fakeCreateTime, r2)
+	_ = b.SetEntry(typeURLOf(constant.RulesKind), "e3", "v3", fakeCreateTime, r3)
+	b.SetVersion(typeURLOf(constant.RulesKind), "type-v1")
 	sn := b.Build()
 
 	st.updateWg.Add(1)
@@ -152,7 +165,7 @@ func TestBackend_List(t *testing.T) {
 			Metadata: store.ResourceMeta{
 				Name:      "e2",
 				Namespace: "ns2",
-				Revision:  "v1",
+				Revision:  "v2",
 			},
 			Spec: map[string]interface{}{"match": "bar"},
 		},
@@ -165,7 +178,7 @@ func TestBackend_List(t *testing.T) {
 			Metadata: store.ResourceMeta{
 				Name:      "e3",
 				Namespace: "",
-				Revision:  "v1",
+				Revision:  "v3",
 			},
 			Spec: map[string]interface{}{"match": "baz"},
 		},
@@ -180,8 +193,8 @@ func TestBackend_Get(t *testing.T) {
 
 	b := snapshot.NewInMemoryBuilder()
 
-	_ = b.SetEntry(typeURLOf(constant.RulesKind), "ns1/e1", r1)
-	b.SetVersion(typeURLOf(constant.RulesKind), "v1")
+	_ = b.SetEntry(typeURLOf(constant.RulesKind), "ns1/e1", "v1", fakeCreateTime, r1)
+	b.SetVersion(typeURLOf(constant.RulesKind), "type-v1")
 	sn := b.Build()
 
 	st.updateWg.Add(1)
@@ -230,10 +243,10 @@ func TestBackend_Watch(t *testing.T) {
 	}
 
 	b := snapshot.NewInMemoryBuilder()
-	_ = b.SetEntry(typeURLOf(constant.RulesKind), "ns1/e1", r1)
-	_ = b.SetEntry(typeURLOf(constant.RulesKind), "ns2/e2", r2)
-	_ = b.SetEntry(typeURLOf(constant.RulesKind), "e3", r3)
-	b.SetVersion(typeURLOf(constant.RulesKind), "v1")
+	_ = b.SetEntry(typeURLOf(constant.RulesKind), "ns1/e1", "v1", fakeCreateTime, r1)
+	_ = b.SetEntry(typeURLOf(constant.RulesKind), "ns2/e2", "v2", fakeCreateTime, r2)
+	_ = b.SetEntry(typeURLOf(constant.RulesKind), "e3", "v3", fakeCreateTime, r3)
+	b.SetVersion(typeURLOf(constant.RulesKind), "type-v1")
 
 	sn := b.Build()
 
@@ -278,7 +291,7 @@ loop:
 				Metadata: store.ResourceMeta{
 					Name:      "e2",
 					Namespace: "ns2",
-					Revision:  "v1",
+					Revision:  "v2",
 				},
 				Spec: map[string]interface{}{"match": "bar"},
 			},
@@ -290,7 +303,7 @@ loop:
 				Kind: constant.RulesKind,
 				Metadata: store.ResourceMeta{
 					Name:     "e3",
-					Revision: "v1",
+					Revision: "v3",
 				},
 				Spec: map[string]interface{}{"match": "baz"},
 			},
@@ -304,10 +317,10 @@ loop:
 
 	// delete ns1/e1
 	// update ns2/e2 (r2 -> r1)
-	_ = b.SetEntry(typeURLOf(constant.RulesKind), "ns2/e2", r1)
+	_ = b.SetEntry(typeURLOf(constant.RulesKind), "ns2/e2", "v4", fakeCreateTime, r1)
 	// e3 doesn't change
-	_ = b.SetEntry(typeURLOf(constant.RulesKind), "e3", r3)
-	b.SetVersion(typeURLOf(constant.RulesKind), "v2")
+	_ = b.SetEntry(typeURLOf(constant.RulesKind), "e3", "v5", fakeCreateTime, r3)
+	b.SetVersion(typeURLOf(constant.RulesKind), "type-v2")
 
 	sn = b.Build()
 
@@ -342,7 +355,7 @@ loop2:
 				Metadata: store.ResourceMeta{
 					Name:      "e2",
 					Namespace: "ns2",
-					Revision:  "v2",
+					Revision:  "v4",
 				},
 				Spec: map[string]interface{}{"match": "foo"}, // r1's contents
 			},
@@ -355,7 +368,7 @@ loop2:
 				Kind: constant.RulesKind,
 				Metadata: store.ResourceMeta{
 					Name:     "e3",
-					Revision: "v2",
+					Revision: "v5",
 				},
 				Spec: map[string]interface{}{"match": "baz"},
 			},

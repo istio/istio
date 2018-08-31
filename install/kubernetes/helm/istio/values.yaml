@@ -33,11 +33,17 @@ global:
       #   cpu: 100m
       #   memory: 128Mi
 
+    # Controls number of Proxy worker threads.
+    # If set to 0 (default), then start worker thread for each CPU thread/core.
+    concurrency: 0
+
     # Configures the access log for each sidecar. Setting it to an empty string will
     # disable access log for sidecar.
     accessLogFile: "/dev/stdout"
 
-    # If set, newly injected sidecars will have core dumps enabled.
+    # If set, newly injected sidecars will have core dumps enabled. Core dumps will always be written to the same
+    # file to prevent storage filling up indefinitely. Add a timestamp option to core_pattern to keep all cores:
+    # e.g. sysctl -w kernel.core_pattern=/var/lib/istio/core.%e.%p.%t
     enableCoreDump: false
 
     # istio egress capture whitelist
@@ -156,6 +162,11 @@ global:
   # 'kubectl apply -f install/kubernetes/helm/istio/templates/crds.yaml
   # and this options must be set off.
   crds: true
+
+  # Use the Mesh Control Protocol (MCP) for configuring Mixer policy
+  # and telemetry deployments. Requires galley (`--set
+  # galley.enabled=true`).
+  useMixerMCP: false
 
 #
 # ingress configuration
@@ -409,8 +420,9 @@ grafana:
   storageClassName: ""
   security:
     enabled: false
-    adminUser: admin
-    adminPassword: admin
+    secretName: grafana
+    usernameKey: username
+    passphraseKey: passphrase
   service:
     annotations: {}
     name: http
@@ -523,10 +535,9 @@ kiali:
       #   hosts:
       #     - kiali.local
   dashboard:
-    username: admin
-    # Default admin passphrase for kiali. Must be set during setup, and
-    # changed by overriding the secret
-    passphrase: admin
+    secretName: kiali
+    usernameKey: username
+    passphraseKey: passphrase
 
     # Override the automatically detected Grafana URL, usefull when Grafana service has no ExternalIPs
     # grafanaURL:

@@ -73,6 +73,8 @@ else
 endif
 
 export GOOS ?= $(GOOS_LOCAL)
+
+export ENABLE_COREDUMP ?= false
 #-----------------------------------------------------------------------------
 # Output control
 #-----------------------------------------------------------------------------
@@ -211,8 +213,15 @@ init: check-tree check-go-version $(ISTIO_OUT)/istio_is_init
 
 # Sync target will pull from master and sync the modules. It is the first step of the
 # circleCI build, developers should call it periodically.
-sync: init
+sync: init git.pullmaster
 	mkdir -p ${OUT_DIR}/logs
+
+# Merge master. To be used in CI or by developers, assumes the
+# remote is called 'origin' (git default). Will fail on conflicts
+# Note: in a branch, this will get the latest from master. In master it has no effect.
+# This should be run after a 'git fetch' (typically done in the checkout step in CI)
+git.pullmaster:
+	git merge master
 
 # I tried to make this dependent on what I thought was the appropriate
 # lock file, but it caused the rule for that file to get run (which
@@ -239,6 +248,14 @@ depend.diff: $(ISTIO_OUT)
 	dep ensure
 	git diff HEAD --exit-code -- Gopkg.lock vendor > $(ISTIO_OUT)/dep.diff
 
+# Used by CI for automatic go code generation and generates a git diff of the generated files against HEAD.
+go.generate.diff: $(ISTIO_OUT)
+	git diff HEAD > $(ISTIO_OUT)/before_go_generate.diff
+	-go generate ./... 
+	git diff HEAD > $(ISTIO_OUT)/after_go_generate.diff
+	diff $(ISTIO_OUT)/before_go_generate.diff $(ISTIO_OUT)/after_go_generate.diff
+
+.PHONY: ${GEN_CERT}
 ${GEN_CERT}:
 	GOOS=$(GOOS_LOCAL) && GOARCH=$(GOARCH_LOCAL) && CGO_ENABLED=1 bin/gobuild.sh $@ ./security/tools/generate_cert
 
@@ -578,6 +595,7 @@ isti%.yaml: $(HELM)
 		--name=istio \
 		--namespace=istio-system \
 		--set global.hub=${HUB} \
+		--set global.proxy.enableCoreDump=${ENABLE_COREDUMP} \
 		--values install/kubernetes/helm/istio/values-$@ \
 		install/kubernetes/helm/istio >> install/kubernetes/$@
 
@@ -588,6 +606,7 @@ generate_yaml: $(HELM)
 		--name=istio \
 		--namespace=istio-system \
 		--set global.hub=${HUB} \
+		--set global.proxy.enableCoreDump=${ENABLE_COREDUMP} \
 		--values install/kubernetes/helm/istio/values.yaml \
 		install/kubernetes/helm/istio >> install/kubernetes/istio.yaml
 
@@ -596,10 +615,15 @@ generate_yaml: $(HELM)
 		--name=istio \
 		--namespace=istio-system \
 		--set global.hub=${HUB} \
-		--values install/kubernetes/helm/istio/values.yaml \
 		--set global.mtls.enabled=true \
 		--set global.controlPlaneSecurityEnabled=true \
+		--set global.proxy.enableCoreDump=${ENABLE_COREDUMP} \
+		--values install/kubernetes/helm/istio/values.yaml \
 		install/kubernetes/helm/istio >> install/kubernetes/istio-auth.yaml
+
+generate_yaml_coredump: export ENABLE_COREDUMP=true
+generate_yaml_coredump:
+	$(MAKE) generate_yaml
 
 # Generate the install files, using istioctl.
 # TODO: make sure they match, pass all tests.

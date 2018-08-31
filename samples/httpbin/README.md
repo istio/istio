@@ -25,6 +25,6 @@ kubectl run -i --rm --restart=Never dummy --image=dockerqa/curl:ubuntu-trusty --
 time kubectl run -i --rm --restart=Never dummy --image=dockerqa/curl:ubuntu-trusty --command -- curl --silent httpbin:8000/delay/5
 ```
 
-Alternatively, you can test the httpbin service by
-[configuring an ingress resource](https://istio.io/docs/tasks/traffic-management/ingress.html) or
-by starting the [sleep service](../sleep) and calling httpbin from it.
+You can also test the httpbin service by starting the [sleep service](../sleep) and calling httpbin from it.
+
+A third option is to access the service from outside of the mesh through an Ingress Gateway. The [Control Ingress Trafic](https://istio.io/docs/tasks/traffic-management/ingress/) task explains how to do it.

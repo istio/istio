@@ -32,6 +32,7 @@ func serverCmd(info map[string]template.Info, adapters []adapter.InfoFn, printf,
 	serverCmd := &cobra.Command{
 		Use:   "server",
 		Short: "Starts Mixer as a server",
+		Args:  cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
 			runServer(sa, printf, fatalf)
 		},
@@ -57,7 +58,8 @@ func serverCmd(info map[string]template.Info, adapters []adapter.InfoFn, printf,
 		"Max number of entries in the check result cache")
 
 	serverCmd.PersistentFlags().StringVarP(&sa.ConfigStoreURL, "configStoreURL", "", sa.ConfigStoreURL,
-		"URL of the config store. Use k8s://path_to_kubeconfig or fs:// for file system. If path_to_kubeconfig is empty, in-cluster kubeconfig is used.")
+		"URL of the config store. Use k8s://path_to_kubeconfig, fs:// for file system, or mcp://<address> for MCP/Galley. "+
+			"If path_to_kubeconfig is empty, in-cluster kubeconfig is used.")
 
 	serverCmd.PersistentFlags().StringVarP(&sa.ConfigDefaultNamespace, "configDefaultNamespace", "", sa.ConfigDefaultNamespace,
 		"Namespace used to store mesh wide configuration.")
@@ -73,6 +75,7 @@ func serverCmd(info map[string]template.Info, adapters []adapter.InfoFn, printf,
 	serverCmd.PersistentFlags().BoolVar(&sa.EnableProfiling, "profile", sa.EnableProfiling,
 		"Enable profiling via web interface host:port/debug/pprof")
 
+	sa.CredentialOptions.AttachCobraFlags(serverCmd)
 	sa.LoggingOptions.AttachCobraFlags(serverCmd)
 	sa.TracingOptions.AttachCobraFlags(serverCmd)
 	sa.IntrospectionOptions.AttachCobraFlags(serverCmd)

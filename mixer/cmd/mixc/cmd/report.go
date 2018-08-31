@@ -33,7 +33,7 @@ func reportCmd(rootArgs *rootArgs, printf, fatalf shared.FormatFn) *cobra.Comman
 			"expects a set of attributes as input, which it uses, along with\n" +
 			"its configuration, to determine which adapters to invoke and with\n" +
 			"which parameters in order to output the telemetry.",
-
+		Args: cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
 			report(rootArgs, printf, fatalf)
 		}}

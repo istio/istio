@@ -26,22 +26,24 @@ spec:
       priorityClassName: "{{ .Values.global.priorityClassName }}"
 {{- end }}
       containers:
-        - name: validator
+        - name: galley
           image: "{{ .Values.global.hub }}/{{ .Values.image }}:{{ .Values.global.tag }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
           - containerPort: 443
           - containerPort: 9093
+          - containerPort: 9901
           command:
           - /usr/local/bin/galley
-          - validator
-          - --deployment-namespace={{ .Release.Namespace }}
           - --caCertFile=/etc/istio/certs/root-cert.pem
           - --tlsCertFile=/etc/istio/certs/cert-chain.pem
           - --tlsKeyFile=/etc/istio/certs/key.pem
-          - --healthCheckInterval=2s
-          - --healthCheckFile=/health
-          - --webhook-config-file
+          - --livenessProbeInterval=1s
+          - --livenessProbePath=/healthliveness
+          - --readinessProbePath=/healthready
+          - --readinessProbeInterval=1s
+          - --insecure=true
+          - --validation-webhook-config-file
           - /etc/istio/config/validatingwebhookconfiguration.yaml
           volumeMounts:
           - name: certs
@@ -55,38 +57,19 @@ spec:
               command:
                 - /usr/local/bin/galley
                 - probe
-                - --probe-path=/health
-                - --interval=4s
-            initialDelaySeconds: 4
-            periodSeconds: 4
+                - --probe-path=/healthliveness
+                - --interval=10s
+            initialDelaySeconds: 5
+            periodSeconds: 5
           readinessProbe:
             exec:
               command:
                 - /usr/local/bin/galley
                 - probe
-                - --probe-path=/health
-                - --interval=4s
-            initialDelaySeconds: 4
-            periodSeconds: 4
-        - name: server
-          image: "{{ .Values.global.hub }}/{{ .Values.image }}:{{ .Values.global.tag }}"
-          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
-          ports:
-          - containerPort: 9901
-          command:
-          - /usr/local/bin/galley
-          - server
-          - --insecure=false
-          - --keyFile=/etc/istio/certs/key.pem
-          - --certFile=/etc/istio/certs/cert-chain.pem
-          - --caCertFile=/etc/istio/certs/root-cert.pem
-          volumeMounts:
-          - name: certs
-            mountPath: /etc/istio/certs
-            readOnly: true
-          - name: config
-            mountPath: /etc/istio/config
-            readOnly: true
+                - --probe-path=/healthready
+                - --interval=10s
+            initialDelaySeconds: 5
+            periodSeconds: 5
           resources:
 {{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 12 }}

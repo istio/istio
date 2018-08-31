@@ -15,6 +15,7 @@
 package bootstrap
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
@@ -35,15 +36,18 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 
+	mcpapi "istio.io/api/mcp/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd"
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
 	cf "istio.io/istio/pilot/pkg/config/cloudfoundry"
 	"istio.io/istio/pilot/pkg/config/clusterregistry"
+	"istio.io/istio/pilot/pkg/config/coredatamodel"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/config/kube/ingress"
 	"istio.io/istio/pilot/pkg/config/memory"
@@ -62,14 +66,16 @@ import (
 	srmemory "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/log"
+	mcpclient "istio.io/istio/pkg/mcp/client"
 	"istio.io/istio/pkg/version"
+
+	// Import the resource package to pull in all proto types.
+	_ "istio.io/istio/galley/pkg/metadata"
 )
 
 const (
 	// ConfigMapKey should match the expected MeshConfig file name
 	ConfigMapKey = "mesh"
-	// CopilotTimeout when to cancel remote gRPC call to copilot
-	CopilotTimeout = 5 * time.Second
 )
 
 var (
@@ -137,6 +143,7 @@ type PilotArgs struct {
 	MeshConfig       *meshconfig.MeshConfig
 	CtrlZOptions     *ctrlz.Options
 	Plugins          []string
+	MCPServerAddrs   []string
 }
 
 // Server contains the runtime configuration for the Pilot discovery service.
@@ -165,15 +172,6 @@ type Server struct {
 	kubeRegistry     *kube.Controller
 }
 
-func createInterface(kubeconfig string) (kubernetes.Interface, error) {
-	restConfig, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
-
-	if err != nil {
-		return nil, err
-	}
-	return kubernetes.NewForConfig(restConfig)
-}
-
 // NewServer creates a new Server instance based on the provided arguments.
 func NewServer(args PilotArgs) (*Server, error) {
 	// If the namespace isn't set, try looking it up from the environment.
@@ -184,7 +182,7 @@ func NewServer(args PilotArgs) (*Server, error) {
 		if args.Namespace != "" {
 			args.Config.ClusterRegistriesNamespace = args.Namespace
 		} else {
-			args.Config.ClusterRegistriesNamespace = "istio-system"
+			args.Config.ClusterRegistriesNamespace = model.IstioSystemNamespace
 		}
 	}
 
@@ -227,18 +225,17 @@ func NewServer(args PilotArgs) (*Server, error) {
 }
 
 // Start starts all components of the Pilot discovery service on the port specified in DiscoveryServiceOptions.
-// If Port == 0, a port number is automatically chosen. This method returns the address on which the server is
-// listening for incoming connections. Content serving is started by this method, but is executed asynchronously.
-// Serving can be cancelled at any time by closing the provided stop channel.
-func (s *Server) Start(stop <-chan struct{}) (net.Addr, error) {
+// If Port == 0, a port number is automatically chosen. Content serving is started by this method,
+// but is executed asynchronously. Serving can be cancelled at any time by closing the provided stop channel.
+func (s *Server) Start(stop <-chan struct{}) error {
 	// Now start all of the components.
 	for _, fn := range s.startFuncs {
 		if err := fn(stop); err != nil {
-			return nil, err
+			return err
 		}
 	}
 
-	return s.HTTPListeningAddr, nil
+	return nil
 }
 
 // startFunc defines a function that will be used to start one or more components of the Pilot discovery service.
@@ -283,9 +280,7 @@ func (s *Server) initClusterRegistries(args *PilotArgs) (err error) {
 			return err
 		}
 	}
-	if s.clusterStore != nil {
-		log.Infof("clusters configuration %s", spew.Sdump(s.clusterStore))
-	}
+	log.Infof("clusters configuration %s", spew.Sdump(s.clusterStore))
 
 	return err
 }
@@ -322,7 +317,7 @@ func GetMeshConfig(kube kubernetes.Interface, namespace, name string) (*v1.Confi
 
 	config, err := kube.CoreV1().ConfigMaps(namespace).Get(name, meta_v1.GetOptions{})
 	if err != nil {
-		if strings.Contains(err.Error(), fmt.Sprintf("\"%s\" not found", name)) {
+		if errors.IsNotFound(err) {
 			defaultMesh := model.DefaultMeshConfig()
 			return nil, &defaultMesh, nil
 		}
@@ -351,17 +346,16 @@ func (s *Server) initMesh(args *PilotArgs) error {
 		return nil
 	}
 	var mesh *meshconfig.MeshConfig
+	var err error
+
 	if args.Mesh.ConfigFile != "" {
-		fileMesh, err := cmd.ReadMeshConfig(args.Mesh.ConfigFile)
+		mesh, err = cmd.ReadMeshConfig(args.Mesh.ConfigFile)
 		if err != nil {
 			log.Warnf("failed to read mesh configuration, using default: %v", err)
-		} else {
-			mesh = fileMesh
 		}
 	}
 
 	if mesh == nil {
-		var err error
 		// Config file either wasn't specified or failed to load - use a default mesh.
 		if _, mesh, err = GetMeshConfig(s.kubeClient, kube.IstioNamespace, kube.IstioConfigMap); err != nil {
 			log.Warnf("failed to read mesh configuration: %v", err)
@@ -397,11 +391,8 @@ func (s *Server) initMixerSan(args *PilotArgs) error {
 	return nil
 }
 
-func (s *Server) getKubeCfgFile(args *PilotArgs) (kubeCfgFile string) {
-	if kubeCfgFile == "" {
-		kubeCfgFile = args.Config.KubeConfig
-	}
-	return
+func (s *Server) getKubeCfgFile(args *PilotArgs) string {
+	return args.Config.KubeConfig
 }
 
 // initKubeClient creates the k8s client if running in an k8s environment.
@@ -415,18 +406,23 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 	}
 
 	if needToCreateClient && args.Config.FileDir == "" {
-		var client kubernetes.Interface
-		var kuberr error
-
 		kubeCfgFile := s.getKubeCfgFile(args)
-		client, kuberr = createInterface(kubeCfgFile)
-
+		client, kuberr := createInterface(kubeCfgFile)
 		if kuberr != nil {
 			return multierror.Prefix(kuberr, "failed to connect to Kubernetes API.")
 		}
 		s.kubeClient = client
 	}
 	return nil
+}
+
+func createInterface(kubeconfig string) (kubernetes.Interface, error) {
+	restConfig, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+	if err != nil {
+		return nil, err
+	}
+
+	return kubernetes.NewForConfig(restConfig)
 }
 
 type mockController struct{}
@@ -443,7 +439,42 @@ func (c *mockController) Run(<-chan struct{}) {}
 
 // initConfigController creates the config controller in the pilotConfig.
 func (s *Server) initConfigController(args *PilotArgs) error {
-	if args.Config.Controller != nil {
+	mcpServerAddrs := args.MCPServerAddrs
+
+	if len(mcpServerAddrs) > 0 {
+		clientNodeID := args.Namespace
+		supportedTypes := make([]string, len(model.IstioConfigTypes))
+		for i, model := range model.IstioConfigTypes {
+			supportedTypes[i] = fmt.Sprintf("type.googleapis.com/%s", model.MessageName)
+		}
+
+		mcpController := coredatamodel.NewController()
+
+		s.addStartFunc(func(stop <-chan struct{}) error {
+			ctx, cancel := context.WithCancel(context.Background())
+			go func() {
+				<-stop
+				cancel()
+			}()
+
+			for _, addr := range mcpServerAddrs {
+				// TODO: make this a secure connection before shipping
+				conn, err := grpc.Dial(addr, grpc.WithInsecure())
+				if err != nil {
+					log.Errorf("Unable connecting to MCP Server: %v\n", err)
+					return err
+				}
+
+				cl := mcpapi.NewAggregatedMeshConfigServiceClient(conn)
+				mcpClient := mcpclient.New(cl, supportedTypes, mcpController, clientNodeID, map[string]string{})
+				go mcpClient.Run(ctx)
+			}
+			return nil
+		})
+
+		s.configController = mcpController
+
+	} else if args.Config.Controller != nil {
 		s.configController = args.Config.Controller
 	} else if args.Config.FileDir != "" {
 		store := memory.Make(model.IstioConfigTypes)
@@ -808,13 +839,15 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 			<-stop
 			model.JwtKeyResolver.Close()
 
-			err = s.httpServer.Close()
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			err = s.httpServer.Shutdown(ctx)
 			if err != nil {
 				log.Warna(err)
 			}
-			s.grpcServer.Stop()
+			s.grpcServer.GracefulStop()
 			if s.secureGRPCServer != nil {
-				s.secureGRPCServer.Stop()
+				s.secureGRPCServer.GracefulStop()
 			}
 		}()
 

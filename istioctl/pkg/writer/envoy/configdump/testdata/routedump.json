@@ -23,7 +23,7 @@
                         },
                         "route": {
                             "cluster": "outbound|15004||istio-policy.istio-system.svc.cluster.local",
-                            "timeout": "0.000s"
+                            "timeout": "0s"
                         },
                         "decorator": {
                             "operation": "istio-policy.istio-system.svc.cluster.local:15004/*"
@@ -52,7 +52,7 @@
                         },
                         "route": {
                             "cluster": "outbound|15004||istio-telemetry.istio-system.svc.cluster.local",
-                            "timeout": "0.000s"
+                            "timeout": "0s"
                         },
                         "decorator": {
                             "operation": "istio-telemetry.istio-system.svc.cluster.local:15004/*"
@@ -78,7 +78,7 @@
                         },
                         "route": {
                             "cluster": "inbound|9080||productpage.default.svc.cluster.local",
-                            "timeout": "0.000s",
+                            "timeout": "0s",
                             "useWebsocket": true
                         },
                         "decorator": {

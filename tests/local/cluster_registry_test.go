@@ -227,7 +227,7 @@ func initMulticlusterPilot(IstioSrc string) (*bootstrap.Server, error) {
 
 func startMulticlusterPilot(s *bootstrap.Server, stop chan struct{}) {
 	// Start the server
-	_, _ = s.Start(stop)
+	s.Start(stop)
 }
 
 func prepareEnv(t *testing.T) error {

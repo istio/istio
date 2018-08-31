@@ -18,29 +18,29 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"os"
 	"strings"
 	"time"
 
-	"istio.io/istio/mixer/pkg/config/crd"
-
-	"k8s.io/apimachinery/pkg/runtime/schema"
-
-	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
-	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc"
 	ot "github.com/opentracing/opentracing-go"
+	oprometheus "github.com/prometheus/client_golang/prometheus"
+	"go.opencensus.io/exporter/prometheus"
+	"go.opencensus.io/plugin/ocgrpc"
+	"go.opencensus.io/stats/view"
 	"google.golang.org/grpc"
-
-	"os"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/api"
 	"istio.io/istio/mixer/pkg/checkcache"
 	"istio.io/istio/mixer/pkg/config"
+	"istio.io/istio/mixer/pkg/config/crd"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/runtime"
+	runtimeconfig "istio.io/istio/mixer/pkg/runtime/config"
 	"istio.io/istio/mixer/pkg/runtime/dispatcher"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/ctrlz"
@@ -81,6 +81,11 @@ type patchTable struct {
 	listen        listenFunc
 	configLog     func(options *log.Options) error
 	runtimeListen func(runtime *runtime.Runtime) error
+	remove        func(name string) error
+
+	// monitoring-related setup
+	newOpenCensusExporter   func() (view.Exporter, error)
+	registerOpenCensusViews func(...*view.View) error
 }
 
 // New instantiates a fully functional Mixer server, ready for traffic.
@@ -96,6 +101,11 @@ func newPatchTable() *patchTable {
 		listen:        net.Listen,
 		configLog:     log.Configure,
 		runtimeListen: func(rt *runtime.Runtime) error { return rt.StartListening() },
+		remove:        os.Remove,
+		newOpenCensusExporter: func() (view.Exporter, error) {
+			return prometheus.NewExporter(prometheus.Options{Registry: oprometheus.DefaultRegisterer.(*oprometheus.Registry)})
+		},
+		registerOpenCensusViews: view.Register,
 	}
 }
 
@@ -129,7 +139,6 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 	grpcOptions = append(grpcOptions, grpc.MaxConcurrentStreams(uint32(a.MaxConcurrentStreams)))
 	grpcOptions = append(grpcOptions, grpc.MaxRecvMsgSize(int(a.MaxMessageSize)))
 
-	var interceptors []grpc.UnaryServerInterceptor
 	var err error
 
 	if a.TracingOptions.TracingEnabled() {
@@ -138,30 +147,15 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 			_ = s.Close()
 			return nil, fmt.Errorf("unable to setup tracing")
 		}
-		interceptors = append(interceptors, otgrpc.OpenTracingServerInterceptor(ot.GlobalTracer()))
+		grpcOptions = append(grpcOptions, grpc.UnaryInterceptor(otgrpc.OpenTracingServerInterceptor(ot.GlobalTracer())))
 	}
-
-	// setup server prometheus monitoring (as final interceptor in chain)
-	interceptors = append(interceptors, grpc_prometheus.UnaryServerInterceptor)
-	grpc_prometheus.EnableHandlingTimeHistogram()
-	grpcOptions = append(grpcOptions, grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(interceptors...)))
 
 	// get the network stuff setup
-	network := "tcp"
-	address := fmt.Sprintf(":%d", a.APIPort)
-	if a.APIAddress != "" {
-		idx := strings.Index(a.APIAddress, "://")
-		if idx < 0 {
-			address = a.APIAddress
-		} else {
-			network = a.APIAddress[:idx]
-			address = a.APIAddress[idx+3:]
-		}
-	}
+	network, address := extractNetAddress(a.APIPort, a.APIAddress)
 
 	if network == "unix" {
 		// remove Unix socket before use.
-		if err = os.Remove(address); err != nil && !os.IsNotExist(err) {
+		if err = p.remove(address); err != nil && !os.IsNotExist(err) {
 			// Anything other than "file not found" is an error.
 			return nil, fmt.Errorf("unable to remove unix://%s: %v", address, err)
 		}
@@ -186,7 +180,7 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 
 		reg := store.NewRegistry(config.StoreInventory()...)
 		groupVersion := &schema.GroupVersion{Group: crd.ConfigAPIGroup, Version: crd.ConfigAPIVersion}
-		if st, err = reg.NewStore(configStoreURL, groupVersion); err != nil {
+		if st, err = reg.NewStore(configStoreURL, groupVersion, a.CredentialOptions); err != nil {
 			_ = s.Close()
 			return nil, fmt.Errorf("unable to connect to the configuration server: %v", err)
 		}
@@ -199,19 +193,24 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 		templateMap[k] = &t
 	}
 
-	rt = p.newRuntime(st, templateMap, adapterMap, a.ConfigDefaultNamespace,
-		s.gp, s.adapterGP, a.TracingOptions.TracingEnabled())
-
-	// this method initializes the store
-	if err = p.runtimeListen(rt); err != nil {
-		_ = s.Close()
-		return nil, fmt.Errorf("unable to listen: %v", err)
+	kinds := runtimeconfig.KindMap(adapterMap, templateMap)
+	if err := st.Init(kinds); err != nil {
+		return nil, fmt.Errorf("unable to initialize config store: %v", err)
 	}
 
 	// block wait for the config store to sync
 	log.Info("Awaiting for config store sync...")
 	if err := st.WaitForSynced(30 * time.Second); err != nil {
 		return nil, err
+	}
+
+	log.Info("Starting runtime config watch...")
+	rt = p.newRuntime(st, templateMap, adapterMap, a.ConfigDefaultNamespace,
+		s.gp, s.adapterGP, a.TracingOptions.TracingEnabled())
+
+	if err = p.runtimeListen(rt); err != nil {
+		_ = s.Close()
+		return nil, fmt.Errorf("unable to listen: %v", err)
 	}
 
 	s.dispatcher = rt.Dispatcher()
@@ -222,6 +221,20 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 
 	// get the grpc server wired up
 	grpc.EnableTracing = a.EnableGRPCTracing
+
+	exporter, err := p.newOpenCensusExporter()
+	if err != nil {
+		return nil, fmt.Errorf("could not build opencensus exporter: %v", err)
+	}
+	view.RegisterExporter(exporter)
+
+	// Register the views to collect server request count.
+	if err := p.registerOpenCensusViews(ocgrpc.DefaultServerViews...); err != nil {
+		return nil, fmt.Errorf("could not register default server views: %v", err)
+	}
+
+	grpcOptions = append(grpcOptions, grpc.StatsHandler(&ocgrpc.ServerHandler{}))
+
 	s.server = grpc.NewServer(grpcOptions...)
 	mixerpb.RegisterMixerServer(s.server, api.NewGRPCServer(s.dispatcher, s.gp, s.checkCache))
 
@@ -247,6 +260,19 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 	s.controlZ, _ = ctrlz.Run(a.IntrospectionOptions, nil)
 
 	return s, nil
+}
+
+func extractNetAddress(apiPort uint16, apiAddress string) (string, string) {
+	if apiAddress != "" {
+		idx := strings.Index(apiAddress, "://")
+		if idx < 0 {
+			return "tcp", apiAddress
+		}
+
+		return apiAddress[:idx], apiAddress[idx+3:]
+	}
+
+	return "tcp", fmt.Sprintf(":%d", apiPort)
 }
 
 // Run enables Mixer to start receiving gRPC requests on its main API port.

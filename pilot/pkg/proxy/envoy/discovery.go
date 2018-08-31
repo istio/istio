@@ -15,47 +15,33 @@
 package envoy
 
 import (
-	"bytes"
-	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/http/pprof"
 	"os"
 	"sort"
 	"strconv"
 	"sync"
-	"sync/atomic"
 	"time"
 
-	restful "github.com/emicklei/go-restful"
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/emicklei/go-restful"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/util"
 	"istio.io/istio/pkg/version"
 )
 
 const (
-	metricsNamespace     = "pilot"
-	metricsSubsystem     = "discovery"
-	metricLabelCacheName = "cache_name"
-	metricLabelMethod    = "method"
-	metricBuildVersion   = "build_version"
+	metricsNamespace   = "pilot"
+	metricsSubsystem   = "discovery"
+	metricLabelMethod  = "method"
+	metricBuildVersion = "build_version"
 )
 
 var (
 	// Save the build version information.
 	buildVersion = version.Info.String()
 
-	cacheHitCounter = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Namespace: metricsNamespace,
-			Subsystem: metricsSubsystem,
-			Name:      "cache_hit",
-			Help:      "Count of cache hits for a particular cache within Pilot",
-		}, []string{metricLabelCacheName, metricBuildVersion})
 	callCounter = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: metricsNamespace,
@@ -70,21 +56,6 @@ var (
 			Name:      "errors",
 			Help:      "Counter of errors encountered during a given method call within Pilot",
 		}, []string{metricLabelMethod, metricBuildVersion})
-	webhookCallCounter = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Namespace: metricsNamespace,
-			Subsystem: metricsSubsystem,
-			Name:      "webhook_calls",
-			Help:      "Counter of individual webhook calls made in Pilot",
-		}, []string{metricLabelMethod, metricBuildVersion})
-	webhookErrorCounter = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Namespace: metricsNamespace,
-			Subsystem: metricsSubsystem,
-			Name:      "webhook_errors",
-			Help:      "Counter of errors encountered when invoking the webhook endpoint within Pilot",
-		}, []string{metricLabelMethod, metricBuildVersion})
-
 	resourceBuckets = []float64{0, 10, 20, 30, 40, 50, 75, 100, 150, 250, 500, 1000, 10000}
 	resourceCounter = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
@@ -98,7 +69,7 @@ var (
 
 var (
 	// Variables associated with clear cache squashing.
-	clearCacheMutex sync.Mutex
+	clearCacheMutex sync.RWMutex
 
 	// lastClearCache is the time we last pushed
 	lastClearCache time.Time
@@ -106,8 +77,8 @@ var (
 	// lastClearCacheEvent is the time of the last config event
 	lastClearCacheEvent time.Time
 
-	// clearCacheEvents is the counter of 'clearCache' calls
-	clearCacheEvents int
+	// clearCacheCounter is the counter of 'clearCache' calls
+	clearCacheCounter int
 
 	// clearCacheTimerSet is true if we are in squash mode, and a timer is already set
 	clearCacheTimerSet bool
@@ -136,14 +107,6 @@ var (
 )
 
 func init() {
-	// No longer used. Will be removed in 1.1
-	//prometheus.MustRegister(cacheSizeGauge)
-	//prometheus.MustRegister(cacheHitCounter)
-	//prometheus.MustRegister(cacheMissCounter)
-	//prometheus.MustRegister(callCounter)
-	//prometheus.MustRegister(errorCounter)
-	//prometheus.MustRegister(resourceCounter)
-
 	cacheSquash := os.Getenv("PILOT_CACHE_SQUASH")
 	if len(cacheSquash) > 0 {
 		t, err := strconv.Atoi(cacheSquash)
@@ -172,103 +135,7 @@ func envDuration(env string, def time.Duration) time.Duration {
 // DiscoveryService publishes services, clusters, and routes for all proxies
 type DiscoveryService struct {
 	*model.Environment
-
-	webhookClient   *http.Client
-	webhookEndpoint string
-	// TODO Profile and optimize cache eviction policy to avoid
-	// flushing the entire cache when any route, service, or endpoint
-	// changes. An explicit cache expiration policy should be
-	// considered with this change to avoid memory exhaustion as the
-	// entire cache will no longer be periodically flushed and stale
-	// entries can linger in the cache indefinitely.
-	sdsCache *discoveryCache
-
 	RestContainer *restful.Container
-}
-
-type discoveryCacheStatEntry struct {
-	Hit  uint64 `json:"hit"`
-	Miss uint64 `json:"miss"`
-}
-
-type discoveryCacheStats struct {
-	Stats map[string]*discoveryCacheStatEntry `json:"cache_stats"`
-}
-
-type discoveryCacheEntry struct {
-	data          []byte
-	hit           uint64 // atomic
-	miss          uint64 // atomic
-	resourceCount uint32
-}
-
-type discoveryCache struct {
-	name     string
-	disabled bool
-	mu       sync.RWMutex
-	cache    map[string]*discoveryCacheEntry
-}
-
-func newDiscoveryCache(name string, enabled bool) *discoveryCache {
-	return &discoveryCache{
-		name:     name,
-		disabled: !enabled,
-		cache:    make(map[string]*discoveryCacheEntry),
-	}
-}
-
-func (c *discoveryCache) cachedDiscoveryResponse(key string) ([]byte, uint32, bool) {
-	if c.disabled {
-		return nil, 0, false
-	}
-
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
-	// Miss - entry.miss is updated in updateCachedDiscoveryResponse
-	entry, ok := c.cache[key]
-	if !ok || entry.data == nil {
-		return nil, 0, false
-	}
-
-	// Hit
-	atomic.AddUint64(&entry.hit, 1)
-	cacheHitCounter.With(c.cacheSizeLabels()).Inc()
-	return entry.data, entry.resourceCount, true
-}
-
-func (c *discoveryCache) resetStats() {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	for _, v := range c.cache {
-		atomic.StoreUint64(&v.hit, 0)
-		atomic.StoreUint64(&v.miss, 0)
-	}
-}
-
-func (c *discoveryCache) stats() map[string]*discoveryCacheStatEntry {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
-	stats := make(map[string]*discoveryCacheStatEntry, len(c.cache))
-	for k, v := range c.cache {
-		stats[k] = &discoveryCacheStatEntry{
-			Hit:  atomic.LoadUint64(&v.hit),
-			Miss: atomic.LoadUint64(&v.miss),
-		}
-	}
-	return stats
-}
-
-func (c *discoveryCache) cacheSizeLabels() prometheus.Labels {
-	return prometheus.Labels{
-		metricLabelCacheName: c.name,
-		metricBuildVersion:   buildVersion,
-	}
-}
-
-type hosts struct {
-	Hosts []*host `json:"hosts"`
 }
 
 type host struct {
@@ -289,12 +156,6 @@ type keyAndService struct {
 	Key   string  `json:"service-key"`
 	Hosts []*host `json:"hosts"`
 }
-
-// Request parameters for discovery services
-const (
-	ServiceCluster = "service-cluster"
-	ServiceNode    = "service-node"
-)
 
 // DiscoveryServiceOptions contains options for create a new discovery
 // service instance.
@@ -317,7 +178,6 @@ type DiscoveryServiceOptions struct {
 
 	EnableProfiling bool
 	EnableCaching   bool
-	WebhookEndpoint string
 }
 
 // NewDiscoveryService creates an Envoy discovery service on a given port
@@ -325,7 +185,6 @@ func NewDiscoveryService(ctl model.Controller, configCache model.ConfigStoreCach
 	environment *model.Environment, o DiscoveryServiceOptions) (*DiscoveryService, error) {
 	out := &DiscoveryService{
 		Environment: environment,
-		sdsCache:    newDiscoveryCache("sds", o.EnableCaching),
 	}
 
 	container := restful.NewContainer()
@@ -337,8 +196,6 @@ func NewDiscoveryService(ctl model.Controller, configCache model.ConfigStoreCach
 		container.ServeMux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 	}
 	out.Register(container)
-
-	out.webhookEndpoint, out.webhookClient = util.NewWebHookClient(o.WebhookEndpoint)
 	out.RestContainer = container
 
 	// Flush cached discovery responses whenever services, service
@@ -378,34 +235,7 @@ func (ds *DiscoveryService) Register(container *restful.Container) {
 		To(ds.ListAllEndpoints).
 		Doc("Services in SDS"))
 
-	ws.Route(ws.
-		GET("/cache_stats").
-		To(ds.GetCacheStats).
-		Doc("Get discovery service cache stats").
-		Writes(discoveryCacheStats{}))
-
-	ws.Route(ws.
-		POST("/cache_stats_delete").
-		To(ds.ClearCacheStats).
-		Doc("Clear discovery service cache stats"))
-
 	container.Add(ws)
-}
-
-// GetCacheStats returns the statistics for cached discovery responses.
-func (ds *DiscoveryService) GetCacheStats(_ *restful.Request, response *restful.Response) {
-	stats := make(map[string]*discoveryCacheStatEntry)
-	for k, v := range ds.sdsCache.stats() {
-		stats[k] = v
-	}
-	if err := response.WriteEntity(discoveryCacheStats{stats}); err != nil {
-		log.Warna(err)
-	}
-}
-
-// ClearCacheStats clear the statistics for cached discovery responses.
-func (ds *DiscoveryService) ClearCacheStats(_ *restful.Request, _ *restful.Response) {
-	ds.sdsCache.resetStats()
 }
 
 // ClearCache is wrapper for clearCache method, used when new controller gets
@@ -416,25 +246,27 @@ func (ds *DiscoveryService) ClearCache() {
 
 // debouncePush is called on clear cache, to initiate a push.
 func debouncePush(startDebounce time.Time) {
-	clearCacheMutex.Lock()
+	clearCacheMutex.RLock()
 	since := time.Since(lastClearCacheEvent)
-	clearCacheMutex.Unlock()
+	events := clearCacheCounter
+	clearCacheMutex.RUnlock()
 
 	if since > 2*DebounceAfter ||
 		time.Since(startDebounce) > DebounceMax {
 
 		log.Infof("Push debounce stable %d: %v since last change, %v since last push",
-			clearCacheEvents,
-			time.Since(lastClearCacheEvent), time.Since(lastClearCache))
+			events,
+			since, time.Since(lastClearCache))
 		clearCacheMutex.Lock()
 		clearCacheTimerSet = false
-		lastClearCache = time.Now()
 		clearCacheMutex.Unlock()
+		// no need to protect, no data race in case DebounceAfter > 0
+		lastClearCache = time.Now()
 		V2ClearCache()
 	} else {
 		log.Infof("Push debounce %d: %v since last change, %v since last push",
-			clearCacheEvents,
-			time.Since(lastClearCacheEvent), time.Since(lastClearCache))
+			events,
+			since, time.Since(lastClearCache))
 		time.AfterFunc(DebounceAfter, func() {
 			debouncePush(startDebounce)
 		})
@@ -447,7 +279,7 @@ func (ds *DiscoveryService) clearCache() {
 	clearCacheMutex.Lock()
 	defer clearCacheMutex.Unlock()
 
-	clearCacheEvents++
+	clearCacheCounter++
 
 	if DebounceAfter > 0 {
 		lastClearCacheEvent = time.Now()
@@ -458,7 +290,7 @@ func (ds *DiscoveryService) clearCache() {
 			time.AfterFunc(DebounceAfter, func() {
 				debouncePush(startDebounce)
 			})
-		} // else: debunce in progress - it'll keep delaying the push
+		} // else: debounce in progress - it'll keep delaying the push
 
 		return
 	}
@@ -467,7 +299,7 @@ func (ds *DiscoveryService) clearCache() {
 	// If last config change was > 1 second ago, push.
 	if time.Since(lastClearCacheEvent) > 1*time.Second {
 		log.Infof("Push %d: %v since last change, %v since last push",
-			clearCacheEvents,
+			clearCacheCounter,
 			time.Since(lastClearCacheEvent), time.Since(lastClearCache))
 		lastClearCacheEvent = time.Now()
 		lastClearCache = time.Now()
@@ -481,10 +313,9 @@ func (ds *DiscoveryService) clearCache() {
 
 	// If last config change was < 1 second ago, but last push is > clearCacheTime ago -
 	// also push
-
 	if time.Since(lastClearCache) > time.Duration(clearCacheTime)*time.Second {
 		log.Infof("Timer push %d: %v since last change, %v since last push",
-			clearCacheEvents, time.Since(lastClearCacheEvent), time.Since(lastClearCache))
+			clearCacheCounter, time.Since(lastClearCacheEvent), time.Since(lastClearCache))
 		lastClearCache = time.Now()
 		V2ClearCache()
 		return
@@ -502,7 +333,6 @@ func (ds *DiscoveryService) clearCache() {
 			ds.clearCache() // re-evaluate after 1 second. If no activity - push will happen
 		})
 	}
-
 }
 
 // ListAllEndpoints responds with all Services and is not restricted to a single service-key
@@ -524,7 +354,7 @@ func (ds *DiscoveryService) ListAllEndpoints(_ *restful.Request, response *restf
 		if !service.External() {
 			for _, port := range service.Ports {
 				hosts := make([]*host, 0)
-				instances, err := ds.Instances(service.Hostname, []string{port.Name}, nil)
+				instances, err := ds.InstancesByPort(service.Hostname, port.Port, nil)
 				if err != nil {
 					// If client experiences an error, 503 error will tell envoy to keep its current
 					// cache and try again later
@@ -557,37 +387,6 @@ func (ds *DiscoveryService) ListAllEndpoints(_ *restful.Request, response *restf
 	}
 }
 
-func (ds *DiscoveryService) parseDiscoveryRequest(request *restful.Request) (model.Proxy, error) {
-	nodeInfo := request.PathParameter(ServiceNode)
-	svcNode, err := model.ParseServiceNode(nodeInfo)
-	if err != nil {
-		return svcNode, multierror.Prefix(err, fmt.Sprintf("unexpected %s: ", ServiceNode))
-	}
-	return svcNode, nil
-}
-
-func (ds *DiscoveryService) invokeWebhook(path string, payload []byte, methodName string) ([]byte, error) {
-	if ds.webhookClient == nil {
-		return payload, nil
-	}
-
-	incWebhookCalls(methodName)
-	resp, err := ds.webhookClient.Post(ds.webhookEndpoint+path, "application/json", bytes.NewBuffer(payload))
-	if err != nil {
-		incWebhookErrors(methodName)
-		return nil, err
-	}
-
-	defer resp.Body.Close() // nolint: errcheck
-
-	out, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		incWebhookErrors(methodName)
-	}
-
-	return out, err
-}
-
 func incCalls(methodName string) {
 	callCounter.With(prometheus.Labels{
 		metricLabelMethod:  methodName,
@@ -597,20 +396,6 @@ func incCalls(methodName string) {
 
 func incErrors(methodName string) {
 	errorCounter.With(prometheus.Labels{
-		metricLabelMethod:  methodName,
-		metricBuildVersion: buildVersion,
-	}).Inc()
-}
-
-func incWebhookCalls(methodName string) {
-	webhookCallCounter.With(prometheus.Labels{
-		metricLabelMethod:  methodName,
-		metricBuildVersion: buildVersion,
-	}).Inc()
-}
-
-func incWebhookErrors(methodName string) {
-	webhookErrorCounter.With(prometheus.Labels{
 		metricLabelMethod:  methodName,
 		metricBuildVersion: buildVersion,
 	}).Inc()

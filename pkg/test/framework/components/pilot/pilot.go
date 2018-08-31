@@ -159,8 +159,7 @@ func NewLocalPilot(namespace string) (LocalPilot, error) {
 
 	// Start the server
 	stopChan := make(chan struct{})
-	_, err = server.Start(stopChan)
-	if err != nil {
+	if err := server.Start(stopChan); err != nil {
 		return nil, err
 	}
 

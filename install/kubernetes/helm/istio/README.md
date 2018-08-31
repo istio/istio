@@ -56,7 +56,65 @@ $ helm init --service-account tiller
    $ kubectl apply -f install/kubernetes/helm/istio/charts/certmanager/templates/crds.yaml
    ```
 
-4. To install the chart with the release name `istio` in namespace `istio-system`:
+4. If you are enabling `kiali`, you need to create the secret that contains the username and passphrase for `kiali` dashboard:
+   ```
+   $ echo -n 'admin' | base64
+   YWRtaW4=
+   $ echo -n '1f2d1e2e67df' | base64
+   MWYyZDFlMmU2N2Rm
+   $ NAMESPACE=istio-system
+   $ cat <<EOF | kubectl apply -f -
+   apiVersion: v1
+   kind: Secret
+   metadata:
+     name: kiali
+     namespace: $NAMESPACE
+     labels:
+       app: kiali
+   type: Opaque
+   data:
+     username: YWRtaW4=
+     passphrase: MWYyZDFlMmU2N2Rm
+   EOF
+   ```
+
+5. If you are using security mode for Grafana, create the secret first as follows:
+
+Encode username, you can chage the username to the name as you want:
+```
+$ echo -n 'admin' | base64
+YWRtaW4=
+```
+
+Encode passphrase, you can chage the passphrase to the passphrase as you want:
+```
+$ echo -n '1f2d1e2e67df' | base64
+MWYyZDFlMmU2N2Rm
+```
+
+Set the namespace where Istio was installed:
+```
+$ NAMESPACE=istio-system
+```
+
+Create secret for Grafana:
+```
+$ cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: Secret
+metadata:
+  name: grafana
+  namespace: $NAMESPACE
+  labels:
+    app: grafana
+type: Opaque
+data:
+  username: YWRtaW4=
+  passphrase: MWYyZDFlMmU2N2Rm
+EOF
+```
+
+6. To install the chart with the release name `istio` in namespace `istio-system`:
     - With [automatic sidecar injection](https://istio.io/docs/setup/kubernetes/sidecar-injection/#automatic-sidecar-injection) (requires Kubernetes >=1.9.0):
     ```
     $ helm install install/kubernetes/helm/istio --name istio --namespace istio-system
@@ -79,6 +137,7 @@ Helm charts expose configuration options which are currently in alpha.  The curr
 | `global.hub` | Specifies the HUB for most images used by Istio | registry/namespace | `docker.io/istio` |
 | `global.tag` | Specifies the TAG for most images used by Istio | valid image tag | `0.8.latest` |
 | `global.proxy.image` | Specifies the proxy image name | valid proxy name | `proxyv2` |
+| `global.proxy.concurrency` | Specifies the number of proxy worker threads | number, 0 = auto | `0` |
 | `global.imagePullPolicy` | Specifies the image pull policy | valid image pull policy | `IfNotPresent` |
 | `global.controlPlaneSecurityEnabled` | Specifies whether control plane mTLS is enabled | true/false | `false` |
 | `global.mtls.enabled` | Specifies whether mTLS is enabled by default between services | true/false | `false` |

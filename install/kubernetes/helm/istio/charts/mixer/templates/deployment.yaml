@@ -27,7 +27,14 @@
         args:
           - --address
           - unix:///sock/mixer.socket
+{{- if $.Values.global.useMixerMCP }}
+          - --configStoreURL=mcp://istio-galley.{{ $.Release.Namespace }}.svc:9901
+          - --certFile=/etc/certs/cert-chain.pem
+          - --keyFile=/etc/certs/key.pem
+          - --caCertFile=/etc/certs/root-cert.pem
+{{- else }}
           - --configStoreURL=k8s://
+{{- end }}
           - --configDefaultNamespace={{ $.Release.Namespace }}
           - --trace_zipkin_url=http://zipkin:9411/api/v1/spans
         resources:
@@ -37,6 +44,11 @@
 {{ toYaml .Values.global.defaultResources | indent 10 }}
 {{- end }}
         volumeMounts:
+{{- if $.Values.global.useMixerMCP }}
+        - name: istio-certs
+          mountPath: /etc/certs
+          readOnly: true
+{{- end }}
         - name: uds-socket
           mountPath: /sock
         livenessProbe:
@@ -122,7 +134,14 @@
         args:
           - --address
           - unix:///sock/mixer.socket
+{{- if $.Values.global.useMixerMCP }}
+          - --configStoreURL=mcp://istio-galley.{{ $.Release.Namespace }}.svc:9901
+          - --certFile=/etc/certs/cert-chain.pem
+          - --keyFile=/etc/certs/key.pem
+          - --caCertFile=/etc/certs/root-cert.pem
+{{- else }}
           - --configStoreURL=k8s://
+{{- end }}
           - --configDefaultNamespace={{ $.Release.Namespace }}
           - --trace_zipkin_url=http://zipkin:9411/api/v1/spans
         resources:
@@ -132,6 +151,11 @@
 {{ toYaml .Values.global.defaultResources | indent 10 }}
 {{- end }}
         volumeMounts:
+{{- if $.Values.global.useMixerMCP }}
+        - name: istio-certs
+          mountPath: /etc/certs
+          readOnly: true
+{{- end }}
         - name: uds-socket
           mountPath: /sock
         livenessProbe:

@@ -18,12 +18,9 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	"fmt"
 	"io/ioutil"
-	"net/http"
 	"os"
 	"path"
-	"reflect"
 	"sync"
 	"testing"
 	"time"
@@ -34,61 +31,40 @@ import (
 )
 
 type TestAgent struct {
-	schedule func(interface{})
+	configCh chan interface{}
 }
 
-func (ta TestAgent) ScheduleConfigUpdate(config interface{}) {
-	ta.schedule(config)
+func (ta *TestAgent) ConfigCh() chan<- interface{} {
+	return ta.configCh
 }
 
-func (ta TestAgent) Run(ctx context.Context) {
+func (ta *TestAgent) Run(ctx context.Context) {
 	<-ctx.Done()
 }
 
-func TestRunReload(t *testing.T) {
-	called := make(chan bool)
-	agent := TestAgent{
-		schedule: func(_ interface{}) {
-			called <- true
-		},
+func TestRunSendConfig(t *testing.T) {
+	agent := &TestAgent{
+		configCh: make(chan interface{}),
 	}
 	config := model.DefaultProxyConfig()
 	node := model.Proxy{
 		Type: model.Ingress,
 		ID:   "random",
 	}
-	watcher := NewWatcher(config, agent, node, []CertSource{{Directory: "random"}}, nil)
+	watcher := NewWatcher(config, node, []CertSource{{Directory: "random"}}, nil, agent.ConfigCh())
 	ctx, cancel := context.WithCancel(context.Background())
 
 	// watcher starts agent and schedules a config update
 	go watcher.Run(ctx)
 
 	select {
-	case <-called:
+	case <-agent.configCh:
 		// expected
 		cancel()
 	case <-time.After(time.Second):
 		t.Errorf("The callback is not called within time limit " + time.Now().String())
 		cancel()
 	}
-}
-
-type pilotStubHandler struct {
-	sync.Mutex
-	States []pilotStubState
-}
-
-type pilotStubState struct {
-	StatusCode int
-	Response   string
-}
-
-func (p *pilotStubHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	p.Lock()
-	w.WriteHeader(p.States[0].StatusCode)
-	_, _ = w.Write([]byte(p.States[0].Response))
-	p.States = p.States[1:]
-	p.Unlock()
 }
 
 func TestWatchCerts_Multiple(t *testing.T) {
@@ -215,35 +191,3 @@ func TestGenerateCertHash(t *testing.T) {
 		t.Error("hash should not be affected by empty directory")
 	}
 }
-
-func TestEnvoyArgs(t *testing.T) {
-	config := model.DefaultProxyConfig()
-	config.ServiceCluster = "my-cluster"
-	config.AvailabilityZone = "my-zone"
-	config.Concurrency = 8
-
-	test := envoy{config: config, node: "my-node", extraArgs: []string{"-l", "trace"}}
-	testProxy := NewProxy(config, "my-node", "trace", nil)
-	if !reflect.DeepEqual(testProxy, test) {
-		t.Errorf("unexpected struct got\n%v\nwant\n%v", testProxy, test)
-	}
-
-	got := test.args("test.json", 5)
-	want := []string{
-		"-c", "test.json",
-		"--restart-epoch", "5",
-		"--drain-time-s", "2",
-		"--parent-shutdown-time-s", "3",
-		"--service-cluster", "my-cluster",
-		"--service-node", "my-node",
-		"--max-obj-name-len", fmt.Sprint(MaxClusterNameLength), // TODO: use MeshConfig.StatNameLength instead
-		"-l", "trace",
-		"--concurrency", "8",
-		"--service-zone", "my-zone",
-	}
-	if !reflect.DeepEqual(got, want) {
-		t.Errorf("envoyArgs() => got %v, want %v", got, want)
-	}
-}
-
-// TestEnvoyRun is no longer used - we are now using v2 bootstrap API.

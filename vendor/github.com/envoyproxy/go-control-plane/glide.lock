@@ -1,15 +1,15 @@
-hash: 068aca283e74c409cc5a04d909a5f826f5f4ffc5730ca38bdeec1c81123aec54
-updated: 2018-08-08T10:46:32.991111569-07:00
+hash: d07bf6ef47022e5470f5ef94f2e7dc301ec64c7552d5b1431f12938d7ed89563
+updated: 2018-08-21T18:58:33.820384463-07:00
 imports:
 - name: github.com/envoyproxy/data-plane-api
-  version: 60170a36bbe33becca023947f09dbca03e01c6ee
+  version: 8e09edd8fe81be46dc179c678f5f65c40ae7af63
 - name: github.com/gogo/googleapis
   version: 0cd9801be74a10d5ac39d69626eac8255ffcd502
   subpackages:
   - google/api
   - google/rpc
 - name: github.com/gogo/protobuf
-  version: 1adfc126b41513cc696b209667c8656ea7aac67c
+  version: 636bf0302bc95575d69441b25a2603156ffdddf1
   subpackages:
   - gogoproto
   - jsonpb
@@ -66,7 +66,7 @@ imports:
   - googleapis/rpc/status
   - opencensus
 - name: google.golang.org/grpc
-  version: 1e2570b1b19ade82d8dbb31bba4e65e9f9ef5b34
+  version: 32fb0ac620c32ba40a4626ddf94d90d12cce3455
   subpackages:
   - balancer
   - balancer/base
@@ -76,9 +76,13 @@ imports:
   - credentials
   - encoding
   - encoding/proto
-  - grpclb/grpc_lb_v1/messages
   - grpclog
   - internal
+  - internal/backoff
+  - internal/channelz
+  - internal/envconfig
+  - internal/grpcrand
+  - internal/transport
   - keepalive
   - metadata
   - naming
@@ -89,7 +93,6 @@ imports:
   - stats
   - status
   - tap
-  - transport
 - name: istio.io/gogo-genproto
   version: dd2b5b6a8f1400838165245e704a011a30154a44
   subpackages:

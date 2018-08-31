@@ -6,10 +6,10 @@ package matcher
 import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import envoy_type "github.com/envoyproxy/go-control-plane/envoy/type"
+import _type "github.com/envoyproxy/go-control-plane/envoy/type"
 import _ "github.com/lyft/protoc-gen-validate/validate"
 
-import binary "encoding/binary"
+import encoding_binary "encoding/binary"
 
 import io "io"
 
@@ -18,18 +18,55 @@ var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
 
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
+
 // Specifies the way to match a double value.
 type DoubleMatcher struct {
 	// Types that are valid to be assigned to MatchPattern:
 	//	*DoubleMatcher_Range
 	//	*DoubleMatcher_Exact
-	MatchPattern isDoubleMatcher_MatchPattern `protobuf_oneof:"match_pattern"`
+	MatchPattern         isDoubleMatcher_MatchPattern `protobuf_oneof:"match_pattern"`
+	XXX_NoUnkeyedLiteral struct{}                     `json:"-"`
+	XXX_unrecognized     []byte                       `json:"-"`
+	XXX_sizecache        int32                        `json:"-"`
 }
 
-func (m *DoubleMatcher) Reset()                    { *m = DoubleMatcher{} }
-func (m *DoubleMatcher) String() string            { return proto.CompactTextString(m) }
-func (*DoubleMatcher) ProtoMessage()               {}
-func (*DoubleMatcher) Descriptor() ([]byte, []int) { return fileDescriptorNumber, []int{0} }
+func (m *DoubleMatcher) Reset()         { *m = DoubleMatcher{} }
+func (m *DoubleMatcher) String() string { return proto.CompactTextString(m) }
+func (*DoubleMatcher) ProtoMessage()    {}
+func (*DoubleMatcher) Descriptor() ([]byte, []int) {
+	return fileDescriptor_number_41b42669048154ad, []int{0}
+}
+func (m *DoubleMatcher) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *DoubleMatcher) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_DoubleMatcher.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (dst *DoubleMatcher) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DoubleMatcher.Merge(dst, src)
+}
+func (m *DoubleMatcher) XXX_Size() int {
+	return m.Size()
+}
+func (m *DoubleMatcher) XXX_DiscardUnknown() {
+	xxx_messageInfo_DoubleMatcher.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_DoubleMatcher proto.InternalMessageInfo
 
 type isDoubleMatcher_MatchPattern interface {
 	isDoubleMatcher_MatchPattern()
@@ -38,7 +75,7 @@ type isDoubleMatcher_MatchPattern interface {
 }
 
 type DoubleMatcher_Range struct {
-	Range *envoy_type.DoubleRange `protobuf:"bytes,1,opt,name=range,oneof"`
+	Range *_type.DoubleRange `protobuf:"bytes,1,opt,name=range,oneof"`
 }
 type DoubleMatcher_Exact struct {
 	Exact float64 `protobuf:"fixed64,2,opt,name=exact,proto3,oneof"`
@@ -54,7 +91,7 @@ func (m *DoubleMatcher) GetMatchPattern() isDoubleMatcher_MatchPattern {
 	return nil
 }
 
-func (m *DoubleMatcher) GetRange() *envoy_type.DoubleRange {
+func (m *DoubleMatcher) GetRange() *_type.DoubleRange {
 	if x, ok := m.GetMatchPattern().(*DoubleMatcher_Range); ok {
 		return x.Range
 	}
@@ -102,7 +139,7 @@ func _DoubleMatcher_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.
 		if wire != proto.WireBytes {
 			return true, proto.ErrInternalBadWireType
 		}
-		msg := new(envoy_type.DoubleRange)
+		msg := new(_type.DoubleRange)
 		err := b.DecodeMessage(msg)
 		m.MatchPattern = &DoubleMatcher_Range{msg}
 		return true, err
@@ -124,11 +161,11 @@ func _DoubleMatcher_OneofSizer(msg proto.Message) (n int) {
 	switch x := m.MatchPattern.(type) {
 	case *DoubleMatcher_Range:
 		s := proto.Size(x.Range)
-		n += proto.SizeVarint(1<<3 | proto.WireBytes)
+		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(s))
 		n += s
 	case *DoubleMatcher_Exact:
-		n += proto.SizeVarint(2<<3 | proto.WireFixed64)
+		n += 1 // tag and wire
 		n += 8
 	case nil:
 	default:
@@ -162,6 +199,9 @@ func (m *DoubleMatcher) MarshalTo(dAtA []byte) (int, error) {
 		}
 		i += nn1
 	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
 	return i, nil
 }
 
@@ -183,7 +223,7 @@ func (m *DoubleMatcher_Exact) MarshalTo(dAtA []byte) (int, error) {
 	i := 0
 	dAtA[i] = 0x11
 	i++
-	binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Exact))))
+	encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Exact))))
 	i += 8
 	return i, nil
 }
@@ -201,6 +241,9 @@ func (m *DoubleMatcher) Size() (n int) {
 	_ = l
 	if m.MatchPattern != nil {
 		n += m.MatchPattern.Size()
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
 	}
 	return n
 }
@@ -289,7 +332,7 @@ func (m *DoubleMatcher) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			v := &envoy_type.DoubleRange{}
+			v := &_type.DoubleRange{}
 			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
@@ -303,7 +346,7 @@ func (m *DoubleMatcher) Unmarshal(dAtA []byte) error {
 			if (iNdEx + 8) > l {
 				return io.ErrUnexpectedEOF
 			}
-			v = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+			v = uint64(encoding_binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 			iNdEx += 8
 			m.MatchPattern = &DoubleMatcher_Exact{float64(math.Float64frombits(v))}
 		default:
@@ -318,6 +361,7 @@ func (m *DoubleMatcher) Unmarshal(dAtA []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -432,9 +476,11 @@ var (
 	ErrIntOverflowNumber   = fmt.Errorf("proto: integer overflow")
 )
 
-func init() { proto.RegisterFile("envoy/type/matcher/number.proto", fileDescriptorNumber) }
+func init() {
+	proto.RegisterFile("envoy/type/matcher/number.proto", fileDescriptor_number_41b42669048154ad)
+}
 
-var fileDescriptorNumber = []byte{
+var fileDescriptor_number_41b42669048154ad = []byte{
 	// 198 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x92, 0x4f, 0xcd, 0x2b, 0xcb,
 	0xaf, 0xd4, 0x2f, 0xa9, 0x2c, 0x48, 0xd5, 0xcf, 0x4d, 0x2c, 0x49, 0xce, 0x48, 0x2d, 0xd2, 0xcf,

@@ -27,7 +27,7 @@ spec:
     spec:
       containers:
       - name: echosrv
-        image: istio/fortio:latest_release
+        image: fortio/fortio:latest_release
         imagePullPolicy: Always # needed despite what is documented to really get latest
         ports:
         - containerPort: 8080
@@ -59,7 +59,7 @@ spec:
     spec:
       containers:
       - name: echosrv
-        image: istio/fortio:latest_release
+        image: fortio/fortio:latest_release
         imagePullPolicy: Always # needed despite what is documented to really get latest
         ports:
         - containerPort: 8080

@@ -21,11 +21,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"github.com/gogo/protobuf/proto"
-
 	cfg "istio.io/api/policy/v1beta1"
+	"istio.io/istio/pkg/mcp/creds"
 )
 
 type testStore struct {
@@ -79,7 +79,7 @@ func newTestBackend() *testStore {
 }
 
 func registerTestStore(builders map[string]Builder) {
-	builders["test"] = func(u *url.URL, gv *schema.GroupVersion) (Backend, error) {
+	builders["test"] = func(u *url.URL, gv *schema.GroupVersion, _ *creds.Options) (Backend, error) {
 		return newTestBackend(), nil
 	}
 }
@@ -226,7 +226,7 @@ func TestRegistry(t *testing.T) {
 		{"://", false},
 		{"test://", true},
 	} {
-		_, err := r.NewStore(c.u, groupVersion)
+		_, err := r.NewStore(c.u, groupVersion, nil)
 		ok := err == nil
 		if ok != c.ok {
 			t.Errorf("Want %v, Got %v, Err %v", c.ok, ok, err)

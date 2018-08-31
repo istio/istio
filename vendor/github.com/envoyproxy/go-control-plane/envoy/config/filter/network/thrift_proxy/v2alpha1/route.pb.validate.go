@@ -47,7 +47,9 @@ func (m *RouteConfiguration) Validate() error {
 	for idx, item := range m.GetRoutes() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(item).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return RouteConfigurationValidationError{
 					Field:  fmt.Sprintf("Routes[%v]", idx),
@@ -100,7 +102,9 @@ func (m *Route) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetMatch()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetMatch()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return RouteValidationError{
 				Field:  "Match",
@@ -110,7 +114,9 @@ func (m *Route) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetRoute()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetRoute()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return RouteValidationError{
 				Field:  "Route",
@@ -161,7 +167,23 @@ func (m *RouteMatch) Validate() error {
 		return nil
 	}
 
-	// no validation rules for Method
+	// no validation rules for Invert
+
+	switch m.MatchSpecifier.(type) {
+
+	case *RouteMatch_MethodName:
+		// no validation rules for MethodName
+
+	case *RouteMatch_ServiceName:
+		// no validation rules for ServiceName
+
+	default:
+		return RouteMatchValidationError{
+			Field:  "MatchSpecifier",
+			Reason: "value is required",
+		}
+
+	}
 
 	return nil
 }

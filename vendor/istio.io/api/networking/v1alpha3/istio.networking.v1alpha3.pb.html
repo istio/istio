@@ -1,12 +1,12 @@
 ---
 title: Traffic Routing
-description: Configuration affecting traffic routing
+description: Configuration affecting traffic routing.
 location: https://istio.io/docs/reference/config/istio.networking.v1alpha3.html
 layout: protoc-gen-docs
 generator: protoc-gen-docs
 aliases:
   - /docs/reference/config/istio.routing.v1alpha1/
-number_of_entries: 49
+number_of_entries: 50
 ---
 <p>Configuration affecting traffic routing. Here are a few terms useful to define
 in the context of traffic routing.</p>
@@ -1274,8 +1274,8 @@ service, giving the impression that the upstream service is faulty.</p>
 <h2 id="HTTPFaultInjection-Abort">HTTPFaultInjection.Abort</h2>
 <section>
 <p>Abort specification is used to prematurely abort a request with a
-pre-specified error code. The following example will return an HTTP
-400 error code for 10% of the requests to the &ldquo;ratings&rdquo; service &ldquo;v1&rdquo;.</p>
+pre-specified error code. The following example will return an HTTP 400
+error code for 1 out of every 1000 requests to the &ldquo;ratings&rdquo; service &ldquo;v1&rdquo;.</p>
 
 <pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -1291,14 +1291,15 @@ spec:
         subset: v1
     fault:
       abort:
-        percent: 10
+        percentage:
+          value: 0.001
         httpStatus: 400
 </code></pre>
 
 <p>The <em>httpStatus</em> field is used to indicate the HTTP status code to
-return to the caller. The optional <em>percent</em> field, a value between 0
-and 100, is used to only abort a certain percentage of requests. If
-not specified, all requests are aborted.</p>
+return to the caller. The optional <em>percentage</em> field can be used to only
+abort a certain percentage of requests. If not specified, all requests are
+aborted.</p>
 
 <table class="message-fields">
 <thead>
@@ -1309,11 +1310,13 @@ not specified, all requests are aborted.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="HTTPFaultInjection-Abort-percent">
+<tr id="HTTPFaultInjection-Abort-percent" class="deprecated ">
 <td><code>percent</code></td>
 <td><code>int32</code></td>
 <td>
-<p>Percentage of requests to be aborted with the error code provided (0-100).</p>
+<p>Percentage of requests to be aborted with the error code provided (0-100).
+Use of integer <code>percent</code> value is deprecated. Use the double <code>percentage</code>
+field instead.</p>
 
 </td>
 </tr>
@@ -1325,6 +1328,14 @@ not specified, all requests are aborted.</p>
 
 </td>
 </tr>
+<tr id="HTTPFaultInjection-Abort-percentage">
+<td><code>percentage</code></td>
+<td><code><a href="#Percent">Percent</a></code></td>
+<td>
+<p>Percentage of requests to be aborted with the error code provided.</p>
+
+</td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -1332,7 +1343,7 @@ not specified, all requests are aborted.</p>
 <section>
 <p>Delay specification is used to inject latency into the request
 forwarding path. The following example will introduce a 5 second delay
-in 10% of the requests to the &ldquo;v1&rdquo; version of the &ldquo;reviews&rdquo;
+in 1 out of every 1000 requests to the &ldquo;v1&rdquo; version of the &ldquo;reviews&rdquo;
 service from all pods with label env: prod</p>
 
 <pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
@@ -1352,14 +1363,14 @@ spec:
         subset: v1
     fault:
       delay:
-        percent: 10
+        percentage:
+          value: 0.001
         fixedDelay: 5s
 </code></pre>
 
-<p>The <em>fixedDelay</em> field is used to indicate the amount of delay in
-seconds. An optional <em>percent</em> field, a value between 0 and 100, can
-be used to only delay a certain percentage of requests. If left
-unspecified, all request will be delayed.</p>
+<p>The <em>fixedDelay</em> field is used to indicate the amount of delay in seconds.
+The optional <em>percentage</em> field can be used to only delay a certain
+percentage of requests. If left unspecified, all request will be delayed.</p>
 
 <table class="message-fields">
 <thead>
@@ -1370,11 +1381,13 @@ unspecified, all request will be delayed.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="HTTPFaultInjection-Delay-percent">
+<tr id="HTTPFaultInjection-Delay-percent" class="deprecated ">
 <td><code>percent</code></td>
 <td><code>int32</code></td>
 <td>
-<p>Percentage of requests on which the delay will be injected (0-100).</p>
+<p>Percentage of requests on which the delay will be injected (0-100).
+Use of integer <code>percent</code> value is deprecated. Use the double <code>percentage</code>
+field instead.</p>
 
 </td>
 </tr>
@@ -1384,6 +1397,14 @@ unspecified, all request will be delayed.</p>
 <td>
 <p>REQUIRED. Add a fixed delay before forwarding the request. Format:
 1h/1m/1s/1ms. MUST be &gt;=1ms.</p>
+
+</td>
+</tr>
+<tr id="HTTPFaultInjection-Delay-percentage">
+<td><code>percentage</code></td>
+<td><code><a href="#Percent">Percent</a></code></td>
+<td>
+<p>Percentage of requests on which the delay will be injected.</p>
 
 </td>
 </tr>
@@ -2156,8 +2177,8 @@ spec:
 <td>
 <p>Number of errors before a host is ejected from the connection
 pool. Defaults to 5. When the upstream host is accessed over HTTP, a
-5xx return code qualifies as an error. When the upstream host is
-accessed over an opaque TCP connection, connect timeouts and
+502, 503 or 504 return code qualifies as an error. When the upstream host
+is accessed over an opaque TCP connection, connect timeouts and
 connection error/failure events qualify as an error.</p>
 
 </td>
@@ -2190,6 +2211,28 @@ servers. format: 1h/1m/1s/1ms. MUST BE &gt;=1ms. Default is 30s.</p>
 <p>Maximum % of hosts in the load balancing pool for the upstream
 service that can be ejected. Defaults to 10%.</p>
 
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Percent">Percent</h2>
+<section>
+<p>Percent specifies a percentage in the range of [0.0, 100.0].</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Percent-value">
+<td><code>value</code></td>
+<td><code>double</code></td>
+<td>
 </td>
 </tr>
 </tbody>

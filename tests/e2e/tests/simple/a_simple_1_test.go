@@ -34,8 +34,9 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/fortio/fhttp"
-	"istio.io/fortio/periodic"
+	"fortio.org/fortio/fhttp"
+	"fortio.org/fortio/periodic"
+
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/e2e/framework"
 	"istio.io/istio/tests/util"
@@ -147,11 +148,10 @@ func TestSvc2Svc(t *testing.T) {
 			t.Fatalf("Pod readyness failed after %v - last error: %s", timeToWaitForPods, res)
 		}
 		ready := 0
-		for i := range podList {
-			pod := podList[i]
+		for i, pod := range podList {
 			res, err := util.Shell("kubectl exec -n %s %s -c echosrv -- /usr/local/bin/fortio curl http://echosrv:8080/echo", ns, pod)
 			if err != nil {
-				log.Infof("Pod %i %s not ready: %s", i, pod, res)
+				log.Infof("Pod %d %s not ready: %s", i, pod, res)
 			} else {
 				ready++
 			}
@@ -358,7 +358,7 @@ func setTestConfig() error {
 	tag := os.Getenv("FORTIO_TAG")
 	image := hub + "/fortio:" + tag
 	if hub == "" || tag == "" {
-		image = "istio/fortio:latest_release"
+		image = "fortio/fortio:latest_release"
 	}
 	log.Infof("Fortio hub %s tag %s -> image %s", hub, tag, image)
 	services := []framework.App{

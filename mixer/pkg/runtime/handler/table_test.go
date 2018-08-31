@@ -20,9 +20,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
-	dto "github.com/prometheus/client_model/go"
-
 	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/runtime/config"
 	"istio.io/istio/mixer/pkg/runtime/testing/data"
@@ -168,7 +165,7 @@ func TestCleanup_Basic(t *testing.T) {
 	expected := `
 [acheck] NewBuilder =>
 [acheck] NewBuilder <=
-[acheck] HandlerBuilder.SetAdapterConfig => '&Struct{Fields:map[string]*Value{},}'
+[acheck] HandlerBuilder.SetAdapterConfig => '&Struct{Fields:map[string]*Value{},XXX_unrecognized:[],}'
 [acheck] HandlerBuilder.SetAdapterConfig <=
 [acheck] HandlerBuilder.Validate =>
 [acheck] HandlerBuilder.Validate <= (SUCCESS)
@@ -187,8 +184,8 @@ func TestCleanup_WorkerNotClosed(t *testing.T) {
 		SpawnWorker            bool
 		SpawnDaemon            bool
 		CloseGoRoutines        bool
-		wantWorkerStrayRoutine float64
-		wantDaemonStrayRoutine float64
+		wantWorkerStrayRoutine int64
+		wantDaemonStrayRoutine int64
 	}{
 
 		{
@@ -244,18 +241,14 @@ func TestCleanup_WorkerNotClosed(t *testing.T) {
 			// give time for counters to get updated before validating them.
 			time.Sleep(500 * time.Millisecond)
 
-			var c prometheus.Metric = oldTable.entries["hcheck1.acheck.istio-system"].env.counters.workers
-			m := new(dto.Metric)
-			_ = c.Write(m)
-			if *m.GetGauge().Value != tt.wantWorkerStrayRoutine {
-				t.Fatalf("expected %v worker stray routines; got %v", tt.wantWorkerStrayRoutine, *m.GetGauge().Value)
+			gotWorkers := oldTable.entries["hcheck1.acheck.istio-system"].env.Workers()
+			if gotWorkers != tt.wantWorkerStrayRoutine {
+				t.Fatalf("got %v worker stray routines; wanted %v", gotWorkers, tt.wantWorkerStrayRoutine)
 			}
 
-			c = oldTable.entries[data.FqnACheck1].env.counters.daemons
-			m = new(dto.Metric)
-			_ = c.Write(m)
-			if *m.GetGauge().Value != tt.wantDaemonStrayRoutine {
-				t.Fatalf("expected %v daemon stray routines; got %v", tt.wantDaemonStrayRoutine, *m.GetGauge().Value)
+			gotDaemons := oldTable.entries[data.FqnACheck1].env.Daemons()
+			if gotDaemons != tt.wantDaemonStrayRoutine {
+				t.Fatalf("got %v daemon stray routines; wanted %v", gotDaemons, tt.wantDaemonStrayRoutine)
 			}
 		})
 	}
@@ -279,7 +272,7 @@ func TestCleanup_NoChange(t *testing.T) {
 	expected := `
 [acheck] NewBuilder =>
 [acheck] NewBuilder <=
-[acheck] HandlerBuilder.SetAdapterConfig => '&Struct{Fields:map[string]*Value{},}'
+[acheck] HandlerBuilder.SetAdapterConfig => '&Struct{Fields:map[string]*Value{},XXX_unrecognized:[],}'
 [acheck] HandlerBuilder.SetAdapterConfig <=
 [acheck] HandlerBuilder.Validate =>
 [acheck] HandlerBuilder.Validate <= (SUCCESS)
@@ -347,7 +340,7 @@ func TestCleanup_CloseError(t *testing.T) {
 	expected := `
 [acheck] NewBuilder =>
 [acheck] NewBuilder <=
-[acheck] HandlerBuilder.SetAdapterConfig => '&Struct{Fields:map[string]*Value{},}'
+[acheck] HandlerBuilder.SetAdapterConfig => '&Struct{Fields:map[string]*Value{},XXX_unrecognized:[],}'
 [acheck] HandlerBuilder.SetAdapterConfig <=
 [acheck] HandlerBuilder.Validate =>
 [acheck] HandlerBuilder.Validate <= (SUCCESS)
@@ -382,7 +375,7 @@ func TestCleanup_ClosePanic(t *testing.T) {
 	expected := `
 [acheck] NewBuilder =>
 [acheck] NewBuilder <=
-[acheck] HandlerBuilder.SetAdapterConfig => '&Struct{Fields:map[string]*Value{},}'
+[acheck] HandlerBuilder.SetAdapterConfig => '&Struct{Fields:map[string]*Value{},XXX_unrecognized:[],}'
 [acheck] HandlerBuilder.SetAdapterConfig <=
 [acheck] HandlerBuilder.Validate =>
 [acheck] HandlerBuilder.Validate <= (SUCCESS)

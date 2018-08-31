@@ -70,7 +70,10 @@ func startAll() error {
 	if err != nil {
 		return err
 	}
-	srv.Start()
+	errCh := srv.Start()
+	if err = <-errCh; err != nil {
+		log.Fatalf("backend server start failed %v", err)
+	}
 
 	go util.RunHTTP(7072, "v1")
 	go util.RunGRPC(7073, "v1", "", "")
@@ -87,11 +90,14 @@ func startAll() error {
 }
 
 func startMixer() error {
-	srv, err := env.NewMixerServer(9091, false)
+	srv, err := env.NewMixerServer(9091, false, false)
 	if err != nil {
 		return err
 	}
-	srv.Start()
+	errCh := srv.Start()
+	if err = <-errCh; err != nil {
+		log.Fatalf("mixer start failed %v", err)
+	}
 
 	go func() {
 		for {
@@ -113,7 +119,7 @@ func startEnvoy() error {
 		DiscoveryRefreshDelay: types.DurationProto(10 * time.Second), // crash if not set
 		ConnectTimeout:        types.DurationProto(5 * time.Second),  // crash if not set
 		DrainDuration:         types.DurationProto(30 * time.Second), // crash if 0
-
+		StatNameLength:        189,
 	}
 	cfgF, err := agent.WriteBootstrap(cfg, "sidecar~127.0.0.2~a~a", 1, []string{}, nil)
 	if err != nil {
@@ -185,8 +191,7 @@ func startPilot() error {
 	}
 
 	// Start the server.
-	_, err = s.Start(stop)
-	if err != nil {
+	if err := s.Start(stop); err != nil {
 		return err
 	}
 	return nil

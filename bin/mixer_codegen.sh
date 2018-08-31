@@ -5,22 +5,22 @@ die () {
   exit 1
 }
 
-WD="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-ROOT="$(dirname $WD)"
+SCRIPTPATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+ROOTDIR="$(dirname "$SCRIPTPATH")"
 
-if [ ! -e "$ROOT/Gopkg.lock" ]; then
+if [ ! -e "$ROOTDIR/Gopkg.lock" ]; then
   echo "Please run 'dep ensure' first"
   exit 1
 fi
 
 set -e
 
-outdir=$ROOT
-file=$ROOT
-protoc="$ROOT/bin/protoc.sh"
+outdir=$ROOTDIR
+file=$ROOTDIR
+protoc="$ROOTDIR/bin/protoc.sh"
 
-optimport=$ROOT
-template=$ROOT
+optimport=$ROOTDIR
+template=$ROOTDIR
 
 optproto=false
 optadapter=false
@@ -57,31 +57,24 @@ done
 # echo "outdir: ${outdir}"
 
 # Ensure expected GOPATH setup
-if [ "$ROOT" != "${GOPATH-$HOME/go}/src/istio.io/istio" ]; then
+if [ "$ROOTDIR" != "${GOPATH-$HOME/go}/src/istio.io/istio" ]; then
   die "Istio not found in GOPATH/src/istio.io/"
 fi
 
-imports=(
- "${ROOT}"
- "${ROOT}/vendor/istio.io/api"
- "${ROOT}/vendor/github.com/gogo/protobuf"
- "${ROOT}/vendor/github.com/gogo/googleapis"
- "${ROOT}/vendor/github.com/gogo/protobuf/protobuf"
+IMPORTS=(
+  "--proto_path=${ROOTDIR}"
+  "--proto_path=${ROOTDIR}/vendor/istio.io/api"
+  "--proto_path=${ROOTDIR}/vendor/github.com/gogo/protobuf"
+  "--proto_path=${ROOTDIR}/vendor/github.com/gogo/googleapis"
+  "--proto_path=$optimport"
 )
-
-IMPORTS=""
-
-for i in "${imports[@]}"
-do
-  IMPORTS+="--proto_path=$i "
-done
-
-IMPORTS+="--proto_path=$optimport "
 
 mappings=(
   "gogoproto/gogo.proto=github.com/gogo/protobuf/gogoproto"
   "google/protobuf/any.proto=github.com/gogo/protobuf/types"
   "google/protobuf/duration.proto=github.com/gogo/protobuf/types"
+  "google/protobuf/timestamp.proto=github.com/gogo/protobuf/types"
+  "google/protobuf/struct.proto=github.com/gogo/protobuf/types"
   "google/rpc/status.proto=github.com/gogo/googleapis/google/rpc"
   "google/rpc/code.proto=github.com/gogo/googleapis/google/rpc"
   "google/rpc/error_details.proto=github.com/gogo/googleapis/google/rpc"
@@ -94,8 +87,7 @@ do
   MAPPINGS+="M$i,"
 done
 
-PLUGIN="--gogoslick_out=plugins=grpc,$MAPPINGS:"
-PLUGIN+=$outdir
+PLUGIN="--gogoslick_out=plugins=grpc,$MAPPINGS:$outdir"
 
 GENDOCS_PLUGIN="--docs_out=warnings=true,mode=html_fragment_with_front_matter:"
 GENDOCS_PLUGIN_FILE=$GENDOCS_PLUGIN$(dirname "${file}")
@@ -108,19 +100,21 @@ if [ "$opttemplate" = true ]; then
     "google/protobuf/any.proto:github.com/gogo/protobuf/types"
     "gogoproto/gogo.proto:github.com/gogo/protobuf/gogoproto"
     "google/protobuf/duration.proto:github.com/gogo/protobuf/types"
+    "google/protobuf/timestamp.proto:github.com/gogo/protobuf/types"
+    "google/rpc/status.proto:github.com/gogo/googleapis/google/rpc"
+    "google/protobuf/struct.proto:github.com/gogo/protobuf/types"
   )
 
-  TMPL_GEN_MAP=""
+  TMPL_GEN_MAP=()
   TMPL_PROTOC_MAPPING=""
 
   for i in "${template_mappings[@]}"
   do
-    TMPL_GEN_MAP+="-m $i "
+    TMPL_GEN_MAP+=("-m" "$i")
     TMPL_PROTOC_MAPPING+="M${i/:/=},"
   done
 
-  TMPL_PLUGIN="--gogoslick_out=plugins=grpc,$TMPL_PROTOC_MAPPING:"
-  TMPL_PLUGIN+=$outdir
+  TMPL_PLUGIN="--gogoslick_out=plugins=grpc,$TMPL_PROTOC_MAPPING:$outdir"
 
   descriptor_set="_proto.descriptor_set"
   handler_gen_go="_handler.gen.go"
@@ -132,27 +126,34 @@ if [ "$opttemplate" = true ]; then
   templateHSP=${template/.proto/$handler_service}
   templatePG=${template/.proto/$pb_go}
   # generate the descriptor set for the intermediate artifacts
-  DESCRIPTOR="--include_imports --include_source_info --descriptor_set_out=$templateDS"
+  DESCRIPTOR=(
+    "--include_imports"
+    "--include_source_info"
+    "--descriptor_set_out=$templateDS"
+  )
   if [ "$gendoc" = true ]; then
-    err=$($protoc "$DESCRIPTOR" "$IMPORTS" "$PLUGIN" "$GENDOCS_PLUGIN_TEMPLATE" "$template")
+    err=$($protoc "${DESCRIPTOR[@]}" "${IMPORTS[@]}" "$PLUGIN" "$GENDOCS_PLUGIN_TEMPLATE" "$template")
   else
-    err=$($protoc "$DESCRIPTOR" "$IMPORTS" "$PLUGIN" "$template")
+    err=$($protoc "${DESCRIPTOR[@]}" "${IMPORTS[@]}" "$PLUGIN" "$template")
   fi
   if [ ! -z "$err" ]; then
     die "template generation failure: $err";
   fi
 
-  IFS=" " read -r -a TMPL_GEN_MAP_ARRAY <<< "$TMPL_GEN_MAP"
-  go run "$GOPATH/src/istio.io/istio/mixer/tools/mixgen/main.go" api -t "$templateDS" --go_out "$templateHG" --proto_out "$templateHSP" "${TMPL_GEN_MAP_ARRAY[@]}"
+  go run "$GOPATH/src/istio.io/istio/mixer/tools/mixgen/main.go" api -t "$templateDS" --go_out "$templateHG" --proto_out "$templateHSP" "${TMPL_GEN_MAP[@]}"
 
-  err=$($protoc "$IMPORTS" "$TMPL_PLUGIN" "$templateHSP")
+  err=$($protoc "${IMPORTS[@]}" "$TMPL_PLUGIN" "$templateHSP")
   if [ ! -z "$err" ]; then
     die "template generation failure: $err";
   fi
 
   templateSDS=${template/.proto/_handler_service.descriptor_set}
-  SDESCRIPTOR="--include_imports --include_source_info --descriptor_set_out=$templateSDS"
-  err=$($protoc "$SDESCRIPTOR" "$IMPORTS" "$PLUGIN" "$templateHSP")
+  SDESCRIPTOR=(
+    "--include_imports"
+    "--include_source_info"
+    "--descriptor_set_out=$templateSDS"
+  )
+  err=$($protoc "${SDESCRIPTOR[@]}" "${IMPORTS[@]}" "$PLUGIN" "$templateHSP")
   if [ ! -z "$err" ]; then
     die "template generation failure: $err";
   fi
@@ -168,16 +169,16 @@ fi
 # handle adapter code generation
 if [ "$optadapter" = true ]; then
   if [ "$gendoc" = true ]; then
-    err=$($protoc "$IMPORTS" "$PLUGIN" "$GENDOCS_PLUGIN_FILE" "$file")
+    err=$($protoc "${IMPORTS[@]}" "$PLUGIN" "$GENDOCS_PLUGIN_FILE" "$file")
   else
-    err=$($protoc "$IMPORTS" "$PLUGIN" "$file")
+    err=$($protoc "${IMPORTS[@]}" "$PLUGIN" "$file")
   fi
   if [ ! -z "$err" ]; then
     die "generation failure: $err";
   fi
 
   adapteCfdDS=${file}_descriptor
-  err=$($protoc "$IMPORTS" "$PLUGIN" --include_imports --include_source_info --descriptor_set_out="${adapteCfdDS}" "$file")
+  err=$($protoc "${IMPORTS[@]}" "$PLUGIN" --include_imports --include_source_info --descriptor_set_out="${adapteCfdDS}" "$file")
   if [ ! -z "$err" ]; then
   die "config generation failure: $err";
   fi
@@ -190,15 +191,15 @@ fi
 
 # handle simple protoc-based generation
 if [ "$gendoc" = true ]; then
-  err=$($protoc "$IMPORTS" "$PLUGIN" "$GENDOCS_PLUGIN_FILE" "$file")
+  err=$($protoc "${IMPORTS[@]}" "$PLUGIN" "$GENDOCS_PLUGIN_FILE" "$file")
 else
-  err=$($protoc "$IMPORTS" "$PLUGIN" "$file")
+  err=$($protoc "${IMPORTS[@]}" "$PLUGIN" "$file")
 fi
 if [ ! -z "$err" ]; then
   die "generation failure: $err";
 fi
 
-err=$($protoc "$IMPORTS" "$PLUGIN" --include_imports --include_source_info --descriptor_set_out="${file}_descriptor" "$file")
+err=$($protoc "${IMPORTS[@]}" "$PLUGIN" --include_imports --include_source_info --descriptor_set_out="${file}_descriptor" "$file")
 if [ ! -z "$err" ]; then
 die "config generation failure: $err";
 fi

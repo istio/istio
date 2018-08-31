@@ -168,7 +168,7 @@ func (Plugin) OnInboundFilterChains(in *plugin.InputParams) []plugin.FilterChain
 	return setupFilterChains(authnPolicy)
 }
 
-// CollectJwtSpecs returns a list of all JWT specs (ponters) defined the policy. This
+// CollectJwtSpecs returns a list of all JWT specs (pointers) defined the policy. This
 // provides a convenient way to iterate all Jwt specs.
 func CollectJwtSpecs(policy *authn.Policy) []*authn.Jwt {
 	ret := []*authn.Jwt{}
@@ -373,6 +373,6 @@ func (Plugin) OnInboundRouteConfiguration(in *plugin.InputParams, route *xdsapi.
 }
 
 // OnOutboundCluster implements the Plugin interface method.
-func (Plugin) OnOutboundCluster(env *model.Environment, node *model.Proxy, push *model.PushContext, service *model.Service,
+func (Plugin) OnOutboundCluster(env *model.Environment, push *model.PushContext, service *model.Service,
 	servicePort *model.Port, cluster *xdsapi.Cluster) {
 }

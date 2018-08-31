@@ -226,6 +226,7 @@ func DefaultProxyConfig() meshconfig.ProxyConfig {
 		ControlPlaneAuthPolicy: meshconfig.AuthenticationPolicy_NONE,
 		CustomConfigFile:       "",
 		Concurrency:            0,
+		StatNameLength:         189,
 	}
 }
 
@@ -233,8 +234,6 @@ func DefaultProxyConfig() meshconfig.ProxyConfig {
 func DefaultMeshConfig() meshconfig.MeshConfig {
 	config := DefaultProxyConfig()
 	return meshconfig.MeshConfig{
-		// TODO(mixeraddress is deprecated. Remove)
-		MixerAddress:          "",
 		MixerCheckServer:      "",
 		MixerReportServer:     "",
 		DisablePolicyChecks:   false,
@@ -275,14 +274,6 @@ func ApplyMeshConfigDefaults(yaml string) (*meshconfig.MeshConfig, error) {
 		if err := ApplyYAML(origProxyConfigYAML, out.DefaultConfig); err != nil {
 			return nil, multierror.Prefix(err, "failed to convert to proto.")
 		}
-	}
-
-	// Backward compat option: if mixer address is set but
-	// mixer_check_server and mixer_report_server are unset, copy the value
-	// into these two config vars.
-	if out.MixerAddress != "" && out.MixerCheckServer == "" && out.MixerReportServer == "" {
-		out.MixerCheckServer = out.MixerAddress
-		out.MixerReportServer = out.MixerAddress
 	}
 
 	if err := ValidateMeshConfig(&out); err != nil {

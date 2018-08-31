@@ -15,22 +15,40 @@
 package handler
 
 import (
+	"context"
+	"strconv"
+	"sync/atomic"
+
+	"go.opencensus.io/stats"
+	"go.opencensus.io/tag"
+
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/pool"
+	"istio.io/istio/mixer/pkg/runtime/monitoring"
+	"istio.io/istio/pkg/log"
 )
 
 type env struct {
-	logger   adapter.Logger
-	gp       *pool.GoroutinePool
-	counters envCounters
+	logger           adapter.Logger
+	gp               *pool.GoroutinePool
+	monitoringCtx    context.Context
+	daemons, workers *int64
 }
 
 // NewEnv returns a new environment instance.
 func NewEnv(cfgID int64, name string, gp *pool.GoroutinePool) adapter.Env {
+	ctx := context.Background()
+	var err error
+	if ctx, err = tag.New(ctx, tag.Insert(monitoring.InitConfigIDTag, strconv.FormatInt(cfgID, 10)), tag.Insert(monitoring.HandlerTag, name)); err != nil {
+		log.Errorf("could not setup context for stats: %v", err)
+	}
+
 	return env{
-		logger:   newLogger(name),
-		gp:       gp,
-		counters: newEnvCounters(cfgID, name),
+		logger:        newLogger(name),
+		gp:            gp,
+		monitoringCtx: ctx,
+		daemons:       new(int64),
+		workers:       new(int64),
 	}
 }
 
@@ -41,7 +59,7 @@ func (e env) Logger() adapter.Logger {
 
 // ScheduleWork from adapter.Env.
 func (e env) ScheduleWork(fn adapter.WorkFunc) {
-	e.counters.workers.Inc()
+	stats.Record(e.monitoringCtx, monitoring.WorkersTotal.M(atomic.AddInt64(e.workers, 1)))
 
 	// TODO (Issue #2503): This method creates a closure which causes allocations. We can ensure that we're
 	// not creating a closure by calling a method by name, instead of using an anonymous one.
@@ -50,7 +68,7 @@ func (e env) ScheduleWork(fn adapter.WorkFunc) {
 
 		defer func() {
 			// Always decrement the worker count.
-			e.counters.workers.Dec()
+			stats.Record(e.monitoringCtx, monitoring.WorkersTotal.M(atomic.AddInt64(e.workers, -1)))
 
 			if !reachedEnd {
 				r := recover()
@@ -70,14 +88,14 @@ func (e env) ScheduleWork(fn adapter.WorkFunc) {
 
 // ScheduleDaemon from adapter.Env.
 func (e env) ScheduleDaemon(fn adapter.DaemonFunc) {
-	e.counters.daemons.Inc()
+	stats.Record(e.monitoringCtx, monitoring.DaemonsTotal.M(atomic.AddInt64(e.daemons, 1)))
 
 	go func() {
 		reachedEnd := false
 
 		defer func() {
 			// Always decrement the daemon count.
-			e.counters.daemons.Dec()
+			stats.Record(e.monitoringCtx, monitoring.DaemonsTotal.M(atomic.AddInt64(e.daemons, -1)))
 
 			if !reachedEnd {
 				r := recover()
@@ -95,10 +113,16 @@ func (e env) ScheduleDaemon(fn adapter.DaemonFunc) {
 	}()
 }
 
+func (e env) Workers() int64 {
+	return atomic.LoadInt64(e.workers)
+}
+
+func (e env) Daemons() int64 {
+	return atomic.LoadInt64(e.daemons)
+}
+
 func (e env) reportStrayWorkers() error {
-	if dc, err := e.counters.getDaemonCount(); err != nil {
-		return err
-	} else if dc > 0 {
+	if atomic.LoadInt64(e.daemons) > 0 {
 		// TODO: ideally we should return some sort of error here to bubble up this issue to the top so that
 		// operator can look at it. However, currently we cannot guarantee that SchedularXXXX gauge
 		// counter will give consistent value because of timing issue in the ScheduleWorker and ScheduleDaemon.
@@ -110,9 +134,7 @@ func (e env) reportStrayWorkers() error {
 		_ = e.Logger().Errorf("adapter did not close all the scheduled daemons")
 	}
 
-	if wc, err := e.counters.getWorkerCount(); err != nil {
-		return err
-	} else if wc > 0 {
+	if atomic.LoadInt64(e.workers) > 0 {
 		_ = e.Logger().Errorf("adapter did not close all the scheduled workers")
 	}
 

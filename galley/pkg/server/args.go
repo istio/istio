@@ -21,15 +21,10 @@ import (
 
 	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/probe"
+	"istio.io/istio/pkg/mcp/creds"
 )
 
 const (
-	defaultCertDir    = "/etc/istio/certs/"
-	defaultCertFile   = defaultCertDir + "cert-chain.pem"
-	defaultCACertFile = defaultCertDir + "root-cert.pem"
-	defaultCertKey    = defaultCertDir + "key.pem"
-
 	defaultConfigMapFolder = "/etc/istio/config/"
 	defaultAccessListFile  = defaultConfigMapFolder + "accesslist.yaml"
 )
@@ -57,30 +52,20 @@ type Args struct {
 	// Insecure gRPC service is used for the MCP server. CertificateFile and KeyFile is ignored.
 	Insecure bool
 
-	// CertificateFile to use for mTLS gRPC.
-	CertificateFile string
-
-	// KeyFile to use for mTLS gRPC.
-	KeyFile string
-
-	// CACertificateFile is the trusted root certificate authority's cert file.
-	CACertificateFile string
-
-	// AccessListFile is the YAML file that specifies ids of the allowed mTLS peers.
-	AccessListFile string
+	// The credential options to use for MCP.
+	CredentialOptions *creds.Options
 
 	// The logging options to use
 	LoggingOptions *log.Options
 
-	// The path to the file which indicates the liveness of the server by its existence.
-	// This will be used for k8s liveness probe. If empty, it does nothing.
-	LivenessProbeOptions *probe.Options
-
-	// The path to the file for readiness probe, similar to LivenessProbePath.
-	ReadinessProbeOptions *probe.Options
-
 	// The introspection options to use
 	IntrospectionOptions *ctrlz.Options
+
+	// Enable galley server mode
+	EnableServer bool
+
+	// AccessListFile is the YAML file that specifies ids of the allowed mTLS peers.
+	AccessListFile string
 }
 
 // DefaultArgs allocates an Args struct initialized with Mixer's default configuration.
@@ -89,15 +74,12 @@ func DefaultArgs() *Args {
 		APIAddress:             "tcp://0.0.0.0:9901",
 		MaxReceivedMessageSize: 1024 * 1024,
 		MaxConcurrentStreams:   1024,
-		Insecure:               false,
-		CertificateFile:        defaultCertFile,
-		KeyFile:                defaultCertKey,
-		CACertificateFile:      defaultCACertFile,
-		AccessListFile:         defaultAccessListFile,
 		LoggingOptions:         log.DefaultOptions(),
-		LivenessProbeOptions:   &probe.Options{},
-		ReadinessProbeOptions:  &probe.Options{},
 		IntrospectionOptions:   ctrlz.DefaultOptions(),
+		Insecure:               false,
+		AccessListFile:         defaultAccessListFile,
+		EnableServer:           true,
+		CredentialOptions:      creds.DefaultOptions(),
 	}
 }
 
@@ -111,15 +93,13 @@ func (a *Args) String() string {
 	fmt.Fprintf(buf, "EnableGrpcTracing: %v\n", a.APIAddress)
 	fmt.Fprintf(buf, "MaxReceivedMessageSize: %d\n", a.MaxReceivedMessageSize)
 	fmt.Fprintf(buf, "MaxConcurrentStreams: %d\n", a.MaxConcurrentStreams)
-	fmt.Fprintf(buf, "Insecure: %v\n", a.Insecure)
-	fmt.Fprintf(buf, "KeyFile: %s\n", a.KeyFile)
-	fmt.Fprintf(buf, "CertificateFile: %s\n", a.CertificateFile)
-	fmt.Fprintf(buf, "CACertificateFile: %s\n", a.CACertificateFile)
-	fmt.Fprintf(buf, "AccessListFile: %s\n", a.AccessListFile)
 	fmt.Fprintf(buf, "LoggingOptions: %#v\n", *a.LoggingOptions)
-	fmt.Fprintf(buf, "LivenessProbeOptions: %#v\n", *a.LivenessProbeOptions)
-	fmt.Fprintf(buf, "ReadinessProbeOptions: %#v\n", *a.ReadinessProbeOptions)
 	fmt.Fprintf(buf, "IntrospectionOptions: %#v\n", *a.IntrospectionOptions)
-
+	fmt.Fprintf(buf, "Insecure: %v\n", a.Insecure)
+	fmt.Fprintf(buf, "AccessListFile: %s\n", a.AccessListFile)
+	fmt.Fprintf(buf, "EnableServer: %v\n", a.EnableServer)
+	fmt.Fprintf(buf, "KeyFile: %s\n", a.CredentialOptions.KeyFile)
+	fmt.Fprintf(buf, "CertificateFile: %s\n", a.CredentialOptions.CertificateFile)
+	fmt.Fprintf(buf, "CACertificateFile: %s\n", a.CredentialOptions.CACertificateFile)
 	return buf.String()
 }
