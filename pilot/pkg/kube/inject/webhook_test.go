@@ -418,12 +418,17 @@ func TestHelmInject(t *testing.T) {
 			inputFile: "traffic-annotations-empty-includes.yaml",
 			wantFile:  "traffic-annotations-empty-includes.yaml.injected",
 		},
+		{
+			// Verifies that the status port annotation overrides the default.
+			inputFile: "status_annotations.yaml",
+			wantFile:  "status_annotations.yaml.injected",
+		},
 	}
 
 	for ci, c := range cases {
 		inputFile := filepath.Join("testdata/webhook", c.inputFile)
 		wantFile := filepath.Join("testdata/webhook", c.wantFile)
-		testName := fmt.Sprintf("[%02d] %s", ci, c.inputFile)
+		testName := fmt.Sprintf("[%02d] %s", ci, c.wantFile)
 		t.Run(testName, func(t *testing.T) {
 			// Split multi-part yaml documents. Input and output will have the same number of parts.
 			inputYAMLs := splitYamlFile(inputFile, t)
@@ -689,7 +694,13 @@ func compareDeployments(got, want *extv1beta1.Deployment, name string, t *testin
 	gotIstioInit.TerminationMessagePolicy = wantIstioInit.TerminationMessagePolicy
 	gotIstioInit.SecurityContext.Privileged = wantIstioInit.SecurityContext.Privileged
 	gotIstioProxy := istioProxy(got, t)
+
+	// Fill in missing defaults in the expected proxy container.
 	wantIstioProxy := istioProxy(want, t)
+	wantIstioProxy.ReadinessProbe.HTTPGet.Scheme = corev1.URISchemeHTTP
+	wantIstioProxy.ReadinessProbe.TimeoutSeconds = 1
+	wantIstioProxy.ReadinessProbe.SuccessThreshold = 1
+
 	gotIstioProxy.Image = wantIstioProxy.Image
 	gotIstioProxy.TerminationMessagePath = wantIstioProxy.TerminationMessagePath
 	gotIstioProxy.TerminationMessagePolicy = wantIstioProxy.TerminationMessagePolicy
