@@ -46,39 +46,6 @@ import (
 	"istio.io/istio/security/pkg/server/monitoring"
 )
 
-// TODO(myidpt): move the following constants to pkg/cmd.
-const (
-	defaultSelfSignedCACertTTL = 365 * 24 * time.Hour
-
-	defaultRequestedCACertTTL = 365 * 24 * time.Hour
-
-	defaultMaxWorkloadCertTTL = 90 * 24 * time.Hour
-
-	defaultWorkloadCertTTL = 90 * 24 * time.Hour
-
-	// The default length of certificate rotation grace period, configured as
-	// the ratio of the certificate TTL.
-	defaultWorkloadCertGracePeriodRatio = 0.5
-
-	// The default minimum grace period for workload cert rotation.
-	defaultWorkloadMinCertGracePeriod = 10 * time.Minute
-
-	defaultProbeCheckInterval = 30 * time.Second
-
-	// The default length of certificate rotation grace period, configured as
-	// the percentage of the certificate TTL.
-	defaultCSRGracePeriodPercentage = 50
-
-	// The default initial interval between retries to send CSR to upstream CA.
-	defaultCSRInitialRetrialInterval = time.Second
-
-	// The default value of CSR retries for Citadel to send CSR to upstream CA.
-	defaultCSRMaxRetries = 10
-
-	// The key for the environment variable that specifies the namespace.
-	listenedNamespaceKey = "NAMESPACE"
-)
-
 type keyCertBundleRotator interface {
 	Start(chan<- error)
 	Stop()
@@ -183,7 +150,7 @@ func init() {
 	// General configuration.
 	flags.StringVar(&opts.listenedNamespace, "listened-namespace", "",
 		"Select a namespace for the CA to listen to. If unspecified, Citadel tries to use the ${"+
-			listenedNamespaceKey+"} environment variable. If neither is set, Citadel listens to all namespaces.")
+			cmd.ListenedNamespaceKey+"} environment variable. If neither is set, Citadel listens to all namespaces.")
 	flags.StringVar(&opts.istioCaStorageNamespace, "citadel-storage-namespace", "istio-system", "Namespace where "+
 		"the Citadel pod is running. Will not be used if explicit file or other storage mechanism is specified.")
 
@@ -200,7 +167,7 @@ func init() {
 	flags.BoolVar(&opts.selfSignedCA, "self-signed-ca", false,
 		"Indicates whether to use auto-generated self-signed CA certificate. "+
 			"When set to true, the '--signing-cert' and '--signing-key' options are ignored.")
-	flags.DurationVar(&opts.selfSignedCACertTTL, "self-signed-ca-cert-ttl", defaultSelfSignedCACertTTL,
+	flags.DurationVar(&opts.selfSignedCACertTTL, "self-signed-ca-cert-ttl", cmd.DefaultSelfSignedCACertTTL,
 		"The TTL of self-signed CA root certificate")
 	flags.StringVar(&opts.identityDomain, "identity-domain", controller.DefaultIdentityDomain,
 		fmt.Sprintf("The domain to use for identities (default: %s)", controller.DefaultIdentityDomain))
@@ -209,20 +176,20 @@ func init() {
 	flags.StringVar(&opts.cAClientConfig.CAAddress, "upstream-ca-address", "", "The IP:port address of the upstream "+
 		"CA. When set, the CA will rely on the upstream Citadel to provision its own certificate.")
 	flags.StringVar(&opts.cAClientConfig.Org, "org", "", "Organization for the cert")
-	flags.DurationVar(&opts.cAClientConfig.RequestedCertTTL, "requested-ca-cert-ttl", defaultRequestedCACertTTL,
+	flags.DurationVar(&opts.cAClientConfig.RequestedCertTTL, "requested-ca-cert-ttl", cmd.DefaultRequestedCACertTTL,
 		"The requested TTL for the workload")
 	flags.IntVar(&opts.cAClientConfig.RSAKeySize, "key-size", 2048, "Size of generated private key")
 
 	// Certificate signing configuration.
-	flags.DurationVar(&opts.workloadCertTTL, "workload-cert-ttl", defaultWorkloadCertTTL,
+	flags.DurationVar(&opts.workloadCertTTL, "workload-cert-ttl", cmd.DefaultWorkloadCertTTL,
 		"The TTL of issued workload certificates")
-	flags.DurationVar(&opts.maxWorkloadCertTTL, "max-workload-cert-ttl", defaultMaxWorkloadCertTTL,
+	flags.DurationVar(&opts.maxWorkloadCertTTL, "max-workload-cert-ttl", cmd.DefaultMaxWorkloadCertTTL,
 		"The max TTL of issued workload certificates")
 	flags.Float32Var(&opts.workloadCertGracePeriodRatio, "workload-cert-grace-period-ratio",
-		defaultWorkloadCertGracePeriodRatio, "The workload certificate rotation grace period, as a ratio of the "+
+		cmd.DefaultWorkloadCertGracePeriodRatio, "The workload certificate rotation grace period, as a ratio of the "+
 			"workload certificate TTL.")
 	flags.DurationVar(&opts.workloadCertMinGracePeriod, "workload-cert-min-grace-period",
-		defaultWorkloadMinCertGracePeriod, "The minimum workload certificate rotation grace period.")
+		cmd.DefaultWorkloadMinCertGracePeriod, "The minimum workload certificate rotation grace period.")
 
 	// gRPC server for signing CSRs.
 	flags.StringVar(&opts.grpcHosts, "grpc-host-identities", "istio-ca,istio-citadel",
@@ -245,7 +212,7 @@ func init() {
 		"Path to the file for the liveness probe.")
 	flags.DurationVar(&opts.LivenessProbeOptions.UpdateInterval, "liveness-probe-interval", 0,
 		"Interval of updating file for the liveness probe.")
-	flags.DurationVar(&opts.probeCheckInterval, "probe-check-interval", defaultProbeCheckInterval,
+	flags.DurationVar(&opts.probeCheckInterval, "probe-check-interval", cmd.DefaultProbeCheckInterval,
 		"Interval of checking the liveness of the CA.")
 
 	flags.BoolVar(&opts.appendDNSNames, "append-dns-names", true,
@@ -292,7 +259,7 @@ func runCA() {
 
 	_, _ = ctrlz.Run(opts.ctrlzOptions, nil)
 
-	if value, exists := os.LookupEnv(listenedNamespaceKey); exists {
+	if value, exists := os.LookupEnv(cmd.ListenedNamespaceKey); exists {
 		// When -namespace is not set, try to read the namespace from environment variable.
 		if opts.listenedNamespace == "" {
 			opts.listenedNamespace = value
@@ -486,9 +453,9 @@ func createKeyCertBundleRotator(keycert pkiutil.KeyCertBundle) (keyCertBundleRot
 	config.KeyFile = opts.signingKeyFile
 	config.CertChainFile = opts.certChainFile
 	config.RootCertFile = opts.rootCertFile
-	config.CSRGracePeriodPercentage = defaultCSRGracePeriodPercentage
-	config.CSRMaxRetries = defaultCSRMaxRetries
-	config.CSRInitialRetrialInterval = defaultCSRInitialRetrialInterval
+	config.CSRGracePeriodPercentage = cmd.DefaultCSRGracePeriodPercentage
+	config.CSRMaxRetries = cmd.DefaultCSRMaxRetries
+	config.CSRInitialRetrialInterval = cmd.DefaultCSRInitialRetrialInterval
 	pc, err := platform.NewClient(config.Env, config.RootCertFile, config.KeyFile, config.CertChainFile, config.CAAddress)
 	if err != nil {
 		return nil, err
