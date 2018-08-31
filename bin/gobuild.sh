@@ -53,7 +53,7 @@ fi
 # at the beginning of the build and used throughout
 if [[ -z ${BUILDINFO} ]];then
     BUILDINFO=$(mktemp)
-    "${ROOTDIR}/bin/get_workspace_status" > "${BUILDINFO}"
+    "${ROOTDIR}/bin/get_workspace_status.sh" > "${BUILDINFO}"
 fi
 
 # BUILD LD_EXTRAFLAGS
