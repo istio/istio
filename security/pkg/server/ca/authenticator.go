@@ -90,6 +90,9 @@ type idTokenAuthenticator struct {
 	verifier *oidc.IDTokenVerifier
 }
 
+// Temporarily disable ID token authenticator.
+// [TODO](myidpt): enable ID token authenticator when the CSR API authz can work correctly.
+/*
 func newIDTokenAuthenticator(aud string) (*idTokenAuthenticator, error) {
 	provider, err := oidc.NewProvider(context.Background(), idTokenIssuer)
 	if err != nil {
@@ -99,6 +102,7 @@ func newIDTokenAuthenticator(aud string) (*idTokenAuthenticator, error) {
 	verifier := provider.Verifier(&oidc.Config{ClientID: aud})
 	return &idTokenAuthenticator{verifier}, nil
 }
+*/
 
 func (ja *idTokenAuthenticator) authenticate(ctx context.Context) (*caller, error) {
 	bearerToken, err := extractBearerToken(ctx)
