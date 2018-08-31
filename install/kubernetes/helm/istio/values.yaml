@@ -289,4 +289,3 @@ global:
   # Pilot. Requires galley (`--set galley.enabled=true`).
   useMCP: false
 
-
