@@ -15,4 +15,4 @@
 package annotation
 
 // IsFlakyTest marks a test as a flaky test.
-func isFlakyTest() {}
+func IsFlakyTest() {}

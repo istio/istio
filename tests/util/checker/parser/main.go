@@ -15,11 +15,11 @@
 package main
 
 import (
-"flag"
-"fmt"
-"os"
+	"flag"
+	"fmt"
+	"os"
 
-"istio.io/istio/tests/util/checker"
+	"istio.io/istio/tests/util/checker"
 )
 
 func main() {

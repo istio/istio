@@ -17,8 +17,8 @@ package rules
 import (
 	"go/ast"
 	"go/token"
-
 	"istio.io/istio/tests/util/checker"
+	"istio.io/istio/tests/util/checker/testlinter/rules"
 )
 
 // IsFlaky detects if annotation.isFlakyTest() is called.
@@ -31,24 +31,14 @@ func NewIsFlaky() *IsFlaky {
 
 // GetID returns is_flaky.
 func (lr *IsFlaky) GetID() string {
-	return "is_flaky"
+	return rules.GetCallerFileName()
 }
 
 // Check verifies if aNode is not time.Sleep. If verification fails lrp creates a new report.
 func (lr *IsFlaky) Check(aNode ast.Node, fs *token.FileSet, lrp *checker.Report) {
 	if ce, ok := aNode.(*ast.CallExpr); ok {
-		if lr.matchCallExpr(ce, "annotation", "IsFlaky") {
+		if rules.MatchCallExpr(ce, "annotation", "IsFlaky") {
 			lrp.AddItem(fs.Position(ce.Pos()), lr.GetID(), "annotation.IsFlaky() is found.")
 		}
 	}
-}
-
-// matchCallExpr returns true if ce matches package name pn and method name mn.
-func (lr *IsFlaky)matchCallExpr(ce *ast.CallExpr, pn string, mn string) bool {
-	if sel, ok := ce.Fun.(*ast.SelectorExpr); ok {
-		if pkg, ok := sel.X.(*ast.Ident); ok {
-			return pkg.String() == pn && sel.Sel.String() == mn
-		}
-	}
-	return false
 }

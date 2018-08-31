@@ -20,6 +20,7 @@ import (
 
 	"istio.io/istio/tests/util/checker"
 	"istio.io/istio/tests/util/checker/parser/rules"
+	"log"
 )
 
 // RulesMatcher filters out test files and detects test type.
@@ -38,6 +39,7 @@ type RulesMatcher struct {
 // (3) unit test file
 // .../*_test.go
 func (rf *RulesMatcher) GetRules(absp string, info os.FileInfo) []checker.Rule {
+	log.Printf("check path %s", absp)
 	// Skip path which is not go test file or is a directory.
 	paths := strings.Split(absp, "/")
 	if len(paths) == 0 || info.IsDir() || !strings.HasSuffix(absp, "_test.go") {

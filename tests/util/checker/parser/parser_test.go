@@ -1,1 +1,39 @@
+// Copyright 2018 Istio Authors. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package main
+
+import (
+	"reflect"
+	"testing"
+
+	"path/filepath"
+)
+
+func getAbsPath(path string) string {
+	if !filepath.IsAbs(path) {
+		path, _ = filepath.Abs(path)
+	}
+	return path
+}
+
+func TestIntegTestSkipByIssueRule(t *testing.T) {
+	rpts, _ := getReport([]string{"testdata/"})
+	expectedRpts := []string{
+		getAbsPath("testdata/data_test.go") + ":11:2:Only t.Skip() is allowed and t.Skip() should contain an url to GitHub issue. (skip_issue)"}
+
+	if !reflect.DeepEqual(rpts, expectedRpts) {
+		t.Errorf("lint reports don't match\nReceived: %v\nExpected: %v", rpts, expectedRpts)
+	}
+}
