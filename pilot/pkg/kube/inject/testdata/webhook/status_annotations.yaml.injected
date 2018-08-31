@@ -2,24 +2,26 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   creationTimestamp: null
-  name: hello
+  name: statusPort
 spec:
   replicas: 7
   strategy: {}
   template:
     metadata:
       annotations:
-        sidecar.istio.io/proxyImage: docker.io/istio/proxy2_debug:unittest
+        readiness.status.sidecar.istio.io/applicationPorts: 1,2,3
+        readiness.status.sidecar.istio.io/failureThreshold: "300"
+        readiness.status.sidecar.istio.io/initialDelaySeconds: "100"
+        readiness.status.sidecar.istio.io/periodSeconds: "200"
         sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        status.sidecar.istio.io/port: "123"
       creationTimestamp: null
       labels:
-        app: hello
-        tier: backend
-        track: stable
+        app: status
     spec:
       containers:
-      - image: fake.docker.io/google-samples/hello-go-gke:1.0
-        name: hello
+      - image: fake.docker.io/google-samples/traffic-go-gke:1.0
+        name: status
         ports:
         - containerPort: 80
           name: http
@@ -32,7 +34,7 @@ spec:
         - --binaryPath
         - /usr/local/bin/envoy
         - --serviceCluster
-        - hello
+        - status
         - --drainDuration
         - 2s
         - --parentShutdownDuration
@@ -52,9 +54,9 @@ spec:
         - --controlPlaneAuthPolicy
         - NONE
         - --statusPort
-        - "15020"
+        - "123"
         - --applicationPorts
-        - "80"
+        - 1,2,3
         env:
         - name: POD_NAME
           valueFrom:
@@ -74,22 +76,22 @@ spec:
               fieldPath: metadata.name
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
-        image: docker.io/istio/proxy2_debug:unittest
+        image: docker.io/istio/proxyv2:unittest
         imagePullPolicy: IfNotPresent
         name: istio-proxy
         readinessProbe:
-          failureThreshold: 30
+          failureThreshold: 300
           httpGet:
             path: /healthz/ready
-            port: 15020
-          initialDelaySeconds: 1
-          periodSeconds: 2
+            port: 123
+          initialDelaySeconds: 100
+          periodSeconds: 200
         resources:
           requests:
             cpu: 10m
         securityContext:
-          privileged: true
-          readOnlyRootFilesystem: false
+          privileged: false
+          readOnlyRootFilesystem: true
           runAsUser: 1337
         volumeMounts:
         - mountPath: /etc/istio/proxy
@@ -112,7 +114,7 @@ spec:
         - -b
         - "80"
         - -d
-        - "15020"
+        - "123"
         image: docker.io/istio/proxy_init:unittest
         imagePullPolicy: IfNotPresent
         name: istio-init
@@ -121,7 +123,6 @@ spec:
           capabilities:
             add:
             - NET_ADMIN
-          privileged: true
       volumes:
       - emptyDir:
           medium: Memory
