@@ -263,10 +263,11 @@ func TestSignCSRForWorkload(t *testing.T) {
 		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
 		KeyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
 		IsCA:        false,
+		Host:        host,
 	}
 	_, _, certChainBytes, rootCertBytes := ca.GetCAKeyCertBundle().GetAll()
 	if err = util.VerifyCertificate(
-		keyPEM, append(certPEM, certChainBytes...), rootCertBytes, host, fields); err != nil {
+		keyPEM, append(certPEM, certChainBytes...), rootCertBytes, fields); err != nil {
 		t.Error(err)
 	}
 
@@ -318,10 +319,11 @@ func TestSignCSRForCA(t *testing.T) {
 	fields := &util.VerifyFields{
 		KeyUsage: x509.KeyUsageCertSign,
 		IsCA:     true,
+		Host:     host,
 	}
 	_, _, certChainBytes, rootCertBytes := ca.GetCAKeyCertBundle().GetAll()
 	if err = util.VerifyCertificate(
-		keyPEM, append(certPEM, certChainBytes...), rootCertBytes, host, fields); err != nil {
+		keyPEM, append(certPEM, certChainBytes...), rootCertBytes, fields); err != nil {
 		t.Error(err)
 	}
 
