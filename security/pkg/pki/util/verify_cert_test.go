@@ -42,36 +42,43 @@ var (
 	rootCert        = loadPEMFile("../testdata/root-cert-10y.pem")
 	notBefore       = &VerifyFields{
 		NotBefore: time.Unix(0, 0),
+		Host:      "spiffe://cluster.local/ns/default/sa/default",
 	}
 
 	ttl = &VerifyFields{
-		TTL: time.Duration(0),
+		TTL:  time.Duration(0),
+		Host: "spiffe://cluster.local/ns/default/sa/default",
 	}
 
 	extKeyUsage = &VerifyFields{
-		TTL: time.Duration(1),
+		TTL:  time.Duration(1),
+		Host: "spiffe://cluster.local/ns/default/sa/default",
 	}
 
 	keyUsage = &VerifyFields{
 		ExtKeyUsage: []x509.ExtKeyUsage{1, 2},
 		KeyUsage:    2,
+		Host:        "spiffe://cluster.local/ns/default/sa/default",
 	}
 
 	isCA = &VerifyFields{
 		ExtKeyUsage: []x509.ExtKeyUsage{1, 2},
 		KeyUsage:    5,
 		IsCA:        true,
+		Host:        "spiffe://cluster.local/ns/default/sa/default",
 	}
 
 	org = &VerifyFields{
 		ExtKeyUsage: []x509.ExtKeyUsage{1, 2},
 		KeyUsage:    5,
 		Org:         "bad",
+		Host:        "spiffe://cluster.local/ns/default/sa/default",
 	}
 
 	success = &VerifyFields{
 		ExtKeyUsage: []x509.ExtKeyUsage{1, 2},
 		KeyUsage:    5,
+		Host:        "spiffe://cluster.local/ns/default/sa/default",
 	}
 )
 
@@ -80,7 +87,6 @@ func TestVerifyCert(t *testing.T) {
 		privPem        []byte
 		certChainPem   []byte
 		rootCertPem    []byte
-		host           string
 		expectedFields *VerifyFields
 		expectedErr    string
 	}{
@@ -88,7 +94,6 @@ func TestVerifyCert(t *testing.T) {
 			privPem:        nil,
 			certChainPem:   nil,
 			rootCertPem:    []byte(rootCertBad),
-			host:           "",
 			expectedFields: nil,
 			expectedErr:    "failed to parse root certificate",
 		},
@@ -96,7 +101,6 @@ func TestVerifyCert(t *testing.T) {
 			privPem:        nil,
 			certChainPem:   []byte(certChainBad),
 			rootCertPem:    []byte(rootCert),
-			host:           "",
 			expectedFields: nil,
 			expectedErr:    "failed to parse certificate chain",
 		},
@@ -104,39 +108,34 @@ func TestVerifyCert(t *testing.T) {
 			privPem:        nil,
 			certChainPem:   []byte(certChainNoRoot),
 			rootCertPem:    []byte(rootCert),
-			host:           "spiffe",
-			expectedFields: nil,
+			expectedFields: &VerifyFields{Host: "spiffe"},
 			expectedErr:    "failed to verify certificate: x509:",
 		},
 		"Failed to verify key": {
 			privPem:        []byte(keyBad),
 			certChainPem:   []byte(certChain),
 			rootCertPem:    []byte(rootCert),
-			host:           "spiffe",
-			expectedFields: nil,
+			expectedFields: &VerifyFields{Host: "spiffe"},
 			expectedErr:    "invalid PEM-encoded key",
 		},
 		"Failed to match key/cert": {
 			privPem:        []byte(keyMismatch),
 			certChainPem:   []byte(certChain),
 			rootCertPem:    []byte(rootCert),
-			host:           "spiffe",
-			expectedFields: nil,
+			expectedFields: &VerifyFields{Host: "spiffe"},
 			expectedErr:    "the generated private key and cert doesn't match",
 		},
 		"Wrong SAN": {
 			privPem:        []byte(key),
 			certChainPem:   []byte(certChain),
 			rootCertPem:    []byte(rootCert),
-			host:           "spiffe",
-			expectedFields: nil,
+			expectedFields: &VerifyFields{Host: "spiffe"},
 			expectedErr:    "the certificate doesn't have the expected SAN for: spiffe",
 		},
 		"Timestamp error": {
 			privPem:        []byte(key),
 			certChainPem:   []byte(certChain),
 			rootCertPem:    []byte(rootCert),
-			host:           "spiffe://cluster.local/ns/default/sa/default",
 			expectedFields: notBefore,
 			expectedErr:    "unexpected value for 'NotBefore' field",
 		},
@@ -144,7 +143,6 @@ func TestVerifyCert(t *testing.T) {
 			privPem:        []byte(key),
 			certChainPem:   []byte(certChain),
 			rootCertPem:    []byte(rootCert),
-			host:           "spiffe://cluster.local/ns/default/sa/default",
 			expectedFields: extKeyUsage,
 			expectedErr:    "unexpected value for 'NotAfter' - 'NotBefore'",
 		},
@@ -152,7 +150,6 @@ func TestVerifyCert(t *testing.T) {
 			privPem:        []byte(key),
 			certChainPem:   []byte(certChain),
 			rootCertPem:    []byte(rootCert),
-			host:           "spiffe://cluster.local/ns/default/sa/default",
 			expectedFields: ttl,
 			expectedErr:    "unexpected value for 'ExtKeyUsage' field",
 		},
@@ -160,7 +157,6 @@ func TestVerifyCert(t *testing.T) {
 			privPem:        []byte(key),
 			certChainPem:   []byte(certChain),
 			rootCertPem:    []byte(rootCert),
-			host:           "spiffe://cluster.local/ns/default/sa/default",
 			expectedFields: keyUsage,
 			expectedErr:    "unexpected value for 'KeyUsage' field",
 		},
@@ -168,7 +164,6 @@ func TestVerifyCert(t *testing.T) {
 			privPem:        []byte(key),
 			certChainPem:   []byte(certChain),
 			rootCertPem:    []byte(rootCert),
-			host:           "spiffe://cluster.local/ns/default/sa/default",
 			expectedFields: isCA,
 			expectedErr:    "unexpected value for 'IsCA' field",
 		},
@@ -176,7 +171,6 @@ func TestVerifyCert(t *testing.T) {
 			privPem:        []byte(key),
 			certChainPem:   []byte(certChain),
 			rootCertPem:    []byte(rootCert),
-			host:           "spiffe://cluster.local/ns/default/sa/default",
 			expectedFields: org,
 			expectedErr:    "unexpected value for 'Organization' field",
 		},
@@ -184,14 +178,13 @@ func TestVerifyCert(t *testing.T) {
 			privPem:        []byte(key),
 			certChainPem:   []byte(certChain),
 			rootCertPem:    []byte(rootCert),
-			host:           "spiffe://cluster.local/ns/default/sa/default",
 			expectedFields: success,
 			expectedErr:    "",
 		},
 	}
 	for id, tc := range testCases {
 		err := VerifyCertificate(
-			tc.privPem, tc.certChainPem, tc.rootCertPem, tc.host, tc.expectedFields)
+			tc.privPem, tc.certChainPem, tc.rootCertPem, tc.expectedFields)
 		if err != nil {
 			if len(tc.expectedErr) == 0 {
 				t.Errorf("%s: Unexpected error: %v", id, err)
