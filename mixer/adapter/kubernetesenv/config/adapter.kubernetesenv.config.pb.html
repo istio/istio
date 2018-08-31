@@ -66,6 +66,24 @@ This controls how frequently the complete resync occurs.</p>
 
 </td>
 </tr>
+<tr id="Params-cluster_registries_namespace">
+<td><code>clusterRegistriesNamespace</code></td>
+<td><code>string</code></td>
+<td>
+<p>Namespace for secret created for multi-cluster support.</p>
+
+<p>Details on multi-cluster and the kubernetes secret required to
+access the remote cluster&rsquo;s credentials can be found here:
+https://istio.io/docs/setup/kubernetes/multicluster-install</p>
+
+<p>NOTE: If cluster<em>registries</em>namespace is not set then the environmental
+variable POD<em>NAMESPACE will be checked/used. If POD</em>NAMESPACE is not
+set then cluster<em>registries</em>namespace will default to &ldquo;istio-system&rdquo;.</p>
+
+<p>Default: &ldquo;istio-system&rdquo;</p>
+
+</td>
+</tr>
 </tbody>
 </table>
 </section>
