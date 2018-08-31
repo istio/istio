@@ -614,20 +614,20 @@ func adsClientCount() int {
 
 // AdsPushAll is used only by tests (after refactoring)
 func AdsPushAll(s *DiscoveryServer) {
-	s.AdsPushAll(versionInfo(), s.env.PushContext)
+	s.AdsPushAll(versionInfo())
 }
 
 // AdsPushAll implements old style invalidation, generated when any rule or endpoint changes.
 // Primary code path is from v1 discoveryService.clearCache(), which is added as a handler
 // to the model ConfigStorageCache and Controller.
-func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext) {
+func (s *DiscoveryServer) AdsPushAll(version string) {
+	pushContext := s.env.PushContext
+
 	adsLog.Infof("XDS: Pushing %s Services: %d, "+
 		"VirtualServices: %d, ConnectedEndpoints: %d", version,
-		len(push.Services), len(push.VirtualServiceConfigs), adsClientCount())
-	monServices.Set(float64(len(push.Services)))
-	monVServices.Set(float64(len(push.VirtualServiceConfigs)))
-
-	pushContext := s.env.PushContext
+		len(pushContext.Services), len(pushContext.VirtualServiceConfigs), adsClientCount())
+	monServices.Set(float64(len(pushContext.Services)))
+	monVServices.Set(float64(len(pushContext.VirtualServiceConfigs)))
 
 	t0 := time.Now()
 
@@ -645,7 +645,7 @@ func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext) {
 	// the update may be duplicated if multiple goroutines compute at the same time).
 	// In general this code is called from the 'event' callback that is throttled.
 	for clusterName, edsCluster := range cMap {
-		if err := s.updateCluster(push, clusterName, edsCluster); err != nil {
+		if err := s.updateCluster(pushContext, clusterName, edsCluster); err != nil {
 			adsLog.Errorf("updateCluster failed with clusterName %s", clusterName)
 		}
 	}
