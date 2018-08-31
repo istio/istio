@@ -362,7 +362,7 @@ func runCA() {
 		serviceController.Run(ch)
 
 		// monitor service account objects for istio mesh expansion
-		serviceAccountController := kube.NewServiceAccountController(cs.CoreV1(), opts.listenedNamespace, reg)
+		serviceAccountController := kube.NewServiceAccountController(cs, opts.listenedNamespace, reg)
 		serviceAccountController.Run(ch)
 
 		// The CA API uses cert with the max workload cert TTL.
