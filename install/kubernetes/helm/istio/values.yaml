@@ -417,7 +417,7 @@ grafana:
   replicaCount: 1
   image:
     repository: grafana/grafana
-    tag: 5.2.2
+    tag: 5.2.3
   persist: false
   storageClassName: ""
   security:
