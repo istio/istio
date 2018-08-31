@@ -41,12 +41,14 @@ func NewClient(platform, rootCertFile, keyFile, certChainFile, caAddr string) (C
 	case "onprem":
 		return NewOnPremClientImpl(rootCertFile, keyFile, certChainFile)
 	case "gcp":
-		return NewGcpClientImpl(rootCertFile, caAddr), nil
+		// Temporarily disable GCP JWT authentication on CSR API.
+		return nil, fmt.Errorf("GCP JWT authentication in CSR API is disabled")
 	case "aws":
 		return NewAwsClientImpl(rootCertFile), nil
 	case "unspecified":
 		if metadata.OnGCE() {
-			return NewGcpClientImpl(rootCertFile, caAddr), nil
+			// Temporarily disable GCP JWT authentication on CSR API.
+			return nil, fmt.Errorf("GCP JWT authentication in CSR API is disabled")
 		}
 		return NewOnPremClientImpl(rootCertFile, keyFile, certChainFile)
 	default:
