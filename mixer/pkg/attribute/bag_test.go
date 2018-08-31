@@ -259,7 +259,11 @@ func TestProtoBag(t *testing.T) {
 			mb := GetMutableBag(pb)
 			for _, n := range names {
 				v, _ := pb.Get(n)
-				mb.Set(n, v)
+				if m, ok := v.(StringMap); ok {
+					mb.Set(n, m.entries)
+				} else {
+					mb.Set(n, v)
+				}
 			}
 
 			var a2 mixerpb.CompressedAttributes

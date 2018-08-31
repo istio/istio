@@ -16,59 +16,37 @@ package perf
 
 import (
 	"fmt"
-	"strings"
+	"reflect"
 	"testing"
 
 	istio_mixer_v1 "istio.io/api/mixer/v1"
 )
 
 var tests = []struct {
-	yaml string
 	load Load
 }{
 	{
-		yaml: `{}`,
-		load: Load{},
-	},
-
-	{
-		yaml: `
-iterations: 2
-randomSeed: 123
-requests:
-- attributes:
-   baz: 42
-   foo: bar
-  type: basicReport
-- attributes:
-   bar: baz
-   foo: 23
-  quotas:
-   q1:
-     amount: 23
-     best_effort: true
-   q2:
-     amount: 54
-  type: basicCheck
-stableOrder: true
-  `,
 		load: Load{
+			Requests: []Request{},
+		},
+	},
+	{
+		Load{
 			Multiplier:  2,
 			StableOrder: true,
 			RandomSeed:  123,
 			Requests: []Request{
-				BasicReport{
-					Attributes: map[string]interface{}{
+				BuildBasicReport(
+					map[string]interface{}{
 						"foo": "bar",
 						"baz": 42,
-					},
-				},
-				BasicCheck{
-					Attributes: map[string]interface{}{
+					}),
+				BuildBasicCheck(
+					map[string]interface{}{
 						"bar": "baz",
 						"foo": 23,
 					},
-					Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+					map[string]istio_mixer_v1.CheckRequest_QuotaParams{
 						"q1": {
 							Amount:     23,
 							BestEffort: true,
@@ -77,80 +55,38 @@ stableOrder: true
 							Amount:     54,
 							BestEffort: false,
 						},
-					},
-				},
+					}),
 			},
 		},
 	},
 	{
-		yaml: `
-
-iterations: 100
-requests:
-- attributes:
-    destination.name: somesrvcname
-  type: basicReport
-- attributes:
-    destination.name: cvd
-  type: basicReport
-- attributes:
-    destination.name: somesrvcname
-  type: basicCheck
-`,
 		load: Load{
 			Multiplier: 100,
 			Requests: []Request{
-				BasicReport{
-					Attributes: map[string]interface{}{"destination.name": "somesrvcname"},
-				},
-				BasicReport{
-					Attributes: map[string]interface{}{"destination.name": "cvd"},
-				},
-				BasicCheck{
-					Attributes: map[string]interface{}{
-						"destination.name": "somesrvcname",
-					},
-				},
+				BuildBasicReport(map[string]interface{}{"destination.name": "somesrvcname"}),
+				BuildBasicReport(map[string]interface{}{"destination.name": "cvd"}),
+				BuildBasicCheck(map[string]interface{}{"destination.name": "somesrvcname"}, nil),
 			},
 		},
 	},
-}
-
-func TestSetupToYaml(t *testing.T) {
-	for i, test := range tests {
-		name := fmt.Sprintf("%d", i)
-		t.Run(name, func(tt *testing.T) {
-			actualBytes, err := marshallLoad(&test.load)
-			if err != nil {
-				tt.Fatalf("Unexpected error: %v", err)
-			}
-			actual := string(actualBytes)
-			actCmp := strings.TrimSpace(strings.Replace(actual, " ", "", -1))
-			expCmp := strings.TrimSpace(strings.Replace(test.yaml, " ", "", -1))
-			if actCmp != expCmp {
-				tt.Fatalf("mismatch: '%v' != '%v'\n", actual, test.yaml)
-			}
-		})
-	}
 }
 
 func TestRoundtrip(t *testing.T) {
 	for i, test := range tests {
 		name := fmt.Sprintf("%d", i)
 		t.Run(name, func(tt *testing.T) {
-			var actual Load
-			if err := unmarshallLoad([]byte(test.yaml), &actual); err != nil {
+			loadBytes, err := marshallLoad(&test.load)
+			if err != nil {
 				tt.Fatalf("Unexpected error: %v", err)
 			}
-			actualBytes, err := marshallLoad(&actual)
-			if err != nil {
-				tt.Fatalf("unexpected marshal error: %v", err)
+
+			var loadCmp Load
+			if err := unmarshallLoad(loadBytes, &loadCmp); err != nil {
+				tt.Fatalf("Unexpected error: %v", err)
 			}
-			actualString := string(actualBytes)
-			actCmp := strings.TrimSpace(strings.Replace(actualString, " ", "", -1))
-			expCmp := strings.TrimSpace(strings.Replace(test.yaml, " ", "", -1))
-			if actCmp != expCmp {
-				tt.Fatalf("mismatch: '%v' != '%v'\n", actualString, test.yaml)
+
+			if !reflect.DeepEqual(test.load, loadCmp) {
+				tt.Fatalf("mismatch: '%v' != '%v'\n", test.load, loadCmp)
 			}
 		})
 	}
@@ -205,15 +141,16 @@ requests:
 
 func TestReportMarshal_Error(t *testing.T) {
 
-	r := &BasicReport{
-		Attributes: map[string]interface{}{
-			"foo": func() {},
-		},
-	}
+	defer func() {
+		if r := recover(); r == nil {
+			t.Errorf("Marshal logic did not panic")
+		}
+	}()
 
-	if _, err := r.MarshalJSON(); err == nil {
-		t.Fail()
-	}
+	r := BuildBasicReport(map[string]interface{}{
+		"foo": func() {},
+	})
+	r.MarshalJSON()
 }
 
 type BrokenRequest struct {
@@ -225,6 +162,6 @@ func (b *BrokenRequest) MarshalJSON() ([]byte, error) {
 	return nil, fmt.Errorf("marshal error")
 }
 
-func (b *BrokenRequest) createRequestProtos() []interface{} {
+func (b *BrokenRequest) getRequestProto() interface{} {
 	return nil
 }
