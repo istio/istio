@@ -24,7 +24,6 @@ import (
 	"github.com/onsi/gomega"
 
 	mixerEnv "istio.io/istio/mixer/test/client/env"
-	testenv "istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
 	mockmcp "istio.io/istio/tests/e2e/tests/pilot/mock/mcp"
@@ -115,7 +114,7 @@ func runEnvoy(t *testing.T, grpcPort, debugPort uint16) *mixerEnv.TestSetup {
 }
 
 func initLocalPilotTestEnv(t *testing.T, mcpAddr string, grpcPort, debugPort int) {
-	testenv.NewTestSetup(testenv.PilotMCPTest, t)
+	mixerEnv.NewTestSetup(mixerEnv.PilotMCPTest, t)
 	debugAddr := fmt.Sprintf("127.0.0.1:%d", debugPort)
 	grpcAddr := fmt.Sprintf("127.0.0.1:%d", grpcPort)
 	util.EnsureTestServer(addMcpAddrs(mcpAddr), setupPilotDiscoveryHTTPAddr(debugAddr), setupPilotDiscoveryGrpcAddr(grpcAddr))
