@@ -19,11 +19,10 @@ import (
 	"time"
 
 	"k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/watch"
-	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
+
+	coreinformer "k8s.io/client-go/informers/core/v1"
+	"k8s.io/client-go/kubernetes"
 
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/log"
@@ -36,7 +35,7 @@ import (
 // for whitelisting.
 // TODO: change it to monitor "alpha.istio.io/canonical-serviceaccounts" annotation
 type ServiceController struct {
-	core corev1.CoreV1Interface
+	core kubernetes.Interface
 
 	// identity registry object
 	reg registry.Registry
@@ -46,27 +45,23 @@ type ServiceController struct {
 }
 
 // NewServiceController returns a new ServiceController
-func NewServiceController(core corev1.CoreV1Interface, namespace string, reg registry.Registry) *ServiceController {
+func NewServiceController(core kubernetes.Interface, namespace string, reg registry.Registry) *ServiceController {
 	c := &ServiceController{
 		core: core,
 		reg:  reg,
 	}
 
-	LW := &cache.ListWatch{
-		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
-			return core.Services(namespace).List(options)
+	serviceInformer := coreinformer.NewFilteredServiceInformer(core, namespace, time.Minute, cache.Indexers{}, nil)
+	serviceInformer.AddEventHandler(
+		cache.ResourceEventHandlerFuncs{
+			AddFunc:    c.serviceAdded,
+			DeleteFunc: c.serviceDeleted,
+			UpdateFunc: c.serviceUpdated,
 		},
-		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
-			return core.Services(namespace).Watch(options)
-		},
-	}
+	)
 
-	handler := cache.ResourceEventHandlerFuncs{
-		AddFunc:    c.serviceAdded,
-		DeleteFunc: c.serviceDeleted,
-		UpdateFunc: c.serviceUpdated,
-	}
-	_, c.controller = cache.NewInformer(LW, &v1.Service{}, time.Minute, handler)
+	c.controller = serviceInformer
+
 	return c
 }
 
