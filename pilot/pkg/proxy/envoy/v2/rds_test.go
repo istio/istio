@@ -18,7 +18,8 @@ import (
 	"testing"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/tests/util"
+	"istio.io/istio/pkg/test/env"
+	testsUtil "istio.io/istio/tests/util"
 )
 
 // TestRDS is running RDSv2 tests.
@@ -26,7 +27,7 @@ func TestRDS(t *testing.T) {
 	initLocalPilotTestEnv(t)
 
 	t.Run("sidecar", func(t *testing.T) {
-		rdsr, err := connectADS(util.MockPilotGrpcAddr)
+		rdsr, err := connectADS(testsUtil.MockPilotGrpcAddr)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -41,7 +42,7 @@ func TestRDS(t *testing.T) {
 		}
 
 		strResponse, _ := model.ToJSONWithIndent(res, " ")
-		_ = ioutil.WriteFile(util.IstioOut+"/rdsv2_sidecar.json", []byte(strResponse), 0644)
+		_ = ioutil.WriteFile(env.IstioOut+"/rdsv2_sidecar.json", []byte(strResponse), 0644)
 
 		if len(res.Resources) == 0 {
 			t.Fatal("No response")
@@ -49,7 +50,7 @@ func TestRDS(t *testing.T) {
 	})
 
 	t.Run("gateway", func(t *testing.T) {
-		rdsr, err := connectADS(util.MockPilotGrpcAddr)
+		rdsr, err := connectADS(testsUtil.MockPilotGrpcAddr)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -66,7 +67,7 @@ func TestRDS(t *testing.T) {
 
 		strResponse, _ := model.ToJSONWithIndent(res, " ")
 
-		_ = ioutil.WriteFile(util.IstioOut+"/rdsv2_gateway.json", []byte(strResponse), 0644)
+		_ = ioutil.WriteFile(env.IstioOut+"/rdsv2_gateway.json", []byte(strResponse), 0644)
 
 		if len(res.Resources) == 0 {
 			t.Fatal("No response")

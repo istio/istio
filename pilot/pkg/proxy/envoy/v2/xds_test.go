@@ -29,7 +29,8 @@ import (
 	testenv "istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/tests/util"
+	"istio.io/istio/pkg/test/env"
+	tests_util "istio.io/istio/tests/util"
 )
 
 var (
@@ -71,7 +72,7 @@ func startEnvoy(t *testing.T) {
 		return
 	}
 
-	tmplB, err := ioutil.ReadFile(util.IstioSrc + "/tests/testdata/bootstrap_tmpl.json")
+	tmplB, err := ioutil.ReadFile(env.IstioSrc + "/tests/testdata/bootstrap_tmpl.json")
 	if err != nil {
 		t.Fatal("Can't read bootstrap template", err)
 	}
@@ -114,13 +115,13 @@ func initLocalPilotTestEnv(t *testing.T) *bootstrap.Server {
 		return pilotServer
 	}
 	testEnv = testenv.NewTestSetup(testenv.XDSTest, t)
-	server := util.EnsureTestServer()
+	server := tests_util.EnsureTestServer()
 	pilotServer = server
 
-	testEnv.Ports().PilotGrpcPort = uint16(util.MockPilotGrpcPort)
-	testEnv.Ports().PilotHTTPPort = uint16(util.MockPilotHTTPPort)
-	testEnv.IstioSrc = util.IstioSrc
-	testEnv.IstioOut = util.IstioOut
+	testEnv.Ports().PilotGrpcPort = uint16(tests_util.MockPilotGrpcPort)
+	testEnv.Ports().PilotHTTPPort = uint16(tests_util.MockPilotHTTPPort)
+	testEnv.IstioSrc = env.IstioSrc
+	testEnv.IstioOut = env.IstioOut
 
 	localIp = getLocalIP()
 

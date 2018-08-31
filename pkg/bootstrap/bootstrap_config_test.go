@@ -21,6 +21,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pkg/test/env"
 )
 
 // Generate configs for the default configs used by istio.
@@ -44,7 +45,7 @@ func TestGolden(t *testing.T) {
 		},
 	}
 
-	out := os.Getenv("ISTIO_OUT") // defined in the makefile
+	out := env.ISTIO_OUT.Value() // defined in the makefile
 	if out == "" {
 		out = "/tmp"
 	}

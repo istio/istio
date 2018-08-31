@@ -34,7 +34,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v2"
-	"istio.io/istio/tests/util"
+	"istio.io/istio/pkg/test/env"
 )
 
 var nodeMetadata = &proto.Struct{Fields: map[string]*proto.Value{
@@ -79,7 +79,7 @@ func connectADS(url string) (ads.AggregatedDiscoveryService_StreamAggregatedReso
 }
 
 func connectADSS(url string) (ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient, error) {
-	certDir := util.IstioSrc + "/tests/testdata/certs/default/"
+	certDir := env.IstioSrc + "/tests/testdata/certs/default/"
 
 	clientCert, err := tls.LoadX509KeyPair(certDir+model.CertChainFilename, certDir+model.KeyFilename)
 	if err != nil {

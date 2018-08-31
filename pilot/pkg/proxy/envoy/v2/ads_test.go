@@ -23,13 +23,14 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v2"
-	"istio.io/istio/tests/util"
+	"istio.io/istio/pkg/test/env"
+	testsUtil "istio.io/istio/tests/util"
 )
 
 // Regression for envoy restart and overlapping connections
 func TestAdsReconnectWithNonce(t *testing.T) {
 	_ = initLocalPilotTestEnv(t)
-	edsstr, err := connectADS(util.MockPilotGrpcAddr)
+	edsstr, err := connectADS(testsUtil.MockPilotGrpcAddr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -42,7 +43,7 @@ func TestAdsReconnectWithNonce(t *testing.T) {
 	// closes old process
 	_ = edsstr.CloseSend()
 
-	edsstr, err = connectADS(util.MockPilotGrpcAddr)
+	edsstr, err = connectADS(testsUtil.MockPilotGrpcAddr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -65,7 +66,7 @@ func TestAdsReconnectWithNonce(t *testing.T) {
 // Regression for envoy restart and overlapping connections
 func TestAdsReconnect(t *testing.T) {
 	s := initLocalPilotTestEnv(t)
-	edsstr, err := connectADS(util.MockPilotGrpcAddr)
+	edsstr, err := connectADS(testsUtil.MockPilotGrpcAddr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,7 +78,7 @@ func TestAdsReconnect(t *testing.T) {
 	_, _ = adsReceive(edsstr, 5*time.Second)
 
 	// envoy restarts and reconnects
-	edsstr2, err := connectADS(util.MockPilotGrpcAddr)
+	edsstr2, err := connectADS(testsUtil.MockPilotGrpcAddr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -106,7 +107,7 @@ func TestAdsReconnect(t *testing.T) {
 
 func TestTLS(t *testing.T) {
 	initLocalPilotTestEnv(t)
-	edsstr, err := connectADSS(util.MockPilotSecureAddr)
+	edsstr, err := connectADSS(testsUtil.MockPilotSecureAddr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -123,7 +124,7 @@ func TestTLS(t *testing.T) {
 
 func TestAdsClusterUpdate(t *testing.T) {
 	server := initLocalPilotTestEnv(t)
-	edsstr, err := connectADS(util.MockPilotGrpcAddr)
+	edsstr, err := connectADS(testsUtil.MockPilotGrpcAddr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -170,7 +171,7 @@ func TestAdsClusterUpdate(t *testing.T) {
 
 func TestAdsUpdate(t *testing.T) {
 	server := initLocalPilotTestEnv(t)
-	edsstr, err := connectADS(util.MockPilotGrpcAddr)
+	edsstr, err := connectADS(testsUtil.MockPilotGrpcAddr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -219,7 +220,7 @@ func TestAdsUpdate(t *testing.T) {
 		t.Error("Expecting 10.2.0.1 got ", lbe[0].Endpoint.Address.GetSocketAddress().Address)
 	}
 	strResponse, _ := model.ToJSONWithIndent(res1, " ")
-	_ = ioutil.WriteFile(util.IstioOut+"/edsv2_sidecar.json", []byte(strResponse), 0644)
+	_ = ioutil.WriteFile(env.IstioOut+"/edsv2_sidecar.json", []byte(strResponse), 0644)
 
 	_ = server.EnvoyXdsServer.MemRegistry.AddEndpoint("adsupdate.default.svc.cluster.local",
 		"http-main", 2080, "10.1.7.1", 1080)
@@ -233,7 +234,7 @@ func TestAdsUpdate(t *testing.T) {
 		t.Fatal("Recv2 failed", err)
 	}
 	strResponse, _ = model.ToJSONWithIndent(res1, " ")
-	_ = ioutil.WriteFile(util.IstioOut+"/edsv2_update.json", []byte(strResponse), 0644)
+	_ = ioutil.WriteFile(env.IstioOut+"/edsv2_update.json", []byte(strResponse), 0644)
 	_ = edsstr.CloseSend()
 }
 
@@ -253,7 +254,7 @@ func TestAdsMultiple(t *testing.T) {
 	for i := 0; i < n; i++ {
 		i := i
 		go func() {
-			edsstr, err := connectADS(util.MockPilotGrpcAddr)
+			edsstr, err := connectADS(testsUtil.MockPilotGrpcAddr)
 			if err != nil {
 				errChan <- err
 			}
