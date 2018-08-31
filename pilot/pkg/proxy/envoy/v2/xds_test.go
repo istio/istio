@@ -30,7 +30,7 @@ import (
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/env"
-	tests_util "istio.io/istio/tests/util"
+	"istio.io/istio/tests/util"
 )
 
 var (
@@ -115,11 +115,11 @@ func initLocalPilotTestEnv(t *testing.T) *bootstrap.Server {
 		return pilotServer
 	}
 	testEnv = testenv.NewTestSetup(testenv.XDSTest, t)
-	server := tests_util.EnsureTestServer()
+	server := util.EnsureTestServer()
 	pilotServer = server
 
-	testEnv.Ports().PilotGrpcPort = uint16(tests_util.MockPilotGrpcPort)
-	testEnv.Ports().PilotHTTPPort = uint16(tests_util.MockPilotHTTPPort)
+	testEnv.Ports().PilotGrpcPort = uint16(util.MockPilotGrpcPort)
+	testEnv.Ports().PilotHTTPPort = uint16(util.MockPilotHTTPPort)
 	testEnv.IstioSrc = env.IstioSrc
 	testEnv.IstioOut = env.IstioOut
 

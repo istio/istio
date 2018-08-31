@@ -28,7 +28,7 @@ import (
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
 	mockmcp "istio.io/istio/tests/e2e/tests/pilot/mock/mcp"
-	testsUtil "istio.io/istio/tests/util"
+	"istio.io/istio/tests/util"
 
 	// Import the resource package to pull in all proto types.
 	_ "istio.io/istio/galley/pkg/metadata"
@@ -118,7 +118,7 @@ func initLocalPilotTestEnv(t *testing.T, mcpAddr string, grpcPort, debugPort int
 	testenv.NewTestSetup(testenv.PilotMCPTest, t)
 	debugAddr := fmt.Sprintf("127.0.0.1:%d", debugPort)
 	grpcAddr := fmt.Sprintf("127.0.0.1:%d", grpcPort)
-	testsUtil.EnsureTestServer(addMcpAddrs(mcpAddr), setupPilotDiscoveryHTTPAddr(debugAddr), setupPilotDiscoveryGrpcAddr(grpcAddr))
+	util.EnsureTestServer(addMcpAddrs(mcpAddr), setupPilotDiscoveryHTTPAddr(debugAddr), setupPilotDiscoveryGrpcAddr(grpcAddr))
 }
 
 func addMcpAddrs(mcpServerAddr string) func(*bootstrap.PilotArgs) {

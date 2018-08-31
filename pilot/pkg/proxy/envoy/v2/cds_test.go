@@ -19,13 +19,13 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/env"
-	testsUtil "istio.io/istio/tests/util"
+	"istio.io/istio/tests/util"
 )
 
 func TestCDS(t *testing.T) {
 	initLocalPilotTestEnv(t)
 
-	cdsr, err := connectADS(testsUtil.MockPilotGrpcAddr)
+	cdsr, err := connectADS(util.MockPilotGrpcAddr)
 	if err != nil {
 		t.Fatal(err)
 	}

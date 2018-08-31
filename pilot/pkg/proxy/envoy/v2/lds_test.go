@@ -19,7 +19,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/env"
-	testsUtil "istio.io/istio/tests/util"
+	"istio.io/istio/tests/util"
 )
 
 // TestLDS is running LDSv2 tests.
@@ -27,7 +27,7 @@ func TestLDS(t *testing.T) {
 	initLocalPilotTestEnv(t)
 
 	t.Run("sidecar", func(t *testing.T) {
-		ldsr, err := connectADS(testsUtil.MockPilotGrpcAddr)
+		ldsr, err := connectADS(util.MockPilotGrpcAddr)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -52,7 +52,7 @@ func TestLDS(t *testing.T) {
 
 	// 'router' or 'gateway' type of listener
 	t.Run("gateway", func(t *testing.T) {
-		ldsr, err := connectADS(testsUtil.MockPilotGrpcAddr)
+		ldsr, err := connectADS(util.MockPilotGrpcAddr)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -76,7 +76,7 @@ func TestLDS(t *testing.T) {
 	})
 
 	t.Run("ingress", func(t *testing.T) {
-		ldsr, err := connectADS(testsUtil.MockPilotGrpcAddr)
+		ldsr, err := connectADS(util.MockPilotGrpcAddr)
 		if err != nil {
 			t.Fatal(err)
 		}

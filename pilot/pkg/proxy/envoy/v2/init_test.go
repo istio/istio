@@ -25,7 +25,7 @@ import (
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/gogo/googleapis/google/rpc"
 	proto "github.com/gogo/protobuf/types"
@@ -38,7 +38,7 @@ import (
 )
 
 var nodeMetadata = &proto.Struct{Fields: map[string]*proto.Value{
-	"ISTIO_PROXY_VERSION": &proto.Value{Kind: &proto.Value_StringValue{StringValue: "1.1"}}, // actual value doesn't matter
+	"ISTIO_PROXY_VERSION": {Kind: &proto.Value_StringValue{StringValue: "1.1"}}, // actual value doesn't matter
 }}
 
 // Extract cluster load assignment from a discovery response.
@@ -238,7 +238,7 @@ func sendRDSReq(node string, routes []string, rdsstr ads.AggregatedDiscoveryServ
 	return nil
 }
 
-func sendRDSNack(node string, routes []string, rdsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
+func sendRDSNack(node string, _ []string, rdsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
 	err := rdsstr.Send(&xdsapi.DiscoveryRequest{
 		ResponseNonce: time.Now().String(),
 		Node: &core.Node{

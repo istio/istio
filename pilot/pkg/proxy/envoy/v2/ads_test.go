@@ -24,13 +24,13 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pkg/test/env"
-	testsUtil "istio.io/istio/tests/util"
+	"istio.io/istio/tests/util"
 )
 
 // Regression for envoy restart and overlapping connections
 func TestAdsReconnectWithNonce(t *testing.T) {
 	_ = initLocalPilotTestEnv(t)
-	edsstr, err := connectADS(testsUtil.MockPilotGrpcAddr)
+	edsstr, err := connectADS(util.MockPilotGrpcAddr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -43,7 +43,7 @@ func TestAdsReconnectWithNonce(t *testing.T) {
 	// closes old process
 	_ = edsstr.CloseSend()
 
-	edsstr, err = connectADS(testsUtil.MockPilotGrpcAddr)
+	edsstr, err = connectADS(util.MockPilotGrpcAddr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -66,7 +66,7 @@ func TestAdsReconnectWithNonce(t *testing.T) {
 // Regression for envoy restart and overlapping connections
 func TestAdsReconnect(t *testing.T) {
 	s := initLocalPilotTestEnv(t)
-	edsstr, err := connectADS(testsUtil.MockPilotGrpcAddr)
+	edsstr, err := connectADS(util.MockPilotGrpcAddr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -78,7 +78,7 @@ func TestAdsReconnect(t *testing.T) {
 	_, _ = adsReceive(edsstr, 5*time.Second)
 
 	// envoy restarts and reconnects
-	edsstr2, err := connectADS(testsUtil.MockPilotGrpcAddr)
+	edsstr2, err := connectADS(util.MockPilotGrpcAddr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -107,7 +107,7 @@ func TestAdsReconnect(t *testing.T) {
 
 func TestTLS(t *testing.T) {
 	initLocalPilotTestEnv(t)
-	edsstr, err := connectADSS(testsUtil.MockPilotSecureAddr)
+	edsstr, err := connectADSS(util.MockPilotSecureAddr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -124,7 +124,7 @@ func TestTLS(t *testing.T) {
 
 func TestAdsClusterUpdate(t *testing.T) {
 	server := initLocalPilotTestEnv(t)
-	edsstr, err := connectADS(testsUtil.MockPilotGrpcAddr)
+	edsstr, err := connectADS(util.MockPilotGrpcAddr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -171,7 +171,7 @@ func TestAdsClusterUpdate(t *testing.T) {
 
 func TestAdsUpdate(t *testing.T) {
 	server := initLocalPilotTestEnv(t)
-	edsstr, err := connectADS(testsUtil.MockPilotGrpcAddr)
+	edsstr, err := connectADS(util.MockPilotGrpcAddr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -254,7 +254,7 @@ func TestAdsMultiple(t *testing.T) {
 	for i := 0; i < n; i++ {
 		i := i
 		go func() {
-			edsstr, err := connectADS(testsUtil.MockPilotGrpcAddr)
+			edsstr, err := connectADS(util.MockPilotGrpcAddr)
 			if err != nil {
 				errChan <- err
 			}

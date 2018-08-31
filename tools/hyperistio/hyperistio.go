@@ -33,7 +33,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	agent "istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/pkg/test/env"
-	testsUtil "istio.io/istio/tests/util"
+	"istio.io/istio/tests/util"
 )
 
 var (
@@ -76,10 +76,10 @@ func startAll() error {
 		log.Fatalf("backend server start failed %v", err)
 	}
 
-	go testsUtil.RunHTTP(7072, "v1")
-	go testsUtil.RunGRPC(7073, "v1", "", "")
-	go testsUtil.RunHTTP(7074, "v2")
-	go testsUtil.RunGRPC(7075, "v2", "", "")
+	go util.RunHTTP(7072, "v1")
+	go util.RunGRPC(7073, "v1", "", "")
+	go util.RunHTTP(7074, "v2")
+	go util.RunGRPC(7075, "v2", "", "")
 	if *runEnvoy {
 		err = startEnvoy()
 		if err != nil {

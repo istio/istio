@@ -29,7 +29,7 @@ import (
 	"istio.io/istio/pilot/pkg/proxy/envoy"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/log"
-	testUtil "istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/env"
 )
 
 var (
@@ -103,7 +103,7 @@ func setup(additionalArgs ...func(*bootstrap.PilotArgs)) error {
 			RdsRefreshDelay: types.DurationProto(10 * time.Millisecond),
 		},
 		Config: bootstrap.ConfigArgs{
-			KubeConfig: testUtil.IstioSrc + "/.circleci/config",
+			KubeConfig: env.IstioSrc + "/.circleci/config",
 		},
 		Service: bootstrap.ServiceArgs{
 			// Using the Mock service registry, which provides the hello and world services.
@@ -112,9 +112,9 @@ func setup(additionalArgs ...func(*bootstrap.PilotArgs)) error {
 		},
 	}
 	// Static testdata, should include all configs we want to test.
-	args.Config.FileDir = testUtil.IstioSrc + "/tests/testdata/config"
+	args.Config.FileDir = env.IstioSrc + "/tests/testdata/config"
 
-	bootstrap.PilotCertDir = testUtil.IstioSrc + "/tests/testdata/certs/pilot"
+	bootstrap.PilotCertDir = env.IstioSrc + "/tests/testdata/certs/pilot"
 
 	for _, apply := range additionalArgs {
 		apply(&args)

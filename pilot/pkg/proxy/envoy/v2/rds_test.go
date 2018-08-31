@@ -19,7 +19,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/env"
-	testsUtil "istio.io/istio/tests/util"
+	"istio.io/istio/tests/util"
 )
 
 // TestRDS is running RDSv2 tests.
@@ -27,7 +27,7 @@ func TestRDS(t *testing.T) {
 	initLocalPilotTestEnv(t)
 
 	t.Run("sidecar", func(t *testing.T) {
-		rdsr, err := connectADS(testsUtil.MockPilotGrpcAddr)
+		rdsr, err := connectADS(util.MockPilotGrpcAddr)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -50,7 +50,7 @@ func TestRDS(t *testing.T) {
 	})
 
 	t.Run("gateway", func(t *testing.T) {
-		rdsr, err := connectADS(testsUtil.MockPilotGrpcAddr)
+		rdsr, err := connectADS(util.MockPilotGrpcAddr)
 		if err != nil {
 			t.Fatal(err)
 		}
