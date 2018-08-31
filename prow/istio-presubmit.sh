@@ -33,14 +33,12 @@ set -e
 source "${ROOT}/prow/lib.sh"
 setup_and_export_git_sha
 
-echo 'Build'
-(cd "${ROOT}"; make build)
-
 if [[ -n $(git diff) ]]; then
   echo "Uncommitted changes found:"
   git diff
 fi
 
+echo 'Docker Build and Push'
 # Upload images - needed by the subsequent tests
 time ISTIO_DOCKER_HUB="gcr.io/istio-testing" make push HUB="gcr.io/istio-testing" TAG="${GIT_SHA}"
 
