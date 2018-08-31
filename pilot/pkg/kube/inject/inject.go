@@ -208,7 +208,7 @@ func (p *Params) Validate() error {
 }
 
 // Config specifies the sidecar injection configuration This includes
-// the sidear template and cluster-side injection policy. It is used
+// the sidecar template and cluster-side injection policy. It is used
 // by kube-inject, sidecar injector, and http endpoint.
 type Config struct {
 	Policy InjectionPolicy `json:"policy"`

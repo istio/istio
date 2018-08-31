@@ -95,7 +95,7 @@ func (d *driver) Run(testID string, m *testing.M) (int, error) {
 // AcquireEnvironment implementation
 func (d *driver) AcquireEnvironment(t testing.TB) env.Environment {
 	t.Helper()
-	scope.Debugf("Enter: driver.AcquireEnvionment (%s)", d.context.Settings().TestID)
+	scope.Debugf("Enter: driver.AcquireEnvironment (%s)", d.context.Settings().TestID)
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
