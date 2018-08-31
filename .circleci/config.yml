@@ -472,8 +472,9 @@ jobs:
       - run: make istio-archive
       - run:
           command: |
-            cat ${DOCKER_USER}
-            cat ${DOCKER_PASS}
+            echo ${DOCKER_USER}
+            echo ${DOCKER_PASS}
+            echo ${HUB}
 
   goxbuild:
     <<: *defaults
@@ -572,7 +573,4 @@ workflows:
 
   all:
     jobs:
-      - build
-      - nightly:
-          requires:
-            - build
+      - nightly
