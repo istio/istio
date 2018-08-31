@@ -461,7 +461,7 @@ jobs:
     <<: *defaults
     resource_class: xlarge
     environment:
-      TAG: circleci-nightly
+      TAG: circleci-fakenightly
     steps:
       - checkout
       - attach_workspace:
@@ -474,7 +474,7 @@ jobs:
           command: |
             if [ ! -z "${DOCKER_USER}" ] ; then
               echo "Pushing docker images"
-              export TAG=nightly-${CIRCLE_BRANCH}
+              export TAG=fakenightly
               docker login -u ${DOCKER_USER} -p ${DOCKER_PASS}
               # The xenail debug image is built first, will be used in the next steps
               make docker.push.basedebug docker.all push
@@ -546,6 +546,9 @@ workflows:
       - depupdate
       - build
       - test
+      - nightly:
+          requires:
+            - build
       - e2e-simple:
           requires:
             - build
