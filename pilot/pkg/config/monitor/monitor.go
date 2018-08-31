@@ -19,6 +19,7 @@ import (
 	"strings"
 	"time"
 
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 )
@@ -116,6 +117,10 @@ func (m *Monitor) checkAndUpdate() {
 }
 
 func (m *Monitor) createConfig(c *model.Config) {
+	if c.Type == model.VirtualService.Type {
+		convertToFQDN(c.Spec.(*networking.VirtualService), c.ConfigMeta)
+	}
+
 	if _, err := m.store.Create(*c); err != nil {
 		log.Warnf("Failed to create config %s %s/%s: %v (%m)", c.Type, c.Namespace, c.Name, err, *c)
 	}
@@ -125,6 +130,10 @@ func (m *Monitor) updateConfig(c *model.Config) {
 	// Set the resource version based on the existing config.
 	if prev, exists := m.store.Get(c.Type, c.Name, c.Namespace); exists {
 		c.ResourceVersion = prev.ResourceVersion
+	}
+
+	if c.Type == model.VirtualService.Type {
+		convertToFQDN(c.Spec.(*networking.VirtualService), c.ConfigMeta)
 	}
 
 	if _, err := m.store.Update(*c); err != nil {
@@ -146,4 +155,61 @@ func compareIds(a, b *model.Config) int {
 	}
 
 	return 0
+}
+
+// convert all shortnames in virtual service into FQDNs
+func convertToFQDN(vs *networking.VirtualService, meta model.ConfigMeta) {
+
+	// resolve top level hosts
+	for i, h := range vs.Hosts {
+		vs.Hosts[i] = string(model.ResolveShortnameToFQDN(h, meta))
+	}
+	// resolve gateways to bind to
+	for i, g := range vs.Gateways {
+		if g != model.IstioMeshGateway {
+			vs.Gateways[i] = string(model.ResolveShortnameToFQDN(g, meta))
+		}
+	}
+	// resolve host in http route.destination, route.mirror
+	for _, d := range vs.Http {
+		for _, m := range d.Match {
+			for i, g := range m.Gateways {
+				if g != model.IstioMeshGateway {
+					m.Gateways[i] = string(model.ResolveShortnameToFQDN(g, meta))
+				}
+			}
+		}
+		for _, w := range d.Route {
+			w.Destination.Host = string(model.ResolveShortnameToFQDN(w.Destination.Host, meta))
+		}
+		if d.Mirror != nil {
+			d.Mirror.Host = string(model.ResolveShortnameToFQDN(d.Mirror.Host, meta))
+		}
+	}
+	//resolve host in tcp route.destination
+	for _, d := range vs.Tcp {
+		for _, m := range d.Match {
+			for i, g := range m.Gateways {
+				if g != model.IstioMeshGateway {
+					m.Gateways[i] = string(model.ResolveShortnameToFQDN(g, meta))
+				}
+			}
+		}
+		for _, w := range d.Route {
+			w.Destination.Host = string(model.ResolveShortnameToFQDN(w.Destination.Host, meta))
+		}
+	}
+	//resolve host in tls route.destination
+	for _, tls := range vs.Tls {
+		for _, m := range tls.Match {
+			for i, g := range m.Gateways {
+				if g != model.IstioMeshGateway {
+					m.Gateways[i] = string(model.ResolveShortnameToFQDN(g, meta))
+				}
+			}
+		}
+		for _, w := range tls.Route {
+			w.Destination.Host = string(model.ResolveShortnameToFQDN(w.Destination.Host, meta))
+		}
+	}
 }
