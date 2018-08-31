@@ -1,6 +1,9 @@
 #!/bin/bash
 
-source ../common_linux.sh
+SCRIPTPATH="$(cd "$(dirname "$0")" ; pwd -P)"
+ROOTDIR="$(dirname "${SCRIPTPATH}")"
+# shellcheck source=tests/e2e/local/common_linux.sh
+source "${ROOTDIR}/common_linux.sh"
 
 check_apt_get
 sudo apt-get --quiet -y update
