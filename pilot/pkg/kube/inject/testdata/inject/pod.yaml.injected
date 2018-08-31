@@ -21,7 +21,7 @@ spec:
     - --binaryPath
     - /usr/local/bin/envoy
     - --serviceCluster
-    - hellopod:default
+    - hellopod.default
     - --drainDuration
     - 2s
     - --parentShutdownDuration

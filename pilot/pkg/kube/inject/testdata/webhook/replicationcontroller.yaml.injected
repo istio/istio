@@ -30,7 +30,7 @@ spec:
         - --binaryPath
         - /usr/local/bin/envoy
         - --serviceCluster
-        - nginx:default
+        - nginx.default
         - --drainDuration
         - 2s
         - --parentShutdownDuration

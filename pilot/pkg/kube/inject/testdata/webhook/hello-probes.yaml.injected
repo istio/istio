@@ -51,7 +51,7 @@ spec:
         - --binaryPath
         - /usr/local/bin/envoy
         - --serviceCluster
-        - hello:default
+        - hello.default
         - --drainDuration
         - 2s
         - --parentShutdownDuration
