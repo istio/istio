@@ -348,7 +348,8 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 	sortConfigByCreationTime(vservices)
 	ps.VirtualServiceConfigs = vservices
 	// convert all shortnames in virtual services into FQDNs
-	for _, r := range ps.VirtualServiceConfigs {
+	for idx := range ps.VirtualServiceConfigs {
+		r := &ps.VirtualServiceConfigs[idx]
 		r.Lock()
 		rule := r.Spec.(*networking.VirtualService)
 		// resolve top level hosts

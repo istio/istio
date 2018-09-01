@@ -96,6 +96,8 @@ type Config struct {
 	// Spec holds the configuration object as a protobuf message
 	Spec proto.Message
 
+	// Mutex to protect this config agains simultaneous reads and writes. Use
+	// it within critical blocks and call _Lock()_ only when a write is planned.
 	sync.RWMutex
 }
 
