@@ -26,7 +26,6 @@ import (
 )
 
 // PodCache is an eventually consistent pod cache
-// TODO: rename the file to 'pod.go' (cache is too generic)
 type PodCache struct {
 	rwMu sync.RWMutex
 	cacheHandler
