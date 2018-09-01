@@ -15,11 +15,11 @@
 package model
 
 import (
-	"sync"
 	"errors"
 	"fmt"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
