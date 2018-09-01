@@ -93,14 +93,16 @@ func (m *Monitor) checkAndUpdate() {
 			m.createConfig(newConfig)
 			newIndex++
 		} else {
-			// Making a deep-copy of the oldConfig to avoid data race
-			// with the PushContext updates
+			// Making a deep-copy of the oldConfig and newConfig to avoid data
+			// race with the PushContext writes
+			newConfigCopy := newConfig
+			newConfigCopy.Spec = proto.Clone(newConfig.Spec)
 			oldConfigCopy := oldConfig
 			oldConfigCopy.Spec = proto.Clone(oldConfig.Spec)
 			// version may change without content changing
-			oldConfigCopy.ConfigMeta.ResourceVersion = newConfig.ConfigMeta.ResourceVersion
-			if !reflect.DeepEqual(oldConfigCopy, newConfig) {
-				m.updateConfig(newConfig)
+			oldConfigCopy.ConfigMeta.ResourceVersion = newConfigCopy.ConfigMeta.ResourceVersion
+			if !reflect.DeepEqual(oldConfigCopy, newConfigCopy) {
+				m.updateConfig(newConfigCopy)
 			}
 			oldIndex++
 			newIndex++
