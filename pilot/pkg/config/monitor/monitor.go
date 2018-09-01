@@ -19,6 +19,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 )
@@ -91,9 +93,13 @@ func (m *Monitor) checkAndUpdate() {
 			m.createConfig(newConfig)
 			newIndex++
 		} else {
+			// Making a deep-copy of the oldConfig to avoid data race
+			// with the PushContext updates
+			oldConfigCopy := oldConfig
+			oldConfigCopy.Spec = proto.Clone(oldConfig.Spec)
 			// version may change without content changing
-			oldConfig.ConfigMeta.ResourceVersion = newConfig.ConfigMeta.ResourceVersion
-			if !reflect.DeepEqual(oldConfig, newConfig) {
+			oldConfigCopy.ConfigMeta.ResourceVersion = newConfig.ConfigMeta.ResourceVersion
+			if !reflect.DeepEqual(oldConfigCopy, newConfig) {
 				m.updateConfig(newConfig)
 			}
 			oldIndex++
