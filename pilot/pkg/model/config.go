@@ -15,6 +15,7 @@
 package model
 
 import (
+	"sync"
 	"errors"
 	"fmt"
 	"sort"
@@ -94,6 +95,8 @@ type Config struct {
 
 	// Spec holds the configuration object as a protobuf message
 	Spec proto.Message
+
+	sync.RWMutex
 }
 
 // ConfigStore describes a set of platform agnostic APIs that must be supported
