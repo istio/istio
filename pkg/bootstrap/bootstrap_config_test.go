@@ -21,6 +21,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pkg/test/env"
 )
 
 // Generate configs for the default configs used by istio.
@@ -44,7 +45,7 @@ func TestGolden(t *testing.T) {
 		},
 	}
 
-	out := os.Getenv("ISTIO_OUT") // defined in the makefile
+	out := env.ISTIO_OUT.Value() // defined in the makefile
 	if out == "" {
 		out = "/tmp"
 	}
@@ -60,7 +61,7 @@ func TestGolden(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			real, err := ioutil.ReadFile(fn)
+			data, err := ioutil.ReadFile(fn)
 			if err != nil {
 				t.Error("Error reading generated file ", err)
 				return
@@ -69,15 +70,15 @@ func TestGolden(t *testing.T) {
 			if err != nil {
 				golden = []byte{}
 			}
-			if string(real) != string(golden) {
-				t.Error("Generated incorrect config, want:\n" + string(golden) + "\ngot:\n" + string(real))
+			if string(data) != string(golden) {
+				t.Error("Generated incorrect config, want:\n" + string(golden) + "\ngot:\n" + string(data))
 			}
 		})
 	}
 
 }
 
-func loadProxyConfig(base, out string, t *testing.T) (*meshconfig.ProxyConfig, error) {
+func loadProxyConfig(base, out string, _ *testing.T) (*meshconfig.ProxyConfig, error) {
 	content, err := ioutil.ReadFile("testdata/" + base + ".proto")
 	if err != nil {
 		return nil, err

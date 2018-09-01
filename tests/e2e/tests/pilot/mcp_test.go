@@ -23,8 +23,7 @@ import (
 
 	"github.com/onsi/gomega"
 
-	"istio.io/istio/mixer/test/client/env"
-	testenv "istio.io/istio/mixer/test/client/env"
+	mixerEnv "istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
 	mockmcp "istio.io/istio/tests/e2e/tests/pilot/mock/mcp"
@@ -32,6 +31,7 @@ import (
 
 	// Import the resource package to pull in all proto types.
 	_ "istio.io/istio/galley/pkg/metadata"
+	"istio.io/istio/pkg/test/env"
 )
 
 const (
@@ -69,10 +69,10 @@ func TestPilotMCPClient(t *testing.T) {
 	}, "180s", "1s").Should(gomega.Succeed())
 }
 
-func runMcpServer(g *gomega.GomegaWithT, t *testing.T) (*mockmcp.Server, error) {
+func runMcpServer(_ *gomega.GomegaWithT, _ *testing.T) (*mockmcp.Server, error) {
 	supportedTypes := make([]string, len(model.IstioConfigTypes))
-	for i, model := range model.IstioConfigTypes {
-		supportedTypes[i] = fmt.Sprintf("type.googleapis.com/%s", model.MessageName)
+	for i, m := range model.IstioConfigTypes {
+		supportedTypes[i] = fmt.Sprintf("type.googleapis.com/%s", m.MessageName)
 	}
 
 	server, err := mockmcp.NewServer(mcpServerAddr, supportedTypes)
@@ -83,20 +83,20 @@ func runMcpServer(g *gomega.GomegaWithT, t *testing.T) (*mockmcp.Server, error) 
 	return server, nil
 }
 
-func runEnvoy(t *testing.T, grpcPort, debugPort uint16) *env.TestSetup {
+func runEnvoy(t *testing.T, grpcPort, debugPort uint16) *mixerEnv.TestSetup {
 	t.Log("create a new envoy test environment")
-	tmpl, err := ioutil.ReadFile(util.IstioSrc + "/tests/testdata/cf_bootstrap_tmpl.json")
+	tmpl, err := ioutil.ReadFile(env.IstioSrc + "/tests/testdata/cf_bootstrap_tmpl.json")
 	if err != nil {
 		t.Fatal("Can't read bootstrap template", err)
 	}
 	nodeIDGateway := "router~x~x~x"
 
-	gateway := env.NewTestSetup(25, t)
+	gateway := mixerEnv.NewTestSetup(25, t)
 	gateway.SetNoMixer(true)
 	gateway.SetNoProxy(true)
 	gateway.SetNoBackend(true)
-	gateway.IstioSrc = util.IstioSrc
-	gateway.IstioOut = util.IstioOut
+	gateway.IstioSrc = env.IstioSrc
+	gateway.IstioOut = env.IstioOut
 	gateway.Ports().PilotGrpcPort = grpcPort
 	gateway.Ports().PilotHTTPPort = debugPort
 	gateway.EnvoyConfigOpt = map[string]interface{}{
@@ -114,7 +114,7 @@ func runEnvoy(t *testing.T, grpcPort, debugPort uint16) *env.TestSetup {
 }
 
 func initLocalPilotTestEnv(t *testing.T, mcpAddr string, grpcPort, debugPort int) {
-	testenv.NewTestSetup(testenv.PilotMCPTest, t)
+	mixerEnv.NewTestSetup(mixerEnv.PilotMCPTest, t)
 	debugAddr := fmt.Sprintf("127.0.0.1:%d", debugPort)
 	grpcAddr := fmt.Sprintf("127.0.0.1:%d", grpcPort)
 	util.EnsureTestServer(addMcpAddrs(mcpAddr), setupPilotDiscoveryHTTPAddr(debugAddr), setupPilotDiscoveryGrpcAddr(grpcAddr))
