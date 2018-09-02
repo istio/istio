@@ -98,7 +98,7 @@ type Config struct {
 
 	// Mutex to protect this config against simultaneous reads and writes. Use
 	// it within critical blocks and call _Lock()_ only when a write is planned.
-	sync.RWMutex
+	Mutex *sync.RWMutex
 }
 
 // ConfigStore describes a set of platform agnostic APIs that must be supported
