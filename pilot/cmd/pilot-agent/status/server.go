@@ -66,7 +66,7 @@ func (s *Server) Run(ctx context.Context) {
 
 	l, err := net.Listen("tcp", fmt.Sprintf(":%d", s.statusPort))
 	if err != nil {
-		log.Warnf("Error listening on status port:", err.Error())
+		log.Warnf("Error listening on status port: %v", err.Error())
 		return
 	}
 	defer l.Close()
