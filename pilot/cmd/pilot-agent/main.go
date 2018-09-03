@@ -103,13 +103,12 @@ var (
 				if registry == serviceregistry.KubernetesRegistry {
 					role.IPAddress = os.Getenv("INSTANCE_IP")
 				} else {
-					ipAddr := "127.0.0.1"
-					if ok := proxy.WaitForPrivateNetwork(); ok {
-						ipAddr = proxy.GetPrivateIP().String()
+					if ipAddr, ok := proxy.GetPrivateIP(context.Background()); ok {
 						log.Infof("Obtained private IP %v", ipAddr)
+						role.IPAddress = ipAddr.String()
+					} else {
+						role.IPAddress = "127.0.0.1"
 					}
-
-					role.IPAddress = ipAddr
 				}
 			}
 			if len(role.ID) == 0 {
