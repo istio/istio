@@ -23,7 +23,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -78,7 +77,9 @@ func NewController(
 	stopCh <-chan struct{}) *Controller {
 	// Create event broadcaster
 	// Add rpc-controller types to the default Kubernetes Scheme so Events can be
-	utilruntime.Must(watcherscheme.AddToScheme(scheme.Scheme))
+  err := watcherscheme.AddToScheme(scheme.Scheme); if err != nil {
+    panic(err)
+  }
 	log.Info("Creating event broadcaster")
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(log.Infof)

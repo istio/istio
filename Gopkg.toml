@@ -371,3 +371,7 @@ ignored = [
 [[override]]
   name = "github.com/imdario/mergo"
   revision = "6633656539c1639d9d78127b7d47c622b5d7b6dc"
+
+[[constraint]]
+  name = "github.com/coreos/etcd"
+  version = "=3.2.24"
