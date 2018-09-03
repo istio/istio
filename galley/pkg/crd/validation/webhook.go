@@ -209,8 +209,8 @@ func (wh *Webhook) stop() {
 // Run implements the webhook server
 func (wh *Webhook) Run(stop <-chan struct{}) {
 	go func() {
-		if err := wh.server.ListenAndServeTLS("", ""); err != nil && err != http.ErrServerClosed {
-			log.Errorf("ListenAndServeTLS for admission webhook returned error: %v", err)
+		if err := wh.server.ListenAndServeTLS(wh.certFile, wh.keyFile); err != nil && err != http.ErrServerClosed {
+			panic(fmt.Errorf("ListenAndServeTLS for admission webhook returned error: %v", err))
 		}
 	}()
 	defer wh.stop()
