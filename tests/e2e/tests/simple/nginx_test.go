@@ -163,12 +163,12 @@ func (t *testConfig) imagePullPolicy() string {
 }
 
 func getKubeMasterCIDROrFail(t *testing.T) string {
-	ip, err := util.GetKubeMasterIP()
+	ip, err := util.GetKubeMasterIP(tc.Kube.KubeConfig)
 	if err != nil {
 		t.Fatalf("Unable to retrieve Kube Master IP: %v", err)
 		return ""
 	}
-	subnet, err := util.GetClusterSubnet()
+	subnet, err := util.GetClusterSubnet(tc.Kube.KubeConfig)
 	if err != nil {
 		t.Fatalf("Unable to determine cluster subnet: %v", err)
 	}
