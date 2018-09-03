@@ -38,7 +38,7 @@ const (
 	ClusterPlatform = "config.istio.io/platform"
 
 	// The cluster's access configuration stored in k8s Secret object
-	// E.g., on kubenetes, this file can be usually copied from .kube/config
+	// E.g., on kubernetes, this file can be usually copied from .kube/config
 	ClusterAccessConfigSecret          = "config.istio.io/accessConfigSecret"
 	ClusterAccessConfigSecretNamespace = "config.istio.io/accessConfigSecretNamespace"
 

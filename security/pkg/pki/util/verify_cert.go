@@ -24,7 +24,7 @@ import (
 	"time"
 )
 
-// VerifyFields contains the certficate fields to verify in the test.
+// VerifyFields contains the certificate fields to verify in the test.
 type VerifyFields struct {
 	NotBefore   time.Time
 	TTL         time.Duration // NotAfter - NotBefore

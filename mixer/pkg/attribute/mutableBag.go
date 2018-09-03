@@ -47,7 +47,7 @@ var mutableBags = sync.Pool{
 	},
 }
 
-var scope = log.RegisterScope("attributes", "Attribute-related messsages.", 0)
+var scope = log.RegisterScope("attributes", "Attribute-related messages.", 0)
 
 // GetMutableBag returns an initialized bag.
 //

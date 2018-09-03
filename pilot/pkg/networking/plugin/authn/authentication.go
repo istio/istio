@@ -122,7 +122,7 @@ func setupFilterChains(authnPolicy *authn.Policy) []plugin.FilterChain {
 				},
 			},
 			// TODO(incfly): should this be {"istio", "http1.1", "h2"}?
-			// Currently it works: when server is in permissive mode, client sidear can send tls traffic.
+			// Currently it works: when server is in permissive mode, client sidecar can send tls traffic.
 			AlpnProtocols: util.ALPNHttp,
 		},
 		RequireClientCertificate: &types.BoolValue{
