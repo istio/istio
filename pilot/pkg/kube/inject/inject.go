@@ -710,6 +710,13 @@ func excludeInboundPort(port interface{}, excludedInboundPorts string) string {
 	return strings.Join(outPorts, ",")
 }
 
+func valueOrDefault(value string, defaultValue string) string {
+	if value == "" {
+		return defaultValue
+	}
+	return value
+}
+
 // SidecarInjectionStatus contains basic information about the
 // injected sidecar. This includes the names of added containers and
 // volumes.
