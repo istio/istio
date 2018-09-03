@@ -18,11 +18,10 @@ import (
 	"os"
 
 	"istio.io/istio/mixer/cmd/mixc/cmd"
-	"istio.io/istio/mixer/cmd/shared"
 )
 
 func main() {
-	rootCmd := cmd.GetRootCmd(os.Args[1:], shared.Printf, shared.Fatalf)
+	rootCmd := cmd.GetRootCmd(os.Args[1:])
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(-1)

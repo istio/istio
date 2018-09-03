@@ -25,11 +25,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"istio.io/istio/mixer/cmd/shared"
 	"istio.io/istio/mixer/pkg/runtime/config/constant"
+	"istio.io/istio/pkg/log"
 )
 
-func templateCfgCmd(rawArgs []string, printf, fatalf shared.FormatFn) *cobra.Command {
+func templateCfgCmd(rawArgs []string, printf, fatalf log.FormatFn) *cobra.Command {
 	var desc string
 	var name string
 	var output string
@@ -38,7 +38,7 @@ func templateCfgCmd(rawArgs []string, printf, fatalf shared.FormatFn) *cobra.Com
 		Use:   "template",
 		Short: "creates kubernetes configuration for a template",
 		Run: func(cmd *cobra.Command, args []string) {
-			createTemplate("mixgen "+strings.Join(rawArgs, " "), name, ns, desc, output, fatalf, printf)
+			createTemplate("mixgen "+strings.Join(rawArgs, " "), name, ns, desc, output, printf, fatalf)
 		},
 	}
 	adapterCmd.PersistentFlags().StringVarP(&desc, "descriptor", "d", "", "path to the template's "+
@@ -51,7 +51,7 @@ func templateCfgCmd(rawArgs []string, printf, fatalf shared.FormatFn) *cobra.Com
 	return adapterCmd
 }
 
-func createTemplate(rawCommand, name, ns, desc string, outPath string, fatalf shared.FormatFn, printf shared.FormatFn) {
+func createTemplate(rawCommand, name, ns, desc string, outPath string, printf, fatalf log.FormatFn) {
 	type templateCRVar struct {
 		RawCommand string
 		Name       string

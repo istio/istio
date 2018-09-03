@@ -20,7 +20,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 
-	"istio.io/istio/mixer/cmd/shared"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/collateral"
@@ -28,8 +27,7 @@ import (
 )
 
 // GetRootCmd returns the root of the cobra command-tree.
-func GetRootCmd(args []string, info map[string]template.Info, adapters []adapter.InfoFn,
-	printf, fatalf shared.FormatFn) *cobra.Command {
+func GetRootCmd(args []string, info map[string]template.Info, adapters []adapter.InfoFn) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "mixs",
 		Short: "Mixer is Istio's abstraction on top of infrastructure backends.",
@@ -43,9 +41,9 @@ func GetRootCmd(args []string, info map[string]template.Info, adapters []adapter
 	rootCmd.SetArgs(args)
 	rootCmd.PersistentFlags().AddGoFlagSet(flag.CommandLine)
 
-	rootCmd.AddCommand(serverCmd(info, adapters, printf, fatalf))
-	rootCmd.AddCommand(crdCmd(info, adapters, printf, fatalf))
-	rootCmd.AddCommand(probeCmd(printf, fatalf))
+	rootCmd.AddCommand(serverCmd(info, adapters))
+	rootCmd.AddCommand(crdCmd(info, adapters))
+	rootCmd.AddCommand(probeCmd())
 	rootCmd.AddCommand(version.CobraCommand())
 	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
 		Title:   "Istio Mixer Server",

@@ -30,12 +30,12 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/tools/imports"
 
-	"istio.io/istio/mixer/cmd/shared"
 	descriptor2 "istio.io/istio/mixer/pkg/protobuf/descriptor"
 	"istio.io/istio/mixer/tools/codegen/pkg/modelgen"
+	"istio.io/istio/pkg/log"
 )
 
-func apiGenCmd(rawArgs []string, printf, fatalf shared.FormatFn) *cobra.Command {
+func apiGenCmd() *cobra.Command {
 	var templateFile string
 	var outInterfaceFile string
 	var oAugmentedTmplFile string
@@ -48,24 +48,24 @@ func apiGenCmd(rawArgs []string, printf, fatalf shared.FormatFn) *cobra.Command 
 
 			outInterfaceFile, err = filepath.Abs(outInterfaceFile)
 			if err != nil {
-				fatalf("Invalid path %s: %v", outInterfaceFile, err)
+				log.Fatalf("Invalid path %s: %v", outInterfaceFile, err)
 			}
 			oAugmentedTmplFile, err = filepath.Abs(oAugmentedTmplFile)
 			if err != nil {
-				fatalf("Invalid path %s: %v", oAugmentedTmplFile, err)
+				log.Fatalf("Invalid path %s: %v", oAugmentedTmplFile, err)
 			}
 			importMapping := make(map[string]string)
 			for _, maps := range mappings {
 				m := strings.Split(maps, ":")
 				if len(m) != 2 {
-					fatalf("Invalid flag -m %v", mappings)
+					log.Fatalf("Invalid flag -m %v", mappings)
 				}
 				importMapping[strings.TrimSpace(m[0])] = strings.TrimSpace(m[1])
 			}
 
 			generator := Generator{OutInterfacePath: outInterfaceFile, OAugmentedTmplPath: oAugmentedTmplFile, ImptMap: importMapping}
 			if err := generator.Generate(templateFile); err != nil {
-				fatalf("%v", err)
+				log.Fatalf("%v", err)
 			}
 		},
 	}

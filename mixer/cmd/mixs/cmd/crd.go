@@ -21,10 +21,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"istio.io/istio/mixer/cmd/shared"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/runtime/config/constant"
 	"istio.io/istio/mixer/pkg/template"
+	"istio.io/istio/pkg/log"
 )
 
 // Group is the K8s API group.
@@ -33,7 +33,7 @@ const Group = "config.istio.io"
 // Version is the K8s API version.
 const Version = "v1alpha2"
 
-func crdCmd(tmplInfos map[string]template.Info, adapters []adapter.InfoFn, printf, fatalf shared.FormatFn) *cobra.Command {
+func crdCmd(tmplInfos map[string]template.Info, adapters []adapter.InfoFn) *cobra.Command {
 	adapterCmd := cobra.Command{
 		Use:   "crd",
 		Short: "CRDs (CustomResourceDefinition) available in Mixer",
@@ -44,10 +44,10 @@ func crdCmd(tmplInfos map[string]template.Info, adapters []adapter.InfoFn, print
 		Short: "List all CRDs",
 		Args:  cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
-			printCrd(printf, fatalf, constant.RulesKind, "istio.io.mixer", "core")
-			printCrd(printf, fatalf, constant.AttributeManifestKind, "istio.io.mixer", "core")
-			listCrdsAdapters(printf, fatalf, adapters)
-			listCrdsInstances(printf, fatalf, tmplInfos)
+			printCrd(log.Infof, log.Fatalf, constant.RulesKind, "istio.io.mixer", "core")
+			printCrd(log.Infof, log.Fatalf, constant.AttributeManifestKind, "istio.io.mixer", "core")
+			listCrdsAdapters(log.Infof, log.Fatalf, adapters)
+			listCrdsInstances(log.Infof, log.Fatalf, tmplInfos)
 		},
 	})
 
@@ -55,7 +55,7 @@ func crdCmd(tmplInfos map[string]template.Info, adapters []adapter.InfoFn, print
 		Use:   "adapter",
 		Short: "List CRDs for available adapters",
 		Run: func(cmd *cobra.Command, args []string) {
-			listCrdsAdapters(printf, fatalf, adapters)
+			listCrdsAdapters(log.Infof, log.Fatalf, adapters)
 		},
 	})
 
@@ -63,23 +63,27 @@ func crdCmd(tmplInfos map[string]template.Info, adapters []adapter.InfoFn, print
 		Use:   "instance",
 		Short: "List CRDs for available instance kinds (mesh functions)",
 		Run: func(cmd *cobra.Command, args []string) {
-			listCrdsInstances(printf, fatalf, tmplInfos)
+			listCrdsInstances(log.Infof, log.Fatalf, tmplInfos)
 		},
 	})
 
 	return &adapterCmd
 }
 
-func listCrdsAdapters(printf, fatalf shared.FormatFn, infoFns []adapter.InfoFn) {
+func listCrdsAdapters(
+	printf, fataf func(template string, args ...interface{}),
+	infoFns []adapter.InfoFn) {
 	for _, infoFn := range infoFns {
 		info := infoFn()
 		shrtName := info.Name /* TODO make this info.shortName when related PR is in. */
 		// TODO : Use the plural name from the adapter info
-		printCrd(printf, fatalf, shrtName, info.Name, "mixer-adapter")
+		printCrd(printf, fataf, shrtName, info.Name, "mixer-adapter")
 	}
 }
 
-func listCrdsInstances(printf, fatalf shared.FormatFn, infos map[string]template.Info) {
+func listCrdsInstances(
+	printf, fataf func(template string, args ...interface{}),
+	infos map[string]template.Info) {
 	tmplNames := make([]string, 0, len(infos))
 
 	for name := range infos {
@@ -91,7 +95,7 @@ func listCrdsInstances(printf, fatalf shared.FormatFn, infos map[string]template
 	for _, tmplName := range tmplNames {
 		info := infos[tmplName]
 		// TODO : Use the plural name from the template info
-		printCrd(printf, fatalf, info.Name, info.Impl, "mixer-instance")
+		printCrd(printf, fataf, info.Name, info.Impl, "mixer-instance")
 	}
 }
 
@@ -131,7 +135,9 @@ func newCrdVar(shrtName, implName, label string) *crdVar {
 	}
 }
 
-func printCrd(printf, fatalf shared.FormatFn, shrtName, implName, label string) {
+func printCrd(printf func(template string, args ...interface{}),
+	fataf func(template string, args ...interface{}),
+	shrtName, implName, label string) {
 	crdTemplate := `kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
@@ -156,7 +162,7 @@ spec:
 	w := &bytes.Buffer{}
 	t, _ = t.Parse(crdTemplate)
 	if err := t.Execute(w, newCrdVar(shrtName, implName, label)); err != nil {
-		fatalf("Could not create CRD " + err.Error())
+		fataf("Could not create CRD " + err.Error())
 	}
 	printf(w.String())
 }

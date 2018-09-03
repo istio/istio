@@ -28,10 +28,10 @@ import (
 	"github.com/spf13/cobra"
 
 	mixerpb "istio.io/api/mixer/v1"
-	"istio.io/istio/mixer/cmd/shared"
+	"istio.io/istio/pkg/log"
 )
 
-func checkCmd(rootArgs *rootArgs, printf, fatalf shared.FormatFn) *cobra.Command {
+func checkCmd(rootArgs *rootArgs) *cobra.Command {
 	quotas := ""
 
 	cmd := &cobra.Command{
@@ -48,24 +48,24 @@ func checkCmd(rootArgs *rootArgs, printf, fatalf shared.FormatFn) *cobra.Command
 				for _, seg := range strings.Split(quotas, ",") {
 					eq := strings.Index(seg, "=")
 					if eq < 0 {
-						fatalf("Quota definition %v does not include an = sign", seg)
+						log.Fatalf("Quota definition %v does not include an = sign", seg)
 					}
 					if eq == 0 {
-						fatalf("Quota definition %v does not contain a valid name", seg)
+						log.Fatalf("Quota definition %v does not contain a valid name", seg)
 					}
 					name := seg[0:eq]
 					value := seg[eq+1:]
 
 					v, err := strconv.ParseInt(value, 10, 64)
 					if err != nil {
-						fatalf("Unable to parse quota value %v: %v", value, err)
+						log.Fatalf("Unable to parse quota value %v: %v", value, err)
 					}
 
 					q[name] = v
 				}
 			}
 
-			check(rootArgs, printf, fatalf, q)
+			check(rootArgs, q)
 		}}
 
 	cmd.PersistentFlags().StringVarP(&quotas, "quotas", "q", "",
@@ -74,17 +74,17 @@ func checkCmd(rootArgs *rootArgs, printf, fatalf shared.FormatFn) *cobra.Command
 	return cmd
 }
 
-func check(rootArgs *rootArgs, printf, fatalf shared.FormatFn, quotas map[string]int64) {
+func check(rootArgs *rootArgs, quotas map[string]int64) {
 	var attrs *mixerpb.CompressedAttributes
 	var err error
 
 	if attrs, err = parseAttributes(rootArgs); err != nil {
-		fatalf("%v", err)
+		log.Fatalf("%v", err)
 	}
 
 	var cs *clientState
 	if cs, err = createAPIClient(rootArgs.mixerAddress, rootArgs.tracingOptions); err != nil {
-		fatalf("Unable to establish connection to %s: %v", rootArgs.mixerAddress, err)
+		log.Fatalf("Unable to establish connection to %s: %v", rootArgs.mixerAddress, err)
 	}
 	defer deleteAPIClient(cs)
 
@@ -106,19 +106,19 @@ func check(rootArgs *rootArgs, printf, fatalf shared.FormatFn, quotas map[string
 		response, err := cs.client.Check(ctx, &request)
 
 		if err == nil {
-			printf("Check RPC completed successfully. Check status was %s", decodeStatus(response.Precondition.Status))
-			printf("  Valid use count: %v, valid duration: %v", response.Precondition.ValidUseCount, response.Precondition.ValidDuration)
-			dumpReferencedAttributes(printf, fatalf, response.Precondition.ReferencedAttributes)
-			dumpQuotas(printf, response.Quotas)
+			log.Infof("Check RPC completed successfully. Check status was %s", decodeStatus(response.Precondition.Status))
+			log.Infof("  Valid use count: %v, valid duration: %v", response.Precondition.ValidUseCount, response.Precondition.ValidDuration)
+			dumpReferencedAttributes(response.Precondition.ReferencedAttributes)
+			dumpQuotas(response.Quotas)
 		} else {
-			printf("Check RPC failed with: %s", decodeError(err))
+			log.Errorf("Check RPC failed with: %s", decodeError(err))
 		}
 	}
 
 	span.Finish()
 }
 
-func dumpQuotas(printf shared.FormatFn, quotas map[string]mixerpb.CheckResponse_QuotaResult) {
+func dumpQuotas(quotas map[string]mixerpb.CheckResponse_QuotaResult) {
 	if quotas == nil {
 		return
 	}
@@ -133,5 +133,5 @@ func dumpQuotas(printf shared.FormatFn, quotas map[string]mixerpb.CheckResponse_
 	}
 
 	_ = tw.Flush()
-	printf("%s", buf.String())
+	log.Infof("%s", buf.String())
 }

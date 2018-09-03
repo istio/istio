@@ -29,11 +29,12 @@ import (
 	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
 	"github.com/spf13/cobra"
 
-	"istio.io/istio/mixer/cmd/shared"
 	"istio.io/istio/mixer/pkg/runtime/config/constant"
+	"istio.io/istio/pkg/log"
 )
 
-func adapterCfgCmd(rawArgs []string, printf, fatalf shared.FormatFn) *cobra.Command {
+func adapterCfgCmd(rawArgs []string,
+	printf, fatalf log.FormatFn) *cobra.Command {
 	var resName string
 	var ns string
 	var configFilePath string
@@ -67,7 +68,7 @@ func adapterCfgCmd(rawArgs []string, printf, fatalf shared.FormatFn) *cobra.Comm
 }
 
 func createAdapterCr(rawCommand string, name, namespace, description, config string, sessionBased bool, templates []string,
-	outPath string, printf, fatalf shared.FormatFn) {
+	outPath string, printf, fatalf log.FormatFn) {
 	type adapterCRVar struct {
 		RawCommand   string
 		Name         string

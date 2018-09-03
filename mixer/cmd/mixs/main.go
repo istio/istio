@@ -19,7 +19,6 @@ import (
 
 	"istio.io/istio/mixer/adapter"
 	"istio.io/istio/mixer/cmd/mixs/cmd"
-	"istio.io/istio/mixer/cmd/shared"
 	adptr "istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/template"
 	generatedTmplRepo "istio.io/istio/mixer/template"
@@ -34,7 +33,7 @@ func supportedAdapters() []adptr.InfoFn {
 }
 
 func main() {
-	rootCmd := cmd.GetRootCmd(os.Args[1:], supportedTemplates(), supportedAdapters(), shared.Printf, shared.Fatalf)
+	rootCmd := cmd.GetRootCmd(os.Args[1:], supportedTemplates(), supportedAdapters())
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(-1)

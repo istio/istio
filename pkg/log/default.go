@@ -22,6 +22,10 @@ import (
 
 var defaultScope = RegisterScope(DefaultScopeName, "Unscoped logging messages.", 0)
 
+// FormatFn formats the supplied arguments according to the format string
+// provided and executes some set of operations with the result.
+type FormatFn func(template string, args ...interface{})
+
 // Fatal outputs a message at fatal level.
 func Fatal(msg string, fields ...zapcore.Field) {
 	if defaultScope.GetOutputLevel() >= FatalLevel {
