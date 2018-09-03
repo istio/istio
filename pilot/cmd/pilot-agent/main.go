@@ -258,6 +258,7 @@ var (
 			if statusPort > 0 {
 				parsedPorts, err := parseApplicationPorts()
 				if err != nil {
+					cancel()
 					return err
 				}
 
