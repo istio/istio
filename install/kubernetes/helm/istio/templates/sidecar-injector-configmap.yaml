@@ -59,7 +59,6 @@ data:
             add:
             - "NET_ADMIN"
             - "NET_RAW"
-          privileged: false
           allowPrivilegeEscalation: false
         restartPolicy: Always
       {{ if eq .Values.global.proxy.enableCoreDump true }}
