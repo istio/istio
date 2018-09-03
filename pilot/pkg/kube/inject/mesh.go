@@ -55,6 +55,10 @@ initContainers:
   - "[[ annotation .ObjectMeta $includeInboundPortsKey (includeInboundPorts .Spec.Containers) ]]"
   - "-d"
   - "[[ excludeInboundPort $statusPortValue (annotation .ObjectMeta $excludeInboundPortsKey "{{ .ExcludeInboundPorts }}") ]]"
+  {{ if eq .EnableCoreDump true -}}
+  - "-c"
+  - "/var/lib/istio/core.proxy"
+  {{ end -}}
   {{ if eq .ImagePullPolicy "" -}}
   imagePullPolicy: IfNotPresent
   {{ else -}}
@@ -64,22 +68,9 @@ initContainers:
     capabilities:
       add:
       - NET_ADMIN
-    {{ if eq .DebugMode true -}}
+    {{- if eq .DebugMode true }}
     privileged: true
-    {{ end -}}
-{{- if eq .EnableCoreDump true }}
-- args:
-  - -c
-  - sysctl -w kernel.core_pattern=/var/lib/istio/core.proxy && ulimit -c unlimited
-  command:
-  - /bin/sh
-  image: {{ .InitImage }}
-  imagePullPolicy: IfNotPresent
-  name: enable-core-dump
-  resources: {}
-  securityContext:
-    privileged: true
-{{- end }}
+    {{- end }}
 containers:
 - name: istio-proxy
   image: [[ annotation .ObjectMeta $proxyImageKey "{{ .ProxyImage }}" ]] 
