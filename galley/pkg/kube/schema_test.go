@@ -32,7 +32,9 @@ func TestSchemaBuilder(t *testing.T) {
 	b := NewSchemaBuilder()
 	b.Add(spec)
 	s := b.Build()
-
+	if b.schema != nil {
+		t.Fatalf("b.schema is not nil: %v\n", b.schema)
+	}
 	actual := s.All()
 
 	expected := []ResourceSpec{spec}
