@@ -1610,7 +1610,7 @@ func validateSubsetName(name string) error {
 		return fmt.Errorf("subset name cannot be empty")
 	}
 	if !IsDNS1123Label(name) {
-		return fmt.Errorf("subnet name is invalid: %s", name)
+		return fmt.Errorf("subset name is invalid: %s", name)
 	}
 	return nil
 }
