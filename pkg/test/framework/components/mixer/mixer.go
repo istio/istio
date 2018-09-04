@@ -41,6 +41,11 @@ import (
 	"istio.io/istio/pkg/test/kube"
 )
 
+const (
+	telemetryClient = "telemetry"
+	policyClient    = "policy"
+)
+
 var (
 	// LocalComponent is a component for the local environment.
 	LocalComponent = &localComponent{}
@@ -102,9 +107,12 @@ func (c *localComponent) Init(ctx environment.ComponentContext, deps map[depende
 	client := istio_mixer_v1.NewMixerClient(conn)
 
 	return &deployedMixer{
-		local:   true,
-		conn:    conn,
-		client:  client,
+		local: true,
+		conn:  conn,
+		clients: map[string]istio_mixer_v1.MixerClient{
+			telemetryClient: client,
+			policyClient:    client,
+		},
 		args:    args,
 		server:  mi,
 		workdir: dir,
@@ -131,54 +139,53 @@ func (c *kubeComponent) Init(ctx environment.ComponentContext, deps map[dependen
 		return nil, fmt.Errorf("unsupported environment: %q", ctx.Environment().EnvironmentID())
 	}
 
-	pod, err := e.Accessor.WaitForPodBySelectors("istio-system", "istio=mixer", "istio-mixer-type=telemetry")
-	if err != nil {
-		return nil, err
-	}
-
-	// TODO: Add support to connect to the Mixer istio-policy as well.
-	// See https://github.com/istio/istio/issues/6174
-
-	// TODO: Right now, simply connect to the telemetry backend at port 9092. We can expand this to connect
-	// to policy backend and dynamically figure out ports later.
-	// See https://github.com/istio/istio/issues/6175
-	options := &kube.PodSelectOptions{
-		PodNamespace: pod.Namespace,
-		PodName:      pod.Name,
-	}
-	forwarder, err := kube.PortForward(e.KubeSettings().KubeConfig, options, "", strconv.Itoa(9092))
-	if err != nil {
-		return nil, err
-	}
-
-	conn, err := grpc.Dial(forwarder.Address(), grpc.WithInsecure())
-	if err != nil {
-		return nil, err
-	}
-
-	client := istio_mixer_v1.NewMixerClient(conn)
-
-	return &deployedMixer{
-		local:     false,
-		client:    client,
-		forwarder: forwarder,
+	res := &deployedMixer{
+		local: false,
 		// Use the DefaultArgs to get config identity attribute
 		args: server.DefaultArgs(),
-	}, nil
+	}
+
+	for _, clientType := range []string{telemetryClient, policyClient} {
+		pod, err := e.Accessor.WaitForPodBySelectors("istio-system", "istio=mixer", "istio-mixer-type="+clientType)
+		if err != nil {
+			return nil, err
+		}
+
+		// TODO: dynamically discover the port after https://github.com/istio/istio/pull/8454 is merged.
+		options := &kube.PodSelectOptions{
+			PodNamespace: pod.Namespace,
+			PodName:      pod.Name,
+		}
+		forwarder, err := kube.PortForward(e.KubeSettings().KubeConfig, options, "", strconv.Itoa(9092))
+		if err != nil {
+			return nil, err
+		}
+
+		conn, err := grpc.Dial(forwarder.Address(), grpc.WithInsecure())
+		if err != nil {
+			return nil, err
+		}
+
+		client := istio_mixer_v1.NewMixerClient(conn)
+		res.clients[clientType] = client
+		res.forwarders = append(res.forwarders, forwarder)
+	}
+
+	return res, nil
 }
 
 type deployedMixer struct {
 	// Indicates that the component is running in local mode.
 	local bool
 
-	conn   *grpc.ClientConn
-	client istio_mixer_v1.MixerClient
+	conn    *grpc.ClientConn
+	clients map[string]istio_mixer_v1.MixerClient
 
 	args    *server.Args
 	server  *server.Server
 	workdir string
 
-	forwarder kube.PortForwarder
+	forwarders []kube.PortForwarder
 }
 
 // Report implements DeployedMixer.Report.
@@ -189,7 +196,7 @@ func (d *deployedMixer) Report(t testing.TB, attributes map[string]interface{}) 
 		Attributes: []istio_mixer_v1.CompressedAttributes{
 			getAttrBag(attributes)},
 	}
-	_, err := d.client.Report(context.Background(), &req)
+	_, err := d.clients[telemetryClient].Report(context.Background(), &req)
 
 	if err != nil {
 		t.Fatalf("Error sending report: %v", err)
@@ -230,8 +237,8 @@ func (d *deployedMixer) Close() error {
 		d.server = nil
 	}
 
-	if d.forwarder != nil {
-		d.forwarder.Close()
+	for _, fw := range d.forwarders {
+		fw.Close()
 	}
 
 	return err
