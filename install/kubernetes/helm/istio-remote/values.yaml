@@ -11,6 +11,10 @@ global:
   proxy:
     image: proxyv2
 
+    #If set to true, istio-proxy container will have privileged securityContext
+    privileged: false
+
+
     # A minimal set of requested resources to applied to all deployments so that
     # Horizontal Pod Autoscaler will be able to function (if set).
     # Each component can overwrite these default values by adding its own resources

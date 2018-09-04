@@ -50,20 +50,18 @@ data:
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
         securityContext:
           capabilities:
-            drop:
-            - "all"
+          {{- if .Values.global.proxy.privileged }}
             add:
-<<<<<<< HEAD
-            - "NET_ADMIN"
-            - "NET_RAW"
-          privileged: false
-          allowPrivilegeEscalation: false
-=======
-            - NET_ADMIN
-          {{ if .Values.global.proxy.privileged }}
+              - "NET_ADMIN"
           privileged: true
-          {{ end }}
->>>>>>> 5d1c208d9342e430ff56d20de93952fb8d3f59ef
+          {{- else }}
+            drop:
+             - "all"
+            add:
+              - "NET_ADMIN"
+              - "NET_RAW"
+          allowPrivilegeEscalation: false
+          {{- end }}
         restartPolicy: Always
       {{ if eq .Values.global.proxy.enableCoreDump true }}
       - name: enable-core-dump
