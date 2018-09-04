@@ -94,8 +94,6 @@ func (m *HealthCheck) Validate() error {
 		}
 	}
 
-	// no validation rules for IntervalJitterPercent
-
 	if v, ok := interface{}(m.GetUnhealthyThreshold()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HealthCheckValidationError{
@@ -176,8 +174,6 @@ func (m *HealthCheck) Validate() error {
 		}
 	}
 
-	// no validation rules for EventLogPath
-
 	switch m.HealthChecker.(type) {
 
 	case *HealthCheck_HttpHealthCheck_:
@@ -198,6 +194,18 @@ func (m *HealthCheck) Validate() error {
 			if err := v.Validate(); err != nil {
 				return HealthCheckValidationError{
 					Field:  "TcpHealthCheck",
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
+	case *HealthCheck_RedisHealthCheck_:
+
+		if v, ok := interface{}(m.GetRedisHealthCheck()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return HealthCheckValidationError{
+					Field:  "RedisHealthCheck",
 					Reason: "embedded message failed validation",
 					Cause:  err,
 				}

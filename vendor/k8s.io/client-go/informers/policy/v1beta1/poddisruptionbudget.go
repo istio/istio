@@ -1,5 +1,5 @@
 /*
-Copyright The Kubernetes Authors.
+Copyright 2018 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ package v1beta1
 import (
 	time "time"
 
-	policyv1beta1 "k8s.io/api/policy/v1beta1"
+	policy_v1beta1 "k8s.io/api/policy/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -70,7 +70,7 @@ func NewFilteredPodDisruptionBudgetInformer(client kubernetes.Interface, namespa
 				return client.PolicyV1beta1().PodDisruptionBudgets(namespace).Watch(options)
 			},
 		},
-		&policyv1beta1.PodDisruptionBudget{},
+		&policy_v1beta1.PodDisruptionBudget{},
 		resyncPeriod,
 		indexers,
 	)
@@ -81,7 +81,7 @@ func (f *podDisruptionBudgetInformer) defaultInformer(client kubernetes.Interfac
 }
 
 func (f *podDisruptionBudgetInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&policyv1beta1.PodDisruptionBudget{}, f.defaultInformer)
+	return f.factory.InformerFor(&policy_v1beta1.PodDisruptionBudget{}, f.defaultInformer)
 }
 
 func (f *podDisruptionBudgetInformer) Lister() v1beta1.PodDisruptionBudgetLister {

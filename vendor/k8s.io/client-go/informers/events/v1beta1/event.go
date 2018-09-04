@@ -1,5 +1,5 @@
 /*
-Copyright The Kubernetes Authors.
+Copyright 2018 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ package v1beta1
 import (
 	time "time"
 
-	eventsv1beta1 "k8s.io/api/events/v1beta1"
+	events_v1beta1 "k8s.io/api/events/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -70,7 +70,7 @@ func NewFilteredEventInformer(client kubernetes.Interface, namespace string, res
 				return client.EventsV1beta1().Events(namespace).Watch(options)
 			},
 		},
-		&eventsv1beta1.Event{},
+		&events_v1beta1.Event{},
 		resyncPeriod,
 		indexers,
 	)
@@ -81,7 +81,7 @@ func (f *eventInformer) defaultInformer(client kubernetes.Interface, resyncPerio
 }
 
 func (f *eventInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&eventsv1beta1.Event{}, f.defaultInformer)
+	return f.factory.InformerFor(&events_v1beta1.Event{}, f.defaultInformer)
 }
 
 func (f *eventInformer) Lister() v1beta1.EventLister {

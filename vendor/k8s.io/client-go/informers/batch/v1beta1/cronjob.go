@@ -1,5 +1,5 @@
 /*
-Copyright The Kubernetes Authors.
+Copyright 2018 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ package v1beta1
 import (
 	time "time"
 
-	batchv1beta1 "k8s.io/api/batch/v1beta1"
+	batch_v1beta1 "k8s.io/api/batch/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -70,7 +70,7 @@ func NewFilteredCronJobInformer(client kubernetes.Interface, namespace string, r
 				return client.BatchV1beta1().CronJobs(namespace).Watch(options)
 			},
 		},
-		&batchv1beta1.CronJob{},
+		&batch_v1beta1.CronJob{},
 		resyncPeriod,
 		indexers,
 	)
@@ -81,7 +81,7 @@ func (f *cronJobInformer) defaultInformer(client kubernetes.Interface, resyncPer
 }
 
 func (f *cronJobInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&batchv1beta1.CronJob{}, f.defaultInformer)
+	return f.factory.InformerFor(&batch_v1beta1.CronJob{}, f.defaultInformer)
 }
 
 func (f *cronJobInformer) Lister() v1beta1.CronJobLister {
