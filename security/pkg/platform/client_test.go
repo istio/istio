@@ -43,7 +43,7 @@ func TestNewClient(t *testing.T) {
 			keyFile:       "testdata/key-from-root-good.pem",
 			certChainFile: "testdata/cert-chain-good.pem",
 			caAddr:        "localhost",
-			expectedErr:   "",
+			expectedErr:   "GCP credential authentication in CSR API is disabled", // No error when ID token auth is enabled.
 		},
 		"aws test": {
 			platform:      "aws",
@@ -51,7 +51,7 @@ func TestNewClient(t *testing.T) {
 			keyFile:       "testdata/key-from-root-good.pem",
 			certChainFile: "testdata/cert-chain-good.pem",
 			caAddr:        "localhost",
-			expectedErr:   "",
+			expectedErr:   "AWS credential authentication in CSR API is disabled", // No error when ID token auth is enabled.
 		},
 		"unspecified test": {
 			platform:      "unspecified",
