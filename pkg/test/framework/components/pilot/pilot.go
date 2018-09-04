@@ -39,7 +39,8 @@ import (
 )
 
 const (
-	pilotAdsPort = 15010
+	pilotService = "istio-pilot"
+	grpcPortName = "grpc-xds"
 )
 
 var (
@@ -99,7 +100,21 @@ func (c *kubeComponent) Init(ctx environment.ComponentContext, deps map[dependen
 		return nil, err
 	}
 
-	return NewKubePilot(s.KubeConfig, pod.Namespace, pod.Name)
+	port := 0
+	svc, err := e.Accessor.GetService(s.IstioSystemNamespace, pilotService)
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve service %s: %v", pilotService, err)
+	}
+	for _, portInfo := range svc.Spec.Ports {
+		if portInfo.Name == grpcPortName {
+			port = portInfo.TargetPort.IntValue()
+		}
+	}
+	if port == 0 {
+		return nil, fmt.Errorf("failed to get target port in service %s", pilotService)
+	}
+
+	return NewKubePilot(s.KubeConfig, pod.Namespace, pod.Name, port)
 }
 
 // LocalPilot is the interface for a local pilot server.
@@ -174,14 +189,13 @@ func NewLocalPilot(namespace string) (LocalPilot, error) {
 }
 
 // NewKubePilot creates a new pilot instance for the kubernetes environment
-func NewKubePilot(kubeConfig, namespace, pod string) (environment.DeployedPilot, error) {
+func NewKubePilot(kubeConfig, namespace, pod string, port int) (environment.DeployedPilot, error) {
 	// Start port-forwarding for pilot.
-	// TODO(nmittler): Don't use a hard-coded port.
 	options := &kube.PodSelectOptions{
 		PodNamespace: namespace,
 		PodName:      pod,
 	}
-	forwarder, err := kube.PortForward(kubeConfig, options, "", strconv.Itoa(pilotAdsPort))
+	forwarder, err := kube.PortForward(kubeConfig, options, "", strconv.Itoa(port))
 	if err != nil {
 		return nil, err
 	}
