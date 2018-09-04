@@ -406,10 +406,15 @@ ${ISTIO_BIN}/go-junit-report:
 
 # Run coverage tests
 JUNIT_UNIT_TEST_XML ?= $(ISTIO_OUT)/junit_unit-tests.xml
+ifeq ($(WHAT),)
+       TEST_OBJ = common-test pilot-test mixer-test security-test galley-test istioctl-test
+else
+       TEST_OBJ = selected-pkg-test
+endif
 test: | $(JUNIT_REPORT)
 	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
 	set -o pipefail; \
-	$(MAKE) --keep-going common-test pilot-test mixer-test security-test galley-test istioctl-test \
+	$(MAKE) --keep-going $(TEST_OBJ) \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
 
 GOTEST_PARALLEL ?= '-test.parallel=4'
@@ -467,6 +472,10 @@ security-test:
 .PHONY: common-test
 common-test:
 	go test ${T} ./pkg/...
+
+.PHONY: selected-pkg-test
+selected-pkg-test:
+	find ${WHAT} -name "*_test.go"|xargs -i dirname {}|uniq|xargs -i go test ${T} {}
 
 #-----------------------------------------------------------------------------
 # Target: coverage
