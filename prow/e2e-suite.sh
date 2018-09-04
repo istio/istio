@@ -104,9 +104,10 @@ if [[ "${USE_INCLUSTER_REGISTRY}" == "True" ]]; then
     -o jsonpath='{.items[*].metadata.name}')"
   in_cluster_docker_ready
   kubectl port-forward -n docker-registry "${DOCKER_REGISTRY_POD}" 5000 &
+  PORT_FORWARD_PID=$!
 
-  time ISTIO_DOCKER_HUB="127.0.0.1:5000" make push HUB="127.0.0.1:5000" TAG="${GIT_SHA}"
-
+  time ISTIO_DOCKER_HUB="127.0.0.1:5000" make docker push HUB="127.0.0.1:5000" TAG="${GIT_SHA}"
+  kill ${PORT_FORWARD_PID}
 fi
 
 if [[ "${CI:-}" == 'bootstrap' ]]; then
