@@ -42,8 +42,9 @@ import (
 )
 
 const (
-	telemetryClient = "telemetry"
-	policyClient    = "policy"
+	telemetryService = "telemetry"
+	policyService    = "policy"
+	grpcPortName     = "grpc-mixer"
 )
 
 var (
@@ -110,8 +111,8 @@ func (c *localComponent) Init(ctx environment.ComponentContext, deps map[depende
 		local: true,
 		conn:  conn,
 		clients: map[string]istio_mixer_v1.MixerClient{
-			telemetryClient: client,
-			policyClient:    client,
+			telemetryService: client,
+			policyService:    client,
 		},
 		args:    args,
 		server:  mi,
@@ -145,18 +146,30 @@ func (c *kubeComponent) Init(ctx environment.ComponentContext, deps map[dependen
 		args: server.DefaultArgs(),
 	}
 
-	for _, clientType := range []string{telemetryClient, policyClient} {
-		pod, err := e.Accessor.WaitForPodBySelectors("istio-system", "istio=mixer", "istio-mixer-type="+clientType)
+	for _, serviceType := range []string{telemetryService, policyService} {
+		pod, err := e.Accessor.WaitForPodBySelectors("istio-system", "istio=mixer", "istio-mixer-type="+serviceType)
 		if err != nil {
 			return nil, err
 		}
 
-		// TODO: dynamically discover the port after https://github.com/istio/istio/pull/8454 is merged.
+		port := 0
+		svc, err := e.Accessor.GetService(e.KubeSettings().IstioSystemNamespace, "istio-"+serviceType)
+		if err != nil {
+			return nil, fmt.Errorf("failed to retrieve service %s: %v", serviceType, err)
+		}
+		for _, portInfo := range svc.Spec.Ports {
+			if portInfo.Name == grpcPortName {
+				port = portInfo.TargetPort.IntValue()
+			}
+		}
+		if port == 0 {
+			return nil, fmt.Errorf("failed to get target port in service %s", serviceType)
+		}
 		options := &kube.PodSelectOptions{
 			PodNamespace: pod.Namespace,
 			PodName:      pod.Name,
 		}
-		forwarder, err := kube.PortForward(e.KubeSettings().KubeConfig, options, "", strconv.Itoa(9092))
+		forwarder, err := kube.PortForward(e.KubeSettings().KubeConfig, options, "", strconv.Itoa(port))
 		if err != nil {
 			return nil, err
 		}
@@ -167,7 +180,7 @@ func (c *kubeComponent) Init(ctx environment.ComponentContext, deps map[dependen
 		}
 
 		client := istio_mixer_v1.NewMixerClient(conn)
-		res.clients[clientType] = client
+		res.clients[serviceType] = client
 		res.forwarders = append(res.forwarders, forwarder)
 	}
 
@@ -196,7 +209,7 @@ func (d *deployedMixer) Report(t testing.TB, attributes map[string]interface{}) 
 		Attributes: []istio_mixer_v1.CompressedAttributes{
 			getAttrBag(attributes)},
 	}
-	_, err := d.clients[telemetryClient].Report(context.Background(), &req)
+	_, err := d.clients[telemetryService].Report(context.Background(), &req)
 
 	if err != nil {
 		t.Fatalf("Error sending report: %v", err)
