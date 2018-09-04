@@ -1,8 +1,8 @@
-hash: 059de1e1fc0a1174107ee8b52f51d3a503bd050f74be2647e0c934c5b2052a8f
-updated: 2018-07-29T19:05:03.198933-04:00
+hash: cdc4c19aae1352d73c2502f514b7a44822d5afcf77acaef0bcfb4c143c41aec5
+updated: 2018-07-06T11:44:46.987142209-07:00
 imports:
 - name: github.com/envoyproxy/data-plane-api
-  version: 55833ac4e2008f760631392dd0a446325e4b7fef
+  version: 5d0d8a33fe313b196d65a9726c1f26f3833b6069
 - name: github.com/gogo/googleapis
   version: 0cd9801be74a10d5ac39d69626eac8255ffcd502
   subpackages:
@@ -32,7 +32,7 @@ imports:
   subpackages:
   - validate
 - name: github.com/sirupsen/logrus
-  version: 3e01752db0189b9157070a0e1668a620f9a85da2
+  version: c155da19408a8799da419ed3eeb0cb5db0ad5dbc
 - name: golang.org/x/crypto
   version: 5119cf507ed5294cc409c092980c7497ee5d6fd2
   subpackages:

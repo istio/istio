@@ -9,15 +9,13 @@ dynamic_resources:
   cds_config:
     api_config_source:
       api_type: GRPC
-      grpc_services:
-      - envoy_grpc:
-          cluster_name: xds_cluster
+      cluster_names:
+      - xds_cluster
   lds_config:
     api_config_source:
       api_type: GRPC
-      grpc_services:
-      - envoy_grpc:
-          cluster_name: xds_cluster
+      cluster_names:
+      - xds_cluster
 node:
   cluster: test-cluster
   id: test-id

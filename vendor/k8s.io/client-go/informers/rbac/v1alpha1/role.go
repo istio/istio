@@ -1,5 +1,5 @@
 /*
-Copyright The Kubernetes Authors.
+Copyright 2018 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ package v1alpha1
 import (
 	time "time"
 
-	rbacv1alpha1 "k8s.io/api/rbac/v1alpha1"
+	rbac_v1alpha1 "k8s.io/api/rbac/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -70,7 +70,7 @@ func NewFilteredRoleInformer(client kubernetes.Interface, namespace string, resy
 				return client.RbacV1alpha1().Roles(namespace).Watch(options)
 			},
 		},
-		&rbacv1alpha1.Role{},
+		&rbac_v1alpha1.Role{},
 		resyncPeriod,
 		indexers,
 	)
@@ -81,7 +81,7 @@ func (f *roleInformer) defaultInformer(client kubernetes.Interface, resyncPeriod
 }
 
 func (f *roleInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&rbacv1alpha1.Role{}, f.defaultInformer)
+	return f.factory.InformerFor(&rbac_v1alpha1.Role{}, f.defaultInformer)
 }
 
 func (f *roleInformer) Lister() v1alpha1.RoleLister {

@@ -534,7 +534,7 @@ func (p *plugin) Generate(file *generator.FileDescriptor) {
 		p.P(`func NewPopulated`, ccTypeName, `(r randy`, p.localName, `, easy bool) *`, ccTypeName, ` {`)
 		p.In()
 		p.P(`this := &`, ccTypeName, `{}`)
-		if gogoproto.IsUnion(message.File(), message.DescriptorProto) && len(message.Field) > 0 {
+		if gogoproto.IsUnion(message.File().FileDescriptorProto, message.DescriptorProto) && len(message.Field) > 0 {
 			p.P(`fieldNum := r.Intn(`, fmt.Sprintf("%d", ranTotal), `)`)
 			p.P(`switch fieldNum {`)
 			k := 0

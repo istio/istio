@@ -1,5 +1,5 @@
 /*
-Copyright The Kubernetes Authors.
+Copyright 2018 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ package v1beta1
 import (
 	time "time"
 
-	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
+	extensions_v1beta1 "k8s.io/api/extensions/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -70,7 +70,7 @@ func NewFilteredDaemonSetInformer(client kubernetes.Interface, namespace string,
 				return client.ExtensionsV1beta1().DaemonSets(namespace).Watch(options)
 			},
 		},
-		&extensionsv1beta1.DaemonSet{},
+		&extensions_v1beta1.DaemonSet{},
 		resyncPeriod,
 		indexers,
 	)
@@ -81,7 +81,7 @@ func (f *daemonSetInformer) defaultInformer(client kubernetes.Interface, resyncP
 }
 
 func (f *daemonSetInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&extensionsv1beta1.DaemonSet{}, f.defaultInformer)
+	return f.factory.InformerFor(&extensions_v1beta1.DaemonSet{}, f.defaultInformer)
 }
 
 func (f *daemonSetInformer) Lister() v1beta1.DaemonSetLister {

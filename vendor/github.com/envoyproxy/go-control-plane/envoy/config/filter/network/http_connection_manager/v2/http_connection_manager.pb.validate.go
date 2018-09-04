@@ -123,16 +123,6 @@ func (m *HttpConnectionManager) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetStreamIdleTimeout()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return HttpConnectionManagerValidationError{
-				Field:  "StreamIdleTimeout",
-				Reason: "embedded message failed validation",
-				Cause:  err,
-			}
-		}
-	}
-
 	if v, ok := interface{}(m.GetDrainTimeout()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HttpConnectionManagerValidationError{

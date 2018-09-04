@@ -1,5 +1,5 @@
 /*
-Copyright The Kubernetes Authors.
+Copyright 2018 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ package v1alpha1
 import (
 	time "time"
 
-	storagev1alpha1 "k8s.io/api/storage/v1alpha1"
+	storage_v1alpha1 "k8s.io/api/storage/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -69,7 +69,7 @@ func NewFilteredVolumeAttachmentInformer(client kubernetes.Interface, resyncPeri
 				return client.StorageV1alpha1().VolumeAttachments().Watch(options)
 			},
 		},
-		&storagev1alpha1.VolumeAttachment{},
+		&storage_v1alpha1.VolumeAttachment{},
 		resyncPeriod,
 		indexers,
 	)
@@ -80,7 +80,7 @@ func (f *volumeAttachmentInformer) defaultInformer(client kubernetes.Interface, 
 }
 
 func (f *volumeAttachmentInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&storagev1alpha1.VolumeAttachment{}, f.defaultInformer)
+	return f.factory.InformerFor(&storage_v1alpha1.VolumeAttachment{}, f.defaultInformer)
 }
 
 func (f *volumeAttachmentInformer) Lister() v1alpha1.VolumeAttachmentLister {

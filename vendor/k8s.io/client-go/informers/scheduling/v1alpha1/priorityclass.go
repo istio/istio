@@ -1,5 +1,5 @@
 /*
-Copyright The Kubernetes Authors.
+Copyright 2018 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ package v1alpha1
 import (
 	time "time"
 
-	schedulingv1alpha1 "k8s.io/api/scheduling/v1alpha1"
+	scheduling_v1alpha1 "k8s.io/api/scheduling/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -69,7 +69,7 @@ func NewFilteredPriorityClassInformer(client kubernetes.Interface, resyncPeriod 
 				return client.SchedulingV1alpha1().PriorityClasses().Watch(options)
 			},
 		},
-		&schedulingv1alpha1.PriorityClass{},
+		&scheduling_v1alpha1.PriorityClass{},
 		resyncPeriod,
 		indexers,
 	)
@@ -80,7 +80,7 @@ func (f *priorityClassInformer) defaultInformer(client kubernetes.Interface, res
 }
 
 func (f *priorityClassInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&schedulingv1alpha1.PriorityClass{}, f.defaultInformer)
+	return f.factory.InformerFor(&scheduling_v1alpha1.PriorityClass{}, f.defaultInformer)
 }
 
 func (f *priorityClassInformer) Lister() v1alpha1.PriorityClassLister {

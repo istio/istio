@@ -1,5 +1,5 @@
 /*
-Copyright The Kubernetes Authors.
+Copyright 2018 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -24,29 +24,27 @@ import (
 	v1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	v1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	v1 "k8s.io/api/apps/v1"
-	appsv1beta1 "k8s.io/api/apps/v1beta1"
+	apps_v1beta1 "k8s.io/api/apps/v1beta1"
 	v1beta2 "k8s.io/api/apps/v1beta2"
-	autoscalingv1 "k8s.io/api/autoscaling/v1"
+	autoscaling_v1 "k8s.io/api/autoscaling/v1"
 	v2beta1 "k8s.io/api/autoscaling/v2beta1"
-	batchv1 "k8s.io/api/batch/v1"
-	batchv1beta1 "k8s.io/api/batch/v1beta1"
+	batch_v1 "k8s.io/api/batch/v1"
+	batch_v1beta1 "k8s.io/api/batch/v1beta1"
 	v2alpha1 "k8s.io/api/batch/v2alpha1"
-	certificatesv1beta1 "k8s.io/api/certificates/v1beta1"
-	coordinationv1beta1 "k8s.io/api/coordination/v1beta1"
-	corev1 "k8s.io/api/core/v1"
-	eventsv1beta1 "k8s.io/api/events/v1beta1"
-	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
-	networkingv1 "k8s.io/api/networking/v1"
-	policyv1beta1 "k8s.io/api/policy/v1beta1"
-	rbacv1 "k8s.io/api/rbac/v1"
-	rbacv1alpha1 "k8s.io/api/rbac/v1alpha1"
-	rbacv1beta1 "k8s.io/api/rbac/v1beta1"
-	schedulingv1alpha1 "k8s.io/api/scheduling/v1alpha1"
-	schedulingv1beta1 "k8s.io/api/scheduling/v1beta1"
-	settingsv1alpha1 "k8s.io/api/settings/v1alpha1"
-	storagev1 "k8s.io/api/storage/v1"
-	storagev1alpha1 "k8s.io/api/storage/v1alpha1"
-	storagev1beta1 "k8s.io/api/storage/v1beta1"
+	certificates_v1beta1 "k8s.io/api/certificates/v1beta1"
+	core_v1 "k8s.io/api/core/v1"
+	events_v1beta1 "k8s.io/api/events/v1beta1"
+	extensions_v1beta1 "k8s.io/api/extensions/v1beta1"
+	networking_v1 "k8s.io/api/networking/v1"
+	policy_v1beta1 "k8s.io/api/policy/v1beta1"
+	rbac_v1 "k8s.io/api/rbac/v1"
+	rbac_v1alpha1 "k8s.io/api/rbac/v1alpha1"
+	rbac_v1beta1 "k8s.io/api/rbac/v1beta1"
+	scheduling_v1alpha1 "k8s.io/api/scheduling/v1alpha1"
+	settings_v1alpha1 "k8s.io/api/settings/v1alpha1"
+	storage_v1 "k8s.io/api/storage/v1"
+	storage_v1alpha1 "k8s.io/api/storage/v1alpha1"
+	storage_v1beta1 "k8s.io/api/storage/v1beta1"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
 )
@@ -100,11 +98,11 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Apps().V1().StatefulSets().Informer()}, nil
 
 		// Group=apps, Version=v1beta1
-	case appsv1beta1.SchemeGroupVersion.WithResource("controllerrevisions"):
+	case apps_v1beta1.SchemeGroupVersion.WithResource("controllerrevisions"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Apps().V1beta1().ControllerRevisions().Informer()}, nil
-	case appsv1beta1.SchemeGroupVersion.WithResource("deployments"):
+	case apps_v1beta1.SchemeGroupVersion.WithResource("deployments"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Apps().V1beta1().Deployments().Informer()}, nil
-	case appsv1beta1.SchemeGroupVersion.WithResource("statefulsets"):
+	case apps_v1beta1.SchemeGroupVersion.WithResource("statefulsets"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Apps().V1beta1().StatefulSets().Informer()}, nil
 
 		// Group=apps, Version=v1beta2
@@ -120,7 +118,7 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Apps().V1beta2().StatefulSets().Informer()}, nil
 
 		// Group=autoscaling, Version=v1
-	case autoscalingv1.SchemeGroupVersion.WithResource("horizontalpodautoscalers"):
+	case autoscaling_v1.SchemeGroupVersion.WithResource("horizontalpodautoscalers"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Autoscaling().V1().HorizontalPodAutoscalers().Informer()}, nil
 
 		// Group=autoscaling, Version=v2beta1
@@ -128,11 +126,11 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Autoscaling().V2beta1().HorizontalPodAutoscalers().Informer()}, nil
 
 		// Group=batch, Version=v1
-	case batchv1.SchemeGroupVersion.WithResource("jobs"):
+	case batch_v1.SchemeGroupVersion.WithResource("jobs"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Batch().V1().Jobs().Informer()}, nil
 
 		// Group=batch, Version=v1beta1
-	case batchv1beta1.SchemeGroupVersion.WithResource("cronjobs"):
+	case batch_v1beta1.SchemeGroupVersion.WithResource("cronjobs"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Batch().V1beta1().CronJobs().Informer()}, nil
 
 		// Group=batch, Version=v2alpha1
@@ -140,127 +138,119 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Batch().V2alpha1().CronJobs().Informer()}, nil
 
 		// Group=certificates.k8s.io, Version=v1beta1
-	case certificatesv1beta1.SchemeGroupVersion.WithResource("certificatesigningrequests"):
+	case certificates_v1beta1.SchemeGroupVersion.WithResource("certificatesigningrequests"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Certificates().V1beta1().CertificateSigningRequests().Informer()}, nil
 
-		// Group=coordination.k8s.io, Version=v1beta1
-	case coordinationv1beta1.SchemeGroupVersion.WithResource("leases"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Coordination().V1beta1().Leases().Informer()}, nil
-
 		// Group=core, Version=v1
-	case corev1.SchemeGroupVersion.WithResource("componentstatuses"):
+	case core_v1.SchemeGroupVersion.WithResource("componentstatuses"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Core().V1().ComponentStatuses().Informer()}, nil
-	case corev1.SchemeGroupVersion.WithResource("configmaps"):
+	case core_v1.SchemeGroupVersion.WithResource("configmaps"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Core().V1().ConfigMaps().Informer()}, nil
-	case corev1.SchemeGroupVersion.WithResource("endpoints"):
+	case core_v1.SchemeGroupVersion.WithResource("endpoints"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Core().V1().Endpoints().Informer()}, nil
-	case corev1.SchemeGroupVersion.WithResource("events"):
+	case core_v1.SchemeGroupVersion.WithResource("events"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Core().V1().Events().Informer()}, nil
-	case corev1.SchemeGroupVersion.WithResource("limitranges"):
+	case core_v1.SchemeGroupVersion.WithResource("limitranges"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Core().V1().LimitRanges().Informer()}, nil
-	case corev1.SchemeGroupVersion.WithResource("namespaces"):
+	case core_v1.SchemeGroupVersion.WithResource("namespaces"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Core().V1().Namespaces().Informer()}, nil
-	case corev1.SchemeGroupVersion.WithResource("nodes"):
+	case core_v1.SchemeGroupVersion.WithResource("nodes"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Core().V1().Nodes().Informer()}, nil
-	case corev1.SchemeGroupVersion.WithResource("persistentvolumes"):
+	case core_v1.SchemeGroupVersion.WithResource("persistentvolumes"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Core().V1().PersistentVolumes().Informer()}, nil
-	case corev1.SchemeGroupVersion.WithResource("persistentvolumeclaims"):
+	case core_v1.SchemeGroupVersion.WithResource("persistentvolumeclaims"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Core().V1().PersistentVolumeClaims().Informer()}, nil
-	case corev1.SchemeGroupVersion.WithResource("pods"):
+	case core_v1.SchemeGroupVersion.WithResource("pods"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Core().V1().Pods().Informer()}, nil
-	case corev1.SchemeGroupVersion.WithResource("podtemplates"):
+	case core_v1.SchemeGroupVersion.WithResource("podtemplates"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Core().V1().PodTemplates().Informer()}, nil
-	case corev1.SchemeGroupVersion.WithResource("replicationcontrollers"):
+	case core_v1.SchemeGroupVersion.WithResource("replicationcontrollers"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Core().V1().ReplicationControllers().Informer()}, nil
-	case corev1.SchemeGroupVersion.WithResource("resourcequotas"):
+	case core_v1.SchemeGroupVersion.WithResource("resourcequotas"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Core().V1().ResourceQuotas().Informer()}, nil
-	case corev1.SchemeGroupVersion.WithResource("secrets"):
+	case core_v1.SchemeGroupVersion.WithResource("secrets"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Core().V1().Secrets().Informer()}, nil
-	case corev1.SchemeGroupVersion.WithResource("services"):
+	case core_v1.SchemeGroupVersion.WithResource("services"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Core().V1().Services().Informer()}, nil
-	case corev1.SchemeGroupVersion.WithResource("serviceaccounts"):
+	case core_v1.SchemeGroupVersion.WithResource("serviceaccounts"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Core().V1().ServiceAccounts().Informer()}, nil
 
 		// Group=events.k8s.io, Version=v1beta1
-	case eventsv1beta1.SchemeGroupVersion.WithResource("events"):
+	case events_v1beta1.SchemeGroupVersion.WithResource("events"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Events().V1beta1().Events().Informer()}, nil
 
 		// Group=extensions, Version=v1beta1
-	case extensionsv1beta1.SchemeGroupVersion.WithResource("daemonsets"):
+	case extensions_v1beta1.SchemeGroupVersion.WithResource("daemonsets"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Extensions().V1beta1().DaemonSets().Informer()}, nil
-	case extensionsv1beta1.SchemeGroupVersion.WithResource("deployments"):
+	case extensions_v1beta1.SchemeGroupVersion.WithResource("deployments"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Extensions().V1beta1().Deployments().Informer()}, nil
-	case extensionsv1beta1.SchemeGroupVersion.WithResource("ingresses"):
+	case extensions_v1beta1.SchemeGroupVersion.WithResource("ingresses"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Extensions().V1beta1().Ingresses().Informer()}, nil
-	case extensionsv1beta1.SchemeGroupVersion.WithResource("podsecuritypolicies"):
+	case extensions_v1beta1.SchemeGroupVersion.WithResource("podsecuritypolicies"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Extensions().V1beta1().PodSecurityPolicies().Informer()}, nil
-	case extensionsv1beta1.SchemeGroupVersion.WithResource("replicasets"):
+	case extensions_v1beta1.SchemeGroupVersion.WithResource("replicasets"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Extensions().V1beta1().ReplicaSets().Informer()}, nil
 
 		// Group=networking.k8s.io, Version=v1
-	case networkingv1.SchemeGroupVersion.WithResource("networkpolicies"):
+	case networking_v1.SchemeGroupVersion.WithResource("networkpolicies"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Networking().V1().NetworkPolicies().Informer()}, nil
 
 		// Group=policy, Version=v1beta1
-	case policyv1beta1.SchemeGroupVersion.WithResource("poddisruptionbudgets"):
+	case policy_v1beta1.SchemeGroupVersion.WithResource("poddisruptionbudgets"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Policy().V1beta1().PodDisruptionBudgets().Informer()}, nil
-	case policyv1beta1.SchemeGroupVersion.WithResource("podsecuritypolicies"):
+	case policy_v1beta1.SchemeGroupVersion.WithResource("podsecuritypolicies"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Policy().V1beta1().PodSecurityPolicies().Informer()}, nil
 
 		// Group=rbac.authorization.k8s.io, Version=v1
-	case rbacv1.SchemeGroupVersion.WithResource("clusterroles"):
+	case rbac_v1.SchemeGroupVersion.WithResource("clusterroles"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Rbac().V1().ClusterRoles().Informer()}, nil
-	case rbacv1.SchemeGroupVersion.WithResource("clusterrolebindings"):
+	case rbac_v1.SchemeGroupVersion.WithResource("clusterrolebindings"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Rbac().V1().ClusterRoleBindings().Informer()}, nil
-	case rbacv1.SchemeGroupVersion.WithResource("roles"):
+	case rbac_v1.SchemeGroupVersion.WithResource("roles"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Rbac().V1().Roles().Informer()}, nil
-	case rbacv1.SchemeGroupVersion.WithResource("rolebindings"):
+	case rbac_v1.SchemeGroupVersion.WithResource("rolebindings"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Rbac().V1().RoleBindings().Informer()}, nil
 
 		// Group=rbac.authorization.k8s.io, Version=v1alpha1
-	case rbacv1alpha1.SchemeGroupVersion.WithResource("clusterroles"):
+	case rbac_v1alpha1.SchemeGroupVersion.WithResource("clusterroles"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Rbac().V1alpha1().ClusterRoles().Informer()}, nil
-	case rbacv1alpha1.SchemeGroupVersion.WithResource("clusterrolebindings"):
+	case rbac_v1alpha1.SchemeGroupVersion.WithResource("clusterrolebindings"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Rbac().V1alpha1().ClusterRoleBindings().Informer()}, nil
-	case rbacv1alpha1.SchemeGroupVersion.WithResource("roles"):
+	case rbac_v1alpha1.SchemeGroupVersion.WithResource("roles"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Rbac().V1alpha1().Roles().Informer()}, nil
-	case rbacv1alpha1.SchemeGroupVersion.WithResource("rolebindings"):
+	case rbac_v1alpha1.SchemeGroupVersion.WithResource("rolebindings"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Rbac().V1alpha1().RoleBindings().Informer()}, nil
 
 		// Group=rbac.authorization.k8s.io, Version=v1beta1
-	case rbacv1beta1.SchemeGroupVersion.WithResource("clusterroles"):
+	case rbac_v1beta1.SchemeGroupVersion.WithResource("clusterroles"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Rbac().V1beta1().ClusterRoles().Informer()}, nil
-	case rbacv1beta1.SchemeGroupVersion.WithResource("clusterrolebindings"):
+	case rbac_v1beta1.SchemeGroupVersion.WithResource("clusterrolebindings"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Rbac().V1beta1().ClusterRoleBindings().Informer()}, nil
-	case rbacv1beta1.SchemeGroupVersion.WithResource("roles"):
+	case rbac_v1beta1.SchemeGroupVersion.WithResource("roles"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Rbac().V1beta1().Roles().Informer()}, nil
-	case rbacv1beta1.SchemeGroupVersion.WithResource("rolebindings"):
+	case rbac_v1beta1.SchemeGroupVersion.WithResource("rolebindings"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Rbac().V1beta1().RoleBindings().Informer()}, nil
 
 		// Group=scheduling.k8s.io, Version=v1alpha1
-	case schedulingv1alpha1.SchemeGroupVersion.WithResource("priorityclasses"):
+	case scheduling_v1alpha1.SchemeGroupVersion.WithResource("priorityclasses"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Scheduling().V1alpha1().PriorityClasses().Informer()}, nil
 
-		// Group=scheduling.k8s.io, Version=v1beta1
-	case schedulingv1beta1.SchemeGroupVersion.WithResource("priorityclasses"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Scheduling().V1beta1().PriorityClasses().Informer()}, nil
-
 		// Group=settings.k8s.io, Version=v1alpha1
-	case settingsv1alpha1.SchemeGroupVersion.WithResource("podpresets"):
+	case settings_v1alpha1.SchemeGroupVersion.WithResource("podpresets"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Settings().V1alpha1().PodPresets().Informer()}, nil
 
 		// Group=storage.k8s.io, Version=v1
-	case storagev1.SchemeGroupVersion.WithResource("storageclasses"):
+	case storage_v1.SchemeGroupVersion.WithResource("storageclasses"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Storage().V1().StorageClasses().Informer()}, nil
 
 		// Group=storage.k8s.io, Version=v1alpha1
-	case storagev1alpha1.SchemeGroupVersion.WithResource("volumeattachments"):
+	case storage_v1alpha1.SchemeGroupVersion.WithResource("volumeattachments"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Storage().V1alpha1().VolumeAttachments().Informer()}, nil
 
 		// Group=storage.k8s.io, Version=v1beta1
-	case storagev1beta1.SchemeGroupVersion.WithResource("storageclasses"):
+	case storage_v1beta1.SchemeGroupVersion.WithResource("storageclasses"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Storage().V1beta1().StorageClasses().Informer()}, nil
-	case storagev1beta1.SchemeGroupVersion.WithResource("volumeattachments"):
+	case storage_v1beta1.SchemeGroupVersion.WithResource("volumeattachments"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Storage().V1beta1().VolumeAttachments().Informer()}, nil
 
 	}

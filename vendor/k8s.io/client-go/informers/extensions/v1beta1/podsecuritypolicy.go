@@ -1,5 +1,5 @@
 /*
-Copyright The Kubernetes Authors.
+Copyright 2018 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ package v1beta1
 import (
 	time "time"
 
-	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
+	extensions_v1beta1 "k8s.io/api/extensions/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -69,7 +69,7 @@ func NewFilteredPodSecurityPolicyInformer(client kubernetes.Interface, resyncPer
 				return client.ExtensionsV1beta1().PodSecurityPolicies().Watch(options)
 			},
 		},
-		&extensionsv1beta1.PodSecurityPolicy{},
+		&extensions_v1beta1.PodSecurityPolicy{},
 		resyncPeriod,
 		indexers,
 	)
@@ -80,7 +80,7 @@ func (f *podSecurityPolicyInformer) defaultInformer(client kubernetes.Interface,
 }
 
 func (f *podSecurityPolicyInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&extensionsv1beta1.PodSecurityPolicy{}, f.defaultInformer)
+	return f.factory.InformerFor(&extensions_v1beta1.PodSecurityPolicy{}, f.defaultInformer)
 }
 
 func (f *podSecurityPolicyInformer) Lister() v1beta1.PodSecurityPolicyLister {

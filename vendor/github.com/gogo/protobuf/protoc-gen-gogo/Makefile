@@ -29,5 +29,13 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+all: test
+
 test:
-	cd testdata && make test
+	go test
+	make -C testdata test
+
+regenerate:
+	go test --regenerate
+	make -C descriptor regenerate
+	make -C plugin regenerate
