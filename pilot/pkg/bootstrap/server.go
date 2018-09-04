@@ -45,7 +45,6 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd"
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
-	"istio.io/istio/pilot/pkg/config/clusterregistry"
 	"istio.io/istio/pilot/pkg/config/coredatamodel"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/config/kube/ingress"
@@ -65,6 +64,7 @@ import (
 	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/features/pilot"
 	kubelib "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/secretcontroller"
 	"istio.io/istio/pkg/log"
 	mcpclient "istio.io/istio/pkg/mcp/client"
 	"istio.io/istio/pkg/mcp/configz"
@@ -80,6 +80,8 @@ const (
 	ConfigMapKey = "mesh"
 
 	requiredMCPCertCheckFreq = 500 * time.Millisecond
+
+	resyncPeriod = 30 * time.Second
 )
 
 var (
@@ -173,14 +175,16 @@ type Server struct {
 	mixerSAN         []string
 	kubeClient       kubernetes.Interface
 	startFuncs       []startFunc
-	clusterStore     *clusterregistry.ClusterStore
 	httpServer       *http.Server
 	grpcServer       *grpc.Server
 	secureGRPCServer *grpc.Server
 	discoveryService *envoy.DiscoveryService
 	istioConfigStore model.IstioConfigStore
 	mux              *http.ServeMux
-	kubeRegistry     *kube.Controller
+	kubeRegistry     map[string]*kube.Controller
+	ResyncPeriod     time.Duration
+	WatchedNamespace string //TODO - is there a better place to store these?
+	DomainSuffix     string
 }
 
 // NewServer creates a new Server instance based on the provided arguments.
@@ -199,11 +203,17 @@ func NewServer(args PilotArgs) (*Server, error) {
 
 	s := &Server{}
 
+	if args.Config.ControllerOptions.ResyncPeriod != 0 {
+		s.ResyncPeriod = args.Config.ControllerOptions.ResyncPeriod
+	} else {
+		s.ResyncPeriod = resyncPeriod
+	}
+
+	s.WatchedNamespace = args.Config.ControllerOptions.WatchedNamespace
+	s.DomainSuffix = args.Config.ControllerOptions.DomainSuffix
+
 	// Apply the arguments to the configuration.
 	if err := s.initKubeClient(&args); err != nil {
-		return nil, err
-	}
-	if err := s.initClusterRegistries(&args); err != nil {
 		return nil, err
 	}
 	if err := s.initMesh(&args); err != nil {
@@ -224,7 +234,7 @@ func NewServer(args PilotArgs) (*Server, error) {
 	if err := s.initMonitor(&args); err != nil {
 		return nil, err
 	}
-	if err := s.initMultiClusterController(&args); err != nil {
+	if err := s.initMultiClusterSecretController(&args); err != nil {
 		return nil, err
 	}
 
@@ -269,42 +279,6 @@ func (s *Server) initMonitor(args *PilotArgs) error {
 		return nil
 	})
 	return nil
-}
-
-func (s *Server) initClusterRegistries(args *PilotArgs) (err error) {
-	s.clusterStore = clusterregistry.NewClustersStore()
-
-	if s.kubeClient == nil {
-		log.Infof("skipping cluster registries, no kube-client created")
-		return nil
-	}
-
-	// Drop from multicluster test cases if Mock Registry is used
-	if checkForMock(args.Service.Registries) {
-		return nil
-	}
-	if args.Config.ClusterRegistriesConfigmap != "" {
-		if err = clusterregistry.ReadClusters(s.kubeClient,
-			args.Config.ClusterRegistriesConfigmap,
-			args.Config.ClusterRegistriesNamespace,
-			s.clusterStore); err != nil {
-			return err
-		}
-	}
-	log.Infof("clusters configuration %s", spew.Sdump(s.clusterStore))
-
-	return err
-}
-
-// Check if Mock's registry exists in PilotArgs's Registries
-func checkForMock(registries []string) bool {
-	for _, r := range registries {
-		if strings.ToLower(r) == "mock" {
-			return true
-		}
-	}
-
-	return false
 }
 
 // GetMeshConfig fetches the ProxyMesh configuration from Kubernetes ConfigMap.
@@ -615,7 +589,8 @@ func (s *Server) createK8sServiceControllers(serviceControllers *aggregate.Contr
 	clusterID := string(serviceregistry.KubernetesRegistry)
 	log.Infof("Primary Cluster name: %s", clusterID)
 	kubectl := kube.NewController(s.kubeClient, args.Config.ControllerOptions)
-	s.kubeRegistry = kubectl
+	s.kubeRegistry = make(map[string]*kube.Controller)
+	s.kubeRegistry[clusterID] = kubectl
 	serviceControllers.AddRegistry(
 		aggregate.Registry{
 			Name:             serviceregistry.KubernetesRegistry,
@@ -628,26 +603,62 @@ func (s *Server) createK8sServiceControllers(serviceControllers *aggregate.Contr
 	return
 }
 
-// initMultiClusterController initializes multi cluster controller
-// currently implemented only for kubernetes registries
-func (s *Server) initMultiClusterController(args *PilotArgs) error {
+// initMultiClusterSecretController initializes multi cluster secret controller
+// to watch for remote cluster additions or deletions.
+// Currently implemented only for kubernetes registries
+func (s *Server) initMultiClusterSecretController(args *PilotArgs) (err error) {
 	if hasKubeRegistry(args) {
-		s.addStartFunc(func(stop <-chan struct{}) error {
-			secretController := clusterregistry.NewController(s.kubeClient,
-				args.Config.ClusterRegistriesNamespace,
-				s.clusterStore,
-				s.ServiceController,
-				s.EnvoyXdsServer,
-				args.Config.ControllerOptions.ResyncPeriod,
-				args.Config.ControllerOptions.WatchedNamespace,
-				args.Config.ControllerOptions.DomainSuffix)
 
-			// Start secret controller which watches for runtime secret Object changes and adds secrets dynamically
-			go secretController.Run(stop)
+		err = secretcontroller.StartSecretController(s.kubeClient, s.addMemberCluster, s.deleteMemberCluster, args.Config.ClusterRegistriesNamespace)
+		if err != nil {
+			return fmt.Errorf("could not start secret controller: %v", err)
+		}
 
-			return nil
-		})
 	}
+	return nil
+}
+
+//addMemberCluster is passed to the secret controller as a callback to be called
+//when a remote cluster is added
+func (s *Server) addMemberCluster(clientset kubernetes.Interface, clusterID string) error {
+
+	//stopCh to stop and remove controller created here when cluster removed.
+	stopCh := make(chan struct{})
+	kubectl := kube.NewController(clientset, kube.ControllerOptions{
+		WatchedNamespace: s.WatchedNamespace,
+		ResyncPeriod:     s.ResyncPeriod,
+		DomainSuffix:     s.DomainSuffix,
+	})
+	s.kubeRegistry[clusterID] = kubectl
+	s.ServiceController.AddRegistry(
+		aggregate.Registry{
+			Name:             serviceregistry.KubernetesRegistry,
+			ClusterID:        clusterID,
+			ServiceDiscovery: kubectl,
+			ServiceAccounts:  kubectl,
+			Controller:       kubectl,
+		})
+
+	kubectl.StopChan = stopCh
+
+	_ = kubectl.AppendServiceHandler(func(*model.Service, model.Event) { s.EnvoyXdsServer.ClearCacheFunc()() })
+	_ = kubectl.AppendInstanceHandler(func(*model.ServiceInstance, model.Event) { s.EnvoyXdsServer.ClearCacheFunc()() })
+	go kubectl.Run(stopCh)
+
+	return nil
+}
+
+// deleteMemberCluster is passed to the secret controller as a callback to be called
+// when a remote cluster is deleted
+func (s *Server) deleteMemberCluster(clusterID string) error {
+
+	s.ServiceController.DeleteRegistry(clusterID)
+	kubectl := s.kubeRegistry[clusterID]
+	close(kubectl.StopChan)
+	<-kubectl.StopChan
+	delete(s.kubeRegistry, clusterID)
+	s.EnvoyXdsServer.ClearCacheFunc()()
+
 	return nil
 }
 
@@ -786,7 +797,9 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	if s.kubeRegistry != nil {
 		// kubeRegistry may use the environment for push status reporting.
 		// TODO: maybe all registries should have his as an optional field ?
-		s.kubeRegistry.Env = environment
+		// TODO; why is this sufficient to only do this once.  for the first cluster
+
+		s.kubeRegistry[string(serviceregistry.KubernetesRegistry)].Env = environment
 	}
 
 	s.EnvoyXdsServer.InitDebug(s.mux, s.ServiceController)
