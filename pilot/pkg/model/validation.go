@@ -1785,6 +1785,28 @@ func ValidateServiceEntry(name, namespace string, config proto.Message) (errs er
 			networking.ServiceEntry_Resolution_name[int32(serviceEntry.Resolution)]))
 	}
 
+	// multiple hosts and TCP is invalid unless the resolution type is NONE.
+	// depending on the protocol, we can differentiate between hosts when proxying:
+	// - with HTTP, the authority header can be used
+	// - with HTTPS/TLS with SNI, the ServerName can be used
+	// however, for plain TCP there is no way to differentiate between the
+	// hosts so we consider it invalid, unless the resolution type is NONE 
+	// (because the hosts are ignored).
+	if serviceEntry.Resolution != networking.ServiceEntry_NONE && len(serviceEntry.Hosts) > 1 {
+		canDifferentiate := true
+		for _, port := range serviceEntry.Ports {
+			protocol := ParseProtocol(port.Protocol)
+			if !protocol.IsHTTP() && !protocol.IsTLS() {
+				canDifferentiate = false
+				break
+			}
+		}
+
+		if !canDifferentiate {
+			errs = appendErrors(errs, fmt.Errorf("multiple hosts provided with non-HTTP, non-TLS ports"))
+		}
+	}
+
 	for _, port := range serviceEntry.Ports {
 		errs = appendErrors(errs,
 			validatePortName(port.Name),
