@@ -119,6 +119,15 @@ spec:
           optional: true
       {{- end }}
       affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: "app"
+                    operator: In
+                    values:
+                    - istio-{{ $spec.labels.istio }}
+              topologyKey: "kubernetes.io/hostname"
       {{- include "nodeaffinity" $ | indent 6 }}
 ---
 {{- end }}

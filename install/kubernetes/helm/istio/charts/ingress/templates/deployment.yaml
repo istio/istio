@@ -103,4 +103,13 @@ spec:
           secretName: istio-ingress-certs
           optional: true
       affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: "istio"
+                    operator: In
+                    values:
+                    - {{ template "istio.name" . }} 
+              topologyKey: "kubernetes.io/hostname"
       {{- include "nodeaffinity" . | indent 6 }}

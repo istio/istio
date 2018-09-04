@@ -12,6 +12,15 @@
       - name: uds-socket
         emptyDir: {}
       affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: "app"
+                    operator: In
+                    values:
+                    - policy
+              topologyKey: "kubernetes.io/hostname"
       {{- include "nodeaffinity" . | indent 6 }}
       containers:
       - name: mixer
@@ -96,6 +105,16 @@
 
 {{- define "telemetry_container" }}
     spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: "app"
+                    operator: In
+                    values:
+                    - telemetry
+              topologyKey: "kubernetes.io/hostname"
       serviceAccountName: istio-mixer-service-account
       volumes:
       - name: istio-certs

@@ -83,4 +83,13 @@ spec:
           - key: config
             path: config
       affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: "istio"
+                    operator: In
+                    values:
+                    - sidecar-injector
+              topologyKey: "kubernetes.io/hostname"
       {{- include "nodeaffinity" . | indent 6 }}

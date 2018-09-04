@@ -84,4 +84,13 @@ spec:
         configMap:
           name: istio-galley-configuration
       affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: "istio"
+                    operator: In
+                    values:
+                    - galley
+              topologyKey: "kubernetes.io/hostname"
       {{- include "nodeaffinity" . | indent 6 }}

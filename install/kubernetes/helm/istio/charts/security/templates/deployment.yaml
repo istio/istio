@@ -60,4 +60,13 @@ spec:
          optional: true
 {{- end }}
       affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: "istio"
+                    operator: In
+                    values:
+                    - citadel
+              topologyKey: "kubernetes.io/hostname"
       {{- include "nodeaffinity" . | indent 6 }}

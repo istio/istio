@@ -49,6 +49,15 @@ spec:
     {{- end }}
     {{- with .Values.affinity }}
       affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: "app"
+                    operator: In
+                    values:
+                    - certmanager 
+              topologyKey: "kubernetes.io/hostname"
 {{ toYaml . | indent 8 }}
     {{- end }}
     {{- with .Values.tolerations }}

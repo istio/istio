@@ -153,3 +153,12 @@ spec:
           secretName: istio.istio-pilot-service-account
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: "app"
+                    operator: In
+                    values:
+                    - pilot
+              topologyKey: "kubernetes.io/hostname"
