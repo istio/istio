@@ -64,6 +64,9 @@ global:
       host: ""
       port: 9125
 
+    # Sets an identifier for the remote network to be used for Split Horizon EDS.
+    # network: "network1"
+
   proxy_init:
     # Base name for the proxy_init container, used to configure iptables.
     image: proxy_init
