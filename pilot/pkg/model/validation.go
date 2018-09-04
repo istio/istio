@@ -1790,7 +1790,7 @@ func ValidateServiceEntry(name, namespace string, config proto.Message) (errs er
 	// - with HTTP, the authority header can be used
 	// - with HTTPS/TLS with SNI, the ServerName can be used
 	// however, for plain TCP there is no way to differentiate between the
-	// hosts so we consider it invalid, unless the resolution type is NONE 
+	// hosts so we consider it invalid, unless the resolution type is NONE
 	// (because the hosts are ignored).
 	if serviceEntry.Resolution != networking.ServiceEntry_NONE && len(serviceEntry.Hosts) > 1 {
 		canDifferentiate := true
