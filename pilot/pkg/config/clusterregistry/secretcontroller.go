@@ -266,7 +266,6 @@ func (c *Controller) deleteMemberCluster(secretName string) {
 			c.serviceController.DeleteRegistry(clusterID)
 			// Stop controller
 			close(c.cs.rc[clusterID].ControlChannel)
-			<-c.cs.rc[clusterID].ControlChannel
 			// Deleting remote cluster entry from clusters store
 			delete(c.cs.rc, clusterID)
 		}
