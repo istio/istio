@@ -543,19 +543,25 @@ func (r *ruleAttributes) GetAttribute(name string) *descriptor.AttributeManifest
 func (b *builder) buildRuleCompiler(parent ast.AttributeDescriptorFinder, rule *config.Rule) *compiled.ExpressionBuilder {
 	// create attribute type descriptor from action templates
 	attributeDescriptor := make(map[string]*descriptor.AttributeManifest_AttributeInfo)
+
+	// TODO(kuat): add dynamic action support
 	for _, action := range rule.ActionsStatic {
+		if len(action.Instances) == 0 {
+			continue
+		}
+
 		// TODO(kuat): rationalize multi-instance check actions
-		if len(action.Instances) > 0 {
-			if template := action.Instances[0].Template; template.Variety == tpb.TEMPLATE_VARIETY_CHECK_WITH_OUTPUT {
-				for _, manifest := range template.AttributeManifests {
-					for attrName, attrInfo := range manifest.Attributes {
-						attributeDescriptor[fmt.Sprintf("%s.output.%s", action.Name, attrName)] = attrInfo
-					}
-				}
+		template := action.Instances[0].Template
+		if template.Variety != tpb.TEMPLATE_VARIETY_CHECK_WITH_OUTPUT {
+			continue
+		}
+
+		for _, manifest := range template.AttributeManifests {
+			for attrName, attrInfo := range manifest.Attributes {
+				attributeDescriptor[action.Name+".output."+attrName] = attrInfo
 			}
 		}
 	}
-	// TODO(kuat): add dynamic action support
 	return compiled.NewBuilder(&ruleAttributes{parent: parent, overrides: attributeDescriptor})
 }
 

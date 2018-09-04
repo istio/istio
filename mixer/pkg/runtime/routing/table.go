@@ -143,7 +143,7 @@ type InstanceGroup struct {
 	Mappers []template.OutputMapperFn
 }
 
-// OperationType enumeration
+// OperationType enumeration for the route directive header operation template.
 type OperationType int
 
 const (
