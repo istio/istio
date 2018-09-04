@@ -40,6 +40,10 @@ export GOPATH
 GO_TOP := $(shell echo ${GOPATH} | cut -d ':' -f1)
 export GO_TOP
 
+# Needed for make test to work out of the box (by default it tries to use ~/.kube/config)
+KUBECONFIG ?= $(GO_TOP)/src/istio.io/istio/.circleci/config
+export KUBECONFIG
+
 # Note that disabling cgo here adversely affects go get.  Instead we'll rely on this
 # to be handled in bin/gobuild.sh
 # export CGO_ENABLED=0
