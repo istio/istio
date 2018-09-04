@@ -63,12 +63,12 @@ func TestCheckResult(t *testing.T) {
 	for _, rt := range tests {
 		t.Run(rt.name, func(t *testing.T) {
 
-			actualDefault := rt.vg.IsDefault()
+			actualDefault := IsDefault(&rt.vg)
 			if actualDefault != rt.isDefault {
 				t.Fatalf("check result about default error, Got: %v\n Expected: %v", actualDefault, rt.isDefault)
 			}
 
-			actualString := rt.vg.String()
+			actualString := String(&rt.vg)
 			if actualString != rt.expectedString {
 				t.Fatalf("check result about string error, Got: %s\n Expected: %s", actualString, rt.expectedString)
 			}

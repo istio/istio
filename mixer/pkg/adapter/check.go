@@ -15,6 +15,8 @@
 package adapter
 
 import (
+	"fmt"
+
 	"istio.io/api/mixer/adapter/model/v1beta1"
 	"istio.io/istio/mixer/pkg/status"
 )
@@ -25,4 +27,10 @@ type CheckResult = v1beta1.CheckResult
 // IsDefault returns true if the CheckResult is in its zero state
 func IsDefault(r *CheckResult) bool {
 	return status.IsOK(r.Status) && r.ValidDuration == 0 && r.ValidUseCount == 0
+}
+
+// String returns human readable text for the check result.
+func String(r *CheckResult) string {
+	return fmt.Sprintf("CheckResult: status:%s, duration:%d, usecount:%d", status.String(r.Status), r.ValidDuration, r.ValidUseCount)
+
 }
