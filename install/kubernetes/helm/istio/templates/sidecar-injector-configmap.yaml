@@ -28,6 +28,14 @@ data:
         - 1337
         - "-m"
         - {{ "[[ or (index .ObjectMeta.Annotations \"sidecar.istio.io/interceptionMode\") .ProxyConfig.InterceptionMode.String ]]" }}
+        {{ "[[ if (isset .ObjectMeta.Annotations \"traffic.sidecar.istio.io/includeOutboundPorts\") -]]" }}
+        - "-o"
+        {{ "- \"[[ index .ObjectMeta.Annotations \"traffic.sidecar.istio.io/includeOutboundPorts\"  ]]\"" }}
+        {{ "[[ end -]]" }}
+        {{ "[[ if (isset .ObjectMeta.Annotations \"traffic.sidecar.istio.io/excludeOutboundPorts\") -]]" }}
+        - "-z"
+        {{ "- \"[[ index .ObjectMeta.Annotations \"traffic.sidecar.istio.io/excludeOutboundPorts\"  ]]\"" }}
+        {{ "[[ end -]]" }}    
         - "-i"
         {{ "[[ if (isset .ObjectMeta.Annotations \"traffic.sidecar.istio.io/includeOutboundIPRanges\") -]]" }}
         {{ "- \"[[ index .ObjectMeta.Annotations \"traffic.sidecar.istio.io/includeOutboundIPRanges\"  ]]\"" }}
