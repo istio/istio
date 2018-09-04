@@ -241,8 +241,6 @@ type XdsConnection struct {
 // configDump converts the connection internal state into an Envoy Admin API config dump proto
 // It is used in debugging to create a consistent object for comparison between Envoy and Pilot outputs
 func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump, error) {
-	configDump := &adminapi.ConfigDump{Configs: map[string]types.Any{}}
-
 	dynamicActiveClusters := []adminapi.ClustersConfigDump_DynamicCluster{}
 	clusters, err := s.generateRawClusters(conn.modelNode, s.env.PushContext)
 	if err != nil {
@@ -258,7 +256,6 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 	if err != nil {
 		return nil, err
 	}
-	configDump.Configs["clusters"] = *clustersAny
 
 	dynamicActiveListeners := []adminapi.ListenersConfigDump_DynamicListener{}
 	listeners, err := s.generateRawListeners(conn, s.env.PushContext)
@@ -275,24 +272,27 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 	if err != nil {
 		return nil, err
 	}
-	configDump.Configs["listeners"] = *listenersAny
 
 	routes, err := s.generateRawRoutes(conn, s.env.PushContext)
 	if err != nil {
 		return nil, err
 	}
+	routeConfigAny, _ := types.MarshalAny(&adminapi.RoutesConfigDump{})
 	if len(routes) > 0 {
 		dynamicRouteConfig := []adminapi.RoutesConfigDump_DynamicRouteConfig{}
 		for _, rs := range routes {
 			dynamicRouteConfig = append(dynamicRouteConfig, adminapi.RoutesConfigDump_DynamicRouteConfig{RouteConfig: rs})
 		}
-		routeConfigAny, err := types.MarshalAny(&adminapi.RoutesConfigDump{DynamicRouteConfigs: dynamicRouteConfig})
+		routeConfigAny, err = types.MarshalAny(&adminapi.RoutesConfigDump{DynamicRouteConfigs: dynamicRouteConfig})
 		if err != nil {
 			return nil, err
 		}
-		configDump.Configs["routes"] = *routeConfigAny
 	}
 
+	bootstrapAny, _ := types.MarshalAny(&adminapi.BootstrapConfigDump{})
+	// The config dump must have all configs with order specified in
+	// https://www.envoyproxy.io/docs/envoy/latest/api-v2/admin/v2alpha/config_dump.proto
+	configDump := &adminapi.ConfigDump{Configs: []types.Any{*bootstrapAny, *clustersAny, *listenersAny, *routeConfigAny}}
 	return configDump, nil
 }
 
@@ -614,20 +614,20 @@ func adsClientCount() int {
 
 // AdsPushAll is used only by tests (after refactoring)
 func AdsPushAll(s *DiscoveryServer) {
-	s.AdsPushAll(versionInfo(), s.env.PushContext)
+	s.AdsPushAll(versionInfo())
 }
 
 // AdsPushAll implements old style invalidation, generated when any rule or endpoint changes.
 // Primary code path is from v1 discoveryService.clearCache(), which is added as a handler
 // to the model ConfigStorageCache and Controller.
-func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext) {
+func (s *DiscoveryServer) AdsPushAll(version string) {
+	pushContext := s.env.PushContext
+
 	adsLog.Infof("XDS: Pushing %s Services: %d, "+
 		"VirtualServices: %d, ConnectedEndpoints: %d", version,
-		len(push.Services), len(push.VirtualServiceConfigs), adsClientCount())
-	monServices.Set(float64(len(push.Services)))
-	monVServices.Set(float64(len(push.VirtualServiceConfigs)))
-
-	pushContext := s.env.PushContext
+		len(pushContext.Services), len(pushContext.VirtualServiceConfigs), adsClientCount())
+	monServices.Set(float64(len(pushContext.Services)))
+	monVServices.Set(float64(len(pushContext.VirtualServiceConfigs)))
 
 	t0 := time.Now()
 
@@ -645,7 +645,7 @@ func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext) {
 	// the update may be duplicated if multiple goroutines compute at the same time).
 	// In general this code is called from the 'event' callback that is throttled.
 	for clusterName, edsCluster := range cMap {
-		if err := s.updateCluster(push, clusterName, edsCluster); err != nil {
+		if err := s.updateCluster(pushContext, clusterName, edsCluster); err != nil {
 			adsLog.Errorf("updateCluster failed with clusterName %s", clusterName)
 		}
 	}

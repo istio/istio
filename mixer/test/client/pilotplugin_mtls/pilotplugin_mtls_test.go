@@ -133,8 +133,7 @@ static_resources:
   "request.url_path": "/echo"
 }
 `
-	// See issue https://github.com/istio/proxy/issues/1910
-	// "source.user": "cluster.local/ns/default/sa/client",
+
 	checkAttributesOkInbound = `
 {
   "connection.mtls": true,
@@ -218,8 +217,6 @@ static_resources:
   "request.url_path": "/echo"
 }`
 
-	// See issue https://github.com/istio/proxy/issues/1910
-	// "source.user": "cluster.local/ns/default/sa/client",
 	reportAttributesOkInbound = `
 {
   "connection.mtls": true,

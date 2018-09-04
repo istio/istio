@@ -31,12 +31,34 @@
   revision = "6bade2a0677a5cd76f937ef4cd2e426f55742ad1"
 
 [[projects]]
-  digest = "1:31858c4ee1ed344edf8b5b0507e3e9bc4e39cfe61e132ca064eaa82ba053a663"
+  digest = "1:631d6f34f86c4e4cb42a37b611f25bfb4f90c5f443439eb73a9aa4ee7bc557a3"
   name = "contrib.go.opencensus.io/exporter/stackdriver"
-  packages = ["."]
+  packages = [
+    ".",
+    "monitoredresource",
+  ]
   pruneopts = "NUT"
-  revision = "37aa2801fbf0205003e15636096ebf0373510288"
-  version = "v0.5.0"
+  revision = "2b93072101d466aa4120b3c23c2e1b08af01541c"
+  version = "v0.6.0"
+
+[[projects]]
+  digest = "1:ca58755cd68a0c97d7d2791b0123c10a119f6384fa222b439c74a2aed49b470a"
+  name = "fortio.org/fortio"
+  packages = [
+    ".",
+    "bincommon",
+    "fgrpc",
+    "fhttp",
+    "fnet",
+    "log",
+    "periodic",
+    "stats",
+    "ui",
+    "version",
+  ]
+  pruneopts = "T"
+  revision = "4a5012fb92ee87ecbdd80ed2cb031f5cf9c50cbc"
+  version = "v1.2.1"
 
 [[projects]]
   digest = "1:add5f01e863553e80ded66e1cba646ad947932e66f90813741d51c97a1ee7a59"
@@ -304,7 +326,7 @@
   version = "v2.6.0"
 
 [[projects]]
-  digest = "1:43909fe418bab85e33e29f68baec75dd02b061b0db400798146bd5d8c2f255cd"
+  digest = "1:021347aff4c65bc7847025aae2d338d4aefb1fa8e7661c22ad1695d606ad9775"
   name = "github.com/envoyproxy/go-control-plane"
   packages = [
     "envoy/admin/v2alpha",
@@ -324,6 +346,7 @@
     "envoy/config/filter/http/rbac/v2",
     "envoy/config/filter/network/http_connection_manager/v2",
     "envoy/config/filter/network/mongo_proxy/v2",
+    "envoy/config/filter/network/rbac/v2",
     "envoy/config/filter/network/tcp_proxy/v2",
     "envoy/config/metrics/v2",
     "envoy/config/overload/v2alpha",
@@ -339,7 +362,7 @@
     "pkg/util",
   ]
   pruneopts = "T"
-  revision = "676016db8193d83324a507a986a78cd3642ad713"
+  revision = "9abdeff70b1fcebc846b2518ccb73478fa10164e"
   version = "v0.5.0"
 
 [[projects]]
@@ -1581,7 +1604,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:1683f1b5bf7fb8812a73b0e4afb1fd5cf76aaf7a6f891c77ad41d39f486a85d7"
+  digest = "1:bc6824880b54dfb2b1e7f7d8a278d458992f5b52fca06f4d8486afdecad31ea6"
   name = "istio.io/api"
   packages = [
     "authentication/v1alpha1",
@@ -1597,26 +1620,7 @@
     "rbac/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "fac61dc6aaec82b5824918f379e29ff48afcd2cb"
-
-[[projects]]
-  digest = "1:a0934c59fa838e950c6b4b114e13376349d4eb3e054d86322f70ac42a15d3d95"
-  name = "istio.io/fortio"
-  packages = [
-    ".",
-    "bincommon",
-    "fgrpc",
-    "fhttp",
-    "fnet",
-    "log",
-    "periodic",
-    "stats",
-    "ui",
-    "version",
-  ]
-  pruneopts = "T"
-  revision = "d13f3b92c63db22136bac4e0896562404bd4ef6e"
-  version = "v1.1.0"
+  revision = "d96294810379bc28083e88a2633a1f52736498e0"
 
 [[projects]]
   digest = "1:1e22c9d898674522a6155619142b4691dd225441168faa2b5a4eb88ee327a243"
@@ -1990,6 +1994,9 @@
     "code.cloudfoundry.org/copilot/api",
     "code.cloudfoundry.org/copilot/testhelpers",
     "contrib.go.opencensus.io/exporter/stackdriver",
+    "fortio.org/fortio",
+    "fortio.org/fortio/fhttp",
+    "fortio.org/fortio/periodic",
     "github.com/DataDog/datadog-go/statsd",
     "github.com/alicebob/miniredis",
     "github.com/alicebob/miniredis/server",
@@ -2023,6 +2030,7 @@
     "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/rbac/v2",
     "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2",
     "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/mongo_proxy/v2",
+    "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/rbac/v2",
     "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2",
     "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2alpha",
     "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2",
@@ -2151,9 +2159,6 @@
     "istio.io/api/networking/v1alpha3",
     "istio.io/api/policy/v1beta1",
     "istio.io/api/rbac/v1alpha1",
-    "istio.io/fortio",
-    "istio.io/fortio/fhttp",
-    "istio.io/fortio/periodic",
     "k8s.io/api/admission/v1beta1",
     "k8s.io/api/admissionregistration/v1beta1",
     "k8s.io/api/apps/v1",
@@ -2187,6 +2192,7 @@
     "k8s.io/client-go/dynamic",
     "k8s.io/client-go/dynamic/fake",
     "k8s.io/client-go/informers",
+    "k8s.io/client-go/informers/extensions/v1beta1",
     "k8s.io/client-go/kubernetes",
     "k8s.io/client-go/kubernetes/fake",
     "k8s.io/client-go/kubernetes/scheme",

@@ -34,7 +34,7 @@ import (
 
 var (
 	serverAddr = flag.String("server", "127.0.0.1:9901", "The server address")
-	types      = flag.String("types", "", "The types of resources to deploy")
+	types      = flag.String("types", "", "The fully qualified type URLs of resources to deploy")
 	id         = flag.String("id", "", "The node id for the client")
 )
 
@@ -43,10 +43,10 @@ type updater struct {
 
 // Update interface method implementation.
 func (u *updater) Apply(ch *client.Change) error {
-	fmt.Printf("Incoming change: %v\n", ch.MessageName)
+	fmt.Printf("Incoming change: %v\n", ch.TypeURL)
 
 	for i, o := range ch.Objects {
-		fmt.Printf("%s[%d]\n", ch.MessageName, i)
+		fmt.Printf("%s[%d]\n", ch.TypeURL, i)
 
 		b, err := json.MarshalIndent(o, "  ", "  ")
 		if err != nil {

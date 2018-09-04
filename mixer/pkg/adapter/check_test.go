@@ -21,28 +21,57 @@ import (
 )
 
 func TestCheckResult(t *testing.T) {
-	cr := CheckResult{}
-	s := cr.String()
-	if s == "" {
-		t.Error("Expected valid string")
+
+	tests := []struct {
+		name           string
+		vg             CheckResult
+		isDefault      bool
+		expectedString string
+	}{
+		{
+			name:           "default, and no string",
+			vg:             CheckResult{},
+			isDefault:      true,
+			expectedString: "CheckResult: status:OK, duration:0, usecount:0",
+		},
+		{
+			name: "not default, and occur fail status",
+			vg: CheckResult{
+				Status: status.WithCancelled("FAIL"),
+			},
+			isDefault:      false,
+			expectedString: "CheckResult: status:CANCELLED (FAIL), duration:0, usecount:0",
+		},
+		{
+			name: "not default, and just set validDuration",
+			vg: CheckResult{
+				ValidDuration: 1,
+			},
+			isDefault:      false,
+			expectedString: "CheckResult: status:OK, duration:1, usecount:0",
+		},
+		{
+			name: "not default, and just validUseCount parameter",
+			vg: CheckResult{
+				ValidUseCount: 10,
+			},
+			isDefault:      false,
+			expectedString: "CheckResult: status:OK, duration:0, usecount:10",
+		},
 	}
 
-	if !IsDefault(&cr) {
-		t.Error("Expecting IsDefault to return true")
-	}
+	for _, rt := range tests {
+		t.Run(rt.name, func(t *testing.T) {
 
-	cr.Status = status.WithCancelled("FAIL")
-	if IsDefault(&cr) {
-		t.Error("Expecting IsDefault to return false")
-	}
+			actualDefault := rt.vg.IsDefault()
+			if actualDefault != rt.isDefault {
+				t.Fatalf("check result about default error, Got: %v\n Expected: %v", actualDefault, rt.isDefault)
+			}
 
-	cr = CheckResult{ValidUseCount: 1}
-	if IsDefault(&cr) {
-		t.Error("Expecting IsDefault to return false")
-	}
-
-	cr = CheckResult{ValidDuration: 10}
-	if IsDefault(&cr) {
-		t.Error("Expecting IsDefault to return false")
+			actualString := rt.vg.String()
+			if actualString != rt.expectedString {
+				t.Fatalf("check result about string error, Got: %s\n Expected: %s", actualString, rt.expectedString)
+			}
+		})
 	}
 }

@@ -51,6 +51,7 @@ var (
 	discoveryCmd = &cobra.Command{
 		Use:   "discovery",
 		Short: "Start Istio proxy discovery service.",
+		Args:  cobra.ExactArgs(0),
 		RunE: func(c *cobra.Command, args []string) error {
 			cmd.PrintFlags(c.Flags())
 			if err := log.Configure(loggingOptions); err != nil {
@@ -105,6 +106,8 @@ func init() {
 		"Select a namespace where the controller resides. If not set, uses ${POD_NAMESPACE} environment variable")
 	discoveryCmd.PersistentFlags().StringSliceVar(&serverArgs.Plugins, "plugins", bootstrap.DefaultPlugins,
 		"comma separated list of networking plugins to enable")
+	discoveryCmd.PersistentFlags().StringSliceVar(&serverArgs.MCPServerAddrs, "mcpServerAddrs", []string{},
+		"comma separated list of mesh config protocol server addresses")
 
 	// Config Controller options
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.FileDir, "configDir", "",
@@ -134,14 +137,13 @@ func init() {
 		"Enable profiling via web interface host:port/debug/pprof")
 	discoveryCmd.PersistentFlags().BoolVar(&serverArgs.DiscoveryOptions.EnableCaching, "discoveryCache", true,
 		"Enable caching discovery service responses")
-	// TODO (rshriram): Need v1/v2 endpoints and option to selectively
-	// enable webhook for specific xDS config (cds/lds/etc).
-	discoveryCmd.PersistentFlags().StringVar(&serverArgs.DiscoveryOptions.WebhookEndpoint, "webhookEndpoint", "",
-		"Webhook API endpoint (supports http://sockethost, and unix:///absolute/path/to/socket")
 
 	// Deprecated flags.
-	discoveryCmd.PersistentFlags().IntVar(&httpPort, "port", 8080,
-		"Discovery service port")
+	var dummy string
+	discoveryCmd.PersistentFlags().StringVar(&dummy, "webhookEndpoint", "",
+		"Webhook API endpoint (supports http://sockethost, and unix:///absolute/path/to/socket")
+	discoveryCmd.PersistentFlags().MarkDeprecated("webhookEndpoint", "Stop using, it will be remove in a future release")
+	discoveryCmd.PersistentFlags().IntVar(&httpPort, "port", 8080, "Discovery service port")
 	discoveryCmd.PersistentFlags().MarkDeprecated("port", "Use --httpAddr instead")
 	discoveryCmd.PersistentFlags().IntVar(&monitoringPort, "monitoringPort", 9093,
 		"HTTP port to use for the exposing pilot self-monitoring information")

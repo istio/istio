@@ -17,7 +17,6 @@ package validation
 import (
 	"crypto/tls"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -27,7 +26,6 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/howeyc/fsnotify"
-
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 	"k8s.io/api/admissionregistration/v1beta1"
 	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
@@ -43,7 +41,6 @@ import (
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/probe"
 )
 
 var (
@@ -54,7 +51,6 @@ var (
 
 const (
 	watchDebounceDelay = 100 * time.Millisecond
-	reconcilePeriod    = 5 * time.Second
 )
 
 // WebhookParameters contains the configuration for the Istio Pilot validation
@@ -81,15 +77,6 @@ type WebhookParameters struct {
 	// KeyFile is the path to the x509 private key matching `CertFile`.
 	KeyFile string
 
-	// HealthCheckInterval configures how frequently the health check
-	// file is updated. Value of zero disables the health check
-	// update.
-	HealthCheckInterval time.Duration
-
-	// HealthCheckFile specifies the path to the health check file
-	// that is periodically updated.
-	HealthCheckFile string
-
 	// WebhookConfigFile is the path to the validatingwebhookconfiguration
 	// file that should be used for self-registration.
 	WebhookConfigFile string
@@ -107,6 +94,9 @@ type WebhookParameters struct {
 	DeploymentName string
 
 	Clientset clientset.Interface
+
+	// Enable galley validation mode
+	EnableValidation bool
 }
 
 // Webhook implements the validating admission webhook for validating Istio configuration.
@@ -121,10 +111,6 @@ type Webhook struct {
 	// mixer
 	validator store.BackendValidator
 
-	healthProbe          *probe.Probe
-	healthController     probe.Controller
-	healthCheckInterval  time.Duration
-	healthCheckFile      string
 	server               *http.Server
 	keyCertWatcher       *fsnotify.Watcher
 	configWatcher        *fsnotify.Watcher
@@ -146,7 +132,6 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	certKeyWatcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, err
@@ -181,8 +166,6 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 		},
 		keyCertWatcher:      certKeyWatcher,
 		configWatcher:       configWatcher,
-		healthCheckInterval: p.HealthCheckInterval,
-		healthCheckFile:     p.HealthCheckFile,
 		certFile:            p.CertFile,
 		keyFile:             p.KeyFile,
 		cert:                &pair,
@@ -193,17 +176,6 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 		clientset:           p.Clientset,
 		deploymentName:      p.DeploymentName,
 		deploymentNamespace: p.DeploymentNamespace,
-		healthProbe:         probe.NewProbe(),
-		healthController: probe.NewFileController(&probe.Options{
-			Path:           p.HealthCheckFile,
-			UpdateInterval: p.HealthCheckInterval,
-		}),
-	}
-
-	if wh.healthCheckInterval != 0 && wh.healthCheckFile != "" {
-		wh.healthProbe.RegisterProbe(wh.healthController, "validation")
-		wh.healthProbe.SetAvailable(errors.New("not ready"))
-		wh.healthController.Start()
 	}
 
 	if galleyDeployment, err := wh.clientset.ExtensionsV1beta1().Deployments(wh.deploymentNamespace).Get(wh.deploymentName, v1.GetOptions{}); err != nil { // nolint: lll
@@ -255,12 +227,7 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 
 	var reconcileTickerC <-chan time.Time
 	if wh.webhookConfigFile != "" {
-		reconcileTickerC = time.NewTicker(reconcilePeriod).C
-	}
-
-	if wh.healthCheckInterval != 0 && wh.healthCheckFile != "" {
-		wh.healthProbe.SetAvailable(nil)
-		defer wh.healthController.Close()
+		reconcileTickerC = time.NewTicker(time.Second).C
 	}
 
 	for {

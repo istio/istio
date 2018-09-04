@@ -23,7 +23,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='mcp/v1alpha1/mcp.proto',
   package='istio.mcp.v1alpha1',
   syntax='proto3',
-  serialized_pb=_b('\n\x16mcp/v1alpha1/mcp.proto\x12\x12istio.mcp.v1alpha1\x1a\x1cgoogle/protobuf/struct.proto\x1a\x17google/rpc/status.proto\x1a\x14gogoproto/gogo.proto\x1a\x1bmcp/v1alpha1/envelope.proto\"?\n\x06\x43lient\x12\n\n\x02id\x18\x01 \x01(\t\x12)\n\x08metadata\x18\x02 \x01(\x0b\x32\x17.google.protobuf.Struct\"\xa9\x01\n\x11MeshConfigRequest\x12\x14\n\x0cversion_info\x18\x01 \x01(\t\x12*\n\x06\x63lient\x18\x02 \x01(\x0b\x32\x1a.istio.mcp.v1alpha1.Client\x12\x10\n\x08type_url\x18\x03 \x01(\t\x12\x16\n\x0eresponse_nonce\x18\x04 \x01(\t\x12(\n\x0c\x65rror_detail\x18\x05 \x01(\x0b\x32\x12.google.rpc.Status\"\x82\x01\n\x12MeshConfigResponse\x12\x14\n\x0cversion_info\x18\x01 \x01(\t\x12\x35\n\tenvelopes\x18\x02 \x03(\x0b\x32\x1c.istio.mcp.v1alpha1.EnvelopeB\x04\xc8\xde\x1f\x00\x12\x10\n\x08type_url\x18\x03 \x01(\t\x12\r\n\x05nonce\x18\x04 \x01(\t2\x8f\x01\n\x1b\x41ggregatedMeshConfigService\x12p\n\x19StreamAggregatedResources\x12%.istio.mcp.v1alpha1.MeshConfigRequest\x1a&.istio.mcp.v1alpha1.MeshConfigResponse\"\x00(\x01\x30\x01\x42\x1fZ\x19istio.io/api/mcp/v1alpha1\xa8\xe2\x1e\x01\x62\x06proto3')
+  serialized_pb=_b('\n\x16mcp/v1alpha1/mcp.proto\x12\x12istio.mcp.v1alpha1\x1a\x1cgoogle/protobuf/struct.proto\x1a\x17google/rpc/status.proto\x1a\x14gogoproto/gogo.proto\x1a\x1bmcp/v1alpha1/envelope.proto\"?\n\x06\x43lient\x12\n\n\x02id\x18\x01 \x01(\t\x12)\n\x08metadata\x18\x02 \x01(\x0b\x32\x17.google.protobuf.Struct\"\xa9\x01\n\x11MeshConfigRequest\x12\x14\n\x0cversion_info\x18\x01 \x01(\t\x12*\n\x06\x63lient\x18\x02 \x01(\x0b\x32\x1a.istio.mcp.v1alpha1.Client\x12\x10\n\x08type_url\x18\x03 \x01(\t\x12\x16\n\x0eresponse_nonce\x18\x04 \x01(\t\x12(\n\x0c\x65rror_detail\x18\x05 \x01(\x0b\x32\x12.google.rpc.Status\"\x82\x01\n\x12MeshConfigResponse\x12\x14\n\x0cversion_info\x18\x01 \x01(\t\x12\x35\n\tenvelopes\x18\x02 \x03(\x0b\x32\x1c.istio.mcp.v1alpha1.EnvelopeB\x04\xc8\xde\x1f\x00\x12\x10\n\x08type_url\x18\x03 \x01(\t\x12\r\n\x05nonce\x18\x04 \x01(\t\"\xd0\x02\n\x1cIncrementalMeshConfigRequest\x12*\n\x06\x63lient\x18\x01 \x01(\x0b\x32\x1a.istio.mcp.v1alpha1.Client\x12\x10\n\x08type_url\x18\x02 \x01(\t\x12p\n\x19initial_resource_versions\x18\x03 \x03(\x0b\x32M.istio.mcp.v1alpha1.IncrementalMeshConfigRequest.InitialResourceVersionsEntry\x12\x16\n\x0eresponse_nonce\x18\x04 \x01(\t\x12(\n\x0c\x65rror_detail\x18\x05 \x01(\x0b\x32\x12.google.rpc.Status\x1a>\n\x1cInitialResourceVersionsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\x9d\x01\n\x1dIncrementalMeshConfigResponse\x12\x1b\n\x13system_version_info\x18\x01 \x01(\t\x12\x35\n\tenvelopes\x18\x02 \x03(\x0b\x32\x1c.istio.mcp.v1alpha1.EnvelopeB\x04\xc8\xde\x1f\x00\x12\x19\n\x11removed_resources\x18\x03 \x03(\t\x12\r\n\x05nonce\x18\x04 \x01(\t2\x9d\x02\n\x1b\x41ggregatedMeshConfigService\x12p\n\x19StreamAggregatedResources\x12%.istio.mcp.v1alpha1.MeshConfigRequest\x1a&.istio.mcp.v1alpha1.MeshConfigResponse\"\x00(\x01\x30\x01\x12\x8b\x01\n\x1eIncrementalAggregatedResources\x12\x30.istio.mcp.v1alpha1.IncrementalMeshConfigRequest\x1a\x31.istio.mcp.v1alpha1.IncrementalMeshConfigResponse\"\x00(\x01\x30\x01\x42\x1fZ\x19istio.io/api/mcp/v1alpha1\xa8\xe2\x1e\x01\x62\x06proto3')
   ,
   dependencies=[google_dot_protobuf_dot_struct__pb2.DESCRIPTOR,google_dot_rpc_dot_status__pb2.DESCRIPTOR,gogoproto_dot_gogo__pb2.DESCRIPTOR,mcp_dot_v1alpha1_dot_envelope__pb2.DESCRIPTOR,])
 
@@ -178,13 +178,168 @@ _MESHCONFIGRESPONSE = _descriptor.Descriptor(
   serialized_end=520,
 )
 
+
+_INCREMENTALMESHCONFIGREQUEST_INITIALRESOURCEVERSIONSENTRY = _descriptor.Descriptor(
+  name='InitialResourceVersionsEntry',
+  full_name='istio.mcp.v1alpha1.IncrementalMeshConfigRequest.InitialResourceVersionsEntry',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='key', full_name='istio.mcp.v1alpha1.IncrementalMeshConfigRequest.InitialResourceVersionsEntry.key', index=0,
+      number=1, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='value', full_name='istio.mcp.v1alpha1.IncrementalMeshConfigRequest.InitialResourceVersionsEntry.value', index=1,
+      number=2, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None, file=DESCRIPTOR),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  options=_descriptor._ParseOptions(descriptor_pb2.MessageOptions(), _b('8\001')),
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=797,
+  serialized_end=859,
+)
+
+_INCREMENTALMESHCONFIGREQUEST = _descriptor.Descriptor(
+  name='IncrementalMeshConfigRequest',
+  full_name='istio.mcp.v1alpha1.IncrementalMeshConfigRequest',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='client', full_name='istio.mcp.v1alpha1.IncrementalMeshConfigRequest.client', index=0,
+      number=1, type=11, cpp_type=10, label=1,
+      has_default_value=False, default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='type_url', full_name='istio.mcp.v1alpha1.IncrementalMeshConfigRequest.type_url', index=1,
+      number=2, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='initial_resource_versions', full_name='istio.mcp.v1alpha1.IncrementalMeshConfigRequest.initial_resource_versions', index=2,
+      number=3, type=11, cpp_type=10, label=3,
+      has_default_value=False, default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='response_nonce', full_name='istio.mcp.v1alpha1.IncrementalMeshConfigRequest.response_nonce', index=3,
+      number=4, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='error_detail', full_name='istio.mcp.v1alpha1.IncrementalMeshConfigRequest.error_detail', index=4,
+      number=5, type=11, cpp_type=10, label=1,
+      has_default_value=False, default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None, file=DESCRIPTOR),
+  ],
+  extensions=[
+  ],
+  nested_types=[_INCREMENTALMESHCONFIGREQUEST_INITIALRESOURCEVERSIONSENTRY, ],
+  enum_types=[
+  ],
+  options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=523,
+  serialized_end=859,
+)
+
+
+_INCREMENTALMESHCONFIGRESPONSE = _descriptor.Descriptor(
+  name='IncrementalMeshConfigResponse',
+  full_name='istio.mcp.v1alpha1.IncrementalMeshConfigResponse',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='system_version_info', full_name='istio.mcp.v1alpha1.IncrementalMeshConfigResponse.system_version_info', index=0,
+      number=1, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='envelopes', full_name='istio.mcp.v1alpha1.IncrementalMeshConfigResponse.envelopes', index=1,
+      number=2, type=11, cpp_type=10, label=3,
+      has_default_value=False, default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=_descriptor._ParseOptions(descriptor_pb2.FieldOptions(), _b('\310\336\037\000')), file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='removed_resources', full_name='istio.mcp.v1alpha1.IncrementalMeshConfigResponse.removed_resources', index=2,
+      number=3, type=9, cpp_type=9, label=3,
+      has_default_value=False, default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='nonce', full_name='istio.mcp.v1alpha1.IncrementalMeshConfigResponse.nonce', index=3,
+      number=4, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None, file=DESCRIPTOR),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=862,
+  serialized_end=1019,
+)
+
 _CLIENT.fields_by_name['metadata'].message_type = google_dot_protobuf_dot_struct__pb2._STRUCT
 _MESHCONFIGREQUEST.fields_by_name['client'].message_type = _CLIENT
 _MESHCONFIGREQUEST.fields_by_name['error_detail'].message_type = google_dot_rpc_dot_status__pb2._STATUS
 _MESHCONFIGRESPONSE.fields_by_name['envelopes'].message_type = mcp_dot_v1alpha1_dot_envelope__pb2._ENVELOPE
+_INCREMENTALMESHCONFIGREQUEST_INITIALRESOURCEVERSIONSENTRY.containing_type = _INCREMENTALMESHCONFIGREQUEST
+_INCREMENTALMESHCONFIGREQUEST.fields_by_name['client'].message_type = _CLIENT
+_INCREMENTALMESHCONFIGREQUEST.fields_by_name['initial_resource_versions'].message_type = _INCREMENTALMESHCONFIGREQUEST_INITIALRESOURCEVERSIONSENTRY
+_INCREMENTALMESHCONFIGREQUEST.fields_by_name['error_detail'].message_type = google_dot_rpc_dot_status__pb2._STATUS
+_INCREMENTALMESHCONFIGRESPONSE.fields_by_name['envelopes'].message_type = mcp_dot_v1alpha1_dot_envelope__pb2._ENVELOPE
 DESCRIPTOR.message_types_by_name['Client'] = _CLIENT
 DESCRIPTOR.message_types_by_name['MeshConfigRequest'] = _MESHCONFIGREQUEST
 DESCRIPTOR.message_types_by_name['MeshConfigResponse'] = _MESHCONFIGRESPONSE
+DESCRIPTOR.message_types_by_name['IncrementalMeshConfigRequest'] = _INCREMENTALMESHCONFIGREQUEST
+DESCRIPTOR.message_types_by_name['IncrementalMeshConfigResponse'] = _INCREMENTALMESHCONFIGRESPONSE
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
 Client = _reflection.GeneratedProtocolMessageType('Client', (_message.Message,), dict(
@@ -208,11 +363,37 @@ MeshConfigResponse = _reflection.GeneratedProtocolMessageType('MeshConfigRespons
   ))
 _sym_db.RegisterMessage(MeshConfigResponse)
 
+IncrementalMeshConfigRequest = _reflection.GeneratedProtocolMessageType('IncrementalMeshConfigRequest', (_message.Message,), dict(
+
+  InitialResourceVersionsEntry = _reflection.GeneratedProtocolMessageType('InitialResourceVersionsEntry', (_message.Message,), dict(
+    DESCRIPTOR = _INCREMENTALMESHCONFIGREQUEST_INITIALRESOURCEVERSIONSENTRY,
+    __module__ = 'mcp.v1alpha1.mcp_pb2'
+    # @@protoc_insertion_point(class_scope:istio.mcp.v1alpha1.IncrementalMeshConfigRequest.InitialResourceVersionsEntry)
+    ))
+  ,
+  DESCRIPTOR = _INCREMENTALMESHCONFIGREQUEST,
+  __module__ = 'mcp.v1alpha1.mcp_pb2'
+  # @@protoc_insertion_point(class_scope:istio.mcp.v1alpha1.IncrementalMeshConfigRequest)
+  ))
+_sym_db.RegisterMessage(IncrementalMeshConfigRequest)
+_sym_db.RegisterMessage(IncrementalMeshConfigRequest.InitialResourceVersionsEntry)
+
+IncrementalMeshConfigResponse = _reflection.GeneratedProtocolMessageType('IncrementalMeshConfigResponse', (_message.Message,), dict(
+  DESCRIPTOR = _INCREMENTALMESHCONFIGRESPONSE,
+  __module__ = 'mcp.v1alpha1.mcp_pb2'
+  # @@protoc_insertion_point(class_scope:istio.mcp.v1alpha1.IncrementalMeshConfigResponse)
+  ))
+_sym_db.RegisterMessage(IncrementalMeshConfigResponse)
+
 
 DESCRIPTOR.has_options = True
 DESCRIPTOR._options = _descriptor._ParseOptions(descriptor_pb2.FileOptions(), _b('Z\031istio.io/api/mcp/v1alpha1\250\342\036\001'))
 _MESHCONFIGRESPONSE.fields_by_name['envelopes'].has_options = True
 _MESHCONFIGRESPONSE.fields_by_name['envelopes']._options = _descriptor._ParseOptions(descriptor_pb2.FieldOptions(), _b('\310\336\037\000'))
+_INCREMENTALMESHCONFIGREQUEST_INITIALRESOURCEVERSIONSENTRY.has_options = True
+_INCREMENTALMESHCONFIGREQUEST_INITIALRESOURCEVERSIONSENTRY._options = _descriptor._ParseOptions(descriptor_pb2.MessageOptions(), _b('8\001'))
+_INCREMENTALMESHCONFIGRESPONSE.fields_by_name['envelopes'].has_options = True
+_INCREMENTALMESHCONFIGRESPONSE.fields_by_name['envelopes']._options = _descriptor._ParseOptions(descriptor_pb2.FieldOptions(), _b('\310\336\037\000'))
 
 _AGGREGATEDMESHCONFIGSERVICE = _descriptor.ServiceDescriptor(
   name='AggregatedMeshConfigService',
@@ -220,8 +401,8 @@ _AGGREGATEDMESHCONFIGSERVICE = _descriptor.ServiceDescriptor(
   file=DESCRIPTOR,
   index=0,
   options=None,
-  serialized_start=523,
-  serialized_end=666,
+  serialized_start=1022,
+  serialized_end=1307,
   methods=[
   _descriptor.MethodDescriptor(
     name='StreamAggregatedResources',
@@ -230,6 +411,15 @@ _AGGREGATEDMESHCONFIGSERVICE = _descriptor.ServiceDescriptor(
     containing_service=None,
     input_type=_MESHCONFIGREQUEST,
     output_type=_MESHCONFIGRESPONSE,
+    options=None,
+  ),
+  _descriptor.MethodDescriptor(
+    name='IncrementalAggregatedResources',
+    full_name='istio.mcp.v1alpha1.AggregatedMeshConfigService.IncrementalAggregatedResources',
+    index=1,
+    containing_service=None,
+    input_type=_INCREMENTALMESHCONFIGREQUEST,
+    output_type=_INCREMENTALMESHCONFIGRESPONSE,
     options=None,
   ),
 ])

@@ -121,7 +121,7 @@ var reportAttributesOkGet = `
   },
   "request.size": 0,
   "request.total_size": 306,
-  "response.total_size": 99,
+  "response.total_size": "*",
   "response.time": "*",
   "response.size": 0,
   "response.duration": "*",

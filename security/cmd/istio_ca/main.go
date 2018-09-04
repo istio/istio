@@ -152,6 +152,7 @@ var (
 	rootCmd = &cobra.Command{
 		Use:   "istio_ca",
 		Short: "Istio Certificate Authority (CA).",
+		Args:  cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
 			runCA()
 		},
@@ -252,7 +253,7 @@ func init() {
 	flags.StringVar(&opts.customDNSNames, "custom-dns-names", "",
 		"The list of account.namespace:customdns names, separated by comma.")
 
-	// Dual-use certficate signing
+	// Dual-use certificate signing
 	flags.BoolVar(&opts.dualUse, "experimental-dual-use",
 		false, "Enable dual-use mode. Generates certificates with a CommonName identical to the SAN.")
 

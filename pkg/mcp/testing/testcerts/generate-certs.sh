@@ -57,12 +57,12 @@ outfile=testcerts.go
 openssl genrsa -out CAKey.pem 2048
 openssl req -x509 -new -nodes -key CAKey.pem -days 100000 -out CACert.pem -subj "/CN=${CN_BASE}_ca"
 
-# Create a server certiticate
+# Create a server certificate
 openssl genrsa -out ServerKey.pem 2048
 openssl req -new -key ServerKey.pem -out server.csr -subj "/CN=${CN_BASE}_server" -config server.conf
 openssl x509 -req -in server.csr -CA CACert.pem -CAkey CAKey.pem -CAcreateserial -out ServerCert.pem -days 100000 -extensions v3_req -extfile server.conf
 
-# Create a client certiticate
+# Create a client certificate
 openssl genrsa -out ClientKey.pem 2048
 openssl req -new -key ClientKey.pem -out client.csr -subj "/CN=${CN_BASE}_client" -config client.conf
 openssl x509 -req -in client.csr -CA CACert.pem -CAkey CAKey.pem -CAcreateserial -out ClientCert.pem -days 100000 -extensions v3_req -extfile client.conf

@@ -716,7 +716,7 @@ func buildSidecarInboundMgmtListeners(managementPorts model.PortList, management
 				}},
 			}
 			l := buildListener(listenerOpts)
-			// TODO: should we call plugins for the admin port listeners too? We do everywhere else we contruct listeners.
+			// TODO: should we call plugins for the admin port listeners too? We do everywhere else we construct listeners.
 			if err := marshalFilters(l, listenerOpts, []plugin.FilterChain{{}}); err != nil {
 				log.Warna("buildSidecarInboundMgmtListeners ", err.Error())
 			} else {

@@ -47,7 +47,7 @@ type ExecClient interface {
 	AllPilotsDiscoveryDo(pilotNamespace, method, path string, body []byte) (map[string][]byte, error)
 }
 
-// NewClient is the contructor for the client wrapper
+// NewClient is the constructor for the client wrapper
 func NewClient(kubeconfig, configContext string) (*Client, error) {
 	config, err := defaultRestConfig(kubeconfig, configContext)
 	if err != nil {
@@ -60,7 +60,7 @@ func NewClient(kubeconfig, configContext string) (*Client, error) {
 	return &Client{config, restClient}, nil
 }
 
-// NewExecClient is the contructor for the mockable ExecClient interface
+// NewExecClient is the constructor for the mockable ExecClient interface
 func NewExecClient(kubeconfig, configContext string) (ExecClient, error) {
 	config, err := defaultRestConfig(kubeconfig, configContext)
 	if err != nil {

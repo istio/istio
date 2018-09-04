@@ -25,7 +25,9 @@ var (
 	deregisterCmd = &cobra.Command{
 		Use:   "deregister <svcname> <ip>",
 		Short: "De-registers a service instance",
-		Args:  cobra.MinimumNArgs(2),
+		Example: `# de-register an endpoint 172.17.0.2 from service my-svc:
+istioctl deregister my-svc 172.17.0.2`,
+		Args: cobra.MinimumNArgs(2),
 		RunE: func(c *cobra.Command, args []string) error {
 			svcName := args[0]
 			ip := args[1]
