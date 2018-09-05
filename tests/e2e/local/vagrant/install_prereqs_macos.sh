@@ -25,7 +25,7 @@ fi
 
 install_docker
 
-echo "Checking vitualbox..."
+echo "Checking virtualbox..."
 if ! virtualbox --help > /dev/null; then
     echo "virtualbox is not installed. Install it from homebrew cask."
     if ! brew cask install virtualbox; then
