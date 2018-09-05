@@ -227,7 +227,7 @@ fi
 if [[ "${DO_GCS}" == "true" ]]; then
   echo "Copying to GCS destination ${GCS_DEST}"
   gsutil -m cp "${UPLOAD_DIR}"/deb/istio*.deb "gs://${GCS_DEST}/deb/"
-  gsutil -m cp "${UPLOAD_DIR}/SHA256SUMS"     "gs://${GCS_DEST}/"
+# gsutil -m cp "${UPLOAD_DIR}/SHA256SUMS"     "gs://${GCS_DEST}/"
   echo "Done copying to GCS destination"
 fi
 
@@ -239,7 +239,7 @@ if [[ "${DO_DOCKERHUB}" == "true" || "${DO_GCRHUB}" == "true" ]]; then
 
   if [[ "${DO_DOCKERHUB}" == "true" && "${ADD_DOCKER_KEY}" == "true" ]]; then
     echo "using istio cred for docker"
-    gsutil cp gs://istio-secrets/dockerhub_config.json.enc "$HOME/.docker/config.json.enc"
+    gsutil -q cp gs://istio-secrets/dockerhub_config.json.enc "$HOME/.docker/config.json.enc"
     gcloud kms decrypt \
        --ciphertext-file="$HOME/.docker/config.json.enc" \
        --plaintext-file="$HOME/.docker/config.json" \
@@ -258,16 +258,18 @@ if [[ "${DO_DOCKERHUB}" == "true" || "${DO_GCRHUB}" == "true" ]]; then
       echo "No image tar files were found in docker/"
       exit 1
     fi
-    docker load -i "${TAR_PATH}"
+    DOCKER_OUT=$(docker load -i "${TAR_PATH}")
+    DOCKER_SRC=$(echo "$DOCKER_OUT" | cut -f 2 -d : | xargs dirname)
+    echo DOCKER_SRC is "$DOCKER_SRC"
 
     if [[ "${DO_DOCKERHUB}" == "true" ]]; then
-      docker tag "istio/${IMAGE_NAME}:${VERSION}" "${DOCKER_DEST}/${IMAGE_NAME}:${VERSION}"
-      docker push                                 "${DOCKER_DEST}/${IMAGE_NAME}:${VERSION}"
+      docker tag "${DOCKER_SRC}/${IMAGE_NAME}:${VERSION}" "${DOCKER_DEST}/${IMAGE_NAME}:${VERSION}"
+      docker push                                         "${DOCKER_DEST}/${IMAGE_NAME}:${VERSION}"
     fi
     if [[ "${DO_GCRHUB}" == "true" ]]; then
       gcloud auth configure-docker -q
-      docker tag "istio/${IMAGE_NAME}:${VERSION}"    "${GCR_DEST}/${IMAGE_NAME}:${VERSION}"
-      docker push                                    "${GCR_DEST}/${IMAGE_NAME}:${VERSION}"
+      docker tag "${DOCKER_SRC}/${IMAGE_NAME}:${VERSION}"    "${GCR_DEST}/${IMAGE_NAME}:${VERSION}"
+      docker push                                            "${GCR_DEST}/${IMAGE_NAME}:${VERSION}"
     fi
   done
 

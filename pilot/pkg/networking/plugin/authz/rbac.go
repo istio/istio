@@ -91,9 +91,10 @@ type serviceMetadata struct {
 }
 
 type rbacOption struct {
-	roles        []model.Config
-	bindings     []model.Config
-	forTCPFilter bool // The generated config is to be used by the Envoy network filter when true.
+	roles                []model.Config
+	bindings             []model.Config
+	forTCPFilter         bool // The generated config is to be used by the Envoy network filter when true.
+	globalPermissiveMode bool // True if global RBAC config is in permissive mode.
 }
 
 func createServiceMetadata(attr *model.ServiceAttributes, in *model.ServiceInstance) *serviceMetadata {
@@ -327,7 +328,8 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 	}
 	svc := in.ServiceInstance.Service.Hostname
 	attr := in.ServiceInstance.Service.Attributes
-	if !isRbacEnabled(string(svc), attr.Namespace, in.Env.IstioConfigStore) {
+	rbacEnabled, globalPermissive := isRbacEnabled(string(svc), attr.Namespace, in.Env.IstioConfigStore)
+	if !rbacEnabled {
 		return nil
 	}
 
@@ -335,7 +337,7 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 	case plugin.ListenerProtocolTCP:
 		service := createServiceMetadata(&attr, in.ServiceInstance)
 		rbacLog.Debugf("building tcp filter config for %v", *service)
-		filter := buildTCPFilter(service, in.Env.IstioConfigStore)
+		filter := buildTCPFilter(service, in.Env.IstioConfigStore, globalPermissive)
 		if filter != nil {
 			rbacLog.Infof("built tcp filter config for %s", service.name)
 			for cnum := range mutable.FilterChains {
@@ -345,7 +347,7 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 	case plugin.ListenerProtocolHTTP:
 		service := createServiceMetadata(&attr, in.ServiceInstance)
 		rbacLog.Debugf("building http filter config for %v", *service)
-		filter := buildHTTPFilter(service, in.Env.IstioConfigStore)
+		filter := buildHTTPFilter(service, in.Env.IstioConfigStore, globalPermissive)
 		if filter != nil {
 			rbacLog.Infof("built http filter config for %s", service.name)
 			for cnum := range mutable.FilterChains {
@@ -394,7 +396,7 @@ func isServiceInList(svc string, namespace string, li *rbacproto.RbacConfig_Targ
 	return false
 }
 
-func isRbacEnabled(svc string, ns string, store model.IstioConfigStore) bool {
+func isRbacEnabled(svc string, ns string, store model.IstioConfigStore) (bool /*rbac enabed*/, bool /*permissive mode enabled globally*/) {
 	var configProto *rbacproto.RbacConfig
 	config := store.RbacConfig()
 	if config != nil {
@@ -402,19 +404,20 @@ func isRbacEnabled(svc string, ns string, store model.IstioConfigStore) bool {
 	}
 	if configProto == nil {
 		rbacLog.Debugf("disabled, no RbacConfig")
-		return false
+		return false, false
 	}
 
+	isPermissive := configProto.EnforcementMode == rbacproto.EnforcementMode_PERMISSIVE
 	switch configProto.Mode {
 	case rbacproto.RbacConfig_ON:
-		return true
+		return true, isPermissive
 	case rbacproto.RbacConfig_ON_WITH_INCLUSION:
-		return isServiceInList(svc, ns, configProto.Inclusion)
+		return isServiceInList(svc, ns, configProto.Inclusion), isPermissive
 	case rbacproto.RbacConfig_ON_WITH_EXCLUSION:
-		return !isServiceInList(svc, ns, configProto.Exclusion)
+		return !isServiceInList(svc, ns, configProto.Exclusion), isPermissive
 	default:
 		rbacLog.Debugf("rbac plugin disabled by RbacConfig: %v", *configProto)
-		return false
+		return false, isPermissive
 	}
 }
 
@@ -454,7 +457,7 @@ func roleToBindings(bindings []model.Config) map[string][]*rbacproto.ServiceRole
 	return roleToBinding
 }
 
-func buildTCPFilter(service *serviceMetadata, store model.IstioConfigStore) *listener.Filter {
+func buildTCPFilter(service *serviceMetadata, store model.IstioConfigStore, globalPermissive bool) *listener.Filter {
 	roles, bindings, err := rbacPolicyForService(service, store)
 	if err != nil {
 		rbacLog.Errorf("failed to get rbac policy: %v", err)
@@ -463,7 +466,7 @@ func buildTCPFilter(service *serviceMetadata, store model.IstioConfigStore) *lis
 
 	// The result of convertRbacRulesToFilterConfig() is wrapped in a config for http filter, here we
 	// need to extract the generated rules and put in a config for network filter.
-	config := convertRbacRulesToFilterConfig(service, rbacOption{roles: roles, bindings: bindings, forTCPFilter: true})
+	config := convertRbacRulesToFilterConfig(service, rbacOption{roles: roles, bindings: bindings, forTCPFilter: true, globalPermissiveMode: globalPermissive})
 	tcpConfig := listener.Filter{
 		Name: rbacTCPFilterName,
 		Config: util.MessageToStruct(&network_config.RBAC{
@@ -478,14 +481,14 @@ func buildTCPFilter(service *serviceMetadata, store model.IstioConfigStore) *lis
 
 // buildHTTPFilter builds the RBAC http filter that enforces the access control to the specified
 // service which is co-located with the sidecar proxy.
-func buildHTTPFilter(service *serviceMetadata, store model.IstioConfigStore) *http_conn.HttpFilter {
+func buildHTTPFilter(service *serviceMetadata, store model.IstioConfigStore, globalPermissive bool) *http_conn.HttpFilter {
 	roles, bindings, err := rbacPolicyForService(service, store)
 	if err != nil {
 		rbacLog.Errorf("failed to get rbac policy: %v", err)
 		return nil
 	}
 
-	config := convertRbacRulesToFilterConfig(service, rbacOption{roles: roles, bindings: bindings, forTCPFilter: false})
+	config := convertRbacRulesToFilterConfig(service, rbacOption{roles: roles, bindings: bindings, forTCPFilter: false, globalPermissiveMode: globalPermissive})
 	rbacLog.Debugf("generated http filter config: %v", *config)
 	return &http_conn.HttpFilter{
 		Name:   rbacHTTPFilterName,
@@ -546,19 +549,39 @@ func convertRbacRulesToFilterConfig(service *serviceMetadata, option rbacOption)
 			continue
 		}
 
-		if len(enforcedPrincipals) != 0 {
-			rbac.Policies[role.Name] = &policyproto.Policy{
-				Permissions: permissions,
-				Principals:  enforcedPrincipals,
+		if option.globalPermissiveMode {
+			// If RBAC Config is set to permissive mode globally, all policies will be in
+			// permissive mode regardless its own mode.
+			ps := enforcedPrincipals
+			ps = append(ps, permissivePrincipals...)
+			if len(ps) != 0 {
+				permissiveRbac.Policies[role.Name] = &policyproto.Policy{
+					Permissions: permissions,
+					Principals:  ps,
+				}
 			}
-		}
+		} else {
+			if len(enforcedPrincipals) != 0 {
+				rbac.Policies[role.Name] = &policyproto.Policy{
+					Permissions: permissions,
+					Principals:  enforcedPrincipals,
+				}
+			}
 
-		if len(permissivePrincipals) != 0 {
-			permissiveRbac.Policies[role.Name] = &policyproto.Policy{
-				Permissions: permissions,
-				Principals:  permissivePrincipals,
+			if len(permissivePrincipals) != 0 {
+				permissiveRbac.Policies[role.Name] = &policyproto.Policy{
+					Permissions: permissions,
+					Principals:  permissivePrincipals,
+				}
 			}
 		}
+	}
+
+	// If RBAC Config is set to permissive mode globally, RBAC is transparent to users;
+	// when mapping to rbac filter config, there is only shadow rules(no normal rules).
+	if option.globalPermissiveMode {
+		return &http_config.RBAC{
+			ShadowRules: permissiveRbac}
 	}
 
 	return &http_config.RBAC{Rules: rbac, ShadowRules: permissiveRbac}

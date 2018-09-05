@@ -491,6 +491,36 @@ func (h Hostname) Matches(o Hostname) bool {
 	return matches
 }
 
+// SubsetOf returns true if this hostname is a valid subset of the other hostname. The semantics are
+// the same as "Matches", but only in one direction.
+func (h Hostname) SubsetOf(o Hostname) bool {
+	if len(h) == 0 && len(o) == 0 {
+		return true
+	}
+
+	hWildcard := string(h[0]) == "*"
+	oWildcard := string(o[0]) == "*"
+	if !oWildcard {
+		if hWildcard {
+			return false
+		}
+		return h == o
+	}
+
+	longer, shorter := string(h), string(o)
+	if hWildcard {
+		longer = string(h[1:])
+	}
+	if oWildcard {
+		shorter = string(o[1:])
+	}
+	if len(longer) < len(shorter) {
+		return false
+	}
+
+	return strings.HasSuffix(longer, shorter)
+}
+
 // Hostnames is a collection of Hostname; it exists so it's easy to sort hostnames consistently across Pilot.
 // In a few locations we care about the order hostnames appear in Envoy config: primarily HTTP routes, but also in
 // gateways, and for SNI. In those locations, we sort hostnames longest to shortest with wildcards last.

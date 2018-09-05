@@ -24,7 +24,7 @@ import (
 	"strconv"
 	"sync"
 
-	"istio.io/istio/pkg/test/util"
+	"istio.io/istio/pkg/test/env"
 )
 
 const (
@@ -212,7 +212,7 @@ func isEnvoyBinary(f os.FileInfo) bool {
 
 func findEnvoyBinaries() ([]string, error) {
 	binPaths := make([]string, 0)
-	err := filepath.Walk(util.IstioOut, func(path string, f os.FileInfo, err error) error {
+	err := filepath.Walk(env.IstioOut, func(path string, f os.FileInfo, err error) error {
 		if isEnvoyBinary(f) {
 			binPaths = append(binPaths, path)
 		}
@@ -250,7 +250,7 @@ func getDefaultEnvoyBinaryPath() (string, error) {
 	}
 
 	if len(binPaths) == 0 {
-		return "", fmt.Errorf("unable to locate an Envoy binary under dir %s", util.IstioOut)
+		return "", fmt.Errorf("unable to locate an Envoy binary under dir %s", env.IstioOut)
 	}
 
 	latestBinPath, err := findMostRecentFile(binPaths)

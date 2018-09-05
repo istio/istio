@@ -274,7 +274,7 @@ func (con *connection) processClientRequest(req *mcp.MeshConfigRequest) error {
 			scope.Debugf("MCP: connection %v: WATCH for %v", con, req.TypeUrl)
 		} else {
 			scope.Debugf("MCP: connection %v ACK version=%q with nonce=%q",
-				con, req.TypeUrl, req.VersionInfo, req.ResponseNonce)
+				con, req.VersionInfo, req.ResponseNonce)
 		}
 
 		if watch.cancel != nil {

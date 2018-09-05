@@ -69,7 +69,7 @@ var (
 
 var (
 	// Variables associated with clear cache squashing.
-	clearCacheMutex sync.Mutex
+	clearCacheMutex sync.RWMutex
 
 	// lastClearCache is the time we last pushed
 	lastClearCache time.Time
@@ -77,8 +77,8 @@ var (
 	// lastClearCacheEvent is the time of the last config event
 	lastClearCacheEvent time.Time
 
-	// clearCacheEvents is the counter of 'clearCache' calls
-	clearCacheEvents int
+	// clearCacheCounter is the counter of 'clearCache' calls
+	clearCacheCounter int
 
 	// clearCacheTimerSet is true if we are in squash mode, and a timer is already set
 	clearCacheTimerSet bool
@@ -246,10 +246,10 @@ func (ds *DiscoveryService) ClearCache() {
 
 // debouncePush is called on clear cache, to initiate a push.
 func debouncePush(startDebounce time.Time) {
-	clearCacheMutex.Lock()
+	clearCacheMutex.RLock()
 	since := time.Since(lastClearCacheEvent)
-	events := clearCacheEvents
-	clearCacheMutex.Unlock()
+	events := clearCacheCounter
+	clearCacheMutex.RUnlock()
 
 	if since > 2*DebounceAfter ||
 		time.Since(startDebounce) > DebounceMax {
@@ -259,8 +259,9 @@ func debouncePush(startDebounce time.Time) {
 			since, time.Since(lastClearCache))
 		clearCacheMutex.Lock()
 		clearCacheTimerSet = false
-		lastClearCache = time.Now()
 		clearCacheMutex.Unlock()
+		// no need to protect, no data race in case DebounceAfter > 0
+		lastClearCache = time.Now()
 		V2ClearCache()
 	} else {
 		log.Infof("Push debounce %d: %v since last change, %v since last push",
@@ -278,7 +279,7 @@ func (ds *DiscoveryService) clearCache() {
 	clearCacheMutex.Lock()
 	defer clearCacheMutex.Unlock()
 
-	clearCacheEvents++
+	clearCacheCounter++
 
 	if DebounceAfter > 0 {
 		lastClearCacheEvent = time.Now()
@@ -289,7 +290,7 @@ func (ds *DiscoveryService) clearCache() {
 			time.AfterFunc(DebounceAfter, func() {
 				debouncePush(startDebounce)
 			})
-		} // else: debunce in progress - it'll keep delaying the push
+		} // else: debounce in progress - it'll keep delaying the push
 
 		return
 	}
@@ -298,7 +299,7 @@ func (ds *DiscoveryService) clearCache() {
 	// If last config change was > 1 second ago, push.
 	if time.Since(lastClearCacheEvent) > 1*time.Second {
 		log.Infof("Push %d: %v since last change, %v since last push",
-			clearCacheEvents,
+			clearCacheCounter,
 			time.Since(lastClearCacheEvent), time.Since(lastClearCache))
 		lastClearCacheEvent = time.Now()
 		lastClearCache = time.Now()
@@ -312,10 +313,9 @@ func (ds *DiscoveryService) clearCache() {
 
 	// If last config change was < 1 second ago, but last push is > clearCacheTime ago -
 	// also push
-
 	if time.Since(lastClearCache) > time.Duration(clearCacheTime)*time.Second {
 		log.Infof("Timer push %d: %v since last change, %v since last push",
-			clearCacheEvents, time.Since(lastClearCacheEvent), time.Since(lastClearCache))
+			clearCacheCounter, time.Since(lastClearCacheEvent), time.Since(lastClearCache))
 		lastClearCache = time.Now()
 		V2ClearCache()
 		return
@@ -333,7 +333,6 @@ func (ds *DiscoveryService) clearCache() {
 			ds.clearCache() // re-evaluate after 1 second. If no activity - push will happen
 		})
 	}
-
 }
 
 // ListAllEndpoints responds with all Services and is not restricted to a single service-key

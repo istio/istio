@@ -97,7 +97,7 @@ global:
 
   # ImagePullSecrets for all ServiceAccount, list of secrets in the same namespace
   # to use for pulling any images in pods that reference this ServiceAccount.
-  # Must be set for any clustser configured with privte docker registry.
+  # Must be set for any clustser configured with private docker registry.
   imagePullSecrets:
     # - private-registry-key
 
@@ -137,7 +137,7 @@ global:
 
   # Kubernetes >=v1.11.0 will create two PriorityClass, including system-cluster-critical and
   # system-node-critical, it is better to configure this in order to make sure your Istio pods
-  # will not be killed because of low prioroty class.
+  # will not be killed because of low priority class.
   # Refer to https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass
   # for more detail.
   priorityClassName: ""
