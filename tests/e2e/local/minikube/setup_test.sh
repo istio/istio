@@ -4,7 +4,7 @@
 # shellcheck source=tests/e2e/local/minikube/setup_minikube_env.sh
 . ./setup_minikube_env.sh
 
-# Remove old imges.
+# Remove old images.
 read -p "Do you want to delete old docker images tagged localhost:5000/*:latest[default: no]: " -r update
 delete_images=${update:-"no"}
 if [[ $delete_images = *"y"* ]] || [[ $delete_images = *"Y"* ]]; then
