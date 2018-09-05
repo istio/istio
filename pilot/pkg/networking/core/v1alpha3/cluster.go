@@ -245,11 +245,21 @@ func getServiceAccounts(env *model.Environment, proxy *model.Proxy) ([]string, e
 		log.Errorf("failed to get service proxy service instances: %v", err)
 		return nil, err
 	}
+
 	serviceAccounts := []string{}
+	existAccounts := make(map[string]bool)
 	for _, si := range instances {
 		for _, port := range si.Service.Ports {
 			if port.Port == si.Endpoint.Port {
-				serviceAccounts = append(serviceAccounts, env.ServiceAccounts.GetIstioServiceAccounts(si.Service.Hostname, []string{port.Name})...)
+				accounts := env.ServiceAccounts.GetIstioServiceAccounts(si.Service.Hostname, []string{port.Name})
+				for _, at := range accounts {
+					// remove duplicated service account for constructing sds config,
+					// since multiple TLS certificates are not supported for client contexts in envoy.
+					if _, found := existAccounts[at]; !found {
+						serviceAccounts = append(serviceAccounts, at)
+						existAccounts[at] = true
+					}
+				}
 				break
 			}
 		}
