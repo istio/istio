@@ -53,6 +53,8 @@ const (
 	sidecarAnnotationExcludeOutboundIPRangesPolicyKey = "traffic.sidecar.istio.io/excludeOutboundIPRanges"
 	sidecarAnnotationIncludeInboundPortsPolicyKey     = "traffic.sidecar.istio.io/includeInboundPorts"
 	sidecarAnnotationExcludeInboundPortsPolicyKey     = "traffic.sidecar.istio.io/excludeInboundPorts"
+	sidecarAnnotationIncludeOutboundPortsPolicyKey     = "traffic.sidecar.istio.io/includeOutboundPorts"
+	sidecarAnnotationExcludeOutboundPortsPolicyKey     = "traffic.sidecar.istio.io/excludeOutboundPorts"
 )
 
 // InjectionPolicy determines the policy for injecting the
@@ -83,6 +85,7 @@ const (
 	DefaultImagePullPolicy     = "IfNotPresent"
 	DefaultIncludeIPRanges     = "*"
 	DefaultIncludeInboundPorts = "*"
+	DefaultIncludeOutboundPorts = "*"
 )
 
 const (
@@ -149,6 +152,9 @@ type Params struct {
 	// Comma separated list of inbound ports. If set, inbound traffic will not be redirected for those ports.
 	// Exclusions are only applied if configured to redirect all inbound traffic. By default, no ports are excluded.
 	ExcludeInboundPorts string `json:"excludeInboundPorts"`
+
+	IncludeOutboundPorts string `json:"includeOutboundPorts"`
+	ExcludeOutboundPorts string `json:"excludeOutboundPorts"`
 }
 
 // Validate validates the parameters and returns an error if there is configuration issue.
@@ -157,6 +163,12 @@ func (p *Params) Validate() error {
 		return err
 	}
 	if err := ValidateExcludeIPRanges(p.ExcludeIPRanges); err != nil {
+		return err
+	}
+	if err := ValidateIncludeOutboundPorts(p.IncludeOutboundPorts); err != nil {
+		return err
+	}
+	if err := ValidateExcludeOutboundPorts(p.ExcludeOutboundPorts); err != nil {
 		return err
 	}
 	if err := ValidateIncludeInboundPorts(p.IncludeInboundPorts); err != nil {
@@ -245,6 +257,24 @@ func ValidateExcludeInboundPorts(ports string) error {
 	return nil
 }
 
+// ValidateIncludeOutboundPorts validates the includeOutboundPorts parameter
+func ValidateIncludeOutboundPorts(ports string) error {
+	if ports != "*" {
+		if e := validatePortList(ports); e != nil {
+			return fmt.Errorf("includeOutboundPorts invalid: %v", e)
+		}
+	}
+	return nil
+}
+
+// ValidateExcludeOutboundPorts validates the excludeOutboundPorts parameter
+func ValidateExcludeOutboundPorts(ports string) error {
+	if e := validatePortList(ports); e != nil {
+		return fmt.Errorf("excludeOutboundPorts invalid: %v", e)
+	}
+	return nil
+}
+
 func injectRequired(ignored []string, namespacePolicy InjectionPolicy, podSpec *corev1.PodSpec, metadata *metav1.ObjectMeta) bool { // nolint: lll
 	// Skip injection when host networking is enabled. The problem is
 	// that the iptable changes are assumed to be within the pod when,
@@ -298,7 +328,7 @@ func injectRequired(ignored []string, namespacePolicy InjectionPolicy, podSpec *
 
 	log.Debugf("Sidecar injection policy for %v/%v: namespacePolicy:%v useDefault:%v inject:%v status:%q proxyImage:%q"+
 		" interceptionMode:%v required:%v"+
-		" includeOutboundIPRanges:%v excludeOutboundIPRanges:%v includeInboundPorts:%v excludeInboundPorts:%v",
+		" includeOutboundPorts:%v excludeOutboundPorts:%v includeOutboundIPRanges:%v excludeOutboundIPRanges:%v includeInboundPorts:%v excludeInboundPorts:%v",
 		metadata.Namespace,
 		metadata.Name,
 		namespacePolicy,
@@ -308,6 +338,8 @@ func injectRequired(ignored []string, namespacePolicy InjectionPolicy, podSpec *
 		annotations[sidecarAnnotationProxyImageOverride],
 		annotationString(annotations, sidecarAnnotationInterceptionModeKey),
 		required,
+		annotationString(annotations, sidecarAnnotationIncludeOutboundPortsPolicyKey),
+		annotationString(annotations, sidecarAnnotationExcludeOutboundPortsPolicyKey),
 		annotationString(annotations, sidecarAnnotationIncludeOutboundIPRangesPolicyKey),
 		annotationString(annotations, sidecarAnnotationExcludeOutboundIPRangesPolicyKey),
 		annotationString(annotations, sidecarAnnotationIncludeInboundPortsPolicyKey),
@@ -349,6 +381,12 @@ func validateAnnotations(metadata *metav1.ObjectMeta) error {
 	// Validate injection annotations, if present.
 	annotations := metadata.GetAnnotations()
 	if err := validateAnnotation(annotations, sidecarAnnotationInterceptionModeKey, ValidateInterceptionMode); err != nil {
+		return err
+	}
+	if err := validateAnnotation(annotations, sidecarAnnotationIncludeOutboundPortsPolicyKey, ValidateIncludeOutboundPorts); err != nil {
+		return err
+	}
+	if err := validateAnnotation(annotations, sidecarAnnotationExcludeOutboundPortsPolicyKey, ValidateExcludeOutboundPorts); err != nil {
 		return err
 	}
 	if err := validateAnnotation(annotations, sidecarAnnotationIncludeOutboundIPRangesPolicyKey, ValidateIncludeIPRanges); err != nil {

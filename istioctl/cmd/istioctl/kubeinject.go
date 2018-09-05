@@ -114,6 +114,8 @@ func validateFlags() error {
 		err = multierr.Append(err, errors.New("--meshConfigFile or --meshConfigMapName must be set"))
 	}
 
+	err = multierr.Append(err, inject.ValidateIncludeOutboundPorts(includeOutboundPorts))
+	err = multierr.Append(err, inject.ValidateExcludeOutboundPorts(excludeOutboundPorts))
 	err = multierr.Append(err, inject.ValidateIncludeIPRanges(includeIPRanges))
 	err = multierr.Append(err, inject.ValidateExcludeIPRanges(excludeIPRanges))
 	err = multierr.Append(err, inject.ValidateIncludeInboundPorts(includeInboundPorts))
@@ -122,19 +124,21 @@ func validateFlags() error {
 }
 
 var (
-	hub                 string
-	tag                 string
-	sidecarProxyUID     uint64
-	verbosity           int
-	versionStr          string // override build version
-	enableCoreDump      bool
-	imagePullPolicy     string
-	includeIPRanges     string
-	excludeIPRanges     string
-	includeInboundPorts string
-	excludeInboundPorts string
-	debugMode           bool
-	emitTemplate        bool
+	hub                  string
+	tag                  string
+	sidecarProxyUID      uint64
+	verbosity            int
+	versionStr           string // override build version
+	enableCoreDump       bool
+	imagePullPolicy      string
+	includeOutboundPorts string
+	excludeOutboundPorts string
+	includeIPRanges      string
+	excludeIPRanges      string
+	includeInboundPorts  string
+	excludeInboundPorts  string
+	debugMode            bool
+	emitTemplate         bool
 
 	inFilename          string
 	outFilename         string
@@ -276,6 +280,8 @@ istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml --injectConf
 					EnableCoreDump:      enableCoreDump,
 					Mesh:                meshConfig,
 					ImagePullPolicy:     imagePullPolicy,
+					IncludeOutboundPorts: includeOutboundPorts,
+					ExcludeOutboundPorts: excludeOutboundPorts,
 					IncludeIPRanges:     includeIPRanges,
 					ExcludeIPRanges:     excludeIPRanges,
 					IncludeInboundPorts: includeInboundPorts,
@@ -366,6 +372,13 @@ func init() {
 	injectCmd.PersistentFlags().StringVar(&imagePullPolicy, "imagePullPolicy", inject.DefaultImagePullPolicy,
 		"Sets the container image pull policy. Valid options are Always,IfNotPresent,Never."+
 			"The default policy is IfNotPresent.")
+	injectCmd.PersistentFlags().StringVar(&includeOutboundPorts, "includeOutboundPorts", inject.DefaultIncludeOutboundPorts,
+		"Comma separated list of outbound ports for which traffic is to be redirected to Envoy. All ports can "+
+			"be redirected with the wildcard character '*'.")
+	injectCmd.PersistentFlags().StringVar(&excludeOutboundPorts, "excludeOutboundPorts", "",
+		"Comma separated list of outbound ports. If set, inbound traffic will not be redirected for those "+
+			"ports. Exclusions are only applied if configured to redirect all outbound traffic. By default, no ports "+
+			"are excluded.")
 	injectCmd.PersistentFlags().StringVar(&includeIPRanges, "includeIPRanges", inject.DefaultIncludeIPRanges,
 		"Comma separated list of IP ranges in CIDR form. If set, only redirect outbound traffic to Envoy for "+
 			"these IP ranges. All outbound traffic can be redirected with the wildcard character '*'.")
