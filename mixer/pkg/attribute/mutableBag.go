@@ -279,7 +279,7 @@ func (mb *MutableBag) ToProto(output *mixerpb.CompressedAttributes, globalDict m
 			output.StringMaps[index] = mixerpb.StringMap{Entries: sm}
 
 		default:
-			panic(fmt.Errorf("Cannot convert value:%v of type:%T", v, v))
+			panic(fmt.Errorf("cannot convert value:%v of type:%T", v, v))
 		}
 	}
 
