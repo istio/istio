@@ -7,7 +7,8 @@
 [![CircleCI](https://circleci.com/gh/fortio/fortio.svg?style=shield)](https://circleci.com/gh/fortio/fortio)
 <img src="https://fortio.org/fortio-logo-color.png" height=141 width=141 align=right>
 
-Fortio (Φορτίο) started as [Istio](https://istio.io/)'s load testing tool and now graduated to be its own project.
+Fortio (Φορτίο) started as, and is, [Istio](https://istio.io/)'s load testing tool and now graduated to be its own project.
+
 Fortio runs at a specified query per second (qps) and records an histogram of execution time
 and calculates percentiles (e.g. p99 ie the response time such as 99% of the requests take less than that number (in seconds, SI unit)).
 It can run for a set duration, for a fixed number of calls, or until interrupted (at a constant target QPS, or max speed/load per connection/thread).
@@ -279,7 +280,7 @@ Content-Type: text/plain; charset=UTF-8
 Date: Wed, 08 Aug 2018 22:00:48 GMT
 Content-Length: 231
 
-Φορτίο version 1.2.0 unknown go1.10.3 echo debug server up for 2m3.4s on ldemailly-macbookpro.roam.corp.google.com - request from
+Φορτίο version 1.2.0 unknown go1.10.3 echo debug server up for 2m3.4s on ldemailly-macbookpro - request from
 
 GET /debug HTTP/1.1
 
@@ -347,7 +348,7 @@ Using server key /path/to/fortio/server.key to construct TLS credentials
 ```
 
 * Next, use `grpcping` with the `-cacert` flag:
-  
+
 `/path/to/fortio/ca.crt` is the path to the CA certificate
 that issued the server certificate for `localhost`. In our example, the server certificate is
 `/path/to/fortio/server.crt`:
@@ -673,7 +674,7 @@ Code 429 : 56 (1.9 %)
 Code 503 : 15 (0.5 %)
 ```
 
-There are newer/live examples on [istio.io/docs/performance-and-scalability/synthetic-benchmarks/](https://istio.io/docs/performance-and-scalability/synthetic-benchmarks/)
+There are newer/live examples on [istio.io/docs/concepts/performance-and-scalability/#synthetic-end-to-end-benchmarks](https://istio.io/docs/concepts/performance-and-scalability/#synthetic-end-to-end-benchmarks)
 
 ## Contributing
 
@@ -702,3 +703,7 @@ standard --fix ui/static/js/fortio_chart.js
 ## See also
 
 Our wiki and the [Fortio FAQ](https://github.com/fortio/fortio/wiki/FAQ) (including for instance differences between `fortio` and `wrk` or `httpbin`)
+
+## Disclaimer
+
+This is not an officially supported Google product.

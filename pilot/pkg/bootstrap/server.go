@@ -182,7 +182,7 @@ func NewServer(args PilotArgs) (*Server, error) {
 		if args.Namespace != "" {
 			args.Config.ClusterRegistriesNamespace = args.Namespace
 		} else {
-			args.Config.ClusterRegistriesNamespace = "istio-system"
+			args.Config.ClusterRegistriesNamespace = model.IstioSystemNamespace
 		}
 	}
 

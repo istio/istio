@@ -7,7 +7,7 @@
 IMAGES=echosrv fcurl # plus the combo image / Dockerfile without ext.
 
 DOCKER_PREFIX := docker.io/fortio/fortio
-BUILD_IMAGE_TAG := v10
+BUILD_IMAGE_TAG := v11
 BUILD_IMAGE := $(DOCKER_PREFIX).build:$(BUILD_IMAGE_TAG)
 
 TAG:=$(USER)$(shell date +%y%m%d_%H%M%S)
@@ -52,13 +52,14 @@ test: dependencies
 
 local-lint: dependencies vendor.check
 	gometalinter $(DEBUG_LINTERS) \
-	--deadline=180s --enable-all --aggregate \
-	--exclude=.pb.go --disable=gocyclo --disable=gas --line-length=132 \
-	$(LINT_PACKAGES)
+	--deadline=180s --enable-all --aggregate --exclude=.pb.go \
+	--disable=gocyclo --disable=gas --disable=gosec \
+	--disable=gochecknoglobals --disable=gochecknoinits \
+	--line-length=132 $(LINT_PACKAGES)
 
 # Lint everything by default but ok to "make lint LINT_PACKAGES=./fhttp"
 LINT_PACKAGES:=$(PACKAGES)
-# TODO: do something about cyclomatic complexity; maybe reenable gas
+# TODO: do something about cyclomatic complexity; maybe reenable gas and gosec
 # Note CGO_ENABLED=0 is needed to avoid errors as gcc isn't part of the
 # build image
 lint: dependencies
@@ -164,7 +165,7 @@ release: dependencies
 BUILD_DIR := /tmp/fortio_build
 LIB_DIR := /usr/local/lib/fortio
 DATA_DIR := /var/lib/fortio
-OFFICIAL_BIN := ../fortio_go1.10.bin
+OFFICIAL_BIN := ../fortio.bin
 GOOS := 
 GO_BIN := go
 GIT_STATUS := $(strip $(shell git status --porcelain | wc -l))

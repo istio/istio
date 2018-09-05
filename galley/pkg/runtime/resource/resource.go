@@ -20,6 +20,7 @@ import (
 	"net/url"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
 )
@@ -43,7 +44,8 @@ type Key struct {
 // time.
 type VersionedKey struct {
 	Key
-	Version Version
+	Version    Version
+	CreateTime time.Time
 }
 
 // Entry is the abstract representation of a versioned config resource in Istio.

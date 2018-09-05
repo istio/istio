@@ -124,7 +124,7 @@ func (e env) Daemons() int64 {
 func (e env) reportStrayWorkers() error {
 	if atomic.LoadInt64(e.daemons) > 0 {
 		// TODO: ideally we should return some sort of error here to bubble up this issue to the top so that
-		// operator can look at it. However, currently we cannot guarantee that SchedularXXXX gauge
+		// operator can look at it. However, currently we cannot guarantee that SchedulerXXXX gauge
 		// counter will give consistent value because of timing issue in the ScheduleWorker and ScheduleDaemon.
 		// Basically, even if the adapter would have closed everything before returning from Close function, our
 		// counter might get delayed decremented, causing this false positive error.

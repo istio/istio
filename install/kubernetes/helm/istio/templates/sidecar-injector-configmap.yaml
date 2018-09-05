@@ -35,7 +35,7 @@ data:
         - "-b"
         - {{ "\"[[ annotation .ObjectMeta `traffic.sidecar.istio.io/includeInboundPorts` (includeInboundPorts .Spec.Containers) ]]\"" }}
         - "-d"
-        - {{ "\"[[ annotation .ObjectMeta `traffic.sidecar.istio.io/excludeInboundPorts` " }} "{{ .Values.global.proxy.excludeInboundPorts }}" {{ " ]]\"" }}
+        - {{ "\"[[ excludeInboundPort (annotation .ObjectMeta `status.sidecar.istio.io/port` " }} {{ .Values.global.proxy.statusPort }} {{ ") (annotation .ObjectMeta `traffic.sidecar.istio.io/excludeInboundPorts` " }} "{{ .Values.global.proxy.excludeInboundPorts }}" {{ ") ]]\"" }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
         securityContext:
           capabilities:
@@ -100,6 +100,10 @@ data:
         {{ "[[ end -]]" }}
         - --controlPlaneAuthPolicy
         - {{ "[[ annotation .ObjectMeta `sidecar.istio.io/controlPlaneAuthPolicy` .ProxyConfig.ControlPlaneAuthPolicy ]]" }}
+        - --statusPort
+        - {{ "[[ annotation .ObjectMeta `status.sidecar.istio.io/port` " }} {{ .Values.global.proxy.statusPort }} {{ " ]]" }}
+        - --applicationPorts
+        - {{ "\"[[ annotation .ObjectMeta `readiness.status.sidecar.istio.io/applicationPorts` (applicationPorts .Spec.Containers) ]]\"" }}
         env:
         - name: POD_NAME
           valueFrom:
@@ -120,6 +124,15 @@ data:
         - name: ISTIO_META_INTERCEPTION_MODE
           value: {{ "[[ annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode ]]" }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+        {{ "[[ if (ne (annotation .ObjectMeta `status.sidecar.istio.io/port` " }} {{ .Values.global.proxy.statusPort }} {{ ") \"0\") ]]" }}
+        readinessProbe:
+          httpGet:
+            path: /healthz/ready
+            port: {{ "[[ annotation .ObjectMeta `status.sidecar.istio.io/port` " }} {{ .Values.global.proxy.statusPort }} {{ " ]]" }}
+          initialDelaySeconds: {{ "[[ annotation .ObjectMeta `readiness.status.sidecar.istio.io/initialDelaySeconds` " }} {{ .Values.global.proxy.readinessInitialDelaySeconds }} {{ " ]]" }}
+          periodSeconds: {{ "[[ annotation .ObjectMeta `readiness.status.sidecar.istio.io/periodSeconds` " }} {{ .Values.global.proxy.readinessPeriodSeconds }} {{ " ]]" }}
+          failureThreshold: {{ "[[ annotation .ObjectMeta `readiness.status.sidecar.istio.io/failureThreshold` " }} {{ .Values.global.proxy.readinessFailureThreshold }} {{ " ]]" }}
+        {{ "[[ end -]]" -}}
         securityContext:
           privileged: false
           {{- if ne .Values.global.proxy.enableCoreDump true }}

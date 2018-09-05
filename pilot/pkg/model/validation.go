@@ -1169,9 +1169,6 @@ func ValidateServiceRole(name, namespace string, msg proto.Message) error {
 		if len(rule.Services) == 0 {
 			errs = appendErrors(errs, fmt.Errorf("at least 1 service must be specified for rule %d", i))
 		}
-		if len(rule.Methods) == 0 {
-			errs = appendErrors(errs, fmt.Errorf("at least 1 method must be specified for rule %d", i))
-		}
 		for j, constraint := range rule.Constraints {
 			if len(constraint.Key) == 0 {
 				errs = appendErrors(errs, fmt.Errorf("key cannot be empty for constraint %d in rule %d", j, i))
@@ -1636,7 +1633,7 @@ func validateSubsetName(name string) error {
 		return fmt.Errorf("subset name cannot be empty")
 	}
 	if !IsDNS1123Label(name) {
-		return fmt.Errorf("subnet name is invalid: %s", name)
+		return fmt.Errorf("subset name is invalid: %s", name)
 	}
 	return nil
 }

@@ -122,7 +122,7 @@ func setupFilterChains(authnPolicy *authn.Policy) []plugin.FilterChain {
 				},
 			},
 			// TODO(incfly): should this be {"istio", "http1.1", "h2"}?
-			// Currently it works: when server is in permissive mode, client sidear can send tls traffic.
+			// Currently it works: when server is in permissive mode, client sidecar can send tls traffic.
 			AlpnProtocols: util.ALPNHttp,
 		},
 		RequireClientCertificate: &types.BoolValue{
@@ -168,7 +168,7 @@ func (Plugin) OnInboundFilterChains(in *plugin.InputParams) []plugin.FilterChain
 	return setupFilterChains(authnPolicy)
 }
 
-// CollectJwtSpecs returns a list of all JWT specs (ponters) defined the policy. This
+// CollectJwtSpecs returns a list of all JWT specs (pointers) defined the policy. This
 // provides a convenient way to iterate all Jwt specs.
 func CollectJwtSpecs(policy *authn.Policy) []*authn.Jwt {
 	ret := []*authn.Jwt{}

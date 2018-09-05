@@ -19,12 +19,9 @@ import (
 	"fmt"
 	"os"
 
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/api/extensions/v1beta1"
+	"k8s.io/api/core/v1"
 	betaext "k8s.io/api/extensions/v1beta1"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/informers/extensions/v1beta1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/ingress/core/pkg/ingress/status"
@@ -65,17 +62,7 @@ func NewStatusSyncer(mesh *meshconfig.MeshConfig,
 		return nil, errors.New("POD_NAMESPACE environment variable must be defined")
 	}
 
-	informer := cache.NewSharedIndexInformer(
-		&cache.ListWatch{
-			ListFunc: func(opts meta_v1.ListOptions) (runtime.Object, error) {
-				return client.ExtensionsV1beta1().Ingresses(options.WatchedNamespace).List(opts)
-			},
-			WatchFunc: func(opts meta_v1.ListOptions) (watch.Interface, error) {
-				return client.ExtensionsV1beta1().Ingresses(options.WatchedNamespace).Watch(opts)
-			},
-		},
-		&v1beta1.Ingress{}, options.ResyncPeriod, cache.Indexers{},
-	)
+	informer := v1beta1.NewFilteredIngressInformer(client, options.WatchedNamespace, options.ResyncPeriod, cache.Indexers{}, nil)
 
 	var publishService string
 	if mesh.IngressService != "" {

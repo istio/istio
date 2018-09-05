@@ -159,7 +159,7 @@ def main(args):
 
 def get_parser():
     parser = argparse.ArgumentParser(
-        description="Compare kubenetes yaml files")
+        description="Compare kubernetes yaml files")
 
     parser.add_argument("orig")
     parser.add_argument("new")

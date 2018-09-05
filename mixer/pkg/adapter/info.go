@@ -35,7 +35,7 @@ type Info struct {
 	// NewBuilder is a function that creates a Builder which implements Builders associated
 	// with the SupportedTemplates.
 	NewBuilder NewBuilderFn
-	// SupportedTemplates expressess all the templates the Adapter wants to serve.
+	// SupportedTemplates expresses all the templates the Adapter wants to serve.
 	SupportedTemplates []string
 	// DefaultConfig is a default configuration struct for this
 	// adapter. This will be used by the configuration system to establish

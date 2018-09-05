@@ -167,7 +167,12 @@ func (s *Server) newConnection(stream mcp.AggregatedMeshConfigService_StreamAggr
 	return con, nil
 }
 
-// StreamAggregatedResources implements bidirectional streaming method for MCP (ADS).
+// IncrementalAggregatedResources implements bidirectional streaming method for incremental MCP.
+func (s *Server) IncrementalAggregatedResources(stream mcp.AggregatedMeshConfigService_IncrementalAggregatedResourcesServer) error { // nolint: lll
+	return status.Errorf(codes.Unimplemented, "not implemented")
+}
+
+// StreamAggregatedResources implements bidirectional streaming method for MCP.
 func (s *Server) StreamAggregatedResources(stream mcp.AggregatedMeshConfigService_StreamAggregatedResourcesServer) error { // nolint: lll
 	con, err := s.newConnection(stream)
 	if err != nil {
@@ -269,7 +274,7 @@ func (con *connection) processClientRequest(req *mcp.MeshConfigRequest) error {
 			scope.Debugf("MCP: connection %v: WATCH for %v", con, req.TypeUrl)
 		} else {
 			scope.Debugf("MCP: connection %v ACK version=%q with nonce=%q",
-				con, req.TypeUrl, req.VersionInfo, req.ResponseNonce)
+				con, req.VersionInfo, req.ResponseNonce)
 		}
 
 		if watch.cancel != nil {

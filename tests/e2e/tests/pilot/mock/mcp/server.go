@@ -18,9 +18,10 @@ import (
 	"log"
 	"net"
 	"net/url"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
-	google_protobuf "github.com/gogo/protobuf/types"
+	"github.com/gogo/protobuf/types"
 	"google.golang.org/grpc"
 
 	mcp "istio.io/api/mcp/v1alpha1"
@@ -28,6 +29,16 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	mcpserver "istio.io/istio/pkg/mcp/server"
 )
+
+var fakeCreateTime *types.Timestamp
+
+func init() {
+	var err error
+	fakeCreateTime, err = types.TimestampProto(time.Date(2018, time.January, 1, 12, 15, 30, 5e8, time.UTC))
+	if err != nil {
+		panic(err)
+	}
+}
 
 type mockWatcher struct{}
 
@@ -55,18 +66,20 @@ func (m mockWatcher) Watch(req *mcp.MeshConfigRequest,
 			Envelopes: []*mcp.Envelope{
 				{
 					Metadata: &mcp.Metadata{
-						Name: "some-name",
+						Name:       "some-name",
+						CreateTime: fakeCreateTime,
 					},
-					Resource: &google_protobuf.Any{
+					Resource: &types.Any{
 						TypeUrl: req.GetTypeUrl(),
 						Value:   marshaledFirstGateway,
 					},
 				},
 				{
 					Metadata: &mcp.Metadata{
-						Name: "some-other-name",
+						Name:       "some-other-name",
+						CreateTime: fakeCreateTime,
 					},
-					Resource: &google_protobuf.Any{
+					Resource: &types.Any{
 						TypeUrl: req.GetTypeUrl(),
 						Value:   marshaledSecondGateway,
 					},

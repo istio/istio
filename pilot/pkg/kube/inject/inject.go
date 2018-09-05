@@ -55,6 +55,11 @@ var (
 		{"sidecar.istio.io/status", alwaysValidFunc},
 		{"sidecar.istio.io/proxyImage", alwaysValidFunc},
 		{"sidecar.istio.io/interceptionMode", validateInterceptionMode},
+		{"status.sidecar.istio.io/port", validateStatusPort},
+		{"readiness.status.sidecar.istio.io/initialDelaySeconds", validateUInt32},
+		{"readiness.status.sidecar.istio.io/periodSeconds", validateUInt32},
+		{"readiness.status.sidecar.istio.io/failureThreshold", validateUInt32},
+		{"readiness.status.sidecar.istio.io/applicationPorts", validateReadinessApplicationPorts},
 		{"traffic.sidecar.istio.io/includeOutboundIPRanges", ValidateIncludeIPRanges},
 		{"traffic.sidecar.istio.io/excludeOutboundIPRanges", ValidateExcludeIPRanges},
 		{"traffic.sidecar.istio.io/includeInboundPorts", ValidateIncludeInboundPorts},
@@ -120,11 +125,15 @@ const (
 // Defaults values for injecting istio proxy into kubernetes
 // resources.
 const (
-	DefaultSidecarProxyUID     = uint64(1337)
-	DefaultVerbosity           = 2
-	DefaultImagePullPolicy     = "IfNotPresent"
-	DefaultIncludeIPRanges     = "*"
-	DefaultIncludeInboundPorts = "*"
+	DefaultSidecarProxyUID              = uint64(1337)
+	DefaultVerbosity                    = 2
+	DefaultImagePullPolicy              = "IfNotPresent"
+	DefaultStatusPort                   = 15020
+	DefaultReadinessInitialDelaySeconds = 1
+	DefaultReadinessPeriodSeconds       = 2
+	DefaultReadinessFailureThreshold    = 30
+	DefaultIncludeIPRanges              = "*"
+	DefaultIncludeInboundPorts          = "*"
 )
 
 const (
@@ -169,15 +178,19 @@ func ProxyImageName(hub string, tag string, debug bool) string {
 // Params describes configurable parameters for injecting istio proxy
 // into a kubernetes resource.
 type Params struct {
-	InitImage       string                 `json:"initImage"`
-	ProxyImage      string                 `json:"proxyImage"`
-	Verbosity       int                    `json:"verbosity"`
-	SidecarProxyUID uint64                 `json:"sidecarProxyUID"`
-	Version         string                 `json:"version"`
-	EnableCoreDump  bool                   `json:"enableCoreDump"`
-	DebugMode       bool                   `json:"debugMode"`
-	Mesh            *meshconfig.MeshConfig `json:"-"`
-	ImagePullPolicy string                 `json:"imagePullPolicy"`
+	InitImage                    string                 `json:"initImage"`
+	ProxyImage                   string                 `json:"proxyImage"`
+	Verbosity                    int                    `json:"verbosity"`
+	SidecarProxyUID              uint64                 `json:"sidecarProxyUID"`
+	Version                      string                 `json:"version"`
+	EnableCoreDump               bool                   `json:"enableCoreDump"`
+	DebugMode                    bool                   `json:"debugMode"`
+	Mesh                         *meshconfig.MeshConfig `json:"-"`
+	ImagePullPolicy              string                 `json:"imagePullPolicy"`
+	StatusPort                   int                    `json:"statusPort"`
+	ReadinessInitialDelaySeconds uint32                 `json:"readinessInitialDelaySeconds"`
+	ReadinessPeriodSeconds       uint32                 `json:"readinessPeriodSeconds"`
+	ReadinessFailureThreshold    uint32                 `json:"readinessFailureThreshold"`
 	// Comma separated list of IP ranges in CIDR form. If set, only redirect outbound traffic to Envoy for these IP
 	// ranges. All outbound traffic can be redirected with the wildcard character "*". Defaults to "*".
 	IncludeIPRanges string `json:"includeIPRanges"`
@@ -208,7 +221,7 @@ func (p *Params) Validate() error {
 }
 
 // Config specifies the sidecar injection configuration This includes
-// the sidear template and cluster-side injection policy. It is used
+// the sidecar template and cluster-side injection policy. It is used
 // by kube-inject, sidecar injector, and http endpoint.
 type Config struct {
 	Policy InjectionPolicy `json:"policy"`
@@ -256,9 +269,11 @@ func parsePorts(portsString string) ([]int, error) {
 	return ports, nil
 }
 
-func validatePortList(ports string) error {
-	_, err := parsePorts(ports)
-	return err
+func validatePortList(parameterName, ports string) error {
+	if _, err := parsePorts(ports); err != nil {
+		return fmt.Errorf("%s invalid: %v", parameterName, err)
+	}
+	return nil
 }
 
 // validateInterceptionMode validates the interceptionMode annotation
@@ -290,22 +305,38 @@ func ValidateExcludeIPRanges(ipRanges string) error {
 	return nil
 }
 
+func validateReadinessApplicationPorts(ports string) error {
+	if ports != "*" {
+		return validatePortList("readinessApplicationPorts", ports)
+	}
+	return nil
+}
+
 // ValidateIncludeInboundPorts validates the includeInboundPorts parameter
 func ValidateIncludeInboundPorts(ports string) error {
 	if ports != "*" {
-		if e := validatePortList(ports); e != nil {
-			return fmt.Errorf("includeInboundPorts invalid: %v", e)
-		}
+		return validatePortList("includeInboundPorts", ports)
 	}
 	return nil
 }
 
 // ValidateExcludeInboundPorts validates the excludeInboundPorts parameter
 func ValidateExcludeInboundPorts(ports string) error {
-	if e := validatePortList(ports); e != nil {
+	return validatePortList("excludeInboundPorts", ports)
+}
+
+// validateStatusPort validates the statusPort parameter
+func validateStatusPort(port string) error {
+	if _, e := parsePort(port); e != nil {
 		return fmt.Errorf("excludeInboundPorts invalid: %v", e)
 	}
 	return nil
+}
+
+// validateUInt32 validates that the given annotation value is a positive integer.
+func validateUInt32(value string) error {
+	_, err := strconv.ParseUint(value, 10, 32)
+	return err
 }
 
 func injectRequired(ignored []string, namespacePolicy InjectionPolicy, podSpec *corev1.PodSpec, metadata *metav1.ObjectMeta) bool { // nolint: lll
@@ -409,7 +440,9 @@ func injectionData(sidecarTemplate, version string, spec *corev1.PodSpec, metada
 	funcMap := template.FuncMap{
 		"formatDuration":      formatDuration,
 		"isset":               isset,
+		"excludeInboundPort":  excludeInboundPort,
 		"includeInboundPorts": includeInboundPorts,
+		"applicationPorts":    applicationPorts,
 		"annotation":          annotation,
 	}
 
@@ -604,15 +637,34 @@ func GenerateTemplateFromParams(params *Params) (string, error) {
 	return tmp.String(), err
 }
 
-func includeInboundPorts(containers []corev1.Container) string {
+func getPortsForContainer(container corev1.Container) []string {
+	parts := make([]string, 0)
+	for _, p := range container.Ports {
+		parts = append(parts, strconv.Itoa(int(p.ContainerPort)))
+	}
+	return parts
+}
+
+func getContainerPorts(containers []corev1.Container, shouldIncludePorts func(corev1.Container) bool) string {
 	parts := make([]string, 0)
 	for _, c := range containers {
-		for _, p := range c.Ports {
-			parts = append(parts, strconv.Itoa(int(p.ContainerPort)))
+		if shouldIncludePorts(c) {
+			parts = append(parts, getPortsForContainer(c)...)
 		}
 	}
 
 	return strings.Join(parts, ",")
+}
+
+func applicationPorts(containers []corev1.Container) string {
+	return getContainerPorts(containers, func(c corev1.Container) bool {
+		return c.Name != ProxyContainerName
+	})
+}
+
+func includeInboundPorts(containers []corev1.Container) string {
+	// Include the ports from all containers in the deployment.
+	return getContainerPorts(containers, func(corev1.Container) bool { return true })
 }
 
 func annotation(meta metav1.ObjectMeta, name string, defaultValue interface{}) string {
@@ -621,6 +673,32 @@ func annotation(meta metav1.ObjectMeta, name string, defaultValue interface{}) s
 		value = fmt.Sprint(defaultValue)
 	}
 	return value
+}
+
+func excludeInboundPort(port interface{}, excludedInboundPorts string) string {
+	portStr := strings.TrimSpace(fmt.Sprint(port))
+	if len(portStr) == 0 || portStr == "0" {
+		// Nothing to do.
+		return excludedInboundPorts
+	}
+
+	// Exclude the readiness port if not already excluded.
+	ports := splitPorts(excludedInboundPorts)
+	outPorts := make([]string, 0, len(ports))
+	for _, port := range ports {
+		if port == portStr {
+			// The port is already excluded.
+			return excludedInboundPorts
+		}
+		port = strings.TrimSpace(port)
+		if len(port) > 0 {
+			outPorts = append(outPorts, port)
+		}
+	}
+
+	// The port was not already excluded - exclude it now.
+	outPorts = append(outPorts, portStr)
+	return strings.Join(outPorts, ",")
 }
 
 // SidecarInjectionStatus contains basic information about the
