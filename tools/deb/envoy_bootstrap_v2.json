@@ -15,37 +15,37 @@
     }
   },
   "stats_config": {
-		"use_all_default_tags": false,
-		"stats_tags": [{
-				"tag_name": "cluster_name",
-				"regex": "^cluster\\.((.+?(\\..+?\\.svc\\.cluster\\.local)?)\\.)"
-      },
-			{
-				"tag_name": "tcp_prefix",
-				"regex": "^tcp\\.((.*?)\\.)\\w+?$"
-			},
-			{
-				"tag_name": "response_code",
-				"regex": "_rq(_(\\d{3}))$"
-			},
-			{
-				"tag_name": "response_code_class",
-				"regex": "_rq(_(\\dxx))$"
+    "use_all_default_tags": false,
+    "stats_tags": [{
+        "tag_name": "cluster_name",
+        "regex": "^cluster\\.((.+?(\\..+?\\.svc\\.cluster\\.local)?)\\.)"
       },
       {
-				"tag_name": "http_conn_manager_listener_prefix",
-				"regex": "^listener(?=\\.).*?\\.http\\.(((?:[_.[:digit:]]*|[_\\[\\]aAbBcCdDeEfF[:digit:]]*))\\.)"
+        "tag_name": "tcp_prefix",
+        "regex": "^tcp\\.((.*?)\\.)\\w+?$"
+      },
+      {
+        "tag_name": "response_code",
+        "regex": "_rq(_(\\d{3}))$"
+      },
+      {
+        "tag_name": "response_code_class",
+        "regex": "_rq(_(\\dxx))$"
+      },
+      {
+        "tag_name": "http_conn_manager_listener_prefix",
+        "regex": "^listener(?=\\.).*?\\.http\\.(((?:[_.[:digit:]]*|[_\\[\\]aAbBcCdDeEfF[:digit:]]*))\\.)"
       },
       {
         "tag_name": "http_conn_manager_prefix",
         "regex": "^http\\.(((?:[_.[:digit:]]*|[_\\[\\]aAbBcCdDeEfF[:digit:]]*))\\.)"
       },
-			{
-				"tag_name": "listener_address",
+      {
+        "tag_name": "listener_address",
         "regex": "^listener\\.(((?:[_.[:digit:]]*|[_\\[\\]aAbBcCdDeEfF[:digit:]]*))\\.)"
       },
-		]
-	},
+    ]
+  },
   "admin": {
     "access_log_path": "/dev/stdout",
     "address": {
