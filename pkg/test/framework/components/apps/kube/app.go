@@ -220,7 +220,10 @@ func (a *app) Call(e environment.DeployedAppEndpoint, opts environment.AppCallOp
 	}
 
 	responses := make([]*echo.ParsedResponse, opts.Count)
-	for i, response := range responses {
+	for i := 0; i < opts.Count; i++ {
+		response := echo.ParsedResponse{}
+		responses[i] = &response
+
 		// TODO(nmittler): We're storing the entire logs for each body ... not strictly correct.
 		response.Body = res
 
