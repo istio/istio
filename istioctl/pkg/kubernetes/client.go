@@ -28,7 +28,7 @@ import (
 	"istio.io/istio/pkg/kube"
 )
 
-var (
+const (
 	proxyContainer     = "istio-proxy"
 	discoveryContainer = "discovery"
 	pilotDiscoveryPath = "/usr/local/bin/pilot-discovery"
@@ -41,9 +41,11 @@ type Client struct {
 	*rest.RESTClient
 }
 
-// ExecClient is an interface for remote execution
+// ExecClient is an interface for HTTP via remote execution
 type ExecClient interface {
+	// EnvoyDo invokes "/usr/local/bin/pilot-agent request" on the Pilot Agent container
 	EnvoyDo(podName, podNamespace, method, path string, body []byte) ([]byte, error)
+	// AllPilotsDiscoveryDo invokes "/usr/local/bin/pilot-agent request" on all Istio pilots
 	AllPilotsDiscoveryDo(pilotNamespace, method, path string, body []byte) (map[string][]byte, error)
 }
 
@@ -119,7 +121,7 @@ func (client *Client) PodExec(podName, podNamespace, container string, command [
 
 // AllPilotsDiscoveryDo makes an http request to each Pilot discovery instance
 func (client *Client) AllPilotsDiscoveryDo(pilotNamespace, method, path string, body []byte) (map[string][]byte, error) {
-	pilots, err := client.GetPilotPods(pilotNamespace)
+	pilots, err := client.GetPods(pilotNamespace, "istio=pilot")
 	if err != nil {
 		return nil, err
 	}
@@ -142,7 +144,7 @@ func (client *Client) AllPilotsDiscoveryDo(pilotNamespace, method, path string, 
 
 // PilotDiscoveryDo makes an http request to a single Pilot discovery instance
 func (client *Client) PilotDiscoveryDo(pilotNamespace, method, path string, body []byte) ([]byte, error) {
-	pilots, err := client.GetPilotPods(pilotNamespace)
+	pilots, err := client.GetPods(pilotNamespace, "istio=pilot")
 	if err != nil {
 		return nil, err
 	}
@@ -155,7 +157,21 @@ func (client *Client) PilotDiscoveryDo(pilotNamespace, method, path string, body
 
 // EnvoyDo makes an http request to the Envoy in the specified pod
 func (client *Client) EnvoyDo(podName, podNamespace, method, path string, body []byte) ([]byte, error) {
-	container, err := client.GetPilotAgentContainer(podName, podNamespace)
+	req := client.Get().
+		Resource("pods").
+		Namespace(podNamespace).
+		Name(podName)
+
+	res := req.Do()
+	if res.Error() != nil {
+		return nil, fmt.Errorf("unable to retrieve Pod: %v", res.Error())
+	}
+	pod := v1.Pod{}
+	if err := res.Into(&pod); err != nil {
+		return nil, fmt.Errorf("unable to parse Pod: %v", res.Error())
+	}
+
+	container, err := GetPilotAgentContainer(pod)
 	if err != nil {
 		return nil, fmt.Errorf("unable to retrieve proxy container name: %v", err)
 	}
@@ -174,12 +190,18 @@ func (client *Client) ExtractExecResult(podName, podNamespace, container string,
 	return stdout.Bytes(), nil
 }
 
-// GetPilotPods retrieves the pod objects for all known pilots
-func (client *Client) GetPilotPods(namespace string) ([]v1.Pod, error) {
+// GetPods retrieves Pod objects
+func (client *Client) GetPods(namespace, labelSelector string) ([]v1.Pod, error) {
 	req := client.Get().
-		Resource("pods").
-		Namespace(namespace).
-		Param("labelSelector", "istio=pilot")
+		Resource("pods")
+
+	if namespace != "" {
+		req = req.Namespace(namespace)
+	}
+
+	if labelSelector != "" {
+		req = req.Param("labelSelector", labelSelector)
+	}
 
 	res := req.Do()
 	if res.Error() != nil {
@@ -193,25 +215,12 @@ func (client *Client) GetPilotPods(namespace string) ([]v1.Pod, error) {
 }
 
 // GetPilotAgentContainer retrieves the pilot-agent container name for the specified pod
-func (client *Client) GetPilotAgentContainer(podName, podNamespace string) (string, error) {
-	req := client.Get().
-		Resource("pods").
-		Namespace(podNamespace).
-		Name(podName)
-
-	res := req.Do()
-	if res.Error() != nil {
-		return "", fmt.Errorf("unable to retrieve Pod: %v", res.Error())
-	}
-	pod := &v1.Pod{}
-	if err := res.Into(pod); err != nil {
-		return "", fmt.Errorf("unable to parse Pod: %v", res.Error())
-	}
+func GetPilotAgentContainer(pod v1.Pod) (string, error) {
 	for _, c := range pod.Spec.Containers {
 		switch c.Name {
-		case "egressgateway", "ingress", "ingressgateway":
+		case "egressgateway", "ingress", "ingressgateway", proxyContainer:
 			return c.Name, nil
 		}
 	}
-	return proxyContainer, nil
+	return "", fmt.Errorf("pod %s has no pilot-agent container", pod.Name)
 }
