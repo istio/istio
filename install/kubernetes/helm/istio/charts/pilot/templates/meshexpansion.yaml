@@ -1,5 +1,5 @@
 {{- if .Values.global.meshExpansion }}
-{{ $istioNamespace := default .Chart.Namespace .Values.global.istioNamespace }}
+{{ $istioNamespace := default .Release.Namespace .Values.global.istioNamespace }}
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
