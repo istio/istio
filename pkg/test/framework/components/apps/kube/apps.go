@@ -59,5 +59,5 @@ type appsImpl struct {
 
 // GetApp implements the apps.Apps interface.
 func (a *appsImpl) GetApp(name string) (environment.DeployedApp, error) {
-	return NewApp(name, a.e.IstioSystemNamespace)
+	return NewApp(name, a.e.KubeSettings().IstioSystemNamespace)
 }

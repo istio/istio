@@ -29,7 +29,6 @@ func TestHTTP(t *testing.T) {
 	framework.Requires(t, dependency.Apps)
 
 	env := framework.AcquireEnvironment(t)
-	env.Configure(t, "")
 
 	a := env.GetAppOrFail("a", t)
 	b := env.GetAppOrFail("b", t)
