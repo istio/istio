@@ -21,6 +21,7 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/api/core/v1"
 
+	"istio.io/istio/istioctl/pkg/writer/envoy/clusters"
 	"istio.io/istio/istioctl/pkg/writer/envoy/configdump"
 	"istio.io/istio/pilot/pkg/model"
 )
@@ -61,7 +62,7 @@ var (
 		RunE: func(c *cobra.Command, args []string) error {
 			podName := args[0]
 			ns := handleNamespace()
-			configWriter, err := setupEnvoyConfigWriter(podName, ns, c.OutOrStdout())
+			configWriter, err := setupConfigdumpEnvoyConfigWriter(podName, ns, c.OutOrStdout())
 			if err != nil {
 				return err
 			}
@@ -102,7 +103,7 @@ var (
 		RunE: func(c *cobra.Command, args []string) error {
 			podName := args[0]
 			ns := handleNamespace()
-			configWriter, err := setupEnvoyConfigWriter(podName, ns, c.OutOrStdout())
+			configWriter, err := setupConfigdumpEnvoyConfigWriter(podName, ns, c.OutOrStdout())
 			if err != nil {
 				return err
 			}
@@ -143,7 +144,7 @@ var (
 		RunE: func(c *cobra.Command, args []string) error {
 			podName := args[0]
 			ns := handleNamespace()
-			configWriter, err := setupEnvoyConfigWriter(podName, ns, c.OutOrStdout())
+			configWriter, err := setupConfigdumpEnvoyConfigWriter(podName, ns, c.OutOrStdout())
 			if err != nil {
 				return err
 			}
@@ -173,11 +174,55 @@ var (
 		RunE: func(c *cobra.Command, args []string) error {
 			podName := args[0]
 			ns := handleNamespace()
-			configWriter, err := setupEnvoyConfigWriter(podName, ns, c.OutOrStdout())
+			configWriter, err := setupConfigdumpEnvoyConfigWriter(podName, ns, c.OutOrStdout())
 			if err != nil {
 				return err
 			}
 			return configWriter.PrintBootstrapDump()
+		},
+	}
+
+	clusterName       string
+	endpointConfigCmd = &cobra.Command{
+		Use:   "endpoint <pod-name>",
+		Short: "Retrieves endpoint configuration for the Envoy in the specified pod",
+		Long:  `Retrieve information about endpoint configuration for the Envoy instance in the specified pod.`,
+		Example: `  # Retrieve full endpoint configuration for a given pod from Envoy.
+  istioctl proxy-config endpoint <pod-name>
+
+  # Retrieve endpoint summary for endpoint with port 9080.
+  istioctl proxy-config endpoint <pod-name> --port 9080
+
+  # Retrieve full endpoint with a address (172.17.0.2).
+  istioctl proxy-config endpoint <pod-name> --address 172.17.0.2 -o json
+
+  # Retrieve full endpoint with a cluster name (outbound|9411||zipkin.istio-system.svc.cluster.local).
+  istioctl proxy-config endpoint <pod-name> --cluster "outbound|9411||zipkin.istio-system.svc.cluster.local" -o json
+`,
+		Aliases: []string{"endpoints", "ep"},
+		Args:    cobra.ExactArgs(1),
+		RunE: func(c *cobra.Command, args []string) error {
+			podName := args[0]
+			ns := handleNamespace()
+			configWriter, err := setupClustersEnvoyConfigWriter(podName, ns, c.OutOrStdout())
+			if err != nil {
+				return err
+			}
+
+			filter := clusters.EndpointFilter{
+				Address: address,
+				Port:    uint32(port),
+				Cluster: clusterName,
+			}
+
+			switch outputFormat {
+			case summaryOutput:
+				return configWriter.PrintEndpointsSummary(filter)
+			case jsonOutput:
+				return configWriter.PrintEndpoints(filter)
+			default:
+				return fmt.Errorf("output format %q not supported", outputFormat)
+			}
 		},
 	}
 )
@@ -190,7 +235,7 @@ func handleNamespace() string {
 	return ns
 }
 
-func setupEnvoyConfigWriter(podName, podNamespace string, out io.Writer) (*configdump.ConfigWriter, error) {
+func setupConfigdumpEnvoyConfigWriter(podName, podNamespace string, out io.Writer) (*configdump.ConfigWriter, error) {
 	kubeClient, err := clientExecFactory(kubeconfig, configContext)
 	if err != nil {
 		return nil, err
@@ -201,6 +246,26 @@ func setupEnvoyConfigWriter(podName, podNamespace string, out io.Writer) (*confi
 		return nil, err
 	}
 	cw := &configdump.ConfigWriter{Stdout: out}
+	err = cw.Prime(debug)
+	if err != nil {
+		return nil, err
+	}
+	return cw, nil
+}
+
+// TODO: migrate this to config dump when implemented in Envoy
+// Issue to track -> https://github.com/envoyproxy/envoy/issues/3362
+func setupClustersEnvoyConfigWriter(podName, podNamespace string, out io.Writer) (*clusters.ConfigWriter, error) {
+	kubeClient, err := clientExecFactory(kubeconfig, configContext)
+	if err != nil {
+		return nil, err
+	}
+	path := "clusters?format=json"
+	debug, err := kubeClient.EnvoyDo(podName, podNamespace, "GET", path, nil)
+	if err != nil {
+		return nil, err
+	}
+	cw := &clusters.ConfigWriter{Stdout: out}
 	err = cw.Prime(debug)
 	if err != nil {
 		return nil, err
@@ -223,5 +288,9 @@ func init() {
 
 	routeConfigCmd.PersistentFlags().StringVar(&routeName, "name", "", "Filter listeners by route name field")
 
-	configCmd.AddCommand(clusterConfigCmd, listenerConfigCmd, routeConfigCmd, bootstrapConfigCmd)
+	endpointConfigCmd.PersistentFlags().StringVar(&address, "address", "", "Filter endpoints by address field")
+	endpointConfigCmd.PersistentFlags().IntVar(&port, "port", 0, "Filter endpoints by Port field")
+	endpointConfigCmd.PersistentFlags().StringVar(&clusterName, "cluster", "", "Filter endpoints by cluster name field")
+
+	configCmd.AddCommand(clusterConfigCmd, listenerConfigCmd, routeConfigCmd, bootstrapConfigCmd, endpointConfigCmd)
 }
