@@ -191,7 +191,7 @@ type XdsConnection struct {
 	nextPush *model.PushContext
 
 	// doneChannel will be closed when the client is closed.
-	doneChannel chan int
+	doneChannel chan struct{}
 
 	// TODO: migrate other fields as needed from model.Proxy and replace it
 
@@ -313,7 +313,7 @@ type XdsEvent struct {
 func newXdsConnection(peerAddr string, stream DiscoveryStream) *XdsConnection {
 	return &XdsConnection{
 		pushChannel:  make(chan *XdsEvent, 1),
-		doneChannel:  make(chan int, 1),
+		doneChannel:  make(chan struct{}),
 		PeerAddr:     peerAddr,
 		Clusters:     []string{},
 		Connect:      time.Now(),
