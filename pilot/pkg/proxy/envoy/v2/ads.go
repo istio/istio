@@ -340,6 +340,10 @@ func receiveThread(con *XdsConnection, reqChannel chan *xdsapi.DiscoveryRequest,
 			adsLog.Errorf("ADS: %q %s terminated with errors %v", con.PeerAddr, con.ConID, err)
 			return
 		}
+		if req.ResponseNonce != "" {
+			con.notifyAck(req.ResponseNonce)
+		}
+
 		reqChannel <- req
 	}
 }
@@ -429,7 +433,6 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 						cdsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": discReq.ErrorDetail.Message}).Add(1)
 					} else if discReq.ResponseNonce != "" {
 						con.ClusterNonceAcked = discReq.ResponseNonce
-						con.notifyAck(discReq.ResponseNonce)
 					}
 					adsLog.Debugf("ADS:CDS: ACK %v %v", peerAddr, discReq.String())
 					continue
@@ -452,7 +455,6 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 						ldsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": discReq.ErrorDetail.Message}).Add(1)
 					} else if discReq.ResponseNonce != "" {
 						con.ListenerNonceAcked = discReq.ResponseNonce
-						con.notifyAck(discReq.ResponseNonce)
 					}
 					adsLog.Debugf("ADS:LDS: ACK %v", discReq.String())
 					continue
@@ -480,7 +482,6 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 							con.mu.Lock()
 							con.RouteNonceAcked = discReq.ResponseNonce
 							con.mu.Unlock()
-							con.notifyAck(discReq.ResponseNonce)
 						}
 						continue
 					}
@@ -506,7 +507,6 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				if reflect.DeepEqual(con.Clusters, clusters) {
 					if discReq.ErrorDetail == nil && discReq.ResponseNonce != "" {
 						con.EndpointNonceAcked = discReq.ResponseNonce
-						con.notifyAck(discReq.ResponseNonce)
 						if len(edsClusters) != 0 {
 							con.EndpointPercent = int((float64(len(clusters)) / float64(len(edsClusters))) * float64(100))
 						}
