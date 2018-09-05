@@ -44,4 +44,4 @@ for cert in $(find usr/share/ca-certificates -type f | sort); do
   cat "$cert" >> ${CERT_FILE}
 done
 
-tar -czf "${CA_CERTS}" etc/ssl/certs/ca-certificates.crt usr/share/doc/ca-certificates/copyright
+tar -czf "${CA_CERTS}" --owner=0 --group=0 etc/ssl/certs/ca-certificates.crt usr/share/doc/ca-certificates/copyright
