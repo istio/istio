@@ -877,6 +877,23 @@ func TestToProtoForTesting(t *testing.T) {
 	}
 }
 
+func TestToProtoUnknwonType(t *testing.T) {
+	var attrs mixerpb.CompressedAttributes
+
+	b := GetMutableBag(nil)
+	b.Set("M1", interface{}(func() {}))
+
+	if err := withPanic(func() { b.ToProto(&attrs, nil, 0) }); err == nil {
+		t.Error("Expected panic")
+	}
+
+	b = GetMutableBag(nil)
+	b.Set("M2", map[string]interface{}{"a": "b"})
+	if err := withPanic(func() { b.ToProto(&attrs, nil, 0) }); err == nil {
+		t.Error("Expected panic")
+	}
+}
+
 func TestGlobalList(t *testing.T) {
 	l := GlobalList()
 
