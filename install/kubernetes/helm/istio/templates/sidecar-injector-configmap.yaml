@@ -31,11 +31,11 @@ data:
         {{ "[[ if (isset .ObjectMeta.Annotations \"traffic.sidecar.istio.io/includeOutboundPorts\") -]]" }}
         - "-o"
         {{ "- \"[[ index .ObjectMeta.Annotations \"traffic.sidecar.istio.io/includeOutboundPorts\"  ]]\"" }}
-        {{ "[[ end -]]" }}
         {{ "[[ if (isset .ObjectMeta.Annotations \"traffic.sidecar.istio.io/excludeOutboundPorts\") -]]" }}
         - "-z"
         {{ "- \"[[ index .ObjectMeta.Annotations \"traffic.sidecar.istio.io/excludeOutboundPorts\"  ]]\"" }}
-        {{ "[[ end -]]" }}    
+        {{ "[[ end -]]" }}
+        {{ "[[ else -]]" }}
         - "-i"
         {{ "[[ if (isset .ObjectMeta.Annotations \"traffic.sidecar.istio.io/includeOutboundIPRanges\") -]]" }}
         {{ "- \"[[ index .ObjectMeta.Annotations \"traffic.sidecar.istio.io/includeOutboundIPRanges\"  ]]\"" }}
@@ -47,6 +47,7 @@ data:
         {{ "- \"[[ index .ObjectMeta.Annotations \"traffic.sidecar.istio.io/excludeOutboundIPRanges\"  ]]\"" }}
         {{ "[[ else -]]" }}
         - "{{ .Values.global.proxy.excludeIPRanges }}"
+        {{ "[[ end -]]" }}
         {{ "[[ end -]]" }}
         - "-b"
         {{ "[[ if (isset .ObjectMeta.Annotations \"traffic.sidecar.istio.io/includeInboundPorts\") -]]" }}

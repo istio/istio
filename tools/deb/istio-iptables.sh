@@ -287,24 +287,22 @@ done
 iptables -t nat -A ISTIO_OUTPUT -d 127.0.0.1/32 -j RETURN
 
 if [ -n "${OUTBOUND_PORTS_INCLUDE}" ]; then
-  if [ -n "${OUTBOUND_PORTS_INCLUDE}" ]; then
-    if [ "${OUTBOUND_PORTS_INCLUDE}" == "*" ]; then
-      # Redirect exclusions must be applied before inclusions.
-      if [ -n "${OUTBOUND_PORTS_EXCLUDE}" ]; then
-        for port in ${OUTBOUND_PORTS_EXCLUDE}; do
-          iptables -t nat -A ISTIO_OUTPUT -p tcp --dport ${port} -j RETURN
-        done
-      fi
-      # Redirect remaining outbound traffic to Envoy
-      iptables -t nat -A ISTIO_OUTPUT -j ISTIO_REDIRECT
-    else
-      # User has specified a non-empty list of ports to be redirected to Envoy.
-      for port in ${OUTBOUND_PORTS_INCLUDE}; do
-        iptables -t nat -A ISTIO_OUTPUT -p tcp --dport ${port} -j ISTIO_REDIRECT
+  if [ "${OUTBOUND_PORTS_INCLUDE}" == "*" ]; then
+    # Redirect exclusions must be applied before inclusions.
+    if [ -n "${OUTBOUND_PORTS_EXCLUDE}" ]; then
+      for port in ${OUTBOUND_PORTS_EXCLUDE}; do
+        iptables -t nat -A ISTIO_OUTPUT -p tcp --dport ${port} -j RETURN
       done
-      # All other traffic is not redirected.
-      iptables -t nat -A ISTIO_OUTPUT -j RETURN
     fi
+    # Redirect remaining outbound traffic to Envoy
+    iptables -t nat -A ISTIO_OUTPUT -j ISTIO_REDIRECT
+  else
+    # User has specified a non-empty list of ports to be redirected to Envoy.
+    for port in ${OUTBOUND_PORTS_INCLUDE}; do
+      iptables -t nat -A ISTIO_OUTPUT -p tcp --dport ${port} -j ISTIO_REDIRECT
+    done
+    # All other traffic is not redirected.
+    iptables -t nat -A ISTIO_OUTPUT -j RETURN
   fi
 else
   if [ "${OUTBOUND_IP_RANGES_INCLUDE}" == "*" ]; then
