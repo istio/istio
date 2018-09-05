@@ -15,8 +15,8 @@ if ! ls ~/.kube/config_old > /dev/null; then
 else
     echo "There is an old ~/.kube/config_old file on your system."
     read -p "If you believe it's outdated, we can update it[default: no]: " -r update
-    overrwriteExisting=${update:-"no"}
-    if [[ $overrwriteExisting = *"y"* ]] || [[ $overrwriteExisting = *"Y"* ]]; then
+    overwriteExisting=${update:-"no"}
+    if [[ $overwriteExisting = *"y"* ]] || [[ $overwriteExisting = *"Y"* ]]; then
         cp ~/.kube/config ~/.kube/config_old
     fi
 fi
