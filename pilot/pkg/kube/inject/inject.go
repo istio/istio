@@ -630,6 +630,9 @@ func intoObject(sidecarTemplate string, meshconfig *meshconfig.MeshConfig, in ru
 		metadata.Annotations = make(map[string]string)
 	}
 	metadata.Annotations[annotationStatus.name] = status
+	metadata.Annotations["prometheus.io/scrape"] = "true"
+	metadata.Annotations["prometheus.io/port"] = "15090"
+	metadata.Annotations["prometheus.io/path"] = "/stats/prometheus"
 
 	return out, nil
 }

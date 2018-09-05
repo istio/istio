@@ -246,7 +246,7 @@ data:
         regex: 'envoy_tls.*'
         action: drop
       - source_labels: [ __name__ ]
-        regex: 'envoy_cluster_(lb|http2|update|upstream|original|max|membership|bind).*'
+        regex: 'envoy_cluster_(lb|http2|update|upstream|original|max|membership|bind|retry).*'
         action: drop
       - source_labels: [ __name__ ]
         regex: 'envoy_(http|tcp).*'
