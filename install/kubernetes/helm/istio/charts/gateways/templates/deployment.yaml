@@ -108,6 +108,8 @@ spec:
               fieldRef:
                 fieldPath: metadata.name
           volumeMounts:
+          - name: sdsudspath
+            mountPath: /var/run/sds
           - name: istio-certs
             mountPath: /etc/certs
             readOnly: true
@@ -120,6 +122,9 @@ spec:
 {{ toYaml $spec.additionalContainers | indent 8 }}
 {{- end }}
       volumes:
+      - name: sdsudspath
+        hostPath:
+          path: /var/run/sds
       - name: istio-certs
         secret:
           secretName: istio.{{ $key }}-service-account
