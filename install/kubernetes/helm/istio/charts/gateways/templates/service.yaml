@@ -37,6 +37,11 @@ spec:
       {{ $pkey}}: {{ $pval }}
       {{- end }}
     {{- end }}
+  {{- if $spec.loadBalancerSourceRanges }}
+  loadBalancerSourceRanges:
+{{ toYaml $spec.loadBalancerSourceRanges | indent 4 }}
+  {{- end -}}
+{{- else }}
 ---
 {{- end }}
 {{- end }}
