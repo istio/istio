@@ -276,6 +276,9 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 					adsLog.Warnf("EDS: ACK ERROR %v %s %v", peerAddr, con.ConID, discReq.String())
 				}
 				adsLog.Debugf("EDS: ACK %s %s %s", con.ConID, discReq.VersionInfo, con.Clusters)
+				if discReq.ErrorDetail == nil && discReq.ResponseNonce != "" {
+					con.notifyAck(discReq.ResponseNonce)
+				}
 				if len(con.Clusters) > 0 {
 					continue
 				}
