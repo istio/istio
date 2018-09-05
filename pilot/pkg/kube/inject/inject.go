@@ -144,6 +144,7 @@ const (
 // SidecarInjectionSpec collects all container types and volumes for
 // sidecar mesh injection
 type SidecarInjectionSpec struct {
+	Annotations      map[string]string             `yaml:"annotations"`
 	InitContainers   []corev1.Container            `yaml:"initContainers"`
 	Containers       []corev1.Container            `yaml:"containers"`
 	Volumes          []corev1.Volume               `yaml:"volumes"`
@@ -462,6 +463,10 @@ func injectionData(sidecarTemplate, version string, deploymentMetadata *metav1.O
 		return nil, "", err
 	}
 
+	if sic.Annotations == nil {
+		sic.Annotations = make(map[string]string)
+	}
+
 	status := &SidecarInjectionStatus{Version: version}
 	for _, c := range sic.InitContainers {
 		status.InitContainers = append(status.InitContainers, c.Name)
@@ -630,9 +635,6 @@ func intoObject(sidecarTemplate string, meshconfig *meshconfig.MeshConfig, in ru
 		metadata.Annotations = make(map[string]string)
 	}
 	metadata.Annotations[annotationStatus.name] = status
-	metadata.Annotations["prometheus.io/scrape"] = "true"
-	metadata.Annotations["prometheus.io/port"] = "15090"
-	metadata.Annotations["prometheus.io/path"] = "/stats/prometheus"
 
 	return out, nil
 }
