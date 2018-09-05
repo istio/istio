@@ -142,7 +142,7 @@ func (c *kubeComponent) Init(ctx environment.ComponentContext, deps map[dependen
 	// TODO: Right now, simply connect to the telemetry backend at port 9092. We can expand this to connect
 	// to policy backend and dynamically figure out ports later.
 	// See https://github.com/istio/istio/issues/6175
-	forwarder := kube.NewPortForwarder(ctx.Settings().KubeConfig, pod.Namespace, pod.Name, 9092)
+	forwarder := kube.NewPortForwarder(e.KubeSettings().KubeConfig, pod.Namespace, pod.Name, 9092)
 
 	if err = forwarder.Start(); err != nil {
 		return nil, err
