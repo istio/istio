@@ -236,3 +236,18 @@ data:
       - source_labels: [__meta_kubernetes_pod_name]
         action: replace
         target_label: pod_name
+
+      metric_relabel_configs:
+      # Blacklist some of the envoy metrics that have massive cardinality
+      - source_labels: [ __name__ ]
+        regex: 'envoy.*(_rq|_cx).*'
+        action: drop
+      - source_labels: [ __name__ ]
+        regex: 'envoy_tls.*'
+        action: drop
+      - source_labels: [ __name__ ]
+        regex: 'envoy_cluster_(lb|http2|update|upstream|original|max|membership|bind).*'
+        action: drop
+      - source_labels: [ __name__ ]
+        regex: 'envoy_(http|tcp).*'
+        action: drop
