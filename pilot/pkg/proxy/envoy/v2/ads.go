@@ -682,11 +682,10 @@ func (s *DiscoveryServer) AdsPushAll(version string) {
 			return
 		}
 
-		c := pending[0]
+		// Using non-blocking push has problems if 2 pushes happen too close to each other
+		client := pending[0]
 		pending = pending[1:]
 
-		// Using non-blocking push has problems if 2 pushes happen too close to each other
-		client := c
 		// TODO: this should be in a thread group, to do multiple pushes in parallel.
 		to := time.After(PushTimeout)
 		select {
@@ -705,7 +704,7 @@ func (s *DiscoveryServer) AdsPushAll(version string) {
 			// This may happen to some clients if the other side is in a bad state and can't receive.
 			// The tests were catching this - one of the client was not reading.
 
-			pending = append(pending, c)
+			pending = append(pending, client)
 
 			if client.LastPushFailure.IsZero() {
 				client.LastPushFailure = time.Now()
