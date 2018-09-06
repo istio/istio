@@ -37,6 +37,12 @@ func TestHTTPKubernetes(t *testing.T) {
 	testHTTP(t)
 }
 
+func TestHTTPLocal(t *testing.T) {
+	framework.Requires(t, dependency.Local, dependency.Apps)
+
+	testHTTP(t)
+}
+
 func testHTTP(t *testing.T) {
 	t.Helper()
 

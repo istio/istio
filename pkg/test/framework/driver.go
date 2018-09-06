@@ -155,14 +155,26 @@ func (d *driver) Requires(t testing.TB, dependencies []dependency.Instance) {
 
 	// Initialize dependencies only once.
 	for _, dep := range dependencies {
-		c, ok := d.context.Registry.Get(dep)
-		if !ok {
-			envID := d.context.Settings().Environment
-			t.Skipf("unable to locate dependency '%v' in environment %s", dep, envID)
-		}
-		if _, err := d.context.Tracker.Initialize(d.context, c); err != nil {
-			scope.Errorf("Failed to initialize dependency '%s': %v", dep, err)
-			t.Fatalf("unable to satisfy dependency '%v': %v", dep, err)
+		envID := d.context.Settings().Environment
+
+		switch dep {
+		case dependency.Local:
+			if envID != settings.Local {
+				t.Skipf("requires %s environment. Running %s", settings.Local, envID)
+			}
+		case dependency.Kubernetes:
+			if envID != settings.Kubernetes {
+				t.Skipf("requires %s environment. Running %s", settings.Kubernetes, envID)
+			}
+		default:
+			c, ok := d.context.Registry.Get(dep)
+			if !ok {
+				t.Skipf("unable to locate dependency '%v' in environment %s", dep, envID)
+			}
+			if _, err := d.context.Tracker.Initialize(d.context, c); err != nil {
+				scope.Errorf("Failed to initialize dependency '%s': %v", dep, err)
+				t.Fatalf("unable to satisfy dependency '%v': %v", dep, err)
+			}
 		}
 	}
 }

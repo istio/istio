@@ -15,15 +15,12 @@
 package components
 
 import (
-	"istio.io/istio/pkg/test/framework/component"
 	"istio.io/istio/pkg/test/framework/components/apiserver"
 	"istio.io/istio/pkg/test/framework/components/apps"
 	"istio.io/istio/pkg/test/framework/components/mixer"
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/components/policybackend"
 	"istio.io/istio/pkg/test/framework/components/registry"
-	"istio.io/istio/pkg/test/framework/dependency"
-	"istio.io/istio/pkg/test/framework/environment"
 )
 
 // Local components
@@ -38,32 +35,9 @@ func init() {
 	Local.Register(policybackend.LocalComponent)
 	Local.Register(apps.LocalComponent)
 
-	Kubernetes.Register(newNilCommponent(dependency.Kubernetes))
 	Kubernetes.Register(apiserver.KubeComponent)
 	Kubernetes.Register(mixer.KubeComponent)
 	Kubernetes.Register(pilot.KubeComponent)
 	Kubernetes.Register(policybackend.KubeComponent)
 	Kubernetes.Register(apps.KubeComponent)
-}
-
-func newNilCommponent(id dependency.Instance) component.Component {
-	return &nilComponent{
-		id: id,
-	}
-}
-
-type nilComponent struct {
-	id dependency.Instance
-}
-
-func (c *nilComponent) ID() dependency.Instance {
-	return c.id
-}
-
-func (c *nilComponent) Requires() []dependency.Instance {
-	return nil
-}
-
-func (c *nilComponent) Init(ctx environment.ComponentContext, deps map[dependency.Instance]interface{}) (interface{}, error) {
-	return nil, nil
 }
