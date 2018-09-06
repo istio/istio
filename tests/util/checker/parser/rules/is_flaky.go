@@ -18,6 +18,8 @@ import (
 	"go/ast"
 	"go/token"
 
+	"strings"
+
 	"istio.io/istio/tests/util/checker"
 	"istio.io/istio/tests/util/checker/testlinter/rules"
 )
@@ -37,9 +39,15 @@ func (lr *IsFlaky) GetID() string {
 
 // Check verifies if aNode is not time.Sleep. If verification fails lrp creates a new report.
 func (lr *IsFlaky) Check(aNode ast.Node, fs *token.FileSet, lrp *checker.Report) {
-	if ce, ok := aNode.(*ast.CallExpr); ok {
-		if rules.MatchCallExpr(ce, "annotation", "IsFlakyTest") {
-			lrp.AddItem(fs.Position(ce.Pos()), lr.GetID(), "annotation.IsFlaky() is found.")
+	if fn, isFn := aNode.(*ast.FuncDecl); isFn && strings.HasPrefix(fn.Name.Name, "Test") {
+		for _, item := range fn.Body.List {
+			if expr, ok := item.(*ast.ExprStmt); ok {
+				if ce, ok := expr.X.(*ast.CallExpr); ok {
+					if rules.MatchCallExpr(ce, "annotation", "IsFlakyTest") {
+						lrp.AddItem(fs.Position(ce.Pos()), lr.GetID(), "annotation.IsFlaky() is found in "+fn.Name.Name)
+					}
+				}
+			}
 		}
 	}
 }
