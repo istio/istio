@@ -19,9 +19,9 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"log"
 	"os"
 	"path/filepath"
-	"log"
 )
 
 // Check checks the list of files, and write to the given Report.

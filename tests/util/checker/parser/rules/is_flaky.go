@@ -17,6 +17,7 @@ package rules
 import (
 	"go/ast"
 	"go/token"
+
 	"istio.io/istio/tests/util/checker"
 	"istio.io/istio/tests/util/checker/testlinter/rules"
 )

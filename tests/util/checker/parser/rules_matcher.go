@@ -17,6 +17,7 @@ package main
 import (
 	"os"
 	"strings"
+
 	"istio.io/istio/tests/util/checker"
 	"istio.io/istio/tests/util/checker/parser/rules"
 )
@@ -42,5 +43,5 @@ func (rf *RulesMatcher) GetRules(absp string, info os.FileInfo) []checker.Rule {
 	if len(paths) == 0 || info.IsDir() || !strings.HasSuffix(absp, "_test.go") {
 		return []checker.Rule{}
 	}
-	return []checker.Rule{rules.NewIsFlaky(),}
+	return []checker.Rule{rules.NewIsFlaky()}
 }
