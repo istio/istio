@@ -37,7 +37,7 @@ func (lr *IsFlaky) GetID() string {
 // Check verifies if aNode is not time.Sleep. If verification fails lrp creates a new report.
 func (lr *IsFlaky) Check(aNode ast.Node, fs *token.FileSet, lrp *checker.Report) {
 	if ce, ok := aNode.(*ast.CallExpr); ok {
-		if rules.MatchCallExpr(ce, "annotation", "IsFlaky") {
+		if rules.MatchCallExpr(ce, "annotation", "IsFlakyTest") {
 			lrp.AddItem(fs.Position(ce.Pos()), lr.GetID(), "annotation.IsFlaky() is found.")
 		}
 	}
