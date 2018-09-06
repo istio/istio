@@ -127,24 +127,6 @@ func (c *Controller) Run(stopCh <-chan struct{}) {
 	wait.Until(c.runWorker, 5*time.Second, stopCh)
 }
 
-// StartSecretController start k8s controller which will be watching Secret object
-// in a specified namesapce
-func StartSecretController(k8s kubernetes.Interface,
-	cs *ClusterStore,
-	serviceController *aggregate.Controller,
-	discoveryServer *envoy.DiscoveryServer,
-	namespace string,
-	resyncInterval time.Duration,
-	watchedNamespace,
-	domainSufix string) error {
-	stopCh := make(chan struct{})
-	controller := NewController(k8s, namespace, cs, serviceController, discoveryServer, resyncInterval, watchedNamespace, domainSufix)
-
-	go controller.Run(stopCh)
-
-	return nil
-}
-
 func (c *Controller) runWorker() {
 	for c.processNextItem() {
 		// continue looping
