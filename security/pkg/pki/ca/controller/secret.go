@@ -226,14 +226,7 @@ func (sc *SecretController) saUpdated(oldObj, curObj interface{}) {
 }
 
 func (sc *SecretController) upsertSecret(saName, saNamespace string) {
-	secret := &v1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Annotations: map[string]string{ServiceAccountNameAnnotationKey: saName},
-			Name:        GetSecretName(saName),
-			Namespace:   saNamespace,
-		},
-		Type: IstioSecretType,
-	}
+	secret := ca.BuildSecret(saName, GetSecretName(saName), saNamespace, nil, nil, nil, nil, nil, IstioSecretType)
 
 	_, exists, err := sc.scrtStore.Get(secret)
 	if err != nil {
