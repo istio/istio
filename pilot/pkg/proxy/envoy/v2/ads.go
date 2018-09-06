@@ -46,6 +46,9 @@ var (
 	adsClients      = map[string]*XdsConnection{}
 	adsClientsMutex sync.RWMutex
 
+	// Mapping between node IDs and the network ID where they run
+	adsClientsNetworks = map[string]string{}
+
 	// Map of sidecar IDs to XdsConnections, first key is sidecarID, second key is connID
 	// This is a map due to an edge case during envoy restart whereby the 'old' envoy
 	// reconnects after the 'new/restarted' envoy
@@ -168,6 +171,9 @@ type XdsConnection struct {
 
 	// PeerAddr is the address of the client envoy, from network layer
 	PeerAddr string
+	
+	// Network ID where the originator of this connection runs
+	Network  string
 
 	// Time of connection, for debugging
 	Connect time.Time
@@ -433,6 +439,8 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				// immediately after connect. It is followed by EDS REQ as
 				// soon as the CDS push is returned.
 				adsLog.Infof("ADS:CDS: REQ %v %s %v raw: %s", peerAddr, con.ConID, time.Since(t0), discReq.String())
+				adsClientsNetworks[nt.ID] = discReq.Node.GetMetadata().Fields["NETWORK"].GetStringValue()
+				con.Network = adsClientsNetworks[nt.ID]
 				con.CDSWatch = true
 				err := s.pushCds(con, s.env.PushContext)
 				if err != nil {
@@ -645,7 +653,7 @@ func (s *DiscoveryServer) AdsPushAll(version string) {
 	// the update may be duplicated if multiple goroutines compute at the same time).
 	// In general this code is called from the 'event' callback that is throttled.
 	for clusterName, edsCluster := range cMap {
-		if err := s.updateCluster(pushContext, clusterName, edsCluster); err != nil {
+		if err := s.updateCluster(pushContext, clusterName, "", edsCluster); err != nil {
 			adsLog.Errorf("updateCluster failed with clusterName %s", clusterName)
 		}
 	}
@@ -796,4 +804,13 @@ func (conn *XdsConnection) send(res *xdsapi.DiscoveryResponse) error {
 		_ = t.Stop()
 		return err
 	}
+}
+
+// Return the Network ID (if exists) for the provided Node ID
+func (s *DiscoveryServer) networkForNodeID(id string) string {
+	nt, err := model.ParseServiceNode(id)
+	if err != nil {
+		return ""
+	}
+	return adsClientsNetworks[nt.ID]
 }

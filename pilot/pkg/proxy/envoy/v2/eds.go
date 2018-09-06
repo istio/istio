@@ -71,7 +71,8 @@ type EdsCluster struct {
 	// mutex protects changes to this cluster
 	mutex sync.Mutex
 
-	LoadAssignment *xdsapi.ClusterLoadAssignment
+	// A map keyed by network ID tracking the load assignment for each
+	LoadAssignmentPerNetwork map[string]*xdsapi.ClusterLoadAssignment
 
 	// FirstUse is the time the cluster was first used, for debugging
 	FirstUse time.Time
@@ -107,10 +108,38 @@ func (s *DiscoveryServer) endpoints(clusterNames []string, outRes []types.Any) *
 }
 
 // Return the load assignment. The field can be updated by another routine.
-func loadAssignment(c *EdsCluster) *xdsapi.ClusterLoadAssignment {
+func loadAssignment(c *EdsCluster, network string) *xdsapi.ClusterLoadAssignment {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-	return c.LoadAssignment
+	return c.updateRemoteEndpoints(network)
+}
+
+func (c *EdsCluster) updateRemoteEndpoints(network string) *xdsapi.ClusterLoadAssignment {
+	if c.LoadAssignmentPerNetwork[network] == nil {
+		return nil
+	}
+
+	// TODO quick naive implemetation just for poc and get feedback
+	weights := map[string]int{}
+	for k, v := range c.LoadAssignmentPerNetwork {
+		weights[k] += len(v.Endpoints)
+	}
+
+	endpoints := c.LoadAssignmentPerNetwork[network].Endpoints
+	for k, w := range weights {
+		if k == network || w == 0 {
+			continue
+		}
+		endpoint := endpoint.LocalityLbEndpoints{
+			Locality:    &core.Locality{Zone: k},
+			LbEndpoints: []endpoint.LbEndpoint{
+				//TODO get the remote gateway endpoint
+			},
+			LoadBalancingWeight: &types.UInt32Value{Value: uint32(w)},
+		}
+		endpoints = append(endpoints, endpoint)
+	}
+	return c.LoadAssignmentPerNetwork[network]
 }
 
 func newEndpoint(e *model.NetworkEndpoint) (*endpoint.LbEndpoint, error) {
@@ -145,7 +174,7 @@ func newEndpoint(e *model.NetworkEndpoint) (*endpoint.LbEndpoint, error) {
 
 // updateCluster is called from the event (or global cache invalidation) to update
 // the endpoints for the cluster.
-func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName string, edsCluster *EdsCluster) error {
+func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName string, network string, edsCluster *EdsCluster) error {
 	// TODO: should we lock this as well ? Once we move to event-based it may not matter.
 	var hostname model.Hostname
 	//var ports model.PortList
@@ -177,7 +206,7 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 	// We still lock the access to the LoadAssignments.
 	edsCluster.mutex.Lock()
 	defer edsCluster.mutex.Unlock()
-	edsCluster.LoadAssignment = &xdsapi.ClusterLoadAssignment{
+	edsCluster.LoadAssignmentPerNetwork[network] = &xdsapi.ClusterLoadAssignment{
 		ClusterName: clusterName,
 		Endpoints:   locEps,
 	}
@@ -256,6 +285,7 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 			// Should not change. A node monitors multiple clusters
 			if con.ConID == "" && discReq.Node != nil {
 				con.ConID = connectionID(discReq.Node.Id)
+				con.Network = s.networkForNodeID(discReq.Node.Id)
 			}
 
 			clusters2 := discReq.GetResourceNames()
@@ -326,13 +356,13 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection) e
 			continue
 		}
 
-		l := loadAssignment(c)
+		l := loadAssignment(c, con.Network)
 		if l == nil { // fresh cluster
-			if err := s.updateCluster(push, clusterName, c); err != nil {
+			if err := s.updateCluster(push, clusterName, con.Network, c); err != nil {
 				adsLog.Errorf("error returned from updateCluster for cluster name %s, skipping it.", clusterName)
 				continue
 			}
-			l = loadAssignment(c)
+			l = loadAssignment(c, con.Network)
 		}
 		endpoints += len(l.Endpoints)
 		if len(l.Endpoints) == 0 {
@@ -355,8 +385,8 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection) e
 	}
 	pushes.With(prometheus.Labels{"type": "eds"}).Add(1)
 
-	adsLog.Debugf("EDS: PUSH for %s clusters %d endpoints %d empty %d",
-		con.ConID, len(con.Clusters), endpoints, emptyClusters)
+	adsLog.Infof("EDS: PUSH for %s clusters %d endpoints %d empty %d network %s",
+		con.ConID, len(con.Clusters), endpoints, emptyClusters, con.Network)
 	return nil
 }
 
@@ -397,8 +427,9 @@ func (s *DiscoveryServer) getOrAddEdsCluster(clusterName string) *EdsCluster {
 	c := edsClusters[clusterName]
 	if c == nil {
 		c = &EdsCluster{discovery: s,
-			EdsClients: map[string]*XdsConnection{},
-			FirstUse:   time.Now(),
+			LoadAssignmentPerNetwork: map[string]*xdsapi.ClusterLoadAssignment{},
+			EdsClients:               map[string]*XdsConnection{},
+			FirstUse:                 time.Now(),
 		}
 		edsClusters[clusterName] = c
 	}
