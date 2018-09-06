@@ -209,29 +209,30 @@ func (c *Controller) addMemberCluster(secretName string, s *corev1.Secret) {
 				continue
 			}
 			log.Infof("Adding new cluster member: %s", clusterID)
-			c.cs.rc[clusterID] = &RemoteCluster{}
-			c.cs.rc[clusterID].Client = clientConfig
-			c.cs.rc[clusterID].FromSecret = secretName
 			client, _ := kube.CreateInterfaceFromClusterConfig(clientConfig)
-			kubectl := kube.NewController(client, kube.ControllerOptions{
+			kubeController := kube.NewController(client, kube.ControllerOptions{
 				WatchedNamespace: c.watchedNamespace,
 				ResyncPeriod:     c.resyncInterval,
 				DomainSuffix:     c.domainSufix,
 			})
-			c.cs.rc[clusterID].Controller = kubectl
+			stopCh := make(chan struct{})
+			c.cs.rc[clusterID] = &RemoteCluster{
+				FromSecret:     secretName,
+				Controller:     kubeController,
+				ControlChannel: stopCh,
+			}
 			c.serviceController.AddRegistry(
 				aggregate.Registry{
 					Name:             serviceregistry.KubernetesRegistry,
 					ClusterID:        clusterID,
-					ServiceDiscovery: kubectl,
-					ServiceAccounts:  kubectl,
-					Controller:       kubectl,
+					ServiceDiscovery: kubeController,
+					ServiceAccounts:  kubeController,
+					Controller:       kubeController,
 				})
-			stopCh := make(chan struct{})
-			c.cs.rc[clusterID].ControlChannel = stopCh
-			_ = kubectl.AppendServiceHandler(func(*model.Service, model.Event) { c.discoveryServer.ClearCacheFunc()() })
-			_ = kubectl.AppendInstanceHandler(func(*model.ServiceInstance, model.Event) { c.discoveryServer.ClearCacheFunc()() })
-			go kubectl.Run(stopCh)
+
+			kubeController.AppendServiceHandler(func(*model.Service, model.Event) { c.discoveryServer.ClearCacheFunc()() })
+			kubeController.AppendInstanceHandler(func(*model.ServiceInstance, model.Event) { c.discoveryServer.ClearCacheFunc()() })
+			go kubeController.Run(stopCh)
 		} else {
 			log.Infof("Cluster %s in the secret %s in namespace %s already exists",
 				clusterID, secretName, s.ObjectMeta.Namespace)
