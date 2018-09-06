@@ -2,7 +2,7 @@
   block:
 
   - set_fact:
-      kiali_version: istio-1.0
+      kiali_version: v0.6
 
   - name: Install Kiali on Openshift
     shell: |
