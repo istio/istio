@@ -1,5 +1,7 @@
 from grafana/grafana:5.2.3
 
+RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
+
 USER root
 
 COPY grafana.ini /etc/grafana/
