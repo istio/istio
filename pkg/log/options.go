@@ -40,6 +40,8 @@ type Level int
 const (
 	// NoneLevel disables logging
 	NoneLevel Level = iota
+	// FatalLevel enables fatal level logging
+	FatalLevel
 	// ErrorLevel enables error level logging
 	ErrorLevel
 	// WarnLevel enables warn level logging
@@ -55,6 +57,7 @@ var levelToString = map[Level]string{
 	InfoLevel:  "info",
 	WarnLevel:  "warn",
 	ErrorLevel: "error",
+	FatalLevel: "fatal",
 	NoneLevel:  "none",
 }
 
@@ -63,6 +66,7 @@ var stringToLevel = map[string]Level{
 	"info":  InfoLevel,
 	"warn":  WarnLevel,
 	"error": ErrorLevel,
+	"fatal": FatalLevel,
 	"none":  NoneLevel,
 }
 
@@ -337,41 +341,45 @@ func (o *Options) AttachCobraFlags(cmd *cobra.Command) {
 
 		cmd.PersistentFlags().StringVar(&o.outputLevels, "log_output_level", o.outputLevels,
 			fmt.Sprintf("Comma-separated minimum per-scope logging level of messages to output, in the form of "+
-				"<scope>:<level>,<scope>:<level>,... where scope can be one of [%s] and level can be one of [%s, %s, %s, %s, %s]",
+				"<scope>:<level>,<scope>:<level>,... where scope can be one of [%s] and level can be one of [%s, %s, %s, %s, %s, %s]",
 				s,
 				levelToString[DebugLevel],
 				levelToString[InfoLevel],
 				levelToString[WarnLevel],
 				levelToString[ErrorLevel],
+				levelToString[FatalLevel],
 				levelToString[NoneLevel]))
 
 		cmd.PersistentFlags().StringVar(&o.stackTraceLevels, "log_stacktrace_level", o.stackTraceLevels,
 			fmt.Sprintf("Comma-separated minimum per-scope logging level at which stack traces are captured, in the form of "+
-				"<scope>:<level>,<scope:level>,... where scope can be one of [%s] and level can be one of [%s, %s, %s, %s, %s]",
+				"<scope>:<level>,<scope:level>,... where scope can be one of [%s] and level can be one of [%s, %s, %s, %s, %s, %s]",
 				s,
 				levelToString[DebugLevel],
 				levelToString[InfoLevel],
 				levelToString[WarnLevel],
 				levelToString[ErrorLevel],
+				levelToString[FatalLevel],
 				levelToString[NoneLevel]))
 
 		cmd.PersistentFlags().StringVar(&o.logCallers, "log_caller", o.logCallers,
 			fmt.Sprintf("Comma-separated list of scopes for which to include caller information, scopes can be any of [%s]", s))
 	} else {
 		cmd.PersistentFlags().StringVar(&o.outputLevels, "log_output_level", o.outputLevels,
-			fmt.Sprintf("The minimum logging level of messages to output,  can be one of [%s, %s, %s, %s, %s]",
+			fmt.Sprintf("The minimum logging level of messages to output,  can be one of [%s, %s, %s, %s, %s, %s]",
 				levelToString[DebugLevel],
 				levelToString[InfoLevel],
 				levelToString[WarnLevel],
 				levelToString[ErrorLevel],
+				levelToString[FatalLevel],
 				levelToString[NoneLevel]))
 
 		cmd.PersistentFlags().StringVar(&o.stackTraceLevels, "log_stacktrace_level", o.stackTraceLevels,
-			fmt.Sprintf("The minimum logging level at which stack traces are captured, can be one of [%s, %s, %s, %s, %s]",
+			fmt.Sprintf("The minimum logging level at which stack traces are captured, can be one of [%s, %s, %s, %s, %s, %s]",
 				levelToString[DebugLevel],
 				levelToString[InfoLevel],
 				levelToString[WarnLevel],
 				levelToString[ErrorLevel],
+				levelToString[FatalLevel],
 				levelToString[NoneLevel]))
 
 		cmd.PersistentFlags().StringVar(&o.logCallers, "log_caller", o.logCallers,
