@@ -239,15 +239,32 @@ data:
 
       metric_relabel_configs:
       # Blacklist some of the envoy metrics that have massive cardinality
-      - source_labels: [ __name__ ]
-        regex: 'envoy.*(_rq|_cx).*'
+      # This list may need to be pruned further moving forward, as informed
+      # by performance and scalability testing.
+      - source_labels: [ cluster_name ]
+        regex: '(outbound|inbound|prometheus_stats).*'
+        action: drop
+      - source_labels: [ tcp_prefix ]
+        regex: '(outbound|inbound|prometheus_stats).*'
+        action: drop
+      - source_labels: [ listener_address ]
+        regex: '(.+)'
+        action: drop
+      - source_labels: [ http_conn_manager_listener_prefix ]
+        regex: '(.+)'
+        action: drop
+      - source_labels: [ http_conn_manager_prefix ]
+        regex: '(.+)'
         action: drop
       - source_labels: [ __name__ ]
         regex: 'envoy_tls.*'
         action: drop
       - source_labels: [ __name__ ]
-        regex: 'envoy_cluster_(lb|http2|update|upstream|original|max|membership|bind|retry).*'
+        regex: 'envoy_tcp_downstream.*'
         action: drop
       - source_labels: [ __name__ ]
-        regex: 'envoy_(http|tcp).*'
+        regex: 'envoy_http_(stats|admin).*'
+        action: drop
+      - source_labels: [ __name__ ]
+        regex: 'envoy_cluster_(lb|retry|bind|internal|max|original).*'
         action: drop
