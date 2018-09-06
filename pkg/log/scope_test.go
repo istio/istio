@@ -132,12 +132,14 @@ func TestScopeEnabled(t *testing.T) {
 		infoEnabled  bool
 		warnEnabled  bool
 		errorEnabled bool
+		fatalEnabled bool
 	}{
-		{NoneLevel, false, false, false, false},
-		{ErrorLevel, false, false, false, true},
-		{WarnLevel, false, false, true, true},
-		{InfoLevel, false, true, true, true},
-		{DebugLevel, true, true, true, true},
+		{NoneLevel, false, false, false, false, false},
+		{FatalLevel, false, false, false, false, true},
+		{ErrorLevel, false, false, false, true, true},
+		{WarnLevel, false, false, true, true, true},
+		{InfoLevel, false, true, true, true, true},
+		{DebugLevel, true, true, true, true, true},
 	}
 
 	for i, c := range cases {
@@ -158,6 +160,10 @@ func TestScopeEnabled(t *testing.T) {
 
 			if c.errorEnabled != s.ErrorEnabled() {
 				t.Errorf("Got %v, expected %v", s.ErrorEnabled(), c.errorEnabled)
+			}
+
+			if c.fatalEnabled != s.FatalEnabled() {
+				t.Errorf("Got %v, expected %v", s.FatalEnabled(), c.fatalEnabled)
 			}
 
 			if c.level != s.GetOutputLevel() {
