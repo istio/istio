@@ -91,7 +91,7 @@ var (
 		"If true the tests will run within the cluster. If running on minikube, this should be set to true")
 	skipSetup                = flag.Bool("skip_setup", false, "Skip namespace creation and istio cluster setup")
 	sidecarInjectorFile      = flag.String("sidecar_injector_file", defaultSidecarInjectorFile, "Sidecar injector yaml file")
-	clusterWide              = flag.Bool("cluster_wide", false, "If true Pilot/Mixer will observe all namespaces rather than just the testing space")
+	clusterWide              = flag.Bool("cluster_wide", false, "If true Pilot/Mixer will observe all namespaces rather than just the testing namespace")
 	imagePullPolicy          = flag.String("image_pull_policy", "", "Specifies an override for the Docker image pull policy to be used")
 	multiClusterDir          = flag.String("cluster_registry_dir", "", "Directory name for the cluster registry config")
 	useGalleyConfigValidator = flag.Bool("use_galley_config_validator", false, "Use galley configuration validation webhook")

@@ -91,7 +91,7 @@ E2E tests have multiple options available while running them as follows:
 * `--use_local_cluster` - If true the tests will run within the cluster. If running on minikube, this should be set to true. (default: false)
 * `--auth_enable` - If you want to include auth (default: false)
 * `--rbac_enabled` - Enable RBAC (default: true)
-* `--cluster_wide` - If true Pilot/Mixer will observe all namespaces rather than just the testing space (default: false)
+* `--cluster_wide` - If true Pilot/Mixer will observe all namespaces rather than just the testing namespace (default: false)
 * `--use_automatic_injection` - if you want to do transparent sidecar injection  (default: false)
 * `--use_galley_config_validator` - if you want to enable automatic configuration validation (default: false)
 * `--mixer_hub <hub>` - Image hub for the Mixer (default: environment $HUB)
