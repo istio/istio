@@ -296,17 +296,6 @@ func checkForMock(registries []string) bool {
 	return false
 }
 
-// Check if Kubernetes registry exists in PilotArgs's Registries
-func checkForKubernetes(registries []string) bool {
-	for _, r := range registries {
-		if strings.ToLower(r) == "kubernetes" {
-			return true
-		}
-	}
-
-	return false
-}
-
 // GetMeshConfig fetches the ProxyMesh configuration from Kubernetes ConfigMap.
 func GetMeshConfig(kube kubernetes.Interface, namespace, name string) (*v1.ConfigMap, *meshconfig.MeshConfig, error) {
 
@@ -604,19 +593,25 @@ func (s *Server) createK8sServiceControllers(serviceControllers *aggregate.Contr
 
 // initMultiClusterController initializes multi cluster controller
 // currently implemented only for kubernetes registries
-func (s *Server) initMultiClusterController(args *PilotArgs) (err error) {
-	if checkForKubernetes(args.Service.Registries) {
-		// Start secret controller which watches for runtime secret Object changes and adds secrets dynamically
-		err = clusterregistry.StartSecretController(s.kubeClient,
-			s.clusterStore,
-			s.ServiceController,
-			s.EnvoyXdsServer,
-			args.Config.ClusterRegistriesNamespace,
-			args.Config.ControllerOptions.ResyncPeriod,
-			args.Config.ControllerOptions.WatchedNamespace,
-			args.Config.ControllerOptions.DomainSuffix)
+func (s *Server) initMultiClusterController(args *PilotArgs) error {
+	if hasKubeRegistry(args) {
+		s.addStartFunc(func(stop <-chan struct{}) error {
+			secretController := clusterregistry.NewController(s.kubeClient,
+				args.Config.ClusterRegistriesNamespace,
+				s.clusterStore,
+				s.ServiceController,
+				s.EnvoyXdsServer,
+				args.Config.ControllerOptions.ResyncPeriod,
+				args.Config.ControllerOptions.WatchedNamespace,
+				args.Config.ControllerOptions.DomainSuffix)
+
+			// Start secret controller which watches for runtime secret Object changes and adds secrets dynamically
+			go secretController.Run(stop)
+
+			return nil
+		})
 	}
-	return
+	return nil
 }
 
 func hasKubeRegistry(args *PilotArgs) bool {
