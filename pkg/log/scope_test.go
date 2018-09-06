@@ -53,6 +53,11 @@ func TestBasicScopes(t *testing.T) {
 		{func() { s.Errorf("%s", "Hello") }, timePattern + "\terror\ttestScope\tHello", false, false, NoneLevel},
 		{func() { s.Errora("Hello") }, timePattern + "\terror\ttestScope\tHello", false, false, NoneLevel},
 
+		{func() { s.Fatal("Hello") }, timePattern + "\tfatal\ttestScope\tHello", false, false, NoneLevel},
+		{func() { s.Fatalf("Hello") }, timePattern + "\tfatal\ttestScope\tHello", false, false, NoneLevel},
+		{func() { s.Fatalf("%s", "Hello") }, timePattern + "\tfatal\ttestScope\tHello", false, false, NoneLevel},
+		{func() { s.Fatala("Hello") }, timePattern + "\tfatal\ttestScope\tHello", false, false, NoneLevel},
+
 		{func() { s.Debug("Hello") }, timePattern + "\tdebug\ttestScope\tlog/scope_test.go:.*\tHello", false, true, NoneLevel},
 
 		{func() { s.Debug("Hello") },
@@ -69,6 +74,11 @@ func TestBasicScopes(t *testing.T) {
 			true, true, DebugLevel},
 		{func() { s.Error("Hello") },
 			"{\"level\":\"error\",\"time\":\"" + timePattern + "\",\"scope\":\"testScope\",\"caller\":\"log/scope_test.go:.*\"," +
+				"\"msg\":\"Hello\"," +
+				"\"stack\":\".*\"}",
+			true, true, DebugLevel},
+		{func() { s.Fatal("Hello") },
+			"{\"level\":\"fatal\",\"time\":\"" + timePattern + "\",\"scope\":\"testScope\",\"caller\":\"log/scope_test.go:.*\"," +
 				"\"msg\":\"Hello\"," +
 				"\"stack\":\".*\"}",
 			true, true, DebugLevel},
