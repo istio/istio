@@ -158,8 +158,7 @@ func (d *driver) Requires(t testing.TB, dependencies []dependency.Instance) {
 		c, ok := d.context.Registry.Get(dep)
 		if !ok {
 			envID := d.context.Settings().Environment
-			scope.Errorf("Failed to locate dependency '%s' in environment %s", dep, envID)
-			t.Fatalf("unable to locate dependency '%v' in environment %s", dep, envID)
+			t.Skipf("unable to locate dependency '%v' in environment %s", dep, envID)
 		}
 		if _, err := d.context.Tracker.Initialize(d.context, c); err != nil {
 			scope.Errorf("Failed to initialize dependency '%s': %v", dep, err)
