@@ -30,7 +30,7 @@ func TestExternFromFn_NotAFunction(t *testing.T) {
 	ExternFromFn("foo", 23)
 }
 
-func TestExternFromFn_MoreThanTwoOutParameteters(t *testing.T) {
+func TestExternFromFn_MoreThanTwoOutParameters(t *testing.T) {
 	defer func() {
 		if r := recover(); r == nil {
 			t.Error("The code did not panic")
@@ -40,7 +40,7 @@ func TestExternFromFn_MoreThanTwoOutParameteters(t *testing.T) {
 	ExternFromFn("foo", func() (int64, int64, int64) { return 0, 0, 0 })
 }
 
-func TestExternFromFn_TwoOutParametetersWithoutError(t *testing.T) {
+func TestExternFromFn_TwoOutParametersWithoutError(t *testing.T) {
 	defer func() {
 		if r := recover(); r == nil {
 			t.Error("The code did not panic")

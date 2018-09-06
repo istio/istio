@@ -43,7 +43,9 @@ func (m *Connection) Validate() error {
 
 	// no validation rules for Id
 
-	if v, ok := interface{}(m.GetLocalAddress()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetLocalAddress()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return ConnectionValidationError{
 				Field:  "LocalAddress",
@@ -53,7 +55,9 @@ func (m *Connection) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetRemoteAddress()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetRemoteAddress()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return ConnectionValidationError{
 				Field:  "RemoteAddress",
@@ -104,7 +108,9 @@ func (m *Event) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetTimestamp()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetTimestamp()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return EventValidationError{
 				Field:  "Timestamp",
@@ -118,7 +124,9 @@ func (m *Event) Validate() error {
 
 	case *Event_Read_:
 
-		if v, ok := interface{}(m.GetRead()).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(m.GetRead()).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return EventValidationError{
 					Field:  "Read",
@@ -130,7 +138,9 @@ func (m *Event) Validate() error {
 
 	case *Event_Write_:
 
-		if v, ok := interface{}(m.GetWrite()).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(m.GetWrite()).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return EventValidationError{
 					Field:  "Write",
@@ -183,7 +193,9 @@ func (m *Trace) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetConnection()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetConnection()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return TraceValidationError{
 				Field:  "Connection",
@@ -196,7 +208,9 @@ func (m *Trace) Validate() error {
 	for idx, item := range m.GetEvents() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(item).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return TraceValidationError{
 					Field:  fmt.Sprintf("Events[%v]", idx),

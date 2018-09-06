@@ -69,17 +69,14 @@ func convertService(svc v1.Service, domainSuffix string) *model.Service {
 
 	resolution := model.ClientSideLB
 	meshExternal := false
-	loadBalancingDisabled := false
 
 	if svc.Spec.Type == v1.ServiceTypeExternalName && svc.Spec.ExternalName != "" {
 		external = svc.Spec.ExternalName
 		resolution = model.Passthrough
 		meshExternal = true
-		loadBalancingDisabled = true
 	}
 
 	if addr == model.UnspecifiedIP && external == "" { // headless services should not be load balanced
-		loadBalancingDisabled = true
 		resolution = model.Passthrough
 	}
 
@@ -104,15 +101,13 @@ func convertService(svc v1.Service, domainSuffix string) *model.Service {
 	sort.Sort(sort.StringSlice(serviceaccounts))
 
 	return &model.Service{
-		Hostname:              serviceHostname(svc.Name, svc.Namespace, domainSuffix),
-		Ports:                 ports,
-		Address:               addr,
-		ExternalName:          model.Hostname(external),
-		ServiceAccounts:       serviceaccounts,
-		LoadBalancingDisabled: loadBalancingDisabled,
-		MeshExternal:          meshExternal,
-		Resolution:            resolution,
-		CreationTime:          svc.CreationTimestamp.Time,
+		Hostname:        serviceHostname(svc.Name, svc.Namespace, domainSuffix),
+		Ports:           ports,
+		Address:         addr,
+		ServiceAccounts: serviceaccounts,
+		MeshExternal:    meshExternal,
+		Resolution:      resolution,
+		CreationTime:    svc.CreationTimestamp.Time,
 		Attributes: model.ServiceAttributes{
 			Name:      svc.Name,
 			Namespace: svc.Namespace,

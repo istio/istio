@@ -31,9 +31,9 @@ var (
 	ClientServerLatency          = stats.Float64("grpc.io/client/server_latency", `Propagated from the server and should have the same value as "grpc.io/server/latency".`, stats.UnitMilliseconds)
 )
 
-// Predefined views may be subscribed to collect data for the above measures.
+// Predefined views may be registered to collect data for the above measures.
 // As always, you may also define your own custom views over measures collected by this
-// package. These are declared as a convenience only; none are subscribed by
+// package. These are declared as a convenience only; none are registered by
 // default.
 var (
 	ClientSentBytesPerRPCView = &view.View{

@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -168,8 +169,8 @@ func TestSource_ProtoConversionError(t *testing.T) {
 			Singular: "foo",
 			Plural:   "foos",
 			Target:   emptyInfo,
-			Converter: func(info resource.Info, name string, u *unstructured.Unstructured) (string, proto.Message, error) {
-				return "", nil, fmt.Errorf("cant convert")
+			Converter: func(info resource.Info, name string, u *unstructured.Unstructured) (string, time.Time, proto.Message, error) {
+				return "", time.Time{}, nil, fmt.Errorf("cant convert")
 			},
 		},
 	}

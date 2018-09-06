@@ -135,7 +135,9 @@ func (m *BufferPerRoute) Validate() error {
 			}
 		}
 
-		if v, ok := interface{}(m.GetBuffer()).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(m.GetBuffer()).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return BufferPerRouteValidationError{
 					Field:  "Buffer",

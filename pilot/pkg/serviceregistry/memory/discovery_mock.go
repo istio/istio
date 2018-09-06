@@ -29,11 +29,11 @@ var (
 
 	// ExtHTTPService is a mock external HTTP service
 	ExtHTTPService = MakeExternalHTTPService("httpbin.default.svc.cluster.local",
-		"httpbin.org", "")
+		true, "")
 
 	// ExtHTTPSService is a mock external HTTPS service
 	ExtHTTPSService = MakeExternalHTTPSService("httpsbin.default.svc.cluster.local",
-		"httpbin.org", "")
+		true, "")
 
 	// HelloInstanceV0 is a mock IP address for v0 of HelloService
 	HelloInstanceV0 = MakeIP(HelloService, 0)

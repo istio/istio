@@ -29,7 +29,7 @@ spec:
         - --binaryPath
         - /usr/local/bin/envoy
         - --serviceCluster
-        - traffic
+        - traffic.default
         - --drainDuration
         - 2s
         - --parentShutdownDuration
@@ -48,6 +48,10 @@ spec:
         - "15000"
         - --controlPlaneAuthPolicy
         - NONE
+        - --statusPort
+        - "0"
+        - --applicationPorts
+        - "80"
         env:
         - name: POD_NAME
           valueFrom:

@@ -56,7 +56,9 @@ func (m *ClientSSLAuth) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetRefreshDelay()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetRefreshDelay()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return ClientSSLAuthValidationError{
 				Field:  "RefreshDelay",
@@ -69,7 +71,9 @@ func (m *ClientSSLAuth) Validate() error {
 	for idx, item := range m.GetIpWhiteList() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(item).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return ClientSSLAuthValidationError{
 					Field:  fmt.Sprintf("IpWhiteList[%v]", idx),

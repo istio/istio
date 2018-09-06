@@ -166,6 +166,20 @@ func (a *Accessor) CreateNamespace(ns string, istioTestingAnnotation string) err
 	return err
 }
 
+// NamespaceExists returns true if the given namespace exists.
+func (a *Accessor) NamespaceExists(ns string) bool {
+	allNs, err := a.set.CoreV1().Namespaces().List(v1.ListOptions{})
+	if err != nil {
+		return false
+	}
+	for _, n := range allNs.Items {
+		if n.Name == ns {
+			return true
+		}
+	}
+	return false
+}
+
 // DeleteNamespace with the given name
 func (a *Accessor) DeleteNamespace(ns string) error {
 	scope.Infof("Deleting namespace: %s", ns)

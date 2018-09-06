@@ -1,56 +1,22 @@
 #!/bin/bash
 
-# Check if homebrew is installed
-if ! brew --help > /dev/null; then
-    echo "Homebrew is not installed. Please go to https://docs.brew.sh/Installation to install Homebrew."
-    exit 1
-fi
+SCRIPTPATH="$(cd "$(dirname "$0")" ; pwd -P)"
+ROOTDIR="$(dirname "${SCRIPTPATH}")"
+# shellcheck source=tests/e2e/local/common_macos.sh
+source "${ROOTDIR}/common_macos.sh"
+
+check_homebrew
 
 echo "Update homebrew..."
 brew update > /dev/null
 # Give write permissions for /usr/local/bin, so that brew can create symlinks.
 sudo chown -R "$USER:admin" /usr/local/bin
 
-echo "Checking curl"
-if ! curl --help > /dev/null; then
-    echo "curl is not installed. Install it from homebrew."
-    if ! brew install curl; then
-    	echo "Installation of curl from brew fails. Please install it manually."
-        exit 1
-    else
-    	echo "Done."
-    fi
-else
-    echo "curl exists."
-fi
+install_curl
 
-echo "Checking docker..."
-if ! docker --help > /dev/null; then
-    echo "docker is not installed. Install it from homebrew cask."
-    if ! brew cask install docker; then
-    	echo "Installation of docker from brew fails. Please install it manually."
-        exit 1
-    else
-    	echo "Done."
-    fi
-else
-    echo "docker exists. Please make sure to update it to latest version."
-fi
+install_docker
 
-echo "Checking docker-machine..."
-if ! docker-machine --help > /dev/null; then
-    echo "docker-machine is not installed. Downloading and Installing it using curl."
-    base=https://github.com/docker/machine/releases/download/v0.14.0 &&
-    if ! curl -L "$base/docker-machine-$(uname -s)-$(uname -m)" >/usr/local/bin/docker-machine && chmod +x /usr/local/bin/docker-machine; then
-        echo "Installation of docker-machine failed. Please install it manually."
-        exit 1
-    else
-        echo "Done."
-    fi
-else
-    echo "docker-machine exists. Please make sure to update it to latest version."
-    docker-machine version
-fi
+install_docker_machine
 
 function fail_hyperkit_installation() {
     # shellcheck disable=SC2181
@@ -107,17 +73,6 @@ else
     install_minikube
 fi
 
-echo "Checking kubectl..."
-if ! kubectl --help > /dev/null; then
-    echo "kubectl is not installed. Installing the lastest stable release..."
-    if ! brew install kubectl; then
-    	echo "Installation of kubectl from brew fails. Please install it manually."
-        exit 1
-    else
-    	echo "Done."
-    fi
-else
-    echo "kubectl exists. Please make sure to update it to latest version."
-fi
+install_kubectl
 
 echo "Prerequisite check and installation process finishes."

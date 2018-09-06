@@ -33,12 +33,30 @@ global:
       #   cpu: 100m
       #   memory: 128Mi
 
+    # Controls number of Proxy worker threads.
+    # If set to 0 (default), then start worker thread for each CPU thread/core.
+    concurrency: 0
+
     # Configures the access log for each sidecar. Setting it to an empty string will
     # disable access log for sidecar.
     accessLogFile: "/dev/stdout"
 
-    # If set, newly injected sidecars will have core dumps enabled.
+    # If set, newly injected sidecars will have core dumps enabled. Core dumps will always be written to the same
+    # file to prevent storage filling up indefinitely. Add a timestamp option to core_pattern to keep all cores:
+    # e.g. sysctl -w kernel.core_pattern=/var/lib/istio/core.%e.%p.%t
     enableCoreDump: false
+
+    # Default port for Pilot agent health checks. A value of 0 will disable health checking.
+    statusPort: 15020
+
+    # The initial delay for readiness probes in seconds.
+    readinessInitialDelaySeconds: 1
+
+    # The period between readiness probes.
+    readinessPeriodSeconds: 2
+
+    # The number of successive failed probes before indicating readiness failure.
+    readinessFailureThreshold: 30
 
     # istio egress capture whitelist
     # https://istio.io/docs/tasks/traffic-management/egress.html#calling-external-services-directly
@@ -97,7 +115,7 @@ global:
   # to use for pulling any images in pods that reference this ServiceAccount.
   # For components that don't use ServiceAccounts (i.e. grafana, servicegraph, tracing)
   # ImagePullSecrets will be added to the corresponding Deployment(StatefulSet) objects.
-  # Must be set for any clustser configured with privte docker registry.
+  # Must be set for any clustser configured with private docker registry.
   imagePullSecrets:
     # - private-registry-key
 
@@ -145,7 +163,7 @@ global:
 
   # Kubernetes >=v1.11.0 will create two PriorityClass, including system-cluster-critical and
   # system-node-critical, it is better to configure this in order to make sure your Istio pods
-  # will not be killed because of low prioroty class.
+  # will not be killed because of low priority class.
   # Refer to https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass
   # for more detail.
   priorityClassName: ""
@@ -533,10 +551,10 @@ kiali:
     usernameKey: username
     passphraseKey: passphrase
 
-    # Override the automatically detected Grafana URL, usefull when Grafana service has no ExternalIPs
+    # Override the automatically detected Grafana URL, useful when Grafana service has no ExternalIPs
     # grafanaURL:
 
-    # Override the automatically detected Jaeger URL, usefull when Jaeger service has no ExternalIPs
+    # Override the automatically detected Jaeger URL, useful when Jaeger service has no ExternalIPs
     # jaegerURL:
 
 # Certmanager uses ACME to sign certificates. Since Istio gateways are

@@ -29,7 +29,7 @@ required = [
   "github.com/istio/tools/protoc-gen-docs",
   ### END Mixer codegen deps
   # fortio is built in vendor for the testing framework
-  "istio.io/fortio",
+  "fortio.org/fortio",
 ]
 
 ignored = [
@@ -334,7 +334,7 @@ ignored = [
   unused-packages = true
   non-go = true
   [[prune.project]]
-    name = "istio.io/fortio"
+    name = "fortio.org/fortio"
     non-go = false
     unused-packages = false
   [[prune.project]]
@@ -368,3 +368,4 @@ ignored = [
 [[override]]
   name = "github.com/imdario/mergo"
   revision = "6633656539c1639d9d78127b7d47c622b5d7b6dc"
+

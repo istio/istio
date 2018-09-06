@@ -134,10 +134,10 @@ func (b *backend) Init(kinds []string) error {
 	}
 	b.mapping = m
 
-	messageNames := b.mapping.messageNames()
-	scope.Infof("Requesting following messages:")
-	for i, name := range messageNames {
-		scope.Infof("  [%d] %s", i, name)
+	typeURLs := b.mapping.typeURLs()
+	scope.Infof("Requesting following types:")
+	for i, url := range typeURLs {
+		scope.Infof("  [%d] %s", i, url)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -183,7 +183,7 @@ func (b *backend) Init(kinds []string) error {
 	}
 
 	cl := mcp.NewAggregatedMeshConfigServiceClient(conn)
-	c := client.New(cl, messageNames, b, mixerNodeID, map[string]string{})
+	c := client.New(cl, typeURLs, b, mixerNodeID, map[string]string{})
 	configz.Register(c)
 
 	b.state = &state{
@@ -264,9 +264,9 @@ func (b *backend) Apply(change *client.Change) error {
 	defer b.callUpdateHook()
 
 	newTypeStates := make(map[string]map[store.Key]*store.BackEndResource)
-	typeURL := fmt.Sprintf("type.googleapis.com/%s", change.MessageName)
+	typeURL := change.TypeURL
 
-	scope.Debugf("Received update for: type:%s, count:%d", change.MessageName, len(change.Objects))
+	scope.Debugf("Received update for: type:%s, count:%d", typeURL, len(change.Objects))
 
 	for _, o := range change.Objects {
 		var kind string
@@ -274,7 +274,8 @@ func (b *backend) Apply(change *client.Change) error {
 		var contents proto.Message
 
 		if scope.DebugEnabled() {
-			scope.Debugf("Processing incoming resource: %q @%s [%s]", o.Metadata.Name, o.Version, o.MessageName)
+			scope.Debugf("Processing incoming resource: %q @%s [%s]",
+				o.Metadata.Name, o.Metadata.Version, o.TypeURL)
 		}
 
 		// Demultiplex the resource, if it is a legacy type, and figure out its kind.
@@ -300,7 +301,7 @@ func (b *backend) Apply(change *client.Change) error {
 		// Map it to Mixer's store model, and put it in the new collection.
 
 		key := toKey(kind, name)
-		resource, err := toBackendResource(key, contents, o.Version)
+		resource, err := toBackendResource(key, contents, o.Metadata.Version)
 		if err != nil {
 			return err
 		}

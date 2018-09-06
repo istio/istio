@@ -15,10 +15,17 @@
 package handler
 
 import (
+	"context"
+	"strconv"
+
+	"go.opencensus.io/stats"
+	"go.opencensus.io/tag"
+
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/protobuf/yaml/dynamic"
 	"istio.io/istio/mixer/pkg/runtime/config"
+	"istio.io/istio/mixer/pkg/runtime/monitoring"
 	"istio.io/istio/mixer/pkg/runtime/safecall"
 	"istio.io/istio/pkg/log"
 )
@@ -27,7 +34,7 @@ import (
 type Table struct {
 	entries map[string]Entry
 
-	counters tableCounters
+	monitoringCtx context.Context
 }
 
 // Entry in the handler table.
@@ -55,9 +62,15 @@ func NewTable(old *Table, snapshot *config.Snapshot, gp *pool.GoroutinePool) *Ta
 	instancesByHandler := config.GetInstancesGroupedByHandlers(snapshot)
 	instancesByHandlerDynamic := config.GetInstancesGroupedByHandlersDynamic(snapshot)
 
+	var err error
+	ctx := context.Background()
+	if ctx, err = tag.New(ctx, tag.Insert(monitoring.ConfigIDTag, strconv.FormatInt(snapshot.ID, 10))); err != nil {
+		log.Errorf("not able to set context for snapshot: %v", err)
+	}
+
 	t := &Table{
-		entries:  make(map[string]Entry, len(instancesByHandler)+len(instancesByHandlerDynamic)),
-		counters: newTableCounters(snapshot.ID),
+		entries:       make(map[string]Entry, len(instancesByHandler)+len(instancesByHandlerDynamic)),
+		monitoringCtx: ctx,
 	}
 
 	for handler, instances := range instancesByHandler {
@@ -101,14 +114,14 @@ func createEntry(old *Table, t *Table, handler hndlr, instances interface{}, sna
 	if found && currentEntry.Signature.equals(sig) {
 		// reuse the Handler
 		t.entries[handler.GetName()] = currentEntry
-		t.counters.reusedHandlers.Inc()
+		stats.Record(t.monitoringCtx, monitoring.ReusedHandlersTotal.M(1))
 		return
 	}
 
 	instantiatedHandler, e, err := buildHandler(handler, instances)
 
 	if err != nil {
-		t.counters.buildFailure.Inc()
+		stats.Record(t.monitoringCtx, monitoring.BuildFailuresTotal.M(1))
 		log.Errorf(
 			"Unable to initialize adapter: snapshot='%d', handler='%s', adapter='%s', err='%s'.\n"+
 				"Please remove the handler or fix the configuration.",
@@ -116,7 +129,7 @@ func createEntry(old *Table, t *Table, handler hndlr, instances interface{}, sna
 		return
 	}
 
-	t.counters.newHandlers.Inc()
+	stats.Record(t.monitoringCtx, monitoring.NewHandlersTotal.M(1))
 
 	t.entries[handler.GetName()] = Entry{
 		Name:        handler.GetName(),
@@ -147,7 +160,7 @@ func (t *Table) Cleanup(current *Table) {
 
 	for _, entry := range toCleanup {
 		log.Debugf("Closing adapter %s/%v", entry.Name, entry.Handler)
-		t.counters.closedHandlers.Inc()
+		stats.Record(t.monitoringCtx, monitoring.ClosedHandlersTotal.M(1))
 		var err error
 		panicErr := safecall.Execute("handler.Close", func() {
 			err = entry.Handler.Close()
@@ -163,7 +176,7 @@ func (t *Table) Cleanup(current *Table) {
 		}
 
 		if err != nil {
-			t.counters.closeFailure.Inc()
+			stats.Record(t.monitoringCtx, monitoring.CloseFailuresTotal.M(1))
 			log.Warnf("Error closing adapter: %s/%v: '%v'", entry.Name, entry.Handler, err)
 		}
 	}

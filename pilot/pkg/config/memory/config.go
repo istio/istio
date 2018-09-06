@@ -136,8 +136,8 @@ func (cr *store) Create(config model.Config) (string, error) {
 		config.ResourceVersion = tnow.String()
 
 		// Set the creation timestamp, if not provided.
-		if config.CreationTimestamp.Time.IsZero() {
-			config.CreationTimestamp.Time = tnow
+		if config.CreationTimestamp.IsZero() {
+			config.CreationTimestamp = tnow
 		}
 
 		ns.Store(config.Name, config)

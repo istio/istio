@@ -42,7 +42,7 @@ type Control struct {
 	// EmitBashCompletion controls whether to produce bash completion files.
 	EmitBashCompletion bool
 
-	// EmitMarkdown controls whether to produce mankdown documentation files.
+	// EmitMarkdown controls whether to produce markdown documentation files.
 	EmitMarkdown bool
 
 	// EmitHTMLFragmentWithFrontMatter controls whether to produce HTML fragments with Jekyll/Hugo front matter.

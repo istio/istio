@@ -41,11 +41,13 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 
+	mcpapi "istio.io/api/mcp/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd"
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
 	cf "istio.io/istio/pilot/pkg/config/cloudfoundry"
 	"istio.io/istio/pilot/pkg/config/clusterregistry"
+	"istio.io/istio/pilot/pkg/config/coredatamodel"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/config/kube/ingress"
 	"istio.io/istio/pilot/pkg/config/memory"
@@ -64,7 +66,11 @@ import (
 	srmemory "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/log"
+	mcpclient "istio.io/istio/pkg/mcp/client"
 	"istio.io/istio/pkg/version"
+
+	// Import the resource package to pull in all proto types.
+	_ "istio.io/istio/galley/pkg/metadata"
 )
 
 const (
@@ -137,6 +143,7 @@ type PilotArgs struct {
 	MeshConfig       *meshconfig.MeshConfig
 	CtrlZOptions     *ctrlz.Options
 	Plugins          []string
+	MCPServerAddrs   []string
 }
 
 // Server contains the runtime configuration for the Pilot discovery service.
@@ -175,7 +182,7 @@ func NewServer(args PilotArgs) (*Server, error) {
 		if args.Namespace != "" {
 			args.Config.ClusterRegistriesNamespace = args.Namespace
 		} else {
-			args.Config.ClusterRegistriesNamespace = "istio-system"
+			args.Config.ClusterRegistriesNamespace = model.IstioSystemNamespace
 		}
 	}
 
@@ -432,7 +439,42 @@ func (c *mockController) Run(<-chan struct{}) {}
 
 // initConfigController creates the config controller in the pilotConfig.
 func (s *Server) initConfigController(args *PilotArgs) error {
-	if args.Config.Controller != nil {
+	mcpServerAddrs := args.MCPServerAddrs
+
+	if len(mcpServerAddrs) > 0 {
+		clientNodeID := args.Namespace
+		supportedTypes := make([]string, len(model.IstioConfigTypes))
+		for i, model := range model.IstioConfigTypes {
+			supportedTypes[i] = fmt.Sprintf("type.googleapis.com/%s", model.MessageName)
+		}
+
+		mcpController := coredatamodel.NewController()
+
+		s.addStartFunc(func(stop <-chan struct{}) error {
+			ctx, cancel := context.WithCancel(context.Background())
+			go func() {
+				<-stop
+				cancel()
+			}()
+
+			for _, addr := range mcpServerAddrs {
+				// TODO: make this a secure connection before shipping
+				conn, err := grpc.Dial(addr, grpc.WithInsecure())
+				if err != nil {
+					log.Errorf("Unable connecting to MCP Server: %v\n", err)
+					return err
+				}
+
+				cl := mcpapi.NewAggregatedMeshConfigServiceClient(conn)
+				mcpClient := mcpclient.New(cl, supportedTypes, mcpController, clientNodeID, map[string]string{})
+				go mcpClient.Run(ctx)
+			}
+			return nil
+		})
+
+		s.configController = mcpController
+
+	} else if args.Config.Controller != nil {
 		s.configController = args.Config.Controller
 	} else if args.Config.FileDir != "" {
 		store := memory.Make(model.IstioConfigTypes)
@@ -797,7 +839,8 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 			<-stop
 			model.JwtKeyResolver.Close()
 
-			ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
 			err = s.httpServer.Shutdown(ctx)
 			if err != nil {
 				log.Warna(err)

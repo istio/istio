@@ -2,7 +2,7 @@
 title: istio.mcp.v1alpha1
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 7
+number_of_entries: 9
 ---
 <p>This package defines the common, core types used by the Mesh Configuration Protocol.</p>
 
@@ -19,6 +19,12 @@ updates.</p>
 sequence updates across multiple resource types. A single stream
 is used with multiple independent MeshConfigRequest /
 MeshConfigResponses sequences multiplexed via the type URL.</p>
+
+<pre id="AggregatedMeshConfigService-IncrementalAggregatedResources"><code class="language-proto">rpc IncrementalAggregatedResources(IncrementalMeshConfigRequest) returns (IncrementalMeshConfigResponse)
+</code></pre>
+<p>IncrementalAggregatedResources provides the ability to incrementally
+update the resources on the client. This supports the goal of
+scalability of MCP resources.</p>
 
 </section>
 <h2 id="Types">Types</h2>
@@ -85,6 +91,145 @@ Each envelope is made up of common metadata, and a type-specific resource payloa
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#any">google.protobuf.Any</a></code></td>
 <td>
 <p>The resource itself.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="IncrementalMeshConfigRequest">IncrementalMeshConfigRequest</h3>
+<section>
+<p>IncrementalMeshConfigRequest are be sent in 2 situations:</p>
+
+<ol>
+<li><p>Initial message in a MCP bidirectional gRPC stream.</p></li>
+
+<li><p>As a ACK or NACK response to a previous IncrementalMeshConfigResponse.
+ In this case the response<em>nonce is set to the nonce value in the Response.
+ ACK or NACK is determined by the absence or presence of error</em>detail.</p></li>
+</ol>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="IncrementalMeshConfigRequest-client">
+<td><code>client</code></td>
+<td><code><a href="#Client">Client</a></code></td>
+<td>
+<p>The client making the request.</p>
+
+</td>
+</tr>
+<tr id="IncrementalMeshConfigRequest-type_url">
+<td><code>typeUrl</code></td>
+<td><code>string</code></td>
+<td>
+<p>Type of the resource that is being requested, e.g.
+&ldquo;type.googleapis.com/istio.io.networking.v1alpha3.VirtualService&rdquo;.</p>
+
+</td>
+</tr>
+<tr id="IncrementalMeshConfigRequest-initial_resource_versions">
+<td><code>initialResourceVersions</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+<p>When the IncrementalMeshConfigRequest is the first in a stream,
+the initial<em>resource</em>versions must be populated. Otherwise,
+initial<em>resource</em>versions must be omitted. The keys are the
+resources names of the MCP resources known to the MCP client. The
+values in the map are the associated resource level version info.</p>
+
+</td>
+</tr>
+<tr id="IncrementalMeshConfigRequest-response_nonce">
+<td><code>responseNonce</code></td>
+<td><code>string</code></td>
+<td>
+<p>When the IncrementalMeshConfigRequest is a ACK or NACK message in response
+to a previous IncrementalMeshConfigResponse, the response<em>nonce must be the
+nonce in the IncrementalMeshConfigResponse.
+Otherwise response</em>nonce must be omitted.</p>
+
+</td>
+</tr>
+<tr id="IncrementalMeshConfigRequest-error_detail">
+<td><code>errorDetail</code></td>
+<td><code><a href="#google-rpc-Status">google.rpc.Status</a></code></td>
+<td>
+<p>This is populated when the previous IncrementalMeshConfigResponses
+failed to update configuration. The <em>message</em> field in <em>error_details</em>
+provides the client internal exception related to the failure.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="IncrementalMeshConfigResponse">IncrementalMeshConfigResponse</h3>
+<section>
+<p>IncrementalMeshConfigResponses do not need to include a full
+snapshot of the tracked resources. Instead they are a diff to the
+state of a MCP client. Per resource versions allow servers and
+clients to track state at the resource granularity. An MCP
+incremental session is always in the context of a gRPC
+bidirectional stream. This allows the MCP server to keep track of
+the state of MCP clients connected to it.</p>
+
+<p>In Incremental MCP the nonce field is required and used to pair
+IncrementalMeshConfigResponse to an IncrementalMeshConfigRequest
+ACK or NACK.  Optionally, a response message level
+system<em>version</em>info is present for debugging purposes only.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="IncrementalMeshConfigResponse-system_version_info">
+<td><code>systemVersionInfo</code></td>
+<td><code>string</code></td>
+<td>
+<p>The version of the response data (used for debugging).</p>
+
+</td>
+</tr>
+<tr id="IncrementalMeshConfigResponse-envelopes">
+<td><code>envelopes</code></td>
+<td><code><a href="#Envelope">Envelope[]</a></code></td>
+<td>
+<p>The response resources wrapped in the common MCP <em>Envelope</em>
+message. These are typed resources that match the type url in the
+IncrementalMeshConfigRequest.</p>
+
+</td>
+</tr>
+<tr id="IncrementalMeshConfigResponse-removed_resources">
+<td><code>removedResources</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>Resources names of resources that have be deleted and to be
+removed from the MCP Client.  Removed resources for missing
+resources can be ignored.</p>
+
+</td>
+</tr>
+<tr id="IncrementalMeshConfigResponse-nonce">
+<td><code>nonce</code></td>
+<td><code>string</code></td>
+<td>
+<p>The nonce provides a way for IncrementalMeshConfigRequests to
+uniquely reference an IncrementalMeshConfigResponse. The nonce is
+required.</p>
 
 </td>
 </tr>
@@ -240,9 +385,27 @@ MeshConfigRequest bearing the nonce.</p>
 <td><code>name</code></td>
 <td><code>string</code></td>
 <td>
-<p>The name of the resource. It is unique within the context of a resource type and the origin server of
-the resource. The resource type is identified by the TypeUrl of the resource field of the Envelope
-message.</p>
+<p>The name of the resource. It is unique within the context of a
+resource type and the origin server of the resource. The resource
+type is identified by the TypeUrl of the resource field of the
+Envelope message.</p>
+
+</td>
+</tr>
+<tr id="Metadata-create_time">
+<td><code>createTime</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#timestamp">google.protobuf.Timestamp</a></code></td>
+<td>
+<p>The creation timestamp of the resource.</p>
+
+</td>
+</tr>
+<tr id="Metadata-version">
+<td><code>version</code></td>
+<td><code>string</code></td>
+<td>
+<p>The resource level version. It allows MCP to track the state of
+individual resources.</p>
 
 </td>
 </tr>

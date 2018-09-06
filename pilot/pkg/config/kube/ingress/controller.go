@@ -21,10 +21,8 @@ import (
 	"reflect"
 	"time"
 
-	"k8s.io/api/extensions/v1beta1"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/watch"
+	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
+	"k8s.io/client-go/informers/extensions/v1beta1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
@@ -57,17 +55,7 @@ func NewController(client kubernetes.Interface, mesh *meshconfig.MeshConfig,
 	queue := kube.NewQueue(1 * time.Second)
 
 	log.Infof("Ingress controller watching namespaces %q", options.WatchedNamespace)
-	// informer framework from Kubernetes
-	informer := cache.NewSharedIndexInformer(
-		&cache.ListWatch{
-			ListFunc: func(opts meta_v1.ListOptions) (runtime.Object, error) {
-				return client.ExtensionsV1beta1().Ingresses(options.WatchedNamespace).List(opts)
-			},
-			WatchFunc: func(opts meta_v1.ListOptions) (watch.Interface, error) {
-				return client.ExtensionsV1beta1().Ingresses(options.WatchedNamespace).Watch(opts)
-			},
-		}, &v1beta1.Ingress{}, options.ResyncPeriod, cache.Indexers{})
-
+	informer := v1beta1.NewFilteredIngressInformer(client, options.WatchedNamespace, options.ResyncPeriod, cache.Indexers{}, nil)
 	informer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
@@ -89,7 +77,7 @@ func NewController(client kubernetes.Interface, mesh *meshconfig.MeshConfig,
 		if !informer.HasSynced() {
 			return errors.New("waiting till full synchronization")
 		}
-		if ingress, ok := obj.(*v1beta1.Ingress); ok {
+		if ingress, ok := obj.(*extensionsv1beta1.Ingress); ok {
 			log.Infof("ingress event %s for %s/%s", event, ingress.Namespace, ingress.Name)
 		}
 		return nil
@@ -107,7 +95,7 @@ func NewController(client kubernetes.Interface, mesh *meshconfig.MeshConfig,
 
 func (c *controller) RegisterEventHandler(typ string, f func(model.Config, model.Event)) {
 	c.handler.Append(func(obj interface{}, event model.Event) error {
-		ingress, ok := obj.(*v1beta1.Ingress)
+		ingress, ok := obj.(*extensionsv1beta1.Ingress)
 		if !ok || !shouldProcessIngress(c.mesh, ingress) {
 			return nil
 		}
@@ -164,7 +152,7 @@ func (c *controller) Get(typ, name, namespace string) (*model.Config, bool) {
 		return nil, false
 	}
 
-	ingress := obj.(*v1beta1.Ingress)
+	ingress := obj.(*extensionsv1beta1.Ingress)
 	if !shouldProcessIngress(c.mesh, ingress) {
 		return nil, false
 	}
@@ -182,7 +170,7 @@ func (c *controller) List(typ, namespace string) ([]model.Config, error) {
 	ingressByHost := map[string]*model.Config{}
 
 	for _, obj := range c.informer.GetStore().List() {
-		ingress := obj.(*v1beta1.Ingress)
+		ingress := obj.(*extensionsv1beta1.Ingress)
 		if namespace != "" && namespace != ingress.Namespace {
 			continue
 		}

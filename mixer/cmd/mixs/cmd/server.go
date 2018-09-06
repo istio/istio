@@ -32,6 +32,7 @@ func serverCmd(info map[string]template.Info, adapters []adapter.InfoFn, printf,
 	serverCmd := &cobra.Command{
 		Use:   "server",
 		Short: "Starts Mixer as a server",
+		Args:  cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
 			runServer(sa, printf, fatalf)
 		},

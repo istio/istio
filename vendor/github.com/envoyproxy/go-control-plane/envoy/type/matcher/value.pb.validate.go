@@ -46,7 +46,9 @@ func (m *ValueMatcher) Validate() error {
 
 	case *ValueMatcher_NullMatch_:
 
-		if v, ok := interface{}(m.GetNullMatch()).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(m.GetNullMatch()).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return ValueMatcherValidationError{
 					Field:  "NullMatch",
@@ -58,7 +60,9 @@ func (m *ValueMatcher) Validate() error {
 
 	case *ValueMatcher_DoubleMatch:
 
-		if v, ok := interface{}(m.GetDoubleMatch()).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(m.GetDoubleMatch()).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return ValueMatcherValidationError{
 					Field:  "DoubleMatch",
@@ -70,7 +74,9 @@ func (m *ValueMatcher) Validate() error {
 
 	case *ValueMatcher_StringMatch:
 
-		if v, ok := interface{}(m.GetStringMatch()).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(m.GetStringMatch()).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return ValueMatcherValidationError{
 					Field:  "StringMatch",
@@ -88,7 +94,9 @@ func (m *ValueMatcher) Validate() error {
 
 	case *ValueMatcher_ListMatch:
 
-		if v, ok := interface{}(m.GetListMatch()).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(m.GetListMatch()).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return ValueMatcherValidationError{
 					Field:  "ListMatch",
@@ -152,7 +160,9 @@ func (m *ListMatcher) Validate() error {
 
 	case *ListMatcher_OneOf:
 
-		if v, ok := interface{}(m.GetOneOf()).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(m.GetOneOf()).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return ListMatcherValidationError{
 					Field:  "OneOf",

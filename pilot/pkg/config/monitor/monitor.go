@@ -141,9 +141,5 @@ func (m *Monitor) deleteConfig(c *model.Config) {
 // compareIds compares the IDs (i.e. Namespace, Type, and Name) of the two configs and returns
 // 0 if a == b, -1 if a < b, and 1 if a > b. Used for sorting config arrays.
 func compareIds(a, b *model.Config) int {
-	if v := strings.Compare(a.Key(), b.Key()); v != 0 {
-		return v
-	}
-
-	return 0
+	return strings.Compare(a.Key(), b.Key())
 }

@@ -29,6 +29,7 @@ import (
 	testenv "istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/tests/util"
 )
 
@@ -71,7 +72,7 @@ func startEnvoy(t *testing.T) {
 		return
 	}
 
-	tmplB, err := ioutil.ReadFile(util.IstioSrc + "/tests/testdata/bootstrap_tmpl.json")
+	tmplB, err := ioutil.ReadFile(env.IstioSrc + "/tests/testdata/bootstrap_tmpl.json")
 	if err != nil {
 		t.Fatal("Can't read bootstrap template", err)
 	}
@@ -119,8 +120,8 @@ func initLocalPilotTestEnv(t *testing.T) *bootstrap.Server {
 
 	testEnv.Ports().PilotGrpcPort = uint16(util.MockPilotGrpcPort)
 	testEnv.Ports().PilotHTTPPort = uint16(util.MockPilotHTTPPort)
-	testEnv.IstioSrc = util.IstioSrc
-	testEnv.IstioOut = util.IstioOut
+	testEnv.IstioSrc = env.IstioSrc
+	testEnv.IstioOut = env.IstioOut
 
 	localIp = getLocalIP()
 

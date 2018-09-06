@@ -58,7 +58,7 @@ func newTestStream() *testStream {
 	}
 }
 
-func (ts *testStream) wantRequest(messageName string, want *mcp.MeshConfigRequest) error {
+func (ts *testStream) wantRequest(want *mcp.MeshConfigRequest) error {
 	select {
 	case got := <-ts.requestC:
 		got = proto.Clone(got).(*mcp.MeshConfigRequest)
@@ -74,6 +74,10 @@ func (ts *testStream) sendResponseToClient(response *mcp.MeshConfigResponse) {
 	} else {
 		ts.responseC <- response
 	}
+}
+
+func (ts *testStream) IncrementalAggregatedResources(ctx context.Context, opts ...grpc.CallOption) (mcp.AggregatedMeshConfigService_IncrementalAggregatedResourcesClient, error) { // nolint: lll
+	return nil, status.Errorf(codes.Unimplemented, "not implemented")
 }
 
 func (ts *testStream) StreamAggregatedResources(ctx context.Context, opts ...grpc.CallOption) (mcp.AggregatedMeshConfigService_StreamAggregatedResourcesClient, error) { // nolint: lll
@@ -117,7 +121,7 @@ func (ts *testStream) Apply(change *Change) error {
 	}
 	ts.Lock()
 	defer ts.Unlock()
-	ts.change[change.MessageName] = change
+	ts.change[change.TypeURL] = change
 	return nil
 }
 
@@ -174,16 +178,10 @@ var (
 	metadata = map[string]string{"foo": "bar"}
 	client   *mcp.Client
 
-	supportedMessageNames = []string{
-		fakeType0MessageName,
-		fakeType1MessageName,
-		fakeType2MessageName,
-	}
-
 	supportedTypeUrls = []string{
-		typePrefix + fakeType0MessageName,
-		typePrefix + fakeType1MessageName,
-		typePrefix + fakeType2MessageName,
+		fakeType0TypeURL,
+		fakeType1TypeURL,
+		fakeType2TypeURL,
 	}
 
 	fake0_0      = &fakeType0{fakeTypeBase{"f0_0"}}
@@ -218,23 +216,23 @@ func init() {
 	proto.RegisterType((*unmarshalErrorType)(nil), unmarshalErrorMessageName)
 
 	fakeResource0_0 = &mcp.Envelope{
-		Metadata: &mcp.Metadata{Name: "f0_0"},
+		Metadata: &mcp.Metadata{Name: "f0_0", Version: "type0/v0"},
 		Resource: mustMarshalAny(fake0_0),
 	}
 	fakeResource0_1 = &mcp.Envelope{
-		Metadata: &mcp.Metadata{Name: "f0_1"},
+		Metadata: &mcp.Metadata{Name: "f0_1", Version: "type0/v1"},
 		Resource: mustMarshalAny(fake0_1),
 	}
 	fakeResource0_2 = &mcp.Envelope{
-		Metadata: &mcp.Metadata{Name: "f0_2"},
+		Metadata: &mcp.Metadata{Name: "f0_2", Version: "type0/v2"},
 		Resource: mustMarshalAny(fake0_2),
 	}
 	fakeResource1 = &mcp.Envelope{
-		Metadata: &mcp.Metadata{Name: "f1"},
+		Metadata: &mcp.Metadata{Name: "f1", Version: "type1/v0"},
 		Resource: mustMarshalAny(fake1),
 	}
 	fakeResource2 = &mcp.Envelope{
-		Metadata: &mcp.Metadata{Name: "f2"},
+		Metadata: &mcp.Metadata{Name: "f2", Version: "type2/v0"},
 		Resource: mustMarshalAny(fake2),
 	}
 	badUnmarshalEnvelope = &mcp.Envelope{
@@ -247,7 +245,7 @@ func init() {
 		Metadata: &types.Struct{Fields: map[string]*types.Value{}},
 	}
 	for k, v := range metadata {
-		client.Metadata.Fields[k] = &types.Value{Kind: &types.Value_StringValue{v}}
+		client.Metadata.Fields[k] = &types.Value{Kind: &types.Value_StringValue{StringValue: v}}
 	}
 }
 
@@ -279,7 +277,7 @@ func makeResponse(typeURL, version, nonce string, envelopes ...*mcp.Envelope) *m
 func TestSingleTypeCases(t *testing.T) {
 	ts := newTestStream()
 
-	c := New(ts, supportedMessageNames, ts, key, metadata)
+	c := New(ts, supportedTypeUrls, ts, key, metadata)
 	ctx, cancelClient := context.WithCancel(context.Background())
 
 	var wg sync.WaitGroup
@@ -308,12 +306,11 @@ func TestSingleTypeCases(t *testing.T) {
 	}
 
 	wantInitial := make(map[string]*mcp.MeshConfigRequest)
-	for _, messageName := range supportedMessageNames {
-		typeURL := typePrefix + messageName
+	for _, typeURL := range supportedTypeUrls {
 		wantInitial[typeURL] = makeRequest(typeURL, "", "", codes.OK)
 	}
 	gotInitial := make(map[string]*mcp.MeshConfigRequest)
-	for i := 0; i < len(supportedMessageNames); i++ {
+	for i := 0; i < len(supportedTypeUrls); i++ {
 		select {
 		case got := <-ts.requestC:
 			gotInitial[got.TypeUrl] = got
@@ -338,12 +335,11 @@ func TestSingleTypeCases(t *testing.T) {
 			sendResponse: makeResponse(fakeType0TypeURL, "type0/v0", "type0/n0", fakeResource0_0),
 			wantRequest:  makeRequest(fakeType0TypeURL, "type0/v0", "type0/n0", codes.OK),
 			wantChange: &Change{
-				MessageName: fakeType0MessageName,
+				TypeURL: fakeType0TypeURL,
 				Objects: []*Object{{
-					MessageName: fakeType0MessageName,
-					Metadata:    fakeResource0_0.Metadata,
-					Resource:    fake0_0,
-					Version:     "type0/v0",
+					TypeURL:  fakeType0TypeURL,
+					Metadata: fakeResource0_0.Metadata,
+					Resource: fake0_0,
 				}},
 			},
 		},
@@ -352,12 +348,11 @@ func TestSingleTypeCases(t *testing.T) {
 			sendResponse: makeResponse(fakeType1TypeURL, "type1/v0", "type1/n0", fakeResource1),
 			wantRequest:  makeRequest(fakeType1TypeURL, "type1/v0", "type1/n0", codes.OK),
 			wantChange: &Change{
-				MessageName: fakeType1MessageName,
+				TypeURL: fakeType1TypeURL,
 				Objects: []*Object{{
-					MessageName: fakeType1MessageName,
-					Metadata:    fakeResource1.Metadata,
-					Resource:    fake1,
-					Version:     "type1/v0",
+					TypeURL:  fakeType1TypeURL,
+					Metadata: fakeResource1.Metadata,
+					Resource: fake1,
 				}},
 			},
 		},
@@ -366,12 +361,11 @@ func TestSingleTypeCases(t *testing.T) {
 			sendResponse: makeResponse(fakeType2TypeURL, "type2/v0", "type2/n0", fakeResource2),
 			wantRequest:  makeRequest(fakeType2TypeURL, "type2/v0", "type2/n0", codes.OK),
 			wantChange: &Change{
-				MessageName: fakeType2MessageName,
+				TypeURL: fakeType2TypeURL,
 				Objects: []*Object{{
-					MessageName: fakeType2MessageName,
-					Metadata:    fakeResource2.Metadata,
-					Resource:    fake2,
-					Version:     "type2/v0",
+					TypeURL:  fakeType2TypeURL,
+					Metadata: fakeResource2.Metadata,
+					Resource: fake2,
 				}},
 			},
 		},
@@ -380,12 +374,11 @@ func TestSingleTypeCases(t *testing.T) {
 			sendResponse: makeResponse(fakeType0TypeURL+"Garbage", "type0/v1", "type0/n1", fakeResource0_0),
 			wantRequest:  makeRequest(fakeType0TypeURL+"Garbage", "", "type0/n1", codes.Unimplemented),
 			wantChange: &Change{
-				MessageName: fakeType0MessageName,
+				TypeURL: fakeType0TypeURL,
 				Objects: []*Object{{
-					MessageName: fakeType0MessageName,
-					Metadata:    fakeResource0_0.Metadata,
-					Resource:    fake0_0,
-					Version:     "type0/v0",
+					TypeURL:  fakeType0TypeURL,
+					Metadata: fakeResource0_0.Metadata,
+					Resource: fake0_0,
 				}},
 			},
 		},
@@ -394,12 +387,11 @@ func TestSingleTypeCases(t *testing.T) {
 			sendResponse: makeResponse(fakeType0TypeURL, "type0/v1", "type0/n2", badUnmarshalEnvelope),
 			wantRequest:  makeRequest(fakeType0TypeURL, "type0/v0", "type0/n2", codes.Unknown),
 			wantChange: &Change{
-				MessageName: fakeType0MessageName,
+				TypeURL: fakeType0TypeURL,
 				Objects: []*Object{{
-					MessageName: fakeType0MessageName,
-					Metadata:    fakeResource0_0.Metadata,
-					Resource:    fake0_0,
-					Version:     "type0/v0",
+					TypeURL:  fakeType0TypeURL,
+					Metadata: fakeResource0_0.Metadata,
+					Resource: fake0_0,
 				}},
 			},
 		},
@@ -408,12 +400,11 @@ func TestSingleTypeCases(t *testing.T) {
 			sendResponse: makeResponse(fakeType0TypeURL, "type0/v1", "type0/n3", fakeResource1),
 			wantRequest:  makeRequest(fakeType0TypeURL, "type0/v0", "type0/n3", codes.InvalidArgument),
 			wantChange: &Change{
-				MessageName: fakeType0MessageName,
+				TypeURL: fakeType0TypeURL,
 				Objects: []*Object{{
-					MessageName: fakeType0MessageName,
-					Metadata:    fakeResource0_0.Metadata,
-					Resource:    fake0_0,
-					Version:     "type0/v0",
+					TypeURL:  fakeType0TypeURL,
+					Metadata: fakeResource0_0.Metadata,
+					Resource: fake0_0,
 				}},
 			},
 		},
@@ -423,12 +414,11 @@ func TestSingleTypeCases(t *testing.T) {
 			sendResponse: makeResponse(fakeType0TypeURL, "type0/v1", "type0/n3", fakeResource0_0),
 			wantRequest:  makeRequest(fakeType0TypeURL, "type0/v0", "type0/n3", codes.InvalidArgument),
 			wantChange: &Change{
-				MessageName: fakeType0MessageName,
+				TypeURL: fakeType0TypeURL,
 				Objects: []*Object{{
-					MessageName: fakeType0MessageName,
-					Metadata:    fakeResource0_0.Metadata,
-					Resource:    fake0_0,
-					Version:     "type0/v0",
+					TypeURL:  fakeType0TypeURL,
+					Metadata: fakeResource0_0.Metadata,
+					Resource: fake0_0,
 				}},
 			},
 		},
@@ -437,17 +427,15 @@ func TestSingleTypeCases(t *testing.T) {
 			sendResponse: makeResponse(fakeType0TypeURL, "type0/v1", "type0/n3", fakeResource0_1, fakeResource0_2),
 			wantRequest:  makeRequest(fakeType0TypeURL, "type0/v1", "type0/n3", codes.OK),
 			wantChange: &Change{
-				MessageName: fakeType0MessageName,
+				TypeURL: fakeType0TypeURL,
 				Objects: []*Object{{
-					MessageName: fakeType0MessageName,
-					Metadata:    fakeResource0_1.Metadata,
-					Resource:    fake0_1,
-					Version:     "type0/v1",
+					TypeURL:  fakeType0TypeURL,
+					Metadata: fakeResource0_1.Metadata,
+					Resource: fake0_1,
 				}, {
-					MessageName: fakeType0MessageName,
-					Metadata:    fakeResource0_2.Metadata,
-					Resource:    fake0_2,
-					Version:     "type0/v1",
+					TypeURL:  fakeType0TypeURL,
+					Metadata: fakeResource0_2.Metadata,
+					Resource: fake0_2,
 				}},
 			},
 			wantJournal: nil,
@@ -464,12 +452,12 @@ func TestSingleTypeCases(t *testing.T) {
 
 		ts.sendResponseToClient(step.sendResponse)
 		<-responseDone
-		if !reflect.DeepEqual(ts.change[step.wantChange.MessageName], step.wantChange) {
+		if !reflect.DeepEqual(ts.change[step.wantChange.TypeURL], step.wantChange) {
 			t.Fatalf("%v: bad client change: \n got %#v \nwant %#v",
-				step.name, ts.change[step.wantChange.MessageName], step.wantChange)
+				step.name, ts.change[step.wantChange.TypeURL], step.wantChange)
 		}
 
-		if err := ts.wantRequest(fakeType0MessageName, step.wantRequest); err != nil {
+		if err := ts.wantRequest(step.wantRequest); err != nil {
 			t.Fatalf("%v: failed to receive correct request: %v", step.name, err)
 		}
 
@@ -487,7 +475,7 @@ func TestSingleTypeCases(t *testing.T) {
 func TestReconnect(t *testing.T) {
 	ts := newTestStream()
 
-	c := New(ts, []string{fakeType0MessageName}, ts, key, metadata)
+	c := New(ts, []string{fakeType0TypeURL}, ts, key, metadata)
 	ctx, cancelClient := context.WithCancel(context.Background())
 
 	var wg sync.WaitGroup
@@ -515,12 +503,11 @@ func TestReconnect(t *testing.T) {
 			sendResponse: nil, // client initiates the exchange
 			wantRequest:  makeRequest(fakeType0TypeURL, "", "", codes.OK),
 			wantChange: &Change{
-				MessageName: fakeType0MessageName,
+				TypeURL: fakeType0TypeURL,
 				Objects: []*Object{{
-					MessageName: fakeType0MessageName,
-					Metadata:    fakeResource0_0.Metadata,
-					Resource:    fake0_0,
-					Version:     "type0/v0",
+					TypeURL:  fakeType0TypeURL,
+					Metadata: fakeResource0_0.Metadata,
+					Resource: fake0_0,
 				}},
 			},
 		},
@@ -529,12 +516,11 @@ func TestReconnect(t *testing.T) {
 			sendResponse: makeResponse(fakeType0TypeURL, "type0/v0", "type0/n0", fakeResource0_0),
 			wantRequest:  makeRequest(fakeType0TypeURL, "type0/v0", "type0/n0", codes.OK),
 			wantChange: &Change{
-				MessageName: fakeType0MessageName,
+				TypeURL: fakeType0TypeURL,
 				Objects: []*Object{{
-					MessageName: fakeType0MessageName,
-					Metadata:    fakeResource0_0.Metadata,
-					Resource:    fake0_0,
-					Version:     "type0/v0",
+					TypeURL:  fakeType0TypeURL,
+					Metadata: fakeResource0_0.Metadata,
+					Resource: fake0_0,
 				}},
 			},
 		},
@@ -543,12 +529,11 @@ func TestReconnect(t *testing.T) {
 			sendResponse: makeResponse(fakeType0TypeURL, "type0/v1", "type0/n1", fakeResource0_1),
 			wantRequest:  makeRequest(fakeType0TypeURL, "", "", codes.OK),
 			wantChange: &Change{
-				MessageName: fakeType0MessageName,
+				TypeURL: fakeType0TypeURL,
 				Objects: []*Object{{
-					MessageName: fakeType0MessageName,
-					Metadata:    fakeResource0_0.Metadata,
-					Resource:    fake0_0,
-					Version:     "type0/v0",
+					TypeURL:  fakeType0TypeURL,
+					Metadata: fakeResource0_0.Metadata,
+					Resource: fake0_0,
 				}},
 			},
 			sendError: true,
@@ -558,12 +543,11 @@ func TestReconnect(t *testing.T) {
 			sendResponse: makeResponse(fakeType0TypeURL, "type0/v1", "type0/n1", fakeResource0_1),
 			wantRequest:  makeRequest(fakeType0TypeURL, "type0/v1", "type0/n1", codes.OK),
 			wantChange: &Change{
-				MessageName: fakeType0MessageName,
+				TypeURL: fakeType0TypeURL,
 				Objects: []*Object{{
-					MessageName: fakeType0MessageName,
-					Metadata:    fakeResource0_1.Metadata,
-					Resource:    fake0_1,
-					Version:     "type0/v1",
+					TypeURL:  fakeType0TypeURL,
+					Metadata: fakeResource0_1.Metadata,
+					Resource: fake0_1,
 				}},
 			},
 		},
@@ -572,12 +556,11 @@ func TestReconnect(t *testing.T) {
 			sendResponse: makeResponse(fakeType0TypeURL, "type0/v2", "type0/n2", fakeResource0_2),
 			wantRequest:  makeRequest(fakeType0TypeURL, "", "", codes.OK),
 			wantChange: &Change{
-				MessageName: fakeType0MessageName,
+				TypeURL: fakeType0TypeURL,
 				Objects: []*Object{{
-					MessageName: fakeType0MessageName,
-					Metadata:    fakeResource0_1.Metadata,
-					Resource:    fake0_1,
-					Version:     "type0/v1",
+					TypeURL:  fakeType0TypeURL,
+					Metadata: fakeResource0_1.Metadata,
+					Resource: fake0_1,
 				}},
 			},
 			recvError: true,
@@ -587,12 +570,11 @@ func TestReconnect(t *testing.T) {
 			sendResponse: makeResponse(fakeType0TypeURL, "type0/v2", "type0/n2", fakeResource0_2),
 			wantRequest:  makeRequest(fakeType0TypeURL, "type0/v2", "type0/n2", codes.OK),
 			wantChange: &Change{
-				MessageName: fakeType0MessageName,
+				TypeURL: fakeType0TypeURL,
 				Objects: []*Object{{
-					MessageName: fakeType0MessageName,
-					Metadata:    fakeResource0_2.Metadata,
-					Resource:    fake0_2,
-					Version:     "type0/v2",
+					TypeURL:  fakeType0TypeURL,
+					Metadata: fakeResource0_2.Metadata,
+					Resource: fake0_2,
 				}},
 			},
 		},
@@ -629,14 +611,14 @@ func TestReconnect(t *testing.T) {
 			}
 
 			if !step.sendError {
-				if !reflect.DeepEqual(ts.change[step.wantChange.MessageName], step.wantChange) {
+				if !reflect.DeepEqual(ts.change[step.wantChange.TypeURL], step.wantChange) {
 					t.Fatalf("%v: bad client change: \n got %#v \nwant %#v",
-						step.name, ts.change[step.wantChange.MessageName].Objects[0], step.wantChange.Objects[0])
+						step.name, ts.change[step.wantChange.TypeURL].Objects[0], step.wantChange.Objects[0])
 				}
 			}
 		}
 
-		if err := ts.wantRequest(fakeType0MessageName, step.wantRequest); err != nil {
+		if err := ts.wantRequest(step.wantRequest); err != nil {
 			t.Fatalf("%v: failed to receive correct request: %v", step.name, err)
 		}
 	}

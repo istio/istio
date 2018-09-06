@@ -56,7 +56,7 @@ func TestConfigZ(t *testing.T) {
 
 	u := &updater{}
 	clnt := mcp.NewAggregatedMeshConfigServiceClient(cc)
-	cl := client.New(clnt, []string{"google.protobuf.Empty"}, u, "zoo", map[string]string{"foo": "bar"})
+	cl := client.New(clnt, []string{"type.googleapis.com/google.protobuf.Empty"}, u, "zoo", map[string]string{"foo": "bar"})
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go cl.Run(ctx)
@@ -81,7 +81,7 @@ func TestConfigZ(t *testing.T) {
 
 	b := snapshot.NewInMemoryBuilder()
 	b.SetVersion("type.googleapis.com/google.protobuf.Empty", "23")
-	err = b.SetEntry("type.googleapis.com/google.protobuf.Empty", "foo", &types.Empty{})
+	err = b.SetEntry("type.googleapis.com/google.protobuf.Empty", "foo", "v0", time.Time{}, &types.Empty{})
 	if err != nil {
 		t.Fatalf("Setting an entry should not have failed: %v", err)
 	}

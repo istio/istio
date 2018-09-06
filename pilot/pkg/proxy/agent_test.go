@@ -82,7 +82,7 @@ func TestStartStop(t *testing.T) {
 	}
 	a := NewAgent(TestProxy{start, cleanup, nil}, testRetry)
 	go a.Run(ctx)
-	a.ScheduleConfigUpdate(desired)
+	a.ConfigCh() <- desired
 	<-ctx.Done()
 }
 
@@ -100,8 +100,8 @@ func TestApplyTwice(t *testing.T) {
 	cleanup := func(epoch int) {}
 	a := NewAgent(TestProxy{start, cleanup, nil}, testRetry)
 	go a.Run(ctx)
-	a.ScheduleConfigUpdate(desired)
-	a.ScheduleConfigUpdate(desired)
+	a.ConfigCh() <- desired
+	a.ConfigCh() <- desired
 	cancel()
 }
 
@@ -127,7 +127,7 @@ func TestApplyThrice(t *testing.T) {
 		// we should expect to see three epochs only: 0 for good, 1 for bad
 		if epoch == 1 {
 			go func() {
-				a.ScheduleConfigUpdate(good)
+				a.ConfigCh() <- good
 				cancel()
 			}()
 		} else if epoch != 0 {
@@ -138,8 +138,8 @@ func TestApplyThrice(t *testing.T) {
 	retry.MaxRetries = 0
 	a = NewAgent(TestProxy{start, cleanup, nil}, retry)
 	go a.Run(ctx)
-	a.ScheduleConfigUpdate(good)
-	a.ScheduleConfigUpdate(bad)
+	a.ConfigCh() <- good
+	a.ConfigCh() <- bad
 	<-ctx.Done()
 }
 
@@ -185,9 +185,9 @@ func TestAbort(t *testing.T) {
 	retry.InitialInterval = 10 * time.Second
 	a := NewAgent(TestProxy{start, cleanup, nil}, retry)
 	go a.Run(ctx)
-	a.ScheduleConfigUpdate(good1)
-	a.ScheduleConfigUpdate(good2)
-	a.ScheduleConfigUpdate(bad)
+	a.ConfigCh() <- good1
+	a.ConfigCh() <- good2
+	a.ConfigCh() <- bad
 	<-ctx.Done()
 }
 
@@ -214,7 +214,7 @@ func TestStartFail(t *testing.T) {
 	cleanup := func(epoch int) {}
 	a := NewAgent(TestProxy{start, cleanup, nil}, testRetry)
 	go a.Run(ctx)
-	a.ScheduleConfigUpdate("test")
+	a.ConfigCh() <- "test"
 	<-ctx.Done()
 }
 
@@ -246,7 +246,7 @@ func TestExceedBudget(t *testing.T) {
 	retryDelay.MaxRetries = 1
 	a := NewAgent(TestProxy{start, cleanup, func(_ interface{}) { cancel() }}, retryDelay)
 	go a.Run(ctx)
-	a.ScheduleConfigUpdate("test")
+	a.ConfigCh() <- "test"
 	<-ctx.Done()
 }
 
@@ -299,9 +299,9 @@ func TestStartTwiceStop(t *testing.T) {
 	}
 	a := NewAgent(TestProxy{start, cleanup, nil}, testRetry)
 	go a.Run(ctx)
-	a.ScheduleConfigUpdate(desired0)
-	a.ScheduleConfigUpdate(desired1)
-	a.ScheduleConfigUpdate(desired2)
+	a.ConfigCh() <- desired0
+	a.ConfigCh() <- desired1
+	a.ConfigCh() <- desired2
 	<-ctx.Done()
 }
 
@@ -323,7 +323,7 @@ func TestRecovery(t *testing.T) {
 	}
 	a := NewAgent(TestProxy{start, func(_ int) {}, nil}, testRetry)
 	go a.Run(ctx)
-	a.ScheduleConfigUpdate(desired)
+	a.ConfigCh() <- desired
 
 	// make sure we don't try to reconcile twice
 	<-time.After(100 * time.Millisecond)
@@ -360,9 +360,9 @@ func TestCascadingAbort(t *testing.T) {
 	retry.InitialInterval = 1 * time.Second
 	a := NewAgent(TestProxy{start, func(_ int) {}, nil}, retry)
 	go a.Run(ctx)
-	a.ScheduleConfigUpdate(0)
-	a.ScheduleConfigUpdate(1)
-	a.ScheduleConfigUpdate(2)
+	a.ConfigCh() <- 0
+	a.ConfigCh() <- 1
+	a.ConfigCh() <- 2
 	<-ctx.Done()
 }
 
@@ -403,8 +403,8 @@ func TestLockup(t *testing.T) {
 	}
 	a := NewAgent(TestProxy{start, func(_ int) {}, nil}, testRetry)
 	go a.Run(ctx)
-	a.ScheduleConfigUpdate(0)
-	a.ScheduleConfigUpdate(1)
+	a.ConfigCh() <- 0
+	a.ConfigCh() <- 1
 	select {
 	case <-ctx.Done():
 	case <-time.After(1 * time.Second):

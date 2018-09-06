@@ -31,12 +31,34 @@
   revision = "6bade2a0677a5cd76f937ef4cd2e426f55742ad1"
 
 [[projects]]
-  digest = "1:0a7b52c5d11037c41b6e80e72a87a0ee974096434769d347bb960a9317526af0"
+  digest = "1:631d6f34f86c4e4cb42a37b611f25bfb4f90c5f443439eb73a9aa4ee7bc557a3"
   name = "contrib.go.opencensus.io/exporter/stackdriver"
-  packages = ["."]
+  packages = [
+    ".",
+    "monitoredresource",
+  ]
   pruneopts = "NUT"
-  revision = "b98abe41e381c878749ef1aa9eb0798616afbb43"
-  version = "v0.2.0"
+  revision = "2b93072101d466aa4120b3c23c2e1b08af01541c"
+  version = "v0.6.0"
+
+[[projects]]
+  digest = "1:ca58755cd68a0c97d7d2791b0123c10a119f6384fa222b439c74a2aed49b470a"
+  name = "fortio.org/fortio"
+  packages = [
+    ".",
+    "bincommon",
+    "fgrpc",
+    "fhttp",
+    "fnet",
+    "log",
+    "periodic",
+    "stats",
+    "ui",
+    "version",
+  ]
+  pruneopts = "T"
+  revision = "4a5012fb92ee87ecbdd80ed2cb031f5cf9c50cbc"
+  version = "v1.2.1"
 
 [[projects]]
   digest = "1:add5f01e863553e80ded66e1cba646ad947932e66f90813741d51c97a1ee7a59"
@@ -304,7 +326,7 @@
   version = "v2.6.0"
 
 [[projects]]
-  digest = "1:43909fe418bab85e33e29f68baec75dd02b061b0db400798146bd5d8c2f255cd"
+  digest = "1:021347aff4c65bc7847025aae2d338d4aefb1fa8e7661c22ad1695d606ad9775"
   name = "github.com/envoyproxy/go-control-plane"
   packages = [
     "envoy/admin/v2alpha",
@@ -324,6 +346,7 @@
     "envoy/config/filter/http/rbac/v2",
     "envoy/config/filter/network/http_connection_manager/v2",
     "envoy/config/filter/network/mongo_proxy/v2",
+    "envoy/config/filter/network/rbac/v2",
     "envoy/config/filter/network/tcp_proxy/v2",
     "envoy/config/metrics/v2",
     "envoy/config/overload/v2alpha",
@@ -339,7 +362,7 @@
     "pkg/util",
   ]
   pruneopts = "T"
-  revision = "676016db8193d83324a507a986a78cd3642ad713"
+  revision = "9abdeff70b1fcebc846b2518ccb73478fa10164e"
   version = "v0.5.0"
 
 [[projects]]
@@ -1220,9 +1243,11 @@
   revision = "84ea3a3c79b3c4b3b39606cc96f255cd63635ce0"
 
 [[projects]]
-  digest = "1:773b6907f497ea5abddc9ee90cdde179b119c0c8a04b0f02cb2fff955ed8cab4"
+  digest = "1:de92335ddd759ac9be56aba81473fb3b65c8386092cf0c554dab6c234aecddf4"
   name = "go.opencensus.io"
   packages = [
+    ".",
+    "exporter/prometheus",
     "exporter/stackdriver/propagation",
     "internal",
     "internal/tagencoding",
@@ -1238,8 +1263,8 @@
     "trace/propagation",
   ]
   pruneopts = "NUT"
-  revision = "c3ed530f775d85e577ca652cb052a52c078aad26"
-  version = "v0.11.0"
+  revision = "e262766cd0d230a1bb7c37281e345e465f19b41b"
+  version = "v0.14.0"
 
 [[projects]]
   digest = "1:8eff4c694254322268936dc162805ff95ac846435e909f011ba43805bb9b4e0f"
@@ -1579,7 +1604,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:84d1a62934b7e6dafebad2d2fc49e2d70982e47b911e109449bf292dc4612c78"
+  digest = "1:bc6824880b54dfb2b1e7f7d8a278d458992f5b52fca06f4d8486afdecad31ea6"
   name = "istio.io/api"
   packages = [
     "authentication/v1alpha1",
@@ -1595,26 +1620,7 @@
     "rbac/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "214c7598afb74f7f4dea49f77e45832c49382a15"
-
-[[projects]]
-  digest = "1:a0934c59fa838e950c6b4b114e13376349d4eb3e054d86322f70ac42a15d3d95"
-  name = "istio.io/fortio"
-  packages = [
-    ".",
-    "bincommon",
-    "fgrpc",
-    "fhttp",
-    "fnet",
-    "log",
-    "periodic",
-    "stats",
-    "ui",
-    "version",
-  ]
-  pruneopts = "T"
-  revision = "d13f3b92c63db22136bac4e0896562404bd4ef6e"
-  version = "v1.1.0"
+  revision = "d96294810379bc28083e88a2633a1f52736498e0"
 
 [[projects]]
   digest = "1:1e22c9d898674522a6155619142b4691dd225441168faa2b5a4eb88ee327a243"
@@ -1988,6 +1994,9 @@
     "code.cloudfoundry.org/copilot/api",
     "code.cloudfoundry.org/copilot/testhelpers",
     "contrib.go.opencensus.io/exporter/stackdriver",
+    "fortio.org/fortio",
+    "fortio.org/fortio/fhttp",
+    "fortio.org/fortio/periodic",
     "github.com/DataDog/datadog-go/statsd",
     "github.com/alicebob/miniredis",
     "github.com/alicebob/miniredis/server",
@@ -2021,6 +2030,7 @@
     "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/rbac/v2",
     "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2",
     "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/mongo_proxy/v2",
+    "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/rbac/v2",
     "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2",
     "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2alpha",
     "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2",
@@ -2097,8 +2107,13 @@
     "github.com/uber/jaeger-client-go/transport",
     "github.com/uber/jaeger-client-go/transport/zipkin",
     "github.com/uber/jaeger-client-go/zipkin",
+    "go.opencensus.io/exporter/prometheus",
+    "go.opencensus.io/plugin/ocgrpc",
     "go.opencensus.io/plugin/ochttp",
     "go.opencensus.io/plugin/ochttp/propagation/b3",
+    "go.opencensus.io/stats",
+    "go.opencensus.io/stats/view",
+    "go.opencensus.io/tag",
     "go.opencensus.io/trace",
     "go.uber.org/atomic",
     "go.uber.org/multierr",
@@ -2144,9 +2159,6 @@
     "istio.io/api/networking/v1alpha3",
     "istio.io/api/policy/v1beta1",
     "istio.io/api/rbac/v1alpha1",
-    "istio.io/fortio",
-    "istio.io/fortio/fhttp",
-    "istio.io/fortio/periodic",
     "k8s.io/api/admission/v1beta1",
     "k8s.io/api/admissionregistration/v1beta1",
     "k8s.io/api/apps/v1",
@@ -2180,6 +2192,8 @@
     "k8s.io/client-go/dynamic",
     "k8s.io/client-go/dynamic/fake",
     "k8s.io/client-go/informers",
+    "k8s.io/client-go/informers/core/v1",
+    "k8s.io/client-go/informers/extensions/v1beta1",
     "k8s.io/client-go/kubernetes",
     "k8s.io/client-go/kubernetes/fake",
     "k8s.io/client-go/kubernetes/scheme",
@@ -2197,7 +2211,6 @@
     "k8s.io/client-go/tools/portforward",
     "k8s.io/client-go/tools/remotecommand",
     "k8s.io/client-go/transport/spdy",
-    "k8s.io/client-go/util/flowcontrol",
     "k8s.io/client-go/util/workqueue",
     "k8s.io/cluster-registry/pkg/apis/clusterregistry/v1alpha1",
     "k8s.io/helm/pkg/chartutil",

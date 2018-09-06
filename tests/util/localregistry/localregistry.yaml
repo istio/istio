@@ -1,27 +1,23 @@
 # after creating the local registry, to push images to it you need to open up a port to the pod's registry:
-# $ POD=$(kubectl get pods --namespace kube-system -l k8s-app=kube-registry \
+# $ POD=$(kubectl get pods --namespace docker-registry -l k8s-app=kube-registry \
 #               -o template --template '{{range .items}}{{.metadata.name}} {{.status.phase}}{{"\n"}}{{end}}' \
 #               | grep Running | head -1 | cut -f1 -d' ')
-# $ kubectl port-forward --namespace kube-system $POD 5000:5000
+# $ kubectl port-forward --namespace docker-registry $POD 5000:5000
 
-apiVersion: v1
-kind: ReplicationController
+apiVersion: apps/v1
+kind: Deployment
 metadata:
-  name: kube-registry-v0
-  namespace: kube-system
-  labels:
-    k8s-app: kube-registry
-    version: v0
+  name: kube-registry
+  namespace: docker-registry
 spec:
-  replicas: 1
   selector:
-    k8s-app: kube-registry
-    version: v0
+    matchLabels:
+      k8s-app: kube-registry
+  replicas: 1
   template:
     metadata:
       labels:
         k8s-app: kube-registry
-        version: v0
     spec:
       containers:
       - name: registry
@@ -50,10 +46,9 @@ apiVersion: v1
 kind: Service
 metadata:
   name: kube-registry
-  namespace: kube-system
+  namespace: docker-registry
   labels:
     k8s-app: kube-registry
-    kubernetes.io/name: "KubeRegistry"
 spec:
   selector:
     k8s-app: kube-registry
@@ -62,27 +57,32 @@ spec:
     port: 5000
     protocol: TCP
 ---
-apiVersion: v1
-kind: Pod
+apiVersion: extensions/v1beta1
+kind: DaemonSet
 metadata:
   name: kube-registry-proxy
-  namespace: kube-system
+  namespace: docker-registry
+  labels:
+    k8s-app: kube-registry
 spec:
-  containers:
-  - name: kube-registry-proxy
-    image: gcr.io/google_containers/kube-registry-proxy:0.3
-    resources:
-      limits:
-        cpu: 100m
-        memory: 50Mi
-    env:
-    - name: REGISTRY_HOST
-      value: kube-registry
-    - name: REGISTRY_PORT
-      value: "5000"
-    - name: FORWARD_PORT
-      value: "5000"
-    ports:
-    - name: registry
-      containerPort: 5000
-      hostPort: 5000
+  template:
+    metadata:
+      labels:
+        k8s-app: kube-registry-proxy
+    spec:
+      containers:
+      - name: kube-registry-proxy
+        image: gcr.io/google_containers/kube-registry-proxy:0.4
+        resources:
+          limits:
+            cpu: 100m
+            memory: 50Mi
+        env:
+        - name: REGISTRY_HOST
+          value: kube-registry.docker-registry.svc.cluster.local
+        - name: REGISTRY_PORT
+          value: "5000"
+        ports:
+        - name: registry
+          containerPort: 80
+          hostPort: 5000

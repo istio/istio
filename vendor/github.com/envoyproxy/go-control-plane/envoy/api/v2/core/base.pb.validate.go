@@ -92,7 +92,9 @@ func (m *Node) Validate() error {
 
 	// no validation rules for Cluster
 
-	if v, ok := interface{}(m.GetMetadata()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetMetadata()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return NodeValidationError{
 				Field:  "Metadata",
@@ -102,7 +104,9 @@ func (m *Node) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetLocality()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetLocality()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return NodeValidationError{
 				Field:  "Locality",
@@ -301,7 +305,9 @@ func (m *HeaderValueOption) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetHeader()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetHeader()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return HeaderValueOptionValidationError{
 				Field:  "Header",
@@ -311,7 +317,9 @@ func (m *HeaderValueOption) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetAppend()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetAppend()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return HeaderValueOptionValidationError{
 				Field:  "Append",
@@ -448,7 +456,9 @@ func (m *TransportSocket) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetConfig()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetConfig()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return TransportSocketValidationError{
 				Field:  "Config",

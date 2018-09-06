@@ -31,8 +31,9 @@ import (
 	"github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 
-	"istio.io/fortio/fhttp"
-	"istio.io/fortio/periodic"
+	"fortio.org/fortio/fhttp"
+	"fortio.org/fortio/periodic"
+
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/e2e/framework"
 	"istio.io/istio/tests/util"
@@ -314,7 +315,7 @@ func setTestConfig() error {
 	tag := os.Getenv("FORTIO_TAG")
 	image := hub + "/fortio:" + tag
 	if hub == "" || tag == "" {
-		image = "istio/fortio:latest" // TODO: change
+		image = "fortio/fortio:latest" // TODO: change
 	}
 	log.Infof("Fortio hub %s tag %s -> image %s", hub, tag, image)
 	services := []framework.App{
@@ -457,7 +458,8 @@ var waitDurations = []time.Duration{0, 5 * time.Second, 15 * time.Second, 30 * t
 func waitForMixerConfigResolution() error {
 	// we are looking for confirmation that 3 handlers were configured and that none of them had
 	// build failures
-	configQuery := `topk(1, mixer_config_handler_config_count - mixer_handler_handler_build_failure_count)`
+
+	configQuery := `max(mixer_config_handler_configs_total) - max(mixer_handler_handler_build_failures_total or up * 0)`
 	handlers := 0.0
 	for _, duration := range waitDurations {
 		log.Infof("Waiting for Mixer to be configured with correct handlers: %v", duration)

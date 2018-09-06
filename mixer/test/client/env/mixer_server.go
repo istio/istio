@@ -21,7 +21,7 @@ import (
 	"sync"
 	"time"
 
-	rpc "github.com/gogo/googleapis/google/rpc"
+	"github.com/gogo/googleapis/google/rpc"
 	"google.golang.org/grpc"
 
 	mixerpb "istio.io/api/mixer/v1"
@@ -162,15 +162,19 @@ func NewMixerServer(port uint16, stress bool, checkDict bool) (*MixerServer, err
 }
 
 // Start starts the mixer server
-// TODO: Add a channel so this can return an error
-func (ts *MixerServer) Start() {
+func (ts *MixerServer) Start() <-chan error {
+	errCh := make(chan error)
+
 	go func() {
 		err := ts.gs.Serve(ts.lis)
 		if err != nil {
-			log.Fatalf("failed to start mixer server: %v", err)
+			errCh <- fmt.Errorf("failed to start mixer server: %v", err)
 		}
-		log.Printf("Mixer server starts\n")
 	}()
+
+	// wait for grpc server up
+	time.AfterFunc(1*time.Second, func() { close(errCh) })
+	return errCh
 }
 
 // Stop shutdown the server

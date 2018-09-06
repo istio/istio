@@ -15,9 +15,12 @@
 package framework
 
 import (
+	"flag"
 	"fmt"
 	"sync"
 	"testing"
+
+	"istio.io/istio/pkg/log"
 
 	"istio.io/istio/pkg/test/framework/components"
 	"istio.io/istio/pkg/test/framework/components/registry"
@@ -43,6 +46,11 @@ const (
 
 	// the driver has completed running tests.
 	completed
+)
+
+var (
+	// TODO(nmittler): Add logging options to flags.
+	logOptions = log.DefaultOptions()
 )
 
 type driver struct {
@@ -95,7 +103,7 @@ func (d *driver) Run(testID string, m *testing.M) (int, error) {
 // AcquireEnvironment implementation
 func (d *driver) AcquireEnvironment(t testing.TB) env.Environment {
 	t.Helper()
-	scope.Debugf("Enter: driver.AcquireEnvionment (%s)", d.context.Settings().TestID)
+	scope.Debugf("Enter: driver.AcquireEnvironment (%s)", d.context.Settings().TestID)
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
@@ -167,6 +175,12 @@ func (d *driver) initialize(testID string) (int, error) {
 		return -1, fmt.Errorf("driver.Run must be called only once")
 	}
 	d.state = running
+
+	// Parse flags and init logging.
+	flag.Parse()
+	if err := log.Configure(logOptions); err != nil {
+		return -1, err
+	}
 
 	// Initialize settings
 	s, err := settings.New(testID)
