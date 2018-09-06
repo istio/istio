@@ -24,7 +24,6 @@ $(ISTIO_DOCKER) $(ISTIO_DOCKER_TAR):
 .SECONDEXPANSION: #allow $@ to be used in dependency list
 
 # static files/directories that are copied from source tree
-
 NODE_AGENT_TEST_FILES:=security/docker/start_app.sh \
                        security/docker/app.js
 
@@ -44,19 +43,19 @@ $(ISTIO_DOCKER)/js $(ISTIO_DOCKER)/force: addons/servicegraph/$$(notdir $$@) | $
 $(ISTIO_DOCKER)/istio_ca.crt $(ISTIO_DOCKER)/istio_ca.key: ${GEN_CERT} | ${ISTIO_DOCKER}
 	${GEN_CERT} --key-size=2048 --out-cert=${ISTIO_DOCKER}/istio_ca.crt \
                     --out-priv=${ISTIO_DOCKER}/istio_ca.key --organization="k8s.cluster.local" \
-                    --mode=self-signed --ca=true
+                    --self-signed=true --ca=true
 $(ISTIO_DOCKER)/node_agent.crt $(ISTIO_DOCKER)/node_agent.key: ${GEN_CERT} $(ISTIO_DOCKER)/istio_ca.crt $(ISTIO_DOCKER)/istio_ca.key
 	${GEN_CERT} --key-size=2048 --out-cert=${ISTIO_DOCKER}/node_agent.crt \
                     --out-priv=${ISTIO_DOCKER}/node_agent.key --organization="NodeAgent" \
-										--mode=signer --host="nodeagent.google.com" --signer-cert=${ISTIO_DOCKER}/istio_ca.crt \
+                    --host="nodeagent.google.com" --signer-cert=${ISTIO_DOCKER}/istio_ca.crt \
                     --signer-priv=${ISTIO_DOCKER}/istio_ca.key
 
 # directives to copy files to docker scratch directory
 
 # tell make which files are copied form go/out
-DOCKER_FILES_FROM_ISTIO_OUT:=pilot-test-client pilot-test-server \
+DOCKER_FILES_FROM_ISTIO_OUT:=pilot-test-client pilot-test-server pilot-test-eurekamirror \
                              pilot-discovery pilot-agent sidecar-injector servicegraph mixs \
-                             istio_ca node_agent galley
+                             istio_ca node_agent node_agent_k8s galley
 $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT), \
         $(eval $(ISTIO_DOCKER)/$(FILE): $(ISTIO_OUT)/$(FILE) | $(ISTIO_DOCKER); cp $$< $$(@D)))
 
@@ -73,13 +72,14 @@ $(foreach FILE,$(DOCKER_FILES_FROM_SOURCE), \
 
 # pilot docker imagesDOCKER_BUILD_TOP
 
+docker.eurekamirror: $(ISTIO_DOCKER)/pilot-test-eurekamirror
 docker.proxy_init: $(ISTIO_DOCKER)/istio-iptables.sh
 docker.sidecar_injector: $(ISTIO_DOCKER)/sidecar-injector
 
 docker.proxy_debug: tools/deb/envoy_bootstrap_v2.json
 docker.proxy_debug: ${ISTIO_ENVOY_DEBUG_PATH}
 docker.proxy_debug: $(ISTIO_OUT)/pilot-agent
-docker.proxy_debug: pilot/docker/Dockerfile.proxyv2
+docker.proxy_debug: pilot/docker/Dockerfile.proxy_debug
 docker.proxy_debug: pilot/docker/envoy_pilot.yaml.tmpl
 docker.proxy_debug: pilot/docker/envoy_policy.yaml.tmpl
 docker.proxy_debug: pilot/docker/envoy_telemetry.yaml.tmpl
@@ -87,19 +87,19 @@ docker.proxy_debug: pilot/docker/envoy_telemetry.yaml.tmpl
 	cp ${ISTIO_ENVOY_DEBUG_PATH} $(DOCKER_BUILD_TOP)/proxyd/envoy
 	cp pilot/docker/*.yaml.tmpl $(DOCKER_BUILD_TOP)/proxyd/
 	# Not using $^ to avoid 2 copies of envoy
-	cp tools/deb/envoy_bootstrap_v2.json tools/deb/istio-iptables.sh $(ISTIO_OUT)/pilot-agent pilot/docker/Dockerfile.proxyv2 $(DOCKER_BUILD_TOP)/proxyd/
+	cp tools/deb/envoy_bootstrap_v2.json $(ISTIO_OUT)/pilot-agent pilot/docker/Dockerfile.proxy_debug $(DOCKER_BUILD_TOP)/proxyd/
 	time (cd $(DOCKER_BUILD_TOP)/proxyd && \
-		docker build \
-		  --build-arg proxy_version=istio-proxy:${PROXY_REPO_SHA} \
-		  --build-arg istio_version=${VERSION} \
-		-t $(HUB)/proxy_debug:$(TAG) -f Dockerfile.proxyv2 .)
+		docker build -t $(HUB)/proxy_debug:$(TAG) -f Dockerfile.proxy_debug .)
 
 # The file must be named 'envoy', depends on the release.
 ${ISTIO_ENVOY_RELEASE_DIR}/envoy: ${ISTIO_ENVOY_RELEASE_PATH}
 	mkdir -p $(DOCKER_BUILD_TOP)/proxyv2
 	cp ${ISTIO_ENVOY_RELEASE_PATH} ${ISTIO_ENVOY_RELEASE_DIR}/envoy
 
-# Default proxy image.
+# Target to build a proxy image with v2 interfaces enabled. Partial implementation, but
+# will scale better and have v2-specific features. Not built automatically until it passes
+# all tests. Developers working on v2 are currently expected to call this manually as
+# make docker.proxyv2; docker push ${HUB}/proxyv2:${TAG}
 docker.proxyv2: tools/deb/envoy_bootstrap_v2.json
 docker.proxyv2: $(ISTIO_ENVOY_RELEASE_DIR)/envoy
 docker.proxyv2: $(ISTIO_OUT)/pilot-agent
@@ -108,33 +108,11 @@ docker.proxyv2: pilot/docker/envoy_pilot.yaml.tmpl
 docker.proxyv2: pilot/docker/envoy_policy.yaml.tmpl
 docker.proxyv2: tools/deb/istio-iptables.sh
 docker.proxyv2: pilot/docker/envoy_telemetry.yaml.tmpl
+docker.proxyv2: security/docker/ca-root-cert.pem
 	mkdir -p $(DOCKER_BUILD_TOP)/proxyv2
 	cp $^ $(DOCKER_BUILD_TOP)/proxyv2/
 	time (cd $(DOCKER_BUILD_TOP)/proxyv2 && \
-		docker build  \
-		  --build-arg proxy_version=istio-proxy:${PROXY_REPO_SHA} \
-		  --build-arg istio_version=${VERSION} \
-		-t $(HUB)/proxyv2:$(TAG) -f Dockerfile.proxyv2 .)
-
-# Proxy using TPROXY interception - but no core dumps
-docker.proxytproxy: tools/deb/envoy_bootstrap_v2.json
-docker.proxytproxy: $(ISTIO_ENVOY_RELEASE_DIR)/envoy
-docker.proxytproxy: $(ISTIO_OUT)/pilot-agent
-docker.proxytproxy: pilot/docker/Dockerfile.proxytproxy
-docker.proxytproxy: pilot/docker/envoy_pilot.yaml.tmpl
-docker.proxytproxy: pilot/docker/envoy_policy.yaml.tmpl
-docker.proxytproxy: tools/deb/istio-iptables.sh
-docker.proxytproxy: pilot/docker/envoy_telemetry.yaml.tmpl
-	mkdir -p $(DOCKER_BUILD_TOP)/proxyv2
-	cp $^ $(DOCKER_BUILD_TOP)/proxyv2/
-	time (cd $(DOCKER_BUILD_TOP)/proxyv2 && \
-		docker build  \
-		  --build-arg proxy_version=istio-proxy:${PROXY_REPO_SHA} \
-		  --build-arg istio_version=${VERSION} \
-		-t $(HUB)/proxytproxy:$(TAG) -f Dockerfile.proxytproxy .)
-
-push.proxytproxy: docker.proxytproxy
-	docker push $(HUB)/proxytproxy:$(TAG)
+		docker build -t $(HUB)/proxyv2:$(TAG) -f Dockerfile.proxyv2 .)
 
 docker.pilot: $(ISTIO_OUT)/pilot-discovery pilot/docker/certs/cacert.pem pilot/docker/Dockerfile.pilot
 	mkdir -p $(ISTIO_DOCKER)/pilot
@@ -164,7 +142,8 @@ docker.test_policybackend: $(ISTIO_OUT)/mixer-test-policybackend \
 	time (cd $(ISTIO_DOCKER)/test_policybackend && \
 		docker build -t $(HUB)/test_policybackend:$(TAG) -f Dockerfile.test_policybackend .)
 
-PILOT_DOCKER:=docker.proxy_init docker.sidecar_injector
+PILOT_DOCKER:=docker.eurekamirror \
+              docker.proxy_init docker.sidecar_injector
 $(PILOT_DOCKER): pilot/docker/Dockerfile$$(suffix $$@) | $(ISTIO_DOCKER)
 	$(DOCKER_RULE)
 
@@ -192,12 +171,13 @@ $(GALLEY_DOCKER): galley/docker/Dockerfile$$(suffix $$@) $(ISTIO_DOCKER)/galley 
 
 docker.citadel:         $(ISTIO_DOCKER)/istio_ca     $(ISTIO_DOCKER)/ca-certificates.tgz
 docker.citadel-test:    $(ISTIO_DOCKER)/istio_ca.crt $(ISTIO_DOCKER)/istio_ca.key
+docker.node-agent-k8s:   $(ISTIO_DOCKER)/node_agent_k8s
 docker.node-agent:      $(ISTIO_DOCKER)/node_agent
 docker.node-agent-test: $(ISTIO_DOCKER)/node_agent $(ISTIO_DOCKER)/istio_ca.key \
                         $(ISTIO_DOCKER)/node_agent.crt $(ISTIO_DOCKER)/node_agent.key
 $(foreach FILE,$(NODE_AGENT_TEST_FILES),$(eval docker.node-agent-test: $(ISTIO_DOCKER)/$(notdir $(FILE))))
 
-SECURITY_DOCKER:=docker.citadel docker.citadel-test docker.node-agent docker.node-agent-test
+SECURITY_DOCKER:=docker.citadel docker.citadel-test docker.node-agent-k8s docker.node-agent docker.node-agent-test
 $(SECURITY_DOCKER): security/docker/Dockerfile$$(suffix $$@) | $(ISTIO_DOCKER)
 	$(DOCKER_RULE)
 
