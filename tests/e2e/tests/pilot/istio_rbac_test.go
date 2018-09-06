@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"testing"
 
+	"strings"
+
 	"istio.io/istio/tests/util"
 )
 
@@ -56,55 +58,105 @@ func TestRBAC(t *testing.T) {
 	defer cfgs.Teardown()
 
 	// Some services are only accessible when auth is enabled.
-	expectedCode := "403"
+	allow := false
 	if tc.Kube.AuthEnabled {
-		expectedCode = "200"
+		allow = true
 	}
 
 	cases := []struct {
-		dst    string
-		src    string
-		path   string
-		expect string
+		dst   string
+		src   string
+		path  string
+		port  uint32
+		allow bool
 	}{
-		{dst: "a", src: "b", path: "/xyz", expect: "403"},
-		{dst: "a", src: "c", path: "/", expect: "403"},
-		{dst: "a", src: "d", path: "/", expect: "403"},
+		{dst: "a", src: "b", path: "/xyz", allow: false},
+		{dst: "a", src: "b", port: 90, allow: false},
+		{dst: "a", src: "b", port: 9090, allow: false},
+		{dst: "a", src: "c", path: "/", allow: false},
+		{dst: "a", src: "c", port: 90, allow: false},
+		{dst: "a", src: "c", port: 9090, allow: false},
+		{dst: "a", src: "d", path: "/", allow: false},
+		{dst: "a", src: "d", port: 90, allow: false},
+		{dst: "a", src: "d", port: 9090, allow: false},
 
-		{dst: "b", src: "a", path: "/xyz", expect: "200"},
-		{dst: "b", src: "a", path: "/", expect: "200"},
-		{dst: "b", src: "c", path: "/", expect: "200"},
-		{dst: "b", src: "d", path: "/", expect: "200"},
+		{dst: "b", src: "a", path: "/xyz", allow: true},
+		{dst: "b", src: "a", path: "/", allow: true},
+		{dst: "b", src: "a", port: 90, allow: true},
+		{dst: "b", src: "a", port: 9090, allow: true},
+		{dst: "b", src: "c", path: "/", allow: true},
+		{dst: "b", src: "c", port: 90, allow: true},
+		{dst: "b", src: "c", port: 9090, allow: true},
+		{dst: "b", src: "d", path: "/", allow: true},
+		{dst: "b", src: "d", port: 90, allow: true},
+		{dst: "b", src: "d", port: 9090, allow: true},
 
-		{dst: "c", src: "a", path: "/", expect: "403"},
-		{dst: "c", src: "a", path: "/good", expect: "403"},
-		{dst: "c", src: "a", path: "/prefixXYZ", expect: "403"},
-		{dst: "c", src: "a", path: "/xyz/suffix", expect: "403"},
+		{dst: "c", src: "a", path: "/", allow: false},
+		{dst: "c", src: "a", path: "/good", allow: false},
+		{dst: "c", src: "a", path: "/prefixXYZ", allow: false},
+		{dst: "c", src: "a", path: "/xyz/suffix", allow: false},
+		{dst: "c", src: "a", port: 90, allow: false},
+		{dst: "c", src: "a", port: 9090, allow: false},
 
-		{dst: "c", src: "b", path: "/", expect: "403"},
-		{dst: "c", src: "b", path: "/good", expect: "403"},
-		{dst: "c", src: "b", path: "/prefixXYZ", expect: "403"},
-		{dst: "c", src: "b", path: "/xyz/suffix", expect: "403"},
+		{dst: "c", src: "b", path: "/", allow: false},
+		{dst: "c", src: "b", path: "/good", allow: false},
+		{dst: "c", src: "b", path: "/prefixXYZ", allow: false},
+		{dst: "c", src: "b", path: "/xyz/suffix", allow: false},
+		{dst: "c", src: "b", port: 90, allow: false},
+		{dst: "c", src: "b", port: 9090, allow: false},
 
-		{dst: "c", src: "d", path: "/", expect: "403"},
-		{dst: "c", src: "d", path: "/xyz", expect: "403"},
-		{dst: "c", src: "d", path: "/good", expect: expectedCode},
-		{dst: "c", src: "d", path: "/prefixXYZ", expect: expectedCode},
-		{dst: "c", src: "d", path: "/xyz/suffix", expect: expectedCode},
+		{dst: "c", src: "d", path: "/", allow: false},
+		{dst: "c", src: "d", path: "/xyz", allow: false},
+		{dst: "c", src: "d", path: "/good", allow: allow},
+		{dst: "c", src: "d", path: "/prefixXYZ", allow: allow},
+		{dst: "c", src: "d", path: "/xyz/suffix", allow: allow},
+		{dst: "c", src: "d", port: 90, allow: allow},
+		{dst: "c", src: "d", port: 9090, allow: false},
 
-		{dst: "d", src: "a", path: "/xyz", expect: expectedCode},
-		{dst: "d", src: "b", path: "/", expect: expectedCode},
-		{dst: "d", src: "c", path: "/", expect: expectedCode},
+		{dst: "d", src: "a", path: "/xyz", allow: allow},
+		{dst: "d", src: "a", port: 90, allow: false},
+		{dst: "d", src: "a", port: 9090, allow: allow},
+		{dst: "d", src: "b", path: "/", allow: allow},
+		{dst: "d", src: "b", port: 90, allow: false},
+		{dst: "d", src: "b", port: 9090, allow: allow},
+		{dst: "d", src: "c", path: "/", allow: allow},
+		{dst: "d", src: "c", port: 90, allow: false},
+		{dst: "d", src: "c", port: 9090, allow: allow},
 	}
 
 	for _, req := range cases {
 		for cluster := range tc.Kube.Clusters {
-			testName := fmt.Sprintf("%s from %s cluster->%s%s[%s]", req.src, cluster, req.dst, req.path, req.expect)
-			runRetriableTest(t, cluster, testName, defaultRetryBudget, func() error {
-				resp := ClientRequest(cluster, req.src, fmt.Sprintf("http://%s%s", req.dst, req.path), 1, "")
-				if len(resp.Code) > 0 && resp.Code[0] == req.expect {
-					return nil
+			port := ""
+			if req.port != 0 {
+				port = fmt.Sprintf(":%d", req.port)
+			}
+			expectStr := "deny"
+			if req.allow {
+				expectStr = "allow"
+			}
+			testName := fmt.Sprintf("%s from %s cluster->%s%s%s[%s]",
+				req.src, cluster, req.dst, req.path, port, expectStr)
+
+			runRetriableTest(t, cluster, testName, 30, func() error {
+				reqPath := fmt.Sprintf("http://%s%s%s", req.dst, port, req.path)
+				if !req.allow && port != "" {
+					// There is no response code for TCP service but we can just check the GET request is failed
+					// due to EOF.
+					err := ClientRequestForError(cluster, req.src, reqPath, 1)
+					if err != nil && strings.Contains(err.Error(), fmt.Sprintf("Error Get %s: EOF", reqPath)) {
+						return nil
+					}
+				} else {
+					resp := ClientRequest(cluster, req.src, reqPath, 1, "")
+					expectCode := "403"
+					if req.allow {
+						expectCode = "200"
+					}
+					if len(resp.Code) > 0 && resp.Code[0] == expectCode {
+						return nil
+					}
 				}
+
 				return errAgain
 			})
 		}
