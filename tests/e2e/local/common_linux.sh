@@ -73,3 +73,31 @@ function install_kubectl() {
     sudo mv ./kubectl /usr/local/bin/kubectl
   fi
 }
+
+# check_and_install_packages checks if package is installed before installing it.
+# It is expected to receive 2 parameters,
+# 1st parameter is package management tool - apt|yum, 2nd parameter is package list/array to be checked/installed.
+function check_and_install_packages() {
+  if [ "$#" -ne 2 ]; then
+    echo "Arguments are not equals to 2"
+    echo "Usage: apt|yum package_list"
+    exit 1
+  fi
+  check_cmd="$1"
+  arr="$2"
+  for i in "${arr[@]}";
+  do
+    case $check_cmd in
+      apt)
+        if ! apt list --installed $i | grep installed > /dev/null 2>&1; then
+          sudo apt-get install -y $i > /dev/null 2>&1
+        fi;;
+      yum)
+        if ! yum -q list installed $i > /dev/null 2>&1; then
+           yum install -y $i > /dev/null 2>&1
+        fi;;
+      *)
+        echo "unsupported package management tool";;
+    esac
+  done
+}
