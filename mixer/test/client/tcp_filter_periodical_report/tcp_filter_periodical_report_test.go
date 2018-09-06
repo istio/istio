@@ -24,6 +24,9 @@ import (
 // Report attributes from a good POST request
 const openReportAttributesOkPost = `
 {
+  "context.reporter.uid": "*",
+  "destination.uid": "*",
+  "destination.namespace": "*",
   "context.protocol": "tcp",
   "context.time": "*",
   "mesh1.ip": "[1 1 1 1]",
@@ -46,6 +49,9 @@ const openReportAttributesOkPost = `
 `
 const deltaReportAttributesOkPost = `
 {
+  "context.reporter.uid": "*",
+  "destination.uid": "*",
+  "destination.namespace": "*",
   "context.protocol": "tcp",
   "context.time": "*",
   "mesh1.ip": "[1 1 1 1]",
@@ -68,6 +74,9 @@ const deltaReportAttributesOkPost = `
 `
 const finalReportAttributesOkPost = `
 {
+  "context.reporter.uid": "*",
+  "destination.uid": "*",
+  "destination.namespace": "*",
   "context.protocol": "tcp",
   "context.time": "*",
   "mesh1.ip": "[1 1 1 1]",

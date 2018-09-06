@@ -24,6 +24,7 @@ import (
 // Report attributes from a fault inject GET request
 const reportAttributes = `
 {
+  "context.reporter.uid" : "*",
   "context.protocol": "http",
   "context.proxy_error_code": "FI",
   "mesh1.ip": "[1 1 1 1]",
@@ -37,6 +38,8 @@ const reportAttributes = `
   "request.scheme": "http",
   "source.uid": "POD11",
   "source.namespace": "XYZ11",
+  "destination.namespace" : "*",
+  "destination.uid" : "*",
   "target.name": "target-name",
   "target.user": "target-user",
   "target.uid": "POD222",

@@ -48,6 +48,7 @@ const secIstioAuthUserinfoHeaderValue = `{"aud":"aud1","exp":20000000000,` +
 // Check attributes from a good GET request
 var checkAttributesOkGet = `
 {
+  "context.reporter.uid" : "*",
   "context.protocol": "http",
   "mesh1.ip": "[1 1 1 1]",
   "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
@@ -60,6 +61,8 @@ var checkAttributesOkGet = `
   "request.scheme": "http",
   "source.uid": "POD11",
   "source.namespace": "XYZ11",
+  "destination.namespace" : "*",
+  "destination.uid" : "*",
   "target.name": "target-name",
   "target.user": "target-user",
   "target.uid": "POD222",
@@ -90,6 +93,7 @@ var checkAttributesOkGet = `
 // Report attributes from a good GET request with Istio authn policy binding to origin
 var reportAttributesOkGet = `
 {
+  "context.reporter.uid" : "*",
   "context.protocol": "http",
   "context.proxy_error_code": "-",
   "mesh1.ip": "[1 1 1 1]",
@@ -105,6 +109,8 @@ var reportAttributesOkGet = `
   "source.namespace": "XYZ11",
   "destination.ip": "[127 0 0 1]",
   "destination.port": "*",
+  "destination.namespace" : "*",
+  "destination.uid" : "*",
   "target.name": "target-name",
   "target.user": "target-user",
   "target.uid": "POD222",

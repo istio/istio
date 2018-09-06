@@ -121,8 +121,10 @@ static_resources:
 const reportAttributesOkGet = `
 {
   "destination.uid": "pod1.ns2",
+  "destination.namespace" : "*",
   "context.protocol": "http",
   "context.proxy_error_code": "-",
+  "context.reporter.uid" : "*",
   "mesh1.ip": "[1 1 1 1]",
   "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
   "request.host": "*",

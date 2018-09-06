@@ -26,6 +26,9 @@ import (
 // Check attributes from a good POST request
 const checkAttributesOkPost = `
 {
+  "context.reporter.uid": "*",
+  "destination.uid": "*",
+  "destination.namespace": "*",
   "context.protocol": "tcp",
   "context.time": "*",
   "mesh1.ip": "[1 1 1 1]",
@@ -41,6 +44,9 @@ const checkAttributesOkPost = `
 // Report attributes from a good POST request
 const reportAttributesOkPostOpen = `
 {
+  "context.reporter.uid": "*",
+  "destination.uid": "*",
+  "destination.namespace": "*",
   "context.protocol": "tcp",
   "context.time": "*",
   "mesh1.ip": "[1 1 1 1]",
@@ -63,6 +69,9 @@ const reportAttributesOkPostOpen = `
 `
 const reportAttributesOkPostClose = `
 {
+  "context.reporter.uid": "*",
+  "destination.uid": "*",
+  "destination.namespace": "*",
   "context.protocol": "tcp",
   "context.time": "*",
   "mesh1.ip": "[1 1 1 1]",
@@ -88,6 +97,9 @@ const reportAttributesOkPostClose = `
 // Report attributes from a failed POST request
 const reportAttributesFailPost = `
 {
+  "context.reporter.uid": "*",
+  "destination.uid": "*",
+  "destination.namespace": "*",
   "context.protocol": "tcp",
   "context.time": "*",
   "mesh1.ip": "[1 1 1 1]",

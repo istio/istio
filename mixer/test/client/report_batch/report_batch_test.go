@@ -24,6 +24,7 @@ import (
 // Report attributes from a good GET request
 const reportAttributesOkGet = `
 {
+  "context.reporter.uid" : "*",
   "context.protocol": "http",
   "context.proxy_error_code": "-",
   "mesh1.ip": "[1 1 1 1]",
@@ -40,6 +41,8 @@ const reportAttributesOkGet = `
   "source.namespace": "XYZ11",
   "destination.ip": "[127 0 0 1]",
   "destination.port": "*",
+  "destination.namespace" : "*",
+  "destination.uid" : "*",
   "target.name": "target-name",
   "target.user": "target-user",
   "target.uid": "POD222",
@@ -76,6 +79,7 @@ const reportAttributesOkGet = `
 // Report attributes from a good POST request
 const reportAttributesOkPost1 = `
 {
+  "context.reporter.uid" : "*",
   "context.protocol": "http",
   "context.proxy_error_code": "-",
   "mesh1.ip": "[1 1 1 1]",
@@ -92,6 +96,8 @@ const reportAttributesOkPost1 = `
   "source.namespace": "XYZ11",
   "destination.ip": "[127 0 0 1]",
   "destination.port": "*",
+  "destination.namespace" : "*",
+  "destination.uid" : "*",
   "target.name": "target-name",
   "target.user": "target-user",
   "target.uid": "POD222",
@@ -129,6 +135,7 @@ const reportAttributesOkPost1 = `
 // Report attributes from a good POST request
 const reportAttributesOkPost2 = `
 {
+  "context.reporter.uid" : "*",
   "context.protocol": "http",
   "context.proxy_error_code": "-",
   "mesh1.ip": "[1 1 1 1]",
@@ -145,6 +152,8 @@ const reportAttributesOkPost2 = `
   "source.namespace": "XYZ11",
   "destination.ip": "[127 0 0 1]",
   "destination.port": "*",
+  "destination.namespace" : "*",
+  "destination.uid" : "*",
   "target.name": "target-name",
   "target.user": "target-user",
   "target.uid": "POD222",
