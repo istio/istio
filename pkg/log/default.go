@@ -22,6 +22,36 @@ import (
 
 var defaultScope = RegisterScope(DefaultScopeName, "Unscoped logging messages.", 0)
 
+// Fatal outputs a message at fatal level.
+func Fatal(msg string, fields ...zapcore.Field) {
+	if defaultScope.GetOutputLevel() >= FatalLevel {
+		defaultScope.emit(zapcore.FatalLevel, defaultScope.GetStackTraceLevel() >= FatalLevel, msg, fields)
+	}
+}
+
+// Fatala uses fmt.Sprint to construct and log a message at fatal level.
+func Fatala(args ...interface{}) {
+	if defaultScope.GetOutputLevel() >= FatalLevel {
+		defaultScope.emit(zapcore.FatalLevel, defaultScope.GetStackTraceLevel() >= FatalLevel, fmt.Sprint(args...), nil)
+	}
+}
+
+// Fatalf uses fmt.Sprintf to construct and log a message at fatal level.
+func Fatalf(template string, args ...interface{}) {
+	if defaultScope.GetOutputLevel() >= FatalLevel {
+		msg := template
+		if len(args) > 0 {
+			msg = fmt.Sprintf(template, args...)
+		}
+		defaultScope.emit(zapcore.FatalLevel, defaultScope.GetStackTraceLevel() >= FatalLevel, msg, nil)
+	}
+}
+
+// FatalEnabled returns whether output of messages using this scope is currently enabled for fatal-level output.
+func FatalEnabled() bool {
+	return defaultScope.GetOutputLevel() >= FatalLevel
+}
+
 // Error outputs a message at error level.
 func Error(msg string, fields ...zapcore.Field) {
 	if defaultScope.GetOutputLevel() >= ErrorLevel {
