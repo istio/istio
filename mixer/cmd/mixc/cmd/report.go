@@ -22,10 +22,10 @@ import (
 	"github.com/spf13/cobra"
 
 	mixerpb "istio.io/api/mixer/v1"
-	"istio.io/istio/mixer/cmd/shared"
+	"istio.io/istio/pkg/log"
 )
 
-func reportCmd(rootArgs *rootArgs, printf, fatalf shared.FormatFn) *cobra.Command {
+func reportCmd(rootArgs *rootArgs) *cobra.Command {
 	return &cobra.Command{
 		Use:   "report",
 		Short: "Invokes Mixer's Report API to generate telemetry.",
@@ -35,21 +35,21 @@ func reportCmd(rootArgs *rootArgs, printf, fatalf shared.FormatFn) *cobra.Comman
 			"which parameters in order to output the telemetry.",
 		Args: cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
-			report(rootArgs, printf, fatalf)
+			report(rootArgs)
 		}}
 }
 
-func report(rootArgs *rootArgs, printf, fatalf shared.FormatFn) {
+func report(rootArgs *rootArgs) {
 	var attrs *mixerpb.CompressedAttributes
 	var err error
 
 	if attrs, err = parseAttributes(rootArgs); err != nil {
-		fatalf("%v", err)
+		log.Fatalf("%v", err)
 	}
 
 	var cs *clientState
 	if cs, err = createAPIClient(rootArgs.mixerAddress, rootArgs.tracingOptions); err != nil {
-		fatalf("Unable to establish connection to %s: %v", rootArgs.mixerAddress, err)
+		log.Fatalf("Unable to establish connection to %s: %v", rootArgs.mixerAddress, err)
 	}
 	defer deleteAPIClient(cs)
 
@@ -59,7 +59,7 @@ func report(rootArgs *rootArgs, printf, fatalf shared.FormatFn) {
 		request := mixerpb.ReportRequest{Attributes: []mixerpb.CompressedAttributes{*attrs}}
 		_, err := cs.client.Report(ctx, &request)
 
-		printf("Report RPC returned %s", decodeError(err))
+		log.Infof("Report RPC returned %s", decodeError(err))
 	}
 
 	span.Finish()

@@ -17,7 +17,6 @@ package cmd
 import (
 	"github.com/spf13/cobra"
 
-	"istio.io/istio/mixer/cmd/shared"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/probe"
 )
@@ -32,12 +31,12 @@ func NewProbeCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
 			if !probeOptions.IsValid() {
-				shared.Fatalf("probe-path or interval are not valid\n\n%s", cmd.UsageString())
+				log.Fatalf("probe-path or interval are not valid\n\n%s", cmd.UsageString())
 			}
 			if err := probe.NewFileClient(probeOptions).GetStatus(); err != nil {
-				shared.Fatalf("Fail on inspecting path %s: %v", probeOptions.Path, err)
+				log.Fatalf("Fail on inspecting path %s: %v", probeOptions.Path, err)
 			}
-			shared.Printf("OK")
+			log.Infof("OK")
 		},
 	}
 	logOptions.AttachCobraFlags(cmd)

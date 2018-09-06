@@ -19,11 +19,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"istio.io/istio/mixer/cmd/shared"
+	"istio.io/istio/pkg/log"
 )
 
 // GetRootCmd returns the root of the cobra command-tree.
-func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
+func GetRootCmd(args []string, printf, fatalf log.FormatFn) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "mixgen",
 		Short: "Mixer generator is a tool to generate artifacts used by adapter developers.",
@@ -37,7 +37,7 @@ func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 	rootCmd.SetArgs(args)
 	rootCmd.AddCommand(adapterCfgCmd(args, printf, fatalf))
 	rootCmd.AddCommand(templateCfgCmd(args, printf, fatalf))
-	rootCmd.AddCommand(apiGenCmd(args, printf, fatalf))
+	rootCmd.AddCommand(apiGenCmd())
 
 	return rootCmd
 }

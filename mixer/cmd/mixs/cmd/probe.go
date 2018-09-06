@@ -17,12 +17,11 @@ package cmd
 import (
 	"github.com/spf13/cobra"
 
-	"istio.io/istio/mixer/cmd/shared"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/probe"
 )
 
-func probeCmd(printf, fatalf shared.FormatFn) *cobra.Command {
+func probeCmd() *cobra.Command {
 	logOptions := log.DefaultOptions()
 	probeOptions := &probe.Options{}
 	cmd := &cobra.Command{
@@ -31,12 +30,12 @@ func probeCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 		Args:  cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
 			if !probeOptions.IsValid() {
-				fatalf("Some options are not valid")
+				log.Fatalf("Some options are not valid")
 			}
 			if err := probe.NewFileClient(probeOptions).GetStatus(); err != nil {
-				fatalf("Fail on inspecting path %s: %v", probeOptions.Path, err)
+				log.Fatalf("Fail on inspecting path %s: %v", probeOptions.Path, err)
 			}
-			printf("OK")
+			log.Infof("OK")
 		},
 	}
 	logOptions.AttachCobraFlags(cmd)

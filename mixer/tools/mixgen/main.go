@@ -17,12 +17,12 @@ package main
 import (
 	"os"
 
-	"istio.io/istio/mixer/cmd/shared"
 	"istio.io/istio/mixer/tools/mixgen/cmd"
+	"istio.io/istio/pkg/log"
 )
 
 func main() {
-	rootCmd := cmd.GetRootCmd(os.Args[1:], shared.Printf, shared.Fatalf)
+	rootCmd := cmd.GetRootCmd(os.Args[1:], log.Infof, log.Fatalf)
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(-1)

@@ -21,7 +21,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 
-	"istio.io/istio/mixer/cmd/shared"
 	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/tracing"
 	"istio.io/istio/pkg/version"
@@ -92,7 +91,7 @@ func addAttributeFlags(cmd *cobra.Command, rootArgs *rootArgs) {
 }
 
 // GetRootCmd returns the root of the cobra command-tree.
-func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
+func GetRootCmd(args []string) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "mixc",
 		Short: "Utility to trigger direct calls to Mixer's API.",
@@ -114,8 +113,8 @@ func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 		tracingOptions: tracing.DefaultOptions(),
 	}
 
-	cc := checkCmd(rootArgs, printf, fatalf)
-	rc := reportCmd(rootArgs, printf, fatalf)
+	cc := checkCmd(rootArgs)
+	rc := reportCmd(rootArgs)
 
 	addAttributeFlags(cc, rootArgs)
 	addAttributeFlags(rc, rootArgs)
