@@ -41,10 +41,6 @@ const (
 	maxRetries = 5
 )
 
-var (
-	serverStartTime time.Time
-)
-
 // Controller is the controller implementation for Secret resources
 type Controller struct {
 	kubeclientset     kubernetes.Interface
@@ -114,7 +110,6 @@ func (c *Controller) Run(stopCh <-chan struct{}) {
 	defer c.queue.ShutDown()
 
 	log.Info("Starting Secrets controller")
-	serverStartTime = time.Now().Local()
 	go c.informer.Run(stopCh)
 
 	// Wait for the caches to be synced before starting workers
