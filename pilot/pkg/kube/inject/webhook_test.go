@@ -695,11 +695,7 @@ func compareDeployments(got, want *extv1beta1.Deployment, name string, t *testin
 	gotIstioInit.SecurityContext.Privileged = wantIstioInit.SecurityContext.Privileged
 	gotIstioProxy := istioProxy(got, t)
 
-	// Fill in missing defaults in the expected proxy container.
 	wantIstioProxy := istioProxy(want, t)
-	wantIstioProxy.ReadinessProbe.HTTPGet.Scheme = corev1.URISchemeHTTP
-	wantIstioProxy.ReadinessProbe.TimeoutSeconds = 1
-	wantIstioProxy.ReadinessProbe.SuccessThreshold = 1
 
 	gotIstioProxy.Image = wantIstioProxy.Image
 	gotIstioProxy.TerminationMessagePath = wantIstioProxy.TerminationMessagePath
