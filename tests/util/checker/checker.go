@@ -19,7 +19,6 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
-	"log"
 	"os"
 	"path/filepath"
 )
@@ -39,7 +38,6 @@ func Check(paths []string, factory RulesFactory, whitelist *Whitelist, report *R
 			if err != nil {
 				return fmt.Errorf("pervent panic by handling failure accessing a path %q: %v", fpath, err)
 			}
-			log.Printf("called Check %v", fpath)
 			rules := factory.GetRules(fpath, info)
 			if len(rules) > 0 {
 				fileCheck(fpath, rules, whitelist, report)
