@@ -88,10 +88,10 @@ E2E tests have multiple options available while running them as follows:
 * `--skip_setup` - Skip namespace creation and istio cluster setup (default: false)
 * `--skip_cleanup` - Skip the cleanup steps (default: false)
 * `--namespace <namespace>` - If you don't specify `namespace`, a random namespace is generated for each test.
-* `--use_local_cluster` - Whether the test is running within the cluster. Will use NodePort for the Ingress. If running on minikube, this should be set to true. (default: false)
+* `--use_local_cluster` - If true will use NodePort for the services. If running on minikube, this should be set to true. (default: false)
 * `--auth_enable` - If you want to include auth (default: false)
 * `--rbac_enabled` - Enable RBAC (default: true)
-* `--cluster_wide` - Will run all the tests in an `istio-system` namespace (default: false)
+* `--cluster_wide` - If true Pilot/Mixer will observe all namespaces rather than just testing namespace (default: false)
 * `--use_automatic_injection` - if you want to do transparent sidecar injection  (default: false)
 * `--use_galley_config_validator` - if you want to enable automatic configuration validation (default: false)
 * `--mixer_hub <hub>` - Image hub for the Mixer (default: environment $HUB)
