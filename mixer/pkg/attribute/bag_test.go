@@ -259,7 +259,11 @@ func TestProtoBag(t *testing.T) {
 			mb := GetMutableBag(pb)
 			for _, n := range names {
 				v, _ := pb.Get(n)
-				mb.Set(n, v)
+				if m, ok := v.(StringMap); ok {
+					mb.Set(n, m.entries)
+				} else {
+					mb.Set(n, v)
+				}
 			}
 
 			var a2 mixerpb.CompressedAttributes
@@ -870,6 +874,23 @@ func TestToProtoForTesting(t *testing.T) {
 		t.Errorf("Didn't find C")
 	} else if v.(int64) != 3 {
 		t.Errorf("Got %v, expecting 3", v)
+	}
+}
+
+func TestToProtoUnknwonType(t *testing.T) {
+	var attrs mixerpb.CompressedAttributes
+
+	b := GetMutableBag(nil)
+	b.Set("M1", interface{}(func() {}))
+
+	if err := withPanic(func() { b.ToProto(&attrs, nil, 0) }); err == nil {
+		t.Error("Expected panic")
+	}
+
+	b = GetMutableBag(nil)
+	b.Set("M2", map[string]interface{}{"a": "b"})
+	if err := withPanic(func() { b.ToProto(&attrs, nil, 0) }); err == nil {
+		t.Error("Expected panic")
 	}
 }
 
