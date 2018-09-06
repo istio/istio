@@ -26,7 +26,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 )
 
-// PushContext tracks the status of a mush - metrics and errors.
+// PushContext tracks the status of a push - metrics and errors.
 // Metrics are reset after a push - at the beginning all
 // values are zero, and when push completes the status is reset.
 // The struct is exposed in a debug endpoint - fields public to allow
@@ -74,6 +74,10 @@ type PushContext struct {
 	destinationRuleByHosts map[Hostname]*combinedDestinationRule
 
 	//TODO: gateways              []*networking.Gateway
+
+	// AuthzPolicies stores the existing authorization policies in the cluster. Could be nil if there
+	// are no authorization policies in the cluster.
+	AuthzPolicies *AuthorizationPolicies
 
 	// Env has a pointer to the shared environment used to create the snapshot.
 	Env *Environment `json:"-,omitempty"`
@@ -309,6 +313,11 @@ func (ps *PushContext) InitContext(env *Environment) error {
 		return err
 	}
 
+	if err = ps.initAuthorizationPolicies(env); err != nil {
+		rbacLog.Errorf("failed to initialize authorization policies: %v", err)
+		return err
+	}
+
 	// TODO: everything else that is used in config generation - the generation
 	// should not have any deps on config store.
 	ps.initDone = true
@@ -495,5 +504,14 @@ func (ps *PushContext) SubsetToLabels(subsetName string, hostname Hostname) Labe
 		}
 	}
 
+	return nil
+}
+
+func (ps *PushContext) initAuthorizationPolicies(env *Environment) error {
+	var err error
+	if ps.AuthzPolicies, err = newAuthzPolicies(env); err != nil {
+		rbacLog.Errorf("failed to initialize authorization policies: %v", err)
+		return err
+	}
 	return nil
 }
