@@ -1,10 +1,13 @@
 apiVersion: batch/v2alpha1
 kind: CronJob
 metadata:
-  name: hellocron
+  name: hello
 spec:
   schedule: "*/1 * * * *"
   jobTemplate:
+    metadata:
+      labels:
+        app: hello
     spec:
       template:
         spec:

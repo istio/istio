@@ -29,7 +29,7 @@ spec:
         - --binaryPath
         - /usr/local/bin/envoy
         - --serviceCluster
-        - traffic
+        - traffic.default
         - --drainDuration
         - 2s
         - --parentShutdownDuration

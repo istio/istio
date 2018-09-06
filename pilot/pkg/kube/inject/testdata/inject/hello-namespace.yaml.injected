@@ -1,17 +1,21 @@
 apiVersion: extensions/v1beta1
-kind: ReplicaSet
+kind: Deployment
 metadata:
   creationTimestamp: null
   name: hello
+  namespace: test
 spec:
   replicas: 7
+  strategy: {}
   template:
     metadata:
       annotations:
-        sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"c50fdf7ac09d42f5f7cec2c93b9cbd1cc34989de73580e8c05735a146df8c09f","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
         app: hello
+        tier: backend
+        track: stable
     spec:
       containers:
       - image: fake.docker.io/google-samples/hello-go-gke:1.0
@@ -28,7 +32,7 @@ spec:
         - --binaryPath
         - /usr/local/bin/envoy
         - --serviceCluster
-        - hello.default
+        - hello.test
         - --drainDuration
         - 2s
         - --parentShutdownDuration
@@ -70,7 +74,7 @@ spec:
               fieldPath: metadata.name
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
-        image: docker.io/istio/proxyv2:unittest
+        image: docker.io/istio/proxy_debug:unittest
         imagePullPolicy: IfNotPresent
         name: istio-proxy
         readinessProbe:
@@ -84,8 +88,8 @@ spec:
           requests:
             cpu: 10m
         securityContext:
-          privileged: false
-          readOnlyRootFilesystem: true
+          privileged: true
+          readOnlyRootFilesystem: false
           runAsUser: 1337
         volumeMounts:
         - mountPath: /etc/istio/proxy
@@ -117,6 +121,7 @@ spec:
           capabilities:
             add:
             - NET_ADMIN
+          privileged: true
       volumes:
       - emptyDir:
           medium: Memory
@@ -125,6 +130,5 @@ spec:
         secret:
           optional: true
           secretName: istio.default
-status:
-  replicas: 0
+status: {}
 ---

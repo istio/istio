@@ -2,9 +2,12 @@ apiVersion: v1
 kind: Pod
 metadata:
   annotations:
-    sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+    sidecar.istio.io/status: '{"version":"b03467c9d2824853908ee469ef5ef89cb3f52bb7c34ef74f8bfc19640ad0c6b8","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
   creationTimestamp: null
-  name: hellopod
+  labels:
+    app: hello
+  name: hello
+  namespace: test
 spec:
   containers:
   - image: fake.docker.io/google-samples/hello-go-gke:1.0
@@ -21,7 +24,7 @@ spec:
     - --binaryPath
     - /usr/local/bin/envoy
     - --serviceCluster
-    - hellopod.default
+    - hello.test
     - --drainDuration
     - 2s
     - --parentShutdownDuration
@@ -40,10 +43,6 @@ spec:
     - "15000"
     - --controlPlaneAuthPolicy
     - NONE
-    - --statusPort
-    - "15020"
-    - --applicationPorts
-    - "80"
     env:
     - name: POD_NAME
       valueFrom:
@@ -66,13 +65,6 @@ spec:
     image: docker.io/istio/proxyv2:unittest
     imagePullPolicy: IfNotPresent
     name: istio-proxy
-    readinessProbe:
-      failureThreshold: 30
-      httpGet:
-        path: /healthz/ready
-        port: 15020
-      initialDelaySeconds: 1
-      periodSeconds: 2
     resources:
       requests:
         cpu: 10m
@@ -101,7 +93,7 @@ spec:
     - -b
     - "80"
     - -d
-    - "15020"
+    - ""
     image: docker.io/istio/proxy_init:unittest
     imagePullPolicy: IfNotPresent
     name: istio-init

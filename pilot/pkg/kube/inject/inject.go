@@ -153,10 +153,11 @@ type SidecarInjectionSpec struct {
 // SidecarTemplateData is the data object to which the templated
 // version of `SidecarInjectionSpec` is applied.
 type SidecarTemplateData struct {
-	ObjectMeta  *metav1.ObjectMeta
-	Spec        *corev1.PodSpec
-	ProxyConfig *meshconfig.ProxyConfig
-	MeshConfig  *meshconfig.MeshConfig
+	DeploymentMeta *metav1.ObjectMeta
+	ObjectMeta     *metav1.ObjectMeta
+	Spec           *corev1.PodSpec
+	ProxyConfig    *meshconfig.ProxyConfig
+	MeshConfig     *meshconfig.MeshConfig
 }
 
 // InitImageName returns the fully qualified image name for the istio
@@ -425,16 +426,17 @@ func isset(m map[string]string, key string) bool {
 	return ok
 }
 
-func injectionData(sidecarTemplate, version string, spec *corev1.PodSpec, metadata *metav1.ObjectMeta, proxyConfig *meshconfig.ProxyConfig, meshConfig *meshconfig.MeshConfig) (*SidecarInjectionSpec, string, error) { // nolint: lll
+func injectionData(sidecarTemplate, version string, deploymentMetadata *metav1.ObjectMeta, spec *corev1.PodSpec, metadata *metav1.ObjectMeta, proxyConfig *meshconfig.ProxyConfig, meshConfig *meshconfig.MeshConfig) (*SidecarInjectionSpec, string, error) { // nolint: lll
 	if err := validateAnnotations(metadata.GetAnnotations()); err != nil {
 		return nil, "", err
 	}
 
 	data := SidecarTemplateData{
-		ObjectMeta:  metadata,
-		Spec:        spec,
-		ProxyConfig: proxyConfig,
-		MeshConfig:  meshConfig,
+		DeploymentMeta: deploymentMetadata,
+		ObjectMeta:     metadata,
+		Spec:           spec,
+		ProxyConfig:    proxyConfig,
+		MeshConfig:     meshConfig,
 	}
 
 	funcMap := template.FuncMap{
@@ -444,6 +446,7 @@ func injectionData(sidecarTemplate, version string, spec *corev1.PodSpec, metada
 		"includeInboundPorts": includeInboundPorts,
 		"applicationPorts":    applicationPorts,
 		"annotation":          annotation,
+		"valueOrDefault":      valueOrDefault,
 	}
 
 	var tmpl bytes.Buffer
@@ -541,6 +544,7 @@ func fromRawToObject(raw []byte) (runtime.Object, error) {
 func intoObject(sidecarTemplate string, meshconfig *meshconfig.MeshConfig, in runtime.Object) (interface{}, error) {
 	out := in.DeepCopyObject()
 
+	var deploymentMetadata *metav1.ObjectMeta
 	var metadata *metav1.ObjectMeta
 	var podSpec *corev1.PodSpec
 
@@ -573,13 +577,17 @@ func intoObject(sidecarTemplate string, meshconfig *meshconfig.MeshConfig, in ru
 	// special case them.
 	if job, ok := out.(*v2alpha1.CronJob); ok {
 		metadata = &job.Spec.JobTemplate.ObjectMeta
+		deploymentMetadata = &job.ObjectMeta
 		podSpec = &job.Spec.JobTemplate.Spec.Template.Spec
 	} else if pod, ok := out.(*corev1.Pod); ok {
 		metadata = &pod.ObjectMeta
+		deploymentMetadata = &pod.ObjectMeta
 		podSpec = &pod.Spec
 	} else {
 		// `in` is a pointer to an Object. Dereference it.
 		outValue := reflect.ValueOf(out).Elem()
+
+		deploymentMetadata = outValue.FieldByName("ObjectMeta").Addr().Interface().(*metav1.ObjectMeta)
 
 		templateValue := outValue.FieldByName("Spec").FieldByName("Template")
 		// `Template` is defined as a pointer in some older API
@@ -605,6 +613,7 @@ func intoObject(sidecarTemplate string, meshconfig *meshconfig.MeshConfig, in ru
 	spec, status, err := injectionData(
 		sidecarTemplate,
 		sidecarTemplateVersionHash(sidecarTemplate),
+		deploymentMetadata,
 		podSpec,
 		metadata,
 		meshconfig.DefaultConfig,
@@ -699,6 +708,13 @@ func excludeInboundPort(port interface{}, excludedInboundPorts string) string {
 	// The port was not already excluded - exclude it now.
 	outPorts = append(outPorts, portStr)
 	return strings.Join(outPorts, ",")
+}
+
+func valueOrDefault(value string, defaultValue string) string {
+	if value == "" {
+		return defaultValue
+	}
+	return value
 }
 
 // SidecarInjectionStatus contains basic information about the

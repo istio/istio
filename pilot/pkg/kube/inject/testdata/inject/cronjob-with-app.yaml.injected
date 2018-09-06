@@ -2,13 +2,15 @@ apiVersion: batch/v2alpha1
 kind: CronJob
 metadata:
   creationTimestamp: null
-  name: hellocron
+  name: hello
 spec:
   jobTemplate:
     metadata:
       annotations:
-        sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"b03467c9d2824853908ee469ef5ef89cb3f52bb7c34ef74f8bfc19640ad0c6b8","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
       creationTimestamp: null
+      labels:
+        app: hello
     spec:
       template:
         metadata:
@@ -30,7 +32,7 @@ spec:
             - --binaryPath
             - /usr/local/bin/envoy
             - --serviceCluster
-            - hellocron.default
+            - hello.default
             - --drainDuration
             - 2s
             - --parentShutdownDuration
@@ -49,10 +51,6 @@ spec:
             - "15000"
             - --controlPlaneAuthPolicy
             - NONE
-            - --statusPort
-            - "15020"
-            - --applicationPorts
-            - ""
             env:
             - name: POD_NAME
               valueFrom:
@@ -75,13 +73,6 @@ spec:
             image: docker.io/istio/proxyv2:unittest
             imagePullPolicy: IfNotPresent
             name: istio-proxy
-            readinessProbe:
-              failureThreshold: 30
-              httpGet:
-                path: /healthz/ready
-                port: 15020
-              initialDelaySeconds: 1
-              periodSeconds: 2
             resources:
               requests:
                 cpu: 10m
@@ -110,7 +101,7 @@ spec:
             - -b
             - ""
             - -d
-            - "15020"
+            - ""
             image: docker.io/istio/proxy_init:unittest
             imagePullPolicy: IfNotPresent
             name: istio-init

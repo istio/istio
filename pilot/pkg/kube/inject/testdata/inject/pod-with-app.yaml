@@ -1,7 +1,10 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: hellopod
+  name: hello
+  namespace: test
+  labels:
+    app: hello
 spec:
   containers:
     - name: hello

@@ -92,9 +92,9 @@ containers:
   - [[ .ProxyConfig.BinaryPath ]]
   - --serviceCluster
   [[ if ne "" (index .ObjectMeta.Labels "app") -]]
-  - [[ index .ObjectMeta.Labels "app" ]]
+  - "[[ index .ObjectMeta.Labels "app" ]].[[ valueOrDefault .DeploymentMeta.Namespace "default" ]]"
   [[ else -]]
-  - "istio-proxy"
+  - "[[ valueOrDefault .DeploymentMeta.Name "istio-proxy" ]].[[ valueOrDefault .DeploymentMeta.Namespace "default" ]]"
   [[ end -]]
   - --drainDuration
   - [[ formatDuration .ProxyConfig.DrainDuration ]]
