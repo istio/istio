@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	corev1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -40,6 +41,23 @@ const (
 	mcLabel    = "istio/multiCluster"
 	maxRetries = 5
 )
+
+var (
+	clusterCreationCounts = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "k8s_cluster_created_count",
+		Help: "The number of kubernetes clusters added due to secret creation.",
+	}, []string{})
+
+	clusterDeletionCounts = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "k8s_cluster_deleted_count",
+		Help: "The number of kubernetes clusters deleted due to secret deletion.",
+	}, []string{})
+)
+
+func init() {
+	prometheus.MustRegister(clusterCreationCounts)
+	prometheus.MustRegister(clusterDeletionCounts)
+}
 
 // Controller is the controller implementation for Secret resources
 type Controller struct {
@@ -210,13 +228,13 @@ func (c *Controller) addMemberCluster(secretName string, s *corev1.Secret) {
 			kubeController.AppendServiceHandler(func(*model.Service, model.Event) { c.discoveryServer.ClearCacheFunc()() })
 			kubeController.AppendInstanceHandler(func(*model.ServiceInstance, model.Event) { c.discoveryServer.ClearCacheFunc()() })
 			go kubeController.Run(stopCh)
+			clusterCreationCounts.With(prometheus.Labels{}).Inc()
 		} else {
 			log.Infof("Cluster %s in the secret %s in namespace %s already exists",
 				clusterID, secretName, s.ObjectMeta.Namespace)
 		}
 	}
-	// TODO Add exporting a number of cluster to Prometheus
-	// for now for debbuging purposes, print it to the log.
+
 	log.Infof("Number of clusters in the cluster store: %d", len(c.cs.rc))
 }
 
@@ -233,6 +251,7 @@ func (c *Controller) deleteMemberCluster(secretName string) {
 			close(c.cs.rc[clusterID].ControlChannel)
 			// Deleting remote cluster entry from clusters store
 			delete(c.cs.rc, clusterID)
+			clusterDeletionCounts.With(prometheus.Labels{}).Inc()
 		}
 	}
 	log.Infof("Number of clusters in the cluster store: %d", len(c.cs.rc))
