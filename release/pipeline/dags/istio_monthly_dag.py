@@ -46,7 +46,7 @@ def MonthlyPipeline():
     if conf is None:
       conf = dict()
 
-    # If version is overriden then we should use it otherwise we use it's
+    # If version is overridden then we should use it otherwise we use it's
     # default or monthly value.
     version = conf.get('VERSION') or istio_common_dag.GetVariableOrDefault('monthly-version', None)
     if not version or version == 'INVALID':
