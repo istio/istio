@@ -420,7 +420,9 @@ telemetry-gateway:
 grafana:
   enabled: false
   replicaCount: 1
-  image: grafana
+  image:
+    repository: grafana/grafana
+    tag: 5.2.3
   persist: false
   storageClassName: ""
   security:
