@@ -74,9 +74,10 @@ function install_kubectl() {
   fi
 }
 
-# check_and_install_packages checks if package is installed before installing it.
-# It is expected to receive 2 parameters,
-# 1st parameter is package management tool - apt|yum, 2nd parameter is package list/array to be checked/installed.
+# check_and_install_packages checks if a package is installed before installing it.
+# It expects 2 parameters:
+# $1 - apt|yum  (supported package management tools).
+# $2 - list of packages to be checked or installed.
 function check_and_install_packages() {
   if [ "$#" -ne 2 ]; then
     echo "Arguments are not equals to 2"
