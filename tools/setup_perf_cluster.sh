@@ -60,14 +60,14 @@ function List_functions() {
 }
 
 if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
-  TOOLS_ABSPATH=$(abspath ${BASH_SOURCE[0]})
-  TOOLS_DIR=${TOOLS_DIR:-$(dirname ${TOOLS_ABSPATH})}
+  TOOLS_ABSPATH=$(abspath "${BASH_SOURCE[0]}")
+  TOOLS_DIR=${TOOLS_DIR:-$(dirname "${TOOLS_ABSPATH}")}
   echo "Script ${BASH_SOURCE[0]} is being sourced (Tools in $TOOLS_DIR)..."
   List_functions
   SOURCED=1
 else
-  TOOLS_ABSPATH=$(abspath ${0})
-  TOOLS_DIR=${TOOLS_DIR:-$(dirname ${TOOLS_ABSPATH})}
+  TOOLS_ABSPATH=$(abspath "${0}")
+  TOOLS_DIR=${TOOLS_DIR:-$(dirname "${TOOLS_ABSPATH}")}
   echo "$0 is Executed, (Tools in $TOOLS_DIR) (can also be sourced interactively)..."
   echo "In case of errors, retry at the failed step (readyness checks missing)"
   set -e
@@ -260,7 +260,7 @@ function get_istio_ingressgateway_ip() {
   ISTIO_INGRESSGATEWAY_PORT=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.spec.ports[?(@.name=="http")].port}')
   while [[ -z "${ISTIO_INGRESSGATEWAY_IP}" ]]
   do
-    echo sleeping to get ISTIO_INGRESSGATEWAY_IP ${ISTIO_INGRESSGATEWAY_IP}
+    echo sleeping to get ISTIO_INGRESSGATEWAY_IP "${ISTIO_INGRESSGATEWAY_IP}"
     sleep 5
     ISTIO_INGRESSGATEWAY_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
   done
@@ -431,8 +431,8 @@ function run_canonical_perf_test() {
 
 function wait_istio_up() {
   for namespace in $(kubectl get namespaces --no-headers -o name); do
-    for name in $(kubectl get deployment -o name -n ${namespace}); do
-      kubectl -n ${namespace} rollout status ${name} -w;
+    for name in $(kubectl get deployment -o name -n "${namespace}"); do
+      kubectl -n "${namespace}" rollout status "${name}" -w;
     done
   done
 }
