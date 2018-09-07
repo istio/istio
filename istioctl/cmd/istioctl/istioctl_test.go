@@ -229,7 +229,7 @@ func TestCreate(t *testing.T) {
 		{ // invalid doesn't provide -f filename
 			configs:        []model.Config{},
 			args:           strings.Split("create virtualservice", " "),
-			expectedRegexp: regexp.MustCompile("^Command \"create\" is deprecated, Use `kubectl create` instead (see https://kubernetes.io/docs/tasks/tools/install-kubectl)*"),
+			expectedRegexp: regexp.MustCompile("^Command \"create\" is deprecated, Use `kubectl create` instead (see https://kubernetes.io/docs/tasks/tools/install-kubectl)*"), // nolint: lll
 			wantException:  true,
 		},
 	}
@@ -246,7 +246,7 @@ func TestReplace(t *testing.T) {
 		{ // invalid doesn't provide -f
 			configs:        []model.Config{},
 			args:           strings.Split("replace virtualservice", " "),
-			expectedRegexp: regexp.MustCompile("^Command \"replace\" is deprecated, Use `kubectl apply` instead (see https://kubernetes.io/docs/tasks/tools/install-kubectl)*"),
+			expectedRegexp: regexp.MustCompile("^Command \"replace\" is deprecated, Use `kubectl apply` instead (see https://kubernetes.io/docs/tasks/tools/install-kubectl)*"), // nolint: lll
 			wantException:  true,
 		},
 	}
@@ -263,7 +263,7 @@ func TestDelete(t *testing.T) {
 		{
 			configs:        []model.Config{},
 			args:           strings.Split("delete all foo", " "),
-			expectedRegexp: regexp.MustCompile("^Command \"delete\" is deprecated, Use `kubectl delete` instead (see https://kubernetes.io/docs/tasks/tools/install-kubectl)*"),
+			expectedRegexp: regexp.MustCompile("^Command \"delete\" is deprecated, Use `kubectl delete` instead (see https://kubernetes.io/docs/tasks/tools/install-kubectl)*"), // nolint: lll
 			wantException:  true,
 		},
 	}
