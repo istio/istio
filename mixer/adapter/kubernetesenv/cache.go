@@ -23,8 +23,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
@@ -69,45 +67,17 @@ func podIP(obj interface{}) ([]string, error) {
 // It configures the index informer to list/watch k8sCache and send update events
 // to a mutations channel for processing (in this case, logging).
 func newCacheController(clientset kubernetes.Interface, refreshDuration time.Duration, env adapter.Env) cacheController {
-	sharedInformers := informers.NewFilteredSharedInformerFactory(clientset, refreshDuration, metav1.NamespaceAll, nil)
-
+	sharedInformers := informers.NewSharedInformerFactory(clientset, refreshDuration)
 	podInformer := sharedInformers.Core().V1().Pods().Informer()
 	podInformer.AddIndexers(cache.Indexers{
 		"ip": podIP,
 	})
-	controller := &controllerImpl{
-		env: env,
-		pods: cache.NewSharedIndexInformer(
-			&cache.ListWatch{
-				ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
-					return clientset.CoreV1().Pods(metav1.NamespaceAll).List(opts)
-				},
-				WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
-					return clientset.CoreV1().Pods(metav1.NamespaceAll).Watch(opts)
-				},
-			},
-			&v1.Pod{},
-			refreshDuration,
-			cache.Indexers{
-				"ip": podIP,
-			},
-		),
-		rs: cache.NewSharedIndexInformer(
-			&cache.ListWatch{
-				ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
-					return clientset.AppsV1().ReplicaSets(metav1.NamespaceAll).List(opts)
-				},
-				WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
-					return clientset.AppsV1().ReplicaSets(metav1.NamespaceAll).Watch(opts)
-				},
-			},
-			&appsv1.ReplicaSet{},
-			refreshDuration,
-			cache.Indexers{},
-		),
-	}
 
-	return controller
+	return &controllerImpl{
+		env:  env,
+		pods: podInformer,
+		rs:   sharedInformers.Apps().V1().ReplicaSets().Informer(),
+	}
 }
 
 func (c *controllerImpl) HasSynced() bool {
@@ -173,8 +143,6 @@ func (c *controllerImpl) rootController(obj *metav1.ObjectMeta) (metav1.OwnerRef
 						return rootRef, true
 					}
 				}
-
-			case "Deployment":
 			}
 			return ref, true
 		}
