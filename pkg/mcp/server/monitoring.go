@@ -40,7 +40,7 @@ var (
 	byteBuckets = []float64{1, 4, 16, 64, 256, 1024, 4096, 16384, 65536, 262144, 1048576, 4194304, 16777216, 67108864, 268435456, 1073741824}
 
 	ClientCount = stats.Int64(
-		"mcp/server/client_count",
+		"mcp/server/clients_total",
 		"The number of clients currently connected.",
 		stats.UnitDimensionless)
 
@@ -50,22 +50,22 @@ var (
 		stats.UnitBytes)
 
 	RequestAcks = stats.Int64(
-		"mcp/server/request_acks",
+		"mcp/server/request_acks_total",
 		"The number of request acks received by the server.",
 		stats.UnitDimensionless)
 
 	RequestNacks = stats.Int64(
-		"mcp/server/request_nacks",
+		"mcp/server/request_nacks_total",
 		"The number of request nacks received by the server.",
 		stats.UnitDimensionless)
 
 	SendFailures = stats.Int64(
-		"mcp/server/send_failures",
+		"mcp/server/send_failures_total",
 		"The number of send failures in the server.",
 		stats.UnitDimensionless)
 
 	RecvFailures = stats.Int64(
-		"mcp/server/recv_failures",
+		"mcp/server/recv_failures_total",
 		"The number of recv failures in the server.",
 		stats.UnitDimensionless)
 )
