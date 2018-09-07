@@ -1,0 +1,14 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: e2e-dubbo-provider
+  namespace: e2e-dubbo
+spec:
+  host: e2e-dubbo-provider
+  subsets:
+  - name: v1
+    labels:
+      ver: v1
+  - name: v2
+    labels:
+      ver: v2

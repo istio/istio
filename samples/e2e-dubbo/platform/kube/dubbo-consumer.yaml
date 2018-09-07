@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: e2e-dubbo-consumer
+  name: e2e-dubbo-consumer
+  namespace: e2e-dubbo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: e2e-dubbo-consumer
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app: e2e-dubbo-consumer
+      name: e2e-dubbo-consumer
+      namespace: e2e-dubbo
+      annotations: 
+        traffic.sidecar.istio.io/includeInboundPorts: ''
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: network
+                operator: DoesNotExist
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - e2e-dubbo-provider
+              topologyKey: kubernetes.io/hostname
+            weight: 100
+      tolerations:
+      - effect: NoSchedule
+        key: istio
+        operator: Exists
+      containers:
+      - command:
+        - bash
+        - -c
+        - |
+          java \
+            -Ddubbo.reference.com.alibaba.boot.dubbo.demo.consumer.DemoService.url=dubbo://e2e-dubbo-provider:12345 \
+            -Dserver.port=8080 \
+            -Dlogging.level.org.springframework.web=DEBUG \
+            -jar dubbo-consumer.jar
+        image: docker.io/sofastack/e2e-dubbo-consumer:0.2.1
+        imagePullPolicy: Always
+        name: app
+        ports:
+        - containerPort: 8080
+          protocol: TCP
