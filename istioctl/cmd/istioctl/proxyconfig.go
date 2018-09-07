@@ -37,7 +37,7 @@ var (
 		Short: "Retrieve information about proxy configuration from Envoy [kube only]",
 		Long:  `A group of commands used to retrieve information about proxy configuration from the Envoy config dump`,
 		Example: `  # Retrieve information about proxy configuration from an Envoy instance.
-  istioctl proxy-config <clusters|listeners|routes|bootstap> <pod-name>`,
+  istioctl proxy-config <clusters|listeners|routes|endpoints|bootstrap> <pod-name>`,
 		Aliases: []string{"pc"},
 	}
 
