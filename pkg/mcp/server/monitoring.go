@@ -15,15 +15,18 @@
 package server
 
 import (
+	"context"
+	"strconv"
+
 	"go.opencensus.io/stats"
-	"go.opencensus.io/tag"
 	"go.opencensus.io/stats/view"
+	"go.opencensus.io/tag"
 )
 
 const (
-	typeURL   = "typeURL"
-	errorCode = "code"
-	errorStr  = "error"
+	typeURL      = "typeURL"
+	errorCode    = "code"
+	errorStr     = "error"
 	connectionID = "connectionID"
 )
 
@@ -75,6 +78,13 @@ func newView(measure stats.Measure, keys []tag.Key, aggregation *view.Aggregatio
 		TagKeys:     keys,
 		Aggregation: aggregation,
 	}
+}
+
+func recordError(err error, code int64, stat *stats.Int64Measure) {
+	ctx, err := tag.New(context.Background(),
+		tag.Insert(ErrorTag, err.Error()),
+		tag.Insert(ErrorCodeTag, strconv.FormatUint(uint64(code), 10)))
+	stats.Record(ctx, stat.M(1))
 }
 
 func init() {

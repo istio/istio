@@ -290,10 +290,7 @@ func (con *connection) receive() {
 				scope.Infof("MCP: connection %v: TERMINATED %q", con, err)
 				return
 			}
-			ctx, err := tag.New(context.Background(),
-				tag.Insert(ErrorTag, err.Error()),
-				tag.Insert(ErrorCodeTag, strconv.FormatUint(uint64(code), 10)))
-			stats.Record(ctx, RecvFailures.M(1))
+			recordError(err, code, RecvFailures)
 			scope.Errorf("MCP: connection %v: TERMINATED with errors: %v", con, err)
 			// Save the stream error prior to closing the stream. The caller
 			// should access the error after the channel closure.
