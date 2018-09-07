@@ -406,6 +406,21 @@ func getStatefulSet(service string, port int, injectProxy bool) framework.App {
 	}
 }
 
+// ClientRequestForError makes a request from inside the specified k8s container. The request is expected
+// to fail and the error is returned.
+func ClientRequestForError(cluster, app, url string, count int) error {
+	pods := tc.Kube.GetAppPods(cluster)[app]
+	if len(pods) == 0 {
+		log.Errorf("Missing pod names for app %q from %s cluster", app, cluster)
+		return nil
+	}
+
+	pod := pods[0]
+	cmd := fmt.Sprintf("client -url %s -count %d", url, count)
+	_, err := util.PodExec(tc.Kube.Namespace, pod, "app", cmd, true, tc.Kube.Clusters[cluster])
+	return err
+}
+
 // ClientRequest makes a request from inside the specified k8s container.
 func ClientRequest(cluster, app, url string, count int, extra string) ClientResponse {
 	out := ClientResponse{}
