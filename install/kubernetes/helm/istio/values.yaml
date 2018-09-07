@@ -210,7 +210,8 @@ gateways:
 
     loadBalancerIP: ""
     loadBalancerSourceRanges: {}
-    serviceAnnotations: {}
+    serviceAnnotations: 
+      alpha.istio.io/canonical-serviceaccounts: "${GATEWAY_SA_ID}"
     type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
 
     ports:
