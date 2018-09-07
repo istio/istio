@@ -172,9 +172,6 @@ type XdsConnection struct {
 	// PeerAddr is the address of the client envoy, from network layer
 	PeerAddr string
 
-	// Network ID where the originator of this connection runs
-	Network string
-
 	// Time of connection, for debugging
 	Connect time.Time
 
@@ -441,7 +438,6 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				adsLog.Infof("ADS:CDS: REQ %v %s %v raw: %s", peerAddr, con.ConID, time.Since(t0), discReq.String())
 				if discReq.Node.Metadata != nil {
 					adsClientsNetworks[nt.ID] = discReq.Node.GetMetadata().Fields["NETWORK"].GetStringValue()
-					con.Network = adsClientsNetworks[nt.ID]
 				}
 				con.CDSWatch = true
 				err := s.pushCds(con, s.env.PushContext)
