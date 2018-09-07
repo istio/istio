@@ -17,6 +17,8 @@ spec:
         app: e2e-dubbo-consumer
       name: e2e-dubbo-consumer
       namespace: e2e-dubbo
+      annotations: 
+        traffic.sidecar.istio.io/includeInboundPorts: ''
     spec:
       affinity:
         nodeAffinity:
@@ -47,6 +49,7 @@ spec:
         - |
           java \
             -Ddubbo.reference.com.alibaba.boot.dubbo.demo.consumer.DemoService.url=dubbo://e2e-dubbo-provider:12345 \
+            -Dserver.port=8080 \
             -Dlogging.level.org.springframework.web=DEBUG \
             -jar dubbo-consumer.jar
         image: docker.io/sofastack/e2e-dubbo-consumer:0.2.1

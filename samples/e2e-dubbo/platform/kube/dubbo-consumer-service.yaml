@@ -1,18 +1,18 @@
-apiVersion: v1 
-kind: Service 
-metadata: 
-  annotations: 
-    servicetype: dubbo 
-  name: e2e-dubbo-provider 
-  namespace: e2e-dubbo 
-  labels: 
-    app: e2e-dubbo-provider 
-spec: 
-  type: ClusterIP 
-  ports: 
-  - port: 12345 
-    targetPort: 12345 
-    name: x-dubbo-port 
-    protocol: TCP 
-  selector: 
-    app: e2e-dubbo-provider 
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    servicetype: dubbo
+  name: e2e-dubbo-consumer
+  namespace: e2e-dubbo
+  labels:
+    app: e2e-dubbo-consumer
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8080
+    targetPort: 8080
+    name: http-client
+    protocol: TCP
+  selector:
+    app: e2e-dubbo-consumer

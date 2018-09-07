@@ -3,6 +3,7 @@ kind: Deployment
 metadata:
   labels:
     app: e2e-dubbo-provider
+    ver: v2
   name: e2e-dubbo-provider-v2
   namespace: e2e-dubbo
 spec:
@@ -13,8 +14,9 @@ spec:
   template:
     metadata:
       labels:
-        app: e2e-dubbo-provider-v2
-      name: e2e-dubbo-provider
+        app: e2e-dubbo-provider
+        ver: v2
+      name: e2e-dubbo-provider-v2
       namespace: e2e-dubbo
     spec:
       affinity:
@@ -44,8 +46,8 @@ spec:
         - bash
         - -c
         - |
-          java \
-            -jar dubbo-provider.jar
+          java -Ddubbo.protocol.port=12345 \
+            -jar dubbo-provider.jar 
         image: docker.io/sofastack/e2e-dubbo-provider:0.2.1
         imagePullPolicy: Always
         name: app
