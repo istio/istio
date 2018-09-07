@@ -9,7 +9,7 @@ This file helps note down issues we have seen and how to debug them
    ```
 
    The `GOOS=linux` is required when you are running setup on macOS.
-1. If your docker push step failed, please check if you have port forwarding setup for localregistry or not and does docker know about insecure registry at localhost:5000 or not. You can run following script to do that as well.
+1. If your docker push step failed, please check if you have port forwarding setup for local registry or not and does docker know about insecure registry at localhost:5000 or not. You can run following script to do that as well.
 
    ```bash
    . ./setup_minikube_env.sh
@@ -24,7 +24,7 @@ This file helps note down issues we have seen and how to debug them
    ```
 
 1. When running tests, if you get "Bad Request" error
-   Minikube uses insecure localregistry opened at localhost:5000, make sure you specify HUB as `localhost:5000` and TAG as `latest` when running the tests.
+   Minikube uses insecure local registry opened at localhost:5000, make sure you specify HUB as `localhost:5000` and TAG as `latest` when running the tests.
 1. If your machine complains of low disk space, try clean up docker images from it.
    To cleanup all docker images on your machine,run following command:
 
@@ -33,4 +33,4 @@ This file helps note down issues we have seen and how to debug them
    ```
 
 1. When installing docker if you see errors about missing packages on linux, please download and then retry docker installation.
-1. If your prereqs installation, seems to be stuck, try restarting the box..
+1. If your prereqs installation, seems to be stuck, try restarting the box.
