@@ -103,7 +103,6 @@ service_dict = {
 # x-b3-parentspanid
 # x-b3-sampled
 # x-b3-flags
-# x-ot-span-context
 #
 # This example code uses OpenTracing (http://opentracing.io/) to propagate
 # the 'b3' (zipkin) headers. Using OpenTracing for this is not a requirement.
@@ -176,9 +175,7 @@ def getForwardHeaders(request):
     if 'user' in session:
         headers['end-user'] = session['user']
 
-    incoming_headers = [ 'x-request-id',
-                         'x-ot-span-context'
-    ]
+    incoming_headers = ['x-request-id']
 
     for ihdr in incoming_headers:
         val = request.headers.get(ihdr)
