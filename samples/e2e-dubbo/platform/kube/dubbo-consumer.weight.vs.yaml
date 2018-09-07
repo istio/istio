@@ -1,0 +1,18 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: e2e-dubbo-provider
+  namespace: e2e-dubbo
+spec:
+  hosts:
+    - e2e-dubbo-provider
+  http:
+  - route:
+    - destination:
+        host: e2e-dubbo-provider
+        subset: v1
+      weight: 20
+    - destination:
+        host: e2e-dubbo-provider
+        subset: v2
+      weight: 80

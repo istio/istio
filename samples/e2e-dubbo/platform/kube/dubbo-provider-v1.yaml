@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: e2e-dubbo-provider
+  name: e2e-dubbo-provider-v1
+  namespace: e2e-dubbo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: e2e-dubbo-provider
+  template:
+    metadata:
+      labels:
+        app: e2e-dubbo-provider
+      name: e2e-dubbo-provider-v1
+      namespace: e2e-dubbo
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: network
+                operator: DoesNotExist
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - e2e-dubbo-provider
+              topologyKey: kubernetes.io/hostname
+            weight: 100
+      tolerations:
+      - effect: NoSchedule
+        key: istio
+        operator: Exists
+      containers:
+      - command:
+        - bash
+        - -c
+        - |
+          java \
+            -jar dubbo-provider.jar
+        image: docker-hub.ucweb.com:5000/uaewa/e2e-dubbo-provider:master-20180829195949
+        imagePullPolicy: Always
+        name: app
+---
