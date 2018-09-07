@@ -240,14 +240,13 @@ func KubeDelete(namespace, yamlFileName string, kubeconfig string) error {
 }
 
 // GetKubeMasterIP returns the IP address of the kubernetes master service.
-// TODO update next 2 func to pass in the kubeconfig
-func GetKubeMasterIP() (string, error) {
-	return ShellSilent("kubectl get svc kubernetes -n default -o jsonpath='{.spec.clusterIP}'")
+func GetKubeMasterIP(kubeconfig string) (string, error) {
+	return ShellSilent("kubectl get svc kubernetes -n default -o jsonpath='{.spec.clusterIP}' --kubeconfig=%s", kubeconfig)
 }
 
 // GetClusterSubnet returns the subnet (in CIDR form, e.g. "24") for the nodes in the cluster.
-func GetClusterSubnet() (string, error) {
-	cidr, err := ShellSilent("kubectl get nodes -o jsonpath='{.items[0].spec.podCIDR}'")
+func GetClusterSubnet(kubeconfig string) (string, error) {
+	cidr, err := ShellSilent("kubectl get nodes -o jsonpath='{.items[0].spec.podCIDR}' --kubeconfig=%s", kubeconfig)
 	if err != nil {
 		// This command should never fail. If the field isn't found, it will just return and empty string.
 		return "", err
