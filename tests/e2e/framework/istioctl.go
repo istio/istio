@@ -166,12 +166,9 @@ func (i *Istioctl) KubeInject(src, dest, kubeconfig string) error {
 	if i.imagePullPolicy != "" {
 		imagePullPolicyStr = fmt.Sprintf("--imagePullPolicy %s", i.imagePullPolicy)
 	}
-	hubAndTagStr := ""
-	if i.injectConfigMap == "" {
-		hubAndTagStr = fmt.Sprintf("--hub %s --tag %s", i.proxyHub, i.proxyTag)
-	}
-	return i.run(`kube-inject -f %s -o %s %s %s -n %s -i %s --meshConfigMapName=istio %s %s`,
-		src, dest, hubAndTagStr, imagePullPolicyStr, i.namespace, i.namespace, injectCfgMapStr, kubeconfigStr)
+
+	return i.run(`kube-inject -f %s -o %s %s -n %s -i %s --meshConfigMapName=istio %s %s`,
+		src, dest, imagePullPolicyStr, i.namespace, i.namespace, injectCfgMapStr, kubeconfigStr)
 }
 
 // CreateRule create new rule(s)
