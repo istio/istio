@@ -634,6 +634,9 @@ func intoObject(sidecarTemplate string, meshconfig *meshconfig.MeshConfig, in ru
 	if metadata.Annotations == nil {
 		metadata.Annotations = make(map[string]string)
 	}
+	for k, v := range spec.Annotations {
+		metadata.Annotations[k] = v
+	}
 	metadata.Annotations[annotationStatus.name] = status
 
 	return out, nil
