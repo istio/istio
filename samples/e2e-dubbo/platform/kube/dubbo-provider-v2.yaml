@@ -46,7 +46,7 @@ spec:
         - |
           java \
             -jar dubbo-provider.jar
-        image: docker-hub.ucweb.com:5000/uaewa/e2e-dubbo-provider:master-20180829195949
+        image: docker.io/sofastack/e2e-dubbo-provider:0.2.1
         imagePullPolicy: Always
         name: app
 ---

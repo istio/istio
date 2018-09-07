@@ -49,7 +49,7 @@ spec:
             -Ddubbo.reference.com.alibaba.boot.dubbo.demo.consumer.DemoService.url=dubbo://e2e-dubbo-provider:12345 \
             -Dlogging.level.org.springframework.web=DEBUG \
             -jar dubbo-consumer.jar
-        image: docker-hub.ucweb.com:5000/uaewa/e2e-dubbo-consumer:master-20180829195949
+        image: docker.io/sofastack/e2e-dubbo-consumer:0.2.1
         imagePullPolicy: Always
         name: app
         ports:
