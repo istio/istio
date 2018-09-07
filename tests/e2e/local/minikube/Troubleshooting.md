@@ -9,13 +9,7 @@ This file helps note down issues we have seen and how to debug them
    ```
 
    The `GOOS=linux` is required when you are running setup on macOS.
-1. If your docker push step failed, please check if you have port forwarding setup for local registry or not and does docker know about insecure registry at localhost:5000 or not. You can run following script to do that as well.
 
-   ```bash
-   . ./setup_minikube_env.sh
-   ``` 
-
-   **Also, make sure you are running the scripts using `. ./`** rather than `sh` as the above scripts export variables for the shell you are running, which won't take effect if you use sh to run them.
 1. If Minikube is crashing or not setting up properly, ensure it's at version 0.27.0. That's a known version that works well with our setup.
 
    ```bash
