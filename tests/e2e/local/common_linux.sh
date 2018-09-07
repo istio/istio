@@ -90,12 +90,12 @@ function check_and_install_packages() {
   do
     case $check_cmd in
       apt)
-        if ! apt list --installed $i | grep installed > /dev/null 2>&1; then
-          sudo apt-get install -y $i > /dev/null 2>&1
+        if ! apt list --installed "$i" | grep installed > /dev/null 2>&1; then
+          sudo apt-get install -y "$i" > /dev/null 2>&1
         fi;;
       yum)
-        if ! yum -q list installed $i > /dev/null 2>&1; then
-           yum install -y $i > /dev/null 2>&1
+        if ! yum -q list installed "$i" > /dev/null 2>&1; then
+           yum install -y "$i" > /dev/null 2>&1
         fi;;
       *)
         echo "unsupported package management tool";;
