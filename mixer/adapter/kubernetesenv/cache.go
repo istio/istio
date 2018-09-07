@@ -21,13 +21,11 @@ import (
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
-	appsv1beta2 "k8s.io/api/apps/v1beta2"
 	"k8s.io/api/core/v1"
-	extv1beta1 "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
@@ -44,11 +42,9 @@ type (
 	}
 
 	controllerImpl struct {
-		env           adapter.Env
-		pods          cache.SharedIndexInformer
-		appsv1RS      cache.SharedIndexInformer
-		appsv1beta2RS cache.SharedIndexInformer
-		extv1beta1RS  cache.SharedIndexInformer
+		env  adapter.Env
+		pods cache.SharedIndexInformer
+		rs   cache.SharedIndexInformer
 	}
 
 	workload struct {
@@ -73,6 +69,12 @@ func podIP(obj interface{}) ([]string, error) {
 // It configures the index informer to list/watch k8sCache and send update events
 // to a mutations channel for processing (in this case, logging).
 func newCacheController(clientset kubernetes.Interface, refreshDuration time.Duration, env adapter.Env) cacheController {
+	sharedInformers := informers.NewFilteredSharedInformerFactory(clientset, refreshDuration, metav1.NamespaceAll, nil)
+
+	podInformer := sharedInformers.Core().V1().Pods().Informer()
+	podInformer.AddIndexers(cache.Indexers{
+		"ip": podIP,
+	})
 	controller := &controllerImpl{
 		env: env,
 		pods: cache.NewSharedIndexInformer(
@@ -90,11 +92,7 @@ func newCacheController(clientset kubernetes.Interface, refreshDuration time.Dur
 				"ip": podIP,
 			},
 		),
-	}
-
-	discoveryClient := clientset.Discovery()
-	if err := discovery.ServerSupportsVersion(discoveryClient, appsv1.SchemeGroupVersion); err == nil {
-		controller.appsv1RS = cache.NewSharedIndexInformer(
+		rs: cache.NewSharedIndexInformer(
 			&cache.ListWatch{
 				ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
 					return clientset.AppsV1().ReplicaSets(metav1.NamespaceAll).List(opts)
@@ -106,70 +104,23 @@ func newCacheController(clientset kubernetes.Interface, refreshDuration time.Dur
 			&appsv1.ReplicaSet{},
 			refreshDuration,
 			cache.Indexers{},
-		)
-	}
-
-	if err := discovery.ServerSupportsVersion(discoveryClient, appsv1beta2.SchemeGroupVersion); err == nil {
-		controller.appsv1beta2RS = cache.NewSharedIndexInformer(
-			&cache.ListWatch{
-				ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
-					return clientset.AppsV1beta2().ReplicaSets(metav1.NamespaceAll).List(opts)
-				},
-				WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
-					return clientset.AppsV1beta2().ReplicaSets(metav1.NamespaceAll).Watch(opts)
-				},
-			},
-			&appsv1beta2.ReplicaSet{},
-			refreshDuration,
-			cache.Indexers{},
-		)
-	}
-
-	if err := discovery.ServerSupportsVersion(discoveryClient, extv1beta1.SchemeGroupVersion); err == nil {
-		controller.extv1beta1RS = cache.NewSharedIndexInformer(
-			&cache.ListWatch{
-				ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
-					return clientset.ExtensionsV1beta1().ReplicaSets(metav1.NamespaceAll).List(opts)
-				},
-				WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
-					return clientset.ExtensionsV1beta1().ReplicaSets(metav1.NamespaceAll).Watch(opts)
-				},
-			},
-			&extv1beta1.ReplicaSet{},
-			refreshDuration,
-			cache.Indexers{},
-		)
+		),
 	}
 
 	return controller
 }
 
 func (c *controllerImpl) HasSynced() bool {
-	synced := c.pods.HasSynced()
-	if c.appsv1RS != nil {
-		synced = synced && c.appsv1RS.HasSynced()
+	if c.pods.HasSynced() && c.rs.HasSynced() {
+		return true
 	}
-	if c.appsv1beta2RS != nil {
-		synced = synced && c.appsv1beta2RS.HasSynced()
-	}
-	if c.extv1beta1RS != nil {
-		synced = synced && c.extv1beta1RS.HasSynced()
-	}
-	return synced
+	return false
 }
 
 func (c *controllerImpl) Run(stop <-chan struct{}) {
 	// TODO: scheduledaemon
 	c.env.ScheduleDaemon(func() { c.pods.Run(stop) })
-	if c.appsv1beta2RS != nil {
-		c.env.ScheduleDaemon(func() { c.appsv1beta2RS.Run(stop) })
-	}
-	if c.extv1beta1RS != nil {
-		c.env.ScheduleDaemon(func() { c.extv1beta1RS.Run(stop) })
-	}
-	if c.appsv1RS != nil {
-		c.env.ScheduleDaemon(func() { c.appsv1RS.Run(stop) })
-	}
+	c.env.ScheduleDaemon(func() { c.rs.Run(stop) })
 	<-stop
 	// TODO: logging?
 }
@@ -216,20 +167,14 @@ func (c *controllerImpl) rootController(obj *metav1.ObjectMeta) (metav1.OwnerRef
 		if *ref.Controller {
 			switch ref.Kind {
 			case "ReplicaSet":
-				var indexer cache.Indexer
-				switch ref.APIVersion {
-				case "extensions/v1beta1":
-					indexer = c.extv1beta1RS.GetIndexer()
-				case "apps/v1beta2":
-					indexer = c.appsv1beta2RS.GetIndexer()
-				default:
-					indexer = c.appsv1RS.GetIndexer()
-				}
+				indexer := c.rs.GetIndexer()
 				if rs, found := c.objectMeta(indexer, key(obj.Namespace, ref.Name)); found {
 					if rootRef, ok := c.rootController(rs); ok {
 						return rootRef, true
 					}
 				}
+
+			case "Deployment":
 			}
 			return ref, true
 		}
@@ -244,10 +189,6 @@ func (c *controllerImpl) objectMeta(keyGetter cache.KeyGetter, key string) (*met
 	}
 	switch v := item.(type) {
 	case *appsv1.ReplicaSet:
-		return &v.ObjectMeta, true
-	case *appsv1beta2.ReplicaSet:
-		return &v.ObjectMeta, true
-	case *extv1beta1.ReplicaSet:
 		return &v.ObjectMeta, true
 	}
 	return nil, false
