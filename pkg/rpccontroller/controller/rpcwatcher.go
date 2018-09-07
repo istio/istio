@@ -250,14 +250,15 @@ func (rw *rpcWatcher) queryRPCInterface(key string, rs *v1.RpcService) {
 
 		version, exist := pod.Labels[rpcVersion]
 		if !exist {
-			log.Errorf("service %s/%s pod has no %s label", service.Namespace, service.Name, rpcVersion)
-			return
+			log.Errorf("service %s/%s pod %s/%s has no %s label:%v",
+				service.Namespace, service.Name, pod.Namespace, pod.Name, rpcVersion, pod.Labels)
+			continue
 		}
 
 		i, exist := pod.Labels[rpcInterface]
 		if !exist {
 			log.Errorf("service %s/%s pod has no %s label", service.Namespace, service.Name, rpcInterface)
-			return
+			continue
 		}
 
 		log.Infof("pod %s, interface %s, version %s", pod.Name, i, version)
@@ -271,7 +272,7 @@ func (rw *rpcWatcher) queryRPCInterface(key string, rs *v1.RpcService) {
 		body, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
 			log.Errorf("url %s resp read body error: %v", url, err)
-			return
+			continue
 		}
 
 		log.Infof("url: %s, resp: %s", url, string(body))
@@ -280,12 +281,12 @@ func (rw *rpcWatcher) queryRPCInterface(key string, rs *v1.RpcService) {
 		err = json.Unmarshal(body, &rpcResponse)
 		if err != nil {
 			log.Errorf("json Unmarshal RpcResponse error: %v", err)
-			return
+			continue
 		}
 
 		if rpcResponse.Success != true {
 			log.Errorf("resp not success")
-			return
+			continue
 		}
 
 		for _, inter := range rpcResponse.Data.Providers {
