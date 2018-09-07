@@ -15,9 +15,9 @@ install_curl
 #Install Kvm2
 echo "Installing KVM2 as required"
 sudo modprobe kvm > /dev/null 2>&1
-sudo apt-get install -y  libvirt-bin > /dev/null 2>&1
-sudo apt-get install -y libvirt-daemon-system libvirt-dev libvirt-clients virt-manager
-sudo apt-get install -y qemu-kvm
+packages_to_install=("libvirt-bin" "libvirt-daemon-system" "libvirt-dev" "libvirt-clients" "virt-manager" "qemu-kvm" )
+check_and_install_packages apt "${packages_to_install[@]}"
+
 sudo systemctl stop libvirtd
 sudo systemctl start libvirtd
 sudo usermod -a -G libvirt "$(whoami)"
