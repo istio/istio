@@ -185,7 +185,7 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 		case <-stop:
 			log.Infof(msg)
 		default:
-			panic(fmt.Sprintf("%s due to error: %v", msg, err))
+			log.Fatalf("%s due to error: %v", msg, err)
 		}
 	}()
 	defer wh.watcher.Close()
