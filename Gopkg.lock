@@ -246,6 +246,14 @@
 
 [[projects]]
   branch = "master"
+  digest = "1:2f8c5c83ec48ebde068dcab3cc6ab5d5311af1a6cb193ceabcab0ebc521f52fc"
+  name = "github.com/client9/misspell"
+  packages = ["."]
+  pruneopts = "T"
+  revision = "c0b55c8239520f6b5aa15a0207ca8b28027ba49e"
+
+[[projects]]
+  branch = "master"
   digest = "1:8ecb89af7dfe3ac401bdb0c9390b134ef96a97e85f732d2b0604fb7b3977839f"
   name = "github.com/codahale/hdrhistogram"
   packages = ["."]
@@ -2011,6 +2019,7 @@
     "github.com/cenkalti/backoff",
     "github.com/circonus-labs/circonus-gometrics",
     "github.com/circonus-labs/circonus-gometrics/checkmgr",
+    "github.com/client9/misspell",
     "github.com/coreos/go-oidc",
     "github.com/davecgh/go-spew/spew",
     "github.com/emicklei/go-restful",
