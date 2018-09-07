@@ -214,4 +214,16 @@
     }
   },
   {{ end }}
+  {{ if .statsd }}
+  "stats_sinks": [
+    {
+      "name": "envoy.statsd",
+      "config": {
+        "address": {
+          "socket_address": {{ .statsd }}
+        }
+      }
+    }
+  ]
+  {{ end }}
 }
