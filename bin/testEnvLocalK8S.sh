@@ -40,7 +40,7 @@ CERTDIR=${CERTDIR:-${ISTIO_GO}/.circleci/pki/istio-certs}
 LOG_DIR=${LOG_DIR:-${OUT}/log}
 ETCD_DATADIR=${ETCD_DATADIR:-${OUT}/etcd-data}
 
-# Ensure k8s certificats - if not found, download easy-rsa and create k8s certs
+# Ensure k8s certificates - if not found, download easy-rsa and create k8s certs
 function ensureK8SCerts() {
     if [ -f "${CERTDIR}/apiserver.key" ] ; then
         return

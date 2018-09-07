@@ -483,7 +483,7 @@ servicegraph:
       # - secretName: servicegraph-tls
       #   hosts:
       #     - servicegraph.local
-  # prometheus addres
+  # prometheus address
   prometheusAddr: http://prometheus:9090
 
 tracing:
