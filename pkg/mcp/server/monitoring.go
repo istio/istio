@@ -21,6 +21,7 @@ import (
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
+	"google.golang.org/grpc/codes"
 )
 
 const (
@@ -31,40 +32,50 @@ const (
 )
 
 var (
-	TypeURLTag      tag.Key
-	ErrorCodeTag    tag.Key
-	ErrorTag        tag.Key
+	// TypeURLTag holds the type URL for the context.
+	TypeURLTag tag.Key
+	// ErrorCodeTag holds the gRPC error code for the context.
+	ErrorCodeTag tag.Key
+	// ErrorTag holds the error string for the context.
+	ErrorTag tag.Key
+	// ConnectionIdTag holds the connection ID for the context.
 	ConnectionIDTag tag.Key
 
 	// buckets are powers of 4
 	byteBuckets = []float64{1, 4, 16, 64, 256, 1024, 4096, 16384, 65536, 262144, 1048576, 4194304, 16777216, 67108864, 268435456, 1073741824}
 
-	ClientCount = stats.Int64(
+	// ClientsTotal is a measure of the number of connected clients.
+	ClientsTotal = stats.Int64(
 		"mcp/server/clients_total",
 		"The number of clients currently connected.",
 		stats.UnitDimensionless)
 
+	// RequestSizesBytes is a distribution of incoming message sizes.
 	RequestSizesBytes = stats.Int64(
 		"mcp/server/message_sizes_bytes",
 		"Size of messages received from clients.",
 		stats.UnitBytes)
 
-	RequestAcks = stats.Int64(
+	// RequestAcksTotal is a measure of the number of received ACK requests.
+	RequestAcksTotal = stats.Int64(
 		"mcp/server/request_acks_total",
 		"The number of request acks received by the server.",
 		stats.UnitDimensionless)
 
-	RequestNacks = stats.Int64(
+	// RequestNacksTotal is a measure of the number of received NACK requests.
+	RequestNacksTotal = stats.Int64(
 		"mcp/server/request_nacks_total",
 		"The number of request nacks received by the server.",
 		stats.UnitDimensionless)
 
-	SendFailures = stats.Int64(
+	// SendFailuresTotal is a measure of the number of network send failures.
+	SendFailuresTotal = stats.Int64(
 		"mcp/server/send_failures_total",
 		"The number of send failures in the server.",
 		stats.UnitDimensionless)
 
-	RecvFailures = stats.Int64(
+	// RecvFailuresTotal is a measure of the number of network recv failures.
+	RecvFailuresTotal = stats.Int64(
 		"mcp/server/recv_failures_total",
 		"The number of recv failures in the server.",
 		stats.UnitDimensionless)
@@ -80,7 +91,7 @@ func newView(measure stats.Measure, keys []tag.Key, aggregation *view.Aggregatio
 	}
 }
 
-func recordError(err error, code int64, stat *stats.Int64Measure) {
+func recordError(err error, code codes.Code, stat *stats.Int64Measure) {
 	ctx, err := tag.New(context.Background(),
 		tag.Insert(ErrorTag, err.Error()),
 		tag.Insert(ErrorCodeTag, strconv.FormatUint(uint64(code), 10)))
@@ -103,12 +114,12 @@ func init() {
 	}
 
 	err = view.Register(
-		newView(ClientCount, []tag.Key{}, view.LastValue()),
+		newView(ClientsTotal, []tag.Key{}, view.LastValue()),
 		newView(RequestSizesBytes, []tag.Key{ConnectionIDTag}, view.Distribution(byteBuckets...)),
-		newView(RequestAcks, []tag.Key{TypeURLTag}, view.Count()),
-		newView(RequestNacks, []tag.Key{ErrorCodeTag, TypeURLTag}, view.Count()),
-		newView(SendFailures, []tag.Key{ErrorCodeTag, ErrorTag}, view.Count()),
-		newView(RecvFailures, []tag.Key{ErrorCodeTag, ErrorTag}, view.Count()),
+		newView(RequestAcksTotal, []tag.Key{TypeURLTag}, view.Count()),
+		newView(RequestNacksTotal, []tag.Key{ErrorCodeTag, TypeURLTag}, view.Count()),
+		newView(SendFailuresTotal, []tag.Key{ErrorCodeTag, ErrorTag}, view.Count()),
+		newView(RecvFailuresTotal, []tag.Key{ErrorCodeTag, ErrorTag}, view.Count()),
 	)
 
 	if err != nil {

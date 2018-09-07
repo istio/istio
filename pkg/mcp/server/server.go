@@ -189,7 +189,7 @@ func (s *Server) newConnection(stream mcp.AggregatedMeshConfigService_StreamAggr
 	}
 
 	atomic.AddInt32(&s.connections, 1)
-	stats.Record(context.Background(), ClientCount.M(int64(atomic.LoadInt32(&s.connections))))
+	stats.Record(context.Background(), ClientsTotal.M(int64(atomic.LoadInt32(&s.connections))))
 
 	scope.Infof("MCP: connection %v: NEW, supported types: %#v", con, types)
 	return con, nil
@@ -247,7 +247,7 @@ func (s *Server) StreamAggregatedResources(stream mcp.AggregatedMeshConfigServic
 func (s *Server) closeConnection(con *connection) {
 	con.close()
 	atomic.AddInt32(&s.connections, -1)
-	stats.Record(context.Background(), ClientCount.M(int64(s.connections)))
+	stats.Record(context.Background(), ClientsTotal.M(int64(s.connections)))
 }
 
 // String implements Stringer.String.
@@ -273,7 +273,7 @@ func (con *connection) send(resp *WatchResponse) (string, error) {
 		ctx, err := tag.New(context.Background(),
 			tag.Insert(ErrorTag, err.Error()),
 			tag.Insert(ErrorCodeTag, strconv.FormatUint(uint64(status.Code(err)), 10)))
-		stats.Record(ctx, SendFailures.M(1))
+		stats.Record(ctx, SendFailuresTotal.M(1))
 		return "", err
 	}
 	scope.Infof("MCP: connection %v: SEND version=%v nonce=%v", con, resp.Version, msg.Nonce)
@@ -290,7 +290,7 @@ func (con *connection) receive() {
 				scope.Infof("MCP: connection %v: TERMINATED %q", con, err)
 				return
 			}
-			recordError(err, code, RecvFailures)
+			recordError(err, code, RecvFailuresTotal)
 			scope.Errorf("MCP: connection %v: TERMINATED with errors: %v", con, err)
 			// Save the stream error prior to closing the stream. The caller
 			// should access the error after the channel closure.
@@ -329,14 +329,9 @@ func (con *connection) processClientRequest(req *mcp.MeshConfigRequest) error {
 		if watch.nonce == "" {
 			scope.Debugf("MCP: connection %v: WATCH for %v", con, req.TypeUrl)
 		} else {
-<<<<<<< HEAD
 			scope.Debugf("MCP: connection %v ACK type_url=%q version=%q with nonce=%q",
 				con, req.TypeUrl, req.VersionInfo, req.ResponseNonce)
-=======
-			scope.Debugf("MCP: connection %v ACK version=%q with nonce=%q",
-				con, req.VersionInfo, req.ResponseNonce)
-			stats.Record(ctx, RequestAcks.M(1))
->>>>>>> add opencensus metrics to mcp/server
+			stats.Record(ctx, RequestAcksTotal.M(1))
 		}
 
 		if watch.cancel != nil {
@@ -354,7 +349,7 @@ func (con *connection) processClientRequest(req *mcp.MeshConfigRequest) error {
 	} else {
 		scope.Warnf("MCP: connection %v: NACK type_url=%v version=%v with nonce=%q (watch.nonce=%q) error=%#v",
 			con, req.TypeUrl, req.VersionInfo, req.ResponseNonce, watch.nonce, req.ErrorDetail)
-		stats.Record(ctx, RequestNacks.M(1))
+		stats.Record(ctx, RequestNacksTotal.M(1))
 	}
 	return nil
 }
