@@ -189,7 +189,7 @@ func (s *Server) newConnection(stream mcp.AggregatedMeshConfigService_StreamAggr
 	}
 
 	atomic.AddInt32(&s.connections, 1)
-	stats.Record(context.Background(), ClientCount.M(int64(s.connections)))
+	stats.Record(context.Background(), ClientCount.M(int64(atomic.LoadInt32(&s.connections))))
 
 	scope.Infof("MCP: connection %v: NEW, supported types: %#v", con, types)
 	return con, nil
