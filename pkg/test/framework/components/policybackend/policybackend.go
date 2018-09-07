@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strconv"
 	"testing"
 	"time"
 
@@ -199,8 +200,12 @@ func (c *kubeComponent) Init(ctx environment.ComponentContext, deps map[dependen
 	addressInCluster := fmt.Sprintf("%s:%d", svc.Spec.ClusterIP, svc.Spec.Ports[0].TargetPort.IntVal)
 	scope.Debugf("Policy Backend in-cluster address: %s", addressInCluster)
 
-	forwarder := kube.NewPortForwarder(s.KubeConfig, pod.Namespace, pod.Name, int(svc.Spec.Ports[0].TargetPort.IntVal))
-	if err = forwarder.Start(); err != nil {
+	options := &kube.PodSelectOptions{
+		PodNamespace: pod.Namespace,
+		PodName:      pod.Name,
+	}
+	forwarder, err := kube.PortForward(s.KubeConfig, options, "", strconv.Itoa(svc.Spec.Ports[0].TargetPort.IntValue()))
+	if err != nil {
 		return nil, err
 	}
 
@@ -223,7 +228,7 @@ type policyBackend struct {
 	address             string
 	dependencyNamespace string
 	controller          *policy.Controller
-	forwarder           *kube.PortForwarder
+	forwarder           kube.PortForwarder
 
 	// local only settings
 	port    int
