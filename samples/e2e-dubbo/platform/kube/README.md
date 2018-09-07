@@ -132,7 +132,8 @@ spec:
 ```bash
 istioctl create -f samples/e2e-dubbo/platform/kube/dubbo-consumer.weight.vs.yaml
 ```
-dubbo-consumer.weight.vs.yaml内容如下：```yaml
+dubbo-consumer.weight.vs.yaml内容如下：
+```yaml
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
