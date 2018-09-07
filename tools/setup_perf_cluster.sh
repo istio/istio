@@ -187,12 +187,12 @@ function install_istio_svc() {
 function install_istio_ingress_rules() {
   # perf istio rules installs rules for both fortio and grafana
   FNAME=$TOOLS_DIR/perf_istio_rules.yaml
-  Execute "$ISTIOCTL" create -n "$ISTIO_NAMESPACE" -f "$FNAME"
+  Execute kubectl create -n "$ISTIO_NAMESPACE" -f "$FNAME"
 }
 
 function install_istio_cache_busting_rule() {
   FNAME=$TOOLS_DIR/cache_buster.yaml
-  Execute "$ISTIOCTL" create -n "$ISTIO_NAMESPACE" -f "$FNAME"
+  Execute kubectl create -n "$ISTIO_NAMESPACE" -f "$FNAME"
 }
 
 function get_fortio_k8s_ip() {
