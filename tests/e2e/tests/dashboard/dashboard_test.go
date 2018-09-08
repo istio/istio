@@ -57,19 +57,36 @@ var (
 	replacer = strings.NewReplacer(
 		"$workload", "echosrv.*",
 		"$service", "echosrv.*",
+		"$dstsvc", "echosrv.*",
 		"$srcwl", "istio-ingressgateway.*",
 		"$adapter", "kubernetesenv",
-		`connection_mtls=\"true\"`, "",
-		`connection_mtls=\"false\"`, "",
-		`source_workload_namespace=~"$srcns"`, "",
-		`destination_workload_namespace=~"$dstns"`, "",
-		//		"$dstwl", "",
+		`connection_security_policy=\"unknown\"`, "",
+		`connection_security_policy=\"mutual_tls\"`, "",
+		`connection_security_policy!=\"mutual_tls\"`, "",
+		`source_workload_namespace=~\"$srcns\"`, "",
+		`destination_workload_namespace=~\"$dstns\"`, "",
+		`source_workload_namespace=~\"$namespace\"`, "",
+		`destination_workload_namespace=~\"$namespace\"`, "",
+		`destination_workload=~\"$dstwl\"`, "",
 		`\`, "",
 	)
 
 	tcpReplacer = strings.NewReplacer(
 		"echosrv", "netcat-srv",
 		"istio-ingressgateway", "netcat-client",
+	)
+
+	workloadReplacer = strings.NewReplacer(
+		`source_workload=~"netcat-srv.*"`, `source_workload=~"netcat-client.*"`,
+		`source_workload=~"echosrv.*"`, `source_workload=~"istio-ingressgateway.*"`,
+	)
+
+	queryCleanupReplacer = strings.NewReplacer(
+		"{, ,", "{",
+		"{,", "{",
+		", , ,", ",",
+		", ,", ",",
+		",,", ",",
 	)
 
 	tc *testConfig
@@ -92,18 +109,19 @@ func TestDashboards(t *testing.T) {
 	t.Log("Sentinel metrics found in prometheus.")
 
 	cases := []struct {
-		name       string
-		dashboard  string
-		filter     func([]string) []string
-		metricHost string
-		metricPort int
+		name           string
+		dashboard      string
+		filter         func([]string) []string
+		customReplacer *strings.Replacer
+		metricHost     string
+		metricPort     int
 	}{
-		{"Istio", istioMeshDashboard, func(queries []string) []string { return queries }, "istio-telemetry", 42422},
-		// {"Service", serviceDashboard, func(queries []string) []string { return queries }, "istio-telemetry", 42422},
-		// {"Workload", workloadDashboard, func(queries []string) []string { return queries }, "istio-telemetry", 42422},
-		{"Mixer", mixerDashboard, mixerQueryFilterFn, "istio-telemetry", 9093},
-		{"Pilot", pilotDashboard, pilotQueryFilterFn, "istio-pilot", 9093},
-		{"Galley", galleyDashboard, galleyQueryFilterFn, "istio-galley", 9093},
+		{"Istio", istioMeshDashboard, func(queries []string) []string { return queries }, nil, "istio-telemetry", 42422},
+		{"Service", serviceDashboard, func(queries []string) []string { return queries }, nil, "istio-telemetry", 42422},
+		{"Workload", workloadDashboard, func(queries []string) []string { return queries }, workloadReplacer, "istio-telemetry", 42422},
+		{"Mixer", mixerDashboard, mixerQueryFilterFn, nil, "istio-telemetry", 9093},
+		{"Pilot", pilotDashboard, pilotQueryFilterFn, nil, "istio-pilot", 9093},
+		{"Galley", galleyDashboard, galleyQueryFilterFn, nil, "istio-galley", 9093},
 	}
 
 	for _, testCase := range cases {
@@ -119,6 +137,9 @@ func TestDashboards(t *testing.T) {
 
 			for _, query := range queries {
 				modified := replaceGrafanaTemplates(query)
+				if testCase.customReplacer != nil {
+					modified = testCase.customReplacer.Replace(modified)
+				}
 				value, err := tc.promAPI.Query(context.Background(), modified, time.Now())
 				if err != nil {
 					t.Errorf("Failure executing query (%s): %v", modified, err)
@@ -200,7 +221,7 @@ func replaceGrafanaTemplates(orig string) string {
 	if strings.Contains(orig, "istio_tcp") {
 		out = tcpReplacer.Replace(out)
 	}
-	return out
+	return queryCleanupReplacer.Replace(out)
 }
 
 // There currently is no good way to inject failures into a running Mixer,
