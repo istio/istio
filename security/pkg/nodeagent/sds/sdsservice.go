@@ -97,6 +97,7 @@ func (s *sdsservice) register(rpcs *grpc.Server) {
 	sds.RegisterSecretDiscoveryServiceServer(rpcs, s)
 }
 
+// StreamSecrets implements sds.SecretDiscoveryServiceServer.StreamSecrets().
 func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecretsServer) error {
 	ctx := stream.Context()
 	token, err := getCredentialToken(ctx)
@@ -175,6 +176,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 	}
 }
 
+// FetchSecrets implements sds.SecretDiscoveryServiceServer.FetchSecrets().
 func (s *sdsservice) FetchSecrets(ctx context.Context, discReq *xdsapi.DiscoveryRequest) (*xdsapi.DiscoveryResponse, error) {
 	token, err := getCredentialToken(ctx)
 	if err != nil {
@@ -197,7 +199,7 @@ func (s *sdsservice) FetchSecrets(ctx context.Context, discReq *xdsapi.Discovery
 	return sdsDiscoveryResponse(secret, discReq.Node.Id)
 }
 
-// NotifyProxy send notification to proxy about secret update,
+// NotifyProxy sends notification to proxy about secret update,
 // SDS will close streaming connection is secret is nil.
 func NotifyProxy(proxyID string, secret *model.SecretItem) error {
 	conn := sdsClients[proxyID]
