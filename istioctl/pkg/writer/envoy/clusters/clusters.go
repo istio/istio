@@ -24,6 +24,7 @@ import (
 	"text/tabwriter"
 
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 
 	"istio.io/istio/istioctl/pkg/util/clusters"
 	protio "istio.io/istio/istioctl/pkg/util/proto"
@@ -34,6 +35,7 @@ type EndpointFilter struct {
 	Address string
 	Port    uint32
 	Cluster string
+	Status  string
 }
 
 // ConfigWriter is a writer for processing responses from the Envoy Admin config_dump endpoint
@@ -47,6 +49,7 @@ type EndpointCluster struct {
 	address string
 	port    int
 	cluster string
+	status  core.HealthStatus
 }
 
 // Prime loads the clusters output into the writer ready for printing
@@ -68,9 +71,13 @@ func retrieveEndpointPort(l *adminapi.HostStatus) uint32 {
 	return l.Address.GetSocketAddress().GetPortValue()
 }
 
+func retrieveEndpointStatus(l *adminapi.HostStatus) core.HealthStatus {
+	return l.HealthStatus.GetEdsHealthStatus()
+}
+
 // Verify returns true if the passed host matches the filter fields
 func (e *EndpointFilter) Verify(host *adminapi.HostStatus, cluster string) bool {
-	if e.Address == "" && e.Port == 0 && e.Cluster == "" {
+	if e.Address == "" && e.Port == 0 && e.Cluster == "" && e.Status == "" {
 		return true
 	}
 	if e.Address != "" && strings.ToLower(retrieveEndpointAddress(host)) != strings.ToLower(e.Address) {
@@ -80,6 +87,10 @@ func (e *EndpointFilter) Verify(host *adminapi.HostStatus, cluster string) bool 
 		return false
 	}
 	if e.Cluster != "" && strings.ToLower(cluster) != strings.ToLower(e.Cluster) {
+		return false
+	}
+	status := retrieveEndpointStatus(host)
+	if e.Status != "" && strings.ToLower(core.HealthStatus_name[int32(status)]) != strings.ToLower(e.Status) {
 		return false
 	}
 	return true
@@ -99,17 +110,18 @@ func (c *ConfigWriter) PrintEndpointsSummary(filter EndpointFilter) error {
 			if filter.Verify(host, cluster.Name) {
 				addr := retrieveEndpointAddress(host)
 				port := retrieveEndpointPort(host)
+				status := retrieveEndpointStatus(host)
 
-				clusterEndpoint = append(clusterEndpoint, EndpointCluster{addr, int(port), cluster.Name})
+				clusterEndpoint = append(clusterEndpoint, EndpointCluster{addr, int(port), cluster.Name, status})
 			}
 		}
 	}
 
 	clusterEndpoint = retrieveSortedEndpointClusterSlice(clusterEndpoint)
-	fmt.Fprintln(w, "ENDPOINT\tCLUSTER")
+	fmt.Fprintln(w, "ENDPOINT\tSTATUS\tCLUSTER")
 	for _, ce := range clusterEndpoint {
 		endpoint := ce.address + ":" + strconv.Itoa(int(ce.port))
-		fmt.Fprintf(w, "%v\t%v\n", endpoint, ce.cluster)
+		fmt.Fprintf(w, "%v\t%v\t%v\n", endpoint, core.HealthStatus_name[int32(ce.status)], ce.cluster)
 	}
 
 	return w.Flush()
