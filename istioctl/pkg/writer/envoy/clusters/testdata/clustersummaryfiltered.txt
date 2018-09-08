@@ -1,2 +1,2 @@
-ENDPOINT             CLUSTER
-172.17.0.14:9093     outbound|9093||istio-policy.istio-system.svc.cluster.local
+ENDPOINT             STATUS        CLUSTER
+172.17.0.14:9093     UNHEALTHY     outbound|9093||istio-policy.istio-system.svc.cluster.local
