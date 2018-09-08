@@ -221,7 +221,7 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 	edsCluster.EndpointsInfoPerNetwork[network] = &EndpointsInfo{
 		LoadAssigment: &xdsapi.ClusterLoadAssignment{
 			ClusterName: clusterName,
-			Endpoints:  locEps,
+			Endpoints:   locEps,
 		},
 		LocalEndpoints:       locEps,
 		ReferencingEndpoints: []*endpoint.LocalityLbEndpoints{},
