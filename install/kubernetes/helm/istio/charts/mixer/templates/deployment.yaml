@@ -212,6 +212,17 @@ spec:
       annotations:
         sidecar.istio.io/inject: "false"
         scheduler.alpha.kubernetes.io/critical-pod: ""
+<<<<<<< HEAD
+=======
+{{ if ne $.Values.global.proxy.stats.prometheusPort 0. }}
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "{{ $.Values.global.proxy.stats.prometheusPort }}"
+        prometheus.io/path: /stats/prometheus
+{{ end}}
+{{- with $.Values.podAnnotations }}
+{{ toYaml . | indent 8 }}
+{{- end }}
+>>>>>>> b56823b5a... Add envoy config to expose prom endpoint for scraping (#8485)
 {{- if eq $mname "policy"}}
 {{- template "policy_container" $ }}
 {{- else }}
