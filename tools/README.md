@@ -91,10 +91,7 @@ you can view the functions from within the `setup_perf_cluster.sh` script. The m
 $ setup_all
 Obtaining latest ubuntu xenial image name... (takes a few seconds)...
 <SNIP>
-### Running: istioctl create -n istio -f tools/cache_buster.yaml
-Created config denier/istio/denyall at revision 881
-Created config checknothing/istio/denyrequest at revision 882
-Created config rule/istio/mixercachebuster at revision 883
+### Running: kubectl apply -n istio -f tools/cache_buster.yaml
 ```
 The deployment is now complete. You can verify the deployment using standard `kubectl` commands:
 ```

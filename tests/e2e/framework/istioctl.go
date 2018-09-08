@@ -171,16 +171,6 @@ func (i *Istioctl) KubeInject(src, dest, kubeconfig string) error {
 		src, dest, imagePullPolicyStr, i.namespace, i.namespace, injectCfgMapStr, kubeconfigStr)
 }
 
-// CreateRule create new rule(s)
-func (i *Istioctl) CreateRule(rule string) error {
-	return i.run("-n %s create -f %s", i.namespace, rule)
-}
-
-// ReplaceRule replace rule(s)
-func (i *Istioctl) ReplaceRule(rule string) error {
-	return i.run("-n %s replace -f %s", i.namespace, rule)
-}
-
 // DeleteRule Delete rule(s)
 func (i *Istioctl) DeleteRule(rule string) error {
 	return i.run("-n %s delete -f %s", i.namespace, rule)
