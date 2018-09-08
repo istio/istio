@@ -92,13 +92,27 @@ type EdsCluster struct {
 // In addition it holds the local endpoints and cross referenced remote
 // endpoints from other networks.
 type EndpointsInfo struct {
-	LoadAssigment        *xdsapi.ClusterLoadAssignment
-	LocalEndpoints       []endpoint.LocalityLbEndpoints
+	// ClusterLoadAssignment for the network holds both local endpoints and
+	// weighted remote endpoints to other networks
+	LoadAssigment *xdsapi.ClusterLoadAssignment
+
+	// Only the endpoints of the cluster that are local to the network
+	LocalEndpoints []endpoint.LocalityLbEndpoints
+
+	// Endpoints within other ClusterLoadAssignment (of other networks) that
+	// are referncing this network.
+	// TODO use it for deletion and update existing
 	ReferencingEndpoints []*endpoint.LocalityLbEndpoints
 }
 
-func (ei *EndpointsInfo) weight() uint32 {
-	return uint32(len(ei.LocalEndpoints))
+// calculate the weight of the endpoints in this network. This weight will be
+// set as the weight of remote endpoints in other networks.
+func (ei *EndpointsInfo) networkWeight() uint32 {
+	weight := 0
+	for _, lb := range ei.LocalEndpoints {
+		weight += len(lb.LbEndpoints)
+	}
+	return uint32(weight)
 }
 
 // TODO: add prom metrics !
@@ -197,7 +211,6 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 		return err
 	}
 	locEps := localityLbEndpointsFromInstances(instances)
-	remoteEps := edsCluster.remoteEndpoints(network)
 
 	// There is a chance multiple goroutines will update the cluster at the same time.
 	// This could be prevented by a lock - but because the update may be slow, it may be
@@ -208,12 +221,11 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 	edsCluster.EndpointsInfoPerNetwork[network] = &EndpointsInfo{
 		LoadAssigment: &xdsapi.ClusterLoadAssignment{
 			ClusterName: clusterName,
-			Endpoints:   append(locEps, remoteEps...),
+			Endpoints:  locEps,
 		},
 		LocalEndpoints:       locEps,
 		ReferencingEndpoints: []*endpoint.LocalityLbEndpoints{},
 	}
-	adsLog.Infof("Created new ClusterLoadAssignment with %d endpoints", len(locEps))
 	edsCluster.updateRemoteEndpoints(network)
 	if len(locEps) > 0 && edsCluster.NonEmptyTime.IsZero() {
 		edsCluster.NonEmptyTime = time.Now()
@@ -254,46 +266,51 @@ func localityLbEndpointsFromInstances(instances []*model.ServiceInstance) []endp
 	return out
 }
 
-// function will go through other networks and return a weighted endpoint to
-// the gateway of the other network. Endpoints of the provided network label
-// will be excluded.
-func (c *EdsCluster) remoteEndpoints(network string) []endpoint.LocalityLbEndpoints {
+// Function will go through other networks and create remote endpoint pointing
+// to the gateway of each one of them. The remote endpoints (one per each network)
+// will be added to the local endpoints.
+// While going through the other networks it will also update them with updated
+// weight of this network.
+func (c *EdsCluster) updateRemoteEndpoints(network string) {
 	remote := []endpoint.LocalityLbEndpoints{}
 	for n := range c.EndpointsInfoPerNetwork {
 		if n == network {
 			continue
 		}
 
-		endpoint := endpoint.LocalityLbEndpoints{
-			// TO CHANGE. putting the remote network label in the locality zone
-			// just for debugging purposes
-			Locality: &core.Locality{Zone: n},
-			LbEndpoints: []endpoint.LbEndpoint{
-				endpoint.LbEndpoint{
-					// TODO get the remote gateway endpoint based on network
-					// label 'n'
-				},
-			},
-			LoadBalancingWeight: &types.UInt32Value{
-				Value: c.EndpointsInfoPerNetwork[n].weight(),
-			},
-		}
-		remote = append(remote, endpoint)
+		// Create an endpoint to the other network and add it to the list of
+		// remote endpoints of this network
+		epToRemote := c.createRemoteEndpoint(n)
+		remote = append(remote, *epToRemote)
 
-		// Cross reference this remote endpoint
-		c.EndpointsInfoPerNetwork[n].ReferencingEndpoints = append(c.EndpointsInfoPerNetwork[n].ReferencingEndpoints, &endpoint)
+		// Cross reference by adding a pointer to the newly created remote
+		// endpoint above to the list of existing references on the other network
+		c.EndpointsInfoPerNetwork[n].ReferencingEndpoints = append(c.EndpointsInfoPerNetwork[n].ReferencingEndpoints, epToRemote)
+
+		// Add a remote endpoint to this network in the other network
+		epToThisNetwork := c.createRemoteEndpoint(network)
+		c.EndpointsInfoPerNetwork[n].LoadAssigment.Endpoints = append(c.EndpointsInfoPerNetwork[n].LoadAssigment.Endpoints, *epToThisNetwork)
 	}
-	return remote
+	c.EndpointsInfoPerNetwork[network].LoadAssigment.Endpoints = append(c.EndpointsInfoPerNetwork[network].LoadAssigment.Endpoints, remote...)
 }
 
-// update remote endpoints within ClusterLoadAssignment of other networks about
-// the updated weight of this network. As we are maintaining a list of
-// endpoints that reference to this network we just need to go through them and
-// update each.
-func (c *EdsCluster) updateRemoteEndpoints(network string) {
-	// first update all existing networks
-	for _, r := range c.EndpointsInfoPerNetwork[network].ReferencingEndpoints {
-		r.LoadBalancingWeight.Value = c.EndpointsInfoPerNetwork[network].weight()
+// Creates an endpoint to be used by the Split Horizon EDS to point to the gateway
+// of a remote network and hold a weight that matches the number of endpoints on
+// the remote network.
+func (c *EdsCluster) createRemoteEndpoint(toNetwork string) *endpoint.LocalityLbEndpoints {
+	return &endpoint.LocalityLbEndpoints{
+		// TO CHANGE. putting the remote network label in the locality zone
+		// just for debugging purposes
+		Locality: &core.Locality{Zone: toNetwork},
+		LbEndpoints: []endpoint.LbEndpoint{
+			endpoint.LbEndpoint{
+				// TODO get the remote gateway endpoint based on network
+				// label 'n'
+			},
+		},
+		LoadBalancingWeight: &types.UInt32Value{
+			Value: c.EndpointsInfoPerNetwork[toNetwork].networkWeight(),
+		},
 	}
 }
 
@@ -438,7 +455,7 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection) e
 	}
 	pushes.With(prometheus.Labels{"type": "eds"}).Add(1)
 
-	adsLog.Infof("EDS: PUSH for %s clusters %d endpoints %d empty %d",
+	adsLog.Debugf("EDS: PUSH for %s clusters %d endpoints %d empty %d",
 		con.ConID, len(con.Clusters), endpoints, emptyClusters)
 	return nil
 }
