@@ -22,7 +22,7 @@ metadata:
   labels:
     app: details
   annotations:
-    alpha.istio.io/canonical-serviceaccounts: "${DETAIL_SA_ID}"
+    # PLACEHOLDER FOR DETAIL_SA_ID
 spec:
   ports:
   - port: 9080
@@ -39,7 +39,7 @@ spec:
   template:
     metadata:
       annotations:
-        cloud.google.com/service-account: "${DETAIL_SA}"
+        # PLACEHOLDER FOR DETAIL_SA
       labels:
         app: details
         version: v1
@@ -61,7 +61,7 @@ metadata:
   labels:
     app: ratings
   annotations:
-    alpha.istio.io/canonical-serviceaccounts: "${RATING_SA_ID}"
+    # PLACEHOLDER FOR RATING_SA_ID
 spec:
   ports:
   - port: 9080
@@ -78,7 +78,7 @@ spec:
   template:
     metadata:
       annotations:
-        cloud.google.com/service-account: "${RATING_SA}"
+        # PLACEHOLDER FOR RATING_SA
       labels:
         app: ratings
         version: v1
@@ -100,7 +100,7 @@ metadata:
   labels:
     app: reviews
   annotations:
-    alpha.istio.io/canonical-serviceaccounts: "${REVIEW_SA_ID}"
+    # PLACEHOLDER FOR REVIEW_SA_ID
 spec:
   ports:
   - port: 9080
@@ -117,7 +117,7 @@ spec:
   template:
     metadata:
       annotations:
-        cloud.google.com/service-account: "${REVIEW_SA}"
+        # PLACEHOLDER FOR REVIEW_SA
       labels:
         app: reviews
         version: v1
@@ -138,7 +138,7 @@ spec:
   template:
     metadata:
       annotations:
-        cloud.google.com/service-account: "${REVIEW_SA}"
+        # PLACEHOLDER FOR REVIEW_SA
       labels:
         app: reviews
         version: v2
@@ -159,7 +159,7 @@ spec:
   template:
     metadata:
       annotations:
-        cloud.google.com/service-account: "${REVIEW_SA}"
+        # PLACEHOLDER FOR REVIEW_SA
       labels:
         app: reviews
         version: v3
@@ -181,7 +181,7 @@ metadata:
   labels:
     app: productpage
   annotations:
-    alpha.istio.io/canonical-serviceaccounts: "${PRODUCTPAGE_SA_ID}"
+    # PLACEHOLDER FOR PRODUCTPAGE_SA_ID
 spec:
   ports:
   - port: 9080
@@ -198,7 +198,7 @@ spec:
   template:
     metadata:
       annotations:
-        cloud.google.com/service-account: "${PRODUCTPAGE_SA}"
+        # PLACEHOLDER FOR PRODUCTPAGE_SA
       labels:
         app: productpage
         version: v1

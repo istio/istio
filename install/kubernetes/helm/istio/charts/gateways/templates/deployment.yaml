@@ -22,7 +22,7 @@ spec:
       annotations:
         sidecar.istio.io/inject: "false"
         scheduler.alpha.kubernetes.io/critical-pod: ""
-        cloud.google.com/service-account: "${GATEWAY_SA_NAME}"
+        # PLACEHOLDER FOR GATEWAY_SA_NAME
     spec:
       serviceAccountName: {{ $key }}-service-account
 {{- if $.Values.global.priorityClassName }}
