@@ -21,6 +21,8 @@ metadata:
   name: details
   labels:
     app: details
+  annotations:
+    # PLACEHOLDER FOR DETAIL_SA_ID
 spec:
   ports:
   - port: 9080
@@ -36,6 +38,8 @@ spec:
   replicas: 1
   template:
     metadata:
+      annotations:
+        # PLACEHOLDER FOR DETAIL_SA
       labels:
         app: details
         version: v1
@@ -56,6 +60,8 @@ metadata:
   name: ratings
   labels:
     app: ratings
+  annotations:
+    # PLACEHOLDER FOR RATING_SA_ID
 spec:
   ports:
   - port: 9080
@@ -71,6 +77,8 @@ spec:
   replicas: 1
   template:
     metadata:
+      annotations:
+        # PLACEHOLDER FOR RATING_SA
       labels:
         app: ratings
         version: v1
@@ -91,6 +99,8 @@ metadata:
   name: reviews
   labels:
     app: reviews
+  annotations:
+    # PLACEHOLDER FOR REVIEW_SA_ID
 spec:
   ports:
   - port: 9080
@@ -106,6 +116,8 @@ spec:
   replicas: 1
   template:
     metadata:
+      annotations:
+        # PLACEHOLDER FOR REVIEW_SA
       labels:
         app: reviews
         version: v1
@@ -125,6 +137,8 @@ spec:
   replicas: 1
   template:
     metadata:
+      annotations:
+        # PLACEHOLDER FOR REVIEW_SA
       labels:
         app: reviews
         version: v2
@@ -144,6 +158,8 @@ spec:
   replicas: 1
   template:
     metadata:
+      annotations:
+        # PLACEHOLDER FOR REVIEW_SA
       labels:
         app: reviews
         version: v3
@@ -164,6 +180,8 @@ metadata:
   name: productpage
   labels:
     app: productpage
+  annotations:
+    # PLACEHOLDER FOR PRODUCTPAGE_SA_ID
 spec:
   ports:
   - port: 9080
@@ -179,6 +197,8 @@ spec:
   replicas: 1
   template:
     metadata:
+      annotations:
+        # PLACEHOLDER FOR PRODUCTPAGE_SA
       labels:
         app: productpage
         version: v1

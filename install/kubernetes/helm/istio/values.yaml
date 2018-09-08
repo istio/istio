@@ -210,7 +210,8 @@ gateways:
 
     loadBalancerIP: ""
     loadBalancerSourceRanges: {}
-    serviceAnnotations: {}
+    serviceAnnotations: 
+      # PLACEHOLDER FOR GATEWAY_SA_ID
     type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
 
     ports:
