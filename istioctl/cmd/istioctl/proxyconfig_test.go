@@ -112,8 +112,15 @@ inbound|9080||productpage.default.svc.cluster.local     1
 		{ // case 10 endpoint valid
 			execClientConfig: endpointConfig,
 			args:             strings.Split("proxy-config endpoint details-v1-5b7f94f9bc-wp5tb --port=9093", " "),
-			expectedOutput: `ENDPOINT             CLUSTER
-172.17.0.14:9093     outbound|9093||istio-policy.istio-system.svc.cluster.local
+			expectedOutput: `ENDPOINT             STATUS        CLUSTER
+172.17.0.14:9093     UNHEALTHY     outbound|9093||istio-policy.istio-system.svc.cluster.local
+`,
+		},
+		{ // case 11 endpoint status filter
+			execClientConfig: endpointConfig,
+			args:             strings.Split("proxy-config endpoint details-v1-5b7f94f9bc-wp5tb --status=unhealthy", " "),
+			expectedOutput: `ENDPOINT             STATUS        CLUSTER
+172.17.0.14:9093     UNHEALTHY     outbound|9093||istio-policy.istio-system.svc.cluster.local
 `,
 		},
 	}

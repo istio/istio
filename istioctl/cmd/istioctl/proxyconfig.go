@@ -182,8 +182,8 @@ var (
 		},
 	}
 
-	clusterName       string
-	endpointConfigCmd = &cobra.Command{
+	clusterName, status string
+	endpointConfigCmd   = &cobra.Command{
 		Use:   "endpoint <pod-name>",
 		Short: "Retrieves endpoint configuration for the Envoy in the specified pod",
 		Long:  `Retrieve information about endpoint configuration for the Envoy instance in the specified pod.`,
@@ -198,6 +198,8 @@ var (
 
   # Retrieve full endpoint with a cluster name (outbound|9411||zipkin.istio-system.svc.cluster.local).
   istioctl proxy-config endpoint <pod-name> --cluster "outbound|9411||zipkin.istio-system.svc.cluster.local" -o json
+  # Retrieve full endpoint with the status (healthy).
+  istioctl proxy-config endpoint <pod-name> --status healthy -ojson
 `,
 		Aliases: []string{"endpoints", "ep"},
 		Args:    cobra.ExactArgs(1),
@@ -213,6 +215,7 @@ var (
 				Address: address,
 				Port:    uint32(port),
 				Cluster: clusterName,
+				Status:  status,
 			}
 
 			switch outputFormat {
@@ -291,6 +294,7 @@ func init() {
 	endpointConfigCmd.PersistentFlags().StringVar(&address, "address", "", "Filter endpoints by address field")
 	endpointConfigCmd.PersistentFlags().IntVar(&port, "port", 0, "Filter endpoints by Port field")
 	endpointConfigCmd.PersistentFlags().StringVar(&clusterName, "cluster", "", "Filter endpoints by cluster name field")
+	endpointConfigCmd.PersistentFlags().StringVar(&status, "status", "", "Filter endpoints by status field")
 
 	configCmd.AddCommand(clusterConfigCmd, listenerConfigCmd, routeConfigCmd, bootstrapConfigCmd, endpointConfigCmd)
 }
