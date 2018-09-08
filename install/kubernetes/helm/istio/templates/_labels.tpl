@@ -5,6 +5,6 @@
     heritage: {{ .Release.Service }}
 {{- end }}
 
-{{- define "version_label" }}
+{{- define "common_template_labels" }}
         version: {{ .Chart.Version }}
 {{- end }}
