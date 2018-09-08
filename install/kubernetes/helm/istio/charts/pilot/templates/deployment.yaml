@@ -17,6 +17,7 @@ spec:
       labels:
         istio: pilot
         app: pilot
+        {{- template "version_label" . }}
       annotations:
         sidecar.istio.io/inject: "false"
         scheduler.alpha.kubernetes.io/critical-pod: ""

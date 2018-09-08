@@ -233,6 +233,7 @@ spec:
         app: {{ $mname }}
         istio: mixer
         istio-mixer-type: {{ $mname }}
+        {{- template "version_label" $ }}
       annotations:
         sidecar.istio.io/inject: "false"
         scheduler.alpha.kubernetes.io/critical-pod: ""

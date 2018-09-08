@@ -4,3 +4,7 @@
     version: {{ .Chart.Version }}
     heritage: {{ .Release.Service }}
 {{- end }}
+
+{{- define "version_label" }}
+        version: {{ .Chart.Version }}
+{{- end }}
