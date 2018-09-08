@@ -44,12 +44,12 @@ const (
 
 var (
 	clusterCreationCounts = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name: "k8s_cluster_created_count",
+		Name: "pilot_k8s_clusters_created_total",
 		Help: "The number of kubernetes clusters added due to secret creation.",
 	}, []string{})
 
 	clusterDeletionCounts = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name: "k8s_cluster_deleted_count",
+		Name: "pilot_k8s_clusters_deleted_total",
 		Help: "The number of kubernetes clusters deleted due to secret deletion.",
 	}, []string{})
 )
