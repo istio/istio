@@ -302,7 +302,7 @@ func TestGenCertFromCSR(t *testing.T) {
 		SignatureAlgorithm:    x509.SHA256WithRSA,
 		KeyUsage:              x509.KeyUsageCertSign,
 		BasicConstraintsValid: true,
-		IsCA: true,
+		IsCA:                  true,
 	}
 	der, err := x509.CreateCertificate(rand.Reader, caTmpl, caTmpl, &caPK.PublicKey, caPK)
 	if err != nil {

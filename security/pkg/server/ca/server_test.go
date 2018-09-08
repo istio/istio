@@ -270,9 +270,9 @@ func TestRun(t *testing.T) {
 				"input after skipping PEM blocks of the following types: [CERTIFICATE REQUEST]",
 		},
 		"Multiple hostname": {
-			ca:       &mockca.FakeCA{SignedCert: []byte(csr)},
-			hostname: []string{"localhost", "fancyhost"},
-			port:     0,
+			ca:                        &mockca.FakeCA{SignedCert: []byte(csr)},
+			hostname:                  []string{"localhost", "fancyhost"},
+			port:                      0,
 			expectedAuthenticatorsLen: 3,
 			applyServerCertificateError: "tls: failed to find \"CERTIFICATE\" PEM block in certificate " +
 				"input after skipping PEM blocks of the following types: [CERTIFICATE REQUEST]",
