@@ -1,3 +1,4 @@
+{{- if .Values.global.proxy.envoyStatsd.enabled }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -12,3 +13,5 @@ metadata:
 data:
   mapping.conf: |-
 {{ toYaml .Values.prometheusStatsdExporter.mapping | indent 4 }}
+{{- end }}
+

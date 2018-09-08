@@ -1,4 +1,4 @@
-
+{{- if .Values.global.proxy.envoyStatsd.enabled }}
 {{- $statsdname := "statsd-prom-bridge" }}
 ---
 apiVersion: v1
@@ -67,3 +67,5 @@ spec:
         volumeMounts:
         - name: config-volume
           mountPath: /etc/statsd
+{{- end }}
+
