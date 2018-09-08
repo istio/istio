@@ -96,23 +96,14 @@ type EndpointsInfo struct {
 	// weighted remote endpoints to other networks
 	LoadAssigment *xdsapi.ClusterLoadAssignment
 
-	// Only the endpoints of the cluster that are local to the network
-	LocalEndpoints []endpoint.LocalityLbEndpoints
+	// Number of local endpoints. I.e. weight of the network in Split
+	// Horizon EDS
+	Weight uint32
 
 	// Endpoints within other ClusterLoadAssignment (of other networks) that
 	// are referncing this network.
 	// TODO use it for deletion and update existing
 	ReferencingEndpoints []*endpoint.LocalityLbEndpoints
-}
-
-// calculate the weight of the endpoints in this network. This weight will be
-// set as the weight of remote endpoints in other networks.
-func (ei *EndpointsInfo) networkWeight() uint32 {
-	weight := 0
-	for _, lb := range ei.LocalEndpoints {
-		weight += len(lb.LbEndpoints)
-	}
-	return uint32(weight)
 }
 
 // TODO: add prom metrics !
@@ -210,7 +201,7 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 		adsLog.Warnf("endpoints for service cluster %q returned error %q", clusterName, err)
 		return err
 	}
-	locEps := localityLbEndpointsFromInstances(instances)
+	locEps, weight := localityLbEndpointsFromInstances(instances)
 
 	// There is a chance multiple goroutines will update the cluster at the same time.
 	// This could be prevented by a lock - but because the update may be slow, it may be
@@ -223,7 +214,7 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 			ClusterName: clusterName,
 			Endpoints:   locEps,
 		},
-		LocalEndpoints:       locEps,
+		Weight:               weight,
 		ReferencingEndpoints: []*endpoint.LocalityLbEndpoints{},
 	}
 	edsCluster.updateRemoteEndpoints(network)
@@ -237,8 +228,9 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 // Envoy v2 Endpoints are constructed from Pilot's older data structure involving
 // model.ServiceInstance objects. Envoy expects the endpoints grouped by zone, so
 // a map is created - in new data structures this should be part of the model.
-func localityLbEndpointsFromInstances(instances []*model.ServiceInstance) []endpoint.LocalityLbEndpoints {
+func localityLbEndpointsFromInstances(instances []*model.ServiceInstance) ([]endpoint.LocalityLbEndpoints, uint32) {
 	localityEpMap := make(map[string]*endpoint.LocalityLbEndpoints)
+	weight := 0
 	for _, instance := range instances {
 		lbEp, err := newEndpoint(&instance.Endpoint)
 		if err != nil {
@@ -258,12 +250,13 @@ func localityLbEndpointsFromInstances(instances []*model.ServiceInstance) []endp
 			localityEpMap[locality] = locLbEps
 		}
 		locLbEps.LbEndpoints = append(locLbEps.LbEndpoints, *lbEp)
+		weight++
 	}
 	out := make([]endpoint.LocalityLbEndpoints, 0, len(localityEpMap))
 	for _, locLbEps := range localityEpMap {
 		out = append(out, *locLbEps)
 	}
-	return out
+	return out, uint32(weight)
 }
 
 // Function will go through other networks and create remote endpoint pointing
@@ -309,7 +302,7 @@ func (c *EdsCluster) createRemoteEndpoint(toNetwork string) *endpoint.LocalityLb
 			},
 		},
 		LoadBalancingWeight: &types.UInt32Value{
-			Value: c.EndpointsInfoPerNetwork[toNetwork].networkWeight(),
+			Value: c.EndpointsInfoPerNetwork[toNetwork].Weight,
 		},
 	}
 }
