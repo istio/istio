@@ -97,6 +97,12 @@ var (
 	}
 )
 
+func init() {
+	// get the grpc server wired up
+	// This should only be set before any RPCs are sent or received by this program.
+	grpc.EnableTracing = true
+}
+
 // MeshArgs provide configuration options for the mesh. If ConfigFile is provided, an attempt will be made to
 // load the mesh from the file. Otherwise, a default mesh will be used with optional overrides.
 type MeshArgs struct {
@@ -970,9 +976,6 @@ func (s *Server) grpcServerOptions() []grpc.ServerOption {
 		grpc.UnaryInterceptor(middleware.ChainUnaryServer(interceptors...)),
 		grpc.MaxConcurrentStreams(uint32(maxStreams)),
 	}
-
-	// get the grpc server wired up
-	grpc.EnableTracing = true
 
 	return grpcOptions
 }
