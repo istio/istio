@@ -29,7 +29,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/security/pkg/pki/ca/controller"
+	"istio.io/istio/security/pkg/k8s/controller"
 	"istio.io/istio/security/pkg/pki/util"
 )
 
@@ -356,11 +356,12 @@ func ExamineSecret(secret *v1.Secret) error {
 		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
 		KeyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
 		IsCA:        false,
+		Host:        expectedID,
 	}
 
 	if err := util.VerifyCertificate(secret.Data[controller.PrivateKeyID],
 		secret.Data[controller.CertChainID], secret.Data[controller.RootCertID],
-		expectedID, verifyFields); err != nil {
+		verifyFields); err != nil {
 		return fmt.Errorf("certificate verification failed: %v", err)
 	}
 

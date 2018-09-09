@@ -34,7 +34,7 @@ items:
           - --binaryPath
           - /usr/local/bin/envoy
           - --serviceCluster
-          - hello
+          - hello.default
           - --drainDuration
           - 2s
           - --parentShutdownDuration
@@ -53,6 +53,10 @@ items:
           - "15000"
           - --controlPlaneAuthPolicy
           - NONE
+          - --statusPort
+          - "15020"
+          - --applicationPorts
+          - "80"
           env:
           - name: POD_NAME
             valueFrom:
@@ -75,6 +79,13 @@ items:
           image: docker.io/istio/proxyv2:unittest
           imagePullPolicy: IfNotPresent
           name: istio-proxy
+          readinessProbe:
+            failureThreshold: 30
+            httpGet:
+              path: /healthz/ready
+              port: 15020
+            initialDelaySeconds: 1
+            periodSeconds: 2
           resources:
             requests:
               cpu: 10m
@@ -103,7 +114,7 @@ items:
           - -b
           - "80"
           - -d
-          - ""
+          - "15020"
           image: docker.io/istio/proxy_init:unittest
           imagePullPolicy: IfNotPresent
           name: istio-init
@@ -155,7 +166,7 @@ items:
           - --binaryPath
           - /usr/local/bin/envoy
           - --serviceCluster
-          - hello
+          - hello.default
           - --drainDuration
           - 2s
           - --parentShutdownDuration
@@ -174,6 +185,10 @@ items:
           - "15000"
           - --controlPlaneAuthPolicy
           - NONE
+          - --statusPort
+          - "15020"
+          - --applicationPorts
+          - "81"
           env:
           - name: POD_NAME
             valueFrom:
@@ -196,6 +211,13 @@ items:
           image: docker.io/istio/proxyv2:unittest
           imagePullPolicy: IfNotPresent
           name: istio-proxy
+          readinessProbe:
+            failureThreshold: 30
+            httpGet:
+              path: /healthz/ready
+              port: 15020
+            initialDelaySeconds: 1
+            periodSeconds: 2
           resources:
             requests:
               cpu: 10m
@@ -224,7 +246,7 @@ items:
           - -b
           - "81"
           - -d
-          - ""
+          - "15020"
           image: docker.io/istio/proxy_init:unittest
           imagePullPolicy: IfNotPresent
           name: istio-init

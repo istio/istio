@@ -61,8 +61,8 @@ func removeIPFromEndpoint(eps *v1.Endpoints, ip string) bool {
 	return match
 }
 
-// DeRegisterEndpoint registers the endpoint (and the service if it
-// already exists). It creates or updates as needed.
+// DeRegisterEndpoint removes the endpoint (and the service if it
+// already exists) from Kubernetes. It creates or updates as needed.
 func DeRegisterEndpoint(client kubernetes.Interface, namespace string, svcName string,
 	ip string) error {
 	getOpt := meta_v1.GetOptions{IncludeUninitialized: true}

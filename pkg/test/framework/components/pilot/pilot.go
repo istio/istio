@@ -16,13 +16,13 @@ package pilot
 
 import (
 	"context"
+	"fmt"
 	"net"
+	"strconv"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	adsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"google.golang.org/grpc"
-
-	"fmt"
 
 	"github.com/hashicorp/go-multierror"
 
@@ -92,12 +92,14 @@ func (c *kubeComponent) Init(ctx environment.ComponentContext, deps map[dependen
 		return nil, fmt.Errorf("unsupported environment: %q", ctx.Environment().EnvironmentID())
 	}
 
-	pod, err := e.Accessor.WaitForPodBySelectors(e.IstioSystemNamespace, "istio=pilot")
+	s := e.KubeSettings()
+
+	pod, err := e.Accessor.WaitForPodBySelectors(s.IstioSystemNamespace, "istio=pilot")
 	if err != nil {
 		return nil, err
 	}
 
-	return NewKubePilot(ctx.Settings().KubeConfig, pod.Namespace, pod.Name)
+	return NewKubePilot(s.KubeConfig, pod.Namespace, pod.Name)
 }
 
 // LocalPilot is the interface for a local pilot server.
@@ -116,7 +118,7 @@ type localPilot struct {
 
 type kubePilot struct {
 	*pilotClient
-	forwarder *kube.PortForwarder
+	forwarder kube.PortForwarder
 }
 
 // NewLocalPilot creates a new pilot for the local environment.
@@ -175,8 +177,12 @@ func NewLocalPilot(namespace string) (LocalPilot, error) {
 func NewKubePilot(kubeConfig, namespace, pod string) (environment.DeployedPilot, error) {
 	// Start port-forwarding for pilot.
 	// TODO(nmittler): Don't use a hard-coded port.
-	forwarder := kube.NewPortForwarder(kubeConfig, namespace, pod, pilotAdsPort)
-	if err := forwarder.Start(); err != nil {
+	options := &kube.PodSelectOptions{
+		PodNamespace: namespace,
+		PodName:      pod,
+	}
+	forwarder, err := kube.PortForward(kubeConfig, options, "", strconv.Itoa(pilotAdsPort))
+	if err != nil {
 		return nil, err
 	}
 

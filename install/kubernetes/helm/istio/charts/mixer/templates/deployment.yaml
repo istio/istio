@@ -144,9 +144,6 @@
 {{- end }}
           - --configDefaultNamespace={{ $.Release.Namespace }}
           - --trace_zipkin_url=http://zipkin:9411/api/v1/spans
-          - --certFile=/etc/certs/cert-chain.pem
-          - --keyFile=/etc/certs/key.pem
-          - --caCertFile=/etc/certs/root-cert.pem
         resources:
 {{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 10 }}
@@ -239,6 +236,11 @@ spec:
       annotations:
         sidecar.istio.io/inject: "false"
         scheduler.alpha.kubernetes.io/critical-pod: ""
+{{ if ne $.Values.global.proxy.stats.prometheusPort 0. }}
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "{{ $.Values.global.proxy.stats.prometheusPort }}"
+        prometheus.io/path: /stats/prometheus
+{{ end}}
 {{- with $.Values.podAnnotations }}
 {{ toYaml . | indent 8 }}
 {{- end }}

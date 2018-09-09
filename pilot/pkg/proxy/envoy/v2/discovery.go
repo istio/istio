@@ -141,7 +141,7 @@ func (s *DiscoveryServer) periodicRefresh() {
 	defer ticker.Stop()
 	for range ticker.C {
 		adsLog.Infof("ADS: periodic push of envoy configs %s", versionInfo())
-		s.AdsPushAll(versionInfo(), s.env.PushContext)
+		s.AdsPushAll(versionInfo())
 	}
 }
 
@@ -214,7 +214,7 @@ func (s *DiscoveryServer) ClearCacheFunc() func() {
 		version = versionLocal
 		versionMutex.Unlock()
 
-		go s.AdsPushAll(versionLocal, push)
+		go s.AdsPushAll(versionLocal)
 	}
 }
 

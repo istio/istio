@@ -145,7 +145,7 @@ func (wh *Webhook) rebuildWebhookConfig() error {
 	return nil
 }
 
-// Load the CA Cert PEM from the input reader. This also verifies that the certiticate is a validate x509 cert.
+// Load the CA Cert PEM from the input reader. This also verifies that the certificate is a validate x509 cert.
 func loadCaCertPem(in io.Reader) ([]byte, error) {
 	caCertPemBytes, err := ioutil.ReadAll(in)
 	if err != nil {
@@ -159,7 +159,7 @@ func loadCaCertPem(in io.Reader) ([]byte, error) {
 		return nil, fmt.Errorf("ca bundle contains wrong pem type: %q", block.Type)
 	}
 	if _, err := x509.ParseCertificate(block.Bytes); err != nil {
-		return nil, fmt.Errorf("ca bundle contains invalid x509 certiticate: %v", err)
+		return nil, fmt.Errorf("ca bundle contains invalid x509 certificate: %v", err)
 	}
 	return caCertPemBytes, nil
 }

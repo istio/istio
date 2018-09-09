@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/tests/util"
 )
 
@@ -42,7 +43,7 @@ func TestLDS(t *testing.T) {
 		}
 
 		strResponse, _ := model.ToJSONWithIndent(res, " ")
-		_ = ioutil.WriteFile(util.IstioOut+"/ldsv2_sidecar.json", []byte(strResponse), 0644)
+		_ = ioutil.WriteFile(env.IstioOut+"/ldsv2_sidecar.json", []byte(strResponse), 0644)
 
 		if len(res.Resources) == 0 {
 			t.Fatal("No response")
@@ -67,7 +68,7 @@ func TestLDS(t *testing.T) {
 
 		strResponse, _ := model.ToJSONWithIndent(res, " ")
 
-		_ = ioutil.WriteFile(util.IstioOut+"/ldsv2_gateway.json", []byte(strResponse), 0644)
+		_ = ioutil.WriteFile(env.IstioOut+"/ldsv2_gateway.json", []byte(strResponse), 0644)
 
 		if len(res.Resources) == 0 {
 			t.Fatal("No response")
@@ -93,7 +94,7 @@ func TestLDS(t *testing.T) {
 
 		strResponse, _ := model.ToJSONWithIndent(res, " ")
 
-		_ = ioutil.WriteFile(util.IstioOut+"/ads_lds_ingress.json", []byte(strResponse), 0644)
+		_ = ioutil.WriteFile(env.IstioOut+"/ads_lds_ingress.json", []byte(strResponse), 0644)
 
 		if len(res.Resources) == 0 {
 			t.Fatal("No response")

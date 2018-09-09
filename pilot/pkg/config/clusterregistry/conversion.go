@@ -19,12 +19,11 @@ import (
 	"strings"
 	"sync"
 
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
-	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	k8s_cr "k8s.io/cluster-registry/pkg/apis/clusterregistry/v1alpha1"
 
 	"istio.io/istio/pilot/pkg/serviceregistry"
@@ -38,16 +37,18 @@ const (
 	ClusterPlatform = "config.istio.io/platform"
 
 	// The cluster's access configuration stored in k8s Secret object
-	// E.g., on kubenetes, this file can be usually copied from .kube/config
+	// E.g., on kubernetes, this file can be usually copied from .kube/config
 	ClusterAccessConfigSecret          = "config.istio.io/accessConfigSecret"
 	ClusterAccessConfigSecretNamespace = "config.istio.io/accessConfigSecretNamespace"
+
+	// Default namespace to fetch cluster's access configuration secret.
+	DefaultAccessConfigSecretNamespace = "istio-system"
 )
 
 // RemoteCluster defines cluster struct
 type RemoteCluster struct {
 	Cluster        *k8s_cr.Cluster
 	FromSecret     string
-	Client         *clientcmdapi.Config
 	ClusterStatus  string
 	Controller     *kube.Controller
 	ControlChannel chan struct{}
@@ -65,15 +66,6 @@ func NewClustersStore() *ClusterStore {
 	return &ClusterStore{
 		rc: rc,
 	}
-}
-
-// GetClusterAccessConfig returns the access config file of a cluster
-func (cs *ClusterStore) GetClusterAccessConfig(cluster *k8s_cr.Cluster) *clientcmdapi.Config {
-	if cluster == nil {
-		return nil
-	}
-	clusterAccessConfig := cs.rc[cluster.ObjectMeta.Name].Client
-	return clusterAccessConfig
 }
 
 // GetClusterID returns a cluster's ID
@@ -130,7 +122,7 @@ func getClustersConfigs(k8s kubernetes.Interface, configMapName, configMapNamesp
 
 		}
 		if len(secretNamespace) == 0 {
-			secretNamespace = "istio-system"
+			secretNamespace = DefaultAccessConfigSecretNamespace
 		}
 		kubeconfig, err := getClusterConfigFromSecret(k8s, secretName, secretNamespace, key)
 		if err != nil {
@@ -138,14 +130,12 @@ func getClustersConfigs(k8s kubernetes.Interface, configMapName, configMapNamesp
 				secretName, secretNamespace, key, err))
 			continue
 		}
-		clientConfig, err := clientcmd.Load(kubeconfig)
-		if err != nil {
+		if _, err = clientcmd.Load(kubeconfig); err != nil {
 			errList = multierror.Append(errList, fmt.Errorf("failed to load client config from secret %s in namespace %s for cluster %s with error: %v",
 				secretName, secretNamespace, key, err))
 			continue
 		}
 		cs.rc[cluster.ObjectMeta.Name] = &RemoteCluster{}
-		cs.rc[cluster.ObjectMeta.Name].Client = clientConfig
 		cs.rc[cluster.ObjectMeta.Name].Cluster = &cluster
 	}
 
@@ -194,7 +184,7 @@ func validateCluster(cluster *k8s_cr.Cluster) (err error) {
 		cluster.ObjectMeta.Annotations[ClusterAccessConfigSecretNamespace] = cluster.Name
 	}
 	if cluster.ObjectMeta.Annotations[ClusterAccessConfigSecretNamespace] == "" {
-		cluster.ObjectMeta.Annotations[ClusterAccessConfigSecretNamespace] = "istio-system"
+		cluster.ObjectMeta.Annotations[ClusterAccessConfigSecretNamespace] = DefaultAccessConfigSecretNamespace
 	}
 
 	return

@@ -4,6 +4,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: meshexpansion-pilot
+  namespace: {{ .Release.Namespace }}
 spec:
   hosts:
   - "pilot.istio-system"
@@ -28,6 +29,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: ilb-meshexpansion-pilot
+  namespace: {{ .Release.Namespace }}
 spec:
   hosts:
   - "meshexpansionilb.istio-system"

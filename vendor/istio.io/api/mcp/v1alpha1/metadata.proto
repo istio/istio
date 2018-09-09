@@ -17,15 +17,23 @@ syntax = "proto3";
 package istio.mcp.v1alpha1;
 
 import "gogoproto/gogo.proto";
+import "google/protobuf/timestamp.proto";
 
 option go_package="istio.io/api/mcp/v1alpha1";
 option (gogoproto.equal_all) = true;
 
 // Metadata information that all resources within the Mesh Configuration Protocol must have.
 message Metadata {
+  // The name of the resource. It is unique within the context of a
+  // resource type and the origin server of the resource. The resource
+  // type is identified by the TypeUrl of the resource field of the
+  // Envelope message.
+  string name = 1;
 
-    // The name of the resource. It is unique within the context of a resource type and the origin server of
-    // the resource. The resource type is identified by the TypeUrl of the resource field of the Envelope
-    // message.
-	string name = 1;
+  // The creation timestamp of the resource.
+  google.protobuf.Timestamp create_time = 2;
+
+  // The resource level version. It allows MCP to track the state of
+  // individual resources.
+  string version = 3;
 }

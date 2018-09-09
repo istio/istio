@@ -47,6 +47,8 @@ const (
 
 	envoyHTTPConnectionManager = "envoy.http_connection_manager"
 
+	envoyListenerTLSInspector = "envoy.listener.tls_inspector"
+
 	// RDSHttpProxy is the special name for HTTP PROXY route
 	RDSHttpProxy = "http_proxy"
 
@@ -716,7 +718,7 @@ func buildSidecarInboundMgmtListeners(managementPorts model.PortList, management
 				}},
 			}
 			l := buildListener(listenerOpts)
-			// TODO: should we call plugins for the admin port listeners too? We do everywhere else we contruct listeners.
+			// TODO: should we call plugins for the admin port listeners too? We do everywhere else we construct listeners.
 			if err := marshalFilters(l, listenerOpts, []plugin.FilterChain{{}}); err != nil {
 				log.Warna("buildSidecarInboundMgmtListeners ", err.Error())
 			} else {
@@ -858,6 +860,19 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 
 	// TODO(incfly): consider changing this to map to handle duplicated listener filters from different chains?
 	var listenerFilters []listener.ListenerFilter
+
+	// add a TLS inspector if we need to detect ServerName or ALPN
+	needTLSInspector := false
+	for _, chain := range opts.filterChainOpts {
+		needsALPN := chain.tlsContext != nil && chain.tlsContext.CommonTlsContext != nil && len(chain.tlsContext.CommonTlsContext.AlpnProtocols) > 0
+		if len(chain.sniHosts) > 0 || needsALPN {
+			needTLSInspector = true
+			break
+		}
+	}
+	if needTLSInspector {
+		listenerFilters = append(listenerFilters, listener.ListenerFilter{Name: envoyListenerTLSInspector})
+	}
 
 	for _, chain := range opts.filterChainOpts {
 		listenerFilters = append(listenerFilters, chain.listenerFilters...)

@@ -100,12 +100,13 @@ func (s *sourceImpl) Stop() {
 	}
 }
 
-func (s *sourceImpl) process(l *listener, kind resource.EventKind, key, version string, u *unstructured.Unstructured) {
+func (s *sourceImpl) process(l *listener, kind resource.EventKind, key, resourceVersion string, u *unstructured.Unstructured) {
 	var item proto.Message
 	var err error
+	var createTime time.Time
 	if u != nil {
-		if key, item, err = l.spec.Converter(l.spec.Target, key, u); err != nil {
-			scope.Errorf("Unable to convert unstructured to proto: %s/%s", key, version)
+		if key, createTime, item, err = l.spec.Converter(l.spec.Target, key, u); err != nil {
+			scope.Errorf("Unable to convert unstructured to proto: %s/%s", key, resourceVersion)
 			return
 		}
 	}
@@ -115,7 +116,8 @@ func (s *sourceImpl) process(l *listener, kind resource.EventKind, key, version 
 			TypeURL:  l.spec.Target.TypeURL,
 			FullName: key,
 		},
-		Version: resource.Version(version),
+		Version:    resource.Version(resourceVersion),
+		CreateTime: createTime,
 	}
 
 	e := resource.Event{

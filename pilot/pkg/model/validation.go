@@ -1169,9 +1169,6 @@ func ValidateServiceRole(name, namespace string, msg proto.Message) error {
 		if len(rule.Services) == 0 {
 			errs = appendErrors(errs, fmt.Errorf("at least 1 service must be specified for rule %d", i))
 		}
-		if len(rule.Methods) == 0 {
-			errs = appendErrors(errs, fmt.Errorf("at least 1 method must be specified for rule %d", i))
-		}
 		for j, constraint := range rule.Constraints {
 			if len(constraint.Key) == 0 {
 				errs = appendErrors(errs, fmt.Errorf("key cannot be empty for constraint %d in rule %d", j, i))
@@ -1344,7 +1341,7 @@ func ValidateVirtualService(name, namespace string, msg proto.Message) (errs err
 		errs = appendErrors(errs, validateHTTPRoute(httpRoute))
 	}
 	for _, tlsRoute := range virtualService.Tls {
-		errs = appendErrors(errs, validateTLSRoute(tlsRoute))
+		errs = appendErrors(errs, validateTLSRoute(tlsRoute, virtualService))
 	}
 	for _, tcpRoute := range virtualService.Tcp {
 		errs = appendErrors(errs, validateTCPRoute(tcpRoute))
@@ -1353,7 +1350,7 @@ func ValidateVirtualService(name, namespace string, msg proto.Message) (errs err
 	return
 }
 
-func validateTLSRoute(tls *networking.TLSRoute) (errs error) {
+func validateTLSRoute(tls *networking.TLSRoute, context *networking.VirtualService) (errs error) {
 	if tls == nil {
 		return nil
 	}
@@ -1362,7 +1359,7 @@ func validateTLSRoute(tls *networking.TLSRoute) (errs error) {
 		errs = appendErrors(errs, errors.New("TLS route must have at least one match condition"))
 	}
 	for _, match := range tls.Match {
-		errs = appendErrors(errs, validateTLSMatch(match))
+		errs = appendErrors(errs, validateTLSMatch(match, context))
 	}
 	if len(tls.Route) != 1 {
 		errs = appendErrors(errs, errors.New("TLS route must have exactly one destination"))
@@ -1371,10 +1368,18 @@ func validateTLSRoute(tls *networking.TLSRoute) (errs error) {
 	return
 }
 
-func validateTLSMatch(match *networking.TLSMatchAttributes) (errs error) {
+func validateTLSMatch(match *networking.TLSMatchAttributes, context *networking.VirtualService) (errs error) {
 	if len(match.SniHosts) == 0 {
 		errs = appendErrors(errs, fmt.Errorf("TLS match must have at least one SNI host"))
+	} else {
+		for _, sniHost := range match.SniHosts {
+			err := validateSniHost(sniHost, context)
+			if err != nil {
+				errs = appendErrors(errs, err)
+			}
+		}
 	}
+
 	for _, destinationSubnet := range match.DestinationSubnets {
 		errs = appendErrors(errs, ValidateIPv4Subnet(destinationSubnet))
 	}
@@ -1385,6 +1390,21 @@ func validateTLSMatch(match *networking.TLSMatchAttributes) (errs error) {
 	errs = appendErrors(errs, Labels(match.SourceLabels).Validate())
 	errs = appendErrors(errs, validateGatewayNames(match.Gateways))
 	return
+}
+
+func validateSniHost(sniHost string, context *networking.VirtualService) error {
+	err := ValidateWildcardDomain(sniHost)
+	if err != nil {
+		return err
+	}
+	sniHostname := Hostname(sniHost)
+	for _, host := range context.Hosts {
+		if sniHostname.SubsetOf(Hostname(host)) {
+			return nil
+		}
+	}
+	err = fmt.Errorf("SNI host is not a compatible subset of the virtual service hosts: %s", sniHost)
+	return err
 }
 
 func validateTCPRoute(tcp *networking.TCPRoute) (errs error) {
@@ -1613,7 +1633,7 @@ func validateSubsetName(name string) error {
 		return fmt.Errorf("subset name cannot be empty")
 	}
 	if !IsDNS1123Label(name) {
-		return fmt.Errorf("subnet name is invalid: %s", name)
+		return fmt.Errorf("subset name is invalid: %s", name)
 	}
 	return nil
 }
@@ -1786,6 +1806,28 @@ func ValidateServiceEntry(name, namespace string, config proto.Message) (errs er
 	default:
 		errs = appendErrors(errs, fmt.Errorf("unsupported resolution type %s",
 			networking.ServiceEntry_Resolution_name[int32(serviceEntry.Resolution)]))
+	}
+
+	// multiple hosts and TCP is invalid unless the resolution type is NONE.
+	// depending on the protocol, we can differentiate between hosts when proxying:
+	// - with HTTP, the authority header can be used
+	// - with HTTPS/TLS with SNI, the ServerName can be used
+	// however, for plain TCP there is no way to differentiate between the
+	// hosts so we consider it invalid, unless the resolution type is NONE
+	// (because the hosts are ignored).
+	if serviceEntry.Resolution != networking.ServiceEntry_NONE && len(serviceEntry.Hosts) > 1 {
+		canDifferentiate := true
+		for _, port := range serviceEntry.Ports {
+			protocol := ParseProtocol(port.Protocol)
+			if !protocol.IsHTTP() && !protocol.IsTLS() {
+				canDifferentiate = false
+				break
+			}
+		}
+
+		if !canDifferentiate {
+			errs = appendErrors(errs, fmt.Errorf("multiple hosts provided with non-HTTP, non-TLS ports"))
+		}
 	}
 
 	for _, port := range serviceEntry.Ports {

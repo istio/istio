@@ -47,7 +47,7 @@ var mutableBags = sync.Pool{
 	},
 }
 
-var scope = log.RegisterScope("attributes", "Attribute-related messsages.", 0)
+var scope = log.RegisterScope("attributes", "Attribute-related messages.", 0)
 
 // GetMutableBag returns an initialized bag.
 //
@@ -277,8 +277,9 @@ func (mb *MutableBag) ToProto(output *mixerpb.CompressedAttributes, globalDict m
 				output.StringMaps = make(map[int32]mixerpb.StringMap)
 			}
 			output.StringMaps[index] = mixerpb.StringMap{Entries: sm}
+
 		default:
-			scope.Errorf("Cannot convert value:%v of type:%T", v, v)
+			panic(fmt.Errorf("cannot convert value:%v of type:%T", v, v))
 		}
 	}
 
@@ -348,9 +349,9 @@ func (mb *MutableBag) UpdateBagFromProto(attrs *mixerpb.CompressedAttributes, gl
 	for k, v := range attrs.Strings {
 		name, e = lookup(k, e, globalWordList, messageWordList)
 		value, e = lookup(v, e, globalWordList, messageWordList)
-		if err := mb.insertProtoAttr(name, value, seen, lg); err != nil {
-			return err
-		}
+
+		// this call cannot fail, given that this is the first map we're iterating through
+		_ = mb.insertProtoAttr(name, value, seen, lg)
 	}
 
 	lg("  setting int64 attributes:")

@@ -23,40 +23,44 @@ import (
 
 // Request interface is the common interface for all different types of requests.
 type Request interface {
-	// createRequestProtos causes the request to create one-or-more API request protos.
-	createRequestProtos() []interface{}
+	// getRequestProto returns one API request proto.
+	getRequestProto() interface{}
 }
 
 // BasicReport is an implementation of Request that is used to explicitly specify a Report request.
 type BasicReport struct {
-	Attributes map[string]interface{} `json:"attributes,omitempty"`
+	RequestProto istio_mixer_v1.ReportRequest `json:"requestProto,omitempty"`
 }
 
 var _ Request = &BasicReport{}
 
 // BasicCheck is an implementation of Request that is specified declaratively by the author.
 type BasicCheck struct {
-	Attributes map[string]interface{}                             `json:"attributes,omitempty"`
-	Quotas     map[string]istio_mixer_v1.CheckRequest_QuotaParams `json:"quotas,omitempty"`
+	RequestProto istio_mixer_v1.CheckRequest `json:"requestProto,omitempty"`
 }
 
 var _ Request = &BasicCheck{}
 
-// CreateRequest creates a request proto.
-func (r BasicReport) createRequestProtos() []interface{} {
+// BuildBasicReport builds a BasicReport Request by creating a Report API request.
+func BuildBasicReport(attributes map[string]interface{}) BasicReport {
 	requestBag := attribute.GetMutableBag(nil)
-	for k, v := range r.Attributes {
+	for k, v := range attributes {
 		requestBag.Set(k, v)
 	}
 
 	var attrProto istio_mixer_v1.CompressedAttributes
 	requestBag.ToProto(&attrProto, nil, 0)
 
-	return []interface{}{
-		&istio_mixer_v1.ReportRequest{
+	br := BasicReport{
+		RequestProto: istio_mixer_v1.ReportRequest{
 			Attributes: []istio_mixer_v1.CompressedAttributes{attrProto},
 		},
 	}
+	return br
+}
+
+func (r BasicReport) getRequestProto() interface{} {
+	return interface{}(&r.RequestProto)
 }
 
 // MarshalJSON marshals the report as JSON.
@@ -65,31 +69,34 @@ func (r BasicReport) MarshalJSON() ([]byte, error) {
 
 	var err error
 	m["type"], _ = json.Marshal("basicReport")
-
-	m["attributes"], err = json.Marshal(r.Attributes)
+	m["requestProto"], err = json.Marshal(r.RequestProto)
 	if err != nil {
 		return nil, err
 	}
-
 	return json.Marshal(m)
 }
 
-// CreateRequest creates a request proto.
-func (c BasicCheck) createRequestProtos() []interface{} {
+// BuildBasicCheck builds a BasicReport Request by creating a Check API request.
+func BuildBasicCheck(attributes map[string]interface{}, quotas map[string]istio_mixer_v1.CheckRequest_QuotaParams) BasicCheck {
 	requestBag := attribute.GetMutableBag(nil)
-	for k, v := range c.Attributes {
+	for k, v := range attributes {
 		requestBag.Set(k, v)
 	}
 
 	var attrProto istio_mixer_v1.CompressedAttributes
 	requestBag.ToProto(&attrProto, nil, 0)
 
-	return []interface{}{
-		&istio_mixer_v1.CheckRequest{
+	c := BasicCheck{
+		RequestProto: istio_mixer_v1.CheckRequest{
 			Attributes: attrProto,
-			Quotas:     c.Quotas,
+			Quotas:     quotas,
 		},
 	}
+	return c
+}
+
+func (c BasicCheck) getRequestProto() interface{} {
+	return interface{}(&c.RequestProto)
 }
 
 // MarshalJSON marshals the report as JSON.
@@ -98,15 +105,9 @@ func (c BasicCheck) MarshalJSON() ([]byte, error) {
 
 	var err error
 	m["type"], _ = json.Marshal("basicCheck")
-
-	if m["attributes"], err = json.Marshal(c.Attributes); err != nil {
+	m["requestProto"], err = json.Marshal(c.RequestProto)
+	if err != nil {
 		return nil, err
-	}
-
-	if c.Quotas != nil {
-		if m["quotas"], err = json.Marshal(c.Quotas); err != nil {
-			return nil, err
-		}
 	}
 
 	return json.Marshal(m)

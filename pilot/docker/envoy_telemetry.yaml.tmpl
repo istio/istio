@@ -4,8 +4,34 @@ admin:
     socket_address:
       address: 127.0.0.1
       port_value: 15000
+stats_config:
+  use_all_default_tags: false
+  stats_tags:
+  - tag_name: cluster_name
+    regex: '^cluster\.((.+?(\..+?\.svc\.cluster\.local)?)\.)'
+  - tag_name: tcp_prefix
+    regex: '^tcp\.((.*?)\.)\w+?$'
+  - tag_name: response_code
+    regex: '_rq(_(\d{3}))$'
+  - tag_name: response_code_class
+    regex: '_rq(_(\dxx))$'
+  - tag_name: http_conn_manager_listener_prefix
+    regex: '^listener(?=\.).*?\.http\.(((?:[_.[:digit:]]*|[_\[\]aAbBcCdDeEfF[:digit:]]*))\.)'
+  - tag_name: http_conn_manager_prefix
+    regex: '^http\.(((?:[_.[:digit:]]*|[_\[\]aAbBcCdDeEfF[:digit:]]*))\.)'
+  - tag_name: listener_address
+    regex: '^listener\.(((?:[_.[:digit:]]*|[_\[\]aAbBcCdDeEfF[:digit:]]*))\.)'
 static_resources:
   clusters:
+  - name: prometheus_stats
+    type: STATIC
+    connect_timeout: 0.250s
+    lb_policy: ROUND_ROBIN
+    hosts:
+    - socket_address:
+        protocol: TCP
+        address: 127.0.0.1
+        port_value: 15000
   - circuit_breakers:
       thresholds:
       - max_connections: 100000
@@ -17,7 +43,7 @@ static_resources:
     - pipe:
         path: /sock/mixer.socket
     http2_protocol_options: {}
-    name: in.9092
+    name: inbound_9092
   - connect_timeout: 1.000s
     hosts:
     - socket_address:
@@ -26,6 +52,29 @@ static_resources:
     name: zipkin
     type: STRICT_DNS
   listeners:
+  - address:
+      socket_address:
+        protocol: TCP
+        address: 0.0.0.0
+        port_value: 15090
+    filter_chains:
+    - filters:
+      - name: envoy.http_connection_manager
+        config:
+          codec_type: AUTO
+          stat_prefix: stats
+          route_config:
+            virtual_hosts:
+            - name: backend
+              domains:
+              - '*'
+              routes:
+              - match:
+                  prefix: /stats/prometheus
+                route:
+                  cluster: prometheus_stats
+          http_filters:
+          - name: envoy.router
   - address:
       socket_address:
         address: 0.0.0.0
@@ -70,7 +119,7 @@ static_resources:
                         string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
               transport:
                 check_cluster: mixer_check_server
-                report_cluster: in.9092
+                report_cluster: inbound_9092
             name: mixer
           - name: envoy.router
           route_config:
@@ -85,7 +134,7 @@ static_resources:
                 match:
                   prefix: /
                 route:
-                  cluster: in.9092
+                  cluster: inbound_9092
                   timeout: 0.000s
           stat_prefix: "15004"
           tracing: {}
@@ -150,7 +199,7 @@ static_resources:
                         string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
               transport:
                 check_cluster: mixer_check_server
-                report_cluster: in.9092
+                report_cluster: inbound_9092
             name: mixer
           - name: envoy.router
           route_config:
@@ -165,7 +214,7 @@ static_resources:
                 match:
                   prefix: /
                 route:
-                  cluster: in.9092
+                  cluster: inbound_9092
                   timeout: 0.000s
           stat_prefix: "9091"
           tracing: {}

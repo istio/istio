@@ -35,8 +35,8 @@ import (
 	"istio.io/istio/security/pkg/caclient"
 	"istio.io/istio/security/pkg/caclient/protocol"
 	"istio.io/istio/security/pkg/cmd"
+	"istio.io/istio/security/pkg/k8s/controller"
 	"istio.io/istio/security/pkg/pki/ca"
-	"istio.io/istio/security/pkg/pki/ca/controller"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/platform"
 	probecontroller "istio.io/istio/security/pkg/probe"
@@ -253,7 +253,7 @@ func init() {
 	flags.StringVar(&opts.customDNSNames, "custom-dns-names", "",
 		"The list of account.namespace:customdns names, separated by comma.")
 
-	// Dual-use certficate signing
+	// Dual-use certificate signing
 	flags.BoolVar(&opts.dualUse, "experimental-dual-use",
 		false, "Enable dual-use mode. Generates certificates with a CommonName identical to the SAN.")
 

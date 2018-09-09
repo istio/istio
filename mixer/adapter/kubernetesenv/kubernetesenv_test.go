@@ -242,7 +242,7 @@ func TestKubegen_Generate(t *testing.T) {
 	ipDestinationOut.SetSourceWorkloadName("test-job")
 	ipDestinationOut.SetSourceWorkloadNamespace("testns")
 	ipDestinationOut.SetSourceWorkloadUid("istio://testns/workloads/test-job")
-	ipDestinationOut.SetSourceOwner("kubernetes://apis/core/v1/namespaces/testns/jobs/test-job")
+	ipDestinationOut.SetSourceOwner("kubernetes://apis/batch/v1/namespaces/testns/jobs/test-job")
 	ipDestinationOut.SetDestinationLabels(map[string]string{"app": "ipAddr"})
 	ipDestinationOut.SetDestinationNamespace("testns")
 	ipDestinationOut.SetDestinationPodName("ip-svc-pod")
@@ -605,7 +605,7 @@ var k8sobjs = []runtime.Object{
 			Namespace: "testns",
 			OwnerReferences: []metav1.OwnerReference{
 				{
-					APIVersion: "core/v1",
+					APIVersion: "batch/v1",
 					Controller: &trueVar,
 					Kind:       "Job",
 					Name:       "test-job",

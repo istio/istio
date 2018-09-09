@@ -38,7 +38,7 @@ option (gogoproto.gostring_all) = false;
 
 // Configuration format for the `list` adapter.
 message Params {
-    // Where to find the list to check against. This may be ommited for a completely local list.
+    // Where to find the list to check against. This may be omitted for a completely local list.
     string provider_url = 1;
 
     // Determines how often the provider is polled for

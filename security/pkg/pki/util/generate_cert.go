@@ -58,7 +58,7 @@ type CertOptions struct {
 	// Whether this certificate is used as signing cert for CA.
 	IsCA bool
 
-	// Whether this cerificate is self-signed.
+	// Whether this certificate is self-signed.
 	IsSelfSigned bool
 
 	// Whether this certificate is for a client.

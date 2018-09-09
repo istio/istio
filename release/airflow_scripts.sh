@@ -72,8 +72,8 @@ function get_git_commit_cmd() {
     fi
 
     pushd istio-code/release || exit 19
-    gsutil cp ./*.sh   "gs://$GCS_RELEASE_TOOLS_PATH/data/release/"
-    gsutil cp ./*.json "gs://$GCS_RELEASE_TOOLS_PATH/data/release/"
+    gsutil -q cp ./*.sh   "gs://$GCS_RELEASE_TOOLS_PATH/data/release/"
+    gsutil -q cp ./*.json "gs://$GCS_RELEASE_TOOLS_PATH/data/release/"
     #cp airflow_scripts.sh /home/airflow/gcs/data/airflow_scripts.sh
     popd || exit 20 #istio-code/release
 
@@ -82,11 +82,11 @@ function get_git_commit_cmd() {
 }
 
 function build_template() {
-#    gsutil cp gs://istio-release-pipeline-data/release-tools/data/release/*.json .
-#    gsutil cp gs://istio-release-pipeline-data/release-tools/data/release/*.sh .
+#    gsutil -q cp gs://istio-release-pipeline-data/release-tools/data/release/*.json .
+#    gsutil -q cp gs://istio-release-pipeline-data/release-tools/data/release/*.sh .
 
-    gsutil cp gs://"$GCS_RELEASE_TOOLS_PATH"/data/release/*.json .
-    gsutil cp gs://"$GCS_RELEASE_TOOLS_PATH"/data/release/*.sh   .
+    gsutil -q cp gs://"$GCS_RELEASE_TOOLS_PATH"/data/release/*.json .
+    gsutil -q cp gs://"$GCS_RELEASE_TOOLS_PATH"/data/release/*.sh   .
     chmod u+x ./*
 
     ./start_gcb_build.sh -w -p "$PROJECT_ID" -r "$GCR_STAGING_DEST" -s "$GCS_BUILD_PATH" \
@@ -111,7 +111,7 @@ function test_command() {
 
 function modify_values_command() {
     # TODO: Merge these changes into istio/istio master and stop using this task
-    gsutil cp gs://istio-release-pipeline-data/release-tools/test-version/data/release/modify_values.sh .
+    gsutil -q cp gs://istio-release-pipeline-data/release-tools/test-version/data/release/modify_values.sh .
     chmod u+x modify_values.sh
     echo "PIPELINE TYPE is $PIPELINE_TYPE"
     if [ "$PIPELINE_TYPE" = "daily" ]; then
@@ -146,8 +146,8 @@ function gcr_tag_success() {
 }
 
 function release_push_github_docker_template() {
-  gsutil cp "gs://$GCS_RELEASE_TOOLS_PATH/data/release/*.json" .
-  gsutil cp "gs://$GCS_RELEASE_TOOLS_PATH/data/release/*.sh" .
+  gsutil -q cp "gs://$GCS_RELEASE_TOOLS_PATH/data/release/*.json" .
+  gsutil -q cp "gs://$GCS_RELEASE_TOOLS_PATH/data/release/*.sh" .
   chmod u+x ./*
 
   ./start_gcb_publish.sh \
@@ -161,8 +161,8 @@ function release_push_github_docker_template() {
 }
 
 function release_tag_github_template() {
-  gsutil cp "gs://$GCS_RELEASE_TOOLS_PATH/data/release/*.json" .
-  gsutil cp "gs://$GCS_RELEASE_TOOLS_PATH/data/release/*.sh" .
+  gsutil -q cp "gs://$GCS_RELEASE_TOOLS_PATH/data/release/*.json" .
+  gsutil -q cp "gs://$GCS_RELEASE_TOOLS_PATH/data/release/*.sh" .
   chmod u+x ./*
 
   ./start_gcb_tag.sh \

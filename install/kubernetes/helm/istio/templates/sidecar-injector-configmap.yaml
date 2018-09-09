@@ -14,6 +14,12 @@ data:
   config: |-
     policy: {{ .Values.global.proxy.autoInject }}
     template: |-
+      annotations:
+{{ if ne .Values.global.proxy.stats.prometheusPort 0. }}
+        "prometheus.io/scrape": "true"
+        "prometheus.io/port": "{{ .Values.global.proxy.stats.prometheusPort }}"
+        "prometheus.io/path": "/stats/prometheus"
+{{ end}}
       initContainers:
       - name: istio-init
 {{- if contains "/" .Values.global.proxy_init.image }}
@@ -35,7 +41,7 @@ data:
         - "-b"
         - {{ "\"[[ annotation .ObjectMeta `traffic.sidecar.istio.io/includeInboundPorts` (includeInboundPorts .Spec.Containers) ]]\"" }}
         - "-d"
-        - {{ "\"[[ annotation .ObjectMeta `traffic.sidecar.istio.io/excludeInboundPorts` " }} "{{ .Values.global.proxy.excludeInboundPorts }}" {{ " ]]\"" }}
+        - {{ "\"[[ excludeInboundPort (annotation .ObjectMeta `status.sidecar.istio.io/port` " }} {{ .Values.global.proxy.statusPort }} {{ ") (annotation .ObjectMeta `traffic.sidecar.istio.io/excludeInboundPorts` " }} "{{ .Values.global.proxy.excludeInboundPorts }}" {{ ") ]]\"" }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
         securityContext:
           capabilities:
@@ -43,13 +49,17 @@ data:
             - NET_ADMIN
           privileged: true
         restartPolicy: Always
-      {{ if eq .Values.global.proxy.enableCoreDump true }}
+      {{- if .Values.global.proxy.enableCoreDump }}
       - args:
         - -c
-        - sysctl -w kernel.core_pattern=/etc/istio/proxy/core.%e.%p.%t && ulimit -c unlimited
+        - sysctl -w kernel.core_pattern=/var/lib/istio/core.proxy && ulimit -c unlimited
         command:
           - /bin/sh
-        image: {{ .Values.global.hub }}/proxy_init:{{ .Values.global.tag }}
+  {{- if contains "/" .Values.global.proxy_init.image }}
+        image: "{{ .Values.global.proxy_init.image }}"
+  {{- else }}
+        image: "{{ .Values.global.hub }}/{{ .Values.global.proxy_init.image }}:{{ .Values.global.tag }}"
+  {{- end }}
         imagePullPolicy: IfNotPresent
         name: enable-core-dump
         resources: {}
@@ -68,9 +78,9 @@ data:
         - {{ "[[ .ProxyConfig.BinaryPath ]]" }}
         - --serviceCluster
         {{ "[[ if ne \"\" (index .ObjectMeta.Labels \"app\") -]]" }}
-        - {{ "[[ index .ObjectMeta.Labels \"app\" ]]" }}
+        - {{ "[[ index .ObjectMeta.Labels \"app\" ]].[[ valueOrDefault .DeploymentMeta.Namespace \"default\" ]]" }}
         {{ "[[ else -]]" }}
-        - "istio-proxy"
+        - {{ "[[ valueOrDefault .DeploymentMeta.Name \"istio-proxy\" ]].[[ valueOrDefault .DeploymentMeta.Namespace \"default\" ]]" }}
         {{ "[[ end -]]" }}
         - --drainDuration
         - {{ "[[ formatDuration .ProxyConfig.DrainDuration ]]" }}
@@ -96,6 +106,10 @@ data:
         {{ "[[ end -]]" }}
         - --controlPlaneAuthPolicy
         - {{ "[[ annotation .ObjectMeta `sidecar.istio.io/controlPlaneAuthPolicy` .ProxyConfig.ControlPlaneAuthPolicy ]]" }}
+        - --statusPort
+        - {{ "[[ annotation .ObjectMeta `status.sidecar.istio.io/port` " }} {{ .Values.global.proxy.statusPort }} {{ " ]]" }}
+        - --applicationPorts
+        - {{ "\"[[ annotation .ObjectMeta `readiness.status.sidecar.istio.io/applicationPorts` (applicationPorts .Spec.Containers) ]]\"" }}
         env:
         - name: POD_NAME
           valueFrom:
@@ -116,9 +130,20 @@ data:
         - name: ISTIO_META_INTERCEPTION_MODE
           value: {{ "[[ annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode ]]" }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+        {{ "[[ if (ne (annotation .ObjectMeta `status.sidecar.istio.io/port` " }} {{ .Values.global.proxy.statusPort }} {{ ") \"0\") ]]" }}
+        readinessProbe:
+          httpGet:
+            path: /healthz/ready
+            port: {{ "[[ annotation .ObjectMeta `status.sidecar.istio.io/port` " }} {{ .Values.global.proxy.statusPort }} {{ " ]]" }}
+          initialDelaySeconds: {{ "[[ annotation .ObjectMeta `readiness.status.sidecar.istio.io/initialDelaySeconds` " }} {{ .Values.global.proxy.readinessInitialDelaySeconds }} {{ " ]]" }}
+          periodSeconds: {{ "[[ annotation .ObjectMeta `readiness.status.sidecar.istio.io/periodSeconds` " }} {{ .Values.global.proxy.readinessPeriodSeconds }} {{ " ]]" }}
+          failureThreshold: {{ "[[ annotation .ObjectMeta `readiness.status.sidecar.istio.io/failureThreshold` " }} {{ .Values.global.proxy.readinessFailureThreshold }} {{ " ]]" }}
+        {{ "[[ end -]]" -}}
         securityContext:
           privileged: false
+          {{- if ne .Values.global.proxy.enableCoreDump true }}
           readOnlyRootFilesystem: true
+          {{- end }}
           {{ "[[ if eq (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) \"TPROXY\" -]]" }}
           capabilities:
             add:

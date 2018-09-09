@@ -259,7 +259,11 @@ func TestProtoBag(t *testing.T) {
 			mb := GetMutableBag(pb)
 			for _, n := range names {
 				v, _ := pb.Get(n)
-				mb.Set(n, v)
+				if m, ok := v.(StringMap); ok {
+					mb.Set(n, m.entries)
+				} else {
+					mb.Set(n, v)
+				}
 			}
 
 			var a2 mixerpb.CompressedAttributes
@@ -359,6 +363,68 @@ func TestUpdateFromProto(t *testing.T) {
 
 	if !compareBags(b, refBag) {
 		t.Error("Bags don't match")
+	}
+}
+
+func TestUpdateFromProtoWithDupes(t *testing.T) {
+	globalDict := []string{"G0", "G1", "G2", "G3", "G4", "G5", "G6", "G7", "G8", "G9"}
+	messageDict := []string{"M1", "M2", "M3", "M4", "M5", "M6", "M7", "M8", "M9", "M10"}
+
+	b := GetMutableBag(nil)
+
+	cases := []struct {
+		attrs mixerpb.CompressedAttributes
+	}{
+		{mixerpb.CompressedAttributes{
+			Words:   messageDict,
+			Strings: map[int32]int32{4: 5},
+			Int64S:  map[int32]int64{4: 5},
+		}},
+
+		{mixerpb.CompressedAttributes{
+			Words:   messageDict,
+			Strings: map[int32]int32{4: 5},
+			Doubles: map[int32]float64{4: 5.0},
+		}},
+
+		{mixerpb.CompressedAttributes{
+			Words:   messageDict,
+			Strings: map[int32]int32{4: 5},
+			Bools:   map[int32]bool{4: false},
+		}},
+
+		{mixerpb.CompressedAttributes{
+			Words:     messageDict,
+			Strings:   map[int32]int32{4: 5},
+			Durations: map[int32]time.Duration{4: time.Second},
+		}},
+
+		{mixerpb.CompressedAttributes{
+			Words:      messageDict,
+			Strings:    map[int32]int32{4: 5},
+			Timestamps: map[int32]time.Time{4: time.Time{}},
+		}},
+
+		{mixerpb.CompressedAttributes{
+			Words:   messageDict,
+			Strings: map[int32]int32{4: 5},
+			Bytes:   map[int32][]byte{4: nil},
+		}},
+
+		{mixerpb.CompressedAttributes{
+			Words:      messageDict,
+			Strings:    map[int32]int32{4: 5},
+			StringMaps: map[int32]mixerpb.StringMap{4: {}},
+		}},
+	}
+
+	for i, c := range cases {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+
+			if err := b.UpdateBagFromProto(&c.attrs, globalDict); err == nil {
+				t.Errorf("Got success, expected error")
+			}
+		})
 	}
 }
 
@@ -783,6 +849,7 @@ func TestToProtoForTesting(t *testing.T) {
 	m := map[string]interface{}{
 		"A": 1.0,
 		"B": 2.0,
+		"C": 3,
 	}
 
 	ca := GetProtoForTesting(m)
@@ -794,7 +861,36 @@ func TestToProtoForTesting(t *testing.T) {
 	if v, found := b.Get("A"); !found {
 		t.Errorf("Didn't find A")
 	} else if v.(float64) != 1.0 {
-		t.Errorf("Got %d, expecting 1", v.(int))
+		t.Errorf("Got %v, expecting 1.0", v)
+	}
+
+	if v, found := b.Get("B"); !found {
+		t.Errorf("Didn't find B")
+	} else if v.(float64) != 2.0 {
+		t.Errorf("Got %v, expecting 2.0", v)
+	}
+
+	if v, found := b.Get("C"); !found {
+		t.Errorf("Didn't find C")
+	} else if v.(int64) != 3 {
+		t.Errorf("Got %v, expecting 3", v)
+	}
+}
+
+func TestToProtoUnknwonType(t *testing.T) {
+	var attrs mixerpb.CompressedAttributes
+
+	b := GetMutableBag(nil)
+	b.Set("M1", interface{}(func() {}))
+
+	if err := withPanic(func() { b.ToProto(&attrs, nil, 0) }); err == nil {
+		t.Error("Expected panic")
+	}
+
+	b = GetMutableBag(nil)
+	b.Set("M2", map[string]interface{}{"a": "b"})
+	if err := withPanic(func() { b.ToProto(&attrs, nil, 0) }); err == nil {
+		t.Error("Expected panic")
 	}
 }
 

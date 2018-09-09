@@ -120,7 +120,7 @@ var _ client.Updater = &backend{}
 
 // state is the in-memory cache.
 type state struct {
-	sync.Mutex
+	sync.RWMutex
 
 	// items stored by kind, then by key.
 	items map[string]map[store.Key]*store.BackEndResource
@@ -226,8 +226,8 @@ func (b *backend) Watch() (<-chan store.BackendEvent, error) {
 
 // Get returns a resource's spec to the key.
 func (b *backend) Get(key store.Key) (*store.BackEndResource, error) {
-	b.state.Lock()
-	defer b.state.Unlock()
+	b.state.RLock()
+	defer b.state.RUnlock()
 
 	perTypeState, found := b.state.items[key.Kind]
 	if !found {
@@ -244,8 +244,8 @@ func (b *backend) Get(key store.Key) (*store.BackEndResource, error) {
 
 // List returns the whole mapping from key to resource specs in the store.
 func (b *backend) List() map[store.Key]*store.BackEndResource {
-	b.state.Lock()
-	defer b.state.Unlock()
+	b.state.RLock()
+	defer b.state.RUnlock()
 
 	result := make(map[store.Key]*store.BackEndResource)
 	for _, perTypeItems := range b.state.items {
@@ -274,7 +274,8 @@ func (b *backend) Apply(change *client.Change) error {
 		var contents proto.Message
 
 		if scope.DebugEnabled() {
-			scope.Debugf("Processing incoming resource: %q @%s [%s]", o.Metadata.Name, o.Version, o.TypeURL)
+			scope.Debugf("Processing incoming resource: %q @%s [%s]",
+				o.Metadata.Name, o.Metadata.Version, o.TypeURL)
 		}
 
 		// Demultiplex the resource, if it is a legacy type, and figure out its kind.
@@ -300,7 +301,7 @@ func (b *backend) Apply(change *client.Change) error {
 		// Map it to Mixer's store model, and put it in the new collection.
 
 		key := toKey(kind, name)
-		resource, err := toBackendResource(key, contents, o.Version)
+		resource, err := toBackendResource(key, contents, o.Metadata.Version)
 		if err != nil {
 			return err
 		}

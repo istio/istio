@@ -135,7 +135,7 @@ resources:
           sleep 150
 
           kubectl apply -f samples/bookinfo/platform/kube/bookinfo.yaml
-          bin/istioctl create -f samples/bookinfo/networking/bookinfo-gateway.yaml
+          kubectl apply -f samples/bookinfo/networking/bookinfo-gateway.yaml
 
           gcloud beta runtime-config configs variables set success/{{ CLUSTER_NAME }}-waiter success --config-name $(ref.{{ CLUSTER_NAME }}-config.name)
           gcloud -q compute instances delete {{ CLUSTER_NAME }}-vm --zone {{ properties['zone'] }}

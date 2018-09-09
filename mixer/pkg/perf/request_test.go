@@ -21,19 +21,17 @@ import (
 )
 
 func TestBasicReportRequest(t *testing.T) {
-	report := BasicReport{
-		Attributes: map[string]interface{}{
-			"foo": "bar",
-			"baz": int64(42),
-		},
-	}
+	report := BuildBasicReport(map[string]interface{}{
+		"foo": "bar",
+		"baz": int64(42),
+	})
 
-	protos := report.createRequestProtos()
-	if len(protos) != 1 {
+	proto := report.getRequestProto()
+	if proto == nil {
 		t.Fatalf("should have created 1 proto")
 	}
 
-	actual, ok := protos[0].(*istio_mixer_v1.ReportRequest)
+	actual, ok := proto.(*istio_mixer_v1.ReportRequest)
 	if !ok {
 		t.Fatalf("should have created a ReportRequest proto")
 	}
@@ -68,12 +66,11 @@ func TestBasicReportRequest(t *testing.T) {
 }
 
 func TestBasicCheckRequest(t *testing.T) {
-	report := BasicCheck{
-		Attributes: map[string]interface{}{
+	report := BuildBasicCheck(
+		map[string]interface{}{
 			"foo": "bar",
 		},
-
-		Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+		map[string]istio_mixer_v1.CheckRequest_QuotaParams{
 			"zoo": {
 				BestEffort: true,
 				Amount:     43,
@@ -82,15 +79,14 @@ func TestBasicCheckRequest(t *testing.T) {
 				BestEffort: false,
 				Amount:     23,
 			},
-		},
-	}
+		})
 
-	protos := report.createRequestProtos()
-	if len(protos) != 1 {
+	proto := report.getRequestProto()
+	if proto == nil {
 		t.Fatalf("should have created 1 proto")
 	}
 
-	actual, ok := protos[0].(*istio_mixer_v1.CheckRequest)
+	actual, ok := proto.(*istio_mixer_v1.CheckRequest)
 	if !ok {
 		t.Fatalf("should have created a CheckRequest proto")
 	}

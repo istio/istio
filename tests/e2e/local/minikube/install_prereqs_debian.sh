@@ -1,6 +1,9 @@
 #!/bin/bash
 
-source "../common_linux.sh"
+SCRIPTPATH="$(cd "$(dirname "$0")" ; pwd -P)"
+ROOTDIR="$(dirname "${SCRIPTPATH}")"
+# shellcheck source=tests/e2e/local/common_linux.sh
+source "${ROOTDIR}/common_linux.sh"
 
 check_apt_get
 sudo apt-get --quiet -y update
@@ -12,13 +15,12 @@ install_curl
 #Install Kvm2
 echo "Installing KVM2 as required"
 sudo modprobe kvm > /dev/null 2>&1
-sudo apt-get install -y  libvirt-bin > /dev/null 2>&1
-sudo apt-get install -y libvirt-daemon-system libvirt-dev libvirt-clients virt-manager
-sudo apt-get install -y qemu-kvm
+packages_to_install=("libvirt-bin" "libvirt-daemon-system" "libvirt-dev" "libvirt-clients" "virt-manager" "qemu-kvm" )
+check_and_install_packages apt "${packages_to_install[@]}"
+
 sudo systemctl stop libvirtd
 sudo systemctl start libvirtd
 sudo usermod -a -G libvirt "$(whoami)"
-newgrp libvirt
 curl -LO https://storage.googleapis.com/minikube/releases/latest/docker-machine-driver-kvm2 && chmod +x docker-machine-driver-kvm2 && sudo mv docker-machine-driver-kvm2 /usr/local/bin/
 # We run following commands only for making scripts resilient to failures. Hence
 # ignoring any errors from them too.
@@ -31,7 +33,7 @@ install_docker
 
 # Install minikube.
 function install_minikube() {
-  if ! (curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.27.0/minikube-linux-amd64 && \ 
+  if ! (curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.27.0/minikube-linux-amd64 && \
       chmod +x minikube && \
       sudo mv minikube /usr/local/bin/); then
       echo "Looks like minikube installation failed."
