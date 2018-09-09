@@ -22,6 +22,8 @@ import (
 	"istio.io/istio/tests/util/checker"
 )
 
+// ReportFlakyTests reports names of tests that have annotation.IsFlaky() call.
+// nolint:deadcode
 func ReportFlakyTests() {
 	flag.Parse()
 	exitCode := 0

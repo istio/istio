@@ -3,7 +3,7 @@ package testdata
 import (
 	"testing"
 
-	"istio.io/istio/tests/annotation"
+	"istio.io/istio/pkg/test/annotation"
 )
 
 func SetCount()       {}
