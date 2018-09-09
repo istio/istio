@@ -30,10 +30,9 @@ func getAbsPath(path string) string {
 
 func TestIntegTestSkipByIssueRule(t *testing.T) {
 	rpts, _ := getReport([]string{"testdata/"})
-	expectedRpts := []string{
-		getAbsPath("testdata/data_test.go") + ":25:2:annotation.IsFlaky() is found in TestIsMarkedFlaky (is_flaky)"}
+	expectedRpts := []string{"TestIsMarkedFlaky1 TestIsMarkedFlaky2"}
 
 	if !reflect.DeepEqual(rpts, expectedRpts) {
-		t.Errorf("lint reports don't match\nReceived: %v\nExpected: %v", rpts, expectedRpts)
+		t.Errorf("reports don't match\nReceived: %v\nExpected: %v", rpts, expectedRpts)
 	}
 }

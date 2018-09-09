@@ -44,7 +44,7 @@ func (lr *IsFlaky) Check(aNode ast.Node, fs *token.FileSet, lrp *checker.Report)
 			if expr, ok := item.(*ast.ExprStmt); ok {
 				if ce, ok := expr.X.(*ast.CallExpr); ok {
 					if rules.MatchCallExpr(ce, "annotation", "IsFlaky") {
-						lrp.AddItem(fs.Position(ce.Pos()), lr.GetID(), "annotation.IsFlaky() is found in "+fn.Name.Name)
+						lrp.AddReport(fn.Name.Name)
 					}
 				}
 			}
