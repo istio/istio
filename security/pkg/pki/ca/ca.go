@@ -64,7 +64,7 @@ const (
 // CertificateAuthority contains methods to be supported by a CA.
 type CertificateAuthority interface {
 	// Sign generates a certificate for a workload or CA, from the given CSR and TTL.
-	Sign(csrPEM []byte, ttl time.Duration, forCA bool) ([]byte, error)
+	Sign(csrPEM []byte, subjectIDs []string, ttl time.Duration, forCA bool) ([]byte, error)
 	// GetCAKeyCertBundle returns the KeyCertBundle used by CA.
 	GetCAKeyCertBundle() util.KeyCertBundle
 }
@@ -169,7 +169,7 @@ func NewIstioCA(opts *IstioCAOptions) (*IstioCA, error) {
 // Sign takes a PEM-encoded CSR and ttl, and returns a signed certificate. If forCA is true,
 // the signed certificate is a CA certificate, otherwise, it is a workload certificate.
 // TODO(myidpt): Add error code to identify the Sign error types.
-func (ca *IstioCA) Sign(csrPEM []byte, ttl time.Duration, forCA bool) ([]byte, error) {
+func (ca *IstioCA) Sign(csrPEM []byte, subjectIDs []string, ttl time.Duration, forCA bool) ([]byte, error) {
 	signingCert, signingKey, _, _ := ca.keyCertBundle.GetAll()
 	if signingCert == nil {
 		return nil, NewError(CANotReady, fmt.Errorf("Istio CA is not ready")) // nolint
@@ -186,7 +186,7 @@ func (ca *IstioCA) Sign(csrPEM []byte, ttl time.Duration, forCA bool) ([]byte, e
 			"requested TTL %s is greater than the max allowed TTL %s", ttl, ca.maxCertTTL))
 	}
 
-	certBytes, err := util.GenCertFromCSR(csr, signingCert, csr.PublicKey, *signingKey, ttl, forCA)
+	certBytes, err := util.GenCertFromCSR(csr, signingCert, csr.PublicKey, *signingKey, subjectIDs, ttl, forCA)
 	if err != nil {
 		return nil, NewError(CertGenError, err)
 	}
