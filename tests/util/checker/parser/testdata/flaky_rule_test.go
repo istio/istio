@@ -10,7 +10,7 @@ func SetCount()       {}
 func Count(n int) int { return n }
 
 // nolint: testlinter
-func TestIsMarkedFlaky(t *testing.T) {
+func TestIsMarkedFlaky1(t *testing.T) {
 	SetCount()
 	if Count(1) != 1 {
 		t.Error("expected 1")
@@ -22,5 +22,21 @@ func TestIsMarkedFlaky(t *testing.T) {
 		t.Error("expected 3")
 	}
 	t.Skip("https://github.com/istio/istio/issues/6041")
-	annotation.IsFlakyTest()
+	annotation.IsFlaky()
+}
+
+// nolint: testlinter
+func TestIsMarkedFlaky2(t *testing.T) {
+	SetCount()
+	if Count(1) != 1 {
+		t.Error("expected 1")
+	}
+	annotation.IsFlaky()
+	if Count(2) != 2 {
+		t.Error("expected 2")
+	}
+	if Count(3) != 3 {
+		t.Error("expected 3")
+	}
+	t.Skip("https://github.com/istio/istio/issues/6041")
 }

@@ -43,7 +43,7 @@ func (lr *IsFlaky) Check(aNode ast.Node, fs *token.FileSet, lrp *checker.Report)
 		for _, item := range fn.Body.List {
 			if expr, ok := item.(*ast.ExprStmt); ok {
 				if ce, ok := expr.X.(*ast.CallExpr); ok {
-					if rules.MatchCallExpr(ce, "annotation", "IsFlakyTest") {
+					if rules.MatchCallExpr(ce, "annotation", "IsFlaky") {
 						lrp.AddItem(fs.Position(ce.Pos()), lr.GetID(), "annotation.IsFlaky() is found in "+fn.Name.Name)
 					}
 				}

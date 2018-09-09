@@ -22,7 +22,7 @@ import (
 	"istio.io/istio/tests/util/checker"
 )
 
-func main() {
+func ReportFlakyTests() {
 	flag.Parse()
 	exitCode := 0
 
