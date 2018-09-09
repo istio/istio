@@ -30,7 +30,7 @@ func getAbsPath(path string) string {
 
 func TestIntegTestSkipByIssueRule(t *testing.T) {
 	rpts, _ := getReport([]string{"testdata/"})
-	expectedRpts := []string{"TestIsMarkedFlaky1 TestIsMarkedFlaky2"}
+	expectedRpts := []string{"TestIsMarkedFlaky1", "TestIsMarkedFlaky2"}
 
 	if !reflect.DeepEqual(rpts, expectedRpts) {
 		t.Errorf("reports don't match\nReceived: %v\nExpected: %v", rpts, expectedRpts)
