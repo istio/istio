@@ -88,7 +88,7 @@ E2E tests have multiple options available while running them as follows:
 * `--skip_setup` - Skip namespace creation and istio cluster setup (default: false)
 * `--skip_cleanup` - Skip the cleanup steps (default: false)
 * `--namespace <namespace>` - If you don't specify `namespace`, a random namespace is generated for each test.
-* `--use_local_cluster` - If true the tests will run within the cluster. If running on minikube, this should be set to true. (default: false)
+* `--use_local_cluster` - If true the tests will use a node port service for the Ingressgateway instead of a loadbalance service. If running on minikube, this should be set to true. (default: false)
 * `--auth_enable` - If you want to include auth (default: false)
 * `--rbac_enabled` - Enable RBAC (default: true)
 * `--cluster_wide` - If true Pilot/Mixer will observe all namespaces rather than just the testing namespace (default: false)
@@ -108,5 +108,5 @@ E2E tests have multiple options available while running them as follows:
 * `--sidecar_injector_tag <tag>` - Image tag for the Sidecar Injector (default: environment $TAG)
 * `--sidecar_injector_file <file>` - Sidecar injector YAML file name (default: istio-sidecar-injector.yaml)
 * `--image_pull_policy <policy>` - Specifies an override for the Docker image pull policy to be used
-* `--cluster_registry_dir <dir>` - Directory name for the cluster registry config
+* `--cluster_registry_dir <dir>` - Directory name for the cluster registry config. When provided this will trigger a multicluster test to be run across two clusters. 
 * `--installer <cmd>` - Use `helm` or `kubectl` to install Istio (default: kubectl)

@@ -88,12 +88,13 @@ var (
 	authEnable         = flag.Bool("auth_enable", false, "Enable auth")
 	rbacEnable         = flag.Bool("rbac_enable", true, "Enable rbac")
 	localCluster       = flag.Bool("use_local_cluster", false,
-		"If true the tests will run within the cluster. If running on minikube, this should be set to true")
-	skipSetup                = flag.Bool("skip_setup", false, "Skip namespace creation and istio cluster setup")
-	sidecarInjectorFile      = flag.String("sidecar_injector_file", defaultSidecarInjectorFile, "Sidecar injector yaml file")
-	clusterWide              = flag.Bool("cluster_wide", false, "If true Pilot/Mixer will observe all namespaces rather than just the testing namespace")
-	imagePullPolicy          = flag.String("image_pull_policy", "", "Specifies an override for the Docker image pull policy to be used")
-	multiClusterDir          = flag.String("cluster_registry_dir", "", "Directory name for the cluster registry config")
+		"If true the tests will use a node port service for the Ingressgateway instead of a loadbalance service. If running on minikube, this should be set to true")
+	skipSetup           = flag.Bool("skip_setup", false, "Skip namespace creation and istio cluster setup")
+	sidecarInjectorFile = flag.String("sidecar_injector_file", defaultSidecarInjectorFile, "Sidecar injector yaml file")
+	clusterWide         = flag.Bool("cluster_wide", false, "If true Pilot/Mixer will observe all namespaces rather than just the testing namespace")
+	imagePullPolicy     = flag.String("image_pull_policy", "", "Specifies an override for the Docker image pull policy to be used")
+	multiClusterDir     = flag.String("cluster_registry_dir", "",
+		"Directory name for the cluster registry config. When provided a multicluster test to be run across two clusters.")
 	useGalleyConfigValidator = flag.Bool("use_galley_config_validator", false, "Use galley configuration validation webhook")
 	installer                = flag.String("installer", "kubectl", "Istio installer, default to kubectl, or helm")
 
