@@ -150,7 +150,7 @@
             "rq_total": {}
           },
           "healthStatus": {
-            "edsHealthStatus": "HEALTHY"
+            "edsHealthStatus": "UNHEALTHY"
           }
         }
       ]

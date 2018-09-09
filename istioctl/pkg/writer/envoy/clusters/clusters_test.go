@@ -55,6 +55,12 @@ func TestConfigWriter_PrintEndpointSummary(t *testing.T) {
 			callPrime:      true,
 		},
 		{
+			name:           "handles status filtering",
+			filter:         EndpointFilter{Status: "unhealthy"},
+			wantOutputFile: "testdata/clustersummaryfiltered.txt",
+			callPrime:      true,
+		},
+		{
 			name:      "errors if config writer is not primed",
 			callPrime: false,
 			wantErr:   true,
@@ -110,6 +116,12 @@ func TestConfigWriter_PrintClusterDump(t *testing.T) {
 		{
 			name:           "handles port filtering",
 			filter:         EndpointFilter{Port: 9093},
+			wantOutputFile: "testdata/clusterfiltered.txt",
+			callPrime:      true,
+		},
+		{
+			name:           "handles status filtering",
+			filter:         EndpointFilter{Status: "unhealthy"},
 			wantOutputFile: "testdata/clusterfiltered.txt",
 			callPrime:      true,
 		},

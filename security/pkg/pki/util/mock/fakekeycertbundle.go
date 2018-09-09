@@ -35,14 +35,14 @@ type FakeKeyCertBundle struct {
 	mutex           sync.Mutex
 }
 
-// GetAllPem returns all key/cert PEMs in KeyCertBundle together. Getting all values together avoids inconsistancy.
+// GetAllPem returns all key/cert PEMs in KeyCertBundle together. Getting all values together avoids inconsistency.
 func (b *FakeKeyCertBundle) GetAllPem() (certBytes, privKeyBytes, certChainBytes, rootCertBytes []byte) {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 	return b.CertBytes, b.PrivKeyBytes, b.CertChainBytes, b.RootCertBytes
 }
 
-// GetAll returns all key/cert in KeyCertBundle together. Getting all values together avoids inconsistancy.
+// GetAll returns all key/cert in KeyCertBundle together. Getting all values together avoids inconsistency.
 func (b *FakeKeyCertBundle) GetAll() (cert *x509.Certificate, privKey *crypto.PrivateKey, certChainBytes,
 	rootCertBytes []byte) {
 	b.mutex.Lock()

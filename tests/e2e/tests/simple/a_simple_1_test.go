@@ -253,14 +253,14 @@ func Test503sDuringChanges(t *testing.T) {
 	go func() {
 		time.Sleep(9 * time.Second)
 		log.Infof("Changing rules mid run to v1/v2")
-		if err := tc.Kube.Istioctl.CreateRule(rulePath1); err != nil {
-			t.Errorf("istioctl rule create %s failed", yamlPath(routingR1Yaml))
+		if err := util.KubeApply(tc.Kube.Namespace, rulePath1, tc.Kube.KubeConfig); err != nil {
+			t.Errorf("kubectl apply create %s failed", yamlPath(routingR1Yaml))
 			return
 		}
 		time.Sleep(4 * time.Second)
 		log.Infof("Changing rules mid run to a/b")
-		if err := tc.Kube.Istioctl.CreateRule(rulePath2); err != nil {
-			t.Errorf("istioctl rule create %s failed", yamlPath(routingR1Yaml))
+		if err := util.KubeApply(tc.Kube.Namespace, rulePath2, tc.Kube.KubeConfig); err != nil {
+			t.Errorf("kubectl apply create %s failed", yamlPath(routingR2Yaml))
 			return
 		}
 		time.Sleep(4 * time.Second)
@@ -297,12 +297,13 @@ func Test503sWithBadClusters(t *testing.T) {
 	go func() {
 		time.Sleep(9 * time.Second)
 		log.Infof("Changing rules with some non existent destination, mid run")
-		if err := tc.Kube.Istioctl.CreateRule(rulePath); err != nil {
-			t.Errorf("istioctl create rule %s failed", yamlPath(routingRNPYaml))
+		if err := util.KubeApply(tc.Kube.Namespace, rulePath, tc.Kube.KubeConfig); err != nil {
+			t.Errorf("kubectl apply rule %s failed", yamlPath(routingRNPYaml))
 			return
 		}
 	}()
-	defer tc.Kube.Istioctl.DeleteRule(rulePath) // nolint:errcheck
+	defer util.KubeDelete(tc.Kube.Namespace, rulePath, tc.Kube.KubeConfig) // nolint:errcheck
+
 	// run at a low/moderate QPS for a while while changing the routing rules,
 	// check for limited number of errors
 	opts := fhttp.HTTPRunnerOptions{

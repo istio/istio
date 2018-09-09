@@ -348,7 +348,6 @@ func TestSignCSRForCA(t *testing.T) {
 func TestSignCSRTTLError(t *testing.T) {
 	subjectID := "spiffe://example.com/ns/foo/sa/bar"
 	opts := util.CertOptions{
-		Host:       subjectID,
 		Org:        "istio.io",
 		RSAKeySize: 2048,
 	}
@@ -364,7 +363,7 @@ func TestSignCSRTTLError(t *testing.T) {
 
 	ttl := 3 * time.Hour
 
-	cert, signErr := ca.Sign(csrPEM, []string{}, ttl, false)
+	cert, signErr := ca.Sign(csrPEM, []string{subjectID}, ttl, false)
 	if cert != nil {
 		t.Errorf("Expected null cert be obtained a non-null cert.")
 	}

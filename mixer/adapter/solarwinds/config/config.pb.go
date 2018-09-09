@@ -111,7 +111,7 @@ type Params struct {
 	AppopticsAccessToken string `protobuf:"bytes,1,opt,name=appoptics_access_token,json=appopticsAccessToken,proto3" json:"appoptics_access_token,omitempty"`
 	// Optional. Max batch size of metrics to be sent to AppOptics.
 	// AppOptics does not allow batch size greater than 1000.
-	// If this is unspecified or given a value 0 explicitely, a default batch size of 1000 will be used.
+	// If this is unspecified or given a value 0 explicitly, a default batch size of 1000 will be used.
 	AppopticsBatchSize int32 `protobuf:"varint,2,opt,name=appoptics_batch_size,json=appopticsBatchSize,proto3" json:"appoptics_batch_size,omitempty"`
 	// Papertrail url to ship logs to. If no papertrail url is given then the logs will NOT be shipped but rather
 	// dropped.
