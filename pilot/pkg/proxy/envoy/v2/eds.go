@@ -122,11 +122,15 @@ func loadAssignment(c *EdsCluster, nodeMeta map[string]string) *xdsapi.ClusterLo
 }
 
 func (c *EdsCluster) filterEndpointsByMetadata(nodeMeta map[string]string) *xdsapi.ClusterLoadAssignment {
-	network, ok := nodeMeta["ISTIO_NETWORK"]
-	if ok {
-		return c.ClusterLoadAssignments[network]
+	if network, exists := nodeMeta["ISTIO_NETWORK"]; exists {
+		if cla, ok := c.ClusterLoadAssignments[network]; ok {
+			return cla
+		}
 	}
-	return c.ClusterLoadAssignments[""]
+	if cla, exists := c.ClusterLoadAssignments[""]; exists {
+		return cla
+	}
+	return nil
 }
 
 func newEndpoint(e *model.NetworkEndpoint) (*endpoint.LbEndpoint, error) {
