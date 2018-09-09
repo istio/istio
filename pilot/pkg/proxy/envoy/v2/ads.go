@@ -46,9 +46,6 @@ var (
 	adsClients      = map[string]*XdsConnection{}
 	adsClientsMutex sync.RWMutex
 
-	// Mapping between node IDs and the network ID where they run
-	adsClientsNetworks = map[string]string{}
-
 	// Map of sidecar IDs to XdsConnections, first key is sidecarID, second key is connID
 	// This is a map due to an edge case during envoy restart whereby the 'old' envoy
 	// reconnects after the 'new/restarted' envoy
@@ -436,9 +433,6 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				// immediately after connect. It is followed by EDS REQ as
 				// soon as the CDS push is returned.
 				adsLog.Infof("ADS:CDS: REQ %v %s %v raw: %s", peerAddr, con.ConID, time.Since(t0), discReq.String())
-				if discReq.Node.Metadata != nil {
-					adsClientsNetworks[nt.ID] = discReq.Node.GetMetadata().Fields["NETWORK"].GetStringValue()
-				}
 				con.CDSWatch = true
 				err := s.pushCds(con, s.env.PushContext)
 				if err != nil {
@@ -802,13 +796,4 @@ func (conn *XdsConnection) send(res *xdsapi.DiscoveryResponse) error {
 		_ = t.Stop()
 		return err
 	}
-}
-
-// Return the Network ID (if exists) for the provided Node ID
-func (s *DiscoveryServer) networkForNodeID(id string) string {
-	nt, err := model.ParseServiceNode(id)
-	if err != nil {
-		return ""
-	}
-	return adsClientsNetworks[nt.ID]
 }
