@@ -38,10 +38,29 @@ main() {
  PROJECT_ID=$(gcloud config get-value project)
  INGRESS_SA="ingress-sa"
  APP_ACCOUNTS=("reviews-sa" "details-sa" "ratings-sa" "productpage-sa")
+ 
+ IN_FLAG=0
+ BK_FLAG=0
+ while getopts 'ib' flag; do
+   case "${flag}" in
+     i) IN_FLAG=1;;
+     b) BK_FLAG=1;;
+     \?) echo "Invalid option -$OPTARG" >&2;;
+   esac
+ done
+ 
+ if [[ $IN_FLAG = 1 ]]; then
+   echo "create service account for ingress gateway"
+   inject_ingress
+ fi
 
- inject_ingress
- inject_bookinfo
+ if [[ $BK_FLAG = 1 ]]; then
+   echo "create service accounts for bookinfo application"
+   inject_bookinfo
+ fi 
+ 
  exit 0
 }
 
 main "$@"
+
