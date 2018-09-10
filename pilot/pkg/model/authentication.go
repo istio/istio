@@ -18,8 +18,20 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
+	"time"
 
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	"github.com/gogo/protobuf/types"
 	authn "istio.io/api/authentication/v1alpha1"
+)
+
+const (
+	// CARootCertPath is the path of ca root cert that envoy uses to validate cert got from SDS service.
+	CARootCertPath = "/etc/istio/certs/ca-root-cert.pem"
+
+	// SDSStatPrefix is the human readable prefix to use when emitting statistics for the SDS service.
+	SDSStatPrefix = "sdsstat"
 )
 
 // JwtKeyResolver resolves JWT public key and JwksURI.
@@ -37,6 +49,61 @@ func GetConsolidateAuthenticationPolicy(store IstioConfigStore, service *Service
 	}
 
 	return nil
+}
+
+// ConstructSdsSecretConfig constructs SDS Sececret Configuration.
+func ConstructSdsSecretConfig(serviceAccount string, refreshDuration *time.Duration, sdsUdsPath string) *auth.SdsSecretConfig {
+	if serviceAccount == "" || sdsUdsPath == "" || refreshDuration == nil {
+		return nil
+	}
+
+	return &auth.SdsSecretConfig{
+		Name: serviceAccount,
+		SdsConfig: &core.ConfigSource{
+			ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+				ApiConfigSource: &core.ApiConfigSource{
+					ApiType: core.ApiConfigSource_GRPC,
+					GrpcServices: []*core.GrpcService{
+						{
+							TargetSpecifier: &core.GrpcService_GoogleGrpc_{
+								GoogleGrpc: &core.GrpcService_GoogleGrpc{
+									TargetUri:  sdsUdsPath,
+									StatPrefix: SDSStatPrefix,
+									CallCredentials: []*core.GrpcService_GoogleGrpc_CallCredentials{
+										&core.GrpcService_GoogleGrpc_CallCredentials{
+											CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_GoogleComputeEngine{
+												GoogleComputeEngine: &types.Empty{},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+					RefreshDelay: refreshDuration,
+				},
+			},
+		},
+	}
+}
+
+// ConstructValidationContext constructs ValidationContext in CommonTlsContext.
+func ConstructValidationContext(rootCAFilePath string, subjectAltNames []string) *auth.CommonTlsContext_ValidationContext {
+	ret := &auth.CommonTlsContext_ValidationContext{
+		ValidationContext: &auth.CertificateValidationContext{
+			TrustedCa: &core.DataSource{
+				Specifier: &core.DataSource_Filename{
+					Filename: rootCAFilePath,
+				},
+			},
+		},
+	}
+
+	if len(subjectAltNames) > 0 {
+		ret.ValidationContext.VerifySubjectAltName = subjectAltNames
+	}
+
+	return ret
 }
 
 // ParseJwksURI parses the input URI and returns the corresponding hostname, port, and whether SSL is used.
