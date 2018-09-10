@@ -16,7 +16,6 @@
 
 # Common utilities for Istio local installation on linux platform.
 
-set -o errexit
 set -o nounset
 set -o pipefail
 
@@ -79,11 +78,6 @@ function install_kubectl() {
 # $1 - apt|yum  (supported package management tools).
 # $2 - list of packages to be checked or installed.
 function check_and_install_packages() {
-  if [ "$#" -ne 2 ]; then
-    echo "Arguments are not equals to 2"
-    echo "Usage: apt|yum package_list"
-    exit 1
-  fi
   check_cmd="$1"
   arr="$2"
   for i in "${arr[@]}";
