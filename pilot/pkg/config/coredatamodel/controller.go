@@ -57,7 +57,10 @@ type Controller struct {
 func NewController(options Options) CoreDataModel {
 	descriptorsByMessageName := make(map[string]model.ProtoSchema, len(model.IstioConfigTypes))
 	for _, descriptor := range model.IstioConfigTypes {
-		descriptorsByMessageName[descriptor.MessageName] = descriptor
+		// don't register duplicate descriptors for the same message name, e.g. auth policy
+		if _, ok := descriptorsByMessageName[descriptor.MessageName]; !ok {
+			descriptorsByMessageName[descriptor.MessageName] = descriptor
+		}
 	}
 
 	// Remove this when https://github.com/istio/istio/issues/7947 is done
@@ -96,20 +99,16 @@ func (c *Controller) List(typ, namespace string) (out []model.Config, err error)
 	if namespace == "" {
 		// ByType does not need locking since
 		// we replace the entire sub-map
-		if ok {
-			for _, byNamespace := range byType {
-				for _, config := range byNamespace {
-					out = append(out, config)
-				}
+		for _, byNamespace := range byType {
+			for _, config := range byNamespace {
+				out = append(out, config)
 			}
-			return out, nil
 		}
+		return out, nil
 	}
 
-	if byNamespace, ok := byType[namespace]; ok {
-		for _, config := range byNamespace {
-			out = append(out, config)
-		}
+	for _, config := range byType[namespace] {
+		out = append(out, config)
 	}
 	return out, nil
 }
@@ -141,9 +140,15 @@ func (c *Controller) Apply(change *mcpclient.Change) error {
 			}
 		}
 
+		// adjust the type name for mesh-scoped resources
+		typ := descriptor.Type
+		if namespace == "" && descriptor.Type == model.AuthenticationPolicy.Type {
+			typ = model.AuthenticationMeshPolicy.Type
+		}
+
 		conf := model.Config{
 			ConfigMeta: model.ConfigMeta{
-				Type:              descriptor.Type,
+				Type:              typ,
 				Group:             descriptor.Group,
 				Version:           descriptor.Version,
 				Name:              name,
@@ -169,8 +174,22 @@ func (c *Controller) Apply(change *mcpclient.Change) error {
 		}
 	}
 
+	// de-mux namespace and cluster-scoped authentication policy from the same
+	// type_url stream.
+	const clusterScopedNamespace = ""
+	meshTypeInnerStore := make(map[string]map[string]model.Config)
+	var meshType string
+	if descriptor.Type == model.AuthenticationPolicy.Type {
+		meshType = model.AuthenticationMeshPolicy.Type
+		meshTypeInnerStore[clusterScopedNamespace] = innerStore[clusterScopedNamespace]
+		delete(innerStore, clusterScopedNamespace)
+	}
+
 	c.configStoreMu.Lock()
 	c.configStore[descriptor.Type] = innerStore
+	if meshType != "" {
+		c.configStore[meshType] = meshTypeInnerStore
+	}
 	c.configStoreMu.Unlock()
 
 	// TODO - send a dummy event update to trigger pilot
