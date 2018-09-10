@@ -239,7 +239,7 @@ func TestMultipleRequests(t *testing.T) {
 		TypeUrl: fakeType0TypeURL,
 	}
 
-	s := New(config, WatchResponseTypes, nil)
+	s := New(config, WatchResponseTypes, NewAllowAllChecker())
 	go func() {
 		if err := s.StreamAggregatedResources(stream); err != nil {
 			t.Errorf("Stream() => got %v, want no error", err)
@@ -374,7 +374,7 @@ func TestWatchBeforeResponsesAvailable(t *testing.T) {
 		TypeUrl: fakeType0TypeURL,
 	}
 
-	s := New(config, WatchResponseTypes, nil)
+	s := New(config, WatchResponseTypes, NewAllowAllChecker())
 	go func() {
 		if err := s.StreamAggregatedResources(stream); err != nil {
 			t.Errorf("Stream() => got %v, want no error", err)
@@ -412,7 +412,7 @@ func TestWatchClosed(t *testing.T) {
 	}
 
 	// check that response fails since watch gets closed
-	s := New(config, WatchResponseTypes, nil)
+	s := New(config, WatchResponseTypes, NewAllowAllChecker())
 	if err := s.StreamAggregatedResources(stream); err == nil {
 		t.Error("Stream() => got no error, want watch failed")
 	}
@@ -435,7 +435,7 @@ func TestSendError(t *testing.T) {
 		TypeUrl: fakeType0TypeURL,
 	}
 
-	s := New(config, WatchResponseTypes, nil)
+	s := New(config, WatchResponseTypes, NewAllowAllChecker())
 	// check that response fails since watch gets closed
 	if err := s.StreamAggregatedResources(stream); err == nil {
 		t.Error("Stream() => got no error, want send error")
@@ -461,7 +461,7 @@ func TestReceiveError(t *testing.T) {
 	}
 
 	// check that response fails since watch gets closed
-	s := New(config, WatchResponseTypes, nil)
+	s := New(config, WatchResponseTypes, NewAllowAllChecker())
 	if err := s.StreamAggregatedResources(stream); err == nil {
 		t.Error("Stream() => got no error, want send error")
 	}
@@ -485,7 +485,7 @@ func TestUnsupportedTypeError(t *testing.T) {
 	}
 
 	// check that response fails since watch gets closed
-	s := New(config, WatchResponseTypes, nil)
+	s := New(config, WatchResponseTypes, NewAllowAllChecker())
 	if err := s.StreamAggregatedResources(stream); err == nil {
 		t.Error("Stream() => got no error, want send error")
 	}
@@ -507,7 +507,7 @@ func TestStaleNonce(t *testing.T) {
 		TypeUrl: fakeType0TypeURL,
 	}
 	stop := make(chan struct{})
-	s := New(config, WatchResponseTypes, nil)
+	s := New(config, WatchResponseTypes, NewAllowAllChecker())
 	go func() {
 		if err := s.StreamAggregatedResources(stream); err != nil {
 			t.Errorf("StreamAggregatedResources() => got %v, want no error", err)
@@ -572,7 +572,7 @@ func TestAggregatedHandlers(t *testing.T) {
 		TypeUrl: fakeType2TypeURL,
 	}
 
-	s := New(config, WatchResponseTypes, nil)
+	s := New(config, WatchResponseTypes, NewAllowAllChecker())
 	go func() {
 		if err := s.StreamAggregatedResources(stream); err != nil {
 			t.Errorf("StreamAggregatedResources() => got %v, want no error", err)
@@ -610,7 +610,7 @@ func TestAggregateRequestType(t *testing.T) {
 	stream := makeMockStream(t)
 	stream.recv <- &mcp.MeshConfigRequest{Client: client}
 
-	s := New(config, WatchResponseTypes, nil)
+	s := New(config, WatchResponseTypes, NewAllowAllChecker())
 	if err := s.StreamAggregatedResources(stream); err == nil {
 		t.Error("StreamAggregatedResources() => got nil, want an error")
 	}

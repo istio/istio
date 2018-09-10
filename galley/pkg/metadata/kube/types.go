@@ -25,7 +25,7 @@ func init() {
 		Version:   "v1alpha1",
 		Group:     "authentication.istio.io",
 		Target:    metadata.Types.Get("type.googleapis.com/istio.authentication.v1alpha1.Policy"),
-		Converter: converter.Get("identity"),
+		Converter: converter.Get("auth-policy-resource"),
 	})
 
 	b.Add(kube.ResourceSpec{
@@ -36,7 +36,7 @@ func init() {
 		Version:   "v1alpha1",
 		Group:     "authentication.istio.io",
 		Target:    metadata.Types.Get("type.googleapis.com/istio.authentication.v1alpha1.Policy"),
-		Converter: converter.Get("identity"),
+		Converter: converter.Get("auth-policy-resource"),
 	})
 
 	b.Add(kube.ResourceSpec{
@@ -502,12 +502,12 @@ func init() {
 	})
 
 	b.Add(kube.ResourceSpec{
-		Kind:      "Rbac",
-		ListKind:  "rbacList",
-		Singular:  "rbac",
-		Plural:    "rbacs",
-		Version:   "v1alpha2",
-		Group:     "config.istio.io",
+		Kind:      "RbacConfig",
+		ListKind:  "RbacConfigList",
+		Singular:  "rbacconfig",
+		Plural:    "rbacconfigs",
+		Version:   "v1alpha1",
+		Group:     "rbac.istio.io",
 		Target:    metadata.Types.Get("type.googleapis.com/istio.rbac.v1alpha1.RbacConfig"),
 		Converter: converter.Get("identity"),
 	})

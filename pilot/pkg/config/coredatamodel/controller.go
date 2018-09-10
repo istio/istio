@@ -50,7 +50,7 @@ type Controller struct {
 	configStore              map[string]map[string]map[string]model.Config
 	descriptorsByMessageName map[string]model.ProtoSchema
 	options                  Options
-	eventHandlers            map[string]func(model.Config, model.Event)
+	eventHandlers            map[string][]func(model.Config, model.Event)
 }
 
 // NewController provides a new CoreDataModel controller
@@ -72,7 +72,7 @@ func NewController(options Options) CoreDataModel {
 		configStore:              configStore,
 		options:                  options,
 		descriptorsByMessageName: descriptorsByMessageName,
-		eventHandlers:            make(map[string]func(model.Config, model.Event)),
+		eventHandlers:            make(map[string][]func(model.Config, model.Event)),
 	}
 }
 
@@ -185,18 +185,53 @@ func (c *Controller) Apply(change *mcpclient.Change) error {
 		delete(innerStore, clusterScopedNamespace)
 	}
 
+	var prevStore map[string]map[string]model.Config
+
 	c.configStoreMu.Lock()
+	prevStore = c.configStore[descriptor.Type]
 	c.configStore[descriptor.Type] = innerStore
 	if meshType != "" {
 		c.configStore[meshType] = meshTypeInnerStore
 	}
 	c.configStoreMu.Unlock()
 
-	// TODO - send a dummy event update to trigger pilot
-	// configuration generation to re-generate it's internal model.
+	dispatch := func(model model.Config, event model.Event) {}
+	if handlers, ok := c.eventHandlers[descriptor.Type]; ok {
+		dispatch = func(model model.Config, event model.Event) {
+			for _, handler := range handlers {
+				handler(model, event)
+			}
+		}
+	}
 
-	if handler, ok := c.eventHandlers[descriptor.Type]; ok {
-		handler(model.Config{}, model.EventUpdate)
+	// add/update
+	for namespace, byName := range innerStore {
+		for name, config := range byName {
+			if prevByNamespace, ok := prevStore[namespace]; ok {
+				if prevConfig, ok := prevByNamespace[name]; ok {
+					if config.ResourceVersion != prevConfig.ResourceVersion {
+						dispatch(config, model.EventUpdate)
+					}
+				} else {
+					dispatch(config, model.EventAdd)
+				}
+			} else {
+				dispatch(config, model.EventAdd)
+			}
+		}
+	}
+
+	// remove
+	for namespace, prevByName := range prevStore {
+		for name, prevConfig := range prevByName {
+			if byNamespace, ok := innerStore[namespace]; !ok {
+				if _, ok := byNamespace[name]; !ok {
+					dispatch(prevConfig, model.EventDelete)
+				}
+			} else {
+				dispatch(prevConfig, model.EventDelete)
+			}
+		}
 	}
 
 	return nil
@@ -225,7 +260,7 @@ func (c *Controller) Run(stop <-chan struct{}) {
 
 // RegisterEventHandler is not implemented
 func (c *Controller) RegisterEventHandler(typ string, handler func(model.Config, model.Event)) {
-	c.eventHandlers[typ] = handler
+	c.eventHandlers[typ] = append(c.eventHandlers[typ], handler)
 }
 
 // Get is not implemented

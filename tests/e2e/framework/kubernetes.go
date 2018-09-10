@@ -43,8 +43,8 @@ const (
 	istioAddonsDir                 = "install/kubernetes/addons"
 	nonAuthInstallFile             = "istio.yaml"
 	authInstallFile                = "istio-auth.yaml"
-	nonAuthWithGalleyInstallFile   = "istio-galley.yaml"
-	authWithGalleyInstallFile      = "istio-auth-galley.yaml"
+	nonAuthWithMCPInstallFile      = "istio-mcp.yaml"
+	authWithMCPInstallFile         = "istio-auth-mcp.yaml"
 	nonAuthInstallFileNamespace    = "istio-one-namespace.yaml"
 	authInstallFileNamespace       = "istio-one-namespace-auth.yaml"
 	mcNonAuthInstallFileNamespace  = "istio-multicluster.yaml"
@@ -83,7 +83,7 @@ var (
 	proxyTag           = flag.String("proxy_tag", os.Getenv("TAG"), "Proxy tag")
 	caHub              = flag.String("ca_hub", os.Getenv("HUB"), "Ca hub")
 	caTag              = flag.String("ca_tag", os.Getenv("TAG"), "Ca tag")
-	galleyHub          = flag.String("galley_hub", os.Getenv("HUB"), "Galley hub")
+	galleyHub          = flag.String("galley_hub", os.Getenv("HUB"), "MCP hub")
 	galleyTag          = flag.String("galley_tag", os.Getenv("TAG"), "Galley tag")
 	sidecarInjectorHub = flag.String("sidecar_injector_hub", os.Getenv("HUB"), "Sidecar injector hub")
 	sidecarInjectorTag = flag.String("sidecar_injector_tag", os.Getenv("TAG"), "Sidecar injector tag")
@@ -99,6 +99,7 @@ var (
 		"Directory name for the cluster registry config. When provided a multicluster test to be run across two clusters.")
 	useGalleyConfigValidator = flag.Bool("use_galley_config_validator", false, "Use galley configuration validation webhook")
 	installer                = flag.String("installer", "kubectl", "Istio installer, default to kubectl, or helm")
+	useMCP                   = flag.Bool("use_mcp", false, "use MCP for configuring Istio components")
 
 	addons = []string{
 		"zipkin",
@@ -155,14 +156,14 @@ type KubeInfo struct {
 func getClusterWideInstallFile() string {
 	var istioYaml string
 	if *authEnable {
-		if *useGalleyConfigValidator {
-			istioYaml = authWithGalleyInstallFile
+		if *useMCP {
+			istioYaml = authWithMCPInstallFile
 		} else {
 			istioYaml = authInstallFile
 		}
 	} else {
-		if *useGalleyConfigValidator {
-			istioYaml = nonAuthWithGalleyInstallFile
+		if *useMCP {
+			istioYaml = nonAuthWithMCPInstallFile
 		} else {
 			istioYaml = nonAuthInstallFile
 		}
@@ -762,7 +763,9 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 	if *useAutomaticInjection {
 		setValue += " --set sidecarInjectorWebhook.enabled=true"
 	}
-	if *useGalleyConfigValidator {
+	if *useMCP {
+		setValue += " --set galley.enabled=true --set global.useMCP=true"
+	} else if *useGalleyConfigValidator {
 		setValue += " --set galley.enabled=true"
 	}
 	// hubs and tags replacement.

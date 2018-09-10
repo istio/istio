@@ -182,10 +182,9 @@ global:
   # and this options must be set off.
   crds: true
 
-  # Use the Mesh Control Protocol (MCP) for configuring Mixer policy
-  # and telemetry deployments. Requires galley (`--set
-  # galley.enabled=true`).
-  useMixerMCP: false
+  # Use the Mesh Control Protocol (MCP) for configuring Mixer and
+  # Pilot. Requires galley (`--set galley.enabled=true`).
+  useMCP: false
 
 #
 # ingress configuration
