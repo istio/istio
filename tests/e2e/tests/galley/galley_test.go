@@ -31,12 +31,7 @@ import (
 	"istio.io/istio/tests/util"
 )
 
-const (
-	// This namespace is used by default in all mixer config documents.
-	// It will be replaced with the test namespace.
-	templateNamespace = "istio-system"
-	yamlExtension     = "yaml"
-)
+const yamlExtension = "yaml"
 
 type testConfig struct {
 	*framework.CommonConfig
