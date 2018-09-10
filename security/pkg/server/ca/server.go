@@ -52,9 +52,10 @@ type Server struct {
 }
 
 // CreateCertificate handles an incoming certificate signing request (CSR). It does
-// proper validation (e.g. authentication) and upon validated, signs a certificate that:
+// authentication and authorization. Upon validated, signs a certificate that:
 // the SAN is the identity of the caller in authentication result.
 // the subject public key is the public key in the CSR.
+// the validity duration is the ValidityDuration in request, or default value if the given duration is invalid.
 // it is signed by the CA signing key.
 func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertificateRequest) (
 	*pb.IstioCertificateResponse, error) {

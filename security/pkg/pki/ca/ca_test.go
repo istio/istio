@@ -234,6 +234,7 @@ func TestCreatePluggedCertCA(t *testing.T) {
 	}
 }
 
+// TODO: merge tests for SignCSR.
 func TestSignCSRForWorkload(t *testing.T) {
 	subjectID := "spiffe://example.com/ns/foo/sa/bar"
 	opts := util.CertOptions{
