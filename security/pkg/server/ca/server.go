@@ -84,7 +84,7 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 	response := &pb.IstioCertificateResponse{
 		CertChain: respCertChain,
 	}
-	log.Info("CSR successfully signed.")
+	log.Debug("CSR successfully signed.")
 
 	return response, nil
 }
@@ -132,7 +132,7 @@ func (s *Server) HandleCSR(ctx context.Context, request *pb.CsrRequest) (*pb.Csr
 		SignedCert: cert,
 		CertChain:  certChainBytes,
 	}
-	log.Info("CSR successfully signed.")
+	log.Debug("CSR successfully signed.")
 	s.monitoring.Success.Inc()
 
 	return response, nil
