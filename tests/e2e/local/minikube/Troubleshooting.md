@@ -17,8 +17,6 @@ This file helps note down issues we have seen and how to debug them
    # Should return : minikube version: v0.27.0
    ```
 
-1. When running tests, if you get "Bad Request" error
-   Minikube uses insecure local registry opened at localhost:5000, make sure you specify HUB as `localhost:5000` and TAG as `latest` when running the tests.
 1. If your machine complains of low disk space, try clean up docker images from it.
    To cleanup all docker images on your machine,run following command:
 
