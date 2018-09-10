@@ -270,13 +270,14 @@ func localityLbEndpointsFromInstances(instances []*model.ServiceInstance) (map[s
 	return resultsMap, weightPerNetwork
 }
 
-// Function will go through other networks and create remote endpoint pointing
+// Function will go through other networks and add a remote endpoint pointing
 // to the gateway of each one of them. The remote endpoints (one per each network)
-// will be added to the local endpoints.
-// While going through the other networks it will also update them with updated
-// weight of this network.
+// will be added to the ClusterLoadAssignment of the specified network.
 func (c *EdsCluster) updateRemoteEndpoints(network string) {
-	remote := []endpoint.LocalityLbEndpoints{}
+	cla := c.ClusterLoadAssignments[network]
+	if cla == nil {
+		return
+	}
 	for n := range c.ClusterLoadAssignments {
 		if n == network {
 			continue
@@ -284,15 +285,14 @@ func (c *EdsCluster) updateRemoteEndpoints(network string) {
 
 		// Create an endpoint to the other network and add it to the list of
 		// remote endpoints of this network
-		remote = append(remote, *c.GatewaysEndpoints[n])
+		if rgw := c.GatewaysEndpoints[n]; rgw != nil {
+			cla.Endpoints = append(cla.Endpoints, *rgw)
+		}
 
 		// Add a remote endpoint to this network in the other network
 		if gw := c.GatewaysEndpoints[network]; gw != nil {
 			c.ClusterLoadAssignments[n].Endpoints = append(c.ClusterLoadAssignments[n].Endpoints, *gw)
 		}
-	}
-	if cla := c.ClusterLoadAssignments[network]; cla != nil {
-		cla.Endpoints = append(cla.Endpoints, remote...)
 	}
 }
 
