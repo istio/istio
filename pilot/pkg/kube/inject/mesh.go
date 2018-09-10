@@ -21,6 +21,8 @@ const (
 	// nolint: lll
 	parameterizedTemplate = `
 [[- $proxyImageKey                  := "sidecar.istio.io/proxyImage" -]]
+[[- $proxyCPUKey                    := "sidecar.istio.io/proxyCPU" -]]
+[[- $proxyMemoryKey                 := "sidecar.istio.io/proxyMemory" -]]
 [[- $interceptionModeKey            := "sidecar.istio.io/interceptionMode" -]]
 [[- $statusPortKey                  := "status.sidecar.istio.io/port" -]]
 [[- $readinessInitialDelayKey       := "readiness.status.sidecar.istio.io/initialDelaySeconds" -]]
@@ -36,6 +38,8 @@ const (
 [[- $readinessPeriodValue           := (annotation .ObjectMeta $readinessPeriodKey "{{ .ReadinessPeriodSeconds }}") ]]
 [[- $readinessFailureThresholdValue := (annotation .ObjectMeta $readinessFailureThresholdKey {{ .ReadinessFailureThreshold }}) -]]
 [[- $readinessApplicationPortsValue := (annotation .ObjectMeta $readinessApplicationPortsKey (applicationPorts .Spec.Containers)) -]]
+[[- $proxyCPUValue                  := (annotation .ObjectMeta $proxyCPUKey "10m") -]]
+[[- $proxyMemoryValue               := (annotation .ObjectMeta $proxyMemoryKey "") -]]
 initContainers:
 - name: istio-init
   image: {{ .InitImage }}
@@ -156,7 +160,10 @@ containers:
   {{ end -}}
   resources:
     requests:
-      cpu: 10m
+      cpu: [[ $proxyCPUValue ]]
+      [[ if ne $proxyMemoryValue "" -]]
+      memory: [[ $proxyMemoryValue ]]
+      [[- end ]]
   securityContext:
     {{ if eq .DebugMode true -}}
     privileged: true

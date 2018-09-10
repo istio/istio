@@ -54,6 +54,8 @@ var (
 		{"sidecar.istio.io/inject", alwaysValidFunc},
 		{"sidecar.istio.io/status", alwaysValidFunc},
 		{"sidecar.istio.io/proxyImage", alwaysValidFunc},
+		{"sidecar.istio.io/proxyCPU", alwaysValidFunc},
+		{"sidecar.istio.io/proxyMemory", alwaysValidFunc},
 		{"sidecar.istio.io/interceptionMode", validateInterceptionMode},
 		{"status.sidecar.istio.io/port", validateStatusPort},
 		{"readiness.status.sidecar.istio.io/initialDelaySeconds", validateUInt32},
