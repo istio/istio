@@ -25,6 +25,7 @@ import (
 const checkAttributesOkGet = `
 {
   "context.protocol": "http",
+  "context.reporter.uid": "",
   "mesh1.ip": "[1 1 1 1]",
   "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
   "mesh3.ip": "[0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 8]",
@@ -37,6 +38,8 @@ const checkAttributesOkGet = `
   "request.url_path": "/echo",
   "source.uid": "POD11",
   "source.namespace": "XYZ11",
+  "destination.uid": "",
+  "destination.namespace": "",
   "target.name": "target-name",
   "target.user": "target-user",
   "target.uid": "POD222",
@@ -59,6 +62,7 @@ const reportAttributesOkGet = `
 {
   "context.protocol": "http",
   "context.proxy_error_code": "-",
+  "context.reporter.uid": "",
   "mesh1.ip": "[1 1 1 1]",
   "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
   "mesh3.ip": "[0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 8]",
@@ -73,6 +77,8 @@ const reportAttributesOkGet = `
   "source.namespace": "XYZ11",
   "destination.ip": "[127 0 0 1]",
   "destination.port": "*",
+  "destination.uid": "",
+  "destination.namespace": "",
   "target.name": "target-name",
   "target.user": "target-user",
   "target.uid": "POD222",
@@ -109,6 +115,7 @@ const reportAttributesOkGet = `
 const checkAttributesOkPost = `
 {
   "context.protocol": "http",
+  "context.reporter.uid": "",
   "mesh1.ip": "[1 1 1 1]",
   "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
   "mesh3.ip": "[0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 8]",
@@ -121,6 +128,8 @@ const checkAttributesOkPost = `
   "request.url_path": "/echo",
   "source.uid": "POD11",
   "source.namespace": "XYZ11",
+  "destination.uid": "",
+  "destination.namespace": "",
   "target.name": "target-name",
   "target.user": "target-user",
   "target.uid": "POD222",
@@ -143,6 +152,7 @@ const reportAttributesOkPost = `
 {
   "context.protocol": "http",
   "context.proxy_error_code": "-",
+  "context.reporter.uid": "",
   "mesh1.ip": "[1 1 1 1]",
   "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
   "mesh3.ip": "[0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 8]",
@@ -157,6 +167,8 @@ const reportAttributesOkPost = `
   "source.namespace": "XYZ11",
   "destination.ip": "[127 0 0 1]",
   "destination.port": "*",
+  "destination.uid": "",
+  "destination.namespace": "",
   "target.name": "target-name",
   "target.user": "target-user",
   "target.uid": "POD222",
