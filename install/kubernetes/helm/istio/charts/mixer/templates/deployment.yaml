@@ -28,7 +28,7 @@
           - --address
           - unix:///sock/mixer.socket
 {{- if $.Values.global.useMixerMCP }}
-          - --configStoreURL=mcp://istio-galley.{{ $.Release.Namespace }}.svc:9901
+          - --configStoreURL=mcps://istio-galley.{{ $.Release.Namespace }}.svc:9901
           - --certFile=/etc/certs/cert-chain.pem
           - --keyFile=/etc/certs/key.pem
           - --caCertFile=/etc/certs/root-cert.pem
@@ -135,7 +135,7 @@
           - --address
           - unix:///sock/mixer.socket
 {{- if $.Values.global.useMixerMCP }}
-          - --configStoreURL=mcp://istio-galley.{{ $.Release.Namespace }}.svc:9901
+          - --configStoreURL=mcps://istio-galley.{{ $.Release.Namespace }}.svc:9901
           - --certFile=/etc/certs/cert-chain.pem
           - --keyFile=/etc/certs/key.pem
           - --caCertFile=/etc/certs/root-cert.pem

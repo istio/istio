@@ -112,7 +112,7 @@ func init() {
 	// MCP client flags
 	discoveryCmd.PersistentFlags().StringSliceVar(&serverArgs.MCPServerAddrs, "mcpServerAddrs", []string{},
 		"comma separated list of MCP server addresses with "+
-			"mcp:// (secure) or mcpi:// (insecure) schema, e.g. mcp://istio-galley.istio-system.svc:9901")
+			"mcp:// (insecure) or mcps:// (secure) schema, e.g. mcps://istio-galley.istio-system.svc:9901")
 	serverArgs.MCPCredentialOptions.AttachCobraFlags(discoveryCmd)
 
 	// Config Controller options

@@ -26,6 +26,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"code.cloudfoundry.org/copilot"
@@ -446,6 +447,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	var clients []*mcpclient.Client
+	var conns []*grpc.ClientConn
 
 	for _, addr := range args.MCPServerAddrs {
 		u, err := url.Parse(addr)
@@ -454,7 +456,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 		}
 
 		securityOption := grpc.WithInsecure()
-		if u.Scheme == "mcp" {
+		if u.Scheme == "mcps" {
 			requiredFiles := []string{
 				args.MCPCredentialOptions.CertificateFile,
 				args.MCPCredentialOptions.KeyFile,
@@ -486,23 +488,43 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 		}
 		conn, err := grpc.DialContext(ctx, u.Host, securityOption)
 		if err != nil {
-			log.Errorf("Unable connecting to MCP Server: %v\n", err)
+			log.Errorf("Unable to dial MCP Server %q: %v", u.Host, err)
 			return err
 		}
 		cl := mcpapi.NewAggregatedMeshConfigServiceClient(conn)
 		mcpClient := mcpclient.New(cl, supportedTypes, mcpController, clientNodeID, map[string]string{})
 		configz.Register(mcpClient)
+
 		clients = append(clients, mcpClient)
+		conns = append(conns, conn)
 	}
 
 	s.addStartFunc(func(stop <-chan struct{}) error {
+		var wg sync.WaitGroup
+
+		for i := range clients {
+			client := clients[i]
+			wg.Add(1)
+			go func() {
+				client.Run(ctx)
+				wg.Done()
+			}()
+		}
+
 		go func() {
 			<-stop
+
+			// Stop the MCP clients and any pending connection.
 			cancel()
+
+			// Close all of the open grpc connections once the mcp
+			// client(s) have fully stopped.
+			wg.Wait()
+			for _, conn := range conns {
+				_ = conn.Close() // nolint: errcheck
+			}
 		}()
-		for _, client := range clients {
-			go client.Run(ctx)
-		}
+
 		return nil
 	})
 
