@@ -127,10 +127,7 @@ func (c *EdsCluster) filterEndpointsByMetadata(nodeMeta map[string]string) *xdsa
 			return cla
 		}
 	}
-	if cla, exists := c.ClusterLoadAssignments[""]; exists {
-		return cla
-	}
-	return nil
+	return c.ClusterLoadAssignments[""]
 }
 
 func newEndpoint(e *model.NetworkEndpoint) (*endpoint.LbEndpoint, error) {
@@ -232,6 +229,11 @@ func localityLbEndpointsFromInstances(instances []*model.ServiceInstance) (map[s
 	localityEpMapPerNetwork := make(map[string]map[string]*endpoint.LocalityLbEndpoints)
 	resultsMap := make(map[string][]endpoint.LocalityLbEndpoints)
 	weightPerNetwork := make(map[string]uint32)
+	if len(instances) == 0 {
+		resultsMap[""] = []endpoint.LocalityLbEndpoints{}
+		weightPerNetwork[""] = 0
+		return resultsMap, weightPerNetwork
+	}
 	for _, instance := range instances {
 		lbEp, err := newEndpoint(&instance.Endpoint)
 		if err != nil {
