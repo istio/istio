@@ -23,6 +23,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/gogo/protobuf/types"
+
 	authn "istio.io/api/authentication/v1alpha1"
 )
 
