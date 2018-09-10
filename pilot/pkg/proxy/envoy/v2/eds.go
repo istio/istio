@@ -162,7 +162,7 @@ func newEndpoint(e *model.NetworkEndpoint) (*endpoint.LbEndpoint, error) {
 
 // updateCluster is called from the event (or global cache invalidation) to update
 // the endpoints for the cluster.
-func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName string, network string, edsCluster *EdsCluster) error {
+func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName string, edsCluster *EdsCluster) error {
 	// TODO: should we lock this as well ? Once we move to event-based it may not matter.
 	var hostname model.Hostname
 	//var ports model.PortList
@@ -186,7 +186,7 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 		adsLog.Warnf("endpoints for service cluster %q returned error %q", clusterName, err)
 		return err
 	}
-	locEpsPerNetwork, weights := localityLbEndpointsFromInstances(instances)
+	locEpsByNetwork, weights := localityLbEndpointsFromInstances(instances)
 
 	// There is a chance multiple goroutines will update the cluster at the same time.
 	// This could be prevented by a lock - but because the update may be slow, it may be
@@ -194,7 +194,7 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 	// We still lock the access to the LoadAssignments.
 	edsCluster.mutex.Lock()
 	defer edsCluster.mutex.Unlock()
-	for n, locEps := range locEpsPerNetwork {
+	for n, locEps := range locEpsByNetwork {
 		edsCluster.ClusterLoadAssignments[n] = &xdsapi.ClusterLoadAssignment{
 			ClusterName: clusterName,
 			Endpoints:   locEps,
@@ -216,8 +216,6 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 		}
 	}
 
-	edsCluster.updateRemoteEndpoints(network)
-
 	return nil
 }
 
@@ -226,13 +224,13 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 // model.ServiceInstance objects. Envoy expects the endpoints grouped by zone, so
 // a map is created - in new data structures this should be part of the model.
 func localityLbEndpointsFromInstances(instances []*model.ServiceInstance) (map[string][]endpoint.LocalityLbEndpoints, map[string]uint32) {
-	localityEpMapPerNetwork := make(map[string]map[string]*endpoint.LocalityLbEndpoints)
+	localityEpMapByNetwork := make(map[string]map[string]*endpoint.LocalityLbEndpoints)
 	resultsMap := make(map[string][]endpoint.LocalityLbEndpoints)
-	weightPerNetwork := make(map[string]uint32)
+	weightByNetwork := make(map[string]uint32)
 	if len(instances) == 0 {
 		resultsMap[""] = []endpoint.LocalityLbEndpoints{}
-		weightPerNetwork[""] = 0
-		return resultsMap, weightPerNetwork
+		weightByNetwork[""] = 0
+		return resultsMap, weightByNetwork
 	}
 	for _, instance := range instances {
 		lbEp, err := newEndpoint(&instance.Endpoint)
@@ -244,36 +242,37 @@ func localityLbEndpointsFromInstances(instances []*model.ServiceInstance) (map[s
 		// Once we do that, the key must be a | separated tupple.
 		locality := instance.GetAZ()
 		network := instance.Labels["ISTIO_NETWORK"]
-		_, found := localityEpMapPerNetwork[network]
+		_, found := localityEpMapByNetwork[network]
 		if !found {
-			localityEpMapPerNetwork[network] = make(map[string]*endpoint.LocalityLbEndpoints)
+			localityEpMapByNetwork[network] = make(map[string]*endpoint.LocalityLbEndpoints)
 		}
-		locLbEps, found := localityEpMapPerNetwork[network][locality]
+		locLbEps, found := localityEpMapByNetwork[network][locality]
 		if !found {
 			locLbEps = &endpoint.LocalityLbEndpoints{
 				Locality: &core.Locality{
 					Zone: locality,
 				},
 			}
-			localityEpMapPerNetwork[network][locality] = locLbEps
+			localityEpMapByNetwork[network][locality] = locLbEps
 		}
 		locLbEps.LbEndpoints = append(locLbEps.LbEndpoints, *lbEp)
-		weightPerNetwork[network]++
+		weightByNetwork[network]++
 	}
-	for n, localityEpMap := range localityEpMapPerNetwork {
+	for n, localityEpMap := range localityEpMapByNetwork {
 		out := make([]endpoint.LocalityLbEndpoints, 0, len(localityEpMap))
 		for _, locLbEps := range localityEpMap {
 			out = append(out, *locLbEps)
 		}
 		resultsMap[n] = out
 	}
-	return resultsMap, weightPerNetwork
+	return resultsMap, weightByNetwork
 }
 
 // Function will go through other networks and add a remote endpoint pointing
 // to the gateway of each one of them. The remote endpoints (one per each network)
 // will be added to the ClusterLoadAssignment of the specified network.
-func (c *EdsCluster) updateRemoteEndpoints(network string) {
+func (c *EdsCluster) updateRemoteEndpoints(nodeMeta map[string]string) {
+	network := nodeMeta["ISTIO_NETWORK"]
 	cla := c.ClusterLoadAssignments[network]
 	if cla == nil {
 		return
@@ -410,10 +409,11 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection) e
 
 		l := loadAssignment(c, con.modelNode.Metadata)
 		if l == nil { // fresh cluster
-			if err := s.updateCluster(push, clusterName, con.modelNode.Metadata["ISTIO_NETWORK"], c); err != nil {
+			if err := s.updateCluster(push, clusterName, c); err != nil {
 				adsLog.Errorf("error returned from updateCluster for cluster name %s, skipping it.", clusterName)
 				continue
 			}
+			c.updateRemoteEndpoints(con.modelNode.Metadata)
 			l = loadAssignment(c, con.modelNode.Metadata)
 		}
 		endpoints += len(l.Endpoints)

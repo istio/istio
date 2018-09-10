@@ -645,7 +645,7 @@ func (s *DiscoveryServer) AdsPushAll(version string) {
 	// the update may be duplicated if multiple goroutines compute at the same time).
 	// In general this code is called from the 'event' callback that is throttled.
 	for clusterName, edsCluster := range cMap {
-		if err := s.updateCluster(pushContext, clusterName, "", edsCluster); err != nil {
+		if err := s.updateCluster(pushContext, clusterName, edsCluster); err != nil {
 			adsLog.Errorf("updateCluster failed with clusterName %s", clusterName)
 		}
 	}
