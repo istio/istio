@@ -48,22 +48,13 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 	clusters := make([]*v2.Cluster, 0)
 
 	recomputeOutboundClusters := true
-
-	switch proxy.Type {
-	case model.Sidecar:
-		if configgen.OutboundClustersForSidecars != nil {
-			clusters = append(clusters, configgen.OutboundClustersForSidecars...)
-			recomputeOutboundClusters = false
-		}
-	case model.Router:
-		if configgen.OutboundClustersForGateways != nil {
-			clusters = append(clusters, configgen.OutboundClustersForGateways...)
-			recomputeOutboundClusters = false
-		}
+	if configgen.OutboundClusters != nil {
+		clusters = append(clusters, configgen.OutboundClusters...)
+		recomputeOutboundClusters = false
 	}
 
 	if recomputeOutboundClusters {
-		clusters = append(clusters, configgen.buildOutboundClusters(env, proxy.Type, push)...)
+		clusters = append(clusters, configgen.buildOutboundClusters(env, push)...)
 	}
 
 	if proxy.Type == model.Sidecar {
@@ -101,7 +92,7 @@ func normalizeClusters(push *model.PushContext, proxy *model.Proxy, clusters []*
 	return out
 }
 
-func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environment, proxyType model.NodeType, push *model.PushContext) []*v2.Cluster {
+func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environment, push *model.PushContext) []*v2.Cluster {
 	clusters := make([]*v2.Cluster, 0)
 	for _, service := range push.Services {
 		config := push.DestinationRule(service.Hostname)
