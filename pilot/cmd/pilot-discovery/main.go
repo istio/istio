@@ -29,17 +29,19 @@ import (
 	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/mcp/creds"
 	"istio.io/istio/pkg/version"
 )
 
 var (
 	httpPort       int
 	monitoringPort int
-	serverArgs     bootstrap.PilotArgs
+	serverArgs     = bootstrap.PilotArgs{
+		CtrlZOptions:         ctrlz.DefaultOptions(),
+		MCPCredentialOptions: creds.DefaultOptions(),
+	}
 
 	loggingOptions = log.DefaultOptions()
-
-	ctrlzOptions = ctrlz.DefaultOptions()
 
 	rootCmd = &cobra.Command{
 		Use:          "pilot-discovery",
@@ -106,8 +108,11 @@ func init() {
 		"Select a namespace where the controller resides. If not set, uses ${POD_NAMESPACE} environment variable")
 	discoveryCmd.PersistentFlags().StringSliceVar(&serverArgs.Plugins, "plugins", bootstrap.DefaultPlugins,
 		"comma separated list of networking plugins to enable")
+
+	// MCP client flags
 	discoveryCmd.PersistentFlags().StringSliceVar(&serverArgs.MCPServerAddrs, "mcpServerAddrs", []string{},
 		"comma separated list of mesh config protocol server addresses")
+	serverArgs.MCPCredentialOptions.AttachCobraFlags(discoveryCmd)
 
 	// Config Controller options
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.FileDir, "configDir", "",
@@ -153,8 +158,7 @@ func init() {
 	loggingOptions.AttachCobraFlags(rootCmd)
 
 	// Attach the Istio Ctrlz options to the command.
-	ctrlzOptions.AttachCobraFlags(rootCmd)
-	serverArgs.CtrlZOptions = ctrlzOptions
+	serverArgs.CtrlZOptions.AttachCobraFlags(rootCmd)
 
 	cmd.AddFlags(rootCmd)
 

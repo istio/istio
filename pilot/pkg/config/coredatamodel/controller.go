@@ -37,6 +37,11 @@ type CoreDataModel interface {
 	mcpclient.Updater
 }
 
+// Options stores the configurable attributes of a Control
+type Options struct {
+	DomainSuffix string
+}
+
 // Controller is a temporary storage for the changes received
 // via MCP server
 type Controller struct {
@@ -44,10 +49,12 @@ type Controller struct {
 	// keys [type][namespace][name]
 	configStore              map[string]map[string]map[string]model.Config
 	descriptorsByMessageName map[string]model.ProtoSchema
+	options                  Options
+	eventHandlers            map[string]func(model.Config, model.Event)
 }
 
 // NewController provides a new CoreDataModel controller
-func NewController() CoreDataModel {
+func NewController(options Options) CoreDataModel {
 	descriptorsByMessageName := make(map[string]model.ProtoSchema, len(model.IstioConfigTypes))
 	for _, descriptor := range model.IstioConfigTypes {
 		descriptorsByMessageName[descriptor.MessageName] = descriptor
@@ -60,7 +67,9 @@ func NewController() CoreDataModel {
 	}
 	return &Controller{
 		configStore:              configStore,
+		options:                  options,
 		descriptorsByMessageName: descriptorsByMessageName,
+		eventHandlers:            make(map[string]func(model.Config, model.Event)),
 	}
 }
 
@@ -122,7 +131,7 @@ func (c *Controller) Apply(change *mcpclient.Change) error {
 	// innerStore is [namespace][name]
 	innerStore := make(map[string]map[string]model.Config)
 	for _, obj := range change.Objects {
-		name, nameSpace := extractNameNamespace(obj.Metadata.Name)
+		namespace, name := extractNameNamespace(obj.Metadata.Name)
 
 		createTime := time.Now()
 		if obj.Metadata.CreateTime != nil {
@@ -138,9 +147,10 @@ func (c *Controller) Apply(change *mcpclient.Change) error {
 				Group:             descriptor.Group,
 				Version:           descriptor.Version,
 				Name:              name,
-				Namespace:         nameSpace,
+				Namespace:         namespace,
 				ResourceVersion:   obj.Metadata.Version,
 				CreationTimestamp: createTime,
+				Domain:            c.options.DomainSuffix,
 			},
 			Spec: obj.Resource,
 		}
@@ -162,6 +172,13 @@ func (c *Controller) Apply(change *mcpclient.Change) error {
 	c.configStoreMu.Lock()
 	c.configStore[descriptor.Type] = innerStore
 	c.configStoreMu.Unlock()
+
+	// TODO - send a dummy event update to trigger pilot
+	// configuration generation to re-generate it's internal model.
+
+	if handler, ok := c.eventHandlers[descriptor.Type]; ok {
+		handler(model.Config{}, model.EventUpdate)
+	}
 
 	return nil
 }
@@ -189,7 +206,7 @@ func (c *Controller) Run(stop <-chan struct{}) {
 
 // RegisterEventHandler is not implemented
 func (c *Controller) RegisterEventHandler(typ string, handler func(model.Config, model.Event)) {
-	log.Warnf("registerEventHandler %s", errUnsupported)
+	c.eventHandlers[typ] = handler
 }
 
 // Get is not implemented
@@ -220,7 +237,7 @@ func extractNameNamespace(metadataName string) (string, string) {
 	if len(segments) == 2 {
 		return segments[0], segments[1]
 	}
-	return segments[0], ""
+	return "", segments[0]
 }
 
 func extractMessagename(typeURL string) string {

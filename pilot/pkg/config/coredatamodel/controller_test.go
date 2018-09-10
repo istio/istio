@@ -70,19 +70,23 @@ var (
 			},
 		},
 	}
+
+	testControllerOptions = coredatamodel.Options{
+		DomainSuffix: "cluster.local",
+	}
 )
 
 func TestHasSynced(t *testing.T) {
 	t.Skip("Pending: https://github.com/istio/istio/issues/7947")
 	g := gomega.NewGomegaWithT(t)
-	controller := coredatamodel.NewController()
+	controller := coredatamodel.NewController(testControllerOptions)
 
 	g.Expect(controller.HasSynced()).To(gomega.BeFalse())
 }
 
 func TestConfigDescriptor(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	controller := coredatamodel.NewController()
+	controller := coredatamodel.NewController(testControllerOptions)
 
 	descriptors := controller.ConfigDescriptor()
 	g.Expect(descriptors).To(gomega.Equal(model.IstioConfigTypes))
@@ -90,7 +94,7 @@ func TestConfigDescriptor(t *testing.T) {
 
 func TestListInvalidType(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	controller := coredatamodel.NewController()
+	controller := coredatamodel.NewController(testControllerOptions)
 
 	c, err := controller.List("bad-type", "some-phony-name-space.com")
 	g.Expect(c).To(gomega.BeNil())
@@ -100,7 +104,7 @@ func TestListInvalidType(t *testing.T) {
 
 func TestListCorrectTypeNoData(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	controller := coredatamodel.NewController()
+	controller := coredatamodel.NewController(testControllerOptions)
 
 	c, err := controller.List("virtual-service", "some-phony-name-space.com")
 	g.Expect(c).To(gomega.BeNil())
@@ -109,13 +113,13 @@ func TestListCorrectTypeNoData(t *testing.T) {
 
 func TestListAllNameSpace(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	controller := coredatamodel.NewController()
+	controller := coredatamodel.NewController(testControllerOptions)
 
 	messages := convertToEnvelope(g, []*networking.Gateway{gateway, gateway2, gateway3})
 	message, message2, message3 := messages[0], messages[1], messages[2]
 	change := convert(
 		[]proto.Message{message, message2, message3},
-		[]string{"some-gateway1/namespace1", "some-other-gateway/default", "some-other-gateway3"},
+		[]string{"namespace1/some-gateway1", "default/some-other-gateway", "some-other-gateway3"},
 		model.Gateway.MessageName)
 
 	err := controller.Apply(change)
@@ -143,14 +147,14 @@ func TestListAllNameSpace(t *testing.T) {
 
 func TestListSpecificNameSpace(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	controller := coredatamodel.NewController()
+	controller := coredatamodel.NewController(testControllerOptions)
 
 	messages := convertToEnvelope(g, []*networking.Gateway{gateway, gateway2, gateway3})
 	message, message2, message3 := messages[0], messages[1], messages[2]
 
 	change := convert(
 		[]proto.Message{message, message2, message3},
-		[]string{"some-gateway1/namespace1", "some-other-gateway/default", "some-other-gateway3/namespace1"},
+		[]string{"namespace1/some-gateway1", "default/some-other-gateway", "namespace1/some-other-gateway3"},
 		model.Gateway.MessageName)
 
 	err := controller.Apply(change)
@@ -174,7 +178,7 @@ func TestListSpecificNameSpace(t *testing.T) {
 
 func TestApplyInvalidType(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	controller := coredatamodel.NewController()
+	controller := coredatamodel.NewController(testControllerOptions)
 
 	message := convertToEnvelope(g, []*networking.Gateway{gateway})
 	change := convert([]proto.Message{message[0]}, []string{"some-gateway"}, "bad-type")
@@ -185,7 +189,7 @@ func TestApplyInvalidType(t *testing.T) {
 
 func TestApplyValidTypeWithNoBaseURL(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	controller := coredatamodel.NewController()
+	controller := coredatamodel.NewController(testControllerOptions)
 
 	var createAndCheckGateway = func(g *gomega.GomegaWithT, controller coredatamodel.CoreDataModel, port uint32) {
 		gateway := &networking.Gateway{
@@ -224,11 +228,11 @@ func TestApplyValidTypeWithNoBaseURL(t *testing.T) {
 
 func TestApplyMetadataNameIncludesNamespace(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	controller := coredatamodel.NewController()
+	controller := coredatamodel.NewController(testControllerOptions)
 
 	message := convertToEnvelope(g, []*networking.Gateway{gateway})
 
-	change := convert([]proto.Message{message[0]}, []string{"some-gateway/istio-namespace"}, model.Gateway.MessageName)
+	change := convert([]proto.Message{message[0]}, []string{"istio-namespace/some-gateway"}, model.Gateway.MessageName)
 	err := controller.Apply(change)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
@@ -242,7 +246,7 @@ func TestApplyMetadataNameIncludesNamespace(t *testing.T) {
 
 func TestApplyMetadataNameWithoutNamespace(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	controller := coredatamodel.NewController()
+	controller := coredatamodel.NewController(testControllerOptions)
 
 	message := convertToEnvelope(g, []*networking.Gateway{gateway})
 
@@ -260,7 +264,7 @@ func TestApplyMetadataNameWithoutNamespace(t *testing.T) {
 
 func TestApplyChangeNoObjects(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	controller := coredatamodel.NewController()
+	controller := coredatamodel.NewController(testControllerOptions)
 
 	message := convertToEnvelope(g, []*networking.Gateway{gateway})
 	change := convert([]proto.Message{message[0]}, []string{"some-gateway"}, model.Gateway.MessageName)
