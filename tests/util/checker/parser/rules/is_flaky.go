@@ -37,7 +37,7 @@ func (lr *IsFlaky) GetID() string {
 	return rules.GetCallerFileName()
 }
 
-// Check verifies if aNode is not time.Sleep. If verification fails lrp creates a new report.
+// Check creates a report if aNode is a test which has annotation.IsFlaky() call.
 func (lr *IsFlaky) Check(aNode ast.Node, fs *token.FileSet, lrp *checker.Report) {
 	if fn, isFn := aNode.(*ast.FuncDecl); isFn && strings.HasPrefix(fn.Name.Name, "Test") {
 		for _, item := range fn.Body.List {

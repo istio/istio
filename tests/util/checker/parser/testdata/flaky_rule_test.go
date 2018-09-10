@@ -40,3 +40,18 @@ func TestIsMarkedFlaky2(t *testing.T) {
 	}
 	t.Skip("https://github.com/istio/istio/issues/6041")
 }
+
+// nolint: testlinter
+func TestIsNotMarkedFlaky(t *testing.T) {
+	SetCount()
+	if Count(1) != 1 {
+		t.Error("expected 1")
+	}
+	if Count(2) != 2 {
+		t.Error("expected 2")
+	}
+	if Count(3) != 3 {
+		t.Error("expected 3")
+	}
+	t.Skip("https://github.com/istio/istio/issues/6041")
+}

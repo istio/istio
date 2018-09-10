@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package flakytestfinder
 
 import (
 	"os"
@@ -27,16 +27,7 @@ type RulesMatcher struct {
 }
 
 // GetRules checks path absp and decides whether absp is a test file. It returns true and rules to
-// parse the file. If path absp should be skipped, it returns false.
-// If one of the following cases meet, path absp is a valid path to test file.
-// (1) e2e test file
-// .../e2e/.../*_test.go
-// (2) integration test file
-// .../integration/.../*_test.go
-// .../integration/.../*_integ_test.go
-// .../*_integ_test.go
-// (3) unit test file
-// .../*_test.go
+// parse the file. Path absp is valid path to a test file if its suffix is _test.go.
 func (rf *RulesMatcher) GetRules(absp string, info os.FileInfo) []checker.Rule {
 	// Skip path which is not go test file or is a directory.
 	paths := strings.Split(absp, "/")
