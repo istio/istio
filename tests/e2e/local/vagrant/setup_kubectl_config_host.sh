@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Setting up kubectl on host to talk to kubernetest cluster on Vagrant VM.
+# Setting up kubectl on host to talk to kubernetes cluster on Vagrant VM.
 
 # Save and unset KUBECONFIG in case users set it pointing to a k8s cluster
 export KUBECONFIG_SAVED=$KUBECONFIG

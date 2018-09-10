@@ -27,8 +27,8 @@ vagrant ssh -c "sudo sed -i 's/ExecStart=\\/usr\\/bin\\/dockerd -H fd:\\/\\//Exe
 vagrant ssh -c "sudo systemctl daemon-reload"
 vagrant ssh -c "sudo systemctl restart docker"
 
-# Setting up kubernetest Cluster on VM for Istio Tests.
-echo "Adding priviledges to kubernetes cluster..."
+# Setting up kubernetes Cluster on VM for Istio Tests.
+echo "Adding privileges to kubernetes cluster..."
 vagrant ssh -c "sudo sed -i 's/ExecStart=\\/usr\\/bin\\/hyperkube kubelet/ExecStart=\\/usr\\/bin\\/hyperkube kubelet --allow-privileged=true/' /etc/systemd/system/kubelet.service"
 vagrant ssh -c "sudo systemctl daemon-reload"
 vagrant ssh -c "sudo systemctl stop kubelet"
