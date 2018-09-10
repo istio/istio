@@ -30,7 +30,9 @@ const (
 // GetPrivateIP blocks until a private IP address is available, or a timeout is reached.
 func GetPrivateIP(ctx context.Context) (net.IP, bool) {
 	if _, ok := ctx.Deadline(); !ok {
-		context.WithTimeout(ctx, waitTimeout)
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, waitTimeout)
+		defer cancel()
 	}
 
 	for {
