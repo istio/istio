@@ -196,12 +196,12 @@ func createIstioCARole(clientset kubernetes.Interface, namespace string) error {
 		Rules: []rbac.PolicyRule{
 			{
 				Verbs:     []string{"create", "get", "watch", "list", "update"},
-				APIGroups: []string{"core", ""},
+				APIGroups: []string{""},
 				Resources: []string{"secrets"},
 			},
 			{
 				Verbs:     []string{"get", "watch", "list"},
-				APIGroups: []string{"core", ""},
+				APIGroups: []string{""},
 				Resources: []string{"serviceaccounts", "services", "pods"},
 			},
 		},
