@@ -43,10 +43,6 @@ import (
 )
 
 const (
-	fileAccessLog = "envoy.file_access_log"
-
-	envoyHTTPConnectionManager = "envoy.http_connection_manager"
-
 	envoyListenerTLSInspector = "envoy.listener.tls_inspector"
 
 	// RDSHttpProxy is the special name for HTTP PROXY route
@@ -825,7 +821,7 @@ func buildHTTPConnectionManager(env *model.Environment, node *model.Proxy, httpO
 		connectionManager.AccessLog = []*accesslog.AccessLog{
 			{
 				Config: util.MessageToStruct(fl),
-				Name:   fileAccessLog,
+				Name:   xdsutil.FileAccessLog,
 			},
 		}
 	}
@@ -965,7 +961,7 @@ func marshalFilters(l *xdsapi.Listener, opts buildListenerOpts, chains []plugin.
 			opt.httpOpts.statPrefix = l.Name
 			connectionManager := buildHTTPConnectionManager(opts.env, opts.proxy, opt.httpOpts, chain.HTTP)
 			l.FilterChains[i].Filters = append(l.FilterChains[i].Filters, listener.Filter{
-				Name:   envoyHTTPConnectionManager,
+				Name:   xdsutil.HTTPConnectionManager,
 				Config: util.MessageToStruct(connectionManager),
 			})
 			log.Debugf("attached HTTP filter with %d http_filter options to listener %q filter chain %d", 1+len(chain.HTTP), l.Name, i)
