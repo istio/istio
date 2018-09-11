@@ -51,6 +51,7 @@ const (
 	yamlExtension         = "yaml"
 	deploymentDir         = "platform/kube"
 	bookinfoYaml          = "bookinfo"
+	remotebookinfoYaml    = "remotebookinfo"
 	bookinfoRatingsv2Yaml = "bookinfo-ratings-v2"
 	bookinfoDbYaml        = "bookinfo-db"
 	sleepYaml             = "samples/sleep/sleep"
@@ -307,15 +308,24 @@ func newPromProxy(namespace string) *promProxy {
 func dumpK8Env() {
 	_, _ = util.Shell("kubectl --namespace %s get pods -o wide", tc.Kube.Namespace)
 
-	podLogs("istio="+ingressName, ingressName)
-	podLogs("istio=mixer", "mixer")
-	podLogs("istio=pilot", "discovery")
-	podLogs("app=productpage", "istio-proxy")
+	podLogs("istio="+ingressName, ingressName, tc.Kube.KubeConfig)
+	podLogs("istio=mixer", "mixer", tc.Kube.KubeConfig)
+	podLogs("istio=pilot", "discovery", tc.Kube.KubeConfig)
+	podLogs("app=productpage", "istio-proxy", tc.Kube.KubeConfig)
+	if tc.Kube.RemoteKubeConfig != "" {
+		_, _ = util.Shell("kubectl --namespace %s get pods -o wide --kubeconfig=%s", tc.Kube.Namespace, tc.Kube.RemoteKubeConfig)
+	}
 
 }
 
-func podID(labelSelector string) (pod string, err error) {
-	pod, err = util.Shell("kubectl -n %s get pod -l %s -o jsonpath='{.items[0].metadata.name}'", tc.Kube.Namespace, labelSelector)
+func podID(labelSelector string, remote bool) (pod string, err error) {
+
+	if remote {
+		pod, err = util.Shell("kubectl -n %s get pod -l %s -o jsonpath='{.items[0].metadata.name}' --kubeconfig=%s",
+			tc.Kube.Namespace, labelSelector, tc.Kube.RemoteKubeConfig)
+	} else {
+		pod, err = util.Shell("kubectl -n %s get pod -l %s -o jsonpath='{.items[0].metadata.name}'", tc.Kube.Namespace, labelSelector)
+	}
 	if err != nil {
 		log.Warnf("could not get %s pod: %v", labelSelector, err)
 		return
@@ -343,14 +353,14 @@ func deployment(labelSelector string) (name, owner, uid string, err error) {
 	return
 }
 
-func podLogs(labelSelector string, container string) {
-	pod, err := podID(labelSelector)
+func podLogs(labelSelector string, container string, kubeconfig string) {
+	pod, err := podID(labelSelector, false)
 	if err != nil {
 		return
 	}
 	log.Info("Expect and ignore an error getting crash logs when there are no crash (-p invocation)")
-	_, _ = util.Shell("kubectl --namespace %s logs %s -c %s --tail=40 -p", tc.Kube.Namespace, pod, container)
-	_, _ = util.Shell("kubectl --namespace %s logs %s -c %s --tail=40", tc.Kube.Namespace, pod, container)
+	_, _ = util.Shell("kubectl --namespace %s logs %s -c %s --tail=40 -p --kubeconfig=%s", tc.Kube.Namespace, pod, container, kubeconfig)
+	_, _ = util.Shell("kubectl --namespace %s logs %s -c %s --tail=40 --kubeconfig=%s", tc.Kube.Namespace, pod, container, kubeconfig)
 }
 
 // portForward sets up local port forward to the pod specified by the "app" label
@@ -452,6 +462,21 @@ func setTestConfig() error {
 	}
 	for i := range demoApps {
 		tc.Kube.AppManager.AddApp(&demoApps[i])
+	}
+	if tc.Kube.RemoteKubeConfig != "" {
+		remoteDemoApps := []framework.App{
+			{
+				AppYaml:    getBookinfoResourcePath(remotebookinfoYaml),
+				KubeInject: true,
+			},
+			{
+				AppYaml:    util.GetResourcePath(sleepYaml + "." + yamlExtension),
+				KubeInject: true,
+			},
+		}
+		for i := range remoteDemoApps {
+			tc.Kube.RemoteAppManager.AddApp(&remoteDemoApps[i])
+		}
 	}
 	mp := newPromProxy(tc.Kube.Namespace)
 	tc.Cleanup.RegisterCleanable(mp)
@@ -667,7 +692,7 @@ func TestKubeenvMetrics(t *testing.T) {
 	if err != nil {
 		fatalf(t, "Could not build prometheus API client: %v", err)
 	}
-	productPagePod, err := podID("app=productpage")
+	productPagePod, err := podID("app=productpage", false)
 	if err != nil {
 		fatalf(t, "Could not get productpage pod ID: %v", err)
 	}
@@ -675,7 +700,7 @@ func TestKubeenvMetrics(t *testing.T) {
 	if err != nil {
 		fatalf(t, "Could not get productpage deployment metadata: %v", err)
 	}
-	ingressPod, err := podID(fmt.Sprintf("istio=%s", ingressName))
+	ingressPod, err := podID(fmt.Sprintf("istio=%s", ingressName), false)
 	if err != nil {
 		fatalf(t, "Could not get ingress pod ID: %v", err)
 	}
@@ -799,7 +824,7 @@ func getIngressOrFail(t *testing.T) string {
 // TestCheckCache tests that check cache works within the mesh.
 func TestCheckCache(t *testing.T) {
 	// Get pod id of sleep app.
-	pod, err := podID("app=sleep")
+	pod, err := podID("app=sleep", false)
 	if err != nil {
 		fatalf(t, "fail getting pod id of sleep %v", err)
 	}
@@ -807,9 +832,19 @@ func TestCheckCache(t *testing.T) {
 
 	// visit calls product page health handler with sleep app.
 	visit := func() error {
-		return visitWithApp(url, pod, "sleep", 100)
+		return visitWithApp(url, pod, "sleep", 100, false)
 	}
 	testCheckCache(t, visit, "productpage")
+	if tc.Kube.RemoteKubeConfig != "" {
+		pod, err := podID("app=sleep", true)
+		if err != nil {
+			fatalf(t, "fail getting pod id of sleep %v", err)
+		}
+		visit := func() error {
+			return visitWithApp(url, pod, "sleep", 100, true)
+		}
+		testCheckCache(t, visit, "productpage")
+	}
 }
 
 // testCheckCache verifies check cache is used when calling the given visit function
@@ -1427,9 +1462,14 @@ func visitProductPage(timeout time.Duration, wantStatus int, headers ...*header)
 }
 
 // visitWithApp visits the given url by curl in the given container.
-func visitWithApp(url string, pod string, container string, num int) error {
-	cmd := fmt.Sprintf("kubectl exec %s -n %s -c %s -- bash -c 'for ((i=0; i<%d; i++)); do curl -m 0.1 -i -s %s; done'",
+func visitWithApp(url string, pod string, container string, num int, remote bool) error {
+	var cmd string
+	cmd = fmt.Sprintf("kubectl exec %s -n %s -c %s -- bash -c 'for ((i=0; i<%d; i++)); do curl -m 0.1 -i -s %s; done'",
 		pod, tc.Kube.Namespace, container, num, url)
+	if remote {
+		cmd = fmt.Sprintf("kubectl exec %s -n %s -c %s --kubeconfig=%s -- bash -c 'for ((i=0; i<%d; i++)); do curl -m 0.1 -i -s %s; done'",
+			pod, tc.Kube.Namespace, container, tc.Kube.RemoteKubeConfig, num, url)
+	}
 	log.Infof("Visit %s for %d times with the following command: %v", url, num, cmd)
 	_, err := util.ShellMuteOutput(cmd)
 	if err != nil {
