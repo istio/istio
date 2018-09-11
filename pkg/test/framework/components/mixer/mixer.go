@@ -203,6 +203,24 @@ func (d *deployedMixer) Report(t testing.TB, attributes map[string]interface{}) 
 	}
 }
 
+// Check implements DeployedMixer.Check.
+func (d *deployedMixer) Check(t testing.TB, attributes map[string]interface{}) environment.CheckResponse {
+	t.Helper()
+
+	req := istio_mixer_v1.CheckRequest{
+		Attributes: getAttrBag(attributes),
+	}
+	response, err := d.clients[policyClient].Check(context.Background(), &req)
+
+	if err != nil {
+		t.Fatalf("Error sending check: %v", err)
+	}
+
+	return environment.CheckResponse{
+		Raw: response,
+	}
+}
+
 // ApplyConfig implements Configurable.ApplyConfig.
 func (d *deployedMixer) ApplyConfig(cfg string) error {
 	// This only applies when Mixer is running locally.
