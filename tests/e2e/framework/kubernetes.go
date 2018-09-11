@@ -43,6 +43,8 @@ const (
 	istioAddonsDir                 = "install/kubernetes/addons"
 	nonAuthInstallFile             = "istio.yaml"
 	authInstallFile                = "istio-auth.yaml"
+	nonAuthWithGalleyInstallFile   = "istio-galley.yaml"
+	authWithGalleyInstallFile      = "istio-auth-galley.yaml"
 	nonAuthInstallFileNamespace    = "istio-one-namespace.yaml"
 	authInstallFileNamespace       = "istio-one-namespace-auth.yaml"
 	mcNonAuthInstallFileNamespace  = "istio-multicluster.yaml"
@@ -150,12 +152,6 @@ type KubeInfo struct {
 }
 
 func getClusterWideInstallFile() string {
-	const (
-		nonAuthInstallFile           = "istio.yaml"
-		authInstallFile              = "istio-auth.yaml"
-		nonAuthWithGalleyInstallFile = "istio-galley.yaml"
-		authWithGalleyInstallFile    = "istio-auth-galley.yaml"
-	)
 	var istioYaml string
 	if *authEnable {
 		if *useGalleyConfigValidator {
