@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
 	"k8s.io/api/core/v1"
@@ -330,7 +331,7 @@ func (sc *SecretController) generateKeyAndCert(saName string, saNamespace string
 	}
 
 	certChainPEM := sc.ca.GetCAKeyCertBundle().GetCertChainPem()
-	certPEM, signErr := sc.ca.Sign(csrPEM, sc.certTTL, sc.forCA)
+	certPEM, signErr := sc.ca.Sign(csrPEM, strings.Split(id, ","), sc.certTTL, sc.forCA)
 	if signErr != nil {
 		log.Errorf("CSR signing error (%v)", signErr.Error())
 		sc.monitoring.GetCertSignError(signErr.(*ca.Error).ErrorType()).Inc()

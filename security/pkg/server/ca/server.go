@@ -19,7 +19,6 @@ import (
 	"crypto/x509"
 	"fmt"
 	"net"
-	"strings"
 	"time"
 
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
@@ -38,7 +37,7 @@ import (
 
 const certExpirationBuffer = time.Minute
 
-// Server implements pb.IstioCAService and provides the service on the
+// Server implements IstioCAService and IstioCertificateService and provides the services on the
 // specified port.
 type Server struct {
 	authenticators []authenticator
@@ -52,10 +51,49 @@ type Server struct {
 	monitoring     monitoringMetrics
 }
 
+// CreateCertificate handles an incoming certificate signing request (CSR). It does
+// authentication and authorization. Upon validated, signs a certificate that:
+// the SAN is the identity of the caller in authentication result.
+// the subject public key is the public key in the CSR.
+// the validity duration is the ValidityDuration in request, or default value if the given duration is invalid.
+// it is signed by the CA signing key.
+func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertificateRequest) (
+	*pb.IstioCertificateResponse, error) {
+	caller := s.authenticate(ctx)
+	if caller == nil {
+		log.Warn("request authentication failure")
+		s.monitoring.AuthnError.Inc()
+		return nil, status.Error(codes.Unauthenticated, "request authenticate failure")
+	}
+
+	// TODO: Call authorizer.
+
+	_, _, certChainBytes, rootCertBytes := s.ca.GetCAKeyCertBundle().GetAll()
+	cert, signErr := s.ca.Sign(
+		[]byte(request.Csr), caller.identities, time.Duration(request.ValidityDuration)*time.Second, false)
+	if signErr != nil {
+		log.Errorf("CSR signing error (%v)", signErr.Error())
+		s.monitoring.GetCertSignError(signErr.(*ca.Error).ErrorType()).Inc()
+		return nil, status.Errorf(signErr.(*ca.Error).HTTPErrorCode(), "CSR signing error (%v)", signErr.(*ca.Error))
+	}
+	respCertChain := []string{string(cert)}
+	if len(certChainBytes) != 0 {
+		respCertChain = append(respCertChain, string(certChainBytes))
+	}
+	respCertChain = append(respCertChain, string(rootCertBytes))
+	response := &pb.IstioCertificateResponse{
+		CertChain: respCertChain,
+	}
+	log.Debug("CSR successfully signed.")
+
+	return response, nil
+}
+
 // HandleCSR handles an incoming certificate signing request (CSR). It does
 // proper validation (e.g. authentication) and upon validated, signs the CSR
 // and returns the resulting certificate. If not approved, reason for refusal
 // to sign is returned as part of the response object.
+// [TODO](myidpt): Deprecate this function.
 func (s *Server) HandleCSR(ctx context.Context, request *pb.CsrRequest) (*pb.CsrResponse, error) {
 	s.monitoring.CSR.Inc()
 	caller := s.authenticate(ctx)
@@ -82,7 +120,7 @@ func (s *Server) HandleCSR(ctx context.Context, request *pb.CsrRequest) (*pb.Csr
 	// TODO: Call authorizer.
 
 	_, _, certChainBytes, _ := s.ca.GetCAKeyCertBundle().GetAll()
-	cert, signErr := s.ca.Sign(request.CsrPem, time.Duration(request.RequestedTtlMinutes)*time.Minute, s.forCA)
+	cert, signErr := s.ca.Sign(request.CsrPem, []string{}, time.Duration(request.RequestedTtlMinutes)*time.Minute, s.forCA)
 	if signErr != nil {
 		log.Errorf("CSR signing error (%v)", signErr.Error())
 		s.monitoring.GetCertSignError(signErr.(*ca.Error).ErrorType()).Inc()
@@ -94,7 +132,7 @@ func (s *Server) HandleCSR(ctx context.Context, request *pb.CsrRequest) (*pb.Csr
 		SignedCert: cert,
 		CertChain:  certChainBytes,
 	}
-	log.Info("CSR successfully signed.")
+	log.Debug("CSR successfully signed.")
 	s.monitoring.Success.Inc()
 
 	return response, nil
@@ -113,6 +151,7 @@ func (s *Server) Run() error {
 
 	grpcServer := grpc.NewServer(grpcOptions...)
 	pb.RegisterIstioCAServiceServer(grpcServer, s)
+	pb.RegisterIstioCertificateServiceServer(grpcServer, s)
 
 	grpc_prometheus.EnableHandlingTimeHistogram()
 	grpc_prometheus.Register(grpcServer)
@@ -184,7 +223,6 @@ func (s *Server) createTLSServerOption() grpc.ServerOption {
 
 func (s *Server) applyServerCertificate() (*tls.Certificate, error) {
 	opts := util.CertOptions{
-		Host:       strings.Join(s.hostnames, ","),
 		RSAKeySize: 2048,
 	}
 
@@ -193,7 +231,7 @@ func (s *Server) applyServerCertificate() (*tls.Certificate, error) {
 		return nil, err
 	}
 
-	certPEM, signErr := s.ca.Sign(csrPEM, s.serverCertTTL, false)
+	certPEM, signErr := s.ca.Sign(csrPEM, s.hostnames, s.serverCertTTL, false)
 	if signErr != nil {
 		return nil, signErr.(*ca.Error)
 	}
