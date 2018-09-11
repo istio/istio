@@ -313,6 +313,30 @@ jobs:
       - store_artifacts:
           path: /tmp
 
+  test-integration-local:
+      <<: *defaults
+      environment:
+        KUBECONFIG: /go/src/istio.io/istio/.circleci/config
+      resource_class: xlarge
+      steps:
+        - checkout
+        - <<: *markJobStartsOnGCS
+        - run: make sync
+        - run:
+            command: |
+              mkdir -p /go/out/tests
+              export PATH=$GOPATH/bin:$PATH
+              make localTestEnv
+              set -o pipefail
+              make test.integration T=-v | tee -a /go/out/tests/build-log.txt
+        - <<: *recordZeroExitCodeIfTestPassed
+        - <<: *recordNonzeroExitCodeIfTestFailed
+        - <<: *markJobFinishesOnGCS
+        - store_test_results:
+            path: /go/out/tests
+        - store_artifacts:
+            path: /tmp
+
   # Run nightly, to verify 'dep ensure --update' works
   depupdate:
     <<: *defaults
@@ -602,3 +626,7 @@ workflows:
       - e2e-pilot-cloudfoundry-v1alpha3-v2:
           requires:
             - build
+      - test-integration-local:
+          requires:
+            - build
+
