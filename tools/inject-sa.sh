@@ -9,8 +9,8 @@ inject_ingress() {
  gcloud iam service-accounts describe ${INGRESS_SA}@${PROJECT_ID}.iam.gserviceaccount.com
  SA_ID=$(gcloud iam service-accounts describe ${INGRESS_SA}@${PROJECT_ID}.iam.gserviceaccount.com --format='value(uniqueId)')
  SA_EMAIL=${INGRESS_SA}@${PROJECT_ID}.iam.gserviceaccount.com
- sed -i "s/# PLACEHOLDER FOR GATEWAY_SA_ID/alpha.istio.io\/canonical-serviceaccounts: \"${SA_ID}\"/g" install/kubernetes/istio-demo-auth.yaml
- sed -i "s/# PLACEHOLDER FOR GATEWAY_SA_NAME/cloud.google.com\/service-account: \"${SA_EMAIL}\"/g" install/kubernetes/istio-demo-auth.yaml
+ sed -i'' -e "s/# PLACEHOLDER FOR GATEWAY_SA_ID/alpha.istio.io\/canonical-serviceaccounts: \"${SA_ID}\"/g" install/kubernetes/istio-demo-auth.yaml
+ sed -i'' -e "s/# PLACEHOLDER FOR GATEWAY_SA_NAME/cloud.google.com\/service-account: \"${SA_EMAIL}\"/g" install/kubernetes/istio-demo-auth.yaml
 }
 
 inject_bookinfo() {
@@ -29,8 +29,8 @@ inject_bookinfo() {
     SA_ID=$(gcloud iam service-accounts describe ${SA}@${PROJECT_ID}.iam.gserviceaccount.com --format='value(uniqueId)')
     SA_EMAIL=${SA}@${PROJECT_ID}.iam.gserviceaccount.com
 
-    sed -i "s/# PLACEHOLDER FOR ${ID_HOLDER}/alpha.istio.io\/canonical-serviceaccounts: \"${SA_ID}\"/g" samples/bookinfo/platform/kube/bookinfo.yaml
-    sed -i "s/# PLACEHOLDER FOR ${SA_HOLDER}/cloud.google.com\/service-account: \"${SA_EMAIL}\"/g" samples/bookinfo/platform/kube/bookinfo.yaml
+    sed -i'' -e "s/# PLACEHOLDER FOR ${ID_HOLDER}/alpha.istio.io\/canonical-serviceaccounts: \"${SA_ID}\"/g" samples/bookinfo/platform/kube/bookinfo.yaml
+    sed -i'' -e "s/# PLACEHOLDER FOR ${SA_HOLDER}/cloud.google.com\/service-account: \"${SA_EMAIL}\"/g" samples/bookinfo/platform/kube/bookinfo.yaml
  done
 }
 
