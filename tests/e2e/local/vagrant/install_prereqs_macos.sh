@@ -1,6 +1,6 @@
 #!/bin/bash
 
-SCRIPTPATH="$(cd "$(dirname "$0")" ; pwd -P)"
+SCRIPTPATH="$(cd "$(dirname "$0")" || exit ; pwd -P)"
 ROOTDIR="$(dirname "${SCRIPTPATH}")"
 # shellcheck source=tests/e2e/local/common_macos.sh
 source "${ROOTDIR}/common_macos.sh"
