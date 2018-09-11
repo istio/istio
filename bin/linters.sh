@@ -79,7 +79,7 @@ ensure_pilot_types
 format
 check_licenses
 check_spelling
-install_gometalinter
-run_gometalinter
+#install_gometalinter
+#run_gometalinter
 run_helm_lint
 check_grafana_dashboards
