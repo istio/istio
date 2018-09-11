@@ -180,12 +180,14 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 		}
 		edsInstances.With(prometheus.Labels{"cluster": clusterName}).Set(float64(len(instances)))
 
-		locEpsByNetwork, weights = localityLbEndpointsFromInstances(instances)
+		if len(instances) != 0 {
+			locEpsByNetwork, weights = localityLbEndpointsFromInstances(instances)
+		}
 	}
 
 	if locEpsByNetwork == nil {
-		locEpsByNetwork = map[string][]endpoint.LocalityLbEndpoints{ "": []endpoint.LocalityLbEndpoints{}}
-		weights = map[string]uint32{ "": 0 }
+		locEpsByNetwork = map[string][]endpoint.LocalityLbEndpoints{"": []endpoint.LocalityLbEndpoints{}}
+		weights = map[string]uint32{"": 0}
 	}
 
 	// There is a chance multiple goroutines will update the cluster at the same time.
@@ -226,7 +228,7 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 func localityLbEndpointsFromInstances(instances []*model.ServiceInstance) (map[string][]endpoint.LocalityLbEndpoints, map[string]uint32) {
 	localityEpMapByNetwork := make(map[string]map[string]*endpoint.LocalityLbEndpoints)
 	resultsMap := make(map[string][]endpoint.LocalityLbEndpoints)
-	weightByNetwork := make(map[string]uint32)	
+	weightByNetwork := make(map[string]uint32)
 	for _, instance := range instances {
 		lbEp, err := newEndpoint(&instance.Endpoint)
 		if err != nil {
