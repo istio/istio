@@ -163,8 +163,8 @@ func newEndpoint(e *model.NetworkEndpoint) (*endpoint.LbEndpoint, error) {
 // the endpoints for the cluster.
 func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName string, edsCluster *EdsCluster) error {
 	// TODO: should we lock this as well ? Once we move to event-based it may not matter.
-	var locEpsByNetwork map[string][]endpoint.LocalityLbEndpoints
-	var weights map[string]uint32
+	locEpsByNetwork := map[string][]endpoint.LocalityLbEndpoints{"": []endpoint.LocalityLbEndpoints{}}
+	weights := map[string]uint32{"": 0}
 	direction, subsetName, hostname, port := model.ParseSubsetKey(clusterName)
 	if direction == model.TrafficDirectionInbound ||
 		direction == model.TrafficDirectionOutbound {
@@ -222,11 +222,6 @@ func localityLbEndpointsFromInstances(instances []*model.ServiceInstance) (map[s
 	localityEpMapByNetwork := make(map[string]map[string]*endpoint.LocalityLbEndpoints)
 	resultsMap := make(map[string][]endpoint.LocalityLbEndpoints)
 	weightByNetwork := make(map[string]uint32)
-	if len(instances) == 0 {
-		resultsMap[""] = []endpoint.LocalityLbEndpoints{}
-		weightByNetwork[""] = 0
-		return resultsMap, weightByNetwork
-	}
 	for _, instance := range instances {
 		lbEp, err := newEndpoint(&instance.Endpoint)
 		if err != nil {
