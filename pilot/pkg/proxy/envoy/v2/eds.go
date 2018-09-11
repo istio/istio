@@ -163,8 +163,7 @@ func newEndpoint(e *model.NetworkEndpoint) (*endpoint.LbEndpoint, error) {
 // the endpoints for the cluster.
 func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName string, edsCluster *EdsCluster) error {
 	// TODO: should we lock this as well ? Once we move to event-based it may not matter.
-	var locEpsByNetwork map[string][]endpoint.LocalityLbEndpoints
-	var weights map[string]uint32
+	locEpsByNetwork := map[string][]endpoint.LocalityLbEndpoints{"": []endpoint.LocalityLbEndpoints{}}
 	direction, subsetName, hostname, port := model.ParseSubsetKey(clusterName)
 	if direction == model.TrafficDirectionInbound ||
 		direction == model.TrafficDirectionOutbound {
@@ -181,13 +180,8 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 		edsInstances.With(prometheus.Labels{"cluster": clusterName}).Set(float64(len(instances)))
 
 		if len(instances) != 0 {
-			locEpsByNetwork, weights = localityLbEndpointsFromInstances(instances)
+			locEpsByNetwork = localityLbEndpointsFromInstances(instances)
 		}
-	}
-
-	if locEpsByNetwork == nil {
-		locEpsByNetwork = map[string][]endpoint.LocalityLbEndpoints{"": []endpoint.LocalityLbEndpoints{}}
-		weights = map[string]uint32{"": 0}
 	}
 
 	// There is a chance multiple goroutines will update the cluster at the same time.
@@ -201,18 +195,8 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 			ClusterName: clusterName,
 			Endpoints:   locEps,
 		}
-		edsCluster.GatewaysEndpoints[n] = &endpoint.LocalityLbEndpoints{
-			// TODO temporary dummy creation of an endpoint to the gateway
-			// of the network with values helping to debug.
-			// Should be replaced with a real endpoint.
-			Locality: &core.Locality{
-				Zone:   "GW_Endpoint",
-				Region: n,
-			},
-			LoadBalancingWeight: &types.UInt32Value{
-				Value: weights[n],
-			},
-		}
+		edsCluster.GatewaysEndpoints[n] = networkGateway(n, locEps)
+
 		if len(locEps) > 0 && edsCluster.NonEmptyTime.IsZero() {
 			edsCluster.NonEmptyTime = time.Now()
 		}
@@ -221,14 +205,39 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 	return nil
 }
 
+// networkGateway returns an endpoint to the gateway of a remote Istio network.
+// The weight of the endpoint will equal to the number of endpoints in the
+// remote network. If the remote network has no cluster endpoints (weight 0)
+// nil will be returned.
+func networkGateway(network string, eps []endpoint.LocalityLbEndpoints) *endpoint.LocalityLbEndpoints {
+	weight := 0
+	for _, ep := range eps {
+		weight += len(ep.LbEndpoints)
+	}
+	if weight == 0 {
+		return nil
+	}
+	return &endpoint.LocalityLbEndpoints{
+		// TODO temporary dummy creation of an endpoint to the gateway
+		// of the network with values helping to debug.
+		// Should be replaced with a real endpoint.
+		Locality: &core.Locality{
+			Zone:   "GW_Endpoint",
+			Region: network,
+		},
+		LoadBalancingWeight: &types.UInt32Value{
+			Value: uint32(weight),
+		},
+	}
+}
+
 // LocalityLbEndpointsFromInstances returns a list of Envoy v2 LocalityLbEndpoints.
 // Envoy v2 Endpoints are constructed from Pilot's older data structure involving
 // model.ServiceInstance objects. Envoy expects the endpoints grouped by zone, so
 // a map is created - in new data structures this should be part of the model.
-func localityLbEndpointsFromInstances(instances []*model.ServiceInstance) (map[string][]endpoint.LocalityLbEndpoints, map[string]uint32) {
+func localityLbEndpointsFromInstances(instances []*model.ServiceInstance) map[string][]endpoint.LocalityLbEndpoints {
 	localityEpMapByNetwork := make(map[string]map[string]*endpoint.LocalityLbEndpoints)
 	resultsMap := make(map[string][]endpoint.LocalityLbEndpoints)
-	weightByNetwork := make(map[string]uint32)
 	for _, instance := range instances {
 		lbEp, err := newEndpoint(&instance.Endpoint)
 		if err != nil {
@@ -253,7 +262,6 @@ func localityLbEndpointsFromInstances(instances []*model.ServiceInstance) (map[s
 			localityEpMapByNetwork[network][locality] = locLbEps
 		}
 		locLbEps.LbEndpoints = append(locLbEps.LbEndpoints, *lbEp)
-		weightByNetwork[network]++
 	}
 	for n, localityEpMap := range localityEpMapByNetwork {
 		out := make([]endpoint.LocalityLbEndpoints, 0, len(localityEpMap))
@@ -262,7 +270,7 @@ func localityLbEndpointsFromInstances(instances []*model.ServiceInstance) (map[s
 		}
 		resultsMap[n] = out
 	}
-	return resultsMap, weightByNetwork
+	return resultsMap
 }
 
 // Function will go through other networks and add a remote endpoint pointing
