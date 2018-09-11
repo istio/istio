@@ -29,6 +29,7 @@ import (
 	authn "istio.io/api/authentication/v1alpha1"
 	authn_filter "istio.io/api/envoy/config/filter/http/authn/v2alpha1"
 	jwtfilter "istio.io/api/envoy/config/filter/http/jwt_auth/v2alpha1"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -89,7 +90,7 @@ func GetMutualTLS(policy *authn.Policy, proxyType model.NodeType) *authn.MutualT
 }
 
 // setupFilterChains sets up filter chains based on authentication policy.
-func setupFilterChains(authnPolicy *authn.Policy) []plugin.FilterChain {
+func setupFilterChains(authnPolicy *authn.Policy, serviceAccount string, meshConfig *meshconfig.MeshConfig) []plugin.FilterChain {
 	if authnPolicy == nil || len(authnPolicy.Peers) == 0 {
 		return nil
 	}
@@ -98,29 +99,6 @@ func setupFilterChains(authnPolicy *authn.Policy) []plugin.FilterChain {
 	}
 	tls := &auth.DownstreamTlsContext{
 		CommonTlsContext: &auth.CommonTlsContext{
-			TlsCertificates: []*auth.TlsCertificate{
-				{
-					CertificateChain: &core.DataSource{
-						Specifier: &core.DataSource_Filename{
-							Filename: model.AuthCertsPath + model.CertChainFilename,
-						},
-					},
-					PrivateKey: &core.DataSource{
-						Specifier: &core.DataSource_Filename{
-							Filename: model.AuthCertsPath + model.KeyFilename,
-						},
-					},
-				},
-			},
-			ValidationContextType: &auth.CommonTlsContext_ValidationContext{
-				ValidationContext: &auth.CertificateValidationContext{
-					TrustedCa: &core.DataSource{
-						Specifier: &core.DataSource_Filename{
-							Filename: model.AuthCertsPath + model.RootCertFilename,
-						},
-					},
-				},
-			},
 			// TODO(incfly): should this be {"istio", "http1.1", "h2"}?
 			// Currently it works: when server is in permissive mode, client sidecar can send tls traffic.
 			AlpnProtocols: util.ALPNHttp,
@@ -128,6 +106,29 @@ func setupFilterChains(authnPolicy *authn.Policy) []plugin.FilterChain {
 		RequireClientCertificate: &types.BoolValue{
 			Value: true,
 		},
+	}
+	if meshConfig.SdsUdsPath == "" {
+		tls.CommonTlsContext.ValidationContextType = model.ConstructValidationContext(model.AuthCertsPath+model.RootCertFilename, []string{} /*subjectAltNames*/)
+		tls.CommonTlsContext.TlsCertificates = []*auth.TlsCertificate{
+			{
+				CertificateChain: &core.DataSource{
+					Specifier: &core.DataSource_Filename{
+						Filename: model.AuthCertsPath + model.CertChainFilename,
+					},
+				},
+				PrivateKey: &core.DataSource{
+					Specifier: &core.DataSource_Filename{
+						Filename: model.AuthCertsPath + model.KeyFilename,
+					},
+				},
+			},
+		}
+	} else {
+		tls.CommonTlsContext.ValidationContextType = model.ConstructValidationContext(model.CARootCertPath, []string{} /*subjectAltNames*/)
+		refreshDuration, _ := types.DurationFromProto(meshConfig.SdsRefreshDelay)
+		tls.CommonTlsContext.TlsCertificateSdsSecretConfigs = []*auth.SdsSecretConfig{
+			model.ConstructSdsSecretConfig(serviceAccount, &refreshDuration, meshConfig.SdsUdsPath),
+		}
 	}
 	mtls := GetMutualTLS(authnPolicy, model.Sidecar)
 	if mtls == nil {
@@ -165,7 +166,7 @@ func setupFilterChains(authnPolicy *authn.Policy) []plugin.FilterChain {
 func (Plugin) OnInboundFilterChains(in *plugin.InputParams) []plugin.FilterChain {
 	port := in.ServiceInstance.Endpoint.ServicePort
 	authnPolicy := model.GetConsolidateAuthenticationPolicy(in.Env.IstioConfigStore, in.ServiceInstance.Service, port)
-	return setupFilterChains(authnPolicy)
+	return setupFilterChains(authnPolicy, in.ServiceInstance.ServiceAccount, in.Env.Mesh)
 }
 
 // CollectJwtSpecs returns a list of all JWT specs (pointers) defined the policy. This
