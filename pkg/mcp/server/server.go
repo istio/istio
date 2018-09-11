@@ -158,8 +158,7 @@ func (s *Server) newConnection(stream mcp.AggregatedMeshConfigService_StreamAggr
 		if err := s.authCheck.Check(authInfo); err != nil {
 			s.failureCountSinceLastRecord++
 			if s.checkFailureRecordLimiter.Allow() {
-				log.Infof("newConnection: auth check handler returned error: %v, "+
-					"check failed for %d times since last record", err, s.failureCountSinceLastRecord)
+				log.Warnf("NewConnection: auth check failed: %v (repeated %d times).", err, s.failureCountSinceLastRecord)
 				s.failureCountSinceLastRecord = 0
 			}
 			return nil, status.Errorf(codes.Unauthenticated, "Authentication failure: %v", err)
