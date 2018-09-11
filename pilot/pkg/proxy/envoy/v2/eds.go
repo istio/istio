@@ -183,6 +183,11 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 		locEpsByNetwork, weights = localityLbEndpointsFromInstances(instances)
 	}
 
+	if locEpsByNetwork == nil {
+		locEpsByNetwork = map[string][]endpoint.LocalityLbEndpoints{ "": []endpoint.LocalityLbEndpoints{}}
+		weights = map[string]uint32{ "": 0 }
+	}
+
 	// There is a chance multiple goroutines will update the cluster at the same time.
 	// This could be prevented by a lock - but because the update may be slow, it may be
 	// better to accept the extra computations.
@@ -221,12 +226,7 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 func localityLbEndpointsFromInstances(instances []*model.ServiceInstance) (map[string][]endpoint.LocalityLbEndpoints, map[string]uint32) {
 	localityEpMapByNetwork := make(map[string]map[string]*endpoint.LocalityLbEndpoints)
 	resultsMap := make(map[string][]endpoint.LocalityLbEndpoints)
-	weightByNetwork := make(map[string]uint32)
-	if len(instances) == 0 {
-		resultsMap[""] = []endpoint.LocalityLbEndpoints{}
-		weightByNetwork[""] = 0
-		return resultsMap, weightByNetwork
-	}
+	weightByNetwork := make(map[string]uint32)	
 	for _, instance := range instances {
 		lbEp, err := newEndpoint(&instance.Endpoint)
 		if err != nil {
