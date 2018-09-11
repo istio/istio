@@ -489,13 +489,19 @@ func (wh *Webhook) inject(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 		return toAdmissionResponse(err)
 	}
 
+	// Deal with potential empty fields, e.g., when the pod is created by a deployment
+	podName := potentialPodName(&pod.ObjectMeta)
+	if pod.ObjectMeta.Namespace == "" {
+		pod.ObjectMeta.Namespace = req.Namespace
+	}
+
 	log.Infof("AdmissionReview for Kind=%v Namespace=%v Name=%v (%v) UID=%v Rfc6902PatchOperation=%v UserInfo=%v",
-		req.Kind, req.Namespace, req.Name, pod.Name, req.UID, req.Operation, req.UserInfo)
+		req.Kind, req.Namespace, req.Name, podName, req.UID, req.Operation, req.UserInfo)
 	log.Debugf("Object: %v", string(req.Object.Raw))
 	log.Debugf("OldObject: %v", string(req.OldObject.Raw))
 
 	if !injectRequired(ignoredNamespaces, wh.sidecarConfig.Policy, &pod.Spec, &pod.ObjectMeta) {
-		log.Infof("Skipping %s/%s due to policy check", pod.Namespace, pod.Name)
+		log.Infof("Skipping %s/%s due to policy check", pod.ObjectMeta.Namespace, podName)
 		return &v1beta1.AdmissionResponse{
 			Allowed: true,
 		}
