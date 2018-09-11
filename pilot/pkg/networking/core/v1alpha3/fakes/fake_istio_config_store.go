@@ -333,26 +333,23 @@ func (fake *IstioConfigStore) GetArgsForCall(i int) (string, string, string) {
 	return fake.getArgsForCall[i].typ, fake.getArgsForCall[i].name, fake.getArgsForCall[i].namespace
 }
 
-func (fake *IstioConfigStore) GetReturns(result1 *model.Config, result2 bool) {
+func (fake *IstioConfigStore) GetReturns(result1 *model.Config) {
 	fake.GetStub = nil
 	fake.getReturns = struct {
 		result1 *model.Config
-		result2 bool
-	}{result1, result2}
+	}{result1}
 }
 
-func (fake *IstioConfigStore) GetReturnsOnCall(i int, result1 *model.Config, result2 bool) {
+func (fake *IstioConfigStore) GetReturnsOnCall(i int, result1 *model.Config) {
 	fake.GetStub = nil
 	if fake.getReturnsOnCall == nil {
 		fake.getReturnsOnCall = make(map[int]struct {
 			result1 *model.Config
-			result2 bool
 		})
 	}
 	fake.getReturnsOnCall[i] = struct {
 		result1 *model.Config
-		result2 bool
-	}{result1, result2}
+	}{result1}
 }
 
 func (fake *IstioConfigStore) List(typ string, namespace string) ([]model.Config, error) {
