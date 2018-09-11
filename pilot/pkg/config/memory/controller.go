@@ -88,7 +88,7 @@ func (c *controller) Update(config model.Config) (newRevision string, err error)
 }
 
 func (c *controller) Delete(typ, key, namespace string) (err error) {
-	if config, exists := c.Get(typ, key, namespace); exists {
+	if config := c.Get(typ, key, namespace); config != nil {
 		if err = c.configStore.Delete(typ, key, namespace); err == nil {
 			c.monitor.ScheduleProcessEvent(ConfigEvent{
 				config: *config,
