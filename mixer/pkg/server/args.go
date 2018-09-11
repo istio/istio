@@ -49,7 +49,7 @@ type Args struct {
 	// Maximum number of goroutines in the adapter worker pool
 	AdapterWorkerPoolSize int
 
-	// URL of the config store. Use k8s://path_to_kubeconfig, fs:// for file system, or mcp://<host> to
+	// URL of the config store. Use k8s://path_to_kubeconfig, fs:// for file system, or mcps://<host> to
 	// connect to Galley. If path_to_kubeconfig is empty, in-cluster kubeconfig is used.")
 	// If this is empty (and ConfigStore isn't specified), "k8s://" will be used.
 	ConfigStoreURL string
