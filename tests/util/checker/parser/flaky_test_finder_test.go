@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package flakytestfinder
+package flakytest
 
 import (
 	"reflect"
@@ -29,7 +29,7 @@ func getAbsPath(path string) string {
 }
 
 func TestIntegTestSkipByIssueRule(t *testing.T) {
-	rpts, _ := getReport([]string{"testdata/"})
+	rpts, _ := ReportFlakyTests([]string{"testdata/"})
 	expectedRpts := []string{"TestIsMarkedFlaky1", "TestIsMarkedFlaky2"}
 
 	if !reflect.DeepEqual(rpts, expectedRpts) {

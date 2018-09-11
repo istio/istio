@@ -12,36 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package flakytestfinder
+package flakytest
 
 import (
-	"flag"
-	"fmt"
-	"os"
-
 	"istio.io/istio/tests/util/checker"
 )
 
 // ReportFlakyTests reports names of tests that have annotation.IsFlaky() call.
-// nolint:deadcode
-func ReportFlakyTests() {
-	flag.Parse()
-	exitCode := 0
-
-	items, err := getReport(flag.Args())
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err.Error())
-		exitCode = 2
-	} else {
-		for _, r := range items {
-			fmt.Fprintln(os.Stderr, r)
-			exitCode = 2
-		}
-	}
-	os.Exit(exitCode)
-}
-
-func getReport(args []string) ([]string, error) {
+func ReportFlakyTests(args []string) ([]string, error) {
 	matcher := RulesMatcher{}
 	whitelist := checker.NewWhitelist(map[string][]string{})
 	report := checker.NewLintReport()
