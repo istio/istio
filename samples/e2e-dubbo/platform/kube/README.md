@@ -228,3 +228,8 @@ istioctl delete -f samples/e2e-dubbo/platform/kube/dubbo-consumer.weight.vs.yaml
 
 更多功能，敬请期待
 
+## 参考文档
+- http://www.servicemesher.com/blog/ant-financial-sofamesh-common-protocol-extension/
+- https://preliminary.istio.io/zh/docs/setup/kubernetes/quick-start/
+- https://preliminary.istio.io/zh/docs/setup/kubernetes/sidecar-injection/
+- https://dubbo.incubator.apache.org/en-us/docs/user/quick-start.html
