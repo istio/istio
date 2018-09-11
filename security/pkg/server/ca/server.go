@@ -37,7 +37,7 @@ import (
 
 const certExpirationBuffer = time.Minute
 
-// Server implements pb.IstioCAService and pb.IstioCertificateService and provides the services on the
+// Server implements IstioCAService and IstioCertificateService and provides the services on the
 // specified port.
 type Server struct {
 	authenticators []authenticator
