@@ -5,7 +5,7 @@ case "${OSTYPE}" in
   linux*)
     DISTRO="$(lsb_release -i -s)"
     # If lsb_release is not installed on CentOS, DISTRO will be empty.
-    if [ -z "$DISTRO" && -f /etc/centos-release ]; then
+    if [[ -z "$DISTRO" && -f /etc/centos-release ]]; then
       DISTRO="CentOS"
     fi
     case "${DISTRO}" in
