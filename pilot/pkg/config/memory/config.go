@@ -49,24 +49,24 @@ func (cr *store) ConfigDescriptor() model.ConfigDescriptor {
 	return cr.descriptor
 }
 
-func (cr *store) Get(typ, name, namespace string) (*model.Config, bool) {
+func (cr *store) Get(typ, name, namespace string) *model.Config {
 	_, ok := cr.data[typ]
 	if !ok {
-		return nil, false
+		return nil
 	}
 
 	ns, exists := cr.data[typ][namespace]
 	if !exists {
-		return nil, false
+		return nil
 	}
 
 	out, exists := ns.Load(name)
 	if !exists {
-		return nil, false
+		return nil
 	}
 	config := out.(model.Config)
 
-	return &config, true
+	return &config
 }
 
 func (cr *store) List(typ, namespace string) ([]model.Config, error) {

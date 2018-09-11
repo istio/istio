@@ -63,7 +63,7 @@ func (c *controller) ConfigDescriptor() model.ConfigDescriptor {
 	return c.configStore.ConfigDescriptor()
 }
 
-func (c *controller) Get(typ, key, namespace string) (*model.Config, bool) {
+func (c *controller) Get(typ, key, namespace string) *model.Config {
 	return c.configStore.Get(typ, key, namespace)
 }
 

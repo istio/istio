@@ -130,7 +130,7 @@ type ConfigStore interface {
 	ConfigDescriptor() ConfigDescriptor
 
 	// Get retrieves a configuration element by a type and a key
-	Get(typ, name, namespace string) (config *Config, exists bool)
+	Get(typ, name, namespace string) *Config
 
 	// List returns objects by type and namespace.
 	// Use "" for the namespace to list across namespaces.

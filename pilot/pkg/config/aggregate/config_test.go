@@ -99,7 +99,7 @@ func TestAggregateStoreGet(t *testing.T) {
 		},
 	}
 
-	storeOne.GetReturns(configReturn, true)
+	storeOne.GetReturns(configReturn)
 
 	stores := []model.ConfigStore{storeOne, storeTwo}
 
