@@ -140,6 +140,14 @@ ISTIO_ENVOY_VERSION ?= ${PROXY_REPO_SHA}
 export ISTIO_ENVOY_DEBUG_URL ?= https://storage.googleapis.com/istio-build/proxy/envoy-debug-$(ISTIO_ENVOY_VERSION).tar.gz
 export ISTIO_ENVOY_RELEASE_URL ?= https://storage.googleapis.com/istio-build/proxy/envoy-alpha-$(ISTIO_ENVOY_VERSION).tar.gz
 
+# Use envoy build from local workspace
+export USE_LOCAL_PROXY ?= 0
+ifeq ($(USE_LOCAL_PROXY),1)
+  $(info "Using istio-proxy image from local workspace")
+  export ISTIO_ENVOY_DEBUG_PATH:=$(realpath $(ISTIO_GO)/../proxy/bazel-bin/src/envoy/envoy)
+  export ISTIO_ENVOY_RELEASE_PATH:=$(realpath $(ISTIO_GO)/../proxy/bazel-bin/src/envoy/envoy)
+endif
+
 # Variables for the extracted debug/release Envoy artifacts.
 export ISTIO_ENVOY_DEBUG_DIR ?= ${OUT_DIR}/${GOOS}_${GOARCH}/debug
 export ISTIO_ENVOY_DEBUG_NAME ?= envoy-debug-${ISTIO_ENVOY_VERSION}
@@ -406,10 +414,15 @@ ${ISTIO_BIN}/go-junit-report:
 
 # Run coverage tests
 JUNIT_UNIT_TEST_XML ?= $(ISTIO_OUT)/junit_unit-tests.xml
+ifeq ($(WHAT),)
+       TEST_OBJ = common-test pilot-test mixer-test security-test galley-test istioctl-test
+else
+       TEST_OBJ = selected-pkg-test
+endif
 test: | $(JUNIT_REPORT)
 	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
 	set -o pipefail; \
-	$(MAKE) --keep-going common-test pilot-test mixer-test security-test galley-test istioctl-test \
+	$(MAKE) --keep-going $(TEST_OBJ) \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
 
 GOTEST_PARALLEL ?= '-test.parallel=4'
@@ -467,6 +480,10 @@ security-test:
 .PHONY: common-test
 common-test:
 	go test ${T} ./pkg/...
+
+.PHONY: selected-pkg-test
+selected-pkg-test:
+	find ${WHAT} -name "*_test.go"|xargs -i dirname {}|uniq|xargs -i go test ${T} {}
 
 #-----------------------------------------------------------------------------
 # Target: coverage

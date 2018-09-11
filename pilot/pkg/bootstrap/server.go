@@ -32,14 +32,13 @@ import (
 	"github.com/gogo/protobuf/types"
 	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
 
 	mcpapi "istio.io/api/mcp/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -65,6 +64,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	srmemory "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pkg/ctrlz"
+	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 	mcpclient "istio.io/istio/pkg/mcp/client"
 	"istio.io/istio/pkg/version"
@@ -296,17 +296,6 @@ func checkForMock(registries []string) bool {
 	return false
 }
 
-// Check if Kubernetes registry exists in PilotArgs's Registries
-func checkForKubernetes(registries []string) bool {
-	for _, r := range registries {
-		if strings.ToLower(r) == "kubernetes" {
-			return true
-		}
-	}
-
-	return false
-}
-
 // GetMeshConfig fetches the ProxyMesh configuration from Kubernetes ConfigMap.
 func GetMeshConfig(kube kubernetes.Interface, namespace, name string) (*v1.ConfigMap, *meshconfig.MeshConfig, error) {
 
@@ -397,32 +386,16 @@ func (s *Server) getKubeCfgFile(args *PilotArgs) string {
 
 // initKubeClient creates the k8s client if running in an k8s environment.
 func (s *Server) initKubeClient(args *PilotArgs) error {
-	var needToCreateClient bool
-	for _, r := range args.Service.Registries {
-		if serviceregistry.ServiceRegistry(r) == serviceregistry.KubernetesRegistry {
-			needToCreateClient = true
-			break
-		}
-	}
-
-	if needToCreateClient && args.Config.FileDir == "" {
-		kubeCfgFile := s.getKubeCfgFile(args)
-		client, kuberr := createInterface(kubeCfgFile)
+	if hasKubeRegistry(args) && args.Config.FileDir == "" {
+		client, kuberr := kubelib.CreateClientset(s.getKubeCfgFile(args), "")
 		if kuberr != nil {
 			return multierror.Prefix(kuberr, "failed to connect to Kubernetes API.")
 		}
 		s.kubeClient = client
+
 	}
+
 	return nil
-}
-
-func createInterface(kubeconfig string) (kubernetes.Interface, error) {
-	restConfig, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
-	if err != nil {
-		return nil, err
-	}
-
-	return kubernetes.NewForConfig(restConfig)
 }
 
 type mockController struct{}
@@ -604,19 +577,25 @@ func (s *Server) createK8sServiceControllers(serviceControllers *aggregate.Contr
 
 // initMultiClusterController initializes multi cluster controller
 // currently implemented only for kubernetes registries
-func (s *Server) initMultiClusterController(args *PilotArgs) (err error) {
-	if checkForKubernetes(args.Service.Registries) {
-		// Start secret controller which watches for runtime secret Object changes and adds secrets dynamically
-		err = clusterregistry.StartSecretController(s.kubeClient,
-			s.clusterStore,
-			s.ServiceController,
-			s.EnvoyXdsServer,
-			args.Config.ClusterRegistriesNamespace,
-			args.Config.ControllerOptions.ResyncPeriod,
-			args.Config.ControllerOptions.WatchedNamespace,
-			args.Config.ControllerOptions.DomainSuffix)
+func (s *Server) initMultiClusterController(args *PilotArgs) error {
+	if hasKubeRegistry(args) {
+		s.addStartFunc(func(stop <-chan struct{}) error {
+			secretController := clusterregistry.NewController(s.kubeClient,
+				args.Config.ClusterRegistriesNamespace,
+				s.clusterStore,
+				s.ServiceController,
+				s.EnvoyXdsServer,
+				args.Config.ControllerOptions.ResyncPeriod,
+				args.Config.ControllerOptions.WatchedNamespace,
+				args.Config.ControllerOptions.DomainSuffix)
+
+			// Start secret controller which watches for runtime secret Object changes and adds secrets dynamically
+			go secretController.Run(stop)
+
+			return nil
+		})
 	}
-	return
+	return nil
 }
 
 func hasKubeRegistry(args *PilotArgs) bool {

@@ -16,7 +16,6 @@
 
 # Common utilities for Istio local installation on MacOS platform.
 
-set -o errexit
 set -o nounset
 set -o pipefail
 

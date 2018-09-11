@@ -18,7 +18,6 @@ import (
 	"context"
 	"errors"
 	"strconv"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -164,29 +163,25 @@ func newEndpoint(e *model.NetworkEndpoint) (*endpoint.LbEndpoint, error) {
 // the endpoints for the cluster.
 func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName string, edsCluster *EdsCluster) error {
 	// TODO: should we lock this as well ? Once we move to event-based it may not matter.
-	var hostname model.Hostname
-	//var ports model.PortList
-	var labels model.LabelsCollection
-	var instances []*model.ServiceInstance
-	var err error
-	if strings.Index(clusterName, "outbound") == 0 ||
-		strings.Index(clusterName, "inbound") == 0 { //new style cluster names
-		var p int
-		var subsetName string
-		_, subsetName, hostname, p = model.ParseSubsetKey(clusterName)
-		labels = push.SubsetToLabels(subsetName, hostname)
-		instances, err = edsCluster.discovery.env.ServiceDiscovery.InstancesByPort(hostname, p, labels)
+	var locEpsByNetwork map[string][]endpoint.LocalityLbEndpoints
+	var weights map[string]uint32
+	direction, subsetName, hostname, port := model.ParseSubsetKey(clusterName)
+	if direction == model.TrafficDirectionInbound ||
+		direction == model.TrafficDirectionOutbound {
+		labels := push.SubsetToLabels(subsetName, hostname)
+		instances, err := edsCluster.discovery.env.ServiceDiscovery.InstancesByPort(hostname, port, labels)
+		if err != nil {
+			adsLog.Errorf("endpoints for service cluster %q returned error %v", clusterName, err)
+			return err
+		}
 		if len(instances) == 0 {
 			push.Add(model.ProxyStatusClusterNoInstances, clusterName, nil, "")
-			//adsLog.Infof("EDS: no instances %s (host=%s ports=%v labels=%v)", clusterName, hostname, p, labels)
+			adsLog.Debugf("EDS: cluster %q (host=%s ports=%v labels=%v) has no instances", clusterName, hostname, port, labels)
 		}
 		edsInstances.With(prometheus.Labels{"cluster": clusterName}).Set(float64(len(instances)))
+
+		locEpsByNetwork, weights = localityLbEndpointsFromInstances(instances)
 	}
-	if err != nil {
-		adsLog.Warnf("endpoints for service cluster %q returned error %q", clusterName, err)
-		return err
-	}
-	locEpsByNetwork, weights := localityLbEndpointsFromInstances(instances)
 
 	// There is a chance multiple goroutines will update the cluster at the same time.
 	// This could be prevented by a lock - but because the update may be slow, it may be

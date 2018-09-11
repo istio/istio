@@ -18,9 +18,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/google/uuid"
+	"istio.io/istio/pkg/test/env"
 
-	"istio.io/istio/pkg/test/framework/errors"
+	"github.com/google/uuid"
 )
 
 // EnvironmentID is a unique identifier for a testing environment.
@@ -37,13 +37,21 @@ const (
 	Kubernetes = EnvironmentID("kubernetes")
 )
 
+var (
+	// ISTIO_TEST_ENVIRONMENT indicates in which mode the test framework should run. It can be "local", or
+	// "kube".
+	// nolint: golint
+	ISTIO_TEST_ENVIRONMENT env.Variable = "ISTIO_TEST_ENVIRONMENT"
+
+	globalSettings = &Settings{
+		Environment: EnvironmentID(ISTIO_TEST_ENVIRONMENT.ValueOrDefault(string(Local))),
+	}
+)
+
 // Settings is the set of arguments to the test driver.
 type Settings struct {
 	// Environment to run the tests in. By default, a local environment will be used.
 	Environment EnvironmentID
-
-	// Path to kube config file. Required if the environment is kubernetes.
-	KubeConfig string
 
 	// TestID is the id of the test suite. This should supplied by the author once, and must be immutable.
 	TestID string
@@ -57,54 +65,33 @@ type Settings struct {
 	// Local working directory root for creating temporary directories / files in. If left empty,
 	// os.TempDir() will be used.
 	WorkDir string
-
-	// Hub environment variable
-	Hub string
-
-	// Tag environment variable
-	Tag string
 }
 
 // New returns settings built from flags and environment variables.
 func New(testID string) (*Settings, error) {
-	if err := processFlags(); err != nil {
-		return nil, err
-	}
+	// Copy the default settings.
+	s := &(*globalSettings)
 
-	// Make a local copy.
-	s := *settings
 	s.TestID = testID
 	s.RunID = generateRunID(testID)
 
-	if err := s.Validate(); err != nil {
+	if err := s.validate(); err != nil {
 		return nil, err
 	}
 
-	return &s, nil
-}
-
-// defaultSettings returns the default set of arguments.
-func defaultSettings() *Settings {
-	return &Settings{
-		Environment: Local,
-	}
+	return s, nil
 }
 
 // Validate the arguments.
-func (a *Settings) Validate() error {
+func (a *Settings) validate() error {
 	switch a.Environment {
 	case Local, Kubernetes:
-
 	default:
-		return errors.UnrecognizedEnvironment(string(a.Environment))
-	}
-
-	if a.Environment == Kubernetes && a.KubeConfig == "" {
-		return errors.MissingKubeConfigForEnvironment(string(Kubernetes), ISTIO_TEST_KUBE_CONFIG.Name())
+		return fmt.Errorf("unrecognized environment: %q", string(a.Environment))
 	}
 
 	if a.TestID == "" || len(a.TestID) > MaxTestIDLength {
-		return errors.InvalidTestID(MaxTestIDLength)
+		return fmt.Errorf("testID must be non-empty and cannot be longer than %d characters", MaxTestIDLength)
 	}
 
 	return nil

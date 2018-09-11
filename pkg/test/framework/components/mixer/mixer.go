@@ -17,16 +17,16 @@ package mixer
 import (
 	"context"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path"
+	"strconv"
 	"testing"
 	"time"
 
 	"go.uber.org/multierr"
 	"google.golang.org/grpc"
-
-	"io"
 
 	istio_mixer_v1 "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/adapter"
@@ -142,9 +142,12 @@ func (c *kubeComponent) Init(ctx environment.ComponentContext, deps map[dependen
 	// TODO: Right now, simply connect to the telemetry backend at port 9092. We can expand this to connect
 	// to policy backend and dynamically figure out ports later.
 	// See https://github.com/istio/istio/issues/6175
-	forwarder := kube.NewPortForwarder(ctx.Settings().KubeConfig, pod.Namespace, pod.Name, 9092)
-
-	if err = forwarder.Start(); err != nil {
+	options := &kube.PodSelectOptions{
+		PodNamespace: pod.Namespace,
+		PodName:      pod.Name,
+	}
+	forwarder, err := kube.PortForward(e.KubeSettings().KubeConfig, options, "", strconv.Itoa(9092))
+	if err != nil {
 		return nil, err
 	}
 
@@ -175,7 +178,7 @@ type deployedMixer struct {
 	server  *server.Server
 	workdir string
 
-	forwarder *kube.PortForwarder
+	forwarder kube.PortForwarder
 }
 
 // Report implements DeployedMixer.Report.

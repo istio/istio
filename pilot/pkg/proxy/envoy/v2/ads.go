@@ -461,23 +461,35 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 
 			case RouteType:
 				routes := discReq.GetResourceNames()
+
 				if len(routes) == len(con.Routes) || len(routes) == 0 {
-					if discReq.ErrorDetail != nil {
-						adsLog.Warnf("ADS:RDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.modelNode, discReq.String())
-						rdsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": discReq.ErrorDetail.Message}).Add(1)
-					}
-					// Not logging full request, can be very long.
-					adsLog.Debugf("ADS:RDS: ACK %s %s (%s) %s %s", peerAddr, con.ConID, con.modelNode, discReq.VersionInfo, discReq.ResponseNonce)
-					if len(con.Routes) > 0 {
-						// Already got a list of routes to watch and has same length as the request, this is an ack
-						if discReq.ErrorDetail == nil && discReq.ResponseNonce != "" {
-							con.mu.Lock()
-							con.RouteNonceAcked = discReq.ResponseNonce
-							con.mu.Unlock()
-						}
+					// routes and con.Routes are all empty, this is not an ack and will do nothing.
+					if len(routes) == 0 && len(con.Routes) == 0 {
 						continue
 					}
+
+					sort.Strings(routes)
+					sort.Strings(con.Routes)
+
+					if reflect.DeepEqual(con.Routes, routes) || len(routes) == 0 {
+						if discReq.ErrorDetail != nil {
+							adsLog.Warnf("ADS:RDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.modelNode, discReq.String())
+							rdsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": discReq.ErrorDetail.Message}).Add(1)
+						}
+						// Not logging full request, can be very long.
+						adsLog.Debugf("ADS:RDS: ACK %s %s (%s) %s %s", peerAddr, con.ConID, con.modelNode, discReq.VersionInfo, discReq.ResponseNonce)
+						if len(con.Routes) > 0 {
+							// Already got a list of routes to watch and has same length as the request, this is an ack
+							if discReq.ErrorDetail == nil && discReq.ResponseNonce != "" {
+								con.mu.Lock()
+								con.RouteNonceAcked = discReq.ResponseNonce
+								con.mu.Unlock()
+							}
+							continue
+						}
+					}
 				}
+
 				con.Routes = routes
 				adsLog.Debugf("ADS:RDS: REQ %s %s  routes: %d", peerAddr, con.ConID, len(con.Routes))
 				err := s.pushRoute(con, s.env.PushContext)
@@ -492,18 +504,25 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					edsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": discReq.ErrorDetail.Message}).Add(1)
 				}
 
-				sort.Strings(clusters)
-				sort.Strings(con.Clusters)
-
-				// Already got a list of endpoints to watch and it is the same as the request, this is an ack
-				if reflect.DeepEqual(con.Clusters, clusters) {
-					if discReq.ErrorDetail == nil && discReq.ResponseNonce != "" {
-						con.EndpointNonceAcked = discReq.ResponseNonce
-						if len(edsClusters) != 0 {
-							con.EndpointPercent = int((float64(len(clusters)) / float64(len(edsClusters))) * float64(100))
-						}
+				if len(clusters) == len(con.Clusters) {
+					// clusters and con.Clusters are all empty, this is not an ack and will do nothing.
+					if len(clusters) == 0 && len(con.Clusters) == 0 {
+						continue
 					}
-					continue
+
+					sort.Strings(clusters)
+					sort.Strings(con.Clusters)
+
+					// Already got a list of endpoints to watch and it is the same as the request, this is an ack
+					if reflect.DeepEqual(con.Clusters, clusters) {
+						if discReq.ErrorDetail == nil && discReq.ResponseNonce != "" {
+							con.EndpointNonceAcked = discReq.ResponseNonce
+							if len(edsClusters) != 0 {
+								con.EndpointPercent = int((float64(len(clusters)) / float64(len(edsClusters))) * float64(100))
+							}
+						}
+						continue
+					}
 				}
 
 				for _, cn := range con.Clusters {
@@ -682,11 +701,10 @@ func (s *DiscoveryServer) AdsPushAll(version string) {
 			return
 		}
 
-		c := pending[0]
+		// Using non-blocking push has problems if 2 pushes happen too close to each other
+		client := pending[0]
 		pending = pending[1:]
 
-		// Using non-blocking push has problems if 2 pushes happen too close to each other
-		client := c
 		// TODO: this should be in a thread group, to do multiple pushes in parallel.
 		to := time.After(PushTimeout)
 		select {
@@ -705,7 +723,7 @@ func (s *DiscoveryServer) AdsPushAll(version string) {
 			// This may happen to some clients if the other side is in a bad state and can't receive.
 			// The tests were catching this - one of the client was not reading.
 
-			pending = append(pending, c)
+			pending = append(pending, client)
 
 			if client.LastPushFailure.IsZero() {
 				client.LastPushFailure = time.Now()

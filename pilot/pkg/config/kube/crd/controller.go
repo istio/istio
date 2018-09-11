@@ -65,6 +65,7 @@ var (
 
 func init() {
 	prometheus.MustRegister(k8sEvents)
+	prometheus.MustRegister(k8sErrors)
 }
 
 // NewController creates a new Kubernetes controller for CRDs

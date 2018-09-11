@@ -59,7 +59,7 @@ ISTIO_DEB_NAME ?= istio-sidecar
 ${ISTIO_OUT}/istio-sidecar.deb: | ${ISTIO_OUT}
 	$(MAKE) deb/fpm
 
-#remove leading charecters since debian version expects to start with digit
+#remove leading characters since debian version expects to start with digit
 DEB_VERSION := $(shell echo $(VERSION) | sed 's/^[a-z]*-//')
 
 # Package the sidecar deb file.

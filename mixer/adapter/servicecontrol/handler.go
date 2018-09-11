@@ -21,6 +21,7 @@ import (
 	"io"
 	"sync"
 
+	multierror "github.com/hashicorp/go-multierror"
 	sc "google.golang.org/api/servicecontrol/v1"
 
 	"istio.io/istio/mixer/adapter/servicecontrol/config"
@@ -150,13 +151,17 @@ func (h *handler) HandleQuota(ctx context.Context, instance *quota.Instance,
 // Close closes a handler.
 // TODO(manlinl): Run svcProc.Close in goroutine after reportProcessor implements buffering.
 func (h *handler) Close() error {
+	var errors *multierror.Error
+
 	h.lock.Lock()
 	defer h.lock.Lock()
 	for _, svcProc := range h.svcProcMap {
-		// TODO: handle Close errors
-		_ = svcProc.Close()
+		if err := svcProc.Close(); err != nil {
+			errors = multierror.Append(errors, err)
+		}
 	}
-	return nil
+
+	return errors.ErrorOrNil()
 }
 
 func (h *handler) getServiceProcessor(serviceFullName string) (*serviceProcessor, error) {

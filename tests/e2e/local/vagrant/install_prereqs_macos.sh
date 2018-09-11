@@ -10,22 +10,11 @@ check_homebrew
 echo "Update homebrew..."
 brew update
 
-echo "Checking curl"
-if ! curl --help > /dev/null; then
-    echo "curl is not installed. Install it from homebrew."
-    if ! brew install curl; then
-    	echo "Installation from brew fails. Please install it manually."
-        exit 1
-    else
-    	echo "Done."
-    fi
-else
-    echo "curl exists."
-fi
+install_curl
 
 install_docker
 
-echo "Checking vitualbox..."
+echo "Checking virtualbox..."
 if ! virtualbox --help > /dev/null; then
     echo "virtualbox is not installed. Install it from homebrew cask."
     if ! brew cask install virtualbox; then

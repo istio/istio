@@ -36,7 +36,7 @@ option (gogoproto.goproto_getters_all) = false;
 option (gogoproto.equal_all) = false;
 option (gogoproto.gostring_all) = false;
 
-// Adapter runtime config paramters.
+// Adapter runtime config parameters.
 message RuntimeConfig {
     int32 check_cache_size = 1;
     google.protobuf.Duration check_result_expiration = 2;

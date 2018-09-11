@@ -25,7 +25,6 @@ import (
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
-	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	k8s_cr "k8s.io/cluster-registry/pkg/apis/clusterregistry/v1alpha1"
 )
 
@@ -99,7 +98,6 @@ func TestGetPilotClusters(t *testing.T) {
 								Name: "fakePilot1",
 							},
 						},
-						Client: &clientcmdapi.Config{},
 					},
 					"cluster2": {
 						Cluster: &k8s_cr.Cluster{
@@ -107,7 +105,6 @@ func TestGetPilotClusters(t *testing.T) {
 								Name: "fakePilot2",
 							},
 						},
-						Client: &clientcmdapi.Config{},
 					},
 					"cluster3": {
 						Cluster: &k8s_cr.Cluster{
@@ -115,7 +112,6 @@ func TestGetPilotClusters(t *testing.T) {
 								Name: "fakePilot3",
 							},
 						},
-						Client: &clientcmdapi.Config{},
 					},
 				},
 			},
