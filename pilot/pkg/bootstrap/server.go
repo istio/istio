@@ -604,8 +604,9 @@ func (s *Server) createK8sServiceControllers(serviceControllers *aggregate.Contr
 }
 
 // initMultiClusterSecretController initializes multi cluster secret controller
-// to watch for remote cluster additions or deletions.
-// Currently implemented only for kubernetes registries
+// to watch for remote cluster additions or deletions.  The secret controller
+// will call back to functions defined here to add handlers to watch remote clusters
+// Currently implemented only for kubernetes registries.
 func (s *Server) initMultiClusterSecretController(args *PilotArgs) (err error) {
 	if hasKubeRegistry(args) {
 
@@ -619,7 +620,8 @@ func (s *Server) initMultiClusterSecretController(args *PilotArgs) (err error) {
 }
 
 //addMemberCluster is passed to the secret controller as a callback to be called
-//when a remote cluster is added
+//when a remote cluster is added.  This function needs to set up all the handlers
+//to watch for resources being added, deleted or changed on remote clusters.
 func (s *Server) addMemberCluster(clientset kubernetes.Interface, clusterID string) error {
 
 	//stopCh to stop and remove controller created here when cluster removed.
@@ -649,7 +651,8 @@ func (s *Server) addMemberCluster(clientset kubernetes.Interface, clusterID stri
 }
 
 // deleteMemberCluster is passed to the secret controller as a callback to be called
-// when a remote cluster is deleted
+// when a remote cluster is deleted.  Also must clear the cache so remote resources
+// are removed.
 func (s *Server) deleteMemberCluster(clusterID string) error {
 
 	s.ServiceController.DeleteRegistry(clusterID)
