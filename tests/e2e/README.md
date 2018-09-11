@@ -88,7 +88,7 @@ E2E tests have multiple options available while running them as follows:
 * `--skip_setup` - Skip namespace creation and istio cluster setup (default: false)
 * `--skip_cleanup` - Skip the cleanup steps (default: false)
 * `--namespace <namespace>` - If you don't specify `namespace`, a random namespace is generated for each test.
-* `--use_local_cluster` - If true the tests will use a node port service for the Ingressgateway instead of a loadbalance service. If running on minikube, this should be set to true. (default: false)
+* `--use_local_cluster` - If true any loadbalance type services will be converted to a node port service during testing. If running on minikube, this should be set to true. (default: false)
 * `--auth_enable` - If you want to include auth (default: false)
 * `--rbac_enabled` - Enable RBAC (default: true)
 * `--cluster_wide` - If true Pilot/Mixer will observe all namespaces rather than just the testing namespace (default: false)

@@ -88,7 +88,7 @@ var (
 	authEnable         = flag.Bool("auth_enable", false, "Enable auth")
 	rbacEnable         = flag.Bool("rbac_enable", true, "Enable rbac")
 	localCluster       = flag.Bool("use_local_cluster", false,
-		"If true the tests will use a node port service for the Ingressgateway instead of a loadbalance service. If running on minikube, this should be set to true")
+		"If true any loadbalance type services will be converted to a node port service during testing. If running on minikube, this should be set to true")
 	skipSetup           = flag.Bool("skip_setup", false, "Skip namespace creation and istio cluster setup")
 	sidecarInjectorFile = flag.String("sidecar_injector_file", defaultSidecarInjectorFile, "Sidecar injector yaml file")
 	clusterWide         = flag.Bool("cluster_wide", false, "If true Pilot/Mixer will observe all namespaces rather than just the testing namespace")
