@@ -195,7 +195,7 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 			ClusterName: clusterName,
 			Endpoints:   locEps,
 		}
-		edsCluster.GatewaysEndpoints[n] = networkGateway(n, locEps)
+		edsCluster.GatewaysEndpoints[n] = networkGateway(n, locEps, edsCluster.discovery.env.ServiceDiscovery)
 
 		if len(locEps) > 0 && edsCluster.NonEmptyTime.IsZero() {
 			edsCluster.NonEmptyTime = time.Now()
@@ -209,7 +209,7 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 // The weight of the endpoint will equal to the number of endpoints in the
 // remote network. If the remote network has no cluster endpoints (weight 0)
 // nil will be returned.
-func networkGateway(network string, eps []endpoint.LocalityLbEndpoints) *endpoint.LocalityLbEndpoints {
+func networkGateway(network string, eps []endpoint.LocalityLbEndpoints, sd model.ServiceDiscovery) *endpoint.LocalityLbEndpoints {
 	weight := 0
 	for _, ep := range eps {
 		weight += len(ep.LbEndpoints)
@@ -217,14 +217,30 @@ func networkGateway(network string, eps []endpoint.LocalityLbEndpoints) *endpoin
 	if weight == 0 {
 		return nil
 	}
+
+	// TODO: verify the right gateway service hostname and labels
+	hostname := model.Hostname("istio-ingress.istio-system.svc.cluster.local")
+	port := 80
+	labels := model.LabelsCollection{model.Labels{"istio": "ingress", "ISTIO_NETWORK": network}}
+	instances, err := sd.InstancesByPort(hostname, port, labels)
+	if err != nil {
+		adsLog.Errorf("gateway endpoints for network %s returned error %v", network, err)
+		return nil
+	}
+	if len(instances) == 0 {
+		adsLog.Infof("networkGateway: no gateway instances")
+		return nil
+	}
+
+	// TODO: how to cover multiple instances?
+	ep, err := newEndpoint(&instances[0].Endpoint)
+	if err != nil {
+		adsLog.Errorf("unexpected endpoint conversion error: %v", err)
+		return nil
+	}
+
 	return &endpoint.LocalityLbEndpoints{
-		// TODO temporary dummy creation of an endpoint to the gateway
-		// of the network with values helping to debug.
-		// Should be replaced with a real endpoint.
-		Locality: &core.Locality{
-			Zone:   "GW_Endpoint",
-			Region: network,
-		},
+		LbEndpoints: []endpoint.LbEndpoint{*ep},
 		LoadBalancingWeight: &types.UInt32Value{
 			Value: uint32(weight),
 		},
