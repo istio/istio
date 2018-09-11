@@ -29,7 +29,6 @@ import (
 	authn "istio.io/api/authentication/v1alpha1"
 	authn_filter "istio.io/api/envoy/config/filter/http/authn/v2alpha1"
 	jwtfilter "istio.io/api/envoy/config/filter/http/jwt_auth/v2alpha1"
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/test"
 	"istio.io/istio/pilot/pkg/networking/plugin"
@@ -551,16 +550,16 @@ func TestOnInboundFilterChains(t *testing.T) {
 		RequireClientCertificate: &types.BoolValue{Value: true},
 	}
 	cases := []struct {
-		name           string
-		in             *authn.Policy
-		serviceAccount string
-		meshConfig     *meshconfig.MeshConfig
-		expected       []plugin.FilterChain
+		name            string
+		in              *authn.Policy
+		serviceAccount  string
+		sdsUdsPath      string
+		sdsRefreshDelay *types.Duration
+		expected        []plugin.FilterChain
 	}{
 		{
-			name:       "NoAuthnPolicy",
-			in:         nil,
-			meshConfig: &meshconfig.MeshConfig{},
+			name: "NoAuthnPolicy",
+			in:   nil,
 			// No need to set up filter chain, default one is okay.
 			expected: nil,
 		},
@@ -577,8 +576,7 @@ func TestOnInboundFilterChains(t *testing.T) {
 					},
 				},
 			},
-			meshConfig: &meshconfig.MeshConfig{},
-			expected:   nil,
+			expected: nil,
 		},
 		{
 			name: "mTLSWithNilParamMode",
@@ -589,7 +587,6 @@ func TestOnInboundFilterChains(t *testing.T) {
 					},
 				},
 			},
-			meshConfig: &meshconfig.MeshConfig{},
 			expected: []plugin.FilterChain{
 				{
 					TLSContext: tlsContext,
@@ -609,7 +606,6 @@ func TestOnInboundFilterChains(t *testing.T) {
 					},
 				},
 			},
-			meshConfig: &meshconfig.MeshConfig{},
 			// Only one filter chain with mTLS settings should be generated.
 			expected: []plugin.FilterChain{
 				{
@@ -630,7 +626,6 @@ func TestOnInboundFilterChains(t *testing.T) {
 					},
 				},
 			},
-			meshConfig: &meshconfig.MeshConfig{},
 			// Two filter chains, one for mtls traffic within the mesh, one for plain text traffic.
 			expected: []plugin.FilterChain{
 				{
@@ -659,12 +654,9 @@ func TestOnInboundFilterChains(t *testing.T) {
 					},
 				},
 			},
-			meshConfig: &meshconfig.MeshConfig{
-				SdsUdsPath: "/tmp/sdsuds.sock",
-				//SdsRefreshDelay: ptypes.DurationProto(refreshDelay),
-				SdsRefreshDelay: types.DurationProto(refreshDelay),
-			},
-			serviceAccount: "spiffe://cluster.local/ns/bar/sa/foo",
+			sdsUdsPath:      "/tmp/sdsuds.sock",
+			sdsRefreshDelay: types.DurationProto(refreshDelay),
+			serviceAccount:  "spiffe://cluster.local/ns/bar/sa/foo",
 			expected: []plugin.FilterChain{
 				{
 					TLSContext: &auth.DownstreamTlsContext{
@@ -717,7 +709,7 @@ func TestOnInboundFilterChains(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		if got := setupFilterChains(c.in, c.serviceAccount, c.meshConfig); !reflect.DeepEqual(got, c.expected) {
+		if got := setupFilterChains(c.in, c.serviceAccount, c.sdsUdsPath, c.sdsRefreshDelay); !reflect.DeepEqual(got, c.expected) {
 			t.Errorf("[%v] unexpected filter chains, got %v, want %v", c.name, got, c.expected)
 		}
 	}

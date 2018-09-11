@@ -29,7 +29,6 @@ import (
 	authn "istio.io/api/authentication/v1alpha1"
 	authn_filter "istio.io/api/envoy/config/filter/http/authn/v2alpha1"
 	jwtfilter "istio.io/api/envoy/config/filter/http/jwt_auth/v2alpha1"
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -90,7 +89,7 @@ func GetMutualTLS(policy *authn.Policy, proxyType model.NodeType) *authn.MutualT
 }
 
 // setupFilterChains sets up filter chains based on authentication policy.
-func setupFilterChains(authnPolicy *authn.Policy, serviceAccount string, meshConfig *meshconfig.MeshConfig) []plugin.FilterChain {
+func setupFilterChains(authnPolicy *authn.Policy, serviceAccount string, sdsUdsPath string, sdsRefreshDelay *types.Duration) []plugin.FilterChain {
 	if authnPolicy == nil || len(authnPolicy.Peers) == 0 {
 		return nil
 	}
@@ -107,7 +106,7 @@ func setupFilterChains(authnPolicy *authn.Policy, serviceAccount string, meshCon
 			Value: true,
 		},
 	}
-	if meshConfig.SdsUdsPath == "" {
+	if sdsUdsPath == "" {
 		tls.CommonTlsContext.ValidationContextType = model.ConstructValidationContext(model.AuthCertsPath+model.RootCertFilename, []string{} /*subjectAltNames*/)
 		tls.CommonTlsContext.TlsCertificates = []*auth.TlsCertificate{
 			{
@@ -125,9 +124,9 @@ func setupFilterChains(authnPolicy *authn.Policy, serviceAccount string, meshCon
 		}
 	} else {
 		tls.CommonTlsContext.ValidationContextType = model.ConstructValidationContext(model.CARootCertPath, []string{} /*subjectAltNames*/)
-		refreshDuration, _ := types.DurationFromProto(meshConfig.SdsRefreshDelay)
+		refreshDuration, _ := types.DurationFromProto(sdsRefreshDelay)
 		tls.CommonTlsContext.TlsCertificateSdsSecretConfigs = []*auth.SdsSecretConfig{
-			model.ConstructSdsSecretConfig(serviceAccount, &refreshDuration, meshConfig.SdsUdsPath),
+			model.ConstructSdsSecretConfig(serviceAccount, &refreshDuration, sdsUdsPath),
 		}
 	}
 	mtls := GetMutualTLS(authnPolicy, model.Sidecar)
@@ -166,7 +165,7 @@ func setupFilterChains(authnPolicy *authn.Policy, serviceAccount string, meshCon
 func (Plugin) OnInboundFilterChains(in *plugin.InputParams) []plugin.FilterChain {
 	port := in.ServiceInstance.Endpoint.ServicePort
 	authnPolicy := model.GetConsolidateAuthenticationPolicy(in.Env.IstioConfigStore, in.ServiceInstance.Service, port)
-	return setupFilterChains(authnPolicy, in.ServiceInstance.ServiceAccount, in.Env.Mesh)
+	return setupFilterChains(authnPolicy, in.ServiceInstance.ServiceAccount, in.Env.Mesh.SdsUdsPath, in.Env.Mesh.SdsRefreshDelay)
 }
 
 // CollectJwtSpecs returns a list of all JWT specs (pointers) defined the policy. This
