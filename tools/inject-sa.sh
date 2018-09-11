@@ -1,7 +1,9 @@
 
 #!/bin/sh
 
-# example usage: ./inject-sa.sh
+# example usage: 
+# create and inject service account for ingress: ./tools/inject-sa.sh -i
+# create and inject service account for bookinfo app: ./tools/inject-sa.sh -b
 set -e  # Catch errors.
 
 inject_ingress() {

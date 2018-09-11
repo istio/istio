@@ -16,7 +16,7 @@ ingress:
   enabled: false
 
 prometheus:
-  enabled: true
+  enabled: false
 
 sidecarInjectorWebhook:
   enabled: true
@@ -29,7 +29,7 @@ tracing:
   enabled: true
 
 servicegraph:
-  enabled: true
+  enabled: false
 
 galley:
   enabled: true
