@@ -2431,6 +2431,42 @@ Attributes:
 		wantErr: "",
 	},
 	{
+		Name: "add handler - bad param type",
+		Events1: []*store.Event{updateEvent("a1.adapter.default", &adapter_model.Info{
+			Name:         "testAdapter",
+			Description:  "testAdapter description",
+			SessionBased: true,
+			Config:       adpt1DescBase64,
+		}), updateEvent("h1.handler.default", &descriptorpb.Handler{
+			Adapter: "a1.default",
+			Params: &types.Struct{
+				Fields: map[string]*types.Value{
+					"foo": nil,
+				},
+			},
+		})},
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+AdaptersDynamic:
+  Name:      a1.adapter.default
+  Templates:
+Attributes:
+  template.attr: BOOL
+`,
+		wantErr: "handler='h1.handler.default'.params: error converting parameters to dictionary: error serializing struct value: nil",
+	},
+	{
 		Name: "add handler - bad adapter",
 		Events1: []*store.Event{updateEvent("h1.handler.default", &descriptorpb.Handler{
 			Adapter: "not.an.adapter",
@@ -2754,6 +2790,51 @@ Attributes:
   template.attr: BOOL
 `,
 		wantErr: "instance='i1.instance.default'.template: template 'not.a.template' not found",
+	},
+	{
+		Name: "add instance - bad param type",
+		Events1: []*store.Event{
+			updateEvent("attributes.attributemanifest.ns", &configpb.AttributeManifest{
+				Attributes: map[string]*configpb.AttributeManifest_AttributeInfo{
+					"source.name": {
+						ValueType: descriptorpb.STRING,
+					},
+				},
+			}),
+			updateEvent("t1.template.default", &adapter_model.Template{
+				Descriptor_: tmpl1Base64Str,
+			}),
+			updateEvent("i1.instance.default", &descriptorpb.Instance{
+				Template: "t1.default",
+				Params: &types.Struct{
+					Fields: map[string]*types.Value{
+						"foo": nil,
+					},
+				},
+			}),
+		},
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+TemplatesDynamic:
+  Resource Name:  t1.template.default
+    Name:  t1.template.default
+    InternalPackageDerivedName:  foo
+Attributes:
+  source.name: STRING
+  template.attr: BOOL
+`,
+		wantErr: "instance='i1.instance.default'.params: invalid params block.",
 	},
 	{
 		Name: "add instance - bad template reference",
