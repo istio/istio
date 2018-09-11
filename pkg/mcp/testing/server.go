@@ -63,7 +63,7 @@ func NewServer(port int, typeUrls []string) (*Server, error) {
 
 	p := l.Addr().(*net.TCPAddr).Port
 
-	u, err := url.Parse(fmt.Sprintf("mcpi://localhost:%d", p))
+	u, err := url.Parse(fmt.Sprintf("mcp://localhost:%d", p))
 	if err != nil {
 		_ = l.Close()
 		return nil, err

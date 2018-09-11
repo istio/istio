@@ -122,7 +122,7 @@ func initLocalPilotTestEnv(t *testing.T, mcpAddr string, grpcPort, debugPort int
 
 func addMcpAddrs(mcpServerAddr string) func(*bootstrap.PilotArgs) {
 	return func(arg *bootstrap.PilotArgs) {
-		arg.MCPServerAddrs = []string{mcpServerAddr}
+		arg.MCPServerAddrs = []string{"mcp://" + mcpServerAddr}
 	}
 }
 
