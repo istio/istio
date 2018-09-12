@@ -338,6 +338,8 @@ jobs:
       ISTIO_BIN: /go/bin
     steps:
       - checkout
+      - run: make init
+      - run: make build test-bins /go/bin/go-junit-report
       - run:
           name: Starting Kubernetes API Server standalone and running tests
           command: |
@@ -579,8 +581,6 @@ workflows:
       - build
       - test
       - codecov:
-          requires:
-            - build
       - e2e-mixer-noauth-v1alpha3-v2:
           requires:
             - build
