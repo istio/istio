@@ -580,7 +580,7 @@ workflows:
       - lint
       - build
       - test
-      - codecov:
+      - codecov
       - e2e-mixer-noauth-v1alpha3-v2:
           requires:
             - build
