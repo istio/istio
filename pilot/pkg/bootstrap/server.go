@@ -619,9 +619,9 @@ func (s *Server) initMultiClusterSecretController(args *PilotArgs) (err error) {
 	return nil
 }
 
-//addMemberCluster is passed to the secret controller as a callback to be called
-//when a remote cluster is added.  This function needs to set up all the handlers
-//to watch for resources being added, deleted or changed on remote clusters.
+// addMemberCluster is passed to the secret controller as a callback to be called
+// when a remote cluster is added.  This function needs to set up all the handlers
+// to watch for resources being added, deleted or changed on remote clusters.
 func (s *Server) addMemberCluster(clientset kubernetes.Interface, clusterID string) error {
 
 	//stopCh to stop and remove controller created here when cluster removed.
@@ -658,7 +658,6 @@ func (s *Server) deleteMemberCluster(clusterID string) error {
 	s.ServiceController.DeleteRegistry(clusterID)
 	kubectl := s.kubeRegistry[clusterID]
 	close(kubectl.StopChan)
-	<-kubectl.StopChan
 	delete(s.kubeRegistry, clusterID)
 	s.EnvoyXdsServer.ClearCacheFunc()()
 
