@@ -297,7 +297,7 @@ func (rc *restClient) registerResources() error {
 // DeregisterResources removes third party resources
 func (cl *Client) DeregisterResources() error {
 	for k, rc := range cl.clientset {
-		log.Infof("deregistering for apiVersion ", k)
+		log.Infof("deregistering for apiVersion %s", k)
 		if err := rc.deregisterResources(); err != nil {
 			return err
 		}
