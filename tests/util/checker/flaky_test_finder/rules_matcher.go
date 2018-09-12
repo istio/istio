@@ -12,14 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package flakytest
+package flakytestfinder
 
 import (
 	"os"
 	"strings"
 
 	"istio.io/istio/tests/util/checker"
-	"istio.io/istio/tests/util/checker/parser/rules"
+	"istio.io/istio/tests/util/checker/flaky_test_finder/rules"
 )
 
 // RulesMatcher filters out test files and detects test type.
