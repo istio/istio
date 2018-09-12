@@ -330,22 +330,22 @@ func (cl *Client) ConfigDescriptor() model.ConfigDescriptor {
 }
 
 // Get implements store interface
-func (cl *Client) Get(typ, name, namespace string) (*model.Config, bool) {
+func (cl *Client) Get(typ, name, namespace string) *model.Config {
 	s, ok := knownTypes[typ]
 	if !ok {
 		log.Warn("unknown type " + typ)
-		return nil, false
+		return nil
 	}
 	rc, ok := cl.clientset[apiVersion(&s.schema)]
 	if !ok {
 		log.Warn("cannot find client for type " + typ)
-		return nil, false
+		return nil
 	}
 
 	schema, exists := rc.descriptor.GetByType(typ)
 	if !exists {
 		log.Warn("cannot find proto schema for type " + typ)
-		return nil, false
+		return nil
 	}
 
 	config := s.object.DeepCopyObject().(IstioObject)
@@ -357,15 +357,15 @@ func (cl *Client) Get(typ, name, namespace string) (*model.Config, bool) {
 
 	if err != nil {
 		log.Warna(err)
-		return nil, false
+		return nil
 	}
 
 	out, err := ConvertObject(schema, config, cl.domainSuffix)
 	if err != nil {
 		log.Warna(err)
-		return nil, false
+		return nil
 	}
-	return out, true
+	return out
 }
 
 // Create implements store interface
