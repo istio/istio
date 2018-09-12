@@ -45,9 +45,6 @@ var (
 	runtimeScheme = runtime.NewScheme()
 	codecs        = serializer.NewCodecFactory(runtimeScheme)
 	deserializer  = codecs.UniversalDeserializer()
-
-	// TODO(https://github.com/kubernetes/kubernetes/issues/57982)
-	defaulter = runtime.ObjectDefaulter(runtimeScheme)
 )
 
 const (
@@ -246,20 +243,6 @@ func (wh *Webhook) getCert(*tls.ClientHelloInfo) (*tls.Certificate, error) {
 	wh.mu.Lock()
 	defer wh.mu.Unlock()
 	return wh.cert, nil
-}
-
-// TODO(https://github.com/kubernetes/kubernetes/issues/57982)
-// remove this workaround once server-side defaulting is fixed.
-func applyDefaultsWorkaround(initContainers, containers []corev1.Container, volumes []corev1.Volume) {
-	// runtime.ObjectDefaulter only accepts top-level resources. Construct
-	// a dummy pod with fields we needed defaulted.
-	defaulter.Default(&corev1.Pod{
-		Spec: corev1.PodSpec{
-			InitContainers: initContainers,
-			Containers:     containers,
-			Volumes:        volumes,
-		},
-	})
 }
 
 // It would be great to use https://github.com/mattbaird/jsonpatch to
@@ -506,7 +489,6 @@ func (wh *Webhook) inject(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 		return toAdmissionResponse(err)
 	}
 
-	applyDefaultsWorkaround(spec.InitContainers, spec.Containers, spec.Volumes)
 	annotations := map[string]string{annotationStatus.name: status}
 	for k, v := range spec.Annotations {
 		annotations[k] = v
