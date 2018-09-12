@@ -107,6 +107,8 @@ func init() {
 		"comma separated list of networking plugins to enable")
 
 	// Config Controller options
+	discoveryCmd.PersistentFlags().BoolVar(&serverArgs.Config.EnableLegacyResourceCheck, "enableLegacyResourceCheck", false,
+		"Enables the legacy resource check which verifies that CRDs are registered with Kubernetes and will create them if not present.")
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.FileDir, "configDir", "",
 		"Directory to watch for updates to config yaml files. If specified, the files will be used as the source of config, rather than a CRD client.")
 	discoveryCmd.PersistentFlags().StringVarP(&serverArgs.Config.ControllerOptions.WatchedNamespace, "appNamespace",
