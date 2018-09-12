@@ -14,12 +14,6 @@ data:
   config: |-
     policy: {{ .Values.global.proxy.autoInject }}
     template: |-
-      annotations:
-{{ if ne .Values.global.proxy.stats.prometheusPort 0. }}
-        "prometheus.io/scrape": "true"
-        "prometheus.io/port": "{{ .Values.global.proxy.stats.prometheusPort }}"
-        "prometheus.io/path": "/stats/prometheus"
-{{ end}}
       initContainers:
       - name: istio-init
 {{- if contains "/" .Values.global.proxy_init.image }}
@@ -69,6 +63,12 @@ data:
       containers:
       - name: istio-proxy
         image: {{ "[[ annotation .ObjectMeta `sidecar.istio.io/proxyImage` " }} "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}" {{ " ]]" }}
+{{ if ne .Values.global.proxy.stats.prometheusPort 0. }}
+        ports:
+        - containerPort: {{ .Values.global.proxy.stats.prometheusPort }}
+          protocol: TCP
+          name: http-envoy-prom
+{{ end }}
         args:
         - proxy
         - sidecar
