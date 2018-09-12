@@ -48,7 +48,6 @@ data:
             add:
             - NET_ADMIN
           privileged: true
-        restartPolicy: Always
       {{- if .Values.global.proxy.enableCoreDump }}
       - args:
         - -c
@@ -151,8 +150,7 @@ data:
           runAsGroup: 1337
           {{ "[[ else -]]" }}
           runAsUser: 1337
-          {{ "[[ end -]]" }}
-        restartPolicy: Always
+          {{ "[[- end ]]" }}
         resources:
           {{ "[[ if (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPU`) -]]" }}
           requests:
