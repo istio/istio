@@ -217,34 +217,34 @@ func (c *controller) ConfigDescriptor() model.ConfigDescriptor {
 	return c.client.ConfigDescriptor()
 }
 
-func (c *controller) Get(typ, name, namespace string) (*model.Config, bool) {
+func (c *controller) Get(typ, name, namespace string) *model.Config {
 	schema, exists := c.client.ConfigDescriptor().GetByType(typ)
 	if !exists {
-		return nil, false
+		return nil
 	}
 
 	store := c.kinds[typ].informer.GetStore()
 	data, exists, err := store.GetByKey(kube.KeyFunc(name, namespace))
 	if !exists {
-		return nil, false
+		return nil
 	}
 	if err != nil {
 		log.Warna(err)
-		return nil, false
+		return nil
 	}
 
 	obj, ok := data.(IstioObject)
 	if !ok {
 		log.Warn("Cannot convert to config from store")
-		return nil, false
+		return nil
 	}
 
 	config, err := ConvertObject(schema, obj, c.client.domainSuffix)
 	if err != nil {
-		return nil, false
+		return nil
 	}
 
-	return config, true
+	return config
 }
 
 func (c *controller) Create(config model.Config) (string, error) {

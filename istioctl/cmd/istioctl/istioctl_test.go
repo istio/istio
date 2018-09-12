@@ -303,7 +303,7 @@ func (cs sortedConfigStore) Create(config model.Config) (string, error) {
 	return cs.store.Create(config)
 }
 
-func (cs sortedConfigStore) Get(typ, name, namespace string) (*model.Config, bool) {
+func (cs sortedConfigStore) Get(typ, name, namespace string) *model.Config {
 	return cs.store.Get(typ, name, namespace)
 }
 

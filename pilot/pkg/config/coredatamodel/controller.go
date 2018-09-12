@@ -229,9 +229,9 @@ func (c *Controller) RegisterEventHandler(typ string, handler func(model.Config,
 }
 
 // Get is not implemented
-func (c *Controller) Get(typ, name, namespace string) (*model.Config, bool) {
+func (c *Controller) Get(typ, name, namespace string) *model.Config {
 	log.Warnf("get %s", errUnsupported)
-	return nil, false
+	return nil
 }
 
 // Update is not implemented

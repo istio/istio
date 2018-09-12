@@ -123,7 +123,7 @@ func (m *Monitor) createConfig(c *model.Config) {
 
 func (m *Monitor) updateConfig(c *model.Config) {
 	// Set the resource version based on the existing config.
-	if prev, exists := m.store.Get(c.Type, c.Name, c.Namespace); exists {
+	if prev := m.store.Get(c.Type, c.Name, c.Namespace); prev != nil {
 		c.ResourceVersion = prev.ResourceVersion
 	}
 

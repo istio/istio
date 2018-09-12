@@ -248,8 +248,8 @@ debug and diagnose their Istio mesh.
 				}
 				// fill up revision
 				if config.ResourceVersion == "" {
-					current, exists := configClient.Get(config.Type, config.Name, config.Namespace)
-					if exists {
+					current := configClient.Get(config.Type, config.Name, config.Namespace)
+					if current != nil {
 						config.ResourceVersion = current.ResourceVersion
 					}
 				}
@@ -365,8 +365,8 @@ istioctl get virtualservice bookinfo
 			var errs error
 			var configs []model.Config
 			if getByName {
-				config, exists := configClient.Get(typs[0].Type, args[1], ns)
-				if exists {
+				config := configClient.Get(typs[0].Type, args[1], ns)
+				if config != nil {
 					configs = append(configs, *config)
 				}
 			} else {
