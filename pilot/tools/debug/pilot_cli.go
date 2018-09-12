@@ -108,7 +108,6 @@ func NewPodInfo(nameOrAppLabel string, kubeconfig string, proxyType string) *Pod
 		log.Errorf(err.Error())
 		return nil
 	}
-
 	for _, pod := range pods.Items {
 		log.Infof("pod %q", pod.Name)
 		if pod.Name == nameOrAppLabel {
@@ -308,10 +307,12 @@ func main() {
 			}
 		}
 	}()
-
 	var resp *xdsapi.DiscoveryResponse
 	if *configType == "lds" || *configType == "cds" {
 		pod := NewPodInfo(*resources, resolveKubeConfigPath(*kubeConfig), *proxyType)
+		if pod==nil{
+			os.Exit(1)
+		}
 		resp = pod.getResource(pilot, *configType)
 	} else if *configType == "eds" {
 		resp = edsRequest(pilot, makeEDSRequest(*resources))
