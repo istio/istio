@@ -13,6 +13,7 @@ spec:
       creationTimestamp: null
       labels:
         app: traffic
+        istio_workload_mtls_ability: "true"
     spec:
       containers:
       - image: fake.docker.io/google-samples/traffic-go-gke:1.0

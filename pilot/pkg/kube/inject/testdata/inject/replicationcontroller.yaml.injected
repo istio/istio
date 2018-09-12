@@ -14,6 +14,7 @@ spec:
       creationTimestamp: null
       labels:
         app: nginx
+        istio_workload_mtls_ability: "true"
       name: nginx
     spec:
       containers:

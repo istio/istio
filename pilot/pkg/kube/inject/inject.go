@@ -41,6 +41,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 )
 
@@ -638,6 +639,13 @@ func intoObject(sidecarTemplate string, meshconfig *meshconfig.MeshConfig, in ru
 		metadata.Annotations[k] = v
 	}
 	metadata.Annotations[annotationStatus.name] = status
+
+	if metadata.Labels == nil {
+		metadata.Labels = make(map[string]string)
+	}
+	// We label it with istio mtls ability to true since it's deployed with Envoy sidecar. Because
+	// it can accept mtls traffic.
+	metadata.Labels[model.IstioWorkloadMTLSLabelName] = "true"
 
 	return out, nil
 }

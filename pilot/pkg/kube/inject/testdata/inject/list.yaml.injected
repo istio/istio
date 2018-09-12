@@ -15,6 +15,7 @@ items:
         creationTimestamp: null
         labels:
           app: hello
+          istio_workload_mtls_ability: "true"
           tier: backend
           track: stable
           version: v1
@@ -147,6 +148,7 @@ items:
         creationTimestamp: null
         labels:
           app: hello
+          istio_workload_mtls_ability: "true"
           tier: backend
           track: stable
           version: v2

@@ -27,6 +27,7 @@ spec:
       creationTimestamp: null
       labels:
         app: hello
+        istio_workload_mtls_ability: "true"
         tier: frontend
         track: stable
     spec:

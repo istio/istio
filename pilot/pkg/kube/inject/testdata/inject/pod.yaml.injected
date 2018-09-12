@@ -4,6 +4,8 @@ metadata:
   annotations:
     sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
   creationTimestamp: null
+  labels:
+    istio_workload_mtls_ability: "true"
   name: hellopod
 spec:
   containers:

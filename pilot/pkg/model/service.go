@@ -307,6 +307,12 @@ type Labels map[string]string
 // collection of labels
 type LabelsCollection []Labels
 
+const (
+	// IstioWorkloadMTLSLabelName is the name of the label which decides whether an endpoint can accept
+	//  mtls traffic. For now this means the workload has Envoy sidecar.
+	IstioWorkloadMTLSLabelName = "istio_workload_mtls_ability"
+)
+
 // Probe represents a health probe associated with an instance of service.
 type Probe struct {
 	Port *Port  `json:"port,omitempty"`

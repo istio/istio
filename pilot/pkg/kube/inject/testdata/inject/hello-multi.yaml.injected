@@ -13,6 +13,7 @@ spec:
       creationTimestamp: null
       labels:
         app: hello
+        istio_workload_mtls_ability: "true"
         tier: backend
         track: stable
         version: v1
@@ -146,6 +147,7 @@ spec:
       creationTimestamp: null
       labels:
         app: hello
+        istio_workload_mtls_ability: "true"
         tier: backend
         track: stable
         version: v2

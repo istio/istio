@@ -536,6 +536,7 @@ func TestIntoResourceFile(t *testing.T) {
 			wantBytes := stripVersion(util.ReadFile(wantFilePath, t))
 			gotBytes := stripVersion(got.Bytes())
 
+			// ioutil.WriteFile(wantFilePath, gotBytes, 0640)
 			util.CompareBytes(gotBytes, wantBytes, wantFilePath, t)
 		})
 	}

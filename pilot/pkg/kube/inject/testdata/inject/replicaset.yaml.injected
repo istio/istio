@@ -12,6 +12,7 @@ spec:
       creationTimestamp: null
       labels:
         app: hello
+        istio_workload_mtls_ability: "true"
     spec:
       containers:
       - image: fake.docker.io/google-samples/hello-go-gke:1.0
