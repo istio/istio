@@ -70,9 +70,6 @@ type cliOptions struct { // nolint: maligned
 	workloadCertGracePeriodRatio float32
 	// The minimum grace period for workload cert rotation.
 	workloadCertMinGracePeriod time.Duration
-
-	// TODO(incfly): delete this field once we deprecate flag --grpc-hostname.
-	grpcHostname string
 	// Comma separated string containing all possible host name that clients may use to connect to.
 	grpcHosts string
 	grpcPort  int
@@ -196,9 +193,6 @@ func init() {
 		"The list of hostnames for istio ca server, separated by comma.")
 	flags.IntVar(&opts.grpcPort, "grpc-port", 8060, "The port number for Citadel GRPC server. "+
 		"If unspecified, Citadel will not serve GRPC requests.")
-
-	flags.StringVar(&opts.grpcHostname, "grpc-hostname", "istio-ca", "deprecated")
-	flags.MarkDeprecated("grpc-hostname", "please use --grpc-host-identities instead")
 
 	flags.BoolVar(&opts.signCACerts, "sign-ca-certs", false, "Whether Citadel signs certificates for other CAs")
 

@@ -46,7 +46,6 @@ spec:
           - --append-dns-names=true
           - --citadel-storage-namespace={ISTIO_NAMESPACE}
           - --grpc-port=8060
-          - --grpc-hostname=citadel
           - --self-signed-ca=true
           - --liveness-probe-path=/tmp/ca.liveness # path to the liveness health check status file
           - --liveness-probe-interval=60s # interval for health check file update
