@@ -47,6 +47,18 @@ global:
     # If set, newly injected sidecars will have core dumps enabled.
     enableCoreDump: false
 
+    # Default port for Pilot agent health checks. A value of 0 will disable health checking.
+    statusPort: 15020
+
+    # The initial delay for readiness probes in seconds.
+    readinessInitialDelaySeconds: 1
+
+    # The period between readiness probes.
+    readinessPeriodSeconds: 2
+
+    # The number of successive failed probes before indicating readiness failure.
+    readinessFailureThreshold: 30
+
     # istio egress capture whitelist
     # https://istio.io/docs/tasks/traffic-management/egress.html#calling-external-services-directly
     # example: includeIPRanges: "172.30.0.0/16,172.20.0.0/16"

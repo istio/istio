@@ -9,7 +9,7 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/status: '{"version":"eac663bbb6dbee65508ceaa352f7279fdf12ebba9764c835c4b7763938fd815d","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
         app: traffic
@@ -48,6 +48,10 @@ spec:
         - "15000"
         - --controlPlaneAuthPolicy
         - NONE
+        - --statusPort
+        - "0"
+        - --applicationPorts
+        - "80"
         env:
         - name: POD_NAME
           valueFrom:
@@ -95,7 +99,7 @@ spec:
         - -x
         - 10.96.0.2/24,10.96.0.3/24
         - -b
-        - 80,
+        - "80"
         - -d
         - 4,5,6
         image: docker.io/istio/proxy_init:unittest
