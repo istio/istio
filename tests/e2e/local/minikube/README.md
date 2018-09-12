@@ -38,7 +38,7 @@ You can issue test commands on your host machine.
 E.g.
 ```bash
 cd $ISTIO/istio
-make e2e_simple E2E_ARGS="--use_local_cluster" HUB=localhost:5000 TAG=latest
+make e2e_simple E2E_ARGS="--use_local_cluster" HUB=localhost:5000 TAG=e2e
 ```
 Note the special arguments like **E2E_ARGS**, **HUB**, and **TAG**. They are required to run these tests with the local cluster and a local registry inside the VM. And you can run multiple E2E tests sequentially against the same VM.
 The script has a number of options available [here](../../README.md#options-for-e2e-tests)
@@ -64,7 +64,7 @@ For example, if you want to debug discovery container in pilot, follow steps as 
 1. Run that test in your host/vm.
    ```bash
    # In the VM/Host
-   make e2e_simple E2E_ARGS="--use_local_cluster --skip_cleanup" HUB=10.10.0.2:5000 TAG=latest
+   make e2e_simple E2E_ARGS="--use_local_cluster --skip_cleanup" HUB=10.10.0.2:5000 TAG=e2e
    ```
 1. Run the kubesquash binary
 1. Select the namespace of istio mesh: istio-system
