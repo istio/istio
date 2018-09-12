@@ -5,12 +5,12 @@ This folder contains Istio integration tests that use the test framework checked
 
 ### Basics
 
-The goal of the framework is to make it as easy to author and run tests as possible. In it is most simplest
+The goal of the framework is to make it as easy as possible to author and run tests. In it is most simplest
 case, just typing ```go test ./...``` should be sufficient to run tests.
 
 The test framework is designed to work with standard go tooling and allows developers
 to write environment-agnostics tests in a high-level fashion. The quickest way to get started with authoring
-new tests is to checkout the code in 
+new tests is to checkout the code in the
 [examples](https://github.com/istio/istio/tree/master/tests/integration2/examples) folder.
 
 The test framework has various flags that can be set to change its behavior.
@@ -18,7 +18,7 @@ The test framework has various flags that can be set to change its behavior.
  
 ### Environments
 
-The test framework currently support two environments:
+The test framework currently supports two environments:
  
   * **Local**: The test binaries run either in-memory, or locally as processes.
   * **Kubernetes**: The test binaries run in a Kubernetes cluster, but the test logic runs in the test binary.
@@ -48,7 +48,8 @@ When an environment is not specified, the tests will run against the local envir
 #### Kubernetes Environment
 
 When running the tests against the Kubernetes environment, you will need to explicitly specify a kube config
-file for the cluster you need to use. **Be aware that the target cluster will be changed destructively**.
+file for the cluster you need to use. **Be aware that any existing Istio deployment will be altered and/or
+removed**.
 
 ```console
 $ go test ./...  -istio.test.env kubernetes -istio.test.kube.config ~/.kube/config
