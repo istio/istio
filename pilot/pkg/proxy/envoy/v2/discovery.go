@@ -24,6 +24,7 @@ import (
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
+	"k8s.io/apimachinery/pkg/util/uuid"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core"
@@ -219,7 +220,7 @@ func (s *DiscoveryServer) ClearCacheFunc() func() {
 }
 
 func nonce() string {
-	return time.Now().String()
+	return string(uuid.NewUUID())
 }
 
 func versionInfo() string {

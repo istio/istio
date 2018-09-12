@@ -16,7 +16,7 @@ package v2
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	"io"
 	"os"
 	"reflect"
@@ -51,14 +51,14 @@ var (
 	// reconnects after the 'new/restarted' envoy
 	adsSidecarIDConnectionsMap = map[string]map[string]*XdsConnection{}
 
-	// SendTimeout is the max time to wait for a ADS send to complete. This helps detect
-	// clients in a bad state (not reading). In future it may include checking for ACK
-	SendTimeout = 5 * time.Second
+	// ackTimeout is the max time to wait for a ADS send with ack to complete. This helps detect
+	// clients in a bad state (not reading).
+	ackTimeout = 10 * time.Second
 
-	// PushTimeout is the time to wait for a push on a client. Pilot iterates over
+	// pushTimeout is the time to wait for a push on a client. Pilot iterates over
 	// clients and pushes them serially for now, to avoid large CPU/memory spikes.
-	// We measure and reports cases where pusing a client takes longer.
-	PushTimeout = 5 * time.Second
+	// We measure and reports cases where pushing a client takes longer.
+	pushTimeout = 10 * time.Second
 
 	allowConcurrentPush = false
 )
@@ -191,7 +191,10 @@ type XdsConnection struct {
 	nextPush *model.PushContext
 
 	// doneChannel will be closed when the client is closed.
-	doneChannel chan int
+	doneChannel chan struct{}
+
+	ack         sync.Mutex
+	ackChannels map[string]chan struct{}
 
 	// TODO: migrate other fields as needed from model.Proxy and replace it
 
@@ -313,7 +316,8 @@ type XdsEvent struct {
 func newXdsConnection(peerAddr string, stream DiscoveryStream) *XdsConnection {
 	return &XdsConnection{
 		pushChannel:  make(chan *XdsEvent, 1),
-		doneChannel:  make(chan int, 1),
+		doneChannel:  make(chan struct{}),
+		ackChannels:  make(map[string]chan struct{}),
 		PeerAddr:     peerAddr,
 		Clusters:     []string{},
 		Connect:      time.Now(),
@@ -336,6 +340,10 @@ func receiveThread(con *XdsConnection, reqChannel chan *xdsapi.DiscoveryRequest,
 			adsLog.Errorf("ADS: %q %s terminated with errors %v", con.PeerAddr, con.ConID, err)
 			return
 		}
+		if req.ResponseNonce != "" {
+			con.notifyAck(req.ResponseNonce)
+		}
+
 		reqChannel <- req
 	}
 }
@@ -697,7 +705,7 @@ func (s *DiscoveryServer) AdsPushAll(version string) {
 		currentVersion := versionInfo()
 		// Stop attempting to push
 		if !allowConcurrentPush && version != currentVersion {
-			adsLog.Infof("PushAll abort %s, push with newer version %s in progress %v", version, currentVersion, time.Since(tstart))
+			adsLog.Infof("PushAll abort %s, push with newer version %s in waiprogress %v", version, currentVersion, time.Since(tstart))
 			return
 		}
 
@@ -706,7 +714,7 @@ func (s *DiscoveryServer) AdsPushAll(version string) {
 		pending = pending[1:]
 
 		// TODO: this should be in a thread group, to do multiple pushes in parallel.
-		to := time.After(PushTimeout)
+		to := time.After(pushTimeout)
 		select {
 		case client.pushChannel <- &XdsEvent{
 			push:    pushContext,
@@ -772,46 +780,61 @@ func (s *DiscoveryServer) removeCon(conID string, con *XdsConnection) {
 	}
 }
 
-// getServicesForEndpoint returns the list of services associated with a node.
-// Currently using the node endpoint IP.
-//func (s *DiscoveryServer) getServicesForEndpoint(node *model.Proxy) ([]*model.ServiceInstance, error) {
-//	// TODO: cache the results, this is a pretty slow operation and called few times per
-//	// push
-//	proxyInstances, err := s.env.GetProxyServiceInstances(node)
-//	return proxyInstances, err
-//}
-
-// Send with timeout
+// send with timeout
 func (conn *XdsConnection) send(res *xdsapi.DiscoveryResponse) error {
-	done := make(chan error, 1)
+	errCh := make(chan error, 1)
+
+	conn.ack.Lock()
+	conn.ackChannels[res.Nonce] = make(chan struct{})
+	ackCh := conn.ackChannels[res.Nonce]
+	conn.ack.Unlock()
+
+	defer func() {
+		conn.ack.Lock()
+		defer conn.ack.Unlock()
+		if _, ok := conn.ackChannels[res.Nonce]; ok {
+			delete(conn.ackChannels, res.Nonce)
+		}
+	}()
+
 	// hardcoded for now - not sure if we need a setting
-	t := time.NewTimer(SendTimeout)
+	t := time.NewTimer(ackTimeout)
+	defer t.Stop()
+
 	go func() {
-		err := conn.stream.Send(res)
-		done <- err
+		if err := conn.stream.Send(res); err != nil {
+			errCh <- err
+		}
+
 		conn.mu.Lock()
-		if res.Nonce != "" {
-			switch res.TypeUrl {
-			case ClusterType:
-				conn.ClusterNonceSent = res.Nonce
-			case ListenerType:
-				conn.ListenerNonceSent = res.Nonce
-			case RouteType:
-				conn.RouteNonceSent = res.Nonce
-			case EndpointType:
-				conn.EndpointNonceSent = res.Nonce
-			}
+		switch res.TypeUrl {
+		case ClusterType:
+			conn.ClusterNonceSent = res.Nonce
+		case ListenerType:
+			conn.ListenerNonceSent = res.Nonce
+		case RouteType:
+			conn.RouteNonceSent = res.Nonce
+		case EndpointType:
+			conn.EndpointNonceSent = res.Nonce
 		}
 		conn.mu.Unlock()
 	}()
 	select {
 	case <-t.C:
-		// TODO: wait for ACK
-		adsLog.Infof("Timeout writing %s", conn.ConID)
 		writeTimeout.Add(1)
-		return errors.New("timeout sending")
-	case err, _ := <-done:
-		_ = t.Stop()
+		return fmt.Errorf("timeout waiting for ack %s, nonce %s", conn.ConID, res.Nonce)
+	case err, _ := <-errCh:
 		return err
+	case <-ackCh:
+		return nil
+	}
+}
+
+func (conn *XdsConnection) notifyAck(nonce string) {
+	conn.ack.Lock()
+	defer conn.ack.Unlock()
+	if ackCh, ok := conn.ackChannels[nonce]; ok {
+		close(ackCh)
+		delete(conn.ackChannels, nonce)
 	}
 }
