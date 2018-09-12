@@ -117,7 +117,7 @@ func (m *Monitor) checkAndUpdate() {
 
 func (m *Monitor) createConfig(c *model.Config) {
 	if _, err := m.store.Create(*c); err != nil {
-		log.Warnf("Failed to create config %s %s/%s: %v (%m)", c.Type, c.Namespace, c.Name, err, *c)
+		log.Warnf("Failed to create config %s %s/%s: %v (%+v)", c.Type, c.Namespace, c.Name, err, *c)
 	}
 }
 
@@ -128,13 +128,13 @@ func (m *Monitor) updateConfig(c *model.Config) {
 	}
 
 	if _, err := m.store.Update(*c); err != nil {
-		log.Warnf("Failed to update config (%m): %v ", *c, err)
+		log.Warnf("Failed to update config (%+v): %v ", *c, err)
 	}
 }
 
 func (m *Monitor) deleteConfig(c *model.Config) {
 	if err := m.store.Delete(c.Type, c.Name, c.Namespace); err != nil {
-		log.Warnf("Failed to delete config (%m): %v ", *c, err)
+		log.Warnf("Failed to delete config (%+v): %v ", *c, err)
 	}
 }
 
