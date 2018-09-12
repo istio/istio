@@ -533,7 +533,7 @@ func CheckCacheFreshness(cache model.ConfigStoreCache, namespace string, t *test
 			if len(elts) != 0 {
 				t.Errorf("Got %#v, expected zero elements on Delete event", elts)
 			}
-			log.Infof("Stopping channel for (%#v)", config.Key)
+			log.Infof("Stopping channel for (%#v)", config.Key())
 			close(stop)
 			done <- true
 		}
