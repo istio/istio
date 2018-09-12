@@ -409,32 +409,3 @@ func TestKubeInject(t *testing.T) {
 		})
 	}
 }
-
-func TestVersion(t *testing.T) {
-	cases := []testCase{
-		{ // case 0
-			configs: []model.Config{},
-			args:    strings.Split("version", " "),
-			expectedRegexp: regexp.MustCompile("Version: unknown\nGitRevision: unknown\n" +
-				"User: unknown@unknown\nHub: unknown\nGolangVersion: go1.([0-9\\.]+)\n" +
-				"BuildStatus: unknown\n"),
-		},
-		{ // case 1 short output
-			configs:        []model.Config{},
-			args:           strings.Split("version -s", " "),
-			expectedOutput: "unknown@unknown-unknown-unknown-unknown-unknown\n",
-		},
-		{ // case 2 bogus arg
-			configs:        []model.Config{},
-			args:           strings.Split("version --typo", " "),
-			expectedOutput: "Error: unknown flag: --typo\n",
-			wantException:  true,
-		},
-	}
-
-	for i, c := range cases {
-		t.Run(fmt.Sprintf("case %d %s", i, strings.Join(c.args, " ")), func(t *testing.T) {
-			verifyOutput(t, c)
-		})
-	}
-}
