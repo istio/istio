@@ -1853,6 +1853,15 @@ func TestValidateVirtualService(t *testing.T) {
 				}},
 			}},
 		}, valid: true},
+		{name: "valid removeResponseHeaders", in: &networking.VirtualService{
+			Hosts: []string{"foo.bar"},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.DestinationWeight{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+				RemoveResponseHeaders: []string{"unwantedHeader", "secretStuff"},
+			}},
+		}, valid: true},
 	}
 
 	for _, tc := range testCases {
