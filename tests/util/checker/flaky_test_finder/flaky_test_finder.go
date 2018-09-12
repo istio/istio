@@ -12,33 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package rules
+package flakytestfinder
 
 import (
-	"go/ast"
-	"go/token"
-
 	"istio.io/istio/tests/util/checker"
 )
 
-// NoShort requires that testing.Short() is not allowed.
-type NoShort struct{}
+// ReportFlakyTests reports names of tests that have annotation.IsFlaky() call.
+func ReportFlakyTests(args []string) ([]string, error) {
+	matcher := RulesMatcher{}
+	whitelist := checker.NewWhitelist(map[string][]string{})
+	report := checker.NewLintReport()
 
-// NewNoShort creates and returns a NoShort object.
-func NewNoShort() *NoShort {
-	return &NoShort{}
-}
-
-// GetID returns no_short_rule.
-func (lr *NoShort) GetID() string {
-	return GetCallerFileName()
-}
-
-// Check verifies if aNode is not testing.Short(). If verification lrp creates new report.
-func (lr *NoShort) Check(aNode ast.Node, fs *token.FileSet, lrp *checker.Report) {
-	if ce, ok := aNode.(*ast.CallExpr); ok {
-		if MatchCallExpr(ce, "testing", "Short") {
-			lrp.AddItem(fs.Position(ce.Pos()), lr.GetID(), "testing.Short() is disallowed.")
-		}
+	err := checker.Check(args, &matcher, whitelist, report)
+	if err != nil {
+		return []string{}, err
 	}
+	return report.Items(), nil
 }
