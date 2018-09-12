@@ -262,7 +262,7 @@ func setupConnection(socket string) (*grpc.ClientConn, error) {
 type mockSecretStore struct {
 }
 
-func (*mockSecretStore) GetSecret(ctx context.Context, proxyID, spiffeID, token string) (*model.SecretItem, error) {
+func (*mockSecretStore) GenerateSecret(ctx context.Context, proxyID, spiffeID, token string) (*model.SecretItem, error) {
 	if token != fakeCredentialToken {
 		return nil, fmt.Errorf("unexpected token %q", token)
 	}
