@@ -12,6 +12,7 @@ spec:
     metadata:
       labels:
         app: jaeger
+        {{- template "common_template_labels" . }}
       annotations:
         sidecar.istio.io/inject: "false"
         scheduler.alpha.kubernetes.io/critical-pod: ""
