@@ -6,13 +6,13 @@
 # 2. Installs fortio echosrv with a couple of different subsets/destination rules with multiple replicas.
 # 3. Sends external traffic to echosrv through ingress gateway.
 # 4. Sends internal traffic to echosrv from fortio load pod.
-# 5. Upgrades control plane to current head version.
+# 5. Upgrades control plane to $HUB/$TAG. *** Ensure these are available or upgrade will fail! ***
 # 6. Does a rolling restart of one of the echosrv subsets.
 # 7. Parses the output from the load pod to check for any errors during upgrade and returns 1 is any are found.
 #
-# Note: in order to generate the correct manifest, the script must git checkout the source and target release tags.
-#       This will fail if the workspace is not clean.
-# Note: assumes clean cluster with nothing installed. Try kubectl delete namespace --now istio-system test
+# Note 1: in order to generate the correct manifest, the script must git checkout the source and target release tags.
+#         This will fail if the workspace is not clean.
+# Note 2: assumes clean cluster with nothing installed. Try kubectl delete namespace --now istio-system test.
 
 usage() {
     echo "Usage:"
