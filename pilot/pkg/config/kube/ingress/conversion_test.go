@@ -138,51 +138,6 @@ func TestConversion(t *testing.T) {
 	}
 }
 
-func TestDecodeIngressRuleName(t *testing.T) {
-	cases := []struct {
-		ingressName string
-		ruleNum     int
-		pathNum     int
-	}{
-		{"myingress", 0, 0},
-		{"myingress", 1, 2},
-		{"my-ingress", 1, 2},
-		{"my-cool-ingress", 1, 2},
-	}
-
-	for _, c := range cases {
-		encoded := EncodeIngressRuleName(c.ingressName, c.ruleNum, c.pathNum)
-		ingressName, ruleNum, pathNum, err := decodeIngressRuleName(encoded)
-		if err != nil {
-			t.Errorf("decodeIngressRuleName(%q) => error %v", encoded, err)
-		}
-		if ingressName != c.ingressName || ruleNum != c.ruleNum || pathNum != c.pathNum {
-			t.Errorf("decodeIngressRuleName(%q) => (%q, %d, %d), want (%q, %d, %d)",
-				encoded,
-				ingressName, ruleNum, pathNum,
-				c.ingressName, c.ruleNum, c.pathNum,
-			)
-		}
-	}
-}
-
-func TestEncoding(t *testing.T) {
-	if got := EncodeIngressRuleName("name", 3, 5); got != "name-3-5" {
-		t.Errorf("unexpected ingress encoding %q", got)
-	}
-
-	cases := []string{
-		"name",
-		"name-path-5",
-		"name-3-path",
-	}
-	for _, code := range cases {
-		if _, _, _, err := decodeIngressRuleName(code); err == nil {
-			t.Errorf("expected error on decoding %q", code)
-		}
-	}
-}
-
 func TestIngressClass(t *testing.T) {
 	istio := model.DefaultMeshConfig().IngressClass
 	cases := []struct {

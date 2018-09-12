@@ -17,10 +17,8 @@ package ingress
 import (
 	"fmt"
 	"path"
-	"strconv"
 	"strings"
 
-	multierror "github.com/hashicorp/go-multierror"
 	"k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
@@ -31,37 +29,8 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
-// EncodeIngressRuleName encodes an ingress rule name for a given ingress resource name,
-// as well as the position of the rule and path specified within it, counting from 1.
-// ruleNum == pathNum == 0 indicates the default backend specified for an ingress.
-func EncodeIngressRuleName(ingressName string, ruleNum, pathNum int) string {
-	return fmt.Sprintf("%s-%d-%d", ingressName, ruleNum, pathNum)
-}
-
-// decodeIngressRuleName decodes an ingress rule name previously encoded with EncodeIngressRuleName.
-func decodeIngressRuleName(name string) (ingressName string, ruleNum, pathNum int, err error) {
-	parts := strings.Split(name, "-")
-	if len(parts) < 3 {
-		err = fmt.Errorf("could not decode string into ingress rule name: %s", name)
-		return
-	}
-
-	ingressName = strings.Join(parts[0:len(parts)-2], "-")
-	ruleNum, ruleErr := strconv.Atoi(parts[len(parts)-2])
-	pathNum, pathErr := strconv.Atoi(parts[len(parts)-1])
-
-	if pathErr != nil || ruleErr != nil {
-		err = multierror.Append(
-			fmt.Errorf("could not decode string into ingress rule name: %s", name),
-			pathErr, ruleErr)
-		return
-	}
-
-	return
-}
-
-// ConvertIngressV1alpha3 converts from ingress spec to Istio Gateway
-func ConvertIngressV1alpha3(ingress v1beta1.Ingress, domainSuffix string) model.Config {
+// ConvertIngress converts from ingress spec to Istio Gateway
+func ConvertIngress(ingress v1beta1.Ingress, domainSuffix string) model.Config {
 	gateway := &networking.Gateway{
 		Selector: model.IstioIngressWorkloadLabels,
 	}

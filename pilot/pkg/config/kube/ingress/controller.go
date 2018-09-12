@@ -110,7 +110,7 @@ func (c *controller) RegisterEventHandler(typ string, f func(model.Config, model
 		// An updated ingress may also trigger an Add or Delete for one of its constituent sub-rules.
 		switch typ {
 		case model.Gateway.Type:
-			//config, _ := ConvertIngressV1alpha3(*ingress, c.domainSuffix)
+			//config, _ := ConvertIngress(*ingress, c.domainSuffix)
 			//f(config, event)
 		case model.VirtualService.Type:
 			f(model.Config{}, event)
@@ -131,22 +131,15 @@ func (c *controller) Run(stop <-chan struct{}) {
 }
 
 func (c *controller) ConfigDescriptor() model.ConfigDescriptor {
-	//TODO: are these two config descriptors right?
 	return model.ConfigDescriptor{model.Gateway, model.VirtualService}
 }
 
-//TODO: we don't return out of this function now
 func (c *controller) Get(typ, name, namespace string) *model.Config {
 	if typ != model.Gateway.Type && typ != model.VirtualService.Type {
 		return nil
 	}
 
-	ingressName, _, _, err := decodeIngressRuleName(name)
-	if err != nil {
-		return nil
-	}
-
-	storeKey := kube.KeyFunc(ingressName, namespace)
+	storeKey := kube.KeyFunc(name, namespace)
 	obj, exists, err := c.informer.GetStore().GetByKey(storeKey)
 	if err != nil || !exists {
 		return nil
@@ -157,7 +150,22 @@ func (c *controller) Get(typ, name, namespace string) *model.Config {
 		return nil
 	}
 
-	return nil
+	out := &model.Config{}
+	if typ == model.Gateway.Type {
+		*out = ConvertIngress(*ingress, c.domainSuffix)
+	}
+	if typ == model.VirtualService.Type {
+		ingressByHost := map[string]*model.Config{}
+		ConvertIngressVirtualService(*ingress, c.domainSuffix, ingressByHost)
+		if len(ingressByHost) == 1 {
+			for _, obj := range ingressByHost {
+				out = obj
+			}
+		} else {
+			return nil
+		}
+	}
+	return out
 }
 
 func (c *controller) List(typ, namespace string) ([]model.Config, error) {
@@ -183,7 +191,7 @@ func (c *controller) List(typ, namespace string) ([]model.Config, error) {
 		case model.VirtualService.Type:
 			ConvertIngressVirtualService(*ingress, c.domainSuffix, ingressByHost)
 		case model.Gateway.Type:
-			gateways := ConvertIngressV1alpha3(*ingress, c.domainSuffix)
+			gateways := ConvertIngress(*ingress, c.domainSuffix)
 			out = append(out, gateways)
 		}
 	}
