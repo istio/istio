@@ -17,10 +17,15 @@ package metric
 import (
 	"context"
 	"io"
+	"strings"
 	"sync"
 	"time"
 
 	monitoringpb "google.golang.org/genproto/googleapis/monitoring/v3"
+
+	gprcstatus "google.golang.org/genproto/googleapis/rpc/status"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"istio.io/istio/mixer/pkg/adapter"
 )
@@ -32,6 +37,12 @@ type bufferedClient interface {
 	Record([]*monitoringpb.TimeSeries)
 }
 
+type retryTimeSeries struct {
+	// How many times the time series has been retried.
+	attempt int
+	ts      *monitoringpb.TimeSeries
+}
+
 // A wrapper around the stackdriver client SDK that handles batching data before sending.
 type buffered struct {
 	project     string
@@ -41,9 +52,12 @@ type buffered struct {
 	closeMe io.Closer
 
 	// Guards buffer
-	m                   sync.Mutex
-	buffer              []*monitoringpb.TimeSeries
+	m      sync.Mutex
+	buffer []*monitoringpb.TimeSeries
+	// Retry buffer is keyed by hash(metric name, monitored resource).
+	retryBuffer         map[uint64]retryTimeSeries
 	timeSeriesBatchSize int
+	retryLimit          int
 }
 
 // batchTimeSeries slices the given time series array with respect to the given batch size limit.
@@ -75,12 +89,18 @@ func (b *buffered) Record(toSend []*monitoringpb.TimeSeries) {
 }
 
 func (b *buffered) Send() {
+	// Retry timeseries in retry buffer. Retry before normal push so that retried points could be
+	// preserved thus view would be more accurate and order is guaranteed.
+	// If timeseries is again failed to create, merge it with newer timeseries in normal buffer.
+	b.retry()
+
 	b.m.Lock()
 	if len(b.buffer) == 0 {
 		b.m.Unlock()
 		b.l.Debugf("No data to send to Stackdriver.")
 		return
 	}
+
 	toSend := b.buffer
 	b.buffer = make([]*monitoringpb.TimeSeries, 0, len(toSend))
 	b.m.Unlock()
@@ -99,9 +119,39 @@ func (b *buffered) Send() {
 		// We need to build framework level support for these kinds of async tasks. Perhaps a generic batching adapter
 		// can handle some of this complexity?
 		if err != nil {
+			ets := handleError(err, timeSeries)
+			b.updateRetryBuffer(ets)
 			_ = b.l.Errorf("Stackdriver returned: %v\nGiven data: %v", err, timeSeries)
 		} else {
 			b.l.Debugf("Successfully sent data to Stackdriver.")
+		}
+	}
+}
+
+// Retry all time series in retry buffer. If still fails, add the failed time series to the normal
+// buffer so that it will be merged with newer timeseries. Otherwise if a newer timeseries was
+// successfully written, it can never be written.
+func (b *buffered) retry() {
+	toRetry := make([]*monitoringpb.TimeSeries, 0, len(b.retryBuffer))
+	keyMap := make(map[*monitoringpb.TimeSeries]uint64)
+	for k, r := range b.retryBuffer {
+		toRetry = append(toRetry, r.ts)
+		keyMap[r.ts] = k
+	}
+	retryBatches := batchTimeSeries(toRetry, b.timeSeriesBatchSize)
+	for _, timeSeries := range retryBatches {
+		err := b.pushMetrics(context.Background(),
+			&monitoringpb.CreateTimeSeriesRequest{
+				Name:       "projects/" + b.project,
+				TimeSeries: timeSeries,
+			})
+		if err != nil {
+			ets := handleError(err, timeSeries)
+			b.Record(ets)
+		} else {
+			for _, ts := range timeSeries {
+				delete(b.retryBuffer, keyMap[ts])
+			}
 		}
 	}
 }
@@ -110,4 +160,50 @@ func (b *buffered) Close() error {
 	b.l.Infof("Sending last data before shutting down")
 	b.Send()
 	return b.closeMe.Close()
+}
+
+// handleError extract out timeseries that fails to create from response status.
+// If no sepecific timeseries listed in error response, retry all time series in batch.
+func handleError(err error, tsSent []*monitoringpb.TimeSeries) []*monitoringpb.TimeSeries {
+	errorTS := make([]*monitoringpb.TimeSeries, 0, 0)
+	retryAll := true
+	if s, ok := status.FromError(err); ok {
+		sd := s.Details()
+		for _, i := range sd {
+			if t, ok := i.(*monitoringpb.CreateTimeSeriesError); ok {
+				retryAll = false
+				if isOutOfOrderWrite(t.GetStatus()) {
+					// Don't deal with out of order error: the point can never be written.
+					continue
+				}
+				errorTS = append(errorTS, t.GetTimeSeries())
+			}
+		}
+	}
+	if retryAll {
+		for _, ts := range tsSent {
+			errorTS = append(errorTS, ts)
+		}
+	}
+	return errorTS
+}
+
+func (b *buffered) updateRetryBuffer(errorTS []*monitoringpb.TimeSeries) {
+	for _, ts := range errorTS {
+		k := toKey(ts.Metric, ts.Resource)
+		if r, ok := b.retryBuffer[k]; ok {
+			attempt := r.attempt + 1
+			if attempt >= b.retryLimit {
+				delete(b.retryBuffer, k)
+				continue
+			}
+			b.retryBuffer[k] = retryTimeSeries{attempt, ts}
+		} else {
+			b.retryBuffer[k] = retryTimeSeries{0, ts}
+		}
+	}
+}
+
+func isOutOfOrderWrite(st *gprcstatus.Status) bool {
+	return st.Code == int32(codes.InvalidArgument) && strings.Contains(st.Message, "Points must be written in order")
 }

@@ -83,6 +83,9 @@ const (
 
 	// To limit the time series included in each CreateTimeSeries API call.
 	timeSeriesBatchLimit = 200
+
+	// To limit the retry attempts for time series that are failed to push.
+	maxRetryAttempt = 5
 )
 
 var (
@@ -173,6 +176,8 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 		m:                   sync.Mutex{},
 		l:                   env.Logger(),
 		timeSeriesBatchSize: timeSeriesBatchLimit,
+		retryBuffer:         map[uint64]retryTimeSeries{},
+		retryLimit:          maxRetryAttempt,
 	}
 	// We hold on to the ref to the ticker so we can stop it later
 	buffered.start(env, ticker)
