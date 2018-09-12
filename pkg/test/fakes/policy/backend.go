@@ -215,13 +215,13 @@ func (b *Backend) HandleCheckNothing(ctx context.Context, req *checknothing.Hand
 				Message: "bypass-backend-unauthenticated",
 			},
 		}, nil
-	} else {
-		return &istio_mixer_adapter_model_v1beta11.CheckResult{
-			Status: google_rpc.Status{
-				Code: int32(google_rpc.OK),
-			},
-			ValidDuration: 0,
-			ValidUseCount: 1,
-		}, nil
 	}
+
+	return &istio_mixer_adapter_model_v1beta11.CheckResult{
+		Status: google_rpc.Status{
+			Code: int32(google_rpc.OK),
+		},
+		ValidDuration: 0,
+		ValidUseCount: 1,
+	}, nil
 }
