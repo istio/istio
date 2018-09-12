@@ -433,7 +433,7 @@ jobs:
       - checkout
       - run:
           name: Check Scripts
-          command: /root/project/tools/run_shellcheck.sh
+          command: /root/project/bin/check_shell_scripts.sh
 
   lint:
     <<: *defaults
@@ -449,7 +449,7 @@ jobs:
 # test-infra team.
 #      - run:
 #          name: Check Scripts
-#          command: /go/src/istio.io/istio/tools/run_shellcheck.sh
+#          command: /go/src/istio.io/istio/bin/check_shell_scripts.sh
       # Make sure that any modification to vendor is correct. Always use the latest version of dep.
       - run:
           name: Creating vendor diff

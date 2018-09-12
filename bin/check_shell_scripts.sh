@@ -8,8 +8,8 @@ if ! command -v shellcheck > /dev/null; then
     exit 1
 fi
 
-TOOLS_DIR="$(cd "$(dirname "${0}")" && pwd -P)"
-ISTIO_ROOT="$(cd "$(dirname "${TOOLS_DIR}")" && pwd -P)"
+BASE_DIR="$(cd "$(dirname "${0}")" && pwd -P)"
+ISTIO_ROOT="$(cd "$(dirname "${BASE_DIR}")" && pwd -P)"
 
 # All files ending in .sh.
 SH_FILES=$( \
