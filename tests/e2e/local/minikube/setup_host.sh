@@ -14,6 +14,10 @@ case "${OSTYPE}" in
   *) echo "unsupported: ${OSTYPE}" ;;
 esac
 
+if [ ! -z "$VM_DRIVER" ]; then
+  vm_driver=$VM_DRIVER
+fi
+
 echo "Using $vm_driver as VM for Minikube."
 
 # Delete any previous minikube cluster
@@ -22,7 +26,8 @@ minikube delete
 echo "Starting Minikube."
 
 # Start minikube
-minikube start \
+# When minikube runs in `--vm-driver=none` mode, it requires root permission.
+sudo -E minikube start \
     --extra-config=controller-manager.cluster-signing-cert-file="/var/lib/localkube/certs/ca.crt" \
     --extra-config=controller-manager.cluster-signing-key-file="/var/lib/localkube/certs/ca.key" \
     --extra-config=apiserver.admission-control="NamespaceLifecycle,LimitRanger,ServiceAccount,PersistentVolumeLabel,DefaultStorageClass,DefaultTolerationSeconds,MutatingAdmissionWebhook,ValidatingAdmissionWebhook,ResourceQuota" \
