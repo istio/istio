@@ -1462,6 +1462,9 @@ func validateHTTPRoute(http *networking.HTTPRoute) (errs error) {
 	for name := range http.AppendHeaders {
 		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
 	}
+	for _, name := range http.RemoveResponseHeaders {
+		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+	}
 	errs = appendErrors(errs, validateCORSPolicy(http.CorsPolicy))
 	errs = appendErrors(errs, validateHTTPFaultInjection(http.Fault))
 
