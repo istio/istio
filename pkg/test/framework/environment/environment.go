@@ -186,6 +186,8 @@ type (
 
 		// Report is called directly with the given attributes.
 		Report(t testing.TB, attributes map[string]interface{})
+
+		// TODO: decide the API shape needed for quota/check.
 	}
 
 	// DeployedPilot represents a deployed Pilot instance.
