@@ -24,6 +24,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -561,7 +562,13 @@ func loadConfigMapWithHelm(t *testing.T) string {
 func getHelmValues(t *testing.T) string {
 	t.Helper()
 	valuesFile := filepath.Join(helmChartDirectory, helmValuesFile)
-	return string(util.ReadFile(valuesFile, t))
+	return filterHelmValues(string(util.ReadFile(valuesFile, t)))
+}
+
+func filterHelmValues(values string) string {
+	// TODO(nmittler): remove this once the statusPort is enabled by default.
+	pattern := regexp.MustCompile("statusPort: ([0-9]+)")
+	return pattern.ReplaceAllLiteralString(values, "statusPort: 15020")
 }
 
 func splitYamlFile(yamlFile string, t *testing.T) [][]byte {

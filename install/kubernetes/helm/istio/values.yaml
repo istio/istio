@@ -48,7 +48,8 @@ global:
     enableCoreDump: false
 
     # Default port for Pilot agent health checks. A value of 0 will disable health checking.
-    statusPort: 15020
+    # statusPort: 15020
+    statusPort: 0
 
     # The initial delay for readiness probes in seconds.
     readinessInitialDelaySeconds: 1
