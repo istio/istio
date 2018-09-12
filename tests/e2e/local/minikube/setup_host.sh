@@ -14,8 +14,9 @@ case "${OSTYPE}" in
   *) echo "unsupported: ${OSTYPE}" ;;
 esac
 
+# shellcheck disable=SC2153
 if [ ! -z "$VM_DRIVER" ]; then
-  vm_driver=$VM_DRIVER
+  vm_driver="$VM_DRIVER"
 fi
 
 echo "Using $vm_driver as VM for Minikube."
@@ -35,7 +36,7 @@ sudo -E minikube start \
     --insecure-registry="localhost:5000" \
     --cpus=4 \
     --memory=8192 \
-    --vm-driver=$vm_driver
+    --vm-driver="$vm_driver"
 
 #Setup docker to talk to minikube
 eval "$(minikube docker-env)"
