@@ -26,6 +26,10 @@ You can run the following script to check/install of all pre-requisites, or use 
 . ./setup_host.sh
 ```
 
+We support customize minikube `--vm-driver`, the default is kvm2 you can set any vm-driver you like via exporting `VM_DRIVER`for you environment.
+
+For VM that doesn't support nested virtualization, you may pass `--vm-driver=none` via `export VM_DRIVER=none`.
+
 ## 2. Build istio images
 Build images on your host machine:
 ```bash

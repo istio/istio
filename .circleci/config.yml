@@ -101,6 +101,43 @@ jobs:
       - store_test_results:
           path: /go/out/tests
 
+  test-local-minikube:
+    <<: *integrationDefaults
+    environment:
+            - VM_DRIVER: none
+            - GOPATH: /go
+    steps:
+      - <<: *initWorkingDir
+      - checkout
+      - attach_workspace:
+          at:  /go
+      - <<: *markJobStartsOnGCS
+      - run: make sync
+      - run: |
+          tests/e2e/local/minikube/install_prereqs.sh
+          tests/e2e/local/minikube/setup_host.sh
+          tests/e2e/local/minikube/setup_test.sh
+      - run:
+          command: |
+            if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
+              # Should only happen when re-running a job, and the workspace is gone
+              time make build test-bins
+            fi
+            make docker.all
+      - run: docker images
+      - run: make e2e_simple E2E_ARGS="--use_local_cluster" HUB=localhost:5000 TAG=e2e
+      - <<: *recordZeroExitCodeIfTestPassed
+      - <<: *recordNonzeroExitCodeIfTestFailed
+      - <<: *markJobFinishesOnGCS
+      - store_artifacts:
+          path: /home/circleci/logs
+      - store_artifacts:
+          path: /tmp
+      - store_artifacts:
+          path: /var/lib/localkube/
+      - store_test_results:
+          path: /go/out/tests
+
   e2e-dashboard:
     <<: *integrationDefaults
     environment:
