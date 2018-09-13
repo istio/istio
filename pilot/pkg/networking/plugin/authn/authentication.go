@@ -64,8 +64,8 @@ func NewPlugin() plugin.Plugin {
 
 // GetMutualTLS returns pointer to mTLS params if the policy use mTLS for (peer) authentication.
 // (note that mTLS params can still be nil). Otherwise, return (false, nil).
-// TODO(incfly): remove proxyType parameter and handle the checking from callers.
-func GetMutualTLS(policy *authn.Policy, proxyType model.NodeType) *authn.MutualTls {
+// Callers should ensure the proxy is of sidecar type.
+func GetMutualTLS(policy *authn.Policy) *authn.MutualTls {
 	if policy == nil {
 		return nil
 	}
@@ -73,13 +73,10 @@ func GetMutualTLS(policy *authn.Policy, proxyType model.NodeType) *authn.MutualT
 		for _, method := range policy.Peers {
 			switch method.GetParams().(type) {
 			case *authn.PeerAuthenticationMethod_Mtls:
-				if proxyType == model.Sidecar {
-					if method.GetMtls() == nil {
-						return &authn.MutualTls{Mode: authn.MutualTls_STRICT}
-					}
-					return method.GetMtls()
+				if method.GetMtls() == nil {
+					return &authn.MutualTls{Mode: authn.MutualTls_STRICT}
 				}
-				return nil
+				return method.GetMtls()
 			default:
 				continue
 			}
@@ -129,7 +126,7 @@ func setupFilterChains(authnPolicy *authn.Policy, serviceAccount string, sdsUdsP
 			model.ConstructSdsSecretConfig(serviceAccount, &refreshDuration, sdsUdsPath),
 		}
 	}
-	mtls := GetMutualTLS(authnPolicy, model.Sidecar)
+	mtls := GetMutualTLS(authnPolicy)
 	if mtls == nil {
 		return nil
 	}

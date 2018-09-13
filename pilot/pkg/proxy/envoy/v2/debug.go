@@ -530,7 +530,7 @@ func (s *DiscoveryServer) authenticationz(w http.ResponseWriter, req *http.Reque
 			var serverProtocol, clientProtocol authProtocol
 			if authnConfig != nil {
 				policy := authnConfig.Spec.(*authn.Policy)
-				mtls := authn_plugin.GetMutualTLS(policy, model.Sidecar)
+				mtls := authn_plugin.GetMutualTLS(policy)
 				serverProtocol = getServerAuthProtocol(mtls)
 			} else {
 				serverProtocol = getServerAuthProtocol(nil)

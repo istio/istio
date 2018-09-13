@@ -90,7 +90,7 @@ func TestRequireTls(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		if params := GetMutualTLS(c.in, model.Sidecar); !reflect.DeepEqual(c.expectedParams, params) {
+		if params := GetMutualTLS(c.in); !reflect.DeepEqual(c.expectedParams, params) {
 			t.Errorf("%s: requireTLS(%v): got(%v) != want(%v)\n", c.name, c.in, params, c.expectedParams)
 		}
 	}
