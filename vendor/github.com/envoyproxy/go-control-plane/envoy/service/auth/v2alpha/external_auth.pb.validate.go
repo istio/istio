@@ -42,9 +42,7 @@ func (m *CheckRequest) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetAttributes()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetAttributes()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return CheckRequestValidationError{
 				Field:  "Attributes",
@@ -103,9 +101,7 @@ func (m *DeniedHttpResponse) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetStatus()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetStatus()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return DeniedHttpResponseValidationError{
 				Field:  "Status",
@@ -118,9 +114,7 @@ func (m *DeniedHttpResponse) Validate() error {
 	for idx, item := range m.GetHeaders() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return DeniedHttpResponseValidationError{
 					Field:  fmt.Sprintf("Headers[%v]", idx),
@@ -179,9 +173,7 @@ func (m *OkHttpResponse) Validate() error {
 	for idx, item := range m.GetHeaders() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return OkHttpResponseValidationError{
 					Field:  fmt.Sprintf("Headers[%v]", idx),
@@ -235,9 +227,7 @@ func (m *CheckResponse) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetStatus()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetStatus()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return CheckResponseValidationError{
 				Field:  "Status",
@@ -251,9 +241,7 @@ func (m *CheckResponse) Validate() error {
 
 	case *CheckResponse_DeniedResponse:
 
-		if v, ok := interface{}(m.GetDeniedResponse()).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(m.GetDeniedResponse()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return CheckResponseValidationError{
 					Field:  "DeniedResponse",
@@ -265,9 +253,7 @@ func (m *CheckResponse) Validate() error {
 
 	case *CheckResponse_OkResponse:
 
-		if v, ok := interface{}(m.GetOkResponse()).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(m.GetOkResponse()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return CheckResponseValidationError{
 					Field:  "OkResponse",

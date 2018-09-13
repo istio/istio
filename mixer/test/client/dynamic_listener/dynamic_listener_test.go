@@ -87,6 +87,9 @@ static_resources:
 const checkAttributesOkGet = `
 {
   "connection.mtls": false,
+  "context.reporter.uid" : "*",
+  "destination.namespace" : "*",
+  "destination.uid" : "*",
   "origin.ip": "[127 0 0 1]",
   "context.protocol": "http",
 	"key": "count%s",

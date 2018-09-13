@@ -50,9 +50,7 @@ func (m *TcpProxy) Validate() error {
 
 	// no validation rules for Cluster
 
-	if v, ok := interface{}(m.GetMetadataMatch()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetMetadataMatch()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return TcpProxyValidationError{
 				Field:  "MetadataMatch",
@@ -76,9 +74,7 @@ func (m *TcpProxy) Validate() error {
 
 	}
 
-	if v, ok := interface{}(m.GetDownstreamIdleTimeout()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetDownstreamIdleTimeout()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return TcpProxyValidationError{
 				Field:  "DownstreamIdleTimeout",
@@ -88,9 +84,7 @@ func (m *TcpProxy) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetUpstreamIdleTimeout()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetUpstreamIdleTimeout()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return TcpProxyValidationError{
 				Field:  "UpstreamIdleTimeout",
@@ -103,9 +97,7 @@ func (m *TcpProxy) Validate() error {
 	for idx, item := range m.GetAccessLog() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return TcpProxyValidationError{
 					Field:  fmt.Sprintf("AccessLog[%v]", idx),
@@ -117,9 +109,7 @@ func (m *TcpProxy) Validate() error {
 
 	}
 
-	if v, ok := interface{}(m.GetDeprecatedV1()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetDeprecatedV1()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return TcpProxyValidationError{
 				Field:  "DeprecatedV1",
@@ -192,9 +182,7 @@ func (m *TcpProxy_DeprecatedV1) Validate() error {
 	for idx, item := range m.GetRoutes() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return TcpProxy_DeprecatedV1ValidationError{
 					Field:  fmt.Sprintf("Routes[%v]", idx),
@@ -258,9 +246,7 @@ func (m *TcpProxy_DeprecatedV1_TCPRoute) Validate() error {
 	for idx, item := range m.GetDestinationIpList() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return TcpProxy_DeprecatedV1_TCPRouteValidationError{
 					Field:  fmt.Sprintf("DestinationIpList[%v]", idx),
@@ -277,9 +263,7 @@ func (m *TcpProxy_DeprecatedV1_TCPRoute) Validate() error {
 	for idx, item := range m.GetSourceIpList() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return TcpProxy_DeprecatedV1_TCPRouteValidationError{
 					Field:  fmt.Sprintf("SourceIpList[%v]", idx),

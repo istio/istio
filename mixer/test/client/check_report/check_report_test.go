@@ -24,6 +24,7 @@ import (
 // Check attributes from a good GET request
 const checkAttributesOkGet = `
 {
+  "context.reporter.uid" : "*",
   "context.protocol": "http",
   "mesh1.ip": "[1 1 1 1]",
   "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
@@ -37,6 +38,8 @@ const checkAttributesOkGet = `
   "request.url_path": "/echo",
   "source.uid": "POD11",
   "source.namespace": "XYZ11",
+  "destination.namespace" : "*",
+  "destination.uid" : "*",
   "target.name": "target-name",
   "target.user": "target-user",
   "target.uid": "POD222",
@@ -57,6 +60,7 @@ const checkAttributesOkGet = `
 // Report attributes from a good GET request
 const reportAttributesOkGet = `
 {
+  "context.reporter.uid" : "*",
   "context.protocol": "http",
   "context.proxy_error_code": "-",
   "mesh1.ip": "[1 1 1 1]",
@@ -73,6 +77,8 @@ const reportAttributesOkGet = `
   "source.namespace": "XYZ11",
   "destination.ip": "[127 0 0 1]",
   "destination.port": "*",
+  "destination.namespace" : "*",
+  "destination.uid" : "*",
   "target.name": "target-name",
   "target.user": "target-user",
   "target.uid": "POD222",
@@ -108,6 +114,7 @@ const reportAttributesOkGet = `
 // Check attributes from a good POST request
 const checkAttributesOkPost = `
 {
+  "context.reporter.uid" : "*",
   "context.protocol": "http",
   "mesh1.ip": "[1 1 1 1]",
   "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
@@ -121,6 +128,8 @@ const checkAttributesOkPost = `
   "request.url_path": "/echo",
   "source.uid": "POD11",
   "source.namespace": "XYZ11",
+  "destination.namespace" : "*",
+  "destination.uid" : "*",
   "target.name": "target-name",
   "target.user": "target-user",
   "target.uid": "POD222",
@@ -141,6 +150,7 @@ const checkAttributesOkPost = `
 // Report attributes from a good POST request
 const reportAttributesOkPost = `
 {
+  "context.reporter.uid" : "*",
   "context.protocol": "http",
   "context.proxy_error_code": "-",
   "mesh1.ip": "[1 1 1 1]",
@@ -157,6 +167,8 @@ const reportAttributesOkPost = `
   "source.namespace": "XYZ11",
   "destination.ip": "[127 0 0 1]",
   "destination.port": "*",
+  "destination.namespace" : "*",
+  "destination.uid" : "*",
   "target.name": "target-name",
   "target.user": "target-user",
   "target.uid": "POD222",

@@ -57,7 +57,7 @@ func (x HTTPAccessLogEntry_HTTPVersion) String() string {
 	return proto.EnumName(HTTPAccessLogEntry_HTTPVersion_name, int32(x))
 }
 func (HTTPAccessLogEntry_HTTPVersion) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_accesslog_f7d38ea1e253147a, []int{1, 0}
+	return fileDescriptor_accesslog_83fd095bde55c855, []int{1, 0}
 }
 
 // Reasons why the request was unauthorized
@@ -82,7 +82,7 @@ func (x ResponseFlags_Unauthorized_Reason) String() string {
 	return proto.EnumName(ResponseFlags_Unauthorized_Reason_name, int32(x))
 }
 func (ResponseFlags_Unauthorized_Reason) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_accesslog_f7d38ea1e253147a, []int{3, 0, 0}
+	return fileDescriptor_accesslog_83fd095bde55c855, []int{3, 0, 0}
 }
 
 type TLSProperties_TLSVersion int32
@@ -114,7 +114,7 @@ func (x TLSProperties_TLSVersion) String() string {
 	return proto.EnumName(TLSProperties_TLSVersion_name, int32(x))
 }
 func (TLSProperties_TLSVersion) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_accesslog_f7d38ea1e253147a, []int{4, 0}
+	return fileDescriptor_accesslog_83fd095bde55c855, []int{4, 0}
 }
 
 // [#not-implemented-hide:]
@@ -130,7 +130,7 @@ func (m *TCPAccessLogEntry) Reset()         { *m = TCPAccessLogEntry{} }
 func (m *TCPAccessLogEntry) String() string { return proto.CompactTextString(m) }
 func (*TCPAccessLogEntry) ProtoMessage()    {}
 func (*TCPAccessLogEntry) Descriptor() ([]byte, []int) {
-	return fileDescriptor_accesslog_f7d38ea1e253147a, []int{0}
+	return fileDescriptor_accesslog_83fd095bde55c855, []int{0}
 }
 func (m *TCPAccessLogEntry) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -183,7 +183,7 @@ func (m *HTTPAccessLogEntry) Reset()         { *m = HTTPAccessLogEntry{} }
 func (m *HTTPAccessLogEntry) String() string { return proto.CompactTextString(m) }
 func (*HTTPAccessLogEntry) ProtoMessage()    {}
 func (*HTTPAccessLogEntry) Descriptor() ([]byte, []int) {
-	return fileDescriptor_accesslog_f7d38ea1e253147a, []int{1}
+	return fileDescriptor_accesslog_83fd095bde55c855, []int{1}
 }
 func (m *HTTPAccessLogEntry) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -316,7 +316,7 @@ func (m *AccessLogCommon) Reset()         { *m = AccessLogCommon{} }
 func (m *AccessLogCommon) String() string { return proto.CompactTextString(m) }
 func (*AccessLogCommon) ProtoMessage()    {}
 func (*AccessLogCommon) Descriptor() ([]byte, []int) {
-	return fileDescriptor_accesslog_f7d38ea1e253147a, []int{2}
+	return fileDescriptor_accesslog_83fd095bde55c855, []int{2}
 }
 func (m *AccessLogCommon) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -492,6 +492,7 @@ type ResponseFlags struct {
 	RateLimited bool `protobuf:"varint,12,opt,name=rate_limited,json=rateLimited,proto3" json:"rate_limited,omitempty"`
 	// Indicates if the request was deemed unauthorized and the reason for it.
 	UnauthorizedDetails *ResponseFlags_Unauthorized `protobuf:"bytes,13,opt,name=unauthorized_details,json=unauthorizedDetails" json:"unauthorized_details,omitempty"`
+	// [#not-implemented-hide:] Hide from docs.
 	// Indicates that the request was rejected because there was an error in rate limit service.
 	RateLimitServiceError bool     `protobuf:"varint,14,opt,name=rate_limit_service_error,json=rateLimitServiceError,proto3" json:"rate_limit_service_error,omitempty"`
 	XXX_NoUnkeyedLiteral  struct{} `json:"-"`
@@ -503,7 +504,7 @@ func (m *ResponseFlags) Reset()         { *m = ResponseFlags{} }
 func (m *ResponseFlags) String() string { return proto.CompactTextString(m) }
 func (*ResponseFlags) ProtoMessage()    {}
 func (*ResponseFlags) Descriptor() ([]byte, []int) {
-	return fileDescriptor_accesslog_f7d38ea1e253147a, []int{3}
+	return fileDescriptor_accesslog_83fd095bde55c855, []int{3}
 }
 func (m *ResponseFlags) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -641,7 +642,7 @@ func (m *ResponseFlags_Unauthorized) Reset()         { *m = ResponseFlags_Unauth
 func (m *ResponseFlags_Unauthorized) String() string { return proto.CompactTextString(m) }
 func (*ResponseFlags_Unauthorized) ProtoMessage()    {}
 func (*ResponseFlags_Unauthorized) Descriptor() ([]byte, []int) {
-	return fileDescriptor_accesslog_f7d38ea1e253147a, []int{3, 0}
+	return fileDescriptor_accesslog_83fd095bde55c855, []int{3, 0}
 }
 func (m *ResponseFlags_Unauthorized) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -699,7 +700,7 @@ func (m *TLSProperties) Reset()         { *m = TLSProperties{} }
 func (m *TLSProperties) String() string { return proto.CompactTextString(m) }
 func (*TLSProperties) ProtoMessage()    {}
 func (*TLSProperties) Descriptor() ([]byte, []int) {
-	return fileDescriptor_accesslog_f7d38ea1e253147a, []int{4}
+	return fileDescriptor_accesslog_83fd095bde55c855, []int{4}
 }
 func (m *TLSProperties) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -798,7 +799,7 @@ func (m *HTTPRequestProperties) Reset()         { *m = HTTPRequestProperties{} }
 func (m *HTTPRequestProperties) String() string { return proto.CompactTextString(m) }
 func (*HTTPRequestProperties) ProtoMessage()    {}
 func (*HTTPRequestProperties) Descriptor() ([]byte, []int) {
-	return fileDescriptor_accesslog_f7d38ea1e253147a, []int{5}
+	return fileDescriptor_accesslog_83fd095bde55c855, []int{5}
 }
 func (m *HTTPRequestProperties) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -944,7 +945,7 @@ func (m *HTTPResponseProperties) Reset()         { *m = HTTPResponseProperties{}
 func (m *HTTPResponseProperties) String() string { return proto.CompactTextString(m) }
 func (*HTTPResponseProperties) ProtoMessage()    {}
 func (*HTTPResponseProperties) Descriptor() ([]byte, []int) {
-	return fileDescriptor_accesslog_f7d38ea1e253147a, []int{6}
+	return fileDescriptor_accesslog_83fd095bde55c855, []int{6}
 }
 func (m *HTTPResponseProperties) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -4369,10 +4370,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/data/accesslog/v2/accesslog.proto", fileDescriptor_accesslog_f7d38ea1e253147a)
+	proto.RegisterFile("envoy/data/accesslog/v2/accesslog.proto", fileDescriptor_accesslog_83fd095bde55c855)
 }
 
-var fileDescriptor_accesslog_f7d38ea1e253147a = []byte{
+var fileDescriptor_accesslog_83fd095bde55c855 = []byte{
 	// 1726 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xbc, 0x57, 0xcd, 0x52, 0x23, 0xc9,
 	0x11, 0x5e, 0x21, 0xc1, 0x48, 0x29, 0x01, 0x4d, 0x21, 0xa0, 0x61, 0x67, 0x80, 0x95, 0xff, 0x70,

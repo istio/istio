@@ -44,9 +44,7 @@ func (m *Clusters) Validate() error {
 	for idx, item := range m.GetClusterStatuses() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return ClustersValidationError{
 					Field:  fmt.Sprintf("ClusterStatuses[%v]", idx),
@@ -104,9 +102,7 @@ func (m *ClusterStatus) Validate() error {
 
 	// no validation rules for AddedViaApi
 
-	if v, ok := interface{}(m.GetSuccessRateEjectionThreshold()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetSuccessRateEjectionThreshold()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ClusterStatusValidationError{
 				Field:  "SuccessRateEjectionThreshold",
@@ -119,9 +115,7 @@ func (m *ClusterStatus) Validate() error {
 	for idx, item := range m.GetHostStatuses() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return ClusterStatusValidationError{
 					Field:  fmt.Sprintf("HostStatuses[%v]", idx),
@@ -174,9 +168,7 @@ func (m *HostStatus) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetAddress()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetAddress()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HostStatusValidationError{
 				Field:  "Address",
@@ -186,11 +178,22 @@ func (m *HostStatus) Validate() error {
 		}
 	}
 
-	// no validation rules for Stats
+	for idx, item := range m.GetStats() {
+		_, _ = idx, item
 
-	if v, ok := interface{}(m.GetHealthStatus()).(interface {
-		Validate() error
-	}); ok {
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return HostStatusValidationError{
+					Field:  fmt.Sprintf("Stats[%v]", idx),
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
+	}
+
+	if v, ok := interface{}(m.GetHealthStatus()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HostStatusValidationError{
 				Field:  "HealthStatus",
@@ -200,9 +203,7 @@ func (m *HostStatus) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetSuccessRate()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetSuccessRate()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HostStatusValidationError{
 				Field:  "SuccessRate",

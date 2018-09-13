@@ -30,6 +30,7 @@ const (
 // Check attributes from a fail GET request from mixer
 const checkAttributesMixerFail = `
 {
+  "context.reporter.uid" : "*",
   "context.protocol": "http",
   "mesh1.ip": "[1 1 1 1]",
   "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
@@ -43,6 +44,8 @@ const checkAttributesMixerFail = `
   "request.url_path": "/echo",
   "source.uid": "POD11",
   "source.namespace": "XYZ11",
+  "destination.namespace" : "*",
+  "destination.uid" : "*",
   "target.name": "target-name",
   "target.user": "target-user",
   "target.uid": "POD222",
@@ -63,6 +66,7 @@ const checkAttributesMixerFail = `
 // Report attributes from a fail GET request from mixer
 const reportAttributesMixerFail = `
 {
+  "context.reporter.uid" : "*",
   "check.error_code": 16,
   "check.error_message": "UNAUTHENTICATED:Unauthenticated by mixer.",
   "context.protocol": "http",
@@ -79,6 +83,8 @@ const reportAttributesMixerFail = `
   "request.url_path": "/echo",
   "source.uid": "POD11",
   "source.namespace": "XYZ11",
+  "destination.namespace" : "*",
+  "destination.uid" : "*",
   "target.name": "target-name",
   "target.user": "target-user",
   "target.uid": "POD222",
@@ -115,6 +121,7 @@ const reportAttributesMixerFail = `
 // Report attributes from a fail GET request from backend
 const reportAttributesBackendFail = `
 {
+  "context.reporter.uid" : "*",
   "context.protocol": "http",
   "context.proxy_error_code": "-",
   "mesh1.ip": "[1 1 1 1]",
@@ -131,6 +138,8 @@ const reportAttributesBackendFail = `
   "source.namespace": "XYZ11",
   "destination.ip": "[127 0 0 1]",
   "destination.port": "*",
+  "destination.namespace" : "*",
+  "destination.uid" : "*",
   "target.name": "target-name",
   "target.user": "target-user",
   "target.uid": "POD222",

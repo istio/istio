@@ -43,9 +43,7 @@ func (m *AccessLog) Validate() error {
 
 	// no validation rules for Name
 
-	if v, ok := interface{}(m.GetFilter()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetFilter()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return AccessLogValidationError{
 				Field:  "Filter",
@@ -55,9 +53,7 @@ func (m *AccessLog) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetConfig()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetConfig()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return AccessLogValidationError{
 				Field:  "Config",
@@ -113,9 +109,7 @@ func (m *AccessLogFilter) Validate() error {
 
 	case *AccessLogFilter_StatusCodeFilter:
 
-		if v, ok := interface{}(m.GetStatusCodeFilter()).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(m.GetStatusCodeFilter()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return AccessLogFilterValidationError{
 					Field:  "StatusCodeFilter",
@@ -127,9 +121,7 @@ func (m *AccessLogFilter) Validate() error {
 
 	case *AccessLogFilter_DurationFilter:
 
-		if v, ok := interface{}(m.GetDurationFilter()).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(m.GetDurationFilter()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return AccessLogFilterValidationError{
 					Field:  "DurationFilter",
@@ -141,9 +133,7 @@ func (m *AccessLogFilter) Validate() error {
 
 	case *AccessLogFilter_NotHealthCheckFilter:
 
-		if v, ok := interface{}(m.GetNotHealthCheckFilter()).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(m.GetNotHealthCheckFilter()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return AccessLogFilterValidationError{
 					Field:  "NotHealthCheckFilter",
@@ -155,9 +145,7 @@ func (m *AccessLogFilter) Validate() error {
 
 	case *AccessLogFilter_TraceableFilter:
 
-		if v, ok := interface{}(m.GetTraceableFilter()).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(m.GetTraceableFilter()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return AccessLogFilterValidationError{
 					Field:  "TraceableFilter",
@@ -169,9 +157,7 @@ func (m *AccessLogFilter) Validate() error {
 
 	case *AccessLogFilter_RuntimeFilter:
 
-		if v, ok := interface{}(m.GetRuntimeFilter()).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(m.GetRuntimeFilter()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return AccessLogFilterValidationError{
 					Field:  "RuntimeFilter",
@@ -183,9 +169,7 @@ func (m *AccessLogFilter) Validate() error {
 
 	case *AccessLogFilter_AndFilter:
 
-		if v, ok := interface{}(m.GetAndFilter()).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(m.GetAndFilter()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return AccessLogFilterValidationError{
 					Field:  "AndFilter",
@@ -197,9 +181,7 @@ func (m *AccessLogFilter) Validate() error {
 
 	case *AccessLogFilter_OrFilter:
 
-		if v, ok := interface{}(m.GetOrFilter()).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(m.GetOrFilter()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return AccessLogFilterValidationError{
 					Field:  "OrFilter",
@@ -211,9 +193,7 @@ func (m *AccessLogFilter) Validate() error {
 
 	case *AccessLogFilter_HeaderFilter:
 
-		if v, ok := interface{}(m.GetHeaderFilter()).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(m.GetHeaderFilter()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return AccessLogFilterValidationError{
 					Field:  "HeaderFilter",
@@ -225,9 +205,7 @@ func (m *AccessLogFilter) Validate() error {
 
 	case *AccessLogFilter_ResponseFlagFilter:
 
-		if v, ok := interface{}(m.GetResponseFlagFilter()).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(m.GetResponseFlagFilter()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return AccessLogFilterValidationError{
 					Field:  "ResponseFlagFilter",
@@ -294,9 +272,7 @@ func (m *ComparisonFilter) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetValue()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetValue()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ComparisonFilterValidationError{
 				Field:  "Value",
@@ -355,9 +331,7 @@ func (m *StatusCodeFilter) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetComparison()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetComparison()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return StatusCodeFilterValidationError{
 				Field:  "Comparison",
@@ -416,9 +390,7 @@ func (m *DurationFilter) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetComparison()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetComparison()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return DurationFilterValidationError{
 				Field:  "Comparison",
@@ -561,9 +533,7 @@ func (m *RuntimeFilter) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetPercentSampled()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetPercentSampled()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return RuntimeFilterValidationError{
 				Field:  "PercentSampled",
@@ -626,9 +596,7 @@ func (m *AndFilter) Validate() error {
 	for idx, item := range m.GetFilters() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return AndFilterValidationError{
 					Field:  fmt.Sprintf("Filters[%v]", idx),
@@ -691,9 +659,7 @@ func (m *OrFilter) Validate() error {
 	for idx, item := range m.GetFilters() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return OrFilterValidationError{
 					Field:  fmt.Sprintf("Filters[%v]", idx),
@@ -754,9 +720,7 @@ func (m *HeaderFilter) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetHeader()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetHeader()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HeaderFilterValidationError{
 				Field:  "Header",

@@ -47,9 +47,7 @@ func (m *RouteConfiguration) Validate() error {
 	for idx, item := range m.GetRoutes() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return RouteConfigurationValidationError{
 					Field:  fmt.Sprintf("Routes[%v]", idx),
@@ -102,9 +100,7 @@ func (m *Route) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetMatch()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetMatch()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return RouteValidationError{
 				Field:  "Match",
@@ -114,9 +110,7 @@ func (m *Route) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetRoute()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetRoute()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return RouteValidationError{
 				Field:  "Route",
@@ -168,6 +162,21 @@ func (m *RouteMatch) Validate() error {
 	}
 
 	// no validation rules for Invert
+
+	for idx, item := range m.GetHeaders() {
+		_, _ = idx, item
+
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return RouteMatchValidationError{
+					Field:  fmt.Sprintf("Headers[%v]", idx),
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
+	}
 
 	switch m.MatchSpecifier.(type) {
 

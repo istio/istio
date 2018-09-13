@@ -46,9 +46,7 @@ func (m *DoubleMatcher) Validate() error {
 
 	case *DoubleMatcher_Range:
 
-		if v, ok := interface{}(m.GetRange()).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(m.GetRange()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return DoubleMatcherValidationError{
 					Field:  "Range",
