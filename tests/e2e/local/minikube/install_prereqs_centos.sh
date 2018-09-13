@@ -7,19 +7,10 @@ ROOTDIR="$(dirname "${SCRIPTPATH}")"
 # shellcheck source=tests/e2e/local/common_linux.sh
 source "${ROOTDIR}/common_linux.sh"
 
-# Check if yum is installed
-if ! yum --help > /dev/null; then
-  echo "yum not installed. Please install it manually and run this script again."
-  exit 1
-fi
-
+check_yum
 sudo yum --quiet -y update
 
-# Check if rpm is installed
-if ! rpm --help > /dev/null; then
-  echo "rpm not installed. Please install it and run this script again."
-  exit 1
-fi
+check_rpm
 
 #Install Curl
 echo "Checking and Installing Curl as required"
