@@ -84,9 +84,7 @@ func (m *StreamTracesMessage) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetIdentifier()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetIdentifier()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return StreamTracesMessageValidationError{
 				Field:  "Identifier",
@@ -99,9 +97,7 @@ func (m *StreamTracesMessage) Validate() error {
 	for idx, item := range m.GetSpans() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return StreamTracesMessageValidationError{
 					Field:  fmt.Sprintf("Spans[%v]", idx),
@@ -162,9 +158,7 @@ func (m *StreamTracesMessage_Identifier) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetNode()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetNode()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return StreamTracesMessage_IdentifierValidationError{
 				Field:  "Node",

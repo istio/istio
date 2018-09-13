@@ -47,9 +47,7 @@ func (m *RateLimitRequest) Validate() error {
 	for idx, item := range m.GetDescriptors() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return RateLimitRequestValidationError{
 					Field:  fmt.Sprintf("Descriptors[%v]", idx),
@@ -110,9 +108,7 @@ func (m *RateLimitResponse) Validate() error {
 	for idx, item := range m.GetStatuses() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return RateLimitResponseValidationError{
 					Field:  fmt.Sprintf("Statuses[%v]", idx),
@@ -127,9 +123,7 @@ func (m *RateLimitResponse) Validate() error {
 	for idx, item := range m.GetHeaders() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return RateLimitResponseValidationError{
 					Field:  fmt.Sprintf("Headers[%v]", idx),
@@ -232,9 +226,7 @@ func (m *RateLimitResponse_DescriptorStatus) Validate() error {
 
 	// no validation rules for Code
 
-	if v, ok := interface{}(m.GetCurrentLimit()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetCurrentLimit()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return RateLimitResponse_DescriptorStatusValidationError{
 				Field:  "CurrentLimit",

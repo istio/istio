@@ -43,9 +43,7 @@ func (m *StatsSink) Validate() error {
 
 	// no validation rules for Name
 
-	if v, ok := interface{}(m.GetConfig()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetConfig()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return StatsSinkValidationError{
 				Field:  "Config",
@@ -100,9 +98,7 @@ func (m *StatsConfig) Validate() error {
 	for idx, item := range m.GetStatsTags() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return StatsConfigValidationError{
 					Field:  fmt.Sprintf("StatsTags[%v]", idx),
@@ -114,9 +110,7 @@ func (m *StatsConfig) Validate() error {
 
 	}
 
-	if v, ok := interface{}(m.GetUseAllDefaultTags()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetUseAllDefaultTags()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return StatsConfigValidationError{
 				Field:  "UseAllDefaultTags",
@@ -233,9 +227,7 @@ func (m *StatsdSink) Validate() error {
 
 	case *StatsdSink_Address:
 
-		if v, ok := interface{}(m.GetAddress()).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(m.GetAddress()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return StatsdSinkValidationError{
 					Field:  "Address",
@@ -302,9 +294,7 @@ func (m *DogStatsdSink) Validate() error {
 
 	case *DogStatsdSink_Address:
 
-		if v, ok := interface{}(m.GetAddress()).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(m.GetAddress()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return DogStatsdSinkValidationError{
 					Field:  "Address",

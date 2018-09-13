@@ -62,9 +62,7 @@ func (m *RedisProxy) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetSettings()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetSettings()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return RedisProxyValidationError{
 				Field:  "Settings",

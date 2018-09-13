@@ -49,9 +49,7 @@ func (m *GrpcJsonTranscoder) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetPrintOptions()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetPrintOptions()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return GrpcJsonTranscoderValidationError{
 				Field:  "PrintOptions",
