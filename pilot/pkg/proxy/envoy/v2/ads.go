@@ -549,7 +549,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				s.addCon(con.ConID, con)
 				defer s.removeCon(con.ConID, con)
 			}
-		case pushEv, _ := <-con.pushChannel:
+		case pushEv := <-con.pushChannel:
 			// It is called when config changes.
 			// This is not optimized yet - we should detect what changed based on event and only
 			// push resources that need to be pushed.
