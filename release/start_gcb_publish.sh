@@ -39,9 +39,6 @@ KEY_FILE_PATH=""
 SVC_ACCT=""
 SUBS_FILE="$(mktemp /tmp/build.subs.XXXX)"
 VER_STRING="0.0.0"
-REPO=""
-REPO_FILE=default.xml
-REPO_FILE_VER=master
 WAIT_FOR_RESULT="false"
 
 GCS_SRC=""
@@ -51,6 +48,8 @@ GCR_DST=""
 GCS_DST=""
 DOCKER_DST="istio" # docker.io/istio
 REL_REPO="istio"
+GCS_PATH="" #this is the initial path where the artifacts are stored before testing
+BRANCH=""
 
 function usage() {
   echo "$0
@@ -58,9 +57,6 @@ function usage() {
     -a        service account for login                         (optional, defaults to project's cloudbuild@ )
     -k <file> path to key file for service account              (optional)
     -v <ver>  version string                                    (optional, defaults to $VER_STRING )
-    -u <url>  URL to git repo with manifest file                (required)
-    -m <file> name of manifest file in repo specified by -u     (optional, defaults to $REPO_FILE )
-    -t <tag>  commit tag or branch for manifest repo in -u      (optional, defaults to $REPO_FILE_VER )
     -w        specify that script should wait until build done  (optional)
 
     -d <hub>  docker hub                                        (optional, defaults to $DOCKER_DST )
@@ -69,36 +65,36 @@ function usage() {
     -b <name> GCS bucket to publish to                          (required)
     -g <path> GCS bucket&path to file with github secret        (optional, detaults to $GCS_GITHUB_SECRET )
     -h <name> github org to make a release on                   (optional, defaults to $REL_ORG )
-    -i <name> github repo to make a release on                  (optional, defaults to $REL_REPO )"
+    -i <name> github repo to make a release on                  (optional, defaults to $REL_REPO )
+    -c <name> GCS bucket/path where artifacts stored pre test   (required)
+    -z <name>  name of the branch                               (required)"
   exit 1
 }
 
-while getopts a:b:d:g:h:i:k:m:p:r:s:t:u:v:w arg ; do
+while getopts a:b:c:d:g:h:i:k:p:r:s:v:w:z arg ; do
   case "${arg}" in
     a) SVC_ACCT="${OPTARG}";;
     b) GCS_DST="${OPTARG}";;
+    c) GCS_PATH="${OPTARG}";;
     d) DOCKER_DST="${OPTARG}";;
     g) GCS_GITHUB_SECRET="${OPTARG}";;
     h) REL_ORG="${OPTARG}";;
     i) REL_REPO="${OPTARG}";;
     k) KEY_FILE_PATH="${OPTARG}";;
-    m) REPO_FILE="${OPTARG}";;
     p) PROJECT_ID="${OPTARG}";;
     r) GCR_DST="${OPTARG}";;
     s) GCS_SRC="${OPTARG}";;
-    t) REPO_FILE_VER="${OPTARG}";;
-    u) REPO="${OPTARG}";;
     v) VER_STRING="${OPTARG}";;
     w) WAIT_FOR_RESULT="true";;
+    z) BRANCH="${OPTARG}";;
     *) usage;;
   esac
 done
 
-[[ -z "${PROJECT_ID}"    ]] && usage
-[[ -z "${REPO}"          ]] && usage
-[[ -z "${REPO_FILE}"     ]] && usage
-[[ -z "${REPO_FILE_VER}" ]] && usage
-[[ -z "${VER_STRING}"    ]] && usage
+[[ -z "${BRANCH}"     ]] && usage
+[[ -z "${GCS_PATH}"   ]] && usage
+[[ -z "${PROJECT_ID}" ]] && usage
+[[ -z "${VER_STRING}" ]] && usage
 
 # [[ -z "${DOCKER_DST}"        ]] && usage
 [[ -z "${GCR_DST}"           ]] && usage
@@ -117,10 +113,8 @@ fi
 # generate the substitutions file
 cat << EOF > "${SUBS_FILE}"
   "substitutions": {
+    "_GCS_PATH": "${GCS_PATH}",
     "_VER_STRING": "${VER_STRING}",
-    "_MFEST_URL": "${REPO}",
-    "_MFEST_FILE": "${REPO_FILE}",
-    "_MFEST_VER": "${REPO_FILE_VER}",
     "_GCS_SOURCE": "${GCS_SRC}",
     "_GCR_DST": "${GCR_DST}",
     "_GCS_DST": "${GCS_DST}",

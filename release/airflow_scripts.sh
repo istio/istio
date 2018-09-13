@@ -19,19 +19,25 @@
 function get_git_commit_cmd() {
     git config --global user.name "TestRunnerBot"
     git config --global user.email "testrunner@istio.io"
-    git clone "$MFEST_URL" green-builds || exit 2
+    git clone "https://github.com/istio/global-build" global-build || exit 2
+    global-build/prow/new_green_build.sh -b "${BRANCH}" -g -m "gs://${GCS_RELEASE_TOOLS_PATH}/" \
+                                         -v "$VERIFY_CONSISTENCY"
+    local exit_code=$?
+    if [[ $? != 0 ]]; then
+       exit "$exit_code"
+    fi
 
-    pushd green-builds || exit 3
-    git checkout "$BRANCH"
-    git checkout "$MFEST_COMMIT" || exit 3
-    ISTIO_SHA=$(grep "$GITHUB_ORG/$GITHUB_REPO" "$MFEST_FILE" | cut -f 6 -d \") || exit 4
-    API_SHA=$(  grep "$GITHUB_ORG/api"          "$MFEST_FILE" | cut -f 6 -d \") || exit 5
-    PROXY_SHA=$(grep "$GITHUB_ORG/proxy"        "$MFEST_FILE" | cut -f 6 -d \") || exit 6
+    gsutil cp "gs://${GCS_RELEASE_TOOLS_PATH}/manifest.xml" "manifest.xml"
+    gsutil cp "gs://${GCS_RELEASE_TOOLS_PATH}/manifest.xml" "gs://$GCS_BUILD_PATH"
+
+    ISTIO_SHA=$(grep "$GITHUB_ORG/$GITHUB_REPO" "manifest.xml" | cut -f 6 -d \") || exit 4
+    API_SHA=$(  grep "$GITHUB_ORG/api"          "manifest.xml" | cut -f 6 -d \") || exit 5
+    PROXY_SHA=$(grep "$GITHUB_ORG/proxy"        "manifest.xml" | cut -f 6 -d \") || exit 6
+
     if [ -z "${ISTIO_SHA}" ] || [ -z "${API_SHA}" ] || [ -z "${PROXY_SHA}" ]; then
       echo "ISTIO_SHA:$ISTIO_SHA API_SHA:$API_SHA PROXY_SHA:$PROXY_SHA some shas not found"
       exit 8
     fi
-    popd || exit 9 #green-builds
 
     git clone "$ISTIO_REPO" istio-code -b "$BRANCH"
     pushd istio-code/release  || exit 10
@@ -48,49 +54,24 @@ function get_git_commit_cmd() {
     fi
     popd || exit 13 #istio-code/release
 
-    if [ "$VERIFY_CONSISTENCY" = "true" ]; then
-      PROXY_REPO=$(dirname "$ISTIO_REPO")/proxy
-      echo "$PROXY_REPO"
-      git clone "$PROXY_REPO" proxy-code -b "$BRANCH" --depth 1
-      pushd proxy-code || exit 14
-      PROXY_HEAD_SHA=$(git rev-parse HEAD)
-      PROXY_HEAD_API_SHA=$(grep ISTIO_API istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"')
-      popd             || exit 15 # proxy-code
-
-      if [ "$PROXY_HEAD_SHA" != "$PROXY_SHA" ]; then
-        echo "inconsistent shas PROXY_HEAD_SHA         $PROXY_HEAD_SHA != $PROXY_SHA PROXY_SHA" 1>&2
-        exit 16
-      fi
-      if [ "$PROXY_HEAD_API_SHA" != "$API_SHA" ]; then
-        echo "inconsistent shas PROXY_HEAD_API_SHA $PROXY_HEAD_API_SHA !=   $API_SHA   API_SHA" 1>&2
-        exit 17
-      fi
-      if [ "$ISTIO_HEAD_SHA" != "$ISTIO_SHA" ]; then
-        echo "inconsistent shas ISTIO_HEAD_SHA         $ISTIO_HEAD_SHA != $ISTIO_SHA ISTIO_SHA" 1>&2
-        exit 18
-      fi
-    fi
-
     pushd istio-code/release || exit 19
-    gsutil -q cp ./*.sh   "gs://$GCS_RELEASE_TOOLS_PATH/data/release/"
-    gsutil -q cp ./*.json "gs://$GCS_RELEASE_TOOLS_PATH/data/release/"
+    gsutil -q cp ./*.sh   "gs://$GCS_RELEASE_TOOLS_PATH/"
+    gsutil -q cp ./*.json "gs://$GCS_RELEASE_TOOLS_PATH/"
     #cp airflow_scripts.sh /home/airflow/gcs/data/airflow_scripts.sh
     popd || exit 20 #istio-code/release
-
-    pushd green-builds || exit 21
-    git rev-parse HEAD
+    echo "${ISTIO_SHA}"
 }
 
 function build_template() {
 #    gsutil -q cp gs://istio-release-pipeline-data/release-tools/data/release/*.json .
 #    gsutil -q cp gs://istio-release-pipeline-data/release-tools/data/release/*.sh .
 
-    gsutil -q cp gs://"$GCS_RELEASE_TOOLS_PATH"/data/release/*.json .
-    gsutil -q cp gs://"$GCS_RELEASE_TOOLS_PATH"/data/release/*.sh   .
+    gsutil -q cp gs://"$GCS_RELEASE_TOOLS_PATH"/*.json .
+    gsutil -q cp gs://"$GCS_RELEASE_TOOLS_PATH"/*.sh   .
     chmod u+x ./*
 
     ./start_gcb_build.sh -w -p "$PROJECT_ID" -r "$GCR_STAGING_DEST" -s "$GCS_BUILD_PATH" \
-    -v "$VERSION" -u "$MFEST_URL" -t "$m_commit" -m "$MFEST_FILE" -a "$SVC_ACCT"
+    -v "$VERSION" -c "$COMMIT" -a "$SVC_ACCT"
   # NOTE: if you add commands to build_template after start_gcb_build.sh then take care to preserve its return value
 }
 
@@ -146,30 +127,29 @@ function gcr_tag_success() {
 }
 
 function release_push_github_docker_template() {
-  gsutil -q cp "gs://$GCS_RELEASE_TOOLS_PATH/data/release/*.json" .
-  gsutil -q cp "gs://$GCS_RELEASE_TOOLS_PATH/data/release/*.sh" .
+  gsutil -q cp "gs://$GCS_RELEASE_TOOLS_PATH/*.json" .
+  gsutil -q cp "gs://$GCS_RELEASE_TOOLS_PATH/*.sh" .
   chmod u+x ./*
 
   ./start_gcb_publish.sh \
-    -p "$RELEASE_PROJECT_ID" -a "$SVC_ACCT"  \
+    -p "$RELEASE_PROJECT_ID" -a "$SVC_ACCT" -c "$GCS_BUILD_PATH" \
     -v "$VERSION" -s "$GCS_FULL_STAGING_PATH" \
     -b "$GCS_MONTHLY_RELEASE_PATH" -r "$GCR_RELEASE_DEST" \
-    -g "$GCS_GITHUB_PATH" -u "$MFEST_URL" \
-    -t "$m_commit" -m "$MFEST_FILE" \
+    -g "$GCS_GITHUB_PATH" \
     -h "$GITHUB_ORG" -i "$GITHUB_REPO" \
-    -d "$DOCKER_HUB" -w
+    -d "$DOCKER_HUB" -w -z "$BRANCH"
 }
 
 function release_tag_github_template() {
-  gsutil -q cp "gs://$GCS_RELEASE_TOOLS_PATH/data/release/*.json" .
-  gsutil -q cp "gs://$GCS_RELEASE_TOOLS_PATH/data/release/*.sh" .
+  gsutil -q cp "gs://$GCS_RELEASE_TOOLS_PATH/*.json" .
+  gsutil -q cp "gs://$GCS_RELEASE_TOOLS_PATH/*.sh" .
   chmod u+x ./*
 
   ./start_gcb_tag.sh \
-    -p "$RELEASE_PROJECT_ID" \
+    -p "$RELEASE_PROJECT_ID" -c "$GCS_BUILD_PATH" \
     -h "$GITHUB_ORG" -a "$SVC_ACCT"  \
     -v "$VERSION"   -e "istio_releaser_bot@example.com" \
     -n "IstioReleaserBot" -s "$GCS_FULL_STAGING_PATH" \
-    -g "$GCS_GITHUB_PATH" -u "$MFEST_URL" \
-    -t "$m_commit" -m "$MFEST_FILE" -w
+    -g "$GCS_GITHUB_PATH" \
+    -w -z "$BRANCH"
 }

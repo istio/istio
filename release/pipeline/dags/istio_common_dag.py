@@ -88,9 +88,11 @@ def getBashSettingsTemplate(extra_param_lst=[]):
   template_list = [template_prefix]
   for key in keys:
     template_list.append("export %s={{ settings.%s }}" % (key, key))
-  template_list.append("""cp /home/airflow/gcs/data/airflow_scripts.sh ./airflow_scripts.sh
-                          chmod u+x                                    ./airflow_scripts.sh
-                          source                                       ./airflow_scripts.sh""")
+  template_list.append("""
+                cp /home/airflow/gcs/data/airflow_scripts.sh         ./airflow_scripts.sh
+                cp /home/airflow/gcs/data/airflow_scripts.sh.$BRANCH ./airflow_scripts.sh
+                chmod u+x                                            ./airflow_scripts.sh
+                source                                               ./airflow_scripts.sh""")
   return "\n".join(template_list)
 
 

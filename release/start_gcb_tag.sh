@@ -40,9 +40,6 @@ KEY_FILE_PATH=""
 SVC_ACCT=""
 SUBS_FILE="$(mktemp /tmp/build.subs.XXXX)"
 VER_STRING="0.0.0"
-REPO=""
-REPO_FILE=default.xml
-REPO_FILE_VER=master
 WAIT_FOR_RESULT="false"
 
 GCS_SRC=""
@@ -50,6 +47,8 @@ GCS_GITHUB_SECRET="istio-secrets/github.txt.enc"
 REL_ORG="istio"
 USER_EMAIL=""
 USER_NAME=""
+GCS_PATH="" #this is the initial path where the artifacts are stored before testing
+BRANCH=""
 
 function usage() {
   echo "$0
@@ -57,43 +56,40 @@ function usage() {
     -a        service account for login                         (optional, defaults to project's cloudbuild@ )
     -k <file> path to key file for service account              (optional)
     -v <ver>  version string                                    (optional, defaults to $VER_STRING )
-    -u <url>  URL to git repo with manifest file                (required)
-    -m <file> name of manifest file in repo specified by -u     (optional, defaults to $REPO_FILE )
-    -t <tag>  commit tag or branch for manifest repo in -u      (optional, defaults to $REPO_FILE_VER )
     -w        specify that script should wait until build done  (optional)
 
     -s <name> GCS bucket to read build artifacts                (required)
     -g <path> GCS bucket&path to file with github secret        (optional, detaults to $GCS_GITHUB_SECRET )
     -h <name> github org to tag                                 (optional, defaults to $REL_ORG )
     -e <email> email of submitter for tags                      (required)
-    -n <name>  name of submitter for tags                       (required)"
+    -n <name>  name of submitter for tags                       (required)
+    -c <name>  GCS bucket/path where artifacts stored pre test  (required)
+    -z <name>  name of the branch                               (required)"
   exit 1
 }
 
-while getopts a:e:g:h:k:m:n:p:s:t:u:v:w arg ; do
+while getopts a:c:e:g:h:k:n:p:s:v:w:z arg ; do
   case "${arg}" in
     a) SVC_ACCT="${OPTARG}";;
+    c) GCS_PATH="${OPTARG}";;
     e) USER_EMAIL="${OPTARG}";;
     g) GCS_GITHUB_SECRET="${OPTARG}";;
     h) REL_ORG="${OPTARG}";;
     k) KEY_FILE_PATH="${OPTARG}";;
-    m) REPO_FILE="${OPTARG}";;
     n) USER_NAME="${OPTARG}";;
     p) PROJECT_ID="${OPTARG}";;
     s) GCS_SRC="${OPTARG}";;
-    t) REPO_FILE_VER="${OPTARG}";;
-    u) REPO="${OPTARG}";;
     v) VER_STRING="${OPTARG}";;
     w) WAIT_FOR_RESULT="true";;
+    z) BRANCH="${OPTARG}";;
     *) usage;;
   esac
 done
 
-[[ -z "${PROJECT_ID}"    ]] && usage
-[[ -z "${REPO}"          ]] && usage
-[[ -z "${REPO_FILE}"     ]] && usage
-[[ -z "${REPO_FILE_VER}" ]] && usage
-[[ -z "${VER_STRING}"    ]] && usage
+[[ -z "${BRANCH}"     ]] && usage
+[[ -z "${GCS_PATH}"   ]] && usage
+[[ -z "${PROJECT_ID}" ]] && usage
+[[ -z "${VER_STRING}" ]] && usage
 
 [[ -z "${USER_EMAIL}" ]] && usage
 [[ -z "${USER_NAME}"  ]] && usage
@@ -108,10 +104,9 @@ fi
 # generate the substitutions file
 cat << EOF > "${SUBS_FILE}"
   "substitutions": {
+    "_BRANCH": "${BRANCH}",
+    "_GCS_PATH": "${GCS_PATH}",
     "_VER_STRING": "${VER_STRING}",
-    "_MFEST_URL": "${REPO}",
-    "_MFEST_FILE": "${REPO_FILE}",
-    "_MFEST_VER": "${REPO_FILE_VER}",
     "_GCS_SOURCE": "${GCS_SRC}",
     "_GCS_SECRET": "${GCS_GITHUB_SECRET}",
     "_ORG": "${REL_ORG}",
