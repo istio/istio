@@ -55,9 +55,8 @@ var (
 	// clients in a bad state (not reading). In future it may include checking for ACK
 	SendTimeout = 5 * time.Second
 
-	// PushTimeout is the time to wait for a push on a client. Pilot iterates over
-	// clients and pushes them serially for now, to avoid large CPU/memory spikes.
-	// We measure and reports cases where pusing a client takes longer.
+	// PushTimeout is the time to wait for a push on a client.
+	// We measure and reports cases where pushing a client takes longer.
 	PushTimeout = 5 * time.Second
 
 	allowConcurrentPush = false
@@ -197,7 +196,7 @@ type XdsConnection struct {
 	nextPush *model.PushContext
 
 	// doneChannel will be closed when the client is closed.
-	doneChannel chan int
+	doneChannel chan struct{}
 
 	// TODO: migrate other fields as needed from model.Proxy and replace it
 
@@ -318,8 +317,8 @@ type XdsEvent struct {
 
 func newXdsConnection(peerAddr string, stream DiscoveryStream) *XdsConnection {
 	return &XdsConnection{
-		pushChannel:  make(chan *XdsEvent, 1),
-		doneChannel:  make(chan int, 1),
+		pushChannel:  make(chan *XdsEvent),
+		doneChannel:  make(chan struct{}),
 		PeerAddr:     peerAddr,
 		Clusters:     []string{},
 		Connect:      time.Now(),
@@ -555,7 +554,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				s.addCon(con.ConID, con)
 				defer s.removeCon(con.ConID, con)
 			}
-		case pushEv, _ := <-con.pushChannel:
+		case pushEv := <-con.pushChannel:
 			// It is called when config changes.
 			// This is not optimized yet - we should detect what changed based on event and only
 			// push resources that need to be pushed.
@@ -695,55 +694,67 @@ func (s *DiscoveryServer) AdsPushAll(version string) {
 
 	tstart := time.Now()
 	// Will keep trying to push to sidecars until another push starts.
+	wg := sync.WaitGroup{}
 	for {
-		if len(pending) == 0 {
-			adsLog.Infof("PushAll done %s %v", version, time.Since(tstart))
-			return
-		}
-		currentVersion := versionInfo()
-		// Stop attempting to push
-		if !allowConcurrentPush && version != currentVersion {
-			adsLog.Infof("PushAll abort %s, push with newer version %s in progress %v", version, currentVersion, time.Since(tstart))
-			return
-		}
 
+		if len(pending) == 0 {
+			break
+		}
 		// Using non-blocking push has problems if 2 pushes happen too close to each other
 		client := pending[0]
 		pending = pending[1:]
 
-		// TODO: this should be in a thread group, to do multiple pushes in parallel.
-		to := time.After(PushTimeout)
-		select {
-		case client.pushChannel <- &XdsEvent{
-			push:    pushContext,
-			pending: &pendingPush,
-			version: version,
-		}:
-			client.LastPush = time.Now()
-			client.LastPushFailure = timeZero
-		case <-client.doneChannel: // connection was closed
-			adsLog.Infof("Client closed connection %v", client.ConID)
-		case <-to:
-			pushTimeouts.Add(1)
-			//default:
-			// This may happen to some clients if the other side is in a bad state and can't receive.
-			// The tests were catching this - one of the client was not reading.
+		wg.Add(1)
+		s.concurrentPushLimit <- struct{}{}
+		go func() {
+			defer func() {
+				<-s.concurrentPushLimit
+				wg.Done()
+			}()
 
-			pending = append(pending, client)
-
-			if client.LastPushFailure.IsZero() {
-				client.LastPushFailure = time.Now()
-				adsLog.Warnf("Failed to push, client busy %d %s", len(pending), client.ConID)
-				pushErrors.With(prometheus.Labels{"type": "short"}).Add(1)
-			} else {
-				if time.Since(client.LastPushFailure) > 10*time.Second {
-					adsLog.Warnf("Repeated failure to push %d %s", len(pending), client.ConID)
-					// unfortunately grpc go doesn't allow closing (unblocking) the stream.
-					pushErrors.With(prometheus.Labels{"type": "long"}).Add(1)
-				}
+		Retry:
+			currentVersion := versionInfo()
+			// Stop attempting to push
+			if !allowConcurrentPush && version != currentVersion {
+				adsLog.Infof("PushAll abort %s, push with newer version %s in progress %v", version, currentVersion, time.Since(tstart))
+				return
 			}
-		}
+
+			select {
+			case client.pushChannel <- &XdsEvent{
+				push:    pushContext,
+				pending: &pendingPush,
+				version: version,
+			}:
+				client.LastPush = time.Now()
+				client.LastPushFailure = timeZero
+			case <-client.doneChannel: // connection was closed
+				adsLog.Infof("Client closed connection %v", client.ConID)
+			case <-time.After(PushTimeout):
+				// This may happen to some clients if the other side is in a bad state and can't receive.
+				// The tests were catching this - one of the client was not reading.
+				pushTimeouts.Add(1)
+				if client.LastPushFailure.IsZero() {
+					client.LastPushFailure = time.Now()
+					adsLog.Warnf("Failed to push, client busy %s", client.ConID)
+					pushErrors.With(prometheus.Labels{"type": "short"}).Add(1)
+				} else {
+					if time.Since(client.LastPushFailure) > 10*time.Second {
+						adsLog.Warnf("Repeated failure to push %s", client.ConID)
+						// unfortunately grpc go doesn't allow closing (unblocking) the stream.
+						pushErrors.With(prometheus.Labels{"type": "long"}).Add(1)
+						return
+					}
+				}
+
+				goto Retry
+			}
+		}()
 	}
+
+	wg.Wait()
+	adsLog.Infof("PushAll done %s %v", version, time.Since(tstart))
+	return
 }
 
 func (s *DiscoveryServer) addCon(conID string, con *XdsConnection) {

@@ -38,6 +38,10 @@ function check_spelling() {
 function install_gometalinter() {
     echo 'Installing gometalinter ....'
     go get -u gopkg.in/alecthomas/gometalinter.v2
+    if [[ -d "${ISTIO_BIN}/gometalinter.v2" ]];then
+        echo "download gopkg.in/alecthomas/gometalinter.v2 failed"
+        exit 1
+    fi
     gometalinter=$(command -v gometalinter.v2 2> /dev/null || echo "${ISTIO_BIN}/gometalinter.v2")
     $gometalinter --install
     echo 'Gometalinter installed successfully ....'
