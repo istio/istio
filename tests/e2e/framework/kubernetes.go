@@ -83,7 +83,7 @@ var (
 	proxyTag           = flag.String("proxy_tag", os.Getenv("TAG"), "Proxy tag")
 	caHub              = flag.String("ca_hub", os.Getenv("HUB"), "Ca hub")
 	caTag              = flag.String("ca_tag", os.Getenv("TAG"), "Ca tag")
-	galleyHub          = flag.String("galley_hub", os.Getenv("HUB"), "MCP hub")
+	galleyHub          = flag.String("galley_hub", os.Getenv("HUB"), "Galley hub")
 	galleyTag          = flag.String("galley_tag", os.Getenv("TAG"), "Galley tag")
 	sidecarInjectorHub = flag.String("sidecar_injector_hub", os.Getenv("HUB"), "Sidecar injector hub")
 	sidecarInjectorTag = flag.String("sidecar_injector_tag", os.Getenv("TAG"), "Sidecar injector tag")
