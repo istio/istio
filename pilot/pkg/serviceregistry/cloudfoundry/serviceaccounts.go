@@ -14,9 +14,7 @@
 
 package cloudfoundry
 
-import (
-	"istio.io/istio/pilot/pkg/model"
-)
+import "istio.io/istio/pilot/pkg/model"
 
 type serviceAccounts struct{}
 
