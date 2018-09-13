@@ -141,7 +141,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 				continue
 			}
 
-			secret, err := s.st.GetSecret(ctx, discReq.Node.Id, spiffeID, token)
+			secret, err := s.st.GenerateSecret(ctx, discReq.Node.Id, spiffeID, token)
 			if err != nil {
 				log.Errorf("Failed to get secret for proxy %q from secret cache: %v", discReq.Node.Id, err)
 				return err
@@ -188,7 +188,7 @@ func (s *sdsservice) FetchSecrets(ctx context.Context, discReq *xdsapi.Discovery
 		return nil, err
 	}
 
-	secret, err := s.st.GetSecret(ctx, discReq.Node.Id, spiffeID, token)
+	secret, err := s.st.GenerateSecret(ctx, discReq.Node.Id, spiffeID, token)
 	if err != nil {
 		log.Errorf("Failed to get secret for proxy %q from secret cache: %v", discReq.Node.Id, err)
 		return nil, err
