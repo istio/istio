@@ -72,7 +72,8 @@ type DiscoveryServer struct {
 	// ConfigController provides readiness info (if initial sync is complete)
 	ConfigController model.ConfigStoreCache
 
-	rateLimiter *rate.Limiter
+	rateLimiter         *rate.Limiter
+	concurrentPushLimit chan struct{}
 
 	// DebugConfigs controls saving snapshots of configs for /debug/adsz.
 	// Defaults to false, can be enabled with PILOT_DEBUG_ADSZ_CONFIG=1
@@ -94,8 +95,9 @@ func intEnv(env string, def int) int {
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
 func NewDiscoveryServer(env *model.Environment, generator core.ConfigGenerator) *DiscoveryServer {
 	out := &DiscoveryServer{
-		env:             env,
-		ConfigGenerator: generator,
+		env:                 env,
+		ConfigGenerator:     generator,
+		concurrentPushLimit: make(chan struct{}, 20), // TODO(hzxuzhonghu): support configuration
 	}
 	env.PushContext = model.NewPushContext()
 
