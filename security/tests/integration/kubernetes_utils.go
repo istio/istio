@@ -29,7 +29,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/security/pkg/pki/ca/controller"
+	"istio.io/istio/security/pkg/k8s/controller"
 	"istio.io/istio/security/pkg/pki/util"
 )
 
@@ -196,12 +196,12 @@ func createIstioCARole(clientset kubernetes.Interface, namespace string) error {
 		Rules: []rbac.PolicyRule{
 			{
 				Verbs:     []string{"create", "get", "watch", "list", "update"},
-				APIGroups: []string{"core", ""},
+				APIGroups: []string{""},
 				Resources: []string{"secrets"},
 			},
 			{
 				Verbs:     []string{"get", "watch", "list"},
-				APIGroups: []string{"core", ""},
+				APIGroups: []string{""},
 				Resources: []string{"serviceaccounts", "services", "pods"},
 			},
 		},

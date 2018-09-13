@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strconv"
 	"testing"
 	"time"
 
@@ -159,9 +160,11 @@ func (c *kubeComponent) Init(ctx environment.ComponentContext, deps map[dependen
 		return nil, fmt.Errorf("unsupported environment: %q", ctx.Environment().EnvironmentID())
 	}
 
+	s := e.KubeSettings()
+
 	result, err := tmpl.Evaluate(template, map[string]interface{}{
-		"Hub":             ctx.Settings().Hub,
-		"Tag":             ctx.Settings().Tag,
+		"Hub":             s.Hub,
+		"Tag":             s.Tag,
 		"deployment":      "policy-backend",
 		"ImagePullPolicy": "Always",
 		"app":             "policy-backend",
@@ -173,32 +176,36 @@ func (c *kubeComponent) Init(ctx environment.ComponentContext, deps map[dependen
 		return nil, err
 	}
 
-	if err = kube.ApplyContents(ctx.Settings().KubeConfig, e.DependencyNamespace, result); err != nil {
+	if err = kube.ApplyContents(s.KubeConfig, s.DependencyNamespace, result); err != nil {
 		return nil, err
 	}
 
-	pod, err := e.Accessor.WaitForPodBySelectors(e.DependencyNamespace, "app=policy-backend", "version=test")
+	pod, err := e.Accessor.WaitForPodBySelectors(s.DependencyNamespace, "app=policy-backend", "version=test")
 	if err != nil {
 		return nil, err
 	}
 
-	if err = e.Accessor.WaitUntilPodIsRunning(e.DependencyNamespace, pod.Name); err != nil {
+	if err = e.Accessor.WaitUntilPodIsRunning(s.DependencyNamespace, pod.Name); err != nil {
 		return nil, err
 	}
 
-	if err = e.Accessor.WaitUntilPodIsReady(e.DependencyNamespace, pod.Name); err != nil {
+	if err = e.Accessor.WaitUntilPodIsReady(s.DependencyNamespace, pod.Name); err != nil {
 		return nil, err
 	}
 
-	svc, err := e.Accessor.GetService(e.DependencyNamespace, "policy-backend")
+	svc, err := e.Accessor.GetService(s.DependencyNamespace, "policy-backend")
 	if err != nil {
 		return nil, err
 	}
 	addressInCluster := fmt.Sprintf("%s:%d", svc.Spec.ClusterIP, svc.Spec.Ports[0].TargetPort.IntVal)
 	scope.Debugf("Policy Backend in-cluster address: %s", addressInCluster)
 
-	forwarder := kube.NewPortForwarder(ctx.Settings().KubeConfig, pod.Namespace, pod.Name, int(svc.Spec.Ports[0].TargetPort.IntVal))
-	if err = forwarder.Start(); err != nil {
+	options := &kube.PodSelectOptions{
+		PodNamespace: pod.Namespace,
+		PodName:      pod.Name,
+	}
+	forwarder, err := kube.PortForward(s.KubeConfig, options, "", strconv.Itoa(svc.Spec.Ports[0].TargetPort.IntValue()))
+	if err != nil {
 		return nil, err
 	}
 
@@ -210,7 +217,7 @@ func (c *kubeComponent) Init(ctx environment.ComponentContext, deps map[dependen
 
 	return &policyBackend{
 		address:             addressInCluster,
-		dependencyNamespace: e.DependencyNamespace,
+		dependencyNamespace: s.DependencyNamespace,
 		controller:          controller,
 		forwarder:           forwarder,
 		local:               false,
@@ -221,7 +228,7 @@ type policyBackend struct {
 	address             string
 	dependencyNamespace string
 	controller          *policy.Controller
-	forwarder           *kube.PortForwarder
+	forwarder           kube.PortForwarder
 
 	// local only settings
 	port    int

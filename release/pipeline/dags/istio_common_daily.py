@@ -90,7 +90,7 @@ def DailyPipeline(branch):
     if conf is None:
       conf = dict()
 
-    # If variables are overriden then we should use it otherwise we use it's
+    # If variables are overridden then we should use it otherwise we use it's
     # default value.
     date = datetime.datetime.now()
     date_string = date.strftime('%Y%m%d-%H-%M')

@@ -99,15 +99,14 @@ func TestAggregateStoreGet(t *testing.T) {
 		},
 	}
 
-	storeOne.GetReturns(configReturn, true)
+	storeOne.GetReturns(configReturn)
 
 	stores := []model.ConfigStore{storeOne, storeTwo}
 
 	store, err := aggregate.Make(stores)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	c, exists := store.Get("some-config", "other", "")
-	g.Expect(exists).To(gomega.BeTrue())
+	c := store.Get("some-config", "other", "")
 	g.Expect(c).To(gomega.Equal(configReturn))
 }
 

@@ -9,6 +9,9 @@ spec:
   template:
     metadata:
       annotations:
+        prometheus.io/path: /stats/prometheus
+        prometheus.io/port: "15090"
+        prometheus.io/scrape: "true"
         sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
@@ -32,7 +35,7 @@ spec:
         - --binaryPath
         - /usr/local/bin/envoy
         - --serviceCluster
-        - hello
+        - hello.default
         - --drainDuration
         - 2s
         - --parentShutdownDuration
@@ -45,8 +48,6 @@ spec:
         - ""
         - --connectTimeout
         - 1s
-        - --statsdUdpAddress
-        - ""
         - --proxyAdminPort
         - "15000"
         - --controlPlaneAuthPolicy
@@ -142,6 +143,9 @@ spec:
   template:
     metadata:
       annotations:
+        prometheus.io/path: /stats/prometheus
+        prometheus.io/port: "15090"
+        prometheus.io/scrape: "true"
         sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
@@ -165,7 +169,7 @@ spec:
         - --binaryPath
         - /usr/local/bin/envoy
         - --serviceCluster
-        - hello
+        - hello.default
         - --drainDuration
         - 2s
         - --parentShutdownDuration
@@ -178,8 +182,6 @@ spec:
         - ""
         - --connectTimeout
         - 1s
-        - --statsdUdpAddress
-        - ""
         - --proxyAdminPort
         - "15000"
         - --controlPlaneAuthPolicy

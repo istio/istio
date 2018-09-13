@@ -87,7 +87,7 @@ func TestRefTracking(t *testing.T) {
 				"destination.service":   "echosrv2.istio.svc.cluster.local",
 				"destination.namespace": "istio",
 				"source.service":        "foo",
-				"request.headers": map[string]interface{}{
+				"request.headers": map[string]string{
 					"x-request-id": "foo",
 				},
 			},

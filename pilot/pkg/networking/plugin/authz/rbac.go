@@ -91,13 +91,17 @@ type serviceMetadata struct {
 }
 
 type rbacOption struct {
-	roles                []model.Config
-	bindings             []model.Config
+	authzPolicies        *model.AuthorizationPolicies
 	forTCPFilter         bool // The generated config is to be used by the Envoy network filter when true.
 	globalPermissiveMode bool // True if global RBAC config is in permissive mode.
 }
 
 func createServiceMetadata(attr *model.ServiceAttributes, in *model.ServiceInstance) *serviceMetadata {
+	if attr.Namespace == "" {
+		rbacLog.Errorf("no namespace for service %v", in.Service.Hostname)
+		return nil
+	}
+
 	return &serviceMetadata{
 		name:   string(in.Service.Hostname),
 		labels: in.Labels,
@@ -326,18 +330,25 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 	if in.Node.Type != model.Sidecar {
 		return nil
 	}
+
 	svc := in.ServiceInstance.Service.Hostname
 	attr := in.ServiceInstance.Service.Attributes
-	rbacEnabled, globalPermissive := isRbacEnabled(string(svc), attr.Namespace, in.Env.IstioConfigStore)
+	authzPolicies := in.Env.PushContext.AuthzPolicies
+	rbacEnabled, globalPermissive := isRbacEnabled(string(svc), attr.Namespace, authzPolicies)
 	if !rbacEnabled {
 		return nil
 	}
 
+	service := createServiceMetadata(&attr, in.ServiceInstance)
+	if service == nil {
+		rbacLog.Errorf("failed to get service")
+		return nil
+	}
+	option := rbacOption{authzPolicies: authzPolicies, globalPermissiveMode: globalPermissive}
 	switch in.ListenerProtocol {
 	case plugin.ListenerProtocolTCP:
-		service := createServiceMetadata(&attr, in.ServiceInstance)
 		rbacLog.Debugf("building tcp filter config for %v", *service)
-		filter := buildTCPFilter(service, in.Env.IstioConfigStore, globalPermissive)
+		filter := buildTCPFilter(service, option)
 		if filter != nil {
 			rbacLog.Infof("built tcp filter config for %s", service.name)
 			for cnum := range mutable.FilterChains {
@@ -345,9 +356,8 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 			}
 		}
 	case plugin.ListenerProtocolHTTP:
-		service := createServiceMetadata(&attr, in.ServiceInstance)
 		rbacLog.Debugf("building http filter config for %v", *service)
-		filter := buildHTTPFilter(service, in.Env.IstioConfigStore, globalPermissive)
+		filter := buildHTTPFilter(service, option)
 		if filter != nil {
 			rbacLog.Infof("built http filter config for %s", service.name)
 			for cnum := range mutable.FilterChains {
@@ -396,12 +406,12 @@ func isServiceInList(svc string, namespace string, li *rbacproto.RbacConfig_Targ
 	return false
 }
 
-func isRbacEnabled(svc string, ns string, store model.IstioConfigStore) (bool /*rbac enabed*/, bool /*permissive mode enabled globally*/) {
-	var configProto *rbacproto.RbacConfig
-	config := store.RbacConfig()
-	if config != nil {
-		configProto = config.Spec.(*rbacproto.RbacConfig)
+func isRbacEnabled(svc string, ns string, authzPolicies *model.AuthorizationPolicies) (bool /*rbac enabed*/, bool /*permissive mode enabled globally*/) {
+	if authzPolicies == nil {
+		return false, false
 	}
+
+	configProto := authzPolicies.RbacConfig
 	if configProto == nil {
 		rbacLog.Debugf("disabled, no RbacConfig")
 		return false, false
@@ -421,52 +431,11 @@ func isRbacEnabled(svc string, ns string, store model.IstioConfigStore) (bool /*
 	}
 }
 
-// rbacPolicyForService returns the (ServiceRole, ServiceRoleBinding, error) for the service.
-func rbacPolicyForService(service *serviceMetadata, store model.IstioConfigStore) (
-	[]model.Config, []model.Config, error) {
-	namespace, present := service.attributes[attrDestNamespace]
-	if !present {
-		return nil, nil, fmt.Errorf("no namespace for service %v", service)
-	}
-
-	roles := store.ServiceRoles(namespace)
-	if roles == nil {
-		rbacLog.Infof("no service role in namespace %s", namespace)
-	}
-	bindings := store.ServiceRoleBindings(namespace)
-	if bindings == nil {
-		rbacLog.Infof("no service role binding in namespace %s", namespace)
-	}
-
-	return roles, bindings, nil
-}
-
-// roleToBindings returns a map that maps role name to its associated bindings.
-func roleToBindings(bindings []model.Config) map[string][]*rbacproto.ServiceRoleBinding {
-	roleToBinding := map[string][]*rbacproto.ServiceRoleBinding{}
-	for _, binding := range bindings {
-		bindingProto := binding.Spec.(*rbacproto.ServiceRoleBinding)
-		roleName := bindingProto.RoleRef.Name
-		if roleName == "" {
-			rbacLog.Errorf("ignored invalid binding %s in %s with empty RoleRef.Name",
-				binding.Name, binding.Namespace)
-			continue
-		}
-		roleToBinding[roleName] = append(roleToBinding[roleName], bindingProto)
-	}
-	return roleToBinding
-}
-
-func buildTCPFilter(service *serviceMetadata, store model.IstioConfigStore, globalPermissive bool) *listener.Filter {
-	roles, bindings, err := rbacPolicyForService(service, store)
-	if err != nil {
-		rbacLog.Errorf("failed to get rbac policy: %v", err)
-		return nil
-	}
-
+func buildTCPFilter(service *serviceMetadata, option rbacOption) *listener.Filter {
+	option.forTCPFilter = true
 	// The result of convertRbacRulesToFilterConfig() is wrapped in a config for http filter, here we
 	// need to extract the generated rules and put in a config for network filter.
-	config := convertRbacRulesToFilterConfig(service, rbacOption{roles: roles, bindings: bindings, forTCPFilter: true, globalPermissiveMode: globalPermissive})
+	config := convertRbacRulesToFilterConfig(service, option)
 	tcpConfig := listener.Filter{
 		Name: rbacTCPFilterName,
 		Config: util.MessageToStruct(&network_config.RBAC{
@@ -481,14 +450,9 @@ func buildTCPFilter(service *serviceMetadata, store model.IstioConfigStore, glob
 
 // buildHTTPFilter builds the RBAC http filter that enforces the access control to the specified
 // service which is co-located with the sidecar proxy.
-func buildHTTPFilter(service *serviceMetadata, store model.IstioConfigStore, globalPermissive bool) *http_conn.HttpFilter {
-	roles, bindings, err := rbacPolicyForService(service, store)
-	if err != nil {
-		rbacLog.Errorf("failed to get rbac policy: %v", err)
-		return nil
-	}
-
-	config := convertRbacRulesToFilterConfig(service, rbacOption{roles: roles, bindings: bindings, forTCPFilter: false, globalPermissiveMode: globalPermissive})
+func buildHTTPFilter(service *serviceMetadata, option rbacOption) *http_conn.HttpFilter {
+	option.forTCPFilter = false
+	config := convertRbacRulesToFilterConfig(service, option)
 	rbacLog.Debugf("generated http filter config: %v", *config)
 	return &http_conn.HttpFilter{
 		Name:   rbacHTTPFilterName,
@@ -509,26 +473,27 @@ func convertRbacRulesToFilterConfig(service *serviceMetadata, option rbacOption)
 		Policies: map[string]*policyproto.Policy{},
 	}
 
-	roleToBindings := roleToBindings(option.bindings)
-	for _, role := range option.roles {
+	namespace := service.attributes[attrDestNamespace]
+	roleToBindings := option.authzPolicies.RoleToBindingsForNamespace(namespace)
+	for _, role := range option.authzPolicies.RolesForNamespace(namespace) {
 		rbacLog.Debugf("checking role %v", role.Name)
 		permissions := make([]*policyproto.Permission, 0)
 		for i, rule := range role.Spec.(*rbacproto.ServiceRole).Rules {
 			if service.match(rule) {
 				rbacLog.Debugf("rules[%d] matched", i)
 				if option.forTCPFilter {
+					// TODO(yangminzhu): Move the validate logic to push context and add metrics.
 					if err := validateRuleForTCPFilter(rule); err != nil {
 						// It's a user misconfiguration if a HTTP rule is specified to a TCP service.
 						// For safety consideration, we ignore the whole rule which means no access is opened to
 						// the TCP service in this case.
-						// TODO(yangminzhu): Add metrics for this.
 						rbacLog.Debugf("rules[%d] ignored, found HTTP only rule for a TCP service: %v", i, err)
 						continue
 					}
 				}
 				// Generate the policy if the service is matched and validated to the services specified in
 				// ServiceRole.
-				permissions = append(permissions, convertToPermission(rule, option.forTCPFilter))
+				permissions = append(permissions, convertToPermission(rule))
 			}
 		}
 		if len(permissions) == 0 {
@@ -588,7 +553,7 @@ func convertRbacRulesToFilterConfig(service *serviceMetadata, option rbacOption)
 }
 
 // convertToPermission converts a single AccessRule to a Permission.
-func convertToPermission(rule *rbacproto.AccessRule, forTCPFilter bool) *policyproto.Permission {
+func convertToPermission(rule *rbacproto.AccessRule) *policyproto.Permission {
 	rules := &policyproto.Permission_AndRules{
 		AndRules: &policyproto.Permission_Set{
 			Rules: make([]*policyproto.Permission, 0),

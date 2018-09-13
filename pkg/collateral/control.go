@@ -185,7 +185,11 @@ func (g *generator) genCommand(cmd *cobra.Command) {
 		g.emit("</code></pre>")
 	}
 
-	// TODO: output aliases
+	if len(cmd.Aliases) > 0 {
+		g.emit("<p>")
+		g.emit(cmd.Aliases...)
+		g.emit("<p>")
+	}
 
 	flags := cmd.NonInheritedFlags()
 	flags.SetOutput(g.buffer)

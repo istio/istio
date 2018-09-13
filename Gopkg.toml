@@ -25,6 +25,9 @@
 #   unused-packages = true
 
 required = [
+  ### BEGIN spelling check deps
+  "github.com/client9/misspell",
+  ### END spelling check deps
   ### BEGIN Mixer codegen deps
   "github.com/istio/tools/protoc-gen-docs",
   ### END Mixer codegen deps
@@ -339,6 +342,10 @@ ignored = [
     unused-packages = false
   [[prune.project]]
     name = "istio.io/api"
+    non-go = false
+    unused-packages = false
+  [[prune.project]]
+    name = "github.com/client9/misspell"
     non-go = false
     unused-packages = false
   [[prune.project]]

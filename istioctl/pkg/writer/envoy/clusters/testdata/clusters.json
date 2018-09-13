@@ -1,0 +1,159 @@
+{
+  "cluster_statuses": [
+    {
+    "name": "outbound|443||istio-sidecar-injector.istio-system.svc.cluster.local",
+    "addedViaApi": true,
+    "hostStatuses": [
+      {
+        "address": {
+          "socketAddress": {
+            "address": "172.17.0.4",
+            "portValue": 443
+          }
+        },
+        "stats": {
+          "cx_active": {
+            "type": "GAUGE"
+          },
+          "cx_connect_fail": {},
+          "cx_total": {},
+          "rq_active": {
+            "type": "GAUGE"
+          },
+          "rq_error": {},
+          "rq_success": {},
+          "rq_timeout": {},
+          "rq_total": {}
+        },
+        "healthStatus": {
+          "edsHealthStatus": "HEALTHY"
+        }
+      }
+    ]
+  },
+  {
+    "name": "outbound|443||istio-ingressgateway.istio-system.svc.cluster.local",
+    "addedViaApi": true,
+    "hostStatuses": [
+      {
+        "address": {
+          "socketAddress": {
+            "address": "172.17.0.13",
+            "portValue": 443
+          }
+        },
+        "stats": {
+          "cx_active": {
+            "type": "GAUGE"
+          },
+          "cx_connect_fail": {},
+          "cx_total": {},
+          "rq_active": {
+            "type": "GAUGE"
+          },
+          "rq_error": {},
+          "rq_success": {},
+          "rq_timeout": {},
+          "rq_total": {}
+        },
+        "healthStatus": {
+          "edsHealthStatus": "HEALTHY"
+        }
+      }
+    ]
+  },
+  {
+    "name": "outbound|443||istio-galley.istio-system.svc.cluster.local",
+    "addedViaApi": true,
+    "hostStatuses": [
+      {
+        "address": {
+          "socketAddress": {
+            "address": "172.17.0.19",
+            "portValue": 443
+          }
+        },
+        "stats": {
+          "cx_active": {
+            "type": "GAUGE"
+          },
+          "cx_connect_fail": {},
+          "cx_total": {},
+          "rq_active": {
+            "type": "GAUGE"
+          },
+          "rq_error": {},
+          "rq_success": {},
+          "rq_timeout": {},
+          "rq_total": {}
+        },
+        "healthStatus": {
+          "edsHealthStatus": "HEALTHY"
+        }
+      }
+    ]
+  },
+  {
+    "name": "outbound|443||istio-egressgateway.istio-system.svc.cluster.local",
+    "addedViaApi": true,
+    "hostStatuses": [
+      {
+        "address": {
+          "socketAddress": {
+            "address": "172.17.0.6",
+            "portValue": 443
+          }
+        },
+        "stats": {
+          "cx_active": {
+            "type": "GAUGE"
+          },
+          "cx_connect_fail": {},
+          "cx_total": {},
+          "rq_active": {
+            "type": "GAUGE"
+          },
+          "rq_error": {},
+          "rq_success": {},
+          "rq_timeout": {},
+          "rq_total": {}
+        },
+        "healthStatus": {
+          "edsHealthStatus": "HEALTHY"
+        }
+      }
+    ]
+  },
+    {
+      "name": "outbound|9093||istio-policy.istio-system.svc.cluster.local",
+      "addedViaApi": true,
+      "hostStatuses": [
+        {
+          "address": {
+            "socketAddress": {
+              "address": "172.17.0.14",
+              "portValue": 9093
+            }
+          },
+          "stats": {
+            "cx_active": {
+              "type": "GAUGE"
+            },
+            "cx_connect_fail": {},
+            "cx_total": {},
+            "rq_active": {
+              "type": "GAUGE"
+            },
+            "rq_error": {},
+            "rq_success": {},
+            "rq_timeout": {},
+            "rq_total": {}
+          },
+          "healthStatus": {
+            "edsHealthStatus": "UNHEALTHY"
+          }
+        }
+      ]
+    }
+  ]
+}

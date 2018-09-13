@@ -16,7 +16,6 @@
 
 # Common utilities for Istio local installation on linux platform.
 
-set -o errexit
 set -o nounset
 set -o pipefail
 
@@ -72,4 +71,28 @@ function install_kubectl() {
     chmod +x ./kubectl
     sudo mv ./kubectl /usr/local/bin/kubectl
   fi
+}
+
+# check_and_install_packages checks if a package is installed before installing it.
+# It expects 2 parameters:
+# $1 - apt|yum  (supported package management tools).
+# $2 - list of packages to be checked or installed.
+function check_and_install_packages() {
+  check_cmd="$1"
+  arr="$2"
+  for i in "${arr[@]}";
+  do
+    case $check_cmd in
+      apt)
+        if ! apt list --installed "$i" | grep installed > /dev/null 2>&1; then
+          sudo apt-get install -y "$i" > /dev/null 2>&1
+        fi;;
+      yum)
+        if ! yum -q list installed "$i" > /dev/null 2>&1; then
+           yum install -y "$i" > /dev/null 2>&1
+        fi;;
+      *)
+        echo "unsupported package management tool";;
+    esac
+  done
 }

@@ -40,7 +40,7 @@ CERTDIR=${CERTDIR:-${ISTIO_GO}/.circleci/pki/istio-certs}
 LOG_DIR=${LOG_DIR:-${OUT}/log}
 ETCD_DATADIR=${ETCD_DATADIR:-${OUT}/etcd-data}
 
-# Ensure k8s certificats - if not found, download easy-rsa and create k8s certs
+# Ensure k8s certificates - if not found, download easy-rsa and create k8s certs
 function ensureK8SCerts() {
     if [ -f "${CERTDIR}/apiserver.key" ] ; then
         return
@@ -208,7 +208,8 @@ function stopLocalApiserver() {
   if [[ -f $LOG_DIR/etcd.pid ]]; then
     kill -9 "$(cat "$LOG_DIR/etcd.pid")"
     kill -9 "$(cat "$LOG_DIR/apiserver.pid")"
-    rm "$LOG_DIR/{etcd,apiserver}.pid"
+    rm "$LOG_DIR/etcd.pid"
+    rm "$LOG_DIR/apiserver.pid"
   fi
   if [[ -d "${ETCD_DATADIR}" ]]; then
     rm -rf "${ETCD_DATADIR}"
@@ -221,7 +222,8 @@ function stopMultiCluster() {
     if [[ -f $LOG_DIR/etcd$i.pid ]]; then
       kill -9 "$(cat "$LOG_DIR/etcd$i.pid")" || true
       kill -9 "$(cat "$LOG_DIR/apiserver$i.pid")" || true
-      rm "$LOG_DIR/{etcd$i,apiserver$i}.pid" || true
+      rm "$LOG_DIR/etcd$i.pid" || true
+      rm "$LOG_DIR/apiserver$i.pid" || true
       rm "$LOG_DIR/apiserver$i.url" || true
     fi
     if [[ -d "${ETCD_DATADIR}$i" ]]; then

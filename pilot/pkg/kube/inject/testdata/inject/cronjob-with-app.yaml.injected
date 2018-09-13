@@ -1,0 +1,124 @@
+apiVersion: batch/v2alpha1
+kind: CronJob
+metadata:
+  creationTimestamp: null
+  name: hello
+spec:
+  jobTemplate:
+    metadata:
+      annotations:
+        sidecar.istio.io/status: '{"version":"b03467c9d2824853908ee469ef5ef89cb3f52bb7c34ef74f8bfc19640ad0c6b8","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+      creationTimestamp: null
+      labels:
+        app: hello
+    spec:
+      template:
+        metadata:
+          creationTimestamp: null
+        spec:
+          containers:
+          - args:
+            - /bin/sh
+            - -c
+            - date; echo Hello from the Kubernetes cluster
+            image: busybox
+            name: hello
+            resources: {}
+          - args:
+            - proxy
+            - sidecar
+            - --configPath
+            - /etc/istio/proxy
+            - --binaryPath
+            - /usr/local/bin/envoy
+            - --serviceCluster
+            - hello.default
+            - --drainDuration
+            - 2s
+            - --parentShutdownDuration
+            - 3s
+            - --discoveryAddress
+            - istio-pilot:15007
+            - --discoveryRefreshDelay
+            - 1s
+            - --zipkinAddress
+            - ""
+            - --connectTimeout
+            - 1s
+            - --statsdUdpAddress
+            - ""
+            - --proxyAdminPort
+            - "15000"
+            - --controlPlaneAuthPolicy
+            - NONE
+            env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: INSTANCE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: ISTIO_META_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: ISTIO_META_INTERCEPTION_MODE
+              value: REDIRECT
+            image: docker.io/istio/proxyv2:unittest
+            imagePullPolicy: IfNotPresent
+            name: istio-proxy
+            resources:
+              requests:
+                cpu: 10m
+            securityContext:
+              privileged: false
+              readOnlyRootFilesystem: true
+              runAsUser: 1337
+            volumeMounts:
+            - mountPath: /etc/istio/proxy
+              name: istio-envoy
+            - mountPath: /etc/certs/
+              name: istio-certs
+              readOnly: true
+          initContainers:
+          - args:
+            - -p
+            - "15001"
+            - -u
+            - "1337"
+            - -m
+            - REDIRECT
+            - -i
+            - '*'
+            - -x
+            - ""
+            - -b
+            - ""
+            - -d
+            - ""
+            image: docker.io/istio/proxy_init:unittest
+            imagePullPolicy: IfNotPresent
+            name: istio-init
+            resources: {}
+            securityContext:
+              capabilities:
+                add:
+                - NET_ADMIN
+          restartPolicy: OnFailure
+          volumes:
+          - emptyDir:
+              medium: Memory
+            name: istio-envoy
+          - name: istio-certs
+            secret:
+              optional: true
+              secretName: istio.default
+  schedule: '*/1 * * * *'
+status: {}
+---

@@ -195,7 +195,7 @@ func (c *CertificateWatcher) start() error {
 		c.options.CertificateFile, c.options.KeyFile)
 
 	// Coordinate the goroutines for orderly shutdown
-	var exitSignal sync.WaitGroup
+	exitSignal := &sync.WaitGroup{}
 	exitSignal.Add(1)
 	exitSignal.Add(1)
 
@@ -211,7 +211,7 @@ func (c *CertificateWatcher) start() error {
 	return nil
 }
 
-func (c *CertificateWatcher) watch(exitSignal sync.WaitGroup, certFileWatcher, keyFileWatcher fileWatcher) {
+func (c *CertificateWatcher) watch(exitSignal *sync.WaitGroup, certFileWatcher, keyFileWatcher fileWatcher) {
 
 	defer exitSignal.Done()
 
@@ -248,7 +248,7 @@ func (c *CertificateWatcher) watch(exitSignal sync.WaitGroup, certFileWatcher, k
 	}
 }
 
-func (c *CertificateWatcher) watchErrors(exitSignal sync.WaitGroup, certFileWatcher, keyFileWatcher fileWatcher) {
+func (c *CertificateWatcher) watchErrors(exitSignal *sync.WaitGroup, certFileWatcher, keyFileWatcher fileWatcher) {
 
 	defer exitSignal.Done()
 
@@ -265,7 +265,7 @@ func (c *CertificateWatcher) watchErrors(exitSignal sync.WaitGroup, certFileWatc
 	}
 }
 
-func closeWatchers(exitSignal sync.WaitGroup, certFileWatcher, keyFileWatcher fileWatcher) { // nolint: interfacer
+func closeWatchers(exitSignal *sync.WaitGroup, certFileWatcher, keyFileWatcher fileWatcher) { // nolint: interfacer
 	exitSignal.Wait()
 	_ = certFileWatcher.Close()
 	_ = keyFileWatcher.Close()

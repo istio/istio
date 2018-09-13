@@ -1534,17 +1534,38 @@ func TestValidateHTTPRewrite(t *testing.T) {
 		in    *networking.HTTPRewrite
 		valid bool
 	}{
-		{name: "uri and authority", in: &networking.HTTPRewrite{
-			Uri:       "/path/to/resource",
-			Authority: "foobar.org",
-		}, valid: true},
-		{name: "uri", in: &networking.HTTPRewrite{
-			Uri: "/path/to/resource",
-		}, valid: true},
-		{name: "authority", in: &networking.HTTPRewrite{
-			Authority: "foobar.org",
-		}, valid: true},
-		{name: "no uri or authority", in: &networking.HTTPRewrite{}, valid: false},
+		{
+			name:  "nil in",
+			in:    nil,
+			valid: true,
+		},
+		{
+			name: "uri and authority",
+			in: &networking.HTTPRewrite{
+				Uri:       "/path/to/resource",
+				Authority: "foobar.org",
+			},
+			valid: true,
+		},
+		{
+			name: "uri",
+			in: &networking.HTTPRewrite{
+				Uri: "/path/to/resource",
+			},
+			valid: true,
+		},
+		{
+			name: "authority",
+			in: &networking.HTTPRewrite{
+				Authority: "foobar.org",
+			},
+			valid: true,
+		},
+		{
+			name:  "no uri or authority",
+			in:    &networking.HTTPRewrite{},
+			valid: false,
+		},
 	}
 
 	for _, tc := range testCases {
@@ -1557,22 +1578,122 @@ func TestValidateHTTPRewrite(t *testing.T) {
 	}
 }
 
+func TestValidatePortName(t *testing.T) {
+	testCases := []struct {
+		name  string
+		valid bool
+	}{
+		{
+			name:  "",
+			valid: false,
+		},
+		{
+			name:  "simple",
+			valid: true,
+		},
+		{
+			name:  "full",
+			valid: true,
+		},
+		{
+			name:  "toolongtoolongtoolongtoolongtoolongtoolongtoolongtoolongtoolongtoolongtoolongtoolongtoolongtoolong",
+			valid: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if err := validatePortName(tc.name); (err == nil) != tc.valid {
+				t.Fatalf("got valid=%v but wanted valid=%v: %v", err == nil, tc.valid, err)
+			}
+		})
+	}
+}
+
+func TestValidateHTTPRedirect(t *testing.T) {
+	testCases := []struct {
+		name     string
+		redirect *networking.HTTPRedirect
+		valid    bool
+	}{
+		{
+			name:     "nil redirect",
+			redirect: nil,
+			valid:    true,
+		},
+		{
+			name: "empty uri and authority",
+			redirect: &networking.HTTPRedirect{
+				Uri:       "",
+				Authority: "",
+			},
+			valid: false,
+		},
+		{
+			name: "empty authority",
+			redirect: &networking.HTTPRedirect{
+				Uri:       "t",
+				Authority: "",
+			},
+			valid: true,
+		},
+		{
+			name: "empty uri",
+			redirect: &networking.HTTPRedirect{
+				Uri:       "",
+				Authority: "t",
+			},
+			valid: true,
+		},
+		{
+			name: "normal redirect",
+			redirect: &networking.HTTPRedirect{
+				Uri:       "t",
+				Authority: "t",
+			},
+			valid: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if err := validateHTTPRedirect(tc.redirect); (err == nil) != tc.valid {
+				t.Fatalf("got valid=%v but wanted valid=%v: %v", err == nil, tc.valid, err)
+			}
+		})
+	}
+}
+
 func TestValidateDestination(t *testing.T) {
 	testCases := []struct {
 		name        string
 		destination *networking.Destination
 		valid       bool
 	}{
-		{name: "empty", destination: &networking.Destination{ // nothing
-		}, valid:                                             false},
-		{name: "simple", destination: &networking.Destination{
-			Host: "foo.bar",
-		}, valid: true},
-		{name: "full", destination: &networking.Destination{
-			Host:   "foo.bar",
-			Subset: "shiny",
-			Port:   &networking.PortSelector{Port: &networking.PortSelector_Number{Number: 5000}},
-		}, valid: true},
+		{
+			name:        "empty",
+			destination: &networking.Destination{}, // nothing
+			valid:       false,
+		},
+		{
+			name: "simple",
+			destination: &networking.Destination{
+				Host: "foo.bar",
+			},
+			valid: true,
+		},
+		{name: "full",
+			destination: &networking.Destination{
+				Host:   "foo.bar",
+				Subset: "shiny",
+				Port: &networking.PortSelector{
+					Port: &networking.PortSelector_Number{
+						Number: 5000,
+					},
+				},
+			},
+			valid: true,
+		},
 	}
 
 	for _, tc := range testCases {
@@ -1730,6 +1851,15 @@ func TestValidateVirtualService(t *testing.T) {
 				Route: []*networking.DestinationWeight{{
 					Destination: &networking.Destination{Host: "foo.baz"},
 				}},
+			}},
+		}, valid: true},
+		{name: "valid removeResponseHeaders", in: &networking.VirtualService{
+			Hosts: []string{"foo.bar"},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.DestinationWeight{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+				RemoveResponseHeaders: []string{"unwantedHeader", "secretStuff"},
 			}},
 		}, valid: true},
 	}

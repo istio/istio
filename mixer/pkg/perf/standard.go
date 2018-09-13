@@ -34,20 +34,17 @@ var MinimalSetup = Setup{
 		StableOrder: false,
 		Requests: []Request{
 
-			BasicReport{
-				Attributes: map[string]interface{}{
-					"foo": "bar",
-					"baz": 42,
-				},
-			},
+			BuildBasicReport(map[string]interface{}{
+				"foo": "bar",
+				"baz": 42,
+			}),
 
-			BasicCheck{
-				Attributes: map[string]interface{}{
+			BuildBasicCheck(
+				map[string]interface{}{
 					"bar": "baz",
 					"foo": 23,
 				},
-
-				Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+				map[string]istio_mixer_v1.CheckRequest_QuotaParams{
 					"q1": {
 						Amount:     23,
 						BestEffort: true,
@@ -56,8 +53,7 @@ var MinimalSetup = Setup{
 						Amount:     54,
 						BestEffort: false,
 					},
-				},
-			},
+				}),
 		},
 	}},
 }

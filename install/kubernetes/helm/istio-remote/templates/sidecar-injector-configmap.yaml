@@ -53,7 +53,6 @@ data:
             add:
             - NET_ADMIN
           privileged: true
-        restartPolicy: Always
       {{- if .Values.global.proxy.enableCoreDump }}
       - args:
         - -c
@@ -83,9 +82,9 @@ data:
         - {{ "[[ .ProxyConfig.BinaryPath ]]" }}
         - --serviceCluster
         {{ "[[ if ne \"\" (index .ObjectMeta.Labels \"app\") -]]" }}
-        - {{ "[[ index .ObjectMeta.Labels \"app\" ]]" }}
+        - {{ "[[ index .ObjectMeta.Labels \"app\" ]].[[ valueOrDefault .DeploymentMeta.Namespace \"default\" ]]" }}
         {{ "[[ else -]]" }}
-        - "istio-proxy"
+        - {{ "[[ valueOrDefault .DeploymentMeta.Name \"istio-proxy\" ]].[[ valueOrDefault .DeploymentMeta.Namespace \"default\" ]]" }}
         {{ "[[ end -]]" }}
         - --drainDuration
         - {{ "[[ formatDuration .ProxyConfig.DrainDuration ]]" }}
@@ -145,8 +144,7 @@ data:
           runAsGroup: 1337
           {{ "[[ else -]]" }}
           runAsUser: 1337
-          {{ "[[ end -]]" }}
-        restartPolicy: Always
+          {{ "[[- end ]]" }}
         resources:
           {{ "[[ if (isset .ObjectMeta.Annotations \"sidecar.istio.io/proxyCPU\") -]]" }}
           requests:

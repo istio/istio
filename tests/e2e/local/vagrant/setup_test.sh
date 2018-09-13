@@ -3,7 +3,7 @@
 # Start vagrant if not already started
 vagrant up
 
-# Remove old imges.
+# Remove old images.
 docker images 10.10.0.2:5000/*:latest -q | xargs docker rmi
 
 # Make and Push images to insecure local registry on VM.

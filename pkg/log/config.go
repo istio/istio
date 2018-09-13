@@ -72,6 +72,7 @@ var levelToZap = map[Level]zapcore.Level{
 	InfoLevel:  zapcore.InfoLevel,
 	WarnLevel:  zapcore.WarnLevel,
 	ErrorLevel: zapcore.ErrorLevel,
+	FatalLevel: zapcore.FatalLevel,
 	NoneLevel:  none,
 }
 

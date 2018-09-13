@@ -144,7 +144,7 @@ func patchCertLoop() error {
 			case <-tickerC:
 				if err = util.PatchMutatingWebhookConfig(client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations(),
 					flags.webhookConfigName, flags.webhookName, caCertPem); err != nil {
-					log.Errorf("Patch webhook failed: %s", err)
+					log.Errorf("Patch webhook failed: %v", err)
 				}
 
 			case <-watcher.Event:

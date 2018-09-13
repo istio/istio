@@ -79,7 +79,7 @@ func (Params_ListEntryType) EnumDescriptor() ([]byte, []int) { return fileDescri
 
 // Configuration format for the `list` adapter.
 type Params struct {
-	// Where to find the list to check against. This may be ommited for a completely local list.
+	// Where to find the list to check against. This may be omitted for a completely local list.
 	ProviderUrl string `protobuf:"bytes,1,opt,name=provider_url,json=providerUrl,proto3" json:"provider_url,omitempty"`
 	// Determines how often the provider is polled for
 	// an updated list

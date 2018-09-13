@@ -1,0 +1,6 @@
+ENDPOINT             STATUS        CLUSTER
+172.17.0.13:443      HEALTHY       outbound|443||istio-ingressgateway.istio-system.svc.cluster.local
+172.17.0.14:9093     UNHEALTHY     outbound|9093||istio-policy.istio-system.svc.cluster.local
+172.17.0.19:443      HEALTHY       outbound|443||istio-galley.istio-system.svc.cluster.local
+172.17.0.4:443       HEALTHY       outbound|443||istio-sidecar-injector.istio-system.svc.cluster.local
+172.17.0.6:443       HEALTHY       outbound|443||istio-egressgateway.istio-system.svc.cluster.local

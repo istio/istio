@@ -28,7 +28,7 @@
           - --address
           - unix:///sock/mixer.socket
 {{- if $.Values.global.useMixerMCP }}
-          - --configStoreURL=mcp://istio-galley.{{ $.Release.Namespace }}.svc:9901
+          - --configStoreURL=mcps://istio-galley.{{ $.Release.Namespace }}.svc:9901
           - --certFile=/etc/certs/cert-chain.pem
           - --keyFile=/etc/certs/key.pem
           - --caCertFile=/etc/certs/root-cert.pem
@@ -135,7 +135,7 @@
           - --address
           - unix:///sock/mixer.socket
 {{- if $.Values.global.useMixerMCP }}
-          - --configStoreURL=mcp://istio-galley.{{ $.Release.Namespace }}.svc:9901
+          - --configStoreURL=mcps://istio-galley.{{ $.Release.Namespace }}.svc:9901
           - --certFile=/etc/certs/cert-chain.pem
           - --keyFile=/etc/certs/key.pem
           - --caCertFile=/etc/certs/root-cert.pem
@@ -233,9 +233,15 @@ spec:
         app: {{ $mname }}
         istio: mixer
         istio-mixer-type: {{ $mname }}
+        {{- template "common_template_labels" $ }}
       annotations:
         sidecar.istio.io/inject: "false"
         scheduler.alpha.kubernetes.io/critical-pod: ""
+{{ if ne $.Values.global.proxy.stats.prometheusPort 0. }}
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "{{ $.Values.global.proxy.stats.prometheusPort }}"
+        prometheus.io/path: /stats/prometheus
+{{ end}}
 {{- with $.Values.podAnnotations }}
 {{ toYaml . | indent 8 }}
 {{- end }}

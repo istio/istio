@@ -47,6 +47,8 @@ const (
 
 	envoyHTTPConnectionManager = "envoy.http_connection_manager"
 
+	envoyListenerTLSInspector = "envoy.listener.tls_inspector"
+
 	// RDSHttpProxy is the special name for HTTP PROXY route
 	RDSHttpProxy = "http_proxy"
 
@@ -130,7 +132,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 			l := util.GetByAddress(listeners, m.Address.String())
 			if l != nil {
 				log.Warnf("Omitting listener for management address %s (%s) due to collision with service listener %s (%s)",
-					m.Name, m.Address, l.Name, l.Address)
+					m.Name, m.Address.String(), l.Name, l.Address.String())
 				continue
 			}
 			listeners = append(listeners, m)
@@ -858,6 +860,19 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 
 	// TODO(incfly): consider changing this to map to handle duplicated listener filters from different chains?
 	var listenerFilters []listener.ListenerFilter
+
+	// add a TLS inspector if we need to detect ServerName or ALPN
+	needTLSInspector := false
+	for _, chain := range opts.filterChainOpts {
+		needsALPN := chain.tlsContext != nil && chain.tlsContext.CommonTlsContext != nil && len(chain.tlsContext.CommonTlsContext.AlpnProtocols) > 0
+		if len(chain.sniHosts) > 0 || needsALPN {
+			needTLSInspector = true
+			break
+		}
+	}
+	if needTLSInspector {
+		listenerFilters = append(listenerFilters, listener.ListenerFilter{Name: envoyListenerTLSInspector})
+	}
 
 	for _, chain := range opts.filterChainOpts {
 		listenerFilters = append(listenerFilters, chain.listenerFilters...)

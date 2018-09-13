@@ -29,6 +29,12 @@ function check_licenses() {
     echo 'licenses OK'
 }
 
+function check_spelling() {
+    echo 'Checking spelling'
+    bin/check_spelling.sh
+    echo 'spelling OK'
+}
+
 function install_gometalinter() {
     echo 'Installing gometalinter ....'
     go get -u gopkg.in/alecthomas/gometalinter.v2
@@ -72,6 +78,7 @@ function check_grafana_dashboards() {
 ensure_pilot_types
 format
 check_licenses
+check_spelling
 install_gometalinter
 run_gometalinter
 run_helm_lint
