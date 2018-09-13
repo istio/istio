@@ -473,6 +473,17 @@ func TestIntoResourceFile(t *testing.T) {
 			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
 			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
 		},
+		{
+			// Verifies that the resource annotations override the params.
+			in:                           "resource_annotations.yaml",
+			want:                         "resource_annotations.yaml.injected",
+			includeIPRanges:              DefaultIncludeIPRanges,
+			includeInboundPorts:          DefaultIncludeInboundPorts,
+			statusPort:                   DefaultStatusPort,
+			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
+			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
+			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
+		},
 	}
 
 	for i, c := range cases {
