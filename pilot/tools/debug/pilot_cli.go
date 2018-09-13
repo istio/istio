@@ -65,7 +65,7 @@ import (
 	envoy_api_v2_core1 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"google.golang.org/grpc"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -307,6 +307,7 @@ func main() {
 			}
 		}
 	}()
+
 	var resp *xdsapi.DiscoveryResponse
 	if *configType == "lds" || *configType == "cds" {
 		pod := NewPodInfo(*resources, resolveKubeConfigPath(*kubeConfig), *proxyType)
