@@ -128,6 +128,11 @@ var (
 		Name: "pilot_xds_push_errors",
 		Help: "Number of errors (timeouts) pushing to sidecars.",
 	}, []string{"type"})
+
+	pushContextErrors = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "pilot_xds_push_context_errors",
+		Help: "Number of errors (timeouts) initiating push context.",
+	})
 )
 
 func init() {
@@ -143,6 +148,7 @@ func init() {
 	prometheus.MustRegister(pushTimeouts)
 	prometheus.MustRegister(pushes)
 	prometheus.MustRegister(pushErrors)
+	prometheus.MustRegister(pushContextErrors)
 
 	// Experimental env to disable push suppression
 	// By default a pod will not receive a push from an older version if a
