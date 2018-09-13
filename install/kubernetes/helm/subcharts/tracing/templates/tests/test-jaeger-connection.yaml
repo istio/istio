@@ -1,16 +1,16 @@
 {{- if .Values.global.enableHelmTest }}
-{{- if .Values.kiali.enabled }}
+{{- if .Values.enabled }}
 apiVersion: v1
 kind: Pod
 metadata:
-  name: {{ template "kiali.fullname" . }}-test
+  name: {{ template "zipkin.fullname" . }}-test
   namespace: {{ .Release.Namespace }}
   labels:
-    app: kiali-test
+    app: jaeger-test
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
-    istio: kiali
+    istio: jaeger
   annotations:
     scheduler.alpha.kubernetes.io/critical-pod: ""
     sidecar.istio.io/inject: "false"
@@ -20,11 +20,11 @@ spec:
   priorityClassName: "{{ .Values.global.priorityClassName }}"
 {{- end }}
   containers:
-    - name: "{{ template "kiali.fullname" . }}-test"
+    - name: "{{ template "zipkin.fullname" . }}-test"
       image: {{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}
       imagePullPolicy: "{{ .Values.global.imagePullPolicy }}"
       command: ['curl']
-      args: ['http://kiali:20001']
+      args: ['http://tracing:80']
   restartPolicy: Never
   affinity:
     {{- include "nodeaffinity" . | indent 4 }}

@@ -373,3 +373,9 @@ global:
   #       port: 443
   #
   meshNetworks:
+
+  # Include the helm test templates when generating the template.
+  # If set to false, 'helm template ...' will ignore the helm test yaml files
+  # when generating the template
+  enableHelmTest: true
+  

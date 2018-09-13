@@ -1,4 +1,4 @@
-{{- if .Values.global.enabledTest }}
+{{- if .Values.global.enableHelmTest }}
 apiVersion: v1
 kind: Pod
 metadata:

@@ -1,5 +1,5 @@
 {{- if .Values.global.enableHelmTest }}
-{{- if .Values.kiali.enabled }}
+{{- if .Values.enabled }}
 apiVersion: v1
 kind: Pod
 metadata:
