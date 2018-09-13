@@ -200,7 +200,7 @@ func generateMetadataListMatcher(keys []string, v string) *metadata.MetadataMatc
 		MatchPattern: &metadata.ListMatcher_OneOf{
 			OneOf: &metadata.ValueMatcher{
 				MatchPattern: &metadata.ValueMatcher_StringMatch{
-					StringMatch: createStringMatcher(v, false),
+					StringMatch: createStringMatcher(v, false /* forceRegexPattern */, false /* forTCPFilter */),
 				},
 			},
 		},
@@ -245,14 +245,18 @@ func generateMetaKeys(k string) ([]string, error) {
 	return keys, nil
 }
 
-func createStringMatcher(v string, forceRegexPattern bool) *metadata.StringMatcher {
+func createStringMatcher(v string, forceRegexPattern, forTCPFilter bool) *metadata.StringMatcher {
+	extraPrefix := ""
+	if forTCPFilter {
+		extraPrefix = spiffePrefix
+	}
 	var stringMatcher *metadata.StringMatcher
 	// Check if v is "*" first to make sure we won't generate an empty prefix/suffix StringMatcher,
 	// the Envoy StringMatcher doesn't allow empty prefix/suffix.
 	if v == "*" || forceRegexPattern {
 		stringMatcher = &metadata.StringMatcher{
 			MatchPattern: &metadata.StringMatcher_Regex{
-				Regex: strings.Replace(v, "*", ".*", -1),
+				Regex: extraPrefix + strings.Replace(v, "*", ".*", -1),
 			},
 		}
 	} else if strings.HasPrefix(v, "*") {
@@ -264,13 +268,13 @@ func createStringMatcher(v string, forceRegexPattern bool) *metadata.StringMatch
 	} else if strings.HasSuffix(v, "*") {
 		stringMatcher = &metadata.StringMatcher{
 			MatchPattern: &metadata.StringMatcher_Prefix{
-				Prefix: v[:len(v)-1],
+				Prefix: extraPrefix + v[:len(v)-1],
 			},
 		}
 	} else {
 		stringMatcher = &metadata.StringMatcher{
 			MatchPattern: &metadata.StringMatcher_Exact{
-				Exact: v,
+				Exact: extraPrefix + v,
 			},
 		}
 	}
@@ -298,7 +302,7 @@ func createDynamicMetadataMatcher(k, v string) *metadata.MetadataMatcher {
 		return generateMetadataListMatcher(keys, v)
 	}
 
-	stringMatcher := createStringMatcher(v, forceRegexPattern)
+	stringMatcher := createStringMatcher(v, forceRegexPattern, false /* forTCPFilter */)
 
 	return generateMetadataStringMatcher(keys, stringMatcher)
 }
@@ -640,7 +644,7 @@ func convertToPrincipal(subject *rbacproto.Subject, forTCPFilter bool) *policypr
 				ids.AndIds.Ids = append(ids.AndIds.Ids, &policyproto.Principal{
 					Identifier: &policyproto.Principal_Authenticated_{
 						Authenticated: &policyproto.Principal_Authenticated{
-							Name: spiffePrefix + subject.User,
+							PrincipalName: createStringMatcher(subject.User, false /* forceRegexPattern */, true /* forTCPFilter */),
 						},
 					},
 				})
