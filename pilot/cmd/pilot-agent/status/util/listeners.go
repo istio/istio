@@ -16,9 +16,9 @@ package util
 
 import (
 	"fmt"
+	"net"
 	"strconv"
 	"strings"
-	"net"
 
 	"github.com/hashicorp/go-multierror"
 )
