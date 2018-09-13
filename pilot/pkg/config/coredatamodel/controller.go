@@ -224,7 +224,7 @@ func (c *Controller) Apply(change *mcpclient.Change) error {
 	// remove
 	for namespace, prevByName := range prevStore {
 		for name, prevConfig := range prevByName {
-			if byNamespace, ok := innerStore[namespace]; !ok {
+			if byNamespace, ok := innerStore[namespace]; ok {
 				if _, ok := byNamespace[name]; !ok {
 					dispatch(prevConfig, model.EventDelete)
 				}
