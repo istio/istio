@@ -16,6 +16,7 @@ package kube
 
 import (
 	"fmt"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -46,6 +47,20 @@ const (
 
 	managementPortPrefix = "mgmt-"
 )
+
+var (
+	// istioServiceAccountDomainForCanonical is the domain in the Istio service account scheme
+	// when converting a Canonical service account
+	// Its value should be set from the ISTIO_SA_DOMAIN_CANONICAL env
+	istioServiceAccountDomainForCanonical string
+)
+
+func init() {
+	saDomainCanonical := os.Getenv("ISTIO_SA_DOMAIN_CANONICAL")
+	if len(saDomainCanonical) > 0 {
+		istioServiceAccountDomainForCanonical = saDomainCanonical
+	}
+}
 
 func convertLabels(obj meta_v1.ObjectMeta) model.Labels {
 	out := make(model.Labels, len(obj.Labels))
@@ -125,7 +140,7 @@ func serviceHostname(name, namespace, domainSuffix string) model.Hostname {
 
 // canonicalToIstioServiceAccount converts a Canonical service account to an Istio service account
 func canonicalToIstioServiceAccount(saname string) string {
-	return fmt.Sprintf("%v://accounts.google.com/%v", IstioURIPrefix, saname)
+	return fmt.Sprintf("%v://%s/%v", istioURIPrefix, istioServiceAccountDomainForCanonical, saname)
 }
 
 // kubeToIstioServiceAccount converts a K8s service account to an Istio service account

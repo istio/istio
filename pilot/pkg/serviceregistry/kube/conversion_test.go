@@ -63,6 +63,7 @@ func TestConvertProtocol(t *testing.T) {
 }
 
 func TestServiceConversion(t *testing.T) {
+	istioServiceAccountDomainForCanonical = "accounts.google.com"
 	serviceName := "service1"
 	namespace := "default"
 	saA := "serviceaccountA"

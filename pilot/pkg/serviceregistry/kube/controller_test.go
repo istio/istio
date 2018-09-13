@@ -249,6 +249,7 @@ func TestController_getPodAZ(t *testing.T) {
 func TestGetProxyServiceInstances(t *testing.T) {
 	controller := makeFakeKubeAPIController()
 
+	istioServiceAccountDomainForCanonical = "accounts.google.com"
 	k8sSaOnVM := "acct4"
 	canonicalSaOnVM := "acctvm2@gserviceaccount2.com"
 
