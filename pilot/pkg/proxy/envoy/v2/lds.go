@@ -34,7 +34,7 @@ func (s *DiscoveryServer) pushLds(con *XdsConnection, push *model.PushContext, v
 	if s.DebugConfigs {
 		con.LDSListeners = rawListeners
 	}
-	response := ldsDiscoveryResponse(rawListeners, *con.modelNode, version)
+	response := ldsDiscoveryResponse(rawListeners, version)
 	if version != versionInfo() {
 		// Just report for now - after debugging we can suppress the push.
 		// Change1 -> push1
@@ -78,7 +78,7 @@ func (s *DiscoveryServer) generateRawListeners(con *XdsConnection, push *model.P
 }
 
 // LdsDiscoveryResponse returns a list of listeners for the given environment and source node.
-func ldsDiscoveryResponse(ls []*xdsapi.Listener, node model.Proxy, version string) *xdsapi.DiscoveryResponse {
+func ldsDiscoveryResponse(ls []*xdsapi.Listener, version string) *xdsapi.DiscoveryResponse {
 	resp := &xdsapi.DiscoveryResponse{
 		TypeUrl:     ListenerType,
 		VersionInfo: version,
