@@ -700,9 +700,12 @@ func (s *DiscoveryServer) AdsPushAll(version string) {
 		pending = pending[1:]
 
 		wg.Add(1)
-
+		s.concurrentPushLimit <- struct{}{}
 		go func() {
-			defer wg.Done()
+			defer func() {
+				<-s.concurrentPushLimit
+				wg.Done()
+			}()
 			currentVersion := versionInfo()
 			// Stop attempting to push
 			if !allowConcurrentPush && version != currentVersion {
