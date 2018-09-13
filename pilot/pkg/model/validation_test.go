@@ -3128,3 +3128,53 @@ func TestValidateRbacConfig(t *testing.T) {
 		}
 	}
 }
+
+func TestValidateMixerService(t *testing.T) {
+	cases := []struct {
+		name  string
+		in    *mccpb.IstioService
+		valid bool
+	}{
+		{
+			name: "no name and service",
+			in:   &mccpb.IstioService{},
+		},
+		{
+			name: "specify both name and service",
+			in:   &mccpb.IstioService{Service: "test-service-service", Name: "test-service-name"},
+		},
+		{
+			name: "specify both namespace and service",
+			in:   &mccpb.IstioService{Service: "test-service-service", Namespace: "test-service-namespace"},
+		},
+		{
+			name: "specify both domain and service",
+			in:   &mccpb.IstioService{Service: "test-service-service", Domain: "test-service-domain"},
+		},
+		{
+			name: "invalid name label",
+			in:   &mccpb.IstioService{Name: strings.Repeat("x", 64)},
+		},
+		{
+			name: "invalid namespace label",
+			in:   &mccpb.IstioService{Name: "test-service-name", Namespace: strings.Repeat("x", 64)},
+		},
+		{
+			name: "invalid domian or labels",
+			in:   &mccpb.IstioService{Name: "test-service-name", Domain: strings.Repeat("x", 256)},
+		},
+		{
+			name:  "valid",
+			in:    validService,
+			valid: true,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := ValidateMixerService(c.in); (got == nil) != c.valid {
+				t.Errorf("ValidateMixerService(%v): got(%v) != want(%v): %v", c.name, got == nil, c.valid, got)
+			}
+		})
+	}
+}
