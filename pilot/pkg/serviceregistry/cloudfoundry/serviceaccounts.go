@@ -14,10 +14,11 @@
 
 package cloudfoundry
 
-import "istio.io/istio/pilot/pkg/model"
+import (
+	"istio.io/istio/pilot/pkg/model"
+)
 
-type serviceAccounts struct {
-}
+type serviceAccounts struct{}
 
 // NewServiceAccounts instantiates the Cloud Foundry service account interface
 func NewServiceAccounts() model.ServiceAccounts {
