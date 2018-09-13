@@ -55,9 +55,8 @@ var (
 	// clients in a bad state (not reading). In future it may include checking for ACK
 	SendTimeout = 5 * time.Second
 
-	// PushTimeout is the time to wait for a push on a client. Pilot iterates over
-	// clients and pushes them serially for now, to avoid large CPU/memory spikes.
-	// We measure and reports cases where pusing a client takes longer.
+	// PushTimeout is the time to wait for a push on a client.
+	// We measure and reports cases where pushing a client takes longer.
 	PushTimeout = 5 * time.Second
 
 	allowConcurrentPush = false
@@ -706,6 +705,8 @@ func (s *DiscoveryServer) AdsPushAll(version string) {
 				<-s.concurrentPushLimit
 				wg.Done()
 			}()
+
+		Retry:
 			currentVersion := versionInfo()
 			// Stop attempting to push
 			if !allowConcurrentPush && version != currentVersion {
@@ -713,7 +714,6 @@ func (s *DiscoveryServer) AdsPushAll(version string) {
 				return
 			}
 
-			to := time.After(PushTimeout)
 			select {
 			case client.pushChannel <- &XdsEvent{
 				push:    pushContext,
@@ -724,11 +724,10 @@ func (s *DiscoveryServer) AdsPushAll(version string) {
 				client.LastPushFailure = timeZero
 			case <-client.doneChannel: // connection was closed
 				adsLog.Infof("Client closed connection %v", client.ConID)
-			case <-to:
+			case <-time.After(PushTimeout):
 				// This may happen to some clients if the other side is in a bad state and can't receive.
 				// The tests were catching this - one of the client was not reading.
 				pushTimeouts.Add(1)
-				pending = append(pending, client)
 				if client.LastPushFailure.IsZero() {
 					client.LastPushFailure = time.Now()
 					adsLog.Warnf("Failed to push, client busy %s", client.ConID)
@@ -738,8 +737,11 @@ func (s *DiscoveryServer) AdsPushAll(version string) {
 						adsLog.Warnf("Repeated failure to push %s", client.ConID)
 						// unfortunately grpc go doesn't allow closing (unblocking) the stream.
 						pushErrors.With(prometheus.Labels{"type": "long"}).Add(1)
+						return
 					}
 				}
+
+				goto Retry
 			}
 		}()
 	}
