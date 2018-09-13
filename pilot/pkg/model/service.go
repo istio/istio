@@ -452,8 +452,10 @@ type ServiceAccounts interface {
 //  Hostname("foo.com").Matches("foo.com")   = true
 //  Hostname("foo.com").Matches("bar.com")   = false
 //  Hostname("*.com").Matches("foo.com")     = true
-//  Hostname("*.com").Matches("foo.com")     = true
+//  Hostname("*.com").Matches("bar.com")     = true
 //  Hostname("*.foo.com").Matches("foo.com") = false
+//  Hostname("*").Matches("foo.com") = true
+//  Hostname("*").Matches("*.com") = true
 func (h Hostname) Matches(o Hostname) bool {
 	if len(h) == 0 && len(o) == 0 {
 		return true
