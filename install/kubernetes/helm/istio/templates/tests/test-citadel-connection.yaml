@@ -1,3 +1,4 @@
+{{- if .Values.global.enabledTest }}
 apiVersion: v1
 kind: Pod
 metadata:
@@ -26,3 +27,4 @@ spec:
   restartPolicy: Never
   affinity:
     {{- include "nodeaffinity" . | indent 4 }}
+{{- end }}

@@ -657,6 +657,7 @@ isti%.yaml: $(HELM) $(HOME)/.helm helm-repo-add
 		--name=istio \
 		--namespace=istio-system \
 		--set global.hub=${HUB} \
+		--set global.enabledTest=false \
 		--set global.proxy.enableCoreDump=${ENABLE_COREDUMP} \
 		--set istio_cni.enabled=${ENABLE_ISTIO_CNI} \
 		${EXTRA_HELM_SETTINGS} \
@@ -682,6 +683,7 @@ generate_yaml: $(HELM) $(HOME)/.helm helm-repo-add
 		--name=istio \
 		--namespace=istio-system \
 		--set global.hub=${HUB} \
+		--set global.enabledTest=false \
 		--set global.mtls.enabled=true \
 		--set global.controlPlaneSecurityEnabled=true \
 		--set global.proxy.enableCoreDump=${ENABLE_COREDUMP} \
