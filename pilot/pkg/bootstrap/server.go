@@ -108,7 +108,7 @@ type ConfigArgs struct {
 	CFConfig                   string
 	ControllerOptions          kube.ControllerOptions
 	FileDir                    string
-
+	EnableLegacyResourceCheck  bool
 	// Controller if specified, this controller overrides the other config settings.
 	Controller model.ConfigStoreCache
 }
@@ -514,8 +514,10 @@ func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCac
 		return nil, multierror.Prefix(err, "failed to open a config client.")
 	}
 
-	if err = configClient.RegisterResources(); err != nil {
-		return nil, multierror.Prefix(err, "failed to register custom resources.")
+	if args.Config.EnableLegacyResourceCheck {
+		if err = configClient.RegisterResources(); err != nil {
+			return nil, multierror.Prefix(err, "failed to register custom resources.")
+		}
 	}
 
 	return crd.NewController(configClient, args.Config.ControllerOptions), nil
