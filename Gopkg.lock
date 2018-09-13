@@ -334,7 +334,7 @@
   version = "v2.6.0"
 
 [[projects]]
-  digest = "1:021347aff4c65bc7847025aae2d338d4aefb1fa8e7661c22ad1695d606ad9775"
+  digest = "1:5dfbbc62b88f6a5203530838da87b63fb9277ea3c1128e292590874ca2a4b09e"
   name = "github.com/envoyproxy/go-control-plane"
   packages = [
     "envoy/admin/v2alpha",
