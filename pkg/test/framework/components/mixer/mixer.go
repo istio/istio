@@ -25,6 +25,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hashicorp/go-multierror"
+
 	"go.uber.org/multierr"
 	"google.golang.org/grpc"
 
@@ -140,36 +142,38 @@ func (c *kubeComponent) Init(ctx environment.ComponentContext, deps map[dependen
 		return nil, fmt.Errorf("unsupported environment: %q", ctx.Environment().EnvironmentID())
 	}
 
+	result, err := c.doInit(e)
+	if err != nil {
+		return nil, multierror.Prefix(err, "mixer init failed:")
+	}
+	return result, nil
+}
+
+func (c *kubeComponent) doInit(e *kubernetes.Implementation) (interface{}, error) {
 	res := &deployedMixer{
 		local: false,
 		// Use the DefaultArgs to get config identity attribute
-		args: server.DefaultArgs(),
+		args:    server.DefaultArgs(),
+		clients: make(map[string]istio_mixer_v1.MixerClient),
 	}
 
+	s := e.KubeSettings()
 	for _, serviceType := range []string{telemetryService, policyService} {
-		pod, err := e.Accessor.WaitForPodBySelectors("istio-system", "istio=mixer", "istio-mixer-type="+serviceType)
+		pod, err := e.Accessor.WaitForPodBySelectors(s.IstioSystemNamespace, "istio=mixer", "istio-mixer-type="+serviceType)
 		if err != nil {
 			return nil, err
 		}
 
-		port := 0
-		svc, err := e.Accessor.GetService(e.KubeSettings().IstioSystemNamespace, "istio-"+serviceType)
+		port, err := getGrpcPort(e, serviceType)
 		if err != nil {
-			return nil, fmt.Errorf("failed to retrieve service %s: %v", serviceType, err)
+			return nil, err
 		}
-		for _, portInfo := range svc.Spec.Ports {
-			if portInfo.Name == grpcPortName {
-				port = portInfo.TargetPort.IntValue()
-			}
-		}
-		if port == 0 {
-			return nil, fmt.Errorf("failed to get target port in service %s", serviceType)
-		}
+
 		options := &kube.PodSelectOptions{
 			PodNamespace: pod.Namespace,
 			PodName:      pod.Name,
 		}
-		forwarder, err := kube.PortForward(e.KubeSettings().KubeConfig, options, "", strconv.Itoa(port))
+		forwarder, err := kube.PortForward(s.KubeConfig, options, "", strconv.Itoa(port))
 		if err != nil {
 			return nil, err
 		}
@@ -185,6 +189,19 @@ func (c *kubeComponent) Init(ctx environment.ComponentContext, deps map[dependen
 	}
 
 	return res, nil
+}
+
+func getGrpcPort(e *kubernetes.Implementation, serviceType string) (int, error) {
+	svc, err := e.Accessor.GetService(e.KubeSettings().IstioSystemNamespace, "istio-"+serviceType)
+	if err != nil {
+		return 0, fmt.Errorf("failed to retrieve service %s: %v", serviceType, err)
+	}
+	for _, portInfo := range svc.Spec.Ports {
+		if portInfo.Name == grpcPortName {
+			return portInfo.TargetPort.IntValue(), nil
+		}
+	}
+	return 0, fmt.Errorf("failed to get target port in service %s", serviceType)
 }
 
 type deployedMixer struct {
