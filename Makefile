@@ -247,7 +247,7 @@ ${ISTIO_OUT}/envoy: init
 ${ISTIO_ENVOY_DEBUG_PATH}: init
 ${ISTIO_ENVOY_RELEASE_PATH}: init
 
-# Pull depdendencies, based on the checked in Gopkg.lock file.
+# Pull dependencies, based on the checked in Gopkg.lock file.
 # Developers must manually run `dep ensure` if adding new deps
 depend: init | $(ISTIO_OUT)
 
@@ -708,6 +708,11 @@ include tools/deb/istio.mk
 # Target: e2e tests
 #-----------------------------------------------------------------------------
 include tests/istio.mk
+
+#-----------------------------------------------------------------------------
+# Target: integration tests
+#-----------------------------------------------------------------------------
+include tests/integration2/tests.mk
 
 #-----------------------------------------------------------------------------
 # Target: bench check
