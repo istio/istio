@@ -5,7 +5,7 @@ This folder contains Istio integration tests that use the test framework checked
 
 ### Basics
 
-The goal of the framework is to make it as easy as possible to author and run tests. In it is most simplest
+The goal of the framework is to make it as easy as possible to author and run tests. In its simplest
 case, just typing ```go test ./...``` should be sufficient to run tests.
 
 The test framework is designed to work with standard go tooling and allows developers
