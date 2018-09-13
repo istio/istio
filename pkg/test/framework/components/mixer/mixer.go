@@ -223,7 +223,7 @@ func (d *deployedMixer) Check(t testing.TB, attributes map[string]interface{}) e
 	req := istio_mixer_v1.CheckRequest{
 		Attributes: getAttrBag(attributes),
 	}
-	response, err := d.clients[policyClient].Check(context.Background(), &req)
+	response, err := d.clients[policyService].Check(context.Background(), &req)
 
 	if err != nil {
 		t.Fatalf("Error sending check: %v", err)
