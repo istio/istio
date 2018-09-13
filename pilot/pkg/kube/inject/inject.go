@@ -403,7 +403,7 @@ func injectRequired(ignored []string, namespacePolicy InjectionPolicy, podSpec *
 
 		log.Debugf("Sidecar injection policy for %v/%v: namespacePolicy:%v useDefault:%v inject:%v required:%v %s",
 			metadata.Namespace,
-			metadata.Name,
+			potentialPodName(metadata),
 			namespacePolicy,
 			useDefault,
 			inject,
@@ -741,4 +741,14 @@ type SidecarInjectionStatus struct {
 func sidecarTemplateVersionHash(in string) string {
 	hash := sha256.Sum256([]byte(in))
 	return hex.EncodeToString(hash[:])
+}
+
+func potentialPodName(metadata *metav1.ObjectMeta) string {
+	if metadata.Name != "" {
+		return metadata.Name
+	}
+	if metadata.GenerateName != "" {
+		return metadata.GenerateName + "***** (actual name not yet known)"
+	}
+	return ""
 }
