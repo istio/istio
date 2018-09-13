@@ -423,6 +423,11 @@ func TestHelmInject(t *testing.T) {
 			inputFile: "status_annotations.yaml",
 			wantFile:  "status_annotations.yaml.injected",
 		},
+		{
+			// Verifies that the resource annotation overrides the default.
+			inputFile: "resource_annotations.yaml",
+			wantFile:  "resource_annotations.yaml.injected",
+		},
 	}
 
 	for ci, c := range cases {
