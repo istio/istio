@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-
 	"net"
 
 	"github.com/hashicorp/go-multierror"

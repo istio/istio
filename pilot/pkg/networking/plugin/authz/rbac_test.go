@@ -18,18 +18,17 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	http_config "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/rbac/v2"
 	network_config "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/rbac/v2"
 	policy "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2alpha"
 	metadata "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
 	"github.com/envoyproxy/go-control-plane/pkg/util"
+	"github.com/gogo/protobuf/types"
 
 	rbacproto "istio.io/api/rbac/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
-
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	"github.com/gogo/protobuf/types"
 )
 
 func newAuthzPoliciesWithRolesAndBindings(configs ...[]model.Config) *model.AuthorizationPolicies {
