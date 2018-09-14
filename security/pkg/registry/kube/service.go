@@ -31,10 +31,10 @@ import (
 )
 
 // ServiceController monitors the service definition changes in a namespace. If a
-// new service is added with "alpha.istio.io/kubernetes-serviceaccounts" annotation
-// enabled, the corresponding service account will be added to the identity registry
+// new service is added with "alpha.istio.io/kubernetes-serviceaccounts" or
+// "alpha.istio.io/canonical-serviceaccounts" annotations enabled,
+// the corresponding service account will be added to the identity registry
 // for whitelisting.
-// TODO: change it to monitor "alpha.istio.io/canonical-serviceaccounts" annotation
 type ServiceController struct {
 	core corev1.CoreV1Interface
 
@@ -85,6 +85,13 @@ func (c *ServiceController) serviceAdded(obj interface{}) {
 			log.Errorf("cannot add mapping %q -> %q to registry: %s", svcAcct, svcAcct, err.Error())
 		}
 	}
+	canonicalSvcAcct, ok := svc.ObjectMeta.Annotations[kube.CanonicalServiceAccountsOnVMAnnotation]
+	if ok {
+		err := c.reg.AddMapping(canonicalSvcAcct, canonicalSvcAcct)
+		if err != nil {
+			log.Errorf("cannot add mapping %q -> %q to registry: %s", canonicalSvcAcct, canonicalSvcAcct, err.Error())
+		}
+	}
 }
 
 func (c *ServiceController) serviceDeleted(obj interface{}) {
@@ -94,6 +101,13 @@ func (c *ServiceController) serviceDeleted(obj interface{}) {
 		err := c.reg.DeleteMapping(svcAcct, svcAcct)
 		if err != nil {
 			log.Errorf("cannot delete mapping %q to %q from registry: %s", svcAcct, svcAcct, err.Error())
+		}
+	}
+	canonicalSvcAcct, ok := svc.ObjectMeta.Annotations[kube.CanonicalServiceAccountsOnVMAnnotation]
+	if ok {
+		err := c.reg.DeleteMapping(canonicalSvcAcct, canonicalSvcAcct)
+		if err != nil {
+			log.Errorf("cannot delete mapping %q to %q from registry: %s", canonicalSvcAcct, canonicalSvcAcct, err.Error())
 		}
 	}
 }

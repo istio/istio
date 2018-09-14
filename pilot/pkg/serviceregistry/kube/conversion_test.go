@@ -63,6 +63,7 @@ func TestConvertProtocol(t *testing.T) {
 }
 
 func TestServiceConversion(t *testing.T) {
+	istioServiceAccountDomainForCanonical = "accounts.google.com"
 	serviceName := "service1"
 	namespace := "default"
 	saA := "serviceaccountA"
@@ -133,10 +134,10 @@ func TestServiceConversion(t *testing.T) {
 		t.Errorf("number of service accounts is incorrect")
 	}
 	expected := []string{
+		"spiffe://accounts.google.com/" + saC,
+		"spiffe://accounts.google.com/" + saD,
 		"spiffe://company.com/ns/default/sa/" + saA,
 		"spiffe://company.com/ns/default/sa/" + saB,
-		"spiffe://" + saC,
-		"spiffe://" + saD,
 	}
 	if !reflect.DeepEqual(sa, expected) {
 		t.Errorf("Unexpected service accounts %v (expecting %v)", sa, expected)
