@@ -146,15 +146,11 @@ data:
           runAsUser: 1337
           {{ "[[- end ]]" }}
         resources:
-          {{ "[[ if (isset .ObjectMeta.Annotations \"sidecar.istio.io/proxyCPU\") -]]" }}
           requests:
-            cpu: {{ "\"[[ index .ObjectMeta.Annotations \"sidecar.istio.io/proxyCPU\" ]]\"" }}
-            memory: {{ "\"[[ index .ObjectMeta.Annotations \"sidecar.istio.io/proxyMemory\" ]]\"" }}
-        {{ "[[ else -]]" }}
-{{- if .Values.global.proxy.resources }}
-{{ toYaml .Values.global.proxy.resources | indent 10 }}
-{{- end }}
-        {{ "[[ end -]]" }}
+            cpu: {{ "[[ annotation .ObjectMeta `sidecar.istio.io/proxyCPU` " }} "{{ .Values.global.proxy.resources.requests.cpu }}" {{ " ]]" }}
+            {{ "[[ if ne (annotation .ObjectMeta `sidecar.istio.io/proxyMemory` \"\") \"\" -]]" }}
+            memory: {{ "[[ annotation .ObjectMeta `sidecar.istio.io/proxyMemory` \"\" ]]" }}
+            {{ "[[- end ]]" }}
         volumeMounts:
         - mountPath: /etc/istio/proxy
           name: istio-envoy
