@@ -9,9 +9,6 @@ spec:
   template:
     metadata:
       annotations:
-        prometheus.io/path: /stats/prometheus
-        prometheus.io/port: "15090"
-        prometheus.io/scrape: "true"
         sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
         traffic.sidecar.istio.io/excludeInboundPorts: 4,5,6
         traffic.sidecar.istio.io/excludeOutboundIPRanges: 10.96.0.2/24,10.96.0.3/24
@@ -57,6 +54,10 @@ spec:
         - "15020"
         - --applicationPorts
         - "80"
+        ports:
+        - name: http-envoy-prom
+          containerPort: 15090
+          protocol: TCP
         env:
         - name: POD_NAME
           valueFrom:

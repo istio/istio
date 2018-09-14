@@ -508,9 +508,6 @@ func (wh *Webhook) inject(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 
 	applyDefaultsWorkaround(spec.InitContainers, spec.Containers, spec.Volumes)
 	annotations := map[string]string{annotationStatus.name: status}
-	for k, v := range spec.Annotations {
-		annotations[k] = v
-	}
 
 	patchBytes, err := createPatch(&pod, injectionStatus(&pod), annotations, spec)
 	if err != nil {
