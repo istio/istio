@@ -451,6 +451,38 @@ jobs:
       - run:  make sidecar.deb
       - store_artifacts:
           path: /go/out/istio-sidecar.deb
+          
+  build_helm_repo:
+    <<: *defaults
+    resource_class: xlarge
+    steps:
+      - checkout
+      - run: make sync
+      - run: helm init --client-only
+      - run: helm package install/kubernetes/helm/istio
+      - run: helm package install/kubernetes/helm/istio-remote
+      - run: helm repo index .
+      - deploy:
+          name: Deploy
+          command: |
+            export SOURCE_BRANCH=master
+            export TARGET_BRANCH=gh-pages
+            export GH_EMAIL=deploy@istio.io
+            export GH_NAME="Istio Deployer"
+            if [ $CIRCLE_BRANCH == $SOURCE_BRANCH ]; then
+              git config --global user.email $GH_EMAIL
+              git config --global user.name $GH_NAME
+              git clone $CIRCLE_REPOSITORY_URL out
+              cd out
+              git checkout $TARGET_BRANCH || git checkout --orphan $TARGET_BRANCH
+              git rm -rf .
+              mkdir -p ./charts
+              mv ../index.yaml ./charts
+              mv ../istio-*.tgz ./charts
+              git add -A
+              git commit -m "Automated deployment to GitHub Pages: ${CIRCLE_SHA1}" --allow-empty
+              git push origin $TARGET_BRANCH
+            fi
 
   shellcheck:
     docker:
@@ -603,6 +635,7 @@ workflows:
       - shellcheck
       - lint
       - build
+      - build_helm_repo
       - test
       - codecov
       - e2e-mixer-noauth-v1alpha3-v2:
