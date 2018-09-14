@@ -80,6 +80,17 @@ type Envoy struct {
 
 	cmd    *exec.Cmd
 	baseID uint32
+	ports  *Ports
+}
+
+func NewEnvoy(yamlFile, binPath, logFilePath, logEntryPrefix string, logLevel LogLevel) *Envoy {
+	return &Envoy{
+		YamlFile: yamlFile,
+		BinPath: binPath,
+		LogFilePath: logFilePath,
+		LogLevel: logLevel,
+		LogEntryPrefix: logEntryPrefix,
+	}
 }
 
 // Start starts the Envoy process.
