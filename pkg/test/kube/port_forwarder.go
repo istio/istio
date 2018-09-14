@@ -18,18 +18,15 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"regexp"
 
 	"k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
-	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/portforward"
 	"k8s.io/client-go/transport/spdy"
-
-	kubelib "istio.io/istio/pkg/kube"
 )
 
 var (
@@ -38,11 +35,13 @@ var (
 	addressMatchIndex = 1
 )
 
-// PortForwarder is a wrapper for port forward.
+// PortForwarder manages the forwarding of a single port.
 type PortForwarder interface {
-	ForwardPorts() error
+	io.Closer
+	// Start the forwarder.
+	Start() error
+	// Address returns the local forwarded address. Only valid while the forwarder is running.
 	Address() string
-	Close()
 }
 
 type defaultPortForwarder struct {
@@ -60,7 +59,7 @@ type PodSelectOptions struct {
 	LabelSelector string
 }
 
-func (f *defaultPortForwarder) ForwardPorts() error {
+func (f *defaultPortForwarder) Start() error {
 	errCh := make(chan error)
 	go func() {
 		errCh <- f.forwarder.ForwardPorts()
@@ -70,7 +69,7 @@ func (f *defaultPortForwarder) ForwardPorts() error {
 	case err := <-errCh:
 		return fmt.Errorf("failure running port forward process: %v", err)
 	case <-f.readyCh:
-		address, err := extractAddress(f.output.String())
+		address, err := parseAddress(f.output.String())
 		if err != nil {
 			return err
 		}
@@ -83,12 +82,18 @@ func (f *defaultPortForwarder) Address() string {
 	return f.address
 }
 
-func (f *defaultPortForwarder) Close() {
+func (f *defaultPortForwarder) Close() error {
 	f.forwarder.Close()
+	return nil
 }
 
-// NewPortForwarder return a new PortForwarder instance.
-func NewPortForwarder(client *rest.RESTClient, config *rest.Config, options *PodSelectOptions, ports string) (PortForwarder, error) {
+// NewPortForwarder creates a new PortForwarder
+func NewPortForwarder(kubeConfig string, options *PodSelectOptions, localPort, remotePort uint16) (PortForwarder, error) {
+	client, config, err := newRestClient(kubeConfig, "")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create kube client: %v", err)
+	}
+
 	if err := validatePodSelectOptions(options); err != nil {
 		return nil, err
 	}
@@ -114,7 +119,7 @@ func NewPortForwarder(client *rest.RESTClient, config *rest.Config, options *Pod
 	stopCh := make(chan struct{})
 	readyCh := make(chan struct{})
 	output := bytes.NewBuffer(make([]byte, 0, outputBufferSize))
-	fw, err := portforward.New(dialer, []string{ports}, stopCh, readyCh, output, os.Stderr)
+	fw, err := portforward.New(dialer, []string{fmt.Sprintf("%d:%d", localPort, remotePort)}, stopCh, readyCh, output, os.Stderr)
 	if err != nil {
 		return nil, fmt.Errorf("failed establishing port-forward: %v", err)
 	}
@@ -154,57 +159,11 @@ func validatePodSelectOptions(options *PodSelectOptions) error {
 	return nil
 }
 
-func extractAddress(output string) (string, error) {
+func parseAddress(output string) (string, error) {
 	// TODO: improve this when we have multi port inputs.
 	matches := forwardRegex.FindStringSubmatch(output)
 	if matches == nil {
 		return "", fmt.Errorf("failed to get address from output: %s", output)
 	}
 	return matches[addressMatchIndex], nil
-}
-
-// NewRestClient return rest client with default config.
-// TODO: remove this when we have common rest client library in test-framework.
-func NewRestClient(kubeconfig, configContext string) (*rest.RESTClient, *rest.Config, error) {
-	config, err := defaultRestConfig(kubeconfig, configContext)
-	if err != nil {
-		return nil, nil, err
-	}
-	restClient, err := rest.RESTClientFor(config)
-	if err != nil {
-		return nil, nil, err
-	}
-	return restClient, config, nil
-}
-
-func defaultRestConfig(kubeconfig, configContext string) (*rest.Config, error) {
-	config, err := kubelib.BuildClientConfig(kubeconfig, configContext)
-	if err != nil {
-		return nil, err
-	}
-	config.APIPath = "/api"
-	config.GroupVersion = &v1.SchemeGroupVersion
-	config.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: scheme.Codecs}
-	return config, nil
-}
-
-// PortForward is an utility function to help construct port forwarder.
-// TODO(lichuqiang): find a better place for it.
-func PortForward(kubeconfig string, options *PodSelectOptions, localPort, remotePort string) (PortForwarder, error) {
-	rc, config, err := NewRestClient(kubeconfig, "")
-	if err != nil {
-		return nil, fmt.Errorf("failed to create kube client: %v", err)
-	}
-
-	ports := localPort + ":" + remotePort
-	forwarder, err := NewPortForwarder(rc, config, options, ports)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create port forwarder: %v", err)
-	}
-
-	if err := forwarder.ForwardPorts(); err != nil {
-		return nil, fmt.Errorf("error in port forward: %v", err)
-	}
-
-	return forwarder, nil
 }

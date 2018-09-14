@@ -50,7 +50,7 @@ const (
 	fortioYaml         = "tests/e2e/tests/dashboard/fortio-rules.yaml"
 	netcatYaml         = "tests/e2e/tests/dashboard/netcat-rules.yaml"
 
-	prometheusPort = "9090"
+	prometheusPort = uint16(9090)
 )
 
 var (
@@ -289,7 +289,7 @@ func galleyQueryFilterFn(queries []string) []string {
 }
 
 func promAPI() (v1.API, error) {
-	client, err := api.NewClient(api.Config{Address: fmt.Sprintf("http://localhost:%s", prometheusPort)})
+	client, err := api.NewClient(api.Config{Address: fmt.Sprintf("http://localhost:%d", prometheusPort)})
 	if err != nil {
 		return nil, err
 	}
@@ -388,15 +388,19 @@ func newPromProxy(namespace string) *promProxy {
 	}
 }
 
-func (p *promProxy) portForward(labelSelector string, localPort string, remotePort string) error {
+func (p *promProxy) portForward(labelSelector string, localPort uint16, remotePort uint16) error {
 	log.Infof("Setting up %s proxy", labelSelector)
 	options := &kube.PodSelectOptions{
 		PodNamespace:  p.namespace,
 		LabelSelector: labelSelector,
 	}
-	forwarder, err := kube.PortForward(tc.Kube.KubeConfig, options, localPort, remotePort)
+	forwarder, err := kube.NewPortForwarder(tc.Kube.KubeConfig, options, localPort, remotePort)
 	if err != nil {
-		log.Errorf("Error in port forward: %v", err)
+		log.Errorf("Error creating port forwarder: %v", err)
+		return err
+	}
+	if err := forwarder.Start(); err != nil {
+		log.Errorf("Error starting port forwarder: %v", err)
 		return err
 	}
 
