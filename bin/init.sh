@@ -24,9 +24,6 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-# TODO(nmittler): Remove before merging.
-set -x # echo on
-
 # TODO(nmittler): Remove these variables and require that this script be run from the Makefile
 
 # Set GOPATH to match the expected layout
