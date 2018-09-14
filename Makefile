@@ -394,6 +394,7 @@ JUNIT_UNIT_TEST_XML ?= $(ISTIO_OUT)/junit_unit-tests.xml
 test: | $(JUNIT_REPORT)
 	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
 	set -o pipefail; \
+	KUBECONFIG="$${KUBECONFIG:-$${GO_TOP}/src/istio.io/istio/.circleci/config}" \
 	$(MAKE) --keep-going common-test pilot-test mixer-test security-test galley-test istioctl-test \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
 
