@@ -19,7 +19,7 @@ import (
 	"errors"
 	"fmt"
 
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pilot/pkg/model"
 )

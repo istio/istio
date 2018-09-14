@@ -19,7 +19,7 @@ import (
 	"net"
 	"net/http"
 
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
