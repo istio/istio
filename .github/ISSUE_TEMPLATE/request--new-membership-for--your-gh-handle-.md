@@ -1,6 +1,6 @@
 ---
-name: 'REQUEST: New membership for <your-GH-handle>'
-about: request to join Istio github as a member
+name: 'Organization Membership Request'
+about: Request membership in an Istio Org 
 
 ---
 
