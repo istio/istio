@@ -178,14 +178,8 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 // Run implements the webhook server
 func (wh *Webhook) Run(stop <-chan struct{}) {
 	go func() {
-		err := wh.server.ListenAndServeTLS("", "")
-
-		msg := fmt.Sprintf("Stopped listening on %s", wh.server.Addr)
-		select {
-		case <-stop:
-			log.Infof(msg)
-		default:
-			log.Fatalf("%s due to error: %v", msg, err)
+		if err := wh.server.ListenAndServeTLS("", ""); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("admission webhook ListenAndServeTLS failed: %v", err)
 		}
 	}()
 	defer wh.watcher.Close()
