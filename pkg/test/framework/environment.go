@@ -22,6 +22,7 @@ import (
 	"istio.io/istio/pkg/test/framework/dependency"
 	env "istio.io/istio/pkg/test/framework/environment"
 	"istio.io/istio/pkg/test/framework/internal"
+	"istio.io/istio/pkg/test/framework/scopes"
 )
 
 type environment struct {
@@ -33,7 +34,7 @@ var _ env.Environment = &environment{}
 
 func (e *environment) CreateTmpDirectory(t testing.TB, name string) string {
 	t.Helper()
-	scope.Debugf("Enter: Enter.CreateTmpDirectory (%s)", name)
+	scopes.Framework.Debugf("Enter: Enter.CreateTmpDirectory (%s)", name)
 
 	//	return createTmpDirectory(t.workDir, t.runID, name)
 	s, err := internal.CreateTmpDirectory(e.ctx.Settings().WorkDir, e.ctx.Settings().RunID, name)

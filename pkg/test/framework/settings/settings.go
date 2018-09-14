@@ -20,6 +20,8 @@ import (
 
 	"github.com/google/uuid"
 
+	"istio.io/istio/pkg/test/framework/scopes"
+
 	"istio.io/istio/pkg/log"
 )
 
@@ -64,9 +66,14 @@ type Settings struct {
 
 // defaultSettings returns a default settings instance.
 func defaultSettings() *Settings {
+	o := log.DefaultOptions()
+
+	// Disable lab logging for the default run.
+	o.SetOutputLevel(scopes.Lab.Name(), log.NoneLevel)
+
 	return &Settings{
 		Environment: Local,
-		LogOptions:  log.DefaultOptions(),
+		LogOptions:  o,
 	}
 }
 
