@@ -22,7 +22,7 @@ import (
 	"sync"
 	"time"
 
-	"istio.io/istio/tests/integration/framework"
+	"istio.io/istio/tests/integration_old/framework"
 )
 
 const (

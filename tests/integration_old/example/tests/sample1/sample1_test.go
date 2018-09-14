@@ -23,11 +23,11 @@ import (
 	"strings"
 	"testing"
 
-	fortio_server "istio.io/istio/tests/integration/component/fortio_server"
-	"istio.io/istio/tests/integration/component/proxy"
-	"istio.io/istio/tests/integration/example/environment/appOnlyEnv"
-	"istio.io/istio/tests/integration/example/environment/mixerEnvoyEnv"
-	"istio.io/istio/tests/integration/framework"
+	fortio_server "istio.io/istio/tests/integration_old/component/fortio_server"
+	"istio.io/istio/tests/integration_old/component/proxy"
+	"istio.io/istio/tests/integration_old/example/environment/appOnlyEnv"
+	"istio.io/istio/tests/integration_old/example/environment/mixerEnvoyEnv"
+	"istio.io/istio/tests/integration_old/framework"
 )
 
 // This sample shows how to reuse a test cases in different test environments

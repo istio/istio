@@ -1,4 +1,4 @@
-# Istio-wide Integration Test Framework
+# Istio-wide Integration Test Framework ** DEPRECATED. DO NOT USE. **
 
 This framework provides a universal way to bring various components into a test environment.
 Unlike [e2e tests](https://github.com/istio/istio/tree/master/tests/e2e), integration tests usually don't need to start the whole package of istio
@@ -8,7 +8,7 @@ This integration test framework is built for this requirement. It's designed to 
 ## Concept
 The idea is to decouple **component** with **test case**.
 
-![integration_framework_structure](https://github.com/istio/istio/tree/master/tests/integration/images/integration_framework_structure.jpg)
+![integration_framework_structure](https://github.com/istio/istio/tree/master/tests/integration_old/images/integration_framework_structure.jpg)
 
 We break down `component`, `test environment` and `framework` into different abstractions.
 
@@ -36,23 +36,23 @@ More details can be found in **Add test** section.
 On a linux machine, run the following command:
 
 ```bash
-tests/integration/example/integration.sh
+tests/integration_old/example/integration.sh
 ```
 
 It builds mixs (mixer binary), downloads envoy binary and installs fortio binary from vendor directory
 and brings these three components on local processes for two simple tests.
 
-[Sample1](https://github.com/istio/istio/tree/master/tests/integration/example/tests/sample1)
+[Sample1](https://github.com/istio/istio/tree/master/tests/integration_old/example/tests/sample1)
 shows how to reuse a test cases in different test environments
 
-[Sample2](https://github.com/istio/istio/tree/master/tests/integration/example/tests/sample2)
+[Sample2](https://github.com/istio/istio/tree/master/tests/integration_old/example/tests/sample2)
 shows how to reuse a test environment in different test cases
 
 
 ### Run a single test manually
 
 ```bash
-go test -v ./tests/integration/example/tests/sample1 \
+go test -v ./tests/integration_old/example/tests/sample1 \
 -envoy_binary <envoy_binary_path> \
 -envoy_start_script <envoy_start_script_path> \
 -mixer_binary <mixer_binary_path> \
@@ -61,7 +61,7 @@ go test -v ./tests/integration/example/tests/sample1 \
 
 One example:
 ```bash
-go test -v ./tests/integration/example/tests/sample1
+go test -v ./tests/integration_old/example/tests/sample1
 -envoy_binary /home/bootstrap/go/out/linux_amd64/release/envoy \
 -envoy_start_script /home/bootstrap/go/src/istio.io/proxy/src/envoy/http/mixer/start_envoy \
 -mixer_binary /home/bootstrap/go/out/linux_amd64/release/mixs \
@@ -70,7 +70,7 @@ go test -v ./tests/integration/example/tests/sample1
 
 
 ## File Structure
-Under istio/tests/integration directory, it has three top level folders: **component, framework and example**.
+Under istio/tests/integration_old directory, it has three top level folders: **component, framework and example**.
 
 * **component** is a centralized locations for existing components. New reusable components should be put here.
 * **framework** has structures and interfaces for this integration test framework.
@@ -83,7 +83,7 @@ Under istio/tests/integration directory, it has three top level folders: **compo
 
 ## Add tests
 
-Besides the simple demos, there is another example of using this framework: [security integration](https://github.com/istio/istio/tree/master/security/tests/integration)
+Besides the simple demos, there is another example of using this framework: [security integration](https://github.com/istio/istio/tree/master/security/tests/integration_old)
 
 ### Find the components or create new ones
 
@@ -95,7 +95,7 @@ Different components will simply implement the Component interface. The Componen
 Each component has a customized `configuration` and `status` for data sharing and communication between inside and outside of the component.
 `Component` interface has GET and SET function for `configuration` and only GET for `status` since it's expected to be modified only inside this component.
 
-We have a centralized location [istio/tests/integration/components](https://github.com/istio/istio/tree/master/tests/integration/component)
+We have a centralized location [istio/tests/integration_old`/components](https://github.com/istio/istio/tree/master/tests/integration_old/component)
 to keep components for reuse in different cases.
 It is advised to reuse existing components if possible.
 Also, you can update existing components to satisfy your requirement as long as the change is backward compatible and
@@ -125,7 +125,7 @@ Create a test environment and define what components are included.
 
 ### Create your test files
 Create tests under your code directory and import framework package. 
-Here are [two example test files](https://github.com/istio/istio/tree/master/tests/integration/example/tests). Create multiple test cases with the name “Testxxx” and then add a TestMain(). 
+Here are [two example test files](https://github.com/istio/istio/tree/master/tests/integration_old/example/tests). Create multiple test cases with the name “Testxxx” and then add a TestMain(). 
 Only several things need to be included in `TestMain()`.
 
 `testEM.RunTest(m)` handles bringing up environment, triggering tests and teardown.
