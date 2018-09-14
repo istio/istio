@@ -27,6 +27,13 @@ spec:
         volumeMounts:
         - mountPath: /var/run/sds
           name: sdsudspath
+        env:
+        {{- if .Values.env }}
+        {{- range $key, $val := .Values.env }}
+        - name: {{ $key }}
+          value: "{{ $val }}"
+        {{- end }}
+        {{- end }}
       volumes:
       - name: sdsudspath
         hostPath:
