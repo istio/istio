@@ -15,8 +15,13 @@
 package kube
 
 import (
+	"k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+
+	kubelib "istio.io/istio/pkg/kube"
 )
 
 // CreateConfig returns rest config based in the given path. It *only* loads from the provided path,
@@ -28,4 +33,28 @@ func CreateConfig(configPath string) (*rest.Config, error) {
 	overrides := &clientcmd.ConfigOverrides{}
 
 	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, overrides).ClientConfig()
+}
+
+// newRestClient creates a rest client with default config.
+func newRestClient(kubeconfig, configContext string) (*rest.RESTClient, *rest.Config, error) {
+	config, err := defaultRestConfig(kubeconfig, configContext)
+	if err != nil {
+		return nil, nil, err
+	}
+	restClient, err := rest.RESTClientFor(config)
+	if err != nil {
+		return nil, nil, err
+	}
+	return restClient, config, nil
+}
+
+func defaultRestConfig(kubeconfig, configContext string) (*rest.Config, error) {
+	config, err := kubelib.BuildClientConfig(kubeconfig, configContext)
+	if err != nil {
+		return nil, err
+	}
+	config.APIPath = "/api"
+	config.GroupVersion = &v1.SchemeGroupVersion
+	config.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: scheme.Codecs}
+	return config, nil
 }
