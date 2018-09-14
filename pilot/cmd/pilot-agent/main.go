@@ -254,7 +254,7 @@ var (
 
 			// If a status port was provided, start handling status probes.
 			if statusPort > 0 {
-				parsedPorts, err := parseApplicationPorts()
+				parsedPorts, err := parseApplicationPorts(applicationPorts)
 				if err != nil {
 					return err
 				}
@@ -282,7 +282,7 @@ var (
 	}
 )
 
-func parseApplicationPorts() ([]uint16, error) {
+func parseApplicationPorts(applicationPorts []string) ([]uint16, error) {
 	parsedPorts := make([]uint16, len(applicationPorts))
 	for _, port := range applicationPorts {
 		port := strings.TrimSpace(port)
@@ -291,7 +291,11 @@ func parseApplicationPorts() ([]uint16, error) {
 			if err != nil {
 				return nil, err
 			}
-			parsedPorts = append(parsedPorts, uint16(parsedPort))
+			if parsedPort > 0 {
+				parsedPorts = append(parsedPorts, uint16(parsedPort))
+			} else {
+				return nil, fmt.Errorf("parseApplicationPorts: Port must be greater then 0")
+			}
 		}
 	}
 	return parsedPorts, nil
