@@ -17,6 +17,7 @@ package framework
 import (
 	"flag"
 	"fmt"
+	"io"
 	"sync"
 	"testing"
 
@@ -95,6 +96,12 @@ func (d *driver) Run(testID string, m *testing.M) (int, error) {
 
 	if !d.context.Settings().NoCleanup {
 		d.context.Tracker.Cleanup()
+		if closer, ok := d.context.Environment().(io.Closer); ok {
+			err := closer.Close()
+			if err != nil {
+				lab.Warnf("Error during environment close: %v", err)
+			}
+		}
 	}
 
 	return rt, nil
