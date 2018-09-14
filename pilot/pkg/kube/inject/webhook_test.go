@@ -29,6 +29,7 @@ import (
 
 	"github.com/evanphx/json-patch"
 	"github.com/ghodss/yaml"
+	"github.com/gogo/protobuf/jsonpb"
 	"github.com/onsi/gomega"
 	"k8s.io/api/admission/v1beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -41,8 +42,6 @@ import (
 	tversion "k8s.io/helm/pkg/proto/hapi/version"
 	"k8s.io/helm/pkg/timeconv"
 	"k8s.io/kubernetes/pkg/apis/core"
-
-	"github.com/gogo/protobuf/jsonpb"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/util"

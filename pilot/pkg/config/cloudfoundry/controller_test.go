@@ -23,11 +23,9 @@ import (
 	"time"
 
 	copilotapi "code.cloudfoundry.org/copilot/api"
-
-	networking "istio.io/api/networking/v1alpha3"
-
 	"github.com/onsi/gomega"
 
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/cloudfoundry"
 	"istio.io/istio/pilot/pkg/config/cloudfoundry/fakes"
 	"istio.io/istio/pilot/pkg/config/memory"
