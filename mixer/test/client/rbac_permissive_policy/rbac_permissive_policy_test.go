@@ -24,51 +24,51 @@ import (
 // Report attributes from a GET request for Rbac permissive mode at policy level.
 const reportAttributes = `
 {
-    "connection.mtls": false,
-    "context.protocol": "http",
-    "context.proxy_error_code": "*",
-    "mesh1.ip": "*",
-    "mesh2.ip": "*",
-    "mesh3.ip": "*",
-    "rbac.permissive.effective_policy_id": "details-reviews-viewer",
-    "rbac.permissive.response_code": "200",
-    "request.headers": {
-        ":method": "GET",
-        ":path": "/echo",
-        ":authority": "*",
-        "x-forwarded-proto": "http",
-        "x-request-id": "*",
-        "user-agent": "Go-http-client/1.1",
-        "content-length": "*",
-        "accept-encoding":"gzip"
-    },
-    "request.host": "*",
-    "request.method": "GET",
-    "request.path": "/echo",
-    "request.scheme": "http",
-    "request.size": 0,
-    "request.time": "*",
-    "request.total_size": 0,
-    "request.url_path": "/echo",
-    "request.useragent": "Go-http-client/1.1",
-    "response.code": 403,
-    "response.duration": "*",
-    "response.headers": {
-        "date": "*",
-        "content-length": "*",
-        ":status": "403",
-        "server": "envoy",
-        "content-type":"text/plain"
-    },
-    "response.size": "*",
-    "response.time": "*",
-    "response.total_size": "*",
-    "source.namespace": "XYZ11",
-    "source.uid": "POD11",
-    "target.name": "target-name",
-    "target.namespace": "XYZ222",
-    "target.uid": "POD222",
-    "target.user": "target-user"
+  "connection.mtls": false,
+  "context.protocol": "http",
+  "context.proxy_error_code": "*",
+  "mesh1.ip": "*",
+  "mesh2.ip": "*",
+  "mesh3.ip": "*",
+  "rbac.permissive.effective_policy_id": "details-reviews-viewer",
+  "rbac.permissive.response_code": "200",
+  "request.headers": {
+      ":method": "GET",
+      ":path": "/echo",
+      ":authority": "*",
+      "x-forwarded-proto": "http",
+      "x-request-id": "*",
+      "user-agent": "Go-http-client/1.1",
+      "content-length": "*",
+      "accept-encoding":"gzip"
+  },
+  "request.host": "*",
+  "request.method": "GET",
+  "request.path": "/echo",
+  "request.scheme": "http",
+  "request.size": 0,
+  "request.time": "*",
+  "request.total_size": 0,
+  "request.url_path": "/echo",
+  "request.useragent": "Go-http-client/1.1",
+  "response.code": 403,
+  "response.duration": "*",
+  "response.headers": {
+      "date": "*",
+      "content-length": "*",
+      ":status": "403",
+      "server": "envoy",
+      "content-type":"text/plain"
+  },
+  "response.size": "*",
+  "response.time": "*",
+  "response.total_size": "*",
+  "source.namespace": "XYZ11",
+  "source.uid": "POD11",
+  "target.name": "target-name",
+  "target.namespace": "XYZ222",
+  "target.uid": "POD222",
+  "target.user": "target-user"
 }
 `
 
@@ -92,6 +92,9 @@ const rbacPolicyPermissiveFilter = `
           - any: true
 `
 
+// Test senario that setting permissive mode on policy level.
+// Response code is 403 since Rbac is turned on and denied by default.
+// Permissive resp code is 200 because of shadow rules is set.
 func TestRbacPolicyPermissive(t *testing.T) {
 	s := env.NewTestSetup(env.RbacPolicyPermissiveTest, t)
 	s.SetFiltersBeforeMixer(rbacPolicyPermissiveFilter)
