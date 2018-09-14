@@ -245,6 +245,15 @@ resources:
     converter:   "legacy-mixer-resource"
     protoPackage: "istio.io/istio/galley/pkg/kube/converter/legacy"
 
+  - kind:        "redisquota"
+    singular:    "redisquota"
+    plural:      "redisquotas"
+    group:       "config.istio.io"
+    version:     "v1alpha2"
+    proto:       "istio.mcp.v1alpha1.extensions.LegacyMixerResource"
+    converter:   "legacy-mixer-resource"
+    protoPackage: "istio.io/istio/galley/pkg/kube/converter/legacy"
+
   - kind:        "servicecontrol"
     singular:    "servicecontrol"
     plural:      "servicecontrols"
