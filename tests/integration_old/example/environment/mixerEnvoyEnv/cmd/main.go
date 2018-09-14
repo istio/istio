@@ -18,8 +18,8 @@ import (
 	"flag"
 	"fmt"
 
-	env "istio.io/istio/tests/integration/example/environment/mixerEnvoyEnv"
-	"istio.io/istio/tests/integration/framework"
+	env "istio.io/istio/tests/integration_old/example/environment/mixerEnvoyEnv"
+	"istio.io/istio/tests/integration_old/framework"
 )
 
 func main() {
