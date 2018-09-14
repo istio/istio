@@ -87,8 +87,7 @@ type Controller struct {
 
 	// Env is set by server to point to the environment, to allow the controller to
 	// use env data and push status. It may be null in tests.
-	Env      *model.Environment
-	StopChan chan struct{}
+	Env *model.Environment
 }
 
 type cacheHandler struct {
