@@ -133,7 +133,13 @@ func (mixerplugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.Mut
 // OnOutboundCluster implements the Plugin interface method.
 func (mixerplugin) OnOutboundCluster(env *model.Environment, push *model.PushContext,
 	service *model.Service, servicePort *model.Port, cluster *xdsapi.Cluster) {
-	// do nothing
+	withoutPort := strings.Split(env.Mesh.MixerReportServer, ":")
+	if strings.Contains(cluster.Name, withoutPort[0]) {
+		cluster.Type = xdsapi.Cluster_STRICT_DNS
+		addr := util.BuildAddress(service.Address, uint32(servicePort.Port))
+		cluster.Hosts = []*core.Address{&addr}
+		cluster.EdsClusterConfig = nil
+	}
 }
 
 // OnInboundCluster implements the Plugin interface method.
