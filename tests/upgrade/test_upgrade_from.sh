@@ -81,11 +81,13 @@ installTest() {
    sleep 10
 }
 
+# Sends traffic from internal pod (Fortio load command) to Fortio echosrv.
 sendInternalRequestTraffic() {
    writeMsg "Sending internal traffic"
    kubectl apply -n ${TEST_NAMESPACE} -f ${ISTIO_ROOT}/tests/upgrade/templates/fortio-cli.yaml
 }
 
+# Sends external traffic from machine test is running on to Fortio echosrv through external IP and ingress gateway LB.
 sendExternalRequestTraffic() {
     writeMsg "Sending external traffic"
     fortio load -c 32 -t 300s -qps 10 -H "Host:echosrv.test.svc.cluster.local" http://${1}/echo?size=200 &> ${LOCAL_FORTIO_LOG}
@@ -189,16 +191,19 @@ waitForPodsReady istio-system
 
 installTest
 waitForPodsReady ${TEST_NAMESPACE}
-sleep 20
 checkEchosrv
 
 sendInternalRequestTraffic
 sendExternalRequestTraffic ${INGRESS_ADDR}
+# Let traffic clients establish all connections. There's some small startup delay, this covers it.
 sleep 20
 installIstioSystemAtVersionHelmTemplate ${HUB} ${TAG}
 waitForPodsReady istio-system
+# In principle it should be possible to restart data plane immediately, but being conservative here.
 sleep 60
 restartDataPlane echosrv-deployment-v1
+# No way to tell when rolling restart completes because it's async. Make sure this is long enough to cover all the
+# pods in the deployment at the minReadySeconds setting (should be > num pods x minReadySeconds + few extra seconds).
 sleep 100
 
 cli_pod_name=$(kubectl -n ${TEST_NAMESPACE} get pods -lapp=cli-fortio -o jsonpath='{.items[0].metadata.name}')
