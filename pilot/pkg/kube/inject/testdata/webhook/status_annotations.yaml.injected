@@ -9,9 +9,6 @@ spec:
   template:
     metadata:
       annotations:
-        prometheus.io/path: /stats/prometheus
-        prometheus.io/port: "15090"
-        prometheus.io/scrape: "true"
         readiness.status.sidecar.istio.io/applicationPorts: 1,2,3
         readiness.status.sidecar.istio.io/failureThreshold: "300"
         readiness.status.sidecar.istio.io/initialDelaySeconds: "100"
@@ -58,6 +55,10 @@ spec:
         - "123"
         - --applicationPorts
         - 1,2,3
+        ports:
+        - name: http-envoy-prom
+          containerPort: 15090
+          protocol: TCP
         env:
         - name: POD_NAME
           valueFrom:
