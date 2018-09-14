@@ -4,7 +4,7 @@ Please follow the installation instructions from [istio.io](https://istio.io/doc
 
 ## Directory structure
 
-If you prefer to install Istio from checking out the [istio/istio](https://github.com/istio/istio) repostiory, you can run `updateVersion.sh` in the parent directory to generate the required installation files.  This directory contains files needed for installing Istio on a Kubernetes cluster:
+If you prefer to install Istio from checking out the [istio/istio](https://github.com/istio/istio) repository, you can run `updateVersion.sh` in the parent directory to generate the required installation files.  This directory contains files needed for installing Istio on a Kubernetes cluster:
 
 * istio.yaml - use this generated file for installation without authentication enabled
 * istio-auth.yaml - use this generated file for installation with authentication enabled

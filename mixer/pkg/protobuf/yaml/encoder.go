@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math"
+	"sort"
 	"strings"
 
 	"github.com/gogo/protobuf/proto"
@@ -74,7 +75,14 @@ func (e *Encoder) coreEncodeBytes(buf *proto.Buffer, data map[string]interface{}
 	if message == nil {
 		return fmt.Errorf("cannot resolve message '%s'", msgName)
 	}
-	for k, v := range data {
+	// Sort entries so the result is deterministic.
+	keys := make([]string, 0, len(data))
+	for k := range data {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		v := data[k]
 		fd := FindFieldByName(message, k)
 		if fd == nil {
 			if skipUnknown {
@@ -816,8 +824,16 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 			//	}
 			//	repeated MapEntry map = N;
 
+			// Sort entries so that encoded bytes are deterministic
+			keys := make([]string, 0, len(v))
+			for k := range v {
+				keys = append(keys, k)
+			}
+			sort.Strings(keys)
+
 			// So, we can create a map[key_type]value_type and use it to encode the MapEntry, repeatedly.
-			for key, val := range v {
+			for _, key := range keys {
+				val := v[key]
 				tmpMapEntry := make(map[string]interface{}, 2)
 				tmpMapEntry["key"] = key
 				tmpMapEntry["value"] = val

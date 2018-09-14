@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Binary get_dep_licenses outputs aggrerate license information for all transitive Istio dependencies.
+// Binary get_dep_licenses outputs aggregate license information for all transitive Istio dependencies.
 // This tool requires https://github.com/benbalter/licensee to work.
 // Usage:
 //   1) Generate complete dump of every license, suitable for including in release build/binary image:

@@ -43,9 +43,7 @@ import (
 )
 
 const (
-	fileAccessLog = "envoy.file_access_log"
-
-	envoyHTTPConnectionManager = "envoy.http_connection_manager"
+	envoyListenerTLSInspector = "envoy.listener.tls_inspector"
 
 	// RDSHttpProxy is the special name for HTTP PROXY route
 	RDSHttpProxy = "http_proxy"
@@ -130,7 +128,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 			l := util.GetByAddress(listeners, m.Address.String())
 			if l != nil {
 				log.Warnf("Omitting listener for management address %s (%s) due to collision with service listener %s (%s)",
-					m.Name, m.Address, l.Name, l.Address)
+					m.Name, m.Address.String(), l.Name, l.Address.String())
 				continue
 			}
 			listeners = append(listeners, m)
@@ -716,7 +714,7 @@ func buildSidecarInboundMgmtListeners(managementPorts model.PortList, management
 				}},
 			}
 			l := buildListener(listenerOpts)
-			// TODO: should we call plugins for the admin port listeners too? We do everywhere else we contruct listeners.
+			// TODO: should we call plugins for the admin port listeners too? We do everywhere else we construct listeners.
 			if err := marshalFilters(l, listenerOpts, []plugin.FilterChain{{}}); err != nil {
 				log.Warna("buildSidecarInboundMgmtListeners ", err.Error())
 			} else {
@@ -823,7 +821,7 @@ func buildHTTPConnectionManager(env *model.Environment, node *model.Proxy, httpO
 		connectionManager.AccessLog = []*accesslog.AccessLog{
 			{
 				Config: util.MessageToStruct(fl),
-				Name:   fileAccessLog,
+				Name:   xdsutil.FileAccessLog,
 			},
 		}
 	}
@@ -858,6 +856,19 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 
 	// TODO(incfly): consider changing this to map to handle duplicated listener filters from different chains?
 	var listenerFilters []listener.ListenerFilter
+
+	// add a TLS inspector if we need to detect ServerName or ALPN
+	needTLSInspector := false
+	for _, chain := range opts.filterChainOpts {
+		needsALPN := chain.tlsContext != nil && chain.tlsContext.CommonTlsContext != nil && len(chain.tlsContext.CommonTlsContext.AlpnProtocols) > 0
+		if len(chain.sniHosts) > 0 || needsALPN {
+			needTLSInspector = true
+			break
+		}
+	}
+	if needTLSInspector {
+		listenerFilters = append(listenerFilters, listener.ListenerFilter{Name: envoyListenerTLSInspector})
+	}
 
 	for _, chain := range opts.filterChainOpts {
 		listenerFilters = append(listenerFilters, chain.listenerFilters...)
@@ -950,7 +961,7 @@ func marshalFilters(l *xdsapi.Listener, opts buildListenerOpts, chains []plugin.
 			opt.httpOpts.statPrefix = l.Name
 			connectionManager := buildHTTPConnectionManager(opts.env, opts.proxy, opt.httpOpts, chain.HTTP)
 			l.FilterChains[i].Filters = append(l.FilterChains[i].Filters, listener.Filter{
-				Name:   envoyHTTPConnectionManager,
+				Name:   xdsutil.HTTPConnectionManager,
 				Config: util.MessageToStruct(connectionManager),
 			})
 			log.Debugf("attached HTTP filter with %d http_filter options to listener %q filter chain %d", 1+len(chain.HTTP), l.Name, i)

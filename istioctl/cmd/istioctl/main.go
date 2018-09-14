@@ -143,26 +143,17 @@ var (
 		Short:             "Istio control interface.",
 		SilenceUsage:      true,
 		DisableAutoGenTag: true,
-		Long: `
-Istio configuration command line utility.
-
-Create, list, modify, and delete configuration resources in the Istio
-system.
-
-Available routing and traffic management configuration types:
-
-	[virtualservice gateway destinationrule serviceentry httpapispec httpapispecbinding quotaspec quotaspecbinding servicerole servicerolebinding policy]
-
-See https://istio.io/docs/reference/ for an overview of Istio routing.
-
+		Long: `Istio configuration command line utility for service operators to
+debug and diagnose their Istio mesh.
 `,
 		PersistentPreRunE: istioPersistentPreRunE,
 	}
 
 	postCmd = &cobra.Command{
-		Use:     "create",
-		Short:   "Create policies and rules",
-		Example: "istioctl create -f example-routing.yaml",
+		Use:        "create",
+		Deprecated: "Use `kubectl create` instead (see https://kubernetes.io/docs/tasks/tools/install-kubectl)",
+		Short:      "Create policies and rules",
+		Example:    "istioctl create -f example-routing.yaml",
 		RunE: func(c *cobra.Command, args []string) error {
 			if len(args) != 0 {
 				c.Println(c.UsageString())
@@ -230,9 +221,10 @@ See https://istio.io/docs/reference/ for an overview of Istio routing.
 	}
 
 	putCmd = &cobra.Command{
-		Use:     "replace",
-		Short:   "Replace existing policies and rules",
-		Example: "istioctl replace -f example-routing.yaml",
+		Use:        "replace",
+		Deprecated: "Use `kubectl apply` instead (see https://kubernetes.io/docs/tasks/tools/install-kubectl)",
+		Short:      "Replace existing policies and rules",
+		Example:    "istioctl replace -f example-routing.yaml",
 		RunE: func(c *cobra.Command, args []string) error {
 			if len(args) != 0 {
 				c.Println(c.UsageString())
@@ -256,8 +248,8 @@ See https://istio.io/docs/reference/ for an overview of Istio routing.
 				}
 				// fill up revision
 				if config.ResourceVersion == "" {
-					current, exists := configClient.Get(config.Type, config.Name, config.Namespace)
-					if exists {
+					current := configClient.Get(config.Type, config.Name, config.Namespace)
+					if current != nil {
 						config.ResourceVersion = current.ResourceVersion
 					}
 				}
@@ -323,8 +315,9 @@ See https://istio.io/docs/reference/ for an overview of Istio routing.
 	}
 
 	getCmd = &cobra.Command{
-		Use:   "get <type> [<name>]",
-		Short: "Retrieve policies and rules",
+		Use:        "get <type> [<name>]",
+		Deprecated: "Use `kubectl get` instead (see https://kubernetes.io/docs/tasks/tools/install-kubectl)",
+		Short:      "Retrieve policies and rules",
 		Example: `# List all virtual services
 istioctl get virtualservices
 
@@ -372,8 +365,8 @@ istioctl get virtualservice bookinfo
 			var errs error
 			var configs []model.Config
 			if getByName {
-				config, exists := configClient.Get(typs[0].Type, args[1], ns)
-				if exists {
+				config := configClient.Get(typs[0].Type, args[1], ns)
+				if config != nil {
 					configs = append(configs, *config)
 				}
 			} else {
@@ -413,8 +406,9 @@ istioctl get virtualservice bookinfo
 	}
 
 	deleteCmd = &cobra.Command{
-		Use:   "delete <type> <name> [<name2> ... <nameN>]",
-		Short: "Delete policies or rules",
+		Use:        "delete <type> <name> [<name2> ... <nameN>]",
+		Deprecated: "Use `kubectl delete` instead (see https://kubernetes.io/docs/tasks/tools/install-kubectl)",
+		Short:      "Delete policies or rules",
 		Example: `# Delete a rule using the definition in example-routing.yaml.
 istioctl delete -f example-routing.yaml
 
@@ -515,7 +509,13 @@ istioctl delete virtualservice bookinfo
 	}
 
 	contextCmd = &cobra.Command{
-		Use:   "context-create --api-server http://<ip>:<port>",
+		Use: "context-create --api-server http://<ip>:<port>",
+		Deprecated: `Use kubectl instead (see https://kubernetes.io/docs/tasks/tools/install-kubectl), e.g.
+
+	$ kubectl config set-context istio --cluster=istio
+	$ kubectl config set-cluster istio --server=http://localhost:8080
+	$ kubectl config use-context istio
+`,
 		Short: "Create a kubeconfig file suitable for use with istioctl in a non kubernetes environment",
 		Example: `# Create a config file for the api server.
 istioctl context-create --api-server http://127.0.0.1:8080
@@ -632,7 +632,7 @@ func init() {
 	rootCmd.AddCommand(getCmd)
 	rootCmd.AddCommand(deleteCmd)
 	rootCmd.AddCommand(contextCmd)
-	rootCmd.AddCommand(version.CobraCommand())
+	rootCmd.AddCommand(version.CobraCommandWithOptions(version.CobraOptions{GetRemoteVersion: getRemoteInfo}))
 	rootCmd.AddCommand(gendeployment.Command(&istioNamespace))
 	rootCmd.AddCommand(experimentalCmd)
 
@@ -641,6 +641,15 @@ func init() {
 		Section: "istioctl CLI",
 		Manual:  "Istio Control",
 	}))
+}
+
+func getRemoteInfo() (*version.MeshInfo, error) {
+	kubeClient, err := clientExecFactory(kubeconfig, configContext)
+	if err != nil {
+		return nil, err
+	}
+
+	return kubeClient.GetIstioVersions(istioNamespace)
 }
 
 func main() {

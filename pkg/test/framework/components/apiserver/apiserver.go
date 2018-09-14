@@ -61,5 +61,6 @@ var _ environment.DeployedAPIServer = &deployedAPIServer{}
 
 // ApplyYaml applies the given Yaml context against the target API Server.
 func (a *deployedAPIServer) ApplyYaml(yml string) error {
-	return kube.ApplyContents(a.ctx.Settings().KubeConfig, a.env.TestNamespace, yml)
+	s := a.env.KubeSettings()
+	return kube.ApplyContents(s.KubeConfig, s.TestNamespace, yml)
 }

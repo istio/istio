@@ -29,9 +29,19 @@ function check_licenses() {
     echo 'licenses OK'
 }
 
+function check_spelling() {
+    echo 'Checking spelling'
+    bin/check_spelling.sh
+    echo 'spelling OK'
+}
+
 function install_gometalinter() {
     echo 'Installing gometalinter ....'
     go get -u gopkg.in/alecthomas/gometalinter.v2
+    if [[ -d "${ISTIO_BIN}/gometalinter.v2" ]];then
+        echo "download gopkg.in/alecthomas/gometalinter.v2 failed"
+        exit 1
+    fi
     gometalinter=$(command -v gometalinter.v2 2> /dev/null || echo "${ISTIO_BIN}/gometalinter.v2")
     $gometalinter --install
     echo 'Gometalinter installed successfully ....'
@@ -72,6 +82,7 @@ function check_grafana_dashboards() {
 ensure_pilot_types
 format
 check_licenses
+check_spelling
 install_gometalinter
 run_gometalinter
 run_helm_lint

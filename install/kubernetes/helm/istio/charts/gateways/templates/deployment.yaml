@@ -19,9 +19,15 @@ spec:
         {{- range $key, $val := $spec.labels }}
         {{ $key }}: {{ $val }}
         {{- end }}
+        {{- template "common_template_labels" $ }}
       annotations:
         sidecar.istio.io/inject: "false"
         scheduler.alpha.kubernetes.io/critical-pod: ""
+{{ if ne $.Values.global.proxy.stats.prometheusPort 0. }}
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "{{ $.Values.global.proxy.stats.prometheusPort }}"
+        prometheus.io/path: /stats/prometheus
+{{ end}}
     spec:
       serviceAccountName: {{ $key }}-service-account
 {{- if $.Values.global.priorityClassName }}

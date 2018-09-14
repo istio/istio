@@ -21,9 +21,12 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
 
 	authn "istio.io/api/authentication/v1alpha1"
+	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
+	networking "istio.io/api/networking/v1alpha3"
 	rbacproto "istio.io/api/rbac/v1alpha1"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
@@ -821,5 +824,178 @@ func TestMatchesDestHost(t *testing.T) {
 				t.Fatalf("want: %v, got: %v", tst.ans, ans)
 			}
 		})
+	}
+}
+
+func TestIstioConfigStore_ServiceEntries(t *testing.T) {
+	ns := "ns1"
+	l := &fakeStore{
+		cfg: map[string][]model.Config{
+			model.ServiceEntry.Type: {
+				{
+					ConfigMeta: model.ConfigMeta{
+						Name:      "request-count-1",
+						Namespace: ns,
+					},
+					Spec: &networking.ServiceEntry{
+						Hosts: []string{"*.googleapis.com"},
+						Ports: []*networking.Port{
+							{
+								Name:     "https",
+								Number:   443,
+								Protocol: "HTTP",
+							},
+						},
+					},
+				},
+			},
+			model.QuotaSpec.Type: {
+				{
+					ConfigMeta: model.ConfigMeta{
+						Name:      "request-count-2",
+						Namespace: ns,
+					},
+					Spec: &mccpb.QuotaSpec{
+						Rules: []*mccpb.QuotaRule{
+							{
+								Quotas: []*mccpb.Quota{
+									{
+										Quota:  "requestcount",
+										Charge: 100,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	ii := model.MakeIstioStore(l)
+	cfgs := ii.ServiceEntries()
+
+	if len(cfgs) != 1 {
+		t.Fatalf("did not find 1 matched ServiceEntry, \n%v", cfgs)
+	}
+}
+
+func TestIstioConfigStore_EnvoyFilter(t *testing.T) {
+	ns := "ns1"
+	workloadLabels := model.LabelsCollection{}
+
+	l := &fakeStore{
+		cfg: map[string][]model.Config{
+			model.EnvoyFilter.Type: {
+				{
+					ConfigMeta: model.ConfigMeta{
+						Name:      "request-count",
+						Namespace: ns,
+					},
+					Spec: &networking.EnvoyFilter{
+						Filters: []*networking.EnvoyFilter_Filter{
+							{
+								InsertPosition: &networking.EnvoyFilter_InsertPosition{
+									Index: networking.EnvoyFilter_InsertPosition_FIRST,
+								},
+								FilterType:   networking.EnvoyFilter_Filter_NETWORK,
+								FilterName:   "envoy.foo",
+								FilterConfig: &types.Struct{},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	ii := model.MakeIstioStore(l)
+	mergedFilterConfig := &networking.EnvoyFilter{
+		WorkloadLabels: make(map[string]string),
+		Filters: []*networking.EnvoyFilter_Filter{
+			{
+				InsertPosition: &networking.EnvoyFilter_InsertPosition{
+					Index: networking.EnvoyFilter_InsertPosition_FIRST,
+				},
+				FilterType:   networking.EnvoyFilter_Filter_NETWORK,
+				FilterName:   "envoy.foo",
+				FilterConfig: &types.Struct{},
+			},
+		},
+	}
+	expectedConfig := &model.Config{Spec: mergedFilterConfig}
+	cfgs := ii.EnvoyFilter(workloadLabels)
+
+	if !reflect.DeepEqual(*expectedConfig, *cfgs) {
+		t.Errorf("Got different Config, Excepted:\n%v\n, Got: \n%v\n", expectedConfig, cfgs)
+	}
+}
+
+func TestIstioConfigStore_HTTPAPISpecByDestination(t *testing.T) {
+	ns := "ns1"
+	l := &fakeStore{
+		cfg: map[string][]model.Config{
+			model.HTTPAPISpec.Type: {
+				{
+					ConfigMeta: model.ConfigMeta{
+						Name:      "request-count",
+						Namespace: ns,
+					},
+					Spec: &mccpb.HTTPAPISpec{
+						Attributes: &mpb.Attributes{
+							Attributes: map[string]*mpb.Attributes_AttributeValue{
+								"api.service": {Value: &mpb.Attributes_AttributeValue_StringValue{"my-service"}},
+							},
+						},
+						Patterns: []*mccpb.HTTPAPISpecPattern{
+							{
+								Attributes: &mpb.Attributes{
+									Attributes: map[string]*mpb.Attributes_AttributeValue{
+										"api.service": {Value: &mpb.Attributes_AttributeValue_StringValue{"my-service"}},
+									},
+								},
+								HttpMethod: "POST",
+								Pattern: &mccpb.HTTPAPISpecPattern_UriTemplate{
+									UriTemplate: "/pet/{id}",
+								},
+							},
+						},
+						ApiKeys: []*mccpb.APIKey{{Key: &mccpb.APIKey_Query{"api_key"}}},
+					},
+				},
+			},
+			model.HTTPAPISpecBinding.Type: {
+				{
+					ConfigMeta: model.ConfigMeta{
+						Namespace: ns,
+						Domain:    "cluster.local",
+					},
+					Spec: &mccpb.HTTPAPISpecBinding{
+						Services: []*mccpb.IstioService{
+							{
+								Name:      "foo",
+								Namespace: ns,
+							},
+						},
+						ApiSpecs: []*mccpb.HTTPAPISpecReference{
+							{
+								Name: "request-count",
+							},
+							{
+								Name: "does-not-exist",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	ii := model.MakeIstioStore(l)
+	cfgs := ii.HTTPAPISpecByDestination(&model.ServiceInstance{
+		Service: &model.Service{
+			Hostname: model.Hostname("foo." + ns + ".svc.cluster.local"),
+		},
+	})
+
+	if len(cfgs) != 1 {
+		t.Fatalf("did not find 1 matched HTTPAPISpec, \n%v", cfgs)
 	}
 }

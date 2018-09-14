@@ -103,13 +103,12 @@ var (
 				if registry == serviceregistry.KubernetesRegistry {
 					role.IPAddress = os.Getenv("INSTANCE_IP")
 				} else {
-					ipAddr := "127.0.0.1"
-					if ok := proxy.WaitForPrivateNetwork(); ok {
-						ipAddr = proxy.GetPrivateIP().String()
+					if ipAddr, ok := proxy.GetPrivateIP(context.Background()); ok {
 						log.Infof("Obtained private IP %v", ipAddr)
+						role.IPAddress = ipAddr.String()
+					} else {
+						role.IPAddress = "127.0.0.1"
 					}
-
-					role.IPAddress = ipAddr
 				}
 			}
 			if len(role.ID) == 0 {
@@ -253,6 +252,7 @@ var (
 			}
 
 			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
 
 			// If a status port was provided, start handling status probes.
 			if statusPort > 0 {
@@ -279,7 +279,6 @@ var (
 			stop := make(chan struct{})
 			cmd.WaitSignal(stop)
 			<-stop
-			cancel()
 			return nil
 		},
 	}
@@ -333,8 +332,6 @@ func init() {
 		"Path to the proxy binary")
 	proxyCmd.PersistentFlags().StringVar(&serviceCluster, "serviceCluster", values.ServiceCluster,
 		"Service cluster")
-	proxyCmd.PersistentFlags().StringVar(&availabilityZone, "availabilityZone", values.AvailabilityZone,
-		"Availability zone")
 	proxyCmd.PersistentFlags().DurationVar(&drainDuration, "drainDuration",
 		timeDuration(values.DrainDuration),
 		"The time in seconds that Envoy will drain connections during a hot restart")
@@ -343,9 +340,6 @@ func init() {
 		"The time in seconds that Envoy will wait before shutting down the parent process during a hot restart")
 	proxyCmd.PersistentFlags().StringVar(&discoveryAddress, "discoveryAddress", values.DiscoveryAddress,
 		"Address of the discovery service exposing xDS (e.g. istio-pilot:8080)")
-	proxyCmd.PersistentFlags().DurationVar(&discoveryRefreshDelay, "discoveryRefreshDelay",
-		timeDuration(values.DiscoveryRefreshDelay),
-		"Polling interval for service discovery (used by EDS, CDS, LDS, but not RDS)")
 	proxyCmd.PersistentFlags().StringVar(&zipkinAddress, "zipkinAddress", values.ZipkinAddress,
 		"Address of the Zipkin service (e.g. zipkin:9411)")
 	proxyCmd.PersistentFlags().DurationVar(&connectTimeout, "connectTimeout",
@@ -365,12 +359,22 @@ func init() {
 			"trace", "debug", "info", "warn", "err", "critical", "off"))
 	proxyCmd.PersistentFlags().IntVar(&concurrency, "concurrency", int(values.Concurrency),
 		"number of worker threads to run")
-	proxyCmd.PersistentFlags().BoolVar(&bootstrapv2, "bootstrapv2", true,
-		"Use bootstrap v2 - DEPRECATED")
 	proxyCmd.PersistentFlags().StringVar(&templateFile, "templateFile", "",
 		"Go template bootstrap config")
 	proxyCmd.PersistentFlags().BoolVar(&disableInternalTelemetry, "disableInternalTelemetry", false,
 		"Disable internal telemetry")
+
+	// Deprecated flags
+	proxyCmd.PersistentFlags().StringVar(&availabilityZone, "availabilityZone", values.AvailabilityZone,
+		"Availability zone")
+	proxyCmd.PersistentFlags().MarkDeprecated("availabilityZone", "")
+	proxyCmd.PersistentFlags().DurationVar(&discoveryRefreshDelay, "discoveryRefreshDelay",
+		timeDuration(values.DiscoveryRefreshDelay),
+		"Polling interval for service discovery (used by EDS, CDS, LDS, but not RDS)")
+	proxyCmd.PersistentFlags().MarkDeprecated("discoveryRefreshDelay", "")
+	proxyCmd.PersistentFlags().BoolVar(&bootstrapv2, "bootstrapv2", true,
+		"Use bootstrap v2")
+	proxyCmd.PersistentFlags().MarkDeprecated("bootstrapv2", "The proxy will always be started with bootstrapv2")
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)

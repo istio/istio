@@ -34,7 +34,7 @@ spec:
         - --binaryPath
         - /usr/local/bin/envoy
         - --serviceCluster
-        - status
+        - status.default
         - --drainDuration
         - 2s
         - --parentShutdownDuration

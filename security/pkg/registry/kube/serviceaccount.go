@@ -75,7 +75,7 @@ func (c *ServiceAccountController) Run(stopCh chan struct{}) {
 }
 
 func getSpiffeID(sa *v1.ServiceAccount) string {
-	// borrowed from security/pkg/pki/ca/controller/secret.go:generateKeyAndCert()
+	// borrowed from security/pkg/k8s/controller/secret.go:generateKeyAndCert()
 	return fmt.Sprintf("%s://cluster.local/ns/%s/sa/%s", util.URIScheme, sa.GetNamespace(), sa.GetName())
 }
 

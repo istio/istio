@@ -23,9 +23,7 @@ import (
 
 	messagediff "gopkg.in/d4l3k/messagediff.v1"
 	appsv1 "k8s.io/api/apps/v1"
-	appsv1beta2 "k8s.io/api/apps/v1beta2"
 	"k8s.io/api/core/v1"
-	extv1beta1 "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
@@ -242,7 +240,7 @@ func TestKubegen_Generate(t *testing.T) {
 	ipDestinationOut.SetSourceWorkloadName("test-job")
 	ipDestinationOut.SetSourceWorkloadNamespace("testns")
 	ipDestinationOut.SetSourceWorkloadUid("istio://testns/workloads/test-job")
-	ipDestinationOut.SetSourceOwner("kubernetes://apis/core/v1/namespaces/testns/jobs/test-job")
+	ipDestinationOut.SetSourceOwner("kubernetes://apis/batch/v1/namespaces/testns/jobs/test-job")
 	ipDestinationOut.SetDestinationLabels(map[string]string{"app": "ipAddr"})
 	ipDestinationOut.SetDestinationNamespace("testns")
 	ipDestinationOut.SetDestinationPodName("ip-svc-pod")
@@ -393,7 +391,7 @@ var falseVar = false
 
 var k8sobjs = []runtime.Object{
 	// replicasets
-	&extv1beta1.ReplicaSet{
+	&appsv1.ReplicaSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-replicaset-with-deployment",
 			Namespace: "testns",
@@ -413,13 +411,13 @@ var k8sobjs = []runtime.Object{
 			},
 		},
 	},
-	&extv1beta1.ReplicaSet{
+	&appsv1.ReplicaSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-replicaset-without-deployment",
 			Namespace: "testns",
 		},
 	},
-	&appsv1beta2.ReplicaSet{
+	&appsv1.ReplicaSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-appsv1beta2-replicaset-with-deployment",
 			Namespace: "testns",
@@ -605,7 +603,7 @@ var k8sobjs = []runtime.Object{
 			Namespace: "testns",
 			OwnerReferences: []metav1.OwnerReference{
 				{
-					APIVersion: "core/v1",
+					APIVersion: "batch/v1",
 					Controller: &trueVar,
 					Kind:       "Job",
 					Name:       "test-job",

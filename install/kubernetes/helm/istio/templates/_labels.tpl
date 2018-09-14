@@ -4,3 +4,7 @@
     version: {{ .Chart.Version }}
     heritage: {{ .Release.Service }}
 {{- end }}
+
+{{- define "common_template_labels" }}
+        version: {{ .Chart.Version }}
+{{- end }}

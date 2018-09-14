@@ -26,30 +26,27 @@ import (
 	"github.com/envoyproxy/go-control-plane/pkg/util"
 
 	rbacproto "istio.io/api/rbac/v1alpha1"
-	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/gogo/protobuf/types"
 )
 
-func newIstioStoreWithConfigs(configs []model.Config, t *testing.T) model.IstioConfigStore {
-	store := model.MakeIstioStore(memory.Make(model.IstioConfigTypes))
-	for _, cfg := range configs {
-		_, err := store.Create(cfg)
-		if err != nil {
-			t.Fatalf("failed to add config %v to istio store: %v", cfg, err)
+func newAuthzPoliciesWithRolesAndBindings(configs ...[]model.Config) *model.AuthorizationPolicies {
+	authzPolicies := &model.AuthorizationPolicies{}
+
+	for _, config := range configs {
+		for _, cfg := range config {
+			authzPolicies.AddConfig(&cfg)
 		}
 	}
-	return store
+	return authzPolicies
 }
 
-func newRbacConfig(mode rbacproto.RbacConfig_Mode,
-	include *rbacproto.RbacConfig_Target, exclude *rbacproto.RbacConfig_Target, enforceMode rbacproto.EnforcementMode) model.Config {
-	return model.Config{
-		ConfigMeta: model.ConfigMeta{
-			Type: model.RbacConfig.Type, Name: model.DefaultRbacConfigName},
-		Spec: &rbacproto.RbacConfig{
+func newAuthzPolicyWithRbacConfig(mode rbacproto.RbacConfig_Mode, include *rbacproto.RbacConfig_Target,
+	exclude *rbacproto.RbacConfig_Target, enforceMode rbacproto.EnforcementMode) *model.AuthorizationPolicies {
+	return &model.AuthorizationPolicies{
+		RbacConfig: &rbacproto.RbacConfig{
 			Mode:            mode,
 			Inclusion:       include,
 			Exclusion:       exclude,
@@ -63,15 +60,15 @@ func TestIsRbacEnabled(t *testing.T) {
 		Services:   []string{"review.default.svc", "product.default.svc"},
 		Namespaces: []string{"special"},
 	}
-	cfg1 := newRbacConfig(rbacproto.RbacConfig_ON, nil, nil, rbacproto.EnforcementMode_ENFORCED)
-	cfg2 := newRbacConfig(rbacproto.RbacConfig_OFF, nil, nil, rbacproto.EnforcementMode_ENFORCED)
-	cfg3 := newRbacConfig(rbacproto.RbacConfig_ON_WITH_INCLUSION, target, nil, rbacproto.EnforcementMode_ENFORCED)
-	cfg4 := newRbacConfig(rbacproto.RbacConfig_ON_WITH_EXCLUSION, nil, target, rbacproto.EnforcementMode_ENFORCED)
-	cfg5 := newRbacConfig(rbacproto.RbacConfig_ON, nil, nil, rbacproto.EnforcementMode_PERMISSIVE)
+	cfg1 := newAuthzPolicyWithRbacConfig(rbacproto.RbacConfig_ON, nil, nil, rbacproto.EnforcementMode_ENFORCED)
+	cfg2 := newAuthzPolicyWithRbacConfig(rbacproto.RbacConfig_OFF, nil, nil, rbacproto.EnforcementMode_ENFORCED)
+	cfg3 := newAuthzPolicyWithRbacConfig(rbacproto.RbacConfig_ON_WITH_INCLUSION, target, nil, rbacproto.EnforcementMode_ENFORCED)
+	cfg4 := newAuthzPolicyWithRbacConfig(rbacproto.RbacConfig_ON_WITH_EXCLUSION, nil, target, rbacproto.EnforcementMode_ENFORCED)
+	cfg5 := newAuthzPolicyWithRbacConfig(rbacproto.RbacConfig_ON, nil, nil, rbacproto.EnforcementMode_PERMISSIVE)
 
 	testCases := []struct {
 		Name               string
-		Store              model.IstioConfigStore
+		AuthzPolicies      *model.AuthorizationPolicies
 		Service            string
 		Namespace          string
 		ExpectedEnabled    bool
@@ -79,49 +76,49 @@ func TestIsRbacEnabled(t *testing.T) {
 	}{
 		{
 			Name:            "rbac plugin enabled",
-			Store:           newIstioStoreWithConfigs([]model.Config{cfg1}, t),
+			AuthzPolicies:   cfg1,
 			ExpectedEnabled: true,
 		},
 		{
-			Name:  "rbac plugin disabled",
-			Store: newIstioStoreWithConfigs([]model.Config{cfg2}, t),
+			Name:          "rbac plugin disabled",
+			AuthzPolicies: cfg2,
 		},
 		{
 			Name:            "rbac plugin enabled by inclusion.service",
-			Store:           newIstioStoreWithConfigs([]model.Config{cfg3}, t),
+			AuthzPolicies:   cfg3,
 			Service:         "product.default.svc",
 			Namespace:       "default",
 			ExpectedEnabled: true,
 		},
 		{
 			Name:            "rbac plugin enabled by inclusion.namespace",
-			Store:           newIstioStoreWithConfigs([]model.Config{cfg3}, t),
+			AuthzPolicies:   cfg3,
 			Service:         "other.special.svc",
 			Namespace:       "special",
 			ExpectedEnabled: true,
 		},
 		{
-			Name:      "rbac plugin disabled by exclusion.service",
-			Store:     newIstioStoreWithConfigs([]model.Config{cfg4}, t),
-			Service:   "product.default.svc",
-			Namespace: "default",
+			Name:          "rbac plugin disabled by exclusion.service",
+			AuthzPolicies: cfg4,
+			Service:       "product.default.svc",
+			Namespace:     "default",
 		},
 		{
-			Name:      "rbac plugin disabled by exclusion.namespace",
-			Store:     newIstioStoreWithConfigs([]model.Config{cfg4}, t),
-			Service:   "other.special.svc",
-			Namespace: "special",
+			Name:          "rbac plugin disabled by exclusion.namespace",
+			AuthzPolicies: cfg4,
+			Service:       "other.special.svc",
+			Namespace:     "special",
 		},
 		{
 			Name:               "rbac plugin enabled with permissive",
-			Store:              newIstioStoreWithConfigs([]model.Config{cfg5}, t),
+			AuthzPolicies:      cfg5,
 			ExpectedEnabled:    true,
 			ExpectedPermissive: true,
 		},
 	}
 
 	for _, tc := range testCases {
-		gotEnabled, gotPermissive := isRbacEnabled(tc.Service, tc.Namespace, tc.Store)
+		gotEnabled, gotPermissive := isRbacEnabled(tc.Service, tc.Namespace, tc.AuthzPolicies)
 		if tc.ExpectedEnabled != gotEnabled {
 			t.Errorf("%s: expecting %v but got %v", tc.Name, tc.ExpectedEnabled, gotEnabled)
 		}
@@ -183,37 +180,40 @@ func TestBuildTCPFilter(t *testing.T) {
 		},
 	}
 
-	store := newIstioStoreWithConfigs([]model.Config{
-		roleCfg, roleCfg2, roleCfg3, bindingCfg, bindingCfg2, bindingCfg3}, t)
+	option := rbacOption{
+		authzPolicies: newAuthzPoliciesWithRolesAndBindings([]model.Config{
+			roleCfg, roleCfg2, roleCfg3, bindingCfg, bindingCfg2, bindingCfg3}),
+	}
+
 	testCases := []struct {
 		Name    string
 		Service *serviceMetadata
-		Store   model.IstioConfigStore
+		Option  rbacOption
 		Policy  string
 	}{
 		{
 			Name: "role with binding",
 			Service: &serviceMetadata{
 				name: "mongoDB1.default", attributes: map[string]string{attrDestName: "mongoDB1", attrDestNamespace: "default"}},
-			Store:  store,
+			Option: option,
 			Policy: "test-role-1",
 		},
 		{
 			Name: "no group binding for role",
 			Service: &serviceMetadata{
 				name: "mongoDB2.default", attributes: map[string]string{attrDestName: "mongoDB2", attrDestNamespace: "default"}},
-			Store: store,
+			Option: option,
 		},
 		{
 			Name: "no binding for role with HTTP method",
 			Service: &serviceMetadata{
 				name: "mongoDB3.default", attributes: map[string]string{attrDestName: "mongoDB3", attrDestNamespace: "default"}},
-			Store: store,
+			Option: option,
 		},
 	}
 
 	for _, tc := range testCases {
-		filter := buildTCPFilter(tc.Service, tc.Store, false /*global permissive mode*/)
+		filter := buildTCPFilter(tc.Service, tc.Option)
 		if fn := "envoy.filters.network.rbac"; filter.Name != fn {
 			t.Errorf("%s: expecting filter name %s, but got %s", tc.Name, fn, filter.Name)
 		}
@@ -270,37 +270,39 @@ func TestBuildHTTPFilter(t *testing.T) {
 			RoleRef:  &rbacproto.RoleRef{Kind: "ServiceRole", Name: "test-role-1"},
 		},
 	}
-	store := newIstioStoreWithConfigs([]model.Config{roleCfg, roleCfgWithoutBinding, bindingCfg}, t)
+	option := rbacOption{
+		authzPolicies: newAuthzPoliciesWithRolesAndBindings([]model.Config{roleCfg, roleCfgWithoutBinding, bindingCfg}),
+	}
+
 	testCases := []struct {
-		Name             string
-		Service          *serviceMetadata
-		Store            model.IstioConfigStore
-		Policy           string
-		globalPermissive bool
+		Name    string
+		Service *serviceMetadata
+		Option  rbacOption
+		Policy  string
 	}{
 		{
 			Name: "no matched role",
 			Service: &serviceMetadata{
 				name: "abc.xyz", attributes: map[string]string{attrDestName: "abc", attrDestNamespace: "xyz"}},
-			Store: store,
+			Option: option,
 		},
 		{
 			Name: "no matched binding",
 			Service: &serviceMetadata{
 				name: "review.default", attributes: map[string]string{attrDestName: "review", attrDestNamespace: "default"}},
-			Store: store,
+			Option: option,
 		},
 		{
 			Name: "role with binding",
 			Service: &serviceMetadata{
 				name: "product.default", attributes: map[string]string{attrDestName: "product", attrDestNamespace: "default"}},
-			Store:  store,
+			Option: option,
 			Policy: "test-role-1",
 		},
 	}
 
 	for _, tc := range testCases {
-		filter := buildHTTPFilter(tc.Service, tc.Store, tc.globalPermissive)
+		filter := buildHTTPFilter(tc.Service, tc.Option)
 		if fn := "envoy.filters.http.rbac"; filter.Name != fn {
 			t.Errorf("%s: expecting filter name %s, but got %s", tc.Name, fn, filter.Name)
 		}
@@ -764,6 +766,9 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 			"service-role-6": policy6,
 		},
 	}
+
+	authzPolicies := newAuthzPoliciesWithRolesAndBindings(roles, bindings)
+	option := rbacOption{authzPolicies: authzPolicies}
 	testCases := []struct {
 		name    string
 		service *serviceMetadata
@@ -778,7 +783,7 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 				attributes: map[string]string{"destination.name": "attr-name"},
 			},
 			rbac:   expectRbac1,
-			option: rbacOption{roles: roles, bindings: bindings},
+			option: option,
 		},
 		{
 			name: "suffix matched service",
@@ -788,7 +793,7 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 				attributes: map[string]string{"destination.name": "attr-name"},
 			},
 			rbac:   expectRbac1,
-			option: rbacOption{roles: roles, bindings: bindings},
+			option: option,
 		},
 		{
 			name: "exact matched service",
@@ -798,7 +803,7 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 				attributes: map[string]string{"destination.name": "attr-name"},
 			},
 			rbac:   expectRbac1,
-			option: rbacOption{roles: roles, bindings: bindings},
+			option: option,
 		},
 		{
 			name: "* matched service",
@@ -808,7 +813,7 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 				attributes: map[string]string{"destination.name": "attr-name"},
 			},
 			rbac:   expectRbac2,
-			option: rbacOption{roles: roles, bindings: bindings},
+			option: option,
 		},
 		{
 			name: "test group",
@@ -816,7 +821,7 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 				name: "allow-group",
 			},
 			rbac:   expectRbac3,
-			option: rbacOption{roles: roles, bindings: bindings},
+			option: option,
 		},
 		{
 			name: "tcp service without properties and constraints",
@@ -824,7 +829,7 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 				name: "mongoDB1",
 			},
 			rbac:   expectRbac4,
-			option: rbacOption{roles: roles, bindings: bindings, forTCPFilter: true},
+			option: rbacOption{authzPolicies: authzPolicies, forTCPFilter: true},
 		},
 		{
 			name: "tcp service with properties and constraints",
@@ -832,7 +837,7 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 				name: "mongoDB2",
 			},
 			rbac:   expectRbac5,
-			option: rbacOption{roles: roles, bindings: bindings, forTCPFilter: true},
+			option: rbacOption{authzPolicies: authzPolicies, forTCPFilter: true},
 		},
 		{
 			name: "empty service",
@@ -840,7 +845,7 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 				name: "service_empty",
 			},
 			rbac:   expectRbac6,
-			option: rbacOption{roles: roles, bindings: bindings},
+			option: option,
 		},
 	}
 
@@ -944,6 +949,7 @@ func TestConvertRbacRulesToFilterConfigForServiceWithBothHTTPAndTCP(t *testing.T
 		},
 	}
 
+	authzPolicies := newAuthzPoliciesWithRolesAndBindings(roles, bindings)
 	testCases := []struct {
 		name           string
 		expectPolicies map[string]struct {
@@ -962,7 +968,7 @@ func TestConvertRbacRulesToFilterConfigForServiceWithBothHTTPAndTCP(t *testing.T
 				"service-role-2": {permissionCount: 2, principalCount: 2},
 				"service-role-3": {permissionCount: 1, principalCount: 2},
 			},
-			option: rbacOption{roles: roles, bindings: bindings},
+			option: rbacOption{authzPolicies: authzPolicies},
 		},
 		{
 			name: "tcp",
@@ -973,7 +979,7 @@ func TestConvertRbacRulesToFilterConfigForServiceWithBothHTTPAndTCP(t *testing.T
 				"service-role-1": {permissionCount: 2, principalCount: 1},
 				"service-role-2": {permissionCount: 1, principalCount: 2},
 			},
-			option: rbacOption{roles: roles, bindings: bindings, forTCPFilter: true},
+			option: rbacOption{authzPolicies: authzPolicies, forTCPFilter: true},
 		},
 	}
 
@@ -1093,40 +1099,28 @@ func TestConvertRbacRulesToFilterConfigPermissive(t *testing.T) {
 		expectConfig *http_config.RBAC
 	}{
 		{
-			name:    "exact matched service",
-			service: &serviceMetadata{name: "service"},
-			option: rbacOption{
-				roles:    roles,
-				bindings: bindings,
-			},
+			name:         "exact matched service",
+			service:      &serviceMetadata{name: "service"},
+			option:       rbacOption{authzPolicies: newAuthzPoliciesWithRolesAndBindings(roles, bindings)},
 			expectConfig: rbacConfig,
 		},
 		{
-			name:    "empty roles",
-			service: &serviceMetadata{name: "service"},
-			option: rbacOption{
-				roles:    []model.Config{},
-				bindings: bindings,
-			},
+			name:         "empty roles",
+			service:      &serviceMetadata{name: "service"},
+			option:       rbacOption{authzPolicies: newAuthzPoliciesWithRolesAndBindings(bindings)},
 			expectConfig: emptyConfig,
 		},
 		{
-			name:    "empty bindings",
-			service: &serviceMetadata{name: "service"},
-			option: rbacOption{
-				roles:    roles,
-				bindings: []model.Config{},
-			},
+			name:         "empty bindings",
+			service:      &serviceMetadata{name: "service"},
+			option:       rbacOption{authzPolicies: newAuthzPoliciesWithRolesAndBindings(roles)},
 			expectConfig: emptyConfig,
 		},
 		{
 			name:    "global permissive",
 			service: &serviceMetadata{name: "service"},
 			option: rbacOption{
-				roles:                roles,
-				bindings:             bindings,
-				globalPermissiveMode: true,
-			},
+				authzPolicies: newAuthzPoliciesWithRolesAndBindings(roles, bindings), globalPermissiveMode: true},
 			expectConfig: globalPermissiveConfig,
 		},
 	}
@@ -1149,18 +1143,22 @@ func TestCreateServiceMetadata(t *testing.T) {
 			attrDestUser:      "service-account",
 		},
 	}
-	actual := createServiceMetadata(
-		&model.ServiceAttributes{Name: "svc-name", Namespace: "test-ns"},
-		&model.ServiceInstance{
-			Service: &model.Service{
-				Hostname: model.Hostname("svc-name.test-ns"),
-			},
-			Labels:         model.Labels{"version": "v1"},
-			ServiceAccount: "spiffe://xyz.com/sa/service-account/ns/test-ns",
-		})
+	serviceInstance := &model.ServiceInstance{
+		Service: &model.Service{
+			Hostname: model.Hostname("svc-name.test-ns"),
+		},
+		Labels:         model.Labels{"version": "v1"},
+		ServiceAccount: "spiffe://xyz.com/sa/service-account/ns/test-ns",
+	}
+	actual := createServiceMetadata(&model.ServiceAttributes{Name: "svc-name", Namespace: "test-ns"}, serviceInstance)
 
 	if !reflect.DeepEqual(*actual, *expect) {
 		t.Errorf("expecting %v, but got %v", *expect, *actual)
+	}
+
+	actual = createServiceMetadata(&model.ServiceAttributes{Name: "svc-name", Namespace: ""}, serviceInstance)
+	if actual != nil {
+		t.Errorf("expecting nil, but got %v", *actual)
 	}
 }
 

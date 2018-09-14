@@ -35,17 +35,18 @@ import (
 	"fortio.org/fortio/periodic"
 
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/tests/e2e/framework"
 	"istio.io/istio/tests/util"
 )
 
 const (
-	istioMeshDashboard = "addons/grafana/dashboards/istio-mesh-dashboard.json"
-	serviceDashboard   = "addons/grafana/dashboards/istio-service-dashboard.json"
-	workloadDashboard  = "addons/grafana/dashboards/istio-workload-dashboard.json"
-	mixerDashboard     = "addons/grafana/dashboards/mixer-dashboard.json"
-	pilotDashboard     = "addons/grafana/dashboards/pilot-dashboard.json"
-	galleyDashboard    = "addons/grafana/dashboards/galley-dashboard.json"
+	istioMeshDashboard = "install/kubernetes/helm/istio/charts/grafana/dashboards/istio-mesh-dashboard.json"
+	serviceDashboard   = "install/kubernetes/helm/istio/charts/grafana/dashboards/istio-service-dashboard.json"
+	workloadDashboard  = "install/kubernetes/helm/istio/charts/grafana/dashboards/istio-workload-dashboard.json"
+	mixerDashboard     = "install/kubernetes/helm/istio/charts/grafana/dashboards/mixer-dashboard.json"
+	pilotDashboard     = "install/kubernetes/helm/istio/charts/grafana/dashboards/pilot-dashboard.json"
+	galleyDashboard    = "install/kubernetes/helm/istio/charts/grafana/dashboards/galley-dashboard.json"
 	fortioYaml         = "tests/e2e/tests/dashboard/fortio-rules.yaml"
 	netcatYaml         = "tests/e2e/tests/dashboard/netcat-rules.yaml"
 
@@ -378,7 +379,7 @@ func (t *testConfig) Setup() (err error) {
 
 type promProxy struct {
 	namespace        string
-	portFwdProcesses []*os.Process
+	portFwdProcesses []kube.PortForwarder
 }
 
 func newPromProxy(namespace string) *promProxy {
@@ -388,26 +389,19 @@ func newPromProxy(namespace string) *promProxy {
 }
 
 func (p *promProxy) portForward(labelSelector string, localPort string, remotePort string) error {
-	var pod string
-	var err error
-	var proc *os.Process
-
-	getName := fmt.Sprintf("kubectl -n %s get pod -l %s -o jsonpath='{.items[0].metadata.name}'", p.namespace, labelSelector)
-	pod, err = util.Shell(getName)
-	if err != nil {
-		return err
-	}
-	log.Infof("%s pod name: %s", labelSelector, pod)
-
 	log.Infof("Setting up %s proxy", labelSelector)
-	portFwdCmd := fmt.Sprintf("kubectl port-forward %s %s:%s -n %s", strings.Trim(pod, "'"), localPort, remotePort, p.namespace)
-	log.Info(portFwdCmd)
-	if proc, err = util.RunBackground(portFwdCmd); err != nil {
-		log.Errorf("Failed to port forward: %s", err)
+	options := &kube.PodSelectOptions{
+		PodNamespace:  p.namespace,
+		LabelSelector: labelSelector,
+	}
+	forwarder, err := kube.PortForward(tc.Kube.KubeConfig, options, localPort, remotePort)
+	if err != nil {
+		log.Errorf("Error in port forward: %v", err)
 		return err
 	}
-	p.portFwdProcesses = append(p.portFwdProcesses, proc)
-	log.Infof("running %s port-forward in background, pid = %d", labelSelector, proc.Pid)
+
+	p.portFwdProcesses = append(p.portFwdProcesses, forwarder)
+	log.Infof("running %s port-forward in background", labelSelector)
 	return nil
 }
 
@@ -421,11 +415,8 @@ func (p *promProxy) Setup() error {
 
 func (p *promProxy) Teardown() (err error) {
 	log.Info("Cleaning up mixer proxy")
-	for _, proc := range p.portFwdProcesses {
-		err := proc.Kill()
-		if err != nil {
-			log.Errorf("Failed to kill port-forward process, pid: %d", proc.Pid)
-		}
+	for _, pf := range p.portFwdProcesses {
+		pf.Close()
 	}
 	return
 }

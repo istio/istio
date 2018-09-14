@@ -44,7 +44,7 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
-// Adapter runtime config paramters.
+// Adapter runtime config parameters.
 type RuntimeConfig struct {
 	CheckCacheSize        int32                      `protobuf:"varint,1,opt,name=check_cache_size,json=checkCacheSize,proto3" json:"check_cache_size,omitempty"`
 	CheckResultExpiration *google_protobuf1.Duration `protobuf:"bytes,2,opt,name=check_result_expiration,json=checkResultExpiration" json:"check_result_expiration,omitempty"`

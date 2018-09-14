@@ -17,18 +17,93 @@ package version
 import (
 	"strings"
 	"testing"
+
+	"github.com/spf13/cobra"
 )
 
 func TestOpts(t *testing.T) {
-	cmd := CobraCommand()
+	ordinaryCmd := CobraCommand()
+	remoteCmd := CobraCommandWithOptions(CobraOptions{GetRemoteVersion: getRemoteInfo})
 
-	cmd.SetArgs(strings.Split("version", " "))
-	if err := cmd.Execute(); err != nil {
-		t.Errorf("Got %v, expecting success", err)
+	cases := []struct {
+		args       string
+		cmd        *cobra.Command
+		expectFail bool
+	}{
+		{
+			"version",
+			ordinaryCmd,
+			false,
+		},
+		{
+			"version --short",
+			ordinaryCmd,
+			false,
+		},
+		{
+			"version --output yaml",
+			ordinaryCmd,
+			false,
+		},
+		{
+			"version --output json",
+			ordinaryCmd,
+			false,
+		},
+		{
+			"version --output xuxa",
+			ordinaryCmd,
+			true,
+		},
+		{
+			"version --remote",
+			ordinaryCmd,
+			true,
+		},
+
+		{
+			"version --remote",
+			remoteCmd,
+			false,
+		},
+		{
+			"version --remote --short",
+			remoteCmd,
+			false,
+		},
+		{
+			"version --remote --output yaml",
+			remoteCmd,
+			false,
+		},
+		{
+			"version --remote --output json",
+			remoteCmd,
+			false,
+		},
 	}
 
-	cmd.SetArgs(strings.Split("version --short", " "))
-	if err := cmd.Execute(); err != nil {
-		t.Errorf("Got %v, expecting success", err)
+	for _, v := range cases {
+		t.Run(v.args, func(t *testing.T) {
+			v.cmd.SetArgs(strings.Split(v.args, " "))
+			err := v.cmd.Execute()
+
+			if !v.expectFail && err != nil {
+				t.Errorf("Got %v, expecting success", err)
+			}
+			if v.expectFail && err == nil {
+				t.Errorf("Expected failure, got success")
+			}
+		})
 	}
+}
+
+var meshInfo = MeshInfo{
+	{"Pilot", BuildInfo{"1.0.0", "gitSHA123", "user1", "host1", "go1.10", "hub.docker.com", "Clean"}},
+	{"Injector", BuildInfo{"1.0.1", "gitSHAabc", "user2", "host2", "go1.10.1", "hub.docker.com", "Modified"}},
+	{"Citadel", BuildInfo{"1.2", "gitSHA321", "user3", "host3", "go1.11.0", "hub.docker.com", "Clean"}},
+}
+
+func getRemoteInfo() (*MeshInfo, error) {
+	return &meshInfo, nil
 }

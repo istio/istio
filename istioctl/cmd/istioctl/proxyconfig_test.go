@@ -23,6 +23,7 @@ import (
 
 	"istio.io/istio/istioctl/pkg/kubernetes"
 	"istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/version"
 )
 
 type execTestCase struct {
@@ -47,6 +48,9 @@ func TestProxyConfig(t *testing.T) {
 	cannedConfig := map[string][]byte{
 		"details-v1-5b7f94f9bc-wp5tb": util.ReadFile("../../pkg/writer/compare/testdata/envoyconfigdump.json", t),
 	}
+	endpointConfig := map[string][]byte{
+		"details-v1-5b7f94f9bc-wp5tb": util.ReadFile("../../pkg/writer/envoy/clusters/testdata/clusters.json", t),
+	}
 	cases := []execTestCase{
 		{ // case 0
 			args:           strings.Split("proxy-config", " "),
@@ -59,22 +63,22 @@ func TestProxyConfig(t *testing.T) {
 		{ // case 2 clusters invalid
 			args:           strings.Split("proxy-config clusters invalid", " "),
 			expectedRegexp: regexp.MustCompile("^Error: unable to retrieve Pod: pods \"invalid\" not found.*"),
-			wantException:  true, // "istioctl get invalid" should fail
+			wantException:  true, // "istioctl proxy-config clusters invalid" should fail
 		},
 		{ // case 3 listeners invalid
 			args:           strings.Split("proxy-config listeners invalid", " "),
 			expectedRegexp: regexp.MustCompile("^Error: unable to retrieve Pod: pods \"invalid\" not found.*"),
-			wantException:  true, // "istioctl get invalid" should fail
+			wantException:  true, // "istioctl proxy-config listeners invalid" should fail
 		},
 		{ // case 4 routes invalid
 			args:           strings.Split("proxy-config routes invalid", " "),
 			expectedRegexp: regexp.MustCompile("^Error: unable to retrieve Pod: pods \"invalid\" not found.*"),
-			wantException:  true, // "istioctl get invalid" should fail
+			wantException:  true, // "istioctl proxy-config routes invalid" should fail
 		},
 		{ // case 5 bootstrap invalid
 			args:           strings.Split("proxy-config bootstrap invalid", " "),
 			expectedRegexp: regexp.MustCompile("^Error: unable to retrieve Pod: pods \"invalid\" not found.*"),
-			wantException:  true, // "istioctl get invalid" should fail
+			wantException:  true, // "istioctl proxy-config bootstrap invalid" should fail
 		},
 		{ // case 6 clusters valid
 			execClientConfig: cannedConfig,
@@ -99,6 +103,25 @@ xds-grpc                                        -         -          -          
 NAME                                                    VIRTUAL HOSTS
 15004                                                   2
 inbound|9080||productpage.default.svc.cluster.local     1
+`,
+		},
+		{ // case 9 endpoint invalid
+			args:           strings.Split("proxy-config endpoint invalid", " "),
+			expectedRegexp: regexp.MustCompile("^Error: unable to retrieve Pod: pods \"invalid\" not found.*"),
+			wantException:  true, // "istioctl proxy-config endpoint invalid" should fail
+		},
+		{ // case 10 endpoint valid
+			execClientConfig: endpointConfig,
+			args:             strings.Split("proxy-config endpoint details-v1-5b7f94f9bc-wp5tb --port=9093", " "),
+			expectedOutput: `ENDPOINT             STATUS        CLUSTER
+172.17.0.14:9093     UNHEALTHY     outbound|9093||istio-policy.istio-system.svc.cluster.local
+`,
+		},
+		{ // case 11 endpoint status filter
+			execClientConfig: endpointConfig,
+			args:             strings.Split("proxy-config endpoint details-v1-5b7f94f9bc-wp5tb --status=unhealthy", " "),
+			expectedOutput: `ENDPOINT             STATUS        CLUSTER
+172.17.0.14:9093     UNHEALTHY     outbound|9093||istio-policy.istio-system.svc.cluster.local
 `,
 		},
 	}
@@ -180,4 +203,8 @@ func (client mockExecConfig) PilotDiscoveryDo(pilotNamespace, method, path strin
 		return results, nil
 	}
 	return nil, fmt.Errorf("unable to find any Pilot instances")
+}
+
+func (client mockExecConfig) GetIstioVersions(namespace string) (*version.MeshInfo, error) {
+	return nil, nil
 }

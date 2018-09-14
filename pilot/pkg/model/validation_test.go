@@ -1534,17 +1534,38 @@ func TestValidateHTTPRewrite(t *testing.T) {
 		in    *networking.HTTPRewrite
 		valid bool
 	}{
-		{name: "uri and authority", in: &networking.HTTPRewrite{
-			Uri:       "/path/to/resource",
-			Authority: "foobar.org",
-		}, valid: true},
-		{name: "uri", in: &networking.HTTPRewrite{
-			Uri: "/path/to/resource",
-		}, valid: true},
-		{name: "authority", in: &networking.HTTPRewrite{
-			Authority: "foobar.org",
-		}, valid: true},
-		{name: "no uri or authority", in: &networking.HTTPRewrite{}, valid: false},
+		{
+			name:  "nil in",
+			in:    nil,
+			valid: true,
+		},
+		{
+			name: "uri and authority",
+			in: &networking.HTTPRewrite{
+				Uri:       "/path/to/resource",
+				Authority: "foobar.org",
+			},
+			valid: true,
+		},
+		{
+			name: "uri",
+			in: &networking.HTTPRewrite{
+				Uri: "/path/to/resource",
+			},
+			valid: true,
+		},
+		{
+			name: "authority",
+			in: &networking.HTTPRewrite{
+				Authority: "foobar.org",
+			},
+			valid: true,
+		},
+		{
+			name:  "no uri or authority",
+			in:    &networking.HTTPRewrite{},
+			valid: false,
+		},
 	}
 
 	for _, tc := range testCases {
@@ -1557,22 +1578,122 @@ func TestValidateHTTPRewrite(t *testing.T) {
 	}
 }
 
+func TestValidatePortName(t *testing.T) {
+	testCases := []struct {
+		name  string
+		valid bool
+	}{
+		{
+			name:  "",
+			valid: false,
+		},
+		{
+			name:  "simple",
+			valid: true,
+		},
+		{
+			name:  "full",
+			valid: true,
+		},
+		{
+			name:  "toolongtoolongtoolongtoolongtoolongtoolongtoolongtoolongtoolongtoolongtoolongtoolongtoolongtoolong",
+			valid: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if err := validatePortName(tc.name); (err == nil) != tc.valid {
+				t.Fatalf("got valid=%v but wanted valid=%v: %v", err == nil, tc.valid, err)
+			}
+		})
+	}
+}
+
+func TestValidateHTTPRedirect(t *testing.T) {
+	testCases := []struct {
+		name     string
+		redirect *networking.HTTPRedirect
+		valid    bool
+	}{
+		{
+			name:     "nil redirect",
+			redirect: nil,
+			valid:    true,
+		},
+		{
+			name: "empty uri and authority",
+			redirect: &networking.HTTPRedirect{
+				Uri:       "",
+				Authority: "",
+			},
+			valid: false,
+		},
+		{
+			name: "empty authority",
+			redirect: &networking.HTTPRedirect{
+				Uri:       "t",
+				Authority: "",
+			},
+			valid: true,
+		},
+		{
+			name: "empty uri",
+			redirect: &networking.HTTPRedirect{
+				Uri:       "",
+				Authority: "t",
+			},
+			valid: true,
+		},
+		{
+			name: "normal redirect",
+			redirect: &networking.HTTPRedirect{
+				Uri:       "t",
+				Authority: "t",
+			},
+			valid: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if err := validateHTTPRedirect(tc.redirect); (err == nil) != tc.valid {
+				t.Fatalf("got valid=%v but wanted valid=%v: %v", err == nil, tc.valid, err)
+			}
+		})
+	}
+}
+
 func TestValidateDestination(t *testing.T) {
 	testCases := []struct {
 		name        string
 		destination *networking.Destination
 		valid       bool
 	}{
-		{name: "empty", destination: &networking.Destination{ // nothing
-		}, valid:                                             false},
-		{name: "simple", destination: &networking.Destination{
-			Host: "foo.bar",
-		}, valid: true},
-		{name: "full", destination: &networking.Destination{
-			Host:   "foo.bar",
-			Subset: "shiny",
-			Port:   &networking.PortSelector{Port: &networking.PortSelector_Number{Number: 5000}},
-		}, valid: true},
+		{
+			name:        "empty",
+			destination: &networking.Destination{}, // nothing
+			valid:       false,
+		},
+		{
+			name: "simple",
+			destination: &networking.Destination{
+				Host: "foo.bar",
+			},
+			valid: true,
+		},
+		{name: "full",
+			destination: &networking.Destination{
+				Host:   "foo.bar",
+				Subset: "shiny",
+				Port: &networking.PortSelector{
+					Port: &networking.PortSelector_Number{
+						Number: 5000,
+					},
+				},
+			},
+			valid: true,
+		},
 	}
 
 	for _, tc := range testCases {
@@ -1730,6 +1851,15 @@ func TestValidateVirtualService(t *testing.T) {
 				Route: []*networking.DestinationWeight{{
 					Destination: &networking.Destination{Host: "foo.baz"},
 				}},
+			}},
+		}, valid: true},
+		{name: "valid removeResponseHeaders", in: &networking.VirtualService{
+			Hosts: []string{"foo.bar"},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.DestinationWeight{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+				RemoveResponseHeaders: []string{"unwantedHeader", "secretStuff"},
 			}},
 		}, valid: true},
 	}
@@ -2996,5 +3126,55 @@ func TestValidateRbacConfig(t *testing.T) {
 		} else if err.Error() != c.expectErrMsg {
 			t.Errorf("ValidateRbacConfig(%v): got %q but want %q\n", c.caseName, err.Error(), c.expectErrMsg)
 		}
+	}
+}
+
+func TestValidateMixerService(t *testing.T) {
+	cases := []struct {
+		name  string
+		in    *mccpb.IstioService
+		valid bool
+	}{
+		{
+			name: "no name and service",
+			in:   &mccpb.IstioService{},
+		},
+		{
+			name: "specify both name and service",
+			in:   &mccpb.IstioService{Service: "test-service-service", Name: "test-service-name"},
+		},
+		{
+			name: "specify both namespace and service",
+			in:   &mccpb.IstioService{Service: "test-service-service", Namespace: "test-service-namespace"},
+		},
+		{
+			name: "specify both domain and service",
+			in:   &mccpb.IstioService{Service: "test-service-service", Domain: "test-service-domain"},
+		},
+		{
+			name: "invalid name label",
+			in:   &mccpb.IstioService{Name: strings.Repeat("x", 64)},
+		},
+		{
+			name: "invalid namespace label",
+			in:   &mccpb.IstioService{Name: "test-service-name", Namespace: strings.Repeat("x", 64)},
+		},
+		{
+			name: "invalid domian or labels",
+			in:   &mccpb.IstioService{Name: "test-service-name", Domain: strings.Repeat("x", 256)},
+		},
+		{
+			name:  "valid",
+			in:    validService,
+			valid: true,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := ValidateMixerService(c.in); (got == nil) != c.valid {
+				t.Errorf("ValidateMixerService(%v): got(%v) != want(%v): %v", c.name, got == nil, c.valid, got)
+			}
+		})
 	}
 }

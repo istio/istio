@@ -123,5 +123,5 @@ spec:
     extrap: oui
 ---
 # We can't use a third service for the security open proxy issue as the issue
-# is only triggered using pod ip (service cluster ip + non existant port is not
+# is only triggered using pod ip (service cluster ip + non existent port is not
 # routed)

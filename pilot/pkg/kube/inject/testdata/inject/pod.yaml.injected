@@ -4,7 +4,7 @@ metadata:
   annotations:
     sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
   creationTimestamp: null
-  name: hello
+  name: hellopod
 spec:
   containers:
   - image: fake.docker.io/google-samples/hello-go-gke:1.0
@@ -21,7 +21,7 @@ spec:
     - --binaryPath
     - /usr/local/bin/envoy
     - --serviceCluster
-    - istio-proxy
+    - hellopod.default
     - --drainDuration
     - 2s
     - --parentShutdownDuration

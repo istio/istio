@@ -2,7 +2,7 @@ apiVersion: batch/v2alpha1
 kind: CronJob
 metadata:
   creationTimestamp: null
-  name: hello
+  name: hellocron
 spec:
   jobTemplate:
     metadata:
@@ -30,7 +30,7 @@ spec:
             - --binaryPath
             - /usr/local/bin/envoy
             - --serviceCluster
-            - istio-proxy
+            - hellocron.default
             - --drainDuration
             - 2s
             - --parentShutdownDuration

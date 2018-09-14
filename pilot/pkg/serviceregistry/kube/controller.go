@@ -269,7 +269,6 @@ func (c *Controller) ManagementPorts(addr string) model.PortList {
 	}
 
 	managementPorts, err := convertProbesToPorts(&pod.Spec)
-
 	if err != nil {
 		log.Infof("Error while parsing liveliness and readiness probe ports for %s => %v", addr, err)
 	}
@@ -541,7 +540,19 @@ func (c *Controller) GetIstioServiceAccounts(hostname model.Hostname, ports []in
 // AppendServiceHandler implements a service catalog operation
 func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) error {
 	c.services.handler.Append(func(obj interface{}, event model.Event) error {
-		svc := *obj.(*v1.Service)
+		svc, ok := obj.(*v1.Service)
+		if !ok {
+			tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+			if !ok {
+				log.Errorf("Couldn't get object from tombstone %#v", obj)
+				return nil
+			}
+			svc, ok = tombstone.Obj.(*v1.Service)
+			if !ok {
+				log.Errorf("Tombstone contained object that is not a service %#v", obj)
+				return nil
+			}
+		}
 
 		// Do not handle "kube-system" services
 		if svc.Namespace == meta_v1.NamespaceSystem {
@@ -550,7 +561,7 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 
 		log.Infof("Handle service %s in namespace %s", svc.Name, svc.Namespace)
 
-		if svcConv := convertService(svc, c.domainSuffix); svcConv != nil {
+		if svcConv := convertService(*svc, c.domainSuffix); svcConv != nil {
 			f(svcConv, event)
 		}
 		return nil
@@ -561,7 +572,19 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 // AppendInstanceHandler implements a service catalog operation
 func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
 	c.endpoints.handler.Append(func(obj interface{}, event model.Event) error {
-		ep := *obj.(*v1.Endpoints)
+		ep, ok := obj.(*v1.Endpoints)
+		if !ok {
+			tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+			if !ok {
+				log.Errorf("Couldn't get object from tombstone %#v", obj)
+				return nil
+			}
+			ep, ok = tombstone.Obj.(*v1.Endpoints)
+			if !ok {
+				log.Errorf("Tombstone contained object that is not a service %#v", obj)
+				return nil
+			}
+		}
 
 		// Do not handle "kube-system" endpoints
 		if ep.Namespace == meta_v1.NamespaceSystem {

@@ -19,7 +19,9 @@ import (
 	"io"
 	"strconv"
 	"sync/atomic"
+	"time"
 
+	"golang.org/x/time/rate"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
@@ -75,7 +77,10 @@ type Server struct {
 	watcher        Watcher
 	supportedTypes []string
 	nextStreamID   int64
-	authCheck      AuthChecker
+	// for auth check
+	authCheck                   AuthChecker
+	checkFailureRecordLimiter   *rate.Limiter
+	failureCountSinceLastRecord int
 }
 
 // AuthChecker is used to check the transport auth info that is associated with each stream. If the function
@@ -117,11 +122,20 @@ type connection struct {
 // New creates a new gRPC server that implements the Mesh Configuration Protocol (MCP). A nil authCheck
 // implies all incoming connections should be allowed.
 func New(watcher Watcher, supportedTypes []string, authChecker AuthChecker) *Server {
-	return &Server{
+	s := &Server{
 		watcher:        watcher,
 		supportedTypes: supportedTypes,
 		authCheck:      authChecker,
 	}
+
+	if authChecker != nil {
+		// Initialize record limiter for the auth checker.
+		limit := rate.Every(1 * time.Minute) // TODO: make this configurable?
+		limiter := rate.NewLimiter(limit, 1)
+		s.checkFailureRecordLimiter = limiter
+	}
+
+	return s
 }
 
 func (s *Server) newConnection(stream mcp.AggregatedMeshConfigService_StreamAggregatedResourcesServer) (*connection, error) {
@@ -142,7 +156,11 @@ func (s *Server) newConnection(stream mcp.AggregatedMeshConfigService_StreamAggr
 
 	if s.authCheck != nil {
 		if err := s.authCheck.Check(authInfo); err != nil {
-			log.Infof("newConnection: auth check handler returned error: %v", err)
+			s.failureCountSinceLastRecord++
+			if s.checkFailureRecordLimiter.Allow() {
+				log.Warnf("NewConnection: auth check failed: %v (repeated %d times).", err, s.failureCountSinceLastRecord)
+				s.failureCountSinceLastRecord = 0
+			}
 			return nil, status.Errorf(codes.Unauthenticated, "Authentication failure: %v", err)
 		}
 	}
@@ -274,7 +292,7 @@ func (con *connection) processClientRequest(req *mcp.MeshConfigRequest) error {
 			scope.Debugf("MCP: connection %v: WATCH for %v", con, req.TypeUrl)
 		} else {
 			scope.Debugf("MCP: connection %v ACK version=%q with nonce=%q",
-				con, req.TypeUrl, req.VersionInfo, req.ResponseNonce)
+				con, req.VersionInfo, req.ResponseNonce)
 		}
 
 		if watch.cancel != nil {

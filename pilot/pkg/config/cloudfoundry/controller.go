@@ -118,31 +118,28 @@ func (c *Controller) ConfigDescriptor() model.ConfigDescriptor {
 // Get has been optimized for the current cloudfoundry case of
 // no namespace and only two specific types. We  have also
 // left these in maps for faster lookup
-func (c *Controller) Get(typ, name, namespace string) (*model.Config, bool) {
+func (c *Controller) Get(typ, name, namespace string) *model.Config {
 	c.storage.RLock()
 	defer c.storage.RUnlock()
 
 	var (
 		config *model.Config
-		found  bool
 	)
 
 	switch typ {
 	case model.VirtualService.Type:
 		if vs, ok := c.storage.virtualServices[name]; ok {
 			config = vs
-			found = true
 		}
 	case model.DestinationRule.Type:
 		if dr, ok := c.storage.destinationRules[name]; ok {
 			config = dr
-			found = true
 		}
 	default:
 		c.logger.Infof("get type not supported: %s", typ)
 	}
 
-	return config, found
+	return config
 }
 
 // List also ignores namespace to return all the rules of a particular type
