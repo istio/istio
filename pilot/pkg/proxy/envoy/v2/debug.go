@@ -42,11 +42,14 @@ import (
 // In future (post 1.0) it may be used for representing remote pilots.
 
 // InitDebug initializes the debug handlers and adds a debug in-memory registry.
-func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controller) {
+func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controller, cfg model.ConfigUpdater) {
 	// For debugging and load testing v2 we add an memory registry.
 	s.MemRegistry = NewMemServiceDiscovery(
 		map[model.Hostname]*model.Service{ // mock.HelloService.Hostname: mock.HelloService,
 		}, 2)
+	s.MemRegistry.EDSUpdater = s
+	s.MemRegistry.ConfigUpdater = cfg
+	s.MemRegistry.ClusterID = "v2-debug"
 
 	sctl.AddRegistry(aggregate.Registry{
 		ClusterID:        "v2-debug",
@@ -160,9 +163,11 @@ func (c *memServiceController) Run(<-chan struct{}) {}
 // MemServiceDiscovery is a mock discovery interface
 type MemServiceDiscovery struct {
 	services map[model.Hostname]*model.Service
-	// Endpoints table. Key is the fqdn of the service, ':', port
+	// ServiceShards table. Key is the fqdn of the service, ':', port
 	instancesByPortNum            map[string][]*model.ServiceInstance
 	instancesByPortName           map[string][]*model.ServiceInstance
+
+	// Used by GetProxyServiceInstance, used to configure inbound (list of services per IP)
 	ip2instance                   map[string][]*model.ServiceInstance
 	versions                      int
 	WantGetProxyServiceInstances  []*model.ServiceInstance
@@ -171,6 +176,11 @@ type MemServiceDiscovery struct {
 	InstancesError                error
 	GetProxyServiceInstancesError error
 	controller                    model.Controller
+	ClusterID 									  string
+
+	// EDSUpdater will push EDS changes to the ADS model.
+	EDSUpdater model.EDSUpdater
+	ConfigUpdater model.ConfigUpdater
 
 	// Single mutex for now - it's for debug only.
 	mutex sync.Mutex
@@ -228,6 +238,56 @@ func (sd *MemServiceDiscovery) AddEndpoint(service model.Hostname, servicePortNa
 	}
 	sd.AddInstance(service, instance)
 	return instance
+}
+
+// SetEndpoints update the list of endpoints for a service, similar with K8S controller.
+func (sd *MemServiceDiscovery) SetEndpoints(service string, endpoints []*model.IstioEndpoint) {
+
+	sh := model.Hostname(service)
+	sd.mutex.Lock()
+	defer sd.mutex.Unlock()
+
+	svc := sd.services[sh]
+	if svc == nil {
+		return
+	}
+
+	// TODO: remove old entries
+
+	for _, e := range endpoints {
+		//servicePortName string, servicePort int, address string, port int
+		instance := &model.ServiceInstance{
+			Service: svc,
+			Endpoint: model.NetworkEndpoint{
+				Address: e.Address,
+				ServicePort: &model.Port{
+					Name:     e.ServicePortName,
+					Port:     int(e.EndpointPort),
+					Protocol: model.ProtocolHTTP,
+				},
+			},
+		}
+		sd.ip2instance[instance.Endpoint.Address] = []*model.ServiceInstance{instance}
+
+		key := fmt.Sprintf("%s:%d", service, instance.Endpoint.ServicePort.Port)
+
+		instanceList := sd.instancesByPortNum[key]
+		sd.instancesByPortNum[key] = append(instanceList, instance)
+
+		key = fmt.Sprintf("%s:%s", service, instance.Endpoint.ServicePort.Name)
+		instanceList = sd.instancesByPortName[key]
+		sd.instancesByPortName[key] = append(instanceList, instance)
+
+
+	}
+
+	err := sd.EDSUpdater.EDSUpdate(sd.ClusterID, service, endpoints)
+	if err != nil {
+		// Request a global push if we failed to do EDS only
+		sd.ConfigUpdater.ConfigUpdate("")
+	} else {
+		sd.ConfigUpdater.ConfigUpdate(service)
+	}
 }
 
 // Services implements discovery interface
@@ -373,7 +433,7 @@ func (s *DiscoveryServer) registryz(w http.ResponseWriter, req *http.Request) {
 		s.MemRegistry.AddService(model.Hostname(svcName), svc)
 	}
 
-	all, err := s.env.ServiceDiscovery.Services()
+	all, err := s.Env.ServiceDiscovery.Services()
 	if err != nil {
 		return
 	}
@@ -408,10 +468,10 @@ func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 	}
 	brief := req.Form.Get("brief")
 	if brief != "" {
-		svc, _ := s.env.ServiceDiscovery.Services()
+		svc, _ := s.Env.ServiceDiscovery.Services()
 		for _, ss := range svc {
 			for _, p := range ss.Ports {
-				all, err := s.env.ServiceDiscovery.InstancesByPort(ss.Hostname, p.Port, nil)
+				all, err := s.Env.ServiceDiscovery.InstancesByPort(ss.Hostname, p.Port, nil)
 				if err != nil {
 					return
 				}
@@ -425,11 +485,11 @@ func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	svc, _ := s.env.ServiceDiscovery.Services()
+	svc, _ := s.Env.ServiceDiscovery.Services()
 	fmt.Fprint(w, "[\n")
 	for _, ss := range svc {
 		for _, p := range ss.Ports {
-			all, err := s.env.ServiceDiscovery.InstancesByPort(ss.Hostname, p.Port, nil)
+			all, err := s.Env.ServiceDiscovery.InstancesByPort(ss.Hostname, p.Port, nil)
 			if err != nil {
 				return
 			}
@@ -452,8 +512,8 @@ func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 func (s *DiscoveryServer) configz(w http.ResponseWriter, req *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
 	fmt.Fprintf(w, "\n[\n")
-	for _, typ := range s.env.IstioConfigStore.ConfigDescriptor() {
-		cfg, _ := s.env.IstioConfigStore.List(typ.Type, "")
+	for _, typ := range s.Env.IstioConfigStore.ConfigDescriptor() {
+		cfg, _ := s.Env.IstioConfigStore.List(typ.Type, "")
 		for _, c := range cfg {
 			b, err := json.MarshalIndent(c, "  ", "  ")
 			if err != nil {
@@ -518,7 +578,7 @@ func (s *DiscoveryServer) authenticationz(w http.ResponseWriter, req *http.Reque
 	interestedSvc := req.Form.Get("proxyID")
 
 	fmt.Fprintf(w, "\n[\n")
-	svc, _ := s.env.ServiceDiscovery.Services()
+	svc, _ := s.Env.ServiceDiscovery.Services()
 	for _, ss := range svc {
 		if interestedSvc != "" && interestedSvc != ss.Hostname.String() {
 			continue
@@ -528,23 +588,23 @@ func (s *DiscoveryServer) authenticationz(w http.ResponseWriter, req *http.Reque
 				Host: string(ss.Hostname),
 				Port: p.Port,
 			}
-			authnConfig := s.env.IstioConfigStore.AuthenticationPolicyByDestination(ss, p)
+			authnConfig := s.Env.IstioConfigStore.AuthenticationPolicyByDestination(ss, p)
 			info.AuthenticationPolicyName = configName(authnConfig)
 			if authnConfig != nil {
 				policy := authnConfig.Spec.(*authn.Policy)
 				serverSideTLS, _ := authn_plugin.RequireTLS(policy, model.Sidecar)
 				info.ServerProtocol = mTLSModeToString(serverSideTLS)
 			} else {
-				info.ServerProtocol = mTLSModeToString(s.env.Mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS)
+				info.ServerProtocol = mTLSModeToString(s.Env.Mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS)
 			}
 
-			destConfig := s.env.PushContext.DestinationRule(ss.Hostname)
+			destConfig := s.Env.PushContext.DestinationRule(ss.Hostname)
 			info.DestinationRuleName = configName(destConfig)
 			if destConfig != nil {
 				rule := destConfig.Spec.(*networking.DestinationRule)
-				info.ClientProtocol = mTLSModeToString(isMTlsOn(s.env.Mesh, rule, p))
+				info.ClientProtocol = mTLSModeToString(isMTlsOn(s.Env.Mesh, rule, p))
 			} else {
-				info.ClientProtocol = mTLSModeToString(s.env.Mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS)
+				info.ClientProtocol = mTLSModeToString(s.Env.Mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS)
 			}
 
 			if info.ClientProtocol != info.ServerProtocol {
@@ -790,7 +850,7 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 	configDump := &adminapi.ConfigDump{Configs: map[string]types.Any{}}
 
 	dynamicActiveClusters := []adminapi.ClustersConfigDump_DynamicCluster{}
-	clusters, err := s.generateRawClusters(conn, s.env.PushContext)
+	clusters, err := s.generateRawClusters(conn, s.Env.PushContext)
 	if err != nil {
 		return nil, err
 	}
@@ -807,7 +867,7 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 	configDump.Configs["clusters"] = *clustersAny
 
 	dynamicActiveListeners := []adminapi.ListenersConfigDump_DynamicListener{}
-	listeners, err := s.generateRawListeners(conn, s.env.PushContext)
+	listeners, err := s.generateRawListeners(conn, s.Env.PushContext)
 	if err != nil {
 		return nil, err
 	}
@@ -823,7 +883,7 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 	}
 	configDump.Configs["listeners"] = *listenersAny
 
-	routes, err := s.generateRawRoutes(conn, s.env.PushContext)
+	routes, err := s.generateRawRoutes(conn, s.Env.PushContext)
 	if err != nil {
 		return nil, err
 	}

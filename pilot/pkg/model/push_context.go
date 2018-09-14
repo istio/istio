@@ -24,6 +24,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 )
 
 // PushContext tracks the status of a mush - metrics and errors.
@@ -78,7 +79,63 @@ type PushContext struct {
 	// Env has a pointer to the shared environment used to create the snapshot.
 	Env *Environment `json:"-,omitempty"`
 
+	// ServicePorts is used to keep track of service name and port mapping.
+	// This is needed because ADS names use port numbers, while endpoints use
+	// port names. The key is the service name. If a service or port are not found,
+	// the endpoint needs to be re-evaluated later (eventual consistency)
+	ServiceName2Ports map[string]map[string]uint32 `json:"-"`
+	ServicePort2Name  map[string]map[uint32]string `json:"-"`
+
 	initDone bool
+}
+
+// EDSUpdater is used for direct updates of the EDS model
+// and push.
+type EDSUpdater interface {
+	// EDSUpdateServieEntry is called when the list of endpoints or labels in a ServiceEntry is
+	// changed. For each cluster and hostname, the full list of active endpoints (including empty list)
+	// must be sent.
+	EDSUpdate(shard, hostname string, entry []*IstioEndpoint) error
+	SvcUpdate(shard, hostname string, ports map[string]uint32, rports map[uint32]string)
+
+}
+
+// IstioEndpoint has the information about a single address+port for a specific
+// service and shard. Unlike ServiceInstance, it has less info and require less
+// allocation.
+type IstioEndpoint struct {
+
+	// Labels points to the workload or deployment labels.
+	Labels *map[string]string
+
+
+	// Address is the IP address of the endpoint. Other types may be
+	// supported in future.
+	Address         string
+
+	// EndpointPort is the port where the workload is listening, can be different
+	// from the service port.
+	EndpointPort    uint32
+
+	ServicePortName string
+
+	// UID identifies the workload, for telemetry purpose.
+	UID string
+
+	// EnvoyEndpoint is a cached LbEndpoint, converted from the data, to
+	// avoid recomputation
+	EnvoyEndpoint *endpoint.LbEndpoint
+}
+
+
+
+// ConfigUpdater is used to requests config updates. The updates will be debounced before
+// a push happens. Interface is implemented by the ADS server, and called by adapters.
+type ConfigUpdater interface {
+	// Push is called the global config has changed and a full push is needed.
+	// This replaces the 'cache invalidation' model. The implementation may debounce and
+	// bach changes.
+	ConfigUpdate(edsService string)
 }
 
 // ProxyPushStatus represents an event captured during config push to proxies.
@@ -135,6 +192,15 @@ func (ps *PushContext) Add(metric *PushMetric, key string, proxy *Proxy, msg str
 }
 
 var (
+
+	// EndpointNoPod tracks endpoints without an associated pod. This is an error condition, since
+	// we can't figure out the labels. It may be a transient problem, if endpoint is processed before
+	// pod.
+	EndpointNoPod = newPushMetric(
+		"endpoint_no_pod",
+		"Endpoints without an associated pod.",
+	)
+
 	// ProxyStatusNoService represents proxies not selected by any service
 	// This can be normal - for workloads that act only as client, or are not covered by a Service.
 	// It can also be an error, for example in cases the Endpoint list of a service was not updated by the time
@@ -220,6 +286,8 @@ func NewPushContext() *PushContext {
 	return &PushContext{
 		ServiceByHostname: map[Hostname]*Service{},
 		ProxyStatus:       map[string]map[string]ProxyPushStatus{},
+		ServicePort2Name: map[string]map[uint32]string{},
+		ServiceName2Ports: map[string]map[string]uint32{},
 		Start:             time.Now(),
 	}
 }
@@ -326,6 +394,17 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 	ps.Services = sortServicesByCreationTime(services)
 	for _, s := range services {
 		ps.ServiceByHostname[s.Hostname] = s
+
+		// Update service2ports
+		ports := map[string]uint32{}
+		portsByNum := map[uint32]string{}
+
+		for _, port := range s.Ports {
+			ports[port.Name] = uint32(port.Port)
+			portsByNum[uint32(port.Port)] = port.Name
+		}
+		ps.ServiceName2Ports[string(s.Hostname)] = ports
+		ps.ServicePort2Name[string(s.Hostname)] = portsByNum
 	}
 	return nil
 }

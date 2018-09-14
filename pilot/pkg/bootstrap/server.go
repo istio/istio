@@ -88,6 +88,8 @@ var (
 		plugin.Mixer,
 		plugin.Envoyfilter,
 	}
+
+	directEDS = os.Getenv("PILOT_DIRECT_EDS") != "0"
 )
 
 // MeshArgs provide configuration options for the mesh. If ConfigFile is provided, an attempt will be made to
@@ -758,16 +760,21 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 
 	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(environment, istio_networking.NewConfigGenerator(args.Plugins))
 	// TODO: decouple v2 from the cache invalidation, use direct listeners.
-	envoy.V2ClearCache = s.EnvoyXdsServer.ClearCacheFunc()
+	envoy.Push = s.EnvoyXdsServer.Push
+
 	s.EnvoyXdsServer.Register(s.grpcServer)
 
 	if s.kubeRegistry != nil {
 		// kubeRegistry may use the environment for push status reporting.
 		// TODO: maybe all registries should have his as an optional field ?
 		s.kubeRegistry.Env = environment
+		if directEDS {
+			s.kubeRegistry.ConfigUpdater = discovery
+			s.kubeRegistry.EDSUpdater = s.EnvoyXdsServer
+		}
 	}
 
-	s.EnvoyXdsServer.InitDebug(s.mux, s.ServiceController)
+	s.EnvoyXdsServer.InitDebug(s.mux, s.ServiceController, discovery)
 
 	s.EnvoyXdsServer.ConfigController = s.configController
 

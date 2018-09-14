@@ -119,7 +119,7 @@ var (
 
 	// V2ClearCache is a function to be called when the v1 cache is cleared. This is used to
 	// avoid adding a circular dependency from v1 to v2.
-	V2ClearCache func()
+	Push func(fullPush bool, edsServices []string)
 
 	// DebounceAfter is the delay added to events to wait
 	// after a registry/config event for debouncing.
@@ -184,6 +184,14 @@ type DiscoveryService struct {
 	sdsCache *discoveryCache
 
 	RestContainer *restful.Container
+
+	// edsUpdatedServices contains the list of Services that received EDS updates since
+	// last push. If any config change occurs (non-EDS), this will be set to nil and a global push
+	// will take place.
+	edsUpdatedServices []string
+
+	// true if a full push is needed after debounce. False if only EDS is required.
+	fullPush bool
 }
 
 type discoveryCacheStatEntry struct {
@@ -415,7 +423,7 @@ func (ds *DiscoveryService) ClearCache() {
 }
 
 // debouncePush is called on clear cache, to initiate a push.
-func debouncePush(startDebounce time.Time) {
+func (ds *DiscoveryService) debouncePush(startDebounce time.Time) {
 	clearCacheMutex.Lock()
 	since := time.Since(lastClearCacheEvent)
 	events := clearCacheEvents
@@ -427,17 +435,25 @@ func debouncePush(startDebounce time.Time) {
 		log.Infof("Push debounce stable %d: %v since last change, %v since last push",
 			events,
 			since, time.Since(lastClearCache))
+
+
 		clearCacheMutex.Lock()
 		clearCacheTimerSet = false
 		lastClearCache = time.Now()
+		full := ds.fullPush
+		svc := ds.edsUpdatedServices
+		ds.fullPush = false
+		ds.edsUpdatedServices = []string{}
 		clearCacheMutex.Unlock()
-		V2ClearCache()
+
+		Push(full, svc)
+
 	} else {
 		log.Infof("Push debounce %d: %v since last change, %v since last push",
 			events,
 			since, time.Since(lastClearCache))
 		time.AfterFunc(DebounceAfter, func() {
-			debouncePush(startDebounce)
+			ds.debouncePush(startDebounce)
 		})
 	}
 }
@@ -445,9 +461,20 @@ func debouncePush(startDebounce time.Time) {
 // clearCache will clear all envoy caches. Called by service, instance and config handlers.
 // This will impact the performance, since envoy will need to recalculate.
 func (ds *DiscoveryService) clearCache() {
+	ds.ConfigUpdate("")
+}
+
+// ConfigUpdate implements ConfigUpdater interface, used to request pushes.
+// It replaces the 'clear cache' from v1.
+func (ds *DiscoveryService) ConfigUpdate(edsService string) {
 	clearCacheMutex.Lock()
 	defer clearCacheMutex.Unlock()
 
+	if edsService == "" {
+		ds.fullPush = true
+	} else {
+		ds.edsUpdatedServices = append(ds.edsUpdatedServices, edsService)
+	}
 	clearCacheEvents++
 
 	if DebounceAfter > 0 {
@@ -457,7 +484,7 @@ func (ds *DiscoveryService) clearCache() {
 			clearCacheTimerSet = true
 			startDebounce := lastClearCacheEvent
 			time.AfterFunc(DebounceAfter, func() {
-				debouncePush(startDebounce)
+				ds.debouncePush(startDebounce)
 			})
 		} // else: debunce in progress - it'll keep delaying the push
 
@@ -472,8 +499,11 @@ func (ds *DiscoveryService) clearCache() {
 			time.Since(lastClearCacheEvent), time.Since(lastClearCache))
 		lastClearCacheEvent = time.Now()
 		lastClearCache = time.Now()
-
-		V2ClearCache()
+		full := ds.fullPush
+		svc := ds.edsUpdatedServices
+		ds.fullPush = false
+		ds.edsUpdatedServices = []string{}
+		Push(full, svc)
 
 		return
 	}
@@ -487,7 +517,11 @@ func (ds *DiscoveryService) clearCache() {
 		log.Infof("Timer push %d: %v since last change, %v since last push",
 			clearCacheEvents, time.Since(lastClearCacheEvent), time.Since(lastClearCache))
 		lastClearCache = time.Now()
-		V2ClearCache()
+		full := ds.fullPush
+		svc := ds.edsUpdatedServices
+		ds.fullPush = false
+		ds.edsUpdatedServices = []string{}
+		Push(full, svc)
 		return
 	}
 
@@ -507,6 +541,7 @@ func (ds *DiscoveryService) clearCache() {
 }
 
 // ListAllEndpoints responds with all Services and is not restricted to a single service-key
+// Deprecated - may be used by debug tools, mapped to /v1/registration
 func (ds *DiscoveryService) ListAllEndpoints(_ *restful.Request, response *restful.Response) {
 	methodName := "ListAllEndpoints"
 	incCalls(methodName)

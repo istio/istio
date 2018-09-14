@@ -262,7 +262,7 @@ func initLocalPilotTestEnv(t *testing.T) *bootstrap.Server {
 	})
 
 	// Update cache
-	server.EnvoyXdsServer.ClearCacheFunc()()
+	server.EnvoyXdsServer.Push(true, nil)
 
 	return server
 }

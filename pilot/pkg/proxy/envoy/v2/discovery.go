@@ -20,7 +20,6 @@ import (
 	"sync"
 	"time"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"google.golang.org/grpc"
 
@@ -58,8 +57,8 @@ const (
 
 // DiscoveryServer is Pilot's gRPC implementation for Envoy's v2 xds APIs
 type DiscoveryServer struct {
-	// env is the model environment.
-	env *model.Environment
+	// Env is the model environment.
+	Env *model.Environment
 
 	// MemRegistry is used for debug and load testing, allow adding services. Visible for testing.
 	MemRegistry *MemServiceDiscovery
@@ -79,7 +78,35 @@ type DiscoveryServer struct {
 	// DebugConfigs controls saving snapshots of configs for /debug/adsz.
 	// Defaults to false, can be enabled with PILOT_DEBUG_ADSZ_CONFIG=1
 	DebugConfigs bool
+
+	// ServiceShards for a service. This is a global (per-server) list, built from
+	// incremental updates.
+	EndpointShardsByService map[string]ServiceShards
+
+	// Updates keeps track of all service updates since last full push.
+	// Key is the hostname (servicename).
+	Updates map[string]*ServiceShards
+
+	mutex sync.RWMutex
 }
+
+//
+type ServiceShards struct {
+
+	// ByCluster is used to track cluster membership. EDS updates are grouped by cluster,
+	// must be combined with the other clusters for push.
+	Shards map[string]*EndpointShard
+
+}
+
+// EndpointShard contains all the endpoints for a single shard of a service.
+// Shards are updated atomically.
+type EndpointShard struct {
+	Shard string
+	Entries []*model.IstioEndpoint
+	//ServiceInstance []*model.ServiceInstance
+}
+
 
 func intEnv(env string, def int) int {
 	envValue := os.Getenv(env)
@@ -96,8 +123,10 @@ func intEnv(env string, def int) int {
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
 func NewDiscoveryServer(env *model.Environment, generator core.ConfigGenerator) *DiscoveryServer {
 	out := &DiscoveryServer{
-		env:             env,
-		ConfigGenerator: generator,
+		Env:                     env,
+		ConfigGenerator:         generator,
+		EndpointShardsByService: map[string]ServiceShards{},
+		Updates: map[string]*ServiceShards{},
 	}
 	env.PushContext = model.NewPushContext()
 
@@ -144,7 +173,6 @@ func initThrottle(name string, burst int, ratePerSecond int) chan time.Time {
 func (s *DiscoveryServer) Register(rpcs *grpc.Server) {
 	// EDS must remain registered for 0.8, for smooth upgrade from 0.7
 	// 0.7 proxies will use this service.
-	xdsapi.RegisterEndpointDiscoveryServiceServer(rpcs, s)
 	ads.RegisterAggregatedDiscoveryServiceServer(rpcs, s)
 }
 
@@ -167,7 +195,7 @@ func (s *DiscoveryServer) periodicRefresh() {
 	defer ticker.Stop()
 	for range ticker.C {
 		adsLog.Infof("ADS: periodic push of envoy configs %s", versionInfo())
-		s.AdsPushAll(versionInfo(), s.env.PushContext)
+		s.AdsPushAll(versionInfo(), s.Env.PushContext, true, nil)
 	}
 }
 
@@ -188,7 +216,7 @@ func (s *DiscoveryServer) periodicRefreshMetrics() {
 	ticker := time.NewTicker(periodicRefreshMetrics)
 	defer ticker.Stop()
 	for range ticker.C {
-		push := s.env.PushContext
+		push := s.Env.PushContext
 		if push.End != timeZero {
 			model.LastPushStatus = push
 		}
@@ -205,18 +233,27 @@ func (s *DiscoveryServer) periodicRefreshMetrics() {
 // This is used for transition, once the new config model is in place we'll have separate
 // functions for each event and push only configs that need to be pushed.
 // This is currently called from v1 and has attenuation/throttling.
-func (s *DiscoveryServer) ClearCacheFunc() func() {
-	return func() {
+func (s *DiscoveryServer) ClearCacheFunc() func(bool, []string) {
+	return s.Push
+}
+
+// Push is called to push changes on config updates
+func (s *DiscoveryServer) Push(full bool, edsServices []string) {
+	if !full {
+		adsLog.Infof("EDS Push %v", edsServices)
+		go s.AdsPushAll(version, s.Env.PushContext, false, edsServices)
+		return
+	}
 		// Reset the status during the push.
 		//afterPush := true
-		if s.env.PushContext != nil {
-			s.env.PushContext.OnConfigChange()
+		if s.Env.PushContext != nil {
+			s.Env.PushContext.OnConfigChange()
 		}
 		// PushContext is reset after a config change. Previous status is
 		// saved.
 		t0 := time.Now()
 		push := model.NewPushContext()
-		err := push.InitContext(s.env)
+		err := push.InitContext(s.Env)
 		if err != nil {
 			adsLog.Errorf("XDS: failed to update services %v", err)
 			// We can't push if we can't read the data - stick with previous version.
@@ -225,12 +262,17 @@ func (s *DiscoveryServer) ClearCacheFunc() func() {
 			return
 		}
 
-		if err = s.ConfigGenerator.BuildSharedPushState(s.env, push); err != nil {
+		if err = s.ConfigGenerator.BuildSharedPushState(s.Env, push); err != nil {
 			adsLog.Errorf("XDS: Failed to rebuild share state in configgen: %v", err)
 			return
 		}
 
-		s.env.PushContext = push
+		err = s.updateServiceShards(push)
+		if err != nil {
+			return
+		}
+
+		s.Env.PushContext = push
 		versionLocal := time.Now().Format(time.RFC3339)
 		initContextTime := time.Since(t0)
 		adsLog.Debugf("InitContext %v for push took %s", versionLocal, initContextTime)
@@ -240,9 +282,9 @@ func (s *DiscoveryServer) ClearCacheFunc() func() {
 		version = versionLocal
 		versionMutex.Unlock()
 
-		go s.AdsPushAll(versionLocal, push)
+		go s.AdsPushAll(versionLocal, push, true, nil)
 	}
-}
+
 
 func nonce() string {
 	return time.Now().String()
