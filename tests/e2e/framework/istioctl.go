@@ -21,6 +21,7 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"strings"
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/util"
@@ -135,13 +136,13 @@ func (i *Istioctl) Install() error {
 	return nil
 }
 
-func (i *Istioctl) run(format string, args ...interface{}) error {
+func (i *Istioctl) run(format string, args ...interface{}) (res string, err error) {
 	format = i.binaryPath + " " + format
-	if _, err := util.Shell(format, args...); err != nil {
+	if res, err = util.Shell(format, args...); err != nil {
 		log.Errorf("istioctl %s failed", args)
-		return err
+		return "", err
 	}
-	return nil
+	return res, nil
 }
 
 // KubeInject use istio kube-inject to create new yaml with a proxy as sidecar.
@@ -158,8 +159,9 @@ func (i *Istioctl) KubeInject(src, dest, kubeconfig string) error {
 		kubeconfigStr = " --kubeconfig " + kubeconfig
 	}
 	if i.defaultProxy {
-		return i.run(`kube-inject -f %s -o %s -n %s -i %s --meshConfigMapName=istio %s %s`,
+		_, err := i.run(`kube-inject -f %s -o %s -n %s -i %s --meshConfigMapName=istio %s %s`,
 			src, dest, i.namespace, i.namespace, injectCfgMapStr, kubeconfigStr)
+		return err
 	}
 
 	imagePullPolicyStr := ""
@@ -167,11 +169,61 @@ func (i *Istioctl) KubeInject(src, dest, kubeconfig string) error {
 		imagePullPolicyStr = fmt.Sprintf("--imagePullPolicy %s", i.imagePullPolicy)
 	}
 
-	return i.run(`kube-inject -f %s -o %s %s -n %s -i %s --meshConfigMapName=istio %s %s`,
+	_, err := i.run(`kube-inject -f %s -o %s %s -n %s -i %s --meshConfigMapName=istio %s %s`,
 		src, dest, imagePullPolicyStr, i.namespace, i.namespace, injectCfgMapStr, kubeconfigStr)
+	return err
 }
 
 // DeleteRule Delete rule(s)
 func (i *Istioctl) DeleteRule(rule string) error {
-	return i.run("-n %s delete -f %s", i.namespace, rule)
+	_, err := i.run("-n %s delete -f %s", i.namespace, rule)
+	return err
+}
+
+// PortEPs is a map from port number to a list of endpoints
+type PortEPs map[string][]string
+
+// GetProxyConfigEndpoints returns endpoints in the proxy config from a pod.
+func (i *Istioctl) GetProxyConfigEndpoints(podName string) (epInfo map[string]PortEPs, err error) {
+	// results have two columns: the first column indicates endpoint IPs and
+	// the second column indicates envoy cluster names
+	res, err := i.run("-n %s proxy-config endpoint %s", i.namespace, podName)
+	if err != nil {
+		log.Errorf("Failed to get proxy-config endpoint from pod %s in namespace %s", podName, i.namespace)
+		return nil, err
+	}
+
+	epInfo = make(map[string]PortEPs)
+	for _, line := range strings.Split(res, "\n") {
+		// fields[0] is the endpoint IP, fields[1] is the envoy cluster name
+		fields := strings.Fields(line)
+		if len(fields) >= 2 {
+			// Cluster name format direction|port|subsetName|hostname
+			clusterNameFields := strings.Split(fields[1], "|")
+			if len(clusterNameFields) != 4 {
+				err = fmt.Errorf("Incorrect cluster name %v", fields[1])
+				log.Errorf("%v", err)
+				return nil, err
+			}
+			if clusterNameFields[0] == "outbound" {
+				port := clusterNameFields[1]
+				hostname := clusterNameFields[3]
+				// hostname is a service FQDN with the format: service.namespace.svc.cluster.local
+				// Only return services in the test namespace
+				hostnameFields := strings.Split(hostname, ".")
+				if hostnameFields[1] == i.namespace {
+					appName := hostnameFields[0]
+					var portEps PortEPs
+					if epInfo[appName] == nil {
+						portEps = make(PortEPs)
+						epInfo[appName] = portEps
+					} else {
+						portEps = epInfo[appName]
+					}
+					portEps[port] = append(portEps[port], fields[0])
+				}
+			}
+		}
+	}
+	return epInfo, nil
 }
