@@ -21,10 +21,10 @@ import (
 	"os"
 	"path/filepath"
 
-	fortioServer "istio.io/istio/tests/integration/component/fortio_server"
-	"istio.io/istio/tests/integration/component/mixer"
-	"istio.io/istio/tests/integration/component/proxy"
-	"istio.io/istio/tests/integration/framework"
+	fortioServer "istio.io/istio/tests/integration_old/component/fortio_server"
+	"istio.io/istio/tests/integration_old/component/mixer"
+	"istio.io/istio/tests/integration_old/component/proxy"
+	"istio.io/istio/tests/integration_old/framework"
 )
 
 // MixerEnvoyEnv is a test environment with envoy, mixer and echo server
