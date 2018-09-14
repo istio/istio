@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"strings"
+	"regexp"
 
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -30,6 +30,12 @@ import (
 	"k8s.io/client-go/transport/spdy"
 
 	kubelib "istio.io/istio/pkg/kube"
+)
+
+var (
+	outputBufferSize  = 4096
+	forwardRegex      = regexp.MustCompile("Forwarding from (127.0.0.1:[0-9]+) -> ([0-9]+)")
+	addressMatchIndex = 1
 )
 
 // PortForwarder is a wrapper for port forward.
@@ -107,7 +113,7 @@ func NewPortForwarder(client *rest.RESTClient, config *rest.Config, options *Pod
 
 	stopCh := make(chan struct{})
 	readyCh := make(chan struct{})
-	output := bytes.NewBuffer(make([]byte, 4096))
+	output := bytes.NewBuffer(make([]byte, 0, outputBufferSize))
 	fw, err := portforward.New(dialer, []string{ports}, stopCh, readyCh, output, os.Stderr)
 	if err != nil {
 		return nil, fmt.Errorf("failed establishing port-forward: %v", err)
@@ -150,13 +156,11 @@ func validatePodSelectOptions(options *PodSelectOptions) error {
 
 func extractAddress(output string) (string, error) {
 	// TODO: improve this when we have multi port inputs.
-	if strings.Contains(output, "\n") {
-		output = output[len("Forwarding from "):]
-		parts := strings.Split(output, "->")
-		return strings.TrimSpace(parts[0]), nil
+	matches := forwardRegex.FindStringSubmatch(output)
+	if matches == nil {
+		return "", fmt.Errorf("failed to get address from output: %s", output)
 	}
-
-	return "", fmt.Errorf("failed to get address from output: %s", output)
+	return matches[addressMatchIndex], nil
 }
 
 // NewRestClient return rest client with default config.

@@ -411,6 +411,7 @@ pilot:
       memory: 2048Mi
   env:
     PILOT_PUSH_THROTTLE_COUNT: 100
+    ISTIO_SA_DOMAIN_CANONICAL:
     GODEBUG: gctrace=2
 
 #

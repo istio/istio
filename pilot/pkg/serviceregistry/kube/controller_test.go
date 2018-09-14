@@ -249,6 +249,7 @@ func TestController_getPodAZ(t *testing.T) {
 func TestGetProxyServiceInstances(t *testing.T) {
 	controller := makeFakeKubeAPIController()
 
+	istioServiceAccountDomainForCanonical = "accounts.google.com"
 	k8sSaOnVM := "acct4"
 	canonicalSaOnVM := "acctvm2@gserviceaccount2.com"
 
@@ -332,7 +333,7 @@ func TestController_GetIstioServiceAccounts(t *testing.T) {
 	sa := controller.GetIstioServiceAccounts(hostname, []int{1001, 8080})
 	sort.Sort(sort.StringSlice(sa))
 	expected := []string{
-		"spiffe://" + canonicalSaOnVM,
+		"spiffe://accounts.google.com/" + canonicalSaOnVM,
 		"spiffe://company.com/ns/nsA/sa/" + sa2,
 		"spiffe://company.com/ns/nsA/sa/" + k8sSaOnVM,
 	}

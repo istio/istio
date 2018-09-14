@@ -21,10 +21,10 @@ import (
 	"os"
 	"testing"
 
-	"istio.io/istio/tests/integration/component/mixer"
-	"istio.io/istio/tests/integration/component/proxy"
-	"istio.io/istio/tests/integration/example/environment/mixerEnvoyEnv"
-	"istio.io/istio/tests/integration/framework"
+	"istio.io/istio/tests/integration_old/component/mixer"
+	"istio.io/istio/tests/integration_old/component/proxy"
+	"istio.io/istio/tests/integration_old/example/environment/mixerEnvoyEnv"
+	"istio.io/istio/tests/integration_old/framework"
 )
 
 // This sample shows how to reuse a test environment in different test cases.

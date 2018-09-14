@@ -186,11 +186,14 @@ var (
 			// resolve statsd address
 			if proxyConfig.StatsdUdpAddress != "" {
 				addr, err := proxy.ResolveAddr(proxyConfig.StatsdUdpAddress)
-				if err == nil {
+				if err != nil {
+					// If istio-mixer.istio-system can't be resolved, skip generating the statsd config.
+					// (instead of crashing). Mixer is optional.
+					log.Warnf("resolve StatsdUdpAddress failed: %v", err)
+					proxyConfig.StatsdUdpAddress = ""
+				} else {
 					proxyConfig.StatsdUdpAddress = addr
 				}
-				// If istio-mixer.istio-system can't be resolved, skip generating the statsd config.
-				// (instead of crashing). Mixer is optional.
 			}
 
 			if err := model.ValidateProxyConfig(&proxyConfig); err != nil {
@@ -252,6 +255,7 @@ var (
 			}
 
 			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
 
 			// If a status port was provided, start handling status probes.
 			if statusPort > 0 {
@@ -278,7 +282,6 @@ var (
 			stop := make(chan struct{})
 			cmd.WaitSignal(stop)
 			<-stop
-			cancel()
 			return nil
 		},
 	}

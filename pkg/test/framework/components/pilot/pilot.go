@@ -93,6 +93,14 @@ func (c *kubeComponent) Init(ctx environment.ComponentContext, deps map[dependen
 		return nil, fmt.Errorf("unsupported environment: %q", ctx.Environment().EnvironmentID())
 	}
 
+	result, err := c.doInit(e)
+	if err != nil {
+		return nil, multierror.Prefix(err, "pilot init failed:")
+	}
+	return result, nil
+}
+
+func (c *kubeComponent) doInit(e *kubernetes.Implementation) (interface{}, error) {
 	s := e.KubeSettings()
 
 	pod, err := e.Accessor.WaitForPodBySelectors(s.IstioSystemNamespace, "istio=pilot")
@@ -100,21 +108,26 @@ func (c *kubeComponent) Init(ctx environment.ComponentContext, deps map[dependen
 		return nil, err
 	}
 
-	port := 0
-	svc, err := e.Accessor.GetService(s.IstioSystemNamespace, pilotService)
+	port, err := getGrpcPort(e)
 	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve service %s: %v", pilotService, err)
-	}
-	for _, portInfo := range svc.Spec.Ports {
-		if portInfo.Name == grpcPortName {
-			port = portInfo.TargetPort.IntValue()
-		}
-	}
-	if port == 0 {
-		return nil, fmt.Errorf("failed to get target port in service %s", pilotService)
+		return nil, err
 	}
 
 	return NewKubePilot(s.KubeConfig, pod.Namespace, pod.Name, port)
+}
+
+func getGrpcPort(e *kubernetes.Implementation) (int, error) {
+	s := e.KubeSettings()
+	svc, err := e.Accessor.GetService(s.IstioSystemNamespace, pilotService)
+	if err != nil {
+		return 0, fmt.Errorf("failed to retrieve service %s: %v", pilotService, err)
+	}
+	for _, portInfo := range svc.Spec.Ports {
+		if portInfo.Name == grpcPortName {
+			return portInfo.TargetPort.IntValue(), nil
+		}
+	}
+	return 0, fmt.Errorf("failed to get target port in service %s", pilotService)
 }
 
 // LocalPilot is the interface for a local pilot server.
