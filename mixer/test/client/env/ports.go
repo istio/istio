@@ -59,6 +59,8 @@ const (
 	PilotPluginTLSTest
 	PilotMCPTest
 	RbacGlobalPermissiveTest
+	RbacPolicyPermissiveTest
+
 	// The number of total tests. has to be the last one.
 	maxTestNum
 )
