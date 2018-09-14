@@ -151,11 +151,13 @@ func TestBuffered_Close(t *testing.T) {
 	}
 }
 
-func createRetryPushFn(pushCount *int, expReqTS [][]*monitoring.TimeSeries, withError []bool, failedTS [][]*monitoring.TimeSeries, errorMessage [][]string, t *testing.T) pushFunc {
+func createRetryPushFn(pushCount *int, expReqTS [][]*monitoring.TimeSeries, withError []bool, failedTS [][]*monitoring.TimeSeries,
+	errorMessage [][]string, t *testing.T) pushFunc {
 	retryPushFn := func(ctx xcontext.Context, req *monitoring.CreateTimeSeriesRequest, opts ...gax.CallOption) error {
 		fmt.Println(*pushCount)
 		if len(expReqTS) != len(withError) || len(expReqTS) != len(failedTS) || len(expReqTS) <= *pushCount {
-			t.Errorf("args size does not match or potential out of bound. abort push operation %v %v %v %v", len(expReqTS), len(withError), len(failedTS), *pushCount)
+			t.Errorf("args size does not match or potential out of bound. abort push operation %v %v %v %v",
+				len(expReqTS), len(withError), len(failedTS), *pushCount)
 			return nil
 		}
 		defer func(pc *int) {
@@ -164,7 +166,8 @@ func createRetryPushFn(pushCount *int, expReqTS [][]*monitoring.TimeSeries, with
 
 		// Verify time series in request match the given ones
 		if len(expReqTS[*pushCount]) != len(req.TimeSeries) {
-			t.Errorf("push %v - number of time series in CreateTimeSeriesRequest is not expected: want %+v got %+v", *pushCount, expReqTS[*pushCount], req.TimeSeries)
+			t.Errorf("push %v - number of time series in CreateTimeSeriesRequest is not expected: want %+v got %+v",
+				*pushCount, expReqTS[*pushCount], req.TimeSeries)
 			return nil
 		}
 		for _, ets := range expReqTS[*pushCount] {
