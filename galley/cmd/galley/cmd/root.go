@@ -100,7 +100,7 @@ func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 	rootCmd.PersistentFlags().AddGoFlagSet(flag.CommandLine)
 	rootCmd.PersistentFlags().StringVar(&flags.kubeConfig, "kubeconfig", "",
 		"Use a Kubernetes configuration file instead of in-cluster configuration")
-	rootCmd.PersistentFlags().DurationVar(&flags.resyncPeriod, "resyncPeriod", 0,
+	rootCmd.PersistentFlags().DurationVar(&flags.resyncPeriod, "resyncPeriod", 60*time.Second,
 		"Resync period for rescanning Kubernetes resources")
 	rootCmd.PersistentFlags().StringVar(&validationArgs.CertFile, "tlsCertFile", "/etc/istio/certs/cert-chain.pem",
 		"File containing the x509 Certificate for HTTPS.")
