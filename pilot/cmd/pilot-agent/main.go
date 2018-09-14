@@ -252,6 +252,7 @@ var (
 			}
 
 			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
 
 			// If a status port was provided, start handling status probes.
 			if statusPort > 0 {
@@ -278,7 +279,6 @@ var (
 			stop := make(chan struct{})
 			cmd.WaitSignal(stop)
 			<-stop
-			cancel()
 			return nil
 		},
 	}
