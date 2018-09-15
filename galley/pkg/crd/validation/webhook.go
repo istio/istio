@@ -224,7 +224,7 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 		log.Info("server-side configuration validation enabled")
 		reconcileTickerC = time.NewTicker(time.Second).C
 	} else {
-		log.Info("server-side configuration validation disabled. Enable with --webhook-config-file")
+		log.Info("server-side configuration validation disabled. Enable with --validation-webhook-config-file")
 	}
 
 	for {
