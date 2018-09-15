@@ -450,7 +450,6 @@ grafana:
     name: http
     type: ClusterIP
     externalPort: 3000
-    internalPort: 3000
     loadBalancerIP:
     loadBalancerSourceRanges:
 
@@ -475,7 +474,6 @@ servicegraph:
     name: http
     type: ClusterIP
     externalPort: 8088
-    internalPort: 8088
     loadBalancerIP:
     loadBalancerSourceRanges:
   ingress:
@@ -502,8 +500,6 @@ tracing:
     tag: 1.6
     memory:
       max_traces: 50000
-    ui:
-      port: 16686
     ingress:
       enabled: false
       # Used to create an Ingress record.
@@ -523,7 +519,6 @@ tracing:
     name: http
     type: ClusterIP
     externalPort: 9411
-    internalPort: 9411
   ingress:
     enabled: false
     # Used to create an Ingress record.
