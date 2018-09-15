@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
@@ -94,6 +95,10 @@ type Config struct {
 
 	// Spec holds the configuration object as a protobuf message
 	Spec proto.Message
+
+	// Mutex to protect this config against simultaneous reads and writes. Use
+	// it within critical blocks and call _Lock()_ only when a write is planned.
+	Mutex *sync.RWMutex
 }
 
 // ConfigStore describes a set of platform agnostic APIs that must be supported

@@ -17,6 +17,7 @@ package monitor
 import (
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -91,11 +92,16 @@ func (m *Monitor) checkAndUpdate() {
 			m.createConfig(newConfig)
 			newIndex++
 		} else {
+			oldConfig.Mutex = &sync.RWMutex{}
+			oldConfig.Mutex.Lock()
 			// version may change without content changing
 			oldConfig.ConfigMeta.ResourceVersion = newConfig.ConfigMeta.ResourceVersion
+			oldConfig.Mutex.Unlock()
+			oldConfig.Mutex.RLock()
 			if !reflect.DeepEqual(oldConfig, newConfig) {
 				m.updateConfig(newConfig)
 			}
+			oldConfig.Mutex.RUnlock()
 			oldIndex++
 			newIndex++
 		}

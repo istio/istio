@@ -358,6 +358,8 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 	ps.VirtualServiceConfigs = vservices
 	// convert all shortnames in virtual services into FQDNs
 	for _, r := range ps.VirtualServiceConfigs {
+		r.Mutex = &sync.RWMutex{}
+		r.Mutex.Lock()
 		rule := r.Spec.(*networking.VirtualService)
 		// resolve top level hosts
 		for i, h := range rule.Hosts {
@@ -411,6 +413,7 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 				w.Destination.Host = string(ResolveShortnameToFQDN(w.Destination.Host, r.ConfigMeta))
 			}
 		}
+		r.Mutex.Unlock()
 	}
 	return nil
 }
