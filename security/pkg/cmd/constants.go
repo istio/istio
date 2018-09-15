@@ -51,4 +51,7 @@ const (
 
 	// ListenedNamespaceKey is the key for the environment variable that specifies the namespace.
 	ListenedNamespaceKey = "NAMESPACE"
+
+	// IstioCaClusterDomainKey is the key for the environment variable that specifies the cluster domain.
+	IstioCaClusterDomainKey = "DNS_DOMAIN"
 )
