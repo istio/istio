@@ -42,7 +42,7 @@
   version = "v0.6.0"
 
 [[projects]]
-  digest = "1:ca58755cd68a0c97d7d2791b0123c10a119f6384fa222b439c74a2aed49b470a"
+  digest = "1:832b170d3036b532695b579514f7069b80221f74b4d4130fb2e8b541b420f907"
   name = "fortio.org/fortio"
   packages = [
     ".",
@@ -57,8 +57,8 @@
     "version",
   ]
   pruneopts = "T"
-  revision = "4a5012fb92ee87ecbdd80ed2cb031f5cf9c50cbc"
-  version = "v1.2.1"
+  revision = "bf3f2d9ff07ed03ef16be56af20d58dc0300e60f"
+  version = "v1.3.0"
 
 [[projects]]
   digest = "1:add5f01e863553e80ded66e1cba646ad947932e66f90813741d51c97a1ee7a59"
@@ -509,7 +509,7 @@
   revision = "66deaeb636dff1ac7d938ce666d090556056a4b0"
 
 [[projects]]
-  digest = "1:5e13e19b8beaacfb7eaa353eb2140bf3191d8a6a3c932e6b78ddfb8a40553194"
+  digest = "1:0321890c082a214113d5b96983303f252bf1a42bcd834454c7bb799ba425de32"
   name = "github.com/golang/protobuf"
   packages = [
     "proto",
@@ -524,8 +524,8 @@
     "ptypes/wrappers",
   ]
   pruneopts = "NUT"
-  revision = "b4deda0973fb4c70b50d226b1af49f3da59f5265"
-  version = "v1.1.0"
+  revision = "aa810b61a9c79d51363740d207bb46cf8e620ed5"
+  version = "v1.2.0"
 
 [[projects]]
   branch = "master"
@@ -1494,7 +1494,7 @@
   revision = "ab0870e398d5dd054b868c0db1481ab029b9a9f2"
 
 [[projects]]
-  digest = "1:e65646f48beae8b39f96e18b0ebf1b55b6ad9d840e3c6bd8e48ac517435ab851"
+  digest = "1:d2cd4383c252f450abec5772b1d3536603ee955df65fd992b767bb214c774a84"
   name = "google.golang.org/grpc"
   packages = [
     ".",
@@ -1531,8 +1531,8 @@
     "tap",
   ]
   pruneopts = "NUT"
-  revision = "32fb0ac620c32ba40a4626ddf94d90d12cce3455"
-  version = "v1.14.0"
+  revision = "8dea3dc473e90c8179e519d91302d0597c0ca1d1"
+  version = "v1.15.0"
 
 [[projects]]
   digest = "1:22b2dee6f30bc8601f087449a2a819df8388e54e9547349c658f14d8f8c590f2"
