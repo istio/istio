@@ -578,7 +578,7 @@ func logMixerMetrics(t *testing.T, service string, port int) {
 		t.Logf("Failure getting metrics for '%s:%d': %v", service, port, err)
 		return
 	}
-	resp, err := util.ShellMuteOutput("kubectl exec -n %s %s -c echosrv -- /usr/local/bin/fortio curl http://%s.%s:%d/metrics", ns, pods[0], service, ns, port)
+	resp, err := util.ShellMuteOutput("kubectl exec -n %s %s -c echosrv -- /usr/bin/fortio curl http://%s.%s:%d/metrics", ns, pods[0], service, ns, port)
 	if err != nil {
 		t.Logf("could not retrieve metrics: %v", err)
 		return
