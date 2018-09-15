@@ -92,9 +92,9 @@ const rbacPolicyPermissiveFilter = `
           - any: true
 `
 
-// Test senario that setting permissive mode on policy level.
-// Response code is 403 since Rbac is turned on and denied by default.
-// Permissive resp code is 200 because of shadow rules is set.
+// Test senario of setting permissive mode on policy level.
+// Response code is 403 since authorization is turned on and is deny-by-default.
+// Permissive resp code is 200 because shadow rules is set.
 func TestRbacPolicyPermissive(t *testing.T) {
 	s := env.NewTestSetup(env.RbacPolicyPermissiveTest, t)
 	s.SetFiltersBeforeMixer(rbacPolicyPermissiveFilter)
