@@ -155,6 +155,9 @@ const (
 	ProtocolUnsupported Protocol = "UnsupportedProtocol"
 )
 
+// SupportedProtocols denotes all the supported protocols
+var SupportedProtocols = []Protocol{ProtocolGRPC, ProtocolHTTP, ProtocolHTTP2, ProtocolHTTPS, ProtocolTCP, ProtocolTLS, ProtocolUDP, ProtocolMongo, ProtocolRedis}
+
 // AddressFamily indicates the kind of transport used to reach a NetworkEndpoint
 type AddressFamily int
 
