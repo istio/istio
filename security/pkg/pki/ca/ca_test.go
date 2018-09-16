@@ -22,7 +22,6 @@ import (
 	"testing"
 	"time"
 
-	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 
@@ -128,12 +127,12 @@ func TestCreateSelfSignedIstioCAWithoutSecret(t *testing.T) {
 	}
 
 	// Check the signing cert stored in K8s secret.
-	caSecret, err := client.CoreV1().Secrets("default").Get(cASecret, metav1.GetOptions{})
+	caSecret, err := client.CoreV1().Secrets("default").Get(CASecret, metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("Failed to get secret (error: %s)", err)
 	}
 
-	signingCertFromSecret, err := util.ParsePemEncodedCertificate(caSecret.Data[cACertID])
+	signingCertFromSecret, err := util.ParsePemEncodedCertificate(caSecret.Data[caCertID])
 	if err != nil {
 		t.Errorf("Failed to parse cert (error: %s)", err)
 	}
@@ -146,11 +145,11 @@ func TestCreateSelfSignedIstioCAWithoutSecret(t *testing.T) {
 func TestCreateSelfSignedIstioCAWithSecret(t *testing.T) {
 	rootCertPem := cert1Pem
 	// Use the same signing cert and root cert for self-signed CA.
-	signingCertPem := cert1Pem
-	signingKeyPem := key1Pem
+	signingCertPem := []byte(cert1Pem)
+	signingKeyPem := []byte(key1Pem)
 
 	client := fake.NewSimpleClientset()
-	initSecret := createSecret("default", signingCertPem, signingKeyPem, rootCertPem)
+	initSecret := BuildSecret("", CASecret, "default", nil, nil, nil, signingCertPem, signingKeyPem, istioCASecretType)
 	_, err := client.CoreV1().Secrets("default").Create(initSecret)
 	if err != nil {
 		t.Errorf("Failed to create secret (error: %s)", err)
@@ -177,7 +176,7 @@ func TestCreateSelfSignedIstioCAWithSecret(t *testing.T) {
 		t.Fatalf("Failed to create a self-signed CA.")
 	}
 
-	signingCert, err := util.ParsePemEncodedCertificate([]byte(signingCertPem))
+	signingCert, err := util.ParsePemEncodedCertificate(signingCertPem)
 	if err != nil {
 		t.Errorf("Failed to parse cert (error: %s)", err)
 	}
@@ -235,11 +234,12 @@ func TestCreatePluggedCertCA(t *testing.T) {
 	}
 }
 
+// TODO: merge tests for SignCSR.
 func TestSignCSRForWorkload(t *testing.T) {
-	host := "spiffe://example.com/ns/foo/sa/bar"
+	subjectID := "spiffe://example.com/ns/foo/sa/bar"
 	opts := util.CertOptions{
-		Host:       host,
-		Org:        "istio.io",
+		// This value is not used, instead, subjectID should be used in certificate.
+		Host:       "spiffe://different.com/test",
 		RSAKeySize: 2048,
 		IsCA:       false,
 	}
@@ -254,7 +254,7 @@ func TestSignCSRForWorkload(t *testing.T) {
 	}
 
 	requestedTTL := 30 * time.Minute
-	certPEM, signErr := ca.Sign(csrPEM, requestedTTL, false)
+	certPEM, signErr := ca.Sign(csrPEM, []string{subjectID}, requestedTTL, false)
 	if signErr != nil {
 		t.Error(err)
 	}
@@ -263,10 +263,11 @@ func TestSignCSRForWorkload(t *testing.T) {
 		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
 		KeyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
 		IsCA:        false,
+		Host:        subjectID,
 	}
 	_, _, certChainBytes, rootCertBytes := ca.GetCAKeyCertBundle().GetAll()
 	if err = util.VerifyCertificate(
-		keyPEM, append(certPEM, certChainBytes...), rootCertBytes, host, fields); err != nil {
+		keyPEM, append(certPEM, certChainBytes...), rootCertBytes, fields); err != nil {
 		t.Error(err)
 	}
 
@@ -282,7 +283,7 @@ func TestSignCSRForWorkload(t *testing.T) {
 	if san == nil {
 		t.Errorf("No SAN extension is found in the certificate")
 	}
-	expected, err := util.BuildSubjectAltNameExtension(host)
+	expected, err := util.BuildSubjectAltNameExtension(subjectID)
 	if err != nil {
 		t.Error(err)
 	}
@@ -292,10 +293,8 @@ func TestSignCSRForWorkload(t *testing.T) {
 }
 
 func TestSignCSRForCA(t *testing.T) {
-	host := "spiffe://example.com/ns/foo/sa/baz"
+	subjectID := "spiffe://example.com/ns/foo/sa/baz"
 	opts := util.CertOptions{
-		Host:       host,
-		Org:        "istio.io",
 		RSAKeySize: 2048,
 		IsCA:       true,
 	}
@@ -310,7 +309,7 @@ func TestSignCSRForCA(t *testing.T) {
 	}
 
 	requestedTTL := 30 * 24 * time.Hour
-	certPEM, signErr := ca.Sign(csrPEM, requestedTTL, true)
+	certPEM, signErr := ca.Sign(csrPEM, []string{subjectID}, requestedTTL, true)
 	if signErr != nil {
 		t.Error(err)
 	}
@@ -318,10 +317,11 @@ func TestSignCSRForCA(t *testing.T) {
 	fields := &util.VerifyFields{
 		KeyUsage: x509.KeyUsageCertSign,
 		IsCA:     true,
+		Host:     subjectID,
 	}
 	_, _, certChainBytes, rootCertBytes := ca.GetCAKeyCertBundle().GetAll()
 	if err = util.VerifyCertificate(
-		keyPEM, append(certPEM, certChainBytes...), rootCertBytes, host, fields); err != nil {
+		keyPEM, append(certPEM, certChainBytes...), rootCertBytes, fields); err != nil {
 		t.Error(err)
 	}
 
@@ -337,7 +337,7 @@ func TestSignCSRForCA(t *testing.T) {
 	if san == nil {
 		t.Errorf("No SAN extension is found in the certificate")
 	}
-	expected, err := util.BuildSubjectAltNameExtension(host)
+	expected, err := util.BuildSubjectAltNameExtension(subjectID)
 	if err != nil {
 		t.Error(err)
 	}
@@ -347,9 +347,8 @@ func TestSignCSRForCA(t *testing.T) {
 }
 
 func TestSignCSRTTLError(t *testing.T) {
-	host := "spiffe://example.com/ns/foo/sa/bar"
+	subjectID := "spiffe://example.com/ns/foo/sa/bar"
 	opts := util.CertOptions{
-		Host:       host,
 		Org:        "istio.io",
 		RSAKeySize: 2048,
 	}
@@ -365,7 +364,7 @@ func TestSignCSRTTLError(t *testing.T) {
 
 	ttl := 3 * time.Hour
 
-	cert, signErr := ca.Sign(csrPEM, ttl, false)
+	cert, signErr := ca.Sign(csrPEM, []string{subjectID}, ttl, false)
 	if cert != nil {
 		t.Errorf("Expected null cert be obtained a non-null cert.")
 	}
@@ -425,21 +424,6 @@ func createCA(maxTTL time.Duration, multicluster bool) (*IstioCA, error) {
 	}
 
 	return NewIstioCA(caOpts)
-}
-
-// TODO(wattli): move the two functions below as a util function to share with secret_test.go
-func createSecret(namespace, signingCert, signingKey, rootCert string) *v1.Secret {
-	return &v1.Secret{
-		Data: map[string][]byte{
-			cACertID:       []byte(signingCert),
-			cAPrivateKeyID: []byte(signingKey),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cASecret,
-			Namespace: namespace,
-		},
-		Type: istioCASecretType,
-	}
 }
 
 func comparePem(expectedBytes []byte, file string) bool {

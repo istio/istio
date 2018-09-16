@@ -19,6 +19,7 @@ spec:
         {{- range $key, $val := $spec.labels }}
         {{ $key }}: {{ $val }}
         {{- end }}
+        {{- template "common_template_labels" $ }}
       annotations:
         sidecar.istio.io/inject: "false"
         scheduler.alpha.kubernetes.io/critical-pod: ""
@@ -52,6 +53,11 @@ spec:
             {{- range $key, $val := $spec.ports }}
             - containerPort: {{ $val.port }}
             {{- end }}
+{{ if ne $.Values.global.proxy.stats.prometheusPort 0. }}
+            - containerPort: {{ $.Values.global.proxy.stats.prometheusPort }}
+              protocol: TCP
+              name: http-envoy-prom
+{{ end }}
           args:
           - proxy
           - router

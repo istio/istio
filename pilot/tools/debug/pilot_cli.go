@@ -98,7 +98,7 @@ func getAllPods(kubeconfig string) (*v1.PodList, error) {
 	if err != nil {
 		return nil, err
 	}
-	return clientset.Core().Pods("").List(meta_v1.ListOptions{})
+	return clientset.CoreV1().Pods(meta_v1.NamespaceAll).List(meta_v1.ListOptions{})
 }
 
 func NewPodInfo(nameOrAppLabel string, kubeconfig string, proxyType string) *PodInfo {
@@ -214,8 +214,8 @@ func edsRequest(pilotURL string, req *xdsapi.DiscoveryRequest) *xdsapi.Discovery
 	}
 	defer conn.Close()
 
-	adsClient := xdsapi.NewEndpointDiscoveryServiceClient(conn)
-	stream, err := adsClient.StreamEndpoints(context.Background())
+	edsClient := xdsapi.NewEndpointDiscoveryServiceClient(conn)
+	stream, err := edsClient.StreamEndpoints(context.Background())
 	if err != nil {
 		panic(err.Error())
 	}

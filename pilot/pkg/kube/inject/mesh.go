@@ -22,10 +22,20 @@ const (
 	parameterizedTemplate = `
 [[- $proxyImageKey                  := "sidecar.istio.io/proxyImage" -]]
 [[- $interceptionModeKey            := "sidecar.istio.io/interceptionMode" -]]
+[[- $statusPortKey                  := "status.sidecar.istio.io/port" -]]
+[[- $readinessInitialDelayKey       := "readiness.status.sidecar.istio.io/initialDelaySeconds" -]]
+[[- $readinessPeriodKey             := "readiness.status.sidecar.istio.io/periodSeconds" -]]
+[[- $readinessFailureThresholdKey   := "readiness.status.sidecar.istio.io/failureThreshold" -]]
+[[- $readinessApplicationPortsKey   := "readiness.status.sidecar.istio.io/applicationPorts" -]]
 [[- $includeOutboundIPRangesKey     := "traffic.sidecar.istio.io/includeOutboundIPRanges" -]]
 [[- $excludeOutboundIPRangesKey     := "traffic.sidecar.istio.io/excludeOutboundIPRanges" -]]
 [[- $includeInboundPortsKey         := "traffic.sidecar.istio.io/includeInboundPorts" -]]
 [[- $excludeInboundPortsKey         := "traffic.sidecar.istio.io/excludeInboundPorts" -]]
+[[- $statusPortValue                := (annotation .ObjectMeta $statusPortKey {{ .StatusPort }}) -]]
+[[- $readinessInitialDelayValue     := (annotation .ObjectMeta $readinessInitialDelayKey "{{ .ReadinessInitialDelaySeconds }}") -]]
+[[- $readinessPeriodValue           := (annotation .ObjectMeta $readinessPeriodKey "{{ .ReadinessPeriodSeconds }}") ]]
+[[- $readinessFailureThresholdValue := (annotation .ObjectMeta $readinessFailureThresholdKey {{ .ReadinessFailureThreshold }}) -]]
+[[- $readinessApplicationPortsValue := (annotation .ObjectMeta $readinessApplicationPortsKey (applicationPorts .Spec.Containers)) -]]
 initContainers:
 - name: istio-init
   image: {{ .InitImage }}
@@ -43,7 +53,7 @@ initContainers:
   - "-b"
   - "[[ annotation .ObjectMeta $includeInboundPortsKey (includeInboundPorts .Spec.Containers) ]]"
   - "-d"
-  - "[[ annotation .ObjectMeta $excludeInboundPortsKey "{{ .ExcludeInboundPorts }}" ]]"
+  - "[[ excludeInboundPort $statusPortValue (annotation .ObjectMeta $excludeInboundPortsKey "{{ .ExcludeInboundPorts }}") ]]"
   {{ if eq .ImagePullPolicy "" -}}
   imagePullPolicy: IfNotPresent
   {{ else -}}
@@ -56,8 +66,7 @@ initContainers:
     {{ if eq .DebugMode true -}}
     privileged: true
     {{ end -}}
-  restartPolicy: Always
-{{ if eq .EnableCoreDump true -}}
+{{- if eq .EnableCoreDump true }}
 - args:
   - -c
   - sysctl -w kernel.core_pattern=/var/lib/istio/core.proxy && ulimit -c unlimited
@@ -69,7 +78,7 @@ initContainers:
   resources: {}
   securityContext:
     privileged: true
-{{ end -}}
+{{- end }}
 containers:
 - name: istio-proxy
   image: [[ annotation .ObjectMeta $proxyImageKey "{{ .ProxyImage }}" ]] 
@@ -82,9 +91,9 @@ containers:
   - [[ .ProxyConfig.BinaryPath ]]
   - --serviceCluster
   [[ if ne "" (index .ObjectMeta.Labels "app") -]]
-  - [[ index .ObjectMeta.Labels "app" ]]
+  - "[[ index .ObjectMeta.Labels "app" ]].[[ valueOrDefault .DeploymentMeta.Namespace "default" ]]"
   [[ else -]]
-  - "istio-proxy"
+  - "[[ valueOrDefault .DeploymentMeta.Name "istio-proxy" ]].[[ valueOrDefault .DeploymentMeta.Namespace "default" ]]"
   [[ end -]]
   - --drainDuration
   - [[ formatDuration .ProxyConfig.DrainDuration ]]
@@ -108,6 +117,19 @@ containers:
   [[ end -]]
   - --controlPlaneAuthPolicy
   - [[ .ProxyConfig.ControlPlaneAuthPolicy ]]
+  - --statusPort
+  - [[ $statusPortValue ]]
+  - --applicationPorts
+  - "[[ $readinessApplicationPortsValue ]]"
+  [[ if (ne $statusPortValue "0") ]]
+  readinessProbe:
+    httpGet:
+      path: /healthz/ready
+      port: [[ $statusPortValue ]]
+    initialDelaySeconds: [[ $readinessInitialDelayValue ]]
+    periodSeconds: [[ $readinessPeriodValue ]]
+    failureThreshold: [[ $readinessFailureThresholdValue ]]
+  [[ end -]]
   env:
   - name: POD_NAME
     valueFrom:
@@ -150,8 +172,7 @@ containers:
     {{ end -}}
     [[ if ne (annotation .ObjectMeta $interceptionModeKey .ProxyConfig.InterceptionMode) "TPROXY" -]]
     runAsUser: 1337
-    [[ end -]]
-  restartPolicy: Always
+    [[- end ]]
   volumeMounts:
   - mountPath: /etc/istio/proxy
     name: istio-envoy

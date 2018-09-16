@@ -16,8 +16,10 @@ package kubernetes
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -26,6 +28,7 @@ import (
 	"k8s.io/client-go/tools/remotecommand"
 
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/version"
 )
 
 var (
@@ -45,9 +48,10 @@ type Client struct {
 type ExecClient interface {
 	EnvoyDo(podName, podNamespace, method, path string, body []byte) ([]byte, error)
 	AllPilotsDiscoveryDo(pilotNamespace, method, path string, body []byte) (map[string][]byte, error)
+	GetIstioVersions(namespace string) (*version.MeshInfo, error)
 }
 
-// NewClient is the contructor for the client wrapper
+// NewClient is the constructor for the client wrapper
 func NewClient(kubeconfig, configContext string) (*Client, error) {
 	config, err := defaultRestConfig(kubeconfig, configContext)
 	if err != nil {
@@ -60,7 +64,7 @@ func NewClient(kubeconfig, configContext string) (*Client, error) {
 	return &Client{config, restClient}, nil
 }
 
-// NewExecClient is the contructor for the mockable ExecClient interface
+// NewExecClient is the constructor for the mockable ExecClient interface
 func NewExecClient(kubeconfig, configContext string) (ExecClient, error) {
 	config, err := defaultRestConfig(kubeconfig, configContext)
 	if err != nil {
@@ -119,7 +123,7 @@ func (client *Client) PodExec(podName, podNamespace, container string, command [
 
 // AllPilotsDiscoveryDo makes an http request to each Pilot discovery instance
 func (client *Client) AllPilotsDiscoveryDo(pilotNamespace, method, path string, body []byte) (map[string][]byte, error) {
-	pilots, err := client.GetPilotPods(pilotNamespace)
+	pilots, err := client.GetIstioPods(pilotNamespace, map[string]string{"labelSelector": "istio=pilot"})
 	if err != nil {
 		return nil, err
 	}
@@ -142,7 +146,7 @@ func (client *Client) AllPilotsDiscoveryDo(pilotNamespace, method, path string, 
 
 // PilotDiscoveryDo makes an http request to a single Pilot discovery instance
 func (client *Client) PilotDiscoveryDo(pilotNamespace, method, path string, body []byte) ([]byte, error) {
-	pilots, err := client.GetPilotPods(pilotNamespace)
+	pilots, err := client.GetIstioPods(pilotNamespace, map[string]string{"labelSelector": "istio=pilot"})
 	if err != nil {
 		return nil, err
 	}
@@ -174,12 +178,14 @@ func (client *Client) ExtractExecResult(podName, podNamespace, container string,
 	return stdout.Bytes(), nil
 }
 
-// GetPilotPods retrieves the pod objects for all known pilots
-func (client *Client) GetPilotPods(namespace string) ([]v1.Pod, error) {
+// GetIstioPods retrieves the pod objects for Istio deployments
+func (client *Client) GetIstioPods(namespace string, params map[string]string) ([]v1.Pod, error) {
 	req := client.Get().
 		Resource("pods").
-		Namespace(namespace).
-		Param("labelSelector", "istio=pilot")
+		Namespace(namespace)
+	for k, v := range params {
+		req.Param(k, v)
+	}
 
 	res := req.Do()
 	if res.Error() != nil {
@@ -214,4 +220,81 @@ func (client *Client) GetPilotAgentContainer(podName, podNamespace string) (stri
 		}
 	}
 	return proxyContainer, nil
+}
+
+type podDetail struct {
+	binary    string
+	container string
+}
+
+// GetIstioVersions gets the version for each Istio component
+func (client *Client) GetIstioVersions(namespace string) (*version.MeshInfo, error) {
+	pods, err := client.GetIstioPods(namespace, map[string]string{"labelSelector": "istio"})
+	if err != nil {
+		return nil, err
+	}
+	if len(pods) == 0 {
+		return nil, errors.New("unable to find any Istio pod in namespace " + namespace)
+	}
+
+	labelToPodDetail := map[string]podDetail{
+		"pilot":            {"/usr/local/bin/pilot-discovery", "discovery"},
+		"citadel":          {"/usr/local/bin/istio_ca", "citadel"},
+		"egressgateway":    {"/usr/local/bin/pilot-agent", "egressgateway"},
+		"galley":           {"/usr/local/bin/galley", "validator"},
+		"ingressgateway":   {"/usr/local/bin/pilot-agent", "ingressgateway"},
+		"telemetry":        {"/usr/local/bin/mixs", "mixer"},
+		"policy":           {"/usr/local/bin/mixs", "mixer"},
+		"sidecar-injector": {"/usr/local/bin/sidecar-injector", "sidecar-injector-webhook"},
+	}
+
+	res := version.MeshInfo{}
+	for _, pod := range pods {
+		component := pod.Labels["istio"]
+
+		// Special cases
+		switch component {
+		case "statsd-prom-bridge":
+			continue
+		case "mixer":
+			component = pod.Labels["istio-mixer-type"]
+		}
+
+		server := version.ServerInfo{Component: component}
+
+		if detail, ok := labelToPodDetail[component]; ok {
+			cmd := []string{detail.binary, "version"}
+			cmdJSON := append(cmd, "-o", "json")
+
+			var info version.BuildInfo
+
+			stdout, stderr, err := client.PodExec(pod.Name, pod.Namespace, detail.container, cmdJSON)
+			if err == nil && stderr.String() == "" {
+				err = json.Unmarshal(stdout.Bytes(), &info)
+				if err != nil {
+					return nil, fmt.Errorf("error converting server info from JSON: %v", err)
+				}
+			} else if strings.HasPrefix(stderr.String(), "Error: unknown shorthand flag") {
+				// Try the old behavior
+				stdout, err := client.ExtractExecResult(pod.Name, pod.Namespace, detail.container, cmd)
+				if err == nil {
+					info, err = version.NewBuildInfoFromOldString(string(stdout))
+					if err != nil {
+						return nil, fmt.Errorf("error converting server info from JSON: %v", err)
+					}
+				} else {
+					return nil, fmt.Errorf("error execing into %v %v container: %v", pod.Name, detail.container, err)
+				}
+			} else {
+				if err != nil {
+					return nil, fmt.Errorf("error execing into %v %v container: %v", pod.Name, detail.container, err)
+				}
+				return nil, fmt.Errorf("error execing into %v %v container: %v", pod.Name, detail.container, stderr.String())
+			}
+
+			server.Info = info
+		}
+		res = append(res, server)
+	}
+	return &res, nil
 }

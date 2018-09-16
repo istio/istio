@@ -99,15 +99,14 @@ func TestAggregateStoreGet(t *testing.T) {
 		},
 	}
 
-	storeOne.GetReturns(configReturn, true)
+	storeOne.GetReturns(configReturn)
 
 	stores := []model.ConfigStore{storeOne, storeTwo}
 
 	store, err := aggregate.Make(stores)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	c, exists := store.Get("some-config", "other", "")
-	g.Expect(exists).To(gomega.BeTrue())
+	c := store.Get("some-config", "other", "")
 	g.Expect(c).To(gomega.Equal(configReturn))
 }
 
@@ -221,14 +220,22 @@ func TestAggregateStoreCache(t *testing.T) {
 	t.Run("it checks sync status", func(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 
-		//TODO: there is a corner case here what happens when
-		//the first store has not sync'ed but the second one has?
-		//you end up with true in that case but is that right?
-		storeOne.HasSyncedReturns(true)
-		storeTwo.HasSyncedReturns(true)
-
-		ss := cacheStore.HasSynced()
-		g.Expect(ss).To(gomega.BeTrue())
+		syncStatusCases := []struct {
+			storeOne bool
+			storeTwo bool
+			expect   bool
+		}{
+			{true, true, true},
+			{false, true, false},
+			{true, false, false},
+			{false, false, false},
+		}
+		for _, syncStatus := range syncStatusCases {
+			storeOne.HasSyncedReturns(syncStatus.storeOne)
+			storeTwo.HasSyncedReturns(syncStatus.storeTwo)
+			ss := cacheStore.HasSynced()
+			g.Expect(ss).To(gomega.Equal(syncStatus.expect))
+		}
 	})
 
 	t.Run("it registers an event handler", func(t *testing.T) {

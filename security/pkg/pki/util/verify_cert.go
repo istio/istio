@@ -24,7 +24,7 @@ import (
 	"time"
 )
 
-// VerifyFields contains the certficate fields to verify in the test.
+// VerifyFields contains the certificate fields to verify in the test.
 type VerifyFields struct {
 	NotBefore   time.Time
 	TTL         time.Duration // NotAfter - NotBefore
@@ -33,14 +33,13 @@ type VerifyFields struct {
 	IsCA        bool
 	Org         string
 	CommonName  string
+	Host        string
 }
 
 // VerifyCertificate verifies a given PEM encoded certificate by
 // - building one or more chains from the certificate to a root certificate;
 // - checking fields are set as expected.
-// TODO(incfly): make host a field of VerifyFields.
-func VerifyCertificate(privPem []byte, certChainPem []byte, rootCertPem []byte,
-	host string, expectedFields *VerifyFields) error {
+func VerifyCertificate(privPem []byte, certChainPem []byte, rootCertPem []byte, expectedFields *VerifyFields) error {
 
 	roots := x509.NewCertPool()
 	if rootCertPem != nil {
@@ -59,6 +58,7 @@ func VerifyCertificate(privPem []byte, certChainPem []byte, rootCertPem []byte,
 		return err
 	}
 
+	host := expectedFields.Host
 	san := host
 	// uri scheme is currently not supported in go VerifyOptions. We verify
 	// this uri at the end as a special case.

@@ -24,11 +24,11 @@ import (
 var (
 	metricCertKeyUpdate = prometheus.NewCounter(prometheus.CounterOpts{
 		Name: "galley_validation_cert_key_updates",
-		Help: "Galley validation webhook certiticate updates",
+		Help: "Galley validation webhook certificate updates",
 	})
 	metricCertKeyUpdateError = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "galley_validation_cert_key_update_errors",
-		Help: "Galley validation webhook certiticate updates errors",
+		Help: "Galley validation webhook certificate updates errors",
 	}, []string{"error"})
 	metricValidationPassed = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "galley_validation_passed",

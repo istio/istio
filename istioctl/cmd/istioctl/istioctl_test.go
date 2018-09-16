@@ -172,45 +172,46 @@ func TestGet(t *testing.T) {
 		{
 			configs: []model.Config{},
 			args:    strings.Split("get destinationrules", " "),
-			expectedOutput: `No resources found.
+			expectedOutput: `Command "get" is deprecated, Use ` + "`kubectl get`" + ` instead (see https://kubernetes.io/docs/tasks/tools/install-kubectl)
+No resources found.
 `,
 		},
 		{
 			configs: testGateways,
 			args:    strings.Split("get gateways -n default", " "),
-			expectedOutput: `GATEWAY NAME       HOSTS     NAMESPACE   AGE
+			expectedOutput: `Command "get" is deprecated, Use ` + "`kubectl get`" + ` instead (see https://kubernetes.io/docs/tasks/tools/install-kubectl)
+GATEWAY NAME       HOSTS     NAMESPACE   AGE
 bookinfo-gateway   *         default     0s
 `,
 		},
 		{
 			configs: testVirtualServices,
 			args:    strings.Split("get virtualservices -n default", " "),
-			expectedOutput: `VIRTUAL-SERVICE NAME   GATEWAYS           HOSTS     #HTTP     #TCP      NAMESPACE   AGE
+			expectedOutput: `Command "get" is deprecated, Use ` + "`kubectl get`" + ` instead (see https://kubernetes.io/docs/tasks/tools/install-kubectl)
+VIRTUAL-SERVICE NAME   GATEWAYS           HOSTS     #HTTP     #TCP      NAMESPACE   AGE
 bookinfo               bookinfo-gateway   *             1        0      default     0s
 `,
 		},
 		{
-			configs:        []model.Config{},
-			args:           strings.Split("get invalid", " "),
-			expectedRegexp: regexp.MustCompile("^Usage:.*"),
-			wantException:  true, // "istioctl get invalid" should fail
-		},
-		{
-			configs:        []model.Config{},
-			args:           strings.Split("get all", " "),
-			expectedOutput: "No resources found.\n",
+			configs: []model.Config{},
+			args:    strings.Split("get all", " "),
+			expectedOutput: `Command "get" is deprecated, Use ` + "`kubectl get`" + ` instead (see https://kubernetes.io/docs/tasks/tools/install-kubectl)
+No resources found.
+`,
 		},
 		{
 			configs: testDestinationRules,
 			args:    strings.Split("get destinationrules", " "),
-			expectedOutput: `DESTINATION-RULE NAME   HOST               SUBSETS   NAMESPACE   AGE
+			expectedOutput: `Command "get" is deprecated, Use ` + "`kubectl get`" + ` instead (see https://kubernetes.io/docs/tasks/tools/install-kubectl)
+DESTINATION-RULE NAME   HOST               SUBSETS   NAMESPACE   AGE
 googleapis              *.googleapis.com             default     0s
 `,
 		},
 		{
 			configs: testServiceEntries,
 			args:    strings.Split("get serviceentries", " "),
-			expectedOutput: `SERVICE-ENTRY NAME   HOSTS              PORTS      NAMESPACE   AGE
+			expectedOutput: `Command "get" is deprecated, Use ` + "`kubectl get`" + ` instead (see https://kubernetes.io/docs/tasks/tools/install-kubectl)
+SERVICE-ENTRY NAME   HOSTS              PORTS      NAMESPACE   AGE
 googleapis           *.googleapis.com   HTTP/443   default     0s
 `,
 		},
@@ -228,7 +229,7 @@ func TestCreate(t *testing.T) {
 		{ // invalid doesn't provide -f filename
 			configs:        []model.Config{},
 			args:           strings.Split("create virtualservice", " "),
-			expectedRegexp: regexp.MustCompile("^Usage:.*"),
+			expectedRegexp: regexp.MustCompile("^Command \"create\" is deprecated, Use `kubectl create` instead (see https://kubernetes.io/docs/tasks/tools/install-kubectl)*"), // nolint: lll
 			wantException:  true,
 		},
 	}
@@ -245,7 +246,7 @@ func TestReplace(t *testing.T) {
 		{ // invalid doesn't provide -f
 			configs:        []model.Config{},
 			args:           strings.Split("replace virtualservice", " "),
-			expectedRegexp: regexp.MustCompile("^Usage:.*"),
+			expectedRegexp: regexp.MustCompile("^Command \"replace\" is deprecated, Use `kubectl apply` instead (see https://kubernetes.io/docs/tasks/tools/install-kubectl)*"), // nolint: lll
 			wantException:  true,
 		},
 	}
@@ -261,14 +262,8 @@ func TestDelete(t *testing.T) {
 	cases := []testCase{
 		{
 			configs:        []model.Config{},
-			args:           strings.Split("delete destinationrule unknown", " "),
-			expectedRegexp: regexp.MustCompile("^Error: 1 error occurred:\n\n\\* cannot delete unknown: item not found\n$"),
-			wantException:  true,
-		},
-		{
-			configs:        []model.Config{},
 			args:           strings.Split("delete all foo", " "),
-			expectedRegexp: regexp.MustCompile("^Error: configuration type all not found"),
+			expectedRegexp: regexp.MustCompile("^Command \"delete\" is deprecated, Use `kubectl delete` instead (see https://kubernetes.io/docs/tasks/tools/install-kubectl)*"), // nolint: lll
 			wantException:  true,
 		},
 	}
@@ -308,7 +303,7 @@ func (cs sortedConfigStore) Create(config model.Config) (string, error) {
 	return cs.store.Create(config)
 }
 
-func (cs sortedConfigStore) Get(typ, name, namespace string) (*model.Config, bool) {
+func (cs sortedConfigStore) Get(typ, name, namespace string) *model.Config {
 	return cs.store.Get(typ, name, namespace)
 }
 
@@ -405,35 +400,6 @@ func TestKubeInject(t *testing.T) {
 					" --injectConfigFile testdata/inject-config.yaml -f testdata/deployment/hello.yaml",
 				" "),
 			goldenFilename: "testdata/deployment/hello.yaml.injected",
-		},
-	}
-
-	for i, c := range cases {
-		t.Run(fmt.Sprintf("case %d %s", i, strings.Join(c.args, " ")), func(t *testing.T) {
-			verifyOutput(t, c)
-		})
-	}
-}
-
-func TestVersion(t *testing.T) {
-	cases := []testCase{
-		{ // case 0
-			configs: []model.Config{},
-			args:    strings.Split("version", " "),
-			expectedRegexp: regexp.MustCompile("Version: unknown\nGitRevision: unknown\n" +
-				"User: unknown@unknown\nHub: unknown\nGolangVersion: go1.([0-9\\.]+)\n" +
-				"BuildStatus: unknown\n"),
-		},
-		{ // case 1 short output
-			configs:        []model.Config{},
-			args:           strings.Split("version -s", " "),
-			expectedOutput: "unknown@unknown-unknown-unknown-unknown-unknown\n",
-		},
-		{ // case 2 bogus arg
-			configs:        []model.Config{},
-			args:           strings.Split("version --typo", " "),
-			expectedOutput: "Error: unknown flag: --typo\n",
-			wantException:  true,
 		},
 	}
 

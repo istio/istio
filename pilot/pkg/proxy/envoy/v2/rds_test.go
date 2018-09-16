@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/tests/util"
 )
 
@@ -41,7 +42,7 @@ func TestRDS(t *testing.T) {
 		}
 
 		strResponse, _ := model.ToJSONWithIndent(res, " ")
-		_ = ioutil.WriteFile(util.IstioOut+"/rdsv2_sidecar.json", []byte(strResponse), 0644)
+		_ = ioutil.WriteFile(env.IstioOut+"/rdsv2_sidecar.json", []byte(strResponse), 0644)
 
 		if len(res.Resources) == 0 {
 			t.Fatal("No response")
@@ -66,7 +67,7 @@ func TestRDS(t *testing.T) {
 
 		strResponse, _ := model.ToJSONWithIndent(res, " ")
 
-		_ = ioutil.WriteFile(util.IstioOut+"/rdsv2_gateway.json", []byte(strResponse), 0644)
+		_ = ioutil.WriteFile(env.IstioOut+"/rdsv2_gateway.json", []byte(strResponse), 0644)
 
 		if len(res.Resources) == 0 {
 			t.Fatal("No response")

@@ -24,13 +24,9 @@ for the destination.
 
 old routing rules:
 ```
-istioctl create -f my-second-rule-for-destination-abc.yaml
+kubectl apply -f my-second-rule-for-destination-abc.yaml
 ```
 v1alpha3 routing rules:
 ```
-istioctl replace -f my-updated-rules-for-destination-abc.yaml
+kubectl apply -f my-updated-rules-for-destination-abc.yaml
 ```
-
->>> Proposal: we should add an `istioctl patch` command, to allow users to only provide the second rule
-
-Deleting route rules other than the last one for a particular destination is also done using `istioctl replace`.

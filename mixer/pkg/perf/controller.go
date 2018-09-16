@@ -15,12 +15,19 @@
 package perf
 
 import (
+	"fmt"
 	"net"
 	"net/http"
 	"net/rpc"
+	"time"
+
+	multierror "github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/log"
 )
+
+// TODO(lichuqiang): modify defaultTimeout accordingly.
+const defaultTimeout = time.Duration(5 * time.Minute)
 
 // Controller is the top-level perf benchmark controller. It drives the test by managing the client(s) that generate
 // load against a Mixer instance.
@@ -92,18 +99,43 @@ func (c *Controller) initializeClients(address string, setup *Setup) error {
 	return err
 }
 
-func (c *Controller) runClients(iterations int) error {
-	var err error
+func (c *Controller) runClients(iterations int, timeout time.Duration) error {
+	if len(c.clients) == 0 {
+		return nil
+	}
+
+	if timeout == 0 {
+		timeout = defaultTimeout
+	}
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+
+	resCount := 0
+	errCh := make(chan error, len(c.clients))
+
 	for _, conn := range c.clients {
-		// TODO: This needs to be an async call when we have more than 1 client.
-		e := conn.Call("ClientServer.Run", iterations, nil)
-		if e != nil && err == nil {
-			// Capture the first error
-			err = e
+		// Make calls asynchronously.
+		go func() { errCh <- conn.Call("ClientServer.Run", iterations, nil) }()
+	}
+
+	var errors *multierror.Error
+	for {
+		if resCount >= len(c.clients) {
+			// All of the calls returned
+			break
+		}
+		select {
+		case e := <-errCh:
+			resCount++
+			if e != nil {
+				errors = multierror.Append(errors, e)
+			}
+		case <-timer.C:
+			return fmt.Errorf("timeout waiting for call response")
 		}
 	}
 
-	return err
+	return errors.ErrorOrNil()
 }
 
 func (c *Controller) close() (err error) {

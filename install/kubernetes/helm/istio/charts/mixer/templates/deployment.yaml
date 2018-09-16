@@ -28,7 +28,7 @@
           - --address
           - unix:///sock/mixer.socket
 {{- if $.Values.global.useMixerMCP }}
-          - --configStoreURL=mcp://istio-galley.{{ $.Release.Namespace }}.svc:9901
+          - --configStoreURL=mcps://istio-galley.{{ $.Release.Namespace }}.svc:9901
           - --certFile=/etc/certs/cert-chain.pem
           - --keyFile=/etc/certs/key.pem
           - --caCertFile=/etc/certs/root-cert.pem
@@ -63,6 +63,12 @@
         ports:
         - containerPort: 9091
         - containerPort: 15004
+{{ if ne .Values.global.proxy.stats.prometheusPort 0. }}
+        ports:
+        - containerPort: {{ .Values.global.proxy.stats.prometheusPort }}
+          protocol: TCP
+          name: http-envoy-prom
+{{ end }}
         args:
         - proxy
         - --serviceCluster
@@ -135,7 +141,7 @@
           - --address
           - unix:///sock/mixer.socket
 {{- if $.Values.global.useMixerMCP }}
-          - --configStoreURL=mcp://istio-galley.{{ $.Release.Namespace }}.svc:9901
+          - --configStoreURL=mcps://istio-galley.{{ $.Release.Namespace }}.svc:9901
           - --certFile=/etc/certs/cert-chain.pem
           - --keyFile=/etc/certs/key.pem
           - --caCertFile=/etc/certs/root-cert.pem
@@ -170,6 +176,12 @@
         ports:
         - containerPort: 9091
         - containerPort: 15004
+{{ if ne .Values.global.proxy.stats.prometheusPort 0. }}
+        ports:
+        - containerPort: {{ .Values.global.proxy.stats.prometheusPort }}
+          protocol: TCP
+          name: http-envoy-prom
+{{ end }}
         args:
         - proxy
         - --serviceCluster
@@ -233,6 +245,7 @@ spec:
         app: {{ $mname }}
         istio: mixer
         istio-mixer-type: {{ $mname }}
+        {{- template "common_template_labels" $ }}
       annotations:
         sidecar.istio.io/inject: "false"
         scheduler.alpha.kubernetes.io/critical-pod: ""

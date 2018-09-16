@@ -46,6 +46,18 @@ global:
     # e.g. sysctl -w kernel.core_pattern=/var/lib/istio/core.%e.%p.%t
     enableCoreDump: false
 
+    # Default port for Pilot agent health checks. A value of 0 will disable health checking.
+    statusPort: 15020
+
+    # The initial delay for readiness probes in seconds.
+    readinessInitialDelaySeconds: 1
+
+    # The period between readiness probes.
+    readinessPeriodSeconds: 2
+
+    # The number of successive failed probes before indicating readiness failure.
+    readinessFailureThreshold: 30
+
     # istio egress capture whitelist
     # https://istio.io/docs/tasks/traffic-management/egress.html#calling-external-services-directly
     # example: includeIPRanges: "172.30.0.0/16,172.20.0.0/16"
@@ -67,11 +79,18 @@ global:
 
     # Sets the destination Statsd in envoy (the value of the "--statsdUdpAddress" proxy argument
     # would be <host>:<port>).
-    # Can also be disabled (e.g. when Mixer is not installed).
+    # Disabled by default.
+    # The istio-statsd-prom-bridge is deprecated and should not be used moving forward.
     envoyStatsd:
-      enabled: true
-      host: istio-statsd-prom-bridge
-      port: 9125
+      # If enabled is set to true, host and port must also be provided. Istio no longer provides a statsd collector.
+      enabled: false
+      host: # example: statsd-svc
+      port: # example: 9125
+
+    # This controls the stats collection for proxies. To disable stats
+    # collection, set the prometheusPort to 0.
+    stats:
+      prometheusPort: 15090
 
   proxy_init:
     # Base name for the proxy_init container, used to configure iptables.
@@ -103,7 +122,7 @@ global:
   # to use for pulling any images in pods that reference this ServiceAccount.
   # For components that don't use ServiceAccounts (i.e. grafana, servicegraph, tracing)
   # ImagePullSecrets will be added to the corresponding Deployment(StatefulSet) objects.
-  # Must be set for any clustser configured with privte docker registry.
+  # Must be set for any clustser configured with private docker registry.
   imagePullSecrets:
     # - private-registry-key
 
@@ -151,7 +170,7 @@ global:
 
   # Kubernetes >=v1.11.0 will create two PriorityClass, including system-cluster-critical and
   # system-node-critical, it is better to configure this in order to make sure your Istio pods
-  # will not be killed because of low prioroty class.
+  # will not be killed because of low priority class.
   # Refer to https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass
   # for more detail.
   priorityClassName: ""
@@ -393,12 +412,14 @@ pilot:
       memory: 2048Mi
   env:
     PILOT_PUSH_THROTTLE_COUNT: 100
+    ISTIO_SA_DOMAIN_CANONICAL:
     GODEBUG: gctrace=2
 
 #
 # security configuration
 #
 security:
+  enabled: true
   replicaCount: 1
   image: citadel
   selfSigned: true # indicate if self-signed CA is used.
@@ -415,7 +436,9 @@ telemetry-gateway:
 grafana:
   enabled: false
   replicaCount: 1
-  image: grafana
+  image:
+    repository: grafana/grafana
+    tag: 5.2.3
   persist: false
   storageClassName: ""
   security:
@@ -428,7 +451,6 @@ grafana:
     name: http
     type: ClusterIP
     externalPort: 3000
-    internalPort: 3000
     loadBalancerIP:
     loadBalancerSourceRanges:
 
@@ -453,7 +475,6 @@ servicegraph:
     name: http
     type: ClusterIP
     externalPort: 8088
-    internalPort: 8088
     loadBalancerIP:
     loadBalancerSourceRanges:
   ingress:
@@ -469,7 +490,7 @@ servicegraph:
       # - secretName: servicegraph-tls
       #   hosts:
       #     - servicegraph.local
-  # prometheus addres
+  # prometheus address
   prometheusAddr: http://prometheus:9090
 
 tracing:
@@ -480,8 +501,6 @@ tracing:
     tag: 1.6
     memory:
       max_traces: 50000
-    ui:
-      port: 16686
     ingress:
       enabled: false
       # Used to create an Ingress record.
@@ -501,7 +520,6 @@ tracing:
     name: http
     type: ClusterIP
     externalPort: 9411
-    internalPort: 9411
   ingress:
     enabled: false
     # Used to create an Ingress record.
@@ -520,7 +538,7 @@ kiali:
   enabled: false
   replicaCount: 1
   hub: docker.io/kiali
-  tag: istio-release-1.0
+  tag: v0.6
   ingress:
     enabled: false
     ## Used to create an Ingress record.
@@ -539,10 +557,10 @@ kiali:
     usernameKey: username
     passphraseKey: passphrase
 
-    # Override the automatically detected Grafana URL, usefull when Grafana service has no ExternalIPs
+    # Override the automatically detected Grafana URL, useful when Grafana service has no ExternalIPs
     # grafanaURL:
 
-    # Override the automatically detected Jaeger URL, usefull when Jaeger service has no ExternalIPs
+    # Override the automatically detected Jaeger URL, useful when Jaeger service has no ExternalIPs
     # jaegerURL:
 
 # Certmanager uses ACME to sign certificates. Since Istio gateways are

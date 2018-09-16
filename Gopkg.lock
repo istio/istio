@@ -42,7 +42,7 @@
   version = "v0.6.0"
 
 [[projects]]
-  digest = "1:ca58755cd68a0c97d7d2791b0123c10a119f6384fa222b439c74a2aed49b470a"
+  digest = "1:832b170d3036b532695b579514f7069b80221f74b4d4130fb2e8b541b420f907"
   name = "fortio.org/fortio"
   packages = [
     ".",
@@ -57,8 +57,8 @@
     "version",
   ]
   pruneopts = "T"
-  revision = "4a5012fb92ee87ecbdd80ed2cb031f5cf9c50cbc"
-  version = "v1.2.1"
+  revision = "bf3f2d9ff07ed03ef16be56af20d58dc0300e60f"
+  version = "v1.3.0"
 
 [[projects]]
   digest = "1:add5f01e863553e80ded66e1cba646ad947932e66f90813741d51c97a1ee7a59"
@@ -247,6 +247,14 @@
   packages = ["."]
   pruneopts = "NUT"
   revision = "1e65893c445875524c5610f2a58aef24e30ef98a"
+
+[[projects]]
+  branch = "master"
+  digest = "1:2f8c5c83ec48ebde068dcab3cc6ab5d5311af1a6cb193ceabcab0ebc521f52fc"
+  name = "github.com/client9/misspell"
+  packages = ["."]
+  pruneopts = "T"
+  revision = "c0b55c8239520f6b5aa15a0207ca8b28027ba49e"
 
 [[projects]]
   branch = "master"
@@ -505,7 +513,7 @@
   revision = "66deaeb636dff1ac7d938ce666d090556056a4b0"
 
 [[projects]]
-  digest = "1:5e13e19b8beaacfb7eaa353eb2140bf3191d8a6a3c932e6b78ddfb8a40553194"
+  digest = "1:0321890c082a214113d5b96983303f252bf1a42bcd834454c7bb799ba425de32"
   name = "github.com/golang/protobuf"
   packages = [
     "proto",
@@ -520,8 +528,8 @@
     "ptypes/wrappers",
   ]
   pruneopts = "NUT"
-  revision = "b4deda0973fb4c70b50d226b1af49f3da59f5265"
-  version = "v1.1.0"
+  revision = "aa810b61a9c79d51363740d207bb46cf8e620ed5"
+  version = "v1.2.0"
 
 [[projects]]
   branch = "master"
@@ -1490,7 +1498,7 @@
   revision = "ab0870e398d5dd054b868c0db1481ab029b9a9f2"
 
 [[projects]]
-  digest = "1:e65646f48beae8b39f96e18b0ebf1b55b6ad9d840e3c6bd8e48ac517435ab851"
+  digest = "1:d2cd4383c252f450abec5772b1d3536603ee955df65fd992b767bb214c774a84"
   name = "google.golang.org/grpc"
   packages = [
     ".",
@@ -1527,8 +1535,8 @@
     "tap",
   ]
   pruneopts = "NUT"
-  revision = "32fb0ac620c32ba40a4626ddf94d90d12cce3455"
-  version = "v1.14.0"
+  revision = "8dea3dc473e90c8179e519d91302d0597c0ca1d1"
+  version = "v1.15.0"
 
 [[projects]]
   digest = "1:22b2dee6f30bc8601f087449a2a819df8388e54e9547349c658f14d8f8c590f2"
@@ -1608,7 +1616,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:bc6824880b54dfb2b1e7f7d8a278d458992f5b52fca06f4d8486afdecad31ea6"
+  digest = "1:8f4e62c3b22c888d1136eaf291f4163c4ab40e6d69aedf5f67b0e22a52c575dc"
   name = "istio.io/api"
   packages = [
     "authentication/v1alpha1",
@@ -1624,7 +1632,7 @@
     "rbac/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "d96294810379bc28083e88a2633a1f52736498e0"
+  revision = "7289fb8391991a736ff3c5b9f56a971a23ea1a67"
 
 [[projects]]
   digest = "1:1e22c9d898674522a6155619142b4691dd225441168faa2b5a4eb88ee327a243"
@@ -2017,6 +2025,7 @@
     "github.com/cenkalti/backoff",
     "github.com/circonus-labs/circonus-gometrics",
     "github.com/circonus-labs/circonus-gometrics/checkmgr",
+    "github.com/client9/misspell",
     "github.com/coreos/go-oidc",
     "github.com/davecgh/go-spew/spew",
     "github.com/emicklei/go-restful",
@@ -2169,7 +2178,6 @@
     "k8s.io/api/admissionregistration/v1beta1",
     "k8s.io/api/apps/v1",
     "k8s.io/api/apps/v1beta1",
-    "k8s.io/api/apps/v1beta2",
     "k8s.io/api/batch/v1",
     "k8s.io/api/batch/v2alpha1",
     "k8s.io/api/core/v1",
@@ -2198,6 +2206,7 @@
     "k8s.io/client-go/dynamic",
     "k8s.io/client-go/dynamic/fake",
     "k8s.io/client-go/informers",
+    "k8s.io/client-go/informers/core/v1",
     "k8s.io/client-go/informers/extensions/v1beta1",
     "k8s.io/client-go/kubernetes",
     "k8s.io/client-go/kubernetes/fake",

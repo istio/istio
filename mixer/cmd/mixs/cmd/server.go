@@ -58,7 +58,7 @@ func serverCmd(info map[string]template.Info, adapters []adapter.InfoFn, printf,
 		"Max number of entries in the check result cache")
 
 	serverCmd.PersistentFlags().StringVarP(&sa.ConfigStoreURL, "configStoreURL", "", sa.ConfigStoreURL,
-		"URL of the config store. Use k8s://path_to_kubeconfig, fs:// for file system, or mcp://<address> for MCP/Galley. "+
+		"URL of the config store. Use k8s://path_to_kubeconfig, fs:// for file system, or mcps://<address> for MCP/Galley. "+
 			"If path_to_kubeconfig is empty, in-cluster kubeconfig is used.")
 
 	serverCmd.PersistentFlags().StringVarP(&sa.ConfigDefaultNamespace, "configDefaultNamespace", "", sa.ConfigDefaultNamespace,

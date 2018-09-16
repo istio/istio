@@ -27,7 +27,7 @@ DEST_DIR=$ROOT
 
 # set the default values
 ISTIO_NAMESPACE="istio-system"
-FORTIO_HUB="docker.io/istio"
+FORTIO_HUB="docker.io/fortio"
 FORTIO_TAG="latest_release"
 HYPERKUBE_HUB="quay.io/coreos/hyperkube"
 HYPERKUBE_TAG="v1.7.6_coreos.0"

@@ -14,6 +14,10 @@
 
 package perftests
 
+import (
+	"time"
+)
+
 var (
 
 	// one sample set of attributes that are passed by the envoy in the bookinfo example.
@@ -21,6 +25,7 @@ var (
 		"source.service":      "AcmeService",
 		"response.code":       int64(111),
 		"request.size":        int64(222),
+		"request.time":        time.Date(2018, 1, 1, 0, 0, 0, 0, time.UTC),
 		"context.protocol":    "http",
 		"check.cache_hit":     false,
 		"connection.mtls":     false,

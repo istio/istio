@@ -1,11 +1,12 @@
-# istio-rbac-rules.yaml to enforce access control to services
+# istio-rbac-rules.yaml to enforce access control for both http and tcp services
 
 # For service a, allow non-exist-user and non-exist-namespace to access it.
+# This will also result a default tcp rule for service a that denies all access.
 # This actually means nobody could access a.
 apiVersion: "rbac.istio.io/v1alpha1"
 kind: ServiceRole
 metadata:
-  name: access-a
+  name: access-a-http
 spec:
   rules:
   - services: ["*"]
@@ -17,7 +18,7 @@ spec:
 apiVersion: "rbac.istio.io/v1alpha1"
 kind: ServiceRoleBinding
 metadata:
-  name: bind-access-a
+  name: bind-access-a-http
 spec:
   subjects:
   - user: "non-exist-user"
@@ -25,29 +26,33 @@ spec:
       source.namespace: "non-exist-namespace"
   roleRef:
     kind: ServiceRole
-    name: "access-a"
+    name: "access-a-http"
 ---
 
-# For service b, allow any user to access it with GET at any paths.
+# For service b, allow any user to access it with GET at any paths or at tcp port 90 and 9090.
 apiVersion: "rbac.istio.io/v1alpha1"
 kind: ServiceRole
 metadata:
-  name: access-b
+  name: access-b-http-tcp
 spec:
   rules:
   - services: ["b.{{ .Namespace }}.svc.cluster.local"]
     methods: ["GET"]
+  - services: ["b.{{ .Namespace }}.svc.cluster.local"]
+    constraints:
+    - key: "destination.port"
+      values: ["90", "9090"]
 ---
 apiVersion: "rbac.istio.io/v1alpha1"
 kind: ServiceRoleBinding
 metadata:
-  name: bind-access-b
+  name: bind-access-b-http-tcp
 spec:
   subjects:
   - user: "*"
   roleRef:
     kind: ServiceRole
-    name: "access-b"
+    name: "access-b-http-tcp"
 ---
 # For service headless, allow anyone to access it. (Necessary for service b)
 apiVersion: "rbac.istio.io/v1alpha1"
@@ -57,7 +62,6 @@ metadata:
 spec:
   rules:
   - services: ["headless*"]
-    methods: ["*"]
 ---
 apiVersion: "rbac.istio.io/v1alpha1"
 kind: ServiceRoleBinding
@@ -75,7 +79,7 @@ spec:
 apiVersion: "rbac.istio.io/v1alpha1"
 kind: ServiceRole
 metadata:
-  name: access-c
+  name: access-c-http
 spec:
   rules:
   - services: ["c.{{ .Namespace }}.svc.cluster.local"]
@@ -85,21 +89,44 @@ spec:
 apiVersion: "rbac.istio.io/v1alpha1"
 kind: ServiceRoleBinding
 metadata:
-  name: bind-access-c
+  name: bind-access-c-http
 spec:
   subjects:
   - properties:
       source.principal: "*sa/d"
   roleRef:
     kind: ServiceRole
-    name: "access-c"
+    name: "access-c-http"
+---
+# For service c, allow d to access it at tcp port 90.
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRole
+metadata:
+  name: access-c-tcp
+spec:
+  rules:
+  - services: ["c.{{ .Namespace }}.svc.cluster.local"]
+    constraints:
+    - key: "destination.port"
+      values: ["90"]
+---
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRoleBinding
+metadata:
+  name: bind-access-c-tcp
+spec:
+  subjects:
+  - user: "cluster.local/ns/{{ .Namespace }}/sa/d"
+  roleRef:
+    kind: ServiceRole
+    name: "access-c-tcp"
 ---
 
 # For service d, allow any pod in the same namespace to access it with GET at any paths.
 apiVersion: "rbac.istio.io/v1alpha1"
 kind: ServiceRole
 metadata:
-  name: access-d
+  name: access-d-http
 spec:
   rules:
   - services: ["d.{{ .Namespace }}.svc.cluster.local"]
@@ -111,12 +138,38 @@ spec:
 apiVersion: "rbac.istio.io/v1alpha1"
 kind: ServiceRoleBinding
 metadata:
-  name: bind-access-d
+  name: bind-access-d-http
 spec:
   subjects:
   - properties:
       source.namespace: "{{ .Namespace }}"
   roleRef:
     kind: ServiceRole
-    name: "access-d"
+    name: "access-d-http"
+---
+# For service d, allow any pod to access it at tcp port 9090.
+# TODO(yangminzhu): Update to also use source.namespace once supported.
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRole
+metadata:
+  name: access-d-tcp
+spec:
+  rules:
+  - services: ["d.{{ .Namespace }}.svc.cluster.local"]
+    constraints:
+    - key: "destination.labels[app]"
+      values: ["d"]
+    - key: "destination.port"
+      values: ["9090"]
+---
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRoleBinding
+metadata:
+  name: bind-access-d-tcp
+spec:
+  subjects:
+  - user: "*"
+  roleRef:
+    kind: ServiceRole
+    name: "access-d-tcp"
 ---

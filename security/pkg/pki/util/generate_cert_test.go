@@ -18,8 +18,7 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
-	"math/big"
-	"reflect"
+	"crypto/x509/pkix"
 	"strings"
 	"testing"
 	"time"
@@ -60,8 +59,9 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 		KeyUsage:    x509.KeyUsageCertSign,
 		IsCA:        true,
 		Org:         "MyOrg",
+		Host:        caCertOptions.Host,
 	}
-	if VerifyCertificate(caPrivPem, caCertPem, caCertPem, caCertOptions.Host, fields) != nil {
+	if VerifyCertificate(caPrivPem, caCertPem, caCertPem, fields) != nil {
 		t.Error(err)
 	}
 
@@ -280,7 +280,8 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 		}
 
 		for _, host := range strings.Split(certOptions.Host, ",") {
-			if err := VerifyCertificate(privPem, certPem, caCertPem, host, c.verifyFields); err != nil {
+			c.verifyFields.Host = host
+			if err := VerifyCertificate(privPem, certPem, caCertPem, c.verifyFields); err != nil {
 				t.Errorf("[%s] cert verification error: %v", c.name, err)
 			}
 		}
@@ -288,69 +289,108 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 }
 
 func TestGenCertFromCSR(t *testing.T) {
-	// First Creates a self-signed CA cert.
-	caPK, err := rsa.GenerateKey(rand.Reader, 1024)
+	keyFile := "../testdata/key.pem"
+	certFile := "../testdata/cert.pem"
+	keycert, err := NewVerifiedKeyCertBundleFromFile(certFile, keyFile, "", certFile)
 	if err != nil {
-		t.Errorf("failed to generate ca's key pair %v", err)
+		t.Errorf("Failed to load CA key and cert from files: %s, %s", keyFile, certFile)
 	}
-	caTmpl := &x509.Certificate{
-		SerialNumber:          big.NewInt(-1),
-		NotBefore:             time.Now().Add(-time.Hour),
-		NotAfter:              time.Now().Add(time.Hour),
-		SignatureAlgorithm:    x509.SHA256WithRSA,
-		KeyUsage:              x509.KeyUsageCertSign,
-		BasicConstraintsValid: true,
-		IsCA: true,
-	}
-	der, err := x509.CreateCertificate(rand.Reader, caTmpl, caTmpl, &caPK.PublicKey, caPK)
-	if err != nil {
-		t.Errorf("failed to Create self signed ca cert %v", err)
-	}
-	caCert, err := x509.ParseCertificate(der)
-	if err != nil {
-		t.Errorf("failed to parse generated ca certificate %v", err)
-	}
+	signingCert, signingKey, _, _ := keycert.GetAll()
 
 	// Then generates signee's key pairs.
-	signeePK, err := rsa.GenerateKey(rand.Reader, 1024)
+	signeeKey, err := rsa.GenerateKey(rand.Reader, 1024)
 	if err != nil {
 		t.Errorf("failed to generate signee key pair %v", err)
 	}
 
-	tmpl := &x509.CertificateRequest{
-		SignatureAlgorithm: x509.SHA256WithRSA,
-		DNSNames:           []string{"test.example.com"},
-		Version:            3,
-	}
-	derBytes, err := x509.CreateCertificateRequest(rand.Reader, tmpl, signeePK)
-	if err != nil {
-		t.Error("failed to create certificate request")
-	}
-	csr, err := x509.ParseCertificateRequest(derBytes)
-	if err != nil {
-		t.Errorf("failed to parse certificate request %v", err)
+	cases := []struct {
+		name        string
+		subjectIDs  []string
+		csrTemplate *x509.CertificateRequest
+	}{
+		{
+			name:       "Single subject ID",
+			subjectIDs: []string{"spiffe://test.com/abc/def"},
+			csrTemplate: &x509.CertificateRequest{
+				SignatureAlgorithm: x509.SHA256WithRSA,
+				DNSNames:           []string{"name_in_csr"},
+				Version:            3,
+			},
+		},
+		{
+			name:       "Two subject IDs",
+			subjectIDs: []string{"spiffe://test.com/abc/def", "test.com"},
+			csrTemplate: &x509.CertificateRequest{
+				SignatureAlgorithm: x509.SHA256WithRSA,
+				DNSNames:           []string{"name_in_csr"},
+				Version:            3,
+			},
+		},
+		{
+			name:       "Common name in CSR",
+			subjectIDs: []string{"test.com"},
+			csrTemplate: &x509.CertificateRequest{
+				Subject:            pkix.Name{CommonName: "common_name"},
+				SignatureAlgorithm: x509.SHA256WithRSA,
+				DNSNames:           []string{"name_in_csr"},
+				Version:            3,
+			},
+		},
 	}
 
-	derBytes, err = GenCertFromCSR(csr, caCert, &signeePK.PublicKey, caPK, time.Hour, false)
-	if err != nil {
-		t.Errorf("failed to GenCertFromCSR, error %v", err)
-	}
+	for _, c := range cases {
+		derBytes, err := x509.CreateCertificateRequest(rand.Reader, c.csrTemplate, signeeKey)
+		if err != nil {
+			t.Error("failed to create certificate request")
+		}
+		csr, err := x509.ParseCertificateRequest(derBytes)
+		if err != nil {
+			t.Errorf("failed to parse certificate request %v", err)
+		}
+		derBytes, err = GenCertFromCSR(csr, signingCert, &signeeKey.PublicKey, *signingKey, c.subjectIDs, time.Hour, false)
+		if err != nil {
+			t.Errorf("failed to GenCertFromCSR, error %v", err)
+		}
 
-	// Verifies the certificate.
-	out, err := x509.ParseCertificate(derBytes)
-	if err != nil {
-		t.Errorf("failed to parse generated certificate %v", err)
-	}
-	if !reflect.DeepEqual(out.DNSNames, tmpl.DNSNames) {
-		t.Errorf("generated cert dns name is unexpected, got %v, want %v", out.DNSNames, tmpl.DNSNames)
-	}
-	pool := x509.NewCertPool()
-	pool.AddCert(caCert)
-	vo := x509.VerifyOptions{
-		Roots: pool,
-	}
-	if _, err := out.Verify(vo); err != nil {
-		t.Errorf("verification of the signed certificate failed %v", err)
+		// Verify the certificate.
+		out, err := x509.ParseCertificate(derBytes)
+		if err != nil {
+			t.Errorf("failed to parse generated certificate %v", err)
+		}
+		if len(c.csrTemplate.Subject.CommonName) == 0 {
+			if len(out.Subject.CommonName) > 0 {
+				t.Errorf("Common name should be empty, but got %s", out.Subject.CommonName)
+			}
+		} else if out.Subject.CommonName != c.subjectIDs[0] {
+			t.Errorf("Unmatched common name, expected %s, got %s", c.subjectIDs[0], out.Subject.CommonName)
+		}
+		if len(out.Subject.Organization) > 0 {
+			t.Errorf("Organization should be empty, but got %s", out.Subject.Organization)
+		}
+
+		ids, err := ExtractIDs(out.Extensions)
+		if err != nil {
+			t.Errorf("failed to extract IDs from cert extension: %v", err)
+		}
+		if len(c.subjectIDs) != len(ids) {
+			t.Errorf("Wrong number of IDs encoded. Expected %d, but got %d.", len(c.subjectIDs), len(ids))
+		}
+		if len(c.subjectIDs) == 1 && c.subjectIDs[0] != ids[0] {
+			t.Errorf("incorrect ID encoded: %v VS (expected) %v", ids[0], c.subjectIDs[0])
+		}
+		if len(c.subjectIDs) == 2 {
+			if !(c.subjectIDs[0] == ids[0] && c.subjectIDs[1] == ids[1] || c.subjectIDs[0] == ids[1] && c.subjectIDs[1] == ids[0]) {
+				t.Errorf("incorrect IDs encoded: %v, %v VS (expected) %v, %v", ids[0], ids[1], c.subjectIDs[0], c.subjectIDs[1])
+			}
+		}
+		pool := x509.NewCertPool()
+		pool.AddCert(signingCert)
+		vo := x509.VerifyOptions{
+			Roots: pool,
+		}
+		if _, err := out.Verify(vo); err != nil {
+			t.Errorf("verification of the signed certificate failed %v", err)
+		}
 	}
 }
 

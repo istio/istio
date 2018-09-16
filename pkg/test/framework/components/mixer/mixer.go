@@ -17,16 +17,18 @@ package mixer
 import (
 	"context"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path"
+	"strconv"
 	"testing"
 	"time"
 
+	"github.com/hashicorp/go-multierror"
+
 	"go.uber.org/multierr"
 	"google.golang.org/grpc"
-
-	"io"
 
 	istio_mixer_v1 "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/adapter"
@@ -39,6 +41,12 @@ import (
 	"istio.io/istio/pkg/test/framework/environments/local"
 	"istio.io/istio/pkg/test/framework/internal"
 	"istio.io/istio/pkg/test/kube"
+)
+
+const (
+	telemetryService = "telemetry"
+	policyService    = "policy"
+	grpcPortName     = "grpc-mixer"
 )
 
 var (
@@ -102,9 +110,12 @@ func (c *localComponent) Init(ctx environment.ComponentContext, deps map[depende
 	client := istio_mixer_v1.NewMixerClient(conn)
 
 	return &deployedMixer{
-		local:   true,
-		conn:    conn,
-		client:  client,
+		local: true,
+		conn:  conn,
+		clients: map[string]istio_mixer_v1.MixerClient{
+			telemetryService: client,
+			policyService:    client,
+		},
 		args:    args,
 		server:  mi,
 		workdir: dir,
@@ -131,51 +142,80 @@ func (c *kubeComponent) Init(ctx environment.ComponentContext, deps map[dependen
 		return nil, fmt.Errorf("unsupported environment: %q", ctx.Environment().EnvironmentID())
 	}
 
-	pod, err := e.Accessor.WaitForPodBySelectors("istio-system", "istio=mixer", "istio-mixer-type=telemetry")
+	result, err := c.doInit(e)
 	if err != nil {
-		return nil, err
+		return nil, multierror.Prefix(err, "mixer init failed:")
 	}
+	return result, nil
+}
 
-	// TODO: Add support to connect to the Mixer istio-policy as well.
-	// See https://github.com/istio/istio/issues/6174
-
-	// TODO: Right now, simply connect to the telemetry backend at port 9092. We can expand this to connect
-	// to policy backend and dynamically figure out ports later.
-	// See https://github.com/istio/istio/issues/6175
-	forwarder := kube.NewPortForwarder(ctx.Settings().KubeConfig, pod.Namespace, pod.Name, 9092)
-
-	if err = forwarder.Start(); err != nil {
-		return nil, err
-	}
-
-	conn, err := grpc.Dial(forwarder.Address(), grpc.WithInsecure())
-	if err != nil {
-		return nil, err
-	}
-
-	client := istio_mixer_v1.NewMixerClient(conn)
-
-	return &deployedMixer{
-		local:     false,
-		client:    client,
-		forwarder: forwarder,
+func (c *kubeComponent) doInit(e *kubernetes.Implementation) (interface{}, error) {
+	res := &deployedMixer{
+		local: false,
 		// Use the DefaultArgs to get config identity attribute
-		args: server.DefaultArgs(),
-	}, nil
+		args:    server.DefaultArgs(),
+		clients: make(map[string]istio_mixer_v1.MixerClient),
+	}
+
+	s := e.KubeSettings()
+	for _, serviceType := range []string{telemetryService, policyService} {
+		pod, err := e.Accessor.WaitForPodBySelectors(s.IstioSystemNamespace, "istio=mixer", "istio-mixer-type="+serviceType)
+		if err != nil {
+			return nil, err
+		}
+
+		port, err := getGrpcPort(e, serviceType)
+		if err != nil {
+			return nil, err
+		}
+
+		options := &kube.PodSelectOptions{
+			PodNamespace: pod.Namespace,
+			PodName:      pod.Name,
+		}
+		forwarder, err := kube.PortForward(s.KubeConfig, options, "", strconv.Itoa(port))
+		if err != nil {
+			return nil, err
+		}
+
+		conn, err := grpc.Dial(forwarder.Address(), grpc.WithInsecure())
+		if err != nil {
+			return nil, err
+		}
+
+		client := istio_mixer_v1.NewMixerClient(conn)
+		res.clients[serviceType] = client
+		res.forwarders = append(res.forwarders, forwarder)
+	}
+
+	return res, nil
+}
+
+func getGrpcPort(e *kubernetes.Implementation, serviceType string) (int, error) {
+	svc, err := e.Accessor.GetService(e.KubeSettings().IstioSystemNamespace, "istio-"+serviceType)
+	if err != nil {
+		return 0, fmt.Errorf("failed to retrieve service %s: %v", serviceType, err)
+	}
+	for _, portInfo := range svc.Spec.Ports {
+		if portInfo.Name == grpcPortName {
+			return portInfo.TargetPort.IntValue(), nil
+		}
+	}
+	return 0, fmt.Errorf("failed to get target port in service %s", serviceType)
 }
 
 type deployedMixer struct {
 	// Indicates that the component is running in local mode.
 	local bool
 
-	conn   *grpc.ClientConn
-	client istio_mixer_v1.MixerClient
+	conn    *grpc.ClientConn
+	clients map[string]istio_mixer_v1.MixerClient
 
 	args    *server.Args
 	server  *server.Server
 	workdir string
 
-	forwarder *kube.PortForwarder
+	forwarders []kube.PortForwarder
 }
 
 // Report implements DeployedMixer.Report.
@@ -186,10 +226,28 @@ func (d *deployedMixer) Report(t testing.TB, attributes map[string]interface{}) 
 		Attributes: []istio_mixer_v1.CompressedAttributes{
 			getAttrBag(attributes)},
 	}
-	_, err := d.client.Report(context.Background(), &req)
+	_, err := d.clients[telemetryService].Report(context.Background(), &req)
 
 	if err != nil {
 		t.Fatalf("Error sending report: %v", err)
+	}
+}
+
+// Check implements DeployedMixer.Check.
+func (d *deployedMixer) Check(t testing.TB, attributes map[string]interface{}) environment.CheckResponse {
+	t.Helper()
+
+	req := istio_mixer_v1.CheckRequest{
+		Attributes: getAttrBag(attributes),
+	}
+	response, err := d.clients[policyService].Check(context.Background(), &req)
+
+	if err != nil {
+		t.Fatalf("Error sending check: %v", err)
+	}
+
+	return environment.CheckResponse{
+		Raw: response,
 	}
 }
 
@@ -227,8 +285,8 @@ func (d *deployedMixer) Close() error {
 		d.server = nil
 	}
 
-	if d.forwarder != nil {
-		d.forwarder.Close()
+	for _, fw := range d.forwarders {
+		fw.Close()
 	}
 
 	return err

@@ -36,12 +36,11 @@ func Benchmark_Quota_1Client_1Call(b *testing.B) {
 		Loads: []perf.Load{{
 			Multiplier: 1,
 			Requests: []perf.Request{
-				perf.BasicCheck{
-					Attributes: baseAttr,
-					Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
-						"foo": {Amount: 1},
-					},
-				},
+				perf.BuildBasicCheck(
+					baseAttr,
+					map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+						"requestcount": {Amount: 1},
+					}),
 			},
 		}},
 	}
@@ -64,12 +63,11 @@ func Benchmark_Quota_1Client_5SameCalls(b *testing.B) {
 		Loads: []perf.Load{{
 			Multiplier: 5,
 			Requests: []perf.Request{
-				perf.BasicCheck{
-					Attributes: baseAttr,
-					Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
-						"foo": {Amount: 1},
-					},
-				},
+				perf.BuildBasicCheck(
+					baseAttr,
+					map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+						"requestcount": {Amount: 1},
+					}),
 			},
 		}},
 	}
@@ -93,36 +91,31 @@ func Benchmark_Quota_1Client_5DifferentCalls(b *testing.B) {
 			{
 				Multiplier: 1,
 				Requests: []perf.Request{
-					perf.BasicCheck{
-						Attributes: attr1,
-						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
-							"foo": {Amount: 1},
-						},
-					},
-					perf.BasicCheck{
-						Attributes: attr2,
-						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
-							"foo": {Amount: 1},
-						},
-					},
-					perf.BasicCheck{
-						Attributes: attr3,
-						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
-							"foo": {Amount: 1},
-						},
-					},
-					perf.BasicCheck{
-						Attributes: attr4,
-						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
-							"foo": {Amount: 1},
-						},
-					},
-					perf.BasicCheck{
-						Attributes: attr5,
-						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
-							"foo": {Amount: 1},
-						},
-					},
+					perf.BuildBasicCheck(
+						attr1,
+						map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"requestcount": {Amount: 1},
+						}),
+					perf.BuildBasicCheck(
+						attr2,
+						map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"requestcount": {Amount: 1},
+						}),
+					perf.BuildBasicCheck(
+						attr3,
+						map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"requestcount": {Amount: 1},
+						}),
+					perf.BuildBasicCheck(
+						attr4,
+						map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"requestcount": {Amount: 1},
+						}),
+					perf.BuildBasicCheck(
+						attr5,
+						map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"requestcount": {Amount: 1},
+						}),
 				},
 			},
 		},
@@ -147,45 +140,41 @@ func Benchmark_Quota_4Clients_5SameCallsEach(b *testing.B) {
 			{
 				Multiplier: 5,
 				Requests: []perf.Request{
-					perf.BasicCheck{
-						Attributes: baseAttr,
-						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
-							"foo": {Amount: 1},
-						},
-					},
+					perf.BuildBasicCheck(
+						baseAttr,
+						map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"requestcount": {Amount: 1},
+						}),
 				},
 			},
 			{
 				Multiplier: 5,
 				Requests: []perf.Request{
-					perf.BasicCheck{
-						Attributes: baseAttr,
-						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
-							"foo": {Amount: 1},
-						},
-					},
+					perf.BuildBasicCheck(
+						baseAttr,
+						map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"requestcount": {Amount: 1},
+						}),
 				},
 			},
 			{
 				Multiplier: 5,
 				Requests: []perf.Request{
-					perf.BasicCheck{
-						Attributes: baseAttr,
-						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
-							"foo": {Amount: 1},
-						},
-					},
+					perf.BuildBasicCheck(
+						baseAttr,
+						map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"requestcount": {Amount: 1},
+						}),
 				},
 			},
 			{
 				Multiplier: 5,
 				Requests: []perf.Request{
-					perf.BasicCheck{
-						Attributes: baseAttr,
-						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
-							"foo": {Amount: 1},
-						},
-					},
+					perf.BuildBasicCheck(
+						baseAttr,
+						map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"requestcount": {Amount: 1},
+						}),
 				},
 			},
 		},
@@ -210,141 +199,121 @@ func Benchmark_Quota_4Clients_5DifferentCallsEach(b *testing.B) {
 			{
 				Multiplier: 1,
 				Requests: []perf.Request{
-					perf.BasicCheck{
-						Attributes: attr1,
-						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
-							"foo": {Amount: 1},
-						},
-					},
-					perf.BasicCheck{
-						Attributes: attr2,
-						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
-							"foo": {Amount: 1},
-						},
-					},
-					perf.BasicCheck{
-						Attributes: attr3,
-						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
-							"foo": {Amount: 1},
-						},
-					},
-					perf.BasicCheck{
-						Attributes: attr4,
-						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
-							"foo": {Amount: 1},
-						},
-					},
-					perf.BasicCheck{
-						Attributes: attr5,
-						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
-							"foo": {Amount: 1},
-						},
-					},
+					perf.BuildBasicCheck(
+						attr1,
+						map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"requestcount": {Amount: 1},
+						}),
+					perf.BuildBasicCheck(
+						attr2,
+						map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"requestcount": {Amount: 1},
+						}),
+					perf.BuildBasicCheck(
+						attr3,
+						map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"requestcount": {Amount: 1},
+						}),
+					perf.BuildBasicCheck(
+						attr4,
+						map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"requestcount": {Amount: 1},
+						}),
+					perf.BuildBasicCheck(
+						attr5,
+						map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"requestcount": {Amount: 1},
+						}),
 				},
 			},
 			{
 				Multiplier: 1,
 				Requests: []perf.Request{
-					perf.BasicCheck{
-						Attributes: attr1,
-						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
-							"foo": {Amount: 1},
-						},
-					},
-					perf.BasicCheck{
-						Attributes: attr2,
-						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
-							"foo": {Amount: 1},
-						},
-					},
-					perf.BasicCheck{
-						Attributes: attr3,
-						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
-							"foo": {Amount: 1},
-						},
-					},
-					perf.BasicCheck{
-						Attributes: attr4,
-						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
-							"foo": {Amount: 1},
-						},
-					},
-					perf.BasicCheck{
-						Attributes: attr5,
-						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
-							"foo": {Amount: 1},
-						},
-					},
+					perf.BuildBasicCheck(
+						attr1,
+						map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"requestcount": {Amount: 1},
+						}),
+					perf.BuildBasicCheck(
+						attr2,
+						map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"requestcount": {Amount: 1},
+						}),
+					perf.BuildBasicCheck(
+						attr3,
+						map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"requestcount": {Amount: 1},
+						}),
+					perf.BuildBasicCheck(
+						attr4,
+						map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"requestcount": {Amount: 1},
+						}),
+					perf.BuildBasicCheck(
+						attr5,
+						map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"requestcount": {Amount: 1},
+						}),
 				},
 			},
 			{
 				Multiplier: 1,
 				Requests: []perf.Request{
-					perf.BasicCheck{
-						Attributes: attr1,
-						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
-							"foo": {Amount: 1},
-						},
-					},
-					perf.BasicCheck{
-						Attributes: attr2,
-						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
-							"foo": {Amount: 1},
-						},
-					},
-					perf.BasicCheck{
-						Attributes: attr3,
-						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
-							"foo": {Amount: 1},
-						},
-					},
-					perf.BasicCheck{
-						Attributes: attr4,
-						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
-							"foo": {Amount: 1},
-						},
-					},
-					perf.BasicCheck{
-						Attributes: attr5,
-						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
-							"foo": {Amount: 1},
-						},
-					},
+					perf.BuildBasicCheck(
+						attr1,
+						map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"requestcount": {Amount: 1},
+						}),
+					perf.BuildBasicCheck(
+						attr2,
+						map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"requestcount": {Amount: 1},
+						}),
+					perf.BuildBasicCheck(
+						attr3,
+						map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"requestcount": {Amount: 1},
+						}),
+					perf.BuildBasicCheck(
+						attr4,
+						map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"requestcount": {Amount: 1},
+						}),
+					perf.BuildBasicCheck(
+						attr5,
+						map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"requestcount": {Amount: 1},
+						}),
 				},
 			},
 			{
 				Multiplier: 1,
 				Requests: []perf.Request{
-					perf.BasicCheck{
-						Attributes: attr1,
-						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
-							"foo": {Amount: 1},
-						},
-					},
-					perf.BasicCheck{
-						Attributes: attr2,
-						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
-							"foo": {Amount: 1},
-						},
-					},
-					perf.BasicCheck{
-						Attributes: attr3,
-						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
-							"foo": {Amount: 1},
-						},
-					},
-					perf.BasicCheck{
-						Attributes: attr4,
-						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
-							"foo": {Amount: 1},
-						},
-					},
-					perf.BasicCheck{
-						Attributes: attr5,
-						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
-							"foo": {Amount: 1},
-						},
-					},
+					perf.BuildBasicCheck(
+						attr1,
+						map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"requestcount": {Amount: 1},
+						}),
+					perf.BuildBasicCheck(
+						attr2,
+						map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"requestcount": {Amount: 1},
+						}),
+					perf.BuildBasicCheck(
+						attr3,
+						map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"requestcount": {Amount: 1},
+						}),
+					perf.BuildBasicCheck(
+						attr4,
+						map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"requestcount": {Amount: 1},
+						}),
+					perf.BuildBasicCheck(
+						attr5,
+						map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"requestcount": {Amount: 1},
+						}),
 				},
 			},
 		},
@@ -369,45 +338,41 @@ func Benchmark_Quota_4Clients_5SameCallsEach_1MilliSecSlowApa(b *testing.B) {
 			{
 				Multiplier: 5,
 				Requests: []perf.Request{
-					perf.BasicCheck{
-						Attributes: baseAttr,
-						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
-							"foo": {Amount: 1},
-						},
-					},
+					perf.BuildBasicCheck(
+						baseAttr,
+						map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"requestcount": {Amount: 1},
+						}),
 				},
 			},
 			{
 				Multiplier: 5,
 				Requests: []perf.Request{
-					perf.BasicCheck{
-						Attributes: baseAttr,
-						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
-							"foo": {Amount: 1},
-						},
-					},
+					perf.BuildBasicCheck(
+						baseAttr,
+						map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"requestcount": {Amount: 1},
+						}),
 				},
 			},
 			{
 				Multiplier: 5,
 				Requests: []perf.Request{
-					perf.BasicCheck{
-						Attributes: baseAttr,
-						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
-							"foo": {Amount: 1},
-						},
-					},
+					perf.BuildBasicCheck(
+						baseAttr,
+						map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"requestcount": {Amount: 1},
+						}),
 				},
 			},
 			{
 				Multiplier: 5,
 				Requests: []perf.Request{
-					perf.BasicCheck{
-						Attributes: baseAttr,
-						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
-							"foo": {Amount: 1},
-						},
-					},
+					perf.BuildBasicCheck(
+						baseAttr,
+						map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"requestcount": {Amount: 1},
+						}),
 				},
 			},
 		},

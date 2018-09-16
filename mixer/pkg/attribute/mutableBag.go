@@ -47,7 +47,7 @@ var mutableBags = sync.Pool{
 	},
 }
 
-var scope = log.RegisterScope("attributes", "Attribute-related messsages.", 0)
+var scope = log.RegisterScope("attributes", "Attribute-related messages.", 0)
 
 // GetMutableBag returns an initialized bag.
 //
@@ -277,8 +277,9 @@ func (mb *MutableBag) ToProto(output *mixerpb.CompressedAttributes, globalDict m
 				output.StringMaps = make(map[int32]mixerpb.StringMap)
 			}
 			output.StringMaps[index] = mixerpb.StringMap{Entries: sm}
+
 		default:
-			scope.Errorf("Cannot convert value:%v of type:%T", v, v)
+			panic(fmt.Errorf("cannot convert value:%v of type:%T", v, v))
 		}
 	}
 

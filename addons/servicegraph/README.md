@@ -36,7 +36,7 @@ All endpoints take these query parameters:
 
 - `filter_empty=true` will restrict the nodes and edges shown to only
   those that reflect non-zero traffic levels during the specified
-  `time_horizon`. Deafult is `false`.
+  `time_horizon`. Default is `false`.
   
 - `destination_namespace` will filter the nodes and edges show to only 
   those where the destination workload is in the given namespace.

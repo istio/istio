@@ -35,17 +35,18 @@ import (
 	"fortio.org/fortio/periodic"
 
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/tests/e2e/framework"
 	"istio.io/istio/tests/util"
 )
 
 const (
-	istioMeshDashboard = "addons/grafana/dashboards/istio-mesh-dashboard.json"
-	serviceDashboard   = "addons/grafana/dashboards/istio-service-dashboard.json"
-	workloadDashboard  = "addons/grafana/dashboards/istio-workload-dashboard.json"
-	mixerDashboard     = "addons/grafana/dashboards/mixer-dashboard.json"
-	pilotDashboard     = "addons/grafana/dashboards/pilot-dashboard.json"
-	galleyDashboard    = "addons/grafana/dashboards/galley-dashboard.json"
+	istioMeshDashboard = "install/kubernetes/helm/istio/charts/grafana/dashboards/istio-mesh-dashboard.json"
+	serviceDashboard   = "install/kubernetes/helm/istio/charts/grafana/dashboards/istio-service-dashboard.json"
+	workloadDashboard  = "install/kubernetes/helm/istio/charts/grafana/dashboards/istio-workload-dashboard.json"
+	mixerDashboard     = "install/kubernetes/helm/istio/charts/grafana/dashboards/mixer-dashboard.json"
+	pilotDashboard     = "install/kubernetes/helm/istio/charts/grafana/dashboards/pilot-dashboard.json"
+	galleyDashboard    = "install/kubernetes/helm/istio/charts/grafana/dashboards/galley-dashboard.json"
 	fortioYaml         = "tests/e2e/tests/dashboard/fortio-rules.yaml"
 	netcatYaml         = "tests/e2e/tests/dashboard/netcat-rules.yaml"
 
@@ -56,19 +57,36 @@ var (
 	replacer = strings.NewReplacer(
 		"$workload", "echosrv.*",
 		"$service", "echosrv.*",
+		"$dstsvc", "echosrv.*",
 		"$srcwl", "istio-ingressgateway.*",
 		"$adapter", "kubernetesenv",
-		`connection_mtls=\"true\"`, "",
-		`connection_mtls=\"false\"`, "",
-		`source_workload_namespace=~"$srcns"`, "",
-		`destination_workload_namespace=~"$dstns"`, "",
-		//		"$dstwl", "",
+		`connection_security_policy=\"unknown\"`, "",
+		`connection_security_policy=\"mutual_tls\"`, "",
+		`connection_security_policy!=\"mutual_tls\"`, "",
+		`source_workload_namespace=~\"$srcns\"`, "",
+		`destination_workload_namespace=~\"$dstns\"`, "",
+		`source_workload_namespace=~\"$namespace\"`, "",
+		`destination_workload_namespace=~\"$namespace\"`, "",
+		`destination_workload=~\"$dstwl\"`, "",
 		`\`, "",
 	)
 
 	tcpReplacer = strings.NewReplacer(
 		"echosrv", "netcat-srv",
 		"istio-ingressgateway", "netcat-client",
+	)
+
+	workloadReplacer = strings.NewReplacer(
+		`source_workload=~"netcat-srv.*"`, `source_workload=~"netcat-client.*"`,
+		`source_workload=~"echosrv.*"`, `source_workload=~"istio-ingressgateway.*"`,
+	)
+
+	queryCleanupReplacer = strings.NewReplacer(
+		"{, ,", "{",
+		"{,", "{",
+		", , ,", ",",
+		", ,", ",",
+		",,", ",",
 	)
 
 	tc *testConfig
@@ -91,18 +109,19 @@ func TestDashboards(t *testing.T) {
 	t.Log("Sentinel metrics found in prometheus.")
 
 	cases := []struct {
-		name       string
-		dashboard  string
-		filter     func([]string) []string
-		metricHost string
-		metricPort int
+		name           string
+		dashboard      string
+		filter         func([]string) []string
+		customReplacer *strings.Replacer
+		metricHost     string
+		metricPort     int
 	}{
-		{"Istio", istioMeshDashboard, func(queries []string) []string { return queries }, "istio-telemetry", 42422},
-		// {"Service", serviceDashboard, func(queries []string) []string { return queries }, "istio-telemetry", 42422},
-		// {"Workload", workloadDashboard, func(queries []string) []string { return queries }, "istio-telemetry", 42422},
-		{"Mixer", mixerDashboard, mixerQueryFilterFn, "istio-telemetry", 9093},
-		{"Pilot", pilotDashboard, pilotQueryFilterFn, "istio-pilot", 9093},
-		{"Galley", galleyDashboard, galleyQueryFilterFn, "istio-galley", 9093},
+		{"Istio", istioMeshDashboard, func(queries []string) []string { return queries }, nil, "istio-telemetry", 42422},
+		{"Service", serviceDashboard, func(queries []string) []string { return queries }, nil, "istio-telemetry", 42422},
+		{"Workload", workloadDashboard, func(queries []string) []string { return queries }, workloadReplacer, "istio-telemetry", 42422},
+		{"Mixer", mixerDashboard, mixerQueryFilterFn, nil, "istio-telemetry", 9093},
+		{"Pilot", pilotDashboard, pilotQueryFilterFn, nil, "istio-pilot", 9093},
+		{"Galley", galleyDashboard, galleyQueryFilterFn, nil, "istio-galley", 9093},
 	}
 
 	for _, testCase := range cases {
@@ -118,6 +137,9 @@ func TestDashboards(t *testing.T) {
 
 			for _, query := range queries {
 				modified := replaceGrafanaTemplates(query)
+				if testCase.customReplacer != nil {
+					modified = testCase.customReplacer.Replace(modified)
+				}
 				value, err := tc.promAPI.Query(context.Background(), modified, time.Now())
 				if err != nil {
 					t.Errorf("Failure executing query (%s): %v", modified, err)
@@ -199,7 +221,7 @@ func replaceGrafanaTemplates(orig string) string {
 	if strings.Contains(orig, "istio_tcp") {
 		out = tcpReplacer.Replace(out)
 	}
-	return out
+	return queryCleanupReplacer.Replace(out)
 }
 
 // There currently is no good way to inject failures into a running Mixer,
@@ -378,7 +400,7 @@ func (t *testConfig) Setup() (err error) {
 
 type promProxy struct {
 	namespace        string
-	portFwdProcesses []*os.Process
+	portFwdProcesses []kube.PortForwarder
 }
 
 func newPromProxy(namespace string) *promProxy {
@@ -388,26 +410,19 @@ func newPromProxy(namespace string) *promProxy {
 }
 
 func (p *promProxy) portForward(labelSelector string, localPort string, remotePort string) error {
-	var pod string
-	var err error
-	var proc *os.Process
-
-	getName := fmt.Sprintf("kubectl -n %s get pod -l %s -o jsonpath='{.items[0].metadata.name}'", p.namespace, labelSelector)
-	pod, err = util.Shell(getName)
-	if err != nil {
-		return err
-	}
-	log.Infof("%s pod name: %s", labelSelector, pod)
-
 	log.Infof("Setting up %s proxy", labelSelector)
-	portFwdCmd := fmt.Sprintf("kubectl port-forward %s %s:%s -n %s", strings.Trim(pod, "'"), localPort, remotePort, p.namespace)
-	log.Info(portFwdCmd)
-	if proc, err = util.RunBackground(portFwdCmd); err != nil {
-		log.Errorf("Failed to port forward: %s", err)
+	options := &kube.PodSelectOptions{
+		PodNamespace:  p.namespace,
+		LabelSelector: labelSelector,
+	}
+	forwarder, err := kube.PortForward(tc.Kube.KubeConfig, options, localPort, remotePort)
+	if err != nil {
+		log.Errorf("Error in port forward: %v", err)
 		return err
 	}
-	p.portFwdProcesses = append(p.portFwdProcesses, proc)
-	log.Infof("running %s port-forward in background, pid = %d", labelSelector, proc.Pid)
+
+	p.portFwdProcesses = append(p.portFwdProcesses, forwarder)
+	log.Infof("running %s port-forward in background", labelSelector)
 	return nil
 }
 
@@ -421,11 +436,8 @@ func (p *promProxy) Setup() error {
 
 func (p *promProxy) Teardown() (err error) {
 	log.Info("Cleaning up mixer proxy")
-	for _, proc := range p.portFwdProcesses {
-		err := proc.Kill()
-		if err != nil {
-			log.Errorf("Failed to kill port-forward process, pid: %d", proc.Pid)
-		}
+	for _, pf := range p.portFwdProcesses {
+		pf.Close()
 	}
 	return
 }
@@ -566,7 +578,7 @@ func logMixerMetrics(t *testing.T, service string, port int) {
 		t.Logf("Failure getting metrics for '%s:%d': %v", service, port, err)
 		return
 	}
-	resp, err := util.ShellMuteOutput("kubectl exec -n %s %s -c echosrv -- /usr/local/bin/fortio curl http://%s.%s:%d/metrics", ns, pods[0], service, ns, port)
+	resp, err := util.ShellMuteOutput("kubectl exec -n %s %s -c echosrv -- fortio curl http://%s.%s:%d/metrics", ns, pods[0], service, ns, port)
 	if err != nil {
 		t.Logf("could not retrieve metrics: %v", err)
 		return

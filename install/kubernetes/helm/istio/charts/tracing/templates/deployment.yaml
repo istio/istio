@@ -12,9 +12,12 @@ spec:
     metadata:
       labels:
         app: jaeger
+        {{- template "common_template_labels" . }}
       annotations:
         sidecar.istio.io/inject: "false"
         scheduler.alpha.kubernetes.io/critical-pod: ""
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "16686"
     spec:
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
@@ -30,8 +33,8 @@ spec:
           image: "{{ .Values.jaeger.hub }}/all-in-one:{{ .Values.jaeger.tag }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
-            - containerPort: {{ .Values.service.internalPort }}
-            - containerPort: {{ .Values.jaeger.ui.port }}
+            - containerPort: 9411
+            - containerPort: 16686
             - containerPort: 5775
               protocol: UDP
             - containerPort: 6831
@@ -45,17 +48,17 @@ spec:
                 apiVersion: v1
                 fieldPath: metadata.namespace
           - name: COLLECTOR_ZIPKIN_HTTP_PORT
-            value: "{{ .Values.service.internalPort }}"
+            value: "9411"
           - name: MEMORY_MAX_TRACES
             value: "{{ .Values.jaeger.memory.max_traces }}"
           livenessProbe:
             httpGet:
               path: /
-              port: {{ .Values.jaeger.ui.port }}
+              port: 16686
           readinessProbe:
             httpGet:
               path: /
-              port: {{ .Values.jaeger.ui.port }}
+              port: 16686
           resources:
 {{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 12 }}

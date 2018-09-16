@@ -149,7 +149,7 @@ func TestSvc2Svc(t *testing.T) {
 		}
 		ready := 0
 		for i, pod := range podList {
-			res, err := util.Shell("kubectl exec -n %s %s -c echosrv -- /usr/local/bin/fortio curl http://echosrv:8080/echo", ns, pod)
+			res, err := util.Shell("kubectl exec -n %s %s -c echosrv -- fortio curl http://echosrv:8080/echo", ns, pod)
 			if err != nil {
 				log.Infof("Pod %d %s not ready: %s", i, pod, res)
 			} else {
@@ -166,7 +166,7 @@ func TestSvc2Svc(t *testing.T) {
 	// TODO: use the fortio 0.3.1 web/api endpoint instead and get JSON results (across this file)
 	for _, pod := range podList {
 		log.Infof("From pod \"%s\"", pod)
-		_, err := util.Shell("kubectl exec -n %s %s -c echosrv -- /usr/local/bin/fortio load -qps 0 -t 10s http://echosrv.%s:8080/echo", ns, pod, ns)
+		_, err := util.Shell("kubectl exec -n %s %s -c echosrv -- fortio load -qps 0 -t 10s http://echosrv.%s:8080/echo", ns, pod, ns)
 		if err != nil {
 			t.Fatalf("kubectl failure to run fortio %v", err)
 		}
@@ -187,7 +187,7 @@ func TestAuth(t *testing.T) {
 	}
 	pod := podList[0]
 	log.Infof("From client, non istio injected pod \"%s\"", pod)
-	res, err := util.Shell("kubectl exec -n %s %s -- /usr/local/bin/fortio curl http://echosrv.%s:8080/debug", ns, pod, ns)
+	res, err := util.Shell("kubectl exec -n %s %s -- fortio curl http://echosrv.%s:8080/debug", ns, pod, ns)
 	if tc.Kube.AuthEnabled {
 		if err == nil {
 			t.Errorf("Running with auth on yet able to connect from non istio to istio (insecure): %v", res)
@@ -227,7 +227,7 @@ func TestAuthWithHeaders(t *testing.T) {
 	podIstioIP := podList[0]
 	log.Infof("From client, non istio injected pod \"%s\" to istio pod \"%s\"", podNoIstio, podIstioIP)
 	// TODO: ipv6 fix
-	res, err := util.Shell("kubectl exec -n %s %s -- /usr/local/bin/fortio curl -H Host:echosrv-extrap.%s:8088 http://%s:8088/debug",
+	res, err := util.Shell("kubectl exec -n %s %s -- fortio curl -H Host:echosrv-extrap.%s:8088 http://%s:8088/debug",
 		ns, podNoIstio, ns, podIstioIP)
 	if tc.Kube.AuthEnabled {
 		if err == nil {
@@ -253,14 +253,14 @@ func Test503sDuringChanges(t *testing.T) {
 	go func() {
 		time.Sleep(9 * time.Second)
 		log.Infof("Changing rules mid run to v1/v2")
-		if err := tc.Kube.Istioctl.CreateRule(rulePath1); err != nil {
-			t.Errorf("istioctl rule create %s failed", yamlPath(routingR1Yaml))
+		if err := util.KubeApply(tc.Kube.Namespace, rulePath1, tc.Kube.KubeConfig); err != nil {
+			t.Errorf("kubectl apply create %s failed", yamlPath(routingR1Yaml))
 			return
 		}
 		time.Sleep(4 * time.Second)
 		log.Infof("Changing rules mid run to a/b")
-		if err := tc.Kube.Istioctl.CreateRule(rulePath2); err != nil {
-			t.Errorf("istioctl rule create %s failed", yamlPath(routingR1Yaml))
+		if err := util.KubeApply(tc.Kube.Namespace, rulePath2, tc.Kube.KubeConfig); err != nil {
+			t.Errorf("kubectl apply create %s failed", yamlPath(routingR2Yaml))
 			return
 		}
 		time.Sleep(4 * time.Second)
@@ -297,12 +297,13 @@ func Test503sWithBadClusters(t *testing.T) {
 	go func() {
 		time.Sleep(9 * time.Second)
 		log.Infof("Changing rules with some non existent destination, mid run")
-		if err := tc.Kube.Istioctl.CreateRule(rulePath); err != nil {
-			t.Errorf("istioctl create rule %s failed", yamlPath(routingRNPYaml))
+		if err := util.KubeApply(tc.Kube.Namespace, rulePath, tc.Kube.KubeConfig); err != nil {
+			t.Errorf("kubectl apply rule %s failed", yamlPath(routingRNPYaml))
 			return
 		}
 	}()
-	defer tc.Kube.Istioctl.DeleteRule(rulePath) // nolint:errcheck
+	defer util.KubeDelete(tc.Kube.Namespace, rulePath, tc.Kube.KubeConfig) // nolint:errcheck
+
 	// run at a low/moderate QPS for a while while changing the routing rules,
 	// check for limited number of errors
 	opts := fhttp.HTTPRunnerOptions{

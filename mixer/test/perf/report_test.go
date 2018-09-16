@@ -38,9 +38,7 @@ func Benchmark_Report_1Client_1Call(b *testing.B) {
 		Loads: []perf.Load{{
 			Multiplier: 1,
 			Requests: []perf.Request{
-				perf.BasicReport{
-					Attributes: baseAttr,
-				},
+				perf.BuildBasicReport(baseAttr),
 			},
 		}},
 	}
@@ -63,9 +61,7 @@ func Benchmark_Report_1Client_5SameCalls(b *testing.B) {
 		Loads: []perf.Load{{
 			Multiplier: 5,
 			Requests: []perf.Request{
-				perf.BasicReport{
-					Attributes: baseAttr,
-				},
+				perf.BuildBasicReport(baseAttr),
 			},
 		}},
 	}
@@ -89,21 +85,11 @@ func Benchmark_Report_1Client_5DifferentCalls(b *testing.B) {
 			{
 				Multiplier: 1,
 				Requests: []perf.Request{
-					perf.BasicReport{
-						Attributes: attr1,
-					},
-					perf.BasicReport{
-						Attributes: attr2,
-					},
-					perf.BasicReport{
-						Attributes: attr3,
-					},
-					perf.BasicReport{
-						Attributes: attr4,
-					},
-					perf.BasicReport{
-						Attributes: attr5,
-					},
+					perf.BuildBasicReport(attr1),
+					perf.BuildBasicReport(attr2),
+					perf.BuildBasicReport(attr3),
+					perf.BuildBasicReport(attr4),
+					perf.BuildBasicReport(attr5),
 				},
 			},
 		},
@@ -129,33 +115,25 @@ func Benchmark_Report_4Clients_5SameCallsEach(b *testing.B) {
 			{
 				Multiplier: 5,
 				Requests: []perf.Request{
-					perf.BasicReport{
-						Attributes: baseAttr,
-					},
+					perf.BuildBasicReport(baseAttr),
 				},
 			},
 			{
 				Multiplier: 5,
 				Requests: []perf.Request{
-					perf.BasicReport{
-						Attributes: baseAttr,
-					},
+					perf.BuildBasicReport(baseAttr),
 				},
 			},
 			{
 				Multiplier: 5,
 				Requests: []perf.Request{
-					perf.BasicReport{
-						Attributes: baseAttr,
-					},
+					perf.BuildBasicReport(baseAttr),
 				},
 			},
 			{
 				Multiplier: 5,
 				Requests: []perf.Request{
-					perf.BasicReport{
-						Attributes: baseAttr,
-					},
+					perf.BuildBasicReport(baseAttr),
 				},
 			},
 		},
@@ -181,81 +159,41 @@ func Benchmark_Report_4Clients_5DifferentCallsEach(b *testing.B) {
 			{
 				Multiplier: 1,
 				Requests: []perf.Request{
-					perf.BasicReport{
-						Attributes: attr1,
-					},
-					perf.BasicReport{
-						Attributes: attr2,
-					},
-					perf.BasicReport{
-						Attributes: attr3,
-					},
-					perf.BasicReport{
-						Attributes: attr4,
-					},
-					perf.BasicReport{
-						Attributes: attr5,
-					},
+					perf.BuildBasicReport(attr1),
+					perf.BuildBasicReport(attr2),
+					perf.BuildBasicReport(attr3),
+					perf.BuildBasicReport(attr4),
+					perf.BuildBasicReport(attr5),
 				},
 			},
 			{
 				Multiplier: 1,
 				Requests: []perf.Request{
-					perf.BasicReport{
-						Attributes: attr1,
-					},
-					perf.BasicReport{
-						Attributes: attr2,
-					},
-					perf.BasicReport{
-						Attributes: attr3,
-					},
-					perf.BasicReport{
-						Attributes: attr4,
-					},
-					perf.BasicReport{
-						Attributes: attr5,
-					},
+					perf.BuildBasicReport(attr1),
+					perf.BuildBasicReport(attr2),
+					perf.BuildBasicReport(attr3),
+					perf.BuildBasicReport(attr4),
+					perf.BuildBasicReport(attr5),
 				},
 			},
 			{
 				Multiplier: 1,
 				Requests: []perf.Request{
-					perf.BasicReport{
-						Attributes: attr1,
-					},
-					perf.BasicReport{
-						Attributes: attr2,
-					},
-					perf.BasicReport{
-						Attributes: attr3,
-					},
-					perf.BasicReport{
-						Attributes: attr4,
-					},
-					perf.BasicReport{
-						Attributes: attr5,
-					},
+					perf.BuildBasicReport(attr1),
+					perf.BuildBasicReport(attr2),
+					perf.BuildBasicReport(attr3),
+					perf.BuildBasicReport(attr4),
+					perf.BuildBasicReport(attr5),
 				},
 			},
 			{
 				Multiplier: 1,
 				Requests: []perf.Request{
-					perf.BasicReport{
-						Attributes: attr1,
-					},
-					perf.BasicReport{
-						Attributes: attr2,
-					},
-					perf.BasicReport{
-						Attributes: attr3,
-					},
-					perf.BasicReport{
-						Attributes: attr4,
-					},
-					perf.BasicReport{
-						Attributes: attr5,
-					},
+					perf.BuildBasicReport(attr1),
+					perf.BuildBasicReport(attr2),
+					perf.BuildBasicReport(attr3),
+					perf.BuildBasicReport(attr4),
+					perf.BuildBasicReport(attr5),
 				},
 			},
 		},
@@ -281,33 +219,25 @@ func Benchmark_Report_4Clients_5SameCallsEach_1MilliSecSlowApa(b *testing.B) {
 			{
 				Multiplier: 5,
 				Requests: []perf.Request{
-					perf.BasicReport{
-						Attributes: baseAttr,
-					},
+					perf.BuildBasicReport(baseAttr),
 				},
 			},
 			{
 				Multiplier: 5,
 				Requests: []perf.Request{
-					perf.BasicReport{
-						Attributes: baseAttr,
-					},
+					perf.BuildBasicReport(baseAttr),
 				},
 			},
 			{
 				Multiplier: 5,
 				Requests: []perf.Request{
-					perf.BasicReport{
-						Attributes: baseAttr,
-					},
+					perf.BuildBasicReport(baseAttr),
 				},
 			},
 			{
 				Multiplier: 5,
 				Requests: []perf.Request{
-					perf.BasicReport{
-						Attributes: baseAttr,
-					},
+					perf.BuildBasicReport(baseAttr),
 				},
 			},
 		},
@@ -343,9 +273,9 @@ spec:
     method: request.method | ""
     url: request.path | ""
     protocol: request.scheme | "http"
-    responseCode: response.code | 0.0
-    responseSize: response.size | 0.0
-    requestSize: request.size | 0.0
+    responseCode: response.code | 0
+    responseSize: response.size | 0
+    requestSize: request.size | 0
     latency: response.duration | "0ms"
     connectionMtls: connection.mtls | false
 ---
@@ -375,8 +305,8 @@ spec:
     source: source.labels["app"] | source.service | "unknown"
     user: source.user | "unknown"
     destination: destination.labels["app"] | destination.service | "unknown"
-    responseCode: response.code | 0.0
-    responseSize: response.size | 0.0
+    responseCode: response.code | 0
+    responseSize: response.size | 0
     latency: response.duration | "0ms"
 ---
 # Configuration for a stdio handler
@@ -416,7 +346,7 @@ spec:
     source_version: source.labels["version"] | "unknown"
     destination_service: destination.service | "unknown"
     destination_version: destination.labels["version"] | "unknown"
-    response_code: response.code | 200.0
+    response_code: response.code | 200
     connection_mtls: connection.mtls | false
 ---
 apiVersion: "config.istio.io/v1alpha2"
@@ -431,7 +361,7 @@ spec:
     source_version: source.labels["version"] | "unknown"
     destination_service: destination.service | "unknown"
     destination_version: destination.labels["version"] | "unknown"
-    response_code: response.code | 200.0
+    response_code: response.code | 200
     connection_mtls: connection.mtls | false
 ---
 apiVersion: "config.istio.io/v1alpha2"
@@ -440,13 +370,13 @@ metadata:
   name: requestsize
   namespace: istio-system
 spec:
-  value: request.size | 0.0
+  value: request.size | 0
   dimensions:
     source_service: source.service | "unknown"
     source_version: source.labels["version"] | "unknown"
     destination_service: destination.service | "unknown"
     destination_version: destination.labels["version"] | "unknown"
-    response_code: response.code | 200.0
+    response_code: response.code | 200
     connection_mtls: connection.mtls | false
 ---
 apiVersion: "config.istio.io/v1alpha2"
@@ -455,13 +385,13 @@ metadata:
   name: responsesize
   namespace: istio-system
 spec:
-  value: response.size | 0.0
+  value: response.size | 0
   dimensions:
     source_service: source.service | "unknown"
     source_version: source.labels["version"] | "unknown"
     destination_service: destination.service | "unknown"
     destination_version: destination.labels["version"] | "unknown"
-    response_code: response.code | 200.0
+    response_code: response.code | 200
     connection_mtls: connection.mtls | false
 ---
 apiVersion: "config.istio.io/v1alpha2"
@@ -592,11 +522,9 @@ metadata:
 spec:
   # Pass the required attribute data to the adapter
   boolPrimitive: connection.mtls | true
-  doublePrimitive: response.size | 0.0
   stringPrimitive: source.service | "unknown"
   attribute_bindings:
     connection.mtls: $out.boolPrimitive | true
-    response.size: $out.doublePrimitive | 2.2
     origin.uid: $out.stringPrimitive | "unknown"
 ---
 `
@@ -632,19 +560,19 @@ spec:
     request.scheme:
       valueType: STRING
     request.size:
-      valueType: DOUBLE
+      valueType: INT64
     request.time:
       valueType: TIMESTAMP
     request.useragent:
       valueType: STRING
     response.code:
-      valueType: DOUBLE
+      valueType: INT64
     response.duration:
       valueType: DURATION
     response.headers:
       valueType: STRING_MAP
     response.size:
-      valueType: DOUBLE
+      valueType: INT64
     response.time:
       valueType: TIMESTAMP
     source.uid:
