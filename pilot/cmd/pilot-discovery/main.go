@@ -107,6 +107,8 @@ func init() {
 		"comma separated list of networking plugins to enable")
 
 	// Config Controller options
+	discoveryCmd.PersistentFlags().BoolVar(&serverArgs.Config.InstallCRDs, "install-crds", true,
+		"Upon startup, Pilot will attempt to inspect the state of CRDs as installed in Kubernetes.  If it CRDs are not found, it will attempt to create them.")
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.FileDir, "configDir", "",
 		"Directory to watch for updates to config yaml files. If specified, the files will be used as the source of config, rather than a CRD client.")
 	discoveryCmd.PersistentFlags().StringVarP(&serverArgs.Config.ControllerOptions.WatchedNamespace, "appNamespace",
