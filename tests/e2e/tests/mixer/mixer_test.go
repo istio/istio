@@ -56,9 +56,9 @@ const (
 	sleepYaml             = "samples/sleep/sleep"
 	mixerTestDataDir      = "tests/e2e/tests/mixer/testdata"
 
-	prometheusPort   = "9090"
-	mixerMetricsPort = "42422"
-	productPagePort  = "10000"
+	prometheusPort   = uint16(9090)
+	mixerMetricsPort = uint16(42422)
+	productPagePort  = uint16(10000)
 
 	srcLabel           = "source_service"
 	srcPodLabel        = "source_pod"
@@ -354,22 +354,26 @@ func podLogs(labelSelector string, container string) {
 }
 
 // portForward sets up local port forward to the pod specified by the "app" label
-func (p *promProxy) portForward(labelSelector string, localPort string, remotePort string) error {
+func (p *promProxy) portForward(labelSelector string, localPort, remotePort uint16) error {
 	log.Infof("Setting up %s proxy", labelSelector)
 	options := &kube.PodSelectOptions{
 		PodNamespace:  p.namespace,
 		LabelSelector: labelSelector,
 	}
-	forwarder, err := kube.PortForward(tc.Kube.KubeConfig, options, localPort, remotePort)
+	forwarder, err := kube.NewPortForwarder(tc.Kube.KubeConfig, options, localPort, remotePort)
 	if err != nil {
-		log.Errorf("Error in port forward: %v", err)
+		log.Errorf("Error creating port forwarder: %v", err)
+		return err
+	}
+	if err := forwarder.Start(); err != nil {
+		log.Errorf("Error starting port forwarder: %v", err)
 		return err
 	}
 	p.portFwdProcesses = append(p.portFwdProcesses, forwarder)
 
 	// Give it some time since process is launched in the background
 	time.Sleep(3 * time.Second)
-	if _, err = net.DialTimeout("tcp", ":"+localPort, 5*time.Second); err != nil {
+	if _, err = net.DialTimeout("tcp", forwarder.Address(), 5*time.Second); err != nil {
 		log.Errorf("Failed to port forward: %s", err)
 		return err
 	}
@@ -393,7 +397,7 @@ func (p *promProxy) Setup() error {
 		return err
 	}
 
-	return p.portForward("app=productpage", productPagePort, "9080")
+	return p.portForward("app=productpage", productPagePort, uint16(9080))
 }
 
 func (p *promProxy) Teardown() (err error) {
@@ -1262,7 +1266,7 @@ func allowPrometheusSync() {
 }
 
 func promAPI() (v1.API, error) {
-	client, err := api.NewClient(api.Config{Address: fmt.Sprintf("http://localhost:%s", prometheusPort)})
+	client, err := api.NewClient(api.Config{Address: fmt.Sprintf("http://localhost:%d", prometheusPort)})
 	if err != nil {
 		return nil, err
 	}
@@ -1319,13 +1323,13 @@ func vectorValue(val model.Value, labels map[string]string) (float64, error) {
 // checkProductPageDirect
 func checkProductPageDirect() {
 	log.Info("checkProductPageDirect")
-	dumpURL("http://localhost:"+productPagePort+"/productpage", false)
+	dumpURL(fmt.Sprintf("http://localhost:%d/productpage", productPagePort), false)
 }
 
 // dumpMixerMetrics fetch metrics directly from mixer and dump them
 func dumpMixerMetrics() {
 	log.Info("dumpMixerMetrics")
-	dumpURL("http://localhost:"+mixerMetricsPort+"/metrics", true)
+	dumpURL(fmt.Sprintf("http://localhost:%d/metrics", mixerMetricsPort), true)
 }
 
 func dumpURL(url string, dumpContents bool) {

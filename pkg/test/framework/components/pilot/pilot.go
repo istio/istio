@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"strconv"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	adsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
@@ -116,7 +115,7 @@ func (c *kubeComponent) doInit(e *kubernetes.Implementation) (interface{}, error
 	return NewKubePilot(s.KubeConfig, pod.Namespace, pod.Name, port)
 }
 
-func getGrpcPort(e *kubernetes.Implementation) (int, error) {
+func getGrpcPort(e *kubernetes.Implementation) (uint16, error) {
 	s := e.KubeSettings()
 	svc, err := e.Accessor.GetService(s.IstioSystemNamespace, pilotService)
 	if err != nil {
@@ -124,7 +123,7 @@ func getGrpcPort(e *kubernetes.Implementation) (int, error) {
 	}
 	for _, portInfo := range svc.Spec.Ports {
 		if portInfo.Name == grpcPortName {
-			return portInfo.TargetPort.IntValue(), nil
+			return uint16(portInfo.TargetPort.IntValue()), nil
 		}
 	}
 	return 0, fmt.Errorf("failed to get target port in service %s", pilotService)
@@ -202,14 +201,17 @@ func NewLocalPilot(namespace string) (LocalPilot, error) {
 }
 
 // NewKubePilot creates a new pilot instance for the kubernetes environment
-func NewKubePilot(kubeConfig, namespace, pod string, port int) (environment.DeployedPilot, error) {
+func NewKubePilot(kubeConfig, namespace, pod string, port uint16) (environment.DeployedPilot, error) {
 	// Start port-forwarding for pilot.
 	options := &kube.PodSelectOptions{
 		PodNamespace: namespace,
 		PodName:      pod,
 	}
-	forwarder, err := kube.PortForward(kubeConfig, options, "", strconv.Itoa(port))
+	forwarder, err := kube.NewPortForwarder(kubeConfig, options, 0, port)
 	if err != nil {
+		return nil, err
+	}
+	if err := forwarder.Start(); err != nil {
 		return nil, err
 	}
 
