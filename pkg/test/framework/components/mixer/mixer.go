@@ -21,7 +21,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
-	"strconv"
 	"testing"
 	"time"
 
@@ -173,8 +172,11 @@ func (c *kubeComponent) doInit(e *kubernetes.Implementation) (interface{}, error
 			PodNamespace: pod.Namespace,
 			PodName:      pod.Name,
 		}
-		forwarder, err := kube.PortForward(s.KubeConfig, options, "", strconv.Itoa(port))
+		forwarder, err := kube.NewPortForwarder(s.KubeConfig, options, 0, port)
 		if err != nil {
+			return nil, err
+		}
+		if err := forwarder.Start(); err != nil {
 			return nil, err
 		}
 
@@ -191,14 +193,14 @@ func (c *kubeComponent) doInit(e *kubernetes.Implementation) (interface{}, error
 	return res, nil
 }
 
-func getGrpcPort(e *kubernetes.Implementation, serviceType string) (int, error) {
+func getGrpcPort(e *kubernetes.Implementation, serviceType string) (uint16, error) {
 	svc, err := e.Accessor.GetService(e.KubeSettings().IstioSystemNamespace, "istio-"+serviceType)
 	if err != nil {
 		return 0, fmt.Errorf("failed to retrieve service %s: %v", serviceType, err)
 	}
 	for _, portInfo := range svc.Spec.Ports {
 		if portInfo.Name == grpcPortName {
-			return portInfo.TargetPort.IntValue(), nil
+			return uint16(portInfo.TargetPort.IntValue()), nil
 		}
 	}
 	return 0, fmt.Errorf("failed to get target port in service %s", serviceType)
