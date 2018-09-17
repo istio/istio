@@ -57,9 +57,7 @@ func (m *RateLimitServiceConfig) Validate() error {
 
 	case *RateLimitServiceConfig_GrpcService:
 
-		if v, ok := interface{}(m.GetGrpcService()).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(m.GetGrpcService()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return RateLimitServiceConfigValidationError{
 					Field:  "GrpcService",

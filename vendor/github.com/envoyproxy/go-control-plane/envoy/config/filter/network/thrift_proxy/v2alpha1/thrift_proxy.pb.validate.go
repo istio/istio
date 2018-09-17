@@ -63,9 +63,7 @@ func (m *ThriftProxy) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetRouteConfig()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetRouteConfig()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ThriftProxyValidationError{
 				Field:  "RouteConfig",

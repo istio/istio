@@ -41,9 +41,7 @@ func (m *Tracing) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetHttp()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetHttp()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return TracingValidationError{
 				Field:  "Http",
@@ -216,9 +214,7 @@ func (m *DynamicOtConfig) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetConfig()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetConfig()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return DynamicOtConfigValidationError{
 				Field:  "Config",
@@ -277,9 +273,7 @@ func (m *TraceServiceConfig) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetGrpcService()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetGrpcService()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return TraceServiceConfigValidationError{
 				Field:  "GrpcService",
@@ -338,9 +332,7 @@ func (m *Tracing_Http) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetConfig()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetConfig()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return Tracing_HttpValidationError{
 				Field:  "Config",

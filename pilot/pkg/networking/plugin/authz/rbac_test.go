@@ -656,7 +656,11 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 							{
 								Identifier: &policy.Principal_Authenticated_{
 									Authenticated: &policy.Principal_Authenticated{
-										Name: "spiffe://admin",
+										PrincipalName: &metadata.StringMatcher{
+											MatchPattern: &metadata.StringMatcher_Exact{
+												Exact: "spiffe://admin",
+											},
+										},
 									},
 								},
 							},
