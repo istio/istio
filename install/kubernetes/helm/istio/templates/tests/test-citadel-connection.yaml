@@ -1,4 +1,5 @@
 {{- if .Values.global.enableHelmTest }}
+{{- if .Values.security.enabled }}
 apiVersion: v1
 kind: Pod
 metadata:
@@ -27,4 +28,5 @@ spec:
   restartPolicy: Never
   affinity:
     {{- include "nodeaffinity" . | indent 4 }}
+{{- end }}
 {{- end }}
