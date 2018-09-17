@@ -49,6 +49,8 @@ cat << EOF > "${SUBS_FILE}"
   }
 EOF
 
+cat "${SUBS_FILE}"
+
 KEY_FILE_PATH=""
 
 run_build "cloud_build.template.json" \
