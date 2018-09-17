@@ -35,7 +35,6 @@ SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
 # shellcheck source=release/gcb_build_lib.sh
 source "${SCRIPTPATH}/gcb_build_lib.sh"
 
-PROJECT_ID=""
 KEY_FILE_PATH=""
 SVC_ACCT=""
 SUBS_FILE="$(mktemp /tmp/build.subs.XXXX)"
@@ -48,12 +47,9 @@ REL_ORG="istio"
 USER_EMAIL=""
 USER_NAME=""
 GCS_PATH="" #this is the initial path where the artifacts are stored before testing
-BRANCH=""
 
 function usage() {
   echo "$0
-    -p <name> project ID                                        (required)
-    -a        service account for login                         (optional, defaults to project's cloudbuild@ )
     -k <file> path to key file for service account              (optional)
     -v <ver>  version string                                    (optional, defaults to $VER_STRING )
     -w        specify that script should wait until build done  (optional)
@@ -63,25 +59,21 @@ function usage() {
     -h <name> github org to tag                                 (optional, defaults to $REL_ORG )
     -e <email> email of submitter for tags                      (required)
     -n <name>  name of submitter for tags                       (required)
-    -c <name>  GCS bucket/path where artifacts stored pre test  (required)
-    -z <name>  name of the branch                               (required)"
+    -c <name>  GCS bucket/path where artifacts stored pre test  (required)"
   exit 1
 }
 
-while getopts a:c:e:g:h:k:n:p:s:v:w:z arg ; do
+while getopts c:e:g:h:k:n:s:v:w arg ; do
   case "${arg}" in
-    a) SVC_ACCT="${OPTARG}";;
     c) GCS_PATH="${OPTARG}";;
     e) USER_EMAIL="${OPTARG}";;
     g) GCS_GITHUB_SECRET="${OPTARG}";;
     h) REL_ORG="${OPTARG}";;
     k) KEY_FILE_PATH="${OPTARG}";;
     n) USER_NAME="${OPTARG}";;
-    p) PROJECT_ID="${OPTARG}";;
     s) GCS_SRC="${OPTARG}";;
     v) VER_STRING="${OPTARG}";;
     w) WAIT_FOR_RESULT="true";;
-    z) BRANCH="${OPTARG}";;
     *) usage;;
   esac
 done

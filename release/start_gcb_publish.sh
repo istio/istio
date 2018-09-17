@@ -34,7 +34,6 @@ SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
 # shellcheck source=release/gcb_build_lib.sh
 source "${SCRIPTPATH}/gcb_build_lib.sh"
 
-PROJECT_ID=""
 KEY_FILE_PATH=""
 SVC_ACCT=""
 SUBS_FILE="$(mktemp /tmp/build.subs.XXXX)"
@@ -53,8 +52,6 @@ BRANCH=""
 
 function usage() {
   echo "$0
-    -p <name> project ID                                        (required)
-    -a        service account for login                         (optional, defaults to project's cloudbuild@ )
     -k <file> path to key file for service account              (optional)
     -v <ver>  version string                                    (optional, defaults to $VER_STRING )
     -w        specify that script should wait until build done  (optional)
@@ -66,14 +63,12 @@ function usage() {
     -g <path> GCS bucket&path to file with github secret        (optional, detaults to $GCS_GITHUB_SECRET )
     -h <name> github org to make a release on                   (optional, defaults to $REL_ORG )
     -i <name> github repo to make a release on                  (optional, defaults to $REL_REPO )
-    -c <name> GCS bucket/path where artifacts stored pre test   (required)
-    -z <name>  name of the branch                               (required)"
+    -c <name> GCS bucket/path where artifacts stored pre test   (required)"
   exit 1
 }
 
-while getopts a:b:c:d:g:h:i:k:p:r:s:v:w:z arg ; do
+while getopts b:c:d:g:h:i:k:r:s:v:w arg ; do
   case "${arg}" in
-    a) SVC_ACCT="${OPTARG}";;
     b) GCS_DST="${OPTARG}";;
     c) GCS_PATH="${OPTARG}";;
     d) DOCKER_DST="${OPTARG}";;
@@ -81,12 +76,10 @@ while getopts a:b:c:d:g:h:i:k:p:r:s:v:w:z arg ; do
     h) REL_ORG="${OPTARG}";;
     i) REL_REPO="${OPTARG}";;
     k) KEY_FILE_PATH="${OPTARG}";;
-    p) PROJECT_ID="${OPTARG}";;
     r) GCR_DST="${OPTARG}";;
     s) GCS_SRC="${OPTARG}";;
     v) VER_STRING="${OPTARG}";;
     w) WAIT_FOR_RESULT="true";;
-    z) BRANCH="${OPTARG}";;
     *) usage;;
   esac
 done

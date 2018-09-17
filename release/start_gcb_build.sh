@@ -28,41 +28,32 @@ SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
 # shellcheck source=release/gcb_build_lib.sh
 source "${SCRIPTPATH}/gcb_build_lib.sh"
 
-PROJECT_ID=""
 KEY_FILE_PATH=""
-SVC_ACCT=""
 SUBS_FILE="$(mktemp /tmp/build.subs.XXXX)"
 VER_STRING="0.0.0"
 WAIT_FOR_RESULT="false"
 
 GCR_PATH=""
 GCS_PATH=""
-BRANCH=""
 
 function usage() {
   echo "$0
-    -a        service account for login                         (optional, defaults to project's cloudbuild@ )
     -k <file> path to key file for service account              (optional)
     -v <ver>  version string                                    (optional, defaults to $VER_STRING )
     -w        specify that script should wait until build done  (optional)
 
-    -p <name> project ID                                        (required)
     -r <name> GCR bucket/path to store build artifacts          (required)
-    -s <name> GCS bucket/path to store build artifacts          (required)
-    -z        specify the branch on istio/istio                 (required)"
+    -s <name> GCS bucket/path to store build artifacts          (required)"
   exit 1
 }
 
-while getopts a:k:p:r:s:v:wz: arg ; do
+while getopts k:r:s:v:w arg ; do
   case "${arg}" in
-    a) SVC_ACCT="${OPTARG}";;
     k) KEY_FILE_PATH="${OPTARG}";;
-    p) PROJECT_ID="${OPTARG}";;
     r) GCR_PATH="${OPTARG}";;
     s) GCS_PATH="${OPTARG}";;
     v) VER_STRING="${OPTARG}";;
     w) WAIT_FOR_RESULT="true";;
-    z) BRANCH="${OPTARG}";;
     *) usage;;
   esac
 done

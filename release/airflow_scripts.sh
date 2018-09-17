@@ -35,8 +35,7 @@ function build_template() {
     gsutil -q cp gs://"$GCS_RELEASE_TOOLS_PATH"/*.sh   .
     chmod u+x ./*
 
-    ./start_gcb_build.sh -w -p "$PROJECT_ID" -r "$GCR_STAGING_DEST" -s "$GCS_BUILD_PATH" \
-    -v "$VERSION" -a "$SVC_ACCT"
+    ./start_gcb_build.sh -w -r "$GCR_STAGING_DEST" -s "$GCS_BUILD_PATH" -v "$VERSION"
   # NOTE: if you add commands to build_template after start_gcb_build.sh then take care to preserve its return value
 }
 
@@ -46,12 +45,12 @@ function test_command() {
     git config --global user.name "TestRunnerBot"
     git config --global user.email "testrunner@istio.io"
     ls -l    ./githubctl
-    ./githubctl \
-    --token_file="$TOKEN_FILE" \
-    --op=dailyRelQual \
+    ./githubctl                      \
+    --token_file="$TOKEN_FILE"       \
+    --op=dailyRelQual                \
     --hub="gcr.io/$GCR_STAGING_DEST" \
-    --gcs_path="$GCS_BUILD_PATH" \
-    --tag="$VERSION" \
+    --gcs_path="$GCS_BUILD_PATH"     \
+    --tag="$VERSION"                 \
     --base_branch="$BRANCH"
 }
 
@@ -96,13 +95,17 @@ function release_push_github_docker_template() {
   gsutil -q cp "gs://$GCS_RELEASE_TOOLS_PATH/*.sh" .
   chmod u+x ./*
 
-  ./start_gcb_publish.sh \
-    -p "$RELEASE_PROJECT_ID" -a "$SVC_ACCT" -c "$GCS_BUILD_PATH" \
-    -v "$VERSION" -s "$GCS_FULL_STAGING_PATH" \
-    -b "$GCS_MONTHLY_RELEASE_PATH" -r "$GCR_RELEASE_DEST" \
-    -g "$GCS_GITHUB_PATH" \
-    -h "$GITHUB_ORG" -i "$GITHUB_REPO" \
-    -d "$DOCKER_HUB" -w -z "$BRANCH"
+  ./start_gcb_publish.sh           \
+    -b "$GCS_MONTHLY_RELEASE_PATH" \
+    -c "$GCS_BUILD_PATH"           \
+    -d "$DOCKER_HUB"               \
+    -g "$GCS_GITHUB_PATH"          \
+    -h "$GITHUB_ORG"               \
+    -i "$GITHUB_REPO"              \
+    -r "$GCR_RELEASE_DEST"         \
+    -s "$GCS_FULL_STAGING_PATH"    \
+    -v "$VERSION"                  \
+    -w
 }
 
 function release_tag_github_template() {
@@ -110,11 +113,13 @@ function release_tag_github_template() {
   gsutil -q cp "gs://$GCS_RELEASE_TOOLS_PATH/*.sh" .
   chmod u+x ./*
 
-  ./start_gcb_tag.sh \
-    -p "$RELEASE_PROJECT_ID" -c "$GCS_BUILD_PATH" \
-    -h "$GITHUB_ORG" -a "$SVC_ACCT"  \
-    -v "$VERSION"   -e "istio_releaser_bot@example.com" \
-    -n "IstioReleaserBot" -s "$GCS_FULL_STAGING_PATH" \
-    -g "$GCS_GITHUB_PATH" \
-    -w -z "$BRANCH"
+  ./start_gcb_tag.sh                    \
+    -c "$GCS_BUILD_PATH"                \
+    -e "istio_releaser_bot@example.com" \
+    -g "$GCS_GITHUB_PATH"               \
+    -h "$GITHUB_ORG"                    \
+    -n "IstioReleaserBot"               \
+    -s "$GCS_FULL_STAGING_PATH"         \
+    -v "$VERSION"                       \
+    -w
 }
