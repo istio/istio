@@ -1,0 +1,27 @@
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: cli-fortio
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: cli-fortio
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      containers:
+      - name: echosrv
+        image: istio/fortio:latest
+        imagePullPolicy: Always
+        args:
+          - load
+          - -c
+          - "32"
+          - -t
+          - "300s"
+          - -qps
+          - "10"
+          - http://echosrv.test.svc.cluster.local:8080/echo?size=200
