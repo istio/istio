@@ -18,9 +18,9 @@ import (
 	"fmt"
 	"strings"
 
-	"istio.io/istio/pkg/test/env"
-
 	"github.com/google/uuid"
+
+	"istio.io/istio/pkg/log"
 )
 
 // EnvironmentID is a unique identifier for a testing environment.
@@ -38,14 +38,7 @@ const (
 )
 
 var (
-	// ISTIO_TEST_ENVIRONMENT indicates in which mode the test framework should run. It can be "local", or
-	// "kube".
-	// nolint: golint
-	ISTIO_TEST_ENVIRONMENT env.Variable = "ISTIO_TEST_ENVIRONMENT"
-
-	globalSettings = &Settings{
-		Environment: EnvironmentID(ISTIO_TEST_ENVIRONMENT.ValueOrDefault(string(Local))),
-	}
+	globalSettings = defaultSettings()
 )
 
 // Settings is the set of arguments to the test driver.
@@ -65,11 +58,21 @@ type Settings struct {
 	// Local working directory root for creating temporary directories / files in. If left empty,
 	// os.TempDir() will be used.
 	WorkDir string
+
+	LogOptions *log.Options
+}
+
+// defaultSettings returns a default settings instance.
+func defaultSettings() *Settings {
+	return &Settings{
+		Environment: Local,
+		LogOptions:  log.DefaultOptions(),
+	}
 }
 
 // New returns settings built from flags and environment variables.
 func New(testID string) (*Settings, error) {
-	// Copy the default settings.
+	// Copy the global settings.
 	s := &(*globalSettings)
 
 	s.TestID = testID
@@ -103,5 +106,8 @@ func generateRunID(testID string) string {
 	testID = strings.Replace(testID, "_", "-", -1)
 	// We want at least 6 characters of uuid padding
 	padding := MaxTestIDLength - len(testID)
+	if padding < 0 {
+		padding = 0
+	}
 	return fmt.Sprintf("%s-%s", testID, u[0:padding])
 }
