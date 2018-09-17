@@ -21,7 +21,6 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/log"
-
 	"istio.io/istio/pkg/test/framework/components"
 	"istio.io/istio/pkg/test/framework/components/registry"
 	"istio.io/istio/pkg/test/framework/dependency"
@@ -46,11 +45,6 @@ const (
 
 	// the driver has completed running tests.
 	completed
-)
-
-var (
-	// TODO(nmittler): Add logging options to flags.
-	logOptions = log.DefaultOptions()
 )
 
 type driver struct {
@@ -189,9 +183,6 @@ func (d *driver) initialize(testID string) (int, error) {
 
 	// Parse flags and init logging.
 	flag.Parse()
-	if err := log.Configure(logOptions); err != nil {
-		return -1, err
-	}
 
 	// Initialize settings
 	s, err := settings.New(testID)
@@ -199,6 +190,10 @@ func (d *driver) initialize(testID string) (int, error) {
 		return -1, err
 	}
 	scope.Debugf("driver settings: %+v", s)
+
+	if err := log.Configure(s.LogOptions); err != nil {
+		return -1, err
+	}
 
 	// Initialize the environment.
 	var impl internal.EnvironmentController
