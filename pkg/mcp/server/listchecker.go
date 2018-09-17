@@ -26,6 +26,15 @@ import (
 	"istio.io/istio/security/pkg/pki/util"
 )
 
+// AllowAllChecker is a simple auth checker that allows all requests.
+type AllowAllChecker struct{}
+
+// NewAllowAllChecker creates a new AllowAllChecker.
+func NewAllowAllChecker() AuthChecker { return &AllowAllChecker{} }
+
+// Check is an implementation of AuthChecker.Check that allows all check requests.
+func (*AllowAllChecker) Check(credentials.AuthInfo) error { return nil }
+
 // ListAuthChecker implements AuthChecker function and is backed by a set of ids.
 type ListAuthChecker struct {
 	idsMutex sync.Mutex
