@@ -25,7 +25,7 @@ airflow_fixed_config = dict(
     GITHUB_REPO='istio',
     MFEST_FILE='build.xml',
     MFEST_URL='https://github.com/istio/green-builds',
-    PROJECT_ID='istio-release',
+    PROJECT_ID='istio-io',
     SVC_ACCT='202987436673-compute@developer.gserviceaccount.com',
     TOKEN_FILE='/var/run/secrets/kubernetes.io/serviceaccount/tokenFile')
 
