@@ -53,7 +53,7 @@ cat "${SUBS_FILE}"
 
 KEY_FILE_PATH=""
 
-run_build "cloud_build.template.json" \
+run_build "cloud_get_commit.template.json" \
   "${SUBS_FILE}" "${PROJECT_ID}" "${SVC_ACCT}" "${KEY_FILE_PATH}" "${WAIT_FOR_RESULT}"
 
 # cleanup
