@@ -150,7 +150,7 @@ func (b *backend) Init(kinds []string) error {
 		}
 
 		requiredFiles := []string{b.credOptions.CertificateFile, b.credOptions.KeyFile, b.credOptions.CACertificateFile}
-		log.Infof("Secure MSP configured. Waiting for required certificate files to become available: %v", requiredFiles)
+		log.Infof("Secure MCP configured. Waiting for required certificate files to become available: %v", requiredFiles)
 		for len(requiredFiles) > 0 {
 			if _, err := os.Stat(requiredFiles[0]); os.IsNotExist(err) {
 				log.Infof("%v not found. Checking again in %v", requiredFiles[0], requiredCertCheckFreq)

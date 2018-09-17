@@ -16,10 +16,12 @@ package coredatamodel_test
 
 import (
 	"fmt"
+	"reflect"
 	"testing"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
-	google_protobuf "github.com/gogo/protobuf/types"
+	"github.com/gogo/protobuf/types"
 	"github.com/onsi/gomega"
 
 	authn "istio.io/api/authentication/v1alpha1"
@@ -332,13 +334,13 @@ func convertToEnvelope(g *gomega.GomegaWithT, messageName string, resources []pr
 }
 
 func makeMessage(value []byte, responseMessageName string) (proto.Message, error) {
-	resource := &google_protobuf.Any{
+	resource := &types.Any{
 		TypeUrl: fmt.Sprintf("type.googleapis.com/%s", responseMessageName),
 		Value:   value,
 	}
 
-	var dynamicAny google_protobuf.DynamicAny
-	err := google_protobuf.UnmarshalAny(resource, &dynamicAny)
+	var dynamicAny types.DynamicAny
+	err := types.UnmarshalAny(resource, &dynamicAny)
 	if err == nil {
 		return dynamicAny.Message, nil
 	}
@@ -407,4 +409,189 @@ func TestApplyClusterScopedAuthPolicy(t *testing.T) {
 	g.Expect(c[0].Namespace).To(gomega.Equal("bar-namespace"))
 	g.Expect(c[0].Type).To(gomega.Equal(model.AuthenticationPolicy.Type))
 	g.Expect(c[0].Spec).To(gomega.Equal(message0[0]))
+}
+
+func TestEventHandler(t *testing.T) {
+	controller := coredatamodel.NewController(testControllerOptions)
+
+	makeName := func(namespace, name string) string {
+		return namespace + "/" + name
+	}
+
+	gotEvents := map[model.Event]map[string]model.Config{
+		model.EventAdd:    map[string]model.Config{},
+		model.EventUpdate: map[string]model.Config{},
+		model.EventDelete: map[string]model.Config{},
+	}
+	controller.RegisterEventHandler(model.ServiceEntry.Type, func(m model.Config, e model.Event) {
+		gotEvents[e][makeName(m.Namespace, m.Name)] = m
+	})
+
+	typeURL := "type.googleapis.com/istio.networking.v1alpha3.ServiceEntry"
+
+	fakeCreateTime, _ := time.Parse(time.RFC3339, "2006-01-02T15:04:05Z")
+	fakeCreateTimeProto, err := types.TimestampProto(fakeCreateTime)
+	if err != nil {
+		t.Fatalf("Failed to parse create fake create time %v: %v", fakeCreateTime, err)
+	}
+
+	makeServiceEntry := func(name, host, version string) *mcpclient.Object {
+		return &mcpclient.Object{
+			TypeURL: typeURL,
+			Metadata: &mcpapi.Metadata{
+				Name:       fmt.Sprintf("default/%s", name),
+				CreateTime: fakeCreateTimeProto,
+				Version:    version,
+			},
+			Resource: &networking.ServiceEntry{
+				Hosts: []string{host},
+			},
+		}
+	}
+
+	makeServiceEntryModel := func(name, host, version string) model.Config {
+		return model.Config{
+			ConfigMeta: model.ConfigMeta{
+				Type:              model.ServiceEntry.Type,
+				Group:             model.ServiceEntry.Group,
+				Version:           model.ServiceEntry.Version,
+				Name:              name,
+				Namespace:         "default",
+				Domain:            "cluster.local",
+				ResourceVersion:   version,
+				CreationTimestamp: fakeCreateTime,
+			},
+			Spec: &networking.ServiceEntry{Hosts: []string{host}},
+		}
+	}
+
+	// Note: these tests steps are cumulative
+	steps := []struct {
+		name   string
+		change *mcpclient.Change
+		want   map[model.Event]map[string]model.Config
+	}{
+		{
+			name: "initial add",
+			change: &mcpclient.Change{
+				TypeURL: typeURL,
+				Objects: []*mcpclient.Object{
+					makeServiceEntry("foo", "foo.com", "v0"),
+				},
+			},
+			want: map[model.Event]map[string]model.Config{
+				model.EventAdd: map[string]model.Config{
+					"default/foo": makeServiceEntryModel("foo", "foo.com", "v0"),
+				},
+			},
+		},
+		{
+			name: "update initial item",
+			change: &mcpclient.Change{
+				TypeURL: typeURL,
+				Objects: []*mcpclient.Object{
+					makeServiceEntry("foo", "foo.com", "v1"),
+				},
+			},
+			want: map[model.Event]map[string]model.Config{
+				model.EventUpdate: map[string]model.Config{
+					"default/foo": makeServiceEntryModel("foo", "foo.com", "v1"),
+				},
+			},
+		},
+		{
+			name: "subsequent add",
+			change: &mcpclient.Change{
+				TypeURL: typeURL,
+				Objects: []*mcpclient.Object{
+					makeServiceEntry("foo", "foo.com", "v1"),
+					makeServiceEntry("foo1", "foo1.com", "v0"),
+				},
+			},
+			want: map[model.Event]map[string]model.Config{
+				model.EventAdd: map[string]model.Config{
+					"default/foo1": makeServiceEntryModel("foo1", "foo1.com", "v0"),
+				},
+			},
+		},
+		{
+			name: "single delete",
+			change: &mcpclient.Change{
+				TypeURL: typeURL,
+				Objects: []*mcpclient.Object{
+					makeServiceEntry("foo1", "foo1.com", "v0"),
+				},
+			},
+			want: map[model.Event]map[string]model.Config{
+				model.EventDelete: map[string]model.Config{
+					"default/foo": makeServiceEntryModel("foo", "foo.com", "v1"),
+				},
+			},
+		},
+		{
+			name: "multiple update and add",
+			change: &mcpclient.Change{
+				TypeURL: typeURL,
+				Objects: []*mcpclient.Object{
+					makeServiceEntry("foo1", "foo1.com", "v1"),
+					makeServiceEntry("foo2", "foo2.com", "v0"),
+					makeServiceEntry("foo3", "foo3.com", "v0"),
+				},
+			},
+			want: map[model.Event]map[string]model.Config{
+				model.EventAdd: map[string]model.Config{
+					"default/foo2": makeServiceEntryModel("foo2", "foo2.com", "v0"),
+					"default/foo3": makeServiceEntryModel("foo3", "foo3.com", "v0"),
+				},
+				model.EventUpdate: map[string]model.Config{
+					"default/foo1": makeServiceEntryModel("foo1", "foo1.com", "v1"),
+				},
+			},
+		},
+		{
+			name: "multiple deletes, updates, and adds ",
+			change: &mcpclient.Change{
+				TypeURL: typeURL,
+				Objects: []*mcpclient.Object{
+					makeServiceEntry("foo2", "foo2.com", "v1"),
+					makeServiceEntry("foo3", "foo3.com", "v0"),
+					makeServiceEntry("foo4", "foo4.com", "v0"),
+					makeServiceEntry("foo5", "foo5.com", "v0"),
+				},
+			},
+			want: map[model.Event]map[string]model.Config{
+				model.EventAdd: map[string]model.Config{
+					"default/foo4": makeServiceEntryModel("foo4", "foo4.com", "v0"),
+					"default/foo5": makeServiceEntryModel("foo5", "foo5.com", "v0"),
+				},
+				model.EventUpdate: map[string]model.Config{
+					"default/foo2": makeServiceEntryModel("foo2", "foo2.com", "v1"),
+				},
+				model.EventDelete: map[string]model.Config{
+					"default/foo1": makeServiceEntryModel("foo1", "foo1.com", "v1"),
+				},
+			},
+		},
+	}
+
+	for i, s := range steps {
+		t.Run(fmt.Sprintf("[%v] %s", i, s.name), func(tt *testing.T) {
+			if err := controller.Apply(s.change); err != nil {
+				tt.Fatalf("Apply() failed: %v", err)
+			}
+
+			for eventType, wantConfigs := range s.want {
+				gotConfigs := gotEvents[eventType]
+				if !reflect.DeepEqual(gotConfigs, wantConfigs) {
+					tt.Fatalf("wrong %v event: \n got %+v \nwant %+v", eventType, gotConfigs, wantConfigs)
+				}
+			}
+			// clear saved events after every step
+			gotEvents = map[model.Event]map[string]model.Config{
+				model.EventAdd:    map[string]model.Config{},
+				model.EventUpdate: map[string]model.Config{},
+				model.EventDelete: map[string]model.Config{},
+			}
+		})
+	}
 }

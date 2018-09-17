@@ -71,6 +71,7 @@ resources:
     group:       "authentication.istio.io"
     version:     "v1alpha1"
     proto:       "istio.authentication.v1alpha1.Policy"
+    converter:   "auth-policy-resource"
 
   - kind:          "MeshPolicy"
     clusterScoped: true
@@ -79,6 +80,7 @@ resources:
     group:         "authentication.istio.io"
     version:       "v1alpha1"
     proto:         "istio.authentication.v1alpha1.Policy"
+    converter:     "auth-policy-resource"
 
   - kind:        "ServiceRole"
     singular:    "servicerole"
@@ -95,14 +97,12 @@ resources:
     version:     "v1alpha1"
     proto:       "istio.rbac.v1alpha1.ServiceRoleBinding"
 
-  - kind:        "Rbac"
-    listKind:    "rbacList"
-    singular:    "rbac"
-    plural:      "rbacs"
-#    group:       "rbac.istio.io"
-#    version:     "v1alpha1"
-    group:       "config.istio.io"
-    version:     "v1alpha2"
+  - kind:        "RbacConfig"
+    listKind:    "RbacConfigList"
+    singular:    "rbacconfig"
+    plural:      "rbacconfigs"
+    group:       "rbac.istio.io"
+    version:     "v1alpha1"
     proto:       "istio.rbac.v1alpha1.RbacConfig"
 
 # Types from Mixer
@@ -239,6 +239,15 @@ resources:
   - kind:        "prometheus"
     singular:    "prometheus"
     plural:      "prometheuses"
+    group:       "config.istio.io"
+    version:     "v1alpha2"
+    proto:       "istio.mcp.v1alpha1.extensions.LegacyMixerResource"
+    converter:   "legacy-mixer-resource"
+    protoPackage: "istio.io/istio/galley/pkg/kube/converter/legacy"
+
+  - kind:        "redisquota"
+    singular:    "redisquota"
+    plural:      "redisquotas"
     group:       "config.istio.io"
     version:     "v1alpha2"
     proto:       "istio.mcp.v1alpha1.extensions.LegacyMixerResource"

@@ -16,6 +16,8 @@ global:
   # Default is 10s second
   refreshInterval: 1s
 
+  useMCP: true
+
 istiotesting:
   oneNameSpace: false
 
@@ -23,4 +25,7 @@ prometheus:
   enabled: true
 
 galley:
+  enabled: true
+
+security:
   enabled: true
