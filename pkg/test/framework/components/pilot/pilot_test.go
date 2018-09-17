@@ -15,9 +15,10 @@
 package pilot_test
 
 import (
-	"fmt"
 	"io"
 	"testing"
+
+	"istio.io/istio/pkg/test"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	envoy_api_v2_core1 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -71,27 +72,29 @@ func TestLocalPilot(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Query pilot for the listeners.
-	res, err := p.CallDiscovery(&xdsapi.DiscoveryRequest{
-		// Just use a dummy node as the origin of this request.
-		Node: &envoy_api_v2_core1.Node{
-			Id: "sidecar~127.0.0.1~mysidecar.istio-system~istio-system.svc.cluster.local",
-		},
-		TypeUrl: envoy_proxy_v2.ListenerType,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Now look through the listeners for our service entry.
-	for _, resource := range res.Resources {
-		l := xdsapi.Listener{}
-		l.Unmarshal(resource.Value)
-		if l.Address.GetSocketAddress().GetPortValue() == 123 {
-			return
+	test.Eventually(t, "Find Listener", func() bool {
+		// Query pilot for the listeners.
+		res, err := p.CallDiscovery(&xdsapi.DiscoveryRequest{
+			// Just use a dummy node as the origin of this request.
+			Node: &envoy_api_v2_core1.Node{
+				Id: "sidecar~127.0.0.1~mysidecar.istio-system~istio-system.svc.cluster.local",
+			},
+			TypeUrl: envoy_proxy_v2.ListenerType,
+		})
+		if err != nil {
+			return false
 		}
-	}
-	t.Fatal(fmt.Errorf("service entry not found in pilot discovery service"))
+
+		// Now look through the listeners for our service entry.
+		for _, resource := range res.Resources {
+			l := xdsapi.Listener{}
+			l.Unmarshal(resource.Value)
+			if l.Address.GetSocketAddress().GetPortValue() == 123 {
+				return true
+			}
+		}
+		return false
+	})
 }
 
 /*
