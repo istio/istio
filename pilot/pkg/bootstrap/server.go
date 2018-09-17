@@ -72,7 +72,6 @@ import (
 
 	// Import the resource package to pull in all proto types.
 	_ "istio.io/istio/galley/pkg/metadata"
-	"istio.io/istio/pkg/kube/secretcontroller"
 )
 
 const (
@@ -272,18 +271,16 @@ func (s *Server) initMonitor(args *PilotArgs) error {
 func (s *Server) initClusterRegistries(args *PilotArgs) (err error) {
 	if hasKubeRegistry(args) {
 
-		mc := clusterregistry.NewMulticluster(args.Config.ControllerOptions.WatchedNamespace,
+		mc, err := clusterregistry.NewMulticluster(s.kubeClient,
+			args.Config.ClusterRegistriesNamespace,
+			args.Config.ControllerOptions.WatchedNamespace,
 			args.Config.ControllerOptions.DomainSuffix,
 			args.Config.ControllerOptions.ResyncPeriod,
 			s.ServiceController,
-			s.EnvoyXdsServer)
-		err := secretcontroller.StartSecretController(s.kubeClient,
-			mc.AddMemberCluster,
-			mc.DeleteMemberCluster,
-			args.Config.ClusterRegistriesNamespace)
+			s.EnvoyXdsServer.ClearCacheFunc())
 
 		if err != nil {
-			log.Info("Unable to start Remote cluster Secret Controller")
+			log.Info("Unable to create new Multicluster object")
 			return err
 		}
 

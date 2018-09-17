@@ -20,10 +20,10 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/istio/pilot/pkg/model"
-	envoy "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pkg/kube/secretcontroller"
 	"istio.io/istio/pkg/log"
 )
 
@@ -38,12 +38,15 @@ type Multicluster struct {
 	DomainSuffix      string
 	ResyncPeriod      time.Duration
 	serviceController *aggregate.Controller
-	discoveryServer   *envoy.DiscoveryServer
+	ClearCache        func()
 	rkc               map[string]*kubeController
 }
 
 // NewMulticluster initializes data structure to store multicluster information
-func NewMulticluster(wns string, ds string, rp time.Duration, sc *aggregate.Controller, dc *envoy.DiscoveryServer) *Multicluster {
+// It also starts the secret controller
+func NewMulticluster(kc kubernetes.Interface, secretNamespace string,
+	wns string, ds string, rp time.Duration,
+	sc *aggregate.Controller, cc func()) (*Multicluster, error) {
 
 	rkc := make(map[string]*kubeController)
 	if rp == 0 {
@@ -51,15 +54,22 @@ func NewMulticluster(wns string, ds string, rp time.Duration, sc *aggregate.Cont
 		rp = 30 * time.Second
 		log.Info("Resync time was configured to 0, resetting to 30")
 	}
-	return &Multicluster{
+	mc := &Multicluster{
 
 		WatchedNamespace:  wns,
 		DomainSuffix:      ds,
 		ResyncPeriod:      rp,
 		serviceController: sc,
-		discoveryServer:   dc,
+		ClearCache:        cc,
 		rkc:               rkc,
 	}
+
+	err := secretcontroller.StartSecretController(kc,
+		mc.AddMemberCluster,
+		mc.DeleteMemberCluster,
+		secretNamespace)
+	return mc, err
+
 }
 
 // AddMemberCluster is passed to the secret controller as a callback to be called
@@ -88,9 +98,8 @@ func (m *Multicluster) AddMemberCluster(clientset kubernetes.Interface, clusterI
 		})
 
 	m.rkc[clusterID] = &remoteKubeController
-	_ = kubectl.AppendServiceHandler(func(*model.Service, model.Event) { m.discoveryServer.ClearCacheFunc()() })
-	_ = kubectl.AppendInstanceHandler(func(*model.ServiceInstance, model.Event) { m.discoveryServer.ClearCacheFunc()() })
-
+	_ = kubectl.AppendServiceHandler(func(*model.Service, model.Event) { m.ClearCache() })
+	_ = kubectl.AppendInstanceHandler(func(*model.ServiceInstance, model.Event) { m.ClearCache() })
 	go kubectl.Run(stopCh)
 
 	return nil
@@ -104,7 +113,7 @@ func (m *Multicluster) DeleteMemberCluster(clusterID string) error {
 	m.serviceController.DeleteRegistry(clusterID)
 	close(m.rkc[clusterID].stopCh)
 	delete(m.rkc, clusterID)
-	m.discoveryServer.ClearCacheFunc()()
+	m.ClearCache()
 
 	return nil
 }
