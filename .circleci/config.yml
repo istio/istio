@@ -176,7 +176,7 @@ jobs:
       - store_test_results:
           path: /go/out/tests
 
-  mcp-e2e-mixer-noauth-v1alpha3-v2:
+  e2e-mixer-noauth-v1alpha3-v2-mcp:
     <<: *integrationDefaults
     steps:
       - <<: *initWorkingDir
@@ -374,7 +374,7 @@ jobs:
         - store_artifacts:
             path: /tmp
 
-  mcp-e2e-pilot-auth-v1alpha3-v2:
+  e2e-pilot-auth-v1alpha3-v2-mcp:
     <<: *integrationDefaults
     steps:
       - <<: *initWorkingDir
@@ -658,7 +658,7 @@ workflows:
       - e2e-mixer-noauth-v1alpha3-v2:
           requires:
             - build
-      - mcp-e2e-mixer-noauth-v1alpha3-v2:
+      - e2e-mixer-noauth-v1alpha3-v2-mcp:
           requires:
             - build
       - e2e-galley:
@@ -673,7 +673,7 @@ workflows:
       - e2e-pilot-auth-v1alpha3-v2: # auth+v1alpha3+v2
           requires:
             - build
-      - mcp-e2e-pilot-auth-v1alpha3-v2: # auth+v1alpha3+v2 with MCP
+      - e2e-pilot-auth-v1alpha3-v2-mcp: # auth+v1alpha3+v2 with MCP
           requires:
             - build
 
@@ -687,7 +687,7 @@ workflows:
       - e2e-mixer-noauth-v1alpha3-v2:
           requires:
             - build
-      - mcp-e2e-mixer-noauth-v1alpha3-v2:
+      - e2e-mixer-noauth-v1alpha3-v2-mcp:
           requires:
             - build
       - e2e-galley:
@@ -702,7 +702,7 @@ workflows:
       - e2e-pilot-auth-v1alpha3-v2: # auth+v1alpha3+v2
           requires:
             - build
-      - mcp-e2e-pilot-auth-v1alpha3-v2: # auth+v1alpha3+v2 with MCP
+      - e2e-pilot-auth-v1alpha3-v2-mcp: # auth+v1alpha3+v2 with MCP
           requires:
             - build
       - e2e-pilot-noauth-v1alpha3-v2: # noauth+v1alpha3+v2
