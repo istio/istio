@@ -36,7 +36,7 @@ function build_template() {
     chmod u+x ./*
 
     ./start_gcb_build.sh -w -p "$PROJECT_ID" -r "$GCR_STAGING_DEST" -s "$GCS_BUILD_PATH" \
-    -v "$VERSION" -c "$COMMIT" -a "$SVC_ACCT"
+    -v "$VERSION" -a "$SVC_ACCT"
   # NOTE: if you add commands to build_template after start_gcb_build.sh then take care to preserve its return value
 }
 
