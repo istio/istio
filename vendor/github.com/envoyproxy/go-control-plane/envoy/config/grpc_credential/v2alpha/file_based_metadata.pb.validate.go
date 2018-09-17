@@ -42,9 +42,7 @@ func (m *FileBasedMetadataConfig) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetSecretData()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetSecretData()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return FileBasedMetadataConfigValidationError{
 				Field:  "SecretData",

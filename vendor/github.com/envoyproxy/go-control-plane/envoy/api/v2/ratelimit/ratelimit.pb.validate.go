@@ -52,9 +52,7 @@ func (m *RateLimitDescriptor) Validate() error {
 	for idx, item := range m.GetEntries() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return RateLimitDescriptorValidationError{
 					Field:  fmt.Sprintf("Entries[%v]", idx),
