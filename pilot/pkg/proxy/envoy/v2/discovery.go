@@ -22,6 +22,7 @@ import (
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
+	"github.com/google/uuid"
 	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
 
@@ -220,7 +221,7 @@ func (s *DiscoveryServer) ClearCacheFunc() func() {
 }
 
 func nonce() string {
-	return time.Now().String()
+	return uuid.New().String()
 }
 
 func versionInfo() string {
