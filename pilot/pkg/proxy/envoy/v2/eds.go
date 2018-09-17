@@ -114,10 +114,10 @@ func (s *DiscoveryServer) endpoints(clusterNames []string, outRes []types.Any) *
 }
 
 // Return the load assignment. The field can be updated by another routine.
-func loadAssignment(c *EdsCluster, nodeMeta map[string]string) *xdsapi.ClusterLoadAssignment {
+func loadAssignment(c *EdsCluster, node *model.Proxy) *xdsapi.ClusterLoadAssignment {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-	return c.filterEndpointsByMetadata(nodeMeta)
+	return c.filterEndpointsByMetadata(node.Metadata)
 }
 
 func (c *EdsCluster) filterEndpointsByMetadata(nodeMeta map[string]string) *xdsapi.ClusterLoadAssignment {
@@ -292,8 +292,8 @@ func localityLbEndpointsFromInstances(instances []*model.ServiceInstance) map[st
 // Function will go through other networks and add a remote endpoint pointing
 // to the gateway of each one of them. The remote endpoints (one per each network)
 // will be added to the ClusterLoadAssignment of the specified network.
-func (c *EdsCluster) updateRemoteEndpoints(nodeMeta map[string]string) {
-	network := nodeMeta["ISTIO_NETWORK"]
+func (c *EdsCluster) updateRemoteEndpoints(node *model.Proxy) {
+	network := node.Metadata["ISTIO_NETWORK"]
 	cla := c.ClusterLoadAssignments[network]
 	if cla == nil {
 		return
@@ -352,12 +352,6 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 			// Should not change. A node monitors multiple clusters
 			if con.ConID == "" && discReq.Node != nil {
 				con.ConID = connectionID(discReq.Node.Id)
-				nt, err := model.ParseServiceNode(discReq.Node.Id)
-				if err != nil {
-					return err
-				}
-				nt.Metadata = model.ParseMetadata(discReq.Node.Metadata)
-				con.modelNode = &nt
 			}
 
 			clusters2 := discReq.GetResourceNames()
@@ -428,14 +422,14 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection) e
 			continue
 		}
 
-		l := loadAssignment(c, con.modelNode.Metadata)
+		l := loadAssignment(c, con.modelNode)
 		if l == nil { // fresh cluster
 			if err := s.updateCluster(push, clusterName, c); err != nil {
 				adsLog.Errorf("error returned from updateCluster for cluster name %s, skipping it.", clusterName)
 				continue
 			}
-			c.updateRemoteEndpoints(con.modelNode.Metadata)
-			l = loadAssignment(c, con.modelNode.Metadata)
+			c.updateRemoteEndpoints(con.modelNode)
+			l = loadAssignment(c, con.modelNode)
 		}
 		endpoints += len(l.Endpoints)
 		if len(l.Endpoints) == 0 {
