@@ -53,6 +53,8 @@ Istio is composed of these components:
 
 - **Node Agent** - A per-node component responsible for certificate issuance and rotation.
 
+- **Galley**- Central component for validating, ingesting, aggregating, transforming and distributing config within Istio.
+
 Istio currently supports Kubernetes and Consul-based environments. We plan support for additional platforms such as
 Cloud Foundry, and Mesos in the near future.
 
