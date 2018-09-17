@@ -18,12 +18,12 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-ISTIO_ROOT=$(dirname "${BASH_SOURCE}")/..
+ISTIO_ROOT=$(dirname "${BASH_SOURCE[@]}")/..
 
 boilerDir="${ISTIO_ROOT}/bin/boilerplate"
 boiler="${boilerDir}/boilerplate.py"
 
-files_need_boilerplate=($(${boiler} "$@"))
+files_need_boilerplate=("$(${boiler} "$@")")
 
 # Run boilerplate check
 if [[ ${#files_need_boilerplate[@]} -gt 0 ]]; then
