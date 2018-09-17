@@ -607,12 +607,6 @@ func (s *DiscoveryServer) pushAll(con *XdsConnection, pushEv *XdsEvent) error {
 			return err
 		}
 	}
-	if len(con.Routes) > 0 {
-		err := s.pushRoute(con, pushEv.push)
-		if err != nil {
-			return err
-		}
-	}
 	if len(con.Clusters) > 0 {
 		err := s.pushEds(pushEv.push, con)
 		if err != nil {
@@ -621,6 +615,12 @@ func (s *DiscoveryServer) pushAll(con *XdsConnection, pushEv *XdsEvent) error {
 	}
 	if con.LDSWatch {
 		err := s.pushLds(con, pushEv.push, pushEv.version)
+		if err != nil {
+			return err
+		}
+	}
+	if len(con.Routes) > 0 {
+		err := s.pushRoute(con, pushEv.push)
 		if err != nil {
 			return err
 		}
