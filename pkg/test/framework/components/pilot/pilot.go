@@ -48,6 +48,10 @@ var (
 
 	// KubeComponent is a component for the Kubernetes environment.
 	KubeComponent = &kubeComponent{}
+
+	requiredDeps = []dependency.Instance{
+		dependency.Mixer,
+	}
 )
 
 type localComponent struct{}
@@ -59,7 +63,7 @@ func (c *localComponent) ID() dependency.Instance {
 
 // Requires implements the component.Component interface.
 func (c *localComponent) Requires() []dependency.Instance {
-	return make([]dependency.Instance, 0)
+	return requiredDeps
 }
 
 // Init implements the component.Component interface.
@@ -82,7 +86,7 @@ func (c *kubeComponent) ID() dependency.Instance {
 
 // Requires implements the component.Component interface.
 func (c *kubeComponent) Requires() []dependency.Instance {
-	return make([]dependency.Instance, 0)
+	return requiredDeps
 }
 
 // Init implements the component.Component interface.
