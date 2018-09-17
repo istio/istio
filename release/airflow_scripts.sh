@@ -20,9 +20,6 @@ function get_git_commit_cmd() {
     git config --global user.name "TestRunnerBot"
     git config --global user.email "testrunner@istio.io"
 
-    cp /home/airflow/gcs/data/githubctl ./githubctl
-    global-build/prow/new_green_build.sh -b "${BRANCH}" -g -m "gs://${GCS_RELEASE_TOOLS_PATH}" \
-                                         -v "$VERIFY_CONSISTENCY"
     cp /home/airflow/gcs/data/*json .
     cp /home/airflow/gcs/data/*sh   .
     chmod u+x ./*sh
