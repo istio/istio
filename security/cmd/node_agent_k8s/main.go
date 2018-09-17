@@ -45,7 +45,7 @@ var (
 
 			stop := make(chan struct{})
 
-			caClient, err := ca.NewCAClient(serverOptions.CAEndpoint, serverOptions.CARootFile)
+			caClient, err := ca.NewCAClient(serverOptions.CAEndpoint, true)
 			if err != nil {
 				log.Errorf("failed to create caClient: %v", err)
 				return fmt.Errorf("failed to create caClient")
@@ -78,8 +78,6 @@ func init() {
 		"/var/run/sds/uds_path", "Unix domain socket through which SDS server communicates with proxies")
 
 	rootCmd.PersistentFlags().StringVar(&serverOptions.CAEndpoint, "caEndpoint", caAddr, "CA endpoint")
-	rootCmd.PersistentFlags().StringVar(&serverOptions.CARootFile, "caRootFile", "/etc/istio/roots.pem",
-		"path of CA file for setup channel credential to CA endpoint.")
 
 	//local test through TLS using '/etc/istio/nodeagent-sds-cert.pem' and '/etc/istio/nodeagent-sds-key.pem'
 	rootCmd.PersistentFlags().StringVar(&serverOptions.CertFile, "sdsCertFile", "", "SDS gRPC TLS server-side certificate")

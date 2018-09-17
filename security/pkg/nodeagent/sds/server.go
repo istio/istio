@@ -41,9 +41,6 @@ type Options struct {
 
 	// CAEndpoint is the CA endpoint to which node agent sends CSR request.
 	CAEndpoint string
-
-	// CARootFile is the path of CA file which is used to setup channel credential to CA endpoint.
-	CARootFile string
 }
 
 // Server is the gPRC server that exposes SDS through UDS.

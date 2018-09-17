@@ -16,6 +16,7 @@ package ca
 
 import (
 	"context"
+	"crypto/x509"
 	"errors"
 	"fmt"
 
@@ -38,14 +39,15 @@ type caClient struct {
 }
 
 // NewCAClient create an CA client.
-func NewCAClient(endpoint, rootPath string) (Client, error) {
+func NewCAClient(endpoint string, tlsFlag bool) (Client, error) {
 	var opts grpc.DialOption
-	if rootPath != "" {
-		creds, err := credentials.NewClientTLSFromFile(rootPath, "")
+	if tlsFlag {
+		pool, err := x509.SystemCertPool()
 		if err != nil {
-			log.Errorf("Failed to read root certificate file: %v", err)
-			return nil, fmt.Errorf("failed to read root cert")
+			log.Errorf("could not get SystemCertPool: %v", err)
+			return nil, errors.New("could not get SystemCertPool")
 		}
+		creds := credentials.NewClientTLSFromCert(pool, "")
 		opts = grpc.WithTransportCredentials(creds)
 	} else {
 		opts = grpc.WithInsecure()

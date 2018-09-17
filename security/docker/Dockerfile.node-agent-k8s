@@ -1,6 +1,5 @@
 # TODO(incfly): change to smaller base image before release.
 FROM ubuntu:16.04
 ADD node_agent_k8s /
-RUN mkdir -p /etc/istio
-ADD roots.pem /etc/istio
+RUN apt-get update && apt-get install -y ca-certificates
 CMD ["/node_agent_k8s"]

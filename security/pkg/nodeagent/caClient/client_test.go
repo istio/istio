@@ -59,7 +59,7 @@ func TestCAClient(t *testing.T) {
 	// The goroutine starting the server may not be ready, results in flakiness.
 	time.Sleep(1 * time.Second)
 
-	cli, err := NewCAClient(lis.Addr().String(), "")
+	cli, err := NewCAClient(lis.Addr().String(), false)
 	if err != nil {
 		t.Fatalf("failed to create ca client: %v", err)
 	}
