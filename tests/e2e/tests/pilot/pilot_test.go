@@ -333,7 +333,9 @@ func (t *testConfig) Setup() (err error) {
 	// For multicluster tests, add the remote cluster into the mesh
 	// and verify the multicluster service mesh before starting tests
 	if len(t.Kube.Clusters) > 1 {
-		t.addRemoteCluster()
+		err = t.addAndVerifyRemoteCluster()
+	} else {
+		err = t.verifyMeshConfig()
 	}
 	return
 }
@@ -351,20 +353,6 @@ func verifyEndpoints(actualEps []string, proxyEps []string) bool {
 	}
 	return true
 }
-
-//func getAppInfo(appPodsInfo map[string][]*util.PodInfo) (map[string][]string, []string) {
-//	appEPs := make(map[string][]string)
-//	var podNames []string
-//	for app, podsInfo := range appPodsInfo {
-//		var ipAddrs []string
-//		for _, podInfo := range podsInfo {
-//			ipAddrs = append(ipAddrs, podInfo.IPAddr)
-//			podNames = append(podNames, podInfo.Name)
-//		}
-//		appEPs[app] = ipAddrs
-//	}
-//	return appEPs, podNames
-//}
 
 func verifyPod(istioctl *framework.Istioctl, podName string, appEPs map[string][]string) error {
 	// Only verify app Pods that have a sidecar
@@ -418,7 +406,7 @@ func aggregateAppEPs(firstAppEPs, secondAppEPs map[string][]string) map[string][
 	return aaeps
 }
 
-func (t *testConfig) addRemoteCluster() error {
+func (t *testConfig) addAndVerifyRemoteCluster() error {
 	// Collect the pod names and app's endpoints
 	primaryPodNames, primaryAppEPs, err := util.GetAppPodsInfo(t.Kube.Namespace, t.Kube.Clusters[primaryCluster], "app")
 	if err != nil {
@@ -489,7 +477,8 @@ func (t *testConfig) addRemoteCluster() error {
 	time.Sleep(5 * time.Second)
 
 	// Add and remove a v3 deployment to app "c" in the remote cluster and verify the mesh configuration
-	tmpApp := getApp("c-v3", "c", 80, 8080, 90, 9090, 70, 7070, "v3", true, false, true)
+	// Service 'c' has already been created earlier. Don't create it anymore.
+	tmpApp := getApp("c-v3", "c", 80, 8080, 90, 9090, 70, 7070, "v3", true, false, true, false)
 
 	if err = t.Kube.RemoteAppManager.DeployApp(&tmpApp); err != nil {
 		return err
@@ -553,19 +542,19 @@ func (t *testConfig) Teardown() (err error) {
 func getApps(tc *testConfig) []framework.App {
 	return []framework.App{
 		// deploy a healthy mix of apps, with and without proxy
-		getApp("t", "t", 8080, 80, 9090, 90, 7070, 70, "unversioned", false, false, false),
-		getApp("a", "a", 8080, 80, 9090, 90, 7070, 70, "v1", true, false, true),
-		getApp("b", "b", 80, 8080, 90, 9090, 70, 7070, "unversioned", true, false, true),
-		getApp("c-v1", "c", 80, 8080, 90, 9090, 70, 7070, "v1", true, false, true),
-		getApp("c-v2", "c", 80, 8080, 90, 9090, 70, 7070, "v2", true, false, true),
-		getApp("d", "d", 80, 8080, 90, 9090, 70, 7070, "per-svc-auth", true, false, true),
-		getApp("headless", "headless", 80, 8080, 10090, 19090, 70, 7070, "unversioned", true, true, true),
+		getApp("t", "t", 8080, 80, 9090, 90, 7070, 70, "unversioned", false, false, false, true),
+		getApp("a", "a", 8080, 80, 9090, 90, 7070, 70, "v1", true, false, true, true),
+		getApp("b", "b", 80, 8080, 90, 9090, 70, 7070, "unversioned", true, false, true, true),
+		getApp("c-v1", "c", 80, 8080, 90, 9090, 70, 7070, "v1", true, false, true, true),
+		getApp("c-v2", "c", 80, 8080, 90, 9090, 70, 7070, "v2", true, false, true, false),
+		getApp("d", "d", 80, 8080, 90, 9090, 70, 7070, "per-svc-auth", true, false, true, true),
+		getApp("headless", "headless", 80, 8080, 10090, 19090, 70, 7070, "unversioned", true, true, true, true),
 		getStatefulSet("statefulset", 19090, true),
 	}
 }
 
 func getApp(deploymentName, serviceName string, port1, port2, port3, port4, port5, port6 int,
-	version string, injectProxy bool, headless bool, serviceAccount bool) framework.App {
+	version string, injectProxy bool, headless bool, serviceAccount bool, createService bool) framework.App {
 	// TODO(nmittler): Consul does not support management ports ... should we support other registries?
 	healthPort := "true"
 
@@ -590,6 +579,7 @@ func getApp(deploymentName, serviceName string, port1, port2, port3, port4, port
 			"serviceAccount":  strconv.FormatBool(serviceAccount),
 			"healthPort":      healthPort,
 			"ImagePullPolicy": tc.Kube.ImagePullPolicy(),
+			"createService":   strconv.FormatBool(createService),
 		},
 		KubeInject: injectProxy,
 	}

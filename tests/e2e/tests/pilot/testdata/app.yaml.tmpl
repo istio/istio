@@ -3,6 +3,7 @@ kind: ServiceAccount
 metadata:
   name: {{.service}}
 ---
+{{if eq .createService "true"}}
 # Test service without the proxy
 apiVersion: v1
 kind: Service
@@ -41,6 +42,7 @@ spec:
     name: grpc
   selector:
     app: {{.service}}
+{{end}}
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
