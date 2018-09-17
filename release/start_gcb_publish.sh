@@ -48,7 +48,6 @@ GCS_DST=""
 DOCKER_DST="istio" # docker.io/istio
 REL_REPO="istio"
 GCS_PATH="" #this is the initial path where the artifacts are stored before testing
-BRANCH=""
 
 function usage() {
   echo "$0
@@ -106,6 +105,7 @@ fi
 # generate the substitutions file
 cat << EOF > "${SUBS_FILE}"
   "substitutions": {
+    "_BRANCH": "${BRANCH}",
     "_GCS_PATH": "${GCS_PATH}",
     "_VER_STRING": "${VER_STRING}",
     "_GCS_SOURCE": "${GCS_SRC}",

@@ -37,13 +37,12 @@ WAIT_FOR_RESULT="true"
 [[ -z "${GCS_RELEASE_TOOLS_PATH}" ]] && usage
 [[ -z "${VERIFY_CONSISTENCY}"     ]] && usage
 
-# "_COMMIT":"" KPTD TODO fix this
 # generate the substitutions file
 cat << EOF > "${SUBS_FILE}"
   "substitutions": {
     "_BRANCH": "${BRANCH}",
     "_CHECK_GREEN_SHA_AGE": "${CHECK_GREEN_SHA_AGE}",
-    "_COMMIT": "",
+    "_COMMIT": "${COMMIT}",
     "_GCS_RELEASE_TOOLS_PATH": "${GCS_RELEASE_TOOLS_PATH}",
     "_VERIFY_CONSISTENCY": "${VERIFY_CONSISTENCY}"
   }
