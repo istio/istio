@@ -16,6 +16,7 @@ package main
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -32,7 +33,9 @@ var (
 			cmd.PrintFlags(c.Flags())
 			command := &request.Command{
 				Address: "127.0.0.1:15000",
-				Client:  &http.Client{},
+				Client: &http.Client{
+					Timeout: 60 * time.Second,
+				},
 			}
 			body := ""
 			if len(args) >= 3 {
