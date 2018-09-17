@@ -73,10 +73,11 @@ done
 
 [[ -z "${GCS_PATH}" ]] && usage
 [[ -z "${GCR_PATH}" ]] && usage
+[[ -z "${GCS_RELEASE_TOOLS_PATH}" ]] && usage
 
 DEFAULT_SVC_ACCT="cloudbuild@${PROJECT_ID}.iam.gserviceaccount.com"
 
-if [[ -z "${SVC_ACCT}"  ]]; then
+if [[ -z "${SVC_ACCT}" ]]; then
   SVC_ACCT="${DEFAULT_SVC_ACCT}"
 fi
 
@@ -86,6 +87,7 @@ cat << EOF > "${SUBS_FILE}"
     "_BRANCH": "${BRANCH}",
     "_VER_STRING": "${VER_STRING}",
     "_GCS_PATH": "${GCS_PATH}",
+    "_GCS_RELEASE_TOOLS_PATH": "${GCS_RELEASE_TOOLS_PATH}",
     "_GCR_PATH": "${GCR_PATH}"
   }
 EOF

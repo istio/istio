@@ -1,0 +1,19 @@
+{
+  "steps": [
+    {
+      "volumes": [
+	{
+          "name": "buildoutput",
+          "path": "/output"
+	}
+      ],
+      "name": "gcr.io/istio-testing/istio-builder:0.5.7",
+      "args": [ "-c", "git clone https://github.com/istio/global-build && global-build/prow/new_green_build.sh -a \"$_CHECK_GREEN_SHA_AGE\" -b \"$_BRANCH\" -c \"$_COMMIT\" -g -r \"$_GCS_RELEASE_TOOLS_PATH\" -v \"$_VERIFY_CONSISTENCY\" " ],
+      "entrypoint": "bash"
+    }
+  ],
+  "options": {
+    "machineType": "N1_HIGHCPU_8"
+  },
+  "timeout": "3600s",
+}

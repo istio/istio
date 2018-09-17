@@ -19,47 +19,15 @@
 function get_git_commit_cmd() {
     git config --global user.name "TestRunnerBot"
     git config --global user.email "testrunner@istio.io"
-    git clone "https://github.com/istio/global-build" global-build || exit 2
-    global-build/prow/new_green_build.sh -b "${BRANCH}" -g -m "gs://${GCS_RELEASE_TOOLS_PATH}/" \
+
+    cp /home/airflow/gcs/data/githubctl ./githubctl
+    global-build/prow/new_green_build.sh -b "${BRANCH}" -g -m "gs://${GCS_RELEASE_TOOLS_PATH}" \
                                          -v "$VERIFY_CONSISTENCY"
-    local exit_code=$?
-    if [[ $? != 0 ]]; then
-       exit "$exit_code"
-    fi
+    cp /home/airflow/gcs/data/*json .
+    cp /home/airflow/gcs/data/*sh   .
+    chmod u+x ./*sh
 
-    gsutil cp "gs://${GCS_RELEASE_TOOLS_PATH}/manifest.xml" "manifest.xml"
-    gsutil cp "gs://${GCS_RELEASE_TOOLS_PATH}/manifest.xml" "gs://$GCS_BUILD_PATH"
-
-    ISTIO_SHA=$(grep "$GITHUB_ORG/$GITHUB_REPO" "manifest.xml" | cut -f 6 -d \") || exit 4
-    API_SHA=$(  grep "$GITHUB_ORG/api"          "manifest.xml" | cut -f 6 -d \") || exit 5
-    PROXY_SHA=$(grep "$GITHUB_ORG/proxy"        "manifest.xml" | cut -f 6 -d \") || exit 6
-
-    if [ -z "${ISTIO_SHA}" ] || [ -z "${API_SHA}" ] || [ -z "${PROXY_SHA}" ]; then
-      echo "ISTIO_SHA:$ISTIO_SHA API_SHA:$API_SHA PROXY_SHA:$PROXY_SHA some shas not found"
-      exit 8
-    fi
-
-    git clone "$ISTIO_REPO" istio-code -b "$BRANCH"
-    pushd istio-code/release  || exit 10
-    ISTIO_HEAD_SHA=$(git rev-parse HEAD)
-    git checkout "${ISTIO_SHA}" || exit 11
-
-    TS_SHA=$( git show -s --format=%ct "${ISTIO_SHA}")
-    TS_HEAD=$(git show -s --format=%ct "${ISTIO_HEAD_SHA}")
-    DIFF_SEC=$((TS_HEAD - TS_SHA))
-    DIFF_DAYS=$((DIFF_SEC/86400))
-    if [ "$CHECK_GREEN_SHA_AGE" = "true" ] && [ "$DIFF_DAYS" -gt "2" ]; then
-       echo ERROR: "${ISTIO_SHA}" is "$DIFF_DAYS" days older than head of branch "$BRANCH"
-       exit 12
-    fi
-    popd || exit 13 #istio-code/release
-
-    pushd istio-code/release || exit 19
-    gsutil -q cp ./*.sh   "gs://$GCS_RELEASE_TOOLS_PATH/"
-    gsutil -q cp ./*.json "gs://$GCS_RELEASE_TOOLS_PATH/"
-    #cp airflow_scripts.sh /home/airflow/gcs/data/airflow_scripts.sh
-    popd || exit 20 #istio-code/release
-    echo "${ISTIO_SHA}"
+    ./start_gcb_get_commit.sh
 }
 
 function build_template() {

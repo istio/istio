@@ -107,6 +107,7 @@ cat << EOF > "${SUBS_FILE}"
     "_BRANCH": "${BRANCH}",
     "_GCS_PATH": "${GCS_PATH}",
     "_VER_STRING": "${VER_STRING}",
+    "_GCS_RELEASE_TOOLS_PATH": "${GCS_RELEASE_TOOLS_PATH}",
     "_GCS_SOURCE": "${GCS_SRC}",
     "_GCS_SECRET": "${GCS_GITHUB_SECRET}",
     "_ORG": "${REL_ORG}",

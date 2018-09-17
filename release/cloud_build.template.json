@@ -8,7 +8,7 @@
 	}
       ],
       "name": "gcr.io/istio-testing/istio-builder:0.5.7",
-      "args": [ "-c", "git clone https://github.com/istio/global-build && global-build/prow/new_green_build.sh -b \"$_BRANCH\" -m \"$_GCS_PATH/manifest.xml\" " ],
+      "args": [ "-c", "git clone https://github.com/istio/global-build && global-build/prow/new_green_build.sh -b \"$_BRANCH\" -r \"$_GCS_RELEASE_TOOLS_PATH\" " ],
       "entrypoint": "bash"
     },
     {

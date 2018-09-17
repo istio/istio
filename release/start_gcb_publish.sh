@@ -116,6 +116,7 @@ cat << EOF > "${SUBS_FILE}"
     "_GCS_PATH": "${GCS_PATH}",
     "_VER_STRING": "${VER_STRING}",
     "_GCS_SOURCE": "${GCS_SRC}",
+    "_GCS_RELEASE_TOOLS_PATH": "${GCS_RELEASE_TOOLS_PATH}",
     "_GCR_DST": "${GCR_DST}",
     "_GCS_DST": "${GCS_DST}",
     "_DOCKER_DST": "${DOCKER_DST}",
