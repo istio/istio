@@ -57,7 +57,7 @@ func (c *ConfigWriter) Prime(b []byte) error {
 	cd := clusters.Wrapper{}
 	err := json.Unmarshal(b, &cd)
 	if err != nil {
-		return fmt.Errorf("error unmarshalling config dump response from Envoy: %v", err)
+		return fmt.Errorf("Clusters: error unmarshalling config dump response from Envoy: %v: %s", err, b)
 	}
 	c.clusters = &cd
 	return nil

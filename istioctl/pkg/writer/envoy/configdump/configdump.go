@@ -37,7 +37,7 @@ func (c *ConfigWriter) Prime(b []byte) error {
 	// Issue to track -> https://github.com/golang/protobuf/issues/632
 	err := json.Unmarshal(b, &cd)
 	if err != nil {
-		return fmt.Errorf("error unmarshalling config dump response from Envoy: %v", err)
+		return fmt.Errorf("configdump: error unmarshalling config dump response from Envoy: %v, %s", err, b)
 	}
 	c.configDump = &cd
 	return nil

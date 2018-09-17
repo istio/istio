@@ -48,6 +48,7 @@ type Istioctl struct {
 	proxyHub        string
 	proxyTag        string
 	imagePullPolicy string
+	kubeconfig      string
 	yamlDir         string
 	// If true, will ignore proxyHub and proxyTag but use the default one.
 	defaultProxy bool
@@ -56,7 +57,7 @@ type Istioctl struct {
 }
 
 // NewIstioctl create a new istioctl by given temp dir.
-func NewIstioctl(yamlDir, namespace, proxyHub, proxyTag, imagePullPolicy, injectConfigMap string) (*Istioctl, error) {
+func NewIstioctl(yamlDir, namespace, proxyHub, proxyTag, imagePullPolicy, injectConfigMap, kubeconfig string) (*Istioctl, error) {
 	tmpDir, err := ioutil.TempDir(os.TempDir(), tmpPrefix)
 	if err != nil {
 		return nil, err
@@ -80,6 +81,7 @@ func NewIstioctl(yamlDir, namespace, proxyHub, proxyTag, imagePullPolicy, inject
 		yamlDir:         filepath.Join(yamlDir, "istioctl"),
 		defaultProxy:    *defaultProxy,
 		injectConfigMap: injectConfigMap,
+		kubeconfig:      kubeconfig,
 	}, nil
 }
 
@@ -184,10 +186,10 @@ func (i *Istioctl) DeleteRule(rule string) error {
 type PortEPs map[string][]string
 
 // GetProxyConfigEndpoints returns endpoints in the proxy config from a pod.
-func (i *Istioctl) GetProxyConfigEndpoints(podName string) (epInfo map[string]PortEPs, err error) {
+func (i *Istioctl) GetProxyConfigEndpoints(podName string, services []string) (epInfo map[string]PortEPs, err error) {
 	// results have two columns: the first column indicates endpoint IPs and
 	// the second column indicates envoy cluster names
-	res, err := i.run("-n %s proxy-config endpoint %s", i.namespace, podName)
+	res, err := i.run("--kubeconfig=%s -n %s proxy-config endpoint %s", i.kubeconfig, i.namespace, podName)
 	if err != nil {
 		log.Errorf("Failed to get proxy-config endpoint from pod %s in namespace %s", podName, i.namespace)
 		return nil, err
@@ -195,15 +197,14 @@ func (i *Istioctl) GetProxyConfigEndpoints(podName string) (epInfo map[string]Po
 
 	epInfo = make(map[string]PortEPs)
 	for _, line := range strings.Split(res, "\n") {
-		// fields[0] is the endpoint IP, fields[1] is the envoy cluster name
+		// fields[0] is the endpoint IP:port, fields[1] is the envoy cluster name
 		fields := strings.Fields(line)
-		if len(fields) >= 2 {
+		if len(fields) >= 3 {
 			// Cluster name format direction|port|subsetName|hostname
-			clusterNameFields := strings.Split(fields[1], "|")
+			clusterNameFields := strings.Split(fields[2], "|")
 			if len(clusterNameFields) != 4 {
-				err = fmt.Errorf("Incorrect cluster name %v", fields[1])
-				log.Errorf("%v", err)
-				return nil, err
+				// static clusters don't follow the format
+				continue
 			}
 			if clusterNameFields[0] == "outbound" {
 				port := clusterNameFields[1]
@@ -213,6 +214,16 @@ func (i *Istioctl) GetProxyConfigEndpoints(podName string) (epInfo map[string]Po
 				hostnameFields := strings.Split(hostname, ".")
 				if hostnameFields[1] == i.namespace {
 					appName := hostnameFields[0]
+					if !func() bool {
+						for _, svc := range services {
+							if appName == svc {
+								return true
+							}
+						}
+						return false
+					}() {
+						continue
+					}
 					var portEps PortEPs
 					if epInfo[appName] == nil {
 						portEps = make(PortEPs)
@@ -220,7 +231,7 @@ func (i *Istioctl) GetProxyConfigEndpoints(podName string) (epInfo map[string]Po
 					} else {
 						portEps = epInfo[appName]
 					}
-					portEps[port] = append(portEps[port], fields[0])
+					portEps[port] = append(portEps[port], strings.Split(fields[0], ":")[0])
 				}
 			}
 		}
