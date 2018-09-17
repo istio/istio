@@ -15,7 +15,7 @@ items:
     type: {{ .Values.service.type }}
     ports:
       - port: {{ .Values.service.externalPort }}
-        targetPort: {{ .Values.service.internalPort }}
+        targetPort: 9411
         protocol: TCP
         name: {{ .Values.service.name }}
     selector:
@@ -39,6 +39,6 @@ items:
       - name: http-query
         port: 80
         protocol: TCP
-        targetPort: {{ .Values.jaeger.ui.port }}
+        targetPort: 16686
     selector:
       app: jaeger

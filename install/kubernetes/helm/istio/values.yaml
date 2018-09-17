@@ -418,6 +418,7 @@ pilot:
 # security configuration
 #
 security:
+  enabled: true
   replicaCount: 1
   image: citadel
   selfSigned: true # indicate if self-signed CA is used.
@@ -449,7 +450,6 @@ grafana:
     name: http
     type: ClusterIP
     externalPort: 3000
-    internalPort: 3000
     loadBalancerIP:
     loadBalancerSourceRanges:
 
@@ -474,7 +474,6 @@ servicegraph:
     name: http
     type: ClusterIP
     externalPort: 8088
-    internalPort: 8088
     loadBalancerIP:
     loadBalancerSourceRanges:
   ingress:
@@ -501,8 +500,6 @@ tracing:
     tag: 1.6
     memory:
       max_traces: 50000
-    ui:
-      port: 16686
     ingress:
       enabled: false
       # Used to create an Ingress record.
@@ -522,7 +519,6 @@ tracing:
     name: http
     type: ClusterIP
     externalPort: 9411
-    internalPort: 9411
   ingress:
     enabled: false
     # Used to create an Ingress record.
@@ -541,7 +537,7 @@ kiali:
   enabled: false
   replicaCount: 1
   hub: docker.io/kiali
-  tag: istio-release-1.0
+  tag: v0.6
   ingress:
     enabled: false
     ## Used to create an Ingress record.

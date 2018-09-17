@@ -4,13 +4,16 @@ FROM ubuntu:xenial
 RUN apt-get -y update && \
   apt-get --no-install-recommends -y upgrade && \
   apt-get --no-install-recommends -y install ca-certificates curl make git gcc \
-  libc6-dev apt-transport-https ssh
-# Install both go1.11, go1.10.3 and go1.8.7 so we don't become incompatible with 1.8
+  libc6-dev apt-transport-https ssh ruby-dev build-essential rpm
+# Install FPM
+RUN gem install --no-ri --no-rdoc fpm
+# Install both go1.11 [go1.10.3] and go1.8.7 so we don't become incompatible with 1.8
 RUN curl -f https://storage.googleapis.com/golang/go1.8.7.linux-amd64.tar.gz | tar xfz - -C /usr/local
 # Newer go have no problem with being installed in random directories without requiring GOROOT so we
 # leave the old go in /usr/local and put the new ones, despite being preferred, in a different root:
-RUN mkdir /go1.10
-RUN curl -f https://dl.google.com/go/go1.10.3.linux-amd64.tar.gz | tar xfz - -C /go1.10
+# No report of issues with 1.11 so far so skipping 1.10
+#RUN mkdir /go1.10
+#RUN curl -f https://dl.google.com/go/go1.10.4.linux-amd64.tar.gz | tar xfz - -C /go1.10
 RUN mkdir /go1.11
 RUN curl -f https://dl.google.com/go/go1.11.linux-amd64.tar.gz | tar xfz - -C /go1.11
 ENV GOPATH /go

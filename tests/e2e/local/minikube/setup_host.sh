@@ -14,12 +14,14 @@ case "${OSTYPE}" in
   *) echo "unsupported: ${OSTYPE}" ;;
 esac
 
-# shellcheck disable=SC2153
-if [ ! -z "$VM_DRIVER" ]; then
-  vm_driver="$VM_DRIVER"
-fi
+# Virtual machine driver, the default value is decided by your OS type if it's not specified,
+# e.g.:
+#   hyperkit default to darwin os
+#   kvm2 default to Debian or Ubuntu os
+# Besides, you can set any vm-driver you like via exporting `VM_DRIVER` for your environment.
+VM_DRIVER=${VM_DRIVER:-${vm_driver}}
 
-echo "Using $vm_driver as VM for Minikube."
+echo "Using ${VM_DRIVER} as VM for Minikube."
 
 # Delete any previous minikube cluster
 minikube delete
@@ -36,7 +38,7 @@ sudo -E minikube start \
     --insecure-registry="localhost:5000" \
     --cpus=4 \
     --memory=8192 \
-    --vm-driver="$vm_driver"
+    --vm-driver="$VM_DRIVER"
 
 #Setup docker to talk to minikube
 eval "$(minikube docker-env)"
