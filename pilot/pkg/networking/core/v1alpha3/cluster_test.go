@@ -157,7 +157,7 @@ func TestBuildSidecarClustersWithIstioMutualAndSNI(t *testing.T) {
 
 	cluster = clusters[1]
 	g.Expect(cluster.Name).To(gomega.Equal("outbound|8080|foobar|foo.example.org"))
-	g.Expect(cluster.TlsContext.GetSni()).To(gomega.Equal("foo.example.org"))
+	g.Expect(cluster.TlsContext.GetSni()).To(gomega.Equal(cluster.Name))
 }
 
 func buildEnvForClustersWithIstioMutualWithSNI(sniValue string) *model.Environment {
