@@ -236,6 +236,7 @@ gateways:
     loadBalancerIP: ""
     loadBalancerSourceRanges: {}
     serviceAnnotations: {}
+    podAnnotations: {}
     type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
 
     ports:
@@ -284,6 +285,7 @@ gateways:
     autoscaleMin: 1
     autoscaleMax: 5
     serviceAnnotations: {}
+    podAnnotations: {}
     type: ClusterIP #change to NodePort or LoadBalancer if need be
     ports:
     - port: 80
@@ -319,6 +321,7 @@ gateways:
     loadBalancerIP: ""
     serviceAnnotations:
       cloud.google.com/load-balancer-type: "internal"
+    podAnnotations: {}
     type: LoadBalancer
     ports:
     ## You can add custom gateway ports - google ILB default quota is 5 ports,
