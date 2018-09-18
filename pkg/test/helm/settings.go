@@ -12,10 +12,10 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package deploy
+package helm
 
-// Settings for Helm based deployment. These get passed directly to Helm
-type settings struct {
+// Settings for Helm based deployment. These get passed directly to Helm.
+type Settings struct {
 	Tag string
 	Hub string
 
@@ -25,7 +25,8 @@ type settings struct {
 	GalleyEnabled     bool
 }
 
-func (s *settings) generateHelmSettings() map[string]string {
+func (s *Settings) generate() map[string]string {
+	// TODO: Add more flags, as needed.
 	return map[string]string{
 		"global.tag":                  s.Tag,
 		"global.hub":                  s.Hub,
@@ -35,8 +36,9 @@ func (s *settings) generateHelmSettings() map[string]string {
 	}
 }
 
-func defaultIstioSettings() settings {
-	return settings{
+// DefaultSettings returns a default set of settings.
+func DefaultSettings() *Settings {
+	return &Settings{
 		GlobalMtlsEnabled: true,
 		GalleyEnabled:     true,
 	}

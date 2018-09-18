@@ -25,7 +25,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"k8s.io/client-go/rest"
 
-	"istio.io/istio/pkg/test/deploy"
+	"istio.io/istio/pkg/test/deployment"
 	"istio.io/istio/pkg/test/framework/environment"
 	"istio.io/istio/pkg/test/framework/internal"
 	"istio.io/istio/pkg/test/framework/scopes"
@@ -48,6 +48,8 @@ type Implementation struct {
 	systemNamespace     *namespace
 	dependencyNamespace *namespace
 	testNamespace       *namespace
+
+	deployment *deployment.Instance
 }
 
 var _ internal.EnvironmentController = &Implementation{}
@@ -125,14 +127,25 @@ func (e *Implementation) Initialize(ctx *internal.TestContext) error {
 		goDir := os.Getenv("GOPATH")
 		chartsDir := path.Join(goDir, "src/istio.io/istio/install/kubernetes/helm")
 
-		// TODO: We should pass the system namespace as a parameter as well.
+		// TODO: We should pass a dynamic system namespace.
 		// TODO: Values files should be parameterized.
-		if err := deploy.ByHelmTemplate(
-			e.kube.KubeConfig, chartsDir,
+		namespace := "istio-system"
+		e.deployment, err = deployment.Start(
+			e.kube.KubeConfig,
+			chartsDir,
 			ctx.Settings().WorkDir,
 			e.kube.Hub,
 			e.kube.Tag,
-			e.Accessor, deploy.IstioMCP); err != nil {
+			namespace,
+			deployment.IstioMCP)
+
+		if err == nil {
+			err = e.deployment.Wait(e.Accessor)
+		}
+
+		if err != nil {
+			deployment.DumpPodState(e.kube.KubeConfig, namespace)
+			deployment.CopyPodLogs(e.kube.KubeConfig, ctx.Settings().WorkDir, namespace, e.Accessor)
 			return err
 		}
 	}
@@ -186,6 +199,14 @@ func (e *Implementation) Close() error {
 			err = multierror.Append(err, e)
 		}
 	}
+
+	if e.deployment != nil {
+		if err2 := e.deployment.Delete(); err2 != nil {
+			err = multierror.Append(err, err2)
+		}
+		e.deployment = nil
+	}
+
 	return err
 }
 
@@ -218,6 +239,7 @@ func (n *namespace) allocate() error {
 	return nil
 }
 
+// Close implements io.Closer.Close.
 func (n *namespace) Close() error {
 	if n.created {
 		defer func() {
