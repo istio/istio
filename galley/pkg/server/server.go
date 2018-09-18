@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pkg/mcp/creds"
 
 	mcp "istio.io/api/mcp/v1alpha1"
+	"istio.io/istio/galley/pkg/fs"
 	"istio.io/istio/galley/pkg/kube/source"
 	"istio.io/istio/galley/pkg/metadata"
 
@@ -75,19 +76,25 @@ func New(a *Args) (*Server, error) {
 
 func newServer(a *Args, p patchTable) (*Server, error) {
 	s := &Server{}
-
-	if err := p.logConfigure(a.LoggingOptions); err != nil {
+	var err error
+	if err = p.logConfigure(a.LoggingOptions); err != nil {
 		return nil, err
 	}
-
-	k, err := p.newKubeFromConfigFile(a.KubeConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	src, err := p.newSource(k, a.ResyncPeriod)
-	if err != nil {
-		return nil, err
+	var src runtime.Source
+	if a.ConfigPath != "" {
+		src, err = fs.New(a.ConfigPath)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		k, err := p.newKubeFromConfigFile(a.KubeConfig)
+		if err != nil {
+			return nil, err
+		}
+		src, err = p.newSource(k, a.ResyncPeriod)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	distributor := snapshot.New()
