@@ -20,10 +20,10 @@ import (
 
 type portImpl struct {
 	listener net.Listener
-	port     uint32
+	port     uint16
 }
 
-func (p *portImpl) GetPort() uint32 {
+func (p *portImpl) GetPort() uint16 {
 	return p.port
 }
 
@@ -51,7 +51,7 @@ func newReservedPort() (port ReservedPort, err error) {
 		}
 	}()
 
-	p := uint32(l.Addr().(*net.TCPAddr).Port)
+	p := uint16(l.Addr().(*net.TCPAddr).Port)
 	return &portImpl{
 		listener: l,
 		port:     p,

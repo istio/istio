@@ -17,7 +17,7 @@ package echo
 import (
 	"regexp"
 
-	"istio.io/istio/pkg/test/service/echo/proto"
+	"istio.io/istio/pkg/test/application/echo/proto"
 )
 
 const (

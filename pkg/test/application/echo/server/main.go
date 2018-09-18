@@ -20,12 +20,13 @@ import (
 	"strconv"
 	"syscall"
 
+	"istio.io/istio/pkg/test/application"
+
 	flag "github.com/spf13/pflag"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/test/protocol"
-	"istio.io/istio/pkg/test/service/echo"
+	"istio.io/istio/pkg/test/application/echo"
 )
 
 var (
@@ -68,15 +69,13 @@ func main() {
 		portIndex++
 	}
 
-	s := &echo.Application{
+	f := &echo.Factory{
 		Ports:   ports,
 		TLSCert: crt,
 		TLSCKey: key,
 		Version: version,
-		Client:  protocol.DefaultClient,
 	}
-
-	if err := s.Start(); err != nil {
+	if _, err := f.NewApplication(application.Dialer{}); err != nil {
 		log.Errora(err)
 		os.Exit(-1)
 	}
