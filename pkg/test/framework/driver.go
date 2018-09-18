@@ -94,7 +94,7 @@ func (d *driver) Run(testID string, m *testing.M) (int, error) {
 		if closer, ok := d.context.Environment().(io.Closer); ok {
 			err := closer.Close()
 			if err != nil {
-				scopes.CI.Warnf("Error during environment close: %v", err)
+				scopes.Framework.Warnf("Error during environment close: %v", err)
 			}
 		}
 	}
@@ -147,7 +147,6 @@ func (d *driver) SuiteRequires(dependencies []dependency.Instance) error {
 // Requires implements same-named Driver method.
 func (d *driver) Requires(t testing.TB, dependencies []dependency.Instance) {
 	t.Helper()
-	scopes.Framework.Debugf("Enter: driver.Requires (%s)", d.context.Settings().TestID)
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
