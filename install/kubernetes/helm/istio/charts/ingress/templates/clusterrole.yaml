@@ -7,6 +7,7 @@ metadata:
     chart: {{ template "ingress.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    version: {{ .Chart.Version }}
 rules:
 - apiGroups: ["extensions"]
   resources: ["ingresses"]

@@ -10,6 +10,7 @@ metadata:
     chart: {{ template "pilot.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    version: {{ .Chart.Version }}
 spec:
   hosts:
   - istio-pilot.{{ $.Release.Namespace }}.svc.cluster.local
@@ -50,6 +51,7 @@ metadata:
     chart: {{ template "pilot.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    version: {{ .Chart.Version }}
 spec:
   hosts:
   - istio-pilot.{{ $.Release.Namespace }}.svc.cluster.local

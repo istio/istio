@@ -8,6 +8,7 @@ metadata:
     chart: {{ template "ingress.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    version: {{ .Chart.Version }}
     istio: ingress
   annotations:
     {{- range $key, $val := .Values.service.annotations }}

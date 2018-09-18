@@ -9,6 +9,7 @@ metadata:
     chart: {{ template "tracing.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    version: {{ .Chart.Version }}
   annotations:
     {{- range $key, $value := .Values.jaeger.ingress.annotations }}
       {{ $key }}: {{ $value | quote }}

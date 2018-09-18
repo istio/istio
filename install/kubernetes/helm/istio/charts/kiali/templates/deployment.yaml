@@ -8,6 +8,7 @@ metadata:
     chart: {{ template "kiali.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    version: {{ .Chart.Version }}
 spec:
   replicas: {{ .Values.replicaCount }}
   template:
@@ -18,6 +19,7 @@ spec:
         chart: {{ template "kiali.chart" . }}
         heritage: {{ .Release.Service }}
         release: {{ .Release.Name }}
+        version: {{ .Chart.Version }}
       annotations:
         sidecar.istio.io/inject: "false"
         scheduler.alpha.kubernetes.io/critical-pod: ""

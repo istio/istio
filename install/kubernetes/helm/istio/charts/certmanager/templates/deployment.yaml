@@ -8,6 +8,7 @@ metadata:
     chart: {{ template "certmanager.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    version: {{ .Chart.Version }}
 spec:
   replicas: 1
   template:
@@ -17,6 +18,7 @@ spec:
         chart: {{ template "certmanager.chart" . }}
         heritage: {{ .Release.Service }}
         release: {{ .Release.Name }}
+        version: {{ .Chart.Version }}
         {{- if .Values.podLabels }}
 {{ toYaml .Values.podLabels | indent 8 }}
         {{- end }}
@@ -39,7 +41,7 @@ spec:
         - --cluster-resource-namespace=$(POD_NAMESPACE)
         - --leader-election-namespace=$(POD_NAMESPACE)
       {{- if .Values.extraArgs }}
-{{ toYaml .Values.extraArgs | indent 10 }}
+{{ toYaml .Values.extraArgs | indent 8 }}
       {{- end }}
         env:
         - name: POD_NAMESPACE
@@ -47,7 +49,7 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
         resources:
-{{ toYaml .Values.resources | indent 12 }}
+{{ toYaml .Values.resources | indent 10 }}
     {{- with .Values.nodeSelector }}
       nodeSelector:
 {{ toYaml . | indent 8 }}

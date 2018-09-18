@@ -9,6 +9,7 @@ metadata:
     chart: {{ template "grafana.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    version: {{ .Chart.Version }}
 spec:
   targets:
   - name: grafana

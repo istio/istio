@@ -8,6 +8,7 @@ metadata:
     chart: {{ template "tracing.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    version: {{ .Chart.Version }}
 items:
 - apiVersion: v1
   kind: Service
@@ -19,6 +20,7 @@ items:
       chart: {{ template "tracing.chart" . }}
       heritage: {{ .Release.Service }}
       release: {{ .Release.Name }}
+      version: {{ .Chart.Version }}
   spec:
     type: {{ .Values.service.type }}
     ports:
@@ -35,13 +37,14 @@ items:
     namespace: {{ .Release.Namespace }}
     annotations:
       {{- range $key, $val := .Values.service.annotations }}
-       {{ $key }}: {{ $val | quote }}
+      {{ $key }}: {{ $val | quote }}
       {{- end }}
     labels:
       app: jaeger
       chart: {{ template "tracing.chart" . }}
       heritage: {{ .Release.Service }}
       release: {{ .Release.Name }}
+      version: {{ .Chart.Version }}
   spec:
     ports:
       - name: http-query

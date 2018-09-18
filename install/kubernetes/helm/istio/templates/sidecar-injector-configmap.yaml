@@ -9,6 +9,7 @@ metadata:
     chart: {{ template "istio.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    version: {{ .Chart.Version }}
     istio: sidecar-injector
 data:
   config: |-

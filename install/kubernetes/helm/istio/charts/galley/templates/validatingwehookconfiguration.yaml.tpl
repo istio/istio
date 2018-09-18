@@ -9,6 +9,7 @@ metadata:
     chart: {{ template "galley.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    version: {{ .Chart.Version }}
     istio: galley
 webhooks:
 {{- if .Values.global.configValidation }}

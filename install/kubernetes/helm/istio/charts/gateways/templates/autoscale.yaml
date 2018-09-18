@@ -11,6 +11,7 @@ metadata:
     chart: {{ template "gateway.chart" $ }}
     heritage: {{ $.Release.Service }}
     release: {{ $.Release.Name }}
+    version: {{ $.Chart.Version }}
 spec:
   maxReplicas: {{ $spec.autoscaleMax }}
   minReplicas: {{ $spec.autoscaleMin }}

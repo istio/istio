@@ -10,6 +10,7 @@ metadata:
     chart: {{ template "mixer.chart" $ }}
     heritage: {{ $.Release.Service }}
     release: {{ $.Release.Name }}
+    version: {{ $.Chart.Version }}
     istio: mixer
 spec:
   ports:

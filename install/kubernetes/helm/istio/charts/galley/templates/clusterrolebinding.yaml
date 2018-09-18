@@ -7,6 +7,7 @@ metadata:
     chart: {{ template "galley.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    version: {{ .Chart.Version }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole

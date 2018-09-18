@@ -13,6 +13,7 @@ metadata:
     chart: {{ template "prometheus.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    version: {{ .Chart.Version }}
 spec:
   selector:
     app: prometheus
@@ -34,6 +35,7 @@ metadata:
     chart: {{ template "prometheus.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    version: {{ .Chart.Version }}
 spec:
   type: NodePort
   ports:

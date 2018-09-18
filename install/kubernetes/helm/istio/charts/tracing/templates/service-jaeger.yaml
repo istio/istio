@@ -10,6 +10,7 @@ metadata:
     chart: {{ template "tracing.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    version: {{ .Chart.Version }}
 items:
 - apiVersion: v1
   kind: Service
@@ -26,6 +27,7 @@ items:
       chart: {{ template "tracing.chart" . }}
       heritage: {{ .Release.Service }}
       release: {{ .Release.Name }}
+      version: {{ .Chart.Version }}
   spec:
     ports:
       - name: query-http
@@ -45,6 +47,7 @@ items:
       chart: {{ template "tracing.chart" . }}
       heritage: {{ .Release.Service }}
       release: {{ .Release.Name }}
+      version: {{ .Chart.Version }}
   spec:
     ports:
     - name: jaeger-collector-tchannel
@@ -69,6 +72,7 @@ items:
       chart: {{ template "tracing.chart" . }}
       heritage: {{ .Release.Service }}
       release: {{ .Release.Name }}
+      version: {{ .Chart.Version }}
   spec:
     ports:
     - name: agent-zipkin-thrift
