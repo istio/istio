@@ -44,3 +44,12 @@ func Apply(kubeconfig string, ns string, filename string) error {
 	}
 	return fmt.Errorf("%v: %s", err, s)
 }
+
+// Delete the config in the given filename using kubectl.
+func Delete(kubeconfig string, ns string, filename string) error {
+	s, err := execute("kubectl delete --kubeconfig=%s -n %s -f %s", kubeconfig, ns, filename)
+	if err == nil {
+		return nil
+	}
+	return fmt.Errorf("%v: %s", err, s)
+}
