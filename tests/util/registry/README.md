@@ -23,7 +23,7 @@ If you're testing locally with minikube, `$POD` can be set with:
 
 ```shell
 $ POD=$(kubectl get pods --namespace docker-registry -l k8s-app=kube-registry \
-  -o template --template '{{range .iRtems}}{{.metadata.name}} {{.status.phase}}{{"\n"}}{{end}}' \
+  -o template --template '{{range .items}}{{.metadata.name}} {{.status.phase}}{{"\n"}}{{end}}' \
   | grep Running | head -1 | cut -f1 -d' ')
 ```
 
