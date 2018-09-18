@@ -64,6 +64,18 @@ type Settings struct {
 	LogOptions *log.Options
 }
 
+func (s *Settings) String() string {
+	result := ""
+
+	result += fmt.Sprintf("Environment: %s\n", s.Environment)
+	result += fmt.Sprintf("TestID:      %s\n", s.TestID)
+	result += fmt.Sprintf("RunID:       %s\n", s.RunID)
+	result += fmt.Sprintf("NoCleanup:   %v\n", s.NoCleanup)
+	result += fmt.Sprintf("WorkDir:     %s\n", s.WorkDir)
+
+	return result
+}
+
 // defaultSettings returns a default settings instance.
 func defaultSettings() *Settings {
 	o := log.DefaultOptions()
@@ -93,14 +105,14 @@ func New(testID string) (*Settings, error) {
 }
 
 // Validate the arguments.
-func (a *Settings) validate() error {
-	switch a.Environment {
+func (s *Settings) validate() error {
+	switch s.Environment {
 	case Local, Kubernetes:
 	default:
-		return fmt.Errorf("unrecognized environment: %q", string(a.Environment))
+		return fmt.Errorf("unrecognized environment: %q", string(s.Environment))
 	}
 
-	if a.TestID == "" || len(a.TestID) > MaxTestIDLength {
+	if s.TestID == "" || len(s.TestID) > MaxTestIDLength {
 		return fmt.Errorf("testID must be non-empty and cannot be longer than %d characters", MaxTestIDLength)
 	}
 

@@ -17,16 +17,18 @@ package kubernetes
 import (
 	"fmt"
 	"io"
+	"os"
+	"path"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/hashicorp/go-multierror"
 	"k8s.io/client-go/rest"
 
-	"istio.io/istio/pkg/test/framework/scopes"
-
+	"istio.io/istio/pkg/test/deploy"
 	"istio.io/istio/pkg/test/framework/environment"
 	"istio.io/istio/pkg/test/framework/internal"
+	"istio.io/istio/pkg/test/framework/scopes"
 	"istio.io/istio/pkg/test/framework/settings"
 	"istio.io/istio/pkg/test/framework/tmpl"
 	"istio.io/istio/pkg/test/kube"
@@ -82,6 +84,8 @@ func (e *Implementation) Initialize(ctx *internal.TestContext) error {
 		return err
 	}
 
+	scopes.Lab.Infof("Test Framework Kubernetes environment settings:\n%s", e.kube)
+
 	config, err := kube.CreateConfig(e.kube.KubeConfig)
 	if err != nil {
 		return err
@@ -113,7 +117,27 @@ func (e *Implementation) Initialize(ctx *internal.TestContext) error {
 	if err := e.systemNamespace.allocate(); err != nil {
 		return err
 	}
-	return e.dependencyNamespace.allocate()
+	if err := e.dependencyNamespace.allocate(); err != nil {
+		return err
+	}
+
+	if e.kube.DeployIstio {
+		goDir := os.Getenv("GOPATH")
+		chartsDir := path.Join(goDir, "src/istio.io/istio/install/kubernetes/helm")
+
+		// TODO: We should pass the system namespace as a parameter as well.
+		// TODO: Values files should be parameterized.
+		if err := deploy.ByHelmTemplate(
+			e.kube.KubeConfig, chartsDir,
+			ctx.Settings().WorkDir,
+			e.kube.Hub,
+			e.kube.Tag,
+			e.Accessor, deploy.IstioMCP); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // Configure applies the given configuration to the mesh.

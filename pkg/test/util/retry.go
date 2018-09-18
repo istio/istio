@@ -12,18 +12,23 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package kube
+package util
 
 import (
 	"errors"
 	"time"
 )
 
-const defaultTimeout = time.Second * 20
-const defaultRetryWait = time.Millisecond * 10
+const (
+	// DefaultRetryTimeout is the default value for a total timeout duration for a retry operation.
+	DefaultRetryTimeout = time.Second * 20
 
-// retry the given function, until there is a timeout, or until the function indicates that it has completed.
-func retry(
+	// DefaultRetryWait is the default duration to wait between retries of an operation.
+	DefaultRetryWait = time.Millisecond * 10
+)
+
+// Retry the given function, until there is a timeout, or until the function indicates that it has completed.
+func Retry(
 	timeout time.Duration,
 	retryWait time.Duration,
 	fn func() (result interface{}, completed bool, err error)) (interface{}, error) {
