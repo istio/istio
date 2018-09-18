@@ -20,6 +20,10 @@ function get_git_commit_cmd() {
     git config --global user.name "TestRunnerBot"
     git config --global user.email "testrunner@istio.io"
 
+    #temporary to be removed after https://github.com/istio/istio/pull/8777 is merged
+    cp /home/airflow/gcs/data/*json .
+    cp /home/airflow/gcs/data/*sh   .
+
     git clone istio istio-code -b "$BRANCH" --depth 1
     cp istio-code/release/*json .
     cp istio-code/release/*sh   .
