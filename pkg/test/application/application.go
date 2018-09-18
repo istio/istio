@@ -12,13 +12,12 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package agent
+package application
 
 import (
 	"io"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/test/protocol"
 )
 
 // Application represents a locally running application with exposed ports.
@@ -28,5 +27,5 @@ type Application interface {
 	GetPorts() model.PortList
 }
 
-// ApplicationFactory is a function that manufactures a running application.
-type ApplicationFactory func(client protocol.Client) (Application, error)
+// Factory is a function that manufactures a running application.
+type Factory func(dialer Dialer) (Application, error)

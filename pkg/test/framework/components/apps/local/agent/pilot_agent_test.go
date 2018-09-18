@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package pilot_test
+package agent
 
 import (
 	"bufio"
@@ -24,6 +24,8 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/test/application"
+
 	"google.golang.org/grpc"
 
 	"istio.io/istio/pilot/pkg/bootstrap"
@@ -31,11 +33,9 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	proxy_envoy "istio.io/istio/pilot/pkg/proxy/envoy"
 	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pkg/test/application/echo"
+	"istio.io/istio/pkg/test/application/echo/proto"
 	"istio.io/istio/pkg/test/framework/components/apps/local/envoy"
-	"istio.io/istio/pkg/test/framework/components/apps/local/envoy/agent"
-	"istio.io/istio/pkg/test/framework/components/apps/local/envoy/agent/pilot"
-	"istio.io/istio/pkg/test/service/echo"
-	"istio.io/istio/pkg/test/service/echo/proto"
 )
 
 const (
@@ -52,7 +52,7 @@ func TestAgent(t *testing.T) {
 	discoveryAddr := p.GRPCListeningAddr.(*net.TCPAddr)
 
 	// Configure the agent factory with Pilot's discovery address
-	agentFactory := (&pilot.Factory{
+	agentFactory := (&PilotAgentFactory{
 		DiscoveryAddress: discoveryAddr,
 	}).NewAgent
 
@@ -86,7 +86,7 @@ func TestAgent(t *testing.T) {
 	}).NewApplication
 
 	// Create a few agents.
-	agents := []agent.Agent{
+	agents := []Agent{
 		newAgent("a", agentFactory, appFactory, configStore, t),
 		newAgent("b", agentFactory, appFactory, configStore, t),
 		newAgent("c", agentFactory, appFactory, configStore, t),
@@ -137,7 +137,7 @@ func TestAgent(t *testing.T) {
 	}
 }
 
-func logConfigs(agents []agent.Agent) {
+func logConfigs(agents []Agent) {
 	out := ""
 	for _, a := range agents {
 		dump, _ := envoy.GetConfigDumpStr(a.GetAdminPort())
@@ -149,7 +149,7 @@ func logConfigs(agents []agent.Agent) {
 	f.Flush()
 }
 
-func newAgent(serviceName string, factory agent.Factory, appFactory agent.ApplicationFactory, configStore model.ConfigStore, t *testing.T) agent.Agent {
+func newAgent(serviceName string, factory Factory, appFactory application.Factory, configStore model.ConfigStore, t *testing.T) Agent {
 	t.Helper()
 	a, err := factory(model.ConfigMeta{
 		Name:      serviceName,
@@ -169,11 +169,11 @@ func newAgent(serviceName string, factory agent.Factory, appFactory agent.Applic
 	return a
 }
 
-func makeHTTPRequest(src agent.Agent, dst agent.Agent, protocol model.Protocol, t *testing.T) {
+func makeHTTPRequest(src Agent, dst Agent, protocol model.Protocol, t *testing.T) {
 	t.Helper()
 
 	// Get the port information for the desired protocol on the destination agent.
-	dstPort, err := agent.FindFirstPortForProtocol(dst, protocol)
+	dstPort, err := FindFirstPortForProtocol(dst, protocol)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -248,8 +248,8 @@ func newPilot(namespace string, t *testing.T) (*bootstrap.Server, model.ConfigSt
 	return server, configController, stopFn
 }
 
-func forwardRequestToAgent(a agent.Agent, req *proto.ForwardEchoRequest) ([]*echo.ParsedResponse, error) {
-	grpcPortA, err := agent.FindFirstPortForProtocol(a, model.ProtocolGRPC)
+func forwardRequestToAgent(a Agent, req *proto.ForwardEchoRequest) ([]*echo.ParsedResponse, error) {
+	grpcPortA, err := FindFirstPortForProtocol(a, model.ProtocolGRPC)
 	if err != nil {
 		return nil, err
 	}

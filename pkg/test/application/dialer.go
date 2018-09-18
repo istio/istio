@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package protocol
+package application
 
 import (
 	"net/http"
@@ -34,17 +34,11 @@ var (
 	DefaultHTTPDoFunc = func(client *http.Client, req *http.Request) (*http.Response, error) {
 		return client.Do(req)
 	}
-	// DefaultClient is provides defaults for all functions.
-	DefaultClient = Client{
-		GRPC: GRPCClient{
-			Dial: DefaultGRPCDialFunc,
-		},
-		Websocket: WebsocketClient{
-			Dial: DefaultWebsocketDialFunc,
-		},
-		HTTP: HTTPClient{
-			Do: DefaultHTTPDoFunc,
-		},
+	// DefaultDialer is provides defaults for all dial functions.
+	DefaultDialer = Dialer{
+		GRPC:      DefaultGRPCDialFunc,
+		Websocket: DefaultWebsocketDialFunc,
+		HTTP:      DefaultHTTPDoFunc,
 	}
 )
 
@@ -57,25 +51,26 @@ type WebsocketDialFunc func(dialer *websocket.Dialer, urlStr string, requestHead
 // HTTPDoFunc a function for executing an HTTP request.
 type HTTPDoFunc func(client *http.Client, req *http.Request) (*http.Response, error)
 
-// Client is a replaceable set of functions for creating client-side connections for various protocols, allowing a test
+// Dialer is a replaceable set of functions for creating client-side connections for various protocols, allowing a test
 // application to intercept the connection creation.
-type Client struct {
-	GRPC      GRPCClient
-	Websocket WebsocketClient
-	HTTP      HTTPClient
+type Dialer struct {
+	GRPC      GRPCDialFunc
+	Websocket WebsocketDialFunc
+	HTTP      HTTPDoFunc
 }
 
-// GRPCClient is a replaceable function for establishing a gRPC connection.
-type GRPCClient struct {
-	Dial GRPCDialFunc
-}
+// Fill any missing dial functions with defaults
+func (d Dialer) Fill() Dialer {
+	ret := DefaultDialer
 
-// WebsocketClient is a replaceable function for establishing a Websocket connection.
-type WebsocketClient struct {
-	Dial WebsocketDialFunc
-}
-
-// HTTPClient is a replaceable function for executing an HTTP request.
-type HTTPClient struct {
-	Do HTTPDoFunc
+	if d.GRPC != nil {
+		ret.GRPC = d.GRPC
+	}
+	if d.Websocket != nil {
+		ret.Websocket = d.Websocket
+	}
+	if d.HTTP != nil {
+		ret.HTTP = d.HTTP
+	}
+	return ret
 }

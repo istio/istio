@@ -27,13 +27,14 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/istio/pkg/test/application"
+
 	"github.com/golang/sync/errgroup"
 	"github.com/gorilla/websocket"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
-	"istio.io/istio/pkg/test/protocol"
-	"istio.io/istio/pkg/test/service/echo/proto"
+	"istio.io/istio/pkg/test/application/echo/proto"
 )
 
 const (
@@ -42,7 +43,7 @@ const (
 
 // batchOptions provides options to the batch processor.
 type batchOptions struct {
-	client    protocol.Client
+	dialer    application.Dialer
 	count     int
 	qps       int
 	timeout   time.Duration
@@ -143,7 +144,7 @@ type client interface {
 
 type httpClient struct {
 	client *http.Client
-	do     protocol.HTTPDoFunc
+	do     application.HTTPDoFunc
 }
 
 func (c *httpClient) makeRequest(req *request) (response, error) {
@@ -225,7 +226,7 @@ func (c *grpcClient) Close() error {
 
 type websocketClient struct {
 	dialer *websocket.Dialer
-	dial   protocol.WebsocketDialFunc
+	dial   application.WebsocketDialFunc
 }
 
 func (c *websocketClient) makeRequest(req *request) (response, error) {
@@ -289,7 +290,7 @@ func newClient(ops batchOptions) (client, error) {
 		}
 		return &httpClient{
 			client: client,
-			do:     ops.client.HTTP.Do,
+			do:     ops.dialer.HTTP,
 		}, nil
 	} else if strings.HasPrefix(ops.url, "grpc://") || strings.HasPrefix(ops.url, "grpcs://") {
 		secure := strings.HasPrefix(ops.url, "grpcs://")
@@ -316,7 +317,7 @@ func newClient(ops batchOptions) (client, error) {
 			security = grpc.WithTransportCredentials(creds)
 		}
 
-		grpcConn, err := ops.client.GRPC.Dial(address,
+		grpcConn, err := ops.dialer.GRPC(address,
 			security,
 			grpc.WithAuthority(authority),
 			grpc.WithBlock(),

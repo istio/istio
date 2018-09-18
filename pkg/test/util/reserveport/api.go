@@ -21,7 +21,7 @@ const (
 // ReservedPort a port reserved by a PortManager
 type ReservedPort interface {
 	// GetPort returns the bound port number.
-	GetPort() uint32
+	GetPort() uint16
 	// Close unbinds this port.
 	Close() error
 }
