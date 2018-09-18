@@ -105,9 +105,9 @@ global:
   # propagated, not recommended for tests.
   controlPlaneSecurityEnabled: false
 
-  # SDS API enabled. Will result in distribute key cert through SDS(secret discovery service)
+  # SDS enabled. Will result in distribute key cert through SDS(secret discovery service)
   # instread of secret-mount files.
-  sdsAPIEnabled: false
+  sdsEnabled: false
 
   # disablePolicyChecks disables mixer policy checks.
   # Will set the value with same name in istio config map - pilot needs to be restarted to take effect.
