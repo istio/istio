@@ -94,7 +94,7 @@ func (d *driver) Run(testID string, m *testing.M) (int, error) {
 		if closer, ok := d.context.Environment().(io.Closer); ok {
 			err := closer.Close()
 			if err != nil {
-				lab.Warnf("Error during environment close: %v", err)
+				scopes.Lab.Warnf("Error during environment close: %v", err)
 			}
 		}
 	}
