@@ -265,3 +265,9 @@ global:
 #
 istio_cni:
   enabled: false
+
+policy:
+  enabled: true
+  replicaCount: 1
+  image: mixer
+  selfSigned: true
