@@ -48,8 +48,8 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/application"
+	"istio.io/istio/pkg/test/envoy"
 	"istio.io/istio/pkg/test/envoy/discovery"
-	"istio.io/istio/pkg/test/framework/components/apps/local/envoy"
 	"istio.io/istio/pkg/test/util/reserveport"
 )
 
