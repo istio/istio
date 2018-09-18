@@ -2,10 +2,6 @@
 // sources:
 // testdata/authentication-v1alpha1-Policy-invalid.yaml
 // testdata/authentication-v1alpha1-Policy-valid.yaml
-// testdata/config-v1alpha2-DestinationPolicy-invalid-skipped.yaml
-// testdata/config-v1alpha2-DestinationPolicy-valid-skipped.yaml
-// testdata/config-v1alpha2-EgressRule-invalid-skipped.yaml
-// testdata/config-v1alpha2-EgressRule-valid-skipped.yaml
 // testdata/config-v1alpha2-HTTPAPISpec-invalid.yaml
 // testdata/config-v1alpha2-HTTPAPISpec-valid.yaml
 // testdata/config-v1alpha2-HTTPAPISpecBinding-invalid.yaml
@@ -14,12 +10,6 @@
 // testdata/config-v1alpha2-QuotaSpec-valid.yaml
 // testdata/config-v1alpha2-QuotaSpecBinding-invalid.yaml
 // testdata/config-v1alpha2-QuotaSpecBinding-valid.yaml
-// testdata/config-v1alpha2-RouteRule-invalid-skipped.yaml
-// testdata/config-v1alpha2-RouteRule-valid-skipped.yaml
-// testdata/config-v1alpha2-ServiceRole-invalid.yaml
-// testdata/config-v1alpha2-ServiceRole-valid.yaml
-// testdata/config-v1alpha2-ServiceRoleBinding-invalid.yaml
-// testdata/config-v1alpha2-ServiceRoleBinding-valid.yaml
 // testdata/config-v1alpha2-apikey-invalid.yaml
 // testdata/config-v1alpha2-apikey-valid.yaml
 // testdata/config-v1alpha2-attributemanifest-invalid.yaml
@@ -34,7 +24,7 @@
 // testdata/config-v1alpha2-denier-valid.yaml
 // testdata/config-v1alpha2-fluentd-invalid.yaml
 // testdata/config-v1alpha2-fluentd-valid.yaml
-// testdata/config-v1alpha2-kubernetes-invalid-skipped.yaml
+// testdata/config-v1alpha2-kubernetes-invalid.yaml
 // testdata/config-v1alpha2-kubernetes-valid.yaml
 // testdata/config-v1alpha2-kubernetesenv-invalid.yaml
 // testdata/config-v1alpha2-kubernetesenv-valid.yaml
@@ -80,10 +70,14 @@
 // testdata/networking-v1alpha3-DestinationRule-valid.yaml
 // testdata/networking-v1alpha3-Gateway-invalid.yaml
 // testdata/networking-v1alpha3-Gateway-valid.yaml
-// testdata/networking-v1alpha3-ServiceEntry-invalid-skipped.yaml
+// testdata/networking-v1alpha3-ServiceEntry-invalid.yaml
 // testdata/networking-v1alpha3-ServiceEntry-valid.yaml
 // testdata/networking-v1alpha3-VirtualService-invalid.yaml
 // testdata/networking-v1alpha3-VirtualService-valid.yaml
+// testdata/rbac-v1alpha1-ServiceRole-invalid.yaml
+// testdata/rbac-v1alpha1-ServiceRole-valid.yaml
+// testdata/rbac-v1alpha1-ServiceRoleBinding-invalid.yaml
+// testdata/rbac-v1alpha1-ServiceRoleBinding-valid.yaml
 // DO NOT EDIT!
 
 package galley
@@ -171,104 +165,6 @@ func testdataAuthenticationV1alpha1PolicyValidYaml() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "testdata/authentication-v1alpha1-Policy-valid.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _testdataConfigV1alpha2DestinationpolicyInvalidSkippedYaml = []byte(`apiVersion: config.istio.io/v1alpha2
-kind: DestinationPolicy
-metadata:
-  name: valid-destination-policy
-spec:
-`)
-
-func testdataConfigV1alpha2DestinationpolicyInvalidSkippedYamlBytes() ([]byte, error) {
-	return _testdataConfigV1alpha2DestinationpolicyInvalidSkippedYaml, nil
-}
-
-func testdataConfigV1alpha2DestinationpolicyInvalidSkippedYaml() (*asset, error) {
-	bytes, err := testdataConfigV1alpha2DestinationpolicyInvalidSkippedYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "testdata/config-v1alpha2-DestinationPolicy-invalid-skipped.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _testdataConfigV1alpha2DestinationpolicyValidSkippedYaml = []byte(`apiVersion: config.istio.io/v1alpha2
-kind: DestinationPolicy
-metadata:
-  name: valid-destination-policy
-spec:
-  destination:
-    name: reviews
-  loadBalancing:
-    name: RANDOM
-`)
-
-func testdataConfigV1alpha2DestinationpolicyValidSkippedYamlBytes() ([]byte, error) {
-	return _testdataConfigV1alpha2DestinationpolicyValidSkippedYaml, nil
-}
-
-func testdataConfigV1alpha2DestinationpolicyValidSkippedYaml() (*asset, error) {
-	bytes, err := testdataConfigV1alpha2DestinationpolicyValidSkippedYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "testdata/config-v1alpha2-DestinationPolicy-valid-skipped.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _testdataConfigV1alpha2EgressruleInvalidSkippedYaml = []byte(`apiVersion: config.istio.io/v1alpha2
-kind: EgressRule
-metadata:
-  name: invalid-egress-rule
-spec:
-`)
-
-func testdataConfigV1alpha2EgressruleInvalidSkippedYamlBytes() ([]byte, error) {
-	return _testdataConfigV1alpha2EgressruleInvalidSkippedYaml, nil
-}
-
-func testdataConfigV1alpha2EgressruleInvalidSkippedYaml() (*asset, error) {
-	bytes, err := testdataConfigV1alpha2EgressruleInvalidSkippedYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "testdata/config-v1alpha2-EgressRule-invalid-skipped.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _testdataConfigV1alpha2EgressruleValidSkippedYaml = []byte(`apiVersion: config.istio.io/v1alpha2
-kind: EgressRule
-metadata:
-  name: valid-egress-rule
-spec:
-  destination:
-      service: 91.198.174.192/27
-  ports:
-      - port: 443
-        protocol: tcp
-  use_egress_proxy: false
-`)
-
-func testdataConfigV1alpha2EgressruleValidSkippedYamlBytes() ([]byte, error) {
-	return _testdataConfigV1alpha2EgressruleValidSkippedYaml, nil
-}
-
-func testdataConfigV1alpha2EgressruleValidSkippedYaml() (*asset, error) {
-	bytes, err := testdataConfigV1alpha2EgressruleValidSkippedYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "testdata/config-v1alpha2-EgressRule-valid-skipped.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -488,168 +384,6 @@ func testdataConfigV1alpha2QuotaspecbindingValidYaml() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "testdata/config-v1alpha2-QuotaSpecBinding-valid.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _testdataConfigV1alpha2RouteruleInvalidSkippedYaml = []byte(`apiVersion: config.istio.io/v1alpha2
-kind: RouteRule
-metadata:
-  name: valid-route-rule
-spec:
-  precedence: 2
-  route:
-  - labels:
-      version: v2
-`)
-
-func testdataConfigV1alpha2RouteruleInvalidSkippedYamlBytes() ([]byte, error) {
-	return _testdataConfigV1alpha2RouteruleInvalidSkippedYaml, nil
-}
-
-func testdataConfigV1alpha2RouteruleInvalidSkippedYaml() (*asset, error) {
-	bytes, err := testdataConfigV1alpha2RouteruleInvalidSkippedYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "testdata/config-v1alpha2-RouteRule-invalid-skipped.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _testdataConfigV1alpha2RouteruleValidSkippedYaml = []byte(`apiVersion: config.istio.io/v1alpha2
-kind: RouteRule
-metadata:
-  name: valid-route-rule
-spec:
-  destination:
-    service: ratings.service.consul
-  precedence: 2
-  route:
-  - labels:
-      version: v2
-`)
-
-func testdataConfigV1alpha2RouteruleValidSkippedYamlBytes() ([]byte, error) {
-	return _testdataConfigV1alpha2RouteruleValidSkippedYaml, nil
-}
-
-func testdataConfigV1alpha2RouteruleValidSkippedYaml() (*asset, error) {
-	bytes, err := testdataConfigV1alpha2RouteruleValidSkippedYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "testdata/config-v1alpha2-RouteRule-valid-skipped.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _testdataConfigV1alpha2ServiceroleInvalidYaml = []byte(`apiVersion: "config.istio.io/v1alpha2"
-kind: ServiceRole
-metadata:
-  name: products-viewer
-spec:
-  rules:
-
-`)
-
-func testdataConfigV1alpha2ServiceroleInvalidYamlBytes() ([]byte, error) {
-	return _testdataConfigV1alpha2ServiceroleInvalidYaml, nil
-}
-
-func testdataConfigV1alpha2ServiceroleInvalidYaml() (*asset, error) {
-	bytes, err := testdataConfigV1alpha2ServiceroleInvalidYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "testdata/config-v1alpha2-ServiceRole-invalid.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _testdataConfigV1alpha2ServiceroleValidYaml = []byte(`apiVersion: "config.istio.io/v1alpha2"
-kind: ServiceRole
-metadata:
-  name: products-viewer
-spec:
-  rules:
-  - services: ["products.svc.cluster.local"]
-    methods: ["GET", "HEAD"]
-    constraints:
-    - key: "version"
-      values: ["v1", "v2"]
-
-`)
-
-func testdataConfigV1alpha2ServiceroleValidYamlBytes() ([]byte, error) {
-	return _testdataConfigV1alpha2ServiceroleValidYaml, nil
-}
-
-func testdataConfigV1alpha2ServiceroleValidYaml() (*asset, error) {
-	bytes, err := testdataConfigV1alpha2ServiceroleValidYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "testdata/config-v1alpha2-ServiceRole-valid.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _testdataConfigV1alpha2ServicerolebindingInvalidYaml = []byte(`apiVersion: "config.istio.io/v1alpha2"
-kind: ServiceRoleBinding
-metadata:
-  name: test-binding-products
-spec:
-  subjects:
-
-`)
-
-func testdataConfigV1alpha2ServicerolebindingInvalidYamlBytes() ([]byte, error) {
-	return _testdataConfigV1alpha2ServicerolebindingInvalidYaml, nil
-}
-
-func testdataConfigV1alpha2ServicerolebindingInvalidYaml() (*asset, error) {
-	bytes, err := testdataConfigV1alpha2ServicerolebindingInvalidYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "testdata/config-v1alpha2-ServiceRoleBinding-invalid.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _testdataConfigV1alpha2ServicerolebindingValidYaml = []byte(`apiVersion: "config.istio.io/v1alpha2"
-kind: ServiceRoleBinding
-metadata:
-  name: test-binding-products
-spec:
-  subjects:
-  - user: "alice@yahoo.com"
-  - properties:
-      service: "reviews"
-      namespace: "abc"
-  roleRef:
-    kind: ServiceRole
-    name: "products-viewer"
-
-`)
-
-func testdataConfigV1alpha2ServicerolebindingValidYamlBytes() ([]byte, error) {
-	return _testdataConfigV1alpha2ServicerolebindingValidYaml, nil
-}
-
-func testdataConfigV1alpha2ServicerolebindingValidYaml() (*asset, error) {
-	bytes, err := testdataConfigV1alpha2ServicerolebindingValidYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "testdata/config-v1alpha2-ServiceRoleBinding-valid.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1113,7 +847,7 @@ func testdataConfigV1alpha2FluentdValidYaml() (*asset, error) {
 	return a, nil
 }
 
-var _testdataConfigV1alpha2KubernetesInvalidSkippedYaml = []byte(`apiVersion: "config.istio.io/v1alpha2"
+var _testdataConfigV1alpha2KubernetesInvalidYaml = []byte(`apiVersion: "config.istio.io/v1alpha2"
 kind: kubernetes
 metadata:
   name: valid-kubernetes
@@ -1121,17 +855,17 @@ spec:
   badField: foo
 `)
 
-func testdataConfigV1alpha2KubernetesInvalidSkippedYamlBytes() ([]byte, error) {
-	return _testdataConfigV1alpha2KubernetesInvalidSkippedYaml, nil
+func testdataConfigV1alpha2KubernetesInvalidYamlBytes() ([]byte, error) {
+	return _testdataConfigV1alpha2KubernetesInvalidYaml, nil
 }
 
-func testdataConfigV1alpha2KubernetesInvalidSkippedYaml() (*asset, error) {
-	bytes, err := testdataConfigV1alpha2KubernetesInvalidSkippedYamlBytes()
+func testdataConfigV1alpha2KubernetesInvalidYaml() (*asset, error) {
+	bytes, err := testdataConfigV1alpha2KubernetesInvalidYamlBytes()
 	if err != nil {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "testdata/config-v1alpha2-kubernetes-invalid-skipped.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	info := bindataFileInfo{name: "testdata/config-v1alpha2-kubernetes-invalid.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2444,7 +2178,7 @@ func testdataNetworkingV1alpha3GatewayValidYaml() (*asset, error) {
 	return a, nil
 }
 
-var _testdataNetworkingV1alpha3ServiceentryInvalidSkippedYaml = []byte(`apiVersion: networking.istio.io/v1alpha3
+var _testdataNetworkingV1alpha3ServiceentryInvalidYaml = []byte(`apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
   name: invalid-service-entry
@@ -2462,17 +2196,17 @@ spec:
       http: 8080 # TODO test https
 `)
 
-func testdataNetworkingV1alpha3ServiceentryInvalidSkippedYamlBytes() ([]byte, error) {
-	return _testdataNetworkingV1alpha3ServiceentryInvalidSkippedYaml, nil
+func testdataNetworkingV1alpha3ServiceentryInvalidYamlBytes() ([]byte, error) {
+	return _testdataNetworkingV1alpha3ServiceentryInvalidYaml, nil
 }
 
-func testdataNetworkingV1alpha3ServiceentryInvalidSkippedYaml() (*asset, error) {
-	bytes, err := testdataNetworkingV1alpha3ServiceentryInvalidSkippedYamlBytes()
+func testdataNetworkingV1alpha3ServiceentryInvalidYaml() (*asset, error) {
+	bytes, err := testdataNetworkingV1alpha3ServiceentryInvalidYamlBytes()
 	if err != nil {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "testdata/networking-v1alpha3-ServiceEntry-invalid-skipped.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	info := bindataFileInfo{name: "testdata/networking-v1alpha3-ServiceEntry-invalid.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2578,6 +2312,114 @@ func testdataNetworkingV1alpha3VirtualserviceValidYaml() (*asset, error) {
 	return a, nil
 }
 
+var _testdataRbacV1alpha1ServiceroleInvalidYaml = []byte(`apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRole
+metadata:
+  name: products-viewer
+spec:
+  rules:
+
+`)
+
+func testdataRbacV1alpha1ServiceroleInvalidYamlBytes() ([]byte, error) {
+	return _testdataRbacV1alpha1ServiceroleInvalidYaml, nil
+}
+
+func testdataRbacV1alpha1ServiceroleInvalidYaml() (*asset, error) {
+	bytes, err := testdataRbacV1alpha1ServiceroleInvalidYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "testdata/rbac-v1alpha1-ServiceRole-invalid.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _testdataRbacV1alpha1ServiceroleValidYaml = []byte(`apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRole
+metadata:
+  name: products-viewer
+spec:
+  rules:
+  - services: ["products.svc.cluster.local"]
+    methods: ["GET", "HEAD"]
+    constraints:
+    - key: "version"
+      values: ["v1", "v2"]
+
+`)
+
+func testdataRbacV1alpha1ServiceroleValidYamlBytes() ([]byte, error) {
+	return _testdataRbacV1alpha1ServiceroleValidYaml, nil
+}
+
+func testdataRbacV1alpha1ServiceroleValidYaml() (*asset, error) {
+	bytes, err := testdataRbacV1alpha1ServiceroleValidYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "testdata/rbac-v1alpha1-ServiceRole-valid.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _testdataRbacV1alpha1ServicerolebindingInvalidYaml = []byte(`apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRoleBinding
+metadata:
+  name: test-binding-products
+spec:
+  subjects:
+
+`)
+
+func testdataRbacV1alpha1ServicerolebindingInvalidYamlBytes() ([]byte, error) {
+	return _testdataRbacV1alpha1ServicerolebindingInvalidYaml, nil
+}
+
+func testdataRbacV1alpha1ServicerolebindingInvalidYaml() (*asset, error) {
+	bytes, err := testdataRbacV1alpha1ServicerolebindingInvalidYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "testdata/rbac-v1alpha1-ServiceRoleBinding-invalid.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _testdataRbacV1alpha1ServicerolebindingValidYaml = []byte(`apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRoleBinding
+metadata:
+  name: test-binding-products
+spec:
+  subjects:
+  - user: "alice@yahoo.com"
+  - properties:
+      service: "reviews"
+      namespace: "abc"
+  roleRef:
+    kind: ServiceRole
+    name: "products-viewer"
+
+`)
+
+func testdataRbacV1alpha1ServicerolebindingValidYamlBytes() ([]byte, error) {
+	return _testdataRbacV1alpha1ServicerolebindingValidYaml, nil
+}
+
+func testdataRbacV1alpha1ServicerolebindingValidYaml() (*asset, error) {
+	bytes, err := testdataRbacV1alpha1ServicerolebindingValidYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "testdata/rbac-v1alpha1-ServiceRoleBinding-valid.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 // Asset loads and returns the asset for the given name.
 // It returns an error if the asset could not be found or
 // could not be loaded.
@@ -2632,10 +2474,6 @@ func AssetNames() []string {
 var _bindata = map[string]func() (*asset, error){
 	"testdata/authentication-v1alpha1-Policy-invalid.yaml": testdataAuthenticationV1alpha1PolicyInvalidYaml,
 	"testdata/authentication-v1alpha1-Policy-valid.yaml": testdataAuthenticationV1alpha1PolicyValidYaml,
-	"testdata/config-v1alpha2-DestinationPolicy-invalid-skipped.yaml": testdataConfigV1alpha2DestinationpolicyInvalidSkippedYaml,
-	"testdata/config-v1alpha2-DestinationPolicy-valid-skipped.yaml": testdataConfigV1alpha2DestinationpolicyValidSkippedYaml,
-	"testdata/config-v1alpha2-EgressRule-invalid-skipped.yaml": testdataConfigV1alpha2EgressruleInvalidSkippedYaml,
-	"testdata/config-v1alpha2-EgressRule-valid-skipped.yaml": testdataConfigV1alpha2EgressruleValidSkippedYaml,
 	"testdata/config-v1alpha2-HTTPAPISpec-invalid.yaml": testdataConfigV1alpha2HttpapispecInvalidYaml,
 	"testdata/config-v1alpha2-HTTPAPISpec-valid.yaml": testdataConfigV1alpha2HttpapispecValidYaml,
 	"testdata/config-v1alpha2-HTTPAPISpecBinding-invalid.yaml": testdataConfigV1alpha2HttpapispecbindingInvalidYaml,
@@ -2644,12 +2482,6 @@ var _bindata = map[string]func() (*asset, error){
 	"testdata/config-v1alpha2-QuotaSpec-valid.yaml": testdataConfigV1alpha2QuotaspecValidYaml,
 	"testdata/config-v1alpha2-QuotaSpecBinding-invalid.yaml": testdataConfigV1alpha2QuotaspecbindingInvalidYaml,
 	"testdata/config-v1alpha2-QuotaSpecBinding-valid.yaml": testdataConfigV1alpha2QuotaspecbindingValidYaml,
-	"testdata/config-v1alpha2-RouteRule-invalid-skipped.yaml": testdataConfigV1alpha2RouteruleInvalidSkippedYaml,
-	"testdata/config-v1alpha2-RouteRule-valid-skipped.yaml": testdataConfigV1alpha2RouteruleValidSkippedYaml,
-	"testdata/config-v1alpha2-ServiceRole-invalid.yaml": testdataConfigV1alpha2ServiceroleInvalidYaml,
-	"testdata/config-v1alpha2-ServiceRole-valid.yaml": testdataConfigV1alpha2ServiceroleValidYaml,
-	"testdata/config-v1alpha2-ServiceRoleBinding-invalid.yaml": testdataConfigV1alpha2ServicerolebindingInvalidYaml,
-	"testdata/config-v1alpha2-ServiceRoleBinding-valid.yaml": testdataConfigV1alpha2ServicerolebindingValidYaml,
 	"testdata/config-v1alpha2-apikey-invalid.yaml": testdataConfigV1alpha2ApikeyInvalidYaml,
 	"testdata/config-v1alpha2-apikey-valid.yaml": testdataConfigV1alpha2ApikeyValidYaml,
 	"testdata/config-v1alpha2-attributemanifest-invalid.yaml": testdataConfigV1alpha2AttributemanifestInvalidYaml,
@@ -2664,7 +2496,7 @@ var _bindata = map[string]func() (*asset, error){
 	"testdata/config-v1alpha2-denier-valid.yaml": testdataConfigV1alpha2DenierValidYaml,
 	"testdata/config-v1alpha2-fluentd-invalid.yaml": testdataConfigV1alpha2FluentdInvalidYaml,
 	"testdata/config-v1alpha2-fluentd-valid.yaml": testdataConfigV1alpha2FluentdValidYaml,
-	"testdata/config-v1alpha2-kubernetes-invalid-skipped.yaml": testdataConfigV1alpha2KubernetesInvalidSkippedYaml,
+	"testdata/config-v1alpha2-kubernetes-invalid.yaml": testdataConfigV1alpha2KubernetesInvalidYaml,
 	"testdata/config-v1alpha2-kubernetes-valid.yaml": testdataConfigV1alpha2KubernetesValidYaml,
 	"testdata/config-v1alpha2-kubernetesenv-invalid.yaml": testdataConfigV1alpha2KubernetesenvInvalidYaml,
 	"testdata/config-v1alpha2-kubernetesenv-valid.yaml": testdataConfigV1alpha2KubernetesenvValidYaml,
@@ -2710,10 +2542,14 @@ var _bindata = map[string]func() (*asset, error){
 	"testdata/networking-v1alpha3-DestinationRule-valid.yaml": testdataNetworkingV1alpha3DestinationruleValidYaml,
 	"testdata/networking-v1alpha3-Gateway-invalid.yaml": testdataNetworkingV1alpha3GatewayInvalidYaml,
 	"testdata/networking-v1alpha3-Gateway-valid.yaml": testdataNetworkingV1alpha3GatewayValidYaml,
-	"testdata/networking-v1alpha3-ServiceEntry-invalid-skipped.yaml": testdataNetworkingV1alpha3ServiceentryInvalidSkippedYaml,
+	"testdata/networking-v1alpha3-ServiceEntry-invalid.yaml": testdataNetworkingV1alpha3ServiceentryInvalidYaml,
 	"testdata/networking-v1alpha3-ServiceEntry-valid.yaml": testdataNetworkingV1alpha3ServiceentryValidYaml,
 	"testdata/networking-v1alpha3-VirtualService-invalid.yaml": testdataNetworkingV1alpha3VirtualserviceInvalidYaml,
 	"testdata/networking-v1alpha3-VirtualService-valid.yaml": testdataNetworkingV1alpha3VirtualserviceValidYaml,
+	"testdata/rbac-v1alpha1-ServiceRole-invalid.yaml": testdataRbacV1alpha1ServiceroleInvalidYaml,
+	"testdata/rbac-v1alpha1-ServiceRole-valid.yaml": testdataRbacV1alpha1ServiceroleValidYaml,
+	"testdata/rbac-v1alpha1-ServiceRoleBinding-invalid.yaml": testdataRbacV1alpha1ServicerolebindingInvalidYaml,
+	"testdata/rbac-v1alpha1-ServiceRoleBinding-valid.yaml": testdataRbacV1alpha1ServicerolebindingValidYaml,
 }
 
 // AssetDir returns the file names below a certain
@@ -2759,10 +2595,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 	"testdata": &bintree{nil, map[string]*bintree{
 		"authentication-v1alpha1-Policy-invalid.yaml": &bintree{testdataAuthenticationV1alpha1PolicyInvalidYaml, map[string]*bintree{}},
 		"authentication-v1alpha1-Policy-valid.yaml": &bintree{testdataAuthenticationV1alpha1PolicyValidYaml, map[string]*bintree{}},
-		"config-v1alpha2-DestinationPolicy-invalid-skipped.yaml": &bintree{testdataConfigV1alpha2DestinationpolicyInvalidSkippedYaml, map[string]*bintree{}},
-		"config-v1alpha2-DestinationPolicy-valid-skipped.yaml": &bintree{testdataConfigV1alpha2DestinationpolicyValidSkippedYaml, map[string]*bintree{}},
-		"config-v1alpha2-EgressRule-invalid-skipped.yaml": &bintree{testdataConfigV1alpha2EgressruleInvalidSkippedYaml, map[string]*bintree{}},
-		"config-v1alpha2-EgressRule-valid-skipped.yaml": &bintree{testdataConfigV1alpha2EgressruleValidSkippedYaml, map[string]*bintree{}},
 		"config-v1alpha2-HTTPAPISpec-invalid.yaml": &bintree{testdataConfigV1alpha2HttpapispecInvalidYaml, map[string]*bintree{}},
 		"config-v1alpha2-HTTPAPISpec-valid.yaml": &bintree{testdataConfigV1alpha2HttpapispecValidYaml, map[string]*bintree{}},
 		"config-v1alpha2-HTTPAPISpecBinding-invalid.yaml": &bintree{testdataConfigV1alpha2HttpapispecbindingInvalidYaml, map[string]*bintree{}},
@@ -2771,12 +2603,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		"config-v1alpha2-QuotaSpec-valid.yaml": &bintree{testdataConfigV1alpha2QuotaspecValidYaml, map[string]*bintree{}},
 		"config-v1alpha2-QuotaSpecBinding-invalid.yaml": &bintree{testdataConfigV1alpha2QuotaspecbindingInvalidYaml, map[string]*bintree{}},
 		"config-v1alpha2-QuotaSpecBinding-valid.yaml": &bintree{testdataConfigV1alpha2QuotaspecbindingValidYaml, map[string]*bintree{}},
-		"config-v1alpha2-RouteRule-invalid-skipped.yaml": &bintree{testdataConfigV1alpha2RouteruleInvalidSkippedYaml, map[string]*bintree{}},
-		"config-v1alpha2-RouteRule-valid-skipped.yaml": &bintree{testdataConfigV1alpha2RouteruleValidSkippedYaml, map[string]*bintree{}},
-		"config-v1alpha2-ServiceRole-invalid.yaml": &bintree{testdataConfigV1alpha2ServiceroleInvalidYaml, map[string]*bintree{}},
-		"config-v1alpha2-ServiceRole-valid.yaml": &bintree{testdataConfigV1alpha2ServiceroleValidYaml, map[string]*bintree{}},
-		"config-v1alpha2-ServiceRoleBinding-invalid.yaml": &bintree{testdataConfigV1alpha2ServicerolebindingInvalidYaml, map[string]*bintree{}},
-		"config-v1alpha2-ServiceRoleBinding-valid.yaml": &bintree{testdataConfigV1alpha2ServicerolebindingValidYaml, map[string]*bintree{}},
 		"config-v1alpha2-apikey-invalid.yaml": &bintree{testdataConfigV1alpha2ApikeyInvalidYaml, map[string]*bintree{}},
 		"config-v1alpha2-apikey-valid.yaml": &bintree{testdataConfigV1alpha2ApikeyValidYaml, map[string]*bintree{}},
 		"config-v1alpha2-attributemanifest-invalid.yaml": &bintree{testdataConfigV1alpha2AttributemanifestInvalidYaml, map[string]*bintree{}},
@@ -2791,7 +2617,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		"config-v1alpha2-denier-valid.yaml": &bintree{testdataConfigV1alpha2DenierValidYaml, map[string]*bintree{}},
 		"config-v1alpha2-fluentd-invalid.yaml": &bintree{testdataConfigV1alpha2FluentdInvalidYaml, map[string]*bintree{}},
 		"config-v1alpha2-fluentd-valid.yaml": &bintree{testdataConfigV1alpha2FluentdValidYaml, map[string]*bintree{}},
-		"config-v1alpha2-kubernetes-invalid-skipped.yaml": &bintree{testdataConfigV1alpha2KubernetesInvalidSkippedYaml, map[string]*bintree{}},
+		"config-v1alpha2-kubernetes-invalid.yaml": &bintree{testdataConfigV1alpha2KubernetesInvalidYaml, map[string]*bintree{}},
 		"config-v1alpha2-kubernetes-valid.yaml": &bintree{testdataConfigV1alpha2KubernetesValidYaml, map[string]*bintree{}},
 		"config-v1alpha2-kubernetesenv-invalid.yaml": &bintree{testdataConfigV1alpha2KubernetesenvInvalidYaml, map[string]*bintree{}},
 		"config-v1alpha2-kubernetesenv-valid.yaml": &bintree{testdataConfigV1alpha2KubernetesenvValidYaml, map[string]*bintree{}},
@@ -2837,10 +2663,14 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		"networking-v1alpha3-DestinationRule-valid.yaml": &bintree{testdataNetworkingV1alpha3DestinationruleValidYaml, map[string]*bintree{}},
 		"networking-v1alpha3-Gateway-invalid.yaml": &bintree{testdataNetworkingV1alpha3GatewayInvalidYaml, map[string]*bintree{}},
 		"networking-v1alpha3-Gateway-valid.yaml": &bintree{testdataNetworkingV1alpha3GatewayValidYaml, map[string]*bintree{}},
-		"networking-v1alpha3-ServiceEntry-invalid-skipped.yaml": &bintree{testdataNetworkingV1alpha3ServiceentryInvalidSkippedYaml, map[string]*bintree{}},
+		"networking-v1alpha3-ServiceEntry-invalid.yaml": &bintree{testdataNetworkingV1alpha3ServiceentryInvalidYaml, map[string]*bintree{}},
 		"networking-v1alpha3-ServiceEntry-valid.yaml": &bintree{testdataNetworkingV1alpha3ServiceentryValidYaml, map[string]*bintree{}},
 		"networking-v1alpha3-VirtualService-invalid.yaml": &bintree{testdataNetworkingV1alpha3VirtualserviceInvalidYaml, map[string]*bintree{}},
 		"networking-v1alpha3-VirtualService-valid.yaml": &bintree{testdataNetworkingV1alpha3VirtualserviceValidYaml, map[string]*bintree{}},
+		"rbac-v1alpha1-ServiceRole-invalid.yaml": &bintree{testdataRbacV1alpha1ServiceroleInvalidYaml, map[string]*bintree{}},
+		"rbac-v1alpha1-ServiceRole-valid.yaml": &bintree{testdataRbacV1alpha1ServiceroleValidYaml, map[string]*bintree{}},
+		"rbac-v1alpha1-ServiceRoleBinding-invalid.yaml": &bintree{testdataRbacV1alpha1ServicerolebindingInvalidYaml, map[string]*bintree{}},
+		"rbac-v1alpha1-ServiceRoleBinding-valid.yaml": &bintree{testdataRbacV1alpha1ServicerolebindingValidYaml, map[string]*bintree{}},
 	}},
 }}
 
