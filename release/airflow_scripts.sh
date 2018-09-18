@@ -20,8 +20,9 @@ function get_git_commit_cmd() {
     git config --global user.name "TestRunnerBot"
     git config --global user.email "testrunner@istio.io"
 
-    cp /home/airflow/gcs/data/*json .
-    cp /home/airflow/gcs/data/*sh   .
+    git clone istio istio-code -b "$BRANCH" --depth 1
+    cp istio-code/release/*json .
+    cp istio-code/release/*sh   .
     chmod u+x ./*sh
 
     ./start_gcb_get_commit.sh
