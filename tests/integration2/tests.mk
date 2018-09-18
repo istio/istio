@@ -8,7 +8,7 @@
 # $(CI) specifies that the test is running in a CI system. This enables CI specific logging.
 _INTEGRATION_TEST_LOGGING_FLAG =
 ifneq ($(CI),)
-    _INTEGRATION_TEST_LOGGING_FLAG = --log_output_level lab:info
+    _INTEGRATION_TEST_LOGGING_FLAG = --log_output_level CI:info
 endif
 
 # $(INTEGRATION_TEST_WORKDIR) specifies the working directory for the tests. If not specified, then a

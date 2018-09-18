@@ -73,12 +73,12 @@ const (
 
 // ByHelmTemplate deploys Istio using the Yaml generated from the Helm Template, with the supplied values file.
 func ByHelmTemplate(kubeConfig, chartDir, workDir, hub, tag string, accessor *kube.Accessor, f ValuesFile) (err error) {
-	scopes.Lab.Infof("=== BEGIN: Install Istio (ByHelmTemplate) (Chart Dir: %s) ===", chartDir)
+	scopes.CI.Infof("=== BEGIN: Install Istio (ByHelmTemplate) (Chart Dir: %s) ===", chartDir)
 	defer func() {
 		if err != nil {
-			scopes.Lab.Infof("=== FAILED: Install Istio ===")
+			scopes.CI.Infof("=== FAILED: Install Istio ===")
 		} else {
-			scopes.Lab.Infof("=== SUCCEEDED: Install Istio ===")
+			scopes.CI.Infof("=== SUCCEEDED: Install Istio ===")
 		}
 	}()
 
@@ -87,7 +87,7 @@ func ByHelmTemplate(kubeConfig, chartDir, workDir, hub, tag string, accessor *ku
 
 	// Define a deployment name for Helm.
 	deploymentName := fmt.Sprintf("%s-%v", namespace, time.Now().UnixNano())
-	scopes.Lab.Infof("Generated Helm Deployment name: %s", deploymentName)
+	scopes.CI.Infof("Generated Helm Deployment name: %s", deploymentName)
 
 	// Create a temporary file to store generated Yaml for Istio deployment.
 	var tmpFile *os.File
@@ -106,29 +106,29 @@ func ByHelmTemplate(kubeConfig, chartDir, workDir, hub, tag string, accessor *ku
 	var generatedYaml string
 	if generatedYaml, err = helm.Template(
 		deploymentName, namespace, istioDir, path.Join(istioDir, string(f)), settings.generateHelmSettings()); err != nil {
-		scopes.Lab.Errorf("Helm chart generation failed: %v", err)
+		scopes.CI.Errorf("Helm chart generation failed: %v", err)
 		return
 	}
 
 	// TODO: The namespace file hardwires istio-system.
 	namespaceFile := path.Join(path.Dir(chartDir), "namespace.yaml")
 	if err = kube.Apply(kubeConfig, "", namespaceFile); err != nil {
-		scopes.Lab.Errorf("Deployment of namespace file failed: %v", err)
+		scopes.CI.Errorf("Deployment of namespace file failed: %v", err)
 		return
 	}
 
 	if err = ioutil.WriteFile(tmpFile.Name(), []byte(generatedYaml), os.ModePerm); err != nil {
-		scopes.Lab.Infof("Writing out Helm generated Yaml file failed: %v", err)
+		scopes.CI.Infof("Writing out Helm generated Yaml file failed: %v", err)
 	}
 
-	scopes.Lab.Infof("Applying Helm generated Yaml file: %s", tmpFile.Name())
+	scopes.CI.Infof("Applying Helm generated Yaml file: %s", tmpFile.Name())
 	if err = kube.Apply(kubeConfig, namespace, tmpFile.Name()); err != nil {
-		scopes.Lab.Errorf("Deployment of Helm generated Yaml file failed: %v", err)
+		scopes.CI.Errorf("Deployment of Helm generated Yaml file failed: %v", err)
 		return
 	}
 
 	if err = accessor.WaitUntilPodsInNamespaceAreReady(namespace, readyWaitTimeout); err != nil {
-		scopes.Lab.Errorf("Wait for Istio pods failed: %v", err)
+		scopes.CI.Errorf("Wait for Istio pods failed: %v", err)
 
 		// TODO: This should trigger based on a flag, to avoid delays in the local use-case.
 		dumpPodState(kubeConfig, namespace)
@@ -140,10 +140,10 @@ func ByHelmTemplate(kubeConfig, chartDir, workDir, hub, tag string, accessor *ku
 
 func dumpPodState(kubeConfig, namespace string) {
 	if s, err := kube.GetPods(kubeConfig, namespace); err != nil {
-		scopes.Lab.Errorf("Error getting pods list via kubectl: %v", err)
+		scopes.CI.Errorf("Error getting pods list via kubectl: %v", err)
 		// continue on
 	} else {
-		scopes.Lab.Infof("Pods (from Kubectl):\n%s", s)
+		scopes.CI.Infof("Pods (from Kubectl):\n%s", s)
 	}
 }
 
@@ -151,39 +151,39 @@ func copyPodLogs(kubeConfig, workDir, namespace string, accessor *kube.Accessor)
 	pods, err := accessor.GetPods(namespace)
 
 	if err != nil {
-		scopes.Lab.Errorf("Error getting pods for error dump: %v", err)
+		scopes.CI.Errorf("Error getting pods for error dump: %v", err)
 		return
 	}
 
 	for i, pod := range pods {
-		scopes.Lab.Infof("[Pod %d] %s: phase:%q", i, pod.Name, pod.Status.Phase)
+		scopes.CI.Infof("[Pod %d] %s: phase:%q", i, pod.Name, pod.Status.Phase)
 		for j, cs := range pod.Status.ContainerStatuses {
-			scopes.Lab.Infof("[Container %d/%d] %s: ready:%v", i, j, cs.Name, cs.Ready)
+			scopes.CI.Infof("[Container %d/%d] %s: ready:%v", i, j, cs.Name, cs.Ready)
 		}
 
 		by, err := json.MarshalIndent(pod, "", "  ")
 		if err != nil {
-			scopes.Lab.Errorf("Error marshaling pod status: %v", err)
+			scopes.CI.Errorf("Error marshaling pod status: %v", err)
 		}
-		scopes.Lab.Infof("Pod Detail: \n%s\n", string(by))
+		scopes.CI.Infof("Pod Detail: \n%s\n", string(by))
 	}
 
 	for _, pod := range pods {
 		for _, cs := range pod.Status.ContainerStatuses {
 			logs, err := kube.Logs(kubeConfig, namespace, pod.Name, cs.Name)
 			if err != nil {
-				scopes.Lab.Errorf("Error getting logs from pods: %v", err)
+				scopes.CI.Errorf("Error getting logs from pods: %v", err)
 				continue
 			}
 
 			outFile, err := ioutil.TempFile(workDir, fmt.Sprintf("log_pod_%s_%s", pod.Name, cs.Name))
 			if err != nil {
-				scopes.Lab.Errorf("Error creating temporary file for storing pod log: %v", err)
+				scopes.CI.Errorf("Error creating temporary file for storing pod log: %v", err)
 				continue
 			}
 
 			if err := ioutil.WriteFile(outFile.Name(), []byte(logs), os.ModePerm); err != nil {
-				scopes.Lab.Errorf("Error writing out pod lod to file: %v", err)
+				scopes.CI.Errorf("Error writing out pod lod to file: %v", err)
 			}
 		}
 	}

@@ -161,7 +161,7 @@ func (a *Accessor) WaitUntilPodIsReady(ns string, name string) error {
 
 // WaitUntilPodsInNamespaceAreReady waits for pods to be become running/succeeded in a given namespace.
 func (a *Accessor) WaitUntilPodsInNamespaceAreReady(ns string, timeLimit time.Duration) error {
-	scopes.Lab.Infof("Starting wait for pods to be ready in namespace %s", ns)
+	scopes.CI.Infof("Starting wait for pods to be ready in namespace %s", ns)
 
 	_, err := util.Retry(timeLimit, time.Second*10, func() (interface{}, bool, error) {
 
@@ -171,10 +171,10 @@ func (a *Accessor) WaitUntilPodsInNamespaceAreReady(ns string, timeLimit time.Du
 			return nil, false, err
 		}
 
-		scopes.Lab.Infof("  Pods in %q:", ns)
+		scopes.CI.Infof("  Pods in %q:", ns)
 		for i, p := range list.Items {
 			ready := p.Status.Phase == v12.PodRunning || p.Status.Phase == v12.PodSucceeded
-			scopes.Lab.Infof("  [%d] %s:\t %v (%v)", i, p.Name, p.Status.Phase, ready)
+			scopes.CI.Infof("  [%d] %s:\t %v (%v)", i, p.Name, p.Status.Phase, ready)
 		}
 
 		for _, p := range list.Items {

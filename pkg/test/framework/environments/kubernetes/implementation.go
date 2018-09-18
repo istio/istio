@@ -84,7 +84,7 @@ func (e *Implementation) Initialize(ctx *internal.TestContext) error {
 		return err
 	}
 
-	scopes.Lab.Infof("Test Framework Kubernetes environment settings:\n%s", e.kube)
+	scopes.CI.Infof("Test Framework Kubernetes environment settings:\n%s", e.kube)
 
 	config, err := kube.CreateConfig(e.kube.KubeConfig)
 	if err != nil {
