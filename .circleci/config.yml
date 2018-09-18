@@ -820,9 +820,6 @@ workflows:
       - e2e-simple:
           requires:
             - build
-      - e2e-simple-mcp:
-          requires:
-            - build
       - racetest:
           requires:
             - test
@@ -833,9 +830,6 @@ workflows:
           requires:
             - build
       - e2e-pilot-noauth-v1alpha3-v2: # noauth+v1alpha3+v2
-          requires:
-            - build
-      - e2e-pilot-noauth-v1alpha3-v2-mcp: # noauth+v1alpha3+v2 with MCP
           requires:
             - build
       - e2e-pilot-cloudfoundry-v1alpha3-v2:
