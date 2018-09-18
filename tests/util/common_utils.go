@@ -34,11 +34,10 @@ import (
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/env"
-
 )
 
 const (
-	releaseURL     = "https://github.com/istio/istio/releases/download/%s/istio-%s-%s.tar.gz"
+	releaseURL = "https://github.com/istio/istio/releases/download/%s/istio-%s-%s.tar.gz"
 )
 
 // GetHeadCommitSHA finds the SHA of the commit to which the HEAD of branch points

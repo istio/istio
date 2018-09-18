@@ -22,10 +22,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"istio.io/istio/tests/util/registry"
+	"io"
+
 	"istio.io/istio/mixer/cmd/shared"
 	"istio.io/istio/pkg/log"
-	"io"
+	"istio.io/istio/tests/util/registry"
 )
 
 type localRegistrySetupArgs struct {
@@ -35,7 +36,7 @@ type localRegistrySetupArgs struct {
 
 // closerRegister is a non thread safe struct to register io.Closers
 type closerRegister struct {
-	closers [] io.Closer
+	closers []io.Closer
 }
 
 func (cr *closerRegister) register(closer io.Closer) {

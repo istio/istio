@@ -19,11 +19,11 @@ import (
 	"path"
 	"strings"
 
-	"istio.io/istio/tests/util"
 	"istio.io/istio/pkg/test/kube"
+	"istio.io/istio/tests/util"
 
-	"k8s.io/client-go/rest"
 	"github.com/hashicorp/go-multierror"
+	"k8s.io/client-go/rest"
 )
 
 const (

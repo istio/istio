@@ -199,7 +199,7 @@ func (a *Accessor) CreateNamespace(ns string, istioTestingAnnotation string) err
 	scope.Infof("Creating namespace: %s", ns)
 	n := v12.Namespace{
 		ObjectMeta: v1.ObjectMeta{
-			Name: ns,
+			Name:   ns,
 			Labels: map[string]string{},
 		},
 	}
