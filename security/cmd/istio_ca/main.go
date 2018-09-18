@@ -169,8 +169,6 @@ func init() {
 			"When set to true, the '--signing-cert' and '--signing-key' options are ignored.")
 	flags.DurationVar(&opts.selfSignedCACertTTL, "self-signed-ca-cert-ttl", cmd.DefaultSelfSignedCACertTTL,
 		"The TTL of self-signed CA root certificate")
-	flags.StringVar(&opts.identityDomain, "identity-domain", controller.DefaultIdentityDomain,
-		fmt.Sprintf("The domain to use for identities (default: %s)", controller.DefaultIdentityDomain))
 
 	// Upstream CA configuration if Citadel interacts with upstream CA.
 	flags.StringVar(&opts.cAClientConfig.CAAddress, "upstream-ca-address", "", "The IP:port address of the upstream "+
@@ -181,6 +179,8 @@ func init() {
 	flags.IntVar(&opts.cAClientConfig.RSAKeySize, "key-size", 2048, "Size of generated private key")
 
 	// Certificate signing configuration.
+	flags.StringVar(&opts.identityDomain, "identity-domain", controller.DefaultIdentityDomain,
+		fmt.Sprintf("The domain to use for identities (default: %s)", controller.DefaultIdentityDomain))
 	flags.DurationVar(&opts.workloadCertTTL, "workload-cert-ttl", cmd.DefaultWorkloadCertTTL,
 		"The TTL of issued workload certificates")
 	flags.DurationVar(&opts.maxWorkloadCertTTL, "max-workload-cert-ttl", cmd.DefaultMaxWorkloadCertTTL,
