@@ -31,9 +31,10 @@ const (
 	namespaceTemplate = `apiVersion: v1
 kind: Namespace
 metadata:
-name: %s
-labels:
-istio-injection: disabled`
+  name: %s
+  labels:
+    istio-injection: disabled
+`
 )
 
 // Instance represents an Istio deployment instance that has been performed by this test code.
@@ -103,7 +104,7 @@ func Start(kubeConfig, chartDir, workDir, hub, tag, namespace string, val values
 
 	namespaceData := fmt.Sprintf(namespaceTemplate, namespace)
 
-	generatedYaml = namespaceData + "\n---\n" + generatedYaml
+	generatedYaml = namespaceData + generatedYaml
 
 	if err = ioutil.WriteFile(instance.yamlFilePath, []byte(generatedYaml), os.ModePerm); err != nil {
 		scopes.CI.Infof("Writing out Helm generated Yaml file failed: %v", err)
