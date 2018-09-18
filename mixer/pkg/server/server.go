@@ -145,7 +145,7 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 		s.tracer, err = p.configTracing("istio-mixer", a.TracingOptions)
 		if err != nil {
 			_ = s.Close()
-			return nil, fmt.Errorf("unable to setup tracing")
+			return nil, fmt.Errorf("unable to setup tracing: %v", err)
 		}
 		grpcOptions = append(grpcOptions, grpc.UnaryInterceptor(otgrpc.OpenTracingServerInterceptor(ot.GlobalTracer())))
 	}
