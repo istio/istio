@@ -16,6 +16,8 @@ package settings
 
 import (
 	"fmt"
+	"os"
+	"path"
 	"strings"
 
 	"github.com/google/uuid"
@@ -96,6 +98,12 @@ func New(testID string) (*Settings, error) {
 
 	s.TestID = testID
 	s.RunID = generateRunID(testID)
+
+	s.WorkDir = path.Join(s.WorkDir, s.RunID)
+
+	if err := os.Mkdir(s.WorkDir, os.ModePerm); err != nil {
+		return nil, err
+	}
 
 	if err := s.validate(); err != nil {
 		return nil, err
