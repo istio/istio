@@ -425,6 +425,7 @@ security:
   replicaCount: 1
   image: citadel
   selfSigned: true # indicate if self-signed CA is used.
+  # DO NOT CHANGE the value, this is work in progress (see https://github.com/istio/istio/issues/8661), only cluster.local works
   identityDomain: cluster.local # indicate the domain used in SPIFFE identity URL
 
 #
