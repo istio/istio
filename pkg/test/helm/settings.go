@@ -25,6 +25,7 @@ type Settings struct {
 	GalleyEnabled     bool
 }
 
+// generate a map[string]string for easy processing.
 func (s *Settings) generate() map[string]string {
 	// TODO: Add more flags, as needed.
 	return map[string]string{

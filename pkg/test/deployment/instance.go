@@ -133,5 +133,10 @@ func (i *Instance) Wait(a *kube.Accessor) error {
 
 // Delete this deployment instance.
 func (i *Instance) Delete() error {
-	return kube.Delete(i.kubeConfig, i.yamlFilePath)
+	err := kube.Delete(i.kubeConfig, i.yamlFilePath)
+	if err != nil {
+		scopes.CI.Errorf("Error deleting deployment: %v", err)
+	}
+
+	return err
 }

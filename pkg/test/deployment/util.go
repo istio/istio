@@ -15,10 +15,10 @@
 package deployment
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path"
 
 	"istio.io/istio/pkg/test/framework/scopes"
 	"istio.io/istio/pkg/test/kube"
@@ -39,39 +39,22 @@ func CopyPodLogs(kubeConfig, workDir, namespace string, accessor *kube.Accessor)
 	pods, err := accessor.GetPods(namespace)
 
 	if err != nil {
-		scopes.CI.Errorf("Error getting pods for error dump: %v", err)
+		scopes.CI.Errorf("Error getting pods for log copying: %v", err)
 		return
-	}
-
-	for i, pod := range pods {
-		scopes.CI.Infof("[Pod %d] %s: phase:%q", i, pod.Name, pod.Status.Phase)
-		for j, cs := range pod.Status.ContainerStatuses {
-			scopes.CI.Infof("[Container %d/%d] %s: ready:%v", i, j, cs.Name, cs.Ready)
-		}
-
-		by, err := json.MarshalIndent(pod, "", "  ")
-		if err != nil {
-			scopes.CI.Errorf("Error marshaling pod status: %v", err)
-		}
-		scopes.CI.Infof("Pod Detail: \n%s\n", string(by))
 	}
 
 	for _, pod := range pods {
 		for _, cs := range pod.Status.ContainerStatuses {
 			logs, err := kube.Logs(kubeConfig, namespace, pod.Name, cs.Name)
 			if err != nil {
-				scopes.CI.Errorf("Error getting logs from pods: %v", err)
+				scopes.CI.Errorf("Error getting logs from pod/container %s/%s: %v", pod.Name, cs.Name, err)
 				continue
 			}
 
-			outFile, err := ioutil.TempFile(workDir, fmt.Sprintf("log_pod_%s_%s", pod.Name, cs.Name))
-			if err != nil {
-				scopes.CI.Errorf("Error creating temporary file for storing pod log: %v", err)
-				continue
-			}
+			outPath := path.Join(workDir, fmt.Sprintf("%s_%s.log", pod.Name, cs.Name))
 
-			if err := ioutil.WriteFile(outFile.Name(), []byte(logs), os.ModePerm); err != nil {
-				scopes.CI.Errorf("Error writing out pod lod to file: %v", err)
+			if err := ioutil.WriteFile(outPath, []byte(logs), os.ModePerm); err != nil {
+				scopes.CI.Errorf("Error writing out pod log to file: %v", err)
 			}
 		}
 	}
