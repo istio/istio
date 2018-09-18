@@ -16,7 +16,9 @@ package v1alpha3
 
 import (
 	"fmt"
+	"os"
 	"path"
+	"strings"
 	"time"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -36,7 +38,18 @@ const (
 	DefaultLbType = networking.LoadBalancerSettings_ROUND_ROBIN
 	// ManagementClusterHostname indicates the hostname used for building inbound clusters for management ports
 	ManagementClusterHostname = "mgmtCluster"
+
+	spiffe = "spiffe"
 )
+
+// canonicalSAPrefix is the prefix of canonical service account.
+// The CA issues cert with identity format like 'canonicalSAPrefix/<identity>'
+// Its value should be set from the ISTIO_SA_DOMAIN_CANONICAL env variable.
+var canonicalSAPrefix string
+
+func init() {
+	canonicalSAPrefix = os.Getenv("ISTIO_SA_DOMAIN_CANONICAL")
+}
 
 // TODO: Need to do inheritance of DestRules based on domain suffix match
 
@@ -114,15 +127,15 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 			if config != nil {
 				destinationRule := config.Spec.(*networking.DestinationRule)
 				convertIstioMutual(destinationRule, service, upstreamServiceAccounts)
-				applyTrafficPolicy(defaultCluster, destinationRule.TrafficPolicy, port)
+				applyTrafficPolicy(defaultCluster, destinationRule.TrafficPolicy, port, env.Mesh.RdsRefreshDelay, env.Mesh.SdsUdsPath)
 
 				for _, subset := range destinationRule.Subsets {
 					subsetClusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port.Port)
 					subsetCluster := buildDefaultCluster(env, subsetClusterName, convertResolution(service.Resolution), hosts)
 					updateEds(subsetCluster)
 					setUpstreamProtocol(subsetCluster, port)
-					applyTrafficPolicy(subsetCluster, destinationRule.TrafficPolicy, port)
-					applyTrafficPolicy(subsetCluster, subset.TrafficPolicy, port)
+					applyTrafficPolicy(subsetCluster, destinationRule.TrafficPolicy, port, env.Mesh.RdsRefreshDelay, env.Mesh.SdsUdsPath)
+					applyTrafficPolicy(subsetCluster, subset.TrafficPolicy, port, env.Mesh.RdsRefreshDelay, env.Mesh.SdsUdsPath)
 					// call plugins
 					for _, p := range configgen.Plugins {
 						p.OnOutboundCluster(env, push, service, port, subsetCluster)
@@ -311,7 +324,7 @@ func SelectTrafficPolicyComponents(policy *networking.TrafficPolicy, port *model
 	return connectionPool, outlierDetection, loadBalancer, tls
 }
 
-func applyTrafficPolicy(cluster *v2.Cluster, policy *networking.TrafficPolicy, port *model.Port) {
+func applyTrafficPolicy(cluster *v2.Cluster, policy *networking.TrafficPolicy, port *model.Port, refreshDuration *types.Duration, sdsUdsPath string) {
 	if policy == nil {
 		return
 	}
@@ -320,7 +333,7 @@ func applyTrafficPolicy(cluster *v2.Cluster, policy *networking.TrafficPolicy, p
 	applyConnectionPool(cluster, connectionPool)
 	applyOutlierDetection(cluster, outlierDetection)
 	applyLoadBalancer(cluster, loadBalancer)
-	applyUpstreamTLSSettings(cluster, tls)
+	applyUpstreamTLSSettings(cluster, tls, refreshDuration, sdsUdsPath)
 }
 
 // FIXME: there isn't a way to distinguish between unset values and zero values
@@ -422,7 +435,7 @@ func applyLoadBalancer(cluster *v2.Cluster, lb *networking.LoadBalancerSettings)
 	}
 }
 
-func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) {
+func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings, refreshDuration *types.Duration, sdsUdsPath string) {
 	if tls == nil {
 		return
 	}
@@ -467,27 +480,48 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) 
 				cluster.Name)
 			return
 		}
+
 		cluster.TlsContext = &auth.UpstreamTlsContext{
-			CommonTlsContext: &auth.CommonTlsContext{
-				TlsCertificates: []*auth.TlsCertificate{
-					{
-						CertificateChain: &core.DataSource{
-							Specifier: &core.DataSource_Filename{
-								Filename: tls.ClientCertificate,
-							},
+			CommonTlsContext: &auth.CommonTlsContext{},
+			Sni:              tls.Sni,
+		}
+
+		// Fallback to file mount secret instead of SDS if ISTIO_SA_DOMAIN_CANONICAL env variable isn't set.
+		if sdsUdsPath == "" || tls.Mode == networking.TLSSettings_MUTUAL || canonicalSAPrefix == "" {
+			cluster.TlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{
+				ValidationContext: certValidationContext,
+			}
+			cluster.TlsContext.CommonTlsContext.TlsCertificates = []*auth.TlsCertificate{
+				{
+					CertificateChain: &core.DataSource{
+						Specifier: &core.DataSource_Filename{
+							Filename: tls.ClientCertificate,
 						},
-						PrivateKey: &core.DataSource{
-							Specifier: &core.DataSource_Filename{
-								Filename: tls.PrivateKey,
-							},
+					},
+					PrivateKey: &core.DataSource{
+						Specifier: &core.DataSource_Filename{
+							Filename: tls.PrivateKey,
 						},
 					},
 				},
-				ValidationContextType: &auth.CommonTlsContext_ValidationContext{
-					ValidationContext: certValidationContext,
-				},
-			},
-			Sni: tls.Sni,
+			}
+		} else {
+			saDomainCanonicalPrefix := fmt.Sprintf("%s://%s", spiffe, canonicalSAPrefix)
+			cluster.TlsContext.CommonTlsContext.ValidationContextType = model.ConstructValidationContext(model.CARootCertPath, tls.SubjectAltNames)
+			cluster.TlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = []*auth.SdsSecretConfig{}
+			refreshDuration, _ := types.DurationFromProto(refreshDuration)
+
+			for _, sa := range tls.SubjectAltNames {
+				// Choose service account which is added from annotation 'alpha.istio.io/canonical-serviceaccounts' as SdsConfig Name
+				// The CA uses identity in Oauth token, as long as SdsConfig Name is unique should be fine.
+				if !strings.HasPrefix(sa, saDomainCanonicalPrefix) {
+					continue
+				}
+
+				cluster.TlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs =
+					append(cluster.TlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
+						model.ConstructSdsSecretConfig(sa, &refreshDuration, sdsUdsPath))
+			}
 		}
 
 		if cluster.Http2ProtocolOptions != nil {
@@ -540,7 +574,7 @@ func buildDefaultCluster(env *model.Environment, name string, discoveryType v2.C
 	}
 
 	defaultTrafficPolicy := buildDefaultTrafficPolicy(env, discoveryType)
-	applyTrafficPolicy(cluster, defaultTrafficPolicy, nil)
+	applyTrafficPolicy(cluster, defaultTrafficPolicy, nil, env.Mesh.SdsRefreshDelay, env.Mesh.SdsUdsPath)
 	return cluster
 }
 
