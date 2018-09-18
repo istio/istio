@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2017 Istio Authors
+# Copyright 2018 Istio Authors
 
 #   Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
@@ -14,10 +14,10 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+
 #######################################
 #                                     #
-#        mixer-e2e (v1alpha3)         #
-#             MCP variant             #
+#             e2e-suite               #
 #                                     #
 #######################################
 
@@ -28,6 +28,5 @@ set -u
 # Print commands
 set -x
 
-# Run tests with auth disabled
-#echo 'Running mixer e2e tests (v1alpha3, noauth)'
-./prow/e2e-suite.sh --use_mcp --single_test e2e_mixer
+echo 'Running Simple test with rbac, auth Tests'
+./prow/e2e-suite.sh --auth_enable --use_mcp --single_test e2e_simple --installer helm "$@"
