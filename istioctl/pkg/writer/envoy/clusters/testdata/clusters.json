@@ -236,20 +236,34 @@
               "portValue": 9080
             }
           },
-          "stats": {
-            "cx_active": {
-              "type": "GAUGE"
+          "stats": [
+            {
+              "type": "GAUGE",
+              "name": "cx_active"
             },
-            "cx_connect_fail": {},
-            "cx_total": {},
-            "rq_active": {
-              "type": "GAUGE"
+            {
+              "name": "cx_connect_fail"
             },
-            "rq_error": {},
-            "rq_success": {},
-            "rq_timeout": {},
-            "rq_total": {}
-          },
+            {
+              "name": "cx_total"
+            },
+            {
+              "type": "GAUGE",
+              "name": "rq_active"
+            },
+            {
+              "name": "rq_error"
+            },
+            {
+              "name": "rq_success"
+            },
+            {
+              "name": "rq_timeout"
+            },
+            {
+              "name": "rq_total"
+            }
+          ],
           "healthStatus": {
             "edsHealthStatus": "HEALTHY"
           }
@@ -261,20 +275,34 @@
               "portValue": 9080
             }
           },
-          "stats": {
-            "cx_active": {
-              "type": "GAUGE"
+          "stats": [
+            {
+              "type": "GAUGE",
+              "name": "cx_active"
             },
-            "cx_connect_fail": {},
-            "cx_total": {},
-            "rq_active": {
-              "type": "GAUGE"
+            {
+              "name": "cx_connect_fail"
             },
-            "rq_error": {},
-            "rq_success": {},
-            "rq_timeout": {},
-            "rq_total": {}
-          },
+            {
+              "name": "cx_total"
+            },
+            {
+              "type": "GAUGE",
+              "name": "rq_active"
+            },
+            {
+              "name": "rq_error"
+            },
+            {
+              "name": "rq_success"
+            },
+            {
+              "name": "rq_timeout"
+            },
+            {
+              "name": "rq_total"
+            }
+          ],
           "healthStatus": {
             "edsHealthStatus": "HEALTHY"
           }
@@ -286,20 +314,34 @@
               "portValue": 9080
             }
           },
-          "stats": {
-            "cx_active": {
-              "type": "GAUGE"
+          "stats": [
+            {
+              "type": "GAUGE",
+              "name": "cx_active"
             },
-            "cx_connect_fail": {},
-            "cx_total": {},
-            "rq_active": {
-              "type": "GAUGE"
+            {
+              "name": "cx_connect_fail"
             },
-            "rq_error": {},
-            "rq_success": {},
-            "rq_timeout": {},
-            "rq_total": {}
-          },
+            {
+              "name": "cx_total"
+            },
+            {
+              "type": "GAUGE",
+              "name": "rq_active"
+            },
+            {
+              "name": "rq_error"
+            },
+            {
+              "name": "rq_success"
+            },
+            {
+              "name": "rq_timeout"
+            },
+            {
+              "name": "rq_total"
+            }
+          ],
           "healthStatus": {
             "edsHealthStatus": "HEALTHY"
           }
