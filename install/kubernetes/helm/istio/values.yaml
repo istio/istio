@@ -388,14 +388,6 @@ mixer:
 
   podAnnotations: {}
 
-  prometheusStatsdExporter:
-    hub: docker.io/prom
-    tag: v0.6.0
-
-    # Configuration to be included as the statsd_exporter mapping configuration.
-    # See https://github.com/prometheus/statsd_exporter/tree/master#metric-mapping-and-configuration
-    mapping: {}
-
 #
 # pilot configuration
 #
