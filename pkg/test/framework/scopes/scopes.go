@@ -21,5 +21,5 @@ var (
 	Framework = log.RegisterScope("tf", "General scope for the test framework", 0)
 
 	// CI system specific logging scope.
-	CI = log.RegisterScope("lab", "Scope for normal log reporting to be used in CI systems", 0)
+	CI = log.RegisterScope("CI", "Scope for normal log reporting to be used in CI systems", 0)
 )
