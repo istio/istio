@@ -67,7 +67,7 @@ const (
 	attrRequestAudiences   = "request.auth.audiences"      // intended audience(s) for this authentication information.
 	attrRequestPresenter   = "request.auth.presenter"      // authorized presenter of the credential.
 	attrRequestClaims      = "request.auth.claims"         // claim name is surrounded by brackets, e.g. "request.auth.claims[iss]".
-	attrRequestClaimGroups = "request.auth.claims[groups]" // groups claim".
+	attrRequestClaimGroups = "request.auth.claims[groups]" // groups claim.
 
 	// attributes that could be used in a ServiceRole constraint.
 	attrDestIP        = "destination.ip"        // supports both single ip and cidr, e.g. "10.1.2.3" or "10.1.0.0/16".
@@ -194,7 +194,7 @@ func generateMetadataStringMatcher(keys []string, v *metadata.StringMatcher) *me
 	}
 }
 
-//Generate a metadata list matcher for the given path keys and value.
+// generateMetadataListMatcher generates a metadata list matcher for the given path keys and value.
 func generateMetadataListMatcher(keys []string, v string) *metadata.MetadataMatcher {
 	listMatcher := &metadata.ListMatcher{
 		MatchPattern: &metadata.ListMatcher_OneOf{
@@ -224,7 +224,7 @@ func generateMetadataListMatcher(keys []string, v string) *metadata.MetadataMatc
 	}
 }
 
-// Generate keys for metadata paths
+// generateMetaKeys generates keys for metadata paths.
 func generateMetaKeys(k string) ([]string, error) {
 	var keys []string
 
@@ -256,7 +256,7 @@ func createStringMatcher(v string, forceRegexPattern, forTCPFilter bool) *metada
 	if v == "*" || forceRegexPattern {
 		stringMatcher = &metadata.StringMatcher{
 			MatchPattern: &metadata.StringMatcher_Regex{
-				Regex: extraPrefix + strings.Replace(v, "*", ".*", -1),
+				Regex: strings.Replace(v, "*", ".*", -1),
 			},
 		}
 	} else if strings.HasPrefix(v, "*") {
@@ -297,8 +297,8 @@ func createDynamicMetadataMatcher(k, v string) *metadata.MetadataMatcher {
 
 	// Handle the claims under attrRequestClaims
 	if len(keys) == 2 && keys[0] == attrRequestClaims {
-		//Generate a metadata list matcher for the given path keys and value.
-		//On proxy side, the value should be of list type.
+		// Generate a metadata list matcher for the given path keys and value.
+		// On proxy side, the value should be of list type.
 		return generateMetadataListMatcher(keys, v)
 	}
 
@@ -636,24 +636,18 @@ func convertToPrincipal(subject *rbacproto.Subject, forTCPFilter bool) *policypr
 				},
 			})
 		} else {
+			var id *policyproto.Principal
 			if forTCPFilter {
 				// Generate the user directly in Authenticated principal as metadata is not supported in
 				// TCP filter.
-				// TODO(yangminzhu): Support attrSrcNamespace and attrSrcPrincipal once
-				// https://github.com/envoyproxy/envoy/pull/4250 is merged.
-				ids.AndIds.Ids = append(ids.AndIds.Ids, &policyproto.Principal{
-					Identifier: &policyproto.Principal_Authenticated_{
-						Authenticated: &policyproto.Principal_Authenticated{
-							PrincipalName: createStringMatcher(subject.User, false /* forceRegexPattern */, true /* forTCPFilter */),
-						},
-					},
-				})
+				m := createStringMatcher(subject.User, false /* forceRegexPattern */, forTCPFilter)
+				id = principalForStringMatcher(m)
 			} else {
 				// Generate the user field with attrSrcPrincipal in the metadata.
-				id := principalForKeyValue(attrSrcPrincipal, subject.User)
-				if id != nil {
-					ids.AndIds.Ids = append(ids.AndIds.Ids, id)
-				}
+				id = principalForKeyValue(attrSrcPrincipal, subject.User, forTCPFilter)
+			}
+			if id != nil {
+				ids.AndIds.Ids = append(ids.AndIds.Ids, id)
 			}
 		}
 	}
@@ -688,7 +682,7 @@ func convertToPrincipal(subject *rbacproto.Subject, forTCPFilter bool) *policypr
 					attrSrcPrincipal, subject.User)
 				continue
 			}
-			id := principalForKeyValue(k, v)
+			id := principalForKeyValue(k, v, forTCPFilter)
 			if id != nil {
 				ids.AndIds.Ids = append(ids.AndIds.Ids, id)
 			}
@@ -780,7 +774,19 @@ func permissionForKeyValues(key string, values []string) *policyproto.Permission
 // Create a Principal based on the key and the value.
 // key: the key of a subject property.
 // value: the value of a subject property.
-func principalForKeyValue(key, value string) *policyproto.Principal {
+// forTCPFilter: the principal is used in the TCP filter.
+func principalForKeyValue(key, value string, forTCPFilter bool) *policyproto.Principal {
+	if forTCPFilter {
+		switch key {
+		case attrSrcPrincipal:
+			m := createStringMatcher(value, false /* forceRegexPattern */, forTCPFilter)
+			return principalForStringMatcher(m)
+		case attrSrcNamespace:
+			m := createStringMatcher(fmt.Sprintf("*/ns/%s/*", value), true /* forceRegexPattern */, forTCPFilter)
+			return principalForStringMatcher(m)
+		}
+	}
+
 	switch {
 	case key == attrSrcIP:
 		cidr, err := convertToCidr(value)
@@ -813,5 +819,19 @@ func principalForKeyValue(key, value string) *policyproto.Principal {
 	default:
 		rbacLog.Errorf("ignored unsupported property key: %s", key)
 		return nil
+	}
+}
+
+// principalForStringMatcher generates a principal based on the string matcher.
+func principalForStringMatcher(m *metadata.StringMatcher) *policyproto.Principal {
+	if m == nil {
+		return nil
+	}
+	return &policyproto.Principal{
+		Identifier: &policyproto.Principal_Authenticated_{
+			Authenticated: &policyproto.Principal_Authenticated{
+				PrincipalName: m,
+			},
+		},
 	}
 }
