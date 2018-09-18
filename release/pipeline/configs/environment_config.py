@@ -43,7 +43,8 @@ def GetDefaultAirflowConfig(branch, gcs_path, mfest_commit, pipeline_type,
   config['VERIFY_CONSISTENCY'] = verify_consistency
   config['VERSION']            = version
   # MFEST_COMMIT was used for green build, we are transitioning away from it
-  # COMMIT is being used for istio/istio commit sha
+  # COMMIT is being used for istio/istio commit sha or to specify branch
+  # if it specifies branch the of that branch is used to build
   config['COMMIT']             = commit
 
 

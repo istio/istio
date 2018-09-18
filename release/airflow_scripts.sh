@@ -24,7 +24,7 @@ function get_git_commit_cmd() {
     cp /home/airflow/gcs/data/*json .
     cp /home/airflow/gcs/data/*sh   .
 
-    git clone istio istio-code -b "$BRANCH" --depth 1
+    git clone "$ISTIO_REPO" istio-code -b "$BRANCH" --depth 1
     cp istio-code/release/*json .
     cp istio-code/release/*sh   .
     chmod u+x ./*sh
@@ -50,12 +50,12 @@ function test_command() {
     git config --global user.name "TestRunnerBot"
     git config --global user.email "testrunner@istio.io"
     ls -l    ./githubctl
-    ./githubctl                      \
-    --token_file="$TOKEN_FILE"       \
-    --op=dailyRelQual                \
+    ./githubctl \
+    --token_file="$TOKEN_FILE" \
+    --op=dailyRelQual \
     --hub="gcr.io/$GCR_STAGING_DEST" \
-    --gcs_path="$GCS_BUILD_PATH"     \
-    --tag="$VERSION"                 \
+    --gcs_path="$GCS_BUILD_PATH" \
+    --tag="$VERSION" \
     --base_branch="$BRANCH"
 }
 
@@ -100,16 +100,16 @@ function release_push_github_docker_template() {
   gsutil -q cp "gs://$GCS_RELEASE_TOOLS_PATH/*.sh" .
   chmod u+x ./*
 
-  ./start_gcb_publish.sh           \
+  ./start_gcb_publish.sh \
     -b "$GCS_MONTHLY_RELEASE_PATH" \
-    -c "$GCS_BUILD_PATH"           \
-    -d "$DOCKER_HUB"               \
-    -g "$GCS_GITHUB_PATH"          \
-    -h "$GITHUB_ORG"               \
-    -i "$GITHUB_REPO"              \
-    -r "$GCR_RELEASE_DEST"         \
-    -s "$GCS_FULL_STAGING_PATH"    \
-    -v "$VERSION"                  \
+    -c "$GCS_BUILD_PATH" \
+    -d "$DOCKER_HUB" \
+    -g "$GCS_GITHUB_PATH" \
+    -h "$GITHUB_ORG" \
+    -i "$GITHUB_REPO" \
+    -r "$GCR_RELEASE_DEST" \
+    -s "$GCS_FULL_STAGING_PATH" \
+    -v "$VERSION" \
     -w
 }
 
@@ -118,13 +118,13 @@ function release_tag_github_template() {
   gsutil -q cp "gs://$GCS_RELEASE_TOOLS_PATH/*.sh" .
   chmod u+x ./*
 
-  ./start_gcb_tag.sh                    \
-    -c "$GCS_BUILD_PATH"                \
+  ./start_gcb_tag.sh \
+    -c "$GCS_BUILD_PATH" \
     -e "istio_releaser_bot@example.com" \
-    -g "$GCS_GITHUB_PATH"               \
-    -h "$GITHUB_ORG"                    \
-    -n "IstioReleaserBot"               \
-    -s "$GCS_FULL_STAGING_PATH"         \
-    -v "$VERSION"                       \
+    -g "$GCS_GITHUB_PATH" \
+    -h "$GITHUB_ORG" \
+    -n "IstioReleaserBot" \
+    -s "$GCS_FULL_STAGING_PATH" \
+    -v "$VERSION" \
     -w
 }

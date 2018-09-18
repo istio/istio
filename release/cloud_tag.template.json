@@ -2,7 +2,7 @@
   "steps": [
     {
       "name": "gcr.io/istio-testing/istio-builder:0.5.7",
-      "args": [ "-c", "git clone https://github.com/istio/global-build && global-build/prow/new_green_build.sh -b \"$_BRANCH\" -r \"$_GCS_RELEASE_TOOLS_PATH\" " ],
+      "args": [ "-c", "git clone https://github.com/istio/global-build && global-build/prow/istio_checkout_code.sh -b \"$_BRANCH\" -r \"$_GCS_RELEASE_TOOLS_PATH\" " ],
       "entrypoint": "bash"
     },
     {
