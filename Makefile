@@ -421,7 +421,7 @@ ${ISTIO_BIN}/go-junit-report:
 # Run coverage tests
 JUNIT_UNIT_TEST_XML ?= $(ISTIO_OUT)/junit_unit-tests.xml
 ifeq ($(WHAT),)
-       TEST_OBJ = common-test pilot-test mixer-test security-test galley-test istioctl-test
+       TEST_OBJ = common-test pilot-test mixer-test mixer-benchmark-test security-test galley-test istioctl-test
 else
        TEST_OBJ = selected-pkg-test
 endif
@@ -474,6 +474,10 @@ MIXER_TEST_T ?= ${T} ${GOTEST_PARALLEL}
 mixer-test: mixs
 	# Some tests use relative path "testdata", must be run from mixer dir
 	(cd mixer; go test ${GOTEST_P} ${MIXER_TEST_T} ./...)
+
+.PHONY: mixer-benchmark-test
+mixer-benchmark-test: mixs
+	go test ${T} -benchmem -run= ./mixer/test/perf/ -bench ./...
 
 .PHONY: galley-test
 galley-test: depend
