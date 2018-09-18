@@ -69,7 +69,7 @@ func defaultSettings() *Settings {
 	o := log.DefaultOptions()
 
 	// Disable lab logging for the default run.
-	o.SetOutputLevel(scopes.Lab.Name(), log.NoneLevel)
+	o.SetOutputLevel(scopes.CI.Name(), log.NoneLevel)
 
 	return &Settings{
 		Environment: Local,

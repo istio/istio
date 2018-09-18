@@ -81,9 +81,9 @@ func (d *driver) Run(testID string, m *testing.M) (int, error) {
 	}
 
 	// Call m.Run() while not holding the lock.
-	scopes.Lab.Infof(">>> Beginning test run for: '%s'", testID)
+	scopes.CI.Infof(">>> Beginning test run for: '%s'", testID)
 	rt = m.Run()
-	scopes.Lab.Infof("<<< Completing test run for: '%s'", testID)
+	scopes.CI.Infof("<<< Completing test run for: '%s'", testID)
 
 	d.lock.Lock()
 	defer d.lock.Unlock()
@@ -94,7 +94,7 @@ func (d *driver) Run(testID string, m *testing.M) (int, error) {
 		if closer, ok := d.context.Environment().(io.Closer); ok {
 			err := closer.Close()
 			if err != nil {
-				scopes.Lab.Warnf("Error during environment close: %v", err)
+				scopes.CI.Warnf("Error during environment close: %v", err)
 			}
 		}
 	}
@@ -197,7 +197,7 @@ func (d *driver) initialize(testID string) (int, error) {
 	if err != nil {
 		return -1, err
 	}
-	scopes.Lab.Infof("driver settings: %+v", s)
+	scopes.CI.Infof("driver settings: %+v", s)
 
 	if err := log.Configure(s.LogOptions); err != nil {
 		return -1, err

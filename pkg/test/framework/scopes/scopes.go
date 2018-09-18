@@ -20,6 +20,6 @@ var (
 	// Framework is the general logging scope for the framework.
 	Framework = log.RegisterScope("tf", "General scope for the test framework", 0)
 
-	// Lab is the CI system specific logging scope.
-	Lab = log.RegisterScope("lab", "Scope for normal log reporting to be used by the lab", 0)
+	// CI system specific logging scope.
+	CI = log.RegisterScope("lab", "Scope for normal log reporting to be used in CI systems", 0)
 )
