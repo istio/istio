@@ -25,19 +25,20 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/istio/pkg/test/application"
+
 	"github.com/gorilla/websocket"
 	"google.golang.org/grpc/metadata"
 
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/test/protocol"
-	"istio.io/istio/pkg/test/service/echo/proto"
+	"istio.io/istio/pkg/test/application/echo/proto"
 )
 
 type handler struct {
 	port    int
 	version string
 	caFile  string
-	client  protocol.Client
+	dialer  application.Dialer
 }
 
 var upgrader = websocket.Upgrader{
@@ -141,7 +142,7 @@ func (h handler) newBatchOptions(req *proto.ForwardEchoRequest) batchOptions {
 		qps:     int(req.Qps),
 		message: req.Message,
 		caFile:  h.caFile,
-		client:  h.client,
+		dialer:  h.dialer,
 	}
 	if req.Header != nil {
 		ops.headerKey = req.Header.Key

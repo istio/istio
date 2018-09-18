@@ -19,40 +19,65 @@ import (
 	"net"
 	"net/http"
 
-	multierror "github.com/hashicorp/go-multierror"
+	"istio.io/istio/pkg/test/application"
+
+	"github.com/hashicorp/go-multierror"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/test/protocol"
-	"istio.io/istio/pkg/test/service/echo/proto"
+	"istio.io/istio/pkg/test/application/echo/proto"
 )
 
-// Application is a simple application than processes echo requests via various transports.
-type Application struct {
-	// Ports are the ports that the application should listen on. If any port number is 0, an available port will be selected
-	// when the application is started.
-	Ports model.PortList
-	// TLSCert defines the server-side TLS cert to use with GRPC.
+// Factory is a factory for echo applications.
+type Factory struct {
+	Ports   model.PortList
 	TLSCert string
-	// TLSKey defines the server-side TLS key to use with GRPC.
 	TLSCKey string
-	// Version string
 	Version string
-	// Client client for calling out to other services
-	Client protocol.Client
+}
+
+// NewApplication implements the application.Factory interface.
+func (f *Factory) NewApplication(dialer application.Dialer) (application.Application, error) {
+	// Make a copy of the port list.
+	ports := make(model.PortList, len(f.Ports))
+	for i, p := range f.Ports {
+		tempP := *p
+		ports[i] = &tempP
+	}
+
+	app := &echo{
+		ports:   ports,
+		tlsCert: f.TLSCert,
+		tlsCKey: f.TLSCKey,
+		version: f.Version,
+		dialer:  dialer.Fill(),
+	}
+	if err := app.start(); err != nil {
+		return nil, err
+	}
+
+	return app, nil
+}
+
+// echo is a simple application than processes echo requests via various transports.
+type echo struct {
+	ports   model.PortList
+	tlsCert string
+	tlsCKey string
+	version string
+	dialer  application.Dialer
 
 	servers []serverInterface
 }
 
-// GetPorts returns the ports for this application.
-func (a *Application) GetPorts() model.PortList {
-	return a.Ports
+// GetPorts implements the application.Application interface
+func (a *echo) GetPorts() model.PortList {
+	return a.ports
 }
 
-// Start the application.
-func (a *Application) Start() (err error) {
+func (a *echo) start() (err error) {
 	defer func() {
 		if err != nil {
 			a.Close()
@@ -63,12 +88,12 @@ func (a *Application) Start() (err error) {
 		return err
 	}
 
-	a.servers = make([]serverInterface, len(a.Ports))
-	for i, p := range a.Ports {
+	a.servers = make([]serverInterface, len(a.ports))
+	for i, p := range a.ports {
 		handler := &handler{
-			version: a.Version,
-			caFile:  a.TLSCert,
-			client:  a.Client,
+			version: a.version,
+			caFile:  a.tlsCert,
+			dialer:  a.dialer,
 		}
 		switch p.Protocol {
 		case model.ProtocolTCP:
@@ -86,8 +111,8 @@ func (a *Application) Start() (err error) {
 			a.servers[i] = &grpcServer{
 				port:    p,
 				h:       handler,
-				tlsCert: a.TLSCert,
-				tlsCKey: a.TLSCKey,
+				tlsCert: a.tlsCert,
+				tlsCKey: a.tlsCKey,
 			}
 		default:
 			return fmt.Errorf("unsupported protocol: %s", p.Protocol)
@@ -103,8 +128,8 @@ func (a *Application) Start() (err error) {
 	return nil
 }
 
-// Close stops this application
-func (a *Application) Close() (err error) {
+// Close implements the application.Application interface
+func (a *echo) Close() (err error) {
 	for i, s := range a.servers {
 		if s != nil {
 			err = multierror.Append(err, s.stop())
@@ -114,8 +139,8 @@ func (a *Application) Close() (err error) {
 	return
 }
 
-func (a *Application) validate() error {
-	for _, port := range a.Ports {
+func (a *echo) validate() error {
+	for _, port := range a.ports {
 		switch port.Protocol {
 		case model.ProtocolTCP:
 		case model.ProtocolHTTP:

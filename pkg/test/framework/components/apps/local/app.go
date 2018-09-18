@@ -25,11 +25,10 @@ import (
 	"google.golang.org/grpc"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/test/framework/components/apps/local/envoy/agent"
-	"istio.io/istio/pkg/test/framework/components/apps/local/envoy/agent/pilot"
+	"istio.io/istio/pkg/test/application/echo"
+	"istio.io/istio/pkg/test/application/echo/proto"
+	"istio.io/istio/pkg/test/framework/components/apps/local/agent"
 	"istio.io/istio/pkg/test/framework/environment"
-	"istio.io/istio/pkg/test/service/echo"
-	"istio.io/istio/pkg/test/service/echo/proto"
 )
 
 var (
@@ -80,7 +79,7 @@ func newApp(cfg appConfig) (environment.DeployedApp, error) {
 		TLSCert: cfg.tlsCert,
 	}).NewApplication
 
-	agentFactory := (&pilot.Factory{
+	agentFactory := (&agent.PilotAgentFactory{
 		DiscoveryAddress: cfg.discoveryAddress,
 	}).NewAgent
 

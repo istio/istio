@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package pilot
+package agent
 
 import (
 	"bufio"
@@ -47,11 +47,10 @@ import (
 	istio_networking_api "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/test/application"
+	"istio.io/istio/pkg/test/envoy/discovery"
 	"istio.io/istio/pkg/test/framework/components/apps/local/envoy"
-	"istio.io/istio/pkg/test/framework/components/apps/local/envoy/agent"
-	"istio.io/istio/pkg/test/framework/components/apps/local/envoy/agent/pilot/reserveport"
-	"istio.io/istio/pkg/test/framework/components/apps/local/envoy/discovery"
-	"istio.io/istio/pkg/test/protocol"
+	"istio.io/istio/pkg/test/util/reserveport"
 )
 
 const (
@@ -175,14 +174,14 @@ func getEnvoyYamlTemplate() *template.Template {
 	return tmpl
 }
 
-// Factory is responsible for manufacturing agent.Agent instances which use Pilot for configuration.
-type Factory struct {
+// PilotAgentFactory is responsible for manufacturing agent.Agent instances which use Pilot for configuration.
+type PilotAgentFactory struct {
 	DiscoveryAddress *net.TCPAddr
 	TmpDir           string
 }
 
 // NewAgent is an agent.Factory function that creates new agent.Agent instances which use Pilot for configuration
-func (f *Factory) NewAgent(meta model.ConfigMeta, appFactory agent.ApplicationFactory, configStore model.ConfigStore) (agent.Agent, error) {
+func (f *PilotAgentFactory) NewAgent(meta model.ConfigMeta, appFactory application.Factory, configStore model.ConfigStore) (Agent, error) {
 	portMgr, err := reserveport.NewPortManager()
 	if err != nil {
 		return nil, err
@@ -198,18 +197,12 @@ func (f *Factory) NewAgent(meta model.ConfigMeta, appFactory agent.ApplicationFa
 		}
 	}()
 
-	client := protocol.Client{
-		GRPC: protocol.GRPCClient{
-			Dial: a.dialGRPC,
-		},
-		Websocket: protocol.WebsocketClient{
-			Dial: a.dialWebsocket,
-		},
-		HTTP: protocol.HTTPClient{
-			Do: a.doHTTP,
-		},
+	dialer := application.Dialer{
+		GRPC:      a.dialGRPC,
+		Websocket: a.dialWebsocket,
+		HTTP:      a.doHTTP,
 	}
-	a.app, err = appFactory(client)
+	a.app, err = appFactory(dialer)
 	if err != nil {
 		return nil, err
 	}
@@ -221,7 +214,7 @@ func (f *Factory) NewAgent(meta model.ConfigMeta, appFactory agent.ApplicationFa
 	return a, nil
 }
 
-func (f *Factory) generateServiceNode(meta model.ConfigMeta) string {
+func (f *PilotAgentFactory) generateServiceNode(meta model.ConfigMeta) string {
 	id := fmt.Sprintf("%s.%s", meta.Name, randomBase64String(10))
 	return strings.Join([]string{proxyType, localIPAddress, id, getFQD(meta)}, serviceNodeSeparator)
 }
@@ -239,10 +232,10 @@ func getFQD(meta model.ConfigMeta) string {
 }
 
 type pilotAgent struct {
-	app                       agent.Application
+	app                       application.Application
 	envoy                     *envoy.Envoy
 	adminPort                 int
-	ports                     []*agent.MappedPort
+	ports                     []*MappedPort
 	yamlFile                  string
 	ownedDir                  string
 	serviceEntry              model.Config
@@ -264,12 +257,12 @@ func (a *pilotAgent) GetAdminPort() int {
 }
 
 // GetPorts implements the agent.Agent interface.
-func (a *pilotAgent) GetPorts() []*agent.MappedPort {
+func (a *pilotAgent) GetPorts() []*MappedPort {
 	return a.ports
 }
 
 // CheckConfiguredForService implements the agent.Agent interface.
-func (a *pilotAgent) CheckConfiguredForService(target agent.Agent) error {
+func (a *pilotAgent) CheckConfiguredForService(target Agent) error {
 	cfg, err := envoy.GetConfigDump(a.GetAdminPort())
 	if err != nil {
 		return err
@@ -371,7 +364,7 @@ func (a *pilotAgent) modifyClientURL(url *net_url.URL) {
 	}
 }
 
-func (a *pilotAgent) start(meta model.ConfigMeta, configStore model.ConfigStore, f *Factory) error {
+func (a *pilotAgent) start(meta model.ConfigMeta, configStore model.ConfigStore, f *PilotAgentFactory) error {
 	meta.Type = model.ServiceEntry.Type
 
 	// Create the service entry for this service.
@@ -470,7 +463,7 @@ func (a *pilotAgent) getConfigPorts() []*istio_networking_api.Port {
 	return ports
 }
 
-func (a *pilotAgent) createYamlFile(serviceName, nodeID string, f *Factory) error {
+func (a *pilotAgent) createYamlFile(serviceName, nodeID string, f *PilotAgentFactory) error {
 	// Create a temporary output directory if not provided.
 	outDir := f.TmpDir
 	if outDir == "" {
@@ -747,12 +740,12 @@ func (a *pilotAgent) bindOutboundPort(any *google_protobuf6.Any, l *xdsapi.Liste
 	return nil
 }
 
-func (a *pilotAgent) createPorts(servicePorts model.PortList) (adminPort int, mappedPorts []*agent.MappedPort, err error) {
+func (a *pilotAgent) createPorts(servicePorts model.PortList) (adminPort int, mappedPorts []*MappedPort, err error) {
 	if adminPort, err = a.findFreePort(); err != nil {
 		return
 	}
 
-	mappedPorts = make([]*agent.MappedPort, len(servicePorts))
+	mappedPorts = make([]*MappedPort, len(servicePorts))
 	for i, servicePort := range servicePorts {
 		var envoyPort int
 		envoyPort, err = a.findFreePort()
@@ -760,7 +753,7 @@ func (a *pilotAgent) createPorts(servicePorts model.PortList) (adminPort int, ma
 			return
 		}
 
-		mappedPorts[i] = &agent.MappedPort{
+		mappedPorts[i] = &MappedPort{
 			Name:            servicePort.Name,
 			Protocol:        servicePort.Protocol,
 			ApplicationPort: servicePort.Port,
