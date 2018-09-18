@@ -1919,23 +1919,6 @@
   version = "v2.9.1"
 
 [[projects]]
-  digest = "1:b0e750132a11ab72f6fdac56140cc2cacdbc3d49540722ababf4ed4626341504"
-  name = "k8s.io/ingress"
-  packages = [
-    "core/pkg/ingress/annotations/class",
-    "core/pkg/ingress/annotations/parser",
-    "core/pkg/ingress/errors",
-    "core/pkg/ingress/status",
-    "core/pkg/ingress/store",
-    "core/pkg/k8s",
-    "core/pkg/strings",
-    "core/pkg/task",
-  ]
-  pruneopts = "NUT"
-  revision = "fe19ebb09ee22f90d60ba3111ae0a9db6027e675"
-  version = "0.9.6"
-
-[[projects]]
   branch = "master"
   digest = "1:e0d6dcb28c42a53c7243bb6380badd17f92fbd8488a075a07e984f91a07c0d23"
   name = "k8s.io/kube-openapi"
