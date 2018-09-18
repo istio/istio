@@ -24,7 +24,6 @@ $(ISTIO_DOCKER) $(ISTIO_DOCKER_TAR):
 .SECONDEXPANSION: #allow $@ to be used in dependency list
 
 # static files/directories that are copied from source tree
-NODE_AGENT_K8S_FILES:=security/docker/roots.pem
 NODE_AGENT_TEST_FILES:=security/docker/start_app.sh \
                        security/docker/app.js
 
@@ -66,7 +65,7 @@ $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT), \
 
 # tell make which files are copied from the source tree
 DOCKER_FILES_FROM_SOURCE:=tools/deb/istio-iptables.sh docker/ca-certificates.tgz \
-                          $(NODE_AGENT_TEST_FILES) $(GRAFANA_FILES) $(NODE_AGENT_K8S_FILES) \
+                          $(NODE_AGENT_TEST_FILES) $(GRAFANA_FILES) \
                           pilot/docker/certs/cert.crt pilot/docker/certs/cert.key pilot/docker/certs/cacert.pem
 $(foreach FILE,$(DOCKER_FILES_FROM_SOURCE), \
         $(eval $(ISTIO_DOCKER)/$(notdir $(FILE)): $(FILE) | $(ISTIO_DOCKER); cp $(FILE) $$(@D)))
@@ -196,7 +195,6 @@ $(GALLEY_DOCKER): galley/docker/Dockerfile$$(suffix $$@) $(ISTIO_DOCKER)/galley 
 docker.citadel:         $(ISTIO_DOCKER)/istio_ca     $(ISTIO_DOCKER)/ca-certificates.tgz
 docker.citadel-test:    $(ISTIO_DOCKER)/istio_ca.crt $(ISTIO_DOCKER)/istio_ca.key
 docker.node-agent-k8s:   $(ISTIO_DOCKER)/node_agent_k8s
-$(foreach FILE,$(NODE_AGENT_K8S_FILES),$(eval docker.node-agent-k8s: $(ISTIO_DOCKER)/$(notdir $(FILE))))
 docker.node-agent:      $(ISTIO_DOCKER)/node_agent
 docker.node-agent-test: $(ISTIO_DOCKER)/node_agent $(ISTIO_DOCKER)/istio_ca.key \
                         $(ISTIO_DOCKER)/node_agent.crt $(ISTIO_DOCKER)/node_agent.key
