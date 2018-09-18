@@ -5,15 +5,20 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "sidecar-injector.name" . }}
+    chart: {{ template "sidecar-injector.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
     istio: sidecar-injector
-    {{- template "common_labels" . }}
 spec:
   replicas: {{ .Values.replicaCount }}
   template:
     metadata:
       labels:
+        app: {{ template "sidecar-injector.name" . }}
+        chart: {{ template "sidecar-injector.chart" . }}
+        heritage: {{ .Release.Service }}
+        release: {{ .Release.Name }}
         istio: sidecar-injector
-        {{- template "common_template_labels" . }}
       annotations:
         sidecar.istio.io/inject: "false"
         scheduler.alpha.kubernetes.io/critical-pod: ""

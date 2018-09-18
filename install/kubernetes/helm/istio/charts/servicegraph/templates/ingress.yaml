@@ -7,10 +7,10 @@ metadata:
   name: {{ template "servicegraph.fullname" . }}
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "servicegraph.name" . }}
-    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    release: {{ .Release.Name }}
+    app: servicegraph
+    chart: {{ template "servicegraph.chart" . }}
     heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
   annotations:
     {{- range $key, $value := .Values.ingress.annotations }}
       {{ $key }}: {{ $value | quote }}

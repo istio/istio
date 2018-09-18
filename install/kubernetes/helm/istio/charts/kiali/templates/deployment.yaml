@@ -4,19 +4,20 @@ metadata:
   name: kiali
   namespace: {{ .Release.Namespace }}
   labels:
-    app: kiali
-    {{- template "common_labels" . }}
+    app: {{ template "kiali.name" . }}
+    chart: {{ template "kiali.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   replicas: {{ .Values.replicaCount }}
-  selector:
-    matchLabels:
-      app: kiali
   template:
     metadata:
       name: kiali
       labels:
         app: kiali
-        {{- template "common_template_labels" . }}
+        chart: {{ template "kiali.chart" . }}
+        heritage: {{ .Release.Service }}
+        release: {{ .Release.Name }}
       annotations:
         sidecar.istio.io/inject: "false"
         scheduler.alpha.kubernetes.io/critical-pod: ""

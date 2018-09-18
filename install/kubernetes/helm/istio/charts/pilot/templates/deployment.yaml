@@ -5,9 +5,11 @@ metadata:
   namespace: {{ .Release.Namespace }}
   # TODO: default template doesn't have this, which one is right ?
   labels:
-    app: istio-pilot
+    app: {{ template "pilot.name" . }}
+    chart: {{ template "pilot.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
     istio: pilot
-    {{- template "common_labels" . }}
   annotations:
     checksum/config-volume: {{ template "istio.configmap.checksum" . }}
 spec:
@@ -15,9 +17,11 @@ spec:
   template:
     metadata:
       labels:
+        app: {{ template "pilot.name" . }}
+        chart: {{ template "pilot.chart" . }}
+        heritage: {{ .Release.Service }}
+        release: {{ .Release.Name }}
         istio: pilot
-        app: pilot
-        {{- template "common_template_labels" . }}
       annotations:
         sidecar.istio.io/inject: "false"
         scheduler.alpha.kubernetes.io/critical-pod: ""

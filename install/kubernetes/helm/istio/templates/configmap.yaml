@@ -6,9 +6,9 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "istio.name" . }}
-    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    release: {{ .Release.Name }}
+    chart: {{ template "istio.chart" . }}
     heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 data:
   mesh: |-
     # Set the following variable to true to disable policy checks by the Mixer.

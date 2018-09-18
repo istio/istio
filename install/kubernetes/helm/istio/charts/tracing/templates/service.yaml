@@ -1,5 +1,13 @@
 apiVersion: v1
 kind: List
+metadata:
+  name: tracing-services
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: jaeger
+    chart: {{ template "tracing.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 items:
 - apiVersion: v1
   kind: Service
@@ -8,9 +16,9 @@ items:
     namespace: {{ .Release.Namespace }}
     labels:
       app: jaeger
-      chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-      release: {{ .Release.Name }}
+      chart: {{ template "tracing.chart" . }}
       heritage: {{ .Release.Service }}
+      release: {{ .Release.Name }}
   spec:
     type: {{ .Values.service.type }}
     ports:
@@ -27,13 +35,13 @@ items:
     namespace: {{ .Release.Namespace }}
     annotations:
       {{- range $key, $val := .Values.service.annotations }}
-      {{ $key }}: {{ $val | quote }}
+       {{ $key }}: {{ $val | quote }}
       {{- end }}
     labels:
       app: jaeger
-      chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-      release: {{ .Release.Name }}
+      chart: {{ template "tracing.chart" . }}
       heritage: {{ .Release.Service }}
+      release: {{ .Release.Name }}
   spec:
     ports:
       - name: http-query

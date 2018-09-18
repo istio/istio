@@ -4,8 +4,8 @@ metadata:
   name: istio-security-post-install-account
   namespace: {{ .Release.Namespace }}
   labels:
-    app: istio-security
-    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    app: {{ template "security.name" . }}
+    chart: {{ template "security.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
 ---
@@ -14,8 +14,8 @@ kind: ClusterRole
 metadata:
   name: istio-security-post-install-{{ .Release.Namespace }}
   labels:
-    app: istio-security
-    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    app: {{ template "security.name" . }}
+    chart: {{ template "security.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
 rules:
@@ -37,8 +37,8 @@ kind: ClusterRoleBinding
 metadata:
   name: istio-security-post-install-role-binding-{{ .Release.Namespace }}
   labels:
-    app: istio-security
-    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    app: {{ template "security.name" . }}
+    chart: {{ template "security.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
 roleRef:
@@ -60,16 +60,18 @@ metadata:
     "helm.sh/hook": post-install
     "helm.sh/hook-delete-policy": hook-succeeded
   labels:
-    app: istio-security
-    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    release: {{ .Release.Name }}
+    app: {{ template "security.name" . }}
+    chart: {{ template "security.chart" . }}
     heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   template:
     metadata:
       name: istio-security-post-install
       labels:
-        app: istio-security
+        app: {{ template "security.name" . }}
+        chart: {{ template "security.chart" . }}
+        heritage: {{ .Release.Service }}
         release: {{ .Release.Name }}
     spec:
       serviceAccountName: istio-security-post-install-account

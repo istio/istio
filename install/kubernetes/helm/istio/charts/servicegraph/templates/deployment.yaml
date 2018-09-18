@@ -4,15 +4,19 @@ metadata:
   name: servicegraph
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "servicegraph.name" . }}
-    {{- template "common_labels" . }}
+    app: servicegraph
+    chart: {{ template "servicegraph.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   replicas: {{ .Values.replicaCount }}
   template:
     metadata:
       labels:
         app: servicegraph
-        {{- template "common_template_labels" . }}
+        chart: {{ template "servicegraph.chart" . }}
+        heritage: {{ .Release.Service }}
+        release: {{ .Release.Name }}
       annotations:
         sidecar.istio.io/inject: "false"
         scheduler.alpha.kubernetes.io/critical-pod: ""

@@ -9,10 +9,10 @@ kind: "MeshPolicy"
 metadata:
   name: "default"
   labels:
-    app: istio-security
-    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    release: {{ .Release.Name }}
+    app: {{ template "security.name" . }}
+    chart: {{ template "security.chart" . }}
     heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   peers:
   - mtls: {}
@@ -24,10 +24,10 @@ kind: DestinationRule
 metadata:
   name: "default"
   labels:
-    app: istio-security
-    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    release: {{ .Release.Name }}
+    app: {{ template "security.name" . }}
+    chart: {{ template "security.chart" . }}
     heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   host: "*.local"
   trafficPolicy:
@@ -41,10 +41,10 @@ kind: DestinationRule
 metadata:
   name: "api-server"
   labels:
-    app: istio-security
-    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    release: {{ .Release.Name }}
+    app: {{ template "security.name" . }}
+    chart: {{ template "security.chart" . }}
     heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   host: "kubernetes.default.svc.cluster.local"
   trafficPolicy:

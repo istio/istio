@@ -4,16 +4,21 @@ metadata:
   name: istio-ingress
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "istio.name" . }}
+    app: {{ template "ingress.name" . }}
+    chart: {{ template "ingress.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
     istio: ingress
-    {{- template "common_labels" . }}
 spec:
   replicas: {{ .Values.replicaCount }}
   template:
     metadata:
       labels:
+        app: {{ template "ingress.name" . }}
+        chart: {{ template "ingress.chart" . }}
+        heritage: {{ .Release.Service }}
+        release: {{ .Release.Name }}
         istio: ingress
-        {{- template "common_template_labels" . }}
       annotations:
         sidecar.istio.io/inject: "false"
         scheduler.alpha.kubernetes.io/critical-pod: ""
