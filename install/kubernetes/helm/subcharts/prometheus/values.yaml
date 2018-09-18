@@ -3,7 +3,7 @@
 #
 enabled: true
 replicaCount: 1
-hub: docker.io/prom
+repo: docker.io/prom/prometheus
 tag: v2.3.1
 retention: 6h
 

@@ -6,7 +6,7 @@ enabled: false
 provider: jaeger
 
 jaeger:
-  hub: docker.io/jaegertracing
+  repo: docker.io/jaegertracing/all-in-one
   tag: 1.8
   memory:
     max_traces: 50000
@@ -26,7 +26,7 @@ jaeger:
       #     - jaeger.local
 
 zipkin:
-  hub: docker.io/openzipkin
+  repo: docker.io/openzipkin/zipkin
   tag: 2
   probeStartupDelay: 200
   queryPort: 9411

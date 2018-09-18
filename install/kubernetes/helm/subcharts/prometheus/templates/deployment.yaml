@@ -32,7 +32,7 @@ spec:
 {{- end }}
       containers:
         - name: prometheus
-          image: "{{ .Values.hub }}/prometheus:{{ .Values.tag }}"
+          image: "{{ .Values.repo }}:{{ .Values.tag }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           args:
             - '--storage.tsdb.retention={{ .Values.retention }}'

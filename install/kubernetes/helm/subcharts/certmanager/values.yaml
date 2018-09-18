@@ -4,6 +4,6 @@
 # gateway must be updated by adding 'secretVolumes'. After the gateway
 # restart, DestinationRules can be created using the ACME-signed certificates.
 enabled: false
-hub: quay.io/jetstack
+repo: quay.io/jetstack/cert-manager-controller
 tag: v0.5.0
 resources: {}

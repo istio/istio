@@ -3,7 +3,7 @@
 #
 enabled: false
 replicaCount: 1
-hub: docker.io/kiali
+repo: docker.io/kiali/kiali
 tag: v0.10
 contextPath: /kiali
 ingress:

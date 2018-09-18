@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
         - name: {{ .Chart.Name }}
-          image: "{{ .Values.zipkin.hub }}/zipkin:{{ .Values.zipkin.tag }}"
+          image: "{{ .Values.zipkin.repo }}:{{ .Values.zipkin.tag }}"
           ports:
             - containerPort: {{ .Values.zipkin.queryPort }}
           livenessProbe:
