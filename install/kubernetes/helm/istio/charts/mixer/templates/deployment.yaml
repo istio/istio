@@ -258,5 +258,4 @@ spec:
 {{- template "telemetry_container" $ }}
 {{- end }}
 
----
 {{- end }} {{/* range */}}

@@ -161,7 +161,6 @@ spec:
       {{- end }}
       affinity:
       {{- include "nodeaffinity" $ | indent 6 }}
----
 {{- end }}
 {{- end }}
 {{- end }}
