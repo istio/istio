@@ -66,7 +66,7 @@ func init() {
 }
 
 var (
-	azDebug = os.Getenv("VERBOSE_AZ_DEBUG") == "1"
+	azDebug   = os.Getenv("VERBOSE_AZ_DEBUG") == "1"
 	directEDS = os.Getenv("PILOT_DIRECT_EDS") != "0"
 )
 
@@ -127,11 +127,11 @@ func NewController(client kubernetes.Interface, options ControllerOptions) *Cont
 
 	// Queue requires a time duration for a retry delay after a handler error
 	out := &Controller{
-		domainSuffix: options.DomainSuffix,
-		client:       client,
-		queue:        NewQueue(1 * time.Second),
-		ClusterID:    options.ClusterID,
-		EDSUpdater:   options.EDSUpdater,
+		domainSuffix:  options.DomainSuffix,
+		client:        client,
+		queue:         NewQueue(1 * time.Second),
+		ClusterID:     options.ClusterID,
+		EDSUpdater:    options.EDSUpdater,
 		ConfigUpdater: options.ConfigUpdater,
 	}
 
@@ -234,11 +234,11 @@ func (c *Controller) createInformer(
 
 // createEDSInformer is a special informer for Endpoints
 func (c *Controller) createEDSInformer(
-		o runtime.Object,
-		otype string,
-		resyncPeriod time.Duration,
-		lf cache.ListFunc,
-		wf cache.WatchFunc) cacheHandler {
+	o runtime.Object,
+	otype string,
+	resyncPeriod time.Duration,
+	lf cache.ListFunc,
+	wf cache.WatchFunc) cacheHandler {
 	handler := &ChainHandler{funcs: []Handler{c.notify}}
 
 	informer := cache.NewSharedIndexInformer(
@@ -734,7 +734,7 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 			// Bypass convertService and the cache invalidation.
 
 			// Shortcut the conversion
-			c.ConfigUpdater.ConfigUpdate("")
+			c.ConfigUpdater.ConfigUpdate(true)
 			return nil
 		}
 
@@ -778,7 +778,7 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 
 // endpoints2ServiceEntry converts the endpoints to a minimal service entry object.
 // TODO: we may generate directly the load assignment, saving one conversion
-func (c *Controller) updateEDS(ep v1.Endpoints)  {
+func (c *Controller) updateEDS(ep v1.Endpoints) {
 	hostname := serviceHostname(ep.Name, ep.Namespace, c.domainSuffix)
 
 	endpoints := []*model.IstioEndpoint{}
@@ -792,7 +792,7 @@ func (c *Controller) updateEDS(ep v1.Endpoints)  {
 				c.Env.PushContext.Add(model.EndpointNoPod, string(hostname), nil, ea.IP)
 				// Request a global config update - after debounce we may find an endpoint.
 
-				c.ConfigUpdater.ConfigUpdate("")
+				c.ConfigUpdater.ConfigUpdate(true)
 
 				// TODO: keep them in a list, and check when pod events happen !
 				continue
@@ -805,12 +805,12 @@ func (c *Controller) updateEDS(ep v1.Endpoints)  {
 			// EDS and ServiceEntry use name for service port - ADS will need to
 			// map to numbers.
 			for _, port := range ss.Ports {
-				endpoints = append(endpoints, &model.IstioEndpoint {
-					Address: ea.IP,
-					EndpointPort: uint32(port.Port),
+				endpoints = append(endpoints, &model.IstioEndpoint{
+					Address:         ea.IP,
+					EndpointPort:    uint32(port.Port),
 					ServicePortName: port.Name,
-					Labels: &labels,
-					UID: uid,
+					Labels:          &labels,
+					UID:             uid,
 				})
 			}
 		}
@@ -824,8 +824,8 @@ func (c *Controller) updateEDS(ep v1.Endpoints)  {
 	err := c.EDSUpdater.EDSUpdate(c.ClusterID, string(hostname), endpoints)
 	if err != nil {
 		// Request a global push if we failed to do EDS only
-		c.ConfigUpdater.ConfigUpdate("")
+		c.ConfigUpdater.ConfigUpdate(true)
 	} else {
-		c.ConfigUpdater.ConfigUpdate(string(hostname))
+		c.ConfigUpdater.ConfigUpdate(false)
 	}
 }

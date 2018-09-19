@@ -164,8 +164,8 @@ func (c *memServiceController) Run(<-chan struct{}) {}
 type MemServiceDiscovery struct {
 	services map[model.Hostname]*model.Service
 	// ServiceShards table. Key is the fqdn of the service, ':', port
-	instancesByPortNum            map[string][]*model.ServiceInstance
-	instancesByPortName           map[string][]*model.ServiceInstance
+	instancesByPortNum  map[string][]*model.ServiceInstance
+	instancesByPortName map[string][]*model.ServiceInstance
 
 	// Used by GetProxyServiceInstance, used to configure inbound (list of services per IP)
 	ip2instance                   map[string][]*model.ServiceInstance
@@ -176,10 +176,10 @@ type MemServiceDiscovery struct {
 	InstancesError                error
 	GetProxyServiceInstancesError error
 	controller                    model.Controller
-	ClusterID 									  string
+	ClusterID                     string
 
 	// EDSUpdater will push EDS changes to the ADS model.
-	EDSUpdater model.EDSUpdater
+	EDSUpdater    model.EDSUpdater
 	ConfigUpdater model.ConfigUpdater
 
 	// Single mutex for now - it's for debug only.
@@ -278,15 +278,14 @@ func (sd *MemServiceDiscovery) SetEndpoints(service string, endpoints []*model.I
 		instanceList = sd.instancesByPortName[key]
 		sd.instancesByPortName[key] = append(instanceList, instance)
 
-
 	}
 
 	err := sd.EDSUpdater.EDSUpdate(sd.ClusterID, service, endpoints)
 	if err != nil {
 		// Request a global push if we failed to do EDS only
-		sd.ConfigUpdater.ConfigUpdate("")
+		sd.ConfigUpdater.ConfigUpdate(true)
 	} else {
-		sd.ConfigUpdater.ConfigUpdate(service)
+		sd.ConfigUpdater.ConfigUpdate(false)
 	}
 }
 

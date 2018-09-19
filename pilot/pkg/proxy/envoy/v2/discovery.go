@@ -81,32 +81,10 @@ type DiscoveryServer struct {
 
 	// ServiceShards for a service. This is a global (per-server) list, built from
 	// incremental updates.
-	EndpointShardsByService map[string]ServiceShards
-
-	// Updates keeps track of all service updates since last full push.
-	// Key is the hostname (servicename).
-	Updates map[string]*ServiceShards
+	EndpointShardsByService map[string]model.ServiceShards
 
 	mutex sync.RWMutex
 }
-
-//
-type ServiceShards struct {
-
-	// ByCluster is used to track cluster membership. EDS updates are grouped by cluster,
-	// must be combined with the other clusters for push.
-	Shards map[string]*EndpointShard
-
-}
-
-// EndpointShard contains all the endpoints for a single shard of a service.
-// Shards are updated atomically.
-type EndpointShard struct {
-	Shard string
-	Entries []*model.IstioEndpoint
-	//ServiceInstance []*model.ServiceInstance
-}
-
 
 func intEnv(env string, def int) int {
 	envValue := os.Getenv(env)
@@ -125,8 +103,7 @@ func NewDiscoveryServer(env *model.Environment, generator core.ConfigGenerator) 
 	out := &DiscoveryServer{
 		Env:                     env,
 		ConfigGenerator:         generator,
-		EndpointShardsByService: map[string]ServiceShards{},
-		Updates: map[string]*ServiceShards{},
+		EndpointShardsByService: map[string]model.ServiceShards{},
 	}
 	env.PushContext = model.NewPushContext()
 
@@ -229,62 +206,54 @@ func (s *DiscoveryServer) periodicRefreshMetrics() {
 	}
 }
 
-// ClearCacheFunc returns a function that invalidates v2 caches and triggers a push.
-// This is used for transition, once the new config model is in place we'll have separate
-// functions for each event and push only configs that need to be pushed.
-// This is currently called from v1 and has attenuation/throttling.
-func (s *DiscoveryServer) ClearCacheFunc() func(bool, []string) {
-	return s.Push
-}
-
-// Push is called to push changes on config updates
-func (s *DiscoveryServer) Push(full bool, edsServices []string) {
+// Push is called to push changes on config updates using ADS. This is set in DiscoveryService.Push,
+// to avoid direct dependencies.
+func (s *DiscoveryServer) Push(full bool, edsUpdates map[string]*model.ServiceShards) {
 	if !full {
-		adsLog.Infof("EDS Push %v", edsServices)
-		go s.AdsPushAll(version, s.Env.PushContext, false, edsServices)
+		adsLog.Infof("EDS Incremental Push %v", edsUpdates)
+		go s.AdsPushAll(version, s.Env.PushContext, false, edsUpdates)
 		return
 	}
-		// Reset the status during the push.
-		//afterPush := true
-		if s.Env.PushContext != nil {
-			s.Env.PushContext.OnConfigChange()
-		}
-		// PushContext is reset after a config change. Previous status is
-		// saved.
-		t0 := time.Now()
-		push := model.NewPushContext()
-		err := push.InitContext(s.Env)
-		if err != nil {
-			adsLog.Errorf("XDS: failed to update services %v", err)
-			// We can't push if we can't read the data - stick with previous version.
-			// TODO: metric !!
-			// TODO: metric !!
-			return
-		}
-
-		if err = s.ConfigGenerator.BuildSharedPushState(s.Env, push); err != nil {
-			adsLog.Errorf("XDS: Failed to rebuild share state in configgen: %v", err)
-			return
-		}
-
-		err = s.updateServiceShards(push)
-		if err != nil {
-			return
-		}
-
-		s.Env.PushContext = push
-		versionLocal := time.Now().Format(time.RFC3339)
-		initContextTime := time.Since(t0)
-		adsLog.Debugf("InitContext %v for push took %s", versionLocal, initContextTime)
-
-		// TODO: propagate K8S version and use it instead
-		versionMutex.Lock()
-		version = versionLocal
-		versionMutex.Unlock()
-
-		go s.AdsPushAll(versionLocal, push, true, nil)
+	// Reset the status during the push.
+	//afterPush := true
+	if s.Env.PushContext != nil {
+		s.Env.PushContext.OnConfigChange()
+	}
+	// PushContext is reset after a config change. Previous status is
+	// saved.
+	t0 := time.Now()
+	push := model.NewPushContext()
+	err := push.InitContext(s.Env)
+	if err != nil {
+		adsLog.Errorf("XDS: failed to update services %v", err)
+		// We can't push if we can't read the data - stick with previous version.
+		// TODO: metric !!
+		// TODO: metric !!
+		return
 	}
 
+	if err = s.ConfigGenerator.BuildSharedPushState(s.Env, push); err != nil {
+		adsLog.Errorf("XDS: Failed to rebuild share state in configgen: %v", err)
+		return
+	}
+
+	err = s.updateServiceShards(push)
+	if err != nil {
+		return
+	}
+
+	s.Env.PushContext = push
+	versionLocal := time.Now().Format(time.RFC3339)
+	initContextTime := time.Since(t0)
+	adsLog.Debugf("InitContext %v for push took %s", versionLocal, initContextTime)
+
+	// TODO: propagate K8S version and use it instead
+	versionMutex.Lock()
+	version = versionLocal
+	versionMutex.Unlock()
+
+	go s.AdsPushAll(versionLocal, push, true, nil)
+}
 
 func nonce() string {
 	return time.Now().String()

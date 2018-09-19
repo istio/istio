@@ -117,9 +117,10 @@ var (
 	// Default value is 1 second, or the value of PILOT_CACHE_SQUASH env
 	clearCacheTime = 1
 
-	// V2ClearCache is a function to be called when the v1 cache is cleared. This is used to
-	// avoid adding a circular dependency from v1 to v2.
-	Push func(fullPush bool, edsServices []string)
+	// Push is used to request a push, when config changes. This is used to
+	// avoid adding a circular dependency from v1 to v2 - the method is implemented
+	// in the ADS server.
+	Push func(fullPush bool, edsUpdates map[string]*model.ServiceShards)
 
 	// DebounceAfter is the delay added to events to wait
 	// after a registry/config event for debouncing.
@@ -184,11 +185,6 @@ type DiscoveryService struct {
 	sdsCache *discoveryCache
 
 	RestContainer *restful.Container
-
-	// edsUpdatedServices contains the list of Services that received EDS updates since
-	// last push. If any config change occurs (non-EDS), this will be set to nil and a global push
-	// will take place.
-	edsUpdatedServices []string
 
 	// true if a full push is needed after debounce. False if only EDS is required.
 	fullPush bool
@@ -416,6 +412,8 @@ func (ds *DiscoveryService) ClearCacheStats(_ *restful.Request, _ *restful.Respo
 	ds.sdsCache.resetStats()
 }
 
+// TODO: move debounce to v2/discovery, remove the spaghetti.
+
 // ClearCache is wrapper for clearCache method, used when new controller gets
 // instantiated dynamically
 func (ds *DiscoveryService) ClearCache() {
@@ -436,17 +434,7 @@ func (ds *DiscoveryService) debouncePush(startDebounce time.Time) {
 			events,
 			since, time.Since(lastClearCache))
 
-
-		clearCacheMutex.Lock()
-		clearCacheTimerSet = false
-		lastClearCache = time.Now()
-		full := ds.fullPush
-		svc := ds.edsUpdatedServices
-		ds.fullPush = false
-		ds.edsUpdatedServices = []string{}
-		clearCacheMutex.Unlock()
-
-		Push(full, svc)
+		ds.doPush()
 
 	} else {
 		log.Infof("Push debounce %d: %v since last change, %v since last push",
@@ -458,22 +446,41 @@ func (ds *DiscoveryService) debouncePush(startDebounce time.Time) {
 	}
 }
 
+// Start the actual push
+func (ds *DiscoveryService) doPush() {
+	// more config update events may happen while doPush is processing.
+	// we don't want to lose updates.
+	clearCacheMutex.Lock()
+
+	clearCacheTimerSet = false
+	lastClearCache = time.Now()
+	full := ds.fullPush
+	edsUpdates := ds.EDSUpdates
+
+	// Update the config values, next ConfigUpdate and eds updates will use this
+	ds.fullPush = false
+	// Reset - any new updates will be tracked by the new map
+	ds.EDSUpdates = map[string]*model.ServiceShards{}
+
+	clearCacheMutex.Unlock()
+
+	Push(full, edsUpdates)
+}
+
 // clearCache will clear all envoy caches. Called by service, instance and config handlers.
 // This will impact the performance, since envoy will need to recalculate.
 func (ds *DiscoveryService) clearCache() {
-	ds.ConfigUpdate("")
+	ds.ConfigUpdate(true)
 }
 
 // ConfigUpdate implements ConfigUpdater interface, used to request pushes.
 // It replaces the 'clear cache' from v1.
-func (ds *DiscoveryService) ConfigUpdate(edsService string) {
+func (ds *DiscoveryService) ConfigUpdate(full bool) {
 	clearCacheMutex.Lock()
 	defer clearCacheMutex.Unlock()
 
-	if edsService == "" {
+	if full {
 		ds.fullPush = true
-	} else {
-		ds.edsUpdatedServices = append(ds.edsUpdatedServices, edsService)
 	}
 	clearCacheEvents++
 
@@ -498,13 +505,8 @@ func (ds *DiscoveryService) ConfigUpdate(edsService string) {
 			clearCacheEvents,
 			time.Since(lastClearCacheEvent), time.Since(lastClearCache))
 		lastClearCacheEvent = time.Now()
-		lastClearCache = time.Now()
-		full := ds.fullPush
-		svc := ds.edsUpdatedServices
-		ds.fullPush = false
-		ds.edsUpdatedServices = []string{}
-		Push(full, svc)
 
+		ds.doPush()
 		return
 	}
 
@@ -516,12 +518,7 @@ func (ds *DiscoveryService) ConfigUpdate(edsService string) {
 	if time.Since(lastClearCache) > time.Duration(clearCacheTime)*time.Second {
 		log.Infof("Timer push %d: %v since last change, %v since last push",
 			clearCacheEvents, time.Since(lastClearCacheEvent), time.Since(lastClearCache))
-		lastClearCache = time.Now()
-		full := ds.fullPush
-		svc := ds.edsUpdatedServices
-		ds.fullPush = false
-		ds.edsUpdatedServices = []string{}
-		Push(full, svc)
+		ds.doPush()
 		return
 	}
 

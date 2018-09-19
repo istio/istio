@@ -30,7 +30,6 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"istio.io/istio/pilot/pkg/model"
-	envoy "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
@@ -57,7 +56,8 @@ type Controller struct {
 	domainSufix       string
 	resyncInterval    time.Duration
 	serviceController *aggregate.Controller
-	discoveryServer   *envoy.DiscoveryServer
+	configUpdater     model.ConfigUpdater
+	edsUpdater        model.EDSUpdater
 }
 
 // NewController returns a new secret controller
@@ -66,7 +66,8 @@ func NewController(
 	namespace string,
 	cs *ClusterStore,
 	serviceController *aggregate.Controller,
-	discoveryServer *envoy.DiscoveryServer,
+	discoveryServer model.ConfigUpdater,
+	edsUpdater model.EDSUpdater,
 	resyncInterval time.Duration,
 	watchedNamespace string,
 	domainSufix string) *Controller {
@@ -97,7 +98,8 @@ func NewController(
 		domainSufix:       domainSufix,
 		resyncInterval:    resyncInterval,
 		serviceController: serviceController,
-		discoveryServer:   discoveryServer,
+		configUpdater:     discoveryServer,
+		edsUpdater:        edsUpdater,
 	}
 
 	log.Info("Setting up event handlers")
@@ -145,13 +147,14 @@ func (c *Controller) Run(stopCh <-chan struct{}) {
 func StartSecretController(k8s kubernetes.Interface,
 	cs *ClusterStore,
 	serviceController *aggregate.Controller,
-	discoveryServer *envoy.DiscoveryServer,
+	configUpdater model.ConfigUpdater,
+	edsUpdater model.EDSUpdater,
 	namespace string,
 	resyncInterval time.Duration,
 	watchedNamespace,
 	domainSufix string) error {
 	stopCh := make(chan struct{})
-	controller := NewController(k8s, namespace, cs, serviceController, discoveryServer, resyncInterval, watchedNamespace, domainSufix)
+	controller := NewController(k8s, namespace, cs, serviceController, configUpdater, edsUpdater, resyncInterval, watchedNamespace, domainSufix)
 
 	go controller.Run(stopCh)
 
@@ -231,6 +234,7 @@ func (c *Controller) addMemberCluster(secretName string, s *corev1.Secret) {
 				ResyncPeriod:     c.resyncInterval,
 				DomainSuffix:     c.domainSufix,
 				ClusterID:        clusterID,
+				EDSUpdater:       c.edsUpdater,
 			})
 			c.cs.rc[clusterID].Controller = kubectl
 			c.serviceController.AddRegistry(
@@ -243,8 +247,8 @@ func (c *Controller) addMemberCluster(secretName string, s *corev1.Secret) {
 				})
 			stopCh := make(chan struct{})
 			c.cs.rc[clusterID].ControlChannel = stopCh
-			_ = kubectl.AppendServiceHandler(func(*model.Service, model.Event) { c.discoveryServer.ClearCacheFunc()(true, nil) })
-			_ = kubectl.AppendInstanceHandler(func(*model.ServiceInstance, model.Event) { c.discoveryServer.ClearCacheFunc()(true, nil) })
+			_ = kubectl.AppendServiceHandler(func(*model.Service, model.Event) { c.configUpdater.ConfigUpdate(true) })
+			_ = kubectl.AppendInstanceHandler(func(*model.ServiceInstance, model.Event) { c.configUpdater.ConfigUpdate(true) })
 			go kubectl.Run(stopCh)
 		} else {
 			log.Infof("Cluster %s in the secret %s in namespace %s already exists",

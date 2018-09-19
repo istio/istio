@@ -587,6 +587,7 @@ func (s *Server) initMultiClusterController(args *PilotArgs) (err error) {
 		err = clusterregistry.StartSecretController(s.kubeClient,
 			s.clusterStore,
 			s.ServiceController,
+			s.discoveryService,
 			s.EnvoyXdsServer,
 			args.Config.ClusterRegistriesNamespace,
 			args.Config.ControllerOptions.ResyncPeriod,
@@ -739,6 +740,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 		ServiceDiscovery: s.ServiceController,
 		ServiceAccounts:  s.ServiceController,
 		MixerSAN:         s.mixerSAN,
+		EDSUpdates:       map[string]*model.ServiceShards{},
 	}
 
 	// Set up discovery service

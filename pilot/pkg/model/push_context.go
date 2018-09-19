@@ -23,8 +23,9 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	networking "istio.io/api/networking/v1alpha3"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
+
+	networking "istio.io/api/networking/v1alpha3"
 )
 
 // PushContext tracks the status of a mush - metrics and errors.
@@ -97,7 +98,6 @@ type EDSUpdater interface {
 	// must be sent.
 	EDSUpdate(shard, hostname string, entry []*IstioEndpoint) error
 	SvcUpdate(shard, hostname string, ports map[string]uint32, rports map[uint32]string)
-
 }
 
 // IstioEndpoint has the information about a single address+port for a specific
@@ -108,14 +108,13 @@ type IstioEndpoint struct {
 	// Labels points to the workload or deployment labels.
 	Labels *map[string]string
 
-
 	// Address is the IP address of the endpoint. Other types may be
 	// supported in future.
-	Address         string
+	Address string
 
 	// EndpointPort is the port where the workload is listening, can be different
 	// from the service port.
-	EndpointPort    uint32
+	EndpointPort uint32
 
 	ServicePortName string
 
@@ -127,7 +126,25 @@ type IstioEndpoint struct {
 	EnvoyEndpoint *endpoint.LbEndpoint
 }
 
+// ServiceShards holds the set of endpoint shards of a service. Registries update
+// individual shards incrementally. The shards are aggregated and split into
+// clusters when a push for the specific cluster is needed.
+type ServiceShards struct {
 
+	// Shards is used to track the shards. EDS updates are grouped by shard.
+	// Current implementation uses the registry name as key - in multicluster this is the
+	// name of the k8s cluster, derived from the config (secret).
+	Shards map[string]*EndpointShard
+}
+
+// EndpointShard contains all the endpoints for a single shard (subset) of a service.
+// Shards are updated atomically by registries. A registry may split a service into
+// multiple shards (for example each deployment, or smaller sub-sets).
+type EndpointShard struct {
+	Shard   string
+	Entries []*IstioEndpoint
+	//ServiceInstance []*model.ServiceInstance
+}
 
 // ConfigUpdater is used to requests config updates. The updates will be debounced before
 // a push happens. Interface is implemented by the ADS server, and called by adapters.
@@ -135,7 +152,7 @@ type ConfigUpdater interface {
 	// Push is called the global config has changed and a full push is needed.
 	// This replaces the 'cache invalidation' model. The implementation may debounce and
 	// bach changes.
-	ConfigUpdate(edsService string)
+	ConfigUpdate(full bool)
 }
 
 // ProxyPushStatus represents an event captured during config push to proxies.
@@ -286,7 +303,7 @@ func NewPushContext() *PushContext {
 	return &PushContext{
 		ServiceByHostname: map[Hostname]*Service{},
 		ProxyStatus:       map[string]map[string]ProxyPushStatus{},
-		ServicePort2Name: map[string]map[uint32]string{},
+		ServicePort2Name:  map[string]map[uint32]string{},
 		ServiceName2Ports: map[string]map[string]uint32{},
 		Start:             time.Now(),
 	}

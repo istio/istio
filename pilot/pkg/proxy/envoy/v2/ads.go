@@ -240,7 +240,7 @@ type XdsEvent struct {
 
 	// If not empty, it is used to indicate the event is caused by a change in the clusters.
 	// Only EDS for the listed clusters will be sent.
-	edsUpdatedServices []string
+	edsUpdatedServices map[string]*model.ServiceShards
 
 	push *model.PushContext
 
@@ -460,7 +460,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 
 				con.Clusters = clusters
 				adsLog.Debugf("ADS:EDS: REQ %s %s clusters: %d", peerAddr, con.ConID, len(con.Clusters))
-				err := s.pushEds(s.Env.PushContext, con)
+				err := s.pushEds(s.Env.PushContext, con, true, nil)
 				if err != nil {
 					return err
 				}
@@ -499,7 +499,7 @@ func (s *DiscoveryServer) pushAll(con *XdsConnection, pushEv *XdsEvent) error {
 		// Push only EDS. This is indexed already - push immediately
 		// (may need a throttle)
 		if len(con.Clusters) > 0 {
-			err := s.pushEds(pushEv.push, con)
+			err := s.pushEds(pushEv.push, con, false, pushEv.edsUpdatedServices)
 			if err != nil {
 				return err
 			}
@@ -546,7 +546,7 @@ func (s *DiscoveryServer) pushAll(con *XdsConnection, pushEv *XdsEvent) error {
 		}
 	}
 	if len(con.Clusters) > 0 {
-		err := s.pushEds(pushEv.push, con)
+		err := s.pushEds(pushEv.push, con, true, nil)
 		if err != nil {
 			return err
 		}
@@ -576,14 +576,15 @@ func AdsPushAll(s *DiscoveryServer) {
 // AdsPushAll implements old style invalidation, generated when any rule or endpoint changes.
 // Primary code path is from v1 discoveryService.clearCache(), which is added as a handler
 // to the model ConfigStorageCache and Controller.
-func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext, full bool, edsServices []string) {
+func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext,
+	full bool, edsUpdates map[string]*model.ServiceShards) {
 	if !full {
-		s.edsIncremental(version, push, edsServices)
+		s.edsIncremental(version, push, edsUpdates)
 		return
 	}
 
 	adsLog.Infof("XDS: Pushing %s Services: %d, "+
-			"VirtualServices: %d, ConnectedEndpoints: %d", version,
+		"VirtualServices: %d, ConnectedEndpoints: %d", version,
 		len(push.Services), len(push.VirtualServiceConfigs), adsClientCount())
 	monServices.Set(float64(len(push.Services)))
 	monVServices.Set(float64(len(push.VirtualServiceConfigs)))
@@ -604,19 +605,19 @@ func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext, fu
 	// the update may be duplicated if multiple goroutines compute at the same time).
 	// In general this code is called from the 'event' callback that is throttled.
 	for clusterName, edsCluster := range cMap {
-		if err := s.updateCluster(push, clusterName, edsCluster, edsServices); err != nil {
+		if err := s.updateCluster(push, clusterName, edsCluster); err != nil {
 			adsLog.Errorf("updateCluster failed with clusterName %s", clusterName)
 		}
 	}
 	adsLog.Infof("Cluster init time %v %s", time.Since(t0), version)
-	s.startPush(version, push, full, edsServices)
-
+	s.startPush(version, push, false, nil)
 }
 
 // Send a signal to all connections, with a push event.
-func (s *DiscoveryServer) startPush(version string, push *model.PushContext, full bool, edsServices []string) {
+func (s *DiscoveryServer) startPush(version string, push *model.PushContext, full bool,
+	edsUpdates map[string]*model.ServiceShards) {
 
-		// Push config changes, iterating over connected envoys. This cover ADS and EDS(0.7), both share
+	// Push config changes, iterating over connected envoys. This cover ADS and EDS(0.7), both share
 	// the same connection table
 	adsClientsMutex.RLock()
 	// Create a temp map to avoid locking the add/remove
@@ -650,6 +651,11 @@ func (s *DiscoveryServer) startPush(version string, push *model.PushContext, ful
 		c := pending[0]
 		pending = pending[1:]
 
+		edsOnly := edsUpdates
+		if !full {
+			edsOnly = nil
+		}
+
 		// Using non-blocking push has problems if 2 pushes happen too close to each other
 		client := c
 		// TODO: this should be in a thread group, to do multiple pushes in parallel.
@@ -659,7 +665,7 @@ func (s *DiscoveryServer) startPush(version string, push *model.PushContext, ful
 			push:               push,
 			pending:            &pendingPush,
 			version:            version,
-			edsUpdatedServices: edsServices,
+			edsUpdatedServices: edsOnly,
 		}:
 			client.LastPush = time.Now()
 			client.LastPushFailure = timeZero

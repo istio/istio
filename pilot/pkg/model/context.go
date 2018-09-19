@@ -53,6 +53,11 @@ type Environment struct {
 	// CONFIG AND PUSH
 	// Deprecated - a local config for ads will be used instead
 	PushContext *PushContext
+
+	// EDSUpdates keeps track of all service updates since last full push.
+	// Key is the hostname (servicename). Value is set when any shard part of the service is
+	// updated.
+	EDSUpdates map[string]*ServiceShards
 }
 
 // Proxy defines the proxy attributes used by xDS identification

@@ -23,20 +23,22 @@ import (
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
-	"net"
+	"errors"
 	"fmt"
 	"log"
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/jsonpb"
+	"net"
 	"sync"
-	"errors"
+
+	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
+	"github.com/gogo/protobuf/jsonpb"
+	"github.com/gogo/protobuf/proto"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
-type ADSCOpt struct {
+// Config for the ADS connection.
+type Config struct {
 	// Namespace defaults to 'default'
 	Namespace string
 
@@ -67,13 +69,13 @@ type ADSC struct {
 
 	InitialLoad time.Duration
 
-	TCPListeners map[string]*xdsapi.Listener
+	TCPListeners  map[string]*xdsapi.Listener
 	HTTPListeners map[string]*xdsapi.Listener
-	Clusters  map[string]*xdsapi.Cluster
-	Routes    map[string]*xdsapi.RouteConfiguration
-	EDS       map[string]*xdsapi.ClusterLoadAssignment
+	Clusters      map[string]*xdsapi.Cluster
+	Routes        map[string]*xdsapi.RouteConfiguration
+	EDS           map[string]*xdsapi.ClusterLoadAssignment
 
-	rdsNames []string
+	rdsNames     []string
 	clusterNames []string
 
 	// Updates includes the type of the last update received from the server.
@@ -98,11 +100,16 @@ const (
 	routeType = typePrefix + "RouteConfiguration"
 )
 
+var (
+	// ErrTimeout is returned by Wait if no update is received in the given time.
+	ErrTimeout = errors.New("timeout")
+)
+
 // Dial connects to a ADS server, with optional MTLS authentication if a cert dir is specified.
-func Dial(url string, certDir string, opts *ADSCOpt ) (*ADSC, error) {
+func Dial(url string, certDir string, opts *Config) (*ADSC, error) {
 	adsc := &ADSC{
-		done: make(chan error),
-		Updates: make(chan string, 10),
+		done:        make(chan error),
+		Updates:     make(chan string, 10),
 		VersionInfo: map[string]string{},
 	}
 	var conn *grpc.ClientConn
@@ -119,8 +126,14 @@ func Dial(url string, certDir string, opts *ADSCOpt ) (*ADSC, error) {
 			grpc.WithTransportCredentials(creds),
 		}
 		conn, err = grpc.Dial(url, opts...)
+		if err != nil {
+			return nil, err
+		}
 	} else {
 		conn, err = grpc.Dial(url, grpc.WithInsecure())
+		if err != nil {
+			return nil, err
+		}
 	}
 	if err != nil {
 		return nil, err
@@ -140,13 +153,13 @@ func Dial(url string, certDir string, opts *ADSCOpt ) (*ADSC, error) {
 		opts.NodeType = "sidecar"
 	}
 	if opts.IP == "" {
-		opts.IP =  getPrivateIPIfAvailable().String()
+		opts.IP = getPrivateIPIfAvailable().String()
 	}
 	if opts.Workload == "" {
 		opts.Workload = "test-1"
 	}
 
-	adsc.nodeID = fmt.Sprintf("sidecar~%s~%s.%s~%s.svc.cluster.local",opts.IP,
+	adsc.nodeID = fmt.Sprintf("sidecar~%s~%s.%s~%s.svc.cluster.local", opts.IP,
 		opts.Workload, opts.Namespace, opts.Namespace)
 
 	go adsc.handleRecv()
@@ -199,14 +212,17 @@ func tlsConfig(certDir string) (*tls.Config, error) {
 	}, nil
 }
 
+// Close the stream. Reconnect() can be called to restore the connection, to
+// simulate envoy restart behavior.
 func (a *ADSC) Close() {
 	if a.stream != nil {
 		a.stream.CloseSend()
 	}
 }
 
-func (a *ADSC) Reconnect() {
-}
+// WIP: todo
+//func (a *ADSC) Reconnect() {
+//}
 
 func (a *ADSC) handleRecv() {
 	for {
@@ -229,9 +245,9 @@ func (a *ADSC) handleRecv() {
 				proto.Unmarshal(valBytes, ll)
 				listeners = append(listeners, ll)
 			} else if rsc.TypeUrl == clusterType {
-					ll := &xdsapi.Cluster{}
-					proto.Unmarshal(valBytes, ll)
-					clusters = append(clusters, ll)
+				ll := &xdsapi.Cluster{}
+				proto.Unmarshal(valBytes, ll)
+				clusters = append(clusters, ll)
 			} else if rsc.TypeUrl == endpointType {
 				ll := &xdsapi.ClusterLoadAssignment{}
 				proto.Unmarshal(valBytes, ll)
@@ -268,7 +284,7 @@ func (a *ADSC) handleLDS(ll []*xdsapi.Listener) {
 
 	clusters := []string{}
 	routes := []string{}
-	ldsSize :=0
+	ldsSize := 0
 
 	for _, l := range ll {
 		ldsSize += l.Size()
@@ -278,7 +294,7 @@ func (a *ADSC) handleLDS(ll []*xdsapi.Listener) {
 		}
 		if f0.Name == "envoy.tcp_proxy" {
 			lt[l.Name] = l
-			c:= f0.Config.Fields["cluster"].GetStringValue()
+			c := f0.Config.Fields["cluster"].GetStringValue()
 			clusters = append(clusters, c)
 			//log.Printf("TCP: %s -> %s", l.Name, c)
 		} else if f0.Name == "envoy.http_connection_manager" {
@@ -286,7 +302,7 @@ func (a *ADSC) handleLDS(ll []*xdsapi.Listener) {
 
 			// Getting from config is too painful..
 			port := l.Address.GetSocketAddress().GetPortValue()
-			routes = append(routes, fmt.Sprintf("%d",port))
+			routes = append(routes, fmt.Sprintf("%d", port))
 			//log.Printf("HTTP: %s -> %d", l.Name, port)
 		} else if f0.Name == "envoy.mongo_proxy" {
 			// ignore for now
@@ -306,8 +322,8 @@ func (a *ADSC) handleLDS(ll []*xdsapi.Listener) {
 	a.TCPListeners = lt
 
 	select {
-		case a.Updates <- "lds":
-			default:
+	case a.Updates <- "lds":
+	default:
 	}
 }
 
@@ -343,11 +359,11 @@ func (a *ADSC) handleCDS(ll []*xdsapi.Cluster) {
 }
 
 func (a *ADSC) handleEDS(eds []*xdsapi.ClusterLoadAssignment) {
-	clas := map[string]*xdsapi.ClusterLoadAssignment{}
+	la := map[string]*xdsapi.ClusterLoadAssignment{}
 	edsSize := 0
 	for _, cla := range eds {
 		edsSize += cla.Size()
-		clas[cla.ClusterName] = cla
+		la[cla.ClusterName] = cla
 	}
 
 	log.Println("EDS: ", len(eds), "size=", edsSize)
@@ -365,7 +381,7 @@ func (a *ADSC) handleEDS(eds []*xdsapi.ClusterLoadAssignment) {
 
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
-	a.EDS = clas
+	a.EDS = la
 
 	select {
 	case a.Updates <- "eds":
@@ -410,12 +426,10 @@ func (a *ADSC) handleRDS(configurations []*xdsapi.RouteConfiguration) {
 	case a.Updates <- "rds":
 	default:
 	}
-	}
-
+}
 
 // Wait for an update of the specified type. If type is empty, wait for next update.
 func (a *ADSC) Wait(update string, to time.Duration) (string, error) {
-
 	t := time.NewTimer(to)
 
 	for {
@@ -425,8 +439,7 @@ func (a *ADSC) Wait(update string, to time.Duration) (string, error) {
 				return t, nil
 			}
 		case <-t.C:
-			return "", errors.New("Timeout")
-
+			return "", ErrTimeout
 		}
 	}
 }
@@ -464,4 +477,3 @@ func (a *ADSC) ack(msg *xdsapi.DiscoveryResponse) {
 		},
 	})
 }
-
