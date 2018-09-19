@@ -95,6 +95,9 @@ type Proxy struct {
 	// NOTE: DO NOT USE THIS FIELD TO CONSTRUCT DNS NAMES
 	ConfigNamespace string
 
+	// Domain defines the trust domain of the certificate
+	IdentityDomain string
+
 	// Metadata key-value pairs extending the Node identifier
 	Metadata map[string]string
 
