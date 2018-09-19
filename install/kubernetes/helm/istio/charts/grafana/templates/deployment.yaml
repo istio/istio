@@ -4,15 +4,8 @@ metadata:
   name: grafana
   namespace: {{ .Release.Namespace }}
   labels:
-<<<<<<< HEAD
-    app: {{ template "grafana.name" . }}
-    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    release: {{ .Release.Name }}
-    heritage: {{ .Release.Service }}
-=======
     app: istio-grafana
     {{- template "common_labels" . }}
->>>>>>> 3f5810940... Use stock grafana images instead of custom docker build (#8189)
 spec:
   replicas: {{ .Values.replicaCount }}
   template:
