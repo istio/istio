@@ -123,10 +123,8 @@ func WaitForHealthCheckLive(adminPort int) error {
 }
 
 // GetConfigDumpStr polls Envoy admin port for the config dump and returns the response as a string.
-// TODO(nmittler): We shouldn't need this method. Look into how to properly marshal the config dump proto.
 func GetConfigDumpStr(adminPort int) (string, error) {
-	requestURL := fmt.Sprintf("http://127.0.0.1:%d/config_dump", adminPort)
-	buffer, err := doHTTPGet(requestURL)
+	buffer, err := doEnvoyGet("config_dump", adminPort)
 	if err != nil {
 		return "", err
 	}
@@ -135,8 +133,7 @@ func GetConfigDumpStr(adminPort int) (string, error) {
 
 // GetConfigDump polls Envoy admin port for the config dump and returns the response.
 func GetConfigDump(adminPort int) (*envoy_admin_v2alpha.ConfigDump, error) {
-	requestURL := fmt.Sprintf("http://127.0.0.1:%d/config_dump", adminPort)
-	buffer, err := doHTTPGet(requestURL)
+	buffer, err := doEnvoyGet("config_dump", adminPort)
 	if err != nil {
 		return nil, err
 	}
@@ -146,6 +143,15 @@ func GetConfigDump(adminPort int) (*envoy_admin_v2alpha.ConfigDump, error) {
 		return nil, err
 	}
 	return msg, nil
+}
+
+func doEnvoyGet(path string, adminPort int) (*bytes.Buffer, error) {
+	requestURL := fmt.Sprintf("http://127.0.0.1:%d/%s", adminPort, path)
+	buffer, err := doHTTPGet(requestURL)
+	if err != nil {
+		return nil, err
+	}
+	return buffer, nil
 }
 
 // IsClusterPresent inspects the given Envoy config dump, looking for the given cluster
