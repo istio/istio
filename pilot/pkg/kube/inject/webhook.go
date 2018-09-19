@@ -91,6 +91,8 @@ func loadConfig(injectFile, meshFile string) (*Config, *meshconfig.MeshConfig, e
 
 	log.Infof("New configuration: sha256sum %x", sha256.Sum256(data))
 	log.Infof("Policy: %v", c.Policy)
+	log.Infof("AlwaysInjectSelector: %v", c.AlwaysInjectSelector)
+	log.Infof("NeverInjectSelector: %v", c.NeverInjectSelector)
 	log.Infof("Template: |\n  %v", strings.Replace(c.Template, "\n", "\n  ", -1))
 
 	return &c, meshConfig, nil
@@ -474,7 +476,7 @@ func (wh *Webhook) inject(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 	log.Debugf("Object: %v", string(req.Object.Raw))
 	log.Debugf("OldObject: %v", string(req.OldObject.Raw))
 
-	if !injectRequired(ignoredNamespaces, wh.sidecarConfig.Policy, &pod.Spec, &pod.ObjectMeta) {
+	if !injectRequired(ignoredNamespaces, wh.sidecarConfig, &pod.Spec, &pod.ObjectMeta) {
 		log.Infof("Skipping %s/%s due to policy check", pod.ObjectMeta.Namespace, podName)
 		return &v1beta1.AdmissionResponse{
 			Allowed: true,
