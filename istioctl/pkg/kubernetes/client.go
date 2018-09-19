@@ -64,19 +64,6 @@ func NewClient(kubeconfig, configContext string) (*Client, error) {
 	return &Client{config, restClient}, nil
 }
 
-// NewExecClient is the constructor for the mockable ExecClient interface
-func NewExecClient(kubeconfig, configContext string) (ExecClient, error) {
-	config, err := defaultRestConfig(kubeconfig, configContext)
-	if err != nil {
-		return nil, err
-	}
-	restClient, err := rest.RESTClientFor(config)
-	if err != nil {
-		return nil, err
-	}
-	return &Client{config, restClient}, nil
-}
-
 func defaultRestConfig(kubeconfig, configContext string) (*rest.Config, error) {
 	config, err := kube.BuildClientConfig(kubeconfig, configContext)
 	if err != nil {
