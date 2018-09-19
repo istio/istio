@@ -25,8 +25,8 @@ import (
 	"os"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/test/envoy"
 	"istio.io/istio/pkg/test/framework/components/apps/api"
-	"istio.io/istio/pkg/test/framework/components/apps/local/envoy"
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/dependency"
 	"istio.io/istio/pkg/test/framework/environment"
