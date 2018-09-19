@@ -116,17 +116,6 @@ var (
 					role.ID = role.IPAddress
 				}
 			}
-			pilotDomain := role.Domain
-			if len(role.Domain) == 0 {
-				if registry == serviceregistry.KubernetesRegistry {
-					role.Domain = os.Getenv("POD_NAMESPACE") + ".svc.cluster.local"
-					pilotDomain = "cluster.local"
-				} else if registry == serviceregistry.ConsulRegistry {
-					role.Domain = "service.consul"
-				} else {
-					role.Domain = ""
-				}
-			}
 
 			log.Infof("Proxy role: %#v", role)
 
@@ -174,7 +163,7 @@ var (
 						}
 					}
 				}
-				pilotSAN = envoy.GetPilotSAN(pilotDomain, ns)
+				pilotSAN = determinePilotSAN(ns)
 			}
 
 			// resolve statsd address
@@ -280,6 +269,26 @@ var (
 		},
 	}
 )
+
+func determinePilotSAN(ns string) []string{
+	pilotDomain := role.Domain
+	if len(role.Domain) == 0 {
+		if registry == serviceregistry.KubernetesRegistry {
+			role.Domain = os.Getenv("POD_NAMESPACE") + ".svc.cluster.local"
+			pilotDomain = "cluster.local"
+		} else if registry == serviceregistry.ConsulRegistry {
+			role.Domain = "service.consul"
+		} else {
+			role.Domain = ""
+		}
+	}
+
+	var pilotSAN []string
+	if controlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS.String() {
+		pilotSAN = envoy.GetPilotSAN(pilotDomain, ns)
+	}
+	return pilotSAN
+}
 
 func parseApplicationPorts() ([]uint16, error) {
 	parsedPorts := make([]uint16, len(applicationPorts))
