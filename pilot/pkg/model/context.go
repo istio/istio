@@ -56,7 +56,9 @@ type Environment struct {
 
 	// EDSUpdates keeps track of all service updates since last full push.
 	// Key is the hostname (servicename). Value is set when any shard part of the service is
-	// updated.
+	// updated. This should only be used in the xDS server - will be removed/made private in 1.1,
+	// once the last v1 pieces are cleaned. For 1.0.3+ it is used only for tracking incremental
+	// pushes between the 2 packages.
 	EDSUpdates map[string]*ServiceShards
 }
 

@@ -93,10 +93,15 @@ type PushContext struct {
 // EDSUpdater is used for direct updates of the EDS model
 // and push.
 type EDSUpdater interface {
-	// EDSUpdateServieEntry is called when the list of endpoints or labels in a ServiceEntry is
+	// EDSUpdate is called when the list of endpoints or labels in a ServiceEntry is
 	// changed. For each cluster and hostname, the full list of active endpoints (including empty list)
 	// must be sent.
 	EDSUpdate(shard, hostname string, entry []*IstioEndpoint) error
+
+	// SvcUpdate is called when a service port mapping definition is updated.
+	// This interface is WIP - labels, annotations and other changes to service may be
+	// updated to force a EDS and CDS recomputation and incremental push, as it doesn't affect
+	// LDS/RDS.
 	SvcUpdate(shard, hostname string, ports map[string]uint32, rports map[uint32]string)
 }
 
@@ -151,7 +156,7 @@ type EndpointShard struct {
 type ConfigUpdater interface {
 	// Push is called the global config has changed and a full push is needed.
 	// This replaces the 'cache invalidation' model. The implementation may debounce and
-	// bach changes.
+	// batch changes.
 	ConfigUpdate(full bool)
 }
 
