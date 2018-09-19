@@ -388,7 +388,7 @@ jobs:
       - <<: *markJobStartsOnGCS
       - run: make sync
       - run: bin/testEnvRootMinikube.sh start
-g      - run: bin/testEnvRootMinikube.sh wait
+      - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
       - run:
           no_output_timeout: 20m
