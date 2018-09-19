@@ -121,6 +121,16 @@ var (
 
 			proxyConfig := model.DefaultProxyConfig()
 
+			if len(role.Domain) == 0 {
+				if registry == serviceregistry.KubernetesRegistry {
+					role.Domain = os.Getenv("POD_NAMESPACE") + ".svc.cluster.local"
+				} else if registry == serviceregistry.ConsulRegistry {
+					role.Domain = "service.consul"
+				} else {
+					role.Domain = ""
+				}
+			}
+
 			// set all flags
 			proxyConfig.CustomConfigFile = customConfigFile
 			proxyConfig.ConfigPath = configPath
@@ -271,20 +281,13 @@ var (
 )
 
 func determinePilotSAN(ns string) []string{
-	pilotDomain := role.Domain
-	if len(role.Domain) == 0 {
-		if registry == serviceregistry.KubernetesRegistry {
-			role.Domain = os.Getenv("POD_NAMESPACE") + ".svc.cluster.local"
-			pilotDomain = "cluster.local"
-		} else if registry == serviceregistry.ConsulRegistry {
-			role.Domain = "service.consul"
-		} else {
-			role.Domain = ""
-		}
-	}
 
 	var pilotSAN []string
 	if controlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS.String() {
+		pilotDomain := role.Domain
+		if len(pilotDomain) == 0 && registry == serviceregistry.KubernetesRegistry {
+			pilotDomain = "cluster.local"
+		}
 		pilotSAN = envoy.GetPilotSAN(pilotDomain, ns)
 	}
 	return pilotSAN
