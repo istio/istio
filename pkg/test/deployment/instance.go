@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
+
 	"istio.io/istio/pkg/test/framework/scopes"
 	"istio.io/istio/pkg/test/helm"
 	"istio.io/istio/pkg/test/kube"
