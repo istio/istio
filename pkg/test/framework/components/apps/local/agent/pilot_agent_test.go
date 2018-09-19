@@ -35,7 +35,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/test/application/echo"
 	"istio.io/istio/pkg/test/application/echo/proto"
-	"istio.io/istio/pkg/test/framework/components/apps/local/envoy"
+	"istio.io/istio/pkg/test/envoy"
 )
 
 const (
