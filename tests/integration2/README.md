@@ -98,7 +98,7 @@ _INTEGRATION_TEST_NAMES = galley mixer mycomponent
 ## Diagnosing Failures
 
 The test framework will generate additional diagnostic output in its work directory. Typically, this is 
-created under the host operating system's temporary folder (which can be overriden using 
+created under the host operating system's temporary folder (which can be overridden using 
 ```--istio.test.work_dir``` flag). The name of the work dir will be based on the test id that is supplied in
 a tests TestMain method.
 
