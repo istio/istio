@@ -16,8 +16,7 @@
 
 #######################################
 #                                     #
-#        mixer-e2e (v1alpha3)         #
-#             MCP variant             #
+#        pilot-e2e (v1alpha3)         #
 #                                     #
 #######################################
 
@@ -29,5 +28,9 @@ set -u
 set -x
 
 # Run tests with auth disabled
-#echo 'Running mixer e2e tests (v1alpha3, noauth)'
-./prow/e2e-suite.sh --use_mcp --single_test e2e_mixer
+#echo 'Running pilot e2e tests (v1alpha3, noauth)'
+./prow/e2e-suite.sh --use_mcp --single_test e2e_pilotv2_v1alpha3
+
+# Run tests with auth enabled
+#echo 'Running pilot e2e tests (v1alpha3, auth)'
+#./prow/e2e-suite.sh --auth_enable=true --v1alpha1=false --single_test e2e_pilot "$@"
