@@ -809,7 +809,7 @@ func (c *Controller) updateEDS(ep v1.Endpoints) {
 					Address:         ea.IP,
 					EndpointPort:    uint32(port.Port),
 					ServicePortName: port.Name,
-					Labels:          &labels,
+					Labels:          labels,
 					UID:             uid,
 				})
 			}

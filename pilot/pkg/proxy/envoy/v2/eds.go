@@ -413,12 +413,10 @@ func (s *DiscoveryServer) edsIncremental(version string, push *model.PushContext
 	cMap := make(map[string]*EdsCluster, len(edsClusters))
 	for k, v := range edsClusters {
 		_, _, hostname, _ := model.ParseSubsetKey(k)
-		s.mutex.RLock()
 		if edsUpdates[string(hostname)] == nil {
 			// Cluster was not updated, skip recomputing.
 			continue
 		}
-		s.mutex.RUnlock()
 		cMap[k] = v
 	}
 	edsClusterMutex.Unlock()
@@ -553,12 +551,10 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection,
 	for _, clusterName := range con.Clusters {
 		if edsPartial {
 			_, _, hostname, _ := model.ParseSubsetKey(clusterName)
-			s.mutex.RLock()
 			if edsUpdatedServices != nil && edsUpdatedServices[string(hostname)] == nil {
 				// Cluster was not updated, skip recomputing.
 				continue
 			}
-			s.mutex.RUnlock()
 			// for debug
 			if edsUpdatedServices != nil {
 				updated = append(updated, clusterName)

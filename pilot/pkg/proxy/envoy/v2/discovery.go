@@ -83,6 +83,8 @@ type DiscoveryServer struct {
 	// incremental updates.
 	EndpointShardsByService map[string]model.ServiceShards
 
+	// mutex protecting global structs updated or read by ADS service, including EDSUpdates and
+	// shards.
 	mutex sync.RWMutex
 }
 

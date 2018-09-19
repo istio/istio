@@ -106,7 +106,7 @@ type EDSUpdater interface {
 type IstioEndpoint struct {
 
 	// Labels points to the workload or deployment labels.
-	Labels *map[string]string
+	Labels map[string]string
 
 	// Address is the IP address of the endpoint. Other types may be
 	// supported in future.
