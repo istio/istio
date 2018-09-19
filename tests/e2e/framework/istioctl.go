@@ -140,7 +140,7 @@ func (i *Istioctl) Install() error {
 
 func (i *Istioctl) run(format string, args ...interface{}) (res string, err error) {
 	format = i.binaryPath + " " + format
-	if res, err = util.Shell(format, args...); err != nil {
+	if res, err = util.ShellMuteOutput(format, args...); err != nil {
 		log.Errorf("istioctl %s failed", args)
 		return "", err
 	}

@@ -396,7 +396,7 @@ func GetAppPodsInfo(n string, kubeconfig string, label string) ([]string, map[st
 	eps := make(map[string][]string)
 	for _, line := range strings.Split(res, "\n") {
 		f := strings.Fields(line)
-		if len(f) >= 2 {
+		if len(f) >= 3 {
 			podNames = append(podNames, f[0])
 			eps[f[1]] = append(eps[f[1]], f[2])
 		}
@@ -570,7 +570,45 @@ func CheckDeployment(ctx context.Context, namespace, deployment string, kubeconf
 	}
 }
 
-// CheckDeployments checks whether all deployment in a given namespace
+// CheckAppDeployment checks whether or not an app in a namespace is ready
+func CheckAppDeployment(namespace, deployment string, timeout time.Duration, kubeconfig string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	g, ctx := errgroup.WithContext(ctx)
+	g.Go(func() error { return CheckDeployment(ctx, namespace, "deployments/"+deployment, kubeconfig) })
+	return g.Wait()
+}
+
+// CheckDeploymentRemoved waits until a deployment is removed or times out
+func CheckDeploymentRemoved(namespace, deployment string, kubeconfig string) error {
+	retry := Retrier{
+		BaseDelay: 5 * time.Second,
+		MaxDelay:  5 * time.Second,
+		Retries:   60,
+	}
+
+	retryFn := func(_ context.Context, i int) error {
+		pod, err := GetPodName(namespace, "name="+deployment, kubeconfig)
+		// Pod has been removed
+		if err != nil {
+			return nil
+		}
+		if status := GetPodStatus(namespace, pod, kubeconfig); status != podFailedGet {
+			err = fmt.Errorf("%s in namespace %s still exists: %s", pod, namespace, status)
+		} else {
+			log.Infof("pod %s removed", pod)
+		}
+		return err
+	}
+	ctx := context.Background()
+	_, err := retry.Retry(ctx, retryFn)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// CheckDeployments checks whether all deployments in a given namespace are ready
 func CheckDeployments(namespace string, timeout time.Duration, kubeconfig string) error {
 	// wait for istio-system deployments to be fully rolled out before proceeding
 	out, err := Shell("kubectl -n %s get deployment -o name --kubeconfig=%s", namespace, kubeconfig)

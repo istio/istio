@@ -25,6 +25,206 @@ import (
 	"istio.io/istio/tests/util"
 )
 
+const maxDeploymentTimeout = 480 * time.Second
+
+func (t *testConfig) verifyMCMeshConfig(primaryPodNames, remotePodNames []string, appEPs map[string][]string) error {
+	if err := verifyPods(t.Kube.Istioctl, primaryPodNames, appEPs); err != nil {
+		return err
+	}
+
+	if err := verifyPods(t.Kube.RemoteIstioctl, remotePodNames, appEPs); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (t *testConfig) addRemoteCluster() error {
+	if err := util.CreateMultiClusterSecret(t.Kube.Namespace, t.Kube.RemoteKubeConfig, t.Kube.KubeConfig); err != nil {
+		log.Errorf("Unable to create remote cluster secret on local cluster %s", err.Error())
+		return err
+	}
+
+	// Wait a few seconds for the mesh to be reconfigured
+	time.Sleep(5 * time.Second)
+	return nil
+}
+
+func (t *testConfig) deleteRemoteCluster() error {
+	if err := util.DeleteMultiClusterSecret(t.Kube.Namespace, t.Kube.RemoteKubeConfig, t.Kube.KubeConfig); err != nil {
+		return err
+	}
+
+	// Wait a few seconds for the mesh to be reconfigured
+	time.Sleep(5 * time.Second)
+	return nil
+}
+
+func (t *testConfig) deployApp(cluster string, deploymentName, serviceName string, port1, port2, port3, port4, port5, port6 int,
+	version string, injectProxy bool, headless bool, serviceAccount bool, createService bool) (*framework.App, error) {
+	tmpApp := getApp(deploymentName, serviceName, port1, port2, port3, port4, port5, port6, version, injectProxy, headless, serviceAccount, createService)
+
+	var appMgr *framework.AppManager
+	if cluster == primaryCluster {
+		appMgr = t.Kube.AppManager
+	} else {
+		appMgr = t.Kube.RemoteAppManager
+	}
+
+	if err := appMgr.DeployApp(&tmpApp); err != nil {
+		return nil, err
+	}
+
+	// Wait a few seconds for the mesh to be reconfigured
+	err := util.CheckAppDeployment(t.Kube.Namespace, deploymentName, maxDeploymentTimeout, t.Kube.Clusters[cluster])
+	return &tmpApp, err
+}
+
+func (t *testConfig) undeployApp(cluster string, deploymentName string, app *framework.App) error {
+	var appMgr *framework.AppManager
+	if cluster == primaryCluster {
+		appMgr = t.Kube.AppManager
+	} else {
+		appMgr = t.Kube.RemoteAppManager
+	}
+
+	// Undeploy c-v3
+	if err := appMgr.UndeployApp(app); err != nil {
+		return err
+	}
+
+	// Wait a few seconds for the mesh to be reconfigured
+	err := util.CheckDeploymentRemoved(t.Kube.Namespace, deploymentName, t.Kube.Clusters[cluster])
+	return err
+}
+
+func (t *testConfig) addAndVerifyRemoteCluster() error {
+	// Collect the pod names and app's endpoints
+	primaryPodNames, primaryAppEPs, err := util.GetAppPodsInfo(t.Kube.Namespace, t.Kube.Clusters[primaryCluster], "app")
+	if err != nil {
+		return err
+	}
+
+	remotePodNames, remoteAppEPs, err := util.GetAppPodsInfo(t.Kube.Namespace, t.Kube.Clusters[remoteCluster], "app")
+	if err != nil {
+		return err
+	}
+
+	// Verify that the mesh contains endpoints from the primary cluster only
+	log.Infof("Before adding remote cluster secret, verify that the mesh only contains endpoints from the primary cluster only")
+	if err = t.verifyMCMeshConfig(primaryPodNames, remotePodNames, primaryAppEPs); err != nil {
+		return err
+	}
+
+	// Add the remote cluster by creating a secret and configmap in the primary cluster
+	if err = t.addRemoteCluster(); err != nil {
+		return err
+	}
+
+	// Verify that the mesh contains endpoints from both the primary and the remote clusters
+	log.Infof("After adding remote cluster secret, verify that the mesh contains endpoints from both the primary and the remote clusters")
+	aggregatedAppEPs := aggregateAppEPs(primaryAppEPs, remoteAppEPs)
+
+	if err = t.verifyMCMeshConfig(primaryPodNames, remotePodNames, aggregatedAppEPs); err != nil {
+		return err
+	}
+
+	// Delete the remote cluster secret
+	if err = t.deleteRemoteCluster(); err != nil {
+		return err
+	}
+
+	log.Infof("After deleting remote cluster secret, verify again that the mesh contains endpoints from the primary cluster only")
+	// Verify that the mesh contains the primary endpoints only
+	if err = t.verifyMCMeshConfig(primaryPodNames, remotePodNames, primaryAppEPs); err != nil {
+		return err
+	}
+
+	// Again, add the remote cluster by creating a secret and configmap in the primary cluster
+	if err = t.addRemoteCluster(); err != nil {
+		return err
+	}
+
+	// Add a v3 deployment to app "c" in the remote cluster and verify the mesh configuration
+	// Service 'c' has already been created earlier. Don't create it anymore.
+	tmpApp, err := t.deployApp(remoteCluster, "c-v3", "c", 80, 8080, 90, 9090, 70, 7070, "v3", true, false, true, false)
+	if err != nil {
+		return err
+	}
+
+	log.Infof("After deploying c-v3, verify that c-v3 is added in the mesh")
+	// Get updates on the remote cluster
+	remotePodNames, remoteAppEPs, err = util.GetAppPodsInfo(t.Kube.Namespace, t.Kube.Clusters[remoteCluster], "app")
+	if err == nil {
+		aggregatedAppEPs = aggregateAppEPs(primaryAppEPs, remoteAppEPs)
+		// Verify that the mesh contains endpoints from both the primary and the remote clusters
+		err = t.verifyMCMeshConfig(primaryPodNames, remotePodNames, aggregatedAppEPs)
+	}
+
+	if err != nil {
+		t.Kube.RemoteAppManager.UndeployApp(tmpApp)
+		return err
+	}
+
+	// Remove the v3 deployment to app "c" in the remote cluster and verify the mesh configuration
+	log.Infof("After deleting c-v3, verify that c-v3 is deleted from the mesh")
+	if err := t.undeployApp(remoteCluster, "c-v3", tmpApp); err != nil {
+		return err
+	}
+
+	// Verify that proxy config changes back to before adding c-v3
+	remotePodNames, remoteAppEPs, err = util.GetAppPodsInfo(t.Kube.Namespace, t.Kube.Clusters[remoteCluster], "app")
+	aggregatedAppEPs = aggregateAppEPs(primaryAppEPs, remoteAppEPs)
+	if err = t.verifyMCMeshConfig(primaryPodNames, remotePodNames, aggregatedAppEPs); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (t *testConfig) verifyMeshConfig() error {
+	// Collect the pod names and app's endpoints
+	podNames, appEPs, err := util.GetAppPodsInfo(t.Kube.Namespace, t.Kube.KubeConfig, "app")
+	if err != nil {
+		return err
+	}
+
+	if err = verifyPods(t.Kube.Istioctl, podNames, appEPs); err != nil {
+		return err
+	}
+
+	// Add a v3 deployment to app "c" and verify the mesh configuration
+	// Service 'c' has already been created earlier. Don't create it anymore.
+	tmpApp, err := t.deployApp(primaryCluster, "c-v3", "c", 80, 8080, 90, 9090, 70, 7070, "v3", true, false, true, false)
+	if err != nil {
+		return err
+	}
+
+	if podNames, appEPs, err = util.GetAppPodsInfo(t.Kube.Namespace, t.Kube.KubeConfig, "app"); err == nil {
+		err = verifyPods(t.Kube.Istioctl, podNames, appEPs)
+	}
+
+	if err != nil {
+		t.Kube.AppManager.UndeployApp(tmpApp)
+		return err
+	}
+
+	// Remove the v3 deployment to app "c" in the remote cluster and verify the mesh configuration
+	log.Infof("After deleting c-v3, verify that c-v3 is deleted from the mesh")
+	if err = t.undeployApp(primaryCluster, "c-v3", tmpApp); err != nil {
+		return err
+	}
+
+	if podNames, appEPs, err = util.GetAppPodsInfo(t.Kube.Namespace, t.Kube.KubeConfig, "app"); err != nil {
+		return err
+	}
+
+	// Verify that proxy config changes back to before adding c-v3
+	if err = verifyPods(t.Kube.Istioctl, podNames, appEPs); err != nil {
+		return err
+	}
+	return nil
+}
+
 func verifyEndpoints(actualEps []string, proxyEps []string) bool {
 	sort.Strings(actualEps)
 	sort.Strings(proxyEps)
@@ -85,129 +285,9 @@ func aggregateAppEPs(firstAppEPs, secondAppEPs map[string][]string) map[string][
 	for app, eps := range firstAppEPs {
 		aaeps[app] = append(aaeps[app], eps...)
 	}
+
 	for app, eps := range secondAppEPs {
 		aaeps[app] = append(aaeps[app], eps...)
 	}
 	return aaeps
-}
-
-func (t *testConfig) addAndVerifyRemoteCluster() error {
-	// Collect the pod names and app's endpoints
-	primaryPodNames, primaryAppEPs, err := util.GetAppPodsInfo(t.Kube.Namespace, t.Kube.Clusters[primaryCluster], "app")
-	if err != nil {
-		return err
-	}
-
-	remotePodNames, remoteAppEPs, err := util.GetAppPodsInfo(t.Kube.Namespace, t.Kube.Clusters[remoteCluster], "app")
-	if err != nil {
-		return err
-	}
-
-	// Verify that the mesh contains endpoints from the primary cluster only
-	log.Infof("Before adding remote cluster secret, verify that the emesh only contains endpoints from the primary cluster only")
-	if err = verifyPods(t.Kube.Istioctl, primaryPodNames, primaryAppEPs); err != nil {
-		return err
-	}
-
-	if err = verifyPods(t.Kube.RemoteIstioctl, remotePodNames, primaryAppEPs); err != nil {
-		return err
-	}
-
-	// Add the remote cluster by creating a secret and configmap in the primary cluster
-	if err = util.CreateMultiClusterSecret(t.Kube.Namespace, t.Kube.RemoteKubeConfig, t.Kube.KubeConfig); err != nil {
-		log.Errorf("Unable to create remote cluster secret on local cluster %s", err.Error())
-		return err
-	}
-
-	// Wait a few seconds for the mesh to be reconfigured
-	time.Sleep(5 * time.Second)
-
-	// Verify that the mesh contains endpoints from both the primary and the remote clusters
-	log.Infof("After adding remote cluster secret, verify that the emesh contains endpoints from both the primary and the remote clusters")
-	aggregatedAppEPs := aggregateAppEPs(primaryAppEPs, remoteAppEPs)
-
-	if err = verifyPods(t.Kube.Istioctl, primaryPodNames, aggregatedAppEPs); err != nil {
-		return err
-	}
-
-	if err = verifyPods(t.Kube.RemoteIstioctl, remotePodNames, aggregatedAppEPs); err != nil {
-		return err
-	}
-
-	// Delete the remote cluster secret
-	if err = util.DeleteMultiClusterSecret(t.Kube.Namespace, t.Kube.RemoteKubeConfig, t.Kube.KubeConfig); err != nil {
-		return err
-	}
-
-	// Wait a few seconds for the mesh to be reconfigured
-	time.Sleep(5 * time.Second)
-
-	log.Infof("After deleting remote cluster secret, verify again that the emesh contains endpoints from the primary cluster only")
-	// Verify that the mesh contains the primary endpoints only
-	if err = verifyPods(t.Kube.Istioctl, primaryPodNames, primaryAppEPs); err != nil {
-		return err
-	}
-
-	if err = verifyPods(t.Kube.RemoteIstioctl, remotePodNames, primaryAppEPs); err != nil {
-		return err
-	}
-
-	// Again, add the remote cluster by creating a secret and configmap in the primary cluster
-	if err = util.CreateMultiClusterSecret(t.Kube.Namespace, t.Kube.RemoteKubeConfig, t.Kube.KubeConfig); err != nil {
-		log.Errorf("Unable to create remote cluster secret on local cluster %s", err.Error())
-		return err
-	}
-
-	// Wait a few seconds for the mesh to be reconfigured
-	time.Sleep(5 * time.Second)
-
-	// Add and remove a v3 deployment to app "c" in the remote cluster and verify the mesh configuration
-	// Service 'c' has already been created earlier. Don't create it anymore.
-	tmpApp := getApp("c-v3", "c", 80, 8080, 90, 9090, 70, 7070, "v3", true, false, true, false)
-
-	if err = t.Kube.RemoteAppManager.DeployApp(&tmpApp); err != nil {
-		return err
-	}
-
-	// Wait a few seconds for the mesh to be reconfigured
-	time.Sleep(30 * time.Second)
-
-	// Get updates on the remote cluster
-	remotePodNames1, remoteAppEPs1, err := util.GetAppPodsInfo(t.Kube.Namespace, t.Kube.Clusters[remoteCluster], "app")
-	if err != nil {
-		t.Kube.RemoteAppManager.UndeployApp(&tmpApp)
-		return err
-	}
-
-	log.Infof("After deploying c-v3, verify that c-v3 is added in the mesh")
-	// Verify that the mesh contains endpoints from both the primary and the remote clusters
-	aggregatedAppEPs1 := aggregateAppEPs(primaryAppEPs, remoteAppEPs1)
-
-	if err = verifyPods(t.Kube.Istioctl, primaryPodNames, aggregatedAppEPs1); err != nil {
-		t.Kube.RemoteAppManager.UndeployApp(&tmpApp)
-		return err
-	}
-
-	if err = verifyPods(t.Kube.RemoteIstioctl, remotePodNames1, aggregatedAppEPs1); err != nil {
-		t.Kube.RemoteAppManager.UndeployApp(&tmpApp)
-		return err
-	}
-
-	// Undeploy c-v3
-	t.Kube.RemoteAppManager.UndeployApp(&tmpApp)
-
-	// Wait a few seconds for the mesh to be reconfigured
-	time.Sleep(30 * time.Second)
-
-	log.Infof("After deleting c-v3, verify that c-v3 is deleted from the mesh")
-	// Verify that proxy config changes back to before adding c-v3
-	if err = verifyPods(t.Kube.Istioctl, primaryPodNames, aggregatedAppEPs); err != nil {
-		return err
-	}
-
-	if err = verifyPods(t.Kube.RemoteIstioctl, remotePodNames, aggregatedAppEPs); err != nil {
-		return err
-	}
-
-	return nil
 }
