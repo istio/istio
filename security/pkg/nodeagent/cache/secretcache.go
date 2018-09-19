@@ -44,8 +44,8 @@ type Options struct {
 
 // SecretManager defines secrets management interface which is used by SDS.
 type SecretManager interface {
-	// GetSecret generates new secret and cache the secret.
-	GetSecret(ctx context.Context, proxyID, spiffeID, token string) (*model.SecretItem, error)
+	// GenerateSecret generates new secret and cache the secret.
+	GenerateSecret(ctx context.Context, proxyID, spiffeID, token string) (*model.SecretItem, error)
 
 	// SecretExist checks if secret already existed.
 	SecretExist(proxyID, spiffeID, token, version string) bool
@@ -100,10 +100,10 @@ func NewSecretCache(cl ca.Client, notifyCb func(string, *model.SecretItem) error
 	return ret
 }
 
-// GetSecret gets secret from cache, this function is called by SDS.FetchSecret,
-// Since credential passing from client may change, regenerate secret every time
-// instread of reading from cache.
-func (sc *SecretCache) GetSecret(ctx context.Context, proxyID, spiffeID, token string) (*model.SecretItem, error) {
+// GenerateSecret generates new secret and cache the secret, this function is called by SDS.StreamSecrets
+// and SDS.FetchSecret. Since credential passing from client may change, regenerate secret every time
+// instead of reading from cache.
+func (sc *SecretCache) GenerateSecret(ctx context.Context, proxyID, spiffeID, token string) (*model.SecretItem, error) {
 	ns, err := sc.generateSecret(ctx, token, spiffeID, time.Now())
 	if err != nil {
 		log.Errorf("Failed to generate secret for proxy %q: %v", proxyID, err)
