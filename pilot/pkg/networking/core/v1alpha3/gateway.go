@@ -392,6 +392,10 @@ func buildGatewayListenerTLSContext(server *networking.Server) *auth.DownstreamT
 				ValidationContext: certValidationContext,
 			},
 			AlpnProtocols: ListenersALPNProtocols,
+			TlsParams: &auth.TlsParameters {
+				TlsMinimumProtocolVersion: auth.TlsParameters_TlsProtocol(server.Tls.TlsMinimumProtocolVersion),
+				TlsMaximumProtocolVersion: auth.TlsParameters_TlsProtocol(server.Tls.TlsMaximumProtocolVersion),
+			},
 		},
 		RequireClientCertificate: &types.BoolValue{
 			Value: requireClientCert,
