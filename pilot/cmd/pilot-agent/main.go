@@ -281,13 +281,17 @@ var (
 )
 
 func determinePilotSAN(ns string) []string{
-
 	var pilotSAN []string
 	if controlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS.String() {
-		pilotDomain := role.Domain
+		pilotDomain := role.IdentityDomain
+		if len(pilotDomain) == 0 {
+			pilotDomain = role.Domain
+		}
+
 		if len(pilotDomain) == 0 && registry == serviceregistry.KubernetesRegistry {
 			pilotDomain = "cluster.local"
 		}
+
 		pilotSAN = envoy.GetPilotSAN(pilotDomain, ns)
 	}
 	return pilotSAN
