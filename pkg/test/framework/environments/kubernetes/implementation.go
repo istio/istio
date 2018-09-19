@@ -131,17 +131,17 @@ func (e *Implementation) Initialize(ctx *internal.TestContext) error {
 		// TODO: Values files should be parameterized.
 		namespace := "istio-system"
 		if e.deployment, err = deployment.New(
-			&deployment.Settings {
+			&deployment.Settings{
 				KubeConfig: e.kube.KubeConfig,
 				ChartDir:   chartDir,
-				WorkDir: ctx.Settings().WorkDir,
-				Hub: e.kube.Hub,
-				Tag: e.kube.Tag,
-				Namespace: namespace,
+				WorkDir:    ctx.Settings().WorkDir,
+				Hub:        e.kube.Hub,
+				Tag:        e.kube.Tag,
+				Namespace:  namespace,
 				ValuesFile: deployment.IstioMCP,
 			},
 			e.Accessor); err != nil {
-				return err
+			return err
 		}
 	}
 
