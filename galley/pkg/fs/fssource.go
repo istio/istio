@@ -22,7 +22,6 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
-	"time"
 
 	"github.com/howeyc/fsnotify"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -41,19 +40,31 @@ var supportedExtensions = map[string]bool{
 	".yml":  true,
 }
 var scope = log.RegisterScope("file-source", "Source for File System", 0)
-var watcher *fsnotify.Watcher
 
 // fsSource is source implementation for filesystem.
 type fsSource struct {
-	root            string
-	checkDuration   time.Duration
-	donec           chan struct{}
-	mu              sync.RWMutex
-	shas            map[string][sha1.Size]byte
-	ch              chan resource.Event
-	kinds           map[string]bool
-	fileResorceKeys map[string][]fileResourceKey
-	version         int64
+	//Config File Path
+	root string
+
+	donec chan struct{}
+
+	mu sync.RWMutex
+
+	//map to store namespace/name : shas
+	shas map[string][sha1.Size]byte
+
+	ch chan resource.Event
+
+	// map to store kind : bool to indicate whether we need to deal with the resource or not
+	kinds map[string]bool
+
+	//map to store filename: []{namespace/name,kind} to indicate whether the resources has been deleted from one file
+	fileResorceKeys map[string][]*fileResourceKey
+
+	//fsresource version
+	version int64
+
+	watcher *fsnotify.Watcher
 }
 
 func (s *fsSource) readFiles(root string) map[string]*istioResource {
@@ -63,7 +74,7 @@ func (s *fsSource) readFiles(root string) map[string]*istioResource {
 		if err != nil {
 			return err
 		}
-		result := s.readFile(path, info)
+		result := s.readFile(path, info, true)
 		if result != nil && len(result) != 0 {
 			for k, r := range result {
 				results[k] = r
@@ -71,7 +82,7 @@ func (s *fsSource) readFiles(root string) map[string]*istioResource {
 		}
 		//add watcher for sub folders
 		if info.Mode().IsDir() {
-			watcher.Watch(path)
+			s.watcher.Watch(path)
 		}
 		return nil
 	})
@@ -81,7 +92,7 @@ func (s *fsSource) readFiles(root string) map[string]*istioResource {
 	return results
 }
 
-func (s *fsSource) readFile(path string, info os.FileInfo) map[string]*istioResource {
+func (s *fsSource) readFile(path string, info os.FileInfo, initial bool) map[string]*istioResource {
 	result := map[string]*istioResource{}
 	if mode := info.Mode() & os.ModeType; !supportedExtensions[filepath.Ext(path)] || (mode != 0 && mode != os.ModeSymlink) {
 		return nil
@@ -93,22 +104,47 @@ func (s *fsSource) readFile(path string, info os.FileInfo) map[string]*istioReso
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	resourceKeyList := make([]fileResourceKey, 1)
+	resourceKeyList := make([]*fileResourceKey, 1)
 	for _, r := range parseFile(path, data) {
 		if !s.kinds[r.u.GetKind()] {
 			continue
 		}
 		result[r.key()] = r
-		resourceKeyList = append(resourceKeyList, fileResourceKey{r.key(), r.u.GetKind()})
+		resourceKeyList = append(resourceKeyList, &fileResourceKey{r.key(), r.u.GetKind()})
 	}
-
-	s.fileResorceKeys[path] = resourceKeyList
+	if initial {
+		s.fileResorceKeys[path] = resourceKeyList
+	}
 	return result
 }
 
-func (s *fsSource) pubEvent(newData *map[string]*istioResource) {
+func (s *fsSource) checkDeleteResourcesInFile(fileName string, newData *map[string]*istioResource) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if fileResorceKeys, ok := s.fileResorceKeys[fileName]; ok {
+		for i := len(fileResorceKeys) - 1; i >= 0; i-- {
+			if fileResorceKeys[i] != nil {
+				if _, ok := (*newData)[(*fileResorceKeys[i]).key]; !ok {
+					delete(s.shas, (*fileResorceKeys[i]).key)
+					s.process(resource.Deleted, (*fileResorceKeys[i]).key, (*fileResorceKeys[i]).kind, nil)
+					fileResorceKeys = append(fileResorceKeys[:i], fileResorceKeys[i+1:]...)
+				}
+			}
+		}
+		if len(fileResorceKeys) > 0 {
+			s.fileResorceKeys[fileName] = fileResorceKeys
+		}
+		if len(fileResorceKeys) == 0 {
+			delete(s.fileResorceKeys, fileName)
+		}
+	}
+
+}
+
+func (s *fsSource) pubEvent(fileName string, newData *map[string]*istioResource) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	//need versionUpdated as sometimes when fswatcher fires events, there is actually on change on the file content
 	versionUpdated := false
 	for k, r := range *newData {
 		if _, ok := s.shas[k]; ok {
@@ -124,15 +160,16 @@ func (s *fsSource) pubEvent(newData *map[string]*istioResource) {
 	if versionUpdated {
 		s.version++
 	}
-
 	for k, r := range *newData {
 		if _, ok := s.shas[k]; ok {
 			if s.shas[k] != r.sha {
+				s.fileResorceKeys[fileName] = append(s.fileResorceKeys[fileName], &fileResourceKey{r.key(), r.u.GetKind()})
 				s.process(resource.Updated, k, "", r)
 			}
 			s.shas[k] = r.sha
 			continue
 		}
+		s.fileResorceKeys[fileName] = append(s.fileResorceKeys[fileName], &fileResourceKey{r.key(), r.u.GetKind()})
 		s.process(resource.Added, k, "", r)
 		s.shas[k] = r.sha
 	}
@@ -143,9 +180,9 @@ func (s *fsSource) deleteResource(fileName string) {
 	defer s.mu.Unlock()
 	if fileResorceKeys, ok := s.fileResorceKeys[fileName]; ok {
 		for _, fileResorceKey := range fileResorceKeys {
-			if fileResorceKey != (fileResourceKey{}) {
-				delete(s.shas, fileResorceKey.key)
-				s.process(resource.Deleted, fileResorceKey.key, fileResorceKey.kind, nil)
+			if fileResorceKey != nil {
+				delete(s.shas, (*fileResorceKey).key)
+				s.process(resource.Deleted, (*fileResorceKey).key, (*fileResorceKey).kind, nil)
 			}
 		}
 		delete(s.fileResorceKeys, fileName)
@@ -167,7 +204,7 @@ func (s *fsSource) Stop() {
 	s.fileResorceKeys = nil
 	s.shas = nil
 	close(s.donec)
-	watcher.Close()
+	s.watcher.Close()
 	s.donec = nil
 }
 
@@ -189,21 +226,24 @@ func (s *fsSource) process(eventKind resource.EventKind, key, resourceKind strin
 			break
 		}
 	}
-
 	source.ProcessEvent(spec, eventKind, key, fmt.Sprintf("v%d", s.version), u, s.ch)
 }
 
 // Start implements runtime.Source
 func (s *fsSource) Start() (chan resource.Event, error) {
 	s.ch = make(chan resource.Event, 1024)
-	watcher, _ = fsnotify.NewWatcher()
-	watcher.Watch(s.root)
+	watcher, err := fsnotify.NewWatcher()
+	s.watcher = watcher
+	if err != nil {
+		return nil, err
+	}
+	s.watcher.Watch(s.root)
 	s.initialCheck()
 	go func() {
 		for {
 			select {
 			// watch for events
-			case ev, more := <-watcher.Event:
+			case ev, more := <-s.watcher.Event:
 				if more && ev.IsDelete() {
 					s.deleteResource(ev.Name)
 				}
@@ -214,11 +254,11 @@ func (s *fsSource) Start() (chan resource.Event, error) {
 					} else {
 						if fi.Mode().IsDir() {
 							scope.Debugf("add wathcher for new folder %s", ev.Name)
-							watcher.Watch(ev.Name)
+							s.watcher.Watch(ev.Name)
 						} else {
-							newData := s.readFile(ev.Name, fi)
+							newData := s.readFile(ev.Name, fi, true)
 							if newData != nil && len(newData) != 0 {
-								s.pubEvent(&newData)
+								s.pubEvent(ev.Name, &newData)
 							}
 						}
 					}
@@ -229,9 +269,12 @@ func (s *fsSource) Start() (chan resource.Event, error) {
 						scope.Warnf("error occurs for watching %s", ev.Name)
 					} else {
 						if !fi.Mode().IsDir() {
-							newData := s.readFile(ev.Name, fi)
+							newData := s.readFile(ev.Name, fi, false)
 							if newData != nil && len(newData) != 0 {
-								s.pubEvent(&newData)
+								s.checkDeleteResourcesInFile(ev.Name, &newData)
+								s.pubEvent(ev.Name, &newData)
+							} else {
+								s.deleteResource(ev.Name)
 							}
 						}
 					}
@@ -254,7 +297,7 @@ func newFsSource(root string, specs []kube.ResourceSpec) (runtime.Source, error)
 	fs := &fsSource{
 		root:            root,
 		kinds:           map[string]bool{},
-		fileResorceKeys: map[string][]fileResourceKey{},
+		fileResorceKeys: map[string][]*fileResourceKey{},
 		donec:           make(chan struct{}),
 		shas:            map[string][sha1.Size]byte{},
 		version:         0,
