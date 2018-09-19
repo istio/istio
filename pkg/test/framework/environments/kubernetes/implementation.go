@@ -23,15 +23,14 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"k8s.io/client-go/rest"
 
-	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/test/framework/scopes"
+
 	"istio.io/istio/pkg/test/framework/environment"
 	"istio.io/istio/pkg/test/framework/internal"
 	"istio.io/istio/pkg/test/framework/settings"
 	"istio.io/istio/pkg/test/framework/tmpl"
 	"istio.io/istio/pkg/test/kube"
 )
-
-var scope = log.RegisterScope("testframework", "General scope for the test framework", 0)
 
 // Implementation is the implementation of a kubernetes environment. It implements environment.Implementation,
 // and also hosts publicly accessible methods that are specific to cluster environment.
@@ -119,7 +118,7 @@ func (e *Implementation) Initialize(ctx *internal.TestContext) error {
 
 // Configure applies the given configuration to the mesh.
 func (e *Implementation) Configure(config string) error {
-	scope.Debugf("Applying configuration: \n%s\n", config)
+	scopes.Framework.Debugf("Applying configuration: \n%s\n", config)
 	err := kube.ApplyContents(e.kube.KubeConfig, e.systemNamespace.allocatedName, config)
 	if err != nil {
 		return err
@@ -145,7 +144,7 @@ func (e *Implementation) Evaluate(template string) (string, error) {
 
 // Reset the environment before starting another test.
 func (e *Implementation) Reset() error {
-	scope.Debug("Resetting environment")
+	scopes.Framework.Debug("Resetting environment")
 
 	// Re-allocate the test namespace.
 	if err := e.testNamespace.allocate(); err != nil {
