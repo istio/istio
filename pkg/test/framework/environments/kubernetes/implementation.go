@@ -125,28 +125,23 @@ func (e *Implementation) Initialize(ctx *internal.TestContext) error {
 
 	if e.kube.DeployIstio {
 		goDir := os.Getenv("GOPATH")
-		chartsDir := path.Join(goDir, "src/istio.io/istio/install/kubernetes/helm")
+		chartDir := path.Join(goDir, "src/istio.io/istio/install/kubernetes/helm")
 
 		// TODO: We should pass a dynamic system namespace.
 		// TODO: Values files should be parameterized.
 		namespace := "istio-system"
-		e.deployment, err = deployment.Start(
-			e.kube.KubeConfig,
-			chartsDir,
-			ctx.Settings().WorkDir,
-			e.kube.Hub,
-			e.kube.Tag,
-			namespace,
-			deployment.IstioMCP)
-
-		if err == nil {
-			err = e.deployment.Wait(e.Accessor)
-		}
-
-		if err != nil {
-			deployment.DumpPodState(e.kube.KubeConfig, namespace)
-			deployment.CopyPodLogs(e.kube.KubeConfig, ctx.Settings().WorkDir, namespace, e.Accessor)
-			return err
+		if e.deployment, err = deployment.New(
+			&deployment.Settings {
+				KubeConfig: e.kube.KubeConfig,
+				ChartDir:   chartDir,
+				WorkDir: ctx.Settings().WorkDir,
+				Hub: e.kube.Hub,
+				Tag: e.kube.Tag,
+				Namespace: namespace,
+				ValuesFile: deployment.IstioMCP,
+			},
+			e.Accessor); err != nil {
+				return err
 		}
 	}
 
@@ -242,7 +237,7 @@ func (n *namespace) allocate() error {
 	return nil
 }
 
-// Close implements io.Closer.Close.
+// Close implements io.Closer interface.
 func (n *namespace) Close() error {
 	if n.created {
 		defer func() {
