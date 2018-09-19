@@ -21,7 +21,6 @@ import (
 	"path"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/hashicorp/go-multierror"
 	"k8s.io/client-go/rest"
 
@@ -127,9 +126,7 @@ func (e *Implementation) Initialize(ctx *internal.TestContext) error {
 		goDir := os.Getenv("GOPATH")
 		chartDir := path.Join(goDir, "src/istio.io/istio/install/kubernetes/helm")
 
-		// TODO: We should pass a dynamic system namespace.
 		// TODO: Values files should be parameterized.
-		namespace := "istio-system"
 		if e.deployment, err = deployment.New(
 			&deployment.Settings{
 				KubeConfig: e.kube.KubeConfig,
@@ -137,7 +134,7 @@ func (e *Implementation) Initialize(ctx *internal.TestContext) error {
 				WorkDir:    ctx.Settings().WorkDir,
 				Hub:        e.kube.Hub,
 				Tag:        e.kube.Tag,
-				Namespace:  namespace,
+				Namespace:  e.systemNamespace.allocatedName,
 				ValuesFile: deployment.IstioMCP,
 			},
 			e.Accessor); err != nil {
@@ -253,5 +250,5 @@ func (n *namespace) getNameToAllocate() string {
 	if n.name != "" {
 		return n.name
 	}
-	return fmt.Sprintf("%s-%s", n.annotation, uuid.New().String())
+	return fmt.Sprintf("%s-%d", n.annotation, time.Now().UnixNano())
 }
