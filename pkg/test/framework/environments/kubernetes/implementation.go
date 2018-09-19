@@ -127,16 +127,14 @@ func (e *Implementation) Initialize(ctx *internal.TestContext) error {
 		goDir := os.Getenv("GOPATH")
 		chartsDir := path.Join(goDir, "src/istio.io/istio/install/kubernetes/helm")
 
-		// TODO: We should pass a dynamic system namespace.
 		// TODO: Values files should be parameterized.
-		namespace := "istio-system"
 		e.deployment, err = deployment.Start(
 			e.kube.KubeConfig,
 			chartsDir,
 			ctx.Settings().WorkDir,
 			e.kube.Hub,
 			e.kube.Tag,
-			namespace,
+			e.systemNamespace.allocatedName,
 			deployment.IstioMCP)
 
 		if err == nil {
@@ -144,8 +142,8 @@ func (e *Implementation) Initialize(ctx *internal.TestContext) error {
 		}
 
 		if err != nil {
-			deployment.DumpPodState(e.kube.KubeConfig, namespace)
-			deployment.CopyPodLogs(e.kube.KubeConfig, ctx.Settings().WorkDir, namespace, e.Accessor)
+			deployment.DumpPodState(e.kube.KubeConfig, e.systemNamespace.allocatedName)
+			deployment.CopyPodLogs(e.kube.KubeConfig, ctx.Settings().WorkDir, e.systemNamespace.allocatedName, e.Accessor)
 			return err
 		}
 	}
