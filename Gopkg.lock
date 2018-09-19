@@ -302,17 +302,6 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:4189ee6a3844f555124d9d2656fe7af02fca961c2a9bad9074789df13a0c62e0"
-  name = "github.com/docker/distribution"
-  packages = [
-    "digestset",
-    "reference",
-  ]
-  pruneopts = "NUT"
-  revision = "83389a148052d74ac602f5f1d62f86ff2f3c4aa5"
-
-[[projects]]
-  branch = "master"
   digest = "1:da25cf063072a10461c19320e82117d85f9d60be4c95a62bc8d5a49acf7d0ca5"
   name = "github.com/docker/spdystream"
   packages = [
@@ -932,14 +921,6 @@
   pruneopts = "NUT"
   revision = "877d39f035d1756b07a6ce8582bf793b7f2c1714"
   version = "v0.8.2"
-
-[[projects]]
-  digest = "1:e0cc8395ea893c898ff5eb0850f4d9851c1f57c78c232304a026379a47a552d0"
-  name = "github.com/opencontainers/go-digest"
-  packages = ["."]
-  pruneopts = "NUT"
-  revision = "279bed98673dd5bef374d3b6e4b09e2af76183bf"
-  version = "v1.0.0-rc1"
 
 [[projects]]
   branch = "master"
@@ -1669,7 +1650,7 @@
   version = "kubernetes-1.10.4"
 
 [[projects]]
-  digest = "1:87533cb11b8c26341bcd198cfb665959c2b56e3051d5713a4d5f90ccc24b8fc9"
+  digest = "1:370190d255066d9afd2b5349bb6fc919923c24c01e767cd3c572ed6b4848af2e"
   name = "k8s.io/apiextensions-apiserver"
   packages = [
     "pkg/apis/apiextensions",
@@ -1677,7 +1658,6 @@
     "pkg/client/clientset/clientset",
     "pkg/client/clientset/clientset/scheme",
     "pkg/client/clientset/clientset/typed/apiextensions/v1beta1",
-    "pkg/features",
   ]
   pruneopts = "NUT"
   revision = "8e7f43002fec5394a8d96ebca781aa9d4b37aaef"
@@ -1737,17 +1717,6 @@
   pruneopts = "NUT"
   revision = "17529ec7eadb8de8e7dc835201455f53571f655a"
   version = "kubernetes-1.10.4"
-
-[[projects]]
-  branch = "master"
-  digest = "1:69f7f9af51c404e8a61f3c86e7c3c73fecde09f188c8642072a9c09036c8762d"
-  name = "k8s.io/apiserver"
-  packages = [
-    "pkg/features",
-    "pkg/util/feature",
-  ]
-  pruneopts = "NUT"
-  revision = "f4a9d31325865f18b8023622a564578f079d582b"
 
 [[projects]]
   branch = "release-7.0"
@@ -1974,18 +1943,9 @@
   revision = "50ae88d24ede7b8bad68e23c805b5d3da5c8abaf"
 
 [[projects]]
-  digest = "1:cd6053981a7577bb5359df64000f025405dd4f45945400fcbfa3f06d02a45397"
+  digest = "1:b4b2df5778774f11f704be91f977decb41873eea9178b3fa9ce9f2b30ea5599b"
   name = "k8s.io/kubernetes"
-  packages = [
-    "pkg/apis/autoscaling",
-    "pkg/apis/core",
-    "pkg/apis/core/v1",
-    "pkg/apis/extensions",
-    "pkg/apis/networking",
-    "pkg/features",
-    "pkg/util/parsers",
-    "pkg/util/pointer",
-  ]
+  packages = ["pkg/apis/core"]
   pruneopts = "NUT"
   revision = "5ca598b4ba5abb89bb773071ce452e33fb66339d"
   version = "v1.10.4"
@@ -2230,7 +2190,6 @@
     "k8s.io/ingress/core/pkg/ingress/status",
     "k8s.io/ingress/core/pkg/ingress/store",
     "k8s.io/kubernetes/pkg/apis/core",
-    "k8s.io/kubernetes/pkg/apis/core/v1",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1
