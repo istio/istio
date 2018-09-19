@@ -34,6 +34,6 @@ func Template(deploymentName, namespace, chartDir, valuesFile string, s *Setting
 		return str, nil
 	}
 
-	return "", fmt.Errorf("%v: %s", err, s)
+	return "", fmt.Errorf("%v: %s", err, str)
 
 }
