@@ -480,7 +480,9 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 				Subjects: []*rbacproto.Subject{
 					{
 						Properties: map[string]string{
-							"source.ip": "192.1.2.0/24",
+							"source.ip":        "192.1.2.0/24",
+							"source.namespace": "default",
+							"source.principal": "cluster.local/ns/default/sa/productpage",
 						},
 					},
 				},
@@ -693,6 +695,28 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 									SourceIp: &core.CidrRange{
 										AddressPrefix: "192.1.2.0",
 										PrefixLen:     &types.UInt32Value{Value: 24},
+									},
+								},
+							},
+							{
+								Identifier: &policy.Principal_Authenticated_{
+									Authenticated: &policy.Principal_Authenticated{
+										PrincipalName: &metadata.StringMatcher{
+											MatchPattern: &metadata.StringMatcher_Regex{
+												Regex: ".*/ns/default/.*",
+											},
+										},
+									},
+								},
+							},
+							{
+								Identifier: &policy.Principal_Authenticated_{
+									Authenticated: &policy.Principal_Authenticated{
+										PrincipalName: &metadata.StringMatcher{
+											MatchPattern: &metadata.StringMatcher_Exact{
+												Exact: "spiffe://cluster.local/ns/default/sa/productpage",
+											},
+										},
 									},
 								},
 							},
