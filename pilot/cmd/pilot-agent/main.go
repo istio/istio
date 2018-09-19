@@ -117,10 +117,6 @@ var (
 				}
 			}
 
-			log.Infof("Proxy role: %#v", role)
-
-			proxyConfig := model.DefaultProxyConfig()
-
 			if len(role.Domain) == 0 {
 				if registry == serviceregistry.KubernetesRegistry {
 					role.Domain = os.Getenv("POD_NAMESPACE") + ".svc.cluster.local"
@@ -130,6 +126,10 @@ var (
 					role.Domain = ""
 				}
 			}
+
+			log.Infof("Proxy role: %#v", role)
+
+			proxyConfig := model.DefaultProxyConfig()
 
 			// set all flags
 			proxyConfig.CustomConfigFile = customConfigFile
