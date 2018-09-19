@@ -12,35 +12,28 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package kube
+package helm
 
 import (
-	"errors"
-	"time"
+	"fmt"
+
+	"istio.io/istio/pkg/test/shell"
 )
 
-const defaultTimeout = time.Second * 20
-const defaultRetryWait = time.Millisecond * 10
-
-// retry the given function, until there is a timeout, or until the function indicates that it has completed.
-func retry(
-	timeout time.Duration,
-	retryWait time.Duration,
-	fn func() (result interface{}, completed bool, err error)) (interface{}, error) {
-
-	to := time.After(timeout)
-	for {
-		select {
-		case <-to:
-			return nil, errors.New("timeout while waiting")
-		default:
-		}
-
-		result, completed, err := fn()
-		if completed {
-			return result, err
-		}
-
-		<-time.After(retryWait)
+// Template calls "helm template".
+func Template(deploymentName, namespace, chartDir, valuesFile string, s *Settings) (string, error) {
+	valuesString := ""
+	for k, v := range s.generate() {
+		valuesString += fmt.Sprintf(" --set %s=%s", k, v)
 	}
+
+	str, err := shell.Execute(
+		"helm template %s --name %s --namespace %s --values %s%s",
+		chartDir, deploymentName, namespace, valuesFile, valuesString)
+	if err == nil {
+		return str, nil
+	}
+
+	return "", fmt.Errorf("%v: %s", err, s)
+
 }
