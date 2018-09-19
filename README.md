@@ -2,7 +2,7 @@
 
 [![CircleCI](https://circleci.com/gh/istio/istio.svg?style=shield)](https://circleci.com/gh/istio/istio)
 [![Go Report Card](https://goreportcard.com/badge/github.com/istio/istio)](https://goreportcard.com/report/github.com/istio/istio)
-[![GoDoc](https://godoc.org/github.com/istio/istio?status.svg)](https://godoc.org/github.com/istio/istio)
+[![GoDoc](https://godoc.org/istio.io/istio?status.svg)](https://godoc.org/istio.io/istio)
 [![codecov.io](https://codecov.io/github/istio/istio/coverage.svg?branch=master)](https://codecov.io/github/istio/istio?branch=master)
 
 An open platform to connect, manage, and secure microservices.
