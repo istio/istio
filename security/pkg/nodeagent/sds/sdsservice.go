@@ -101,7 +101,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 	ctx := stream.Context()
 	token, err := getCredentialToken(ctx)
 	if err != nil {
-		log.Errorf("Failed to get credential token: %v", err)
+		log.Errorf("Failed to get credential token from incoming request: %v", err)
 		return err
 	}
 
@@ -152,7 +152,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			defer removeConn(discReq.Node.Id)
 
 			if err := pushSDS(con); err != nil {
-				log.Errorf("SDS failed to push: %v", err)
+				log.Errorf("SDS failed to push key/cert to proxy %q: %v", con.proxyID, err)
 				return err
 			}
 		case <-con.pushChannel:
@@ -168,7 +168,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			}
 
 			if err := pushSDS(con); err != nil {
-				log.Errorf("SDS failed to push: %v", err)
+				log.Errorf("SDS failed to push key/cert to proxy %q: %v", con.proxyID, err)
 				return err
 			}
 		}
@@ -252,7 +252,7 @@ func removeConn(proxyID string) {
 }
 
 func pushSDS(con *sdsConnection) error {
-	log.Infof("SDS: push for proxy:%q", con.proxyID)
+	log.Infof("SDS: push from node agent to proxy:%q", con.proxyID)
 
 	response, err := sdsDiscoveryResponse(con.secret, con.proxyID)
 	if err != nil {
