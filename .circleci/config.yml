@@ -388,13 +388,6 @@ jobs:
       - <<: *markJobStartsOnGCS
       - run: make sync
       - run: bin/testEnvRootMinikube.sh start
-      - run:
-          command: |
-            if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
-              # Should only happen when re-running a job, and the workspace is gone
-              time make build test-bins
-            fi
-            make docker.all generate_yaml
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
       - run:
@@ -555,6 +548,8 @@ jobs:
       - checkout
       - run: make sync
       - run: make build test-bins /go/bin/go-junit-report
+      - run: make docker.all generate_yaml
+      - run: docker images
       - persist_to_workspace:
           root: /go
           paths:
