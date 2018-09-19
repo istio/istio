@@ -24,8 +24,8 @@
 // testdata/config-v1alpha2-denier-valid.yaml
 // testdata/config-v1alpha2-fluentd-invalid.yaml
 // testdata/config-v1alpha2-fluentd-valid.yaml
-// testdata/config-v1alpha2-kubernetes-invalid.yaml
-// testdata/config-v1alpha2-kubernetes-valid.yaml
+// testdata/config-v1alpha2-kubernetes-invalid-skipped.yaml
+// testdata/config-v1alpha2-kubernetes-valid-skipped.yaml
 // testdata/config-v1alpha2-kubernetesenv-invalid.yaml
 // testdata/config-v1alpha2-kubernetesenv-valid.yaml
 // testdata/config-v1alpha2-listchecker-invalid.yaml
@@ -70,8 +70,8 @@
 // testdata/networking-v1alpha3-DestinationRule-valid.yaml
 // testdata/networking-v1alpha3-Gateway-invalid.yaml
 // testdata/networking-v1alpha3-Gateway-valid.yaml
-// testdata/networking-v1alpha3-ServiceEntry-invalid.yaml
-// testdata/networking-v1alpha3-ServiceEntry-valid.yaml
+// testdata/networking-v1alpha3-ServiceEntry-invalid-skipped.yaml
+// testdata/networking-v1alpha3-ServiceEntry-valid-skipped.yaml
 // testdata/networking-v1alpha3-VirtualService-invalid.yaml
 // testdata/networking-v1alpha3-VirtualService-valid.yaml
 // testdata/rbac-v1alpha1-ServiceRole-invalid.yaml
@@ -847,7 +847,7 @@ func testdataConfigV1alpha2FluentdValidYaml() (*asset, error) {
 	return a, nil
 }
 
-var _testdataConfigV1alpha2KubernetesInvalidYaml = []byte(`apiVersion: "config.istio.io/v1alpha2"
+var _testdataConfigV1alpha2KubernetesInvalidSkippedYaml = []byte(`apiVersion: "config.istio.io/v1alpha2"
 kind: kubernetes
 metadata:
   name: valid-kubernetes
@@ -855,22 +855,22 @@ spec:
   badField: foo
 `)
 
-func testdataConfigV1alpha2KubernetesInvalidYamlBytes() ([]byte, error) {
-	return _testdataConfigV1alpha2KubernetesInvalidYaml, nil
+func testdataConfigV1alpha2KubernetesInvalidSkippedYamlBytes() ([]byte, error) {
+	return _testdataConfigV1alpha2KubernetesInvalidSkippedYaml, nil
 }
 
-func testdataConfigV1alpha2KubernetesInvalidYaml() (*asset, error) {
-	bytes, err := testdataConfigV1alpha2KubernetesInvalidYamlBytes()
+func testdataConfigV1alpha2KubernetesInvalidSkippedYaml() (*asset, error) {
+	bytes, err := testdataConfigV1alpha2KubernetesInvalidSkippedYamlBytes()
 	if err != nil {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "testdata/config-v1alpha2-kubernetes-invalid.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	info := bindataFileInfo{name: "testdata/config-v1alpha2-kubernetes-invalid-skipped.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
 
-var _testdataConfigV1alpha2KubernetesValidYaml = []byte(`apiVersion: "config.istio.io/v1alpha2"
+var _testdataConfigV1alpha2KubernetesValidSkippedYaml = []byte(`apiVersion: "config.istio.io/v1alpha2"
 kind: kubernetes
 metadata:
   name: valid-kubernetes
@@ -897,17 +897,17 @@ spec:
     #destination.serviceAccount: $out.destination_service_account_name | "unknown"
 `)
 
-func testdataConfigV1alpha2KubernetesValidYamlBytes() ([]byte, error) {
-	return _testdataConfigV1alpha2KubernetesValidYaml, nil
+func testdataConfigV1alpha2KubernetesValidSkippedYamlBytes() ([]byte, error) {
+	return _testdataConfigV1alpha2KubernetesValidSkippedYaml, nil
 }
 
-func testdataConfigV1alpha2KubernetesValidYaml() (*asset, error) {
-	bytes, err := testdataConfigV1alpha2KubernetesValidYamlBytes()
+func testdataConfigV1alpha2KubernetesValidSkippedYaml() (*asset, error) {
+	bytes, err := testdataConfigV1alpha2KubernetesValidSkippedYamlBytes()
 	if err != nil {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "testdata/config-v1alpha2-kubernetes-valid.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	info := bindataFileInfo{name: "testdata/config-v1alpha2-kubernetes-valid-skipped.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2178,7 +2178,7 @@ func testdataNetworkingV1alpha3GatewayValidYaml() (*asset, error) {
 	return a, nil
 }
 
-var _testdataNetworkingV1alpha3ServiceentryInvalidYaml = []byte(`apiVersion: networking.istio.io/v1alpha3
+var _testdataNetworkingV1alpha3ServiceentryInvalidSkippedYaml = []byte(`apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
   name: invalid-service-entry
@@ -2196,22 +2196,22 @@ spec:
       http: 8080 # TODO test https
 `)
 
-func testdataNetworkingV1alpha3ServiceentryInvalidYamlBytes() ([]byte, error) {
-	return _testdataNetworkingV1alpha3ServiceentryInvalidYaml, nil
+func testdataNetworkingV1alpha3ServiceentryInvalidSkippedYamlBytes() ([]byte, error) {
+	return _testdataNetworkingV1alpha3ServiceentryInvalidSkippedYaml, nil
 }
 
-func testdataNetworkingV1alpha3ServiceentryInvalidYaml() (*asset, error) {
-	bytes, err := testdataNetworkingV1alpha3ServiceentryInvalidYamlBytes()
+func testdataNetworkingV1alpha3ServiceentryInvalidSkippedYaml() (*asset, error) {
+	bytes, err := testdataNetworkingV1alpha3ServiceentryInvalidSkippedYamlBytes()
 	if err != nil {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "testdata/networking-v1alpha3-ServiceEntry-invalid.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	info := bindataFileInfo{name: "testdata/networking-v1alpha3-ServiceEntry-invalid-skipped.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
 
-var _testdataNetworkingV1alpha3ServiceentryValidYaml = []byte(`apiVersion: networking.istio.io/v1alpha3
+var _testdataNetworkingV1alpha3ServiceentryValidSkippedYaml = []byte(`apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
   name: valid-service-entry
@@ -2231,17 +2231,17 @@ spec:
       http: 8080 # TODO test https
 `)
 
-func testdataNetworkingV1alpha3ServiceentryValidYamlBytes() ([]byte, error) {
-	return _testdataNetworkingV1alpha3ServiceentryValidYaml, nil
+func testdataNetworkingV1alpha3ServiceentryValidSkippedYamlBytes() ([]byte, error) {
+	return _testdataNetworkingV1alpha3ServiceentryValidSkippedYaml, nil
 }
 
-func testdataNetworkingV1alpha3ServiceentryValidYaml() (*asset, error) {
-	bytes, err := testdataNetworkingV1alpha3ServiceentryValidYamlBytes()
+func testdataNetworkingV1alpha3ServiceentryValidSkippedYaml() (*asset, error) {
+	bytes, err := testdataNetworkingV1alpha3ServiceentryValidSkippedYamlBytes()
 	if err != nil {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "testdata/networking-v1alpha3-ServiceEntry-valid.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	info := bindataFileInfo{name: "testdata/networking-v1alpha3-ServiceEntry-valid-skipped.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2496,8 +2496,8 @@ var _bindata = map[string]func() (*asset, error){
 	"testdata/config-v1alpha2-denier-valid.yaml": testdataConfigV1alpha2DenierValidYaml,
 	"testdata/config-v1alpha2-fluentd-invalid.yaml": testdataConfigV1alpha2FluentdInvalidYaml,
 	"testdata/config-v1alpha2-fluentd-valid.yaml": testdataConfigV1alpha2FluentdValidYaml,
-	"testdata/config-v1alpha2-kubernetes-invalid.yaml": testdataConfigV1alpha2KubernetesInvalidYaml,
-	"testdata/config-v1alpha2-kubernetes-valid.yaml": testdataConfigV1alpha2KubernetesValidYaml,
+	"testdata/config-v1alpha2-kubernetes-invalid-skipped.yaml": testdataConfigV1alpha2KubernetesInvalidSkippedYaml,
+	"testdata/config-v1alpha2-kubernetes-valid-skipped.yaml": testdataConfigV1alpha2KubernetesValidSkippedYaml,
 	"testdata/config-v1alpha2-kubernetesenv-invalid.yaml": testdataConfigV1alpha2KubernetesenvInvalidYaml,
 	"testdata/config-v1alpha2-kubernetesenv-valid.yaml": testdataConfigV1alpha2KubernetesenvValidYaml,
 	"testdata/config-v1alpha2-listchecker-invalid.yaml": testdataConfigV1alpha2ListcheckerInvalidYaml,
@@ -2542,8 +2542,8 @@ var _bindata = map[string]func() (*asset, error){
 	"testdata/networking-v1alpha3-DestinationRule-valid.yaml": testdataNetworkingV1alpha3DestinationruleValidYaml,
 	"testdata/networking-v1alpha3-Gateway-invalid.yaml": testdataNetworkingV1alpha3GatewayInvalidYaml,
 	"testdata/networking-v1alpha3-Gateway-valid.yaml": testdataNetworkingV1alpha3GatewayValidYaml,
-	"testdata/networking-v1alpha3-ServiceEntry-invalid.yaml": testdataNetworkingV1alpha3ServiceentryInvalidYaml,
-	"testdata/networking-v1alpha3-ServiceEntry-valid.yaml": testdataNetworkingV1alpha3ServiceentryValidYaml,
+	"testdata/networking-v1alpha3-ServiceEntry-invalid-skipped.yaml": testdataNetworkingV1alpha3ServiceentryInvalidSkippedYaml,
+	"testdata/networking-v1alpha3-ServiceEntry-valid-skipped.yaml": testdataNetworkingV1alpha3ServiceentryValidSkippedYaml,
 	"testdata/networking-v1alpha3-VirtualService-invalid.yaml": testdataNetworkingV1alpha3VirtualserviceInvalidYaml,
 	"testdata/networking-v1alpha3-VirtualService-valid.yaml": testdataNetworkingV1alpha3VirtualserviceValidYaml,
 	"testdata/rbac-v1alpha1-ServiceRole-invalid.yaml": testdataRbacV1alpha1ServiceroleInvalidYaml,
@@ -2617,8 +2617,8 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		"config-v1alpha2-denier-valid.yaml": &bintree{testdataConfigV1alpha2DenierValidYaml, map[string]*bintree{}},
 		"config-v1alpha2-fluentd-invalid.yaml": &bintree{testdataConfigV1alpha2FluentdInvalidYaml, map[string]*bintree{}},
 		"config-v1alpha2-fluentd-valid.yaml": &bintree{testdataConfigV1alpha2FluentdValidYaml, map[string]*bintree{}},
-		"config-v1alpha2-kubernetes-invalid.yaml": &bintree{testdataConfigV1alpha2KubernetesInvalidYaml, map[string]*bintree{}},
-		"config-v1alpha2-kubernetes-valid.yaml": &bintree{testdataConfigV1alpha2KubernetesValidYaml, map[string]*bintree{}},
+		"config-v1alpha2-kubernetes-invalid-skipped.yaml": &bintree{testdataConfigV1alpha2KubernetesInvalidSkippedYaml, map[string]*bintree{}},
+		"config-v1alpha2-kubernetes-valid-skipped.yaml": &bintree{testdataConfigV1alpha2KubernetesValidSkippedYaml, map[string]*bintree{}},
 		"config-v1alpha2-kubernetesenv-invalid.yaml": &bintree{testdataConfigV1alpha2KubernetesenvInvalidYaml, map[string]*bintree{}},
 		"config-v1alpha2-kubernetesenv-valid.yaml": &bintree{testdataConfigV1alpha2KubernetesenvValidYaml, map[string]*bintree{}},
 		"config-v1alpha2-listchecker-invalid.yaml": &bintree{testdataConfigV1alpha2ListcheckerInvalidYaml, map[string]*bintree{}},
@@ -2663,8 +2663,8 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		"networking-v1alpha3-DestinationRule-valid.yaml": &bintree{testdataNetworkingV1alpha3DestinationruleValidYaml, map[string]*bintree{}},
 		"networking-v1alpha3-Gateway-invalid.yaml": &bintree{testdataNetworkingV1alpha3GatewayInvalidYaml, map[string]*bintree{}},
 		"networking-v1alpha3-Gateway-valid.yaml": &bintree{testdataNetworkingV1alpha3GatewayValidYaml, map[string]*bintree{}},
-		"networking-v1alpha3-ServiceEntry-invalid.yaml": &bintree{testdataNetworkingV1alpha3ServiceentryInvalidYaml, map[string]*bintree{}},
-		"networking-v1alpha3-ServiceEntry-valid.yaml": &bintree{testdataNetworkingV1alpha3ServiceentryValidYaml, map[string]*bintree{}},
+		"networking-v1alpha3-ServiceEntry-invalid-skipped.yaml": &bintree{testdataNetworkingV1alpha3ServiceentryInvalidSkippedYaml, map[string]*bintree{}},
+		"networking-v1alpha3-ServiceEntry-valid-skipped.yaml": &bintree{testdataNetworkingV1alpha3ServiceentryValidSkippedYaml, map[string]*bintree{}},
 		"networking-v1alpha3-VirtualService-invalid.yaml": &bintree{testdataNetworkingV1alpha3VirtualserviceInvalidYaml, map[string]*bintree{}},
 		"networking-v1alpha3-VirtualService-valid.yaml": &bintree{testdataNetworkingV1alpha3VirtualserviceValidYaml, map[string]*bintree{}},
 		"rbac-v1alpha1-ServiceRole-invalid.yaml": &bintree{testdataRbacV1alpha1ServiceroleInvalidYaml, map[string]*bintree{}},

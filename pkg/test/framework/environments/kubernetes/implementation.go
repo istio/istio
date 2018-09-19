@@ -17,16 +17,18 @@ package kubernetes
 import (
 	"fmt"
 	"io"
+	"os"
+	"path"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/hashicorp/go-multierror"
 	"k8s.io/client-go/rest"
 
-	"istio.io/istio/pkg/test/framework/scopes"
-
+	"istio.io/istio/pkg/test/deployment"
 	"istio.io/istio/pkg/test/framework/environment"
 	"istio.io/istio/pkg/test/framework/internal"
+	"istio.io/istio/pkg/test/framework/scopes"
 	"istio.io/istio/pkg/test/framework/settings"
 	"istio.io/istio/pkg/test/framework/tmpl"
 	"istio.io/istio/pkg/test/kube"
@@ -46,6 +48,8 @@ type Implementation struct {
 	systemNamespace     *namespace
 	dependencyNamespace *namespace
 	testNamespace       *namespace
+
+	deployment *deployment.Instance
 }
 
 var _ internal.EnvironmentController = &Implementation{}
@@ -82,6 +86,8 @@ func (e *Implementation) Initialize(ctx *internal.TestContext) error {
 		return err
 	}
 
+	scopes.CI.Infof("Test Framework Kubernetes environment settings:\n%s", e.kube)
+
 	config, err := kube.CreateConfig(e.kube.KubeConfig)
 	if err != nil {
 		return err
@@ -113,7 +119,38 @@ func (e *Implementation) Initialize(ctx *internal.TestContext) error {
 	if err := e.systemNamespace.allocate(); err != nil {
 		return err
 	}
-	return e.dependencyNamespace.allocate()
+	if err := e.dependencyNamespace.allocate(); err != nil {
+		return err
+	}
+
+	if e.kube.DeployIstio {
+		goDir := os.Getenv("GOPATH")
+		chartsDir := path.Join(goDir, "src/istio.io/istio/install/kubernetes/helm")
+
+		// TODO: We should pass a dynamic system namespace.
+		// TODO: Values files should be parameterized.
+		namespace := "istio-system"
+		e.deployment, err = deployment.Start(
+			e.kube.KubeConfig,
+			chartsDir,
+			ctx.Settings().WorkDir,
+			e.kube.Hub,
+			e.kube.Tag,
+			namespace,
+			deployment.IstioMCP)
+
+		if err == nil {
+			err = e.deployment.Wait(e.Accessor)
+		}
+
+		if err != nil {
+			deployment.DumpPodState(e.kube.KubeConfig, namespace)
+			deployment.CopyPodLogs(e.kube.KubeConfig, ctx.Settings().WorkDir, namespace, e.Accessor)
+			return err
+		}
+	}
+
+	return nil
 }
 
 // Configure applies the given configuration to the mesh.
@@ -162,6 +199,14 @@ func (e *Implementation) Close() error {
 			err = multierror.Append(err, e)
 		}
 	}
+
+	if e.deployment != nil {
+		if err2 := e.deployment.Delete(); err2 != nil {
+			err = multierror.Append(err, err2)
+		}
+		e.deployment = nil
+	}
+
 	return err
 }
 
@@ -194,6 +239,7 @@ func (n *namespace) allocate() error {
 	return nil
 }
 
+// Close implements io.Closer.Close.
 func (n *namespace) Close() error {
 	if n.created {
 		defer func() {

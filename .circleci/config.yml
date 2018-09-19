@@ -374,6 +374,39 @@ jobs:
         - store_artifacts:
             path: /tmp
 
+  test-integration-kubernetes:
+    <<: *integrationDefaults
+    environment:
+      - KUBECONFIG: /go/out/minikube.conf
+      - TEST_ENV: minikube-none
+      - GOPATH: /go
+    steps:
+      - <<: *initWorkingDir
+      - checkout
+      - attach_workspace:
+          at:  /go
+      - <<: *markJobStartsOnGCS
+      - run: make sync
+      - run: bin/testEnvRootMinikube.sh start
+      - run: bin/testEnvRootMinikube.sh wait
+      - run: docker images
+      - run:
+          no_output_timeout: 20m
+          # Run the test even if previous failed
+          when: always
+          name: make test.integration.kube
+          command: |
+            make test.integration.kube T=-v | tee -a /go/out/tests/build-log.txt
+      - <<: *recordZeroExitCodeIfTestPassed
+      - <<: *recordNonzeroExitCodeIfTestFailed
+      - <<: *markJobFinishesOnGCS
+      - store_artifacts:
+          path: /home/circleci/logs
+      - store_artifacts:
+          path: /tmp
+      - store_test_results:
+          path: /go/out/tests
+
   e2e-pilot-auth-v1alpha3-v2-mcp:
     <<: *integrationDefaults
     steps:
@@ -515,6 +548,8 @@ jobs:
       - checkout
       - run: make sync
       - run: make build test-bins /go/bin/go-junit-report
+      - run: make docker.all generate_yaml
+      - run: docker images
       - persist_to_workspace:
           root: /go
           paths:
@@ -712,5 +747,8 @@ workflows:
           requires:
             - build
       - test-integration-local:
+          requires:
+            - build
+      - test-integration-kubernetes:
           requires:
             - build

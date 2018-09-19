@@ -3,7 +3,17 @@
 This folder contains Istio integration tests that use the test framework checked in at 
 [istio.io/istio/pkg/test/framework](https://github.com/istio/istio/tree/master/pkg/test/framework).
 
-### Basics
+## Table of Contents
+1. [Basics](#basics)
+    1. [Environments](#environments)
+        1. [Kubernetes](#kubernetes-environment)
+3. [Adding New Tests](#adding-new-tests)
+4. [Diagnosing Failures](#diagnosing-failures)
+5. [Reference](#reference)
+    1. [Commandline Flags](#command-line-flags)
+
+
+## Basics
 
 The goal of the framework is to make it as easy as possible to author and run tests. In its simplest
 case, just typing ```go test ./...``` should be sufficient to run tests.
@@ -55,7 +65,9 @@ removed**.
 $ go test ./...  -istio.test.env kubernetes -istio.test.kube.config ~/.kube/config
 ```
 
-### Adding New Tests
+
+
+## Adding New Tests
 
 Please follow the general guidance for adding new tests:
 
@@ -79,5 +91,52 @@ func TestMain(m *testing.M) {
   in make targets and check-in gates:
   
 ```make
-INTEGRATION_TEST_NAMES = galley mixer mycomponent
+_INTEGRATION_TEST_NAMES = galley mixer mycomponent
 ``` 
+
+
+## Diagnosing Failures
+
+The test framework will generate additional diagnostic output in its work directory. Typically, this is 
+created under the host operating system's temporary folder (which can be overriddgen using 
+```--istio.test.work_dir``` flag). The name of the work dir will be based on the test id that is supplied in
+a tests TestMain method.
+
+```console
+$ go test galley/... --istio.test.work_dir /foo
+  ...
+
+$ ls /foo
+  galley-test-4ef25d910d2746f9b38/
+  
+$ ls /foo/galley-test-4ef25d910d2746f9b38/
+  istio-system-1537332205890088657.yaml
+  ...
+```
+
+In CircleCI, these files can be found in the artifacts section on the test job page:
+
+![CircleCI Artifacts Tab Screenshot](https://circleci.com/docs/assets/img/docs/artifacts.png)
+
+
+
+## Reference
+
+
+### Command-Line Flags
+
+The test framework supports the following command-line flags:
+
+```
+Common Flags:
+--istio.test.work_dir <dir>      Local working directory for creating logs/temp files.
+--istio.test.env <envname>       Specify the environment to run the tests against.
+
+Kubernetes Environment Flags:
+--istio.test.kube.config <path>   The path to the kube config file for cluster environments
+--istio.test.kube.hub <string>    The hub for docker images.
+--istio.test.kube.tag <string>    The tag for docker images.
+--istio.test.kube.testNamespace   The namespace for each individual test. 
+--istio.test.kube.systemNamespace The namespace where the Istio components reside in a typical deployment.
+--istio.test.kube.dependencyNamespace  The namespace in which dependency components are deployed.    
+```
