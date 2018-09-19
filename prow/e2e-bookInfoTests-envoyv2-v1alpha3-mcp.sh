@@ -15,11 +15,11 @@
 #   limitations under the License.
 
 
-#######################################
-#                                     #
-#             e2e-suite               #
-#                                     #
-#######################################
+################################################
+#                                              #
+#             e2e-bookInfoTests (v1alpha3)     #
+#                                              #
+################################################
 
 # Exit immediately for non zero status
 set -e
@@ -28,5 +28,5 @@ set -u
 # Print commands
 set -x
 
-echo 'Running e2e with rbac, with auth Tests'
-./prow/e2e-suite.sh --test_vm --auth_enable --use_mcp "$@"
+echo 'Running bookinfo test with rbac, auth Tests'
+./prow/e2e-suite.sh  --use_mcp --single_test e2e_bookinfo_envoyv2_v1alpha3 "$@"
