@@ -198,7 +198,7 @@ func (e *Implementation) Close() error {
 	if e.deployment != nil {
 		// TODO: Deleting the deployment is extremely noisy. It is outputting a whole slew of errors
 		// Disabling the collection of errors from Delete for the time being.
-		_ = e.deployment.Delete()
+		_ = e.deployment.Delete(e.Accessor)
 		//if err2 := e.deployment.Delete(); err2 != nil {
 		//	err = multierror.Append(err, err2)
 		//}

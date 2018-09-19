@@ -21,6 +21,7 @@ import (
 	"path"
 	"time"
 
+	"github.com/hashicorp/go-multierror"
 	"istio.io/istio/pkg/test/framework/scopes"
 	"istio.io/istio/pkg/test/helm"
 	"istio.io/istio/pkg/test/kube"
@@ -67,6 +68,9 @@ type Instance struct {
 	// The deployment name that is specified when generated the chart.
 	deploymentName string
 
+	// The deployment namespace.
+	namespace string
+
 	// Path to the yaml file that is generated from the template.
 	yamlFilePath string
 }
@@ -87,6 +91,7 @@ func New(s *Settings, a *kube.Accessor) (instance *Instance, err error) {
 	instance = &Instance{}
 
 	instance.kubeConfig = s.KubeConfig
+	instance.namespace = s.Namespace
 
 	// Define a deployment name for Helm.
 	instance.deploymentName = fmt.Sprintf("%s-%v", s.Namespace, time.Now().UnixNano())
@@ -151,12 +156,18 @@ func (i *Instance) wait(namespace string, a *kube.Accessor) error {
 }
 
 // Delete this deployment instance.
-func (i *Instance) Delete() error {
-	err := kube.Delete(i.kubeConfig, i.yamlFilePath)
-	if err != nil {
-		scopes.CI.Errorf("Error deleting deployment: %v", err)
+func (i *Instance) Delete(a *kube.Accessor) (err error) {
+
+	if err = kube.Delete(i.kubeConfig, i.yamlFilePath); err != nil {
+		scopes.CI.Warnf("Error deleting deployment: %v", err)
 	}
 
-	// TODO: Wait for completion of deletion.
-	return err
+	// TODO: Just for waiting for deployment namespace deletion may not be enough. There are CRDs
+	// and roles/rolebindings in other parts of the system as well. We should also wait for deletion of them.
+	if e := a.WaitForNamespaceDeletion(i.namespace); e != nil {
+		scopes.CI.Warnf("Error waiting for environment deletion: %v", e)
+		err = multierror.Append(err, e)
+	}
+
+	return
 }
