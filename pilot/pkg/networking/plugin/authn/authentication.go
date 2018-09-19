@@ -135,14 +135,14 @@ func setupFilterChains(authnPolicy *authn.Policy, sdsUdsPath string) []plugin.Fi
 		return nil
 	}
 	if mtls.GetMode() == authn.MutualTls_STRICT {
-		log.Infof("Allow only istio mutual TLS traffic")
+		log.Debug("Allow only istio mutual TLS traffic")
 		return []plugin.FilterChain{
 			{
 				TLSContext: tls,
 			}}
 	}
 	if mtls.GetMode() == authn.MutualTls_PERMISSIVE {
-		log.Infof("Allow both, ALPN istio and legacy traffic")
+		log.Debug("Allow both, ALPN istio and legacy traffic")
 		return []plugin.FilterChain{
 			{
 				FilterChainMatch: alpnIstioMatch,

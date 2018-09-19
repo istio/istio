@@ -21,6 +21,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/pilot/pkg/request"
+	"istio.io/istio/pkg/cmd"
 )
 
 // NB: extra standard output in addition to what's returned from envoy
@@ -32,6 +33,7 @@ var (
 		Short: "Makes an HTTP request to the Envoy admin API",
 		Args:  cobra.MinimumNArgs(2),
 		RunE: func(c *cobra.Command, args []string) error {
+			cmd.PrintFlags(c.Flags())
 			command := &request.Command{
 				Address: "127.0.0.1:15000",
 				Client: &http.Client{
