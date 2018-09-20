@@ -17,13 +17,11 @@ package metric
 import (
 	"context"
 	"io"
-	"strings"
 	"sync"
 	"time"
 
 	monitoringpb "google.golang.org/genproto/googleapis/monitoring/v3"
 
-	gprcstatus "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -167,20 +165,21 @@ func (b *buffered) Close() error {
 func handleError(err error, tsSent []*monitoringpb.TimeSeries) []*monitoringpb.TimeSeries {
 	errorTS := make([]*monitoringpb.TimeSeries, 0, 0)
 	retryAll := true
-	if s, ok := status.FromError(err); ok {
-		sd := s.Details()
-		for _, i := range sd {
-			if t, ok := i.(*monitoringpb.CreateTimeSeriesError); ok {
-				retryAll = false
-				if isOutOfOrderWrite(t.GetStatus()) {
-					// Don't deal with out of order error: the point can never be written.
-					continue
-				}
-				errorTS = append(errorTS, t.GetTimeSeries())
+	s, ok := status.FromError(err)
+	if !ok {
+		return errorTS
+	}
+	sd := s.Details()
+	for _, i := range sd {
+		if t, ok := i.(*monitoringpb.CreateTimeSeriesError); ok {
+			retryAll = false
+			if !isRetryable(codes.Code(t.GetStatus().Code)) {
+				continue
 			}
+			errorTS = append(errorTS, t.GetTimeSeries())
 		}
 	}
-	if retryAll {
+	if isRetryable(status.Code(err)) && retryAll {
 		for _, ts := range tsSent {
 			errorTS = append(errorTS, ts)
 		}
@@ -204,6 +203,10 @@ func (b *buffered) updateRetryBuffer(errorTS []*monitoringpb.TimeSeries) {
 	}
 }
 
-func isOutOfOrderWrite(st *gprcstatus.Status) bool {
-	return st.Code == int32(codes.InvalidArgument) && strings.Contains(st.Message, "Points must be written in order")
+func isRetryable(c codes.Code) bool {
+	switch c {
+	case codes.Canceled, codes.DeadlineExceeded, codes.ResourceExhausted, codes.Aborted, codes.Internal, codes.Unavailable:
+		return true
+	}
+	return false
 }

@@ -152,9 +152,8 @@ func TestBuffered_Close(t *testing.T) {
 }
 
 func createRetryPushFn(pushCount *int, expReqTS [][]*monitoring.TimeSeries, withError []bool, failedTS [][]*monitoring.TimeSeries,
-	errorMessage [][]string, t *testing.T) pushFunc {
+	errorCode [][]codes.Code, overallCode codes.Code, t *testing.T) pushFunc {
 	retryPushFn := func(ctx xcontext.Context, req *monitoring.CreateTimeSeriesRequest, opts ...gax.CallOption) error {
-		fmt.Println(*pushCount)
 		if len(expReqTS) != len(withError) || len(expReqTS) != len(failedTS) || len(expReqTS) <= *pushCount {
 			t.Errorf("args size does not match or potential out of bound. abort push operation %v %v %v %v",
 				len(expReqTS), len(withError), len(failedTS), *pushCount)
@@ -166,8 +165,8 @@ func createRetryPushFn(pushCount *int, expReqTS [][]*monitoring.TimeSeries, with
 
 		// Verify time series in request match the given ones
 		if len(expReqTS[*pushCount]) != len(req.TimeSeries) {
-			t.Errorf("push %v - number of time series in CreateTimeSeriesRequest is not expected: want %+v got %+v",
-				*pushCount, expReqTS[*pushCount], req.TimeSeries)
+			t.Errorf("push %v - number of time series in CreateTimeSeriesRequest is not expected: got %+v want %+v",
+				*pushCount, req.TimeSeries, expReqTS[*pushCount])
 			return nil
 		}
 		for _, ets := range expReqTS[*pushCount] {
@@ -179,7 +178,7 @@ func createRetryPushFn(pushCount *int, expReqTS [][]*monitoring.TimeSeries, with
 				}
 			}
 			if !found {
-				t.Errorf("want timeseries %+v in push request but cannot find, got %+v", ets, req.TimeSeries)
+				t.Errorf("got %+v, want %+v in push request but cannot find", req.TimeSeries, ets)
 				return nil
 			}
 		}
@@ -191,21 +190,20 @@ func createRetryPushFn(pushCount *int, expReqTS [][]*monitoring.TimeSeries, with
 
 		details := make([]*any.Any, 0, len(failedTS[*pushCount]))
 		for i, fts := range failedTS[*pushCount] {
-			m := "error message"
-			if errorMessage != nil {
-				m = errorMessage[*pushCount][i]
+			ec := codes.Canceled
+			if errorCode != nil {
+				ec = errorCode[*pushCount][i]
 			}
 			em, _ := ptypes.MarshalAny(&monitoring.CreateTimeSeriesError{
 				TimeSeries: fts,
 				Status: &grpcstatus.Status{
-					Code:    int32(codes.InvalidArgument),
-					Message: m,
+					Code: int32(ec),
 				},
 			})
 			details = append(details, em)
 		}
 		return status.ErrorProto(&grpcstatus.Status{
-			Code:    int32(codes.InvalidArgument),
+			Code:    int32(overallCode),
 			Message: "A subset of time series had errors.",
 			Details: details,
 		})
@@ -216,25 +214,36 @@ func createRetryPushFn(pushCount *int, expReqTS [][]*monitoring.TimeSeries, with
 func TestBuffered_Retry(t *testing.T) {
 	in := []*monitoring.TimeSeries{makeTS(m1, mr1, 1, 1), makeTS(m2, mr2, 1, 1), makeTS(m3, mr3, 1, 1)}
 	tests := []struct {
-		name      string
-		pushCount int
-		requestTS [][]*monitoring.TimeSeries
-		withError []bool
-		failedTS  [][]*monitoring.TimeSeries
+		name        string
+		pushCount   int
+		requestTS   [][]*monitoring.TimeSeries
+		withError   []bool
+		overallCode codes.Code
+		failedTS    [][]*monitoring.TimeSeries
 	}{
 		{
-			name:      "retry subset",
-			pushCount: 2,
-			requestTS: [][]*monitoring.TimeSeries{in, in[:2]},
-			withError: []bool{true, false},
-			failedTS:  [][]*monitoring.TimeSeries{in[:2], {}},
+			name:        "retry subset",
+			pushCount:   2,
+			requestTS:   [][]*monitoring.TimeSeries{in, in[:2]},
+			withError:   []bool{true, false},
+			overallCode: codes.Internal,
+			failedTS:    [][]*monitoring.TimeSeries{in[:2], {}},
 		},
 		{
-			name:      "retry all",
-			pushCount: 2,
-			requestTS: [][]*monitoring.TimeSeries{in, in},
-			withError: []bool{true, false},
-			failedTS:  [][]*monitoring.TimeSeries{{}, {}},
+			name:        "retry all",
+			pushCount:   2,
+			requestTS:   [][]*monitoring.TimeSeries{in, in},
+			withError:   []bool{true, false},
+			overallCode: codes.Internal,
+			failedTS:    [][]*monitoring.TimeSeries{{}, {}},
+		},
+		{
+			name:        "do not retry all",
+			pushCount:   1,
+			requestTS:   [][]*monitoring.TimeSeries{in},
+			withError:   []bool{true},
+			overallCode: codes.InvalidArgument,
+			failedTS:    [][]*monitoring.TimeSeries{{}},
 		},
 	}
 
@@ -244,7 +253,7 @@ func TestBuffered_Retry(t *testing.T) {
 			env := test.NewEnv(t)
 			b := buffered{
 				l:                   env,
-				pushMetrics:         createRetryPushFn(&pushCount, tt.requestTS, tt.withError, tt.failedTS, nil, t),
+				pushMetrics:         createRetryPushFn(&pushCount, tt.requestTS, tt.withError, tt.failedTS, nil, tt.overallCode, t),
 				timeSeriesBatchSize: 100,
 				retryLimit:          5,
 				retryBuffer:         map[uint64]retryTimeSeries{},
@@ -255,7 +264,7 @@ func TestBuffered_Retry(t *testing.T) {
 			// call send again without TS in normal buffer. It should retry failed TS.
 			b.Send()
 			if pushCount != tt.pushCount {
-				t.Errorf("push call count is not expected, want %v got %v", tt.pushCount, pushCount)
+				t.Errorf("push call count is not expected, got %v want %v", pushCount, tt.pushCount)
 			}
 		})
 	}
@@ -272,7 +281,7 @@ func TestBuffered_RetryMerge(t *testing.T) {
 	withError := []bool{true, true, false}
 	b := buffered{
 		l:                   l,
-		pushMetrics:         createRetryPushFn(&pushCount, requestTS, withError, failedTS, nil, t),
+		pushMetrics:         createRetryPushFn(&pushCount, requestTS, withError, failedTS, nil, codes.Internal, t),
 		timeSeriesBatchSize: 100,
 		retryLimit:          5,
 		retryBuffer:         map[uint64]retryTimeSeries{},
@@ -284,7 +293,7 @@ func TestBuffered_RetryMerge(t *testing.T) {
 	b.Record(in2)
 	b.Send()
 	if pushCount != 3 {
-		t.Errorf("push call count is not expected, want %v got %v", 3, pushCount)
+		t.Errorf("push call count is not expected, got %v want 3", pushCount)
 	}
 }
 
@@ -302,7 +311,7 @@ func TestBuffered_RetryMaxAttempt(t *testing.T) {
 	}
 	b := buffered{
 		l:                   l,
-		pushMetrics:         createRetryPushFn(&pushCount, requestTS, withError, failedTS, nil, t),
+		pushMetrics:         createRetryPushFn(&pushCount, requestTS, withError, failedTS, nil, codes.Internal, t),
 		timeSeriesBatchSize: 100,
 		retryLimit:          2,
 		retryBuffer:         map[uint64]retryTimeSeries{},
@@ -314,11 +323,11 @@ func TestBuffered_RetryMaxAttempt(t *testing.T) {
 		b.Send()
 	}
 	if pushCount != 5 {
-		t.Errorf("push call count is not expected, want %v got %v", 5, pushCount)
+		t.Errorf("push call count is not expected, got %v want 5", pushCount)
 	}
 }
 
-func TestBuffered_IgnoreOutOfOrdered(t *testing.T) {
+func TestBuffered_IgnoreInvalidArguments(t *testing.T) {
 	in := []*monitoring.TimeSeries{makeTS(m1, mr1, 1, 1), makeTS(m2, mr2, 1, 1), makeTS(m3, mr3, 1, 1)}
 	pushCount := 0
 	l := test.NewEnv(t).Logger()
@@ -326,10 +335,10 @@ func TestBuffered_IgnoreOutOfOrdered(t *testing.T) {
 	requestTS := [][]*monitoring.TimeSeries{in, in[0:2]}
 	failedTS := [][]*monitoring.TimeSeries{in, {}}
 	withError := []bool{true, false}
-	errorMessage := [][]string{{"some error", "some error", "Points must be written in order"}}
+	errorMessage := [][]codes.Code{{codes.ResourceExhausted, codes.Internal, codes.InvalidArgument}}
 	b := buffered{
 		l:                   l,
-		pushMetrics:         createRetryPushFn(&pushCount, requestTS, withError, failedTS, errorMessage, t),
+		pushMetrics:         createRetryPushFn(&pushCount, requestTS, withError, failedTS, errorMessage, codes.Internal, t),
 		timeSeriesBatchSize: 100,
 		retryLimit:          5,
 		retryBuffer:         map[uint64]retryTimeSeries{},
@@ -339,6 +348,6 @@ func TestBuffered_IgnoreOutOfOrdered(t *testing.T) {
 
 	b.Send()
 	if pushCount != 2 {
-		t.Errorf("push call count is not expected, want %v got %v", 2, pushCount)
+		t.Errorf("push call count is not expected, got %v want 2", pushCount)
 	}
 }
