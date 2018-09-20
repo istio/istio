@@ -24,7 +24,7 @@ function get_git_commit_cmd() {
 }
 
 function build_template() {
-    ./start_gcb_build.sh -w -s "$GCS_BUILD_PATH" -v "$VERSION"
+    ./start_gcb_build.sh -w -r "$GCR_STAGING_DEST" -s "$GCS_BUILD_PATH" -v "$VERSION"
   # NOTE: if you add commands to build_template after start_gcb_build.sh then take care to preserve its return value
 }
 
