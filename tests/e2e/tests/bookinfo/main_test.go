@@ -29,9 +29,8 @@ import (
 	"testing"
 	"time"
 
-	"golang.org/x/net/publicsuffix"
-
 	multierror "github.com/hashicorp/go-multierror"
+	"golang.org/x/net/publicsuffix"
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/e2e/framework"
@@ -66,16 +65,16 @@ const (
 	reviewsDestinationRule             = routeRulesDir + "/" + "destination-policy-reviews"
 
 	// users
-	normalUser = "normal-user"
-	testUser   = "test-user"
+	normalUsername = "normal-user"
+	testUsername   = "test-user"
 )
 
 var (
 	cjopts = cookiejar.Options{
 		PublicSuffixList: publicsuffix.List,
 	}
-	normalUserJar *cookiejar.Jar
-	testUserJar   *cookiejar.Jar
+	normalUser = user{username: normalUsername}
+	testUser   = user{username: testUsername}
 
 	tc *testConfig
 	tf = &framework.TestFlags{
@@ -131,8 +130,7 @@ func getOriginalRulePath(version, rule string) string {
 
 	parts[0] = routeRulesDir
 	parts[len(parts)-1] = parts[len(parts)-1] + "." + yamlExtension
-	return util.GetResourcePath(filepath.Join(bookinfoSampleDir,
-		strings.Join(parts, string(os.PathSeparator))))
+	return util.GetResourcePath(filepath.Join(bookinfoSampleDir, strings.Join(parts, string(os.PathSeparator))))
 }
 
 func preprocessRule(t *testConfig, version, rule string) error {
@@ -144,7 +142,7 @@ func preprocessRule(t *testConfig, version, rule string) error {
 		return err
 	}
 	content := string(ori)
-	content = strings.Replace(content, "jason", testUser, -1)
+	content = strings.Replace(content, "jason", testUsername, -1)
 
 	err = os.MkdirAll(filepath.Dir(dest), 0700)
 	if err != nil {
@@ -188,11 +186,11 @@ func (t *testConfig) Setup() error {
 		return fmt.Errorf("failed to setup default routing: %v", err)
 	}
 
-	if normalUserJar, err = setupCookieJar("normal-user", "pass"); err != nil {
+	if normalUser.cookiejar, err = setupCookieJar(normalUsername, "pass"); err != nil {
 		return fmt.Errorf("failed to setup normal-user cookie jar: %v", err)
 	}
-	if testUserJar, err = setupCookieJar("test-user", "pass"); err != nil {
-		return fmt.Errorf("failed to setup normal-user cookie jar: %v", err)
+	if testUser.cookiejar, err = setupCookieJar(testUsername, "pass"); err != nil {
+		return fmt.Errorf("failed to setup test-user cookie jar: %v", err)
 	}
 
 	return nil

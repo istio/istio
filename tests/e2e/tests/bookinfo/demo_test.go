@@ -29,11 +29,15 @@ import (
 	"istio.io/istio/tests/util"
 )
 
-type userVersion struct {
+type user struct {
 	username  string
 	cookiejar *cookiejar.Jar
-	version   string
-	model     string
+}
+
+type userVersion struct {
+	user    user
+	version string
+	model   string
 }
 
 type versionRoutingRule struct {
@@ -49,16 +53,14 @@ func TestVersionRouting(t *testing.T) {
 		{key: testRule,
 			userVersions: []userVersion{
 				{
-					username:  normalUser,
-					cookiejar: normalUserJar,
-					version:   "v1",
-					model:     v1Model,
+					user:    normalUser,
+					version: "v1",
+					model:   v1Model,
 				},
 				{
-					username:  testUser,
-					cookiejar: testUserJar,
-					version:   "v2",
-					model:     v2TestModel,
+					user:    testUser,
+					version: "v2",
+					model:   v2TestModel,
 				},
 			},
 		},
@@ -81,12 +83,12 @@ func testVersionRoutingRule(t *testing.T, configVersion string, rule versionRout
 		inspect(applyRules(configVersion, defaultRules), "failed to apply rules", "", t)
 	}()
 
-	for _, userVersion := range rule.userVersions {
-		_, err := checkRoutingResponse(userVersion.cookiejar, userVersion.version, getIngressOrFail(t, configVersion), userVersion.model)
+	for _, uv := range rule.userVersions {
+		_, err := checkRoutingResponse(uv.user.cookiejar, uv.version, getIngressOrFail(t, configVersion), uv.model)
 		inspect(
-			err, fmt.Sprintf("Failed version routing! %s in %s", userVersion.username, userVersion.version),
-			fmt.Sprintf("Success! Response matches with expected! %s in %s", userVersion.username,
-				userVersion.version), t)
+			err, fmt.Sprintf("Failed version routing! %s in %s", uv.user.username, uv.version),
+			fmt.Sprintf("Success! Response matches with expected! %s in %s", uv.user.username,
+				uv.version), t)
 	}
 }
 
@@ -108,7 +110,7 @@ func doTestFaultDelay(t *testing.T, configVersion string, rules []string) {
 		filepath.Join(modelDir, "productpage-test-user-v1-review-timeout.html"))
 	for i := 0; i < testRetryTimes; i++ {
 		duration, err := checkRoutingResponse(
-			testUserJar, "v1-timeout", getIngressOrFail(t, configVersion),
+			testUser.cookiejar, "v1-timeout", getIngressOrFail(t, configVersion),
 			testModel)
 		log.Infof("Get response in %d second", duration)
 		if err == nil && duration >= minDuration && duration <= maxDuration {
@@ -180,7 +182,7 @@ func testVersionMigrationRule(t *testing.T, configVersion string, rule migration
 	for i := 0; i < testRetryTimes; i++ {
 		c1, cVersionToMigrate := 0, 0
 		for c := 0; c < totalShot; c++ {
-			resp, err := getWithCookieJar(fmt.Sprintf("%s/productpage", getIngressOrFail(t, configVersion)), normalUserJar)
+			resp, err := getWithCookieJar(fmt.Sprintf("%s/productpage", getIngressOrFail(t, configVersion)), normalUser.cookiejar)
 			inspect(err, "Failed to record", "", t)
 			if resp.StatusCode != http.StatusOK {
 				log.Errorf("unexpected response status %d", resp.StatusCode)
@@ -247,7 +249,7 @@ func doTestDbRoutingMongo(t *testing.T, configVersion string, rules []string) {
 
 	_, err = checkHTTPResponse(getIngressOrFail(t, configVersion), respExpr, 10)
 	inspect(
-		err, fmt.Sprintf("Failed database routing! %s in v1", normalUser),
+		err, fmt.Sprintf("Failed database routing! %s in v1", normalUser.username),
 		fmt.Sprintf("Success! Response matches with expected! %s", respExpr), t)
 }
 
@@ -271,7 +273,7 @@ func doTestDbRoutingMysql(t *testing.T, configVersion string, rules []string) {
 
 	_, err = checkHTTPResponse(getIngressOrFail(t, configVersion), respExpr, 10)
 	inspect(
-		err, fmt.Sprintf("Failed database routing! %s in v1", normalUser),
+		err, fmt.Sprintf("Failed database routing! %s in v1", normalUser.username),
 		fmt.Sprintf("Success! Response matches with expected! %s", respExpr), t)
 }
 
@@ -317,6 +319,6 @@ func doTestExternalDetailsService(t *testing.T, configVersion string, rules []st
 
 	_, err = checkHTTPResponse(getIngressOrFail(t, configVersion), isbnFetchedFromExternalService, 1)
 	inspect(
-		err, fmt.Sprintf("Failed external details routing! %s in v1", normalUser),
+		err, fmt.Sprintf("Failed external details routing! %s in v1", normalUser.username),
 		fmt.Sprintf("Success! Response matches with expected! %s", isbnFetchedFromExternalService), t)
 }
