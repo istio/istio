@@ -15,9 +15,8 @@
 package pilot
 
 import (
-	"testing"
-
 	"fmt"
+	"testing"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/framework"
@@ -70,11 +69,4 @@ func testHTTP(t *testing.T) {
 			}
 		}
 	}
-}
-
-// Capturing TestMain allows us to:
-// - Do cleanup before exit
-// - process testing specific flags
-func TestMain(m *testing.M) {
-	framework.Run("pilot_test", m)
 }

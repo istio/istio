@@ -3,7 +3,7 @@
 #-----------------------------------------------------------------------------
 
 # The names of the integration test folders at ROOT/tests/integration2/*.
-INTEGRATION_TEST_NAMES = galley mixer
+INTEGRATION_TEST_NAMES = galley mixer pilot
 
 # Generate the names of the integration test targets that use local environment (i.e. test.integration.galley)
 INTEGRATION_TESTS_LOCAL = $(addprefix test.integration., $(INTEGRATION_TEST_NAMES))
