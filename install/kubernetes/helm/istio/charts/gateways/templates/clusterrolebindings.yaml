@@ -13,7 +13,6 @@ subjects:
   - kind: ServiceAccount
     name: {{ $key }}-service-account
     namespace: {{ $.Release.Namespace }}
----
 {{- end }}
 {{- end }}
 {{- end }}

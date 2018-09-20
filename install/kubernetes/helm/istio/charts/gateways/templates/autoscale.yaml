@@ -18,7 +18,6 @@ spec:
         resource:
           name: cpu
           targetAverageUtilization: 60
----
 {{- end }}
 {{- end }}
 {{- end }}
