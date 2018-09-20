@@ -224,6 +224,8 @@ type (
 	// DeployedCitadel represents a deployed Citadel instance.
 	DeployedCitadel interface {
 		Deployed
+
+		CitadelName() string
 	}
 )
 

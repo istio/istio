@@ -21,6 +21,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/components/policybackend"
 	"istio.io/istio/pkg/test/framework/components/registry"
+	"istio.io/istio/pkg/test/framework/components/citadel"
 )
 
 // Local components
@@ -40,4 +41,5 @@ func init() {
 	Kubernetes.Register(pilot.KubeComponent)
 	Kubernetes.Register(policybackend.KubeComponent)
 	Kubernetes.Register(apps.KubeComponent)
+	Kubernetes.Register(citadel.KubeComponent)
 }

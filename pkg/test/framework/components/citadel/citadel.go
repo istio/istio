@@ -16,18 +16,12 @@ package citadel
 
 import (
 	"fmt"
-	"io/ioutil"
-	"os"
-	"path"
-	"time"
-
 	"github.com/hashicorp/go-multierror"
 
 	"go.uber.org/multierr"
 	"google.golang.org/grpc"
 
 	istio_mixer_v1 "istio.io/api/mixer/v1"
-	"istio.io/istio/mixer/pkg/server"
 	"istio.io/istio/pkg/test/framework/dependency"
 	"istio.io/istio/pkg/test/framework/environment"
 	"istio.io/istio/pkg/test/framework/environments/kubernetes"
@@ -39,6 +33,8 @@ const (
 	citadelService = "istio-citadel"
 	grpcPortName     = "grpc-citadel"
 )
+
+var KubeComponent = &kubeComponent{}
 
 type kubeComponent struct {
 }
@@ -127,32 +123,11 @@ type deployedCitadel struct {
 	conn    *grpc.ClientConn
 	client  istio_mixer_v1.MixerClient
 
-	args    *server.Args
-	server  *server.Server
-	workdir string
-
 	forwarders []kube.PortForwarder
 }
 
-// ApplyConfig implements Configurable.ApplyConfig.
-func (d *deployedCitadel) ApplyConfig(cfg string) error {
-	// This only applies when Mixer is running locally.
-	if d.local {
-		file := path.Join(d.workdir, "config.yaml")
-		err := ioutil.WriteFile(file, []byte(cfg), os.ModePerm)
-
-		if err == nil {
-			// TODO: Implement a mechanism for reliably waiting for the configuration to disseminate in the system.
-			// We can use CtrlZ to expose the config state of Mixer.
-			// See https://github.com/istio/istio/issues/6169 and https://github.com/istio/istio/issues/6170.
-			time.Sleep(time.Second * 3)
-		}
-
-		return err
-	}
-
-	// We shouldn't getting an ApplyConfig for the Kubernetes case.
-	return fmt.Errorf("unexpected ApplyConfig call to Citadel component for Kubernetes environment: %s", cfg)
+func (d *deployedCitadel) CitadelName() string {
+	return "Citadel"
 }
 
 // Close implements io.Closer.
@@ -161,11 +136,6 @@ func (d *deployedCitadel) Close() error {
 	if d.conn != nil {
 		err = multierr.Append(err, d.conn.Close())
 		d.conn = nil
-	}
-
-	if d.server != nil {
-		err = multierr.Append(err, d.server.Close())
-		d.server = nil
 	}
 
 	for _, fw := range d.forwarders {
