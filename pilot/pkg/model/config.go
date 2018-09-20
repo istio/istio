@@ -240,6 +240,8 @@ func (descriptor ConfigDescriptor) GetByType(name string) (ProtoSchema, bool) {
 
 // IstioConfigStore is a specialized interface to access config store using
 // Istio configuration types
+// nolint
+//go:generate $GOPATH/src/istio.io/istio/bin/counterfeiter.sh -o $GOPATH/src/istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes/fake_istio_config_store.go --fake-name IstioConfigStore . IstioConfigStore
 type IstioConfigStore interface {
 	ConfigStore
 
@@ -276,6 +278,9 @@ type IstioConfigStore interface {
 
 	// RbacConfig selects the RbacConfig of name DefaultRbacConfigName.
 	RbacConfig() *Config
+
+	// MeshRbacConfig selects the MeshRbacConfig of name DefaultRbacConfigName.
+	MeshRbacConfig() *Config
 }
 
 const (
@@ -457,10 +462,22 @@ var (
 	}
 
 	// RbacConfig describes the mesh level RBAC config.
+	// Deprecated, use MeshRbacConfig instead.
+	// See https://github.com/istio/istio/issues/8825 for more details.
 	RbacConfig = ProtoSchema{
+		Type:        "rbac-config",
+		Plural:      "rbac-configs",
+		Group:       "rbac",
+		Version:     "v1alpha1",
+		MessageName: "istio.rbac.v1alpha1.RbacConfig",
+		Validate:    ValidateRbacConfig,
+	}
+
+	// MeshRbacConfig describes the mesh level RBAC config.
+	MeshRbacConfig = ProtoSchema{
 		ClusterScoped: true,
-		Type:          "rbac-config",
-		Plural:        "rbac-configs",
+		Type:          "mesh-rbac-config",
+		Plural:        "mesh-rbac-configs",
 		Group:         "rbac",
 		Version:       "v1alpha1",
 		MessageName:   "istio.rbac.v1alpha1.RbacConfig",
@@ -483,6 +500,7 @@ var (
 		ServiceRole,
 		ServiceRoleBinding,
 		RbacConfig,
+		MeshRbacConfig,
 	}
 )
 
@@ -883,6 +901,22 @@ func (store *istioConfigStore) ServiceRoleBindings(namespace string) []Config {
 	}
 
 	return bindings
+}
+
+func (store *istioConfigStore) MeshRbacConfig() *Config {
+	meshRbacConfig, err := store.List(MeshRbacConfig.Type, "")
+	if err != nil {
+		log.Errorf("failed to get meshRbacConfig: %v", err)
+	}
+	if len(meshRbacConfig) > 1 {
+		log.Errorf("found %d meshRbacConfig, expecting only 1.", len(meshRbacConfig))
+	}
+	for _, rc := range meshRbacConfig {
+		if rc.Name == DefaultRbacConfigName {
+			return &rc
+		}
+	}
+	return nil
 }
 
 func (store *istioConfigStore) RbacConfig() *Config {

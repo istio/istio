@@ -1,5 +1,5 @@
 apiVersion: "rbac.istio.io/v1alpha1"
-kind: RbacConfig
+kind: MeshRbacConfig
 metadata:
   name: default
 spec:
