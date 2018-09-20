@@ -1,0 +1,36 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: istio-cleanup-secrets
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": post-delete
+    "helm.sh/hook-delete-policy": hook-succeeded
+    "helm.sh/hook-weight": "3"
+  labels:
+    app: {{ template "security.name" . }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  template:
+    metadata:
+      name: istio-cleanup-secrets
+      labels:
+        app: {{ template "security.name" . }}
+        release: {{ .Release.Name }}
+    spec:
+      serviceAccountName: istio-cleanup-secrets-service-account
+      containers:
+        - name: hyperkube
+          image: "{{ .Values.global.hyperkube.hub }}/hyperkube:{{ .Values.global.hyperkube.tag }}"
+          command:
+          - /bin/bash
+          - -c
+          - >
+              kubectl get secret --all-namespaces | grep "istio.io/key-and-cert" |  while read -r entry; do
+                ns=$(echo $entry | awk '{print $1}');
+                name=$(echo $entry | awk '{print $2}');
+                kubectl delete secret $name -n $ns;
+              done
+      restartPolicy: OnFailure

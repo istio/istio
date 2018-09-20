@@ -1,0 +1,17 @@
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: istio-security-post-install-role-binding-{{ .Release.Namespace }}
+  labels:
+    app: istio-security
+    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: istio-security-post-install-{{ .Release.Namespace }}
+subjects:
+  - kind: ServiceAccount
+    name: istio-security-post-install-account
+    namespace: {{ .Release.Namespace }}

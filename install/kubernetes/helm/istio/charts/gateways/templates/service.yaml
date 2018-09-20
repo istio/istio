@@ -37,7 +37,6 @@ spec:
       {{ $pkey}}: {{ $pval }}
       {{- end }}
     {{- end }}
----
 {{- end }}
 {{- end }}
 {{- end }}
