@@ -131,6 +131,10 @@ containers:
     periodSeconds: [[ $readinessPeriodValue ]]
     failureThreshold: [[ $readinessFailureThresholdValue ]]
   [[ end -]]
+  ports:
+  - containerPort: 15090
+    protocol: TCP
+    name: http-envoy-prom
   env:
   - name: POD_NAME
     valueFrom:

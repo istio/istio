@@ -4,7 +4,7 @@ metadata:
   name: grafana
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "grafana.name" . }}
+    app: istio-grafana
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
@@ -23,11 +23,7 @@ spec:
 {{- end }}
       containers:
         - name: {{ .Chart.Name }}
-{{- if contains "/" .Values.image }}
-          image: "{{ .Values.image }}"
-{{- else }}
-          image: "{{ .Values.global.hub }}/{{ .Values.image }}:{{ .Values.global.tag }}"
-{{- end }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
             - containerPort: {{ .Values.service.internalPort }}
@@ -74,13 +70,27 @@ spec:
           volumeMounts:
           - name: data
             mountPath: /data/grafana
+          - name: dashboards-istio
+            mountPath: "/var/lib/grafana/dashboards/istio"
+          - name: config
+            mountPath: "/etc/grafana/provisioning/datasources/datasources.yaml"
+            subPath: datasources.yaml
+          - name: config
+            mountPath: "/etc/grafana/provisioning/dashboards/dashboardproviders.yaml"
+            subPath: dashboardproviders.yaml
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
       volumes:
+      - name: config
+        configMap:
+          name: istio-grafana
       - name: data
 {{- if .Values.persist }}
         persistentVolumeClaim:
           claimName: istio-grafana-pvc
 {{- else }}
         emptyDir: {}
+      - name: dashboards-istio
+        configMap:
+          name:  istio-grafana-configuration-dashboards
 {{- end }}

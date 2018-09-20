@@ -45,8 +45,6 @@ spec:
         - ""
         - --connectTimeout
         - 1s
-        - --statsdUdpAddress
-        - ""
         - --proxyAdminPort
         - "15000"
         - --controlPlaneAuthPolicy
@@ -55,6 +53,10 @@ spec:
         - "15020"
         - --applicationPorts
         - "80"
+        ports:
+        - name: http-envoy-prom
+          containerPort: 15090
+          protocol: TCP
         env:
         - name: POD_NAME
           valueFrom:
@@ -177,8 +179,6 @@ spec:
         - ""
         - --connectTimeout
         - 1s
-        - --statsdUdpAddress
-        - ""
         - --proxyAdminPort
         - "15000"
         - --controlPlaneAuthPolicy
@@ -187,6 +187,10 @@ spec:
         - "15020"
         - --applicationPorts
         - "81"
+        ports:
+        - name: http-envoy-prom
+          containerPort: 15090
+          protocol: TCP
         env:
         - name: POD_NAME
           valueFrom:

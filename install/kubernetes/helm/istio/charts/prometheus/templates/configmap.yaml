@@ -29,22 +29,63 @@ data:
         action: keep
         regex: istio-telemetry;prometheus
 
-    - job_name: 'envoy'
-      # Override the global default and scrape targets from this job every 5 seconds.
-      scrape_interval: 5s
-      # metrics_path defaults to '/metrics'
-      # scheme defaults to 'http'.
-
+{{ if ne .Values.global.proxy.stats.prometheusPort 0. }}
+    # Scrape config for envoy stats
+    - job_name: 'envoy-stats'
+      metrics_path: /stats/prometheus
       kubernetes_sd_configs:
-      - role: endpoints
-        namespaces:
-          names:
-          - {{ .Release.Namespace }}
+      - role: pod
 
       relabel_configs:
-      - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+      - source_labels: [__meta_kubernetes_pod_container_port_name]
         action: keep
-        regex: istio-statsd-prom-bridge;statsd-prom
+        regex: '.*-envoy-prom'
+      - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+        action: replace
+        regex: ([^:]+)(?::\d+)?;(\d+)
+        replacement: $1:{{ .Values.global.proxy.stats.prometheusPort }}
+        target_label: __address__
+      - action: labelmap
+        regex: __meta_kubernetes_pod_label_(.+)
+      - source_labels: [__meta_kubernetes_namespace]
+        action: replace
+        target_label: namespace
+      - source_labels: [__meta_kubernetes_pod_name]
+        action: replace
+        target_label: pod_name
+
+      metric_relabel_configs:
+      # Exclude some of the envoy metrics that have massive cardinality
+      # This list may need to be pruned further moving forward, as informed
+      # by performance and scalability testing.
+      - source_labels: [ cluster_name ]
+        regex: '(outbound|inbound|prometheus_stats).*'
+        action: drop
+      - source_labels: [ tcp_prefix ]
+        regex: '(outbound|inbound|prometheus_stats).*'
+        action: drop
+      - source_labels: [ listener_address ]
+        regex: '(.+)'
+        action: drop
+      - source_labels: [ http_conn_manager_listener_prefix ]
+        regex: '(.+)'
+        action: drop
+      - source_labels: [ http_conn_manager_prefix ]
+        regex: '(.+)'
+        action: drop
+      - source_labels: [ __name__ ]
+        regex: 'envoy_tls.*'
+        action: drop
+      - source_labels: [ __name__ ]
+        regex: 'envoy_tcp_downstream.*'
+        action: drop
+      - source_labels: [ __name__ ]
+        regex: 'envoy_http_(stats|admin).*'
+        action: drop
+      - source_labels: [ __name__ ]
+        regex: 'envoy_cluster_(lb|retry|bind|internal|max|original).*'
+        action: drop
+{{ end}}
 
     - job_name: 'istio-policy'
       # Override the global default and scrape targets from this job every 5 seconds.
