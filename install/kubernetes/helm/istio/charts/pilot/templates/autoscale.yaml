@@ -12,9 +12,9 @@ spec:
       kind: Deployment
       name: istio-pilot
     metrics:
-      - type: Resource
-        resource:
-          name: cpu
-          targetAverageUtilization: 55
+    - type: Resource
+      resource:
+        name: cpu
+        targetAverageUtilization: {{ .Values.cpu.targetAverageUtilization }}
 ---
 {{- end }}

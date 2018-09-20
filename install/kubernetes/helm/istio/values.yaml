@@ -232,7 +232,8 @@ gateways:
       #requests:
       #  cpu: 1800m
       #  memory: 256Mi
-
+    cpu:
+      targetAverageUtilization: 80
     loadBalancerIP: ""
     loadBalancerSourceRanges: {}
     serviceAnnotations: {}
@@ -284,6 +285,8 @@ gateways:
     replicaCount: 1
     autoscaleMin: 1
     autoscaleMax: 5
+    cpu:
+      targetAverageUtilization: 80
     serviceAnnotations: {}
     podAnnotations: {}
     type: ClusterIP #change to NodePort or LoadBalancer if need be
@@ -344,7 +347,6 @@ gateways:
       secretName: istio-ilbgateway-ca-certs
       mountPath: /etc/istio/ilbgateway-ca-certs
 
-
 #
 # sidecar-injector webhook configuration
 #
@@ -403,7 +405,7 @@ pilot:
   enabled: true
   replicaCount: 1
   autoscaleMin: 1
-  autoscaleMax: 1
+  autoscaleMax: 5
   image: pilot
   sidecar: true
   traceSampling: 100.0
@@ -416,6 +418,8 @@ pilot:
     PILOT_PUSH_THROTTLE_COUNT: 100
     ISTIO_SA_DOMAIN_CANONICAL:
     GODEBUG: gctrace=2
+  cpu:
+    targetAverageUtilization: 80
 
 #
 # security configuration
