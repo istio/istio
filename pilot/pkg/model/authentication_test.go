@@ -17,7 +17,6 @@ package model
 import (
 	"reflect"
 	"testing"
-	"time"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -89,18 +88,14 @@ func TestParseJwksURI(t *testing.T) {
 }
 
 func TestConstructSdsSecretConfig(t *testing.T) {
-	refreshDelay := 15 * time.Second
-
 	cases := []struct {
-		serviceAccount  string
-		refreshDuration *time.Duration
-		sdsUdsPath      string
-		expected        *auth.SdsSecretConfig
+		serviceAccount string
+		sdsUdsPath     string
+		expected       *auth.SdsSecretConfig
 	}{
 		{
-			serviceAccount:  "spiffe://cluster.local/ns/bar/sa/foo",
-			sdsUdsPath:      "/tmp/sdsuds.sock",
-			refreshDuration: &refreshDelay,
+			serviceAccount: "spiffe://cluster.local/ns/bar/sa/foo",
+			sdsUdsPath:     "/tmp/sdsuds.sock",
 			expected: &auth.SdsSecretConfig{
 				Name: "spiffe://cluster.local/ns/bar/sa/foo",
 				SdsConfig: &core.ConfigSource{
@@ -124,34 +119,26 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 									},
 								},
 							},
-							RefreshDelay: &refreshDelay,
+							RefreshDelay: nil,
 						},
 					},
 				},
 			},
 		},
 		{
-			serviceAccount:  "",
-			sdsUdsPath:      "/tmp/sdsuds.sock",
-			refreshDuration: &refreshDelay,
-			expected:        nil,
+			serviceAccount: "",
+			sdsUdsPath:     "/tmp/sdsuds.sock",
+			expected:       nil,
 		},
 		{
-			serviceAccount:  "",
-			sdsUdsPath:      "spiffe://cluster.local/ns/bar/sa/foo",
-			refreshDuration: &refreshDelay,
-			expected:        nil,
-		},
-		{
-			serviceAccount:  "spiffe://cluster.local/ns/bar/sa/foo",
-			sdsUdsPath:      "/tmp/sdsuds.sock",
-			refreshDuration: nil,
-			expected:        nil,
+			serviceAccount: "",
+			sdsUdsPath:     "spiffe://cluster.local/ns/bar/sa/foo",
+			expected:       nil,
 		},
 	}
 
 	for _, c := range cases {
-		if got := ConstructSdsSecretConfig(c.serviceAccount, c.refreshDuration, c.sdsUdsPath); !reflect.DeepEqual(got, c.expected) {
+		if got := ConstructSdsSecretConfig(c.serviceAccount, c.sdsUdsPath); !reflect.DeepEqual(got, c.expected) {
 			t.Errorf("ConstructSdsSecretConfig: got(%#v) != want(%#v)\n", got, c.expected)
 		}
 	}
