@@ -107,6 +107,9 @@ data:
         - {{ "[[ annotation .ObjectMeta `status.sidecar.istio.io/port` " }} {{ .Values.global.proxy.statusPort }} {{ " ]]" }}
         - --applicationPorts
         - {{ "\"[[ annotation .ObjectMeta `readiness.status.sidecar.istio.io/applicationPorts` (applicationPorts .Spec.Containers) ]]\"" }}
+      {{- if .Values.global.identityDomain }}
+        - --identity-domain={{ .Values.global.identityDomain }}
+      {{- end }}
         env:
         - name: POD_NAME
           valueFrom:

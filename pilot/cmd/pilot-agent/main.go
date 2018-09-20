@@ -117,16 +117,6 @@ var (
 				}
 			}
 
-			if len(role.Domain) == 0 {
-				if registry == serviceregistry.KubernetesRegistry {
-					role.Domain = os.Getenv("POD_NAMESPACE") + ".svc.cluster.local"
-				} else if registry == serviceregistry.ConsulRegistry {
-					role.Domain = "service.consul"
-				} else {
-					role.Domain = ""
-				}
-			}
-
 			log.Infof("Proxy role: %#v", role)
 
 			proxyConfig := model.DefaultProxyConfig()
@@ -173,7 +163,7 @@ var (
 						}
 					}
 				}
-				pilotSAN = determinePilotSAN(ns)
+				pilotSAN, role.Domain = determinePilotSanAndDomain(ns)
 			}
 
 			// resolve statsd address
@@ -280,12 +270,13 @@ var (
 	}
 )
 
-func determinePilotSAN(ns string) []string{
+func determinePilotSanAndDomain(ns string) ([]string, string){
 	var pilotSAN []string
+	domain := role.Domain
 	if controlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS.String() {
 		pilotDomain := role.IdentityDomain
 		if len(pilotDomain) == 0 {
-			pilotDomain = role.Domain
+			pilotDomain = domain
 		}
 
 		if len(pilotDomain) == 0 && registry == serviceregistry.KubernetesRegistry {
@@ -294,7 +285,18 @@ func determinePilotSAN(ns string) []string{
 
 		pilotSAN = envoy.GetPilotSAN(pilotDomain, ns)
 	}
-	return pilotSAN
+
+	if len(domain) == 0 {
+		if registry == serviceregistry.KubernetesRegistry {
+			domain = os.Getenv("POD_NAMESPACE") + ".svc.cluster.local"
+		} else if registry == serviceregistry.ConsulRegistry {
+			domain = "service.consul"
+		} else {
+			domain = ""
+		}
+	}
+
+	return pilotSAN, domain
 }
 
 func parseApplicationPorts() ([]uint16, error) {
@@ -332,6 +334,8 @@ func init() {
 		"Proxy unique ID. If not provided uses ${POD_NAME}.${POD_NAMESPACE} from environment variables")
 	proxyCmd.PersistentFlags().StringVar(&role.Domain, "domain", "",
 		"DNS domain suffix. If not provided uses ${POD_NAMESPACE}.svc.cluster.local")
+	proxyCmd.PersistentFlags().StringVar(&role.IdentityDomain, "identity-domain", "",
+		"The domain to use for identities")
 	proxyCmd.PersistentFlags().Uint16Var(&statusPort, "statusPort", 0,
 		"HTTP Port on which to serve pilot agent status. If zero, agent status will not be provided.")
 	proxyCmd.PersistentFlags().StringSliceVar(&applicationPorts, "applicationPorts", []string{},
