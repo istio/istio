@@ -1,14 +1,32 @@
-# after creating the local registry, to push images to it you need to open up a port to the pod's registry:
-# $ POD=$(kubectl get pods --namespace docker-registry -l k8s-app=kube-registry \
-#               -o template --template '{{range .items}}{{.metadata.name}} {{.status.phase}}{{"\n"}}{{end}}' \
-#               | grep Running | head -1 | cut -f1 -d' ')
-# $ kubectl port-forward --namespace docker-registry $POD 5000:5000
+// Copyright 2018 Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
+package registry
+
+import "text/template"
+
+type registryOptions struct {
+	Namespace string
+	Port      uint16
+}
+
+var registryYAMLTemplateStr = `
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: kube-registry
-  namespace: docker-registry
+  namespace: {{ .Namespace }}
 spec:
   selector:
     matchLabels:
@@ -28,14 +46,14 @@ spec:
             memory: 100Mi
         env:
         - name: REGISTRY_HTTP_ADDR
-          value: :5000
+          value: :{{ .Port }}
         - name: REGISTRY_STORAGE_FILESYSTEM_ROOTDIRECTORY
           value: /var/lib/registry
         volumeMounts:
         - name: image-store
           mountPath: /var/lib/registry
         ports:
-        - containerPort: 5000
+        - containerPort: {{ .Port }}
           name: registry
           protocol: TCP
       volumes:
@@ -46,7 +64,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: kube-registry
-  namespace: docker-registry
+  namespace: {{ .Namespace }}
   labels:
     k8s-app: kube-registry
 spec:
@@ -54,14 +72,14 @@ spec:
     k8s-app: kube-registry
   ports:
   - name: registry
-    port: 5000
+    port: {{ .Port }}
     protocol: TCP
 ---
 apiVersion: extensions/v1beta1
 kind: DaemonSet
 metadata:
   name: kube-registry-proxy
-  namespace: docker-registry
+  namespace: {{ .Namespace }}
   labels:
     k8s-app: kube-registry
 spec:
@@ -79,10 +97,20 @@ spec:
             memory: 50Mi
         env:
         - name: REGISTRY_HOST
-          value: kube-registry.docker-registry.svc.cluster.local
+          value: kube-registry.{{ .Namespace }}.svc.cluster.local
         - name: REGISTRY_PORT
-          value: "5000"
+          value: "{{ .Port }}"
         ports:
         - name: registry
           containerPort: 80
-          hostPort: 5000
+          hostPort: {{ .Port }}
+`
+
+func getRegistryYAMLTemplate() (*template.Template, error) {
+	tmpl := template.New("in_cluster_registry")
+	_, err := tmpl.Parse(registryYAMLTemplateStr)
+	if err != nil {
+		return nil, err
+	}
+	return tmpl, nil
+}

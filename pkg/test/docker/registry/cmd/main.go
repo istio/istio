@@ -16,22 +16,25 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"syscall"
 
 	"github.com/spf13/cobra"
 
-	"io"
-
 	"istio.io/istio/mixer/cmd/shared"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/docker/registry"
+
+	_ "k8s.io/client-go/plugin/pkg/client/auth"
 )
 
 type localRegistrySetupArgs struct {
 	localRegistryPort uint16
 	kubeconfig        string
+	namespace         string
 }
 
 // closerRegister is a non thread safe struct to register io.Closers
@@ -46,7 +49,6 @@ func (cr *closerRegister) register(closer io.Closer) {
 func (cr *closerRegister) isUsed() bool {
 	return len(cr.closers) > 0
 }
-
 
 func (cr *closerRegister) close() {
 	if len(cr.closers) == 0 {
@@ -99,22 +101,28 @@ func inClusterRegistry(rawArgs []string, fatalf shared.FormatFn, cr *closerRegis
 		Use:   "in_cluster_registry",
 		Short: "sets up a in-cluster registry in your Kubernetes cluster",
 		Run: func(cmd *cobra.Command, args []string) {
-			localReg, err := registry.NewInClusterRegistry(sa.kubeconfig, sa.localRegistryPort)
+			config, err := kube.BuildClientConfig(sa.kubeconfig, "")
+			if err != nil {
+				fatalf("failed to create rest config. %v", err)
+			}
+			localReg, err := registry.NewInClusterRegistry(sa.kubeconfig, config, sa.localRegistryPort, sa.namespace)
 			if err != nil {
 				fatalf("failed to instantiate an in-cluster registry. %v", err)
 			}
 			if err := localReg.Start(); err != nil {
 				fatalf("error setting up in-cluster registry. err %v", err)
 			} else {
-				fmt.Printf("Local Registry is Setup at %s.\n", localReg.GetLocalRegistryAddress())
+				fmt.Printf("Local Registry is Setup at %s.\n", localReg.Address())
 			}
 			cr.register(localReg)
 		},
 	}
-	inClusterCmd.PersistentFlags().Uint16Var(&sa.localRegistryPort, "localRegistryPort", 5000,
+	inClusterCmd.PersistentFlags().Uint16Var(&sa.localRegistryPort, "port", 5000,
 		"port number where registry can be port-forwarded on user's machine. Default is 5000, same as local "+
 			"registry port.")
 	inClusterCmd.PersistentFlags().StringVar(&sa.kubeconfig, "kubeconfig", "",
 		"Use a Kubernetes configuration file instead of in-cluster configuration")
+	inClusterCmd.PersistentFlags().StringVar(&sa.namespace, "namespace", "docker-registry",
+		"Update the namespace where the registry should be deployed")
 	return inClusterCmd
 }
