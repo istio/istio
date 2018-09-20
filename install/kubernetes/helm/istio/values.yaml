@@ -428,6 +428,16 @@ security:
   identityDomain: cluster.local # indicate the domain used in SPIFFE identity URL
 
 #
+# nodeagent configuration
+#
+nodeagent:
+  enabled: false
+  image: node-agent-k8s
+  sdsudspath: ""
+  env:
+    CA_ADDR: ""
+
+#
 # addons configuration
 #
 telemetry-gateway:
