@@ -30,8 +30,8 @@ func createService(svcAcct string, canonicalSvcAcct string) *v1.Service {
 	return &v1.Service{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Annotations: map[string]string{
-				kube.KubeServiceAccountsOnVMAnnotation:      svcAcct,
-				kube.CanonicalServiceAccountsOnVMAnnotation: canonicalSvcAcct,
+				kube.KubeServiceAccountsOnVMAnnotation:  svcAcct,
+				kube.CanonicalServiceAccountsAnnotation: canonicalSvcAcct,
 			},
 		},
 	}
