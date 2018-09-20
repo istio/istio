@@ -227,14 +227,6 @@ pushd istio
 popd
 }
 
-function istio_copy_json_scripts() {
-    local GCS_PATH="${1}"
-pushd istio/release
-    gsutil -q cp ./*.sh   "gs://$GCS_PATH/"
-    gsutil -q cp ./*.json "gs://$GCS_PATH/"
-popd
-}
-
 BRANCH=""
 COMMIT=""
 CHECK_GREEN_SHA_AGE="false"
@@ -289,7 +281,6 @@ pushd ${CLONE_DIR}
   find_and_replace_shas_manifest "${BRANCH}"             "${MANIFEST_FILE}" "$VERIFY_CONSISTENCY"
 
   #copy the needed files
-  istio_copy_json_scripts      "${GCS_RELEASE_TOOLS_PATH}"
   gsutil cp "${MANIFEST_FILE}" "${BASE_MANIFEST_URL}"
   gsutil cp "${MANIFEST_FILE}" "gs://${MANIFEST_URL}"
 popd # ${CLONE_DIR}
