@@ -43,14 +43,15 @@ func (cr *closerRegister) register(closer io.Closer) {
 	cr.closers = append(cr.closers, closer)
 }
 
-func (cr *closerRegister) stop() {
+func (cr *closerRegister) isUsed() bool {
+	return len(cr.closers) > 0
+}
+
+
+func (cr *closerRegister) close() {
 	if len(cr.closers) == 0 {
 		return
 	}
-	fmt.Println("Hit CTRL-C to interrupt")
-	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
-	<-stop
 	for _, closer := range cr.closers {
 		if err := closer.Close(); err != nil {
 			log.Warna(err)
@@ -62,14 +63,16 @@ func main() {
 	cr := &closerRegister{}
 	rootCmd := getRootCmd(os.Args[1:], log.Fatalf, cr)
 	if err := rootCmd.Execute(); err != nil {
-		cr.stop()
+		cr.close()
 		os.Exit(-1)
 	}
-	cr.stop()
-}
-
-func wait() {
-
+	if cr.isUsed() {
+		fmt.Println("Hit CTRL-C to interrupt")
+		stop := make(chan os.Signal, 1)
+		signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
+		<-stop
+	}
+	cr.close()
 }
 
 // getRootCmd returns the root of the cobra command-tree.
