@@ -198,6 +198,8 @@ func (m *Cluster) Validate() error {
 		}
 	}
 
+	// no validation rules for ExtensionProtocolOptions
+
 	if d := m.GetDnsRefreshRate(); d != nil {
 		dur := *d
 
@@ -332,6 +334,18 @@ func (m *Cluster) Validate() error {
 			if err := v.Validate(); err != nil {
 				return ClusterValidationError{
 					Field:  "RingHashLbConfig",
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
+	case *Cluster_OriginalDstLbConfig_:
+
+		if v, ok := interface{}(m.GetOriginalDstLbConfig()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return ClusterValidationError{
+					Field:  "OriginalDstLbConfig",
 					Reason: "embedded message failed validation",
 					Cause:  err,
 				}
@@ -671,6 +685,51 @@ func (e Cluster_RingHashLbConfigValidationError) Error() string {
 
 var _ error = Cluster_RingHashLbConfigValidationError{}
 
+// Validate checks the field values on Cluster_OriginalDstLbConfig with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, an error is returned.
+func (m *Cluster_OriginalDstLbConfig) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	// no validation rules for UseHttpHeader
+
+	return nil
+}
+
+// Cluster_OriginalDstLbConfigValidationError is the validation error returned
+// by Cluster_OriginalDstLbConfig.Validate if the designated constraints
+// aren't met.
+type Cluster_OriginalDstLbConfigValidationError struct {
+	Field  string
+	Reason string
+	Cause  error
+	Key    bool
+}
+
+// Error satisfies the builtin error interface
+func (e Cluster_OriginalDstLbConfigValidationError) Error() string {
+	cause := ""
+	if e.Cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
+	}
+
+	key := ""
+	if e.Key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sCluster_OriginalDstLbConfig.%s: %s%s",
+		key,
+		e.Field,
+		e.Reason,
+		cause)
+}
+
+var _ error = Cluster_OriginalDstLbConfigValidationError{}
+
 // Validate checks the field values on Cluster_CommonLbConfig with the rules
 // defined in the proto definition for this message. If any rules are
 // violated, an error is returned.
@@ -683,6 +742,16 @@ func (m *Cluster_CommonLbConfig) Validate() error {
 		if err := v.Validate(); err != nil {
 			return Cluster_CommonLbConfigValidationError{
 				Field:  "HealthyPanicThreshold",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
+	if v, ok := interface{}(m.GetUpdateMergeWindow()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return Cluster_CommonLbConfigValidationError{
+				Field:  "UpdateMergeWindow",
 				Reason: "embedded message failed validation",
 				Cause:  err,
 			}

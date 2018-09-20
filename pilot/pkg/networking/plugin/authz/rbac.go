@@ -53,14 +53,15 @@ const (
 	attrRequestHeader = "request.headers" // header name is surrounded by brackets, e.g. "request.headers[User-Agent]".
 
 	// attributes that could be used in a ServiceRoleBinding property.
-	attrSrcIP            = "source.ip"              // supports both single ip and cidr, e.g. "10.1.2.3" or "10.1.0.0/16".
-	attrSrcNamespace     = "source.namespace"       // e.g. "default".
-	attrSrcUser          = "source.user"            // source identity, e.g. "cluster.local/ns/default/sa/productpage".
-	attrSrcPrincipal     = "source.principal"       // source identity, e,g, "cluster.local/ns/default/sa/productpage".
-	attrRequestPrincipal = "request.auth.principal" // authenticated principal of the request.
-	attrRequestAudiences = "request.auth.audiences" // intended audience(s) for this authentication information.
-	attrRequestPresenter = "request.auth.presenter" // authorized presenter of the credential.
-	attrRequestClaims    = "request.auth.claims"    // claim name is surrounded by brackets, e.g. "request.auth.claims[iss]".
+	attrSrcIP              = "source.ip"                   // supports both single ip and cidr, e.g. "10.1.2.3" or "10.1.0.0/16".
+	attrSrcNamespace       = "source.namespace"            // e.g. "default".
+	attrSrcUser            = "source.user"                 // source identity, e.g. "cluster.local/ns/default/sa/productpage".
+	attrSrcPrincipal       = "source.principal"            // source identity, e,g, "cluster.local/ns/default/sa/productpage".
+	attrRequestPrincipal   = "request.auth.principal"      // authenticated principal of the request.
+	attrRequestAudiences   = "request.auth.audiences"      // intended audience(s) for this authentication information.
+	attrRequestPresenter   = "request.auth.presenter"      // authorized presenter of the credential.
+	attrRequestClaims      = "request.auth.claims"         // claim name is surrounded by brackets, e.g. "request.auth.claims[iss]".
+	attrRequestClaimGroups = "request.auth.claims[groups]" // groups claim".
 
 	// attributes that could be used in a ServiceRole constraint.
 	attrDestIP        = "destination.ip"        // supports both single ip and cidr, e.g. "10.1.2.3" or "10.1.0.0/16".
@@ -166,36 +167,66 @@ func generateMetadataStringMatcher(keys []string, v *metadata.StringMatcher) *me
 	return &metadata.MetadataMatcher{
 		Filter: authn.AuthnFilterName,
 		Path:   paths,
-		Value: &metadata.MetadataMatcher_Value{
-			MatchPattern: &metadata.MetadataMatcher_Value_StringMatch{
+		Value: &metadata.ValueMatcher{
+			MatchPattern: &metadata.ValueMatcher_StringMatch{
 				StringMatch: v,
 			},
 		},
 	}
 }
 
-// createDynamicMetadataMatcher creates a MetadataMatcher for the given key, value pair.
-func createDynamicMetadataMatcher(k, v string) *metadata.MetadataMatcher {
+//Generate a metadata list matcher for the given path keys and value.
+func generateMetadataListMatcher(keys []string, v string) *metadata.MetadataMatcher {
+	listMatcher := &metadata.ListMatcher{
+		MatchPattern: &metadata.ListMatcher_OneOf{
+			OneOf: &metadata.ValueMatcher{
+				MatchPattern: &metadata.ValueMatcher_StringMatch{
+					StringMatch: createStringMatcher(v, false),
+				},
+			},
+		},
+	}
+
+	paths := make([]*metadata.MetadataMatcher_PathSegment, 0)
+	for _, k := range keys {
+		paths = append(paths, &metadata.MetadataMatcher_PathSegment{
+			Segment: &metadata.MetadataMatcher_PathSegment_Key{Key: k},
+		})
+	}
+
+	return &metadata.MetadataMatcher{
+		Filter: authn.AuthnFilterName,
+		Path:   paths,
+		Value: &metadata.ValueMatcher{
+			MatchPattern: &metadata.ValueMatcher_ListMatch{
+				ListMatch: listMatcher,
+			},
+		},
+	}
+}
+
+// Generate keys for metadata paths
+func generateMetaKeys(k string) ([]string, error) {
 	var keys []string
-	forceRegexPattern := false
 
 	if k == attrSrcNamespace {
 		// Proxy doesn't have attrSrcNamespace directly, but the information is encoded in attrSrcPrincipal
 		// with format: cluster.local/ns/{NAMESPACE}/sa/{SERVICE-ACCOUNT}, so we change the key to
-		// attrSrcPrincipal and change the value to a regular expression to match the namespace part.
+		// attrSrcPrincipal.
 		keys = []string{attrSrcPrincipal}
-		v = fmt.Sprintf(`*/ns/%s/*`, v)
-		forceRegexPattern = true
 	} else if strings.HasPrefix(k, attrRequestClaims) {
 		claim, err := extractNameInBrackets(strings.TrimPrefix(k, attrRequestClaims))
 		if err != nil {
-			return nil
+			return nil, err
 		}
 		keys = []string{attrRequestClaims, claim}
 	} else {
 		keys = []string{k}
 	}
+	return keys, nil
+}
 
+func createStringMatcher(v string, forceRegexPattern bool) *metadata.StringMatcher {
 	var stringMatcher *metadata.StringMatcher
 	// Check if v is "*" first to make sure we won't generate an empty prefix/suffix StringMatcher,
 	// the Envoy StringMatcher doesn't allow empty prefix/suffix.
@@ -224,6 +255,31 @@ func createDynamicMetadataMatcher(k, v string) *metadata.MetadataMatcher {
 			},
 		}
 	}
+	return stringMatcher
+}
+
+// createDynamicMetadataMatcher creates a MetadataMatcher for the given key, value pair.
+func createDynamicMetadataMatcher(k, v string) *metadata.MetadataMatcher {
+	keys, err := generateMetaKeys(k)
+	if err != nil {
+		rbacLog.Errorf("failed to generate meta matcher key %s, err: %v", k, err)
+		return nil
+	}
+	forceRegexPattern := false
+	if k == attrSrcNamespace {
+		// Change the value to a regular expression to match the namespace part.
+		v = fmt.Sprintf(`*/ns/%s/*`, v)
+		forceRegexPattern = true
+	}
+
+	// Handle the claims under attrRequestClaims
+	if len(keys) == 2 && keys[0] == attrRequestClaims {
+		//Generate a metadata list matcher for the given path keys and value.
+		//On proxy side, the value should be of list type.
+		return generateMetadataListMatcher(keys, v)
+	}
+
+	stringMatcher := createStringMatcher(v, forceRegexPattern)
 
 	return generateMetadataStringMatcher(keys, stringMatcher)
 }
@@ -513,7 +569,14 @@ func convertToPrincipal(subject *rbacproto.Subject) *policyproto.Principal {
 	}
 
 	if subject.Group != "" {
-		rbacLog.Errorf("ignored Subject.group %s, not implemented", subject.Group)
+		// Treat subject.Group as the request.auth.claims[groups] property. If
+		// request.auth.claims[groups] has been defined for the subject, subject.Group
+		// overrides request.auth.claims[groups].
+		if subject.Properties[attrRequestClaimGroups] != "" {
+			rbacLog.Errorf("Both subject.group and request.auth.claims[groups] are defined.\n")
+		}
+		rbacLog.Debugf("Treat subject.Group (%s) as the request.auth.claims[groups]\n", subject.Group)
+		subject.Properties[attrRequestClaimGroups] = subject.Group
 	}
 
 	if len(subject.Properties) != 0 {
@@ -611,6 +674,9 @@ func permissionForKeyValues(key string, values []string) *policyproto.Permission
 	return &policyproto.Permission{Rule: orRules}
 }
 
+// Create a Principal based on the key and the value.
+// key: the key of a subject property.
+// value: the value of a subject property.
 func principalForKeyValue(key, value string) *policyproto.Principal {
 	switch {
 	case key == attrSrcIP:

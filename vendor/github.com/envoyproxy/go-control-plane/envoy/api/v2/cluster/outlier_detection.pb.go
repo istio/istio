@@ -6,10 +6,11 @@ package cluster
 import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import google_protobuf3 "github.com/gogo/protobuf/types"
-import google_protobuf1 "github.com/gogo/protobuf/types"
-import _ "github.com/lyft/protoc-gen-validate/validate"
 import _ "github.com/gogo/protobuf/gogoproto"
+import types "github.com/gogo/protobuf/types"
+import _ "github.com/lyft/protoc-gen-validate/validate"
+
+import bytes "bytes"
 
 import io "io"
 
@@ -18,42 +19,48 @@ var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
 
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
+
 // See the :ref:`architecture overview <arch_overview_outlier_detection>` for
 // more information on outlier detection.
 type OutlierDetection struct {
 	// The number of consecutive 5xx responses before a consecutive 5xx ejection
 	// occurs. Defaults to 5.
-	Consecutive_5Xx *google_protobuf1.UInt32Value `protobuf:"bytes,1,opt,name=consecutive_5xx,json=consecutive5xx" json:"consecutive_5xx,omitempty"`
+	Consecutive_5Xx *types.UInt32Value `protobuf:"bytes,1,opt,name=consecutive_5xx,json=consecutive5xx" json:"consecutive_5xx,omitempty"`
 	// The time interval between ejection analysis sweeps. This can result in
 	// both new ejections as well as hosts being returned to service. Defaults
 	// to 10000ms or 10s.
-	Interval *google_protobuf3.Duration `protobuf:"bytes,2,opt,name=interval" json:"interval,omitempty"`
+	Interval *types.Duration `protobuf:"bytes,2,opt,name=interval" json:"interval,omitempty"`
 	// The base time that a host is ejected for. The real time is equal to the
 	// base time multiplied by the number of times the host has been ejected.
 	// Defaults to 30000ms or 30s.
-	BaseEjectionTime *google_protobuf3.Duration `protobuf:"bytes,3,opt,name=base_ejection_time,json=baseEjectionTime" json:"base_ejection_time,omitempty"`
+	BaseEjectionTime *types.Duration `protobuf:"bytes,3,opt,name=base_ejection_time,json=baseEjectionTime" json:"base_ejection_time,omitempty"`
 	// The maximum % of an upstream cluster that can be ejected due to outlier
 	// detection. Defaults to 10% but will eject at least one host regardless of the value.
-	MaxEjectionPercent *google_protobuf1.UInt32Value `protobuf:"bytes,4,opt,name=max_ejection_percent,json=maxEjectionPercent" json:"max_ejection_percent,omitempty"`
+	MaxEjectionPercent *types.UInt32Value `protobuf:"bytes,4,opt,name=max_ejection_percent,json=maxEjectionPercent" json:"max_ejection_percent,omitempty"`
 	// The % chance that a host will be actually ejected when an outlier status
 	// is detected through consecutive 5xx. This setting can be used to disable
 	// ejection or to ramp it up slowly. Defaults to 100.
-	EnforcingConsecutive_5Xx *google_protobuf1.UInt32Value `protobuf:"bytes,5,opt,name=enforcing_consecutive_5xx,json=enforcingConsecutive5xx" json:"enforcing_consecutive_5xx,omitempty"`
+	EnforcingConsecutive_5Xx *types.UInt32Value `protobuf:"bytes,5,opt,name=enforcing_consecutive_5xx,json=enforcingConsecutive5xx" json:"enforcing_consecutive_5xx,omitempty"`
 	// The % chance that a host will be actually ejected when an outlier status
 	// is detected through success rate statistics. This setting can be used to
 	// disable ejection or to ramp it up slowly. Defaults to 100.
-	EnforcingSuccessRate *google_protobuf1.UInt32Value `protobuf:"bytes,6,opt,name=enforcing_success_rate,json=enforcingSuccessRate" json:"enforcing_success_rate,omitempty"`
+	EnforcingSuccessRate *types.UInt32Value `protobuf:"bytes,6,opt,name=enforcing_success_rate,json=enforcingSuccessRate" json:"enforcing_success_rate,omitempty"`
 	// The number of hosts in a cluster that must have enough request volume to
 	// detect success rate outliers. If the number of hosts is less than this
 	// setting, outlier detection via success rate statistics is not performed
 	// for any host in the cluster. Defaults to 5.
-	SuccessRateMinimumHosts *google_protobuf1.UInt32Value `protobuf:"bytes,7,opt,name=success_rate_minimum_hosts,json=successRateMinimumHosts" json:"success_rate_minimum_hosts,omitempty"`
+	SuccessRateMinimumHosts *types.UInt32Value `protobuf:"bytes,7,opt,name=success_rate_minimum_hosts,json=successRateMinimumHosts" json:"success_rate_minimum_hosts,omitempty"`
 	// The minimum number of total requests that must be collected in one
 	// interval (as defined by the interval duration above) to include this host
 	// in success rate based outlier detection. If the volume is lower than this
 	// setting, outlier detection via success rate statistics is not performed
 	// for that host. Defaults to 100.
-	SuccessRateRequestVolume *google_protobuf1.UInt32Value `protobuf:"bytes,8,opt,name=success_rate_request_volume,json=successRateRequestVolume" json:"success_rate_request_volume,omitempty"`
+	SuccessRateRequestVolume *types.UInt32Value `protobuf:"bytes,8,opt,name=success_rate_request_volume,json=successRateRequestVolume" json:"success_rate_request_volume,omitempty"`
 	// This factor is used to determine the ejection threshold for success rate
 	// outlier ejection. The ejection threshold is the difference between the
 	// mean success rate, and the product of this factor and the standard
@@ -61,93 +68,124 @@ type OutlierDetection struct {
 	// success_rate_stdev_factor). This factor is divided by a thousand to get a
 	// double. That is, if the desired factor is 1.9, the runtime value should
 	// be 1900. Defaults to 1900.
-	SuccessRateStdevFactor *google_protobuf1.UInt32Value `protobuf:"bytes,9,opt,name=success_rate_stdev_factor,json=successRateStdevFactor" json:"success_rate_stdev_factor,omitempty"`
+	SuccessRateStdevFactor *types.UInt32Value `protobuf:"bytes,9,opt,name=success_rate_stdev_factor,json=successRateStdevFactor" json:"success_rate_stdev_factor,omitempty"`
 	// The number of consecutive gateway failures (502, 503, 504 status or
 	// connection errors that are mapped to one of those status codes) before a
 	// consecutive gateway failure ejection occurs. Defaults to 5.
-	ConsecutiveGatewayFailure *google_protobuf1.UInt32Value `protobuf:"bytes,10,opt,name=consecutive_gateway_failure,json=consecutiveGatewayFailure" json:"consecutive_gateway_failure,omitempty"`
+	ConsecutiveGatewayFailure *types.UInt32Value `protobuf:"bytes,10,opt,name=consecutive_gateway_failure,json=consecutiveGatewayFailure" json:"consecutive_gateway_failure,omitempty"`
 	// The % chance that a host will be actually ejected when an outlier status
 	// is detected through consecutive gateway failures. This setting can be
 	// used to disable ejection or to ramp it up slowly. Defaults to 0.
-	EnforcingConsecutiveGatewayFailure *google_protobuf1.UInt32Value `protobuf:"bytes,11,opt,name=enforcing_consecutive_gateway_failure,json=enforcingConsecutiveGatewayFailure" json:"enforcing_consecutive_gateway_failure,omitempty"`
+	EnforcingConsecutiveGatewayFailure *types.UInt32Value `protobuf:"bytes,11,opt,name=enforcing_consecutive_gateway_failure,json=enforcingConsecutiveGatewayFailure" json:"enforcing_consecutive_gateway_failure,omitempty"`
+	XXX_NoUnkeyedLiteral               struct{}           `json:"-"`
+	XXX_unrecognized                   []byte             `json:"-"`
+	XXX_sizecache                      int32              `json:"-"`
 }
 
-func (m *OutlierDetection) Reset()                    { *m = OutlierDetection{} }
-func (m *OutlierDetection) String() string            { return proto.CompactTextString(m) }
-func (*OutlierDetection) ProtoMessage()               {}
-func (*OutlierDetection) Descriptor() ([]byte, []int) { return fileDescriptorOutlierDetection, []int{0} }
+func (m *OutlierDetection) Reset()         { *m = OutlierDetection{} }
+func (m *OutlierDetection) String() string { return proto.CompactTextString(m) }
+func (*OutlierDetection) ProtoMessage()    {}
+func (*OutlierDetection) Descriptor() ([]byte, []int) {
+	return fileDescriptor_outlier_detection_ca1bd929cef49cfa, []int{0}
+}
+func (m *OutlierDetection) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *OutlierDetection) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_OutlierDetection.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (dst *OutlierDetection) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_OutlierDetection.Merge(dst, src)
+}
+func (m *OutlierDetection) XXX_Size() int {
+	return m.Size()
+}
+func (m *OutlierDetection) XXX_DiscardUnknown() {
+	xxx_messageInfo_OutlierDetection.DiscardUnknown(m)
+}
 
-func (m *OutlierDetection) GetConsecutive_5Xx() *google_protobuf1.UInt32Value {
+var xxx_messageInfo_OutlierDetection proto.InternalMessageInfo
+
+func (m *OutlierDetection) GetConsecutive_5Xx() *types.UInt32Value {
 	if m != nil {
 		return m.Consecutive_5Xx
 	}
 	return nil
 }
 
-func (m *OutlierDetection) GetInterval() *google_protobuf3.Duration {
+func (m *OutlierDetection) GetInterval() *types.Duration {
 	if m != nil {
 		return m.Interval
 	}
 	return nil
 }
 
-func (m *OutlierDetection) GetBaseEjectionTime() *google_protobuf3.Duration {
+func (m *OutlierDetection) GetBaseEjectionTime() *types.Duration {
 	if m != nil {
 		return m.BaseEjectionTime
 	}
 	return nil
 }
 
-func (m *OutlierDetection) GetMaxEjectionPercent() *google_protobuf1.UInt32Value {
+func (m *OutlierDetection) GetMaxEjectionPercent() *types.UInt32Value {
 	if m != nil {
 		return m.MaxEjectionPercent
 	}
 	return nil
 }
 
-func (m *OutlierDetection) GetEnforcingConsecutive_5Xx() *google_protobuf1.UInt32Value {
+func (m *OutlierDetection) GetEnforcingConsecutive_5Xx() *types.UInt32Value {
 	if m != nil {
 		return m.EnforcingConsecutive_5Xx
 	}
 	return nil
 }
 
-func (m *OutlierDetection) GetEnforcingSuccessRate() *google_protobuf1.UInt32Value {
+func (m *OutlierDetection) GetEnforcingSuccessRate() *types.UInt32Value {
 	if m != nil {
 		return m.EnforcingSuccessRate
 	}
 	return nil
 }
 
-func (m *OutlierDetection) GetSuccessRateMinimumHosts() *google_protobuf1.UInt32Value {
+func (m *OutlierDetection) GetSuccessRateMinimumHosts() *types.UInt32Value {
 	if m != nil {
 		return m.SuccessRateMinimumHosts
 	}
 	return nil
 }
 
-func (m *OutlierDetection) GetSuccessRateRequestVolume() *google_protobuf1.UInt32Value {
+func (m *OutlierDetection) GetSuccessRateRequestVolume() *types.UInt32Value {
 	if m != nil {
 		return m.SuccessRateRequestVolume
 	}
 	return nil
 }
 
-func (m *OutlierDetection) GetSuccessRateStdevFactor() *google_protobuf1.UInt32Value {
+func (m *OutlierDetection) GetSuccessRateStdevFactor() *types.UInt32Value {
 	if m != nil {
 		return m.SuccessRateStdevFactor
 	}
 	return nil
 }
 
-func (m *OutlierDetection) GetConsecutiveGatewayFailure() *google_protobuf1.UInt32Value {
+func (m *OutlierDetection) GetConsecutiveGatewayFailure() *types.UInt32Value {
 	if m != nil {
 		return m.ConsecutiveGatewayFailure
 	}
 	return nil
 }
 
-func (m *OutlierDetection) GetEnforcingConsecutiveGatewayFailure() *google_protobuf1.UInt32Value {
+func (m *OutlierDetection) GetEnforcingConsecutiveGatewayFailure() *types.UInt32Value {
 	if m != nil {
 		return m.EnforcingConsecutiveGatewayFailure
 	}
@@ -207,6 +245,9 @@ func (this *OutlierDetection) Equal(that interface{}) bool {
 		return false
 	}
 	if !this.EnforcingConsecutiveGatewayFailure.Equal(that1.EnforcingConsecutiveGatewayFailure) {
+		return false
+	}
+	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
 		return false
 	}
 	return true
@@ -336,6 +377,9 @@ func (m *OutlierDetection) MarshalTo(dAtA []byte) (int, error) {
 		}
 		i += n11
 	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
 	return i, nil
 }
 
@@ -394,6 +438,9 @@ func (m *OutlierDetection) Size() (n int) {
 	if m.EnforcingConsecutiveGatewayFailure != nil {
 		l = m.EnforcingConsecutiveGatewayFailure.Size()
 		n += 1 + l + sovOutlierDetection(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
 	}
 	return n
 }
@@ -467,7 +514,7 @@ func (m *OutlierDetection) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Consecutive_5Xx == nil {
-				m.Consecutive_5Xx = &google_protobuf1.UInt32Value{}
+				m.Consecutive_5Xx = &types.UInt32Value{}
 			}
 			if err := m.Consecutive_5Xx.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -500,7 +547,7 @@ func (m *OutlierDetection) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Interval == nil {
-				m.Interval = &google_protobuf3.Duration{}
+				m.Interval = &types.Duration{}
 			}
 			if err := m.Interval.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -533,7 +580,7 @@ func (m *OutlierDetection) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.BaseEjectionTime == nil {
-				m.BaseEjectionTime = &google_protobuf3.Duration{}
+				m.BaseEjectionTime = &types.Duration{}
 			}
 			if err := m.BaseEjectionTime.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -566,7 +613,7 @@ func (m *OutlierDetection) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.MaxEjectionPercent == nil {
-				m.MaxEjectionPercent = &google_protobuf1.UInt32Value{}
+				m.MaxEjectionPercent = &types.UInt32Value{}
 			}
 			if err := m.MaxEjectionPercent.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -599,7 +646,7 @@ func (m *OutlierDetection) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.EnforcingConsecutive_5Xx == nil {
-				m.EnforcingConsecutive_5Xx = &google_protobuf1.UInt32Value{}
+				m.EnforcingConsecutive_5Xx = &types.UInt32Value{}
 			}
 			if err := m.EnforcingConsecutive_5Xx.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -632,7 +679,7 @@ func (m *OutlierDetection) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.EnforcingSuccessRate == nil {
-				m.EnforcingSuccessRate = &google_protobuf1.UInt32Value{}
+				m.EnforcingSuccessRate = &types.UInt32Value{}
 			}
 			if err := m.EnforcingSuccessRate.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -665,7 +712,7 @@ func (m *OutlierDetection) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.SuccessRateMinimumHosts == nil {
-				m.SuccessRateMinimumHosts = &google_protobuf1.UInt32Value{}
+				m.SuccessRateMinimumHosts = &types.UInt32Value{}
 			}
 			if err := m.SuccessRateMinimumHosts.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -698,7 +745,7 @@ func (m *OutlierDetection) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.SuccessRateRequestVolume == nil {
-				m.SuccessRateRequestVolume = &google_protobuf1.UInt32Value{}
+				m.SuccessRateRequestVolume = &types.UInt32Value{}
 			}
 			if err := m.SuccessRateRequestVolume.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -731,7 +778,7 @@ func (m *OutlierDetection) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.SuccessRateStdevFactor == nil {
-				m.SuccessRateStdevFactor = &google_protobuf1.UInt32Value{}
+				m.SuccessRateStdevFactor = &types.UInt32Value{}
 			}
 			if err := m.SuccessRateStdevFactor.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -764,7 +811,7 @@ func (m *OutlierDetection) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.ConsecutiveGatewayFailure == nil {
-				m.ConsecutiveGatewayFailure = &google_protobuf1.UInt32Value{}
+				m.ConsecutiveGatewayFailure = &types.UInt32Value{}
 			}
 			if err := m.ConsecutiveGatewayFailure.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -797,7 +844,7 @@ func (m *OutlierDetection) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.EnforcingConsecutiveGatewayFailure == nil {
-				m.EnforcingConsecutiveGatewayFailure = &google_protobuf1.UInt32Value{}
+				m.EnforcingConsecutiveGatewayFailure = &types.UInt32Value{}
 			}
 			if err := m.EnforcingConsecutiveGatewayFailure.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -815,6 +862,7 @@ func (m *OutlierDetection) Unmarshal(dAtA []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -930,10 +978,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/api/v2/cluster/outlier_detection.proto", fileDescriptorOutlierDetection)
+	proto.RegisterFile("envoy/api/v2/cluster/outlier_detection.proto", fileDescriptor_outlier_detection_ca1bd929cef49cfa)
 }
 
-var fileDescriptorOutlierDetection = []byte{
+var fileDescriptor_outlier_detection_ca1bd929cef49cfa = []byte{
 	// 537 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x94, 0xcb, 0x6e, 0xd3, 0x4c,
 	0x14, 0xc7, 0x3f, 0xa7, 0xf7, 0xa9, 0xf4, 0x51, 0x8d, 0xa2, 0x66, 0xd2, 0xa2, 0x08, 0x55, 0x42,

@@ -1,5 +1,28 @@
 URL="https://raw.githubusercontent.com/google/protobuf/master/src/google/protobuf/"
 
+regenerate:
+	go install github.com/gogo/protobuf/protoc-gen-gogotypes
+	go install github.com/gogo/protobuf/protoc-min-version
+
+	protoc-min-version \
+	--version="3.0.0" \
+	--gogotypes_out=../types/ \
+	-I=. \
+	google/protobuf/any.proto \
+	google/protobuf/type.proto \
+	google/protobuf/empty.proto \
+	google/protobuf/api.proto \
+	google/protobuf/timestamp.proto \
+	google/protobuf/duration.proto \
+	google/protobuf/struct.proto \
+	google/protobuf/wrappers.proto \
+	google/protobuf/field_mask.proto \
+	google/protobuf/source_context.proto
+
+	mv ../types/google/protobuf/*.pb.go ../types/ || true
+	rmdir ../types/google/protobuf || true
+	rmdir ../types/google || true
+
 update:
 	go install github.com/gogo/protobuf/gogoreplace
 
@@ -31,5 +54,11 @@ update:
 	gogoreplace 'go_package = "github.com/golang/protobuf/ptypes/wrappers";' 'go_package = "types";' ./google/protobuf/wrappers.proto
 	(cd ./google/protobuf && rm field_mask.proto; wget ${URL}/field_mask.proto)
 	gogoreplace 'option go_package = "google.golang.org/genproto/protobuf/field_mask;field_mask";' 'option go_package = "types";' ./google/protobuf/field_mask.proto
+	(cd ./google/protobuf && rm api.proto; wget ${URL}/api.proto)
+	gogoreplace 'option go_package = "google.golang.org/genproto/protobuf/api;api";' 'option go_package = "types";' ./google/protobuf/api.proto
+	(cd ./google/protobuf && rm type.proto; wget ${URL}/type.proto)
+	gogoreplace 'option go_package = "google.golang.org/genproto/protobuf/ptype;ptype";' 'option go_package = "types";' ./google/protobuf/type.proto
+	(cd ./google/protobuf && rm source_context.proto; wget ${URL}/source_context.proto)
+	gogoreplace 'option go_package = "google.golang.org/genproto/protobuf/source_context;source_context";' 'option go_package = "types";' ./google/protobuf/source_context.proto
 	
 	
