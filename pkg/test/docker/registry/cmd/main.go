@@ -26,7 +26,7 @@ import (
 
 	"istio.io/istio/mixer/cmd/shared"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/tests/util/registry"
+	"istio.io/istio/pkg/test/docker/registry"
 )
 
 type localRegistrySetupArgs struct {

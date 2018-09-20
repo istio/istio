@@ -1,6 +1,6 @@
 # Using an in-cluster Docker Registry
 
-`k8s_registry.yaml` is a copy of Kubernete's local registry addon, and is included to make it easier to test
+`localregistry.yaml` is a copy of Kubernete's local registry addon, and is included to make it easier to test
 Istio by allowing a developer to push docker images locally rather than to some remote registry.
 
 ### Run the registry
@@ -8,7 +8,7 @@ To run the local registry in your kubernetes cluster:
 
 ```shell
 $ kubectl create ns docker-registry
-$ kubectl apply -f ./tests/util/registry/k8s_registry.yaml
+$ kubectl apply -f ./tests/util/localregistry/localregistry.yaml
 ```
 
 ### Expose the Registry
