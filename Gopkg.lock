@@ -252,7 +252,6 @@
   version = "v2.6.0"
 
 [[projects]]
-  branch = "revert_grpc_version_update"
   name = "github.com/envoyproxy/go-control-plane"
   packages = [
     "envoy/admin/v2alpha",
@@ -286,7 +285,8 @@
     "pkg/server",
     "pkg/util"
   ]
-  revision = "9d935e3a33c28e3d6ac75a9db53b0da3b511fb86"
+  revision = "676016db8193d83324a507a986a78cd3642ad713"
+  version = "v0.5.0"
 
 [[projects]]
   name = "github.com/evanphx/json-patch"
@@ -370,8 +370,8 @@
     "sortkeys",
     "types"
   ]
-  revision = "1adfc126b41513cc696b209667c8656ea7aac67c"
-  version = "v1.0.0"
+  revision = "636bf0302bc95575d69441b25a2603156ffdddf1"
+  version = "v1.1.1"
 
 [[projects]]
   name = "github.com/gogo/status"
@@ -1431,8 +1431,10 @@
   branch = "master"
   name = "k8s.io/apiserver"
   packages = [
+    "pkg/authentication/user",
     "pkg/features",
-    "pkg/util/feature"
+    "pkg/util/feature",
+    "plugin/pkg/authenticator/token/oidc"
   ]
   revision = "f4a9d31325865f18b8023622a564578f079d582b"
 
@@ -1604,6 +1606,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "a3f4506ed1d7f2f3cc257f1d3c8f83638e9dd3ef26757bad9f929509b5b923ce"
+  inputs-digest = "c5e00f64aafd9ef46e80eda1264c0e4c9e3e82f63b6537c1711cbc1d8f02114f"
   solver-name = "gps-cdcl"
   solver-version = 1

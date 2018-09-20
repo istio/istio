@@ -48,6 +48,16 @@ func (m *FaultAbort) Validate() error {
 		}
 	}
 
+	if v, ok := interface{}(m.GetPercentage()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return FaultAbortValidationError{
+				Field:  "Percentage",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
 	switch m.ErrorType.(type) {
 
 	case *FaultAbort_HttpStatus:

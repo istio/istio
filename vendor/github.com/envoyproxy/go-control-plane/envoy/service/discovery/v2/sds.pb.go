@@ -6,7 +6,7 @@ package v2
 import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import envoy_api_v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+import v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 import _ "github.com/gogo/googleapis/google/api"
 
 import context "golang.org/x/net/context"
@@ -19,15 +19,52 @@ var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
 
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
+
 // [#not-implemented-hide:] Not configuration. Workaround c++ protobuf issue with importing
 // services: https://github.com/google/protobuf/issues/4221
 type SdsDummy struct {
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *SdsDummy) Reset()                    { *m = SdsDummy{} }
-func (m *SdsDummy) String() string            { return proto.CompactTextString(m) }
-func (*SdsDummy) ProtoMessage()               {}
-func (*SdsDummy) Descriptor() ([]byte, []int) { return fileDescriptorSds, []int{0} }
+func (m *SdsDummy) Reset()         { *m = SdsDummy{} }
+func (m *SdsDummy) String() string { return proto.CompactTextString(m) }
+func (*SdsDummy) ProtoMessage()    {}
+func (*SdsDummy) Descriptor() ([]byte, []int) {
+	return fileDescriptor_sds_5335c571b383ba10, []int{0}
+}
+func (m *SdsDummy) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *SdsDummy) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_SdsDummy.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (dst *SdsDummy) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SdsDummy.Merge(dst, src)
+}
+func (m *SdsDummy) XXX_Size() int {
+	return m.Size()
+}
+func (m *SdsDummy) XXX_DiscardUnknown() {
+	xxx_messageInfo_SdsDummy.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_SdsDummy proto.InternalMessageInfo
 
 func init() {
 	proto.RegisterType((*SdsDummy)(nil), "envoy.service.discovery.v2.SdsDummy")
@@ -45,7 +82,7 @@ const _ = grpc.SupportPackageIsVersion4
 
 type SecretDiscoveryServiceClient interface {
 	StreamSecrets(ctx context.Context, opts ...grpc.CallOption) (SecretDiscoveryService_StreamSecretsClient, error)
-	FetchSecrets(ctx context.Context, in *envoy_api_v2.DiscoveryRequest, opts ...grpc.CallOption) (*envoy_api_v2.DiscoveryResponse, error)
+	FetchSecrets(ctx context.Context, in *v2.DiscoveryRequest, opts ...grpc.CallOption) (*v2.DiscoveryResponse, error)
 }
 
 type secretDiscoveryServiceClient struct {
@@ -57,7 +94,7 @@ func NewSecretDiscoveryServiceClient(cc *grpc.ClientConn) SecretDiscoveryService
 }
 
 func (c *secretDiscoveryServiceClient) StreamSecrets(ctx context.Context, opts ...grpc.CallOption) (SecretDiscoveryService_StreamSecretsClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_SecretDiscoveryService_serviceDesc.Streams[0], c.cc, "/envoy.service.discovery.v2.SecretDiscoveryService/StreamSecrets", opts...)
+	stream, err := c.cc.NewStream(ctx, &_SecretDiscoveryService_serviceDesc.Streams[0], "/envoy.service.discovery.v2.SecretDiscoveryService/StreamSecrets", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -66,8 +103,8 @@ func (c *secretDiscoveryServiceClient) StreamSecrets(ctx context.Context, opts .
 }
 
 type SecretDiscoveryService_StreamSecretsClient interface {
-	Send(*envoy_api_v2.DiscoveryRequest) error
-	Recv() (*envoy_api_v2.DiscoveryResponse, error)
+	Send(*v2.DiscoveryRequest) error
+	Recv() (*v2.DiscoveryResponse, error)
 	grpc.ClientStream
 }
 
@@ -75,21 +112,21 @@ type secretDiscoveryServiceStreamSecretsClient struct {
 	grpc.ClientStream
 }
 
-func (x *secretDiscoveryServiceStreamSecretsClient) Send(m *envoy_api_v2.DiscoveryRequest) error {
+func (x *secretDiscoveryServiceStreamSecretsClient) Send(m *v2.DiscoveryRequest) error {
 	return x.ClientStream.SendMsg(m)
 }
 
-func (x *secretDiscoveryServiceStreamSecretsClient) Recv() (*envoy_api_v2.DiscoveryResponse, error) {
-	m := new(envoy_api_v2.DiscoveryResponse)
+func (x *secretDiscoveryServiceStreamSecretsClient) Recv() (*v2.DiscoveryResponse, error) {
+	m := new(v2.DiscoveryResponse)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
 	return m, nil
 }
 
-func (c *secretDiscoveryServiceClient) FetchSecrets(ctx context.Context, in *envoy_api_v2.DiscoveryRequest, opts ...grpc.CallOption) (*envoy_api_v2.DiscoveryResponse, error) {
-	out := new(envoy_api_v2.DiscoveryResponse)
-	err := grpc.Invoke(ctx, "/envoy.service.discovery.v2.SecretDiscoveryService/FetchSecrets", in, out, c.cc, opts...)
+func (c *secretDiscoveryServiceClient) FetchSecrets(ctx context.Context, in *v2.DiscoveryRequest, opts ...grpc.CallOption) (*v2.DiscoveryResponse, error) {
+	out := new(v2.DiscoveryResponse)
+	err := c.cc.Invoke(ctx, "/envoy.service.discovery.v2.SecretDiscoveryService/FetchSecrets", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +137,7 @@ func (c *secretDiscoveryServiceClient) FetchSecrets(ctx context.Context, in *env
 
 type SecretDiscoveryServiceServer interface {
 	StreamSecrets(SecretDiscoveryService_StreamSecretsServer) error
-	FetchSecrets(context.Context, *envoy_api_v2.DiscoveryRequest) (*envoy_api_v2.DiscoveryResponse, error)
+	FetchSecrets(context.Context, *v2.DiscoveryRequest) (*v2.DiscoveryResponse, error)
 }
 
 func RegisterSecretDiscoveryServiceServer(s *grpc.Server, srv SecretDiscoveryServiceServer) {
@@ -112,8 +149,8 @@ func _SecretDiscoveryService_StreamSecrets_Handler(srv interface{}, stream grpc.
 }
 
 type SecretDiscoveryService_StreamSecretsServer interface {
-	Send(*envoy_api_v2.DiscoveryResponse) error
-	Recv() (*envoy_api_v2.DiscoveryRequest, error)
+	Send(*v2.DiscoveryResponse) error
+	Recv() (*v2.DiscoveryRequest, error)
 	grpc.ServerStream
 }
 
@@ -121,12 +158,12 @@ type secretDiscoveryServiceStreamSecretsServer struct {
 	grpc.ServerStream
 }
 
-func (x *secretDiscoveryServiceStreamSecretsServer) Send(m *envoy_api_v2.DiscoveryResponse) error {
+func (x *secretDiscoveryServiceStreamSecretsServer) Send(m *v2.DiscoveryResponse) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func (x *secretDiscoveryServiceStreamSecretsServer) Recv() (*envoy_api_v2.DiscoveryRequest, error) {
-	m := new(envoy_api_v2.DiscoveryRequest)
+func (x *secretDiscoveryServiceStreamSecretsServer) Recv() (*v2.DiscoveryRequest, error) {
+	m := new(v2.DiscoveryRequest)
 	if err := x.ServerStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
@@ -134,7 +171,7 @@ func (x *secretDiscoveryServiceStreamSecretsServer) Recv() (*envoy_api_v2.Discov
 }
 
 func _SecretDiscoveryService_FetchSecrets_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(envoy_api_v2.DiscoveryRequest)
+	in := new(v2.DiscoveryRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -146,7 +183,7 @@ func _SecretDiscoveryService_FetchSecrets_Handler(srv interface{}, ctx context.C
 		FullMethod: "/envoy.service.discovery.v2.SecretDiscoveryService/FetchSecrets",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SecretDiscoveryServiceServer).FetchSecrets(ctx, req.(*envoy_api_v2.DiscoveryRequest))
+		return srv.(SecretDiscoveryServiceServer).FetchSecrets(ctx, req.(*v2.DiscoveryRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -186,6 +223,9 @@ func (m *SdsDummy) MarshalTo(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
 	return i, nil
 }
 
@@ -201,6 +241,9 @@ func encodeVarintSds(dAtA []byte, offset int, v uint64) int {
 func (m *SdsDummy) Size() (n int) {
 	var l int
 	_ = l
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
 	return n
 }
 
@@ -258,6 +301,7 @@ func (m *SdsDummy) Unmarshal(dAtA []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -372,9 +416,11 @@ var (
 	ErrIntOverflowSds   = fmt.Errorf("proto: integer overflow")
 )
 
-func init() { proto.RegisterFile("envoy/service/discovery/v2/sds.proto", fileDescriptorSds) }
+func init() {
+	proto.RegisterFile("envoy/service/discovery/v2/sds.proto", fileDescriptor_sds_5335c571b383ba10)
+}
 
-var fileDescriptorSds = []byte{
+var fileDescriptor_sds_5335c571b383ba10 = []byte{
 	// 240 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x52, 0x49, 0xcd, 0x2b, 0xcb,
 	0xaf, 0xd4, 0x2f, 0x4e, 0x2d, 0x2a, 0xcb, 0x4c, 0x4e, 0xd5, 0x4f, 0xc9, 0x2c, 0x4e, 0xce, 0x2f,

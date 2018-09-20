@@ -6,9 +6,9 @@ package v2alpha
 import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import envoy_api_v2_core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-import envoy_type "github.com/envoyproxy/go-control-plane/envoy/type"
-import google_rpc "github.com/gogo/googleapis/google/rpc"
+import core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+import _type "github.com/envoyproxy/go-control-plane/envoy/type"
+import rpc "github.com/gogo/googleapis/google/rpc"
 import _ "github.com/lyft/protoc-gen-validate/validate"
 
 import context "golang.org/x/net/context"
@@ -21,15 +21,52 @@ var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
 
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
+
 type CheckRequest struct {
 	// The request attributes.
-	Attributes *AttributeContext `protobuf:"bytes,1,opt,name=attributes" json:"attributes,omitempty"`
+	Attributes           *AttributeContext `protobuf:"bytes,1,opt,name=attributes" json:"attributes,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
+	XXX_unrecognized     []byte            `json:"-"`
+	XXX_sizecache        int32             `json:"-"`
 }
 
-func (m *CheckRequest) Reset()                    { *m = CheckRequest{} }
-func (m *CheckRequest) String() string            { return proto.CompactTextString(m) }
-func (*CheckRequest) ProtoMessage()               {}
-func (*CheckRequest) Descriptor() ([]byte, []int) { return fileDescriptorExternalAuth, []int{0} }
+func (m *CheckRequest) Reset()         { *m = CheckRequest{} }
+func (m *CheckRequest) String() string { return proto.CompactTextString(m) }
+func (*CheckRequest) ProtoMessage()    {}
+func (*CheckRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_external_auth_ef836df974545be5, []int{0}
+}
+func (m *CheckRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *CheckRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_CheckRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (dst *CheckRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_CheckRequest.Merge(dst, src)
+}
+func (m *CheckRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *CheckRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_CheckRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_CheckRequest proto.InternalMessageInfo
 
 func (m *CheckRequest) GetAttributes() *AttributeContext {
 	if m != nil {
@@ -42,28 +79,59 @@ func (m *CheckRequest) GetAttributes() *AttributeContext {
 type DeniedHttpResponse struct {
 	// This field allows the authorization service to send a HTTP response status
 	// code to the downstream client other than 403 (Forbidden).
-	Status *envoy_type.HttpStatus `protobuf:"bytes,1,opt,name=status" json:"status,omitempty"`
+	Status *_type.HttpStatus `protobuf:"bytes,1,opt,name=status" json:"status,omitempty"`
 	// This field allows the authorization service to send HTTP response headers
 	// to the the downstream client.
-	Headers []*envoy_api_v2_core.HeaderValueOption `protobuf:"bytes,2,rep,name=headers" json:"headers,omitempty"`
+	Headers []*core.HeaderValueOption `protobuf:"bytes,2,rep,name=headers" json:"headers,omitempty"`
 	// This field allows the authorization service to send a response body data
 	// to the the downstream client.
-	Body string `protobuf:"bytes,3,opt,name=body,proto3" json:"body,omitempty"`
+	Body                 string   `protobuf:"bytes,3,opt,name=body,proto3" json:"body,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *DeniedHttpResponse) Reset()                    { *m = DeniedHttpResponse{} }
-func (m *DeniedHttpResponse) String() string            { return proto.CompactTextString(m) }
-func (*DeniedHttpResponse) ProtoMessage()               {}
-func (*DeniedHttpResponse) Descriptor() ([]byte, []int) { return fileDescriptorExternalAuth, []int{1} }
+func (m *DeniedHttpResponse) Reset()         { *m = DeniedHttpResponse{} }
+func (m *DeniedHttpResponse) String() string { return proto.CompactTextString(m) }
+func (*DeniedHttpResponse) ProtoMessage()    {}
+func (*DeniedHttpResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_external_auth_ef836df974545be5, []int{1}
+}
+func (m *DeniedHttpResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *DeniedHttpResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_DeniedHttpResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (dst *DeniedHttpResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DeniedHttpResponse.Merge(dst, src)
+}
+func (m *DeniedHttpResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *DeniedHttpResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_DeniedHttpResponse.DiscardUnknown(m)
+}
 
-func (m *DeniedHttpResponse) GetStatus() *envoy_type.HttpStatus {
+var xxx_messageInfo_DeniedHttpResponse proto.InternalMessageInfo
+
+func (m *DeniedHttpResponse) GetStatus() *_type.HttpStatus {
 	if m != nil {
 		return m.Status
 	}
 	return nil
 }
 
-func (m *DeniedHttpResponse) GetHeaders() []*envoy_api_v2_core.HeaderValueOption {
+func (m *DeniedHttpResponse) GetHeaders() []*core.HeaderValueOption {
 	if m != nil {
 		return m.Headers
 	}
@@ -85,15 +153,46 @@ type OkHttpResponse struct {
 	// the filter will append the correspondent header value to the matched request header. Note that
 	// by Leaving `append` as false, the filter will either add a new header, or override an existing
 	// one if there is a match.
-	Headers []*envoy_api_v2_core.HeaderValueOption `protobuf:"bytes,2,rep,name=headers" json:"headers,omitempty"`
+	Headers              []*core.HeaderValueOption `protobuf:"bytes,2,rep,name=headers" json:"headers,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}                  `json:"-"`
+	XXX_unrecognized     []byte                    `json:"-"`
+	XXX_sizecache        int32                     `json:"-"`
 }
 
-func (m *OkHttpResponse) Reset()                    { *m = OkHttpResponse{} }
-func (m *OkHttpResponse) String() string            { return proto.CompactTextString(m) }
-func (*OkHttpResponse) ProtoMessage()               {}
-func (*OkHttpResponse) Descriptor() ([]byte, []int) { return fileDescriptorExternalAuth, []int{2} }
+func (m *OkHttpResponse) Reset()         { *m = OkHttpResponse{} }
+func (m *OkHttpResponse) String() string { return proto.CompactTextString(m) }
+func (*OkHttpResponse) ProtoMessage()    {}
+func (*OkHttpResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_external_auth_ef836df974545be5, []int{2}
+}
+func (m *OkHttpResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *OkHttpResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_OkHttpResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (dst *OkHttpResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_OkHttpResponse.Merge(dst, src)
+}
+func (m *OkHttpResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *OkHttpResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_OkHttpResponse.DiscardUnknown(m)
+}
 
-func (m *OkHttpResponse) GetHeaders() []*envoy_api_v2_core.HeaderValueOption {
+var xxx_messageInfo_OkHttpResponse proto.InternalMessageInfo
+
+func (m *OkHttpResponse) GetHeaders() []*core.HeaderValueOption {
 	if m != nil {
 		return m.Headers
 	}
@@ -103,7 +202,7 @@ func (m *OkHttpResponse) GetHeaders() []*envoy_api_v2_core.HeaderValueOption {
 // Intended for gRPC and Network Authorization servers `only`.
 type CheckResponse struct {
 	// Status `OK` allows the request. Any other status indicates the request should be denied.
-	Status *google_rpc.Status `protobuf:"bytes,1,opt,name=status" json:"status,omitempty"`
+	Status *rpc.Status `protobuf:"bytes,1,opt,name=status" json:"status,omitempty"`
 	// An message that contains HTTP response attributes. This message is
 	// used when the authorization service needs to send custom responses to the
 	// downstream client or, to modify/add request headers being dispatched to the upstream.
@@ -111,13 +210,44 @@ type CheckResponse struct {
 	// Types that are valid to be assigned to HttpResponse:
 	//	*CheckResponse_DeniedResponse
 	//	*CheckResponse_OkResponse
-	HttpResponse isCheckResponse_HttpResponse `protobuf_oneof:"http_response"`
+	HttpResponse         isCheckResponse_HttpResponse `protobuf_oneof:"http_response"`
+	XXX_NoUnkeyedLiteral struct{}                     `json:"-"`
+	XXX_unrecognized     []byte                       `json:"-"`
+	XXX_sizecache        int32                        `json:"-"`
 }
 
-func (m *CheckResponse) Reset()                    { *m = CheckResponse{} }
-func (m *CheckResponse) String() string            { return proto.CompactTextString(m) }
-func (*CheckResponse) ProtoMessage()               {}
-func (*CheckResponse) Descriptor() ([]byte, []int) { return fileDescriptorExternalAuth, []int{3} }
+func (m *CheckResponse) Reset()         { *m = CheckResponse{} }
+func (m *CheckResponse) String() string { return proto.CompactTextString(m) }
+func (*CheckResponse) ProtoMessage()    {}
+func (*CheckResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_external_auth_ef836df974545be5, []int{3}
+}
+func (m *CheckResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *CheckResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_CheckResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (dst *CheckResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_CheckResponse.Merge(dst, src)
+}
+func (m *CheckResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *CheckResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_CheckResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_CheckResponse proto.InternalMessageInfo
 
 type isCheckResponse_HttpResponse interface {
 	isCheckResponse_HttpResponse()
@@ -142,7 +272,7 @@ func (m *CheckResponse) GetHttpResponse() isCheckResponse_HttpResponse {
 	return nil
 }
 
-func (m *CheckResponse) GetStatus() *google_rpc.Status {
+func (m *CheckResponse) GetStatus() *rpc.Status {
 	if m != nil {
 		return m.Status
 	}
@@ -222,12 +352,12 @@ func _CheckResponse_OneofSizer(msg proto.Message) (n int) {
 	switch x := m.HttpResponse.(type) {
 	case *CheckResponse_DeniedResponse:
 		s := proto.Size(x.DeniedResponse)
-		n += proto.SizeVarint(2<<3 | proto.WireBytes)
+		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(s))
 		n += s
 	case *CheckResponse_OkResponse:
 		s := proto.Size(x.OkResponse)
-		n += proto.SizeVarint(3<<3 | proto.WireBytes)
+		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(s))
 		n += s
 	case nil:
@@ -270,7 +400,7 @@ func NewAuthorizationClient(cc *grpc.ClientConn) AuthorizationClient {
 
 func (c *authorizationClient) Check(ctx context.Context, in *CheckRequest, opts ...grpc.CallOption) (*CheckResponse, error) {
 	out := new(CheckResponse)
-	err := grpc.Invoke(ctx, "/envoy.service.auth.v2alpha.Authorization/Check", in, out, c.cc, opts...)
+	err := c.cc.Invoke(ctx, "/envoy.service.auth.v2alpha.Authorization/Check", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -345,6 +475,9 @@ func (m *CheckRequest) MarshalTo(dAtA []byte) (int, error) {
 		}
 		i += n1
 	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
 	return i, nil
 }
 
@@ -391,6 +524,9 @@ func (m *DeniedHttpResponse) MarshalTo(dAtA []byte) (int, error) {
 		i = encodeVarintExternalAuth(dAtA, i, uint64(len(m.Body)))
 		i += copy(dAtA[i:], m.Body)
 	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
 	return i, nil
 }
 
@@ -420,6 +556,9 @@ func (m *OkHttpResponse) MarshalTo(dAtA []byte) (int, error) {
 			}
 			i += n
 		}
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	return i, nil
 }
@@ -455,6 +594,9 @@ func (m *CheckResponse) MarshalTo(dAtA []byte) (int, error) {
 			return 0, err
 		}
 		i += nn4
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	return i, nil
 }
@@ -503,6 +645,9 @@ func (m *CheckRequest) Size() (n int) {
 		l = m.Attributes.Size()
 		n += 1 + l + sovExternalAuth(uint64(l))
 	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
 	return n
 }
 
@@ -523,6 +668,9 @@ func (m *DeniedHttpResponse) Size() (n int) {
 	if l > 0 {
 		n += 1 + l + sovExternalAuth(uint64(l))
 	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
 	return n
 }
 
@@ -534,6 +682,9 @@ func (m *OkHttpResponse) Size() (n int) {
 			l = e.Size()
 			n += 1 + l + sovExternalAuth(uint64(l))
 		}
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
 	}
 	return n
 }
@@ -547,6 +698,9 @@ func (m *CheckResponse) Size() (n int) {
 	}
 	if m.HttpResponse != nil {
 		n += m.HttpResponse.Size()
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
 	}
 	return n
 }
@@ -657,6 +811,7 @@ func (m *CheckRequest) Unmarshal(dAtA []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -722,7 +877,7 @@ func (m *DeniedHttpResponse) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Status == nil {
-				m.Status = &envoy_type.HttpStatus{}
+				m.Status = &_type.HttpStatus{}
 			}
 			if err := m.Status.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -754,7 +909,7 @@ func (m *DeniedHttpResponse) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.Headers = append(m.Headers, &envoy_api_v2_core.HeaderValueOption{})
+			m.Headers = append(m.Headers, &core.HeaderValueOption{})
 			if err := m.Headers[len(m.Headers)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
@@ -800,6 +955,7 @@ func (m *DeniedHttpResponse) Unmarshal(dAtA []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -864,7 +1020,7 @@ func (m *OkHttpResponse) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.Headers = append(m.Headers, &envoy_api_v2_core.HeaderValueOption{})
+			m.Headers = append(m.Headers, &core.HeaderValueOption{})
 			if err := m.Headers[len(m.Headers)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
@@ -881,6 +1037,7 @@ func (m *OkHttpResponse) Unmarshal(dAtA []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -946,7 +1103,7 @@ func (m *CheckResponse) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Status == nil {
-				m.Status = &google_rpc.Status{}
+				m.Status = &rpc.Status{}
 			}
 			if err := m.Status.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -1028,6 +1185,7 @@ func (m *CheckResponse) Unmarshal(dAtA []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -1143,10 +1301,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/service/auth/v2alpha/external_auth.proto", fileDescriptorExternalAuth)
+	proto.RegisterFile("envoy/service/auth/v2alpha/external_auth.proto", fileDescriptor_external_auth_ef836df974545be5)
 }
 
-var fileDescriptorExternalAuth = []byte{
+var fileDescriptor_external_auth_ef836df974545be5 = []byte{
 	// 477 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xa4, 0x52, 0x41, 0x6b, 0x13, 0x41,
 	0x18, 0xed, 0x24, 0xb6, 0xc5, 0x89, 0x69, 0x65, 0x0e, 0x76, 0x09, 0x12, 0x42, 0xf0, 0x10, 0x8b,
