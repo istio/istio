@@ -24,5 +24,4 @@ spec:
   selector:
     istio: mixer
     istio-mixer-type: {{ $mname }}
----
 {{- end }}
