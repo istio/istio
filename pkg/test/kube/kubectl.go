@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+
+	"istio.io/istio/pkg/test/shell"
 )
 
 // ApplyContents applies the given config contents using kubectl.
@@ -38,9 +40,53 @@ func ApplyContents(kubeconfig string, ns string, contents string) error {
 
 // Apply the config in the given filename using kubectl.
 func Apply(kubeconfig string, ns string, filename string) error {
-	s, err := execute("kubectl apply --kubeconfig=%s -n %s -f %s", kubeconfig, ns, filename)
+	nsPart := ""
+	if ns != "" {
+		nsPart = fmt.Sprintf(" -n %s", ns)
+	}
+
+	s, err := shell.Execute("kubectl apply --kubeconfig=%s%s -f %s", kubeconfig, nsPart, filename)
 	if err == nil {
 		return nil
 	}
+
 	return fmt.Errorf("%v: %s", err, s)
+}
+
+// Delete the config in the given filename using kubectl.
+func Delete(kubeconfig string, filename string) error {
+	s, err := shell.Execute("kubectl delete --kubeconfig=%s -f %s", kubeconfig, filename)
+	if err == nil {
+		return nil
+	}
+
+	return fmt.Errorf("%v: %s", err, s)
+}
+
+// Logs calls the logs command for the specified pod, with -c, if container is specified.
+func Logs(kubeConfig string, namespace string, pod string, container string) (string, error) {
+	containerFlag := ""
+	if container != "" {
+		containerFlag += " -c " + container
+	}
+
+	s, err := shell.Execute("kubectl logs --kubeconfig=%s -n %s %s%s",
+		kubeConfig, namespace, pod, containerFlag)
+
+	if err == nil {
+		return s, nil
+	}
+
+	return "", fmt.Errorf("%v: %s", err, s)
+}
+
+// GetPods calls "kubectl get pods" and returns the text.
+func GetPods(kubeConfig string, namespace string) (string, error) {
+	s, err := shell.Execute("kubectl get pods --kubeconfig=%s -n %s", kubeConfig, namespace)
+
+	if err == nil {
+		return s, nil
+	}
+
+	return "", fmt.Errorf("%v: %s", err, s)
 }

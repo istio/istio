@@ -17,16 +17,17 @@ package kubernetes
 import (
 	"fmt"
 	"io"
+	"os"
+	"path"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/hashicorp/go-multierror"
 	"k8s.io/client-go/rest"
 
-	"istio.io/istio/pkg/test/framework/scopes"
-
+	"istio.io/istio/pkg/test/deployment"
 	"istio.io/istio/pkg/test/framework/environment"
 	"istio.io/istio/pkg/test/framework/internal"
+	"istio.io/istio/pkg/test/framework/scopes"
 	"istio.io/istio/pkg/test/framework/settings"
 	"istio.io/istio/pkg/test/framework/tmpl"
 	"istio.io/istio/pkg/test/kube"
@@ -46,6 +47,8 @@ type Implementation struct {
 	systemNamespace     *namespace
 	dependencyNamespace *namespace
 	testNamespace       *namespace
+
+	deployment *deployment.Instance
 }
 
 var _ internal.EnvironmentController = &Implementation{}
@@ -82,6 +85,8 @@ func (e *Implementation) Initialize(ctx *internal.TestContext) error {
 		return err
 	}
 
+	scopes.CI.Infof("Test Framework Kubernetes environment settings:\n%s", e.kube)
+
 	config, err := kube.CreateConfig(e.kube.KubeConfig)
 	if err != nil {
 		return err
@@ -113,7 +118,31 @@ func (e *Implementation) Initialize(ctx *internal.TestContext) error {
 	if err := e.systemNamespace.allocate(); err != nil {
 		return err
 	}
-	return e.dependencyNamespace.allocate()
+	if err := e.dependencyNamespace.allocate(); err != nil {
+		return err
+	}
+
+	if e.kube.DeployIstio {
+		goDir := os.Getenv("GOPATH")
+		chartDir := path.Join(goDir, "src/istio.io/istio/install/kubernetes/helm")
+
+		// TODO: Values files should be parameterized.
+		if e.deployment, err = deployment.New(
+			&deployment.Settings{
+				KubeConfig: e.kube.KubeConfig,
+				ChartDir:   chartDir,
+				WorkDir:    ctx.Settings().WorkDir,
+				Hub:        e.kube.Hub,
+				Tag:        e.kube.Tag,
+				Namespace:  e.systemNamespace.allocatedName,
+				ValuesFile: deployment.IstioMCP,
+			},
+			e.Accessor); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // Configure applies the given configuration to the mesh.
@@ -162,6 +191,17 @@ func (e *Implementation) Close() error {
 			err = multierror.Append(err, e)
 		}
 	}
+
+	if e.deployment != nil {
+		// TODO: Deleting the deployment is extremely noisy. It is outputting a whole slew of errors
+		// Disabling the collection of errors from Delete for the time being.
+		_ = e.deployment.Delete(e.Accessor)
+		//if err2 := e.deployment.Delete(); err2 != nil {
+		//	err = multierror.Append(err, err2)
+		//}
+		e.deployment = nil
+	}
+
 	return err
 }
 
@@ -194,6 +234,7 @@ func (n *namespace) allocate() error {
 	return nil
 }
 
+// Close implements io.Closer interface.
 func (n *namespace) Close() error {
 	if n.created {
 		defer func() {
@@ -209,5 +250,5 @@ func (n *namespace) getNameToAllocate() string {
 	if n.name != "" {
 		return n.name
 	}
-	return fmt.Sprintf("%s-%s", n.annotation, uuid.New().String())
+	return fmt.Sprintf("%s-%d", n.annotation, time.Now().UnixNano())
 }
