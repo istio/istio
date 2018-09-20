@@ -269,6 +269,7 @@ func (c *Controller) deleteMemberCluster(secretName string) {
 			<-c.cs.rc[clusterID].ControlChannel
 			// Deleting remote cluster entry from clusters store
 			delete(c.cs.rc, clusterID)
+			c.discoveryServer.ClearCacheFunc()()
 		}
 	}
 	log.Infof("Number of clusters in the cluster store: %d", len(c.cs.rc))
