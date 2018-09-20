@@ -167,7 +167,7 @@ func edsUpdateInc(server *bootstrap.Server, adsc *adsc.ADSC, t *testing.T) {
 				Address:         "127.0.0.2",
 				ServicePortName: "http",
 				EndpointPort:    80,
-				Labels:          &map[string]string{"version": "v1"},
+				Labels:          map[string]string{"version": "v1"},
 				UID:             "uid1",
 			},
 		})

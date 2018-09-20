@@ -224,7 +224,7 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 				continue
 			}
 			// Port labels
-			ll := model.Labels(*el.Labels)
+			ll := model.Labels(el.Labels)
 			if !labels.HasSubsetOf(ll) {
 				continue
 			}
@@ -232,7 +232,7 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 
 			// TODO: Need to accommodate region, zone and subzone. Older Pilot datamodel only has zone = availability zone.
 			// Once we do that, the key must be a | separated tupple.
-			locality := (*el.Labels)[model.AZLabel] // may be ""
+			locality := (el.Labels)[model.AZLabel] // may be ""
 			locLbEps, found := localityEpMap[locality]
 			if !found {
 				locLbEps = &endpoint.LocalityLbEndpoints{
@@ -323,7 +323,7 @@ func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 						Address:         ep.Endpoint.Address,
 						EndpointPort:    uint32(ep.Endpoint.Port),
 						ServicePortName: port.Name,
-						Labels:          &l,
+						Labels:          l,
 						UID:             ep.Endpoint.UID,
 					})
 				}

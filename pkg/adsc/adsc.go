@@ -65,6 +65,9 @@ type ADSC struct {
 
 	done chan error
 
+	certDir string
+	url     string
+
 	watchTime time.Time
 
 	InitialLoad time.Duration
@@ -111,41 +114,9 @@ func Dial(url string, certDir string, opts *Config) (*ADSC, error) {
 		done:        make(chan error),
 		Updates:     make(chan string, 10),
 		VersionInfo: map[string]string{},
+		certDir:     certDir,
+		url:         url,
 	}
-	var conn *grpc.ClientConn
-	var err error
-	if len(certDir) > 0 {
-		tlsCfg, err := tlsConfig(certDir)
-		if err != nil {
-			return nil, err
-		}
-		creds := credentials.NewTLS(tlsCfg)
-
-		opts := []grpc.DialOption{
-			// Verify Pilot cert and service account
-			grpc.WithTransportCredentials(creds),
-		}
-		conn, err = grpc.Dial(url, opts...)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		conn, err = grpc.Dial(url, grpc.WithInsecure())
-		if err != nil {
-			return nil, err
-		}
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	xds := ads.NewAggregatedDiscoveryServiceClient(conn)
-	edsstr, err := xds.StreamAggregatedResources(context.Background())
-	if err != nil {
-		return nil, err
-	}
-	adsc.stream = edsstr
-
 	if opts.Namespace == "" {
 		opts.Namespace = "default"
 	}
@@ -162,8 +133,8 @@ func Dial(url string, certDir string, opts *Config) (*ADSC, error) {
 	adsc.nodeID = fmt.Sprintf("sidecar~%s~%s.%s~%s.svc.cluster.local", opts.IP,
 		opts.Workload, opts.Namespace, opts.Namespace)
 
-	go adsc.handleRecv()
-	return adsc, nil
+	err := adsc.Reconnect()
+	return adsc, err
 }
 
 // Returns a private IP address, or unspecified IP (0.0.0.0) if no IP is available
@@ -220,9 +191,46 @@ func (a *ADSC) Close() {
 	}
 }
 
-// WIP: todo
-//func (a *ADSC) Reconnect() {
-//}
+// Reconnect will reconnect after close.
+func (a *ADSC) Reconnect() error {
+
+	// TODO: pass version info, nonce properly
+	var conn *grpc.ClientConn
+	var err error
+	if len(a.certDir) > 0 {
+		tlsCfg, err := tlsConfig(a.certDir)
+		if err != nil {
+			return err
+		}
+		creds := credentials.NewTLS(tlsCfg)
+
+		opts := []grpc.DialOption{
+			// Verify Pilot cert and service account
+			grpc.WithTransportCredentials(creds),
+		}
+		conn, err = grpc.Dial(a.url, opts...)
+		if err != nil {
+			return err
+		}
+	} else {
+		conn, err = grpc.Dial(a.url, grpc.WithInsecure())
+		if err != nil {
+			return err
+		}
+	}
+	if err != nil {
+		return err
+	}
+
+	xds := ads.NewAggregatedDiscoveryServiceClient(conn)
+	edsstr, err := xds.StreamAggregatedResources(context.Background())
+	if err != nil {
+		return err
+	}
+	a.stream = edsstr
+	go a.handleRecv()
+	return nil
+}
 
 func (a *ADSC) handleRecv() {
 	for {
@@ -230,6 +238,7 @@ func (a *ADSC) handleRecv() {
 		if err != nil {
 			log.Println("Connection closed ", err, a.nodeID)
 			a.Close()
+			a.Updates <- "close"
 			return
 		}
 

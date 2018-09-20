@@ -115,8 +115,8 @@ func NewDiscoveryServer(env *model.Environment, generator core.ConfigGenerator) 
 
 	out.DebugConfigs = os.Getenv("PILOT_DEBUG_ADSZ_CONFIG") == "1"
 
-	pushThrottle := intEnv("PILOT_PUSH_THROTTLE", 25)
-	pushBurst := intEnv("PILOT_PUSH_BURST", 100)
+	pushThrottle := intEnv("PILOT_PUSH_THROTTLE", 100)
+	pushBurst := intEnv("PILOT_PUSH_BURST", 250)
 
 	adsLog.Infof("Starting ADS server with throttle=%d burst=%d", pushThrottle, pushBurst)
 
