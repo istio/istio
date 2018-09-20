@@ -42,8 +42,8 @@ spec:
             - --root-cert=/etc/cacerts/root-cert.pem
             - --cert-chain=/etc/cacerts/cert-chain.pem
           {{- end }}
-          {{- if .Values.identityDomain }}
-            - --identity-domain={{ .Values.identityDomain }}
+          {{- if .Values.global.identityDomain }}
+            - --identity-domain={{ .Values.global.identityDomain }}
           {{- end }}
           resources:
 {{- if .Values.resources }}
