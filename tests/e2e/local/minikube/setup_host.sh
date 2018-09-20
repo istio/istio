@@ -5,12 +5,7 @@ vm_driver="kvm2"
 case "${OSTYPE}" in
   darwin*) vm_driver="hyperkit";;
   linux*)
-    DISTRO="$(lsb_release -i -s)"
-    case "${DISTRO}" in
-      Debian|Ubuntu)
-        vm_driver="kvm2";;
-      *) echo "unsupported distro: ${DISTRO}" ;;
-    esac;;
+    ;;
   *) echo "unsupported: ${OSTYPE}" ;;
 esac
 
