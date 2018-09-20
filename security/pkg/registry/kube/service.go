@@ -85,7 +85,7 @@ func (c *ServiceController) serviceAdded(obj interface{}) {
 			log.Errorf("cannot add mapping %q -> %q to registry: %s", svcAcct, svcAcct, err.Error())
 		}
 	}
-	canonicalSvcAcct, ok := svc.ObjectMeta.Annotations[kube.CanonicalServiceAccountsOnVMAnnotation]
+	canonicalSvcAcct, ok := svc.ObjectMeta.Annotations[kube.CanonicalServiceAccountsAnnotation]
 	if ok {
 		err := c.reg.AddMapping(canonicalSvcAcct, canonicalSvcAcct)
 		if err != nil {
@@ -103,7 +103,7 @@ func (c *ServiceController) serviceDeleted(obj interface{}) {
 			log.Errorf("cannot delete mapping %q to %q from registry: %s", svcAcct, svcAcct, err.Error())
 		}
 	}
-	canonicalSvcAcct, ok := svc.ObjectMeta.Annotations[kube.CanonicalServiceAccountsOnVMAnnotation]
+	canonicalSvcAcct, ok := svc.ObjectMeta.Annotations[kube.CanonicalServiceAccountsAnnotation]
 	if ok {
 		err := c.reg.DeleteMapping(canonicalSvcAcct, canonicalSvcAcct)
 		if err != nil {

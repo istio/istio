@@ -63,13 +63,12 @@ func TestConvertProtocol(t *testing.T) {
 }
 
 func TestServiceConversion(t *testing.T) {
-	istioServiceAccountDomainForCanonical = "accounts.google.com"
 	serviceName := "service1"
 	namespace := "default"
 	saA := "serviceaccountA"
 	saB := "serviceaccountB"
-	saC := "serviceaccountC@cloudservices.gserviceaccount.com"
-	saD := "serviceaccountD@developer.gserviceaccount.com"
+	saC := "spiffe://accounts.google.com/serviceaccountC@cloudservices.gserviceaccount.com"
+	saD := "spiffe://accounts.google.com/serviceaccountD@developer.gserviceaccount.com"
 
 	ip := "10.0.0.1"
 
@@ -79,9 +78,9 @@ func TestServiceConversion(t *testing.T) {
 			Name:      serviceName,
 			Namespace: namespace,
 			Annotations: map[string]string{
-				KubeServiceAccountsOnVMAnnotation:      saA + "," + saB,
-				CanonicalServiceAccountsOnVMAnnotation: saC + "," + saD,
-				"other/annotation":                     "test",
+				KubeServiceAccountsOnVMAnnotation:  saA + "," + saB,
+				CanonicalServiceAccountsAnnotation: saC + "," + saD,
+				"other/annotation":                 "test",
 			},
 			CreationTimestamp: metav1.Time{tnow},
 		},
@@ -134,8 +133,7 @@ func TestServiceConversion(t *testing.T) {
 		t.Errorf("number of service accounts is incorrect")
 	}
 	expected := []string{
-		"spiffe://accounts.google.com/" + saC,
-		"spiffe://accounts.google.com/" + saD,
+		saC, saD,
 		"spiffe://company.com/ns/default/sa/" + saA,
 		"spiffe://company.com/ns/default/sa/" + saB,
 	}
