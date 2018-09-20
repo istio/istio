@@ -111,6 +111,27 @@ func (e *environment) GetPilotOrFail(t testing.TB) env.DeployedPilot {
 	return m
 }
 
+// GetCitadel returns a deployed Citadel instance in the environment.
+func (e *environment) GetCitadel() (env.DeployedCitadel, error) {
+	p, err := e.get(dependency.Citadel)
+	if err != nil {
+		return nil, err
+	}
+	return p.(env.DeployedCitadel), nil
+}
+
+// GetCitadelOrFail returns a deployed Citadel instance in the environment, or fails the test if unsuccessful.
+func (e *environment) GetCitadelOrFail(t testing.TB) env.DeployedCitadel {
+	t.Helper()
+
+	m, err := e.GetCitadel()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return m
+}
+
 // GetApp returns a fake testing app object for the given name.
 func (e *environment) GetApp(name string) (env.DeployedApp, error) {
 	s, err := e.get(dependency.Apps)

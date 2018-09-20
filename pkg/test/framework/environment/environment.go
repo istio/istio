@@ -65,6 +65,12 @@ type (
 		// GetPilotOrFail returns a deployed Pilot instance in the environment, or fails the test if unsuccessful.
 		GetPilotOrFail(t testing.TB) DeployedPilot
 
+		// GetCitadel returns a deployed Citadel instance in the environment.
+		GetCitadel() (DeployedCitadel, error)
+
+		// GetCitadelOrFail returns a deployed Citadel instance in the environment, or fails the test if unsuccessful.
+		GetCitadelOrFail(t testing.TB) DeployedCitadel
+
 		// GetAPIServer returns a handle to the ambient API Server in the environment.
 		GetAPIServer() (DeployedAPIServer, error)
 
@@ -213,6 +219,11 @@ type (
 	FortioAppCallResult struct {
 		// The raw content of the response
 		Raw string
+	}
+
+	// DeployedCitadel represents a deployed Citadel instance.
+	DeployedCitadel interface {
+		Deployed
 	}
 )
 

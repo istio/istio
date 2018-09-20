@@ -46,4 +46,7 @@ const (
 	// In cluster mode, this is satisfied via existing API Server. In local model, this is satisfied
 	// via a minikube installation.
 	APIServer = Instance("apiserver")
+
+	// Citadel indicates a dependency on Citadel.
+	Citadel = Instance("citadel")
 )
