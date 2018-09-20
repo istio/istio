@@ -54,6 +54,8 @@ gateways:
       #requests:
       #  cpu: 1800m
       #  memory: 256Mi
+    cpu:
+      targetAverageUtilization: 80
 
     loadBalancerIP: ""
     serviceAnnotations: {}
