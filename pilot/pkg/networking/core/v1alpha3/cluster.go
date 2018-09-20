@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"path"
 	"time"
+	"os"
+	"strconv"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
@@ -29,6 +31,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/log"
+	envoy_api_v2_core5 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 )
 
 const (
@@ -184,6 +187,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 		clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "", instance.Service.Hostname, instance.Endpoint.ServicePort.Port)
 		address := util.BuildAddress("127.0.0.1", uint32(instance.Endpoint.Port))
 		localCluster := buildDefaultCluster(env, clusterName, v2.Cluster_STATIC, []*core.Address{&address})
+		applyCommonHttpProtocolOptions(localCluster)
 		setUpstreamProtocol(localCluster, instance.Endpoint.ServicePort)
 		// call plugins
 		for _, p := range configgen.Plugins {
@@ -321,6 +325,29 @@ func applyTrafficPolicy(cluster *v2.Cluster, policy *networking.TrafficPolicy, p
 	applyOutlierDetection(cluster, outlierDetection)
 	applyLoadBalancer(cluster, loadBalancer)
 	applyUpstreamTLSSettings(cluster, tls)
+}
+
+func applyCommonHttpProtocolOptions(cluster *v2.Cluster) {
+	idletimeout := intEnv("IDLE_TIMEOUT", 0)
+	if idletimeout != 0 {
+		dletimeout := time.Duration(idletimeout) * time.Second
+		if cluster.CommonHttpProtocolOptions == nil {
+			cluster.CommonHttpProtocolOptions = &envoy_api_v2_core5.HttpProtocolOptions{}
+		}
+		cluster.CommonHttpProtocolOptions.IdleTimeout = &dletimeout
+	}
+}
+
+func intEnv(env string, def int) int {
+	envValue := os.Getenv(env)
+	if len(envValue) == 0 {
+		return def
+	}
+	n, err := strconv.Atoi(envValue)
+	if err == nil && n > 0 {
+		return n
+	}
+	return def
 }
 
 // FIXME: there isn't a way to distinguish between unset values and zero values
