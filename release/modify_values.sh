@@ -31,8 +31,8 @@ function fix_values_yaml() {
   eval    "$unzip_cmd"     "${tarball_name}"
   rm                       "${tarball_name}"
 
-  sed -i     "s|hub: gcr.io/istio-release|hub: ${HUB}|g" ./"${folder_name}"/install/kubernetes/helm/istio*/values.yaml
-  sed -i "s|tag: master-latest-daily|tag: ${TAG}|g" ./"${folder_name}"/install/kubernetes/helm/istio*/values.yaml
+  sed -i "s|hub: gcr.io/istio-release|hub: ${HUB}|g" ./"${folder_name}"/install/kubernetes/helm/istio*/values.yaml
+  sed -i "s|tag: master-latest-daily|tag: ${TAG}|g"  ./"${folder_name}"/install/kubernetes/helm/istio*/values.yaml
 
   eval "$zip_cmd" "${tarball_name}" "${folder_name}"
   sha256sum       "${tarball_name}" > "${tarball_name}.sha256"
@@ -60,14 +60,14 @@ pwd
 
 folder_name="istio-${VERSION}"
 # Linux
-fix_values_yaml     "tar -zxvf" "tar -zcvf" "{folder_name}" "${folder_name}-linux.tar.gz"
+fix_values_yaml     "tar -zxvf" "tar -zcvf" "${folder_name}" "${folder_name}-linux.tar.gz"
 # Mac
-fix_values_yaml     "tar -zxvf" "tar -zcvf" "{folder_name}" "${folder_name}-osx.tar.gz"
+fix_values_yaml     "tar -zxvf" "tar -zcvf" "${folder_name}" "${folder_name}-osx.tar.gz"
 # Windows
-cp /home/airflow/gcs/data/zip     ./zip
-cp /home/airflow/gcs/data/unzip ./unzip
-chmod               u+x ./unzip   ./zip
-fix_values_yaml          "unzip"   "zip -r" "{folder_name}" "${folder_name}-win.zip"
+cp /home/airflow/gcs/data/zip    "./zip"
+cp /home/airflow/gcs/data/unzip  "./unzip"
+chmod              u+x "./unzip" "./zip"
+fix_values_yaml        "./unzip" "./zip -r" "${folder_name}" "${folder_name}-win.zip"
 
 cd ..
 rm -rf modification-tmp

@@ -20,27 +20,11 @@ function get_git_commit_cmd() {
     git config --global user.name "TestRunnerBot"
     git config --global user.email "testrunner@istio.io"
 
-    #temporary to be removed after https://github.com/istio/istio/pull/8777 is merged
-    cp /home/airflow/gcs/data/*json .
-    cp /home/airflow/gcs/data/*sh   .
-
-    git clone "$ISTIO_REPO" istio-code -b "$BRANCH" --depth 1
-    cp istio-code/release/*json .
-    cp istio-code/release/*sh   .
-    chmod u+x ./*sh
-
     ./start_gcb_get_commit.sh
 }
 
 function build_template() {
-#    gsutil -q cp gs://istio-release-pipeline-data/release-tools/data/release/*.json .
-#    gsutil -q cp gs://istio-release-pipeline-data/release-tools/data/release/*.sh .
-
-    gsutil -q cp gs://"$GCS_RELEASE_TOOLS_PATH"/*.json .
-    gsutil -q cp gs://"$GCS_RELEASE_TOOLS_PATH"/*.sh   .
-    chmod u+x ./*
-
-    ./start_gcb_build.sh -w -r "$GCR_STAGING_DEST" -s "$GCS_BUILD_PATH" -v "$VERSION"
+    ./start_gcb_build.sh -w -s "$GCS_BUILD_PATH" -v "$VERSION"
   # NOTE: if you add commands to build_template after start_gcb_build.sh then take care to preserve its return value
 }
 
@@ -63,6 +47,7 @@ function modify_values_command() {
     # TODO: Merge these changes into istio/istio master and stop using this task
     gsutil -q cp gs://istio-release-pipeline-data/release-tools/test-version/data/release/modify_values.sh .
     chmod u+x modify_values.sh
+
     echo "PIPELINE TYPE is $PIPELINE_TYPE"
     if [ "$PIPELINE_TYPE" = "daily" ]; then
         hub="gcr.io/$GCR_STAGING_DEST"
@@ -96,10 +81,6 @@ function gcr_tag_success() {
 }
 
 function release_push_github_docker_template() {
-  gsutil -q cp "gs://$GCS_RELEASE_TOOLS_PATH/*.json" .
-  gsutil -q cp "gs://$GCS_RELEASE_TOOLS_PATH/*.sh" .
-  chmod u+x ./*
-
   ./start_gcb_publish.sh \
     -b "$GCS_MONTHLY_RELEASE_PATH" \
     -c "$GCS_BUILD_PATH" \
@@ -114,10 +95,6 @@ function release_push_github_docker_template() {
 }
 
 function release_tag_github_template() {
-  gsutil -q cp "gs://$GCS_RELEASE_TOOLS_PATH/*.json" .
-  gsutil -q cp "gs://$GCS_RELEASE_TOOLS_PATH/*.sh" .
-  chmod u+x ./*
-
   ./start_gcb_tag.sh \
     -c "$GCS_BUILD_PATH" \
     -e "istio_releaser_bot@example.com" \

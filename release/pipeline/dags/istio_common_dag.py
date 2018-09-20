@@ -89,10 +89,9 @@ def getBashSettingsTemplate(extra_param_lst=[]):
   for key in keys:
     template_list.append("export %s={{ settings.%s }}" % (key, key))
   template_list.append("""
-                cp /home/airflow/gcs/data/airflow_scripts.sh         ./airflow_scripts.sh
-                cp /home/airflow/gcs/data/airflow_scripts.sh.$BRANCH ./airflow_scripts.sh
-                chmod u+x                                            ./airflow_scripts.sh
-                source                                               ./airflow_scripts.sh""")
+                git clone "$ISTIO_REPO" "istio-code" -b "$BRANCH" --depth 1
+                pushd "istio-code/release/"
+                source ./airflow_scripts.sh""")
   return "\n".join(template_list)
 
 
