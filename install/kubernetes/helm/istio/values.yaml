@@ -633,6 +633,8 @@ kiali:
 
     # Override the automatically detected Jaeger URL, useful when Jaeger service has no ExternalIPs
     # jaegerURL:
+  # prometheus address
+  prometheusAddr: http://prometheus:9090
 
 # Certmanager uses ACME to sign certificates. Since Istio gateways are
 # mounting the TLS secrets the Certificate CRDs must be created in the

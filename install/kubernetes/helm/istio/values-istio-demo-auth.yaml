@@ -33,4 +33,4 @@ galley:
   enabled: true
 
 kiali:
-  enabled: true
+  enabled: false

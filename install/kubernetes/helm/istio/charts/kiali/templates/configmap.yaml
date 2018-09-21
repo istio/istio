@@ -12,9 +12,6 @@ data:
       static_content_root_directory: /opt/kiali/console
     external_services:
       jaeger:
-        url: jaeger-query
+        url: {{ .Values.dashboard.jaegerURL }}
       grafana:
-        url: grafana
-    identity:
-      cert_file: /kiali-cert/tls.crt
-      private_key_file: /kiali-cert/tls.key
+        url: {{ .Values.dashboard.grafanaURL }}
