@@ -67,6 +67,11 @@ func (b *FakeBag) Names() []string {
 // Done indicates the bag can be reclaimed.
 func (b *FakeBag) Done() {}
 
+func (b *FakeBag) Contains(key string) bool {
+	_, found := b.Attrs[key]
+	return found
+}
+
 // String is needed to implement the Bag interface.
 func (b *FakeBag) String() string { return "" }
 

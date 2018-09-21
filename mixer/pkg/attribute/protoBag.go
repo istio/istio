@@ -316,6 +316,49 @@ func (pb *ProtoBag) convertStringMap(s map[int32]int32) (map[string]string, erro
 	return d, nil
 }
 
+// Contains returns true if protobag contains this key.
+func (pb *ProtoBag) Contains(key string) bool {
+	idx, found := pb.getIndex(key)
+	if !found {
+		return false
+	}
+
+	if _, ok := pb.proto.Strings[idx]; ok {
+		return true
+	}
+
+	if _, ok := pb.proto.StringMaps[idx]; ok {
+		return true
+	}
+
+	if _, ok := pb.proto.Int64S[idx]; ok {
+		return true
+	}
+
+	if _, ok := pb.proto.Doubles[idx]; ok {
+		return true
+	}
+
+	if _, ok := pb.proto.Bools[idx]; ok {
+		return true
+	}
+
+	if _, ok := pb.proto.Timestamps[idx]; ok {
+		return true
+	}
+
+	if _, ok := pb.proto.Durations[idx]; ok {
+		return true
+	}
+
+	if _, ok := pb.proto.Bytes[idx]; ok {
+		return true
+	}
+
+
+	return false
+}
+
 // Names returns the names of all the attributes known to this bag.
 func (pb *ProtoBag) Names() []string {
 	names := make(map[string]bool)
