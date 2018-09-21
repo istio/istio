@@ -141,12 +141,13 @@ func (mb *MutableBag) Get(name string) (interface{}, bool) {
 	return r, b
 }
 
-func (mb *MutableBag) Contains(k string) bool {
-	if _, found := mb.values[k]; found {
+// Contains returns true if the key is present in the bag.
+func (mb *MutableBag) Contains(key string) bool {
+	if _, found := mb.values[key]; found {
 		return true
 	}
 
-	return mb.parent.Contains(k)
+	return mb.parent.Contains(key)
 }
 
 // Names returns the names of all the attributes known to this bag.
