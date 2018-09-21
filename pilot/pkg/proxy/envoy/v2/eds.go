@@ -115,6 +115,9 @@ func (s *DiscoveryServer) endpoints(clusterNames []string, outRes []types.Any) *
 
 // Return the load assignment. The field can be updated by another routine.
 func loadAssignment(c *EdsCluster, node *model.Proxy) *xdsapi.ClusterLoadAssignment {
+	if node == nil {
+		return c.ClusterLoadAssignments[""]
+	}
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	return c.filterEndpointsByMetadata(node.Metadata)
@@ -164,6 +167,7 @@ func newEndpoint(e *model.NetworkEndpoint) (*endpoint.LbEndpoint, error) {
 func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName string, edsCluster *EdsCluster) error {
 	// TODO: should we lock this as well ? Once we move to event-based it may not matter.
 	locEpsByNetwork := map[string][]endpoint.LocalityLbEndpoints{"": []endpoint.LocalityLbEndpoints{}}
+	var gwByNetwork map[string]*endpoint.LocalityLbEndpoints
 	direction, subsetName, hostname, port := model.ParseSubsetKey(clusterName)
 	if direction == model.TrafficDirectionInbound ||
 		direction == model.TrafficDirectionOutbound {
@@ -181,6 +185,7 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 
 		if len(instances) != 0 {
 			locEpsByNetwork = localityLbEndpointsFromInstances(instances)
+			gwByNetwork = networkGateways(instances, locEpsByNetwork)
 		}
 	}
 
@@ -195,12 +200,11 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 			ClusterName: clusterName,
 			Endpoints:   locEps,
 		}
-		edsCluster.GatewaysEndpoints[n] = networkGateway(n, locEps, edsCluster.discovery.env.ServiceDiscovery)
-
 		if len(locEps) > 0 && edsCluster.NonEmptyTime.IsZero() {
 			edsCluster.NonEmptyTime = time.Now()
 		}
 	}
+	edsCluster.GatewaysEndpoints = gwByNetwork
 
 	return nil
 }
@@ -209,42 +213,48 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 // The weight of the endpoint will equal to the number of endpoints in the
 // remote network. If the remote network has no cluster endpoints (weight 0)
 // nil will be returned.
-func networkGateway(network string, eps []endpoint.LocalityLbEndpoints, sd model.ServiceDiscovery) *endpoint.LocalityLbEndpoints {
-	weight := 0
-	for _, ep := range eps {
-		weight += len(ep.LbEndpoints)
-	}
-	if weight == 0 {
-		return nil
+func networkGateways(instances []*model.ServiceInstance, endpoints map[string][]endpoint.LocalityLbEndpoints) map[string]*endpoint.LocalityLbEndpoints {
+	gateways := make(map[string]*endpoint.LocalityLbEndpoints)
+	for _, instance := range instances {
+		network := instance.Labels["ISTIO_NETWORK"]
+		if gateways[network] != nil || len(endpoints[network]) == 0 {
+			continue
+		}
+
+		weight := 0
+		for _, ep := range endpoints[network] {
+			weight += len(ep.LbEndpoints)
+		}
+		if weight == 0 {
+			continue
+		}
+
+		var addr core.Address
+		addrIP := instance.Labels["ISTIO_NETWORK_GATEWAY_IP"]
+		addrPort, err := strconv.ParseUint(instance.Labels["ISTIO_NETWORK_GATEWAY_PORT"], 10, 32)
+		if addrIP != "" && err == nil {
+			addr = util.BuildAddress(addrIP, uint32(addrPort))
+		} else {
+			//TODO: For K8S, the gateway IP can be extracted from the Service
+			// object for LoadBalancer services.
+			addr = util.BuildAddress("1.1.1.1", 80)
+		}
+
+		gateways[network] = &endpoint.LocalityLbEndpoints{
+			LbEndpoints: []endpoint.LbEndpoint{
+				endpoint.LbEndpoint{
+					Endpoint: &endpoint.Endpoint{
+						Address: &addr,
+					},
+				},
+			},
+			LoadBalancingWeight: &types.UInt32Value{
+				Value: uint32(weight),
+			},
+		}
 	}
 
-	// TODO: verify the right gateway service hostname and labels
-	hostname := model.Hostname("istio-ingress.istio-system.svc.cluster.local")
-	port := 80
-	labels := model.LabelsCollection{model.Labels{"istio": "ingress", "ISTIO_NETWORK": network}}
-	instances, err := sd.InstancesByPort(hostname, port, labels)
-	if err != nil {
-		adsLog.Errorf("gateway endpoints for network %s returned error %v", network, err)
-		return nil
-	}
-	if len(instances) == 0 {
-		adsLog.Infof("networkGateway: no gateway instances")
-		return nil
-	}
-
-	// TODO: how to cover multiple instances?
-	ep, err := newEndpoint(&instances[0].Endpoint)
-	if err != nil {
-		adsLog.Errorf("unexpected endpoint conversion error: %v", err)
-		return nil
-	}
-
-	return &endpoint.LocalityLbEndpoints{
-		LbEndpoints: []endpoint.LbEndpoint{*ep},
-		LoadBalancingWeight: &types.UInt32Value{
-			Value: uint32(weight),
-		},
-	}
+	return gateways
 }
 
 // LocalityLbEndpointsFromInstances returns a list of Envoy v2 LocalityLbEndpoints.
@@ -293,9 +303,12 @@ func localityLbEndpointsFromInstances(instances []*model.ServiceInstance) map[st
 // to the gateway of each one of them. The remote endpoints (one per each network)
 // will be added to the ClusterLoadAssignment of the specified network.
 func (c *EdsCluster) updateRemoteEndpoints(node *model.Proxy) {
+	if node == nil {
+		return
+	}
 	network := node.Metadata["ISTIO_NETWORK"]
-	cla := c.ClusterLoadAssignments[network]
-	if cla == nil {
+	cla, found := c.ClusterLoadAssignments[network]
+	if !found {
 		return
 	}
 	for n := range c.ClusterLoadAssignments {
@@ -303,15 +316,20 @@ func (c *EdsCluster) updateRemoteEndpoints(node *model.Proxy) {
 			continue
 		}
 
-		// Create an endpoint to the other network and add it to the list of
-		// remote endpoints of this network
+		// Append an endpoint to the remote network gateway (if it doesn't
+		// already exist) and add it to the list of local endpoints of this
+		// network
 		if rgw := c.GatewaysEndpoints[n]; rgw != nil {
-			cla.Endpoints = append(cla.Endpoints, *rgw)
-		}
-
-		// Add a remote endpoint to this network in the other network
-		if gw := c.GatewaysEndpoints[network]; gw != nil {
-			c.ClusterLoadAssignments[n].Endpoints = append(c.ClusterLoadAssignments[n].Endpoints, *gw)
+			exists := false
+			for _, ep := range cla.Endpoints {
+				if ep.Equal(rgw) {
+					exists = true
+					break
+				}
+			}
+			if !exists {
+				cla.Endpoints = append(cla.Endpoints, *rgw)
+			}
 		}
 	}
 }
@@ -428,9 +446,9 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection) e
 				adsLog.Errorf("error returned from updateCluster for cluster name %s, skipping it.", clusterName)
 				continue
 			}
-			c.updateRemoteEndpoints(con.modelNode)
 			l = loadAssignment(c, con.modelNode)
 		}
+		c.updateRemoteEndpoints(con.modelNode)
 		endpoints += len(l.Endpoints)
 		if len(l.Endpoints) == 0 {
 			emptyClusters++
