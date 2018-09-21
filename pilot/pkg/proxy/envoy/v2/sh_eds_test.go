@@ -79,7 +79,7 @@ func verifySplitHorizonResponse(t *testing.T, network string, sidecarId string, 
 	if err != nil {
 		t.Fatal(err)
 	}
-	res, err := adsReceive(edsstr, 5*time.Second)
+	_, err = adsReceive(edsstr, 5*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,7 +88,7 @@ func verifySplitHorizonResponse(t *testing.T, network string, sidecarId string, 
 	if err != nil {
 		t.Fatal(err)
 	}
-	res, err = adsReceive(edsstr, 5*time.Second)
+	res, err := adsReceive(edsstr, 5*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -279,7 +279,8 @@ func sendCDSReqWithMetadata(node string, metadata *proto.Struct, edsstr ads.Aggr
 	return nil
 }
 
-func sendEDSReqWithMetadata(clusters []string, node string, metadata *proto.Struct, edsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
+func sendEDSReqWithMetadata(clusters []string, node string, metadata *proto.Struct,
+	edsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
 	err := edsstr.Send(&xdsapi.DiscoveryRequest{
 		ResponseNonce: time.Now().String(),
 		Node: &core.Node{
