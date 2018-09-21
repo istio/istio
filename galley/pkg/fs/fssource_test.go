@@ -165,7 +165,7 @@ func TestNewSource(t *testing.T) {
 		t.Fatal("expected non-nil source")
 	}
 }
-func TestSource_InitialScan(t *testing.T) {
+func TestFsSource_InitialScan(t *testing.T) {
 	fst = &fsTestSourceState{
 		ConfigFiles: map[string][]byte{"virtual_service.yml": []byte(virtualServiceYAML)},
 	}
@@ -195,7 +195,7 @@ func TestSource_InitialScan(t *testing.T) {
 	s.Stop()
 }
 
-func TestSource_AddEvents(t *testing.T) {
+func TestFsSource_AddFile(t *testing.T) {
 	fst = &fsTestSourceState{
 		ConfigFiles: map[string][]byte{},
 	}
@@ -229,7 +229,7 @@ func TestSource_AddEvents(t *testing.T) {
 	s.Stop()
 }
 
-func TestSource_DeleteEvents(t *testing.T) {
+func TestFsSource_DeleteFile(t *testing.T) {
 
 	fst = &fsTestSourceState{
 		ConfigFiles: map[string][]byte{"virtual_service.yml": []byte(virtualServiceYAML)},
