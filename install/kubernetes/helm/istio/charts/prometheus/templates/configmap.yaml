@@ -251,19 +251,19 @@ data:
         action: replace
         target_label: kubernetes_name
 
-    - job_name: 'kubernetes-pods-non-istio'
+    - job_name: 'kubernetes-pods'
       kubernetes_sd_configs:
       - role: pod
       relabel_configs:  # If first two labels are present, pod should be scraped  by the istio-secure job.
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+        action: keep
+        regex: true
       - source_labels: [__meta_kubernetes_pod_annotation_sidecar_istio_io_status]
         action: drop
         regex: (.+)
       - source_labels: [__meta_kubernetes_pod_annotation_istio_mtls]
         action: drop
         regex: (true)
-      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
-        action: keep
-        regex: true
       - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
         action: replace
         target_label: __metrics_path__
@@ -292,14 +292,14 @@ data:
       kubernetes_sd_configs:
       - role: pod
       relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+        action: keep
+        regex: true
       # sidecar status annotation is added by sidecar injector and
       # istio_workload_mtls_ability can be specifically placed on a pod to indicate its ability to receive mtls traffic.
       - source_labels: [__meta_kubernetes_pod_annotation_sidecar_istio_io_status, __meta_kubernetes_pod_annotation_istio_mtls]
         action: keep
         regex: (([^;]+);([^;]*))|(([^;]*);(true))
-      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
-        action: keep
-        regex: true
       - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
         action: replace
         target_label: __metrics_path__
