@@ -166,6 +166,8 @@ func (c *Cache) SetSnapshot(node string, snapshot Snapshot) {
 
 				// discard the responseWatch
 				delete(info.watches, id)
+
+				log.Debugf("SetSnapshot(): watch %d with version %q complete", id, version)
 			}
 		}
 		info.mu.Unlock()
