@@ -1212,7 +1212,7 @@
   revision = "84ea3a3c79b3c4b3b39606cc96f255cd63635ce0"
 
 [[projects]]
-  digest = "1:de92335ddd759ac9be56aba81473fb3b65c8386092cf0c554dab6c234aecddf4"
+  digest = "1:14c23c68d00e1fd427a26acf9e6d7e2105fbf7b0b0531060c0df9ddb62450e7f"
   name = "go.opencensus.io"
   packages = [
     ".",
@@ -1232,8 +1232,8 @@
     "trace/propagation",
   ]
   pruneopts = "NUT"
-  revision = "e262766cd0d230a1bb7c37281e345e465f19b41b"
-  version = "v0.14.0"
+  revision = "7b558058b7cc960667590e5413ef55157b06652e"
+  version = "v0.15.0"
 
 [[projects]]
   digest = "1:8eff4c694254322268936dc162805ff95ac846435e909f011ba43805bb9b4e0f"
@@ -1393,15 +1393,17 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:32739c07b37ef03b70529f1d557df3180cd7d3b3deca5230a5f98ae15f9b94a1"
+  digest = "1:6cd4b1649695991e9b76b0db6bc3fb3f97b951992b16da2fa53991070be11410"
   name = "google.golang.org/api"
   packages = [
+    "cloudtrace/v1",
     "gensupport",
     "googleapi",
     "googleapi/internal/uritemplates",
     "googleapi/transport",
     "internal",
     "iterator",
+    "monitoring/v3",
     "option",
     "servicecontrol/v1",
     "support/bundler",
@@ -2051,7 +2053,10 @@
     "golang.org/x/oauth2/google",
     "golang.org/x/time/rate",
     "golang.org/x/tools/imports",
+    "google.golang.org/api/cloudtrace/v1",
     "google.golang.org/api/googleapi",
+    "google.golang.org/api/iterator",
+    "google.golang.org/api/monitoring/v3",
     "google.golang.org/api/option",
     "google.golang.org/api/servicecontrol/v1",
     "google.golang.org/genproto/googleapis/api/distribution",
