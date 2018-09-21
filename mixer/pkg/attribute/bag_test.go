@@ -180,7 +180,7 @@ func mutableBagFromProtoForTesing() *MutableBag {
 }
 
 func protoAttrsForTesting() (*mixerpb.CompressedAttributes, map[string]int32, []string) {
-	globalWordList := []string{"G0", "G1", "G2", "G3", "G4", "G5", "G6", "G7", "G8", "G9"}
+	globalWordList := []string{"G0", "G1", "G2", "G3", "G4", "G5", "G6", "G7", "G8", "G9", "BADKEY"}
 	messageWordList := []string{"M1", "M2", "M3", "M4", "M5", "M6", "M7", "M8", "M9", "M10"}
 
 	globalDict := make(map[string]int32)
@@ -256,6 +256,9 @@ func TestProtoBag(t *testing.T) {
 			for _, cs := range cases {
 				found := false
 				for _, n := range names {
+					if !pb.Contains(n) {
+						t.Errorf("expected bag to contain %s", n)
+					}
 					if cs.name == n {
 						found = true
 						break
@@ -281,6 +284,19 @@ func TestProtoBag(t *testing.T) {
 			pb.Done()
 		}
 	}
+}
+
+func TestProtoBag_Contains(t *testing.T) {
+	mb := mutableBagFromProtoForTesing()
+
+	if mb.Contains("THIS_KEY_IS_NOT_IN_DICT") {
+		t.Errorf("Found unexpected key")
+	}
+
+	if mb.Contains("BADKEY") {
+		t.Errorf("Found unexpected key")
+	}
+
 }
 
 func TestMessageDict(t *testing.T) {
