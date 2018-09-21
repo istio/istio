@@ -254,29 +254,33 @@ func (client *Client) GetIstioVersions(namespace string) (*version.MeshInfo, err
 			cmdJSON := append(cmd, "-o", "json")
 
 			var info version.BuildInfo
+			var v version.Version
 
 			stdout, stderr, err := client.PodExec(pod.Name, pod.Namespace, detail.container, cmdJSON)
-			if err == nil && stderr.String() == "" {
-				err = json.Unmarshal(stdout.Bytes(), &info)
-				if err != nil {
-					return nil, fmt.Errorf("error converting server info from JSON: %v", err)
-				}
-			} else if strings.HasPrefix(stderr.String(), "Error: unknown shorthand flag") {
-				// Try the old behavior
-				stdout, err := client.ExtractExecResult(pod.Name, pod.Namespace, detail.container, cmd)
-				if err == nil {
+
+			if err != nil {
+				return nil, fmt.Errorf("error execing into %v %v container: %v", pod.Name, detail.container, err)
+			}
+
+			// At first try parsing stdout
+			err = json.Unmarshal(stdout.Bytes(), &v)
+			if err == nil && v.ClientVersion.Version != "" {
+				info = *v.ClientVersion
+			} else {
+				// If stdout fails, try the old behavior
+				if strings.HasPrefix(stderr.String(), "Error: unknown shorthand flag") {
+					stdout, err := client.ExtractExecResult(pod.Name, pod.Namespace, detail.container, cmd)
+					if err != nil {
+						return nil, fmt.Errorf("error execing into %v %v container: %v", pod.Name, detail.container, err)
+					}
+
 					info, err = version.NewBuildInfoFromOldString(string(stdout))
 					if err != nil {
 						return nil, fmt.Errorf("error converting server info from JSON: %v", err)
 					}
 				} else {
-					return nil, fmt.Errorf("error execing into %v %v container: %v", pod.Name, detail.container, err)
+					return nil, fmt.Errorf("error execing into %v %v container: %v", pod.Name, detail.container, stderr.String())
 				}
-			} else {
-				if err != nil {
-					return nil, fmt.Errorf("error execing into %v %v container: %v", pod.Name, detail.container, err)
-				}
-				return nil, fmt.Errorf("error execing into %v %v container: %v", pod.Name, detail.container, stderr.String())
 			}
 
 			server.Info = info
