@@ -17,7 +17,6 @@ package fs
 import (
 	"bytes"
 	"crypto/sha1"
-	"reflect"
 
 	"github.com/ghodss/yaml"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -26,6 +25,7 @@ import (
 type istioResource struct {
 	u   *unstructured.Unstructured
 	sha [sha1.Size]byte
+	key string
 }
 
 type fileResourceKey struct {
@@ -33,12 +33,6 @@ type fileResourceKey struct {
 	kind string
 }
 
-func (r *istioResource) key() string {
-	if len(r.u.GetNamespace()) > 0 {
-		return r.u.GetNamespace() + "/" + r.u.GetName()
-	}
-	return r.u.GetName()
-}
 func parseFile(path string, data []byte) []*istioResource {
 	chunks := bytes.Split(data, []byte("\n---\n"))
 	resources := make([]*istioResource, 0, len(chunks))
@@ -55,7 +49,13 @@ func parseFile(path string, data []byte) []*istioResource {
 		if u == nil {
 			continue
 		}
-		resources = append(resources, &istioResource{u: u, sha: sha1.Sum(chunk)})
+		var key string
+		if len(u.GetNamespace()) > 0 {
+			key = u.GetNamespace() + "/" + u.GetName()
+		} else {
+			key = u.GetName()
+		}
+		resources = append(resources, &istioResource{u: u, sha: sha1.Sum(chunk), key: key})
 	}
 	return resources
 }
@@ -71,9 +71,10 @@ func parseChunk(chunk []byte) (*unstructured.Unstructured, error) {
 	return u, nil
 }
 
-var emptyResource = &unstructured.Unstructured{}
-
 // Check if the parsed resource is empty
 func empty(r *unstructured.Unstructured) bool {
-	return reflect.DeepEqual(*r, *emptyResource)
+	if r.Object == nil || len(r.Object) == 0 {
+		return true
+	}
+	return false
 }

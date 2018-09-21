@@ -41,7 +41,7 @@ var supportedExtensions = map[string]bool{
 }
 var scope = log.RegisterScope("file-source", "Source for File System", 0)
 
-// fsSource is source implementation for filesystem.
+//fsSource is source implementation for filesystem.
 type fsSource struct {
 	//Config File Path
 	root string
@@ -109,8 +109,8 @@ func (s *fsSource) readFile(path string, info os.FileInfo, initial bool) map[str
 		if !s.kinds[r.u.GetKind()] {
 			continue
 		}
-		result[r.key()] = r
-		resourceKeyList = append(resourceKeyList, &fileResourceKey{r.key(), r.u.GetKind()})
+		result[r.key] = r
+		resourceKeyList = append(resourceKeyList, &fileResourceKey{r.key, r.u.GetKind()})
 	}
 	if initial {
 		s.fileResorceKeys[path] = resourceKeyList
@@ -118,7 +118,8 @@ func (s *fsSource) readFile(path string, info os.FileInfo, initial bool) map[str
 	return result
 }
 
-func (s *fsSource) checkDeleteResourcesInFile(fileName string, newData *map[string]*istioResource) {
+//process delete part of the resources in a file
+func (s *fsSource) processPartialDelete(fileName string, newData *map[string]*istioResource) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if fileResorceKeys, ok := s.fileResorceKeys[fileName]; ok {
@@ -141,10 +142,10 @@ func (s *fsSource) checkDeleteResourcesInFile(fileName string, newData *map[stri
 
 }
 
-func (s *fsSource) pubEvent(fileName string, newData *map[string]*istioResource) {
+func (s *fsSource) processAddOrUpdate(fileName string, newData *map[string]*istioResource) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	//need versionUpdated as sometimes when fswatcher fires events, there is actually on change on the file content
+	//need versionUpdated as sometimes when fswatcher fires events, there is actually no change on the file content
 	versionUpdated := false
 	for k, r := range *newData {
 		if _, ok := s.shas[k]; ok {
@@ -163,19 +164,24 @@ func (s *fsSource) pubEvent(fileName string, newData *map[string]*istioResource)
 	for k, r := range *newData {
 		if _, ok := s.shas[k]; ok {
 			if s.shas[k] != r.sha {
-				s.fileResorceKeys[fileName] = append(s.fileResorceKeys[fileName], &fileResourceKey{r.key(), r.u.GetKind()})
+				s.fileResorceKeys[fileName] = append(s.fileResorceKeys[fileName], &fileResourceKey{r.key, r.u.GetKind()})
 				s.process(resource.Updated, k, "", r)
 			}
 			s.shas[k] = r.sha
 			continue
 		}
-		s.fileResorceKeys[fileName] = append(s.fileResorceKeys[fileName], &fileResourceKey{r.key(), r.u.GetKind()})
+		if s.fileResorceKeys != nil {
+			s.fileResorceKeys[fileName] = append(s.fileResorceKeys[fileName], &fileResourceKey{r.key, r.u.GetKind()})
+		}
 		s.process(resource.Added, k, "", r)
-		s.shas[k] = r.sha
+		if s.shas != nil {
+			s.shas[k] = r.sha
+		}
 	}
 }
 
-func (s *fsSource) deleteResource(fileName string) {
+//process delete all resources in a file
+func (s *fsSource) processDelete(fileName string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if fileResorceKeys, ok := s.fileResorceKeys[fileName]; ok {
@@ -233,10 +239,10 @@ func (s *fsSource) process(eventKind resource.EventKind, key, resourceKind strin
 func (s *fsSource) Start() (chan resource.Event, error) {
 	s.ch = make(chan resource.Event, 1024)
 	watcher, err := fsnotify.NewWatcher()
-	s.watcher = watcher
 	if err != nil {
 		return nil, err
 	}
+	s.watcher = watcher
 	s.watcher.Watch(s.root)
 	s.initialCheck()
 	go func() {
@@ -244,37 +250,40 @@ func (s *fsSource) Start() (chan resource.Event, error) {
 			select {
 			// watch for events
 			case ev, more := <-s.watcher.Event:
-				if more && ev.IsDelete() {
-					s.deleteResource(ev.Name)
+				if !more {
+					break
 				}
-				if more && ev.IsCreate() {
+				if ev.IsDelete() {
+					s.processDelete(ev.Name)
+				} else if ev.IsCreate() {
 					fi, err := os.Stat(ev.Name)
 					if err != nil {
 						scope.Warnf("error occurs for watching %s", ev.Name)
 					} else {
 						if fi.Mode().IsDir() {
-							scope.Debugf("add wathcher for new folder %s", ev.Name)
+							scope.Debugf("add watcher for new folder %s", ev.Name)
 							s.watcher.Watch(ev.Name)
 						} else {
 							newData := s.readFile(ev.Name, fi, true)
 							if newData != nil && len(newData) != 0 {
-								s.pubEvent(ev.Name, &newData)
+								s.processAddOrUpdate(ev.Name, &newData)
 							}
 						}
 					}
-				}
-				if more && ev.IsModify() {
+				} else if ev.IsModify() {
 					fi, err := os.Stat(ev.Name)
 					if err != nil {
 						scope.Warnf("error occurs for watching %s", ev.Name)
 					} else {
-						if !fi.Mode().IsDir() {
+						if fi.Mode().IsDir() {
+							s.watcher.RemoveWatch(ev.Name)
+						} else {
 							newData := s.readFile(ev.Name, fi, false)
 							if newData != nil && len(newData) != 0 {
-								s.checkDeleteResourcesInFile(ev.Name, &newData)
-								s.pubEvent(ev.Name, &newData)
+								s.processPartialDelete(ev.Name, &newData)
+								s.processAddOrUpdate(ev.Name, &newData)
 							} else {
-								s.deleteResource(ev.Name)
+								s.processDelete(ev.Name)
 							}
 						}
 					}
