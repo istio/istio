@@ -119,7 +119,8 @@ func buildDeprecatedTCPProxyFilter(clusterName string, addr string) (*listener.F
 // buildOutboundNetworkFilters generates TCP proxy network filter for outbound connections. In addition, it generates
 // protocol specific filters (e.g., Mongo filter)
 // this function constructs deprecated_v1 routes, until the filter chain match is ready
-func buildOutboundNetworkFilters(env *model.Environment, node *model.Proxy, clusterName string, deprecatedTCPFilterMatchAddress string, port *model.Port) []listener.Filter {
+func buildOutboundNetworkFilters(env *model.Environment, node *model.Proxy, clusterName string,
+	deprecatedTCPFilterMatchAddress string, port *model.Port) []listener.Filter {
 
 	var tcpFilter *listener.Filter
 	var err error

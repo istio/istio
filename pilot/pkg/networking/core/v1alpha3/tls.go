@@ -247,8 +247,9 @@ func buildSidecarOutboundTCPFilterChainOpts(env *model.Environment, node *model.
 	return out
 }
 
-func buildSidecarOutboundTCPTLSFilterChainOpts(env *model.Environment, node *model.Proxy, push *model.PushContext, configs []model.Config, destinationIPAddress string,
-	service *model.Service, listenPort *model.Port, proxyLabels model.LabelsCollection, gateways map[string]bool) []*filterChainOpts {
+func buildSidecarOutboundTCPTLSFilterChainOpts(env *model.Environment, node *model.Proxy, push *model.PushContext,
+	configs []model.Config, destinationIPAddress string, service *model.Service, listenPort *model.Port,
+	proxyLabels model.LabelsCollection, gateways map[string]bool) []*filterChainOpts {
 
 	virtualService := getVirtualServiceForHost(service.Hostname, configs)
 
