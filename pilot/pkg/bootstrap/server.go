@@ -29,7 +29,6 @@ import (
 	"sync"
 	"time"
 
-	"code.cloudfoundry.org/copilot"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/gogo/protobuf/types"
 	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
@@ -59,7 +58,6 @@ import (
 	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
-	"istio.io/istio/pilot/pkg/serviceregistry/cloudfoundry"
 	"istio.io/istio/pilot/pkg/serviceregistry/consul"
 	"istio.io/istio/pilot/pkg/serviceregistry/external"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
@@ -123,7 +121,6 @@ type ConfigArgs struct {
 	ClusterRegistriesConfigmap string
 	ClusterRegistriesNamespace string
 	KubeConfig                 string
-	CFConfig                   string
 	ControllerOptions          kube.ControllerOptions
 	FileDir                    string
 
@@ -698,30 +695,8 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 					Controller:       conctl,
 				})
 
-		case serviceregistry.CloudFoundryRegistry:
-			cfConfig, err := cloudfoundry.LoadConfig(args.Config.CFConfig)
-			if err != nil {
-				return multierror.Prefix(err, "loading cloud foundry config")
-			}
-			tlsConfig, err := cfConfig.ClientTLSConfig()
-			if err != nil {
-				return multierror.Prefix(err, "creating cloud foundry client tls config")
-			}
-			client, err := copilot.NewIstioClient(cfConfig.Copilot.Address, tlsConfig)
-			if err != nil {
-				return multierror.Prefix(err, "creating cloud foundry client")
-			}
-			serviceControllers.AddRegistry(aggregate.Registry{
-				Name: serviceregistry.ServiceRegistry(r),
-				Controller: &cloudfoundry.Controller{
-					Ticker: cloudfoundry.NewTicker(cfConfig.Copilot.PollInterval),
-				},
-				ServiceDiscovery: &cloudfoundry.ServiceDiscovery{
-					RoutesRepo:  cloudfoundry.NewCachedRoutes(client, log.RegisterScope("cfcacher", "cf cacher debugging", 0), "30s"),
-					ServicePort: cfConfig.ServicePort,
-				},
-				ServiceAccounts: cloudfoundry.NewServiceAccounts(),
-			})
+		case serviceregistry.MCPRegistry:
+			log.Infof("no-op: get service info from MCP ServiceEntries.")
 
 		default:
 			return multierror.Prefix(nil, "Service registry "+r+" is not supported.")

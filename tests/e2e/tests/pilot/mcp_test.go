@@ -17,15 +17,22 @@ package pilot
 import (
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net"
 	"net/http"
 	"testing"
+	"time"
 
+	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
 	"github.com/onsi/gomega"
 
+	mcp "istio.io/api/mcp/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
 	mixerEnv "istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
+	mcpserver "istio.io/istio/pkg/mcp/server"
 	mockmcp "istio.io/istio/tests/e2e/tests/pilot/mock/mcp"
 	"istio.io/istio/tests/util"
 
@@ -40,11 +47,17 @@ const (
 	mcpServerAddr  = "127.0.0.1:15014"
 )
 
+var fakeCreateTime *types.Timestamp
+
 func TestPilotMCPClient(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
+	var err error
+	fakeCreateTime, err = types.TimestampProto(time.Date(2018, time.January, 1, 12, 15, 30, 5e8, time.UTC))
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
 	t.Log("building & starting mock mcp server...")
-	mcpServer, err := runMcpServer(g, t)
+	mcpServer, err := runMcpServer()
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	initLocalPilotTestEnv(t, mcpServerAddr, pilotGrpcPort, pilotDebugPort)
@@ -69,13 +82,62 @@ func TestPilotMCPClient(t *testing.T) {
 	}, "180s", "1s").Should(gomega.Succeed())
 }
 
-func runMcpServer(_ *gomega.GomegaWithT, _ *testing.T) (*mockmcp.Server, error) {
+func mcpServerResponse(req *mcp.MeshConfigRequest) (*mcpserver.WatchResponse, mcpserver.CancelWatchFunc) {
+	var cancelFunc mcpserver.CancelWatchFunc
+	cancelFunc = func() {
+		log.Printf("watch canceled for %s\n", req.GetTypeUrl())
+	}
+	if req.GetTypeUrl() == fmt.Sprintf("type.googleapis.com/%s", model.Gateway.MessageName) {
+		marshaledFirstGateway, err := proto.Marshal(firstGateway)
+		if err != nil {
+			log.Fatalf("marshaling gateway %s\n", err)
+		}
+		marshaledSecondGateway, err := proto.Marshal(secondGateway)
+		if err != nil {
+			log.Fatalf("marshaling gateway %s\n", err)
+		}
+
+		return &mcpserver.WatchResponse{
+			Version: req.GetVersionInfo(),
+			TypeURL: req.GetTypeUrl(),
+			Envelopes: []*mcp.Envelope{
+				{
+					Metadata: &mcp.Metadata{
+						Name:       "some-name",
+						CreateTime: fakeCreateTime,
+					},
+					Resource: &types.Any{
+						TypeUrl: req.GetTypeUrl(),
+						Value:   marshaledFirstGateway,
+					},
+				},
+				{
+					Metadata: &mcp.Metadata{
+						Name:       "some-other-name",
+						CreateTime: fakeCreateTime,
+					},
+					Resource: &types.Any{
+						TypeUrl: req.GetTypeUrl(),
+						Value:   marshaledSecondGateway,
+					},
+				},
+			},
+		}, cancelFunc
+	}
+	return &mcpserver.WatchResponse{
+		Version:   req.GetVersionInfo(),
+		TypeURL:   req.GetTypeUrl(),
+		Envelopes: []*mcp.Envelope{},
+	}, cancelFunc
+}
+
+func runMcpServer() (*mockmcp.Server, error) {
 	supportedTypes := make([]string, len(model.IstioConfigTypes))
 	for i, m := range model.IstioConfigTypes {
 		supportedTypes[i] = fmt.Sprintf("type.googleapis.com/%s", m.MessageName)
 	}
 
-	server, err := mockmcp.NewServer(mcpServerAddr, supportedTypes)
+	server, err := mockmcp.NewServer(mcpServerAddr, supportedTypes, mcpServerResponse)
 	if err != nil {
 		return nil, err
 	}
@@ -148,4 +210,34 @@ func curlPilot(apiEndpoint string) (string, error) {
 		return "", err
 	}
 	return string(respBytes), nil
+}
+
+var firstGateway = &networking.Gateway{
+	Servers: []*networking.Server{
+		&networking.Server{
+			Port: &networking.Port{
+				Name:     "http-8099",
+				Number:   8099,
+				Protocol: "http",
+			},
+			Hosts: []string{
+				"bar.example.com",
+			},
+		},
+	},
+}
+
+var secondGateway = &networking.Gateway{
+	Servers: []*networking.Server{
+		&networking.Server{
+			Port: &networking.Port{
+				Name:     "tcp-880",
+				Number:   880,
+				Protocol: "tcp",
+			},
+			Hosts: []string{
+				"foo.example.org",
+			},
+		},
+	},
 }
