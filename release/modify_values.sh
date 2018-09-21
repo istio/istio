@@ -30,7 +30,7 @@ function fix_values_yaml() {
   rm                       "${tarball_name}"
 
   sed -i     "s|hub: gcr.io/istio-release|hub: ${HUB}|g" ./"${folder_name}"/install/kubernetes/helm/istio*/values.yaml
-  sed -i "s|tag: release-1.0-latest-daily|tag: ${TAG}|g" ./"${folder_name}"/install/kubernetes/helm/istio*/values.yaml
+  sed -i "s|tag: master-latest-daily|tag: ${TAG}|g" ./"${folder_name}"/install/kubernetes/helm/istio*/values.yaml
 
   eval "$zip_cmd" "${tarball_name}" "${folder_name}"
   rm -rf                            "${folder_name}"
