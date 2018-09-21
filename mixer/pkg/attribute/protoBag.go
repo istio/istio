@@ -355,7 +355,6 @@ func (pb *ProtoBag) Contains(key string) bool {
 		return true
 	}
 
-
 	return false
 }
 

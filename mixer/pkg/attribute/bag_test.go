@@ -179,8 +179,7 @@ func mutableBagFromProtoForTesing() *MutableBag {
 	return GetMutableBag(b)
 }
 
-
-func protoAttrsForTesting()(*mixerpb.CompressedAttributes, map[string]int32, []string) {
+func protoAttrsForTesting() (*mixerpb.CompressedAttributes, map[string]int32, []string) {
 	globalWordList := []string{"G0", "G1", "G2", "G3", "G4", "G5", "G6", "G7", "G8", "G9"}
 	messageWordList := []string{"M1", "M2", "M3", "M4", "M5", "M6", "M7", "M8", "M9", "M10"}
 
@@ -193,7 +192,7 @@ func protoAttrsForTesting()(*mixerpb.CompressedAttributes, map[string]int32, []s
 
 	attrs := mixerpb.CompressedAttributes{
 		Words:      messageWordList,
-		Strings:    map[int32]int32{4: 5, 3:2, 2:6, 5:4},
+		Strings:    map[int32]int32{4: 5, 3: 2, 2: 6, 5: 4},
 		Int64S:     map[int32]int64{6: 42},
 		Doubles:    map[int32]float64{7: 42.0},
 		Bools:      map[int32]bool{-1: true},
@@ -208,7 +207,7 @@ func protoAttrsForTesting()(*mixerpb.CompressedAttributes, map[string]int32, []s
 
 func TestProtoBag(t *testing.T) {
 
-	attrs, globalDict, globalWordList  := protoAttrsForTesting()
+	attrs, globalDict, globalWordList := protoAttrsForTesting()
 
 	cases := []struct {
 		name  string

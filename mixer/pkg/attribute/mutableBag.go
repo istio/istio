@@ -204,17 +204,17 @@ func (mb *MutableBag) Reset() {
 func (mb *MutableBag) Merge(bag *MutableBag) {
 	// get the known symbols for the target bag
 	/*
-	names := make(map[string]bool)
-	for _, name := range mb.Names() {
-		names[name] = true
-	}
+		names := make(map[string]bool)
+		for _, name := range mb.Names() {
+			names[name] = true
+		}
 	*/
 
 	for k, v := range bag.values {
 		// the input bags cannot override values already in the destination bag
 		if !mb.Contains(k) {
-		//_, found := names[k]
-		//if !found {
+			//_, found := names[k]
+			//if !found {
 			mb.values[k] = copyValue(v)
 		}
 	}

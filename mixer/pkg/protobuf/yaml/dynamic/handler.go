@@ -277,8 +277,8 @@ func (eb staticBag) Names() []string {
 	}
 	return ret
 }
-func (eb staticBag) Done()          {}
-func (eb staticBag) Contains(key string) bool{
+func (eb staticBag) Done() {}
+func (eb staticBag) Contains(key string) bool {
 	_, found := eb.v[key]
 	return found
 }
