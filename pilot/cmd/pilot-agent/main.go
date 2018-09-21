@@ -20,6 +20,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io/ioutil"
+	"istio.io/istio/pkg/spiffe"
 	"net"
 	"os"
 	"strconv"
@@ -136,11 +137,11 @@ var (
 			proxyConfig.Concurrency = int32(concurrency)
 
 			var pilotSAN []string
+			var ns string
 			switch controlPlaneAuthPolicy {
 			case meshconfig.AuthenticationPolicy_NONE.String():
 				proxyConfig.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_NONE
 			case meshconfig.AuthenticationPolicy_MUTUAL_TLS.String():
-				var ns string
 				proxyConfig.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS
 				if registry == serviceregistry.KubernetesRegistry {
 					partDiscoveryAddress := strings.Split(discoveryAddress, ":")
@@ -163,7 +164,10 @@ var (
 						}
 					}
 				}
-				pilotSAN, role.Domain = determinePilotSanAndDomain(ns)
+				var identityDomain string
+				identityDomain, role.Domain = determineIdentityDomainAndDomain()
+				spiffe.SetIdentityDomain(identityDomain)
+				pilotSAN = []string{envoy.GetPilotSAN(ns)}
 			}
 
 			// resolve statsd address
@@ -209,6 +213,7 @@ var (
 				opts := make(map[string]string)
 				opts["PodName"] = os.Getenv("POD_NAME")
 				opts["PodNamespace"] = os.Getenv("POD_NAMESPACE")
+				opts["MixerSubjectAltName"] = envoy.GetMixerSAN(opts["PodNamespace"])
 
 				// protobuf encoding of IP_ADDRESS type
 				opts["PodIP"] = base64.StdEncoding.EncodeToString(net.ParseIP(os.Getenv("INSTANCE_IP")))
@@ -270,24 +275,17 @@ var (
 	}
 )
 
-func determinePilotSanAndDomain(ns string) ([]string, string){
-	var pilotSAN []string
+func determineIdentityDomainAndDomain() (string, string) {
 	domain := role.Domain
+	var identityDomain = ""
+	isKubernetes := registry == serviceregistry.KubernetesRegistry
 	if controlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS.String() {
-		pilotDomain := role.IdentityDomain
-		if len(pilotDomain) == 0 {
-			pilotDomain = domain
-		}
-
-		if len(pilotDomain) == 0 && registry == serviceregistry.KubernetesRegistry {
-			pilotDomain = "cluster.local"
-		}
-
-		pilotSAN = envoy.GetPilotSAN(pilotDomain, ns)
+		identityDomain = spiffe.DetermineIdentityDomain(role.IdentityDomain, domain,
+			isKubernetes)
 	}
 
 	if len(domain) == 0 {
-		if registry == serviceregistry.KubernetesRegistry {
+		if isKubernetes {
 			domain = os.Getenv("POD_NAMESPACE") + ".svc.cluster.local"
 		} else if registry == serviceregistry.ConsulRegistry {
 			domain = "service.consul"
@@ -296,7 +294,7 @@ func determinePilotSanAndDomain(ns string) ([]string, string){
 		}
 	}
 
-	return pilotSAN, domain
+	return identityDomain, domain
 }
 
 func parseApplicationPorts() ([]uint16, error) {

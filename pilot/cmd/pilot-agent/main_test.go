@@ -14,9 +14,9 @@ func TestNoPilotSanIfAuthentificationNone(t *testing.T) {
 	role.IdentityDomain = ""
 	controlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_NONE.String()
 
-	pilotSAN, _ := determinePilotSanAndDomain("anything")
+	pilotSAN, _ := determineIdentityDomainAndDomain()
 
-	g.Expect(pilotSAN).To(gomega.BeNil())
+	g.Expect(pilotSAN).To(gomega.Equal(""))
 }
 
 func TestPilotSanIfAuthentificationMutualDomainEmptyKubernetes(t *testing.T) {
@@ -26,9 +26,9 @@ func TestPilotSanIfAuthentificationMutualDomainEmptyKubernetes(t *testing.T) {
 	registry = serviceregistry.KubernetesRegistry
 	controlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
 
-	pilotSAN, _ := determinePilotSanAndDomain("anything")
+	pilotSAN, _ := determineIdentityDomainAndDomain()
 
-	g.Expect(pilotSAN).To(gomega.Equal([]string{"spiffe://cluster.local/ns/anything/sa/istio-pilot-service-account"} ))
+	g.Expect(pilotSAN).To(gomega.Equal("cluster.local" ))
 }
 
 func TestPilotSanIfAuthentificationMutualDomainNotEmptyKubernetes(t *testing.T) {
@@ -38,9 +38,9 @@ func TestPilotSanIfAuthentificationMutualDomainNotEmptyKubernetes(t *testing.T) 
 	registry = serviceregistry.KubernetesRegistry
 	controlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
 
-	pilotSAN, _ := determinePilotSanAndDomain("anything")
+	pilotSAN, _ := determineIdentityDomainAndDomain()
 
-	g.Expect(pilotSAN).To(gomega.Equal([]string{"spiffe://my.domain/ns/anything/sa/istio-pilot-service-account"} ))
+	g.Expect(pilotSAN).To(gomega.Equal("my.domain"))
 }
 
 //TODO Is this really correct?
@@ -51,9 +51,9 @@ func TestPilotSanIfAuthentificationMutualDomainEmptyConsul(t *testing.T) {
 	registry = serviceregistry.ConsulRegistry
 	controlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
 
-	pilotSAN, _ := determinePilotSanAndDomain("anything")
+	pilotSAN, _ := determineIdentityDomainAndDomain()
 
-	g.Expect(pilotSAN).To(gomega.Equal([]string{"spiffe:///ns/anything/sa/istio-pilot-service-account"} ))
+	g.Expect(pilotSAN).To(gomega.Equal("" ))
 }
 
 func TestPilotSanIfAuthentificationMutualIdentityDomain(t *testing.T) {
@@ -63,9 +63,9 @@ func TestPilotSanIfAuthentificationMutualIdentityDomain(t *testing.T) {
 	registry = serviceregistry.KubernetesRegistry
 	controlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
 
-	pilotSAN, _ := determinePilotSanAndDomain("anything")
+	pilotSAN, _ := determineIdentityDomainAndDomain()
 
-	g.Expect(pilotSAN).To(gomega.Equal([]string{"spiffe://secured/ns/anything/sa/istio-pilot-service-account"} ))
+	g.Expect(pilotSAN).To(gomega.Equal("secured" ))
 }
 
 func TestPilotSanIfAuthentificationMutualIdentityDomainAndDomain(t *testing.T) {
@@ -75,9 +75,9 @@ func TestPilotSanIfAuthentificationMutualIdentityDomainAndDomain(t *testing.T) {
 	registry = serviceregistry.KubernetesRegistry
 	controlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
 
-	pilotSAN, _ := determinePilotSanAndDomain("anything")
+	pilotSAN, _ := determineIdentityDomainAndDomain()
 
-	g.Expect(pilotSAN).To(gomega.Equal([]string{"spiffe://secured/ns/anything/sa/istio-pilot-service-account"} ))
+	g.Expect(pilotSAN).To(gomega.Equal("secured" ))
 }
 
 func TestPilotDefaultDomainKubernetes(t *testing.T) {
@@ -86,7 +86,7 @@ func TestPilotDefaultDomainKubernetes(t *testing.T) {
 	registry = serviceregistry.KubernetesRegistry
 	os.Setenv("POD_NAMESPACE", "default")
 
-	_, domain := determinePilotSanAndDomain("anything")
+	_, domain := determineIdentityDomainAndDomain()
 
 	g.Expect(domain).To(gomega.Equal("default.svc.cluster.local"))
 }
@@ -96,7 +96,7 @@ func TestPilotDefaultDomainConsul(t *testing.T) {
 	role.Domain = ""
 	registry = serviceregistry.ConsulRegistry
 
-	_, domain := determinePilotSanAndDomain("anything")
+	_, domain := determineIdentityDomainAndDomain()
 
 	g.Expect(domain).To(gomega.Equal("service.consul"))
 }
@@ -107,7 +107,7 @@ func TestPilotDefaultDomainOthers(t *testing.T) {
 	role.Domain = ""
 	registry = serviceregistry.MockRegistry
 
-	_, domain := determinePilotSanAndDomain("anything")
+	_, domain := determineIdentityDomainAndDomain()
 
 	g.Expect(domain).To(gomega.Equal(""))
 }
@@ -117,7 +117,7 @@ func TestPilotDomain(t *testing.T) {
 	role.Domain = "my.domain"
 	registry = serviceregistry.MockRegistry
 
-	_, domain := determinePilotSanAndDomain("anything")
+	_, domain := determineIdentityDomainAndDomain()
 
 	g.Expect(domain).To(gomega.Equal("my.domain"))
 }

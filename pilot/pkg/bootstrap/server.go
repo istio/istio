@@ -380,10 +380,10 @@ func (s *Server) initMesh(args *PilotArgs) error {
 // initMixerSan configures the mixerSAN configuration item. The mesh must already have been configured.
 func (s *Server) initMixerSan(args *PilotArgs) error {
 	if s.mesh == nil {
-		return fmt.Errorf("the mesh has not been configured before configuring mixer san")
+		return fmt.Errorf("the mesh has not been configured before configuring mixer spiffe")
 	}
 	if s.mesh.DefaultConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
-		s.mixerSAN = envoy.GetMixerSAN(args.Config.ControllerOptions.DomainSuffix, args.Namespace)
+		s.mixerSAN = []string{envoy.GetMixerSAN(args.Namespace)}
 	}
 	return nil
 }
@@ -394,7 +394,7 @@ func (s *Server) getKubeCfgFile(args *PilotArgs) string {
 
 // initKubeClient creates the k8s client if running in an k8s environment.
 func (s *Server) initKubeClient(args *PilotArgs) error {
-	if hasKubeRegistry(args) && args.Config.FileDir == "" {
+	if HasKubeRegistry(args) && args.Config.FileDir == "" {
 		client, kuberr := kubelib.CreateClientset(s.getKubeCfgFile(args), "")
 		if kuberr != nil {
 			return multierror.Prefix(kuberr, "failed to connect to Kubernetes API.")
@@ -551,7 +551,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 	})
 
 	// If running in ingress mode (requires k8s), wrap the config controller.
-	if hasKubeRegistry(args) && s.mesh.IngressControllerMode != meshconfig.MeshConfig_OFF {
+	if HasKubeRegistry(args) && s.mesh.IngressControllerMode != meshconfig.MeshConfig_OFF {
 		// Wrap the config controller with a cache.
 		configController, err := configaggregate.MakeCache([]model.ConfigStoreCache{
 			s.configController,
@@ -631,7 +631,7 @@ func (s *Server) createK8sServiceControllers(serviceControllers *aggregate.Contr
 // initMultiClusterController initializes multi cluster controller
 // currently implemented only for kubernetes registries
 func (s *Server) initMultiClusterController(args *PilotArgs) error {
-	if hasKubeRegistry(args) {
+	if HasKubeRegistry(args) {
 		s.addStartFunc(func(stop <-chan struct{}) error {
 			secretController := clusterregistry.NewController(s.kubeClient,
 				args.Config.ClusterRegistriesNamespace,
@@ -651,7 +651,7 @@ func (s *Server) initMultiClusterController(args *PilotArgs) error {
 	return nil
 }
 
-func hasKubeRegistry(args *PilotArgs) bool {
+func HasKubeRegistry(args *PilotArgs) bool {
 	for _, r := range args.Service.Registries {
 		if serviceregistry.ServiceRegistry(r) == serviceregistry.KubernetesRegistry {
 			return true

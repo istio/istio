@@ -17,6 +17,7 @@ package controller
 import (
 	"bytes"
 	"fmt"
+	"istio.io/istio/pkg/spiffe"
 	"reflect"
 	"strings"
 	"time"
@@ -48,9 +49,6 @@ const (
 	RootCertID = "root-cert.pem"
 	// The key to specify corresponding service account in the annotation of K8s secrets.
 	ServiceAccountNameAnnotationKey = "istio.io/service-account.name"
-
-	// The default SPIFFE URL value for identity domain
-	DefaultIdentityDomain = "cluster.local"
 
 	secretNamePrefix   = "istio."
 	secretResyncPeriod = time.Minute
@@ -111,7 +109,7 @@ type SecretController struct {
 }
 
 // NewSecretController returns a pointer to a newly constructed SecretController instance.
-func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration, identityDomain string,
+func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration,
 	gracePeriodRatio float32, minGracePeriod time.Duration, dualUse bool,
 	core corev1.CoreV1Interface, forCA bool, namespace string, dnsNames map[string]DNSNameEntry) (*SecretController, error) {
 
@@ -123,14 +121,9 @@ func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration, iden
 			gracePeriodRatio, recommendedMinGracePeriodRatio, recommendedMaxGracePeriodRatio)
 	}
 
-	if identityDomain == "" {
-		identityDomain = DefaultIdentityDomain
-	}
-
 	c := &SecretController{
 		ca:               ca,
 		certTTL:          certTTL,
-		identityDomain:   identityDomain,
 		gracePeriodRatio: gracePeriodRatio,
 		minGracePeriod:   minGracePeriod,
 		dualUse:          dualUse,
@@ -300,7 +293,7 @@ func (sc *SecretController) scrtDeleted(obj interface{}) {
 }
 
 func (sc *SecretController) generateKeyAndCert(saName string, saNamespace string) ([]byte, []byte, error) {
-	id := fmt.Sprintf("%s://%s/ns/%s/sa/%s", util.URIScheme, sc.identityDomain, saNamespace, saName)
+	id := spiffe.MustGenSpiffeURI(saNamespace, saName)
 	if sc.dnsNames != nil {
 		// Control plane components in same namespace.
 		if e, ok := sc.dnsNames[saName]; ok {

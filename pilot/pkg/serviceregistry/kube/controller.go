@@ -70,6 +70,7 @@ type ControllerOptions struct {
 	WatchedNamespace string
 	ResyncPeriod     time.Duration
 	DomainSuffix     string
+	IdentityDomain   string
 }
 
 // Controller is a collection of synchronized resource watchers
@@ -376,7 +377,7 @@ func (c *Controller) InstancesByPort(hostname model.Hostname, reqSvcPort int,
 					az, sa, uid := "", "", ""
 					if exists {
 						az, _ = c.GetPodAZ(pod)
-						sa = kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace(), c.domainSuffix)
+						sa = kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace())
 						uid = fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
 					}
 
@@ -466,7 +467,7 @@ func getEndpoints(addr []v1.EndpointAddress, proxyIP string, c *Controller,
 		az, sa := "", ""
 		if exists {
 			az, _ = c.GetPodAZ(pod)
-			sa = kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace(), c.domainSuffix)
+			sa = kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace())
 		}
 		out = append(out, &model.ServiceInstance{
 			Endpoint: model.NetworkEndpoint{

@@ -16,11 +16,13 @@ package kube
 
 import (
 	"fmt"
+	"os"
+	"istio.io/istio/pkg/spiffe"
 	"sort"
 	"strconv"
 	"strings"
 
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 	"k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -40,9 +42,6 @@ const (
 	// CanonicalServiceAccountsAnnotation is to specify the non-Kubernetes service accounts that
 	// are allowed to run this service.
 	CanonicalServiceAccountsAnnotation = "alpha.istio.io/canonical-serviceaccounts"
-
-	// istioURIPrefix is the URI prefix in the Istio service account scheme
-	istioURIPrefix = "spiffe"
 
 	managementPortPrefix = "mgmt-"
 )
@@ -96,7 +95,7 @@ func convertService(svc v1.Service, domainSuffix string) *model.Service {
 		}
 		if svc.Annotations[KubeServiceAccountsOnVMAnnotation] != "" {
 			for _, ksa := range strings.Split(svc.Annotations[KubeServiceAccountsOnVMAnnotation], ",") {
-				serviceaccounts = append(serviceaccounts, kubeToIstioServiceAccount(ksa, svc.Namespace, domainSuffix))
+				serviceaccounts = append(serviceaccounts, kubeToIstioServiceAccount(ksa, svc.Namespace))
 			}
 		}
 	}
@@ -123,9 +122,14 @@ func serviceHostname(name, namespace, domainSuffix string) model.Hostname {
 	return model.Hostname(fmt.Sprintf("%s.%s.svc.%s", name, namespace, domainSuffix))
 }
 
+// canonicalToIstioServiceAccount converts a Canonical service account to an Istio service account
+func canonicalToIstioServiceAccount(saname string) string {
+	return fmt.Sprintf("%v://%s/%v", spiffe.Scheme, spiffe.GetIdentityDomain(), saname)
+}
+
 // kubeToIstioServiceAccount converts a K8s service account to an Istio service account
-func kubeToIstioServiceAccount(saname string, ns string, domain string) string {
-	return fmt.Sprintf("%v://%v/ns/%v/sa/%v", istioURIPrefix, domain, ns, saname)
+func kubeToIstioServiceAccount(saname string, ns string) string {
+	return spiffe.MustGenSpiffeURI(ns, saname)
 }
 
 // KeyFunc is the internal API key function that returns "namespace"/"name" or

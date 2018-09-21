@@ -16,6 +16,7 @@ package platform
 
 import (
 	"fmt"
+	"istio.io/istio/pkg/spiffe"
 
 	"cloud.google.com/go/compute/metadata"
 	"golang.org/x/net/context"
@@ -24,7 +25,6 @@ import (
 
 	"istio.io/istio/pkg/log"
 	cred "istio.io/istio/security/pkg/credential"
-	"istio.io/istio/security/pkg/pki/util"
 )
 
 const (
@@ -95,7 +95,7 @@ func (ci *GcpClientImpl) GetServiceIdentity() (string, error) {
 		log.Errorf("Failed to get service account with error: %v", err)
 		return "", err
 	}
-	return util.GenSanURI("default", serviceAccount)
+	return spiffe.GenSpiffeURI("default", serviceAccount)
 }
 
 // GetAgentCredential returns the GCP JWT for the serivce account.

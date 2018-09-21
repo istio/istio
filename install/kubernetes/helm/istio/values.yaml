@@ -111,7 +111,10 @@ global:
   sdsEnabled: false
 
   # indicate the domain used in SPIFFE identity URL
-  identityDomain: cluster.local 
+  # The default depends on the environment.
+  #   kubernetes: cluster.local
+  #   else:  default dns domain
+  identityDomain:
 
   # disablePolicyChecks disables mixer policy checks.
   # Will set the value with same name in istio config map - pilot needs to be restarted to take effect.

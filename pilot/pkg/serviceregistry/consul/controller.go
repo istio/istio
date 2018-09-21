@@ -15,6 +15,7 @@
 package consul
 
 import (
+	"istio.io/istio/pkg/spiffe"
 	"time"
 
 	"github.com/hashicorp/consul/api"
@@ -203,6 +204,6 @@ func (c *Controller) GetIstioServiceAccounts(hostname model.Hostname, ports []in
 	// Follow - https://goo.gl/Dt11Ct
 
 	return []string{
-		"spiffe://cluster.local/ns/default/sa/default",
+		spiffe.MustGenSpiffeURI("default", "default"),
 	}
 }

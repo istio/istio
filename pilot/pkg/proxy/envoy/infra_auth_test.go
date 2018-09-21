@@ -15,6 +15,7 @@
 package envoy
 
 import (
+	"istio.io/istio/pkg/spiffe"
 	"strings"
 	"testing"
 )
@@ -25,21 +26,17 @@ const (
 )
 
 func TestGetMixerSAN(t *testing.T) {
-	mixerSANs := GetMixerSAN("cluster.local", "istio-system")
-	if len(mixerSANs) != 1 {
-		t.Errorf("unexpected length of pilot SAN %d", len(mixerSANs))
-	}
-	if strings.Compare(mixerSANs[0], expMixerSAN) != 0 {
+	spiffe.SetIdentityDomain("cluster.local")
+	mixerSANs := GetMixerSAN("istio-system")
+	if strings.Compare(mixerSANs, expMixerSAN) != 0 {
 		t.Errorf("GetMixerSAN() => expected %#v but got %#v", expMixerSAN, mixerSANs[0])
 	}
 }
 
 func TestGetPilotSAN(t *testing.T) {
-	pilotSANs := GetPilotSAN("cluster.local", "istio-system")
-	if len(pilotSANs) != 1 {
-		t.Errorf("unexpected length of pilot SAN %d", len(pilotSANs))
-	}
-	if strings.Compare(pilotSANs[0], expPilotSAN) != 0 {
+	spiffe.SetIdentityDomain("cluster.local")
+	pilotSANs := GetPilotSAN("istio-system")
+	if strings.Compare(pilotSANs, expPilotSAN) != 0 {
 		t.Errorf("GetPilotSAN() => expected %#v but got %#v", expPilotSAN, pilotSANs[0])
 	}
 }
