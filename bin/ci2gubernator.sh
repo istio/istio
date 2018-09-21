@@ -48,7 +48,7 @@ ARGS=(
 	"--pr_number=${CIRCLE_PR_NUMBER:-0}"
 )
 
-if [ -n "$CIRCLE_PULL_REQUEST" ]; then
+if [ -n "$CIRCLE_PR_NUMBER" ]; then
 	ARGS+=("--stage=presubmit")
 fi
 
