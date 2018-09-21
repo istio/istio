@@ -26,7 +26,7 @@ type Bag interface {
 	// Names returns the names of all the attributes known to this bag.
 	Names() []string
 
-	// Contains returns true if this bag contains the specified key
+	// Contains returns true if this bag contains the specified key.
 	Contains(key string) bool
 
 	// Done indicates the bag can be reclaimed.
