@@ -56,6 +56,14 @@ const (
 
 	// LocalhostAddress for local binding
 	LocalhostAddress = "127.0.0.1"
+
+	// EnvoyLogFormat format for envoy access logs
+	EnvoyLogFormat = "[%START_TIME%] \"%REQ(:METHOD)% %REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%" +
+		"%PROTOCOL%\" %RESPONSE_CODE% %RESPONSE_FLAGS% %BYTES_RECEIVED% %BYTES_SENT% " +
+		"%DURATION% %RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)% \"%REQ(X-FORWARDED-FOR)%\" " +
+		"\"%REQ(USER-AGENT)%\" \"%REQ(X-REQUEST-ID)%\" \"%REQ(:AUTHORITY)%\" \"%UPSTREAM_HOST%\" " +
+		"%UPSTREAM_CLUSTER% %UPSTREAM_LOCAL_ADDRESS% %DOWNSTREAM_LOCAL_ADDRESS% " +
+		"%DOWNSTREAM_REMOTE_ADDRESS% %REQUESTED_SERVER_NAME%\n"
 )
 
 var (
@@ -819,7 +827,8 @@ func buildHTTPConnectionManager(env *model.Environment, node *model.Proxy, httpO
 
 	if env.Mesh.AccessLogFile != "" {
 		fl := &fileaccesslog.FileAccessLog{
-			Path: env.Mesh.AccessLogFile,
+			Path:   env.Mesh.AccessLogFile,
+			Format: EnvoyLogFormat,
 		}
 
 		connectionManager.AccessLog = []*accesslog.AccessLog{
