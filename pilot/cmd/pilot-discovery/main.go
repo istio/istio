@@ -16,6 +16,7 @@ package main
 
 import (
 	"fmt"
+	"istio.io/istio/pkg/spiffe"
 	"os"
 	"time"
 
@@ -59,6 +60,9 @@ var (
 			if err := log.Configure(loggingOptions); err != nil {
 				return err
 			}
+
+			spiffe.SetTrustDomain(spiffe.DetermineTrustDomain(serverArgs.Config.ControllerOptions.TrustDomain,
+				serverArgs.Config.ControllerOptions.DomainSuffix, bootstrap.HasKubeRegistry(&serverArgs)))
 
 			// Create the stop channel for all of the servers.
 			stop := make(chan struct{})
@@ -121,6 +125,8 @@ func init() {
 		"Controller resync interval")
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.ControllerOptions.DomainSuffix, "domain", "cluster.local",
 		"DNS domain suffix")
+	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.ControllerOptions.TrustDomain, "trust-domain", "",
+		"The domain serves to identify the system with spiffe")
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Service.Consul.ServerURL, "consulserverURL", "",
 		"URL for the Consul server")
 	discoveryCmd.PersistentFlags().DurationVar(&serverArgs.Service.Consul.Interval, "consulserverInterval", 2*time.Second,
@@ -158,6 +164,7 @@ func init() {
 		Section: "pilot-discovery CLI",
 		Manual:  "Istio Pilot Discovery",
 	}))
+
 }
 
 func main() {

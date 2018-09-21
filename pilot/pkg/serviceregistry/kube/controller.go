@@ -26,7 +26,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/yl2chen/cidranger"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -81,6 +81,9 @@ type ControllerOptions struct {
 
 	// XDSUpdater will push changes to the xDS server.
 	XDSUpdater model.XDSUpdater
+
+	// TrustDomain used as SNA
+	TrustDomain string
 
 	stop chan struct{}
 }
@@ -450,7 +453,7 @@ func (c *Controller) InstancesByPort(hostname model.Hostname, reqSvcPort int,
 					az, sa, uid := "", "", ""
 					if pod != nil {
 						az = c.GetPodAZ(pod)
-						sa = kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace(), c.domainSuffix)
+						sa = kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace())
 						uid = fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
 					}
 
@@ -586,7 +589,7 @@ func getEndpoints(ip string, c *Controller, port v1.EndpointPort, svcPort *model
 	az, sa := "", ""
 	if pod != nil {
 		az = c.GetPodAZ(pod)
-		sa = kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace(), c.domainSuffix)
+		sa = kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace())
 	}
 	return &model.ServiceInstance{
 		Endpoint: model.NetworkEndpoint{
@@ -774,7 +777,7 @@ func (c *Controller) updateEDS(ep *v1.Endpoints) {
 					ServicePortName: port.Name,
 					Labels:          labels,
 					UID:             uid,
-					ServiceAccount:  kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace(), c.domainSuffix),
+					ServiceAccount:  kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace()),
 					Network:         c.endpointNetwork(ea.IP),
 				})
 			}

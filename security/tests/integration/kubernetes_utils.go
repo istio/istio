@@ -17,6 +17,7 @@ package integration
 import (
 	"crypto/x509"
 	"fmt"
+	"istio.io/istio/pkg/spiffe"
 	"time"
 
 	"k8s.io/api/core/v1"
@@ -348,7 +349,7 @@ func ExamineSecret(secret *v1.Secret) error {
 		}
 	}
 
-	expectedID, err := util.GenSanURI(secret.GetNamespace(), "default")
+	expectedID, err := spiffe.GenSpiffeURI(secret.GetNamespace(), "default")
 	if err != nil {
 		return err
 	}

@@ -24,6 +24,7 @@ package authz
 
 import (
 	"fmt"
+	"istio.io/istio/pkg/spiffe"
 	"sort"
 	"strings"
 
@@ -81,7 +82,7 @@ const (
 	methodHeader = ":method"
 	pathHeader   = ":path"
 
-	spiffePrefix = "spiffe://"
+	spiffePrefix = spiffe.Scheme + "://"
 )
 
 // serviceMetadata is a collection of different kind of information about a service.

@@ -50,11 +50,6 @@ const (
 	lightstepAccessTokenBase = "lightstep_access_token.txt"
 )
 
-var (
-	defaultPilotSan = []string{
-		"spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"}
-)
-
 func configFile(config string, epoch int) string {
 	return path.Join(config, fmt.Sprintf(EpochFileTemplate, epoch))
 }
@@ -219,7 +214,7 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 	opts["config"] = config
 
 	if pilotSAN == nil {
-		pilotSAN = defaultPilotSan
+		panic("pilotSAN should not be nil")
 	}
 	opts["pilot_SAN"] = pilotSAN
 

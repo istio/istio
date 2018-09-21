@@ -137,6 +137,7 @@ spec:
         - ""
         - -b
         - 80,90
+        - --identity-domain=cluster.local
         - -d
         - "15020"
         image: docker.io/istio/proxy_init:unittest

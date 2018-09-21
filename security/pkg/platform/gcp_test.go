@@ -17,6 +17,7 @@ package platform
 import (
 	"context"
 	"fmt"
+	"istio.io/istio/pkg/spiffe"
 	"reflect"
 	"testing"
 

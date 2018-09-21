@@ -19,6 +19,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io/ioutil"
+	"istio.io/istio/pkg/spiffe"
 	"os"
 
 	"google.golang.org/grpc"
@@ -91,7 +92,7 @@ func (ci *OnPremClientImpl) GetServiceIdentity() (string, error) {
 	}
 	if len(serviceIDs) != 1 {
 		for _, s := range serviceIDs {
-			if strings.HasPrefix(s, "spiffe://") {
+			if strings.HasPrefix(s, spiffe.Scheme+"://") {
 				return s, nil
 			}
 		}
