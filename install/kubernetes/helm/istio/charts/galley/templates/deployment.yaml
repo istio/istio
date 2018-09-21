@@ -17,6 +17,7 @@ spec:
     metadata:
       labels:
         istio: galley
+        {{- template "common_template_labels" . }}
       annotations:
         sidecar.istio.io/inject: "false"
         scheduler.alpha.kubernetes.io/critical-pod: ""
@@ -42,7 +43,11 @@ spec:
           - --livenessProbePath=/healthliveness
           - --readinessProbePath=/healthready
           - --readinessProbeInterval=1s
+{{- if $.Values.global.controlPlaneSecurityEnabled}}
+          - --insecure=false
+{{- else }}
           - --insecure=true
+{{- end }}
           - --validation-webhook-config-file
           - /etc/istio/config/validatingwebhookconfiguration.yaml
           volumeMounts:

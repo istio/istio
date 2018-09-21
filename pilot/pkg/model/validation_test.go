@@ -22,7 +22,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -1853,6 +1853,15 @@ func TestValidateVirtualService(t *testing.T) {
 				}},
 			}},
 		}, valid: true},
+		{name: "valid removeResponseHeaders", in: &networking.VirtualService{
+			Hosts: []string{"foo.bar"},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.DestinationWeight{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+				RemoveResponseHeaders: []string{"unwantedHeader", "secretStuff"},
+			}},
+		}, valid: true},
 	}
 
 	for _, tc := range testCases {
@@ -2156,6 +2165,72 @@ func TestValidateConnectionPool(t *testing.T) {
 	for _, c := range cases {
 		if got := validateConnectionPool(&c.in); (got == nil) != c.valid {
 			t.Errorf("ValidateConnectionSettings failed on %v: got valid=%v but wanted valid=%v: %v",
+				c.name, got == nil, c.valid, got)
+		}
+	}
+}
+
+func TestValidateLoadBalancer(t *testing.T) {
+	duration := time.Duration(time.Hour)
+	cases := []struct {
+		name  string
+		in    networking.LoadBalancerSettings
+		valid bool
+	}{
+		{name: "valid load balancer with simple load balancing", in: networking.LoadBalancerSettings{
+			LbPolicy: &networking.LoadBalancerSettings_Simple{
+				Simple: networking.LoadBalancerSettings_ROUND_ROBIN,
+			},
+		},
+			valid: true},
+
+		{name: "valid load balancer with consistentHash load balancing", in: networking.LoadBalancerSettings{
+			LbPolicy: &networking.LoadBalancerSettings_ConsistentHash{
+				ConsistentHash: &networking.LoadBalancerSettings_ConsistentHashLB{
+					MinimumRingSize: 1024,
+					HashKey: &networking.LoadBalancerSettings_ConsistentHashLB_HttpCookie{
+						HttpCookie: &networking.LoadBalancerSettings_ConsistentHashLB_HTTPCookie{
+							Name: "test",
+							Ttl:  &duration,
+						},
+					},
+				},
+			},
+		},
+			valid: true},
+
+		{name: "invalid load balancer with consistentHash load balancing, missing ttl", in: networking.LoadBalancerSettings{
+			LbPolicy: &networking.LoadBalancerSettings_ConsistentHash{
+				ConsistentHash: &networking.LoadBalancerSettings_ConsistentHashLB{
+					MinimumRingSize: 1024,
+					HashKey: &networking.LoadBalancerSettings_ConsistentHashLB_HttpCookie{
+						HttpCookie: &networking.LoadBalancerSettings_ConsistentHashLB_HTTPCookie{
+							Name: "test",
+						},
+					},
+				},
+			},
+		},
+			valid: false},
+
+		{name: "invalid load balancer with consistentHash load balancing, missing name", in: networking.LoadBalancerSettings{
+			LbPolicy: &networking.LoadBalancerSettings_ConsistentHash{
+				ConsistentHash: &networking.LoadBalancerSettings_ConsistentHashLB{
+					MinimumRingSize: 1024,
+					HashKey: &networking.LoadBalancerSettings_ConsistentHashLB_HttpCookie{
+						HttpCookie: &networking.LoadBalancerSettings_ConsistentHashLB_HTTPCookie{
+							Ttl: &duration,
+						},
+					},
+				},
+			},
+		},
+			valid: false},
+	}
+
+	for _, c := range cases {
+		if got := validateLoadBalancer(&c.in); (got == nil) != c.valid {
+			t.Errorf("validateLoadBalancer failed on %v: got valid=%v but wanted valid=%v: %v",
 				c.name, got == nil, c.valid, got)
 		}
 	}
@@ -3117,5 +3192,55 @@ func TestValidateRbacConfig(t *testing.T) {
 		} else if err.Error() != c.expectErrMsg {
 			t.Errorf("ValidateRbacConfig(%v): got %q but want %q\n", c.caseName, err.Error(), c.expectErrMsg)
 		}
+	}
+}
+
+func TestValidateMixerService(t *testing.T) {
+	cases := []struct {
+		name  string
+		in    *mccpb.IstioService
+		valid bool
+	}{
+		{
+			name: "no name and service",
+			in:   &mccpb.IstioService{},
+		},
+		{
+			name: "specify both name and service",
+			in:   &mccpb.IstioService{Service: "test-service-service", Name: "test-service-name"},
+		},
+		{
+			name: "specify both namespace and service",
+			in:   &mccpb.IstioService{Service: "test-service-service", Namespace: "test-service-namespace"},
+		},
+		{
+			name: "specify both domain and service",
+			in:   &mccpb.IstioService{Service: "test-service-service", Domain: "test-service-domain"},
+		},
+		{
+			name: "invalid name label",
+			in:   &mccpb.IstioService{Name: strings.Repeat("x", 64)},
+		},
+		{
+			name: "invalid namespace label",
+			in:   &mccpb.IstioService{Name: "test-service-name", Namespace: strings.Repeat("x", 64)},
+		},
+		{
+			name: "invalid domian or labels",
+			in:   &mccpb.IstioService{Name: "test-service-name", Domain: strings.Repeat("x", 256)},
+		},
+		{
+			name:  "valid",
+			in:    validService,
+			valid: true,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := ValidateMixerService(c.in); (got == nil) != c.valid {
+				t.Errorf("ValidateMixerService(%v): got(%v) != want(%v): %v", c.name, got == nil, c.valid, got)
+			}
+		})
 	}
 }

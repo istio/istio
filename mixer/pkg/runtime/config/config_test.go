@@ -21,13 +21,15 @@
 package config
 
 import (
+	"bytes"
 	"context"
-	"encoding/json"
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
 
 	"github.com/ghodss/yaml"
+	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/ptypes/wrappers"
@@ -58,41 +60,29 @@ func (d *dummyHandlerBuilder) Build(ctx context.Context, env adapter.Env) (adapt
 	return nil, nil
 }
 
-var tmpl1Instance, _ = yaml.YAMLToJSON([]byte(`
+var tmpl1InstanceParam = unmarshalTestData(`
 s1: source.name | "yoursrc"
-`))
-var tmpl1InstanceParam map[string]interface{}
-var _ = json.Unmarshal(tmpl1Instance, &tmpl1InstanceParam)
+`)
 
-var adpt1Bytes, _ = yaml.YAMLToJSON([]byte(`
+var adapter1Params = unmarshalTestData(`
 abc: "abcstring"
-`))
-var adapter1Params map[string]interface{}
-var _ = json.Unmarshal(adpt1Bytes, &adapter1Params)
+`)
 
-var adpt2Bytes, _ = yaml.YAMLToJSON([]byte(`
+var adapter2Params = unmarshalTestData(`
 pqr: "abcstring"
-`))
-var adapter2Params map[string]interface{}
-var _ = json.Unmarshal(adpt2Bytes, &adapter2Params)
+`)
 
-var invalidBytes, _ = yaml.YAMLToJSON([]byte(`
+var invalidHandlerParams = unmarshalTestData(`
 fildNotFound: "abcstring"
-`))
-var invalidHandlerParams map[string]interface{}
-var _ = json.Unmarshal(invalidBytes, &invalidHandlerParams)
+`)
 
-var tmpl2Instance, _ = yaml.YAMLToJSON([]byte(`
+var tmpl2InstanceParam = unmarshalTestData(`
 s2: source.name | "yoursrc"
-`))
-var tmpl2InstanceParam map[string]interface{}
-var _ = json.Unmarshal(tmpl2Instance, &tmpl2InstanceParam)
+`)
 
-var badInstance, _ = yaml.YAMLToJSON([]byte(`
+var badInstanceParamIn = unmarshalTestData(`
 badFld: "s1stringVal"
-`))
-var badInstanceParamIn map[string]interface{}
-var _ = json.Unmarshal(badInstance, &badInstanceParamIn)
+`)
 
 var validCfg = []*store.Event{
 	updateEvent("attributes.attributemanifest.ns", &configpb.AttributeManifest{
@@ -2449,7 +2439,11 @@ Attributes:
 			Config:       adpt1DescBase64,
 		}), updateEvent("h1.handler.default", &descriptorpb.Handler{
 			Adapter: "a1.default",
-			Params:  "string instead of map[string]interface{}",
+			Params: &types.Struct{
+				Fields: map[string]*types.Value{
+					"foo": nil,
+				},
+			},
 		})},
 		E: `
 ID: 0
@@ -2470,7 +2464,7 @@ AdaptersDynamic:
 Attributes:
   template.attr: BOOL
 `,
-		wantErr: "handler='h1.handler.default'.params: invalid params block. It must be of type map[string]interface{}",
+		wantErr: "handler='h1.handler.default'.params: error converting parameters to dictionary: error serializing struct value: nil",
 	},
 	{
 		Name: "add handler - bad adapter",
@@ -2812,7 +2806,11 @@ Attributes:
 			}),
 			updateEvent("i1.instance.default", &descriptorpb.Instance{
 				Template: "t1.default",
-				Params:   "string instead of a map[string]interface{}",
+				Params: &types.Struct{
+					Fields: map[string]*types.Value{
+						"foo": nil,
+					},
+				},
 			}),
 		},
 		E: `
@@ -2836,7 +2834,7 @@ Attributes:
   source.name: STRING
   template.attr: BOOL
 `,
-		wantErr: "instance='i1.instance.default'.params: invalid params block. It must be of type map[string]interface{}",
+		wantErr: "instance='i1.instance.default'.params: invalid params block.",
 	},
 	{
 		Name: "add instance - bad template reference",
@@ -4170,4 +4168,19 @@ func updateEvent(keystr string, spec proto.Message) *store.Event {
 func deleteEvent(keystr string) *store.Event {
 	keySegments := strings.Split(keystr, ".")
 	return &store.Event{Type: store.Delete, Key: store.Key{Name: keySegments[0], Kind: keySegments[1], Namespace: keySegments[2]}}
+}
+
+func unmarshalTestData(data string) *types.Struct {
+	jsonData, err := yaml.YAMLToJSON([]byte(data))
+	if err != nil {
+		panic(fmt.Errorf("unmarshalTestData: YAMLToJSON error: %v", err))
+	}
+
+	result := &types.Struct{}
+
+	if err = jsonpb.Unmarshal(bytes.NewReader(jsonData), result); err != nil {
+		panic(fmt.Errorf("unmarshalTestData: json.Unmarshal error: %v", err))
+	}
+
+	return result
 }

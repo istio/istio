@@ -18,6 +18,7 @@ package version
 import (
 	"fmt"
 	"runtime"
+	"strings"
 )
 
 // The following fields are populated at build time using -ldflags -X.
@@ -42,6 +43,53 @@ type BuildInfo struct {
 	BuildStatus   string `json:"status"`
 }
 
+// ServerInfo contains the version for a single control plane component
+type ServerInfo struct {
+	Component string
+	Info      BuildInfo
+}
+
+// MeshInfo contains the versions for all Istio control plane components
+type MeshInfo []ServerInfo
+
+// NewBuildInfoFromOldString creates a BuildInfo struct based on the output
+// of previous Istio components '-- version' output
+func NewBuildInfoFromOldString(oldOutput string) (BuildInfo, error) {
+	res := BuildInfo{}
+
+	lines := strings.Split(oldOutput, "\n")
+	for _, line := range lines {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		fields := strings.SplitN(line, ":", 2)
+		if fields != nil {
+			if len(fields) != 2 {
+				return BuildInfo{}, fmt.Errorf("invalid BuildInfo input, field '%s' is not valid", fields[0])
+			}
+			value := strings.TrimSpace(fields[1])
+			switch fields[0] {
+			case "Version":
+				res.Version = value
+			case "GitRevision":
+				res.GitRevision = value
+			case "User":
+				res.User = value
+			case "Hub":
+				res.DockerHub = value
+			case "GolangVersion":
+				res.GolangVersion = value
+			case "BuildStatus":
+				res.BuildStatus = value
+			default:
+				return BuildInfo{}, fmt.Errorf("invalid BuildInfo input, field '%s' is not valid", fields[0])
+			}
+		}
+	}
+
+	return res, nil
+}
+
 var (
 	// Info exports the build version information.
 	Info BuildInfo
@@ -64,33 +112,11 @@ func (b BuildInfo) String() string {
 		b.BuildStatus)
 }
 
-// LongForm returns a multi-line version information
-//
+// LongForm returns a dump of the Info struct
 // This looks like:
 //
-// ```
-// Version: <version>
-// GitRevision: <git revision>
-// User: user@host
-// Hub: <docker hub>
-// GolangVersion: go1.9.2
-// BuildStatus: <build status>
-// ```
 func (b BuildInfo) LongForm() string {
-	return fmt.Sprintf(`Version: %v
-GitRevision: %v
-User: %v@%v
-Hub: %v
-GolangVersion: %v
-BuildStatus: %v
-`,
-		b.Version,
-		b.GitRevision,
-		b.User,
-		b.Host,
-		b.DockerHub,
-		b.GolangVersion,
-		b.BuildStatus)
+	return fmt.Sprintf("%#v", b)
 }
 
 func init() {

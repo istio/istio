@@ -120,9 +120,9 @@ static_resources:
 // Report attributes from a good GET request
 const reportAttributesOkGet = `
 {
-  "destination.uid": "pod1.ns2",
   "context.protocol": "http",
   "context.proxy_error_code": "-",
+  "context.reporter.uid": "",
   "mesh1.ip": "[1 1 1 1]",
   "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
   "request.host": "*",
@@ -134,6 +134,8 @@ const reportAttributesOkGet = `
   "request.url_path": "/echo",
   "destination.ip": "[127 0 0 1]",
   "destination.port": "*",
+  "destination.uid": "pod1.ns2",
+  "destination.namespace": "",
   "target.name": "target-name",
   "target.user": "target-user",
   "target.uid": "POD222",

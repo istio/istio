@@ -154,15 +154,13 @@ func (s *Server) newConnection(stream mcp.AggregatedMeshConfigService_StreamAggr
 		authInfo = peerInfo.AuthInfo
 	}
 
-	if s.authCheck != nil {
-		if err := s.authCheck.Check(authInfo); err != nil {
-			s.failureCountSinceLastRecord++
-			if s.checkFailureRecordLimiter.Allow() {
-				log.Warnf("NewConnection: auth check failed: %v (repeated %d times).", err, s.failureCountSinceLastRecord)
-				s.failureCountSinceLastRecord = 0
-			}
-			return nil, status.Errorf(codes.Unauthenticated, "Authentication failure: %v", err)
+	if err := s.authCheck.Check(authInfo); err != nil {
+		s.failureCountSinceLastRecord++
+		if s.checkFailureRecordLimiter.Allow() {
+			log.Warnf("NewConnection: auth check failed: %v (repeated %d times).", err, s.failureCountSinceLastRecord)
+			s.failureCountSinceLastRecord = 0
 		}
+		return nil, status.Errorf(codes.Unauthenticated, "Authentication failure: %v", err)
 	}
 
 	con := &connection{
@@ -291,8 +289,8 @@ func (con *connection) processClientRequest(req *mcp.MeshConfigRequest) error {
 		if watch.nonce == "" {
 			scope.Debugf("MCP: connection %v: WATCH for %v", con, req.TypeUrl)
 		} else {
-			scope.Debugf("MCP: connection %v ACK version=%q with nonce=%q",
-				con, req.VersionInfo, req.ResponseNonce)
+			scope.Debugf("MCP: connection %v ACK type_url=%q version=%q with nonce=%q",
+				con, req.TypeUrl, req.VersionInfo, req.ResponseNonce)
 		}
 
 		if watch.cancel != nil {

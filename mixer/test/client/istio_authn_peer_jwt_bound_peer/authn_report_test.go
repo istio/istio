@@ -49,6 +49,7 @@ const secIstioAuthUserinfoHeaderValue = `{"aud":"aud1","exp":20000000000,` +
 var checkAttributesOkGet = `
 {
   "context.protocol": "http",
+  "context.reporter.uid": "",
   "mesh1.ip": "[1 1 1 1]",
   "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
   "mesh3.ip": "[0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 8]",
@@ -62,6 +63,8 @@ var checkAttributesOkGet = `
   "source.namespace": "XYZ11",
   "source.principal": "issuer@foo.com/sub@foo.com",
   "source.user": "issuer@foo.com/sub@foo.com",
+  "destination.uid": "",
+  "destination.namespace": "",
   "target.name": "target-name",
   "target.user": "target-user",
   "target.uid": "POD222",
@@ -94,6 +97,7 @@ var reportAttributesOkGet = `
 {
   "context.protocol": "http",
   "context.proxy_error_code": "-",
+  "context.reporter.uid": "",
   "mesh1.ip": "[1 1 1 1]",
   "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
   "mesh3.ip": "[0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 8]",
@@ -109,6 +113,8 @@ var reportAttributesOkGet = `
   "source.user": "issuer@foo.com/sub@foo.com",
   "destination.ip": "[127 0 0 1]",
   "destination.port": "*",
+  "destination.uid": "",
+  "destination.namespace": "",
   "target.name": "target-name",
   "target.user": "target-user",
   "target.uid": "POD222",

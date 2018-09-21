@@ -77,6 +77,9 @@ type Settings struct {
 	// in a test, and the previous one gets deleted. This ensures that during a single test run, there is only
 	// one test namespace in the system.
 	TestNamespace string
+
+	// Indicates that the test should deploy Istio into the target Kubernetes cluster before running tests.
+	DeployIstio bool
 }
 
 func (s *Settings) validate() error {
@@ -88,4 +91,18 @@ func (s *Settings) validate() error {
 	}
 
 	return nil
+}
+
+func (s *Settings) String() string {
+	result := ""
+
+	result += fmt.Sprintf("KubeConfig:           %s\n", s.KubeConfig)
+	result += fmt.Sprintf("Hub:                  %s\n", s.Hub)
+	result += fmt.Sprintf("Tag:                  %s\n", s.Tag)
+	result += fmt.Sprintf("IstioSystemNamespace: %s\n", s.IstioSystemNamespace)
+	result += fmt.Sprintf("DependencyNamespace:  %s\n", s.DependencyNamespace)
+	result += fmt.Sprintf("TestNamespace:        %s\n", s.TestNamespace)
+	result += fmt.Sprintf("DeployIstio:          %v\n", s.DeployIstio)
+
+	return result
 }

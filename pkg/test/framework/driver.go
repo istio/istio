@@ -17,11 +17,11 @@ package framework
 import (
 	"flag"
 	"fmt"
+	"io"
 	"sync"
 	"testing"
 
 	"istio.io/istio/pkg/log"
-
 	"istio.io/istio/pkg/test/framework/components"
 	"istio.io/istio/pkg/test/framework/components/registry"
 	"istio.io/istio/pkg/test/framework/dependency"
@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pkg/test/framework/environments/kubernetes"
 	"istio.io/istio/pkg/test/framework/environments/local"
 	"istio.io/istio/pkg/test/framework/internal"
+	"istio.io/istio/pkg/test/framework/scopes"
 	"istio.io/istio/pkg/test/framework/settings"
 )
 
@@ -46,11 +47,6 @@ const (
 
 	// the driver has completed running tests.
 	completed
-)
-
-var (
-	// TODO(nmittler): Add logging options to flags.
-	logOptions = log.DefaultOptions()
 )
 
 type driver struct {
@@ -85,9 +81,9 @@ func (d *driver) Run(testID string, m *testing.M) (int, error) {
 	}
 
 	// Call m.Run() while not holding the lock.
-	lab.Infof(">>> Beginning test run for: '%s'", testID)
+	scopes.CI.Infof("=== BEGIN: test run: '%s' ===", testID)
 	rt = m.Run()
-	lab.Infof("<<< Completing test run for: '%s'", testID)
+	scopes.CI.Infof("=== DONE: test run: '%s' ===", testID)
 
 	d.lock.Lock()
 	defer d.lock.Unlock()
@@ -95,6 +91,12 @@ func (d *driver) Run(testID string, m *testing.M) (int, error) {
 
 	if !d.context.Settings().NoCleanup {
 		d.context.Tracker.Cleanup()
+		if closer, ok := d.context.Environment().(io.Closer); ok {
+			err := closer.Close()
+			if err != nil {
+				scopes.Framework.Warnf("Error during environment close: %v", err)
+			}
+		}
 	}
 
 	return rt, nil
@@ -103,7 +105,7 @@ func (d *driver) Run(testID string, m *testing.M) (int, error) {
 // AcquireEnvironment implementation
 func (d *driver) AcquireEnvironment(t testing.TB) env.Environment {
 	t.Helper()
-	scope.Debugf("Enter: driver.AcquireEnvironment (%s)", d.context.Settings().TestID)
+	scopes.Framework.Debugf("Enter: driver.AcquireEnvironment (%s)", d.context.Settings().TestID)
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
@@ -145,7 +147,6 @@ func (d *driver) SuiteRequires(dependencies []dependency.Instance) error {
 // Requires implements same-named Driver method.
 func (d *driver) Requires(t testing.TB, dependencies []dependency.Instance) {
 	t.Helper()
-	scope.Debugf("Enter: driver.Requires (%s)", d.context.Settings().TestID)
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
@@ -172,7 +173,7 @@ func (d *driver) Requires(t testing.TB, dependencies []dependency.Instance) {
 				t.Skipf("unable to locate dependency '%v' in environment %s", dep, envID)
 			}
 			if _, err := d.context.Tracker.Initialize(d.context, c); err != nil {
-				scope.Errorf("Failed to initialize dependency '%s': %v", dep, err)
+				scopes.Framework.Errorf("Failed to initialize dependency '%s': %v", dep, err)
 				t.Fatalf("unable to satisfy dependency '%v': %v", dep, err)
 			}
 		}
@@ -189,16 +190,17 @@ func (d *driver) initialize(testID string) (int, error) {
 
 	// Parse flags and init logging.
 	flag.Parse()
-	if err := log.Configure(logOptions); err != nil {
-		return -1, err
-	}
 
 	// Initialize settings
 	s, err := settings.New(testID)
 	if err != nil {
 		return -1, err
 	}
-	scope.Debugf("driver settings: %+v", s)
+	scopes.CI.Infof("Test Framework driver settings:\n%s", s)
+
+	if err := log.Configure(s.LogOptions); err != nil {
+		return -1, err
+	}
 
 	// Initialize the environment.
 	var impl internal.EnvironmentController
@@ -229,7 +231,7 @@ func (d *driver) initialize(testID string) (int, error) {
 			return -3, fmt.Errorf("dependency %s not available for environment %s", dep, impl.EnvironmentID())
 		}
 		if _, err := d.context.Tracker.Initialize(d.context, c); err != nil {
-			scope.Errorf("driver.Run: Dependency error '%s': %v", dep, err)
+			scopes.Framework.Errorf("driver.Run: Dependency error '%s': %v", dep, err)
 			return -3, err
 		}
 	}

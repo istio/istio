@@ -275,8 +275,8 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 
 	// check that elements are stored
 	for i, elt := range elts {
-		v1, ok := r.Get(model.MockConfig.Type, elt.Name, elt.Namespace)
-		if !ok || !Compare(elt, *v1) {
+		v1 := r.Get(model.MockConfig.Type, elt.Name, elt.Namespace)
+		if v1 == nil || !Compare(elt, *v1) {
 			t.Errorf("wanted %v, got %v", elt, v1)
 		} else {
 			revs[i] = v1.ResourceVersion
@@ -344,12 +344,12 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 	}
 
 	// check for missing element
-	if _, ok := r.Get(model.MockConfig.Type, "missing", ""); ok {
+	if config := r.Get(model.MockConfig.Type, "missing", ""); config != nil {
 		t.Error("unexpected configuration object found")
 	}
 
 	// check for missing element
-	if _, ok := r.Get("missing", "missing", ""); ok {
+	if config := r.Get("missing", "missing", ""); config != nil {
 		t.Error("unexpected configuration object found")
 	}
 
@@ -388,8 +388,8 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 
 	// check that elements are stored
 	for i, elt := range elts {
-		v1, ok := r.Get(model.MockConfig.Type, elts[i].Name, elts[i].Namespace)
-		if !ok || !Compare(elt, *v1) {
+		v1 := r.Get(model.MockConfig.Type, elts[i].Name, elts[i].Namespace)
+		if v1 == nil || !Compare(elt, *v1) {
 			t.Errorf("wanted %v, got %v", elt, v1)
 		}
 	}
@@ -501,14 +501,14 @@ func CheckCacheFreshness(cache model.ConfigStoreCache, namespace string, t *test
 	// validate cache consistency
 	cache.RegisterEventHandler(model.MockConfig.Type, func(config model.Config, ev model.Event) {
 		elts, _ := cache.List(model.MockConfig.Type, namespace)
-		elt, exists := cache.Get(o.Type, o.Name, o.Namespace)
+		elt := cache.Get(o.Type, o.Name, o.Namespace)
 		switch ev {
 		case model.EventAdd:
 			if len(elts) != 1 {
 				t.Errorf("Got %#v, expected %d element(s) on Add event", elts, 1)
 			}
-			if !exists || elt == nil || !reflect.DeepEqual(elt.Spec, o.Spec) {
-				t.Errorf("Got %#v, %t, expected %#v", elt, exists, o)
+			if elt == nil || !reflect.DeepEqual(elt.Spec, o.Spec) {
+				t.Errorf("Got %#v, expected %#v", elt, o)
 			}
 
 			log.Infof("Calling Update(%s)", config.Key())
@@ -521,8 +521,8 @@ func CheckCacheFreshness(cache model.ConfigStoreCache, namespace string, t *test
 			if len(elts) != 1 {
 				t.Errorf("Got %#v, expected %d element(s) on Update event", elts, 1)
 			}
-			if !exists || elt == nil {
-				t.Errorf("Got %#v, %t, expected nonempty", elt, exists)
+			if elt == nil {
+				t.Errorf("Got %#v, expected nonempty", elt)
 			}
 
 			log.Infof("Calling Delete(%s)", config.Key())
@@ -533,7 +533,7 @@ func CheckCacheFreshness(cache model.ConfigStoreCache, namespace string, t *test
 			if len(elts) != 0 {
 				t.Errorf("Got %#v, expected zero elements on Delete event", elts)
 			}
-			log.Infof("Stopping channel for (%#v)", config.Key)
+			log.Infof("Stopping channel for (%#v)", config.Key())
 			close(stop)
 			done <- true
 		}
@@ -542,7 +542,7 @@ func CheckCacheFreshness(cache model.ConfigStoreCache, namespace string, t *test
 	go cache.Run(stop)
 
 	// try warm-up with empty Get
-	if _, exists := cache.Get("unknown", "example", namespace); exists {
+	if config := cache.Get("unknown", "example", namespace); config != nil {
 		t.Error("unexpected result for unknown type")
 	}
 

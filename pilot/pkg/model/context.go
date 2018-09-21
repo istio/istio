@@ -246,7 +246,6 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 		AccessLogFile:         "/dev/stdout",
 		DefaultConfig:         &config,
 		SdsUdsPath:            "",
-		SdsRefreshDelay:       types.DurationProto(15 * time.Second),
 	}
 }
 

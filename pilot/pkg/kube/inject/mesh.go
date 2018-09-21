@@ -36,7 +36,6 @@ const (
 [[- $readinessPeriodValue           := (annotation .ObjectMeta $readinessPeriodKey "{{ .ReadinessPeriodSeconds }}") ]]
 [[- $readinessFailureThresholdValue := (annotation .ObjectMeta $readinessFailureThresholdKey {{ .ReadinessFailureThreshold }}) -]]
 [[- $readinessApplicationPortsValue := (annotation .ObjectMeta $readinessApplicationPortsKey (applicationPorts .Spec.Containers)) -]]
-annotations:
 initContainers:
 - name: istio-init
   image: {{ .InitImage }}
@@ -67,8 +66,7 @@ initContainers:
     {{ if eq .DebugMode true -}}
     privileged: true
     {{ end -}}
-  restartPolicy: Always
-{{ if eq .EnableCoreDump true -}}
+{{- if eq .EnableCoreDump true }}
 - args:
   - -c
   - sysctl -w kernel.core_pattern=/var/lib/istio/core.proxy && ulimit -c unlimited
@@ -80,7 +78,7 @@ initContainers:
   resources: {}
   securityContext:
     privileged: true
-{{ end -}}
+{{- end }}
 containers:
 - name: istio-proxy
   image: [[ annotation .ObjectMeta $proxyImageKey "{{ .ProxyImage }}" ]] 
@@ -174,8 +172,7 @@ containers:
     {{ end -}}
     [[ if ne (annotation .ObjectMeta $interceptionModeKey .ProxyConfig.InterceptionMode) "TPROXY" -]]
     runAsUser: 1337
-    [[ end -]]
-  restartPolicy: Always
+    [[- end ]]
   volumeMounts:
   - mountPath: /etc/istio/proxy
     name: istio-envoy

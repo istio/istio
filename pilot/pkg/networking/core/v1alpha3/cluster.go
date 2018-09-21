@@ -48,22 +48,13 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 	clusters := make([]*v2.Cluster, 0)
 
 	recomputeOutboundClusters := true
-
-	switch proxy.Type {
-	case model.Sidecar:
-		if configgen.OutboundClustersForSidecars != nil {
-			clusters = append(clusters, configgen.OutboundClustersForSidecars...)
-			recomputeOutboundClusters = false
-		}
-	case model.Router:
-		if configgen.OutboundClustersForGateways != nil {
-			clusters = append(clusters, configgen.OutboundClustersForGateways...)
-			recomputeOutboundClusters = false
-		}
+	if configgen.OutboundClusters != nil {
+		clusters = append(clusters, configgen.OutboundClusters...)
+		recomputeOutboundClusters = false
 	}
 
 	if recomputeOutboundClusters {
-		clusters = append(clusters, configgen.buildOutboundClusters(env, proxy.Type, push)...)
+		clusters = append(clusters, configgen.buildOutboundClusters(env, push)...)
 	}
 
 	if proxy.Type == model.Sidecar {
@@ -101,7 +92,7 @@ func normalizeClusters(push *model.PushContext, proxy *model.Proxy, clusters []*
 	return out
 }
 
-func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environment, proxyType model.NodeType, push *model.PushContext) []*v2.Cluster {
+func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environment, push *model.PushContext) []*v2.Cluster {
 	clusters := make([]*v2.Cluster, 0)
 	for _, service := range push.Services {
 		config := push.DestinationRule(service.Hostname)
@@ -122,7 +113,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 
 			if config != nil {
 				destinationRule := config.Spec.(*networking.DestinationRule)
-				convertIstioMutual(destinationRule, service, upstreamServiceAccounts)
+				convertIstioMutual(destinationRule, upstreamServiceAccounts)
 				applyTrafficPolicy(defaultCluster, destinationRule.TrafficPolicy, port)
 
 				for _, subset := range destinationRule.Subsets {
@@ -241,19 +232,13 @@ func convertResolution(resolution model.Resolution) v2.Cluster_DiscoveryType {
 }
 
 // convertIstioMutual fills key cert fields for all TLSSettings when the mode is `ISTIO_MUTUAL`.
-func convertIstioMutual(destinationRule *networking.DestinationRule, service *model.Service, upstreamServiceAccount []string) {
+func convertIstioMutual(destinationRule *networking.DestinationRule, upstreamServiceAccount []string) {
 	converter := func(tls *networking.TLSSettings) {
 		if tls == nil {
 			return
 		}
 		if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
-			// Allow user specified SNIs in the istio mtls settings - which is useful
-			// for routing via gateways. If there is no SNI, set the SNI as the service Hostname
-			sni := tls.Sni
-			if len(sni) == 0 {
-				sni = string(service.Hostname)
-			}
-			*tls = *buildIstioMutualTLS(upstreamServiceAccount, sni)
+			*tls = *buildIstioMutualTLS(upstreamServiceAccount, tls.Sni)
 		}
 	}
 
@@ -281,7 +266,9 @@ func buildIstioMutualTLS(upstreamServiceAccount []string, sni string) *networkin
 		ClientCertificate: path.Join(model.AuthCertsPath, model.CertChainFilename),
 		PrivateKey:        path.Join(model.AuthCertsPath, model.KeyFilename),
 		SubjectAltNames:   upstreamServiceAccount,
-		Sni:               sni,
+		// Allow user specified SNIs in the istio mtls settings - which is useful
+		// for routing via gateways
+		Sni: sni,
 	}
 }
 
@@ -499,6 +486,10 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) 
 			Sni: tls.Sni,
 		}
 
+		// Set default SNI of cluster name for istio_mutual if sni is not set.
+		if len(tls.Sni) == 0 && tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
+			cluster.TlsContext.Sni = cluster.Name
+		}
 		if cluster.Http2ProtocolOptions != nil {
 			// This is HTTP/2 in-mesh cluster, advertise it with ALPN.
 			if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {

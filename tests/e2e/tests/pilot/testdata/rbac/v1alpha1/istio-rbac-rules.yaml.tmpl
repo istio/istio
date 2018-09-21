@@ -122,11 +122,12 @@ spec:
     name: "access-c-tcp"
 ---
 
-# For service d, allow any pod in the same namespace to access it with GET at any paths.
+# For service d, allow any pod in the same namespace to access it with GET at any paths or access it
+# at port 9090.
 apiVersion: "rbac.istio.io/v1alpha1"
 kind: ServiceRole
 metadata:
-  name: access-d-http
+  name: access-d-http-tcp
 spec:
   rules:
   - services: ["d.{{ .Namespace }}.svc.cluster.local"]
@@ -134,27 +135,6 @@ spec:
     constraints:
     - key: "destination.labels[app]"
       values: ["d"]
----
-apiVersion: "rbac.istio.io/v1alpha1"
-kind: ServiceRoleBinding
-metadata:
-  name: bind-access-d-http
-spec:
-  subjects:
-  - properties:
-      source.namespace: "{{ .Namespace }}"
-  roleRef:
-    kind: ServiceRole
-    name: "access-d-http"
----
-# For service d, allow any pod to access it at tcp port 9090.
-# TODO(yangminzhu): Update to also use source.namespace once supported.
-apiVersion: "rbac.istio.io/v1alpha1"
-kind: ServiceRole
-metadata:
-  name: access-d-tcp
-spec:
-  rules:
   - services: ["d.{{ .Namespace }}.svc.cluster.local"]
     constraints:
     - key: "destination.labels[app]"
@@ -165,11 +145,12 @@ spec:
 apiVersion: "rbac.istio.io/v1alpha1"
 kind: ServiceRoleBinding
 metadata:
-  name: bind-access-d-tcp
+  name: bind-access-d-http-tcp
 spec:
   subjects:
-  - user: "*"
+  - properties:
+      source.namespace: "{{ .Namespace }}"
   roleRef:
     kind: ServiceRole
-    name: "access-d-tcp"
+    name: "access-d-http-tcp"
 ---

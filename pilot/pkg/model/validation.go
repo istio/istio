@@ -27,7 +27,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -613,7 +613,19 @@ func validateLoadBalancer(settings *networking.LoadBalancerSettings) (errs error
 	}
 
 	// simple load balancing is always valid
-	// TODO: settings.GetConsistentHash()
+
+	consistentHash := settings.GetConsistentHash()
+	if consistentHash != nil {
+		httpCookie := consistentHash.GetHttpCookie()
+		if httpCookie != nil {
+			if httpCookie.Name == "" {
+				errs = appendErrors(errs, fmt.Errorf("name required for HttpCookie"))
+			}
+			if httpCookie.Ttl == nil {
+				errs = appendErrors(errs, fmt.Errorf("ttl required for HttpCookie"))
+			}
+		}
+	}
 
 	return
 }
@@ -818,10 +830,6 @@ func ValidateMeshConfig(mesh *meshconfig.MeshConfig) (errs error) {
 
 	if err := ValidateRefreshDelay(mesh.RdsRefreshDelay); err != nil {
 		errs = multierror.Append(errs, multierror.Prefix(err, "invalid rds refresh delay:"))
-	}
-
-	if err := ValidateRefreshDelay(mesh.SdsRefreshDelay); err != nil {
-		errs = multierror.Append(errs, multierror.Prefix(err, "invalid sds refresh delay:"))
 	}
 
 	if mesh.DefaultConfig == nil {
@@ -1460,6 +1468,9 @@ func validateHTTPRoute(http *networking.HTTPRoute) (errs error) {
 	}
 
 	for name := range http.AppendHeaders {
+		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+	}
+	for _, name := range http.RemoveResponseHeaders {
 		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
 	}
 	errs = appendErrors(errs, validateCORSPolicy(http.CorsPolicy))

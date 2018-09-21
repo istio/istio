@@ -86,13 +86,19 @@ Q = $(if $(filter 1,$VERBOSE),,@)
 H = $(shell printf "\033[34;1m=>\033[0m")
 
 # To build Pilot, Mixer and CA with debugger information, use DEBUG=1 when invoking make
+goVerStr := $(shell $(GO) version | awk '{split($$0,a," ")}; {print a[3]}')
+goVerNum := $(shell echo $(goVerStr) | awk '{split($$0,a,"go")}; {print a[2]}')
+goVerMajor := $(shell echo $(goVerNum) | awk '{split($$0, a, ".")}; {print a[1]}')
+goVerMinor := $(shell echo $(goVerNum) | awk '{split($$0, a, ".")}; {print a[2]}')
+gcflagsPattern := $(shell ( [ $(goVerMajor) -ge 1 ] && [ ${goVerMinor} -ge 10 ] ) && echo 'all=' || echo '')
+
 ifeq ($(origin DEBUG), undefined)
 BUILDTYPE_DIR:=release
 else ifeq ($(DEBUG),0)
 BUILDTYPE_DIR:=release
 else
 BUILDTYPE_DIR:=debug
-export GCFLAGS:=-N -l
+export GCFLAGS:=$(gcflagsPattern)-N -l
 $(info $(H) Build with debugger information)
 endif
 
@@ -218,11 +224,11 @@ check-tree:
 
 # Downloads envoy, based on the SHA defined in the base pilot Dockerfile
 init: check-tree check-go-version $(ISTIO_OUT)/istio_is_init
+	mkdir -p ${OUT_DIR}/logs
 
 # Sync target will pull from master and sync the modules. It is the first step of the
 # circleCI build, developers should call it periodically.
 sync: init git.pullmaster
-	mkdir -p ${OUT_DIR}/logs
 
 # Merge master. To be used in CI or by developers, assumes the
 # remote is called 'origin' (git default). Will fail on conflicts
@@ -243,7 +249,7 @@ ${ISTIO_OUT}/envoy: init
 ${ISTIO_ENVOY_DEBUG_PATH}: init
 ${ISTIO_ENVOY_RELEASE_PATH}: init
 
-# Pull depdendencies, based on the checked in Gopkg.lock file.
+# Pull dependencies, based on the checked in Gopkg.lock file.
 # Developers must manually run `dep ensure` if adding new deps
 depend: init | $(ISTIO_OUT)
 
@@ -422,6 +428,7 @@ endif
 test: | $(JUNIT_REPORT)
 	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
 	set -o pipefail; \
+	KUBECONFIG="$${KUBECONFIG:-$${GO_TOP}/src/istio.io/istio/.circleci/config}" \
 	$(MAKE) --keep-going $(TEST_OBJ) \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
 
@@ -484,6 +491,10 @@ common-test:
 .PHONY: selected-pkg-test
 selected-pkg-test:
 	find ${WHAT} -name "*_test.go"|xargs -i dirname {}|uniq|xargs -i go test ${T} {}
+
+.PHONY: upgrade-test
+upgrade-test:
+	tests/upgrade/test_upgrade_from.sh 1.0.1
 
 #-----------------------------------------------------------------------------
 # Target: coverage
@@ -704,6 +715,11 @@ include tools/deb/istio.mk
 # Target: e2e tests
 #-----------------------------------------------------------------------------
 include tests/istio.mk
+
+#-----------------------------------------------------------------------------
+# Target: integration tests
+#-----------------------------------------------------------------------------
+include tests/integration2/tests.mk
 
 #-----------------------------------------------------------------------------
 # Target: bench check

@@ -12,6 +12,7 @@ spec:
     metadata:
       labels:
         app: grafana
+        {{- template "common_template_labels" . }}
       annotations:
         sidecar.istio.io/inject: "false"
         scheduler.alpha.kubernetes.io/critical-pod: ""
@@ -30,14 +31,14 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
-            - containerPort: {{ .Values.service.internalPort }}
+            - containerPort: 3000
           readinessProbe:
             httpGet:
               path: /login
-              port: {{ .Values.service.internalPort }}
+              port: 3000
           env:
           - name: GRAFANA_PORT
-            value: {{ .Values.service.internalPort | quote }}
+            value: "3000"
 {{- if .Values.security.enabled }}
           - name: GF_SECURITY_ADMIN_USER
             valueFrom:

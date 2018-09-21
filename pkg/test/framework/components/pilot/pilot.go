@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"strconv"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	adsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
@@ -39,7 +38,8 @@ import (
 )
 
 const (
-	pilotAdsPort = 15010
+	pilotService = "istio-pilot"
+	grpcPortName = "grpc-xds"
 )
 
 var (
@@ -48,6 +48,10 @@ var (
 
 	// KubeComponent is a component for the Kubernetes environment.
 	KubeComponent = &kubeComponent{}
+
+	requiredDeps = []dependency.Instance{
+		dependency.Mixer,
+	}
 )
 
 type localComponent struct{}
@@ -59,7 +63,7 @@ func (c *localComponent) ID() dependency.Instance {
 
 // Requires implements the component.Component interface.
 func (c *localComponent) Requires() []dependency.Instance {
-	return make([]dependency.Instance, 0)
+	return requiredDeps
 }
 
 // Init implements the component.Component interface.
@@ -82,7 +86,7 @@ func (c *kubeComponent) ID() dependency.Instance {
 
 // Requires implements the component.Component interface.
 func (c *kubeComponent) Requires() []dependency.Instance {
-	return make([]dependency.Instance, 0)
+	return requiredDeps
 }
 
 // Init implements the component.Component interface.
@@ -92,6 +96,14 @@ func (c *kubeComponent) Init(ctx environment.ComponentContext, deps map[dependen
 		return nil, fmt.Errorf("unsupported environment: %q", ctx.Environment().EnvironmentID())
 	}
 
+	result, err := c.doInit(e)
+	if err != nil {
+		return nil, multierror.Prefix(err, "pilot init failed:")
+	}
+	return result, nil
+}
+
+func (c *kubeComponent) doInit(e *kubernetes.Implementation) (interface{}, error) {
 	s := e.KubeSettings()
 
 	pod, err := e.Accessor.WaitForPodBySelectors(s.IstioSystemNamespace, "istio=pilot")
@@ -99,7 +111,26 @@ func (c *kubeComponent) Init(ctx environment.ComponentContext, deps map[dependen
 		return nil, err
 	}
 
-	return NewKubePilot(s.KubeConfig, pod.Namespace, pod.Name)
+	port, err := getGrpcPort(e)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewKubePilot(s.KubeConfig, pod.Namespace, pod.Name, port)
+}
+
+func getGrpcPort(e *kubernetes.Implementation) (uint16, error) {
+	s := e.KubeSettings()
+	svc, err := e.Accessor.GetService(s.IstioSystemNamespace, pilotService)
+	if err != nil {
+		return 0, fmt.Errorf("failed to retrieve service %s: %v", pilotService, err)
+	}
+	for _, portInfo := range svc.Spec.Ports {
+		if portInfo.Name == grpcPortName {
+			return uint16(portInfo.TargetPort.IntValue()), nil
+		}
+	}
+	return 0, fmt.Errorf("failed to get target port in service %s", pilotService)
 }
 
 // LocalPilot is the interface for a local pilot server.
@@ -174,15 +205,17 @@ func NewLocalPilot(namespace string) (LocalPilot, error) {
 }
 
 // NewKubePilot creates a new pilot instance for the kubernetes environment
-func NewKubePilot(kubeConfig, namespace, pod string) (environment.DeployedPilot, error) {
+func NewKubePilot(kubeConfig, namespace, pod string, port uint16) (environment.DeployedPilot, error) {
 	// Start port-forwarding for pilot.
-	// TODO(nmittler): Don't use a hard-coded port.
 	options := &kube.PodSelectOptions{
 		PodNamespace: namespace,
 		PodName:      pod,
 	}
-	forwarder, err := kube.PortForward(kubeConfig, options, "", strconv.Itoa(pilotAdsPort))
+	forwarder, err := kube.NewPortForwarder(kubeConfig, options, 0, port)
 	if err != nil {
+		return nil, err
+	}
+	if err := forwarder.Start(); err != nil {
 		return nil, err
 	}
 

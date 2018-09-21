@@ -355,12 +355,12 @@ func (e *Ephemeral) processDynamicInstanceConfigs(ctx context.Context, templates
 		var params map[string]interface{}
 		var err error
 		if inst.Params != nil {
-			if _, ok := inst.Params.(map[string]interface{}); !ok {
+			if params, err = toDictionary(inst.Params); err != nil {
 				appendErr(ctx, errs, fmt.Sprintf("instance='%s'.params", instanceName),
-					monitoring.InstanceErrs, "invalid params block. It must be of type map[string]interface{}")
+					monitoring.InstanceErrs, "invalid params block.")
 				continue
 			}
-			params = inst.Params.(map[string]interface{})
+
 			// name field is not provided by instance config author, instead it is added by Mixer into the request
 			// object that is passed to the adapter.
 			params["name"] = fmt.Sprintf("\"%s\"", instanceName)
@@ -395,14 +395,15 @@ func getParamsMsgFullName(pkgName string) string {
 	return "." + pkgName + ".Params"
 }
 
-func validateEncodeBytes(params interface{}, fds *descriptor.FileDescriptorSet, msgName string) ([]byte, error) {
+func validateEncodeBytes(params *types.Struct, fds *descriptor.FileDescriptorSet, msgName string) ([]byte, error) {
 	if params == nil {
 		return []byte{}, nil
 	}
-	if _, ok := params.(map[string]interface{}); !ok {
-		return []byte{}, fmt.Errorf("invalid params block. It must be of type map[string]interface{}")
+	d, err := toDictionary(params)
+	if err != nil {
+		return nil, fmt.Errorf("error converting parameters to dictionary: %v", err)
 	}
-	return yaml.NewEncoder(fds).EncodeBytes(params.(map[string]interface{}), msgName, false)
+	return yaml.NewEncoder(fds).EncodeBytes(d, msgName, false)
 }
 
 func (e *Ephemeral) processInstanceConfigs(ctx context.Context, attributes ast.AttributeDescriptorFinder, errs *multierror.Error) map[string]*InstanceStatic {

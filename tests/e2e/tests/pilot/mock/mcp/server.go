@@ -114,7 +114,7 @@ type Server struct {
 
 func NewServer(addr string, typeUrls []string) (*Server, error) {
 	watcher := mockWatcher{}
-	s := mcpserver.New(watcher, typeUrls, nil)
+	s := mcpserver.New(watcher, typeUrls, mcpserver.NewAllowAllChecker())
 
 	l, err := net.Listen("tcp", addr)
 	if err != nil {

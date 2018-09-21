@@ -56,13 +56,13 @@ func Register(builders map[string]store.Builder) {
 	}
 
 	builders["mcp"] = builder
-	builders["mcpi"] = builder
+	builders["mcps"] = builder
 }
 
 // NewStore creates a new Store instance.
 func newStore(u *url.URL, credOptions *creds.Options, fn updateHookFn) (store.Backend, error) {
 	insecure := true
-	if u.Scheme == "mcp" {
+	if u.Scheme == "mcps" {
 		insecure = false
 		if credOptions == nil {
 			return nil, errors.New("no credentials specified with secure MCP scheme")
@@ -150,7 +150,7 @@ func (b *backend) Init(kinds []string) error {
 		}
 
 		requiredFiles := []string{b.credOptions.CertificateFile, b.credOptions.KeyFile, b.credOptions.CACertificateFile}
-		log.Infof("Secure MSP configured. Waiting for required certificate files to become available: %v", requiredFiles)
+		log.Infof("Secure MCP configured. Waiting for required certificate files to become available: %v", requiredFiles)
 		for len(requiredFiles) > 0 {
 			if _, err := os.Stat(requiredFiles[0]); os.IsNotExist(err) {
 				log.Infof("%v not found. Checking again in %v", requiredFiles[0], requiredCertCheckFreq)

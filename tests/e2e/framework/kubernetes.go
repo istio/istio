@@ -43,6 +43,8 @@ const (
 	istioAddonsDir                 = "install/kubernetes/addons"
 	nonAuthInstallFile             = "istio.yaml"
 	authInstallFile                = "istio-auth.yaml"
+	nonAuthWithMCPInstallFile      = "istio-mcp.yaml"
+	authWithMCPInstallFile         = "istio-auth-mcp.yaml"
 	nonAuthInstallFileNamespace    = "istio-one-namespace.yaml"
 	authInstallFileNamespace       = "istio-one-namespace-auth.yaml"
 	mcNonAuthInstallFileNamespace  = "istio-multicluster.yaml"
@@ -88,14 +90,16 @@ var (
 	authEnable         = flag.Bool("auth_enable", false, "Enable auth")
 	rbacEnable         = flag.Bool("rbac_enable", true, "Enable rbac")
 	localCluster       = flag.Bool("use_local_cluster", false,
-		"If true the tests will run within the cluster. If running on minikube, this should be set to true")
-	skipSetup                = flag.Bool("skip_setup", false, "Skip namespace creation and istio cluster setup")
-	sidecarInjectorFile      = flag.String("sidecar_injector_file", defaultSidecarInjectorFile, "Sidecar injector yaml file")
-	clusterWide              = flag.Bool("cluster_wide", false, "If true Pilot/Mixer will observe all namespaces rather than just the testing namespace")
-	imagePullPolicy          = flag.String("image_pull_policy", "", "Specifies an override for the Docker image pull policy to be used")
-	multiClusterDir          = flag.String("cluster_registry_dir", "", "Directory name for the cluster registry config")
+		"If true any LoadBalancer type services will be converted to a NodePort service during testing. If running on minikube, this should be set to true")
+	skipSetup           = flag.Bool("skip_setup", false, "Skip namespace creation and istio cluster setup")
+	sidecarInjectorFile = flag.String("sidecar_injector_file", defaultSidecarInjectorFile, "Sidecar injector yaml file")
+	clusterWide         = flag.Bool("cluster_wide", false, "If true Pilot/Mixer will observe all namespaces rather than just the testing namespace")
+	imagePullPolicy     = flag.String("image_pull_policy", "", "Specifies an override for the Docker image pull policy to be used")
+	multiClusterDir     = flag.String("cluster_registry_dir", "",
+		"Directory name for the cluster registry config. When provided a multicluster test to be run across two clusters.")
 	useGalleyConfigValidator = flag.Bool("use_galley_config_validator", false, "Use galley configuration validation webhook")
 	installer                = flag.String("installer", "kubectl", "Istio installer, default to kubectl, or helm")
+	useMCP                   = flag.Bool("use_mcp", false, "use MCP for configuring Istio components")
 
 	addons = []string{
 		"zipkin",
@@ -150,22 +154,16 @@ type KubeInfo struct {
 }
 
 func getClusterWideInstallFile() string {
-	const (
-		nonAuthInstallFile           = "istio.yaml"
-		authInstallFile              = "istio-auth.yaml"
-		nonAuthWithGalleyInstallFile = "istio-galley.yaml"
-		authWithGalleyInstallFile    = "istio-auth-galley.yaml"
-	)
 	var istioYaml string
 	if *authEnable {
-		if *useGalleyConfigValidator {
-			istioYaml = authWithGalleyInstallFile
+		if *useMCP {
+			istioYaml = authWithMCPInstallFile
 		} else {
 			istioYaml = authInstallFile
 		}
 	} else {
-		if *useGalleyConfigValidator {
-			istioYaml = nonAuthWithGalleyInstallFile
+		if *useMCP {
+			istioYaml = nonAuthWithMCPInstallFile
 		} else {
 			istioYaml = nonAuthInstallFile
 		}
@@ -765,7 +763,9 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 	if *useAutomaticInjection {
 		setValue += " --set sidecarInjectorWebhook.enabled=true"
 	}
-	if *useGalleyConfigValidator {
+	if *useMCP {
+		setValue += " --set galley.enabled=true --set global.useMCP=true"
+	} else if *useGalleyConfigValidator {
 		setValue += " --set galley.enabled=true"
 	}
 	// hubs and tags replacement.

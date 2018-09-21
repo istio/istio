@@ -43,10 +43,6 @@ import (
 )
 
 const (
-	fileAccessLog = "envoy.file_access_log"
-
-	envoyHTTPConnectionManager = "envoy.http_connection_manager"
-
 	envoyListenerTLSInspector = "envoy.listener.tls_inspector"
 
 	// RDSHttpProxy is the special name for HTTP PROXY route
@@ -132,7 +128,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 			l := util.GetByAddress(listeners, m.Address.String())
 			if l != nil {
 				log.Warnf("Omitting listener for management address %s (%s) due to collision with service listener %s (%s)",
-					m.Name, m.Address, l.Name, l.Address)
+					m.Name, m.Address.String(), l.Name, l.Address.String())
 				continue
 			}
 			listeners = append(listeners, m)
@@ -263,6 +259,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 				rds:              "", // no RDS for inbound traffic
 				useRemoteAddress: false,
 				direction:        http_conn.INGRESS,
+				connectionManager: &http_conn.HttpConnectionManager{
+					// Append and forward client cert to backend.
+					ForwardClientCertDetails: http_conn.APPEND_FORWARD,
+				},
 			}
 		case plugin.ListenerProtocolTCP:
 			tcpNetworkFilters = buildInboundNetworkFilters(instance)
@@ -825,7 +825,7 @@ func buildHTTPConnectionManager(env *model.Environment, node *model.Proxy, httpO
 		connectionManager.AccessLog = []*accesslog.AccessLog{
 			{
 				Config: util.MessageToStruct(fl),
-				Name:   fileAccessLog,
+				Name:   xdsutil.FileAccessLog,
 			},
 		}
 	}
@@ -965,7 +965,7 @@ func marshalFilters(l *xdsapi.Listener, opts buildListenerOpts, chains []plugin.
 			opt.httpOpts.statPrefix = l.Name
 			connectionManager := buildHTTPConnectionManager(opts.env, opts.proxy, opt.httpOpts, chain.HTTP)
 			l.FilterChains[i].Filters = append(l.FilterChains[i].Filters, listener.Filter{
-				Name:   envoyHTTPConnectionManager,
+				Name:   xdsutil.HTTPConnectionManager,
 				Config: util.MessageToStruct(connectionManager),
 			})
 			log.Debugf("attached HTTP filter with %d http_filter options to listener %q filter chain %d", 1+len(chain.HTTP), l.Name, i)

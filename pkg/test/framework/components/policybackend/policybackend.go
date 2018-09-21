@@ -18,7 +18,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
-	"strconv"
 	"testing"
 	"time"
 
@@ -204,8 +203,11 @@ func (c *kubeComponent) Init(ctx environment.ComponentContext, deps map[dependen
 		PodNamespace: pod.Namespace,
 		PodName:      pod.Name,
 	}
-	forwarder, err := kube.PortForward(s.KubeConfig, options, "", strconv.Itoa(svc.Spec.Ports[0].TargetPort.IntValue()))
+	forwarder, err := kube.NewPortForwarder(s.KubeConfig, options, 0, uint16(svc.Spec.Ports[0].TargetPort.IntValue()))
 	if err != nil {
+		return nil, err
+	}
+	if err := forwarder.Start(); err != nil {
 		return nil, err
 	}
 

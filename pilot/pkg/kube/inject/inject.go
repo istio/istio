@@ -34,6 +34,7 @@ import (
 	"k8s.io/api/batch/v2alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	yamlDecoder "k8s.io/apimachinery/pkg/util/yaml"
@@ -144,7 +145,6 @@ const (
 // SidecarInjectionSpec collects all container types and volumes for
 // sidecar mesh injection
 type SidecarInjectionSpec struct {
-	Annotations      map[string]string             `yaml:"annotations"`
 	InitContainers   []corev1.Container            `yaml:"initContainers"`
 	Containers       []corev1.Container            `yaml:"containers"`
 	Volumes          []corev1.Volume               `yaml:"volumes"`
@@ -231,6 +231,17 @@ type Config struct {
 	// Template is the templated version of `SidecarInjectionSpec` prior to
 	// expansion over the `SidecarTemplateData`.
 	Template string `json:"template"`
+
+	// NeverInjectSelector: Refuses the injection on pods whose labels match this selector.
+	// It's an array of label selectors, that will be OR'ed, meaning we will iterate
+	// over it and stop at the first match
+	// Takes precedence over AlwaysInjectSelector.
+	NeverInjectSelector []metav1.LabelSelector `json:"neverInjectSelector"`
+
+	// AlwaysInjectSelector: Forces the injection on pods whose labels match this selector.
+	// It's an array of label selectors, that will be OR'ed, meaning we will iterate
+	// over it and stop at the first match
+	AlwaysInjectSelector []metav1.LabelSelector `json:"alwaysInjectSelector"`
 }
 
 func validateCIDRList(cidrs string) error {
@@ -341,7 +352,7 @@ func validateUInt32(value string) error {
 	return err
 }
 
-func injectRequired(ignored []string, namespacePolicy InjectionPolicy, podSpec *corev1.PodSpec, metadata *metav1.ObjectMeta) bool { // nolint: lll
+func injectRequired(ignored []string, config *Config, podSpec *corev1.PodSpec, metadata *metav1.ObjectMeta) bool { // nolint: lll
 	// Skip injection when host networking is enabled. The problem is
 	// that the iptable changes are assumed to be within the pod when,
 	// in fact, they are changing the routing at the host level. This
@@ -374,11 +385,47 @@ func injectRequired(ignored []string, namespacePolicy InjectionPolicy, podSpec *
 		useDefault = true
 	}
 
+	// If an annotation is not explicitly given, check the LabelSelectors, starting with NeverInject
+	if useDefault {
+		for _, neverSelector := range config.NeverInjectSelector {
+			selector, err := metav1.LabelSelectorAsSelector(&neverSelector)
+			if err != nil {
+				log.Warnf("Invalid selector for NeverInjectSelector: %v (%v)", neverSelector, err)
+			} else {
+				if !selector.Empty() && selector.Matches(labels.Set(metadata.Labels)) {
+					log.Debugf("Explicitly disabling injection for pod %s/%s due to pod labels matching NeverInjectSelector config map entry.",
+						metadata.Namespace, potentialPodName(metadata))
+					inject = false
+					useDefault = false
+					break
+				}
+			}
+		}
+	}
+
+	// If there's no annotation nor a NeverInjectSelector, check the AlwaysInject one
+	if useDefault {
+		for _, alwaysSelector := range config.AlwaysInjectSelector {
+			selector, err := metav1.LabelSelectorAsSelector(&alwaysSelector)
+			if err != nil {
+				log.Warnf("Invalid selector for AlwaysInjectSelector: %v (%v)", alwaysSelector, err)
+			} else {
+				if !selector.Empty() && selector.Matches(labels.Set(metadata.Labels)) {
+					log.Debugf("Explicitly enabling injection for pod %s/%s due to pod labels matching AlwaysInjectSelector config map entry.",
+						metadata.Namespace, potentialPodName(metadata))
+					inject = true
+					useDefault = false
+					break
+				}
+			}
+		}
+	}
+
 	var required bool
-	switch namespacePolicy {
+	switch config.Policy {
 	default: // InjectionPolicyOff
 		log.Errorf("Illegal value for autoInject:%s, must be one of [%s,%s]. Auto injection disabled!",
-			namespacePolicy, InjectionPolicyDisabled, InjectionPolicyEnabled)
+			config.Policy, InjectionPolicyDisabled, InjectionPolicyEnabled)
 		required = false
 	case InjectionPolicyDisabled:
 		if useDefault {
@@ -403,8 +450,8 @@ func injectRequired(ignored []string, namespacePolicy InjectionPolicy, podSpec *
 
 		log.Debugf("Sidecar injection policy for %v/%v: namespacePolicy:%v useDefault:%v inject:%v required:%v %s",
 			metadata.Namespace,
-			metadata.Name,
-			namespacePolicy,
+			potentialPodName(metadata),
+			config,
 			useDefault,
 			inject,
 			required,
@@ -461,10 +508,6 @@ func injectionData(sidecarTemplate, version string, deploymentMetadata *metav1.O
 	if err := yaml.Unmarshal(tmpl.Bytes(), &sic); err != nil {
 		log.Warnf("Failed to unmarshall template %v %s", err, string(tmpl.Bytes()))
 		return nil, "", err
-	}
-
-	if sic.Annotations == nil {
-		sic.Annotations = make(map[string]string)
 	}
 
 	status := &SidecarInjectionStatus{Version: version}
@@ -634,9 +677,6 @@ func intoObject(sidecarTemplate string, meshconfig *meshconfig.MeshConfig, in ru
 	if metadata.Annotations == nil {
 		metadata.Annotations = make(map[string]string)
 	}
-	for k, v := range spec.Annotations {
-		metadata.Annotations[k] = v
-	}
 	metadata.Annotations[annotationStatus.name] = status
 
 	return out, nil
@@ -741,4 +781,14 @@ type SidecarInjectionStatus struct {
 func sidecarTemplateVersionHash(in string) string {
 	hash := sha256.Sum256([]byte(in))
 	return hex.EncodeToString(hash[:])
+}
+
+func potentialPodName(metadata *metav1.ObjectMeta) string {
+	if metadata.Name != "" {
+		return metadata.Name
+	}
+	if metadata.GenerateName != "" {
+		return metadata.GenerateName + "***** (actual name not yet known)"
+	}
+	return ""
 }

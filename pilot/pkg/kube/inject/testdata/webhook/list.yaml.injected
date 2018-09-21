@@ -11,9 +11,6 @@ items:
     template:
       metadata:
         annotations:
-          prometheus.io/path: /stats/prometheus
-          prometheus.io/port: "15090"
-          prometheus.io/scrape: "true"
           sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
         creationTimestamp: null
         labels:
@@ -58,6 +55,10 @@ items:
           - "15020"
           - --applicationPorts
           - "80"
+          ports:
+          - name: http-envoy-prom
+            containerPort: 15090
+            protocol: TCP
           env:
           - name: POD_NAME
             valueFrom:
@@ -144,9 +145,6 @@ items:
     template:
       metadata:
         annotations:
-          prometheus.io/path: /stats/prometheus
-          prometheus.io/port: "15090"
-          prometheus.io/scrape: "true"
           sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
         creationTimestamp: null
         labels:
@@ -191,6 +189,10 @@ items:
           - "15020"
           - --applicationPorts
           - "81"
+          ports:
+          - name: http-envoy-prom
+            containerPort: 15090
+            protocol: TCP
           env:
           - name: POD_NAME
             valueFrom:

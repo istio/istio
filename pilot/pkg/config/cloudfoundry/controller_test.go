@@ -122,7 +122,7 @@ func TestGet(t *testing.T) {
 		}
 
 		for _, gatewayConfig := range gatewayConfigs {
-			if _, exists := store.Get(gatewayConfig.ConfigMeta.Type, gatewayConfig.ConfigMeta.Name, ""); !exists {
+			if config := store.Get(gatewayConfig.ConfigMeta.Type, gatewayConfig.ConfigMeta.Name, ""); config == nil {
 				_, err := store.Create(gatewayConfig)
 				g.Expect(err).NotTo(gomega.HaveOccurred())
 			}
@@ -135,10 +135,8 @@ func TestGet(t *testing.T) {
 
 		var config *model.Config
 		g.Eventually(func() bool {
-			var found bool
-			config, found = controller.Get("virtual-service", "virtual-service-for-some-external-route.example.com", "")
-
-			return found
+			config = controller.Get("virtual-service", "virtual-service-for-some-external-route.example.com", "")
+			return config != nil
 		}).Should(gomega.BeTrue())
 
 		vs := config.Spec.(*networking.VirtualService)
@@ -191,10 +189,8 @@ func TestGet(t *testing.T) {
 		}))
 
 		g.Eventually(func() bool {
-			var found bool
-			config, found = controller.Get("destination-rule", "dest-rule-for-some-external-route.example.com", "")
-
-			return found
+			config = controller.Get("destination-rule", "dest-rule-for-some-external-route.example.com", "")
+			return config != nil
 		}).Should(gomega.BeTrue())
 
 		g.Expect(config).NotTo(gomega.BeNil())
@@ -208,7 +204,7 @@ func TestGet(t *testing.T) {
 		}
 
 		for _, gatewayConfig := range gatewayConfigs {
-			if _, exists := store.Get(gatewayConfig.ConfigMeta.Type, gatewayConfig.ConfigMeta.Name, ""); !exists {
+			if config := store.Get(gatewayConfig.ConfigMeta.Type, gatewayConfig.ConfigMeta.Name, ""); config == nil {
 				_, err := store.Create(gatewayConfig)
 				g.Expect(err).NotTo(gomega.HaveOccurred())
 			}
@@ -221,10 +217,8 @@ func TestGet(t *testing.T) {
 
 		var config *model.Config
 		g.Eventually(func() bool {
-			var found bool
-			config, found = controller.Get("virtual-service", "virtual-service-for-awesome-external-route.example.com", "")
-
-			return found
+			config = controller.Get("virtual-service", "virtual-service-for-awesome-external-route.example.com", "")
+			return config != nil
 		}).Should(gomega.BeTrue())
 
 		vs := config.Spec.(*networking.VirtualService)
@@ -264,10 +258,8 @@ func TestGet(t *testing.T) {
 		}))
 
 		g.Eventually(func() bool {
-			var found bool
-			config, found = controller.Get("destination-rule", "dest-rule-for-awesome-external-route.example.com", "")
-
-			return found
+			config = controller.Get("destination-rule", "dest-rule-for-awesome-external-route.example.com", "")
+			return config != nil
 		}).Should(gomega.BeTrue())
 
 		g.Expect(config).NotTo(gomega.BeNil())
