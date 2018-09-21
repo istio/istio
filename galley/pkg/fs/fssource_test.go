@@ -211,6 +211,9 @@ func TestFsSource_AddFile(t *testing.T) {
 	}
 
 	ch, err := s.Start()
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
 	fst.ConfigFiles["virtual_service.yml"] = []byte(virtualServiceYAML)
 
 	err = fst.writeFile()
@@ -246,7 +249,9 @@ func TestFsSource_DeleteFile(t *testing.T) {
 	}
 
 	ch, err := s.Start()
-
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
 	err = fst.deleteFile()
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
@@ -282,9 +287,6 @@ func TestFsSource_ModifyFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
 	err = ioutil.WriteFile(filepath.Join(fst.rootPath, "virtual_service.yml"), []byte(virtualServiceChangedYAML), 0600)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
@@ -315,6 +317,9 @@ func TestFsSource_DeletePartResorceInFile(t *testing.T) {
 	}
 
 	ch, err := s.Start()
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
 	fst.ConfigFiles["mixer.yml"] = []byte(mixerPartYAML)
 
 	err = fst.writeFile()
