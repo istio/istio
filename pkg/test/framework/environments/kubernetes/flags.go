@@ -23,7 +23,7 @@ func init() {
 	flag.StringVar(&globalSettings.KubeConfig, "istio.test.kube.config", globalSettings.KubeConfig,
 		"The path to the kube config file for cluster environments")
 	flag.StringVar(&globalSettings.Hub, "istio.test.kube.hub", globalSettings.Hub, "The hub for docker images")
-	flag.StringVar(&globalSettings.Tag, "istio.test.kube.tag", globalSettings.Hub, "The tag for docker images.")
+	flag.StringVar(&globalSettings.Tag, "istio.test.kube.tag", globalSettings.Tag, "The tag for docker images.")
 	flag.StringVar(&globalSettings.IstioSystemNamespace, "istio.test.kube.systemNamespace", globalSettings.IstioSystemNamespace,
 		"The namespace where the Istio components reside in a typical deployment (typically 'istio-system'). "+
 			"If not specified, a new namespace will be generated with a UUID.")
@@ -35,4 +35,6 @@ func init() {
 		"The namespace for each individual test. If not specified, the namespaces are created when an environment "+
 			"is acquired in a test, and the previous one gets deleted. This ensures that during a single test run, there is only "+
 			"one test namespace in the system.")
+	flag.BoolVar(&globalSettings.DeployIstio, "istio.test.kube.deploy", globalSettings.DeployIstio,
+		"Deploy Istio into the target Kubernetes environment.")
 }

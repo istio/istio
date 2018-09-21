@@ -81,9 +81,9 @@ func (d *driver) Run(testID string, m *testing.M) (int, error) {
 	}
 
 	// Call m.Run() while not holding the lock.
-	scopes.CI.Infof(">>> Beginning test run for: '%s'", testID)
+	scopes.CI.Infof("=== BEGIN: test run: '%s' ===", testID)
 	rt = m.Run()
-	scopes.CI.Infof("<<< Completing test run for: '%s'", testID)
+	scopes.CI.Infof("=== DONE: test run: '%s' ===", testID)
 
 	d.lock.Lock()
 	defer d.lock.Unlock()
@@ -196,7 +196,7 @@ func (d *driver) initialize(testID string) (int, error) {
 	if err != nil {
 		return -1, err
 	}
-	scopes.CI.Infof("driver settings: %+v", s)
+	scopes.CI.Infof("Test Framework driver settings:\n%s", s)
 
 	if err := log.Configure(s.LogOptions); err != nil {
 		return -1, err
