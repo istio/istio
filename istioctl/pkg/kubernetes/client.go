@@ -227,9 +227,9 @@ func (client *Client) GetIstioVersions(namespace string) (*version.MeshInfo, err
 	labelToPodDetail := map[string]podDetail{
 		"pilot":            {"/usr/local/bin/pilot-discovery", "discovery"},
 		"citadel":          {"/usr/local/bin/istio_ca", "citadel"},
-		"egressgateway":    {"/usr/local/bin/pilot-agent", "egressgateway"},
-		"galley":           {"/usr/local/bin/galley", "validator"},
-		"ingressgateway":   {"/usr/local/bin/pilot-agent", "ingressgateway"},
+		"egressgateway":    {"/usr/local/bin/pilot-agent", "istio-proxy"},
+		"galley":           {"/usr/local/bin/galley", "galley"},
+		"ingressgateway":   {"/usr/local/bin/pilot-agent", "istio-proxy"},
 		"telemetry":        {"/usr/local/bin/mixs", "mixer"},
 		"policy":           {"/usr/local/bin/mixs", "mixer"},
 		"sidecar-injector": {"/usr/local/bin/sidecar-injector", "sidecar-injector-webhook"},
