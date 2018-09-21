@@ -123,7 +123,6 @@ func TestMain(m *testing.M) {
 
 func TestContextGraph(t *testing.T) {
 	// FIXME add test when read API is available.
-	t.Skip("Context Graph read API not available yet.")
 }
 
 func createMetricsService(ctx context.Context) (*monitoring.Service, error) {
