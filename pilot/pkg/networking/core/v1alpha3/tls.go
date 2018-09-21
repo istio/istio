@@ -81,7 +81,7 @@ func hashRuntimeTLSMatchPredicates(match *v1alpha3.TLSMatchAttributes) string {
 	return strings.Join(match.SniHosts, ",") + "|" + strings.Join(match.DestinationSubnets, ",")
 }
 
-func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushContext, destinationIPAddress string,
+func buildSidecarOutboundTLSFilterChainOpts(env *model.Environment, node *model.Proxy, push *model.PushContext, destinationIPAddress string,
 	service *model.Service, listenPort *model.Port, proxyLabels model.LabelsCollection,
 	gateways map[string]bool, virtualService *v1alpha3.VirtualService) []*filterChainOpts {
 
@@ -142,7 +142,7 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 							sniHosts:         match.SniHosts,
 							destinationCIDRs: destinationCIDRs,
 							networkFilters: buildOutboundNetworkFilters(
-								node, clusterName, destinationIPAddress, listenPort),
+								env, node, clusterName, destinationIPAddress, listenPort),
 						})
 						hasTLSMatch = true
 					}
@@ -157,14 +157,14 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 		clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, int(listenPort.Port))
 		out = append(out, &filterChainOpts{
 			destinationCIDRs: []string{destinationIPAddress},
-			networkFilters:   buildOutboundNetworkFilters(node, clusterName, destinationIPAddress, listenPort),
+			networkFilters:   buildOutboundNetworkFilters(env, node, clusterName, destinationIPAddress, listenPort),
 		})
 	}
 
 	return out
 }
 
-func buildSidecarOutboundTCPFilterChainOpts(node *model.Proxy, push *model.PushContext, destinationIPAddress string,
+func buildSidecarOutboundTCPFilterChainOpts(env *model.Environment, node *model.Proxy, push *model.PushContext, destinationIPAddress string,
 	service *model.Service, listenPort *model.Port, proxyLabels model.LabelsCollection,
 	gateways map[string]bool, virtualService *v1alpha3.VirtualService) []*filterChainOpts {
 
@@ -195,7 +195,7 @@ func buildSidecarOutboundTCPFilterChainOpts(node *model.Proxy, push *model.PushC
 				// implicit match
 				out = append(out, &filterChainOpts{
 					destinationCIDRs: destinationCIDRs,
-					networkFilters:   buildOutboundNetworkFilters(node, clusterName, destinationIPAddress, listenPort),
+					networkFilters:   buildOutboundNetworkFilters(env, node, clusterName, destinationIPAddress, listenPort),
 				})
 				defaultRouteAdded = true
 				break TcpLoop
@@ -217,7 +217,7 @@ func buildSidecarOutboundTCPFilterChainOpts(node *model.Proxy, push *model.PushC
 					if len(match.DestinationSubnets) == 0 {
 						out = append(out, &filterChainOpts{
 							destinationCIDRs: destinationCIDRs,
-							networkFilters:   buildOutboundNetworkFilters(node, clusterName, destinationIPAddress, listenPort),
+							networkFilters:   buildOutboundNetworkFilters(env, node, clusterName, destinationIPAddress, listenPort),
 						})
 						defaultRouteAdded = true
 						break TcpLoop
@@ -230,7 +230,7 @@ func buildSidecarOutboundTCPFilterChainOpts(node *model.Proxy, push *model.PushC
 			if len(virtualServiceDestinationSubnets) > 0 {
 				out = append(out, &filterChainOpts{
 					destinationCIDRs: virtualServiceDestinationSubnets,
-					networkFilters:   buildOutboundNetworkFilters(node, clusterName, "", listenPort),
+					networkFilters:   buildOutboundNetworkFilters(env, node, clusterName, "", listenPort),
 				})
 			}
 		}
@@ -240,22 +240,22 @@ func buildSidecarOutboundTCPFilterChainOpts(node *model.Proxy, push *model.PushC
 		clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, int(listenPort.Port))
 		out = append(out, &filterChainOpts{
 			destinationCIDRs: []string{destinationIPAddress},
-			networkFilters:   buildOutboundNetworkFilters(node, clusterName, destinationIPAddress, listenPort),
+			networkFilters:   buildOutboundNetworkFilters(env, node, clusterName, destinationIPAddress, listenPort),
 		})
 	}
 
 	return out
 }
 
-func buildSidecarOutboundTCPTLSFilterChainOpts(node *model.Proxy, push *model.PushContext, configs []model.Config, destinationIPAddress string,
+func buildSidecarOutboundTCPTLSFilterChainOpts(env *model.Environment, node *model.Proxy, push *model.PushContext, configs []model.Config, destinationIPAddress string,
 	service *model.Service, listenPort *model.Port, proxyLabels model.LabelsCollection, gateways map[string]bool) []*filterChainOpts {
 
 	virtualService := getVirtualServiceForHost(service.Hostname, configs)
 
 	out := make([]*filterChainOpts, 0)
-	out = append(out, buildSidecarOutboundTLSFilterChainOpts(node, push, destinationIPAddress, service, listenPort,
+	out = append(out, buildSidecarOutboundTLSFilterChainOpts(env, node, push, destinationIPAddress, service, listenPort,
 		proxyLabels, gateways, virtualService)...)
-	out = append(out, buildSidecarOutboundTCPFilterChainOpts(node, push, destinationIPAddress, service, listenPort,
+	out = append(out, buildSidecarOutboundTCPFilterChainOpts(env, node, push, destinationIPAddress, service, listenPort,
 		proxyLabels, gateways, virtualService)...)
 
 	return out
