@@ -481,7 +481,7 @@ var (
 		Group:         "rbac",
 		Version:       "v1alpha1",
 		MessageName:   "istio.rbac.v1alpha1.RbacConfig",
-		Validate:      ValidateRbacConfig,
+		Validate:      ValidateMeshRbacConfig,
 	}
 
 	// IstioConfigTypes lists all Istio config types with schemas and validation
@@ -908,9 +908,6 @@ func (store *istioConfigStore) MeshRbacConfig() *Config {
 	if err != nil {
 		log.Errorf("failed to get meshRbacConfig: %v", err)
 	}
-	if len(meshRbacConfig) > 1 {
-		log.Errorf("found %d meshRbacConfig, expecting only 1.", len(meshRbacConfig))
-	}
 	for _, rc := range meshRbacConfig {
 		if rc.Name == DefaultRbacConfigName {
 			return &rc
@@ -922,14 +919,15 @@ func (store *istioConfigStore) MeshRbacConfig() *Config {
 func (store *istioConfigStore) RbacConfig() *Config {
 	rbacConfigs, err := store.List(RbacConfig.Type, "")
 	if err != nil {
-		log.Errorf("failed to get rbacConfig: %v", err)
 		return nil
 	}
+
 	if len(rbacConfigs) > 1 {
 		log.Errorf("found %d RbacConfigs, expecting only 1.", len(rbacConfigs))
 	}
 	for _, rc := range rbacConfigs {
 		if rc.Name == DefaultRbacConfigName {
+			log.Warnf("RbacConfig is deprecated, Use MeshRbacConfig instead.")
 			return &rc
 		}
 	}

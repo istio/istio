@@ -1219,15 +1219,14 @@ func ValidateServiceRoleBinding(name, namespace string, msg proto.Message) error
 	return errs
 }
 
-// ValidateRbacConfig checks that RbacConfig is well-formed.
-func ValidateRbacConfig(name, namespace string, msg proto.Message) error {
+func checkRbacConfig(name, typ string, msg proto.Message) error {
 	in, ok := msg.(*rbac.RbacConfig)
 	if !ok {
-		return errors.New("cannot cast to RbacConfig")
+		return errors.New("cannot cast to " + typ)
 	}
 
 	if name != DefaultRbacConfigName {
-		return fmt.Errorf("rbacConfig has invalid name(%s), name must be %s", name, DefaultRbacConfigName)
+		return fmt.Errorf("%s has invalid name(%s), name must be %q", typ, name, DefaultRbacConfigName)
 	}
 
 	if in.Mode == rbac.RbacConfig_ON_WITH_INCLUSION && in.Inclusion == nil {
@@ -1239,6 +1238,17 @@ func ValidateRbacConfig(name, namespace string, msg proto.Message) error {
 	}
 
 	return nil
+}
+
+// ValidateMeshRbacConfig checks that MeshRbacConfig is well-formed.
+func ValidateMeshRbacConfig(name, namespace string, msg proto.Message) error {
+	return checkRbacConfig(name, "MeshRbacConfig", msg)
+}
+
+// ValidateRbacConfig checks that RbacConfig is well-formed.
+func ValidateRbacConfig(name, namespace string, msg proto.Message) error {
+	log.Warnf("RbacConfig is deprecated, use MeshRbacConfig instead.")
+	return checkRbacConfig(name, "RbacConfig", msg)
 }
 
 func validateJwt(jwt *authn.Jwt) (errs error) {
