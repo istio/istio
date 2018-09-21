@@ -145,6 +145,9 @@ func (r *InClusterRegistry) Close() error {
 	if err := r.accessor.DeleteNamespace(r.namespace); err != nil {
 		errors = multierror.Append(errors, err)
 	}
+	if err := r.accessor.WaitForNamespaceDeletion(r.namespace); err != nil {
+		errors = multierror.Append(errors, err)
+	}
 	if r.forwarder != nil {
 		r.forwarder.Close()
 	}
