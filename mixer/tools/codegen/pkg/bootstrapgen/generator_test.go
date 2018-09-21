@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/mixer/pkg/protobuf/descriptor"
 	"istio.io/istio/mixer/tools/codegen/pkg/bootstrapgen/template"
 	"istio.io/istio/mixer/tools/codegen/pkg/modelgen"
+	"istio.io/istio/pilot/test/util"
 )
 
 type logFn func(string, ...interface{})
@@ -84,7 +85,7 @@ func TestGenerator_Generate(t *testing.T) {
 			}
 
 			if same := fileCompare(outFile.Name(), v.want, t.Errorf); !same {
-				t.Error("Files were not the same.")
+				t.Errorf("Files %v and %v were not the same.", outFile.Name(), v.want)
 			}
 		})
 	}
@@ -209,7 +210,7 @@ func fileCompare(file1, file2 string, logf logFn) bool {
 		}
 
 		if !bytes.Equal(b1, b2) {
-			logf("bytes don't match (sizes: %d, %d):\n%s\n%s", s1, s2, string(b1), string(b2))
+			logf("bytes don't match (sizes: %d, %d):\n%v", s1, s2, util.Compare(b1, b2))
 			return false
 		}
 	}
