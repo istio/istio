@@ -159,8 +159,9 @@ func (client *Client) ExtractExecResult(podName, podNamespace, container string,
 	stdout, stderr, err := client.PodExec(podName, podNamespace, container, cmd)
 	if err != nil {
 		return nil, fmt.Errorf("error execing into %v/%v %v container: %v", podName, podNamespace, container, err)
-	} else if stderr.String() != "" {
-		return nil, fmt.Errorf("error execing into %v/%v %v container: %v", podName, podNamespace, container, stderr.String())
+	}
+	if stderr.String() != "" {
+		fmt.Printf("Warning! error execing into %v/%v %v container: %v\n", podName, podNamespace, container, stderr.String())
 	}
 	return stdout.Bytes(), nil
 }
