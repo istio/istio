@@ -48,6 +48,8 @@ ARGS=(
 	"--pr_number=${CIRCLE_PR_NUMBER:-0}"
 )
 
+# CIRCLE_PR_NUMBER is set for PRs that originate from a fork.
+# CIRCLE_PULL_REQUEST is set for PRs that originate from a branch.
 if [ -n "$CIRCLE_PR_NUMBER" ] || [ -n "$CIRCLE_PULL_REQUEST" ]; then
 	ARGS+=("--stage=presubmit")
 fi
