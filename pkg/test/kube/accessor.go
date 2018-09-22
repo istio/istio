@@ -30,6 +30,11 @@ import (
 	"istio.io/istio/pkg/test/util"
 )
 
+const (
+	defaultTimeout     = time.Minute * 3
+	defaultRetryPeriod = time.Second * 10
+)
+
 // Accessor is a helper for accessing Kubernetes programmatically. It bundles some of the high-level
 // operations that is frequently used by the test framework.
 type Accessor struct {
@@ -84,7 +89,7 @@ func (a *Accessor) FindPodBySelectors(namespace string, selectors ...string) (v1
 
 // WaitForPodBySelectors waits for the pod to appear that match the given namespace and selectors.
 func (a *Accessor) WaitForPodBySelectors(ns string, selectors ...string) (pod v12.Pod, err error) {
-	p, err := util.Retry(util.DefaultRetryTimeout, util.DefaultRetryWait, func() (interface{}, bool, error) {
+	p, err := util.Retry(defaultTimeout, defaultRetryPeriod, func() (interface{}, bool, error) {
 
 		s := strings.Join(selectors, ",")
 
@@ -112,7 +117,7 @@ func (a *Accessor) WaitForPodBySelectors(ns string, selectors ...string) (pod v1
 
 // WaitUntilPodIsRunning waits until the pod with the name/namespace is in succeeded or in running state.
 func (a *Accessor) WaitUntilPodIsRunning(ns string, name string) error {
-	_, err := util.Retry(util.DefaultRetryTimeout, util.DefaultRetryWait, func() (interface{}, bool, error) {
+	_, err := util.Retry(defaultTimeout, defaultRetryPeriod, func() (interface{}, bool, error) {
 
 		pod, err := a.set.CoreV1().
 			Pods(ns).
@@ -123,6 +128,8 @@ func (a *Accessor) WaitUntilPodIsRunning(ns string, name string) error {
 				return nil, true, err
 			}
 		}
+
+		scopes.CI.Infof("  Checking pod state: %s/%s:\t %v", ns, name, pod.Status.Phase)
 
 		switch pod.Status.Phase {
 		case v12.PodSucceeded, v12.PodRunning:
@@ -139,7 +146,7 @@ func (a *Accessor) WaitUntilPodIsRunning(ns string, name string) error {
 
 // WaitUntilPodIsReady waits until the pod with the name/namespace is in succeeded or running state.
 func (a *Accessor) WaitUntilPodIsReady(ns string, name string) error {
-	_, err := util.Retry(util.DefaultRetryTimeout, util.DefaultRetryWait, func() (interface{}, bool, error) {
+	_, err := util.Retry(defaultTimeout, defaultRetryPeriod, func() (interface{}, bool, error) {
 
 		pod, err := a.set.CoreV1().
 			Pods(ns).
@@ -160,10 +167,10 @@ func (a *Accessor) WaitUntilPodIsReady(ns string, name string) error {
 }
 
 // WaitUntilPodsInNamespaceAreReady waits for pods to be become running/succeeded in a given namespace.
-func (a *Accessor) WaitUntilPodsInNamespaceAreReady(ns string, timeLimit time.Duration) error {
+func (a *Accessor) WaitUntilPodsInNamespaceAreReady(ns string) error {
 	scopes.CI.Infof("Starting wait for pods to be ready in namespace %s", ns)
 
-	_, err := util.Retry(timeLimit, time.Second*10, func() (interface{}, bool, error) {
+	_, err := util.Retry(defaultTimeout, defaultRetryPeriod, func() (interface{}, bool, error) {
 
 		list, err := a.set.CoreV1().Pods(ns).List(v1.ListOptions{})
 		if err != nil {
@@ -234,7 +241,7 @@ func (a *Accessor) DeleteNamespace(ns string) error {
 
 // WaitForNamespaceDeletion waits until a namespace is deleted.
 func (a *Accessor) WaitForNamespaceDeletion(ns string) error {
-	_, err := util.Retry(util.DefaultRetryTimeout, util.DefaultRetryWait, func() (interface{}, bool, error) {
+	_, err := util.Retry(defaultTimeout, defaultRetryPeriod, func() (interface{}, bool, error) {
 		_, err2 := a.set.CoreV1().Namespaces().Get(ns, v1.GetOptions{})
 		if err2 == nil {
 			return nil, false, nil

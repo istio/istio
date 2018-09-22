@@ -124,20 +124,14 @@ func (e *Implementation) Initialize(ctx *internal.TestContext) error {
 	}
 
 	if e.kube.DeployIstio {
-		goDir := os.Getenv("GOPATH")
-		chartDir := path.Join(goDir, "src/istio.io/istio/install/kubernetes/helm")
-
-		// TODO: We should pass a dynamic system namespace.
 		// TODO: Values files should be parameterized.
-		namespace := "istio-system"
 		if e.deployment, err = deployment.New(
 			&deployment.Settings{
 				KubeConfig: e.kube.KubeConfig,
-				ChartDir:   chartDir,
 				WorkDir:    ctx.Settings().WorkDir,
 				Hub:        e.kube.Hub,
 				Tag:        e.kube.Tag,
-				Namespace:  namespace,
+				Namespace:  e.kube.IstioSystemNamespace,
 				ValuesFile: deployment.IstioMCP,
 			},
 			e.Accessor); err != nil {
@@ -184,6 +178,42 @@ func (e *Implementation) Reset() error {
 	}
 
 	return nil
+}
+
+// DumpState dumps the state of the environment to the file system and the log.
+func (e *Implementation) DumpState(context string) {
+	scopes.CI.Infof("=== BEGIN: Dump state (%s) ===", context)
+	defer func() {
+		scopes.CI.Infof("=== COMPLETED: Dump state (%s) ===", context)
+	}()
+
+	dir := path.Join(e.ctx.Settings().WorkDir, context)
+	_, err := os.Stat(dir)
+	if err != nil && os.IsNotExist(err) {
+		err = os.Mkdir(dir, os.ModePerm)
+	}
+
+	if err != nil {
+		scopes.Framework.Errorf("Unable to create folder to dump logs: %v", err)
+		return
+	}
+
+	deployment.DumpPodData(e.kube.KubeConfig, dir, e.KubeSettings().IstioSystemNamespace, e.Accessor)
+	deployment.DumpPodState(e.kube.KubeConfig, e.KubeSettings().IstioSystemNamespace)
+
+	if e.dependencyNamespace.allocatedName == "" {
+		scopes.CI.Info("Skipping state dump of dependency namespace, as it is not allocated...")
+	} else {
+		deployment.DumpPodData(e.kube.KubeConfig, dir, e.dependencyNamespace.allocatedName, e.Accessor)
+		deployment.DumpPodState(e.kube.KubeConfig, e.dependencyNamespace.allocatedName)
+	}
+
+	if e.testNamespace.allocatedName == "" {
+		scopes.CI.Info("Skipping state dump of test namespace, as it is not allocated...")
+	} else {
+		deployment.DumpPodData(e.kube.KubeConfig, dir, e.testNamespace.allocatedName, e.Accessor)
+		deployment.DumpPodState(e.kube.KubeConfig, e.testNamespace.allocatedName)
+	}
 }
 
 // Close implementation.

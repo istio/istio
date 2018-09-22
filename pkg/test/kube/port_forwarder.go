@@ -27,6 +27,8 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/portforward"
 	"k8s.io/client-go/transport/spdy"
+
+	"istio.io/istio/pkg/test/framework/scopes"
 )
 
 var (
@@ -60,6 +62,7 @@ type PodSelectOptions struct {
 }
 
 func (f *defaultPortForwarder) Start() error {
+	scopes.Framework.Debugf("starting port forwarder")
 	errCh := make(chan error)
 	go func() {
 		errCh <- f.forwarder.ForwardPorts()

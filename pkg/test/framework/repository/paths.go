@@ -12,19 +12,26 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package internal
+// Package repository have utility methods related to accessing a local istio code repository. The repository
+// path is deduced from ${GOPATH} environment variable.
+package repository
 
 import (
-	"istio.io/istio/pkg/test/framework/environment"
+	"os"
+	"path"
 )
 
-// EnvironmentController is the internal interface that should be implemented by Environments. This is used by the
-// driver to communicate with the environments in a standard way.
-type EnvironmentController interface {
-	environment.Implementation
+// Root of the repository
+func Root() string {
+	return path.Join(os.Getenv("GOPATH"), "src/istio.io/istio")
+}
 
-	Initialize(ctx *TestContext) error
-	Configure(config string) error
-	DumpState(context string)
-	Reset() error
+// ChartsDir is the Kubernetes Helm chart directory in the repository
+func ChartsDir() string {
+	return path.Join(Root(), "install/kubernetes/helm")
+}
+
+// IstioChartDir is Istio Helm chart directory
+func IstioChartDir() string {
+	return path.Join(ChartsDir(), "istio")
 }

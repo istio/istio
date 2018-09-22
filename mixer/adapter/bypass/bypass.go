@@ -19,6 +19,7 @@ package bypass
 
 import (
 	"context"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
@@ -159,12 +160,17 @@ func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handl
 }
 
 func (b *builder) ensureConn() error {
+	const timeOut = time.Minute
+	const delay = time.Millisecond * 10
+
 	if b.conn == nil {
-		conn, err := grpc.Dial(b.params.BackendAddress, grpc.WithInsecure())
-		if err != nil {
-			return err
+		var err error
+		for start := time.Now(); time.Now().Before(start.Add(timeOut)); {
+			if b.conn, err = grpc.Dial(b.params.BackendAddress, grpc.WithInsecure()); err == nil {
+				break
+			}
+			time.Sleep(delay)
 		}
-		b.conn = conn
 
 		if b.params.SessionBased {
 			b.infraClient = v1beta1.NewInfrastructureBackendClient(b.conn)
