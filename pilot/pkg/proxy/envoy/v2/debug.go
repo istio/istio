@@ -689,7 +689,7 @@ func (s *DiscoveryServer) edsz(w http.ResponseWriter, req *http.Request) {
 				comma = true
 			}
 			jsonm := &jsonpb.Marshaler{Indent: "  "}
-			dbgString, _ := jsonm.MarshalToString(eds.ClusterLoadAssignments[""])
+			dbgString, _ := jsonm.MarshalToString(eds.LoadAssignments[""])
 			if _, err := w.Write([]byte(dbgString)); err != nil {
 				return
 			}

@@ -70,15 +70,10 @@ type EdsCluster struct {
 	// mutex protects changes to this cluster
 	mutex sync.Mutex
 
-	// A map keyed by network ID tracking the ClusterLoadAssignment for the
-	// network and it holds both local endpoints and weighted remote endpoints
-	// to other networks.
-	ClusterLoadAssignments map[string]*xdsapi.ClusterLoadAssignment
-
-	// Pointer to the endpoint of the gateway of each network (if exists).
-	// This endpoint is weighted with a value equal to the number of local
-	// endpoints for cluster.
-	GatewaysEndpoints map[string]*endpoint.LocalityLbEndpoints
+	// A map keyed by network ID for holding the ClusterLoadAssignment for the
+	// network. Each CLA holds both local endpoints and weighted remote endpoints
+	// to the gateway of other networks.
+	LoadAssignments map[string]*xdsapi.ClusterLoadAssignment
 
 	// FirstUse is the time the cluster was first used, for debugging
 	FirstUse time.Time
@@ -116,7 +111,7 @@ func (s *DiscoveryServer) endpoints(clusterNames []string, outRes []types.Any) *
 // Return the load assignment. The field can be updated by another routine.
 func loadAssignment(c *EdsCluster, node *model.Proxy) *xdsapi.ClusterLoadAssignment {
 	if node == nil {
-		return c.ClusterLoadAssignments[""]
+		return c.LoadAssignments[""]
 	}
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
@@ -125,11 +120,9 @@ func loadAssignment(c *EdsCluster, node *model.Proxy) *xdsapi.ClusterLoadAssignm
 
 func (c *EdsCluster) filterEndpointsByMetadata(nodeMeta map[string]string) *xdsapi.ClusterLoadAssignment {
 	if network, exists := nodeMeta["ISTIO_NETWORK"]; exists {
-		if cla, ok := c.ClusterLoadAssignments[network]; ok {
-			return cla
-		}
+		return c.LoadAssignments[network]
 	}
-	return c.ClusterLoadAssignments[""]
+	return c.LoadAssignments[""]
 }
 
 func newEndpoint(e *model.NetworkEndpoint) (*endpoint.LbEndpoint, error) {
@@ -196,7 +189,7 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 	edsCluster.mutex.Lock()
 	defer edsCluster.mutex.Unlock()
 	for n, locEps := range locEpsByNetwork {
-		edsCluster.ClusterLoadAssignments[n] = &xdsapi.ClusterLoadAssignment{
+		edsCluster.LoadAssignments[n] = &xdsapi.ClusterLoadAssignment{
 			ClusterName: clusterName,
 			Endpoints:   locEps,
 		}
@@ -204,16 +197,22 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 			edsCluster.NonEmptyTime = time.Now()
 		}
 	}
-	edsCluster.GatewaysEndpoints = gwByNetwork
+	// Once we have all local endoints we are running a second pass for updating
+	// remote endpoints.
+	for n := range locEpsByNetwork {
+		edsCluster.updateRemoteEndpoints(n, gwByNetwork)
+	}
 
 	return nil
 }
 
-// networkGateway returns an endpoint to the gateway of a remote Istio network.
-// The weight of the endpoint will equal to the number of endpoints in the
-// remote network. If the remote network has no cluster endpoints (weight 0)
-// nil will be returned.
-func networkGateways(instances []*model.ServiceInstance, endpoints map[string][]endpoint.LocalityLbEndpoints) map[string]*endpoint.LocalityLbEndpoints {
+// networkGateways returns a map between network IDs and the endpoint to the
+// gateway of the remote Istio network.
+// The weight of the endpoint will equal to the number of local endpoints in
+// the remote network. If the remote network has no cluster endpoints
+// (i.e. weight 0) it will not be added.
+func networkGateways(instances []*model.ServiceInstance,
+	endpoints map[string][]endpoint.LocalityLbEndpoints) map[string]*endpoint.LocalityLbEndpoints {
 	gateways := make(map[string]*endpoint.LocalityLbEndpoints)
 	for _, instance := range instances {
 		network := instance.Labels["ISTIO_NETWORK"]
@@ -221,30 +220,44 @@ func networkGateways(instances []*model.ServiceInstance, endpoints map[string][]
 			continue
 		}
 
+		// Calculate the weight of the network by counting the local endpoints
 		weight := 0
 		for _, ep := range endpoints[network] {
 			weight += len(ep.LbEndpoints)
 		}
+		// If the weight is 0 (no endpoints) this network can be skipped
 		if weight == 0 {
 			continue
 		}
 
-		var addr core.Address
+		// First try to get the gateway address from the environment variables
+		// if configured.
+		var addr *core.Address
 		addrIP := instance.Labels["ISTIO_NETWORK_GATEWAY_IP"]
 		addrPort, err := strconv.ParseUint(instance.Labels["ISTIO_NETWORK_GATEWAY_PORT"], 10, 32)
 		if addrIP != "" && err == nil {
-			addr = util.BuildAddress(addrIP, uint32(addrPort))
-		} else {
-			//TODO: For K8S, the gateway IP can be extracted from the Service
-			// object for LoadBalancer services.
-			addr = util.BuildAddress("1.1.1.1", 80)
+			cfgAddr := util.BuildAddress(addrIP, uint32(addrPort))
+			addr = &cfgAddr
 		}
 
+		// If address not found, try to get the gateway address from its k8s
+		// service.
+		if addr == nil {
+			//TODO: For K8S, the gateway IP can be extracted from the Service
+			//object for LoadBalancer services.
+		}
+
+		// If address is still missing we can't add the endoint so skip it
+		if addr == nil {
+			continue
+		}
+
+		// Add a new endpoint with the remote network gateway and weight
 		gateways[network] = &endpoint.LocalityLbEndpoints{
 			LbEndpoints: []endpoint.LbEndpoint{
 				endpoint.LbEndpoint{
 					Endpoint: &endpoint.Endpoint{
-						Address: &addr,
+						Address: addr,
 					},
 				},
 			},
@@ -302,34 +315,20 @@ func localityLbEndpointsFromInstances(instances []*model.ServiceInstance) map[st
 // Function will go through other networks and add a remote endpoint pointing
 // to the gateway of each one of them. The remote endpoints (one per each network)
 // will be added to the ClusterLoadAssignment of the specified network.
-func (c *EdsCluster) updateRemoteEndpoints(node *model.Proxy) {
-	if node == nil {
-		return
-	}
-	network := node.Metadata["ISTIO_NETWORK"]
-	cla, found := c.ClusterLoadAssignments[network]
+func (c *EdsCluster) updateRemoteEndpoints(network string, gwByNetwork map[string]*endpoint.LocalityLbEndpoints) {
+	cla, found := c.LoadAssignments[network]
 	if !found {
 		return
 	}
-	for n := range c.ClusterLoadAssignments {
+	for n := range c.LoadAssignments {
 		if n == network {
 			continue
 		}
 
-		// Append an endpoint to the remote network gateway (if it doesn't
-		// already exist) and add it to the list of local endpoints of this
-		// network
-		if rgw := c.GatewaysEndpoints[n]; rgw != nil {
-			exists := false
-			for _, ep := range cla.Endpoints {
-				if ep.Equal(rgw) {
-					exists = true
-					break
-				}
-			}
-			if !exists {
-				cla.Endpoints = append(cla.Endpoints, *rgw)
-			}
+		// Append an endpoint to the remote network gateway to the list of
+		// local endpoints of this network
+		if rgw := gwByNetwork[n]; rgw != nil {
+			cla.Endpoints = append(cla.Endpoints, *rgw)
 		}
 	}
 }
@@ -448,7 +447,6 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection) e
 			}
 			l = loadAssignment(c, con.modelNode)
 		}
-		c.updateRemoteEndpoints(con.modelNode)
 		endpoints += len(l.Endpoints)
 		if len(l.Endpoints) == 0 {
 			emptyClusters++
@@ -512,11 +510,10 @@ func (s *DiscoveryServer) getOrAddEdsCluster(clusterName string) *EdsCluster {
 	c := edsClusters[clusterName]
 	if c == nil {
 		c = &EdsCluster{
-			discovery:              s,
-			ClusterLoadAssignments: map[string]*xdsapi.ClusterLoadAssignment{},
-			GatewaysEndpoints:      map[string]*endpoint.LocalityLbEndpoints{},
-			EdsClients:             map[string]*XdsConnection{},
-			FirstUse:               time.Now(),
+			discovery:       s,
+			LoadAssignments: map[string]*xdsapi.ClusterLoadAssignment{},
+			EdsClients:      map[string]*XdsConnection{},
+			FirstUse:        time.Now(),
 		}
 		edsClusters[clusterName] = c
 	}

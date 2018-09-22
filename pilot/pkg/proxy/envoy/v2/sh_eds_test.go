@@ -140,17 +140,17 @@ func initSplitHorizonTestEnv(t *testing.T) *bootstrap.Server {
 	localIp = getLocalIP()
 
 	networks1Lbls := map[string]string{
-		"version":                    "v1",
+		"version":                    "v1.1",
 		"ISTIO_NETWORK":              "network1",
 		"ISTIO_NETWORK_GATEWAY_IP":   "192.168.0.111",
 		"ISTIO_NETWORK_GATEWAY_PORT": "80"}
 	networks2Lbls := map[string]string{
-		"version":                    "v1",
+		"version":                    "v1.1",
 		"ISTIO_NETWORK":              "network2",
 		"ISTIO_NETWORK_GATEWAY_IP":   "192.168.0.222",
 		"ISTIO_NETWORK_GATEWAY_PORT": "80"}
 	networks3Lbls := map[string]string{
-		"version":                    "v1",
+		"version":                    "v1.1",
 		"ISTIO_NETWORK":              "network3",
 		"ISTIO_NETWORK_GATEWAY_IP":   "192.168.0.333",
 		"ISTIO_NETWORK_GATEWAY_PORT": "80"}
