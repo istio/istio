@@ -630,7 +630,7 @@ func (k *KubeInfo) deployIstio() error {
 		return err
 	}
 
-	if err := util.CreateNamespace(k.Namespace, k.KubeConfig); err != nil {
+	if _, err := util.CreateNamespace(k.Namespace, k.KubeClient); err != nil {
 		log.Errorf("Unable to create namespace %s: %s", k.Namespace, err.Error())
 		return err
 	}
@@ -654,7 +654,7 @@ func (k *KubeInfo) deployIstio() error {
 
 	if *multiClusterDir != "" {
 		// Create namespace on any remote clusters
-		if err := util.CreateNamespace(k.Namespace, k.RemoteKubeConfig); err != nil {
+		if _, err := util.CreateNamespace(k.Namespace, k.RemoteKubeConfig); err != nil {
 			log.Errorf("Unable to create namespace %s on remote cluster: %s", k.Namespace, err.Error())
 			return err
 		}

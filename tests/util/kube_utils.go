@@ -33,7 +33,13 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 	"golang.org/x/net/context/ctxhttp"
 
+	"k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	clientset "k8s.io/client-go/kubernetes"
+
 	"istio.io/istio/pkg/log"
+
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
 )
 
 const (
@@ -96,14 +102,21 @@ func CreateAndFill(outDir, templateFile string, values interface{}) (string, err
 }
 
 // CreateNamespace create a kubernetes namespace
-func CreateNamespace(n string, kubeconfig string) error {
-	if _, err := ShellMuteOutput("kubectl create namespace %s --kubeconfig=%s", n, kubeconfig); err != nil {
-		if !strings.Contains(err.Error(), "AlreadyExists") {
-			return err
+func CreateNamespace(n string, kubeClient clientset.Interface) (*v1.Namespace, error) {
+	namespaceObj := &v1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      n,
+			Namespace: "",
+		},
+		Status: v1.NamespaceStatus{},
+	}
+	got, err := kubeClient.CoreV1().Namespaces().Create(namespaceObj)
+	if err != nil {
+		if !apierrs.IsAlreadyExists(err) {
+			return nil, err
 		}
 	}
-	log.Infof("namespace %s created\n", n)
-	return nil
+	return got, nil
 }
 
 // DeleteNamespace delete a kubernetes namespace
