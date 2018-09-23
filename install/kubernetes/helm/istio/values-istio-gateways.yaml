@@ -51,6 +51,8 @@ gateways:
       #requests:
       #  cpu: 1800m
       #  memory: 256Mi
+
+    # cpu needs to be set if want the HPA works, see also https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/ about HPA
     cpu:
       targetAverageUtilization: 80
 
