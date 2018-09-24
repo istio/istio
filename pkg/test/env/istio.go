@@ -27,6 +27,10 @@ import (
 )
 
 var (
+	// GOPATH environment variable
+	// nolint: golint
+	GOPATH Variable = "GOPATH"
+
 	// TOP environment variable
 	// nolint: golint
 	TOP Variable = "TOP"
@@ -47,7 +51,7 @@ var (
 	IstioTop = TOP.ValueOrDefaultFunc(getDefaultIstioTop)
 
 	// IstioSrc is the location if istio source ($TOP/src/istio.io/istio
-	IstioSrc = IstioTop + "/src/istio.io/istio"
+	IstioSrc = path.Join(IstioTop, "src/istio.io/istio")
 
 	// IstioBin is the location of the binary output directory
 	IstioBin = verifyFile(ISTIO_BIN, ISTIO_BIN.ValueOrDefaultFunc(getDefaultIstioBin))
@@ -55,8 +59,13 @@ var (
 	// IstioOut is the location of the output directory ($TOP/out)
 	IstioOut = verifyFile(ISTIO_OUT, ISTIO_OUT.ValueOrDefaultFunc(getDefaultIstioOut))
 
+	// TODO: Some of these values are overlapping. We should re-align them.
+
+	// IstioRoot is the root of the Istio source repository.
+	IstioRoot = path.Join(GOPATH.Value(), "/src/istio.io/istio")
+
 	// ChartsDir is the Kubernetes Helm chart directory in the repository
-	ChartsDir = path.Join(IstioTop, "install/kubernetes/helm")
+	ChartsDir = path.Join(IstioRoot, "install/kubernetes/helm")
 
 	// IstioChartDir is the Kubernetes Helm chart directory in the repository
 	IstioChartDir = path.Join(ChartsDir, "istio")
