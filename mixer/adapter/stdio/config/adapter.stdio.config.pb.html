@@ -6,7 +6,7 @@ layout: protoc-gen-docs
 generator: protoc-gen-docs
 aliases:
   - /docs/reference/config/adapters/stdio.html
-number_of_entries: 3
+number_of_entries: 4
 ---
 <p>The <code>stdio</code> adapter enables Istio to output logs and metrics to
 the local machine. Logs and metrics can be directed to Mixer&rsquo;s
@@ -132,6 +132,14 @@ is to retain at most 1000 logs. 0 indicates no limit.</p>
 
 </td>
 </tr>
+<tr id="Params.log_sampling">
+<td><code>logSampling</code></td>
+<td><code><a href="#Params.LogSampling">Params.LogSampling</a></code></td>
+<td>
+<p>Controls the rate of log sampling for the configured handler.</p>
+
+</td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -165,6 +173,52 @@ is to retain at most 1000 logs. 0 indicates no limit.</p>
 <td><code>ERROR</code></td>
 <td>
 <p>only error log messages are included</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Params.LogSampling">Params.LogSampling</h2>
+<section>
+<p>Controls the level of sampling that will be used by a stdio handler for log entries.
+Sampling is configured based on a duration, with the following logic:
+ - over the course of the duration, <code>max_unsampled_entries</code> are allowed unmodified
+ - after <code>max_unsampled_entries</code>, for the remainder of the duration a single log entry will
+   be emitted for every <code>sampling_rate</code> entries received.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params.LogSampling.sampling_duration">
+<td><code>samplingDuration</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+<p>Window in which to enforce the sampling rate. This window is enforced based on request.time, with no
+support for moving backwards in time (window moves forward from initial instant).</p>
+
+</td>
+</tr>
+<tr id="Params.LogSampling.max_unsampled_entries">
+<td><code>maxUnsampledEntries</code></td>
+<td><code>int64</code></td>
+<td>
+<p>Number of entries to allow during the <code>sampling_duration</code> before sampling is enforced.</p>
+
+</td>
+</tr>
+<tr id="Params.LogSampling.sampling_rate">
+<td><code>samplingRate</code></td>
+<td><code>int64</code></td>
+<td>
+<p>The rate at which to sample entries once the unsampled limit has been reached. Sampling will be enforced
+as 1 per every <code>sampling_rate</code> entries allowed.</p>
 
 </td>
 </tr>

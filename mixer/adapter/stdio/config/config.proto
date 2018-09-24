@@ -32,6 +32,7 @@ syntax = "proto3";
 package adapter.stdio.config;
 
 import "gogoproto/gogo.proto";
+import "google/protobuf/duration.proto";
 
 option go_package = "config";
 option (gogoproto.goproto_getters_all) = false;
@@ -118,4 +119,23 @@ message Params {
     // The maximum number of old rotated log files to retain.  The default
     // is to retain at most 1000 logs. 0 indicates no limit.
     int32 max_rotated_files = 9;
+
+    // Controls the level of sampling that will be used by a stdio handler for log entries.
+    // Sampling is configured based on a duration, with the following logic:
+    //  - over the course of the duration, `max_unsampled_entries` are allowed unmodified
+    //  - after `max_unsampled_entries`, for the remainder of the duration a single log entry will
+    //    be emitted for every `sampling_rate` entries received.
+    message LogSampling {
+        // Window in which to enforce the sampling rate. This window is enforced based on request.time, with no
+        // support for moving backwards in time (window moves forward from initial instant).
+        google.protobuf.Duration sampling_duration = 1 [(gogoproto.nullable)=false,(gogoproto.stdduration) = true];
+        // Number of entries to allow during the `sampling_duration` before sampling is enforced.
+        int64 max_unsampled_entries = 2;
+        // The rate at which to sample entries once the unsampled limit has been reached. Sampling will be enforced
+        // as 1 per every `sampling_rate` entries allowed.
+        int64 sampling_rate = 3;
+    }
+
+    // Controls the rate of log sampling for the configured handler.
+    LogSampling log_sampling = 10;
 }

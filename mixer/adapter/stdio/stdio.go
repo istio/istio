@@ -38,12 +38,14 @@ import (
 type (
 	zapBuilderFn func(options *config.Params) (zapcore.Core, func(), error)
 
+	zapWriterFn func(entry zapcore.Entry, fields []zapcore.Field) error
+
 	handler struct {
 		closer         func()
 		severityLevels map[string]zapcore.Level
 		metricLevel    zapcore.Level
 		getTime        func() time.Time
-		write          func(entry zapcore.Entry, fields []zapcore.Field) error
+		write          zapWriterFn
 		sync           func() error
 		logEntryVars   map[string][]string
 		metricDims     map[string][]string
@@ -224,14 +226,26 @@ func (b *builder) buildWithZapBuilder(_ context.Context, _ adapter.Env, zb zapBu
 		sl[k] = levelToZap[v]
 	}
 
+	if b.adapterConfig.LogSampling != nil {
+		ls := b.adapterConfig.LogSampling
+		if ls.SamplingRate > 0 {
+			core = zapcore.NewSampler(core, ls.SamplingDuration, int(ls.MaxUnsampledEntries), int(ls.SamplingRate))
+		}
+	}
+
 	return &handler{
 		severityLevels: sl,
 		metricLevel:    levelToZap[b.adapterConfig.MetricLevel],
 		closer:         closer,
 		getTime:        time.Now,
 		sync:           core.Sync,
-		write:          core.Write,
-		logEntryVars:   varLists,
-		metricDims:     dimLists,
+		write: func(entry zapcore.Entry, fields []zapcore.Field) error {
+			if ce := core.Check(entry, nil); ce != nil {
+				ce.Write(fields...)
+			}
+			return nil
+		},
+		logEntryVars: varLists,
+		metricDims:   dimLists,
 	}, nil
 }

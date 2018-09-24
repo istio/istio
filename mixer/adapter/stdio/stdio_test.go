@@ -423,6 +423,107 @@ func TestLogEntry(t *testing.T) {
 	}
 }
 
+var defaultConfig = GetInfo().DefaultConfig.(*config.Params)
+
+func WithSampling(cfg *config.Params, tick time.Duration, unsampledLimit, samplingRate int64) *config.Params {
+	cfg.LogSampling = &config.Params_LogSampling{
+		SamplingDuration:    tick,
+		MaxUnsampledEntries: unsampledLimit,
+		SamplingRate:        samplingRate,
+	}
+	return cfg
+}
+
+func TestLogSampling(t *testing.T) {
+	types := map[string]*logentry.Type{
+		"Foo": {
+			Variables: map[string]descriptor.ValueType{
+				"String":    descriptor.STRING,
+				"Int64":     descriptor.INT64,
+				"Double":    descriptor.DOUBLE,
+				"Bool":      descriptor.BOOL,
+				"Duration":  descriptor.DURATION,
+				"Time":      descriptor.TIMESTAMP,
+				"StringMap": descriptor.STRING_MAP,
+				"IPAddress": descriptor.IP_ADDRESS,
+				"Bytes":     descriptor.VALUE_TYPE_UNSPECIFIED,
+				"DNSName":   descriptor.DNS_NAME,
+				"URL":       descriptor.STRING,
+				"EmailAddr": descriptor.EMAIL_ADDRESS,
+			},
+		},
+	}
+
+	tm := time.Date(2017, time.August, 21, 10, 4, 00, 0, time.UTC)
+
+	baseEntry := &logentry.Instance{
+		Name:     "Foo",
+		Severity: "WARNING",
+		Variables: map[string]interface{}{
+			"String":    "a string",
+			"Int64":     int64(123),
+			"Double":    1.23,
+			"Bool":      true,
+			"Time":      tm,
+			"Duration":  1 * time.Second,
+			"StringMap": map[string]string{"A": "B", "C": "D"},
+			"IPAddress": net.IPv4zero,
+			"Bytes":     []byte{'b'},
+			"DNSName":   "foo.bar.com",
+			"URL":       "http://foo.com",
+			"EmailAddr": "foo@bar.com",
+		},
+	}
+
+	cases := []struct {
+		name               string
+		duration           time.Duration
+		limit              int64
+		rate               int64
+		numEntriesToSend   int
+		numExpectedEntries int
+	}{
+		{"1 per 5s with sampling rate of 10, send 9", 5 * time.Second, 1, 10, 9, 1},
+		{"1 per 5s with sampling rate of 5, send 6", 5 * time.Second, 1, 5, 6, 2},
+		{"1 per 5s with sampling rate of 1, send 6", 5 * time.Second, 1, 1, 6, 6},
+		{"5 per 5s with sampling rate of 10, send 5", 5 * time.Second, 5, 10, 10, 5},
+		{"9 per 5s with sampling rate of 1, send 10", 5 * time.Second, 9, 1, 10, 10},
+		{"9 per 5s with sampling rate of 0, send 15", 5 * time.Second, 9, 0, 15, 15},
+		{"1 per 10m with sampling rate of 2, send 6", 10 * time.Minute, 1, 2, 6, 3},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+
+			lines, _ := captureStdout(func() {
+
+				info := GetInfo()
+				b := info.NewBuilder().(*builder)
+				b.SetAdapterConfig(WithSampling(defaultConfig, c.duration, c.limit, c.rate))
+				env := test.NewEnv(t)
+				b.SetLogEntryTypes(types)
+				h, _ := b.Build(context.Background(), env)
+				handler := h.(*handler)
+				handler.getTime = func() time.Time { return time.Time{} }
+
+				for i := 0; i < c.numEntriesToSend; i++ {
+					if err := handler.HandleLogEntry(context.Background(), []*logentry.Instance{baseEntry}); err != nil {
+						t.Errorf("Got %v, expecting success", err)
+					}
+				}
+
+				if err := handler.Close(); err != nil {
+					t.Errorf("Got error %v, expecting success", err)
+				}
+			})
+
+			if len(lines) != c.numExpectedEntries {
+				t.Errorf("Got %d lines of output, expected %d", len(lines), c.numExpectedEntries)
+			}
+		})
+	}
+}
+
 func TestMetricEntry(t *testing.T) {
 	types := map[string]*metric.Type{
 		"Foo": {
