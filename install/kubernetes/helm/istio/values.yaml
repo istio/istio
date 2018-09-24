@@ -505,7 +505,7 @@ tracing:
   provider: jaeger
   jaeger:
     hub: docker.io/jaegertracing
-    tag: 1.6
+    tag: 1.7
     memory:
       max_traces: 50000
     ingress:
