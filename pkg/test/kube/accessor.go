@@ -137,7 +137,7 @@ func (a *Accessor) WaitUntilPodIsRunning(ns string, name string) error {
 	return err
 }
 
-// WaitUntilPodIsReady waits until the pod with the name/namespace is in succeeded or running state.
+// WaitUntilPodIsReady waits until the pod with the name/namespace is in ready state.
 func (a *Accessor) WaitUntilPodIsReady(ns string, name string) error {
 	_, err := util.Retry(util.DefaultRetryTimeout, util.DefaultRetryWait, func() (interface{}, bool, error) {
 
@@ -152,6 +152,50 @@ func (a *Accessor) WaitUntilPodIsReady(ns string, name string) error {
 		}
 
 		ready := pod.Status.Phase == v12.PodRunning || pod.Status.Phase == v12.PodSucceeded
+
+		return nil, ready, nil
+	})
+
+	return err
+}
+
+// WaitUntilDeploymentIsReady waits until the deployment with the name/namespace is in ready state.
+func (a *Accessor) WaitUntilDeploymentIsReady(ns string, name string) error {
+	_, err := util.Retry(util.DefaultRetryTimeout, util.DefaultRetryWait, func() (interface{}, bool, error) {
+
+		deployment, err := a.set.ExtensionsV1beta1().
+			Deployments(ns).
+			Get(name, v1.GetOptions{})
+
+		if err != nil {
+			if !errors.IsNotFound(err) {
+				return nil, true, err
+			}
+		}
+
+		ready := deployment.Status.ReadyReplicas == deployment.Status.UnavailableReplicas+deployment.Status.AvailableReplicas
+
+		return nil, ready, nil
+	})
+
+	return err
+}
+
+// WaitUntilDaemonSetIsReady waits until the deployment with the name/namespace is in ready state.
+func (a *Accessor) WaitUntilDaemonSetIsReady(ns string, name string) error {
+	_, err := util.Retry(util.DefaultRetryTimeout, util.DefaultRetryWait, func() (interface{}, bool, error) {
+
+		daemonSet, err := a.set.ExtensionsV1beta1().
+			DaemonSets(ns).
+			Get(name, v1.GetOptions{})
+
+		if err != nil {
+			if !errors.IsNotFound(err) {
+				return nil, true, err
+			}
+		}
+
+		ready := daemonSet.Status.NumberReady == daemonSet.Status.DesiredNumberScheduled
 
 		return nil, ready, nil
 	})
@@ -201,11 +245,12 @@ func (a *Accessor) CreateNamespace(ns string, istioTestingAnnotation string) err
 	scopes.Framework.Debugf("Creating namespace: %s", ns)
 	n := v12.Namespace{
 		ObjectMeta: v1.ObjectMeta{
-			Name: ns,
-			Labels: map[string]string{
-				"istio-testing": istioTestingAnnotation,
-			},
+			Name:   ns,
+			Labels: map[string]string{},
 		},
+	}
+	if istioTestingAnnotation != "" {
+		n.ObjectMeta.Labels["istio-testing"] = istioTestingAnnotation
 	}
 
 	_, err := a.set.CoreV1().Namespaces().Create(&n)
