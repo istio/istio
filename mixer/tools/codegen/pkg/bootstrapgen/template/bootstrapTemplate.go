@@ -88,6 +88,12 @@ func newWrapperAttrBag(get getFn, names namesFn, done doneFn, debugString debugS
 func (w *wrapperAttr) Get(name string) (value interface{}, found bool) {
     return w.get(name)
 }
+
+// Contains returns true if key is present.
+func (w *wrapperAttr) Contains(key string) (found bool) {
+    _, found = w.get(key)
+    return found
+}
  
 // Names returns the names of all the attributes known to this bag.
 func (w *wrapperAttr) Names() []string {
