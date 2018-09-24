@@ -258,11 +258,18 @@ func (e *Ephemeral) processStaticAdapterHandlerConfigs(ctx context.Context, errs
 				Params:  a.DefaultConfig,
 			}
 			if handlerProto.Params != nil {
+				c := proto.Clone(staticConfig.Adapter.DefaultConfig)
 				if handlerProto.GetParams() != nil {
-					staticConfig.Params = proto.Clone(handlerProto.Params)
-				} else {
-					staticConfig.Params = proto.Clone(staticConfig.Adapter.DefaultConfig)
+					dict, err := toDictionary(handlerProto.Params)
+					if err != nil {
+						log.Warnf("could not convert handler params; using default config: %v", err)
+					} else {
+						if err := convert(dict, c); err != nil {
+							log.Warnf("could not convert handler params; using default config: %v", err)
+						}
+					}
 				}
+				staticConfig.Params = c
 			}
 			handlers[key.String()] = staticConfig
 			stats.Record(ctx, monitoring.HandlersTotal.M(1))
