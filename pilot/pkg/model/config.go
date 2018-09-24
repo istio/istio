@@ -473,7 +473,7 @@ var (
 		Validate:    ValidateRbacConfig,
 	}
 
-	// ClusterRbacConfig describes the mesh level RBAC config.
+	// ClusterRbacConfig describes the cluster level RBAC config.
 	ClusterRbacConfig = ProtoSchema{
 		ClusterScoped: true,
 		Type:          "cluster-rbac-config",

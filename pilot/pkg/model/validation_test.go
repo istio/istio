@@ -3160,9 +3160,9 @@ func TestValidateClusterRbacConfig(t *testing.T) {
 		},
 		{
 			caseName: "invalid name",
-			name:     "mesh-rbac-config",
+			name:     "cluster-rbac-config",
 			in:       &rbac.RbacConfig{Mode: rbac.RbacConfig_ON_WITH_INCLUSION},
-			expectErrMsg: fmt.Sprintf("ClusterRbacConfig has invalid name(mesh-rbac-config), name must be %q",
+			expectErrMsg: fmt.Sprintf("ClusterRbacConfig has invalid name(cluster-rbac-config), name must be %q",
 				DefaultRbacConfigName),
 		},
 		{
