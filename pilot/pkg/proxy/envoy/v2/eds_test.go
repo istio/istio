@@ -96,9 +96,11 @@ func testTCPEndpoints(expected string, adsc *adsc.ADSC, t *testing.T) {
 	if !f || len(lbe.Endpoints) == 0 {
 		t.Fatal("No lb endpoints")
 	}
-	for _, e := range lbe.Endpoints[0].LbEndpoints {
-		if expected == e.Endpoint.Address.GetSocketAddress().Address {
-			return
+	for _, lbe := range lbe.Endpoints {
+		for _, e := range lbe.LbEndpoints {
+			if expected == e.Endpoint.Address.GetSocketAddress().Address {
+				return
+			}
 		}
 	}
 	t.Errorf("Expecting %s got %v", expected, lbe.Endpoints[0].LbEndpoints)

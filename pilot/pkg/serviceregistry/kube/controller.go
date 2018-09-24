@@ -811,6 +811,7 @@ func (c *Controller) updateEDS(ep v1.Endpoints) {
 					ServicePortName: port.Name,
 					Labels:          labels,
 					UID:             uid,
+					ServiceAccount:  kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace(), c.domainSuffix),
 				})
 			}
 		}

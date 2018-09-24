@@ -300,11 +300,15 @@ func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 			},
 		}
 	}
+
+	svc2acc := map[string]map[string]bool{}
+
 	for _, reg := range regs {
 		// Each registry acts as a shard - we don't want to combine them because some
 		// may individually update their endpoints incrementally
 		for _, svc := range push.Services {
 			entries := []*model.IstioEndpoint{}
+			hn := string(svc.Hostname)
 			for _, port := range svc.Ports {
 				if port.Protocol == model.ProtocolUDP {
 					continue
@@ -325,15 +329,29 @@ func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 						ServicePortName: port.Name,
 						Labels:          l,
 						UID:             ep.Endpoint.UID,
+						ServiceAccount:  ep.ServiceAccount,
 					})
+					if ep.ServiceAccount != "" {
+						acc, f := svc2acc[hn]
+						if !f {
+							acc = map[string]bool{}
+							svc2acc[hn] = acc
+						}
+						acc[ep.ServiceAccount] = true
+					}
 				}
 			}
 
-			s.EDSUpdate(reg.ClusterID, string(svc.Hostname), entries)
-
+			s.EDSUpdate(reg.ClusterID, hn, entries)
 		}
-
 	}
+
+	s.mutex.Lock()
+	for k, v := range svc2acc {
+		ep, _ := s.EndpointShardsByService[k]
+		ep.ServiceAccounts = v
+	}
+	s.mutex.Unlock()
 
 	return nil
 }
@@ -434,6 +452,11 @@ func (s *DiscoveryServer) edsIncremental(version string, push *model.PushContext
 	s.startPush(version, push, false, edsUpdates)
 }
 
+var (
+	errNewService        = errors.New("new service")
+	errNewServiceAccount = errors.New("service account change")
+)
+
 // EDSUpdate computes destination address membership across all clusters and networks.
 // This is the main method implementing EDS.
 // It replaces InstancesByPort in model - instead of iterating over all endpoints it uses
@@ -452,11 +475,15 @@ func (s *DiscoveryServer) EDSUpdate(shard, serviceName string,
 	// 1. Find the 'per service' data
 	ep, f := s.EndpointShardsByService[serviceName]
 	if !f {
-		ep = model.ServiceShards{
-			Shards: map[string]*model.EndpointShard{},
-			//AllEndpoints: []EndpointShard{},
-		}
-		s.EndpointShardsByService[serviceName] = ep
+		// This endpoint is for a service that was not previously loaded.
+		// Return an error to force a full sync, which will also cause the
+		// EndpointsShardsByService to be initialized with all services.
+		//ep = model.ServiceShards{
+		//	Shards: map[string]*model.EndpointShard{},
+		//	ServiceAccounts:map[string]bool{},
+		//}
+		//s.EndpointShardsByService[serviceName] = ep
+		return errNewService
 	}
 
 	// 2. Update data for the specific cluster. Each cluster gets independent
@@ -468,6 +495,14 @@ func (s *DiscoveryServer) EDSUpdate(shard, serviceName string,
 
 	for _, e := range entries {
 		ce.Entries = append(ce.Entries, e)
+		if e.ServiceAccount != "" {
+			_, f = ep.ServiceAccounts[e.ServiceAccount]
+			if !f {
+				// The entry has a service account that was not previously associated.
+				// Requires a CDS push and full sync.
+				return errNewServiceAccount
+			}
+		}
 	}
 	ep.Shards[shard] = ce
 	s.Env.EDSUpdates[serviceName] = &ep

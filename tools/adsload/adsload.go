@@ -66,7 +66,10 @@ func main() {
 	}
 	http.Handle("/metrics", promhttp.Handler())
 	initMetrics()
-	http.ListenAndServe(*port, nil)
+	err := http.ListenAndServe(*port, nil)
+	if err != nil {
+		log.Fatal("failed to start monitoring port ", err)
+	}
 }
 
 var (
@@ -132,7 +135,11 @@ func runClient(n int) {
 			continue
 		}
 		if msg == "close" {
-			c.Reconnect()
+			err = c.Reconnect()
+			if err != nil {
+				log.Println("Failed to reconnect")
+				return
+			}
 		}
 		if !initialConnect && msg == "rds" {
 			// This is a delayed initial connect

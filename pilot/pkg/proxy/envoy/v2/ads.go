@@ -432,7 +432,9 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				}
 				if clusters == nil && discReq.ResponseNonce != "" {
 					// There is no requirement that ACK includes clusters. The test doesn't.
-					con.EndpointNonceAcked = discReq.ResponseNonce
+					if discReq.ErrorDetail == nil && discReq.ResponseNonce != "" {
+						con.EndpointNonceAcked = discReq.ResponseNonce
+					}
 					continue
 				}
 
