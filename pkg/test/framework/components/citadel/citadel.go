@@ -16,22 +16,27 @@ package citadel
 
 import (
 	"fmt"
+
 	"github.com/hashicorp/go-multierror"
 
-	"go.uber.org/multierr"
-	"google.golang.org/grpc"
+	"time"
 
-	istio_mixer_v1 "istio.io/api/mixer/v1"
+	"k8s.io/api/core/v1"
+	mv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	cv1 "k8s.io/client-go/kubernetes/typed/core/v1"
+
 	"istio.io/istio/pkg/test/framework/dependency"
 	"istio.io/istio/pkg/test/framework/environment"
 	"istio.io/istio/pkg/test/framework/environments/kubernetes"
-	"istio.io/istio/pkg/test/kube"
-	"log"
 )
 
 const (
 	citadelService = "istio-citadel"
-	grpcPortName     = "grpc-citadel"
+	grpcPortName   = "grpc-citadel"
+	// Specifies how long we wait before a secret becomes existent.
+	secretWaitTime = 20 * time.Second
+	// Name of secret created by Citadel
+	secretName = "istio.default"
 )
 
 var KubeComponent = &kubeComponent{}
@@ -67,39 +72,9 @@ func (c *kubeComponent) doInit(e *kubernetes.Implementation) (interface{}, error
 	res := &deployedCitadel{
 		local: false,
 	}
-	log.Print("doInit is done.")
-	//s := e.KubeSettings()
 
-	//pod, err := e.Accessor.WaitForPodBySelectors(s.IstioSystemNamespace, "istio=citadel")
-	//if err != nil {
-	//	return nil, err
-	//}
-
-	//port, err := getGrpcPort(e)
-	//if err != nil {
-	//	return nil, err
-	//}
-	//
-	//options := &kube.PodSelectOptions{
-	//	PodNamespace: pod.Namespace,
-	//	PodName:      pod.Name,
-	//}
-	//forwarder, err := kube.NewPortForwarder(s.KubeConfig, options, 0, port)
-	//if err != nil {
-	//	return nil, err
-	//}
-	//if err := forwarder.Start(); err != nil {
-	//	return nil, err
-	//}
-	//
-	//conn, err := grpc.Dial(forwarder.Address(), grpc.WithInsecure())
-	//if err != nil {
-	//	return nil, err
-	//}
-	//
-	//res.client = istio_mixer_v1.NewMixerClient(conn)
-	//res.forwarders = append(res.forwarders, forwarder)
-
+	s := e.Accessor.GetSecret(e.KubeSettings().IstioSystemNamespace)
+	res.secret = s
 	return res, nil
 }
 
@@ -120,27 +95,34 @@ type deployedCitadel struct {
 	// Indicates that the component is running in local mode.
 	local bool
 
-	conn    *grpc.ClientConn
-	client  istio_mixer_v1.MixerClient
-
-	forwarders []kube.PortForwarder
+	secret cv1.SecretInterface
 }
 
-func (d *deployedCitadel) CitadelName() string {
-	return "Citadel"
+// WaitForSecretExist waits for Citadel to create and mount secrets.
+func (d *deployedCitadel) WaitForSecretExist() (*v1.Secret, error) {
+	watch, err := d.secret.Watch(mv1.ListOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to set up watch for secret (error: %v)", err)
+	}
+	events := watch.ResultChan()
+
+	startTime := time.Now()
+	for {
+		select {
+		case event := <-events:
+			secret := event.Object.(*v1.Secret)
+			if secret.GetName() == secretName {
+				return secret, nil
+			}
+		case <-time.After(secretWaitTime - time.Since(startTime)):
+			return nil, fmt.Errorf("secret %v/%v did not become existent within %v",
+				secretName, secretWaitTime)
+		}
+	}
 }
 
-// Close implements io.Closer.
-func (d *deployedCitadel) Close() error {
-	var err error
-	if d.conn != nil {
-		err = multierr.Append(err, d.conn.Close())
-		d.conn = nil
-	}
-
-	for _, fw := range d.forwarders {
-		fw.Close()
-	}
-
-	return err
+// DeleteSecret deletes a secret.
+func (d *deployedCitadel) DeleteSecret() error {
+	var immediate int64
+	return d.secret.Delete(secretName, &mv1.DeleteOptions{GracePeriodSeconds: &immediate})
 }

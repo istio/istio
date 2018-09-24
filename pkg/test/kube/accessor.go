@@ -24,6 +24,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
+	cv1 "k8s.io/client-go/kubernetes/typed/core/v1"
+
 	"istio.io/istio/pkg/log"
 )
 
@@ -148,6 +150,11 @@ func (a *Accessor) WaitUntilPodIsReady(ns string, name string) error {
 func (a *Accessor) GetService(ns string, name string) (*v12.Service, error) {
 	svc, err := a.set.CoreV1().Services(ns).Get(name, v1.GetOptions{})
 	return svc, err
+}
+
+// GetSecret returns secret resource with the given namespace.
+func (a *Accessor) GetSecret(ns string) cv1.SecretInterface {
+	return a.set.CoreV1().Secrets(ns)
 }
 
 // CreateNamespace with the given name. Also adds an "istio-testing" annotation.

@@ -22,6 +22,8 @@ import (
 	"github.com/gogo/googleapis/google/rpc"
 	"github.com/gogo/protobuf/proto"
 
+	"k8s.io/api/core/v1"
+
 	istio_mixer_v1 "istio.io/api/mixer/v1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/application/echo"
@@ -225,7 +227,8 @@ type (
 	DeployedCitadel interface {
 		Deployed
 
-		CitadelName() string
+		WaitForSecretExist() (*v1.Secret, error)
+		DeleteSecret() error
 	}
 )
 
