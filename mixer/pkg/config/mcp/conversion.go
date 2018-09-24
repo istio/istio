@@ -32,9 +32,9 @@ var mixerKinds = map[string]struct{}{
 	constant.AdapterKind:           {},
 	constant.AttributeManifestKind: {},
 	constant.InstanceKind:          {},
-	// constant.HandlerKind:           {},
-	constant.RulesKind:    {},
-	constant.TemplateKind: {},
+	constant.HandlerKind:           {},
+	constant.RulesKind:             {},
+	constant.TemplateKind:          {},
 }
 
 const (

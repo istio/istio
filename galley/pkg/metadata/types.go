@@ -33,7 +33,7 @@ func init() {
 	b.Register("type.googleapis.com/istio.networking.v1alpha3.ServiceEntry")
 	b.Register("type.googleapis.com/istio.networking.v1alpha3.VirtualService")
 	b.Register("type.googleapis.com/istio.policy.v1beta1.AttributeManifest")
-	// b.Register("type.googleapis.com/istio.policy.v1beta1.Handler")
+	b.Register("type.googleapis.com/istio.policy.v1beta1.Handler")
 	b.Register("type.googleapis.com/istio.policy.v1beta1.Instance")
 	b.Register("type.googleapis.com/istio.policy.v1beta1.Rule")
 	b.Register("type.googleapis.com/istio.rbac.v1alpha1.RbacConfig")

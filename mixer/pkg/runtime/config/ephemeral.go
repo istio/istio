@@ -258,20 +258,11 @@ func (e *Ephemeral) processStaticAdapterHandlerConfigs(ctx context.Context, errs
 				Params:  a.DefaultConfig,
 			}
 			if handlerProto.Params != nil {
-<<<<<<< HEAD
-				c := proto.Clone(staticConfig.Adapter.DefaultConfig)
-=======
-				c := staticConfig.Adapter.DefaultConfig
->>>>>>> Refactor Mixer Adapter CRDs
-				switch v := handlerProto.Params.(type) {
-				case map[string]interface{}:
-					if err := convert(v, c); err != nil {
-						log.Warnf("could not convert handler params; using default config: %v", err)
-					}
-				default:
-					log.Warnf("unexpected type for handler params: %T; could not convert handler params; using default config", v)
+				if handlerProto.GetParams() != nil {
+					staticConfig.Params = proto.Clone(handlerProto.Params)
+				} else {
+					staticConfig.Params = proto.Clone(staticConfig.Adapter.DefaultConfig)
 				}
-				staticConfig.Params = c
 			}
 			handlers[key.String()] = staticConfig
 			stats.Record(ctx, monitoring.HandlersTotal.M(1))
@@ -780,7 +771,7 @@ func (e *Ephemeral) processDynamicTemplateConfigs(ctx context.Context, errs *mul
 		}
 
 		result[templateName] = &Template{
-			Name: templateName,
+			Name:                       templateName,
 			InternalPackageDerivedName: name,
 			FileDescSet:                fds,
 			PackageName:                desc.GetPackage(),
