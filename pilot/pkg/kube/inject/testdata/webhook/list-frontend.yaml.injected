@@ -63,8 +63,6 @@ items:
           - ""
           - --connectTimeout
           - 1s
-          - --statsdUdpAddress
-          - ""
           - --proxyAdminPort
           - "15000"
           - --controlPlaneAuthPolicy
@@ -73,6 +71,10 @@ items:
           - "15020"
           - --applicationPorts
           - ""
+          ports:
+          - name: http-envoy-prom
+            containerPort: 15090
+            protocol: TCP
           env:
           - name: POD_NAME
             valueFrom:
