@@ -24,8 +24,13 @@ minikube delete
 echo "Starting Minikube."
 
 # Start minikube
-# When minikube runs in `--vm-driver=none` mode, it requires root permission.
-sudo -E minikube start \
+SUDO_PREFIX=""
+if [[ "${VM_DRIVER}" == "none" ]]; then
+  # When minikube runs in `--vm-driver=none` mode, it requires root permission.
+  SUDO_PREFIX="sudo -E"
+fi
+
+$SUDO_PREFIX minikube start \
     --extra-config=controller-manager.cluster-signing-cert-file="/var/lib/localkube/certs/ca.crt" \
     --extra-config=controller-manager.cluster-signing-key-file="/var/lib/localkube/certs/ca.key" \
     --extra-config=apiserver.admission-control="NamespaceLifecycle,LimitRanger,ServiceAccount,PersistentVolumeLabel,DefaultStorageClass,DefaultTolerationSeconds,MutatingAdmissionWebhook,ValidatingAdmissionWebhook,ResourceQuota" \
