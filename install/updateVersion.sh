@@ -29,8 +29,6 @@ DEST_DIR=$ROOT
 ISTIO_NAMESPACE="istio-system"
 FORTIO_HUB="docker.io/fortio"
 FORTIO_TAG="latest_release"
-HYPERKUBE_HUB="quay.io/coreos/hyperkube"
-HYPERKUBE_TAG="v1.7.6_coreos.0"
 
 while getopts :n:p:x:c:a:h:o:P:d:D: arg; do
   case ${arg} in
@@ -39,7 +37,6 @@ while getopts :n:p:x:c:a:h:o:P:d:D: arg; do
     x) MIXER_HUB_TAG="${OPTARG}";;     # Format: "<hub>,<tag>"
     c) CITADEL_HUB_TAG="${OPTARG}";;   # Format: "<hub>,<tag>"
     a) ALL_HUB_TAG="${OPTARG}";;       # Format: "<hub>,<tag>"
-    h) HYPERKUBE_HUB_TAG="${OPTARG}";; # Format: "<hub>,<tag>"
     o) PROXY_HUB_TAG="${OPTARG}";;     # Format: "<hub>,<tag>"
     P) PILOT_DEBIAN_URL="${OPTARG}";;
     d) DEST_DIR="${OPTARG}";;
@@ -79,11 +76,6 @@ if [[ -n ${CITADEL_HUB_TAG} ]]; then
     CITADEL_TAG="$(echo "${CITADEL_HUB_TAG}"|cut -f2 -d,)"
 fi
 
-if [[ -n ${HYPERKUBE_HUB_TAG} ]]; then
-    HYPERKUBE_HUB="$(echo "${HYPERKUBE_HUB_TAG}"|cut -f1 -d,)"
-    HYPERKUBE_TAG="$(echo "${HYPERKUBE_HUB_TAG}"|cut -f2 -d,)"
-fi
-
 function usage() {
   cat <<EOF
 usage: ${BASH_SOURCE[0]} [options ...]"
@@ -93,7 +85,6 @@ usage: ${BASH_SOURCE[0]} [options ...]"
     -x ... <hub>,<tag> for the mixer docker image
     -c ... <hub>,<tag> for the citadel docker image
     -a ... <hub>,<tag> Specifies same hub and tag for pilot, mixer, proxy, and citadel containers
-    -h ... <hub>,<tag> for the hyperkube docker image
     -o ... <hub>,<tag> for the proxy docker image
     -n ... <namespace> namespace in which to install Istio control plane components
     -A ... URL to download auth debian packages
@@ -139,8 +130,6 @@ export ISTIO_NAMESPACE="${ISTIO_NAMESPACE}"
 export PILOT_DEBIAN_URL="${PILOT_DEBIAN_URL}"
 export FORTIO_HUB="${FORTIO_HUB}"
 export FORTIO_TAG="${FORTIO_TAG}"
-export HYPERKUBE_HUB="${HYPERKUBE_HUB}"
-export HYPERKUBE_TAG="${HYPERKUBE_TAG}"
 EOF
 }
 
