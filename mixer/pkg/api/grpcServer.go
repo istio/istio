@@ -96,9 +96,9 @@ func (s *grpcServer) Check(ctx context.Context, req *mixerpb.CheckRequest) (*mix
 			}
 
 			if status.IsOK(resp.Precondition.Status) {
-				log.Debug("Check approved from cache")
+				lg.Debug("Check approved from cache")
 			} else {
-				log.Debugf("Check denied from cache: %v", resp.Precondition.Status)
+				lg.Debugf("Check denied from cache: %v", resp.Precondition.Status)
 			}
 
 			if !status.IsOK(resp.Precondition.Status) || len(req.Quotas) == 0 {
