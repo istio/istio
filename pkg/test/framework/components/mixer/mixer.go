@@ -27,6 +27,8 @@ import (
 	"go.uber.org/multierr"
 	"google.golang.org/grpc"
 
+	"istio.io/istio/pkg/test/deployment"
+
 	"istio.io/istio/pkg/test/framework/scopes"
 	"istio.io/istio/pkg/test/util"
 
@@ -86,7 +88,7 @@ func (c *localComponent) Init(ctx environment.ComponentContext, deps map[depende
 		return nil, err
 	}
 
-	manifest, err := extractAttributeManifestFromHelm()
+	manifest, err := deployment.ExtractAttributeManifest()
 	if err != nil {
 		return nil, err
 	}

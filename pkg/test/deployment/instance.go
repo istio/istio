@@ -23,7 +23,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
-	"istio.io/istio/pkg/test/framework/repository"
+	"istio.io/istio/pkg/test/env"
 
 	"istio.io/istio/pkg/test/framework/scopes"
 	"istio.io/istio/pkg/test/helm"
@@ -104,13 +104,13 @@ func New(s *Settings, a *kube.Accessor) (instance *Instance, err error) {
 	settings.Hub = s.Hub
 	settings.EnableCoreDump = true
 
-	valuesFile := path.Join(repository.IstioChartDir(), string(s.ValuesFile))
+	valuesFile := path.Join(env.IstioChartDir, string(s.ValuesFile))
 
 	var generatedYaml string
 	if generatedYaml, err = helm.Template(
 		instance.deploymentName,
 		s.Namespace,
-		repository.IstioChartDir(),
+		env.IstioChartDir,
 		valuesFile,
 		settings); err != nil {
 		scopes.CI.Errorf("Helm chart generation failed: %v", err)

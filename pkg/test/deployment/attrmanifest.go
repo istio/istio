@@ -12,32 +12,33 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package mixer
+package deployment
 
 import (
 	"errors"
 	"strings"
 
-	"istio.io/istio/pkg/test/framework/repository"
+	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/scopes"
 	"istio.io/istio/pkg/test/helm"
 )
 
 // Extract attribute manifest from Helm charts.
-func extractAttributeManifestFromHelm() (string, error) {
+func ExtractAttributeManifest() (string, error) {
 	// We don't care about deploymentName, namespace or values file, or other settings, as we only
-	// want to get attribute manifest for the local environment.
+	// want to extract attribute manifest, which is not really templatized.
 	s, err := helm.Template(
 		"attributemanifest",
 		"istio-system",
-		repository.IstioChartDir(),
+		env.IstioChartDir,
 		"", nil)
 	if err != nil {
 		return "", err
 	}
 
 	// Split the template into chunks
-	parts := strings.Split(s, "\n---\n")
+	parts := test.SplitConfigs(s)
 	for _, part := range parts {
 		// Yaml contains both the CR and the CRD. We only want CR.
 		if strings.Contains(part, "kind: attributemanifest") &&

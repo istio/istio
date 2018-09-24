@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"go/build"
 	"os"
+	"path"
 	"strings"
 
 	"runtime"
@@ -53,6 +54,12 @@ var (
 
 	// IstioOut is the location of the output directory ($TOP/out)
 	IstioOut = verifyFile(ISTIO_OUT, ISTIO_OUT.ValueOrDefaultFunc(getDefaultIstioOut))
+
+	// ChartsDir is the Kubernetes Helm chart directory in the repository
+	ChartsDir = path.Join(IstioTop, "install/kubernetes/helm")
+
+	// IstioChartDir is the Kubernetes Helm chart directory in the repository
+	IstioChartDir = path.Join(ChartsDir, "istio")
 )
 
 func getDefaultIstioTop() string {

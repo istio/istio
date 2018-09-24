@@ -21,6 +21,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/cenkalti/backoff"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"go.uber.org/multierr"
@@ -160,16 +161,20 @@ func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handl
 }
 
 func (b *builder) ensureConn() error {
-	const timeOut = time.Minute
-	const delay = time.Millisecond * 10
-
 	if b.conn == nil {
-		var err error
-		for start := time.Now(); time.Now().Before(start.Add(timeOut)); {
-			if b.conn, err = grpc.Dial(b.params.BackendAddress, grpc.WithInsecure()); err == nil {
-				break
-			}
-			time.Sleep(delay)
+		bo := backoff.NewExponentialBackOff()
+		bo.InitialInterval = time.Millisecond * 10
+		bo.MaxElapsedTime = time.Minute
+
+		err := backoff.Retry(func() error {
+			var e error
+			b.conn, e = grpc.Dial(b.params.BackendAddress, grpc.WithInsecure())
+			return e
+
+		}, bo)
+
+		if err != nil {
+			return err
 		}
 
 		if b.params.SessionBased {
