@@ -1,0 +1,35 @@
+apiVersion: "config.istio.io/v1alpha2"
+kind: handler
+metadata:
+ name: h1
+ namespace: istio-system
+spec:
+ adapter: newrelic
+ connection:
+   address: "[::]:49951" #replaces at runtime by the test
+ params:
+   file_path: "out.txt"
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: instance
+metadata:
+ name: i1metric
+ namespace: istio-system
+spec:
+ template: metric
+ params:
+   value: request.size | 0
+   dimensions:
+     response_code: "200"
+     dest_service: destination.service | "unknown"
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+ name: r1
+ namespace: istio-system
+spec:
+ actions:
+ - handler: h1.istio-system
+   instances:
+   - i1metric

@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nristio-adapter
+spec:
+  selector:
+    matchLabels:
+      app: nristio
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: nristio
+    spec:
+      containers:
+      - name: nristio
+        image: wentaozhang/nradapter:0.1.0
+        env:
+        - name: NEW_RELIC_APIKEY
+          valueFrom:
+            secretKeyRef:
+              name: newrelic-secret
+              key: NEW_RELIC_APIKEY
+        - name: NEW_RELIC_ACCOUNT
+          valueFrom:
+            secretKeyRef:
+              name: newrelic-secret
+              key: NEW_RELIC_ACCOUNT
+        command: ["/nristioadapter"]
+        args:
+        - --port=41165
+        - --maxworkers=1024

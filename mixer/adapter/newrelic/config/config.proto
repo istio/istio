@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package adapter.newrelic.config;
+
+import "google/protobuf/duration.proto";
+import "gogoproto/gogo.proto";
+
+option go_package="config";
+
+message Params {
+    // Path of the file to save the information about runtime requests.
+    string file_path = 1;
+}

@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: nristio
+  name: nristio
+spec:
+  selector:
+    app: nristio
+  ports:
+  - protocol: TCP
+    port: 8888
+    targetPort: 41165
