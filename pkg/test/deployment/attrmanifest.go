@@ -24,7 +24,7 @@ import (
 	"istio.io/istio/pkg/test/helm"
 )
 
-// Extract attribute manifest from Helm charts.
+// ExtractAttributeManifest extracts attribute manifest from Helm charts.
 func ExtractAttributeManifest() (string, error) {
 	// We don't care about deploymentName, namespace or values file, or other settings, as we only
 	// want to extract attribute manifest, which is not really templatized.
