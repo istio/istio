@@ -97,7 +97,7 @@ func undeployApp(cluster string, deploymentName string, app *framework.App) erro
 	return err
 }
 
-func addAndVerifyRemoteCluster() error {
+func createAndVerifyMCMeshConfig() error {
 	// Collect the pod names and app's endpoints
 	primaryPodNames, primaryAppEPs, err := util.GetAppPodsInfo(tc.Kube.Namespace, tc.Kube.Clusters[primaryCluster], "app")
 	if err != nil {
@@ -243,9 +243,8 @@ func verifyEndpoints(actualEps []string, proxyEps []string) bool {
 
 func verifyPod(istioctl *framework.Istioctl, podName string, appEPs map[string][]string) error {
 	// Only verify app Pods that have a sidecar
-	apps := []string{"a-", "b-", "c-", "d-", "headless-"}
 	if !func() bool {
-		for _, app := range apps {
+		for _, app := range appsWithSidecar {
 			if strings.HasPrefix(podName, app) {
 				return true
 			}

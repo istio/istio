@@ -53,12 +53,13 @@ var (
 		Egress:  true,
 	}
 
-	errAgain     = errors.New("try again")
-	idRegex      = regexp.MustCompile("(?i)X-Request-Id=(.*)")
-	versionRegex = regexp.MustCompile("ServiceVersion=(.*)")
-	portRegex    = regexp.MustCompile("ServicePort=(.*)")
-	codeRegex    = regexp.MustCompile("StatusCode=(.*)")
-	hostRegex    = regexp.MustCompile("Host=(.*)")
+	errAgain        = errors.New("try again")
+	idRegex         = regexp.MustCompile("(?i)X-Request-Id=(.*)")
+	versionRegex    = regexp.MustCompile("ServiceVersion=(.*)")
+	portRegex       = regexp.MustCompile("ServicePort=(.*)")
+	codeRegex       = regexp.MustCompile("StatusCode=(.*)")
+	hostRegex       = regexp.MustCompile("Host=(.*)")
+	appsWithSidecar []string
 )
 
 func init() {
@@ -329,11 +330,12 @@ func (t *testConfig) Setup() (err error) {
 		}
 	}
 
-	// For multicluster tests, add the remote cluster into the mesh
-	// and verify the multicluster service mesh before starting tests
 	if len(t.Kube.Clusters) > 1 {
-		err = addAndVerifyRemoteCluster()
+		// For multicluster tests, add the remote cluster into the mesh
+		// and verify the multicluster service mesh before starting tests
+		err = createAndVerifyMCMeshConfig()
 	} else {
+		// Verify the service mesh config for a single cluster
 		err = verifyMeshConfig()
 	}
 	return
@@ -352,6 +354,7 @@ func (t *testConfig) Teardown() (err error) {
 }
 
 func getApps(tc *testConfig) []framework.App {
+	appsWithSidecar = []string{"a-", "b-", "c-", "d-", "headless-"}
 	return []framework.App{
 		// deploy a healthy mix of apps, with and without proxy
 		getApp("t", "t", 8080, 80, 9090, 90, 7070, 70, "unversioned", false, false, false, true),

@@ -587,21 +587,22 @@ func CheckDeploymentRemoved(namespace, deployment string, kubeconfig string) err
 		Retries:   60,
 	}
 
+	pod, err := GetPodName(namespace, "name="+deployment, kubeconfig)
+	// Pod has been removed
+	if err != nil {
+		log.Infof("pod %s is successfully removed", pod)
+		return nil
+	}
 	retryFn := func(_ context.Context, i int) error {
-		pod, err := GetPodName(namespace, "name="+deployment, kubeconfig)
-		// Pod has been removed
+		_, err := Shell("kubectl get pods %s -n %s --kubeconfig=%s", pod, namespace, kubeconfig)
 		if err != nil {
+			log.Infof("pod %s is successfully removed", pod)
 			return nil
 		}
-		if status := GetPodStatus(namespace, pod, kubeconfig); status != podFailedGet {
-			err = fmt.Errorf("%s in namespace %s still exists: %s", pod, namespace, status)
-		} else {
-			log.Infof("pod %s removed", pod)
-		}
-		return err
+		return fmt.Errorf("%s in namespace %s still exists", pod, namespace)
 	}
 	ctx := context.Background()
-	_, err := retry.Retry(ctx, retryFn)
+	_, err = retry.Retry(ctx, retryFn)
 	if err != nil {
 		return err
 	}
