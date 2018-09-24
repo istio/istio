@@ -78,19 +78,6 @@ func (c *kubeComponent) doInit(e *kubernetes.Implementation) (interface{}, error
 	return res, nil
 }
 
-func getGrpcPort(e *kubernetes.Implementation) (uint16, error) {
-	svc, err := e.Accessor.GetService(e.KubeSettings().IstioSystemNamespace, citadelService)
-	if err != nil {
-		return 0, fmt.Errorf("failed to retrieve service %s: %v", citadelService, err)
-	}
-	for _, portInfo := range svc.Spec.Ports {
-		if portInfo.Name == grpcPortName {
-			return uint16(portInfo.TargetPort.IntValue()), nil
-		}
-	}
-	return 0, fmt.Errorf("failed to get target port in service %s", citadelService)
-}
-
 type deployedCitadel struct {
 	// Indicates that the component is running in local mode.
 	local bool
