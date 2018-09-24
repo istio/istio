@@ -753,7 +753,6 @@ jobs:
           path: /go/bin
 
 workflows:
-  version: 2
   nightly:
     triggers:
        - schedule:
