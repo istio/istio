@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"os"
 	"path"
 	"testing"
@@ -27,27 +28,28 @@ import (
 	"go.uber.org/multierr"
 	"google.golang.org/grpc"
 
-	"istio.io/istio/pkg/test/deployment"
-
-	"istio.io/istio/pkg/test/framework/scopes"
-	"istio.io/istio/pkg/test/util"
-
 	istio_mixer_v1 "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/server"
 	generatedTmplRepo "istio.io/istio/mixer/template"
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/test/deployment"
 	"istio.io/istio/pkg/test/framework/dependency"
 	"istio.io/istio/pkg/test/framework/environment"
 	"istio.io/istio/pkg/test/framework/environments/kubernetes"
 	"istio.io/istio/pkg/test/framework/environments/local"
+	"istio.io/istio/pkg/test/framework/environments/local/service"
 	"istio.io/istio/pkg/test/framework/internal"
+	"istio.io/istio/pkg/test/framework/scopes"
 	"istio.io/istio/pkg/test/kube"
+	"istio.io/istio/pkg/test/util"
 )
 
 const (
 	telemetryService = "telemetry"
 	policyService    = "policy"
+	localServiceName = "mixer"
 	grpcPortName     = "grpc-mixer"
 )
 
@@ -123,6 +125,25 @@ func (c *localComponent) Init(ctx environment.ComponentContext, deps map[depende
 	}
 
 	client := istio_mixer_v1.NewMixerClient(conn.(*grpc.ClientConn))
+
+	// Update the mesh with the mixer address
+	port := mi.Addr().(*net.TCPAddr).Port
+	mixerAddr := fmt.Sprintf("%s.%s:%d", localServiceName, service.FullyQualifiedDomainName, port)
+	e.Mesh.MixerCheckServer = mixerAddr
+	e.Mesh.MixerReportServer = mixerAddr
+
+	// Add a service entry for Mixer.
+	_, err = e.ServiceManager.Create(localServiceName, "", model.PortList{
+		&model.Port{
+			Name:     grpcPortName,
+			Protocol: model.ProtocolGRPC,
+			Port:     port,
+		},
+	})
+	if err != nil {
+		_ = mi.Close()
+		return nil, err
+	}
 
 	return &deployedMixer{
 		local:       true,
