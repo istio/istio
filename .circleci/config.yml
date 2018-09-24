@@ -1,5 +1,9 @@
 version: 2.1
 
+# This is version 2.1 preview mode.
+# Please see CircleCI SDK docs for more info
+# https://github.com/CircleCI-Public/config-preview-sdk/blob/master/docs/getting-started.md
+
 # Docker environment.
 defaults: &defaults
   working_directory: /go/src/istio.io/istio
