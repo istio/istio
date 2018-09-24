@@ -30,9 +30,7 @@ function setup_and_export_git_sha() {
 
       # Set artifact dir based on checkout
       export ARTIFACTS_DIR="${GOPATH}/src/istio.io/istio/_artifacts"
-    fi
-
-    if [[ "${CI:-}" == 'prow' ]]; then
+    elif [[ "${CI:-}" == 'prow' ]]; then
       # Set artifact dir based on checkout
       export ARTIFACTS_DIR="${ARTIFACTS}"
     fi
