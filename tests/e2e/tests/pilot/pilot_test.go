@@ -553,7 +553,7 @@ func (a *accessLogs) getAppPods(t *testing.T, app string) map[string][]string {
 		return pods
 	}
 
-	log.Infof("Checking log for app: %q in cluster %q", app, cluster)
+	log.Infof("Checking log for app: %q", app)
 	// Pods for the app needs to be obtained from all the clusters.
 	for cluster := range a.logs {
 		tmpPods := tc.Kube.GetAppPods(cluster)[app]

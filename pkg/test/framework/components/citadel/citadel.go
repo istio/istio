@@ -31,14 +31,13 @@ import (
 )
 
 const (
-	citadelService = "istio-citadel"
-	grpcPortName   = "grpc-citadel"
 	// Specifies how long we wait before a secret becomes existent.
 	secretWaitTime = 20 * time.Second
 	// Name of secret created by Citadel
 	secretName = "istio.default"
 )
 
+// KubeComponent is a component for the Kubernetes environment.
 var KubeComponent = &kubeComponent{}
 
 type kubeComponent struct {
