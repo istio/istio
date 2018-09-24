@@ -138,8 +138,8 @@ func (policy *AuthorizationPolicies) RoleToBindingsForNamespace(ns string) map[s
 // NewAuthzPolicies returns the AuthorizationPolicies constructed from raw authorization policies by
 // storing policies into different namespaces.
 func NewAuthzPolicies(env *Environment) (*AuthorizationPolicies, error) {
-	// Get the MeshRbacConfig first, if not found then fallback to get the RbacConfig.
-	rbacConfig := env.IstioConfigStore.MeshRbacConfig()
+	// Get the ClusterRbacConfig first, if not found then fallback to get the RbacConfig.
+	rbacConfig := env.IstioConfigStore.ClusterRbacConfig()
 	if rbacConfig == nil {
 		rbacConfig = env.IstioConfigStore.RbacConfig()
 		if rbacConfig == nil {

@@ -1240,14 +1240,14 @@ func checkRbacConfig(name, typ string, msg proto.Message) error {
 	return nil
 }
 
-// ValidateMeshRbacConfig checks that MeshRbacConfig is well-formed.
-func ValidateMeshRbacConfig(name, namespace string, msg proto.Message) error {
-	return checkRbacConfig(name, "MeshRbacConfig", msg)
+// ValidateClusterRbacConfig checks that ClusterRbacConfig is well-formed.
+func ValidateClusterRbacConfig(name, namespace string, msg proto.Message) error {
+	return checkRbacConfig(name, "ClusterRbacConfig", msg)
 }
 
 // ValidateRbacConfig checks that RbacConfig is well-formed.
 func ValidateRbacConfig(name, namespace string, msg proto.Message) error {
-	log.Warnf("RbacConfig is deprecated, use MeshRbacConfig instead.")
+	log.Warnf("RbacConfig is deprecated, use ClusterRbacConfig instead.")
 	return checkRbacConfig(name, "RbacConfig", msg)
 }
 

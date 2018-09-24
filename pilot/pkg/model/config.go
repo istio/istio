@@ -279,8 +279,8 @@ type IstioConfigStore interface {
 	// RbacConfig selects the RbacConfig of name DefaultRbacConfigName.
 	RbacConfig() *Config
 
-	// MeshRbacConfig selects the MeshRbacConfig of name DefaultRbacConfigName.
-	MeshRbacConfig() *Config
+	// ClusterRbacConfig selects the ClusterRbacConfig of name DefaultRbacConfigName.
+	ClusterRbacConfig() *Config
 }
 
 const (
@@ -462,7 +462,7 @@ var (
 	}
 
 	// RbacConfig describes the mesh level RBAC config.
-	// Deprecated, use MeshRbacConfig instead.
+	// Deprecated, use ClusterRbacConfig instead.
 	// See https://github.com/istio/istio/issues/8825 for more details.
 	RbacConfig = ProtoSchema{
 		Type:        "rbac-config",
@@ -473,15 +473,15 @@ var (
 		Validate:    ValidateRbacConfig,
 	}
 
-	// MeshRbacConfig describes the mesh level RBAC config.
-	MeshRbacConfig = ProtoSchema{
+	// ClusterRbacConfig describes the mesh level RBAC config.
+	ClusterRbacConfig = ProtoSchema{
 		ClusterScoped: true,
-		Type:          "mesh-rbac-config",
-		Plural:        "mesh-rbac-configs",
+		Type:          "cluster-rbac-config",
+		Plural:        "cluster-rbac-configs",
 		Group:         "rbac",
 		Version:       "v1alpha1",
 		MessageName:   "istio.rbac.v1alpha1.RbacConfig",
-		Validate:      ValidateMeshRbacConfig,
+		Validate:      ValidateClusterRbacConfig,
 	}
 
 	// IstioConfigTypes lists all Istio config types with schemas and validation
@@ -500,7 +500,7 @@ var (
 		ServiceRole,
 		ServiceRoleBinding,
 		RbacConfig,
-		MeshRbacConfig,
+		ClusterRbacConfig,
 	}
 )
 
@@ -903,12 +903,12 @@ func (store *istioConfigStore) ServiceRoleBindings(namespace string) []Config {
 	return bindings
 }
 
-func (store *istioConfigStore) MeshRbacConfig() *Config {
-	meshRbacConfig, err := store.List(MeshRbacConfig.Type, "")
+func (store *istioConfigStore) ClusterRbacConfig() *Config {
+	clusterRbacConfig, err := store.List(ClusterRbacConfig.Type, "")
 	if err != nil {
-		log.Errorf("failed to get meshRbacConfig: %v", err)
+		log.Errorf("failed to get ClusterRbacConfig: %v", err)
 	}
-	for _, rc := range meshRbacConfig {
+	for _, rc := range clusterRbacConfig {
 		if rc.Name == DefaultRbacConfigName {
 			return &rc
 		}
@@ -927,7 +927,7 @@ func (store *istioConfigStore) RbacConfig() *Config {
 	}
 	for _, rc := range rbacConfigs {
 		if rc.Name == DefaultRbacConfigName {
-			log.Warnf("RbacConfig is deprecated, Use MeshRbacConfig instead.")
+			log.Warnf("RbacConfig is deprecated, Use ClusterRbacConfig instead.")
 			return &rc
 		}
 	}

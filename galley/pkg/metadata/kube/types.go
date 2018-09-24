@@ -524,10 +524,10 @@ func init() {
 	})
 
 	b.Add(kube.ResourceSpec{
-		Kind:      "MeshRbacConfig",
-		ListKind:  "MeshRbacConfigList",
-		Singular:  "meshrbacconfig",
-		Plural:    "meshrbacconfigs",
+		Kind:      "ClusterRbacConfig",
+		ListKind:  "ClusterRbacConfigList",
+		Singular:  "clusterrbacconfig",
+		Plural:    "clusterrbacconfigs",
 		Version:   "v1alpha1",
 		Group:     "rbac.istio.io",
 		Target:    metadata.Types.Get("type.googleapis.com/istio.rbac.v1alpha1.RbacConfig"),
