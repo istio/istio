@@ -53,6 +53,7 @@ func Apply(kubeconfig string, ns string, filename string) error {
 	return fmt.Errorf("%v: %s", err, s)
 }
 
+// Delete the config in the given filename using kubectl.
 func Delete(kubeconfig string, filename string) error {
 	s, err := shell.Execute("kubectl delete --kubeconfig=%s -f %s", kubeconfig, filename)
 	if err == nil {
