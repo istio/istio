@@ -16,7 +16,6 @@ package kube
 
 import (
 	"fmt"
-	"os"
 	"istio.io/istio/pkg/spiffe"
 	"sort"
 	"strconv"
@@ -122,14 +121,9 @@ func serviceHostname(name, namespace, domainSuffix string) model.Hostname {
 	return model.Hostname(fmt.Sprintf("%s.%s.svc.%s", name, namespace, domainSuffix))
 }
 
-// canonicalToIstioServiceAccount converts a Canonical service account to an Istio service account
-func canonicalToIstioServiceAccount(saname string) string {
-	return fmt.Sprintf("%v://%s/%v", spiffe.Scheme, spiffe.GetIdentityDomain(), saname)
-}
-
 // kubeToIstioServiceAccount converts a K8s service account to an Istio service account
 func kubeToIstioServiceAccount(saname string, ns string) string {
-	return spiffe.MustGenSpiffeURI(ns, saname)
+	return spiffe.MustGenSpiffeURI(ns,saname)
 }
 
 // KeyFunc is the internal API key function that returns "namespace"/"name" or

@@ -61,8 +61,8 @@ var (
 				return err
 			}
 
-			spiffe.SetIdentityDomain(spiffe.DetermineIdentityDomain(serverArgs.Config.ControllerOptions.IdentityDomain,
-				serverArgs.Config.ControllerOptions.DomainSuffix, bootstrap.HasKubeRegistry(&serverArgs)))
+			spiffe.SetIdentityDomain(serverArgs.Config.ControllerOptions.IdentityDomain,
+				serverArgs.Config.ControllerOptions.DomainSuffix, bootstrap.HasKubeRegistry(&serverArgs))
 
 			// Create the stop channel for all of the servers.
 			stop := make(chan struct{})

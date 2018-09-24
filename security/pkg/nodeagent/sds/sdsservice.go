@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"istio.io/istio/pkg/spiffe"
 	"strings"
 	"sync"
 	"time"
@@ -36,7 +37,6 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/istio/security/pkg/nodeagent/model"
-	"istio.io/istio/security/pkg/pki/util"
 )
 
 const (
@@ -216,7 +216,7 @@ func parseDiscoveryRequest(discReq *xdsapi.DiscoveryRequest) (string /*spiffeID*
 		return "", fmt.Errorf("discovery request %+v missing node id", discReq)
 	}
 
-	if len(discReq.ResourceNames) != 1 || !strings.HasPrefix(discReq.ResourceNames[0], util.URIScheme) {
+	if len(discReq.ResourceNames) != 1 || !strings.HasPrefix(discReq.ResourceNames[0], spiffe.Scheme) {
 		return "", fmt.Errorf("discovery request %+v has invalid resourceNames %+v", discReq, discReq.ResourceNames)
 	}
 

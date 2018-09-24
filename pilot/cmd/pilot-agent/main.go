@@ -164,9 +164,7 @@ var (
 						}
 					}
 				}
-				var identityDomain string
-				identityDomain, role.Domain = determineIdentityDomainAndDomain()
-				spiffe.SetIdentityDomain(identityDomain)
+				setIdentityDomainAndDomain()
 				pilotSAN = []string{envoy.GetPilotSAN(ns)}
 			}
 
@@ -275,13 +273,14 @@ var (
 	}
 )
 
-func determineIdentityDomainAndDomain() (string, string) {
+func setIdentityDomainAndDomain() {
 	domain := role.Domain
-	var identityDomain = ""
 	isKubernetes := registry == serviceregistry.KubernetesRegistry
 	if controlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS.String() {
-		identityDomain = spiffe.DetermineIdentityDomain(role.IdentityDomain, domain,
+		role.IdentityDomain = spiffe.SetIdentityDomain(role.IdentityDomain, domain,
 			isKubernetes)
+	} else {
+		role.IdentityDomain = ""
 	}
 
 	if len(domain) == 0 {
@@ -294,7 +293,7 @@ func determineIdentityDomainAndDomain() (string, string) {
 		}
 	}
 
-	return identityDomain, domain
+	role.Domain = domain
 }
 
 func parseApplicationPorts() ([]uint16, error) {

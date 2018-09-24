@@ -1,59 +1,56 @@
 package spiffe
 
 import (
+	"github.com/onsi/gomega"
 	"strings"
 	"testing"
 )
 
+
+
 func TestGenSpiffeURI(t *testing.T) {
-	testCases := []struct {
-		namespace      string
-		serviceAccount string
-		expectedError  string
-		expectedURI    string
-	}{
-		{
-			serviceAccount: "sa",
-			expectedError:  "namespace or service account can't be empty",
-		},
-		{
-			namespace:     "ns",
-			expectedError: "namespace or service account can't be empty",
-		},
-		{
-			namespace:      "namespace-foo",
-			serviceAccount: "service-bar",
-			expectedURI:    "spiffe://cluster.local/ns/namespace-foo/sa/service-bar",
-		},
-	}
-	for id, tc := range testCases {
-		got, err := GenSpiffeURI(tc.namespace, tc.serviceAccount)
-		if tc.expectedError == "" && err != nil {
-			t.Errorf("teste case [%v] failed, error %v", id, tc)
+	WithIdentityDomain("cluster.local", func() {
+		testCases := []struct {
+			namespace      string
+			serviceAccount string
+			expectedError  string
+			expectedURI    string
+		}{
+			{
+				serviceAccount: "sa",
+				expectedError:  "namespace or service account can't be empty",
+			},
+			{
+				namespace:     "ns",
+				expectedError: "namespace or service account can't be empty",
+			},
+			{
+				namespace:      "namespace-foo",
+				serviceAccount: "service-bar",
+				expectedURI:    "spiffe://cluster.local/ns/namespace-foo/sa/service-bar",
+			},
 		}
-		if tc.expectedError != "" {
-			if err == nil {
-				t.Errorf("want get error %v, got nil", tc.expectedError)
-			} else if !strings.Contains(err.Error(), tc.expectedError) {
-				t.Errorf("want error contains %v,  got error %v", tc.expectedError, err)
+		for id, tc := range testCases {
+			got, err := GenSpiffeURI(tc.namespace, tc.serviceAccount)
+			if tc.expectedError == "" && err != nil {
+				t.Errorf("teste case [%v] failed, error %v", id, tc)
 			}
-			continue
-		}
-		if got != tc.expectedURI {
-			t.Errorf("unexpected subject name, want %v, got %v", tc.expectedURI, got)
-		}
+			if tc.expectedError != "" {
+				if err == nil {
+					t.Errorf("want get error %v, got nil", tc.expectedError)
+				} else if !strings.Contains(err.Error(), tc.expectedError) {
+					t.Errorf("want error contains %v,  got error %v", tc.expectedError, err)
+				}
+				continue
+			}
+			if got != tc.expectedURI {
+				t.Errorf("unexpected subject name, want %v, got %v", tc.expectedURI, got)
+			}
 
-	}
+		}
+	})
 }
 
-func TestGetSetTrustDomain(t *testing.T) {
-	oldTrustDomain := GetIdentityDomain()
-	defer SetIdentityDomain(oldTrustDomain)
-	SetIdentityDomain("test.local")
-	if GetIdentityDomain() != "test.local" {
-		t.Errorf("Set/GetIdentityDomain not working")
-	}
-}
 
 func TestMustGenSpiffeURI(t *testing.T) {
 	defer func() {
@@ -63,4 +60,40 @@ func TestMustGenSpiffeURI(t *testing.T) {
 	}()
 
 	MustGenSpiffeURI("", "")
+}
+
+func TestPilotSanForNoIdentityDomainAndNoDomain(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	pilotSAN := SetIdentityDomain("","",false)
+
+	g.Expect(pilotSAN).To(gomega.Equal(""))
+}
+
+func TestPilotSanForNoIdentityDomainAndNoDomainKubernetes(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	pilotSAN := SetIdentityDomain("","",true)
+
+	g.Expect(pilotSAN).To(gomega.Equal("cluster.local" ))
+}
+
+func TestPilotSanForNoIdentityDomainButDomainKubernetes(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	pilotSAN := SetIdentityDomain("","my.domain",true)
+
+	g.Expect(pilotSAN).To(gomega.Equal("my.domain"))
+}
+
+func TestPilotSanForIdentityDomainButNoDomainKubernetes(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	pilotSAN := SetIdentityDomain("secured","",true)
+
+	g.Expect(pilotSAN).To(gomega.Equal("secured" ))
+}
+
+func TestPilotSanForIdentityDomainAndDomainKubernetes(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	pilotSAN := SetIdentityDomain("secured","my.domain",true)
+
+	g.Expect(pilotSAN).To(gomega.Equal("secured" ))
 }

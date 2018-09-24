@@ -9,17 +9,14 @@ const (
 	Scheme = "spiffe"
 )
 
-var identityDomain = ""
+var globalIdentityDomain = ""
 
-func SetIdentityDomain(value string) {
-	identityDomain = value
+func SetIdentityDomain(identityDomain string, domain string, isKubernetes bool) string {
+	globalIdentityDomain = determineIdentityDomain(identityDomain,domain,isKubernetes)
+	return globalIdentityDomain
 }
 
-func GetIdentityDomain() string {
-	return identityDomain
-}
-
-func DetermineIdentityDomain(identityDomain string, domain string, isKubernetes bool) string {
+func determineIdentityDomain(identityDomain string, domain string, isKubernetes bool) string {
 
 	if len(identityDomain) != 0 {
 		return identityDomain
@@ -40,11 +37,16 @@ func DetermineIdentityDomain(identityDomain string, domain string, isKubernetes 
 
 // GenSpiffeURI returns the formatted uri(SPIFFEE format for now) for the certificate.
 func GenSpiffeURI(ns, serviceAccount string) (string, error) {
+	if globalIdentityDomain =="" {
+		return "", fmt.Errorf(
+			"identity domain can't be empty. Please use SetIdentityDomain to configure the identity domain")
+
+	}
 	if ns == "" || serviceAccount == "" {
 		return "", fmt.Errorf(
 			"namespace or service account can't be empty ns=%v serviceAccount=%v", ns, serviceAccount)
 	}
-	return fmt.Sprintf(Scheme+"://%s/ns/%s/sa/%s", identityDomain, ns, serviceAccount), nil
+	return fmt.Sprintf(Scheme+"://%s/ns/%s/sa/%s", globalIdentityDomain, ns, serviceAccount), nil
 }
 
 func MustGenSpiffeURI(ns, serviceAccount string) string {
