@@ -1,8 +1,4 @@
-version: 2.1
-
-# This is version 2.1 preview mode.
-# Please see CircleCI SDK docs for more info
-# https://github.com/CircleCI-Public/config-preview-sdk/blob/master/docs/getting-started.md
+version: 2
 
 # Docker environment.
 defaults: &defaults
@@ -31,44 +27,42 @@ integrationDefaults: &integrationDefaults
     - TEST_ENV: minikube-none
 
 # Common procedure to initialize working directory
-commands:
-  init-working-dir:
-    steps:
-      - run:
-          name: Initialize Working Directory
-          pwd: /
-          command: |
-            sudo mkdir -p /go/src/istio.io/istio
-            sudo chown -R circleci /go
-            mkdir -p /go/out/tests
-            mkdir -p /go/out/logs
-            mkdir -p /home/circleci/logs
-  record-zero-exit-code-if-test-passed:
-    steps:
-      - run:
-          when: on_success
-          name: Record zero exit code as test passed
-          command: echo 0 > exit_code
-  record-non-zero-exit-code-if-test-failed:
-    steps:
-      - run:
-          when: on_fail
-          name: Record nonzero exit code as test failed
-          command: echo 1 > exit_code
-  mark-job-starts-on-gcs:
-    steps:
-      - run:
-          when: always
-          command: bin/ci2gubernator.sh --job_starts
-  mark-job-finishes-on-gcs:
-    steps:
-      - run:
-          when: always
-          command: |
-            make dumpsys || true
-            make junit-report || true
-            # TODO: upload the artifacts as well, for debugging !
-            bin/ci2gubernator.sh --exit_code=$(cat exit_code) --junit_xml=/go/out/tests/junit.xml
+initWorkingDir: &initWorkingDir
+  type: shell
+  name: Initialize Working Directory
+  pwd: /
+  command: |
+    sudo mkdir -p /go/src/istio.io/istio
+    sudo chown -R circleci /go
+    mkdir -p /go/out/tests
+    mkdir -p /go/out/logs
+    mkdir -p /home/circleci/logs
+
+recordZeroExitCodeIfTestPassed: &recordZeroExitCodeIfTestPassed
+  run:
+    when: on_success
+    name: Record zero exit code as test passed
+    command: echo 0 > exit_code
+
+recordNonzeroExitCodeIfTestFailed: &recordNonzeroExitCodeIfTestFailed
+  run:
+    when: on_fail
+    name: Record nonzero exit code as test failed
+    command: echo 1 > exit_code
+
+markJobStartsOnGCS: &markJobStartsOnGCS
+  run:
+    when: always
+    command: bin/ci2gubernator.sh --job_starts
+
+markJobFinishesOnGCS: &markJobFinishesOnGCS
+  run:
+    when: always
+    command: |
+      make dumpsys || true
+      make junit-report || true
+      # TODO: upload the artifacts as well, for debugging !
+      bin/ci2gubernator.sh --exit_code=$(cat exit_code) --junit_xml=/go/out/tests/junit.xml
 
 jobs:
   e2e-simple:
@@ -78,11 +72,11 @@ jobs:
             - TEST_ENV: minikube-none
             - GOPATH: /go
     steps:
-      - init-working-dir
+      - <<: *initWorkingDir
       - checkout
       - attach_workspace:
           at:  /go
-      - mark-job-starts-on-gcs
+      - <<: *markJobStartsOnGCS
       - run: make sync
       - run: bin/testEnvRootMinikube.sh start
       - run:
@@ -95,9 +89,9 @@ jobs:
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
       - run: make test/local/auth/e2e_simple
-      - record-zero-exit-code-if-test-passed
-      - record-non-zero-exit-code-if-test-failed
-      - mark-job-finishes-on-gcs
+      - <<: *recordZeroExitCodeIfTestPassed
+      - <<: *recordNonzeroExitCodeIfTestFailed
+      - <<: *markJobFinishesOnGCS
       - store_artifacts:
           path: /home/circleci/logs
       - store_artifacts:
@@ -114,11 +108,11 @@ jobs:
             - TEST_ENV: minikube-none
             - GOPATH: /go
     steps:
-      - init-working-dir
+      - <<: *initWorkingDir
       - checkout
       - attach_workspace:
           at:  /go
-      - mark-job-starts-on-gcs
+      - <<: *markJobStartsOnGCS
       - run: make sync
       - run: bin/testEnvRootMinikube.sh start
       - run:
@@ -131,9 +125,9 @@ jobs:
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
       - run: E2E_ARGS="--use_mcp" make test/local/auth/e2e_simple
-      - record-zero-exit-code-if-test-passed
-      - record-non-zero-exit-code-if-test-failed
-      - mark-job-finishes-on-gcs
+      - <<: *recordZeroExitCodeIfTestPassed
+      - <<: *recordNonzeroExitCodeIfTestFailed
+      - <<: *markJobFinishesOnGCS
       - store_artifacts:
           path: /home/circleci/logs
       - store_artifacts:
@@ -150,11 +144,11 @@ jobs:
             - TEST_ENV: minikube-none
             - GOPATH: /go
     steps:
-      - init-working-dir
+      - <<: *initWorkingDir
       - checkout
       - attach_workspace:
           at:  /go
-      - mark-job-starts-on-gcs
+      - <<: *markJobStartsOnGCS
       - run: make sync
       - run: bin/testEnvRootMinikube.sh start
       - run:
@@ -172,9 +166,9 @@ jobs:
             E2E_ARGS="--skip_cleanup -use_local_cluster -test.v" \
             set -o pipefail
             make e2e_dashboard | tee -a /go/out/tests/build-log.txt
-      - record-zero-exit-code-if-test-passed
-      - record-non-zero-exit-code-if-test-failed
-      - mark-job-finishes-on-gcs
+      - <<: *recordZeroExitCodeIfTestPassed
+      - <<: *recordNonzeroExitCodeIfTestFailed
+      - <<: *markJobFinishesOnGCS
       - store_artifacts:
           path: /home/circleci/logs
       - store_artifacts:
@@ -189,11 +183,11 @@ jobs:
             - TEST_ENV: minikube-none
             - GOPATH: /go
     steps:
-      - init-working-dir
+      - <<: *initWorkingDir
       - checkout
       - attach_workspace:
           at:  /go
-      - mark-job-starts-on-gcs
+      - <<: *markJobStartsOnGCS
       - run: make sync
       - run: bin/testEnvRootMinikube.sh start
       - run:
@@ -211,9 +205,9 @@ jobs:
             E2E_ARGS="--skip_cleanup -use_local_cluster --use_mcp -test.v" \
             set -o pipefail
             make e2e_dashboard | tee -a /go/out/tests/build-log.txt
-      - record-zero-exit-code-if-test-passed
-      - record-non-zero-exit-code-if-test-failed
-      - mark-job-finishes-on-gcs
+      - <<: *recordZeroExitCodeIfTestPassed
+      - <<: *recordNonzeroExitCodeIfTestFailed
+      - <<: *markJobFinishesOnGCS
       - store_artifacts:
           path: /home/circleci/logs
       - store_artifacts:
@@ -224,11 +218,11 @@ jobs:
   e2e-mixer-noauth-v1alpha3-v2:
     <<: *integrationDefaults
     steps:
-      - init-working-dir
+      - <<: *initWorkingDir
       - checkout
       - attach_workspace:
           at:  /go
-      - mark-job-starts-on-gcs
+      - <<: *markJobStartsOnGCS
       - run: make sync
       - run: bin/testEnvRootMinikube.sh start
       - run:
@@ -247,9 +241,9 @@ jobs:
           name: make e2e_mixer
           command: |
             make test/local/noauth/e2e_mixer_envoyv2
-      - record-zero-exit-code-if-test-passed
-      - record-non-zero-exit-code-if-test-failed
-      - mark-job-finishes-on-gcs
+      - <<: *recordZeroExitCodeIfTestPassed
+      - <<: *recordNonzeroExitCodeIfTestFailed
+      - <<: *markJobFinishesOnGCS
       - store_artifacts:
           path: /home/circleci/logs
       - store_artifacts:
@@ -260,11 +254,11 @@ jobs:
   e2e-mixer-noauth-v1alpha3-v2-mcp:
     <<: *integrationDefaults
     steps:
-      - init-working-dir
+      - <<: *initWorkingDir
       - checkout
       - attach_workspace:
           at:  /go
-      - mark-job-starts-on-gcs
+      - <<: *markJobStartsOnGCS
       - run: make sync
       - run: bin/testEnvRootMinikube.sh start
       - run:
@@ -284,9 +278,9 @@ jobs:
           command: |
             E2E_ARGS="--use_mcp" \
             make test/local/noauth/e2e_mixer_envoyv2
-      - record-zero-exit-code-if-test-passed
-      - record-non-zero-exit-code-if-test-failed
-      - mark-job-finishes-on-gcs
+      - <<: *recordZeroExitCodeIfTestPassed
+      - <<: *recordNonzeroExitCodeIfTestFailed
+      - <<: *markJobFinishesOnGCS
       - store_artifacts:
           path: /home/circleci/logs
       - store_artifacts:
@@ -301,11 +295,11 @@ jobs:
             - TEST_ENV: minikube-none
             - GOPATH: /go
     steps:
-      - init-working-dir
+      - <<: *initWorkingDir
       - checkout
       - attach_workspace:
           at:  /go
-      - mark-job-starts-on-gcs
+      - <<: *markJobStartsOnGCS
       - run: make sync
       - run: bin/testEnvRootMinikube.sh start
       - run:
@@ -324,9 +318,9 @@ jobs:
           name: make e2e_galley
           command: |
             make test/local/e2e_galley
-      - record-zero-exit-code-if-test-passed
-      - record-non-zero-exit-code-if-test-failed
-      - mark-job-finishes-on-gcs
+      - <<: *recordZeroExitCodeIfTestPassed
+      - <<: *recordNonzeroExitCodeIfTestFailed
+      - <<: *markJobFinishesOnGCS
       - store_artifacts:
           path: /home/circleci/logs
       - store_artifacts:
@@ -337,7 +331,7 @@ jobs:
   e2e-pilot-cloudfoundry-v1alpha3-v2:
     <<: *integrationDefaults
     steps:
-      - init-working-dir
+      - <<: *initWorkingDir
       - checkout
       - attach_workspace:
           at: /go
@@ -349,9 +343,9 @@ jobs:
             export PATH=$GOPATH/bin:$PATH
             make localTestEnv
             make test/local/cloudfoundry/e2e_pilotv2
-      - record-zero-exit-code-if-test-passed
-      - record-non-zero-exit-code-if-test-failed
-      - mark-job-finishes-on-gcs
+      - <<: *recordZeroExitCodeIfTestPassed
+      - <<: *recordNonzeroExitCodeIfTestFailed
+      - <<: *markJobFinishesOnGCS
       - store_artifacts:
           path: /go/out/logs
       - store_artifacts:
@@ -364,11 +358,11 @@ jobs:
             - KUBECONFIG: /go/out/minikube.conf
             - TEST_ENV: minikube-none
     steps:
-      - init-working-dir
+      - <<: *initWorkingDir
       - checkout
       - attach_workspace:
           at:  /go
-      - mark-job-starts-on-gcs
+      - <<: *markJobStartsOnGCS
       - run: make sync
       - run: bin/testEnvRootMinikube.sh start
       - run:
@@ -386,9 +380,9 @@ jobs:
           when: always
           command: |
                 make test/local/noauth/e2e_pilotv2
-      - record-zero-exit-code-if-test-passed
-      - record-non-zero-exit-code-if-test-failed
-      - mark-job-finishes-on-gcs
+      - <<: *recordZeroExitCodeIfTestPassed
+      - <<: *recordNonzeroExitCodeIfTestFailed
+      - <<: *markJobFinishesOnGCS
       - store_test_results:
           path: /go/out/tests
       - store_artifacts:
@@ -403,11 +397,11 @@ jobs:
             - KUBECONFIG: /go/out/minikube.conf
             - TEST_ENV: minikube-none
     steps:
-      - init-working-dir
+      - <<: *initWorkingDir
       - checkout
       - attach_workspace:
           at:  /go
-      - mark-job-starts-on-gcs
+      - <<: *markJobStartsOnGCS
       - run: make sync
       - run: bin/testEnvRootMinikube.sh start
       - run:
@@ -426,9 +420,9 @@ jobs:
           command: |
                 E2E_ARGS="--use_mcp" \
                 make test/local/noauth/e2e_pilotv2
-      - record-zero-exit-code-if-test-passed
-      - record-non-zero-exit-code-if-test-failed
-      - mark-job-finishes-on-gcs
+      - <<: *recordZeroExitCodeIfTestPassed
+      - <<: *recordNonzeroExitCodeIfTestFailed
+      - <<: *markJobFinishesOnGCS
       - store_test_results:
           path: /go/out/tests
       - store_artifacts:
@@ -439,11 +433,11 @@ jobs:
   e2e-pilot-auth-v1alpha3-v2:
     <<: *integrationDefaults
     steps:
-      - init-working-dir
+      - <<: *initWorkingDir
       - checkout
       - attach_workspace:
           at:  /go
-      - mark-job-starts-on-gcs
+      - <<: *markJobStartsOnGCS
       - run: make sync
       - run: bin/testEnvRootMinikube.sh start
       - run:
@@ -461,9 +455,9 @@ jobs:
           when: always
           command: |
                 make test/local/auth/e2e_pilotv2
-      - record-zero-exit-code-if-test-passed
-      - record-non-zero-exit-code-if-test-failed
-      - mark-job-finishes-on-gcs
+      - <<: *recordZeroExitCodeIfTestPassed
+      - <<: *recordNonzeroExitCodeIfTestFailed
+      - <<: *markJobFinishesOnGCS
       - store_test_results:
           path: /go/out/tests
       - store_artifacts:
@@ -478,7 +472,7 @@ jobs:
       resource_class: xlarge
       steps:
         - checkout
-        - mark-job-starts-on-gcs
+        - <<: *markJobStartsOnGCS
         - run: make sync
         - run:
             command: |
@@ -487,9 +481,9 @@ jobs:
               make localTestEnv
               set -o pipefail
               make test.integration T=-v | tee -a /go/out/tests/build-log.txt
-        - record-zero-exit-code-if-test-passed
-        - record-non-zero-exit-code-if-test-failed
-        - mark-job-finishes-on-gcs
+        - <<: *recordZeroExitCodeIfTestPassed
+        - <<: *recordNonzeroExitCodeIfTestFailed
+        - <<: *markJobFinishesOnGCS
         - store_test_results:
             path: /go/out/tests
         - store_artifacts:
@@ -502,11 +496,11 @@ jobs:
       - TEST_ENV: minikube-none
       - GOPATH: /go
     steps:
-      - init-working-dir
+      - <<: *initWorkingDir
       - checkout
       - attach_workspace:
           at:  /go
-      - mark-job-starts-on-gcs
+      - <<: *markJobStartsOnGCS
       - run: make sync
       - run: bin/testEnvRootMinikube.sh start
       - run:
@@ -525,9 +519,9 @@ jobs:
           name: make test.integration.kube
           command: |
             make test.integration.kube T=-v | tee -a /go/out/tests/build-log.txt
-      - record-zero-exit-code-if-test-passed
-      - record-non-zero-exit-code-if-test-failed
-      - mark-job-finishes-on-gcs
+      - <<: *recordZeroExitCodeIfTestPassed
+      - <<: *recordNonzeroExitCodeIfTestFailed
+      - <<: *markJobFinishesOnGCS
       - store_artifacts:
           path: /home/circleci/logs
       - store_artifacts:
@@ -538,11 +532,11 @@ jobs:
   e2e-pilot-auth-v1alpha3-v2-mcp:
     <<: *integrationDefaults
     steps:
-      - init-working-dir
+      - <<: *initWorkingDir
       - checkout
       - attach_workspace:
           at:  /go
-      - mark-job-starts-on-gcs
+      - <<: *markJobStartsOnGCS
       - run: make sync
       - run: bin/testEnvRootMinikube.sh start
       - run:
@@ -561,9 +555,9 @@ jobs:
           command: |
                 E2E_ARGS="--use_mcp" \
                 make test/local/auth/e2e_pilotv2
-      - record-zero-exit-code-if-test-passed
-      - record-non-zero-exit-code-if-test-failed
-      - mark-job-finishes-on-gcs
+      - <<: *recordZeroExitCodeIfTestPassed
+      - <<: *recordNonzeroExitCodeIfTestFailed
+      - <<: *markJobFinishesOnGCS
       - store_test_results:
           path: /go/out/tests
       - store_artifacts:
@@ -618,7 +612,7 @@ jobs:
     resource_class: xlarge
     steps:
       - checkout
-      - mark-job-starts-on-gcs
+      - <<: *markJobStartsOnGCS
       - run: make sync
       - run:
           command: |
@@ -627,9 +621,9 @@ jobs:
             make localTestEnv
             set -o pipefail
             make test T=-v | tee -a /go/out/tests/build-log.txt
-      - record-zero-exit-code-if-test-passed
-      - record-non-zero-exit-code-if-test-failed
-      - mark-job-finishes-on-gcs
+      - <<: *recordZeroExitCodeIfTestPassed
+      - <<: *recordNonzeroExitCodeIfTestFailed
+      - <<: *markJobFinishesOnGCS
       - store_test_results:
           path: /go/out/tests
 
@@ -641,7 +635,7 @@ jobs:
     resource_class: xlarge
     steps:
       - checkout
-      - mark-job-starts-on-gcs
+      - <<: *markJobStartsOnGCS
       - run: make sync
       - run:
           command: |
@@ -650,9 +644,9 @@ jobs:
             make localTestEnv
             set -o pipefail
             make -k pilot-racetest mixer-racetest security-racetest T=-v | tee -a /go/out/tests/build-log.txt
-      - record-zero-exit-code-if-test-passed
-      - record-non-zero-exit-code-if-test-failed
-      - mark-job-finishes-on-gcs
+      - <<: *recordZeroExitCodeIfTestPassed
+      - <<: *recordNonzeroExitCodeIfTestFailed
+      - <<: *markJobFinishesOnGCS
       - store_test_results:
           path: /go/out/tests
 
@@ -757,6 +751,7 @@ jobs:
           path: /go/bin
 
 workflows:
+  version: 2
   nightly:
     triggers:
        - schedule:
