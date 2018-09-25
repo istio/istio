@@ -36,8 +36,9 @@ var (
 	TAG env.Variable = "TAG"
 
 	globalSettings = &Settings{
-		Hub: HUB.Value(),
-		Tag: TAG.Value(),
+		IstioSystemNamespace: "istio-system",
+		Hub:                  HUB.Value(),
+		Tag:                  TAG.Value(),
 	}
 )
 
@@ -64,8 +65,7 @@ type Settings struct {
 	// Tag environment variable
 	Tag string
 
-	// The namespace where the Istio components reside in a typical deployment (typically "istio-system").
-	// If not specified, a new namespace will be generated with a UUID.
+	// The namespace where the Istio components reside in a typical deployment (default: "istio-system").
 	IstioSystemNamespace string
 
 	// The namespace in which dependency components are deployed. If not specified, a new namespace will be generated

@@ -25,8 +25,7 @@ func init() {
 	flag.StringVar(&globalSettings.Hub, "istio.test.kube.hub", globalSettings.Hub, "The hub for docker images")
 	flag.StringVar(&globalSettings.Tag, "istio.test.kube.tag", globalSettings.Tag, "The tag for docker images.")
 	flag.StringVar(&globalSettings.IstioSystemNamespace, "istio.test.kube.systemNamespace", globalSettings.IstioSystemNamespace,
-		"The namespace where the Istio components reside in a typical deployment (typically 'istio-system'). "+
-			"If not specified, a new namespace will be generated with a UUID.")
+		"The namespace where the Istio components reside in a typical deployment (default: 'istio-system').")
 	flag.StringVar(&globalSettings.DependencyNamespace, "istio.test.kube.dependencyNamespace", globalSettings.DependencyNamespace,
 		"The namespace in which dependency components are deployed. If not specified, a new namespace will be generated "+
 			"with a UUID once per run. Test framework dependencies can deploy components here when they get initialized. "+
