@@ -22,6 +22,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc"
 	ot "github.com/opentracing/opentracing-go"
 	oprometheus "github.com/prometheus/client_golang/prometheus"
@@ -194,7 +195,13 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 		templateMap[k] = &t
 	}
 
-	kinds := runtimeconfig.KindMap(adapterMap, templateMap)
+	var kinds map[string]proto.Message
+	if a.UseAdapterCRDs {
+		kinds = runtimeconfig.KindMap(adapterMap, templateMap)
+	} else {
+		kinds = runtimeconfig.KindMap(map[string]*adapter.Info{}, templateMap)
+	}
+
 	if err := st.Init(kinds); err != nil {
 		_ = s.Close()
 		return nil, fmt.Errorf("unable to initialize config store: %v", err)
