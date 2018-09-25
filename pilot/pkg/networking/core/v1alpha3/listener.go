@@ -15,9 +15,7 @@
 package v1alpha3
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
 	"reflect"
 	"sort"
 	"strings"
