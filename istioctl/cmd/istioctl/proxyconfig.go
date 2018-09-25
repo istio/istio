@@ -256,7 +256,7 @@ func setupConfigdumpEnvoyConfigWriter(podName, podNamespace string, out io.Write
 	return cw, nil
 }
 
-// TODO: migrate this to config dump when implemented in Envoy
+// TODO(fisherxu): migrate this to config dump when implemented in Envoy
 // Issue to track -> https://github.com/envoyproxy/envoy/issues/3362
 func setupClustersEnvoyConfigWriter(podName, podNamespace string, out io.Writer) (*clusters.ConfigWriter, error) {
 	kubeClient, err := clientExecFactory(kubeconfig, configContext)
