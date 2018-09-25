@@ -210,10 +210,10 @@ func setupCookieJar(user, pass string) (*cookiejar.Jar, error) {
 		"password": {pass},
 		"username": {user},
 	})
-	resp.Body.Close()
 	if err != nil {
 		return nil, fmt.Errorf("failed login for user '%s': %v", user, err)
 	}
+	resp.Body.Close()
 	return jar, nil
 }
 
