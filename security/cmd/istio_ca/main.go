@@ -54,6 +54,7 @@ type keyCertBundleRotator interface {
 type cliOptions struct { // nolint: maligned
 	listenedNamespace       string
 	istioCaStorageNamespace string
+	istioCaClusterDomain    string
 	kubeConfigFile          string
 
 	certChainFile   string
@@ -153,6 +154,8 @@ func init() {
 			cmd.ListenedNamespaceKey+"} environment variable. If neither is set, Citadel listens to all namespaces.")
 	flags.StringVar(&opts.istioCaStorageNamespace, "citadel-storage-namespace", "istio-system", "Namespace where "+
 		"the Citadel pod is running. Will not be used if explicit file or other storage mechanism is specified.")
+	flags.StringVar(&opts.istioCaClusterDomain, "citadel-storage-cluster-domain", "cluster.local", "The dns"+
+		" domain of cluster where the Citadel pod is running. Will not be used if explicit file or other storage mechanism is specified.")
 
 	flags.StringVar(&opts.kubeConfigFile, "kube-config", "",
 		"Specifies path to kubeconfig file. This must be specified when not running inside a Kubernetes pod.")
@@ -249,7 +252,7 @@ func main() {
 
 // fqdn returns the k8s cluster dns name for the Citadel service.
 func fqdn() string {
-	return fmt.Sprintf("istio-citadel.%v.svc.cluster.local", opts.istioCaStorageNamespace)
+	return fmt.Sprintf("istio-citadel.%v.svc.%v", opts.istioCaStorageNamespace, opts.istioCaClusterDomain)
 }
 
 func runCA() {
@@ -264,8 +267,21 @@ func runCA() {
 		if opts.listenedNamespace == "" {
 			opts.listenedNamespace = value
 		}
-		// Use environment variable for istioCaStorageNamespace if it exists
-		opts.istioCaStorageNamespace = value
+		// Use environment variable for istioCaStorageNamespace if they are different
+		if opts.istioCaStorageNamespace != value {
+			log.Infof("The namespace of Citadel pod has been changed by environment variable: (%s)-->(%s)",
+				opts.istioCaStorageNamespace, value)
+			opts.istioCaStorageNamespace = value
+		}
+	}
+
+	if value, exists := os.LookupEnv(cmd.IstioCaClusterDomainKey); exists {
+		// Use environment variable for istioCaClusterDomain if they are different
+		if opts.istioCaClusterDomain != value {
+			log.Infof("The cluster domain of Citadel pod has been changed by environment variable: (%s)-->(%s)",
+				opts.istioCaClusterDomain, value)
+			opts.istioCaClusterDomain = value
+		}
 	}
 
 	verifyCommandLineOptions()
