@@ -24,6 +24,8 @@ import (
 	"istio.io/istio/galley/pkg/runtime"
 	"istio.io/istio/galley/pkg/testing/mock"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/mcp/server"
+	"istio.io/istio/pkg/mcp/testing"
 )
 
 func TestNewServer_Errors(t *testing.T) {
@@ -69,6 +71,9 @@ func TestNewServer(t *testing.T) {
 	p.newSource = func(kube.Interfaces, time.Duration) (runtime.Source, error) {
 		return runtime.NewInMemorySource(), nil
 	}
+	p.mcpMetricReporter = func(s string) server.Reporter {
+		return mcptest.NewInMemoryReporter()
+	}
 
 	args := DefaultArgs()
 	args.APIAddress = "tcp://0.0.0.0:0"
@@ -88,6 +93,9 @@ func TestServer_Basic(t *testing.T) {
 	p.newKubeFromConfigFile = func(string) (kube.Interfaces, error) { return mk, nil }
 	p.newSource = func(kube.Interfaces, time.Duration) (runtime.Source, error) {
 		return runtime.NewInMemorySource(), nil
+	}
+	p.mcpMetricReporter = func(s string) server.Reporter {
+		return mcptest.NewInMemoryReporter()
 	}
 
 	args := DefaultArgs()
