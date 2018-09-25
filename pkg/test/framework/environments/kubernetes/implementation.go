@@ -161,8 +161,9 @@ func (e *Implementation) Configure(config string) error {
 // Evaluate the template against standard set of parameters. See template.Parameters for details.
 func (e *Implementation) Evaluate(template string) (string, error) {
 	p := tmpl.Parameters{
-		TestNamespace:       e.testNamespace.allocatedName,
-		DependencyNamespace: e.dependencyNamespace.allocatedName,
+		IstioSystemNamespace: e.systemNamespace.allocatedName,
+		TestNamespace:        e.testNamespace.allocatedName,
+		DependencyNamespace:  e.dependencyNamespace.allocatedName,
 	}
 
 	return tmpl.Evaluate(template, p)
