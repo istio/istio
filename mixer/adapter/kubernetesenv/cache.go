@@ -43,6 +43,7 @@ type (
 		env  adapter.Env
 		pods cache.SharedIndexInformer
 		rs   cache.SharedIndexInformer
+		rc   cache.SharedIndexInformer
 	}
 
 	workload struct {
@@ -77,11 +78,12 @@ func newCacheController(clientset kubernetes.Interface, refreshDuration time.Dur
 		env:  env,
 		pods: podInformer,
 		rs:   sharedInformers.Apps().V1().ReplicaSets().Informer(),
+		rc:   sharedInformers.Core().V1().ReplicationControllers().Informer(),
 	}
 }
 
 func (c *controllerImpl) HasSynced() bool {
-	if c.pods.HasSynced() && c.rs.HasSynced() {
+	if c.pods.HasSynced() && c.rs.HasSynced() && c.rc.HasSynced() {
 		return true
 	}
 	return false
@@ -91,6 +93,7 @@ func (c *controllerImpl) Run(stop <-chan struct{}) {
 	// TODO: scheduledaemon
 	c.env.ScheduleDaemon(func() { c.pods.Run(stop) })
 	c.env.ScheduleDaemon(func() { c.rs.Run(stop) })
+	c.env.ScheduleDaemon(func() { c.rc.Run(stop) })
 	<-stop
 	// TODO: logging?
 }
@@ -143,7 +146,15 @@ func (c *controllerImpl) rootController(obj *metav1.ObjectMeta) (metav1.OwnerRef
 						return rootRef, true
 					}
 				}
+			case "ReplicationController":
+				indexer := c.rc.GetIndexer()
+				if rc, found := c.objectMeta(indexer, key(obj.Namespace, ref.Name)); found {
+					if rootRef, ok := c.rootController(rc); ok {
+						return rootRef, true
+					}
+				}
 			}
+
 			return ref, true
 		}
 	}
@@ -156,6 +167,8 @@ func (c *controllerImpl) objectMeta(keyGetter cache.KeyGetter, key string) (*met
 		return nil, false
 	}
 	switch v := item.(type) {
+	case *v1.ReplicationController:
+		return &v.ObjectMeta, true
 	case *appsv1.ReplicaSet:
 		return &v.ObjectMeta, true
 	}
