@@ -45,6 +45,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd"
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
+	"istio.io/istio/pilot/pkg/config/clusterregistry"
 	"istio.io/istio/pilot/pkg/config/coredatamodel"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/config/kube/ingress"

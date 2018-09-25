@@ -45,23 +45,22 @@ type Multicluster struct {
 // NewMulticluster initializes data structure to store multicluster information
 // It also starts the secret controller
 func NewMulticluster(kc kubernetes.Interface, secretNamespace string,
-	wns string, ds string, rp time.Duration,
-	sc *aggregate.Controller, cc func()) (*Multicluster, error) {
+	watchedNamespace string, domainSuffix string, resycnPeriod time.Duration,
+	serviceController *aggregate.Controller, clearCacheFunction func()) (*Multicluster, error) {
 
-	rkc := make(map[string]*kubeController)
-	if rp == 0 {
+	remoteKubeClient := make(map[string]*kubeController)
+	if resycnPeriod == 0 {
 		// make sure a resync time of 0 wasn't passed in.
-		rp = 30 * time.Second
+		resycnPeriod = 30 * time.Second
 		log.Info("Resync time was configured to 0, resetting to 30")
 	}
 	mc := &Multicluster{
-
-		WatchedNamespace:  wns,
-		DomainSuffix:      ds,
-		ResyncPeriod:      rp,
-		serviceController: sc,
-		ClearCache:        cc,
-		rkc:               rkc,
+		WatchedNamespace:  watchedNamespace,
+		DomainSuffix:      domainSuffix,
+		ResyncPeriod:      resycnPeriod,
+		serviceController: serviceController,
+		ClearCache:        clearCacheFunction,
+		rkc:               remoteKubeClient,
 	}
 
 	err := secretcontroller.StartSecretController(kc,
@@ -69,15 +68,13 @@ func NewMulticluster(kc kubernetes.Interface, secretNamespace string,
 		mc.DeleteMemberCluster,
 		secretNamespace)
 	return mc, err
-
 }
 
 // AddMemberCluster is passed to the secret controller as a callback to be called
 // when a remote cluster is added.  This function needs to set up all the handlers
 // to watch for resources being added, deleted or changed on remote clusters.
 func (m *Multicluster) AddMemberCluster(clientset kubernetes.Interface, clusterID string) error {
-
-	//stopCh to stop controller created here when cluster removed.
+	// stopCh to stop controller created here when cluster removed.
 	stopCh := make(chan struct{})
 	var remoteKubeController kubeController
 	remoteKubeController.stopCh = stopCh
