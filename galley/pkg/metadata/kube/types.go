@@ -479,16 +479,16 @@ func init() {
 		Converter: converter.Get("identity"),
 	})
 
-	// b.Add(kube.ResourceSpec{
-	// 	Kind:      "handler",
-	// 	ListKind:  "handlerList",
-	// 	Singular:  "handler",
-	// 	Plural:    "handlers",
-	// 	Version:   "v1alpha2",
-	// 	Group:     "config.istio.io",
-	// 	Target:    metadata.Types.Get("type.googleapis.com/istio.policy.v1beta1.Handler"),
-	// 	Converter: converter.Get("identity"),
-	// })
+	b.Add(kube.ResourceSpec{
+		Kind:      "handler",
+		ListKind:  "handlerList",
+		Singular:  "handler",
+		Plural:    "handlers",
+		Version:   "v1alpha2",
+		Group:     "config.istio.io",
+		Target:    metadata.Types.Get("type.googleapis.com/istio.policy.v1beta1.Handler"),
+		Converter: converter.Get("identity"),
+	})
 
 	b.Add(kube.ResourceSpec{
 		Kind:      "instance",
