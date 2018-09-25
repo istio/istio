@@ -375,16 +375,14 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 			}
 		}
 
-		if len(in.AppendHeaders) > 0 {
-			action.RequestHeadersToAdd = make([]*core.HeaderValueOption, 0)
-			for key, value := range in.AppendHeaders {
-				action.RequestHeadersToAdd = append(action.RequestHeadersToAdd, &core.HeaderValueOption{
-					Header: &core.HeaderValue{
-						Key:   key,
-						Value: value,
-					},
-				})
-			}
+		// TODO: deprecate this
+		for key, value := range in.AppendHeaders {
+			action.RequestHeadersToAdd = append(action.RequestHeadersToAdd, &core.HeaderValueOption{
+				Header: &core.HeaderValue{
+					Key:   key,
+					Value: value,
+				},
+			})
 		}
 
 		if len(in.RemoveResponseHeaders) > 0 {
@@ -415,10 +413,31 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 
 			hostname := model.Hostname(dst.GetDestination().GetHost())
 			n := GetDestinationCluster(dst.Destination, serviceRegistry[hostname], port)
-			weighted = append(weighted, &route.WeightedCluster_ClusterWeight{
-				Name:   n,
-				Weight: weight,
-			})
+			clusterWeight := &route.WeightedCluster_ClusterWeight{
+				Name:                    n,
+				Weight:                  weight,
+				ResponseHeadersToRemove: dst.RemoveResponseHeaders,
+			}
+
+			for key, value := range dst.AppendHeaders {
+				clusterWeight.RequestHeadersToAdd = append(clusterWeight.RequestHeadersToAdd, &core.HeaderValueOption{
+					Header: &core.HeaderValue{
+						Key:   key,
+						Value: value,
+					},
+				})
+			}
+
+			for key, value := range dst.AppendResponseHeaders {
+				clusterWeight.ResponseHeadersToAdd = append(clusterWeight.ResponseHeadersToAdd, &core.HeaderValueOption{
+					Header: &core.HeaderValue{
+						Key:   key,
+						Value: value,
+					},
+				})
+			}
+
+			weighted = append(weighted, clusterWeight)
 
 			hashPolicy := getHashPolicy(push, dst)
 			if hashPolicy != nil {
@@ -429,6 +448,9 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 		// rewrite to a single cluster if there is only weighted cluster
 		if len(weighted) == 1 {
 			action.ClusterSpecifier = &route.RouteAction_Cluster{Cluster: weighted[0].Name}
+			out.RequestHeadersToAdd = append(out.RequestHeadersToAdd, weighted[0].RequestHeadersToAdd...)
+			out.ResponseHeadersToAdd = append(out.ResponseHeadersToAdd, weighted[0].ResponseHeadersToAdd...)
+			out.ResponseHeadersToRemove = append(out.ResponseHeadersToRemove, weighted[0].ResponseHeadersToRemove...)
 		} else {
 			action.ClusterSpecifier = &route.RouteAction_WeightedClusters{
 				WeightedClusters: &route.WeightedCluster{

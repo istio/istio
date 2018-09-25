@@ -52,7 +52,6 @@ type codeAndSlices struct {
 }
 
 func (h handler) addResponsePayload(r *http.Request, body *bytes.Buffer) {
-
 	body.WriteString("ServiceVersion=" + h.version + "\n")
 	body.WriteString("ServicePort=" + strconv.Itoa(h.port) + "\n")
 	body.WriteString("Method=" + r.Method + "\n")
@@ -150,21 +149,19 @@ func (h handler) WebSocketEcho(w http.ResponseWriter, r *http.Request) {
 
 func setHeaderResponseFromHeaders(request *http.Request, response http.ResponseWriter) error {
 	responseHeadersString := request.FormValue("headers")
-
 	responseHeaders := strings.Split(responseHeadersString, ",")
 
 	for _, responseHeader := range responseHeaders {
-		headerAndValue := strings.Split(responseHeader, ":")
+		parts := strings.Split(responseHeader, ":")
 
-		// Demand name:value
-		if len(headerAndValue) != 2 {
+		// require name:value format
+		if len(parts) != 2 {
 			return fmt.Errorf("invalid %q (want name:value)", responseHeader)
 		}
-		name := headerAndValue[0]
-		value := headerAndValue[1]
+		name := parts[0]
+		value := parts[1]
 
 		response.Header().Set(name, value)
-
 	}
 
 	return nil
