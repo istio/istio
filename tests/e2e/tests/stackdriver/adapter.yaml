@@ -53,6 +53,7 @@ spec:
   trace:
     sampleProbability: 1.0
 ---
+# For future Context Graph test.
 # apiVersion: "config.istio.io/v1alpha2"
 # kind: edge
 # metadata:
@@ -222,6 +223,7 @@ spec:
     instances:
     - stackdriver-span.tracespan
 ---
+# For future Context Graph test.
 # apiVersion: "config.istio.io/v1alpha2"
 # kind: rule
 # metadata:
