@@ -145,7 +145,7 @@ func (s *fsSource) processPartialDelete(fileName string, newData *map[string]*is
 func (s *fsSource) processAddOrUpdate(fileName string, newData *map[string]*istioResource) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	//need versionUpdated as sometimes when fswatcher fires events, there is actually no change on the file content
+	// need versionUpdated as sometimes when fswatcher fires events, there is actually no change on the file content
 	versionUpdated := false
 	for k, r := range *newData {
 		if _, ok := s.shas[k]; ok {
