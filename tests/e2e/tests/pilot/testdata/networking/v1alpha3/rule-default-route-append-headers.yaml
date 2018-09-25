@@ -10,7 +10,7 @@ spec:
       - destination:
           host: c
           subset: v1
-        weight: 50
+        weight: 75
         appendHeaders:
           istio-custom-dest-header: user-defined-value
         appendResponseHeaders:
@@ -20,6 +20,6 @@ spec:
       - destination:
           host: c
           subset: v2
-        weight: 50
+        weight: 25
       append_headers: # TODO: deprecate
         istio-custom-header: user-defined-value

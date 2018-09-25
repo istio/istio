@@ -561,12 +561,12 @@ func translateCORSPolicy(in *networking.CorsPolicy) *route.CorsPolicy {
 	}
 
 	out := route.CorsPolicy{
-		AllowOrigin: in.AllowOrigin,
-		Enabled:     &types.BoolValue{Value: true},
+		AllowOrigin:      in.AllowOrigin,
+		Enabled:          &types.BoolValue{Value: true},
 		AllowCredentials: in.AllowCredentials,
-		AllowHeaders: strings.Join(in.AllowHeaders, ","),
-		AllowMethods: strings.Join(in.AllowMethods, ","),
-		ExposeHeaders: strings.Join(in.ExposeHeaders, ","),
+		AllowHeaders:     strings.Join(in.AllowHeaders, ","),
+		AllowMethods:     strings.Join(in.AllowMethods, ","),
+		ExposeHeaders:    strings.Join(in.ExposeHeaders, ","),
 	}
 	if in.MaxAge != nil {
 		out.MaxAge = in.MaxAge.String()

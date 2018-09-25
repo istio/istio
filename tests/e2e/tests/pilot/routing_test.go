@@ -22,6 +22,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hashicorp/go-multierror"
+
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/util"
 )
@@ -154,7 +156,7 @@ func TestRoutes(t *testing.T) {
 			dst:           "c",
 			headerKey:     "",
 			headerVal:     "",
-			expectedCount: map[string]int{"v1": 100, "v2": 0},
+			expectedCount: map[string]int{"v1": 75, "v2": 25},
 			operation:     "c.istio-system.svc.cluster.local:80/*",
 		},
 		{
@@ -447,78 +449,72 @@ func TestHeadersManipulations(t *testing.T) {
 	}
 	defer cfgs.Teardown()
 
-	customHeaderExp := regexp.MustCompile("(?i)istio-custom-header=user-defined-value")
-	customDestHeaderExp := regexp.MustCompile("(?i)istio-custom-dest-header=user-defined-value")
-	customDestRespHeaderExp := regexp.MustCompile("(?i)ResponseHeader=istio-custom-dest-resp-header:user-defined-value")
-	customDestRespHeaderRemoveExp := regexp.MustCompile("(?i)ResponseHeader=istio-custom-dest-resp-header-remove:to-be-removed")
+	headerRegexp := regexp.MustCompile("(?i)istio-custom-header=user-defined-value")
+	destHeaderRegexp := regexp.MustCompile("(?i)istio-custom-dest-header=user-defined-value")
+	destRespHeaderRegexp := regexp.MustCompile("(?i)ResponseHeader=istio-custom-dest-resp-header:user-defined-value")
+	destRespHeaderRemoveRegexp := regexp.MustCompile("(?i)ResponseHeader=istio-custom-dest-resp-header-remove:to-be-removed")
 
-	// traffic is split 50/50 between v1 and v2
+	epsilon := 5
+	numRequests := 100
+	numV1 := 75
+	numV2 := 25
+
+	verifyCount := func(exp *regexp.Regexp, body string, expected int) error {
+		found := len(exp.FindAllStringSubmatch(body, -1))
+		if found < expected-epsilon || found > expected+epsilon {
+			return fmt.Errorf("got %d, expected %d +/- %d", found, expected, epsilon)
+		}
+		return nil
+	}
+
+	// traffic is split 75/25 between v1 and v2
 	// traffic to v1 has header manipulation rules, v2 does not
-	// make requests until we've verified the behavior of v1 and v2 at least once OR we run out of attempts
-	checkedV1 := false
-	checkedV2 := false
-	for attempt := 0; attempt<20; attempt++ {
-		if checkedV1 && checkedV2 {
-			break
-		}
+	// verify the split, and then verify the header counts match what we would expect
+	//
+	// note: we do not explicitly verify that individual requests all have the proper
+	// header manipulation performed on them. this isn't ideal, but that is difficult
+	// to verify this without either,
+	// a) making each request individually (very slow)
+	// b) or adding a bunch more parsing to the request function, so we have access to headers per request.
+	for cluster := range tc.Kube.Clusters {
+		runRetriableTest(t, cluster, "v1alpha3", 5, func() error {
+			reqURL := "http://c/a?headers=istio-custom-dest-resp-header-remove:to-be-removed"
 
-		for cluster := range tc.Kube.Clusters {
-			runRetriableTest(t, cluster, "v1alpha3", 5, func() error {
-				reqURL := "http://c/a?headers=istio-custom-dest-resp-header-remove:to-be-removed"
-	
-				resp := ClientRequest(cluster, "a", reqURL, 1, "")
-				if !resp.IsHTTPOk() {
-					return fmt.Errorf("expected 200 response code")
-				}
+			resp := ClientRequest(cluster, "a", reqURL, numRequests, "")
 
-				// ensure the route-wide request header add works, regardless of service version
-				customHeader := customHeaderExp.FindAllStringSubmatch(resp.Body, -1)
-				if len(customHeader) == 0 {
-					return fmt.Errorf("route append header failed: response body doesn't contain istio-custom-header")
-				}
+			// ensure version distribution
+			counts := make(map[string]int)
+			for _, version := range resp.Version {
+				counts[version]++
+			}
+			if counts["v1"] < numV1-epsilon || counts["v1"] > numV1+epsilon {
+				return fmt.Errorf("expected %d +/- %d requests to reach v1, got %d", numV1, epsilon, counts["v1"])
+			}
+			if counts["v2"] < numV2-epsilon || counts["v2"] > numV2+epsilon {
+				return fmt.Errorf("expected %d +/- %d requests to reach v2, got %d", numV2, epsilon, counts["v2"])
+			}
 
-				// FIXME: error messages
-				switch resp.Version[0] {
-				case "v1":
-					// verify request header add
-					destinationCustomHeader := customDestHeaderExp.FindAllStringSubmatch(resp.Body, -1)
-					if len(destinationCustomHeader) == 0 {
-						return fmt.Errorf("destination append header failed: response body doesn't contain istio-destination-custom-header")
-					}
-		
-					// verify response header add
-					destinationCustomHeaderResponse := customDestRespHeaderExp.FindAllStringSubmatch(resp.Body, -1)
-					if len(destinationCustomHeaderResponse) == 0 {
-						return fmt.Errorf("destination append header response failed: response body doesn't contain istio-destination-custom-header-response")
-					}
+			// ensure the route-wide request header add works, regardless of service version
+			if err := verifyCount(headerRegexp, resp.Body, numRequests); err != nil {
+				return multierror.Prefix(err, "request header count does not have expected distribution")
+			}
 
-					// verify response header remove
-					destinationCustomHeaderRemove := customDestRespHeaderRemoveExp.FindAllStringSubmatch(resp.Body, -1)
-					if len(destinationCustomHeaderRemove) != 0 {
-						return fmt.Errorf("destination remove header failed: response body contains istio-destination-custom-header-remove")
-					}
-				case "v2":
-					// verify no request header add
-					destinationCustomHeader := customDestHeaderExp.FindAllStringSubmatch(resp.Body, -1)
-					if len(destinationCustomHeader) != 0 {
-						return fmt.Errorf("destination append header failed: response body contains istio-destination-custom-header")
-					}
-		
-					// verify no response header add
-					destinationCustomHeaderResponse := customDestRespHeaderExp.FindAllStringSubmatch(resp.Body, -1)
-					if len(destinationCustomHeaderResponse) != 0 {
-						return fmt.Errorf("destination append header response failed: response body contains istio-destination-custom-header-response")
-					}
-		
-					// verify no response header remove
-					destinationCustomHeaderRemove := customDestRespHeaderRemoveExp.FindAllStringSubmatch(resp.Body, -1)
-					if len(destinationCustomHeaderRemove) == 0 {
-						return fmt.Errorf("destination remove header failed: response body doesn't contain istio-destination-custom-header-remove")
-					}
-				}
-	
-				return nil
-			})
-		}
+			// verify request header add count
+			if err := verifyCount(destHeaderRegexp, resp.Body, numV1); err != nil {
+				return multierror.Prefix(err, "destination request header count does not have expected distribution")
+			}
+
+			// verify response header add count
+			if err := verifyCount(destRespHeaderRegexp, resp.Body, numV1); err != nil {
+				return multierror.Prefix(err, "destination response header count does not have expected distribution")
+			}
+
+			// verify response header remove count
+			if err := verifyCount(destRespHeaderRemoveRegexp, resp.Body, numV2); err != nil {
+				return multierror.Prefix(err, "destination to remove response header count does not have expected distribution")
+			}
+
+			return nil
+		})
 	}
 }
