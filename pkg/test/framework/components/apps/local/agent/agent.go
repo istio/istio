@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"io"
 
+	"istio.io/istio/pkg/test/framework/environments/local/service"
+
 	"istio.io/istio/pkg/test/application"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -45,7 +47,7 @@ type MappedPort struct {
 }
 
 // Factory is a function that manufactures Agent instances.
-type Factory func(meta model.ConfigMeta, appFactory application.Factory, configStore model.ConfigStore) (Agent, error)
+type Factory func(serviceName, version string, serviceManager *service.Manager, appFactory application.Factory) (Agent, error)
 
 // FindFirstPortForProtocol is a utility method to simplify lookup of a port for a given protocol.
 func FindFirstPortForProtocol(a Agent, protocol model.Protocol) (*MappedPort, error) {
