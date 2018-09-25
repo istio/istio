@@ -23,13 +23,14 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
+	"istio.io/istio/pkg/test/env"
+
 	"istio.io/istio/pkg/test/framework/scopes"
 	"istio.io/istio/pkg/test/helm"
 	"istio.io/istio/pkg/test/kube"
 )
 
 const (
-	readyWaitTimeout  = 6 * time.Minute
 	namespaceTemplate = `apiVersion: v1
 kind: Namespace
 metadata:
@@ -44,9 +45,6 @@ type Settings struct {
 	// KubeConfig is the kube configuration file to use when calling kubectl.
 	KubeConfig string
 
-	// ChartDir is the directory where the helm charts are located (i.e. ${ISTIO}/install.kubernetes/helm).
-	ChartDir string
-
 	// WorkDir is an output folder for storing intermediate artifacts (i.e. generated yaml etc.)
 	WorkDir string
 
@@ -58,7 +56,7 @@ type Settings struct {
 	Namespace string
 
 	// ValuesFile is the name of the values file to use when rendering the template. They are located under
-	// ChartDir.
+	// repository.IstioChartDir.
 	ValuesFile valuesFile
 }
 
@@ -79,7 +77,7 @@ type Instance struct {
 // New deploys Istio. New will start an Istio deployment against Istio, wait for its completion, and return a
 // deployment instance to track the lifecycle.
 func New(s *Settings, a *kube.Accessor) (instance *Instance, err error) {
-	scopes.CI.Infof("=== BEGIN: Deploy Istio (via Helm Template) (Chart Dir: %s) ===", s.ChartDir)
+	scopes.CI.Info("=== BEGIN: Deploy Istio (via Helm Template) ===")
 	defer func() {
 		if err != nil {
 			instance = nil
@@ -100,20 +98,19 @@ func New(s *Settings, a *kube.Accessor) (instance *Instance, err error) {
 
 	instance.yamlFilePath = path.Join(s.WorkDir, instance.deploymentName+".yaml")
 
-	istioDir := path.Join(s.ChartDir, "istio")
 	settings := helm.DefaultSettings()
 
 	settings.Tag = s.Tag
 	settings.Hub = s.Hub
 	settings.EnableCoreDump = true
 
-	valuesFile := path.Join(istioDir, string(s.ValuesFile))
+	valuesFile := path.Join(env.IstioChartDir, string(s.ValuesFile))
 
 	var generatedYaml string
 	if generatedYaml, err = helm.Template(
 		instance.deploymentName,
 		s.Namespace,
-		istioDir,
+		env.IstioChartDir,
 		valuesFile,
 		settings); err != nil {
 		scopes.CI.Errorf("Helm chart generation failed: %v", err)
@@ -135,10 +132,7 @@ func New(s *Settings, a *kube.Accessor) (instance *Instance, err error) {
 		return
 	}
 
-	if err = instance.wait(s.Namespace, a); err != nil {
-		DumpPodState(s.KubeConfig, s.Namespace)
-		CopyPodLogs(s.KubeConfig, s.WorkDir, s.Namespace, a)
-	}
+	err = instance.wait(s.Namespace, a)
 
 	return
 }
@@ -146,7 +140,7 @@ func New(s *Settings, a *kube.Accessor) (instance *Instance, err error) {
 // Wait for installation to complete.
 func (i *Instance) wait(namespace string, a *kube.Accessor) error {
 	scopes.CI.Infof("=== BEGIN: Wait for Istio deployment to quiesce ===")
-	if err := a.WaitUntilPodsInNamespaceAreReady(namespace, readyWaitTimeout); err != nil {
+	if err := a.WaitUntilPodsInNamespaceAreReady(namespace); err != nil {
 		scopes.CI.Errorf("Wait for Istio pods failed: %v", err)
 		scopes.CI.Infof("=== FAILED: Wait for Istio deployment to quiesce ===")
 		return err

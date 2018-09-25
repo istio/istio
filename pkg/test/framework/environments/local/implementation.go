@@ -86,6 +86,11 @@ func (e *Implementation) Reset() error {
 	return nil
 }
 
+// DumpState dumps the state of the environment to the file system and the log.
+func (e *Implementation) DumpState(context string) {
+	// Nothing to do for local environment.
+}
+
 // CreateTmpDirectory creates a local temporary directory.
 func (e *Implementation) CreateTmpDirectory(name string) (string, error) {
 	return internal.CreateTmpDirectory(e.ctx.Settings().WorkDir, e.ctx.Settings().RunID, name)
