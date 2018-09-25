@@ -56,12 +56,19 @@ kubectl create clusterrolebinding myname-cluster-admin-binding  --clusterrole=cl
 
 **Option 1:** Build your own images.
 
+On MacOS, you need to set the target operating system before building the images
+
+```
+export GOOS=linux
+```
+
 ```
 # Customize .istiorc.mk (at the top of the istio.io/istio source tree) with your HUB and optional TAG
 # it allows you to customize Makefile rules. For example:
 cat .istiorc.mk
 HUB=costinm
 TAG=mybranch
+GS_BUCKET=mybucket
 
 # Build images on the local docker.
 make docker
