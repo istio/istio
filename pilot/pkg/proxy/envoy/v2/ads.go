@@ -58,8 +58,6 @@ var (
 	// PushTimeout is the time to wait for a push on a client.
 	// We measure and reports cases where pushing a client takes longer.
 	PushTimeout = 5 * time.Second
-
-	allowConcurrentPush = false
 )
 
 var (
@@ -148,14 +146,6 @@ func init() {
 	prometheus.MustRegister(pushes)
 	prometheus.MustRegister(pushErrors)
 	prometheus.MustRegister(pushContextErrors)
-
-	// Experimental env to disable push suppression
-	// By default a pod will not receive a push from an older version if a
-	// push for a newer version has started. This behavior can be disabled
-	// for testing or in special cases (bugs or corner cases found, etc)
-	// Setting the env variable to any non-empty value will result in 0.8
-	// behaviour, default is to cancel old pushes when possible and lock.
-	allowConcurrentPush = os.Getenv("PILOT_ALLOW_CONCURRENT") != ""
 }
 
 // DiscoveryStream is a common interface for EDS and ADS. It also has a
@@ -577,12 +567,9 @@ func (s *DiscoveryServer) IncrementalAggregatedResources(stream ads.AggregatedDi
 func (s *DiscoveryServer) pushAll(con *XdsConnection, pushEv *XdsEvent) error {
 	s.rateLimiter.Wait(context.TODO()) // rate limit the actual push
 
-	// Prevent 2 overlapping pushes. Disabled if push suppression is disabled
-	// (as fail-safe in case of bugs)
-	if !allowConcurrentPush {
-		con.pushMutex.Lock()
-		defer con.pushMutex.Unlock()
-	}
+	// Prevent 2 overlapping pushes.
+	con.pushMutex.Lock()
+	defer con.pushMutex.Unlock()
 
 	defer func() {
 		n := atomic.AddInt32(pushEv.pending, -1)
@@ -596,7 +583,7 @@ func (s *DiscoveryServer) pushAll(con *XdsConnection, pushEv *XdsEvent) error {
 	}()
 	// check version, suppress if changed.
 	currentVersion := versionInfo()
-	if !allowConcurrentPush && pushEv.version != currentVersion {
+	if pushEv.version != currentVersion {
 		adsLog.Infof("Suppress push for %s at %s, push with newer version %s in progress", con.ConID, pushEv.version, currentVersion)
 		return nil
 	}
@@ -715,7 +702,7 @@ func (s *DiscoveryServer) AdsPushAll(version string) {
 		Retry:
 			currentVersion := versionInfo()
 			// Stop attempting to push
-			if !allowConcurrentPush && version != currentVersion {
+			if version != currentVersion {
 				adsLog.Infof("PushAll abort %s, push with newer version %s in progress %v", version, currentVersion, time.Since(tstart))
 				return
 			}

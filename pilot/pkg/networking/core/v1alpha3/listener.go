@@ -72,10 +72,6 @@ const (
 )
 
 var (
-	// Very verbose output in the logs - full LDS response logged for each sidecar.
-	// Use /debug/ldsz instead.
-	verboseDebug = os.Getenv("PILOT_DUMP_ALPHA3") != ""
-
 	// TODO: gauge should be reset on refresh, not the best way to represent errors but better
 	// than nothing.
 	// TODO: add dimensions - namespace of rule, service, rule name
@@ -861,10 +857,6 @@ func buildHTTPConnectionManager(env *model.Environment, node *model.Proxy, httpO
 		connectionManager.GenerateRequestId = &google_protobuf.BoolValue{Value: true}
 	}
 
-	if verboseDebug {
-		connectionManagerJSON, _ := json.MarshalIndent(connectionManager, "  ", "  ")
-		log.Infof("LDS: %s \n", string(connectionManagerJSON))
-	}
 	return connectionManager
 }
 
