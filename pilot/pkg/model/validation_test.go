@@ -503,34 +503,6 @@ func TestValidateParentAndDrain(t *testing.T) {
 	}
 }
 
-func TestValidateRefreshDelay(t *testing.T) {
-	type durationCheck struct {
-		duration *types.Duration
-		isValid  bool
-	}
-
-	checks := []durationCheck{
-		{
-			duration: &types.Duration{Seconds: 1},
-			isValid:  true,
-		},
-		{
-			duration: &types.Duration{Seconds: 36001},
-			isValid:  false,
-		},
-		{
-			duration: &types.Duration{Nanos: 1},
-			isValid:  false,
-		},
-	}
-
-	for _, check := range checks {
-		if got := ValidateRefreshDelay(check.duration); (got == nil) != check.isValid {
-			t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for %v", got == nil, check.isValid, got, check.duration)
-		}
-	}
-}
-
 func TestValidateConnectTimeout(t *testing.T) {
 	type durationCheck struct {
 		duration *types.Duration
@@ -570,7 +542,6 @@ func TestValidateMeshConfig(t *testing.T) {
 		ProxyListenPort:   0,
 		ConnectTimeout:    types.DurationProto(-1 * time.Second),
 		AuthPolicy:        -1,
-		RdsRefreshDelay:   types.DurationProto(-1 * time.Second),
 		DefaultConfig:     &meshconfig.ProxyConfig{},
 	}
 
@@ -602,7 +573,6 @@ func TestValidateProxyConfig(t *testing.T) {
 		ProxyAdminPort:         0,
 		DrainDuration:          types.DurationProto(-1 * time.Second),
 		ParentShutdownDuration: types.DurationProto(-1 * time.Second),
-		DiscoveryRefreshDelay:  types.DurationProto(-1 * time.Second),
 		ConnectTimeout:         types.DurationProto(-1 * time.Second),
 		ServiceCluster:         "",
 		StatsdUdpAddress:       "10.0.0.100",
@@ -617,7 +587,7 @@ func TestValidateProxyConfig(t *testing.T) {
 		switch err.(type) {
 		case *multierror.Error:
 			// each field must cause an error in the field
-			if len(err.(*multierror.Error).Errors) < 12 {
+			if len(err.(*multierror.Error).Errors) < 11 {
 				t.Errorf("expected an error for each field %v", err)
 			}
 		default:

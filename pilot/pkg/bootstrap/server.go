@@ -369,9 +369,6 @@ func (s *Server) initMesh(args *PilotArgs) error {
 			mesh.MixerCheckServer = args.Mesh.MixerAddress
 			mesh.MixerReportServer = args.Mesh.MixerAddress
 		}
-		if args.Mesh.RdsRefreshDelay != nil {
-			mesh.RdsRefreshDelay = args.Mesh.RdsRefreshDelay
-		}
 	}
 
 	log.Infof("mesh configuration %s", spew.Sdump(mesh))

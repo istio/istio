@@ -485,7 +485,6 @@ func TestIntoResourceFile(t *testing.T) {
 			if c.duration != 0 {
 				mesh.DefaultConfig.DrainDuration = types.DurationProto(c.duration)
 				mesh.DefaultConfig.ParentShutdownDuration = types.DurationProto(c.duration)
-				mesh.DefaultConfig.DiscoveryRefreshDelay = types.DurationProto(c.duration)
 				mesh.DefaultConfig.ConnectTimeout = types.DurationProto(c.duration)
 			}
 			if c.tproxy {
