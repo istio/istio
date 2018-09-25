@@ -21,7 +21,7 @@ import (
 
 const (
 	// Maximum wait time before deciding to publish the events.
-	defaultMaxWaitDuration = 5 * time.Second
+	defaultMaxWaitDuration = time.Second
 
 	// Minimum time distance between two events for deciding on the quiesce point. If the time delay
 	// between two events is larger than this, then we can deduce that we hit a quiesce point.
@@ -102,16 +102,16 @@ func (s *publishingStrategy) onTimer() {
 	// If there has been a long time since the first event, or if there was a quiesce since last event,
 	// then fire publish to create new snapshots.
 	// Otherwise, reset the timer and get a call again.
+
 	maxTime := s.firstEvent.Add(s.maxWaitDuration)
 	quiesceTime := s.latestEvent.Add(s.quiesceDuration)
 
+	var published bool
 	if now.After(maxTime) || now.After(quiesceTime) {
 		// Try to send to the channel
 		select {
 		case s.publish <- struct{}{}:
-			s.timer.Stop()
-			s.timer = nil
-			return
+			published = true
 		default:
 			// If the calling code is not draining the publish channel, then we can potentially cause
 			// a deadlock here. Avoid the deadlock by going through the timer loop again.
@@ -119,7 +119,11 @@ func (s *publishingStrategy) onTimer() {
 		}
 	}
 
-	s.timer.Reset(s.timerFrequency)
+	if published {
+		s.timer = nil
+	} else {
+		s.timer.Reset(s.timerFrequency)
+	}
 }
 
 func (s *publishingStrategy) reset() {
