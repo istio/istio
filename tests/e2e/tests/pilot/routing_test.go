@@ -447,37 +447,78 @@ func TestHeadersManipulations(t *testing.T) {
 	}
 	defer cfgs.Teardown()
 
-	for cluster := range tc.Kube.Clusters {
-		runRetriableTest(t, cluster, "v1alpha3", 5, func() error {
-			reqURL := "http://c/a?headers=istio-destination-custom-header-remove:to-be-removed"
+	customHeaderExp := regexp.MustCompile("(?i)istio-custom-header=user-defined-value")
+	customDestHeaderExp := regexp.MustCompile("(?i)istio-custom-dest-header=user-defined-value")
+	customDestRespHeaderExp := regexp.MustCompile("(?i)ResponseHeader=istio-custom-dest-resp-header:user-defined-value")
+	customDestRespHeaderRemoveExp := regexp.MustCompile("(?i)ResponseHeader=istio-custom-dest-resp-header-remove:to-be-removed")
 
-			resp := ClientRequest(cluster, "a", reqURL, 1, "-key -val ")
+	// traffic is split 50/50 between v1 and v2
+	// traffic to v1 has header manipulation rules, v2 does not
+	// make requests until we've verified the behavior of v1 and v2 at least once OR we run out of attempts
+	checkedV1 := false
+	checkedV2 := false
+	for attempt := 0; attempt<20; attempt++ {
+		if checkedV1 && checkedV2 {
+			break
+		}
 
-			exp := regexp.MustCompile("(?i)istio-custom-header=user-defined-value")
-			customHeader := exp.FindAllStringSubmatch(resp.Body, -1)
-			if len(customHeader) == 0 {
-				return fmt.Errorf("route append header failed: response body doesn't contain istio-custom-header")
-			}
+		for cluster := range tc.Kube.Clusters {
+			runRetriableTest(t, cluster, "v1alpha3", 5, func() error {
+				reqURL := "http://c/a?headers=istio-custom-dest-resp-header-remove:to-be-removed"
+	
+				resp := ClientRequest(cluster, "a", reqURL, 1, "")
+				if !resp.IsHTTPOk() {
+					return fmt.Errorf("expected 200 response code")
+				}
 
-			exp = regexp.MustCompile("(?i)istio-destination-custom-header=user-defined-value")
-			destinationCustomHeader := exp.FindAllStringSubmatch(resp.Body, -1)
-			if len(destinationCustomHeader) == 0 {
-				return fmt.Errorf("destination append header failed: response body doesn't contain istio-destination-custom-header")
-			}
+				// ensure the route-wide request header add works, regardless of service version
+				customHeader := customHeaderExp.FindAllStringSubmatch(resp.Body, -1)
+				if len(customHeader) == 0 {
+					return fmt.Errorf("route append header failed: response body doesn't contain istio-custom-header")
+				}
 
-			exp = regexp.MustCompile("(?i)ResponseHeader=istio-destination-custom-header-response:user-defined-value")
-			destinationCustomHeaderResponse := exp.FindAllStringSubmatch(resp.Body, -1)
-			if len(destinationCustomHeaderResponse) == 0 {
-				return fmt.Errorf("destination append header response failed: response body doesn't contain istio-destination-custom-header-response")
-			}
+				// FIXME: error messages
+				switch resp.Version[0] {
+				case "v1":
+					// verify request header add
+					destinationCustomHeader := customDestHeaderExp.FindAllStringSubmatch(resp.Body, -1)
+					if len(destinationCustomHeader) == 0 {
+						return fmt.Errorf("destination append header failed: response body doesn't contain istio-destination-custom-header")
+					}
+		
+					// verify response header add
+					destinationCustomHeaderResponse := customDestRespHeaderExp.FindAllStringSubmatch(resp.Body, -1)
+					if len(destinationCustomHeaderResponse) == 0 {
+						return fmt.Errorf("destination append header response failed: response body doesn't contain istio-destination-custom-header-response")
+					}
 
-			exp = regexp.MustCompile("(?i)ResponseHeader=istio-destination-custom-header-remove=to-be-removed")
-			destinationCustomHeaderRemove := exp.FindAllStringSubmatch(resp.Body, -1)
-			if len(destinationCustomHeaderRemove) != 0 {
-				return fmt.Errorf("destination remove header failed: response body contains istio-destination-custom-header-remove")
-			}
-
-			return nil
-		})
+					// verify response header remove
+					destinationCustomHeaderRemove := customDestRespHeaderRemoveExp.FindAllStringSubmatch(resp.Body, -1)
+					if len(destinationCustomHeaderRemove) != 0 {
+						return fmt.Errorf("destination remove header failed: response body contains istio-destination-custom-header-remove")
+					}
+				case "v2":
+					// verify no request header add
+					destinationCustomHeader := customDestHeaderExp.FindAllStringSubmatch(resp.Body, -1)
+					if len(destinationCustomHeader) != 0 {
+						return fmt.Errorf("destination append header failed: response body contains istio-destination-custom-header")
+					}
+		
+					// verify no response header add
+					destinationCustomHeaderResponse := customDestRespHeaderExp.FindAllStringSubmatch(resp.Body, -1)
+					if len(destinationCustomHeaderResponse) != 0 {
+						return fmt.Errorf("destination append header response failed: response body contains istio-destination-custom-header-response")
+					}
+		
+					// verify no response header remove
+					destinationCustomHeaderRemove := customDestRespHeaderRemoveExp.FindAllStringSubmatch(resp.Body, -1)
+					if len(destinationCustomHeaderRemove) == 0 {
+						return fmt.Errorf("destination remove header failed: response body doesn't contain istio-destination-custom-header-remove")
+					}
+				}
+	
+				return nil
+			})
+		}
 	}
 }

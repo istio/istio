@@ -377,16 +377,14 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 			}
 		}
 
-		if len(in.AppendHeaders) > 0 {
-			action.RequestHeadersToAdd = make([]*core.HeaderValueOption, 0)
-			for key, value := range in.AppendHeaders {
-				action.RequestHeadersToAdd = append(action.RequestHeadersToAdd, &core.HeaderValueOption{
-					Header: &core.HeaderValue{
-						Key:   key,
-						Value: value,
-					},
-				})
-			}
+		// TODO: deprecate this
+		for key, value := range in.AppendHeaders {
+			action.RequestHeadersToAdd = append(action.RequestHeadersToAdd, &core.HeaderValueOption{
+				Header: &core.HeaderValue{
+					Key:   key,
+					Value: value,
+				},
+			})
 		}
 
 		if in.Mirror != nil {
@@ -416,28 +414,22 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 				ResponseHeadersToRemove: dst.RemoveResponseHeaders,
 			}
 
-			if len(dst.AppendHeaders) > 0 {
-				clusterWeight.RequestHeadersToAdd = make([]*core.HeaderValueOption, 0)
-				for key, value := range dst.AppendHeaders {
-					clusterWeight.RequestHeadersToAdd = append(clusterWeight.RequestHeadersToAdd, &core.HeaderValueOption{
-						Header: &core.HeaderValue{
-							Key:   key,
-							Value: value,
-						},
-					})
-				}
+			for key, value := range dst.AppendHeaders {
+				clusterWeight.RequestHeadersToAdd = append(clusterWeight.RequestHeadersToAdd, &core.HeaderValueOption{
+					Header: &core.HeaderValue{
+						Key:   key,
+						Value: value,
+					},
+				})
 			}
 
-			if len(dst.AppendResponseHeaders) > 0 {
-				clusterWeight.ResponseHeadersToAdd = make([]*core.HeaderValueOption, 0)
-				for key, value := range dst.AppendResponseHeaders {
-					clusterWeight.ResponseHeadersToAdd = append(clusterWeight.ResponseHeadersToAdd, &core.HeaderValueOption{
-						Header: &core.HeaderValue{
-							Key:   key,
-							Value: value,
-						},
-					})
-				}
+			for key, value := range dst.AppendResponseHeaders {
+				clusterWeight.ResponseHeadersToAdd = append(clusterWeight.ResponseHeadersToAdd, &core.HeaderValueOption{
+					Header: &core.HeaderValue{
+						Key:   key,
+						Value: value,
+					},
+				})
 			}
 
 			weighted = append(weighted, clusterWeight)
@@ -564,11 +556,11 @@ func translateCORSPolicy(in *networking.CorsPolicy) *route.CorsPolicy {
 	out := route.CorsPolicy{
 		AllowOrigin: in.AllowOrigin,
 		Enabled:     &types.BoolValue{Value: true},
+		AllowCredentials: in.AllowCredentials,
+		AllowHeaders: strings.Join(in.AllowHeaders, ","),
+		AllowMethods: strings.Join(in.AllowMethods, ","),
+		ExposeHeaders: strings.Join(in.ExposeHeaders, ","),
 	}
-	out.AllowCredentials = in.AllowCredentials
-	out.AllowHeaders = strings.Join(in.AllowHeaders, ",")
-	out.AllowMethods = strings.Join(in.AllowMethods, ",")
-	out.ExposeHeaders = strings.Join(in.ExposeHeaders, ",")
 	if in.MaxAge != nil {
 		out.MaxAge = in.MaxAge.String()
 	}
