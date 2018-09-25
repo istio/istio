@@ -19,8 +19,9 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io/ioutil"
-	"istio.io/istio/pkg/spiffe"
 	"os"
+
+	"istio.io/istio/pkg/spiffe"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"

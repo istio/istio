@@ -17,9 +17,10 @@ package platform
 import (
 	"context"
 	"fmt"
-	"istio.io/istio/pkg/spiffe"
 	"reflect"
 	"testing"
+
+	"istio.io/istio/pkg/spiffe"
 
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"

@@ -17,10 +17,12 @@ package controller
 import (
 	"bytes"
 	"fmt"
-	"istio.io/istio/pkg/spiffe"
-	"k8s.io/apimachinery/pkg/runtime"
 	"testing"
 	"time"
+
+	"k8s.io/apimachinery/pkg/runtime"
+
+	"istio.io/istio/pkg/spiffe"
 
 	"github.com/pkg/errors"
 	"k8s.io/api/core/v1"

@@ -19,10 +19,11 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"istio.io/istio/pkg/spiffe"
 	"strings"
 	"sync"
 	"time"
+
+	"istio.io/istio/pkg/spiffe"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	authapi "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"

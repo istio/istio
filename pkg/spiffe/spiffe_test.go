@@ -1,12 +1,25 @@
+// Copyright 2018 Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package spiffe
 
 import (
-	"github.com/onsi/gomega"
 	"strings"
 	"testing"
+
+	"github.com/onsi/gomega"
 )
-
-
 
 func TestGenSpiffeURI(t *testing.T) {
 	WithIdentityDomain("cluster.local", func() {
@@ -51,7 +64,6 @@ func TestGenSpiffeURI(t *testing.T) {
 	})
 }
 
-
 func TestMustGenSpiffeURI(t *testing.T) {
 	defer func() {
 		if r := recover(); r == nil {
@@ -65,35 +77,35 @@ func TestMustGenSpiffeURI(t *testing.T) {
 func TestPilotSanForNoIdentityDomainAndNoDomain(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
-	pilotSAN := SetIdentityDomain("","",false)
+	pilotSAN := SetIdentityDomain("", "", false)
 
 	g.Expect(pilotSAN).To(gomega.Equal(""))
 }
 
 func TestPilotSanForNoIdentityDomainAndNoDomainKubernetes(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	pilotSAN := SetIdentityDomain("","",true)
+	pilotSAN := SetIdentityDomain("", "", true)
 
-	g.Expect(pilotSAN).To(gomega.Equal("cluster.local" ))
+	g.Expect(pilotSAN).To(gomega.Equal("cluster.local"))
 }
 
 func TestPilotSanForNoIdentityDomainButDomainKubernetes(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	pilotSAN := SetIdentityDomain("","my.domain",true)
+	pilotSAN := SetIdentityDomain("", "my.domain", true)
 
 	g.Expect(pilotSAN).To(gomega.Equal("my.domain"))
 }
 
 func TestPilotSanForIdentityDomainButNoDomainKubernetes(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	pilotSAN := SetIdentityDomain("secured","",true)
+	pilotSAN := SetIdentityDomain("secured", "", true)
 
-	g.Expect(pilotSAN).To(gomega.Equal("secured" ))
+	g.Expect(pilotSAN).To(gomega.Equal("secured"))
 }
 
 func TestPilotSanForIdentityDomainAndDomainKubernetes(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	pilotSAN := SetIdentityDomain("secured","my.domain",true)
+	pilotSAN := SetIdentityDomain("secured", "my.domain", true)
 
-	g.Expect(pilotSAN).To(gomega.Equal("secured" ))
+	g.Expect(pilotSAN).To(gomega.Equal("secured"))
 }

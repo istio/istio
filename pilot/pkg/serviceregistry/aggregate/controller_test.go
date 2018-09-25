@@ -17,9 +17,10 @@ package aggregate
 import (
 	"errors"
 	"fmt"
-	"istio.io/istio/pkg/spiffe"
 	"reflect"
 	"testing"
+
+	"istio.io/istio/pkg/spiffe"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"

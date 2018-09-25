@@ -20,13 +20,14 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io/ioutil"
-	"istio.io/istio/pkg/spiffe"
 	"net"
 	"os"
 	"strconv"
 	"strings"
 	"text/template"
 	"time"
+
+	"istio.io/istio/pkg/spiffe"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/spf13/cobra"

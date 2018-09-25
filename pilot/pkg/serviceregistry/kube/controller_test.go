@@ -16,11 +16,12 @@ package kube
 
 import (
 	"fmt"
-	"istio.io/istio/pkg/spiffe"
 	"reflect"
 	"sort"
 	"testing"
 	"time"
+
+	"istio.io/istio/pkg/spiffe"
 
 	"k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -352,7 +353,6 @@ func TestController_GetIstioServiceAccounts(t *testing.T) {
 		}
 
 	})
-
 
 }
 

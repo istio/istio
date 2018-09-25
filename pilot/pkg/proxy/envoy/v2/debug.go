@@ -20,9 +20,10 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"istio.io/istio/pkg/spiffe"
 	"net/http"
 	"sync"
+
+	"istio.io/istio/pkg/spiffe"
 
 	"github.com/gogo/protobuf/jsonpb"
 

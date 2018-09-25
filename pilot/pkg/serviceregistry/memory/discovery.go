@@ -16,8 +16,9 @@ package memory
 
 import (
 	"fmt"
-	"istio.io/istio/pkg/spiffe"
 	"net"
+
+	"istio.io/istio/pkg/spiffe"
 
 	"time"
 

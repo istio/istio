@@ -15,9 +15,10 @@
 package kube
 
 import (
-	"istio.io/istio/pkg/spiffe"
 	"reflect"
 	"testing"
+
+	"istio.io/istio/pkg/spiffe"
 
 	"k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"

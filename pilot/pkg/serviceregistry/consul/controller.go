@@ -15,8 +15,9 @@
 package consul
 
 import (
-	"istio.io/istio/pkg/spiffe"
 	"time"
+
+	"istio.io/istio/pkg/spiffe"
 
 	"github.com/hashicorp/consul/api"
 
