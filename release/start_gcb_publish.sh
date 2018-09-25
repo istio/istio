@@ -31,8 +31,8 @@ set -o pipefail
 set -x
 
 SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
-# shellcheck source=release/gcb_build_lib.sh
-source "${SCRIPTPATH}/gcb_build_lib.sh"
+# shellcheck source=release/airflow/gcb_build_lib.sh
+source "${SCRIPTPATH}/release/airflow/gcb_build_lib.sh"
 
 KEY_FILE_PATH=""
 SVC_ACCT=""
@@ -106,16 +106,16 @@ fi
 cat << EOF > "${SUBS_FILE}"
   "substitutions": {
     "_BRANCH": "${BRANCH}",
-    "_GCS_PATH": "${GCS_PATH}",
-    "_VER_STRING": "${VER_STRING}",
-    "_GCS_SOURCE": "${GCS_SRC}",
-    "_GCS_RELEASE_TOOLS_PATH": "${GCS_RELEASE_TOOLS_PATH}",
+    "_DOCKER_DST": "${DOCKER_DST}",
     "_GCR_DST": "${GCR_DST}",
     "_GCS_DST": "${GCS_DST}",
-    "_DOCKER_DST": "${DOCKER_DST}",
+    "_GCS_PATH": "${GCS_PATH}",
+    "_GCS_RELEASE_TOOLS_PATH": "${GCS_RELEASE_TOOLS_PATH}",
     "_GCS_SECRET": "${GCS_GITHUB_SECRET}",
+    "_GCS_SOURCE": "${GCS_SRC}",
     "_ORG": "${REL_ORG}",
-    "_REPO": "${REL_REPO}"
+    "_REPO": "${REL_REPO}",
+    "_VER_STRING": "${VER_STRING}"
   }
 EOF
 

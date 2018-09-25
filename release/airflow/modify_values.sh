@@ -15,7 +15,7 @@ while getopts h:t:p:v: arg ; do
   esac
 done
 
-function fix_values_yaml() {
+function fix_values_yaml_worker() {
   local unzip_cmd
   unzip_cmd="$1"
   local zip_cmd

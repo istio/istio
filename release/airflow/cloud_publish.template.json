@@ -2,7 +2,7 @@
   "steps": [
     {
       "name": "gcr.io/istio-testing/istio-builder:0.5.7",
-      "args": [ "-c", "git clone https://github.com/istio/istio -b \"$_BRANCH\" --depth 1 && istio/release/istio_checkout_code.sh -b \"$_BRANCH\" -r \"$_GCS_RELEASE_TOOLS_PATH\" " ],
+      "args": [ "-c", "gsutil cp \"$_GCS_RELEASE_TOOLS_PATH\" . && chmod u+x *sh && ./istio_checkout_code.sh -b \"$_BRANCH\" -r \"$_GCS_RELEASE_TOOLS_PATH\" " ],
       "entrypoint": "bash"
     },
     {

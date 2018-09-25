@@ -32,8 +32,8 @@ set -o pipefail
 set -x
 
 SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
-# shellcheck source=release/gcb_build_lib.sh
-source "${SCRIPTPATH}/gcb_build_lib.sh"
+# shellcheck source=release/airflow/gcb_build_lib.sh
+source "${SCRIPTPATH}/release/airflow/gcb_build_lib.sh"
 
 KEY_FILE_PATH=""
 SVC_ACCT=""
@@ -98,13 +98,13 @@ cat << EOF > "${SUBS_FILE}"
   "substitutions": {
     "_BRANCH": "${BRANCH}",
     "_GCS_PATH": "${GCS_PATH}",
-    "_VER_STRING": "${VER_STRING}",
     "_GCS_RELEASE_TOOLS_PATH": "${GCS_RELEASE_TOOLS_PATH}",
-    "_GCS_SOURCE": "${GCS_SRC}",
     "_GCS_SECRET": "${GCS_GITHUB_SECRET}",
+    "_GCS_SOURCE": "${GCS_SRC}",
     "_ORG": "${REL_ORG}",
     "_USER_EMAIL": "${USER_EMAIL}",
-    "_USER_NAME": "${USER_NAME}"
+    "_USER_NAME": "${USER_NAME}",
+    "_VER_STRING": "${VER_STRING}"
   }
 EOF
 

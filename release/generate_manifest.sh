@@ -276,6 +276,9 @@ pushd ${CLONE_DIR}
   MANIFEST_FILE="$PWD/manifest.xml"
 
   git clone https://github.com/istio/istio -b "${BRANCH}"
+  gsutil cp istio/release/*         "${GCS_RELEASE_TOOLS_PATH}/"
+  gsutil cp istio/release/airflow/* "${GCS_RELEASE_TOOLS_PATH}/airflow/"
+
   istio_checkout_green_sha       "${BRANCH}" "${COMMIT}" "${MANIFEST_FILE}"
   istio_check_green_sha_age
   find_and_replace_shas_manifest "${BRANCH}"             "${MANIFEST_FILE}" "$VERIFY_CONSISTENCY"

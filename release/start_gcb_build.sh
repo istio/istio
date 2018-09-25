@@ -25,8 +25,8 @@ set -o pipefail
 set -x
 
 SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
-# shellcheck source=release/gcb_build_lib.sh
-source "${SCRIPTPATH}/gcb_build_lib.sh"
+# shellcheck source=release/airflow/gcb_build_lib.sh
+source "${SCRIPTPATH}/release/airflow/gcb_build_lib.sh"
 
 KEY_FILE_PATH=""
 SUBS_FILE="$(mktemp /tmp/build.subs.XXXX)"
