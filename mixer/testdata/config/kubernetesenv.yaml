@@ -1,15 +1,17 @@
 apiVersion: "config.istio.io/v1alpha2"
-kind: kubernetesenv
+kind: handler
 metadata:
-  name: handler
+  name: kubernetesenv
   namespace: istio-system
 spec:
-  # when running from mixer root, use the following config after adding a
-  # symbolic link to a kubernetes config file via:
-  #
-  # $ ln -s ~/.kube/config mixer/adapter/kubernetes/kubeconfig
-  #
-  # kubeconfig_path: "mixer/adapter/kubernetes/kubeconfig"
+  compiledAdapter: kubernetesenv
+  params:
+    # when running from mixer root, use the following config after adding a
+    # symbolic link to a kubernetes config file via:
+    #
+    # $ ln -s ~/.kube/config mixer/adapter/kubernetes/kubeconfig
+    #
+    # kubeconfig_path: "mixer/adapter/kubernetes/kubeconfig"
 
 ---
 apiVersion: "config.istio.io/v1alpha2"
@@ -19,7 +21,7 @@ metadata:
   namespace: istio-system
 spec:
   actions:
-  - handler: handler.kubernetesenv
+  - handler: kubernetesenv
     instances:
     - attributes.kubernetes
 ---
