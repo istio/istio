@@ -218,7 +218,7 @@ func (s *fsSource) process(eventKind resource.EventKind, key, resourceKind strin
 	var u *unstructured.Unstructured
 	var spec kube.ResourceSpec
 	var kind string
-	//no need to care about real data when delete resources
+	// no need to care about real data when deleting resources
 	if eventKind == resource.Deleted {
 		u = nil
 		kind = resourceKind
