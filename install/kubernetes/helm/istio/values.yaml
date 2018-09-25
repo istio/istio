@@ -215,7 +215,7 @@ ingress:
 # Disable specifc gateway by setting the `enabled` to false.
 #
 gateways:
-  enabled: true
+  enabled: false
 
   istio-ingressgateway:
     enabled: true
@@ -419,7 +419,7 @@ security:
   enabled: true
   replicaCount: 1
   image: citadel
-  selfSigned: true # indicate if self-signed CA is used.
+  selfSigned: false # indicate if self-signed CA is used.
   identityDomain: cluster.local # indicate the domain used in SPIFFE identity URL
 
 #

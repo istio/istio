@@ -23,7 +23,7 @@ global:
     # would be <host>:<port>).
     # Can also be disabled (e.g. when Mixer is not installed).
     envoyStatsd:
-      enabled: true
+      enabled: false
       host: istio-statsd-prom-bridge.istio-system
       port: 9125
 
