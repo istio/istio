@@ -15,10 +15,13 @@
 package framework
 
 import (
+	"flag"
 	"fmt"
+	"io"
 	"sync"
 	"testing"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/framework/components"
 	"istio.io/istio/pkg/test/framework/components/registry"
 	"istio.io/istio/pkg/test/framework/dependency"
@@ -26,6 +29,7 @@ import (
 	"istio.io/istio/pkg/test/framework/environments/kubernetes"
 	"istio.io/istio/pkg/test/framework/environments/local"
 	"istio.io/istio/pkg/test/framework/internal"
+	"istio.io/istio/pkg/test/framework/scopes"
 	"istio.io/istio/pkg/test/framework/settings"
 )
 
@@ -77,9 +81,9 @@ func (d *driver) Run(testID string, m *testing.M) (int, error) {
 	}
 
 	// Call m.Run() while not holding the lock.
-	lab.Infof(">>> Beginning test run for: '%s'", testID)
+	scopes.CI.Infof("=== BEGIN: test run: '%s' ===", testID)
 	rt = m.Run()
-	lab.Infof("<<< Completing test run for: '%s'", testID)
+	scopes.CI.Infof("=== DONE: test run: '%s' ===", testID)
 
 	d.lock.Lock()
 	defer d.lock.Unlock()
@@ -87,6 +91,12 @@ func (d *driver) Run(testID string, m *testing.M) (int, error) {
 
 	if !d.context.Settings().NoCleanup {
 		d.context.Tracker.Cleanup()
+		if closer, ok := d.context.Environment().(io.Closer); ok {
+			err := closer.Close()
+			if err != nil {
+				scopes.Framework.Warnf("Error during environment close: %v", err)
+			}
+		}
 	}
 
 	return rt, nil
@@ -95,7 +105,7 @@ func (d *driver) Run(testID string, m *testing.M) (int, error) {
 // AcquireEnvironment implementation
 func (d *driver) AcquireEnvironment(t testing.TB) env.Environment {
 	t.Helper()
-	scope.Debugf("Enter: driver.AcquireEnvionment (%s)", d.context.Settings().TestID)
+	scopes.Framework.Debugf("Enter: driver.AcquireEnvironment (%s)", d.context.Settings().TestID)
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
@@ -110,11 +120,13 @@ func (d *driver) AcquireEnvironment(t testing.TB) env.Environment {
 	d.testNames[t.Name()] = struct{}{}
 
 	if err := d.env.controller.Reset(); err != nil {
+		d.env.controller.DumpState(t.Name())
 		t.Fatalf("AcquireEnvironment failed to reset the environment state: %v", err)
 	}
 
 	// Reset all resettables, as we're going to be executing within the context of a new test.
 	if err := d.context.Tracker.Reset(); err != nil {
+		d.env.controller.DumpState(t.Name())
 		t.Fatalf("driver.AcquireEnvironment failed to reset the resource state: %v", err)
 	}
 
@@ -137,7 +149,6 @@ func (d *driver) SuiteRequires(dependencies []dependency.Instance) error {
 // Requires implements same-named Driver method.
 func (d *driver) Requires(t testing.TB, dependencies []dependency.Instance) {
 	t.Helper()
-	scope.Debugf("Enter: driver.Requires (%s)", d.context.Settings().TestID)
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
@@ -147,15 +158,27 @@ func (d *driver) Requires(t testing.TB, dependencies []dependency.Instance) {
 
 	// Initialize dependencies only once.
 	for _, dep := range dependencies {
-		c, ok := d.context.Registry.Get(dep)
-		if !ok {
-			envID := d.context.Settings().Environment
-			scope.Errorf("Failed to locate dependency '%s' in environment %s", dep, envID)
-			t.Fatalf("unable to locate dependency '%v' in environment %s", dep, envID)
-		}
-		if _, err := d.context.Tracker.Initialize(d.context, c); err != nil {
-			scope.Errorf("Failed to initialize dependency '%s': %v", dep, err)
-			t.Fatalf("unable to satisfy dependency '%v': %v", dep, err)
+		envID := d.context.Settings().Environment
+
+		switch dep {
+		case dependency.Local:
+			if envID != settings.Local {
+				t.Skipf("requires %s environment. Running %s", settings.Local, envID)
+			}
+		case dependency.Kubernetes:
+			if envID != settings.Kubernetes {
+				t.Skipf("requires %s environment. Running %s", settings.Kubernetes, envID)
+			}
+		default:
+			c, ok := d.context.Registry.Get(dep)
+			if !ok {
+				t.Skipf("unable to locate dependency '%v' in environment %s", dep, envID)
+			}
+			if _, err := d.context.Tracker.Initialize(d.context, c); err != nil {
+				scopes.Framework.Errorf("Failed to initialize dependency '%s': %v", dep, err)
+				d.env.controller.DumpState(t.Name())
+				t.Fatalf("unable to satisfy dependency '%v': %v", dep, err)
+			}
 		}
 	}
 }
@@ -168,12 +191,19 @@ func (d *driver) initialize(testID string) (int, error) {
 	}
 	d.state = running
 
+	// Parse flags and init logging.
+	flag.Parse()
+
 	// Initialize settings
 	s, err := settings.New(testID)
 	if err != nil {
 		return -1, err
 	}
-	scope.Debugf("driver settings: %+v", s)
+	scopes.CI.Infof("Test Framework driver settings:\n%s", s)
+
+	if err := log.Configure(s.LogOptions); err != nil {
+		return -1, err
+	}
 
 	// Initialize the environment.
 	var impl internal.EnvironmentController
@@ -204,7 +234,7 @@ func (d *driver) initialize(testID string) (int, error) {
 			return -3, fmt.Errorf("dependency %s not available for environment %s", dep, impl.EnvironmentID())
 		}
 		if _, err := d.context.Tracker.Initialize(d.context, c); err != nil {
-			scope.Errorf("driver.Run: Dependency error '%s': %v", dep, err)
+			scopes.Framework.Errorf("driver.Run: Dependency error '%s': %v", dep, err)
 			return -3, err
 		}
 	}

@@ -46,7 +46,7 @@ var (
 	host           = flag.String("host", "", "Comma-separated hostnames and IPs to generate a certificate for.")
 	validFrom      = flag.String("start-date", "", "Creation date in format of "+timeLayout)
 	validFor       = flag.Duration("duration", 365*24*time.Hour, "Duration that certificate is valid for.")
-	isCA           = flag.Bool("ca", false, "Whether this cert should be a Cerificate Authority.")
+	isCA           = flag.Bool("ca", false, "Whether this cert should be a Certificate Authority.")
 	signerCertFile = flag.String("signer-cert", "", "Signer certificate file (PEM encoded).")
 	signerPrivFile = flag.String("signer-priv", "", "Signer private key file (PEM encoded).")
 	isClient       = flag.Bool("client", false, "Whether this certificate is for a client.")
@@ -100,7 +100,10 @@ func signCertFromCitadel() (*x509.Certificate, crypto.PrivateKey) {
 	}
 
 	var secret k8s.Secret
-	json.Unmarshal(out, &secret)
+	err = json.Unmarshal(out, &secret)
+	if err != nil {
+		log.Fatalf("Unmarshal secret error: %v", err)
+	}
 	key, err := util.ParsePemEncodedKey(secret.Data["ca-key.pem"])
 	if err != nil {
 		log.Fatalf("Unrecogniazed key format from citadel %v", err)

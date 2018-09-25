@@ -19,7 +19,9 @@ import (
 	"io"
 	"strconv"
 	"sync/atomic"
+	"time"
 
+	"golang.org/x/time/rate"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
@@ -32,6 +34,9 @@ import (
 var (
 	scope = log.RegisterScope("mcp", "mcp debugging", 0)
 )
+
+// channel depth for mcp response
+const responseChanDepth = 1
 
 // WatchResponse contains a versioned collection of pre-serialized resources.
 type WatchResponse struct {
@@ -75,7 +80,10 @@ type Server struct {
 	watcher        Watcher
 	supportedTypes []string
 	nextStreamID   int64
-	authCheck      AuthChecker
+	// for auth check
+	authCheck                   AuthChecker
+	checkFailureRecordLimiter   *rate.Limiter
+	failureCountSinceLastRecord int
 }
 
 // AuthChecker is used to check the transport auth info that is associated with each stream. If the function
@@ -91,8 +99,9 @@ type AuthChecker interface {
 
 // watch maintains local state of the most recent watch per-type.
 type watch struct {
-	cancel func()
-	nonce  string
+	cancel       func()
+	nonce        string
+	responseChan chan *WatchResponse
 }
 
 // connection maintains per-stream connection state for a
@@ -107,21 +116,29 @@ type connection struct {
 	// ignores stale nonces. nonce is only modified within send() function.
 	streamNonce int64
 
-	requestC  chan *mcp.MeshConfigRequest // a channel for receiving incoming requests
-	reqError  error                       // holds error if request channel is closed
-	responseC chan *WatchResponse         // channel of pushes responses
-	watches   map[string]*watch           // per-type watches
-	watcher   Watcher
+	requestC chan *mcp.MeshConfigRequest // a channel for receiving incoming requests
+	reqError error                       // holds error if request channel is closed
+	watches  map[string]*watch           // per-type watches
+	watcher  Watcher
 }
 
 // New creates a new gRPC server that implements the Mesh Configuration Protocol (MCP). A nil authCheck
 // implies all incoming connections should be allowed.
 func New(watcher Watcher, supportedTypes []string, authChecker AuthChecker) *Server {
-	return &Server{
+	s := &Server{
 		watcher:        watcher,
 		supportedTypes: supportedTypes,
 		authCheck:      authChecker,
 	}
+
+	if authChecker != nil {
+		// Initialize record limiter for the auth checker.
+		limit := rate.Every(1 * time.Minute) // TODO: make this configurable?
+		limiter := rate.NewLimiter(limit, 1)
+		s.checkFailureRecordLimiter = limiter
+	}
+
+	return s
 }
 
 func (s *Server) newConnection(stream mcp.AggregatedMeshConfigService_StreamAggregatedResourcesServer) (*connection, error) {
@@ -140,26 +157,29 @@ func (s *Server) newConnection(stream mcp.AggregatedMeshConfigService_StreamAggr
 		authInfo = peerInfo.AuthInfo
 	}
 
-	if s.authCheck != nil {
-		if err := s.authCheck.Check(authInfo); err != nil {
-			log.Infof("newConnection: auth check handler returned error: %v", err)
-			return nil, status.Errorf(codes.Unauthenticated, "Authentication failure: %v", err)
+	if err := s.authCheck.Check(authInfo); err != nil {
+		s.failureCountSinceLastRecord++
+		if s.checkFailureRecordLimiter.Allow() {
+			log.Warnf("NewConnection: auth check failed: %v (repeated %d times).", err, s.failureCountSinceLastRecord)
+			s.failureCountSinceLastRecord = 0
 		}
+		return nil, status.Errorf(codes.Unauthenticated, "Authentication failure: %v", err)
 	}
 
 	con := &connection{
-		stream:    stream,
-		peerAddr:  peerAddr,
-		requestC:  make(chan *mcp.MeshConfigRequest),
-		responseC: make(chan *WatchResponse),
-		watches:   make(map[string]*watch),
-		watcher:   s.watcher,
-		id:        atomic.AddInt64(&s.nextStreamID, 1),
+		stream:   stream,
+		peerAddr: peerAddr,
+		requestC: make(chan *mcp.MeshConfigRequest),
+		watches:  make(map[string]*watch),
+		watcher:  s.watcher,
+		id:       atomic.AddInt64(&s.nextStreamID, 1),
 	}
 
 	var types []string
 	for _, typeURL := range s.supportedTypes {
-		con.watches[typeURL] = &watch{}
+		con.watches[typeURL] = &watch{
+			responseChan: make(chan *WatchResponse, responseChanDepth),
+		}
 		types = append(types, typeURL)
 	}
 
@@ -182,9 +202,19 @@ func (s *Server) StreamAggregatedResources(stream mcp.AggregatedMeshConfigServic
 	defer con.close()
 	go con.receive()
 
+	// fan-in per-type response channels into single response channel for the select loop below.
+	responseChan := make(chan *WatchResponse)
+	for _, ch := range con.watches {
+		go func(in chan *WatchResponse) {
+			for v := range in {
+				responseChan <- v
+			}
+		}(ch.responseChan)
+	}
+
 	for {
 		select {
-		case resp, more := <-con.responseC:
+		case resp, more := <-responseChan:
 			if !more || resp == nil {
 				return status.Errorf(codes.Unavailable, "server canceled watch: more=%v resp=%v",
 					more, resp)
@@ -273,7 +303,7 @@ func (con *connection) processClientRequest(req *mcp.MeshConfigRequest) error {
 		if watch.nonce == "" {
 			scope.Debugf("MCP: connection %v: WATCH for %v", con, req.TypeUrl)
 		} else {
-			scope.Debugf("MCP: connection %v ACK version=%q with nonce=%q",
+			scope.Debugf("MCP: connection %v ACK type_url=%q version=%q with nonce=%q",
 				con, req.TypeUrl, req.VersionInfo, req.ResponseNonce)
 		}
 
@@ -281,7 +311,7 @@ func (con *connection) processClientRequest(req *mcp.MeshConfigRequest) error {
 			watch.cancel()
 		}
 		var resp *WatchResponse
-		resp, watch.cancel = con.watcher.Watch(req, con.responseC)
+		resp, watch.cancel = con.watcher.Watch(req, watch.responseChan)
 		if resp != nil {
 			nonce, err := con.send(resp)
 			if err != nil {

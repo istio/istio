@@ -52,7 +52,7 @@ func FetchSecrets(t *testing.T, udsPath string) *api.DiscoveryResponse {
 	return response
 }
 
-func VerifySecrets(t *testing.T, response *api.DiscoveryResponse, certficateChain string, privateKey string) {
+func VerifySecrets(t *testing.T, response *api.DiscoveryResponse, certificateChain string, privateKey string) {
 	var secret auth.Secret
 	resource := response.GetResources()[0]
 	bytes := resource.Value
@@ -66,9 +66,9 @@ func VerifySecrets(t *testing.T, response *api.DiscoveryResponse, certficateChai
 			SecretTypeURL, SecretName, response.GetTypeUrl(), secret.GetName())
 	}
 
-	if certficateChain != string(secret.GetTlsCertificate().CertificateChain.GetInlineBytes()) {
+	if certificateChain != string(secret.GetTlsCertificate().CertificateChain.GetInlineBytes()) {
 		t.Errorf("Certificates mismatch. Expected: %v, Got: %v",
-			certficateChain, string(secret.GetTlsCertificate().CertificateChain.GetInlineBytes()))
+			certificateChain, string(secret.GetTlsCertificate().CertificateChain.GetInlineBytes()))
 	}
 
 	if privateKey != string(secret.GetTlsCertificate().PrivateKey.GetInlineBytes()) {

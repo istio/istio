@@ -22,6 +22,7 @@ import (
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
+	"github.com/google/uuid"
 	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
 
@@ -72,7 +73,8 @@ type DiscoveryServer struct {
 	// ConfigController provides readiness info (if initial sync is complete)
 	ConfigController model.ConfigStoreCache
 
-	rateLimiter *rate.Limiter
+	rateLimiter         *rate.Limiter
+	concurrentPushLimit chan struct{}
 
 	// DebugConfigs controls saving snapshots of configs for /debug/adsz.
 	// Defaults to false, can be enabled with PILOT_DEBUG_ADSZ_CONFIG=1
@@ -94,8 +96,9 @@ func intEnv(env string, def int) int {
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
 func NewDiscoveryServer(env *model.Environment, generator core.ConfigGenerator) *DiscoveryServer {
 	out := &DiscoveryServer{
-		env:             env,
-		ConfigGenerator: generator,
+		env:                 env,
+		ConfigGenerator:     generator,
+		concurrentPushLimit: make(chan struct{}, 20), // TODO(hzxuzhonghu): support configuration
 	}
 	env.PushContext = model.NewPushContext()
 
@@ -141,7 +144,7 @@ func (s *DiscoveryServer) periodicRefresh() {
 	defer ticker.Stop()
 	for range ticker.C {
 		adsLog.Infof("ADS: periodic push of envoy configs %s", versionInfo())
-		s.AdsPushAll(versionInfo(), s.env.PushContext)
+		s.AdsPushAll(versionInfo())
 	}
 }
 
@@ -194,8 +197,7 @@ func (s *DiscoveryServer) ClearCacheFunc() func() {
 		if err != nil {
 			adsLog.Errorf("XDS: failed to update services %v", err)
 			// We can't push if we can't read the data - stick with previous version.
-			// TODO: metric !!
-			// TODO: metric !!
+			pushContextErrors.Inc()
 			return
 		}
 
@@ -214,12 +216,12 @@ func (s *DiscoveryServer) ClearCacheFunc() func() {
 		version = versionLocal
 		versionMutex.Unlock()
 
-		go s.AdsPushAll(versionLocal, push)
+		go s.AdsPushAll(versionLocal)
 	}
 }
 
 func nonce() string {
-	return time.Now().String()
+	return uuid.New().String()
 }
 
 func versionInfo() string {

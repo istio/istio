@@ -66,6 +66,9 @@ type Args struct {
 
 	// AccessListFile is the YAML file that specifies ids of the allowed mTLS peers.
 	AccessListFile string
+
+	//ConfigPath is the path for istio config files
+	ConfigPath string
 }
 
 // DefaultArgs allocates an Args struct initialized with Mixer's default configuration.
@@ -80,6 +83,7 @@ func DefaultArgs() *Args {
 		AccessListFile:         defaultAccessListFile,
 		EnableServer:           true,
 		CredentialOptions:      creds.DefaultOptions(),
+		ConfigPath:             "",
 	}
 }
 
@@ -101,5 +105,6 @@ func (a *Args) String() string {
 	fmt.Fprintf(buf, "KeyFile: %s\n", a.CredentialOptions.KeyFile)
 	fmt.Fprintf(buf, "CertificateFile: %s\n", a.CredentialOptions.CertificateFile)
 	fmt.Fprintf(buf, "CACertificateFile: %s\n", a.CredentialOptions.CACertificateFile)
+	fmt.Fprintf(buf, "ConfigFilePath: %s\n", a.ConfigPath)
 	return buf.String()
 }

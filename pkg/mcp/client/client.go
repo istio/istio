@@ -190,7 +190,7 @@ func (c *Client) handleResponse(response *mcp.MeshConfigResponse) *mcp.MeshConfi
 
 	state, ok := c.state[response.TypeUrl]
 	if !ok {
-		errDetails := status.Error(codes.Unimplemented, "unsupported type_url: %v")
+		errDetails := status.Errorf(codes.Unimplemented, "unsupported type_url: %v", response.TypeUrl)
 		return c.sendNACKRequest(response, "", errDetails)
 	}
 

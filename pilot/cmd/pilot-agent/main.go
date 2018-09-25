@@ -30,7 +30,10 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 
+	"strconv"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy"
 	"istio.io/istio/pilot/pkg/proxy/envoy"
@@ -42,8 +45,10 @@ import (
 )
 
 var (
-	role     model.Proxy
-	registry serviceregistry.ServiceRegistry
+	role             model.Proxy
+	registry         serviceregistry.ServiceRegistry
+	statusPort       uint16
+	applicationPorts []string
 
 	// proxy config flags (named identically)
 	configPath               string
@@ -57,7 +62,7 @@ var (
 	zipkinAddress            string
 	connectTimeout           time.Duration
 	statsdUDPAddress         string
-	proxyAdminPort           int
+	proxyAdminPort           uint16
 	controlPlaneAuthPolicy   string
 	customConfigFile         string
 	proxyLogLevel            string
@@ -98,13 +103,12 @@ var (
 				if registry == serviceregistry.KubernetesRegistry {
 					role.IPAddress = os.Getenv("INSTANCE_IP")
 				} else {
-					ipAddr := "127.0.0.1"
-					if ok := proxy.WaitForPrivateNetwork(); ok {
-						ipAddr = proxy.GetPrivateIP().String()
+					if ipAddr, ok := proxy.GetPrivateIP(context.Background()); ok {
 						log.Infof("Obtained private IP %v", ipAddr)
+						role.IPAddress = ipAddr.String()
+					} else {
+						role.IPAddress = "127.0.0.1"
 					}
-
-					role.IPAddress = ipAddr
 				}
 			}
 			if len(role.ID) == 0 {
@@ -182,11 +186,14 @@ var (
 			// resolve statsd address
 			if proxyConfig.StatsdUdpAddress != "" {
 				addr, err := proxy.ResolveAddr(proxyConfig.StatsdUdpAddress)
-				if err == nil {
+				if err != nil {
+					// If istio-mixer.istio-system can't be resolved, skip generating the statsd config.
+					// (instead of crashing). Mixer is optional.
+					log.Warnf("resolve StatsdUdpAddress failed: %v", err)
+					proxyConfig.StatsdUdpAddress = ""
+				} else {
 					proxyConfig.StatsdUdpAddress = addr
 				}
-				// If istio-mixer.istio-system can't be resolved, skip generating the statsd config.
-				// (instead of crashing). Mixer is optional.
 			}
 
 			if err := model.ValidateProxyConfig(&proxyConfig); err != nil {
@@ -247,22 +254,53 @@ var (
 				}
 			}
 
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			// If a status port was provided, start handling status probes.
+			if statusPort > 0 {
+				parsedPorts, err := parseApplicationPorts()
+				if err != nil {
+					return err
+				}
+
+				statusServer := status.NewServer(status.Config{
+					AdminPort:        proxyAdminPort,
+					StatusPort:       statusPort,
+					ApplicationPorts: parsedPorts,
+				})
+				go statusServer.Run(ctx)
+			}
+
 			envoyProxy := envoy.NewProxy(proxyConfig, role.ServiceNode(), proxyLogLevel, pilotSAN)
 			agent := proxy.NewAgent(envoyProxy, proxy.DefaultRetry)
 			watcher := envoy.NewWatcher(proxyConfig, role, certs, pilotSAN, agent.ConfigCh())
 
-			ctx, cancel := context.WithCancel(context.Background())
 			go agent.Run(ctx)
 			go watcher.Run(ctx)
 
 			stop := make(chan struct{})
 			cmd.WaitSignal(stop)
 			<-stop
-			cancel()
 			return nil
 		},
 	}
 )
+
+func parseApplicationPorts() ([]uint16, error) {
+	parsedPorts := make([]uint16, len(applicationPorts))
+	for _, port := range applicationPorts {
+		port := strings.TrimSpace(port)
+		if len(port) > 0 {
+			parsedPort, err := strconv.ParseUint(port, 10, 16)
+			if err != nil {
+				return nil, err
+			}
+			parsedPorts = append(parsedPorts, uint16(parsedPort))
+		}
+	}
+	return parsedPorts, nil
+}
 
 func timeDuration(dur *types.Duration) time.Duration {
 	out, err := types.DurationFromProto(dur)
@@ -284,6 +322,10 @@ func init() {
 		"Proxy unique ID. If not provided uses ${POD_NAME}.${POD_NAMESPACE} from environment variables")
 	proxyCmd.PersistentFlags().StringVar(&role.Domain, "domain", "",
 		"DNS domain suffix. If not provided uses ${POD_NAMESPACE}.svc.cluster.local")
+	proxyCmd.PersistentFlags().Uint16Var(&statusPort, "statusPort", 0,
+		"HTTP Port on which to serve pilot agent status. If zero, agent status will not be provided.")
+	proxyCmd.PersistentFlags().StringSliceVar(&applicationPorts, "applicationPorts", []string{},
+		"Ports exposed by the application. Used to determine that Envoy is configured and ready to receive traffic.")
 
 	// Flags for proxy configuration
 	values := model.DefaultProxyConfig()
@@ -293,8 +335,6 @@ func init() {
 		"Path to the proxy binary")
 	proxyCmd.PersistentFlags().StringVar(&serviceCluster, "serviceCluster", values.ServiceCluster,
 		"Service cluster")
-	proxyCmd.PersistentFlags().StringVar(&availabilityZone, "availabilityZone", values.AvailabilityZone,
-		"Availability zone")
 	proxyCmd.PersistentFlags().DurationVar(&drainDuration, "drainDuration",
 		timeDuration(values.DrainDuration),
 		"The time in seconds that Envoy will drain connections during a hot restart")
@@ -303,9 +343,6 @@ func init() {
 		"The time in seconds that Envoy will wait before shutting down the parent process during a hot restart")
 	proxyCmd.PersistentFlags().StringVar(&discoveryAddress, "discoveryAddress", values.DiscoveryAddress,
 		"Address of the discovery service exposing xDS (e.g. istio-pilot:8080)")
-	proxyCmd.PersistentFlags().DurationVar(&discoveryRefreshDelay, "discoveryRefreshDelay",
-		timeDuration(values.DiscoveryRefreshDelay),
-		"Polling interval for service discovery (used by EDS, CDS, LDS, but not RDS)")
 	proxyCmd.PersistentFlags().StringVar(&zipkinAddress, "zipkinAddress", values.ZipkinAddress,
 		"Address of the Zipkin service (e.g. zipkin:9411)")
 	proxyCmd.PersistentFlags().DurationVar(&connectTimeout, "connectTimeout",
@@ -313,7 +350,7 @@ func init() {
 		"Connection timeout used by Envoy for supporting services")
 	proxyCmd.PersistentFlags().StringVar(&statsdUDPAddress, "statsdUdpAddress", values.StatsdUdpAddress,
 		"IP Address and Port of a statsd UDP listener (e.g. 10.75.241.127:9125)")
-	proxyCmd.PersistentFlags().IntVar(&proxyAdminPort, "proxyAdminPort", int(values.ProxyAdminPort),
+	proxyCmd.PersistentFlags().Uint16Var(&proxyAdminPort, "proxyAdminPort", uint16(values.ProxyAdminPort),
 		"Port on which Envoy should listen for administrative commands")
 	proxyCmd.PersistentFlags().StringVar(&controlPlaneAuthPolicy, "controlPlaneAuthPolicy",
 		values.ControlPlaneAuthPolicy.String(), "Control Plane Authentication Policy")
@@ -325,12 +362,22 @@ func init() {
 			"trace", "debug", "info", "warn", "err", "critical", "off"))
 	proxyCmd.PersistentFlags().IntVar(&concurrency, "concurrency", int(values.Concurrency),
 		"number of worker threads to run")
-	proxyCmd.PersistentFlags().BoolVar(&bootstrapv2, "bootstrapv2", true,
-		"Use bootstrap v2 - DEPRECATED")
 	proxyCmd.PersistentFlags().StringVar(&templateFile, "templateFile", "",
 		"Go template bootstrap config")
 	proxyCmd.PersistentFlags().BoolVar(&disableInternalTelemetry, "disableInternalTelemetry", false,
 		"Disable internal telemetry")
+
+	// Deprecated flags
+	proxyCmd.PersistentFlags().StringVar(&availabilityZone, "availabilityZone", values.AvailabilityZone,
+		"Availability zone")
+	proxyCmd.PersistentFlags().MarkDeprecated("availabilityZone", "")
+	proxyCmd.PersistentFlags().DurationVar(&discoveryRefreshDelay, "discoveryRefreshDelay",
+		timeDuration(values.DiscoveryRefreshDelay),
+		"Polling interval for service discovery (used by EDS, CDS, LDS, but not RDS)")
+	proxyCmd.PersistentFlags().MarkDeprecated("discoveryRefreshDelay", "")
+	proxyCmd.PersistentFlags().BoolVar(&bootstrapv2, "bootstrapv2", true,
+		"Use bootstrap v2")
+	proxyCmd.PersistentFlags().MarkDeprecated("bootstrapv2", "The proxy will always be started with bootstrapv2")
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)

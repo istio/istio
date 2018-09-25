@@ -13,7 +13,7 @@ spec:
       containers:
       - name: fortio
         # That image runs the servers (so it will run forever) but has the
-        # /usr/local/bin/fortio client
+        # fortio client
         image: FORTIO_IMAGE
         imagePullPolicy: Always
 ---

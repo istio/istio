@@ -156,6 +156,7 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 	if network == "unix" {
 		// remove Unix socket before use.
 		if err = p.remove(address); err != nil && !os.IsNotExist(err) {
+			_ = s.Close()
 			// Anything other than "file not found" is an error.
 			return nil, fmt.Errorf("unable to remove unix://%s: %v", address, err)
 		}
@@ -195,12 +196,14 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 
 	kinds := runtimeconfig.KindMap(adapterMap, templateMap)
 	if err := st.Init(kinds); err != nil {
+		_ = s.Close()
 		return nil, fmt.Errorf("unable to initialize config store: %v", err)
 	}
 
 	// block wait for the config store to sync
 	log.Info("Awaiting for config store sync...")
 	if err := st.WaitForSynced(30 * time.Second); err != nil {
+		_ = s.Close()
 		return nil, err
 	}
 
@@ -224,12 +227,14 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 
 	exporter, err := p.newOpenCensusExporter()
 	if err != nil {
+		_ = s.Close()
 		return nil, fmt.Errorf("could not build opencensus exporter: %v", err)
 	}
 	view.RegisterExporter(exporter)
 
 	// Register the views to collect server request count.
 	if err := p.registerOpenCensusViews(ocgrpc.DefaultServerViews...); err != nil {
+		_ = s.Close()
 		return nil, fmt.Errorf("could not register default server views: %v", err)
 	}
 

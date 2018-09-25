@@ -23,7 +23,7 @@ import (
 	"strconv"
 	"time"
 
-	"istio.io/istio/tests/util"
+	"istio.io/istio/pkg/test/env"
 )
 
 // Envoy stores data for Envoy process
@@ -35,7 +35,7 @@ type Envoy struct {
 
 // NewEnvoy creates a new Envoy struct and starts envoy.
 func (s *TestSetup) NewEnvoy() (*Envoy, error) {
-	confPath := filepath.Join(util.IstioOut, fmt.Sprintf("config.conf.%v.yaml", s.ports.AdminPort))
+	confPath := filepath.Join(env.IstioOut, fmt.Sprintf("config.conf.%v.yaml", s.ports.AdminPort))
 	log.Printf("Envoy config: in %v\n", confPath)
 	if err := s.CreateEnvoyConf(confPath); err != nil {
 		return nil, err
@@ -71,7 +71,7 @@ func (s *TestSetup) NewEnvoy() (*Envoy, error) {
 		args = append(args, s.EnvoyParams...)
 	}
 	/* #nosec */
-	envoyPath := filepath.Join(util.IstioBin, "envoy")
+	envoyPath := filepath.Join(env.IstioBin, "envoy")
 	if path, exists := os.LookupEnv("ENVOY_PATH"); exists {
 		envoyPath = path
 	}

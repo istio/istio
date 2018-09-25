@@ -1,12 +1,13 @@
 {{- if .Values.global.meshExpansion }}
-
+{{ $istioNamespace := .Release.Namespace }}
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: meshexpansion-pilot
+  namespace: {{ .Release.Namespace }}
 spec:
   hosts:
-  - "pilot.istio-system"
+  - "pilot.$istioNamespace"
   gateways:
   - meshexpansion-gateway
   tcp:
@@ -14,7 +15,7 @@ spec:
     - port: 15011
     route:
     - destination:
-        host: istio-pilot.istio-system.svc.cluster.local
+        host: istio-pilot.$istioNamespace.svc.cluster.local
         port:
           number: 15011
 
@@ -28,9 +29,10 @@ apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: ilb-meshexpansion-pilot
+  namespace: {{ .Release.Namespace }}
 spec:
   hosts:
-  - "meshexpansionilb.istio-system"
+  - "meshexpansionilb.$istioNamespace"
   gateways:
   - meshexpansion-ilb-gateway
   tcp:
@@ -38,14 +40,14 @@ spec:
     - port: 15011
     route:
     - destination:
-        host: istio-pilot.istio-system.svc.cluster.local
+        host: istio-pilot.$istioNamespace.svc.cluster.local
         port:
           number: 15011
   - match:
     - port: 15010
     route:
     - destination:
-        host: istio-pilot.istio-system.svc.cluster.local
+        host: istio-pilot.$istioNamespace.svc.cluster.local
         port:
           number: 15010
   - match:

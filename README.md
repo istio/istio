@@ -2,7 +2,7 @@
 
 [![CircleCI](https://circleci.com/gh/istio/istio.svg?style=shield)](https://circleci.com/gh/istio/istio)
 [![Go Report Card](https://goreportcard.com/badge/github.com/istio/istio)](https://goreportcard.com/report/github.com/istio/istio)
-[![GoDoc](https://godoc.org/github.com/istio/istio?status.svg)](https://godoc.org/github.com/istio/istio)
+[![GoDoc](https://godoc.org/istio.io/istio?status.svg)](https://godoc.org/istio.io/istio)
 [![codecov.io](https://codecov.io/github/istio/istio/coverage.svg?branch=master)](https://codecov.io/github/istio/istio?branch=master)
 
 An open platform to connect, manage, and secure microservices.
@@ -52,6 +52,8 @@ Istio is composed of these components:
 - **Citadel** - A centralized component responsible for certificate issuance and rotation.
 
 - **Node Agent** - A per-node component responsible for certificate issuance and rotation.
+
+- **Galley**- Central component for validating, ingesting, aggregating, transforming and distributing config within Istio.
 
 Istio currently supports Kubernetes and Consul-based environments. We plan support for additional platforms such as
 Cloud Foundry, and Mesos in the near future.

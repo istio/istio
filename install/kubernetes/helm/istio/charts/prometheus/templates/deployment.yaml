@@ -16,6 +16,7 @@ spec:
     metadata:
       labels:
         app: prometheus
+        {{- template "common_template_labels" . }}
       annotations:
         sidecar.istio.io/inject: "false"
         scheduler.alpha.kubernetes.io/critical-pod: ""
@@ -51,9 +52,16 @@ spec:
           volumeMounts:
           - name: config-volume
             mountPath: /etc/prometheus
+          - mountPath: /etc/istio-certs
+            name: istio-certs
       volumes:
       - name: config-volume
         configMap:
           name: prometheus
+      - name: istio-certs
+        secret:
+          defaultMode: 420
+          optional: true
+          secretName: istio.default
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}

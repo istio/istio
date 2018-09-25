@@ -40,6 +40,8 @@ type Level int
 const (
 	// NoneLevel disables logging
 	NoneLevel Level = iota
+	// FatalLevel enables fatal level logging
+	FatalLevel
 	// ErrorLevel enables error level logging
 	ErrorLevel
 	// WarnLevel enables warn level logging
@@ -55,6 +57,7 @@ var levelToString = map[Level]string{
 	InfoLevel:  "info",
 	WarnLevel:  "warn",
 	ErrorLevel: "error",
+	FatalLevel: "fatal",
 	NoneLevel:  "none",
 }
 
@@ -63,6 +66,7 @@ var stringToLevel = map[string]Level{
 	"info":  InfoLevel,
 	"warn":  WarnLevel,
 	"error": ErrorLevel,
+	"fatal": FatalLevel,
 	"none":  NoneLevel,
 }
 
@@ -308,23 +312,45 @@ func convertScopedLevel(sl string) (string, Level, error) {
 // the necessary set of flags to expose a CLI to let the user control all
 // logging options.
 func (o *Options) AttachCobraFlags(cmd *cobra.Command) {
-	cmd.PersistentFlags().StringArrayVar(&o.OutputPaths, "log_target", o.OutputPaths,
+	o.AttachFlags(
+		cmd.PersistentFlags().StringArrayVar,
+		cmd.PersistentFlags().StringVar,
+		cmd.PersistentFlags().IntVar,
+		cmd.PersistentFlags().BoolVar)
+}
+
+// AttachFlags allows attaching of flags through a set of lambda functions.
+func (o *Options) AttachFlags(
+	stringArrayVar func(p *[]string, name string, value []string, usage string),
+	stringVar func(p *string, name string, value string, usage string),
+	intVar func(p *int, name string, value int, usage string),
+	boolVar func(p *bool, name string, value bool, usage string)) {
+
+	stringArrayVar(&o.OutputPaths, "log_target", o.OutputPaths,
 		"The set of paths where to output the log. This can be any path as well as the special values stdout and stderr")
 
-	cmd.PersistentFlags().StringVar(&o.RotateOutputPath, "log_rotate", o.RotateOutputPath,
+	stringVar(&o.RotateOutputPath, "log_rotate", o.RotateOutputPath,
 		"The path for the optional rotating log file")
 
-	cmd.PersistentFlags().IntVar(&o.RotationMaxAge, "log_rotate_max_age", o.RotationMaxAge,
+	intVar(&o.RotationMaxAge, "log_rotate_max_age", o.RotationMaxAge,
 		"The maximum age in days of a log file beyond which the file is rotated (0 indicates no limit)")
 
-	cmd.PersistentFlags().IntVar(&o.RotationMaxSize, "log_rotate_max_size", o.RotationMaxSize,
+	intVar(&o.RotationMaxSize, "log_rotate_max_size", o.RotationMaxSize,
 		"The maximum size in megabytes of a log file beyond which the file is rotated")
 
-	cmd.PersistentFlags().IntVar(&o.RotationMaxBackups, "log_rotate_max_backups", o.RotationMaxBackups,
+	intVar(&o.RotationMaxBackups, "log_rotate_max_backups", o.RotationMaxBackups,
 		"The maximum number of log file backups to keep before older files are deleted (0 indicates no limit)")
 
-	cmd.PersistentFlags().BoolVar(&o.JSONEncoding, "log_as_json", o.JSONEncoding,
+	boolVar(&o.JSONEncoding, "log_as_json", o.JSONEncoding,
 		"Whether to format output as JSON or in plain console-friendly format")
+
+	levelListString := fmt.Sprintf("[%s, %s, %s, %s, %s, %s]",
+		levelToString[DebugLevel],
+		levelToString[InfoLevel],
+		levelToString[WarnLevel],
+		levelToString[ErrorLevel],
+		levelToString[FatalLevel],
+		levelToString[NoneLevel])
 
 	allScopes := Scopes()
 	if len(allScopes) > 1 {
@@ -335,46 +361,28 @@ func (o *Options) AttachCobraFlags(cmd *cobra.Command) {
 		sort.Strings(keys)
 		s := strings.Join(keys, ", ")
 
-		cmd.PersistentFlags().StringVar(&o.outputLevels, "log_output_level", o.outputLevels,
+		stringVar(&o.outputLevels, "log_output_level", o.outputLevels,
 			fmt.Sprintf("Comma-separated minimum per-scope logging level of messages to output, in the form of "+
-				"<scope>:<level>,<scope>:<level>,... where scope can be one of [%s] and level can be one of [%s, %s, %s, %s, %s]",
-				s,
-				levelToString[DebugLevel],
-				levelToString[InfoLevel],
-				levelToString[WarnLevel],
-				levelToString[ErrorLevel],
-				levelToString[NoneLevel]))
+				"<scope>:<level>,<scope>:<level>,... where scope can be one of [%s] and level can be one of %s",
+				s, levelListString))
 
-		cmd.PersistentFlags().StringVar(&o.stackTraceLevels, "log_stacktrace_level", o.stackTraceLevels,
+		stringVar(&o.stackTraceLevels, "log_stacktrace_level", o.stackTraceLevels,
 			fmt.Sprintf("Comma-separated minimum per-scope logging level at which stack traces are captured, in the form of "+
-				"<scope>:<level>,<scope:level>,... where scope can be one of [%s] and level can be one of [%s, %s, %s, %s, %s]",
-				s,
-				levelToString[DebugLevel],
-				levelToString[InfoLevel],
-				levelToString[WarnLevel],
-				levelToString[ErrorLevel],
-				levelToString[NoneLevel]))
+				"<scope>:<level>,<scope:level>,... where scope can be one of [%s] and level can be one of %s",
+				s, levelListString))
 
-		cmd.PersistentFlags().StringVar(&o.logCallers, "log_caller", o.logCallers,
+		stringVar(&o.logCallers, "log_caller", o.logCallers,
 			fmt.Sprintf("Comma-separated list of scopes for which to include caller information, scopes can be any of [%s]", s))
 	} else {
-		cmd.PersistentFlags().StringVar(&o.outputLevels, "log_output_level", o.outputLevels,
-			fmt.Sprintf("The minimum logging level of messages to output,  can be one of [%s, %s, %s, %s, %s]",
-				levelToString[DebugLevel],
-				levelToString[InfoLevel],
-				levelToString[WarnLevel],
-				levelToString[ErrorLevel],
-				levelToString[NoneLevel]))
+		stringVar(&o.outputLevels, "log_output_level", o.outputLevels,
+			fmt.Sprintf("The minimum logging level of messages to output,  can be one of %s",
+				levelListString))
 
-		cmd.PersistentFlags().StringVar(&o.stackTraceLevels, "log_stacktrace_level", o.stackTraceLevels,
-			fmt.Sprintf("The minimum logging level at which stack traces are captured, can be one of [%s, %s, %s, %s, %s]",
-				levelToString[DebugLevel],
-				levelToString[InfoLevel],
-				levelToString[WarnLevel],
-				levelToString[ErrorLevel],
-				levelToString[NoneLevel]))
+		stringVar(&o.stackTraceLevels, "log_stacktrace_level", o.stackTraceLevels,
+			fmt.Sprintf("The minimum logging level at which stack traces are captured, can be one of %s",
+				levelListString))
 
-		cmd.PersistentFlags().StringVar(&o.logCallers, "log_caller", o.logCallers,
+		stringVar(&o.logCallers, "log_caller", o.logCallers,
 			"Comma-separated list of scopes for which to include called information, scopes can be any of [default]")
 	}
 

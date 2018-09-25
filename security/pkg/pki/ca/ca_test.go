@@ -22,7 +22,6 @@ import (
 	"testing"
 	"time"
 
-	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 
@@ -32,52 +31,53 @@ import (
 var (
 	cert1Pem = `
 -----BEGIN CERTIFICATE-----
-MIIC5jCCAc6gAwIBAgIRAO1DMLWq99XL/B2kRlNpnikwDQYJKoZIhvcNAQELBQAw
-HDEaMBgGA1UEChMRazhzLmNsdXN0ZXIubG9jYWwwHhcNMTcwOTIwMjMxODQwWhcN
-MTgwOTIwMjMxODQwWjAcMRowGAYDVQQKExFrOHMuY2x1c3Rlci5sb2NhbDCCASIw
-DQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAKYSyDbjRlYuyyYJOuZQHiG9wOsn
-M4Rx/wWTJUOQthYz3uIBnR0WSMdyJ25VdpitHqDOR4hJo33DxNmknMnXhAuyVZoq
-YpoSx/UdlOBYNQivy6OCRxe3LuDbJ5+wNZ4y3OoEqMQjxWPWcL6iyaYHyVEJprMm
-IhjHD9yedJaX3F7pN0hosdtkfEsBkfcK5VPx99ekbAEo8DcsopG+XvNuT4nb7ww9
-wd9VtGA8upmgNOCJvkLGVHwybw67LL4T7nejdUQd9T7o7CfAXGmBlkuGWHnsbeOe
-QtCfHD3+6iCmRjcSUK6AfGnfcHTjbwzGjv48JPFaNbjm2hLixC0TdAdPousCAwEA
-AaMjMCEwDgYDVR0PAQH/BAQDAgIEMA8GA1UdEwEB/wQFMAMBAf8wDQYJKoZIhvcN
-AQELBQADggEBAHV5DdWspKxjeE4BsjnsA3oSkTBnbmUkMGFUtIgAvSlULYy3Wl4O
-bAj7VfxIegZbE3tnkuky9BwVCoBD+d2zIqCZ5Xl17+ki6cttLAFWni85cg9gX8a6
-2p/EMefUYxLXEdZTw80eAB56/34Xkt6g/CnB531W8vOvjTzg25qClkA7TjVIil2+
-kLAXl8xEp48cvAxX4FslgAlBPagpJYbjVM0BjQbgmGLg1rjoH/jbkQJyIabX5dSq
-9fdQYxkTzYnvcvgHf4WSl/awopjsI1NhNv07+qE8ie86EoYJgXPrNtlytyqSvIXQ
-2ETBxlxOg3DdlBwhBz/Hg31tCLv8E8U8fqQ=
+MIIC3jCCAcagAwIBAgIJAMwyWk0iqlOoMA0GCSqGSIb3DQEBCwUAMBwxGjAYBgNV
+BAoMEWs4cy5jbHVzdGVyLmxvY2FsMB4XDTE4MDkyMTAyMjAzNFoXDTI4MDkxODAy
+MjAzNFowHDEaMBgGA1UECgwRazhzLmNsdXN0ZXIubG9jYWwwggEiMA0GCSqGSIb3
+DQEBAQUAA4IBDwAwggEKAoIBAQC8TDtfy23OKCRnkSYrKZwuHG5lOmTZgLwoFR1h
+3NDTkjR9406CjnAy6Gl73CRG3zRYVgY/2dGNqTzAKRCeKZlOzBlK6Kilb0NIJ6it
+s6ooMAxwXlr7jOKiSn6xbaexVMrP0VPUbCgJxQtGs3++hQ14D6WnyfdzPBZJLKbI
+tVdDnAcl/FJXKVV9gIg+MM0gETWOYj5Yd8Ye0FTvoFcgs8NKkxhEZe/LeYa7XYsk
+S0PymwbHwNZcfC4znp2bzu28LUmUe6kL97YU8ubvhR0muRy6h5MnQNMQrRG5Q5j4
+A2+tkO0vto8gOb6/lacEUVYuQdSkMZJiqWEjWgWKeAYdkTJDAgMBAAGjIzAhMA4G
+A1UdDwEB/wQEAwICBDAPBgNVHRMBAf8EBTADAQH/MA0GCSqGSIb3DQEBCwUAA4IB
+AQAxWP3MT0IelJcb+e7fNTfMS0r3UhpiNkRU368Z7gJ4tDNOGRPzntW6CLnaE+3g
+IjOMAE8jlXeEmNuXtDQqQoZwWc1D5ma3jyc83E5H9LJzjfmn5rAHafr29YH85Ms2
+VlKdpP+teYg8Cag9u4ar/AUR4zMUEpGK5U+T9IH44lVqVH23T+DxAT+btsyuGiB0
+DsM76XVDj4g3OKCUalu7a8FHvgTkBpUJBl7vwh9kqo9HwCaj4iC2CwveOm0WtSgy
+K9PpVDxTGNSxqsxKn7DJQ15NTOP+gr29ABqFKwRr+S8ggw6evzHbABQTUMebaRSr
+iH7cSgrzZBiUvJmZRi7/BrYU
 -----END CERTIFICATE-----`
 
 	key1Pem = `
------BEGIN RSA PRIVATE KEY-----
-MIIEogIBAAKCAQEAphLINuNGVi7LJgk65lAeIb3A6yczhHH/BZMlQ5C2FjPe4gGd
-HRZIx3InblV2mK0eoM5HiEmjfcPE2aScydeEC7JVmipimhLH9R2U4Fg1CK/Lo4JH
-F7cu4Nsnn7A1njLc6gSoxCPFY9ZwvqLJpgfJUQmmsyYiGMcP3J50lpfcXuk3SGix
-22R8SwGR9wrlU/H316RsASjwNyyikb5e825PidvvDD3B31W0YDy6maA04Im+QsZU
-fDJvDrssvhPud6N1RB31PujsJ8BcaYGWS4ZYeext455C0J8cPf7qIKZGNxJQroB8
-ad9wdONvDMaO/jwk8Vo1uObaEuLELRN0B0+i6wIDAQABAoIBAHzHVelvoFR2uips
-+vU7MziU0xOcE6gq4rr0kSYP39AUzx0uqzbEnJBGY/wReJdEU+PsuXBcK9v9sLT6
-atd493y2VH0N5aHwBI9V15ssi0RomW/UHchi2XUXFNF12wNvIe8u6wLcAZ5+651A
-wJPf+9HIl5i5SRsmzfMsl1ri5S/lgnjUQty4GYnT/Y53uaZoquX+sUhZ3pW8SkzX
-ZvKvMbj6UOiXlelDgtEGOCgftjdm916OfnQDnSOJsh/0UvM/Bn3kQJEOgwzhMy2/
-+TOIB04wVN7K6ZEbSaV7gkciiDyjg0XhJqfkmOUm8kLhLFgervjrBdkUSuukdGmq
-TZmP1EkCgYEA194D0hslC//Qu0XtUCcJgLV4a41U/PDYIStf92FRXcqqYGBHDtzJ
-1J86BuO/cjOdp+jZBjIIoECvY3n3TCacUiKvjmszMtanwz42eFPpVgSi3pZcyBF+
-cLPB08dnUWxrxA46ss1g6gjPXjUXuEFkxuogrPiNwQPuwZnjrPWa580CgYEAxPLg
-oXZ7BFVUxDEUjokj9HsvSToJNAIu7XAc84Z00yJ8z/B/muCZtpC5CZ2ZhejwBioR
-AbpPEVRXFs9M2W1jW2YgO8iVcXiLT+qmNnjqGZuZnhzkMC2q9RnHrRfYMUO5bVOX
-bw0UqnEMo7vTLEN47FnImr6Jv9cQFXztJEVZjZcCgYAtQPrWEiC7Gj7885Tjh7uD
-QwfirDdT632zvm8Y4kr3eaQsHiLnZ7vcGiFFDnu1CkMTz0mn9dc/GTBrj0cbrMB6
-q5DYL3sFPmDfGmy63wR8pu4p8aWzv48dO2H37sanGC6jZERD9bBKf9xRKJo3Y2Yo
-GS8Oc/DrtNJZvdQwDzERRQKBgGFd8c/hU1ABH7cezJrrEet8OxRorMQZkDmyg52h
-i4AWPL5Ql8Vp5JRtWA147L1XO9LQWTgRc6WNnMCaG9QiUEyPYMAtmjRO9BC+YQ3t
-GU8vrfKNNgLbkPk7lYvtjeRNJw71lJhCT0U0Pptz8CKh+NZgTNyz9kXxfPIioNqd
-rnhhAoGANfiSkuFuw2+WpBvTNah+wcZDNiMbvkQVhUwRvqIM6sLhRJhVZzJkTrYu
-YQTFeoqvepyHWE9e1Mb5dGFHMvXywZQR0hR2rpWxA2OgNaRhqL7Rh7th+V/owIi9
-7lGXdUBnyY8tcLhla+Rbo7Y8yOsN6pp4grT1DP+8rG4G4vnJgbk=
------END RSA PRIVATE KEY-----`
+-----BEGIN PRIVATE KEY-----
+MIIEwAIBADANBgkqhkiG9w0BAQEFAASCBKowggSmAgEAAoIBAQC8TDtfy23OKCRn
+kSYrKZwuHG5lOmTZgLwoFR1h3NDTkjR9406CjnAy6Gl73CRG3zRYVgY/2dGNqTzA
+KRCeKZlOzBlK6Kilb0NIJ6its6ooMAxwXlr7jOKiSn6xbaexVMrP0VPUbCgJxQtG
+s3++hQ14D6WnyfdzPBZJLKbItVdDnAcl/FJXKVV9gIg+MM0gETWOYj5Yd8Ye0FTv
+oFcgs8NKkxhEZe/LeYa7XYskS0PymwbHwNZcfC4znp2bzu28LUmUe6kL97YU8ubv
+hR0muRy6h5MnQNMQrRG5Q5j4A2+tkO0vto8gOb6/lacEUVYuQdSkMZJiqWEjWgWK
+eAYdkTJDAgMBAAECggEBAJTemFqmVQwWxKF1Kn4ZibcTF1zFDBLCKwBtoStMD3YW
+M5YL7nhd8OruwOcCJ1Q5CAOHD63PolOjp7otPUwui1y3FJAa3areCo2zfTLHxxG6
+2zrD/p6+xjeVOhFBJsGWzjn7v5FEaWs/9ChTpf2U6A8yH8BGd3MN4Hi96qboaDO0
+fFz3zOu7sgjkDNZiapZpUuqs7a6MCCr2T3FPwdWUiILZF2t5yWd/l8KabP+3QvvR
+tDU6sNv4j8e+dsF2l9ZT81JLkN+f6HvWcLVAADvcBqMcd8lmMSPgxSbytzKanx7o
+wtzIiGkNZBCVKGO7IK2ByCluiyHDpGul60Th7HUluDECgYEA9/Q1gT8LTHz1n6vM
+2n2umQN9R+xOaEYN304D5DQqptN3S0BCJ4dihD0uqEB5osstRTf4QpP/qb2hMDP4
+qWbWyrc7Z5Lyt6HI1ly6VpVnYKb3HDeJ9M+5Se1ttdwyRCzuT4ZBhT5bbqBatsOU
+V7+dyrJKbk8r9K4qy29UFozz/38CgYEAwmhzPVak99rVmqTpe0gPERW//n+PdW3P
+Ta6ongU8zkkw9LAFwgjGtNpd4nlk0iQigiM4jdJDFl6edrRXv2cisEfJ9+s53AOb
+hXui4HAn2rusPK+Dq2InkHYTGjEGDpx94zC/bjYR1GBIsthIh0w2G9ql8yvLatxG
+x6oXEsb7Lz0CgYEA7Oj+/mDYUNrMbSVfdBvF6Rl2aHQWbncQ5h3Khg55+i/uuY3K
+J66pqKQ0ojoIfk0XEh3qLOLv0qUHD+F4Y5OJAuOT9OBo3J/OH1M2D2hs/+JIFUPT
+on+fEE21F6AuvwkXIhCrJb5w6gB47Etuv3CsOXGkwEURQJXw+bODapB+yc0CgYEA
+t7zoTay6NdcJ0yLR2MZ+FvOrhekhuSaTqyPMEa15jq32KwzCJGUPCJbp7MY217V3
+N+/533A+H8JFmoNP+4KKcnknFb2n7Z0rO7licyUNRdniK2jm1O/r3Mj7vOFgjCaz
+hCnqg0tvBn4Jt55aziTlbuXzuiRGGTUfYE4NiJ2vgTECgYEA8di9yqGhETYQkoT3
+E70JpEmkCWiHl/h2ClLcDkj0gXKFxmhzmvs8G5On4S8toNiJ6efmz0KlHN1F7Ldi
+2iVd9LZnFVP1YwG0mvTJxxc5P5Uy5q/EhCLBAetqoTkWYlPcpkcathmCbCpJG4/x
+iOmuuOfQWnMfcVk8I0YDL5+G9Pg=
+-----END PRIVATE KEY-----`
 )
 
 // TODO (myidpt): Test Istio CA can load plugin key/certs from secret.
@@ -128,12 +128,12 @@ func TestCreateSelfSignedIstioCAWithoutSecret(t *testing.T) {
 	}
 
 	// Check the signing cert stored in K8s secret.
-	caSecret, err := client.CoreV1().Secrets("default").Get(cASecret, metav1.GetOptions{})
+	caSecret, err := client.CoreV1().Secrets("default").Get(CASecret, metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("Failed to get secret (error: %s)", err)
 	}
 
-	signingCertFromSecret, err := util.ParsePemEncodedCertificate(caSecret.Data[cACertID])
+	signingCertFromSecret, err := util.ParsePemEncodedCertificate(caSecret.Data[caCertID])
 	if err != nil {
 		t.Errorf("Failed to parse cert (error: %s)", err)
 	}
@@ -146,11 +146,11 @@ func TestCreateSelfSignedIstioCAWithoutSecret(t *testing.T) {
 func TestCreateSelfSignedIstioCAWithSecret(t *testing.T) {
 	rootCertPem := cert1Pem
 	// Use the same signing cert and root cert for self-signed CA.
-	signingCertPem := cert1Pem
-	signingKeyPem := key1Pem
+	signingCertPem := []byte(cert1Pem)
+	signingKeyPem := []byte(key1Pem)
 
 	client := fake.NewSimpleClientset()
-	initSecret := createSecret("default", signingCertPem, signingKeyPem, rootCertPem)
+	initSecret := BuildSecret("", CASecret, "default", nil, nil, nil, signingCertPem, signingKeyPem, istioCASecretType)
 	_, err := client.CoreV1().Secrets("default").Create(initSecret)
 	if err != nil {
 		t.Errorf("Failed to create secret (error: %s)", err)
@@ -177,7 +177,7 @@ func TestCreateSelfSignedIstioCAWithSecret(t *testing.T) {
 		t.Fatalf("Failed to create a self-signed CA.")
 	}
 
-	signingCert, err := util.ParsePemEncodedCertificate([]byte(signingCertPem))
+	signingCert, err := util.ParsePemEncodedCertificate(signingCertPem)
 	if err != nil {
 		t.Errorf("Failed to parse cert (error: %s)", err)
 	}
@@ -235,11 +235,12 @@ func TestCreatePluggedCertCA(t *testing.T) {
 	}
 }
 
+// TODO: merge tests for SignCSR.
 func TestSignCSRForWorkload(t *testing.T) {
-	host := "spiffe://example.com/ns/foo/sa/bar"
+	subjectID := "spiffe://example.com/ns/foo/sa/bar"
 	opts := util.CertOptions{
-		Host:       host,
-		Org:        "istio.io",
+		// This value is not used, instead, subjectID should be used in certificate.
+		Host:       "spiffe://different.com/test",
 		RSAKeySize: 2048,
 		IsCA:       false,
 	}
@@ -254,7 +255,7 @@ func TestSignCSRForWorkload(t *testing.T) {
 	}
 
 	requestedTTL := 30 * time.Minute
-	certPEM, signErr := ca.Sign(csrPEM, requestedTTL, false)
+	certPEM, signErr := ca.Sign(csrPEM, []string{subjectID}, requestedTTL, false)
 	if signErr != nil {
 		t.Error(err)
 	}
@@ -263,10 +264,11 @@ func TestSignCSRForWorkload(t *testing.T) {
 		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
 		KeyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
 		IsCA:        false,
+		Host:        subjectID,
 	}
 	_, _, certChainBytes, rootCertBytes := ca.GetCAKeyCertBundle().GetAll()
 	if err = util.VerifyCertificate(
-		keyPEM, append(certPEM, certChainBytes...), rootCertBytes, host, fields); err != nil {
+		keyPEM, append(certPEM, certChainBytes...), rootCertBytes, fields); err != nil {
 		t.Error(err)
 	}
 
@@ -282,7 +284,7 @@ func TestSignCSRForWorkload(t *testing.T) {
 	if san == nil {
 		t.Errorf("No SAN extension is found in the certificate")
 	}
-	expected, err := util.BuildSubjectAltNameExtension(host)
+	expected, err := util.BuildSubjectAltNameExtension(subjectID)
 	if err != nil {
 		t.Error(err)
 	}
@@ -292,10 +294,8 @@ func TestSignCSRForWorkload(t *testing.T) {
 }
 
 func TestSignCSRForCA(t *testing.T) {
-	host := "spiffe://example.com/ns/foo/sa/baz"
+	subjectID := "spiffe://example.com/ns/foo/sa/baz"
 	opts := util.CertOptions{
-		Host:       host,
-		Org:        "istio.io",
 		RSAKeySize: 2048,
 		IsCA:       true,
 	}
@@ -310,7 +310,7 @@ func TestSignCSRForCA(t *testing.T) {
 	}
 
 	requestedTTL := 30 * 24 * time.Hour
-	certPEM, signErr := ca.Sign(csrPEM, requestedTTL, true)
+	certPEM, signErr := ca.Sign(csrPEM, []string{subjectID}, requestedTTL, true)
 	if signErr != nil {
 		t.Error(err)
 	}
@@ -318,10 +318,11 @@ func TestSignCSRForCA(t *testing.T) {
 	fields := &util.VerifyFields{
 		KeyUsage: x509.KeyUsageCertSign,
 		IsCA:     true,
+		Host:     subjectID,
 	}
 	_, _, certChainBytes, rootCertBytes := ca.GetCAKeyCertBundle().GetAll()
 	if err = util.VerifyCertificate(
-		keyPEM, append(certPEM, certChainBytes...), rootCertBytes, host, fields); err != nil {
+		keyPEM, append(certPEM, certChainBytes...), rootCertBytes, fields); err != nil {
 		t.Error(err)
 	}
 
@@ -337,7 +338,7 @@ func TestSignCSRForCA(t *testing.T) {
 	if san == nil {
 		t.Errorf("No SAN extension is found in the certificate")
 	}
-	expected, err := util.BuildSubjectAltNameExtension(host)
+	expected, err := util.BuildSubjectAltNameExtension(subjectID)
 	if err != nil {
 		t.Error(err)
 	}
@@ -347,9 +348,8 @@ func TestSignCSRForCA(t *testing.T) {
 }
 
 func TestSignCSRTTLError(t *testing.T) {
-	host := "spiffe://example.com/ns/foo/sa/bar"
+	subjectID := "spiffe://example.com/ns/foo/sa/bar"
 	opts := util.CertOptions{
-		Host:       host,
 		Org:        "istio.io",
 		RSAKeySize: 2048,
 	}
@@ -365,7 +365,7 @@ func TestSignCSRTTLError(t *testing.T) {
 
 	ttl := 3 * time.Hour
 
-	cert, signErr := ca.Sign(csrPEM, ttl, false)
+	cert, signErr := ca.Sign(csrPEM, []string{subjectID}, ttl, false)
 	if cert != nil {
 		t.Errorf("Expected null cert be obtained a non-null cert.")
 	}
@@ -425,21 +425,6 @@ func createCA(maxTTL time.Duration, multicluster bool) (*IstioCA, error) {
 	}
 
 	return NewIstioCA(caOpts)
-}
-
-// TODO(wattli): move the two functions below as a util function to share with secret_test.go
-func createSecret(namespace, signingCert, signingKey, rootCert string) *v1.Secret {
-	return &v1.Secret{
-		Data: map[string][]byte{
-			cACertID:       []byte(signingCert),
-			cAPrivateKeyID: []byte(signingKey),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cASecret,
-			Namespace: namespace,
-		},
-		Type: istioCASecretType,
-	}
 }
 
 func comparePem(expectedBytes []byte, file string) bool {

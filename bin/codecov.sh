@@ -8,6 +8,11 @@ DIR="./..."
 CODECOV_SKIP="${ROOTDIR}/codecov.skip"
 SKIPPED_TESTS_GREP_ARGS=
 
+# Set GOPATH to match the expected layout
+GO_TOP=$(cd "$(dirname "$0")"/../../../..; pwd)
+
+export GOPATH=${GOPATH:-$GO_TOP}
+
 if [ "${1:-}" != "" ]; then
     DIR="./$1/..."
 fi
@@ -32,6 +37,7 @@ function code_coverage() {
   local filename
   filename="$(echo "${1}" | tr '/' '-')"
   ( go test \
+    -coverpkg=istio.io/istio/... \
     -coverprofile="${COVERAGEDIR}/${filename}.cov" \
     -covermode=atomic "${1}" \
     | tee "${COVERAGEDIR}/${filename}.report" ) &
@@ -118,7 +124,17 @@ fi
 
 echo 'Checking package coverage'
 go get -u istio.io/test-infra/toolbox/pkg_check
-pkg_check \
+
+if [[ -d "${GOPATH}/bin/pkg_check" ]];then
+    echo "download istio.io/test-infra/toolbox/pkg_check failed"
+    exit 1
+fi
+
+pkg_check=${GOPATH}/bin/pkg_check
+
+$pkg_check \
   --report_file="${FINAL_CODECOV_DIR}/codecov.report" \
   --alsologtostderr \
-  --requirement_file=codecov.requirement "${PKG_CHECK_ARGS[@]}"
+  --requirement_file=codecov.requirement "${PKG_CHECK_ARGS[@]}" \
+  || echo "Package check has failed"
+

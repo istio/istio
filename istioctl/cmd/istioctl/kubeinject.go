@@ -122,19 +122,23 @@ func validateFlags() error {
 }
 
 var (
-	hub                 string
-	tag                 string
-	sidecarProxyUID     uint64
-	verbosity           int
-	versionStr          string // override build version
-	enableCoreDump      bool
-	imagePullPolicy     string
-	includeIPRanges     string
-	excludeIPRanges     string
-	includeInboundPorts string
-	excludeInboundPorts string
-	debugMode           bool
-	emitTemplate        bool
+	hub                          string
+	tag                          string
+	sidecarProxyUID              uint64
+	verbosity                    int
+	versionStr                   string // override build version
+	enableCoreDump               bool
+	imagePullPolicy              string
+	statusPort                   int
+	readinessInitialDelaySeconds uint32
+	readinessPeriodSeconds       uint32
+	readinessFailureThreshold    uint32
+	includeIPRanges              string
+	excludeIPRanges              string
+	includeInboundPorts          string
+	excludeInboundPorts          string
+	debugMode                    bool
+	emitTemplate                 bool
 
 	inFilename          string
 	outFilename         string
@@ -268,19 +272,23 @@ istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml --injectConf
 				}
 
 				if sidecarTemplate, err = inject.GenerateTemplateFromParams(&inject.Params{
-					InitImage:           inject.InitImageName(hub, tag, debugMode),
-					ProxyImage:          inject.ProxyImageName(hub, tag, debugMode),
-					Verbosity:           verbosity,
-					SidecarProxyUID:     sidecarProxyUID,
-					Version:             versionStr,
-					EnableCoreDump:      enableCoreDump,
-					Mesh:                meshConfig,
-					ImagePullPolicy:     imagePullPolicy,
-					IncludeIPRanges:     includeIPRanges,
-					ExcludeIPRanges:     excludeIPRanges,
-					IncludeInboundPorts: includeInboundPorts,
-					ExcludeInboundPorts: excludeInboundPorts,
-					DebugMode:           debugMode,
+					InitImage:                    inject.InitImageName(hub, tag, debugMode),
+					ProxyImage:                   inject.ProxyImageName(hub, tag, debugMode),
+					Verbosity:                    verbosity,
+					SidecarProxyUID:              sidecarProxyUID,
+					Version:                      versionStr,
+					EnableCoreDump:               enableCoreDump,
+					Mesh:                         meshConfig,
+					ImagePullPolicy:              imagePullPolicy,
+					StatusPort:                   statusPort,
+					ReadinessInitialDelaySeconds: readinessInitialDelaySeconds,
+					ReadinessPeriodSeconds:       readinessPeriodSeconds,
+					ReadinessFailureThreshold:    readinessFailureThreshold,
+					IncludeIPRanges:              includeIPRanges,
+					ExcludeIPRanges:              excludeIPRanges,
+					IncludeInboundPorts:          includeInboundPorts,
+					ExcludeInboundPorts:          excludeInboundPorts,
+					DebugMode:                    debugMode,
 				}); err != nil {
 					return err
 				}
@@ -342,7 +350,8 @@ func init() {
 	injectCmd.PersistentFlags().StringVar(&injectConfigFile, "injectConfigFile", "",
 		"injection configuration filename. Cannot be used with --injectConfigMapName")
 
-	injectCmd.PersistentFlags().BoolVar(&emitTemplate, "emitTemplate", false, "Emit sidecar template based on parameterized flags")
+	injectCmd.PersistentFlags().BoolVar(&emitTemplate, "emitTemplate", false,
+		"Emit sidecar template based on parameterized flags")
 	_ = injectCmd.PersistentFlags().MarkHidden("emitTemplate")
 
 	injectCmd.PersistentFlags().StringVarP(&inFilename, "filename", "f",
@@ -366,6 +375,15 @@ func init() {
 	injectCmd.PersistentFlags().StringVar(&imagePullPolicy, "imagePullPolicy", inject.DefaultImagePullPolicy,
 		"Sets the container image pull policy. Valid options are Always,IfNotPresent,Never."+
 			"The default policy is IfNotPresent.")
+	injectCmd.PersistentFlags().IntVar(&statusPort, "statusPort", inject.DefaultStatusPort,
+		"HTTP Port on which to serve pilot agent status. The path /healthz/ can be used for health checking. "+
+			"If zero, agent status will not be provided.")
+	injectCmd.PersistentFlags().Uint32Var(&readinessInitialDelaySeconds, "readinessInitialDelaySeconds", inject.DefaultReadinessInitialDelaySeconds,
+		"The initial delay (in seconds) for the readiness probe.")
+	injectCmd.PersistentFlags().Uint32Var(&readinessPeriodSeconds, "readinessPeriodSeconds", inject.DefaultReadinessPeriodSeconds,
+		"The period between readiness probes (in seconds).")
+	injectCmd.PersistentFlags().Uint32Var(&readinessFailureThreshold, "readinessFailureThreshold", inject.DefaultReadinessFailureThreshold,
+		"The threshold for successive failed readiness probes.")
 	injectCmd.PersistentFlags().StringVar(&includeIPRanges, "includeIPRanges", inject.DefaultIncludeIPRanges,
 		"Comma separated list of IP ranges in CIDR form. If set, only redirect outbound traffic to Envoy for "+
 			"these IP ranges. All outbound traffic can be redirected with the wildcard character '*'.")

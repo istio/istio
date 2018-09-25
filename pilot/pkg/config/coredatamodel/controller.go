@@ -37,6 +37,11 @@ type CoreDataModel interface {
 	mcpclient.Updater
 }
 
+// Options stores the configurable attributes of a Control
+type Options struct {
+	DomainSuffix string
+}
+
 // Controller is a temporary storage for the changes received
 // via MCP server
 type Controller struct {
@@ -44,13 +49,18 @@ type Controller struct {
 	// keys [type][namespace][name]
 	configStore              map[string]map[string]map[string]model.Config
 	descriptorsByMessageName map[string]model.ProtoSchema
+	options                  Options
+	eventHandlers            map[string][]func(model.Config, model.Event)
 }
 
 // NewController provides a new CoreDataModel controller
-func NewController() CoreDataModel {
+func NewController(options Options) CoreDataModel {
 	descriptorsByMessageName := make(map[string]model.ProtoSchema, len(model.IstioConfigTypes))
 	for _, descriptor := range model.IstioConfigTypes {
-		descriptorsByMessageName[descriptor.MessageName] = descriptor
+		// don't register duplicate descriptors for the same message name, e.g. auth policy
+		if _, ok := descriptorsByMessageName[descriptor.MessageName]; !ok {
+			descriptorsByMessageName[descriptor.MessageName] = descriptor
+		}
 	}
 
 	// Remove this when https://github.com/istio/istio/issues/7947 is done
@@ -60,7 +70,9 @@ func NewController() CoreDataModel {
 	}
 	return &Controller{
 		configStore:              configStore,
+		options:                  options,
 		descriptorsByMessageName: descriptorsByMessageName,
+		eventHandlers:            make(map[string][]func(model.Config, model.Event)),
 	}
 }
 
@@ -87,20 +99,16 @@ func (c *Controller) List(typ, namespace string) (out []model.Config, err error)
 	if namespace == "" {
 		// ByType does not need locking since
 		// we replace the entire sub-map
-		if ok {
-			for _, byNamespace := range byType {
-				for _, config := range byNamespace {
-					out = append(out, config)
-				}
+		for _, byNamespace := range byType {
+			for _, config := range byNamespace {
+				out = append(out, config)
 			}
-			return out, nil
 		}
+		return out, nil
 	}
 
-	if byNamespace, ok := byType[namespace]; ok {
-		for _, config := range byNamespace {
-			out = append(out, config)
-		}
+	for _, config := range byType[namespace] {
+		out = append(out, config)
 	}
 	return out, nil
 }
@@ -122,7 +130,7 @@ func (c *Controller) Apply(change *mcpclient.Change) error {
 	// innerStore is [namespace][name]
 	innerStore := make(map[string]map[string]model.Config)
 	for _, obj := range change.Objects {
-		name, nameSpace := extractNameNamespace(obj.Metadata.Name)
+		namespace, name := extractNameNamespace(obj.Metadata.Name)
 
 		createTime := time.Now()
 		if obj.Metadata.CreateTime != nil {
@@ -132,15 +140,22 @@ func (c *Controller) Apply(change *mcpclient.Change) error {
 			}
 		}
 
+		// adjust the type name for mesh-scoped resources
+		typ := descriptor.Type
+		if namespace == "" && descriptor.Type == model.AuthenticationPolicy.Type {
+			typ = model.AuthenticationMeshPolicy.Type
+		}
+
 		conf := model.Config{
 			ConfigMeta: model.ConfigMeta{
-				Type:              descriptor.Type,
+				Type:              typ,
 				Group:             descriptor.Group,
 				Version:           descriptor.Version,
 				Name:              name,
-				Namespace:         nameSpace,
+				Namespace:         namespace,
 				ResourceVersion:   obj.Metadata.Version,
 				CreationTimestamp: createTime,
+				Domain:            c.options.DomainSuffix,
 			},
 			Spec: obj.Resource,
 		}
@@ -159,9 +174,66 @@ func (c *Controller) Apply(change *mcpclient.Change) error {
 		}
 	}
 
+	// de-mux namespace and cluster-scoped authentication policy from the same
+	// type_url stream.
+	const clusterScopedNamespace = ""
+	meshTypeInnerStore := make(map[string]map[string]model.Config)
+	var meshType string
+	if descriptor.Type == model.AuthenticationPolicy.Type {
+		meshType = model.AuthenticationMeshPolicy.Type
+		meshTypeInnerStore[clusterScopedNamespace] = innerStore[clusterScopedNamespace]
+		delete(innerStore, clusterScopedNamespace)
+	}
+
+	var prevStore map[string]map[string]model.Config
+
 	c.configStoreMu.Lock()
+	prevStore = c.configStore[descriptor.Type]
 	c.configStore[descriptor.Type] = innerStore
+	if meshType != "" {
+		c.configStore[meshType] = meshTypeInnerStore
+	}
 	c.configStoreMu.Unlock()
+
+	dispatch := func(model model.Config, event model.Event) {}
+	if handlers, ok := c.eventHandlers[descriptor.Type]; ok {
+		dispatch = func(model model.Config, event model.Event) {
+			log.Debugf("MCP event dispatch: key=%v event=%v", model.Key(), event.String())
+			for _, handler := range handlers {
+				handler(model, event)
+			}
+		}
+	}
+
+	// add/update
+	for namespace, byName := range innerStore {
+		for name, config := range byName {
+			if prevByNamespace, ok := prevStore[namespace]; ok {
+				if prevConfig, ok := prevByNamespace[name]; ok {
+					if config.ResourceVersion != prevConfig.ResourceVersion {
+						dispatch(config, model.EventUpdate)
+					}
+				} else {
+					dispatch(config, model.EventAdd)
+				}
+			} else {
+				dispatch(config, model.EventAdd)
+			}
+		}
+	}
+
+	// remove
+	for namespace, prevByName := range prevStore {
+		for name, prevConfig := range prevByName {
+			if byNamespace, ok := innerStore[namespace]; ok {
+				if _, ok := byNamespace[name]; !ok {
+					dispatch(prevConfig, model.EventDelete)
+				}
+			} else {
+				dispatch(prevConfig, model.EventDelete)
+			}
+		}
+	}
 
 	return nil
 }
@@ -189,13 +261,13 @@ func (c *Controller) Run(stop <-chan struct{}) {
 
 // RegisterEventHandler is not implemented
 func (c *Controller) RegisterEventHandler(typ string, handler func(model.Config, model.Event)) {
-	log.Warnf("registerEventHandler %s", errUnsupported)
+	c.eventHandlers[typ] = append(c.eventHandlers[typ], handler)
 }
 
 // Get is not implemented
-func (c *Controller) Get(typ, name, namespace string) (*model.Config, bool) {
+func (c *Controller) Get(typ, name, namespace string) *model.Config {
 	log.Warnf("get %s", errUnsupported)
-	return nil, false
+	return nil
 }
 
 // Update is not implemented
@@ -220,7 +292,7 @@ func extractNameNamespace(metadataName string) (string, string) {
 	if len(segments) == 2 {
 		return segments[0], segments[1]
 	}
-	return segments[0], ""
+	return "", segments[0]
 }
 
 func extractMessagename(typeURL string) string {

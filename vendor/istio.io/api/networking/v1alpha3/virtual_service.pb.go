@@ -961,8 +961,9 @@ func (m *L4MatchAttributes) GetGateways() []string {
 // TLS connection match attributes.
 type TLSMatchAttributes struct {
 	// REQUIRED. SNI (server name indicator) to match on. Wildcard prefixes
-	// can be used in the SNI value. E.g., *.com will match foo.example.com
-	// as well as example.com.
+	// can be used in the SNI value, e.g., *.com will match foo.example.com
+	// as well as example.com. An SNI value must be a subset (i.e., fall
+	// within the domain) of the corresponding virtual serivce's hosts.
 	SniHosts []string `protobuf:"bytes,1,rep,name=sni_hosts,json=sniHosts" json:"sni_hosts,omitempty"`
 	// IPv4 or IPv6 ip addresses of destination with optional subnet.  E.g.,
 	// a.b.c.d/xx form or just a.b.c.d.

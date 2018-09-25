@@ -6,7 +6,14 @@ istio.io/istio/mixer/pkg/runtime/testing
 istio.io/istio/mixer/template/sample
 istio.io/istio/mixer/test
 istio.io/istio/mixer/tools/codegen
+istio.io/istio/pilot/test
+istio.io/istio/pkg/mcp/testing
+istio.io/istio/pkg/test
 istio.io/istio/security/tests/integration
-istio.io/istio/tests
+istio.io/istio/tests/e2e
+istio.io/istio/tests/integration/
+istio.io/istio/tests/integration_old/
+istio.io/istio/tests/util/
 istio.io/istio/tools/githubContrib
 istio.io/istio/tools/hyperistio
+istio.io/istio/tools/license

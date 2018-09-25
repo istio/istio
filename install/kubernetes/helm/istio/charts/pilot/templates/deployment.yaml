@@ -17,6 +17,7 @@ spec:
       labels:
         istio: pilot
         app: pilot
+        {{- template "common_template_labels" . }}
       annotations:
         sidecar.istio.io/inject: "false"
         scheduler.alpha.kubernetes.io/critical-pod: ""
@@ -42,6 +43,16 @@ spec:
 {{- if not .Values.sidecar }}
           - --secureGrpcAddr
           - ":15011"
+{{- end }}
+{{- if $.Values.global.useMCP }}
+    {{- if $.Values.global.controlPlaneSecurityEnabled}}
+          - --mcpServerAddrs=mcps://istio-galley.{{ $.Release.Namespace }}.svc:9901
+          - --certFile=/etc/certs/cert-chain.pem
+          - --keyFile=/etc/certs/key.pem
+          - --caCertFile=/etc/certs/root-cert.pem
+    {{- else }}
+          - --mcpServerAddrs=mcp://istio-galley.{{ $.Release.Namespace }}.svc:9901
+    {{- end }}
 {{- end }}
           ports:
           - containerPort: 8080
@@ -147,6 +158,6 @@ spec:
       - name: istio-certs
         secret:
           secretName: istio.istio-pilot-service-account
-          optional: true   
+          optional: true
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}

@@ -101,7 +101,7 @@ message Params {
 
     // Optional. Max batch size of metrics to be sent to AppOptics.
     // AppOptics does not allow batch size greater than 1000.
-    // If this is unspecified or given a value 0 explicitely, a default batch size of 1000 will be used.
+    // If this is unspecified or given a value 0 explicitly, a default batch size of 1000 will be used.
     int32 appoptics_batch_size = 2;
 
     // Papertrail url to ship logs to. If no papertrail url is given then the logs will NOT be shipped but rather

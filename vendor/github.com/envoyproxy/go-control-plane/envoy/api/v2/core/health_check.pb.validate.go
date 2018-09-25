@@ -84,9 +84,7 @@ func (m *HealthCheck) Validate() error {
 
 	}
 
-	if v, ok := interface{}(m.GetIntervalJitter()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetIntervalJitter()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HealthCheckValidationError{
 				Field:  "IntervalJitter",
@@ -98,9 +96,7 @@ func (m *HealthCheck) Validate() error {
 
 	// no validation rules for IntervalJitterPercent
 
-	if v, ok := interface{}(m.GetUnhealthyThreshold()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetUnhealthyThreshold()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HealthCheckValidationError{
 				Field:  "UnhealthyThreshold",
@@ -110,9 +106,7 @@ func (m *HealthCheck) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetHealthyThreshold()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetHealthyThreshold()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HealthCheckValidationError{
 				Field:  "HealthyThreshold",
@@ -122,9 +116,7 @@ func (m *HealthCheck) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetAltPort()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetAltPort()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HealthCheckValidationError{
 				Field:  "AltPort",
@@ -134,9 +126,7 @@ func (m *HealthCheck) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetReuseConnection()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetReuseConnection()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HealthCheckValidationError{
 				Field:  "ReuseConnection",
@@ -146,9 +136,7 @@ func (m *HealthCheck) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetNoTrafficInterval()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetNoTrafficInterval()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HealthCheckValidationError{
 				Field:  "NoTrafficInterval",
@@ -158,9 +146,7 @@ func (m *HealthCheck) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetUnhealthyInterval()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetUnhealthyInterval()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HealthCheckValidationError{
 				Field:  "UnhealthyInterval",
@@ -170,9 +156,7 @@ func (m *HealthCheck) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetUnhealthyEdgeInterval()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetUnhealthyEdgeInterval()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HealthCheckValidationError{
 				Field:  "UnhealthyEdgeInterval",
@@ -182,9 +166,7 @@ func (m *HealthCheck) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetHealthyEdgeInterval()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetHealthyEdgeInterval()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HealthCheckValidationError{
 				Field:  "HealthyEdgeInterval",
@@ -200,9 +182,7 @@ func (m *HealthCheck) Validate() error {
 
 	case *HealthCheck_HttpHealthCheck_:
 
-		if v, ok := interface{}(m.GetHttpHealthCheck()).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(m.GetHttpHealthCheck()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return HealthCheckValidationError{
 					Field:  "HttpHealthCheck",
@@ -214,9 +194,7 @@ func (m *HealthCheck) Validate() error {
 
 	case *HealthCheck_TcpHealthCheck_:
 
-		if v, ok := interface{}(m.GetTcpHealthCheck()).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(m.GetTcpHealthCheck()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return HealthCheckValidationError{
 					Field:  "TcpHealthCheck",
@@ -228,9 +206,7 @@ func (m *HealthCheck) Validate() error {
 
 	case *HealthCheck_GrpcHealthCheck_:
 
-		if v, ok := interface{}(m.GetGrpcHealthCheck()).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(m.GetGrpcHealthCheck()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return HealthCheckValidationError{
 					Field:  "GrpcHealthCheck",
@@ -242,9 +218,7 @@ func (m *HealthCheck) Validate() error {
 
 	case *HealthCheck_CustomHealthCheck_:
 
-		if v, ok := interface{}(m.GetCustomHealthCheck()).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(m.GetCustomHealthCheck()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return HealthCheckValidationError{
 					Field:  "CustomHealthCheck",
@@ -377,9 +351,7 @@ func (m *HealthCheck_HttpHealthCheck) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetSend()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetSend()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HealthCheck_HttpHealthCheckValidationError{
 				Field:  "Send",
@@ -389,9 +361,7 @@ func (m *HealthCheck_HttpHealthCheck) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetReceive()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetReceive()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HealthCheck_HttpHealthCheckValidationError{
 				Field:  "Receive",
@@ -406,9 +376,7 @@ func (m *HealthCheck_HttpHealthCheck) Validate() error {
 	for idx, item := range m.GetRequestHeadersToAdd() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return HealthCheck_HttpHealthCheckValidationError{
 					Field:  fmt.Sprintf("RequestHeadersToAdd[%v]", idx),
@@ -465,9 +433,7 @@ func (m *HealthCheck_TcpHealthCheck) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetSend()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetSend()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HealthCheck_TcpHealthCheckValidationError{
 				Field:  "Send",
@@ -480,9 +446,7 @@ func (m *HealthCheck_TcpHealthCheck) Validate() error {
 	for idx, item := range m.GetReceive() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return HealthCheck_TcpHealthCheckValidationError{
 					Field:  fmt.Sprintf("Receive[%v]", idx),
@@ -633,9 +597,7 @@ func (m *HealthCheck_CustomHealthCheck) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetConfig()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetConfig()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HealthCheck_CustomHealthCheckValidationError{
 				Field:  "Config",

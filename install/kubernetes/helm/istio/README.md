@@ -80,13 +80,13 @@ $ helm init --service-account tiller
 
 5. If you are using security mode for Grafana, create the secret first as follows:
 
-Encode username, you can chage the username to the name as you want:
+Encode username, you can change the username to the name as you want:
 ```
 $ echo -n 'admin' | base64
 YWRtaW4=
 ```
 
-Encode passphrase, you can chage the passphrase to the passphrase as you want:
+Encode passphrase, you can change the passphrase to the passphrase as you want:
 ```
 $ echo -n '1f2d1e2e67df' | base64
 MWYyZDFlMmU2N2Rm

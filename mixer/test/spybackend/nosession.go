@@ -30,6 +30,10 @@ import (
 	"istio.io/istio/mixer/template/listentry"
 	"istio.io/istio/mixer/template/metric"
 	"istio.io/istio/mixer/template/quota"
+	"istio.io/istio/mixer/test/spyAdapter"
+	samplecheck "istio.io/istio/mixer/test/spyAdapter/template/check"
+	samplequota "istio.io/istio/mixer/test/spyAdapter/template/quota"
+	samplereport "istio.io/istio/mixer/test/spyAdapter/template/report"
 )
 
 type (
@@ -38,21 +42,26 @@ type (
 		Addr() net.Addr
 		Close() error
 		Run()
+		GetCapturedCalls() []spyAdapter.CapturedCall
 	}
 
 	// NoSessionServer models no session adapter backend.
 	NoSessionServer struct {
-		listener net.Listener
-		shutdown chan error
-		server   *grpc.Server
-		Behavior *Behavior
-		Requests *Requests
+		listener      net.Listener
+		shutdown      chan error
+		server        *grpc.Server
+		Behavior      *Behavior
+		Requests      *Requests
+		CapturedCalls []spyAdapter.CapturedCall
 	}
 )
 
 var _ metric.HandleMetricServiceServer = &NoSessionServer{}
 var _ listentry.HandleListEntryServiceServer = &NoSessionServer{}
 var _ quota.HandleQuotaServiceServer = &NoSessionServer{}
+var _ samplecheck.HandleSampleCheckServiceServer = &NoSessionServer{}
+var _ samplequota.HandleSampleQuotaServiceServer = &NoSessionServer{}
+var _ samplereport.HandleSampleReportServiceServer = &NoSessionServer{}
 
 // HandleMetric records metric entries and responds with the programmed response
 func (s *NoSessionServer) HandleMetric(c context.Context, r *metric.HandleMetricRequest) (*adptModel.ReportResult, error) {
@@ -76,6 +85,52 @@ func (s *NoSessionServer) HandleQuota(c context.Context, r *quota.HandleQuotaReq
 	s.Requests.HandleQuotaRequest = append(s.Requests.HandleQuotaRequest, r)
 	s.Requests.quotaLock.Unlock()
 	return s.Behavior.HandleQuotaResult, s.Behavior.HandleQuotaError
+}
+
+// HandleSampleCheck records samplecheck and responds with the programmed response
+func (s *NoSessionServer) HandleSampleCheck(c context.Context, r *samplecheck.HandleSampleCheckRequest) (*adptModel.CheckResult, error) {
+	cc := spyAdapter.CapturedCall{
+		Name:      "HandleSampleCheck",
+		Instances: []interface{}{r.Instance},
+	}
+	if s.CapturedCalls == nil {
+		s.CapturedCalls = []spyAdapter.CapturedCall{}
+	}
+	s.CapturedCalls = append(s.CapturedCalls, cc)
+
+	return s.Behavior.HandleSampleCheckResult, s.Behavior.HandleSampleCheckError
+}
+
+// HandleSampleReport records samplereport and responds with the programmed response
+func (s *NoSessionServer) HandleSampleReport(c context.Context, r *samplereport.HandleSampleReportRequest) (*adptModel.ReportResult, error) {
+	cc := spyAdapter.CapturedCall{
+		Name:      "HandleSampleReport",
+		Instances: make([]interface{}, len(r.Instances)),
+	}
+	for i, ins := range r.Instances {
+		cc.Instances[i] = ins
+	}
+
+	if s.CapturedCalls == nil {
+		s.CapturedCalls = []spyAdapter.CapturedCall{}
+	}
+	s.CapturedCalls = append(s.CapturedCalls, cc)
+
+	return s.Behavior.HandleSampleReportResult, s.Behavior.HandleSampleReportError
+}
+
+// HandleSampleQuota records samplequota and responds with the programmed response
+func (s *NoSessionServer) HandleSampleQuota(c context.Context, r *samplequota.HandleSampleQuotaRequest) (*adptModel.QuotaResult, error) {
+	cc := spyAdapter.CapturedCall{
+		Name:      "HandleSampleQuota",
+		Instances: []interface{}{r.Instance},
+	}
+	if s.CapturedCalls == nil {
+		s.CapturedCalls = []spyAdapter.CapturedCall{}
+	}
+	s.CapturedCalls = append(s.CapturedCalls, cc)
+
+	return s.Behavior.HandleSampleQuotaResult, s.Behavior.HandleSampleQuotaError
 }
 
 // Addr returns the listening address of the server
@@ -117,6 +172,11 @@ func (s *NoSessionServer) Close() error {
 	}
 
 	return nil
+}
+
+// GetCapturedCalls ...
+func (s *NoSessionServer) GetCapturedCalls() []spyAdapter.CapturedCall {
+	return s.CapturedCalls
 }
 
 // GetState returns the adapters observed state.
@@ -222,7 +282,7 @@ func NewNoSessionServer(a *Args) (Server, error) {
 	s := &NoSessionServer{Behavior: a.Behavior, Requests: a.Requests}
 	var err error
 
-	if s.listener, err = net.Listen("tcp", fmt.Sprintf(":%d", 0)); err != nil {
+	if s.listener, err = net.Listen("tcp", fmt.Sprintf(":%d", 50051)); err != nil {
 		_ = s.Close()
 		return nil, fmt.Errorf("unable to listen on socket: %v", err)
 	}
@@ -233,6 +293,9 @@ func NewNoSessionServer(a *Args) (Server, error) {
 	metric.RegisterHandleMetricServiceServer(s.server, s)
 	listentry.RegisterHandleListEntryServiceServer(s.server, s)
 	quota.RegisterHandleQuotaServiceServer(s.server, s)
+	samplereport.RegisterHandleSampleReportServiceServer(s.server, s)
+	samplecheck.RegisterHandleSampleCheckServiceServer(s.server, s)
+	samplequota.RegisterHandleSampleQuotaServiceServer(s.server, s)
 
 	return s, nil
 }

@@ -36,10 +36,10 @@ import (
 	"github.com/onsi/gomega/gexec"
 	"google.golang.org/grpc"
 
-	"istio.io/istio/mixer/test/client/env"
+	mixerEnv "istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/serviceregistry/cloudfoundry"
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/tests/e2e/tests/pilot/cloudfoundry/mock"
-	"istio.io/istio/tests/util"
 )
 
 const (
@@ -138,19 +138,19 @@ func TestWildcardHostEdgeRouterWithMockCopilot(t *testing.T) {
 	}).Should(gomega.ContainSubstring("gateway"))
 
 	t.Log("create a new envoy test environment")
-	tmpl, err := ioutil.ReadFile(util.IstioSrc + "/tests/testdata/cf_bootstrap_tmpl.json")
+	tmpl, err := ioutil.ReadFile(env.IstioSrc + "/tests/testdata/cf_bootstrap_tmpl.json")
 	if err != nil {
 		t.Fatal("Can't read bootstrap template", err)
 	}
 
 	nodeIDGateway := "router~x~x~x"
 
-	gateway := env.NewTestSetup(25, t)
+	gateway := mixerEnv.NewTestSetup(25, t)
 	gateway.SetNoMixer(true)
 	gateway.SetNoProxy(true)
 	gateway.SetNoBackend(true)
-	gateway.IstioSrc = util.IstioSrc
-	gateway.IstioOut = util.IstioOut
+	gateway.IstioSrc = env.IstioSrc
+	gateway.IstioOut = env.IstioOut
 	gateway.Ports().PilotGrpcPort = pilotGrpcPort
 	gateway.Ports().PilotHTTPPort = pilotDebugPort
 	gateway.EnvoyConfigOpt = map[string]interface{}{
@@ -255,19 +255,19 @@ func TestWildcardHostSidecarRouterWithMockCopilot(t *testing.T) {
 	g.Eventually(pilotSession.Out, "10s").Should(gbytes.Say(`READY`))
 
 	t.Log("create a new envoy test environment")
-	tmpl, err := ioutil.ReadFile(util.IstioSrc + "/tests/testdata/cf_bootstrap_tmpl.json")
+	tmpl, err := ioutil.ReadFile(env.IstioSrc + "/tests/testdata/cf_bootstrap_tmpl.json")
 	if err != nil {
 		t.Fatal("Can't read bootstrap template", err)
 	}
 
 	nodeIDSidecar := "sidecar~127.1.1.1~x~x"
 
-	sidecar := env.NewTestSetup(26, t)
+	sidecar := mixerEnv.NewTestSetup(26, t)
 	sidecar.SetNoMixer(true)
 	sidecar.SetNoProxy(true)
 	sidecar.SetNoBackend(true)
-	sidecar.IstioSrc = util.IstioSrc
-	sidecar.IstioOut = util.IstioOut
+	sidecar.IstioSrc = env.IstioSrc
+	sidecar.IstioOut = env.IstioOut
 	sidecar.Ports().PilotGrpcPort = pilotGrpcPort
 	sidecar.Ports().PilotHTTPPort = pilotDebugPort
 	sidecar.EnvoyConfigOpt = map[string]interface{}{

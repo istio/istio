@@ -27,7 +27,7 @@ DEST_DIR=$ROOT
 
 # set the default values
 ISTIO_NAMESPACE="istio-system"
-FORTIO_HUB="docker.io/istio"
+FORTIO_HUB="docker.io/fortio"
 FORTIO_TAG="latest_release"
 HYPERKUBE_HUB="quay.io/coreos/hyperkube"
 HYPERKUBE_TAG="v1.7.6_coreos.0"
@@ -168,7 +168,7 @@ function gen_istio_files() {
             gen_file $target "${DEST_DIR}"
         done
     else
-        for target in istio.yaml istio-auth.yaml istio-one-namespace.yaml istio-one-namespace-auth.yaml istio-multicluster.yaml istio-auth-multicluster.yaml istio-remote.yaml istio-galley.yaml istio-auth-galley.yaml;do
+        for target in istio.yaml istio-auth.yaml istio-one-namespace.yaml istio-one-namespace-auth.yaml istio-multicluster.yaml istio-auth-multicluster.yaml istio-remote.yaml istio-mcp.yaml istio-auth-mcp.yaml;do
             gen_file $target "${DEST_DIR}"
         done
     fi

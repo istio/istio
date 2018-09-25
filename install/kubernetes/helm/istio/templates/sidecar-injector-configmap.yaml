@@ -35,14 +35,13 @@ data:
         - "-b"
         - {{ "\"[[ annotation .ObjectMeta `traffic.sidecar.istio.io/includeInboundPorts` (includeInboundPorts .Spec.Containers) ]]\"" }}
         - "-d"
-        - {{ "\"[[ annotation .ObjectMeta `traffic.sidecar.istio.io/excludeInboundPorts` " }} "{{ .Values.global.proxy.excludeInboundPorts }}" {{ " ]]\"" }}
+        - {{ "\"[[ excludeInboundPort (annotation .ObjectMeta `status.sidecar.istio.io/port` " }} {{ .Values.global.proxy.statusPort }} {{ ") (annotation .ObjectMeta `traffic.sidecar.istio.io/excludeInboundPorts` " }} "{{ .Values.global.proxy.excludeInboundPorts }}" {{ ") ]]\"" }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
         securityContext:
           capabilities:
             add:
             - NET_ADMIN
           privileged: true
-        restartPolicy: Always
       {{- if .Values.global.proxy.enableCoreDump }}
       - args:
         - -c
@@ -63,6 +62,12 @@ data:
       containers:
       - name: istio-proxy
         image: {{ "[[ annotation .ObjectMeta `sidecar.istio.io/proxyImage` " }} "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}" {{ " ]]" }}
+{{ if ne .Values.global.proxy.stats.prometheusPort 0. }}
+        ports:
+        - containerPort: {{ .Values.global.proxy.stats.prometheusPort }}
+          protocol: TCP
+          name: http-envoy-prom
+{{ end }}
         args:
         - proxy
         - sidecar
@@ -72,9 +77,9 @@ data:
         - {{ "[[ .ProxyConfig.BinaryPath ]]" }}
         - --serviceCluster
         {{ "[[ if ne \"\" (index .ObjectMeta.Labels \"app\") -]]" }}
-        - {{ "[[ index .ObjectMeta.Labels \"app\" ]]" }}
+        - {{ "[[ index .ObjectMeta.Labels \"app\" ]].[[ valueOrDefault .DeploymentMeta.Namespace \"default\" ]]" }}
         {{ "[[ else -]]" }}
-        - "istio-proxy"
+        - {{ "[[ valueOrDefault .DeploymentMeta.Name \"istio-proxy\" ]].[[ valueOrDefault .DeploymentMeta.Namespace \"default\" ]]" }}
         {{ "[[ end -]]" }}
         - --drainDuration
         - {{ "[[ formatDuration .ProxyConfig.DrainDuration ]]" }}
@@ -100,6 +105,10 @@ data:
         {{ "[[ end -]]" }}
         - --controlPlaneAuthPolicy
         - {{ "[[ annotation .ObjectMeta `sidecar.istio.io/controlPlaneAuthPolicy` .ProxyConfig.ControlPlaneAuthPolicy ]]" }}
+        - --statusPort
+        - {{ "[[ annotation .ObjectMeta `status.sidecar.istio.io/port` " }} {{ .Values.global.proxy.statusPort }} {{ " ]]" }}
+        - --applicationPorts
+        - {{ "\"[[ annotation .ObjectMeta `readiness.status.sidecar.istio.io/applicationPorts` (applicationPorts .Spec.Containers) ]]\"" }}
         env:
         - name: POD_NAME
           valueFrom:
@@ -120,6 +129,15 @@ data:
         - name: ISTIO_META_INTERCEPTION_MODE
           value: {{ "[[ annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode ]]" }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+        {{ "[[ if (ne (annotation .ObjectMeta `status.sidecar.istio.io/port` " }} {{ .Values.global.proxy.statusPort }} {{ ") \"0\") ]]" }}
+        readinessProbe:
+          httpGet:
+            path: /healthz/ready
+            port: {{ "[[ annotation .ObjectMeta `status.sidecar.istio.io/port` " }} {{ .Values.global.proxy.statusPort }} {{ " ]]" }}
+          initialDelaySeconds: {{ "[[ annotation .ObjectMeta `readiness.status.sidecar.istio.io/initialDelaySeconds` " }} {{ .Values.global.proxy.readinessInitialDelaySeconds }} {{ " ]]" }}
+          periodSeconds: {{ "[[ annotation .ObjectMeta `readiness.status.sidecar.istio.io/periodSeconds` " }} {{ .Values.global.proxy.readinessPeriodSeconds }} {{ " ]]" }}
+          failureThreshold: {{ "[[ annotation .ObjectMeta `readiness.status.sidecar.istio.io/failureThreshold` " }} {{ .Values.global.proxy.readinessFailureThreshold }} {{ " ]]" }}
+        {{ "[[ end -]]" -}}
         securityContext:
           privileged: false
           {{- if ne .Values.global.proxy.enableCoreDump true }}
@@ -132,8 +150,7 @@ data:
           runAsGroup: 1337
           {{ "[[ else -]]" }}
           runAsUser: 1337
-          {{ "[[ end -]]" }}
-        restartPolicy: Always
+          {{ "[[- end ]]" }}
         resources:
           {{ "[[ if (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPU`) -]]" }}
           requests:

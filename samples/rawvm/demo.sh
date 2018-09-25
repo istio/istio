@@ -36,7 +36,7 @@ echo "*** non istio client to (istio) svc calls (from $cli)"
 kubectl exec "$cli" "$singlecall" "$url1"
 kubectl exec "$cli" "$singlecall" "$url2"
 echo "*** grpc calls (from $cli)"
-grpcping="/usr/local/bin/fortio -- grpcping -loglevel warning -n 100"
+grpcping="fortio -- grpcping -loglevel warning -n 100"
 kubectl exec "$cli" "$grpcping" "$cliIp" # localhost call
 kubectl exec "$cli" "$grpcping" "$srv1"
 kubectl exec "$cli" "$grpcping" "$srv2"

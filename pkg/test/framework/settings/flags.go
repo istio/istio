@@ -18,59 +18,23 @@ import (
 	"flag"
 	"fmt"
 	"os"
-
-	"istio.io/istio/pkg/log"
-)
-
-var (
-	settings = defaultSettings()
-	// TODO(nmittler): Add logging options to flags.
-	logOptions = log.DefaultOptions()
 )
 
 // init registers the command-line flags that we can exposed for "go test".
 func init() {
-	flag.StringVar(&settings.WorkDir, "work_dir", os.TempDir(),
+	flag.StringVar(&globalSettings.WorkDir, "istio.test.work_dir", os.TempDir(),
 		"Local working directory for creating logs/temp files. If left empty, os.TempDir() is used.")
-
-	flag.StringVar((*string)(&settings.Environment), "environment", string(settings.Environment),
+	flag.StringVar((*string)(&globalSettings.Environment), "istio.test.env", string(globalSettings.Environment),
 		fmt.Sprintf("Specify the environment to run the tests against. Allowed values are: [%s, %s]",
 			Local, Kubernetes))
+	flag.BoolVar(&globalSettings.NoCleanup, "istio.test.noCleanup", globalSettings.NoCleanup,
+		"Do not cleanup resources after test completion")
 
-	flag.StringVar(&settings.KubeConfig, "config", settings.KubeConfig,
-		"The path to the kube config file for cluster environments")
-
-	flag.BoolVar(&settings.NoCleanup, "no-cleanup", settings.NoCleanup, "Do not cleanup resources after test completion")
-}
-
-func processFlags() error {
-	// First, apply the environment variables.
-	applyEnvironmentVariables(settings)
-
-	flag.Parse()
-
-	if err := log.Configure(logOptions); err != nil {
-		return err
-	}
-
-	// TODO: Instead of using hub/tag, we should be using the local registry to load images from.
-	// See https://github.com/istio/istio/issues/6178 for details.
-
-	// Capture environment variables
-	hub := os.Getenv("HUB")
-	tag := os.Getenv("TAG")
-	settings.Hub = hub
-	settings.Tag = tag
-
-	return nil
-}
-
-func applyEnvironmentVariables(a *Settings) {
-	if ISTIO_TEST_KUBE_CONFIG.Value() != "" {
-		a.KubeConfig = ISTIO_TEST_KUBE_CONFIG.Value()
-	}
-
-	if ISTIO_TEST_ENVIRONMENT.Value() != "" {
-		a.Environment = EnvironmentID(ISTIO_TEST_ENVIRONMENT.Value())
-	}
+	globalSettings.LogOptions.AttachFlags(
+		func(p *[]string, name string, value []string, usage string) {
+			// TODO(ozben): Implement string array method for capturing the complete set of log settings.
+		},
+		flag.StringVar,
+		flag.IntVar,
+		flag.BoolVar)
 }

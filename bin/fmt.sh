@@ -24,6 +24,11 @@ export PATH=$GOPATH/bin:$PATH
 go get -u golang.org/x/tools/cmd/goimports
 goimports=${GOPATH}/bin/goimports
 
+if [[ -d "${goimports}" ]];then
+    echo "download golang.org/x/tools/cmd/goimports failed"
+    exit 1
+fi
+
 PKGS=${PKGS:-"."}
 if [[ -z ${GO_FILES} ]];then
   GO_FILES=$(find "${PKGS}" -type f -name '*.go' ! -name '*.gen.go' ! -name '*.pb.go' ! -name '*mock*.go' | grep -v ./vendor)

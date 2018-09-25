@@ -28,8 +28,25 @@ import (
 func TestHTTP(t *testing.T) {
 	framework.Requires(t, dependency.Apps)
 
+	testHTTP(t)
+}
+
+func TestHTTPKubernetes(t *testing.T) {
+	framework.Requires(t, dependency.Kubernetes, dependency.Apps)
+
+	testHTTP(t)
+}
+
+func TestHTTPLocal(t *testing.T) {
+	framework.Requires(t, dependency.Local, dependency.Apps)
+
+	testHTTP(t)
+}
+
+func testHTTP(t *testing.T) {
+	t.Helper()
+
 	env := framework.AcquireEnvironment(t)
-	env.Configure(t, "")
 
 	a := env.GetAppOrFail("a", t)
 	b := env.GetAppOrFail("b", t)

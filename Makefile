@@ -86,13 +86,19 @@ Q = $(if $(filter 1,$VERBOSE),,@)
 H = $(shell printf "\033[34;1m=>\033[0m")
 
 # To build Pilot, Mixer and CA with debugger information, use DEBUG=1 when invoking make
+goVerStr := $(shell $(GO) version | awk '{split($$0,a," ")}; {print a[3]}')
+goVerNum := $(shell echo $(goVerStr) | awk '{split($$0,a,"go")}; {print a[2]}')
+goVerMajor := $(shell echo $(goVerNum) | awk '{split($$0, a, ".")}; {print a[1]}')
+goVerMinor := $(shell echo $(goVerNum) | awk '{split($$0, a, ".")}; {print a[2]}')
+gcflagsPattern := $(shell ( [ $(goVerMajor) -ge 1 ] && [ ${goVerMinor} -ge 10 ] ) && echo 'all=' || echo '')
+
 ifeq ($(origin DEBUG), undefined)
 BUILDTYPE_DIR:=release
 else ifeq ($(DEBUG),0)
 BUILDTYPE_DIR:=release
 else
 BUILDTYPE_DIR:=debug
-export GCFLAGS:=-N -l
+export GCFLAGS:=$(gcflagsPattern)-N -l
 $(info $(H) Build with debugger information)
 endif
 
@@ -139,6 +145,14 @@ endif
 ISTIO_ENVOY_VERSION ?= ${PROXY_REPO_SHA}
 export ISTIO_ENVOY_DEBUG_URL ?= https://storage.googleapis.com/istio-build/proxy/envoy-debug-$(ISTIO_ENVOY_VERSION).tar.gz
 export ISTIO_ENVOY_RELEASE_URL ?= https://storage.googleapis.com/istio-build/proxy/envoy-alpha-$(ISTIO_ENVOY_VERSION).tar.gz
+
+# Use envoy build from local workspace
+export USE_LOCAL_PROXY ?= 0
+ifeq ($(USE_LOCAL_PROXY),1)
+  $(info "Using istio-proxy image from local workspace")
+  export ISTIO_ENVOY_DEBUG_PATH:=$(realpath $(ISTIO_GO)/../proxy/bazel-bin/src/envoy/envoy)
+  export ISTIO_ENVOY_RELEASE_PATH:=$(realpath $(ISTIO_GO)/../proxy/bazel-bin/src/envoy/envoy)
+endif
 
 # Variables for the extracted debug/release Envoy artifacts.
 export ISTIO_ENVOY_DEBUG_DIR ?= ${OUT_DIR}/${GOOS}_${GOARCH}/debug
@@ -210,11 +224,11 @@ check-tree:
 
 # Downloads envoy, based on the SHA defined in the base pilot Dockerfile
 init: check-tree check-go-version $(ISTIO_OUT)/istio_is_init
+	mkdir -p ${OUT_DIR}/logs
 
 # Sync target will pull from master and sync the modules. It is the first step of the
 # circleCI build, developers should call it periodically.
 sync: init git.pullmaster
-	mkdir -p ${OUT_DIR}/logs
 
 # Merge master. To be used in CI or by developers, assumes the
 # remote is called 'origin' (git default). Will fail on conflicts
@@ -235,7 +249,7 @@ ${ISTIO_OUT}/envoy: init
 ${ISTIO_ENVOY_DEBUG_PATH}: init
 ${ISTIO_ENVOY_RELEASE_PATH}: init
 
-# Pull depdendencies, based on the checked in Gopkg.lock file.
+# Pull dependencies, based on the checked in Gopkg.lock file.
 # Developers must manually run `dep ensure` if adding new deps
 depend: init | $(ISTIO_OUT)
 
@@ -336,13 +350,13 @@ servicegraph:
 ${ISTIO_OUT}/servicegraph:
 	bin/gobuild.sh $@ ./addons/$(@F)/cmd/server
 
-SECURITY_GO_BINS:=${ISTIO_OUT}/node_agent ${ISTIO_OUT}/istio_ca
+SECURITY_GO_BINS:=${ISTIO_OUT}/node_agent ${ISTIO_OUT}/node_agent_k8s ${ISTIO_OUT}/istio_ca
 $(SECURITY_GO_BINS):
 	bin/gobuild.sh $@ ./security/cmd/$(@F)
 
 .PHONY: build
 # Build will rebuild the go binaries.
-build: depend $(PILOT_GO_BINS_SHORT) mixc mixs node_agent istio_ca istioctl galley
+build: depend $(PILOT_GO_BINS_SHORT) mixc mixs node_agent node_agent_k8s istio_ca istioctl galley
 
 # The following are convenience aliases for most of the go targets
 # The first block is for aliases that are the same as the actual binary,
@@ -357,6 +371,10 @@ citadel:
 .PHONY: node-agent
 node-agent:
 	bin/gobuild.sh ${ISTIO_OUT}/node-agent ./security/cmd/node_agent
+
+.PHONY: node_agent_k8s
+node_agent_k8s:
+	bin/gobuild.sh ${ISTIO_OUT}/node_agent_k8s ./security/cmd/node_agent_k8s
 
 .PHONY: pilot
 pilot: pilot-discovery
@@ -406,10 +424,16 @@ ${ISTIO_BIN}/go-junit-report:
 
 # Run coverage tests
 JUNIT_UNIT_TEST_XML ?= $(ISTIO_OUT)/junit_unit-tests.xml
+ifeq ($(WHAT),)
+       TEST_OBJ = common-test pilot-test mixer-test security-test galley-test istioctl-test
+else
+       TEST_OBJ = selected-pkg-test
+endif
 test: | $(JUNIT_REPORT)
 	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
 	set -o pipefail; \
-	$(MAKE) --keep-going common-test pilot-test mixer-test security-test galley-test istioctl-test \
+	KUBECONFIG="$${KUBECONFIG:-$${GO_TOP}/src/istio.io/istio/.circleci/config}" \
+	$(MAKE) --keep-going $(TEST_OBJ) \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
 
 GOTEST_PARALLEL ?= '-test.parallel=4'
@@ -467,6 +491,14 @@ security-test:
 .PHONY: common-test
 common-test:
 	go test ${T} ./pkg/...
+
+.PHONY: selected-pkg-test
+selected-pkg-test:
+	find ${WHAT} -name "*_test.go"|xargs -i dirname {}|uniq|xargs -i go test ${T} {}
+
+.PHONY: upgrade-test
+upgrade-test:
+	tests/upgrade/test_upgrade_from.sh 1.0.1
 
 #-----------------------------------------------------------------------------
 # Target: coverage
@@ -687,6 +719,11 @@ include tools/deb/istio.mk
 # Target: e2e tests
 #-----------------------------------------------------------------------------
 include tests/istio.mk
+
+#-----------------------------------------------------------------------------
+# Target: integration tests
+#-----------------------------------------------------------------------------
+include tests/integration2/tests.mk
 
 #-----------------------------------------------------------------------------
 # Target: bench check

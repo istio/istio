@@ -18,7 +18,7 @@ RUN apt-get update && \
       libc6-dbg gdb \
       elvis-tiny \
       lsof \
-      busybox \
+      linux-tools-generic \
       sudo &&  apt-get upgrade -y && \
     rm -rf /var/lib/apt/lists/*
 

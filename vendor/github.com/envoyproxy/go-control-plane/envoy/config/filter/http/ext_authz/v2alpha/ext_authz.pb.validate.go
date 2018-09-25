@@ -47,9 +47,7 @@ func (m *ExtAuthz) Validate() error {
 
 	case *ExtAuthz_GrpcService:
 
-		if v, ok := interface{}(m.GetGrpcService()).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(m.GetGrpcService()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return ExtAuthzValidationError{
 					Field:  "GrpcService",
@@ -61,9 +59,7 @@ func (m *ExtAuthz) Validate() error {
 
 	case *ExtAuthz_HttpService:
 
-		if v, ok := interface{}(m.GetHttpService()).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(m.GetHttpService()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return ExtAuthzValidationError{
 					Field:  "HttpService",
@@ -117,9 +113,7 @@ func (m *HttpService) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetServerUri()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetServerUri()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HttpServiceValidationError{
 				Field:  "ServerUri",

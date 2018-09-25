@@ -44,9 +44,7 @@ func (m *DiscoveryRequest) Validate() error {
 
 	// no validation rules for VersionInfo
 
-	if v, ok := interface{}(m.GetNode()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetNode()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return DiscoveryRequestValidationError{
 				Field:  "Node",
@@ -60,9 +58,7 @@ func (m *DiscoveryRequest) Validate() error {
 
 	// no validation rules for ResponseNonce
 
-	if v, ok := interface{}(m.GetErrorDetail()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetErrorDetail()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return DiscoveryRequestValidationError{
 				Field:  "ErrorDetail",
@@ -119,9 +115,7 @@ func (m *DiscoveryResponse) Validate() error {
 	for idx, item := range m.GetResources() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return DiscoveryResponseValidationError{
 					Field:  fmt.Sprintf("Resources[%v]", idx),
@@ -181,9 +175,7 @@ func (m *IncrementalDiscoveryRequest) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetNode()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetNode()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return IncrementalDiscoveryRequestValidationError{
 				Field:  "Node",
@@ -199,9 +191,7 @@ func (m *IncrementalDiscoveryRequest) Validate() error {
 
 	// no validation rules for ResponseNonce
 
-	if v, ok := interface{}(m.GetErrorDetail()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetErrorDetail()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return IncrementalDiscoveryRequestValidationError{
 				Field:  "ErrorDetail",
@@ -259,9 +249,7 @@ func (m *IncrementalDiscoveryResponse) Validate() error {
 	for idx, item := range m.GetResources() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return IncrementalDiscoveryResponseValidationError{
 					Field:  fmt.Sprintf("Resources[%v]", idx),
@@ -319,9 +307,7 @@ func (m *Resource) Validate() error {
 
 	// no validation rules for Version
 
-	if v, ok := interface{}(m.GetResource()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetResource()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ResourceValidationError{
 				Field:  "Resource",

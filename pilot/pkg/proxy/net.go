@@ -15,6 +15,7 @@
 package proxy
 
 import (
+	"context"
 	"net"
 	"time"
 )
@@ -26,28 +27,25 @@ const (
 	waitTimeout  = 2 * time.Minute
 )
 
-// GetPrivateIP returns a private IP address, or panics if no IP is available.
-func GetPrivateIP() net.IP {
-	addr := getPrivateIPIfAvailable()
-	if addr.IsUnspecified() {
-		panic("No private IP address is available")
+// GetPrivateIP blocks until a private IP address is available, or a timeout is reached.
+func GetPrivateIP(ctx context.Context) (net.IP, bool) {
+	if _, ok := ctx.Deadline(); !ok {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, waitTimeout)
+		defer cancel()
 	}
-	return addr
-}
 
-// WaitForPrivateNetwork blocks until a private IP address is available, or a timeout is reached.
-// Returns 'true' if a private IP is available before timeout is reached, and 'false' otherwise.
-func WaitForPrivateNetwork() bool {
-	deadline := time.Now().Add(waitTimeout)
 	for {
-		addr := getPrivateIPIfAvailable()
-		if !addr.IsUnspecified() {
-			return true
+		select {
+		case <-ctx.Done():
+			return net.IPv4zero, false
+		default:
+			addr := getPrivateIPIfAvailable()
+			if !addr.IsUnspecified() {
+				return addr, true
+			}
+			time.Sleep(waitInterval)
 		}
-		if time.Now().After(deadline) {
-			return false
-		}
-		time.Sleep(waitInterval)
 	}
 }
 

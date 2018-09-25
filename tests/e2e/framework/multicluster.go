@@ -84,12 +84,11 @@ func (k *KubeInfo) getEndpointIPForService(svc string) (ip string, err error) {
 
 func (k *KubeInfo) generateRemoteIstio(dst string, useAutoInject bool, proxyHub, proxyTag string) (err error) {
 	svcToHelmVal := map[string]string{
-		"istio-pilot":              "remotePilotAddress",
-		"istio-policy":             "remotePolicyAddress",
-		"istio-statsd-prom-bridge": "proxy.envoyStatsd.host",
-		"istio-ingressgateway":     "ingressGatewayEndpoint",
-		"istio-telemetry":          "remoteTelemetryAddress",
-		"zipkin":                   "remoteZipkinAddress",
+		"istio-pilot":          "remotePilotAddress",
+		"istio-policy":         "remotePolicyAddress",
+		"istio-ingressgateway": "ingressGatewayEndpoint",
+		"istio-telemetry":      "remoteTelemetryAddress",
+		"zipkin":               "remoteZipkinAddress",
 	}
 	var helmSetContent string
 	var ingressGatewayAddr string
@@ -99,9 +98,6 @@ func (k *KubeInfo) generateRemoteIstio(dst string, useAutoInject bool, proxyHub,
 		if err == nil {
 			helmSetContent += " --set global." + helmVal + "=" + ip
 			log.Infof("Service %s has an endpoint IP %s", svc, ip)
-			if svc == "istio-statsd-prom-bridge" {
-				helmSetContent += " --set global.proxy.envoyStatsd.enabled=true"
-			}
 			if svc == "istio-ingressgateway" {
 				ingressGatewayAddr = ip
 			}
@@ -120,7 +116,7 @@ func (k *KubeInfo) generateRemoteIstio(dst string, useAutoInject bool, proxyHub,
 		helmSetContent += " --set global.hub=" + proxyHub + " --set global.tag=" + proxyTag
 	}
 	chartDir := filepath.Join(k.ReleaseDir, "install/kubernetes/helm/istio-remote")
-	util.HelmTemplate(chartDir, "istio-remote", k.Namespace, helmSetContent, dst)
+	err = util.HelmTemplate(chartDir, "istio-remote", k.Namespace, helmSetContent, dst)
 	if err != nil {
 		log.Errorf("cannot write remote into generated yaml file %s: %v", dst, err)
 		return err

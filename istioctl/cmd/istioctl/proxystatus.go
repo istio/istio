@@ -82,5 +82,5 @@ func init() {
 }
 
 func newExecClient(kubeconfig, configContext string) (kubernetes.ExecClient, error) {
-	return kubernetes.NewExecClient(kubeconfig, configContext)
+	return kubernetes.NewClient(kubeconfig, configContext)
 }

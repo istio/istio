@@ -19,11 +19,13 @@ import (
 	"testing"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	"github.com/gogo/googleapis/google/rpc"
 	"github.com/gogo/protobuf/proto"
 
+	istio_mixer_v1 "istio.io/api/mixer/v1"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/test/application/echo"
 	"istio.io/istio/pkg/test/framework/settings"
-	"istio.io/istio/pkg/test/service/echo"
 )
 
 // AppProtocol enumerates the protocol options for calling an DeployedAppEndpoint endpoint.
@@ -108,6 +110,9 @@ type (
 	Implementation interface {
 		// EnvironmentID is the unique ID of the implemented environment.
 		EnvironmentID() settings.EnvironmentID
+
+		// Evaluate the given template with environment specific template variables.
+		Evaluate(tmpl string) (string, error)
 	}
 
 	// Deployed represents a deployed component
@@ -186,6 +191,12 @@ type (
 
 		// Report is called directly with the given attributes.
 		Report(t testing.TB, attributes map[string]interface{})
+		Check(t testing.TB, attributes map[string]interface{}) CheckResponse
+	}
+
+	// CheckResponse that is returned from a Mixer Check call.
+	CheckResponse struct {
+		Raw *istio_mixer_v1.CheckResponse
 	}
 
 	// DeployedPilot represents a deployed Pilot instance.
@@ -207,3 +218,8 @@ type (
 		Raw string
 	}
 )
+
+// Succeeded returns true if the precondition check was successful.
+func (c *CheckResponse) Succeeded() bool {
+	return c.Raw.Precondition.Status.Code == int32(rpc.OK)
+}

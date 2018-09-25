@@ -86,6 +86,7 @@ static_resources:
 // Check attributes from a good GET request
 const checkAttributesOkGet = `
 {
+  "context.reporter.uid": "",
   "connection.mtls": false,
   "origin.ip": "[127 0 0 1]",
   "context.protocol": "http",
@@ -98,6 +99,8 @@ const checkAttributesOkGet = `
   "request.method": "GET",
   "request.scheme": "http",
   "request.url_path": "/echo",
+  "destination.uid": "",
+  "destination.namespace": "",
   "target.namespace": "XYZ222",
   "target.uid": "POD222",
   "request.headers": {

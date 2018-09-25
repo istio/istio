@@ -26,6 +26,8 @@ import (
 	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc"
 
+	"istio.io/istio/mixer/template/checknothing"
+
 	"istio.io/api/mixer/adapter/model/v1beta1"
 	istio_mixer_adapter_model_v1beta11 "istio.io/api/mixer/adapter/model/v1beta1"
 	"istio.io/istio/mixer/template/metric"
@@ -53,6 +55,7 @@ type Backend struct {
 }
 
 var _ metric.HandleMetricServiceServer = &Backend{}
+var _ checknothing.HandleCheckNothingServiceServer = &Backend{}
 
 var _ v1beta1.InfrastructureBackendServer = &Backend{}
 
@@ -78,6 +81,7 @@ func (b *Backend) Start() error {
 	grpcServer := grpc.NewServer()
 	v1beta1.RegisterInfrastructureBackendServer(grpcServer, b)
 	metric.RegisterHandleMetricServiceServer(grpcServer, b)
+	checknothing.RegisterHandleCheckNothingServiceServer(grpcServer, b)
 	RegisterControllerServiceServer(grpcServer, b)
 
 	go func() {
@@ -133,8 +137,6 @@ func (b *Backend) GetReports(ctx context.Context, req *GetReportsRequest) (*GetR
 		}
 		resp.Instances = append(resp.Instances, a)
 	}
-
-	b.reports = b.reports[0:0]
 
 	return resp, nil
 }
@@ -194,4 +196,30 @@ func (b *Backend) HandleMetric(ctx context.Context, req *metric.HandleMetricRequ
 	}
 
 	return &istio_mixer_adapter_model_v1beta11.ReportResult{}, nil
+}
+
+// HandleCheckNothing is an implementation of HandleCheckNothingServiceServer.HandleCheckNothing.
+func (b *Backend) HandleCheckNothing(ctx context.Context, req *checknothing.HandleCheckNothingRequest) (
+	*istio_mixer_adapter_model_v1beta11.CheckResult, error) {
+	scope.Infof("Backend.HandleCheckNothing %v", req)
+
+	b.lock.Lock()
+	defer b.lock.Unlock()
+
+	if b.settings.getDenyCheck() {
+		return &istio_mixer_adapter_model_v1beta11.CheckResult{
+			Status: google_rpc.Status{
+				Code:    int32(google_rpc.UNAUTHENTICATED),
+				Message: "bypass-backend-unauthenticated",
+			},
+		}, nil
+	}
+
+	return &istio_mixer_adapter_model_v1beta11.CheckResult{
+		Status: google_rpc.Status{
+			Code: int32(google_rpc.OK),
+		},
+		ValidDuration: 0,
+		ValidUseCount: 1,
+	}, nil
 }

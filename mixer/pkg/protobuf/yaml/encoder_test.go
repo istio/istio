@@ -1039,3 +1039,72 @@ map_fixed32_enum:
 		}
 	}
 }
+
+func TestMapDeterministicEncoding(t *testing.T) {
+	fds, fdsLoadErr := GetFileDescSet("testdata/all/types.descriptor")
+	if fdsLoadErr != nil {
+		t.Fatal(fdsLoadErr)
+	}
+	strMaps := []string{
+		`
+map_str_str:
+  key1: one
+  key2: two
+  key3: three
+  key4: four
+  key5: five
+  key6: six
+  key7: seven
+  key8: eight
+  key9: nine
+  key10: ten
+`,
+		`
+map_str_str:
+  key2: two
+  key1: one
+  key9: nine
+  key3: three
+  key4: four
+  key7: seven
+  key5: five
+  key6: six
+  key8: eight
+  key10: ten
+`,
+		`
+map_str_str:
+  key2: two
+  key7: seven
+  key1: one
+  key4: four
+  key9: nine
+  key3: three
+  key5: five
+  key10: ten
+  key6: six
+  key8: eight
+`,
+	}
+
+	var ba []byte
+	str := ""
+	for _, s := range strMaps {
+		jsonBytes, _ := yaml.YAMLToJSON([]byte(s))
+		var in map[string]interface{}
+		if err := json.Unmarshal(jsonBytes, &in); err != nil {
+			t.Fatal("bad yaml")
+		}
+		r := NewEncoder(fds)
+		gotBytes, err := r.EncodeBytes(in, ".foo.Simple", false)
+		if err != nil {
+			t.Errorf("got error '%v'", err)
+		}
+		if ba == nil {
+			ba = gotBytes
+			str = s
+		} else if !bytes.Equal(ba, gotBytes) {
+			t.Fatalf("map encoding is not deterministic: %v and %v encode differently, want %v, got %v", s, str, ba, gotBytes)
+		}
+	}
+}

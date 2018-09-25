@@ -41,6 +41,7 @@ import (
 	"fortio.org/fortio/periodic"
 
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/tests/e2e/framework"
 	"istio.io/istio/tests/util"
 )
@@ -55,9 +56,9 @@ const (
 	sleepYaml             = "samples/sleep/sleep"
 	mixerTestDataDir      = "tests/e2e/tests/mixer/testdata"
 
-	prometheusPort   = "9090"
-	mixerMetricsPort = "42422"
-	productPagePort  = "10000"
+	prometheusPort   = uint16(9090)
+	mixerMetricsPort = uint16(42422)
+	productPagePort  = uint16(10000)
 
 	srcLabel           = "source_service"
 	srcPodLabel        = "source_pod"
@@ -294,7 +295,7 @@ func deleteAllRoutingConfig() error {
 
 type promProxy struct {
 	namespace        string
-	portFwdProcesses []*os.Process
+	portFwdProcesses []kube.PortForwarder
 }
 
 func newPromProxy(namespace string) *promProxy {
@@ -353,35 +354,31 @@ func podLogs(labelSelector string, container string) {
 }
 
 // portForward sets up local port forward to the pod specified by the "app" label
-func (p *promProxy) portForward(labelSelector string, localPort string, remotePort string) error {
-	var pod string
-	var err error
-	var proc *os.Process
-
-	getName := fmt.Sprintf("kubectl -n %s get pod -l %s -o jsonpath='{.items[0].metadata.name}'", p.namespace, labelSelector)
-	pod, err = util.Shell(getName)
-	if err != nil {
-		return err
-	}
-	log.Infof("%s pod name: %s", labelSelector, pod)
-
+func (p *promProxy) portForward(labelSelector string, localPort, remotePort uint16) error {
 	log.Infof("Setting up %s proxy", labelSelector)
-	portFwdCmd := fmt.Sprintf("kubectl port-forward %s %s:%s -n %s", strings.Trim(pod, "'"), localPort, remotePort, p.namespace)
-	log.Info(portFwdCmd)
-	if proc, err = util.RunBackground(portFwdCmd); err != nil {
-		log.Errorf("Failed to port forward: %s", err)
+	options := &kube.PodSelectOptions{
+		PodNamespace:  p.namespace,
+		LabelSelector: labelSelector,
+	}
+	forwarder, err := kube.NewPortForwarder(tc.Kube.KubeConfig, options, localPort, remotePort)
+	if err != nil {
+		log.Errorf("Error creating port forwarder: %v", err)
 		return err
 	}
-	p.portFwdProcesses = append(p.portFwdProcesses, proc)
+	if err := forwarder.Start(); err != nil {
+		log.Errorf("Error starting port forwarder: %v", err)
+		return err
+	}
+	p.portFwdProcesses = append(p.portFwdProcesses, forwarder)
 
 	// Give it some time since process is launched in the background
 	time.Sleep(3 * time.Second)
-	if _, err = net.DialTimeout("tcp", ":"+localPort, 5*time.Second); err != nil {
+	if _, err = net.DialTimeout("tcp", forwarder.Address(), 5*time.Second); err != nil {
 		log.Errorf("Failed to port forward: %s", err)
 		return err
 	}
 
-	log.Infof("running %s port-forward in background, pid = %d", labelSelector, proc.Pid)
+	log.Infof("running %s port-forward in background", labelSelector)
 	return nil
 }
 
@@ -400,16 +397,13 @@ func (p *promProxy) Setup() error {
 		return err
 	}
 
-	return p.portForward("app=productpage", productPagePort, "9080")
+	return p.portForward("app=productpage", productPagePort, uint16(9080))
 }
 
 func (p *promProxy) Teardown() (err error) {
 	log.Info("Cleaning up mixer proxy")
-	for _, proc := range p.portFwdProcesses {
-		err := proc.Kill()
-		if err != nil {
-			log.Errorf("Failed to kill port-forward process, pid: %d", proc.Pid)
-		}
+	for _, pf := range p.portFwdProcesses {
+		pf.Close()
 	}
 	return
 }
@@ -790,7 +784,7 @@ func TestIngressCheckCache(t *testing.T) {
 		}
 		return nil
 	}
-	testCheckCache(t, visit)
+	testCheckCache(t, visit, "istio-ingressgateway")
 }
 
 func getIngressOrFail(t *testing.T) string {
@@ -810,12 +804,12 @@ func TestCheckCache(t *testing.T) {
 	visit := func() error {
 		return visitWithApp(url, pod, "sleep", 100)
 	}
-	testCheckCache(t, visit)
+	testCheckCache(t, visit, "productpage")
 }
 
 // testCheckCache verifies check cache is used when calling the given visit function
 // by comparing the check call metric.
-func testCheckCache(t *testing.T, visit func() error) {
+func testCheckCache(t *testing.T, visit func() error, app string) {
 	promAPI, err := promAPI()
 	if err != nil {
 		fatalf(t, "Could not build prometheus API client: %v", err)
@@ -823,7 +817,7 @@ func testCheckCache(t *testing.T, visit func() error) {
 
 	// Get check cache hit baseline.
 	t.Log("Query prometheus to get baseline cache hits...")
-	prior, err := getCheckCacheHits(promAPI)
+	prior, err := getCheckCacheHits(promAPI, app)
 	if err != nil {
 		fatalf(t, "Unable to retrieve valid cached hit number: %v", err)
 	}
@@ -837,7 +831,7 @@ func testCheckCache(t *testing.T, visit func() error) {
 	allowPrometheusSync()
 	t.Log("Query promethus to get new cache hits number...")
 	// Get new check cache hit.
-	got, err := getCheckCacheHits(promAPI)
+	got, err := getCheckCacheHits(promAPI, app)
 	if err != nil {
 		fatalf(t, "Unable to retrieve valid cached hit number: %v", err)
 	}
@@ -1272,7 +1266,7 @@ func allowPrometheusSync() {
 }
 
 func promAPI() (v1.API, error) {
-	client, err := api.NewClient(api.Config{Address: fmt.Sprintf("http://localhost:%s", prometheusPort)})
+	client, err := api.NewClient(api.Config{Address: fmt.Sprintf("http://localhost:%d", prometheusPort)})
 	if err != nil {
 		return nil, err
 	}
@@ -1329,13 +1323,13 @@ func vectorValue(val model.Value, labels map[string]string) (float64, error) {
 // checkProductPageDirect
 func checkProductPageDirect() {
 	log.Info("checkProductPageDirect")
-	dumpURL("http://localhost:"+productPagePort+"/productpage", false)
+	dumpURL(fmt.Sprintf("http://localhost:%d/productpage", productPagePort), false)
 }
 
 // dumpMixerMetrics fetch metrics directly from mixer and dump them
 func dumpMixerMetrics() {
 	log.Info("dumpMixerMetrics")
-	dumpURL("http://localhost:"+mixerMetricsPort+"/metrics", true)
+	dumpURL(fmt.Sprintf("http://localhost:%d/metrics", mixerMetricsPort), true)
 }
 
 func dumpURL(url string, dumpContents bool) {
@@ -1440,9 +1434,9 @@ func visitWithApp(url string, pod string, container string, num int) error {
 }
 
 // getCheckCacheHits returned the total number of check cache hits in this cluster.
-func getCheckCacheHits(promAPI v1.API) (float64, error) {
+func getCheckCacheHits(promAPI v1.API, app string) (float64, error) {
 	log.Info("Get number of cached check calls")
-	query := fmt.Sprintf("envoy_http_mixer_filter_total_check_calls")
+	query := fmt.Sprintf("sum(envoy_http_mixer_filter_total_check_calls{app=\"%s\"})", app)
 	log.Infof("prometheus query: %s", query)
 	value, err := promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
@@ -1455,7 +1449,7 @@ func getCheckCacheHits(promAPI v1.API) (float64, error) {
 		totalCheck = 0
 	}
 
-	query = fmt.Sprintf("envoy_http_mixer_filter_total_remote_check_calls")
+	query = fmt.Sprintf("sum(envoy_http_mixer_filter_total_remote_check_calls{app=\"%s\"})", app)
 	log.Infof("prometheus query: %s", query)
 	value, err = promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {

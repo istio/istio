@@ -387,6 +387,13 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 			})
 		}
 
+		if len(in.RemoveResponseHeaders) > 0 {
+			action.ResponseHeadersToRemove = make([]string, 0)
+			for _, value := range in.RemoveResponseHeaders {
+				action.ResponseHeadersToRemove = append(action.ResponseHeadersToRemove, value)
+			}
+		}
+
 		if in.Mirror != nil {
 			n := GetDestinationCluster(in.Mirror, serviceRegistry[model.Hostname(in.Mirror.Host)], port)
 			action.RequestMirrorPolicy = &route.RouteAction_RequestMirrorPolicy{Cluster: n}

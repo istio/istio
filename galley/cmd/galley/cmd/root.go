@@ -82,6 +82,11 @@ func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 			if !serverArgs.EnableServer && !validationArgs.EnableValidation {
 				fatalf("Galley must be running under at least one mode: server or validation")
 			}
+
+			if err := validationArgs.Validate(); err != nil {
+				fatalf("Invalid validationArgs: %v", err)
+			}
+
 			if serverArgs.EnableServer {
 				go server.RunServer(serverArgs, printf, fatalf, livenessProbeController, readinessProbeController)
 			}
@@ -135,6 +140,8 @@ func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 	rootCmd.PersistentFlags().BoolVar(&serverArgs.EnableServer, "enable-server", serverArgs.EnableServer, "Run galley server mode")
 	rootCmd.PersistentFlags().StringVarP(&serverArgs.AccessListFile, "accessListFile", "", serverArgs.AccessListFile,
 		"The access list yaml file that contains the allowd mTLS peer ids.")
+	rootCmd.PersistentFlags().StringVar(&serverArgs.ConfigPath, "configPath", serverArgs.ConfigPath,
+		"Istio config file path")
 	serverArgs.IntrospectionOptions.AttachCobraFlags(rootCmd)
 
 	//validation config

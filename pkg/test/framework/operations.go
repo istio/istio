@@ -18,13 +18,10 @@ import (
 	"os"
 	"testing"
 
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/framework/dependency"
 	env "istio.io/istio/pkg/test/framework/environment"
+	"istio.io/istio/pkg/test/framework/scopes"
 )
-
-var scope = log.RegisterScope("testframework", "General scope for the test framework", 0)
-var lab = log.RegisterScope("testframework-lab", "Scope for normal log reporting to be used by the lab", 0)
 
 var d = newDriver()
 
@@ -33,7 +30,7 @@ var d = newDriver()
 func Run(testID string, m *testing.M) {
 	exitcode, err := d.Run(testID, m)
 	if err != nil {
-		scope.Errorf("test.Run: %v", err)
+		scopes.Framework.Errorf("test.Run: %v", err)
 	}
 	os.Exit(exitcode)
 }

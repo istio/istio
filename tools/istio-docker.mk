@@ -28,13 +28,6 @@ $(ISTIO_DOCKER) $(ISTIO_DOCKER_TAR):
 NODE_AGENT_TEST_FILES:=security/docker/start_app.sh \
                        security/docker/app.js
 
-GRAFANA_FILES:=addons/grafana/dashboards.yaml \
-               addons/grafana/datasources.yaml \
-               addons/grafana/grafana.ini
-
-# note that "dashboards" is a directory rather than a file
-$(ISTIO_DOCKER)/dashboards: addons/grafana/$$(notdir $$@) | $(ISTIO_DOCKER)
-	cp -r $< $(@D)
 
 # note that "js" and "force" are directories rather than a file
 $(ISTIO_DOCKER)/js $(ISTIO_DOCKER)/force: addons/servicegraph/$$(notdir $$@) | $(ISTIO_DOCKER)
@@ -56,7 +49,7 @@ $(ISTIO_DOCKER)/node_agent.crt $(ISTIO_DOCKER)/node_agent.key: ${GEN_CERT} $(IST
 # tell make which files are copied form go/out
 DOCKER_FILES_FROM_ISTIO_OUT:=pilot-test-client pilot-test-server \
                              pilot-discovery pilot-agent sidecar-injector servicegraph mixs \
-                             istio_ca node_agent galley
+                             istio_ca node_agent node_agent_k8s galley
 $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT), \
         $(eval $(ISTIO_DOCKER)/$(FILE): $(ISTIO_OUT)/$(FILE) | $(ISTIO_DOCKER); cp $$< $$(@D)))
 
@@ -193,21 +186,16 @@ $(GALLEY_DOCKER): galley/docker/Dockerfile$$(suffix $$@) $(ISTIO_DOCKER)/galley 
 docker.citadel:         $(ISTIO_DOCKER)/istio_ca     $(ISTIO_DOCKER)/ca-certificates.tgz
 docker.citadel-test:    $(ISTIO_DOCKER)/istio_ca.crt $(ISTIO_DOCKER)/istio_ca.key
 docker.node-agent:      $(ISTIO_DOCKER)/node_agent
+docker.node-agent-k8s:  $(ISTIO_DOCKER)/node_agent_k8s
 docker.node-agent-test: $(ISTIO_DOCKER)/node_agent $(ISTIO_DOCKER)/istio_ca.key \
                         $(ISTIO_DOCKER)/node_agent.crt $(ISTIO_DOCKER)/node_agent.key
 $(foreach FILE,$(NODE_AGENT_TEST_FILES),$(eval docker.node-agent-test: $(ISTIO_DOCKER)/$(notdir $(FILE))))
 
-SECURITY_DOCKER:=docker.citadel docker.citadel-test docker.node-agent docker.node-agent-test
+SECURITY_DOCKER:=docker.citadel docker.citadel-test docker.node-agent docker.node-agent-k8s docker.node-agent-test
 $(SECURITY_DOCKER): security/docker/Dockerfile$$(suffix $$@) | $(ISTIO_DOCKER)
 	$(DOCKER_RULE)
 
-# grafana image
-
-$(foreach FILE,$(GRAFANA_FILES),$(eval docker.grafana: $(ISTIO_DOCKER)/$(notdir $(FILE))))
-docker.grafana: addons/grafana/Dockerfile$$(suffix $$@) $(GRAFANA_FILES) $(ISTIO_DOCKER)/dashboards
-	$(DOCKER_RULE)
-
-DOCKER_TARGETS:=docker.pilot docker.proxy_debug docker.proxyv2 docker.app docker.test_policybackend $(PILOT_DOCKER) $(SERVICEGRAPH_DOCKER) $(MIXER_DOCKER) $(SECURITY_DOCKER) docker.grafana $(GALLEY_DOCKER)
+DOCKER_TARGETS:=docker.pilot docker.proxy_debug docker.proxytproxy docker.proxyv2 docker.app docker.test_policybackend $(PILOT_DOCKER) $(SERVICEGRAPH_DOCKER) $(MIXER_DOCKER) $(SECURITY_DOCKER) $(GALLEY_DOCKER)
 
 DOCKER_RULE=time (cp $< $(ISTIO_DOCKER)/ && cd $(ISTIO_DOCKER) && \
             docker build -t $(HUB)/$(subst docker.,,$@):$(TAG) -f Dockerfile$(suffix $@) .)

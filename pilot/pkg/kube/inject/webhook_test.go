@@ -117,19 +117,30 @@ ZOQ5UvU=
 -----END CERTIFICATE-----`)
 )
 
+func parseToLabelSelector(t *testing.T, selector string) *metav1.LabelSelector {
+	result, err := metav1.ParseToLabelSelector(selector)
+	if err != nil {
+		t.Errorf("Invalid selector %v: %v", selector, err)
+	}
+
+	return result
+}
+
 func TestInjectRequired(t *testing.T) {
 	podSpec := &corev1.PodSpec{}
 	podSpecHostNetwork := &corev1.PodSpec{
 		HostNetwork: true,
 	}
 	cases := []struct {
-		policy  InjectionPolicy
+		config  *Config
 		podSpec *corev1.PodSpec
 		meta    *metav1.ObjectMeta
 		want    bool
 	}{
 		{
-			policy:  InjectionPolicyEnabled,
+			config: &Config{
+				Policy: InjectionPolicyEnabled,
+			},
 			podSpec: podSpec,
 			meta: &metav1.ObjectMeta{
 				Name:        "no-policy",
@@ -139,7 +150,9 @@ func TestInjectRequired(t *testing.T) {
 			want: true,
 		},
 		{
-			policy:  InjectionPolicyEnabled,
+			config: &Config{
+				Policy: InjectionPolicyEnabled,
+			},
 			podSpec: podSpec,
 			meta: &metav1.ObjectMeta{
 				Name:      "default-policy",
@@ -148,7 +161,9 @@ func TestInjectRequired(t *testing.T) {
 			want: true,
 		},
 		{
-			policy:  InjectionPolicyEnabled,
+			config: &Config{
+				Policy: InjectionPolicyEnabled,
+			},
 			podSpec: podSpec,
 			meta: &metav1.ObjectMeta{
 				Name:        "force-on-policy",
@@ -158,7 +173,9 @@ func TestInjectRequired(t *testing.T) {
 			want: true,
 		},
 		{
-			policy:  InjectionPolicyEnabled,
+			config: &Config{
+				Policy: InjectionPolicyEnabled,
+			},
 			podSpec: podSpec,
 			meta: &metav1.ObjectMeta{
 				Name:        "force-off-policy",
@@ -168,7 +185,9 @@ func TestInjectRequired(t *testing.T) {
 			want: false,
 		},
 		{
-			policy:  InjectionPolicyDisabled,
+			config: &Config{
+				Policy: InjectionPolicyDisabled,
+			},
 			podSpec: podSpec,
 			meta: &metav1.ObjectMeta{
 				Name:        "no-policy",
@@ -178,7 +197,9 @@ func TestInjectRequired(t *testing.T) {
 			want: false,
 		},
 		{
-			policy:  InjectionPolicyDisabled,
+			config: &Config{
+				Policy: InjectionPolicyDisabled,
+			},
 			podSpec: podSpec,
 			meta: &metav1.ObjectMeta{
 				Name:      "default-policy",
@@ -187,7 +208,9 @@ func TestInjectRequired(t *testing.T) {
 			want: false,
 		},
 		{
-			policy:  InjectionPolicyDisabled,
+			config: &Config{
+				Policy: InjectionPolicyDisabled,
+			},
 			podSpec: podSpec,
 			meta: &metav1.ObjectMeta{
 				Name:        "force-on-policy",
@@ -197,7 +220,9 @@ func TestInjectRequired(t *testing.T) {
 			want: true,
 		},
 		{
-			policy:  InjectionPolicyDisabled,
+			config: &Config{
+				Policy: InjectionPolicyDisabled,
+			},
 			podSpec: podSpec,
 			meta: &metav1.ObjectMeta{
 				Name:        "force-off-policy",
@@ -207,7 +232,9 @@ func TestInjectRequired(t *testing.T) {
 			want: false,
 		},
 		{
-			policy:  InjectionPolicyEnabled,
+			config: &Config{
+				Policy: InjectionPolicyEnabled,
+			},
 			podSpec: podSpecHostNetwork,
 			meta: &metav1.ObjectMeta{
 				Name:        "force-off-policy",
@@ -216,11 +243,273 @@ func TestInjectRequired(t *testing.T) {
 			},
 			want: false,
 		},
+		{
+			config: &Config{
+				Policy: "wrong_policy",
+			},
+			podSpec: podSpec,
+			meta: &metav1.ObjectMeta{
+				Name:        "wrong-policy",
+				Namespace:   "test-namespace",
+				Annotations: map[string]string{},
+			},
+			want: false,
+		},
+		{
+			config: &Config{
+				Policy:               InjectionPolicyEnabled,
+				AlwaysInjectSelector: []metav1.LabelSelector{{MatchLabels: map[string]string{"foo": "bar"}}},
+			},
+			podSpec: podSpec,
+			meta: &metav1.ObjectMeta{
+				Name:      "policy-enabled-always-inject-no-labels",
+				Namespace: "test-namespace",
+			},
+			want: true,
+		},
+		{
+			config: &Config{
+				Policy:               InjectionPolicyEnabled,
+				AlwaysInjectSelector: []metav1.LabelSelector{{MatchLabels: map[string]string{"foo": "bar"}}},
+			},
+			podSpec: podSpec,
+			meta: &metav1.ObjectMeta{
+				Name:      "policy-enabled-always-inject-with-labels",
+				Namespace: "test-namespace",
+				Labels:    map[string]string{"foo": "bar1"},
+			},
+			want: true,
+		},
+		{
+			config: &Config{
+				Policy:               InjectionPolicyDisabled,
+				AlwaysInjectSelector: []metav1.LabelSelector{{MatchLabels: map[string]string{"foo": "bar"}}},
+			},
+			podSpec: podSpec,
+			meta: &metav1.ObjectMeta{
+				Name:      "policy-disabled-always-inject-no-labels",
+				Namespace: "test-namespace",
+			},
+			want: false,
+		},
+		{
+			config: &Config{
+				Policy:               InjectionPolicyDisabled,
+				AlwaysInjectSelector: []metav1.LabelSelector{{MatchLabels: map[string]string{"foo": "bar"}}},
+			},
+			podSpec: podSpec,
+			meta: &metav1.ObjectMeta{
+				Name:      "policy-disabled-always-inject-with-labels",
+				Namespace: "test-namespace",
+				Labels:    map[string]string{"foo": "bar"},
+			},
+			want: true,
+		},
+		{
+			config: &Config{
+				Policy:              InjectionPolicyEnabled,
+				NeverInjectSelector: []metav1.LabelSelector{{MatchLabels: map[string]string{"foo": "bar"}}},
+			},
+			podSpec: podSpec,
+			meta: &metav1.ObjectMeta{
+				Name:      "policy-enabled-never-inject-no-labels",
+				Namespace: "test-namespace",
+			},
+			want: true,
+		},
+		{
+			config: &Config{
+				Policy:              InjectionPolicyEnabled,
+				NeverInjectSelector: []metav1.LabelSelector{{MatchLabels: map[string]string{"foo": "bar"}}},
+			},
+			podSpec: podSpec,
+			meta: &metav1.ObjectMeta{
+				Name:      "policy-enabled-never-inject-with-labels",
+				Namespace: "test-namespace",
+				Labels:    map[string]string{"foo": "bar"},
+			},
+			want: false,
+		},
+		{
+			config: &Config{
+				Policy:              InjectionPolicyDisabled,
+				NeverInjectSelector: []metav1.LabelSelector{{MatchLabels: map[string]string{"foo": "bar"}}},
+			},
+			podSpec: podSpec,
+			meta: &metav1.ObjectMeta{
+				Name:      "policy-disabled-never-inject-no-labels",
+				Namespace: "test-namespace",
+			},
+			want: false,
+		},
+		{
+			config: &Config{
+				Policy:              InjectionPolicyDisabled,
+				NeverInjectSelector: []metav1.LabelSelector{{MatchLabels: map[string]string{"foo": "bar"}}},
+			},
+			podSpec: podSpec,
+			meta: &metav1.ObjectMeta{
+				Name:      "policy-disabled-never-inject-with-labels",
+				Namespace: "test-namespace",
+				Labels:    map[string]string{"foo": "bar"},
+			},
+			want: false,
+		},
+		{
+			config: &Config{
+				Policy:              InjectionPolicyEnabled,
+				NeverInjectSelector: []metav1.LabelSelector{*parseToLabelSelector(t, "foo")},
+			},
+			podSpec: podSpec,
+			meta: &metav1.ObjectMeta{
+				Name:      "policy-enabled-never-inject-with-empty-label",
+				Namespace: "test-namespace",
+				Labels:    map[string]string{"foo": "", "foo2": "bar2"},
+			},
+			want: false,
+		},
+		{
+			config: &Config{
+				Policy:               InjectionPolicyDisabled,
+				AlwaysInjectSelector: []metav1.LabelSelector{*parseToLabelSelector(t, "foo")},
+			},
+			podSpec: podSpec,
+			meta: &metav1.ObjectMeta{
+				Name:      "policy-disabled-always-inject-with-empty-label",
+				Namespace: "test-namespace",
+				Labels:    map[string]string{"foo": "", "foo2": "bar2"},
+			},
+			want: true,
+		},
+		{
+			config: &Config{
+				Policy:               InjectionPolicyDisabled,
+				AlwaysInjectSelector: []metav1.LabelSelector{*parseToLabelSelector(t, "always")},
+				NeverInjectSelector:  []metav1.LabelSelector{*parseToLabelSelector(t, "never")},
+			},
+			podSpec: podSpec,
+			meta: &metav1.ObjectMeta{
+				Name:      "policy-disabled-always-never-inject-with-label-returns-true",
+				Namespace: "test-namespace",
+				Labels:    map[string]string{"always": "bar", "foo2": "bar2"},
+			},
+			want: true,
+		},
+		{
+			config: &Config{
+				Policy:               InjectionPolicyDisabled,
+				AlwaysInjectSelector: []metav1.LabelSelector{*parseToLabelSelector(t, "always")},
+				NeverInjectSelector:  []metav1.LabelSelector{*parseToLabelSelector(t, "never")},
+			},
+			podSpec: podSpec,
+			meta: &metav1.ObjectMeta{
+				Name:      "policy-disabled-always-never-inject-with-label-returns-false",
+				Namespace: "test-namespace",
+				Labels:    map[string]string{"never": "bar", "foo2": "bar2"},
+			},
+			want: false,
+		},
+		{
+			config: &Config{
+				Policy:               InjectionPolicyDisabled,
+				AlwaysInjectSelector: []metav1.LabelSelector{*parseToLabelSelector(t, "always")},
+				NeverInjectSelector:  []metav1.LabelSelector{*parseToLabelSelector(t, "never")},
+			},
+			podSpec: podSpec,
+			meta: &metav1.ObjectMeta{
+				Name:      "policy-disabled-always-never-inject-with-both-labels",
+				Namespace: "test-namespace",
+				Labels:    map[string]string{"always": "bar", "never": "bar2"},
+			},
+			want: false,
+		},
+		{
+			config: &Config{
+				Policy:              InjectionPolicyEnabled,
+				NeverInjectSelector: []metav1.LabelSelector{*parseToLabelSelector(t, "foo")},
+			},
+			podSpec: podSpec,
+			meta: &metav1.ObjectMeta{
+				Name:        "policy-enabled-annotation-true-never-inject",
+				Namespace:   "test-namespace",
+				Annotations: map[string]string{annotationPolicy.name: "true"},
+				Labels:      map[string]string{"foo": "", "foo2": "bar2"},
+			},
+			want: true,
+		},
+		{
+			config: &Config{
+				Policy:               InjectionPolicyEnabled,
+				AlwaysInjectSelector: []metav1.LabelSelector{*parseToLabelSelector(t, "foo")},
+			},
+			podSpec: podSpec,
+			meta: &metav1.ObjectMeta{
+				Name:        "policy-enabled-annotation-false-always-inject",
+				Namespace:   "test-namespace",
+				Annotations: map[string]string{annotationPolicy.name: "false"},
+				Labels:      map[string]string{"foo": "", "foo2": "bar2"},
+			},
+			want: false,
+		},
+		{
+			config: &Config{
+				Policy:               InjectionPolicyDisabled,
+				AlwaysInjectSelector: []metav1.LabelSelector{*parseToLabelSelector(t, "foo")},
+			},
+			podSpec: podSpec,
+			meta: &metav1.ObjectMeta{
+				Name:        "policy-disabled-annotation-false-always-inject",
+				Namespace:   "test-namespace",
+				Annotations: map[string]string{annotationPolicy.name: "false"},
+				Labels:      map[string]string{"foo": "", "foo2": "bar2"},
+			},
+			want: false,
+		},
+		{
+			config: &Config{
+				Policy:              InjectionPolicyEnabled,
+				NeverInjectSelector: []metav1.LabelSelector{*parseToLabelSelector(t, "foo"), *parseToLabelSelector(t, "bar")},
+			},
+			podSpec: podSpec,
+			meta: &metav1.ObjectMeta{
+				Name:      "policy-enabled-never-inject-multiple-labels",
+				Namespace: "test-namespace",
+				Labels:    map[string]string{"label1": "", "bar": "anything"},
+			},
+			want: false,
+		},
+		{
+			config: &Config{
+				Policy:               InjectionPolicyDisabled,
+				AlwaysInjectSelector: []metav1.LabelSelector{*parseToLabelSelector(t, "foo"), *parseToLabelSelector(t, "bar")},
+			},
+			podSpec: podSpec,
+			meta: &metav1.ObjectMeta{
+				Name:      "policy-enabled-always-inject-multiple-labels",
+				Namespace: "test-namespace",
+				Labels:    map[string]string{"label1": "", "bar": "anything"},
+			},
+			want: true,
+		},
+		{
+			config: &Config{
+				Policy:              InjectionPolicyDisabled,
+				NeverInjectSelector: []metav1.LabelSelector{*parseToLabelSelector(t, "foo")},
+			},
+			podSpec: podSpec,
+			meta: &metav1.ObjectMeta{
+				Name:        "policy-disabled-annotation-true-never-inject",
+				Namespace:   "test-namespace",
+				Annotations: map[string]string{annotationPolicy.name: "true"},
+				Labels:      map[string]string{"foo": "", "foo2": "bar2"},
+			},
+			want: true,
+		},
 	}
 
 	for _, c := range cases {
-		if got := injectRequired(ignoredNamespaces, c.policy, c.podSpec, c.meta); got != c.want {
-			t.Errorf("injectRequired(%v, %v) got %v want %v", c.policy, c.meta, got, c.want)
+		if got := injectRequired(ignoredNamespaces, c.config, c.podSpec, c.meta); got != c.want {
+			t.Errorf("injectRequired(%v, %v) got %v want %v", c.config, c.meta, got, c.want)
 		}
 	}
 }
@@ -418,12 +707,22 @@ func TestHelmInject(t *testing.T) {
 			inputFile: "traffic-annotations-empty-includes.yaml",
 			wantFile:  "traffic-annotations-empty-includes.yaml.injected",
 		},
+		{
+			// Verifies that the status port annotation overrides the default.
+			inputFile: "status_annotations.yaml",
+			wantFile:  "status_annotations.yaml.injected",
+		},
+		{
+			// Verifies that the resource annotation overrides the default.
+			inputFile: "resource_annotations.yaml",
+			wantFile:  "resource_annotations.yaml.injected",
+		},
 	}
 
 	for ci, c := range cases {
 		inputFile := filepath.Join("testdata/webhook", c.inputFile)
 		wantFile := filepath.Join("testdata/webhook", c.wantFile)
-		testName := fmt.Sprintf("[%02d] %s", ci, c.inputFile)
+		testName := fmt.Sprintf("[%02d] %s", ci, c.wantFile)
 		t.Run(testName, func(t *testing.T) {
 			// Split multi-part yaml documents. Input and output will have the same number of parts.
 			inputYAMLs := splitYamlFile(inputFile, t)
@@ -689,7 +988,9 @@ func compareDeployments(got, want *extv1beta1.Deployment, name string, t *testin
 	gotIstioInit.TerminationMessagePolicy = wantIstioInit.TerminationMessagePolicy
 	gotIstioInit.SecurityContext.Privileged = wantIstioInit.SecurityContext.Privileged
 	gotIstioProxy := istioProxy(got, t)
+
 	wantIstioProxy := istioProxy(want, t)
+
 	gotIstioProxy.Image = wantIstioProxy.Image
 	gotIstioProxy.TerminationMessagePath = wantIstioProxy.TerminationMessagePath
 	gotIstioProxy.TerminationMessagePolicy = wantIstioProxy.TerminationMessagePolicy
@@ -882,10 +1183,7 @@ func TestRunAndServe(t *testing.T) {
          "name":"istio-init",
          "resources":{
 
-         },
-         "terminationMessagePath":"/dev/termination-log",
-         "terminationMessagePolicy":"File",
-         "imagePullPolicy":"IfNotPresent"
+         }
       }
    },
    {
@@ -895,20 +1193,14 @@ func TestRunAndServe(t *testing.T) {
          "name":"istio-proxy",
          "resources":{
 
-         },
-         "terminationMessagePath":"/dev/termination-log",
-         "terminationMessagePolicy":"File",
-         "imagePullPolicy":"IfNotPresent"
+         }
       }
    },
    {
       "op":"add",
       "path":"/spec/volumes/-",
       "value":{
-         "name":"istio-envoy",
-         "emptyDir":{
-
-         }
+         "name":"istio-envoy"
       }
    },
    {
