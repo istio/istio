@@ -89,7 +89,7 @@ H = $(shell printf "\033[34;1m=>\033[0m")
 goVerStr := $(shell $(GO) version | awk '{split($$0,a," ")}; {print a[3]}')
 goVerNum := $(shell echo $(goVerStr) | awk '{split($$0,a,"go")}; {print a[2]}')
 goVerMajor := $(shell echo $(goVerNum) | awk '{split($$0, a, ".")}; {print a[1]}')
-goVerMinor := $(shell echo $(goVerNum) | awk '{split($$0, a, ".")}; {print a[2]}')
+goVerMinor := $(shell echo $(goVerNum) | awk '{split($$0, a, ".")}; {print a[2]}' | sed -e 's/\([0-9]\+\).*/\1/')
 gcflagsPattern := $(shell ( [ $(goVerMajor) -ge 1 ] && [ ${goVerMinor} -ge 10 ] ) && echo 'all=' || echo '')
 
 ifeq ($(origin DEBUG), undefined)
