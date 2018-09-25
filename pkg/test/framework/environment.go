@@ -37,6 +37,7 @@ func (e *environment) CreateTmpDirectory(t testing.TB, name string) string {
 	//	return createTmpDirectory(t.workDir, t.runID, name)
 	s, err := internal.CreateTmpDirectory(e.ctx.Settings().WorkDir, e.ctx.Settings().RunID, name)
 	if err != nil {
+		e.controller.DumpState(t.Name())
 		t.Fatalf("failed creating temp folder: %v", err)
 	}
 
@@ -48,6 +49,7 @@ func (e *environment) Configure(t testing.TB, config string) {
 	t.Helper()
 
 	if err := e.controller.Configure(config); err != nil {
+		e.controller.DumpState(t.Name())
 		t.Fatalf("Error applying configuration to dependencies: %v", err)
 	}
 }
@@ -58,6 +60,7 @@ func (e *environment) Evaluate(t testing.TB, template string) string {
 
 	str, err := e.controller.Evaluate(template)
 	if err != nil {
+		e.controller.DumpState(t.Name())
 		t.Fatalf("Error evaluating template: %v", err)
 	}
 	return str
@@ -84,6 +87,7 @@ func (e *environment) GetMixerOrFail(t testing.TB) env.DeployedMixer {
 
 	m, err := e.GetMixer()
 	if err != nil {
+		e.controller.DumpState(t.Name())
 		t.Fatal(err)
 	}
 
@@ -105,6 +109,7 @@ func (e *environment) GetPilotOrFail(t testing.TB) env.DeployedPilot {
 
 	m, err := e.GetPilot()
 	if err != nil {
+		e.controller.DumpState(t.Name())
 		t.Fatal(err)
 	}
 
@@ -126,6 +131,7 @@ func (e *environment) GetAppOrFail(name string, t testing.TB) env.DeployedApp {
 
 	m, err := e.GetApp(name)
 	if err != nil {
+		e.controller.DumpState(t.Name())
 		t.Fatal(err)
 	}
 
@@ -146,6 +152,7 @@ func (e *environment) GetFortioAppOrFail(name string, t testing.TB) env.Deployed
 	t.Helper()
 	a, err := e.GetFortioApp(name)
 	if err != nil {
+		e.controller.DumpState(t.Name())
 		t.Fatal(err)
 	}
 	return a
@@ -191,6 +198,7 @@ func (e *environment) GetAPIServerOrFail(t testing.TB) env.DeployedAPIServer {
 
 	m, err := e.GetAPIServer()
 	if err != nil {
+		e.controller.DumpState(t.Name())
 		t.Fatal(err)
 	}
 
@@ -200,6 +208,7 @@ func (e *environment) GetAPIServerOrFail(t testing.TB) env.DeployedAPIServer {
 func (e *environment) getOrFail(t testing.TB, dep dependency.Instance) interface{} {
 	s, ok := e.ctx.Tracker.Get(dep)
 	if !ok {
+		e.controller.DumpState(t.Name())
 		t.Fatalf("Dependency not initialized: %v", dep)
 	}
 	return s

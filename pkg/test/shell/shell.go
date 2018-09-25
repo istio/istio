@@ -12,23 +12,45 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package kube
+package shell
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
+	"sort"
 	"strings"
+
+	"istio.io/istio/pkg/log"
 )
 
-func execute(format string, args ...interface{}) (string, error) {
+var scope = log.RegisterScope("shell", "Shell execution scope", 0)
+
+// Execute the given command.
+func Execute(format string, args ...interface{}) (string, error) {
 	s := fmt.Sprintf(format, args...)
 	// TODO: escape handling
 	parts := strings.Split(s, " ")
 
-	return executeArgs(parts[0], parts[1:]...)
+	for i := 0; i < len(parts); i++ {
+		if parts[i] == "" {
+			parts = append(parts[:i], parts[i+1:]...)
+		}
+	}
+
+	return executeArgs(nil, parts[0], parts[1:]...)
 }
 
-func executeArgs(name string, args ...string) (string, error) {
+// ExecuteEnv executes the given command, with the specified environment value overrides.
+func ExecuteEnv(env map[string]string, format string, args ...interface{}) (string, error) {
+	s := fmt.Sprintf(format, args...)
+	// TODO: escape handling
+	parts := strings.Split(s, " ")
+
+	return executeArgs(toEnvironmentList(env), parts[0], parts[1:]...)
+}
+
+func executeArgs(env []string, name string, args ...string) (string, error) {
 
 	if scope.DebugEnabled() {
 		cmd := strings.Join(args, " ")
@@ -37,6 +59,7 @@ func executeArgs(name string, args ...string) (string, error) {
 	}
 
 	c := exec.Command(name, args...)
+	c.Env = env
 	b, err := c.CombinedOutput()
 
 	if c.ProcessState.Success() {
@@ -46,4 +69,15 @@ func executeArgs(name string, args ...string) (string, error) {
 	}
 
 	return string(b), err
+}
+
+func toEnvironmentList(m map[string]string) []string {
+	result := os.Environ() // Start with the current environment values and let the caller override.
+
+	for k, v := range m {
+		result = append(result, fmt.Sprintf("%s=%s", k, v))
+	}
+
+	sort.Strings(result)
+	return result
 }

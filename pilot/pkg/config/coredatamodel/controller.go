@@ -198,6 +198,7 @@ func (c *Controller) Apply(change *mcpclient.Change) error {
 	dispatch := func(model model.Config, event model.Event) {}
 	if handlers, ok := c.eventHandlers[descriptor.Type]; ok {
 		dispatch = func(model model.Config, event model.Event) {
+			log.Debugf("MCP event dispatch: key=%v event=%v", model.Key(), event.String())
 			for _, handler := range handlers {
 				handler(model, event)
 			}

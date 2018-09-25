@@ -138,8 +138,6 @@ func (b *Backend) GetReports(ctx context.Context, req *GetReportsRequest) (*GetR
 		resp.Instances = append(resp.Instances, a)
 	}
 
-	b.reports = b.reports[0:0]
-
 	return resp, nil
 }
 

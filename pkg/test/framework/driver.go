@@ -81,9 +81,9 @@ func (d *driver) Run(testID string, m *testing.M) (int, error) {
 	}
 
 	// Call m.Run() while not holding the lock.
-	scopes.CI.Infof(">>> Beginning test run for: '%s'", testID)
+	scopes.CI.Infof("=== BEGIN: test run: '%s' ===", testID)
 	rt = m.Run()
-	scopes.CI.Infof("<<< Completing test run for: '%s'", testID)
+	scopes.CI.Infof("=== DONE: test run: '%s' ===", testID)
 
 	d.lock.Lock()
 	defer d.lock.Unlock()
@@ -120,11 +120,13 @@ func (d *driver) AcquireEnvironment(t testing.TB) env.Environment {
 	d.testNames[t.Name()] = struct{}{}
 
 	if err := d.env.controller.Reset(); err != nil {
+		d.env.controller.DumpState(t.Name())
 		t.Fatalf("AcquireEnvironment failed to reset the environment state: %v", err)
 	}
 
 	// Reset all resettables, as we're going to be executing within the context of a new test.
 	if err := d.context.Tracker.Reset(); err != nil {
+		d.env.controller.DumpState(t.Name())
 		t.Fatalf("driver.AcquireEnvironment failed to reset the resource state: %v", err)
 	}
 
@@ -174,6 +176,7 @@ func (d *driver) Requires(t testing.TB, dependencies []dependency.Instance) {
 			}
 			if _, err := d.context.Tracker.Initialize(d.context, c); err != nil {
 				scopes.Framework.Errorf("Failed to initialize dependency '%s': %v", dep, err)
+				d.env.controller.DumpState(t.Name())
 				t.Fatalf("unable to satisfy dependency '%v': %v", dep, err)
 			}
 		}
@@ -196,7 +199,7 @@ func (d *driver) initialize(testID string) (int, error) {
 	if err != nil {
 		return -1, err
 	}
-	scopes.CI.Infof("driver settings: %+v", s)
+	scopes.CI.Infof("Test Framework driver settings:\n%s", s)
 
 	if err := log.Configure(s.LogOptions); err != nil {
 		return -1, err

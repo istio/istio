@@ -21,6 +21,9 @@ import (
 	"istio.io/istio/mixer/template/listentry"
 	"istio.io/istio/mixer/template/metric"
 	"istio.io/istio/mixer/template/quota"
+	checkTmpl "istio.io/istio/mixer/test/spyAdapter/template/check"
+	quotaTmpl "istio.io/istio/mixer/test/spyAdapter/template/quota"
+	reportTmpl "istio.io/istio/mixer/test/spyAdapter/template/report"
 )
 
 type (
@@ -55,6 +58,18 @@ type (
 		// quota IBP
 		HandleQuotaResult *adptModel.QuotaResult
 		HandleQuotaError  error
+
+		// sample quota IBP
+		HandleSampleQuotaResult *adptModel.QuotaResult
+		HandleSampleQuotaError  error
+
+		// sample check IBP
+		HandleSampleCheckResult *adptModel.CheckResult
+		HandleSampleCheckError  error
+
+		// sample report IBP
+		HandleSampleReportResult *adptModel.ReportResult
+		HandleSampleReportError  error
 	}
 
 	// Requests record captured requests by the spy
@@ -73,6 +88,15 @@ type (
 
 		quotaLock          sync.RWMutex
 		HandleQuotaRequest []*quota.HandleQuotaRequest
+
+		samplecheckLock          sync.RWMutex
+		HandleSampleCheckRequest []*checkTmpl.HandleSampleCheckRequest
+
+		samplequotaLock          sync.RWMutex
+		HandleSampleQuotaRequest []*quotaTmpl.HandleSampleQuotaRequest
+
+		samplereportLock          sync.RWMutex
+		HandleSampleReportRequest []*reportTmpl.HandleSampleReportRequest
 	}
 )
 

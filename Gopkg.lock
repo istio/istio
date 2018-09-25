@@ -1303,7 +1303,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:a2398fc4d55f760ff5189b8c72be50688a408d1323cb36ea04d1e787c229d0de"
+  digest = "1:7637f8398630e4f949bbeecf884a720d80ace25ddbdc22887b12c1f12a034bef"
   name = "golang.org/x/net"
   packages = [
     "context",
@@ -1316,6 +1316,7 @@
     "idna",
     "internal/timeseries",
     "lex/httplex",
+    "publicsuffix",
     "trace",
   ]
   pruneopts = "NUT"
@@ -2092,6 +2093,7 @@
     "golang.org/x/net/context",
     "golang.org/x/net/context/ctxhttp",
     "golang.org/x/net/idna",
+    "golang.org/x/net/publicsuffix",
     "golang.org/x/oauth2",
     "golang.org/x/oauth2/google",
     "golang.org/x/time/rate",

@@ -190,6 +190,7 @@ if [[ -n "${UPLOAD_DIR}" ]]; then
     exit 1
   fi
 
+  upload_directory "${UPLOAD_URL_BASE}" "${UPLOAD_DIR}" "text/plain" "sha256"
   upload_directory "${UPLOAD_URL_BASE}" "${UPLOAD_DIR}" "application/gzip" "gz"
   upload_directory "${UPLOAD_URL_BASE}" "${UPLOAD_DIR}" "application/zip" "zip"
 fi
