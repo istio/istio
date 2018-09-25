@@ -27,3 +27,18 @@ function read_input_y() {
     return 1
   fi
 }
+
+# check_go_or_fail checks if go is already installed, or it will exit 1.
+function check_go_or_fail() {
+  echo "Checking go as required"
+  if ! go version > /dev/null; then
+    echo "go is not installed, please install it and run the script again."
+    exit 1
+  fi
+}
+
+# install_kind installs kind binary.
+function install_kind() {
+  echo "Installing/Updating kind as required"
+  go get -u sigs.k8s.io/kind
+}
