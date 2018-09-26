@@ -30,9 +30,12 @@ import (
 )
 
 var (
-	outputBufferSize  = 4096
-	forwardRegex      = regexp.MustCompile("Forwarding from (127.0.0.1:[0-9]+) -> ([0-9]+)")
+	outputBufferSize = 4096
+	// Used to extract the first match from the regexes below. If the indexes of the two regexes ever diverge
+	// we'l need an index per type.
 	addressMatchIndex = 1
+	forwardRegexIPv4  = regexp.MustCompile(`Forwarding from (127.0.0.1:[0-9]+) -> ([0-9]+)`)
+	forwardRegexIPv6  = regexp.MustCompile(`Forwarding from (\[::1\]:[0-9]+) -> ([0-9]+)`)
 )
 
 // PortForwarder manages the forwarding of a single port.
@@ -161,9 +164,10 @@ func validatePodSelectOptions(options *PodSelectOptions) error {
 
 func parseAddress(output string) (string, error) {
 	// TODO: improve this when we have multi port inputs.
-	matches := forwardRegex.FindStringSubmatch(output)
-	if matches == nil {
-		return "", fmt.Errorf("failed to get address from output: %s", output)
+	if matches := forwardRegexIPv4.FindStringSubmatch(output); matches != nil {
+		return matches[addressMatchIndex], nil
+	} else if matches = forwardRegexIPv6.FindStringSubmatch(output); matches != nil {
+		return matches[addressMatchIndex], nil
 	}
-	return matches[addressMatchIndex], nil
+	return "", fmt.Errorf("failed to get address from output: %s", output)
 }
