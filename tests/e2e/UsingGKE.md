@@ -56,7 +56,6 @@ kubectl create clusterrolebinding myname-cluster-admin-binding  --clusterrole=cl
 
 **Option 1:** Build your own images.
 
-
 ```
 # Customize .istiorc.mk (at the top of the istio.io/istio source tree) with your HUB and optional TAG
 # it allows you to customize Makefile rules. For example:
