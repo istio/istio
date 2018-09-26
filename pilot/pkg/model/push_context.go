@@ -509,7 +509,7 @@ func (ps *PushContext) SubsetToLabels(subsetName string, hostname Hostname) Labe
 
 func (ps *PushContext) initAuthorizationPolicies(env *Environment) error {
 	var err error
-	if ps.AuthzPolicies, err = newAuthzPolicies(env); err != nil {
+	if ps.AuthzPolicies, err = NewAuthzPolicies(env); err != nil {
 		rbacLog.Errorf("failed to initialize authorization policies: %v", err)
 		return err
 	}

@@ -26,14 +26,14 @@ spec:
     spec:
       containers:
       - name: ratings
-        image: istio/examples-bookinfo-ratings-v2:1.8.0
+        image: istio/examples-bookinfo-ratings-v2:1.9.0
         imagePullPolicy: IfNotPresent
         env:
           # ratings-v2 will use mongodb as the default db backend.
-          # if you would like to use mysqldb then set DB_TYPE = 'mysql', set 
-          # the rest of the parameters shown here and also create the 
+          # if you would like to use mysqldb then set DB_TYPE = 'mysql', set
+          # the rest of the parameters shown here and also create the
           # mysqldb service using bookinfo-mysql.yaml
-          # - name: DB_TYPE #default to 
+          # - name: DB_TYPE #default to
           #   value: "mysql"
           # - name: MYSQL_DB_HOST
           #   value: mysqldb
