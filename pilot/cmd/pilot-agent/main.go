@@ -137,7 +137,7 @@ var (
 			proxyConfig.ProxyAdminPort = int32(proxyAdminPort)
 			proxyConfig.Concurrency = int32(concurrency)
 
-			pilotSAN := make([]string, 0)
+			var pilotSAN []string
 			var ns string
 			switch controlPlaneAuthPolicy {
 			case meshconfig.AuthenticationPolicy_NONE.String():
@@ -166,7 +166,7 @@ var (
 					}
 				}
 				setIdentityDomainAndDomain()
-				pilotSAN = append(pilotSAN, envoy.GetPilotSAN(ns))
+				pilotSAN = []string{envoy.GetPilotSAN(ns)}
 			}
 
 			// resolve statsd address
