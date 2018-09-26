@@ -35,9 +35,9 @@ func determineIdentityDomain(identityDomain string, domain string, isKubernetes 
 	if len(identityDomain) != 0 {
 		return identityDomain
 	}
-	envTrustDomain := os.Getenv("ISTIO_SA_DOMAIN_CANONICAL")
-	if len(envTrustDomain) > 0 {
-		return envTrustDomain
+	envIdentityDomain := os.Getenv("ISTIO_SA_DOMAIN_CANONICAL")
+	if len(envIdentityDomain) > 0 {
+		return envIdentityDomain
 	}
 	if len(domain) != 0 {
 		return domain

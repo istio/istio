@@ -400,7 +400,8 @@ func createCA(core corev1.SecretsGetter) *ca.IstioCA {
 
 	if opts.selfSignedCA {
 		log.Info("Use self-signed certificate as the CA certificate")
-		spiffe.SetIdentityDomain(opts.identityDomain, "", len(opts.kubeConfigFile) != 0)
+		isKubernetes := true //FIXME: How to determine? len(opts.kubeConfigFile) != 0
+		spiffe.SetIdentityDomain(opts.identityDomain, "", isKubernetes)
 		caOpts, err = ca.NewSelfSignedIstioCAOptions(opts.selfSignedCACertTTL, opts.workloadCertTTL,
 			opts.maxWorkloadCertTTL, opts.identityDomain, opts.dualUse,
 			opts.istioCaStorageNamespace, core)
