@@ -619,7 +619,7 @@ istio-remote.yaml: $(HELM)
 	$(HELM) template --name=istio --namespace=istio-system \
 		install/kubernetes/helm/istio-remote >> install/kubernetes/$@
 
-# creates istio.yaml istio-auth.yaml istio-one-namespace.yaml istio-one-namespace-auth.yaml
+# creates istio.yaml istio-auth.yaml istio-one-namespace.yaml istio-one-namespace-auth.yaml istio-one-namespace-identity-domain.yaml
 # Ensure that values-$filename is present in install/kubernetes/helm/istio
 isti%.yaml: $(HELM)
 	cat install/kubernetes/namespace.yaml > install/kubernetes/$@
@@ -675,6 +675,7 @@ FILES_TO_CLEAN+=install/consul/istio.yaml \
                 install/kubernetes/istio-citadel-plugin-certs.yaml \
                 install/kubernetes/istio-citadel-with-health-check.yaml \
                 install/kubernetes/istio-one-namespace-auth.yaml \
+                install/kubernetes/istio-one-namespace-identity-domain.yaml \
                 install/kubernetes/istio-one-namespace.yaml \
                 install/kubernetes/istio.yaml \
                 samples/bookinfo/platform/consul/bookinfo.sidecars.yaml \
