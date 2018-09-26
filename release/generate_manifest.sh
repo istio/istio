@@ -248,7 +248,7 @@ while getopts a:b:c:r:v: arg ; do
     a) CHECK_GREEN_SHA_AGE="${OPTARG}";;
     b) BRANCH="${OPTARG}";;
     c) COMMIT="${OPTARG}";;
-    r) GCS_RELEASE_TOOLS_PATH="${OPTARG}";;
+    r) GCS_RELEASE_TOOLS_PATH="gs://${OPTARG}";;
     v) VERIFY_CONSISTENCY="${OPTARG}";;
     *) usage;;
   esac
@@ -285,7 +285,7 @@ pushd ${CLONE_DIR}
 
   #copy the needed files
   gsutil cp "${MANIFEST_FILE}" "${BASE_MANIFEST_URL}"
-  gsutil cp "${MANIFEST_FILE}" "gs://${MANIFEST_URL}"
+  gsutil cp "${MANIFEST_FILE}" "${MANIFEST_URL}"
 popd # ${CLONE_DIR}
 rm -rf ${CLONE_DIR}
 
