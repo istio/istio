@@ -75,6 +75,9 @@ func serverCmd(info map[string]template.Info, adapters []adapter.InfoFn, printf,
 	serverCmd.PersistentFlags().BoolVar(&sa.EnableProfiling, "profile", sa.EnableProfiling,
 		"Enable profiling via web interface host:port/debug/pprof")
 
+	serverCmd.PersistentFlags().BoolVar(&sa.UseAdapterCRDs, "useAdapterCRDs", sa.UseAdapterCRDs,
+		"Whether or not to allow configuration of Mixer via adapter-specific CRDs")
+
 	sa.CredentialOptions.AttachCobraFlags(serverCmd)
 	sa.LoggingOptions.AttachCobraFlags(serverCmd)
 	sa.TracingOptions.AttachCobraFlags(serverCmd)

@@ -64,7 +64,6 @@
     },
     "ads_config": {
       "api_type": "GRPC",
-      "refresh_delay": {{ .refresh_delay }},
       "grpc_services": [
         {
           "envoy_grpc": {

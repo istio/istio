@@ -101,8 +101,6 @@ containers:
   - [[ formatDuration .ProxyConfig.ParentShutdownDuration ]]
   - --discoveryAddress
   - [[ .ProxyConfig.DiscoveryAddress ]]
-  - --discoveryRefreshDelay
-  - [[ formatDuration .ProxyConfig.DiscoveryRefreshDelay ]]
   - --zipkinAddress
   - [[ .ProxyConfig.ZipkinAddress ]]
   - --connectTimeout

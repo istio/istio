@@ -240,6 +240,8 @@ func (descriptor ConfigDescriptor) GetByType(name string) (ProtoSchema, bool) {
 
 // IstioConfigStore is a specialized interface to access config store using
 // Istio configuration types
+// nolint
+//go:generate $GOPATH/src/istio.io/istio/bin/counterfeiter.sh -o $GOPATH/src/istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes/fake_istio_config_store.go --fake-name IstioConfigStore . IstioConfigStore
 type IstioConfigStore interface {
 	ConfigStore
 
@@ -276,6 +278,9 @@ type IstioConfigStore interface {
 
 	// RbacConfig selects the RbacConfig of name DefaultRbacConfigName.
 	RbacConfig() *Config
+
+	// ClusterRbacConfig selects the ClusterRbacConfig of name DefaultRbacConfigName.
+	ClusterRbacConfig() *Config
 }
 
 const (
@@ -457,14 +462,26 @@ var (
 	}
 
 	// RbacConfig describes the mesh level RBAC config.
+	// Deprecated, use ClusterRbacConfig instead.
+	// See https://github.com/istio/istio/issues/8825 for more details.
 	RbacConfig = ProtoSchema{
+		Type:        "rbac-config",
+		Plural:      "rbac-configs",
+		Group:       "rbac",
+		Version:     "v1alpha1",
+		MessageName: "istio.rbac.v1alpha1.RbacConfig",
+		Validate:    ValidateRbacConfig,
+	}
+
+	// ClusterRbacConfig describes the cluster level RBAC config.
+	ClusterRbacConfig = ProtoSchema{
 		ClusterScoped: true,
-		Type:          "rbac-config",
-		Plural:        "rbac-configs",
+		Type:          "cluster-rbac-config",
+		Plural:        "cluster-rbac-configs",
 		Group:         "rbac",
 		Version:       "v1alpha1",
 		MessageName:   "istio.rbac.v1alpha1.RbacConfig",
-		Validate:      ValidateRbacConfig,
+		Validate:      ValidateClusterRbacConfig,
 	}
 
 	// IstioConfigTypes lists all Istio config types with schemas and validation
@@ -483,6 +500,7 @@ var (
 		ServiceRole,
 		ServiceRoleBinding,
 		RbacConfig,
+		ClusterRbacConfig,
 	}
 )
 
@@ -885,17 +903,31 @@ func (store *istioConfigStore) ServiceRoleBindings(namespace string) []Config {
 	return bindings
 }
 
+func (store *istioConfigStore) ClusterRbacConfig() *Config {
+	clusterRbacConfig, err := store.List(ClusterRbacConfig.Type, "")
+	if err != nil {
+		log.Errorf("failed to get ClusterRbacConfig: %v", err)
+	}
+	for _, rc := range clusterRbacConfig {
+		if rc.Name == DefaultRbacConfigName {
+			return &rc
+		}
+	}
+	return nil
+}
+
 func (store *istioConfigStore) RbacConfig() *Config {
 	rbacConfigs, err := store.List(RbacConfig.Type, "")
 	if err != nil {
-		log.Errorf("failed to get rbacConfig: %v", err)
 		return nil
 	}
+
 	if len(rbacConfigs) > 1 {
 		log.Errorf("found %d RbacConfigs, expecting only 1.", len(rbacConfigs))
 	}
 	for _, rc := range rbacConfigs {
 		if rc.Name == DefaultRbacConfigName {
+			log.Warnf("RbacConfig is deprecated, Use ClusterRbacConfig instead.")
 			return &rc
 		}
 	}

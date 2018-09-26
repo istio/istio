@@ -150,18 +150,6 @@ func (s *DiscoveryServer) periodicRefresh() {
 
 // Push metrics are updated periodically (10s default)
 func (s *DiscoveryServer) periodicRefreshMetrics() {
-	envOverride := os.Getenv("V2_METRICS")
-	if len(envOverride) > 0 {
-		var err error
-		periodicRefreshMetrics, err = time.ParseDuration(envOverride)
-		if err != nil {
-			adsLog.Warn("Invalid value for V2_METRICS")
-		}
-	}
-	if periodicRefreshMetrics == 0 {
-		return
-	}
-
 	ticker := time.NewTicker(periodicRefreshMetrics)
 	defer ticker.Stop()
 	for range ticker.C {

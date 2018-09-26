@@ -16,6 +16,9 @@ package tmpl
 
 // Parameters is the set of standard parameters that can bs used by templates within tests.
 type Parameters struct {
+	// The namespace used by the Istio system components.
+	IstioSystemNamespace string
+
 	// The namespace of the cluster used by the tests.
 	TestNamespace string
 

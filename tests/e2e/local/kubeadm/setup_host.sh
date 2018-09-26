@@ -4,9 +4,9 @@ echo "Starting kubeadm."
 # In order for Network Policy to work correctly, you need to pass --pod-network-cidr=192.168.0.0/16 to kubeadm init.
 kubeadm init --pod-network-cidr=192.168.0.0/16  --node-name=e2e-test-local
 
-mkdir -p $HOME/.kube
-sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
-sudo chown $(id -u):$(id -g) $HOME/.kube/config
+mkdir -p "$HOME/.kube"
+sudo cp -i /etc/kubernetes/admin.conf "$HOME/.kube/config"
+sudo chown "$(id -u)":"$(id -g)" "$HOME/.kube/config"
 
 # By default, cluster created by kubeadm will not schedule pods on the master.  If we want to be able to
 # schedule pods on the master, e.g. for a single-machine Kubernetes cluster for development, run:
