@@ -29,7 +29,6 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/howeyc/fsnotify"
 	"k8s.io/api/admission/v1beta1"
-	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -46,14 +45,14 @@ var (
 	deserializer  = codecs.UniversalDeserializer()
 )
 
+func init() {
+	_ = corev1.AddToScheme(runtimeScheme)
+	_ = v1beta1.AddToScheme(runtimeScheme)
+}
+
 const (
 	watchDebounceDelay = 100 * time.Millisecond
 )
-
-func init() {
-	_ = corev1.AddToScheme(runtimeScheme)
-	_ = admissionregistrationv1beta1.AddToScheme(runtimeScheme)
-}
 
 // Webhook implements a mutating webhook for automatic proxy injection.
 type Webhook struct {
