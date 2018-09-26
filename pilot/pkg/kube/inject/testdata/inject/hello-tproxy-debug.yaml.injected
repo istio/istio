@@ -9,7 +9,7 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/status: '{"version":"4debaf670318756d772397a5978bd1fb17b0d8a45e6f708687220cc7f202eaf5","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
         app: hello
@@ -50,6 +50,10 @@ spec:
         - "15000"
         - --controlPlaneAuthPolicy
         - NONE
+        - --statusPort
+        - "0"
+        - --applicationPorts
+        - "80"
         env:
         - name: POD_NAME
           valueFrom:
@@ -72,13 +76,14 @@ spec:
         image: docker.io/istio/proxy_debug:unittest
         imagePullPolicy: IfNotPresent
         name: istio-proxy
+        ports:
+        - containerPort: 15090
+          name: http-envoy-prom
+          protocol: TCP
         resources:
           requests:
             cpu: 10m
         securityContext:
-          capabilities:
-            add:
-            - NET_ADMIN
           privileged: true
           readOnlyRootFilesystem: false
         volumeMounts:
@@ -100,7 +105,7 @@ spec:
         - -x
         - ""
         - -b
-        - 80,
+        - "80"
         - -d
         - ""
         image: docker.io/istio/proxy_init:unittest

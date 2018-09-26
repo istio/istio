@@ -18,7 +18,6 @@ RUN apt-get update && \
       libc6-dbg gdb \
       elvis-tiny \
       lsof \
-      busybox \
       sudo &&  apt-get upgrade -y && \
       apt-get clean -y && \
       rm -rf /var/cache/debconf/* /var/lib/apt/lists/* \

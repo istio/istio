@@ -31,7 +31,10 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 
+	"strconv"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy"
 	"istio.io/istio/pilot/pkg/proxy/envoy"
@@ -43,8 +46,10 @@ import (
 )
 
 var (
-	role     model.Proxy
-	registry serviceregistry.ServiceRegistry
+	role             model.Proxy
+	registry         serviceregistry.ServiceRegistry
+	statusPort       uint16
+	applicationPorts []string
 
 	// proxy config flags (named identically)
 	configPath               string
@@ -58,7 +63,7 @@ var (
 	zipkinAddress            string
 	connectTimeout           time.Duration
 	statsdUDPAddress         string
-	proxyAdminPort           int
+	proxyAdminPort           uint16
 	controlPlaneAuthPolicy   string
 	customConfigFile         string
 	proxyLogLevel            string
@@ -243,10 +248,26 @@ var (
 				}
 			}
 
+			ctx, cancel := context.WithCancel(context.Background())
+
+			// If a status port was provided, start handling status probes.
+			if statusPort > 0 {
+				parsedPorts, err := parseApplicationPorts()
+				if err != nil {
+					return err
+				}
+
+				statusServer := status.NewServer(status.Config{
+					AdminPort:        proxyAdminPort,
+					StatusPort:       statusPort,
+					ApplicationPorts: parsedPorts,
+				})
+				go statusServer.Run(ctx)
+			}
+
 			envoyProxy := envoy.NewProxy(proxyConfig, role.ServiceNode(), proxyLogLevel, pilotSAN)
 			agent := proxy.NewAgent(envoyProxy, proxy.DefaultRetry)
 			watcher := envoy.NewWatcher(proxyConfig, agent, role, certs, pilotSAN)
-			ctx, cancel := context.WithCancel(context.Background())
 			go watcher.Run(ctx)
 
 			stop := make(chan struct{})
@@ -257,6 +278,21 @@ var (
 		},
 	}
 )
+
+func parseApplicationPorts() ([]uint16, error) {
+	parsedPorts := make([]uint16, len(applicationPorts))
+	for _, port := range applicationPorts {
+		port := strings.TrimSpace(port)
+		if len(port) > 0 {
+			parsedPort, err := strconv.ParseUint(port, 10, 16)
+			if err != nil {
+				return nil, err
+			}
+			parsedPorts = append(parsedPorts, uint16(parsedPort))
+		}
+	}
+	return parsedPorts, nil
+}
 
 func timeDuration(dur *duration.Duration) time.Duration {
 	out, err := ptypes.Duration(dur)
@@ -278,6 +314,10 @@ func init() {
 		"Proxy unique ID. If not provided uses ${POD_NAME}.${POD_NAMESPACE} from environment variables")
 	proxyCmd.PersistentFlags().StringVar(&role.Domain, "domain", "",
 		"DNS domain suffix. If not provided uses ${POD_NAMESPACE}.svc.cluster.local")
+	proxyCmd.PersistentFlags().Uint16Var(&statusPort, "statusPort", 0,
+		"HTTP Port on which to serve pilot agent status. If zero, agent status will not be provided.")
+	proxyCmd.PersistentFlags().StringSliceVar(&applicationPorts, "applicationPorts", []string{},
+		"Ports exposed by the application. Used to determine that Envoy is configured and ready to receive traffic.")
 
 	// Flags for proxy configuration
 	values := model.DefaultProxyConfig()
@@ -307,7 +347,7 @@ func init() {
 		"Connection timeout used by Envoy for supporting services")
 	proxyCmd.PersistentFlags().StringVar(&statsdUDPAddress, "statsdUdpAddress", values.StatsdUdpAddress,
 		"IP Address and Port of a statsd UDP listener (e.g. 10.75.241.127:9125)")
-	proxyCmd.PersistentFlags().IntVar(&proxyAdminPort, "proxyAdminPort", int(values.ProxyAdminPort),
+	proxyCmd.PersistentFlags().Uint16Var(&proxyAdminPort, "proxyAdminPort", uint16(values.ProxyAdminPort),
 		"Port on which Envoy should listen for administrative commands")
 	proxyCmd.PersistentFlags().StringVar(&controlPlaneAuthPolicy, "controlPlaneAuthPolicy",
 		values.ControlPlaneAuthPolicy.String(), "Control Plane Authentication Policy")
