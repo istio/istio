@@ -91,7 +91,7 @@ def getBashSettingsTemplate(extra_param_lst=[]):
   template_list.append("""
                 git clone "$ISTIO_REPO" "istio-code" -b "$BRANCH" --depth 1
                 # use code from branch
-                cp release/airflow/* release/json_parse_shared.sh .
+                cp istio-code/release/airflow/* istio-code/release/json_parse_shared.sh .
                 # or override with scripts saved for this build
                 gsutil "${GCS_RELEASE_TOOLS_PATH}"/airflow/* . 
                 gsutil "${GCS_RELEASE_TOOLS_PATH}"/json_parse_shared.sh . 

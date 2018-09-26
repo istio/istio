@@ -44,7 +44,6 @@ function create_subs_file() {
    local subs_str
    # SUBS_FILE is not local and is output to caller
    SUBS_FILE="$(mktemp /tmp/build.subs.XXXX)"
-   shift
 
    echo '"substitutions": {' > "${SUBS_FILE}"
    for i in $(seq 2 1 $#) # print with , for n-1
