@@ -24,9 +24,7 @@ import (
 )
 
 func TestMixer_Report_Direct(t *testing.T) {
-	// TODO(ozben): Marking this local, as it doesn't work on both local and remote seamlessly with the same
-	// config. Once the config problem is fixed, we should make this to not have a dependency on an environment.
-	framework.Requires(t, dependency.Local, dependency.PolicyBackend, dependency.Mixer)
+	framework.Requires(t, dependency.PolicyBackend, dependency.Mixer)
 
 	env := framework.AcquireEnvironment(t)
 
@@ -37,57 +35,40 @@ func TestMixer_Report_Direct(t *testing.T) {
 	env.Configure(t,
 		test.JoinConfigs(
 			testReportConfig,
-			attrConfig,
 			be.CreateConfigSnippet("handler1"),
 		))
-
-	dstService := env.Evaluate(t, `svc.{{.TestNamespace}}`)
 
 	mxr.Report(t, map[string]interface{}{
 		"context.protocol":    "http",
 		"destination.name":    "somesrvcname",
 		"response.time":       time.Now(),
 		"request.time":        time.Now(),
-		"destination.service": dstService,
+		"destination.service": "svc.{{.TestNamespace}}",
+		"destination.port":    int64(7678),
 		"origin.ip":           []byte{1, 2, 3, 4},
 	})
 
-	expected := env.Evaluate(t, `
+	expected := `
 {
-  "name":"metric1.metric.istio-system",
-  "value":{"int64Value":"2"},
-  "dimensions":{
-    "source":{"stringValue":"mysrc"},
-    "target_ip":{"stringValue":"somesrvcname"}
-   }
-}`)
+  "name": "metric1.metric.istio-system",
+  "value": {
+    "int64Value": "2"
+  },
+  "dimensions": {
+    "origin_ip": {
+      "ipAddressValue": {
+        "value": "AQIDBA=="
+      }
+    },
+    "target_port": {
+      "int64Value": "7678"
+    }
+  }
+}
+`
 
 	be.ExpectReportJSON(t, expected)
 }
-
-var attrConfig = `
-apiVersion: "config.istio.io/v1alpha2"
-kind: attributemanifest
-metadata:
- name: istio-proxy
- namespace: istio-system
-spec:
-   attributes:
-     source.name:
-       value_type: STRING
-     destination.name:
-       value_type: STRING
-     response.count:
-       value_type: INT64
-     attr.bool:
-       value_type: BOOL
-     attr.string:
-       value_type: STRING
-     attr.double:
-       value_type: DOUBLE
-     attr.int64:
-       value_type: INT64
-`
 
 var testReportConfig = `
 apiVersion: "config.istio.io/v1alpha2"
@@ -98,8 +79,8 @@ metadata:
 spec:
   value: "2"
   dimensions:
-    source: source.name | "mysrc"
-    target_ip: destination.name | "mytarget"
+    target_port: destination.port | 9696
+    origin_ip: origin.ip | ip("4.5.6.7")
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule

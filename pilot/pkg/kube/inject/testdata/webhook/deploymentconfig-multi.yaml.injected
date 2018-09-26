@@ -56,8 +56,6 @@ items:
           - 3s
           - --discoveryAddress
           - istio-pilot:15007
-          - --discoveryRefreshDelay
-          - 1s
           - --zipkinAddress
           - ""
           - --connectTimeout

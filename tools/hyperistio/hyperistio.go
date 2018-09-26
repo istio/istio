@@ -112,15 +112,14 @@ func startMixer() error {
 
 func startEnvoy() error {
 	cfg := &meshconfig.ProxyConfig{
-		DiscoveryAddress:      "localhost:8080",
-		ConfigPath:            env.IstioOut,
-		BinaryPath:            env.IstioBin + "/envoy",
-		ServiceCluster:        "test",
-		CustomConfigFile:      env.IstioSrc + "/tools/deb/envoy_bootstrap_v2.json",
-		DiscoveryRefreshDelay: types.DurationProto(10 * time.Second), // crash if not set
-		ConnectTimeout:        types.DurationProto(5 * time.Second),  // crash if not set
-		DrainDuration:         types.DurationProto(30 * time.Second), // crash if 0
-		StatNameLength:        189,
+		DiscoveryAddress: "localhost:8080",
+		ConfigPath:       env.IstioOut,
+		BinaryPath:       env.IstioBin + "/envoy",
+		ServiceCluster:   "test",
+		CustomConfigFile: env.IstioSrc + "/tools/deb/envoy_bootstrap_v2.json",
+		ConnectTimeout:   types.DurationProto(5 * time.Second),  // crash if not set
+		DrainDuration:    types.DurationProto(30 * time.Second), // crash if 0
+		StatNameLength:   189,
 	}
 	cfgF, err := agent.WriteBootstrap(cfg, "sidecar~127.0.0.2~a~a", 1, []string{}, nil)
 	if err != nil {

@@ -120,11 +120,13 @@ func (d *driver) AcquireEnvironment(t testing.TB) env.Environment {
 	d.testNames[t.Name()] = struct{}{}
 
 	if err := d.env.controller.Reset(); err != nil {
+		d.env.controller.DumpState(t.Name())
 		t.Fatalf("AcquireEnvironment failed to reset the environment state: %v", err)
 	}
 
 	// Reset all resettables, as we're going to be executing within the context of a new test.
 	if err := d.context.Tracker.Reset(); err != nil {
+		d.env.controller.DumpState(t.Name())
 		t.Fatalf("driver.AcquireEnvironment failed to reset the resource state: %v", err)
 	}
 
@@ -174,6 +176,7 @@ func (d *driver) Requires(t testing.TB, dependencies []dependency.Instance) {
 			}
 			if _, err := d.context.Tracker.Initialize(d.context, c); err != nil {
 				scopes.Framework.Errorf("Failed to initialize dependency '%s': %v", dep, err)
+				d.env.controller.DumpState(t.Name())
 				t.Fatalf("unable to satisfy dependency '%v': %v", dep, err)
 			}
 		}

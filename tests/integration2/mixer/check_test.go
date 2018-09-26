@@ -24,9 +24,7 @@ import (
 )
 
 func TestCheck_Allow(t *testing.T) {
-	// TODO(ozben): Marking this local, as it doesn't work on both local and remote seamlessly with the same
-	// config. Once the config problem is fixed, we should make this to not have a dependency on an environment.
-	framework.Requires(t, dependency.Local, dependency.PolicyBackend, dependency.Mixer)
+	framework.Requires(t, dependency.PolicyBackend, dependency.Mixer)
 
 	env := framework.AcquireEnvironment(t)
 
@@ -39,8 +37,6 @@ func TestCheck_Allow(t *testing.T) {
 			testCheckConfig,
 			be.CreateConfigSnippet("handler1"),
 		))
-
-	dstService := env.Evaluate(t, `svc.{{.TestNamespace}}`)
 
 	// Prime the policy backend's behavior. It should deny all check requests.
 	// This is not strictly necessary, but it is done so for posterity.
@@ -51,7 +47,7 @@ func TestCheck_Allow(t *testing.T) {
 		"destination.name":    "somesrvcname",
 		"response.time":       time.Now(),
 		"request.time":        time.Now(),
-		"destination.service": dstService,
+		"destination.service": `svc.{{.TestNamespace}}`,
 		"origin.ip":           []byte{1, 2, 3, 4},
 	})
 
@@ -61,9 +57,7 @@ func TestCheck_Allow(t *testing.T) {
 }
 
 func TestCheck_Deny(t *testing.T) {
-	// TODO(ozben): Marking this local, as it doesn't work on both local and remote seamlessly with the same
-	// config. Once the config problem is fixed, we should make this to not have a dependency on an environment.
-	framework.Requires(t, dependency.Local, dependency.PolicyBackend, dependency.Mixer)
+	framework.Requires(t, dependency.PolicyBackend, dependency.Mixer)
 
 	env := framework.AcquireEnvironment(t)
 
@@ -77,8 +71,6 @@ func TestCheck_Deny(t *testing.T) {
 			be.CreateConfigSnippet("handler1"),
 		))
 
-	dstService := env.Evaluate(t, `svc.{{.TestNamespace}}`)
-
 	// Prime the policy backend's behavior. It should deny all check requests.
 	be.DenyCheck(t, true)
 
@@ -87,7 +79,7 @@ func TestCheck_Deny(t *testing.T) {
 		"destination.name":    "somesrvcname",
 		"response.time":       time.Now(),
 		"request.time":        time.Now(),
-		"destination.service": dstService,
+		"destination.service": `svc.{{.TestNamespace}}`,
 		"origin.ip":           []byte{1, 2, 3, 4},
 	})
 

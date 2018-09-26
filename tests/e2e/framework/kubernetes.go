@@ -888,7 +888,6 @@ func (k *KubeInfo) generateIstio(src, dst string) error {
 	content = replacePattern(content, "parentShutdownDuration: 1m0s", "parentShutdownDuration: 3s")
 
 	// A very flimsy and unreliable regexp to replace delays in ingress pod Spec
-	content = replacePattern(content, "'30s' #discoveryRefreshDelay", "'1s' #discoveryRefreshDelay")
 	content = replacePattern(content, "'10s' #connectTimeout", "'1s' #connectTimeout")
 	content = replacePattern(content, "'45s' #drainDuration", "'2s' #drainDuration")
 	content = replacePattern(content, "'1m0s' #parentShutdownDuration", "'3s' #parentShutdownDuration")

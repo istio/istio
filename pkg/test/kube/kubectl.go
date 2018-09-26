@@ -70,8 +70,10 @@ func Logs(kubeConfig string, namespace string, pod string, container string) (st
 		containerFlag += " -c " + container
 	}
 
-	s, err := shell.Execute("kubectl logs --kubeconfig=%s -n %s %s%s",
+	cmd := fmt.Sprintf("kubectl logs --kubeconfig=%s -n %s %s%s",
 		kubeConfig, namespace, pod, containerFlag)
+
+	s, err := shell.Execute(cmd)
 
 	if err == nil {
 		return s, nil

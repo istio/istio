@@ -118,6 +118,9 @@ type (
 	Implementation interface {
 		// EnvironmentID is the unique ID of the implemented environment.
 		EnvironmentID() settings.EnvironmentID
+
+		// Evaluate the given template with environment specific template variables.
+		Evaluate(tmpl string) (string, error)
 	}
 
 	// Deployed represents a deployed component

@@ -24,7 +24,7 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
-var scope = log.RegisterScope("testframework", "General scope for the test framework", 0)
+var scope = log.RegisterScope("shell", "Shell execution scope", 0)
 
 // Execute the given command.
 func Execute(format string, args ...interface{}) (string, error) {
