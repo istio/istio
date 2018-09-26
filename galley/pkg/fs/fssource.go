@@ -207,11 +207,8 @@ func (s *fsSource) initialCheck() {
 
 // Stop implements runtime.Source
 func (s *fsSource) Stop() {
-	s.fileResorceKeys = nil
-	s.shas = nil
 	close(s.donec)
 	s.watcher.Close()
-	s.donec = nil
 }
 
 func (s *fsSource) process(eventKind resource.EventKind, key, resourceKind string, r *istioResource) {
