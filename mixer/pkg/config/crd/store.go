@@ -39,6 +39,10 @@ const (
 	// like k8s://?retry-timeout=1m
 	crdRetryTimeout = time.Second * 30
 
+	// crdRetryInterval is the default retry interval between the attempt to
+	// initialize caches
+	crdRetryInterval = time.Second
+
 	// ConfigAPIGroup is the API group for the config CRDs.
 	ConfigAPIGroup = "config.istio.io"
 	// ConfigAPIVersion is the API version for the config CRDs.
@@ -149,25 +153,39 @@ func (s *Store) Init(kinds []string) error {
 	s.caches = make(map[string]cache.Store, len(kinds))
 	s.informers = make(map[string]cache.SharedInformer, len(kinds))
 	remaining := s.checkAndCreateCaches(d, lwBuilder, kinds)
-	if len(remaining) > 0 {
-		for _, k := range remaining {
-			if s.isCriticalKind(k) {
-				panic(fmt.Errorf("critical kind %s is not ready", k))
+	timeout := time.After(s.retryTimeout)
+	tick := time.Tick(s.retryInterval)
+	stopRetry := false
+	if tick != nil {
+		for len(s.extractCriticalKinds(remaining)) != 0 && !stopRetry {
+			select {
+			case <-timeout:
+				stopRetry = true
+			case <-tick:
+				remaining = s.checkAndCreateCaches(d, lwBuilder, remaining)
+			default:
 			}
+		}
+	}
+	if len(remaining) > 0 {
+		if cks := s.extractCriticalKinds(remaining); len(cks) != 0 {
+			return fmt.Errorf("failed to discover critical kinds: %v", cks)
 		}
 		log.Warnf("Failed to discover kinds: %v", remaining)
 	}
-
 	return nil
 }
 
-func (s *Store) isCriticalKind(kind string) bool {
-	for _, ck := range s.criticalKinds {
-		if ck == kind {
-			return true
+func (s *Store) extractCriticalKinds(r []string) []string {
+	cks := make([]string, 0, len(r))
+	for _, k := range r {
+		for _, ck := range s.criticalKinds {
+			if ck == k {
+				cks = append(cks, ck)
+			}
 		}
 	}
-	return false
+	return cks
 }
 
 // WaitForSynced implements store.WaitForSynced interface

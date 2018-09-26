@@ -83,6 +83,7 @@ func NewStore(u *url.URL, gv *schema.GroupVersion, ck []string) (store.Backend, 
 	s := &Store{
 		conf:                 conf,
 		retryTimeout:         retryTimeout,
+		retryInterval:        crdRetryInterval,
 		donec:                make(chan struct{}),
 		discoveryBuilder:     defaultDiscoveryBuilder,
 		listerWatcherBuilder: newDynamicListenerWatcherBuilder,
