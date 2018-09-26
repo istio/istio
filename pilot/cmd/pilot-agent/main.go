@@ -40,6 +40,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/collateral"
+	"istio.io/istio/pkg/features/pilot"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
 )
@@ -98,7 +99,7 @@ var (
 			// set values from registry platform
 			if len(role.IPAddress) == 0 {
 				if registry == serviceregistry.KubernetesRegistry {
-					role.IPAddress = os.Getenv("INSTANCE_IP")
+					role.IPAddress = pilot.ProxyIPAddress
 				} else {
 					if ipAddr, ok := proxy.GetPrivateIP(context.Background()); ok {
 						log.Infof("Obtained private IP %v", ipAddr)
@@ -110,7 +111,7 @@ var (
 			}
 			if len(role.ID) == 0 {
 				if registry == serviceregistry.KubernetesRegistry {
-					role.ID = os.Getenv("POD_NAME") + "." + os.Getenv("POD_NAMESPACE")
+					role.ID = pilot.PodName + "." + pilot.PodNamespace
 				} else if registry == serviceregistry.ConsulRegistry {
 					role.ID = role.IPAddress + ".service.consul"
 				} else {
@@ -120,7 +121,7 @@ var (
 			pilotDomain := role.Domain
 			if len(role.Domain) == 0 {
 				if registry == serviceregistry.KubernetesRegistry {
-					role.Domain = os.Getenv("POD_NAMESPACE") + ".svc.cluster.local"
+					role.Domain = pilot.PodNamespace + ".svc.cluster.local"
 					pilotDomain = "cluster.local"
 				} else if registry == serviceregistry.ConsulRegistry {
 					role.Domain = "service.consul"
@@ -161,7 +162,7 @@ var (
 					if len(parts) == 1 {
 						// namespace of pilot is not part of discovery address use
 						// pod namespace e.g. istio-pilot:15005
-						ns = os.Getenv("POD_NAMESPACE")
+						ns = pilot.PodNamespace
 					} else if len(parts) == 2 {
 						// namespace is found in the discovery address
 						// e.g. istio-pilot.istio-system:15005
@@ -169,7 +170,7 @@ var (
 					} else {
 						// discovery address is a remote address. For remote clusters
 						// only support the default config, or env variable
-						ns = os.Getenv("ISTIO_NAMESPACE")
+						ns = pilot.IstioNamespace
 						if ns == "" {
 							ns = model.IstioSystemNamespace
 						}
@@ -219,11 +220,11 @@ var (
 
 			if templateFile != "" && proxyConfig.CustomConfigFile == "" {
 				opts := make(map[string]string)
-				opts["PodName"] = os.Getenv("POD_NAME")
-				opts["PodNamespace"] = os.Getenv("POD_NAMESPACE")
+				opts["PodName"] = pilot.PodName
+				opts["PodNamespace"] = pilot.PodNamespace
 
 				// protobuf encoding of IP_ADDRESS type
-				opts["PodIP"] = base64.StdEncoding.EncodeToString(net.ParseIP(os.Getenv("INSTANCE_IP")))
+				opts["PodIP"] = base64.StdEncoding.EncodeToString(net.ParseIP(pilot.ProxyIPAddress))
 
 				if proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
 					opts["ControlPlaneAuth"] = "enable"

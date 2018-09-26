@@ -66,6 +66,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	srmemory "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pkg/ctrlz"
+	"istio.io/istio/pkg/features/pilot"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 	mcpclient "istio.io/istio/pkg/mcp/client"
@@ -190,7 +191,7 @@ type Server struct {
 func NewServer(args PilotArgs) (*Server, error) {
 	// If the namespace isn't set, try looking it up from the environment.
 	if args.Namespace == "" {
-		args.Namespace = os.Getenv("POD_NAMESPACE")
+		args.Namespace = pilot.PodNamespace
 	}
 	if args.Config.ClusterRegistriesNamespace == "" {
 		if args.Namespace != "" {
@@ -938,7 +939,7 @@ func (s *Server) initGrpcServer() {
 
 // The secure grpc will start when the credentials are found.
 func (s *Server) secureGrpcStart(listener net.Listener) {
-	certDir := os.Getenv("PILOT_CERT_DIR")
+	certDir := pilot.CertDir
 	if certDir == "" {
 		certDir = PilotCertDir // /etc/certs
 	}
@@ -1037,7 +1038,7 @@ func (s *Server) grpcServerOptions() []grpc.ServerOption {
 	// Temp setting, default should be enough for most supported environments. Can be used for testing
 	// envoy with lower values.
 	var maxStreams int
-	maxStreamsEnv := os.Getenv("ISTIO_GPRC_MAXSTREAMS")
+	maxStreamsEnv := pilot.MaxConcurrentStreams
 	if len(maxStreamsEnv) > 0 {
 		maxStreams, _ = strconv.Atoi(maxStreamsEnv)
 	}

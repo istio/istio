@@ -26,7 +26,9 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
+	"istio.io/istio/pkg/features/pilot"
 	"istio.io/istio/pkg/log"
+
 	// import GKE cluster authentication plugin
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	// import OIDC cluster authentication plugin, e.g. for Tectonic
@@ -37,7 +39,7 @@ import (
 func ResolveConfig(kubeconfig string) (string, error) {
 	// Consistency with kubectl
 	if kubeconfig == "" {
-		kubeconfig = os.Getenv("KUBECONFIG")
+		kubeconfig = pilot.KubeConfig
 	}
 	if kubeconfig == "" {
 		usr, err := user.Current()
