@@ -54,11 +54,9 @@ var (
 	configPath               string
 	binaryPath               string
 	serviceCluster           string
-	availabilityZone         string // TODO: remove me?
 	drainDuration            time.Duration
 	parentShutdownDuration   time.Duration
 	discoveryAddress         string
-	discoveryRefreshDelay    time.Duration
 	zipkinAddress            string
 	connectTimeout           time.Duration
 	statsdUDPAddress         string
@@ -67,7 +65,6 @@ var (
 	customConfigFile         string
 	proxyLogLevel            string
 	concurrency              int
-	bootstrapv2              bool
 	templateFile             string
 	disableInternalTelemetry bool
 
@@ -137,7 +134,6 @@ var (
 			proxyConfig := model.DefaultProxyConfig()
 
 			// set all flags
-			proxyConfig.AvailabilityZone = availabilityZone
 			proxyConfig.CustomConfigFile = customConfigFile
 			proxyConfig.ConfigPath = configPath
 			proxyConfig.BinaryPath = binaryPath
@@ -145,7 +141,6 @@ var (
 			proxyConfig.DrainDuration = types.DurationProto(drainDuration)
 			proxyConfig.ParentShutdownDuration = types.DurationProto(parentShutdownDuration)
 			proxyConfig.DiscoveryAddress = discoveryAddress
-			proxyConfig.DiscoveryRefreshDelay = types.DurationProto(discoveryRefreshDelay)
 			proxyConfig.ZipkinAddress = zipkinAddress
 			proxyConfig.ConnectTimeout = types.DurationProto(connectTimeout)
 			proxyConfig.StatsdUdpAddress = statsdUDPAddress
@@ -366,18 +361,6 @@ func init() {
 		"Go template bootstrap config")
 	proxyCmd.PersistentFlags().BoolVar(&disableInternalTelemetry, "disableInternalTelemetry", false,
 		"Disable internal telemetry")
-
-	// Deprecated flags
-	proxyCmd.PersistentFlags().StringVar(&availabilityZone, "availabilityZone", values.AvailabilityZone,
-		"Availability zone")
-	proxyCmd.PersistentFlags().MarkDeprecated("availabilityZone", "")
-	proxyCmd.PersistentFlags().DurationVar(&discoveryRefreshDelay, "discoveryRefreshDelay",
-		timeDuration(values.DiscoveryRefreshDelay),
-		"Polling interval for service discovery (used by EDS, CDS, LDS, but not RDS)")
-	proxyCmd.PersistentFlags().MarkDeprecated("discoveryRefreshDelay", "")
-	proxyCmd.PersistentFlags().BoolVar(&bootstrapv2, "bootstrapv2", true,
-		"Use bootstrap v2")
-	proxyCmd.PersistentFlags().MarkDeprecated("bootstrapv2", "The proxy will always be started with bootstrapv2")
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)
