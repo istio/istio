@@ -23,8 +23,9 @@ var (
 	// co-located service instances. Example: "10.60.1.6".
 	ProxyIPAddress = os.Getenv("INSTANCE_IP")
 
-	// pod name and namespace.
-	PodName      = os.Getenv("POD_NAME")
+	// PodName is the name of pilot pod.
+	PodName = os.Getenv("POD_NAME")
+	// PodNamespace is the namespace of pilot pod.
 	PodNamespace = os.Getenv("POD_NAMESPACE")
 
 	// CertDir is the default location for mTLS certificates used by pilot.
@@ -33,26 +34,27 @@ var (
 	// MaxConcurrentStreams indicates pilot max grpc concurrent streams.
 	MaxConcurrentStreams = os.Getenv("ISTIO_GPRC_MAXSTREAMS")
 
-	// Env var PILOT_TRACE_SAMPLING sets mesh-wide trace sampling
+	// TraceSampling sets mesh-wide trace sampling
 	// percentage, should be 0.0 - 100.0 Precision to 0.01
 	TraceSampling = os.Getenv("PILOT_TRACE_SAMPLING")
 
 	// CacheSquash is the max interval to squash a series of events.
 	CacheSquash = os.Getenv("PILOT_CACHE_SQUASH")
 
-	// Rate limit for the actual push.
+	// PushThrottle limits the qps of the actual push.
 	PushThrottle = os.Getenv("PILOT_PUSH_THROTTLE")
-	PushBurst    = os.Getenv("PILOT_PUSH_BURST")
+	// PushBurst limits the burst of the actual push.
+	PushBurst = os.Getenv("PILOT_PUSH_BURST")
 
 	// DebugConfigs controls saving snapshots of configs for /debug/adsz.
 	// Defaults to false, can be enabled with PILOT_DEBUG_ADSZ_CONFIG=1
 	DebugConfigs = os.Getenv("PILOT_DEBUG_ADSZ_CONFIG") == "1"
 
-	// Duration of periodic refresh, in case events or cache invalidation fail.
+	// RefreshDuration is the duration of periodic refresh, in case events or cache invalidation fail.
 	// Example: "300ms", "10s" or "2h45m".
 	RefreshDuration = os.Getenv("V2_REFRESH")
 
-	// kubeconfig file, if not specified default is `$HOME/.kube/config`
+	// KubeConfig file, if not specified default is `$HOME/.kube/config`
 	KubeConfig = os.Getenv("KUBECONFIG")
 
 	// DebounceAfter is the delay added to events to wait
