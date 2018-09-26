@@ -15,14 +15,19 @@
 package test
 
 import (
+	"errors"
 	"testing"
 	"time"
 
 	"github.com/cenkalti/backoff"
 )
 
-// A Condition is a function that returns true when a test condition is satisfied.
-type Condition func() bool
+// ErrWaitTimeout is returned when the condition exited without success.
+var ErrWaitTimeout = errors.New("timed out waiting for the condition")
+
+// Condition is a function that returns true when a test condition is satisfied, or an error
+// if the loop should be aborted.
+type Condition func() (done bool, err error)
 
 // Eventually polls cond until it completes (returns true) or times out (resulting in a test failure).
 func Eventually(t *testing.T, name string, cond Condition) {
@@ -40,7 +45,7 @@ type EventualOpts struct {
 // perform randomized exponential backoff using the starting interval, and will stop polling (and therefore fail) after
 // deadline time as elapsed from calling Eventually.
 //
-// Note: we always backoff with a randomization of 0.5 (50%), a multiplier of 1.5, and a max interval of one minute.
+// Note: we always backoff with a randomization of 0.5 (50%), a multiplier of 1.5.
 func NewEventualOpts(interval, deadline time.Duration) *EventualOpts {
 	strategy := backoff.NewExponentialBackOff()
 	strategy.InitialInterval = interval
@@ -48,17 +53,24 @@ func NewEventualOpts(interval, deadline time.Duration) *EventualOpts {
 	return &EventualOpts{strategy}
 }
 
-// Eventually polls cond until it succeeds (returns true) or we exceed the deadline. Eventually performs backoff while
+// Eventually polls cond until it succeeds (returns true), return an error, or we exceed the deadline. Eventually performs backoff while
 // polling cond.
+//
+// Eventually always checks 'condition' before waiting for the interval. 'condition'
+// will always be invoked at least once.
 //
 // name is printed as part of the test failure message when we exceed the deadline to help identify the test case failing.
 // cond does not need to be thread-safe: it is only called from the current goroutine. cond itself can also fail the test early using t.Fatal.
-func (e EventualOpts) Eventually(t *testing.T, name string, cond Condition) {
+func (e EventualOpts) Eventually(t *testing.T, name string, cond Condition) error {
 	t.Helper()
 
 	// Check once before we start polling.
-	if cond() {
-		return
+	done, err := cond()
+	if err != nil {
+		return err
+	}
+	if done {
+		return nil
 	}
 
 	// We didn't get a happy fast-path, so set up timers and wait.
@@ -66,10 +78,16 @@ func (e EventualOpts) Eventually(t *testing.T, name string, cond Condition) {
 	poll := backoff.NewTicker(e.strategy).C
 	for {
 		_, cont := <-poll
-		if cond() {
-			return
-		} else if !cont {
-			t.Fatalf("timed out waiting for condition %q to complete", name)
+		done, err := cond()
+		if err != nil {
+			return err
+		}
+		if done {
+			return nil
+		}
+		if !cont {
+			break
 		}
 	}
+	return ErrWaitTimeout
 }

@@ -488,9 +488,11 @@ func CheckCacheEvents(store model.ConfigStore, cache model.ConfigStoreCache, nam
 	CheckMapInvariant(store, t, namespace, n)
 
 	log.Infof("Waiting till all events are received")
-	pkgtest.NewEventualOpts(500*time.Millisecond, 60*time.Second).Eventually(t, "receive events", func() bool {
-		return added.Load() == n64 && deleted.Load() == n64
-	})
+	if err := pkgtest.NewEventualOpts(500*time.Millisecond, 60*time.Second).Eventually(t, "receive events", func() (bool, error) {
+		return added.Load() == n64 && deleted.Load() == n64, nil
+	}); err != nil {
+		t.Fatalf("Unexpected error %v", err)
+	}
 }
 
 // CheckCacheFreshness validates operational invariants of a cache
