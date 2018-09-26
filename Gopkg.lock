@@ -1605,9 +1605,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-<<<<<<< HEAD
-  inputs-digest = "a3f4506ed1d7f2f3cc257f1d3c8f83638e9dd3ef26757bad9f929509b5b923ce"
-=======
   input-imports = [
     "cloud.google.com/go/compute/metadata",
     "cloud.google.com/go/logging",
@@ -1847,6 +1844,5 @@
     "k8s.io/ingress/core/pkg/ingress/store",
     "k8s.io/kubernetes/pkg/apis/core",
   ]
->>>>>>> 7ccfaa46c... Use cookiejar to get updated session cookies in e2e_bookinfo (#8848)
   solver-name = "gps-cdcl"
   solver-version = 1
