@@ -297,6 +297,21 @@ func TestStoreFailToInit(t *testing.T) {
 	s.Stop()
 }
 
+func TestCriticalCrdsAreNotReady(t *testing.T) {
+	defer func() {
+		if r := recover(); r == nil {
+			t.Errorf("want mixer to be panic with critical kind not ready.")
+		}
+	}()
+	emptyDiscovery := &fake.FakeDiscovery{Fake: &k8stesting.Fake{}}
+	s, _, _ := getTempClient()
+	s.discoveryBuilder = func(*rest.Config) (discovery.DiscoveryInterface, error) {
+		return emptyDiscovery, nil
+	}
+	s.criticalKinds = []string{"Handler"}
+	_ = s.Init([]string{"Handler", "Action"})
+}
+
 func TestCrdsAreNotReady(t *testing.T) {
 	t.Skip("https://github.com/istio/istio/issues/7958")
 	emptyDiscovery := &fake.FakeDiscovery{Fake: &k8stesting.Fake{}}

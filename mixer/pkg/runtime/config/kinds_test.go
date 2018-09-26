@@ -56,3 +56,12 @@ func TestKindMap(t *testing.T) {
 		t.Fatalf("Got %v\nwant %v", km, want)
 	}
 }
+
+func TestCriticalKind(t *testing.T) {
+	ck := CriticalKinds()
+	want := []string{constant.RulesKind, constant.AttributeManifestKind, constant.AdapterKind,
+		constant.TemplateKind, constant.InstanceKind, constant.HandlerKind}
+	if !reflect.DeepEqual(ck, want) {
+		t.Errorf("critical kinds are not expected: got %v want %v", ck, want)
+	}
+}

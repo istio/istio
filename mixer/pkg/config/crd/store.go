@@ -73,6 +73,10 @@ type Store struct {
 	// The interval to wait between the attempt to initialize caches. This is not const
 	// to allow changing the value for unittests.
 	retryInterval time.Duration
+
+	// criticalkinds are the kinds that are critical for mixer function and must be ready
+	// for store initialization.
+	criticalKinds []string
 }
 
 var _ store.Backend = new(Store)
@@ -146,10 +150,24 @@ func (s *Store) Init(kinds []string) error {
 	s.informers = make(map[string]cache.SharedInformer, len(kinds))
 	remaining := s.checkAndCreateCaches(d, lwBuilder, kinds)
 	if len(remaining) > 0 {
+		for _, k := range remaining {
+			if s.isCriticalKind(k) {
+				panic(fmt.Errorf("critical kind %s is not ready", k))
+			}
+		}
 		log.Warnf("Failed to discover kinds: %v", remaining)
 	}
 
 	return nil
+}
+
+func (s *Store) isCriticalKind(kind string) bool {
+	for _, ck := range s.criticalKinds {
+		if ck == kind {
+			return true
+		}
+	}
+	return false
 }
 
 // WaitForSynced implements store.WaitForSynced interface
