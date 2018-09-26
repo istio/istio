@@ -116,6 +116,9 @@ func init() {
 	serverArgs.MCPCredentialOptions.AttachCobraFlags(discoveryCmd)
 
 	// Config Controller options
+	discoveryCmd.PersistentFlags().BoolVar(&serverArgs.Config.DisableInstallCRDs, "disable-install-crds", false,
+		"Disable discovery service from verifying the existence of CRDs at startup and then installing if not detected.  "+
+			"It is recommended to be disable for highly available setups.")
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.FileDir, "configDir", "",
 		"Directory to watch for updates to config yaml files. If specified, the files will be used as the source of config, rather than a CRD client.")
 	discoveryCmd.PersistentFlags().StringVarP(&serverArgs.Config.ControllerOptions.WatchedNamespace, "appNamespace",
