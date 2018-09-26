@@ -82,16 +82,16 @@ func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		body.WriteString("ParseForm() error: " + err.Error() + "\n")
 	}
 
+	// If the request has form ?headers=name:value[,name:value]* return those headers in response
+	if err := setHeaderResponseFromHeaders(r, w); err != nil {
+		body.WriteString("response headers error: " + err.Error() + "\n")
+	}
+
 	// If the request has form ?codes=code[:chance][,code[:chance]]* return those codes, rather than 200
 	// For example, ?codes=500:1,200:1 returns 500 1/2 times and 200 1/2 times
 	// For example, ?codes=500:90,200:10 returns 500 90% of times and 200 10% of times
 	if err := setResponseFromCodes(r, w); err != nil {
 		body.WriteString("codes error: " + err.Error() + "\n")
-	}
-
-	// If the request has form ?headers=name:value[,name:value]* return those headers in response
-	if err := setHeaderResponseFromHeaders(r, w); err != nil {
-		body.WriteString("response headers error: " + err.Error() + "\n")
 	}
 
 	h.addResponsePayload(r, &body)
@@ -148,8 +148,11 @@ func (h handler) WebSocketEcho(w http.ResponseWriter, r *http.Request) {
 }
 
 func setHeaderResponseFromHeaders(request *http.Request, response http.ResponseWriter) error {
-	responseHeadersString := request.FormValue("headers")
-	responseHeaders := strings.Split(responseHeadersString, ",")
+	s := request.FormValue("headers")
+	if len(s) == 0 {
+		return nil
+	}
+	responseHeaders := strings.Split(s, ",")
 
 	for _, responseHeader := range responseHeaders {
 		parts := strings.Split(responseHeader, ":")

@@ -454,7 +454,7 @@ func TestHeadersManipulations(t *testing.T) {
 	destRespHeaderRegexp := regexp.MustCompile("(?i)ResponseHeader=istio-custom-dest-resp-header:user-defined-value")
 	destRespHeaderRemoveRegexp := regexp.MustCompile("(?i)ResponseHeader=istio-custom-dest-resp-header-remove:to-be-removed")
 
-	epsilon := 5
+	epsilon := 10
 	numRequests := 100
 	numV1 := 75
 	numV2 := 25
