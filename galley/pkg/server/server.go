@@ -67,7 +67,7 @@ func defaultPatchTable() patchTable {
 		newKubeFromConfigFile: kube.NewKubeFromConfigFile,
 		newSource:             source.New,
 		netListen:             net.Listen,
-		mcpMetricReporter:     func(prefix string) server.Reporter { return server.NewReporter(prefix) },
+		mcpMetricReporter:     func(prefix string) server.Reporter { return server.NewStatsContext(prefix) },
 	}
 }
 

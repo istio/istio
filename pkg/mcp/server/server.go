@@ -84,7 +84,7 @@ type Server struct {
 	authCheck                   AuthChecker
 	checkFailureRecordLimiter   *rate.Limiter
 	failureCountSinceLastRecord int
-	connections                 int32
+	connections                 int64
 	reporter                    Reporter
 }
 
@@ -124,6 +124,16 @@ type connection struct {
 	watcher  Watcher
 
 	reporter Reporter
+}
+
+// Reporter is used to report metrics for an MCP server.
+type Reporter interface {
+	SetClientsTotal(clients int64)
+	RecordSendError(err error, code codes.Code)
+	RecordRecvError(err error, code codes.Code)
+	RecordRequestSize(typeURL string, connectionID int64, size int)
+	RecordRequestAck(typeURL string, connectionID int64)
+	RecordRequestNack(typeURL string, connectionID int64)
 }
 
 // New creates a new gRPC server that implements the Mesh Configuration Protocol (MCP). A nil authCheck
@@ -189,8 +199,7 @@ func (s *Server) newConnection(stream mcp.AggregatedMeshConfigService_StreamAggr
 		types = append(types, typeURL)
 	}
 
-	atomic.AddInt32(&s.connections, 1)
-	s.reporter.SetClientsTotal(int64(atomic.LoadInt32(&s.connections)))
+	s.reporter.SetClientsTotal(atomic.AddInt64(&s.connections, 1))
 
 	scope.Infof("MCP: connection %v: NEW, supported types: %#v", con, types)
 	return con, nil
@@ -247,9 +256,7 @@ func (s *Server) StreamAggregatedResources(stream mcp.AggregatedMeshConfigServic
 
 func (s *Server) closeConnection(con *connection) {
 	con.close()
-	atomic.AddInt32(&s.connections, -1)
-
-	s.reporter.SetClientsTotal(int64(atomic.LoadInt32(&s.connections)))
+	s.reporter.SetClientsTotal(atomic.AddInt64(&s.connections, -1))
 }
 
 // String implements Stringer.String.
