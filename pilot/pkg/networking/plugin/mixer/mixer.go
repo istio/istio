@@ -48,6 +48,7 @@ const (
 
 	// defaultConfig is the default service config (that does not correspond to an actual service)
 	defaultConfig = "default"
+	off           = "off"
 )
 
 // NewPlugin returns an ptr to an initialized mixer.Plugin.
@@ -55,9 +56,18 @@ func NewPlugin() plugin.Plugin {
 	return mixerplugin{}
 }
 
+func disabled(n *model.Proxy) {
+	checkDisabled := in.Node.Metadata["sidecar.istio.io_policy"] == off
+	reportDisabled := in.Node.Metadata["sidecar.istio.io_telemetry"] == off
+	return checkDisabled && reportDisabled
+}
+
 // OnOutboundListener implements the Callbacks interface method.
 func (mixerplugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
 	if in.Env.Mesh.MixerCheckServer == "" && in.Env.Mesh.MixerReportServer == "" {
+		return nil
+	}
+	if disabled(in.Node) {
 		return nil
 	}
 
@@ -89,6 +99,9 @@ func (mixerplugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mu
 // OnInboundListener implements the Callbacks interface method.
 func (mixerplugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
 	if in.Env.Mesh.MixerCheckServer == "" && in.Env.Mesh.MixerReportServer == "" {
+		return nil
+	}
+	if disabled(in.Node) {
 		return nil
 	}
 
@@ -144,6 +157,9 @@ func (mixerplugin) OnInboundCluster(env *model.Environment, node *model.Proxy, p
 
 // OnOutboundRouteConfiguration implements the Plugin interface method.
 func (mixerplugin) OnOutboundRouteConfiguration(in *plugin.InputParams, routeConfiguration *xdsapi.RouteConfiguration) {
+	if disabled(in.Node) {
+		return
+	}
 	for i := 0; i < len(routeConfiguration.VirtualHosts); i++ {
 		host := routeConfiguration.VirtualHosts[i]
 		for j := 0; j < len(host.Routes); j++ {
@@ -155,6 +171,9 @@ func (mixerplugin) OnOutboundRouteConfiguration(in *plugin.InputParams, routeCon
 
 // OnInboundRouteConfiguration implements the Plugin interface method.
 func (mixerplugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeConfiguration *xdsapi.RouteConfiguration) {
+	if disabled(in.Node) {
+		return
+	}
 	switch in.ListenerProtocol {
 	case plugin.ListenerProtocolHTTP:
 		// copy structs in place
@@ -365,6 +384,10 @@ func disableClientPolicyChecks(mesh *meshconfig.MeshConfig, node *model.Proxy) b
 	if mesh.DisablePolicyChecks {
 		return true
 	}
+	if node.Metadata["sidecar.istio.io.policy"] == off {
+		return true
+	}
+
 	if node.Type == model.Router {
 		return false
 	}

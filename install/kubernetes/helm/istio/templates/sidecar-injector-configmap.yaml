@@ -130,12 +130,12 @@ data:
         - name: ISTIO_META_INTERCEPTION_MODE
           value: {{ "[[ or (index .ObjectMeta.Annotations \"sidecar.istio.io/interceptionMode\") .ProxyConfig.InterceptionMode.String ]]" }}
         {{ "[[ range $k,$v := .ObjectMeta.Annotations ]]" }}
-        - name: ISTIO_META_ANN_{{ "[[ $k ]]" }}
-          value: {{ "[[ $v ]]" }}
+        - name: ISTIO_META_{{ "[[ annotationEscape $k ]]" }}
+          value: "{{ "[[ $v ]]" }}"
         {{ "[[ end ]]" }}
         {{ "[[ range $k,$v := .ObjectMeta.Labels ]]" }}
-        - name: ISTIO_META_LBL_{{ "[[ $k ]]" }}
-          value: {{ "[[ $v ]]" }}
+        - name: ISTIO_META_{{ "[[ $k ]]" }}
+          value: "{{ "[[ $v ]]" }}"
         {{ "[[ end ]]" }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
         {{ "[[ if (ne (annotation .ObjectMeta `status.sidecar.istio.io/port` " }} {{ .Values.global.proxy.statusPort }} {{ ") \"0\") ]]" }}
