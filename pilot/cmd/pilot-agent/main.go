@@ -137,7 +137,7 @@ var (
 			proxyConfig.ProxyAdminPort = int32(proxyAdminPort)
 			proxyConfig.Concurrency = int32(concurrency)
 
-			var pilotSAN []string
+			pilotSAN := make([]string, 0)
 			var ns string
 			setIdentityDomainAndDomain()
 			
@@ -167,7 +167,7 @@ var (
 						}
 					}
 				}
-				pilotSAN = []string{envoy.GetPilotSAN(ns)}
+				pilotSAN = append(pilotSAN, envoy.GetPilotSAN(ns))
 			}
 
 			// resolve statsd address
