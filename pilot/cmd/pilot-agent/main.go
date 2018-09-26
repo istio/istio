@@ -139,10 +139,11 @@ var (
 
 			var pilotSAN []string
 			var ns string
+			setIdentityDomainAndDomain()
+			
 			switch controlPlaneAuthPolicy {
 			case meshconfig.AuthenticationPolicy_NONE.String():
 				proxyConfig.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_NONE
-				setIdentityDomainAndDomainForNonMTls()
 			case meshconfig.AuthenticationPolicy_MUTUAL_TLS.String():
 				proxyConfig.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS
 				if registry == serviceregistry.KubernetesRegistry {
@@ -166,7 +167,6 @@ var (
 						}
 					}
 				}
-				setIdentityDomainAndDomainForMTls()
 				pilotSAN = []string{envoy.GetPilotSAN(ns)}
 			}
 
@@ -274,32 +274,27 @@ var (
 		},
 	}
 )
-func setIdentityDomainAndDomainForNonMTls() {
-	role.IdentityDomain = ""
 
-	isKubernetes := registry == serviceregistry.KubernetesRegistry
-	role.IdentityDomain = spiffe.SetIdentityDomain("", role.Domain,
-			isKubernetes)
-}
-
-func setIdentityDomainAndDomainForMTls() {
+//ToDo: add missing tests
+func setIdentityDomainAndDomain() {
 	domain := role.Domain
 	isKubernetes := registry == serviceregistry.KubernetesRegistry
 	if controlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS.String() {
 		role.IdentityDomain = spiffe.SetIdentityDomain(role.IdentityDomain, domain,
 			isKubernetes)
-	} else {
-		role.IdentityDomain = ""
-	}
 
-	if len(domain) == 0 {
-		if isKubernetes {
-			domain = os.Getenv("POD_NAMESPACE") + ".svc.cluster.local"
-		} else if registry == serviceregistry.ConsulRegistry {
-			domain = "service.consul"
-		} else {
-			domain = ""
+		if len(domain) == 0 {
+			if isKubernetes {
+				domain = os.Getenv("POD_NAMESPACE") + ".svc.cluster.local"
+			} else if registry == serviceregistry.ConsulRegistry {
+				domain = "service.consul"
+			} else {
+				domain = ""
+			}
 		}
+	} else {
+		role.IdentityDomain = spiffe.SetIdentityDomain("", role.Domain,
+			isKubernetes)
 	}
 
 	role.Domain = domain
