@@ -17,8 +17,8 @@
 // the service co-located with envoy.
 // Currently the config is only generated for sidecar node on inbound HTTP/TCP listener. The generation
 // is controlled by RbacConfig (a singleton custom resource with cluster scope). User could disable
-// this plugin by either deleting the RbacConfig or set the RbacConfig.mode to OFF.
-// Note: RbacConfig is not created with default istio installation which means this plugin doesn't
+// this plugin by either deleting the ClusterRbacConfig or set the ClusterRbacConfig.mode to OFF.
+// Note: ClusterRbacConfig is not created with default istio installation which means this plugin doesn't
 // generate any RBAC config by default.
 package authz
 
