@@ -142,6 +142,7 @@ var (
 			switch controlPlaneAuthPolicy {
 			case meshconfig.AuthenticationPolicy_NONE.String():
 				proxyConfig.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_NONE
+				setIdentityDomainAndDomainForNonMTls()
 			case meshconfig.AuthenticationPolicy_MUTUAL_TLS.String():
 				proxyConfig.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS
 				if registry == serviceregistry.KubernetesRegistry {
@@ -165,7 +166,7 @@ var (
 						}
 					}
 				}
-				setIdentityDomainAndDomain()
+				setIdentityDomainAndDomainForMTls()
 				pilotSAN = []string{envoy.GetPilotSAN(ns)}
 			}
 
@@ -273,8 +274,15 @@ var (
 		},
 	}
 )
+func setIdentityDomainAndDomainForNonMTls() {
+	role.IdentityDomain = ""
 
-func setIdentityDomainAndDomain() {
+	isKubernetes := registry == serviceregistry.KubernetesRegistry
+	role.IdentityDomain = spiffe.SetIdentityDomain("", role.Domain,
+			isKubernetes)
+}
+
+func setIdentityDomainAndDomainForMTls() {
 	domain := role.Domain
 	isKubernetes := registry == serviceregistry.KubernetesRegistry
 	if controlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS.String() {
