@@ -2161,7 +2161,10 @@
     "k8s.io/client-go/tools/clientcmd",
     "k8s.io/client-go/tools/clientcmd/api",
     "k8s.io/client-go/tools/clientcmd/api/v1",
+    "k8s.io/client-go/tools/leaderelection",
+    "k8s.io/client-go/tools/leaderelection/resourcelock",
     "k8s.io/client-go/tools/portforward",
+    "k8s.io/client-go/tools/record",
     "k8s.io/client-go/tools/remotecommand",
     "k8s.io/client-go/transport/spdy",
     "k8s.io/client-go/util/workqueue",
@@ -2171,9 +2174,6 @@
     "k8s.io/helm/pkg/proto/hapi/chart",
     "k8s.io/helm/pkg/proto/hapi/version",
     "k8s.io/helm/pkg/timeconv",
-    "k8s.io/ingress/core/pkg/ingress/annotations/class",
-    "k8s.io/ingress/core/pkg/ingress/status",
-    "k8s.io/ingress/core/pkg/ingress/store",
     "k8s.io/kubernetes/pkg/apis/core",
   ]
   solver-name = "gps-cdcl"
