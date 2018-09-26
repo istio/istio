@@ -73,10 +73,10 @@ func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 			serverArgs.CredentialOptions.KeyFile = validationArgs.KeyFile
 			serverArgs.CredentialOptions.CertificateFile = validationArgs.CertFile
 			serverArgs.LoggingOptions = loggingOptions
-			if livenessProbeOptions.IsValid() {
+			if livenessProbeOptions.Validate() == nil {
 				livenessProbeController = probe.NewFileController(&livenessProbeOptions)
 			}
-			if readinessProbeOptions.IsValid() {
+			if readinessProbeOptions.Validate() == nil {
 				readinessProbeController = probe.NewFileController(&readinessProbeOptions)
 
 			}

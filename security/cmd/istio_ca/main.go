@@ -425,7 +425,7 @@ func createCA(core corev1.SecretsGetter) *ca.IstioCA {
 		log.Errorf("Failed to create an Citadel (error: %v)", err)
 	}
 
-	if opts.LivenessProbeOptions.IsValid() {
+	if opts.LivenessProbeOptions.Validate() == nil {
 		livenessProbeChecker, err := probecontroller.NewLivenessCheckController(
 			opts.probeCheckInterval, fmt.Sprintf("%v:%v", fqdn(), opts.grpcPort), istioCA,
 			opts.LivenessProbeOptions, probecontroller.GrpcProtocolProvider)

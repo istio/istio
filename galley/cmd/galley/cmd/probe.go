@@ -30,8 +30,8 @@ func probeCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 		Use:   "probe",
 		Short: "Check the liveness or readiness of a locally-running server",
 		Run: func(cmd *cobra.Command, _ []string) {
-			if !probeOptions.IsValid() {
-				fatalf("some options are not valid")
+			if err := probeOptions.Validate(); err != nil {
+				fatalf("fail on validating probe options: %v", err)
 			}
 			if err := probe.NewFileClient(&probeOptions).GetStatus(); err != nil {
 				fatalf("fail on inspecting path %s: %v", probeOptions.Path, err)

@@ -14,7 +14,11 @@
 
 package probe
 
-import "time"
+import (
+	"errors"
+	"github.com/hashicorp/go-multierror"
+	"time"
+)
 
 // Options customizes the parameters of a probe.
 type Options struct {
@@ -27,6 +31,16 @@ type Options struct {
 }
 
 // IsValid returns true if some values are filled into the options.
-func (o *Options) IsValid() bool {
-	return o != nil && o.Path != "" && o.UpdateInterval > 0*time.Second
+func (o *Options) Validate() error {
+	if o == nil {
+		return errors.New("option is nil")
+	}
+	var errs error
+	if o.Path == "" {
+		errs = errors.New("empty probe-path")
+	}
+	if o.UpdateInterval <= 0*time.Second {
+		errs = multierror.Append(errs, errors.New("invalid interval"))
+	}
+	return errs
 }

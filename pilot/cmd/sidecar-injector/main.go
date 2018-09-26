@@ -101,8 +101,8 @@ var (
 		Short: "Check the liveness or readiness of a locally-running server",
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if !flags.probeOptions.IsValid() {
-				return errors.New("some options are not valid")
+			if err := flags.probeOptions.Validate(); err != nil {
+				return fmt.Errorf("fail on validating probe options: %v", err)
 			}
 			if err := probe.NewFileClient(&flags.probeOptions).GetStatus(); err != nil {
 				return fmt.Errorf("fail on inspecting path %s: %v", flags.probeOptions.Path, err)

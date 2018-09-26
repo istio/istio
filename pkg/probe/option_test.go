@@ -21,23 +21,23 @@ import (
 
 func TestOption(t *testing.T) {
 	var o *Options
-	if o.IsValid() {
+	if o.Validate() == nil {
 		t.Error("nil should not be valid")
 	}
 	o = &Options{}
-	if o.IsValid() {
+	if o.Validate() == nil {
 		t.Errorf("Empty option %+v should not be valid", o)
 	}
 	o.Path = "foo"
-	if o.IsValid() {
+	if o.Validate() == nil {
 		t.Errorf("%+v should not be valid since interval is missing", o)
 	}
 	o.UpdateInterval = time.Second
-	if !o.IsValid() {
+	if o.Validate() != nil {
 		t.Errorf("%+v should be valid", o)
 	}
 	o.Path = ""
-	if o.IsValid() {
+	if o.Validate() == nil {
 		t.Errorf("%+v should not be valid since path is missing", o)
 	}
 }

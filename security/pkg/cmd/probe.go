@@ -31,8 +31,8 @@ func NewProbeCmd() *cobra.Command {
 		Short: "Check the liveness or readiness of a locally-running server",
 		Args:  cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
-			if !probeOptions.IsValid() {
-				shared.Fatalf("probe-path or interval are not valid\n\n%s", cmd.UsageString())
+			if err := probeOptions.Validate(); err != nil {
+				shared.Fatalf("Fail on validating probe options: %v\n\n%s", err, cmd.UsageString())
 			}
 			if err := probe.NewFileClient(probeOptions).GetStatus(); err != nil {
 				shared.Fatalf("Fail on inspecting path %s: %v", probeOptions.Path, err)

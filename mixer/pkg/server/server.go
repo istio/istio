@@ -247,13 +247,13 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 	s.server = grpc.NewServer(grpcOptions...)
 	mixerpb.RegisterMixerServer(s.server, api.NewGRPCServer(s.dispatcher, s.gp, s.checkCache))
 
-	if a.LivenessProbeOptions.IsValid() {
+	if a.LivenessProbeOptions.Validate() == nil {
 		s.livenessProbe = probe.NewFileController(a.LivenessProbeOptions)
 		s.RegisterProbe(s.livenessProbe, "server")
 		s.livenessProbe.Start()
 	}
 
-	if a.ReadinessProbeOptions.IsValid() {
+	if a.ReadinessProbeOptions.Validate() == nil {
 		s.readinessProbe = probe.NewFileController(a.ReadinessProbeOptions)
 		rt.RegisterProbe(s.readinessProbe, "dispatcher")
 		st.RegisterProbe(s.readinessProbe, "store")
