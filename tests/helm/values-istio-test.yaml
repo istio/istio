@@ -15,10 +15,13 @@ global:
 
   proxy:
     accessLogFile: ""
+    enableCoreDump: true
     resources:
       requests:
         cpu: 900m
         memory: 256Mi
+    envoyStatsd:
+      enabled: false
 
 ingress:
   enabled: false
@@ -64,6 +67,8 @@ gateways:
     - port: 443
       name: https
       nodePort: 31390
+    - port: 853
+      name: tcp-dns-tls
     - port: 31400
       name: tcp
     - port: 15011
@@ -80,6 +85,71 @@ gateways:
       name: tcp-iperf
     - port: 5204
       name: tcp-iperf-tls
+
+  istio-egressgateway:
+    resources:
+      requests:
+        cpu: 800m
+        memory: 512Mi
+
+
+  istio-ingressgateway2:
+    meshExpansion: true
+    enabled: true
+    image: istio/proxyv2:1.0.0
+    secretVolumes:
+    - name: istio-ingressgateway-certs
+      secretName: istio-ingressgateway-certs
+      mountPath: /etc/istio/ingressgateway-certs
+    - name: istio-ingressgateway-certs-fortiotls
+      secretName: istio-ingressgateway-certs-fortiotls
+      mountPath: /etc/istio/ingressgateway-certs-fortiotls
+    - name: istio-ingressgateway-certs-fortionoistio
+      secretName: istio-ingressgateway-certs-fortionoistio
+      mountPath: /etc/istio/ingressgateway-certs-fortionoistio
+    labels:
+      istio: ingressgateway2
+      ver: ingress100
+      app: istio-ingressgateway2
+      name: gateway2
+    replicas: 1
+    autoscaleMin: 1
+    autoscaleMax: 1
+    resources:
+      limits:
+        cpu: 6000m
+        memory: 512Mi
+      requests:
+        cpu: 4000m
+        memory: 512Mi
+    type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
+    cpu:
+      targetAverageUtilization: 80
+    ports:
+    - port: 80
+      targetPort: 80
+      name: http2
+    - port: 443
+      name: https
+    - port: 853
+      name: tcp-dns-tls
+    - port: 31400
+      name: tcp
+    - port: 15011
+      targetPort: 15011
+      name: tcp-pilot-grcp-tls
+    - port: 8060
+      targetPort: 8060
+      name: tcp-citadel-grpc-tls
+    - port: 5201
+      name: tcp-iperf-cont
+    - port: 5202
+      name: tcp-iperfraw
+    - port: 5203
+      name: tcp-iperf
+    - port: 5204
+      name: tcp-iperf-tls
+
 
 pilot:
   replicaCount: 1
