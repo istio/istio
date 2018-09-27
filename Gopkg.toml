@@ -111,8 +111,8 @@ ignored = [
   version = "1.1.0"
 
 [[constraint]]
-  branch = "master"
   name = "github.com/envoyproxy/go-control-plane"
+  version = "^0.6.0"
 
 [[constraint]]
   name = "github.com/fluent/fluent-logger-golang"
