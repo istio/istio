@@ -147,7 +147,7 @@ global:
   # If set to true, the pilot and citadel mtls will be exposed on the
   # ingress gateway
   meshExpansion:
-    enabled: true
+    enabled: false
     # If set to true, the pilot and citadel mtls and the plain text pilot ports
     # will be exposed on an internal gateway
     useILB: false
@@ -161,7 +161,7 @@ global:
     # added to each replicated service object, where the endpoint points to
     # the remote cluster's MCgatewayIP:8443. All clusters should be using
     # Istio mTLS and must have a shared root CA for this model to work.
-    connectUsingGateway: true
+    connectUsingGateway: false
     # Change this to mcgateway to use a dedicated controlled gateway for
     # multi-cluster traffic over port 15443
     gatewayName: ingressgateway
