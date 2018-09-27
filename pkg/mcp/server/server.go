@@ -157,13 +157,15 @@ func (s *Server) newConnection(stream mcp.AggregatedMeshConfigService_StreamAggr
 		authInfo = peerInfo.AuthInfo
 	}
 
-	if err := s.authCheck.Check(authInfo); err != nil {
-		s.failureCountSinceLastRecord++
-		if s.checkFailureRecordLimiter.Allow() {
-			log.Warnf("NewConnection: auth check failed: %v (repeated %d times).", err, s.failureCountSinceLastRecord)
-			s.failureCountSinceLastRecord = 0
+	if s.authCheck != nil {
+		if err := s.authCheck.Check(authInfo); err != nil {
+			s.failureCountSinceLastRecord++
+			if s.checkFailureRecordLimiter.Allow() {
+				log.Warnf("NewConnection: auth check failed: %v (repeated %d times).", err, s.failureCountSinceLastRecord)
+				s.failureCountSinceLastRecord = 0
+			}
+			return nil, status.Errorf(codes.Unauthenticated, "Authentication failure: %v", err)
 		}
-		return nil, status.Errorf(codes.Unauthenticated, "Authentication failure: %v", err)
 	}
 
 	con := &connection{
