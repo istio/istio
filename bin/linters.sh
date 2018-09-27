@@ -50,6 +50,12 @@ function check_spelling() {
     echo 'spelling OK'
 }
 
+function check_boilerplate() {
+    echo 'Checking boilerplate'
+    bin/check_boilerplate.sh
+    echo 'boilerplate check OK'
+}
+
 function has_latest_gometalinter() {
     local local_binary
     local lastest_version
@@ -121,6 +127,7 @@ function check_grafana_dashboards() {
 ensure_pilot_types
 format
 check_licenses
+check_boilerplate
 check_spelling
 install_gometalinter
 run_gometalinter
