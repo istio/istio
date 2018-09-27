@@ -98,7 +98,9 @@ func (s *StatsContext) RecordRequestNack(typeURL string, connectionID int64) {
 }
 
 func NewStatsContext(prefix string) *StatsContext {
-	if !strings.HasSuffix(prefix, "/") {
+	if len(prefix) == 0 {
+		panic("must specify prefix for MCP server monitoring.")
+	} else if !strings.HasSuffix(prefix, "/") {
 		prefix += "/"
 	}
 	ctx := &StatsContext{
