@@ -68,9 +68,10 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 		clusters = append(clusters, configgen.buildInboundClusters(env, proxy, push, instances, managementPorts)...)
 	}
 
-	// Add a blackhole cluster for catching traffic to unresolved routes
-	// DO NOT CALL PLUGINS for this cluster.
+	// Add a blackhole and passthrough cluster for catching traffic to unresolved routes
+	// DO NOT CALL PLUGINS for these two clusters.
 	clusters = append(clusters, buildBlackHoleCluster())
+	clusters = append(clusters, buildDefaultPassthroughCluster())
 
 	return normalizeClusters(push, proxy, clusters), nil
 }
@@ -523,6 +524,18 @@ func buildBlackHoleCluster() *v2.Cluster {
 		Type:           v2.Cluster_STATIC,
 		ConnectTimeout: 1 * time.Second,
 		LbPolicy:       v2.Cluster_ROUND_ROBIN,
+	}
+	return cluster
+}
+
+// generates a cluster that sends traffic to the original destination.
+// This cluster is used to catch all traffic to unknown listener ports
+func buildDefaultPassthroughCluster() *v2.Cluster {
+	cluster := &v2.Cluster{
+		Name:           util.PassthroughCluster,
+		Type:           v2.Cluster_ORIGINAL_DST,
+		ConnectTimeout: 1 * time.Second,
+		LbPolicy:       v2.Cluster_ORIGINAL_DST_LB,
 	}
 	return cluster
 }
