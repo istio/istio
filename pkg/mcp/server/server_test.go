@@ -276,6 +276,57 @@ func TestMultipleRequests(t *testing.T) {
 	}
 }
 
+func TestAuthCheck_NotProvided(t *testing.T) {
+	config := makeMockConfigWatcher()
+	config.setResponse(&WatchResponse{
+		TypeURL:   fakeType0TypeURL,
+		Version:   "1",
+		Envelopes: []*mcp.Envelope{fakeEnvelope0},
+	})
+
+	// make a request
+	stream := makeMockStream(t)
+	stream.recv <- &mcp.MeshConfigRequest{
+		Client:  client,
+		TypeUrl: fakeType0TypeURL,
+	}
+
+	s := New(config, WatchResponseTypes, nil)
+	go func() {
+		if err := s.StreamAggregatedResources(stream); err != nil {
+			t.Errorf("Stream() => got %v, want no error", err)
+		}
+	}()
+	var rsp *mcp.MeshConfigResponse
+
+	// check a response
+	select {
+	case rsp = <-stream.sent:
+		if want := map[string]int{fakeType0TypeURL: 1}; !reflect.DeepEqual(want, config.counts) {
+			t.Errorf("watch counts => got %v, want %v", config.counts, want)
+		}
+	case <-time.After(time.Second):
+		t.Fatalf("got no response")
+	}
+
+	stream.recv <- &mcp.MeshConfigRequest{
+		Client:        client,
+		TypeUrl:       fakeType0TypeURL,
+		VersionInfo:   rsp.VersionInfo,
+		ResponseNonce: rsp.Nonce,
+	}
+
+	// check a response
+	select {
+	case <-stream.sent:
+		if want := map[string]int{fakeType0TypeURL: 2}; !reflect.DeepEqual(want, config.counts) {
+			t.Errorf("watch counts => got %v, want %v", config.counts, want)
+		}
+	case <-time.After(time.Second):
+		t.Fatalf("got no response")
+	}
+}
+
 func TestAuthCheck_Failure(t *testing.T) {
 	config := makeMockConfigWatcher()
 	config.setResponse(&WatchResponse{
