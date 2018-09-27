@@ -209,7 +209,14 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 		}
 	}
 
-	if err := b.srv.Start(env, promhttp.HandlerFor(b.registry, promhttp.HandlerOpts{})); err != nil {
+	// We want best-effort on metrics generation. It is important to log the failures, however,
+	// to help capture any breakages that may be hidden.
+	opts := promhttp.HandlerOpts{
+		ErrorHandling: promhttp.ContinueOnError,
+		ErrorLog:      &promLogger{logger: env.Logger()},
+	}
+
+	if err := b.srv.Start(env, promhttp.HandlerFor(b.registry, opts)); err != nil {
 		return nil, err
 	}
 
@@ -431,4 +438,12 @@ func computeSha(m proto.Marshaler, log adapter.Logger) [sha1.Size]byte {
 		log.Warningf("Unable to encode %v", err)
 	}
 	return sha1.Sum(ba)
+}
+
+type promLogger struct {
+	logger adapter.Logger
+}
+
+func (pl *promLogger) Println(v ...interface{}) {
+	pl.logger.Errorf("Prometheus handler error: %s", fmt.Sprintln(v...)) // nolint: gas
 }
