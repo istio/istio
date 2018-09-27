@@ -15,7 +15,10 @@
 package rbac
 
 import (
+	"reflect"
 	"testing"
+
+	"github.com/golang/protobuf/proto"
 
 	rbacproto "istio.io/api/rbac/v1alpha1"
 	"istio.io/istio/mixer/pkg/adapter/test"
@@ -226,6 +229,178 @@ func TestRBACStore_CheckPermission(t *testing.T) {
 		result, _ := s.CheckPermission(instance, test.NewEnv(t))
 		if result != c.expected {
 			t.Errorf("Does not meet expectation for case %v", c)
+		}
+	}
+}
+
+func TestRBACStore_ListAccessRules(t *testing.T) {
+	s := setupRBACStore()
+
+	cases := []struct {
+		subject  SubjectArgs
+		action   ActionArgs
+		expected *map[string]*rbacproto.ServiceRole
+	}{
+		{
+			subject: SubjectArgs{
+				User: "alice@yahoo.com",
+			},
+			action: ActionArgs{
+				Namespace: "ns1",
+			},
+			expected: &map[string]*rbacproto.ServiceRole{
+				"role2": {
+					Rules: []*rbacproto.AccessRule{
+						{
+							Services: []string{"products"},
+							Methods:  []string{"*"},
+							Constraints: []*rbacproto.AccessRule_Constraint{
+								{
+									Key:    "version",
+									Values: []string{"v1", "v2"},
+								},
+							},
+						},
+					},
+				},
+				"role4": {
+					Rules: []*rbacproto.AccessRule{
+						{
+							Services: []string{"fish"},
+							Paths:    []string{"*/review"},
+							Methods:  []string{"GET"},
+						},
+					},
+				},
+				"role5": {
+					Rules: []*rbacproto.AccessRule{
+						{
+							Services: []string{"abc"},
+							Methods:  []string{"GET"},
+						},
+					},
+				},
+			},
+		},
+		{
+			subject: SubjectArgs{
+				Properties: []string{"namespace=acme"},
+			},
+			action: ActionArgs{
+				Namespace: "ns1",
+			},
+			expected: &map[string]*rbacproto.ServiceRole{
+				"role1": {
+					Rules: []*rbacproto.AccessRule{
+						{
+							Services: []string{"bookstore"},
+							Paths:    []string{"/books"},
+							Methods:  []string{"GET"},
+						},
+					},
+				},
+			},
+		},
+		{
+			subject: SubjectArgs{
+				User:       "alice@yahoo.com",
+				Properties: []string{"namespace=mynamespace", "service=xyz"},
+			},
+			action: ActionArgs{
+				Namespace: "ns1",
+			},
+			expected: &map[string]*rbacproto.ServiceRole{
+				"role4": {
+					Rules: []*rbacproto.AccessRule{
+						{
+							Services: []string{"fish"},
+							Paths:    []string{"*/review"},
+							Methods:  []string{"GET"},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, c := range cases {
+		result, _ := s.ListPermissions(c.subject, c.action)
+
+		if len(*c.expected) != len(*result) {
+			t.Fatalf("invalid numbers of response. expected: %v got: %v", len(*c.expected), len(*result))
+		}
+
+		for roleName, role := range *c.expected {
+			if _, ok := (*result)[roleName]; !ok {
+				t.Errorf("No response for %v", roleName)
+				continue
+			}
+
+			if !proto.Equal((*result)[roleName], role) {
+				t.Errorf("unexpected response for %v expected: %v got: %v", roleName, role, (*result)[roleName])
+			}
+		}
+	}
+}
+
+func TestRBACStore_ListUsers(t *testing.T) {
+	s := setupRBACStore()
+
+	cases := []struct {
+		action   ActionArgs
+		expected []string
+	}{
+		{
+			action: ActionArgs{
+				Service:   "fish",
+				Path:      "* /review",
+				Method:    "GET",
+				Namespace: "ns1",
+			},
+			expected: []string{"alice@yahoo.com"},
+		},
+		{
+			action: ActionArgs{
+				Service:    "products",
+				Path:       "/",
+				Method:     "GET",
+				Namespace:  "ns1",
+				Properties: []string{"version=v1"},
+			},
+			expected: []string{"alice@yahoo.com"},
+		},
+		{
+			action: ActionArgs{
+				Service:   "abc",
+				Path:      "/",
+				Method:    "GET",
+				Namespace: "ns1",
+			},
+			expected: []string{"*"},
+		},
+		{
+			action: ActionArgs{
+				Service:   "noservice",
+				Path:      "/",
+				Method:    "GET",
+				Namespace: "nonamespace",
+			},
+			expected: []string{},
+		},
+	}
+
+	for _, c := range cases {
+		result, err := s.ListMembers(SubjectArgs{}, c.action)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if len(c.expected) != len(*result) {
+			t.Fatalf("invalid numbers of response. expected: %v got: %v", len(c.expected), len(*result))
+		}
+
+		if !reflect.DeepEqual(c.expected, *result) {
+			t.Errorf("unexpected response. expected: %v got: %v", c.expected, *result)
 		}
 	}
 }
