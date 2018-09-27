@@ -9,7 +9,7 @@ global:
   tag: master-latest-daily
 
   k8sIngress:
-    enabled: true
+    enabled: false
     # Gateway used for legacy k8s Ingress resources. By default it is
     # using 'istio:ingress', to match 0.8 config. It requires that
     # ingress.enabled is set to true. You can also set it
