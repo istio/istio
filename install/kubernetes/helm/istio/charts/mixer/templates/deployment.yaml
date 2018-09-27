@@ -40,7 +40,11 @@
           - --configStoreURL=k8s://
 {{- end }}
           - --configDefaultNamespace={{ $.Release.Namespace }}
+          {{- if $.Values.global.tracer.zipkinAddress }}
+          - --trace_zipkin_url=http://{{- $.Values.global.tracer.zipkinAddress }}/api/v1/spans
+          {{- else }}
           - --trace_zipkin_url=http://zipkin:9411/api/v1/spans
+          {{- end }}
         resources:
 {{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 10 }}
@@ -157,7 +161,11 @@
           - --configStoreURL=k8s://
 {{- end }}
           - --configDefaultNamespace={{ $.Release.Namespace }}
+          {{- if $.Values.global.tracer.zipkinAddress }}
+          - --trace_zipkin_url=http://{{- $.Values.global.tracer.zipkinAddress }}/api/v1/spans
+          {{- else }}
           - --trace_zipkin_url=http://zipkin:9411/api/v1/spans
+          {{- end }}
         resources:
 {{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 10 }}
