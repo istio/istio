@@ -360,7 +360,7 @@
   ]
   pruneopts = "T"
   revision = "e79e039496d24ae95c3fa1da70209b680ea05a91"
-  version = "v0.5.0"
+  version = "v0.6.0"
 
 [[projects]]
   digest = "1:ad32dc29f37281bacb5dcedff17c9461dc1739dc8a5f63a71ab491c6e92edf8d"
