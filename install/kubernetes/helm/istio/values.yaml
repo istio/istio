@@ -265,9 +265,9 @@ gateways:
       name: https
       nodePort: 31390
     # Example of a port to add  
-    # - port: 31400
-    #   name: tcp
-    #   nodePort: 31400
+    - port: 31400
+      name: tcp
+      nodePort: 31400
     # Pilot and Citadel MTLS ports are enabled in gateway - but will only redirect
     # to pilot/citadel if global.meshExpansion settings are enabled.
     # Delete these ports if mesh expansion is not enabled, to avoid
