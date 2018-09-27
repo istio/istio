@@ -84,15 +84,23 @@ if [[ -n "${KEYFILE}" ]]; then
   fi
 fi
 
-cat << EOF > ${REQUEST_FILE}
+
+DRAFT_ARTIFACTS="[ARTIFACTS](http://gcsweb.istio.io/gcs/istio-release/releases/${VERSION}/)\\n"
+DRAFT_ARTIFACTS+="* [istio-sidecar.deb](https://storage.googleapis.com/istio-release/releases/${VERSION}/deb/istio-sidecar.deb)\\n"
+DRAFT_ARTIFACTS+="* [istio-sidecar.deb.sha256](https://storage.googleapis.com/istio-release/releases/${VERSION}/deb/istio-sidecar.deb.sha256)\\n\\n"
+DRAFT_ARTIFACTS+="[RELEASE NOTES](https://istio.io/about/notes/${VERSION}.html)"
+
+cat << EOF > "${REQUEST_FILE}"
 {
   "tag_name": "${VERSION}",
   "target_commitsh": "${SHA}",
-  "body": "[ARTIFACTS](http://gcsweb.istio.io/gcs/istio-release/releases/${VERSION}/)\\n* [istio-sidecar.deb](https://storage.googleapis.com/istio-release/releases/${VERSION}/deb/istio-sidecar.deb)\\n\\n[RELEASE NOTES](https://istio.io/about/notes/${VERSION}.html)",
+  "body": "${DRAFT_ARTIFACTS}",
   "draft": true,
   "prerelease": true
 }
 EOF
+
+cat "${REQUEST_FILE}"
 
 # disabling command tracing during curl call so token isn't logged
 set +o xtrace

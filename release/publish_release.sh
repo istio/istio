@@ -215,6 +215,8 @@ if [[ -n "${GCS_SOURCE}" ]]; then
   if [[ "${DO_GITHUB_REL}" == "true" ]]; then
     gsutil -m cp gs://"${GCS_SOURCE}"/docker.io/istio-*.zip "${UPLOAD_DIR}/"
     gsutil -m cp gs://"${GCS_SOURCE}"/docker.io/istio-*.gz  "${UPLOAD_DIR}/"
+    gsutil -m cp gs://"${GCS_SOURCE}"/docker.io/istio-*.gz.sha256  "${UPLOAD_DIR}/"
+    gsutil -m cp gs://"${GCS_SOURCE}"/docker.io/istio-*.zip.sha256 "${UPLOAD_DIR}/"
   fi
   if [[ "${DO_GCRHUB}" == "true" || "${DO_DOCKERHUB}" == "true" ]]; then
     mkdir -p "${UPLOAD_DIR}/docker/"
