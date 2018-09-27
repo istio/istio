@@ -262,7 +262,7 @@ func WithBackend(b Backend) Store {
 }
 
 // Builder is the type of function to build a Backend.
-type Builder func(u *url.URL, gv *schema.GroupVersion) (Backend, error)
+type Builder func(u *url.URL, gv *schema.GroupVersion, ck []string) (Backend, error)
 
 // RegisterFunc is the type to register a builder for URL scheme.
 type RegisterFunc func(map[string]Builder)
@@ -289,7 +289,7 @@ const (
 )
 
 // NewStore creates a new Store instance with the specified backend.
-func (r *Registry) NewStore(configURL string, groupVersion *schema.GroupVersion) (Store, error) {
+func (r *Registry) NewStore(configURL string, groupVersion *schema.GroupVersion, criticalKinds []string) (Store, error) {
 	u, err := url.Parse(configURL)
 
 	if err != nil {
@@ -302,7 +302,7 @@ func (r *Registry) NewStore(configURL string, groupVersion *schema.GroupVersion)
 		b = newFsStore(u.Path)
 	default:
 		if builder, ok := r.builders[u.Scheme]; ok {
-			b, err = builder(u, groupVersion)
+			b, err = builder(u, groupVersion, criticalKinds)
 			if err != nil {
 				return nil, err
 			}
