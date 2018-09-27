@@ -684,13 +684,6 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 			if err := s.initConsulRegistry(serviceControllers, args); err != nil {
 				return err
 			}
-			serviceControllers.AddRegistry(
-				aggregate.Registry{
-					Name:             serviceregistry.ServiceRegistry(r),
-					ServiceDiscovery: conctl,
-					ServiceAccounts:  conctl,
-					Controller:       conctl,
-				})
 		case serviceregistry.MCPRegistry:
 			log.Infof("no-op: get service info from MCP ServiceEntries.")
 		default:
@@ -875,34 +868,6 @@ func (s *Server) initConsulRegistry(serviceControllers *aggregate.Controller, ar
 			ServiceAccounts:  conctl,
 			Controller:       conctl,
 		})
-
-	return nil
-}
-
-func (s *Server) initCloudFoundryRegistry(serviceControllers *aggregate.Controller, args *PilotArgs) error {
-	cfConfig, err := cloudfoundry.LoadConfig(args.Config.CFConfig)
-	if err != nil {
-		return multierror.Prefix(err, "loading cloud foundry config")
-	}
-	tlsConfig, err := cfConfig.ClientTLSConfig()
-	if err != nil {
-		return multierror.Prefix(err, "creating cloud foundry client tls config")
-	}
-	client, err := copilot.NewIstioClient(cfConfig.Copilot.Address, tlsConfig)
-	if err != nil {
-		return multierror.Prefix(err, "creating cloud foundry client")
-	}
-	serviceControllers.AddRegistry(aggregate.Registry{
-		Name: serviceregistry.CloudFoundryRegistry,
-		Controller: &cloudfoundry.Controller{
-			Ticker: cloudfoundry.NewTicker(cfConfig.Copilot.PollInterval),
-		},
-		ServiceDiscovery: &cloudfoundry.ServiceDiscovery{
-			RoutesRepo:  cloudfoundry.NewCachedRoutes(client, log.RegisterScope("cfcacher", "cf cacher debugging", 0), "30s"),
-			ServicePort: cfConfig.ServicePort,
-		},
-		ServiceAccounts: cloudfoundry.NewServiceAccounts(),
-	})
 
 	return nil
 }
