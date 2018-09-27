@@ -19,10 +19,11 @@ import (
 	"net"
 	"net/http"
 
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-
+	ocprom "go.opencensus.io/exporter/prometheus"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
+	"github.com/prometheus/client_golang/prometheus"
+	"go.opencensus.io/stats/view"
 )
 
 const (
@@ -39,7 +40,15 @@ func StartSelfMonitoring(stop <-chan struct{}, port uint) {
 	}
 
 	mux := http.NewServeMux()
-	mux.Handle(metricsPath, promhttp.Handler())
+
+	registry := prometheus.DefaultRegisterer.(*prometheus.Registry)
+	exporter, err := ocprom.NewExporter(ocprom.Options{Registry: registry})
+	if err != nil {
+		log.Errorf("could not set up prometheus exporter: %v", err)
+	} else {
+		view.RegisterExporter(exporter)
+		mux.Handle(metricsPath, exporter)
+	}
 	mux.HandleFunc(versionPath, func(out http.ResponseWriter, req *http.Request) {
 		if _, err := out.Write([]byte(version.Info.String())); err != nil {
 			log.Errorf("Unable to write version string: %v", err)
