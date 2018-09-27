@@ -61,19 +61,21 @@ func ConvertAddressToCidr(addr string) *core.CidrRange {
 		return nil
 	}
 
-	cidr := &core.CidrRange{
-		AddressPrefix: addr,
-		PrefixLen: &types.UInt32Value{
-			Value: 32,
-		},
-	}
-
+	var cidr *core.CidrRange
 	if strings.Contains(addr, "/") {
 		parts := strings.Split(addr, "/")
 		cidr.AddressPrefix = parts[0]
 		prefix, _ := strconv.Atoi(parts[1])
 		cidr.PrefixLen.Value = uint32(prefix)
+	} else {
+		cidr = &core.CidrRange{
+			AddressPrefix: addr,
+			PrefixLen: &types.UInt32Value{
+				Value: 32,
+			},
+		}
 	}
+
 	return cidr
 }
 
