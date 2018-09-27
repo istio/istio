@@ -5,7 +5,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
 spec:
   selector:
-    istio: {{ .Values.gatewayName }}
+    istio: ingressgateway
   servers:
   - port:
       number: 15029
