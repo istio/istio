@@ -3,7 +3,7 @@
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
-  name: ilb-meshexpansion-pilot
+  name: meshexpansion-ilb-vs-pilot
   namespace: {{ .Release.Namespace }}
 spec:
   hosts:
@@ -38,7 +38,7 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
-  name: meshexpansion-pilot
+  name: meshexpansion-vs-pilot
   namespace: {{ .Release.Namespace }}
 spec:
   hosts:
@@ -53,6 +53,23 @@ spec:
         host: istio-pilot.{{ $.Release.Namespace }}.svc.cluster.local
         port:
           number: 15011
+---
+{{- end }}
+
+{{- if .Values.global.controlPlaneSecurityEnabled }}
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: meshexpansion-dr-pilot
+  namespace: istio-system
+spec:
+  host: istio-pilot.{{ .Release.Namespace }}.svc.cluster.local
+  trafficPolicy:
+    portLevelSettings:
+    - port:
+        number: 15011
+      tls:
+        mode: DISABLE
 ---
 {{- end }}
 {{- end }}
