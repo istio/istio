@@ -156,15 +156,13 @@ func (s *Store) Init(kinds []string) error {
 	timeout := time.After(s.retryTimeout)
 	tick := time.Tick(s.retryInterval)
 	stopRetry := false
-	if tick != nil {
-		for len(s.extractCriticalKinds(remaining)) != 0 && !stopRetry {
-			select {
-			case <-timeout:
-				stopRetry = true
-			case <-tick:
-				remaining = s.checkAndCreateCaches(d, lwBuilder, remaining)
-			default:
-			}
+	for len(s.extractCriticalKinds(remaining)) != 0 && !stopRetry {
+		select {
+		case <-timeout:
+			stopRetry = true
+		case <-tick:
+			remaining = s.checkAndCreateCaches(d, lwBuilder, remaining)
+		default:
 		}
 	}
 	if len(remaining) > 0 {
