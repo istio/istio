@@ -15,11 +15,7 @@
 #   limitations under the License.
 
 
-#######################################
-# Presubmit script triggered by Prow. #
-#######################################
-
-MAKEDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Script to do repo init equivalent
 
 # Exit immediately for non zero status
 set -e

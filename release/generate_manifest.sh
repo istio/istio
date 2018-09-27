@@ -18,8 +18,6 @@
 # This script finds the green build sha, generates a corresponding
 # manifest file, also copies the json and scripts files from head of branch
 
-MAKEDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-
 # Exit immediately for non zero status
 set -e
 # Check unset variables
@@ -53,7 +51,12 @@ function replace_sha_branch_repo() {
   fi
 
 # REPO="istio.io.api"
-  sed "s/\(.*$REPO. revision=.\)\(.*\)\(upstream.*\)/\1${NEW_SHA}\" upstream=\"${BRANCH}\"\/\>/" -i $MANIFEST_FILE
+  local findstr
+  findstr="(.*$REPO. revision=.)(.*)(upstream.*)"
+  local repstr
+  repstr="\1${NEW_SHA}\" upstream=\"${BRANCH}\"\/\>"
+  sed "s/$findstr/$repstr/" -i $MANIFEST_FILE
+#  sed "s/\(.*$REPO. revision=.\)\(.*\)\(upstream.*\)/\1${NEW_SHA}\" upstream=\"${BRANCH}\"\/\>/" -i $MANIFEST_FILE
 }
 
 function checkout_code() {
@@ -77,13 +80,16 @@ function find_and_replace_shas_manifest() {
   local VERIFY_CONSISTENCY=$3
 
  pushd istio
-  local PROXY_REPO_SHA=$(grep PROXY_REPO_SHA istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"')
+  local PROXY_REPO_SHA
+  PROXY_REPO_SHA=$(grep PROXY_REPO_SHA istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"')
   replace_sha_branch_repo src.proxy      ${PROXY_REPO_SHA} ${BRANCH} ${MANIFEST_FILE}
 
-  local API_REPO_SHA=$(cat Gopkg.lock | grep istio.io.api -A 100 | grep revision -m 1 | cut -f 2 -d '"')
+  local API_REPO_SHA
+  API_REPO_SHA=$(cat Gopkg.lock | grep istio.io.api -A 100 | grep revision -m 1 | cut -f 2 -d '"')
   replace_sha_branch_repo istio.io.api   ${API_REPO_SHA}   ${BRANCH} ${MANIFEST_FILE}
 
-  local ISTIO_REPO_SHA=$(git rev-parse HEAD)
+  local ISTIO_REPO_SHA
+  ISTIO_REPO_SHA=$(git rev-parse HEAD)
   replace_sha_branch_repo istio.io.istio ${ISTIO_REPO_SHA} ${BRANCH} ${MANIFEST_FILE}
 
   if [ -z "${ISTIO_REPO_SHA}" ] || [ -z "${API_REPO_SHA}" ] || [ -z "${PROXY_REPO_SHA}" ]; then

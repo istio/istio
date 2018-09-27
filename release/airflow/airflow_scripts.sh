@@ -46,6 +46,7 @@ function create_subs_file() {
    SUBS_FILE="$(mktemp /tmp/build.subs.XXXX)"
 
    echo '"substitutions": {' > "${SUBS_FILE}"
+   # shellcheck disable=SC2034
    for i in $(seq 2 1 $#) # print with , for n-1
    do
      CUR_VAR="${1}"
@@ -84,10 +85,11 @@ function build_template() {
     KEY_FILE_PATH=""
     WAIT_FOR_RESULT="true"
 
-    VER_STRING="${VERSION}"
-    GCS_PATH="${GCS_BUILD_PATH}"
+    # shellcheck disable=SC2034
     GCR_PATH="${GCR_STAGING_DEST}"
-    create_subs_file "BRANCH" "VER_STRING" "GCS_PATH" "GCS_RELEASE_TOOLS_PATH" "GCR_PATH"
+    GCS_PATH="${GCS_BUILD_PATH}"
+    VER_STRING="${VERSION}"
+    create_subs_file "BRANCH" "GCR_PATH" "GCS_PATH" "GCS_RELEASE_TOOLS_PATH" "VER_STRING"
     cat "${SUBS_FILE}"
 
     run_build "cloud_build.template.json" \
@@ -157,14 +159,18 @@ function release_push_github_docker_template() {
 
    # uses the environment variables from list below + $PROJECT_ID $SVC_ACCT
    #BRANCH
+    # shellcheck disable=SC2034
     DOCKER_DST="$DOCKER_HUB"
+    # shellcheck disable=SC2034
     GCR_DST="${GCR_RELEASE_DEST}"
+    # shellcheck disable=SC2034
     GCS_DST="${GCS_MONTHLY_RELEASE_PATH}"
     GCS_PATH="${GCS_BUILD_PATH}"
    #GCS_RELEASE_TOOLS_PATH
     GCS_SECRET="${GCS_GITHUB_PATH}"
     GCS_SOURCE="${GCS_FULL_STAGING_PATH}"
     ORG="${GITHUB_ORG}"
+    # shellcheck disable=SC2034
     REPO="${GITHUB_REPO}"
     VER_STRING="${VERSION}"
     create_subs_file "BRANCH" "DOCKER_DST" "GCR_DST" "GCS_DST" "GCS_PATH" "GCS_RELEASE_TOOLS_PATH" "GCS_SECRET" "GCS_SOURCE" "ORG" "REPO" "VER_STRING"
@@ -183,13 +189,20 @@ function release_tag_github_template() {
 
    # uses the environment variables from list below + $PROJECT_ID $SVC_ACCT
    #BRANCH
+    # shellcheck disable=SC2034
     GCS_PATH="${GCS_BUILD_PATH}"
    #GCS_RELEASE_TOOLS_PATH
+    # shellcheck disable=SC2034
     GCS_SECRET="${GCS_GITHUB_PATH}"
+    # shellcheck disable=SC2034
     GCS_SOURCE="${GCS_FULL_STAGING_PATH}"
+    # shellcheck disable=SC2034
     ORG="${GITHUB_ORG}"
+    # shellcheck disable=SC2034
     USER_EMAIL="istio_releaser_bot@example.com"
+    # shellcheck disable=SC2034
     USER_NAME="IstioReleaserBot"
+    # shellcheck disable=SC2034
     VER_STRING="${VERSION}"
     create_subs_file "BRANCH" "GCS_PATH" "GCS_RELEASE_TOOLS_PATH" "GCS_SECRET" "GCS_SOURCE" "ORG" "USER_EMAIL" "USER_NAME" "VER_STRING"
     cat "${SUBS_FILE}"
