@@ -43,24 +43,6 @@ const (
 	HeaderScheme    = ":scheme"
 )
 
-var (
-	// experiment on getting some monitoring on config errors.
-	noClusterMissingPort = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "pilot_route_cluster_no_port",
-		Help: "Routes with no clusters due to missing port.",
-	}, []string{"service", "rule"})
-
-	noClusterMissingService = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "pilot_route_nocluster_no_service",
-		Help: "Routes with no clusters due to missing service",
-	}, []string{"service", "rule"})
-)
-
-func init() {
-	prometheus.MustRegister(noClusterMissingPort)
-	prometheus.MustRegister(noClusterMissingService)
-}
-
 // VirtualHostWrapper is a context-dependent virtual host entry with guarded routes.
 // Note: Currently we are not fully utilizing this structure. We could invoke this logic
 // once for all sidecars in the cluster to compute all RDS for inside the mesh and arrange
