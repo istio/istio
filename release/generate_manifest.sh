@@ -25,10 +25,14 @@ set -u
 # Print commands
 set -x
 
-# this function sets variable TEST_INFRA_DIR
+# this function sets variable TEST_INFRA_DIR and githubctl
 function githubctl_setup() {
     git clone https://github.com/istio/test-infra.git -b master --depth 1
     TEST_INFRA_DIR="${PWD}/test-infra"
+    pushd "${TEST_INFRA_DIR}"
+     bazel build //toolbox/githubctl
+     githubctl="${TEST_INFRA_DIR}/bazel-bin/toolbox/githubctl/linux_amd64_stripped/githubctl"
+    popd
 }
 
 
@@ -120,39 +124,43 @@ function find_and_replace_shas_manifest() {
 }
 
 function get_later_sha_timestamp() {
-  local SHA1
-  SHA1=$1
+  local GSHA
+  GSHA=$1
   local MANIFEST_FILE
   MANIFEST_FILE=$2
 
-  local SHA_CUR
-  SHA_CUR=$(grep istio/istio "$MANIFEST_FILE" | sed 's/.*istio. revision=.//' | sed 's/".*//')
-  local TS_CUR
-  TS_CUR=$(git show -s --format=%ct "$SHA_CUR")
-  local TS1
-  TS1=$(   git show -s --format=%ct "$SHA1")
-  if [   "$TS_CUR" -gt "$TS1" ]; then
+  local SHA_MFEST
+  SHA_MFEST=$(grep istio/istio "$MANIFEST_FILE" | sed 's/.*istio. revision=.//' | sed 's/".*//')
+  local TS_MFEST
+  TS_MFEST=$(git show -s --format=%ct "$SHA_MFEST")
+  local GTS
+  GTS=$(   git show -s --format=%ct "$GSHA")
+  if [   "$TS_MFEST" -gt "$GTS" ]; then
     # dont go backwards
-    echo "$SHA_CUR"
+    echo "$SHA_MFEST"
     return
   fi
   #go forward
-  echo   "$SHA1"
+  echo   "$GSHA"
 }
 
 function get_later_sha_revlist() {
-  local SHA1
-  SHA1=$1
+  local GSHA
+  GSHA=$1
   local MANIFEST_FILE
   MANIFEST_FILE=$2
 
-  local SHA_CUR
-  SHA_CUR=$(grep istio/istio "$MANIFEST_FILE" | sed 's/.*istio. revision=.//' | sed 's/".*//')
+  local SHA_MFEST
+  SHA_MFEST=$(grep istio/istio "$MANIFEST_FILE" | sed 's/.*istio. revision=.//' | sed 's/".*//')
+
+  # if the old sha in the manifest file is wrong for some reason, use latest green sha
+  git rev-list "$SHA_MFEST...$GSHA" || echo "$GSHA" && return
+
   local SHA_LATEST
-  SHA_LATEST=$(git rev-list "$SHA_CUR...$SHA1" | grep "$SHA1")
+  SHA_LATEST=$(git rev-list "$SHA_MFEST...$GSHA" | grep "$GSHA")
   if [[ -z "${SHA_LATEST}" ]]; then
     # dont go backwards
-    echo "$SHA_CUR"
+    echo "$SHA_MFEST"
     return
   fi
   #go forward
@@ -196,9 +204,9 @@ function get_istio_green_sha() {
   set +e
   # GITHUB_KEYFILE has the github tokens
   local GREEN_SHA
-  GREEN_SHA=$(githubctl --token_file="${GITHUB_KEYFILE}" --repo=istio \
-                        --op=getLatestGreenSHA           --base_branch="${CUR_BRANCH}" \
-                        --logtostderr)
+  GREEN_SHA=$($githubctl --token_file="${GITHUB_KEYFILE}" --repo=istio \
+                         --op=getLatestGreenSHA           --base_branch="${CUR_BRANCH}" \
+                         --logtostderr)
   set -e
  popd # TEST_INFRA_DIR
 
