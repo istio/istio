@@ -6,7 +6,7 @@ global:
   hub: gcr.io/istio-release
 
   # Default tag for Istio images.
-  tag: release-1.0-latest-daily
+  tag: master-latest-daily
 
   # Gateway used for legacy k8s Ingress resources. By default it is
   # using 'istio:ingress', to match 0.8 config. It requires that
@@ -111,6 +111,11 @@ global:
 
   # EnableTracing sets the value with same name in istio config map, requires pilot restart to take effect.
   enableTracing: true
+
+  tracer:
+    # Host:Port for reporting trace data in zipkin format. If not specified, will default to
+    # zipkin service (port 9411) in the same namespace as the other istio components.
+    zipkinAddress:
 
   # Default mtls policy. If true, mtls between services will be enabled by default.
   mtls:
@@ -239,7 +244,7 @@ gateways:
     serviceAnnotations: {}
     podAnnotations: {}
     type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
-
+    #externalTrafficPolicy: Local #change to Local to preserve source IP or Cluster for default behaviour or leave commented out
     ports:
       ## You can add custom gateway ports
     - port: 80
@@ -390,14 +395,6 @@ mixer:
 
   podAnnotations: {}
 
-  prometheusStatsdExporter:
-    hub: docker.io/prom
-    tag: v0.6.0
-
-    # Configuration to be included as the statsd_exporter mapping configuration.
-    # See https://github.com/prometheus/statsd_exporter/tree/master#metric-mapping-and-configuration
-    mapping: {}
-
 #
 # pilot configuration
 #
@@ -513,7 +510,7 @@ tracing:
   provider: jaeger
   jaeger:
     hub: docker.io/jaegertracing
-    tag: 1.6
+    tag: 1.7
     memory:
       max_traces: 50000
     ingress:
@@ -557,8 +554,8 @@ kiali:
   ingress:
     enabled: false
     ## Used to create an Ingress record.
-    # hosts:
-    #  - kiali.local
+    hosts:
+     - kiali.local
     annotations:
       # kubernetes.io/ingress.class: nginx
       # kubernetes.io/tls-acme: "true"

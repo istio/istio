@@ -102,6 +102,9 @@ type Args struct {
 
 	// Maximum number of entries in the check cache
 	NumCheckCacheEntries int32
+
+	// Whether or not to establish watches for adapter-specific CRDs
+	UseAdapterCRDs bool
 }
 
 // DefaultArgs allocates an Args struct initialized with Mixer's default configuration.
@@ -122,6 +125,7 @@ func DefaultArgs() *Args {
 		IntrospectionOptions:   ctrlz.DefaultOptions(),
 		EnableProfiling:        true,
 		NumCheckCacheEntries:   5000 * 5 * 60, // 5000 QPS with average TTL of 5 minutes
+		UseAdapterCRDs:         true,
 	}
 }
 

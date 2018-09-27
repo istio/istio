@@ -24,15 +24,15 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/test/framework/environments/local/service"
+
 	"istio.io/istio/pkg/test/application"
 
 	"google.golang.org/grpc"
 
 	"istio.io/istio/pilot/pkg/bootstrap"
-	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	proxy_envoy "istio.io/istio/pilot/pkg/proxy/envoy"
-	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/test/application/echo"
 	"istio.io/istio/pkg/test/application/echo/proto"
 	"istio.io/istio/pkg/test/envoy"
@@ -41,22 +41,25 @@ import (
 const (
 	timeout       = 10 * time.Second
 	retryInterval = 500 * time.Millisecond
-	domain        = "svc.local"
-	namespace     = "istio-system"
 )
 
-func TestAgent(t *testing.T) {
-	p, configStore, pilotStopFn := newPilot(namespace, t)
-	defer pilotStopFn()
+func TestMinimal(t *testing.T) {
+	testForApps(t, &echo.Factory{
+		Ports: model.PortList{
+			{
+				Name:     "http",
+				Protocol: model.ProtocolHTTP,
+			},
+			{
+				Name:     "grpc",
+				Protocol: model.ProtocolGRPC,
+			},
+		},
+	}, "a", "b")
+}
 
-	discoveryAddr := p.GRPCListeningAddr.(*net.TCPAddr)
-
-	// Configure the agent factory with Pilot's discovery address
-	agentFactory := (&PilotAgentFactory{
-		DiscoveryAddress: discoveryAddr,
-	}).NewAgent
-
-	appFactory := (&echo.Factory{
+func TestFull(t *testing.T) {
+	testForApps(t, &echo.Factory{
 		Ports: model.PortList{
 			{
 				Name:     "http",
@@ -83,19 +86,31 @@ func TestAgent(t *testing.T) {
 				Protocol: model.ProtocolGRPC,
 			},
 		},
-	}).NewApplication
+	}, "a", "b", "c")
+}
 
-	// Create a few agents.
-	agents := []Agent{
-		newAgent("a", agentFactory, appFactory, configStore, t),
-		newAgent("b", agentFactory, appFactory, configStore, t),
-		newAgent("c", agentFactory, appFactory, configStore, t),
+func testForApps(t *testing.T, appFactory *echo.Factory, serviceNames ...string) {
+	t.Helper()
+
+	serviceManager := service.NewManager()
+	p, pilotStopFn := newPilot(serviceManager.ConfigStore, t)
+	defer pilotStopFn()
+
+	discoveryAddr := p.GRPCListeningAddr.(*net.TCPAddr)
+
+	// Configure the agent factory with Pilot's discovery address
+	agentFactory := (&PilotAgentFactory{
+		DiscoveryAddress: discoveryAddr,
+	}).NewAgent
+
+	appFactoryFunc := appFactory.NewApplication
+
+	// Create the agents.
+	agents := make([]Agent, len(serviceNames))
+	for i, serviceName := range serviceNames {
+		agents[i] = newAgent(serviceName, serviceManager, agentFactory, appFactoryFunc, t)
+		defer agents[i].Close()
 	}
-	defer func() {
-		for _, a := range agents {
-			a.Close()
-		}
-	}()
 
 	// Wait for config for all services to be distributed to all Envoys.
 	endTime := time.Now().Add(timeout)
@@ -149,13 +164,9 @@ func logConfigs(agents []Agent) {
 	f.Flush()
 }
 
-func newAgent(serviceName string, factory Factory, appFactory application.Factory, configStore model.ConfigStore, t *testing.T) Agent {
+func newAgent(serviceName string, serviceManager *service.Manager, factory Factory, appFactory application.Factory, t *testing.T) Agent {
 	t.Helper()
-	a, err := factory(model.ConfigMeta{
-		Name:      serviceName,
-		Namespace: namespace,
-		Domain:    domain,
-	}, appFactory, configStore)
+	a, err := factory(serviceName, "", serviceManager, appFactory)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -203,15 +214,12 @@ func makeHTTPRequest(src Agent, dst Agent, protocol model.Protocol, t *testing.T
 	}
 }
 
-func newPilot(namespace string, t *testing.T) (*bootstrap.Server, model.ConfigStore, func()) {
+func newPilot(configStore model.ConfigStoreCache, t *testing.T) (*bootstrap.Server, func()) {
 	t.Helper()
-
-	// Use an in-memory config store.
-	configController := memory.NewController(memory.Make(model.IstioConfigTypes))
 
 	mesh := model.DefaultMeshConfig()
 	bootstrapArgs := bootstrap.PilotArgs{
-		Namespace: namespace,
+		Namespace: service.Namespace,
 		DiscoveryOptions: proxy_envoy.DiscoveryServiceOptions{
 			HTTPAddr:       ":0",
 			MonitoringAddr: ":0",
@@ -220,13 +228,12 @@ func newPilot(namespace string, t *testing.T) (*bootstrap.Server, model.ConfigSt
 		},
 		MeshConfig: &mesh,
 		Config: bootstrap.ConfigArgs{
-			Controller: configController,
+			Controller: configStore,
 		},
 		// Use the config store for service entries as well.
 		Service: bootstrap.ServiceArgs{
-			Registries: []string{
-				string(serviceregistry.ConfigRegistry),
-			},
+			// A ServiceEntry registry is added by default, which is what we want. Don't include any other registries.
+			Registries: []string{},
 		},
 	}
 
@@ -245,7 +252,7 @@ func newPilot(namespace string, t *testing.T) (*bootstrap.Server, model.ConfigSt
 	stopFn := func() {
 		stop <- struct{}{}
 	}
-	return server, configController, stopFn
+	return server, stopFn
 }
 
 func forwardRequestToAgent(a Agent, req *proto.ForwardEchoRequest) ([]*echo.ParsedResponse, error) {

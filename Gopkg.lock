@@ -360,7 +360,7 @@
   ]
   pruneopts = "T"
   revision = "e79e039496d24ae95c3fa1da70209b680ea05a91"
-  version = "v0.5.0"
+  version = "v0.6.0"
 
 [[projects]]
   digest = "1:ad32dc29f37281bacb5dcedff17c9461dc1739dc8a5f63a71ab491c6e92edf8d"
@@ -1919,23 +1919,6 @@
   version = "v2.9.1"
 
 [[projects]]
-  digest = "1:b0e750132a11ab72f6fdac56140cc2cacdbc3d49540722ababf4ed4626341504"
-  name = "k8s.io/ingress"
-  packages = [
-    "core/pkg/ingress/annotations/class",
-    "core/pkg/ingress/annotations/parser",
-    "core/pkg/ingress/errors",
-    "core/pkg/ingress/status",
-    "core/pkg/ingress/store",
-    "core/pkg/k8s",
-    "core/pkg/strings",
-    "core/pkg/task",
-  ]
-  pruneopts = "NUT"
-  revision = "fe19ebb09ee22f90d60ba3111ae0a9db6027e675"
-  version = "0.9.6"
-
-[[projects]]
   branch = "master"
   digest = "1:e0d6dcb28c42a53c7243bb6380badd17f92fbd8488a075a07e984f91a07c0d23"
   name = "k8s.io/kube-openapi"
@@ -2178,7 +2161,10 @@
     "k8s.io/client-go/tools/clientcmd",
     "k8s.io/client-go/tools/clientcmd/api",
     "k8s.io/client-go/tools/clientcmd/api/v1",
+    "k8s.io/client-go/tools/leaderelection",
+    "k8s.io/client-go/tools/leaderelection/resourcelock",
     "k8s.io/client-go/tools/portforward",
+    "k8s.io/client-go/tools/record",
     "k8s.io/client-go/tools/remotecommand",
     "k8s.io/client-go/transport/spdy",
     "k8s.io/client-go/util/workqueue",
@@ -2188,9 +2174,6 @@
     "k8s.io/helm/pkg/proto/hapi/chart",
     "k8s.io/helm/pkg/proto/hapi/version",
     "k8s.io/helm/pkg/timeconv",
-    "k8s.io/ingress/core/pkg/ingress/annotations/class",
-    "k8s.io/ingress/core/pkg/ingress/status",
-    "k8s.io/ingress/core/pkg/ingress/store",
     "k8s.io/kubernetes/pkg/apis/core",
   ]
   solver-name = "gps-cdcl"

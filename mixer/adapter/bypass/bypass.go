@@ -19,7 +19,9 @@ package bypass
 
 import (
 	"context"
+	"time"
 
+	"github.com/cenkalti/backoff"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"go.uber.org/multierr"
@@ -160,11 +162,20 @@ func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handl
 
 func (b *builder) ensureConn() error {
 	if b.conn == nil {
-		conn, err := grpc.Dial(b.params.BackendAddress, grpc.WithInsecure())
+		bo := backoff.NewExponentialBackOff()
+		bo.InitialInterval = time.Millisecond * 10
+		bo.MaxElapsedTime = time.Minute
+
+		err := backoff.Retry(func() error {
+			var e error
+			b.conn, e = grpc.Dial(b.params.BackendAddress, grpc.WithInsecure())
+			return e
+
+		}, bo)
+
 		if err != nil {
 			return err
 		}
-		b.conn = conn
 
 		if b.params.SessionBased {
 			b.infraClient = v1beta1.NewInfrastructureBackendClient(b.conn)

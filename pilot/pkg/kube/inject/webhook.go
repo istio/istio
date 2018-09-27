@@ -29,7 +29,6 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/howeyc/fsnotify"
 	"k8s.io/api/admission/v1beta1"
-	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -46,14 +45,14 @@ var (
 	deserializer  = codecs.UniversalDeserializer()
 )
 
+func init() {
+	_ = corev1.AddToScheme(runtimeScheme)
+	_ = v1beta1.AddToScheme(runtimeScheme)
+}
+
 const (
 	watchDebounceDelay = 100 * time.Millisecond
 )
-
-func init() {
-	_ = corev1.AddToScheme(runtimeScheme)
-	_ = admissionregistrationv1beta1.AddToScheme(runtimeScheme)
-}
 
 // Webhook implements a mutating webhook for automatic proxy injection.
 type Webhook struct {
@@ -80,7 +79,7 @@ func loadConfig(injectFile, meshFile string) (*Config, *meshconfig.MeshConfig, e
 		return nil, nil, err
 	}
 	var c Config
-	if err := yaml.Unmarshal(data, &c); err != nil { // nolint: vetshadow
+	if err := yaml.Unmarshal(data, &c); err != nil {
 		log.Warnf("Failed to parse injectFile %s", string(data))
 		return nil, nil, err
 	}
@@ -178,12 +177,12 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 // Run implements the webhook server
 func (wh *Webhook) Run(stop <-chan struct{}) {
 	go func() {
-		if err := wh.server.ListenAndServeTLS("", ""); err != nil {
-			log.Errorf("ListenAndServeTLS for admission webhook returned error: %v", err)
+		if err := wh.server.ListenAndServeTLS("", ""); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("admission webhook ListenAndServeTLS failed: %v", err)
 		}
 	}()
-	defer wh.watcher.Close() // nolint: errcheck
-	defer wh.server.Close()  // nolint: errcheck
+	defer wh.watcher.Close()
+	defer wh.server.Close()
 
 	var healthC <-chan time.Time
 	if wh.healthCheckInterval != 0 && wh.healthCheckFile != "" {
@@ -196,6 +195,7 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 	for {
 		select {
 		case <-timerC:
+			timerC = nil
 			sidecarConfig, meshConfig, err := loadConfig(wh.configFile, wh.meshFile)
 			if err != nil {
 				log.Errorf("update error: %v", err)
@@ -216,7 +216,7 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 			wh.mu.Unlock()
 		case event := <-wh.watcher.Event:
 			// use a timer to debounce configuration updates
-			if event.IsModify() || event.IsCreate() {
+			if (event.IsModify() || event.IsCreate()) && timerC == nil {
 				timerC = time.After(watchDebounceDelay)
 			}
 		case err := <-wh.watcher.Error:

@@ -206,7 +206,8 @@ if [[ -n "${GCS_SOURCE}" ]]; then
 
   if [[ "${DO_GCS}" == "true" ]]; then
     mkdir -p "${UPLOAD_DIR}/deb/"
-    gsutil -m cp gs://"${GCS_SOURCE}"/deb/istio*.deb "${UPLOAD_DIR}/deb/"
+    gsutil -m cp gs://"${GCS_SOURCE}"/deb/istio*.deb        "${UPLOAD_DIR}/deb/"
+    gsutil -m cp gs://"${GCS_SOURCE}"/deb/istio*.deb.sha256 "${UPLOAD_DIR}/deb/"
   fi
   if [[ "${DO_GITHUB_TAG}" == "true" || "${DO_GITHUB_REL}" == "true" ]]; then
     gsutil -m cp "gs://${GCS_SOURCE}/manifest.xml" "${UPLOAD_DIR}/"
@@ -214,6 +215,8 @@ if [[ -n "${GCS_SOURCE}" ]]; then
   if [[ "${DO_GITHUB_REL}" == "true" ]]; then
     gsutil -m cp gs://"${GCS_SOURCE}"/docker.io/istio-*.zip "${UPLOAD_DIR}/"
     gsutil -m cp gs://"${GCS_SOURCE}"/docker.io/istio-*.gz  "${UPLOAD_DIR}/"
+    gsutil -m cp gs://"${GCS_SOURCE}"/docker.io/istio-*.gz.sha256  "${UPLOAD_DIR}/"
+    gsutil -m cp gs://"${GCS_SOURCE}"/docker.io/istio-*.zip.sha256 "${UPLOAD_DIR}/"
   fi
   if [[ "${DO_GCRHUB}" == "true" || "${DO_DOCKERHUB}" == "true" ]]; then
     mkdir -p "${UPLOAD_DIR}/docker/"
@@ -226,8 +229,8 @@ fi
 
 if [[ "${DO_GCS}" == "true" ]]; then
   echo "Copying to GCS destination ${GCS_DEST}"
-  gsutil -m cp "${UPLOAD_DIR}"/deb/istio*.deb "gs://${GCS_DEST}/deb/"
-# gsutil -m cp "${UPLOAD_DIR}/SHA256SUMS"     "gs://${GCS_DEST}/"
+  gsutil -m cp "${UPLOAD_DIR}"/deb/istio*.deb        "gs://${GCS_DEST}/deb/"
+  gsutil -m cp "${UPLOAD_DIR}"/deb/istio*.deb.sha256 "gs://${GCS_DEST}/deb/"
   echo "Done copying to GCS destination"
 fi
 
