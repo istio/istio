@@ -61,6 +61,15 @@ type rootArgs struct {
 	// # times to repeat the operation
 	repeat int
 
+	// # goroutins to send requests concurrently.
+	concurrency int
+
+	// rate limit of requests per second for each goroutine.
+	rate int
+
+	// whether to print mixer's response. It is useful when using mixc to generate heavy load.
+	printResponse bool
+
 	tracingOptions *tracing.Options
 }
 
@@ -69,6 +78,12 @@ func addAttributeFlags(cmd *cobra.Command, rootArgs *rootArgs) {
 		"Address and port of a running Mixer instance")
 	cmd.PersistentFlags().IntVarP(&rootArgs.repeat, "repeat", "r", 1,
 		"Sends the specified number of requests in quick succession")
+	cmd.PersistentFlags().IntVarP(&rootArgs.concurrency, "concurrency", "c", 1,
+		"Number of concurrent goroutines sending requests to Mixer.")
+	cmd.PersistentFlags().IntVarP(&rootArgs.rate, "rate", "", -1,
+		"Rate limit of requests per second for each goroutine.")
+	cmd.PersistentFlags().BoolVarP(&rootArgs.printResponse, "print_response", "", true,
+		"Whether to print mixer's response, useful when generating heavy load with mixc.")
 
 	cmd.PersistentFlags().StringVarP(&rootArgs.attributes, "attributes", "a", "",
 		"List of name/value auto-sensed attributes specified as name1=value1,name2=value2,...")

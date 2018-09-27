@@ -20,12 +20,15 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 	"text/tabwriter"
 	"time"
 
 	ot "github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/ext"
 	"github.com/spf13/cobra"
+
+	"golang.org/x/time/rate"
 
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/cmd/shared"
@@ -90,31 +93,48 @@ func check(rootArgs *rootArgs, printf, fatalf shared.FormatFn, quotas map[string
 
 	salt := time.Now().Nanosecond()
 	span, ctx := ot.StartSpanFromContext(context.Background(), "mixc Check", ext.SpanKindRPCClient)
-	for i := 0; i < rootArgs.repeat; i++ {
-		dedup := strconv.Itoa(salt + i)
-
-		request := mixerpb.CheckRequest{
-			Attributes:      *attrs,
-			DeduplicationId: dedup,
-		}
-
-		request.Quotas = make(map[string]mixerpb.CheckRequest_QuotaParams)
-		for name, amount := range quotas {
-			request.Quotas[name] = mixerpb.CheckRequest_QuotaParams{Amount: amount, BestEffort: true}
-		}
-
-		response, err := cs.client.Check(ctx, &request)
-
-		if err == nil {
-			printf("Check RPC completed successfully. Check status was %s", decodeStatus(response.Precondition.Status))
-			printf("  Valid use count: %v, valid duration: %v", response.Precondition.ValidUseCount, response.Precondition.ValidDuration)
-			dumpReferencedAttributes(printf, fatalf, response.Precondition.ReferencedAttributes)
-			dumpQuotas(printf, response.Quotas)
-		} else {
-			printf("Check RPC failed with: %s", decodeError(err))
-		}
+	var rl *rate.Limiter
+	if rootArgs.rate > 0 {
+		rl = rate.NewLimiter(rate.Limit(rootArgs.rate), rootArgs.rate)
 	}
+	if rootArgs.concurrency < 1 {
+		fatalf("concurrency has to be at least 1")
+	}
+	var wg sync.WaitGroup
+	wg.Add(rootArgs.concurrency)
+	for c := 0; c < rootArgs.concurrency; c++ {
+		go func() {
+			defer wg.Done()
+			for i := 0; i < rootArgs.repeat; i++ {
+				if rl != nil {
+					rl.Wait(context.Background())
+				}
+				dedup := strconv.Itoa(salt + i)
 
+				request := mixerpb.CheckRequest{
+					Attributes:      *attrs,
+					DeduplicationId: dedup,
+				}
+
+				request.Quotas = make(map[string]mixerpb.CheckRequest_QuotaParams)
+				for name, amount := range quotas {
+					request.Quotas[name] = mixerpb.CheckRequest_QuotaParams{Amount: amount, BestEffort: true}
+				}
+
+				response, err := cs.client.Check(ctx, &request)
+
+				if err != nil {
+					printf("Check RPC failed with: %s", decodeError(err))
+				} else if rootArgs.printResponse {
+					printf("Check RPC completed successfully. Check status was %s", decodeStatus(response.Precondition.Status))
+					printf("  Valid use count: %v, valid duration: %v", response.Precondition.ValidUseCount, response.Precondition.ValidDuration)
+					dumpReferencedAttributes(printf, fatalf, response.Precondition.ReferencedAttributes)
+					dumpQuotas(printf, response.Quotas)
+				}
+			}
+		}()
+	}
+	wg.Wait()
 	span.Finish()
 }
 
