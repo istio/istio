@@ -151,6 +151,16 @@ global:
   # will be exposed on an internal gateway
   meshExpansionILB: false
 
+  # Set to true to connect two kubernetes clusters using a LB gateway as the
+  # only entry point into the cluster (instead of requiring pod to pod
+  # connectivity across two clusters). Note that for this system to work,
+  # service objects from remote clusters have to be replicated to local
+  # cluster (without the pod selectors). In addition, endpoints have to be
+  # added to each service object pointing to the remote cluster's
+  # MCgatewayIP:443. All clusters should be using Istio mTLS and must have
+  # a shared root CA for this model to work.
+  multiClusterUsingGateway: false
+
   # A minimal set of requested resources to applied to all deployments so that
   # Horizontal Pod Autoscaler will be able to function (if set).
   # Each component can overwrite these default values by adding its own resources
@@ -346,6 +356,38 @@ gateways:
     - name: ilbgateway-ca-certs
       secretName: istio-ilbgateway-ca-certs
       mountPath: /etc/istio/ilbgateway-ca-certs
+
+  # MultiCluster gateway is used to route traffic into local cluster, based
+  # on the SNI value in the TLS connection. In a multi-cluster setup, a
+  # remote service sends traffic with the Envoy cluster encoded in the SNI
+  # value. The gateway forwards traffic to the envoy cluster (service+subset+port).
+  istio-mcgateway:
+    enabled: false
+    labels:
+      app: istio-mcgateway
+      istio: mcgateway
+    replicaCount: 1
+    autoscaleMin: 1
+    autoscaleMax: 5
+    resources:
+      requests:
+        cpu: 800m
+        memory: 512Mi
+      #limits:
+      #  cpu: 1800m
+      #  memory: 256Mi
+    loadBalancerIP: ""
+    podAnnotations: {}
+    type: LoadBalancer
+    ports:
+      # Port 80 is not used. But we still need this because AWS LB marks
+      # the gateway as unhealthy without some response.
+      # Traffic into port 80 returns 404 always, but keeps AWS LB happy.
+    - port: 80
+      name: http
+      # This is the port where sni routing happens
+    - port: 443
+      name: tls
 
 #
 # sidecar-injector webhook configuration
