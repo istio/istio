@@ -230,7 +230,7 @@ type (
 	DeployedCitadel interface {
 		Deployed
 
-		WaitForSecretExist() (*v1.Secret, error)
+		WaitForSecretToExist() (*v1.Secret, error)
 		DeleteSecret() error
 	}
 )

@@ -85,7 +85,7 @@ type deployedCitadel struct {
 }
 
 // WaitForSecretExist waits for Citadel to create and mount secrets.
-func (d *deployedCitadel) WaitForSecretExist() (*v1.Secret, error) {
+func (d *deployedCitadel) WaitForSecretToExist() (*v1.Secret, error) {
 	watch, err := d.secret.Watch(mv1.ListOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to set up watch for secret (error: %v)", err)

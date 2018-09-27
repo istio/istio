@@ -12,13 +12,14 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package citadel
+package citadelIntegrationTest
 
 import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/dependency"
+	"istio.io/istio/tests/integration2/citadel"
 )
 
 // TestSecretCreationKubernetes verifies that Citadel creates secret and stores as Kubernetes secrets,
@@ -29,13 +30,13 @@ func TestSecretCreationKubernetes(t *testing.T) {
 	c := env.GetCitadelOrFail(t)
 
 	// Test the existence of istio.default secret.
-	s, err := c.WaitForSecretExist()
+	s, err := c.WaitForSecretToExist()
 	if err != nil {
 		t.Error(err)
 	}
 
 	t.Log(`checking secret "istio.default" is correctly created`)
-	if err := ExamineSecret(s); err != nil {
+	if err := citadel.ExamineSecret(s); err != nil {
 		t.Error(err)
 	}
 
@@ -47,7 +48,7 @@ func TestSecretCreationKubernetes(t *testing.T) {
 	t.Log(`secret "istio.default" has been deleted`)
 
 	// Test that the deleted secret is re-created properly.
-	if _, err := c.WaitForSecretExist(); err != nil {
+	if _, err := c.WaitForSecretToExist(); err != nil {
 		t.Error(err)
 	}
 	t.Log(`checking secret "istio.default" is correctly re-created`)

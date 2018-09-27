@@ -137,10 +137,6 @@ func (e *environment) GetCitadelOrFail(t testing.TB) env.DeployedCitadel {
 	return m
 }
 
-func (e *environment) CitadelName() string {
-	return "Citadel"
-}
-
 // GetApp returns a fake testing app object for the given name.
 func (e *environment) GetApp(name string) (env.DeployedApp, error) {
 	s, err := e.get(dependency.Apps)
