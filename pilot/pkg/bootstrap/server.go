@@ -191,7 +191,7 @@ type Server struct {
 func NewServer(args PilotArgs) (*Server, error) {
 	// If the namespace isn't set, try looking it up from the environment.
 	if args.Namespace == "" {
-		args.Namespace = pilot.PodNamespace
+		args.Namespace = os.Getenv("POD_NAMESPACE")
 	}
 	if args.Config.ClusterRegistriesNamespace == "" {
 		if args.Namespace != "" {

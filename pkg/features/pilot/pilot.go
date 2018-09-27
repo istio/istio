@@ -19,15 +19,6 @@ import (
 )
 
 var (
-	// ProxyIPAddress is the IP address of the proxy used to identify it and its
-	// co-located service instances. Example: "10.60.1.6".
-	ProxyIPAddress = os.Getenv("INSTANCE_IP")
-
-	// PodName is the name of pilot pod.
-	PodName = os.Getenv("POD_NAME")
-	// PodNamespace is the namespace of pilot pod.
-	PodNamespace = os.Getenv("POD_NAMESPACE")
-
 	// CertDir is the default location for mTLS certificates used by pilot.
 	CertDir = os.Getenv("PILOT_CERT_DIR")
 
@@ -54,9 +45,6 @@ var (
 	// Example: "300ms", "10s" or "2h45m".
 	RefreshDuration = os.Getenv("V2_REFRESH")
 
-	// KubeConfig file, if not specified default is `$HOME/.kube/config`
-	KubeConfig = os.Getenv("KUBECONFIG")
-
 	// DebounceAfter is the delay added to events to wait
 	// after a registry/config event for debouncing.
 	// This will delay the push by at least this interval, plus
@@ -70,10 +58,6 @@ var (
 	// showing up with no break for this time, we'll trigger a push.
 	// Default is 10s, Example: "300ms", "10s" or "2h45m".
 	DebounceMax = os.Getenv("PILOT_DEBOUNCE_MAX")
-
-	// IstioNamespace is the namespace where Istio's components are deployed.
-	// Default is `istio-system`
-	IstioNamespace = os.Getenv("ISTIO_NAMESPACE")
 
 	// AzDebug indicates whether to log service registry az info.
 	AzDebug = os.Getenv("VERBOSE_AZ_DEBUG") == "1"

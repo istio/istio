@@ -22,6 +22,7 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 	"text/template"
 	"time"
@@ -29,8 +30,6 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
-
-	"strconv"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
@@ -40,7 +39,6 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/collateral"
-	"istio.io/istio/pkg/features/pilot"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
 )
@@ -99,7 +97,7 @@ var (
 			// set values from registry platform
 			if len(role.IPAddress) == 0 {
 				if registry == serviceregistry.KubernetesRegistry {
-					role.IPAddress = pilot.ProxyIPAddress
+					role.IPAddress = os.Getenv("INSTANCE_IP")
 				} else {
 					if ipAddr, ok := proxy.GetPrivateIP(context.Background()); ok {
 						log.Infof("Obtained private IP %v", ipAddr)
@@ -111,7 +109,7 @@ var (
 			}
 			if len(role.ID) == 0 {
 				if registry == serviceregistry.KubernetesRegistry {
-					role.ID = pilot.PodName + "." + pilot.PodNamespace
+					role.ID = os.Getenv("POD_NAME") + "." + os.Getenv("POD_NAMESPACE")
 				} else if registry == serviceregistry.ConsulRegistry {
 					role.ID = role.IPAddress + ".service.consul"
 				} else {
@@ -121,7 +119,7 @@ var (
 			pilotDomain := role.Domain
 			if len(role.Domain) == 0 {
 				if registry == serviceregistry.KubernetesRegistry {
-					role.Domain = pilot.PodNamespace + ".svc.cluster.local"
+					role.Domain = os.Getenv("POD_NAMESPACE") + ".svc.cluster.local"
 					pilotDomain = "cluster.local"
 				} else if registry == serviceregistry.ConsulRegistry {
 					role.Domain = "service.consul"
@@ -162,7 +160,7 @@ var (
 					if len(parts) == 1 {
 						// namespace of pilot is not part of discovery address use
 						// pod namespace e.g. istio-pilot:15005
-						ns = pilot.PodNamespace
+						ns = os.Getenv("POD_NAMESPACE")
 					} else if len(parts) == 2 {
 						// namespace is found in the discovery address
 						// e.g. istio-pilot.istio-system:15005
@@ -170,7 +168,7 @@ var (
 					} else {
 						// discovery address is a remote address. For remote clusters
 						// only support the default config, or env variable
-						ns = pilot.IstioNamespace
+						ns = os.Getenv("ISTIO_NAMESPACE")
 						if ns == "" {
 							ns = model.IstioSystemNamespace
 						}
@@ -220,11 +218,11 @@ var (
 
 			if templateFile != "" && proxyConfig.CustomConfigFile == "" {
 				opts := make(map[string]string)
-				opts["PodName"] = pilot.PodName
-				opts["PodNamespace"] = pilot.PodNamespace
+				opts["PodName"] = os.Getenv("POD_NAME")
+				opts["PodNamespace"] = os.Getenv("POD_NAMESPACE")
 
 				// protobuf encoding of IP_ADDRESS type
-				opts["PodIP"] = base64.StdEncoding.EncodeToString(net.ParseIP(pilot.ProxyIPAddress))
+				opts["PodIP"] = base64.StdEncoding.EncodeToString(net.ParseIP(os.Getenv("INSTANCE_IP")))
 
 				if proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
 					opts["ControlPlaneAuth"] = "enable"
