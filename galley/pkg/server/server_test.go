@@ -25,7 +25,7 @@ import (
 	"istio.io/istio/galley/pkg/testing/mock"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/mcp/server"
-	"istio.io/istio/pkg/mcp/testing"
+	"istio.io/istio/pkg/mcp/testing/monitoring"
 )
 
 func TestNewServer_Errors(t *testing.T) {
@@ -72,7 +72,7 @@ func TestNewServer(t *testing.T) {
 		return runtime.NewInMemorySource(), nil
 	}
 	p.mcpMetricReporter = func(s string) server.Reporter {
-		return mcptest.NewInMemoryServerStatsContext()
+		return mcptestmon.NewInMemoryServerStatsContext()
 	}
 
 	args := DefaultArgs()
@@ -95,7 +95,7 @@ func TestServer_Basic(t *testing.T) {
 		return runtime.NewInMemorySource(), nil
 	}
 	p.mcpMetricReporter = func(s string) server.Reporter {
-		return mcptest.NewInMemoryReporter()
+		return mcptestmon.NewInMemoryServerStatsContext()
 	}
 
 	args := DefaultArgs()

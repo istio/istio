@@ -15,6 +15,8 @@
 package mcptestmon
 
 import (
+	"sync"
+	
 	"google.golang.org/grpc/codes"
 )
 
@@ -37,39 +39,52 @@ type InMemoryServerStatsContext struct {
 	RequestNacksTotal map[requestKey]int64
 	SendFailuresTotal map[errorCodeKey]int64
 	RecvFailuresTotal map[errorCodeKey]int64
+	mutex             *sync.Mutex
 }
 
 // SetClientsTotal updates the current client count to the given argument.
 func (s *InMemoryServerStatsContext) SetClientsTotal(clients int64) {
+	s.mutex.Lock()
 	s.ClientsTotal = clients
+	s.mutex.Unlock()
 }
 
 // RecordSendError records an error during a network send with its error
 // string and code.
 func (s *InMemoryServerStatsContext) RecordSendError(err error, code codes.Code) {
+	s.mutex.Lock()
 	s.SendFailuresTotal[errorCodeKey{err.Error(), code}]++
+	s.mutex.Unlock()
 }
 
 // RecordRecvError records an error during a network recv with its error
 // string and code.
 func (s *InMemoryServerStatsContext) RecordRecvError(err error, code codes.Code) {
+	s.mutex.Lock()
 	s.RecvFailuresTotal[errorCodeKey{err.Error(), code}]++
+	s.mutex.Unlock()
 }
 
 // RecordRequestSize records the size of a request from a connection for a specific type URL.
 func (s *InMemoryServerStatsContext) RecordRequestSize(typeURL string, connectionID int64, size int) {
 	key := requestKey{typeURL, connectionID}
+	s.mutex.Lock()
 	s.RequestSizesBytes[key] = append(s.RequestSizesBytes[key], int64(size))
+	s.mutex.Unlock()
 }
 
 // RecordRequestAck records an ACK message for a type URL on a connection.
 func (s *InMemoryServerStatsContext) RecordRequestAck(typeURL string, connectionID int64) {
+	s.mutex.Lock()
 	s.RequestAcksTotal[requestKey{typeURL, connectionID}]++
+	s.mutex.Unlock()
 }
 
 // RecordRequestNack records a NACK message for a type URL on a connection.
 func (s *InMemoryServerStatsContext) RecordRequestNack(typeURL string, connectionID int64) {
+	s.mutex.Lock()
 	s.RequestNacksTotal[requestKey{typeURL, connectionID}]++
+	s.mutex.Unlock()
 }
 
 // NewInMemoryServerStatsContext creates a new context for tracking metrics
@@ -81,5 +96,6 @@ func NewInMemoryServerStatsContext() *InMemoryServerStatsContext {
 		RequestNacksTotal: make(map[requestKey]int64),
 		SendFailuresTotal: make(map[errorCodeKey]int64),
 		RecvFailuresTotal: make(map[errorCodeKey]int64),
+		mutex:             &sync.Mutex{},
 	}
 }
