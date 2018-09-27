@@ -155,7 +155,7 @@ else
 fi
 
 sha256sum ${ISTIO_OUT}/envoy || true
-if [ "$GOOS" == "$LOCAL_OS" ]; then
+if [ "Linux" == "$LOCAL_OS" ]; then
   ${ISTIO_OUT}/envoy --version
 fi
 
