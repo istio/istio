@@ -389,8 +389,7 @@ message HTTPRoute {
   // destination service.
   map<string, string> append_headers = 11;
 
-  // Http headers to remove before returning the response to the caller
-  // $hide_from_docs
+  // Http headers to remove before returning the response to the caller.
   repeated string remove_response_headers = 12;
 }
 

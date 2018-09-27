@@ -1878,6 +1878,14 @@ destination service.</p>
 
 </td>
 </tr>
+<tr id="HTTPRoute-remove_response_headers">
+<td><code>removeResponseHeaders</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>Http headers to remove before returning the response to the caller.</p>
+
+</td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -3105,6 +3113,12 @@ spec:
 <p><strong>Note:</strong> Policies specified for subsets will not take effect until
 a route rule explicitly sends traffic to this subset.</p>
 
+<p>One or more labels are typically required to identify the subset destination,
+however, when the corresponding DestinationRule represents a host that
+supports multiple SNI hosts (e.g., an egress gateway), a subset without labels
+may be meaningful. In this case a traffic policy with <a href="#TLSSettings">TLSSettings</a>
+can be used to identify a specific SNI host corresponding to the named subset.</p>
+
 <table class="message-fields">
 <thead>
 <tr>
@@ -3127,7 +3141,7 @@ be used for traffic splitting in a route rule.</p>
 <td><code>labels</code></td>
 <td><code>map&lt;string,&nbsp;string&gt;</code></td>
 <td>
-<p>REQUIRED. Labels apply a filter over the endpoints of a service in the
+<p>Labels apply a filter over the endpoints of a service in the
 service registry. See route rules for examples of usage.</p>
 
 </td>
