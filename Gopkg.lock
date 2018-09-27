@@ -826,6 +826,14 @@
   version = "v0.0.6"
 
 [[projects]]
+  digest = "1:bff482b22ebed387378546ba6a7850fdef87fd47f8ee58a7c62124a8e889a56b"
+  name = "github.com/mattn/go-runewidth"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "ce7b0b5c7b45a81508558cd1dba6bb1e4ddb51bb"
+  version = "v0.0.3"
+
+[[projects]]
   digest = "1:5985ef4caf91ece5d54817c11ea25f182697534f8ae6521eadcd628c142ac4b6"
   name = "github.com/matttproud/golang_protobuf_extensions"
   packages = ["pbutil"]
@@ -872,6 +880,14 @@
   pruneopts = "NUT"
   revision = "a96e63847dc3c67d17befa69c303767e2f84e54f"
   version = "v2.1"
+
+[[projects]]
+  branch = "master"
+  digest = "1:e6baebf0bd20950e285254902a8f2241b4870528fb63fdc10460c67b1f31b1a3"
+  name = "github.com/olekukonko/tablewriter"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "be2c049b30ccd4d3fd795d6bf7dce74e42eeedaa"
 
 [[projects]]
   digest = "1:ff74f0a23b59c8bd133c5438394d274c67cdfa693d9d97e09e00086a2499c42f"
@@ -2027,6 +2043,7 @@
     "github.com/howeyc/fsnotify",
     "github.com/istio/tools/protoc-gen-docs",
     "github.com/natefinch/lumberjack",
+    "github.com/olekukonko/tablewriter",
     "github.com/onsi/gomega",
     "github.com/onsi/gomega/gbytes",
     "github.com/onsi/gomega/gexec",
