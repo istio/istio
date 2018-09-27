@@ -1,7 +1,7 @@
 {
   "steps": [
     {
-      "name": "gcr.io/istio-testing/istio-builder:0.5.7",
+      "name": "gcr.io/istio-testing/istio-builder:0.5.11",
       "args": [ "-c", "git clone https://github.com/istio/istio -b \"$_BRANCH\" --depth 1 && istio/release/generate_manifest.sh -a \"$_CHECK_GREEN_SHA_AGE\" -b \"$_BRANCH\" -c \"$_COMMIT\" -r \"$_GCS_RELEASE_TOOLS_PATH\" -v \"$_VERIFY_CONSISTENCY\" " ],
       "entrypoint": "bash"
     }

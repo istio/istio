@@ -7,7 +7,7 @@
           "path": "/output"
 	}
       ],
-      "name": "gcr.io/istio-testing/istio-builder:0.5.7",
+      "name": "gcr.io/istio-testing/istio-builder:0.5.11",
       "args": [ "-c", "gsutil cp \"gs://$_GCS_RELEASE_TOOLS_PATH\"/* . && chmod u+x *sh && ./istio_checkout_code.sh -b \"$_BRANCH\" -r \"$_GCS_RELEASE_TOOLS_PATH\" " ],
       "entrypoint": "bash"
     },
@@ -18,7 +18,7 @@
           "path": "/output"
 	}
       ],
-      "name": "gcr.io/istio-testing/istio-builder:0.5.7",
+      "name": "gcr.io/istio-testing/istio-builder:0.5.11",
       "dir": "go/src/istio.io/istio",
       "args": [ "./release/cloud_builder.sh", "-p", "$_GCS_PATH", "-q", "$_GCR_PATH", "-t", "$_VER_STRING", "-o", "/output" ]
     },
@@ -29,7 +29,7 @@
           "path": "/output"
         }
       ],
-      "name": "gcr.io/istio-testing/istio-builder:0.5.7",
+      "name": "gcr.io/istio-testing/istio-builder:0.5.11",
       "dir": "go/src/istio.io/istio",
       "args": [ "./release/store_artifacts.sh", "-p", "$_GCS_PATH", "-q", "$_GCR_PATH", "-v", "$_VER_STRING", "-o", "/output" ]
     }
