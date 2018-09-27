@@ -72,7 +72,7 @@ func TestNewServer(t *testing.T) {
 		return runtime.NewInMemorySource(), nil
 	}
 	p.mcpMetricReporter = func(s string) server.Reporter {
-		return mcptest.NewInMemoryReporter()
+		return mcptest.NewInMemoryServerStatsContext()
 	}
 
 	args := DefaultArgs()

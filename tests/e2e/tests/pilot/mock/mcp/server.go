@@ -23,7 +23,7 @@ import (
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	mcpserver "istio.io/istio/pkg/mcp/server"
-	"istio.io/istio/pkg/mcp/testing"
+	"istio.io/istio/pkg/mcp/testing/monitoring"
 )
 
 type WatchResponse func(req *mcp.MeshConfigRequest) (*mcpserver.WatchResponse, mcpserver.CancelWatchFunc)
@@ -59,7 +59,7 @@ func NewServer(addr string, typeUrls []string, watchResponseFunc WatchResponse) 
 	watcher := mockWatcher{
 		response: watchResponseFunc,
 	}
-	s := mcpserver.New(watcher, typeUrls, mcpserver.NewAllowAllChecker(), mcptest.NewInMemoryReporter())
+	s := mcpserver.New(watcher, typeUrls, mcpserver.NewAllowAllChecker(), mcptestmon.NewInMemoryServerStatsContext())
 
 	l, err := net.Listen("tcp", addr)
 	if err != nil {
