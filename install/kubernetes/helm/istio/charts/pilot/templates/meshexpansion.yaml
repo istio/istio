@@ -1,5 +1,4 @@
 {{- if .Values.global.meshExpansion }}
-{{ $istioNamespace := .Release.Namespace }}
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
@@ -7,7 +6,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
 spec:
   hosts:
-  - "pilot.$istioNamespace"
+  - "pilot.{{ .Release.Namespace }}"
   gateways:
   - meshexpansion-gateway
   tcp:
@@ -15,11 +14,27 @@ spec:
     - port: 15011
     route:
     - destination:
-        host: istio-pilot.$istioNamespace.svc.cluster.local
+        host: istio-pilot.{{ .Release.Namespace }}.svc.cluster.local
         port:
           number: 15011
 
-
+---
+{{- if .Values.global.controlPlaneSecurityEnabled }}
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: meshexpansion-pilot-dr
+  namespace: istio-system
+spec:
+  host: pilot.{{ .Release.Namespace }}.svc.cluster.local
+  trafficPolicy:
+    portLevelSettings:
+    - port:
+        number: 15011
+      tls:
+        mode: DISABLE
+---
+{{- end }}
 {{- end }}
 
 
