@@ -52,7 +52,7 @@ function replace_sha_branch_repo() {
 
 # REPO="istio.io.api"
   local findstr
-  findstr="(.*$REPO. revision=.)(.*)(upstream.*)"
+  findstr="\\(.*$REPO. revision=.\\)\\(.*\\)\\(upstream.*\\)"
   local repstr
   repstr="\1${NEW_SHA}\" upstream=\"${BRANCH}\"\/\>"
   sed "s/$findstr/$repstr/" -i "$MANIFEST_FILE"
@@ -85,7 +85,7 @@ function find_and_replace_shas_manifest() {
   replace_sha_branch_repo src.proxy      "${PROXY_REPO_SHA}" "${BRANCH}" "${MANIFEST_FILE}"
 
   local API_REPO_SHA
-  API_REPO_SHA=$(cat Gopkg.lock | grep istio.io.api -A 100 | grep revision -m 1 | cut -f 2 -d '"')
+  API_REPO_SHA=$(grep istio.io.api -A 100 < Gopkg.lock | grep revision -m 1 | cut -f 2 -d '"')
   replace_sha_branch_repo istio.io.api   "${API_REPO_SHA}"   "${BRANCH}" "${MANIFEST_FILE}"
 
   local ISTIO_REPO_SHA
@@ -126,7 +126,7 @@ function get_later_sha_timestamp() {
   MANIFEST_FILE=$2
 
   local SHA_CUR
-  SHA_CUR=$(grep istio/istio $MANIFEST_FILE | sed 's/.*istio. revision=.//' | sed 's/".*//')
+  SHA_CUR=$(grep istio/istio "$MANIFEST_FILE" | sed 's/.*istio. revision=.//' | sed 's/".*//')
   local TS_CUR
   TS_CUR=$(git show -s --format=%ct "$SHA_CUR")
   local TS1
@@ -195,9 +195,10 @@ function get_istio_green_sha() {
   github_keys
   set +e
   # GITHUB_KEYFILE has the github tokens
-  local GREEN_SHA=$(githubctl --token_file=${GITHUB_KEYFILE} --repo=istio \
-                              --op=getLatestGreenSHA         --base_branch=${CUR_BRANCH} \
-                              --logtostderr)
+  local GREEN_SHA
+  GREEN_SHA=$(githubctl --token_file="${GITHUB_KEYFILE}" --repo=istio \
+                        --op=getLatestGreenSHA           --base_branch="${CUR_BRANCH}" \
+                        --logtostderr)
   set -e
  popd # TEST_INFRA_DIR
 
@@ -233,10 +234,14 @@ function istio_checkout_green_sha() {
 function istio_check_green_sha_age() {
 pushd istio
   if [[ "${CHECK_GREEN_SHA_AGE}" == "true" ]]; then
-    local TS_SHA=$( git show -s --format=%ct "${ISTIO_COMMIT}")
-    local TS_HEAD=$(git show -s --format=%ct "${ISTIO_HEAD_SHA}")
-    local DIFF_SEC=$((TS_HEAD - TS_SHA))
-    local DIFF_DAYS=$((DIFF_SEC/86400))
+    local TS_SHA
+    TS_SHA=$( git show -s --format=%ct "${ISTIO_COMMIT}")
+    local TS_HEAD
+    TS_HEAD=$(git show -s --format=%ct "${ISTIO_HEAD_SHA}")
+    local DIFF_SEC
+    DIFF_SEC=$((TS_HEAD - TS_SHA))
+    local DIFF_DAYS
+    DIFF_DAYS=$((DIFF_SEC/86400))
 
     if [ "$CHECK_GREEN_SHA_AGE" = "true" ] && [ "$DIFF_DAYS" -gt "2" ]; then
        echo ERROR: "${ISTIO_COMMIT}" is "$DIFF_DAYS" days older than head of branch "$BRANCH"
