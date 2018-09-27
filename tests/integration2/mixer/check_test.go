@@ -43,12 +43,13 @@ func TestCheck_Allow(t *testing.T) {
 	be.DenyCheck(t, false)
 
 	result := mxr.Check(t, map[string]interface{}{
-		"context.protocol":    "http",
-		"destination.name":    "somesrvcname",
-		"response.time":       time.Now(),
-		"request.time":        time.Now(),
-		"destination.service": `svc.{{.TestNamespace}}`,
-		"origin.ip":           []byte{1, 2, 3, 4},
+		"context.protocol":      "http",
+		"destination.name":      "somesrvcname",
+		"destination.namespace": "{{.TestNamespace}}",
+		"response.time":         time.Now(),
+		"request.time":          time.Now(),
+		"destination.service":   `svc.{{.TestNamespace}}`,
+		"origin.ip":             []byte{1, 2, 3, 4},
 	})
 
 	if !result.Succeeded() {
@@ -75,12 +76,13 @@ func TestCheck_Deny(t *testing.T) {
 	be.DenyCheck(t, true)
 
 	result := mxr.Check(t, map[string]interface{}{
-		"context.protocol":    "http",
-		"destination.name":    "somesrvcname",
-		"response.time":       time.Now(),
-		"request.time":        time.Now(),
-		"destination.service": `svc.{{.TestNamespace}}`,
-		"origin.ip":           []byte{1, 2, 3, 4},
+		"context.protocol":      "http",
+		"destination.name":      "somesrvcname",
+		"destination.namespace": "{{.TestNamespace}}",
+		"response.time":         time.Now(),
+		"request.time":          time.Now(),
+		"destination.service":   `svc.{{.TestNamespace}}`,
+		"origin.ip":             []byte{1, 2, 3, 4},
 	})
 
 	if result.Succeeded() {
@@ -93,14 +95,14 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: checknothing
 metadata:
   name: checknothing1
-  namespace: istio-system
+  namespace: {{.TestNamespace}}
 spec:
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
   name: rule1
-  namespace: istio-system
+  namespace: {{.TestNamespace}}
 spec:
   actions:
   - handler: handler1.bypass

@@ -124,16 +124,15 @@ func (e *Implementation) Initialize(ctx *internal.TestContext) error {
 	}
 
 	if e.kube.DeployIstio {
-		// TODO: Values files should be parameterized.
-		if e.deployment, err = deployment.New(
+		if e.deployment, err = deployment.NewIstio(
 			&deployment.Settings{
 				KubeConfig: e.kube.KubeConfig,
 				WorkDir:    ctx.Settings().WorkDir,
 				Hub:        e.kube.Hub,
 				Tag:        e.kube.Tag,
 				Namespace:  e.kube.IstioSystemNamespace,
-				ValuesFile: deployment.IstioMCP,
 			},
+			deployment.IstioMCP, // TODO: Values files should be parameterized.
 			e.Accessor); err != nil {
 			return err
 		}
@@ -145,7 +144,7 @@ func (e *Implementation) Initialize(ctx *internal.TestContext) error {
 // Configure applies the given configuration to the mesh.
 func (e *Implementation) Configure(config string) error {
 	scopes.Framework.Debugf("Applying configuration: \n%s\n", config)
-	err := kube.ApplyContents(e.kube.KubeConfig, e.systemNamespace.allocatedName, config)
+	err := kube.ApplyContents(e.kube.KubeConfig, e.testNamespace.allocatedName, config)
 	if err != nil {
 		return err
 	}
@@ -229,7 +228,7 @@ func (e *Implementation) Close() error {
 	if e.deployment != nil {
 		// TODO: Deleting the deployment is extremely noisy. It is outputting a whole slew of errors
 		// Disabling the collection of errors from Delete for the time being.
-		_ = e.deployment.Delete(e.Accessor)
+		_ = e.deployment.Delete(e.Accessor, true)
 		//if err2 := e.deployment.Delete(); err2 != nil {
 		//	err = multierror.Append(err, err2)
 		//}

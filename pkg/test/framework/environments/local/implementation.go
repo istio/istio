@@ -15,11 +15,14 @@
 package local
 
 import (
+	"time"
+
 	meshConfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/framework/environment"
 	"istio.io/istio/pkg/test/framework/environments/local/service"
 	"istio.io/istio/pkg/test/framework/internal"
+	"istio.io/istio/pkg/test/framework/scopes"
 	"istio.io/istio/pkg/test/framework/settings"
 	"istio.io/istio/pkg/test/framework/tmpl"
 )
@@ -76,6 +79,9 @@ func (e *Implementation) Configure(config string) error {
 	// TODO: Implement a mechanism for reliably waiting for the configuration to disseminate in the system.
 	// We can use CtrlZ to expose the config state of Mixer and Pilot.
 	// See https://github.com/istio/istio/issues/6169 and https://github.com/istio/istio/issues/6170.
+
+	time.Sleep(time.Second * 2)
+	scopes.Framework.Debugf("Completing sleep after configure step")
 	return nil
 }
 

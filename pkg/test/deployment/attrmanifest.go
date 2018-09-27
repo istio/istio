@@ -44,7 +44,7 @@ func ExtractAttributeManifest() (string, error) {
 		if strings.Contains(part, "kind: attributemanifest") &&
 			!strings.Contains(part, "kind: CustomResourceDefinition") {
 
-			scopes.Framework.Infof("Extracted AttributeManifest:\n%s\n", part)
+			scopes.Framework.Debugf("Extracted AttributeManifest:\n%s\n", part)
 			return part, nil
 		}
 	}

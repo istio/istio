@@ -18,7 +18,14 @@ import "strings"
 
 // JoinConfigs merges the given config snippets together
 func JoinConfigs(parts ...string) string {
-	return strings.Join(parts, "\n---\n")
+	// remove empty strings
+	var tmp []string
+	for _, p := range parts {
+		if strings.TrimSpace(p) != "" {
+			tmp = append(tmp, p)
+		}
+	}
+	return strings.Join(tmp, "\n---\n")
 }
 
 // SplitConfigs splits config into chunks, based on the "---" separator.
