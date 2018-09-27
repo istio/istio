@@ -157,8 +157,8 @@ function release_push_github_docker_template() {
     KEY_FILE_PATH=""
     WAIT_FOR_RESULT="true"
 
-   # uses the environment variables from list below + $PROJECT_ID $SVC_ACCT
-   #BRANCH
+    # uses the environment variables from list below + $PROJECT_ID $SVC_ACCT
+    #BRANCH
     # shellcheck disable=SC2034
     DOCKER_DST="$DOCKER_HUB"
     # shellcheck disable=SC2034
@@ -166,7 +166,7 @@ function release_push_github_docker_template() {
     # shellcheck disable=SC2034
     GCS_DST="${GCS_MONTHLY_RELEASE_PATH}"
     GCS_PATH="${GCS_BUILD_PATH}"
-   #GCS_RELEASE_TOOLS_PATH
+    #GCS_RELEASE_TOOLS_PATH
     GCS_SECRET="${GCS_GITHUB_PATH}"
     GCS_SOURCE="${GCS_FULL_STAGING_PATH}"
     ORG="${GITHUB_ORG}"
@@ -187,11 +187,11 @@ function release_tag_github_template() {
     KEY_FILE_PATH=""
     WAIT_FOR_RESULT="true"
 
-   # uses the environment variables from list below + $PROJECT_ID $SVC_ACCT
-   #BRANCH
+    # uses the environment variables from list below + $PROJECT_ID $SVC_ACCT
+    #BRANCH
     # shellcheck disable=SC2034
     GCS_PATH="${GCS_BUILD_PATH}"
-   #GCS_RELEASE_TOOLS_PATH
+    #GCS_RELEASE_TOOLS_PATH
     # shellcheck disable=SC2034
     GCS_SECRET="${GCS_GITHUB_PATH}"
     # shellcheck disable=SC2034
