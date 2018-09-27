@@ -55,7 +55,7 @@ function replace_sha_branch_repo() {
   findstr="(.*$REPO. revision=.)(.*)(upstream.*)"
   local repstr
   repstr="\1${NEW_SHA}\" upstream=\"${BRANCH}\"\/\>"
-  sed "s/$findstr/$repstr/" -i $MANIFEST_FILE
+  sed "s/$findstr/$repstr/" -i "$MANIFEST_FILE"
 #  sed "s/\(.*$REPO. revision=.\)\(.*\)\(upstream.*\)/\1${NEW_SHA}\" upstream=\"${BRANCH}\"\/\>/" -i $MANIFEST_FILE
 }
 
@@ -82,15 +82,15 @@ function find_and_replace_shas_manifest() {
  pushd istio
   local PROXY_REPO_SHA
   PROXY_REPO_SHA=$(grep PROXY_REPO_SHA istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"')
-  replace_sha_branch_repo src.proxy      ${PROXY_REPO_SHA} ${BRANCH} ${MANIFEST_FILE}
+  replace_sha_branch_repo src.proxy      "${PROXY_REPO_SHA}" "${BRANCH}" "${MANIFEST_FILE}"
 
   local API_REPO_SHA
   API_REPO_SHA=$(cat Gopkg.lock | grep istio.io.api -A 100 | grep revision -m 1 | cut -f 2 -d '"')
-  replace_sha_branch_repo istio.io.api   ${API_REPO_SHA}   ${BRANCH} ${MANIFEST_FILE}
+  replace_sha_branch_repo istio.io.api   "${API_REPO_SHA}"   "${BRANCH}" "${MANIFEST_FILE}"
 
   local ISTIO_REPO_SHA
   ISTIO_REPO_SHA=$(git rev-parse HEAD)
-  replace_sha_branch_repo istio.io.istio ${ISTIO_REPO_SHA} ${BRANCH} ${MANIFEST_FILE}
+  replace_sha_branch_repo istio.io.istio "${ISTIO_REPO_SHA}" "${BRANCH}" "${MANIFEST_FILE}"
 
   if [ -z "${ISTIO_REPO_SHA}" ] || [ -z "${API_REPO_SHA}" ] || [ -z "${PROXY_REPO_SHA}" ]; then
     echo "ISTIO_REPO_SHA:$ISTIO_REPO_SHA API_REPO_SHA:$API_REPO_SHA PROXY_REPO_SHA:$PROXY_REPO_SHA some shas not found"
@@ -120,43 +120,57 @@ function find_and_replace_shas_manifest() {
 }
 
 function get_later_sha_timestamp() {
-  local SHA1=$1
-  local MANIFEST_FILE=$2
+  local SHA1
+  SHA1=$1
+  local MANIFEST_FILE
+  MANIFEST_FILE=$2
 
-  local SHA_CUR=`grep istio/istio $MANIFEST_FILE | sed 's/.*istio. revision=.//' | sed 's/".*//'`
-  local TS_CUR=`git show -s --format=%ct $SHA_CUR`
-  local TS1=`   git show -s --format=%ct $SHA1`
+  local SHA_CUR
+  SHA_CUR=$(grep istio/istio $MANIFEST_FILE | sed 's/.*istio. revision=.//' | sed 's/".*//')
+  local TS_CUR
+  TS_CUR=$(git show -s --format=%ct "$SHA_CUR")
+  local TS1
+  TS1=$(   git show -s --format=%ct "$SHA1")
   if [   "$TS_CUR" -gt "$TS1" ]; then
     # dont go backwards
-    echo $SHA_CUR
+    echo "$SHA_CUR"
     return
   fi
   #go forward
-  echo   $SHA1
+  echo   "$SHA1"
 }
 
 function get_later_sha_revlist() {
-  local SHA1=$1
-  local MANIFEST_FILE=$2
+  local SHA1
+  SHA1=$1
+  local MANIFEST_FILE
+  MANIFEST_FILE=$2
 
-  local SHA_CUR=`grep istio/istio $MANIFEST_FILE | sed 's/.*istio. revision=.//' | sed 's/".*//'`
-  local SHA_LATEST=`git rev-list $SHA_CUR...$SHA1 | grep $SHA1`
+  local SHA_CUR
+  SHA_CUR=$(grep istio/istio "$MANIFEST_FILE" | sed 's/.*istio. revision=.//' | sed 's/".*//')
+  local SHA_LATEST
+  SHA_LATEST=$(git rev-list "$SHA_CUR...$SHA1" | grep "$SHA1")
   if [[ -z "${SHA_LATEST}" ]]; then
     # dont go backwards
-    echo $SHA_CUR
+    echo "$SHA_CUR"
     return
   fi
   #go forward
-  echo   $SHA_LATEST
+  echo   "$SHA_LATEST"
 }
 
 #sets GITHUB_KEYFILE to github auth file
 function github_keys() {
-  local LOCAL_DIR="$(mktemp -d /tmp/github.XXXX)"
-  local KEYFILE_ENC=$LOCAL_DIR/keyfile.enc
-  local KEYFILE_TEMP=$LOCAL_DIR/keyfile.txt
-  local KEYRING="Secrets"
-  local KEY="DockerHub"
+  local LOCAL_DIR
+  LOCAL_DIR="$(mktemp -d /tmp/github.XXXX)"
+  local KEYFILE_ENC
+  KEYFILE_ENC="$LOCAL_DIR/keyfile.enc"
+  local KEYFILE_TEMP
+  KEYFILE_TEMP="$LOCAL_DIR/keyfile.txt"
+  local KEYRING
+  KEYRING="Secrets"
+  local KEY
+  KEY="DockerHub"
 
  # decrypt file, if requested
   gsutil cp gs://istio-secrets/github.txt.enc "${KEYFILE_ENC}"
@@ -164,16 +178,18 @@ function github_keys() {
        --ciphertext-file="$KEYFILE_ENC" \
        --plaintext-file="$KEYFILE_TEMP" \
        --location=global \
-       --keyring=${KEYRING} \
-       --key=${KEY}
+       --keyring="${KEYRING}" \
+       --key="${KEY}"
 
   GITHUB_KEYFILE="${KEYFILE_TEMP}"
 }
 
 #sets ISTIO_SHA variable
 function get_istio_green_sha() {
-  local CUR_BRANCH="$1"
-  local MANIFEST_FILE="$2"
+  local CUR_BRANCH
+  CUR_BRANCH="$1"
+  local MANIFEST_FILE
+  MANIFEST_FILE="$2"
 
  pushd "${TEST_INFRA_DIR}"
   github_keys
@@ -187,19 +203,21 @@ function get_istio_green_sha() {
 
  pushd istio
   if [[ -z "${GREEN_SHA}" ]]; then
-    echo      GREEN_SHA empty for branch ${CUR_BRANCH} using HEAD
+    echo      "GREEN_SHA empty for branch ${CUR_BRANCH} using HEAD"
      ISTIO_SHA=$(git rev-parse HEAD)
   else
-    ISTIO_SHA=$(get_later_sha_revlist ${GREEN_SHA} ${MANIFEST_FILE})
+    ISTIO_SHA=$(get_later_sha_revlist "${GREEN_SHA}" "${MANIFEST_FILE}")
   fi
  popd # istio
 }
 
 # also sets ISTIO_HEAD_SHA, and ISTIO_COMMIT variables
 function istio_checkout_green_sha() {
-  local CUR_BRANCH="$1"
+  local CUR_BRANCH
+  local MANIFEST_FILE
+  CUR_BRANCH="$1"
   ISTIO_COMMIT="$2"
-  local MANIFEST_FILE="$3"
+  MANIFEST_FILE="$3"
 
   if [[ "${ISTIO_COMMIT}" == "" ]]; then
      get_istio_green_sha "${CUR_BRANCH}" "${MANIFEST_FILE}"
@@ -208,7 +226,7 @@ function istio_checkout_green_sha() {
   pushd istio
     ISTIO_HEAD_SHA=$(git rev-parse HEAD)
     # ISTIO_COMMIT now has the sha of branch, or branch name
-    git checkout ${ISTIO_COMMIT}
+    git checkout "${ISTIO_COMMIT}"
   popd
 }
 
@@ -261,7 +279,7 @@ done
 MANIFEST_URL="${GCS_RELEASE_TOOLS_PATH}/manifest.xml"
 
 CLONE_DIR=$(mktemp -d)
-pushd ${CLONE_DIR}
+pushd "${CLONE_DIR}"
   githubctl_setup
   BASE_MANIFEST_URL="gs://istio-release-pipeline-data/release-tools/${BRANCH}-manifest.xml"
   BASE_MASTER_MANIFEST_URL="gs://istio-release-pipeline-data/release-tools/master-manifest.xml"
@@ -287,6 +305,6 @@ pushd ${CLONE_DIR}
   #copy the needed files
   gsutil cp "${MANIFEST_FILE}" "${BASE_MANIFEST_URL}"
   gsutil cp "${MANIFEST_FILE}" "${MANIFEST_URL}"
-popd # ${CLONE_DIR}
-rm -rf ${CLONE_DIR}
+popd # "${CLONE_DIR}"
+rm -rf "${CLONE_DIR}"
 
