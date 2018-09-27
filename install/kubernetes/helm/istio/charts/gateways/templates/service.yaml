@@ -25,6 +25,9 @@ spec:
   loadBalancerSourceRanges:
 {{ toYaml $spec.loadBalancerSourceRanges | indent 4 }}
 {{- end }}
+{{- if $spec.externalTrafficPolicy }}
+  externalTrafficPolicy: {{$spec.externalTrafficPolicy }}
+{{- end }}
   type: {{ .type }}
   selector:
     {{- range $key, $val := $spec.labels }}

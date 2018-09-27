@@ -112,6 +112,11 @@ global:
   # EnableTracing sets the value with same name in istio config map, requires pilot restart to take effect.
   enableTracing: true
 
+  tracer:
+    # Host:Port for reporting trace data in zipkin format. If not specified, will default to
+    # zipkin service (port 9411) in the same namespace as the other istio components.
+    zipkinAddress:
+
   # Default mtls policy. If true, mtls between services will be enabled by default.
   mtls:
     # Default setting for service-to-service mtls. Can be set explicitly using
@@ -239,7 +244,7 @@ gateways:
     serviceAnnotations: {}
     podAnnotations: {}
     type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
-
+    #externalTrafficPolicy: Local #change to Local to preserve source IP or Cluster for default behaviour or leave commented out
     ports:
       ## You can add custom gateway ports
     - port: 80
