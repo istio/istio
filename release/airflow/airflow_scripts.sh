@@ -133,7 +133,7 @@ function gcr_tag_success() {
   grep -Eo "docker\\/(([a-z]|[0-9]|-|_)*).tar.gz"               docker_tars.txt \
       | sed -E "s/docker\\/(([a-z]|[0-9]|-|_)*).tar.gz/\\1/g" > docker_images.txt
 
-  gcloud auth configure-docker  -q
+  #gcloud auth configure-docker  -q
   while read -r docker_image; do
     gcloud container images add-tag \
     "gcr.io/$GCR_STAGING_DEST/${docker_image}:$VERSION" \

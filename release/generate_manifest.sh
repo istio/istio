@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2017 Istio Authors
+# Copyright 2018 Istio Authors
 
 #   Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
@@ -15,9 +15,8 @@
 #   limitations under the License.
 
 
-#######################################
-# Presubmit script triggered by Prow. #
-#######################################
+# This script finds the green build sha, generates a corresponding
+# manifest file, also copies the json and scripts files from head of branch
 
 MAKEDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
@@ -28,14 +27,10 @@ set -u
 # Print commands
 set -x
 
-# this function sets variables TEST_INFRA_DIR and githubctl
+# this function sets variable TEST_INFRA_DIR
 function githubctl_setup() {
     git clone https://github.com/istio/test-infra.git -b master --depth 1
-    pushd test-infra
-    TEST_INFRA_DIR="${PWD}"
-    bazel build //toolbox/githubctl
-    githubctl="${PWD}/bazel-bin/toolbox/githubctl/linux_amd64_stripped/githubctl"
-    popd #test-infra
+    TEST_INFRA_DIR="${PWD}/test-infra"
 }
 
 
@@ -81,7 +76,7 @@ function find_and_replace_shas_manifest() {
   local MANIFEST_FILE=$2
   local VERIFY_CONSISTENCY=$3
 
-pushd istio
+ pushd istio
   local PROXY_REPO_SHA=$(grep PROXY_REPO_SHA istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"')
   replace_sha_branch_repo src.proxy      ${PROXY_REPO_SHA} ${BRANCH} ${MANIFEST_FILE}
 
@@ -95,7 +90,7 @@ pushd istio
     echo "ISTIO_REPO_SHA:$ISTIO_REPO_SHA API_REPO_SHA:$API_REPO_SHA PROXY_REPO_SHA:$PROXY_REPO_SHA some shas not found"
     exit 8
   fi
-popd
+ popd
 
   if [[ "${VERIFY_CONSISTENCY}" == "true" ]]; then
      checkout_code "proxy" "${BRANCH}" "${BRANCH}" .
@@ -174,24 +169,24 @@ function get_istio_green_sha() {
   local CUR_BRANCH="$1"
   local MANIFEST_FILE="$2"
 
-pushd "${TEST_INFRA_DIR}"
+ pushd "${TEST_INFRA_DIR}"
   github_keys
   set +e
   # GITHUB_KEYFILE has the github tokens
-  local GREEN_SHA=$($githubctl --token_file=${GITHUB_KEYFILE} --repo=istio \
-                               --op=getLatestGreenSHA         --base_branch=${CUR_BRANCH} \
-                               --logtostderr)
+  local GREEN_SHA=$(githubctl --token_file=${GITHUB_KEYFILE} --repo=istio \
+                              --op=getLatestGreenSHA         --base_branch=${CUR_BRANCH} \
+                              --logtostderr)
   set -e
-popd # TEST_INFRA_DIR
+ popd # TEST_INFRA_DIR
 
-pushd istio
+ pushd istio
   if [[ -z "${GREEN_SHA}" ]]; then
     echo      GREEN_SHA empty for branch ${CUR_BRANCH} using HEAD
      ISTIO_SHA=$(git rev-parse HEAD)
   else
     ISTIO_SHA=$(get_later_sha_revlist ${GREEN_SHA} ${MANIFEST_FILE})
   fi
-popd # istio
+ popd # istio
 }
 
 # also sets ISTIO_HEAD_SHA, and ISTIO_COMMIT variables
