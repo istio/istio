@@ -130,14 +130,14 @@ ISTIO_DOCKER_TAR:=${ISTIO_OUT}/docker
 
 # Populate the git version for istio/proxy (i.e. Envoy)
 ifeq ($(PROXY_REPO_SHA),)
-  export PROXY_REPO_SHA:=$(shell grep PROXY_REPO_SHA istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"')
+  export PROXY_REPO_SHA:=$(shell cat aspenmesh.proxy.sha)
 endif
 
 # Envoy binary variables Keep the default URLs up-to-date with the latest push from istio/proxy.
 ISTIO_ENVOY_VERSION ?= ${PROXY_REPO_SHA}
 
 # Aspen Mesh override: Use S3 bucket.
-PROXY_URI_BASE:=$(shell cat aspenmesh.proxy.dep)
+PROXY_URI_BASE:=s3://aspenmesh-ci-artifacts/proxy/circle-build-commit/$(PROXY_REPO_SHA)
 
 export ISTIO_ENVOY_DEBUG_URL ?= ${PROXY_URI_BASE}/envoy-debug-$(ISTIO_ENVOY_VERSION).tar.gz
 export ISTIO_ENVOY_RELEASE_URL ?= ${PROXY_URI_BASE}/envoy-alpha-$(ISTIO_ENVOY_VERSION).tar.gz
@@ -234,7 +234,7 @@ sync: init
 # I tried to make this dependent on what I thought was the appropriate
 # lock file, but it caused the rule for that file to get run (which
 # seems to be about obtaining a new version of the 3rd party libraries).
-$(ISTIO_OUT)/istio_is_init: bin/init.sh istio.deps aspenmesh.proxy.dep | ${ISTIO_OUT}
+$(ISTIO_OUT)/istio_is_init: bin/init.sh aspenmesh.proxy.sha | ${ISTIO_OUT}
 	ISTIO_OUT=${ISTIO_OUT} bin/init.sh
 	touch $(ISTIO_OUT)/istio_is_init
 
