@@ -18,11 +18,12 @@ import (
 	"context"
 	"strconv"
 
+	"strings"
+
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
 	"google.golang.org/grpc/codes"
-	"strings"
 )
 
 const (
@@ -32,6 +33,7 @@ const (
 	connectionID = "connectionID"
 )
 
+// StatsContext enables metric collection backed by OpenCensus.
 type StatsContext struct {
 	clientsTotal      *stats.Int64Measure
 	requestSizesBytes *stats.Int64Measure
@@ -41,6 +43,7 @@ type StatsContext struct {
 	recvFailuresTotal *stats.Int64Measure
 }
 
+// SetClientsTotal updates the current client count to the given argument.
 func (s *StatsContext) SetClientsTotal(clients int64) {
 	stats.Record(context.Background(), s.clientsTotal.M(clients))
 }
@@ -56,14 +59,19 @@ func (s *StatsContext) recordError(err error, code codes.Code, stat *stats.Int64
 	stats.Record(ctx, stat.M(1))
 }
 
+// RecordSendError records an error during a network send with its error
+// string and code.
 func (s *StatsContext) RecordSendError(err error, code codes.Code) {
 	s.recordError(err, code, s.sendFailuresTotal)
 }
 
+// RecordRecvError records an error during a network recv with its error
+// string and code.
 func (s *StatsContext) RecordRecvError(err error, code codes.Code) {
 	s.recordError(err, code, s.recvFailuresTotal)
 }
 
+// RecordRequestSize records the size of a request from a connection for a specific type URL.
 func (s *StatsContext) RecordRequestSize(typeURL string, connectionID int64, size int) {
 	ctx, ctxErr := tag.New(context.Background(),
 		tag.Insert(TypeURLTag, typeURL),
@@ -75,6 +83,7 @@ func (s *StatsContext) RecordRequestSize(typeURL string, connectionID int64, siz
 	stats.Record(ctx, s.requestSizesBytes.M(int64(size)))
 }
 
+// RecordRequestAck records an ACK message for a type URL on a connection.
 func (s *StatsContext) RecordRequestAck(typeURL string, connectionID int64) {
 	ctx, ctxErr := tag.New(context.Background(),
 		tag.Insert(TypeURLTag, typeURL),
@@ -86,6 +95,7 @@ func (s *StatsContext) RecordRequestAck(typeURL string, connectionID int64) {
 	stats.Record(ctx, s.requestAcksTotal.M(1))
 }
 
+// RecordRequestNack records a NACK message for a type URL on a connection.
 func (s *StatsContext) RecordRequestNack(typeURL string, connectionID int64) {
 	ctx, ctxErr := tag.New(context.Background(),
 		tag.Insert(TypeURLTag, typeURL),
@@ -97,6 +107,9 @@ func (s *StatsContext) RecordRequestNack(typeURL string, connectionID int64) {
 	stats.Record(ctx, s.requestNacksTotal.M(1))
 }
 
+// NewStatsContext creates a new context for recording metrics using
+// OpenCensus. The specified prefix is prepended to all metric names and must
+// be a non-empty string.
 func NewStatsContext(prefix string) *StatsContext {
 	if len(prefix) == 0 {
 		panic("must specify prefix for MCP server monitoring.")
@@ -157,7 +170,6 @@ func NewStatsContext(prefix string) *StatsContext {
 	return ctx
 }
 
-
 var (
 	// TypeURLTag holds the type URL for the context.
 	TypeURLTag tag.Key
@@ -165,7 +177,7 @@ var (
 	ErrorCodeTag tag.Key
 	// ErrorTag holds the error string for the context.
 	ErrorTag tag.Key
-	// ConnectionIdTag holds the connection ID for the context.
+	// ConnectionIDTag holds the connection ID for the context.
 	ConnectionIDTag tag.Key
 
 	// buckets are powers of 4
