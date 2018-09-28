@@ -33,6 +33,7 @@ const reportAttributes = `
   "mesh1.ip": "*",
   "mesh2.ip": "*",
   "mesh3.ip": "*",
+  "origin.ip": "[127 0 0 1]",
   "rbac.permissive.effective_policy_id": "details-reviews-viewer",
   "rbac.permissive.response_code": "200",
   "request.headers": {
