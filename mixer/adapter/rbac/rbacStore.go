@@ -127,7 +127,7 @@ func (rs *RolesMapByNamespace) AddServiceRoleBinding(name, namespace string, pro
 	return nil
 }
 
-// ListAccessRules returns list of AccessRule(permission) that matches subjects.
+// ListPermissions returns list of AccessRule(permission) that matches subjects.
 func (rs *ConfigStore) ListPermissions(subject SubjectArgs, action ActionArgs) (*map[string]*rbacproto.ServiceRole, error) {
 	instance, err := createInstance(subject, action)
 	if err != nil {
@@ -168,6 +168,7 @@ func (rs *ConfigStore) ListPermissions(subject SubjectArgs, action ActionArgs) (
 	return &accessRules, nil
 }
 
+// ListMembers searches users that allowed to use the given service role
 func (rs *ConfigStore) ListMembers(subject SubjectArgs, action ActionArgs) (*[]string, error) {
 	instance, err := createInstance(subject, action)
 	if err != nil {
