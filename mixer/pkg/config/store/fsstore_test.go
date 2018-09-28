@@ -36,8 +36,9 @@ func getTempFSStore2() (*fsStore, string) {
 }
 
 func cleanupRootIfOK(t *testing.T, fsroot string) {
+	t.Helper()
 	if t.Failed() {
-		t.Errorf("Test failed. The data remains at %s", fsroot)
+		t.Logf("Test failed. The data remains at %s", fsroot)
 		return
 	}
 	if err := os.RemoveAll(fsroot); err != nil {
@@ -298,7 +299,7 @@ func TestFSStore2MissingRoot(t *testing.T) {
 }
 
 func TestFSStore2Robust(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/9032")
+	//t.Skip("https://github.com/istio/istio/issues/9032")
 	const ns = "testing"
 	const tmpl = `
 kind: %s
@@ -361,7 +362,7 @@ spec:
 			want := map[Key]*BackEndResource{k: {Spec: data}}
 			got := s.List()
 			if len(got) != len(want) {
-				tt.Fatalf("data length does not match, want %d, got %d", len(got), len(want))
+				tt.Fatalf("data length does not match, want len=%d, %v; got len=%d, %v", len(want), want, len(got), got)
 			}
 			for k, v := range got {
 				vwant := want[k]
