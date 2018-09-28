@@ -37,7 +37,7 @@ function get_resource() {
     --boskos-url='http://boskos.boskos.svc.cluster.local' \
     --owner="${owner}" \
     --info-save "${info_path}" \
-    --kubeconfig-save "${HOME}/.kube/config" > "${file_log}" 2>&1 &
+    --kubeconfig-save "${KUBECONFIG}" > "${file_log}" 2>&1 &
   MASON_CLIENT_PID=$!
 
   local ready
