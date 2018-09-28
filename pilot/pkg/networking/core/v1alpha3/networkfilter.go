@@ -20,6 +20,8 @@ import (
 	"strings"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	fileaccesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v2"
+	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/filter/accesslog/v2"
 	mongo_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/mongo_proxy/v2"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
@@ -32,12 +34,26 @@ import (
 )
 
 // buildInboundNetworkFilters generates a TCP proxy network filter on the inbound path
-func buildInboundNetworkFilters(instance *model.ServiceInstance) []listener.Filter {
+func buildInboundNetworkFilters(env *model.Environment, instance *model.ServiceInstance) []listener.Filter {
 	clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "", instance.Service.Hostname, instance.Endpoint.ServicePort.Port)
 	config := &tcp_proxy.TcpProxy{
 		StatPrefix: clusterName,
 		Cluster:    clusterName,
 	}
+
+	if env.Mesh.AccessLogFile != "" {
+		fl := &fileaccesslog.FileAccessLog{
+			Path:   env.Mesh.AccessLogFile,
+			Format: EnvoyTCPLogFormat,
+		}
+		config.AccessLog = []*accesslog.AccessLog{
+			{
+				Config: util.MessageToStruct(fl),
+				Name:   xdsutil.FileAccessLog,
+			},
+		}
+	}
+
 	return []listener.Filter{
 		{
 			Name:   xdsutil.TCPProxy,
@@ -103,7 +119,8 @@ func buildDeprecatedTCPProxyFilter(clusterName string, addr string) (*listener.F
 // buildOutboundNetworkFilters generates TCP proxy network filter for outbound connections. In addition, it generates
 // protocol specific filters (e.g., Mongo filter)
 // this function constructs deprecated_v1 routes, until the filter chain match is ready
-func buildOutboundNetworkFilters(node *model.Proxy, clusterName string, deprecatedTCPFilterMatchAddress string, port *model.Port) []listener.Filter {
+func buildOutboundNetworkFilters(env *model.Environment, node *model.Proxy, clusterName string,
+	deprecatedTCPFilterMatchAddress string, port *model.Port) []listener.Filter {
 
 	var tcpFilter *listener.Filter
 	var err error
@@ -119,6 +136,19 @@ func buildOutboundNetworkFilters(node *model.Proxy, clusterName string, deprecat
 			StatPrefix: clusterName,
 			Cluster:    clusterName,
 			// TODO: Need to set other fields such as Idle timeouts
+		}
+
+		if env.Mesh.AccessLogFile != "" {
+			fl := &fileaccesslog.FileAccessLog{
+				Path:   env.Mesh.AccessLogFile,
+				Format: EnvoyTCPLogFormat,
+			}
+			config.AccessLog = []*accesslog.AccessLog{
+				{
+					Config: util.MessageToStruct(fl),
+					Name:   xdsutil.FileAccessLog,
+				},
+			}
 		}
 
 		tcpFilter = &listener.Filter{

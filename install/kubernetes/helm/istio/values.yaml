@@ -368,6 +368,9 @@ mixer:
   autoscaleMax: 5
   image: mixer
 
+  env:
+    GODEBUG: gctrace=2
+
   istio-policy:
     autoscaleEnabled: true
     autoscaleMin: 1
@@ -396,7 +399,7 @@ pilot:
   autoscaleMax: 5
   image: pilot
   sidecar: true
-  traceSampling: 100.0
+  traceSampling: 1.0
   # Resources for a small pilot install
   resources:
     requests:
