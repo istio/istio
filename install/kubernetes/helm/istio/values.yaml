@@ -105,8 +105,8 @@ global:
   # propagated, not recommended for tests.
   controlPlaneSecurityEnabled: false
 
-  # SDS enabled. Will result in distribute key cert through SDS(secret discovery service)
-  # instread of secret-mount files.
+  # SDS enabled. IF set to true, mTLS certificates for the sidecars will be 
+  # distributed through the SecretDiscoveryService instead of using K8S secrets to mount the certificates.
   sdsEnabled: false
 
   # disablePolicyChecks disables mixer policy checks.

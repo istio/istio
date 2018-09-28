@@ -167,11 +167,11 @@ data:
           readOnly: true
         {{ if .Values.global.sdsEnabled }}
         - mountPath: /var/run/sds
-          name: sdsudspath
+          name: sds-uds-path
         {{- end }}
       volumes:
       {{ if .Values.global.sdsEnabled }}
-      - name: sdsudspath
+      - name: sds-uds-path
         hostPath:
           path: /var/run/sds
       {{- end }}
