@@ -62,6 +62,8 @@ const (
 	RateLimit = "envoy.ratelimit"
 	// MongoProxy network filter
 	MongoProxy = "envoy.mongo_proxy"
+	// ThriftProxy network filter
+	ThriftProxy = "envoy.filters.network.thrift_proxy"
 	// RedisProxy network filter
 	RedisProxy = "envoy.redis_proxy"
 	// ExternalAuthorization network filter
