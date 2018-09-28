@@ -166,6 +166,7 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 	}
 	if err != nil {
 		adsLog.Warnf("endpoints for service cluster %q returned error %q", clusterName, err)
+		totalXDSInternalErrors.Add(1)
 		return err
 	}
 	locEps := localityLbEndpointsFromInstances(instances)
@@ -196,6 +197,7 @@ func localityLbEndpointsFromInstances(instances []*model.ServiceInstance) []endp
 		lbEp, err := newEndpoint(&instance.Endpoint)
 		if err != nil {
 			adsLog.Errorf("EDS: unexpected pilot model endpoint v1 to v2 conversion: %v", err)
+			totalXDSInternalErrors.Add(1)
 			continue
 		}
 		// TODO: Need to accommodate region, zone and subzone. Older Pilot datamodel only has zone = availability zone.
@@ -307,6 +309,7 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 			err := s.pushEds(s.env.PushContext, con)
 			if err != nil {
 				adsLog.Errorf("Closing EDS connection, failure to push %v", err)
+				pushErrors.With(prometheus.Labels{"type": "unrecoverable"}).Add(1)
 				return err
 			}
 		}
@@ -324,6 +327,7 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection) e
 	for _, clusterName := range con.Clusters {
 		c := s.getEdsCluster(clusterName)
 		if c == nil {
+			totalXDSInternalErrors.Add(1)
 			adsLog.Errorf("cluster %s was nil skipping it.", clusterName)
 			continue
 		}
@@ -332,6 +336,7 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection) e
 		if l == nil { // fresh cluster
 			if err := s.updateCluster(push, clusterName, c); err != nil {
 				adsLog.Errorf("error returned from updateCluster for cluster name %s, skipping it.", clusterName)
+				totalXDSInternalErrors.Add(1)
 				continue
 			}
 			l = loadAssignment(c)
