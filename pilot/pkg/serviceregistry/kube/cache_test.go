@@ -103,7 +103,7 @@ func TestPodCache(t *testing.T) {
 
 func TestPodCacheEvents(t *testing.T) {
 	handler := &ChainHandler{}
-	cache := newPodCache(cacheHandler{handler: handler})
+	cache := newPodCache(cacheHandler{handler: handler}, nil)
 	if len(handler.funcs) != 1 {
 		t.Fatal("failed to register handlers")
 	}

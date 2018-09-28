@@ -134,6 +134,8 @@ var (
 	// while debouncing. Defaults to 10 seconds. If events keep
 	// showing up with no break for this time, we'll trigger a push.
 	DebounceMax time.Duration
+
+	debugDebounce = os.Getenv("PILOT_DEBOUNCE_DEBUG") != ""
 )
 
 func init() {
@@ -420,7 +422,7 @@ func (ds *DiscoveryService) ClearCache() {
 	ds.clearCache()
 }
 
-// debouncePush is called on clear cache, to initiate a push.
+// debouncePush is called on config or endpoint changes, to initiate a push.
 func (ds *DiscoveryService) debouncePush(startDebounce time.Time) {
 	clearCacheMutex.Lock()
 	since := time.Since(lastClearCacheEvent)
@@ -430,16 +432,18 @@ func (ds *DiscoveryService) debouncePush(startDebounce time.Time) {
 	if since > 2*DebounceAfter ||
 		time.Since(startDebounce) > DebounceMax {
 
-		log.Infof("Push debounce stable %d: %v since last change, %v since last push",
+		log.Infof("Push debounce stable %d: %v since last change, %v since last push, full=%v",
 			events,
-			since, time.Since(lastClearCache))
+			since, time.Since(lastClearCache), ds.fullPush)
 
 		ds.doPush()
 
 	} else {
-		log.Infof("Push debounce %d: %v since last change, %v since last push",
-			events,
-			since, time.Since(lastClearCache))
+		if debugDebounce {
+			log.Infof("Push debounce %d: %v since last change, %v since last push, full=%v",
+				events,
+				since, time.Since(lastClearCache), ds.fullPush)
+		}
 		time.AfterFunc(DebounceAfter, func() {
 			ds.debouncePush(startDebounce)
 		})
@@ -480,6 +484,9 @@ func (ds *DiscoveryService) ConfigUpdate(full bool) {
 	defer clearCacheMutex.Unlock()
 
 	if full {
+		if !ds.fullPush && debugDebounce {
+			log.Info("Config change requiring full push")
+		}
 		ds.fullPush = true
 	}
 	clearCacheEvents++
@@ -493,8 +500,10 @@ func (ds *DiscoveryService) ConfigUpdate(full bool) {
 			time.AfterFunc(DebounceAfter, func() {
 				ds.debouncePush(startDebounce)
 			})
-		} // else: debunce in progress - it'll keep delaying the push
-
+			if debugDebounce {
+				log.Info("Setting debounce timer")
+			}
+		}
 		return
 	}
 

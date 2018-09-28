@@ -81,11 +81,30 @@ type DiscoveryServer struct {
 
 	// ServiceShards for a service. This is a global (per-server) list, built from
 	// incremental updates.
-	EndpointShardsByService map[string]model.ServiceShards
+	EndpointShardsByService map[string]*model.ServiceShards
 
 	// mutex protecting global structs updated or read by ADS service, including EDSUpdates and
 	// shards.
 	mutex sync.RWMutex
+
+	// WorkloadsById keeps track of informations about a workload, based on direct notifications
+	// from registry. This acts as a cache and allows detecting changes.
+	WorkloadsById map[string]*Workload
+
+	// ConfigUpdater implements the debouncing and tracks the change detection.
+	// This is used to decouple the envoy/v2 from envoy/, artifact of the v1 deprecation.
+	// In 1.1 we'll simplify/cleanup further.
+	ConfigUpdater model.ConfigUpdater
+}
+
+// Workload has the minimal info we need to detect if we need to push workloads, and to
+// cache data to avoid expensive model allocations.
+type Workload struct {
+	// Labels
+	Labels map[string]string
+
+	// Annotations
+	Annotations map[string]string
 }
 
 func intEnv(env string, def int) int {
@@ -105,7 +124,8 @@ func NewDiscoveryServer(env *model.Environment, generator core.ConfigGenerator) 
 	out := &DiscoveryServer{
 		Env:                     env,
 		ConfigGenerator:         generator,
-		EndpointShardsByService: map[string]model.ServiceShards{},
+		EndpointShardsByService: map[string]*model.ServiceShards{},
+		WorkloadsById:           map[string]*Workload{},
 	}
 	env.PushContext = model.NewPushContext()
 

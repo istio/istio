@@ -90,7 +90,7 @@ type PushContext struct {
 	initDone bool
 }
 
-// EDSUpdater is used for direct updates of the EDS model and push.
+// XDSUpdater is used for direct updates of the xDS model and incremental push.
 // Pilot uses multiple registries - for example each K8S cluster is a registry instance,
 // as well as consul and future EDS or MCP sources. Each registry is responsible for
 // tracking a set of endpoints associated with mesh services, and calling the EDSUpdate
@@ -103,7 +103,7 @@ type PushContext struct {
 // reduce the time when subsetting or split-horizon is used. This desing assumes pilot
 // tracks all endpoints in the mesh and they fit in RAM - so limit is few M endpoints.
 // It is possible to split the endpoint tracking in future.
-type EDSUpdater interface {
+type XDSUpdater interface {
 
 	// EDSUpdate is called when the list of endpoints or labels in a ServiceEntry is
 	// changed. For each cluster and hostname, the full list of active endpoints (including empty list)
@@ -116,6 +116,8 @@ type EDSUpdater interface {
 	// updated to force a EDS and CDS recomputation and incremental push, as it doesn't affect
 	// LDS/RDS.
 	SvcUpdate(shard, hostname string, ports map[string]uint32, rports map[uint32]string)
+
+	WorkloadUpdate(id string, labels map[string]string, annotations map[string]string)
 }
 
 // IstioEndpoint has the information about a single address+port for a specific

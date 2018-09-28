@@ -25,6 +25,7 @@ import (
 	"os"
 	"sync"
 	"testing"
+	"time"
 
 	testenv "istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/bootstrap"
@@ -43,13 +44,19 @@ var (
 	// service1 and service2 are used by mixer tests. Use 'service3' and 'app3' for pilot
 	// local tests.
 
+	localIp = "10.3.0.3"
+)
+
+const (
 	// 10.10.0.0/24 is service CIDR range
 
 	// 10.0.0.0/9 is instance CIDR range
 	app3Ip    = "10.2.0.1"
 	gatewayIP = "10.3.0.1"
 	ingressIP = "10.3.0.2"
-	localIp   = "10.3.0.3"
+
+	edsIncSvc = "eds.test.svc.cluster.local"
+	edsIncVip = "10.10.1.2"
 )
 
 // Common code for the xds testing.
@@ -131,6 +138,7 @@ func initLocalPilotTestEnv(t *testing.T) *bootstrap.Server {
 		Address:  "10.10.0.3",
 		Ports:    testPorts(0),
 	})
+
 	server.EnvoyXdsServer.MemRegistry.AddInstance(hostname, &model.ServiceInstance{
 		Endpoint: model.NetworkEndpoint{
 			Address: "127.0.0.1",
@@ -142,6 +150,7 @@ func initLocalPilotTestEnv(t *testing.T) *bootstrap.Server {
 			},
 		},
 		AvailabilityZone: "az",
+		ServiceAccount:   "hello-sa",
 	})
 
 	// "local" service points to the current host and the in-process mixer http test endpoint
@@ -261,8 +270,17 @@ func initLocalPilotTestEnv(t *testing.T) *bootstrap.Server {
 		},
 	})
 
+	server.EnvoyXdsServer.MemRegistry.AddHttpService(edsIncSvc, edsIncVip, 8080)
+	server.EnvoyXdsServer.MemRegistry.SetEndpoints(edsIncSvc,
+		endpoints("127.0.0.1", "hello-sa", "v1"))
+	// Set the initial workload labels
+	server.EnvoyXdsServer.WorkloadUpdate("127.0.0.4", map[string]string{"version": "v1"}, nil)
+
 	// Update cache
-	server.EnvoyXdsServer.Push(true, nil)
+	server.EnvoyXdsServer.ConfigUpdater.ConfigUpdate(true)
+	// TODO: channel to notify when the push is finished and to notify individual updates, for
+	// debug and for the canary.
+	time.Sleep(200 * time.Millisecond)
 
 	return server
 }
@@ -405,6 +423,22 @@ func getLocalIP() string {
 	}
 	return ""
 }
+
+// endpoints is a helper for IstioEndpoint creation. Creates endpoints with
+// port name "http".
+func endpoints(ip, account, version string) []*model.IstioEndpoint {
+	return []*model.IstioEndpoint{
+		&model.IstioEndpoint{
+			Address:         ip,
+			ServicePortName: "http",
+			EndpointPort:    80,
+			Labels:          map[string]string{"version": version},
+			UID:             "uid1",
+			ServiceAccount:  account,
+		},
+	}
+}
+
 func TestMain(m *testing.M) {
 	flag.Parse()
 	// Run all tests.

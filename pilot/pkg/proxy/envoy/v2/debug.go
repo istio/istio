@@ -21,6 +21,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"strings"
 	"sync"
 
 	"github.com/gogo/protobuf/jsonpb"
@@ -168,6 +169,7 @@ type MemServiceDiscovery struct {
 	instancesByPortName map[string][]*model.ServiceInstance
 
 	// Used by GetProxyServiceInstance, used to configure inbound (list of services per IP)
+	// We generally expect a single instance - conflicting services need to be reported.
 	ip2instance                   map[string][]*model.ServiceInstance
 	versions                      int
 	WantGetProxyServiceInstances  []*model.ServiceInstance
@@ -178,8 +180,8 @@ type MemServiceDiscovery struct {
 	controller                    model.Controller
 	ClusterID                     string
 
-	// EDSUpdater will push EDS changes to the ADS model.
-	EDSUpdater    model.EDSUpdater
+	// XDSUpdater will push EDS changes to the ADS model.
+	EDSUpdater    model.XDSUpdater
 	ConfigUpdater model.ConfigUpdater
 
 	// Single mutex for now - it's for debug only.
@@ -192,6 +194,19 @@ func (sd *MemServiceDiscovery) ClearErrors() {
 	sd.GetServiceError = nil
 	sd.InstancesError = nil
 	sd.GetProxyServiceInstancesError = nil
+}
+
+func (sd *MemServiceDiscovery) AddHttpService(name, vip string, port int) {
+	sd.AddService(model.Hostname(name), &model.Service{
+		Hostname: model.Hostname(name),
+		Ports: model.PortList{
+			{
+				Name:     "http",
+				Port:     port,
+				Protocol: model.ProtocolHTTP,
+			},
+		},
+	})
 }
 
 // AddService adds an in-memory service.
@@ -252,20 +267,38 @@ func (sd *MemServiceDiscovery) SetEndpoints(service string, endpoints []*model.I
 		return
 	}
 
-	// TODO: remove old entries
+	// remove old entries
+	for k, v := range sd.ip2instance {
+		if len(v) > 0 && v[0].Service.Hostname == sh {
+			delete(sd.ip2instance, k)
+		}
+	}
+	for k, v := range sd.instancesByPortNum {
+		if len(v) > 0 && v[0].Service.Hostname == sh {
+			delete(sd.instancesByPortNum, k)
+		}
+	}
+	for k, v := range sd.instancesByPortName {
+		if len(v) > 0 && v[0].Service.Hostname == sh {
+			delete(sd.instancesByPortName, k)
+		}
+	}
 
 	for _, e := range endpoints {
 		//servicePortName string, servicePort int, address string, port int
+		p, _ := svc.Ports.Get(e.ServicePortName)
+
 		instance := &model.ServiceInstance{
 			Service: svc,
 			Endpoint: model.NetworkEndpoint{
 				Address: e.Address,
 				ServicePort: &model.Port{
 					Name:     e.ServicePortName,
-					Port:     int(e.EndpointPort),
+					Port:     p.Port,
 					Protocol: model.ProtocolHTTP,
 				},
 			},
+			ServiceAccount: e.ServiceAccount,
 		}
 		sd.ip2instance[instance.Endpoint.Address] = []*model.ServiceInstance{instance}
 
@@ -350,6 +383,9 @@ func (sd *MemServiceDiscovery) InstancesByPort(hostname model.Hostname, port int
 	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
 	sd.mutex.Lock()
 	defer sd.mutex.Unlock()
+	if strings.HasPrefix(string(hostname), "eds") {
+		adsLog.Info("hi")
+	}
 	if sd.InstancesError != nil {
 		return nil, sd.InstancesError
 	}

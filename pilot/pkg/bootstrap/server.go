@@ -766,6 +766,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	s.initGrpcServer()
 
 	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(environment, istio_networking.NewConfigGenerator(args.Plugins))
+	s.EnvoyXdsServer.ConfigUpdater = s.discoveryService
 	// TODO: decouple v2 from the cache invalidation, use direct listeners.
 	envoy.Push = s.EnvoyXdsServer.Push
 

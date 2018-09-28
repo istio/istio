@@ -18,6 +18,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	"io/ioutil"
 	"time"
 
@@ -112,7 +113,7 @@ var (
 func Dial(url string, certDir string, opts *Config) (*ADSC, error) {
 	adsc := &ADSC{
 		done:        make(chan error),
-		Updates:     make(chan string, 10),
+		Updates:     make(chan string, 100),
 		VersionInfo: map[string]string{},
 		certDir:     certDir,
 		url:         url,
@@ -232,12 +233,20 @@ func (a *ADSC) Reconnect() error {
 	return nil
 }
 
+func (a *ADSC) update(m string) {
+	select {
+	case a.Updates <- m:
+	default:
+	}
+}
+
 func (a *ADSC) handleRecv() {
 	for {
 		msg, err := a.stream.Recv()
 		if err != nil {
 			log.Println("Connection closed ", err, a.nodeID)
 			a.Close()
+			a.WaitClear()
 			a.Updates <- "close"
 			return
 		}
@@ -435,6 +444,19 @@ func (a *ADSC) handleRDS(configurations []*xdsapi.RouteConfiguration) {
 	case a.Updates <- "rds":
 	default:
 	}
+
+}
+
+// WaitClear will clear the waiting events, so next call to Wait will get 
+// the next push type.
+func (a *ADSC) WaitClear() {
+	for {
+		select {
+		case n := <-a.Updates:
+		default:
+			return
+		}
+	}
 }
 
 // Wait for an update of the specified type. If type is empty, wait for next update.
@@ -451,6 +473,11 @@ func (a *ADSC) Wait(update string, to time.Duration) (string, error) {
 			return "", ErrTimeout
 		}
 	}
+}
+
+func (a *ADSC) EndpointsJSON() string {
+	out, _ := json.MarshalIndent(a.EDS, " ", " ")
+	return string(out)
 }
 
 // Watch will start watching resources, starting with LDS. Based on the LDS response

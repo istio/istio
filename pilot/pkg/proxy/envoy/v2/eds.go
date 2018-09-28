@@ -17,6 +17,8 @@ package v2
 import (
 	"context"
 	"errors"
+	"reflect"
+
 	"strconv"
 	"strings"
 	"sync"
@@ -210,6 +212,7 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 
 	se, f := s.EndpointShardsByService[string(hostname)]
 	if !f {
+		// The service was never updated - do the full update
 		return s.updateCluster(push, clusterName, edsCluster)
 	}
 
@@ -342,7 +345,7 @@ func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 				}
 			}
 
-			s.EDSUpdate(reg.ClusterID, hn, entries)
+			s.edsUpdate(reg.ClusterID, hn, entries, true)
 		}
 	}
 
@@ -457,6 +460,35 @@ var (
 	errNewServiceAccount = errors.New("service account change")
 )
 
+// WorkloadUpdate is called when workload labels/annotations are updated.
+func (s *DiscoveryServer) WorkloadUpdate(id string, labels map[string]string, annotations map[string]string) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	w, f := s.WorkloadsById[id]
+	if !f {
+		// First time this workload has been seen. Likely never connected, no need to
+		// push
+		s.WorkloadsById[id] = &Workload{
+			Labels:      labels,
+			Annotations: annotations,
+		}
+		return
+	}
+	if reflect.DeepEqual(w.Labels, labels) {
+		// No label change.
+		return
+	}
+
+	w.Labels = labels
+	// Label changes require recomputing the config.
+	// TODO: we can do a push for the affected workload only, but we need to confirm
+	// no other workload can be affected. Safer option is to fallback to full push.
+
+	adsLog.Infof("Label change, full push %s ", id)
+	s.ConfigUpdater.ConfigUpdate(true)
+}
+
 // EDSUpdate computes destination address membership across all clusters and networks.
 // This is the main method implementing EDS.
 // It replaces InstancesByPort in model - instead of iterating over all endpoints it uses
@@ -464,6 +496,11 @@ var (
 // on each step: instead the conversion happens once, when an endpoint is first discovered.
 func (s *DiscoveryServer) EDSUpdate(shard, serviceName string,
 	entries []*model.IstioEndpoint) error {
+	return s.edsUpdate(shard, serviceName, entries, false)
+}
+
+func (s *DiscoveryServer) edsUpdate(shard, serviceName string,
+	entries []*model.IstioEndpoint, internal bool) error {
 	// edsShardUpdate replaces a subset (shard) of endpoints, as result of an incremental
 	// update. The endpoint updates may be grouped by K8S clusters, other service registries
 	// or by deployment. Multiple updates are debounced, to avoid too frequent pushes.
@@ -478,12 +515,15 @@ func (s *DiscoveryServer) EDSUpdate(shard, serviceName string,
 		// This endpoint is for a service that was not previously loaded.
 		// Return an error to force a full sync, which will also cause the
 		// EndpointsShardsByService to be initialized with all services.
-		//ep = model.ServiceShards{
-		//	Shards: map[string]*model.EndpointShard{},
-		//	ServiceAccounts:map[string]bool{},
-		//}
-		//s.EndpointShardsByService[serviceName] = ep
-		return errNewService
+		ep = &model.ServiceShards{
+			Shards:          map[string]*model.EndpointShard{},
+			ServiceAccounts: map[string]bool{},
+		}
+		s.EndpointShardsByService[serviceName] = ep
+		if !internal {
+			adsLog.Infof("Full push, new service %s", serviceName)
+			s.ConfigUpdater.ConfigUpdate(true)
+		}
 	}
 
 	// 2. Update data for the specific cluster. Each cluster gets independent
@@ -497,15 +537,16 @@ func (s *DiscoveryServer) EDSUpdate(shard, serviceName string,
 		ce.Entries = append(ce.Entries, e)
 		if e.ServiceAccount != "" {
 			_, f = ep.ServiceAccounts[e.ServiceAccount]
-			if !f {
+			if !f && !internal {
 				// The entry has a service account that was not previously associated.
 				// Requires a CDS push and full sync.
-				return errNewServiceAccount
+				adsLog.Infof("Endpoint updating service account %s %s", e.ServiceAccount, serviceName)
+				s.ConfigUpdater.ConfigUpdate(true)
 			}
 		}
 	}
 	ep.Shards[shard] = ce
-	s.Env.EDSUpdates[serviceName] = &ep
+	s.Env.EDSUpdates[serviceName] = ep
 
 	return nil
 }

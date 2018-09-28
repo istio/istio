@@ -57,7 +57,7 @@ type Controller struct {
 	resyncInterval    time.Duration
 	serviceController *aggregate.Controller
 	configUpdater     model.ConfigUpdater
-	edsUpdater        model.EDSUpdater
+	edsUpdater        model.XDSUpdater
 }
 
 // NewController returns a new secret controller
@@ -67,7 +67,7 @@ func NewController(
 	cs *ClusterStore,
 	serviceController *aggregate.Controller,
 	discoveryServer model.ConfigUpdater,
-	edsUpdater model.EDSUpdater,
+	edsUpdater model.XDSUpdater,
 	resyncInterval time.Duration,
 	watchedNamespace string,
 	domainSufix string) *Controller {
@@ -148,7 +148,7 @@ func StartSecretController(k8s kubernetes.Interface,
 	cs *ClusterStore,
 	serviceController *aggregate.Controller,
 	configUpdater model.ConfigUpdater,
-	edsUpdater model.EDSUpdater,
+	edsUpdater model.XDSUpdater,
 	namespace string,
 	resyncInterval time.Duration,
 	watchedNamespace,
@@ -234,7 +234,7 @@ func (c *Controller) addMemberCluster(secretName string, s *corev1.Secret) {
 				ResyncPeriod:     c.resyncInterval,
 				DomainSuffix:     c.domainSufix,
 				ClusterID:        clusterID,
-				EDSUpdater:       c.edsUpdater,
+				XDSUpdater:       c.edsUpdater,
 			})
 			c.cs.rc[clusterID].Controller = kubectl
 			c.serviceController.AddRegistry(

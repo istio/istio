@@ -80,8 +80,8 @@ type ControllerOptions struct {
 	// ClusterID identifies the remote cluster in a multicluster env.
 	ClusterID string
 
-	// EDSUpdater will push EDS changes to the ADS model.
-	EDSUpdater model.EDSUpdater
+	// XDSUpdater will push changes to the xDS server.
+	XDSUpdater model.XDSUpdater
 
 	// ConfigUpdater is used to request global config updates.
 	ConfigUpdater model.ConfigUpdater
@@ -107,8 +107,8 @@ type Controller struct {
 	// ClusterID identifies the remote cluster in a multicluster env.
 	ClusterID string
 
-	// EDSUpdater will push EDS changes to the ADS model.
-	EDSUpdater model.EDSUpdater
+	// XDSUpdater will push EDS changes to the ADS model.
+	EDSUpdater model.XDSUpdater
 
 	// ConfigUpdater is used to request global config updates.
 	ConfigUpdater model.ConfigUpdater
@@ -131,7 +131,7 @@ func NewController(client kubernetes.Interface, options ControllerOptions) *Cont
 		client:        client,
 		queue:         NewQueue(1 * time.Second),
 		ClusterID:     options.ClusterID,
-		EDSUpdater:    options.EDSUpdater,
+		EDSUpdater:    options.XDSUpdater,
 		ConfigUpdater: options.ConfigUpdater,
 	}
 
@@ -175,7 +175,7 @@ func NewController(client kubernetes.Interface, options ControllerOptions) *Cont
 		},
 		func(opts meta_v1.ListOptions) (watch.Interface, error) {
 			return client.CoreV1().Pods(options.WatchedNamespace).Watch(opts)
-		}))
+		}), out)
 
 	return out
 }

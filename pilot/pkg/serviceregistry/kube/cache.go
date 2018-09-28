@@ -16,13 +16,13 @@ package kube
 
 import (
 	"fmt"
-	"log"
 	"sync"
 
 	"k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/log"
 )
 
 // PodCache is an eventually consistent pod cache
@@ -35,11 +35,14 @@ type PodCache struct {
 	// this allows us to retrieve the latest status by pod IP.
 	// This should only contain RUNNING or PENDING pods with an allocated IP.
 	keys map[string]string
+
+	c *Controller
 }
 
-func newPodCache(ch cacheHandler) *PodCache {
+func newPodCache(ch cacheHandler, c *Controller) *PodCache {
 	out := &PodCache{
 		cacheHandler: ch,
+		c:            c,
 		keys:         make(map[string]string),
 	}
 
@@ -62,10 +65,13 @@ func newPodCache(ch cacheHandler) *PodCache {
 
 		ip := pod.Status.PodIP
 
-		log.Printf("Handling event %s for pod %s in namespace %s -> %v", ev, pod.Name, pod.Namespace, ip)
+		log.Debugf("Handling event %s for pod %s in namespace %s -> %v", ev, pod.Name, pod.Namespace, ip)
 
 		if len(ip) > 0 {
 			key := KeyFunc(pod.Name, pod.Namespace)
+			if c != nil {
+				c.EDSUpdater.WorkloadUpdate(ip, pod.ObjectMeta.Labels, pod.ObjectMeta.Annotations)
+			}
 			switch ev {
 			case model.EventAdd:
 				switch pod.Status.Phase {
@@ -76,6 +82,7 @@ func newPodCache(ch cacheHandler) *PodCache {
 			case model.EventUpdate:
 				switch pod.Status.Phase {
 				case v1.PodPending, v1.PodRunning:
+					log.Debugf("Handling update event %s for pod %s in namespace %s -> %v", ev, pod.Name, pod.Namespace, ip)
 					// add to cache if the pod is running or pending
 					out.keys[ip] = key
 				default:
