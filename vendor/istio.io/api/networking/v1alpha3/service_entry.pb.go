@@ -102,7 +102,7 @@ func (ServiceEntry_Resolution) EnumDescriptor() ([]byte, []int) {
 // `ServiceEntry` enables adding additional entries into Istio's internal
 // service registry, so that auto-discovered services in the mesh can
 // access/route to these manually specified services. A service entry
-// describes the properties of a service (DNS name, VIPs ,ports, protocols,
+// describes the properties of a service (DNS name, VIPs, ports, protocols,
 // endpoints). These services could be external to the mesh (e.g., web
 // APIs) or mesh-internal services that are not part of the platform's
 // service registry (e.g., a set of VMs talking to services in Kubernetes).
