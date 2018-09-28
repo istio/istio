@@ -20,8 +20,9 @@ set -o nounset
 set -o pipefail
 set -x
 
-SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
-source ${SCRIPTPATH}/json_parse_shared.sh
+SCRIPTPATH=$( pwd -P )
+# shellcheck source=release/json_parse_shared.sh
+source "${SCRIPTPATH}/json_parse_shared.sh"
 
 # parse_result_file(): parses the result from a build query.
 # returns 1 if build successful, 0 if build still running, or 2 if build failed

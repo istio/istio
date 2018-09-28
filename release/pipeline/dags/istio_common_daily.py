@@ -105,6 +105,8 @@ def DailyPipeline(branch):
        # GCS_DAILY_PATH is of the form 'daily-build/{version}'
        gcs_path = 'daily-build/%s' % (version)
 
+    commit = conf.get('COMMIT') or ""
+
     mfest_commit = conf.get('MFEST_COMMIT')
     if mfest_commit is None:
        timestamp = time.mktime(date.timetuple())
@@ -113,6 +115,7 @@ def DailyPipeline(branch):
 
     default_conf = environment_config.GetDefaultAirflowConfig(
         branch=branch,
+        commit=commit,
         gcs_path=gcs_path,
         mfest_commit=mfest_commit,
         pipeline_type='daily',
