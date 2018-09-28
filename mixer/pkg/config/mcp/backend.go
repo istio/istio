@@ -24,6 +24,8 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/istio/pkg/mcp/snapshot"
+
 	"github.com/gogo/protobuf/proto"
 	"google.golang.org/grpc"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -42,7 +44,7 @@ import (
 var scope = log.RegisterScope("mcp", "Mixer MCP client stack", 0)
 
 const (
-	mixerNodeID           = ""
+	mixerNodeID           = snapshot.DefaultGroup
 	eventChannelSize      = 4096
 	requiredCertCheckFreq = 500 * time.Millisecond
 )
