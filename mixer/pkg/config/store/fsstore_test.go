@@ -36,8 +36,9 @@ func getTempFSStore2() (*fsStore, string) {
 }
 
 func cleanupRootIfOK(t *testing.T, fsroot string) {
+	t.Helper()
 	if t.Failed() {
-		t.Errorf("Test failed. The data remains at %s", fsroot)
+		t.Logf("Test failed. The data remains at %s", fsroot)
 		return
 	}
 	if err := os.RemoveAll(fsroot); err != nil {
