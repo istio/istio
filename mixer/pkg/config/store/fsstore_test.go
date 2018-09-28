@@ -353,7 +353,7 @@ spec:
 			want := map[Key]*BackEndResource{k: {Spec: data}}
 			got := s.List()
 			if len(got) != len(want) {
-				tt.Fatalf("data length does not match, want %d, got %d", len(got), len(want))
+				tt.Fatalf("data length does not match, got %d, want %d", len(got), len(want))
 			}
 			for k, v := range got {
 				vwant := want[k]
