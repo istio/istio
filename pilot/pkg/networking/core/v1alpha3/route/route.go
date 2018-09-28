@@ -16,6 +16,7 @@ package route
 
 import (
 	"fmt"
+	"reflect"
 	"sort"
 	"strings"
 	"time"
@@ -486,9 +487,14 @@ func translateRouteMatch(in *networking.HTTPMatchRequest) route.RouteMatch {
 
 	// guarantee ordering of headers
 	sort.Slice(out.Headers, func(i, j int) bool {
-		// TODO: match by values as well. But we have about 5-6 types of values
-		// in a header matcher. Not sorting by values "might" cause unnecessary
-		// RDS churn in some cases.
+		if out.Headers[i].Name == out.Headers[j].Name {
+			if reflect.TypeOf(out.Headers[i].HeaderMatchSpecifier) == reflect.TypeOf(out.Headers[j].HeaderMatchSpecifier) {
+				var bi, bj []byte
+				out.Headers[i].HeaderMatchSpecifier.MarshalTo(bi)
+				out.Headers[j].HeaderMatchSpecifier.MarshalTo(bj)
+				return string(bi) < string(bj)
+			}
+		}
 		return out.Headers[i].Name < out.Headers[j].Name
 	})
 

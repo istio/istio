@@ -31,3 +31,6 @@ servicegraph:
 
 galley:
   enabled: true
+
+kiali:
+  enabled: false
