@@ -79,9 +79,9 @@ func addAttributeFlags(cmd *cobra.Command, rootArgs *rootArgs) {
 	cmd.PersistentFlags().IntVarP(&rootArgs.repeat, "repeat", "r", 1,
 		"Sends the specified number of requests in quick succession")
 	cmd.PersistentFlags().IntVarP(&rootArgs.concurrency, "concurrency", "c", 1,
-		"Controls the number of workers to send requests to Mixer conrrently.")
+		"Controls the numbers of workers used to send requests to Mixer concurrently.")
 	cmd.PersistentFlags().IntVarP(&rootArgs.rate, "rate", "", -1,
-		"Rate limit of requests per second for each worker.")
+		"Maximum number of requests per second sent by each worker.")
 	cmd.PersistentFlags().BoolVarP(&rootArgs.printResponse, "print_response", "", true,
 		"Whether to print mixer's response, useful when generating heavy load with mixc.")
 
