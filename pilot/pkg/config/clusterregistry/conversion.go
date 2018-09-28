@@ -171,8 +171,6 @@ func validateCluster(cluster *k8s_cr.Cluster) (err error) {
 		case serviceregistry.KubernetesRegistry:
 		case serviceregistry.ConsulRegistry:
 			fallthrough
-		case serviceregistry.CloudFoundryRegistry:
-			fallthrough
 		default:
 			err = multierror.Append(err, fmt.Errorf("cluster %s has unsupported platform %s",
 				cluster.ObjectMeta.Name, cluster.ObjectMeta.Annotations[ClusterPlatform]))
