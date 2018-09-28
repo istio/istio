@@ -127,6 +127,125 @@ func (rs *RolesMapByNamespace) AddServiceRoleBinding(name, namespace string, pro
 	return nil
 }
 
+// ListAccessRules returns list of AccessRule(permission) that matches subjects.
+func (rs *ConfigStore) ListPermissions(subject SubjectArgs, action ActionArgs) (*map[string]*rbacproto.ServiceRole, error) {
+	instance, err := createInstance(subject, action)
+	if err != nil {
+		return nil, err
+	}
+
+	logger := istioctlLogger{}
+
+	namespace := instance.Action.Namespace
+	if namespace == "" {
+		return nil, logger.Errorf("Missing namespace")
+	}
+
+	accessRules := make(map[string]*rbacproto.ServiceRole)
+
+	rn := rs.Roles[namespace]
+	if rn == nil {
+		return &accessRules, nil
+	}
+
+	for roleName, roleInfo := range rn {
+		logger.Infof("Checking role: %s", roleName)
+
+		for _, serviceRoleBinding := range roleInfo.Bindings {
+			for _, subject := range serviceRoleBinding.Subjects {
+				if checkSubjectsMatch(subject, instance) {
+					accessRules[roleName] = rn[roleName].Info
+					break
+				}
+			}
+
+			if _, ok := accessRules[roleName]; ok {
+				break
+			}
+		}
+	}
+
+	return &accessRules, nil
+}
+
+func (rs *ConfigStore) ListMembers(subject SubjectArgs, action ActionArgs) (*[]string, error) {
+	instance, err := createInstance(subject, action)
+	if err != nil {
+		return nil, err
+	}
+
+	logger := istioctlLogger{}
+
+	namespace := instance.Action.Namespace
+	if namespace == "" {
+		return nil, logger.Errorf("Missing namespace")
+	}
+
+	serviceName := instance.Action.Service
+	if serviceName == "" {
+		return nil, logger.Errorf("Missing service")
+	}
+
+	path := instance.Action.Path
+	if path == "" {
+		return nil, logger.Errorf("Missing path")
+	}
+
+	method := instance.Action.Method
+	if method == "" {
+		return nil, logger.Errorf("Missing method")
+	}
+
+	membersDedup := make(map[string]bool)
+	members := make([]string, 0)
+
+	rn := rs.Roles[namespace]
+	if rn == nil {
+		return &members, nil
+	}
+
+	for roleName, roleInfo := range rn {
+		eligibleRole := false
+
+		logger.Infof("Checking role: %s", roleName)
+		rules := roleInfo.Info.GetRules()
+		for _, rule := range rules {
+			if matchRule(serviceName, path, method, instance.Action.Properties, rule, logger) {
+				eligibleRole = true
+				logger.Debugf("rule matched")
+				break
+			}
+		}
+
+		if !eligibleRole {
+			logger.Infof("role %s is not eligible", roleName)
+			continue
+		}
+
+		for _, serviceRoleBinding := range roleInfo.Bindings {
+			for _, subject := range serviceRoleBinding.Subjects {
+				if subject.User == "" {
+					continue
+				}
+
+				if subject.User == "*" {
+					// service role is open to all members
+					members = append(members, "*")
+					return &members, nil
+				}
+
+				membersDedup[subject.User] = true
+			}
+		}
+	}
+
+	for member := range membersDedup {
+		members = append(members, member)
+	}
+
+	return &members, nil
+}
+
 // CheckPermission checks permission for a given request. This is the main API called
 // by RBAC adapter at runtime to authorize requests.
 func (rs *ConfigStore) CheckPermission(inst *authorization.Instance, logger adapter.Logger) (bool, error) {
@@ -202,7 +321,7 @@ func (rs *ConfigStore) CheckPermission(inst *authorization.Instance, logger adap
 				}
 				subProp := subject.GetProperties()
 				if len(subProp) != 0 {
-					if checkSubject(instSub, subProp) {
+					if checkSubjectProperties(instSub, subProp) {
 						foundMatch = true
 					} else {
 						// Found a mismatch, try next subject.
@@ -304,8 +423,45 @@ func valueMatch(a interface{}, b string) bool {
 	return false
 }
 
-// Check if all properties defined for the subject are satisfied by the properties from the request.
-func checkSubject(properties map[string]interface{}, subject map[string]string) bool {
+// checkSubjectsMatch returns true if rule subjects and instance subjects are matched. Otherwise
+// returns false.
+func checkSubjectsMatch(subject *rbacproto.Subject, instance *authorization.Instance) bool {
+	userMatch := false
+	groupsMatch := false
+	propertyMatch := false
+
+	if instance.Subject.User != "" {
+		if subject.GetUser() == "*" || subject.GetUser() == instance.Subject.User {
+			userMatch = true
+		}
+	}
+
+	if instance.Subject.Groups != "" {
+		if subject.GetGroup() == "*" || subject.GetGroup() == instance.Subject.Groups {
+			groupsMatch = true
+		}
+	}
+
+	if len(subject.GetProperties()) != 0 {
+		propertyMatch = checkSubjectProperties(instance.Subject.Properties, subject.GetProperties())
+	}
+
+	if instance.Subject.User != "" && instance.Subject.Groups != "" && len(instance.Subject.Properties) != 0 {
+		return userMatch && groupsMatch && propertyMatch
+	} else if instance.Subject.User != "" && instance.Subject.Groups != "" {
+		return userMatch && groupsMatch
+	} else if instance.Subject.User != "" && len(instance.Subject.Properties) != 0 {
+		return userMatch && propertyMatch
+	} else if instance.Subject.Groups != "" && len(instance.Subject.Properties) != 0 {
+		return groupsMatch && propertyMatch
+	} else {
+		return userMatch || groupsMatch || propertyMatch
+	}
+}
+
+// checkSubjectProperties checks if all properties defined for the subject are satisfied
+// by the properties from the request.
+func checkSubjectProperties(properties map[string]interface{}, subject map[string]string) bool {
 	for sn, sv := range subject {
 		if properties[sn] == nil || !valueMatch(properties[sn], sv) {
 			return false
