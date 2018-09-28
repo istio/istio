@@ -81,11 +81,16 @@ var (
 		Name: "pilot_conf_filter_chains",
 		Help: "Number of conflicting filter chains.",
 	})
+	totalInternalErrors = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "pilot_total_internal_errors",
+		Help: "Total number of internal pilot errors.",
+	})
 )
 
 func init() {
 	prometheus.MustRegister(invalidOutboundListeners)
 	prometheus.MustRegister(filterChainsConflict)
+	prometheus.MustRegister(totalInternalErrors)
 }
 
 // ListenersALPNProtocols denotes the the list of ALPN protocols that the listener

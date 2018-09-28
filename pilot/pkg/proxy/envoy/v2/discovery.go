@@ -190,6 +190,7 @@ func (s *DiscoveryServer) ClearCacheFunc() func() {
 
 		if err = s.ConfigGenerator.BuildSharedPushState(s.env, push); err != nil {
 			adsLog.Errorf("XDS: Failed to rebuild share state in configgen: %v", err)
+			totalXDSInternalErrors.Add(1)
 			return
 		}
 

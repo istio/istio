@@ -87,6 +87,7 @@ func ldsDiscoveryResponse(ls []*xdsapi.Listener, version string) *xdsapi.Discove
 	for _, ll := range ls {
 		if ll == nil {
 			adsLog.Errora("Nil listener ", ll)
+			totalXDSInternalErrors.Add(1)
 			continue
 		}
 		lr, _ := types.MarshalAny(ll)
