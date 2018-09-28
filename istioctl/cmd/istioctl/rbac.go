@@ -36,7 +36,7 @@ func list() *cobra.Command {
 		Short: "Query information under current Istio RBAC policies.",
 		Long: `
 This command lets you query information under current Istio RBAC policies.
-You can list all permissions a subject has, or all members that are allowed to access a service`,
+You can list permissions a subject has, or members that are allowed to access a service`,
 	}
 
 	cmd.AddCommand(permissions())
@@ -45,14 +45,14 @@ You can list all permissions a subject has, or all members that are allowed to a
 	return cmd
 }
 
-// accessRules allows user to list AccessRules under current Istio RBAC policies for a given subject.
+// permissions allows user to list permission under current Istio RBAC policies for a given subject.
 func permissions() *cobra.Command {
 	subject := rbac.SubjectArgs{}
 	action := rbac.ActionArgs{}
 
 	cmd := &cobra.Command{
 		Use:   "permissions",
-		Short: "List AccessRules a subject has under current Istio RBAC policies",
+		Short: "List permissions a subject has under current Istio RBAC policies",
 		// TODO (jaebong) need to mention about group subject after the official announcement
 		Long: `
 This command lets you list permissions a subject has under current Istio RBAC policies.

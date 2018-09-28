@@ -434,17 +434,24 @@ func checkSubjectsMatch(subject *rbacproto.Subject, instance *authorization.Inst
 	if instance.Subject.User != "" {
 		if subject.GetUser() == "*" || subject.GetUser() == instance.Subject.User {
 			userMatch = true
+		} else {
+			return false
 		}
 	}
 
 	if instance.Subject.Groups != "" {
 		if subject.GetGroup() == "*" || subject.GetGroup() == instance.Subject.Groups {
 			groupsMatch = true
+		} else {
+			return false
 		}
 	}
 
 	if len(subject.GetProperties()) != 0 {
 		propertyMatch = checkSubjectProperties(instance.Subject.Properties, subject.GetProperties())
+		if !propertyMatch {
+			return false
+		}
 	}
 
 	if instance.Subject.User != "" && instance.Subject.Groups != "" && len(instance.Subject.Properties) != 0 {
