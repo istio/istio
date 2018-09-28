@@ -15,6 +15,7 @@
 package pilot
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strings"
@@ -28,14 +29,26 @@ import (
 const maxDeploymentTimeout = 480 * time.Second
 
 func verifyMCMeshConfig(primaryPodNames, remotePodNames []string, appEPs map[string][]string) error {
-	if err := verifyPods(tc.Kube.Istioctl, primaryPodNames, appEPs); err != nil {
-		return err
+	retry := util.Retrier{
+		BaseDelay: 2 * time.Second,
+		MaxDelay:  10 * time.Second,
+		Retries:   60,
 	}
 
-	if err := verifyPods(tc.Kube.RemoteIstioctl, remotePodNames, appEPs); err != nil {
-		return err
+	retryFn := func(_ context.Context, i int) error {
+		if err := verifyPods(tc.Kube.Istioctl, primaryPodNames, appEPs); err != nil {
+			return err
+		}
+
+		if err := verifyPods(tc.Kube.RemoteIstioctl, remotePodNames, appEPs); err != nil {
+			return err
+		}
+		return nil
 	}
-	return nil
+
+	_, err := retry.Retry(nil, retryFn)
+
+	return err
 }
 
 func addRemoteCluster() error {
@@ -43,9 +56,6 @@ func addRemoteCluster() error {
 		log.Errorf("Unable to create remote cluster secret on local cluster %s", err.Error())
 		return err
 	}
-
-	// Wait a few seconds for the mesh to be reconfigured
-	time.Sleep(5 * time.Second)
 	return nil
 }
 
@@ -53,9 +63,6 @@ func deleteRemoteCluster() error {
 	if err := util.DeleteMultiClusterSecret(tc.Kube.Namespace, tc.Kube.RemoteKubeConfig, tc.Kube.KubeConfig); err != nil {
 		return err
 	}
-
-	// Wait a few seconds for the mesh to be reconfigured
-	time.Sleep(5 * time.Second)
 	return nil
 }
 
