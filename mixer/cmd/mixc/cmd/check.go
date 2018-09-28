@@ -27,7 +27,6 @@ import (
 	ot "github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/ext"
 	"github.com/spf13/cobra"
-
 	"golang.org/x/time/rate"
 
 	mixerpb "istio.io/api/mixer/v1"

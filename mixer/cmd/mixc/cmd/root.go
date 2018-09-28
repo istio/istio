@@ -58,10 +58,10 @@ type rootArgs struct {
 	// mixerAddress is the full address (including port) of a mixer instance to call.
 	mixerAddress string
 
-	// # times to repeat the operation
+	// number of times to repeat the operation
 	repeat int
 
-	// # workers to send requests concurrently.
+	// number of workers to send requests concurrently.
 	concurrency int
 
 	// rate limit of requests per second for each worker.
