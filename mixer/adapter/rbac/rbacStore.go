@@ -427,44 +427,19 @@ func valueMatch(a interface{}, b string) bool {
 // checkSubjectsMatch returns true if rule subjects and instance subjects are matched. Otherwise
 // returns false.
 func checkSubjectsMatch(subject *rbacproto.Subject, instance *authorization.Instance) bool {
-	userMatch := false
-	groupsMatch := false
-	propertyMatch := false
-
-	if instance.Subject.User != "" {
-		if subject.GetUser() == "*" || subject.GetUser() == instance.Subject.User {
-			userMatch = true
-		} else {
-			return false
-		}
+	if subject.GetUser() != "" && !stringMatch(instance.Subject.User, []string{subject.GetUser()}) {
+		return false
 	}
 
-	if instance.Subject.Groups != "" {
-		if subject.GetGroup() == "*" || subject.GetGroup() == instance.Subject.Groups {
-			groupsMatch = true
-		} else {
-			return false
-		}
+	if subject.GetGroup() != "" && !stringMatch(instance.Subject.Groups, []string{subject.GetGroup()}) {
+		return false
 	}
 
-	if len(subject.GetProperties()) != 0 {
-		propertyMatch = checkSubjectProperties(instance.Subject.Properties, subject.GetProperties())
-		if !propertyMatch {
-			return false
-		}
+	if len(subject.GetProperties()) > 0 && !checkSubjectProperties(instance.Subject.Properties, subject.GetProperties()) {
+		return false
 	}
 
-	if instance.Subject.User != "" && instance.Subject.Groups != "" && len(instance.Subject.Properties) != 0 {
-		return userMatch && groupsMatch && propertyMatch
-	} else if instance.Subject.User != "" && instance.Subject.Groups != "" {
-		return userMatch && groupsMatch
-	} else if instance.Subject.User != "" && len(instance.Subject.Properties) != 0 {
-		return userMatch && propertyMatch
-	} else if instance.Subject.Groups != "" && len(instance.Subject.Properties) != 0 {
-		return groupsMatch && propertyMatch
-	} else {
-		return userMatch || groupsMatch || propertyMatch
-	}
+	return true
 }
 
 // checkSubjectProperties checks if all properties defined for the subject are satisfied

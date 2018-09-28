@@ -263,15 +263,6 @@ func TestRBACStore_ListAccessRules(t *testing.T) {
 						},
 					},
 				},
-				"role4": {
-					Rules: []*rbacproto.AccessRule{
-						{
-							Services: []string{"fish"},
-							Paths:    []string{"*/review"},
-							Methods:  []string{"GET"},
-						},
-					},
-				},
 				"role5": {
 					Rules: []*rbacproto.AccessRule{
 						{
@@ -299,6 +290,14 @@ func TestRBACStore_ListAccessRules(t *testing.T) {
 						},
 					},
 				},
+				"role5": {
+					Rules: []*rbacproto.AccessRule{
+						{
+							Services: []string{"abc"},
+							Methods:  []string{"GET"},
+						},
+					},
+				},
 			},
 		},
 		{
@@ -310,11 +309,33 @@ func TestRBACStore_ListAccessRules(t *testing.T) {
 				Namespace: "ns1",
 			},
 			expected: &map[string]*rbacproto.ServiceRole{
+				"role2": {
+					Rules: []*rbacproto.AccessRule{
+						{
+							Services: []string{"products"},
+							Methods:  []string{"*"},
+							Constraints: []*rbacproto.AccessRule_Constraint{
+								{
+									Key:    "version",
+									Values: []string{"v1", "v2"},
+								},
+							},
+						},
+					},
+				},
 				"role4": {
 					Rules: []*rbacproto.AccessRule{
 						{
 							Services: []string{"fish"},
 							Paths:    []string{"*/review"},
+							Methods:  []string{"GET"},
+						},
+					},
+				},
+				"role5": {
+					Rules: []*rbacproto.AccessRule{
+						{
+							Services: []string{"abc"},
 							Methods:  []string{"GET"},
 						},
 					},
@@ -325,7 +346,6 @@ func TestRBACStore_ListAccessRules(t *testing.T) {
 
 	for _, c := range cases {
 		result, _ := s.ListPermissions(c.subject, c.action)
-
 		if len(*c.expected) != len(*result) {
 			t.Fatalf("invalid numbers of response. expected: %v got: %v", len(*c.expected), len(*result))
 		}
@@ -353,7 +373,7 @@ func TestRBACStore_ListUsers(t *testing.T) {
 		{
 			action: ActionArgs{
 				Service:   "fish",
-				Path:      "* /review",
+				Path:      "/book/123/review",
 				Method:    "GET",
 				Namespace: "ns1",
 			},
