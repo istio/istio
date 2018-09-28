@@ -286,6 +286,9 @@ istioctl get virtualservices
 # List all destination rules
 istioctl get destinationrules
 
+# List nultitype resource: policy and meshpolicy 
+istioctl get policy,meshpolicy
+
 # Get a specific virtual service named bookinfo
 istioctl get virtualservice bookinfo
 `,
@@ -309,12 +312,11 @@ istioctl get virtualservice bookinfo
 			if !getByName && strings.ToLower(args[0]) == "all" {
 				typs = configClient.ConfigDescriptor()
 			} else {
-				typ, err := protoSchema(configClient, args[0])
+				typs, err = protoSchema(configClient, args[0])
 				if err != nil {
 					c.Println(c.UsageString())
 					return err
 				}
-				typs = []model.ProtoSchema{typ}
 			}
 
 			var ns string
@@ -397,7 +399,7 @@ istioctl delete virtualservice bookinfo
 					return err
 				}
 				for i := 1; i < len(args); i++ {
-					if err := configClient.Delete(typ.Type, args[i], ns); err != nil {
+					if err := configClient.Delete(typ[0].Type, args[i], ns); err != nil {
 						errs = multierror.Append(errs,
 							fmt.Errorf("cannot delete %s: %v", args[i], err))
 					} else {
@@ -536,19 +538,34 @@ istioctl context-create --api-server http://127.0.0.1:8080
 	}
 )
 
-// The protoSchema is based on the kind (for example "virtualservice" or "destinationrule")
-func protoSchema(configClient model.ConfigStore, typ string) (model.ProtoSchema, error) {
+// The protoSchema is based on the kinds (for example "virtualservice","destinationrule" or "gateway,destinationrule")
+func protoSchema(configClient model.ConfigStore, typ string) ([]model.ProtoSchema, error) {
+	resProtoSchemas := []model.ProtoSchema{}
+	types := []string{}
+
+	if strings.Contains(typ, ",") {
+		types = strings.Split(typ, ",")
+	} else {
+		types = append(types, typ)
+	}
 	for _, desc := range configClient.ConfigDescriptor() {
-		switch strings.ToLower(typ) {
-		case crd.ResourceName(desc.Type), crd.ResourceName(desc.Plural):
-			return desc, nil
-		case desc.Type, desc.Plural: // legacy hyphenated resources names
-			return model.ProtoSchema{}, fmt.Errorf("%q not recognized. Please use non-hyphenated resource name %q",
-				typ, crd.ResourceName(typ))
+		for _, ty := range types {
+			switch strings.ToLower(ty) {
+			case crd.ResourceName(desc.Type), crd.ResourceName(desc.Plural):
+				resProtoSchemas = append(resProtoSchemas, desc)
+			case desc.Type, desc.Plural: // legacy hyphenated resources names
+				return []model.ProtoSchema{}, fmt.Errorf("%q not recognized. Please use non-hyphenated resource name %q",
+					ty, crd.ResourceName(ty))
+			}
 		}
 	}
-	return model.ProtoSchema{}, fmt.Errorf("configuration type %s not found, the types are %v",
-		typ, strings.Join(supportedTypes(configClient), ", "))
+
+	if len(resProtoSchemas) == 0 {
+		return []model.ProtoSchema{}, fmt.Errorf("configuration types %s are not found, the types are %v",
+			types, strings.Join(supportedTypes(configClient), ", "))
+	}
+
+	return resProtoSchemas, nil
 }
 
 // readInputs reads multiple documents from the input and checks with the schema
