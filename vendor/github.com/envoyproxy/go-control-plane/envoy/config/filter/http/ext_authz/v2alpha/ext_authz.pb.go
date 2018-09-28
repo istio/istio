@@ -36,7 +36,7 @@ type ExtAuthz struct {
 	Services isExtAuthz_Services `protobuf_oneof:"services"`
 	// The filter's behaviour in case the external authorization service does
 	// not respond back. When it is set to true, Envoy will also allow traffic in case of
-	// communication failure between authorization service and the proxy.
+	// an error occurs during the authorization process.
 	// Defaults to false.
 	FailureModeAllow     bool     `protobuf:"varint,2,opt,name=failure_mode_allow,json=failureModeAllow,proto3" json:"failure_mode_allow,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
@@ -48,7 +48,7 @@ func (m *ExtAuthz) Reset()         { *m = ExtAuthz{} }
 func (m *ExtAuthz) String() string { return proto.CompactTextString(m) }
 func (*ExtAuthz) ProtoMessage()    {}
 func (*ExtAuthz) Descriptor() ([]byte, []int) {
-	return fileDescriptor_ext_authz_703bcecb2ec8e991, []int{0}
+	return fileDescriptor_ext_authz_f6b15b52bd10224a, []int{0}
 }
 func (m *ExtAuthz) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -204,10 +204,23 @@ func _ExtAuthz_OneofSizer(msg proto.Message) (n int) {
 // in the authorization response should be sent to the upstream. See *allowed_authorization_headers*
 // bellow.
 //
-// A failed check will cause this filter to close the HTTP request normally with 403 (Forbidden),
+// A failed check will cause this filter to close the HTTP request with 403 (Forbidden),
 // unless a different status code has been indicated by the authorization server via response
-// headers. If other headers in the authorization response need to be sent to client, this can also
-// be done by specifying them in *allowed_authorization_headers*.
+// headers.
+//
+// If an error happens during the checking process, two situations may occur depending on the
+// filter's configuration:
+//
+//  1. When *failure_mode_allow* is true, traffic will be allowed in the presence of an error. This
+//     includes any of the HTTP 5xx errors, or a communication failure between the filter and the
+//     authorization server.
+//  2. When *failure_mode_allow* is false, the filter will *always* return a *Forbidden response* to
+//     the client. It will *not allow* traffic to the upstream in the presence of an error. This
+//     includes any of the HTTP 5xx errors, or a communication failure between the filter and the
+//     authorization server.
+//
+// Note that filter will produce stats on error. See *Statistics* at :ref:`configuration overview
+// <config_http_filters_ext_authz>`.
 type HttpService struct {
 	// Sets the HTTP server URI which the authorization requests must be sent to.
 	ServerUri *core.HttpUri `protobuf:"bytes,1,opt,name=server_uri,json=serverUri" json:"server_uri,omitempty"`
@@ -231,7 +244,7 @@ func (m *HttpService) Reset()         { *m = HttpService{} }
 func (m *HttpService) String() string { return proto.CompactTextString(m) }
 func (*HttpService) ProtoMessage()    {}
 func (*HttpService) Descriptor() ([]byte, []int) {
-	return fileDescriptor_ext_authz_703bcecb2ec8e991, []int{1}
+	return fileDescriptor_ext_authz_f6b15b52bd10224a, []int{1}
 }
 func (m *HttpService) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -921,10 +934,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/config/filter/http/ext_authz/v2alpha/ext_authz.proto", fileDescriptor_ext_authz_703bcecb2ec8e991)
+	proto.RegisterFile("envoy/config/filter/http/ext_authz/v2alpha/ext_authz.proto", fileDescriptor_ext_authz_f6b15b52bd10224a)
 }
 
-var fileDescriptor_ext_authz_703bcecb2ec8e991 = []byte{
+var fileDescriptor_ext_authz_f6b15b52bd10224a = []byte{
 	// 401 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x91, 0xcf, 0xaa, 0xd3, 0x40,
 	0x14, 0xc6, 0x1d, 0x5b, 0xb5, 0x9d, 0xdc, 0xc5, 0x65, 0xe0, 0x62, 0xa9, 0x18, 0xc3, 0xc5, 0x45,
