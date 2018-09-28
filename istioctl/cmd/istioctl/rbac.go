@@ -16,13 +16,152 @@ package main
 
 import (
 	"fmt"
+	"io"
+	"strings"
 
+	"github.com/ghodss/yaml"
+	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
 
 	rbacproto "istio.io/api/rbac/v1alpha1"
 	"istio.io/istio/mixer/adapter/rbac"
 	"istio.io/istio/pilot/pkg/model"
 )
+
+// list provides a command named list that allows user to query information under current
+// Istio RBAC policies.
+func list() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "list",
+		Short: "Query information under current Istio RBAC policies.",
+		Long: `
+This command lets you query information under current Istio RBAC policies.
+You can list all permissions a subject has, or all members that are allowed to access a service`,
+	}
+
+	cmd.AddCommand(permissions())
+	cmd.AddCommand(members())
+
+	return cmd
+}
+
+// accessRules allows user to list AccessRules under current Istio RBAC policies for a given subject.
+func permissions() *cobra.Command {
+	subject := rbac.SubjectArgs{}
+	action := rbac.ActionArgs{}
+
+	cmd := &cobra.Command{
+		Use:   "permissions",
+		Short: "List AccessRules a subject has under current Istio RBAC policies",
+		// TODO (jaebong) need to mention about group subject after the official announcement
+		Long: `
+This command lets you list permissions a subject has under current Istio RBAC policies.
+
+Subject can be either a user/ID or subject properties`,
+		Example: `# Query permissions for user test.
+istioctl experimental rbac list permissions -u test`,
+		Args: cobra.ExactArgs(0),
+		RunE: func(cmd *cobra.Command, args []string) error {
+
+			if namespace == "" {
+				action.Namespace = defaultNamespace
+			} else {
+				action.Namespace = namespace
+			}
+
+			rbacStore, err := newRbacStore()
+			if err != nil {
+				return fmt.Errorf("failed to create rbacStore: %v", err)
+			}
+
+			ret, err := rbacStore.ListPermissions(subject, action)
+			if err != nil {
+				return fmt.Errorf("failed to get permission list: %v", err)
+			}
+
+			var outputters = map[string]func(io.Writer, *map[string]*rbacproto.ServiceRole){
+				"yaml":  printAccessRulesYamlOutput,
+				"short": printAccessRulesShortOutput,
+			}
+
+			if outputFunc, ok := outputters[outputFormat]; ok {
+				outputFunc(cmd.OutOrStdout(), ret)
+			} else {
+				return fmt.Errorf("unknown output format %v. Types are yaml|short", outputFormat)
+			}
+
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVarP(&subject.User, "user", "u", "",
+		"[Subject] User name/ID that the subject represents.")
+	cmd.Flags().StringVarP(&subject.Groups, "groups", "g", "",
+		"[Subject] Group name/ID that the subject represents.")
+	cmd.Flags().StringArrayVarP(&subject.Properties, "subject-properties", "s", []string{},
+		"[Subject] Additional data about the subject. Specified as name1=value1,name2=value2,...")
+	cmd.Flags().StringVarP(&outputFormat, "output", "o", "short",
+		"Output format. One of:yaml|short")
+	return cmd
+}
+
+// members allows user to list members allowed to access the given METHOD, SERVICE, and PATH
+func members() *cobra.Command {
+	subject := rbac.SubjectArgs{}
+	action := rbac.ActionArgs{}
+
+	cmd := &cobra.Command{
+		Use:   "members METHOD SERVICE PATH",
+		Short: "List members allowed to access a service under current Istio RBAC policies",
+		Long: `
+This command lets you list members allowed to access a service METHOD, SERVICE, and PATH.
+
+METHOD is the HTTP method being taken, like GET, POST, etc. SERVICE is the short service name the action
+is being taken on. PATH is the HTTP path within the service.`,
+		Example: `# Query list of members allowed to GET /v1/health of service rating.
+istioctl experimental rbac list members GET rating /v1/health -o yaml`,
+		Args: cobra.ExactArgs(3),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			action.Method = args[0]
+			action.Service = args[1]
+			action.Path = args[2]
+			if namespace == "" {
+				action.Namespace = defaultNamespace
+			} else {
+				action.Namespace = namespace
+			}
+
+			rbacStore, err := newRbacStore()
+			if err != nil {
+				return fmt.Errorf("failed to create rbacStore: %v", err)
+			}
+
+			ret, err := rbacStore.ListMembers(subject, action)
+			if err != nil {
+				return err
+			}
+
+			var outputters = map[string]func(io.Writer, *[]string){
+				"yaml":  printStringArrayYamlOutput,
+				"short": printStringArrayShortOutput,
+			}
+
+			if outputFunc, ok := outputters[outputFormat]; ok {
+				outputFunc(cmd.OutOrStdout(), ret)
+			} else {
+				return fmt.Errorf("unknown output format %v. Types are yaml|short", outputFormat)
+			}
+
+			return nil
+		},
+	}
+
+	cmd.Flags().StringArrayVarP(&action.Properties, "action-properties", "a", []string{},
+		"[Action] Additional data about the action. Specified as name1=value1,name2=value2,...")
+	cmd.Flags().StringVarP(&outputFormat, "output", "o", "short",
+		"Output format. One of:yaml|short")
+	return cmd
+}
 
 // can allows user to query Istio RBAC effect for a specific request.
 func can() *cobra.Command {
@@ -51,7 +190,7 @@ istioctl experimental rbac can -s service=product-page POST rating /data -a vers
 			action.Service = args[1]
 			action.Path = args[2]
 			if namespace == "" {
-				action.Namespace = "default"
+				action.Namespace = defaultNamespace
 			} else {
 				action.Namespace = namespace
 			}
@@ -99,6 +238,8 @@ istioctl experimental rbac can -u test GET rating /v1/health`,
 	}
 
 	cmd.AddCommand(can())
+	cmd.AddCommand(list())
+
 	return cmd
 }
 
@@ -135,4 +276,60 @@ func newRbacStore() (*rbac.ConfigStore, error) {
 		}
 	}
 	return &rbac.ConfigStore{Roles: rolesMap}, nil
+}
+
+// constraintToString converts AccessRule_Constraint to string
+func constraintToString(constraints []*rbacproto.AccessRule_Constraint) string {
+	result := make([]string, 0)
+	for _, constraint := range constraints {
+		result = append(result, constraint.Key+": "+strings.Join(constraint.Values, ", "))
+	}
+	return strings.Join(result, "\n")
+}
+
+// printAccessRuleShortOutput prints access rules in short text format
+func printAccessRulesShortOutput(writer io.Writer, serviceRole *map[string]*rbacproto.ServiceRole) {
+	table := tablewriter.NewWriter(writer)
+
+	table.SetHeader([]string{"Services", "Methods", "Paths", "Constraints"})
+	table.SetBorder(false)
+	table.SetCenterSeparator(" ")
+	table.SetColumnSeparator(" ")
+	table.SetRowLine(false)
+
+	for _, role := range *serviceRole {
+		for _, rule := range role.Rules {
+			table.Append(
+				[]string{strings.Join(rule.Services, "\n"),
+					strings.Join(rule.Methods, "\n"),
+					strings.Join(rule.Paths, "\n"), constraintToString(rule.Constraints)})
+		}
+	}
+
+	table.Render()
+}
+
+// printAccessRuleYamlOutput prints access rules in Yaml format
+func printAccessRulesYamlOutput(writer io.Writer, accessRule *map[string]*rbacproto.ServiceRole) {
+	bytes, err := yaml.Marshal(accessRule)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+	}
+	fmt.Fprint(writer, string(bytes))
+}
+
+// printAccessRuleShortOutput prints access rules in short text format
+func printStringArrayShortOutput(writer io.Writer, list *[]string) {
+	for _, item := range *list {
+		fmt.Fprintf(writer, "%v\n", item)
+	}
+}
+
+// printAccessRuleYamlOutput print access rules in Yaml format
+func printStringArrayYamlOutput(writer io.Writer, list *[]string) {
+	bytes, err := yaml.Marshal(list)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+	}
+	fmt.Fprint(writer, string(bytes))
 }
