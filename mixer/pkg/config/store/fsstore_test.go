@@ -15,7 +15,6 @@
 package store
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -313,13 +312,6 @@ spec:
 		title   string
 		prepare func(fsroot string) error
 	}{
-		{
-			"wrong permission",
-			func(fsroot string) error {
-				path := filepath.Join(fsroot, "aa.yaml")
-				return ioutil.WriteFile(path, []byte(fmt.Sprintf(tmpl, "Handler", "aa", "foo: bar\n")), 0300)
-			},
-		},
 		{
 			"illformed yaml",
 			func(fsroot string) error {
