@@ -63,6 +63,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	srmemory "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pkg/ctrlz"
+	"istio.io/istio/pkg/features/pilot"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 	mcpclient "istio.io/istio/pkg/mcp/client"
@@ -879,7 +880,7 @@ func (s *Server) initGrpcServer() {
 
 // The secure grpc will start when the credentials are found.
 func (s *Server) secureGrpcStart(listener net.Listener) {
-	certDir := os.Getenv("PILOT_CERT_DIR")
+	certDir := pilot.CertDir
 	if certDir == "" {
 		certDir = PilotCertDir // /etc/certs
 	}
@@ -978,7 +979,7 @@ func (s *Server) grpcServerOptions() []grpc.ServerOption {
 	// Temp setting, default should be enough for most supported environments. Can be used for testing
 	// envoy with lower values.
 	var maxStreams int
-	maxStreamsEnv := os.Getenv("ISTIO_GPRC_MAXSTREAMS")
+	maxStreamsEnv := pilot.MaxConcurrentStreams
 	if len(maxStreamsEnv) > 0 {
 		maxStreams, _ = strconv.Atoi(maxStreamsEnv)
 	}
