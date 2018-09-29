@@ -168,8 +168,8 @@ func (rs *ConfigStore) ListPermissions(subject SubjectArgs, action ActionArgs) (
 	return &accessRules, nil
 }
 
-// ListMembers searches users that allowed to use the given service role
-func (rs *ConfigStore) ListMembers(subject SubjectArgs, action ActionArgs) (*[]string, error) {
+// ListSubjects searches subjects that allowed to use the given service role
+func (rs *ConfigStore) ListSubjects(subject SubjectArgs, action ActionArgs) (*[]*rbacproto.Subject, error) {
 	instance, err := createInstance(subject, action)
 	if err != nil {
 		return nil, err
@@ -197,12 +197,11 @@ func (rs *ConfigStore) ListMembers(subject SubjectArgs, action ActionArgs) (*[]s
 		return nil, logger.Errorf("Missing method")
 	}
 
-	membersDedup := make(map[string]bool)
-	members := make([]string, 0)
+	subjects := make([]*rbacproto.Subject, 0)
 
 	rn := rs.Roles[namespace]
 	if rn == nil {
-		return &members, nil
+		return &subjects, nil
 	}
 
 	for roleName, roleInfo := range rn {
@@ -225,26 +224,12 @@ func (rs *ConfigStore) ListMembers(subject SubjectArgs, action ActionArgs) (*[]s
 
 		for _, serviceRoleBinding := range roleInfo.Bindings {
 			for _, subject := range serviceRoleBinding.Subjects {
-				if subject.User == "" {
-					continue
-				}
-
-				if subject.User == "*" {
-					// service role is open to all members
-					members = append(members, "*")
-					return &members, nil
-				}
-
-				membersDedup[subject.User] = true
+				subjects = append(subjects, subject)
 			}
 		}
 	}
 
-	for member := range membersDedup {
-		members = append(members, member)
-	}
-
-	return &members, nil
+	return &subjects, nil
 }
 
 // CheckPermission checks permission for a given request. This is the main API called
@@ -427,6 +412,10 @@ func valueMatch(a interface{}, b string) bool {
 // checkSubjectsMatch returns true if rule subjects and instance subjects are matched. Otherwise
 // returns false.
 func checkSubjectsMatch(subject *rbacproto.Subject, instance *authorization.Instance) bool {
+	if instance.Subject.User == "" && instance.Subject.Groups == "" && len(instance.Subject.Properties) == 0 {
+		return false
+	}
+
 	if subject.GetUser() != "" && !stringMatch(instance.Subject.User, []string{subject.GetUser()}) {
 		return false
 	}

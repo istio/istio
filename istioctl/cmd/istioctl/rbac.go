@@ -36,11 +36,11 @@ func list() *cobra.Command {
 		Short: "Query information under current Istio RBAC policies.",
 		Long: `
 This command lets you query information under current Istio RBAC policies.
-You can list permissions a subject has, or members that are allowed to access a service`,
+You can list permissions a subject has, or subjects that are allowed to access a service`,
 	}
 
 	cmd.AddCommand(permissions())
-	cmd.AddCommand(members())
+	cmd.AddCommand(subjects())
 
 	return cmd
 }
@@ -105,21 +105,21 @@ istioctl experimental rbac list permissions -u test`,
 	return cmd
 }
 
-// members allows user to list members allowed to access the given METHOD, SERVICE, and PATH
-func members() *cobra.Command {
+// subjects allows user to list subjects allowed to access the given METHOD, SERVICE, and PATH
+func subjects() *cobra.Command {
 	subject := rbac.SubjectArgs{}
 	action := rbac.ActionArgs{}
 
 	cmd := &cobra.Command{
-		Use:   "members METHOD SERVICE PATH",
-		Short: "List members allowed to access a service under current Istio RBAC policies",
+		Use:   "subjects METHOD SERVICE PATH",
+		Short: "List subjects allowed to access a service under current Istio RBAC policies",
 		Long: `
-This command lets you list members allowed to access a service METHOD, SERVICE, and PATH.
+This command lets you list subjects allowed to access a service METHOD, SERVICE, and PATH.
 
 METHOD is the HTTP method being taken, like GET, POST, etc. SERVICE is the short service name the action
 is being taken on. PATH is the HTTP path within the service.`,
-		Example: `# Query list of members allowed to GET /v1/health of service rating.
-istioctl experimental rbac list members GET rating /v1/health -o yaml`,
+		Example: `# Query list of subjects allowed to GET /v1/health of service rating.
+istioctl experimental rbac list subjects GET rating /v1/health -o yaml`,
 		Args: cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			action.Method = args[0]
@@ -136,12 +136,12 @@ istioctl experimental rbac list members GET rating /v1/health -o yaml`,
 				return fmt.Errorf("failed to create rbacStore: %v", err)
 			}
 
-			ret, err := rbacStore.ListMembers(subject, action)
+			ret, err := rbacStore.ListSubjects(subject, action)
 			if err != nil {
 				return err
 			}
 
-			var outputters = map[string]func(io.Writer, *[]string){
+			var outputters = map[string]func(io.Writer, *[]*rbacproto.Subject){
 				"yaml":  printStringArrayYamlOutput,
 				"short": printStringArrayShortOutput,
 			}
@@ -287,6 +287,15 @@ func constraintToString(constraints []*rbacproto.AccessRule_Constraint) string {
 	return strings.Join(result, "\n")
 }
 
+// stringMapToString convert map[string]string to string
+func stringMapToString(property map[string]string) string {
+	result := make([]string, 0)
+	for key, value := range property {
+		result = append(result, key+": "+value)
+	}
+	return strings.Join(result, "\n")
+}
+
 // printAccessRuleShortOutput prints access rules in short text format
 func printAccessRulesShortOutput(writer io.Writer, serviceRole *map[string]*rbacproto.ServiceRole) {
 	table := tablewriter.NewWriter(writer)
@@ -319,14 +328,24 @@ func printAccessRulesYamlOutput(writer io.Writer, accessRule *map[string]*rbacpr
 }
 
 // printAccessRuleShortOutput prints access rules in short text format
-func printStringArrayShortOutput(writer io.Writer, list *[]string) {
-	for _, item := range *list {
-		fmt.Fprintf(writer, "%v\n", item)
+func printStringArrayShortOutput(writer io.Writer, list *[]*rbacproto.Subject) {
+	table := tablewriter.NewWriter(writer)
+
+	table.SetHeader([]string{"User", "Group", "Properties"})
+	table.SetBorder(false)
+	table.SetCenterSeparator(" ")
+	table.SetColumnSeparator(" ")
+	table.SetRowLine(false)
+
+	for _, subject := range *list {
+		table.Append([]string{subject.User, subject.Group, stringMapToString(subject.Properties)})
 	}
+
+	table.Render()
 }
 
 // printAccessRuleYamlOutput print access rules in Yaml format
-func printStringArrayYamlOutput(writer io.Writer, list *[]string) {
+func printStringArrayYamlOutput(writer io.Writer, list *[]*rbacproto.Subject) {
 	bytes, err := yaml.Marshal(list)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)

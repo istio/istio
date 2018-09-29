@@ -368,7 +368,7 @@ func TestRBACStore_ListUsers(t *testing.T) {
 
 	cases := []struct {
 		action   ActionArgs
-		expected []string
+		expected []*rbacproto.Subject
 	}{
 		{
 			action: ActionArgs{
@@ -377,7 +377,15 @@ func TestRBACStore_ListUsers(t *testing.T) {
 				Method:    "GET",
 				Namespace: "ns1",
 			},
-			expected: []string{"alice@yahoo.com"},
+			expected: []*rbacproto.Subject{
+				{
+					User: "alice@yahoo.com",
+					Properties: map[string]string{
+						"namespace": "mynamespace",
+						"service":   "xyz",
+					},
+				},
+			},
 		},
 		{
 			action: ActionArgs{
@@ -387,7 +395,17 @@ func TestRBACStore_ListUsers(t *testing.T) {
 				Namespace:  "ns1",
 				Properties: []string{"version=v1"},
 			},
-			expected: []string{"alice@yahoo.com"},
+			expected: []*rbacproto.Subject{
+				{
+					User: "alice@yahoo.com",
+				},
+				{
+					Properties: map[string]string{
+						"namespace": "abc",
+						"service":   "reviews",
+					},
+				},
+			},
 		},
 		{
 			action: ActionArgs{
@@ -396,7 +414,11 @@ func TestRBACStore_ListUsers(t *testing.T) {
 				Method:    "GET",
 				Namespace: "ns1",
 			},
-			expected: []string{"*"},
+			expected: []*rbacproto.Subject{
+				{
+					User: "*",
+				},
+			},
 		},
 		{
 			action: ActionArgs{
@@ -405,18 +427,14 @@ func TestRBACStore_ListUsers(t *testing.T) {
 				Method:    "GET",
 				Namespace: "nonamespace",
 			},
-			expected: []string{},
+			expected: []*rbacproto.Subject{},
 		},
 	}
 
 	for _, c := range cases {
-		result, err := s.ListMembers(SubjectArgs{}, c.action)
+		result, err := s.ListSubjects(SubjectArgs{}, c.action)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
-		}
-
-		if len(c.expected) != len(*result) {
-			t.Fatalf("invalid numbers of response. expected: %v got: %v", len(c.expected), len(*result))
 		}
 
 		if !reflect.DeepEqual(c.expected, *result) {
