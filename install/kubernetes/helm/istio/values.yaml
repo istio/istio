@@ -290,6 +290,9 @@ gateways:
     - port: 853
       targetPort: 853
       name: tcp-dns-tls
+    - port: 15029
+      targetPort: 15029
+      name: http-kiali
     - port: 15030
       targetPort: 15030
       name: http2-prometheus
