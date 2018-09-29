@@ -16,7 +16,9 @@
 package cache
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -27,8 +29,16 @@ import (
 	"istio.io/istio/security/pkg/pki/util"
 )
 
-// The size of a private key for a leaf certificate.
-const keySize = 2048
+const (
+	// The size of a private key for a leaf certificate.
+	keySize = 2048
+
+	// max retry number to wait CSR response come back to parse root cert from it.
+	maxRetryNum = 5
+
+	// RootCertReqResourceName is resource name of discovery request for root certificate.
+	RootCertReqResourceName = "ROOTCA"
+)
 
 // Options provides all of the configuration parameters for secret cache.
 type Options struct {
@@ -49,6 +59,15 @@ type SecretManager interface {
 
 	// SecretExist checks if secret already existed.
 	SecretExist(proxyID, spiffeID, token, version string) bool
+}
+
+// ConnKey is the key of one SDS connection.
+type ConnKey struct {
+	ProxyID string
+
+	// ResourceName of SDS request, get from SDS.DiscoveryRequest.ResourceName
+	// Current it's `ROOTCA` for root cert request, and spiffeID for normal key/cert request.
+	ResourceName string
 }
 
 // SecretCache is the in-memory cache for secrets.
@@ -72,7 +91,7 @@ type SecretCache struct {
 	secretChangedCount uint64
 
 	// callback function to invoke when detecting secret change.
-	notifyCallback func(string, *model.SecretItem) error
+	notifyCallback func(string /*proxy ID*/, string /*resource Name*/, *model.SecretItem) error
 	// Right now always skip the check, since key rotation job checks token expire only when cert has expired;
 	// since token's TTL is much shorter than the cert, we could skip the check in normal cases.
 	// The flag is used in unit test, use uint32 instead of boolean because there is no atomic boolean
@@ -81,10 +100,13 @@ type SecretCache struct {
 
 	// close channel.
 	closing chan bool
+
+	rootCertMutex *sync.Mutex
+	rootCert      []byte
 }
 
 // NewSecretCache creates a new secret cache.
-func NewSecretCache(cl ca.Client, notifyCb func(string, *model.SecretItem) error, options Options) *SecretCache {
+func NewSecretCache(cl ca.Client, notifyCb func(string, string, *model.SecretItem) error, options Options) *SecretCache {
 	ret := &SecretCache{
 		caClient:         cl,
 		rotationInterval: options.RotationInterval,
@@ -92,6 +114,7 @@ func NewSecretCache(cl ca.Client, notifyCb func(string, *model.SecretItem) error
 		secretTTL:        options.SecretTTL,
 		notifyCallback:   notifyCb,
 		closing:          make(chan bool),
+		rootCertMutex:    &sync.Mutex{},
 	}
 
 	atomic.StoreUint64(&ret.secretChangedCount, 0)
@@ -103,26 +126,68 @@ func NewSecretCache(cl ca.Client, notifyCb func(string, *model.SecretItem) error
 // GenerateSecret generates new secret and cache the secret, this function is called by SDS.StreamSecrets
 // and SDS.FetchSecret. Since credential passing from client may change, regenerate secret every time
 // instead of reading from cache.
-func (sc *SecretCache) GenerateSecret(ctx context.Context, proxyID, spiffeID, token string) (*model.SecretItem, error) {
-	ns, err := sc.generateSecret(ctx, token, spiffeID, time.Now())
-	if err != nil {
-		log.Errorf("Failed to generate secret for proxy %q: %v", proxyID, err)
-		return nil, err
+func (sc *SecretCache) GenerateSecret(ctx context.Context, proxyID, resourceName, token string) (*model.SecretItem, error) {
+	var ns *model.SecretItem
+	if resourceName == RootCertReqResourceName {
+		// If request is for root certificate,
+		// retry since rootCert may be empty until there is CSR response returned from CA.
+		if sc.rootCert == nil {
+			wait := 200 * time.Millisecond
+			retries := 0
+			for ; retries < maxRetryNum; retries++ {
+				time.Sleep(wait)
+				if sc.rootCert != nil {
+					break
+				}
+
+				wait *= 2
+			}
+		}
+
+		if sc.rootCert != nil {
+			t := time.Now()
+			ns = &model.SecretItem{
+				ResourceName: resourceName,
+				RootCert:     sc.rootCert,
+				Token:        token,
+				CreatedTime:  t,
+				Version:      t.String(),
+			}
+
+		} else {
+			log.Errorf("Failed to get root cert for proxy %q", proxyID)
+			return nil, errors.New("faied to get root cert")
+		}
+	} else {
+		var err error
+		ns, err = sc.generateSecret(ctx, token, resourceName, time.Now())
+		if err != nil {
+			log.Errorf("Failed to generate secret for proxy %q: %v", proxyID, err)
+			return nil, err
+		}
 	}
 
-	sc.secrets.Store(proxyID, *ns)
+	key := ConnKey{
+		ProxyID:      proxyID,
+		ResourceName: resourceName,
+	}
+	sc.secrets.Store(key, *ns)
 	return ns, nil
 }
 
 // SecretExist checks if secret already existed.
-func (sc *SecretCache) SecretExist(proxyID, spiffeID, token, version string) bool {
-	val, exist := sc.secrets.Load(proxyID)
+func (sc *SecretCache) SecretExist(proxyID, resourceName, token, version string) bool {
+	key := ConnKey{
+		ProxyID:      proxyID,
+		ResourceName: resourceName,
+	}
+	val, exist := sc.secrets.Load(key)
 	if !exist {
 		return false
 	}
 
 	e := val.(model.SecretItem)
-	if e.SpiffeID == spiffeID && e.Token == token && e.Version == version {
+	if e.ResourceName == resourceName && e.Token == token && e.Version == version {
 		return true
 	}
 
@@ -152,15 +217,22 @@ func (sc *SecretCache) keyCertRotationJob() {
 func (sc *SecretCache) rotate(t time.Time) {
 	log.Debug("Refresh job running")
 
-	sc.secrets.Range(func(key interface{}, value interface{}) bool {
-		proxyID := key.(string)
+	sc.secrets.Range(func(k interface{}, v interface{}) bool {
+		key := k.(ConnKey)
+
+		// skip the refresh if cached item is root cert.
+		if key.ResourceName == RootCertReqResourceName {
+			return true
+		}
+
+		proxyID := key.ProxyID
 		now := time.Now()
 
-		e := value.(model.SecretItem)
+		e := v.(model.SecretItem)
 
 		// Remove stale secrets from cache, this prevent the cache growing indefinitely.
 		if now.After(e.CreatedTime.Add(sc.evictionDuration)) {
-			sc.secrets.Delete(proxyID)
+			sc.secrets.Delete(key)
 			return true
 		}
 
@@ -168,11 +240,11 @@ func (sc *SecretCache) rotate(t time.Time) {
 		if sc.shouldRefresh(&e) {
 			go func() {
 				if sc.isTokenExpired(&e) {
-					log.Debugf("Token for %q expired", e.SpiffeID)
+					log.Debugf("Token for %q expired for proxy %q", e.ResourceName, proxyID)
 
 					if sc.notifyCallback != nil {
 						// Send the notification to close the stream connection if both cert and token have expired.
-						if err := sc.notifyCallback(proxyID, nil /*nil indicates close the streaming connection to proxy*/); err != nil {
+						if err := sc.notifyCallback(key.ProxyID, key.ResourceName, nil /*nil indicates close the streaming connection to proxy*/); err != nil {
 							log.Errorf("Failed to notify for proxy %q: %v", proxyID, err)
 						}
 					} else {
@@ -185,18 +257,18 @@ func (sc *SecretCache) rotate(t time.Time) {
 				// If token is still valid, re-generated the secret and push change to proxy.
 				// Most likey this code path may not necessary, since TTL of cert is much longer than token.
 				// When cert has expired, we could make it simple by assuming token has already expired.
-				ns, err := sc.generateSecret(context.Background(), e.Token, e.SpiffeID, now)
+				ns, err := sc.generateSecret(context.Background(), e.Token, e.ResourceName, now)
 				if err != nil {
 					log.Errorf("Failed to generate secret for proxy %q: %v", proxyID, err)
 					return
 				}
 
-				sc.secrets.Store(proxyID, *ns)
+				sc.secrets.Store(key, *ns)
 
 				atomic.AddUint64(&sc.secretChangedCount, 1)
 
 				if sc.notifyCallback != nil {
-					if err := sc.notifyCallback(proxyID, ns); err != nil {
+					if err := sc.notifyCallback(proxyID, key.ResourceName, ns); err != nil {
 						log.Errorf("Failed to notify secret change for proxy %q: %v", proxyID, err)
 					}
 				} else {
@@ -229,10 +301,25 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, spiffeID strin
 		return nil, err
 	}
 
+	certChain := []byte{}
+	for _, c := range certChainPEM {
+		certChain = append(certChain, []byte(c)...)
+	}
+
+	len := len(certChainPEM)
+	// Leaf cert is element '0'. Root cert is element 'n'.
+	if sc.rootCert == nil || bytes.Compare(sc.rootCert, []byte(certChainPEM[len-1])) != 0 {
+		sc.rootCertMutex.Lock()
+		sc.rootCert = []byte(certChainPEM[len-1])
+		sc.rootCertMutex.Unlock()
+
+		// TODO(quanlin): notify proxy about root cert change.
+	}
+
 	return &model.SecretItem{
-		CertificateChain: certChainPEM,
+		CertificateChain: certChain,
 		PrivateKey:       keyPEM,
-		SpiffeID:         spiffeID,
+		ResourceName:     spiffeID,
 		Token:            token,
 		CreatedTime:      t,
 		Version:          t.String(),

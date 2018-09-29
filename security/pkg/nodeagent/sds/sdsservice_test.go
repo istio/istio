@@ -30,10 +30,12 @@ import (
 	"google.golang.org/grpc/metadata"
 	"k8s.io/apimachinery/pkg/util/uuid"
 
+	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/istio/security/pkg/nodeagent/model"
 )
 
 var (
+	fakeRootCert         = []byte{00}
 	fakeCertificateChain = []byte{01}
 	fakePrivateKey       = []byte{02}
 
@@ -47,8 +49,14 @@ var (
 	fakeSecret = &model.SecretItem{
 		CertificateChain: fakeCertificateChain,
 		PrivateKey:       fakePrivateKey,
-		SpiffeID:         fakeSpiffeID,
+		ResourceName:     fakeSpiffeID,
 		Version:          time.Now().String(),
+	}
+
+	fakeSecretRootCert = &model.SecretItem{
+		RootCert:     fakeRootCert,
+		ResourceName: cache.RootCertReqResourceName,
+		Version:      time.Now().String(),
 	}
 )
 
@@ -98,6 +106,16 @@ func testHelper(t *testing.T, testSocket string, cb secretCallback) {
 		wait *= 2
 	}
 
+	// Request for root certificate.
+	rootCertReq := &api.DiscoveryRequest{
+		ResourceNames: []string{"ROOTCA"},
+		Node: &core.Node{
+			Id: proxyID,
+		},
+	}
+	resp, err := cb(testSocket, rootCertReq)
+	verifySDSSResponseForRootCert(t, resp, fakeRootCert)
+
 	t.Fatalf("failed to start grpc server for SDS")
 }
 
@@ -145,10 +163,10 @@ func TestStreamSecretsPush(t *testing.T) {
 	verifySDSSResponse(t, resp, fakePrivateKey, fakeCertificateChain)
 
 	// Test push new secret to proxy.
-	if err = NotifyProxy(proxyID, &model.SecretItem{
+	if err = NotifyProxy(proxyID, req.ResourceNames[0], &model.SecretItem{
 		CertificateChain: fakePushCertificateChain,
 		PrivateKey:       fakePushPrivateKey,
-		SpiffeID:         fakeSpiffeID,
+		ResourceName:     fakeSpiffeID,
 	}); err != nil {
 		t.Errorf("failed to send push notificiation to proxy %q", proxyID)
 	}
@@ -160,7 +178,7 @@ func TestStreamSecretsPush(t *testing.T) {
 	verifySDSSResponse(t, resp, fakePushPrivateKey, fakePushCertificateChain)
 
 	// Test push nil secret(indicates close the streaming connection) to proxy.
-	if err = NotifyProxy(proxyID, nil); err != nil {
+	if err = NotifyProxy(proxyID, req.ResourceNames[0], nil); err != nil {
 		t.Errorf("failed to send push notificiation to proxy %q", proxyID)
 	}
 	if _, err = stream.Recv(); err == nil {
@@ -190,6 +208,29 @@ func verifySDSSResponse(t *testing.T, resp *api.DiscoveryResponse, expectedPriva
 				PrivateKey: &core.DataSource{
 					Specifier: &core.DataSource_InlineBytes{
 						InlineBytes: expectedPrivateKey,
+					},
+				},
+			},
+		},
+	}
+	if !reflect.DeepEqual(pb, expectedResponseSecret) {
+		t.Errorf("secret key: got %+v, want %+v", pb, expectedResponseSecret)
+	}
+}
+
+func verifySDSSResponseForRootCert(t *testing.T, resp *api.DiscoveryResponse, expectedRootCert []byte) {
+	var pb authapi.Secret
+	if err := types.UnmarshalAny(&resp.Resources[0], &pb); err != nil {
+		t.Fatalf("UnmarshalAny SDS response failed: %v", err)
+	}
+
+	expectedResponseSecret := authapi.Secret{
+		Name: "ROOTCA",
+		Type: &authapi.Secret_ValidationContext{
+			ValidationContext: &authapi.CertificateValidationContext{
+				TrustedCa: &core.DataSource{
+					Specifier: &core.DataSource_InlineBytes{
+						InlineBytes: expectedRootCert,
 					},
 				},
 			},
@@ -262,18 +303,22 @@ func setupConnection(socket string) (*grpc.ClientConn, error) {
 type mockSecretStore struct {
 }
 
-func (*mockSecretStore) GenerateSecret(ctx context.Context, proxyID, spiffeID, token string) (*model.SecretItem, error) {
+func (*mockSecretStore) GenerateSecret(ctx context.Context, proxyID, resourceName, token string) (*model.SecretItem, error) {
 	if token != fakeCredentialToken {
 		return nil, fmt.Errorf("unexpected token %q", token)
 	}
 
-	if spiffeID != fakeSpiffeID {
-		return nil, fmt.Errorf("unexpected spiffeID %q", spiffeID)
+	if resourceName == fakeSpiffeID {
+		return fakeSecret, nil
 	}
 
-	return fakeSecret, nil
+	if resourceName == cache.RootCertReqResourceName {
+		return fakeSecretRootCert, nil
+	}
+
+	return nil, fmt.Errorf("unexpected resourceName %q", resourceName)
 }
 
 func (*mockSecretStore) SecretExist(proxyID, spiffeID, token, version string) bool {
-	return spiffeID == fakeSecret.SpiffeID && token == fakeSecret.Token && version == fakeSecret.Version
+	return spiffeID == fakeSecret.ResourceName && token == fakeSecret.Token && version == fakeSecret.Version
 }
