@@ -106,6 +106,10 @@ global:
   # propagated, not recommended for tests.
   controlPlaneSecurityEnabled: false
 
+  # SDS enabled. IF set to true, mTLS certificates for the sidecars will be 
+  # distributed through the SecretDiscoveryService instead of using K8S secrets to mount the certificates.
+  sdsEnabled: false
+
   # disablePolicyChecks disables mixer policy checks.
   # Will set the value with same name in istio config map - pilot needs to be restarted to take effect.
   disablePolicyChecks: false
