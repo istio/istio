@@ -34,8 +34,6 @@ spec:
           - ingress
           - --log_output_level
           - 'info'
-          - --discoveryRefreshDelay
-          - '1s' #discoveryRefreshDelay
           - --drainDuration
           - '45s' #drainDuration
           - --parentShutdownDuration

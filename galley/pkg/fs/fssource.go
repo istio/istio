@@ -1,4 +1,4 @@
-//  Copyright 2018 Istio Authors
+// Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -207,11 +207,8 @@ func (s *fsSource) initialCheck() {
 
 // Stop implements runtime.Source
 func (s *fsSource) Stop() {
-	s.fileResorceKeys = nil
-	s.shas = nil
 	close(s.donec)
 	s.watcher.Close()
-	s.donec = nil
 }
 
 func (s *fsSource) process(eventKind resource.EventKind, key, resourceKind string, r *istioResource) {

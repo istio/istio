@@ -30,8 +30,7 @@ type Wrapper struct {
 // MarshalJSON is a custom marshaller to handle protobuf pain
 func (w *Wrapper) MarshalJSON() ([]byte, error) {
 	buffer := &bytes.Buffer{}
-	jsonm := &jsonpb.Marshaler{}
-	err := jsonm.Marshal(buffer, w)
+	err := (&jsonpb.Marshaler{}).Marshal(buffer, w)
 	if err != nil {
 		return nil, err
 	}
@@ -40,11 +39,8 @@ func (w *Wrapper) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON is a custom unmarshaller to handle protobuf pain
 func (w *Wrapper) UnmarshalJSON(b []byte) error {
-	buf := bytes.NewBuffer(b)
-	jsonum := &jsonpb.Unmarshaler{}
 	cd := &adminapi.ConfigDump{}
-	err := jsonum.Unmarshal(buf, cd)
+	err := (&jsonpb.Unmarshaler{AllowUnknownFields: true}).Unmarshal(bytes.NewReader(b), cd)
 	*w = Wrapper{cd}
 	return err
-
 }

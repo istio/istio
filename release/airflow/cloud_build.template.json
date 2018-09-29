@@ -1,15 +1,16 @@
 {
   "steps": [
     {
-      "volumes": [
-	{
-          "name": "buildoutput",
-          "path": "/output"
-	}
-      ],
-      "name": "gcr.io/istio-testing/istio-builder:0.5.7",
-      "args": [ "-c", "repo init -u \"$_MFEST_URL\" -m \"$_MFEST_FILE\" -b \"$_MFEST_VER\" && repo sync && cp .repo/manifest.xml /output/ && echo \"$_MFEST_VER\" > /output/green_build_sha.txt" ],
-      "entrypoint": "bash"
+      "name": "gcr.io/istio-testing/istio-builder:0.5.10",
+      "args": [ "gsutil", "cp", "gs://$_GCS_RELEASE_TOOLS_PATH/istio_checkout_code.sh", "." ]
+    },
+    {
+      "name": "gcr.io/istio-testing/istio-builder:0.5.10",
+      "args": [ "chmod", "u+x", "./istio_checkout_code.sh" ]
+    },
+    {
+      "name": "gcr.io/istio-testing/istio-builder:0.5.10",
+      "args": [ "./istio_checkout_code.sh", "-b", "$_BRANCH", "-r", "$_GCS_RELEASE_TOOLS_PATH" ]
     },
     {
       "volumes": [
@@ -18,7 +19,7 @@
           "path": "/output"
 	}
       ],
-      "name": "gcr.io/istio-testing/istio-builder:0.5.7",
+      "name": "gcr.io/istio-testing/istio-builder:0.5.10",
       "dir": "go/src/istio.io/istio",
       "args": [ "./release/cloud_builder.sh", "-p", "$_GCS_PATH", "-q", "$_GCR_PATH", "-t", "$_VER_STRING", "-o", "/output" ]
     },
@@ -29,7 +30,7 @@
           "path": "/output"
         }
       ],
-      "name": "gcr.io/istio-testing/istio-builder:0.5.7",
+      "name": "gcr.io/istio-testing/istio-builder:0.5.10",
       "dir": "go/src/istio.io/istio",
       "args": [ "./release/store_artifacts.sh", "-p", "$_GCS_PATH", "-q", "$_GCR_PATH", "-v", "$_VER_STRING", "-o", "/output" ]
     }

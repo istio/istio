@@ -25,13 +25,13 @@ airflow_fixed_config = dict(
     GITHUB_REPO='istio',
     MFEST_FILE='build.xml',
     MFEST_URL='https://github.com/istio/green-builds',
-    PROJECT_ID='istio-release',
+    PROJECT_ID='istio-io',
     SVC_ACCT='202987436673-compute@developer.gserviceaccount.com',
     TOKEN_FILE='/var/run/secrets/kubernetes.io/serviceaccount/tokenFile')
 
 
 def GetDefaultAirflowConfig(branch, gcs_path, mfest_commit, pipeline_type,
-			verify_consistency, version):
+			verify_consistency, version, commit):
   """Return a dict of the configuration for the Pipeline."""
   config = dict(airflow_fixed_config)
 
@@ -42,6 +42,11 @@ def GetDefaultAirflowConfig(branch, gcs_path, mfest_commit, pipeline_type,
   config['PIPELINE_TYPE']      = pipeline_type
   config['VERIFY_CONSISTENCY'] = verify_consistency
   config['VERSION']            = version
+  # MFEST_COMMIT was used for green build, we are transitioning away from it
+  # COMMIT is being used for istio/istio commit sha or to specify branch
+  # if it specifies branch the of that branch is used to build
+  config['COMMIT']             = commit
+
 
 
   # derivative and more convoluted config
@@ -62,5 +67,5 @@ def GetDefaultAirflowConfig(branch, gcs_path, mfest_commit, pipeline_type,
 def GetDefaultAirflowConfigKeys():
   """Return a list of the keys of configuration for the Pipeline."""
   dc = GetDefaultAirflowConfig(branch="", gcs_path="", mfest_commit="", pipeline_type="",
-			verify_consistency="", version="")
+			verify_consistency="", version="", commit="")
   return list(dc.keys())
