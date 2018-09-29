@@ -549,7 +549,6 @@ kiali:
   replicaCount: 1
   hub: docker.io/kiali
   tag: v0.6
-  gatewayName: ingressgateway
   ingress:
     enabled: false
     ## Used to create an Ingress record.
