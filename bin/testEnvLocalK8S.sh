@@ -311,10 +311,11 @@ set +xe
 case "$1" in
     start) startLocalApiserver ;;
     stop) stopLocalApiserver ;;
+    ensure) ensureLocalApiServer ;;
     startIstio) startIstio ;;
     stopIstio) stopIstio ;;
     startMultiCluster) startMultiCluster ;;
     stopMultiCluster) stopMultiCluster ;;
-    ensure) ensureLocalApiServer ;;
+    getDeps) getDeps ;;
     *) echo "start stop ensure"
 esac
