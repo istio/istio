@@ -66,7 +66,7 @@ func (c *component) Init(ctx environment.ComponentContext, _ map[dependency.Inst
 
 		// In Minikube, we don't have the ingress gateway. Instead we do a little bit of trickery to to get the Node
 		// port.
-		if env.KubeSettings().NoIngress {
+		if env.KubeSettings().MinikubeIngress {
 			pods, err := env.Accessor.GetPods(env.KubeSettings().IstioSystemNamespace, "istio=ingressgateway")
 			if err != nil {
 				return nil, false, err

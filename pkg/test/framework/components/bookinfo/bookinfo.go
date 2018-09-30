@@ -71,12 +71,12 @@ func (b *bookInfo) Deploy() error {
 		Tag:        b.env.KubeSettings().Tag,
 		Hub:        b.env.KubeSettings().Hub,
 	},
-		deployment.VariantBookInfo,
+		deployment.BookInfoConfig,
 		b.env.Accessor,
 	)
 
 	if err != nil {
-		return fmt.Errorf("BookInfo deployment failed: %v", err) // nolint:golint
+		return fmt.Errorf("BookInfoConfig deployment failed: %v", err) // nolint:golint
 	}
 
 	return nil

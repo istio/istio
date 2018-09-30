@@ -16,6 +16,8 @@ package test
 
 import "strings"
 
+const separator = "\n---\n"
+
 // JoinConfigs merges the given config snippets together
 func JoinConfigs(parts ...string) string {
 	// remove empty strings
@@ -25,10 +27,10 @@ func JoinConfigs(parts ...string) string {
 			tmp = append(tmp, p)
 		}
 	}
-	return strings.Join(tmp, "\n---\n")
+	return strings.Join(tmp, separator)
 }
 
 // SplitConfigs splits config into chunks, based on the "---" separator.
 func SplitConfigs(cfg string) []string {
-	return strings.Split(cfg, "\n---\n")
+	return strings.Split(cfg, separator)
 }

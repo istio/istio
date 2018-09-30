@@ -10,7 +10,7 @@ _INTEGRATION_TEST_LOGGING_FLAG =
 _INTEGRATION_TEST_INGRESS_FLAG =
 ifneq ($(CI),)
     _INTEGRATION_TEST_LOGGING_FLAG = --log_output_level CI:info
-    _INTEGRATION_TEST_INGRESS_FLAG = --istio.test.kube.noingress
+    _INTEGRATION_TEST_INGRESS_FLAG = --istio.test.kube.minikubeingress
 endif
 
 

@@ -22,22 +22,22 @@ import (
 	"istio.io/istio/pkg/test/kube"
 )
 
-type bookInfoVariant string
+type bookInfoConfig string
 
 const (
-	// VariantBookInfo uses the default BookInfo variant in "bookinfo.yaml"
-	VariantBookInfo bookInfoVariant = "bookinfo.yaml"
+	// BookInfoConfig uses "bookinfo.yaml"
+	BookInfoConfig bookInfoConfig = "bookinfo.yaml"
 )
 
-// NewBookInfo deploys BookInfo.
-func NewBookInfo(s *Settings, variant bookInfoVariant, a *kube.Accessor) (instance *Instance, err error) {
-	scopes.CI.Info("=== BEGIN: Deploy BookInfo (via Yaml File) ===")
+// NewBookInfo deploys BookInfoConfig.
+func NewBookInfo(s *Settings, variant bookInfoConfig, a *kube.Accessor) (instance *Instance, err error) {
+	scopes.CI.Info("=== BEGIN: Deploy BookInfoConfig (via Yaml File) ===")
 	defer func() {
 		if err != nil {
 			instance = nil
-			scopes.CI.Infof("=== FAILED: Deploy BookInfo ===")
+			scopes.CI.Infof("=== FAILED: Deploy BookInfoConfig ===")
 		} else {
-			scopes.CI.Infof("=== SUCCEEDED: Deploy BookInfo ===")
+			scopes.CI.Infof("=== SUCCEEDED: Deploy BookInfoConfig ===")
 		}
 	}()
 

@@ -40,12 +40,12 @@ func ApplyContents(kubeconfig string, namespace string, contents string) error {
 
 // Apply the config in the given filename using kubectl.
 func Apply(kubeconfig string, namespace string, filename string) error {
-	namespacePart := ""
+	namespaceArg := ""
 	if namespace != "" {
-		namespacePart = fmt.Sprintf(" -n %s", namespace)
+		namespaceArg = fmt.Sprintf(" -n %s", namespace)
 	}
 
-	s, err := shell.Execute("kubectl apply --kubeconfig=%s%s -f %s", kubeconfig, namespacePart, filename)
+	s, err := shell.Execute("kubectl apply --kubeconfig=%s%s -f %s", kubeconfig, namespaceArg, filename)
 	if err == nil {
 		return nil
 	}
@@ -55,12 +55,12 @@ func Apply(kubeconfig string, namespace string, filename string) error {
 
 // Delete the config in the given filename using kubectl.
 func Delete(kubeconfig string, namespace string, filename string) error {
-	namespacePart := ""
+	namespaceArg := ""
 	if namespace != "" {
-		namespacePart = fmt.Sprintf(" -n %s", namespace)
+		namespaceArg = fmt.Sprintf(" -n %s", namespace)
 	}
 
-	s, err := shell.Execute("kubectl delete --kubeconfig=%s%s -f %s", kubeconfig, namespacePart, filename)
+	s, err := shell.Execute("kubectl delete --kubeconfig=%s%s -f %s", kubeconfig, namespaceArg, filename)
 	if err == nil {
 		return nil
 	}
