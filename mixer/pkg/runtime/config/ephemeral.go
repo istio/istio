@@ -210,6 +210,10 @@ func (e *Ephemeral) processAttributeManifests(ctx context.Context, errs *multier
 	// using the $out.<field Name> convention, where $out refers to the output object from the attribute generating adapter.
 	// The list of valid names for a given Template is available in the Template.Info.AttributeManifests object.
 	for _, info := range e.templates {
+		if info.Variety != v1beta1.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR {
+			continue
+		}
+
 		log.Debugf("Processing attributes from template: '%s'", info.Name)
 
 		for _, v := range info.AttributeManifests {
@@ -666,6 +670,7 @@ func (e *Ephemeral) processRuleConfigs(
 				action := &ActionStatic{
 					Handler:   sahandler,
 					Instances: actionInstances,
+					Name:      a.Name,
 				}
 
 				actionsStat = append(actionsStat, action)
@@ -724,6 +729,7 @@ func (e *Ephemeral) processRuleConfigs(
 				action := &ActionDynamic{
 					Handler:   dahandler,
 					Instances: actionInstances,
+					Name:      a.Name,
 				}
 
 				actionsDynamic = append(actionsDynamic, action)
@@ -742,6 +748,8 @@ func (e *Ephemeral) processRuleConfigs(
 			ActionsStatic:  actionsStat,
 			ActionsDynamic: actionsDynamic,
 			Match:          cfg.Match,
+			RequestHeaderOperations:  cfg.RequestHeaderOperations,
+			ResponseHeaderOperations: cfg.ResponseHeaderOperations,
 		}
 
 		rules = append(rules, rule)

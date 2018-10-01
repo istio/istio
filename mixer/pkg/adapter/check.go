@@ -20,6 +20,7 @@ import (
 
 	rpc "github.com/gogo/googleapis/google/rpc"
 
+	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/status"
 )
 
@@ -31,6 +32,8 @@ type CheckResult struct {
 	ValidDuration time.Duration
 	// ValidUseCount represents the number of uses for which this result can be considered valid.
 	ValidUseCount int32
+	// RouteDirective represents the route directive return result
+	RouteDirective *mixerpb.RouteDirective
 }
 
 // IsDefault returns true if the CheckResult is in its zero state

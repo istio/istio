@@ -74,6 +74,9 @@ type Value struct {
 
 	// ReferencedAttributes for the Check operation
 	ReferencedAttributes mixerpb.ReferencedAttributes
+
+	// RouteDirective for the completed Check operation
+	RouteDirective mixerpb.RouteDirective
 }
 
 var (

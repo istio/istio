@@ -101,6 +101,7 @@ func (s *grpcServer) Check(ctx context.Context, req *mixerpb.CheckRequest) (*mix
 					ValidDuration:        value.Expiration.Sub(time.Now()),
 					ValidUseCount:        value.ValidUseCount,
 					ReferencedAttributes: &value.ReferencedAttributes,
+					RouteDirective:       &value.RouteDirective,
 				},
 			}
 
@@ -166,17 +167,24 @@ func (s *grpcServer) check(ctx context.Context, req *mixerpb.CheckRequest,
 			ValidUseCount:        cr.ValidUseCount,
 			Status:               cr.Status,
 			ReferencedAttributes: protoBag.GetReferencedAttributes(s.globalDict, globalWordCount),
+			RouteDirective:       cr.RouteDirective,
 		},
 	}
 
 	if s.cache != nil {
 		// keep this for later...
+		var directive mixerpb.RouteDirective
+		if cr.RouteDirective != nil {
+			directive = *cr.RouteDirective
+		}
+
 		s.cache.Set(protoBag, checkcache.Value{
 			StatusCode:           resp.Precondition.Status.Code,
 			StatusMessage:        resp.Precondition.Status.Message,
 			Expiration:           time.Now().Add(resp.Precondition.ValidDuration),
 			ValidUseCount:        resp.Precondition.ValidUseCount,
 			ReferencedAttributes: *resp.Precondition.ReferencedAttributes,
+			RouteDirective:       directive,
 		})
 	}
 
