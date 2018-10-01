@@ -87,7 +87,13 @@ func TestBuffered_Send(t *testing.T) {
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
 			env = test.NewEnv(t)
-			b = buffered{l: env, pushMetrics: tt.fn, timeSeriesBatchSize: 100, retryLimit: 1, retryBuffer: []*monitoring.TimeSeries{}, pushInterval: 100 * time.Millisecond}
+			b = buffered{
+				l: env, pushMetrics: tt.fn,
+				timeSeriesBatchSize: 100,
+				retryLimit:          1,
+				retryBuffer:         []*monitoring.TimeSeries{},
+				pushInterval:        100 * time.Millisecond,
+			}
 			b.Record(tt.in)
 			b.Send()
 			found := false
