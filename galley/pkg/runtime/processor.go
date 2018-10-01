@@ -179,6 +179,5 @@ func (p *Processor) processEvent(e resource.Event) bool {
 func (p *Processor) publish() {
 	sn := p.state.buildSnapshot()
 
-	// TODO: Set the appropriate name for publishing
 	p.distributor.SetSnapshot(snapshot.DefaultGroup, sn)
 }

@@ -40,23 +40,23 @@ type Cache struct {
 	status     map[string]*StatusInfo
 	watchCount int64
 
-	groupIndex GroupIndex
+	groupIndex GroupIndexFn
 }
 
-// GroupIndex returns a stable group index for the given MCP client.
-type GroupIndex func(client *mcp.Client) string
+// GroupIndexFn returns a stable group index for the given MCP client.
+type GroupIndexFn func(client *mcp.Client) string
 
 // DefaultGroup is the default group when using the DefaultGroupIndex() function.
 const DefaultGroup = "default"
 
-// DefaultGroupIndex provides a default GroupIndex function that
+// DefaultGroupIndex provides a default GroupIndexFn function that
 // is usable for testing and simple deployments.
 func DefaultGroupIndex(_ *mcp.Client) string {
 	return DefaultGroup
 }
 
 // New creates a new cache of resource snapshots.
-func New(groupIndex GroupIndex) *Cache {
+func New(groupIndex GroupIndexFn) *Cache {
 	return &Cache{
 		snapshots:  make(map[string]Snapshot),
 		status:     make(map[string]*StatusInfo),
@@ -216,8 +216,8 @@ func (c *Cache) ClearStatus(group string) {
 
 // Status returns informational status for a group.
 func (c *Cache) Status(group string) *StatusInfo {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	if info, ok := c.status[group]; ok {
 		return info
 	}
