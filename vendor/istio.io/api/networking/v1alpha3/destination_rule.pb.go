@@ -30,7 +30,8 @@
 		TLSRoute
 		TCPRoute
 		HTTPMatchRequest
-		DestinationWeight
+		HTTPRouteDestination
+		RouteDestination
 		L4MatchAttributes
 		TLSMatchAttributes
 		HTTPRedirect
