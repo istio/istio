@@ -15,7 +15,6 @@
 package store
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -36,6 +35,7 @@ func getTempFSStore2() (*fsStore, string) {
 }
 
 func cleanupRootIfOK(t *testing.T, fsroot string) {
+	t.Helper()
 	if t.Failed() {
 		t.Errorf("Test failed. The data remains at %s", fsroot)
 		return
@@ -298,6 +298,7 @@ func TestFSStore2MissingRoot(t *testing.T) {
 }
 
 func TestFSStore2Robust(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/9032")
 	const ns = "testing"
 	const tmpl = `
 kind: %s
@@ -312,13 +313,6 @@ spec:
 		title   string
 		prepare func(fsroot string) error
 	}{
-		{
-			"wrong permission",
-			func(fsroot string) error {
-				path := filepath.Join(fsroot, "aa.yaml")
-				return ioutil.WriteFile(path, []byte(fmt.Sprintf(tmpl, "Handler", "aa", "foo: bar\n")), 0300)
-			},
-		},
 		{
 			"illformed yaml",
 			func(fsroot string) error {
@@ -360,7 +354,7 @@ spec:
 			want := map[Key]*BackEndResource{k: {Spec: data}}
 			got := s.List()
 			if len(got) != len(want) {
-				tt.Fatalf("data length does not match, want %d, got %d", len(got), len(want))
+				tt.Fatalf("data length does not match, got %d, want %d", len(got), len(want))
 			}
 			for k, v := range got {
 				vwant := want[k]

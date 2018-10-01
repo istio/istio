@@ -56,7 +56,7 @@ func convertDuration(d *types.Duration) time.Duration {
 	return dur
 }
 
-func args(config *meshconfig.ProxyConfig, node, fname string, epoch int, cliarg []string) []string {
+func createArgs(config *meshconfig.ProxyConfig, node, fname string, epoch int, cliarg []string) []string {
 	startupArgs := []string{"-c", fname,
 		"--restart-epoch", fmt.Sprint(epoch),
 		"--drain-time-s", fmt.Sprint(int(convertDuration(config.DrainDuration) / time.Second)),
@@ -85,7 +85,7 @@ func RunProxy(config *meshconfig.ProxyConfig, node string, epoch int, configFnam
 	outWriter io.Writer, errWriter io.Writer, cliarg []string) (*os.Process, error) {
 
 	// spin up a new Envoy process
-	args := args(config, node, configFname, epoch, cliarg)
+	args := createArgs(config, node, configFname, epoch, cliarg)
 	args = append(args, "--v2-config-only")
 
 	/* #nosec */
