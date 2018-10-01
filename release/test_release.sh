@@ -63,10 +63,6 @@ done
 githubctl_setup
 github_keys
 
-git config --global user.name "TestRunnerBot"
-git config --global user.email "testrunner@istio.io"
-
-
 "$githubctl" \
     --token_file="$GITHUB_KEYFILE" \
     --op=dailyRelQual \
