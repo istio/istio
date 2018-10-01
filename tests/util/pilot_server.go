@@ -15,6 +15,7 @@
 package util
 
 import (
+	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -58,10 +59,19 @@ var (
 	stop chan struct{}
 )
 
+// CloserFunc is a type used to describe pilot server closer
+// which implements io.Closer
+type CloserFunc func() error
+
+//Close is used to shutdown pilot server
+func (f CloserFunc) Close() error {
+	return f()
+}
+
 // EnsureTestServer will ensure a pilot server is running in process and initializes
 // the MockPilotUrl and MockPilotGrpcAddr to allow connections to the test pilot.
-func EnsureTestServer(args ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, func()) {
-	var cancel func()
+func EnsureTestServer(args ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, io.Closer) {
+	var cancel io.Closer
 	var err error
 	if MockTestServer == nil {
 		cancel, err = setup(args...)
@@ -73,7 +83,7 @@ func EnsureTestServer(args ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, fu
 	return MockTestServer, cancel
 }
 
-func setup(additionalArgs ...func(*bootstrap.PilotArgs)) (func(), error) {
+func setup(additionalArgs ...func(*bootstrap.PilotArgs)) (io.Closer, error) {
 	// TODO: point to test data directory
 	// Setting FileDir (--configDir) disables k8s client initialization, including for registries,
 	// and uses a 100ms scan. Must be used with the mock registry (or one of the others)
@@ -171,6 +181,5 @@ func setup(additionalArgs ...func(*bootstrap.PilotArgs)) (func(), error) {
 		}
 		return false, nil
 	})
-
-	return func() { close(stop) }, err
+	return CloserFunc(func() error { close(stop); return nil }), err
 }

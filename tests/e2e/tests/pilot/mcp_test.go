@@ -16,6 +16,7 @@ package pilot
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -48,8 +49,8 @@ func TestPilotMCPClient(t *testing.T) {
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	defer mcpServer.Close()
 
-	stopPilot := initLocalPilotTestEnv(t, mcpServerAddr, pilotGrpcPort, pilotDebugPort)
-	defer stopPilot()
+	pilot := initLocalPilotTestEnv(t, mcpServerAddr, pilotGrpcPort, pilotDebugPort)
+	defer pilot.Close()
 
 	g.Eventually(func() (string, error) {
 		return curlPilot(fmt.Sprintf("http://127.0.0.1:%d/debug/configz", pilotDebugPort))
@@ -111,7 +112,7 @@ func runEnvoy(t *testing.T, grpcPort, debugPort uint16) *mixerEnv.TestSetup {
 	return gateway
 }
 
-func initLocalPilotTestEnv(t *testing.T, mcpAddr string, grpcPort, debugPort int) func() {
+func initLocalPilotTestEnv(t *testing.T, mcpAddr string, grpcPort, debugPort int) io.Closer {
 	mixerEnv.NewTestSetup(mixerEnv.PilotMCPTest, t)
 	debugAddr := fmt.Sprintf("127.0.0.1:%d", debugPort)
 	grpcAddr := fmt.Sprintf("127.0.0.1:%d", grpcPort)
