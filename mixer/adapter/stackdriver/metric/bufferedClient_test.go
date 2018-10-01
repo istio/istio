@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
@@ -49,7 +50,7 @@ func TestBuffered_Record(t *testing.T) {
 
 func TestBuffered_Send(t *testing.T) {
 	env := test.NewEnv(t)
-	b := buffered{l: env, timeSeriesBatchSize: 100, retryLimit: 1, retryBuffer: map[uint64]retryTimeSeries{}}
+	b := buffered{l: env, timeSeriesBatchSize: 100, retryLimit: 1, retryBuffer: []*monitoring.TimeSeries{}, pushInterval: 100 * time.Millisecond}
 
 	// We'll panic if we call the pushMetrics fn
 	panicFn := func(ctx xcontext.Context, req *monitoring.CreateTimeSeriesRequest, opts ...gax.CallOption) error {
@@ -86,7 +87,7 @@ func TestBuffered_Send(t *testing.T) {
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
 			env = test.NewEnv(t)
-			b = buffered{l: env, pushMetrics: tt.fn, timeSeriesBatchSize: 100, retryLimit: 1, retryBuffer: map[uint64]retryTimeSeries{}}
+			b = buffered{l: env, pushMetrics: tt.fn, timeSeriesBatchSize: 100, retryLimit: 1, retryBuffer: []*monitoring.TimeSeries{}, pushInterval: 100 * time.Millisecond}
 			b.Record(tt.in)
 			b.Send()
 			found := false
@@ -121,13 +122,41 @@ func TestBuffered_BatchSend(t *testing.T) {
 				pushTimes++
 				return nil
 			}
-			b := buffered{l: env, pushMetrics: pushFunc, timeSeriesBatchSize: tt.batchSize}
+			b := buffered{l: env, pushMetrics: pushFunc, timeSeriesBatchSize: tt.batchSize, pushInterval: 100 * time.Millisecond}
 			b.Record(in)
 			b.Send()
 			if pushTimes != tt.pushTimes {
 				t.Errorf("pushMetrics is called with unexpected times. got %v want %v", pushTimes, tt.pushTimes)
 			}
 		})
+	}
+}
+
+func TestBuffered_SpreadPush(t *testing.T) {
+	in := []*monitoring.TimeSeries{makeTS(m1, mr1, 1, 1), makeTS(m2, mr2, 1, 1), makeTS(m3, mr3, 1, 1)}
+	l := test.NewEnv(t).Logger()
+	pushTimes := 0
+	pushFunc := func(ctx xcontext.Context, req *monitoring.CreateTimeSeriesRequest, opts ...gax.CallOption) error {
+		pushTimes++
+		return nil
+	}
+	b := buffered{
+		l:                   l,
+		pushMetrics:         pushFunc,
+		timeSeriesBatchSize: 1,
+		retryBuffer:         []*monitoring.TimeSeries{},
+		pushInterval:        1 * time.Second,
+	}
+
+	start := time.Now()
+	b.Record(in)
+	b.Send()
+	d := time.Since(start)
+	if d < 500*time.Millisecond {
+		t.Errorf("Duration for send %v is too short, Expect it last at least half second", d)
+	}
+	if pushTimes != 3 {
+		t.Errorf("pushMetrics is called with unexpected times. got %v want 3", pushTimes)
 	}
 }
 
@@ -212,7 +241,7 @@ func createRetryPushFn(pushCount *int, expReqTS [][]*monitoring.TimeSeries, with
 }
 
 func TestBuffered_Retry(t *testing.T) {
-	in := []*monitoring.TimeSeries{makeTS(m1, mr1, 1, 1), makeTS(m2, mr2, 1, 1), makeTS(m3, mr3, 1, 1)}
+	in := []*monitoring.TimeSeries{makeTS(m1, mr1, 1, 1), makeTS(m2, mr2, 2, 1), makeTS(m3, mr3, 3, 1)}
 	tests := []struct {
 		name        string
 		pushCount   int
@@ -256,7 +285,9 @@ func TestBuffered_Retry(t *testing.T) {
 				pushMetrics:         createRetryPushFn(&pushCount, tt.requestTS, tt.withError, tt.failedTS, nil, tt.overallCode, t),
 				timeSeriesBatchSize: 100,
 				retryLimit:          5,
-				retryBuffer:         map[uint64]retryTimeSeries{},
+				retryBuffer:         []*monitoring.TimeSeries{},
+				retryCounter:        map[uint64]int{},
+				pushInterval:        100 * time.Millisecond,
 			}
 			b.Record(in)
 			b.Send()
@@ -270,30 +301,32 @@ func TestBuffered_Retry(t *testing.T) {
 	}
 }
 
-func TestBuffered_RetryMerge(t *testing.T) {
+func TestBuffered_RetryCombine(t *testing.T) {
 	in := []*monitoring.TimeSeries{makeTS(m1, mr1, 1, 1), makeTS(m2, mr2, 1, 1), makeTS(m3, mr3, 1, 1)}
 	in2 := []*monitoring.TimeSeries{makeTS(m1, mr1, 2, 1), makeTS(m2, mr2, 2, 1)}
 	pushCount := 0
-	l := test.NewEnv(t).Logger()
-	requestTS := [][]*monitoring.TimeSeries{in, in, merge(append(in, in2...), l)}
-	failedTS := [][]*monitoring.TimeSeries{in, in, {}}
-	// Make retry also fails. Points should be merged with newer timeseries.
-	withError := []bool{true, true, false}
+	requestTS := [][]*monitoring.TimeSeries{in, append(in, in2...)}
+	failedTS := [][]*monitoring.TimeSeries{in, {}}
+	// Make first push fail. Retry timeSeries should be combined with newer timeseries.
+	withError := []bool{true, false}
+	env := test.NewEnv(t)
 	b := buffered{
-		l:                   l,
+		l:                   env,
 		pushMetrics:         createRetryPushFn(&pushCount, requestTS, withError, failedTS, nil, codes.Internal, t),
 		timeSeriesBatchSize: 100,
 		retryLimit:          5,
-		retryBuffer:         map[uint64]retryTimeSeries{},
+		retryBuffer:         []*monitoring.TimeSeries{},
+		retryCounter:        map[uint64]int{},
+		pushInterval:        100 * time.Millisecond,
 	}
 	b.Record(in)
 	b.Send()
 
-	// Call record and send again with some newer timeseries. Timeseries which fail the retry should be merged with the newer timeseries.
+	// Call record and send again with some newer timeseries. Retry buffer should be combined with normal buffer.
 	b.Record(in2)
 	b.Send()
-	if pushCount != 3 {
-		t.Errorf("push call count is not expected, got %v want 3", pushCount)
+	if pushCount != 2 {
+		t.Errorf("push call count is not expected, got %v want 2", pushCount)
 	}
 }
 
@@ -314,16 +347,18 @@ func TestBuffered_RetryMaxAttempt(t *testing.T) {
 		pushMetrics:         createRetryPushFn(&pushCount, requestTS, withError, failedTS, nil, codes.Internal, t),
 		timeSeriesBatchSize: 100,
 		retryLimit:          2,
-		retryBuffer:         map[uint64]retryTimeSeries{},
+		retryBuffer:         []*monitoring.TimeSeries{},
+		retryCounter:        map[uint64]int{},
+		pushInterval:        100 * time.Millisecond,
 	}
 	b.Record(in)
 	// Call Send() for lots of times. Push should just be called with limited times.
-	// In this case, push was called 5 times: 2 times because of retry and 3 times because of normal send.
+	// In this case, push was called 3 times.
 	for i := 0; i < 15; i++ {
 		b.Send()
 	}
-	if pushCount != 5 {
-		t.Errorf("push call count is not expected, got %v want 5", pushCount)
+	if pushCount != 3 {
+		t.Errorf("push call count is not expected, got %v want 3", pushCount)
 	}
 }
 
@@ -341,7 +376,9 @@ func TestBuffered_IgnoreInvalidArguments(t *testing.T) {
 		pushMetrics:         createRetryPushFn(&pushCount, requestTS, withError, failedTS, errorMessage, codes.Internal, t),
 		timeSeriesBatchSize: 100,
 		retryLimit:          5,
-		retryBuffer:         map[uint64]retryTimeSeries{},
+		retryBuffer:         []*monitoring.TimeSeries{},
+		retryCounter:        map[uint64]int{},
+		pushInterval:        100 * time.Millisecond,
 	}
 	b.Record(in)
 	b.Send()

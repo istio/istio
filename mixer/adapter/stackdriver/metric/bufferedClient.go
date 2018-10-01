@@ -16,6 +16,9 @@ package metric
 
 import (
 	"context"
+	"encoding/binary"
+	"fmt"
+	"hash/fnv"
 	"io"
 	"sync"
 	"time"
@@ -35,12 +38,6 @@ type bufferedClient interface {
 	Record([]*monitoringpb.TimeSeries)
 }
 
-type retryTimeSeries struct {
-	// How many times the time series has been retried.
-	attempt int
-	ts      *monitoringpb.TimeSeries
-}
-
 // A wrapper around the stackdriver client SDK that handles batching data before sending.
 type buffered struct {
 	project     string
@@ -52,10 +49,16 @@ type buffered struct {
 	// Guards buffer
 	m      sync.Mutex
 	buffer []*monitoringpb.TimeSeries
-	// Retry buffer is keyed by hash(metric name, monitored resource).
-	retryBuffer         map[uint64]retryTimeSeries
+
+	// retryBuffer holds timeseries that fail in push.
+	retryBuffer []*monitoringpb.TimeSeries
+	// retryCounter maps a timeseries to the attempts that it has been retried.
+	// Key is the hash of timeseries' metric name, monitored resource and start time.
+	retryCounter map[uint64]int
+
 	timeSeriesBatchSize int
 	retryLimit          int
+	pushInterval        time.Duration
 }
 
 // batchTimeSeries slices the given time series array with respect to the given batch size limit.
@@ -87,13 +90,8 @@ func (b *buffered) Record(toSend []*monitoringpb.TimeSeries) {
 }
 
 func (b *buffered) Send() {
-	// Retry timeseries in retry buffer. Retry before normal push so that retried points could be
-	// preserved thus view would be more accurate and order is guaranteed.
-	// If timeseries is again failed to create, merge it with newer timeseries in normal buffer.
-	b.retry()
-
 	b.m.Lock()
-	if len(b.buffer) == 0 {
+	if len(b.buffer) == 0 && len(b.retryBuffer) == 0 {
 		b.m.Unlock()
 		b.l.Debugf("No data to send to Stackdriver.")
 		return
@@ -103,10 +101,15 @@ func (b *buffered) Send() {
 	b.buffer = make([]*monitoringpb.TimeSeries, 0, len(toSend))
 	b.m.Unlock()
 
-	merged := merge(toSend, b.l)
+	mergedToSend := merge(toSend, b.l)
+	merged := append(b.retryBuffer, mergedToSend...)
+	b.retryBuffer = make([]*monitoringpb.TimeSeries, 0, len(b.retryBuffer))
 	batches := batchTimeSeries(merged, b.timeSeriesBatchSize)
-
-	for _, timeSeries := range batches {
+	// Spread monitoring API calls evenly over the push interval.
+	ns := b.pushInterval.Nanoseconds() / int64(len(batches))
+	t := time.NewTicker(time.Duration(ns))
+	defer t.Stop()
+	for i, timeSeries := range batches {
 		err := b.pushMetrics(context.Background(),
 			&monitoringpb.CreateTimeSeriesRequest{
 				Name:       "projects/" + b.project,
@@ -123,33 +126,10 @@ func (b *buffered) Send() {
 		} else {
 			b.l.Debugf("Successfully sent data to Stackdriver.")
 		}
-	}
-}
-
-// Retry all time series in retry buffer. If still fails, add the failed time series to the normal
-// buffer so that it will be merged with newer timeseries. Otherwise if a newer timeseries was
-// successfully written, it can never be written.
-func (b *buffered) retry() {
-	toRetry := make([]*monitoringpb.TimeSeries, 0, len(b.retryBuffer))
-	keyMap := make(map[*monitoringpb.TimeSeries]uint64)
-	for k, r := range b.retryBuffer {
-		toRetry = append(toRetry, r.ts)
-		keyMap[r.ts] = k
-	}
-	retryBatches := batchTimeSeries(toRetry, b.timeSeriesBatchSize)
-	for _, timeSeries := range retryBatches {
-		err := b.pushMetrics(context.Background(),
-			&monitoringpb.CreateTimeSeriesRequest{
-				Name:       "projects/" + b.project,
-				TimeSeries: timeSeries,
-			})
-		if err != nil {
-			ets := handleError(err, timeSeries)
-			b.Record(ets)
-		} else {
-			for _, ts := range timeSeries {
-				delete(b.retryBuffer, keyMap[ts])
-			}
+		if i+1 != len(batches) {
+			// Do not block and wait after the last batch pushed. No need to wait any more.
+			// This also leaves portion of push interval for other operations in Send().
+			<-t.C
 		}
 	}
 }
@@ -188,19 +168,25 @@ func handleError(err error, tsSent []*monitoringpb.TimeSeries) []*monitoringpb.T
 }
 
 func (b *buffered) updateRetryBuffer(errorTS []*monitoringpb.TimeSeries) {
+	retryCounter := map[uint64]int{}
 	for _, ts := range errorTS {
-		k := toKey(ts.Metric, ts.Resource)
-		if r, ok := b.retryBuffer[k]; ok {
-			attempt := r.attempt + 1
+		k, err := toRetryKey(ts)
+		if err != nil {
+			b.l.Debugf("cannot generate retry key for timeseries %v: %v", ts, err)
+			continue
+		}
+		if c, ok := b.retryCounter[k]; ok {
+			attempt := c + 1
 			if attempt >= b.retryLimit {
-				delete(b.retryBuffer, k)
 				continue
 			}
-			b.retryBuffer[k] = retryTimeSeries{attempt, ts}
+			retryCounter[k] = attempt
 		} else {
-			b.retryBuffer[k] = retryTimeSeries{0, ts}
+			retryCounter[k] = 0
 		}
+		b.retryBuffer = append(b.retryBuffer, ts)
 	}
+	b.retryCounter = retryCounter
 }
 
 func isRetryable(c codes.Code) bool {
@@ -209,4 +195,21 @@ func isRetryable(c codes.Code) bool {
 		return true
 	}
 	return false
+}
+
+func toRetryKey(ts *monitoringpb.TimeSeries) (uint64, error) {
+	hash := fnv.New64()
+	if len(ts.Points) != 1 {
+		return 0, fmt.Errorf("timeseries has to contain exactly one point")
+	}
+
+	buf := make([]byte, 8)
+	mKey := toKey(ts.Metric, ts.Resource)
+	binary.BigEndian.PutUint64(buf, mKey)
+	_, _ = hash.Write(buf)
+
+	s := ts.Points[0].Interval.StartTime.GetSeconds()
+	binary.BigEndian.PutUint64(buf, uint64(s))
+	_, _ = hash.Write(buf)
+	return hash.Sum64(), nil
 }
