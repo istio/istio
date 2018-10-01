@@ -462,6 +462,16 @@ func (m *RouteMatch) Validate() error {
 
 	}
 
+	if v, ok := interface{}(m.GetGrpc()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return RouteMatchValidationError{
+				Field:  "Grpc",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
 	switch m.PathSpecifier.(type) {
 
 	case *RouteMatch_Prefix:
@@ -1446,6 +1456,49 @@ func (e WeightedCluster_ClusterWeightValidationError) Error() string {
 }
 
 var _ error = WeightedCluster_ClusterWeightValidationError{}
+
+// Validate checks the field values on RouteMatch_GrpcRouteMatchOptions with
+// the rules defined in the proto definition for this message. If any rules
+// are violated, an error is returned.
+func (m *RouteMatch_GrpcRouteMatchOptions) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	return nil
+}
+
+// RouteMatch_GrpcRouteMatchOptionsValidationError is the validation error
+// returned by RouteMatch_GrpcRouteMatchOptions.Validate if the designated
+// constraints aren't met.
+type RouteMatch_GrpcRouteMatchOptionsValidationError struct {
+	Field  string
+	Reason string
+	Cause  error
+	Key    bool
+}
+
+// Error satisfies the builtin error interface
+func (e RouteMatch_GrpcRouteMatchOptionsValidationError) Error() string {
+	cause := ""
+	if e.Cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
+	}
+
+	key := ""
+	if e.Key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sRouteMatch_GrpcRouteMatchOptions.%s: %s%s",
+		key,
+		e.Field,
+		e.Reason,
+		cause)
+}
+
+var _ error = RouteMatch_GrpcRouteMatchOptionsValidationError{}
 
 // Validate checks the field values on RouteAction_RetryPolicy with the rules
 // defined in the proto definition for this message. If any rules are

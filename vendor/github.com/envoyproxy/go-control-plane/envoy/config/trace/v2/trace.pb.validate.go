@@ -165,6 +165,16 @@ func (m *ZipkinConfig) Validate() error {
 
 	// no validation rules for TraceId_128Bit
 
+	if v, ok := interface{}(m.GetSharedSpanContext()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return ZipkinConfigValidationError{
+				Field:  "SharedSpanContext",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
 	return nil
 }
 
