@@ -91,7 +91,7 @@ type SecretCache struct {
 	secretChangedCount uint64
 
 	// callback function to invoke when detecting secret change.
-	notifyCallback func(string /*proxy ID*/, string /*resource Name*/, *model.SecretItem) error
+	notifyCallback func(proxyID string, resourceName string, secret *model.SecretItem) error
 	// Right now always skip the check, since key rotation job checks token expire only when cert has expired;
 	// since token's TTL is much shorter than the cert, we could skip the check in normal cases.
 	// The flag is used in unit test, use uint32 instead of boolean because there is no atomic boolean
@@ -128,48 +128,50 @@ func NewSecretCache(cl ca.Client, notifyCb func(string, string, *model.SecretIte
 // instead of reading from cache.
 func (sc *SecretCache) GenerateSecret(ctx context.Context, proxyID, resourceName, token string) (*model.SecretItem, error) {
 	var ns *model.SecretItem
-	if resourceName == RootCertReqResourceName {
-		// If request is for root certificate,
-		// retry since rootCert may be empty until there is CSR response returned from CA.
-		if sc.rootCert == nil {
-			wait := 200 * time.Millisecond
-			retries := 0
-			for ; retries < maxRetryNum; retries++ {
-				time.Sleep(wait)
-				if sc.rootCert != nil {
-					break
-				}
+	key := ConnKey{
+		ProxyID:      proxyID,
+		ResourceName: resourceName,
+	}
 
-				wait *= 2
-			}
-		}
-
-		if sc.rootCert != nil {
-			t := time.Now()
-			ns = &model.SecretItem{
-				ResourceName: resourceName,
-				RootCert:     sc.rootCert,
-				Token:        token,
-				CreatedTime:  t,
-				Version:      t.String(),
-			}
-
-		} else {
-			log.Errorf("Failed to get root cert for proxy %q", proxyID)
-			return nil, errors.New("faied to get root cert")
-		}
-	} else {
-		var err error
-		ns, err = sc.generateSecret(ctx, token, resourceName, time.Now())
+	if resourceName != RootCertReqResourceName {
+		ns, err := sc.generateSecret(ctx, token, resourceName, time.Now())
 		if err != nil {
 			log.Errorf("Failed to generate secret for proxy %q: %v", proxyID, err)
 			return nil, err
 		}
+
+		sc.secrets.Store(key, *ns)
+		return ns, nil
 	}
 
-	key := ConnKey{
-		ProxyID:      proxyID,
+	// If request is for root certificate,
+	// retry since rootCert may be empty until there is CSR response returned from CA.
+	if sc.rootCert == nil {
+		wait := 200 * time.Millisecond
+		retries := 0
+		for ; retries < maxRetryNum; retries++ {
+			time.Sleep(wait)
+			if sc.rootCert != nil {
+				break
+			}
+
+			wait *= 2
+		}
+	}
+
+	if sc.rootCert == nil {
+		log.Errorf("Failed to get root cert for proxy %q", proxyID)
+		return nil, errors.New("faied to get root cert")
+
+	}
+
+	t := time.Now()
+	ns = &model.SecretItem{
 		ResourceName: resourceName,
+		RootCert:     sc.rootCert,
+		Token:        token,
+		CreatedTime:  t,
+		Version:      t.String(),
 	}
 	sc.secrets.Store(key, *ns)
 	return ns, nil
