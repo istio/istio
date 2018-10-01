@@ -27,7 +27,7 @@ set -x
 
 SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
 # shellcheck source=release/gcb_lib.sh
-source "${SCRIPTPATH}/release/gcb_lib.sh"
+source "${SCRIPTPATH}/gcb_lib.sh"
 
 
 #this function replace the old sha with the correct one
@@ -148,7 +148,7 @@ function get_later_sha_revlist() {
   SHA_MFEST=$(grep istio/istio "$MANIFEST_FILE" | sed 's/.*istio. revision=.//' | sed 's/".*//')
 
   # if the old sha in the manifest file is wrong for some reason, use latest green sha
-  if git rev-list "$SHA_MFEST...$GSHA" > dev/null; then
+  if ! git rev-list "$SHA_MFEST...$GSHA" > /dev/null; then
      echo "$GSHA"
      return
   fi

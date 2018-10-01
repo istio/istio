@@ -109,30 +109,12 @@ function test_command() {
     WAIT_FOR_RESULT="true"
 
     DOCKER_HUB="gcr.io/$GCR_STAGING_DEST"
-    create_subs_file "BRANCH" "DOCKER_HUB" "GCS_BUILD_PATH" "VERSION"
+    create_subs_file "BRANCH" "DOCKER_HUB" "GCS_BUILD_PATH" "GCS_RELEASE_TOOLS_PATH" "VERSION"
     cat "${SUBS_FILE}"
 
-    run_build "cloud_build.template.json" \
+    run_build "cloud_test.template.json" \
          "${SUBS_FILE}" "${PROJECT_ID}" "${SVC_ACCT}" "${KEY_FILE_PATH}" "${WAIT_FOR_RESULT}"
     exit "${BUILD_FAILED}"
-}
-
-# this function is called directly by airflow
-function test_command_old() {
-    cp /home/airflow/gcs/data/githubctl ./githubctl
-    chmod u+x ./githubctl
-    pwd; ls -l    ./githubctl
-
-    git config --global user.name "TestRunnerBot"
-    git config --global user.email "testrunner@istio.io"
-
-    ./githubctl \
-    --token_file="$TOKEN_FILE" \
-    --op=dailyRelQual \
-    --hub="gcr.io/$GCR_STAGING_DEST" \
-    --gcs_path="$GCS_BUILD_PATH" \
-    --tag="$VERSION" \
-    --base_branch="$BRANCH"
 }
 
 # this function is called directly by airflow
