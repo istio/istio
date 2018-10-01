@@ -17,8 +17,9 @@ package api
 import (
 	"context"
 	"fmt"
-	"sync/atomic"
 	"time"
+
+	"golang.org/x/time/rate"
 
 	"github.com/gogo/googleapis/google/rpc"
 	multierror "github.com/hashicorp/go-multierror"
@@ -47,8 +48,10 @@ type (
 		globalWordList []string
 		globalDict     map[string]int32
 
-		queuedRequests int64
-		queueLength    int64
+		// queuedRequests int64
+		// queueLength    int64
+
+		throttler *rate.Limiter
 	}
 )
 
@@ -68,12 +71,20 @@ func NewGRPCServer(dispatcher dispatcher.Dispatcher, gp *pool.GoroutinePool, cac
 		globalWordList: list,
 		globalDict:     globalDict,
 		cache:          cache,
-		queueLength:    int64(gp.QueueLength()),
+		// queueLength:    int64(gp.QueueLength()),
+
+		// Demo values (1 rps w/ burst size of 1): would be set from commandline values in real implementation
+		throttler: rate.NewLimiter(rate.Every(time.Second), 1),
 	}
 }
 
 // Check is the entry point for the external Check method
 func (s *grpcServer) Check(ctx context.Context, req *mixerpb.CheckRequest) (*mixerpb.CheckResponse, error) {
+
+	if err := s.throttler.Wait(ctx); err != nil {
+		return nil, grpc.Errorf(codes.ResourceExhausted, "Instance currently overloaded: %v", err)
+	}
+
 	lg.Debugf("Check (GlobalWordCount:%d, DeduplicationID:%s, Quota:%v)", req.GlobalWordCount, req.DeduplicationId, req.Quotas)
 	lg.Debug("Dispatching Preprocess Check")
 
@@ -221,24 +232,31 @@ var reportResp = &mixerpb.ReportResponse{}
 
 // Report is the entry point for the external Report method
 func (s *grpcServer) Report(ctx context.Context, req *mixerpb.ReportRequest) (*mixerpb.ReportResponse, error) {
-	qrs := atomic.LoadInt64(&s.queuedRequests)
-	if qrs > s.queueLength {
-		return nil, grpc.Errorf(codes.Unavailable, "Work queue is full (%d pending requests). Try again later.", qrs)
+
+	// if we want to drop, instead of smooth / wait:
+	// if !s.throttler.AllowN(time.Now(), len(req.Attributes)) {}
+	if err := s.throttler.WaitN(ctx, len(req.Attributes)); err != nil {
+		return nil, grpc.Errorf(codes.ResourceExhausted, "Instance currently overloaded: %v", err)
 	}
-	atomic.AddInt64(&s.queuedRequests, 1)
+
+	// qrs := atomic.LoadInt64(&s.queuedRequests)
+	// if qrs > s.queueLength {
+	// 	return nil, grpc.Errorf(codes.Unavailable, "Work queue is full (%d pending requests). Try again later.", qrs)
+	// }
+	// atomic.AddInt64(&s.queuedRequests, 1)
 
 	lg.Debugf("Report (Count: %d)", len(req.Attributes))
 
 	if req.GlobalWordCount > uint32(len(s.globalWordList)) {
 		err := fmt.Errorf("inconsistent global dictionary versions used: mixer knows %d words, caller knows %d", len(s.globalWordList), req.GlobalWordCount)
 		lg.Errora("Report failed:", err.Error())
-		atomic.AddInt64(&s.queuedRequests, -1)
+		// atomic.AddInt64(&s.queuedRequests, -1)
 		return nil, grpc.Errorf(codes.Internal, err.Error())
 	}
 
 	if len(req.Attributes) == 0 {
 		// early out
-		atomic.AddInt64(&s.queuedRequests, -1)
+		// atomic.AddInt64(&s.queuedRequests, -1)
 		return reportResp, nil
 	}
 
@@ -320,10 +338,10 @@ func (s *grpcServer) Report(ctx context.Context, req *mixerpb.ReportRequest) (*m
 
 	if errors != nil {
 		lg.Errora("Report failed:", errors.Error())
-		atomic.AddInt64(&s.queuedRequests, -1)
+		// atomic.AddInt64(&s.queuedRequests, -1)
 		return nil, grpc.Errorf(codes.Unknown, errors.Error())
 	}
 
-	atomic.AddInt64(&s.queuedRequests, -1)
+	// atomic.AddInt64(&s.queuedRequests, -1)
 	return reportResp, nil
 }

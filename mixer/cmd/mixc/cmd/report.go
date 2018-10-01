@@ -17,6 +17,7 @@ package cmd
 import (
 	"context"
 	"sync"
+	"time"
 
 	ot "github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/ext"
@@ -74,6 +75,7 @@ func report(rootArgs *rootArgs, printf, fatalf shared.FormatFn) {
 					rl.Wait(context.Background())
 				}
 				request := mixerpb.ReportRequest{Attributes: []mixerpb.CompressedAttributes{*attrs}}
+				ctx, _ = context.WithTimeout(ctx, 100*time.Millisecond)
 				_, err := cs.client.Report(ctx, &request)
 
 				if rootArgs.printResponse {
