@@ -63,7 +63,7 @@ func TestDispatchCheck_Success(t *testing.T) {
 		ValidUseCount: 23,
 	}}
 
-	r, err := executeDispatchCheck(t, h)
+	r, _, err := executeDispatchCheck(t, h)
 	if err != nil {
 		t.Fatalf("Unexpected error found: '%v'", err)
 	}
@@ -82,7 +82,7 @@ func TestDispatchCheck_Success(t *testing.T) {
 func TestDispatchCheck_Failure(t *testing.T) {
 	h := &mockHandler{err: errors.New("you shall not pass")}
 
-	_, err := executeDispatchCheck(t, h)
+	_, _, err := executeDispatchCheck(t, h)
 	if err == nil {
 		t.Fatal("expected error not found")
 	}
@@ -211,7 +211,7 @@ func executeDispatchReport(t *testing.T, h adapter.Handler) error {
 	return SupportedTmplInfo[sample_report.TemplateName].DispatchReport(context.TODO(), h, []interface{}{instance})
 }
 
-func executeDispatchCheck(t *testing.T, h adapter.Handler) (adapter.CheckResult, error) {
+func executeDispatchCheck(t *testing.T, h adapter.Handler) (adapter.CheckResult, interface{}, error) {
 	instance := createInstance(t, sample_check.TemplateName, &defaultCheckInstanceParam, defaultCheckAttributes)
 	return SupportedTmplInfo[sample_check.TemplateName].DispatchCheck(context.TODO(), h, instance)
 }

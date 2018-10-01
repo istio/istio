@@ -284,6 +284,7 @@ ident                         : dest.istio-system
 [tcheckoutput] DispatchCheck => handler exists: 'true'
 [tcheckoutput] DispatchCheck => instance:       '&Struct{Fields:map[string]*Value{},XXX_unrecognized:[],}'
 [tcheckoutput] DispatchCheck <= (SUCCESS)
+[tcheckoutput] DispatchCheck => output: {value: '1337'}
 `,
 	},
 

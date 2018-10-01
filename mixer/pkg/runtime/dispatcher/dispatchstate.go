@@ -40,17 +40,20 @@ type dispatchState struct {
 	session *session
 	ctx     context.Context
 
-	destination *routing.Destination
-	mapper      template.OutputMapperFn
+	destination        *routing.Destination
+	mapper             template.OutputMapperFn
+	evaluateOutputAttr template.EvaluateOutputAttributeFn
 
-	inputBag  attribute.Bag
-	quotaArgs adapter.QuotaArgs
-	instances []interface{}
+	inputBag   attribute.Bag
+	quotaArgs  adapter.QuotaArgs
+	instances  []interface{}
+	actionName string
 
 	// output state that was collected from the handler.
 	err         error
 	outputBag   *attribute.MutableBag
 	checkResult adapter.CheckResult
+	checkOutput interface{}
 	quotaResult adapter.QuotaResult
 }
 
@@ -59,11 +62,14 @@ func (ds *dispatchState) clear() {
 	ds.ctx = nil
 	ds.destination = nil
 	ds.mapper = nil
+	ds.evaluateOutputAttr = nil
 	ds.inputBag = nil
 	ds.quotaArgs = adapter.QuotaArgs{}
+	ds.actionName = ""
 	ds.err = nil
 	ds.outputBag = nil
 	ds.checkResult = adapter.CheckResult{}
+	ds.checkOutput = nil
 	ds.quotaResult = adapter.QuotaResult{}
 
 	// re-slice to change the length to 0 without changing capacity.
@@ -122,8 +128,8 @@ func (ds *dispatchState) invokeHandler(interface{}) {
 		ds.outputBag, ds.err = ds.destination.Template.DispatchGenAttrs(
 			ctx, ds.destination.Handler, ds.instances[0], ds.inputBag, ds.mapper)
 
-	case tpb.TEMPLATE_VARIETY_CHECK:
-		ds.checkResult, _, ds.err = ds.destination.Template.DispatchCheck(
+	case tpb.TEMPLATE_VARIETY_CHECK, tpb.TEMPLATE_VARIETY_CHECK_WITH_OUTPUT:
+		ds.checkResult, ds.checkOutput, ds.err = ds.destination.Template.DispatchCheck(
 			ctx, ds.destination.Handler, ds.instances[0])
 
 	case tpb.TEMPLATE_VARIETY_REPORT:

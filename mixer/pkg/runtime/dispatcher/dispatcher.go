@@ -177,6 +177,7 @@ func (d *Impl) Preprocess(ctx context.Context, bag attribute.Bag, responseBag *a
 	return err
 }
 
+// Session template variety is CHECK for output producing templates (CHECK_WITH_OUTPUT)
 func (d *Impl) getSession(context context.Context, variety tpb.TemplateVariety, bag attribute.Bag) *session {
 	s := d.sessionPool.Get().(*session)
 
