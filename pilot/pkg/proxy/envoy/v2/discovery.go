@@ -15,7 +15,6 @@
 package v2
 
 import (
-	"os"
 	"strconv"
 	"sync"
 	"time"
@@ -28,6 +27,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core"
+	"istio.io/istio/pkg/features/pilot"
 )
 
 var (
@@ -81,12 +81,11 @@ type DiscoveryServer struct {
 	DebugConfigs bool
 }
 
-func intEnv(env string, def int) int {
-	envValue := os.Getenv(env)
-	if len(envValue) == 0 {
+func intEnv(envVal string, def int) int {
+	if len(envVal) == 0 {
 		return def
 	}
-	n, err := strconv.Atoi(envValue)
+	n, err := strconv.Atoi(envVal)
 	if err == nil && n > 0 {
 		return n
 	}
@@ -106,10 +105,10 @@ func NewDiscoveryServer(env *model.Environment, generator core.ConfigGenerator) 
 
 	go out.periodicRefreshMetrics()
 
-	out.DebugConfigs = os.Getenv("PILOT_DEBUG_ADSZ_CONFIG") == "1"
+	out.DebugConfigs = pilot.DebugConfigs
 
-	pushThrottle := intEnv("PILOT_PUSH_THROTTLE", 10)
-	pushBurst := intEnv("PILOT_PUSH_BURST", 100)
+	pushThrottle := intEnv(pilot.PushThrottle, 10)
+	pushBurst := intEnv(pilot.PushBurst, 100)
 
 	adsLog.Infof("Starting ADS server with rateLimiter=%d burst=%d", pushThrottle, pushBurst)
 	out.rateLimiter = rate.NewLimiter(rate.Limit(pushThrottle), pushBurst)
@@ -129,7 +128,7 @@ func (s *DiscoveryServer) Register(rpcs *grpc.Server) {
 // ( will be removed after change detection is implemented, to double check all changes are
 // captured)
 func (s *DiscoveryServer) periodicRefresh() {
-	envOverride := os.Getenv("V2_REFRESH")
+	envOverride := pilot.RefreshDuration
 	if len(envOverride) > 0 {
 		var err error
 		periodicRefreshDuration, err = time.ParseDuration(envOverride)

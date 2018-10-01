@@ -17,7 +17,6 @@ package envoy
 import (
 	"net/http"
 	"net/http/pprof"
-	"os"
 	"sort"
 	"strconv"
 	"sync"
@@ -27,6 +26,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/features/pilot"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
 )
@@ -107,7 +107,7 @@ var (
 )
 
 func init() {
-	cacheSquash := os.Getenv("PILOT_CACHE_SQUASH")
+	cacheSquash := pilot.CacheSquash
 	if len(cacheSquash) > 0 {
 		t, err := strconv.Atoi(cacheSquash)
 		if err == nil {
@@ -115,18 +115,17 @@ func init() {
 		}
 	}
 
-	DebounceAfter = envDuration("PILOT_DEBOUNCE_AFTER", 100*time.Millisecond)
-	DebounceMax = envDuration("PILOT_DEBOUNCE_MAX", 10*time.Second)
+	DebounceAfter = envDuration(pilot.DebounceAfter, 100*time.Millisecond)
+	DebounceMax = envDuration(pilot.DebounceMax, 10*time.Second)
 }
 
-func envDuration(env string, def time.Duration) time.Duration {
-	envVal := os.Getenv(env)
+func envDuration(envVal string, def time.Duration) time.Duration {
 	if envVal == "" {
 		return def
 	}
 	d, err := time.ParseDuration(envVal)
 	if err != nil {
-		log.Warnf("Invalid value %s %s %v", env, envVal, err)
+		log.Warnf("Invalid value %s %v", envVal, err)
 		return def
 	}
 	return d
