@@ -25,15 +25,9 @@ set -u
 # Print commands
 set -x
 
-# this function sets variable TEST_INFRA_DIR and githubctl
-function githubctl_setup() {
-    git clone https://github.com/istio/test-infra.git -b master --depth 1
-    TEST_INFRA_DIR="${PWD}/test-infra"
-    pushd "${TEST_INFRA_DIR}"
-     bazel build //toolbox/githubctl
-     githubctl="${TEST_INFRA_DIR}/bazel-bin/toolbox/githubctl/linux_amd64_stripped/githubctl"
-    popd
-}
+SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
+# shellcheck source=release/gcb_lib.sh
+source "${SCRIPTPATH}/release/gcb_lib.sh"
 
 
 #this function replace the old sha with the correct one
@@ -154,7 +148,10 @@ function get_later_sha_revlist() {
   SHA_MFEST=$(grep istio/istio "$MANIFEST_FILE" | sed 's/.*istio. revision=.//' | sed 's/".*//')
 
   # if the old sha in the manifest file is wrong for some reason, use latest green sha
-  git rev-list "$SHA_MFEST...$GSHA" || echo "$GSHA" && return
+  if git rev-list "$SHA_MFEST...$GSHA" > dev/null; then
+     echo "$GSHA"
+     return
+  fi
 
   local SHA_LATEST
   SHA_LATEST=$(git rev-list "$SHA_MFEST...$GSHA" | grep "$GSHA")
@@ -165,31 +162,6 @@ function get_later_sha_revlist() {
   fi
   #go forward
   echo   "$SHA_LATEST"
-}
-
-#sets GITHUB_KEYFILE to github auth file
-function github_keys() {
-  local LOCAL_DIR
-  LOCAL_DIR="$(mktemp -d /tmp/github.XXXX)"
-  local KEYFILE_ENC
-  KEYFILE_ENC="$LOCAL_DIR/keyfile.enc"
-  local KEYFILE_TEMP
-  KEYFILE_TEMP="$LOCAL_DIR/keyfile.txt"
-  local KEYRING
-  KEYRING="Secrets"
-  local KEY
-  KEY="DockerHub"
-
- # decrypt file, if requested
-  gsutil cp gs://istio-secrets/github.txt.enc "${KEYFILE_ENC}"
-  gcloud kms decrypt \
-       --ciphertext-file="$KEYFILE_ENC" \
-       --plaintext-file="$KEYFILE_TEMP" \
-       --location=global \
-       --keyring="${KEYRING}" \
-       --key="${KEY}"
-
-  GITHUB_KEYFILE="${KEYFILE_TEMP}"
 }
 
 #sets ISTIO_SHA variable

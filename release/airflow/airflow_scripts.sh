@@ -23,6 +23,7 @@ SCRIPTPATH=$( pwd -P )
 # shellcheck source=release/airflow/gcb_build_lib.sh
 source "${SCRIPTPATH}/gcb_build_lib.sh"
 
+# this function is a helper function and not called directly by airflow
 function sub_str_for_variable() {
    local CUR_VAR
    local subs_str
@@ -32,6 +33,7 @@ function sub_str_for_variable() {
    echo -n "${subs_str}"
 }
 
+# this function is a helper function and not called directly by airflow
 # converts the call: create_subs_file "BRANCH" "COMMIT"
 # writes the following into SUBS_FILE (which is set by function)
 # and creates the file with content
@@ -61,6 +63,7 @@ function create_subs_file() {
    echo '}'                 >> "${SUBS_FILE}"
 }
 
+# this function is called directly by airflow
 function get_git_commit_cmd() {
     git config --global user.name "TestRunnerBot"
     git config --global user.email "testrunner@istio.io"
@@ -79,6 +82,7 @@ function get_git_commit_cmd() {
     exit "${BUILD_FAILED}"
 }
 
+# this function is called directly by airflow
 function build_template() {
     local KEY_FILE_PATH
     local WAIT_FOR_RESULT
@@ -97,7 +101,24 @@ function build_template() {
     exit "${BUILD_FAILED}"
 }
 
+# this function is called directly by airflow
 function test_command() {
+    local KEY_FILE_PATH
+    local WAIT_FOR_RESULT
+    KEY_FILE_PATH=""
+    WAIT_FOR_RESULT="true"
+
+    DOCKER_HUB="gcr.io/$GCR_STAGING_DEST"
+    create_subs_file "BRANCH" "DOCKER_HUB" "GCS_BUILD_PATH" "VERSION"
+    cat "${SUBS_FILE}"
+
+    run_build "cloud_build.template.json" \
+         "${SUBS_FILE}" "${PROJECT_ID}" "${SVC_ACCT}" "${KEY_FILE_PATH}" "${WAIT_FOR_RESULT}"
+    exit "${BUILD_FAILED}"
+}
+
+# this function is called directly by airflow
+function test_command_old() {
     cp /home/airflow/gcs/data/githubctl ./githubctl
     chmod u+x ./githubctl
     pwd; ls -l    ./githubctl
@@ -114,6 +135,7 @@ function test_command() {
     --base_branch="$BRANCH"
 }
 
+# this function is called directly by airflow
 function modify_values_command() {
     # TODO: Merge these changes into istio/istio master and stop using this task
     gsutil -q cp gs://istio-release-pipeline-data/release-tools/test-version/data/release/modify_values.sh .
@@ -128,6 +150,7 @@ function modify_values_command() {
     ./modify_values.sh -h "${hub}" -t "$VERSION" -p "gs://$GCS_BUILD_BUCKET/$GCS_STAGING_PATH" -v "$VERSION"
 }
 
+# this function is called directly by airflow
 function gcr_tag_success() {
   pwd; ls
 
@@ -151,6 +174,7 @@ function gcr_tag_success() {
   rm  docker_tars.txt docker_images.txt
 }
 
+# this function is called directly by airflow
 function release_push_github_docker_template() {
     local KEY_FILE_PATH
     local WAIT_FOR_RESULT
@@ -181,6 +205,7 @@ function release_push_github_docker_template() {
     exit "${BUILD_FAILED}"
 }
 
+# this function is called directly by airflow
 function release_tag_github_template() {
     local KEY_FILE_PATH
     local WAIT_FOR_RESULT
