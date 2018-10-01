@@ -36,6 +36,9 @@ const (
 	// max retry number to wait CSR response come back to parse root cert from it.
 	maxRetryNum = 5
 
+	// initial retry wait time duration when waiting root cert is available.
+	retryWaitDuration = 200 * time.Millisecond
+
 	// RootCertReqResourceName is resource name of discovery request for root certificate.
 	RootCertReqResourceName = "ROOTCA"
 )
@@ -109,12 +112,12 @@ type SecretCache struct {
 func NewSecretCache(cl ca.Client, notifyCb func(string, string, *model.SecretItem) error, options Options) *SecretCache {
 	ret := &SecretCache{
 		caClient:         cl,
-		rotationInterval: options.RotationInterval,
-		evictionDuration: options.EvictionDuration,
-		secretTTL:        options.SecretTTL,
-		notifyCallback:   notifyCb,
 		closing:          make(chan bool),
+		evictionDuration: options.EvictionDuration,
+		notifyCallback:   notifyCb,
 		rootCertMutex:    &sync.Mutex{},
+		rotationInterval: options.RotationInterval,
+		secretTTL:        options.SecretTTL,
 	}
 
 	atomic.StoreUint64(&ret.secretChangedCount, 0)
@@ -134,6 +137,7 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, proxyID, resourceName
 	}
 
 	if resourceName != RootCertReqResourceName {
+		// Request for normal key/cert pair.
 		ns, err := sc.generateSecret(ctx, token, resourceName, time.Now())
 		if err != nil {
 			log.Errorf("Failed to generate secret for proxy %q: %v", proxyID, err)
@@ -147,10 +151,10 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, proxyID, resourceName
 	// If request is for root certificate,
 	// retry since rootCert may be empty until there is CSR response returned from CA.
 	if sc.rootCert == nil {
-		wait := 200 * time.Millisecond
-		retries := 0
-		for ; retries < maxRetryNum; retries++ {
-			time.Sleep(wait)
+		wait := retryWaitDuration
+		retryNum := 0
+		for ; retryNum < maxRetryNum; retryNum++ {
+			time.Sleep(retryWaitDuration)
 			if sc.rootCert != nil {
 				break
 			}
