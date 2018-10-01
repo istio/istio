@@ -15,8 +15,8 @@
 #   limitations under the License.
 
 
-# This script finds the green build sha, generates a corresponding
-# manifest file, also copies the json and scripts files from head of branch
+# This script runs githubctl which sends a PR to github daily-releases
+# to test the build
 
 # Exit immediately for non zero status
 set -e
