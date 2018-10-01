@@ -143,8 +143,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 
 		// We need a passthrough filter to fill in the filter stack for orig_dst listener
 		passthroughTCPProxy := &tcp_proxy.TcpProxy{
-			StatPrefix: util.PassthroughCluster,
-			Cluster:    util.PassthroughCluster,
+			StatPrefix:       util.PassthroughCluster,
+			ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.PassthroughCluster},
 		}
 
 		var transparent *google_protobuf.BoolValue
