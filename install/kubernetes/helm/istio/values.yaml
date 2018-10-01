@@ -106,9 +106,15 @@ global:
   # propagated, not recommended for tests.
   controlPlaneSecurityEnabled: false
 
-  # SDS enabled. IF set to true, mTLS certificates for the sidecars will be 
+  # SDS enabled. IF set to true, mTLS certificates for the sidecars will be
   # distributed through the SecretDiscoveryService instead of using K8S secrets to mount the certificates.
   sdsEnabled: false
+
+  # indicate the domain used in SPIFFE identity URL
+  # The default depends on the environment.
+  #   kubernetes: cluster.local
+  #   else:  default dns domain
+  identityDomain:
 
   # disablePolicyChecks disables mixer policy checks.
   # Will set the value with same name in istio config map - pilot needs to be restarted to take effect.
@@ -491,7 +497,6 @@ security:
   replicaCount: 1
   image: citadel
   selfSigned: true # indicate if self-signed CA is used.
-  identityDomain: cluster.local # indicate the domain used in SPIFFE identity URL
 
 #
 # nodeagent configuration

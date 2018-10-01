@@ -76,7 +76,7 @@ static_resources:
           trusted_ca:
             filename: /etc/certs/root-cert.pem
           verify_subject_alt_name:
-          - spiffe://cluster.local/ns/{{ .PodNamespace }}/sa/istio-mixer-service-account
+          - {{ .MixerSubjectAltName }}
 {{- end }}
     type: STRICT_DNS
   listeners:

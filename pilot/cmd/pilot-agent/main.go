@@ -27,6 +27,8 @@ import (
 	"text/template"
 	"time"
 
+	"istio.io/istio/pkg/spiffe"
+
 	"github.com/gogo/protobuf/types"
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
@@ -116,17 +118,6 @@ var (
 					role.ID = role.IPAddress
 				}
 			}
-			pilotDomain := role.Domain
-			if len(role.Domain) == 0 {
-				if registry == serviceregistry.KubernetesRegistry {
-					role.Domain = os.Getenv("POD_NAMESPACE") + ".svc.cluster.local"
-					pilotDomain = "cluster.local"
-				} else if registry == serviceregistry.ConsulRegistry {
-					role.Domain = "service.consul"
-				} else {
-					role.Domain = ""
-				}
-			}
 
 			log.Infof("Proxy role: %#v", role)
 
@@ -146,12 +137,14 @@ var (
 			proxyConfig.ProxyAdminPort = int32(proxyAdminPort)
 			proxyConfig.Concurrency = int32(concurrency)
 
-			var pilotSAN []string
+			pilotSAN := make([]string, 0)
+			var ns string
+			setIdentityDomainAndDomain()
+			
 			switch controlPlaneAuthPolicy {
 			case meshconfig.AuthenticationPolicy_NONE.String():
 				proxyConfig.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_NONE
 			case meshconfig.AuthenticationPolicy_MUTUAL_TLS.String():
-				var ns string
 				proxyConfig.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS
 				if registry == serviceregistry.KubernetesRegistry {
 					partDiscoveryAddress := strings.Split(discoveryAddress, ":")
@@ -174,7 +167,7 @@ var (
 						}
 					}
 				}
-				pilotSAN = envoy.GetPilotSAN(pilotDomain, ns)
+				pilotSAN = append(pilotSAN, envoy.GetPilotSAN(ns))
 			}
 
 			// resolve statsd address
@@ -220,6 +213,7 @@ var (
 				opts := make(map[string]string)
 				opts["PodName"] = os.Getenv("POD_NAME")
 				opts["PodNamespace"] = os.Getenv("POD_NAMESPACE")
+				opts["MixerSubjectAltName"] = envoy.GetMixerSAN(opts["PodNamespace"])
 
 				// protobuf encoding of IP_ADDRESS type
 				opts["PodIP"] = base64.StdEncoding.EncodeToString(net.ParseIP(os.Getenv("INSTANCE_IP")))
@@ -281,6 +275,31 @@ var (
 	}
 )
 
+//ToDo: add missing tests
+func setIdentityDomainAndDomain() {
+	domain := role.Domain
+	isKubernetes := registry == serviceregistry.KubernetesRegistry
+	if controlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS.String() {
+		role.IdentityDomain = spiffe.SetIdentityDomain(role.IdentityDomain, domain,
+			isKubernetes)
+
+		if len(domain) == 0 {
+			if isKubernetes {
+				domain = os.Getenv("POD_NAMESPACE") + ".svc.cluster.local"
+			} else if registry == serviceregistry.ConsulRegistry {
+				domain = "service.consul"
+			} else {
+				domain = ""
+			}
+		}
+	} else {
+		role.IdentityDomain = spiffe.SetIdentityDomain("", role.Domain,
+			isKubernetes)
+	}
+
+	role.Domain = domain
+}
+
 func parseApplicationPorts() ([]uint16, error) {
 	parsedPorts := make([]uint16, len(applicationPorts))
 	for _, port := range applicationPorts {
@@ -316,6 +335,8 @@ func init() {
 		"Proxy unique ID. If not provided uses ${POD_NAME}.${POD_NAMESPACE} from environment variables")
 	proxyCmd.PersistentFlags().StringVar(&role.Domain, "domain", "",
 		"DNS domain suffix. If not provided uses ${POD_NAMESPACE}.svc.cluster.local")
+	proxyCmd.PersistentFlags().StringVar(&role.IdentityDomain, "identity-domain", "",
+		"The domain to use for identities")
 	proxyCmd.PersistentFlags().Uint16Var(&statusPort, "statusPort", 0,
 		"HTTP Port on which to serve pilot agent status. If zero, agent status will not be provided.")
 	proxyCmd.PersistentFlags().StringSliceVar(&applicationPorts, "applicationPorts", []string{},

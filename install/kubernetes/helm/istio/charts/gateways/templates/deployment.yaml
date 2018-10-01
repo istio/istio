@@ -107,6 +107,9 @@ spec:
           - istio-pilot:15010
           {{- end }}
         {{- end }}
+        {{- if $.Values.global.identityDomain }}
+          - --identity-domain={{ $.Values.global.identityDomain }}
+        {{- end }}
           resources:
 {{- if $spec.resources }}
 {{ toYaml $spec.resources | indent 12 }}

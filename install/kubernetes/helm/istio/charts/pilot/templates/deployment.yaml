@@ -54,6 +54,9 @@ spec:
           - --mcpServerAddrs=mcp://istio-galley.{{ $.Release.Namespace }}.svc:9901
     {{- end }}
 {{- end }}
+{{- if .Values.global.identityDomain }}
+          - --identity-domain={{ .Values.global.identityDomain }}
+{{- end }}
           ports:
           - containerPort: 8080
           - containerPort: 15010
@@ -123,6 +126,9 @@ spec:
         {{- else }}
           - --controlPlaneAuthPolicy
           - NONE
+        {{- end }}
+        {{- if .Values.global.identityDomain }}
+          - --identity-domain={{ .Values.global.identityDomain }}
         {{- end }}
           env:
           - name: POD_NAME

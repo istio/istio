@@ -21,6 +21,8 @@ import (
 	"io/ioutil"
 	"os"
 
+	"istio.io/istio/pkg/spiffe"
+
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
@@ -91,7 +93,7 @@ func (ci *OnPremClientImpl) GetServiceIdentity() (string, error) {
 	}
 	if len(serviceIDs) != 1 {
 		for _, s := range serviceIDs {
-			if strings.HasPrefix(s, "spiffe://") {
+			if strings.HasPrefix(s, spiffe.Scheme+"://") {
 				return s, nil
 			}
 		}

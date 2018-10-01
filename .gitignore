@@ -46,6 +46,7 @@ install/kubernetes/istio-citadel-plugin-certs.yaml
 install/kubernetes/istio-citadel-standalone.yaml
 install/kubernetes/istio-citadel-with-health-check.yaml
 install/kubernetes/istio-one-namespace-auth.yaml
+install/kubernetes/istio-one-namespace-identity-domain.yaml
 install/kubernetes/istio-one-namespace.yaml
 install/kubernetes/istio-sidecar-injector-configmap-debug.yaml
 install/kubernetes/istio-sidecar-injector-configmap-release.yaml

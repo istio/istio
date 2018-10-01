@@ -90,6 +90,9 @@
         - --controlPlaneAuthPolicy
         - NONE
       {{- end }}
+      {{- if $.Values.global.identityDomain }}
+        - --identity-domain={{ $.Values.global.identityDomain }}
+      {{- end }}
         env:
         - name: POD_NAME
           valueFrom:

@@ -17,12 +17,13 @@ package kube
 import (
 	"reflect"
 	"testing"
+	"time"
+
+	"istio.io/istio/pkg/spiffe"
 
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-
-	"time"
 
 	"istio.io/istio/pilot/pkg/model"
 )
@@ -63,83 +64,86 @@ func TestConvertProtocol(t *testing.T) {
 }
 
 func TestServiceConversion(t *testing.T) {
-	serviceName := "service1"
-	namespace := "default"
-	saA := "serviceaccountA"
-	saB := "serviceaccountB"
-	saC := "spiffe://accounts.google.com/serviceaccountC@cloudservices.gserviceaccount.com"
-	saD := "spiffe://accounts.google.com/serviceaccountD@developer.gserviceaccount.com"
 
-	ip := "10.0.0.1"
+	spiffe.WithIdentityDomain(domainSuffix, func() {
+		serviceName := "service1"
+		namespace := "default"
+		saA := "serviceaccountA"
+		saB := "serviceaccountB"
+		saC := "spiffe://accounts.google.com/serviceaccountC@cloudservices.gserviceaccount.com"
+		saD := "spiffe://accounts.google.com/serviceaccountD@developer.gserviceaccount.com"
 
-	tnow := time.Now()
-	localSvc := v1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      serviceName,
-			Namespace: namespace,
-			Annotations: map[string]string{
-				KubeServiceAccountsOnVMAnnotation:  saA + "," + saB,
-				CanonicalServiceAccountsAnnotation: saC + "," + saD,
-				"other/annotation":                 "test",
-			},
-			CreationTimestamp: metav1.Time{tnow},
-		},
-		Spec: v1.ServiceSpec{
-			ClusterIP: ip,
-			Ports: []v1.ServicePort{
-				{
-					Name:     "http",
-					Port:     8080,
-					Protocol: v1.ProtocolTCP,
+		ip := "10.0.0.1"
+
+		tnow := time.Now()
+		localSvc := v1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      serviceName,
+				Namespace: namespace,
+				Annotations: map[string]string{
+					KubeServiceAccountsOnVMAnnotation:  saA + "," + saB,
+					CanonicalServiceAccountsAnnotation: saC + "," + saD,
+					"other/annotation":                 "test",
 				},
-				{
-					Name:     "https",
-					Protocol: v1.ProtocolTCP,
-					Port:     443,
+				CreationTimestamp: metav1.Time{tnow},
+			},
+			Spec: v1.ServiceSpec{
+				ClusterIP: ip,
+				Ports: []v1.ServicePort{
+					{
+						Name:     "http",
+						Port:     8080,
+						Protocol: v1.ProtocolTCP,
+					},
+					{
+						Name:     "https",
+						Protocol: v1.ProtocolTCP,
+						Port:     443,
+					},
 				},
 			},
-		},
-	}
+		}
 
-	service := convertService(localSvc, domainSuffix)
-	if service == nil {
-		t.Errorf("could not convert service")
-	}
+		service := convertService(localSvc, domainSuffix)
+		if service == nil {
+			t.Errorf("could not convert service")
+		}
 
-	if service.CreationTime != tnow {
-		t.Errorf("incorrect creation time => %v, want %v", service.CreationTime, tnow)
-	}
+		if service.CreationTime != tnow {
+			t.Errorf("incorrect creation time => %v, want %v", service.CreationTime, tnow)
+		}
 
-	if len(service.Ports) != len(localSvc.Spec.Ports) {
-		t.Errorf("incorrect number of ports => %v, want %v",
-			len(service.Ports), len(localSvc.Spec.Ports))
-	}
+		if len(service.Ports) != len(localSvc.Spec.Ports) {
+			t.Errorf("incorrect number of ports => %v, want %v",
+				len(service.Ports), len(localSvc.Spec.Ports))
+		}
 
-	if service.External() {
-		t.Error("service should not be external")
-	}
+		if service.External() {
+			t.Error("service should not be external")
+		}
 
-	if service.Hostname != serviceHostname(serviceName, namespace, domainSuffix) {
-		t.Errorf("service hostname incorrect => %q, want %q",
-			service.Hostname, serviceHostname(serviceName, namespace, domainSuffix))
-	}
+		if service.Hostname != serviceHostname(serviceName, namespace, domainSuffix) {
+			t.Errorf("service hostname incorrect => %q, want %q",
+				service.Hostname, serviceHostname(serviceName, namespace, domainSuffix))
+		}
 
-	if service.Address != ip {
-		t.Errorf("service IP incorrect => %q, want %q", service.Address, ip)
-	}
+		if service.Address != ip {
+			t.Errorf("service IP incorrect => %q, want %q", service.Address, ip)
+		}
 
-	sa := service.ServiceAccounts
-	if sa == nil || len(sa) != 4 {
-		t.Errorf("number of service accounts is incorrect")
-	}
-	expected := []string{
-		saC, saD,
-		"spiffe://company.com/ns/default/sa/" + saA,
-		"spiffe://company.com/ns/default/sa/" + saB,
-	}
-	if !reflect.DeepEqual(sa, expected) {
-		t.Errorf("Unexpected service accounts %v (expecting %v)", sa, expected)
-	}
+		sa := service.ServiceAccounts
+		if sa == nil || len(sa) != 4 {
+			t.Errorf("number of service accounts is incorrect")
+		}
+		expected := []string{
+			saC, saD,
+			"spiffe://company.com/ns/default/sa/" + saA,
+			"spiffe://company.com/ns/default/sa/" + saB,
+		}
+		if !reflect.DeepEqual(sa, expected) {
+			t.Errorf("Unexpected service accounts %v (expecting %v)", sa, expected)
+		}
+	})
 }
 
 func TestServiceConversionWithEmptyServiceAccountsAnnotation(t *testing.T) {

@@ -27,6 +27,8 @@ import (
 	"sort"
 	"strings"
 
+	"istio.io/istio/pkg/spiffe"
+
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	http_config "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/rbac/v2"
@@ -80,7 +82,7 @@ const (
 	methodHeader = ":method"
 	pathHeader   = ":path"
 
-	spiffePrefix = "spiffe://"
+	spiffePrefix = spiffe.Scheme + "://"
 )
 
 // serviceMetadata is a collection of different kind of information about a service.

@@ -23,6 +23,8 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/istio/pkg/spiffe"
+
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	authapi "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -36,7 +38,6 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/istio/security/pkg/nodeagent/model"
-	"istio.io/istio/security/pkg/pki/util"
 )
 
 const (
@@ -216,7 +217,7 @@ func parseDiscoveryRequest(discReq *xdsapi.DiscoveryRequest) (string /*spiffeID*
 		return "", fmt.Errorf("discovery request %+v missing node id", discReq)
 	}
 
-	if len(discReq.ResourceNames) != 1 || !strings.HasPrefix(discReq.ResourceNames[0], util.URIScheme) {
+	if len(discReq.ResourceNames) != 1 || !strings.HasPrefix(discReq.ResourceNames[0], spiffe.Scheme) {
 		return "", fmt.Errorf("discovery request %+v has invalid resourceNames %+v", discReq, discReq.ResourceNames)
 	}
 

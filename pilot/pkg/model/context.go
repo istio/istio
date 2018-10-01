@@ -73,6 +73,9 @@ type Proxy struct {
 	// "default.svc.cluster.local")
 	Domain string
 
+	// Domain defines the trust domain of the certificate
+	IdentityDomain string
+
 	// Metadata key-value pairs extending the Node identifier
 	Metadata map[string]string
 }

@@ -47,6 +47,7 @@ const (
 	authWithMCPInstallFile         = "istio-auth-mcp.yaml"
 	nonAuthInstallFileNamespace    = "istio-one-namespace.yaml"
 	authInstallFileNamespace       = "istio-one-namespace-auth.yaml"
+	identityDomainFileNamespace    = "istio-one-namespace-identity-domain.yaml"
 	mcNonAuthInstallFileNamespace  = "istio-multicluster.yaml"
 	mcAuthInstallFileNamespace     = "istio-auth-multicluster.yaml"
 	mcRemoteInstallFile            = "istio-remote.yaml"
@@ -74,22 +75,23 @@ const (
 )
 
 var (
-	namespace          = flag.String("namespace", "", "Namespace to use for testing (empty to create/delete temporary one)")
-	mixerHub           = flag.String("mixer_hub", os.Getenv("HUB"), "Mixer hub")
-	mixerTag           = flag.String("mixer_tag", os.Getenv("TAG"), "Mixer tag")
-	pilotHub           = flag.String("pilot_hub", os.Getenv("HUB"), "Pilot hub")
-	pilotTag           = flag.String("pilot_tag", os.Getenv("TAG"), "Pilot tag")
-	proxyHub           = flag.String("proxy_hub", os.Getenv("HUB"), "Proxy hub")
-	proxyTag           = flag.String("proxy_tag", os.Getenv("TAG"), "Proxy tag")
-	caHub              = flag.String("ca_hub", os.Getenv("HUB"), "Ca hub")
-	caTag              = flag.String("ca_tag", os.Getenv("TAG"), "Ca tag")
-	galleyHub          = flag.String("galley_hub", os.Getenv("HUB"), "Galley hub")
-	galleyTag          = flag.String("galley_tag", os.Getenv("TAG"), "Galley tag")
-	sidecarInjectorHub = flag.String("sidecar_injector_hub", os.Getenv("HUB"), "Sidecar injector hub")
-	sidecarInjectorTag = flag.String("sidecar_injector_tag", os.Getenv("TAG"), "Sidecar injector tag")
-	authEnable         = flag.Bool("auth_enable", false, "Enable auth")
-	rbacEnable         = flag.Bool("rbac_enable", true, "Enable rbac")
-	localCluster       = flag.Bool("use_local_cluster", false,
+	namespace            = flag.String("namespace", "", "Namespace to use for testing (empty to create/delete temporary one)")
+	mixerHub             = flag.String("mixer_hub", os.Getenv("HUB"), "Mixer hub")
+	mixerTag             = flag.String("mixer_tag", os.Getenv("TAG"), "Mixer tag")
+	pilotHub             = flag.String("pilot_hub", os.Getenv("HUB"), "Pilot hub")
+	pilotTag             = flag.String("pilot_tag", os.Getenv("TAG"), "Pilot tag")
+	proxyHub             = flag.String("proxy_hub", os.Getenv("HUB"), "Proxy hub")
+	proxyTag             = flag.String("proxy_tag", os.Getenv("TAG"), "Proxy tag")
+	caHub                = flag.String("ca_hub", os.Getenv("HUB"), "Ca hub")
+	caTag                = flag.String("ca_tag", os.Getenv("TAG"), "Ca tag")
+	galleyHub            = flag.String("galley_hub", os.Getenv("HUB"), "Galley hub")
+	galleyTag            = flag.String("galley_tag", os.Getenv("TAG"), "Galley tag")
+	sidecarInjectorHub   = flag.String("sidecar_injector_hub", os.Getenv("HUB"), "Sidecar injector hub")
+	sidecarInjectorTag   = flag.String("sidecar_injector_tag", os.Getenv("TAG"), "Sidecar injector tag")
+	identityDomainEnable = flag.Bool("identity_domain_enable", false, "Enable different identity domain (e.g. test.local)")
+	authEnable           = flag.Bool("auth_enable", false, "Enable auth")
+	rbacEnable           = flag.Bool("rbac_enable", true, "Enable rbac")
+	localCluster         = flag.Bool("use_local_cluster", false,
 		"If true any LoadBalancer type services will be converted to a NodePort service during testing. If running on minikube, this should be set to true")
 	skipSetup           = flag.Bool("skip_setup", false, "Skip namespace creation and istio cluster setup")
 	sidecarInjectorFile = flag.String("sidecar_injector_file", defaultSidecarInjectorFile, "Sidecar injector yaml file")
@@ -167,6 +169,9 @@ func getClusterWideInstallFile() string {
 		} else {
 			istioYaml = nonAuthInstallFile
 		}
+	}
+	if *identityDomainEnable {
+		istioYaml = identityDomainFileNamespace
 	}
 	return istioYaml
 }
@@ -615,6 +620,9 @@ func (k *KubeInfo) deployIstio() error {
 			if *multiClusterDir != "" {
 				istioYaml = mcAuthInstallFileNamespace
 			}
+		}
+		if *identityDomainEnable {
+			istioYaml = identityDomainFileNamespace
 		}
 		if *useGalleyConfigValidator {
 			return errors.New("cannot enable useGalleyConfigValidator in one namespace tests")

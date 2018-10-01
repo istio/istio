@@ -20,6 +20,8 @@ import (
 	"reflect"
 	"testing"
 
+	"istio.io/istio/pkg/spiffe"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
@@ -396,38 +398,40 @@ func TestInstancesError(t *testing.T) {
 }
 
 func TestGetIstioServiceAccounts(t *testing.T) {
-	aggregateCtl := buildMockController()
+	spiffe.WithIdentityDomain("cluster.local", func() {
+		aggregateCtl := buildMockController()
 
-	// Get accounts from mockAdapter1
-	accounts := aggregateCtl.GetIstioServiceAccounts(memory.HelloService.Hostname, []int{})
-	expected := []string{}
+		// Get accounts from mockAdapter1
+		accounts := aggregateCtl.GetIstioServiceAccounts(memory.HelloService.Hostname, []int{})
+		expected := []string{}
 
-	if len(accounts) != len(expected) {
-		t.Fatal("Incorrect account result returned")
-	}
-
-	for i := 0; i < len(accounts); i++ {
-		if accounts[i] != expected[i] {
-			t.Fatal("Returned account result does not match expected one")
+		if len(accounts) != len(expected) {
+			t.Fatal("Incorrect account result returned")
 		}
-	}
 
-	// Get accounts from mockAdapter2
-	accounts = aggregateCtl.GetIstioServiceAccounts(memory.WorldService.Hostname, []int{})
-	expected = []string{
-		"spiffe://cluster.local/ns/default/sa/serviceaccount1",
-		"spiffe://cluster.local/ns/default/sa/serviceaccount2",
-	}
-
-	if len(accounts) != len(expected) {
-		t.Fatal("Incorrect account result returned")
-	}
-
-	for i := 0; i < len(accounts); i++ {
-		if accounts[i] != expected[i] {
-			t.Fatal("Returned account result does not match expected one")
+		for i := 0; i < len(accounts); i++ {
+			if accounts[i] != expected[i] {
+				t.Fatal("Returned account result does not match expected one")
+			}
 		}
-	}
+
+		// Get accounts from mockAdapter2
+		accounts = aggregateCtl.GetIstioServiceAccounts(memory.WorldService.Hostname, []int{})
+		expected = []string{
+			"spiffe://cluster.local/ns/default/sa/serviceaccount1",
+			"spiffe://cluster.local/ns/default/sa/serviceaccount2",
+		}
+
+		if len(accounts) != len(expected) {
+			t.Fatal("Incorrect account result returned")
+		}
+
+		for i := 0; i < len(accounts); i++ {
+			if accounts[i] != expected[i] {
+				t.Fatal("Returned account result does not match expected one")
+			}
+		}
+	})
 }
 
 func TestManagementPorts(t *testing.T) {

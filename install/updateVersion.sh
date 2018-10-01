@@ -168,7 +168,7 @@ function gen_istio_files() {
             gen_file $target "${DEST_DIR}"
         done
     else
-        for target in istio.yaml istio-auth.yaml istio-one-namespace.yaml istio-one-namespace-auth.yaml istio-multicluster.yaml istio-auth-multicluster.yaml istio-remote.yaml istio-mcp.yaml istio-auth-mcp.yaml;do
+        for target in istio.yaml istio-auth.yaml istio-one-namespace.yaml istio-one-namespace-auth.yaml istio-one-namespace-identity-domain.yaml istio-multicluster.yaml istio-auth-multicluster.yaml istio-remote.yaml istio-mcp.yaml istio-auth-mcp.yaml;do
             gen_file $target "${DEST_DIR}"
         done
     fi

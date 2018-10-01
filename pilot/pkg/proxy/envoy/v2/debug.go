@@ -23,6 +23,8 @@ import (
 	"net/http"
 	"sync"
 
+	"istio.io/istio/pkg/spiffe"
+
 	"github.com/gogo/protobuf/jsonpb"
 
 	authn "istio.io/api/authentication/v1alpha1"
@@ -320,8 +322,8 @@ func (sd *MemServiceDiscovery) GetIstioServiceAccounts(hostname model.Hostname, 
 	defer sd.mutex.Unlock()
 	if hostname == "world.default.svc.cluster.local" {
 		return []string{
-			"spiffe://cluster.local/ns/default/sa/serviceaccount1",
-			"spiffe://cluster.local/ns/default/sa/serviceaccount2",
+			spiffe.MustGenSpiffeURI("default", "serviceaccount1"),
+			spiffe.MustGenSpiffeURI("default", "serviceaccount2"),
 		}
 	}
 	return make([]string, 0)
