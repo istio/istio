@@ -45,6 +45,7 @@ type (
 	controllerImpl struct {
 		env           adapter.Env
 		pods          cache.SharedIndexInformer
+		rc            cache.SharedIndexInformer
 		appsv1RS      cache.SharedIndexInformer
 		appsv1beta2RS cache.SharedIndexInformer
 		extv1beta1RS  cache.SharedIndexInformer
@@ -91,6 +92,19 @@ func newCacheController(clientset kubernetes.Interface, refreshDuration time.Dur
 				"ip": podIP,
 			},
 		),
+		rc: cache.NewSharedIndexInformer(
+			&cache.ListWatch{
+				ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
+					return clientset.CoreV1().ReplicationControllers(namespace).List(opts)
+				},
+				WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
+					return clientset.CoreV1().ReplicationControllers(namespace).Watch(opts)
+				},
+			},
+			&v1.ReplicationController{},
+			refreshDuration,
+			cache.Indexers{},
+		),
 		appsv1RS: cache.NewSharedIndexInformer(
 			&cache.ListWatch{
 				ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
@@ -135,6 +149,7 @@ func newCacheController(clientset kubernetes.Interface, refreshDuration time.Dur
 
 func (c *controllerImpl) HasSynced() bool {
 	return c.pods.HasSynced() &&
+		c.rc.HasSynced() &&
 		c.appsv1beta2RS.HasSynced() &&
 		c.appsv1RS.HasSynced() &&
 		c.extv1beta1RS.HasSynced()
@@ -143,6 +158,7 @@ func (c *controllerImpl) HasSynced() bool {
 func (c *controllerImpl) Run(stop <-chan struct{}) {
 	// TODO: scheduledaemon
 	c.env.ScheduleDaemon(func() { c.pods.Run(stop) })
+	c.env.ScheduleDaemon(func() { c.rc.Run(stop) })
 	c.env.ScheduleDaemon(func() { c.appsv1beta2RS.Run(stop) })
 	c.env.ScheduleDaemon(func() { c.appsv1RS.Run(stop) })
 	c.env.ScheduleDaemon(func() { c.extv1beta1RS.Run(stop) })
@@ -206,6 +222,12 @@ func (c *controllerImpl) rootController(obj *metav1.ObjectMeta) (metav1.OwnerRef
 						return rootRef, true
 					}
 				}
+			case "ReplicationController":
+				if rc, found := c.objectMeta(c.rc.GetIndexer(), key(obj.Namespace, ref.Name)); found {
+					if rootRef, ok := c.rootController(rc); ok {
+						return rootRef, true
+					}
+				}
 			}
 			return ref, true
 		}
@@ -224,6 +246,8 @@ func (c *controllerImpl) objectMeta(keyGetter cache.KeyGetter, key string) (*met
 	case *appsv1beta2.ReplicaSet:
 		return &v.ObjectMeta, true
 	case *extv1beta1.ReplicaSet:
+		return &v.ObjectMeta, true
+	case *v1.ReplicationController:
 		return &v.ObjectMeta, true
 	}
 	return nil, false
