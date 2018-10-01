@@ -93,7 +93,8 @@ func testHelper(t *testing.T, testSocket string, cb secretCallback) {
 	}
 
 	wait := 300 * time.Millisecond
-	for try := 0; try < 5; try++ {
+	retry := 0
+	for ; retry < 5; retry++ {
 		time.Sleep(wait)
 		// Try to call the server
 		resp, err := cb(testSocket, req)
@@ -106,6 +107,10 @@ func testHelper(t *testing.T, testSocket string, cb secretCallback) {
 		wait *= 2
 	}
 
+	if retry == 5 {
+		t.Fatalf("failed to start grpc server for SDS")
+	}
+
 	// Request for root certificate.
 	rootCertReq := &api.DiscoveryRequest{
 		ResourceNames: []string{"ROOTCA"},
@@ -114,9 +119,10 @@ func testHelper(t *testing.T, testSocket string, cb secretCallback) {
 		},
 	}
 	resp, err := cb(testSocket, rootCertReq)
+	if err != nil {
+		t.Fatalf("failed to get root cert through SDS")
+	}
 	verifySDSSResponseForRootCert(t, resp, fakeRootCert)
-
-	t.Fatalf("failed to start grpc server for SDS")
 }
 
 func TestStreamSecretsPush(t *testing.T) {
