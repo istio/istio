@@ -79,8 +79,12 @@ gateways:
     - port: 8060
       targetPort: 8060
       name: tcp-citadel-grpc-tls
+    # Addon ports for kiali are enabled in gateway - but will only redirect if
+    # the gateway configuration for the various components are enabled.
+    - port: 15029
+    - targetPort: 15029
     # Telemetry-related ports are enabled in gateway - but will only redirect if
-    # the gateway configration for the various components are enabled.
+    # the gateway configuration for the various components are enabled.
     - port: 15030
       targetPort: 15030
       name: http2-prometheus

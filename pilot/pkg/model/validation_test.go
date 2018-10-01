@@ -503,34 +503,6 @@ func TestValidateParentAndDrain(t *testing.T) {
 	}
 }
 
-func TestValidateRefreshDelay(t *testing.T) {
-	type durationCheck struct {
-		duration *types.Duration
-		isValid  bool
-	}
-
-	checks := []durationCheck{
-		{
-			duration: &types.Duration{Seconds: 1},
-			isValid:  true,
-		},
-		{
-			duration: &types.Duration{Seconds: 36001},
-			isValid:  false,
-		},
-		{
-			duration: &types.Duration{Nanos: 1},
-			isValid:  false,
-		},
-	}
-
-	for _, check := range checks {
-		if got := ValidateRefreshDelay(check.duration); (got == nil) != check.isValid {
-			t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for %v", got == nil, check.isValid, got, check.duration)
-		}
-	}
-}
-
 func TestValidateConnectTimeout(t *testing.T) {
 	type durationCheck struct {
 		duration *types.Duration
@@ -570,7 +542,6 @@ func TestValidateMeshConfig(t *testing.T) {
 		ProxyListenPort:   0,
 		ConnectTimeout:    types.DurationProto(-1 * time.Second),
 		AuthPolicy:        -1,
-		RdsRefreshDelay:   types.DurationProto(-1 * time.Second),
 		DefaultConfig:     &meshconfig.ProxyConfig{},
 	}
 
@@ -602,7 +573,6 @@ func TestValidateProxyConfig(t *testing.T) {
 		ProxyAdminPort:         0,
 		DrainDuration:          types.DurationProto(-1 * time.Second),
 		ParentShutdownDuration: types.DurationProto(-1 * time.Second),
-		DiscoveryRefreshDelay:  types.DurationProto(-1 * time.Second),
 		ConnectTimeout:         types.DurationProto(-1 * time.Second),
 		ServiceCluster:         "",
 		StatsdUdpAddress:       "10.0.0.100",
@@ -617,7 +587,7 @@ func TestValidateProxyConfig(t *testing.T) {
 		switch err.(type) {
 		case *multierror.Error:
 			// each field must cause an error in the field
-			if len(err.(*multierror.Error).Errors) < 12 {
+			if len(err.(*multierror.Error).Errors) < 11 {
 				t.Errorf("expected an error for each field %v", err)
 			}
 		default:
@@ -3146,7 +3116,7 @@ func TestValidateNetworkEndpointAddress(t *testing.T) {
 	}
 }
 
-func TestValidateRbacConfig(t *testing.T) {
+func TestValidateClusterRbacConfig(t *testing.T) {
 	cases := []struct {
 		caseName     string
 		name         string
@@ -3156,13 +3126,13 @@ func TestValidateRbacConfig(t *testing.T) {
 	}{
 		{
 			caseName:     "invalid proto",
-			expectErrMsg: "cannot cast to RbacConfig",
+			expectErrMsg: "cannot cast to ClusterRbacConfig",
 		},
 		{
 			caseName: "invalid name",
-			name:     "Rbac-config",
+			name:     "cluster-rbac-config",
 			in:       &rbac.RbacConfig{Mode: rbac.RbacConfig_ON_WITH_INCLUSION},
-			expectErrMsg: fmt.Sprintf("rbacConfig has invalid name(Rbac-config), name must be %s",
+			expectErrMsg: fmt.Sprintf("ClusterRbacConfig has invalid name(cluster-rbac-config), name must be %q",
 				DefaultRbacConfigName),
 		},
 		{
@@ -3184,13 +3154,13 @@ func TestValidateRbacConfig(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		err := ValidateRbacConfig(c.name, c.namespace, c.in)
+		err := ValidateClusterRbacConfig(c.name, c.namespace, c.in)
 		if err == nil {
 			if len(c.expectErrMsg) != 0 {
-				t.Errorf("ValidateRbacConfig(%v): got nil but want %q\n", c.caseName, c.expectErrMsg)
+				t.Errorf("ValidateClusterRbacConfig(%v): got nil but want %q\n", c.caseName, c.expectErrMsg)
 			}
 		} else if err.Error() != c.expectErrMsg {
-			t.Errorf("ValidateRbacConfig(%v): got %q but want %q\n", c.caseName, err.Error(), c.expectErrMsg)
+			t.Errorf("ValidateClusterRbacConfig(%v): got %q but want %q\n", c.caseName, err.Error(), c.expectErrMsg)
 		}
 	}
 }

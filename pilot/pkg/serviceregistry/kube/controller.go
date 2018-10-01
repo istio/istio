@@ -17,7 +17,6 @@ package kube
 import (
 	"errors"
 	"fmt"
-	"os"
 	"reflect"
 	"strconv"
 	"time"
@@ -30,6 +29,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/features/pilot"
 	"istio.io/istio/pkg/log"
 )
 
@@ -63,10 +63,6 @@ var (
 func init() {
 	prometheus.MustRegister(k8sEvents)
 }
-
-var (
-	azDebug = os.Getenv("VERBOSE_AZ_DEBUG") == "1"
-)
 
 // ControllerOptions stores the configurable attributes of a Controller.
 type ControllerOptions struct {
@@ -246,14 +242,14 @@ func (c *Controller) GetPodAZ(pod *v1.Pod) (string, bool) {
 	}
 	region, exists := node.(*v1.Node).Labels[NodeRegionLabel]
 	if !exists {
-		if azDebug {
+		if pilot.AzDebug {
 			log.Warnf("unable to retrieve region label for pod: %v", pod.Name)
 		}
 		return "", false
 	}
 	zone, exists := node.(*v1.Node).Labels[NodeZoneLabel]
 	if !exists {
-		if azDebug {
+		if pilot.AzDebug {
 			log.Warnf("unable to retrieve zone label for pod: %v", pod.Name)
 		}
 		return "", false

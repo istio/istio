@@ -105,6 +105,15 @@ resources:
     version:     "v1alpha1"
     proto:       "istio.rbac.v1alpha1.RbacConfig"
 
+  - kind:        "ClusterRbacConfig"
+    clusterScoped: true
+    listKind:    "ClusterRbacConfigList"
+    singular:    "clusterrbacconfig"
+    plural:      "clusterrbacconfigs"
+    group:       "rbac.istio.io"
+    version:     "v1alpha1"
+    proto:       "istio.rbac.v1alpha1.RbacConfig"
+
 # Types from Mixer
 
   - kind:        "rule"

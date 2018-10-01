@@ -42,7 +42,7 @@ function setup_and_export_git_sha() {
     fi
 
     # Use volume mount from pilot-presubmit job's pod spec.
-    export KUBECONFIG="${HOME}/.kube/config"
+    export KUBECONFIG="${KUBECONFIG:-${HOME}/.kube/config}"
 
   else
     # Use the current commit.

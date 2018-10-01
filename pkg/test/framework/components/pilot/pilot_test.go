@@ -18,6 +18,8 @@ import (
 	"io"
 	"testing"
 
+	"istio.io/istio/pilot/pkg/config/memory"
+
 	"istio.io/istio/pkg/test"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -35,7 +37,9 @@ const (
 
 func TestLocalPilot(t *testing.T) {
 	// Create and start the pilot discovery service.
-	p, err := pilot.NewLocalPilot("istio-system")
+	mesh := model.DefaultMeshConfig()
+	configStore := memory.NewController(memory.Make(model.IstioConfigTypes))
+	p, err := pilot.NewLocalPilot("istio-system", &mesh, configStore)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -44,7 +48,6 @@ func TestLocalPilot(t *testing.T) {
 	}()
 
 	// Add a service entry.
-	configStore := p.(model.ConfigStore)
 	_, err = configStore.Create(model.Config{
 		ConfigMeta: model.ConfigMeta{
 			Name:      "some-service-entry",

@@ -19,6 +19,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 )
@@ -77,6 +79,14 @@ func (m *Monitor) checkAndUpdate() {
 		return
 	}
 
+	// make a deep copy of newConfigs to prevent data race
+	copyConfigs := []*model.Config{}
+	for _, config := range newConfigs {
+		copy := *config
+		copy.Spec = proto.Clone(config.Spec)
+		copyConfigs = append(copyConfigs, &copy)
+	}
+
 	// Compare the new list to the previous one and detect changes.
 	oldLen := len(m.configs)
 	newLen := len(newConfigs)
@@ -112,7 +122,7 @@ func (m *Monitor) checkAndUpdate() {
 	}
 
 	// Save the updated list.
-	m.configs = newConfigs
+	m.configs = copyConfigs
 }
 
 func (m *Monitor) createConfig(c *model.Config) {

@@ -35,7 +35,7 @@ gateways:
     serviceAnnotations: {}
     podAnnotations: {}
     type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
-
+    #externalTrafficPolicy: Local #change to Local to preserve source IP or Cluster for default behaviour or leave commented out
     ports:
       ## You can add custom gateway ports
     - port: 80
@@ -45,11 +45,14 @@ gateways:
     - port: 443
       name: https
       nodePort: 31390
+    # Example of a port to add
     - port: 31400
       name: tcp
       nodePort: 31400
     # Pilot and Citadel MTLS ports are enabled in gateway - but will only redirect
     # to pilot/citadel if global.meshExpansion settings are enabled.
+    # Delete these ports if mesh expansion is not enabled, to avoid
+    # exposing unnecessary ports on the web.
     - port: 15011
       targetPort: 15011
       name: tcp-pilot-grpc-tls
@@ -59,12 +62,22 @@ gateways:
     - port: 853
       targetPort: 853
       name: tcp-dns-tls
+    - port: 15029
+      targetPort: 15029
+      name: http-kiali
     - port: 15030
       targetPort: 15030
       name: http2-prometheus
     - port: 15031
       targetPort: 15031
       name: http2-grafana
+      # MultiCluster gateway is used to route traffic into local cluster, based
+      # on the SNI value in the TLS connection. In a multi-cluster setup, a
+      # remote service sends traffic with the Envoy cluster encoded in the SNI
+      # value. The gateway forwards traffic to the envoy cluster (service+subset+port).
+    - port: 15443
+      targetPort: 15443
+      name: tls
     secretVolumes:
     - name: ingressgateway-certs
       secretName: istio-ingressgateway-certs
@@ -142,3 +155,37 @@ gateways:
     - name: ilbgateway-ca-certs
       secretName: istio-ilbgateway-ca-certs
       mountPath: /etc/istio/ilbgateway-ca-certs
+
+  # MultiCluster gateway is used to route traffic into local cluster, based
+  # on the SNI value in the TLS connection. In a multi-cluster setup, a
+  # remote service sends traffic with the Envoy cluster encoded in the SNI
+  # value. The gateway forwards traffic to the envoy cluster (service+subset+port).
+  istio-mcgateway:
+    enabled: false
+    labels:
+      app: istio-mcgateway
+      istio: mcgateway
+    replicaCount: 1
+    autoscaleMin: 1
+    autoscaleMax: 5
+    resources:
+      requests:
+        cpu: 800m
+        memory: 512Mi
+      #limits:
+      #  cpu: 1800m
+      #  memory: 256Mi
+    loadBalancerIP: ""
+    podAnnotations: {}
+    type: LoadBalancer
+    ports:
+      # Port 80 is not used. But we still need this because AWS LB marks
+      # the gateway as unhealthy without some response.
+      # Traffic into port 80 returns 404 always, but keeps AWS LB happy.
+    - port: 80
+      targetPort: 80
+      name: http
+      # This is the port where sni routing happens
+    - port: 15443
+      targetPort: 15443
+      name: tls

@@ -15,9 +15,7 @@
 package v1alpha3
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
 	"reflect"
 	"sort"
 	"strings"
@@ -72,10 +70,6 @@ const (
 )
 
 var (
-	// Very verbose output in the logs - full LDS response logged for each sidecar.
-	// Use /debug/ldsz instead.
-	verboseDebug = os.Getenv("PILOT_DUMP_ALPHA3") != ""
-
 	// TODO: gauge should be reset on refresh, not the best way to represent errors but better
 	// than nothing.
 	// TODO: add dimensions - namespace of rule, service, rule name
@@ -147,11 +141,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 			listeners = append(listeners, m)
 		}
 
-		// We need a dummy filter to fill in the filter stack for orig_dst listener
-		// TODO: Move to Listener filters and set up original dst filter there.
-		dummyTCPProxy := &tcp_proxy.TcpProxy{
-			StatPrefix: util.BlackHoleCluster,
-			Cluster:    util.BlackHoleCluster,
+		// We need a passthrough filter to fill in the filter stack for orig_dst listener
+		passthroughTCPProxy := &tcp_proxy.TcpProxy{
+			StatPrefix: util.PassthroughCluster,
+			Cluster:    util.PassthroughCluster,
 		}
 
 		var transparent *google_protobuf.BoolValue
@@ -170,7 +163,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 					Filters: []listener.Filter{
 						{
 							Name:   xdsutil.TCPProxy,
-							Config: util.MessageToStruct(dummyTCPProxy),
+							Config: util.MessageToStruct(passthroughTCPProxy),
 						},
 					},
 				},
@@ -861,10 +854,6 @@ func buildHTTPConnectionManager(env *model.Environment, node *model.Proxy, httpO
 		connectionManager.GenerateRequestId = &google_protobuf.BoolValue{Value: true}
 	}
 
-	if verboseDebug {
-		connectionManagerJSON, _ := json.MarshalIndent(connectionManager, "  ", "  ")
-		log.Infof("LDS: %s \n", string(connectionManagerJSON))
-	}
 	return connectionManager
 }
 

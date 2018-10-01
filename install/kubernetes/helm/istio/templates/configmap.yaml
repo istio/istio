@@ -84,7 +84,11 @@ data:
       concurrency: {{ .Values.global.proxy.concurrency }}
       #
       # Zipkin trace collector
+      {{- if .Values.global.tracer.zipkinAddress }}
+      zipkinAddress: {{ .Values.global.tracer.zipkinAddress }}
+      {{- else }}
       zipkinAddress: zipkin.{{ .Release.Namespace }}:9411
+      {{- end }}
 
     {{- if .Values.global.proxy.envoyStatsd.enabled }}
       #

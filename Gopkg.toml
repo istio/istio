@@ -112,7 +112,7 @@ ignored = [
 
 [[constraint]]
   name = "github.com/envoyproxy/go-control-plane"
-  version = "^0.5.0"
+  version = "^0.6.0"
 
 [[constraint]]
   name = "github.com/fluent/fluent-logger-golang"
@@ -291,10 +291,6 @@ ignored = [
   version = "^1.13.0"
 
 [[constraint]]
-  branch = "v2"
-  name = "gopkg.in/validator.v2"
-
-[[constraint]]
   name = "gopkg.in/yaml.v2"
   version = "2.2.1"
 
@@ -323,10 +319,6 @@ ignored = [
 [[constraint]]
   name = "k8s.io/helm"
   version = "2.9.1"
-
-[[constraint]]
-  name = "k8s.io/ingress"
-  version = "0.9.6"
 
 [[constraint]]
   name = "k8s.io/kubernetes"

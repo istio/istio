@@ -39,18 +39,19 @@ func TestMixer_Report_Direct(t *testing.T) {
 		))
 
 	mxr.Report(t, map[string]interface{}{
-		"context.protocol":    "http",
-		"destination.name":    "somesrvcname",
-		"response.time":       time.Now(),
-		"request.time":        time.Now(),
-		"destination.service": "svc.{{.TestNamespace}}",
-		"destination.port":    int64(7678),
-		"origin.ip":           []byte{1, 2, 3, 4},
+		"context.protocol":      "http",
+		"destination.name":      "somesrvcname",
+		"destination.namespace": "{{.TestNamespace}}",
+		"response.time":         time.Now(),
+		"request.time":          time.Now(),
+		"destination.service":   "svc.{{.TestNamespace}}",
+		"destination.port":      int64(7678),
+		"origin.ip":             []byte{1, 2, 3, 4},
 	})
 
 	expected := `
 {
-  "name": "metric1.metric.istio-system",
+  "name": "metric1.metric.{{.TestNamespace}}",
   "value": {
     "int64Value": "2"
   },
@@ -75,7 +76,7 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: metric
 metadata:
   name: metric1
-  namespace: istio-system
+  namespace: {{.TestNamespace}}
 spec:
   value: "2"
   dimensions:
@@ -86,7 +87,7 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
   name: rule1
-  namespace: istio-system
+  namespace: {{.TestNamespace}}
 spec:
   actions:
   - handler: handler1.bypass
