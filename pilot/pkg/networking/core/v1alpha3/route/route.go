@@ -378,12 +378,11 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 			}
 		}
 
-
 		// TODO: deprecate
-		for key, value := range in.AppendHeaders {
+		for name, value := range in.AppendHeaders {
 			action.RequestHeadersToAdd = append(action.RequestHeadersToAdd, &core.HeaderValueOption{
 				Header: &core.HeaderValue{
-					Key:   key,
+					Key:   name,
 					Value: value,
 				},
 			})
@@ -392,7 +391,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 		for name, value := range in.AppendRequestHeaders {
 			action.RequestHeadersToAdd = append(action.RequestHeadersToAdd, &core.HeaderValueOption{
 				Header: &core.HeaderValue{
-					Key:   key,
+					Key:   name,
 					Value: value,
 				},
 			})
@@ -401,13 +400,13 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 		for name, value := range in.AppendResponseHeaders {
 			action.RequestHeadersToAdd = append(action.RequestHeadersToAdd, &core.HeaderValueOption{
 				Header: &core.HeaderValue{
-					Key:   key,
+					Key:   name,
 					Value: value,
 				},
 			})
 		}
 
-		// TODO: in.RemoveRequestHeaders
+		action.ResponseHeadersToRemove = in.RemoveRequestHeaders
 		action.ResponseHeadersToRemove = in.RemoveResponseHeaders
 
 		if in.Mirror != nil {
@@ -455,7 +454,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 				})
 			}
 
-			// TODO: remove request headers
+			clusterWeight.RequestHeadersToRemove = dst.RemoveRequestHeaders
 			clusterWeight.ResponseHeadersToRemove = dst.RemoveResponseHeaders
 
 			weighted = append(weighted, clusterWeight)
@@ -471,7 +470,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 			action.ClusterSpecifier = &route.RouteAction_Cluster{Cluster: weighted[0].Name}
 			out.RequestHeadersToAdd = append(out.RequestHeadersToAdd, weighted[0].RequestHeadersToAdd...)
 			out.ResponseHeadersToAdd = append(out.ResponseHeadersToAdd, weighted[0].ResponseHeadersToAdd...)
-			// TODO: out.RemoveRequestHeaders = append(out.Remove, weighted[0].ResponseHeadersToAdd...)
+			out.RequestHeadersToRemove = append(out.RequestHeadersToRemove, weighted[0].RequestHeadersToRemove...)
 			out.ResponseHeadersToRemove = append(out.ResponseHeadersToRemove, weighted[0].ResponseHeadersToRemove...)
 		} else {
 			action.ClusterSpecifier = &route.RouteAction_WeightedClusters{
@@ -760,7 +759,7 @@ func portLevelSettingsConsistentHash(dst *networking.Destination,
 	return nil
 }
 
-func getHashPolicy(push *model.PushContext, dst *networking.DestinationWeight) *route.RouteAction_HashPolicy {
+func getHashPolicy(push *model.PushContext, dst *networking.HTTPRouteDestination) *route.RouteAction_HashPolicy {
 	if push == nil {
 		return nil
 	}
