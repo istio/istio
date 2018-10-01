@@ -80,6 +80,10 @@ type Settings struct {
 
 	// Indicates that the test should deploy Istio into the target Kubernetes cluster before running tests.
 	DeployIstio bool
+
+	// Indicates that the Ingress Gateway is not available. This typically happens in Minikube. The Ingress
+	// component will fall back to node-port in this case.
+	MinikubeIngress bool
 }
 
 func (s *Settings) validate() error {
@@ -103,6 +107,7 @@ func (s *Settings) String() string {
 	result += fmt.Sprintf("DependencyNamespace:  %s\n", s.DependencyNamespace)
 	result += fmt.Sprintf("TestNamespace:        %s\n", s.TestNamespace)
 	result += fmt.Sprintf("DeployIstio:          %v\n", s.DeployIstio)
+	result += fmt.Sprintf("MinikubeIngress:            %v\n", s.MinikubeIngress)
 
 	return result
 }

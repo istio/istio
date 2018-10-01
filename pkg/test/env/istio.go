@@ -69,6 +69,12 @@ var (
 
 	// IstioChartDir is the Kubernetes Helm chart directory in the repository
 	IstioChartDir = path.Join(ChartsDir, "istio")
+
+	// BookInfoRoot is the root folder for the bookinfo samples
+	BookInfoRoot = path.Join(IstioRoot, "samples/bookinfo")
+
+	// BookInfoKube is the book info folder that contains Yaml deployment files.
+	BookInfoKube = path.Join(BookInfoRoot, "platform/kube")
 )
 
 func getDefaultIstioTop() string {

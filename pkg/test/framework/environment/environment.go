@@ -21,6 +21,8 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/gogo/googleapis/google/rpc"
 	"github.com/gogo/protobuf/proto"
+	"github.com/prometheus/client_golang/api/prometheus/v1"
+	prom "github.com/prometheus/common/model"
 
 	istio_mixer_v1 "istio.io/api/mixer/v1"
 	"istio.io/istio/pilot/pkg/model"
@@ -92,6 +94,24 @@ type (
 
 		// GetPolicyBackendOrFail returns the mock policy backend that is used by Mixer for policy checks and reports.
 		GetPolicyBackendOrFail(t testing.TB) DeployedPolicyBackend
+
+		// DeployBookInfo deploys BookInfo into the test namespace.
+		DeployBookInfo() error
+
+		// DeployBookInfoOrFail deploys BookInfo into the test namespace, or fails the test if unsuccessful.
+		DeployBookInfoOrFail(t testing.TB)
+
+		// GetPrometheus returns a handle to a deployed Prometheus instance.
+		GetPrometheus() (DeployedPrometheus, error)
+
+		// GetPrometheusOrFail return a handle to a deployed Prometheus instance, or fails the test if unsuccessful.
+		GetPrometheusOrFail(t testing.TB) DeployedPrometheus
+
+		// GetIngress returns the Istio Ingress Gateway.
+		GetIngress() (DeployedIngress, error)
+
+		// GetIngressOrFail returns the Istio Ingress Gateway, or fails the test if uncessfull.
+		GetIngressOrFail(t testing.TB) DeployedIngress
 
 		// ComponentContext returns an context that can be used to access internal implementation details
 		// of the underlying environment.
@@ -216,6 +236,50 @@ type (
 	FortioAppCallResult struct {
 		// The raw content of the response
 		Raw string
+	}
+
+	// DeployedPrometheus represents a deployed Prometheus instance in a Kubernetes cluster.
+	DeployedPrometheus interface {
+		Deployed
+
+		// API Returns the core Prometheus APIs.
+		API() v1.API
+
+		// WaitForQuiesce runs the provided query periodically until the result gets stable.
+		WaitForQuiesce(fmt string, args ...interface{}) (prom.Value, error)
+
+		// WaitForOneOrMore runs the provided query and waits until one (or more for vector) values are available.
+		WaitForOneOrMore(fmt string, args ...interface{}) error
+
+		// Sum all the samples that has the given labels in the given vector value.
+		Sum(val prom.Value, labels map[string]string) (float64, error)
+	}
+
+	// DeployedIngress represents a deployed Ingress Gateway instance.
+	DeployedIngress interface {
+		Deployed
+
+		// Address returns the external HTTP address of the ingress gateway (or the NodePort address,
+		// when running under Minikube).
+		Address() string
+
+		//  Call makes an HTTP call through ingress, where the URL has the given path.
+		Call(path string) (IngressCallResponse, error)
+	}
+
+	// BookInfo represents an optionally deployable bookinfo installation.
+	// TODO: This interface is an internal implementation detail, we should find a better home for this.
+	BookInfo interface {
+		Deploy() error
+	}
+
+	// IngressCallResponse is the result of a call made through Istio Ingress.
+	IngressCallResponse struct {
+		// Response status code
+		Code int
+
+		// Response body
+		Body string
 	}
 )
 

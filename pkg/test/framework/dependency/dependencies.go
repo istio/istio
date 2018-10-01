@@ -46,4 +46,13 @@ const (
 	// In cluster mode, this is satisfied via existing API Server. In local model, this is satisfied
 	// via a minikube installation.
 	APIServer = Instance("apiserver")
+
+	// BookInfo indicates that BookInfo sample should be deployed.
+	BookInfo = Instance("bookInfo")
+
+	// Prometheus indicates that a handle to a deployed Prometheus instance in Kubernetes should be returned.
+	Prometheus = Instance("prometheus")
+
+	// Ingress indicates a dependency on the ingress gateway.
+	Ingress = Instance("ingress")
 )

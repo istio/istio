@@ -125,7 +125,7 @@ func (b *Backend) Reset(ctx context.Context, req *ResetRequest) (*ResetResponse,
 
 // GetReports method of the control service.
 func (b *Backend) GetReports(ctx context.Context, req *GetReportsRequest) (*GetReportsResponse, error) {
-	scope.Infof("Backend.GetReports %v", req)
+	scope.Debugf("Backend.GetReports %v", req)
 	b.lock.Lock()
 	defer b.lock.Unlock()
 
