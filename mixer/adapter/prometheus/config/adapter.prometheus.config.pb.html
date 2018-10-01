@@ -74,13 +74,13 @@ that the adapter will maintain over its lifetime.</p>
 <td><code>string</code></td>
 <td>
 <p>Optional. The namespace is used as a prefix on the metric names.
-An example: for a metric named &ldquo;requests<em>total&rdquo; with a namespace of &ldquo;istio&rdquo;,
-the full metric name becomes &ldquo;istio</em>requests_total&rdquo;.
-NOTE: The specificed namespace should be a prometheus-safe name. If not, the adapter
+An example: for a metric named <code>requests_total</code> with a namespace of <code>istio</code>,
+the full metric name becomes <code>istio_requests_total</code>.
+NOTE: The specified namespace should be a prometheus-safe name. If not, the adapter
 will attempt to convert the namespace to a prometheus-safe name.
 NOTE: Changing the value for this will potentially impact downstream integrations
 and should be used with caution.
-Default value: &ldquo;istio&rdquo;.</p>
+Default value: <code>istio</code>.</p>
 
 </td>
 </tr>
