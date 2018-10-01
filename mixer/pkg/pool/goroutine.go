@@ -87,3 +87,7 @@ func (gp *GoroutinePool) AddWorkers(numWorkers int) {
 		}
 	}
 }
+
+func (gp *GoroutinePool) QueueLength() int {
+	return len(gp.queue)
+}

@@ -17,6 +17,7 @@ package api
 import (
 	"context"
 	"fmt"
+	"sync/atomic"
 	"time"
 
 	"github.com/gogo/googleapis/google/rpc"
@@ -45,6 +46,9 @@ type (
 		// the global dictionary. This will eventually be writable via config
 		globalWordList []string
 		globalDict     map[string]int32
+
+		queuedRequests int64
+		queueLength    int64
 	}
 )
 
@@ -64,6 +68,7 @@ func NewGRPCServer(dispatcher dispatcher.Dispatcher, gp *pool.GoroutinePool, cac
 		globalWordList: list,
 		globalDict:     globalDict,
 		cache:          cache,
+		queueLength:    int64(gp.QueueLength()),
 	}
 }
 
@@ -216,16 +221,24 @@ var reportResp = &mixerpb.ReportResponse{}
 
 // Report is the entry point for the external Report method
 func (s *grpcServer) Report(ctx context.Context, req *mixerpb.ReportRequest) (*mixerpb.ReportResponse, error) {
+	qrs := atomic.LoadInt64(&s.queuedRequests)
+	if qrs > s.queueLength {
+		return nil, grpc.Errorf(codes.Unavailable, "Work queue is full (%d pending requests). Try again later.", qrs)
+	}
+	atomic.AddInt64(&s.queuedRequests, 1)
+
 	lg.Debugf("Report (Count: %d)", len(req.Attributes))
 
 	if req.GlobalWordCount > uint32(len(s.globalWordList)) {
 		err := fmt.Errorf("inconsistent global dictionary versions used: mixer knows %d words, caller knows %d", len(s.globalWordList), req.GlobalWordCount)
 		lg.Errora("Report failed:", err.Error())
+		atomic.AddInt64(&s.queuedRequests, -1)
 		return nil, grpc.Errorf(codes.Internal, err.Error())
 	}
 
 	if len(req.Attributes) == 0 {
 		// early out
+		atomic.AddInt64(&s.queuedRequests, -1)
 		return reportResp, nil
 	}
 
@@ -307,8 +320,10 @@ func (s *grpcServer) Report(ctx context.Context, req *mixerpb.ReportRequest) (*m
 
 	if errors != nil {
 		lg.Errora("Report failed:", errors.Error())
+		atomic.AddInt64(&s.queuedRequests, -1)
 		return nil, grpc.Errorf(codes.Unknown, errors.Error())
 	}
 
+	atomic.AddInt64(&s.queuedRequests, -1)
 	return reportResp, nil
 }
