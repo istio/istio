@@ -37,8 +37,8 @@ import (
 func buildInboundNetworkFilters(env *model.Environment, instance *model.ServiceInstance) []listener.Filter {
 	clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "", instance.Service.Hostname, instance.Endpoint.ServicePort.Port)
 	config := &tcp_proxy.TcpProxy{
-		StatPrefix: clusterName,
-		Cluster:    clusterName,
+		StatPrefix:       clusterName,
+		ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: clusterName},
 	}
 
 	if env.Mesh.AccessLogFile != "" {
@@ -132,8 +132,8 @@ func buildOutboundNetworkFilters(env *model.Environment, node *model.Proxy, clus
 	} else {
 		// construct TCP proxy using v2 config
 		config := &tcp_proxy.TcpProxy{
-			StatPrefix: clusterName,
-			Cluster:    clusterName,
+			StatPrefix:       clusterName,
+			ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: clusterName},
 			// TODO: Need to set other fields such as Idle timeouts
 		}
 

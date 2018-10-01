@@ -170,6 +170,16 @@ func (m *HttpConnectionManager) Validate() error {
 
 	// no validation rules for XffNumTrustedHops
 
+	if v, ok := interface{}(m.GetInternalAddressConfig()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return HttpConnectionManagerValidationError{
+				Field:  "InternalAddressConfig",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
 	// no validation rules for SkipXffAppend
 
 	// no validation rules for Via
@@ -493,6 +503,51 @@ func (e HttpConnectionManager_TracingValidationError) Error() string {
 }
 
 var _ error = HttpConnectionManager_TracingValidationError{}
+
+// Validate checks the field values on
+// HttpConnectionManager_InternalAddressConfig with the rules defined in the
+// proto definition for this message. If any rules are violated, an error is returned.
+func (m *HttpConnectionManager_InternalAddressConfig) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	// no validation rules for UnixSockets
+
+	return nil
+}
+
+// HttpConnectionManager_InternalAddressConfigValidationError is the validation
+// error returned by HttpConnectionManager_InternalAddressConfig.Validate if
+// the designated constraints aren't met.
+type HttpConnectionManager_InternalAddressConfigValidationError struct {
+	Field  string
+	Reason string
+	Cause  error
+	Key    bool
+}
+
+// Error satisfies the builtin error interface
+func (e HttpConnectionManager_InternalAddressConfigValidationError) Error() string {
+	cause := ""
+	if e.Cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
+	}
+
+	key := ""
+	if e.Key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sHttpConnectionManager_InternalAddressConfig.%s: %s%s",
+		key,
+		e.Field,
+		e.Reason,
+		cause)
+}
+
+var _ error = HttpConnectionManager_InternalAddressConfigValidationError{}
 
 // Validate checks the field values on
 // HttpConnectionManager_SetCurrentClientCertDetails with the rules defined in
