@@ -21,10 +21,13 @@
 function githubctl_setup() {
     git clone https://github.com/istio/test-infra.git -b master --depth 1
     TEST_INFRA_DIR="${PWD}/test-infra"
-    pushd "${TEST_INFRA_DIR}"
+    pushd "${TEST_INFRA_DIR}" || exit 1
      bazel build //toolbox/githubctl
      githubctl="${TEST_INFRA_DIR}/bazel-bin/toolbox/githubctl/linux_amd64_stripped/githubctl" 
-    popd
+    popd || exit 1
+
+   export TEST_INFRA_DIR
+   export githubctl
 }
 
 #sets GITHUB_KEYFILE to github auth file
@@ -50,4 +53,5 @@ function github_keys() {
        --key="${KEY}"
 
   GITHUB_KEYFILE="${KEYFILE_TEMP}"
+  export GITHUB_KEYFILE
 }
