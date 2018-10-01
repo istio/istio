@@ -1,6 +1,6 @@
 # {{ if or .Values.global.crds (semverCompare ">=2.10.0-0" .Capabilities.TillerVersion.SemVer) }}
 # these CRDs only make sense when pilot is enabled
-# {{- if .Values.pilot.enabled }}
+# {{- if or .Values.pilot.enabled .Values.global.useMCP }}
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
@@ -83,7 +83,7 @@ spec:
     - istio-io
     - networking-istio-io
   scope: Namespaced
-  version: v1alpha3 
+  version: v1alpha3
 ---
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
@@ -105,10 +105,31 @@ spec:
   scope: Namespaced
   version: v1alpha3
 ---
+kind: CustomResourceDefinition
+apiVersion: apiextensions.k8s.io/v1beta1
+metadata:
+  name: clusterrbacconfigs.rbac.istio.io
+  annotations:
+    "helm.sh/hook": crd-install
+  labels:
+    app: istio-pilot
+    istio: rbac
+spec:
+  group: rbac.istio.io
+  names:
+    kind: ClusterRbacConfig
+    plural: clusterrbacconfigs
+    singular: clusterrbacconfig
+    categories:
+    - istio-io
+    - rbac-istio-io
+  scope: Cluster
+  version: v1alpha1
+---
 # {{- end }}
 
 # these CRDs only make sense when security is enabled
-# {{- if .Values.security.enabled }}
+# {{- if or .Values.security.enabled .Values.global.useMCP }}
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
@@ -148,7 +169,7 @@ spec:
 ---
 # {{- end }}
 
-# {{- if .Values.mixer.enabled }}
+# {{- if or .Values.mixer.enabled .Values.global.useMCP }}
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:

@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors. All Rights Reserved.
+// Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,8 +28,11 @@ const reportAttributes = `
   "connection.mtls": false,
   "context.protocol": "http",
   "context.proxy_error_code": "*",
+  "context.reporter.uid" : "",
   "destination.ip": "[127 0 0 1]",
+  "destination.namespace" : "",
   "destination.port": "*",
+  "destination.uid": "",
   "mesh1.ip": "*",
   "mesh2.ip": "*",
   "mesh3.ip": "*",

@@ -89,7 +89,7 @@ H = $(shell printf "\033[34;1m=>\033[0m")
 goVerStr := $(shell $(GO) version | awk '{split($$0,a," ")}; {print a[3]}')
 goVerNum := $(shell echo $(goVerStr) | awk '{split($$0,a,"go")}; {print a[2]}')
 goVerMajor := $(shell echo $(goVerNum) | awk '{split($$0, a, ".")}; {print a[1]}')
-goVerMinor := $(shell echo $(goVerNum) | awk '{split($$0, a, ".")}; {print a[2]}')
+goVerMinor := $(shell echo $(goVerNum) | awk '{split($$0, a, ".")}; {print a[2]}' | sed -e 's/\([0-9]\+\).*/\1/')
 gcflagsPattern := $(shell ( [ $(goVerMajor) -ge 1 ] && [ ${goVerMinor} -ge 10 ] ) && echo 'all=' || echo '')
 
 ifeq ($(origin DEBUG), undefined)
@@ -350,13 +350,13 @@ servicegraph:
 ${ISTIO_OUT}/servicegraph:
 	bin/gobuild.sh $@ ./addons/$(@F)/cmd/server
 
-SECURITY_GO_BINS:=${ISTIO_OUT}/node_agent ${ISTIO_OUT}/istio_ca
+SECURITY_GO_BINS:=${ISTIO_OUT}/node_agent ${ISTIO_OUT}/node_agent_k8s ${ISTIO_OUT}/istio_ca
 $(SECURITY_GO_BINS):
 	bin/gobuild.sh $@ ./security/cmd/$(@F)
 
 .PHONY: build
 # Build will rebuild the go binaries.
-build: depend $(PILOT_GO_BINS_SHORT) mixc mixs node_agent istio_ca istioctl galley
+build: depend $(PILOT_GO_BINS_SHORT) mixc mixs node_agent node_agent_k8s istio_ca istioctl galley
 
 # The following are convenience aliases for most of the go targets
 # The first block is for aliases that are the same as the actual binary,
@@ -371,6 +371,10 @@ citadel:
 .PHONY: node-agent
 node-agent:
 	bin/gobuild.sh ${ISTIO_OUT}/node-agent ./security/cmd/node_agent
+
+.PHONY: node_agent_k8s
+node_agent_k8s:
+	bin/gobuild.sh ${ISTIO_OUT}/node_agent_k8s ./security/cmd/node_agent_k8s
 
 .PHONY: pilot
 pilot: pilot-discovery
@@ -491,6 +495,10 @@ common-test:
 .PHONY: selected-pkg-test
 selected-pkg-test:
 	find ${WHAT} -name "*_test.go"|xargs -i dirname {}|uniq|xargs -i go test ${T} {}
+
+.PHONY: upgrade-test
+upgrade-test:
+	tests/upgrade/test_upgrade_from.sh 1.0.1
 
 #-----------------------------------------------------------------------------
 # Target: coverage

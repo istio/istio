@@ -32,7 +32,7 @@ var (
 	fakeSpiffeID = "spiffe://cluster.local/ns/bar/sa/foo"
 )
 
-func TestGetSecret(t *testing.T) {
+func TestGenerateSecret(t *testing.T) {
 	fakeCACli := newMockCAClient()
 	opt := Options{
 		SecretTTL:        time.Minute,
@@ -48,7 +48,7 @@ func TestGetSecret(t *testing.T) {
 
 	proxyID := "proxy1-id"
 	ctx := context.Background()
-	gotSecret, err := sc.GetSecret(ctx, proxyID, fakeSpiffeID, "jwtToken1")
+	gotSecret, err := sc.GenerateSecret(ctx, proxyID, fakeSpiffeID, "jwtToken1")
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
 	}
@@ -72,7 +72,7 @@ func TestGetSecret(t *testing.T) {
 	}
 
 	// Try to get secret again using different jwt token, verify secret is re-generated.
-	gotSecret, err = sc.GetSecret(ctx, proxyID, fakeSpiffeID, "newToken")
+	gotSecret, err = sc.GenerateSecret(ctx, proxyID, fakeSpiffeID, "newToken")
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
 	}
@@ -112,7 +112,7 @@ func TestRefreshSecret(t *testing.T) {
 		atomic.StoreUint32(&sc.skipTokenExpireCheck, 1)
 	}()
 
-	_, err := sc.GetSecret(context.Background(), "proxy1-id", fakeSpiffeID, "jwtToken1")
+	_, err := sc.GenerateSecret(context.Background(), "proxy1-id", fakeSpiffeID, "jwtToken1")
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
 	}

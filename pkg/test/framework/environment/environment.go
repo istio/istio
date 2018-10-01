@@ -24,8 +24,8 @@ import (
 
 	istio_mixer_v1 "istio.io/api/mixer/v1"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/test/application/echo"
 	"istio.io/istio/pkg/test/framework/settings"
-	"istio.io/istio/pkg/test/service/echo"
 )
 
 // AppProtocol enumerates the protocol options for calling an DeployedAppEndpoint endpoint.
@@ -110,6 +110,9 @@ type (
 	Implementation interface {
 		// EnvironmentID is the unique ID of the implemented environment.
 		EnvironmentID() settings.EnvironmentID
+
+		// Evaluate the given template with environment specific template variables.
+		Evaluate(tmpl string) (string, error)
 	}
 
 	// Deployed represents a deployed component

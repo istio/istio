@@ -16,11 +16,15 @@ package settings
 
 import (
 	"fmt"
+	"os"
+	"path"
 	"strings"
 
-	"istio.io/istio/pkg/test/env"
-
 	"github.com/google/uuid"
+
+	"istio.io/istio/pkg/test/framework/scopes"
+
+	"istio.io/istio/pkg/log"
 )
 
 // EnvironmentID is a unique identifier for a testing environment.
@@ -38,14 +42,7 @@ const (
 )
 
 var (
-	// ISTIO_TEST_ENVIRONMENT indicates in which mode the test framework should run. It can be "local", or
-	// "kube".
-	// nolint: golint
-	ISTIO_TEST_ENVIRONMENT env.Variable = "ISTIO_TEST_ENVIRONMENT"
-
-	globalSettings = &Settings{
-		Environment: EnvironmentID(ISTIO_TEST_ENVIRONMENT.ValueOrDefault(string(Local))),
-	}
+	globalSettings = defaultSettings()
 )
 
 // Settings is the set of arguments to the test driver.
@@ -65,15 +62,48 @@ type Settings struct {
 	// Local working directory root for creating temporary directories / files in. If left empty,
 	// os.TempDir() will be used.
 	WorkDir string
+
+	LogOptions *log.Options
+}
+
+func (s *Settings) String() string {
+	result := ""
+
+	result += fmt.Sprintf("Environment: %s\n", s.Environment)
+	result += fmt.Sprintf("TestID:      %s\n", s.TestID)
+	result += fmt.Sprintf("RunID:       %s\n", s.RunID)
+	result += fmt.Sprintf("NoCleanup:   %v\n", s.NoCleanup)
+	result += fmt.Sprintf("WorkDir:     %s\n", s.WorkDir)
+
+	return result
+}
+
+// defaultSettings returns a default settings instance.
+func defaultSettings() *Settings {
+	o := log.DefaultOptions()
+
+	// Disable lab logging for the default run.
+	o.SetOutputLevel(scopes.CI.Name(), log.NoneLevel)
+
+	return &Settings{
+		Environment: Local,
+		LogOptions:  o,
+	}
 }
 
 // New returns settings built from flags and environment variables.
 func New(testID string) (*Settings, error) {
-	// Copy the default settings.
+	// Copy the global settings.
 	s := &(*globalSettings)
 
 	s.TestID = testID
 	s.RunID = generateRunID(testID)
+
+	s.WorkDir = path.Join(s.WorkDir, s.RunID)
+
+	if err := os.Mkdir(s.WorkDir, os.ModePerm); err != nil {
+		return nil, err
+	}
 
 	if err := s.validate(); err != nil {
 		return nil, err
@@ -83,14 +113,14 @@ func New(testID string) (*Settings, error) {
 }
 
 // Validate the arguments.
-func (a *Settings) validate() error {
-	switch a.Environment {
+func (s *Settings) validate() error {
+	switch s.Environment {
 	case Local, Kubernetes:
 	default:
-		return fmt.Errorf("unrecognized environment: %q", string(a.Environment))
+		return fmt.Errorf("unrecognized environment: %q", string(s.Environment))
 	}
 
-	if a.TestID == "" || len(a.TestID) > MaxTestIDLength {
+	if s.TestID == "" || len(s.TestID) > MaxTestIDLength {
 		return fmt.Errorf("testID must be non-empty and cannot be longer than %d characters", MaxTestIDLength)
 	}
 
@@ -103,5 +133,8 @@ func generateRunID(testID string) string {
 	testID = strings.Replace(testID, "_", "-", -1)
 	// We want at least 6 characters of uuid padding
 	padding := MaxTestIDLength - len(testID)
+	if padding < 0 {
+		padding = 0
+	}
 	return fmt.Sprintf("%s-%s", testID, u[0:padding])
 }

@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
-	"time"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -53,8 +52,8 @@ func GetConsolidateAuthenticationPolicy(store IstioConfigStore, service *Service
 }
 
 // ConstructSdsSecretConfig constructs SDS Sececret Configuration.
-func ConstructSdsSecretConfig(serviceAccount string, refreshDuration *time.Duration, sdsUdsPath string) *auth.SdsSecretConfig {
-	if serviceAccount == "" || sdsUdsPath == "" || refreshDuration == nil {
+func ConstructSdsSecretConfig(serviceAccount string, sdsUdsPath string) *auth.SdsSecretConfig {
+	if serviceAccount == "" || sdsUdsPath == "" {
 		return nil
 	}
 
@@ -81,7 +80,6 @@ func ConstructSdsSecretConfig(serviceAccount string, refreshDuration *time.Durat
 							},
 						},
 					},
-					RefreshDelay: refreshDuration,
 				},
 			},
 		},

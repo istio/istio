@@ -1,16 +1,16 @@
-//  Copyright 2018 Istio Authors
+// Copyright 2018 Istio Authors
 //
-//  Licensed under the Apache License, Version 2.0 (the "License");
-//  you may not use this file except in compliance with the License.
-//  You may obtain a copy of the License at
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-//      http://www.apache.org/licenses/LICENSE-2.0
+//     http://www.apache.org/licenses/LICENSE-2.0
 //
-//  Unless required by applicable law or agreed to in writing, software
-//  distributed under the License is distributed on an "AS IS" BASIS,
-//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-//  See the License for the specific language governing permissions and
-//  limitations under the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package server
 
@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pkg/mcp/creds"
 
 	mcp "istio.io/api/mcp/v1alpha1"
+	"istio.io/istio/galley/pkg/fs"
 	"istio.io/istio/galley/pkg/kube/source"
 	"istio.io/istio/galley/pkg/metadata"
 
@@ -75,19 +76,25 @@ func New(a *Args) (*Server, error) {
 
 func newServer(a *Args, p patchTable) (*Server, error) {
 	s := &Server{}
-
-	if err := p.logConfigure(a.LoggingOptions); err != nil {
+	var err error
+	if err = p.logConfigure(a.LoggingOptions); err != nil {
 		return nil, err
 	}
-
-	k, err := p.newKubeFromConfigFile(a.KubeConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	src, err := p.newSource(k, a.ResyncPeriod)
-	if err != nil {
-		return nil, err
+	var src runtime.Source
+	if a.ConfigPath != "" {
+		src, err = fs.New(a.ConfigPath)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		k, err := p.newKubeFromConfigFile(a.KubeConfig)
+		if err != nil {
+			return nil, err
+		}
+		src, err = p.newSource(k, a.ResyncPeriod)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	distributor := snapshot.New()
@@ -98,9 +105,8 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 	grpcOptions = append(grpcOptions, grpc.MaxRecvMsgSize(int(a.MaxReceivedMessageSize)))
 
 	s.stopCh = make(chan struct{})
-	var checker *server.ListAuthChecker
+	checker := server.NewAllowAllChecker()
 	if !a.Insecure {
-
 		checker, err = watchAccessList(s.stopCh, a.AccessListFile)
 		if err != nil {
 			return nil, err

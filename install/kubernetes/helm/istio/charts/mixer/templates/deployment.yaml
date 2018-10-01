@@ -27,16 +27,24 @@
         args:
           - --address
           - unix:///sock/mixer.socket
-{{- if $.Values.global.useMixerMCP }}
+{{- if $.Values.global.useMCP }}
+    {{- if $.Values.global.controlPlaneSecurityEnabled}}
           - --configStoreURL=mcps://istio-galley.{{ $.Release.Namespace }}.svc:9901
           - --certFile=/etc/certs/cert-chain.pem
           - --keyFile=/etc/certs/key.pem
           - --caCertFile=/etc/certs/root-cert.pem
+    {{- else }}
+          - --configStoreURL=mcp://istio-galley.{{ $.Release.Namespace }}.svc:9901
+    {{- end }}
 {{- else }}
           - --configStoreURL=k8s://
 {{- end }}
           - --configDefaultNamespace={{ $.Release.Namespace }}
+          {{- if $.Values.global.tracer.zipkinAddress }}
+          - --trace_zipkin_url=http://{{- $.Values.global.tracer.zipkinAddress }}/api/v1/spans
+          {{- else }}
           - --trace_zipkin_url=http://zipkin:9411/api/v1/spans
+          {{- end }}
         resources:
 {{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 10 }}
@@ -44,7 +52,7 @@
 {{ toYaml .Values.global.defaultResources | indent 10 }}
 {{- end }}
         volumeMounts:
-{{- if $.Values.global.useMixerMCP }}
+{{- if $.Values.global.useMCP }}
         - name: istio-certs
           mountPath: /etc/certs
           readOnly: true
@@ -140,16 +148,24 @@
         args:
           - --address
           - unix:///sock/mixer.socket
-{{- if $.Values.global.useMixerMCP }}
+{{- if $.Values.global.useMCP }}
+    {{- if $.Values.global.controlPlaneSecurityEnabled}}
           - --configStoreURL=mcps://istio-galley.{{ $.Release.Namespace }}.svc:9901
           - --certFile=/etc/certs/cert-chain.pem
           - --keyFile=/etc/certs/key.pem
           - --caCertFile=/etc/certs/root-cert.pem
+    {{- else }}
+          - --configStoreURL=mcp://istio-galley.{{ $.Release.Namespace }}.svc:9901
+    {{- end }}
 {{- else }}
           - --configStoreURL=k8s://
 {{- end }}
           - --configDefaultNamespace={{ $.Release.Namespace }}
+          {{- if $.Values.global.tracer.zipkinAddress }}
+          - --trace_zipkin_url=http://{{- $.Values.global.tracer.zipkinAddress }}/api/v1/spans
+          {{- else }}
           - --trace_zipkin_url=http://zipkin:9411/api/v1/spans
+          {{- end }}
         resources:
 {{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 10 }}
@@ -157,7 +173,7 @@
 {{ toYaml .Values.global.defaultResources | indent 10 }}
 {{- end }}
         volumeMounts:
-{{- if $.Values.global.useMixerMCP }}
+{{- if $.Values.global.useMCP }}
         - name: istio-certs
           mountPath: /etc/certs
           readOnly: true

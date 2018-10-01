@@ -680,6 +680,15 @@ func TestRbacConfig(t *testing.T) {
 	}
 }
 
+func TestClusterRbacConfig(t *testing.T) {
+	store := model.MakeIstioStore(memory.Make(model.IstioConfigTypes))
+	addRbacConfigToStore(model.ClusterRbacConfig.Type, model.DefaultRbacConfigName, "", store, t)
+	rbacConfig := store.ClusterRbacConfig()
+	if rbacConfig.Name != model.DefaultRbacConfigName {
+		t.Errorf("model.ClusterRbacConfig: expecting %s, but got %s", model.DefaultRbacConfigName, rbacConfig.Name)
+	}
+}
+
 func addRbacConfigToStore(configType, name, namespace string, store model.IstioConfigStore, t *testing.T) {
 	var value proto.Message
 	switch configType {

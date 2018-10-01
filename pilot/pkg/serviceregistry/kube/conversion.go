@@ -16,7 +16,6 @@ package kube
 
 import (
 	"fmt"
-	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -38,29 +37,15 @@ const (
 	// this service on the VMs
 	KubeServiceAccountsOnVMAnnotation = "alpha.istio.io/kubernetes-serviceaccounts"
 
-	// CanonicalServiceAccountsOnVMAnnotation is to specify the non-Kubernetes service accounts that
-	// are allowed to run this service on the VMs
-	CanonicalServiceAccountsOnVMAnnotation = "alpha.istio.io/canonical-serviceaccounts"
+	// CanonicalServiceAccountsAnnotation is to specify the non-Kubernetes service accounts that
+	// are allowed to run this service.
+	CanonicalServiceAccountsAnnotation = "alpha.istio.io/canonical-serviceaccounts"
 
 	// istioURIPrefix is the URI prefix in the Istio service account scheme
 	istioURIPrefix = "spiffe"
 
 	managementPortPrefix = "mgmt-"
 )
-
-var (
-	// istioServiceAccountDomainForCanonical is the domain in the Istio service account scheme
-	// when converting a Canonical service account
-	// Its value should be set from the ISTIO_SA_DOMAIN_CANONICAL env
-	istioServiceAccountDomainForCanonical string
-)
-
-func init() {
-	saDomainCanonical := os.Getenv("ISTIO_SA_DOMAIN_CANONICAL")
-	if len(saDomainCanonical) > 0 {
-		istioServiceAccountDomainForCanonical = saDomainCanonical
-	}
-}
 
 func convertLabels(obj meta_v1.ObjectMeta) model.Labels {
 	out := make(model.Labels, len(obj.Labels))
@@ -104,9 +89,9 @@ func convertService(svc v1.Service, domainSuffix string) *model.Service {
 
 	serviceaccounts := make([]string, 0)
 	if svc.Annotations != nil {
-		if svc.Annotations[CanonicalServiceAccountsOnVMAnnotation] != "" {
-			for _, csa := range strings.Split(svc.Annotations[CanonicalServiceAccountsOnVMAnnotation], ",") {
-				serviceaccounts = append(serviceaccounts, canonicalToIstioServiceAccount(csa))
+		if svc.Annotations[CanonicalServiceAccountsAnnotation] != "" {
+			for _, csa := range strings.Split(svc.Annotations[CanonicalServiceAccountsAnnotation], ",") {
+				serviceaccounts = append(serviceaccounts, csa)
 			}
 		}
 		if svc.Annotations[KubeServiceAccountsOnVMAnnotation] != "" {
@@ -136,11 +121,6 @@ func convertService(svc v1.Service, domainSuffix string) *model.Service {
 // serviceHostname produces FQDN for a k8s service
 func serviceHostname(name, namespace, domainSuffix string) model.Hostname {
 	return model.Hostname(fmt.Sprintf("%s.%s.svc.%s", name, namespace, domainSuffix))
-}
-
-// canonicalToIstioServiceAccount converts a Canonical service account to an Istio service account
-func canonicalToIstioServiceAccount(saname string) string {
-	return fmt.Sprintf("%v://%s/%v", istioURIPrefix, istioServiceAccountDomainForCanonical, saname)
 }
 
 // kubeToIstioServiceAccount converts a K8s service account to an Istio service account

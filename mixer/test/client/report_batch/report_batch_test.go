@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors. All Rights Reserved.
+// Copyright 2017 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ const reportAttributesOkGet = `
 {
   "context.protocol": "http",
   "context.proxy_error_code": "-",
+  "context.reporter.uid": "",
   "mesh1.ip": "[1 1 1 1]",
   "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
   "mesh3.ip": "[0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 8]",
@@ -40,6 +41,8 @@ const reportAttributesOkGet = `
   "source.namespace": "XYZ11",
   "destination.ip": "[127 0 0 1]",
   "destination.port": "*",
+  "destination.uid": "",
+  "destination.namespace": "",
   "target.name": "target-name",
   "target.user": "target-user",
   "target.uid": "POD222",
@@ -78,6 +81,7 @@ const reportAttributesOkPost1 = `
 {
   "context.protocol": "http",
   "context.proxy_error_code": "-",
+  "context.reporter.uid": "",
   "mesh1.ip": "[1 1 1 1]",
   "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
   "mesh3.ip": "[0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 8]",
@@ -92,6 +96,8 @@ const reportAttributesOkPost1 = `
   "source.namespace": "XYZ11",
   "destination.ip": "[127 0 0 1]",
   "destination.port": "*",
+  "destination.uid": "",
+  "destination.namespace": "",
   "target.name": "target-name",
   "target.user": "target-user",
   "target.uid": "POD222",
@@ -131,6 +137,7 @@ const reportAttributesOkPost2 = `
 {
   "context.protocol": "http",
   "context.proxy_error_code": "-",
+  "context.reporter.uid": "",
   "mesh1.ip": "[1 1 1 1]",
   "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
   "mesh3.ip": "[0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 8]",
@@ -145,6 +152,8 @@ const reportAttributesOkPost2 = `
   "source.namespace": "XYZ11",
   "destination.ip": "[127 0 0 1]",
   "destination.port": "*",
+  "destination.uid": "",
+  "destination.namespace": "",
   "target.name": "target-name",
   "target.user": "target-user",
   "target.uid": "POD222",

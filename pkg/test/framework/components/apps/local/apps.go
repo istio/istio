@@ -19,14 +19,15 @@ import (
 	"net"
 	"time"
 
+	"istio.io/istio/pkg/test/framework/environments/local/service"
+
 	"github.com/hashicorp/go-multierror"
 
 	"bufio"
 	"os"
 
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/test/envoy"
 	"istio.io/istio/pkg/test/framework/components/apps/api"
-	"istio.io/istio/pkg/test/framework/components/apps/local/envoy"
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/dependency"
 	"istio.io/istio/pkg/test/framework/environment"
@@ -36,7 +37,6 @@ import (
 const (
 	timeout       = 10 * time.Second
 	retryInterval = 500 * time.Millisecond
-	defaultDomain = "svc.local"
 )
 
 var (
@@ -70,21 +70,19 @@ func (c *localComponent) Init(ctx environment.ComponentContext, deps map[depende
 		return nil, fmt.Errorf("missing dependency: %s", dependency.Pilot)
 	}
 
-	return NewApps(p, e.IstioSystemNamespace, defaultDomain)
+	return NewApps(p.GetDiscoveryAddress(), e.ServiceManager)
 }
 
 type appsImpl struct {
-	namespace        string
-	domain           string
 	tlsCKey          string
 	tlsCert          string
 	discoveryAddress *net.TCPAddr
-	configStore      model.ConfigStore
+	serviceManager   *service.Manager
 	apps             []environment.DeployedApp
 }
 
 // NewApps creates a new apps bundle. Visible for testing.
-func NewApps(p pilot.LocalPilot, namespace, domain string) (out api.Apps, err error) {
+func NewApps(discoveryAdddress *net.TCPAddr, serviceManager *service.Manager) (out api.Apps, err error) {
 	cfgs := []appConfig{
 		{
 			serviceName: "a",
@@ -106,12 +104,10 @@ func NewApps(p pilot.LocalPilot, namespace, domain string) (out api.Apps, err er
 	}
 
 	impl := &appsImpl{
-		namespace: namespace,
-		domain:    domain,
 		// TODO(nmittler): tlsCKey:
 		// TODO(nmittler): tlsCert:
-		discoveryAddress: p.GetDiscoveryAddress(),
-		configStore:      p,
+		discoveryAddress: discoveryAdddress,
+		serviceManager:   serviceManager,
 	}
 	impl.apps = make([]environment.DeployedApp, len(cfgs))
 	defer func() {
@@ -121,12 +117,10 @@ func NewApps(p pilot.LocalPilot, namespace, domain string) (out api.Apps, err er
 	}()
 
 	for i, cfg := range cfgs {
-		cfg.namespace = impl.namespace
-		cfg.domain = impl.domain
 		cfg.tlsCKey = impl.tlsCert
 		cfg.tlsCert = impl.tlsCert
 		cfg.discoveryAddress = impl.discoveryAddress
-		cfg.configStore = impl.configStore
+		cfg.serviceManager = impl.serviceManager
 
 		impl.apps[i], err = newApp(cfg)
 		if err != nil {
@@ -159,10 +153,6 @@ func (m *appsImpl) Close() (err error) {
 		}
 	}
 	return
-}
-
-func (m *appsImpl) fqd() string {
-	return fmt.Sprintf("%s.%s", m.namespace, m.domain)
 }
 
 func (m *appsImpl) waitForAppConfigDistribution() error {

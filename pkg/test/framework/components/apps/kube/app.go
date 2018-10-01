@@ -29,8 +29,8 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pkg/test/application/echo"
 	"istio.io/istio/pkg/test/framework/environment"
-	"istio.io/istio/pkg/test/service/echo"
 	"istio.io/istio/tests/util"
 )
 

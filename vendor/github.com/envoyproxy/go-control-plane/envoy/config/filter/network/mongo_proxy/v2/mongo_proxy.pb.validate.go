@@ -50,9 +50,7 @@ func (m *MongoProxy) Validate() error {
 
 	// no validation rules for AccessLog
 
-	if v, ok := interface{}(m.GetDelay()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetDelay()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return MongoProxyValidationError{
 				Field:  "Delay",

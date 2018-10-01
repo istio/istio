@@ -22,14 +22,15 @@ import (
 	"strconv"
 	"testing"
 
+	"istio.io/istio/pkg/test/framework/environments/local/service"
+
 	"google.golang.org/grpc"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/test/framework/components/apps/local/envoy/agent"
-	"istio.io/istio/pkg/test/framework/components/apps/local/envoy/agent/pilot"
+	"istio.io/istio/pkg/test/application/echo"
+	"istio.io/istio/pkg/test/application/echo/proto"
+	"istio.io/istio/pkg/test/framework/components/apps/local/agent"
 	"istio.io/istio/pkg/test/framework/environment"
-	"istio.io/istio/pkg/test/service/echo"
-	"istio.io/istio/pkg/test/service/echo/proto"
 )
 
 var (
@@ -64,12 +65,10 @@ var (
 type appConfig struct {
 	serviceName      string
 	version          string
-	namespace        string
-	domain           string
 	tlsCKey          string
 	tlsCert          string
 	discoveryAddress *net.TCPAddr
-	configStore      model.ConfigStore
+	serviceManager   *service.Manager
 }
 
 func newApp(cfg appConfig) (environment.DeployedApp, error) {
@@ -80,20 +79,12 @@ func newApp(cfg appConfig) (environment.DeployedApp, error) {
 		TLSCert: cfg.tlsCert,
 	}).NewApplication
 
-	agentFactory := (&pilot.Factory{
+	agentFactory := (&agent.PilotAgentFactory{
 		DiscoveryAddress: cfg.discoveryAddress,
 	}).NewAgent
 
 	// Create and start the agent.
-	a, err := agentFactory(model.ConfigMeta{
-		Name:      cfg.serviceName,
-		Namespace: cfg.namespace,
-		Domain:    cfg.domain,
-		Labels: map[string]string{
-			"app":     cfg.serviceName,
-			"version": cfg.version,
-		},
-	}, appFactory, cfg.configStore)
+	a, err := agentFactory(cfg.serviceName, cfg.version, cfg.serviceManager, appFactory)
 	if err != nil {
 		return nil, err
 	}
@@ -128,6 +119,15 @@ type app struct {
 	agent           agent.Agent
 	endpoints       []environment.DeployedAppEndpoint
 	commandEndpoint *endpoint
+}
+
+// GetAgent is a utility method for testing that extracts the agent from a local app.
+func GetAgent(a environment.DeployedApp) agent.Agent {
+	localApp, ok := a.(*app)
+	if !ok {
+		return nil
+	}
+	return localApp.agent
 }
 
 func (a *app) Close() error {

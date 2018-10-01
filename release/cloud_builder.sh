@@ -110,7 +110,10 @@ fi
 
 if [ "${BUILD_DEBIAN}" == "true" ]; then
   mkdir -p "${OUTPUT_PATH}/deb"
-  cp "${ISTIO_OUT}/istio-sidecar.deb" "${OUTPUT_PATH}/deb/"
+  cp        "${ISTIO_OUT}/istio-sidecar.deb"   "${OUTPUT_PATH}/deb/"
+  pushd "${OUTPUT_PATH}/deb"
+    sha256sum "istio-sidecar.deb" > "istio-sidecar.deb.sha256"
+  popd
 fi
 
 # log where git thinks the build might be dirty

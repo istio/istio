@@ -18,7 +18,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
-	"strconv"
 	"testing"
 	"time"
 
@@ -26,9 +25,12 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 
+	"istio.io/istio/pkg/test/framework/internal"
+	"istio.io/istio/pkg/test/framework/scopes"
+	"istio.io/istio/pkg/test/util"
+
 	"io"
 
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/fakes/policy"
 	"istio.io/istio/pkg/test/framework/dependency"
 	"istio.io/istio/pkg/test/framework/environment"
@@ -45,15 +47,13 @@ var (
 	// KubeComponent is a component for the Kubernetes environment.
 	KubeComponent = &kubeComponent{}
 
-	scope                                   = log.RegisterScope("policybackend", "Policy backend test component", 0)
-	_     environment.DeployedPolicyBackend = &policyBackend{}
-	_     io.Closer                         = &policyBackend{}
+	_ environment.DeployedPolicyBackend = &policyBackend{}
+	_ io.Closer                         = &policyBackend{}
+	_ internal.Resettable               = &policyBackend{}
 )
 
 const (
-	waitTime      = time.Second * 15
-	sleepDuration = time.Millisecond * 10
-	template      = `
+	template = `
 # Test Policy Backend
 apiVersion: v1
 kind: Service
@@ -85,8 +85,8 @@ spec:
     spec:
       containers:
       - name: app
-        image: {{.Hub}}/test_policybackend:{{.Tag}}
-        imagePullPolicy: {{.ImagePullPolicy}}
+        image: "{{.Hub}}/test_policybackend:{{.Tag}}"
+        imagePullPolicy: IfNotPresent
         ports:
         - name: grpc
           containerPort: {{.port}}
@@ -126,7 +126,15 @@ func (c *localComponent) Init(ctx environment.ComponentContext, deps map[depende
 		return nil, err
 	}
 
-	controller, err := policy.NewController(fmt.Sprintf(":%d", port))
+	controller, err := util.Retry(util.DefaultRetryWait, time.Second, func() (interface{}, bool, error) {
+		c, err := policy.NewController(fmt.Sprintf(":%d", port))
+		if err != nil {
+			scopes.Framework.Debugf("error while connecting to the PolicyBackend controller: %v", err)
+			return nil, false, err
+		}
+		return c, true, nil
+	})
+
 	if err != nil {
 		_ = backend.Close()
 		return nil, err
@@ -135,7 +143,7 @@ func (c *localComponent) Init(ctx environment.ComponentContext, deps map[depende
 	return &policyBackend{
 		port:       port,
 		backend:    backend,
-		controller: controller,
+		controller: controller.(*policy.Controller),
 		local:      true,
 	}, nil
 }
@@ -154,74 +162,96 @@ func (c *kubeComponent) Requires() []dependency.Instance {
 }
 
 // Init implements the component.Component interface.
-func (c *kubeComponent) Init(ctx environment.ComponentContext, deps map[dependency.Instance]interface{}) (interface{}, error) {
+func (c *kubeComponent) Init(ctx environment.ComponentContext, deps map[dependency.Instance]interface{}) (
+	r interface{}, err error) {
+
 	e, ok := ctx.Environment().(*kubernetes.Implementation)
 	if !ok {
 		return nil, fmt.Errorf("unsupported environment: %q", ctx.Environment().EnvironmentID())
 	}
 
+	scopes.CI.Infof("=== BEGIN: PolicyBackend Deployment ===")
+	defer func() {
+		if err != nil {
+			scopes.CI.Infof("=== FAILED: PolicyBackend Deployment ===")
+		} else {
+			scopes.CI.Infof("=== SUCCEEDED: PolicyBackend Deployment ===")
+		}
+	}()
+
 	s := e.KubeSettings()
 
 	result, err := tmpl.Evaluate(template, map[string]interface{}{
-		"Hub":             s.Hub,
-		"Tag":             s.Tag,
-		"deployment":      "policy-backend",
-		"ImagePullPolicy": "Always",
-		"app":             "policy-backend",
-		"version":         "test",
-		"port":            policy.DefaultPort,
+		"Hub":        s.Hub,
+		"Tag":        s.Tag,
+		"deployment": "policy-backend",
+		"app":        "policy-backend",
+		"version":    "test",
+		"port":       policy.DefaultPort,
 	})
 
 	if err != nil {
-		return nil, err
+		return
 	}
 
 	if err = kube.ApplyContents(s.KubeConfig, s.DependencyNamespace, result); err != nil {
-		return nil, err
+		scopes.CI.Info("Error applying PolicyBackend deployment config")
+		return
 	}
 
 	pod, err := e.Accessor.WaitForPodBySelectors(s.DependencyNamespace, "app=policy-backend", "version=test")
 	if err != nil {
-		return nil, err
+		scopes.CI.Infof("Error waiting for PolicyBackend pod: %v", err)
+		return
 	}
 
 	if err = e.Accessor.WaitUntilPodIsRunning(s.DependencyNamespace, pod.Name); err != nil {
-		return nil, err
-	}
-
-	if err = e.Accessor.WaitUntilPodIsReady(s.DependencyNamespace, pod.Name); err != nil {
-		return nil, err
+		scopes.CI.Infof("Error waiting for PolicyBackend pod to become running: %v", err)
+		return
 	}
 
 	svc, err := e.Accessor.GetService(s.DependencyNamespace, "policy-backend")
 	if err != nil {
-		return nil, err
+		scopes.CI.Infof("Error waiting for PolicyBackend service to be available: %v", err)
+		return
 	}
+
 	addressInCluster := fmt.Sprintf("%s:%d", svc.Spec.ClusterIP, svc.Spec.Ports[0].TargetPort.IntVal)
-	scope.Debugf("Policy Backend in-cluster address: %s", addressInCluster)
+	scopes.Framework.Infof("Policy Backend in-cluster address: %s", addressInCluster)
 
 	options := &kube.PodSelectOptions{
 		PodNamespace: pod.Namespace,
 		PodName:      pod.Name,
 	}
-	forwarder, err := kube.PortForward(s.KubeConfig, options, "", strconv.Itoa(svc.Spec.Ports[0].TargetPort.IntValue()))
-	if err != nil {
-		return nil, err
+
+	var forwarder kube.PortForwarder
+	if forwarder, err = kube.NewPortForwarder(
+		s.KubeConfig, options, 0, uint16(svc.Spec.Ports[0].TargetPort.IntValue())); err != nil {
+		scopes.CI.Infof("Error setting up PortForwarder for PolicyBackend: %v", err)
+		return
 	}
 
-	controller, err := policy.NewController(forwarder.Address())
-	if err != nil {
+	if err = forwarder.Start(); err != nil {
+		scopes.CI.Infof("Error starting PortForwarder for PolicyBackend: %v", err)
+		return
+	}
+
+	var controller *policy.Controller
+	if controller, err = policy.NewController(forwarder.Address()); err != nil {
+		scopes.CI.Infof("Error starting Controller for PolicyBackend: %v", err)
 		forwarder.Close()
-		return nil, err
+		return
 	}
 
-	return &policyBackend{
+	r = &policyBackend{
 		address:             addressInCluster,
 		dependencyNamespace: s.DependencyNamespace,
 		controller:          controller,
 		forwarder:           forwarder,
 		local:               false,
-	}, nil
+	}
+
+	return
 }
 
 type policyBackend struct {
@@ -237,6 +267,11 @@ type policyBackend struct {
 	local bool
 }
 
+// Reset implements internal.Resettable.
+func (p *policyBackend) Reset() error {
+	return p.controller.Reset()
+}
+
 // DenyCheck implementation
 func (p *policyBackend) DenyCheck(t testing.TB, deny bool) {
 	t.Helper()
@@ -250,10 +285,22 @@ func (p *policyBackend) DenyCheck(t testing.TB, deny bool) {
 func (p *policyBackend) ExpectReport(t testing.TB, expected ...proto.Message) {
 	t.Helper()
 
-	actual := p.accumulateReports(t, len(expected))
+	_, err := util.Retry(util.DefaultRetryTimeout, util.DefaultRetryWait, func() (interface{}, bool, error) {
+		reports, err := p.controller.GetReports()
+		if err != nil {
+			return nil, false, err
+		}
 
-	if !reflect.DeepEqual(expected, actual) {
-		t.Fatalf("Mismatch:\nActual:\n%v\nExpected:\n%v\n", spew.Sdump(actual), spew.Sdump(expected))
+		if !contains(protoArrayToInterfaceArray(reports), protoArrayToInterfaceArray(expected)) {
+			return nil, false, fmt.Errorf("expected reports not found.\nExpected:\n%v\nActual:\n%v",
+				spew.Sdump(expected), spew.Sdump(reports))
+		}
+
+		return nil, true, nil
+	})
+
+	if err != nil {
+		t.Fatalf("ExpectReport failed: %v", err)
 	}
 }
 
@@ -261,26 +308,69 @@ func (p *policyBackend) ExpectReport(t testing.TB, expected ...proto.Message) {
 func (p *policyBackend) ExpectReportJSON(t testing.TB, expected ...string) {
 	t.Helper()
 
-	acts := p.accumulateReports(t, len(expected))
+	_, err := util.Retry(util.DefaultRetryTimeout, util.DefaultRetryWait, func() (interface{}, bool, error) {
+		reports, err := p.controller.GetReports()
+		if err != nil {
+			return nil, false, err
+		}
 
-	var actual []string
-	for _, a := range acts {
 		m := jsonpb.Marshaler{
 			Indent: "  ",
 		}
-		as, err := m.MarshalToString(a)
-		if err != nil {
-			t.Fatalf("Failed marshalling to string: %v", err)
+		var actual []string
+		for _, r := range reports {
+			as, err := m.MarshalToString(r)
+			if err != nil {
+				t.Fatalf("Failed marshalling to string: %v", err)
+			}
+			actual = append(actual, as)
 		}
-		actual = append(actual, as)
+
+		exMaps := jsonStringsToMaps(t, expected)
+		acMaps := jsonStringsToMaps(t, actual)
+
+		if !contains(mapArrayToInterfaceArray(acMaps), mapArrayToInterfaceArray(exMaps)) {
+			return nil, false, fmt.Errorf("expected reports not found.\nExpected:\n%v\nActual:\n%v", expected, actual)
+		}
+
+		return nil, true, nil
+	})
+
+	if err != nil {
+		t.Fatalf("ExpectReportJSON failed: %v", err)
+	}
+}
+
+// contains checks whether items contains all entries in expected.
+func contains(items, expected []interface{}) bool {
+
+mainloop:
+	for _, e := range expected {
+		for _, i := range items {
+			if reflect.DeepEqual(e, i) {
+				continue mainloop
+			}
+		}
+		return false
 	}
 
-	exMaps := jsonStringsToMaps(t, expected)
-	acMaps := jsonStringsToMaps(t, actual)
+	return true
+}
 
-	if !reflect.DeepEqual(exMaps, acMaps) {
-		t.Fatalf("Mismatch:\nActual:\n%v\nExpected:\n%v\n", actual, expected)
+func protoArrayToInterfaceArray(arr []proto.Message) []interface{} {
+	result := make([]interface{}, len(arr))
+	for i, p := range arr {
+		result[i] = p
 	}
+	return result
+}
+
+func mapArrayToInterfaceArray(arr []map[string]interface{}) []interface{} {
+	result := make([]interface{}, len(arr))
+	for i, p := range arr {
+		result[i] = p
+	}
+	return result
 }
 
 func jsonStringsToMaps(t testing.TB, arr []string) []map[string]interface{} {
@@ -295,29 +385,6 @@ func jsonStringsToMaps(t testing.TB, arr []string) []map[string]interface{} {
 	}
 
 	return result
-}
-
-func (p *policyBackend) accumulateReports(t testing.TB, count int) []proto.Message {
-	start := time.Now()
-
-	actual := make([]proto.Message, 0, count)
-
-	for len(actual) < count && start.Add(waitTime).After(time.Now()) {
-		r, err := p.controller.GetReports()
-		if err != nil {
-			t.Fatalf("Error getting reports from policy backend: %v", err)
-		}
-		actual = append(actual, r...)
-		if len(r) == 0 {
-			time.Sleep(sleepDuration)
-		}
-	}
-
-	if len(actual) < count {
-		t.Fatalf("Unable accumulate enough protos before timeout: wanted:%d, accumulated:%d", count, len(actual))
-	}
-
-	return actual
 }
 
 // TODO: Fix hardwired code.
@@ -342,7 +409,7 @@ kind: bypass
 metadata:
   name: %s
 spec:
-  backend_address: policy-backend.%s.svc:1071
+  backend_address: policy-backend.%s.svc.cluster.local:1071
 `, name, p.dependencyNamespace)
 }
 

@@ -43,8 +43,8 @@ const (
 	istioAddonsDir                 = "install/kubernetes/addons"
 	nonAuthInstallFile             = "istio.yaml"
 	authInstallFile                = "istio-auth.yaml"
-	nonAuthWithGalleyInstallFile   = "istio-galley.yaml"
-	authWithGalleyInstallFile      = "istio-auth-galley.yaml"
+	nonAuthWithMCPInstallFile      = "istio-mcp.yaml"
+	authWithMCPInstallFile         = "istio-auth-mcp.yaml"
 	nonAuthInstallFileNamespace    = "istio-one-namespace.yaml"
 	authInstallFileNamespace       = "istio-one-namespace-auth.yaml"
 	mcNonAuthInstallFileNamespace  = "istio-multicluster.yaml"
@@ -99,6 +99,7 @@ var (
 		"Directory name for the cluster registry config. When provided a multicluster test to be run across two clusters.")
 	useGalleyConfigValidator = flag.Bool("use_galley_config_validator", false, "Use galley configuration validation webhook")
 	installer                = flag.String("installer", "kubectl", "Istio installer, default to kubectl, or helm")
+	useMCP                   = flag.Bool("use_mcp", false, "use MCP for configuring Istio components")
 
 	addons = []string{
 		"zipkin",
@@ -155,14 +156,14 @@ type KubeInfo struct {
 func getClusterWideInstallFile() string {
 	var istioYaml string
 	if *authEnable {
-		if *useGalleyConfigValidator {
-			istioYaml = authWithGalleyInstallFile
+		if *useMCP {
+			istioYaml = authWithMCPInstallFile
 		} else {
 			istioYaml = authInstallFile
 		}
 	} else {
-		if *useGalleyConfigValidator {
-			istioYaml = nonAuthWithGalleyInstallFile
+		if *useMCP {
+			istioYaml = nonAuthWithMCPInstallFile
 		} else {
 			istioYaml = nonAuthInstallFile
 		}
@@ -762,7 +763,9 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 	if *useAutomaticInjection {
 		setValue += " --set sidecarInjectorWebhook.enabled=true"
 	}
-	if *useGalleyConfigValidator {
+	if *useMCP {
+		setValue += " --set galley.enabled=true --set global.useMCP=true"
+	} else if *useGalleyConfigValidator {
 		setValue += " --set galley.enabled=true"
 	}
 	// hubs and tags replacement.
@@ -885,7 +888,6 @@ func (k *KubeInfo) generateIstio(src, dst string) error {
 	content = replacePattern(content, "parentShutdownDuration: 1m0s", "parentShutdownDuration: 3s")
 
 	// A very flimsy and unreliable regexp to replace delays in ingress pod Spec
-	content = replacePattern(content, "'30s' #discoveryRefreshDelay", "'1s' #discoveryRefreshDelay")
 	content = replacePattern(content, "'10s' #connectTimeout", "'1s' #connectTimeout")
 	content = replacePattern(content, "'45s' #drainDuration", "'2s' #drainDuration")
 	content = replacePattern(content, "'1m0s' #parentShutdownDuration", "'3s' #parentShutdownDuration")

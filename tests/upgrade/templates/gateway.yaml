@@ -1,0 +1,39 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: fortio-gateway
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - echosrv.test.svc.cluster.local
+---
+
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: echosrv
+spec:
+  hosts:
+  - echosrv.test.svc.cluster.local
+  gateways:
+  - fortio-gateway
+  http:
+  - match:
+    - uri:
+        prefix: /echo
+    route:
+    - destination:
+        host: echosrv.test.svc.cluster.local
+        port:
+          number: 8080
+    retries:
+      attempts: 5
+      perTryTimeout: 5s
+---
+

@@ -13,17 +13,22 @@ global:
   # configmap in those.
   omitSidecarInjectorConfigMap: true
 
-  # istio control plane namespace
+  # Istio control plane namespace: This specifies where the Istio control
+  # plane was installed earlier.  Modify this if you installed the control
+  # plane in a different namespace than istio-system.
   istioNamespace: istio-system
 
   proxy:
     # Sets the destination Statsd in envoy (the value of the "--statsdUdpAddress" proxy argument
     # would be <host>:<port>).
-    # Can also be disabled (e.g. when Mixer is not installed).
+    # Disabled by default.
+    # The istio-statsd-prom-bridge is deprecated and should not be used moving forward.
     envoyStatsd:
-      enabled: true
-      host: istio-statsd-prom-bridge.istio-system
-      port: 9125
+      # If enabled is set to true, host and port must also be provided. Istio no longer provides a statsd collector.
+      enabled: false
+      host: # example: statsd-svc
+      port: # example: 9125
+
 
 #
 # Gateways Configuration
@@ -74,8 +79,12 @@ gateways:
     - port: 8060
       targetPort: 8060
       name: tcp-citadel-grpc-tls
+    # Addon ports for kiali are enabled in gateway - but will only redirect if
+    # the gateway configuration for the various components are enabled.
+    - port: 15029
+    - targetPort: 15029
     # Telemetry-related ports are enabled in gateway - but will only redirect if
-    # the gateway configration for the various components are enabled.
+    # the gateway configuration for the various components are enabled.
     - port: 15030
       targetPort: 15030
       name: http2-prometheus

@@ -49,6 +49,10 @@ var (
 	deserializer  = codecs.UniversalDeserializer()
 )
 
+func init() {
+	v1beta1.AddToScheme(runtimeScheme)
+}
+
 const (
 	watchDebounceDelay = 100 * time.Millisecond
 )
@@ -218,14 +222,7 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 	// use a timer to debounce file updates
 	var keyCertTimerC <-chan time.Time
 	var configTimerC <-chan time.Time
-	var reconcileTickerC <-chan time.Time
-
-	if wh.webhookConfigFile != "" {
-		log.Info("server-side configuration validation enabled")
-		reconcileTickerC = time.NewTicker(time.Second).C
-	} else {
-		log.Info("server-side configuration validation disabled. Enable with --webhook-config-file")
-	}
+	reconcileTickerC := time.NewTicker(time.Second).C
 
 	for {
 		select {

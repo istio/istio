@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors. All Rights Reserved.
+// Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ import (
 const checkAttributesOkGet = `
 {
   "context.protocol": "http",
+  "context.reporter.uid": "",
   "mesh1.ip": "[1 1 1 1]",
   "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
   "mesh3.ip": "[0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 8]",
@@ -38,6 +39,8 @@ const checkAttributesOkGet = `
   "request.url_path": "/echo",
   "source.uid": "POD11",
   "source.namespace": "XYZ11",
+  "destination.uid": "",
+  "destination.namespace": "",
   "target.name": "target-name",
   "target.user": "target-user",
   "target.uid": "POD222",
@@ -61,6 +64,7 @@ const checkAttributesOkGet = `
 var reportAttributesOkGet = [...]string{`{
   "context.protocol": "http",
   "context.proxy_error_code": "-",
+  "context.reporter.uid": "",
   "mesh1.ip": "[1 1 1 1]",
   "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
   "mesh3.ip": "[0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 8]",
@@ -75,6 +79,8 @@ var reportAttributesOkGet = [...]string{`{
   "source.namespace": "XYZ11",
   "destination.ip": "[127 0 0 1]",
   "destination.port": "*",
+  "destination.uid": "",
+  "destination.namespace": "",
   "target.name": "target-name",
   "target.user": "target-user",
   "target.uid": "POD222",
@@ -108,6 +114,7 @@ var reportAttributesOkGet = [...]string{`{
 	`{
   "context.protocol": "http",
   "context.proxy_error_code": "-",
+  "context.reporter.uid": "",
   "mesh1.ip": "[1 1 1 1]",
   "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
   "mesh3.ip": "[0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 8]",
@@ -122,6 +129,8 @@ var reportAttributesOkGet = [...]string{`{
   "source.namespace": "XYZ11",
   "destination.ip": "[127 0 0 1]",
   "destination.port": "*",
+  "destination.uid": "",
+  "destination.namespace": "",
   "target.name": "target-name",
   "target.user": "target-user",
   "target.uid": "POD222",

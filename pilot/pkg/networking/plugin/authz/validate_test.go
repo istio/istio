@@ -107,7 +107,7 @@ func TestValidateBinding(t *testing.T) {
 			bindings: []*rbacproto.ServiceRoleBinding{
 				{
 					Subjects: []*rbacproto.Subject{
-						{Properties: map[string]string{attrSrcNamespace: "ns"}},
+						{Properties: map[string]string{attrRequestPresenter: "ns"}},
 					},
 				},
 			},
@@ -117,10 +117,11 @@ func TestValidateBinding(t *testing.T) {
 			bindings: []*rbacproto.ServiceRoleBinding{
 				{
 					Subjects: []*rbacproto.Subject{
-						{User: "user", Properties: map[string]string{attrSrcNamespace: "ns"}},
+						{User: "user", Properties: map[string]string{attrSrcNamespace: "ns", attrSrcPrincipal: "p"}},
 					},
 				},
 			},
+			success: true,
 		},
 	}
 	for _, tc := range testCases {

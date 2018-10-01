@@ -20,3 +20,8 @@ import "strings"
 func JoinConfigs(parts ...string) string {
 	return strings.Join(parts, "\n---\n")
 }
+
+// SplitConfigs splits config into chunks, based on the "---" separator.
+func SplitConfigs(cfg string) []string {
+	return strings.Split(cfg, "\n---\n")
+}

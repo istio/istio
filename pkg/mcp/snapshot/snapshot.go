@@ -58,7 +58,7 @@ type responseWatch struct {
 
 // StatusInfo records watch status information of a remote client.
 type StatusInfo struct {
-	mu                   sync.Mutex
+	mu                   sync.RWMutex
 	client               *mcp.Client
 	lastWatchRequestTime time.Time // informational
 	watches              map[int64]*responseWatch
@@ -67,16 +67,16 @@ type StatusInfo struct {
 
 // Watches returns the number of open watches.
 func (si *StatusInfo) Watches() int {
-	si.mu.Lock()
-	defer si.mu.Unlock()
+	si.mu.RLock()
+	defer si.mu.RUnlock()
 	return len(si.watches)
 }
 
 // LastWatchRequestTime returns the time the most recent watch request
 // was received.
 func (si *StatusInfo) LastWatchRequestTime() time.Time {
-	si.mu.Lock()
-	defer si.mu.Unlock()
+	si.mu.RLock()
+	defer si.mu.RUnlock()
 	return si.lastWatchRequestTime
 }
 
@@ -166,6 +166,8 @@ func (c *Cache) SetSnapshot(node string, snapshot Snapshot) {
 
 				// discard the responseWatch
 				delete(info.watches, id)
+
+				log.Debugf("SetSnapshot(): watch %d with version %q complete", id, version)
 			}
 		}
 		info.mu.Unlock()
@@ -200,8 +202,8 @@ func (c *Cache) ClearStatus(node string) {
 
 // Status returns informational status for a client.
 func (c *Cache) Status(node string) *StatusInfo {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	if info, ok := c.status[node]; ok {
 		return info
 	}

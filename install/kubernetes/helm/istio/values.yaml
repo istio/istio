@@ -6,21 +6,22 @@ global:
   hub: gcr.io/istio-release
 
   # Default tag for Istio images.
-  tag: release-1.0-latest-daily
+  tag: master-latest-daily
 
-  # Gateway used for legacy k8s Ingress resources. By default it is
-  # using 'istio:ingress', to match 0.8 config. It requires that
-  # ingress.enabled is set to true. You can also set it
-  # to ingressgateway, or any other gateway you define in the 'gateway'
-  # section.
-  k8sIngressSelector: ingress
-
-  # k8sIngressHttps will add port 443 on the ingress and ingressgateway.
-  # It REQUIRES that the certificates are installed  in the
-  # expected secrets - enabling this option without certificates
-  # will result in LDS rejection and the ingress will not work.
-  k8sIngressHttps: false
-
+  k8sIngress:
+    enabled: false
+    # Gateway used for legacy k8s Ingress resources. By default it is
+    # using 'istio:ingress', to match 0.8 config. It requires that
+    # ingress.enabled is set to true. You can also set it
+    # to ingressgateway, or any other gateway you define in the 'gateway'
+    # section.
+    gatewayName: ingress
+    # enableHttps will add port 443 on the ingress.
+    # It REQUIRES that the certificates are installed  in the
+    # expected secrets - enabling this option without certificates
+    # will result in LDS rejection and the ingress will not work.
+    enableHttps: false
+ 
   proxy:
     image: proxyv2
 
@@ -105,12 +106,21 @@ global:
   # propagated, not recommended for tests.
   controlPlaneSecurityEnabled: false
 
+  # SDS enabled. IF set to true, mTLS certificates for the sidecars will be 
+  # distributed through the SecretDiscoveryService instead of using K8S secrets to mount the certificates.
+  sdsEnabled: false
+
   # disablePolicyChecks disables mixer policy checks.
   # Will set the value with same name in istio config map - pilot needs to be restarted to take effect.
   disablePolicyChecks: false
 
   # EnableTracing sets the value with same name in istio config map, requires pilot restart to take effect.
   enableTracing: true
+
+  tracer:
+    # Host:Port for reporting trace data in zipkin format. If not specified, will default to
+    # zipkin service (port 9411) in the same namespace as the other istio components.
+    zipkinAddress:
 
   # Default mtls policy. If true, mtls between services will be enabled by default.
   mtls:
@@ -145,11 +155,25 @@ global:
 
   # If set to true, the pilot and citadel mtls will be exposed on the
   # ingress gateway
-  meshExpansion: false
+  meshExpansion:
+    enabled: false
+    # If set to true, the pilot and citadel mtls and the plain text pilot ports
+    # will be exposed on an internal gateway
+    useILB: false
 
-  # If set to true, the pilot and citadel mtls and the plain text pilot ports
-  # will be exposed on an internal gateway
-  meshExpansionILB: false
+  multiCluster:
+    # Set to true to connect two kubernetes clusters using a LB gateway as the
+    # only entry point into the cluster (instead of requiring pod to pod
+    # connectivity across two clusters). Note that for this system to work,
+    # service objects from remote clusters have to be replicated to local
+    # cluster (without the pod selectors). In addition, endpoints have to be
+    # added to each replicated service object, where the endpoint points to
+    # the remote cluster's MCgatewayIP:8443. All clusters should be using
+    # Istio mTLS and must have a shared root CA for this model to work.
+    connectUsingGateway: false
+    # Change this to mcgateway to use a dedicated controlled gateway for
+    # multi-cluster traffic over port 15443
+    gatewayName: ingressgateway
 
   # A minimal set of requested resources to applied to all deployments so that
   # Horizontal Pod Autoscaler will be able to function (if set).
@@ -182,10 +206,9 @@ global:
   # and this options must be set off.
   crds: true
 
-  # Use the Mesh Control Protocol (MCP) for configuring Mixer policy
-  # and telemetry deployments. Requires galley (`--set
-  # galley.enabled=true`).
-  useMixerMCP: false
+  # Use the Mesh Control Protocol (MCP) for configuring Mixer and
+  # Pilot. Requires galley (`--set galley.enabled=true`).
+  useMCP: false
 
 #
 # ingress configuration
@@ -233,12 +256,14 @@ gateways:
       #requests:
       #  cpu: 1800m
       #  memory: 256Mi
-
+    cpu:
+      targetAverageUtilization: 80
     loadBalancerIP: ""
     loadBalancerSourceRanges: {}
     serviceAnnotations: {}
+    podAnnotations: {}
     type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
-
+    #externalTrafficPolicy: Local #change to Local to preserve source IP or Cluster for default behaviour or leave commented out
     ports:
       ## You can add custom gateway ports
     - port: 80
@@ -248,11 +273,14 @@ gateways:
     - port: 443
       name: https
       nodePort: 31390
+    # Example of a port to add  
     - port: 31400
       name: tcp
       nodePort: 31400
     # Pilot and Citadel MTLS ports are enabled in gateway - but will only redirect
     # to pilot/citadel if global.meshExpansion settings are enabled.
+    # Delete these ports if mesh expansion is not enabled, to avoid
+    # exposing unnecessary ports on the web.
     - port: 15011
       targetPort: 15011
       name: tcp-pilot-grpc-tls
@@ -262,12 +290,22 @@ gateways:
     - port: 853
       targetPort: 853
       name: tcp-dns-tls
+    - port: 15029
+      targetPort: 15029
+      name: http-kiali
     - port: 15030
       targetPort: 15030
       name: http2-prometheus
     - port: 15031
       targetPort: 15031
       name: http2-grafana
+      # MultiCluster gateway is used to route traffic into local cluster, based
+      # on the SNI value in the TLS connection. In a multi-cluster setup, a
+      # remote service sends traffic with the Envoy cluster encoded in the SNI
+      # value. The gateway forwards traffic to the envoy cluster (service+subset+port).
+    - port: 15443
+      targetPort: 15443
+      name: tls
     secretVolumes:
     - name: ingressgateway-certs
       secretName: istio-ingressgateway-certs
@@ -284,7 +322,10 @@ gateways:
     replicaCount: 1
     autoscaleMin: 1
     autoscaleMax: 5
+    cpu:
+      targetAverageUtilization: 80
     serviceAnnotations: {}
+    podAnnotations: {}
     type: ClusterIP #change to NodePort or LoadBalancer if need be
     ports:
     - port: 80
@@ -320,6 +361,7 @@ gateways:
     loadBalancerIP: ""
     serviceAnnotations:
       cloud.google.com/load-balancer-type: "internal"
+    podAnnotations: {}
     type: LoadBalancer
     ports:
     ## You can add custom gateway ports - google ILB default quota is 5 ports,
@@ -342,6 +384,39 @@ gateways:
       secretName: istio-ilbgateway-ca-certs
       mountPath: /etc/istio/ilbgateway-ca-certs
 
+  # MultiCluster gateway is used to route traffic into local cluster, based
+  # on the SNI value in the TLS connection. In a multi-cluster setup, a
+  # remote service sends traffic with the Envoy cluster encoded in the SNI
+  # value. The gateway forwards traffic to the envoy cluster (service+subset+port).
+  istio-mcgateway:
+    enabled: false
+    labels:
+      app: istio-mcgateway
+      istio: mcgateway
+    replicaCount: 1
+    autoscaleMin: 1
+    autoscaleMax: 5
+    resources:
+      requests:
+        cpu: 800m
+        memory: 512Mi
+      #limits:
+      #  cpu: 1800m
+      #  memory: 256Mi
+    loadBalancerIP: ""
+    podAnnotations: {}
+    type: LoadBalancer
+    ports:
+      # Port 80 is not used. But we still need this because AWS LB marks
+      # the gateway as unhealthy without some response.
+      # Traffic into port 80 returns 404 always, but keeps AWS LB happy.
+    - port: 80
+      targetPort: 80
+      name: http
+      # This is the port where sni routing happens
+    - port: 15443
+      targetPort: 15443
+      name: tls
 
 #
 # sidecar-injector webhook configuration
@@ -386,14 +461,6 @@ mixer:
 
   podAnnotations: {}
 
-  prometheusStatsdExporter:
-    hub: docker.io/prom
-    tag: v0.6.0
-
-    # Configuration to be included as the statsd_exporter mapping configuration.
-    # See https://github.com/prometheus/statsd_exporter/tree/master#metric-mapping-and-configuration
-    mapping: {}
-
 #
 # pilot configuration
 #
@@ -401,7 +468,7 @@ pilot:
   enabled: true
   replicaCount: 1
   autoscaleMin: 1
-  autoscaleMax: 1
+  autoscaleMax: 5
   image: pilot
   sidecar: true
   traceSampling: 100.0
@@ -412,8 +479,9 @@ pilot:
       memory: 2048Mi
   env:
     PILOT_PUSH_THROTTLE_COUNT: 100
-    ISTIO_SA_DOMAIN_CANONICAL:
     GODEBUG: gctrace=2
+  cpu:
+    targetAverageUtilization: 80
 
 #
 # security configuration
@@ -424,6 +492,16 @@ security:
   image: citadel
   selfSigned: true # indicate if self-signed CA is used.
   identityDomain: cluster.local # indicate the domain used in SPIFFE identity URL
+
+#
+# nodeagent configuration
+#
+nodeagent:
+  enabled: false
+  image: node-agent-k8s
+  sdsudspath: ""
+  env:
+    CA_ADDR: ""
 
 #
 # addons configuration
@@ -499,7 +577,7 @@ tracing:
   provider: jaeger
   jaeger:
     hub: docker.io/jaegertracing
-    tag: 1.6
+    tag: 1.7
     memory:
       max_traces: 50000
     ingress:
@@ -539,12 +617,12 @@ kiali:
   enabled: false
   replicaCount: 1
   hub: docker.io/kiali
-  tag: v0.6
+  tag: v0.7
   ingress:
     enabled: false
     ## Used to create an Ingress record.
-    # hosts:
-    #  - kiali.local
+    hosts:
+     - kiali.local
     annotations:
       # kubernetes.io/ingress.class: nginx
       # kubernetes.io/tls-acme: "true"
@@ -563,6 +641,8 @@ kiali:
 
     # Override the automatically detected Jaeger URL, useful when Jaeger service has no ExternalIPs
     # jaegerURL:
+  # prometheus address
+  prometheusAddr: http://prometheus:9090
 
 # Certmanager uses ACME to sign certificates. Since Istio gateways are
 # mounting the TLS secrets the Certificate CRDs must be created in the

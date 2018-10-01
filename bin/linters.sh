@@ -35,16 +35,40 @@ function check_spelling() {
     echo 'spelling OK'
 }
 
+function has_latest_gometalinter() {
+    local local_binary
+    local lastest_version
+    local current_version
+
+    local_binary="${1}"
+    lastest_version="${2}"
+    current_version="$(${local_binary} --version 2>/dev/null | cut -d ' ' -f 3)"
+
+    if [ "${lastest_version}" != "${current_version}" ]; then
+        return 1
+    fi
+
+    return 0
+}
+
 function install_gometalinter() {
+    gometalinter=$(command -v gometalinter 2> /dev/null || echo "${ISTIO_BIN}/gometalinter")
+    latest_version=$(curl -L -s https://api.github.com/repos/alecthomas/gometalinter/releases/latest \
+	    | grep tag_name | sed "s/ *\"tag_name\": *\"\\(.*\\)\",*/\\1/" | sed "s/v//")
+
+    if has_latest_gometalinter "${gometalinter}" "${latest_version}"; then
+        echo "Skipping gometalinter installation, we already have the latest version"
+        return 0
+    fi
+
     echo 'Installing gometalinter ....'
-    go get -u gopkg.in/alecthomas/gometalinter.v2
-    if [[ -d "${ISTIO_BIN}/gometalinter.v2" ]];then
-        echo "download gopkg.in/alecthomas/gometalinter.v2 failed"
+    curl -s "https://raw.githubusercontent.com/alecthomas/gometalinter/v${latest_version}/scripts/install.sh" | bash -s -- -b "${ISTIO_BIN}"
+    if [ ! -x "${ISTIO_BIN}/gometalinter" ]; then
+        echo "Installation of gometalinter failed"
         exit 1
     fi
-    gometalinter=$(command -v gometalinter.v2 2> /dev/null || echo "${ISTIO_BIN}/gometalinter.v2")
-    $gometalinter --install
-    echo 'Gometalinter installed successfully ....'
+
+    echo 'Gometalinter installed successfully'
 }
 
 function run_gometalinter() {

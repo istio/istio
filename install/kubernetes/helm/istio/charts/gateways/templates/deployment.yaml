@@ -23,6 +23,9 @@ spec:
       annotations:
         sidecar.istio.io/inject: "false"
         scheduler.alpha.kubernetes.io/critical-pod: ""
+{{- if $spec.podAnnotations }}
+{{ toYaml $spec.podAnnotations | indent 8 }}
+{{ end }}
     spec:
       serviceAccountName: {{ $key }}-service-account
 {{- if $.Values.global.priorityClassName }}
@@ -63,8 +66,6 @@ spec:
           - router
           - --log_output_level
           - 'info'
-          - --discoveryRefreshDelay
-          - '1s' #discoveryRefreshDelay
           - --drainDuration
           - '45s' #drainDuration
           - --parentShutdownDuration
@@ -74,7 +75,9 @@ spec:
           - --serviceCluster
           - {{ $key }}
           - --zipkinAddress
-        {{- if $.Values.global.istioNamespace }}
+        {{- if $.Values.global.tracer.zipkinAddress }}
+          - {{ $.Values.global.tracer.zipkinAddress }}
+        {{- else if $.Values.global.istioNamespace }}
           - zipkin.{{ $.Values.global.istioNamespace }}:9411
         {{- else }}
           - zipkin:9411

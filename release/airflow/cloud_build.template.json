@@ -1,0 +1,42 @@
+{
+  "steps": [
+    {
+      "name": "gcr.io/istio-testing/istio-builder:0.5.10",
+      "args": [ "gsutil", "cp", "gs://$_GCS_RELEASE_TOOLS_PATH/istio_checkout_code.sh", "." ]
+    },
+    {
+      "name": "gcr.io/istio-testing/istio-builder:0.5.10",
+      "args": [ "chmod", "u+x", "./istio_checkout_code.sh" ]
+    },
+    {
+      "name": "gcr.io/istio-testing/istio-builder:0.5.10",
+      "args": [ "./istio_checkout_code.sh", "-b", "$_BRANCH", "-r", "$_GCS_RELEASE_TOOLS_PATH" ]
+    },
+    {
+      "volumes": [
+	{
+          "name": "buildoutput",
+          "path": "/output"
+	}
+      ],
+      "name": "gcr.io/istio-testing/istio-builder:0.5.10",
+      "dir": "go/src/istio.io/istio",
+      "args": [ "./release/cloud_builder.sh", "-p", "$_GCS_PATH", "-q", "$_GCR_PATH", "-t", "$_VER_STRING", "-o", "/output" ]
+    },
+    {
+      "volumes": [
+        {
+          "name": "buildoutput",
+          "path": "/output"
+        }
+      ],
+      "name": "gcr.io/istio-testing/istio-builder:0.5.10",
+      "dir": "go/src/istio.io/istio",
+      "args": [ "./release/store_artifacts.sh", "-p", "$_GCS_PATH", "-q", "$_GCR_PATH", "-v", "$_VER_STRING", "-o", "/output" ]
+    }
+  ],
+  "options": {
+    "machineType": "N1_HIGHCPU_8"
+  },
+  "timeout": "3600s",
+}

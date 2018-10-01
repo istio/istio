@@ -15,9 +15,7 @@
 package v1alpha3
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
 	"reflect"
 	"sort"
 	"strings"
@@ -56,13 +54,22 @@ const (
 
 	// LocalhostAddress for local binding
 	LocalhostAddress = "127.0.0.1"
+
+	// EnvoyHTTPLogFormat format for envoy access logs
+	EnvoyHTTPLogFormat = "[%START_TIME%] \"%REQ(:METHOD)% %REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%" +
+		"%PROTOCOL%\" %RESPONSE_CODE% %RESPONSE_FLAGS% %BYTES_RECEIVED% %BYTES_SENT% " +
+		"%DURATION% %RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)% \"%REQ(X-FORWARDED-FOR)%\" " +
+		"\"%REQ(USER-AGENT)%\" \"%REQ(X-REQUEST-ID)%\" \"%REQ(:AUTHORITY)%\" \"%UPSTREAM_HOST%\" " +
+		"%UPSTREAM_CLUSTER% %UPSTREAM_LOCAL_ADDRESS% %DOWNSTREAM_LOCAL_ADDRESS% " +
+		"%DOWNSTREAM_REMOTE_ADDRESS% %REQUESTED_SERVER_NAME%\n"
+
+	// EnvoyTCPLogFormat format for envoy access logs
+	EnvoyTCPLogFormat = "[%START_TIME%] %RESPONSE_FLAGS% %BYTES_RECEIVED% %BYTES_SENT% " +
+		"%DURATION% \"%UPSTREAM_HOST%\" %UPSTREAM_CLUSTER% %UPSTREAM_LOCAL_ADDRESS% %DOWNSTREAM_LOCAL_ADDRESS% " +
+		"%DOWNSTREAM_REMOTE_ADDRESS% %REQUESTED_SERVER_NAME%\n"
 )
 
 var (
-	// Very verbose output in the logs - full LDS response logged for each sidecar.
-	// Use /debug/ldsz instead.
-	verboseDebug = os.Getenv("PILOT_DUMP_ALPHA3") != ""
-
 	// TODO: gauge should be reset on refresh, not the best way to represent errors but better
 	// than nothing.
 	// TODO: add dimensions - namespace of rule, service, rule name
@@ -119,7 +126,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 		listeners = append(listeners, inbound...)
 		listeners = append(listeners, outbound...)
 
-		mgmtListeners := buildSidecarInboundMgmtListeners(managementPorts, node.IPAddress)
+		mgmtListeners := buildSidecarInboundMgmtListeners(env, managementPorts, node.IPAddress)
 		// If management listener port and service port are same, bad things happen
 		// when running in kubernetes, as the probes stop responding. So, append
 		// non overlapping listeners only.
@@ -134,11 +141,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 			listeners = append(listeners, m)
 		}
 
-		// We need a dummy filter to fill in the filter stack for orig_dst listener
-		// TODO: Move to Listener filters and set up original dst filter there.
-		dummyTCPProxy := &tcp_proxy.TcpProxy{
-			StatPrefix: util.BlackHoleCluster,
-			Cluster:    util.BlackHoleCluster,
+		// We need a passthrough filter to fill in the filter stack for orig_dst listener
+		passthroughTCPProxy := &tcp_proxy.TcpProxy{
+			StatPrefix: util.PassthroughCluster,
+			Cluster:    util.PassthroughCluster,
 		}
 
 		var transparent *google_protobuf.BoolValue
@@ -157,7 +163,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 					Filters: []listener.Filter{
 						{
 							Name:   xdsutil.TCPProxy,
-							Config: util.MessageToStruct(dummyTCPProxy),
+							Config: util.MessageToStruct(passthroughTCPProxy),
 						},
 					},
 				},
@@ -259,9 +265,13 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 				rds:              "", // no RDS for inbound traffic
 				useRemoteAddress: false,
 				direction:        http_conn.INGRESS,
+				connectionManager: &http_conn.HttpConnectionManager{
+					// Append and forward client cert to backend.
+					ForwardClientCertDetails: http_conn.APPEND_FORWARD,
+				},
 			}
 		case plugin.ListenerProtocolTCP:
-			tcpNetworkFilters = buildInboundNetworkFilters(instance)
+			tcpNetworkFilters = buildInboundNetworkFilters(env, instance)
 
 		default:
 			log.Warnf("Unsupported inbound protocol %v for port %#v", protocol, endpoint.ServicePort)
@@ -522,7 +532,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 					// The conflict resolution is done later in this code
 				}
 
-				listenerOpts.filterChainOpts = buildSidecarOutboundTCPTLSFilterChainOpts(node, push, configs,
+				listenerOpts.filterChainOpts = buildSidecarOutboundTCPTLSFilterChainOpts(env, node, push, configs,
 					destinationIPAddress, service, servicePort, proxyLabels, meshGateway)
 			default:
 				// UDP or other protocols: no need to log, it's too noisy
@@ -682,7 +692,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 // the pod.
 // So, if a user wants to use kubernetes probes with Istio, she should ensure
 // that the health check ports are distinct from the service ports.
-func buildSidecarInboundMgmtListeners(managementPorts model.PortList, managementIP string) []*xdsapi.Listener {
+func buildSidecarInboundMgmtListeners(env *model.Environment, managementPorts model.PortList, managementIP string) []*xdsapi.Listener {
 	listeners := make([]*xdsapi.Listener, 0, len(managementPorts))
 
 	if managementIP == "" {
@@ -710,7 +720,7 @@ func buildSidecarInboundMgmtListeners(managementPorts model.PortList, management
 				port:     mPort.Port,
 				protocol: model.ProtocolTCP,
 				filterChainOpts: []*filterChainOpts{{
-					networkFilters: buildInboundNetworkFilters(instance),
+					networkFilters: buildInboundNetworkFilters(env, instance),
 				}},
 			}
 			l := buildListener(listenerOpts)
@@ -815,7 +825,8 @@ func buildHTTPConnectionManager(env *model.Environment, node *model.Proxy, httpO
 
 	if env.Mesh.AccessLogFile != "" {
 		fl := &fileaccesslog.FileAccessLog{
-			Path: env.Mesh.AccessLogFile,
+			Path:   env.Mesh.AccessLogFile,
+			Format: EnvoyHTTPLogFormat,
 		}
 
 		connectionManager.AccessLog = []*accesslog.AccessLog{
@@ -843,10 +854,6 @@ func buildHTTPConnectionManager(env *model.Environment, node *model.Proxy, httpO
 		connectionManager.GenerateRequestId = &google_protobuf.BoolValue{Value: true}
 	}
 
-	if verboseDebug {
-		connectionManagerJSON, _ := json.MarshalIndent(connectionManager, "  ", "  ")
-		log.Infof("LDS: %s \n", string(connectionManagerJSON))
-	}
 	return connectionManager
 }
 

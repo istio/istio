@@ -59,6 +59,7 @@
         "_test\\.go:.*\\bdefer .*\\(errcheck\\)$",
         "should have a package comment",
         "composite literal uses unkeyed fields",
-        "genfiles"
+        "genfiles",
+        "vendor"
     ]
 }

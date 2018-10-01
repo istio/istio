@@ -21,10 +21,7 @@
     "value": {
       "name": "istio-init",
       "image": "example.com/init:latest",
-      "resources": {},
-      "terminationMessagePath": "/dev/termination-log",
-      "terminationMessagePolicy": "File",
-      "imagePullPolicy": "Always"
+      "resources": {}
     }
   },
   {
@@ -33,10 +30,7 @@
     "value": {
       "name": "istio-proxy",
       "image": "example.com/proxy:latest",
-      "resources": {},
-      "terminationMessagePath": "/dev/termination-log",
-      "terminationMessagePolicy": "File",
-      "imagePullPolicy": "Always"
+      "resources": {}
     }
   },
   {
@@ -55,8 +49,7 @@
     "value": {
       "name": "istio-certs",
       "secret": {
-        "secretName": "istio.default",
-        "defaultMode": 420
+        "secretName": "istio.default"
       }
     }
   },

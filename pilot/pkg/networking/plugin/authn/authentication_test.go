@@ -17,7 +17,6 @@ package authn
 import (
 	"reflect"
 	"testing"
-	"time"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -519,7 +518,6 @@ func TestBuildAuthNFilter(t *testing.T) {
 }
 
 func TestOnInboundFilterChains(t *testing.T) {
-	refreshDelay := 15 * time.Second
 	tlsContext := &auth.DownstreamTlsContext{
 		CommonTlsContext: &auth.CommonTlsContext{
 			TlsCertificates: []*auth.TlsCertificate{
@@ -550,12 +548,11 @@ func TestOnInboundFilterChains(t *testing.T) {
 		RequireClientCertificate: &types.BoolValue{Value: true},
 	}
 	cases := []struct {
-		name            string
-		in              *authn.Policy
-		serviceAccount  string
-		sdsUdsPath      string
-		sdsRefreshDelay *types.Duration
-		expected        []plugin.FilterChain
+		name           string
+		in             *authn.Policy
+		serviceAccount string
+		sdsUdsPath     string
+		expected       []plugin.FilterChain
 	}{
 		{
 			name: "NoAuthnPolicy",
@@ -654,9 +651,8 @@ func TestOnInboundFilterChains(t *testing.T) {
 					},
 				},
 			},
-			sdsUdsPath:      "/tmp/sdsuds.sock",
-			sdsRefreshDelay: types.DurationProto(refreshDelay),
-			serviceAccount:  "spiffe://cluster.local/ns/bar/sa/foo",
+			sdsUdsPath:     "/tmp/sdsuds.sock",
+			serviceAccount: "spiffe://cluster.local/ns/bar/sa/foo",
 			expected: []plugin.FilterChain{
 				{
 					TLSContext: &auth.DownstreamTlsContext{
@@ -685,7 +681,6 @@ func TestOnInboundFilterChains(t *testing.T) {
 														},
 													},
 												},
-												RefreshDelay: &refreshDelay,
 											},
 										},
 									},
@@ -709,7 +704,7 @@ func TestOnInboundFilterChains(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		if got := setupFilterChains(c.in, c.serviceAccount, c.sdsUdsPath, c.sdsRefreshDelay); !reflect.DeepEqual(got, c.expected) {
+		if got := setupFilterChains(c.in, c.serviceAccount, c.sdsUdsPath); !reflect.DeepEqual(got, c.expected) {
 			t.Errorf("[%v] unexpected filter chains, got %v, want %v", c.name, got, c.expected)
 		}
 	}

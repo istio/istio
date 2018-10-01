@@ -25,7 +25,6 @@ import (
 func TestEnvoyArgs(t *testing.T) {
 	config := model.DefaultProxyConfig()
 	config.ServiceCluster = "my-cluster"
-	config.AvailabilityZone = "my-zone"
 	config.Concurrency = 8
 
 	test := &envoy{config: config, node: "my-node", extraArgs: []string{"-l", "trace"}}
@@ -46,7 +45,6 @@ func TestEnvoyArgs(t *testing.T) {
 		"--allow-unknown-fields",
 		"-l", "trace",
 		"--concurrency", "8",
-		"--service-zone", "my-zone",
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("envoyArgs() => got %v, want %v", got, want)
