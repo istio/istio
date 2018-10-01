@@ -378,7 +378,8 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 			}
 		}
 
-		// TODO: deprecate this
+
+		// TODO: deprecate
 		for key, value := range in.AppendHeaders {
 			action.RequestHeadersToAdd = append(action.RequestHeadersToAdd, &core.HeaderValueOption{
 				Header: &core.HeaderValue{
@@ -388,12 +389,26 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 			})
 		}
 
-		if len(in.RemoveResponseHeaders) > 0 {
-			action.ResponseHeadersToRemove = make([]string, 0)
-			for _, value := range in.RemoveResponseHeaders {
-				action.ResponseHeadersToRemove = append(action.ResponseHeadersToRemove, value)
-			}
+		for name, value := range in.AppendRequestHeaders {
+			action.RequestHeadersToAdd = append(action.RequestHeadersToAdd, &core.HeaderValueOption{
+				Header: &core.HeaderValue{
+					Key:   key,
+					Value: value,
+				},
+			})
 		}
+
+		for name, value := range in.AppendResponseHeaders {
+			action.RequestHeadersToAdd = append(action.RequestHeadersToAdd, &core.HeaderValueOption{
+				Header: &core.HeaderValue{
+					Key:   key,
+					Value: value,
+				},
+			})
+		}
+
+		// TODO: in.RemoveRequestHeaders
+		action.ResponseHeadersToRemove = in.RemoveResponseHeaders
 
 		if in.Mirror != nil {
 			n := GetDestinationCluster(in.Mirror, serviceRegistry[model.Hostname(in.Mirror.Host)], port)
@@ -422,7 +437,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 				ResponseHeadersToRemove: dst.RemoveResponseHeaders,
 			}
 
-			for key, value := range dst.AppendHeaders {
+			for key, value := range dst.AppendRequestHeaders {
 				clusterWeight.RequestHeadersToAdd = append(clusterWeight.RequestHeadersToAdd, &core.HeaderValueOption{
 					Header: &core.HeaderValue{
 						Key:   key,
@@ -440,6 +455,9 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 				})
 			}
 
+			// TODO: remove request headers
+			clusterWeight.ResponseHeadersToRemove = dst.RemoveResponseHeaders
+
 			weighted = append(weighted, clusterWeight)
 
 			hashPolicy := getHashPolicy(push, dst)
@@ -453,6 +471,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 			action.ClusterSpecifier = &route.RouteAction_Cluster{Cluster: weighted[0].Name}
 			out.RequestHeadersToAdd = append(out.RequestHeadersToAdd, weighted[0].RequestHeadersToAdd...)
 			out.ResponseHeadersToAdd = append(out.ResponseHeadersToAdd, weighted[0].ResponseHeadersToAdd...)
+			// TODO: out.RemoveRequestHeaders = append(out.Remove, weighted[0].ResponseHeadersToAdd...)
 			out.ResponseHeadersToRemove = append(out.ResponseHeadersToRemove, weighted[0].ResponseHeadersToRemove...)
 		} else {
 			action.ClusterSpecifier = &route.RouteAction_WeightedClusters{
