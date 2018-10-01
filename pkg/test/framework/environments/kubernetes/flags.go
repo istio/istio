@@ -36,4 +36,6 @@ func init() {
 			"one test namespace in the system.")
 	flag.BoolVar(&globalSettings.DeployIstio, "istio.test.kube.deploy", globalSettings.DeployIstio,
 		"Deploy Istio into the target Kubernetes environment.")
+	flag.BoolVar(&globalSettings.MinikubeIngress, "istio.test.kube.minikubeingress", globalSettings.MinikubeIngress,
+		"Configure the Ingress component so that it gets the IP address from Node, when Minikube is used..")
 }
