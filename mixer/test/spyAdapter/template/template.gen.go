@@ -455,13 +455,14 @@ var (
 			},
 
 			// DispatchCheck dispatches the instance to the handler.
-			DispatchCheck: func(ctx context.Context, handler adapter.Handler, inst interface{}) (adapter.CheckResult, error) {
+			DispatchCheck: func(ctx context.Context, handler adapter.Handler, inst interface{}) (adapter.CheckResult, interface{}, error) {
 
 				// Convert the instance from the generic interface{}, to its specialized type.
 				instance := inst.(*samplecheck.Instance)
 
 				// Invoke the handler.
-				return handler.(samplecheck.Handler).HandleSampleCheck(ctx, instance)
+				res, err := handler.(samplecheck.Handler).HandleSampleCheck(ctx, instance)
+				return res, nil, err
 			},
 
 			// CreateInstanceBuilder creates a new template.InstanceBuilderFN based on the supplied instance parameters. It uses

@@ -853,13 +853,14 @@ var (
 			},
 
 			// DispatchCheck dispatches the instance to the handler.
-			DispatchCheck: func(ctx context.Context, handler adapter.Handler, inst interface{}) (adapter.CheckResult, error) {
+			DispatchCheck: func(ctx context.Context, handler adapter.Handler, inst interface{}) (adapter.CheckResult, interface{}, error) {
 
 				// Convert the instance from the generic interface{}, to its specialized type.
 				instance := inst.(*apikey.Instance)
 
 				// Invoke the handler.
-				return handler.(apikey.Handler).HandleApiKey(ctx, instance)
+				res, err := handler.(apikey.Handler).HandleApiKey(ctx, instance)
+				return res, nil, err
 			},
 
 			// CreateInstanceBuilder creates a new template.InstanceBuilderFN based on the supplied instance parameters. It uses
@@ -1081,13 +1082,14 @@ var (
 			},
 
 			// DispatchCheck dispatches the instance to the handler.
-			DispatchCheck: func(ctx context.Context, handler adapter.Handler, inst interface{}) (adapter.CheckResult, error) {
+			DispatchCheck: func(ctx context.Context, handler adapter.Handler, inst interface{}) (adapter.CheckResult, interface{}, error) {
 
 				// Convert the instance from the generic interface{}, to its specialized type.
 				instance := inst.(*authorization.Instance)
 
 				// Invoke the handler.
-				return handler.(authorization.Handler).HandleAuthorization(ctx, instance)
+				res, err := handler.(authorization.Handler).HandleAuthorization(ctx, instance)
+				return res, nil, err
 			},
 
 			// CreateInstanceBuilder creates a new template.InstanceBuilderFN based on the supplied instance parameters. It uses
@@ -1181,13 +1183,14 @@ var (
 			},
 
 			// DispatchCheck dispatches the instance to the handler.
-			DispatchCheck: func(ctx context.Context, handler adapter.Handler, inst interface{}) (adapter.CheckResult, error) {
+			DispatchCheck: func(ctx context.Context, handler adapter.Handler, inst interface{}) (adapter.CheckResult, interface{}, error) {
 
 				// Convert the instance from the generic interface{}, to its specialized type.
 				instance := inst.(*checknothing.Instance)
 
 				// Invoke the handler.
-				return handler.(checknothing.Handler).HandleCheckNothing(ctx, instance)
+				res, err := handler.(checknothing.Handler).HandleCheckNothing(ctx, instance)
+				return res, nil, err
 			},
 
 			// CreateInstanceBuilder creates a new template.InstanceBuilderFN based on the supplied instance parameters. It uses
@@ -1495,13 +1498,14 @@ var (
 			},
 
 			// DispatchCheck dispatches the instance to the handler.
-			DispatchCheck: func(ctx context.Context, handler adapter.Handler, inst interface{}) (adapter.CheckResult, error) {
+			DispatchCheck: func(ctx context.Context, handler adapter.Handler, inst interface{}) (adapter.CheckResult, interface{}, error) {
 
 				// Convert the instance from the generic interface{}, to its specialized type.
 				instance := inst.(*listentry.Instance)
 
 				// Invoke the handler.
-				return handler.(listentry.Handler).HandleListEntry(ctx, instance)
+				res, err := handler.(listentry.Handler).HandleListEntry(ctx, instance)
+				return res, nil, err
 			},
 
 			// CreateInstanceBuilder creates a new template.InstanceBuilderFN based on the supplied instance parameters. It uses

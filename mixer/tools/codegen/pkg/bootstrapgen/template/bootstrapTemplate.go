@@ -212,14 +212,14 @@ var (
                                 }
                             }
                         {{else}}
-							if param.{{.GoName}} != "" {
-								if t, e := tEvalFn(param.{{.GoName}}); e != nil || t != {{getValueType .GoType}} {
-									if e != nil {
-										return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path + "{{.GoName}}", e)
-									}
-									return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path + "{{.GoName}}", t, {{getValueType .GoType}})
-                            	}
-							}
+                            if param.{{.GoName}} != "" {
+                                if t, e := tEvalFn(param.{{.GoName}}); e != nil || t != {{getValueType .GoType}} {
+                                    if e != nil {
+                                        return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path + "{{.GoName}}", e)
+                                    }
+                                    return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path + "{{.GoName}}", t, {{getValueType .GoType}})
+                                }
+                            }
                         {{end}}
                     {{end}}
                 {{end}}
@@ -283,7 +283,7 @@ var (
             {{end}}
 
         {{if eq .VarietyName "TEMPLATE_VARIETY_REPORT"}}
-		// DispatchReport dispatches the instances to the handler.
+        // DispatchReport dispatches the instances to the handler.
         DispatchReport: func(ctx context.Context, handler adapter.Handler, inst []interface{}) error {
 
             // Convert the instances from the generic []interface{}, to their specialized type.
@@ -292,7 +292,7 @@ var (
                 instances[i] = instance.(*{{.GoPackageName}}.Instance)
             }
 
-			// Invoke the handler.
+            // Invoke the handler.
             if err := handler.({{.GoPackageName}}.Handler).Handle{{.InterfaceName}}(ctx, instances); err != nil {
                 return fmt.Errorf("failed to report all values: %v", err)
             }
@@ -301,22 +301,23 @@ var (
         {{end}}
  
         {{if eq .VarietyName "TEMPLATE_VARIETY_CHECK"}}
-		// DispatchCheck dispatches the instance to the handler.
-        DispatchCheck: func(ctx context.Context, handler adapter.Handler, inst interface{}) (adapter.CheckResult, error) {
+        // DispatchCheck dispatches the instance to the handler.
+        DispatchCheck: func(ctx context.Context, handler adapter.Handler, inst interface{}) (adapter.CheckResult, interface{}, error) {
 
-			// Convert the instance from the generic interface{}, to its specialized type.
-			instance := inst.(*{{.GoPackageName}}.Instance)
+            // Convert the instance from the generic interface{}, to its specialized type.
+            instance := inst.(*{{.GoPackageName}}.Instance)
 
             // Invoke the handler.
-            return handler.({{.GoPackageName}}.Handler).Handle{{.InterfaceName}}(ctx, instance)
+            res, err := handler.({{.GoPackageName}}.Handler).Handle{{.InterfaceName}}(ctx, instance)
+            return res, nil, err
         },
         {{end}}
  
         {{if eq .VarietyName "TEMPLATE_VARIETY_QUOTA"}}
-		// DispatchQuota dispatches the instance to the handler.
+        // DispatchQuota dispatches the instance to the handler.
         DispatchQuota: func(ctx context.Context, handler adapter.Handler, inst interface{}, args adapter.QuotaArgs) (adapter.QuotaResult, error) {
 
-			// Convert the instance from the generic interface{}, to its specialized type.
+            // Convert the instance from the generic interface{}, to its specialized type.
             instance := inst.(*{{.GoPackageName}}.Instance)
  
             // Invoke the handler.
@@ -325,11 +326,11 @@ var (
         {{end}}
  
         {{if eq .VarietyName "TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR"}}
-		// DispathGenAttrs dispatches the instance to the attribute producing handler.
+        // DispathGenAttrs dispatches the instance to the attribute producing handler.
         DispatchGenAttrs: func(ctx context.Context, handler adapter.Handler, inst interface{}, attrs attribute.Bag,
             mapper template.OutputMapperFn) (*attribute.MutableBag, error) {
  
-			// Convert the instance from the generic interface{}, to their specialized type.
+            // Convert the instance from the generic interface{}, to their specialized type.
             instance := inst.(*{{.GoPackageName}}.Instance)
  
             // Invoke the handler.
@@ -338,7 +339,7 @@ var (
                 return nil, err
             }
 
-			// Construct a wrapper bag around the returned output message and pass it to the output mapper
+            // Construct a wrapper bag around the returned output message and pass it to the output mapper
             // to map $out values back to the destination attributes in the ambient context.
             const fullOutName = "{{.GoPackageName}}.output."
             outBag := newWrapperAttrBag(
@@ -374,7 +375,7 @@ var (
         },
         {{end}}
 
-		// CreateInstanceBuilder creates a new template.InstanceBuilderFN based on the supplied instance parameters. It uses
+        // CreateInstanceBuilder creates a new template.InstanceBuilderFN based on the supplied instance parameters. It uses
         // the expression builder to create a new instance of a builder struct for the instance type. Created
         // InstanceBuilderFn closes over this struct. When InstanceBuilderFn is called it, in turn, calls into
         // the builder with an attribute bag.
@@ -385,12 +386,12 @@ var (
             {{$m := $t.TemplateMessage}}
             {{$newBuilderFnName := getNewMessageBuilderFnName $t $m}}
 
-			// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
-			if param == nil {
-				return func(attr attribute.Bag) (interface{}, error) {
-					return nil, nil
-				}, nil
-			}
+            // If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+            if param == nil {
+                return func(attr attribute.Bag) (interface{}, error) {
+                    return nil, nil
+                }, nil
+            }
 
             // Instantiate a new builder for the instance.
             builder, errp := {{$newBuilderFnName}}(expb, param.(*{{$t.GoPackageName}}.{{getResourcMessageInterfaceParamTypeName $m.Name}}))
@@ -413,15 +414,15 @@ var (
         },
  
         {{if eq .VarietyName "TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR"}}
-		// CreateOutputExpressions creates a set of compiled expressions based on the supplied instance parameters.
-		//
+        // CreateOutputExpressions creates a set of compiled expressions based on the supplied instance parameters.
+        //
         // See template.CreateOutputExpressionsFn for more details.
-		CreateOutputExpressions: func(
-			instanceParam proto.Message,
-			finder ast.AttributeDescriptorFinder,
-			expb *compiled.ExpressionBuilder) (map[string]compiled.Expression, error) {
+        CreateOutputExpressions: func(
+            instanceParam proto.Message,
+            finder ast.AttributeDescriptorFinder,
+            expb *compiled.ExpressionBuilder) (map[string]compiled.Expression, error) {
             var err error
-			var expType istio_policy_v1beta1.ValueType
+            var expType istio_policy_v1beta1.ValueType
 
             // Convert the generic instanceParam to its specialized type.
             param := instanceParam.(*{{$t.GoPackageName}}.{{getResourcMessageInterfaceParamTypeName $m.Name}})
@@ -431,26 +432,26 @@ var (
 
             const fullOutName = "{{.GoPackageName}}.output."
             for attrName, outExpr := range param.AttributeBindings {
-				attrInfo := finder.GetAttribute(attrName)
+                attrInfo := finder.GetAttribute(attrName)
                 if attrInfo == nil {
-					log.Warnf("attribute not found when mapping outputs: attr='%s', expr='%s'", attrName, outExpr)
+                    log.Warnf("attribute not found when mapping outputs: attr='%s', expr='%s'", attrName, outExpr)
                     continue
-				}
+                }
 
                 ex := strings.Replace(outExpr, "$out.", fullOutName, -1)
 
                 if expressions[attrName], expType, err = expb.Compile(ex); err != nil {
-					return nil, err
+                    return nil, err
                 }
 
-				if attrInfo.ValueType != expType {
-					log.Warnf("attribute type mismatch: attr='%s', attrType='%v', expr='%s', exprType='%v'", attrName, attrInfo.ValueType, outExpr, expType)
-					continue
-				}
+                if attrInfo.ValueType != expType {
+                    log.Warnf("attribute type mismatch: attr='%s', attrType='%v', expr='%s', exprType='%v'", attrName, attrInfo.ValueType, outExpr, expType)
+                    continue
+                }
             }
 
             return expressions, nil
-		},
+        },
         {{end}}
  
         },
@@ -461,18 +462,18 @@ var (
 // Builders for all known message types.
 {{range .TemplateModels}}
     {{$t := .}} {{/* t := template */}}
- 
+
     {{range getAllMsgs $t}}
         {{$m := . }} {{/* m := message */}}
         {{$builderName      := getMessageBuilderName $t $m}}
         {{$newBuilderFnName := getNewMessageBuilderFnName $t $m}}
- 
+
         // builder struct for constructing an instance of {{$m.Name}}.
         type {{$builderName}} struct {
 
         {{range $m.Fields}}
             {{$f := .}}  {{/* f := field */}}
- 
+
             // builder for field {{$f.ProtoName}}: {{$f.GoType.Name}}.
             {{if $f.GoType.IsMap}}
                 {{if $f.GoType.MapValue.IsResourceMessage}}
@@ -501,7 +502,7 @@ var (
             expb *compiled.ExpressionBuilder,
             param *{{$t.GoPackageName}}.{{getResourcMessageInterfaceParamTypeName $m.Name}}) (*{{$builderName}}, template.ErrorPath) {
 
-			// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+            // If the parameter is nil. Simply return nil. The builder, then, will also return nil.
             if param == nil {
                 return nil, template.ErrorPath{}
             }
@@ -514,7 +515,7 @@ var (
             _ = err
             var errp template.ErrorPath
             _ = errp
-			var expType istio_policy_v1beta1.ValueType
+            var expType istio_policy_v1beta1.ValueType
             _ = expType
 
             {{range $m.Fields}}
@@ -522,7 +523,7 @@ var (
  
                 {{if $f.GoType.IsMap}}
                     {{if $f.GoType.MapValue.IsResourceMessage}}
-	                    {{/* Construct the map of fieldName => builder for maps with sub-message value types */}}
+                        {{/* Construct the map of fieldName => builder for maps with sub-message value types */}}
                         b.{{builderFieldName $f}} = make(map[string]*{{getMessageBuilderName $t $f.GoType.MapValue}}, len(param.{{$f.GoName}}))
                         for k, v := range param.{{$f.GoName}} {
                             var vb *{{getMessageBuilderName $t $f.GoType.MapValue}}
@@ -532,45 +533,45 @@ var (
                             b.{{builderFieldName $f}}[k] = vb
                         }
                     {{else}}
-	                    {{/* Construct the map of fieldName => expression for map[string]<simple-type> fields. */}}
+                        {{/* Construct the map of fieldName => expression for map[string]<simple-type> fields. */}}
                         b.{{builderFieldName $f}} = make(map[string]compiled.Expression, len(param.{{$f.GoName}}))
                         for k, v := range param.{{$f.GoName}} {
                             var exp compiled.Expression
                             if exp, expType, err = expb.Compile(v); err != nil {
                                 return nil, template.NewErrorPath("{{$f.GoName}}["+ k + "]", err)
                             }
-							{{if isPrimitiveType $f.GoType.MapValue}}
-								if expType != {{getValueType $f.GoType.MapValue}} {
-									err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", {{getValueType $f.GoType.MapValue}}, expType, v)
-									return nil, template.NewErrorPath("{{$f.GoName}}[" + k + "]", err)
-								}
-							{{end}}
+                            {{if isPrimitiveType $f.GoType.MapValue}}
+                                if expType != {{getValueType $f.GoType.MapValue}} {
+                                    err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", {{getValueType $f.GoType.MapValue}}, expType, v)
+                                    return nil, template.NewErrorPath("{{$f.GoName}}[" + k + "]", err)
+                                }
+                            {{end}}
 
                             b.{{builderFieldName $f}}[k] = exp
                         }
                     {{end}}
                 {{else}}
                     {{if $f.GoType.IsResourceMessage}}
-						{{/* Construct the builder instance for sub-message field types. */}}
-						if b.{{builderFieldName $f}}, errp = {{getNewMessageBuilderFnName $t $f.GoType}}(expb, param.{{$f.GoName}}); !errp.IsNil() {
-							return nil, errp.WithPrefix("{{$f.GoName}}")
-						}
+                        {{/* Construct the builder instance for sub-message field types. */}}
+                        if b.{{builderFieldName $f}}, errp = {{getNewMessageBuilderFnName $t $f.GoType}}(expb, param.{{$f.GoName}}); !errp.IsNil() {
+                            return nil, errp.WithPrefix("{{$f.GoName}}")
+                        }
                     {{else}}
-	                    {{/* Construct the compiled.Expression for fields of basic type. */}}
-						if param.{{$f.GoName}} == "" {
-							b.{{builderFieldName $f}} = nil
-						} else {
-							b.{{builderFieldName $f}}, expType, err = expb.Compile(param.{{$f.GoName}})
-							if err != nil {
-								return nil, template.NewErrorPath("{{$f.GoName}}", err)
-							}
-							{{if isPrimitiveType $f.GoType}}
-								if expType != {{getValueType $f.GoType}} {
-									err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", {{getValueType $f.GoType}}, expType, param.{{$f.GoName}})
-									return nil, template.NewErrorPath("{{$f.GoName}}", err)
-								}
-							{{end}}
-						}
+                        {{/* Construct the compiled.Expression for fields of basic type. */}}
+                        if param.{{$f.GoName}} == "" {
+                            b.{{builderFieldName $f}} = nil
+                        } else {
+                            b.{{builderFieldName $f}}, expType, err = expb.Compile(param.{{$f.GoName}})
+                            if err != nil {
+                                return nil, template.NewErrorPath("{{$f.GoName}}", err)
+                            }
+                            {{if isPrimitiveType $f.GoType}}
+                                if expType != {{getValueType $f.GoType}} {
+                                    err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", {{getValueType $f.GoType}}, expType, param.{{$f.GoName}})
+                                    return nil, template.NewErrorPath("{{$f.GoName}}", err)
+                                }
+                            {{end}}
+                        }
                     {{end}}
                 {{end}}
  
@@ -592,15 +593,15 @@ var (
             var errp template.ErrorPath
             _ = errp
             var vBool bool
-			_ = vBool
-			var vInt int64
-			_ = vInt
-			var vString string
-			_ = vString
-			var vDouble float64
-			_ = vDouble
-			var vIface interface{}
-			_ = vIface
+            _ = vBool
+            var vInt int64
+            _ = vInt
+            var vString string
+            _ = vString
+            var vDouble float64
+            _ = vDouble
+            var vIface interface{}
+            _ = vIface
 
             r := &{{$t.GoPackageName}}.{{getResourcMessageInstanceName $m.Name}}{}
             {{range $m.Fields}}
@@ -622,57 +623,57 @@ var (
                             r.{{$f.GoName}} = make(map[{{$f.GoType.MapKey.Name}}]{{$f.GoType.MapValue.Name}}, len(b.{{builderFieldName $f}}))
                         {{end}}
                         for k, v := range b.{{builderFieldName $f}} {
-							{{if isPrimitiveType $f.GoType.MapValue}}
-								{{getLocalVar $f.GoType.MapValue}}, err = v.{{getEvalMethod $f.GoType.MapValue}}(attrs)
-								if err != nil {
-	                                return nil, template.NewErrorPath("{{$f.GoName}}["+ k + "]", err)
-								}
-								r.{{$f.GoName}}[k] = {{getLocalVar $f.GoType.MapValue}}
-							{{else}}
-	                            if {{getLocalVar $f.GoType.MapValue}}, err = v.{{getEvalMethod $f.GoType.MapValue}}(attrs); err != nil {
-	                                return nil, template.NewErrorPath("{{$f.GoName}}["+ k + "]", err)
-	                            }
-	                            {{if containsValueTypeOrResMsg $f.GoType.MapValue}}
-	                                r.{{$f.GoName}}[k] = {{getLocalVar $f.GoType.MapValue}}
-	                            {{else}}
-	                                {{if isAliasTypeSkipIp $f.GoType.MapValue.Name}}
-	                                    r.{{$f.GoName}}[k] = {{$f.GoType.MapValue.Name}}({{getLocalVar $f.GoType.MapValue}}.({{getAliasType $f.GoType.MapValue.Name}}))
-	                                {{else}}
-	                                    r.{{$f.GoName}}[k] = {{getLocalVar $f.GoType.MapValue}}.({{$f.GoType.MapValue.Name}}) {{reportTypeUsed $f.GoType.MapValue}}
-	                                {{end}}
-	                            {{end}}
-							{{end}}
+                            {{if isPrimitiveType $f.GoType.MapValue}}
+                                {{getLocalVar $f.GoType.MapValue}}, err = v.{{getEvalMethod $f.GoType.MapValue}}(attrs)
+                                if err != nil {
+                                    return nil, template.NewErrorPath("{{$f.GoName}}["+ k + "]", err)
+                                }
+                                r.{{$f.GoName}}[k] = {{getLocalVar $f.GoType.MapValue}}
+                            {{else}}
+                                if {{getLocalVar $f.GoType.MapValue}}, err = v.{{getEvalMethod $f.GoType.MapValue}}(attrs); err != nil {
+                                    return nil, template.NewErrorPath("{{$f.GoName}}["+ k + "]", err)
+                                }
+                                {{if containsValueTypeOrResMsg $f.GoType.MapValue}}
+                                    r.{{$f.GoName}}[k] = {{getLocalVar $f.GoType.MapValue}}
+                                {{else}}
+                                    {{if isAliasTypeSkipIp $f.GoType.MapValue.Name}}
+                                        r.{{$f.GoName}}[k] = {{$f.GoType.MapValue.Name}}({{getLocalVar $f.GoType.MapValue}}.({{getAliasType $f.GoType.MapValue.Name}}))
+                                    {{else}}
+                                        r.{{$f.GoName}}[k] = {{getLocalVar $f.GoType.MapValue}}.({{$f.GoType.MapValue.Name}}) {{reportTypeUsed $f.GoType.MapValue}}
+                                    {{end}}
+                                {{end}}
+                            {{end}}
                         }
                     {{end}}
                 {{else}}
-					if b.{{builderFieldName $f}} != nil {
+                    if b.{{builderFieldName $f}} != nil {
                     {{if $f.GoType.IsResourceMessage}}
-	                        if r.{{$f.GoName}}, errp = b.{{builderFieldName $f}}.build(attrs); !errp.IsNil() {
+                            if r.{{$f.GoName}}, errp = b.{{builderFieldName $f}}.build(attrs); !errp.IsNil() {
                             return nil, errp.WithPrefix("{{$f.GoName}}")
-						}
+                        }
                     {{else}}
-						{{if isPrimitiveType $f.GoType}}
-							{{getLocalVar $f.GoType}}, err = b.{{builderFieldName $f}}.{{getEvalMethod $f.GoType}}(attrs)
-							if err != nil {
-	                            return nil, template.NewErrorPath("{{$f.GoName}}", err)
-							}
-							r.{{$f.GoName}} = {{getLocalVar $f.GoType}}
-						{{else}}
-	                        if vIface, err = b.{{builderFieldName $f}}.{{getEvalMethod $f.GoType}}(attrs); err != nil {
-	                            return nil, template.NewErrorPath("{{$f.GoName}}", err)
-	                        }
-	                        {{if containsValueTypeOrResMsg $f.GoType}}
-	                            r.{{$f.GoName}} = vIface
-	                        {{else}}
-	                            {{if isAliasTypeSkipIp $f.GoType.Name}}
-	                                r.{{$f.GoName}} = {{$f.GoType.Name}}(vIface.({{getAliasType .GoType.Name}}))
-	                            {{else}}
-	                                r.{{$f.GoName}} = vIface.({{$f.GoType.Name}}) {{reportTypeUsed $f.GoType}}
-	                            {{end}}
-	                        {{end}}
-						{{end}}
+                        {{if isPrimitiveType $f.GoType}}
+                            {{getLocalVar $f.GoType}}, err = b.{{builderFieldName $f}}.{{getEvalMethod $f.GoType}}(attrs)
+                            if err != nil {
+                                return nil, template.NewErrorPath("{{$f.GoName}}", err)
+                            }
+                            r.{{$f.GoName}} = {{getLocalVar $f.GoType}}
+                        {{else}}
+                            if vIface, err = b.{{builderFieldName $f}}.{{getEvalMethod $f.GoType}}(attrs); err != nil {
+                                return nil, template.NewErrorPath("{{$f.GoName}}", err)
+                            }
+                            {{if containsValueTypeOrResMsg $f.GoType}}
+                                r.{{$f.GoName}} = vIface
+                            {{else}}
+                                {{if isAliasTypeSkipIp $f.GoType.Name}}
+                                    r.{{$f.GoName}} = {{$f.GoType.Name}}(vIface.({{getAliasType .GoType.Name}}))
+                                {{else}}
+                                    r.{{$f.GoName}} = vIface.({{$f.GoType.Name}}) {{reportTypeUsed $f.GoType}}
+                                {{end}}
+                            {{end}}
+                        {{end}}
                     {{end}}
-					}
+                    }
                 {{end}}
             {{end}}
  

@@ -447,24 +447,24 @@ func (b *builder) templateInfo(tmpl *config.Template) *TemplateInfo {
 	}
 
 	// Make a call to check
-	ti.DispatchCheck = func(ctx context.Context, handler adapter.Handler, instance interface{}) (adapter.CheckResult, error) {
+	ti.DispatchCheck = func(ctx context.Context, handler adapter.Handler, instance interface{}) (adapter.CheckResult, interface{}, error) {
 		var h adapter.RemoteCheckHandler
 		var ok bool
 		var encodedInstance *adapter.EncodedInstance
 
 		if h, ok = handler.(adapter.RemoteCheckHandler); !ok {
-			return adapter.CheckResult{}, fmt.Errorf("internal: handler of incorrect type. got %T, want: RemoteCheckHandler", handler)
+			return adapter.CheckResult{}, nil, fmt.Errorf("internal: handler of incorrect type. got %T, want: RemoteCheckHandler", handler)
 		}
 
 		if encodedInstance, ok = instance.(*adapter.EncodedInstance); !ok {
-			return adapter.CheckResult{}, fmt.Errorf("internal: instance of incorrect type. got %T, want: []byte", instance)
+			return adapter.CheckResult{}, nil, fmt.Errorf("internal: instance of incorrect type. got %T, want: []byte", instance)
 		}
 
 		cr, err := h.HandleRemoteCheck(ctx, encodedInstance)
 		if err != nil {
-			return adapter.CheckResult{}, err
+			return adapter.CheckResult{}, nil, err
 		}
-		return *cr, nil
+		return *cr, nil, nil
 	}
 
 	ti.DispatchReport = func(ctx context.Context, handler adapter.Handler, instances []interface{}) error {

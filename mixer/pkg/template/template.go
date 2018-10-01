@@ -49,7 +49,8 @@ type (
 	HandlerSupportsTemplateFn func(hndlr adapter.Handler) bool
 
 	// DispatchCheckFn dispatches the instance to the handler.
-	DispatchCheckFn func(ctx context.Context, handler adapter.Handler, instance interface{}) (adapter.CheckResult, error)
+	// Output value is requred for output-producting Check adapters.
+	DispatchCheckFn func(ctx context.Context, handler adapter.Handler, instance interface{}) (cr adapter.CheckResult, output interface{}, err error)
 
 	// DispatchReportFn dispatches the instances to the handler.
 	DispatchReportFn func(ctx context.Context, handler adapter.Handler, instances []interface{}) error
@@ -159,6 +160,9 @@ type (
 	//  }
 	OutputMapperFn func(attrs attribute.Bag) (*attribute.MutableBag, error)
 
+	// EvaluateOutputAttributeFn is an attribute accessor function for the Check output value.
+	EvaluateOutputAttributeFn func(output interface{}) func(attr string) (value interface{}, found bool)
+
 	// Info contains all the information related a template like
 	// Default instance params, type inference method etc.
 	Info struct {
@@ -182,6 +186,8 @@ type (
 
 		CreateInstanceBuilder   CreateInstanceBuilderFn
 		CreateOutputExpressions CreateOutputExpressionsFn
+
+		EvaluateOutputAttribute EvaluateOutputAttributeFn
 	}
 
 	// templateRepo implements Repository

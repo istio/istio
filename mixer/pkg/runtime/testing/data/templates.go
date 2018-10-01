@@ -41,16 +41,21 @@ func BuildTemplates(l *Logger, settings ...FakeTemplateSettings) map[string]*tem
 	}
 
 	var t = map[string]*template.Info{
-		"tcheck":  createFakeTemplate("tcheck", m["tcheck"], l, istio_mixer_v1_template.TEMPLATE_VARIETY_CHECK),
-		"treport": createFakeTemplate("treport", m["treport"], l, istio_mixer_v1_template.TEMPLATE_VARIETY_REPORT),
-		"tquota":  createFakeTemplate("tquota", m["tquota"], l, istio_mixer_v1_template.TEMPLATE_VARIETY_QUOTA),
-		"tapa":    createFakeTemplate("tapa", m["tapa"], l, istio_mixer_v1_template.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR),
+		"tcheck":       createFakeTemplate("tcheck", m["tcheck"], l, istio_mixer_v1_template.TEMPLATE_VARIETY_CHECK),
+		"tcheckoutput": createFakeTemplate("tcheckoutput", m["tcheckoutput"], l, istio_mixer_v1_template.TEMPLATE_VARIETY_CHECK_WITH_OUTPUT),
+		"treport":      createFakeTemplate("treport", m["treport"], l, istio_mixer_v1_template.TEMPLATE_VARIETY_REPORT),
+		"tquota":       createFakeTemplate("tquota", m["tquota"], l, istio_mixer_v1_template.TEMPLATE_VARIETY_QUOTA),
+		"tapa":         createFakeTemplate("tapa", m["tapa"], l, istio_mixer_v1_template.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR),
 
 		// This is another template with check.
 		"thalt": createFakeTemplate("thalt", m["thalt"], l, istio_mixer_v1_template.TEMPLATE_VARIETY_CHECK),
 	}
 
 	return t
+}
+
+type outputTemplate struct {
+	value string
 }
 
 func createFakeTemplate(name string, s FakeTemplateSettings, l *Logger, variety istio_mixer_v1_template.TemplateVariety) *template.Info {
@@ -64,6 +69,14 @@ func createFakeTemplate(name string, s FakeTemplateSettings, l *Logger, variety 
 			{
 				Attributes: map[string]*policy.AttributeManifest_AttributeInfo{
 					"prefix.generated.string": {
+						ValueType: policy.STRING,
+					},
+				},
+			},
+			// output template attribute manifest
+			{
+				Attributes: map[string]*policy.AttributeManifest_AttributeInfo{
+					"value": {
 						ValueType: policy.STRING,
 					},
 				},
@@ -95,7 +108,7 @@ func createFakeTemplate(name string, s FakeTemplateSettings, l *Logger, variety 
 			l.WriteFormat(name, "SetType => types: '%+v'", types)
 			l.Write(name, "SetType <=")
 		},
-		DispatchCheck: func(ctx context.Context, handler adapter.Handler, instance interface{}) (adapter.CheckResult, error) {
+		DispatchCheck: func(ctx context.Context, handler adapter.Handler, instance interface{}) (adapter.CheckResult, interface{}, error) {
 			l.WriteFormat(name, "DispatchCheck => context exists: '%+v'", ctx != nil)
 			l.WriteFormat(name, "DispatchCheck => handler exists: '%+v'", handler != nil)
 			l.WriteFormat(name, "DispatchCheck => instance:       '%+v'", instance)
@@ -109,7 +122,7 @@ func createFakeTemplate(name string, s FakeTemplateSettings, l *Logger, variety 
 
 			if s.ErrorOnDispatchCheck {
 				l.Write(name, "DispatchCheck <= (ERROR)")
-				return adapter.CheckResult{}, errors.New("error at dispatch check, as expected")
+				return adapter.CheckResult{}, nil, errors.New("error at dispatch check, as expected")
 			}
 
 			result := adapter.CheckResult{
@@ -122,7 +135,24 @@ func createFakeTemplate(name string, s FakeTemplateSettings, l *Logger, variety 
 			callCount++
 
 			l.Write(name, "DispatchCheck <= (SUCCESS)")
-			return result, nil
+
+			if variety == istio_mixer_v1_template.TEMPLATE_VARIETY_CHECK_WITH_OUTPUT {
+				l.Write(name, "DispatchCheck => output: {value: '1337'}")
+				return result, &outputTemplate{value: "1337"}, nil
+			}
+			return result, nil, nil
+		},
+		EvaluateOutputAttribute: func(output interface{}) func(string) (interface{}, bool) {
+			val, ok := output.(*outputTemplate)
+			if !ok || val == nil {
+				return func(string) (interface{}, bool) { return nil, false }
+			}
+			return func(name string) (interface{}, bool) {
+				if name == "value" {
+					return val.value, true
+				}
+				return nil, false
+			}
 		},
 		DispatchReport: func(ctx context.Context, handler adapter.Handler, instances []interface{}) error {
 			l.WriteFormat(name, "DispatchReport => context exists: '%+v'", ctx != nil)

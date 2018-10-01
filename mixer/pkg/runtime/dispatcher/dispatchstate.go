@@ -123,7 +123,7 @@ func (ds *dispatchState) invokeHandler(interface{}) {
 			ctx, ds.destination.Handler, ds.instances[0], ds.inputBag, ds.mapper)
 
 	case tpb.TEMPLATE_VARIETY_CHECK:
-		ds.checkResult, ds.err = ds.destination.Template.DispatchCheck(
+		ds.checkResult, _, ds.err = ds.destination.Template.DispatchCheck(
 			ctx, ds.destination.Handler, ds.instances[0])
 
 	case tpb.TEMPLATE_VARIETY_REPORT:
