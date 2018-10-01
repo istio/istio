@@ -109,8 +109,7 @@ function run_build() {
   local SUBS_FILE=$2
   local PROJ_ID=$3
   local SERVICE_ACCT=$4
-  local SERVICE_KEY_FILE=$5
-  local WAIT=$6
+  local WAIT=$5
 
   local REQUEST_FILE
   REQUEST_FILE="$(mktemp /tmp/build.request.XXXX)"
@@ -121,16 +120,6 @@ function run_build() {
   head --lines=-1 "${SCRIPTPATH}/${TEMPLATE_NAME}" > "${REQUEST_FILE}"
   cat "${SUBS_FILE}" >> "${REQUEST_FILE}"
   echo "}" >> "${REQUEST_FILE}"
-
-  # try to preserve the prior gcloud account that's in use
-  if [[ -n "${SERVICE_KEY_FILE}" ]]; then
-    local PRIOR_GCLOUD_ACCOUNT
-    PRIOR_GCLOUD_ACCOUNT="$(gcloud config get-value account)"
-    gcloud auth activate-service-account "${SERVICE_ACCT}" --key-file="${SERVICE_KEY_FILE}"
-    if [[ -n "${PRIOR_GCLOUD_ACCOUNT}" ]]; then
-      gcloud config set account "${PRIOR_GCLOUD_ACCOUNT}"
-    fi
-  fi
 
   curl -X POST -H "Authorization: Bearer $(gcloud auth --account "${SERVICE_ACCT}" print-access-token)" \
     -T "${REQUEST_FILE}" -s -o "${RESULT_FILE}" "https://cloudbuild.googleapis.com/v1/projects/${PROJ_ID}/builds"
