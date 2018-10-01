@@ -245,7 +245,9 @@ func MakeTCPListener(listenerName string, port uint32, clusterName string) *v2.L
 	// TCP filter configuration
 	config := &tcp.TcpProxy{
 		StatPrefix: "tcp",
-		Cluster:    clusterName,
+		ClusterSpecifier: &tcp.TcpProxy_Cluster{
+			Cluster: clusterName,
+		},
 	}
 	pbst, err := util.MessageToStruct(config)
 	if err != nil {
