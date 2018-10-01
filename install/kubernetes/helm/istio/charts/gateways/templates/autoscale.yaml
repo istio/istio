@@ -1,5 +1,5 @@
-{{- range $key, $spec := .Values }}
-{{- if and (ne $key "global") (ne $key "enabled") }}
+{{- range $key, $spec := .Values.gateways }}
+{{- if and (ne $key "enabled") }}
 {{- if and $spec.enabled $spec.autoscaleMin }}
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler

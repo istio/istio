@@ -1,5 +1,5 @@
-{{- range $key, $spec := .Values }}
-{{- if and (ne $key "global") (ne $key "enabled") }}
+{{- range $key, $spec := .Values.gateways }}
+{{- if and (ne $key "enabled") }}
 {{- if $spec.enabled }}
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole
