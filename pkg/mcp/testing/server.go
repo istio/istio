@@ -26,6 +26,7 @@ import (
 
 	"istio.io/istio/pkg/mcp/server"
 	"istio.io/istio/pkg/mcp/snapshot"
+	"istio.io/istio/pkg/mcp/testing/monitoring"
 )
 
 // Server is a simple MCP server, used for testing purposes.
@@ -53,7 +54,7 @@ var _ io.Closer = &Server{}
 // from the Port field of the returned server struct.
 func NewServer(port int, typeUrls []string) (*Server, error) {
 	cache := snapshot.New()
-	s := server.New(cache, typeUrls, server.NewAllowAllChecker())
+	s := server.New(cache, typeUrls, server.NewAllowAllChecker(), mcptestmon.NewInMemoryServerStatsContext())
 
 	addr := fmt.Sprintf("127.0.0.1:%d", port)
 	l, err := net.Listen("tcp", addr)
