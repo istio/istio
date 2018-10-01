@@ -43,6 +43,7 @@ var (
 	url       string
 	headerKey string
 	headerVal string
+	headers   string
 	msg       string
 
 	caFile   string
@@ -60,8 +61,9 @@ func init() {
 	flag.IntVar(&qps, "qps", 0, "Queries per second")
 	flag.DurationVar(&timeout, "timeout", 15*time.Second, "Request timeout")
 	flag.StringVar(&url, "url", "", "Specify URL")
-	flag.StringVar(&headerKey, "key", "", "Header key (use Host for authority)")
-	flag.StringVar(&headerVal, "val", "", "Header value")
+	flag.StringVar(&headerKey, "key", "", "Header key (use Host for authority) - deprecated user headers instead")
+	flag.StringVar(&headerVal, "val", "", "Header value - deprecated")
+	flag.StringVar(&headers, "headers", "", "A list of http headers (use Host for authority) - name:value[,name:value]*")
 	flag.StringVar(&caFile, "ca", "/cert.crt", "CA root cert file")
 	flag.StringVar(&msg, "msg", "HelloWorld", "message to send (for websockets)")
 }
@@ -75,12 +77,36 @@ func makeHTTPRequest(client *http.Client) job {
 			}
 
 			log.Printf("[%d] Url=%s\n", i, url)
+
+			// Old http add header - deprecated
 			if headerKey == hostKey {
 				req.Host = headerVal
 				log.Printf("[%d] Host=%s\n", i, headerVal)
 			} else if headerKey != "" {
 				req.Header.Add(headerKey, headerVal)
 				log.Printf("[%d] Header=%s:%s\n", i, headerKey, headerVal)
+			}
+
+			if headers != "" {
+				headersList := strings.Split(headers, ",")
+				for _, header := range headersList {
+					parts := strings.Split(header, ":")
+
+					// require name:value format
+					if len(parts) != 2 {
+						return fmt.Errorf("invalid header format: %q (want name:value)", header)
+					}
+					name := parts[0]
+					value := parts[1]
+
+					if name == hostKey {
+						req.Host = value
+						log.Printf("[%d] Host=%s\n", i, value)
+					} else if name != "" {
+						req.Header.Add(name, value)
+						log.Printf("[%d] Header=%s:%s\n", i, name, value)
+					}
+				}
 			}
 
 			if strings.HasPrefix(url, "https://") {
