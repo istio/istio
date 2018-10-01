@@ -65,23 +65,17 @@ function create_subs_file() {
 
 # Called directly by Airflow.
 function get_git_commit_cmd() {
-    local WAIT_FOR_RESULT
-    WAIT_FOR_RESULT="true"
-
     # uses the environment variables from next line + $PROJECT_ID $SVC_ACCT
     create_subs_file "BRANCH" "CHECK_GREEN_SHA_AGE" "COMMIT" "GCS_RELEASE_TOOLS_PATH" "VERIFY_CONSISTENCY"
     cat "${SUBS_FILE}"
 
     run_build "cloud_get_commit.template.json" \
-         "${SUBS_FILE}" "${PROJECT_ID}" "${SVC_ACCT}" "${WAIT_FOR_RESULT}"
+         "${SUBS_FILE}" "${PROJECT_ID}" "${SVC_ACCT}"
     exit "${BUILD_FAILED}"
 }
 
 # Called directly by Airflow.
 function build_template() {
-    local WAIT_FOR_RESULT
-    WAIT_FOR_RESULT="true"
-
     # shellcheck disable=SC2034
     GCR_PATH="${GCR_STAGING_DEST}"
     GCS_PATH="${GCS_BUILD_PATH}"
@@ -90,21 +84,18 @@ function build_template() {
     cat "${SUBS_FILE}"
 
     run_build "cloud_build.template.json" \
-         "${SUBS_FILE}" "${PROJECT_ID}" "${SVC_ACCT}" "${WAIT_FOR_RESULT}"
+         "${SUBS_FILE}" "${PROJECT_ID}" "${SVC_ACCT}"
     exit "${BUILD_FAILED}"
 }
 
 # Called directly by Airflow.
 function test_command() {
-    local WAIT_FOR_RESULT
-    WAIT_FOR_RESULT="true"
-
     DOCKER_HUB="gcr.io/$GCR_STAGING_DEST"
     create_subs_file "BRANCH" "DOCKER_HUB" "GCS_BUILD_PATH" "GCS_RELEASE_TOOLS_PATH" "VERSION"
     cat "${SUBS_FILE}"
 
     run_build "cloud_test.template.json" \
-         "${SUBS_FILE}" "${PROJECT_ID}" "${SVC_ACCT}" "${WAIT_FOR_RESULT}"
+         "${SUBS_FILE}" "${PROJECT_ID}" "${SVC_ACCT}"
     exit "${BUILD_FAILED}"
 }
 
@@ -149,9 +140,6 @@ function gcr_tag_success() {
 
 # Called directly by Airflow.
 function release_push_github_docker_template() {
-    local WAIT_FOR_RESULT
-    WAIT_FOR_RESULT="true"
-
     # uses the environment variables from list below + $PROJECT_ID $SVC_ACCT
     #BRANCH
     # shellcheck disable=SC2034
@@ -172,15 +160,12 @@ function release_push_github_docker_template() {
     cat "${SUBS_FILE}"
 
     run_build "cloud_publish.template.json" \
-         "${SUBS_FILE}" "${PROJECT_ID}" "${SVC_ACCT}" "${WAIT_FOR_RESULT}"
+         "${SUBS_FILE}" "${PROJECT_ID}" "${SVC_ACCT}"
     exit "${BUILD_FAILED}"
 }
 
 # Called directly by Airflow.
 function release_tag_github_template() {
-    local WAIT_FOR_RESULT
-    WAIT_FOR_RESULT="true"
-
     # uses the environment variables from list below + $PROJECT_ID $SVC_ACCT
     #BRANCH
     # shellcheck disable=SC2034
@@ -202,6 +187,6 @@ function release_tag_github_template() {
     cat "${SUBS_FILE}"
 
     run_build "cloud_tag.template.json" \
-         "${SUBS_FILE}" "${PROJECT_ID}" "${SVC_ACCT}" "${WAIT_FOR_RESULT}"
+         "${SUBS_FILE}" "${PROJECT_ID}" "${SVC_ACCT}"
     exit "$BUILD_FAILED"
 }

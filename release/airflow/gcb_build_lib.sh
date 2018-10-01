@@ -109,7 +109,7 @@ function run_build() {
   local SUBS_FILE=$2
   local PROJ_ID=$3
   local SERVICE_ACCT=$4
-  local WAIT=$5
+  local WAIT="true"
 
   local REQUEST_FILE
   REQUEST_FILE="$(mktemp /tmp/build.request.XXXX)"
