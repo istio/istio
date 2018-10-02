@@ -380,6 +380,19 @@ func buildGatewayListenerTLSContext(server *networking.Server) *auth.DownstreamT
 
 	requireClientCert := server.Tls.Mode == networking.Server_TLSOptions_MUTUAL
 
+	// Set TLS parameters if they are non-default
+	var tlsParams *auth.TlsParameters
+	if len(server.Tls.CipherSuites) > 0 ||
+		server.Tls.MinProtocolVersion != networking.Server_TLSOptions_TLS_AUTO ||
+		server.Tls.MaxProtocolVersion != networking.Server_TLSOptions_TLS_AUTO {
+
+		tlsParams = &auth.TlsParameters{
+			TlsMinimumProtocolVersion: convertTLSProtocol(server.Tls.MinProtocolVersion),
+			TlsMaximumProtocolVersion: convertTLSProtocol(server.Tls.MaxProtocolVersion),
+			CipherSuites:              server.Tls.CipherSuites,
+		}
+	}
+
 	return &auth.DownstreamTlsContext{
 		CommonTlsContext: &auth.CommonTlsContext{
 			TlsCertificates: []*auth.TlsCertificate{
@@ -400,11 +413,21 @@ func buildGatewayListenerTLSContext(server *networking.Server) *auth.DownstreamT
 				ValidationContext: certValidationContext,
 			},
 			AlpnProtocols: ListenersALPNProtocols,
+			TlsParams:     tlsParams,
 		},
 		RequireClientCertificate: &types.BoolValue{
 			Value: requireClientCert,
 		},
 	}
+}
+
+func convertTLSProtocol(in networking.Server_TLSOptions_TLSProtocol) TlsParameters_TlsProtocol {
+	out := TlsParameters_TlsProtocol(in) // There should be a one-to-one enum mapping
+	if out < auth.TlsParameters_TLS_AUTO || out > auth.TlsParameters_TLSv1_3 {
+		log.Warnf("was not able to map TLS protocol to Envoy TLS protocol")
+		return auth.TlsParameters_TLS_AUTO
+	}
+	return out
 }
 
 func (configgen *ConfigGeneratorImpl) createGatewayTCPFilterChainOpts(
