@@ -1,4 +1,4 @@
-{{- if or (.Values.prometheusEnabled) (.Values.grafanaEnabled) }}
+{{- if or (.Values.prometheusEnabled) (.Values.grafanaEnabled) (.Values.tracingEnabled)}}
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
@@ -20,6 +20,14 @@ spec:
   - port:
       number: 15031
       name: http2-grafana
+      protocol: HTTP2
+    hosts:
+    - "*"
+  {{- end }}
+  {{- if .Values.tracingEnabled }}
+  - port:
+      number: 15032
+      name: http2-tracing
       protocol: HTTP2
     hosts:
     - "*"
@@ -50,6 +58,19 @@ spec:
     tls:
       mode: DISABLE
 {{- end }}      
+{{- if .Values.tracingEnabled }}
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: tracing
+  namespace: {{ .Release.Namespace }}
+spec:
+  host: tracing.{{ .Release.Namespace }}.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: DISABLE
+{{- end }}
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -79,6 +100,15 @@ spec:
         host: grafana.{{ .Release.Namespace }}.svc.cluster.local
         port:
           number: 3000
+  {{- end }}
+  {{- if .Values.tracingEnabled }}
+  - match:
+    - port: 15032
+    route:
+    - destination:
+        host: tracing.{{ .Release.Namespace }}.svc.cluster.local
+        port:
+          number: 80
   {{- end }}
 ---
 {{- end }}
