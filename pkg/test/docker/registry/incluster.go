@@ -81,7 +81,7 @@ func writeTemplateInTempfile(tmpl *template.Template, data interface{}) (string,
 // Start sets up registry and returns if any error was found while doing that.
 func (r *InClusterRegistry) Start() error {
 
-	if err := r.accessor.CreateNamespace(r.namespace, ""); err != nil {
+	if err := r.accessor.CreateNamespace(r.namespace, "", false); err != nil {
 		if !strings.Contains(err.Error(), "already exist") {
 			return err
 		}

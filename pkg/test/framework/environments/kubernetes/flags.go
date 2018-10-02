@@ -24,6 +24,8 @@ func init() {
 		"The path to the kube config file for cluster environments")
 	flag.StringVar(&globalSettings.Hub, "istio.test.kube.hub", globalSettings.Hub, "The hub for docker images")
 	flag.StringVar(&globalSettings.Tag, "istio.test.kube.tag", globalSettings.Tag, "The tag for docker images.")
+	flag.StringVar((*string)(&globalSettings.ImagePullPolicy), "istio.test.kube.imagePullPolicy", string(globalSettings.ImagePullPolicy),
+		"The pull policy for docker images.")
 	flag.StringVar(&globalSettings.IstioSystemNamespace, "istio.test.kube.systemNamespace", globalSettings.IstioSystemNamespace,
 		"The namespace where the Istio components reside in a typical deployment (default: 'istio-system').")
 	flag.StringVar(&globalSettings.DependencyNamespace, "istio.test.kube.dependencyNamespace", globalSettings.DependencyNamespace,
