@@ -21,8 +21,8 @@ import (
 )
 
 func TestGrpc(t *testing.T) {
-	srcPods := []string{"a", "b"}
-	dstPods := []string{"a", "b", "headless"}
+	srcPods := []string{"a"}
+	dstPods := []string{"a", "b"}
 	ports := []string{"70", "7070"}
 	if !tc.Kube.AuthEnabled {
 		// t is not behind proxy, so it cannot talk in Istio auth.
