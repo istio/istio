@@ -1,0 +1,8 @@
+#
+# nodeagent configuration
+#
+enabled: false
+image: node-agent-k8s
+sdsudspath: ""
+env:
+  CA_ADDR: ""

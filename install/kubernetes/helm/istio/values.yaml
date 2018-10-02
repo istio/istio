@@ -1,4 +1,85 @@
-# Common settings.
+ #
+# Gateways Configuration, refer to the charts/gateways/values.yaml 
+# for detailed configuration
+#
+gateways:
+  enabled: true
+
+#
+# sidecar-injector webhook configuration, refer to the 
+# charts/sidecarInjectorWebhook/values.yaml for detailed configuration
+#
+sidecarInjectorWebhook:
+  enabled: true
+
+#
+# galley configuration, refer to charts/galley/values.yaml
+# for detailed configuration
+#
+galley:
+  enabled: true
+
+#
+# mixer configuration
+#
+mixer:
+  enabled: true
+
+#
+# pilot configuration
+#
+pilot:
+  enabled: true
+
+#
+# security configuration
+#
+security:
+  enabled: true
+
+#
+# nodeagent configuration
+#
+nodeagent:
+  enabled: false
+
+#
+# ingress configuration
+#
+ingress:
+  enabled: false
+ 
+#
+# addon grafana configuration
+#
+grafana:
+  enabled: false
+
+#
+# addon prometheus configuration
+#
+prometheus:
+  enabled: true
+
+#
+# addon servicegraph configuration
+#
+servicegraph:
+  enabled: false
+
+#
+# addon jeager tracing configuration
+#
+tracing:
+  enabled: false
+
+#
+# addon kiali tracing configuration
+#
+kiali:
+  enabled: false
+
+# Common settings used among istio subcharts.
 global:
   # Default hub for Istio images.
   # Releases are published to docker hub under 'istio' project.
@@ -210,269 +291,5 @@ global:
   # Pilot. Requires galley (`--set galley.enabled=true`).
   useMCP: false
 
-#
-# ingress configuration
-#
-ingress:
-  enabled: false
-  replicaCount: 1
-  autoscaleMin: 1
-  autoscaleMax: 5
-  service:
-    annotations: {}
-    loadBalancerIP: ""
-    type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
-    ports:
-    - port: 80
-      name: http
-      nodePort: 32000
-    - port: 443
-      name: https
-    selector:
-      istio: ingress
 
-#
-# Gateways Configuration
-# By default (if enabled) a pair of Ingress and Egress Gateways will be created for the mesh.
-# You can add more gateways in addition to the defaults but make sure those are uniquely named
-# and that NodePorts are not conflicting.
-# Disable specifc gateway by setting the `enabled` to false.
-#
-gateways:
-  enabled: true
 
-#
-# sidecar-injector webhook configuration
-#
-sidecarInjectorWebhook:
-  enabled: true
-  replicaCount: 1
-  image: sidecar_injector
-  enableNamespacesByDefault: false
-
-#
-# galley configuration
-#
-galley:
-  enabled: true
-  replicaCount: 1
-  image: galley
-
-#
-# mixer configuration
-#
-mixer:
-  enabled: true
-  replicaCount: 1
-  autoscaleMin: 1
-  autoscaleMax: 5
-  image: mixer
-
-  istio-policy:
-    autoscaleEnabled: true
-    autoscaleMin: 1
-    autoscaleMax: 5
-    cpu:
-      targetAverageUtilization: 80
-
-  istio-telemetry:
-    autoscaleEnabled: true
-    autoscaleMin: 1
-    autoscaleMax: 5
-    cpu:
-      targetAverageUtilization: 80
-
-  podAnnotations: {}
-
-#
-# pilot configuration
-#
-pilot:
-  enabled: true
-  replicaCount: 1
-  autoscaleMin: 1
-  autoscaleMax: 5
-  image: pilot
-  sidecar: true
-  traceSampling: 100.0
-  # Resources for a small pilot install
-  resources:
-    requests:
-      cpu: 500m
-      memory: 2048Mi
-  env:
-    PILOT_PUSH_THROTTLE_COUNT: 100
-    GODEBUG: gctrace=2
-  cpu:
-    targetAverageUtilization: 80
-
-#
-# security configuration
-#
-security:
-  enabled: true
-  replicaCount: 1
-  image: citadel
-  selfSigned: true # indicate if self-signed CA is used.
-  identityDomain: cluster.local # indicate the domain used in SPIFFE identity URL
-
-#
-# nodeagent configuration
-#
-nodeagent:
-  enabled: false
-  image: node-agent-k8s
-  sdsudspath: ""
-  env:
-    CA_ADDR: ""
-
-#
-# addons configuration
-#
-telemetry-gateway:
-  gatewayName: ingressgateway
-  grafanaEnabled: false
-  prometheusEnabled: false
-
-grafana:
-  enabled: false
-  replicaCount: 1
-  image:
-    repository: grafana/grafana
-    tag: 5.2.3
-  persist: false
-  storageClassName: ""
-  security:
-    enabled: false
-    secretName: grafana
-    usernameKey: username
-    passphraseKey: passphrase
-  service:
-    annotations: {}
-    name: http
-    type: ClusterIP
-    externalPort: 3000
-    loadBalancerIP:
-    loadBalancerSourceRanges:
-
-prometheus:
-  enabled: true
-  replicaCount: 1
-  hub: docker.io/prom
-  tag: v2.3.1
-
-  service:
-    annotations: {}
-    nodePort:
-      enabled: false
-      port: 32090
-
-servicegraph:
-  enabled: false
-  replicaCount: 1
-  image: servicegraph
-  service:
-    annotations: {}
-    name: http
-    type: ClusterIP
-    externalPort: 8088
-    loadBalancerIP:
-    loadBalancerSourceRanges:
-  ingress:
-    enabled: false
-    # Used to create an Ingress record.
-    hosts:
-      - servicegraph.local
-    annotations:
-      # kubernetes.io/ingress.class: nginx
-      # kubernetes.io/tls-acme: "true"
-    tls:
-      # Secrets must be manually created in the namespace.
-      # - secretName: servicegraph-tls
-      #   hosts:
-      #     - servicegraph.local
-  # prometheus address
-  prometheusAddr: http://prometheus:9090
-
-tracing:
-  enabled: false
-  provider: jaeger
-  jaeger:
-    hub: docker.io/jaegertracing
-    tag: 1.7
-    memory:
-      max_traces: 50000
-    ingress:
-      enabled: false
-      # Used to create an Ingress record.
-      hosts:
-        - jaeger.local
-      annotations:
-        # kubernetes.io/ingress.class: nginx
-        # kubernetes.io/tls-acme: "true"
-      tls:
-        # Secrets must be manually created in the namespace.
-        # - secretName: jaeger-tls
-        #   hosts:
-        #     - jaeger.local
-  replicaCount: 1
-  service:
-    annotations: {}
-    name: http
-    type: ClusterIP
-    externalPort: 9411
-  ingress:
-    enabled: false
-    # Used to create an Ingress record.
-    hosts:
-      - tracing.local
-    annotations:
-      # kubernetes.io/ingress.class: nginx
-      # kubernetes.io/tls-acme: "true"
-    tls:
-      # Secrets must be manually created in the namespace.
-      # - secretName: tracing-tls
-      #   hosts:
-      #     - tracing.local
-
-kiali:
-  enabled: false
-  replicaCount: 1
-  hub: docker.io/kiali
-  tag: v0.7
-  ingress:
-    enabled: false
-    ## Used to create an Ingress record.
-    hosts:
-     - kiali.local
-    annotations:
-      # kubernetes.io/ingress.class: nginx
-      # kubernetes.io/tls-acme: "true"
-    tls:
-      # Secrets must be manually created in the namespace.
-      # - secretName: kiali-tls
-      #   hosts:
-      #     - kiali.local
-  dashboard:
-    secretName: kiali
-    usernameKey: username
-    passphraseKey: passphrase
-
-    # Override the automatically detected Grafana URL, useful when Grafana service has no ExternalIPs
-    # grafanaURL:
-
-    # Override the automatically detected Jaeger URL, useful when Jaeger service has no ExternalIPs
-    # jaegerURL:
-  # prometheus address
-  prometheusAddr: http://prometheus:9090
-
-# Certmanager uses ACME to sign certificates. Since Istio gateways are
-# mounting the TLS secrets the Certificate CRDs must be created in the
-# istio-system namespace. Once the certificate has been created, the
-# gateway must be updated by adding 'secretVolumes'. After the gateway
-# restart, DestinationRules can be created using the ACME-signed certificates.
-certmanager:
-  enabled: false
-  hub: quay.io/jetstack
-  tag: v0.3.1
-  resources: {}

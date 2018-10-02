@@ -1,4 +1,4 @@
-{{- range $key, $spec := .Values.gateways }}
+{{- range $key, $spec := .Values }}
 {{- if and (ne $key "enabled") }}
 {{- if and $spec.enabled $spec.autoscaleMin }}
 apiVersion: autoscaling/v2beta1

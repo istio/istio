@@ -1,4 +1,4 @@
-{{- range $key, $spec := .Values.gayeways }}
+{{- range $key, $spec := .Values }}
 {{- if and (ne $key "enabled") }}
 {{- if $spec.enabled }}
 apiVersion: extensions/v1beta1
