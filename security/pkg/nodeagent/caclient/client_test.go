@@ -69,12 +69,7 @@ func TestCAClient(t *testing.T) {
 		t.Fatalf("failed to call CSR sign: %v", err)
 	}
 
-	expected := []byte{}
-	for _, c := range fakeCert {
-		expected = append(expected, []byte(c)...)
-	}
-
-	if !reflect.DeepEqual(resp, expected) {
-		t.Errorf("resp: got %+v, expected %q", resp, expected)
+	if !reflect.DeepEqual(resp, fakeCert) {
+		t.Errorf("resp: got %+v, expected %q", resp, fakeCert)
 	}
 }
