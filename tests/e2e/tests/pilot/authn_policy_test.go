@@ -145,12 +145,13 @@ func TestAuthNJwt(t *testing.T) {
 		{dst: "c", src: "b", port: "", token: "random", expect: "401"},
 		{dst: "c", src: "d", port: "80", token: validJwtToken, expect: "200"},
 
-		// Path "/health_check" is disabled for JWT authentication.
+		// JWT authentication is disabled for requests at path "/health_check".
 		{dst: "c", src: "a", port: "80", path: "/health_check", token: "invalidToken", expect: "200"},
 		{dst: "c", src: "a", port: "80", path: "/health_check", token: validJwtToken, expect: "200"},
 		{dst: "c", src: "a", port: "80", path: "/health_check", token: validJwt2Token, expect: "200"},
 
-		// Path "/jwt2" is enabled only with JWT2.
+		// JWT authentication is enabled for requests at path "/jwt2" only with validJwt2Token issued by
+		// testing@secure.istio.io.
 		{dst: "c", src: "a", port: "80", path: "/jwt2", token: "invalidToken", expect: "401"},
 		{dst: "c", src: "a", port: "80", path: "/jwt2", token: validJwtToken, expect: "401"},
 		{dst: "c", src: "a", port: "80", path: "/jwt2", token: validJwt2Token, expect: "200"},
