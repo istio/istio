@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	glog "log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -28,7 +29,6 @@ import (
 	"strings"
 	"text/template"
 	"time"
-	glog "log"
 
 	"github.com/golang/sync/errgroup"
 	multierror "github.com/hashicorp/go-multierror"

@@ -16,8 +16,8 @@ package pilot
 
 import (
 	"fmt"
-	"testing"
 	"log"
+	"testing"
 )
 
 func TestGrpc(t *testing.T) {

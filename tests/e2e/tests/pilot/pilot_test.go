@@ -19,6 +19,7 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	glog "log"
 	"os"
 	"regexp"
 	"strconv"
@@ -26,7 +27,6 @@ import (
 	"sync"
 	"testing"
 	"time"
-	glog "log"
 
 	"go.uber.org/multierr"
 
