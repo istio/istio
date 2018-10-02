@@ -477,7 +477,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 			return err
 		}
 		cl := mcpapi.NewAggregatedMeshConfigServiceClient(conn)
-		mcpClient := mcpclient.New(cl, supportedTypes, mcpController, clientNodeID, map[string]string{}, mcpclient.NewStatsContext("pilot/"))
+		mcpClient := mcpclient.New(cl, supportedTypes, mcpController, clientNodeID, map[string]string{}, mcpclient.NewStatsContext("pilot"))
 		configz.Register(mcpClient)
 
 		clients = append(clients, mcpClient)

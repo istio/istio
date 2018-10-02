@@ -75,6 +75,6 @@ func main() {
 
 	cl := mcp.NewAggregatedMeshConfigServiceClient(conn)
 
-	c := client.New(cl, typeNames, u, *id, map[string]string{}, client.NewStatsContext("mcpc/"))
+	c := client.New(cl, typeNames, u, *id, map[string]string{}, client.NewStatsContext("mcpc"))
 	c.Run(context.Background())
 }
