@@ -434,7 +434,7 @@ func virtualService(portNum uint32, gatewayName, path, host, subset string) *net
 		Gateways: []string{gatewayName},
 		Http: []*networking.HTTPRoute{
 			{
-				Route: []*networking.DestinationWeight{
+				Route: []*networking.HTTPRouteDestination{
 					{
 						Destination: &networking.Destination{
 							Host:   host,
