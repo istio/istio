@@ -51,6 +51,9 @@ func TestSecretCreationKubernetes(t *testing.T) {
 		t.Error(err)
 	}
 	t.Log(`checking secret "istio.default" is correctly re-created`)
+	if err := ExamineSecret(s); err != nil {
+		t.Error(err)
+	}
 }
 
 func TestMain(m *testing.M) {

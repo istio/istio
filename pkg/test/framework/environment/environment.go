@@ -24,7 +24,7 @@ import (
 	"github.com/prometheus/client_golang/api/prometheus/v1"
 	prom "github.com/prometheus/common/model"
 
-	"k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 
 	istio_mixer_v1 "istio.io/api/mixer/v1"
 	"istio.io/istio/pilot/pkg/model"
@@ -250,7 +250,7 @@ type (
 	DeployedCitadel interface {
 		Deployed
 
-		WaitForSecretToExist() (*v1.Secret, error)
+		WaitForSecretToExist() (*corev1.Secret, error)
 		DeleteSecret() error
 	}
 
