@@ -603,6 +603,43 @@ var (
 				},
 			},
 
+			EvaluateOutputAttribute: func(obj interface{}) func(string) (interface{}, bool) {
+				out, ok := obj.(*checkproducer.Output)
+				if !ok {
+					return func(string) (interface{}, bool) {
+						return nil, false
+					}
+				}
+
+				return func(field string) (interface{}, bool) {
+					switch field {
+
+					case "int64Primitive":
+
+						return out.Int64Primitive, true
+
+					case "boolPrimitive":
+
+						return out.BoolPrimitive, true
+
+					case "doublePrimitive":
+
+						return out.DoublePrimitive, true
+
+					case "stringPrimitive":
+
+						return out.StringPrimitive, true
+
+					case "stringMap":
+
+						return out.StringMap, true
+
+					default:
+						return nil, false
+					}
+				}
+			},
+
 			// CreateInstanceBuilder creates a new template.InstanceBuilderFN based on the supplied instance parameters. It uses
 			// the expression builder to create a new instance of a builder struct for the instance type. Created
 			// InstanceBuilderFn closes over this struct. When InstanceBuilderFn is called it, in turn, calls into

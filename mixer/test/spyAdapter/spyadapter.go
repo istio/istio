@@ -79,7 +79,7 @@ type (
 		HandleSampleCheckSleep  time.Duration
 
 		HandleCheckProducerResult adapter.CheckResult
-		HandleCheckProducerOutput interface{}
+		HandleCheckProducerOutput *checkOutputTmpl.Output
 		HandleCheckProducerErr    error
 		HandleCheckProducerPanic  bool
 		HandleCheckProducerSleep  time.Duration
@@ -276,7 +276,7 @@ func (h handler) HandleSampleCheck(ctx context.Context, instance *checkTmpl.Inst
 	return h.behavior.HandleSampleCheckResult, h.behavior.HandleSampleCheckErr
 }
 
-func (h handler) HandleCheckProducer(ctx context.Context, instance *checkOutputTmpl.Instance) (adapter.CheckResult, interface{}, error) {
+func (h handler) HandleCheckProducer(ctx context.Context, instance *checkOutputTmpl.Instance) (adapter.CheckResult, *checkOutputTmpl.Output, error) {
 	c := CapturedCall{
 		Name:      "HandleCheckProducer",
 		Instances: []interface{}{instance},
@@ -374,7 +374,7 @@ func (s *Adapter) GetAdptInfoFn() adapter.InfoFn {
 			Name:        s.Behavior.Name,
 			Description: "",
 			SupportedTemplates: []string{reportTmpl.TemplateName, apaTmpl.TemplateName,
-				checkTmpl.TemplateName, quotaTmpl.TemplateName},
+				checkTmpl.TemplateName, quotaTmpl.TemplateName, checkOutputTmpl.TemplateName},
 			NewBuilder: func() adapter.HandlerBuilder {
 				return builder{
 					builderBehavior: s.Behavior.Builder,

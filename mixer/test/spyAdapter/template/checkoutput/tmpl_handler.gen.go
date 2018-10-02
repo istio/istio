@@ -35,6 +35,57 @@ type Instance struct {
 	StringPrimitive string
 }
 
+// Output struct is returned by the attribute producing adapters that handle this template.
+//
+// output template
+type Output struct {
+	fieldsSet map[string]bool
+
+	Int64Primitive int64
+
+	BoolPrimitive bool
+
+	DoublePrimitive float64
+
+	StringPrimitive string
+
+	StringMap map[string]string
+}
+
+func NewOutput() *Output {
+	return &Output{fieldsSet: make(map[string]bool)}
+}
+
+func (o *Output) SetInt64Primitive(val int64) {
+	o.fieldsSet["int64Primitive"] = true
+	o.Int64Primitive = val
+}
+
+func (o *Output) SetBoolPrimitive(val bool) {
+	o.fieldsSet["boolPrimitive"] = true
+	o.BoolPrimitive = val
+}
+
+func (o *Output) SetDoublePrimitive(val float64) {
+	o.fieldsSet["doublePrimitive"] = true
+	o.DoublePrimitive = val
+}
+
+func (o *Output) SetStringPrimitive(val string) {
+	o.fieldsSet["stringPrimitive"] = true
+	o.StringPrimitive = val
+}
+
+func (o *Output) SetStringMap(val map[string]string) {
+	o.fieldsSet["stringMap"] = true
+	o.StringMap = val
+}
+
+func (o *Output) WasSet(field string) bool {
+	_, found := o.fieldsSet[field]
+	return found
+}
+
 // HandlerBuilder must be implemented by adapters if they want to
 // process data associated with the 'checkproducer' template.
 //
@@ -63,5 +114,5 @@ type Handler interface {
 
 	// HandleCheckProducer is called by Mixer at request time to deliver instances to
 	// to an adapter.
-	HandleCheckProducer(context.Context, *Instance) (adapter.CheckResult, interface{}, error)
+	HandleCheckProducer(context.Context, *Instance) (adapter.CheckResult, *Output, error)
 }

@@ -336,6 +336,31 @@ var (
                 },
             },
         },
+
+        EvaluateOutputAttribute: func(obj interface{}) func(string) (interface{}, bool) {
+          out, ok := obj.(*{{.GoPackageName}}.Output)
+          if !ok {
+            return func(string) (interface{}, bool) {
+              return nil, false
+            }
+          }
+
+          return func(field string) (interface{}, bool) {
+            switch field {
+                {{range .OutputTemplateMessage.Fields}}
+                case "{{.ProtoName}}":
+                    {{if isAliasType .GoType.Name}}
+                    return {{getAliasType .GoType.Name}}(out.{{.GoName}}), true
+                    {{else}}
+                    return out.{{.GoName}}, true
+                    {{end}}
+                {{end}}
+                default:
+                  return nil, false
+            }
+          }
+        },
+
         {{end}}
 
         {{if eq .VarietyName "TEMPLATE_VARIETY_QUOTA"}}
