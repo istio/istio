@@ -69,6 +69,8 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 
 	mux.HandleFunc("/debug/registryz", s.registryz)
 	mux.HandleFunc("/debug/endpointz", s.endpointz)
+	mux.HandleFunc("/debug/endpointShardz", s.endpointShardz)
+	mux.HandleFunc("/debug/workloadz", s.endpointShardz)
 	mux.HandleFunc("/debug/configz", s.configz)
 
 	mux.HandleFunc("/debug/authenticationz", s.authenticationz)
@@ -201,7 +203,7 @@ func (sd *MemServiceDiscovery) AddHttpService(name, vip string, port int) {
 		Hostname: model.Hostname(name),
 		Ports: model.PortList{
 			{
-				Name:     "http",
+				Name:     "http-main",
 				Port:     port,
 				Protocol: model.ProtocolHTTP,
 			},
@@ -482,6 +484,25 @@ func (s *DiscoveryServer) registryz(w http.ResponseWriter, req *http.Request) {
 		fmt.Fprintln(w, ",")
 	}
 	fmt.Fprintln(w, "{}]")
+}
+
+// Dumps info about the endpoint shards, tracked using the new direct interface.
+// Legacy registry provides are synced to the new data structure as well, during
+// the full push.
+func (s *DiscoveryServer) endpointShardz(w http.ResponseWriter, req *http.Request) {
+	_ = req.ParseForm()
+	w.Header().Add("Content-Type", "application/json")
+	out, _ := json.MarshalIndent(s.EndpointShardsByService, " ", " ")
+	w.Write(out)
+}
+
+// Tracks info about workloads. Currently only K8S serviceregistry populates this, based
+// on pod labels and annotations. This is used to detect label changes and push.
+func (s *DiscoveryServer) workloadz(w http.ResponseWriter, req *http.Request) {
+	_ = req.ParseForm()
+	w.Header().Add("Content-Type", "application/json")
+	out, _ := json.MarshalIndent(s.WorkloadsById, " ", " ")
+	w.Write(out)
 }
 
 // Endpoint debugging

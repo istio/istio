@@ -117,6 +117,11 @@ type XDSUpdater interface {
 	// LDS/RDS.
 	SvcUpdate(shard, hostname string, ports map[string]uint32, rports map[uint32]string)
 
+	// WorkloadUpdate is called by a registry when the labels or annotations on a workload have changed.
+	// The 'id' is the IP address of the pod for k8s if the pod is in the main/default network.
+	// In future it will include the 'network id' for pods in a different network, behind a zvpn gate.
+	// The IP is used because K8S Endpoints object associated with a Service only include the IP.
+	// We use Endpoints to track the membership to a service and readiness.
 	WorkloadUpdate(id string, labels map[string]string, annotations map[string]string)
 }
 

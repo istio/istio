@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	types "github.com/gogo/protobuf/types"
 
 	"errors"
 	"fmt"
@@ -78,6 +79,10 @@ type ADSC struct {
 	Clusters      map[string]*xdsapi.Cluster
 	Routes        map[string]*xdsapi.RouteConfiguration
 	EDS           map[string]*xdsapi.ClusterLoadAssignment
+
+	// Metadata has the node metadata to send to pilot.
+	// If nil, the defaults will be used.
+	Metadata map[string]string
 
 	rdsNames     []string
 	clusterNames []string
@@ -376,6 +381,28 @@ func (a *ADSC) handleCDS(ll []*xdsapi.Cluster) {
 	}
 }
 
+func (a *ADSC) node() *core.Node {
+	n := &core.Node{
+		Id: a.nodeID,
+	}
+	if a.Metadata == nil {
+		n.Metadata = &types.Struct{
+			Fields: map[string]*types.Value{
+				"ISTIO_PROXY_VERSION": &types.Value{Kind: &types.Value_StringValue{StringValue: "1.0"}},
+			}}
+	} else {
+		f := map[string]*types.Value{}
+
+		for k, v := range a.Metadata {
+			f[k] = &types.Value{Kind: &types.Value_StringValue{StringValue: v}}
+		}
+		n.Metadata = &types.Struct{
+			Fields: f,
+		}
+	}
+	return n
+}
+
 func (a *ADSC) handleEDS(eds []*xdsapi.ClusterLoadAssignment) {
 	la := map[string]*xdsapi.ClusterLoadAssignment{}
 	edsSize := 0
@@ -390,10 +417,8 @@ func (a *ADSC) handleEDS(eds []*xdsapi.ClusterLoadAssignment) {
 		// first load - Envoy loads listeners after endpoints
 		a.stream.Send(&xdsapi.DiscoveryRequest{
 			ResponseNonce: time.Now().String(),
-			Node: &core.Node{
-				Id: a.nodeID,
-			},
-			TypeUrl: listenerType,
+			Node:          a.node(),
+			TypeUrl:       listenerType,
 		})
 	}
 
@@ -447,12 +472,12 @@ func (a *ADSC) handleRDS(configurations []*xdsapi.RouteConfiguration) {
 
 }
 
-// WaitClear will clear the waiting events, so next call to Wait will get 
+// WaitClear will clear the waiting events, so next call to Wait will get
 // the next push type.
 func (a *ADSC) WaitClear() {
 	for {
 		select {
-		case n := <-a.Updates:
+		case <-a.Updates:
 		default:
 			return
 		}
@@ -486,19 +511,15 @@ func (a *ADSC) Watch() {
 	a.watchTime = time.Now()
 	a.stream.Send(&xdsapi.DiscoveryRequest{
 		ResponseNonce: time.Now().String(),
-		Node: &core.Node{
-			Id: a.nodeID,
-		},
-		TypeUrl: clusterType,
+		Node:          a.node(),
+		TypeUrl:       clusterType,
 	})
 }
 
 func (a *ADSC) sendRsc(typeurl string, rsc []string) {
 	a.stream.Send(&xdsapi.DiscoveryRequest{
 		ResponseNonce: time.Now().String(),
-		Node: &core.Node{
-			Id: a.nodeID,
-		},
+		Node:          a.node(),
 		TypeUrl:       typeurl,
 		ResourceNames: rsc,
 	})
@@ -508,8 +529,6 @@ func (a *ADSC) ack(msg *xdsapi.DiscoveryResponse) {
 	a.stream.Send(&xdsapi.DiscoveryRequest{
 		ResponseNonce: msg.Nonce,
 		TypeUrl:       msg.TypeUrl,
-		Node: &core.Node{
-			Id: a.nodeID,
-		},
+		Node:          a.node(),
 	})
 }

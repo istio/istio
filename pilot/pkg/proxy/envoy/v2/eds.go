@@ -465,6 +465,11 @@ func (s *DiscoveryServer) WorkloadUpdate(id string, labels map[string]string, an
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
+	if labels == nil {
+		// No push needed - the Endpoints object will also be triggered.
+		delete(s.WorkloadsById, id)
+		return
+	}
 	w, f := s.WorkloadsById[id]
 	if !f {
 		// First time this workload has been seen. Likely never connected, no need to

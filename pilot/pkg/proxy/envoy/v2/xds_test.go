@@ -33,6 +33,22 @@ import (
 	"istio.io/istio/tests/util"
 )
 
+// This file contains common helpers and initialization for the local/unit tests
+// for XDS. Tests start a Pilot, configured with an in-memory endpoint registry, and
+// using a file-based config, sourced from tests/testdata.
+// A single instance of pilot is used by all tests - similar with the e2e environment.
+// initLocalPilotTestEnv() must be called at the start of each test to ensure the
+// environment is configured. Tests making modifications to services should use
+// unique names for the service.
+// The tests can also use a local envoy process - see TestEnvoy as example, to verify
+// envoy accepts the config. Most tests are changing and checking the state of pilot.
+//
+// The pilot is accessible as pilotServer, which is an instance of bootstrap.Server.
+// The server has a field EnvoyXdsServer which is the configured instance of the XDS service.
+//
+// DiscoveryServer.MemRegistry has a memory registry that can be used by tests,
+// implemented in debug.go file.
+
 var (
 	// mixer-style test environment, includes mixer and envoy configs.
 	testEnv        *testenv.TestSetup
@@ -256,23 +272,13 @@ func initLocalPilotTestEnv(t *testing.T) *bootstrap.Server {
 		AvailabilityZone: "az",
 	})
 
-	//RouteConf Service4 is using port 80, to test that we generate multiple clusters (regression)
+	// RouteConf Service4 is using port 80, to test that we generate multiple clusters (regression)
 	// service4 has no endpoints
-	server.EnvoyXdsServer.MemRegistry.AddService("service4.default.svc.cluster.local", &model.Service{
-		Hostname: "service4.default.svc.cluster.local",
-		Address:  "10.1.0.4",
-		Ports: []*model.Port{
-			{
-				Name:     "http-main",
-				Port:     80,
-				Protocol: model.ProtocolHTTP,
-			},
-		},
-	})
+	server.EnvoyXdsServer.MemRegistry.AddHttpService("service4.default.svc.cluster.local", "10.1.0.4", 80)
 
 	server.EnvoyXdsServer.MemRegistry.AddHttpService(edsIncSvc, edsIncVip, 8080)
 	server.EnvoyXdsServer.MemRegistry.SetEndpoints(edsIncSvc,
-		endpoints("127.0.0.1", "hello-sa", "v1"))
+		newEndpointWithAccount("127.0.0.1", "hello-sa", "v1"))
 	// Set the initial workload labels
 	server.EnvoyXdsServer.WorkloadUpdate("127.0.0.4", map[string]string{"version": "v1"}, nil)
 
@@ -424,13 +430,13 @@ func getLocalIP() string {
 	return ""
 }
 
-// endpoints is a helper for IstioEndpoint creation. Creates endpoints with
-// port name "http".
-func endpoints(ip, account, version string) []*model.IstioEndpoint {
+// newEndpointWithAccount is a helper for IstioEndpoint creation. Creates endpoints with
+// port name "http", with the given IP, service account and a 'version' label.
+func newEndpointWithAccount(ip, account, version string) []*model.IstioEndpoint {
 	return []*model.IstioEndpoint{
 		&model.IstioEndpoint{
 			Address:         ip,
-			ServicePortName: "http",
+			ServicePortName: "http-main",
 			EndpointPort:    80,
 			Labels:          map[string]string{"version": version},
 			UID:             "uid1",

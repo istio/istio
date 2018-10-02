@@ -85,6 +85,8 @@ type ControllerOptions struct {
 
 	// ConfigUpdater is used to request global config updates.
 	ConfigUpdater model.ConfigUpdater
+
+	stop chan struct{}
 }
 
 // Controller is a collection of synchronized resource watchers
@@ -112,6 +114,8 @@ type Controller struct {
 
 	// ConfigUpdater is used to request global config updates.
 	ConfigUpdater model.ConfigUpdater
+
+	stop chan struct{}
 }
 
 type cacheHandler struct {
@@ -250,19 +254,25 @@ func (c *Controller) createEDSInformer(
 			// TODO: filtering functions to skip over un-referenced resources (perf)
 			AddFunc: func(obj interface{}) {
 				k8sEvents.With(prometheus.Labels{"type": otype, "event": "add"}).Add(1)
-				c.queue.Push(Task{handler: handler.Apply, obj: obj, event: model.EventAdd})
+				c.updateEDS(obj.(*v1.Endpoints))
+				//c.queue.Push(Task{handler: handler.Apply, obj: obj, event: model.EventAdd})
 			},
 			UpdateFunc: func(old, cur interface{}) {
 				if !reflect.DeepEqual(old, cur) {
 					k8sEvents.With(prometheus.Labels{"type": otype, "event": "update"}).Add(1)
-					c.queue.Push(Task{handler: handler.Apply, obj: cur, event: model.EventUpdate})
+					c.updateEDS(cur.(*v1.Endpoints))
+					//c.queue.Push(Task{handler: handler.Apply, obj: cur, event: model.EventUpdate})
 				} else {
 					k8sEvents.With(prometheus.Labels{"type": otype, "event": "updateSame"}).Add(1)
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
 				k8sEvents.With(prometheus.Labels{"type": otype, "event": "add"}).Add(1)
-				c.queue.Push(Task{handler: handler.Apply, obj: obj, event: model.EventDelete})
+				// Deleting the endpoints results in an empty set from EDS perspective - only
+				// deleting the service should delete the resources. The full sync replaces the
+				// maps.
+				c.updateEDS(obj.(*v1.Endpoints))
+				//c.queue.Push(Task{handler: handler.Apply, obj: obj, event: model.EventDelete})
 			},
 		})
 
@@ -290,6 +300,12 @@ func (c *Controller) Run(stop <-chan struct{}) {
 
 	<-stop
 	log.Infof("Controller terminated")
+}
+
+func (c *Controller) Stop() {
+	if c.stop != nil {
+		c.stop <- struct{}{}
+	}
 }
 
 // Services implements a service catalog operation
@@ -752,7 +768,7 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 		return nil
 	}
 	c.endpoints.handler.Append(func(obj interface{}, event model.Event) error {
-		ep := *obj.(*v1.Endpoints)
+		ep := obj.(*v1.Endpoints)
 
 		// Do not handle "kube-system" endpoints
 		if ep.Namespace == meta_v1.NamespaceSystem {
@@ -778,7 +794,7 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 
 // endpoints2ServiceEntry converts the endpoints to a minimal service entry object.
 // TODO: we may generate directly the load assignment, saving one conversion
-func (c *Controller) updateEDS(ep v1.Endpoints) {
+func (c *Controller) updateEDS(ep *v1.Endpoints) {
 	hostname := serviceHostname(ep.Name, ep.Namespace, c.domainSuffix)
 
 	endpoints := []*model.IstioEndpoint{}
@@ -789,11 +805,13 @@ func (c *Controller) updateEDS(ep v1.Endpoints) {
 			pod, exists := c.pods.getPodByIP(ea.IP)
 			if !exists {
 				log.Warnf("Endpoint without pod %s %v", ea.IP, ep)
-				c.Env.PushContext.Add(model.EndpointNoPod, string(hostname), nil, ea.IP)
+				if c.Env != nil {
+					c.Env.PushContext.Add(model.EndpointNoPod, string(hostname), nil, ea.IP)
+				}
 				// Request a global config update - after debounce we may find an endpoint.
-
-				c.ConfigUpdater.ConfigUpdate(true)
-
+				if c.ConfigUpdater != nil {
+					c.ConfigUpdater.ConfigUpdate(true)
+				}
 				// TODO: keep them in a list, and check when pod events happen !
 				continue
 			}
