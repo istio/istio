@@ -15,13 +15,14 @@
 package client
 
 import (
+	"context"
+	"strconv"
+	"strings"
+
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
-	"strings"
 	"google.golang.org/grpc/codes"
-	"strconv"
-	"context"
 )
 
 const (
@@ -30,6 +31,7 @@ const (
 	errorStr  = "error"
 )
 
+// StatsContext enables metric collection backed by OpenCensus.
 type StatsContext struct {
 	requestAcksTotal         *stats.Int64Measure
 	requestNacksTotal        *stats.Int64Measure
@@ -83,10 +85,14 @@ func (s *StatsContext) RecordRequestNack(typeURL string, err error) {
 	stats.Record(ctx, s.requestNacksTotal.M(1))
 }
 
+// RecordStreamCreateSuccess records a successful stream connection.
 func (s *StatsContext) RecordStreamCreateSuccess() {
 	stats.Record(context.Background(), s.streamCreateSuccessTotal.M(1))
 }
 
+// NewStatsContext creates a new context for recording metrics using
+// OpenCensus. The specified prefix is prepended to all metric names and must
+// be a non-empty string.
 func NewStatsContext(prefix string) *StatsContext {
 	if len(prefix) == 0 {
 		panic("must specify prefix for MCP client monitoring.")
@@ -135,9 +141,12 @@ func NewStatsContext(prefix string) *StatsContext {
 }
 
 var (
-	TypeURLTag   tag.Key
+	// TypeURLTag holds the type URL for the context.
+	TypeURLTag tag.Key
+	// ErrorCodeTag holds the gRPC error code for the context.
 	ErrorCodeTag tag.Key
-	ErrorTag     tag.Key
+	// ErrorTag holds the error string for the context.
+	ErrorTag tag.Key
 )
 
 func newView(measure stats.Measure, keys []tag.Key, aggregation *view.Aggregation) *view.View {

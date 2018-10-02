@@ -57,7 +57,9 @@ func TestConfigZ(t *testing.T) {
 
 	u := &updater{}
 	clnt := mcp.NewAggregatedMeshConfigServiceClient(cc)
-	cl := client.New(clnt, []string{"type.googleapis.com/google.protobuf.Empty"}, u, snapshot.DefaultGroup, map[string]string{"foo": "bar"}, mcptestmon.NewInMemoryClientStatsContext())
+	cl := client.New(clnt, []string{"type.googleapis.com/google.protobuf.Empty"}, u,
+		snapshot.DefaultGroup, map[string]string{"foo": "bar"},
+		mcptestmon.NewInMemoryClientStatsContext())
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go cl.Run(ctx)

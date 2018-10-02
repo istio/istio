@@ -104,6 +104,8 @@ type nackKey struct {
 	typeURL string
 }
 
+// InMemoryClientStatsContext enables MCP client metric collection which is
+// stored in memory for testing purposes.
 type InMemoryClientStatsContext struct {
 	mutex                    sync.Mutex
 	RequestAcksTotal         map[string]int64
@@ -143,6 +145,7 @@ func (s *InMemoryClientStatsContext) RecordRequestNack(typeURL string, err error
 	s.mutex.Unlock()
 }
 
+// RecordStreamCreateSuccess records a successful stream connection.
 func (s *InMemoryClientStatsContext) RecordStreamCreateSuccess() {
 	s.mutex.Lock()
 	s.StreamCreateSuccessTotal++
