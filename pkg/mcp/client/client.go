@@ -30,8 +30,12 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
-// try to re-establish the bi-directional grpc stream after this delay.
-var reestablishStreamDelay = time.Second
+var (
+	// try to re-establish the bi-directional grpc stream after this delay.
+	reestablishStreamDelay = time.Second
+
+	scope = log.RegisterScope("mcp", "mcp debugging", 0)
+)
 
 // Object contains a decoded versioned object with metadata received from the server.
 type Object struct {
@@ -94,6 +98,7 @@ type Client struct {
 
 	journal  recentRequestsJournal
 	metadata map[string]string
+	reporter Reporter
 }
 
 // RecentRequestInfo is metadata about a request that the client has sent.
@@ -111,6 +116,15 @@ func (r RecentRequestInfo) Acked() bool {
 type recentRequestsJournal struct {
 	itemsMutex sync.Mutex
 	items      []RecentRequestInfo
+}
+
+// Reporter is used to report metrics for an MCP server.
+type Reporter interface {
+	RecordSendError(err error, code codes.Code)
+	RecordRecvError(err error, code codes.Code)
+	RecordRequestAck(typeURL string)
+	RecordRequestNack(typeURL string, err error)
+	RecordReconnect()
 }
 
 func (r *recentRequestsJournal) record(req *mcp.MeshConfigRequest) { // nolint:interfacer
@@ -139,7 +153,7 @@ func (r *recentRequestsJournal) snapshot() []RecentRequestInfo {
 }
 
 // New creates a new instance of the MCP client for the specified message types.
-func New(mcpClient mcp.AggregatedMeshConfigServiceClient, supportedTypeURLs []string, updater Updater, id string, metadata map[string]string) *Client { // nolint: lll
+func New(mcpClient mcp.AggregatedMeshConfigServiceClient, supportedTypeURLs []string, updater Updater, id string, metadata map[string]string, reporter Reporter) *Client { // nolint: lll
 	clientInfo := &mcp.Client{
 		Id: id,
 		Metadata: &types.Struct{
@@ -163,6 +177,7 @@ func New(mcpClient mcp.AggregatedMeshConfigServiceClient, supportedTypeURLs []st
 		clientInfo: clientInfo,
 		updater:    updater,
 		metadata:   metadata,
+		reporter:   reporter,
 	}
 }
 
@@ -172,6 +187,7 @@ var handleResponseDoneProbe = func() {}
 func (c *Client) sendNACKRequest(response *mcp.MeshConfigResponse, version string, err error) *mcp.MeshConfigRequest {
 	log.Errorf("MCP: sending NACK for version=%v nonce=%v: error=%q", version, response.Nonce, err)
 
+	c.reporter.RecordRequestNack(response.TypeUrl, err)
 	errorDetails, _ := status.FromError(err)
 	req := &mcp.MeshConfigRequest{
 		Client:        c.clientInfo,
@@ -225,6 +241,7 @@ func (c *Client) handleResponse(response *mcp.MeshConfigResponse) *mcp.MeshConfi
 	}
 
 	// ACK
+	c.reporter.RecordRequestAck(response.TypeUrl)
 	req := &mcp.MeshConfigRequest{
 		Client:        c.clientInfo,
 		TypeUrl:       response.TypeUrl,
@@ -263,6 +280,8 @@ func (c *Client) Run(ctx context.Context) {
 			log.Info("(re)trying to establish new MCP stream")
 			var err error
 			if c.stream, err = c.client.StreamAggregatedResources(ctx); err == nil {
+				// This technically counts the initial connection as well.
+				c.reporter.RecordReconnect()
 				log.Info("New MCP stream created")
 				break
 			}
@@ -291,6 +310,7 @@ func (c *Client) Run(ctx context.Context) {
 				response, err := c.stream.Recv()
 				if err != nil {
 					if err != io.EOF {
+						c.reporter.RecordRecvError(err, status.Code(err))
 						log.Errorf("Error receiving MCP response: %v", err)
 					}
 					break
@@ -303,6 +323,7 @@ func (c *Client) Run(ctx context.Context) {
 			c.journal.record(req)
 
 			if err := c.stream.Send(req); err != nil {
+				c.reporter.RecordSendError(err, status.Code(err))
 				log.Errorf("Error sending MCP request: %v", err)
 
 				// (from https://godoc.org/google.golang.org/grpc#ClientConn.NewStream)
