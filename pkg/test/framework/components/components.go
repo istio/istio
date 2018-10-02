@@ -17,8 +17,8 @@ package components
 import (
 	"istio.io/istio/pkg/test/framework/components/apiserver"
 	"istio.io/istio/pkg/test/framework/components/apps"
-	"istio.io/istio/pkg/test/framework/components/citadel"
 	"istio.io/istio/pkg/test/framework/components/bookinfo"
+	"istio.io/istio/pkg/test/framework/components/citadel"
 	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/mixer"
 	"istio.io/istio/pkg/test/framework/components/pilot"
