@@ -74,8 +74,7 @@ func (t *testConfig) Setup() error {
 	}
 
 	if err := util.KubeApply(t.Kube.Namespace, filled, t.Kube.KubeConfig); err != nil {
-		log.Errorf("Kubectl apply adapter yaml failed.")
-		return err
+		return fmt.Errorf("setup failed: kubectl apply -f %s: %v", adapterYaml, err)
 	}
 
 	gateway, errGw := tc.Kube.IngressGateway()

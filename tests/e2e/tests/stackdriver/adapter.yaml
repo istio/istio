@@ -1,57 +1,59 @@
 apiVersion: "config.istio.io/v1alpha2"
-kind: stackdriver
+kind: handler
 metadata:
-  name: handler
+  name: stackdriver
 spec:
-  appCredentials: y
-  pushInterval: 5s
-  metricInfo:
-    server-request-count.metric.{{.Namespace}}:
-      kind: 3 # CUMULATIVE
-      value: 2 # INT64
-      metric_type: "istio.io/service/server/request_count"
-  logInfo:
-    server-accesslog-stackdriver.logentry.{{.Namespace}}:
-      labelNames:
-      - source_uid
-      - source_ip
-      - source_app
-      - source_principal
-      - source_name
-      - source_workload
-      - source_namespace
-      - source_owner
-      - destination_uid
-      - destination_app
-      - destination_ip
-      - destination_service_host
-      - destination_workload
-      - destination_name
-      - destination_namespace
-      - destination_owner
-      - destination_principal
-      - api_name
-      - api_version
-      - api_claims
-      - api_key
-      - request_operation
-      - protocol
-      - method
-      - url
-      - response_code
-      - response_size
-      - request_size
-      - request_id
-      - client_trace_id
-      - latency
-      - service_authentication_policy
-      - user_agent
-      - response_timestamp
-      - received_bytes
-      - sent_bytes
-      - referer
-  trace:
-    sampleProbability: 1.0
+  compiledAdapter: stackdriver
+  params:
+    appCredentials: y
+    pushInterval: 5s
+    metricInfo:
+      server-request-count.metric.{{.Namespace}}:
+        kind: 3 # CUMULATIVE
+        value: 2 # INT64
+        metric_type: "istio.io/service/server/request_count"
+    logInfo:
+      server-accesslog-stackdriver.logentry.{{.Namespace}}:
+        labelNames:
+        - source_uid
+        - source_ip
+        - source_app
+        - source_principal
+        - source_name
+        - source_workload
+        - source_namespace
+        - source_owner
+        - destination_uid
+        - destination_app
+        - destination_ip
+        - destination_service_host
+        - destination_workload
+        - destination_name
+        - destination_namespace
+        - destination_owner
+        - destination_principal
+        - api_name
+        - api_version
+        - api_claims
+        - api_key
+        - request_operation
+        - protocol
+        - method
+        - url
+        - response_code
+        - response_size
+        - request_size
+        - request_id
+        - client_trace_id
+        - latency
+        - service_authentication_policy
+        - user_agent
+        - response_timestamp
+        - received_bytes
+        - sent_bytes
+        - referer
+    trace:
+      sampleProbability: 1.0
 ---
 # For future Context Graph test.
 # apiVersion: "config.istio.io/v1alpha2"
@@ -197,7 +199,7 @@ metadata:
 spec:
   match: (context.protocol == "http" || context.protocol == "grpc") && (context.reporter.kind | "inbound" == "inbound")
   actions:
-  - handler: handler.stackdriver
+  - handler: stackdriver.handler
     instances:
     - server-accesslog-stackdriver.logentry
 ---
@@ -208,7 +210,7 @@ metadata:
 spec:
   match: (context.protocol == "http" || context.protocol == "grpc") && (context.reporter.kind | "inbound" == "inbound")
   actions:
-  - handler: handler.stackdriver
+  - handler: stackdriver.handler
     instances:
     - server-request-count.metric
 ---
@@ -219,7 +221,7 @@ metadata:
 spec:
   match: context.protocol == "http" || context.protocol == "grpc"  # If omitted match is true.
   actions:
-  - handler: handler.stackdriver
+  - handler: stackdriver.handler
     instances:
     - stackdriver-span.tracespan
 ---
@@ -231,7 +233,7 @@ spec:
 # spec:
 #   match: (context.reporter.kind | "inbound" == "inbound") && (context.protocol | "unknown" != "unknown")
 #   actions:
-#    - handler: handler.stackdriver
+#    - handler: stackdriver.handler
 #      instances:
 #      - default.edge
 ---
