@@ -15,22 +15,15 @@
 package v1alpha3
 
 import (
-	"bytes"
-	"encoding/json"
-	"strings"
-
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	fileaccesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v2"
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/filter/accesslog/v2"
 	mongo_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/mongo_proxy/v2"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
-	"github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/types"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pkg/log"
 )
 
 // buildInboundNetworkFilters generates a TCP proxy network filter on the inbound path
@@ -62,98 +55,35 @@ func buildInboundNetworkFilters(env *model.Environment, instance *model.ServiceI
 	}
 }
 
-func buildDeprecatedTCPProxyFilter(clusterName string, addr string) (*listener.Filter, error) {
-	route := &DeprecatedTCPRoute{
-		Cluster: clusterName,
-	}
-
-	if addr != model.UnspecifiedIP {
-		tcpRouteAddr := addr
-		if !strings.Contains(addr, "/") {
-			tcpRouteAddr = addr + "/32"
-		}
-		route.DestinationIPList = append(route.DestinationIPList, tcpRouteAddr)
-	}
-
-	// destination port is unnecessary with use_original_dst since
-	// the listener address already contains the port
-	filterConfig := &DeprecatedTCPProxyFilterConfig{
-		StatPrefix:  clusterName,
-		RouteConfig: &DeprecatedTCPRouteConfig{Routes: []*DeprecatedTCPRoute{route}},
-	}
-
-	trueValue := types.Value{
-		Kind: &types.Value_BoolValue{
-			BoolValue: true,
-		},
-	}
-	data, err := json.Marshal(filterConfig)
-	if err != nil {
-		log.Errorf("filter config could not be marshalled: %v", err)
-		return nil, err
-	}
-	pbs := &types.Struct{}
-	if err := jsonpb.Unmarshal(bytes.NewReader(data), pbs); err != nil {
-		log.Errorf("filter config could not be unmarshalled: %v", err)
-		return nil, err
-	}
-
-	structValue := types.Value{
-		Kind: &types.Value_StructValue{
-			StructValue: pbs,
-		},
-	}
-
-	// FIXME
-	tcpFilter := &listener.Filter{
-		Name: xdsutil.TCPProxy,
-		Config: &types.Struct{Fields: map[string]*types.Value{
-			"deprecated_v1": &trueValue,
-			"value":         &structValue,
-		}},
-	}
-
-	return tcpFilter, nil
-}
-
 // buildOutboundNetworkFilters generates TCP proxy network filter for outbound connections. In addition, it generates
 // protocol specific filters (e.g., Mongo filter)
 // this function constructs deprecated_v1 routes, until the filter chain match is ready
 func buildOutboundNetworkFilters(env *model.Environment, node *model.Proxy, clusterName string,
-	deprecatedTCPFilterMatchAddress string, port *model.Port) []listener.Filter {
+	port *model.Port) []listener.Filter {
 
-	var tcpFilter *listener.Filter
-	var err error
+	// construct TCP proxy using v2 config
+	config := &tcp_proxy.TcpProxy{
+		StatPrefix:       clusterName,
+		ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: clusterName},
+		// TODO: Need to set other fields such as Idle timeouts
+	}
 
-	if len(deprecatedTCPFilterMatchAddress) > 0 && !util.Is1xProxy(node) {
-		if tcpFilter, err = buildDeprecatedTCPProxyFilter(clusterName, deprecatedTCPFilterMatchAddress); err != nil {
-			return nil
+	if env.Mesh.AccessLogFile != "" {
+		fl := &fileaccesslog.FileAccessLog{
+			Path:   env.Mesh.AccessLogFile,
+			Format: EnvoyTCPLogFormat,
 		}
-	} else {
-		// construct TCP proxy using v2 config
-		config := &tcp_proxy.TcpProxy{
-			StatPrefix:       clusterName,
-			ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: clusterName},
-			// TODO: Need to set other fields such as Idle timeouts
+		config.AccessLog = []*accesslog.AccessLog{
+			{
+				Config: util.MessageToStruct(fl),
+				Name:   xdsutil.FileAccessLog,
+			},
 		}
+	}
 
-		if env.Mesh.AccessLogFile != "" {
-			fl := &fileaccesslog.FileAccessLog{
-				Path:   env.Mesh.AccessLogFile,
-				Format: EnvoyTCPLogFormat,
-			}
-			config.AccessLog = []*accesslog.AccessLog{
-				{
-					Config: util.MessageToStruct(fl),
-					Name:   xdsutil.FileAccessLog,
-				},
-			}
-		}
-
-		tcpFilter = &listener.Filter{
-			Name:   xdsutil.TCPProxy,
-			Config: util.MessageToStruct(config),
-		}
+	tcpFilter := &listener.Filter{
+		Name:   xdsutil.TCPProxy,
+		Config: util.MessageToStruct(config),
 	}
 
 	filterstack := make([]listener.Filter, 0)
@@ -179,75 +109,4 @@ func buildOutboundMongoFilter(statPrefix string) listener.Filter {
 		Name:   xdsutil.MongoProxy,
 		Config: util.MessageToStruct(config),
 	}
-}
-
-// DeprecatedTCPRoute definition
-type DeprecatedTCPRoute struct {
-	Cluster           string   `json:"cluster"`
-	DestinationIPList []string `json:"destination_ip_list,omitempty"`
-	DestinationPorts  string   `json:"destination_ports,omitempty"`
-	SourceIPList      []string `json:"source_ip_list,omitempty"`
-	SourcePorts       string   `json:"source_ports,omitempty"`
-}
-
-// DeprecatedTCPRouteByRoute sorts TCP routes over all route sub fields.
-type DeprecatedTCPRouteByRoute []*DeprecatedTCPRoute
-
-func (r DeprecatedTCPRouteByRoute) Len() int {
-	return len(r)
-}
-
-func (r DeprecatedTCPRouteByRoute) Swap(i, j int) {
-	r[i], r[j] = r[j], r[i]
-}
-
-func (r DeprecatedTCPRouteByRoute) Less(i, j int) bool {
-	if r[i].Cluster != r[j].Cluster {
-		return r[i].Cluster < r[j].Cluster
-	}
-
-	compare := func(a, b []string) bool {
-		lenA, lenB := len(a), len(b)
-		min := lenA
-		if min > lenB {
-			min = lenB
-		}
-		for k := 0; k < min; k++ {
-			if a[k] != b[k] {
-				return a[k] < b[k]
-			}
-		}
-		return lenA < lenB
-	}
-
-	if less := compare(r[i].DestinationIPList, r[j].DestinationIPList); less {
-		return less
-	}
-	if r[i].DestinationPorts != r[j].DestinationPorts {
-		return r[i].DestinationPorts < r[j].DestinationPorts
-	}
-	if less := compare(r[i].SourceIPList, r[j].SourceIPList); less {
-		return less
-	}
-	if r[i].SourcePorts != r[j].SourcePorts {
-		return r[i].SourcePorts < r[j].SourcePorts
-	}
-	return false
-}
-
-// DeprecatedTCPProxyFilterConfig definition
-type DeprecatedTCPProxyFilterConfig struct {
-	StatPrefix  string                    `json:"stat_prefix"`
-	RouteConfig *DeprecatedTCPRouteConfig `json:"route_config"`
-}
-
-// DeprecatedTCPRouteConfig (or generalize as RouteConfig or L4RouteConfig for TCP/UDP?)
-type DeprecatedTCPRouteConfig struct {
-	Routes []*DeprecatedTCPRoute `json:"routes"`
-}
-
-// DeprecatedFilterConfigInV2 definition
-type DeprecatedFilterConfigInV2 struct {
-	DeprecatedV1 bool                            `json:"deprecated_v1"`
-	Value        *DeprecatedTCPProxyFilterConfig `json:"value"`
 }

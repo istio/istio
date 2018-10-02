@@ -348,25 +348,18 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 			Cors:        translateCORSPolicy(in.CorsPolicy),
 			RetryPolicy: translateRetryPolicy(in.Retries),
 		}
-		if !util.Is1xProxy(node) {
-			action.UseWebsocket = &types.BoolValue{Value: in.WebsocketUpgrade}
-		}
 
 		if in.Timeout != nil {
 			d := util.GogoDurationToDuration(in.Timeout)
 			// timeout
 			action.Timeout = &d
-			if util.Is1xProxy(node) {
-				action.MaxGrpcTimeout = &d
-			}
+			action.MaxGrpcTimeout = &d
 		} else {
 			// if no timeout is specified, disable timeouts. This is easier
 			// to reason about than assuming some defaults.
 			d := 0 * time.Second
 			action.Timeout = &d
-			if util.Is1xProxy(node) {
-				action.MaxGrpcTimeout = &d
-			}
+			action.MaxGrpcTimeout = &d
 		}
 
 		out.Action = &route.Route_Route{Route: action}
@@ -602,14 +595,12 @@ func BuildDefaultHTTPRoute(node *model.Proxy, clusterName string, operation stri
 		},
 	}
 
-	if util.Is1xProxy(node) {
-		defaultRoute.Action = &route.Route_Route{
-			Route: &route.RouteAction{
-				ClusterSpecifier: &route.RouteAction_Cluster{Cluster: clusterName},
-				Timeout:          &notimeout,
-				MaxGrpcTimeout:   &notimeout,
-			},
-		}
+	defaultRoute.Action = &route.Route_Route{
+		Route: &route.RouteAction{
+			ClusterSpecifier: &route.RouteAction_Cluster{Cluster: clusterName},
+			Timeout:          &notimeout,
+			MaxGrpcTimeout:   &notimeout,
+		},
 	}
 	return defaultRoute
 }
