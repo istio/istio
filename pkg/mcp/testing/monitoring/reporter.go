@@ -33,13 +33,13 @@ type requestKey struct {
 // InMemoryServerStatsContext enables MCP server metric collection which is
 // stored in memory for testing purposes.
 type InMemoryServerStatsContext struct {
+	mutex             sync.Mutex
 	ClientsTotal      int64
 	RequestSizesBytes map[requestKey][]int64
 	RequestAcksTotal  map[requestKey]int64
 	RequestNacksTotal map[requestKey]int64
 	SendFailuresTotal map[errorCodeKey]int64
 	RecvFailuresTotal map[errorCodeKey]int64
-	mutex             *sync.Mutex
 }
 
 // SetClientsTotal updates the current client count to the given argument.
@@ -96,7 +96,6 @@ func NewInMemoryServerStatsContext() *InMemoryServerStatsContext {
 		RequestNacksTotal: make(map[requestKey]int64),
 		SendFailuresTotal: make(map[errorCodeKey]int64),
 		RecvFailuresTotal: make(map[errorCodeKey]int64),
-		mutex:             &sync.Mutex{},
 	}
 }
 
@@ -106,12 +105,12 @@ type nackKey struct {
 }
 
 type InMemoryClientStatsContext struct {
+	mutex              sync.Mutex
 	RequestAcksTotal   map[string]int64
 	RequestNacksTotal  map[nackKey]int64
 	SendFailuresTotal  map[errorCodeKey]int64
 	RecvFailuresTotal  map[errorCodeKey]int64
 	ReconnectionsTotal int64
-	mutex              *sync.Mutex
 }
 
 // RecordSendError records an error during a network send with its error
@@ -158,6 +157,5 @@ func NewInMemoryClientStatsContext() *InMemoryClientStatsContext {
 		RequestNacksTotal: make(map[nackKey]int64),
 		SendFailuresTotal: make(map[errorCodeKey]int64),
 		RecvFailuresTotal: make(map[errorCodeKey]int64),
-		mutex:             &sync.Mutex{},
 	}
 }
