@@ -49,4 +49,13 @@ const (
 
 	// Citadel indicates a dependency on Citadel.
 	Citadel = Instance("citadel")
+
+	// BookInfo indicates that BookInfo sample should be deployed.
+	BookInfo = Instance("bookInfo")
+
+	// Prometheus indicates that a handle to a deployed Prometheus instance in Kubernetes should be returned.
+	Prometheus = Instance("prometheus")
+
+	// Ingress indicates a dependency on the ingress gateway.
+	Ingress = Instance("ingress")
 )

@@ -236,11 +236,45 @@ func (m *RouteAction) Validate() error {
 		return nil
 	}
 
-	if len(m.GetCluster()) < 1 {
-		return RouteActionValidationError{
-			Field:  "Cluster",
-			Reason: "value length must be at least 1 bytes",
+	if v, ok := interface{}(m.GetMetadataMatch()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return RouteActionValidationError{
+				Field:  "MetadataMatch",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
 		}
+	}
+
+	switch m.ClusterSpecifier.(type) {
+
+	case *RouteAction_Cluster:
+
+		if len(m.GetCluster()) < 1 {
+			return RouteActionValidationError{
+				Field:  "Cluster",
+				Reason: "value length must be at least 1 bytes",
+			}
+		}
+
+	case *RouteAction_WeightedClusters:
+
+		if v, ok := interface{}(m.GetWeightedClusters()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return RouteActionValidationError{
+					Field:  "WeightedClusters",
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
+	default:
+		return RouteActionValidationError{
+			Field:  "ClusterSpecifier",
+			Reason: "value is required",
+		}
+
 	}
 
 	return nil
@@ -276,3 +310,138 @@ func (e RouteActionValidationError) Error() string {
 }
 
 var _ error = RouteActionValidationError{}
+
+// Validate checks the field values on WeightedCluster with the rules defined
+// in the proto definition for this message. If any rules are violated, an
+// error is returned.
+func (m *WeightedCluster) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	if len(m.GetClusters()) < 1 {
+		return WeightedClusterValidationError{
+			Field:  "Clusters",
+			Reason: "value must contain at least 1 item(s)",
+		}
+	}
+
+	for idx, item := range m.GetClusters() {
+		_, _ = idx, item
+
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return WeightedClusterValidationError{
+					Field:  fmt.Sprintf("Clusters[%v]", idx),
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
+	}
+
+	return nil
+}
+
+// WeightedClusterValidationError is the validation error returned by
+// WeightedCluster.Validate if the designated constraints aren't met.
+type WeightedClusterValidationError struct {
+	Field  string
+	Reason string
+	Cause  error
+	Key    bool
+}
+
+// Error satisfies the builtin error interface
+func (e WeightedClusterValidationError) Error() string {
+	cause := ""
+	if e.Cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
+	}
+
+	key := ""
+	if e.Key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sWeightedCluster.%s: %s%s",
+		key,
+		e.Field,
+		e.Reason,
+		cause)
+}
+
+var _ error = WeightedClusterValidationError{}
+
+// Validate checks the field values on WeightedCluster_ClusterWeight with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, an error is returned.
+func (m *WeightedCluster_ClusterWeight) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	if len(m.GetName()) < 1 {
+		return WeightedCluster_ClusterWeightValidationError{
+			Field:  "Name",
+			Reason: "value length must be at least 1 bytes",
+		}
+	}
+
+	if wrapper := m.GetWeight(); wrapper != nil {
+
+		if wrapper.GetValue() < 1 {
+			return WeightedCluster_ClusterWeightValidationError{
+				Field:  "Weight",
+				Reason: "value must be greater than or equal to 1",
+			}
+		}
+
+	}
+
+	if v, ok := interface{}(m.GetMetadataMatch()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return WeightedCluster_ClusterWeightValidationError{
+				Field:  "MetadataMatch",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
+	return nil
+}
+
+// WeightedCluster_ClusterWeightValidationError is the validation error
+// returned by WeightedCluster_ClusterWeight.Validate if the designated
+// constraints aren't met.
+type WeightedCluster_ClusterWeightValidationError struct {
+	Field  string
+	Reason string
+	Cause  error
+	Key    bool
+}
+
+// Error satisfies the builtin error interface
+func (e WeightedCluster_ClusterWeightValidationError) Error() string {
+	cause := ""
+	if e.Cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
+	}
+
+	key := ""
+	if e.Key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sWeightedCluster_ClusterWeight.%s: %s%s",
+		key,
+		e.Field,
+		e.Reason,
+		cause)
+}
+
+var _ error = WeightedCluster_ClusterWeightValidationError{}

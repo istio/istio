@@ -20,13 +20,9 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:6ed512f144d92229093795a6049d4bb8f220696262b37777efbda841961121d9"
+  digest = "1:499516000ea1e0dd70e93efd4120a195ae59b409eae397aedbe196dbfcc1f30a"
   name = "code.cloudfoundry.org/copilot"
-  packages = [
-    ".",
-    "api",
-    "testhelpers",
-  ]
+  packages = ["api"]
   pruneopts = "NUT"
   revision = "6bade2a0677a5cd76f937ef4cd2e426f55742ad1"
 
@@ -323,7 +319,7 @@
   version = "v2.6.0"
 
 [[projects]]
-  digest = "1:5dfbbc62b88f6a5203530838da87b63fb9277ea3c1128e292590874ca2a4b09e"
+  digest = "1:8f44fcb68e8983ca9218ac373edda13c618a94c6fdd5632d845f0ddc6f835382"
   name = "github.com/envoyproxy/go-control-plane"
   packages = [
     "envoy/admin/v2alpha",
@@ -359,8 +355,8 @@
     "pkg/util",
   ]
   pruneopts = "T"
-  revision = "e79e039496d24ae95c3fa1da70209b680ea05a91"
-  version = "v0.5.0"
+  revision = "1f13d29c5def25a02b9149909472c6a9e6839551"
+  version = "v0.6.0"
 
 [[projects]]
   digest = "1:ad32dc29f37281bacb5dcedff17c9461dc1739dc8a5f63a71ab491c6e92edf8d"
@@ -874,14 +870,6 @@
   version = "v2.1"
 
 [[projects]]
-  digest = "1:ff74f0a23b59c8bd133c5438394d274c67cdfa693d9d97e09e00086a2499c42f"
-  name = "github.com/onsi/ginkgo"
-  packages = ["config"]
-  pruneopts = "NUT"
-  revision = "3774a09d95489ccaa16032e0770d08ea77ba6184"
-  version = "v1.6.0"
-
-[[projects]]
   digest = "1:c1c74479c219daed94a374e5ba7cdab754a279532e76c00df29cc616ebc0ce59"
   name = "github.com/onsi/gomega"
   packages = [
@@ -1147,14 +1135,6 @@
   pruneopts = "NUT"
   revision = "e57e3eeb33f795204c1ca35f56c44f83227c6e66"
   version = "v1.0.0"
-
-[[projects]]
-  digest = "1:0aa7bbe67c190457533cbaca642225027be7ce74c986db703ca634f74a0389a0"
-  name = "github.com/square/certstrap"
-  packages = ["pkix"]
-  pruneopts = "NUT"
-  revision = "fa1359e6e510efcf9cd67bc0edbe43d7300a7833"
-  version = "v1.1.1"
 
 [[projects]]
   digest = "1:a852b1ad03ca063d2c57866d9f94dcb1cb2e111415c5902ce0586fc2d207221b"
@@ -1577,14 +1557,6 @@
   version = "v1.7.0"
 
 [[projects]]
-  branch = "v2"
-  digest = "1:1ab6db2d2bd353449c5d1e976ba7a92a0ece6e83aaab3e6674f8f2f1faebb85a"
-  name = "gopkg.in/validator.v2"
-  packages = ["."]
-  pruneopts = "NUT"
-  revision = "59c90c7046f643cbe0d4e7c8776c42a84ce75910"
-
-[[projects]]
   digest = "1:7c95b35057a0ff2e19f707173cc1a947fa43a6eb5c4d300d196ece0334046082"
   name = "gopkg.in/yaml.v2"
   packages = ["."]
@@ -1594,7 +1566,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:8f4e62c3b22c888d1136eaf291f4163c4ab40e6d69aedf5f67b0e22a52c575dc"
+  digest = "1:ac7374453579ba257f36a333edd512c40be2198304da211106fa8cc6b9bf5a1b"
   name = "istio.io/api"
   packages = [
     "authentication/v1alpha1",
@@ -1610,7 +1582,7 @@
     "rbac/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "7289fb8391991a736ff3c5b9f56a971a23ea1a67"
+  revision = "a8128703d4a79a2841be078608b6f22b1ca177e7"
 
 [[projects]]
   digest = "1:1e22c9d898674522a6155619142b4691dd225441168faa2b5a4eb88ee327a243"
@@ -1942,9 +1914,7 @@
     "cloud.google.com/go/logging",
     "cloud.google.com/go/logging/logadmin",
     "cloud.google.com/go/monitoring/apiv3",
-    "code.cloudfoundry.org/copilot",
     "code.cloudfoundry.org/copilot/api",
-    "code.cloudfoundry.org/copilot/testhelpers",
     "contrib.go.opencensus.io/exporter/stackdriver",
     "fortio.org/fortio",
     "fortio.org/fortio/fhttp",
@@ -2100,7 +2070,6 @@
     "google.golang.org/grpc/reflection",
     "google.golang.org/grpc/status",
     "gopkg.in/d4l3k/messagediff.v1",
-    "gopkg.in/validator.v2",
     "gopkg.in/yaml.v2",
     "istio.io/api/authentication/v1alpha1",
     "istio.io/api/envoy/config/filter/http/authn/v2alpha1",

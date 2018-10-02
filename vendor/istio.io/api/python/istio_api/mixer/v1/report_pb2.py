@@ -21,7 +21,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='mixer/v1/report.proto',
   package='istio.mixer.v1',
   syntax='proto3',
-  serialized_pb=_b('\n\x15mixer/v1/report.proto\x12\x0eistio.mixer.v1\x1a\x14gogoproto/gogo.proto\x1a\x19mixer/v1/attributes.proto\"\x81\x01\n\rReportRequest\x12>\n\nattributes\x18\x01 \x03(\x0b\x32$.istio.mixer.v1.CompressedAttributesB\x04\xc8\xde\x1f\x00\x12\x15\n\rdefault_words\x18\x02 \x03(\t\x12\x19\n\x11global_word_count\x18\x03 \x01(\r\"\x10\n\x0eReportResponseB#Z\x15istio.io/api/mixer/v1\xc8\xe1\x1e\x00\xa8\xe2\x1e\x00\xf0\xe1\x1e\x00\x62\x06proto3')
+  serialized_pb=_b('\n\x15mixer/v1/report.proto\x12\x0eistio.mixer.v1\x1a\x14gogoproto/gogo.proto\x1a\x19mixer/v1/attributes.proto\"\x81\x01\n\rReportRequest\x12>\n\nattributes\x18\x01 \x03(\x0b\x32$.istio.mixer.v1.CompressedAttributesB\x04\xc8\xde\x1f\x00\x12\x15\n\rdefault_words\x18\x02 \x03(\t\x12\x19\n\x11global_word_count\x18\x03 \x01(\r\"\x10\n\x0eReportResponseB&Z\x15istio.io/api/mixer/v1\xf8\x01\x01\xc8\xe1\x1e\x00\xa8\xe2\x1e\x00\xf0\xe1\x1e\x00\x62\x06proto3')
   ,
   dependencies=[gogoproto_dot_gogo__pb2.DESCRIPTOR,mixer_dot_v1_dot_attributes__pb2.DESCRIPTOR,])
 
@@ -117,7 +117,7 @@ _sym_db.RegisterMessage(ReportResponse)
 
 
 DESCRIPTOR.has_options = True
-DESCRIPTOR._options = _descriptor._ParseOptions(descriptor_pb2.FileOptions(), _b('Z\025istio.io/api/mixer/v1\310\341\036\000\250\342\036\000\360\341\036\000'))
+DESCRIPTOR._options = _descriptor._ParseOptions(descriptor_pb2.FileOptions(), _b('Z\025istio.io/api/mixer/v1\370\001\001\310\341\036\000\250\342\036\000\360\341\036\000'))
 _REPORTREQUEST.fields_by_name['attributes'].has_options = True
 _REPORTREQUEST.fields_by_name['attributes']._options = _descriptor._ParseOptions(descriptor_pb2.FieldOptions(), _b('\310\336\037\000'))
 # @@protoc_insertion_point(module_scope)

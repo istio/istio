@@ -133,7 +133,15 @@ func (a *Accessor) WaitUntilPodIsRunning(ns string, name string) error {
 		scopes.CI.Infof("  Checking pod state: %s/%s:\t %v", ns, name, pod.Status.Phase)
 
 		switch pod.Status.Phase {
-		case v12.PodSucceeded, v12.PodRunning:
+		case v12.PodSucceeded:
+			return nil, true, nil
+		case v12.PodRunning:
+			// Wait until all containers are ready.
+			for _, containerStatus := range pod.Status.ContainerStatuses {
+				if !containerStatus.Ready {
+					return nil, false, fmt.Errorf("pod %s running, but container %s not ready", name, containerStatus.ContainerID)
+				}
+			}
 			return nil, true, nil
 		case v12.PodFailed:
 			return nil, true, fmt.Errorf("pod found with selectors have failed:%s/%s", ns, name)
@@ -254,7 +262,7 @@ func (a *Accessor) GetSecret(ns string) cv1.SecretInterface {
 }
 
 // CreateNamespace with the given name. Also adds an "istio-testing" annotation.
-func (a *Accessor) CreateNamespace(ns string, istioTestingAnnotation string) error {
+func (a *Accessor) CreateNamespace(ns string, istioTestingAnnotation string, injectionEnabled bool) error {
 	scopes.Framework.Debugf("Creating namespace: %s", ns)
 	n := v12.Namespace{
 		ObjectMeta: v1.ObjectMeta{
@@ -264,6 +272,9 @@ func (a *Accessor) CreateNamespace(ns string, istioTestingAnnotation string) err
 	}
 	if istioTestingAnnotation != "" {
 		n.ObjectMeta.Labels["istio-testing"] = istioTestingAnnotation
+	}
+	if injectionEnabled {
+		n.ObjectMeta.Labels["istio-injection"] = "enabled"
 	}
 
 	_, err := a.set.CoreV1().Namespaces().Create(&n)

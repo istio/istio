@@ -60,7 +60,7 @@ func (x TlsParameters_TlsProtocol) String() string {
 	return proto.EnumName(TlsParameters_TlsProtocol_name, int32(x))
 }
 func (TlsParameters_TlsProtocol) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_cert_fc672aebbb250fdd, []int{0, 0}
+	return fileDescriptor_cert_3a5e5bd4f790737e, []int{0, 0}
 }
 
 type TlsParameters struct {
@@ -101,7 +101,7 @@ func (m *TlsParameters) Reset()         { *m = TlsParameters{} }
 func (m *TlsParameters) String() string { return proto.CompactTextString(m) }
 func (*TlsParameters) ProtoMessage()    {}
 func (*TlsParameters) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cert_fc672aebbb250fdd, []int{0}
+	return fileDescriptor_cert_3a5e5bd4f790737e, []int{0}
 }
 func (m *TlsParameters) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -178,7 +178,7 @@ func (m *TlsCertificate) Reset()         { *m = TlsCertificate{} }
 func (m *TlsCertificate) String() string { return proto.CompactTextString(m) }
 func (*TlsCertificate) ProtoMessage()    {}
 func (*TlsCertificate) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cert_fc672aebbb250fdd, []int{1}
+	return fileDescriptor_cert_3a5e5bd4f790737e, []int{1}
 }
 func (m *TlsCertificate) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -276,7 +276,7 @@ func (m *TlsSessionTicketKeys) Reset()         { *m = TlsSessionTicketKeys{} }
 func (m *TlsSessionTicketKeys) String() string { return proto.CompactTextString(m) }
 func (*TlsSessionTicketKeys) ProtoMessage()    {}
 func (*TlsSessionTicketKeys) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cert_fc672aebbb250fdd, []int{2}
+	return fileDescriptor_cert_3a5e5bd4f790737e, []int{2}
 }
 func (m *TlsSessionTicketKeys) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -418,7 +418,7 @@ func (m *CertificateValidationContext) Reset()         { *m = CertificateValidat
 func (m *CertificateValidationContext) String() string { return proto.CompactTextString(m) }
 func (*CertificateValidationContext) ProtoMessage()    {}
 func (*CertificateValidationContext) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cert_fc672aebbb250fdd, []int{3}
+	return fileDescriptor_cert_3a5e5bd4f790737e, []int{3}
 }
 func (m *CertificateValidationContext) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -515,7 +515,7 @@ type CommonTlsContext struct {
 	//   Although this is a list, currently only a single certificate is supported. This will be
 	//   relaxed in the future.
 	TlsCertificates []*TlsCertificate `protobuf:"bytes,2,rep,name=tls_certificates,json=tlsCertificates" json:"tls_certificates,omitempty"`
-	// [#not-implemented-hide:]
+	// Configs for fetching TLS certificates via SDS API.
 	TlsCertificateSdsSecretConfigs []*SdsSecretConfig `protobuf:"bytes,6,rep,name=tls_certificate_sds_secret_configs,json=tlsCertificateSdsSecretConfigs" json:"tls_certificate_sds_secret_configs,omitempty"`
 	// Types that are valid to be assigned to ValidationContextType:
 	//	*CommonTlsContext_ValidationContext
@@ -523,8 +523,9 @@ type CommonTlsContext struct {
 	ValidationContextType isCommonTlsContext_ValidationContextType `protobuf_oneof:"validation_context_type"`
 	// Supplies the list of ALPN protocols that the listener should expose. In
 	// practice this is likely to be set to one of two values (see the
-	// :ref:`codec_type <config_http_conn_man_codec_type>` parameter in the HTTP connection
-	// manager for more information):
+	// :ref:`codec_type
+	// <envoy_api_field_config.filter.network.http_connection_manager.v2.HttpConnectionManager.codec_type>`
+	// parameter in the HTTP connection manager for more information):
 	//
 	// * "h2,http/1.1" If the listener is going to support both HTTP/2 and HTTP/1.1.
 	// * "http/1.1" If the listener is only going to support HTTP/1.1.
@@ -542,7 +543,7 @@ func (m *CommonTlsContext) Reset()         { *m = CommonTlsContext{} }
 func (m *CommonTlsContext) String() string { return proto.CompactTextString(m) }
 func (*CommonTlsContext) ProtoMessage()    {}
 func (*CommonTlsContext) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cert_fc672aebbb250fdd, []int{4}
+	return fileDescriptor_cert_3a5e5bd4f790737e, []int{4}
 }
 func (m *CommonTlsContext) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -733,7 +734,7 @@ func (m *CommonTlsContext_DeprecatedV1) Reset()         { *m = CommonTlsContext_
 func (m *CommonTlsContext_DeprecatedV1) String() string { return proto.CompactTextString(m) }
 func (*CommonTlsContext_DeprecatedV1) ProtoMessage()    {}
 func (*CommonTlsContext_DeprecatedV1) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cert_fc672aebbb250fdd, []int{4, 0}
+	return fileDescriptor_cert_3a5e5bd4f790737e, []int{4, 0}
 }
 func (m *CommonTlsContext_DeprecatedV1) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -789,7 +790,7 @@ func (m *UpstreamTlsContext) Reset()         { *m = UpstreamTlsContext{} }
 func (m *UpstreamTlsContext) String() string { return proto.CompactTextString(m) }
 func (*UpstreamTlsContext) ProtoMessage()    {}
 func (*UpstreamTlsContext) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cert_fc672aebbb250fdd, []int{5}
+	return fileDescriptor_cert_3a5e5bd4f790737e, []int{5}
 }
 func (m *UpstreamTlsContext) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -861,7 +862,7 @@ func (m *DownstreamTlsContext) Reset()         { *m = DownstreamTlsContext{} }
 func (m *DownstreamTlsContext) String() string { return proto.CompactTextString(m) }
 func (*DownstreamTlsContext) ProtoMessage()    {}
 func (*DownstreamTlsContext) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cert_fc672aebbb250fdd, []int{6}
+	return fileDescriptor_cert_3a5e5bd4f790737e, []int{6}
 }
 func (m *DownstreamTlsContext) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1025,7 +1026,6 @@ func _DownstreamTlsContext_OneofSizer(msg proto.Message) (n int) {
 }
 
 // [#proto-status: experimental]
-// [#not-implemented-hide:]
 type SdsSecretConfig struct {
 	// Name (FQDN, UUID, SPKI, SHA256, etc.) by which the secret can be uniquely referred to.
 	// When both name and config are specified, then secret can be fetched and/or reloaded via SDS.
@@ -1041,7 +1041,7 @@ func (m *SdsSecretConfig) Reset()         { *m = SdsSecretConfig{} }
 func (m *SdsSecretConfig) String() string { return proto.CompactTextString(m) }
 func (*SdsSecretConfig) ProtoMessage()    {}
 func (*SdsSecretConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cert_fc672aebbb250fdd, []int{7}
+	return fileDescriptor_cert_3a5e5bd4f790737e, []int{7}
 }
 func (m *SdsSecretConfig) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1085,7 +1085,6 @@ func (m *SdsSecretConfig) GetSdsConfig() *core.ConfigSource {
 }
 
 // [#proto-status: experimental]
-// [#not-implemented-hide:]
 type Secret struct {
 	// Name (FQDN, UUID, SPKI, SHA256, etc.) by which the secret can be uniquely referred to.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
@@ -1103,7 +1102,7 @@ func (m *Secret) Reset()         { *m = Secret{} }
 func (m *Secret) String() string { return proto.CompactTextString(m) }
 func (*Secret) ProtoMessage()    {}
 func (*Secret) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cert_fc672aebbb250fdd, []int{8}
+	return fileDescriptor_cert_3a5e5bd4f790737e, []int{8}
 }
 func (m *Secret) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -4708,9 +4707,9 @@ var (
 	ErrIntOverflowCert   = fmt.Errorf("proto: integer overflow")
 )
 
-func init() { proto.RegisterFile("envoy/api/v2/auth/cert.proto", fileDescriptor_cert_fc672aebbb250fdd) }
+func init() { proto.RegisterFile("envoy/api/v2/auth/cert.proto", fileDescriptor_cert_3a5e5bd4f790737e) }
 
-var fileDescriptor_cert_fc672aebbb250fdd = []byte{
+var fileDescriptor_cert_3a5e5bd4f790737e = []byte{
 	// 1252 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xbc, 0x56, 0x31, 0x73, 0x1b, 0x45,
 	0x14, 0xf6, 0x49, 0xb2, 0x23, 0x3f, 0xd9, 0xce, 0x79, 0x63, 0xf0, 0x45, 0x63, 0x1c, 0x45, 0x49,

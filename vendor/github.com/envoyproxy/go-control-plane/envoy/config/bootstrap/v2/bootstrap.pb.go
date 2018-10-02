@@ -86,7 +86,7 @@ func (m *Bootstrap) Reset()         { *m = Bootstrap{} }
 func (m *Bootstrap) String() string { return proto.CompactTextString(m) }
 func (*Bootstrap) ProtoMessage()    {}
 func (*Bootstrap) Descriptor() ([]byte, []int) {
-	return fileDescriptor_bootstrap_afd983df223cd175, []int{0}
+	return fileDescriptor_bootstrap_77d0e8a2eb468d7d, []int{0}
 }
 func (m *Bootstrap) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -242,7 +242,7 @@ func (m *Bootstrap_StaticResources) Reset()         { *m = Bootstrap_StaticResou
 func (m *Bootstrap_StaticResources) String() string { return proto.CompactTextString(m) }
 func (*Bootstrap_StaticResources) ProtoMessage()    {}
 func (*Bootstrap_StaticResources) Descriptor() ([]byte, []int) {
-	return fileDescriptor_bootstrap_afd983df223cd175, []int{0, 0}
+	return fileDescriptor_bootstrap_77d0e8a2eb468d7d, []int{0, 0}
 }
 func (m *Bootstrap_StaticResources) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -319,7 +319,7 @@ func (m *Bootstrap_DynamicResources) Reset()         { *m = Bootstrap_DynamicRes
 func (m *Bootstrap_DynamicResources) String() string { return proto.CompactTextString(m) }
 func (*Bootstrap_DynamicResources) ProtoMessage()    {}
 func (*Bootstrap_DynamicResources) Descriptor() ([]byte, []int) {
-	return fileDescriptor_bootstrap_afd983df223cd175, []int{0, 1}
+	return fileDescriptor_bootstrap_77d0e8a2eb468d7d, []int{0, 1}
 }
 func (m *Bootstrap_DynamicResources) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -395,7 +395,7 @@ func (m *Bootstrap_DynamicResources_DeprecatedV1) Reset() {
 func (m *Bootstrap_DynamicResources_DeprecatedV1) String() string { return proto.CompactTextString(m) }
 func (*Bootstrap_DynamicResources_DeprecatedV1) ProtoMessage()    {}
 func (*Bootstrap_DynamicResources_DeprecatedV1) Descriptor() ([]byte, []int) {
-	return fileDescriptor_bootstrap_afd983df223cd175, []int{0, 1, 0}
+	return fileDescriptor_bootstrap_77d0e8a2eb468d7d, []int{0, 1, 0}
 }
 func (m *Bootstrap_DynamicResources_DeprecatedV1) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -451,7 +451,7 @@ func (m *Admin) Reset()         { *m = Admin{} }
 func (m *Admin) String() string { return proto.CompactTextString(m) }
 func (*Admin) ProtoMessage()    {}
 func (*Admin) Descriptor() ([]byte, []int) {
-	return fileDescriptor_bootstrap_afd983df223cd175, []int{1}
+	return fileDescriptor_bootstrap_77d0e8a2eb468d7d, []int{1}
 }
 func (m *Admin) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -507,7 +507,7 @@ type ClusterManager struct {
 	// this configuration). In order to enable :ref:`zone aware routing
 	// <arch_overview_load_balancing_zone_aware_routing>` this option must be set.
 	// If *local_cluster_name* is defined then :ref:`clusters
-	// <config_cluster_manager_clusters>` must be defined in the :ref:`Bootstrap
+	// <envoy_api_msg_Cluster>` must be defined in the :ref:`Bootstrap
 	// static cluster resources
 	// <envoy_api_field_config.bootstrap.v2.Bootstrap.StaticResources.clusters>`. This is unrelated to
 	// the :option:`--service-cluster` option which does not `affect zone aware
@@ -532,7 +532,7 @@ func (m *ClusterManager) Reset()         { *m = ClusterManager{} }
 func (m *ClusterManager) String() string { return proto.CompactTextString(m) }
 func (*ClusterManager) ProtoMessage()    {}
 func (*ClusterManager) Descriptor() ([]byte, []int) {
-	return fileDescriptor_bootstrap_afd983df223cd175, []int{2}
+	return fileDescriptor_bootstrap_77d0e8a2eb468d7d, []int{2}
 }
 func (m *ClusterManager) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -601,7 +601,7 @@ func (m *ClusterManager_OutlierDetection) Reset()         { *m = ClusterManager_
 func (m *ClusterManager_OutlierDetection) String() string { return proto.CompactTextString(m) }
 func (*ClusterManager_OutlierDetection) ProtoMessage()    {}
 func (*ClusterManager_OutlierDetection) Descriptor() ([]byte, []int) {
-	return fileDescriptor_bootstrap_afd983df223cd175, []int{2, 0}
+	return fileDescriptor_bootstrap_77d0e8a2eb468d7d, []int{2, 0}
 }
 func (m *ClusterManager_OutlierDetection) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -664,7 +664,7 @@ func (m *Watchdog) Reset()         { *m = Watchdog{} }
 func (m *Watchdog) String() string { return proto.CompactTextString(m) }
 func (*Watchdog) ProtoMessage()    {}
 func (*Watchdog) Descriptor() ([]byte, []int) {
-	return fileDescriptor_bootstrap_afd983df223cd175, []int{3}
+	return fileDescriptor_bootstrap_77d0e8a2eb468d7d, []int{3}
 }
 func (m *Watchdog) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -749,7 +749,7 @@ func (m *Runtime) Reset()         { *m = Runtime{} }
 func (m *Runtime) String() string { return proto.CompactTextString(m) }
 func (*Runtime) ProtoMessage()    {}
 func (*Runtime) Descriptor() ([]byte, []int) {
-	return fileDescriptor_bootstrap_afd983df223cd175, []int{4}
+	return fileDescriptor_bootstrap_77d0e8a2eb468d7d, []int{4}
 }
 func (m *Runtime) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3383,10 +3383,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/config/bootstrap/v2/bootstrap.proto", fileDescriptor_bootstrap_afd983df223cd175)
+	proto.RegisterFile("envoy/config/bootstrap/v2/bootstrap.proto", fileDescriptor_bootstrap_77d0e8a2eb468d7d)
 }
 
-var fileDescriptor_bootstrap_afd983df223cd175 = []byte{
+var fileDescriptor_bootstrap_77d0e8a2eb468d7d = []byte{
 	// 1235 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x56, 0x4f, 0x6f, 0x1b, 0x45,
 	0x14, 0x67, 0x6d, 0xa7, 0x89, 0x9f, 0x9d, 0xd8, 0x19, 0xa5, 0xed, 0xd6, 0xa2, 0x49, 0xea, 0x16,
