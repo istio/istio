@@ -348,14 +348,8 @@ func (s *session) evaluateDirective(bag attribute.Bag) {
 			log.Warnf("Failed to evaluate header name: %v", nerr)
 			continue
 		}
-		value, verr := op.HeaderValue.EvaluateString(bag)
-		if verr != nil {
-			log.Warnf("Failed to evaluate header value: %v", verr)
-			continue
-		}
 		hop := mixerpb.HeaderOperation{
-			Name:  name,
-			Value: value,
+			Name: name,
 		}
 		switch op.Operation {
 		case descriptor.APPEND:
@@ -365,6 +359,16 @@ func (s *session) evaluateDirective(bag attribute.Bag) {
 		case descriptor.REPLACE:
 			hop.Operation = mixerpb.REPLACE
 		}
+
+		if op.Operation != descriptor.REMOVE {
+			var verr error
+			hop.Value, verr = op.HeaderValue.EvaluateString(bag)
+			if verr != nil {
+				log.Warnf("Failed to evaluate header value: %v", verr)
+				continue
+			}
+		}
+
 		switch op.Type {
 		case routing.RequestHeaderOperation:
 			s.checkResult.RouteDirective.RequestHeaderOperations = append(s.checkResult.RouteDirective.RequestHeaderOperations, hop)
@@ -377,7 +381,7 @@ func (s *session) evaluateDirective(bag attribute.Bag) {
 type chainedBag struct {
 	parent   attribute.Bag
 	prefix   string
-	evaluate func(string) (interface{}, bool)
+	evaluate func(string) (value interface{}, found bool)
 }
 
 func (b *chainedBag) Get(name string) (interface{}, bool) {
@@ -390,11 +394,17 @@ func (b *chainedBag) Get(name string) (interface{}, bool) {
 	return b.parent.Get(name)
 }
 
-// TODO(kuat): properly implement this interface
-func (b *chainedBag) Contains(key string) bool {
-	return b.parent.Contains(key)
+func (b *chainedBag) Contains(name string) bool {
+	if strings.HasPrefix(name, b.prefix) {
+		trimmed := strings.TrimPrefix(name, b.prefix)
+		if _, ok := b.evaluate(trimmed); ok {
+			return true
+		}
+	}
+	return b.parent.Contains(name)
 }
 
+// TODO(kuat): implement attribute enumeration or eliminate this function from the generic Bag interface
 func (b *chainedBag) Names() []string {
 	return b.parent.Names()
 }

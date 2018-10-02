@@ -499,13 +499,39 @@ spec:
     - icheckoutput1.tcheckoutput.istio-system
     name: sample
   requestHeaderOperations:
-  - name: '"key1"'
+  - name: '"user"'
     values:
     - sample.output.value
+`
+
+// RuleCheckOutput2 is a testing rule for check output template with multiple outputs
+var RuleCheckOutput2 = `
+apiVersion: config.istio.io/v1alpha2
+kind: rule
+metadata:
+  name: rcheckoutput2
+  namespace: istio-system
+spec:
+  actions:
+  - handler: hcheckoutput1.acheckoutput
+    instances:
+    - icheckoutput1.tcheckoutput.istio-system
+    name: a
+  - handler: hcheckoutput1.acheckoutput
+    instances:
+    - icheckoutput1.tcheckoutput.istio-system
+    name: b
+  requestHeaderOperations:
+  - name: '"a"'
+    values:
+    - a.output.value
+    operation: REPLACE
+  - name: '"user"'
+    operation: REMOVE
   responseHeaderOperations:
-  - name: '"key2"'
+  - name: '"b"'
     values:
-    - sample.output.value
+    - b.output.value
     operation: APPEND
 `
 

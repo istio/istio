@@ -658,6 +658,16 @@ func (b *builder) compileRuleOperationTemplates(
 				op.Name, location)
 		}
 
+		// ignore values if operation is header removal
+		if op.Operation == descriptor.REMOVE {
+			out = append(out, &HeaderOperation{
+				Type:       typ,
+				HeaderName: he,
+				Operation:  op.Operation,
+			})
+			continue
+		}
+
 		for _, value := range op.Values {
 			ve, vt, verr := compiler.Compile(value)
 			if verr != nil {

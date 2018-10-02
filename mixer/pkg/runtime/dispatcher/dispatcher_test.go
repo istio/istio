@@ -265,17 +265,61 @@ ident                         : dest.istio-system
 			ValidUseCount: 123,
 			RouteDirective: &v1.RouteDirective{
 				RequestHeaderOperations: []v1.HeaderOperation{{
-					Name:  "key1",
+					Name:  "user",
 					Value: "1337",
 				}},
+			},
+		},
+		log: `
+[tcheckoutput] InstanceBuilderFn() => name: 'tcheckoutput', bag: '---
+ident                         : dest.istio-system
+'
+[tcheckoutput] InstanceBuilderFn() <= (SUCCESS)
+[tcheckoutput] DispatchCheck => context exists: 'true'
+[tcheckoutput] DispatchCheck => handler exists: 'true'
+[tcheckoutput] DispatchCheck => instance:       '&Struct{Fields:map[string]*Value{},XXX_unrecognized:[],}'
+[tcheckoutput] DispatchCheck <= (SUCCESS)
+[tcheckoutput] DispatchCheck => output: {value: '1337'}
+`,
+	},
+
+	{
+		name: "BasicCheckMultipleOutput",
+		config: []string{
+			data.HandlerACheckOutput1,
+			data.InstanceCheckOutput1,
+			data.RuleCheckOutput2,
+		},
+		variety: tpb.TEMPLATE_VARIETY_CHECK_WITH_OUTPUT,
+		expectedCheckResult: adapter.CheckResult{
+			ValidDuration: 123 * time.Second,
+			ValidUseCount: 123,
+			RouteDirective: &v1.RouteDirective{
+				RequestHeaderOperations: []v1.HeaderOperation{{
+					Name:      "a",
+					Value:     "1337",
+					Operation: v1.REPLACE,
+				}, {
+					Name:      "user",
+					Operation: v1.REMOVE,
+				}},
 				ResponseHeaderOperations: []v1.HeaderOperation{{
-					Name:      "key2",
+					Name:      "b",
 					Value:     "1337",
 					Operation: v1.APPEND,
 				}},
 			},
 		},
 		log: `
+[tcheckoutput] InstanceBuilderFn() => name: 'tcheckoutput', bag: '---
+ident                         : dest.istio-system
+'
+[tcheckoutput] InstanceBuilderFn() <= (SUCCESS)
+[tcheckoutput] DispatchCheck => context exists: 'true'
+[tcheckoutput] DispatchCheck => handler exists: 'true'
+[tcheckoutput] DispatchCheck => instance:       '&Struct{Fields:map[string]*Value{},XXX_unrecognized:[],}'
+[tcheckoutput] DispatchCheck <= (SUCCESS)
+[tcheckoutput] DispatchCheck => output: {value: '1337'}
 [tcheckoutput] InstanceBuilderFn() => name: 'tcheckoutput', bag: '---
 ident                         : dest.istio-system
 '
