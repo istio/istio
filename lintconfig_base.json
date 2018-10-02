@@ -54,6 +54,7 @@
         "mixer/template/doc.go",
         "mixer/template/sample/.*.go",
         "mixer/test/spyAdapter/template/doc.go",
+        "mixer/tools/mixgen/cmd/adapter_test.go",
         "mixer/template/doc.go",
         "pilot/tools/.*.go",
         "_test\\.go:.*\\bdefer .*\\(errcheck\\)$",
