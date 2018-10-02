@@ -270,7 +270,6 @@ func areEqual(v1, v2 model.Value) bool {
 				scopes.Framework.Debugf(
 					"Prometheus.areEqual vector metric mismatch (at:%d): %d != %d",
 					i, vec1[i].Metric, vec2[i].Metric)
-				
 				return false
 			}
 
