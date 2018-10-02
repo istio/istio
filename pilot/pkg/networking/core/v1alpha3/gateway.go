@@ -477,7 +477,7 @@ func buildGatewayNetworkFiltersFromTCPRoutes(node *model.Proxy, env *model.Envir
 					return nil
 				}
 
-				return buildOutboundNetworkFilters(node,
+				return buildOutboundNetworkFilters(env, node,
 					istio_route.GetDestinationCluster(upstream, destSvc, int(server.Port.Number)),
 					"", port)
 			}
@@ -530,7 +530,7 @@ func buildGatewayNetworkFiltersFromTLSRoutes(node *model.Proxy, env *model.Envir
 					filterChains = append(filterChains, &filterChainOpts{
 						sniHosts:   match.SniHosts,
 						tlsContext: nil, // NO TLS context because this is passthrough
-						networkFilters: buildOutboundNetworkFilters(node,
+						networkFilters: buildOutboundNetworkFilters(env, node,
 							istio_route.GetDestinationCluster(upstream, destSvc, int(server.Port.Number)),
 							"", port),
 					})

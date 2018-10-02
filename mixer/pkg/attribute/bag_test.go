@@ -174,8 +174,13 @@ func TestEmptyRoundTrip(t *testing.T) {
 	}
 }
 
-func TestProtoBag(t *testing.T) {
-	globalWordList := []string{"G0", "G1", "G2", "G3", "G4", "G5", "G6", "G7", "G8", "G9"}
+func mutableBagFromProtoForTesing() *MutableBag {
+	b := NewProtoBag(protoAttrsForTesting())
+	return GetMutableBag(b)
+}
+
+func protoAttrsForTesting() (*mixerpb.CompressedAttributes, map[string]int32, []string) {
+	globalWordList := []string{"G0", "G1", "G2", "G3", "G4", "G5", "G6", "G7", "G8", "G9", "BADKEY"}
 	messageWordList := []string{"M1", "M2", "M3", "M4", "M5", "M6", "M7", "M8", "M9", "M10"}
 
 	globalDict := make(map[string]int32)
@@ -187,7 +192,7 @@ func TestProtoBag(t *testing.T) {
 
 	attrs := mixerpb.CompressedAttributes{
 		Words:      messageWordList,
-		Strings:    map[int32]int32{4: 5},
+		Strings:    map[int32]int32{4: 5, 3: 2, 2: 6, 5: 4},
 		Int64S:     map[int32]int64{6: 42},
 		Doubles:    map[int32]float64{7: 42.0},
 		Bools:      map[int32]bool{-1: true},
@@ -196,6 +201,13 @@ func TestProtoBag(t *testing.T) {
 		Bytes:      map[int32][]uint8{-4: {11}},
 		StringMaps: map[int32]mixerpb.StringMap{-5: sm},
 	}
+
+	return &attrs, globalDict, globalWordList
+}
+
+func TestProtoBag(t *testing.T) {
+
+	attrs, globalDict, globalWordList := protoAttrsForTesting()
 
 	cases := []struct {
 		name  string
@@ -217,12 +229,12 @@ func TestProtoBag(t *testing.T) {
 			var err error
 
 			if j == 0 {
-				pb, err = GetBagFromProto(&attrs, globalWordList)
+				pb, err = GetBagFromProto(attrs, globalWordList)
 				if err != nil {
 					t.Fatalf("GetBagFromProto failed with %v", err)
 				}
 			} else {
-				b := NewProtoBag(&attrs, globalDict, globalWordList)
+				b := NewProtoBag(attrs, globalDict, globalWordList)
 				pb = GetMutableBag(b)
 			}
 
@@ -244,6 +256,9 @@ func TestProtoBag(t *testing.T) {
 			for _, cs := range cases {
 				found := false
 				for _, n := range names {
+					if !pb.Contains(n) {
+						t.Errorf("expected bag to contain %s", n)
+					}
 					if cs.name == n {
 						found = true
 						break
@@ -269,6 +284,19 @@ func TestProtoBag(t *testing.T) {
 			pb.Done()
 		}
 	}
+}
+
+func TestProtoBag_Contains(t *testing.T) {
+	mb := mutableBagFromProtoForTesing()
+
+	if mb.Contains("THIS_KEY_IS_NOT_IN_DICT") {
+		t.Errorf("Found unexpected key")
+	}
+
+	if mb.Contains("BADKEY") {
+		t.Errorf("Found unexpected key")
+	}
+
 }
 
 func TestMessageDict(t *testing.T) {

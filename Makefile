@@ -574,7 +574,7 @@ istio-remote.yaml: $(HELM)
 # Ensure that values-$filename is present in install/kubernetes/helm/istio
 isti%.yaml: $(HELM)
 	cat install/kubernetes/namespace.yaml > install/kubernetes/$@
-	$(HELM) template --set global.tag=${TAG} \
+	$(HELM) template --name istio --set global.tag=${TAG} \
 		--namespace=istio-system \
 		--set global.hub=${HUB} \
 		--values install/kubernetes/helm/istio/values-$@ \
@@ -583,7 +583,7 @@ isti%.yaml: $(HELM)
 generate_yaml: $(HELM)
 	./install/updateVersion.sh -a ${HUB},${TAG} >/dev/null 2>&1
 	cat install/kubernetes/namespace.yaml > install/kubernetes/istio.yaml
-	$(HELM) template --set global.tag=${TAG} \
+	$(HELM) template --name istio --set global.tag=${TAG} \
 		--namespace=istio-system \
 		--set global.hub=${HUB} \
 		--values install/kubernetes/helm/istio/values.yaml \
