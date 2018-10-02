@@ -288,6 +288,8 @@ pushd "${CLONE_DIR}"
   find_and_replace_shas_manifest "${BRANCH}"             "${MANIFEST_FILE}" "$VERIFY_CONSISTENCY"
 
   #copy the needed files
+  # TODO figure out how to avoid need for copying to BASE_MANIFEST_URL and consolidate getting
+  # branch istio sha into githubctl
   gsutil cp "${MANIFEST_FILE}" "${BASE_MANIFEST_URL}"
   gsutil cp "${MANIFEST_FILE}" "${MANIFEST_URL}"
 popd # "${CLONE_DIR}"
