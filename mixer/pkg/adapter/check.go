@@ -38,7 +38,7 @@ type CheckResult struct {
 
 // IsDefault returns true if the CheckResult is in its zero state
 func (r *CheckResult) IsDefault() bool {
-	return status.IsOK(r.Status) && r.ValidDuration == 0 && r.ValidUseCount == 0
+	return status.IsOK(r.Status) && r.ValidDuration == 0 && r.ValidUseCount == 0 && r.RouteDirective == nil
 }
 
 func (r *CheckResult) String() string {

@@ -59,6 +59,7 @@ spec:
   - name: test.output.stringPrimitive
     values:
     - test.output.stringMap["key1"]
+    operation: APPEND
 ---
 `,
 			attrs: map[string]interface{}{},
@@ -94,7 +95,13 @@ spec:
 					},
 				},
 			},
-			expectDirective: &v1.RouteDirective{},
+			expectDirective: &v1.RouteDirective{
+				RequestHeaderOperations: []v1.HeaderOperation{{
+					Name:      "string0",
+					Value:     "value1",
+					Operation: v1.APPEND,
+				}},
+			},
 		},
 	}
 
