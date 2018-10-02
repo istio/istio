@@ -124,7 +124,7 @@ type Reporter interface {
 	RecordRecvError(err error, code codes.Code)
 	RecordRequestAck(typeURL string)
 	RecordRequestNack(typeURL string, err error)
-	RecordReconnect()
+	RecordStreamCreateSuccess()
 }
 
 func (r *recentRequestsJournal) record(req *mcp.MeshConfigRequest) { // nolint:interfacer
@@ -281,7 +281,7 @@ func (c *Client) Run(ctx context.Context) {
 			var err error
 			if c.stream, err = c.client.StreamAggregatedResources(ctx); err == nil {
 				// This technically counts the initial connection as well.
-				c.reporter.RecordReconnect()
+				c.reporter.RecordStreamCreateSuccess()
 				log.Info("New MCP stream created")
 				break
 			}

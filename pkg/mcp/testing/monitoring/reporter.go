@@ -105,12 +105,12 @@ type nackKey struct {
 }
 
 type InMemoryClientStatsContext struct {
-	mutex              sync.Mutex
-	RequestAcksTotal   map[string]int64
-	RequestNacksTotal  map[nackKey]int64
-	SendFailuresTotal  map[errorCodeKey]int64
-	RecvFailuresTotal  map[errorCodeKey]int64
-	ReconnectionsTotal int64
+	mutex                    sync.Mutex
+	RequestAcksTotal         map[string]int64
+	RequestNacksTotal        map[nackKey]int64
+	SendFailuresTotal        map[errorCodeKey]int64
+	RecvFailuresTotal        map[errorCodeKey]int64
+	StreamCreateSuccessTotal int64
 }
 
 // RecordSendError records an error during a network send with its error
@@ -143,9 +143,9 @@ func (s *InMemoryClientStatsContext) RecordRequestNack(typeURL string, err error
 	s.mutex.Unlock()
 }
 
-func (s *InMemoryClientStatsContext) RecordReconnect() {
+func (s *InMemoryClientStatsContext) RecordStreamCreateSuccess() {
 	s.mutex.Lock()
-	s.ReconnectionsTotal++
+	s.StreamCreateSuccessTotal++
 	s.mutex.Unlock()
 }
 

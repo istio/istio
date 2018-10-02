@@ -31,11 +31,11 @@ const (
 )
 
 type StatsContext struct {
-	requestAcksTotal   *stats.Int64Measure
-	requestNacksTotal  *stats.Int64Measure
-	sendFailuresTotal  *stats.Int64Measure
-	recvFailuresTotal  *stats.Int64Measure
-	reconnectionsTotal *stats.Int64Measure
+	requestAcksTotal         *stats.Int64Measure
+	requestNacksTotal        *stats.Int64Measure
+	sendFailuresTotal        *stats.Int64Measure
+	recvFailuresTotal        *stats.Int64Measure
+	streamCreateSuccessTotal *stats.Int64Measure
 }
 
 func (s *StatsContext) recordError(err error, code codes.Code, stat *stats.Int64Measure) {
@@ -83,8 +83,8 @@ func (s *StatsContext) RecordRequestNack(typeURL string, err error) {
 	stats.Record(ctx, s.requestNacksTotal.M(1))
 }
 
-func (s *StatsContext) RecordReconnect() {
-	stats.Record(context.Background(), s.reconnectionsTotal.M(1))
+func (s *StatsContext) RecordStreamCreateSuccess() {
+	stats.Record(context.Background(), s.streamCreateSuccessTotal.M(1))
 }
 
 func NewStatsContext(prefix string) *StatsContext {
@@ -114,7 +114,7 @@ func NewStatsContext(prefix string) *StatsContext {
 			"The number of recv failures in the client.",
 			stats.UnitDimensionless),
 
-		reconnectionsTotal: stats.Int64(
+		streamCreateSuccessTotal: stats.Int64(
 			prefix+"mcp/client/reconnections",
 			"The number of times the client has reconnected.",
 			stats.UnitDimensionless),
@@ -125,7 +125,7 @@ func NewStatsContext(prefix string) *StatsContext {
 		newView(ctx.requestNacksTotal, []tag.Key{ErrorTag, TypeURLTag}, view.Count()),
 		newView(ctx.sendFailuresTotal, []tag.Key{ErrorCodeTag, ErrorTag}, view.Count()),
 		newView(ctx.recvFailuresTotal, []tag.Key{ErrorCodeTag, ErrorTag}, view.Count()),
-		newView(ctx.reconnectionsTotal, []tag.Key{}, view.Count()),
+		newView(ctx.streamCreateSuccessTotal, []tag.Key{}, view.Count()),
 	)
 
 	if err != nil {
