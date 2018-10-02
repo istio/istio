@@ -20,13 +20,14 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io/ioutil"
-	"istio.io/istio/pkg/spiffe"
 	"net"
 	"os"
 	"strconv"
 	"strings"
 	"text/template"
 	"time"
+
+	"istio.io/istio/pkg/spiffe"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/spf13/cobra"
@@ -288,6 +289,7 @@ var (
 				go statusServer.Run(ctx)
 			}
 
+			log.Infof("PilotSAN %#v", pilotSAN)
 			envoyProxy := envoy.NewProxy(proxyConfig, role.ServiceNode(), proxyLogLevel, pilotSAN, role.IPAddresses)
 			agent := proxy.NewAgent(envoyProxy, proxy.DefaultRetry)
 			watcher := envoy.NewWatcher(certs, agent.ConfigCh())

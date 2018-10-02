@@ -213,10 +213,13 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 
 	opts["config"] = config
 
+
+
 	if pilotSAN == nil {
-		panic("pilotSAN should not be nil")
+		//panic("pilotSAN should not be nil")
+
+		opts["pilot_SAN"] = pilotSAN
 	}
-	opts["pilot_SAN"] = pilotSAN
 
 	// Simplify the template
 	opts["connect_timeout"] = (&types.Duration{Seconds: config.ConnectTimeout.Seconds, Nanos: config.ConnectTimeout.Nanos}).String()
