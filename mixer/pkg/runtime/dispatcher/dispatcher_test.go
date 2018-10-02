@@ -291,6 +291,10 @@ ident                         : dest.istio-system
 			data.RuleCheckOutput2,
 		},
 		variety: tpb.TEMPLATE_VARIETY_CHECK_WITH_OUTPUT,
+		attr: map[string]interface{}{
+			"prefix.generated.string": "bar",
+			"ident":                   "dest.istio-system",
+		},
 		expectedCheckResult: adapter.CheckResult{
 			ValidDuration: 123 * time.Second,
 			ValidUseCount: 123,
@@ -307,12 +311,17 @@ ident                         : dest.istio-system
 					Name:      "b",
 					Value:     "1337",
 					Operation: v1.APPEND,
+				}, {
+					Name:      "b",
+					Value:     "bar",
+					Operation: v1.APPEND,
 				}},
 			},
 		},
 		log: `
 [tcheckoutput] InstanceBuilderFn() => name: 'tcheckoutput', bag: '---
 ident                         : dest.istio-system
+prefix.generated.string       : bar
 '
 [tcheckoutput] InstanceBuilderFn() <= (SUCCESS)
 [tcheckoutput] DispatchCheck => context exists: 'true'
@@ -322,6 +331,7 @@ ident                         : dest.istio-system
 [tcheckoutput] DispatchCheck => output: {value: '1337'}
 [tcheckoutput] InstanceBuilderFn() => name: 'tcheckoutput', bag: '---
 ident                         : dest.istio-system
+prefix.generated.string       : bar
 '
 [tcheckoutput] InstanceBuilderFn() <= (SUCCESS)
 [tcheckoutput] DispatchCheck => context exists: 'true'

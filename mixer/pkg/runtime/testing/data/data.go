@@ -532,6 +532,7 @@ spec:
   - name: '"b"'
     values:
     - b.output.value
+    - prefix.generated.string
     operation: APPEND
 `
 

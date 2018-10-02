@@ -114,6 +114,8 @@ type Handler interface {
   // to an adapter.
   {{if eq .VarietyName "TEMPLATE_VARIETY_CHECK" -}}
     Handle{{.InterfaceName}}(context.Context, *Instance) (adapter.CheckResult, error)
+  {{else if eq .VarietyName "TEMPLATE_VARIETY_CHECK_WITH_OUTPUT" -}}
+    Handle{{.InterfaceName}}(context.Context, *Instance) (adapter.CheckResult, interface{}, error)
   {{else if eq .VarietyName "TEMPLATE_VARIETY_QUOTA" -}}
     Handle{{.InterfaceName}}(context.Context, *Instance, adapter.QuotaArgs) (adapter.QuotaResult, error)
   {{else if eq .VarietyName "TEMPLATE_VARIETY_REPORT" -}}

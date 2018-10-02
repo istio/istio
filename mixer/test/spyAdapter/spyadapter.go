@@ -22,6 +22,9 @@
 // check template
 //go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -d false -t mixer/test/spyAdapter/template/check/tmpl.proto
 
+// checkoutput template
+//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -d false -t mixer/test/spyAdapter/template/checkoutput/tmpl.proto
+
 // report template
 //go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -d false -t mixer/test/spyAdapter/template/report/reporttmpl.proto
 
@@ -40,6 +43,7 @@ import (
 	"istio.io/istio/mixer/pkg/adapter"
 	apaTmpl "istio.io/istio/mixer/test/spyAdapter/template/apa"
 	checkTmpl "istio.io/istio/mixer/test/spyAdapter/template/check"
+	checkOutputTmpl "istio.io/istio/mixer/test/spyAdapter/template/checkoutput"
 	quotaTmpl "istio.io/istio/mixer/test/spyAdapter/template/quota"
 	reportTmpl "istio.io/istio/mixer/test/spyAdapter/template/report"
 )
@@ -74,6 +78,12 @@ type (
 		HandleSampleCheckPanic  bool
 		HandleSampleCheckSleep  time.Duration
 
+		HandleCheckProducerResult adapter.CheckResult
+		HandleCheckProducerOutput interface{}
+		HandleCheckProducerErr    error
+		HandleCheckProducerPanic  bool
+		HandleCheckProducerSleep  time.Duration
+
 		HandleSampleQuotaResult adapter.QuotaResult
 		HandleSampleQuotaErr    error
 		HandleSampleQuotaPanic  bool
@@ -91,9 +101,10 @@ type (
 	// BuilderBehavior defines the behavior of the Builder
 	// nolint: maligned
 	BuilderBehavior struct {
-		SetSampleReportTypesPanic bool
-		SetSampleCheckTypesPanic  bool
-		SetSampleQuotaTypesPanic  bool
+		SetSampleReportTypesPanic  bool
+		SetSampleCheckTypesPanic   bool
+		SetCheckProducerTypesPanic bool
+		SetSampleQuotaTypesPanic   bool
 
 		SetAdapterConfigPanic bool
 
@@ -142,6 +153,8 @@ type (
 		// no of time called
 		SetSampleCheckTypesCount int
 
+		SetCheckProducerTypesCount int
+
 		SetAdapterConfigAdptCfg adapter.Config
 		SetAdapterConfigCount   int
 
@@ -156,10 +169,12 @@ type (
 var _ reportTmpl.HandlerBuilder = builder{}
 var _ apaTmpl.HandlerBuilder = builder{}
 var _ checkTmpl.HandlerBuilder = builder{}
+var _ checkOutputTmpl.HandlerBuilder = builder{}
 
 var _ reportTmpl.Handler = handler{}
 var _ apaTmpl.Handler = handler{}
 var _ checkTmpl.Handler = handler{}
+var _ checkOutputTmpl.Handler = handler{}
 
 func (b builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, error) {
 	b.builderData.BuildCount++
@@ -183,6 +198,19 @@ func (b builder) SetSampleCheckTypes(typeParams map[string]*checkTmpl.Type) {
 
 	if b.builderBehavior.SetSampleCheckTypesPanic {
 		panic("SetSampleCheckTypes")
+	}
+}
+
+func (b builder) SetCheckProducerTypes(typeParams map[string]*checkOutputTmpl.Type) {
+	b.builderData.SetCheckProducerTypesCount++
+
+	b.builderData.SetTypes = make(map[string]interface{}, len(typeParams))
+	for k, v := range typeParams {
+		b.builderData.SetTypes[k] = v
+	}
+
+	if b.builderBehavior.SetCheckProducerTypesPanic {
+		panic("SetCheckProducerTypes")
 	}
 }
 
@@ -246,6 +274,21 @@ func (h handler) HandleSampleCheck(ctx context.Context, instance *checkTmpl.Inst
 
 	time.Sleep(h.behavior.HandleSampleCheckSleep)
 	return h.behavior.HandleSampleCheckResult, h.behavior.HandleSampleCheckErr
+}
+
+func (h handler) HandleCheckProducer(ctx context.Context, instance *checkOutputTmpl.Instance) (adapter.CheckResult, interface{}, error) {
+	c := CapturedCall{
+		Name:      "HandleCheckProducer",
+		Instances: []interface{}{instance},
+	}
+	h.data.CapturedCalls = append(h.data.CapturedCalls, c)
+
+	if h.behavior.HandleCheckProducerPanic {
+		panic("HandleCheckProducer")
+	}
+
+	time.Sleep(h.behavior.HandleCheckProducerSleep)
+	return h.behavior.HandleCheckProducerResult, h.behavior.HandleCheckProducerOutput, h.behavior.HandleCheckProducerErr
 }
 
 func (h handler) HandleSampleQuota(ctx context.Context, instance *quotaTmpl.Instance, args adapter.QuotaArgs) (adapter.QuotaResult, error) {

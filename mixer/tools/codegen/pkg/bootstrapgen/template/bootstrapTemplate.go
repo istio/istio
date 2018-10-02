@@ -267,6 +267,7 @@ var (
                 castedBuilder.Set{{.InterfaceName}}Types(castedTypes)
             },
             {{end}}
+
             {{if eq $varietyName "TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR"}}
             {{$goPkgName := .GoPackageName}}
             AttributeManifests: []*istio_policy_v1beta1.AttributeManifest{
@@ -313,6 +314,30 @@ var (
         },
         {{end}}
  
+        {{if eq .VarietyName "TEMPLATE_VARIETY_CHECK_WITH_OUTPUT"}}
+        // DispatchCheck dispatches the instance to the handler.
+        DispatchCheck: func(ctx context.Context, handler adapter.Handler, inst interface{}) (adapter.CheckResult, interface{}, error) {
+
+            // Convert the instance from the generic interface{}, to its specialized type.
+            instance := inst.(*{{.GoPackageName}}.Instance)
+
+            // Invoke the handler.
+            return handler.({{.GoPackageName}}.Handler).Handle{{.InterfaceName}}(ctx, instance)
+        },
+
+        AttributeManifests: []*istio_policy_v1beta1.AttributeManifest{
+            {
+                Attributes: map[string]*istio_policy_v1beta1.AttributeManifest_AttributeInfo{
+                    {{range .OutputTemplateMessage.Fields}}
+                    "{{.ProtoName}}": {
+                        ValueType: {{getValueType .GoType}},
+                    },
+                    {{end}}
+                },
+            },
+        },
+        {{end}}
+
         {{if eq .VarietyName "TEMPLATE_VARIETY_QUOTA"}}
         // DispatchQuota dispatches the instance to the handler.
         DispatchQuota: func(ctx context.Context, handler adapter.Handler, inst interface{}, args adapter.QuotaArgs) (adapter.QuotaResult, error) {
