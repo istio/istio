@@ -22,7 +22,7 @@
 docker: build test-bins docker.all
 
 DOCKER_TARGETS:=docker.pilot docker.proxy_debug docker.proxytproxy docker.proxyv2 docker.app docker.test_policybackend \
-	docker.proxy_init docker.servicegraph docker.mixer docker.citadel docker.galley docker.sidecar_injector
+	docker.proxy_init docker.mixer docker.citadel docker.galley docker.sidecar_injector
 
 $(ISTIO_DOCKER) $(ISTIO_DOCKER_TAR):
 	mkdir -p $@
@@ -47,7 +47,7 @@ $(ISTIO_DOCKER)/node_agent.crt $(ISTIO_DOCKER)/node_agent.key: ${GEN_CERT} $(IST
 # $(ISTIO_DOCKER)/pilot-agent: $(ISTIO_OUT)/pilot-agent | $(ISTIO_DOCKER)
 # 	cp $(ISTIO_OUT)/$FILE $(ISTIO_DOCKER)/($FILE)
 DOCKER_FILES_FROM_ISTIO_OUT:=pilot-test-client pilot-test-server \
-                             pilot-discovery pilot-agent sidecar-injector servicegraph mixs \
+                             pilot-discovery pilot-agent sidecar-injector mixs \
                              istio_ca node_agent node_agent_k8s galley
 $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT), \
         $(eval $(ISTIO_DOCKER)/$(FILE): $(ISTIO_OUT)/$(FILE) | $(ISTIO_DOCKER); cp $(ISTIO_OUT)/$(FILE) $(ISTIO_DOCKER)/$(FILE)))
@@ -86,6 +86,7 @@ docker.sidecar_injector:$(ISTIO_DOCKER)/sidecar-injector
 # BUILD_ARGS tells  $(DOCKER_RULE) to execute a docker build with the specified commands
 
 docker.proxy_debug: BUILD_PRE=mv envoy-debug-${PROXY_REPO_SHA} envoy &&
+docker.proxy_debug: BUILD_ARGS=--build-arg proxy_version=istio-proxy:${PROXY_REPO_SHA} --build-arg istio_version=${VERSION}
 docker.proxy_debug: pilot/docker/Dockerfile.proxy_debug
 docker.proxy_debug: tools/deb/envoy_bootstrap_v2.json
 docker.proxy_debug: ${ISTIO_ENVOY_DEBUG_PATH}
@@ -157,12 +158,6 @@ docker.test_policybackend: $(ISTIO_OUT)/mixer-test-policybackend
 
 # addons docker images
 
-docker.servicegraph: addons/servicegraph/docker/Dockerfile.servicegraph
-docker.servicegraph: $(ISTIO_DOCKER)/servicegraph
-docker.servicegraph: addons/servicegraph/js
-docker.servicegraph: addons/servicegraph/force
-	$(DOCKER_RULE)
-
 # mixer docker images
 
 docker.mixer: mixer/docker/Dockerfile.mixer
@@ -213,6 +208,7 @@ docker.node-agent-test: $(ISTIO_DOCKER)/node_agent.key
 # 3. This rule then changes directories to $(DOCKER_BUID_TOP)/$@
 # 4. This rule runs $(BUILD_PRE) prior to any docker build and only if specified as a dependency variable
 # 5. This rule finally runs docker build passing $(BUILD_ARGS) to docker if they are specified as a dependency variable
+
 DOCKER_RULE=time (mkdir -p $(DOCKER_BUILD_TOP)/$@ && cp -r $^ $(DOCKER_BUILD_TOP)/$@ && cd $(DOCKER_BUILD_TOP)/$@ && $(BUILD_PRE) docker build $(BUILD_ARGS) -t $(HUB)/$(subst docker.,,$@):$(TAG) -f Dockerfile$(suffix $@) .)
 
 # This target will package all docker images used in test and release, without re-building
@@ -222,6 +218,9 @@ docker.all: $(DOCKER_TARGETS)
 # for each docker.XXX target create a tar.docker.XXX target that says how
 # to make a $(ISTIO_OUT)/docker/XXX.tar.gz from the docker XXX image
 # note that $(subst docker.,,$(TGT)) strips off the "docker." prefix, leaving just the XXX
+
+# create a DOCKER_TAR_TARGETS that's each of DOCKER_TARGETS with a tar. prefix
+DOCKER_TAR_TARGETS:=
 $(foreach TGT,$(DOCKER_TARGETS),$(eval tar.$(TGT): $(TGT) | $(ISTIO_DOCKER_TAR) ; \
    time (docker save -o ${ISTIO_DOCKER_TAR}/$(subst docker.,,$(TGT)).tar $(HUB)/$(subst docker.,,$(TGT)):$(TAG) && \
          gzip ${ISTIO_DOCKER_TAR}/$(subst docker.,,$(TGT)).tar)))
@@ -231,9 +230,6 @@ $(foreach TGT,$(DOCKER_TARGETS),$(eval DOCKER_TAR_TARGETS+=tar.$(TGT)))
 
 # this target saves a tar.gz of each docker image to ${ISTIO_OUT}/docker/
 docker.save: $(DOCKER_TAR_TARGETS)
-
-push.proxytproxy: docker.proxytproxy
-	docker push $(HUB)/proxytproxy:$(TAG)
 
 # for each docker.XXX target create a push.docker.XXX target that pushes
 # the local docker image to another hub
