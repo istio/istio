@@ -79,17 +79,17 @@ type DiscoveryServer struct {
 	// Defaults to false, can be enabled with PILOT_DEBUG_ADSZ_CONFIG=1
 	DebugConfigs bool
 
-	// ServiceShards for a service. This is a global (per-server) list, built from
-	// incremental updates.
-	EndpointShardsByService map[string]*model.ServiceShards
-
 	// mutex protecting global structs updated or read by ADS service, including EDSUpdates and
 	// shards.
 	mutex sync.RWMutex
 
+	// ServiceShards for a service. This is a global (per-server) list, built from
+	// incremental updates.
+	EndpointShardsByService map[string]*model.ServiceShards
+
 	// WorkloadsById keeps track of informations about a workload, based on direct notifications
 	// from registry. This acts as a cache and allows detecting changes.
-	WorkloadsById map[string]*Workload
+	WorkloadsByID map[string]*Workload
 
 	// ConfigUpdater implements the debouncing and tracks the change detection.
 	// This is used to decouple the envoy/v2 from envoy/, artifact of the v1 deprecation.
@@ -125,7 +125,7 @@ func NewDiscoveryServer(env *model.Environment, generator core.ConfigGenerator) 
 		Env:                     env,
 		ConfigGenerator:         generator,
 		EndpointShardsByService: map[string]*model.ServiceShards{},
-		WorkloadsById:           map[string]*Workload{},
+		WorkloadsByID:           map[string]*Workload{},
 	}
 	env.PushContext = model.NewPushContext()
 
@@ -245,8 +245,8 @@ func (s *DiscoveryServer) Push(full bool, edsUpdates map[string]*model.ServiceSh
 	// saved.
 	t0 := time.Now()
 	push := model.NewPushContext()
-	err := push.InitContext(s.Env)
-	if err != nil {
+
+	if err := push.InitContext(s.Env); err != nil {
 		adsLog.Errorf("XDS: failed to update services %v", err)
 		// We can't push if we can't read the data - stick with previous version.
 		// TODO: metric !!
@@ -254,13 +254,12 @@ func (s *DiscoveryServer) Push(full bool, edsUpdates map[string]*model.ServiceSh
 		return
 	}
 
-	if err = s.ConfigGenerator.BuildSharedPushState(s.Env, push); err != nil {
+	if err := s.ConfigGenerator.BuildSharedPushState(s.Env, push); err != nil {
 		adsLog.Errorf("XDS: Failed to rebuild share state in configgen: %v", err)
 		return
 	}
 
-	err = s.updateServiceShards(push)
-	if err != nil {
+	if err := s.updateServiceShards(push); err != nil {
 		return
 	}
 

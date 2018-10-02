@@ -96,8 +96,8 @@ func testPodCache(t *testing.T, c *Controller, fx *FakeXdsUpdater) {
 			t.Error("No event ", pod.Name)
 			continue
 		}
-		if ev.Id != pod.Status.PodIP {
-			t.Error("Workload event expected ", pod.Status.PodIP, "got", ev.Id, ev.Type)
+		if ev.ID != pod.Status.PodIP {
+			t.Error("Workload event expected ", pod.Status.PodIP, "got", ev.ID, ev.Type)
 			continue
 		}
 	}

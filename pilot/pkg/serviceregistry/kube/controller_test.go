@@ -75,7 +75,7 @@ type XdsEvent struct {
 	Type string
 
 	// The id of the event
-	Id string
+	ID string
 }
 
 // NewFakeXDS creates a XdsUpdater reporting events via a channel.
@@ -87,7 +87,7 @@ func NewFakeXDS() *FakeXdsUpdater {
 
 func (fx *FakeXdsUpdater) EDSUpdate(shard, hostname string, entry []*model.IstioEndpoint) error {
 	select {
-	case fx.Events <- XdsEvent{Type: "eds", Id: hostname}:
+	case fx.Events <- XdsEvent{Type: "eds", ID: hostname}:
 	default:
 	}
 	return nil
@@ -104,7 +104,7 @@ func (*FakeXdsUpdater) SvcUpdate(shard, hostname string, ports map[string]uint32
 
 func (fx *FakeXdsUpdater) WorkloadUpdate(id string, labels map[string]string, annotations map[string]string) {
 	select {
-	case fx.Events <- XdsEvent{Type: "workload", Id: id}:
+	case fx.Events <- XdsEvent{Type: "workload", ID: id}:
 	default:
 	}
 }
@@ -673,8 +673,7 @@ func addPods(t *testing.T, controller *Controller, pods ...*v1.Pod) {
 		// events - since PodIP will be "".
 		newPod.Status.PodIP = pod.Status.PodIP
 		newPod.Status.Phase = v1.PodRunning
-		newPod, err = controller.client.CoreV1().Pods(pod.Namespace).UpdateStatus(newPod)
-
+		controller.client.CoreV1().Pods(pod.Namespace).UpdateStatus(newPod)
 	}
 }
 

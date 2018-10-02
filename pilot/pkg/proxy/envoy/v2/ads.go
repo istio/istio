@@ -501,8 +501,7 @@ func (s *DiscoveryServer) pushAll(con *XdsConnection, pushEv *XdsEvent) error {
 		// Push only EDS. This is indexed already - push immediately
 		// (may need a throttle)
 		if len(con.Clusters) > 0 {
-			err := s.pushEds(pushEv.push, con, false, pushEv.edsUpdatedServices)
-			if err != nil {
+			if err := s.pushEds(pushEv.push, con, false, pushEv.edsUpdatedServices); err != nil {
 				return err
 			}
 		}

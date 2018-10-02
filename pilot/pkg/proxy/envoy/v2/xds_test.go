@@ -274,9 +274,9 @@ func initLocalPilotTestEnv(t *testing.T) *bootstrap.Server {
 
 	// RouteConf Service4 is using port 80, to test that we generate multiple clusters (regression)
 	// service4 has no endpoints
-	server.EnvoyXdsServer.MemRegistry.AddHttpService("service4.default.svc.cluster.local", "10.1.0.4", 80)
+	server.EnvoyXdsServer.MemRegistry.AddHTTPService("service4.default.svc.cluster.local", "10.1.0.4", 80)
 
-	server.EnvoyXdsServer.MemRegistry.AddHttpService(edsIncSvc, edsIncVip, 8080)
+	server.EnvoyXdsServer.MemRegistry.AddHTTPService(edsIncSvc, edsIncVip, 8080)
 	server.EnvoyXdsServer.MemRegistry.SetEndpoints(edsIncSvc,
 		newEndpointWithAccount("127.0.0.1", "hello-sa", "v1"))
 	// Set the initial workload labels

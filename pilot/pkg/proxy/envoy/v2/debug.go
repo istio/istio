@@ -198,7 +198,9 @@ func (sd *MemServiceDiscovery) ClearErrors() {
 	sd.GetProxyServiceInstancesError = nil
 }
 
-func (sd *MemServiceDiscovery) AddHttpService(name, vip string, port int) {
+// AddHTTPService is a helper to add a service of type http, named 'http-main', with the
+// specified vip and port.
+func (sd *MemServiceDiscovery) AddHTTPService(name, vip string, port int) {
 	sd.AddService(model.Hostname(name), &model.Service{
 		Hostname: model.Hostname(name),
 		Ports: model.PortList{
@@ -501,7 +503,7 @@ func (s *DiscoveryServer) endpointShardz(w http.ResponseWriter, req *http.Reques
 func (s *DiscoveryServer) workloadz(w http.ResponseWriter, req *http.Request) {
 	_ = req.ParseForm()
 	w.Header().Add("Content-Type", "application/json")
-	out, _ := json.MarshalIndent(s.WorkloadsById, " ", " ")
+	out, _ := json.MarshalIndent(s.WorkloadsByID, " ", " ")
 	w.Write(out)
 }
 

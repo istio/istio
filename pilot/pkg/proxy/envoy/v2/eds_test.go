@@ -66,15 +66,15 @@ func TestEds(t *testing.T) {
 	// 30% faster than 1.0 config style. Keeping the test to track fixes and
 	// verify we fix the regression.
 	t.Run("MultipleRequest08", func(t *testing.T) {
-		multipleRequest(server, false, 100, 5, 20*time.Second,
+		multipleRequest(server, false, 50, 5, 20*time.Second,
 			map[string]string{}, t)
 	})
 	t.Run("MultipleRequest", func(t *testing.T) {
-		multipleRequest(server, false, 100, 5, 20*time.Second, nil, t)
+		multipleRequest(server, false, 50, 5, 20*time.Second, nil, t)
 	})
 	// 5 pushes for 100 clients, using EDS incremental only.
 	t.Run("MultipleRequestIncremental", func(t *testing.T) {
-		multipleRequest(server, true, 100, 5, 20*time.Second, nil, t)
+		multipleRequest(server, true, 50, 5, 20*time.Second, nil, t)
 	})
 	t.Run("edsz", func(t *testing.T) {
 		testEdsz(t)

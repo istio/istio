@@ -302,6 +302,7 @@ func (c *Controller) Run(stop <-chan struct{}) {
 	log.Infof("Controller terminated")
 }
 
+// Stop the controller. Mostly for tests, to simplify the code (defer c.Stop())
 func (c *Controller) Stop() {
 	if c.stop != nil {
 		c.stop <- struct{}{}
@@ -792,8 +793,6 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 	return nil
 }
 
-// endpoints2ServiceEntry converts the endpoints to a minimal service entry object.
-// TODO: we may generate directly the load assignment, saving one conversion
 func (c *Controller) updateEDS(ep *v1.Endpoints) {
 	hostname := serviceHostname(ep.Name, ep.Namespace, c.domainSuffix)
 

@@ -19,22 +19,20 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
-	"io/ioutil"
-	"time"
-
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	types "github.com/gogo/protobuf/types"
-
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net"
 	"sync"
+	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
+	types "github.com/gogo/protobuf/types"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
@@ -500,6 +498,7 @@ func (a *ADSC) Wait(update string, to time.Duration) (string, error) {
 	}
 }
 
+// EndpointsJSON returns the endpoints from pilot, formatted as json for debug.
 func (a *ADSC) EndpointsJSON() string {
 	out, _ := json.MarshalIndent(a.EDS, " ", " ")
 	return string(out)

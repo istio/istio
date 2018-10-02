@@ -133,8 +133,11 @@ type IstioEndpoint struct {
 	// Labels points to the workload or deployment labels.
 	Labels map[string]string
 
-	// Address is the IP address of the endpoint. Other types may be
-	// supported in future.
+	// Family indicates what type of endpoint, such as TCP or Unix Domain Socket.
+	// Default is TCP.
+	Family AddressFamily
+
+	// Address is the address of the endpoint, using envoy proto.
 	Address string
 
 	// EndpointPort is the port where the workload is listening, can be different

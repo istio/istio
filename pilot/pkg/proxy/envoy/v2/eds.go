@@ -123,17 +123,24 @@ func loadAssignment(c *EdsCluster) *xdsapi.ClusterLoadAssignment {
 	return c.LoadAssignment
 }
 
-func serviceEntry2Endpoint(UID, address string, port uint32) *endpoint.LbEndpoint {
-	addr := core.Address{
-		Address: &core.Address_SocketAddress{
-			SocketAddress: &core.SocketAddress{
-				Address: address,
-				PortSpecifier: &core.SocketAddress_PortValue{
-					PortValue: port,
+func serviceEntry2Endpoint(UID string, family model.AddressFamily, address string, port uint32) *endpoint.LbEndpoint {
+	var addr core.Address
+	switch family {
+	case model.AddressFamilyTCP:
+		addr = core.Address{
+			Address: &core.Address_SocketAddress{
+				SocketAddress: &core.SocketAddress{
+					Address: address,
+					PortSpecifier: &core.SocketAddress_PortValue{
+						PortValue: port,
+					},
 				},
 			},
-		},
+		}
+	case model.AddressFamilyUnix:
+		addr = core.Address{Address: &core.Address_Pipe{Pipe: &core.Pipe{Path: address}}}
 	}
+
 	ep := &endpoint.LbEndpoint{
 		Endpoint: &endpoint.Endpoint{
 			Address: &addr,
@@ -193,8 +200,6 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 	edsCluster *EdsCluster) error {
 
 	var hostname model.Hostname
-	//var ports model.PortList
-	var err error
 
 	var port int
 	var subsetName string
@@ -210,9 +215,9 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 		return s.updateCluster(push, clusterName, edsCluster)
 	}
 
+	// The service was never updated - do the full update
 	se, f := s.EndpointShardsByService[string(hostname)]
 	if !f {
-		// The service was never updated - do the full update
 		return s.updateCluster(push, clusterName, edsCluster)
 	}
 
@@ -227,8 +232,7 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 				continue
 			}
 			// Port labels
-			ll := model.Labels(el.Labels)
-			if !labels.HasSubsetOf(ll) {
+			if !labels.HasSubsetOf(model.Labels(el.Labels)) {
 				continue
 			}
 			cnt++
@@ -246,7 +250,7 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 				localityEpMap[locality] = locLbEps
 			}
 			if el.EnvoyEndpoint == nil {
-				el.EnvoyEndpoint = serviceEntry2Endpoint(el.UID, el.Address, el.EndpointPort)
+				el.EnvoyEndpoint = serviceEntry2Endpoint(el.UID, el.Family, el.Address, el.EndpointPort)
 			}
 			locLbEps.LbEndpoints = append(locLbEps.LbEndpoints, *el.EnvoyEndpoint)
 		}
@@ -261,10 +265,6 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 		//adsLog.Infof("EDS: no instances %s (host=%s ports=%v labels=%v)", clusterName, hostname, p, labels)
 	}
 	edsInstances.With(prometheus.Labels{"cluster": clusterName}).Set(float64(cnt))
-	if err != nil {
-		adsLog.Warnf("endpoints for service cluster %q returned error %q", clusterName, err)
-		return err
-	}
 
 	// There is a chance multiple goroutines will update the cluster at the same time.
 	// This could be prevented by a lock - but because the update may be slow, it may be
@@ -293,8 +293,7 @@ func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 	// TODO: if ServiceDiscovery is aggregate, and all members support direct, use
 	// the direct interface.
 	var regs []aggregate.Registry
-	agg, ok := s.Env.ServiceDiscovery.(*aggregate.Controller)
-	if ok {
+	if agg, ok := s.Env.ServiceDiscovery.(*aggregate.Controller); ok {
 		regs = agg.GetRegistries()
 	} else {
 		regs = []aggregate.Registry{
@@ -326,7 +325,9 @@ func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 				for _, ep := range epi {
 					//shard := ep.AvailabilityZone
 					l := map[string]string(ep.Labels)
+
 					entries = append(entries, &model.IstioEndpoint{
+						Family:          ep.Endpoint.Family,
 						Address:         ep.Endpoint.Address,
 						EndpointPort:    uint32(ep.Endpoint.Port),
 						ServicePortName: port.Name,
@@ -455,11 +456,6 @@ func (s *DiscoveryServer) edsIncremental(version string, push *model.PushContext
 	s.startPush(version, push, false, edsUpdates)
 }
 
-var (
-	errNewService        = errors.New("new service")
-	errNewServiceAccount = errors.New("service account change")
-)
-
 // WorkloadUpdate is called when workload labels/annotations are updated.
 func (s *DiscoveryServer) WorkloadUpdate(id string, labels map[string]string, annotations map[string]string) {
 	s.mutex.Lock()
@@ -467,14 +463,14 @@ func (s *DiscoveryServer) WorkloadUpdate(id string, labels map[string]string, an
 
 	if labels == nil {
 		// No push needed - the Endpoints object will also be triggered.
-		delete(s.WorkloadsById, id)
+		delete(s.WorkloadsByID, id)
 		return
 	}
-	w, f := s.WorkloadsById[id]
+	w, f := s.WorkloadsByID[id]
 	if !f {
 		// First time this workload has been seen. Likely never connected, no need to
 		// push
-		s.WorkloadsById[id] = &Workload{
+		s.WorkloadsByID[id] = &Workload{
 			Labels:      labels,
 			Annotations: annotations,
 		}
