@@ -116,9 +116,9 @@ func (b *deployedPrometheus) API() v1.API {
 func (b *deployedPrometheus) WaitForQuiesce(format string, args ...interface{}) (model.Value, error) {
 	var previous model.Value
 
-	time.Sleep(time.Second * 5)
+	time.Sleep(time.Second * 20)
 
-	value, err := util.Retry(time.Second*30, time.Second*5, func() (interface{}, bool, error) {
+	value, err := util.Retry(time.Second*60, time.Second*10, func() (interface{}, bool, error) {
 
 		query, err := b.env.Evaluate(fmt.Sprintf(format, args...))
 		if err != nil {
@@ -156,9 +156,9 @@ func (b *deployedPrometheus) WaitForQuiesce(format string, args ...interface{}) 
 
 func (b *deployedPrometheus) WaitForOneOrMore(format string, args ...interface{}) error {
 
-	time.Sleep(time.Second * 5)
+	time.Sleep(time.Second * 20)
 
-	_, err := util.Retry(time.Second*30, time.Second*5, func() (interface{}, bool, error) {
+	_, err := util.Retry(time.Second*60, time.Second*10, func() (interface{}, bool, error) {
 
 		query, err := b.env.Evaluate(fmt.Sprintf(format, args...))
 		if err != nil {
