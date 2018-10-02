@@ -115,7 +115,7 @@ func initLocalPilotTestEnv(t *testing.T) *bootstrap.Server {
 		return pilotServer
 	}
 	testEnv = testenv.NewTestSetup(testenv.XDSTest, t)
-	server := util.EnsureTestServer()
+	server, _ := util.EnsureTestServer()
 	pilotServer = server
 
 	testEnv.Ports().PilotGrpcPort = uint16(util.MockPilotGrpcPort)
