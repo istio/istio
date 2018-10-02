@@ -421,8 +421,8 @@ func buildGatewayListenerTLSContext(server *networking.Server) *auth.DownstreamT
 	}
 }
 
-func convertTLSProtocol(in networking.Server_TLSOptions_TLSProtocol) TlsParameters_TlsProtocol {
-	out := TlsParameters_TlsProtocol(in) // There should be a one-to-one enum mapping
+func convertTLSProtocol(in networking.Server_TLSOptions_TLSProtocol) auth.TlsParameters_TlsProtocol {
+	out := auth.TlsParameters_TlsProtocol(in) // There should be a one-to-one enum mapping
 	if out < auth.TlsParameters_TLS_AUTO || out > auth.TlsParameters_TLSv1_3 {
 		log.Warnf("was not able to map TLS protocol to Envoy TLS protocol")
 		return auth.TlsParameters_TLS_AUTO
