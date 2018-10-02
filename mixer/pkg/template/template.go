@@ -49,7 +49,7 @@ type (
 	HandlerSupportsTemplateFn func(hndlr adapter.Handler) bool
 
 	// DispatchCheckFn dispatches the instance to the handler.
-	// Output value is requred for output-producting Check adapters.
+	// Output value is required for output-producing Check adapters.
 	DispatchCheckFn func(ctx context.Context, handler adapter.Handler, instance interface{}) (cr adapter.CheckResult, output interface{}, err error)
 
 	// DispatchReportFn dispatches the instances to the handler.
