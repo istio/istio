@@ -26,6 +26,7 @@ import (
 	"sync"
 	"testing"
 	"time"
+	glog "log"
 
 	"go.uber.org/multierr"
 
@@ -591,6 +592,7 @@ func (a *accessLogs) checkLog(t *testing.T, cluster, app string, pods map[string
 			}
 		}
 
+		glog.Printf("Debug gRPC dump logs in checkLog():\n%s", logs)
 		for id, want := range counts {
 			got := strings.Count(logs, id)
 			if got < want {
