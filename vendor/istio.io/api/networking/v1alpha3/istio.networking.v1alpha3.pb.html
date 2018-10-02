@@ -671,6 +671,32 @@ be 100.</p>
 
 </td>
 </tr>
+<tr id="DestinationWeight-append_headers">
+<td><code>appendHeaders</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+<p>Additional HTTP headers to add before forwarding a request to the
+destination service.</p>
+
+</td>
+</tr>
+<tr id="DestinationWeight-remove_response_headers">
+<td><code>removeResponseHeaders</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>Http headers to remove before returning the response to the caller</p>
+
+</td>
+</tr>
+<tr id="DestinationWeight-append_response_headers">
+<td><code>appendResponseHeaders</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+<p>Additional HTTP headers to add before returning a response to the
+caller.</p>
+
+</td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -1852,6 +1878,14 @@ destination service.</p>
 
 </td>
 </tr>
+<tr id="HTTPRoute-remove_response_headers">
+<td><code>removeResponseHeaders</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>Http headers to remove before returning the response to the caller.</p>
+
+</td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -2531,7 +2565,7 @@ client certificates for authentication.</p>
 <p><code>ServiceEntry</code> enables adding additional entries into Istio&rsquo;s internal
 service registry, so that auto-discovered services in the mesh can
 access/route to these manually specified services. A service entry
-describes the properties of a service (DNS name, VIPs ,ports, protocols,
+describes the properties of a service (DNS name, VIPs, ports, protocols,
 endpoints). These services could be external to the mesh (e.g., web
 APIs) or mesh-internal services that are not part of the platform&rsquo;s
 service registry (e.g., a set of VMs talking to services in Kubernetes).</p>
@@ -3079,6 +3113,12 @@ spec:
 <p><strong>Note:</strong> Policies specified for subsets will not take effect until
 a route rule explicitly sends traffic to this subset.</p>
 
+<p>One or more labels are typically required to identify the subset destination,
+however, when the corresponding DestinationRule represents a host that
+supports multiple SNI hosts (e.g., an egress gateway), a subset without labels
+may be meaningful. In this case a traffic policy with <a href="#TLSSettings">TLSSettings</a>
+can be used to identify a specific SNI host corresponding to the named subset.</p>
+
 <table class="message-fields">
 <thead>
 <tr>
@@ -3101,7 +3141,7 @@ be used for traffic splitting in a route rule.</p>
 <td><code>labels</code></td>
 <td><code>map&lt;string,&nbsp;string&gt;</code></td>
 <td>
-<p>REQUIRED. Labels apply a filter over the endpoints of a service in the
+<p>Labels apply a filter over the endpoints of a service in the
 service registry. See route rules for examples of usage.</p>
 
 </td>
