@@ -235,15 +235,19 @@ func (s *grpcServer) Report(ctx context.Context, req *mixerpb.ReportRequest) (*m
 
 	// if we want to drop, instead of smooth / wait:
 	// if !s.throttler.AllowN(time.Now(), len(req.Attributes)) {}
-	if err := s.throttler.WaitN(ctx, len(req.Attributes)); err != nil {
-		return nil, grpc.Errorf(codes.ResourceExhausted, "Instance currently overloaded: %v", err)
-	}
+	// if err := s.throttler.WaitN(ctx, len(req.Attributes)); err != nil {
+	// 	return nil, grpc.Errorf(codes.ResourceExhausted, "Instance currently overloaded: %v", err)
+	// }
 
 	// qrs := atomic.LoadInt64(&s.queuedRequests)
 	// if qrs > s.queueLength {
 	// 	return nil, grpc.Errorf(codes.Unavailable, "Work queue is full (%d pending requests). Try again later.", qrs)
 	// }
 	// atomic.AddInt64(&s.queuedRequests, 1)
+
+	if s.gp.BacklogFull() {
+		return nil, grpc.Errorf(codes.Unavailable, "Work queue is full. Try again later.")
+	}
 
 	lg.Debugf("Report (Count: %d)", len(req.Attributes))
 

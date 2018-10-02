@@ -27,6 +27,8 @@ type GoroutinePool struct {
 	queue          chan work      // Channel providing the work that needs to be executed
 	wg             sync.WaitGroup // Used to block shutdown until all workers complete
 	singleThreaded bool           // Whether to actually use goroutines or not
+
+	overflowQueue chan work
 }
 
 type work struct {
@@ -39,7 +41,18 @@ func NewGoroutinePool(queueDepth int, singleThreaded bool) *GoroutinePool {
 	gp := &GoroutinePool{
 		queue:          make(chan work, queueDepth),
 		singleThreaded: singleThreaded,
+		overflowQueue:  make(chan work, queueDepth),
 	}
+
+	go func() {
+		for {
+			select {
+			case workitem := <-gp.overflowQueue:
+				gp.queue <- workitem
+			default:
+			}
+		}
+	}()
 
 	gp.AddWorkers(1)
 	return gp
@@ -49,6 +62,7 @@ func NewGoroutinePool(queueDepth int, singleThreaded bool) *GoroutinePool {
 func (gp *GoroutinePool) Close() error {
 	if !gp.singleThreaded {
 		close(gp.queue)
+		close(gp.overflowQueue)
 		gp.wg.Wait()
 	}
 	return nil
@@ -68,6 +82,10 @@ func (gp *GoroutinePool) ScheduleWork(fn WorkFunc, param interface{}) {
 	if gp.singleThreaded {
 		fn(param)
 	} else {
+		if len(gp.queue) == cap(gp.queue) {
+			gp.overflowQueue <- work{fn: fn, param: param}
+			return
+		}
 		gp.queue <- work{fn: fn, param: param}
 	}
 }
@@ -88,6 +106,6 @@ func (gp *GoroutinePool) AddWorkers(numWorkers int) {
 	}
 }
 
-func (gp *GoroutinePool) QueueLength() int {
-	return len(gp.queue)
+func (gp *GoroutinePool) BacklogFull() bool {
+	return len(gp.overflowQueue) == cap(gp.overflowQueue)
 }

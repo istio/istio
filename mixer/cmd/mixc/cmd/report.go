@@ -75,7 +75,7 @@ func report(rootArgs *rootArgs, printf, fatalf shared.FormatFn) {
 					rl.Wait(context.Background())
 				}
 				request := mixerpb.ReportRequest{Attributes: []mixerpb.CompressedAttributes{*attrs}}
-				ctx, _ = context.WithTimeout(ctx, 100*time.Millisecond)
+				ctx, _ = context.WithTimeout(ctx, 500*time.Millisecond)
 				_, err := cs.client.Report(ctx, &request)
 
 				if rootArgs.printResponse {
