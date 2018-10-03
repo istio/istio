@@ -291,6 +291,16 @@ type NetworkEndpoint struct {
 	// catalog.mystore.com)
 	ServicePort *Port
 
+	// Namespace for the workload on this network endpoint.
+	// For the platforms without namespace, it will be empty.
+	Namespace string
+
+	// Service account for the workload on this network endpoint.
+	ServiceAccount string
+
+	// Labels for the workload on this network endpoint.
+	Labels Labels
+
 	// Defines a platform-specific workload instance identifier (optional).
 	UID string
 }
