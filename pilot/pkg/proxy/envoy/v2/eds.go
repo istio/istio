@@ -693,8 +693,8 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection,
 		adsLog.Infof("EDS: PUSH for %s clusters %d endpoints %d empty %d",
 			con.ConID, len(con.Clusters), endpoints, emptyClusters)
 	} else {
-		adsLog.Infof("EDS: INC PUSH for %s clusters %d endpoints %d empty %d %v",
-			con.ConID, len(con.Clusters), endpoints, emptyClusters, updated)
+		adsLog.Infof("EDS: INC PUSH for %s clusters %d endpoints %d empty %d",
+			con.ConID, len(con.Clusters), endpoints, emptyClusters)
 	}
 	return nil
 }

@@ -236,11 +236,42 @@ func (s *DiscoveryServer) periodicRefreshMetrics() {
 	}
 }
 
+// ServiceAccounts returns the list of service accounts for a service.
+// The XDS server incrementally updates the list, by getting the SA from registries.
+// Same list is used to compute CDS response.
+func (s *DiscoveryServer) ServiceAccounts(serviceName string) []string {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	sa := []string{}
+
+	// TODO: cache the computed service account map in EndpointShardsByService.
+
+	ep, f := s.EndpointShardsByService[serviceName]
+	if !f {
+		return sa
+	}
+	samap := map[string]bool{}
+	for _, es := range ep.Shards {
+		for _, el := range es.Entries {
+			if f := samap[el.ServiceAccount] ; !f {
+				samap[el.ServiceAccount] = true
+			}
+		}
+	}
+	// TODO: we can just return the map.
+	for k, _ := range samap {
+		sa = append(sa, k)
+	}
+
+	return sa
+}
+
 // Push is called to push changes on config updates using ADS. This is set in DiscoveryService.Push,
 // to avoid direct dependencies.
 func (s *DiscoveryServer) Push(full bool, edsUpdates map[string]*model.ServiceShards) {
 	if !full {
-		adsLog.Infof("EDS Incremental Push %v", edsUpdates)
+		adsLog.Infof("XDS Incremental Push EDS:%d", len(edsUpdates))
 		go s.AdsPushAll(version, s.Env.PushContext, false, edsUpdates)
 		return
 	}
@@ -253,6 +284,7 @@ func (s *DiscoveryServer) Push(full bool, edsUpdates map[string]*model.ServiceSh
 	// saved.
 	t0 := time.Now()
 	push := model.NewPushContext()
+	push.ServiceAccounts = s.ServiceAccounts
 
 	if err := push.InitContext(s.Env); err != nil {
 		adsLog.Errorf("XDS: failed to update services %v", err)
