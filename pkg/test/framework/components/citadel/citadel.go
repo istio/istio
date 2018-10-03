@@ -101,7 +101,7 @@ func (d *deployedCitadel) WaitForSecretToExist() (*v1.Secret, error) {
 				return secret, nil
 			}
 		case <-time.After(secretWaitTime - time.Since(startTime)):
-			return nil, fmt.Errorf("secret %v/%v did not become existent within %v",
+			return nil, fmt.Errorf("secret %v did not become existent within %v",
 				secretName, secretWaitTime)
 		}
 	}
