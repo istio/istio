@@ -480,7 +480,7 @@ func buildGatewayNetworkFiltersFromTCPRoutes(node *model.Proxy, env *model.Envir
 			if l4MultiMatch(tcp.Match, server, gatewaysForWorkload) {
 				upstream = tcp.Route[0].Destination // We pick first destination because TCP has no weighted cluster
 				clusterName := istio_route.GetDestinationCluster(upstream, push.ServiceByHostname[model.Hostname(upstream.Host)], int(server.Port.Number))
-				return buildOutboundNetworkFilters(env, node, clusterName, "", port)
+				return buildOutboundNetworkFilters(env, node, clusterName, port)
 			}
 		}
 	}
@@ -527,7 +527,7 @@ func buildGatewayNetworkFiltersFromTLSRoutes(node *model.Proxy, env *model.Envir
 					filterChains = append(filterChains, &filterChainOpts{
 						sniHosts:       match.SniHosts,
 						tlsContext:     nil, // NO TLS context because this is passthrough
-						networkFilters: buildOutboundNetworkFilters(env, node, clusterName, "", port),
+						networkFilters: buildOutboundNetworkFilters(env, node, clusterName, port),
 					})
 				}
 			}
