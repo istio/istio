@@ -139,7 +139,7 @@ func buildSidecarOutboundTLSFilterChainOpts(env *model.Environment, node *model.
 							sniHosts:         match.SniHosts,
 							destinationCIDRs: destinationCIDRs,
 							networkFilters: buildOutboundNetworkFilters(
-								env, node, clusterName, destinationIPAddress, listenPort),
+								env, node, clusterName, listenPort),
 						})
 						hasTLSMatch = true
 					}
@@ -154,7 +154,7 @@ func buildSidecarOutboundTLSFilterChainOpts(env *model.Environment, node *model.
 		clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, int(listenPort.Port))
 		out = append(out, &filterChainOpts{
 			destinationCIDRs: []string{destinationIPAddress},
-			networkFilters:   buildOutboundNetworkFilters(env, node, clusterName, destinationIPAddress, listenPort),
+			networkFilters:   buildOutboundNetworkFilters(env, node, clusterName, listenPort),
 		})
 	}
 
@@ -187,7 +187,7 @@ func buildSidecarOutboundTCPFilterChainOpts(env *model.Environment, node *model.
 				// implicit match
 				out = append(out, &filterChainOpts{
 					destinationCIDRs: destinationCIDRs,
-					networkFilters:   buildOutboundNetworkFilters(env, node, clusterName, destinationIPAddress, listenPort),
+					networkFilters:   buildOutboundNetworkFilters(env, node, clusterName, listenPort),
 				})
 				defaultRouteAdded = true
 				break TcpLoop
@@ -209,7 +209,7 @@ func buildSidecarOutboundTCPFilterChainOpts(env *model.Environment, node *model.
 					if len(match.DestinationSubnets) == 0 {
 						out = append(out, &filterChainOpts{
 							destinationCIDRs: destinationCIDRs,
-							networkFilters:   buildOutboundNetworkFilters(env, node, clusterName, destinationIPAddress, listenPort),
+							networkFilters:   buildOutboundNetworkFilters(env, node, clusterName, listenPort),
 						})
 						defaultRouteAdded = true
 						break TcpLoop
@@ -222,7 +222,7 @@ func buildSidecarOutboundTCPFilterChainOpts(env *model.Environment, node *model.
 			if len(virtualServiceDestinationSubnets) > 0 {
 				out = append(out, &filterChainOpts{
 					destinationCIDRs: virtualServiceDestinationSubnets,
-					networkFilters:   buildOutboundNetworkFilters(env, node, clusterName, "", listenPort),
+					networkFilters:   buildOutboundNetworkFilters(env, node, clusterName, listenPort),
 				})
 			}
 		}
@@ -232,7 +232,7 @@ func buildSidecarOutboundTCPFilterChainOpts(env *model.Environment, node *model.
 		clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, int(listenPort.Port))
 		out = append(out, &filterChainOpts{
 			destinationCIDRs: []string{destinationIPAddress},
-			networkFilters:   buildOutboundNetworkFilters(env, node, clusterName, destinationIPAddress, listenPort),
+			networkFilters:   buildOutboundNetworkFilters(env, node, clusterName, listenPort),
 		})
 	}
 
