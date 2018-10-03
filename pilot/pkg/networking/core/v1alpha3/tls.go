@@ -61,13 +61,13 @@ func matchTCP(match *v1alpha3.L4MatchAttributes, proxyLabels model.LabelsCollect
 	return gatewayMatch && labelMatch && portMatch
 }
 
-// Select the virtual service pertaining to the service being processed.
-func getVirtualServiceForHost(host model.Hostname, configs []model.Config) *v1alpha3.VirtualService {
+// Select the config pertaining to the service being processed.
+func getConfigForHost(host model.Hostname, configs []model.Config) *model.Config {
 	for _, config := range configs {
 		virtualService := config.Spec.(*v1alpha3.VirtualService)
 		for _, vsHost := range virtualService.Hosts {
 			if model.Hostname(vsHost).Matches(host) {
-				return virtualService
+				return &config
 			}
 		}
 	}
@@ -81,7 +81,7 @@ func hashRuntimeTLSMatchPredicates(match *v1alpha3.TLSMatchAttributes) string {
 
 func buildSidecarOutboundTLSFilterChainOpts(env *model.Environment, node *model.Proxy, push *model.PushContext, destinationIPAddress string,
 	service *model.Service, listenPort *model.Port, proxyLabels model.LabelsCollection,
-	gateways map[string]bool, virtualService *v1alpha3.VirtualService) []*filterChainOpts {
+	gateways map[string]bool, config *model.Config) []*filterChainOpts {
 
 	if !listenPort.Protocol.IsTLS() {
 		return nil
@@ -112,7 +112,8 @@ func buildSidecarOutboundTLSFilterChainOpts(env *model.Environment, node *model.
 	hasTLSMatch := false
 
 	out := make([]*filterChainOpts, 0)
-	if virtualService != nil {
+	if config != nil {
+		virtualService := config.Spec.(*v1alpha3.VirtualService)
 		// Ports marked as TLS will have SNI routing if and only if they have an accompanying
 		// virtual service for the same host, and the said virtual service has a TLS route block.
 		// Otherwise we treat ports marked as TLS as opaque TCP services.
@@ -131,7 +132,7 @@ func buildSidecarOutboundTLSFilterChainOpts(env *model.Environment, node *model.
 						out = append(out, &filterChainOpts{
 							sniHosts:         match.SniHosts,
 							destinationCIDRs: destinationCIDRs,
-							networkFilters:   buildOutboundNetworkFilters(env, node, tls.Route, push, listenPort),
+							networkFilters:   buildOutboundNetworkFilters(env, node, tls.Route, push, listenPort, config.ConfigMeta),
 						})
 						hasTLSMatch = true
 					}
@@ -155,7 +156,7 @@ func buildSidecarOutboundTLSFilterChainOpts(env *model.Environment, node *model.
 
 func buildSidecarOutboundTCPFilterChainOpts(env *model.Environment, node *model.Proxy, push *model.PushContext, destinationIPAddress string,
 	service *model.Service, listenPort *model.Port, proxyLabels model.LabelsCollection,
-	gateways map[string]bool, virtualService *v1alpha3.VirtualService) []*filterChainOpts {
+	gateways map[string]bool, config *model.Config) []*filterChainOpts {
 
 	if listenPort.Protocol.IsTLS() {
 		return nil
@@ -167,7 +168,8 @@ func buildSidecarOutboundTCPFilterChainOpts(env *model.Environment, node *model.
 	// break as soon as we add one network filter with no destination addresses to match
 	// This is the terminating condition in the filter chain match list
 	defaultRouteAdded := false
-	if virtualService != nil {
+	if config != nil {
+		virtualService := config.Spec.(*v1alpha3.VirtualService)
 	TcpLoop:
 		for _, tcp := range virtualService.Tcp {
 			destinationCIDRs := []string{destinationIPAddress}
@@ -175,7 +177,7 @@ func buildSidecarOutboundTCPFilterChainOpts(env *model.Environment, node *model.
 				// implicit match
 				out = append(out, &filterChainOpts{
 					destinationCIDRs: destinationCIDRs,
-					networkFilters:   buildOutboundNetworkFilters(env, node, tcp.Route, push, listenPort),
+					networkFilters:   buildOutboundNetworkFilters(env, node, tcp.Route, push, listenPort, config.ConfigMeta),
 				})
 				defaultRouteAdded = true
 				break TcpLoop
@@ -197,7 +199,7 @@ func buildSidecarOutboundTCPFilterChainOpts(env *model.Environment, node *model.
 					if len(match.DestinationSubnets) == 0 {
 						out = append(out, &filterChainOpts{
 							destinationCIDRs: destinationCIDRs,
-							networkFilters:   buildOutboundNetworkFilters(env, node, tcp.Route, push, listenPort),
+							networkFilters:   buildOutboundNetworkFilters(env, node, tcp.Route, push, listenPort, config.ConfigMeta),
 						})
 						defaultRouteAdded = true
 						break TcpLoop
@@ -210,7 +212,7 @@ func buildSidecarOutboundTCPFilterChainOpts(env *model.Environment, node *model.
 			if len(virtualServiceDestinationSubnets) > 0 {
 				out = append(out, &filterChainOpts{
 					destinationCIDRs: virtualServiceDestinationSubnets,
-					networkFilters:   buildOutboundNetworkFilters(env, node, tcp.Route, push, listenPort),
+					networkFilters:   buildOutboundNetworkFilters(env, node, tcp.Route, push, listenPort, config.ConfigMeta),
 				})
 			}
 		}
@@ -231,13 +233,11 @@ func buildSidecarOutboundTCPTLSFilterChainOpts(env *model.Environment, node *mod
 	configs []model.Config, destinationIPAddress string, service *model.Service, listenPort *model.Port,
 	proxyLabels model.LabelsCollection, gateways map[string]bool) []*filterChainOpts {
 
-	virtualService := getVirtualServiceForHost(service.Hostname, configs)
-
 	out := make([]*filterChainOpts, 0)
+	config := getConfigForHost(service.Hostname, configs)
 	out = append(out, buildSidecarOutboundTLSFilterChainOpts(env, node, push, destinationIPAddress, service, listenPort,
-		proxyLabels, gateways, virtualService)...)
+		proxyLabels, gateways, config)...)
 	out = append(out, buildSidecarOutboundTCPFilterChainOpts(env, node, push, destinationIPAddress, service, listenPort,
-		proxyLabels, gateways, virtualService)...)
-
+		proxyLabels, gateways, config)...)
 	return out
 }

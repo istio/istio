@@ -500,7 +500,7 @@ func buildGatewayNetworkFiltersFromTCPRoutes(node *model.Proxy, env *model.Envir
 		// based on the match port/server port and the gateway name
 		for _, tcp := range vsvc.Tcp {
 			if l4MultiMatch(tcp.Match, server, gatewaysForWorkload) {
-				return buildOutboundNetworkFilters(env, node, tcp.Route, push, port)
+				return buildOutboundNetworkFilters(env, node, tcp.Route, push, port, spec.ConfigMeta)
 			}
 		}
 	}
@@ -542,7 +542,7 @@ func buildGatewayNetworkFiltersFromTLSRoutes(node *model.Proxy, env *model.Envir
 					filterChains = append(filterChains, &filterChainOpts{
 						sniHosts:       match.SniHosts,
 						tlsContext:     nil, // NO TLS context because this is passthrough
-						networkFilters: buildOutboundNetworkFilters(env, node, tls.Route, push, port),
+						networkFilters: buildOutboundNetworkFilters(env, node, tls.Route, push, port, spec.ConfigMeta),
 					})
 				}
 			}

@@ -15,6 +15,8 @@
 package v1alpha3
 
 import (
+	"fmt"
+
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	fileaccesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v2"
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/filter/accesslog/v2"
@@ -36,32 +38,6 @@ func buildInboundNetworkFilters(env *model.Environment, instance *model.ServiceI
 		ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: clusterName},
 	}
 	return []listener.Filter{*setAccessLogAndBuildTCPFilter(env, config)}
-}
-
-// buildStatPrefix builds a stat prefix by concatenating the given route
-// destinations and port.
-func buildStatPrefix(routes []*networking.RouteDestination, port int, push *model.PushContext) string {
-	var routeNames []string
-	for _, route := range routes {
-		var routeName string
-		service := push.ServiceByHostname[model.Hostname(route.Destination.Host)]
-		if route.Destination.Subset != "" {
-			if service != nil && len(service.Ports) == 1 {
-				routeName = fmt.Sprintf("%s:%s:%d", route.Destination.Host, route.Destination.Subset, service.Ports[0].Port)
-			} else {
-				routeName = fmt.Sprintf("%s:%s", route.Destination.Host, route.Destination.Subset)
-			}
-		} else {
-			if service != nil && len(service.Ports) == 1 {
-				routeName = fmt.Sprintf("%s:%d", route.Destination.Host, service.Ports[0].Port)
-			} else {
-				routeName = route.Destination.Host
-			}
-		}
-		routeNames = append(routeNames, routeName)
-	}
-	sort.Strings(routeNames)
-	return model.BuildSubsetKey(model.TrafficDirectionOutbound, "", model.Hostname(strings.Join(routeNames[:], "_")), port)
 }
 
 // setAccessLogAndBuildTCPFilter sets the AccessLog configuration in the given
@@ -97,20 +73,20 @@ func buildOutboundNetworkFiltersWithSingleDestination(env *model.Environment, no
 		ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: clusterName},
 		// TODO: Need to set other fields such as Idle timeouts
 	}
-	tcpFilter = setAccessLogAndBuildTCPFilter(env, config)
+	tcpFilter := setAccessLogAndBuildTCPFilter(env, config)
 	return buildOutboundNetworkFiltersStack(port, tcpFilter, clusterName)
 }
 
 // buildOutboundNetworkFiltersWithWeightedClusters takes a set of weighted
 // destination routes and builds a stack of network filters.
 func buildOutboundNetworkFiltersWithWeightedClusters(env *model.Environment, routes []*networking.RouteDestination,
-	push *model.PushContext, port *model.Port) []listener.Filter {
+	push *model.PushContext, port *model.Port, config model.ConfigMeta) []listener.Filter {
 
-	statPrefix := buildStatPrefix(routes, port.Port, push)
+	statPrefix := fmt.Sprintf("%s.%s", config.Name, config.Namespace)
 	clusterSpecifier := &tcp_proxy.TcpProxy_WeightedClusters{
 		WeightedClusters: &tcp_proxy.TcpProxy_WeightedCluster{},
 	}
-	config := &tcp_proxy.TcpProxy{
+	proxyConfig := &tcp_proxy.TcpProxy{
 		StatPrefix:       statPrefix,
 		ClusterSpecifier: clusterSpecifier,
 		// TODO: Need to set other fields such as Idle timeouts
@@ -124,7 +100,7 @@ func buildOutboundNetworkFiltersWithWeightedClusters(env *model.Environment, rou
 		})
 	}
 
-	tcpFilter := setAccessLogAndBuildTCPFilter(env, config)
+	tcpFilter := setAccessLogAndBuildTCPFilter(env, proxyConfig)
 	return buildOutboundNetworkFiltersStack(port, tcpFilter, statPrefix)
 }
 
@@ -145,14 +121,14 @@ func buildOutboundNetworkFiltersStack(port *model.Port, tcpFilter *listener.Filt
 // filter).
 func buildOutboundNetworkFilters(env *model.Environment, node *model.Proxy,
 	routes []*networking.RouteDestination, push *model.PushContext,
-	port *model.Port) []listener.Filter {
+	port *model.Port, config model.ConfigMeta) []listener.Filter {
 
 	if len(routes) == 1 {
 		service := push.ServiceByHostname[model.Hostname(routes[0].Destination.Host)]
 		clusterName := istio_route.GetDestinationCluster(routes[0].Destination, service, port.Port)
 		return buildOutboundNetworkFiltersWithSingleDestination(env, node, clusterName, port)
 	}
-	return buildOutboundNetworkFiltersWithWeightedClusters(env, routes, push, port)
+	return buildOutboundNetworkFiltersWithWeightedClusters(env, routes, push, port, config)
 }
 
 func buildOutboundMongoFilter(statPrefix string) listener.Filter {
