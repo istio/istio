@@ -306,6 +306,15 @@ func TestRun(t *testing.T) {
 				id, tc.expectedAuthenticatorsLen, len(server.authenticators))
 		}
 
+		if len(tc.hostname) != len(server.hostnames) {
+			t.Errorf("%s: unmatched number of hosts in CA server configuration. %d (expected) vs %d", id, len(tc.hostname), len(server.hostnames))
+		}
+		for i, hostname := range tc.hostname {
+			if hostname != server.hostnames[i] {
+				t.Errorf("%s: unmatched hosts in CA server configuration. %v (expected) vs %v", id, tc.hostname, server.hostnames)
+			}
+		}
+
 		_, err = server.applyServerCertificate()
 		if len(tc.applyServerCertificateError) > 0 {
 			if err == nil {
