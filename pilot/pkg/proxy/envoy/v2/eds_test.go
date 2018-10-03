@@ -21,6 +21,7 @@ import (
 	"log"
 	"net/http"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -334,12 +335,13 @@ func multipleRequest(server *bootstrap.Server, inc bool, nclients,
 	// All clients are connected - this can start pushing changes.
 	for j := 0; j < nPushes; j++ {
 		if inc {
-			server.EnvoyXdsServer.edsUpdates[edsIncSvc] =
-				&model.ServiceShards{}
-
-			server.EnvoyXdsServer.AdsPushAll("v1",
-				server.EnvoyXdsServer.Env.PushContext,
-				false, server.EnvoyXdsServer.edsUpdates)
+			// This will be throttled - we want to trigger a single push
+			//server.EnvoyXdsServer.MemRegistry.SetEndpoints(edsIncSvc,
+			//	newEndpointWithAccount("127.0.0.2", "hello-sa", "v1"))
+			updates := map[string]*model.ServiceShards{
+				edsIncSvc: &model.ServiceShards{},
+			}
+			server.EnvoyXdsServer.AdsPushAll(strconv.Itoa(j), server.EnvoyXdsServer.Env.PushContext, false, updates)
 		} else {
 			v2.AdsPushAll(server.EnvoyXdsServer)
 		}

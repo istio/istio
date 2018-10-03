@@ -96,7 +96,7 @@ type DiscoveryServer struct {
 	// In 1.1 we'll simplify/cleanup further.
 	ConfigUpdater model.ConfigUpdater
 
-	// EDSUpdates keeps track of all service updates since last full push.
+	// edsUpdates keeps track of all service updates since last full push.
 	// Key is the hostname (servicename). Value is set when any shard part of the service is
 	// updated. This should only be used in the xDS server - will be removed/made private in 1.1,
 	// once the last v1 pieces are cleaned. For 1.0.3+ it is used only for tracking incremental
