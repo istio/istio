@@ -47,6 +47,9 @@ const (
 	// via a minikube installation.
 	APIServer = Instance("apiserver")
 
+	// Citadel indicates a dependency on Citadel.
+	Citadel = Instance("citadel")
+
 	// BookInfo indicates that BookInfo sample should be deployed.
 	BookInfo = Instance("bookInfo")
 

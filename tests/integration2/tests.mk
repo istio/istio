@@ -30,7 +30,7 @@ ifneq ($(KUBECONFIG),)
 endif
 
 # The names of the integration test folders at ROOT/tests/integration2/*.
-_INTEGRATION_TEST_NAMES = galley mixer
+_INTEGRATION_TEST_NAMES = galley mixer citadel
 
 # Generate the names of the integration test targets that use local environment (i.e. test.integration.galley)
 _INTEGRATION_TESTS_LOCAL = $(addprefix test.integration., $(_INTEGRATION_TEST_NAMES))
