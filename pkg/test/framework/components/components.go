@@ -17,9 +17,13 @@ package components
 import (
 	"istio.io/istio/pkg/test/framework/components/apiserver"
 	"istio.io/istio/pkg/test/framework/components/apps"
+	"istio.io/istio/pkg/test/framework/components/bookinfo"
+	"istio.io/istio/pkg/test/framework/components/citadel"
+	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/mixer"
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/components/policybackend"
+	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/framework/components/registry"
 )
 
@@ -40,4 +44,8 @@ func init() {
 	Kubernetes.Register(pilot.KubeComponent)
 	Kubernetes.Register(policybackend.KubeComponent)
 	Kubernetes.Register(apps.KubeComponent)
+	Kubernetes.Register(citadel.KubeComponent)
+	Kubernetes.Register(bookinfo.KubeComponent)
+	Kubernetes.Register(prometheus.KubeComponent)
+	Kubernetes.Register(ingress.KubeComponent)
 }

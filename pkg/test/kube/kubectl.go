@@ -23,7 +23,7 @@ import (
 )
 
 // ApplyContents applies the given config contents using kubectl.
-func ApplyContents(kubeconfig string, ns string, contents string) error {
+func ApplyContents(kubeconfig string, namespace string, contents string) error {
 	f, err := ioutil.TempFile(os.TempDir(), "kubectl")
 	if err != nil {
 		return err
@@ -35,17 +35,17 @@ func ApplyContents(kubeconfig string, ns string, contents string) error {
 		return err
 	}
 
-	return Apply(kubeconfig, ns, f.Name())
+	return Apply(kubeconfig, namespace, f.Name())
 }
 
 // Apply the config in the given filename using kubectl.
-func Apply(kubeconfig string, ns string, filename string) error {
-	nsPart := ""
-	if ns != "" {
-		nsPart = fmt.Sprintf(" -n %s", ns)
+func Apply(kubeconfig string, namespace string, filename string) error {
+	namespaceArg := ""
+	if namespace != "" {
+		namespaceArg = fmt.Sprintf(" -n %s", namespace)
 	}
 
-	s, err := shell.Execute("kubectl apply --kubeconfig=%s%s -f %s", kubeconfig, nsPart, filename)
+	s, err := shell.Execute("kubectl apply --kubeconfig=%s%s -f %s", kubeconfig, namespaceArg, filename)
 	if err == nil {
 		return nil
 	}
@@ -54,8 +54,13 @@ func Apply(kubeconfig string, ns string, filename string) error {
 }
 
 // Delete the config in the given filename using kubectl.
-func Delete(kubeconfig string, filename string) error {
-	s, err := shell.Execute("kubectl delete --kubeconfig=%s -f %s", kubeconfig, filename)
+func Delete(kubeconfig string, namespace string, filename string) error {
+	namespaceArg := ""
+	if namespace != "" {
+		namespaceArg = fmt.Sprintf(" -n %s", namespace)
+	}
+
+	s, err := shell.Execute("kubectl delete --kubeconfig=%s%s -f %s", kubeconfig, namespaceArg, filename)
 	if err == nil {
 		return nil
 	}

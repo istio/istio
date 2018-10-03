@@ -14,10 +14,13 @@
 
 package helm
 
+import kubeCore "k8s.io/api/core/v1"
+
 // Settings for Helm based deployment. These get passed directly to Helm.
 type Settings struct {
-	Tag string
-	Hub string
+	Tag             string
+	Hub             string
+	ImagePullPolicy kubeCore.PullPolicy
 
 	EnableCoreDump bool
 
@@ -31,6 +34,7 @@ func (s *Settings) generate() map[string]string {
 	return map[string]string{
 		"global.tag":                  s.Tag,
 		"global.hub":                  s.Hub,
+		"global.imagePullPolicy":      string(s.ImagePullPolicy),
 		"global.proxy.enableCoreDump": boolString(s.EnableCoreDump),
 		"global.mtls.enabled":         boolString(s.GlobalMtlsEnabled),
 		"galley.enabled":              boolString(s.GalleyEnabled),
@@ -40,6 +44,7 @@ func (s *Settings) generate() map[string]string {
 // DefaultSettings returns a default set of settings.
 func DefaultSettings() *Settings {
 	return &Settings{
+		ImagePullPolicy:   kubeCore.PullIfNotPresent,
 		GlobalMtlsEnabled: true,
 		GalleyEnabled:     true,
 	}

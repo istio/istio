@@ -291,10 +291,6 @@ ignored = [
   version = "^1.13.0"
 
 [[constraint]]
-  branch = "v2"
-  name = "gopkg.in/validator.v2"
-
-[[constraint]]
   name = "gopkg.in/yaml.v2"
   version = "2.2.1"
 

@@ -21,6 +21,8 @@ import (
 	"path"
 	"time"
 
+	kubeCore "k8s.io/api/core/v1"
+
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/test/env"
@@ -48,24 +50,18 @@ type Settings struct {
 	// WorkDir is an output folder for storing intermediate artifacts (i.e. generated yaml etc.)
 	WorkDir string
 
-	// Hub/Tag is the hub & tag values to use, during generation.
-	Hub string
-	Tag string
+	// Hub/Tag/ImagePullPolicy docker image settings to be used during generation.
+	Hub             string
+	Tag             string
+	ImagePullPolicy kubeCore.PullPolicy
 
 	// Namespace is the target deployment namespace (i.e. "istio-system").
 	Namespace string
-
-	// ValuesFile is the name of the values file to use when rendering the template. They are located under
-	// repository.IstioChartDir.
-	ValuesFile valuesFile
 }
 
 // Instance represents an Istio deployment instance that has been performed by this test code.
 type Instance struct {
 	kubeConfig string
-
-	// The deployment name that is specified when generated the chart.
-	deploymentName string
 
 	// The deployment namespace.
 	namespace string
@@ -74,94 +70,103 @@ type Instance struct {
 	yamlFilePath string
 }
 
-// New deploys Istio. New will start an Istio deployment against Istio, wait for its completion, and return a
-// deployment instance to track the lifecycle.
-func New(s *Settings, a *kube.Accessor) (instance *Instance, err error) {
-	scopes.CI.Info("=== BEGIN: Deploy Istio (via Helm Template) ===")
-	defer func() {
-		if err != nil {
-			instance = nil
-			scopes.CI.Infof("=== FAILED: Deploy Istio ===")
-		} else {
-			scopes.CI.Infof("=== SUCCEEDED: Deploy Istio ===")
-		}
-	}()
-
-	instance = &Instance{}
+func newHelmDeployment(s *Settings, a *kube.Accessor, chartDir string, valuesFile valuesFile) (*Instance, error) {
+	instance := &Instance{}
 
 	instance.kubeConfig = s.KubeConfig
 	instance.namespace = s.Namespace
 
 	// Define a deployment name for Helm.
-	instance.deploymentName = fmt.Sprintf("%s-%v", s.Namespace, time.Now().UnixNano())
-	scopes.CI.Infof("Generated Helm Instance name: %s", instance.deploymentName)
+	deploymentName := fmt.Sprintf("%s-%v", s.Namespace, time.Now().UnixNano())
+	scopes.CI.Infof("Generated Helm Instance name: %s", deploymentName)
 
-	instance.yamlFilePath = path.Join(s.WorkDir, instance.deploymentName+".yaml")
+	instance.yamlFilePath = path.Join(s.WorkDir, deploymentName+".yaml")
 
 	settings := helm.DefaultSettings()
 
 	settings.Tag = s.Tag
 	settings.Hub = s.Hub
+	settings.ImagePullPolicy = s.ImagePullPolicy
 	settings.EnableCoreDump = true
 
-	valuesFile := path.Join(env.IstioChartDir, string(s.ValuesFile))
+	vFile := path.Join(chartDir, string(valuesFile))
 
+	var err error
 	var generatedYaml string
 	if generatedYaml, err = helm.Template(
-		instance.deploymentName,
+		deploymentName,
 		s.Namespace,
 		env.IstioChartDir,
-		valuesFile,
+		vFile,
 		settings); err != nil {
-		scopes.CI.Errorf("Helm chart generation failed: %v", err)
-		return
+		return nil, fmt.Errorf("chart generation failed: %v", err)
 	}
 
+	// TODO: This is Istio deployment specific. We may need to remove/reconcile this as a parameter
+	// when we support Helm deployment of non-Istio artifacts.
 	namespaceData := fmt.Sprintf(namespaceTemplate, s.Namespace)
 
 	generatedYaml = namespaceData + generatedYaml
 
 	if err = ioutil.WriteFile(instance.yamlFilePath, []byte(generatedYaml), os.ModePerm); err != nil {
-		scopes.CI.Infof("Writing out Helm generated Yaml file failed: %v", err)
-		return
+		return nil, fmt.Errorf("unable to write helm generated yaml: %v", err)
 	}
 
 	scopes.CI.Infof("Applying Helm generated Yaml file: %s", instance.yamlFilePath)
 	if err = kube.Apply(s.KubeConfig, s.Namespace, instance.yamlFilePath); err != nil {
-		scopes.CI.Errorf("Instance of Helm generated Yaml file failed: %v", err)
-		return
+		return nil, fmt.Errorf("kube apply of generated yaml filed: %v", err)
 	}
 
-	err = instance.wait(s.Namespace, a)
+	if err = instance.wait(s.Namespace, a); err != nil {
+		return nil, err
+	}
 
-	return
+	return instance, nil
+}
+
+func newYamlDeployment(s *Settings, a *kube.Accessor, yamlFile string) (*Instance, error) {
+	instance := &Instance{}
+
+	instance.kubeConfig = s.KubeConfig
+	instance.namespace = s.Namespace
+	instance.yamlFilePath = yamlFile
+
+	scopes.CI.Infof("Applying Yaml file: %s", instance.yamlFilePath)
+	if err := kube.Apply(s.KubeConfig, s.Namespace, instance.yamlFilePath); err != nil {
+		return nil, fmt.Errorf("kube apply of generated yaml filed: %v", err)
+	}
+
+	if err := instance.wait(s.Namespace, a); err != nil {
+		return nil, err
+	}
+
+	return instance, nil
 }
 
 // Wait for installation to complete.
 func (i *Instance) wait(namespace string, a *kube.Accessor) error {
-	scopes.CI.Infof("=== BEGIN: Wait for Istio deployment to quiesce ===")
 	if err := a.WaitUntilPodsInNamespaceAreReady(namespace); err != nil {
 		scopes.CI.Errorf("Wait for Istio pods failed: %v", err)
-		scopes.CI.Infof("=== FAILED: Wait for Istio deployment to quiesce ===")
 		return err
 	}
-	scopes.CI.Infof("=== SUCCEEDED: Wait for Istio deployment to quiesce ===")
 
 	return nil
 }
 
 // Delete this deployment instance.
-func (i *Instance) Delete(a *kube.Accessor) (err error) {
+func (i *Instance) Delete(a *kube.Accessor, wait bool) (err error) {
 
-	if err = kube.Delete(i.kubeConfig, i.yamlFilePath); err != nil {
+	if err = kube.Delete(i.kubeConfig, i.namespace, i.yamlFilePath); err != nil {
 		scopes.CI.Warnf("Error deleting deployment: %v", err)
 	}
 
-	// TODO: Just for waiting for deployment namespace deletion may not be enough. There are CRDs
-	// and roles/rolebindings in other parts of the system as well. We should also wait for deletion of them.
-	if e := a.WaitForNamespaceDeletion(i.namespace); e != nil {
-		scopes.CI.Warnf("Error waiting for environment deletion: %v", e)
-		err = multierror.Append(err, e)
+	if wait {
+		// TODO: Just for waiting for deployment namespace deletion may not be enough. There are CRDs
+		// and roles/rolebindings in other parts of the system as well. We should also wait for deletion of them.
+		if e := a.WaitForNamespaceDeletion(i.namespace); e != nil {
+			scopes.CI.Warnf("Error waiting for environment deletion: %v", e)
+			err = multierror.Append(err, e)
+		}
 	}
 
 	return

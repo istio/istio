@@ -276,7 +276,7 @@ var virtualServiceWithSubset = &networking.VirtualService{
 	Gateways: []string{"some-gateway"},
 	Http: []*networking.HTTPRoute{
 		{
-			Route: []*networking.DestinationWeight{
+			Route: []*networking.HTTPRouteDestination{
 				{
 					Destination: &networking.Destination{
 						Subset: "some-subset",
@@ -299,7 +299,7 @@ var virtualServiceWithSubsetWithPortLevelSettings = &networking.VirtualService{
 	Gateways: []string{"some-gateway"},
 	Http: []*networking.HTTPRoute{
 		{
-			Route: []*networking.DestinationWeight{
+			Route: []*networking.HTTPRouteDestination{
 				{
 					Destination: &networking.Destination{
 						Subset: "port-level-settings-subset",
@@ -328,7 +328,7 @@ var virtualServicePlain = model.Config{
 		Gateways: []string{"some-gateway"},
 		Http: []*networking.HTTPRoute{
 			{
-				Route: []*networking.DestinationWeight{
+				Route: []*networking.HTTPRouteDestination{
 					{
 						Destination: &networking.Destination{
 							Host: "*.example.org",

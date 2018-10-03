@@ -143,8 +143,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 
 		// We need a passthrough filter to fill in the filter stack for orig_dst listener
 		passthroughTCPProxy := &tcp_proxy.TcpProxy{
-			StatPrefix: util.PassthroughCluster,
-			Cluster:    util.PassthroughCluster,
+			StatPrefix:       util.PassthroughCluster,
+			ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.PassthroughCluster},
 		}
 
 		var transparent *google_protobuf.BoolValue
@@ -481,16 +481,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 				// into listener address so that there is a dedicated listener for this
 				// ip:port. This will reduce the impact of a listener reload
 
-				var svcListenAddress string
-				// This is to maintain backward compatibility with 0.8 envoy
-				if !util.Is1xProxy(node) {
-					if service.Resolution != model.Passthrough {
-						svcListenAddress = service.GetServiceAddressForProxy(node)
-					}
-				} else {
-					svcListenAddress = service.GetServiceAddressForProxy(node)
-				}
-
+				svcListenAddress := service.GetServiceAddressForProxy(node)
 				// We should never get an empty address.
 				// This is a safety guard, in case some platform adapter isn't doing things
 				// properly
@@ -796,16 +787,14 @@ func buildHTTPConnectionManager(env *model.Environment, node *model.Proxy, httpO
 	connectionManager.StatPrefix = httpOpts.statPrefix
 	connectionManager.UseRemoteAddress = &google_protobuf.BoolValue{Value: httpOpts.useRemoteAddress}
 
-	if util.Is1xProxy(node) {
-		// Allow websocket upgrades
-		websocketUpgrade := &http_conn.HttpConnectionManager_UpgradeConfig{UpgradeType: "websocket"}
-		connectionManager.UpgradeConfigs = []*http_conn.HttpConnectionManager_UpgradeConfig{websocketUpgrade}
-		notimeout := 0 * time.Second
-		// Setting IdleTimeout to 0 seems to break most tests, causing
-		// envoy to disconnect.
-		// connectionManager.IdleTimeout = &notimeout
-		connectionManager.StreamIdleTimeout = &notimeout
-	}
+	// Allow websocket upgrades
+	websocketUpgrade := &http_conn.HttpConnectionManager_UpgradeConfig{UpgradeType: "websocket"}
+	connectionManager.UpgradeConfigs = []*http_conn.HttpConnectionManager_UpgradeConfig{websocketUpgrade}
+	notimeout := 0 * time.Second
+	// Setting IdleTimeout to 0 seems to break most tests, causing
+	// envoy to disconnect.
+	// connectionManager.IdleTimeout = &notimeout
+	connectionManager.StreamIdleTimeout = &notimeout
 
 	if httpOpts.rds != "" {
 		rds := &http_conn.HttpConnectionManager_Rds{

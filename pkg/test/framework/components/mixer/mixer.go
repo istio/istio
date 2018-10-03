@@ -290,6 +290,12 @@ func (d *deployedMixer) Report(t testing.TB, attributes map[string]interface{}) 
 func (d *deployedMixer) Check(t testing.TB, attributes map[string]interface{}) environment.CheckResponse {
 	t.Helper()
 
+	expanded, err := expandAttributeTemplates(d.environment.Evaluate, attributes)
+	if err != nil {
+		t.Fatalf("Error expanding attribute templates: %v", err)
+	}
+	attributes = expanded.(map[string]interface{})
+
 	req := istio_mixer_v1.CheckRequest{
 		Attributes: getAttrBag(attributes),
 	}
