@@ -125,6 +125,21 @@ func (m *HttpService) Validate() error {
 
 	// no validation rules for PathPrefix
 
+	for idx, item := range m.GetAuthorizationHeadersToAdd() {
+		_, _ = idx, item
+
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return HttpServiceValidationError{
+					Field:  fmt.Sprintf("AuthorizationHeadersToAdd[%v]", idx),
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
+	}
+
 	return nil
 }
 

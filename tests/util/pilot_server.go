@@ -15,6 +15,7 @@
 package util
 
 import (
+	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -58,20 +59,31 @@ var (
 	stop chan struct{}
 )
 
+// CloserFunc is a type used to describe pilot server closer
+// which implements io.Closer
+type CloserFunc func() error
+
+//Close is used to shutdown pilot server
+func (f CloserFunc) Close() error {
+	return f()
+}
+
 // EnsureTestServer will ensure a pilot server is running in process and initializes
 // the MockPilotUrl and MockPilotGrpcAddr to allow connections to the test pilot.
-func EnsureTestServer(args ...func(*bootstrap.PilotArgs)) *bootstrap.Server {
+func EnsureTestServer(args ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, io.Closer) {
+	var cancel io.Closer
+	var err error
 	if MockTestServer == nil {
-		err := setup(args...)
+		cancel, err = setup(args...)
 		if err != nil {
 			log.Errora("Failed to start in-process server", err)
 			panic(err)
 		}
 	}
-	return MockTestServer
+	return MockTestServer, cancel
 }
 
-func setup(additionalArgs ...func(*bootstrap.PilotArgs)) error {
+func setup(additionalArgs ...func(*bootstrap.PilotArgs)) (io.Closer, error) {
 	// TODO: point to test data directory
 	// Setting FileDir (--configDir) disables k8s client initialization, including for registries,
 	// and uses a 100ms scan. Must be used with the mock registry (or one of the others)
@@ -123,34 +135,34 @@ func setup(additionalArgs ...func(*bootstrap.PilotArgs)) error {
 	// Create and setup the controller.
 	s, err := bootstrap.NewServer(args)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	MockTestServer = s
 
 	// Start the server.
 	if err := s.Start(stop); err != nil {
-		return err
+		return nil, err
 	}
 
 	// Extract the port from the network address.
 	_, port, err := net.SplitHostPort(s.HTTPListeningAddr.String())
 	if err != nil {
-		return err
+		return nil, err
 	}
 	MockPilotURL = "http://localhost:" + port
 	MockPilotHTTPPort, _ = strconv.Atoi(port)
 
 	_, port, err = net.SplitHostPort(s.GRPCListeningAddr.String())
 	if err != nil {
-		return err
+		return nil, err
 	}
 	MockPilotGrpcAddr = "localhost:" + port
 	MockPilotGrpcPort, _ = strconv.Atoi(port)
 
 	_, port, err = net.SplitHostPort(s.SecureGRPCListeningAddr.String())
 	if err != nil {
-		return err
+		return nil, err
 	}
 	MockPilotSecureAddr = "localhost:" + port
 	MockPilotSecurePort, _ = strconv.Atoi(port)
@@ -169,6 +181,5 @@ func setup(additionalArgs ...func(*bootstrap.PilotArgs)) error {
 		}
 		return false, nil
 	})
-
-	return err
+	return CloserFunc(func() error { close(stop); return nil }), err
 }

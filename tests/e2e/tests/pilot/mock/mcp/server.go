@@ -18,81 +18,24 @@ import (
 	"log"
 	"net"
 	"net/url"
-	"time"
 
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
 	"google.golang.org/grpc"
 
 	mcp "istio.io/api/mcp/v1alpha1"
-	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/model"
 	mcpserver "istio.io/istio/pkg/mcp/server"
+	"istio.io/istio/pkg/mcp/testing/monitoring"
 )
 
-var fakeCreateTime *types.Timestamp
+type WatchResponse func(req *mcp.MeshConfigRequest) (*mcpserver.WatchResponse, mcpserver.CancelWatchFunc)
 
-func init() {
-	var err error
-	fakeCreateTime, err = types.TimestampProto(time.Date(2018, time.January, 1, 12, 15, 30, 5e8, time.UTC))
-	if err != nil {
-		panic(err)
-	}
+type mockWatcher struct {
+	response WatchResponse
 }
 
-type mockWatcher struct{}
-
-func (m mockWatcher) Watch(req *mcp.MeshConfigRequest,
+func (m mockWatcher) Watch(
+	req *mcp.MeshConfigRequest,
 	resp chan<- *mcpserver.WatchResponse) (*mcpserver.WatchResponse, mcpserver.CancelWatchFunc) {
-
-	var cancelFunc mcpserver.CancelWatchFunc
-	cancelFunc = func() {
-		log.Printf("watch canceled for %s\n", req.GetTypeUrl())
-	}
-
-	if req.GetTypeUrl() == fmt.Sprintf("type.googleapis.com/%s", model.Gateway.MessageName) {
-		marshaledFirstGateway, err := proto.Marshal(firstGateway)
-		if err != nil {
-			log.Fatalf("marshaling gateway %s\n", err)
-		}
-		marshaledSecondGateway, err := proto.Marshal(secondGateway)
-		if err != nil {
-			log.Fatalf("marshaling gateway %s\n", err)
-		}
-
-		return &mcpserver.WatchResponse{
-			Version: req.GetVersionInfo(),
-			TypeURL: req.GetTypeUrl(),
-			Envelopes: []*mcp.Envelope{
-				{
-					Metadata: &mcp.Metadata{
-						Name:       "some-name",
-						CreateTime: fakeCreateTime,
-					},
-					Resource: &types.Any{
-						TypeUrl: req.GetTypeUrl(),
-						Value:   marshaledFirstGateway,
-					},
-				},
-				{
-					Metadata: &mcp.Metadata{
-						Name:       "some-other-name",
-						CreateTime: fakeCreateTime,
-					},
-					Resource: &types.Any{
-						TypeUrl: req.GetTypeUrl(),
-						Value:   marshaledSecondGateway,
-					},
-				},
-			},
-		}, cancelFunc
-	}
-
-	return &mcpserver.WatchResponse{
-		Version:   req.GetVersionInfo(),
-		TypeURL:   req.GetTypeUrl(),
-		Envelopes: []*mcp.Envelope{},
-	}, cancelFunc
+	return m.response(req)
 }
 
 type Server struct {
@@ -112,9 +55,11 @@ type Server struct {
 	l  net.Listener
 }
 
-func NewServer(addr string, typeUrls []string) (*Server, error) {
-	watcher := mockWatcher{}
-	s := mcpserver.New(watcher, typeUrls, mcpserver.NewAllowAllChecker())
+func NewServer(addr string, typeUrls []string, watchResponseFunc WatchResponse) (*Server, error) {
+	watcher := mockWatcher{
+		response: watchResponseFunc,
+	}
+	s := mcpserver.New(watcher, typeUrls, mcpserver.NewAllowAllChecker(), mcptestmon.NewInMemoryServerStatsContext())
 
 	l, err := net.Listen("tcp", addr)
 	if err != nil {
@@ -157,34 +102,4 @@ func (t *Server) Close() (err error) {
 	t.Port = 0
 
 	return
-}
-
-var firstGateway = &networking.Gateway{
-	Servers: []*networking.Server{
-		&networking.Server{
-			Port: &networking.Port{
-				Name:     "http-8099",
-				Number:   8099,
-				Protocol: "http",
-			},
-			Hosts: []string{
-				"bar.example.com",
-			},
-		},
-	},
-}
-
-var secondGateway = &networking.Gateway{
-	Servers: []*networking.Server{
-		&networking.Server{
-			Port: &networking.Port{
-				Name:     "tcp-880",
-				Number:   880,
-				Protocol: "tcp",
-			},
-			Hosts: []string{
-				"foo.example.org",
-			},
-		},
-	},
 }

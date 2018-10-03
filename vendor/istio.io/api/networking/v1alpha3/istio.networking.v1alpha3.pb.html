@@ -6,7 +6,7 @@ layout: protoc-gen-docs
 generator: protoc-gen-docs
 aliases:
   - /docs/reference/config/istio.routing.v1alpha1/
-number_of_entries: 50
+number_of_entries: 52
 ---
 <p>Configuration affecting traffic routing. Here are a few terms useful to define
 in the context of traffic routing.</p>
@@ -570,104 +570,6 @@ sizes, outlier detection).</p>
 <td>
 <p>One or more named sets that represent individual versions of a
 service. Traffic policies can be overridden at subset level.</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="DestinationWeight">DestinationWeight</h2>
-<section>
-<p>Each routing rule is associated with one or more service versions (see
-glossary in beginning of document). Weights associated with the version
-determine the proportion of traffic it receives. For example, the
-following rule will route 25% of traffic for the &ldquo;reviews&rdquo; service to
-instances with the &ldquo;v2&rdquo; tag and the remaining traffic (i.e., 75%) to
-&ldquo;v1&rdquo;.</p>
-
-<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
-kind: VirtualService
-metadata:
-  name: reviews-route
-spec:
-  hosts:
-  - reviews.prod.svc.cluster.local
-  http:
-  - route:
-    - destination:
-        host: reviews.prod.svc.cluster.local
-        subset: v2
-      weight: 25
-    - destination:
-        host: reviews.prod.svc.cluster.local
-        subset: v1
-      weight: 75
-</code></pre>
-
-<p>And the associated DestinationRule</p>
-
-<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: reviews-destination
-spec:
-  host: reviews.prod.svc.cluster.local
-  subsets:
-  - name: v1
-    labels:
-      version: v1
-  - name: v2
-    labels:
-      version: v2
-</code></pre>
-
-<p>Traffic can also be split across two entirely different services without
-having to define new subsets. For example, the following rule forwards 25% of
-traffic to reviews.com to dev.reviews.com</p>
-
-<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
-kind: VirtualService
-metadata:
-  name: reviews-route-two-domains
-spec:
-  hosts:
-  - reviews.com
-  http:
-  - route:
-    - destination:
-        host: dev.reviews.com
-      weight: 25
-    - destination:
-        host: reviews.com
-      weight: 75
-</code></pre>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="DestinationWeight-destination">
-<td><code>destination</code></td>
-<td><code><a href="#Destination">Destination</a></code></td>
-<td>
-<p>REQUIRED. Destination uniquely identifies the instances of a service
-to which the request/connection should be forwarded to.</p>
-
-</td>
-</tr>
-<tr id="DestinationWeight-weight">
-<td><code>weight</code></td>
-<td><code>int32</code></td>
-<td>
-<p>REQUIRED. The proportion of traffic to be forwarded to the service
-version. (0-100). Sum of weights across destinations SHOULD BE == 100.
-If there is only one destination in a rule, the weight value is assumed to
-be 100.</p>
 
 </td>
 </tr>
@@ -1685,7 +1587,7 @@ number of retries attempted depends on the httpReqTimeout.</p>
 <section>
 <p>HTTPRewrite can be used to rewrite specific parts of a HTTP request
 before forwarding the request to the destination. Rewrite primitive can
-be used only with the DestinationWeights. The following example
+be used only with HTTPRouteDestination. The following example
 demonstrates how to rewrite the URL prefix for api call (/ratings) to
 ratings service before making the actual API call.</p>
 
@@ -1765,7 +1667,7 @@ is matched if any one of the match blocks succeed.</p>
 </tr>
 <tr id="HTTPRoute-route">
 <td><code>route</code></td>
-<td><code><a href="#DestinationWeight">DestinationWeight[]</a></code></td>
+<td><code><a href="#HTTPRouteDestination">HTTPRouteDestination[]</a></code></td>
 <td>
 <p>A http rule can either redirect or forward (default) traffic. The
 forwarding target can be one of several versions of a service (see
@@ -1843,8 +1745,176 @@ for further details about cross origin resource sharing.</p>
 
 </td>
 </tr>
-<tr id="HTTPRoute-append_headers">
+<tr id="HTTPRoute-append_headers" class="deprecated ">
 <td><code>appendHeaders</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+<p>Use of <code>append_headers</code> is deprecated. Use the <code>append_request_headers</code>
+field instead.</p>
+
+</td>
+</tr>
+<tr id="HTTPRoute-remove_response_headers">
+<td><code>removeResponseHeaders</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>HTTP headers to remove before returning a response to the caller.</p>
+
+</td>
+</tr>
+<tr id="HTTPRoute-append_response_headers">
+<td><code>appendResponseHeaders</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+<p>Additional HTTP headers to add before returning a response to the
+caller.</p>
+
+</td>
+</tr>
+<tr id="HTTPRoute-remove_request_headers">
+<td><code>removeRequestHeaders</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>HTTP headers to remove before forwarding a request to the
+destination service.</p>
+
+</td>
+</tr>
+<tr id="HTTPRoute-append_request_headers">
+<td><code>appendRequestHeaders</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+<p>Additional HTTP headers to add before forwarding a request to the
+destination service.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="HTTPRouteDestination">HTTPRouteDestination</h2>
+<section>
+<p>Each routing rule is associated with one or more service versions (see
+glossary in beginning of document). Weights associated with the version
+determine the proportion of traffic it receives. For example, the
+following rule will route 25% of traffic for the &ldquo;reviews&rdquo; service to
+instances with the &ldquo;v2&rdquo; tag and the remaining traffic (i.e., 75%) to
+&ldquo;v1&rdquo;.</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: reviews-route
+spec:
+  hosts:
+  - reviews.prod.svc.cluster.local
+  http:
+  - route:
+    - destination:
+        host: reviews.prod.svc.cluster.local
+        subset: v2
+      weight: 25
+    - destination:
+        host: reviews.prod.svc.cluster.local
+        subset: v1
+      weight: 75
+</code></pre>
+
+<p>And the associated DestinationRule</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: reviews-destination
+spec:
+  host: reviews.prod.svc.cluster.local
+  subsets:
+  - name: v1
+    labels:
+      version: v1
+  - name: v2
+    labels:
+      version: v2
+</code></pre>
+
+<p>Traffic can also be split across two entirely different services without
+having to define new subsets. For example, the following rule forwards 25% of
+traffic to reviews.com to dev.reviews.com</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: reviews-route-two-domains
+spec:
+  hosts:
+  - reviews.com
+  http:
+  - route:
+    - destination:
+        host: dev.reviews.com
+      weight: 25
+    - destination:
+        host: reviews.com
+      weight: 75
+</code></pre>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="HTTPRouteDestination-destination">
+<td><code>destination</code></td>
+<td><code><a href="#Destination">Destination</a></code></td>
+<td>
+<p>REQUIRED. Destination uniquely identifies the instances of a service
+to which the request/connection should be forwarded to.</p>
+
+</td>
+</tr>
+<tr id="HTTPRouteDestination-weight">
+<td><code>weight</code></td>
+<td><code>int32</code></td>
+<td>
+<p>REQUIRED. The proportion of traffic to be forwarded to the service
+version. (0-100). Sum of weights across destinations SHOULD BE == 100.
+If there is only one destination in a rule, the weight value is assumed to
+be 100.</p>
+
+</td>
+</tr>
+<tr id="HTTPRouteDestination-remove_response_headers">
+<td><code>removeResponseHeaders</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>HTTP headers to remove before returning a response to the caller.</p>
+
+</td>
+</tr>
+<tr id="HTTPRouteDestination-append_response_headers">
+<td><code>appendResponseHeaders</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+<p>Additional HTTP headers to add before returning a response to the
+caller.</p>
+
+</td>
+</tr>
+<tr id="HTTPRouteDestination-remove_request_headers">
+<td><code>removeRequestHeaders</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>HTTP headers to remove before forwarding a request to the
+destination service.</p>
+
+</td>
+</tr>
+<tr id="HTTPRouteDestination-append_request_headers">
+<td><code>appendRequestHeaders</code></td>
 <td><code>map&lt;string,&nbsp;string&gt;</code></td>
 <td>
 <p>Additional HTTP headers to add before forwarding a request to the
@@ -2305,6 +2375,42 @@ matching or selection for final routing.</p>
 </tbody>
 </table>
 </section>
+<h2 id="RouteDestination">RouteDestination</h2>
+<section>
+<p>L4 routing rule weighted destination.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="RouteDestination-destination">
+<td><code>destination</code></td>
+<td><code><a href="#Destination">Destination</a></code></td>
+<td>
+<p>REQUIRED. Destination uniquely identifies the instances of a service
+to which the request/connection should be forwarded to.</p>
+
+</td>
+</tr>
+<tr id="RouteDestination-weight">
+<td><code>weight</code></td>
+<td><code>int32</code></td>
+<td>
+<p>REQUIRED. The proportion of traffic to be forwarded to the service
+version. (0-100). Sum of weights across destinations SHOULD BE == 100.
+If there is only one destination in a rule, the weight value is assumed to
+be 100.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
 <h2 id="Server">Server</h2>
 <section>
 <p><code>Server</code> describes the properties of the proxy on a given load balancer
@@ -2485,6 +2591,81 @@ certificate presented by the client.</p>
 
 </td>
 </tr>
+<tr id="Server-TLSOptions-min_protocol_version">
+<td><code>minProtocolVersion</code></td>
+<td><code><a href="#Server-TLSOptions-TLSProtocol">Server.TLSOptions.TLSProtocol</a></code></td>
+<td>
+<p>Optional: Minimum TLS protocol version.</p>
+
+</td>
+</tr>
+<tr id="Server-TLSOptions-max_protocol_version">
+<td><code>maxProtocolVersion</code></td>
+<td><code><a href="#Server-TLSOptions-TLSProtocol">Server.TLSOptions.TLSProtocol</a></code></td>
+<td>
+<p>Optional: Maximum TLS protocol version.</p>
+
+</td>
+</tr>
+<tr id="Server-TLSOptions-cipher_suites">
+<td><code>cipherSuites</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>Optional: If specified, only support the specified cipher list.
+Otherwise default to the default cipher list supported by Envoy.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Server-TLSOptions-TLSProtocol">Server.TLSOptions.TLSProtocol</h2>
+<section>
+<p>TLS protocol versions.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Server-TLSOptions-TLSProtocol-TLS_AUTO">
+<td><code>TLS_AUTO</code></td>
+<td>
+<p>Automatically choose the optimal TLS version.</p>
+
+</td>
+</tr>
+<tr id="Server-TLSOptions-TLSProtocol-TLSv1_0">
+<td><code>TLSv1_0</code></td>
+<td>
+<p>TLS version 1.0</p>
+
+</td>
+</tr>
+<tr id="Server-TLSOptions-TLSProtocol-TLSv1_1">
+<td><code>TLSv1_1</code></td>
+<td>
+<p>TLS version 1.1</p>
+
+</td>
+</tr>
+<tr id="Server-TLSOptions-TLSProtocol-TLSv1_2">
+<td><code>TLSv1_2</code></td>
+<td>
+<p>TLS version 1.2</p>
+
+</td>
+</tr>
+<tr id="Server-TLSOptions-TLSProtocol-TLSv1_3">
+<td><code>TLSv1_3</code></td>
+<td>
+<p>TLS version 1.3</p>
+
+</td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -2531,7 +2712,7 @@ client certificates for authentication.</p>
 <p><code>ServiceEntry</code> enables adding additional entries into Istio&rsquo;s internal
 service registry, so that auto-discovered services in the mesh can
 access/route to these manually specified services. A service entry
-describes the properties of a service (DNS name, VIPs ,ports, protocols,
+describes the properties of a service (DNS name, VIPs, ports, protocols,
 endpoints). These services could be external to the mesh (e.g., web
 APIs) or mesh-internal services that are not part of the platform&rsquo;s
 service registry (e.g., a set of VMs talking to services in Kubernetes).</p>
@@ -3079,6 +3260,12 @@ spec:
 <p><strong>Note:</strong> Policies specified for subsets will not take effect until
 a route rule explicitly sends traffic to this subset.</p>
 
+<p>One or more labels are typically required to identify the subset destination,
+however, when the corresponding DestinationRule represents a host that
+supports multiple SNI hosts (e.g., an egress gateway), a subset without labels
+may be meaningful. In this case a traffic policy with <a href="#TLSSettings">TLSSettings</a>
+can be used to identify a specific SNI host corresponding to the named subset.</p>
+
 <table class="message-fields">
 <thead>
 <tr>
@@ -3101,7 +3288,7 @@ be used for traffic splitting in a route rule.</p>
 <td><code>labels</code></td>
 <td><code>map&lt;string,&nbsp;string&gt;</code></td>
 <td>
-<p>REQUIRED. Labels apply a filter over the endpoints of a service in the
+<p>Labels apply a filter over the endpoints of a service in the
 service registry. See route rules for examples of usage.</p>
 
 </td>
@@ -3165,12 +3352,9 @@ is matched if any one of the match blocks succeed.</p>
 </tr>
 <tr id="TCPRoute-route">
 <td><code>route</code></td>
-<td><code><a href="#DestinationWeight">DestinationWeight[]</a></code></td>
+<td><code><a href="#RouteDestination">RouteDestination[]</a></code></td>
 <td>
-<p>The destination to which the connection should be forwarded to.
-Currently, only one destination is allowed for TCP services. When TCP
-weighted routing support is introduced in Envoy, multiple destinations
-with weights can be specified.</p>
+<p>The destination to which the connection should be forwarded to.</p>
 
 </td>
 </tr>
@@ -3300,12 +3484,9 @@ is matched if any one of the match blocks succeed.</p>
 </tr>
 <tr id="TLSRoute-route">
 <td><code>route</code></td>
-<td><code><a href="#DestinationWeight">DestinationWeight[]</a></code></td>
+<td><code><a href="#RouteDestination">RouteDestination[]</a></code></td>
 <td>
-<p>The destination to which the connection should be forwarded to.
-Currently, only one destination is allowed for TLS services. When TCP
-weighted routing support is introduced in Envoy, multiple destinations
-with weights can be specified.</p>
+<p>The destination to which the connection should be forwarded to.</p>
 
 </td>
 </tr>

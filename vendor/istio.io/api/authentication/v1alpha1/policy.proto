@@ -309,8 +309,8 @@ enum PrincipalBinding {
 //   principalBinding: USE_ORIGIN
 // ```
 message Policy {
-  // List rules to select destinations that the policy should be applied on.
-  // If empty, policy will be used on all destinations in the same namespace.
+  // List rules to select workloads that the policy should be applied on.
+  // If empty, policy will be used on all workloads in the same namespace.
   repeated TargetSelector targets = 1;
 
   // List of authentication methods that can be used for peer authentication.
@@ -320,14 +320,12 @@ message Policy {
   // Leave the list empty if peer authentication is not required
   repeated PeerAuthenticationMethod peers = 2;
 
-  // $hide_from_docs
-  // WILL BE DEPRECATED
   // Set this flag to true to accept request (for peer authentication perspective),
   // even when none of the peer authentication methods defined above satisfied.
   // Typically, this is used to delay the rejection decision to next layer (e.g
   // authorization).
   // This flag is ignored if no authentication defined for peer (peers field is empty).
-  bool peer_is_optional = 3 [deprecated = true];
+  bool peer_is_optional = 3;
 
   // List of authentication methods that can be used for origin authentication.
   // Similar to peers, these will be evaluated in order; the first validate one
@@ -339,14 +337,12 @@ message Policy {
   // Leave the list empty if origin authentication is not required.
   repeated OriginAuthenticationMethod origins = 4;
 
-  // $hide_from_docs
-  // WILL BE DEPRECATED
   // Set this flag to true to accept request (for origin authentication perspective),
   // even when none of the origin authentication methods defined above satisfied.
   // Typically, this is used to delay the rejection decision to next layer (e.g
   // authorization).
   // This flag is ignored if no authentication defined for origin (origins field is empty).
-  bool origin_is_optional = 5 [deprecated = true];
+  bool origin_is_optional = 5;
 
   // Define whether peer or origin identity should be use for principal. Default
   // value is USE_PEER.
@@ -357,14 +353,28 @@ message Policy {
   PrincipalBinding principal_binding = 6;
 }
 
-// TargetSelector defines a matching rule to a service/destination.
+// TargetSelector defines a matching rule to a workload. A workload is selected
+// if it is associated with the service name and service port(s) specified in the selector rule.
 message TargetSelector {
   // REQUIRED. The name must be a short name from the service registry. The
   // fully qualified domain name will be resolved in a platform specific manner.
   string name = 1;
 
-  // Specifies the ports on the destination. Leave empty to match all ports
-  // that are exposed.
+  // Specifies the ports. Note that this is the port(s) exposed by the service, not workload ports.
+  // For example, if a service is defined as below, then `8000` should be used, not `9000`.
+  // ```
+  // kind: Service
+  // metadata:
+  //   ...
+  // spec:
+  //   ports:
+  //   - name: http
+  //     port: 8000
+  //     targetPort: 9000
+  //   selector:
+  //     app: backend
+  // ```
+  //Leave empty to match all ports that are exposed.
   repeated PortSelector ports = 2;
 }
 
