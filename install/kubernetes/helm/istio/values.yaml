@@ -166,14 +166,12 @@ global:
     # only entry point into the cluster (instead of requiring pod to pod
     # connectivity across two clusters). Note that for this system to work,
     # service objects from remote clusters have to be replicated to local
-    # cluster (without the pod selectors). In addition, endpoints have to be
-    # added to each replicated service object, where the endpoint points to
-    # the remote cluster's MCgatewayIP:8443. All clusters should be using
-    # Istio mTLS and must have a shared root CA for this model to work.
+    # cluster (without the pod selectors). In addition, service entries
+    # have to be added for each replicated service object, where the
+    # endpoints in the service entry point to the remote cluster's
+    # MCgatewayIP:8443. All clusters should be using Istio mTLS and must
+    # have a shared root CA for this model to work.
     connectUsingGateway: false
-    # Change this to mcgateway to use a dedicated controlled gateway for
-    # multi-cluster traffic over port 15443
-    gatewayName: ingressgateway
 
   # A minimal set of requested resources to applied to all deployments so that
   # Horizontal Pod Autoscaler will be able to function (if set).
@@ -273,14 +271,16 @@ gateways:
     - port: 443
       name: https
       nodePort: 31390
-    # Example of a port to add  
+    # Example of a port to add. Remove if not needed
     - port: 31400
       name: tcp
       nodePort: 31400
+    #### MESH EXPANSION PORTS  ########
     # Pilot and Citadel MTLS ports are enabled in gateway - but will only redirect
     # to pilot/citadel if global.meshExpansion settings are enabled.
     # Delete these ports if mesh expansion is not enabled, to avoid
     # exposing unnecessary ports on the web.
+    # You can remove these ports if you are not using mesh expansion
     - port: 15011
       targetPort: 15011
       name: tcp-pilot-grpc-tls
@@ -290,6 +290,9 @@ gateways:
     - port: 853
       targetPort: 853
       name: tcp-dns-tls
+    ####### end MESH EXPANSION PORTS ######
+    ### PORTS FOR UI/metrics #####
+    ## Disable if not needed
     - port: 15029
       targetPort: 15029
       name: http-kiali
@@ -299,13 +302,7 @@ gateways:
     - port: 15031
       targetPort: 15031
       name: http2-grafana
-      # MultiCluster gateway is used to route traffic into local cluster, based
-      # on the SNI value in the TLS connection. In a multi-cluster setup, a
-      # remote service sends traffic with the Envoy cluster encoded in the SNI
-      # value. The gateway forwards traffic to the envoy cluster (service+subset+port).
-    - port: 15443
-      targetPort: 15443
-      name: tls
+   ##############   
     secretVolumes:
     - name: ingressgateway-certs
       secretName: istio-ingressgateway-certs
@@ -417,6 +414,10 @@ gateways:
     - port: 15443
       targetPort: 15443
       name: tls
+    envVariables:
+      # this is needed to tell pilot to not generate
+      # mTLS clusters for the mcgateway
+      ISTIO_META_ISTIO_GATEWAY_MODE: multicluster
 
 #
 # sidecar-injector webhook configuration

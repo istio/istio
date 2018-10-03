@@ -132,7 +132,13 @@ spec:
           - name: ISTIO_META_POD_NAME
             valueFrom:
               fieldRef:
-                fieldPath: metadata.name
+                fieldPath: metadata.name                
+          {{- if $spec.envVariables }}
+          {{- range $key, $val := $spec.envVariables }}
+          - name: {{ $key }}
+            value: {{ $val }}
+          {{- end }}
+          {{ end }}
           volumeMounts:
           - name: istio-certs
             mountPath: /etc/certs
