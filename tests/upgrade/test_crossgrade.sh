@@ -44,9 +44,9 @@ usage() {
 ISTIO_NAMESPACE="istio-system"
 
 while (( "$#" )); do
-    PARAM=`echo $1 | awk -F= '{print $1}'`
-    eval VALUE=`echo $1 | awk -F= '{print $2}'`
-    case $PARAM in
+    PARAM=$(echo "${1}" | awk -F= '{print $1}')
+    eval VALUE="$(echo "${1}" | awk -F= '{print $2}')"
+    case "${PARAM}" in
         -h | --help)
             usage
             exit
@@ -112,14 +112,14 @@ installIstioSystemAtVersionHelmTemplate() {
         auth_opts="--set global.mtls.enabled=true --set global.controlPlaneSecurityEnabled=true "
     fi
     release_path="${3}"/install/kubernetes/helm/istio
-    helm template ${release_path} ${auth_opts} \
-    --name istio --namespace ${ISTIO_NAMESPACE} \
+    helm template "${release_path}" "${auth_opts}" \
+    --name istio --namespace "${ISTIO_NAMESPACE}" \
     --set gateways.istio-ingressgateway.replicaCount=4 \
     --set gateways.istio-ingressgateway.autoscaleMin=4 \
     --set global.hub="${1}" \
     --set global.tag="${2}" > "${ISTIO_ROOT}/istio.yaml"
 
-   kubectl apply -n ${ISTIO_NAMESPACE} -f "${ISTIO_ROOT}/istio.yaml"
+   kubectl apply -n "${ISTIO_NAMESPACE}" -f "${ISTIO_ROOT}"/istio.yaml
 }
 
 installTest() {
@@ -161,8 +161,8 @@ waitForIngress() {
     INGRESS_HOST=""
     while [ -z ${INGRESS_HOST} ]; do
         echo "Waiting for ingress-gateway addr..."
-        INGRESS_HOST=$(kubectl -n ${ISTIO_NAMESPACE} get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-        INGRESS_PORT=$(kubectl -n ${ISTIO_NAMESPACE} get service istio-ingressgateway -o jsonpath='{.spec.ports[?(@.name=="http2")].port}')
+        INGRESS_HOST=$(kubectl -n "${ISTIO_NAMESPACE}" get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+        INGRESS_PORT=$(kubectl -n "${ISTIO_NAMESPACE}" get service istio-ingressgateway -o jsonpath='{.spec.ports[?(@.name=="http2")].port}')
         INGRESS_ADDR=${INGRESS_HOST}:${INGRESS_PORT}
         sleep ${sleep_time_sec}
         (( sleep_time_sofar += sleep_time_sec ))
@@ -232,14 +232,14 @@ checkEchosrv() {
 resetNamespaces() {
     sleep_time_sec=10
     sleep_time_sofar=0
-    kubectl delete namespace ${ISTIO_NAMESPACE} ${TEST_NAMESPACE} || echo "namespaces may already be deleted"
+    kubectl delete namespace "${ISTIO_NAMESPACE}" "${TEST_NAMESPACE}" || echo "namespaces may already be deleted"
     while :; do
         resp=$( kubectl get namespaces )
         if [[ "${resp}" != *"Terminating"* ]]; then
             echo "All namespaces deleted."
-            kubectl create namespace ${ISTIO_NAMESPACE}
-            kubectl create namespace ${TEST_NAMESPACE}
-            kubectl label namespace ${TEST_NAMESPACE} istio-injection=enabled
+            kubectl create namespace "${ISTIO_NAMESPACE}"
+            kubectl create namespace "${TEST_NAMESPACE}"
+            kubectl label namespace "${TEST_NAMESPACE}" istio-injection=enabled
             return
         else
             echo "Waiting for namespaces ${ISTIO_NAMESPACE} and ${TEST_NAMESPACE} to be deleted."
@@ -262,12 +262,12 @@ die() {
 copy_test_files() {
     rm -Rf ${TMP_DIR}
     mkdir -p ${TMP_DIR}
-    cp -f ${ISTIO_ROOT}/tests/upgrade/templates/* ${TMP_DIR}/.
+    cp -f "${ISTIO_ROOT}"/tests/upgrade/templates/* "${TMP_DIR}"/.
 }
 
 copy_test_files
 
-kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin --user=$(gcloud config get-value core/account) || echo "clusterrolebinding already created."
+kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin --user="$(gcloud config get-value core/account)" || echo "clusterrolebinding already created."
 
 pushd "${ISTIO_ROOT}" || exit 1
 
@@ -276,6 +276,8 @@ installIstioSystemAtVersionHelmTemplate "${FROM_HUB}" "${FROM_TAG}" "${FROM_PATH
 waitForIngress
 waitForPodsReady "${ISTIO_NAMESPACE}"
 
+# Get a backup of the sidecar-injector at original version in case we are rolling back the data plane later.
+kubectl get ConfigMap -n istio-system istio-sidecar-injector -o yaml > ${TMP_DIR}/sidecar-injector-configmap.yaml
 installTest
 waitForPodsReady "${TEST_NAMESPACE}"
 checkEchosrv
@@ -286,19 +288,25 @@ sendExternalRequestTraffic "${INGRESS_ADDR}"
 echo "Waiting for traffic to settle..."
 sleep 20
 
+# In a rollback, we update the data plane first.
 if [ -n "${ROLLBACK}" ]; then
     writeMsg "Rolling back data plane to ${TO_PATH}"
-    kubectl apply -n "${TEST_NAMESPACE}" -f <(istioctl kube-inject --injectConfigFile "${FROM_PATH}"/install/kubernetes/helm/istio/templates/sidecar-injector-configmap.yaml -f "${TMP_DIR}/fortio.yaml")
+    kubectl apply -n "${TEST_NAMESPACE}" -f <(istioctl kube-inject --injectConfigFile "${TMP_DIR}"/sidecar-injector-configmap.yaml -f "${TMP_DIR}"/fortio.yaml)
+    # No way to tell when rolling restart completes because it's async. Make sure this is long enough to cover all the
+    # pods in the deployment at the minReadySeconds setting (should be > num pods x minReadySeconds + few extra seconds).
+    sleep 100
 fi
 
 installIstioSystemAtVersionHelmTemplate "${TO_HUB}" "${TO_TAG}" "${TO_PATH}"
-waitForPodsReady ${ISTIO_NAMESPACE}
+waitForPodsReady "${ISTIO_NAMESPACE}"
 # In principle it should be possible to restart data plane immediately, but being conservative here.
 sleep 60
-restartDataPlane echosrv-deployment-v1
-# No way to tell when rolling restart completes because it's async. Make sure this is long enough to cover all the
-# pods in the deployment at the minReadySeconds setting (should be > num pods x minReadySeconds + few extra seconds).
-sleep 100
+
+# If a regular update, now restart data plane.
+if [ -z "${ROLLBACK}" ]; then
+    restartDataPlane echosrv-deployment-v1
+    sleep 100
+fi
 
 cli_pod_name=$(kubectl -n "${TEST_NAMESPACE}" get pods -lapp=cli-fortio -o jsonpath='{.items[0].metadata.name}')
 echo "Traffic client pod is ${cli_pod_name}, waiting for traffic to complete..."
