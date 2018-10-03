@@ -136,8 +136,7 @@ type Reporter interface {
 	RecordRequestNack(typeURL string, connectionID int64)
 }
 
-// New creates a new gRPC server that implements the Mesh Configuration Protocol (MCP). A nil authCheck
-// implies all incoming connections should be allowed.
+// New creates a new gRPC server that implements the Mesh Configuration Protocol (MCP).
 func New(watcher Watcher, supportedTypes []string, authChecker AuthChecker, reporter Reporter) *Server {
 	s := &Server{
 		watcher:        watcher,
@@ -146,12 +145,10 @@ func New(watcher Watcher, supportedTypes []string, authChecker AuthChecker, repo
 		reporter:       reporter,
 	}
 
-	if authChecker != nil {
-		// Initialize record limiter for the auth checker.
-		limit := rate.Every(1 * time.Minute) // TODO: make this configurable?
-		limiter := rate.NewLimiter(limit, 1)
-		s.checkFailureRecordLimiter = limiter
-	}
+	// Initialize record limiter for the auth checker.
+	limit := rate.Every(1 * time.Minute) // TODO: make this configurable?
+	limiter := rate.NewLimiter(limit, 1)
+	s.checkFailureRecordLimiter = limiter
 
 	return s
 }
