@@ -24,6 +24,8 @@ import (
 	"github.com/prometheus/client_golang/api/prometheus/v1"
 	prom "github.com/prometheus/common/model"
 
+	corev1 "k8s.io/api/core/v1"
+
 	istio_mixer_v1 "istio.io/api/mixer/v1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/application/echo"
@@ -66,6 +68,12 @@ type (
 
 		// GetPilotOrFail returns a deployed Pilot instance in the environment, or fails the test if unsuccessful.
 		GetPilotOrFail(t testing.TB) DeployedPilot
+
+		// GetCitadel returns a deployed Citadel instance in the environment.
+		GetCitadel() (DeployedCitadel, error)
+
+		// GetCitadelOrFail returns a deployed Citadel instance in the environment, or fails the test if unsuccessful.
+		GetCitadelOrFail(t testing.TB) DeployedCitadel
 
 		// GetAPIServer returns a handle to the ambient API Server in the environment.
 		GetAPIServer() (DeployedAPIServer, error)
@@ -236,6 +244,14 @@ type (
 	FortioAppCallResult struct {
 		// The raw content of the response
 		Raw string
+	}
+
+	// DeployedCitadel represents a deployed Citadel instance.
+	DeployedCitadel interface {
+		Deployed
+
+		WaitForSecretToExist() (*corev1.Secret, error)
+		DeleteSecret() error
 	}
 
 	// DeployedPrometheus represents a deployed Prometheus instance in a Kubernetes cluster.
