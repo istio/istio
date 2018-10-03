@@ -347,6 +347,30 @@ func TestKubegen_Generate(t *testing.T) {
 	containerNameOut.SetDestinationWorkloadNamespace("testns")
 	containerNameOut.SetDestinationWorkloadUid("istio://testns/workloads/test-container-deployment")
 
+	ipToDeploymentConfigIn := &kubernetes_apa_tmpl.Instance{
+		SourceIp:       net.ParseIP("192.168.234.3"),
+		DestinationUid: "kubernetes://pod-deploymentconfig.testns",
+	}
+
+	ipToDeploymentConfigOut := kubernetes_apa_tmpl.NewOutput()
+	ipToDeploymentConfigOut.SetSourceLabels(map[string]string{"app": "ipAddr"})
+	ipToDeploymentConfigOut.SetSourceNamespace("testns")
+	ipToDeploymentConfigOut.SetSourcePodName("ip-svc-pod")
+	ipToDeploymentConfigOut.SetSourcePodUid("kubernetes://ip-svc-pod.testns")
+	ipToDeploymentConfigOut.SetSourcePodIp(net.ParseIP("192.168.234.3"))
+	ipToDeploymentConfigOut.SetSourceOwner("kubernetes://apis/apps/v1/namespaces/testns/deployments/test-deployment")
+	ipToDeploymentConfigOut.SetSourceWorkloadName("test-deployment")
+	ipToDeploymentConfigOut.SetSourceWorkloadNamespace("testns")
+	ipToDeploymentConfigOut.SetSourceWorkloadUid("istio://testns/workloads/test-deployment")
+	ipToDeploymentConfigOut.SetDestinationPodName("pod-deploymentconfig")
+	ipToDeploymentConfigOut.SetDestinationNamespace("testns")
+	ipToDeploymentConfigOut.SetDestinationPodUid("kubernetes://pod-deploymentconfig.testns")
+	ipToDeploymentConfigOut.SetDestinationOwner("kubernetes://apis/apps.openshift.io/v1/namespaces/testns/deploymentconfigs/test-deploymentconfig")
+	ipToDeploymentConfigOut.SetDestinationLabels(map[string]string{"app": "some-app"})
+	ipToDeploymentConfigOut.SetDestinationWorkloadName("test-deploymentconfig")
+	ipToDeploymentConfigOut.SetDestinationWorkloadNamespace("testns")
+	ipToDeploymentConfigOut.SetDestinationWorkloadUid("istio://testns/workloads/test-deploymentconfig")
+
 	tests := []struct {
 		name   string
 		inputs *kubernetes_apa_tmpl.Instance
@@ -362,6 +386,7 @@ func TestKubegen_Generate(t *testing.T) {
 		{"replicasets with no deployments", replicasetToReplicaSetIn, replicaSetToReplicaSetOut, conf},
 		{"not-k8s", notKubernetesIn, kubernetes_apa_tmpl.NewOutput(), conf},
 		{"ip-svc-pod to pod-with-container", containerNameIn, containerNameOut, conf},
+		{"ip-svc-pod to deploymentconfig", ipToDeploymentConfigIn, ipToDeploymentConfigOut, conf},
 	}
 
 	for _, v := range tests {
@@ -457,6 +482,21 @@ var k8sobjs = []runtime.Object{
 					Controller: &trueVar,
 					Kind:       "Deployment",
 					Name:       "test-container-deployment",
+				},
+			},
+		},
+	},
+	// replicationcontrollers
+	&v1.ReplicationController{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-replicationcontroller-with-deploymentconfig",
+			Namespace: "testns",
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: "apps.openshift.io/v1",
+					Controller: &trueVar,
+					Kind:       "DeploymentConfig",
+					Name:       "test-deploymentconfig",
 				},
 			},
 		},
@@ -647,6 +687,21 @@ var k8sobjs = []runtime.Object{
 			Containers: []v1.Container{
 				{Name: "container1", Ports: []v1.ContainerPort{{ContainerPort: 123}, {ContainerPort: 234}}},
 				{Name: "container2", Ports: []v1.ContainerPort{{ContainerPort: 80}}},
+			},
+		},
+	},
+	&v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "pod-deploymentconfig",
+			Namespace: "testns",
+			Labels:    map[string]string{"app": "some-app"},
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: "core/v1",
+					Controller: &trueVar,
+					Kind:       "ReplicationController",
+					Name:       "test-replicationcontroller-with-deploymentconfig",
+				},
 			},
 		},
 	},
