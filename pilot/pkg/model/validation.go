@@ -1524,10 +1524,10 @@ func validateRouteDestinations(weights []*networking.RouteDestination) (errs err
 		}
 		errs = appendErrors(errs, validateDestination(weight.Destination))
 		errs = appendErrors(errs, ValidatePercent(weight.Weight))
+		if len(weights) > 1 && weight.Weight < 1 {
+			errs = multierror.Append(errs, errors.New("positive weight is required"))
+		}
 		totalWeight += weight.Weight
-	}
-	if len(weights) > 1 && totalWeight != 100 {
-		errs = appendErrors(errs, fmt.Errorf("total destination weight %v != 100", totalWeight))
 	}
 	return
 }
