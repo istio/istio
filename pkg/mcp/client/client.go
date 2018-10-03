@@ -280,7 +280,6 @@ func (c *Client) Run(ctx context.Context) {
 			log.Info("(re)trying to establish new MCP stream")
 			var err error
 			if c.stream, err = c.client.StreamAggregatedResources(ctx); err == nil {
-				// This technically counts the initial connection as well.
 				c.reporter.RecordStreamCreateSuccess()
 				log.Info("New MCP stream created")
 				break
