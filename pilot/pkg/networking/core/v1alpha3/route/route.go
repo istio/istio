@@ -232,6 +232,10 @@ func GetDestinationCluster(destination *networking.Destination, service *model.S
 		if service != nil && len(service.Ports) == 1 {
 			port = service.Ports[0].Port
 		}
+		// Do not return blackhole cluster for service==nil case as there is a legitimate use case for
+		// calling this function with nil service: to route to a pre-defined statically configured cluster
+		// declared as part of the bootstrap.
+		// If blackhole cluster is needed, do the check on the caller side. See gateway and tls.go for examples.
 	}
 
 	return model.BuildSubsetKey(model.TrafficDirectionOutbound, destination.Subset, model.Hostname(destination.Host), port)
@@ -710,7 +714,7 @@ func portLevelSettingsConsistentHash(dst *networking.Destination,
 	return nil
 }
 
-func getHashPolicy(push *model.PushContext, dst *networking.DestinationWeight) *route.RouteAction_HashPolicy {
+func getHashPolicy(push *model.PushContext, dst *networking.HTTPRouteDestination) *route.RouteAction_HashPolicy {
 	if push == nil {
 		return nil
 	}

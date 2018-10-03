@@ -101,19 +101,22 @@ func (e *Implementation) Initialize(ctx *internal.TestContext) error {
 
 	// Create the namespace objects.
 	e.systemNamespace = &namespace{
-		name:       e.kube.IstioSystemNamespace,
-		annotation: "system-namespace",
-		accessor:   e.Accessor,
+		name:             e.kube.IstioSystemNamespace,
+		annotation:       "system-namespace",
+		accessor:         e.Accessor,
+		injectionEnabled: false,
 	}
 	e.dependencyNamespace = &namespace{
-		name:       e.kube.DependencyNamespace,
-		annotation: "dep-namespace",
-		accessor:   e.Accessor,
+		name:             e.kube.DependencyNamespace,
+		annotation:       "dep-namespace",
+		accessor:         e.Accessor,
+		injectionEnabled: true,
 	}
 	e.testNamespace = &namespace{
-		name:       e.kube.TestNamespace,
-		annotation: "test-namespace",
-		accessor:   e.Accessor,
+		name:             e.kube.TestNamespace,
+		annotation:       "test-namespace",
+		accessor:         e.Accessor,
+		injectionEnabled: false,
 	}
 
 	if err := e.systemNamespace.allocate(); err != nil {
@@ -126,11 +129,12 @@ func (e *Implementation) Initialize(ctx *internal.TestContext) error {
 	if e.kube.DeployIstio {
 		if e.deployment, err = deployment.NewIstio(
 			&deployment.Settings{
-				KubeConfig: e.kube.KubeConfig,
-				WorkDir:    ctx.Settings().WorkDir,
-				Hub:        e.kube.Hub,
-				Tag:        e.kube.Tag,
-				Namespace:  e.kube.IstioSystemNamespace,
+				KubeConfig:      e.kube.KubeConfig,
+				WorkDir:         ctx.Settings().WorkDir,
+				Hub:             e.kube.Hub,
+				Tag:             e.kube.Tag,
+				ImagePullPolicy: e.kube.ImagePullPolicy,
+				Namespace:       e.kube.IstioSystemNamespace,
 			},
 			deployment.IstioMCP, // TODO: Values files should be parameterized.
 			e.Accessor); err != nil {
@@ -239,11 +243,12 @@ func (e *Implementation) Close() error {
 }
 
 type namespace struct {
-	name          string
-	annotation    string
-	allocatedName string
-	created       bool
-	accessor      *kube.Accessor
+	name             string
+	annotation       string
+	allocatedName    string
+	created          bool
+	accessor         *kube.Accessor
+	injectionEnabled bool
 }
 
 func (n *namespace) allocate() error {
@@ -256,7 +261,7 @@ func (n *namespace) allocate() error {
 
 	// Only create the namespace if it doesn't already exist.
 	if !n.accessor.NamespaceExists(nameToAllocate) {
-		err := n.accessor.CreateNamespace(nameToAllocate, n.annotation)
+		err := n.accessor.CreateNamespace(nameToAllocate, n.annotation, n.injectionEnabled)
 		if err != nil {
 			return err
 		}

@@ -20,7 +20,6 @@ import (
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
-	"istio.io/istio/pkg/log"
 )
 
 // Match by source labels, the listener port where traffic comes in, the gateway on which the rule is being
@@ -121,12 +120,10 @@ func buildSidecarOutboundTLSFilterChainOpts(env *model.Environment, node *model.
 		for _, tls := range virtualService.Tls {
 			// since we don't support weighted destinations yet there can only be exactly 1 destination
 			dest := tls.Route[0].Destination
-			destSvc, present := push.ServiceByHostname[model.Hostname(dest.Host)]
-			if !present {
-				log.Debugf("service %q does not exist in the registry", dest.Host)
-				continue
-			}
-			clusterName := istio_route.GetDestinationCluster(dest, destSvc, listenPort.Port)
+			// Note: We don't check if the service exists in the push context because we are effectively
+			// generating a cluster name. The user could have added their custom clusters in the bootstrap
+			// context.
+			clusterName := istio_route.GetDestinationCluster(dest, push.ServiceByHostname[model.Hostname(dest.Host)], listenPort.Port)
 			for _, match := range tls.Match {
 				if matchTLS(match, proxyLabels, gateways, listenPort.Port) {
 					// Use the service's virtual address first.
@@ -183,12 +180,7 @@ func buildSidecarOutboundTCPFilterChainOpts(env *model.Environment, node *model.
 		for _, tcp := range virtualService.Tcp {
 			// since we don't support weighted destinations yet there can only be exactly 1 destination
 			dest := tcp.Route[0].Destination
-			destSvc, present := push.ServiceByHostname[model.Hostname(dest.Host)]
-			if !present {
-				log.Debugf("service %q does not exist in the registry", dest.Host)
-				continue
-			}
-			clusterName := istio_route.GetDestinationCluster(dest, destSvc, listenPort.Port)
+			clusterName := istio_route.GetDestinationCluster(dest, push.ServiceByHostname[model.Hostname(dest.Host)], listenPort.Port)
 			destinationCIDRs := []string{destinationIPAddress}
 
 			if len(tcp.Match) == 0 {
