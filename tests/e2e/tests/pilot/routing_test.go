@@ -449,13 +449,22 @@ func TestHeadersManipulations(t *testing.T) {
 	}
 	defer cfgs.Teardown()
 
-	headerRegexp := regexp.MustCompile("(?i)istio-custom-header=user-defined-value")
-	destHeaderRegexp := regexp.MustCompile("(?i)istio-custom-dest-header=user-defined-value")
+	// deprecated
+	deprecatedReqHeaderRegexp := regexp.MustCompile("(?i)istio-custom-header=user-defined-value")
+
+	reqHeaderRegexp := regexp.MustCompile("(?i)istio-custom-req-header=user-defined-value")
+	reqHeaderRemoveRegexp := regexp.MustCompile("(?i)istio-custom-req-header-remove=to-be-removed")
+	respHeaderRegexp := regexp.MustCompile("(?i)ResponseHeader=istio-custom-resp-header:user-defined-value")
+	respHeaderRemoveRegexp := regexp.MustCompile("(?i)ResponseHeader=istio-custom-resp-header-remove:to-be-removed")
+
+	destReqHeaderRegexp := regexp.MustCompile("(?i)istio-custom-dest-req-header=user-defined-value")
+	destReqHeaderRemoveRegexp := regexp.MustCompile("(?i)istio-custom-dest-req-header-remove=to-be-removed")
 	destRespHeaderRegexp := regexp.MustCompile("(?i)ResponseHeader=istio-custom-dest-resp-header:user-defined-value")
 	destRespHeaderRemoveRegexp := regexp.MustCompile("(?i)ResponseHeader=istio-custom-dest-resp-header-remove:to-be-removed")
 
 	epsilon := 10
 	numRequests := 100
+	numNoRequests := 0
 	numV1 := 75
 	numV2 := 25
 
@@ -478,9 +487,11 @@ func TestHeadersManipulations(t *testing.T) {
 	// b) or adding a bunch more parsing to the request function, so we have access to headers per request.
 	for cluster := range tc.Kube.Clusters {
 		runRetriableTest(t, cluster, "v1alpha3", 5, func() error {
-			reqURL := "http://c/a?headers=istio-custom-dest-resp-header-remove:to-be-removed"
+			reqURL := "http://c/a?headers=istio-custom-resp-header-remove:to-be-removed,istio-custom-dest-resp-header-remove:to-be-removed"
 
-			resp := ClientRequest(cluster, "a", reqURL, numRequests, "")
+			extra := "-headers istio-custom-req-header-remove:to-be-removed," +
+				"istio-custom-dest-req-header-remove:to-be-removed"
+			resp := ClientRequest(cluster, "a", reqURL, numRequests, extra)
 
 			// ensure version distribution
 			counts := make(map[string]int)
@@ -494,14 +505,39 @@ func TestHeadersManipulations(t *testing.T) {
 				return fmt.Errorf("expected %d +/- %d requests to reach v2, got %d", numV2, epsilon, counts["v2"])
 			}
 
+			// ensure the route-wide deprecated request header add works, regardless of service version
+			if err := verifyCount(deprecatedReqHeaderRegexp, resp.Body, numRequests); err != nil {
+				return multierror.Prefix(err, "route deprecated request header count does not have expected distribution")
+			}
+
 			// ensure the route-wide request header add works, regardless of service version
-			if err := verifyCount(headerRegexp, resp.Body, numRequests); err != nil {
-				return multierror.Prefix(err, "request header count does not have expected distribution")
+			if err := verifyCount(reqHeaderRegexp, resp.Body, numRequests); err != nil {
+				return multierror.Prefix(err, "route request header count does not have expected distribution")
+			}
+
+			// ensure the route-wide request header remove works, regardless of service version
+			if err := verifyCount(reqHeaderRemoveRegexp, resp.Body, numNoRequests); err != nil {
+				return multierror.Prefix(err, "route to remove request header count does not have expected distribution")
+			}
+
+			// ensure the route-wide response header add works, regardless of service version
+			if err := verifyCount(respHeaderRegexp, resp.Body, numRequests); err != nil {
+				return multierror.Prefix(err, "route response header count does not have expected distribution")
+			}
+
+			// ensure the route-wide response header remove works, regardless of service version
+			if err := verifyCount(respHeaderRemoveRegexp, resp.Body, numNoRequests); err != nil {
+				return multierror.Prefix(err, "route to remove response header count does not have expected distribution")
 			}
 
 			// verify request header add count
-			if err := verifyCount(destHeaderRegexp, resp.Body, numV1); err != nil {
+			if err := verifyCount(destReqHeaderRegexp, resp.Body, numV1); err != nil {
 				return multierror.Prefix(err, "destination request header count does not have expected distribution")
+			}
+
+			// verify request header remove count
+			if err := verifyCount(destReqHeaderRemoveRegexp, resp.Body, numV2); err != nil {
+				return multierror.Prefix(err, "destination to remove request header count does not have expected distribution")
 			}
 
 			// verify response header add count
