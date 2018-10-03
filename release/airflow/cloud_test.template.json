@@ -16,5 +16,5 @@
   "options": {
     "machineType": "N1_HIGHCPU_8"
   },
-  "timeout": "22h",
+  "timeout": "86400s",
 }
