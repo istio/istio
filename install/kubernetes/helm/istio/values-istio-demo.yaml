@@ -32,4 +32,4 @@ galley:
   enabled: true
 
 kiali:
-  enabled: false
+  enabled: true
