@@ -114,6 +114,8 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.name
+          - name: ISTIO_META_EDGE_PROXY
+            value: {{ $spec.edgeProxy }}
           volumeMounts:
           - name: istio-certs
             mountPath: /etc/certs

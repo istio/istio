@@ -794,6 +794,10 @@ func buildHTTPConnectionManager(env *model.Environment, node *model.Proxy, httpO
 	connectionManager.HttpFilters = filters
 	connectionManager.StatPrefix = httpOpts.statPrefix
 	connectionManager.UseRemoteAddress = &google_protobuf.BoolValue{httpOpts.useRemoteAddress}
+	if isEdgeProxy := node.Metadata["ISTIO_META_EDGE_PROXY"]; isEdgeProxy == "true" {
+		log.Info("Stripping x-forwarded-for header for edge proxy")
+		connectionManager.XffNumTrustedHops = 0
+	}
 
 	if _, is10Proxy := node.GetProxyVersion(); is10Proxy {
 		// Allow websocket upgrades

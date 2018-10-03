@@ -232,6 +232,7 @@ gateways:
       targetAverageUtilization: 80
     loadBalancerIP: ""
     serviceAnnotations: {}
+    edgeProxy: true
     type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
 
     ports:
@@ -282,6 +283,7 @@ gateways:
     cpu:
       targetAverageUtilization: 80
     serviceAnnotations: {}
+    edgeProxy: false
     type: ClusterIP #change to NodePort or LoadBalancer if need be
     ports:
       - port: 80
@@ -319,6 +321,7 @@ gateways:
     loadBalancerIP: ""
     serviceAnnotations:
       cloud.google.com/load-balancer-type: "internal"
+    edgeProxy: false
     type: LoadBalancer
     ports:
     ## You can add custom gateway ports - google ILB default quota is 5 ports,
