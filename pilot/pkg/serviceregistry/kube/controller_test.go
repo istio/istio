@@ -678,6 +678,7 @@ func addPods(t *testing.T, controller *Controller, pods ...*v1.Pod) {
 }
 
 func generatePod(ip, name, namespace, saName, node string, labels map[string]string, annotations map[string]string) *v1.Pod {
+	automount := false
 	return &v1.Pod{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name:        name,
@@ -688,6 +689,7 @@ func generatePod(ip, name, namespace, saName, node string, labels map[string]str
 		Spec: v1.PodSpec{
 			ServiceAccountName: saName,
 			NodeName:           node,
+			AutomountServiceAccountToken: &automount,
 			// Validation requires this
 			Containers: []v1.Container{
 				v1.Container{

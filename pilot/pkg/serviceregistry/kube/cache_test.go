@@ -40,6 +40,36 @@ func initTestEnv(ki kubernetes.Interface, c *Controller, fx *FakeXdsUpdater) {
 				},
 			},
 		})
+
+		// K8S 1.10 also checks if service account exists
+		_, _ := ki.CoreV1().ServiceAccounts(n).Create(&v1.ServiceAccount{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "default",
+				Annotations: map[string]string{
+					"kubernetes.io/enforce-mountable-secrets": "false",
+				},
+			},
+			Secrets: []v1.ObjectReference{
+				v1.ObjectReference{
+					Name: "default-token-2",
+					UID:  "1",
+				},
+			},
+		})
+
+		_, _ = ki.CoreV1().Secrets(n).Create(&v1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "default-token-2",
+				Annotations: map[string]string{
+					"kubernetes.io/service-account.name": "default",
+					"kubernetes.io/service-account.uid":  "1",
+				},
+			},
+			Type: v1.SecretTypeServiceAccountToken,
+			Data: map[string][]byte{
+				"token": []byte("1"),
+			},
+		})
 	}
 	fx.Clear()
 }
@@ -58,7 +88,6 @@ func cleanup(ki kubernetes.Interface, fx *FakeXdsUpdater) {
 				}
 			}
 		}
-		_ = ki.CoreV1().Namespaces().Delete(n, &metav1.DeleteOptions{})
 	}
 }
 
