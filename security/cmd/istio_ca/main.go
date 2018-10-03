@@ -138,7 +138,7 @@ var (
 
 func fatalf(template string, args ...interface{}) {
 	if len(args) > 0 {
-		log.Errorf(template, args)
+		log.Errorf(template, args...)
 	} else {
 		log.Errorf(template)
 	}

@@ -1360,7 +1360,7 @@ func validateTLSRoute(tls *networking.TLSRoute, context *networking.VirtualServi
 	if len(tls.Route) != 1 {
 		errs = appendErrors(errs, errors.New("TLS route must have exactly one destination"))
 	}
-	errs = appendErrors(errs, validateDestinationWeights(tls.Route))
+	errs = appendErrors(errs, validateRouteDestinations(tls.Route))
 	return
 }
 
@@ -1413,7 +1413,7 @@ func validateTCPRoute(tcp *networking.TCPRoute) (errs error) {
 	if len(tcp.Route) != 1 {
 		errs = appendErrors(errs, errors.New("TCP route must have exactly one destination"))
 	}
-	errs = appendErrors(errs, validateDestinationWeights(tcp.Route))
+	errs = appendErrors(errs, validateRouteDestinations(tcp.Route))
 	return
 }
 
@@ -1479,7 +1479,7 @@ func validateHTTPRoute(http *networking.HTTPRoute) (errs error) {
 	errs = appendErrors(errs, validateHTTPRedirect(http.Redirect))
 	errs = appendErrors(errs, validateHTTPRetry(http.Retries))
 	errs = appendErrors(errs, validateHTTPRewrite(http.Rewrite))
-	errs = appendErrors(errs, validateDestinationWeights(http.Route))
+	errs = appendErrors(errs, validateHTTPRouteDestinations(http.Route))
 	if http.Timeout != nil {
 		errs = appendErrors(errs, ValidateDurationGogo(http.Timeout))
 	}
@@ -1496,7 +1496,35 @@ func validateGatewayNames(gateways []string) (errs error) {
 	return
 }
 
-func validateDestinationWeights(weights []*networking.DestinationWeight) (errs error) {
+func validateHTTPRouteDestinations(weights []*networking.HTTPRouteDestination) (errs error) {
+	var totalWeight int32
+	for _, weight := range weights {
+		if weight.Destination == nil {
+			errs = multierror.Append(errs, errors.New("destination is required"))
+		}
+		for name := range weight.AppendRequestHeaders {
+			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+		}
+		for name := range weight.AppendResponseHeaders {
+			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+		}
+		for _, name := range weight.RemoveRequestHeaders {
+			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+		}
+		for _, name := range weight.RemoveResponseHeaders {
+			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+		}
+		errs = appendErrors(errs, validateDestination(weight.Destination))
+		errs = appendErrors(errs, ValidatePercent(weight.Weight))
+		totalWeight += weight.Weight
+	}
+	if len(weights) > 1 && totalWeight != 100 {
+		errs = appendErrors(errs, fmt.Errorf("total destination weight %v != 100", totalWeight))
+	}
+	return
+}
+
+func validateRouteDestinations(weights []*networking.RouteDestination) (errs error) {
 	var totalWeight int32
 	for _, weight := range weights {
 		if weight.Destination == nil {
