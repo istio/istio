@@ -108,6 +108,11 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 										GoogleGrpc: &core.GrpcService_GoogleGrpc{
 											TargetUri:  "/tmp/sdsuds.sock",
 											StatPrefix: SDSStatPrefix,
+											ChannelCredentials: &core.GrpcService_GoogleGrpc_ChannelCredentials{
+												CredentialSpecifier: &core.GrpcService_GoogleGrpc_ChannelCredentials_LocalCredentials{
+													LocalCredentials: &core.GrpcService_GoogleGrpc_GoogleLocalCredentials{},
+												},
+											},
 											CallCredentials: []*core.GrpcService_GoogleGrpc_CallCredentials{
 												&core.GrpcService_GoogleGrpc_CallCredentials{
 													CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_GoogleComputeEngine{
