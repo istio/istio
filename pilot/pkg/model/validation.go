@@ -1350,15 +1350,11 @@ func validateTLSRoute(tls *networking.TLSRoute, context *networking.VirtualServi
 	if tls == nil {
 		return nil
 	}
-
 	if len(tls.Match) == 0 {
 		errs = appendErrors(errs, errors.New("TLS route must have at least one match condition"))
 	}
 	for _, match := range tls.Match {
 		errs = appendErrors(errs, validateTLSMatch(match, context))
-	}
-	if len(tls.Route) != 1 {
-		errs = appendErrors(errs, errors.New("TLS route must have exactly one destination"))
 	}
 	errs = appendErrors(errs, validateRouteDestinations(tls.Route))
 	return
@@ -1410,9 +1406,6 @@ func validateTCPRoute(tcp *networking.TCPRoute) (errs error) {
 	for _, match := range tcp.Match {
 		errs = appendErrors(errs, validateTCPMatch(match))
 	}
-	if len(tcp.Route) != 1 {
-		errs = appendErrors(errs, errors.New("TCP route must have exactly one destination"))
-	}
 	errs = appendErrors(errs, validateRouteDestinations(tcp.Route))
 	return
 }
@@ -1421,7 +1414,6 @@ func validateTCPMatch(match *networking.L4MatchAttributes) (errs error) {
 	for _, destinationSubnet := range match.DestinationSubnets {
 		errs = appendErrors(errs, ValidateIPv4Subnet(destinationSubnet))
 	}
-
 	if len(match.SourceSubnet) > 0 {
 		errs = appendErrors(errs, ValidateIPv4Subnet(match.SourceSubnet))
 	}

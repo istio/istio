@@ -19,7 +19,6 @@ import (
 
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
-	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 )
 
 // Match by source labels, the listener port where traffic comes in, the gateway on which the rule is being
@@ -118,12 +117,6 @@ func buildSidecarOutboundTLSFilterChainOpts(env *model.Environment, node *model.
 		// virtual service for the same host, and the said virtual service has a TLS route block.
 		// Otherwise we treat ports marked as TLS as opaque TCP services.
 		for _, tls := range virtualService.Tls {
-			// since we don't support weighted destinations yet there can only be exactly 1 destination
-			dest := tls.Route[0].Destination
-			// Note: We don't check if the service exists in the push context because we are effectively
-			// generating a cluster name. The user could have added their custom clusters in the bootstrap
-			// context.
-			clusterName := istio_route.GetDestinationCluster(dest, push.ServiceByHostname[model.Hostname(dest.Host)], listenPort.Port)
 			for _, match := range tls.Match {
 				if matchTLS(match, proxyLabels, gateways, listenPort.Port) {
 					// Use the service's virtual address first.
@@ -138,8 +131,7 @@ func buildSidecarOutboundTLSFilterChainOpts(env *model.Environment, node *model.
 						out = append(out, &filterChainOpts{
 							sniHosts:         match.SniHosts,
 							destinationCIDRs: destinationCIDRs,
-							networkFilters: buildOutboundNetworkFilters(
-								env, node, clusterName, listenPort),
+							networkFilters:   buildOutboundNetworkFilters(env, node, tls.Route, push, listenPort),
 						})
 						hasTLSMatch = true
 					}
@@ -154,7 +146,7 @@ func buildSidecarOutboundTLSFilterChainOpts(env *model.Environment, node *model.
 		clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, int(listenPort.Port))
 		out = append(out, &filterChainOpts{
 			destinationCIDRs: []string{destinationIPAddress},
-			networkFilters:   buildOutboundNetworkFilters(env, node, clusterName, listenPort),
+			networkFilters:   buildOutboundNetworkFiltersWithSingleDestination(env, node, clusterName, listenPort),
 		})
 	}
 
@@ -178,16 +170,12 @@ func buildSidecarOutboundTCPFilterChainOpts(env *model.Environment, node *model.
 	if virtualService != nil {
 	TcpLoop:
 		for _, tcp := range virtualService.Tcp {
-			// since we don't support weighted destinations yet there can only be exactly 1 destination
-			dest := tcp.Route[0].Destination
-			clusterName := istio_route.GetDestinationCluster(dest, push.ServiceByHostname[model.Hostname(dest.Host)], listenPort.Port)
 			destinationCIDRs := []string{destinationIPAddress}
-
 			if len(tcp.Match) == 0 {
 				// implicit match
 				out = append(out, &filterChainOpts{
 					destinationCIDRs: destinationCIDRs,
-					networkFilters:   buildOutboundNetworkFilters(env, node, clusterName, listenPort),
+					networkFilters:   buildOutboundNetworkFilters(env, node, tcp.Route, push, listenPort),
 				})
 				defaultRouteAdded = true
 				break TcpLoop
@@ -209,7 +197,7 @@ func buildSidecarOutboundTCPFilterChainOpts(env *model.Environment, node *model.
 					if len(match.DestinationSubnets) == 0 {
 						out = append(out, &filterChainOpts{
 							destinationCIDRs: destinationCIDRs,
-							networkFilters:   buildOutboundNetworkFilters(env, node, clusterName, listenPort),
+							networkFilters:   buildOutboundNetworkFilters(env, node, tcp.Route, push, listenPort),
 						})
 						defaultRouteAdded = true
 						break TcpLoop
@@ -222,7 +210,7 @@ func buildSidecarOutboundTCPFilterChainOpts(env *model.Environment, node *model.
 			if len(virtualServiceDestinationSubnets) > 0 {
 				out = append(out, &filterChainOpts{
 					destinationCIDRs: virtualServiceDestinationSubnets,
-					networkFilters:   buildOutboundNetworkFilters(env, node, clusterName, listenPort),
+					networkFilters:   buildOutboundNetworkFilters(env, node, tcp.Route, push, listenPort),
 				})
 			}
 		}
@@ -232,7 +220,7 @@ func buildSidecarOutboundTCPFilterChainOpts(env *model.Environment, node *model.
 		clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, int(listenPort.Port))
 		out = append(out, &filterChainOpts{
 			destinationCIDRs: []string{destinationIPAddress},
-			networkFilters:   buildOutboundNetworkFilters(env, node, clusterName, listenPort),
+			networkFilters:   buildOutboundNetworkFiltersWithSingleDestination(env, node, clusterName, listenPort),
 		})
 	}
 
