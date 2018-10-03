@@ -496,10 +496,6 @@ common-test:
 selected-pkg-test:
 	find ${WHAT} -name "*_test.go"|xargs -i dirname {}|uniq|xargs -i go test ${T} {}
 
-.PHONY: upgrade-test
-upgrade-test:
-	tests/upgrade/test_upgrade_from.sh 1.0.1
-
 #-----------------------------------------------------------------------------
 # Target: coverage
 #-----------------------------------------------------------------------------
