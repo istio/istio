@@ -16,12 +16,13 @@ package pilot
 
 import (
 	"fmt"
+	"log"
 	"testing"
 )
 
 func TestGrpc(t *testing.T) {
-	srcPods := []string{"a", "b"}
-	dstPods := []string{"a", "b", "headless"}
+	srcPods := []string{"a"}
+	dstPods := []string{"a", "b"}
 	ports := []string{"70", "7070"}
 	if !tc.Kube.AuthEnabled {
 		// t is not behind proxy, so it cannot talk in Istio auth.
@@ -59,6 +60,7 @@ func TestGrpc(t *testing.T) {
 							runRetriableTest(t, cluster, testName, defaultRetryBudget, func() error {
 								reqURL := fmt.Sprintf("grpc://%s%s:%s", dst, domain, port)
 								resp := ClientRequest(cluster, src, reqURL, 1, "")
+								log.Printf("Debug gRPC src: %s, dst: %s, response: %v", src, dst, resp)
 								if len(resp.ID) > 0 {
 									id := resp.ID[0]
 									logEntry := fmt.Sprintf("GRPC request from %s to %s%s:%s", src, dst, domain, port)
@@ -86,6 +88,17 @@ func TestGrpc(t *testing.T) {
 			}
 		}
 	})
+
+	log.Print("Debug gRPC dump logs")
+	for app, v := range logs.logs {
+		log.Printf("  app: %s", app)
+		for cluster, requests := range v {
+			log.Printf("    cluster: %s", cluster)
+			for _, r := range requests {
+				log.Printf("      request: %v", r)
+			}
+		}
+	}
 
 	// After all requests complete, run the check logs tests.
 	if len(logs.logs) > 0 {

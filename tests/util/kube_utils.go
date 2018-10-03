@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	glog "log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -468,6 +469,7 @@ func GetPodLogs(n, pod, container string, tail, alsoShowPreviousPodLogs bool, ku
 		tailOption = "--tail=40"
 	}
 	o1 := ""
+	glog.Printf("Debug gRPC Run command kubectl --namespace %s logs %s -c %s %s --kubeconfig=%s", n, pod, container, tailOption, kubeconfig)
 	if alsoShowPreviousPodLogs {
 		log.Info("Expect and ignore an error getting crash logs when there are no crash (-p invocation)")
 		// Do not use Shell. It dumps the entire log on the console and makes the test unusable due to very large amount of output
