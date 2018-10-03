@@ -80,6 +80,9 @@ type PushContext struct {
 	// Env has a pointer to the shared environment used to create the snapshot.
 	Env *Environment `json:"-,omitempty"`
 
+	// ServiceAccounts is a function mapping service name to service accounts.
+	ServiceAccounts func(string)[]string
+
 	// ServicePorts is used to keep track of service name and port mapping.
 	// This is needed because ADS names use port numbers, while endpoints use
 	// port names. The key is the service name. If a service or port are not found,
