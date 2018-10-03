@@ -132,7 +132,8 @@ func (node *Proxy) GetGatewayMode() GatewayMode {
 	if modestr, found := node.Metadata["ISTIO_GATEWAY_MODE"]; found {
 		mode := GatewayMode(modestr)
 		switch mode {
-		case MulticlusterGateway: return MulticlusterGateway
+		case MulticlusterGateway:
+			return MulticlusterGateway
 		default:
 			return StandardGateway
 		}
