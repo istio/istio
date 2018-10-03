@@ -334,12 +334,12 @@ func multipleRequest(server *bootstrap.Server, inc bool, nclients,
 	// All clients are connected - this can start pushing changes.
 	for j := 0; j < nPushes; j++ {
 		if inc {
-			server.EnvoyXdsServer.Env.EDSUpdates[edsIncSvc] =
+			server.EnvoyXdsServer.edsUpdates[edsIncSvc] =
 				&model.ServiceShards{}
 
 			server.EnvoyXdsServer.AdsPushAll("v1",
 				server.EnvoyXdsServer.Env.PushContext,
-				false, server.EnvoyXdsServer.Env.EDSUpdates)
+				false, server.EnvoyXdsServer.edsUpdates)
 		} else {
 			v2.AdsPushAll(server.EnvoyXdsServer)
 		}

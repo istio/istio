@@ -95,6 +95,13 @@ type DiscoveryServer struct {
 	// This is used to decouple the envoy/v2 from envoy/, artifact of the v1 deprecation.
 	// In 1.1 we'll simplify/cleanup further.
 	ConfigUpdater model.ConfigUpdater
+
+	// EDSUpdates keeps track of all service updates since last full push.
+	// Key is the hostname (servicename). Value is set when any shard part of the service is
+	// updated. This should only be used in the xDS server - will be removed/made private in 1.1,
+	// once the last v1 pieces are cleaned. For 1.0.3+ it is used only for tracking incremental
+	// pushes between the 2 packages.
+	edsUpdates map[string]*model.ServiceShards
 }
 
 // Workload has the minimal info we need to detect if we need to push workloads, and to
@@ -126,6 +133,7 @@ func NewDiscoveryServer(env *model.Environment, generator core.ConfigGenerator) 
 		ConfigGenerator:         generator,
 		EndpointShardsByService: map[string]*model.ServiceShards{},
 		WorkloadsByID:           map[string]*Workload{},
+		edsUpdates:              map[string]*model.ServiceShards{},
 	}
 	env.PushContext = model.NewPushContext()
 

@@ -122,6 +122,10 @@ var (
 	// in the ADS server.
 	Push func(fullPush bool, edsUpdates map[string]*model.ServiceShards)
 
+	// BeforePush is called before a push. Like Push, it is an artifact of the split
+	// of discovery from v2/discovery and the migration from v1.
+	BeforePush func() map[string]*model.ServiceShards
+
 	// DebounceAfter is the delay added to events to wait
 	// after a registry/config event for debouncing.
 	// This will delay the push by at least this interval, plus
@@ -459,12 +463,10 @@ func (ds *DiscoveryService) doPush() {
 	clearCacheTimerSet = false
 	lastClearCache = time.Now()
 	full := ds.fullPush
-	edsUpdates := ds.EDSUpdates
+	edsUpdates := BeforePush()
 
 	// Update the config values, next ConfigUpdate and eds updates will use this
 	ds.fullPush = false
-	// Reset - any new updates will be tracked by the new map
-	ds.EDSUpdates = map[string]*model.ServiceShards{}
 
 	clearCacheMutex.Unlock()
 

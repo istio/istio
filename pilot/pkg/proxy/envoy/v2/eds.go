@@ -500,6 +500,21 @@ func (s *DiscoveryServer) EDSUpdate(shard, serviceName string,
 	return s.edsUpdate(shard, serviceName, entries, false)
 }
 
+// BeforePush is a callback invoked just before the push. It currently swaps and returns the
+// EdsUpdates map - additional preparation will be added as we move to full incremental.
+// This is needed to keep things isolated and use the right mutex.
+// Once proxy/envoy/discovery is merged into v2 discovery this can become non-public.
+func (s *DiscoveryServer) BeforePush() map[string]*model.ServiceShards {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	edsUpdates := s.edsUpdates
+	// Reset - any new updates will be tracked by the new map
+	s.edsUpdates = map[string]*model.ServiceShards{}
+
+	return edsUpdates
+}
+
 func (s *DiscoveryServer) edsUpdate(shard, serviceName string,
 	entries []*model.IstioEndpoint, internal bool) error {
 	// edsShardUpdate replaces a subset (shard) of endpoints, as result of an incremental
@@ -547,7 +562,7 @@ func (s *DiscoveryServer) edsUpdate(shard, serviceName string,
 		}
 	}
 	ep.Shards[shard] = ce
-	s.Env.EDSUpdates[serviceName] = ep
+	s.edsUpdates[serviceName] = ep
 
 	return nil
 }

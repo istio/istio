@@ -187,7 +187,6 @@ type ServiceShards struct {
 type EndpointShard struct {
 	Shard   string
 	Entries []*IstioEndpoint
-	//ServiceInstance []*model.ServiceInstance
 }
 
 // ConfigUpdater is used to requests config updates. The updates will be debounced before

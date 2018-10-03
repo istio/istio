@@ -745,7 +745,6 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 		ServiceDiscovery: s.ServiceController,
 		ServiceAccounts:  s.ServiceController,
 		MixerSAN:         s.mixerSAN,
-		EDSUpdates:       map[string]*model.ServiceShards{},
 	}
 
 	// Set up discovery service
@@ -769,6 +768,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	s.EnvoyXdsServer.ConfigUpdater = s.discoveryService
 	// TODO: decouple v2 from the cache invalidation, use direct listeners.
 	envoy.Push = s.EnvoyXdsServer.Push
+	envoy.BeforePush = s.EnvoyXdsServer.BeforePush
 
 	s.EnvoyXdsServer.Register(s.grpcServer)
 
