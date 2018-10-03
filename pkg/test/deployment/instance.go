@@ -21,6 +21,8 @@ import (
 	"path"
 	"time"
 
+	kubeCore "k8s.io/api/core/v1"
+
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/test/env"
@@ -48,9 +50,10 @@ type Settings struct {
 	// WorkDir is an output folder for storing intermediate artifacts (i.e. generated yaml etc.)
 	WorkDir string
 
-	// Hub/Tag is the hub & tag values to use, during generation.
-	Hub string
-	Tag string
+	// Hub/Tag/ImagePullPolicy docker image settings to be used during generation.
+	Hub             string
+	Tag             string
+	ImagePullPolicy kubeCore.PullPolicy
 
 	// Namespace is the target deployment namespace (i.e. "istio-system").
 	Namespace string
@@ -83,6 +86,7 @@ func newHelmDeployment(s *Settings, a *kube.Accessor, chartDir string, valuesFil
 
 	settings.Tag = s.Tag
 	settings.Hub = s.Hub
+	settings.ImagePullPolicy = s.ImagePullPolicy
 	settings.EnableCoreDump = true
 
 	vFile := path.Join(chartDir, string(valuesFile))

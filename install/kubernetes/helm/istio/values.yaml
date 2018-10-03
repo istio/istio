@@ -162,14 +162,14 @@ global:
     useILB: false
 
   multiCluster:
-    # Set to true to connect two kubernetes clusters using a LB gateway as the
-    # only entry point into the cluster (instead of requiring pod to pod
-    # connectivity across two clusters). Note that for this system to work,
-    # service objects from remote clusters have to be replicated to local
-    # cluster (without the pod selectors). In addition, service entries
-    # have to be added for each replicated service object, where the
-    # endpoints in the service entry point to the remote cluster's
-    # MCgatewayIP:8443. All clusters should be using Istio mTLS and must
+    # Set to true to connect two kubernetes clusters using a LB gateway as
+    # the only entry point into the cluster (instead of requiring pod to
+    # pod connectivity across two clusters). Note that for this system to
+    # work, service objects from remote clusters have to be replicated to
+    # local cluster (without the pod selectors). In addition, service
+    # entries have to be added for each replicated service object, where
+    # the endpoints in the service entry point to the remote cluster's
+    # mcgatewayIP:15443. All clusters should be using Istio mTLS and must
     # have a shared root CA for this model to work.
     connectUsingGateway: false
 
