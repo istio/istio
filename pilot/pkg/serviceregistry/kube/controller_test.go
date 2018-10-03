@@ -687,8 +687,8 @@ func generatePod(ip, name, namespace, saName, node string, labels map[string]str
 			Namespace:   namespace,
 		},
 		Spec: v1.PodSpec{
-			ServiceAccountName: saName,
-			NodeName:           node,
+			ServiceAccountName:           saName,
+			NodeName:                     node,
 			AutomountServiceAccountToken: &automount,
 			// Validation requires this
 			Containers: []v1.Container{

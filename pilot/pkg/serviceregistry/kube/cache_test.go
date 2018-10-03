@@ -42,7 +42,7 @@ func initTestEnv(ki kubernetes.Interface, c *Controller, fx *FakeXdsUpdater) {
 		})
 
 		// K8S 1.10 also checks if service account exists
-		_, _ := ki.CoreV1().ServiceAccounts(n).Create(&v1.ServiceAccount{
+		_, _ = ki.CoreV1().ServiceAccounts(n).Create(&v1.ServiceAccount{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "default",
 				Annotations: map[string]string{
