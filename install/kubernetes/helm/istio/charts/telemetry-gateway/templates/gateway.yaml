@@ -1,4 +1,4 @@
-{{- if or (.Values.prometheusEnabled) (.Values.grafanaEnabled)}}
+{{- if or (.Values.prometheusEnabled) (.Values.grafanaEnabled) }}
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
