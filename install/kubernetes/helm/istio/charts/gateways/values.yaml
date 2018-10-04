@@ -116,6 +116,8 @@ istio-ilbgateway:
   replicaCount: 1
   autoscaleMin: 1
   autoscaleMax: 5
+  cpu:
+    targetAverageUtilization: 80
   resources:
     requests:
       cpu: 800m
@@ -155,6 +157,8 @@ istio-ilbgateway:
 # value. The gateway forwards traffic to the envoy cluster (service+subset+port).
 istio-mcgateway:
   enabled: false
+  cpu:
+    targetAverageUtilization: 80
   labels:
     app: istio-mcgateway
     istio: mcgateway
