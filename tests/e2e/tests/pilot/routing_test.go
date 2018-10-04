@@ -210,7 +210,7 @@ func TestRoutes(t *testing.T) {
 			description:   "routing 30 percent to c-v1, 70 percent to c-v2",
 			config:        "virtualservice-route-tcp-weighted.yaml",
 			scheme:        "http",
-			src:           "a",
+			src:           "b",
 			dst:           "c:90",
 			headerKey:     "",
 			headerVal:     "",
