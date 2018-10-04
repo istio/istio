@@ -36,7 +36,7 @@ var emptyInfo = testSchema.Get("type.googleapis.com/google.protobuf.Empty")
 
 func TestProcessor_Start(t *testing.T) {
 	src := NewInMemorySource()
-	distributor := snapshot.New()
+	distributor := snapshot.New(snapshot.DefaultGroupIndex)
 	p := NewProcessor(src, distributor)
 
 	err := p.Start()
@@ -59,7 +59,7 @@ func (e *erroneousSource) Start() (chan resource.Event, error) {
 func (e *erroneousSource) Stop() {}
 
 func TestProcessor_Start_Error(t *testing.T) {
-	distributor := snapshot.New()
+	distributor := snapshot.New(snapshot.DefaultGroupIndex)
 	p := NewProcessor(&erroneousSource{}, distributor)
 
 	err := p.Start()
@@ -70,7 +70,7 @@ func TestProcessor_Start_Error(t *testing.T) {
 
 func TestProcessor_Stop(t *testing.T) {
 	src := NewInMemorySource()
-	distributor := snapshot.New()
+	distributor := snapshot.New(snapshot.DefaultGroupIndex)
 	strategy := newPublishingStrategyWithDefaults()
 
 	p := newProcessor(src, distributor, strategy, testSchema, nil)

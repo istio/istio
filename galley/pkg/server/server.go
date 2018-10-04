@@ -99,7 +99,7 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 		}
 	}
 
-	distributor := snapshot.New()
+	distributor := snapshot.New(snapshot.DefaultGroupIndex)
 	s.processor = runtime.NewProcessor(src, distributor)
 
 	var grpcOptions []grpc.ServerOption

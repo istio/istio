@@ -53,7 +53,7 @@ var _ io.Closer = &Server{}
 // Specifying port as 0 will cause the server to bind to an arbitrary port. This port can be queried
 // from the Port field of the returned server struct.
 func NewServer(port int, typeUrls []string) (*Server, error) {
-	cache := snapshot.New()
+	cache := snapshot.New(snapshot.DefaultGroupIndex)
 	s := server.New(cache, typeUrls, server.NewAllowAllChecker(), mcptestmon.NewInMemoryServerStatsContext())
 
 	addr := fmt.Sprintf("127.0.0.1:%d", port)
