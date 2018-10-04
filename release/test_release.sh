@@ -40,7 +40,8 @@ function usage() {
     -b <name>       branch                          (required)
     -d <docker hub> full path of docker hub         (required)
     -g <uri>        the build path of the artifacts (required)
-    -v <version>    version of the build            (required)"
+    -v <version>    version of the build            (required)
+    -s <sha>        green sha                       (required)"
   exit 1
 }
 
@@ -50,6 +51,7 @@ while getopts b:d:g:v: arg ; do
     d) DOCKER_HUB="${OPTARG}";;
     g) GCS_BUILD_PATH="${OPTARG}";;
     v) VERSION="${OPTARG}";;
+    s) SHA="${OPTARG}";;
     *) usage;;
   esac
 done
@@ -58,7 +60,7 @@ done
 [[ -z "${DOCKER_HUB}"     ]] && usage
 [[ -z "${GCS_BUILD_PATH}" ]] && usage
 [[ -z "${VERSION}"        ]] && usage
-
+[[ -z "${SHA}"            ]] && usage
 
 githubctl_setup
 github_keys
@@ -73,4 +75,6 @@ git config --global user.email "testrunner@istio.io"
     --base_branch="$BRANCH" \
     --hub="$DOCKER_HUB" \
     --gcs_path="$GCS_BUILD_PATH" \
-    --tag="$VERSION"
+    --tag="$VERSION" \
+    --ref_sha="$SHA"
+

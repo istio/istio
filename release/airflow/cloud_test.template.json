@@ -10,7 +10,7 @@
     },
     {
       "name": "gcr.io/istio-testing/istio-builder:0.5.10",
-      "args": [ "./test_release.sh", "-b", "$_BRANCH", "-d", "$_DOCKER_HUB", "-g", "$_GCS_BUILD_PATH", "-v", "$_VERSION" ]
+      "args": [ "./test_release.sh", "-b", "$_BRANCH", "-d", "$_DOCKER_HUB", "-g", "$_GCS_BUILD_PATH", "-v", "$_VERSION", "-s", "$_COMMIT" ]
     }
   ],
   "options": {

@@ -91,7 +91,7 @@ function build_template() {
 # Called directly by Airflow.
 function test_command() {
     DOCKER_HUB="gcr.io/$GCR_STAGING_DEST"
-    create_subs_file "BRANCH" "DOCKER_HUB" "GCS_BUILD_PATH" "GCS_RELEASE_TOOLS_PATH" "VERSION"
+    create_subs_file "BRANCH" "COMMIT" "DOCKER_HUB" "GCS_BUILD_PATH" "GCS_RELEASE_TOOLS_PATH" "VERSION"
     cat "${SUBS_FILE}"
 
     run_build "cloud_test.template.json" \
