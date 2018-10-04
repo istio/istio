@@ -185,7 +185,7 @@ func GetIstioServiceAccounts(registry ServiceDiscovery, hostname Hostname, ports
 		}
 	}
 
-	// TODO: confirm with oliver this is only for the mesh expansion annotation?
+	// We add Service's service account as well. This comes from Service annotation to support mesh expansion.
 	for _, serviceAccount := range svc.ServiceAccounts {
 		sa := serviceAccount
 		saSet[sa] = true
