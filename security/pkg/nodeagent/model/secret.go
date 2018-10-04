@@ -24,15 +24,15 @@ type SecretItem struct {
 
 	RootCert []byte
 
-	// ResourceName passed from envoy SDS discovery request, spiffeID format for key/cert request.
-	// "ROOTCA" for root cert request.
+	// ResourceName passed from envoy SDS discovery request.
+	// "ROOTCA" for root cert request, "default" for key/cert request.
 	ResourceName string
 
 	// Credential token passed from envoy, caClient uses this token to send
 	// CSR to CA to sign certificate.
 	Token string
 
-	// Version is used(together with token and SpiffeID) to identify discovery request from
+	// Version is used(together with token and ResourceName) to identify discovery request from
 	// envoy which is used only for confirm purpose.
 	Version string
 

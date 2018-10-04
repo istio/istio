@@ -19,7 +19,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"strings"
 	"sync"
 	"time"
 
@@ -36,7 +35,6 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/istio/security/pkg/nodeagent/model"
-	"istio.io/istio/security/pkg/pki/util"
 )
 
 const (
@@ -223,11 +221,7 @@ func parseDiscoveryRequest(discReq *xdsapi.DiscoveryRequest) (string /*resourceN
 		return "", fmt.Errorf("discovery request %+v missing node id", discReq)
 	}
 
-	if len(discReq.ResourceNames) == 1 && strings.HasPrefix(discReq.ResourceNames[0], util.URIScheme) {
-		return discReq.ResourceNames[0], nil
-	}
-
-	if len(discReq.ResourceNames) == 1 && strings.Contains(discReq.ResourceNames[0], cache.RootCertReqResourceName) {
+	if len(discReq.ResourceNames) == 1 {
 		return discReq.ResourceNames[0], nil
 	}
 

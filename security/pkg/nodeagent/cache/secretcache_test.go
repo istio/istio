@@ -29,7 +29,7 @@ var (
 	mockCertChain1st    = []string{"foo", "rootcert"}
 	mockCertChainRemain = []string{"bar", "rootcert"}
 
-	fakeSpiffeID = "spiffe://cluster.local/ns/bar/sa/foo"
+	testResourceName = "default"
 )
 
 func TestGenerateSecret(t *testing.T) {
@@ -48,7 +48,7 @@ func TestGenerateSecret(t *testing.T) {
 
 	proxyID := "proxy1-id"
 	ctx := context.Background()
-	gotSecret, err := sc.GenerateSecret(ctx, proxyID, fakeSpiffeID, "jwtToken1")
+	gotSecret, err := sc.GenerateSecret(ctx, proxyID, testResourceName, "jwtToken1")
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
 	}
@@ -57,10 +57,10 @@ func TestGenerateSecret(t *testing.T) {
 		t.Errorf("CertificateChain: got: %v, want: %v", got, want)
 	}
 
-	if got, want := sc.SecretExist(proxyID, fakeSpiffeID, "jwtToken1", gotSecret.Version), true; got != want {
+	if got, want := sc.SecretExist(proxyID, testResourceName, "jwtToken1", gotSecret.Version), true; got != want {
 		t.Errorf("SecretExist: got: %v, want: %v", got, want)
 	}
-	if got, want := sc.SecretExist(proxyID, fakeSpiffeID, "nonexisttoken", gotSecret.Version), false; got != want {
+	if got, want := sc.SecretExist(proxyID, testResourceName, "nonexisttoken", gotSecret.Version), false; got != want {
 		t.Errorf("SecretExist: got: %v, want: %v", got, want)
 	}
 
@@ -81,7 +81,7 @@ func TestGenerateSecret(t *testing.T) {
 
 	key := ConnKey{
 		ProxyID:      proxyID,
-		ResourceName: fakeSpiffeID,
+		ResourceName: testResourceName,
 	}
 	cachedSecret, found := sc.secrets.Load(key)
 	if !found {
@@ -92,7 +92,7 @@ func TestGenerateSecret(t *testing.T) {
 	}
 
 	// Try to get secret again using different jwt token, verify secret is re-generated.
-	gotSecret, err = sc.GenerateSecret(ctx, proxyID, fakeSpiffeID, "newToken")
+	gotSecret, err = sc.GenerateSecret(ctx, proxyID, testResourceName, "newToken")
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
 	}
@@ -132,7 +132,7 @@ func TestRefreshSecret(t *testing.T) {
 		atomic.StoreUint32(&sc.skipTokenExpireCheck, 1)
 	}()
 
-	_, err := sc.GenerateSecret(context.Background(), "proxy1-id", fakeSpiffeID, "jwtToken1")
+	_, err := sc.GenerateSecret(context.Background(), "proxy1-id", testResourceName, "jwtToken1")
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
 	}
