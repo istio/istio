@@ -194,15 +194,15 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 	return nil
 }
 
-// GetIstioServiceAccounts implements model.ServiceAccounts operation TODO
-func (c *Controller) GetIstioServiceAccounts(hostname model.Hostname, ports []int) []string {
-	// Need to get service account of service registered with consul
-	// Currently Consul does not have service account or equivalent concept
-	// As a step-1, to enabling istio security in Consul, We assume all the services run in default service account
-	// This will allow all the consul services to do mTLS
-	// Follow - https://goo.gl/Dt11Ct
-
-	return []string{
-		"spiffe://cluster.local/ns/default/sa/default",
-	}
-}
+//// GetIstioServiceAccounts implements model.ServiceAccounts operation TODO
+//func (c *Controller) GetIstioServiceAccounts(hostname model.Hostname, ports []int) []string {
+//	// Need to get service account of service registered with consul
+//	// Currently Consul does not have service account or equivalent concept
+//	// As a step-1, to enabling istio security in Consul, We assume all the services run in default service account
+//	// This will allow all the consul services to do mTLS
+//	// Follow - https://goo.gl/Dt11Ct
+//
+//	return []string{
+//		"spiffe://cluster.local/ns/default/sa/default",
+//	}
+//}

@@ -64,7 +64,7 @@ type DiscoveryServer struct {
 	env *model.Environment
 
 	// MemRegistry is used for debug and load testing, allow adding services. Visible for testing.
-	MemRegistry *MemServiceDiscovery
+	MemRegistry *model.MemServiceDiscovery
 
 	// ConfigGenerator is responsible for generating data plane configuration using Istio networking
 	// APIs and service registry info

@@ -438,11 +438,11 @@ type ServiceDiscovery interface {
 }
 
 // ServiceAccounts exposes Istio service accounts
-type ServiceAccounts interface {
-	// GetIstioServiceAccounts returns a list of service accounts looked up from
-	// the specified service hostname and ports.
-	GetIstioServiceAccounts(hostname Hostname, ports []int) []string
-}
+//type ServiceAccounts interface {
+//	// GetIstioServiceAccounts returns a list of service accounts looked up from
+//	// the specified service hostname and ports.
+//	GetIstioServiceAccounts(hostname Hostname, ports []int) []string
+//}
 
 // Matches returns true if this Hostname "matches" the other hostname. Hostnames match if:
 // - they're fully resolved (i.e. not wildcarded) and match exactly (i.e. an exact string match)

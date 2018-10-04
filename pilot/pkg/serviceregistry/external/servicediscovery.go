@@ -246,10 +246,3 @@ func (d *ServiceEntryStore) GetProxyServiceInstances(node *model.Proxy) ([]*mode
 	}
 	return []*model.ServiceInstance{}, nil
 }
-
-// GetIstioServiceAccounts implements model.ServiceAccounts operation TODOg
-func (d *ServiceEntryStore) GetIstioServiceAccounts(hostname model.Hostname, ports []int) []string {
-	//for service entries, there is no istio auth, no service accounts, etc. It is just a
-	// service, with service instances, and dns.
-	return nil
-}

@@ -156,14 +156,14 @@ func TestAdsClusterUpdate(t *testing.T) {
 	}
 
 	_ = server.EnvoyXdsServer.MemRegistry.AddEndpoint("adsupdate.default.svc.cluster.local",
-		"http-main", 2080, "10.2.0.1", 1080)
+		"http-main", 2080, "10.2.0.1", 1080, "")
 
 	cluster1 := "outbound|80||adsupdate.default.svc.cluster.local"
 	sendEDSReqAndVerify(cluster1)
 
 	// register a second endpoint
 	_ = server.EnvoyXdsServer.MemRegistry.AddEndpoint("adsupdate2.default.svc.cluster.local",
-		"http-status", 2080, "10.2.0.2", 1081)
+		"http-status", 2080, "10.2.0.2", 1081, "")
 
 	cluster2 := "outbound|80||adsupdate2.default.svc.cluster.local"
 	sendEDSReqAndVerify(cluster2)
@@ -184,7 +184,7 @@ func TestAdsUpdate(t *testing.T) {
 		Ports:    testPorts(0),
 	})
 	_ = server.EnvoyXdsServer.MemRegistry.AddEndpoint("adsupdate.default.svc.cluster.local",
-		"http-main", 2080, "10.2.0.1", 1080)
+		"http-main", 2080, "10.2.0.1", 1080, "")
 
 	err = sendEDSReq([]string{"outbound|2080||adsupdate.default.svc.cluster.local"}, sidecarId("1.1.1.1", "app3"), edsstr)
 	if err != nil {
@@ -223,7 +223,7 @@ func TestAdsUpdate(t *testing.T) {
 	_ = ioutil.WriteFile(env.IstioOut+"/edsv2_sidecar.json", []byte(strResponse), 0644)
 
 	_ = server.EnvoyXdsServer.MemRegistry.AddEndpoint("adsupdate.default.svc.cluster.local",
-		"http-main", 2080, "10.1.7.1", 1080)
+		"http-main", 2080, "10.1.7.1", 1080, "")
 
 	// will trigger recompute and push for all clients - including some that may be closing
 	// This reproduced the 'push on closed connection' bug.
@@ -304,7 +304,7 @@ func TestAdsMultiple(t *testing.T) {
 	// This reproduced the 'push on closed connection' bug.
 	for j := 0; j < nPushes; j++ {
 		_ = server.EnvoyXdsServer.MemRegistry.AddEndpoint("service3.default.svc.cluster.local",
-			"http-main", 2080, "10.1.7.1", 1080)
+			"http-main", 2080, "10.1.7.1", 1080, "")
 		v2.AdsPushAll(server.EnvoyXdsServer)
 		log.Println("Push done ", j)
 	}

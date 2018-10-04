@@ -14,12 +14,12 @@
 
 package model
 
-// Controller defines an event controller loop.  Proxy agent registers itself
-// with the controller loop and receives notifications on changes to the
+// Controller defines an event Controller loop.  Proxy agent registers itself
+// with the Controller loop and receives notifications on changes to the
 // service topology or changes to the configuration artifacts.
 //
-// The controller guarantees the following consistency requirement: registry
-// view in the controller is as AT LEAST as fresh as the moment notification
+// The Controller guarantees the following consistency requirement: registry
+// view in the Controller is as AT LEAST as fresh as the moment notification
 // arrives, but MAY BE more fresh (e.g. "delete" cancels an "add" event).  For
 // example, an event for a service creation will see a service registry without
 // the service if the event is immediately followed by the service deletion
@@ -27,7 +27,7 @@ package model
 //
 // Handlers execute on the single worker queue in the order they are appended.
 // Handlers receive the notification event and the associated object.  Note
-// that all handlers must be appended before starting the controller.
+// that all handlers must be appended before starting the Controller.
 type Controller interface {
 	// AppendServiceHandler notifies about changes to the service catalog.
 	AppendServiceHandler(f func(*Service, Event)) error

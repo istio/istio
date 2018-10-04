@@ -174,7 +174,7 @@ func (meta *ConfigMeta) Key() string {
 //
 // Handlers execute on the single worker queue in the order they are appended.
 // Handlers receive the notification event and the associated object.  Note
-// that all handlers must be registered before starting the cache controller.
+// that all handlers must be registered before starting the cache Controller.
 type ConfigStoreCache interface {
 	ConfigStore
 

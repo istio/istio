@@ -16,13 +16,10 @@ package v2
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
-	"sync"
-
 	"github.com/gogo/protobuf/jsonpb"
 
 	authn "istio.io/api/authentication/v1alpha1"
@@ -40,7 +37,7 @@ import (
 // InitDebug initializes the debug handlers and adds a debug in-memory registry.
 func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controller) {
 	// For debugging and load testing v2 we add an memory registry.
-	s.MemRegistry = NewMemServiceDiscovery(
+	s.MemRegistry = model.NewMemServiceDiscovery(
 		map[model.Hostname]*model.Service{ // mock.HelloService.Hostname: mock.HelloService,
 		}, 2)
 
@@ -48,8 +45,7 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 		ClusterID:        "v2-debug",
 		Name:             serviceregistry.ServiceRegistry("memAdapter"),
 		ServiceDiscovery: s.MemRegistry,
-		ServiceAccounts:  s.MemRegistry,
-		Controller:       s.MemRegistry.controller,
+		Controller:       s.MemRegistry.Controller,
 	})
 
 	mux.HandleFunc("/ready", s.ready)
@@ -69,16 +65,16 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 }
 
 // NewMemServiceDiscovery builds an in-memory MemServiceDiscovery
-func NewMemServiceDiscovery(services map[model.Hostname]*model.Service, versions int) *MemServiceDiscovery {
-	return &MemServiceDiscovery{
-		services:            services,
-		versions:            versions,
-		controller:          &memServiceController{},
-		instancesByPortNum:  map[string][]*model.ServiceInstance{},
-		instancesByPortName: map[string][]*model.ServiceInstance{},
-		ip2instance:         map[string][]*model.ServiceInstance{},
-	}
-}
+//func NewMemServiceDiscovery(services map[model.Hostname]*model.Service, versions int) *MemServiceDiscovery {
+//	return &MemServiceDiscovery{
+//		services:            services,
+//		versions:            versions,
+//		controller:          &memServiceController{},
+//		instancesByPortNum:  map[string][]*model.ServiceInstance{},
+//		instancesByPortName: map[string][]*model.ServiceInstance{},
+//		ip2instance:         map[string][]*model.ServiceInstance{},
+//	}
+//}
 
 // SyncStatus is the synchronization status between Pilot and a given Envoy
 type SyncStatus struct {
@@ -133,199 +129,199 @@ func Syncz(w http.ResponseWriter, req *http.Request) {
 
 // TODO: the mock was used for test setup, has no mutex. This will also be used for
 // integration and load tests, will need to add mutex as we cleanup the code.
-
-type memServiceController struct {
-	svcHandlers  []func(*model.Service, model.Event)
-	instHandlers []func(*model.ServiceInstance, model.Event)
-}
-
-func (c *memServiceController) AppendServiceHandler(f func(*model.Service, model.Event)) error {
-	c.svcHandlers = append(c.svcHandlers, f)
-	return nil
-}
-
-func (c *memServiceController) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
-	c.instHandlers = append(c.instHandlers, f)
-	return nil
-}
-
-func (c *memServiceController) Run(<-chan struct{}) {}
-
-// MemServiceDiscovery is a mock discovery interface
-type MemServiceDiscovery struct {
-	services map[model.Hostname]*model.Service
-	// Endpoints table. Key is the fqdn of the service, ':', port
-	instancesByPortNum            map[string][]*model.ServiceInstance
-	instancesByPortName           map[string][]*model.ServiceInstance
-	ip2instance                   map[string][]*model.ServiceInstance
-	versions                      int
-	WantGetProxyServiceInstances  []*model.ServiceInstance
-	ServicesError                 error
-	GetServiceError               error
-	InstancesError                error
-	GetProxyServiceInstancesError error
-	controller                    model.Controller
-
-	// Single mutex for now - it's for debug only.
-	mutex sync.Mutex
-}
-
-// ClearErrors clear errors used for mocking failures during model.MemServiceDiscovery interface methods
-func (sd *MemServiceDiscovery) ClearErrors() {
-	sd.ServicesError = nil
-	sd.GetServiceError = nil
-	sd.InstancesError = nil
-	sd.GetProxyServiceInstancesError = nil
-}
-
-// AddService adds an in-memory service.
-func (sd *MemServiceDiscovery) AddService(name model.Hostname, svc *model.Service) {
-	sd.mutex.Lock()
-	sd.services[name] = svc
-	sd.mutex.Unlock()
-	// TODO: notify listeners
-}
-
-// AddInstance adds an in-memory instance.
-func (sd *MemServiceDiscovery) AddInstance(service model.Hostname, instance *model.ServiceInstance) {
-	// WIP: add enough code to allow tests and load tests to work
-	sd.mutex.Lock()
-	defer sd.mutex.Unlock()
-	svc := sd.services[service]
-	if svc == nil {
-		return
-	}
-	instance.Service = svc
-	sd.ip2instance[instance.Endpoint.Address] = []*model.ServiceInstance{instance}
-
-	key := fmt.Sprintf("%s:%d", service, instance.Endpoint.ServicePort.Port)
-	instanceList := sd.instancesByPortNum[key]
-	sd.instancesByPortNum[key] = append(instanceList, instance)
-
-	key = fmt.Sprintf("%s:%s", service, instance.Endpoint.ServicePort.Name)
-	instanceList = sd.instancesByPortName[key]
-	sd.instancesByPortName[key] = append(instanceList, instance)
-}
-
-// AddEndpoint adds an endpoint to a service.
-func (sd *MemServiceDiscovery) AddEndpoint(service model.Hostname, servicePortName string, servicePort int, address string, port int) *model.ServiceInstance {
-	instance := &model.ServiceInstance{
-		Endpoint: model.NetworkEndpoint{
-			Address: address,
-			Port:    port,
-			ServicePort: &model.Port{
-				Name:     servicePortName,
-				Port:     servicePort,
-				Protocol: model.ProtocolHTTP,
-			},
-		},
-	}
-	sd.AddInstance(service, instance)
-	return instance
-}
-
-// Services implements discovery interface
-// Each call to Services() should return a list of new *model.Service
-func (sd *MemServiceDiscovery) Services() ([]*model.Service, error) {
-	sd.mutex.Lock()
-	defer sd.mutex.Unlock()
-	if sd.ServicesError != nil {
-		return nil, sd.ServicesError
-	}
-	out := make([]*model.Service, 0, len(sd.services))
-	for _, service := range sd.services {
-		// Make a new service out of the existing one
-		newSvc := *service
-		out = append(out, &newSvc)
-	}
-	return out, sd.ServicesError
-}
-
-// GetService implements discovery interface
-// Each call to GetService() should return a new *model.Service
-func (sd *MemServiceDiscovery) GetService(hostname model.Hostname) (*model.Service, error) {
-	sd.mutex.Lock()
-	defer sd.mutex.Unlock()
-	if sd.GetServiceError != nil {
-		return nil, sd.GetServiceError
-	}
-	val := sd.services[hostname]
-	if val == nil {
-		return nil, errors.New("missing service")
-	}
-	// Make a new service out of the existing one
-	newSvc := *val
-	return &newSvc, sd.GetServiceError
-}
-
-// InstancesByPort filters the service instances by labels. This assumes single port, as is
-// used by EDS/ADS.
-func (sd *MemServiceDiscovery) InstancesByPort(hostname model.Hostname, port int,
-	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
-	sd.mutex.Lock()
-	defer sd.mutex.Unlock()
-	if sd.InstancesError != nil {
-		return nil, sd.InstancesError
-	}
-	key := fmt.Sprintf("%s:%d", string(hostname), port)
-	instances, ok := sd.instancesByPortNum[key]
-	if !ok {
-		return nil, nil
-	}
-	return instances, nil
-}
-
-// GetProxyServiceInstances returns service instances associated with a node, resulting in
-// 'in' services.
-func (sd *MemServiceDiscovery) GetProxyServiceInstances(node *model.Proxy) ([]*model.ServiceInstance, error) {
-	sd.mutex.Lock()
-	defer sd.mutex.Unlock()
-	if sd.GetProxyServiceInstancesError != nil {
-		return nil, sd.GetProxyServiceInstancesError
-	}
-	if sd.WantGetProxyServiceInstances != nil {
-		return sd.WantGetProxyServiceInstances, nil
-	}
-	out := make([]*model.ServiceInstance, 0)
-	si, found := sd.ip2instance[node.IPAddress]
-	if found {
-		out = append(out, si...)
-	}
-	return out, sd.GetProxyServiceInstancesError
-}
-
-// ManagementPorts implements discovery interface
-func (sd *MemServiceDiscovery) ManagementPorts(addr string) model.PortList {
-	sd.mutex.Lock()
-	defer sd.mutex.Unlock()
-	return model.PortList{{
-		Name:     "http",
-		Port:     3333,
-		Protocol: model.ProtocolHTTP,
-	}, {
-		Name:     "custom",
-		Port:     9999,
-		Protocol: model.ProtocolTCP,
-	}}
-}
-
-// WorkloadHealthCheckInfo implements discovery interface
-func (sd *MemServiceDiscovery) WorkloadHealthCheckInfo(addr string) model.ProbeList {
-	return nil
-}
-
-// GetIstioServiceAccounts gets the Istio service accounts for a service hostname.
-func (sd *MemServiceDiscovery) GetIstioServiceAccounts(hostname model.Hostname, ports []int) []string {
-	sd.mutex.Lock()
-	defer sd.mutex.Unlock()
-	if hostname == "world.default.svc.cluster.local" {
-		return []string{
-			"spiffe://cluster.local/ns/default/sa/serviceaccount1",
-			"spiffe://cluster.local/ns/default/sa/serviceaccount2",
-		}
-	}
-	return make([]string, 0)
-}
+//
+//type memServiceController struct {
+//	svcHandlers  []func(*model.Service, model.Event)
+//	instHandlers []func(*model.ServiceInstance, model.Event)
+//}
+//
+//func (c *memServiceController) AppendServiceHandler(f func(*model.Service, model.Event)) error {
+//	c.svcHandlers = append(c.svcHandlers, f)
+//	return nil
+//}
+//
+//func (c *memServiceController) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
+//	c.instHandlers = append(c.instHandlers, f)
+//	return nil
+//}
+//
+//func (c *memServiceController) Run(<-chan struct{}) {}
+//
+//// MemServiceDiscovery is a mock discovery interface
+//type MemServiceDiscovery struct {
+//	services map[model.Hostname]*model.Service
+//	// Endpoints table. Key is the fqdn of the service, ':', port
+//	instancesByPortNum            map[string][]*model.ServiceInstance
+//	instancesByPortName           map[string][]*model.ServiceInstance
+//	ip2instance                   map[string][]*model.ServiceInstance
+//	versions                      int
+//	WantGetProxyServiceInstances  []*model.ServiceInstance
+//	ServicesError                 error
+//	GetServiceError               error
+//	InstancesError                error
+//	GetProxyServiceInstancesError error
+//	controller                    model.Controller
+//
+//	// Single mutex for now - it's for debug only.
+//	mutex sync.Mutex
+//}
+//
+//// ClearErrors clear errors used for mocking failures during model.MemServiceDiscovery interface methods
+//func (sd *MemServiceDiscovery) ClearErrors() {
+//	sd.ServicesError = nil
+//	sd.GetServiceError = nil
+//	sd.InstancesError = nil
+//	sd.GetProxyServiceInstancesError = nil
+//}
+//
+//// AddService adds an in-memory service.
+//func (sd *MemServiceDiscovery) AddService(name model.Hostname, svc *model.Service) {
+//	sd.mutex.Lock()
+//	sd.services[name] = svc
+//	sd.mutex.Unlock()
+//	// TODO: notify listeners
+//}
+//
+//// AddInstance adds an in-memory instance.
+//func (sd *MemServiceDiscovery) AddInstance(service model.Hostname, instance *model.ServiceInstance) {
+//	// WIP: add enough code to allow tests and load tests to work
+//	sd.mutex.Lock()
+//	defer sd.mutex.Unlock()
+//	svc := sd.services[service]
+//	if svc == nil {
+//		return
+//	}
+//	instance.Service = svc
+//	sd.ip2instance[instance.Endpoint.Address] = []*model.ServiceInstance{instance}
+//
+//	key := fmt.Sprintf("%s:%d", service, instance.Endpoint.ServicePort.Port)
+//	instanceList := sd.instancesByPortNum[key]
+//	sd.instancesByPortNum[key] = append(instanceList, instance)
+//
+//	key = fmt.Sprintf("%s:%s", service, instance.Endpoint.ServicePort.Name)
+//	instanceList = sd.instancesByPortName[key]
+//	sd.instancesByPortName[key] = append(instanceList, instance)
+//}
+//
+//// AddEndpoint adds an endpoint to a service.
+//func (sd *MemServiceDiscovery) AddEndpoint(service model.Hostname, servicePortName string, servicePort int, address string, port int) *model.ServiceInstance {
+//	instance := &model.ServiceInstance{
+//		Endpoint: model.NetworkEndpoint{
+//			Address: address,
+//			Port:    port,
+//			ServicePort: &model.Port{
+//				Name:     servicePortName,
+//				Port:     servicePort,
+//				Protocol: model.ProtocolHTTP,
+//			},
+//		},
+//	}
+//	sd.AddInstance(service, instance)
+//	return instance
+//}
+//
+//// Services implements discovery interface
+//// Each call to Services() should return a list of new *model.Service
+//func (sd *MemServiceDiscovery) Services() ([]*model.Service, error) {
+//	sd.mutex.Lock()
+//	defer sd.mutex.Unlock()
+//	if sd.ServicesError != nil {
+//		return nil, sd.ServicesError
+//	}
+//	out := make([]*model.Service, 0, len(sd.services))
+//	for _, service := range sd.services {
+//		// Make a new service out of the existing one
+//		newSvc := *service
+//		out = append(out, &newSvc)
+//	}
+//	return out, sd.ServicesError
+//}
+//
+//// GetService implements discovery interface
+//// Each call to GetService() should return a new *model.Service
+//func (sd *MemServiceDiscovery) GetService(hostname model.Hostname) (*model.Service, error) {
+//	sd.mutex.Lock()
+//	defer sd.mutex.Unlock()
+//	if sd.GetServiceError != nil {
+//		return nil, sd.GetServiceError
+//	}
+//	val := sd.services[hostname]
+//	if val == nil {
+//		return nil, errors.New("missing service")
+//	}
+//	// Make a new service out of the existing one
+//	newSvc := *val
+//	return &newSvc, sd.GetServiceError
+//}
+//
+//// InstancesByPort filters the service instances by labels. This assumes single port, as is
+//// used by EDS/ADS.
+//func (sd *MemServiceDiscovery) InstancesByPort(hostname model.Hostname, port int,
+//	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
+//	sd.mutex.Lock()
+//	defer sd.mutex.Unlock()
+//	if sd.InstancesError != nil {
+//		return nil, sd.InstancesError
+//	}
+//	key := fmt.Sprintf("%s:%d", string(hostname), port)
+//	instances, ok := sd.instancesByPortNum[key]
+//	if !ok {
+//		return nil, nil
+//	}
+//	return instances, nil
+//}
+//
+//// GetProxyServiceInstances returns service instances associated with a node, resulting in
+//// 'in' services.
+//func (sd *MemServiceDiscovery) GetProxyServiceInstances(node *model.Proxy) ([]*model.ServiceInstance, error) {
+//	sd.mutex.Lock()
+//	defer sd.mutex.Unlock()
+//	if sd.GetProxyServiceInstancesError != nil {
+//		return nil, sd.GetProxyServiceInstancesError
+//	}
+//	if sd.WantGetProxyServiceInstances != nil {
+//		return sd.WantGetProxyServiceInstances, nil
+//	}
+//	out := make([]*model.ServiceInstance, 0)
+//	si, found := sd.ip2instance[node.IPAddress]
+//	if found {
+//		out = append(out, si...)
+//	}
+//	return out, sd.GetProxyServiceInstancesError
+//}
+//
+//// ManagementPorts implements discovery interface
+//func (sd *MemServiceDiscovery) ManagementPorts(addr string) model.PortList {
+//	sd.mutex.Lock()
+//	defer sd.mutex.Unlock()
+//	return model.PortList{{
+//		Name:     "http",
+//		Port:     3333,
+//		Protocol: model.ProtocolHTTP,
+//	}, {
+//		Name:     "custom",
+//		Port:     9999,
+//		Protocol: model.ProtocolTCP,
+//	}}
+//}
+//
+//// WorkloadHealthCheckInfo implements discovery interface
+//func (sd *MemServiceDiscovery) WorkloadHealthCheckInfo(addr string) model.ProbeList {
+//	return nil
+//}
+//
+//// GetIstioServiceAccounts gets the Istio service accounts for a service hostname.
+//func (sd *MemServiceDiscovery) GetIstioServiceAccounts(hostname model.Hostname, ports []int) []string {
+//	sd.mutex.Lock()
+//	defer sd.mutex.Unlock()
+//	if hostname == "world.default.svc.cluster.local" {
+//		return []string{
+//			"spiffe://cluster.local/ns/default/sa/serviceaccount1",
+//			"spiffe://cluster.local/ns/default/sa/serviceaccount2",
+//		}
+//	}
+//	return make([]string, 0)
+//}
 
 // registryz providees debug support for registry - adding and listing model items.
 // Can be combined with the push debug interface to reproduce changes.

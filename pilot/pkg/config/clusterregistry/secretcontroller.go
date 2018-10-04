@@ -203,7 +203,7 @@ func (c *Controller) addMemberCluster(secretName string, s *corev1.Secret) {
 					Name:             serviceregistry.KubernetesRegistry,
 					ClusterID:        clusterID,
 					ServiceDiscovery: kubeController,
-					ServiceAccounts:  kubeController,
+					//ServiceAccounts:  kubeController,
 					Controller:       kubeController,
 				})
 

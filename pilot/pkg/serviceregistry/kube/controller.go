@@ -483,55 +483,55 @@ func getEndpoints(addr []v1.EndpointAddress, proxyIP string, c *Controller,
 	return out
 }
 
-// GetIstioServiceAccounts returns the Istio service accounts running a serivce
-// hostname. Each service account is encoded according to the SPIFFE VSID spec.
-// For example, a service account named "bar" in namespace "foo" is encoded as
-// "spiffe://cluster.local/ns/foo/sa/bar".
-func (c *Controller) GetIstioServiceAccounts(hostname model.Hostname, ports []int) []string {
-	saSet := make(map[string]bool)
-
-	// Get the service accounts running the service, if it is deployed on VMs. This is retrieved
-	// from the service annotation explicitly set by the operators.
-	svc, err := c.GetService(hostname)
-	if err != nil {
-		// Do not log error here, as the service could exist in another registry
-		return nil
-	}
-	if svc == nil {
-		// Do not log error here as the service could exist in another registry
-		return nil
-	}
-
-	instances := make([]*model.ServiceInstance, 0)
-	// Get the service accounts running service within Kubernetes. This is reflected by the pods that
-	// the service is deployed on, and the service accounts of the pods.
-	for _, port := range ports {
-		svcinstances, err := c.InstancesByPort(hostname, port, model.LabelsCollection{})
-		if err != nil {
-			log.Warnf("InstancesByPort(%s:%d) error: %v", hostname, port, err)
-			return nil
-		}
-		instances = append(instances, svcinstances...)
-	}
-
-	for _, si := range instances {
-		if si.ServiceAccount != "" {
-			saSet[si.ServiceAccount] = true
-		}
-	}
-
-	for _, serviceAccount := range svc.ServiceAccounts {
-		sa := serviceAccount
-		saSet[sa] = true
-	}
-
-	saArray := make([]string, 0, len(saSet))
-	for sa := range saSet {
-		saArray = append(saArray, sa)
-	}
-
-	return saArray
-}
+//// GetIstioServiceAccounts returns the Istio service accounts running a serivce
+//// hostname. Each service account is encoded according to the SPIFFE VSID spec.
+//// For example, a service account named "bar" in namespace "foo" is encoded as
+//// "spiffe://cluster.local/ns/foo/sa/bar".
+//func (c *Controller) GetIstioServiceAccounts(hostname model.Hostname, ports []int) []string {
+//	saSet := make(map[string]bool)
+//
+//	// Get the service accounts running the service, if it is deployed on VMs. This is retrieved
+//	// from the service annotation explicitly set by the operators.
+//	svc, err := c.GetService(hostname)
+//	if err != nil {
+//		// Do not log error here, as the service could exist in another registry
+//		return nil
+//	}
+//	if svc == nil {
+//		// Do not log error here as the service could exist in another registry
+//		return nil
+//	}
+//
+//	instances := make([]*model.ServiceInstance, 0)
+//	// Get the service accounts running service within Kubernetes. This is reflected by the pods that
+//	// the service is deployed on, and the service accounts of the pods.
+//	for _, port := range ports {
+//		svcinstances, err := c.InstancesByPort(hostname, port, model.LabelsCollection{})
+//		if err != nil {
+//			log.Warnf("InstancesByPort(%s:%d) error: %v", hostname, port, err)
+//			return nil
+//		}
+//		instances = append(instances, svcinstances...)
+//	}
+//
+//	for _, si := range instances {
+//		if si.ServiceAccount != "" {
+//			saSet[si.ServiceAccount] = true
+//		}
+//	}
+//
+//	for _, serviceAccount := range svc.ServiceAccounts {
+//		sa := serviceAccount
+//		saSet[sa] = true
+//	}
+//
+//	saArray := make([]string, 0, len(saSet))
+//	for sa := range saSet {
+//		saArray = append(saArray, sa)
+//	}
+//
+//	return saArray
+//}
 
 // AppendServiceHandler implements a service catalog operation
 func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) error {

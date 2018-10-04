@@ -621,7 +621,7 @@ func (s *Server) createK8sServiceControllers(serviceControllers *aggregate.Contr
 			Name:             serviceregistry.KubernetesRegistry,
 			ClusterID:        clusterID,
 			ServiceDiscovery: kubectl,
-			ServiceAccounts:  kubectl,
+			//ServiceAccounts:  kubectl,
 			Controller:       kubectl,
 		})
 
@@ -698,7 +698,7 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 		Name:             "ServiceEntries",
 		Controller:       serviceEntryStore,
 		ServiceDiscovery: serviceEntryStore,
-		ServiceAccounts:  serviceEntryStore,
+		//ServiceAccounts:  serviceEntryStore,
 	}
 	serviceControllers.AddRegistry(serviceEntryRegistry)
 
@@ -727,7 +727,7 @@ func (s *Server) initMemoryRegistry(serviceControllers *aggregate.Controller) {
 		Name:             serviceregistry.ServiceRegistry("mockAdapter1"),
 		ClusterID:        "mockAdapter1",
 		ServiceDiscovery: discovery1,
-		ServiceAccounts:  discovery1,
+		//ServiceAccounts:  discovery1,
 		Controller:       &mockController{},
 	}
 
@@ -735,7 +735,7 @@ func (s *Server) initMemoryRegistry(serviceControllers *aggregate.Controller) {
 		Name:             serviceregistry.ServiceRegistry("mockAdapter2"),
 		ClusterID:        "mockAdapter2",
 		ServiceDiscovery: discovery2,
-		ServiceAccounts:  discovery2,
+		//ServiceAccounts:  discovery2,
 		Controller:       &mockController{},
 	}
 	serviceControllers.AddRegistry(registry1)
@@ -747,7 +747,7 @@ func (s *Server) initConfigRegistry(serviceControllers *aggregate.Controller) {
 	serviceControllers.AddRegistry(aggregate.Registry{
 		Name:             serviceregistry.ConfigRegistry,
 		ServiceDiscovery: serviceEntryStore,
-		ServiceAccounts:  serviceEntryStore,
+		//ServiceAccounts:  serviceEntryStore,
 		Controller:       serviceEntryStore,
 	})
 }
@@ -757,7 +757,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 		Mesh:             s.mesh,
 		IstioConfigStore: s.istioConfigStore,
 		ServiceDiscovery: s.ServiceController,
-		ServiceAccounts:  s.ServiceController,
+		//ServiceAccounts:  s.ServiceController,
 		MixerSAN:         s.mixerSAN,
 	}
 
@@ -866,7 +866,7 @@ func (s *Server) initConsulRegistry(serviceControllers *aggregate.Controller, ar
 		aggregate.Registry{
 			Name:             serviceregistry.ConsulRegistry,
 			ServiceDiscovery: conctl,
-			ServiceAccounts:  conctl,
+			//ServiceAccounts:  conctl,
 			Controller:       conctl,
 		})
 
