@@ -116,15 +116,15 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 			if config != nil {
 				destinationRule := config.Spec.(*networking.DestinationRule)
 				convertIstioMutual(destinationRule, upstreamServiceAccounts)
-				applyTrafficPolicy(defaultCluster, destinationRule.TrafficPolicy, port, env.Mesh.SdsUdsPath)
+				applyTrafficPolicy(defaultCluster, destinationRule.TrafficPolicy, port, env)
 
 				for _, subset := range destinationRule.Subsets {
 					subsetClusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port.Port)
 					subsetCluster := buildDefaultCluster(env, subsetClusterName, convertResolution(service.Resolution), hosts)
 					updateEds(subsetCluster)
 					setUpstreamProtocol(subsetCluster, port)
-					applyTrafficPolicy(subsetCluster, destinationRule.TrafficPolicy, port, env.Mesh.SdsUdsPath)
-					applyTrafficPolicy(subsetCluster, subset.TrafficPolicy, port, env.Mesh.SdsUdsPath)
+					applyTrafficPolicy(subsetCluster, destinationRule.TrafficPolicy, port, env)
+					applyTrafficPolicy(subsetCluster, subset.TrafficPolicy, port, env)
 					// call plugins
 					for _, p := range configgen.Plugins {
 						p.OnOutboundCluster(env, push, service, port, subsetCluster)
@@ -309,7 +309,7 @@ func SelectTrafficPolicyComponents(policy *networking.TrafficPolicy, port *model
 	return connectionPool, outlierDetection, loadBalancer, tls
 }
 
-func applyTrafficPolicy(cluster *v2.Cluster, policy *networking.TrafficPolicy, port *model.Port, sdsUdsPath string) {
+func applyTrafficPolicy(cluster *v2.Cluster, policy *networking.TrafficPolicy, port *model.Port, env *model.Environment) {
 	if policy == nil {
 		return
 	}
@@ -318,7 +318,7 @@ func applyTrafficPolicy(cluster *v2.Cluster, policy *networking.TrafficPolicy, p
 	applyConnectionPool(cluster, connectionPool)
 	applyOutlierDetection(cluster, outlierDetection)
 	applyLoadBalancer(cluster, loadBalancer)
-	applyUpstreamTLSSettings(cluster, tls, sdsUdsPath)
+	applyUpstreamTLSSettings(cluster, tls, env.Mesh.SdsUdsPath)
 }
 
 // FIXME: there isn't a way to distinguish between unset values and zero values
@@ -471,7 +471,7 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings, 
 			Sni:              tls.Sni,
 		}
 
-		// Fallback to file mount secret instead of SDS if meshConfig.sdsUdsPath isn't set.
+		// Fallback to file mount secret instead of SDS if meshConfig.sdsUdsPath isn't set or tls.mode is TLSSettings_MUTUAL.
 		if sdsUdsPath == "" || tls.Mode == networking.TLSSettings_MUTUAL {
 			cluster.TlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{
 				ValidationContext: certValidationContext,
@@ -496,6 +496,7 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings, 
 
 			rootResourceName := model.SDSRootResourceName
 			if len(tls.SubjectAltNames) > 0 {
+				// Pass upstream service accounts to envoy, which is eventually passed to node agent to construct CertificateValidationContext.VerifySubjectAltName
 				rootNames := []string{rootResourceName}
 				rootNames = append(rootNames, tls.SubjectAltNames...)
 				rootResourceName = strings.Join(rootNames, ",")
@@ -572,7 +573,7 @@ func buildDefaultCluster(env *model.Environment, name string, discoveryType v2.C
 	}
 
 	defaultTrafficPolicy := buildDefaultTrafficPolicy(env, discoveryType)
-	applyTrafficPolicy(cluster, defaultTrafficPolicy, nil, env.Mesh.SdsUdsPath)
+	applyTrafficPolicy(cluster, defaultTrafficPolicy, nil, env)
 	return cluster
 }
 
