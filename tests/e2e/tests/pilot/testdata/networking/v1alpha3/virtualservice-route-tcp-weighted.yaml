@@ -1,0 +1,34 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: default-route
+  namespace: istio-system
+spec:
+  hosts:
+  - c
+  tcp:
+  - match:
+    - port: 90
+      source_labels:
+        app: a
+    route:
+    - destination:
+        host: c
+        subset: v2
+        port:
+          number: 90
+  - match:
+    - port: 90
+    route:
+    - destination:
+        host: c
+        subset: v1
+        port:
+          number: 90
+      weight: 15
+    - destination:
+        host: c
+        subset: v2
+        port:
+          number: 90
+      weight: 35
