@@ -313,29 +313,6 @@ func sourceMatchHTTP(match *networking.HTTPMatchRequest, proxyLabels model.Label
 	return false
 }
 
-// SortHeaderValueOption type and the functions below (Len, Less and Swap) are for sort.Stable for type HeaderValueOption
-type SortHeaderValueOption []*core.HeaderValueOption
-
-// Len is i the sort.Interface for SortHeaderValueOption
-func (b SortHeaderValueOption) Len() int {
-	return len(b)
-}
-
-// Less is in the sort.Interface for SortHeaderValueOption
-func (b SortHeaderValueOption) Less(i, j int) bool {
-	if b[i] == nil || b[i].Header == nil {
-		return false
-	} else if b[j] == nil || b[j].Header == nil {
-		return true
-	}
-	return strings.Compare(b[i].Header.Key, b[j].Header.Key) < 0
-}
-
-// Swap is in the sort.Interface for SortHeaderValueOption
-func (b SortHeaderValueOption) Swap(i, j int) {
-	b[i], b[j] = b[j], b[i]
-}
-
 // translateRoute translates HTTP routes
 func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.HTTPRoute,
 	match *networking.HTTPMatchRequest, port int,
@@ -398,13 +375,8 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 			}
 		}
 
-		requestHeadersToAdd := append(translateAppendHeaders(in.AppendRequestHeaders), translateAppendHeaders(in.AppendHeaders)...)
-		sort.Stable(SortHeaderValueOption(requestHeadersToAdd))
-		out.RequestHeadersToAdd = requestHeadersToAdd
-
-		responseHeadersToAdd := translateAppendHeaders(in.AppendResponseHeaders)
-		sort.Stable(SortHeaderValueOption(responseHeadersToAdd))
-		out.ResponseHeadersToAdd = responseHeadersToAdd
+		out.RequestHeadersToAdd = append(translateAppendHeaders(in.AppendRequestHeaders), translateAppendHeaders(in.AppendHeaders)...)
+		out.ResponseHeadersToAdd = translateAppendHeaders(in.AppendResponseHeaders)
 
 		out.RequestHeadersToRemove = in.RemoveRequestHeaders
 		out.ResponseHeadersToRemove = in.RemoveResponseHeaders
@@ -431,18 +403,12 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 			hostname := model.Hostname(dst.GetDestination().GetHost())
 			n := GetDestinationCluster(dst.Destination, serviceRegistry[hostname], port)
 
-			requestHeadersToAdd := translateAppendHeaders(dst.AppendRequestHeaders)
-			sort.Stable(SortHeaderValueOption(requestHeadersToAdd))
-
-			responseHeadersToAdd := translateAppendHeaders(dst.AppendResponseHeaders)
-			sort.Stable(SortHeaderValueOption(responseHeadersToAdd))
-
 			clusterWeight := &route.WeightedCluster_ClusterWeight{
 				Name:                    n,
 				Weight:                  weight,
-				RequestHeadersToAdd:     requestHeadersToAdd,
+				RequestHeadersToAdd:     translateAppendHeaders(dst.AppendRequestHeaders),
 				RequestHeadersToRemove:  dst.RemoveRequestHeaders,
-				ResponseHeadersToAdd:    responseHeadersToAdd,
+				ResponseHeadersToAdd:    translateAppendHeaders(dst.AppendResponseHeaders),
 				ResponseHeadersToRemove: dst.RemoveResponseHeaders,
 			}
 
@@ -480,6 +446,29 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 	return out
 }
 
+// SortHeaderValueOption type and the functions below (Len, Less and Swap) are for sort.Stable for type HeaderValueOption
+type SortHeaderValueOption []*core.HeaderValueOption
+
+// Len is i the sort.Interface for SortHeaderValueOption
+func (b SortHeaderValueOption) Len() int {
+	return len(b)
+}
+
+// Less is in the sort.Interface for SortHeaderValueOption
+func (b SortHeaderValueOption) Less(i, j int) bool {
+	if b[i] == nil || b[i].Header == nil {
+		return false
+	} else if b[j] == nil || b[j].Header == nil {
+		return true
+	}
+	return strings.Compare(b[i].Header.Key, b[j].Header.Key) < 0
+}
+
+// Swap is in the sort.Interface for SortHeaderValueOption
+func (b SortHeaderValueOption) Swap(i, j int) {
+	b[i], b[j] = b[j], b[i]
+}
+
 // translateAppendHeaders translates headers
 func translateAppendHeaders(headers map[string]string) []*core.HeaderValueOption {
 	headerValueOptionList := make([]*core.HeaderValueOption, 0, len(headers))
@@ -491,6 +480,7 @@ func translateAppendHeaders(headers map[string]string) []*core.HeaderValueOption
 			},
 		})
 	}
+	sort.Stable(SortHeaderValueOption(headerValueOptionList))
 	return headerValueOptionList
 }
 
