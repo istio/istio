@@ -21,6 +21,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/gogo/protobuf/types"
+	"fmt"
 )
 
 func TestParseJwksURI(t *testing.T) {
@@ -147,4 +148,15 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 			t.Errorf("ConstructSdsSecretConfig: got(%#v) != want(%#v)\n", got, c.expected)
 		}
 	}
+}
+
+func TestGetIstioServiceAccounts(t *testing.T) {
+	reg := NewMemServiceDiscovery(map[Hostname]*Service{}, 2)
+	svcName := Hostname("foo.bar.cluster.local")
+	svc := &Service{Hostname: svcName, Ports:PortList{&Port{Name:"grpc", Port:9000}}}
+	reg.AddService(svcName, svc)
+	reg.AddEndpoint(svcName, "grpc", 9000, "grpc", 9000)
+	insts, err := reg.InstancesByPort(svcName, 9000, LabelsCollection{})
+	fmt.Printf("instances %v and error %v\n", insts[0], err)
+	
 }

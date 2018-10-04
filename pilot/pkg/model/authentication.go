@@ -148,3 +148,52 @@ func ParseJwksURI(jwksURI string) (string, *Port, bool, error) {
 		Port: portNumber,
 	}, useSSL, nil
 }
+
+
+// GetIstioServiceAccounts returns a list of service account for a particular service.
+func GetIstioServiceAccounts(registry ServiceDiscovery, hostname Hostname, ports []int) ([]string, error){
+	instances := make([]*ServiceInstance, 0)
+	saSet := make(map[string]bool)
+
+	// Get the service accounts running the service, if it is deployed on VMs. This is retrieved
+	// from the service annotation explicitly set by the operators.
+	svc, err := registry.GetService(hostname)
+	if err != nil {
+		log.Errorf("InstancesByPort(%s:%d) error: %v", hostname, ports, err)
+		return nil, err
+	}
+	if svc == nil {
+		log.Errorf("InstancesByPort(%s:%d) error: %v", hostname, ports, err)
+		return nil, err
+	}
+
+	// Get the service accounts running service within Kubernetes. This is reflected by the pods that
+	// the service is deployed on, and the service accounts of the pods.
+	for _, port := range ports {
+		svcinstances, err := registry.InstancesByPort(hostname, port, LabelsCollection{})
+		if err != nil {
+			log.Warnf("InstancesByPort(%s:%d) error: %v", hostname, port, err)
+			return nil, err
+		}
+		instances = append(instances, svcinstances...)
+	}
+
+	for _, si := range instances {
+		if si.ServiceAccount != "" {
+			saSet[si.ServiceAccount] = true
+		}
+	}
+
+	// TODO: confirm with oliver this is only for the mesh expansion annotation?
+	for _, serviceAccount := range svc.ServiceAccounts {
+		sa := serviceAccount
+		saSet[sa] = true
+	}
+
+	saArray := make([]string, 0, len(saSet))
+	for sa := range saSet {
+		saArray = append(saArray, sa)
+	}
+
+	return saArray, nil
+}
