@@ -21,6 +21,8 @@ import (
 	"github.com/golang/protobuf/proto"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"reflect"
+	"encoding/base64"
 )
 
 // Generate configs for the default configs used by istio.
@@ -184,5 +186,71 @@ func TestStoreHostPort(t *testing.T) {
 	expected := "{\"address\": \"istio-pilot\", \"port_value\": 15005}"
 	if actual != expected {
 		t.Errorf("expected value %q, got %q", expected, actual)
+	}
+}
+
+
+type encodeFn func(string)string
+
+func envEncode(m map[string]string, prefix string, encode encodeFn, out []string)[]string{
+	for k, v := range m {
+		out = append(out, prefix+encode(k)+"="+encode(v))
+	}
+	return out
+}
+
+func TestNodeMetadata(t *testing.T) {
+
+	labels := map[string]string {
+		"l1": "v1",
+		"l2": "v2",
+	}
+	anno := map[string]string {
+		"istio.io/enable": "{\"abc\": 20}",
+	}
+	merged := map[string]string{}
+	mergeMap(merged, labels)
+	mergeMap(merged, anno)
+
+
+	envs := make([]string, 0)
+	envs = envEncode(labels, IstioMetaPrefix, func(s string) string {
+		return s
+	}, envs)
+
+	nm := getNodeMetaData(envs)
+
+	if !reflect.DeepEqual(nm, labels) {
+		t.Fatalf("Maps are not equal.\ngot: %v\nwant: %v", nm, labels)
+	}
+
+
+	envs = envEncode(anno, IstioMetaB64Prefix, func(s string) string {
+		return base64.StdEncoding.EncodeToString([]byte(s))
+	}, envs)
+
+	nm = getNodeMetaData(envs)
+	if !reflect.DeepEqual(nm, merged) {
+		t.Fatalf("Maps are not equal.\ngot: %v\nwant: %v", nm, merged)
+	}
+
+	t.Logf("envs => %v\nnm=> %v", envs, nm)
+
+	// encode string incorrectly,
+	// a warning is logged, but everything else works.
+	envs = envEncode(anno, IstioMetaB64Prefix, func(s string) string {
+		return s
+	}, envs)
+
+	nm = getNodeMetaData(envs)
+	if !reflect.DeepEqual(nm, merged) {
+		t.Fatalf("Maps are not equal.\ngot: %v\nwant: %v", nm, merged)
+	}
+
+}
+
+func mergeMap(to map[string]string, from map[string]string)  {
+	for k, v := range from {
+		to[k] = v
 	}
 }

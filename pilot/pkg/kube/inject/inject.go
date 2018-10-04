@@ -43,6 +43,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/log"
+	"encoding/base64"
 )
 
 // per-sidecar policy and status
@@ -446,6 +447,7 @@ func injectionData(sidecarTemplate, version string, spec *corev1.PodSpec, metada
 		"includeInboundPorts": includeInboundPorts,
 		"applicationPorts":    applicationPorts,
 		"annotation":          annotation,
+		"base64Encode":        base64Encode,
 	}
 
 	var tmpl bytes.Buffer
@@ -675,6 +677,10 @@ func annotation(meta metav1.ObjectMeta, name string, defaultValue interface{}) s
 		value = fmt.Sprint(defaultValue)
 	}
 	return value
+}
+
+func base64Encode(val string) string {
+	return base64.StdEncoding.EncodeToString([]byte(val))
 }
 
 func excludeInboundPort(port interface{}, excludedInboundPorts string) string {
