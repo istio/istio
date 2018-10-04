@@ -1,0 +1,27 @@
+#
+# mixer configuration
+#
+enabled: true
+replicaCount: 1
+autoscaleMin: 1
+autoscaleMax: 5
+image: mixer
+
+env:
+  GODEBUG: gctrace=2
+
+istio-policy:
+  autoscaleEnabled: true
+  autoscaleMin: 1
+  autoscaleMax: 5
+  cpu:
+    targetAverageUtilization: 80
+
+istio-telemetry:
+  autoscaleEnabled: true
+  autoscaleMin: 1
+  autoscaleMax: 5
+  cpu:
+    targetAverageUtilization: 80
+
+podAnnotations: {}
