@@ -17,6 +17,7 @@ syntax = "proto3";
 // $title: Fluentd
 // $description: Adapter that delivers logs to a Fluentd daemon.
 // $location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/fluentd.html
+// $support_templates: logentry
 // $aliases:
 // $  - /docs/reference/config/adapters/fluentd.html
 

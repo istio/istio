@@ -4,13 +4,14 @@ description: Adapter that sends metrics to SignalFx.
 location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/signalfx.html
 layout: protoc-gen-docs
 generator: protoc-gen-docs
+supported_templates: metric,tracespan
 number_of_entries: 3
 ---
 <p>The <code>signalfx</code> adapter collects Istio metrics and trace spans and sends them
 to <a href="https://signalfx.com">SignalFx</a>.</p>
 
 <p>This adapter supports the <a href="https://istio.io/docs/reference/config/policy-and-telemetry/templates/metric/">metric template</a>
-and <a href="https://istio.io/docs/reference/config/policy-and-telemetry/templates/tracespan/">tracespan template</a>.</p>
+and the <a href="https://istio.io/docs/reference/config/policy-and-telemetry/templates/tracespan/">tracespan template</a>.</p>
 
 <p>If sending trace spans, this adapter can make use of certain conventions in
 the tracespan format that is configured to send to this adapter.  Here is an
