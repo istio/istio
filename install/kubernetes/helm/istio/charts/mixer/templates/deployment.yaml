@@ -46,11 +46,11 @@
         volumeMounts:
         - name: uds-socket
           mountPath: /sock
-        livenessProbe:
+        readinessProbe:
           httpGet:
             path: /version
             port: 9093
-          initialDelaySeconds: 5
+          initialDelaySeconds: 10
           periodSeconds: 5
       - name: istio-proxy
         image: "{{ $.Values.global.hub }}/proxyv2:{{ $.Values.global.tag }}"
@@ -154,7 +154,7 @@
         volumeMounts:
         - name: uds-socket
           mountPath: /sock
-        livenessProbe:
+        readinessProbe:
           httpGet:
             path: /version
             port: 9093
