@@ -1055,6 +1055,7 @@
     "idna",
     "internal/timeseries",
     "lex/httplex",
+    "publicsuffix",
     "trace"
   ]
   revision = "6078986fec03a1dcc236c34816c71b0e05018fda"
@@ -1603,6 +1604,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "a3f4506ed1d7f2f3cc257f1d3c8f83638e9dd3ef26757bad9f929509b5b923ce"
+  inputs-digest = "21ec94f82c0f41de08952d2bd503eac157b2451deab8b50ad62cf3020c545fa3"
   solver-name = "gps-cdcl"
   solver-version = 1
