@@ -34,6 +34,11 @@ import (
 	"istio.io/istio/pkg/test/kube"
 )
 
+const (
+	serviceName = "prometheus"
+	appName     = "prometheus"
+)
+
 var (
 
 	// KubeComponent is a component for the Kubernetes environment.
@@ -69,13 +74,15 @@ func (c *component) Init(ctx environment.ComponentContext, _ map[dependency.Inst
 		return nil, fmt.Errorf("unsupported environment: %v", reflect.TypeOf(ctx.Environment()))
 	}
 
+	s := env.KubeSettings()
+
 	// Find the Prometheus pod and service, and start forwarding a local port.
-	pod, err := env.Accessor.WaitForPodBySelectors(env.KubeSettings().IstioSystemNamespace, "app=prometheus")
+	pod, err := env.Accessor.WaitForPodBySelectors(s.IstioSystemNamespace, fmt.Sprintf("app=%s", appName))
 	if err != nil {
 		return nil, err
 	}
 
-	svc, err := env.Accessor.GetService(env.KubeSettings().IstioSystemNamespace, "prometheus")
+	svc, err := env.Accessor.GetService(s.IstioSystemNamespace, serviceName)
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +92,7 @@ func (c *component) Init(ctx environment.ComponentContext, _ map[dependency.Inst
 		PodNamespace: pod.Namespace,
 		PodName:      pod.Name,
 	}
-	forwarder, err := kube.NewPortForwarder(env.KubeSettings().KubeConfig, options, 0, port)
+	forwarder, err := kube.NewPortForwarder(s.KubeConfig, options, 0, port)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +102,8 @@ func (c *component) Init(ctx environment.ComponentContext, _ map[dependency.Inst
 	}
 	scopes.Framework.Debugf("initialized Prometheus port forwarder: %v", forwarder.Address())
 
-	client, err := api.NewClient(api.Config{Address: fmt.Sprintf("http://%s", forwarder.Address())})
+	address := fmt.Sprintf("http://%s", forwarder.Address())
+	client, err := api.NewClient(api.Config{Address: address})
 	if err != nil {
 		return nil, err
 	}
