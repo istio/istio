@@ -23,6 +23,7 @@ SCRIPTPATH=$( pwd -P )
 # shellcheck source=release/airflow/gcb_build_lib.sh
 source "${SCRIPTPATH}/gcb_build_lib.sh"
 
+# Helper. Not called directly by Airflow.
 function sub_str_for_variable() {
    local CUR_VAR
    local subs_str
@@ -32,6 +33,7 @@ function sub_str_for_variable() {
    echo -n "${subs_str}"
 }
 
+# Helper. Not called directly by Airflow.
 # converts the call: create_subs_file "BRANCH" "COMMIT"
 # writes the following into SUBS_FILE (which is set by function)
 # and creates the file with content
@@ -61,30 +63,19 @@ function create_subs_file() {
    echo '}'                 >> "${SUBS_FILE}"
 }
 
+# Called directly by Airflow.
 function get_git_commit_cmd() {
-    git config --global user.name "TestRunnerBot"
-    git config --global user.email "testrunner@istio.io"
-
-    local KEY_FILE_PATH
-    local WAIT_FOR_RESULT
-    KEY_FILE_PATH=""
-    WAIT_FOR_RESULT="true"
-
     # uses the environment variables from next line + $PROJECT_ID $SVC_ACCT
     create_subs_file "BRANCH" "CHECK_GREEN_SHA_AGE" "COMMIT" "GCS_RELEASE_TOOLS_PATH" "VERIFY_CONSISTENCY"
     cat "${SUBS_FILE}"
 
     run_build "cloud_get_commit.template.json" \
-         "${SUBS_FILE}" "${PROJECT_ID}" "${SVC_ACCT}" "${KEY_FILE_PATH}" "${WAIT_FOR_RESULT}"
+         "${SUBS_FILE}" "${PROJECT_ID}" "${SVC_ACCT}"
     exit "${BUILD_FAILED}"
 }
 
+# Called directly by Airflow.
 function build_template() {
-    local KEY_FILE_PATH
-    local WAIT_FOR_RESULT
-    KEY_FILE_PATH=""
-    WAIT_FOR_RESULT="true"
-
     # shellcheck disable=SC2034
     GCR_PATH="${GCR_STAGING_DEST}"
     GCS_PATH="${GCS_BUILD_PATH}"
@@ -93,27 +84,22 @@ function build_template() {
     cat "${SUBS_FILE}"
 
     run_build "cloud_build.template.json" \
-         "${SUBS_FILE}" "${PROJECT_ID}" "${SVC_ACCT}" "${KEY_FILE_PATH}" "${WAIT_FOR_RESULT}"
+         "${SUBS_FILE}" "${PROJECT_ID}" "${SVC_ACCT}"
     exit "${BUILD_FAILED}"
 }
 
+# Called directly by Airflow.
 function test_command() {
-    cp /home/airflow/gcs/data/githubctl ./githubctl
-    chmod u+x ./githubctl
-    pwd; ls -l    ./githubctl
+    DOCKER_HUB="gcr.io/$GCR_STAGING_DEST"
+    create_subs_file "BRANCH" "DOCKER_HUB" "GCS_BUILD_PATH" "GCS_RELEASE_TOOLS_PATH" "VERSION"
+    cat "${SUBS_FILE}"
 
-    git config --global user.name "TestRunnerBot"
-    git config --global user.email "testrunner@istio.io"
-
-    ./githubctl \
-    --token_file="$TOKEN_FILE" \
-    --op=dailyRelQual \
-    --hub="gcr.io/$GCR_STAGING_DEST" \
-    --gcs_path="$GCS_BUILD_PATH" \
-    --tag="$VERSION" \
-    --base_branch="$BRANCH"
+    run_build "cloud_test.template.json" \
+         "${SUBS_FILE}" "${PROJECT_ID}" "${SVC_ACCT}"
+    exit "${BUILD_FAILED}"
 }
 
+# Called directly by Airflow.
 function modify_values_command() {
     # TODO: Merge these changes into istio/istio master and stop using this task
     gsutil -q cp gs://istio-release-pipeline-data/release-tools/test-version/data/release/modify_values.sh .
@@ -128,6 +114,7 @@ function modify_values_command() {
     ./modify_values.sh -h "${hub}" -t "$VERSION" -p "gs://$GCS_BUILD_BUCKET/$GCS_STAGING_PATH" -v "$VERSION"
 }
 
+# Called directly by Airflow.
 function gcr_tag_success() {
   pwd; ls
 
@@ -151,12 +138,8 @@ function gcr_tag_success() {
   rm  docker_tars.txt docker_images.txt
 }
 
+# Called directly by Airflow.
 function release_push_github_docker_template() {
-    local KEY_FILE_PATH
-    local WAIT_FOR_RESULT
-    KEY_FILE_PATH=""
-    WAIT_FOR_RESULT="true"
-
     # uses the environment variables from list below + $PROJECT_ID $SVC_ACCT
     #BRANCH
     # shellcheck disable=SC2034
@@ -177,16 +160,12 @@ function release_push_github_docker_template() {
     cat "${SUBS_FILE}"
 
     run_build "cloud_publish.template.json" \
-         "${SUBS_FILE}" "${PROJECT_ID}" "${SVC_ACCT}" "${KEY_FILE_PATH}" "${WAIT_FOR_RESULT}"
+         "${SUBS_FILE}" "${PROJECT_ID}" "${SVC_ACCT}"
     exit "${BUILD_FAILED}"
 }
 
+# Called directly by Airflow.
 function release_tag_github_template() {
-    local KEY_FILE_PATH
-    local WAIT_FOR_RESULT
-    KEY_FILE_PATH=""
-    WAIT_FOR_RESULT="true"
-
     # uses the environment variables from list below + $PROJECT_ID $SVC_ACCT
     #BRANCH
     # shellcheck disable=SC2034
@@ -208,6 +187,6 @@ function release_tag_github_template() {
     cat "${SUBS_FILE}"
 
     run_build "cloud_tag.template.json" \
-         "${SUBS_FILE}" "${PROJECT_ID}" "${SVC_ACCT}" "${KEY_FILE_PATH}" "${WAIT_FOR_RESULT}"
+         "${SUBS_FILE}" "${PROJECT_ID}" "${SVC_ACCT}"
     exit "$BUILD_FAILED"
 }

@@ -52,7 +52,7 @@ func (x RoutingPriority) String() string {
 	return proto.EnumName(RoutingPriority_name, int32(x))
 }
 func (RoutingPriority) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_base_0126f5109e43fb63, []int{0}
+	return fileDescriptor_base_725dae53ef3e78e8, []int{0}
 }
 
 // HTTP request method.
@@ -97,7 +97,7 @@ func (x RequestMethod) String() string {
 	return proto.EnumName(RequestMethod_name, int32(x))
 }
 func (RequestMethod) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_base_0126f5109e43fb63, []int{1}
+	return fileDescriptor_base_725dae53ef3e78e8, []int{1}
 }
 
 type SocketOption_SocketState int32
@@ -126,7 +126,7 @@ func (x SocketOption_SocketState) String() string {
 	return proto.EnumName(SocketOption_SocketState_name, int32(x))
 }
 func (SocketOption_SocketState) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_base_0126f5109e43fb63, []int{8, 0}
+	return fileDescriptor_base_725dae53ef3e78e8, []int{8, 0}
 }
 
 // Identifies location of where either Envoy runs or where upstream hosts run.
@@ -135,7 +135,7 @@ type Locality struct {
 	Region string `protobuf:"bytes,1,opt,name=region,proto3" json:"region,omitempty"`
 	// Defines the local service zone where Envoy is running. Though optional, it
 	// should be set if discovery service routing is used and the discovery
-	// service exposes :ref:`zone data <config_cluster_manager_sds_api_host_az>`,
+	// service exposes :ref:`zone data <envoy_api_field_endpoint.LocalityLbEndpoints.locality>`,
 	// either in this message or via :option:`--service-zone`. The meaning of zone
 	// is context dependent, e.g. `Availability Zone (AZ)
 	// <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html>`_
@@ -155,7 +155,7 @@ func (m *Locality) Reset()         { *m = Locality{} }
 func (m *Locality) String() string { return proto.CompactTextString(m) }
 func (*Locality) ProtoMessage()    {}
 func (*Locality) Descriptor() ([]byte, []int) {
-	return fileDescriptor_base_0126f5109e43fb63, []int{0}
+	return fileDescriptor_base_725dae53ef3e78e8, []int{0}
 }
 func (m *Locality) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -219,9 +219,10 @@ type Node struct {
 	// Defines the local service cluster name where Envoy is running. Though
 	// optional, it should be set if any of the following features are used:
 	// :ref:`statsd <arch_overview_statistics>`, :ref:`health check cluster
-	// verification <config_cluster_manager_cluster_hc_service_name>`,
-	// :ref:`runtime override directory <config_runtime_override_subdirectory>`,
-	// :ref:`user agent addition <config_http_conn_man_add_user_agent>`,
+	// verification <envoy_api_field_core.HealthCheck.HttpHealthCheck.service_name>`,
+	// :ref:`runtime override directory <envoy_api_msg_config.bootstrap.v2.Runtime>`,
+	// :ref:`user agent addition
+	// <envoy_api_field_config.filter.network.http_connection_manager.v2.HttpConnectionManager.add_user_agent>`,
 	// :ref:`HTTP global rate limiting <config_http_filters_rate_limit>`,
 	// :ref:`CDS <config_cluster_manager_cds>`, and :ref:`HTTP tracing
 	// <arch_overview_tracing>`, either in this message or via
@@ -245,7 +246,7 @@ func (m *Node) Reset()         { *m = Node{} }
 func (m *Node) String() string { return proto.CompactTextString(m) }
 func (*Node) ProtoMessage()    {}
 func (*Node) Descriptor() ([]byte, []int) {
-	return fileDescriptor_base_0126f5109e43fb63, []int{1}
+	return fileDescriptor_base_725dae53ef3e78e8, []int{1}
 }
 func (m *Node) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -340,7 +341,7 @@ func (m *Metadata) Reset()         { *m = Metadata{} }
 func (m *Metadata) String() string { return proto.CompactTextString(m) }
 func (*Metadata) ProtoMessage()    {}
 func (*Metadata) Descriptor() ([]byte, []int) {
-	return fileDescriptor_base_0126f5109e43fb63, []int{2}
+	return fileDescriptor_base_725dae53ef3e78e8, []int{2}
 }
 func (m *Metadata) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -391,7 +392,7 @@ func (m *RuntimeUInt32) Reset()         { *m = RuntimeUInt32{} }
 func (m *RuntimeUInt32) String() string { return proto.CompactTextString(m) }
 func (*RuntimeUInt32) ProtoMessage()    {}
 func (*RuntimeUInt32) Descriptor() ([]byte, []int) {
-	return fileDescriptor_base_0126f5109e43fb63, []int{3}
+	return fileDescriptor_base_725dae53ef3e78e8, []int{3}
 }
 func (m *RuntimeUInt32) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -453,7 +454,7 @@ func (m *HeaderValue) Reset()         { *m = HeaderValue{} }
 func (m *HeaderValue) String() string { return proto.CompactTextString(m) }
 func (*HeaderValue) ProtoMessage()    {}
 func (*HeaderValue) Descriptor() ([]byte, []int) {
-	return fileDescriptor_base_0126f5109e43fb63, []int{4}
+	return fileDescriptor_base_725dae53ef3e78e8, []int{4}
 }
 func (m *HeaderValue) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -512,7 +513,7 @@ func (m *HeaderValueOption) Reset()         { *m = HeaderValueOption{} }
 func (m *HeaderValueOption) String() string { return proto.CompactTextString(m) }
 func (*HeaderValueOption) ProtoMessage()    {}
 func (*HeaderValueOption) Descriptor() ([]byte, []int) {
-	return fileDescriptor_base_0126f5109e43fb63, []int{5}
+	return fileDescriptor_base_725dae53ef3e78e8, []int{5}
 }
 func (m *HeaderValueOption) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -571,7 +572,7 @@ func (m *DataSource) Reset()         { *m = DataSource{} }
 func (m *DataSource) String() string { return proto.CompactTextString(m) }
 func (*DataSource) ProtoMessage()    {}
 func (*DataSource) Descriptor() ([]byte, []int) {
-	return fileDescriptor_base_0126f5109e43fb63, []int{6}
+	return fileDescriptor_base_725dae53ef3e78e8, []int{6}
 }
 func (m *DataSource) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -731,7 +732,7 @@ func _DataSource_OneofSizer(msg proto.Message) (n int) {
 }
 
 // Configuration for transport socket in :ref:`listeners <config_listeners>` and
-// :ref:`clusters <config_cluster_manager_cluster>`. If the configuration is
+// :ref:`clusters <envoy_api_msg_Cluster>`. If the configuration is
 // empty, a default transport socket implementation and configuration will be
 // chosen based on the platform and existence of tls_context.
 type TransportSocket struct {
@@ -750,7 +751,7 @@ func (m *TransportSocket) Reset()         { *m = TransportSocket{} }
 func (m *TransportSocket) String() string { return proto.CompactTextString(m) }
 func (*TransportSocket) ProtoMessage()    {}
 func (*TransportSocket) Descriptor() ([]byte, []int) {
-	return fileDescriptor_base_0126f5109e43fb63, []int{7}
+	return fileDescriptor_base_725dae53ef3e78e8, []int{7}
 }
 func (m *TransportSocket) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -819,7 +820,7 @@ func (m *SocketOption) Reset()         { *m = SocketOption{} }
 func (m *SocketOption) String() string { return proto.CompactTextString(m) }
 func (*SocketOption) ProtoMessage()    {}
 func (*SocketOption) Descriptor() ([]byte, []int) {
-	return fileDescriptor_base_0126f5109e43fb63, []int{8}
+	return fileDescriptor_base_725dae53ef3e78e8, []int{8}
 }
 func (m *SocketOption) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3448,9 +3449,9 @@ var (
 	ErrIntOverflowBase   = fmt.Errorf("proto: integer overflow")
 )
 
-func init() { proto.RegisterFile("envoy/api/v2/core/base.proto", fileDescriptor_base_0126f5109e43fb63) }
+func init() { proto.RegisterFile("envoy/api/v2/core/base.proto", fileDescriptor_base_725dae53ef3e78e8) }
 
-var fileDescriptor_base_0126f5109e43fb63 = []byte{
+var fileDescriptor_base_725dae53ef3e78e8 = []byte{
 	// 974 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x84, 0x54, 0x4f, 0x6f, 0xe3, 0xc4,
 	0x1b, 0xee, 0xe4, 0x5f, 0x93, 0x37, 0x49, 0xeb, 0xce, 0x56, 0xdd, 0xfe, 0xba, 0xdb, 0xa8, 0xca,

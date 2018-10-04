@@ -52,7 +52,6 @@ const (
 // Uses local or remote k8s cluster - requires KUBECONFIG or ~/.kube/config
 // Will create a temp namespace
 func TestServices(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/9032")
 	cl := makeClient(t)
 	t.Parallel()
 	ns, err := util.CreateNamespace(cl)

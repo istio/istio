@@ -39,7 +39,7 @@ istio-ingressgateway:
   - port: 443
     name: https
     nodePort: 31390
-  # Example of a port to add
+  # Example of a port to add  
   - port: 31400
     name: tcp
     nodePort: 31400
@@ -117,13 +117,13 @@ istio-ilbgateway:
   replicaCount: 1
   autoscaleMin: 1
   autoscaleMax: 5
-resources:
-  requests:
+  resources:
+    requests:
       cpu: 800m
       memory: 512Mi
-  # limits:
-    # cpu: 1800m
-    # memory: 256Mi
+    #limits:
+    #  cpu: 1800m
+    #  memory: 256Mi
   loadBalancerIP: ""
   serviceAnnotations:
     cloud.google.com/load-balancer-type: "internal"

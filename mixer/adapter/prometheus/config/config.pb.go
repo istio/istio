@@ -100,13 +100,13 @@ func (*Params) Descriptor() ([]byte, []int) { return fileDescriptorConfig, []int
 // Describes how a metric should be represented in Prometheus.
 type Params_MetricInfo struct {
 	// Optional. The namespace is used as a prefix on the metric names.
-	// An example: for a metric named "requests_total" with a namespace of "istio",
-	// the full metric name becomes "istio_requests_total".
-	// NOTE: The specificed namespace should be a prometheus-safe name. If not, the adapter
+	// An example: for a metric named `requests_total` with a namespace of `istio`,
+	// the full metric name becomes `istio_requests_total`.
+	// NOTE: The specified namespace should be a prometheus-safe name. If not, the adapter
 	// will attempt to convert the namespace to a prometheus-safe name.
 	// NOTE: Changing the value for this will potentially impact downstream integrations
 	// and should be used with caution.
-	// Default value: "istio".
+	// Default value: `istio`.
 	Namespace string `protobuf:"bytes,7,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	// Recommended. The name is used to register the prometheus metric.
 	// It must be unique across all prometheus metrics as prometheus does not allow duplicate names.

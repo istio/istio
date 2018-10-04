@@ -127,6 +127,12 @@ func NamespaceDeleted(n string, kubeconfig string) (bool, error) {
 	return false, err
 }
 
+// ValidatingWebhookConfigurationDeleted check if a kubernetes ValidatingWebhookConfiguration is deleted
+func ValidatingWebhookConfigurationDeleted(name string, kubeconfig string) bool {
+	output, _ := ShellSilent("kubectl get validatingwebhookconfiguration %s -o name --kubeconfig=%s", name, kubeconfig)
+	return strings.Contains(output, "NotFound")
+}
+
 // KubeApplyContents kubectl apply from contents
 func KubeApplyContents(namespace, yamlContents string, kubeconfig string) error {
 	tmpfile, err := WriteTempfile(os.TempDir(), "kubeapply", ".yaml", yamlContents)

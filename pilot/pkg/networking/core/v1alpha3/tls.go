@@ -20,7 +20,6 @@ import (
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
-	"istio.io/istio/pkg/log"
 )
 
 // Match by source labels, the listener port where traffic comes in, the gateway on which the rule is being
@@ -121,12 +120,10 @@ func buildSidecarOutboundTLSFilterChainOpts(env *model.Environment, node *model.
 		for _, tls := range virtualService.Tls {
 			// since we don't support weighted destinations yet there can only be exactly 1 destination
 			dest := tls.Route[0].Destination
-			destSvc, present := push.ServiceByHostname[model.Hostname(dest.Host)]
-			if !present {
-				log.Debugf("service %q does not exist in the registry", dest.Host)
-				continue
-			}
-			clusterName := istio_route.GetDestinationCluster(dest, destSvc, listenPort.Port)
+			// Note: We don't check if the service exists in the push context because we are effectively
+			// generating a cluster name. The user could have added their custom clusters in the bootstrap
+			// context.
+			clusterName := istio_route.GetDestinationCluster(dest, push.ServiceByHostname[model.Hostname(dest.Host)], listenPort.Port)
 			for _, match := range tls.Match {
 				if matchTLS(match, proxyLabels, gateways, listenPort.Port) {
 					// Use the service's virtual address first.
@@ -142,7 +139,7 @@ func buildSidecarOutboundTLSFilterChainOpts(env *model.Environment, node *model.
 							sniHosts:         match.SniHosts,
 							destinationCIDRs: destinationCIDRs,
 							networkFilters: buildOutboundNetworkFilters(
-								env, node, clusterName, destinationIPAddress, listenPort),
+								env, node, clusterName, listenPort),
 						})
 						hasTLSMatch = true
 					}
@@ -157,7 +154,7 @@ func buildSidecarOutboundTLSFilterChainOpts(env *model.Environment, node *model.
 		clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, int(listenPort.Port))
 		out = append(out, &filterChainOpts{
 			destinationCIDRs: []string{destinationIPAddress},
-			networkFilters:   buildOutboundNetworkFilters(env, node, clusterName, destinationIPAddress, listenPort),
+			networkFilters:   buildOutboundNetworkFilters(env, node, clusterName, listenPort),
 		})
 	}
 
@@ -183,19 +180,14 @@ func buildSidecarOutboundTCPFilterChainOpts(env *model.Environment, node *model.
 		for _, tcp := range virtualService.Tcp {
 			// since we don't support weighted destinations yet there can only be exactly 1 destination
 			dest := tcp.Route[0].Destination
-			destSvc, present := push.ServiceByHostname[model.Hostname(dest.Host)]
-			if !present {
-				log.Debugf("service %q does not exist in the registry", dest.Host)
-				continue
-			}
-			clusterName := istio_route.GetDestinationCluster(dest, destSvc, listenPort.Port)
+			clusterName := istio_route.GetDestinationCluster(dest, push.ServiceByHostname[model.Hostname(dest.Host)], listenPort.Port)
 			destinationCIDRs := []string{destinationIPAddress}
 
 			if len(tcp.Match) == 0 {
 				// implicit match
 				out = append(out, &filterChainOpts{
 					destinationCIDRs: destinationCIDRs,
-					networkFilters:   buildOutboundNetworkFilters(env, node, clusterName, destinationIPAddress, listenPort),
+					networkFilters:   buildOutboundNetworkFilters(env, node, clusterName, listenPort),
 				})
 				defaultRouteAdded = true
 				break TcpLoop
@@ -217,7 +209,7 @@ func buildSidecarOutboundTCPFilterChainOpts(env *model.Environment, node *model.
 					if len(match.DestinationSubnets) == 0 {
 						out = append(out, &filterChainOpts{
 							destinationCIDRs: destinationCIDRs,
-							networkFilters:   buildOutboundNetworkFilters(env, node, clusterName, destinationIPAddress, listenPort),
+							networkFilters:   buildOutboundNetworkFilters(env, node, clusterName, listenPort),
 						})
 						defaultRouteAdded = true
 						break TcpLoop
@@ -230,7 +222,7 @@ func buildSidecarOutboundTCPFilterChainOpts(env *model.Environment, node *model.
 			if len(virtualServiceDestinationSubnets) > 0 {
 				out = append(out, &filterChainOpts{
 					destinationCIDRs: virtualServiceDestinationSubnets,
-					networkFilters:   buildOutboundNetworkFilters(env, node, clusterName, "", listenPort),
+					networkFilters:   buildOutboundNetworkFilters(env, node, clusterName, listenPort),
 				})
 			}
 		}
@@ -240,7 +232,7 @@ func buildSidecarOutboundTCPFilterChainOpts(env *model.Environment, node *model.
 		clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, int(listenPort.Port))
 		out = append(out, &filterChainOpts{
 			destinationCIDRs: []string{destinationIPAddress},
-			networkFilters:   buildOutboundNetworkFilters(env, node, clusterName, destinationIPAddress, listenPort),
+			networkFilters:   buildOutboundNetworkFilters(env, node, clusterName, listenPort),
 		})
 	}
 

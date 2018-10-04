@@ -21,17 +21,19 @@ import (
 	"net/url"
 	"regexp"
 	"strconv"
-	"strings"
 	"testing"
+	"time"
+
+	"istio.io/istio/pkg/test/framework/environments/kubernetes"
+	"istio.io/istio/pkg/test/shell"
+	"istio.io/istio/pkg/test/util"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/kubernetes/scheme"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/test/application/echo"
 	"istio.io/istio/pkg/test/framework/environment"
-	"istio.io/istio/tests/util"
 )
 
 const (
@@ -45,11 +47,13 @@ var (
 	portRegex    = regexp.MustCompile("ServicePort=(.*)")
 	codeRegex    = regexp.MustCompile("StatusCode=(.*)")
 	hostRegex    = regexp.MustCompile("Host=(.*)")
+
+	_ environment.DeployedApp = &client{}
 )
 
 type endpoint struct {
 	port  *model.Port
-	owner *app
+	owner *client
 }
 
 // Name implements the environment.DeployedAppEndpoint interface
@@ -83,7 +87,7 @@ func (e *endpoint) makeURL(opts environment.AppCallOptions) *url.URL {
 
 	host := e.owner.serviceName
 	if !opts.UseShortHostname {
-		host += "." + e.owner.namespace
+		host += "." + e.owner.namespace()
 	}
 	return &url.URL{
 		Scheme: protocol,
@@ -91,58 +95,47 @@ func (e *endpoint) makeURL(opts environment.AppCallOptions) *url.URL {
 	}
 }
 
-type app struct {
+type client struct {
+	e           *kubernetes.Implementation
 	serviceName string
 	appName     string
-	namespace   string
 	endpoints   []*endpoint
 }
 
-var _ environment.DeployedApp = &app{}
+var _ environment.DeployedApp = &client{}
 var _ environment.DeployedAppEndpoint = &endpoint{}
 
-// NewApp creates a new DeployedApp for the given app name/namespace. Visible for testing.
-func NewApp(serviceName, namespace string) (environment.DeployedApp, error) {
-	// Get the yaml config for the service
-	yamlBytes, err := util.ShellSilent("kubectl get svc %s -n %s -o yaml", serviceName, namespace)
-	if err != nil {
-		return nil, err
+func newClient(serviceName string, e *kubernetes.Implementation) (environment.DeployedApp, error) {
+	a := &client{
+		serviceName: serviceName,
+		e:           e,
 	}
 
-	// Parse the returned config
-	decoder := scheme.Codecs.UniversalDeserializer()
-	obj, _, err := decoder.Decode([]byte(yamlBytes), nil, nil)
+	service, err := e.Accessor.GetService(a.namespace(), serviceName)
 	if err != nil {
 		return nil, err
-	}
-
-	// Cast to a service
-	service, ok := obj.(*corev1.Service)
-	if !ok {
-		// This should never happen.
-		return nil, fmt.Errorf("returned object was not a service")
 	}
 
 	// Get the app name for this service.
-	appName := service.Labels[appLabel]
-	if len(appName) == 0 {
+	a.appName = service.Labels[appLabel]
+	if len(a.appName) == 0 {
 		return nil, fmt.Errorf("service does not contain the 'app' label")
 	}
 
-	a := &app{
-		serviceName: service.Name,
-		appName:     appName,
-		namespace:   namespace,
-	}
+	// Extract the endpoints from the service definition.
 	a.endpoints = getEndpoints(a, service)
 	return a, nil
 }
 
-func (a *app) Name() string {
+func (a *client) Name() string {
 	return a.serviceName
 }
 
-func getEndpoints(owner *app, service *corev1.Service) []*endpoint {
+func (a *client) namespace() string {
+	return a.e.KubeSettings().DependencyNamespace
+}
+
+func getEndpoints(owner *client, service *corev1.Service) []*endpoint {
 	out := make([]*endpoint, len(service.Spec.Ports))
 	for i, servicePort := range service.Spec.Ports {
 		out[i] = &endpoint{
@@ -158,7 +151,7 @@ func getEndpoints(owner *app, service *corev1.Service) []*endpoint {
 }
 
 // Endpoints implements the environment.DeployedApp interface
-func (a *app) Endpoints() []environment.DeployedAppEndpoint {
+func (a *client) Endpoints() []environment.DeployedAppEndpoint {
 	out := make([]environment.DeployedAppEndpoint, len(a.endpoints))
 	for i, e := range a.endpoints {
 		out[i] = e
@@ -167,7 +160,7 @@ func (a *app) Endpoints() []environment.DeployedAppEndpoint {
 }
 
 // EndpointsForProtocol implements the environment.DeployedApp interface
-func (a *app) EndpointsForProtocol(protocol model.Protocol) []environment.DeployedAppEndpoint {
+func (a *client) EndpointsForProtocol(protocol model.Protocol) []environment.DeployedAppEndpoint {
 	out := make([]environment.DeployedAppEndpoint, 0)
 	for _, e := range a.endpoints {
 		if e.Protocol() == protocol {
@@ -178,7 +171,7 @@ func (a *app) EndpointsForProtocol(protocol model.Protocol) []environment.Deploy
 }
 
 // Call implements the environment.DeployedApp interface
-func (a *app) Call(e environment.DeployedAppEndpoint, opts environment.AppCallOptions) ([]*echo.ParsedResponse, error) {
+func (a *client) Call(e environment.DeployedAppEndpoint, opts environment.AppCallOptions) ([]*echo.ParsedResponse, error) {
 	ep, ok := e.(*endpoint)
 	if !ok {
 		return nil, fmt.Errorf("supplied endpoint was not created by this environment")
@@ -191,65 +184,73 @@ func (a *app) Call(e environment.DeployedAppEndpoint, opts environment.AppCallOp
 
 	// TODO(nmittler): Use an image with the new echo service and invoke the command port rather than scraping logs.
 
-	// Get the pod name of the source app
-	pods, err := a.pods()
+	pods, err := a.e.Accessor.GetPods(a.namespace(), fmt.Sprintf("app=%s", a.appName))
 	if err != nil {
 		return nil, err
 	}
-	pod := pods[0]
+	podName := pods[0].Name
 
 	// Exec onto the pod and run the client application to make the request to the target service.
 	u := ep.makeURL(opts)
 	extra := toExtra(opts.Headers)
-	cmd := fmt.Sprintf("client -url %s -count %d %s", u.String(), opts.Count, extra)
-	res, err := util.Shell("kubectl exec %s -n %s -c %s -- %s ", pod, a.namespace, containerName, cmd)
-	if err != nil {
-		return nil, err
-	}
-
-	// Parse the individual elements of the responses.
-	ids := idRegex.FindAllStringSubmatch(res, -1)
-	versions := versionRegex.FindAllStringSubmatch(res, -1)
-	ports := portRegex.FindAllStringSubmatch(res, -1)
-	codes := codeRegex.FindAllStringSubmatch(res, -1)
-	hosts := hostRegex.FindAllStringSubmatch(res, -1)
-
-	// Verify the response lengths.
-	if len(ids) != opts.Count {
-		return nil, fmt.Errorf("incorrect request count. Expected %d, got %d", opts.Count, len(ids))
-	}
 
 	responses := make([]*echo.ParsedResponse, opts.Count)
-	for i := 0; i < opts.Count; i++ {
-		response := echo.ParsedResponse{}
-		responses[i] = &response
 
-		// TODO(nmittler): We're storing the entire logs for each body ... not strictly correct.
-		response.Body = res
-
-		response.ID = ids[i][1]
-
-		if i < len(versions) {
-			response.Version = versions[i][1]
+	cmd := fmt.Sprintf("client -url %s -count %d %s", u.String(), opts.Count, extra)
+	_, err = util.Retry(20*time.Second, 1*time.Second, func() (interface{}, bool, error) {
+		res, e := shell.Execute("kubectl exec %s -n %s -c %s --kubeconfig=%s -- %s ", podName, a.namespace(), containerName, a.e.KubeSettings().KubeConfig, cmd)
+		if e != nil {
+			return nil, false, e
 		}
 
-		if i < len(ports) {
-			response.Port = ports[i][1]
+		// Parse the individual elements of the responses.
+		ids := idRegex.FindAllStringSubmatch(res, -1)
+		versions := versionRegex.FindAllStringSubmatch(res, -1)
+		ports := portRegex.FindAllStringSubmatch(res, -1)
+		codes := codeRegex.FindAllStringSubmatch(res, -1)
+		hosts := hostRegex.FindAllStringSubmatch(res, -1)
+
+		// Verify the response lengths.
+		if len(ids) != opts.Count {
+			return nil, false, fmt.Errorf("incorrect request count. Expected %d, got %d", opts.Count, len(ids))
 		}
 
-		if i < len(codes) {
-			response.Code = codes[i][1]
+		for i := 0; i < opts.Count; i++ {
+			response := echo.ParsedResponse{}
+			responses[i] = &response
+
+			// TODO(nmittler): We're storing the entire logs for each body ... not strictly correct.
+			response.Body = res
+
+			response.ID = ids[i][1]
+
+			if i < len(versions) {
+				response.Version = versions[i][1]
+			}
+
+			if i < len(ports) {
+				response.Port = ports[i][1]
+			}
+
+			if i < len(codes) {
+				response.Code = codes[i][1]
+			}
+
+			if i < len(hosts) {
+				response.Host = hosts[i][1]
+			}
 		}
 
-		if i < len(hosts) {
-			response.Host = hosts[i][1]
-		}
+		return nil, true, nil
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	return responses, nil
 }
 
-func (a *app) CallOrFail(e environment.DeployedAppEndpoint, opts environment.AppCallOptions, t testing.TB) []*echo.ParsedResponse {
+func (a *client) CallOrFail(e environment.DeployedAppEndpoint, opts environment.AppCallOptions, t testing.TB) []*echo.ParsedResponse {
 	r, err := a.Call(e, opts)
 	if err != nil {
 		t.Fatal(err)
@@ -265,25 +266,4 @@ func toExtra(headers http.Header) string {
 		}
 	}
 	return out
-}
-
-func (a *app) pods() ([]string, error) {
-	res, err := util.Shell("kubectl get pods -n %s -l app=%s -o jsonpath='{range .items[*]}{@.metadata.name}{\"\\n\"}'",
-		a.namespace, a.appName)
-	if err != nil {
-		return nil, err
-	}
-
-	pods := make([]string, 0)
-	for _, line := range strings.Split(res, "\n") {
-		pod := strings.TrimSpace(line)
-		if len(pod) > 0 {
-			pods = append(pods, pod)
-		}
-	}
-
-	if len(pods) == 0 {
-		return nil, fmt.Errorf("unable to find pods for App %s", a.appName)
-	}
-	return pods, nil
 }

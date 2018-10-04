@@ -86,7 +86,7 @@ spec:
       containers:
       - name: app
         image: "{{.Hub}}/test_policybackend:{{.Tag}}"
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: {{.ImagePullPolicy}}
         ports:
         - name: grpc
           containerPort: {{.port}}
@@ -183,12 +183,13 @@ func (c *kubeComponent) Init(ctx environment.ComponentContext, deps map[dependen
 	s := e.KubeSettings()
 
 	result, err := tmpl.Evaluate(template, map[string]interface{}{
-		"Hub":        s.Hub,
-		"Tag":        s.Tag,
-		"deployment": "policy-backend",
-		"app":        "policy-backend",
-		"version":    "test",
-		"port":       policy.DefaultPort,
+		"Hub":             s.Hub,
+		"Tag":             s.Tag,
+		"ImagePullPolicy": s.ImagePullPolicy,
+		"deployment":      "policy-backend",
+		"app":             "policy-backend",
+		"version":         "test",
+		"port":            policy.DefaultPort,
 	})
 
 	if err != nil {

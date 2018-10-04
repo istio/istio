@@ -26,8 +26,8 @@ import (
 )
 
 var (
-	mockCertificateChain1st    = []byte{01}
-	mockCertificateChainRemain = []byte{02}
+	mockCertChain1st    = []string{"foo", "rootcert"}
+	mockCertChainRemain = []string{"bar", "rootcert"}
 
 	fakeSpiffeID = "spiffe://cluster.local/ns/bar/sa/foo"
 )
@@ -52,7 +52,8 @@ func TestGenerateSecret(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
 	}
-	if got, want := gotSecret.CertificateChain, mockCertificateChain1st; bytes.Compare(got, want) != 0 {
+
+	if got, want := gotSecret.CertificateChain, convertToBytes(mockCertChain1st); bytes.Compare(got, want) != 0 {
 		t.Errorf("CertificateChain: got: %v, want: %v", got, want)
 	}
 
@@ -63,7 +64,26 @@ func TestGenerateSecret(t *testing.T) {
 		t.Errorf("SecretExist: got: %v, want: %v", got, want)
 	}
 
-	cachedSecret, found := sc.secrets.Load(proxyID)
+	gotSecretRoot, err := sc.GenerateSecret(ctx, proxyID, RootCertReqResourceName, "jwtToken1")
+	if err != nil {
+		t.Fatalf("Failed to get secrets: %v", err)
+	}
+	if got, want := gotSecretRoot.RootCert, []byte("rootcert"); bytes.Compare(got, want) != 0 {
+		t.Errorf("CertificateChain: got: %v, want: %v", got, want)
+	}
+
+	if got, want := sc.SecretExist(proxyID, RootCertReqResourceName, "jwtToken1", gotSecretRoot.Version), true; got != want {
+		t.Errorf("SecretExist: got: %v, want: %v", got, want)
+	}
+	if got, want := sc.SecretExist(proxyID, RootCertReqResourceName, "nonexisttoken", gotSecretRoot.Version), false; got != want {
+		t.Errorf("SecretExist: got: %v, want: %v", got, want)
+	}
+
+	key := ConnKey{
+		ProxyID:      proxyID,
+		ResourceName: fakeSpiffeID,
+	}
+	cachedSecret, found := sc.secrets.Load(key)
 	if !found {
 		t.Errorf("Failed to find secret for proxy %q from secret store: %v", proxyID, err)
 	}
@@ -76,7 +96,7 @@ func TestGenerateSecret(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
 	}
-	if got, want := gotSecret.CertificateChain, mockCertificateChainRemain; bytes.Compare(got, want) != 0 {
+	if got, want := gotSecret.CertificateChain, convertToBytes(mockCertChainRemain); bytes.Compare(got, want) != 0 {
 		t.Errorf("CertificateChain: got: %v, want: %v", got, want)
 	}
 
@@ -135,7 +155,7 @@ func TestRefreshSecret(t *testing.T) {
 	}
 }
 
-func notifyCb(string, *model.SecretItem) error {
+func notifyCb(string, string, *model.SecretItem) error {
 	return nil
 }
 
@@ -150,12 +170,20 @@ func newMockCAClient() *mockCAClient {
 }
 
 func (c *mockCAClient) CSRSign(ctx context.Context, csrPEM []byte, subjectID string,
-	certValidTTLInSec int64) ([]byte /*PEM-encoded certificate chain*/, error) {
+	certValidTTLInSec int64) ([]string /*PEM-encoded certificate chain*/, error) {
 	atomic.AddUint64(&c.signInvokeCount, 1)
 
 	if atomic.LoadUint64(&c.signInvokeCount) == 1 {
-		return mockCertificateChain1st, nil
+		return mockCertChain1st, nil
 	}
 
-	return mockCertificateChainRemain, nil
+	return mockCertChainRemain, nil
+}
+
+func convertToBytes(ss []string) []byte {
+	res := []byte{}
+	for _, s := range ss {
+		res = append(res, []byte(s)...)
+	}
+	return res
 }

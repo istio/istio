@@ -249,7 +249,7 @@ global:
     # service objects from remote clusters have to be replicated to local
     # cluster (without the pod selectors). In addition, endpoints have to be
     # added to each replicated service object, where the endpoint points to
-    # the remote cluster's MCgatewayIP:8443. All clusters should be using
+    # the remote cluster's mcgateway:15443. All clusters should be using
     # Istio mTLS and must have a shared root CA for this model to work.
     connectUsingGateway: false
     # Change this to mcgateway to use a dedicated controlled gateway for
@@ -290,6 +290,3 @@ global:
   # Use the Mesh Control Protocol (MCP) for configuring Mixer and
   # Pilot. Requires galley (`--set galley.enabled=true`).
   useMCP: false
-
-
-

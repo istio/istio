@@ -508,7 +508,11 @@ func getTCPProxyClusterName(filter *xdsapi_listener.Filter) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return cfg.Cluster, nil
+	clusterSpec := cfg.ClusterSpecifier.(*envoy_filter_tcp.TcpProxy_Cluster)
+	if clusterSpec == nil {
+		return "", fmt.Errorf("expected TCPProxy cluster")
+	}
+	return clusterSpec.Cluster, nil
 }
 
 func isInboundListener(l *xdsapi.Listener) (bool, error) {

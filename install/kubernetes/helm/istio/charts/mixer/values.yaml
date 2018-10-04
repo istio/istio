@@ -7,6 +7,9 @@ autoscaleMin: 1
 autoscaleMax: 5
 image: mixer
 
+env:
+  GODEBUG: gctrace=2
+
 istio-policy:
   autoscaleEnabled: true
   autoscaleMin: 1

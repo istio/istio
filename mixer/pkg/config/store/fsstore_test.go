@@ -298,7 +298,6 @@ func TestFSStore2MissingRoot(t *testing.T) {
 }
 
 func TestFSStore2Robust(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/9032")
 	const ns = "testing"
 	const tmpl = `
 kind: %s
