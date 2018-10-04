@@ -24,6 +24,8 @@
 //   4) Use a different branch from the current one. Will do git checkout to that branch and back to the current on completion.
 //      This can only be used from inside Istio repo:
 //      go run get_dep_licenses.go --branch release-0.8 --checkout
+//   5) Check if all licenses are Google approved. Outputs lists of restricted, reciprocal, missing, and unknown status licenses.
+//      go run get_dep_licenses.go --check
 package main
 
 import (
@@ -46,6 +48,70 @@ const (
 )
 
 var (
+	approvedLicenses = map[string]bool{
+		"Apache-2.0":   true,
+		"ISC":          true,
+		"AFL-2.1":      true,
+		"AFL-3.0":      true,
+		"Artistic-1.0": true,
+		"Artistic-2.0": true,
+		"Apache-1.1":   true,
+		"BSD-1-Clause": true,
+		"BSD-2-Clause": true,
+		"BSD-3-Clause": true,
+		"FTL":          true,
+		"LPL-1.02":     true,
+		"MS-PL":        true,
+		"MIT":          true,
+		"NCSA":         true,
+		"OpenSSL":      true,
+		"PHP-3.0":      true,
+		"TCP-wrappers": true,
+		"W3C":          true,
+		"Xnet":         true,
+		"Zlib":         true,
+	}
+	reciprocalLicenses = map[string]bool{
+		"CC0-1.0":  true,
+		"APSL-2.0": true,
+		"CDDL-1.0": true,
+		"CDDL-1.1": true,
+		"CPL-1.0":  true,
+		"EPL-1.0":  true,
+		"IPL-1.0":  true,
+		"MPL-1.0":  true,
+		"MPL-1.1":  true,
+		"MPL-2.0":  true,
+		"Ruby":     true,
+	}
+	restrictedLicenses = map[string]bool{
+		"GPL-1.0-only":      true,
+		"GPL-1.0-or-later":  true,
+		"GPL-2.0-only":      true,
+		"GPL-2.0-or-later":  true,
+		"GPL-3.0-only":      true,
+		"GPL-3.0-or-later":  true,
+		"LGPL-2.0-only":     true,
+		"LGPL-2.0-or-later": true,
+		"LGPL-2.1-only":     true,
+		"LGPL-2.1-or-later": true,
+		"LGPL-3.0-only":     true,
+		"LGPL-3.0-or-later": true,
+		"NPL-1.0":           true,
+		"NPL-1.1":           true,
+		"OSL-1.0":           true,
+		"OSL-1.1":           true,
+		"OSL-2.0":           true,
+		"OSL-2.1":           true,
+		"OSL-3.0":           true,
+		"QPL-1.0":           true,
+		"Sleepycat":         true,
+	}
+	// These are in non-obvious places, or linked.
+	knownUnknownLicenses = map[string]bool{
+		"github.com/jmespath/go-jmespath": true,
+		"github.com/alicebob/gopher-json": true,
+	}
 	// Ignore package paths that don't start with this.
 	mustStartWith = []string{
 		"istio.io/istio/vendor",
@@ -97,10 +163,12 @@ func (s LicenseInfos) Swap(i, j int) {
 }
 
 func main() {
-	var summary, checkout, matchDetail bool
+	var summary, checkout, matchDetail, check bool
 	flag.BoolVar(&summary, "summary", false, "Generate a summary report.")
 	flag.BoolVar(&checkout, "checkout", false, "Checkout target branch, return to current branch on completion. Can only use from inside Istio git repo.")
 	flag.BoolVar(&matchDetail, "match_detail", false, "Show information about match closeness for inexact matches.")
+	flag.BoolVar(&check, "check", false, "Check licenses to see if they are Google approved. Exits with error if any unapproved licenses are found, "+
+		"but success does not imply all licenses are approved.")
 	flag.StringVar(&istioReleaseBranch, "branch", "", "Istio release branch to use.")
 	flag.Parse()
 
@@ -109,7 +177,7 @@ func main() {
 		log.Fatal("--summary and --match_detail cannot both be set.")
 	}
 
-	if istioReleaseBranch == "" {
+	if istioReleaseBranch == "" && !check {
 		log.Fatal("--branch must be set.")
 	}
 
@@ -168,10 +236,12 @@ func main() {
 	}
 
 	licenseTypes := make(map[string][]string, 0)
+	var reciprocalList, restrictedList, missingList []string
+	unknownMap := make(map[string]string, 0)
 	var licenses, exact, inexact LicenseInfos
 	for p, lp := range licensePath {
 		linfo := &LicenseInfo{}
-		if matchDetail || summary {
+		if matchDetail || summary || check {
 			// This requires the external licensee program.
 			linfo, err = getLicenseeInfo(lp)
 			if err != nil {
@@ -184,12 +254,61 @@ func main() {
 		linfo.path = lp
 		linfo.url = pathToURL(lp)
 		licenses = append(licenses, linfo)
+		ltypeStr := linfo.licenseTypeString
 		if linfo.exact {
-			licenseTypes[linfo.licenseTypeString] = append(licenseTypes[linfo.licenseTypeString], p)
+			licenseTypes[ltypeStr] = append(licenseTypes[ltypeStr], p)
 			exact = append(exact, linfo)
 		} else {
 			inexact = append(inexact, linfo)
 		}
+
+		switch {
+		case approvedLicenses[ltypeStr]:
+		case reciprocalLicenses[ltypeStr]:
+			reciprocalList = append(reciprocalList, linfo.packageName)
+		case restrictedLicenses[ltypeStr]:
+			restrictedList = append(restrictedList, linfo.packageName)
+		case ltypeStr == "":
+			missingList = append(missingList, linfo.packageName)
+		default:
+			if !knownUnknownLicenses[linfo.packageName] {
+				unknownMap[linfo.packageName] = ltypeStr
+			}
+		}
+	}
+
+	if check {
+		if len(reciprocalList) > 0 {
+			fmt.Println("===========================================================")
+			fmt.Println("The following packages have reciprocal licenses (code may")
+			fmt.Println("be used but not modified):")
+			fmt.Println("===========================================================")
+			fmt.Println(strings.Join(reciprocalList, "\n"))
+		}
+		if len(missingList) > 0 {
+			fmt.Println("===========================================================")
+			fmt.Println("The following packages have missing licenses:")
+			fmt.Println("===========================================================")
+			fmt.Println(strings.Join(missingList, "\n"))
+		}
+		if len(unknownMap) > 0 {
+			fmt.Println("===========================================================")
+			fmt.Println("The following packages have unknown status licenses (legal")
+			fmt.Println("review required). ")
+			fmt.Println("===========================================================")
+			for k, v := range unknownMap {
+				fmt.Printf("%s:%s\n", k, v)
+			}
+		}
+		if len(restrictedList) > 0 {
+			fmt.Println("===========================================================")
+			fmt.Println("The following packages had RESTRICTED licenses!")
+			fmt.Println("Packages MUST BE REMOVED! ")
+			fmt.Println("===========================================================")
+			fmt.Println(strings.Join(restrictedList, "\n"))
+			os.Exit(1)
+		}
+		return
 	}
 
 	sort.Sort(licenses)
