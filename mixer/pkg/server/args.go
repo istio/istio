@@ -20,6 +20,7 @@ import (
 
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/config/store"
+	"istio.io/istio/mixer/pkg/loadshedding"
 	"istio.io/istio/mixer/pkg/runtime/config/constant"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/ctrlz"
@@ -105,6 +106,8 @@ type Args struct {
 
 	// Whether or not to establish watches for adapter-specific CRDs
 	UseAdapterCRDs bool
+
+	LoadSheddingOptions *loadshedding.Options
 }
 
 // DefaultArgs allocates an Args struct initialized with Mixer's default configuration.
@@ -126,6 +129,7 @@ func DefaultArgs() *Args {
 		EnableProfiling:        true,
 		NumCheckCacheEntries:   5000 * 5 * 60, // 5000 QPS with average TTL of 5 minutes
 		UseAdapterCRDs:         true,
+		LoadSheddingOptions:    loadshedding.DefaultOptions,
 	}
 }
 
@@ -167,6 +171,7 @@ func (a *Args) String() string {
 	fmt.Fprintf(buf, "LoggingOptions: %#v\n", *a.LoggingOptions)
 	fmt.Fprintf(buf, "TracingOptions: %#v\n", *a.TracingOptions)
 	fmt.Fprintf(buf, "IntrospectionOptions: %#v\n", *a.IntrospectionOptions)
+	fmt.Fprintf(buf, "LoadSheddingOptions: %#v\n", *a.LoadSheddingOptions)
 
 	return buf.String()
 }

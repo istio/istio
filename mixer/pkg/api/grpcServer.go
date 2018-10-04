@@ -29,6 +29,7 @@ import (
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/checkcache"
+	"istio.io/istio/mixer/pkg/loadshedding"
 	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/runtime/dispatcher"
 	"istio.io/istio/mixer/pkg/status"
@@ -45,13 +46,16 @@ type (
 		// the global dictionary. This will eventually be writable via config
 		globalWordList []string
 		globalDict     map[string]int32
+
+		// load shedding
+		throttler *loadshedding.Throttler
 	}
 )
 
 var lg = log.RegisterScope("api", "API dispatcher messages.", 0)
 
 // NewGRPCServer creates a gRPC serving stack.
-func NewGRPCServer(dispatcher dispatcher.Dispatcher, gp *pool.GoroutinePool, cache *checkcache.Cache) mixerpb.MixerServer {
+func NewGRPCServer(dispatcher dispatcher.Dispatcher, gp *pool.GoroutinePool, cache *checkcache.Cache, throttler *loadshedding.Throttler) mixerpb.MixerServer {
 	list := attribute.GlobalList()
 	globalDict := make(map[string]int32, len(list))
 	for i := 0; i < len(list); i++ {
@@ -64,6 +68,7 @@ func NewGRPCServer(dispatcher dispatcher.Dispatcher, gp *pool.GoroutinePool, cac
 		globalWordList: list,
 		globalDict:     globalDict,
 		cache:          cache,
+		throttler:      throttler,
 	}
 }
 
@@ -216,6 +221,11 @@ var reportResp = &mixerpb.ReportResponse{}
 
 // Report is the entry point for the external Report method
 func (s *grpcServer) Report(ctx context.Context, req *mixerpb.ReportRequest) (*mixerpb.ReportResponse, error) {
+
+	if s.throttler.Throttle(loadshedding.RequestInfo{PredictedCost: float64(len(req.Attributes))}) {
+		return nil, grpc.Errorf(codes.Unavailable, "Server is currently overloaded. Please try again.")
+	}
+
 	lg.Debugf("Report (Count: %d)", len(req.Attributes))
 
 	if req.GlobalWordCount > uint32(len(s.globalWordList)) {

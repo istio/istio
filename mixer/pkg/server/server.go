@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/mixer/pkg/config"
 	"istio.io/istio/mixer/pkg/config/crd"
 	"istio.io/istio/mixer/pkg/config/store"
+	"istio.io/istio/mixer/pkg/loadshedding"
 	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/runtime"
 	runtimeconfig "istio.io/istio/mixer/pkg/runtime/config"
@@ -242,10 +243,15 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 		return nil, fmt.Errorf("could not register default server views: %v", err)
 	}
 
-	grpcOptions = append(grpcOptions, grpc.StatsHandler(&ocgrpc.ServerHandler{}))
+	throttler := loadshedding.NewThrottler(*a.LoadSheddingOptions)
+	if eval := throttler.Evaluator(loadshedding.GRPCLatencyEvaluatorName); eval != nil {
+		grpcOptions = append(grpcOptions, grpc.StatsHandler(newMultiStatsHandler(&ocgrpc.ServerHandler{}, eval.(*loadshedding.GRPCLatencyEvaluator))))
+	} else {
+		grpcOptions = append(grpcOptions, grpc.StatsHandler(&ocgrpc.ServerHandler{}))
+	}
 
 	s.server = grpc.NewServer(grpcOptions...)
-	mixerpb.RegisterMixerServer(s.server, api.NewGRPCServer(s.dispatcher, s.gp, s.checkCache))
+	mixerpb.RegisterMixerServer(s.server, api.NewGRPCServer(s.dispatcher, s.gp, s.checkCache, throttler))
 
 	if a.LivenessProbeOptions.IsValid() {
 		s.livenessProbe = probe.NewFileController(a.LivenessProbeOptions)
