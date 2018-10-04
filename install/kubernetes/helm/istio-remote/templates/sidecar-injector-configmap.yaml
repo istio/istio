@@ -56,15 +56,15 @@ data:
           privileged: true
           {{ end }}
         restartPolicy: Always
-      {{ if eq .Values.global.proxy.enableCoreDump true }}
-      - name: enable-core-dump
-        args:
+      {{- if .Values.global.proxy.enableCoreDump }}
+      - args:
         - -c
-        - sysctl -w kernel.core_pattern=/etc/istio/proxy/core.%e.%p.%t && ulimit -c unlimited
+        - sysctl -w kernel.core_pattern=/var/lib/istio/core.proxy && ulimit -c unlimited
         command:
           - /bin/sh
         image: {{ .Values.global.hub }}/proxy_init:{{ .Values.global.tag }}
         imagePullPolicy: IfNotPresent
+        name: enable-core-dump
         resources: {}
         securityContext:
           privileged: true
@@ -136,7 +136,9 @@ data:
           value: {{ "[[ or (index .ObjectMeta.Annotations \"sidecar.istio.io/interceptionMode\") .ProxyConfig.InterceptionMode.String ]]" }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
         securityContext:
+          {{- if ne .Values.global.proxy.enableCoreDump true }}
           readOnlyRootFilesystem: true
+          {{- end }}
           {{ "[[ if eq (or (index .ObjectMeta.Annotations \"sidecar.istio.io/interceptionMode\") .ProxyConfig.InterceptionMode.String) \"TPROXY\" -]]" }}
           capabilities:
             add:
