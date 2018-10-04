@@ -59,7 +59,6 @@ done
 [[ -z "${GCS_BUILD_PATH}" ]] && usage
 [[ -z "${VERSION}"        ]] && usage
 
-
 githubctl_setup
 github_keys
 
@@ -67,10 +66,15 @@ github_keys
 git config --global user.name "TestRunnerBot"	
 git config --global user.email "testrunner@istio.io"
 
+MANIFEST_FILE="./manifest.xml"
+ISTIO_SHA=$(grep "istio/istio" "$MANIFEST_FILE" | cut -f 6 -d \")
+
 "$githubctl" \
     --token_file="$GITHUB_KEYFILE" \
     --op=dailyRelQual \
     --base_branch="$BRANCH" \
     --hub="$DOCKER_HUB" \
     --gcs_path="$GCS_BUILD_PATH" \
-    --tag="$VERSION"
+    --tag="$VERSION" \
+    --ref_sha="$ISTIO_SHA"
+

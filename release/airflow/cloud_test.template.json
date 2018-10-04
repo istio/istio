@@ -2,7 +2,7 @@
   "steps": [
     {
       "name": "gcr.io/istio-testing/istio-builder:0.5.10",
-      "args": [ "gsutil", "cp", "gs://$_GCS_RELEASE_TOOLS_PATH/*.sh", "." ]
+      "args": [ "gsutil", "cp", "gs://$_GCS_RELEASE_TOOLS_PATH/*", "." ]
     },
     {
       "name": "gcr.io/istio-testing/istio-builder:0.5.10",
