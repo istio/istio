@@ -49,6 +49,7 @@ OWNER="${OWNER:-e2e-suite}"
 PILOT_CLUSTER="${PILOT_CLUSTER:-}"
 USE_MASON_RESOURCE="${USE_MASON_RESOURCE:-True}"
 CLEAN_CLUSTERS="${CLEAN_CLUSTERS:-True}"
+USE_INCLUSTER_REGISTRY="${USE_INCLUSTER_REGISTRY:-False}"
 
 
 # shellcheck source=prow/lib.sh
@@ -57,6 +58,16 @@ source "${ROOT}/prow/lib.sh"
 source "${ROOT}/prow/mason_lib.sh"
 # shellcheck source=prow/cluster_lib.sh
 source "${ROOT}/prow/cluster_lib.sh"
+
+function in_cluster_docker_ready() {
+  for i in `seq 1 10`; do
+    kubectl rollout status deployments/kube-registry -n docker-registry \
+      && return 0 \
+      || echo "In cluster registry not ready"
+    sleep 5
+  done
+  return 1
+}
 
 function cleanup() {
   if [[ "${CLEAN_CLUSTERS}" == "True" ]]; then
@@ -83,8 +94,23 @@ else
   GIT_SHA="${GIT_SHA:-$TAG}"
 fi
 
+if [[ "${USE_INCLUSTER_REGISTRY}" == "True" ]]; then
+  kubectl create ns docker-registry
+  kubectl apply -f "${ROOT}/tests/util/localregistry/localregistry.yaml"
+  DOCKER_REGISTRY_POD="$(kubectl get pods \
+    --namespace kube-system \
+    -l k8s-app=kube-registry \
+    -n docker-registry \
+    -o jsonpath='{.items[*].metadata.name}')"
+  in_cluster_docker_ready
+  kubectl port-forward -n docker-registry "${DOCKER_REGISTRY_POD}" 5000 &
+  PORT_FORWARD_PID=$!
 
-if [ "${CI:-}" == 'bootstrap' ]; then
+  time ISTIO_DOCKER_HUB="127.0.0.1:5000" make docker push HUB="127.0.0.1:5000" TAG="${GIT_SHA}"
+  kill ${PORT_FORWARD_PID}
+fi
+
+if [[ "${CI:-}" == 'bootstrap' ]]; then
   # bootsrap upload all artifacts in _artifacts to the log bucket.
   ARTIFACTS_DIR=${ARTIFACTS_DIR:-"${GOPATH}/src/istio.io/istio/_artifacts"}
   E2E_ARGS+=("--test_logs_path=${ARTIFACTS_DIR}")
