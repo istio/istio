@@ -57,6 +57,21 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 		clusters = append(clusters, configgen.buildOutboundClusters(env, push)...)
 	}
 
+	// If its a multi-cluster gateway, do not enable mTLS
+	// for clusters, as the gateway is already receiving mTLS
+	// traffic from downstream
+	if proxy.GetGatewayMode() == model.MulticlusterGateway {
+		// TODO: cache this output just like the output
+		sniClusters := make([]*v2.Cluster, len(clusters))
+		for _, c := range clusters {
+			// copy each cluster, unset the tls context
+			newC := *c
+			newC.TlsContext = nil
+			sniClusters = append(sniClusters, &newC)
+		}
+		clusters = sniClusters
+	}
+
 	if proxy.Type == model.Sidecar {
 		instances, err := env.GetProxyServiceInstances(proxy)
 		if err != nil {

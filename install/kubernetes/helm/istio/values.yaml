@@ -1,4 +1,4 @@
- #
+#
 # Gateways Configuration, refer to the charts/gateways/values.yaml 
 # for detailed configuration
 #
@@ -243,18 +243,16 @@ global:
     useILB: false
 
   multiCluster:
-    # Set to true to connect two kubernetes clusters using a LB gateway as the
-    # only entry point into the cluster (instead of requiring pod to pod
-    # connectivity across two clusters). Note that for this system to work,
-    # service objects from remote clusters have to be replicated to local
-    # cluster (without the pod selectors). In addition, endpoints have to be
-    # added to each replicated service object, where the endpoint points to
-    # the remote cluster's mcgateway:15443. All clusters should be using
-    # Istio mTLS and must have a shared root CA for this model to work.
+    # Set to true to connect two kubernetes clusters using a LB gateway as
+    # the only entry point into the cluster (instead of requiring pod to
+    # pod connectivity across two clusters). Note that for this system to
+    # work, service objects from remote clusters have to be replicated to
+    # local cluster (without the pod selectors). In addition, service
+    # entries have to be added for each replicated service object, where
+    # the endpoints in the service entry point to the remote cluster's
+    # mcgatewayIP:15443. All clusters should be using Istio mTLS and must
+    # have a shared root CA for this model to work.
     connectUsingGateway: false
-    # Change this to mcgateway to use a dedicated controlled gateway for
-    # multi-cluster traffic over port 15443
-    gatewayName: ingressgateway
 
   # A minimal set of requested resources to applied to all deployments so that
   # Horizontal Pod Autoscaler will be able to function (if set).
@@ -290,3 +288,5 @@ global:
   # Use the Mesh Control Protocol (MCP) for configuring Mixer and
   # Pilot. Requires galley (`--set galley.enabled=true`).
   useMCP: false
+
+
