@@ -10,11 +10,7 @@
     },
     {
       "name": "gcr.io/istio-testing/istio-builder:0.5.10",
-      "args": [ "export", "SHA=$(grep \"istio/istio\" \"$MANIFEST_FILE\" | cut -f 6 -d \\\")" ]
-    },
-    {
-      "name": "gcr.io/istio-testing/istio-builder:0.5.10",
-      "args": [ "./test_release.sh", "-b", "$_BRANCH", "-d", "$_DOCKER_HUB", "-g", "$_GCS_BUILD_PATH", "-v", "$_VERSION", "-s", "$_SHA" ]
+      "args": [ "./test_release.sh", "-b", "$_BRANCH", "-d", "$_DOCKER_HUB", "-g", "$_GCS_BUILD_PATH", "-v", "$_VERSION" ]
     }
   ],
   "options": {
