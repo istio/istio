@@ -210,7 +210,8 @@ if [[ -n "${GCS_SOURCE}" ]]; then
     gsutil -m cp gs://"${GCS_SOURCE}"/deb/istio*.deb.sha256 "${UPLOAD_DIR}/deb/"
   fi
   if [[ "${DO_GITHUB_TAG}" == "true" || "${DO_GITHUB_REL}" == "true" ]]; then
-    gsutil -m cp "gs://${GCS_SOURCE}/manifest.xml" "${UPLOAD_DIR}/"
+    # previously copied to the /output dir by istio_checkout_code.sh
+    cp "/output/manifest.xml" "${UPLOAD_DIR}/"
   fi
   if [[ "${DO_GITHUB_REL}" == "true" ]]; then
     gsutil -m cp gs://"${GCS_SOURCE}"/docker.io/istio-*.zip "${UPLOAD_DIR}/"
