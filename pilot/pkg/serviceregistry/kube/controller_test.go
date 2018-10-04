@@ -182,6 +182,12 @@ func newFakeController(t *testing.T) (*Controller, *FakeXdsUpdater) {
 		ConfigUpdater:    NewFakeUpdater(),
 		stop:             make(chan struct{}),
 	})
+	c.AppendInstanceHandler(func(instance *model.ServiceInstance, event model.Event) {
+		log.Info("Instance event received")
+	})
+	c.AppendServiceHandler(func(service *model.Service, event model.Event) {
+		log.Info("Service event received")
+	})
 	go c.Run(c.stop)
 	return c, fx
 }

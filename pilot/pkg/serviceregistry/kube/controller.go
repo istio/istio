@@ -254,8 +254,11 @@ func (c *Controller) createEDSInformer(
 			// TODO: filtering functions to skip over un-referenced resources (perf)
 			AddFunc: func(obj interface{}) {
 				k8sEvents.With(prometheus.Labels{"type": otype, "event": "add"}).Add(1)
-				c.updateEDS(obj.(*v1.Endpoints))
-				//c.queue.Push(Task{handler: handler.Apply, obj: obj, event: model.EventAdd})
+				// TODO: we want this to propagate faster, without waiting in the queu. However
+				// this requires pods to be updated before, and code to deal with eventual consistency,
+				// otherwise enpdoint update is too fast.
+				//c.updateEDS(obj.(*v1.Endpoints))
+				c.queue.Push(Task{handler: handler.Apply, obj: obj, event: model.EventAdd})
 			},
 			UpdateFunc: func(old, cur interface{}) {
 				// Avoid pushes if only resource version changed (kube-scheduller, cluster-autoscaller, etc)
@@ -264,8 +267,8 @@ func (c *Controller) createEDSInformer(
 
 				if !reflect.DeepEqual(oldE.Subsets, curE.Subsets) {
 					k8sEvents.With(prometheus.Labels{"type": otype, "event": "update"}).Add(1)
-					c.updateEDS(cur.(*v1.Endpoints))
-					//c.queue.Push(Task{handler: handler.Apply, obj: cur, event: model.EventUpdate})
+					//c.updateEDS(cur.(*v1.Endpoints))
+					c.queue.Push(Task{handler: handler.Apply, obj: cur, event: model.EventUpdate})
 				} else {
 					k8sEvents.With(prometheus.Labels{"type": otype, "event": "updateSame"}).Add(1)
 				}
@@ -275,8 +278,8 @@ func (c *Controller) createEDSInformer(
 				// Deleting the endpoints results in an empty set from EDS perspective - only
 				// deleting the service should delete the resources. The full sync replaces the
 				// maps.
-				c.updateEDS(obj.(*v1.Endpoints))
-				//c.queue.Push(Task{handler: handler.Apply, obj: obj, event: model.EventDelete})
+				//c.updateEDS(obj.(*v1.Endpoints))
+				c.queue.Push(Task{handler: handler.Apply, obj: obj, event: model.EventDelete})
 			},
 		})
 
