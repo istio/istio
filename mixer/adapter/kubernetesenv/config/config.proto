@@ -17,6 +17,7 @@ syntax = "proto3";
 // $title: Kubernetes Env
 // $description: Adapter that extracts information from a Kubernetes environment.
 // $location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/kubernetesenv.html
+// $supported_templates: kubernetesenv
 // $aliases:
 // $  - /docs/reference/config/adapters/kubernetesenv.html
 

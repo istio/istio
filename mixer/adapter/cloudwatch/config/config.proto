@@ -17,6 +17,7 @@ syntax = "proto3";
 // $title: CloudWatch
 // $description: Adapter for cloudwatch metrics.
 // $location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/cloudwatch.html
+// $support_template: metric
 // $aliases:
 // $  - /docs/reference/config/adapters/cloudwatch.html
 
