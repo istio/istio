@@ -5,8 +5,9 @@
 # 2. Installs fortio echosrv with a couple of different subsets/destination rules with multiple replicas.
 # 3. Sends external traffic to echosrv through ingress gateway.
 # 4. Sends internal traffic to echosrv from fortio load pod.
+# 5. For rollback, downgrades the data plane for one echosrv subset and does a rolling restart.
 # 5. Upgrades control plane to to_hub/tag/path.
-# 6. Does a rolling restart of one of the echosrv subsets.
+# 6. For non-rollback, does rolling restart of one of the echosrv subsets, which auto-injects upgraded version of sidecar.
 # 7. Parses the output from the load pod to check for any errors during upgrade and returns 1 is any are found.
 #
 # Dependencies that must be preinstalled: helm, fortio.
@@ -148,7 +149,9 @@ restartDataPlane() {
     # Apply label within deployment spec.
     # This is a hack to force a rolling restart without making any material changes to spec.
     writeMsg "Restarting deployment ${1}"
+    set -x
     kubectl patch deployment "${1}" -n "${TEST_NAMESPACE}" -p'{"spec":{"template":{"spec":{"containers":[{"name":"echosrv","env":[{"name":"RESTART_","value":"1"}]}]}}}}'
+    set +x
 }
 
 writeMsg() {
@@ -272,12 +275,22 @@ kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-ad
 pushd "${ISTIO_ROOT}" || exit 1
 
 resetNamespaces
+
+# In rollback case, grab the sidecar injector ConfigMap from the target version so we can upgrade the dataplane to it
+# first, before switching the control plane.
+if [ -n "${ROLLBACK}" ]; then
+    writeMsg "Temporarily installing target version to extract sidecar-injector ConfigMap."
+    installIstioSystemAtVersionHelmTemplate "${TO_HUB}" "${TO_TAG}" "${TO_PATH}"
+    waitForPodsReady "${ISTIO_NAMESPACE}"
+    kubectl get ConfigMap -n "${ISTIO_NAMESPACE}" istio-sidecar-injector -o yaml > ${TMP_DIR}/sidecar-injector-configmap.yaml
+    resetNamespaces
+    echo "ConfigMap extracted."
+fi
+
 installIstioSystemAtVersionHelmTemplate "${FROM_HUB}" "${FROM_TAG}" "${FROM_PATH}"
 waitForIngress
 waitForPodsReady "${ISTIO_NAMESPACE}"
 
-# Get a backup of the sidecar-injector at original version in case we are rolling back the data plane later.
-kubectl get ConfigMap -n istio-system istio-sidecar-injector -o yaml > ${TMP_DIR}/sidecar-injector-configmap.yaml
 installTest
 waitForPodsReady "${TEST_NAMESPACE}"
 checkEchosrv
@@ -291,7 +304,10 @@ sleep 20
 # In a rollback, we update the data plane first.
 if [ -n "${ROLLBACK}" ]; then
     writeMsg "Rolling back data plane to ${TO_PATH}"
-    kubectl apply -n "${TEST_NAMESPACE}" -f <(istioctl kube-inject --injectConfigFile "${TMP_DIR}"/sidecar-injector-configmap.yaml -f "${TMP_DIR}"/fortio.yaml)
+    kubectl delete ConfigMap -n "${ISTIO_NAMESPACE}" istio-sidecar-injector
+    sleep 5
+    kubectl create -n "${ISTIO_NAMESPACE}" -f "${TMP_DIR}"/sidecar-injector-configmap.yaml
+    restartDataPlane echosrv-deployment-v1
     # No way to tell when rolling restart completes because it's async. Make sure this is long enough to cover all the
     # pods in the deployment at the minReadySeconds setting (should be > num pods x minReadySeconds + few extra seconds).
     sleep 100
