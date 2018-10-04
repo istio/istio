@@ -17,6 +17,7 @@ syntax = "proto3";
 // $title: Prometheus
 // $description: Adapter that exposes Istio metrics for ingestion by a Prometheus harvester.
 // $location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/prometheus.html
+// $supported_templates: metric
 // $aliases:
 // $  - /docs/reference/config/adapters/prometheus.html
 
