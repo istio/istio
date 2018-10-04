@@ -151,7 +151,8 @@ func ParseJwksURI(jwksURI string) (string, *Port, bool, error) {
 
 
 // GetIstioServiceAccounts returns a list of service account for a particular service.
-func GetIstioServiceAccounts(registry ServiceDiscovery, hostname Hostname, ports []int) ([]string, error){
+// TODO(incfly): the interface must be changed to hold some state for optimization.
+func GetIstioServiceAccounts(registry ServiceDiscovery, hostname Hostname, ports []int) []string {
 	instances := make([]*ServiceInstance, 0)
 	saSet := make(map[string]bool)
 
@@ -160,11 +161,11 @@ func GetIstioServiceAccounts(registry ServiceDiscovery, hostname Hostname, ports
 	svc, err := registry.GetService(hostname)
 	if err != nil {
 		log.Errorf("InstancesByPort(%s:%d) error: %v", hostname, ports, err)
-		return nil, err
+		return nil
 	}
 	if svc == nil {
 		log.Errorf("InstancesByPort(%s:%d) error: %v", hostname, ports, err)
-		return nil, err
+		return nil
 	}
 
 	// Get the service accounts running service within Kubernetes. This is reflected by the pods that
@@ -173,7 +174,7 @@ func GetIstioServiceAccounts(registry ServiceDiscovery, hostname Hostname, ports
 		svcinstances, err := registry.InstancesByPort(hostname, port, LabelsCollection{})
 		if err != nil {
 			log.Warnf("InstancesByPort(%s:%d) error: %v", hostname, port, err)
-			return nil, err
+			return nil
 		}
 		instances = append(instances, svcinstances...)
 	}
@@ -195,5 +196,5 @@ func GetIstioServiceAccounts(registry ServiceDiscovery, hostname Hostname, ports
 		saArray = append(saArray, sa)
 	}
 
-	return saArray, nil
+	return saArray
 }

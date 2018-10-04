@@ -21,7 +21,6 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/gogo/protobuf/types"
-	"fmt"
 )
 
 func TestParseJwksURI(t *testing.T) {
@@ -153,10 +152,17 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 func TestGetIstioServiceAccounts(t *testing.T) {
 	reg := NewMemServiceDiscovery(map[Hostname]*Service{}, 2)
 	svcName := Hostname("foo.bar.cluster.local")
-	svc := &Service{Hostname: svcName, Ports:PortList{&Port{Name:"grpc", Port:9000}}}
+	spiffeA := "spiffe://cluster.local/ns/foo/sa/a"
+	spiffeB := "spiffe://cluster.local/ns/foo/sa/b"
+	port := 9000
+	svc := &Service{Hostname: svcName, Ports:PortList{&Port{Name:"grpc", Port:port}}}
 	reg.AddService(svcName, svc)
-	reg.AddEndpoint(svcName, "grpc", 9000, "grpc", 9000)
-	insts, err := reg.InstancesByPort(svcName, 9000, LabelsCollection{})
-	fmt.Printf("instances %v and error %v\n", insts[0], err)
-	
+	reg.AddEndpoint(svcName, "grpc", port, "grpc", port, spiffeA)
+	reg.AddEndpoint(svcName, "grpc", port, "grpc", port, spiffeB)
+
+	sa := GetIstioServiceAccounts(reg, svcName, []int{port})
+	want := []string{"spiffe://cluster.local/ns/foo/sa/a", "spiffe://cluster.local/ns/foo/sa/b"}
+	if !reflect.DeepEqual(sa, want) {
+		t.Errorf("unexpected istio service account, want %v, got %v", want, sa)
+	}
 }
