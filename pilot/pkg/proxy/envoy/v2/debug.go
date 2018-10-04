@@ -656,7 +656,7 @@ func (s *DiscoveryServer) authenticationz(w http.ResponseWriter, req *http.Reque
 				info.ServerProtocol = mTLSModeToString(s.Env.Mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS)
 			}
 
-			destConfig := s.Env.PushContext.DestinationRule(ss.Hostname)
+			destConfig := s.globalPushContext().DestinationRule(ss.Hostname)
 			info.DestinationRuleName = configName(destConfig)
 			if destConfig != nil {
 				rule := destConfig.Spec.(*networking.DestinationRule)
@@ -908,7 +908,7 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 	configDump := &adminapi.ConfigDump{Configs: map[string]types.Any{}}
 
 	dynamicActiveClusters := []adminapi.ClustersConfigDump_DynamicCluster{}
-	clusters, err := s.generateRawClusters(conn, s.Env.PushContext)
+	clusters, err := s.generateRawClusters(conn, s.globalPushContext())
 	if err != nil {
 		return nil, err
 	}
@@ -925,7 +925,7 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 	configDump.Configs["clusters"] = *clustersAny
 
 	dynamicActiveListeners := []adminapi.ListenersConfigDump_DynamicListener{}
-	listeners, err := s.generateRawListeners(conn, s.Env.PushContext)
+	listeners, err := s.generateRawListeners(conn, s.globalPushContext())
 	if err != nil {
 		return nil, err
 	}
@@ -941,7 +941,7 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 	}
 	configDump.Configs["listeners"] = *listenersAny
 
-	routes, err := s.generateRawRoutes(conn, s.Env.PushContext)
+	routes, err := s.generateRawRoutes(conn, s.globalPushContext())
 	if err != nil {
 		return nil, err
 	}

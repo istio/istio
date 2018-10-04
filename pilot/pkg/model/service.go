@@ -407,7 +407,8 @@ type ServiceDiscovery interface {
 	//
 	// Similar concepts apply for calling this function with a specific
 	// port, hostname and labels.
-	// Deprecated: made obsolete by InstancesByPort
+	// Deprecated: made obsolete by InstancesByPort. Only used by (deprecated) ServiceAccounts,
+	// and discovery.ListAllEndpoints for debug. Will be removed in 1.1
 	Instances(hostname Hostname, ports []string, labels LabelsCollection) ([]*ServiceInstance, error)
 
 	// InstancesByPort retrieves instances for a service on the given ports with labels that match

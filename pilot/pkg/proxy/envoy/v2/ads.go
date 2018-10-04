@@ -299,17 +299,19 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 	// check works, since it assumes ClearCache is called (and as such PushContext
 	// is initialized)
 	// InitContext returns immediately if the context was already initialized.
-	err := s.Env.PushContext.InitContext(s.Env)
+	pc := s.globalPushContext()
+
+	err := pc.InitContext(s.Env)
 	if err != nil {
 		// Error accessing the data - log and close, maybe a different pilot replica
 		// has more luck
 		adsLog.Warnf("Error reading config %v", err)
 		return err
 	}
-	if s.Env.PushContext.Services == nil {
+	if pc.Services == nil {
 		// Error accessing the data - log and close, maybe a different pilot replica
 		// has more luck
-		adsLog.Warnf("Not initialized %v", s.Env.PushContext)
+		adsLog.Warnf("Not initialized %v", pc)
 		return err
 	}
 
@@ -373,7 +375,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				// soon as the CDS push is returned.
 				adsLog.Infof("ADS:CDS: REQ %v %s %v raw: %s", peerAddr, con.ConID, time.Since(t0), discReq.String())
 				con.CDSWatch = true
-				err := s.pushCds(con, s.Env.PushContext, versionInfo())
+				err := s.pushCds(con, pc, versionInfo())
 				if err != nil {
 					return err
 				}
@@ -393,7 +395,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				// too verbose - sent immediately after EDS response is received
 				adsLog.Debugf("ADS:LDS: REQ %s %v", con.ConID, peerAddr)
 				con.LDSWatch = true
-				err := s.pushLds(con, s.Env.PushContext, true, versionInfo())
+				err := s.pushLds(con, pc, true, versionInfo())
 				if err != nil {
 					return err
 				}
@@ -419,7 +421,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				}
 				con.Routes = routes
 				adsLog.Debugf("ADS:RDS: REQ %s %s  routes: %d", peerAddr, con.ConID, len(con.Routes))
-				err := s.pushRoute(con, s.Env.PushContext)
+				err := s.pushRoute(con, pc)
 				if err != nil {
 					return err
 				}
@@ -462,7 +464,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 
 				con.Clusters = clusters
 				adsLog.Debugf("ADS:EDS: REQ %s %s clusters: %d", peerAddr, con.ConID, len(con.Clusters))
-				err := s.pushEds(s.Env.PushContext, con, true, nil)
+				err := s.pushEds(pc, con, true, nil)
 				if err != nil {
 					return err
 				}
@@ -571,7 +573,7 @@ func adsClientCount() int {
 
 // AdsPushAll is used only by tests (after refactoring)
 func AdsPushAll(s *DiscoveryServer) {
-	s.AdsPushAll(versionInfo(), s.Env.PushContext, true, nil)
+	s.AdsPushAll(versionInfo(), s.globalPushContext(), true, nil)
 }
 
 // AdsPushAll implements old style invalidation, generated when any rule or endpoint changes.

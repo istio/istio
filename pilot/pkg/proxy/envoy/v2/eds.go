@@ -411,11 +411,12 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 
 // SvcUpdate is a callback from service discovery to update the port mapping.
 func (s *DiscoveryServer) SvcUpdate(cluster, hostname string, ports map[string]uint32, rports map[uint32]string) {
+	pc := s.globalPushContext()
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	if cluster == "" {
-		s.Env.PushContext.ServiceName2Ports[hostname] = ports
-		s.Env.PushContext.ServicePort2Name[hostname] = rports
+		pc.ServiceName2Ports[hostname] = ports
+		pc.ServicePort2Name[hostname] = rports
 	}
 	// TODO: for updates from other clusters, warn if they don't match primary.
 }

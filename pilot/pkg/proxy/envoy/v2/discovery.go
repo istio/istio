@@ -202,7 +202,7 @@ func (s *DiscoveryServer) periodicRefresh() {
 	defer ticker.Stop()
 	for range ticker.C {
 		adsLog.Infof("ADS: periodic push of envoy configs %s", versionInfo())
-		s.AdsPushAll(versionInfo(), s.Env.PushContext, true, nil)
+		s.AdsPushAll(versionInfo(), s.globalPushContext(), true, nil)
 	}
 }
 
@@ -223,7 +223,7 @@ func (s *DiscoveryServer) periodicRefreshMetrics() {
 	ticker := time.NewTicker(periodicRefreshMetrics)
 	defer ticker.Stop()
 	for range ticker.C {
-		push := s.Env.PushContext
+		push := s.globalPushContext()
 		if push.End != timeZero {
 			model.LastPushStatus = push
 		}
@@ -254,17 +254,24 @@ func (s *DiscoveryServer) ServiceAccounts(serviceName string) []string {
 	samap := map[string]bool{}
 	for _, es := range ep.Shards {
 		for _, el := range es.Entries {
-			if f := samap[el.ServiceAccount] ; !f {
+			if f := samap[el.ServiceAccount]; !f {
 				samap[el.ServiceAccount] = true
 			}
 		}
 	}
 	// TODO: we can just return the map.
-	for k, _ := range samap {
+	for k := range samap {
 		sa = append(sa, k)
 	}
 
 	return sa
+}
+
+// Returns the global push context.
+func (s *DiscoveryServer) globalPushContext() *model.PushContext {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	return s.Env.PushContext
 }
 
 // Push is called to push changes on config updates using ADS. This is set in DiscoveryService.Push,
@@ -272,13 +279,14 @@ func (s *DiscoveryServer) ServiceAccounts(serviceName string) []string {
 func (s *DiscoveryServer) Push(full bool, edsUpdates map[string]*model.ServiceShards) {
 	if !full {
 		adsLog.Infof("XDS Incremental Push EDS:%d", len(edsUpdates))
-		go s.AdsPushAll(version, s.Env.PushContext, false, edsUpdates)
+		go s.AdsPushAll(version, s.globalPushContext(), false, edsUpdates)
 		return
 	}
 	// Reset the status during the push.
 	//afterPush := true
-	if s.Env.PushContext != nil {
-		s.Env.PushContext.OnConfigChange()
+	pc := s.globalPushContext()
+	if pc != nil {
+		pc.OnConfigChange()
 	}
 	// PushContext is reset after a config change. Previous status is
 	// saved.
@@ -303,10 +311,12 @@ func (s *DiscoveryServer) Push(full bool, edsUpdates map[string]*model.ServiceSh
 		return
 	}
 
+	s.mutex.Lock()
 	s.Env.PushContext = push
 	versionLocal := time.Now().Format(time.RFC3339)
 	initContextTime := time.Since(t0)
 	adsLog.Debugf("InitContext %v for push took %s", versionLocal, initContextTime)
+	s.mutex.Unlock()
 
 	// TODO: propagate K8S version and use it instead
 	versionMutex.Lock()
