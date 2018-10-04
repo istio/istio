@@ -69,6 +69,9 @@ github_keys
 git config --global user.name "TestRunnerBot"	
 git config --global user.email "testrunner@istio.io"
 
+MANIFEST_FILE="/output/manifest.xml"
+ISTIO_SHA=$(grep "istio/istio" "$MANIFEST_FILE" | cut -f 6 -d \")
+
 "$githubctl" \
     --token_file="$GITHUB_KEYFILE" \
     --op=dailyRelQual \
@@ -76,5 +79,5 @@ git config --global user.email "testrunner@istio.io"
     --hub="$DOCKER_HUB" \
     --gcs_path="$GCS_BUILD_PATH" \
     --tag="$VERSION" \
-    --ref_sha="$SHA"
+    --ref_sha="$ISTIO_SHA"
 
