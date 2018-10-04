@@ -106,6 +106,8 @@ POD_FORTIO_LOG=${TMP_DIR}/fortio_pod.log
 # Make sure to change templates/*.yaml with the correct address if this changes.
 TEST_NAMESPACE="test"
 
+echo_and_run() { echo "RUNNING $*" ; "$@" ; }
+
 installIstioSystemAtVersionHelmTemplate() {
     writeMsg "helm installing version ${2} from ${3}."
     if [ -n "${AUTH_ENABLE}" ]; then
@@ -140,18 +142,14 @@ sendInternalRequestTraffic() {
 # Sends external traffic from machine test is running on to Fortio echosrv through external IP and ingress gateway LB.
 sendExternalRequestTraffic() {
     writeMsg "Sending external traffic"
-    set -x
-    fortio load -c 32 -t 300s -qps 10 -H "Host:echosrv.test.svc.cluster.local" "http://${1}/echo?size=200" &> "${LOCAL_FORTIO_LOG}" &
-    set +x
+    echo_and_run fortio load -c 32 -t 300s -qps 10 -H "Host:echosrv.test.svc.cluster.local" "http://${1}/echo?size=200" &> "${LOCAL_FORTIO_LOG}" &
 }
 
 restartDataPlane() {
     # Apply label within deployment spec.
     # This is a hack to force a rolling restart without making any material changes to spec.
     writeMsg "Restarting deployment ${1}"
-    set -x
-    kubectl patch deployment "${1}" -n "${TEST_NAMESPACE}" -p'{"spec":{"template":{"spec":{"containers":[{"name":"echosrv","env":[{"name":"RESTART_","value":"1"}]}]}}}}'
-    set +x
+    echo_and_run kubectl patch deployment "${1}" -n "${TEST_NAMESPACE}" -p'{"spec":{"template":{"spec":{"containers":[{"name":"echosrv","env":[{"name":"RESTART_","value":"1"}]}]}}}}'
 }
 
 writeMsg() {
