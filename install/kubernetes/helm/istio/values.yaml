@@ -196,6 +196,7 @@ ingress:
     annotations: {}
     loadBalancerIP: ""
     type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
+    externalTrafficPolicy: Local
     ports:
     - port: 80
       name: http
@@ -235,6 +236,7 @@ gateways:
     loadBalancerIP: ""
     serviceAnnotations: {}
     type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
+    externalTrafficPolicy: Local
 
     ports:
       ## You can add custom gateway ports
@@ -322,6 +324,7 @@ gateways:
     serviceAnnotations:
       cloud.google.com/load-balancer-type: "internal"
     type: LoadBalancer
+    externalTrafficPolicy: Local
     ports:
     ## You can add custom gateway ports - google ILB default quota is 5 ports,
     - port: 15011
