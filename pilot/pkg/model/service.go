@@ -286,11 +286,21 @@ type NetworkEndpoint struct {
 	// Ignored for `AddressFamilyUnix`.
 	Port int
 
+	// The service related attributes for this endpoint.
+	Attributes EndpointAttributes
+
 	// Port declaration from the service declaration This is the port for
 	// the service associated with this instance (e.g.,
 	// catalog.mystore.com)
 	ServicePort *Port
 
+	// Defines a platform-specific workload instance identifier (optional).
+	UID string
+}
+
+
+// EndpointAttributes defines the service related attributes in a network endpoint.
+type EndpointAttributes struct {
 	// Namespace for the workload on this network endpoint.
 	// For the platforms without namespace, it will be empty.
 	Namespace string
@@ -300,9 +310,6 @@ type NetworkEndpoint struct {
 
 	// Labels for the workload on this network endpoint.
 	Labels Labels
-
-	// Defines a platform-specific workload instance identifier (optional).
-	UID string
 }
 
 // Labels is a non empty set of arbitrary strings. Each version of a service can
