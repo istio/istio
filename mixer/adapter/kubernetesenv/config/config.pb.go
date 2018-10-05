@@ -7,7 +7,7 @@
 	The `kubernetesenv` adapter extracts information from a Kubernetes environment
 	and produces attribtes that can be used in downstream adapters.
 
-	This adapter supports the [kubernetesenv template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/kubernetes/).
+	This adapter supports the [kubernetes template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/kubernetes/).
 
 	It is generated from these files:
 		mixer/adapter/kubernetesenv/config/config.proto
