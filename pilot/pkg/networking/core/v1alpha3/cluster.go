@@ -17,6 +17,7 @@ package v1alpha3
 import (
 	"fmt"
 	"path"
+	"strings"
 	"time"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -62,12 +63,27 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 	// traffic from downstream
 	if proxy.GetGatewayMode() == model.MulticlusterGateway {
 		// TODO: cache this output just like the output
-		sniClusters := make([]*v2.Cluster, len(clusters))
+		tlsServices := proxy.GetMCGatewayTLSServiceNames()
+		sniClusters := make([]*v2.Cluster, 0, len(clusters)*2)
 		for _, c := range clusters {
-			// copy each cluster, unset the tls context
-			newC := *c
-			newC.TlsContext = nil
-			sniClusters = append(sniClusters, &newC)
+			// Copy each cluster, unset the tls context except for those that needs to be kept
+			_, _, hostname, _ := model.ParseSubsetKey(c.Name)
+			serviceName := strings.Split(string(hostname), ".")[0]
+
+			keepTLS := false
+			for _, tlsService := range tlsServices {
+				if tlsService == serviceName {
+					keepTLS = true
+					break
+				}
+			}
+			if !keepTLS {
+				newC := *c
+				newC.TlsContext = nil
+				sniClusters = append(sniClusters, &newC)
+			} else {
+				sniClusters = append(sniClusters, c)
+			}
 		}
 		clusters = sniClusters
 	}
