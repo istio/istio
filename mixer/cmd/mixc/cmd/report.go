@@ -43,9 +43,10 @@ func reportCmd(rootArgs *rootArgs, printf, fatalf shared.FormatFn) *cobra.Comman
 
 func report(rootArgs *rootArgs, printf, fatalf shared.FormatFn) {
 	var attrs *mixerpb.CompressedAttributes
+	var dw []string
 	var err error
 
-	if attrs, err = parseAttributes(rootArgs); err != nil {
+	if attrs, dw, err = parseAttributes(rootArgs); err != nil {
 		fatalf("%v", err)
 	}
 
@@ -69,11 +70,22 @@ func report(rootArgs *rootArgs, printf, fatalf shared.FormatFn) {
 	for c := 0; c < rootArgs.concurrency; c++ {
 		go func() {
 			defer wg.Done()
-			for i := 0; i < rootArgs.repeat; i++ {
+			for i := 0; i < rootArgs.repeat; i += rootArgs.reportBatchSize {
+				bs := rootArgs.reportBatchSize
+				if bs > rootArgs.repeat-i {
+					bs = rootArgs.repeat - i
+				}
+				ca := []mixerpb.CompressedAttributes{}
+				for s := 0; s < bs; s++ {
+					ca = append(ca, *attrs)
+				}
+				request := mixerpb.ReportRequest{
+					Attributes:   ca,
+					DefaultWords: dw,
+				}
 				if rl != nil {
 					rl.Wait(context.Background())
 				}
-				request := mixerpb.ReportRequest{Attributes: []mixerpb.CompressedAttributes{*attrs}}
 				_, err := cs.client.Report(ctx, &request)
 
 				if rootArgs.printResponse {
