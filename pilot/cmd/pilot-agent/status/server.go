@@ -25,16 +25,26 @@ import (
 
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/istio/pkg/log"
+	"time"
 )
 
 const (
+	// readyPath is for the pilot agent readiness itself.
 	readyPath = "/healthz/ready"
+	// appReadyPath is the path for the application after injecting.
+	appReadinessPath = "/app/ready"
+	// appHealthPath is the path for the application after injecting.
+	appLivenessPath = "/app/liveness"
 )
 
 // Config for the status server.
 type Config struct {
 	StatusPort       uint16
 	AdminPort        uint16
+	// appReadinessPath is the original url path that app uses for readiness check.
+	AppReadinessPath string
+	// appLivenessPath is the original url path that app uses for liveness check.
+	AppLivenessPath  string
 	ApplicationPorts []uint16
 }
 
@@ -42,6 +52,8 @@ type Config struct {
 type Server struct {
 	statusPort          uint16
 	ready               *ready.Probe
+	appLivenessPath     string
+	appReadinessPath    string
 	mutex               sync.Mutex
 	lastProbeSuccessful bool
 }
@@ -49,7 +61,9 @@ type Server struct {
 // NewServer creates a new status server.
 func NewServer(config Config) *Server {
 	return &Server{
-		statusPort: config.StatusPort,
+		statusPort:       config.StatusPort,
+		appLivenessPath:  config.AppLivenessPath,
+		appReadinessPath: config.AppReadinessPath,
 		ready: &ready.Probe{
 			AdminPort:        config.AdminPort,
 			ApplicationPorts: config.ApplicationPorts,
@@ -63,6 +77,8 @@ func (s *Server) Run(ctx context.Context) {
 
 	// Add the handler for ready probes.
 	http.HandleFunc(readyPath, s.handleReadyProbe)
+	http.HandleFunc(appReadinessPath, s.handleAppReadinessProbe)
+	http.HandleFunc(appLivenessPath, s.handleAppLivenessProbe)
 
 	l, err := net.Listen("tcp", fmt.Sprintf(":%d", s.statusPort))
 	if err != nil {
@@ -100,4 +116,33 @@ func (s *Server) handleReadyProbe(w http.ResponseWriter, _ *http.Request) {
 		}
 		s.lastProbeSuccessful = true
 	}
+}
+
+func (s *Server) handleAppReadinessProbe(w http.ResponseWriter, req *http.Request) {
+	requestStatusCode(fmt.Sprintf("http://127.0.0.1:%d/%s", s.statusPort, s.appReadinessPath), w, req)
+}
+
+func (s *Server) handleAppLivenessProbe(w http.ResponseWriter, req *http.Request) {
+	requestStatusCode(fmt.Sprintf("http://127.0.0.1:%d/%s", s.statusPort, s.appLivenessPath), w, req)
+}
+
+func requestStatusCode(appURL string, w http.ResponseWriter, req *http.Request) {
+	httpClient := &http.Client{
+		// TODO: figure out the appropriate timeout?
+		Timeout: 5*time.Second,
+	}
+
+	if req.URL == nil {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	req.URL.Path = appURL
+
+	response, err := httpClient.Do(req)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+	}
+	defer response.Body.Close()
+	// We only write the status code to the response.
+	w.WriteHeader(response.StatusCode)
 }

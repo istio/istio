@@ -66,6 +66,8 @@ var (
 	concurrency              int
 	templateFile             string
 	disableInternalTelemetry bool
+	appLivenessPath string
+	appReadinessPath string
 
 	loggingOptions = log.DefaultOptions()
 
@@ -262,6 +264,8 @@ var (
 					AdminPort:        proxyAdminPort,
 					StatusPort:       statusPort,
 					ApplicationPorts: parsedPorts,
+					AppLivenessPath:  appLivenessPath,
+					AppReadinessPath: appReadinessPath,
 				})
 				go statusServer.Run(ctx)
 			}
@@ -360,6 +364,12 @@ func init() {
 		"Go template bootstrap config")
 	proxyCmd.PersistentFlags().BoolVar(&disableInternalTelemetry, "disableInternalTelemetry", false,
 		"Disable internal telemetry")
+
+	// TODO: the flag value might should be shared between injector and here together.
+	proxyCmd.PersistentFlags().StringVar(&appLivenessPath, "appLivenessPath", "",
+		"The path for the application liveness check.")
+	proxyCmd.PersistentFlags().StringVar(&appReadinessPath, "appReadinessPath", "",
+		"The path for the application readiness check.")
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)
