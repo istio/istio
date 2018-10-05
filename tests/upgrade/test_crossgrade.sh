@@ -32,6 +32,7 @@ usage() {
     echo "  skip_cleanup  leave install intact after test completes."
     echo "  namespace     namespace to install istio control plane in (default istio-system)."
     echo "  rollback      if set, downgrade data plane before control plane."
+    echo "  istioctl_bin  istioctl binary path. If not provided, istioctl is assumed to be in \$PATH."
     echo
     echo "  e.g. ./test_crossgrade.sh \"
     echo "        --from_hub=gcr.io/istio-testing --from_tag=d639408fd --from_path=/tmp/release-d639408fd \"
@@ -42,6 +43,7 @@ usage() {
 }
 
 ISTIO_NAMESPACE="istio-system"
+ISTIOCTL_BIN="istioctl"
 
 while (( "$#" )); do
     PARAM=$(echo "${1}" | awk -F= '{print $1}')
@@ -80,6 +82,9 @@ while (( "$#" )); do
             ;;
         --to_path)
             TO_PATH=${VALUE}
+            ;;
+        --istioctl_bin)
+            ISTIOCTL_BIN=${VALUE}
             ;;
         *)
             echo "ERROR: unknown parameter \"$PARAM\""
@@ -291,7 +296,7 @@ sleep 20
 # In a rollback, we update the data plane first.
 if [ -n "${ROLLBACK}" ]; then
     writeMsg "Rolling back data plane to ${TO_PATH}"
-    kubectl apply -n "${TEST_NAMESPACE}" -f <(istioctl kube-inject --injectConfigFile "${TMP_DIR}"/sidecar-injector-configmap.yaml -f "${TMP_DIR}"/fortio.yaml)
+    kubectl apply -n "${TEST_NAMESPACE}" -f <(${ISTIOCTL_BIN} kube-inject --injectConfigFile "${TMP_DIR}"/sidecar-injector-configmap.yaml -f "${TMP_DIR}"/fortio.yaml)
     # No way to tell when rolling restart completes because it's async. Make sure this is long enough to cover all the
     # pods in the deployment at the minReadySeconds setting (should be > num pods x minReadySeconds + few extra seconds).
     sleep 100
