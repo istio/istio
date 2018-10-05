@@ -40,6 +40,14 @@ spec:
       {{ $pkey}}: {{ $pval }}
       {{- end }}
     {{- end }}
+    {{- if $.Values.global.meshExpansion.enabled }}
+    {{- range $key, $val := $spec.meshExpansionPorts }}
+    -
+      {{- range $pkey, $pval := $val }}
+      {{ $pkey}}: {{ $pval }}
+      {{- end }}
+    {{- end }}
+    {{- end }}
 ---
 {{- end }}
 {{- end }}
