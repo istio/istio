@@ -412,27 +412,7 @@ func TestCriticalCrdsRetryMakeSucceed(t *testing.T) {
 	s.Stop()
 }
 
-func TestCrdsAreNotReady(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/7958")
-	emptyDiscovery := &fake.FakeDiscovery{Fake: &k8stesting.Fake{}}
-	s, _, _ := getTempClient()
-	s.discoveryBuilder = func(*rest.Config) (discovery.DiscoveryInterface, error) {
-		return emptyDiscovery, nil
-	}
-	start := time.Now()
-	err := s.Init([]string{"Handler", "Action"})
-	d := time.Since(start)
-	if err != nil {
-		t.Errorf("Got %v, Want nil", err)
-	}
-	if d < testingRetryTimeout {
-		t.Errorf("Duration for Init %v is too short, maybe not retrying", d)
-	}
-	s.Stop()
-}
-
 func TestCrdsRetryAsynchronously(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/7958")
 	fakeDiscovery := &fake.FakeDiscovery{
 		Fake: &k8stesting.Fake{
 			Resources: []*metav1.APIResourceList{
@@ -457,6 +437,7 @@ func TestCrdsRetryAsynchronously(t *testing.T) {
 		return true, nil, nil
 	})
 	s, ns, lw := getTempClient()
+	s.retryInterval = 1 * time.Millisecond
 	s.discoveryBuilder = func(*rest.Config) (discovery.DiscoveryInterface, error) {
 		return fakeDiscovery, nil
 	}
@@ -506,5 +487,36 @@ loop:
 	}
 	if err = waitFor(wch, store.Update, k2); err != nil {
 		t.Errorf("Got %v, Want nil", err)
+	}
+}
+
+func TestCrdsRetryAsynchronouslyStoreClose(t *testing.T) {
+	fakeDiscovery := &fake.FakeDiscovery{
+		Fake: &k8stesting.Fake{
+			Resources: []*metav1.APIResourceList{
+				{GroupVersion: apiGroupVersion},
+			},
+		},
+	}
+	callCount := 0
+	fakeDiscovery.AddReactor("get", "resource", func(k8stesting.Action) (bool, runtime.Object, error) {
+		callCount++
+		return true, nil, nil
+	})
+
+	s, _, _ := getTempClient()
+	s.discoveryBuilder = func(*rest.Config) (discovery.DiscoveryInterface, error) {
+		return fakeDiscovery, nil
+	}
+	s.retryInterval = 10 * time.Millisecond
+	s.Init([]string{"Handler", "Action"})
+
+	// Close store, which should shut down the background retry.
+	// With 10ms retry interval and 30ms before shutdown, at most 4 discovery calls would be made.
+	time.Sleep(30 * time.Millisecond)
+	s.Stop()
+	time.Sleep(30 * time.Millisecond)
+	if callCount > 4 {
+		t.Errorf("got %v, want no more than 4 calls", callCount)
 	}
 }

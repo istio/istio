@@ -61,7 +61,7 @@ type Store struct {
 	donec           chan struct{}
 	apiGroupVersion string
 
-	cacheMutex sync.Mutex
+	cacheMutex sync.RWMutex
 	caches     map[string]cache.Store
 	informers  map[string]cache.SharedInformer
 
@@ -169,7 +169,8 @@ func (s *Store) Init(kinds []string) error {
 		if cks := s.extractCriticalKinds(remaining); len(cks) != 0 {
 			return fmt.Errorf("failed to discover critical kinds: %v", cks)
 		}
-		log.Warnf("Failed to discover kinds: %v", remaining)
+		log.Warnf("Failed to discover kinds: %v, start retry in background", remaining)
+		go s.retryCreateCache(d, lwBuilder, remaining)
 	}
 	return nil
 }
@@ -184,6 +185,31 @@ func (s *Store) extractCriticalKinds(r []string) []string {
 		}
 	}
 	return cks
+}
+
+func (s *Store) retryCreateCache(
+	d discovery.DiscoveryInterface,
+	lwBuilder listerWatcherBuilderInterface,
+	kinds []string) {
+	remaining := kinds
+	tick := time.Tick(s.retryInterval)
+	stopRetry := false
+
+	for len(remaining) != 0 && !stopRetry {
+		select {
+		case <-s.donec:
+			stopRetry = true
+		case <-tick:
+			if len(remaining) != 0 {
+				rm := s.checkAndCreateCaches(d, lwBuilder, remaining)
+				if len(rm) < len(remaining) {
+					log.Debugf("discovered %v new kinds, remaining undiscovered kinds: %v", len(remaining)-len(rm), rm)
+				}
+				remaining = rm
+			}
+		default:
+		}
+	}
 }
 
 // WaitForSynced implements store.WaitForSynced interface
@@ -225,9 +251,9 @@ func (s *Store) Get(key store.Key) (*store.BackEndResource, error) {
 	if s.ns != nil && !s.ns[key.Namespace] {
 		return nil, store.ErrNotFound
 	}
-	s.cacheMutex.Lock()
+	s.cacheMutex.RLock()
 	c, ok := s.caches[key.Kind]
-	s.cacheMutex.Unlock()
+	s.cacheMutex.RUnlock()
 	if !ok {
 		return nil, store.ErrNotFound
 	}
@@ -263,7 +289,7 @@ func ToBackEndResource(uns *unstructured.Unstructured) *store.BackEndResource {
 // List implements store.Backend interface.
 func (s *Store) List() map[store.Key]*store.BackEndResource {
 	result := make(map[store.Key]*store.BackEndResource)
-	s.cacheMutex.Lock()
+	s.cacheMutex.RLock()
 	for kind, c := range s.caches {
 		for _, obj := range c.List() {
 			uns := obj.(*unstructured.Unstructured)
@@ -274,7 +300,7 @@ func (s *Store) List() map[store.Key]*store.BackEndResource {
 			result[key] = ToBackEndResource(uns)
 		}
 	}
-	s.cacheMutex.Unlock()
+	s.cacheMutex.RUnlock()
 	return result
 }
 
