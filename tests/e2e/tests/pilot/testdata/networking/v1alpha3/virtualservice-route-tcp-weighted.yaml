@@ -25,10 +25,10 @@ spec:
         subset: v1
         port:
           number: 90
-      weight: 15
+      weight: 30
     - destination:
         host: c
         subset: v2
         port:
           number: 90
-      weight: 35
+      weight: 70
