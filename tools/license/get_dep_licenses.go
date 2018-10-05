@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Binary get_dep_licenses outputs aggregate license information for all transitive Istio dependencies.
+// Binary get_dep_licenses outputs aggrerate license information for all transitive Istio dependencies.
 // This tool requires https://github.com/benbalter/licensee to work.
 // Usage:
 //   1) Generate complete dump of every license, suitable for including in release build/binary image:
@@ -48,6 +48,7 @@ const (
 )
 
 var (
+	// approvedLicenses are code that's definitely ok to use and modify.
 	approvedLicenses = map[string]bool{
 		"Apache-2.0":   true,
 		"ISC":          true,
@@ -71,6 +72,7 @@ var (
 		"Xnet":         true,
 		"Zlib":         true,
 	}
+	// reciprocalLicenses are code that is ok to use but cannot be modified.
 	reciprocalLicenses = map[string]bool{
 		"CC0-1.0":  true,
 		"APSL-2.0": true,
@@ -84,6 +86,7 @@ var (
 		"MPL-2.0":  true,
 		"Ruby":     true,
 	}
+	// restrictedLicenses are code that's definitely not ok to use.
 	restrictedLicenses = map[string]bool{
 		"GPL-1.0-only":      true,
 		"GPL-1.0-or-later":  true,
@@ -107,7 +110,8 @@ var (
 		"QPL-1.0":           true,
 		"Sleepycat":         true,
 	}
-	// These are in non-obvious places, or linked. They must be manually evaluated and OK'd to be on this list.
+	// knownUnknownLicenses are either missing or unknown to licensee, but were manually copied and /or reviewed
+	// and are considered ok, so the tool will not complain about these.
 	knownUnknownLicenses = map[string]bool{
 		"github.com/jmespath/go-jmespath":                                         true,
 		"github.com/alicebob/gopher-json":                                         true,
@@ -339,7 +343,7 @@ func main() {
 	}
 
 	if matchDetail {
-		fmt.Printf("\n\n")
+		fmt.Println("\n\n")
 		fmt.Println("===========================================================")
 		fmt.Println("The following packages had inexact licenses:")
 		fmt.Println("===========================================================")
@@ -351,7 +355,7 @@ func main() {
 			fmt.Println("-----------------------------------------------------------")
 		}
 
-		fmt.Printf("\n\n")
+		fmt.Println("\n\n")
 		fmt.Println("===========================================================")
 		fmt.Println("The following packages had exact licenses:")
 		fmt.Println("===========================================================")
@@ -363,7 +367,6 @@ func main() {
 			}
 		}
 	} else {
-		fmt.Printf("\n\n")
 		fmt.Println("===========================================================")
 		fmt.Println("Package licenses")
 		fmt.Println("===========================================================")
