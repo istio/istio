@@ -13,19 +13,19 @@ then
 fi
 
 RBAC_CONFIG_COUNT=$(echo "${RBAC_CONFIGS}" | wc -l)
-if [ ${RBAC_CONFIG_COUNT} -ne 1 ]
+if [ "${RBAC_CONFIG_COUNT}" -ne 1 ]
 then
   echo "${RBAC_CONFIGS}"
   echo "found ${RBAC_CONFIG_COUNT} RbacConfigs, expecting only 1"
   exit 1
 fi
 
-NS=$(echo ${RBAC_CONFIGS} | cut -f 1 -d ' ')
+NS=$(echo "${RBAC_CONFIGS}" | cut -f 1 -d ' ')
 echo "converting RbacConfig in namespace $NS to ClusterRbacConfig"
 
-SPEC=$(kubectl get RbacConfig default -n ${NS} -o yaml | sed -n -e '/spec:/,$p')
+SPEC=$(kubectl get RbacConfig default -n "${NS}" -o yaml | sed -n -e '/spec:/,$p')
 
-cat <<EOF | kubectl apply -n ${NS} -f -
+cat <<EOF | kubectl apply -n "${NS}" -f -
 apiVersion: "rbac.istio.io/v1alpha1"
 kind: ClusterRbacConfig
 metadata:
@@ -33,6 +33,7 @@ metadata:
 ${SPEC}
 EOF
 
+# shellcheck disable=SC2181
 if [ $? -ne 0 ]
 then
   echo "failed to apply ClusterRbacConfig"
@@ -41,4 +42,4 @@ fi
 
 echo "waiting for 15 seconds to delete RbacConfig"
 sleep 15
-kubectl delete RbacConfig --all -n ${NS}
+kubectl delete RbacConfig --all -n "${NS}"
