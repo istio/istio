@@ -324,6 +324,11 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 				connectionManager: &http_conn.HttpConnectionManager{
 					// Forward client cert if connection is mTLS
 					ForwardClientCertDetails: http_conn.SANITIZE_SET,
+					SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
+						Subject: &types.BoolValue{Value: true},
+						Uri:     true,
+						Dns:     true,
+					},
 				},
 			},
 		}
@@ -346,6 +351,11 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 					connectionManager: &http_conn.HttpConnectionManager{
 						// Forward client cert if connection is mTLS
 						ForwardClientCertDetails: http_conn.SANITIZE_SET,
+						SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
+							Subject: &types.BoolValue{Value: true},
+							Uri:     true,
+							Dns:     true,
+						},
 					},
 				},
 			}
