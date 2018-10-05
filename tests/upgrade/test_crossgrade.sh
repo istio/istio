@@ -32,6 +32,7 @@ usage() {
     echo "  skip_cleanup  leave install intact after test completes."
     echo "  namespace     namespace to install istio control plane in (default istio-system)."
     echo "  rollback      if set, downgrade data plane before control plane."
+    echo "  istioctl_bin  istioctl binary path. If not provided, istioctl is assumed to be in \$PATH."
     echo
     echo "  e.g. ./test_crossgrade.sh \"
     echo "        --from_hub=gcr.io/istio-testing --from_tag=d639408fd --from_path=/tmp/release-d639408fd \"
