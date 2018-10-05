@@ -68,6 +68,7 @@ var (
 	disableInternalTelemetry bool
 	appLivenessPath string
 	appReadinessPath string
+	appReadinessPort uint16
 
 	loggingOptions = log.DefaultOptions()
 
@@ -266,6 +267,7 @@ var (
 					ApplicationPorts: parsedPorts,
 					AppLivenessPath:  appLivenessPath,
 					AppReadinessPath: appReadinessPath,
+					AppReadinessPort: appReadinessPort,
 				})
 				go statusServer.Run(ctx)
 			}
@@ -370,6 +372,8 @@ func init() {
 		"The path for the application liveness check.")
 	proxyCmd.PersistentFlags().StringVar(&appReadinessPath, "appReadinessPath", "",
 		"The path for the application readiness check.")
+	proxyCmd.PersistentFlags().Uint16Var(&appReadinessPort, "appReadinessPort", 0, "The port application itself" +
+		"used for readiness health check.")
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)
