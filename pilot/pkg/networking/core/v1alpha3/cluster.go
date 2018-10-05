@@ -25,7 +25,6 @@ import (
 	v2_cluster "github.com/envoyproxy/go-control-plane/envoy/api/v2/cluster"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/gogo/protobuf/types"
-
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -48,29 +47,19 @@ const (
 func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, proxy *model.Proxy, push *model.PushContext) ([]*v2.Cluster, error) {
 	clusters := make([]*v2.Cluster, 0)
 
-	recomputeOutboundClusters := true
-	if configgen.OutboundClusters != nil {
-		clusters = append(clusters, configgen.OutboundClusters...)
-		recomputeOutboundClusters = false
-	}
-
-	if recomputeOutboundClusters {
-		clusters = append(clusters, configgen.buildOutboundClusters(env, push)...)
-	}
-
-	// If its a multi-cluster gateway, do not enable mTLS
-	// for clusters, as the gateway is already receiving mTLS
-	// traffic from downstream
-	if proxy.GetGatewayMode() == model.MulticlusterGateway {
-		// TODO: cache this output just like the output
-		sniClusters := make([]*v2.Cluster, len(clusters))
-		for _, c := range clusters {
-			// copy each cluster, unset the tls context
-			newC := *c
-			newC.TlsContext = nil
-			sniClusters = append(sniClusters, &newC)
+	if proxy.HasSnowFlakes() {
+		// No caching for this proxy.
+		clusters = append(clusters, configgen.buildOutboundClusters(env, proxy, push)...)
+	} else {
+		recomputeOutboundClusters := true
+		if configgen.OutboundClusters != nil {
+			clusters = append(clusters, configgen.OutboundClusters...)
+			recomputeOutboundClusters = false
 		}
-		clusters = sniClusters
+
+		if recomputeOutboundClusters {
+			clusters = append(clusters, configgen.buildOutboundClusters(env, proxy, push)...)
+		}
 	}
 
 	if proxy.Type == model.Sidecar {
@@ -109,8 +98,9 @@ func normalizeClusters(push *model.PushContext, proxy *model.Proxy, clusters []*
 	return out
 }
 
-func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environment, push *model.PushContext) []*v2.Cluster {
+func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environment, proxy *model.Proxy, push *model.PushContext) []*v2.Cluster {
 	clusters := make([]*v2.Cluster, 0)
+	mTLSInclusionSet := proxy.GetProxyMTLSInclusionSet()
 	for _, service := range push.Services {
 		config := push.DestinationRule(service.Hostname)
 		for _, port := range service.Ports {
@@ -249,13 +239,23 @@ func convertResolution(resolution model.Resolution) v2.Cluster_DiscoveryType {
 }
 
 // convertIstioMutual fills key cert fields for all TLSSettings when the mode is `ISTIO_MUTUAL`.
-func convertIstioMutual(destinationRule *networking.DestinationRule, upstreamServiceAccount []string) {
+func convertIstioMutual(destinationRule *networking.DestinationRule, service *model.Service, upstreamServiceAccount []string, mTLSInclusionSet map[string]bool) {
 	converter := func(tls *networking.TLSSettings) {
 		if tls == nil {
 			return
 		}
 		if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
-			*tls = *buildIstioMutualTLS(upstreamServiceAccount, tls.Sni)
+			// Check if we have a mTLSInclusionSet
+			// if its nil, then follow the policy
+			// if its not nil, then enable ISTIO_MUTUAL if and only if this particular service
+			// is in the proxy's inclusion list. We need this escape hatch to allow
+			// clusters without mTLS setting in the cluster gateway that routes to upstream
+			// clusters based on the SNI value [incoming traffic is mTLS from another cluster].
+			if mTLSInclusionSet == nil || mTLSInclusionSet[string(service.Hostname)] {
+				*tls = *buildIstioMutualTLS(upstreamServiceAccount, tls.Sni)
+			} else {
+				tls.Mode = networking.TLSSettings_DISABLE
+			}
 		}
 	}
 

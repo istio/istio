@@ -91,18 +91,6 @@ const (
 	Router NodeType = "router"
 )
 
-// GatewayMode describes the operating mode of the gateway
-type GatewayMode string
-
-const (
-	// StandardGateway is used for gateways that act as routers respecting routing rules.
-	StandardGateway GatewayMode = "standard"
-
-	// MulticlusterGateway mode is used when the gateway acts as a mute tcp proxy
-	// routing to clusters based on the SNI value
-	MulticlusterGateway GatewayMode = "multicluster"
-)
-
 // IsApplicationNodeType verifies that the NodeType is one of the declared constants in the model
 func IsApplicationNodeType(nType NodeType) bool {
 	switch nType {
@@ -127,18 +115,39 @@ func (node *Proxy) GetProxyVersion() (string, bool) {
 	return version, found
 }
 
-// GetGatewayMode returns the mode in which the gateway is operating.
-func (node *Proxy) GetGatewayMode() GatewayMode {
-	if modestr, found := node.Metadata["ISTIO_GATEWAY_MODE"]; found {
-		mode := GatewayMode(modestr)
-		switch mode {
-		case MulticlusterGateway:
-			return MulticlusterGateway
-		default:
-			return StandardGateway
+// GetProxyMTLSInclusionSet returns list of services for which Istio mTLS should be enabled
+// if there is a global destination rule specifying ISTIO_MUTUAL as the tls mode for all
+// services in the system. The value is obtained from ISTIO_META_ISTIO_MTLS_INCLUDE_ONLY
+// metadata variable provided by the sidecar proxy.
+//
+// We need this because DestinationRules are typically specified by the service owner but
+// applied at all clients. One or more clients may not be able to to mTLS. So these clients
+// need an escape hatch. On the server side, a permissive mTLS mode will allow both TLS and
+// non-TLS traffic.
+func (node *Proxy) GetProxyMTLSInclusionSet() map[string]bool {
+	mTLSInclusionMap := make(map[string]bool)
+	if list, found := node.Metadata["ISTIO_MTLS_INCLUDE_ONLY"]; found {
+		for _, s := range strings.Split(list, ",") {
+			mTLSInclusionMap[s] = true
 		}
+		// NOTE: if the metadata is set, but has no entries i.e. "",
+		// it implies do not do mTLS for anything
+		return mTLSInclusionMap
 	}
-	return StandardGateway
+
+	// If the metadata is not set, then do whatever is dictated by the destination rule.
+	return nil
+}
+
+// HasSnowFlakes returns true if this proxy has any configuration that could cause it to
+// receive xDS output that is different from other proxies.
+// Currently, we check for things like mtls inclusion list which is used only by the
+// multi-cluster gateway.
+func (node *Proxy) HasSnowFlakes() bool {
+	if _, found := node.Metadata["ISTIO_MTLS_INCLUDE_ONLY"]; found {
+		return true
+	}
+	return false
 }
 
 // ParseMetadata parses the opaque Metadata from an Envoy Node into string key-value pairs.
