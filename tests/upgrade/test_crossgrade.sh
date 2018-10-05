@@ -6,8 +6,11 @@
 # 3. Sends external traffic to echosrv through ingress gateway.
 # 4. Sends internal traffic to echosrv from fortio load pod.
 # 5. Upgrades control plane to to_hub/tag/path.
-# 6. Does a rolling restart of one of the echosrv subsets.
-# 7. Parses the output from the load pod to check for any errors during upgrade and returns 1 is any are found.
+# 6. Does rolling restart of one of the echosrv subsets, which auto-injects upgraded version of sidecar.
+# 7. Waits a while, then does downgrade.
+# 8. Downgrades data plane by applying a saved ConfigMap from the previous version and doing rolling restart.
+# 9. Downgrades control plane to from_hub/tag/path.
+# 10. Parses the output from the load pod to check for any errors during upgrade and returns 1 is any are found.
 #
 # Dependencies that must be preinstalled: helm, fortio.
 #
@@ -31,7 +34,6 @@ usage() {
     echo "  auth_enable   enable mtls."
     echo "  skip_cleanup  leave install intact after test completes."
     echo "  namespace     namespace to install istio control plane in (default istio-system)."
-    echo "  rollback      if set, downgrade data plane before control plane."
     echo
     echo "  e.g. ./test_crossgrade.sh \"
     echo "        --from_hub=gcr.io/istio-testing --from_tag=d639408fd --from_path=/tmp/release-d639408fd \"
@@ -59,9 +61,6 @@ while (( "$#" )); do
             ;;
         --auth_enable)
             AUTH_ENABLE=true
-            ;;
-         --rollback)
-            ROLLBACK=true
             ;;
         --from_hub)
             FROM_HUB=${VALUE}
@@ -105,6 +104,12 @@ POD_FORTIO_LOG=${TMP_DIR}/fortio_pod.log
 # Make sure to change templates/*.yaml with the correct address if this changes.
 TEST_NAMESPACE="test"
 
+# This must be at least as long as the script execution time.
+# Edit fortio-cli.yaml to the same value when changing this.
+TRAFFIC_RUNTIME_SEC=700
+
+echo_and_run() { echo "RUNNING $*" ; "$@" ; }
+
 installIstioSystemAtVersionHelmTemplate() {
     writeMsg "helm installing version ${2} from ${3}."
     if [ -n "${AUTH_ENABLE}" ]; then
@@ -139,16 +144,14 @@ sendInternalRequestTraffic() {
 # Sends external traffic from machine test is running on to Fortio echosrv through external IP and ingress gateway LB.
 sendExternalRequestTraffic() {
     writeMsg "Sending external traffic"
-    set -x
-    fortio load -c 32 -t 300s -qps 10 -H "Host:echosrv.test.svc.cluster.local" "http://${1}/echo?size=200" &> "${LOCAL_FORTIO_LOG}" &
-    set +x
+    echo_and_run fortio load -c 32 -t "${TRAFFIC_RUNTIME_SEC}"s -qps 10 -H "Host:echosrv.test.svc.cluster.local" "http://${1}/echo?size=200" &> "${LOCAL_FORTIO_LOG}" &
 }
 
 restartDataPlane() {
     # Apply label within deployment spec.
     # This is a hack to force a rolling restart without making any material changes to spec.
-    writeMsg "Restarting deployment ${1}"
-    kubectl patch deployment "${1}" -n "${TEST_NAMESPACE}" -p'{"spec":{"template":{"spec":{"containers":[{"name":"echosrv","env":[{"name":"RESTART_","value":"1"}]}]}}}}'
+    writeMsg "Restarting deployment ${1}, patching label to force restart."
+    echo_and_run kubectl patch deployment "${1}" -n "${TEST_NAMESPACE}" -p'{"spec":{"template":{"spec":{"containers":[{"name":"echosrv","env":[{"name":"RESTART_'"$(date +%s)"'","value":"1"}]}]}}}}'
 }
 
 writeMsg() {
@@ -272,12 +275,14 @@ kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-ad
 pushd "${ISTIO_ROOT}" || exit 1
 
 resetNamespaces
+
 installIstioSystemAtVersionHelmTemplate "${FROM_HUB}" "${FROM_TAG}" "${FROM_PATH}"
 waitForIngress
 waitForPodsReady "${ISTIO_NAMESPACE}"
 
-# Get a backup of the sidecar-injector at original version in case we are rolling back the data plane later.
-kubectl get ConfigMap -n istio-system istio-sidecar-injector -o yaml > ${TMP_DIR}/sidecar-injector-configmap.yaml
+# Make a copy of the "from" sidecar injector ConfigMap so we can restore the sidecar independently later.
+kubectl get ConfigMap -n "${ISTIO_NAMESPACE}" istio-sidecar-injector -o yaml > ${TMP_DIR}/sidecar-injector-configmap.yaml
+
 installTest
 waitForPodsReady "${TEST_NAMESPACE}"
 checkEchosrv
@@ -288,29 +293,35 @@ sendExternalRequestTraffic "${INGRESS_ADDR}"
 echo "Waiting for traffic to settle..."
 sleep 20
 
-# In a rollback, we update the data plane first.
-if [ -n "${ROLLBACK}" ]; then
-    writeMsg "Rolling back data plane to ${TO_PATH}"
-    kubectl apply -n "${TEST_NAMESPACE}" -f <(istioctl kube-inject --injectConfigFile "${TMP_DIR}"/sidecar-injector-configmap.yaml -f "${TMP_DIR}"/fortio.yaml)
-    # No way to tell when rolling restart completes because it's async. Make sure this is long enough to cover all the
-    # pods in the deployment at the minReadySeconds setting (should be > num pods x minReadySeconds + few extra seconds).
-    sleep 100
-fi
-
 installIstioSystemAtVersionHelmTemplate "${TO_HUB}" "${TO_TAG}" "${TO_PATH}"
 waitForPodsReady "${ISTIO_NAMESPACE}"
 # In principle it should be possible to restart data plane immediately, but being conservative here.
 sleep 60
 
-# If a regular update, now restart data plane.
-if [ -z "${ROLLBACK}" ]; then
-    restartDataPlane echosrv-deployment-v1
-    sleep 100
+restartDataPlane echosrv-deployment-v1
+# No way to tell when rolling restart completes because it's async. Make sure this is long enough to cover all the
+# pods in the deployment at the minReadySeconds setting (should be > num pods x minReadySeconds + few extra seconds).
+sleep 140
+
+# Now do a rollback. In a rollback, we update the data plane first.
+writeMsg "Starting rollback - first, rolling back data plane to ${TO_PATH}"
+kubectl delete ConfigMap -n "${ISTIO_NAMESPACE}" istio-sidecar-injector
+sleep 5
+kubectl create -n "${ISTIO_NAMESPACE}" -f "${TMP_DIR}"/sidecar-injector-configmap.yaml
+restartDataPlane echosrv-deployment-v1
+sleep 140
+
+installIstioSystemAtVersionHelmTemplate "${FROM_HUB}" "${FROM_TAG}" "${FROM_PATH}"
+waitForPodsReady "${ISTIO_NAMESPACE}"
+
+echo "Test ran for ${SECONDS} seconds."
+if (( SECONDS > TRAFFIC_RUNTIME_SEC )); then
+    writeMsg "WARNING: test duration was ${SECONDS} but traffic only ran for ${TRAFFIC_RUNTIME_SEC}"
 fi
 
 cli_pod_name=$(kubectl -n "${TEST_NAMESPACE}" get pods -lapp=cli-fortio -o jsonpath='{.items[0].metadata.name}')
 echo "Traffic client pod is ${cli_pod_name}, waiting for traffic to complete..."
-kubectl logs -f -n "${TEST_NAMESPACE}" -c echosrv "${cli_pod_name}" &> "${POD_FORTIO_LOG}"
+kubectl logs -f -n "${TEST_NAMESPACE}" -c echosrv "${cli_pod_name}" &> "${POD_FORTIO_LOG}" || echo "Could not find ${cli_pod_name}"
 
 local_log_str=$(grep "Code 200" "${LOCAL_FORTIO_LOG}")
 pod_log_str=$(grep "Code 200"  "${POD_FORTIO_LOG}")
