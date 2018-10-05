@@ -72,7 +72,7 @@ func mockLoadKubeConfig(kubeconfig []byte) (*clientcmdapi.Config, error) {
 }
 
 func Test_SecretController(t *testing.T) {
-	loadKubeConfig = mockLoadKubeConfig
+	LoadKubeConfig = mockLoadKubeConfig
 
 	clientset := fake.NewSimpleClientset()
 
