@@ -62,9 +62,6 @@ while (( "$#" )); do
         --auth_enable)
             AUTH_ENABLE=true
             ;;
-         --rollback)
-            ROLLBACK=true
-            ;;
         --from_hub)
             FROM_HUB=${VALUE}
             ;;
@@ -278,17 +275,6 @@ kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-ad
 pushd "${ISTIO_ROOT}" || exit 1
 
 resetNamespaces
-
-# In rollback case, grab the sidecar injector ConfigMap from the target version so we can upgrade the dataplane to it
-# first, before switching the control plane.
-if [ -n "${ROLLBACK}" ]; then
-    writeMsg "Temporarily installing target version to extract sidecar-injector ConfigMap."
-    installIstioSystemAtVersionHelmTemplate "${TO_HUB}" "${TO_TAG}" "${TO_PATH}"
-    waitForPodsReady "${ISTIO_NAMESPACE}"
-    kubectl get ConfigMap -n "${ISTIO_NAMESPACE}" istio-sidecar-injector -o yaml > ${TMP_DIR}/sidecar-injector-configmap.yaml
-    resetNamespaces
-    echo "ConfigMap extracted."
-fi
 
 installIstioSystemAtVersionHelmTemplate "${FROM_HUB}" "${FROM_TAG}" "${FROM_PATH}"
 waitForIngress
