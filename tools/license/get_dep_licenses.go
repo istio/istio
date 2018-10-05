@@ -385,7 +385,7 @@ func main() {
 			log.Fatalf("ReadDir: %s\n", err)
 		}
 		for _, f := range fs {
-			b, err := ioutil.ReadFile(filepath.Join(manualAppendDir, f.Name()));
+			b, err := ioutil.ReadFile(filepath.Join(manualAppendDir, f.Name()))
 			if err != nil {
 				log.Fatalf("ReadFile (%s): %s\n", f.Name(), err)
 			}
