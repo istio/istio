@@ -38,11 +38,14 @@ import (
 // In future (post 1.0) it may be used for representing remote pilots.
 
 // InitDebug initializes the debug handlers and adds a debug in-memory registry.
-func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controller) {
+func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controller, cfg model.ConfigUpdater) {
 	// For debugging and load testing v2 we add an memory registry.
 	s.MemRegistry = NewMemServiceDiscovery(
 		map[model.Hostname]*model.Service{ // mock.HelloService.Hostname: mock.HelloService,
 		}, 2)
+	s.MemRegistry.EDSUpdater = s
+	s.MemRegistry.ConfigUpdater = cfg
+	s.MemRegistry.ClusterID = "v2-debug"
 
 	sctl.AddRegistry(aggregate.Registry{
 		ClusterID:        "v2-debug",
@@ -61,6 +64,8 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 
 	mux.HandleFunc("/debug/registryz", s.registryz)
 	mux.HandleFunc("/debug/endpointz", s.endpointz)
+	mux.HandleFunc("/debug/endpointShardz", s.endpointShardz)
+	mux.HandleFunc("/debug/workloadz", s.endpointShardz)
 	mux.HandleFunc("/debug/configz", s.configz)
 
 	mux.HandleFunc("/debug/authenticationz", s.authenticationz)
@@ -154,9 +159,12 @@ func (c *memServiceController) Run(<-chan struct{}) {}
 // MemServiceDiscovery is a mock discovery interface
 type MemServiceDiscovery struct {
 	services map[model.Hostname]*model.Service
-	// Endpoints table. Key is the fqdn of the service, ':', port
-	instancesByPortNum            map[string][]*model.ServiceInstance
-	instancesByPortName           map[string][]*model.ServiceInstance
+	// ServiceShards table. Key is the fqdn of the service, ':', port
+	instancesByPortNum  map[string][]*model.ServiceInstance
+	instancesByPortName map[string][]*model.ServiceInstance
+
+	// Used by GetProxyServiceInstance, used to configure inbound (list of services per IP)
+	// We generally expect a single instance - conflicting services need to be reported.
 	ip2instance                   map[string][]*model.ServiceInstance
 	versions                      int
 	WantGetProxyServiceInstances  []*model.ServiceInstance
@@ -165,6 +173,11 @@ type MemServiceDiscovery struct {
 	InstancesError                error
 	GetProxyServiceInstancesError error
 	controller                    model.Controller
+	ClusterID                     string
+
+	// XDSUpdater will push EDS changes to the ADS model.
+	EDSUpdater    model.XDSUpdater
+	ConfigUpdater model.ConfigUpdater
 
 	// Single mutex for now - it's for debug only.
 	mutex sync.Mutex
@@ -176,6 +189,21 @@ func (sd *MemServiceDiscovery) ClearErrors() {
 	sd.GetServiceError = nil
 	sd.InstancesError = nil
 	sd.GetProxyServiceInstancesError = nil
+}
+
+// AddHTTPService is a helper to add a service of type http, named 'http-main', with the
+// specified vip and port.
+func (sd *MemServiceDiscovery) AddHTTPService(name, vip string, port int) {
+	sd.AddService(model.Hostname(name), &model.Service{
+		Hostname: model.Hostname(name),
+		Ports: model.PortList{
+			{
+				Name:     "http-main",
+				Port:     port,
+				Protocol: model.ProtocolHTTP,
+			},
+		},
+	})
 }
 
 // AddService adds an in-memory service.
@@ -224,6 +252,73 @@ func (sd *MemServiceDiscovery) AddEndpoint(service model.Hostname, servicePortNa
 	return instance
 }
 
+// SetEndpoints update the list of endpoints for a service, similar with K8S controller.
+func (sd *MemServiceDiscovery) SetEndpoints(service string, endpoints []*model.IstioEndpoint) {
+
+	sh := model.Hostname(service)
+	sd.mutex.Lock()
+	defer sd.mutex.Unlock()
+
+	svc := sd.services[sh]
+	if svc == nil {
+		return
+	}
+
+	// remove old entries
+	for k, v := range sd.ip2instance {
+		if len(v) > 0 && v[0].Service.Hostname == sh {
+			delete(sd.ip2instance, k)
+		}
+	}
+	for k, v := range sd.instancesByPortNum {
+		if len(v) > 0 && v[0].Service.Hostname == sh {
+			delete(sd.instancesByPortNum, k)
+		}
+	}
+	for k, v := range sd.instancesByPortName {
+		if len(v) > 0 && v[0].Service.Hostname == sh {
+			delete(sd.instancesByPortName, k)
+		}
+	}
+
+	for _, e := range endpoints {
+		//servicePortName string, servicePort int, address string, port int
+		p, _ := svc.Ports.Get(e.ServicePortName)
+
+		instance := &model.ServiceInstance{
+			Service: svc,
+			Endpoint: model.NetworkEndpoint{
+				Address: e.Address,
+				ServicePort: &model.Port{
+					Name:     e.ServicePortName,
+					Port:     p.Port,
+					Protocol: model.ProtocolHTTP,
+				},
+			},
+			ServiceAccount: e.ServiceAccount,
+		}
+		sd.ip2instance[instance.Endpoint.Address] = []*model.ServiceInstance{instance}
+
+		key := fmt.Sprintf("%s:%d", service, instance.Endpoint.ServicePort.Port)
+
+		instanceList := sd.instancesByPortNum[key]
+		sd.instancesByPortNum[key] = append(instanceList, instance)
+
+		key = fmt.Sprintf("%s:%s", service, instance.Endpoint.ServicePort.Name)
+		instanceList = sd.instancesByPortName[key]
+		sd.instancesByPortName[key] = append(instanceList, instance)
+
+	}
+
+	err := sd.EDSUpdater.EDSUpdate(sd.ClusterID, service, endpoints)
+	if err != nil {
+		// Request a global push if we failed to do EDS only
+		sd.ConfigUpdater.ConfigUpdate(true)
+	} else {
+		sd.ConfigUpdater.ConfigUpdate(false)
+	}
+}
+
 // Services implements discovery interface
 // Each call to Services() should return a list of new *model.Service
 func (sd *MemServiceDiscovery) Services() ([]*model.Service, error) {
@@ -256,6 +351,27 @@ func (sd *MemServiceDiscovery) GetService(hostname model.Hostname) (*model.Servi
 	// Make a new service out of the existing one
 	newSvc := *val
 	return &newSvc, sd.GetServiceError
+}
+
+// Instances filters the service instances by labels. This assumes single port, as is
+// used by EDS/ADS.
+func (sd *MemServiceDiscovery) Instances(hostname model.Hostname, ports []string,
+	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
+	sd.mutex.Lock()
+	defer sd.mutex.Unlock()
+	if sd.InstancesError != nil {
+		return nil, sd.InstancesError
+	}
+	if len(ports) != 1 {
+		adsLog.Warna("Unexpected ports ", ports)
+		return nil, nil
+	}
+	key := string(hostname) + ":" + ports[0]
+	instances, ok := sd.instancesByPortName[key]
+	if !ok {
+		return nil, nil
+	}
+	return instances, nil
 }
 
 // InstancesByPort filters the service instances by labels. This assumes single port, as is
@@ -346,7 +462,7 @@ func (s *DiscoveryServer) registryz(w http.ResponseWriter, req *http.Request) {
 		s.MemRegistry.AddService(model.Hostname(svcName), svc)
 	}
 
-	all, err := s.env.ServiceDiscovery.Services()
+	all, err := s.Env.ServiceDiscovery.Services()
 	if err != nil {
 		return
 	}
@@ -360,6 +476,25 @@ func (s *DiscoveryServer) registryz(w http.ResponseWriter, req *http.Request) {
 		fmt.Fprintln(w, ",")
 	}
 	fmt.Fprintln(w, "{}]")
+}
+
+// Dumps info about the endpoint shards, tracked using the new direct interface.
+// Legacy registry provides are synced to the new data structure as well, during
+// the full push.
+func (s *DiscoveryServer) endpointShardz(w http.ResponseWriter, req *http.Request) {
+	_ = req.ParseForm()
+	w.Header().Add("Content-Type", "application/json")
+	out, _ := json.MarshalIndent(s.EndpointShardsByService, " ", " ")
+	w.Write(out)
+}
+
+// Tracks info about workloads. Currently only K8S serviceregistry populates this, based
+// on pod labels and annotations. This is used to detect label changes and push.
+func (s *DiscoveryServer) workloadz(w http.ResponseWriter, req *http.Request) {
+	_ = req.ParseForm()
+	w.Header().Add("Content-Type", "application/json")
+	out, _ := json.MarshalIndent(s.WorkloadsByID, " ", " ")
+	w.Write(out)
 }
 
 // Endpoint debugging
@@ -381,10 +516,10 @@ func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 	}
 	brief := req.Form.Get("brief")
 	if brief != "" {
-		svc, _ := s.env.ServiceDiscovery.Services()
+		svc, _ := s.Env.ServiceDiscovery.Services()
 		for _, ss := range svc {
 			for _, p := range ss.Ports {
-				all, err := s.env.ServiceDiscovery.InstancesByPort(ss.Hostname, p.Port, nil)
+				all, err := s.Env.ServiceDiscovery.InstancesByPort(ss.Hostname, p.Port, nil)
 				if err != nil {
 					return
 				}
@@ -398,11 +533,11 @@ func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	svc, _ := s.env.ServiceDiscovery.Services()
+	svc, _ := s.Env.ServiceDiscovery.Services()
 	fmt.Fprint(w, "[\n")
 	for _, ss := range svc {
 		for _, p := range ss.Ports {
-			all, err := s.env.ServiceDiscovery.InstancesByPort(ss.Hostname, p.Port, nil)
+			all, err := s.Env.ServiceDiscovery.InstancesByPort(ss.Hostname, p.Port, nil)
 			if err != nil {
 				return
 			}
@@ -425,8 +560,8 @@ func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 func (s *DiscoveryServer) configz(w http.ResponseWriter, req *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
 	fmt.Fprintf(w, "\n[\n")
-	for _, typ := range s.env.IstioConfigStore.ConfigDescriptor() {
-		cfg, _ := s.env.IstioConfigStore.List(typ.Type, "")
+	for _, typ := range s.Env.IstioConfigStore.ConfigDescriptor() {
+		cfg, _ := s.Env.IstioConfigStore.List(typ.Type, "")
 		for _, c := range cfg {
 			b, err := json.MarshalIndent(c, "  ", "  ")
 			if err != nil {
@@ -515,7 +650,7 @@ func (s *DiscoveryServer) authenticationz(w http.ResponseWriter, req *http.Reque
 	interestedSvc := req.Form.Get("proxyID")
 
 	fmt.Fprintf(w, "\n[\n")
-	svc, _ := s.env.ServiceDiscovery.Services()
+	svc, _ := s.Env.ServiceDiscovery.Services()
 	for _, ss := range svc {
 		if interestedSvc != "" && interestedSvc != string(ss.Hostname) {
 			continue
@@ -525,7 +660,7 @@ func (s *DiscoveryServer) authenticationz(w http.ResponseWriter, req *http.Reque
 				Host: string(ss.Hostname),
 				Port: p.Port,
 			}
-			authnConfig := s.env.IstioConfigStore.AuthenticationPolicyByDestination(ss, p)
+			authnConfig := s.Env.IstioConfigStore.AuthenticationPolicyByDestination(ss, p)
 			info.AuthenticationPolicyName = configName(authnConfig)
 			var serverProtocol, clientProtocol authProtocol
 			if authnConfig != nil {
@@ -537,7 +672,7 @@ func (s *DiscoveryServer) authenticationz(w http.ResponseWriter, req *http.Reque
 			}
 			info.ServerProtocol = authProtocolToString(serverProtocol)
 
-			destConfig := s.env.PushContext.DestinationRule(ss.Hostname)
+			destConfig := s.globalPushContext().DestinationRule(ss.Hostname)
 			info.DestinationRuleName = configName(destConfig)
 			if destConfig != nil {
 				rule := destConfig.Spec.(*networking.DestinationRule)

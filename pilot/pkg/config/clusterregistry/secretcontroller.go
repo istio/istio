@@ -29,7 +29,6 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"istio.io/istio/pilot/pkg/model"
-	envoy "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
@@ -41,9 +40,14 @@ const (
 	maxRetries = 5
 )
 
+var (
+	serverStartTime time.Time
+)
+
 // Controller is the controller implementation for Secret resources
 type Controller struct {
 	kubeclientset     kubernetes.Interface
+	namespace         string
 	cs                *ClusterStore
 	queue             workqueue.RateLimitingInterface
 	informer          cache.SharedIndexInformer
@@ -51,7 +55,8 @@ type Controller struct {
 	domainSufix       string
 	resyncInterval    time.Duration
 	serviceController *aggregate.Controller
-	discoveryServer   *envoy.DiscoveryServer
+	configUpdater     model.ConfigUpdater
+	edsUpdater        model.XDSUpdater
 }
 
 // NewController returns a new secret controller
@@ -60,7 +65,8 @@ func NewController(
 	namespace string,
 	cs *ClusterStore,
 	serviceController *aggregate.Controller,
-	discoveryServer *envoy.DiscoveryServer,
+	discoveryServer model.ConfigUpdater,
+	edsUpdater model.XDSUpdater,
 	resyncInterval time.Duration,
 	watchedNamespace string,
 	domainSufix string) *Controller {
@@ -73,6 +79,7 @@ func NewController(
 
 	controller := &Controller{
 		kubeclientset:     kubeclientset,
+		namespace:         namespace,
 		cs:                cs,
 		informer:          secretsInformer,
 		queue:             queue,
@@ -80,7 +87,8 @@ func NewController(
 		domainSufix:       domainSufix,
 		resyncInterval:    resyncInterval,
 		serviceController: serviceController,
-		discoveryServer:   discoveryServer,
+		configUpdater:     discoveryServer,
+		edsUpdater:        edsUpdater,
 	}
 
 	log.Info("Setting up event handlers")
@@ -110,6 +118,7 @@ func (c *Controller) Run(stopCh <-chan struct{}) {
 	defer c.queue.ShutDown()
 
 	log.Info("Starting Secrets controller")
+	serverStartTime = time.Now().Local()
 	go c.informer.Run(stopCh)
 
 	// Wait for the caches to be synced before starting workers
@@ -191,6 +200,8 @@ func (c *Controller) addMemberCluster(secretName string, s *corev1.Secret) {
 				WatchedNamespace: c.watchedNamespace,
 				ResyncPeriod:     c.resyncInterval,
 				DomainSuffix:     c.domainSufix,
+				ClusterID:        clusterID,
+				XDSUpdater:       c.edsUpdater,
 			})
 			stopCh := make(chan struct{})
 			c.cs.rc[clusterID] = &RemoteCluster{
@@ -207,8 +218,8 @@ func (c *Controller) addMemberCluster(secretName string, s *corev1.Secret) {
 					Controller:       kubeController,
 				})
 
-			kubeController.AppendServiceHandler(func(*model.Service, model.Event) { c.discoveryServer.ClearCacheFunc()() })
-			kubeController.AppendInstanceHandler(func(*model.ServiceInstance, model.Event) { c.discoveryServer.ClearCacheFunc()() })
+			_ = kubeController.AppendServiceHandler(func(*model.Service, model.Event) { c.configUpdater.ConfigUpdate(true) })
+			_ = kubeController.AppendInstanceHandler(func(*model.ServiceInstance, model.Event) { c.configUpdater.ConfigUpdate(true) })
 			go kubeController.Run(stopCh)
 		} else {
 			log.Infof("Cluster %s in the secret %s in namespace %s already exists",
@@ -233,7 +244,7 @@ func (c *Controller) deleteMemberCluster(secretName string) {
 			close(c.cs.rc[clusterID].ControlChannel)
 			// Deleting remote cluster entry from clusters store
 			delete(c.cs.rc, clusterID)
-			c.discoveryServer.ClearCacheFunc()()
+			c.configUpdater.ConfigUpdate(true)
 		}
 	}
 	log.Infof("Number of clusters in the cluster store: %d", len(c.cs.rc))

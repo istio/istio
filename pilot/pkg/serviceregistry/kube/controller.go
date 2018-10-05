@@ -70,6 +70,17 @@ type ControllerOptions struct {
 	WatchedNamespace string
 	ResyncPeriod     time.Duration
 	DomainSuffix     string
+
+	// ClusterID identifies the remote cluster in a multicluster env.
+	ClusterID string
+
+	// XDSUpdater will push changes to the xDS server.
+	XDSUpdater model.XDSUpdater
+
+	// ConfigUpdater is used to request global config updates.
+	ConfigUpdater model.ConfigUpdater
+
+	stop chan struct{}
 }
 
 // Controller is a collection of synchronized resource watchers
@@ -88,6 +99,17 @@ type Controller struct {
 	// Env is set by server to point to the environment, to allow the controller to
 	// use env data and push status. It may be null in tests.
 	Env *model.Environment
+
+	// ClusterID identifies the remote cluster in a multicluster env.
+	ClusterID string
+
+	// XDSUpdater will push EDS changes to the ADS model.
+	EDSUpdater model.XDSUpdater
+
+	// ConfigUpdater is used to request global config updates.
+	ConfigUpdater model.ConfigUpdater
+
+	stop chan struct{}
 }
 
 type cacheHandler struct {
@@ -96,15 +118,19 @@ type cacheHandler struct {
 }
 
 // NewController creates a new Kubernetes controller
+// Created by bootstrap and multicluster (see secretcontroler).
 func NewController(client kubernetes.Interface, options ControllerOptions) *Controller {
-	log.Infof("Service controller watching namespace %q for service, endpoint, nodes and pods, refresh %s",
+	log.Infof("Service controller watching namespace %q for service, endpoint, nodes and pods, refresh %d",
 		options.WatchedNamespace, options.ResyncPeriod)
 
 	// Queue requires a time duration for a retry delay after a handler error
 	out := &Controller{
-		domainSuffix: options.DomainSuffix,
-		client:       client,
-		queue:        NewQueue(1 * time.Second),
+		domainSuffix:  options.DomainSuffix,
+		client:        client,
+		queue:         NewQueue(1 * time.Second),
+		ClusterID:     options.ClusterID,
+		EDSUpdater:    options.XDSUpdater,
+		ConfigUpdater: options.ConfigUpdater,
 	}
 
 	sharedInformers := informers.NewFilteredSharedInformerFactory(client, options.ResyncPeriod, options.WatchedNamespace, nil)
@@ -113,13 +139,13 @@ func NewController(client kubernetes.Interface, options ControllerOptions) *Cont
 	out.services = out.createCacheHandler(svcInformer, "Service")
 
 	epInformer := sharedInformers.Core().V1().Endpoints().Informer()
-	out.endpoints = out.createCacheHandler(epInformer, "Endpoints")
+	out.endpoints = out.createEDSCacheHandler(epInformer, "Endpoints")
 
 	nodeInformer := sharedInformers.Core().V1().Nodes().Informer()
 	out.nodes = out.createCacheHandler(nodeInformer, "Node")
 
 	podInformer := sharedInformers.Core().V1().Pods().Informer()
-	out.pods = newPodCache(out.createCacheHandler(podInformer, "Pod"))
+	out.pods = newPodCache(out.createCacheHandler(podInformer, "Pod"), out)
 
 	return out
 }
@@ -166,6 +192,42 @@ func (c *Controller) createCacheHandler(informer cache.SharedIndexInformer, otyp
 	return cacheHandler{informer: informer, handler: handler}
 }
 
+func (c *Controller) createEDSCacheHandler(informer cache.SharedIndexInformer, otype string) cacheHandler {
+	handler := &ChainHandler{funcs: []Handler{c.notify}}
+
+	informer.AddEventHandler(
+		cache.ResourceEventHandlerFuncs{
+			// TODO: filtering functions to skip over un-referenced resources (perf)
+			AddFunc: func(obj interface{}) {
+				k8sEvents.With(prometheus.Labels{"type": otype, "event": "add"}).Add(1)
+				c.queue.Push(Task{handler: handler.Apply, obj: obj, event: model.EventAdd})
+			},
+			UpdateFunc: func(old, cur interface{}) {
+				// Avoid pushes if only resource version changed (kube-scheduller, cluster-autoscaller, etc)
+				oldE := old.(*v1.Endpoints)
+				curE := cur.(*v1.Endpoints)
+
+				if !reflect.DeepEqual(oldE.Subsets, curE.Subsets) {
+					k8sEvents.With(prometheus.Labels{"type": otype, "event": "update"}).Add(1)
+					//c.updateEDS(cur.(*v1.Endpoints))
+					c.queue.Push(Task{handler: handler.Apply, obj: cur, event: model.EventUpdate})
+				} else {
+					k8sEvents.With(prometheus.Labels{"type": otype, "event": "updateSame"}).Add(1)
+				}
+			},
+			DeleteFunc: func(obj interface{}) {
+				k8sEvents.With(prometheus.Labels{"type": otype, "event": "add"}).Add(1)
+				// Deleting the endpoints results in an empty set from EDS perspective - only
+				// deleting the service should delete the resources. The full sync replaces the
+				// maps.
+				//c.updateEDS(obj.(*v1.Endpoints))
+				c.queue.Push(Task{handler: handler.Apply, obj: obj, event: model.EventDelete})
+			},
+		})
+
+	return cacheHandler{informer: informer, handler: handler}
+}
+
 // HasSynced returns true after the initial state synchronization
 func (c *Controller) HasSynced() bool {
 	if !c.services.informer.HasSynced() ||
@@ -187,6 +249,13 @@ func (c *Controller) Run(stop <-chan struct{}) {
 
 	<-stop
 	log.Infof("Controller terminated")
+}
+
+// Stop the controller. Mostly for tests, to simplify the code (defer c.Stop())
+func (c *Controller) Stop() {
+	if c.stop != nil {
+		c.stop <- struct{}{}
+	}
 }
 
 // Services implements a service catalog operation
@@ -557,9 +626,20 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 
 		log.Infof("Handle service %s in namespace %s", svc.Name, svc.Namespace)
 
-		if svcConv := convertService(*svc, c.domainSuffix); svcConv != nil {
-			f(svcConv, event)
+		hostname := svc.Name + "." + svc.Namespace
+		ports := map[string]uint32{}
+		portsByNum := map[uint32]string{}
+
+		for _, port := range svc.Spec.Ports {
+			ports[port.Name] = uint32(port.Port)
+			portsByNum[uint32(port.Port)] = port.Name
 		}
+		// EDS needs the port mapping.
+		c.EDSUpdater.SvcUpdate(c.ClusterID, hostname, ports, portsByNum)
+		// Bypass convertService and the cache invalidation.
+
+		// Shortcut the conversion
+		c.ConfigUpdater.ConfigUpdate(true)
 		return nil
 	})
 	return nil
@@ -567,6 +647,9 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 
 // AppendInstanceHandler implements a service catalog operation
 func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
+	if c.endpoints.handler == nil {
+		return nil
+	}
 	c.endpoints.handler.Append(func(obj interface{}, event model.Event) error {
 		ep, ok := obj.(*v1.Endpoints)
 		if !ok {
@@ -586,16 +669,63 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 		if ep.Namespace == meta_v1.NamespaceSystem {
 			return nil
 		}
-
-		log.Infof("Handle endpoint %s in namespace %s -> %v", ep.Name, ep.Namespace, ep.Subsets)
-		if item, exists := c.serviceByKey(ep.Name, ep.Namespace); exists {
-			if svc := convertService(*item, c.domainSuffix); svc != nil {
-				// TODO: we're passing an incomplete instance to the
-				// handler since endpoints is an aggregate structure
-				f(&model.ServiceInstance{Service: svc}, event)
-			}
-		}
+		c.updateEDS(ep)
 		return nil
 	})
 	return nil
+}
+
+func (c *Controller) updateEDS(ep *v1.Endpoints) {
+	hostname := serviceHostname(ep.Name, ep.Namespace, c.domainSuffix)
+
+	endpoints := []*model.IstioEndpoint{}
+	for _, ss := range ep.Subsets {
+		for _, ea := range ss.Addresses {
+			//podName := ea.TargetRef.Name
+
+			pod, exists := c.pods.getPodByIP(ea.IP)
+			if !exists {
+				log.Warnf("Endpoint without pod %s %v", ea.IP, ep)
+				if c.Env != nil {
+					c.Env.PushContext.Add(model.EndpointNoPod, string(hostname), nil, ea.IP)
+				}
+				// Request a global config update - after debounce we may find an endpoint.
+				if c.ConfigUpdater != nil {
+					c.ConfigUpdater.ConfigUpdate(true)
+				}
+				// TODO: keep them in a list, and check when pod events happen !
+				continue
+			}
+
+			labels := map[string]string(convertLabels(pod.ObjectMeta))
+
+			uid := fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
+
+			// EDS and ServiceEntry use name for service port - ADS will need to
+			// map to numbers.
+			for _, port := range ss.Ports {
+				endpoints = append(endpoints, &model.IstioEndpoint{
+					Address:         ea.IP,
+					EndpointPort:    uint32(port.Port),
+					ServicePortName: port.Name,
+					Labels:          labels,
+					UID:             uid,
+					ServiceAccount:  kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace(), c.domainSuffix),
+				})
+			}
+		}
+	}
+
+	// TODO: Endpoints include the service labels, maybe we can use them ?
+	// nodeName is also included, not needed
+
+	log.Infof("Handle EDS endpoint %s in namespace %s -> %v %v", ep.Name, ep.Namespace, ep.Subsets, endpoints)
+
+	err := c.EDSUpdater.EDSUpdate(c.ClusterID, string(hostname), endpoints)
+	if err != nil {
+		// Request a global push if we failed to do EDS only
+		c.ConfigUpdater.ConfigUpdate(true)
+	} else {
+		c.ConfigUpdater.ConfigUpdate(false)
+	}
 }

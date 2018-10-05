@@ -88,9 +88,14 @@ var (
 	// Default value is 1 second, or the value of PILOT_CACHE_SQUASH env
 	clearCacheTime = 1
 
-	// V2ClearCache is a function to be called when the v1 cache is cleared. This is used to
-	// avoid adding a circular dependency from v1 to v2.
-	V2ClearCache func()
+	// Push is used to request a push, when config changes. This is used to
+	// avoid adding a circular dependency from v1 to v2 - the method is implemented
+	// in the ADS server.
+	Push func(fullPush bool, edsUpdates map[string]*model.ServiceShards)
+
+	// BeforePush is called before a push. Like Push, it is an artifact of the split
+	// of discovery from v2/discovery and the migration from v1.
+	BeforePush func() map[string]*model.ServiceShards
 
 	// DebounceAfter is the delay added to events to wait
 	// after a registry/config event for debouncing.
@@ -135,6 +140,9 @@ func envDuration(envVal string, def time.Duration) time.Duration {
 type DiscoveryService struct {
 	*model.Environment
 	RestContainer *restful.Container
+
+	// true if a full push is needed after debounce. False if only EDS is required.
+	fullPush bool
 }
 
 type host struct {
@@ -243,8 +251,8 @@ func (ds *DiscoveryService) ClearCache() {
 	ds.clearCache()
 }
 
-// debouncePush is called on clear cache, to initiate a push.
-func debouncePush(startDebounce time.Time) {
+// debouncePush is called on config or endpoint changes, to initiate a push.
+func (ds *DiscoveryService) debouncePush(startDebounce time.Time) {
 	clearCacheMutex.RLock()
 	since := time.Since(lastClearCacheEvent)
 	events := clearCacheCounter
@@ -253,31 +261,53 @@ func debouncePush(startDebounce time.Time) {
 	if since > 2*DebounceAfter ||
 		time.Since(startDebounce) > DebounceMax {
 
-		log.Infof("Push debounce stable %d: %v since last change, %v since last push",
+		log.Infof("Push debounce stable %d: %v since last change, %v since last push, full=%v",
 			events,
-			since, time.Since(lastClearCache))
-		clearCacheMutex.Lock()
-		clearCacheTimerSet = false
-		clearCacheMutex.Unlock()
-		// no need to protect, no data race in case DebounceAfter > 0
-		lastClearCache = time.Now()
-		V2ClearCache()
+			since, time.Since(lastClearCache), ds.fullPush)
+
+		ds.doPush()
+
 	} else {
-		log.Infof("Push debounce %d: %v since last change, %v since last push",
-			events,
-			since, time.Since(lastClearCache))
 		time.AfterFunc(DebounceAfter, func() {
-			debouncePush(startDebounce)
+			ds.debouncePush(startDebounce)
 		})
 	}
+}
+
+// Start the actual push
+func (ds *DiscoveryService) doPush() {
+	// more config update events may happen while doPush is processing.
+	// we don't want to lose updates.
+	clearCacheMutex.Lock()
+
+	clearCacheTimerSet = false
+	lastClearCache = time.Now()
+	full := ds.fullPush
+	edsUpdates := BeforePush()
+
+	// Update the config values, next ConfigUpdate and eds updates will use this
+	ds.fullPush = false
+
+	clearCacheMutex.Unlock()
+
+	Push(full, edsUpdates)
 }
 
 // clearCache will clear all envoy caches. Called by service, instance and config handlers.
 // This will impact the performance, since envoy will need to recalculate.
 func (ds *DiscoveryService) clearCache() {
+	ds.ConfigUpdate(true)
+}
+
+// ConfigUpdate implements ConfigUpdater interface, used to request pushes.
+// It replaces the 'clear cache' from v1.
+func (ds *DiscoveryService) ConfigUpdate(full bool) {
 	clearCacheMutex.Lock()
 	defer clearCacheMutex.Unlock()
 
+	if full {
+		ds.fullPush = true
+	}
 	clearCacheCounter++
 
 	if DebounceAfter > 0 {
@@ -287,7 +317,7 @@ func (ds *DiscoveryService) clearCache() {
 			clearCacheTimerSet = true
 			startDebounce := lastClearCacheEvent
 			time.AfterFunc(DebounceAfter, func() {
-				debouncePush(startDebounce)
+				ds.debouncePush(startDebounce)
 			})
 		} // else: debounce in progress - it'll keep delaying the push
 
@@ -303,8 +333,7 @@ func (ds *DiscoveryService) clearCache() {
 		lastClearCacheEvent = time.Now()
 		lastClearCache = time.Now()
 
-		V2ClearCache()
-
+		ds.doPush()
 		return
 	}
 
@@ -316,7 +345,7 @@ func (ds *DiscoveryService) clearCache() {
 		log.Infof("Timer push %d: %v since last change, %v since last push",
 			clearCacheCounter, time.Since(lastClearCacheEvent), time.Since(lastClearCache))
 		lastClearCache = time.Now()
-		V2ClearCache()
+		ds.doPush()
 		return
 	}
 
@@ -335,6 +364,7 @@ func (ds *DiscoveryService) clearCache() {
 }
 
 // ListAllEndpoints responds with all Services and is not restricted to a single service-key
+// Deprecated - may be used by debug tools, mapped to /v1/registration
 func (ds *DiscoveryService) ListAllEndpoints(_ *restful.Request, response *restful.Response) {
 	methodName := "ListAllEndpoints"
 	incCalls(methodName)

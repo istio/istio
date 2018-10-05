@@ -637,6 +637,7 @@ func (s *Server) initMultiClusterController(args *PilotArgs) error {
 				args.Config.ClusterRegistriesNamespace,
 				s.clusterStore,
 				s.ServiceController,
+				s.discoveryService,
 				s.EnvoyXdsServer,
 				args.Config.ControllerOptions.ResyncPeriod,
 				args.Config.ControllerOptions.WatchedNamespace,
@@ -779,17 +780,22 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	s.initGrpcServer()
 
 	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(environment, istio_networking.NewConfigGenerator(args.Plugins))
+	s.EnvoyXdsServer.ConfigUpdater = s.discoveryService
 	// TODO: decouple v2 from the cache invalidation, use direct listeners.
-	envoy.V2ClearCache = s.EnvoyXdsServer.ClearCacheFunc()
+	envoy.Push = s.EnvoyXdsServer.Push
+	envoy.BeforePush = s.EnvoyXdsServer.BeforePush
+
 	s.EnvoyXdsServer.Register(s.grpcServer)
 
 	if s.kubeRegistry != nil {
 		// kubeRegistry may use the environment for push status reporting.
 		// TODO: maybe all registries should have his as an optional field ?
 		s.kubeRegistry.Env = environment
+		s.kubeRegistry.ConfigUpdater = discovery
+		s.kubeRegistry.EDSUpdater = s.EnvoyXdsServer
 	}
 
-	s.EnvoyXdsServer.InitDebug(s.mux, s.ServiceController)
+	s.EnvoyXdsServer.InitDebug(s.mux, s.ServiceController, discovery)
 
 	s.EnvoyXdsServer.ConfigController = s.configController
 
