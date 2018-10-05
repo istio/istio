@@ -16,14 +16,14 @@
 // This tool requires https://github.com/benbalter/licensee to work.
 // Usage:
 //   1) Generate complete dump of every license, suitable for including in release build/binary image:
-//      go run get_dep_licenses.go --branch release-0.8
+//      go run get_dep_licenses.go --branch release-1.0.1
 //   2) CSV format output with one package per line:
-//      go run get_dep_licenses.go --summary --branch release-0.8
+//      go run get_dep_licenses.go --summary --branch release-1.0.1
 //   3) Detailed info about how closely each license matches official text:
-//      go run get_dep_licenses.go --match-detail --branch release-0.8
+//      go run get_dep_licenses.go --match-detail --branch release-1.0.1
 //   4) Use a different branch from the current one. Will do git checkout to that branch and back to the current on completion.
 //      This can only be used from inside Istio repo:
-//      go run get_dep_licenses.go --branch release-0.8 --checkout
+//      go run get_dep_licenses.go --branch release-1.0.1 --checkout
 //   5) Check if all licenses are Google approved. Outputs lists of restricted, reciprocal, missing, and unknown status licenses.
 //      go run get_dep_licenses.go --check
 package main
@@ -107,10 +107,12 @@ var (
 		"QPL-1.0":           true,
 		"Sleepycat":         true,
 	}
-	// These are in non-obvious places, or linked.
+	// These are in non-obvious places, or linked. They must be manually evaluated and OK'd to be on this list.
 	knownUnknownLicenses = map[string]bool{
-		"github.com/jmespath/go-jmespath": true,
-		"github.com/alicebob/gopher-json": true,
+		"github.com/jmespath/go-jmespath":                                         true,
+		"github.com/alicebob/gopher-json":                                         true,
+		"istio.io/istio/vendor/github.com/dchest/siphash":                         true,
+		"istio.io/istio/vendor/github.com/signalfx/com_signalfx_metrics_protobuf": true,
 	}
 	// Ignore package paths that don't start with this.
 	mustStartWith = []string{
@@ -229,7 +231,9 @@ func main() {
 	for _, p := range outv {
 		lf, err := findLicenseFile(p)
 		if err != nil || lf == nil {
-			missing = append(missing, p)
+			if !knownUnknownLicenses[p] {
+				missing = append(missing, p)
+			}
 			continue
 		}
 		licensePath[p] = lf[0]
@@ -325,11 +329,13 @@ func main() {
 		return
 	}
 
-	fmt.Println("===========================================================")
-	fmt.Println("The following packages were missing license files:")
-	fmt.Println("===========================================================")
-	for _, p := range missing {
-		fmt.Println(p)
+	if len(missing) > 0 {
+		fmt.Fprintln(os.Stderr, "===========================================================")
+		fmt.Fprintln(os.Stderr, "The following packages were missing license files.")
+		fmt.Fprintln(os.Stderr, "===========================================================")
+		for _, p := range missing {
+			fmt.Fprintln(os.Stderr, p)
+		}
 	}
 
 	if matchDetail {
@@ -368,6 +374,21 @@ func main() {
 			fmt.Printf("License text:\n%s\n", l.licenseText)
 			fmt.Println("-----------------------------------------------------------")
 		}
+
+		// Append manually added files.
+		manualAppendDir := filepath.Join(istioRoot, "tools/license/manual_append")
+		fs, err := ioutil.ReadDir(manualAppendDir)
+		if err != nil {
+			log.Fatalf("ReadDir: %s\n", err)
+		}
+		for _, f := range fs {
+			b, err := ioutil.ReadFile(filepath.Join(manualAppendDir, f.Name()));
+			if err != nil {
+				log.Fatalf("ReadFile (%s): %s\n", f.Name(), err)
+			}
+			fmt.Print(string(b))
+		}
+
 	}
 }
 
