@@ -16,6 +16,7 @@ package v1alpha3
 
 import (
 	"fmt"
+	"k8s-cluster-manager/pkg/cluster"
 	"path"
 	"strings"
 	"time"
@@ -100,7 +101,12 @@ func normalizeClusters(push *model.PushContext, proxy *model.Proxy, clusters []*
 
 func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environment, proxy *model.Proxy, push *model.PushContext) []*v2.Cluster {
 	clusters := make([]*v2.Cluster, 0)
-	mTLSInclusionSet := proxy.GetProxyMTLSInclusionSet()
+
+	var mTLSInclusionSet map[string]bool
+	if proxy != nil {
+		mTLSInclusionSet = proxy.GetProxyMTLSInclusionSet()
+	}
+
 	for _, service := range push.Services {
 		config := push.DestinationRule(service.Hostname)
 		for _, port := range service.Ports {
