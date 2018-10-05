@@ -151,7 +151,7 @@ restartDataPlane() {
     # Apply label within deployment spec.
     # This is a hack to force a rolling restart without making any material changes to spec.
     writeMsg "Restarting deployment ${1}, patching label to force restart."
-    echo_and_run kubectl patch deployment "${1}" -n "${TEST_NAMESPACE}" -p'{"spec":{"template":{"spec":{"containers":[{"name":"echosrv","env":[{"name":"RESTART_'$(date +%s)'","value":"1"}]}]}}}}'
+    echo_and_run kubectl patch deployment "${1}" -n "${TEST_NAMESPACE}" -p'{"spec":{"template":{"spec":{"containers":[{"name":"echosrv","env":[{"name":"RESTART_'"$(date +%s)"'","value":"1"}]}]}}}}'
 }
 
 writeMsg() {
