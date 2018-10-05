@@ -21,7 +21,7 @@ spec:
           - -c
           - "32"
           - -t
-          - "300s"
+          - "700s"
           - -qps
           - "10"
           - http://echosrv.test.svc.cluster.local:8080/echo?size=200
