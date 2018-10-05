@@ -104,6 +104,8 @@ func setupFilterChains(authnPolicy *authn.Policy, sdsUdsPath string) []plugin.Fi
 		},
 	}
 	if sdsUdsPath == "" {
+		log.Debuga("SDS isn't enabled")
+
 		tls.CommonTlsContext.ValidationContextType = model.ConstructValidationContext(model.AuthCertsPath+model.RootCertFilename, []string{} /*subjectAltNames*/)
 		tls.CommonTlsContext.TlsCertificates = []*auth.TlsCertificate{
 			{
