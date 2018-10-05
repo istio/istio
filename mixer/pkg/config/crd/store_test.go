@@ -437,7 +437,7 @@ func TestCrdsRetryAsynchronously(t *testing.T) {
 		return true, nil, nil
 	})
 	s, ns, lw := getTempClient()
-	s.retryInterval = 1 * time.Millisecond
+	s.bgRetryInterval = 1 * time.Millisecond
 	s.discoveryBuilder = func(*rest.Config) (discovery.DiscoveryInterface, error) {
 		return fakeDiscovery, nil
 	}
@@ -508,7 +508,7 @@ func TestCrdsRetryAsynchronouslyStoreClose(t *testing.T) {
 	s.discoveryBuilder = func(*rest.Config) (discovery.DiscoveryInterface, error) {
 		return fakeDiscovery, nil
 	}
-	s.retryInterval = 10 * time.Millisecond
+	s.bgRetryInterval = 10 * time.Millisecond
 	s.Init([]string{"Handler", "Action"})
 
 	// Close store, which should shut down the background retry.

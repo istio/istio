@@ -43,6 +43,10 @@ const (
 	// initialize caches
 	crdRetryInterval = time.Second
 
+	// crdBgRetryInterval is the default retry interval between the attempts to
+	// initialize cache for crd kinds that are not ready at store initialization.
+	crdBgRetryInterval = time.Second * 10
+
 	// ConfigAPIGroup is the API group for the config CRDs.
 	ConfigAPIGroup = "config.istio.io"
 	// ConfigAPIVersion is the API version for the config CRDs.
@@ -77,6 +81,11 @@ type Store struct {
 	// The interval to wait between the attempt to initialize caches. This is not const
 	// to allow changing the value for unittests.
 	retryInterval time.Duration
+
+	// The interval to wait between the attempt to initialize caches for crd kinds that
+	// are not ready at store initialization. This is not const to allow changing the
+	// value for unittests.
+	bgRetryInterval time.Duration
 
 	// criticalkinds are the kinds that are critical for mixer function and must be ready
 	// for store initialization.
@@ -192,7 +201,7 @@ func (s *Store) retryCreateCache(
 	lwBuilder listerWatcherBuilderInterface,
 	kinds []string) {
 	remaining := kinds
-	tick := time.Tick(s.retryInterval)
+	tick := time.Tick(s.bgRetryInterval)
 	stopRetry := false
 
 	for len(remaining) != 0 && !stopRetry {
@@ -200,13 +209,11 @@ func (s *Store) retryCreateCache(
 		case <-s.donec:
 			stopRetry = true
 		case <-tick:
-			if len(remaining) != 0 {
-				rm := s.checkAndCreateCaches(d, lwBuilder, remaining)
-				if len(rm) < len(remaining) {
-					log.Debugf("discovered %v new kinds, remaining undiscovered kinds: %v", len(remaining)-len(rm), rm)
-				}
-				remaining = rm
+			rm := s.checkAndCreateCaches(d, lwBuilder, remaining)
+			if len(rm) < len(remaining) {
+				log.Debugf("discovered %v new kinds, remaining undiscovered kinds: %v", len(remaining)-len(rm), rm)
 			}
+			remaining = rm
 		default:
 		}
 	}
