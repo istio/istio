@@ -37,14 +37,29 @@ const (
 	appLivenessPath = "/app/liveness"
 )
 
+// AppProbeInfo defines the information for Pilot agent to take over application probing.
+type AppProbeInfo struct {
+	Path string
+	Port uint16
+}
+
 // Config for the status server.
 type Config struct {
 	StatusPort       uint16
 	AdminPort        uint16
+
+	// TODO(incfly): plumbing this struct instead.
+	AppReadiness     *AppProbeInfo
+	AppLiveness      *AppProbeInfo
+
 	// appReadinessPath is the original url path that app uses for readiness check.
 	AppReadinessPath string
-	// appLivenessPath is the original url path that app uses for liveness check.
+	// AppReadinessPort is the port application used for the readiness health check.
+	AppReadinessPort  uint16
+	// AppLivenessPath is the original url path that app uses for liveness check.
 	AppLivenessPath  string
+	// AppLivenessPort is the port app used for the readiness health check.
+	AppLivenessPort  uint16
 	ApplicationPorts []uint16
 }
 
@@ -53,6 +68,7 @@ type Server struct {
 	statusPort          uint16
 	ready               *ready.Probe
 	appLivenessPath     string
+	appReadinessPort    uint16
 	appReadinessPath    string
 	mutex               sync.Mutex
 	lastProbeSuccessful bool
@@ -64,6 +80,7 @@ func NewServer(config Config) *Server {
 		statusPort:       config.StatusPort,
 		appLivenessPath:  config.AppLivenessPath,
 		appReadinessPath: config.AppReadinessPath,
+		appReadinessPort: config.AppReadinessPort,
 		ready: &ready.Probe{
 			AdminPort:        config.AdminPort,
 			ApplicationPorts: config.ApplicationPorts,
@@ -77,8 +94,16 @@ func (s *Server) Run(ctx context.Context) {
 
 	// Add the handler for ready probes.
 	http.HandleFunc(readyPath, s.handleReadyProbe)
-	http.HandleFunc(appReadinessPath, s.handleAppReadinessProbe)
-	http.HandleFunc(appLivenessPath, s.handleAppLivenessProbe)
+	if s.appReadinessPath != "" {
+		log.Infof("Pilot agent takes over readiness probe, path %v, port %v",
+			s.appReadinessPath, s.appReadinessPort)
+		http.HandleFunc(appReadinessPath, s.handleAppReadinessProbe)
+	}
+	if s.appLivenessPath != "" {
+		log.Infof("Pilot agent takes over liveness probe, path %v, port %v",
+			s.appLivenessPath, 100000)
+		http.HandleFunc(appLivenessPath, s.handleAppLivenessProbe)
+	}
 
 	l, err := net.Listen("tcp", fmt.Sprintf(":%d", s.statusPort))
 	if err != nil {
@@ -119,30 +144,35 @@ func (s *Server) handleReadyProbe(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (s *Server) handleAppReadinessProbe(w http.ResponseWriter, req *http.Request) {
-	requestStatusCode(fmt.Sprintf("http://127.0.0.1:%d/%s", s.statusPort, s.appReadinessPath), w, req)
+	requestStatusCode(fmt.Sprintf("http://127.0.0.1:%d%s", s.appReadinessPort, s.appReadinessPath), w, req)
 }
 
 func (s *Server) handleAppLivenessProbe(w http.ResponseWriter, req *http.Request) {
-	requestStatusCode(fmt.Sprintf("http://127.0.0.1:%d/%s", s.statusPort, s.appLivenessPath), w, req)
+	requestStatusCode(fmt.Sprintf("http://127.0.0.1:%d%s", s.appReadinessPort, s.appLivenessPath), w, req)
 }
 
 func requestStatusCode(appURL string, w http.ResponseWriter, req *http.Request) {
+	log.Debugf("Send request for probing application, url = %v", appURL)
 	httpClient := &http.Client{
 		// TODO: figure out the appropriate timeout?
 		Timeout: 5*time.Second,
 	}
 
-	if req.URL == nil {
-		w.WriteHeader(http.StatusNotFound)
+	// TODO(incfly): copy all releveant fields from the request that can be affected from the PodSpec.
+	appReq, err := http.NewRequest(req.Method, appURL, req.Body)
+
+	if err != nil {
+		log.Errorf("Failed to copy request to probe app %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	req.URL.Path = appURL
-
-	response, err := httpClient.Do(req)
+	response, err := httpClient.Do(appReq)
 	if err != nil {
+		log.Errorf("Request to probe app failed: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
-	defer response.Body.Close()
+
 	// We only write the status code to the response.
 	w.WriteHeader(response.StatusCode)
 }
