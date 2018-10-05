@@ -63,14 +63,14 @@ spec:
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: reviews-v3
+  name: reviews-remotev3
 spec:
   replicas: 1
   template:
     metadata:
       labels:
         app: reviews
-        version: v3
+        version: remotev3
     spec:
       containers:
       - name: reviews

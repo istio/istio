@@ -318,14 +318,11 @@ func dumpK8Env() {
 
 }
 
-func podID(labelSelector string, remote bool) (pod string, err error) {
+func podID(labelSelector string, kubeConfig string) (pod string, err error) {
 
-	if remote {
-		pod, err = util.Shell("kubectl -n %s get pod -l %s -o jsonpath='{.items[0].metadata.name}' --kubeconfig=%s",
-			tc.Kube.Namespace, labelSelector, tc.Kube.RemoteKubeConfig)
-	} else {
-		pod, err = util.Shell("kubectl -n %s get pod -l %s -o jsonpath='{.items[0].metadata.name}'", tc.Kube.Namespace, labelSelector)
-	}
+	pod, err = util.Shell("kubectl -n %s get pod -l %s -o jsonpath='{.items[0].metadata.name}' --kubeconfig=%s",
+		tc.Kube.Namespace, labelSelector, kubeConfig)
+
 	if err != nil {
 		log.Warnf("could not get %s pod: %v", labelSelector, err)
 		return
@@ -354,7 +351,7 @@ func deployment(labelSelector string) (name, owner, uid string, err error) {
 }
 
 func podLogs(labelSelector string, container string, kubeconfig string) {
-	pod, err := podID(labelSelector, false)
+	pod, err := podID(labelSelector, kubeconfig)
 	if err != nil {
 		return
 	}
@@ -692,7 +689,7 @@ func TestKubeenvMetrics(t *testing.T) {
 	if err != nil {
 		fatalf(t, "Could not build prometheus API client: %v", err)
 	}
-	productPagePod, err := podID("app=productpage", false)
+	productPagePod, err := podID("app=productpage", tc.Kube.KubeConfig)
 	if err != nil {
 		fatalf(t, "Could not get productpage pod ID: %v", err)
 	}
@@ -700,7 +697,7 @@ func TestKubeenvMetrics(t *testing.T) {
 	if err != nil {
 		fatalf(t, "Could not get productpage deployment metadata: %v", err)
 	}
-	ingressPod, err := podID(fmt.Sprintf("istio=%s", ingressName), false)
+	ingressPod, err := podID(fmt.Sprintf("istio=%s", ingressName), tc.Kube.KubeConfig)
 	if err != nil {
 		fatalf(t, "Could not get ingress pod ID: %v", err)
 	}
@@ -824,24 +821,16 @@ func getIngressOrFail(t *testing.T) string {
 // TestCheckCache tests that check cache works within the mesh.
 func TestCheckCache(t *testing.T) {
 	// Get pod id of sleep app.
-	pod, err := podID("app=sleep", false)
-	if err != nil {
-		fatalf(t, "fail getting pod id of sleep %v", err)
-	}
-	url := fmt.Sprintf("http://productpage.%s:9080/health", tc.Kube.Namespace)
-
-	// visit calls product page health handler with sleep app.
-	visit := func() error {
-		return visitWithApp(url, pod, "sleep", 100, false)
-	}
-	testCheckCache(t, visit, "productpage")
-	if tc.Kube.RemoteKubeConfig != "" {
-		pod, err := podID("app=sleep", true)
+	for _, kubeConfig := range tc.Kube.Clusters {
+		pod, err := podID("app=sleep", kubeConfig)
 		if err != nil {
 			fatalf(t, "fail getting pod id of sleep %v", err)
 		}
+		url := fmt.Sprintf("http://productpage.%s:9080/health", tc.Kube.Namespace)
+
+		// visit calls product page health handler with sleep app.
 		visit := func() error {
-			return visitWithApp(url, pod, "sleep", 100, true)
+			return visitWithApp(url, pod, "sleep", 100, kubeConfig)
 		}
 		testCheckCache(t, visit, "productpage")
 	}
@@ -1462,14 +1451,9 @@ func visitProductPage(timeout time.Duration, wantStatus int, headers ...*header)
 }
 
 // visitWithApp visits the given url by curl in the given container.
-func visitWithApp(url string, pod string, container string, num int, remote bool) error {
-	var cmd string
-	cmd = fmt.Sprintf("kubectl exec %s -n %s -c %s -- bash -c 'for ((i=0; i<%d; i++)); do curl -m 0.1 -i -s %s; done'",
-		pod, tc.Kube.Namespace, container, num, url)
-	if remote {
-		cmd = fmt.Sprintf("kubectl exec %s -n %s -c %s --kubeconfig=%s -- bash -c 'for ((i=0; i<%d; i++)); do curl -m 0.1 -i -s %s; done'",
-			pod, tc.Kube.Namespace, container, tc.Kube.RemoteKubeConfig, num, url)
-	}
+func visitWithApp(url string, pod string, container string, num int, kubeConfig string) error {
+	cmd := fmt.Sprintf("kubectl exec %s -n %s -c %s --kubeconfig=%s -- bash -c 'for ((i=0; i<%d; i++)); do curl -m 0.1 -i -s %s; done'",
+		pod, tc.Kube.Namespace, container, kubeConfig, num, url)
 	log.Infof("Visit %s for %d times with the following command: %v", url, num, cmd)
 	_, err := util.ShellMuteOutput(cmd)
 	if err != nil {
