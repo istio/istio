@@ -21,7 +21,7 @@
       ],
       "name": "gcr.io/istio-testing/istio-builder:0.5.10",
       "dir": "go/src/istio.io/istio",
-      "args": [ "./release/cloud_builder.sh", "-p", "$_GCS_PATH", "-h", "$_DOCKER_HUB", "-t", "$_VER_STRING", "-o", "/output" ]
+      "args": [ "./release/cloud_builder.sh", "-h", "$_DOCKER_HUB", "-t", "$_VER_STRING", "-o", "/output" ]
     },
     {
       "volumes": [
