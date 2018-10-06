@@ -38,15 +38,10 @@ USER_NAME=""
 UPLOAD_DIR=$LOCAL_DIR
 
 GCS_DEST=""
-GCR_DEST=""
-DOCKER_DEST=""
 
 DO_GCS="true"
 DO_GITHUB_TAG="true"
 DO_GITHUB_REL="true"
-DO_GCRHUB="true"
-ADD_DOCKER_KEY="false"
-DO_DOCKERHUB="true"
 
 KEYRING="Secrets"
 KEY="DockerHub"
@@ -57,17 +52,10 @@ Options for disabling types of publishing:
     -w         disables releasing to gcs
     -q         disables tagging on github
     -x         disables releasing to github
-    -y         disables releasing to gcr
-    -z         disables releasing to docker hub
 Options relevant to most features:
     -g <uri>   source of files on gcs (use this or -u)
     -u <dir>   source directory from which to upload artifacts (use this or -g)
     -v <ver>   version tag of release
-Options specific to docker hub:
-    -c         use istio cred for docker (for cloud builder) (optional)
-    -d         docker hub uri (Providing the string \"<none>\" here has the same affect as -z)
-Options specific to gcr:
-    -i <uri>   dest for images on gcr
 Options specific to github (tag and/or release):
     -k <file>  file that contains github user token
     -l <gcs>   gcs path from which to get file with user token (alt to -k)
@@ -84,14 +72,11 @@ Options specific to publishing to gcs:
   exit 1
 }
 
-while getopts cd:e:g:h:i:k:l:mn:o:qr:t:u:v:wxyz arg ; do
+while getopts e:g:h:k:l:mn:o:qr:t:u:v:wx arg ; do
   case "${arg}" in
-    c) ADD_DOCKER_KEY="true";;
-    d) DOCKER_DEST="${OPTARG}";;
     e) USER_EMAIL="${OPTARG}";;
     g) GCS_SOURCE="${OPTARG}";;
     h) GCS_DEST="${OPTARG}";;
-    i) GCR_DEST="${OPTARG}";;
     k) KEYFILE="${OPTARG}";;
     l) KEYFILE_GCS="${OPTARG}";;
     m) KEYFILE_DECRYPT="true";;
@@ -104,21 +89,14 @@ while getopts cd:e:g:h:i:k:l:mn:o:qr:t:u:v:wxyz arg ; do
     v) VERSION="${OPTARG}";;
     w) DO_GCS="false";;
     x) DO_GITHUB_REL="false";;
-    y) DO_GCRHUB="false";;
-    z) DO_DOCKERHUB="false";;
     *) usage;;
   esac
 done
 
 [[ -z "${VERSION}" ]] && usage
 
-if [[ "${DOCKER_DEST}" == "<none>" || -z "${DOCKER_DEST}" ]]; then
-  echo "NOTE: An empty string was used for docker hub setting so docker push has been disabled"
-  DO_DOCKERHUB="false"
-fi
 
-if [[ "${DO_GCS}" == "false" && "${DO_GITHUB_TAG}" == "false" && "${DO_GITHUB_REL}" == "false" && \
-      "${DO_GCRHUB}" == "false" && "${DO_DOCKERHUB}" == "false" ]]; then
+if [[ "${DO_GCS}" == "false" && "${DO_GITHUB_TAG}" == "false" && "${DO_GITHUB_REL}" == "false" ]]; then
   echo "All operations supported by this script are disabled"
   usage
   exit 1
@@ -181,15 +159,6 @@ if [[ "${DO_GCS}" == "true" ]]; then
   GCS_DEST=${GCS_DEST%/}
 fi
 
-if [[ "${DO_GCRHUB}" == "true" ]]; then
-  [[ -z "${GCR_DEST}" ]] && usage
-  GCR_DEST=gcr.io/${GCR_DEST%/}
-fi
-
-if [[ "${DO_DOCKERHUB}" == "true" ]]; then
-    DOCKER_DEST=docker.io/${DOCKER_DEST%/}
-fi
-
 # if GCS source dir provided then copy files to local location
 
 if [[ -n "${GCS_SOURCE}" ]]; then
@@ -214,14 +183,10 @@ if [[ -n "${GCS_SOURCE}" ]]; then
     cp "/output/manifest.xml" "${UPLOAD_DIR}/"
   fi
   if [[ "${DO_GITHUB_REL}" == "true" ]]; then
-    gsutil -m cp gs://"${GCS_SOURCE}"/docker.io/istio-*.zip "${UPLOAD_DIR}/"
-    gsutil -m cp gs://"${GCS_SOURCE}"/docker.io/istio-*.gz  "${UPLOAD_DIR}/"
-    gsutil -m cp gs://"${GCS_SOURCE}"/docker.io/istio-*.gz.sha256  "${UPLOAD_DIR}/"
-    gsutil -m cp gs://"${GCS_SOURCE}"/docker.io/istio-*.zip.sha256 "${UPLOAD_DIR}/"
-  fi
-  if [[ "${DO_GCRHUB}" == "true" || "${DO_DOCKERHUB}" == "true" ]]; then
-    mkdir -p "${UPLOAD_DIR}/docker/"
-    gsutil -m cp gs://"${GCS_SOURCE}"/docker/*.tar.gz  "${UPLOAD_DIR}/docker/"
+    gsutil -m cp gs://"${GCS_SOURCE}"/istio-*.zip "${UPLOAD_DIR}/"
+    gsutil -m cp gs://"${GCS_SOURCE}"/istio-*.gz  "${UPLOAD_DIR}/"
+    gsutil -m cp gs://"${GCS_SOURCE}"/istio-*.gz.sha256  "${UPLOAD_DIR}/"
+    gsutil -m cp gs://"${GCS_SOURCE}"/istio-*.zip.sha256 "${UPLOAD_DIR}/"
   fi
   echo "Finished downloading files from GCS source"
 fi
@@ -233,51 +198,6 @@ if [[ "${DO_GCS}" == "true" ]]; then
   gsutil -m cp "${UPLOAD_DIR}"/deb/istio*.deb        "gs://${GCS_DEST}/deb/"
   gsutil -m cp "${UPLOAD_DIR}"/deb/istio*.deb.sha256 "gs://${GCS_DEST}/deb/"
   echo "Done copying to GCS destination"
-fi
-
-if [[ "${DO_DOCKERHUB}" == "true" || "${DO_GCRHUB}" == "true" ]]; then
-  if [[ -z "$(command -v docker)" ]]; then
-    echo "Could not find 'docker' in path"
-    exit 1
-  fi
-
-  if [[ "${DO_DOCKERHUB}" == "true" && "${ADD_DOCKER_KEY}" == "true" ]]; then
-    echo "using istio cred for docker"
-    gsutil -q cp gs://istio-secrets/dockerhub_config.json.enc "$HOME/.docker/config.json.enc"
-    gcloud kms decrypt \
-       --ciphertext-file="$HOME/.docker/config.json.enc" \
-       --plaintext-file="$HOME/.docker/config.json" \
-       --location=global \
-       --keyring=${KEYRING} \
-       --key=${KEY}
-  fi
-
-  echo "pushing images to docker and/or gcr"
-  for TAR_PATH in "${UPLOAD_DIR}"/docker/*.tar.gz; do
-    TAR_NAME=$(basename "$TAR_PATH")
-    IMAGE_NAME="${TAR_NAME%.tar.gz}"
-
-    # if no docker/ directory or directory has no tar files
-    if [[ "${IMAGE_NAME}" == "*" ]]; then
-      echo "No image tar files were found in docker/"
-      exit 1
-    fi
-    DOCKER_OUT=$(docker load -i "${TAR_PATH}")
-    DOCKER_SRC=$(echo "$DOCKER_OUT" | cut -f 2 -d : | xargs dirname)
-    echo DOCKER_SRC is "$DOCKER_SRC"
-
-    if [[ "${DO_DOCKERHUB}" == "true" ]]; then
-      docker tag "${DOCKER_SRC}/${IMAGE_NAME}:${VERSION}" "${DOCKER_DEST}/${IMAGE_NAME}:${VERSION}"
-      docker push                                         "${DOCKER_DEST}/${IMAGE_NAME}:${VERSION}"
-    fi
-    if [[ "${DO_GCRHUB}" == "true" ]]; then
-      gcloud auth configure-docker -q
-      docker tag "${DOCKER_SRC}/${IMAGE_NAME}:${VERSION}"    "${GCR_DEST}/${IMAGE_NAME}:${VERSION}"
-      docker push                                            "${GCR_DEST}/${IMAGE_NAME}:${VERSION}"
-    fi
-  done
-
-  echo "Finished pushing images to docker and/or gcr"
 fi
 
 if [[ "${DO_GITHUB_TAG}" == "true" ]]; then

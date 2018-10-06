@@ -39,10 +39,10 @@ function usage() {
   echo "$0
     -b        opts out of building debian artifacts
     -c        opts out of building docker artifacts
-    -h        docker hub to use for testing (optional)
+    -h        docker hub to use (optional defaults to docker.io/istio)
     -o        path to store build artifacts
     -p        GCS bucket & prefix path where build will be stored for testing (optional)
-    -q        path on gcr hub to use for testing (optional, alt to -h)
+    -q        path on docker hub (optional, alt to -h defaults to docker.io/istio)
     -t <tag>  tag to use"
   exit 1
 }
@@ -53,7 +53,7 @@ while getopts bch:o:p:q:t: arg ; do
     c) BUILD_DOCKER="false";;
     h) TEST_DOCKER_HUB="${OPTARG}";;
     p) TEST_GCS_PATH="${OPTARG}";;
-    q) TEST_DOCKER_HUB="gcr.io/${OPTARG}";;
+    q) TEST_DOCKER_HUB="docker.io/${OPTARG}";;
     o) OUTPUT_PATH="${OPTARG}";;
     t) TAG_NAME="${OPTARG}";;
     *) usage;;
@@ -61,10 +61,11 @@ while getopts bch:o:p:q:t: arg ; do
 done
 
 [[ -z "${OUTPUT_PATH}" ]] && usage
-[[ -z "${TAG_NAME}" ]] && usage
+[[ -z "${TAG_NAME}"    ]] && usage
 
 DEFAULT_GCS_PATH="https://storage.googleapis.com/istio-release/releases/${TAG_NAME}"
 TEST_PATH=${TEST_GCS_PATH:-$DEFAULT_GCS_PATH}
+DOCKER_HUB=${TEST_DOCKER_HUB:-$REL_DOCKER_HUB}
 
 # switch to the root of the istio repo
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -81,30 +82,15 @@ MAKE_TARGETS=(istio-archive)
 if [ "${BUILD_DEBIAN}" == "true" ]; then
   MAKE_TARGETS+=(sidecar.deb)
 fi
-if [ "${BUILD_DOCKER}" == "true" ]; then
-  MAKE_TARGETS+=(docker.save)
-fi
 
-if [[ -n "${TEST_DOCKER_HUB}" ]]; then
-  VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB=${TEST_DOCKER_HUB} HUB=${TEST_DOCKER_HUB} VERSION=$ISTIO_VERSION TAG=$ISTIO_VERSION ISTIO_GCS=$TEST_PATH make istio-archive
-  cp "${ISTIO_OUT}"/archive/istio-*z* "${OUTPUT_PATH}/"
-  mkdir -p "${OUTPUT_PATH}/gcr.io"
-  cp "${ISTIO_OUT}"/archive/istio-*z* "${OUTPUT_PATH}/gcr.io/"
-fi
-
-VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB=${REL_DOCKER_HUB} HUB=${REL_DOCKER_HUB} VERSION=$ISTIO_VERSION TAG=$ISTIO_VERSION make "${MAKE_TARGETS[@]}"
+VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB=${DOCKER_HUB} HUB=${DOCKER_HUB} VERSION=$ISTIO_VERSION TAG=$ISTIO_VERSION make "${MAKE_TARGETS[@]}"
 cp "${ISTIO_OUT}"/archive/istio-*z* "${OUTPUT_PATH}/"
-mkdir -p "${OUTPUT_PATH}/docker.io"
-cp "${ISTIO_OUT}"/archive/istio-*z* "${OUTPUT_PATH}/docker.io/"
-
-if [[ -n "${TEST_DOCKER_HUB}" ]]; then
-# this copy is being done here instead of above because we
-# are conservative, if new artifacts are created we don't
-# inadvertently clobber them
-  cp "${OUTPUT_PATH}"/gcr.io/istio-*z* "${OUTPUT_PATH}/"
-fi
 
 if [ "${BUILD_DOCKER}" == "true" ]; then
+  # we always save the docker tars and point them to docker.io/istio
+  # later scripts retag the tars as needed and push to the docker/gcr as needed
+  BUILD_DOCKER_TARGETS=(docker.save)
+  VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB=${REL_DOCKER_HUB} HUB=${REL_DOCKER_HUB} VERSION=$ISTIO_VERSION TAG=$ISTIO_VERSION make "${BUILD_DOCKER_TARGETS[@]}"
   cp -r "${ISTIO_OUT}/docker" "${OUTPUT_PATH}/"
 fi
 

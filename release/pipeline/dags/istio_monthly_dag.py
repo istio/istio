@@ -46,7 +46,11 @@ def MonthlyPipeline():
     if conf is None:
       conf = dict()
 
-    # If version is overridden then we should use it otherwise we use it's
+    docker_hub = conf.get('DOCKER_HUB')
+    if docker_hub is None:
+      docker_hub = 'docker.io/istio'
+
+    # If version is overriden then we should use it otherwise we use it's
     # default or monthly value.
     version = conf.get('VERSION') or istio_common_dag.GetVariableOrDefault('monthly-version', None)
     if not version or version == 'INVALID':
@@ -66,6 +70,7 @@ def MonthlyPipeline():
     default_conf = environment_config.GetDefaultAirflowConfig(
         branch=branch,
         commit=commit,
+        docker_hub=docker_hub,
         gcs_path=gcs_path,
         mfest_commit=mfest_commit,
         pipeline_type='monthly',
@@ -78,7 +83,6 @@ def MonthlyPipeline():
 
     # These are the extra params that are passed to the dags for monthly release
     monthly_conf = dict()
-    monthly_conf['DOCKER_HUB'              ] = 'istio'
     monthly_conf['GCR_RELEASE_DEST'        ] = 'istio-io'
     monthly_conf['GCS_GITHUB_PATH'         ] = 'istio-secrets/github.txt.enc'
     monthly_conf['RELEASE_PROJECT_ID'      ] = 'istio-io'

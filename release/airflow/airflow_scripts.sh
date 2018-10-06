@@ -76,11 +76,9 @@ function get_git_commit_cmd() {
 
 # Called directly by Airflow.
 function build_template() {
-    # shellcheck disable=SC2034
-    GCR_PATH="${GCR_STAGING_DEST}"
     GCS_PATH="${GCS_BUILD_PATH}"
     VER_STRING="${VERSION}"
-    create_subs_file "BRANCH" "GCR_PATH" "GCS_PATH" "GCS_RELEASE_TOOLS_PATH" "VER_STRING"
+    create_subs_file "BRANCH" "DOCKER_HUB" "GCS_PATH" "GCS_RELEASE_TOOLS_PATH" "VER_STRING"
     cat "${SUBS_FILE}"
 
     run_build "cloud_build.template.json" \
@@ -90,7 +88,6 @@ function build_template() {
 
 # Called directly by Airflow.
 function test_command() {
-    DOCKER_HUB="gcr.io/$GCR_STAGING_DEST"
     create_subs_file "BRANCH" "DOCKER_HUB" "GCS_BUILD_PATH" "GCS_RELEASE_TOOLS_PATH" "VERSION"
     cat "${SUBS_FILE}"
 

@@ -75,7 +75,7 @@ function create_linux_archive() {
   ${CP} "${OUTPUT_PATH}/${ISTIOCTL_SUBDIR}/istioctl-linux" "${istioctl_path}"
   chmod 755 "${istioctl_path}"
 
-  ${TAR} --owner releng --group releng -czvf \
+  ${TAR} --owner releng --group releng -czf \
     "${OUTPUT_PATH}/istio-${VER_STRING}-linux.tar.gz" "istio-${VER_STRING}" \
     || error_exit 'Could not create linux archive'
   rm "${istioctl_path}"
@@ -87,7 +87,7 @@ function create_osx_archive() {
   ${CP} "${OUTPUT_PATH}/${ISTIOCTL_SUBDIR}/istioctl-osx" "${istioctl_path}"
   chmod 755 "${istioctl_path}"
 
-  ${TAR} --owner releng --group releng -czvf \
+  ${TAR} --owner releng --group releng -czf \
     "${OUTPUT_PATH}/istio-${VER_STRING}-osx.tar.gz" "istio-${VER_STRING}" \
     || error_exit 'Could not create osx archive'
   rm "${istioctl_path}"
@@ -98,7 +98,7 @@ function create_windows_archive() {
 
   ${CP} "${OUTPUT_PATH}/${ISTIOCTL_SUBDIR}/istioctl-win.exe" "${istioctl_path}"
 
-  zip -r "${OUTPUT_PATH}/istio-${VER_STRING}-win.zip" "istio-${VER_STRING}" \
+  zip -r -q "${OUTPUT_PATH}/istio-${VER_STRING}-win.zip" "istio-${VER_STRING}" \
     || error_exit 'Could not create windows archive'
   rm "${istioctl_path}"
 }

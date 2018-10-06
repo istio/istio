@@ -95,6 +95,10 @@ def DailyPipeline(branch):
     date = datetime.datetime.now()
     date_string = date.strftime('%Y%m%d-%H-%M')
 
+    docker_hub = conf.get('DOCKER_HUB')
+    if docker_hub is None:
+      docker_hub = 'docker.io/testistio'
+
     version = conf.get('VERSION')
     if version is None:
       # VERSION is of the form '{branch}-{date_string}'
@@ -116,8 +120,8 @@ def DailyPipeline(branch):
     default_conf = environment_config.GetDefaultAirflowConfig(
         branch=branch,
         commit=commit,
+        docker_hub=docker_hub,
         gcs_path=gcs_path,
-        mfest_commit=mfest_commit,
         pipeline_type='daily',
         verify_consistency='false',
         version=version)
