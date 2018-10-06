@@ -682,9 +682,8 @@ message RouteDestination {
   Destination destination = 1;
 
   // REQUIRED. The proportion of traffic to be forwarded to the service
-  // version. (0-100). Sum of weights across destinations SHOULD BE == 100.
-  // If there is only one destination in a rule, the weight value is assumed to
-  // be 100.
+  // version. If there is only one destination in a rule, all traffic will be
+  // routed to it irrespective of the weight.
   int32 weight = 2;
 }
 
