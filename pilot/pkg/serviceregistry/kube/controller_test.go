@@ -464,6 +464,82 @@ func TestWorkloadHealthCheckInfoPrometheusPort(t *testing.T) {
 	}
 }
 
+func TestServiceEndpointsAttributes(t *testing.T) {
+	controller := makeFakeKubeAPIController()
+	pods := []*v1.Pod{
+		generatePod("pod1", "nsA", "svc-acct1", "node1", map[string]string{"app": "test-app"}, map[string]string{}),
+	}
+	addPods(t, controller, pods...)
+	// Populate pod cache.
+	controller.pods.keys["128.0.0.1"] = "nsA/pod1"
+	nodes := []*v1.Node{
+		generateNode("node1", map[string]string{NodeZoneLabel: "az1"}),
+	}
+	addNodes(t, controller, nodes...)
+
+	createService(controller, "svc1", "nsA",
+		map[string]string{},
+		[]int32{8080}, map[string]string{"app": "test-app"}, t)
+	createEndpoints(controller, "svc1", "nsA", []string{"test-port"}, []string{"128.0.0.1"}, t)
+
+	hostname := serviceHostname("svc1", "nsA", domainSuffix)
+	expected := model.EndpointAttributes{
+		Namespace:      "nsA",
+		ServiceAccount: "spiffe://company.com/ns/nsA/sa/svc-acct1",
+		Labels:         map[string]string{"app": "test-app"},
+	}
+	ep, err := controller.InstancesByPort(hostname, 8080, nil)
+	if err != nil {
+		t.Errorf("InstancesByPort() returns unexpected error: %v", err)
+	}
+	if len(ep) != 1 {
+		t.Errorf("Invalid return from InstancesByPort() %v", ep)
+	}
+	if !reflect.DeepEqual(ep[0].Endpoint.Attributes, expected) {
+		t.Errorf("Unexpected endpoint attributes %+v (expecting %+v)", ep[0].Endpoint.Attributes, expected)
+	}
+}
+
+func TestServiceEndpointsAttributesWithLabels(t *testing.T) {
+	controller := makeFakeKubeAPIController()
+	pods := []*v1.Pod{
+		generatePod("pod1", "nsA", "svc-acct1", "node1", map[string]string{"app": "test-app"}, map[string]string{}),
+	}
+	addPods(t, controller, pods...)
+	// Populate pod cache.
+	controller.pods.keys["128.0.0.1"] = "nsA/pod1"
+	nodes := []*v1.Node{
+		generateNode("node1", map[string]string{NodeZoneLabel: "az1"}),
+	}
+	addNodes(t, controller, nodes...)
+
+	createService(controller, "svc1", "nsA",
+		map[string]string{},
+		[]int32{8080}, map[string]string{"app": "test-app"}, t)
+	createEndpoints(controller, "svc1", "nsA", []string{"test-port"}, []string{"128.0.0.1"}, t)
+
+	hostname := serviceHostname("svc1", "nsA", domainSuffix)
+	var labels model.LabelsCollection
+	label1 := map[string]string{"app": "test-app"}
+	labels = append(labels, label1)
+
+	expected := model.EndpointAttributes{
+		Namespace:      "nsA",
+		ServiceAccount: "spiffe://company.com/ns/nsA/sa/svc-acct1",
+		Labels:         map[string]string{"app": "test-app"},
+	}
+	ep, err := controller.InstancesByPort(hostname, 8080, labels)
+	if err != nil {
+		t.Errorf("InstancesByPort() returns unexpected error: %v", err)
+	}
+	if len(ep) != 1 {
+		t.Errorf("Invalid return from InstancesByPort() %v", ep)
+	}
+	if !reflect.DeepEqual(ep[0].Endpoint.Attributes, expected) {
+		t.Errorf("Unexpected endpoint attributes %+v (expecting %+v)", ep[0].Endpoint.Attributes, expected)
+	}
+}
+
 func makeFakeKubeAPIController() *Controller {
 	clientSet := fake.NewSimpleClientset()
 	return NewController(clientSet, ControllerOptions{

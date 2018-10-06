@@ -373,11 +373,12 @@ func (c *Controller) InstancesByPort(hostname model.Hostname, reqSvcPort int,
 					}
 
 					pod, exists := c.pods.getPodByIP(ea.IP)
-					az, sa, uid := "", "", ""
+					az, sa, uid, podNamespace := "", "", "", ""
 					if exists {
 						az, _ = c.GetPodAZ(pod)
 						sa = kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace(), c.domainSuffix)
 						uid = fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
+						podNamespace = pod.GetNamespace()
 					}
 
 					// identify the port by name. K8S EndpointPort uses the service port name
@@ -391,6 +392,11 @@ func (c *Controller) InstancesByPort(hostname model.Hostname, reqSvcPort int,
 									Port:        int(port.Port),
 									ServicePort: svcPortEntry,
 									UID:         uid,
+									Attributes: model.EndpointAttributes{
+										Namespace:      podNamespace,
+										ServiceAccount: sa,
+										Labels:         labels,
+									},
 								},
 								Service:          svc,
 								Labels:           labels,

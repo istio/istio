@@ -115,6 +115,10 @@ func MakeInstance(service *model.Service, port *model.Port, version int, az stri
 			Address:     MakeIP(service, version),
 			Port:        target,
 			ServicePort: port,
+			Attributes: model.EndpointAttributes{
+				Namespace: model.IstioDefaultConfigNamespace,
+				Labels:    map[string]string{"version": fmt.Sprintf("v%d", version)},
+			},
 		},
 		Service:          service,
 		Labels:           map[string]string{"version": fmt.Sprintf("v%d", version)},

@@ -298,7 +298,6 @@ type NetworkEndpoint struct {
 	UID string
 }
 
-
 // EndpointAttributes defines the service related attributes in a network endpoint.
 type EndpointAttributes struct {
 	// Namespace for the workload on this network endpoint.
