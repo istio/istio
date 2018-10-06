@@ -97,7 +97,7 @@ def DailyPipeline(branch):
 
     docker_hub = conf.get('DOCKER_HUB')
     if docker_hub is None:
-      docker_hub = 'docker.io/testistio'
+      docker_hub = 'gcr.io/istio-release'
 
     version = conf.get('VERSION')
     if version is None:
