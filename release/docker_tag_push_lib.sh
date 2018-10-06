@@ -95,13 +95,13 @@ function add_docker_creds() {
        --ciphertext-file="$HOME/.docker/config.json.enc" \
        --plaintext-file="$HOME/.docker/config.json" \
        --location=global \
-       --keyring=${KEYRING} \
-       --key=${KEY}
+       --keyring="${KEYRING}" \
+       --key="${KEY}"
     return
   fi
 
   if [[ "${PUSH_HUB}" == "docker.io/testistio" ]]; then
-    gsutil cp gs://istio-secrets/docker.test.json $HOME/.docker/config.json
+    gsutil cp "gs://istio-secrets/docker.test.json" "$HOME/.docker/config.json"
   fi
 
   if [[ "${PUSH_HUB}" == gcr.io* ]]; then

@@ -33,7 +33,6 @@ BUILD_DEBIAN="true"
 BUILD_DOCKER="true"
 REL_DOCKER_HUB=docker.io/istio
 TEST_DOCKER_HUB=""
-TEST_GCS_PATH=""
 
 function usage() {
   echo "$0
@@ -41,18 +40,16 @@ function usage() {
     -c        opts out of building docker artifacts
     -h        docker hub to use (optional defaults to docker.io/istio)
     -o        path to store build artifacts
-    -p        GCS bucket & prefix path where build will be stored for testing (optional)
     -q        path on docker hub (optional, alt to -h defaults to docker.io/istio)
     -t <tag>  tag to use"
   exit 1
 }
 
-while getopts bch:o:p:q:t: arg ; do
+while getopts bch:o:q:t: arg ; do
   case "${arg}" in
     b) BUILD_DEBIAN="false";;
     c) BUILD_DOCKER="false";;
     h) TEST_DOCKER_HUB="${OPTARG}";;
-    p) TEST_GCS_PATH="${OPTARG}";;
     q) TEST_DOCKER_HUB="docker.io/${OPTARG}";;
     o) OUTPUT_PATH="${OPTARG}";;
     t) TAG_NAME="${OPTARG}";;
@@ -63,8 +60,6 @@ done
 [[ -z "${OUTPUT_PATH}" ]] && usage
 [[ -z "${TAG_NAME}"    ]] && usage
 
-DEFAULT_GCS_PATH="https://storage.googleapis.com/istio-release/releases/${TAG_NAME}"
-TEST_PATH=${TEST_GCS_PATH:-$DEFAULT_GCS_PATH}
 DOCKER_HUB=${TEST_DOCKER_HUB:-$REL_DOCKER_HUB}
 
 # switch to the root of the istio repo
