@@ -283,7 +283,7 @@ func initLocalPilotTestEnv(t *testing.T) *bootstrap.Server {
 	server.EnvoyXdsServer.WorkloadUpdate("127.0.0.4", map[string]string{"version": "v1"}, nil)
 
 	// Update cache
-	server.EnvoyXdsServer.ConfigUpdater.ConfigUpdate(true)
+	server.EnvoyXdsServer.ConfigUpdate(true)
 	// TODO: channel to notify when the push is finished and to notify individual updates, for
 	// debug and for the canary.
 	time.Sleep(200 * time.Millisecond)
@@ -323,7 +323,6 @@ func testPorts(base int) []*model.Port {
 
 // Test XDS with real envoy and with mixer.
 func TestEnvoy(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/7869")
 	defer func() {
 		if testEnv != nil {
 			testEnv.TearDown()

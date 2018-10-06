@@ -77,9 +77,6 @@ type ControllerOptions struct {
 	// XDSUpdater will push changes to the xDS server.
 	XDSUpdater model.XDSUpdater
 
-	// ConfigUpdater is used to request global config updates.
-	ConfigUpdater model.ConfigUpdater
-
 	stop chan struct{}
 }
 
@@ -104,10 +101,7 @@ type Controller struct {
 	ClusterID string
 
 	// XDSUpdater will push EDS changes to the ADS model.
-	EDSUpdater model.XDSUpdater
-
-	// ConfigUpdater is used to request global config updates.
-	ConfigUpdater model.ConfigUpdater
+	XDSUpdater model.XDSUpdater
 
 	stop chan struct{}
 }
@@ -125,12 +119,11 @@ func NewController(client kubernetes.Interface, options ControllerOptions) *Cont
 
 	// Queue requires a time duration for a retry delay after a handler error
 	out := &Controller{
-		domainSuffix:  options.DomainSuffix,
-		client:        client,
-		queue:         NewQueue(1 * time.Second),
-		ClusterID:     options.ClusterID,
-		EDSUpdater:    options.XDSUpdater,
-		ConfigUpdater: options.ConfigUpdater,
+		domainSuffix: options.DomainSuffix,
+		client:       client,
+		queue:        NewQueue(1 * time.Second),
+		ClusterID:    options.ClusterID,
+		XDSUpdater:   options.XDSUpdater,
 	}
 
 	sharedInformers := informers.NewFilteredSharedInformerFactory(client, options.ResyncPeriod, options.WatchedNamespace, nil)
@@ -635,11 +628,11 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 			portsByNum[uint32(port.Port)] = port.Name
 		}
 		// EDS needs the port mapping.
-		c.EDSUpdater.SvcUpdate(c.ClusterID, hostname, ports, portsByNum)
+		c.XDSUpdater.SvcUpdate(c.ClusterID, hostname, ports, portsByNum)
 		// Bypass convertService and the cache invalidation.
 
 		// Shortcut the conversion
-		c.ConfigUpdater.ConfigUpdate(true)
+		c.XDSUpdater.ConfigUpdate(true)
 		return nil
 	})
 	return nil
@@ -690,8 +683,8 @@ func (c *Controller) updateEDS(ep *v1.Endpoints) {
 					c.Env.PushContext.Add(model.EndpointNoPod, string(hostname), nil, ea.IP)
 				}
 				// Request a global config update - after debounce we may find an endpoint.
-				if c.ConfigUpdater != nil {
-					c.ConfigUpdater.ConfigUpdate(true)
+				if c.XDSUpdater != nil {
+					c.XDSUpdater.ConfigUpdate(true)
 				}
 				// TODO: keep them in a list, and check when pod events happen !
 				continue
@@ -721,11 +714,11 @@ func (c *Controller) updateEDS(ep *v1.Endpoints) {
 
 	log.Infof("Handle EDS endpoint %s in namespace %s -> %v %v", ep.Name, ep.Namespace, ep.Subsets, endpoints)
 
-	err := c.EDSUpdater.EDSUpdate(c.ClusterID, string(hostname), endpoints)
+	err := c.XDSUpdater.EDSUpdate(c.ClusterID, string(hostname), endpoints)
 	if err != nil {
 		// Request a global push if we failed to do EDS only
-		c.ConfigUpdater.ConfigUpdate(true)
+		c.XDSUpdater.ConfigUpdate(true)
 	} else {
-		c.ConfigUpdater.ConfigUpdate(false)
+		c.XDSUpdater.ConfigUpdate(false)
 	}
 }

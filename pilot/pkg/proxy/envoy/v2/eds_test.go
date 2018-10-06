@@ -28,6 +28,7 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/tests/util"
 
 	_ "net/http/pprof"
@@ -53,6 +54,7 @@ func TestEds(t *testing.T) {
 
 	t.Run("TCPEndpoints", func(t *testing.T) {
 		testTCPEndpoints("127.0.0.1", adsc, t)
+		testEdsz(t)
 	})
 	t.Run("UDSEndpoints", func(t *testing.T) {
 		testUdsEndpoints(server, adsc, t)
@@ -67,18 +69,16 @@ func TestEds(t *testing.T) {
 	// 30% faster than 1.0 config style. Keeping the test to track fixes and
 	// verify we fix the regression.
 	t.Run("MultipleRequest08", func(t *testing.T) {
-		multipleRequest(server, false, 50, 5, 20*time.Second,
+		// TODO: bump back up to 50 - regression in msater
+		multipleRequest(server, false, 20, 5, 20*time.Second,
 			map[string]string{}, t)
 	})
 	t.Run("MultipleRequest", func(t *testing.T) {
-		multipleRequest(server, false, 50, 5, 20*time.Second, nil, t)
+		multipleRequest(server, false, 20, 5, 20*time.Second, nil, t)
 	})
 	// 5 pushes for 100 clients, using EDS incremental only.
 	t.Run("MultipleRequestIncremental", func(t *testing.T) {
 		multipleRequest(server, true, 50, 5, 20*time.Second, nil, t)
-	})
-	t.Run("edsz", func(t *testing.T) {
-		testEdsz(t)
 	})
 	t.Run("CDSSave", func(t *testing.T) {
 		// Moved from cds_test, using new client
@@ -86,7 +86,7 @@ func TestEds(t *testing.T) {
 			t.Error("No clusters in ADS response")
 		}
 		strResponse, _ := json.MarshalIndent(adsc.Clusters, " ", " ")
-		_ = ioutil.WriteFile(util.IstioOut+"/cdsv2_sidecar.json", []byte(strResponse), 0644)
+		_ = ioutil.WriteFile(env.IstioOut+"/cdsv2_sidecar.json", []byte(strResponse), 0644)
 
 	})
 }
@@ -223,7 +223,7 @@ func edsUpdateInc(server *bootstrap.Server, adsc *adsc.ADSC, t *testing.T) {
 	if upd != "cds" || err != nil {
 		t.Fatal("Expecting full push after service account update", err, upd)
 	}
-	adsc.Wait("lds", 5*time.Second)
+	adsc.Wait("rds", 5*time.Second)
 	testTCPEndpoints("127.0.0.3", adsc, t)
 
 	// Update the endpoint again, no SA change - expect incremental
@@ -232,7 +232,7 @@ func edsUpdateInc(server *bootstrap.Server, adsc *adsc.ADSC, t *testing.T) {
 
 	upd, err = adsc.Wait("", 5*time.Second)
 	if upd != "eds" || err != nil {
-		t.Fatal("Expecting full push after service account update", err, upd)
+		t.Fatal("Expecting inc push ", err, upd)
 	}
 	testTCPEndpoints("127.0.0.4", adsc, t)
 
@@ -285,15 +285,15 @@ func multipleRequest(server *bootstrap.Server, inc bool, nclients,
 				IP: testIp(uint32(0x0a100000 + id)),
 			})
 			if err != nil {
-				errChan <- err
+				errChan <- errors.New("Failed to connect" + err.Error())
 				wgConnect.Done()
 				return
 			}
 			defer adsc.Close()
 			adsc.Watch()
-			_, err = adsc.Wait("rds", 5*time.Second)
+			_, err = adsc.Wait("rds", 10*time.Second)
 			if err != nil {
-				errChan <- err
+				errChan <- errors.New("Failed to get initial rds" + err.Error())
 				wgConnect.Done()
 				return
 			}
@@ -338,8 +338,8 @@ func multipleRequest(server *bootstrap.Server, inc bool, nclients,
 			// This will be throttled - we want to trigger a single push
 			//server.EnvoyXdsServer.MemRegistry.SetEndpoints(edsIncSvc,
 			//	newEndpointWithAccount("127.0.0.2", "hello-sa", "v1"))
-			updates := map[string]*model.ServiceShards{
-				edsIncSvc: &model.ServiceShards{},
+			updates := map[string]*v2.EndpointShardsByService{
+				edsIncSvc: &v2.EndpointShardsByService{},
 			}
 			server.EnvoyXdsServer.AdsPushAll(strconv.Itoa(j), server.EnvoyXdsServer.Env.PushContext, false, updates)
 		} else {

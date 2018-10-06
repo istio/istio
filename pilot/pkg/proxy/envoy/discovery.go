@@ -18,15 +18,11 @@ import (
 	"net/http"
 	"net/http/pprof"
 	"sort"
-	"strconv"
-	"sync"
-	"time"
 
 	"github.com/emicklei/go-restful"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/features/pilot"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
 )
@@ -67,82 +63,10 @@ var (
 		}, []string{metricLabelMethod, metricBuildVersion})
 )
 
-var (
-	// Variables associated with clear cache squashing.
-	clearCacheMutex sync.RWMutex
-
-	// lastClearCache is the time we last pushed
-	lastClearCache time.Time
-
-	// lastClearCacheEvent is the time of the last config event
-	lastClearCacheEvent time.Time
-
-	// clearCacheCounter is the counter of 'clearCache' calls
-	clearCacheCounter int
-
-	// clearCacheTimerSet is true if we are in squash mode, and a timer is already set
-	clearCacheTimerSet bool
-
-	// clearCacheTime is the max time to squash a series of events.
-	// The push will happen 1 sec after the last config change, or after 'clearCacheTime'
-	// Default value is 1 second, or the value of PILOT_CACHE_SQUASH env
-	clearCacheTime = 1
-
-	// Push is used to request a push, when config changes. This is used to
-	// avoid adding a circular dependency from v1 to v2 - the method is implemented
-	// in the ADS server.
-	Push func(fullPush bool, edsUpdates map[string]*model.ServiceShards)
-
-	// BeforePush is called before a push. Like Push, it is an artifact of the split
-	// of discovery from v2/discovery and the migration from v1.
-	BeforePush func() map[string]*model.ServiceShards
-
-	// DebounceAfter is the delay added to events to wait
-	// after a registry/config event for debouncing.
-	// This will delay the push by at least this interval, plus
-	// the time getting subsequent events. If no change is
-	// detected the push will happen, otherwise we'll keep
-	// delaying until things settle.
-	DebounceAfter time.Duration
-
-	// DebounceMax is the maximum time to wait for events
-	// while debouncing. Defaults to 10 seconds. If events keep
-	// showing up with no break for this time, we'll trigger a push.
-	DebounceMax time.Duration
-)
-
-func init() {
-	cacheSquash := pilot.CacheSquash
-	if len(cacheSquash) > 0 {
-		t, err := strconv.Atoi(cacheSquash)
-		if err == nil {
-			clearCacheTime = t
-		}
-	}
-
-	DebounceAfter = envDuration(pilot.DebounceAfter, 100*time.Millisecond)
-	DebounceMax = envDuration(pilot.DebounceMax, 10*time.Second)
-}
-
-func envDuration(envVal string, def time.Duration) time.Duration {
-	if envVal == "" {
-		return def
-	}
-	d, err := time.ParseDuration(envVal)
-	if err != nil {
-		log.Warnf("Invalid value %s %v", envVal, err)
-		return def
-	}
-	return d
-}
-
 // DiscoveryService publishes services, clusters, and routes for all proxies
 type DiscoveryService struct {
 	*model.Environment
 	RestContainer *restful.Container
-
-	// true if a full push is needed after debounce. False if only EDS is required.
-	fullPush bool
 }
 
 type host struct {
@@ -188,8 +112,7 @@ type DiscoveryServiceOptions struct {
 }
 
 // NewDiscoveryService creates an Envoy discovery service on a given port
-func NewDiscoveryService(ctl model.Controller, configCache model.ConfigStoreCache,
-	environment *model.Environment, o DiscoveryServiceOptions) (*DiscoveryService, error) {
+func NewDiscoveryService(environment *model.Environment, o DiscoveryServiceOptions) (*DiscoveryService, error) {
 	out := &DiscoveryService{
 		Environment: environment,
 	}
@@ -204,29 +127,6 @@ func NewDiscoveryService(ctl model.Controller, configCache model.ConfigStoreCach
 	}
 	out.Register(container)
 	out.RestContainer = container
-
-	// Flush cached discovery responses whenever services, service
-	// instances, or routing configuration changes.
-	serviceHandler := func(*model.Service, model.Event) { out.clearCache() }
-	if err := ctl.AppendServiceHandler(serviceHandler); err != nil {
-		return nil, err
-	}
-	instanceHandler := func(*model.ServiceInstance, model.Event) { out.clearCache() }
-	if err := ctl.AppendInstanceHandler(instanceHandler); err != nil {
-		return nil, err
-	}
-
-	// Flush cached discovery responses when detecting jwt public key change.
-	model.JwtKeyResolver.PushFunc = out.ClearCache
-
-	if configCache != nil {
-		// TODO: changes should not trigger a full recompute of LDS/RDS/CDS/EDS
-		// (especially mixerclient HTTP and quota)
-		configHandler := func(model.Config, model.Event) { out.clearCache() }
-		for _, descriptor := range model.IstioConfigTypes {
-			configCache.RegisterEventHandler(descriptor.Type, configHandler)
-		}
-	}
 
 	return out, nil
 }
@@ -243,124 +143,6 @@ func (ds *DiscoveryService) Register(container *restful.Container) {
 		Doc("Services in SDS"))
 
 	container.Add(ws)
-}
-
-// ClearCache is wrapper for clearCache method, used when new controller gets
-// instantiated dynamically
-func (ds *DiscoveryService) ClearCache() {
-	ds.clearCache()
-}
-
-// debouncePush is called on config or endpoint changes, to initiate a push.
-func (ds *DiscoveryService) debouncePush(startDebounce time.Time) {
-	clearCacheMutex.RLock()
-	since := time.Since(lastClearCacheEvent)
-	events := clearCacheCounter
-	clearCacheMutex.RUnlock()
-
-	if since > 2*DebounceAfter ||
-		time.Since(startDebounce) > DebounceMax {
-
-		log.Infof("Push debounce stable %d: %v since last change, %v since last push, full=%v",
-			events,
-			since, time.Since(lastClearCache), ds.fullPush)
-
-		ds.doPush()
-
-	} else {
-		time.AfterFunc(DebounceAfter, func() {
-			ds.debouncePush(startDebounce)
-		})
-	}
-}
-
-// Start the actual push
-func (ds *DiscoveryService) doPush() {
-	// more config update events may happen while doPush is processing.
-	// we don't want to lose updates.
-	clearCacheMutex.Lock()
-
-	clearCacheTimerSet = false
-	lastClearCache = time.Now()
-	full := ds.fullPush
-	edsUpdates := BeforePush()
-
-	// Update the config values, next ConfigUpdate and eds updates will use this
-	ds.fullPush = false
-
-	clearCacheMutex.Unlock()
-
-	Push(full, edsUpdates)
-}
-
-// clearCache will clear all envoy caches. Called by service, instance and config handlers.
-// This will impact the performance, since envoy will need to recalculate.
-func (ds *DiscoveryService) clearCache() {
-	ds.ConfigUpdate(true)
-}
-
-// ConfigUpdate implements ConfigUpdater interface, used to request pushes.
-// It replaces the 'clear cache' from v1.
-func (ds *DiscoveryService) ConfigUpdate(full bool) {
-	clearCacheMutex.Lock()
-	defer clearCacheMutex.Unlock()
-
-	if full {
-		ds.fullPush = true
-	}
-	clearCacheCounter++
-
-	if DebounceAfter > 0 {
-		lastClearCacheEvent = time.Now()
-
-		if !clearCacheTimerSet {
-			clearCacheTimerSet = true
-			startDebounce := lastClearCacheEvent
-			time.AfterFunc(DebounceAfter, func() {
-				ds.debouncePush(startDebounce)
-			})
-		} // else: debounce in progress - it'll keep delaying the push
-
-		return
-	}
-
-	// Old code, for safety
-	// If last config change was > 1 second ago, push.
-	if time.Since(lastClearCacheEvent) > 1*time.Second {
-		log.Infof("Push %d: %v since last change, %v since last push",
-			clearCacheCounter,
-			time.Since(lastClearCacheEvent), time.Since(lastClearCache))
-		lastClearCacheEvent = time.Now()
-		lastClearCache = time.Now()
-
-		ds.doPush()
-		return
-	}
-
-	lastClearCacheEvent = time.Now()
-
-	// If last config change was < 1 second ago, but last push is > clearCacheTime ago -
-	// also push
-	if time.Since(lastClearCache) > time.Duration(clearCacheTime)*time.Second {
-		log.Infof("Timer push %d: %v since last change, %v since last push",
-			clearCacheCounter, time.Since(lastClearCacheEvent), time.Since(lastClearCache))
-		lastClearCache = time.Now()
-		ds.doPush()
-		return
-	}
-
-	// Last config change was < 1 second ago, and we're continuing to get changes.
-	// Set a timer 1 second in the future, to evaluate again.
-	// if a timer was already set, don't bother.
-	if !clearCacheTimerSet {
-		clearCacheTimerSet = true
-		time.AfterFunc(1*time.Second, func() {
-			clearCacheMutex.Lock()
-			clearCacheTimerSet = false
-			clearCacheMutex.Unlock()
-			ds.clearCache() // re-evaluate after 1 second. If no activity - push will happen
-		})
-	}
 }
 
 // ListAllEndpoints responds with all Services and is not restricted to a single service-key

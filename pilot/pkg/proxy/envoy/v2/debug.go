@@ -38,13 +38,12 @@ import (
 // In future (post 1.0) it may be used for representing remote pilots.
 
 // InitDebug initializes the debug handlers and adds a debug in-memory registry.
-func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controller, cfg model.ConfigUpdater) {
+func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controller) {
 	// For debugging and load testing v2 we add an memory registry.
 	s.MemRegistry = NewMemServiceDiscovery(
 		map[model.Hostname]*model.Service{ // mock.HelloService.Hostname: mock.HelloService,
 		}, 2)
 	s.MemRegistry.EDSUpdater = s
-	s.MemRegistry.ConfigUpdater = cfg
 	s.MemRegistry.ClusterID = "v2-debug"
 
 	sctl.AddRegistry(aggregate.Registry{
@@ -159,7 +158,7 @@ func (c *memServiceController) Run(<-chan struct{}) {}
 // MemServiceDiscovery is a mock discovery interface
 type MemServiceDiscovery struct {
 	services map[model.Hostname]*model.Service
-	// ServiceShards table. Key is the fqdn of the service, ':', port
+	// EndpointShardsByService table. Key is the fqdn of the service, ':', port
 	instancesByPortNum  map[string][]*model.ServiceInstance
 	instancesByPortName map[string][]*model.ServiceInstance
 
@@ -176,8 +175,7 @@ type MemServiceDiscovery struct {
 	ClusterID                     string
 
 	// XDSUpdater will push EDS changes to the ADS model.
-	EDSUpdater    model.XDSUpdater
-	ConfigUpdater model.ConfigUpdater
+	EDSUpdater model.XDSUpdater
 
 	// Single mutex for now - it's for debug only.
 	mutex sync.Mutex
@@ -313,9 +311,9 @@ func (sd *MemServiceDiscovery) SetEndpoints(service string, endpoints []*model.I
 	err := sd.EDSUpdater.EDSUpdate(sd.ClusterID, service, endpoints)
 	if err != nil {
 		// Request a global push if we failed to do EDS only
-		sd.ConfigUpdater.ConfigUpdate(true)
+		sd.EDSUpdater.ConfigUpdate(true)
 	} else {
-		sd.ConfigUpdater.ConfigUpdate(false)
+		sd.EDSUpdater.ConfigUpdate(false)
 	}
 }
 

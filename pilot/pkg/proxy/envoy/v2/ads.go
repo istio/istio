@@ -296,7 +296,7 @@ type XdsEvent struct {
 
 	// If not empty, it is used to indicate the event is caused by a change in the clusters.
 	// Only EDS for the listed clusters will be sent.
-	edsUpdatedServices map[string]*model.ServiceShards
+	edsUpdatedServices map[string]*EndpointShardsByService
 
 	push *model.PushContext
 
@@ -355,19 +355,17 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 	// check works, since it assumes ClearCache is called (and as such PushContext
 	// is initialized)
 	// InitContext returns immediately if the context was already initialized.
-	pc := s.globalPushContext()
-
-	err := pc.InitContext(s.Env)
+	err := s.globalPushContext().InitContext(s.Env)
 	if err != nil {
 		// Error accessing the data - log and close, maybe a different pilot replica
 		// has more luck
 		adsLog.Warnf("Error reading config %v", err)
 		return err
 	}
-	if pc.Services == nil {
+	if s.globalPushContext().Services == nil {
 		// Error accessing the data - log and close, maybe a different pilot replica
 		// has more luck
-		adsLog.Warnf("Not initialized %v", pc)
+		adsLog.Warnf("Not initialized %v", s.globalPushContext())
 		return err
 	}
 
@@ -431,7 +429,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				// soon as the CDS push is returned.
 				adsLog.Infof("ADS:CDS: REQ %v %s %v raw: %s", peerAddr, con.ConID, time.Since(t0), discReq.String())
 				con.CDSWatch = true
-				err := s.pushCds(con, pc, versionInfo())
+				err := s.pushCds(con, s.globalPushContext(), versionInfo())
 				if err != nil {
 					return err
 				}
@@ -451,7 +449,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				// too verbose - sent immediately after EDS response is received
 				adsLog.Debugf("ADS:LDS: REQ %s %v", con.ConID, peerAddr)
 				con.LDSWatch = true
-				err := s.pushLds(con, pc, true, versionInfo())
+				err := s.pushLds(con, s.globalPushContext(), true, versionInfo())
 				if err != nil {
 					return err
 				}
@@ -489,7 +487,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 
 				con.Routes = routes
 				adsLog.Debugf("ADS:RDS: REQ %s %s  routes: %d", peerAddr, con.ConID, len(con.Routes))
-				err := s.pushRoute(con, pc)
+				err := s.pushRoute(con, s.globalPushContext())
 				if err != nil {
 					return err
 				}
@@ -501,12 +499,18 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					edsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": discReq.ErrorDetail.Message}).Add(1)
 				}
 
-				if len(clusters) == len(con.Clusters) {
-					// clusters and con.Clusters are all empty, this is not an ack and will do nothing.
-					if len(clusters) == 0 && len(con.Clusters) == 0 {
-						continue
+				if clusters == nil && discReq.ResponseNonce != "" {
+					// There is no requirement that ACK includes clusters. The test doesn't.
+					if discReq.ErrorDetail == nil && discReq.ResponseNonce != "" {
+						con.EndpointNonceAcked = discReq.ResponseNonce
 					}
-
+					continue
+				}
+				// clusters and con.Clusters are all empty, this is not an ack and will do nothing.
+				if len(clusters) == 0 && len(con.Clusters) == 0 {
+					continue
+				}
+				if len(clusters) == len(con.Clusters) {
 					sort.Strings(clusters)
 					sort.Strings(con.Clusters)
 
@@ -532,7 +536,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 
 				con.Clusters = clusters
 				adsLog.Debugf("ADS:EDS: REQ %s %s clusters: %d", peerAddr, con.ConID, len(con.Clusters))
-				err := s.pushEds(pc, con, true, nil)
+				err := s.pushEds(s.globalPushContext(), con, true, nil)
 				if err != nil {
 					return err
 				}
@@ -551,10 +555,17 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 			// This is not optimized yet - we should detect what changed based on event and only
 			// push resources that need to be pushed.
 
+			// TODO: possible race condition: if a config change happens while the envoy
+			// was getting the initial config, between LDS and RDS, the push will miss the
+			// monitored 'routes'. Same for CDS/EDS interval.
+			// It is very tricky to handle due to the protocol - but the periodic push recovers
+			// from it.
+
 			err := s.pushAll(con, pushEv)
 			if err != nil {
 				return nil
 			}
+
 		}
 	}
 }
@@ -577,6 +588,8 @@ func (s *DiscoveryServer) pushAll(con *XdsConnection, pushEv *XdsEvent) error {
 		}
 		return nil
 	}
+
+	adsLog.Infof("Pushing %v", con.ConID)
 
 	s.rateLimiter.Wait(context.TODO()) // rate limit the actual push
 
@@ -646,7 +659,7 @@ func AdsPushAll(s *DiscoveryServer) {
 // Primary code path is from v1 discoveryService.clearCache(), which is added as a handler
 // to the model ConfigStorageCache and Controller.
 func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext,
-	full bool, edsUpdates map[string]*model.ServiceShards) {
+	full bool, edsUpdates map[string]*EndpointShardsByService) {
 	if !full {
 		s.edsIncremental(version, push, edsUpdates)
 		return
@@ -684,7 +697,7 @@ func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext,
 
 // Send a signal to all connections, with a push event.
 func (s *DiscoveryServer) startPush(version string, push *model.PushContext, full bool,
-	edsUpdates map[string]*model.ServiceShards) {
+	edsUpdates map[string]*EndpointShardsByService) {
 
 	// Push config changes, iterating over connected envoys. This cover ADS and EDS(0.7), both share
 	// the same connection table

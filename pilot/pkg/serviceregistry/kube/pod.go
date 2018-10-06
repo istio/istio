@@ -82,8 +82,8 @@ func (out *PodCache) event(obj interface{}, ev model.Event) error {
 			case v1.PodPending, v1.PodRunning:
 				// add to cache if the pod is running or pending
 				out.keys[ip] = key
-				if out.c.EDSUpdater != nil {
-					out.c.EDSUpdater.WorkloadUpdate(ip, pod.ObjectMeta.Labels, pod.ObjectMeta.Annotations)
+				if out.c.XDSUpdater != nil {
+					out.c.XDSUpdater.WorkloadUpdate(ip, pod.ObjectMeta.Labels, pod.ObjectMeta.Annotations)
 				}
 			}
 		case model.EventUpdate:
@@ -91,15 +91,15 @@ func (out *PodCache) event(obj interface{}, ev model.Event) error {
 			case v1.PodPending, v1.PodRunning:
 				// add to cache if the pod is running or pending
 				out.keys[ip] = key
-				if out.c.EDSUpdater != nil {
-					out.c.EDSUpdater.WorkloadUpdate(ip, pod.ObjectMeta.Labels, pod.ObjectMeta.Annotations)
+				if out.c.XDSUpdater != nil {
+					out.c.XDSUpdater.WorkloadUpdate(ip, pod.ObjectMeta.Labels, pod.ObjectMeta.Annotations)
 				}
 			default:
 				// delete if the pod switched to other states and is in the cache
 				if out.keys[ip] == key {
 					delete(out.keys, ip)
-					if out.c.EDSUpdater != nil {
-						out.c.EDSUpdater.WorkloadUpdate(ip, nil, nil)
+					if out.c.XDSUpdater != nil {
+						out.c.XDSUpdater.WorkloadUpdate(ip, nil, nil)
 					}
 				}
 			}
@@ -108,7 +108,7 @@ func (out *PodCache) event(obj interface{}, ev model.Event) error {
 			if out.keys[ip] == key {
 				delete(out.keys, ip)
 				if out.c != nil {
-					out.c.EDSUpdater.WorkloadUpdate(ip, nil, nil)
+					out.c.XDSUpdater.WorkloadUpdate(ip, nil, nil)
 				}
 			}
 		}

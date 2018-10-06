@@ -200,7 +200,7 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 	if !f {
 		return s.updateCluster(push, clusterName, edsCluster)
 	}
-	portName, f := portMap[uint32(port)]
+	svcPort, f := portMap.GetByPort(port)
 	if !f {
 		return s.updateCluster(push, clusterName, edsCluster)
 	}
@@ -218,7 +218,7 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 	// for this cluster
 	for _, es := range se.Shards {
 		for _, el := range es.Entries {
-			if portName != el.ServicePortName {
+			if svcPort.Name != el.ServicePortName {
 				continue
 			}
 			// Port labels
@@ -389,21 +389,27 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 	return nil
 }
 
-// SvcUpdate is a callback from service discovery to update the port mapping.
+// SvcUpdate is a callback from service discovery when service info changes.
 func (s *DiscoveryServer) SvcUpdate(cluster, hostname string, ports map[string]uint32, rports map[uint32]string) {
 	pc := s.globalPushContext()
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	if cluster == "" {
-		pc.ServiceName2Ports[hostname] = ports
-		pc.ServicePort2Name[hostname] = rports
+		pl := model.PortList{}
+		for k, v := range ports {
+			pl = append(pl, &model.Port{
+				Port: int(v),
+				Name: k,
+			})
+		}
+		pc.ServicePort2Name[hostname] = pl
 	}
 	// TODO: for updates from other clusters, warn if they don't match primary.
 }
 
 // Update clusters for an incremental EDS push, and initiate the push.
 // Only clusters that changed are updated/pushed.
-func (s *DiscoveryServer) edsIncremental(version string, push *model.PushContext, edsUpdates map[string]*model.ServiceShards) {
+func (s *DiscoveryServer) edsIncremental(version string, push *model.PushContext, edsUpdates map[string]*EndpointShardsByService) {
 	adsLog.Infof("XDS:EDSInc Pushing %s Services: %v, "+
 		"VirtualServices: %d, ConnectedEndpoints: %d", version, edsUpdates,
 		len(push.VirtualServiceConfigs), adsClientCount())
@@ -468,7 +474,7 @@ func (s *DiscoveryServer) WorkloadUpdate(id string, labels map[string]string, an
 	// no other workload can be affected. Safer option is to fallback to full push.
 
 	adsLog.Infof("Label change, full push %s ", id)
-	s.ConfigUpdater.ConfigUpdate(true)
+	s.ConfigUpdate(true)
 }
 
 // EDSUpdate computes destination address membership across all clusters and networks.
@@ -479,21 +485,6 @@ func (s *DiscoveryServer) WorkloadUpdate(id string, labels map[string]string, an
 func (s *DiscoveryServer) EDSUpdate(shard, serviceName string,
 	entries []*model.IstioEndpoint) error {
 	return s.edsUpdate(shard, serviceName, entries, false)
-}
-
-// BeforePush is a callback invoked just before the push. It currently swaps and returns the
-// EdsUpdates map - additional preparation will be added as we move to full incremental.
-// This is needed to keep things isolated and use the right mutex.
-// Once proxy/envoy/discovery is merged into v2 discovery this can become non-public.
-func (s *DiscoveryServer) BeforePush() map[string]*model.ServiceShards {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	edsUpdates := s.edsUpdates
-	// Reset - any new updates will be tracked by the new map
-	s.edsUpdates = map[string]*model.ServiceShards{}
-
-	return edsUpdates
 }
 
 func (s *DiscoveryServer) edsUpdate(shard, serviceName string,
@@ -512,20 +503,20 @@ func (s *DiscoveryServer) edsUpdate(shard, serviceName string,
 		// This endpoint is for a service that was not previously loaded.
 		// Return an error to force a full sync, which will also cause the
 		// EndpointsShardsByService to be initialized with all services.
-		ep = &model.ServiceShards{
-			Shards:          map[string]*model.EndpointShard{},
+		ep = &EndpointShardsByService{
+			Shards:          map[string]*EndpointShard{},
 			ServiceAccounts: map[string]bool{},
 		}
 		s.EndpointShardsByService[serviceName] = ep
 		if !internal {
 			adsLog.Infof("Full push, new service %s", serviceName)
-			s.ConfigUpdater.ConfigUpdate(true)
+			s.ConfigUpdate(true)
 		}
 	}
 
 	// 2. Update data for the specific cluster. Each cluster gets independent
 	// updates containing the full list of endpoints for the service in that cluster.
-	ce := &model.EndpointShard{
+	ce := &EndpointShard{
 		Shard:   shard,
 		Entries: []*model.IstioEndpoint{},
 	}
@@ -538,7 +529,7 @@ func (s *DiscoveryServer) edsUpdate(shard, serviceName string,
 				// The entry has a service account that was not previously associated.
 				// Requires a CDS push and full sync.
 				adsLog.Infof("Endpoint updating service account %s %s", e.ServiceAccount, serviceName)
-				s.ConfigUpdater.ConfigUpdate(true)
+				s.ConfigUpdate(true)
 			}
 		}
 	}
@@ -589,7 +580,7 @@ func connectionID(node string) string {
 // pushEds is pushing EDS updates for a single connection. Called the first time
 // a client connects, for incremental updates and for full periodic updates.
 func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection,
-	full bool, edsUpdatedServices map[string]*model.ServiceShards) error {
+	full bool, edsUpdatedServices map[string]*EndpointShardsByService) error {
 	resAny := []types.Any{}
 
 	emptyClusters := 0
@@ -729,7 +720,7 @@ func (s *DiscoveryServer) removeEdsCon(clusterName string, node string, connecti
 		// This happens when a previously used cluster is no longer watched by any
 		// sidecar. It should not happen very often - normally all clusters are sent
 		// in CDS requests to all sidecars. It may happen if all connections are closed.
-		adsLog.Infof("EDS: remove unwatched cluster node=%s cluster=%s", node, clusterName)
+		adsLog.Debugf("EDS: remove unwatched cluster node=%s cluster=%s", node, clusterName)
 		delete(edsClusters, clusterName)
 	}
 }

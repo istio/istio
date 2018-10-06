@@ -40,6 +40,24 @@ var (
 	version = "0"
 
 	periodicRefreshMetrics = 10 * time.Second
+
+	// clearCacheTime is the max time to squash a series of events.
+	// The push will happen 1 sec after the last config change, or after 'clearCacheTime'
+	// Default value is 1 second, or the value of PILOT_CACHE_SQUASH env
+	clearCacheTime = 1
+
+	// DebounceAfter is the delay added to events to wait
+	// after a registry/config event for debouncing.
+	// This will delay the push by at least this interval, plus
+	// the time getting subsequent events. If no change is
+	// detected the push will happen, otherwise we'll keep
+	// delaying until things settle.
+	DebounceAfter time.Duration
+
+	// DebounceMax is the maximum time to wait for events
+	// while debouncing. Defaults to 10 seconds. If events keep
+	// showing up with no break for this time, we'll trigger a push.
+	DebounceMax time.Duration
 )
 
 const (
@@ -56,6 +74,31 @@ const (
 	// RouteType is sent after listeners.
 	RouteType = typePrefix + "RouteConfiguration"
 )
+
+func init() {
+	cacheSquash := pilot.CacheSquash
+	if len(cacheSquash) > 0 {
+		t, err := strconv.Atoi(cacheSquash)
+		if err == nil {
+			clearCacheTime = t
+		}
+	}
+
+	DebounceAfter = envDuration(pilot.DebounceAfter, 100*time.Millisecond)
+	DebounceMax = envDuration(pilot.DebounceMax, 10*time.Second)
+}
+
+func envDuration(envVal string, def time.Duration) time.Duration {
+	if envVal == "" {
+		return def
+	}
+	d, err := time.ParseDuration(envVal)
+	if err != nil {
+		adsLog.Warnf("Invalid value %s %v", envVal, err)
+		return def
+	}
+	return d
+}
 
 // DiscoveryServer is Pilot's gRPC implementation for Envoy's v2 xds APIs
 type DiscoveryServer struct {
@@ -83,25 +126,72 @@ type DiscoveryServer struct {
 	// shards.
 	mutex sync.RWMutex
 
-	// ServiceShards for a service. This is a global (per-server) list, built from
+	// EndpointShardsByService for a service. This is a global (per-server) list, built from
 	// incremental updates.
-	EndpointShardsByService map[string]*model.ServiceShards
+	EndpointShardsByService map[string]*EndpointShardsByService
 
 	// WorkloadsById keeps track of informations about a workload, based on direct notifications
 	// from registry. This acts as a cache and allows detecting changes.
 	WorkloadsByID map[string]*Workload
-
-	// ConfigUpdater implements the debouncing and tracks the change detection.
-	// This is used to decouple the envoy/v2 from envoy/, artifact of the v1 deprecation.
-	// In 1.1 we'll simplify/cleanup further.
-	ConfigUpdater model.ConfigUpdater
 
 	// edsUpdates keeps track of all service updates since last full push.
 	// Key is the hostname (servicename). Value is set when any shard part of the service is
 	// updated. This should only be used in the xDS server - will be removed/made private in 1.1,
 	// once the last v1 pieces are cleaned. For 1.0.3+ it is used only for tracking incremental
 	// pushes between the 2 packages.
-	edsUpdates map[string]*model.ServiceShards
+	edsUpdates map[string]*EndpointShardsByService
+
+	updateChannel chan *updateReq
+
+	// mutex used for config update scheduling (former cache update mutex)
+	updateMutex sync.RWMutex
+
+	// true if a full push is needed after debounce. False if only EDS is required.
+	fullPush bool
+
+	// lastPushStart (former lastClearCache) is the time we last started a push
+	lastPushStart time.Time
+
+	// lastConfigUpdateTime is the time of the last config event
+	lastConfigUpdateTime time.Time
+
+	// confiugUpdateCounter is the counter of 'clearCache' calls
+	configUpdateCounter int
+
+	// debouncePushTimerSet is true if a config update was requested and we are
+	// waiting for more events, to debounce.
+	debouncePushTimerSet bool
+}
+
+// updateReq includes info about the requested update.
+type updateReq struct {
+	full bool
+}
+
+// EndpointShardsByService holds the set of endpoint shards of a service. Registries update
+// individual shards incrementally. The shards are aggregated and split into
+// clusters when a push for the specific cluster is needed.
+type EndpointShardsByService struct {
+
+	// Shards is used to track the shards. EDS updates are grouped by shard.
+	// Current implementation uses the registry name as key - in multicluster this is the
+	// name of the k8s cluster, derived from the config (secret).
+	Shards map[string]*EndpointShard
+
+	// ServiceAccounts has the concatenation of all service accounts seen so far in endpoints.
+	// This is updated on push, based on shards. If the previous list is different than
+	// current list, a full push will be forced, to trigger a secure naming update.
+	// Due to the larger time, it is still possible that connection errors will occur while
+	// CDS is updated.
+	ServiceAccounts map[string]bool
+}
+
+// EndpointShard contains all the endpoints for a single shard (subset) of a service.
+// Shards are updated atomically by registries. A registry may split a service into
+// multiple shards (for example each deployment, or smaller sub-sets).
+type EndpointShard struct {
+	Shard   string
+	Entries []*model.IstioEndpoint
 }
 
 // Workload has the minimal info we need to detect if we need to push workloads, and to
@@ -126,16 +216,41 @@ func intEnv(envVal string, def int) int {
 }
 
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
-func NewDiscoveryServer(env *model.Environment, generator core.ConfigGenerator) *DiscoveryServer {
+func NewDiscoveryServer(env *model.Environment, generator core.ConfigGenerator, ctl model.Controller, configCache model.ConfigStoreCache) *DiscoveryServer {
 	out := &DiscoveryServer{
 		Env:                     env,
 		ConfigGenerator:         generator,
-		EndpointShardsByService: map[string]*model.ServiceShards{},
+		EndpointShardsByService: map[string]*EndpointShardsByService{},
 		WorkloadsByID:           map[string]*Workload{},
-		edsUpdates:              map[string]*model.ServiceShards{},
+		edsUpdates:              map[string]*EndpointShardsByService{},
 		concurrentPushLimit:     make(chan struct{}, 20), // TODO(hzxuzhonghu): support configuration
+		updateChannel:           make(chan *updateReq, 10),
 	}
 	env.PushContext = model.NewPushContext()
+	go out.handleUpdates()
+
+	// Flush cached discovery responses whenever services, service
+	// instances, or routing configuration changes.
+	serviceHandler := func(*model.Service, model.Event) { out.clearCache() }
+	if err := ctl.AppendServiceHandler(serviceHandler); err != nil {
+		return nil
+	}
+	instanceHandler := func(*model.ServiceInstance, model.Event) { out.clearCache() }
+	if err := ctl.AppendInstanceHandler(instanceHandler); err != nil {
+		return nil
+	}
+
+	// Flush cached discovery responses when detecting jwt public key change.
+	model.JwtKeyResolver.PushFunc = out.ClearCache
+
+	if configCache != nil {
+		// TODO: changes should not trigger a full recompute of LDS/RDS/CDS/EDS
+		// (especially mixerclient HTTP and quota)
+		configHandler := func(model.Config, model.Event) { out.clearCache() }
+		for _, descriptor := range model.IstioConfigTypes {
+			configCache.RegisterEventHandler(descriptor.Type, configHandler)
+		}
+	}
 
 	go out.periodicRefresh()
 
@@ -233,14 +348,14 @@ func (s *DiscoveryServer) ServiceAccounts(serviceName string) []string {
 
 // Returns the global push context.
 func (s *DiscoveryServer) globalPushContext() *model.PushContext {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
+	s.updateMutex.RLock()
+	defer s.updateMutex.RUnlock()
 	return s.Env.PushContext
 }
 
 // Push is called to push changes on config updates using ADS. This is set in DiscoveryService.Push,
 // to avoid direct dependencies.
-func (s *DiscoveryServer) Push(full bool, edsUpdates map[string]*model.ServiceShards) {
+func (s *DiscoveryServer) Push(full bool, edsUpdates map[string]*EndpointShardsByService) {
 	if !full {
 		adsLog.Infof("XDS Incremental Push EDS:%d", len(edsUpdates))
 		go s.AdsPushAll(version, s.globalPushContext(), false, edsUpdates)
@@ -274,8 +389,11 @@ func (s *DiscoveryServer) Push(full bool, edsUpdates map[string]*model.ServiceSh
 		return
 	}
 
-	s.mutex.Lock()
+	s.updateMutex.Lock()
 	s.Env.PushContext = push
+	s.updateMutex.Unlock()
+
+	s.mutex.Lock()
 	versionLocal := time.Now().Format(time.RFC3339)
 	initContextTime := time.Since(t0)
 	adsLog.Debugf("InitContext %v for push took %s", versionLocal, initContextTime)
@@ -297,4 +415,104 @@ func versionInfo() string {
 	versionMutex.RLock()
 	defer versionMutex.RUnlock()
 	return version
+}
+
+// ClearCache is wrapper for clearCache method, used when new controller gets
+// instantiated dynamically
+func (ds *DiscoveryServer) ClearCache() {
+	ds.clearCache()
+}
+
+// debouncePush is called on config or endpoint changes, to initiate a push.
+func (ds *DiscoveryServer) debouncePush(startDebounce time.Time) {
+	ds.updateMutex.RLock()
+	since := time.Since(ds.lastConfigUpdateTime)
+	events := ds.configUpdateCounter
+	ds.updateMutex.RUnlock()
+
+	if since > 2*DebounceAfter ||
+		time.Since(startDebounce) > DebounceMax {
+
+		adsLog.Infof("Push debounce stable %d: %v since last change, %v since last push, full=%v",
+			events,
+			since, time.Since(ds.lastPushStart), ds.fullPush)
+
+		ds.doPush()
+
+	} else {
+		time.AfterFunc(DebounceAfter, func() {
+			ds.debouncePush(startDebounce)
+		})
+	}
+}
+
+// Start the actual push. Called from a timer.
+func (ds *DiscoveryServer) doPush() {
+	// more config update events may happen while doPush is processing.
+	// we don't want to lose updates.
+	ds.updateMutex.Lock()
+
+	ds.debouncePushTimerSet = false
+	ds.lastPushStart = time.Now()
+	full := ds.fullPush
+
+	ds.mutex.Lock()
+	// Swap the edsUpdates map - tracking requests for incremental updates.
+	// The changes to the map are protected by ds.mutex.
+	edsUpdates := ds.edsUpdates
+	// Reset - any new updates will be tracked by the new map
+	ds.edsUpdates = map[string]*EndpointShardsByService{}
+	ds.mutex.Unlock()
+
+	// Update the config values, next ConfigUpdate and eds updates will use this
+	ds.fullPush = false
+
+	ds.updateMutex.Unlock()
+
+	ds.Push(full, edsUpdates)
+}
+
+// clearCache will clear all envoy caches. Called by service, instance and config handlers.
+// This will impact the performance, since envoy will need to recalculate.
+func (ds *DiscoveryServer) clearCache() {
+	ds.ConfigUpdate(true)
+}
+
+// ConfigUpdate implements ConfigUpdater interface, used to request pushes.
+// It replaces the 'clear cache' from v1.
+func (ds *DiscoveryServer) ConfigUpdate(full bool) {
+	ds.updateChannel <- &updateReq{full: full}
+}
+
+// Debouncing and update request happens in a separate thread, it uses locks
+// and we want to avoid complications, ConfigUpdate may already hold other locks.
+func (ds *DiscoveryServer) handleUpdates() {
+	for {
+		select {
+		case r, _ := <-ds.updateChannel:
+
+			if DebounceAfter == 0 {
+				go ds.doPush()
+				continue
+			}
+			ds.updateMutex.Lock()
+
+			if r.full {
+				ds.fullPush = true
+			}
+			ds.configUpdateCounter++
+
+			ds.lastConfigUpdateTime = time.Now()
+
+			if !ds.debouncePushTimerSet {
+				ds.debouncePushTimerSet = true
+				startDebounce := ds.lastConfigUpdateTime
+				time.AfterFunc(DebounceAfter, func() {
+					ds.debouncePush(startDebounce)
+				})
+			} // else: debounce in progress - it'll keep delaying the push
+
+			ds.updateMutex.Unlock()
+		}
+	}
 }

@@ -55,7 +55,6 @@ type Controller struct {
 	domainSufix       string
 	resyncInterval    time.Duration
 	serviceController *aggregate.Controller
-	configUpdater     model.ConfigUpdater
 	edsUpdater        model.XDSUpdater
 }
 
@@ -65,7 +64,6 @@ func NewController(
 	namespace string,
 	cs *ClusterStore,
 	serviceController *aggregate.Controller,
-	discoveryServer model.ConfigUpdater,
 	edsUpdater model.XDSUpdater,
 	resyncInterval time.Duration,
 	watchedNamespace string,
@@ -87,7 +85,6 @@ func NewController(
 		domainSufix:       domainSufix,
 		resyncInterval:    resyncInterval,
 		serviceController: serviceController,
-		configUpdater:     discoveryServer,
 		edsUpdater:        edsUpdater,
 	}
 
@@ -218,8 +215,8 @@ func (c *Controller) addMemberCluster(secretName string, s *corev1.Secret) {
 					Controller:       kubeController,
 				})
 
-			_ = kubeController.AppendServiceHandler(func(*model.Service, model.Event) { c.configUpdater.ConfigUpdate(true) })
-			_ = kubeController.AppendInstanceHandler(func(*model.ServiceInstance, model.Event) { c.configUpdater.ConfigUpdate(true) })
+			_ = kubeController.AppendServiceHandler(func(*model.Service, model.Event) { c.edsUpdater.ConfigUpdate(true) })
+			_ = kubeController.AppendInstanceHandler(func(*model.ServiceInstance, model.Event) { c.edsUpdater.ConfigUpdate(true) })
 			go kubeController.Run(stopCh)
 		} else {
 			log.Infof("Cluster %s in the secret %s in namespace %s already exists",
@@ -244,7 +241,7 @@ func (c *Controller) deleteMemberCluster(secretName string) {
 			close(c.cs.rc[clusterID].ControlChannel)
 			// Deleting remote cluster entry from clusters store
 			delete(c.cs.rc, clusterID)
-			c.configUpdater.ConfigUpdate(true)
+			c.edsUpdater.ConfigUpdate(true)
 		}
 	}
 	log.Infof("Number of clusters in the cluster store: %d", len(c.cs.rc))
