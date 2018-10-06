@@ -63,14 +63,6 @@ DEFAULT_EXTRA_E2E_ARGS += --galley_hub=${HUB}
 
 EXTRA_E2E_ARGS ?= ${DEFAULT_EXTRA_E2E_ARGS}
 
-# These arguments are only needed by upgrade test.
-DEFAULT_UPGRADE_E2E_ARGS =
-LAST_RELEASE := $(shell curl -L -s https://api.github.com/repos/istio/istio/releases/latest \
-	| grep tag_name | sed "s/ *\"tag_name\": *\"\(.*\)\",*/\1/")
-DEFAULT_UPGRADE_E2E_ARGS += --base_version=${LAST_RELEASE}
-DEFAULT_UPGRADE_E2E_ARGS += --target_version=""
-UPGRADE_E2E_ARGS ?= ${DEFAULT_UPGRADE_E2E_ARGS}
-
 e2e_simple: istioctl generate_yaml e2e_simple_run
 e2e_simple_auth: istioctl generate_yaml e2e_simple_auth_run
 e2e_simple_noauth: istioctl generate_yaml e2e_simple_noauth_run
@@ -82,10 +74,6 @@ e2e_galley: istioctl generate_yaml e2e_galley_run
 e2e_dashboard: istioctl generate_yaml e2e_dashboard_run
 
 e2e_bookinfo: istioctl generate_yaml e2e_bookinfo_run
-
-e2e_upgrade: istioctl generate_yaml e2e_upgrade_run
-
-e2e_version_skew: istioctl generate_yaml e2e_version_skew_run
 
 e2e_all: istioctl generate_yaml e2e_all_run
 
@@ -116,14 +104,8 @@ e2e_dashboard_run: out_dir
 e2e_bookinfo_run: out_dir
 	go test -v -timeout 60m ./tests/e2e/tests/bookinfo -args ${E2E_ARGS} ${EXTRA_E2E_ARGS}
 
-e2e_upgrade_run: out_dir
-	go test -v -timeout 25m ./tests/e2e/tests/upgrade -args ${E2E_ARGS} ${EXTRA_E2E_ARGS} ${UPGRADE_E2E_ARGS}
-
-e2e_version_skew_run: out_dir
-	go test -v -timeout 25m ./tests/e2e/tests/upgrade -args --smooth_check=true ${E2E_ARGS} ${EXTRA_E2E_ARGS} ${UPGRADE_E2E_ARGS}
-
 e2e_all_run: out_dir
-	$(MAKE) --keep-going e2e_simple_run e2e_bookinfo_run e2e_dashboard_run e2e_upgrade_run e2e_version_skew_run
+	$(MAKE) --keep-going e2e_simple_run e2e_bookinfo_run e2e_dashboard_run
 
 JUNIT_E2E_XML ?= $(ISTIO_OUT)/junit.xml
 TARGET ?= e2e_all
