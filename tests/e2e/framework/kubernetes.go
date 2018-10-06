@@ -442,6 +442,7 @@ func (k *KubeInfo) Teardown() error {
 			log.Errorf("Failed to delete namespace %s", k.Namespace)
 		}
 	} else {
+/* JAJ
 		if *useAutomaticInjection {
 			testSidecarInjectorYAML := filepath.Join(k.TmpDir, "yaml", *sidecarInjectorFile)
 
@@ -450,6 +451,7 @@ func (k *KubeInfo) Teardown() error {
 				return err
 			}
 		}
+JAJ */
 
 		if *clusterWide {
 			istioYaml := getClusterWideInstallFile()
@@ -691,18 +693,12 @@ func (k *KubeInfo) deployIstio() error {
 			return err
 		}
 	}
-
 	if *useAutomaticInjection {
-		baseSidecarInjectorYAML := util.GetResourcePath(filepath.Join(istioInstallDir, *sidecarInjectorFile))
-		testSidecarInjectorYAML := filepath.Join(k.TmpDir, "yaml", *sidecarInjectorFile)
-		if err := k.generateSidecarInjector(baseSidecarInjectorYAML, testSidecarInjectorYAML); err != nil {
-			log.Errorf("Generating sidecar injector yaml failed")
+		if _, err := util.Shell("kubectl label namespace %s istio-injection=enabled --overwrite --kubeconfig=%s", k.Namespace, k.KubeConfig); err != nil {
+			log.Errorf("Unable to label %s for istio-injection", k.Namespace)
 			return err
 		}
-		if err := util.KubeApply(k.Namespace, testSidecarInjectorYAML, k.KubeConfig); err != nil {
-			log.Errorf("Istio sidecar injector %s deployment failed", testSidecarInjectorYAML)
-			return err
-		}
+
 	}
 
 	if err := util.CheckDeployments(k.Namespace, maxDeploymentRolloutTime, k.KubeConfig); err != nil {

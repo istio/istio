@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export K8S_VER=${K8S_VER:-v1.9.2}
+export K8S_VER=${K8S_VER:-v1.10.0}
 export MINIKUBE_VER=${MINIKUBE_VER:-v0.25.0}
 set -x
 
@@ -48,9 +48,9 @@ function startMinikubeNone() {
     export MINIKUBE_HOME=$HOME
     export CHANGE_MINIKUBE_NONE_USER=true
     sudo -E minikube start \
-         --kubernetes-version=v1.9.0 \
+         --kubernetes-version=v1.10.0 \
          --vm-driver=none \
-         --extra-config=apiserver.Admission.PluginNames="NamespaceLifecycle,LimitRanger,ServiceAccount,DefaultStorageClass,DefaultTolerationSeconds,MutatingAdmissionWebhook,ValidatingAdmissionWebhook,ResourceQuota"
+         --extra-config=apiserver.Admission.PluginNames="NamespaceLifecycle,MutatingAdmissionWebhook,ValidatingAdmissionWebhook,LimitRanger,ServiceAccount,DefaultStorageClass,DefaultTolerationSeconds,ResourceQuota"
     sudo -E minikube update-context
     sudo chown -R "$(id -u)" "$KUBECONFIG" "$HOME/.minikube"
 }
