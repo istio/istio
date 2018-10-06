@@ -113,9 +113,9 @@ def MonthlyPipeline():
 # tasks['generate_workflow_args']
   tasks['get_git_commit'                 ].set_upstream(tasks['generate_workflow_args'])
   tasks['run_cloud_builder'              ].set_upstream(tasks['get_git_commit'])
-  tasks['run_release_qualification_tests'].set_upstream(tasks['run_cloud_builder'])
-  tasks['modify_values_helm'             ].set_upstream(tasks['run_release_qualification_tests'])
-  tasks['copy_files_for_release'         ].set_upstream(tasks['modify_values_helm'])
+  tasks['modify_values_helm'             ].set_upstream(tasks['run_cloud_builder'])
+  tasks['run_release_qualification_tests'].set_upstream(tasks['modify_values_helm'])
+  tasks['copy_files_for_release'         ].set_upstream(tasks['run_release_qualification_tests'])
   tasks['github_and_docker_release'      ].set_upstream(tasks['copy_files_for_release'])
   tasks['github_tag_repos'               ].set_upstream(tasks['github_and_docker_release'])
   tasks['mark_monthly_complete'          ].set_upstream(tasks['github_tag_repos'])
