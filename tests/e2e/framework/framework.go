@@ -209,6 +209,7 @@ func (c *CommonConfig) saveLogs(r int) error {
 func (c *CommonConfig) RunTest(m runnable) int {
 	var ret int
 	if err := c.Cleanup.init(); err != nil {
+		c.Info.FetchAppPodStatus(c.Kube.Namespace, c.Kube.KubeConfig)
 		log.Errorf("Failed to complete Init. Error %s", err)
 		ret = 1
 	} else {
