@@ -2402,9 +2402,8 @@ to which the request/connection should be forwarded to.</p>
 <td><code>int32</code></td>
 <td>
 <p>REQUIRED. The proportion of traffic to be forwarded to the service
-version. (0-100). Sum of weights across destinations SHOULD BE == 100.
-If there is only one destination in a rule, the weight value is assumed to
-be 100.</p>
+version. If there is only one destination in a rule, all traffic will be
+routed to it irrespective of the weight.</p>
 
 </td>
 </tr>

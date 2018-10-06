@@ -1746,6 +1746,57 @@ func TestValidateHTTPRoute(t *testing.T) {
 	}
 }
 
+func TestValidateRouteDestination(t *testing.T) {
+	testCases := []struct {
+		name   string
+		routes []*networking.RouteDestination
+		valid  bool
+	}{
+		{name: "simple", routes: []*networking.RouteDestination{&networking.RouteDestination{
+			Destination: &networking.Destination{Host: "foo.baz"},
+		}}, valid: true},
+		{name: "no destination", routes: []*networking.RouteDestination{&networking.RouteDestination{
+			Destination: nil,
+		}}, valid: false},
+		{name: "weighted", routes: []*networking.RouteDestination{&networking.RouteDestination{
+			Destination: &networking.Destination{Host: "foo.baz.south"},
+			Weight:      25,
+		}, &networking.RouteDestination{
+			Destination: &networking.Destination{Host: "foo.baz.east"},
+			Weight:      75,
+		}}, valid: true},
+		{name: "zero weight", routes: []*networking.RouteDestination{&networking.RouteDestination{
+			Destination: &networking.Destination{Host: "foo.baz.south"},
+			Weight:      5,
+		}, &networking.RouteDestination{
+			Destination: &networking.Destination{Host: "foo.baz.east"},
+			Weight:      0,
+		}}, valid: false},
+		{name: "total weight > 100", routes: []*networking.RouteDestination{&networking.RouteDestination{
+			Destination: &networking.Destination{Host: "foo.baz.south"},
+			Weight:      55,
+		}, &networking.RouteDestination{
+			Destination: &networking.Destination{Host: "foo.baz.east"},
+			Weight:      50,
+		}}, valid: true},
+		{name: "total weight < 100", routes: []*networking.RouteDestination{&networking.RouteDestination{
+			Destination: &networking.Destination{Host: "foo.baz.south"},
+			Weight:      49,
+		}, &networking.RouteDestination{
+			Destination: &networking.Destination{Host: "foo.baz.east"},
+			Weight:      50,
+		}}, valid: true},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if err := validateRouteDestinations(tc.routes); (err == nil) != tc.valid {
+				t.Fatalf("got valid=%v but wanted valid=%v: %v", err == nil, tc.valid, err)
+			}
+		})
+	}
+}
+
 // TODO: add TCP test cases once it is implemented
 func TestValidateVirtualService(t *testing.T) {
 	testCases := []struct {
