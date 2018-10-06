@@ -27,7 +27,7 @@ function fix_values_yaml_worker() {
   local gcs_folder_path
   gcs_folder_path="$5"
 
-  gsutil -q cp "${GCS_PATH}/${tarball_name}" .
+  gsutil -q cp "${gcs_folder_path}/${tarball_name}" .
   eval    "$unzip_cmd"     "${tarball_name}"
   rm                       "${tarball_name}"
 

@@ -138,9 +138,9 @@ def DailyPipeline(branch):
   #tasks['generate_workflow_args']
   tasks['get_git_commit'                 ].set_upstream(tasks['generate_workflow_args'])
   tasks['run_cloud_builder'              ].set_upstream(tasks['get_git_commit'])
-  tasks['run_release_qualification_tests'].set_upstream(tasks['run_cloud_builder'])
-  tasks['modify_values_helm'             ].set_upstream(tasks['run_release_qualification_tests'])
-  tasks['copy_files_for_release'         ].set_upstream(tasks['modify_values_helm'])
+  tasks['modify_values_helm'             ].set_upstream(tasks['run_cloud_builder'])
+  tasks['run_release_qualification_tests'].set_upstream(tasks['modify_values_helm'])
+  tasks['copy_files_for_release'         ].set_upstream(tasks['run_release_qualification_tests'])
   tasks['mark_daily_complete'            ].set_upstream(tasks['copy_files_for_release'])
   tasks['tag_daily_gcr'                  ].set_upstream(tasks['mark_daily_complete'])
 
