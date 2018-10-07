@@ -24,9 +24,7 @@ import (
 )
 
 func TestCheck_Allow(t *testing.T) {
-	// TODO(ozben): Marking this local, as it doesn't work on both local and remote seamlessly with the same
-	// config. Once the config problem is fixed, we should make this to not have a dependency on an environment.
-	framework.Requires(t, dependency.Local, dependency.PolicyBackend, dependency.Mixer)
+	framework.Requires(t, dependency.PolicyBackend, dependency.Mixer)
 
 	env := framework.AcquireEnvironment(t)
 
@@ -40,19 +38,18 @@ func TestCheck_Allow(t *testing.T) {
 			be.CreateConfigSnippet("handler1"),
 		))
 
-	dstService := env.Evaluate(t, `svc.{{.TestNamespace}}`)
-
 	// Prime the policy backend's behavior. It should deny all check requests.
 	// This is not strictly necessary, but it is done so for posterity.
 	be.DenyCheck(t, false)
 
 	result := mxr.Check(t, map[string]interface{}{
-		"context.protocol":    "http",
-		"destination.name":    "somesrvcname",
-		"response.time":       time.Now(),
-		"request.time":        time.Now(),
-		"destination.service": dstService,
-		"origin.ip":           []byte{1, 2, 3, 4},
+		"context.protocol":      "http",
+		"destination.name":      "somesrvcname",
+		"destination.namespace": "{{.TestNamespace}}",
+		"response.time":         time.Now(),
+		"request.time":          time.Now(),
+		"destination.service":   `svc.{{.TestNamespace}}`,
+		"origin.ip":             []byte{1, 2, 3, 4},
 	})
 
 	if !result.Succeeded() {
@@ -61,9 +58,7 @@ func TestCheck_Allow(t *testing.T) {
 }
 
 func TestCheck_Deny(t *testing.T) {
-	// TODO(ozben): Marking this local, as it doesn't work on both local and remote seamlessly with the same
-	// config. Once the config problem is fixed, we should make this to not have a dependency on an environment.
-	framework.Requires(t, dependency.Local, dependency.PolicyBackend, dependency.Mixer)
+	framework.Requires(t, dependency.PolicyBackend, dependency.Mixer)
 
 	env := framework.AcquireEnvironment(t)
 
@@ -77,18 +72,17 @@ func TestCheck_Deny(t *testing.T) {
 			be.CreateConfigSnippet("handler1"),
 		))
 
-	dstService := env.Evaluate(t, `svc.{{.TestNamespace}}`)
-
 	// Prime the policy backend's behavior. It should deny all check requests.
 	be.DenyCheck(t, true)
 
 	result := mxr.Check(t, map[string]interface{}{
-		"context.protocol":    "http",
-		"destination.name":    "somesrvcname",
-		"response.time":       time.Now(),
-		"request.time":        time.Now(),
-		"destination.service": dstService,
-		"origin.ip":           []byte{1, 2, 3, 4},
+		"context.protocol":      "http",
+		"destination.name":      "somesrvcname",
+		"destination.namespace": "{{.TestNamespace}}",
+		"response.time":         time.Now(),
+		"request.time":          time.Now(),
+		"destination.service":   `svc.{{.TestNamespace}}`,
+		"origin.ip":             []byte{1, 2, 3, 4},
 	})
 
 	if result.Succeeded() {
@@ -101,14 +95,14 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: checknothing
 metadata:
   name: checknothing1
-  namespace: istio-system
+  namespace: {{.TestNamespace}}
 spec:
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
   name: rule1
-  namespace: istio-system
+  namespace: {{.TestNamespace}}
 spec:
   actions:
   - handler: handler1.bypass

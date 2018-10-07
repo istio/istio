@@ -91,6 +91,18 @@ const (
 	Router NodeType = "router"
 )
 
+// GatewayMode describes the operating mode of the gateway
+type GatewayMode string
+
+const (
+	// StandardGateway is used for gateways that act as routers respecting routing rules.
+	StandardGateway GatewayMode = "standard"
+
+	// MulticlusterGateway mode is used when the gateway acts as a mute tcp proxy
+	// routing to clusters based on the SNI value
+	MulticlusterGateway GatewayMode = "multicluster"
+)
+
 // IsApplicationNodeType verifies that the NodeType is one of the declared constants in the model
 func IsApplicationNodeType(nType NodeType) bool {
 	switch nType {
@@ -113,6 +125,20 @@ func (node *Proxy) ServiceNode() string {
 func (node *Proxy) GetProxyVersion() (string, bool) {
 	version, found := node.Metadata["ISTIO_PROXY_VERSION"]
 	return version, found
+}
+
+// GetGatewayMode returns the mode in which the gateway is operating.
+func (node *Proxy) GetGatewayMode() GatewayMode {
+	if modestr, found := node.Metadata["ISTIO_GATEWAY_MODE"]; found {
+		mode := GatewayMode(modestr)
+		switch mode {
+		case MulticlusterGateway:
+			return MulticlusterGateway
+		default:
+			return StandardGateway
+		}
+	}
+	return StandardGateway
 }
 
 // ParseMetadata parses the opaque Metadata from an Envoy Node into string key-value pairs.
@@ -214,11 +240,9 @@ func DefaultProxyConfig() meshconfig.ProxyConfig {
 		ConfigPath:             ConfigPathDir,
 		BinaryPath:             BinaryPathFilename,
 		ServiceCluster:         ServiceClusterName,
-		AvailabilityZone:       "", //no service zone by default, i.e. AZ-aware routing is disabled
 		DrainDuration:          types.DurationProto(2 * time.Second),
 		ParentShutdownDuration: types.DurationProto(3 * time.Second),
 		DiscoveryAddress:       DiscoveryPlainAddress,
-		DiscoveryRefreshDelay:  types.DurationProto(1 * time.Second),
 		ZipkinAddress:          "",
 		ConnectTimeout:         types.DurationProto(1 * time.Second),
 		StatsdUdpAddress:       "",
@@ -241,7 +265,6 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 		ConnectTimeout:        types.DurationProto(1 * time.Second),
 		IngressClass:          "istio",
 		IngressControllerMode: meshconfig.MeshConfig_STRICT,
-		RdsRefreshDelay:       types.DurationProto(1 * time.Second),
 		EnableTracing:         true,
 		AccessLogFile:         "/dev/stdout",
 		DefaultConfig:         &config,

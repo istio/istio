@@ -101,19 +101,22 @@ func (e *Implementation) Initialize(ctx *internal.TestContext) error {
 
 	// Create the namespace objects.
 	e.systemNamespace = &namespace{
-		name:       e.kube.IstioSystemNamespace,
-		annotation: "system-namespace",
-		accessor:   e.Accessor,
+		name:             e.kube.IstioSystemNamespace,
+		annotation:       "system-namespace",
+		accessor:         e.Accessor,
+		injectionEnabled: false,
 	}
 	e.dependencyNamespace = &namespace{
-		name:       e.kube.DependencyNamespace,
-		annotation: "dep-namespace",
-		accessor:   e.Accessor,
+		name:             e.kube.DependencyNamespace,
+		annotation:       "dep-namespace",
+		accessor:         e.Accessor,
+		injectionEnabled: true,
 	}
 	e.testNamespace = &namespace{
-		name:       e.kube.TestNamespace,
-		annotation: "test-namespace",
-		accessor:   e.Accessor,
+		name:             e.kube.TestNamespace,
+		annotation:       "test-namespace",
+		accessor:         e.Accessor,
+		injectionEnabled: false,
 	}
 
 	if err := e.systemNamespace.allocate(); err != nil {
@@ -124,22 +127,16 @@ func (e *Implementation) Initialize(ctx *internal.TestContext) error {
 	}
 
 	if e.kube.DeployIstio {
-		goDir := os.Getenv("GOPATH")
-		chartDir := path.Join(goDir, "src/istio.io/istio/install/kubernetes/helm")
-
-		// TODO: We should pass a dynamic system namespace.
-		// TODO: Values files should be parameterized.
-		namespace := "istio-system"
-		if e.deployment, err = deployment.New(
+		if e.deployment, err = deployment.NewIstio(
 			&deployment.Settings{
-				KubeConfig: e.kube.KubeConfig,
-				ChartDir:   chartDir,
-				WorkDir:    ctx.Settings().WorkDir,
-				Hub:        e.kube.Hub,
-				Tag:        e.kube.Tag,
-				Namespace:  namespace,
-				ValuesFile: deployment.IstioMCP,
+				KubeConfig:      e.kube.KubeConfig,
+				WorkDir:         ctx.Settings().WorkDir,
+				Hub:             e.kube.Hub,
+				Tag:             e.kube.Tag,
+				ImagePullPolicy: e.kube.ImagePullPolicy,
+				Namespace:       e.kube.IstioSystemNamespace,
 			},
+			deployment.IstioMCP, // TODO: Values files should be parameterized.
 			e.Accessor); err != nil {
 			return err
 		}
@@ -151,7 +148,7 @@ func (e *Implementation) Initialize(ctx *internal.TestContext) error {
 // Configure applies the given configuration to the mesh.
 func (e *Implementation) Configure(config string) error {
 	scopes.Framework.Debugf("Applying configuration: \n%s\n", config)
-	err := kube.ApplyContents(e.kube.KubeConfig, e.systemNamespace.allocatedName, config)
+	err := kube.ApplyContents(e.kube.KubeConfig, e.testNamespace.allocatedName, config)
 	if err != nil {
 		return err
 	}
@@ -167,8 +164,9 @@ func (e *Implementation) Configure(config string) error {
 // Evaluate the template against standard set of parameters. See template.Parameters for details.
 func (e *Implementation) Evaluate(template string) (string, error) {
 	p := tmpl.Parameters{
-		TestNamespace:       e.testNamespace.allocatedName,
-		DependencyNamespace: e.dependencyNamespace.allocatedName,
+		IstioSystemNamespace: e.systemNamespace.allocatedName,
+		TestNamespace:        e.testNamespace.allocatedName,
+		DependencyNamespace:  e.dependencyNamespace.allocatedName,
 	}
 
 	return tmpl.Evaluate(template, p)
@@ -186,6 +184,42 @@ func (e *Implementation) Reset() error {
 	return nil
 }
 
+// DumpState dumps the state of the environment to the file system and the log.
+func (e *Implementation) DumpState(context string) {
+	scopes.CI.Infof("=== BEGIN: Dump state (%s) ===", context)
+	defer func() {
+		scopes.CI.Infof("=== COMPLETED: Dump state (%s) ===", context)
+	}()
+
+	dir := path.Join(e.ctx.Settings().WorkDir, context)
+	_, err := os.Stat(dir)
+	if err != nil && os.IsNotExist(err) {
+		err = os.Mkdir(dir, os.ModePerm)
+	}
+
+	if err != nil {
+		scopes.Framework.Errorf("Unable to create folder to dump logs: %v", err)
+		return
+	}
+
+	deployment.DumpPodData(e.kube.KubeConfig, dir, e.KubeSettings().IstioSystemNamespace, e.Accessor)
+	deployment.DumpPodState(e.kube.KubeConfig, e.KubeSettings().IstioSystemNamespace)
+
+	if e.dependencyNamespace.allocatedName == "" {
+		scopes.CI.Info("Skipping state dump of dependency namespace, as it is not allocated...")
+	} else {
+		deployment.DumpPodData(e.kube.KubeConfig, dir, e.dependencyNamespace.allocatedName, e.Accessor)
+		deployment.DumpPodState(e.kube.KubeConfig, e.dependencyNamespace.allocatedName)
+	}
+
+	if e.testNamespace.allocatedName == "" {
+		scopes.CI.Info("Skipping state dump of test namespace, as it is not allocated...")
+	} else {
+		deployment.DumpPodData(e.kube.KubeConfig, dir, e.testNamespace.allocatedName, e.Accessor)
+		deployment.DumpPodState(e.kube.KubeConfig, e.testNamespace.allocatedName)
+	}
+}
+
 // Close implementation.
 func (e *Implementation) Close() error {
 	var err error
@@ -198,7 +232,7 @@ func (e *Implementation) Close() error {
 	if e.deployment != nil {
 		// TODO: Deleting the deployment is extremely noisy. It is outputting a whole slew of errors
 		// Disabling the collection of errors from Delete for the time being.
-		_ = e.deployment.Delete(e.Accessor)
+		_ = e.deployment.Delete(e.Accessor, true)
 		//if err2 := e.deployment.Delete(); err2 != nil {
 		//	err = multierror.Append(err, err2)
 		//}
@@ -209,11 +243,12 @@ func (e *Implementation) Close() error {
 }
 
 type namespace struct {
-	name          string
-	annotation    string
-	allocatedName string
-	created       bool
-	accessor      *kube.Accessor
+	name             string
+	annotation       string
+	allocatedName    string
+	created          bool
+	accessor         *kube.Accessor
+	injectionEnabled bool
 }
 
 func (n *namespace) allocate() error {
@@ -226,7 +261,7 @@ func (n *namespace) allocate() error {
 
 	// Only create the namespace if it doesn't already exist.
 	if !n.accessor.NamespaceExists(nameToAllocate) {
-		err := n.accessor.CreateNamespace(nameToAllocate, n.annotation)
+		err := n.accessor.CreateNamespace(nameToAllocate, n.annotation, n.injectionEnabled)
 		if err != nil {
 			return err
 		}

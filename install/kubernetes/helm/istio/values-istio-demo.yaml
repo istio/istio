@@ -15,6 +15,9 @@ ingress:
 prometheus:
   enabled: true
 
+pilot:
+  traceSampling: 100.0
+
 sidecarInjectorWebhook:
   enabled: true
   enableNamespacesByDefault: false
@@ -29,4 +32,7 @@ servicegraph:
   enabled: true
 
 galley:
+  enabled: true
+
+kiali:
   enabled: true

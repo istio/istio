@@ -23,17 +23,23 @@ import (
 // Template calls "helm template".
 func Template(deploymentName, namespace, chartDir, valuesFile string, s *Settings) (string, error) {
 	valuesString := ""
-	for k, v := range s.generate() {
-		valuesString += fmt.Sprintf(" --set %s=%s", k, v)
+	if s != nil {
+		for k, v := range s.generate() {
+			valuesString += fmt.Sprintf(" --set %s=%s", k, v)
+		}
+	}
+
+	valuesFileString := ""
+	if valuesFile != "" {
+		valuesFileString = fmt.Sprintf(" --values %s", valuesFile)
 	}
 
 	str, err := shell.Execute(
-		"helm template %s --name %s --namespace %s --values %s%s",
-		chartDir, deploymentName, namespace, valuesFile, valuesString)
+		"helm template %s --name %s --namespace %s%s%s",
+		chartDir, deploymentName, namespace, valuesFileString, valuesString)
 	if err == nil {
 		return str, nil
 	}
 
 	return "", fmt.Errorf("%v: %s", err, str)
-
 }

@@ -57,6 +57,21 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 		clusters = append(clusters, configgen.buildOutboundClusters(env, push)...)
 	}
 
+	// If its a multi-cluster gateway, do not enable mTLS
+	// for clusters, as the gateway is already receiving mTLS
+	// traffic from downstream
+	if proxy.GetGatewayMode() == model.MulticlusterGateway {
+		// TODO: cache this output just like the output
+		sniClusters := make([]*v2.Cluster, len(clusters))
+		for _, c := range clusters {
+			// copy each cluster, unset the tls context
+			newC := *c
+			newC.TlsContext = nil
+			sniClusters = append(sniClusters, &newC)
+		}
+		clusters = sniClusters
+	}
+
 	if proxy.Type == model.Sidecar {
 		instances, err := env.GetProxyServiceInstances(proxy)
 		if err != nil {
@@ -68,9 +83,10 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 		clusters = append(clusters, configgen.buildInboundClusters(env, proxy, push, instances, managementPorts)...)
 	}
 
-	// Add a blackhole cluster for catching traffic to unresolved routes
-	// DO NOT CALL PLUGINS for this cluster.
+	// Add a blackhole and passthrough cluster for catching traffic to unresolved routes
+	// DO NOT CALL PLUGINS for these two clusters.
 	clusters = append(clusters, buildBlackHoleCluster())
+	clusters = append(clusters, buildDefaultPassthroughCluster())
 
 	return normalizeClusters(push, proxy, clusters), nil
 }
@@ -523,6 +539,18 @@ func buildBlackHoleCluster() *v2.Cluster {
 		Type:           v2.Cluster_STATIC,
 		ConnectTimeout: 1 * time.Second,
 		LbPolicy:       v2.Cluster_ROUND_ROBIN,
+	}
+	return cluster
+}
+
+// generates a cluster that sends traffic to the original destination.
+// This cluster is used to catch all traffic to unknown listener ports
+func buildDefaultPassthroughCluster() *v2.Cluster {
+	cluster := &v2.Cluster{
+		Name:           util.PassthroughCluster,
+		Type:           v2.Cluster_ORIGINAL_DST,
+		ConnectTimeout: 1 * time.Second,
+		LbPolicy:       v2.Cluster_ORIGINAL_DST_LB,
 	}
 	return cluster
 }

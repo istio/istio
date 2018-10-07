@@ -4,6 +4,7 @@ description: Adapter that extracts information from a Kubernetes environment.
 location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/kubernetesenv.html
 layout: protoc-gen-docs
 generator: protoc-gen-docs
+supported_templates: kubernetes
 aliases:
   - /docs/reference/config/adapters/kubernetesenv.html
 number_of_entries: 1
@@ -11,7 +12,7 @@ number_of_entries: 1
 <p>The <code>kubernetesenv</code> adapter extracts information from a Kubernetes environment
 and produces attribtes that can be used in downstream adapters.</p>
 
-<p>This adapter supports the <a href="https://istio.io/docs/reference/config/policy-and-telemetry/templates/kubernetes/">kubernetesenv template</a>.</p>
+<p>This adapter supports the <a href="https://istio.io/docs/reference/config/policy-and-telemetry/templates/kubernetes/">kubernetes template</a>.</p>
 
 <h2 id="Params">Params</h2>
 <section>
@@ -62,6 +63,24 @@ The cache will watch for events and every so often completely resync.
 This controls how frequently the complete resync occurs.</p>
 
 <p>Default: 5 minutes</p>
+
+</td>
+</tr>
+<tr id="Params-cluster_registries_namespace">
+<td><code>clusterRegistriesNamespace</code></td>
+<td><code>string</code></td>
+<td>
+<p>Namespace for secret created for multi-cluster support.</p>
+
+<p>Details on multi-cluster and the kubernetes secret required to
+access the remote cluster&rsquo;s credentials can be found here:
+https://istio.io/docs/setup/kubernetes/multicluster-install</p>
+
+<p>NOTE: If cluster<em>registries</em>namespace is not set then the environmental
+variable POD<em>NAMESPACE will be checked/used. If POD</em>NAMESPACE is not
+set then cluster<em>registries</em>namespace will default to &ldquo;istio-system&rdquo;.</p>
+
+<p>Default: &ldquo;istio-system&rdquo;</p>
 
 </td>
 </tr>

@@ -24,7 +24,7 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
-var scope = log.RegisterScope("testframework", "General scope for the test framework", 0)
+var scope = log.RegisterScope("shell", "Shell execution scope", 0)
 
 // Execute the given command.
 func Execute(format string, args ...interface{}) (string, error) {
@@ -62,10 +62,10 @@ func executeArgs(env []string, name string, args ...string) (string, error) {
 	c.Env = env
 	b, err := c.CombinedOutput()
 
-	if c.ProcessState.Success() {
-		scope.Debugf("Command[%s] => %s", name, string(b))
-	} else {
+	if err != nil || !c.ProcessState.Success() {
 		scope.Debugf("Command[%s] => (FAILED) %s", name, string(b))
+	} else {
+		scope.Debugf("Command[%s] => %s", name, string(b))
 	}
 
 	return string(b), err

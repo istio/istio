@@ -351,6 +351,50 @@ func (e GrpcService_GoogleGrpc_SslCredentialsValidationError) Error() string {
 var _ error = GrpcService_GoogleGrpc_SslCredentialsValidationError{}
 
 // Validate checks the field values on
+// GrpcService_GoogleGrpc_GoogleLocalCredentials with the rules defined in the
+// proto definition for this message. If any rules are violated, an error is returned.
+func (m *GrpcService_GoogleGrpc_GoogleLocalCredentials) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	return nil
+}
+
+// GrpcService_GoogleGrpc_GoogleLocalCredentialsValidationError is the
+// validation error returned by
+// GrpcService_GoogleGrpc_GoogleLocalCredentials.Validate if the designated
+// constraints aren't met.
+type GrpcService_GoogleGrpc_GoogleLocalCredentialsValidationError struct {
+	Field  string
+	Reason string
+	Cause  error
+	Key    bool
+}
+
+// Error satisfies the builtin error interface
+func (e GrpcService_GoogleGrpc_GoogleLocalCredentialsValidationError) Error() string {
+	cause := ""
+	if e.Cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
+	}
+
+	key := ""
+	if e.Key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sGrpcService_GoogleGrpc_GoogleLocalCredentials.%s: %s%s",
+		key,
+		e.Field,
+		e.Reason,
+		cause)
+}
+
+var _ error = GrpcService_GoogleGrpc_GoogleLocalCredentialsValidationError{}
+
+// Validate checks the field values on
 // GrpcService_GoogleGrpc_ChannelCredentials with the rules defined in the
 // proto definition for this message. If any rules are violated, an error is returned.
 func (m *GrpcService_GoogleGrpc_ChannelCredentials) Validate() error {
@@ -378,6 +422,18 @@ func (m *GrpcService_GoogleGrpc_ChannelCredentials) Validate() error {
 			if err := v.Validate(); err != nil {
 				return GrpcService_GoogleGrpc_ChannelCredentialsValidationError{
 					Field:  "GoogleDefault",
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
+	case *GrpcService_GoogleGrpc_ChannelCredentials_LocalCredentials:
+
+		if v, ok := interface{}(m.GetLocalCredentials()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return GrpcService_GoogleGrpc_ChannelCredentialsValidationError{
+					Field:  "LocalCredentials",
 					Reason: "embedded message failed validation",
 					Cause:  err,
 				}

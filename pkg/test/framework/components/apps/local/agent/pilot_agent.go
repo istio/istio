@@ -32,6 +32,10 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/gogo/protobuf/proto"
+
+	"istio.io/istio/pkg/test/framework/environments/local/service"
+
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	xdsapi_core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	xdsapi_listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
@@ -44,7 +48,6 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"google.golang.org/grpc"
 
-	istio_networking_api "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/application"
@@ -57,15 +60,10 @@ const (
 	serviceNodeSeparator = "~"
 	serviceCluster       = "local"
 	proxyType            = "sidecar"
-	localIPAddress       = "127.0.0.1"
-	localCIDR            = "127.0.0.1/32"
 	maxStreams           = 100000
 	listenerType         = "type.googleapis.com/envoy.api.v2.Listener"
 	routeType            = "type.googleapis.com/envoy.api.v2.RouteConfiguration"
 	clusterType          = "type.googleapis.com/envoy.api.v2.Cluster"
-	// TODO(nmittler): Pilot seems to require that the domain have multiple dot-separated parts
-	defaultDomain    = "svc.local"
-	defaultNamespace = "default"
 
 	// TODO(nmittler): Add listener support for all protocols (not just HTTP).
 	envoyYamlTemplateStr = `
@@ -181,7 +179,7 @@ type PilotAgentFactory struct {
 }
 
 // NewAgent is an agent.Factory function that creates new agent.Agent instances which use Pilot for configuration
-func (f *PilotAgentFactory) NewAgent(meta model.ConfigMeta, appFactory application.Factory, configStore model.ConfigStore) (Agent, error) {
+func (f *PilotAgentFactory) NewAgent(serviceName, version string, serviceManager *service.Manager, appFactory application.Factory) (Agent, error) {
 	portMgr, err := reserveport.NewPortManager()
 	if err != nil {
 		return nil, err
@@ -207,28 +205,16 @@ func (f *PilotAgentFactory) NewAgent(meta model.ConfigMeta, appFactory applicati
 		return nil, err
 	}
 
-	if err = a.start(meta, configStore, f); err != nil {
+	if err = a.start(serviceName, version, serviceManager, f); err != nil {
 		return nil, err
 	}
 
 	return a, nil
 }
 
-func (f *PilotAgentFactory) generateServiceNode(meta model.ConfigMeta) string {
-	id := fmt.Sprintf("%s.%s", meta.Name, randomBase64String(10))
-	return strings.Join([]string{proxyType, localIPAddress, id, getFQD(meta)}, serviceNodeSeparator)
-}
-
-func getFQD(meta model.ConfigMeta) string {
-	ns := meta.Namespace
-	if ns == "" {
-		ns = defaultNamespace
-	}
-	domain := meta.Domain
-	if domain == "" {
-		domain = defaultDomain
-	}
-	return fmt.Sprintf("%s.%s", ns, domain)
+func (f *PilotAgentFactory) generateServiceNode(serviceName string) string {
+	id := fmt.Sprintf("%s.%s", serviceName, randomBase64String(10))
+	return strings.Join([]string{proxyType, service.LocalIPAddress, id, service.FullyQualifiedDomainName}, serviceNodeSeparator)
 }
 
 type pilotAgent struct {
@@ -364,29 +350,7 @@ func (a *pilotAgent) modifyClientURL(url *net_url.URL) {
 	}
 }
 
-func (a *pilotAgent) start(meta model.ConfigMeta, configStore model.ConfigStore, f *PilotAgentFactory) error {
-	meta.Type = model.ServiceEntry.Type
-
-	// Create the service entry for this service.
-	a.serviceEntry = model.Config{
-		ConfigMeta: meta,
-		Spec: &istio_networking_api.ServiceEntry{
-			Hosts: []string{
-				fmt.Sprintf("%s.%s", meta.Name, getFQD(meta)),
-			},
-			Addresses: []string{
-				localCIDR,
-			},
-			Resolution: istio_networking_api.ServiceEntry_STATIC,
-			Location:   istio_networking_api.ServiceEntry_MESH_INTERNAL,
-			Endpoints: []*istio_networking_api.ServiceEntry_Endpoint{
-				{
-					Address: localIPAddress,
-				},
-			},
-		},
-	}
-
+func (a *pilotAgent) start(serviceName, version string, serviceManager *service.Manager, f *PilotAgentFactory) error {
 	a.discoveryFilter = &discovery.Filter{
 		DiscoveryAddr: f.DiscoveryAddress.String(),
 		FilterFunc:    a.filterDiscoveryResponse,
@@ -418,10 +382,10 @@ func (a *pilotAgent) start(meta model.ConfigMeta, configStore model.ConfigStore,
 		return err
 	}
 
-	nodeID := f.generateServiceNode(meta)
+	nodeID := f.generateServiceNode(serviceName)
 
 	// Create the YAML configuration file for Envoy.
-	if err = a.createYamlFile(meta.Name, nodeID, f); err != nil {
+	if err = a.createYamlFile(serviceName, nodeID, f); err != nil {
 		return err
 	}
 
@@ -440,24 +404,18 @@ func (a *pilotAgent) start(meta model.ConfigMeta, configStore model.ConfigStore,
 		return err
 	}
 
-	// Update the config entry with the ports.
-	a.serviceEntry.Spec.(*istio_networking_api.ServiceEntry).Ports = a.getConfigPorts()
-
 	// Now add a service entry for this agent.
-	_, err = configStore.Create(a.serviceEntry)
-	if err != nil {
-		return err
-	}
+	a.serviceEntry, err = serviceManager.Create(serviceName, version, a.getConfigPorts())
 	return err
 }
 
-func (a *pilotAgent) getConfigPorts() []*istio_networking_api.Port {
-	ports := make([]*istio_networking_api.Port, len(a.ports))
+func (a *pilotAgent) getConfigPorts() model.PortList {
+	ports := make(model.PortList, len(a.ports))
 	for i, p := range a.ports {
-		ports[i] = &istio_networking_api.Port{
+		ports[i] = &model.Port{
 			Name:     p.Name,
-			Protocol: string(p.Protocol),
-			Number:   uint32(p.ProxyPort),
+			Protocol: p.Protocol,
+			Port:     p.ProxyPort,
 		}
 	}
 	return ports
@@ -490,7 +448,7 @@ func (a *pilotAgent) createYamlFile(serviceName, nodeID string, f *PilotAgentFac
 		"Cluster":            serviceCluster,
 		"AdminPort":          a.adminPort,
 		"Ports":              a.ports,
-		"DiscoveryIPAddress": localIPAddress,
+		"DiscoveryIPAddress": service.LocalIPAddress,
 		"DiscoveryPort":      a.getDiscoveryPort(),
 	}); err != nil {
 		return err
@@ -550,61 +508,69 @@ func getTCPProxyClusterName(filter *xdsapi_listener.Filter) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return cfg.Cluster, nil
+	clusterSpec := cfg.ClusterSpecifier.(*envoy_filter_tcp.TcpProxy_Cluster)
+	if clusterSpec == nil {
+		return "", fmt.Errorf("expected TCPProxy cluster")
+	}
+	return clusterSpec.Cluster, nil
 }
 
 func isInboundListener(l *xdsapi.Listener) (bool, error) {
-	filter := l.FilterChains[0].Filters[0]
-	switch filter.Name {
-	case envoy_util.HTTPConnectionManager:
-		cfg := &envoy_filter_http.HttpConnectionManager{}
-		err := envoy_util.StructToMessage(filter.Config, cfg)
-		if err != nil {
-			return false, err
-		}
-		rcfg := cfg.GetRouteConfig()
-		if rcfg != nil {
-			if strings.HasPrefix(rcfg.Name, "inbound") {
-				return true, nil
+	for _, filter := range l.FilterChains[0].Filters {
+		switch filter.Name {
+		case envoy_util.HTTPConnectionManager:
+			cfg := &envoy_filter_http.HttpConnectionManager{}
+			err := envoy_util.StructToMessage(filter.Config, cfg)
+			if err != nil {
+				return false, err
 			}
+			rcfg := cfg.GetRouteConfig()
+			if rcfg != nil {
+				if strings.HasPrefix(rcfg.Name, "inbound") {
+					return true, nil
+				}
+			}
+			return false, nil
+		case envoy_util.TCPProxy:
+			clusterName, err := getTCPProxyClusterName(&filter)
+			if err != nil {
+				return false, err
+			}
+			return strings.HasPrefix(clusterName, "inbound"), nil
 		}
-		return false, nil
-	case envoy_util.TCPProxy:
-		clusterName, err := getTCPProxyClusterName(&filter)
-		if err != nil {
-			return false, err
-		}
-		return strings.HasPrefix(clusterName, "inbound"), nil
 	}
 
-	return false, fmt.Errorf("unable to determine whether the listener is inbound: %s", listenerJSON(l))
+	return false, fmt.Errorf("unable to determine whether the listener is inbound: %s", pb2Json(l))
 }
 
 func isOutboundListener(l *xdsapi.Listener) (bool, error) {
-	filter := l.FilterChains[0].Filters[0]
-	switch filter.Name {
-	case envoy_util.HTTPConnectionManager:
-		return outboundHTTPListenerNamePattern.MatchString(l.Name), nil
-	case envoy_util.TCPProxy:
-		clusterName, err := getTCPProxyClusterName(&filter)
-		if err != nil {
-			return false, err
+	for _, filter := range l.FilterChains[0].Filters {
+		switch filter.Name {
+		case envoy_util.HTTPConnectionManager:
+			return outboundHTTPListenerNamePattern.MatchString(l.Name), nil
+		case envoy_util.TCPProxy:
+			clusterName, err := getTCPProxyClusterName(&filter)
+			if err != nil {
+				return false, err
+			}
+			return strings.HasPrefix(clusterName, "outbound"), nil
 		}
-		return strings.HasPrefix(clusterName, "outbound"), nil
 	}
 
-	return false, fmt.Errorf("unable to determine whether the listener is outbound: %s", listenerJSON(l))
+	return false, fmt.Errorf("unable to determine whether the listener is outbound: %s", pb2Json(l))
 }
 
-func listenerJSON(l *xdsapi.Listener) string {
+func pb2Json(pb proto.Message) string {
 	m := jsonpb.Marshaler{
 		Indent: "  ",
 	}
-	str, _ := m.MarshalToString(l)
+	str, _ := m.MarshalToString(pb)
 	return str
 }
 
 func (a *pilotAgent) filterDiscoveryResponse(resp *xdsapi.DiscoveryResponse) (*xdsapi.DiscoveryResponse, error) {
+	fmt.Printf("NM: PilotResponse=%s\n", pb2Json(resp))
+
 	newResponse := xdsapi.DiscoveryResponse{
 		TypeUrl:     resp.TypeUrl,
 		Canary:      resp.Canary,

@@ -77,10 +77,6 @@ func (e *envoy) args(fname string, epoch int) []string {
 		startupArgs = append(startupArgs, "--concurrency", fmt.Sprint(e.config.Concurrency))
 	}
 
-	if len(e.config.AvailabilityZone) > 0 {
-		startupArgs = append(startupArgs, []string{"--service-zone", e.config.AvailabilityZone}...)
-	}
-
 	return startupArgs
 }
 

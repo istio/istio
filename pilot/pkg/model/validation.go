@@ -49,9 +49,6 @@ const (
 
 // Constants for duration fields
 const (
-	discoveryRefreshDelayMax = time.Minute * 10
-	discoveryRefreshDelayMin = time.Second
-
 	connectTimeoutMax = time.Second * 30
 	connectTimeoutMin = time.Millisecond
 
@@ -784,17 +781,6 @@ func ValidateParentAndDrain(drainTime, parentShutdown *types.Duration) (errs err
 	return
 }
 
-// ValidateRefreshDelay validates the discovery refresh delay time
-func ValidateRefreshDelay(refresh *types.Duration) error {
-	if err := ValidateDuration(refresh); err != nil {
-		return err
-	}
-
-	refreshDuration, _ := types.DurationFromProto(refresh)
-	err := ValidateDurationRange(refreshDuration, discoveryRefreshDelayMin, discoveryRefreshDelayMax)
-	return err
-}
-
 // ValidateConnectTimeout validates the envoy conncection timeout
 func ValidateConnectTimeout(timeout *types.Duration) error {
 	if err := ValidateDuration(timeout); err != nil {
@@ -828,10 +814,6 @@ func ValidateMeshConfig(mesh *meshconfig.MeshConfig) (errs error) {
 		errs = multierror.Append(errs, multierror.Prefix(err, "invalid connect timeout:"))
 	}
 
-	if err := ValidateRefreshDelay(mesh.RdsRefreshDelay); err != nil {
-		errs = multierror.Append(errs, multierror.Prefix(err, "invalid rds refresh delay:"))
-	}
-
 	if mesh.DefaultConfig == nil {
 		errs = multierror.Append(errs, errors.New("missing default config"))
 	} else if err := ValidateProxyConfig(mesh.DefaultConfig); err != nil {
@@ -857,10 +839,6 @@ func ValidateProxyConfig(config *meshconfig.ProxyConfig) (errs error) {
 
 	if err := ValidateParentAndDrain(config.DrainDuration, config.ParentShutdownDuration); err != nil {
 		errs = multierror.Append(errs, multierror.Prefix(err, "invalid parent and drain time combination"))
-	}
-
-	if err := ValidateRefreshDelay(config.DiscoveryRefreshDelay); err != nil {
-		errs = multierror.Append(errs, multierror.Prefix(err, "invalid refresh delay:"))
 	}
 
 	// discovery address is mandatory since mutual TLS relies on CDS.
@@ -1219,15 +1197,14 @@ func ValidateServiceRoleBinding(name, namespace string, msg proto.Message) error
 	return errs
 }
 
-// ValidateRbacConfig checks that RbacConfig is well-formed.
-func ValidateRbacConfig(name, namespace string, msg proto.Message) error {
+func checkRbacConfig(name, typ string, msg proto.Message) error {
 	in, ok := msg.(*rbac.RbacConfig)
 	if !ok {
-		return errors.New("cannot cast to RbacConfig")
+		return errors.New("cannot cast to " + typ)
 	}
 
 	if name != DefaultRbacConfigName {
-		return fmt.Errorf("rbacConfig has invalid name(%s), name must be %s", name, DefaultRbacConfigName)
+		return fmt.Errorf("%s has invalid name(%s), name must be %q", typ, name, DefaultRbacConfigName)
 	}
 
 	if in.Mode == rbac.RbacConfig_ON_WITH_INCLUSION && in.Inclusion == nil {
@@ -1239,6 +1216,17 @@ func ValidateRbacConfig(name, namespace string, msg proto.Message) error {
 	}
 
 	return nil
+}
+
+// ValidateClusterRbacConfig checks that ClusterRbacConfig is well-formed.
+func ValidateClusterRbacConfig(name, namespace string, msg proto.Message) error {
+	return checkRbacConfig(name, "ClusterRbacConfig", msg)
+}
+
+// ValidateRbacConfig checks that RbacConfig is well-formed.
+func ValidateRbacConfig(name, namespace string, msg proto.Message) error {
+	log.Warnf("RbacConfig is deprecated, use ClusterRbacConfig instead.")
+	return checkRbacConfig(name, "RbacConfig", msg)
 }
 
 func validateJwt(jwt *authn.Jwt) (errs error) {
@@ -1362,17 +1350,13 @@ func validateTLSRoute(tls *networking.TLSRoute, context *networking.VirtualServi
 	if tls == nil {
 		return nil
 	}
-
 	if len(tls.Match) == 0 {
 		errs = appendErrors(errs, errors.New("TLS route must have at least one match condition"))
 	}
 	for _, match := range tls.Match {
 		errs = appendErrors(errs, validateTLSMatch(match, context))
 	}
-	if len(tls.Route) != 1 {
-		errs = appendErrors(errs, errors.New("TLS route must have exactly one destination"))
-	}
-	errs = appendErrors(errs, validateDestinationWeights(tls.Route))
+	errs = appendErrors(errs, validateRouteDestinations(tls.Route))
 	return
 }
 
@@ -1422,10 +1406,7 @@ func validateTCPRoute(tcp *networking.TCPRoute) (errs error) {
 	for _, match := range tcp.Match {
 		errs = appendErrors(errs, validateTCPMatch(match))
 	}
-	if len(tcp.Route) != 1 {
-		errs = appendErrors(errs, errors.New("TCP route must have exactly one destination"))
-	}
-	errs = appendErrors(errs, validateDestinationWeights(tcp.Route))
+	errs = appendErrors(errs, validateRouteDestinations(tcp.Route))
 	return
 }
 
@@ -1433,7 +1414,6 @@ func validateTCPMatch(match *networking.L4MatchAttributes) (errs error) {
 	for _, destinationSubnet := range match.DestinationSubnets {
 		errs = appendErrors(errs, ValidateIPv4Subnet(destinationSubnet))
 	}
-
 	if len(match.SourceSubnet) > 0 {
 		errs = appendErrors(errs, ValidateIPv4Subnet(match.SourceSubnet))
 	}
@@ -1491,7 +1471,7 @@ func validateHTTPRoute(http *networking.HTTPRoute) (errs error) {
 	errs = appendErrors(errs, validateHTTPRedirect(http.Redirect))
 	errs = appendErrors(errs, validateHTTPRetry(http.Retries))
 	errs = appendErrors(errs, validateHTTPRewrite(http.Rewrite))
-	errs = appendErrors(errs, validateDestinationWeights(http.Route))
+	errs = appendErrors(errs, validateHTTPRouteDestinations(http.Route))
 	if http.Timeout != nil {
 		errs = appendErrors(errs, ValidateDurationGogo(http.Timeout))
 	}
@@ -1508,11 +1488,23 @@ func validateGatewayNames(gateways []string) (errs error) {
 	return
 }
 
-func validateDestinationWeights(weights []*networking.DestinationWeight) (errs error) {
+func validateHTTPRouteDestinations(weights []*networking.HTTPRouteDestination) (errs error) {
 	var totalWeight int32
 	for _, weight := range weights {
 		if weight.Destination == nil {
 			errs = multierror.Append(errs, errors.New("destination is required"))
+		}
+		for name := range weight.AppendRequestHeaders {
+			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+		}
+		for name := range weight.AppendResponseHeaders {
+			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+		}
+		for _, name := range weight.RemoveRequestHeaders {
+			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+		}
+		for _, name := range weight.RemoveResponseHeaders {
+			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
 		}
 		errs = appendErrors(errs, validateDestination(weight.Destination))
 		errs = appendErrors(errs, ValidatePercent(weight.Weight))
@@ -1520,6 +1512,22 @@ func validateDestinationWeights(weights []*networking.DestinationWeight) (errs e
 	}
 	if len(weights) > 1 && totalWeight != 100 {
 		errs = appendErrors(errs, fmt.Errorf("total destination weight %v != 100", totalWeight))
+	}
+	return
+}
+
+func validateRouteDestinations(weights []*networking.RouteDestination) (errs error) {
+	var totalWeight int32
+	for _, weight := range weights {
+		if weight.Destination == nil {
+			errs = multierror.Append(errs, errors.New("destination is required"))
+		}
+		errs = appendErrors(errs, validateDestination(weight.Destination))
+		errs = appendErrors(errs, ValidatePercent(weight.Weight))
+		if len(weights) > 1 && weight.Weight < 1 {
+			errs = multierror.Append(errs, errors.New("positive weight is required"))
+		}
+		totalWeight += weight.Weight
 	}
 	return
 }

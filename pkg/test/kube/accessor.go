@@ -23,11 +23,17 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	cv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 
 	"istio.io/istio/pkg/test/framework/scopes"
 
 	"istio.io/istio/pkg/test/util"
+)
+
+const (
+	defaultTimeout     = time.Minute * 3
+	defaultRetryPeriod = time.Second * 10
 )
 
 // Accessor is a helper for accessing Kubernetes programmatically. It bundles some of the high-level
@@ -84,7 +90,7 @@ func (a *Accessor) FindPodBySelectors(namespace string, selectors ...string) (v1
 
 // WaitForPodBySelectors waits for the pod to appear that match the given namespace and selectors.
 func (a *Accessor) WaitForPodBySelectors(ns string, selectors ...string) (pod v12.Pod, err error) {
-	p, err := util.Retry(util.DefaultRetryTimeout, util.DefaultRetryWait, func() (interface{}, bool, error) {
+	p, err := util.Retry(defaultTimeout, defaultRetryPeriod, func() (interface{}, bool, error) {
 
 		s := strings.Join(selectors, ",")
 
@@ -112,7 +118,7 @@ func (a *Accessor) WaitForPodBySelectors(ns string, selectors ...string) (pod v1
 
 // WaitUntilPodIsRunning waits until the pod with the name/namespace is in succeeded or in running state.
 func (a *Accessor) WaitUntilPodIsRunning(ns string, name string) error {
-	_, err := util.Retry(util.DefaultRetryTimeout, util.DefaultRetryWait, func() (interface{}, bool, error) {
+	_, err := util.Retry(defaultTimeout, defaultRetryPeriod, func() (interface{}, bool, error) {
 
 		pod, err := a.set.CoreV1().
 			Pods(ns).
@@ -124,8 +130,18 @@ func (a *Accessor) WaitUntilPodIsRunning(ns string, name string) error {
 			}
 		}
 
+		scopes.CI.Infof("  Checking pod state: %s/%s:\t %v", ns, name, pod.Status.Phase)
+
 		switch pod.Status.Phase {
-		case v12.PodSucceeded, v12.PodRunning:
+		case v12.PodSucceeded:
+			return nil, true, nil
+		case v12.PodRunning:
+			// Wait until all containers are ready.
+			for _, containerStatus := range pod.Status.ContainerStatuses {
+				if !containerStatus.Ready {
+					return nil, false, fmt.Errorf("pod %s running, but container %s not ready", name, containerStatus.ContainerID)
+				}
+			}
 			return nil, true, nil
 		case v12.PodFailed:
 			return nil, true, fmt.Errorf("pod found with selectors have failed:%s/%s", ns, name)
@@ -137,9 +153,9 @@ func (a *Accessor) WaitUntilPodIsRunning(ns string, name string) error {
 	return err
 }
 
-// WaitUntilPodIsReady waits until the pod with the name/namespace is in succeeded or running state.
+// WaitUntilPodIsReady waits until the pod with the name/namespace is in ready state.
 func (a *Accessor) WaitUntilPodIsReady(ns string, name string) error {
-	_, err := util.Retry(util.DefaultRetryTimeout, util.DefaultRetryWait, func() (interface{}, bool, error) {
+	_, err := util.Retry(defaultTimeout, defaultRetryPeriod, func() (interface{}, bool, error) {
 
 		pod, err := a.set.CoreV1().
 			Pods(ns).
@@ -159,11 +175,55 @@ func (a *Accessor) WaitUntilPodIsReady(ns string, name string) error {
 	return err
 }
 
+// WaitUntilDeploymentIsReady waits until the deployment with the name/namespace is in ready state.
+func (a *Accessor) WaitUntilDeploymentIsReady(ns string, name string) error {
+	_, err := util.Retry(util.DefaultRetryTimeout, util.DefaultRetryWait, func() (interface{}, bool, error) {
+
+		deployment, err := a.set.ExtensionsV1beta1().
+			Deployments(ns).
+			Get(name, v1.GetOptions{})
+
+		if err != nil {
+			if !errors.IsNotFound(err) {
+				return nil, true, err
+			}
+		}
+
+		ready := deployment.Status.ReadyReplicas == deployment.Status.UnavailableReplicas+deployment.Status.AvailableReplicas
+
+		return nil, ready, nil
+	})
+
+	return err
+}
+
+// WaitUntilDaemonSetIsReady waits until the deployment with the name/namespace is in ready state.
+func (a *Accessor) WaitUntilDaemonSetIsReady(ns string, name string) error {
+	_, err := util.Retry(util.DefaultRetryTimeout, util.DefaultRetryWait, func() (interface{}, bool, error) {
+
+		daemonSet, err := a.set.ExtensionsV1beta1().
+			DaemonSets(ns).
+			Get(name, v1.GetOptions{})
+
+		if err != nil {
+			if !errors.IsNotFound(err) {
+				return nil, true, err
+			}
+		}
+
+		ready := daemonSet.Status.NumberReady == daemonSet.Status.DesiredNumberScheduled
+
+		return nil, ready, nil
+	})
+
+	return err
+}
+
 // WaitUntilPodsInNamespaceAreReady waits for pods to be become running/succeeded in a given namespace.
-func (a *Accessor) WaitUntilPodsInNamespaceAreReady(ns string, timeLimit time.Duration) error {
+func (a *Accessor) WaitUntilPodsInNamespaceAreReady(ns string) error {
 	scopes.CI.Infof("Starting wait for pods to be ready in namespace %s", ns)
 
-	_, err := util.Retry(timeLimit, time.Second*10, func() (interface{}, bool, error) {
+	_, err := util.Retry(defaultTimeout, defaultRetryPeriod, func() (interface{}, bool, error) {
 
 		list, err := a.set.CoreV1().Pods(ns).List(v1.ListOptions{})
 		if err != nil {
@@ -196,16 +256,25 @@ func (a *Accessor) GetService(ns string, name string) (*v12.Service, error) {
 	return svc, err
 }
 
+// GetSecret returns secret resource with the given namespace.
+func (a *Accessor) GetSecret(ns string) cv1.SecretInterface {
+	return a.set.CoreV1().Secrets(ns)
+}
+
 // CreateNamespace with the given name. Also adds an "istio-testing" annotation.
-func (a *Accessor) CreateNamespace(ns string, istioTestingAnnotation string) error {
+func (a *Accessor) CreateNamespace(ns string, istioTestingAnnotation string, injectionEnabled bool) error {
 	scopes.Framework.Debugf("Creating namespace: %s", ns)
 	n := v12.Namespace{
 		ObjectMeta: v1.ObjectMeta{
-			Name: ns,
-			Labels: map[string]string{
-				"istio-testing": istioTestingAnnotation,
-			},
+			Name:   ns,
+			Labels: map[string]string{},
 		},
+	}
+	if istioTestingAnnotation != "" {
+		n.ObjectMeta.Labels["istio-testing"] = istioTestingAnnotation
+	}
+	if injectionEnabled {
+		n.ObjectMeta.Labels["istio-injection"] = "enabled"
 	}
 
 	_, err := a.set.CoreV1().Namespaces().Create(&n)
@@ -234,7 +303,7 @@ func (a *Accessor) DeleteNamespace(ns string) error {
 
 // WaitForNamespaceDeletion waits until a namespace is deleted.
 func (a *Accessor) WaitForNamespaceDeletion(ns string) error {
-	_, err := util.Retry(util.DefaultRetryTimeout, util.DefaultRetryWait, func() (interface{}, bool, error) {
+	_, err := util.Retry(defaultTimeout, defaultRetryPeriod, func() (interface{}, bool, error) {
 		_, err2 := a.set.CoreV1().Namespaces().Get(ns, v1.GetOptions{})
 		if err2 == nil {
 			return nil, false, nil

@@ -390,7 +390,7 @@ func udsRequest(server *bootstrap.Server, t *testing.T) {
 
 func TestEds(t *testing.T) {
 	initLocalPilotTestEnv(t)
-	server := util.EnsureTestServer()
+	server, _ := util.EnsureTestServer()
 
 	t.Run("DirectRequest", func(t *testing.T) {
 		directRequest(server, t)

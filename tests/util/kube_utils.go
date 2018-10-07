@@ -127,6 +127,12 @@ func NamespaceDeleted(n string, kubeconfig string) (bool, error) {
 	return false, err
 }
 
+// ValidatingWebhookConfigurationDeleted check if a kubernetes ValidatingWebhookConfiguration is deleted
+func ValidatingWebhookConfigurationDeleted(name string, kubeconfig string) bool {
+	output, _ := ShellSilent("kubectl get validatingwebhookconfiguration %s -o name --kubeconfig=%s", name, kubeconfig)
+	return strings.Contains(output, "NotFound")
+}
+
 // KubeApplyContents kubectl apply from contents
 func KubeApplyContents(namespace, yamlContents string, kubeconfig string) error {
 	tmpfile, err := WriteTempfile(os.TempDir(), "kubeapply", ".yaml", yamlContents)
@@ -180,39 +186,6 @@ func KubeApplySilent(namespace, yamlFileName string, kubeconfig string) error {
 func KubeScale(namespace, typeName string, replicaCount int, kubeconfig string) error {
 	kubecommand := fmt.Sprintf("kubectl scale -n %s --replicas=%d %s --kubeconfig=%s", namespace, replicaCount, typeName, kubeconfig)
 	_, err := Shell(kubecommand)
-	return err
-}
-
-// HelmInit init helm with a service account
-func HelmInit(serviceAccount string) error {
-	_, err := Shell("helm init --upgrade --service-account %s", serviceAccount)
-	return err
-}
-
-// HelmInstallDryRun helm install dry run from a chart for a given namespace
-func HelmInstallDryRun(chartDir, chartName, namespace, setValue string) error {
-	_, err := Shell("helm install --dry-run --debug %s --name %s --namespace %s %s", chartDir, chartName, namespace, setValue)
-	return err
-}
-
-// HelmInstall helm install from a chart for a given namespace
-//       --set stringArray        set values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)
-func HelmInstall(chartDir, chartName, namespace, setValue string) error {
-	_, err := Shell("helm install %s --name %s --namespace %s %s", chartDir, chartName, namespace, setValue)
-	return err
-}
-
-// HelmTemplate helm template from a chart for a given namespace
-//      --set stringArray        set values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)
-func HelmTemplate(chartDir, chartName, namespace, setValue, outfile string) error {
-	_, err := Shell("helm template %s --name %s --namespace %s %s > %s", chartDir,
-		chartName, namespace, setValue, outfile)
-	return err
-}
-
-// HelmDelete helm del --purge a chart
-func HelmDelete(chartName string) error {
-	_, err := Shell("helm del --purge %s", chartName)
 	return err
 }
 

@@ -56,7 +56,7 @@ func convertDuration(d *types.Duration) time.Duration {
 	return dur
 }
 
-func args(config *meshconfig.ProxyConfig, node, fname string, epoch int, cliarg []string) []string {
+func createArgs(config *meshconfig.ProxyConfig, node, fname string, epoch int, cliarg []string) []string {
 	startupArgs := []string{"-c", fname,
 		"--restart-epoch", fmt.Sprint(epoch),
 		"--drain-time-s", fmt.Sprint(int(convertDuration(config.DrainDuration) / time.Second)),
@@ -75,10 +75,6 @@ func args(config *meshconfig.ProxyConfig, node, fname string, epoch int, cliarg 
 		startupArgs = append(startupArgs, "--concurrency", fmt.Sprint(config.Concurrency))
 	}
 
-	if len(config.AvailabilityZone) > 0 {
-		startupArgs = append(startupArgs, []string{"--service-zone", config.AvailabilityZone}...)
-	}
-
 	return startupArgs
 }
 
@@ -89,7 +85,7 @@ func RunProxy(config *meshconfig.ProxyConfig, node string, epoch int, configFnam
 	outWriter io.Writer, errWriter io.Writer, cliarg []string) (*os.Process, error) {
 
 	// spin up a new Envoy process
-	args := args(config, node, configFname, epoch, cliarg)
+	args := createArgs(config, node, configFname, epoch, cliarg)
 	args = append(args, "--v2-config-only")
 
 	/* #nosec */
@@ -171,7 +167,6 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 	opts["pilot_SAN"] = pilotSAN
 
 	// Simplify the template
-	opts["refresh_delay"] = fmt.Sprintf("{\"seconds\": %d, \"nanos\": %d}", config.DiscoveryRefreshDelay.Seconds, config.DiscoveryRefreshDelay.Nanos)
 	opts["connect_timeout"] = fmt.Sprintf("{\"seconds\": %d, \"nanos\": %d}", config.ConnectTimeout.Seconds, config.ConnectTimeout.Nanos)
 
 	opts["cluster"] = config.ServiceCluster
@@ -193,10 +188,6 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 	// TODO: allow reading a file with additional metadata (for example if created with
 	// 'envref'. This will allow Istio to generate the right config even if the pod info
 	// is not available (in particular in some multi-cluster cases)
-
-	if len(config.AvailabilityZone) > 0 {
-		opts["az"] = config.AvailabilityZone
-	}
 
 	h, p, err := GetHostPort("Discovery", config.DiscoveryAddress)
 	if err != nil {

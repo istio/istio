@@ -15,9 +15,7 @@
 package v1alpha3
 
 import (
-	"bytes"
-	"encoding/json"
-	"strings"
+	"fmt"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	fileaccesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v2"
@@ -25,22 +23,26 @@ import (
 	mongo_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/mongo_proxy/v2"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
-	"github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/types"
 
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
+	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pkg/log"
 )
 
 // buildInboundNetworkFilters generates a TCP proxy network filter on the inbound path
 func buildInboundNetworkFilters(env *model.Environment, instance *model.ServiceInstance) []listener.Filter {
 	clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "", instance.Service.Hostname, instance.Endpoint.ServicePort.Port)
 	config := &tcp_proxy.TcpProxy{
-		StatPrefix: clusterName,
-		Cluster:    clusterName,
+		StatPrefix:       clusterName,
+		ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: clusterName},
 	}
+	return []listener.Filter{*setAccessLogAndBuildTCPFilter(env, config)}
+}
 
+// setAccessLogAndBuildTCPFilter sets the AccessLog configuration in the given
+// TcpProxy instance and builds a TCP filter out of it.
+func setAccessLogAndBuildTCPFilter(env *model.Environment, config *tcp_proxy.TcpProxy) *listener.Filter {
 	if env.Mesh.AccessLogFile != "" {
 		fl := &fileaccesslog.FileAccessLog{
 			Path:   env.Mesh.AccessLogFile,
@@ -54,116 +56,79 @@ func buildInboundNetworkFilters(env *model.Environment, instance *model.ServiceI
 		}
 	}
 
-	return []listener.Filter{
-		{
-			Name:   xdsutil.TCPProxy,
-			Config: util.MessageToStruct(config),
-		},
-	}
-}
-
-func buildDeprecatedTCPProxyFilter(clusterName string, addr string) (*listener.Filter, error) {
-	route := &DeprecatedTCPRoute{
-		Cluster: clusterName,
-	}
-
-	if addr != model.UnspecifiedIP {
-		tcpRouteAddr := addr
-		if !strings.Contains(addr, "/") {
-			tcpRouteAddr = addr + "/32"
-		}
-		route.DestinationIPList = append(route.DestinationIPList, tcpRouteAddr)
-	}
-
-	// destination port is unnecessary with use_original_dst since
-	// the listener address already contains the port
-	filterConfig := &DeprecatedTCPProxyFilterConfig{
-		StatPrefix:  clusterName,
-		RouteConfig: &DeprecatedTCPRouteConfig{Routes: []*DeprecatedTCPRoute{route}},
-	}
-
-	trueValue := types.Value{
-		Kind: &types.Value_BoolValue{
-			BoolValue: true,
-		},
-	}
-	data, err := json.Marshal(filterConfig)
-	if err != nil {
-		log.Errorf("filter config could not be marshalled: %v", err)
-		return nil, err
-	}
-	pbs := &types.Struct{}
-	if err := jsonpb.Unmarshal(bytes.NewReader(data), pbs); err != nil {
-		log.Errorf("filter config could not be unmarshalled: %v", err)
-		return nil, err
-	}
-
-	structValue := types.Value{
-		Kind: &types.Value_StructValue{
-			StructValue: pbs,
-		},
-	}
-
-	// FIXME
 	tcpFilter := &listener.Filter{
-		Name: xdsutil.TCPProxy,
-		Config: &types.Struct{Fields: map[string]*types.Value{
-			"deprecated_v1": &trueValue,
-			"value":         &structValue,
-		}},
+		Name:   xdsutil.TCPProxy,
+		Config: util.MessageToStruct(config),
 	}
-
-	return tcpFilter, nil
+	return tcpFilter
 }
 
-// buildOutboundNetworkFilters generates TCP proxy network filter for outbound connections. In addition, it generates
-// protocol specific filters (e.g., Mongo filter)
-// this function constructs deprecated_v1 routes, until the filter chain match is ready
-func buildOutboundNetworkFilters(env *model.Environment, node *model.Proxy, clusterName string,
-	deprecatedTCPFilterMatchAddress string, port *model.Port) []listener.Filter {
+// buildOutboundNetworkFiltersWithSingleDestination takes a single cluster name
+// and builds a stack of network filters.
+func buildOutboundNetworkFiltersWithSingleDestination(env *model.Environment, node *model.Proxy,
+	clusterName string, port *model.Port) []listener.Filter {
 
-	var tcpFilter *listener.Filter
-	var err error
+	config := &tcp_proxy.TcpProxy{
+		StatPrefix:       clusterName,
+		ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: clusterName},
+		// TODO: Need to set other fields such as Idle timeouts
+	}
+	tcpFilter := setAccessLogAndBuildTCPFilter(env, config)
+	return buildOutboundNetworkFiltersStack(port, tcpFilter, clusterName)
+}
 
-	if len(deprecatedTCPFilterMatchAddress) > 0 && !util.Is1xProxy(node) {
-		if tcpFilter, err = buildDeprecatedTCPProxyFilter(clusterName, deprecatedTCPFilterMatchAddress); err != nil {
-			return nil
-		}
-	} else {
-		// construct TCP proxy using v2 config
-		config := &tcp_proxy.TcpProxy{
-			StatPrefix: clusterName,
-			Cluster:    clusterName,
-			// TODO: Need to set other fields such as Idle timeouts
-		}
+// buildOutboundNetworkFiltersWithWeightedClusters takes a set of weighted
+// destination routes and builds a stack of network filters.
+func buildOutboundNetworkFiltersWithWeightedClusters(env *model.Environment, routes []*networking.RouteDestination,
+	push *model.PushContext, port *model.Port, config model.ConfigMeta) []listener.Filter {
 
-		if env.Mesh.AccessLogFile != "" {
-			fl := &fileaccesslog.FileAccessLog{
-				Path:   env.Mesh.AccessLogFile,
-				Format: EnvoyTCPLogFormat,
-			}
-			config.AccessLog = []*accesslog.AccessLog{
-				{
-					Config: util.MessageToStruct(fl),
-					Name:   xdsutil.FileAccessLog,
-				},
-			}
-		}
-
-		tcpFilter = &listener.Filter{
-			Name:   xdsutil.TCPProxy,
-			Config: util.MessageToStruct(config),
-		}
+	statPrefix := fmt.Sprintf("%s.%s", config.Name, config.Namespace)
+	clusterSpecifier := &tcp_proxy.TcpProxy_WeightedClusters{
+		WeightedClusters: &tcp_proxy.TcpProxy_WeightedCluster{},
+	}
+	proxyConfig := &tcp_proxy.TcpProxy{
+		StatPrefix:       statPrefix,
+		ClusterSpecifier: clusterSpecifier,
+		// TODO: Need to set other fields such as Idle timeouts
 	}
 
+	for _, route := range routes {
+		clusterName := istio_route.GetDestinationCluster(route.Destination, push.ServiceByHostname[model.Hostname(route.Destination.Host)], port.Port)
+		clusterSpecifier.WeightedClusters.Clusters = append(clusterSpecifier.WeightedClusters.Clusters, &tcp_proxy.TcpProxy_WeightedCluster_ClusterWeight{
+			Name:   clusterName,
+			Weight: uint32(route.Weight),
+		})
+	}
+
+	tcpFilter := setAccessLogAndBuildTCPFilter(env, proxyConfig)
+	return buildOutboundNetworkFiltersStack(port, tcpFilter, statPrefix)
+}
+
+// buildOutboundNetworkFiltersStack builds a slice of network filters based on
+// the protocol in use and the given TCP filter instance.
+func buildOutboundNetworkFiltersStack(port *model.Port, tcpFilter *listener.Filter, statPrefix string) []listener.Filter {
 	filterstack := make([]listener.Filter, 0)
 	switch port.Protocol {
 	case model.ProtocolMongo:
-		filterstack = append(filterstack, buildOutboundMongoFilter(clusterName))
+		filterstack = append(filterstack, buildOutboundMongoFilter(statPrefix))
 	}
 	filterstack = append(filterstack, *tcpFilter)
-
 	return filterstack
+}
+
+// buildOutboundNetworkFilters generates a TCP proxy network filter for outbound
+// connections. In addition, it generates protocol specific filters (e.g., Mongo
+// filter).
+func buildOutboundNetworkFilters(env *model.Environment, node *model.Proxy,
+	routes []*networking.RouteDestination, push *model.PushContext,
+	port *model.Port, config model.ConfigMeta) []listener.Filter {
+
+	if len(routes) == 1 {
+		service := push.ServiceByHostname[model.Hostname(routes[0].Destination.Host)]
+		clusterName := istio_route.GetDestinationCluster(routes[0].Destination, service, port.Port)
+		return buildOutboundNetworkFiltersWithSingleDestination(env, node, clusterName, port)
+	}
+	return buildOutboundNetworkFiltersWithWeightedClusters(env, routes, push, port, config)
 }
 
 func buildOutboundMongoFilter(statPrefix string) listener.Filter {
@@ -179,75 +144,4 @@ func buildOutboundMongoFilter(statPrefix string) listener.Filter {
 		Name:   xdsutil.MongoProxy,
 		Config: util.MessageToStruct(config),
 	}
-}
-
-// DeprecatedTCPRoute definition
-type DeprecatedTCPRoute struct {
-	Cluster           string   `json:"cluster"`
-	DestinationIPList []string `json:"destination_ip_list,omitempty"`
-	DestinationPorts  string   `json:"destination_ports,omitempty"`
-	SourceIPList      []string `json:"source_ip_list,omitempty"`
-	SourcePorts       string   `json:"source_ports,omitempty"`
-}
-
-// DeprecatedTCPRouteByRoute sorts TCP routes over all route sub fields.
-type DeprecatedTCPRouteByRoute []*DeprecatedTCPRoute
-
-func (r DeprecatedTCPRouteByRoute) Len() int {
-	return len(r)
-}
-
-func (r DeprecatedTCPRouteByRoute) Swap(i, j int) {
-	r[i], r[j] = r[j], r[i]
-}
-
-func (r DeprecatedTCPRouteByRoute) Less(i, j int) bool {
-	if r[i].Cluster != r[j].Cluster {
-		return r[i].Cluster < r[j].Cluster
-	}
-
-	compare := func(a, b []string) bool {
-		lenA, lenB := len(a), len(b)
-		min := lenA
-		if min > lenB {
-			min = lenB
-		}
-		for k := 0; k < min; k++ {
-			if a[k] != b[k] {
-				return a[k] < b[k]
-			}
-		}
-		return lenA < lenB
-	}
-
-	if less := compare(r[i].DestinationIPList, r[j].DestinationIPList); less {
-		return less
-	}
-	if r[i].DestinationPorts != r[j].DestinationPorts {
-		return r[i].DestinationPorts < r[j].DestinationPorts
-	}
-	if less := compare(r[i].SourceIPList, r[j].SourceIPList); less {
-		return less
-	}
-	if r[i].SourcePorts != r[j].SourcePorts {
-		return r[i].SourcePorts < r[j].SourcePorts
-	}
-	return false
-}
-
-// DeprecatedTCPProxyFilterConfig definition
-type DeprecatedTCPProxyFilterConfig struct {
-	StatPrefix  string                    `json:"stat_prefix"`
-	RouteConfig *DeprecatedTCPRouteConfig `json:"route_config"`
-}
-
-// DeprecatedTCPRouteConfig (or generalize as RouteConfig or L4RouteConfig for TCP/UDP?)
-type DeprecatedTCPRouteConfig struct {
-	Routes []*DeprecatedTCPRoute `json:"routes"`
-}
-
-// DeprecatedFilterConfigInV2 definition
-type DeprecatedFilterConfigInV2 struct {
-	DeprecatedV1 bool                            `json:"deprecated_v1"`
-	Value        *DeprecatedTCPProxyFilterConfig `json:"value"`
 }

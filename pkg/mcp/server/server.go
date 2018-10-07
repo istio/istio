@@ -35,6 +35,9 @@ var (
 	scope = log.RegisterScope("mcp", "mcp debugging", 0)
 )
 
+// channel depth for mcp response
+const responseChanDepth = 1
+
 // WatchResponse contains a versioned collection of pre-serialized resources.
 type WatchResponse struct {
 	TypeURL string
@@ -81,6 +84,8 @@ type Server struct {
 	authCheck                   AuthChecker
 	checkFailureRecordLimiter   *rate.Limiter
 	failureCountSinceLastRecord int
+	connections                 int64
+	reporter                    Reporter
 }
 
 // AuthChecker is used to check the transport auth info that is associated with each stream. If the function
@@ -96,8 +101,9 @@ type AuthChecker interface {
 
 // watch maintains local state of the most recent watch per-type.
 type watch struct {
-	cancel func()
-	nonce  string
+	cancel       func()
+	nonce        string
+	responseChan chan *WatchResponse
 }
 
 // connection maintains per-stream connection state for a
@@ -112,28 +118,37 @@ type connection struct {
 	// ignores stale nonces. nonce is only modified within send() function.
 	streamNonce int64
 
-	requestC  chan *mcp.MeshConfigRequest // a channel for receiving incoming requests
-	reqError  error                       // holds error if request channel is closed
-	responseC chan *WatchResponse         // channel of pushes responses
-	watches   map[string]*watch           // per-type watches
-	watcher   Watcher
+	requestC chan *mcp.MeshConfigRequest // a channel for receiving incoming requests
+	reqError error                       // holds error if request channel is closed
+	watches  map[string]*watch           // per-type watches
+	watcher  Watcher
+
+	reporter Reporter
 }
 
-// New creates a new gRPC server that implements the Mesh Configuration Protocol (MCP). A nil authCheck
-// implies all incoming connections should be allowed.
-func New(watcher Watcher, supportedTypes []string, authChecker AuthChecker) *Server {
+// Reporter is used to report metrics for an MCP server.
+type Reporter interface {
+	SetClientsTotal(clients int64)
+	RecordSendError(err error, code codes.Code)
+	RecordRecvError(err error, code codes.Code)
+	RecordRequestSize(typeURL string, connectionID int64, size int)
+	RecordRequestAck(typeURL string, connectionID int64)
+	RecordRequestNack(typeURL string, connectionID int64)
+}
+
+// New creates a new gRPC server that implements the Mesh Configuration Protocol (MCP).
+func New(watcher Watcher, supportedTypes []string, authChecker AuthChecker, reporter Reporter) *Server {
 	s := &Server{
 		watcher:        watcher,
 		supportedTypes: supportedTypes,
 		authCheck:      authChecker,
+		reporter:       reporter,
 	}
 
-	if authChecker != nil {
-		// Initialize record limiter for the auth checker.
-		limit := rate.Every(1 * time.Minute) // TODO: make this configurable?
-		limiter := rate.NewLimiter(limit, 1)
-		s.checkFailureRecordLimiter = limiter
-	}
+	// Initialize record limiter for the auth checker.
+	limit := rate.Every(1 * time.Minute) // TODO: make this configurable?
+	limiter := rate.NewLimiter(limit, 1)
+	s.checkFailureRecordLimiter = limiter
 
 	return s
 }
@@ -164,20 +179,24 @@ func (s *Server) newConnection(stream mcp.AggregatedMeshConfigService_StreamAggr
 	}
 
 	con := &connection{
-		stream:    stream,
-		peerAddr:  peerAddr,
-		requestC:  make(chan *mcp.MeshConfigRequest),
-		responseC: make(chan *WatchResponse),
-		watches:   make(map[string]*watch),
-		watcher:   s.watcher,
-		id:        atomic.AddInt64(&s.nextStreamID, 1),
+		stream:   stream,
+		peerAddr: peerAddr,
+		requestC: make(chan *mcp.MeshConfigRequest),
+		watches:  make(map[string]*watch),
+		watcher:  s.watcher,
+		id:       atomic.AddInt64(&s.nextStreamID, 1),
+		reporter: s.reporter,
 	}
 
 	var types []string
 	for _, typeURL := range s.supportedTypes {
-		con.watches[typeURL] = &watch{}
+		con.watches[typeURL] = &watch{
+			responseChan: make(chan *WatchResponse, responseChanDepth),
+		}
 		types = append(types, typeURL)
 	}
+
+	s.reporter.SetClientsTotal(atomic.AddInt64(&s.connections, 1))
 
 	scope.Infof("MCP: connection %v: NEW, supported types: %#v", con, types)
 	return con, nil
@@ -195,12 +214,22 @@ func (s *Server) StreamAggregatedResources(stream mcp.AggregatedMeshConfigServic
 		return err
 	}
 
-	defer con.close()
+	defer s.closeConnection(con)
 	go con.receive()
+
+	// fan-in per-type response channels into single response channel for the select loop below.
+	responseChan := make(chan *WatchResponse)
+	for _, ch := range con.watches {
+		go func(in chan *WatchResponse) {
+			for v := range in {
+				responseChan <- v
+			}
+		}(ch.responseChan)
+	}
 
 	for {
 		select {
-		case resp, more := <-con.responseC:
+		case resp, more := <-responseChan:
 			if !more || resp == nil {
 				return status.Errorf(codes.Unavailable, "server canceled watch: more=%v resp=%v",
 					more, resp)
@@ -220,6 +249,11 @@ func (s *Server) StreamAggregatedResources(stream mcp.AggregatedMeshConfigServic
 			return stream.Context().Err()
 		}
 	}
+}
+
+func (s *Server) closeConnection(con *connection) {
+	con.close()
+	s.reporter.SetClientsTotal(atomic.AddInt64(&s.connections, -1))
 }
 
 // String implements Stringer.String.
@@ -242,6 +276,8 @@ func (con *connection) send(resp *WatchResponse) (string, error) {
 	con.streamNonce = con.streamNonce + 1
 	msg.Nonce = strconv.FormatInt(con.streamNonce, 10)
 	if err := con.stream.Send(msg); err != nil {
+		con.reporter.RecordSendError(err, status.Code(err))
+
 		return "", err
 	}
 	scope.Infof("MCP: connection %v: SEND version=%v nonce=%v", con, resp.Version, msg.Nonce)
@@ -253,12 +289,13 @@ func (con *connection) receive() {
 	for {
 		req, err := con.stream.Recv()
 		if err != nil {
-			if status.Code(err) == codes.Canceled || err == io.EOF {
+			code := status.Code(err)
+			if code == codes.Canceled || err == io.EOF {
 				scope.Infof("MCP: connection %v: TERMINATED %q", con, err)
 				return
 			}
+			con.reporter.RecordRecvError(err, code)
 			scope.Errorf("MCP: connection %v: TERMINATED with errors: %v", con, err)
-
 			// Save the stream error prior to closing the stream. The caller
 			// should access the error after the channel closure.
 			con.reqError = err
@@ -279,6 +316,7 @@ func (con *connection) close() {
 }
 
 func (con *connection) processClientRequest(req *mcp.MeshConfigRequest) error {
+	con.reporter.RecordRequestSize(req.TypeUrl, con.id, req.Size())
 	watch, ok := con.watches[req.TypeUrl]
 	if !ok {
 		return status.Errorf(codes.InvalidArgument, "unsupported type_url %q", req.TypeUrl)
@@ -291,13 +329,14 @@ func (con *connection) processClientRequest(req *mcp.MeshConfigRequest) error {
 		} else {
 			scope.Debugf("MCP: connection %v ACK type_url=%q version=%q with nonce=%q",
 				con, req.TypeUrl, req.VersionInfo, req.ResponseNonce)
+			con.reporter.RecordRequestAck(req.TypeUrl, con.id)
 		}
 
 		if watch.cancel != nil {
 			watch.cancel()
 		}
 		var resp *WatchResponse
-		resp, watch.cancel = con.watcher.Watch(req, con.responseC)
+		resp, watch.cancel = con.watcher.Watch(req, watch.responseChan)
 		if resp != nil {
 			nonce, err := con.send(resp)
 			if err != nil {
@@ -308,6 +347,7 @@ func (con *connection) processClientRequest(req *mcp.MeshConfigRequest) error {
 	} else {
 		scope.Warnf("MCP: connection %v: NACK type_url=%v version=%v with nonce=%q (watch.nonce=%q) error=%#v",
 			con, req.TypeUrl, req.VersionInfo, req.ResponseNonce, watch.nonce, req.ErrorDetail)
+		con.reporter.RecordRequestNack(req.TypeUrl, con.id)
 	}
 	return nil
 }

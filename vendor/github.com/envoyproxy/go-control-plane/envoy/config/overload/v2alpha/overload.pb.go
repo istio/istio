@@ -30,6 +30,8 @@ type ResourceMonitor struct {
 	//
 	// * :ref:`envoy.resource_monitors.fixed_heap
 	//   <envoy_api_msg_config.resource_monitor.fixed_heap.v2alpha.FixedHeapConfig>`
+	// * :ref:`envoy.resource_monitors.injected_resource
+	//   <envoy_api_msg_config.resource_monitor.injected_resource.v2alpha.InjectedResourceConfig>`
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Configuration for the resource monitor being instantiated.
 	Config               *types.Struct `protobuf:"bytes,2,opt,name=config" json:"config,omitempty"`
@@ -42,7 +44,7 @@ func (m *ResourceMonitor) Reset()         { *m = ResourceMonitor{} }
 func (m *ResourceMonitor) String() string { return proto.CompactTextString(m) }
 func (*ResourceMonitor) ProtoMessage()    {}
 func (*ResourceMonitor) Descriptor() ([]byte, []int) {
-	return fileDescriptor_overload_3e18bd59709129d7, []int{0}
+	return fileDescriptor_overload_e131266ef621db87, []int{0}
 }
 func (m *ResourceMonitor) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -98,7 +100,7 @@ func (m *ThresholdTrigger) Reset()         { *m = ThresholdTrigger{} }
 func (m *ThresholdTrigger) String() string { return proto.CompactTextString(m) }
 func (*ThresholdTrigger) ProtoMessage()    {}
 func (*ThresholdTrigger) Descriptor() ([]byte, []int) {
-	return fileDescriptor_overload_3e18bd59709129d7, []int{1}
+	return fileDescriptor_overload_e131266ef621db87, []int{1}
 }
 func (m *ThresholdTrigger) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -149,7 +151,7 @@ func (m *Trigger) Reset()         { *m = Trigger{} }
 func (m *Trigger) String() string { return proto.CompactTextString(m) }
 func (*Trigger) ProtoMessage()    {}
 func (*Trigger) Descriptor() ([]byte, []int) {
-	return fileDescriptor_overload_3e18bd59709129d7, []int{2}
+	return fileDescriptor_overload_e131266ef621db87, []int{2}
 }
 func (m *Trigger) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -284,7 +286,7 @@ func (m *OverloadAction) Reset()         { *m = OverloadAction{} }
 func (m *OverloadAction) String() string { return proto.CompactTextString(m) }
 func (*OverloadAction) ProtoMessage()    {}
 func (*OverloadAction) Descriptor() ([]byte, []int) {
-	return fileDescriptor_overload_3e18bd59709129d7, []int{3}
+	return fileDescriptor_overload_e131266ef621db87, []int{3}
 }
 func (m *OverloadAction) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -343,7 +345,7 @@ func (m *OverloadManager) Reset()         { *m = OverloadManager{} }
 func (m *OverloadManager) String() string { return proto.CompactTextString(m) }
 func (*OverloadManager) ProtoMessage()    {}
 func (*OverloadManager) Descriptor() ([]byte, []int) {
-	return fileDescriptor_overload_3e18bd59709129d7, []int{4}
+	return fileDescriptor_overload_e131266ef621db87, []int{4}
 }
 func (m *OverloadManager) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1376,10 +1378,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/config/overload/v2alpha/overload.proto", fileDescriptor_overload_3e18bd59709129d7)
+	proto.RegisterFile("envoy/config/overload/v2alpha/overload.proto", fileDescriptor_overload_e131266ef621db87)
 }
 
-var fileDescriptor_overload_3e18bd59709129d7 = []byte{
+var fileDescriptor_overload_e131266ef621db87 = []byte{
 	// 456 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x84, 0x92, 0x41, 0x8b, 0x13, 0x31,
 	0x14, 0xc7, 0x9b, 0xe9, 0x76, 0xbb, 0x7d, 0x45, 0x5b, 0x83, 0xba, 0xed, 0xe2, 0x96, 0x32, 0x07,

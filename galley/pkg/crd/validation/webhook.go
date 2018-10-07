@@ -49,6 +49,10 @@ var (
 	deserializer  = codecs.UniversalDeserializer()
 )
 
+func init() {
+	v1beta1.AddToScheme(runtimeScheme)
+}
+
 const (
 	watchDebounceDelay = 100 * time.Millisecond
 )

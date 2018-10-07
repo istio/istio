@@ -1,0 +1,20 @@
+{
+  "steps": [
+    {
+      "name": "gcr.io/istio-testing/istio-builder:0.5.10",
+      "args": [ "gsutil", "cp", "gs://$_GCS_RELEASE_TOOLS_PATH/*", "." ]
+    },
+    {
+      "name": "gcr.io/istio-testing/istio-builder:0.5.10",
+      "args": [ "chmod", "u+x", "./test_release.sh" ]
+    },
+    {
+      "name": "gcr.io/istio-testing/istio-builder:0.5.10",
+      "args": [ "./test_release.sh", "-b", "$_BRANCH", "-d", "$_DOCKER_HUB", "-g", "$_GCS_BUILD_PATH", "-v", "$_VERSION" ]
+    }
+  ],
+  "options": {
+    "machineType": "N1_HIGHCPU_8"
+  },
+  "timeout": "86400s",
+}

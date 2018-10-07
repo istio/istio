@@ -17,7 +17,6 @@ package kube
 import (
 	"errors"
 	"fmt"
-	"os"
 	"reflect"
 	"strconv"
 	"time"
@@ -30,6 +29,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/features/pilot"
 	"istio.io/istio/pkg/log"
 )
 
@@ -63,10 +63,6 @@ var (
 func init() {
 	prometheus.MustRegister(k8sEvents)
 }
-
-var (
-	azDebug = os.Getenv("VERBOSE_AZ_DEBUG") == "1"
-)
 
 // ControllerOptions stores the configurable attributes of a Controller.
 type ControllerOptions struct {
@@ -246,14 +242,14 @@ func (c *Controller) GetPodAZ(pod *v1.Pod) (string, bool) {
 	}
 	region, exists := node.(*v1.Node).Labels[NodeRegionLabel]
 	if !exists {
-		if azDebug {
+		if pilot.AzDebug {
 			log.Warnf("unable to retrieve region label for pod: %v", pod.Name)
 		}
 		return "", false
 	}
 	zone, exists := node.(*v1.Node).Labels[NodeZoneLabel]
 	if !exists {
-		if azDebug {
+		if pilot.AzDebug {
 			log.Warnf("unable to retrieve zone label for pod: %v", pod.Name)
 		}
 		return "", false
@@ -413,8 +409,13 @@ func (c *Controller) InstancesByPort(hostname model.Hostname, reqSvcPort int,
 
 // GetProxyServiceInstances returns service instances co-located with a given proxy
 func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.ServiceInstance, error) {
-	var out []*model.ServiceInstance
 	proxyIP := proxy.IPAddress
+	podNamespace := ""
+	if pod, exists := c.pods.getPodByIP(proxyIP); exists {
+		podNamespace = pod.Namespace
+	}
+	endpointsForPodInSameNS := make([]*model.ServiceInstance, 0)
+	endpointsForPodInDifferentNS := make([]*model.ServiceInstance, 0)
 	for _, item := range c.endpoints.informer.GetStore().List() {
 		ep := *item.(*v1.Endpoints)
 
@@ -427,6 +428,10 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 			continue
 		}
 
+		endpoints := &endpointsForPodInSameNS
+		if ep.Namespace != podNamespace {
+			endpoints = &endpointsForPodInDifferentNS
+		}
 		for _, ss := range ep.Subsets {
 			for _, port := range ss.Ports {
 				svcPort, exists := svc.Ports.Get(port.Name)
@@ -434,15 +439,21 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 					continue
 				}
 
-				out = append(out, getEndpoints(ss.Addresses, proxyIP, c, port, svcPort, svc)...)
+				*endpoints = append(*endpoints, getEndpoints(ss.Addresses, proxyIP, c, port, svcPort, svc)...)
 				nrEP := getEndpoints(ss.NotReadyAddresses, proxyIP, c, port, svcPort, svc)
-				out = append(out, nrEP...)
+				*endpoints = append(*endpoints, nrEP...)
 				if len(nrEP) > 0 && c.Env != nil {
 					c.Env.PushContext.Add(model.ProxyStatusEndpointNotReady, proxy.ID, proxy, "")
 				}
 			}
 		}
 	}
+
+	// Put the endpointsForPodInSameNS in front of endpointsForPodInDifferentNS so that Pilot will
+	// first use endpoints from endpointsForPodInSameNS. This makes sure if there are two endpoints
+	// referring to the same IP/port, the one in endpointsForPodInSameNS will be used. (The other one
+	// in endpointsForPodInDifferentNS will thus be rejected by Pilot).
+	out := append(endpointsForPodInSameNS, endpointsForPodInDifferentNS...)
 	if len(out) == 0 {
 		if c.Env != nil {
 			c.Env.PushContext.Add(model.ProxyStatusNoService, proxy.ID, proxy, "")

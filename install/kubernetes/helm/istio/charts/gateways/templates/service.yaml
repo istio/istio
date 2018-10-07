@@ -1,5 +1,5 @@
 {{- range $key, $spec := .Values }}
-{{- if and (ne $key "global") (ne $key "enabled") }}
+{{- if and (ne $key "enabled") }}
 {{- if $spec.enabled }}
 apiVersion: v1
 kind: Service
@@ -25,6 +25,9 @@ spec:
   loadBalancerSourceRanges:
 {{ toYaml $spec.loadBalancerSourceRanges | indent 4 }}
 {{- end }}
+{{- if $spec.externalTrafficPolicy }}
+  externalTrafficPolicy: {{$spec.externalTrafficPolicy }}
+{{- end }}
   type: {{ .type }}
   selector:
     {{- range $key, $val := $spec.labels }}
@@ -36,6 +39,14 @@ spec:
       {{- range $pkey, $pval := $val }}
       {{ $pkey}}: {{ $pval }}
       {{- end }}
+    {{- end }}
+    {{- if $.Values.global.meshExpansion.enabled }}
+    {{- range $key, $val := $spec.meshExpansionPorts }}
+    -
+      {{- range $pkey, $pval := $val }}
+      {{ $pkey}}: {{ $pval }}
+      {{- end }}
+    {{- end }}
     {{- end }}
 ---
 {{- end }}

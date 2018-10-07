@@ -105,6 +105,8 @@ def DailyPipeline(branch):
        # GCS_DAILY_PATH is of the form 'daily-build/{version}'
        gcs_path = 'daily-build/%s' % (version)
 
+    commit = conf.get('COMMIT') or ""
+
     mfest_commit = conf.get('MFEST_COMMIT')
     if mfest_commit is None:
        timestamp = time.mktime(date.timetuple())
@@ -113,6 +115,7 @@ def DailyPipeline(branch):
 
     default_conf = environment_config.GetDefaultAirflowConfig(
         branch=branch,
+        commit=commit,
         gcs_path=gcs_path,
         mfest_commit=mfest_commit,
         pipeline_type='daily',
@@ -135,9 +138,9 @@ def DailyPipeline(branch):
   #tasks['generate_workflow_args']
   tasks['get_git_commit'                 ].set_upstream(tasks['generate_workflow_args'])
   tasks['run_cloud_builder'              ].set_upstream(tasks['get_git_commit'])
-  tasks['run_release_qualification_tests'].set_upstream(tasks['run_cloud_builder'])
-  tasks['modify_values_helm'             ].set_upstream(tasks['run_release_qualification_tests'])
-  tasks['copy_files_for_release'         ].set_upstream(tasks['modify_values_helm'])
+  tasks['modify_values_helm'             ].set_upstream(tasks['run_cloud_builder'])
+  tasks['run_release_qualification_tests'].set_upstream(tasks['modify_values_helm'])
+  tasks['copy_files_for_release'         ].set_upstream(tasks['run_release_qualification_tests'])
   tasks['mark_daily_complete'            ].set_upstream(tasks['copy_files_for_release'])
   tasks['tag_daily_gcr'                  ].set_upstream(tasks['mark_daily_complete'])
 

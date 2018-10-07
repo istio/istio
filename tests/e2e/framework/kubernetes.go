@@ -491,17 +491,30 @@ func (k *KubeInfo) Teardown() error {
 	// confirm the namespace is deleted as it will cause future creation to fail
 	maxAttempts := 600
 	namespaceDeleted := false
+	validatingWebhookConfigurationDeleted := false
 	log.Infof("Deleting namespace %v", k.Namespace)
 	for attempts := 1; attempts <= maxAttempts; attempts++ {
 		namespaceDeleted, _ = util.NamespaceDeleted(k.Namespace, k.KubeConfig)
-		if namespaceDeleted {
+		// As validatingWebhookConfiguration "istio-galley" will
+		// be delete by kubernetes GC controller asynchronously,
+		// we need to ensure it's deleted before return.
+		// TODO: find a more general way as long term solution.
+		validatingWebhookConfigurationDeleted = util.ValidatingWebhookConfigurationDeleted("istio-galley", k.KubeConfig)
+
+		if namespaceDeleted && validatingWebhookConfigurationDeleted {
 			break
 		}
+
 		time.Sleep(1 * time.Second)
 	}
 
 	if !namespaceDeleted {
 		log.Errorf("Failed to delete namespace %s after %v seconds", k.Namespace, maxAttempts)
+		return nil
+	}
+
+	if !validatingWebhookConfigurationDeleted {
+		log.Errorf("Failed to delete validatingwebhookconfiguration istio-galley after %d seconds", maxAttempts)
 		return nil
 	}
 
@@ -888,7 +901,6 @@ func (k *KubeInfo) generateIstio(src, dst string) error {
 	content = replacePattern(content, "parentShutdownDuration: 1m0s", "parentShutdownDuration: 3s")
 
 	// A very flimsy and unreliable regexp to replace delays in ingress pod Spec
-	content = replacePattern(content, "'30s' #discoveryRefreshDelay", "'1s' #discoveryRefreshDelay")
 	content = replacePattern(content, "'10s' #connectTimeout", "'1s' #connectTimeout")
 	content = replacePattern(content, "'45s' #drainDuration", "'2s' #drainDuration")
 	content = replacePattern(content, "'1m0s' #parentShutdownDuration", "'3s' #parentShutdownDuration")

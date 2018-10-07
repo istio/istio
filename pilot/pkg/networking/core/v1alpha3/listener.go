@@ -15,9 +15,7 @@
 package v1alpha3
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
 	"reflect"
 	"sort"
 	"strings"
@@ -72,10 +70,6 @@ const (
 )
 
 var (
-	// Very verbose output in the logs - full LDS response logged for each sidecar.
-	// Use /debug/ldsz instead.
-	verboseDebug = os.Getenv("PILOT_DUMP_ALPHA3") != ""
-
 	// TODO: gauge should be reset on refresh, not the best way to represent errors but better
 	// than nothing.
 	// TODO: add dimensions - namespace of rule, service, rule name
@@ -147,11 +141,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 			listeners = append(listeners, m)
 		}
 
-		// We need a dummy filter to fill in the filter stack for orig_dst listener
-		// TODO: Move to Listener filters and set up original dst filter there.
-		dummyTCPProxy := &tcp_proxy.TcpProxy{
-			StatPrefix: util.BlackHoleCluster,
-			Cluster:    util.BlackHoleCluster,
+		// We need a passthrough filter to fill in the filter stack for orig_dst listener
+		passthroughTCPProxy := &tcp_proxy.TcpProxy{
+			StatPrefix:       util.PassthroughCluster,
+			ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.PassthroughCluster},
 		}
 
 		var transparent *google_protobuf.BoolValue
@@ -170,7 +163,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 					Filters: []listener.Filter{
 						{
 							Name:   xdsutil.TCPProxy,
-							Config: util.MessageToStruct(dummyTCPProxy),
+							Config: util.MessageToStruct(passthroughTCPProxy),
 						},
 					},
 				},
@@ -275,6 +268,11 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 				connectionManager: &http_conn.HttpConnectionManager{
 					// Append and forward client cert to backend.
 					ForwardClientCertDetails: http_conn.APPEND_FORWARD,
+					SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
+						Subject: &google_protobuf.BoolValue{Value: true},
+						Uri:     true,
+						Dns:     true,
+					},
 				},
 			}
 		case plugin.ListenerProtocolTCP:
@@ -488,16 +486,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 				// into listener address so that there is a dedicated listener for this
 				// ip:port. This will reduce the impact of a listener reload
 
-				var svcListenAddress string
-				// This is to maintain backward compatibility with 0.8 envoy
-				if !util.Is1xProxy(node) {
-					if service.Resolution != model.Passthrough {
-						svcListenAddress = service.GetServiceAddressForProxy(node)
-					}
-				} else {
-					svcListenAddress = service.GetServiceAddressForProxy(node)
-				}
-
+				svcListenAddress := service.GetServiceAddressForProxy(node)
 				// We should never get an empty address.
 				// This is a safety guard, in case some platform adapter isn't doing things
 				// properly
@@ -803,16 +792,14 @@ func buildHTTPConnectionManager(env *model.Environment, node *model.Proxy, httpO
 	connectionManager.StatPrefix = httpOpts.statPrefix
 	connectionManager.UseRemoteAddress = &google_protobuf.BoolValue{Value: httpOpts.useRemoteAddress}
 
-	if util.Is1xProxy(node) {
-		// Allow websocket upgrades
-		websocketUpgrade := &http_conn.HttpConnectionManager_UpgradeConfig{UpgradeType: "websocket"}
-		connectionManager.UpgradeConfigs = []*http_conn.HttpConnectionManager_UpgradeConfig{websocketUpgrade}
-		notimeout := 0 * time.Second
-		// Setting IdleTimeout to 0 seems to break most tests, causing
-		// envoy to disconnect.
-		// connectionManager.IdleTimeout = &notimeout
-		connectionManager.StreamIdleTimeout = &notimeout
-	}
+	// Allow websocket upgrades
+	websocketUpgrade := &http_conn.HttpConnectionManager_UpgradeConfig{UpgradeType: "websocket"}
+	connectionManager.UpgradeConfigs = []*http_conn.HttpConnectionManager_UpgradeConfig{websocketUpgrade}
+	notimeout := 0 * time.Second
+	// Setting IdleTimeout to 0 seems to break most tests, causing
+	// envoy to disconnect.
+	// connectionManager.IdleTimeout = &notimeout
+	connectionManager.StreamIdleTimeout = &notimeout
 
 	if httpOpts.rds != "" {
 		rds := &http_conn.HttpConnectionManager_Rds{
@@ -861,10 +848,6 @@ func buildHTTPConnectionManager(env *model.Environment, node *model.Proxy, httpO
 		connectionManager.GenerateRequestId = &google_protobuf.BoolValue{Value: true}
 	}
 
-	if verboseDebug {
-		connectionManagerJSON, _ := json.MarshalIndent(connectionManager, "  ", "  ")
-		log.Infof("LDS: %s \n", string(connectionManagerJSON))
-	}
 	return connectionManager
 }
 

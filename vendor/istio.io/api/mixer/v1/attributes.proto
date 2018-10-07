@@ -25,6 +25,7 @@ import "google/protobuf/timestamp.proto";
 option (gogoproto.goproto_getters_all) = false;
 option (gogoproto.equal_all) = false;
 option (gogoproto.gostring_all) = false;
+option cc_enable_arenas = true;
 
 // Attributes represents a set of typed name/value pairs. Many of Mixer's
 // API either consume and/or return attributes.

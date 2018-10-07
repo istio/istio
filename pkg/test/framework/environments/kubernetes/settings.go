@@ -17,8 +17,18 @@ package kubernetes
 import (
 	"fmt"
 
+	kubeCore "k8s.io/api/core/v1"
+
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/settings"
+)
+
+const (
+	// DefaultImagePullPolicy for Docker images
+	DefaultImagePullPolicy = kubeCore.PullIfNotPresent
+
+	// LatestTag value
+	LatestTag = "latest"
 )
 
 var (
@@ -35,9 +45,15 @@ var (
 	// nolint: golint
 	TAG env.Variable = "TAG"
 
+	// IMAGE_PULL_POLICY is the Docker pull policy to be used for images.
+	// nolint: golint
+	IMAGE_PULL_POLICY env.Variable = "IMAGE_PULL_POLICY"
+
 	globalSettings = &Settings{
-		Hub: HUB.Value(),
-		Tag: TAG.Value(),
+		IstioSystemNamespace: "istio-system",
+		Hub:                  HUB.Value(),
+		Tag:                  TAG.Value(),
+		ImagePullPolicy:      kubeCore.PullPolicy(IMAGE_PULL_POLICY.ValueOrDefault(string(DefaultImagePullPolicy))),
 	}
 )
 
@@ -45,6 +61,11 @@ var (
 func newSettings() (*Settings, error) {
 	// Make a local copy.
 	s := &(*globalSettings)
+
+	// Always pull Docker images if using the "latest".
+	if s.Tag == LatestTag {
+		s.ImagePullPolicy = kubeCore.PullAlways
+	}
 
 	if err := s.validate(); err != nil {
 		return nil, err
@@ -64,8 +85,10 @@ type Settings struct {
 	// Tag environment variable
 	Tag string
 
-	// The namespace where the Istio components reside in a typical deployment (typically "istio-system").
-	// If not specified, a new namespace will be generated with a UUID.
+	// ImagePullPolicy policy for pulling Docker images. Defaults to Always if the "latest" tag is specified.
+	ImagePullPolicy kubeCore.PullPolicy
+
+	// The namespace where the Istio components reside in a typical deployment (default: "istio-system").
 	IstioSystemNamespace string
 
 	// The namespace in which dependency components are deployed. If not specified, a new namespace will be generated
@@ -80,6 +103,10 @@ type Settings struct {
 
 	// Indicates that the test should deploy Istio into the target Kubernetes cluster before running tests.
 	DeployIstio bool
+
+	// Indicates that the Ingress Gateway is not available. This typically happens in Minikube. The Ingress
+	// component will fall back to node-port in this case.
+	MinikubeIngress bool
 }
 
 func (s *Settings) validate() error {
@@ -99,10 +126,12 @@ func (s *Settings) String() string {
 	result += fmt.Sprintf("KubeConfig:           %s\n", s.KubeConfig)
 	result += fmt.Sprintf("Hub:                  %s\n", s.Hub)
 	result += fmt.Sprintf("Tag:                  %s\n", s.Tag)
+	result += fmt.Sprintf("ImagePullPolicy:      %s\n", s.ImagePullPolicy)
 	result += fmt.Sprintf("IstioSystemNamespace: %s\n", s.IstioSystemNamespace)
 	result += fmt.Sprintf("DependencyNamespace:  %s\n", s.DependencyNamespace)
 	result += fmt.Sprintf("TestNamespace:        %s\n", s.TestNamespace)
 	result += fmt.Sprintf("DeployIstio:          %v\n", s.DeployIstio)
+	result += fmt.Sprintf("MinikubeIngress:            %v\n", s.MinikubeIngress)
 
 	return result
 }

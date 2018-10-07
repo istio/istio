@@ -1,5 +1,5 @@
 {{- range $key, $spec := .Values }}
-{{- if and (ne $key "global") (ne $key "enabled") }}
+{{- if and (ne $key "enabled") }}
 {{- if $spec.enabled }}
 apiVersion: extensions/v1beta1
 kind: Deployment
@@ -50,7 +50,11 @@ spec:
 {{- end }}
       containers:
         - name: istio-proxy
+{{- if contains "/" $.Values.global.proxy.image }}
+          image: "{{ $.Values.global.proxy.image }}"
+{{- else }}
           image: "{{ $.Values.global.hub }}/{{ $.Values.global.proxy.image }}:{{ $.Values.global.tag }}"
+{{- end }}
           imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
           ports:
             {{- range $key, $val := $spec.ports }}
@@ -66,8 +70,6 @@ spec:
           - router
           - --log_output_level
           - 'info'
-          - --discoveryRefreshDelay
-          - '1s' #discoveryRefreshDelay
           - --drainDuration
           - '45s' #drainDuration
           - --parentShutdownDuration
@@ -77,7 +79,9 @@ spec:
           - --serviceCluster
           - {{ $key }}
           - --zipkinAddress
-        {{- if $.Values.global.istioNamespace }}
+        {{- if $.Values.global.tracer.zipkinAddress }}
+          - {{ $.Values.global.tracer.zipkinAddress }}
+        {{- else if $.Values.global.istioNamespace }}
           - zipkin.{{ $.Values.global.istioNamespace }}:9411
         {{- else }}
           - zipkin:9411
@@ -132,7 +136,13 @@ spec:
           - name: ISTIO_META_POD_NAME
             valueFrom:
               fieldRef:
-                fieldPath: metadata.name
+                fieldPath: metadata.name                
+          {{- if $spec.envVariables }}
+          {{- range $key, $val := $spec.envVariables }}
+          - name: {{ $key }}
+            value: {{ $val }}
+          {{- end }}
+          {{ end }}
           volumeMounts:
           - name: istio-certs
             mountPath: /etc/certs

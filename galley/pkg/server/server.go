@@ -1,16 +1,16 @@
-//  Copyright 2018 Istio Authors
+// Copyright 2018 Istio Authors
 //
-//  Licensed under the Apache License, Version 2.0 (the "License");
-//  you may not use this file except in compliance with the License.
-//  You may obtain a copy of the License at
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-//      http://www.apache.org/licenses/LICENSE-2.0
+//     http://www.apache.org/licenses/LICENSE-2.0
 //
-//  Unless required by applicable law or agreed to in writing, software
-//  distributed under the License is distributed on an "AS IS" BASIS,
-//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-//  See the License for the specific language governing permissions and
-//  limitations under the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package server
 
@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pkg/mcp/creds"
 
 	mcp "istio.io/api/mcp/v1alpha1"
+	"istio.io/istio/galley/pkg/fs"
 	"istio.io/istio/galley/pkg/kube/source"
 	"istio.io/istio/galley/pkg/metadata"
 
@@ -57,6 +58,7 @@ type patchTable struct {
 	newKubeFromConfigFile func(string) (kube.Interfaces, error)
 	newSource             func(kube.Interfaces, time.Duration) (runtime.Source, error)
 	netListen             func(network, address string) (net.Listener, error)
+	mcpMetricReporter     func(string) server.Reporter
 }
 
 func defaultPatchTable() patchTable {
@@ -65,6 +67,7 @@ func defaultPatchTable() patchTable {
 		newKubeFromConfigFile: kube.NewKubeFromConfigFile,
 		newSource:             source.New,
 		netListen:             net.Listen,
+		mcpMetricReporter:     func(prefix string) server.Reporter { return server.NewStatsContext(prefix) },
 	}
 }
 
@@ -75,22 +78,28 @@ func New(a *Args) (*Server, error) {
 
 func newServer(a *Args, p patchTable) (*Server, error) {
 	s := &Server{}
-
-	if err := p.logConfigure(a.LoggingOptions); err != nil {
+	var err error
+	if err = p.logConfigure(a.LoggingOptions); err != nil {
 		return nil, err
 	}
-
-	k, err := p.newKubeFromConfigFile(a.KubeConfig)
-	if err != nil {
-		return nil, err
+	var src runtime.Source
+	if a.ConfigPath != "" {
+		src, err = fs.New(a.ConfigPath)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		k, err := p.newKubeFromConfigFile(a.KubeConfig)
+		if err != nil {
+			return nil, err
+		}
+		src, err = p.newSource(k, a.ResyncPeriod)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	src, err := p.newSource(k, a.ResyncPeriod)
-	if err != nil {
-		return nil, err
-	}
-
-	distributor := snapshot.New()
+	distributor := snapshot.New(snapshot.DefaultGroupIndex)
 	s.processor = runtime.NewProcessor(src, distributor)
 
 	var grpcOptions []grpc.ServerOption
@@ -116,7 +125,7 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 	grpc.EnableTracing = a.EnableGRPCTracing
 	s.grpcServer = grpc.NewServer(grpcOptions...)
 
-	s.mcp = server.New(distributor, metadata.Types.TypeURLs(), checker)
+	s.mcp = server.New(distributor, metadata.Types.TypeURLs(), checker, p.mcpMetricReporter("galley/"))
 
 	// get the network stuff setup
 	network := "tcp"

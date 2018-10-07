@@ -61,7 +61,11 @@ data:
       {{ end }}
       containers:
       - name: istio-proxy
+{{- if contains "/" .Values.global.proxy.image }}
+        image: {{ "[[ annotation .ObjectMeta `sidecar.istio.io/proxyImage` " }} "{{ .Values.global.proxy.image }}" {{ " ]]" }}
+{{- else }}
         image: {{ "[[ annotation .ObjectMeta `sidecar.istio.io/proxyImage` " }} "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}" {{ " ]]" }}
+{{- end }}
 {{ if ne .Values.global.proxy.stats.prometheusPort 0. }}
         ports:
         - containerPort: {{ .Values.global.proxy.stats.prometheusPort }}
@@ -87,8 +91,6 @@ data:
         - {{ "[[ formatDuration .ProxyConfig.ParentShutdownDuration ]]" }}
         - --discoveryAddress
         - {{ "[[ .ProxyConfig.DiscoveryAddress ]]" }}
-        - --discoveryRefreshDelay
-        - {{ "[[ formatDuration .ProxyConfig.DiscoveryRefreshDelay ]]" }}
         - --zipkinAddress
         - {{ "[[ .ProxyConfig.ZipkinAddress ]]" }}
         - --connectTimeout
@@ -105,10 +107,12 @@ data:
         {{ "[[ end -]]" }}
         - --controlPlaneAuthPolicy
         - {{ "[[ annotation .ObjectMeta `sidecar.istio.io/controlPlaneAuthPolicy` .ProxyConfig.ControlPlaneAuthPolicy ]]" }}
+      {{ "[[- if (ne (annotation .ObjectMeta `status.sidecar.istio.io/port` " }} {{ .Values.global.proxy.statusPort }} {{ ") \"0\") ]]" }}
         - --statusPort
         - {{ "[[ annotation .ObjectMeta `status.sidecar.istio.io/port` " }} {{ .Values.global.proxy.statusPort }} {{ " ]]" }}
         - --applicationPorts
         - {{ "\"[[ annotation .ObjectMeta `readiness.status.sidecar.istio.io/applicationPorts` (applicationPorts .Spec.Containers) ]]\"" }}
+      {{ "[[- end ]]" }}
         env:
         - name: POD_NAME
           valueFrom:
@@ -167,7 +171,16 @@ data:
         - mountPath: /etc/certs/
           name: istio-certs
           readOnly: true
+        {{ if .Values.global.sdsEnabled }}
+        - mountPath: /var/run/sds
+          name: sds-uds-path
+        {{- end }}
       volumes:
+      {{ if .Values.global.sdsEnabled }}
+      - name: sds-uds-path
+        hostPath:
+          path: /var/run/sds
+      {{- end }}
       - emptyDir:
           medium: Memory
         name: istio-envoy

@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors. All Rights Reserved.
+// Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -239,8 +239,8 @@ func makeListener(port uint16, cluster string) *v2.Listener {
 		FilterChains: []listener.FilterChain{{Filters: []listener.Filter{{
 			Name: util.TCPProxy,
 			Config: pilotutil.MessageToStruct(&tcp_proxy.TcpProxy{
-				StatPrefix: "tcp",
-				Cluster:    cluster,
+				StatPrefix:       "tcp",
+				ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: cluster},
 			}),
 		}}}},
 	}

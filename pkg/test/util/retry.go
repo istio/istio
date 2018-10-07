@@ -15,7 +15,7 @@
 package util
 
 import (
-	"errors"
+	"fmt"
 	"time"
 )
 
@@ -33,17 +33,21 @@ func Retry(
 	retryWait time.Duration,
 	fn func() (result interface{}, completed bool, err error)) (interface{}, error) {
 
+	var lasterr error
 	to := time.After(timeout)
 	for {
 		select {
 		case <-to:
-			return nil, errors.New("timeout while waiting")
+			return nil, fmt.Errorf("timeout while waiting (last error: %v)", lasterr)
 		default:
 		}
 
 		result, completed, err := fn()
 		if completed {
 			return result, err
+		}
+		if err != nil {
+			lasterr = err
 		}
 
 		<-time.After(retryWait)
