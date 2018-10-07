@@ -95,7 +95,7 @@ spec:
           claimName: istio-grafana-pvc
 {{- else }}
         emptyDir: {}
+{{- end }}
       - name: dashboards-istio
         configMap:
           name:  istio-grafana-configuration-dashboards
-{{- end }}
