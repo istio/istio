@@ -16,7 +16,12 @@
 
 
 #######################################################
-# e2e-suite triggered after istio/presubmit succeeded #
+# e2e-suite runs Istio E2E tests.                     #
+#                                                     #
+# Usage: ./e2e_suite.sh --single_test mixer_e2e       #
+#                                                     #
+# ${E2E_ARGS} can be used to provide additional test  #
+# arguments.                                          #
 #######################################################
 
 WD=$(dirname "$0")
@@ -62,7 +67,7 @@ if [[ "${USE_MASON_RESOURCE}" == "True" ]]; then
   INFO_PATH="$(mktemp /tmp/XXXXX.boskos.info)"
   FILE_LOG="$(mktemp /tmp/XXXXX.boskos.log)"
 
-  E2E_ARGS=("--mason_info=${INFO_PATH}")
+  E2E_ARGS=+("--mason_info=${INFO_PATH}")
 
   setup_and_export_git_sha
 
