@@ -95,7 +95,7 @@ for ((i=1; i<=$#; i++)); do
     case ${!i} in
         # -s/--single_test to specify test target to run.
         # e.g. "-s e2e_mixer" will trigger e2e mixer_test
-        -s|--single_test) SINGLE_MODE=true; ((i++)); SINGLE_TEST=${!i}
+        -s|--single_test) ((i++)); SINGLE_TEST=${!i}
         continue
         ;;
         --timeout) ((i++)); E2E_TIMEOUT=${!i}
