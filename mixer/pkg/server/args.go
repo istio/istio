@@ -131,11 +131,11 @@ func DefaultArgs() *Args {
 
 func (a *Args) validate() error {
 	if a.APIWorkerPoolSize <= 0 {
-		return fmt.Errorf("api worker pool size must be >= 0 and <= 2^31-1, got pool size %d", a.APIWorkerPoolSize)
+		return fmt.Errorf("api worker pool size must be > 0, got pool size %d", a.APIWorkerPoolSize)
 	}
 
 	if a.AdapterWorkerPoolSize <= 0 {
-		return fmt.Errorf("adapter worker pool size must be >= 0 and <= 2^31-1, got pool size %d", a.AdapterWorkerPoolSize)
+		return fmt.Errorf("adapter worker pool size must be > 0 , got pool size %d", a.AdapterWorkerPoolSize)
 	}
 
 	if a.NumCheckCacheEntries < 0 {
