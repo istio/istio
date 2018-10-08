@@ -45,7 +45,3 @@ HUB="gcr.io/istio-testing"
 TAG="${GIT_SHA}"
 # upload images
 time ISTIO_DOCKER_HUB="${HUB}" make push HUB="${HUB}" TAG="${TAG}"
-
-cd "$ROOT"
-OUTDIR="$(mktemp -d /tmp/outdir.XXXX)"
-time (./release/cloud_builder.sh -h "gcr.io/istio-testing" -t "${GIT_SHA}"  -o "${OUTDIR}" || echo "not failing make istio-archive for now")
