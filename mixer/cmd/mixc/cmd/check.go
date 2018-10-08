@@ -80,7 +80,7 @@ func check(rootArgs *rootArgs, printf, fatalf shared.FormatFn, quotas map[string
 	var attrs *mixerpb.CompressedAttributes
 	var err error
 
-	if attrs, err = parseAttributes(rootArgs); err != nil {
+	if attrs, _, err = parseAttributes(rootArgs); err != nil {
 		fatalf("%v", err)
 	}
 

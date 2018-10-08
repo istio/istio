@@ -17,13 +17,14 @@ syntax = "proto3";
 // $title: Kubernetes Env
 // $description: Adapter that extracts information from a Kubernetes environment.
 // $location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/kubernetesenv.html
+// $supported_templates: kubernetes
 // $aliases:
 // $  - /docs/reference/config/adapters/kubernetesenv.html
 
 // The `kubernetesenv` adapter extracts information from a Kubernetes environment
 // and produces attribtes that can be used in downstream adapters.
 //
-// This adapter supports the [kubernetesenv template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/kubernetes/).
+// This adapter supports the [kubernetes template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/kubernetes/).
 package adapter.kubernetesenv.config;
 
 import "gogoproto/gogo.proto";
@@ -67,4 +68,17 @@ message Params {
     //
     // Default: 5 minutes
     google.protobuf.Duration cache_refresh_duration = 2 [(gogoproto.nullable)=false,(gogoproto.stdduration) = true];
+
+    // Namespace for secret created for multi-cluster support.
+    //
+	// Details on multi-cluster and the kubernetes secret required to
+	// access the remote cluster's credentials can be found here:
+	// https://istio.io/docs/setup/kubernetes/multicluster-install
+	//
+    // NOTE: If cluster_registries_namespace is not set then the environmental
+    // variable POD_NAMESPACE will be checked/used. If POD_NAMESPACE is not
+    // set then cluster_registries_namespace will default to "istio-system".
+    //
+    // Default: "istio-system"
+    string cluster_registries_namespace = 7;
 }

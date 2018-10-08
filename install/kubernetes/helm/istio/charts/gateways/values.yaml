@@ -43,22 +43,6 @@ istio-ingressgateway:
   - port: 31400
     name: tcp
     nodePort: 31400
-  #### MESH EXPANSION PORTS  ########
-  # Pilot and Citadel MTLS ports are enabled in gateway - but will only redirect
-  # to pilot/citadel if global.meshExpansion settings are enabled.
-  # Delete these ports if mesh expansion is not enabled, to avoid
-  # exposing unnecessary ports on the web.
-  # You can remove these ports if you are not using mesh expansion
-  - port: 15011
-    targetPort: 15011
-    name: tcp-pilot-grpc-tls
-  - port: 8060
-    targetPort: 8060
-    name: tcp-citadel-grpc-tls
-  - port: 853
-    targetPort: 853
-    name: tcp-dns-tls
-  ####### end MESH EXPANSION PORTS ######
   ### PORTS FOR UI/metrics #####
   ## Disable if not needed
   - port: 15029
@@ -70,6 +54,23 @@ istio-ingressgateway:
   - port: 15031
     targetPort: 15031
     name: http2-grafana
+  #### MESH EXPANSION PORTS  ########
+  # Pilot and Citadel MTLS ports are enabled in gateway - but will only redirect
+  # to pilot/citadel if global.meshExpansion settings are enabled.
+  # Delete these ports if mesh expansion is not enabled, to avoid
+  # exposing unnecessary ports on the web.
+  # You can remove these ports if you are not using mesh expansion
+  meshExpansionPorts:
+  - port: 15011
+    targetPort: 15011
+    name: tcp-pilot-grpc-tls
+  - port: 8060
+    targetPort: 8060
+    name: tcp-citadel-grpc-tls
+  - port: 853
+    targetPort: 853
+    name: tcp-dns-tls
+  ####### end MESH EXPANSION PORTS ######  
   ##############   
   secretVolumes:
   - name: ingressgateway-certs
@@ -116,6 +117,8 @@ istio-ilbgateway:
   replicaCount: 1
   autoscaleMin: 1
   autoscaleMax: 5
+  cpu:
+    targetAverageUtilization: 80
   resources:
     requests:
       cpu: 800m
@@ -155,6 +158,8 @@ istio-ilbgateway:
 # value. The gateway forwards traffic to the envoy cluster (service+subset+port).
 istio-mcgateway:
   enabled: false
+  cpu:
+    targetAverageUtilization: 80
   labels:
     app: istio-mcgateway
     istio: mcgateway

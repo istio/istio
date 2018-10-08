@@ -29,7 +29,6 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/workqueue"
 
-	//"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 )
@@ -39,8 +38,13 @@ const (
 	maxRetries = 5
 )
 
-// Required for unit test override.
-var loadKubeConfig = clientcmd.Load
+// LoadKubeConfig is a unit test override variable for loading the k8s config.
+// DO NOT USE - TEST ONLY.
+var LoadKubeConfig = clientcmd.Load
+
+// CreateInterfaceFromClusterConfig is a unit test override variable for interface create.
+// DO NOT USE - TEST ONLY.
+var CreateInterfaceFromClusterConfig = kube.CreateInterfaceFromClusterConfig
 
 // addSecretCallback prototype for the add secret callback function.
 type addSecretCallback func(clientset kubernetes.Interface, dataKey string) error
@@ -219,7 +223,7 @@ func (c *Controller) addMemberCluster(secretName string, s *corev1.Secret) {
 				continue
 			}
 
-			clientConfig, err := loadKubeConfig(kubeConfig)
+			clientConfig, err := LoadKubeConfig(kubeConfig)
 			if err != nil {
 				log.Infof("Data '%s' in the secret %s in namespace %s is not a kubeconfig: %v",
 					clusterID, secretName, s.ObjectMeta.Namespace, err)
@@ -229,7 +233,7 @@ func (c *Controller) addMemberCluster(secretName string, s *corev1.Secret) {
 			log.Infof("Adding new cluster member: %s", clusterID)
 			c.cs.remoteClusters[clusterID] = &RemoteCluster{}
 			c.cs.remoteClusters[clusterID].secretName = secretName
-			client, _ := kube.CreateInterfaceFromClusterConfig(clientConfig)
+			client, _ := CreateInterfaceFromClusterConfig(clientConfig)
 			err = c.addCallback(client, clusterID)
 			if err != nil {
 				log.Errorf("error during create of clusterID: %s %v", clusterID, err)
@@ -239,7 +243,7 @@ func (c *Controller) addMemberCluster(secretName string, s *corev1.Secret) {
 				clusterID, c.cs.remoteClusters[clusterID].secretName, s.ObjectMeta.Namespace)
 		}
 	}
-	log.Infof("Number of clusters in the cluster store: %d", len(c.cs.remoteClusters))
+	log.Infof("Number of remote clusters: %d", len(c.cs.remoteClusters))
 }
 
 func (c *Controller) deleteMemberCluster(secretName string) {
@@ -253,5 +257,5 @@ func (c *Controller) deleteMemberCluster(secretName string) {
 			delete(c.cs.remoteClusters, clusterID)
 		}
 	}
-	log.Infof("Number of clusters in the cluster store: %d", len(c.cs.remoteClusters))
+	log.Infof("Number of remote clusters: %d", len(c.cs.remoteClusters))
 }
