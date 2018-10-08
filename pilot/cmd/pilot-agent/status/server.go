@@ -23,18 +23,19 @@ import (
 	"os"
 	"sync"
 
+	"time"
+
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/istio/pkg/log"
-	"time"
 )
 
 const (
 	// readyPath is for the pilot agent readiness itself.
 	readyPath = "/healthz/ready"
 	// appReadyPath is the path for the application after injecting.
-	appReadinessPath = "/app/ready"
+	appReadinessPath = "/istio-take-over/readiness"
 	// appHealthPath is the path for the application after injecting.
-	appLivenessPath = "/app/liveness"
+	appLivenessPath = "/istio-take-over/liveness"
 )
 
 // AppProbeInfo defines the information for Pilot agent to take over application probing.
@@ -45,31 +46,21 @@ type AppProbeInfo struct {
 
 // Config for the status server.
 type Config struct {
-	StatusPort       uint16
-	AdminPort        uint16
-
-	// TODO(incfly): plumbing this struct instead.
-	AppReadiness     *AppProbeInfo
-	AppLiveness      *AppProbeInfo
-
-	// appReadinessPath is the original url path that app uses for readiness check.
-	AppReadinessPath string
-	// AppReadinessPort is the port application used for the readiness health check.
-	AppReadinessPort  uint16
-	// AppLivenessPath is the original url path that app uses for liveness check.
-	AppLivenessPath  string
-	// AppLivenessPort is the port app used for the readiness health check.
-	AppLivenessPort  uint16
+	StatusPort uint16
+	AdminPort  uint16
 	ApplicationPorts []uint16
+	// AppReadiness specifies how to take over Kubernetes readiness probing.
+	AppReadiness *AppProbeInfo
+	// AppLiveness specifies how to take over Kubernetes liveness probing.
+	AppLiveness  *AppProbeInfo
 }
 
 // Server provides an endpoint for handling status probes.
 type Server struct {
 	statusPort          uint16
 	ready               *ready.Probe
-	appLivenessPath     string
-	appReadinessPort    uint16
-	appReadinessPath    string
+	appLiveness         *AppProbeInfo
+	appReadiness        *AppProbeInfo
 	mutex               sync.Mutex
 	lastProbeSuccessful bool
 }
@@ -77,10 +68,9 @@ type Server struct {
 // NewServer creates a new status server.
 func NewServer(config Config) *Server {
 	return &Server{
-		statusPort:       config.StatusPort,
-		appLivenessPath:  config.AppLivenessPath,
-		appReadinessPath: config.AppReadinessPath,
-		appReadinessPort: config.AppReadinessPort,
+		statusPort:   config.StatusPort,
+		appLiveness:  config.AppLiveness,
+		appReadiness: config.AppReadiness,
 		ready: &ready.Probe{
 			AdminPort:        config.AdminPort,
 			ApplicationPorts: config.ApplicationPorts,
@@ -94,16 +84,17 @@ func (s *Server) Run(ctx context.Context) {
 
 	// Add the handler for ready probes.
 	http.HandleFunc(readyPath, s.handleReadyProbe)
-	if s.appReadinessPath != "" {
-		log.Infof("Pilot agent takes over readiness probe, path %v, port %v",
-			s.appReadinessPath, s.appReadinessPort)
-		http.HandleFunc(appReadinessPath, s.handleAppReadinessProbe)
-	}
-	if s.appLivenessPath != "" {
-		log.Infof("Pilot agent takes over liveness probe, path %v, port %v",
-			s.appLivenessPath, 100000)
-		http.HandleFunc(appLivenessPath, s.handleAppLivenessProbe)
-	}
+
+	// TODO: how to differentiate whether app defined readiness probe or not?
+	// Is it possible to not specify port in httpGet probeness?
+	// Maybe use Port = -1 to differentiate and kube-injector modifies that accordingly.
+	log.Infof("Pilot agent takes over readiness probe, path %v, port %v",
+		s.appReadiness.Path, s.appReadiness.Port)
+	http.HandleFunc(appReadinessPath, s.handleAppReadinessProbe)
+
+	log.Infof("Pilot agent takes over liveness probe, path %v, port %v",
+		s.appLiveness.Path, s.appLiveness.Port)
+	http.HandleFunc(appLivenessPath, s.handleAppLivenessProbe)
 
 	l, err := net.Listen("tcp", fmt.Sprintf(":%d", s.statusPort))
 	if err != nil {
@@ -144,22 +135,24 @@ func (s *Server) handleReadyProbe(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (s *Server) handleAppReadinessProbe(w http.ResponseWriter, req *http.Request) {
-	requestStatusCode(fmt.Sprintf("http://127.0.0.1:%d%s", s.appReadinessPort, s.appReadinessPath), w, req)
+	requestStatusCode(fmt.Sprintf("http://127.0.0.1:%d%s", s.appReadiness.Port, s.appReadiness.Path), w, req)
 }
 
 func (s *Server) handleAppLivenessProbe(w http.ResponseWriter, req *http.Request) {
-	requestStatusCode(fmt.Sprintf("http://127.0.0.1:%d%s", s.appReadinessPort, s.appLivenessPath), w, req)
+	requestStatusCode(fmt.Sprintf("http://127.0.0.1:%d%s", s.appLiveness.Port, s.appLiveness.Path), w, req)
 }
 
 func requestStatusCode(appURL string, w http.ResponseWriter, req *http.Request) {
-	log.Debugf("Send request for probing application, url = %v", appURL)
+	log.Infof("Send request for probing application, url = %v", appURL)
 	httpClient := &http.Client{
 		// TODO: figure out the appropriate timeout?
-		Timeout: 5*time.Second,
+		Timeout: 10 * time.Second,
 	}
 
-	// TODO(incfly): copy all releveant fields from the request that can be affected from the PodSpec.
 	appReq, err := http.NewRequest(req.Method, appURL, req.Body)
+	for key, value := range req.Header {
+		appReq.Header[key] = value
+	}
 
 	if err != nil {
 		log.Errorf("Failed to copy request to probe app %v", err)

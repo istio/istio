@@ -66,9 +66,8 @@ var (
 	concurrency              int
 	templateFile             string
 	disableInternalTelemetry bool
-	appLivenessPath string
-	appReadinessPath string
-	appReadinessPort uint16
+	appReadiness             status.AppProbeInfo
+	appLiveness              status.AppProbeInfo
 
 	loggingOptions = log.DefaultOptions()
 
@@ -265,9 +264,8 @@ var (
 					AdminPort:        proxyAdminPort,
 					StatusPort:       statusPort,
 					ApplicationPorts: parsedPorts,
-					AppLivenessPath:  appLivenessPath,
-					AppReadinessPath: appReadinessPath,
-					AppReadinessPort: appReadinessPort,
+					AppReadiness:     &appReadiness,
+					AppLiveness:      &appLiveness,
 				})
 				go statusServer.Run(ctx)
 			}
@@ -367,12 +365,14 @@ func init() {
 	proxyCmd.PersistentFlags().BoolVar(&disableInternalTelemetry, "disableInternalTelemetry", false,
 		"Disable internal telemetry")
 
-	// TODO: the flag value might should be shared between injector and here together.
-	proxyCmd.PersistentFlags().StringVar(&appLivenessPath, "appLivenessPath", "",
+	// Flags for Pilot agent to take over Kubernetes readiness and liveness check.
+	proxyCmd.PersistentFlags().StringVar(&appLiveness.Path, "appLivenessPath", "",
 		"The path for the application liveness check.")
-	proxyCmd.PersistentFlags().StringVar(&appReadinessPath, "appReadinessPath", "",
+	proxyCmd.PersistentFlags().Uint16Var(&appLiveness.Port, "appLivenessPort", 0, "The port application itself"+
+		"used for readiness health check.")
+	proxyCmd.PersistentFlags().StringVar(&appReadiness.Path, "appReadinessPath", "",
 		"The path for the application readiness check.")
-	proxyCmd.PersistentFlags().Uint16Var(&appReadinessPort, "appReadinessPort", 0, "The port application itself" +
+	proxyCmd.PersistentFlags().Uint16Var(&appReadiness.Port, "appReadinessPort", 0, "The port application itself"+
 		"used for readiness health check.")
 
 	// Attach the Istio logging options to the command.
