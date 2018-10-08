@@ -16,7 +16,12 @@
 
 
 #######################################################
-# e2e-suite triggered after istio/presubmit succeeded #
+# e2e-suite runs Istio E2E tests.                     #
+#                                                     #
+# Usage: ./e2e_suite.sh --single_test mixer_e2e       #
+#                                                     #
+# ${E2E_ARGS} can be used to provide additional test  #
+# arguments.                                          #
 #######################################################
 
 WD=$(dirname "$0")
@@ -29,18 +34,6 @@ set -e
 set -u
 # Print commands
 set -x
-
-TEST_TARGETS=(
-  e2e_simple
-  e2e_mixer
-  e2e_bookinfo
-  e2e_bookinfo_envoyv2_v1alpha3
-  e2e_upgrade
-  e2e_dashboard
-  e2e_pilot
-  e2e_pilotv2_v1alpha3
-)
-SINGLE_MODE=false
 
 # Check https://github.com/istio/test-infra/blob/master/boskos/configs.yaml
 # for existing resources types
@@ -74,7 +67,7 @@ if [[ "${USE_MASON_RESOURCE}" == "True" ]]; then
   INFO_PATH="$(mktemp /tmp/XXXXX.boskos.info)"
   FILE_LOG="$(mktemp /tmp/XXXXX.boskos.log)"
 
-  E2E_ARGS=("--mason_info=${INFO_PATH}")
+  E2E_ARGS+=("--mason_info=${INFO_PATH}")
 
   setup_and_export_git_sha
 
@@ -100,46 +93,19 @@ setup_cluster
 # getopts only handles single character flags
 for ((i=1; i<=$#; i++)); do
     case ${!i} in
-        # -s/--single_test to specify only one test to run.
-        # e.g. "-s e2e_mixer" will only trigger e2e mixer_test
-        -s|--single_test) SINGLE_MODE=true; ((i++)); SINGLE_TEST=${!i}
+        # -s/--single_test to specify test target to run.
+        # e.g. "-s e2e_mixer" will trigger e2e mixer_test
+        -s|--single_test) ((i++)); SINGLE_TEST=${!i}
         continue
         ;;
         --timeout) ((i++)); E2E_TIMEOUT=${!i}
         continue
         ;;
-        --use_galley_config_validator)
-        TEST_TARGETS+=(e2e_galley)
-        ;;
     esac
     E2E_ARGS+=( "${!i}" )
 done
 
-echo 'Running ISTIO E2E Test(s)'
-if ${SINGLE_MODE}; then
-    echo "Executing single e2e test"
-
-    # Check if it's a valid test file
-    VALID_TEST=false
-    for T in "${TEST_TARGETS[@]}"; do
-        if [ "${T}" == "${SINGLE_TEST}" ]; then
-            VALID_TEST=true
-            time ISTIO_DOCKER_HUB=$HUB \
-              E2E_ARGS="${E2E_ARGS[*]}" \
-              JUNIT_E2E_XML="${ARTIFACTS_DIR}/junit.xml" \
-              make with_junit_report TARGET="${SINGLE_TEST}" ${E2E_TIMEOUT:+ E2E_TIMEOUT="${E2E_TIMEOUT}"}
-        fi
-    done
-    if [ "${VALID_TEST}" == "false" ]; then
-      echo "Invalid e2e test target, must be one of ${TEST_TARGETS[*]}"
-      # Fail if it's not a valid test file
-      process_result 1 'Invalid test target'
-    fi
-
-else
-    echo "Executing e2e test suite"
-    time ISTIO_DOCKER_HUB=$HUB \
-      E2E_ARGS="${E2E_ARGS[*]}" \
-      JUNIT_E2E_XML="${ARTIFACTS_DIR}/junit_e2e-all.xml" \
-      make e2e_all_junit_report ${E2E_TIMEOUT:+ E2E_TIMEOUT="${E2E_TIMEOUT}"}
-fi
+time ISTIO_DOCKER_HUB=$HUB \
+  E2E_ARGS="${E2E_ARGS[*]}" \
+  JUNIT_E2E_XML="${ARTIFACTS_DIR}/junit.xml" \
+  make with_junit_report TARGET="${SINGLE_TEST}" ${E2E_TIMEOUT:+ E2E_TIMEOUT="${E2E_TIMEOUT}"}
