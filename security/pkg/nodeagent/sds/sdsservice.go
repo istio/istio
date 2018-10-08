@@ -79,7 +79,7 @@ type sdsConnection struct {
 	// The secret associated with the proxy.
 	secret *model.SecretItem
 
-	// Full resource Name from coming discovery request.
+	// Full resource Name from incoming discovery request.
 	// "default" for normal key/cert rquest.
 	// "ROOTCA,VerifySubjectAltName1,VerifySubjectAltName2.." for root cert request.
 	fullResourceName string
