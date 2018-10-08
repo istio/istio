@@ -16,16 +16,14 @@ package inject
 
 import (
 	"bytes"
+	"fmt"
 	"os"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
-
-	"fmt"
-
-	"regexp"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"

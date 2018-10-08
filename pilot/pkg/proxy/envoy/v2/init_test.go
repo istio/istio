@@ -38,7 +38,7 @@ import (
 )
 
 var nodeMetadata = &proto.Struct{Fields: map[string]*proto.Value{
-	"ISTIO_PROXY_VERSION": &proto.Value{Kind: &proto.Value_StringValue{StringValue: "1.0"}}, // actual value doesn't matter
+	"ISTIO_PROXY_VERSION": {Kind: &proto.Value_StringValue{StringValue: "1.0"}}, // actual value doesn't matter
 }}
 
 // Extract cluster load assignment from a discovery response.

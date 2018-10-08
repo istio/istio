@@ -7,14 +7,9 @@
         "zone": "{{ .zone }}"
     },
 {{ end }}
-    "metadata": {
-{{- range $a, $s := .meta }}
-          "{{$a}}": "{{$s}}",
-{{- end}}
-      "istio": "sidecar"
-    }
-  },
-  "stats_config": {
+    "metadata": {{ .meta_json_str }}
+    },
+    "stats_config": {
     "use_all_default_tags": false,
     "stats_tags": [{
         "tag_name": "cluster_name",
@@ -43,7 +38,7 @@
       {
         "tag_name": "listener_address",
         "regex": "^listener\\.(((?:[_.[:digit:]]*|[_\\[\\]aAbBcCdDeEfF[:digit:]]*))\\.)"
-      },
+      }
     ]
   },
   "admin": {
@@ -64,7 +59,7 @@
     },
     "ads_config": {
       "api_type": "GRPC",
-      "refresh_delay": {{ .refresh_delay }},
+      "refresh_delay": "{{ .refresh_delay }}",
       "grpc_services": [
         {
           "envoy_grpc": {
@@ -85,27 +80,27 @@
         "socket_address": {
           "protocol": "TCP",
           "address": "127.0.0.1",
-          "port_value": "15000",
+          "port_value": 15000,
         }
       }],
     },
     {
     "name": "xds-grpc",
     "type": "STRICT_DNS",
-    "connect_timeout": {{ .connect_timeout }},
+    "connect_timeout": "{{ .connect_timeout }}",
     "lb_policy": "ROUND_ROBIN",
 {{ if eq .config.ControlPlaneAuthPolicy 1 }}
       "tls_context": {
         "common_tls_context": {
-          "alpn_protocols": "h2",
-          "tls_certificates": {
+          "alpn_protocols": ["h2"],
+          "tls_certificates": [{
             "certificate_chain": {
               "filename": "/etc/certs/cert-chain.pem"
             },
             "private_key": {
               "filename": "/etc/certs/key.pem"
             }
-          },
+          }],
           "validation_context": {
             "trusted_ca": {
               "filename": "/etc/certs/root-cert.pem"
@@ -127,16 +122,16 @@
     "circuit_breakers": {
         "thresholds": [
       {
-        "priority": "default",
-        "max_connections": "100000",
-        "max_pending_requests": "100000",
-        "max_requests": "100000"
+        "priority": "DEFAULT",
+        "max_connections": 100000,
+        "max_pending_requests": 100000,
+        "max_requests": 100000
       },
       {
-        "priority": "high",
-        "max_connections": "100000",
-        "max_pending_requests": "100000",
-        "max_requests": "100000"
+        "priority": "HIGH",
+        "max_connections": 100000,
+        "max_pending_requests": 100000,
+        "max_requests": 100000
       }]
     },
     "upstream_connection_options": {
@@ -152,9 +147,7 @@
       {
         "name": "zipkin",
         "type": "STRICT_DNS",
-        "connect_timeout": {
-          "seconds": 1
-        },
+        "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
         "hosts": [
           {
@@ -170,7 +163,7 @@
           "socket_address": {
             "protocol": "TCP",
             "address": "0.0.0.0",
-            "port_value": "15090",
+            "port_value": 15090,
           }
         },
         "filter_chains": [{
