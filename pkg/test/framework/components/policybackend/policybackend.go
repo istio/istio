@@ -25,8 +25,6 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 
-	"istio.io/istio/pkg/test/util/reserveport"
-
 	"istio.io/istio/pkg/test/framework/internal"
 	"istio.io/istio/pkg/test/framework/scopes"
 	"istio.io/istio/pkg/test/util"
@@ -101,7 +99,6 @@ spec:
 )
 
 type localComponent struct {
-	portManager reserveport.PortManager
 }
 
 // ID implements the component.Component interface.
@@ -121,21 +118,13 @@ func (c *localComponent) Init(ctx environment.ComponentContext, deps map[depende
 		return nil, fmt.Errorf("unsupported environment: %q", ctx.Environment().EnvironmentID())
 	}
 
-	pm, err := reserveport.NewPortManager()
+	backend := policy.NewPolicyBackend(0) // auto-allocate port
+	err := backend.Start()
 	if err != nil {
 		return nil, err
 	}
-	p, err := pm.ReservePort()
-	if err != nil {
-		return nil, err
-	}
-	port := int(p.GetPort())
-	p.Close()
-	backend := policy.NewPolicyBackend(port)
 
-	if err = backend.Start(); err != nil {
-		return nil, err
-	}
+	port := backend.Port()
 
 	controller, err := util.Retry(util.DefaultRetryWait, time.Second, func() (interface{}, bool, error) {
 		c, err := policy.NewController(fmt.Sprintf(":%d", port))
