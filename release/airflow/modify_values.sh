@@ -27,7 +27,7 @@ function fix_values_yaml_worker() {
   local gcs_folder_path
   gcs_folder_path="$5"
 
-  echo "fixing  ${gcs_folder_path}/${tarball_name} with hub: ${HUB} tag: ${TAG}"
+  echo "fixing helm values.yaml in ${gcs_folder_path}/${tarball_name} with hub: ${HUB} tag: ${TAG}"
 
   gsutil -q cp "${gcs_folder_path}/${tarball_name}" .
   eval    "$unzip_cmd"     "${tarball_name}"
