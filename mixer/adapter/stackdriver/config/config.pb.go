@@ -561,7 +561,7 @@ type Params_LogInfo_SinkInfo struct {
 	UpdateDestination bool `protobuf:"varint,5,opt,name=UpdateDestination,proto3" json:"UpdateDestination,omitempty"`
 	// Update sink filter.
 	UpdateFilter bool `protobuf:"varint,6,opt,name=UpdateFilter,proto3" json:"UpdateFilter,omitempty"`
-	// Update inlcudes children.
+	// Update includes children.
 	UpdateIncludeChildren bool `protobuf:"varint,7,opt,name=UpdateIncludeChildren,proto3" json:"UpdateIncludeChildren,omitempty"`
 }
 

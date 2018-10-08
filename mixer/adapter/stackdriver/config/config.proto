@@ -243,7 +243,7 @@ message Params {
             bool UpdateDestination = 5;
             // Update sink filter.
             bool UpdateFilter = 6;
-            // Update inlcudes children.
+            // Update includes children.
             bool UpdateIncludeChildren = 7;
         }
         // If SinkInfo is provided, Stackriver logs would be exported to that sink.
