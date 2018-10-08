@@ -17,6 +17,7 @@ syntax = "proto3";
 // $title: Redis Quota
 // $description: Adapter for a Redis-based quota management system.
 // $location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/redisquota.html
+// $supported_templates: quota
 // $aliases:
 // $  - /docs/reference/config/adapters/redisquota.html
 

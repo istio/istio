@@ -48,7 +48,13 @@ func (e *environment) CreateTmpDirectory(t testing.TB, name string) string {
 func (e *environment) Configure(t testing.TB, config string) {
 	t.Helper()
 
-	if err := e.controller.Configure(config); err != nil {
+	c, err := e.controller.Evaluate(config)
+	if err != nil {
+		e.controller.DumpState(t.Name())
+		t.Fatalf("Error expanding configuration template: %v", err)
+	}
+
+	if err := e.controller.Configure(c); err != nil {
 		e.controller.DumpState(t.Name())
 		t.Fatalf("Error applying configuration to dependencies: %v", err)
 	}
@@ -110,6 +116,27 @@ func (e *environment) GetPilotOrFail(t testing.TB) env.DeployedPilot {
 	m, err := e.GetPilot()
 	if err != nil {
 		e.controller.DumpState(t.Name())
+		t.Fatal(err)
+	}
+
+	return m
+}
+
+// GetCitadel returns a deployed Citadel instance in the environment.
+func (e *environment) GetCitadel() (env.DeployedCitadel, error) {
+	p, err := e.get(dependency.Citadel)
+	if err != nil {
+		return nil, err
+	}
+	return p.(env.DeployedCitadel), nil
+}
+
+// GetCitadelOrFail returns a deployed Citadel instance in the environment, or fails the test if unsuccessful.
+func (e *environment) GetCitadelOrFail(t testing.TB) env.DeployedCitadel {
+	t.Helper()
+
+	m, err := e.GetCitadel()
+	if err != nil {
 		t.Fatal(err)
 	}
 
@@ -205,11 +232,77 @@ func (e *environment) GetAPIServerOrFail(t testing.TB) env.DeployedAPIServer {
 	return m
 }
 
+// GetPrometheus returns a handle to a deployed Prometheus instance.
+func (e *environment) GetPrometheus() (env.DeployedPrometheus, error) {
+	p, err := e.get(dependency.Prometheus)
+	if err != nil {
+		return nil, err
+	}
+
+	return p.(env.DeployedPrometheus), nil
+}
+
+// GetPrometheusOrFail return a handle to a deployed Prometheus instance, or fails the test if unsuccessful.
+func (e *environment) GetPrometheusOrFail(t testing.TB) env.DeployedPrometheus {
+	t.Helper()
+
+	p, err := e.GetPrometheus()
+	if err != nil {
+		e.controller.DumpState(t.Name())
+		t.Fatal(err)
+	}
+
+	return p
+}
+
+// GetIngress returns the Istio Ingress Gateway.
+func (e *environment) GetIngress() (env.DeployedIngress, error) {
+	p, err := e.get(dependency.Ingress)
+	if err != nil {
+		return nil, err
+	}
+
+	return p.(env.DeployedIngress), nil
+}
+
+// GetIngressOrFail returns the Istio Ingress Gateway, or fails the test if uncessfull.
+func (e *environment) GetIngressOrFail(t testing.TB) env.DeployedIngress {
+	t.Helper()
+
+	p, err := e.GetIngress()
+	if err != nil {
+		e.controller.DumpState(t.Name())
+		t.Fatal(err)
+	}
+
+	return p
+}
+
+// DeployBookInfo deploys BookInfo into the test namespace.
+func (e *environment) DeployBookInfo() error {
+	p, err := e.get(dependency.BookInfo)
+	if err != nil {
+		return err
+	}
+
+	return p.(env.BookInfo).Deploy()
+}
+
+// DeployBookInfoOrFail deploys BookInfo into the test namespace, or fails the test if unsuccessful.
+func (e *environment) DeployBookInfoOrFail(t testing.TB) {
+	t.Helper()
+
+	if err := e.DeployBookInfo(); err != nil {
+		e.controller.DumpState(t.Name())
+		t.Fatal(err)
+	}
+}
+
 func (e *environment) getOrFail(t testing.TB, dep dependency.Instance) interface{} {
 	s, ok := e.ctx.Tracker.Get(dep)
 	if !ok {
 		e.controller.DumpState(t.Name())
-		t.Fatalf("Dependency not initialized: %v", dep)
+		t.Fatalf("Dependency not resolved: %v (did you declare this dependency?)", dep)
 	}
 	return s
 }

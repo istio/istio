@@ -196,12 +196,18 @@ message TrafficPolicy {
 //
 // **Note:** Policies specified for subsets will not take effect until
 // a route rule explicitly sends traffic to this subset.
+//
+// One or more labels are typically required to identify the subset destination,
+// however, when the corresponding DestinationRule represents a host that
+// supports multiple SNI hosts (e.g., an egress gateway), a subset without labels
+// may be meaningful. In this case a traffic policy with [TLSSettings](#TLSSettings)
+// can be used to identify a specific SNI host corresponding to the named subset.
 message Subset {
   // REQUIRED. Name of the subset. The service name and the subset name can
   // be used for traffic splitting in a route rule.
   string name = 1;
 
-  // REQUIRED. Labels apply a filter over the endpoints of a service in the
+  // Labels apply a filter over the endpoints of a service in the
   // service registry. See route rules for examples of usage.
   map<string, string> labels = 2;
 

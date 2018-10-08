@@ -62,10 +62,10 @@ func executeArgs(env []string, name string, args ...string) (string, error) {
 	c.Env = env
 	b, err := c.CombinedOutput()
 
-	if c.ProcessState.Success() {
-		scope.Debugf("Command[%s] => %s", name, string(b))
-	} else {
+	if err != nil || !c.ProcessState.Success() {
 		scope.Debugf("Command[%s] => (FAILED) %s", name, string(b))
+	} else {
+		scope.Debugf("Command[%s] => %s", name, string(b))
 	}
 
 	return string(b), err

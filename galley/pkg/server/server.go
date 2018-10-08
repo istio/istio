@@ -58,6 +58,7 @@ type patchTable struct {
 	newKubeFromConfigFile func(string) (kube.Interfaces, error)
 	newSource             func(kube.Interfaces, time.Duration) (runtime.Source, error)
 	netListen             func(network, address string) (net.Listener, error)
+	mcpMetricReporter     func(string) server.Reporter
 }
 
 func defaultPatchTable() patchTable {
@@ -66,6 +67,7 @@ func defaultPatchTable() patchTable {
 		newKubeFromConfigFile: kube.NewKubeFromConfigFile,
 		newSource:             source.New,
 		netListen:             net.Listen,
+		mcpMetricReporter:     func(prefix string) server.Reporter { return server.NewStatsContext(prefix) },
 	}
 }
 
@@ -97,7 +99,7 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 		}
 	}
 
-	distributor := snapshot.New()
+	distributor := snapshot.New(snapshot.DefaultGroupIndex)
 	s.processor = runtime.NewProcessor(src, distributor)
 
 	var grpcOptions []grpc.ServerOption
@@ -123,7 +125,7 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 	grpc.EnableTracing = a.EnableGRPCTracing
 	s.grpcServer = grpc.NewServer(grpcOptions...)
 
-	s.mcp = server.New(distributor, metadata.Types.TypeURLs(), checker)
+	s.mcp = server.New(distributor, metadata.Types.TypeURLs(), checker, p.mcpMetricReporter("galley/"))
 
 	// get the network stuff setup
 	network := "tcp"

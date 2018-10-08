@@ -1684,17 +1684,17 @@ func TestValidateHTTPRoute(t *testing.T) {
 		{name: "empty", route: &networking.HTTPRoute{ // nothing
 		}, valid:                                     false},
 		{name: "simple", route: &networking.HTTPRoute{
-			Route: []*networking.DestinationWeight{{
+			Route: []*networking.HTTPRouteDestination{{
 				Destination: &networking.Destination{Host: "foo.baz"},
 			}},
 		}, valid: true},
 		{name: "no destination", route: &networking.HTTPRoute{
-			Route: []*networking.DestinationWeight{{
+			Route: []*networking.HTTPRouteDestination{{
 				Destination: nil,
 			}},
 		}, valid: false},
 		{name: "weighted", route: &networking.HTTPRoute{
-			Route: []*networking.DestinationWeight{{
+			Route: []*networking.HTTPRouteDestination{{
 				Destination: &networking.Destination{Host: "foo.baz.south"},
 				Weight:      25,
 			}, {
@@ -1703,7 +1703,7 @@ func TestValidateHTTPRoute(t *testing.T) {
 			}},
 		}, valid: true},
 		{name: "total weight > 100", route: &networking.HTTPRoute{
-			Route: []*networking.DestinationWeight{{
+			Route: []*networking.HTTPRouteDestination{{
 				Destination: &networking.Destination{Host: "foo.baz.south"},
 				Weight:      55,
 			}, {
@@ -1712,7 +1712,7 @@ func TestValidateHTTPRoute(t *testing.T) {
 			}},
 		}, valid: false},
 		{name: "total weight < 100", route: &networking.HTTPRoute{
-			Route: []*networking.DestinationWeight{{
+			Route: []*networking.HTTPRouteDestination{{
 				Destination: &networking.Destination{Host: "foo.baz.south"},
 				Weight:      49,
 			}, {
@@ -1727,7 +1727,7 @@ func TestValidateHTTPRoute(t *testing.T) {
 			},
 		}, valid: true},
 		{name: "conflicting redirect and route", route: &networking.HTTPRoute{
-			Route: []*networking.DestinationWeight{{
+			Route: []*networking.HTTPRouteDestination{{
 				Destination: &networking.Destination{Host: "foo.baz"},
 			}},
 			Redirect: &networking.HTTPRedirect{
@@ -1746,6 +1746,57 @@ func TestValidateHTTPRoute(t *testing.T) {
 	}
 }
 
+func TestValidateRouteDestination(t *testing.T) {
+	testCases := []struct {
+		name   string
+		routes []*networking.RouteDestination
+		valid  bool
+	}{
+		{name: "simple", routes: []*networking.RouteDestination{&networking.RouteDestination{
+			Destination: &networking.Destination{Host: "foo.baz"},
+		}}, valid: true},
+		{name: "no destination", routes: []*networking.RouteDestination{&networking.RouteDestination{
+			Destination: nil,
+		}}, valid: false},
+		{name: "weighted", routes: []*networking.RouteDestination{&networking.RouteDestination{
+			Destination: &networking.Destination{Host: "foo.baz.south"},
+			Weight:      25,
+		}, &networking.RouteDestination{
+			Destination: &networking.Destination{Host: "foo.baz.east"},
+			Weight:      75,
+		}}, valid: true},
+		{name: "zero weight", routes: []*networking.RouteDestination{&networking.RouteDestination{
+			Destination: &networking.Destination{Host: "foo.baz.south"},
+			Weight:      5,
+		}, &networking.RouteDestination{
+			Destination: &networking.Destination{Host: "foo.baz.east"},
+			Weight:      0,
+		}}, valid: false},
+		{name: "total weight > 100", routes: []*networking.RouteDestination{&networking.RouteDestination{
+			Destination: &networking.Destination{Host: "foo.baz.south"},
+			Weight:      55,
+		}, &networking.RouteDestination{
+			Destination: &networking.Destination{Host: "foo.baz.east"},
+			Weight:      50,
+		}}, valid: true},
+		{name: "total weight < 100", routes: []*networking.RouteDestination{&networking.RouteDestination{
+			Destination: &networking.Destination{Host: "foo.baz.south"},
+			Weight:      49,
+		}, &networking.RouteDestination{
+			Destination: &networking.Destination{Host: "foo.baz.east"},
+			Weight:      50,
+		}}, valid: true},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if err := validateRouteDestinations(tc.routes); (err == nil) != tc.valid {
+				t.Fatalf("got valid=%v but wanted valid=%v: %v", err == nil, tc.valid, err)
+			}
+		})
+	}
+}
+
 // TODO: add TCP test cases once it is implemented
 func TestValidateVirtualService(t *testing.T) {
 	testCases := []struct {
@@ -1756,7 +1807,7 @@ func TestValidateVirtualService(t *testing.T) {
 		{name: "simple", in: &networking.VirtualService{
 			Hosts: []string{"foo.bar"},
 			Http: []*networking.HTTPRoute{{
-				Route: []*networking.DestinationWeight{{
+				Route: []*networking.HTTPRouteDestination{{
 					Destination: &networking.Destination{Host: "foo.baz"},
 				}},
 			}},
@@ -1764,7 +1815,7 @@ func TestValidateVirtualService(t *testing.T) {
 		{name: "duplicate hosts", in: &networking.VirtualService{
 			Hosts: []string{"*.foo.bar", "*.bar"},
 			Http: []*networking.HTTPRoute{{
-				Route: []*networking.DestinationWeight{{
+				Route: []*networking.HTTPRouteDestination{{
 					Destination: &networking.Destination{Host: "foo.baz"},
 				}},
 			}},
@@ -1772,7 +1823,7 @@ func TestValidateVirtualService(t *testing.T) {
 		{name: "no hosts", in: &networking.VirtualService{
 			Hosts: nil,
 			Http: []*networking.HTTPRoute{{
-				Route: []*networking.DestinationWeight{{
+				Route: []*networking.HTTPRouteDestination{{
 					Destination: &networking.Destination{Host: "foo.baz"},
 				}},
 			}},
@@ -1780,7 +1831,7 @@ func TestValidateVirtualService(t *testing.T) {
 		{name: "bad host", in: &networking.VirtualService{
 			Hosts: []string{"foo.ba!r"},
 			Http: []*networking.HTTPRoute{{
-				Route: []*networking.DestinationWeight{{
+				Route: []*networking.HTTPRouteDestination{{
 					Destination: &networking.Destination{Host: "foo.baz"},
 				}},
 			}},
@@ -1792,7 +1843,7 @@ func TestValidateVirtualService(t *testing.T) {
 			Hosts:    []string{"foo.bar"},
 			Gateways: []string{"b@dgateway"},
 			Http: []*networking.HTTPRoute{{
-				Route: []*networking.DestinationWeight{{
+				Route: []*networking.HTTPRouteDestination{{
 					Destination: &networking.Destination{Host: "foo.baz"},
 				}},
 			}},
@@ -1801,7 +1852,7 @@ func TestValidateVirtualService(t *testing.T) {
 			Hosts:    []string{"foo.bar"},
 			Gateways: []string{"gateway.example.com"},
 			Http: []*networking.HTTPRoute{{
-				Route: []*networking.DestinationWeight{{
+				Route: []*networking.HTTPRouteDestination{{
 					Destination: &networking.Destination{Host: "foo.baz"},
 				}},
 			}},
@@ -1809,7 +1860,7 @@ func TestValidateVirtualService(t *testing.T) {
 		{name: "wildcard for mesh gateway", in: &networking.VirtualService{
 			Hosts: []string{"*"},
 			Http: []*networking.HTTPRoute{{
-				Route: []*networking.DestinationWeight{{
+				Route: []*networking.HTTPRouteDestination{{
 					Destination: &networking.Destination{Host: "foo.baz"},
 				}},
 			}},
@@ -1818,7 +1869,7 @@ func TestValidateVirtualService(t *testing.T) {
 			Hosts:    []string{"*"},
 			Gateways: []string{"somegateway"},
 			Http: []*networking.HTTPRoute{{
-				Route: []*networking.DestinationWeight{{
+				Route: []*networking.HTTPRouteDestination{{
 					Destination: &networking.Destination{Host: "foo.baz"},
 				}},
 			}},
@@ -1826,7 +1877,7 @@ func TestValidateVirtualService(t *testing.T) {
 		{name: "valid removeResponseHeaders", in: &networking.VirtualService{
 			Hosts: []string{"foo.bar"},
 			Http: []*networking.HTTPRoute{{
-				Route: []*networking.DestinationWeight{{
+				Route: []*networking.HTTPRouteDestination{{
 					Destination: &networking.Destination{Host: "foo.baz"},
 				}},
 				RemoveResponseHeaders: []string{"unwantedHeader", "secretStuff"},

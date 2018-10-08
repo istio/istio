@@ -491,17 +491,30 @@ func (k *KubeInfo) Teardown() error {
 	// confirm the namespace is deleted as it will cause future creation to fail
 	maxAttempts := 600
 	namespaceDeleted := false
+	validatingWebhookConfigurationDeleted := false
 	log.Infof("Deleting namespace %v", k.Namespace)
 	for attempts := 1; attempts <= maxAttempts; attempts++ {
 		namespaceDeleted, _ = util.NamespaceDeleted(k.Namespace, k.KubeConfig)
-		if namespaceDeleted {
+		// As validatingWebhookConfiguration "istio-galley" will
+		// be delete by kubernetes GC controller asynchronously,
+		// we need to ensure it's deleted before return.
+		// TODO: find a more general way as long term solution.
+		validatingWebhookConfigurationDeleted = util.ValidatingWebhookConfigurationDeleted("istio-galley", k.KubeConfig)
+
+		if namespaceDeleted && validatingWebhookConfigurationDeleted {
 			break
 		}
+
 		time.Sleep(1 * time.Second)
 	}
 
 	if !namespaceDeleted {
 		log.Errorf("Failed to delete namespace %s after %v seconds", k.Namespace, maxAttempts)
+		return nil
+	}
+
+	if !validatingWebhookConfigurationDeleted {
+		log.Errorf("Failed to delete validatingwebhookconfiguration istio-galley after %d seconds", maxAttempts)
 		return nil
 	}
 

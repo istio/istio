@@ -45,6 +45,13 @@
           {{- else }}
           - --trace_zipkin_url=http://zipkin:9411/api/v1/spans
           {{- end }}
+        {{- if .Values.env }}
+        env:
+        {{- range $key, $val := .Values.env }}
+        - name: {{ $key }}
+          value: "{{ $val }}"
+        {{- end }}
+        {{- end }}
         resources:
 {{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 10 }}
@@ -166,6 +173,13 @@
           {{- else }}
           - --trace_zipkin_url=http://zipkin:9411/api/v1/spans
           {{- end }}
+        {{- if .Values.env }}
+        env:
+        {{- range $key, $val := .Values.env }}
+        - name: {{ $key }}
+          value: "{{ $val }}"
+        {{- end }}
+        {{- end }}
         resources:
 {{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 10 }}

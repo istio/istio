@@ -108,7 +108,7 @@ var (
 								},
 							},
 						},
-						Route: []*networking.DestinationWeight{
+						Route: []*networking.HTTPRouteDestination{
 							{
 								Destination: &networking.Destination{
 									Host: "productpage",

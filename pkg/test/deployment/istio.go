@@ -14,6 +14,12 @@
 
 package deployment
 
+import (
+	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/framework/scopes"
+	"istio.io/istio/pkg/test/kube"
+)
+
 // valuesFile is the name of the values file to use for deployment.
 type valuesFile string
 
@@ -52,3 +58,19 @@ const (
 	// IstioOneNamespaceAuth values file
 	IstioOneNamespaceAuth valuesFile = "values-istio-one-namespace-auth.yaml"
 )
+
+// NewIstio deploys Istio. NewIstio will start an Istio deployment against Istio, wait for its completion,
+// and return a deployment instance to track the lifecycle.
+func NewIstio(s *Settings, valuesFile valuesFile, a *kube.Accessor) (instance *Instance, err error) {
+	scopes.CI.Info("=== BEGIN: Deploy Istio (via Helm Template) ===")
+	defer func() {
+		if err != nil {
+			instance = nil
+			scopes.CI.Infof("=== FAILED: Deploy Istio ===")
+		} else {
+			scopes.CI.Infof("=== SUCCEEDED: Deploy Istio ===")
+		}
+	}()
+
+	return newHelmDeployment(s, a, env.IstioChartDir, valuesFile)
+}

@@ -31,7 +31,7 @@ import (
 // Client interface defines the clients need to implement to talk to CA for CSR.
 type Client interface {
 	CSRSign(ctx context.Context, csrPEM []byte, subjectID string,
-		certValidTTLInSec int64) ([]byte /*PEM-encoded certificate chain*/, error)
+		certValidTTLInSec int64) ([]string /*PEM-encoded certificate chain*/, error)
 }
 
 type caClient struct {
@@ -65,7 +65,7 @@ func NewCAClient(endpoint string, tlsFlag bool) (Client, error) {
 }
 
 func (cl *caClient) CSRSign(ctx context.Context, csrPEM []byte, token string,
-	certValidTTLInSec int64) ([]byte /*PEM-encoded certificate chain*/, error) {
+	certValidTTLInSec int64) ([]string /*PEM-encoded certificate chain*/, error) {
 	req := &capb.IstioCertificateRequest{
 		Csr:              string(csrPEM),
 		ValidityDuration: certValidTTLInSec,
@@ -83,11 +83,5 @@ func (cl *caClient) CSRSign(ctx context.Context, csrPEM []byte, token string,
 		return nil, errors.New("invalid response cert chain")
 	}
 
-	// Returns the leaf cert(Leaf cert is element '0', Root cert is element 'n').
-	ret := []byte{}
-	for _, c := range resp.CertChain {
-		ret = append(ret, []byte(c)...)
-	}
-
-	return ret, nil
+	return resp.CertChain, nil
 }

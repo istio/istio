@@ -87,7 +87,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
 spec:
   selector:
-    istio: {{ .Values.global.multiCluster.gatewayName }}
+    istio: mcgateway
   servers:
   - hosts:
     # This is a dummy port to keep AWS LB happy.
@@ -101,7 +101,7 @@ spec:
     - "*.local"
     port:
       name: tls
-      number: 443
+      number: 15443
       protocol: TLS
     tls: {}
 ---
@@ -143,7 +143,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
 spec:
    workloadLabels:
-     istio: {{ .Values.global.multiCluster.gatewayName }}
+     istio: mcgateway
    filters:
    - listenerMatch:
        portNumber: 15443
