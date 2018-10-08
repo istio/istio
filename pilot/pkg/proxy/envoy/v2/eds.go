@@ -110,11 +110,11 @@ func (s *DiscoveryServer) endpoints(clusterNames []string, outRes []types.Any) *
 
 // Return the load assignment. The field can be updated by another routine.
 func loadAssignment(c *EdsCluster, node *model.Proxy) *xdsapi.ClusterLoadAssignment {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 	if node == nil {
 		return c.LoadAssignments[""]
 	}
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
 	return c.filterEndpointsByMetadata(node.Metadata)
 }
 
