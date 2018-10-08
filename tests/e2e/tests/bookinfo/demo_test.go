@@ -327,4 +327,8 @@ func doTestExternalDetailsService(t *testing.T, configVersion string, rules []st
 	inspect(
 		err, fmt.Sprintf("Failed external details routing! %s in v1", u1),
 		fmt.Sprintf("Success! Response matches with expected! %s", isbnFetchedFromExternalService), t)
+
+	// Temp: verify the status of pilot, this test fails only on prow.
+	util.FetchAndSaveClusterLogs(tc.Kube.Namespace, tc.Info.TempDir + "/afterExternal", tc.Kube.KubeConfig)
+
 }
