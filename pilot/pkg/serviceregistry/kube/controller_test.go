@@ -691,7 +691,11 @@ func addPods(t *testing.T, controller *Controller, pods ...*v1.Pod) {
 		// events - since PodIP will be "".
 		newPod.Status.PodIP = pod.Status.PodIP
 		newPod.Status.Phase = v1.PodRunning
-		controller.client.CoreV1().Pods(pod.Namespace).UpdateStatus(newPod)
+		_, err = controller.client.CoreV1().Pods(pod.Namespace).UpdateStatus(newPod)
+		if err != nil {
+			t.Errorf("Cannot create %s in namespace %s (error: %v)", pod.ObjectMeta.Name, pod.ObjectMeta.Namespace, err)
+		}
+		log.Infof("Created pod %s", newPod.Name)
 	}
 }
 
