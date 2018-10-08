@@ -71,7 +71,7 @@ initContainers:
 - name: enable-core-dump
   args:
   - -c
-  - sysctl -w kernel.core_pattern=/etc/istio/proxy/core.%e.%p.%t && ulimit -c unlimited
+  - sysctl -w kernel.core_pattern=/var/lib/istio/core.proxy && ulimit -c unlimited
   command:
   - /bin/sh
   image: {{ .InitImage }}

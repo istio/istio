@@ -73,6 +73,8 @@ else
 endif
 
 export GOOS ?= $(GOOS_LOCAL)
+
+export ENABLE_COREDUMP ?= false
 #-----------------------------------------------------------------------------
 # Output control
 #-----------------------------------------------------------------------------
@@ -577,6 +579,7 @@ isti%.yaml: $(HELM)
 	$(HELM) template --name istio --set global.tag=${TAG} \
 		--namespace=istio-system \
 		--set global.hub=${HUB} \
+		--set global.proxy.enableCoreDump=${ENABLE_COREDUMP} \
 		--values install/kubernetes/helm/istio/values-$@ \
 		install/kubernetes/helm/istio >> install/kubernetes/$@
 
@@ -586,6 +589,7 @@ generate_yaml: $(HELM)
 	$(HELM) template --name istio --set global.tag=${TAG} \
 		--namespace=istio-system \
 		--set global.hub=${HUB} \
+		--set global.proxy.enableCoreDump=${ENABLE_COREDUMP} \
 		--values install/kubernetes/helm/istio/values.yaml \
 		install/kubernetes/helm/istio >> install/kubernetes/istio.yaml
 
@@ -593,10 +597,15 @@ generate_yaml: $(HELM)
 	$(HELM) template --set global.tag=${TAG} \
 		--namespace=istio-system \
 		--set global.hub=${HUB} \
-		--values install/kubernetes/helm/istio/values.yaml \
 		--set global.mtls.enabled=true \
 		--set global.controlPlaneSecurityEnabled=true \
+		--set global.proxy.enableCoreDump=${ENABLE_COREDUMP} \
+		--values install/kubernetes/helm/istio/values.yaml \
 		install/kubernetes/helm/istio >> install/kubernetes/istio-auth.yaml
+
+generate_yaml_coredump: export ENABLE_COREDUMP=true
+generate_yaml_coredump:
+	$(MAKE) generate_yaml
 
 # Generate the install files, using istioctl.
 # TODO: make sure they match, pass all tests.

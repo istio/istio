@@ -22,6 +22,9 @@ spec:
   loadBalancerIP: "{{ $spec.loadBalancerIP }}"
 {{- end }}
   type: {{ .type }}
+{{- if $spec.externalTrafficPolicy }}
+  externalTrafficPolicy: {{ $spec.externalTrafficPolicy }}
+{{- end }}
   selector:
     {{- range $key, $val := $spec.labels }}
     {{ $key }}: {{ $val }}

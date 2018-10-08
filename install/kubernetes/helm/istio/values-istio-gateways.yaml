@@ -58,6 +58,7 @@ gateways:
     loadBalancerIP: ""
     serviceAnnotations: {}
     type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
+    externalTrafficPolicy: Local
 
     ports:
       ## You can add custom gateway ports
