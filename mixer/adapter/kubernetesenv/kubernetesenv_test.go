@@ -422,6 +422,8 @@ func deleteMultiClusterSecret(k8s *fake.Clientset) error {
 
 func verifyControllers(t *testing.T, b *builder, expectedControllerCount int, timeoutName string) {
 	pkgtest.NewEventualOpts(10*time.Millisecond, 5*time.Second).Eventually(t, timeoutName, func() bool {
+		b.Lock()
+		defer b.Unlock()
 		return len(b.controllers) == expectedControllerCount
 	})
 }

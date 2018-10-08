@@ -352,6 +352,9 @@ func newKubernetesClient(kubeconfigPath string, env adapter.Env) (k8s.Interface,
 }
 
 func (b *builder) createCacheController(k8sInterface k8s.Interface, clusterID string) error {
+	b.Lock()
+	defer b.Unlock()
+
 	controller, err := runNewController(b, k8sInterface, b.kubeHandler.env)
 	if err == nil {
 		b.controllers[clusterID] = controller
@@ -365,6 +368,9 @@ func (b *builder) createCacheController(k8sInterface k8s.Interface, clusterID st
 }
 
 func (b *builder) deleteCacheController(clusterID string) error {
+	b.Lock()
+	defer b.Unlock()
+
 	b.kubeHandler.k8sCache[clusterID].StopControlChannel()
 	delete(b.controllers, clusterID)
 	delete(b.kubeHandler.k8sCache, clusterID)
