@@ -2,10 +2,9 @@
 
 
 [[projects]]
-  digest = "1:5102b7344e9b3099bff8b7119ab5e1b531f34068808e8c7f5c03bcdec687a0b8"
+  digest = "1:e174cddfc0c772e3b414f95cc3cfc42b3480edb9b906cffb9f5aa9d8e09428f5"
   name = "cloud.google.com/go"
   packages = [
-    ".",
     "compute/metadata",
     "internal/version",
     "logging",
@@ -1911,7 +1910,6 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
-    "cloud.google.com/go",
     "cloud.google.com/go/compute/metadata",
     "cloud.google.com/go/logging",
     "cloud.google.com/go/logging/logadmin",
