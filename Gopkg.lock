@@ -2,9 +2,10 @@
 
 
 [[projects]]
-  digest = "1:2982f500a756aae4425eb31f06e72ff27e80157913505ab07095dde81d08ad40"
+  digest = "1:5102b7344e9b3099bff8b7119ab5e1b531f34068808e8c7f5c03bcdec687a0b8"
   name = "cloud.google.com/go"
   packages = [
+    ".",
     "compute/metadata",
     "internal/version",
     "logging",
@@ -15,8 +16,8 @@
     "trace/apiv2",
   ]
   pruneopts = "NUT"
-  revision = "0fd7230b2a7505833d5f69b75cbd6c9582401479"
-  version = "v0.23.0"
+  revision = "64a2037ec6be8a4b0c1d1f706ed35b428b989239"
+  version = "v0.26.0"
 
 [[projects]]
   branch = "master"
@@ -1910,6 +1911,7 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
+    "cloud.google.com/go",
     "cloud.google.com/go/compute/metadata",
     "cloud.google.com/go/logging",
     "cloud.google.com/go/logging/logadmin",
