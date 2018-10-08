@@ -178,7 +178,7 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 
 		if len(instances) != 0 {
 			locEpsByNetwork = localityLbEndpointsFromInstances(instances)
-			gwByNetwork = networkGateways(instances, locEpsByNetwork)
+			gwByNetwork = s.networkGateways(instances, locEpsByNetwork, edsCluster)
 		}
 	}
 
@@ -211,8 +211,8 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 // The weight of the endpoint will equal to the number of local endpoints in
 // the remote network. If the remote network has no cluster endpoints
 // (i.e. weight 0) it will not be added.
-func networkGateways(instances []*model.ServiceInstance,
-	endpoints map[string][]endpoint.LocalityLbEndpoints) map[string]*endpoint.LocalityLbEndpoints {
+func (s *DiscoveryServer) networkGateways(instances []*model.ServiceInstance,
+	endpoints map[string][]endpoint.LocalityLbEndpoints, edsCluster *EdsCluster) map[string]*endpoint.LocalityLbEndpoints {
 	gateways := make(map[string]*endpoint.LocalityLbEndpoints)
 	for _, instance := range instances {
 		network := instance.Labels["ISTIO_NETWORK"]
@@ -243,8 +243,25 @@ func networkGateways(instances []*model.ServiceInstance,
 		// If address not found, try to get the gateway address from its k8s
 		// service.
 		if addr == nil {
-			//TODO: For K8S, the gateway IP can be extracted from the Service
-			//object for LoadBalancer services.
+			// We are calling the Services() function and not the GetService()
+			// because it will return services with their ClusterExternals field
+			// set to hold an aggregated map to external addresses for all clusters.
+			// The GetService() will just return the first service found with the
+			// hostname.
+			svcs, err := s.env.ServiceDiscovery.Services()
+			if err == nil {
+				for _, svc := range svcs {
+					if svc.Hostname == "istio-ingressgateway.istio-system.svc.cluster.local" {
+						addrs := svc.ClusterExternals[network]
+						if len(addrs) > 0 && len(svc.Ports) > 0 {
+							addrIP := addrs[0]
+							addrPort := svc.Ports[0].Port
+							cfgAddr := util.BuildAddress(addrIP, uint32(addrPort))
+							addr = &cfgAddr
+						}
+					}
+				}
+			}
 		}
 
 		// If address is still missing we can't add the endoint so skip it

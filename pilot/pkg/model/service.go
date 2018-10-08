@@ -62,6 +62,12 @@ type Service struct {
 	// in each of the clusters where the service resides
 	ClusterVIPs map[string]string `json:"cluster-vips,omitempty"`
 
+	// In a multi-cluster environment where a single service may be present for
+	// several identical per-cluster services, this instance will hold the
+	// mapping between the Cluster ID and the external addresses for the service
+	// that resides within that cluster
+	ClusterExternals map[string][]string `json:"cluster-externals,omitempty"`
+
 	// Ports is the set of network ports where the service is listening for
 	// connections
 	Ports PortList `json:"ports,omitempty"`

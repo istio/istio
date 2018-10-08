@@ -17,6 +17,9 @@ import (
 	"log"
 	"testing"
 
+	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
+
 	testenv "istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
@@ -43,22 +46,29 @@ type ExpectedResults struct {
 func TestSplitHorizonEds(t *testing.T) {
 	initSplitHorizonTestEnv(t)
 
-	verifySplitHorizonResponse(t, "network1", sidecarId("10.1.0.1", "app3"), "192.168.0.111", "80", ExpectedResults{
+	initClusterRegistry(1, "159.122.219.1", true, 1)
+	initClusterRegistry(2, "159.122.219.2", true, 2)
+	initClusterRegistry(3, "159.122.219.3", false, 3)
+
+	// Update cache
+	pilotServer.EnvoyXdsServer.ClearCacheFunc()()
+
+	verifySplitHorizonResponse(t, "network1", sidecarId("10.1.0.1", "app3"), "159.122.219.1", "80", ExpectedResults{
 		numOfNetworks:  3,
 		localEndpoints: []string{"10.1.0.1"},
-		remoteWeights:  map[string]uint32{"192.168.0.222": 2, "192.168.0.333": 3},
+		remoteWeights:  map[string]uint32{"159.122.219.2": 2, "159.122.219.3": 3},
 	})
 
-	verifySplitHorizonResponse(t, "network2", sidecarId("10.2.0.1", "app3"), "192.168.0.222", "80", ExpectedResults{
+	verifySplitHorizonResponse(t, "network2", sidecarId("10.2.0.1", "app3"), "159.122.219.2", "80", ExpectedResults{
 		numOfNetworks:  3,
 		localEndpoints: []string{"10.2.0.1", "10.2.0.2"},
-		remoteWeights:  map[string]uint32{"192.168.0.111": 1, "192.168.0.333": 3},
+		remoteWeights:  map[string]uint32{"159.122.219.1": 1, "159.122.219.3": 3},
 	})
 
-	verifySplitHorizonResponse(t, "network3", sidecarId("10.3.0.1", "app3"), "192.168.0.333", "80", ExpectedResults{
+	verifySplitHorizonResponse(t, "network3", sidecarId("10.3.0.1", "app3"), "159.122.219.3", "80", ExpectedResults{
 		numOfNetworks:  3,
 		localEndpoints: []string{"10.3.0.1", "10.3.0.2", "10.3.0.3"},
-		remoteWeights:  map[string]uint32{"192.168.0.111": 1, "192.168.0.222": 2},
+		remoteWeights:  map[string]uint32{"159.122.219.1": 1, "159.122.219.2": 2},
 	})
 }
 
@@ -69,10 +79,8 @@ func verifySplitHorizonResponse(t *testing.T, network string, sidecarId string, 
 	}
 
 	metadata := &proto.Struct{Fields: map[string]*proto.Value{
-		"ISTIO_PROXY_VERSION":        {Kind: &proto.Value_StringValue{StringValue: "1.1"}},
-		"ISTIO_NETWORK":              {Kind: &proto.Value_StringValue{StringValue: network}},
-		"ISTIO_NETWORK_GATEWAY_IP":   {Kind: &proto.Value_StringValue{StringValue: gatewayIp}},
-		"ISTIO_NETWORK_GATEWAY_PORT": {Kind: &proto.Value_StringValue{StringValue: gatewayPort}},
+		"ISTIO_PROXY_VERSION": {Kind: &proto.Value_StringValue{StringValue: "1.1"}},
+		"ISTIO_NETWORK":       {Kind: &proto.Value_StringValue{StringValue: network}},
 	}}
 
 	err = sendCDSReqWithMetadata(sidecarId, metadata, edsstr)
@@ -129,7 +137,7 @@ func initSplitHorizonTestEnv(t *testing.T) *bootstrap.Server {
 	initMutex.Lock()
 	defer initMutex.Unlock()
 	testEnv = testenv.NewTestSetup(testenv.XDSTest, t)
-	server := util.EnsureTestServer()
+	server, _ := util.EnsureTestServer()
 	pilotServer = server
 
 	testEnv.Ports().PilotGrpcPort = uint16(util.MockPilotGrpcPort)
@@ -137,131 +145,67 @@ func initSplitHorizonTestEnv(t *testing.T) *bootstrap.Server {
 	testEnv.IstioSrc = env.IstioSrc
 	testEnv.IstioOut = env.IstioOut
 
-	localIp = getLocalIP()
+	return pilotServer
+}
 
-	networks1Lbls := map[string]string{
-		"version":                    "v1.1",
-		"ISTIO_NETWORK":              "network1",
-		"ISTIO_NETWORK_GATEWAY_IP":   "192.168.0.111",
-		"ISTIO_NETWORK_GATEWAY_PORT": "80"}
-	networks2Lbls := map[string]string{
-		"version":                    "v1.1",
-		"ISTIO_NETWORK":              "network2",
-		"ISTIO_NETWORK_GATEWAY_IP":   "192.168.0.222",
-		"ISTIO_NETWORK_GATEWAY_PORT": "80"}
-	networks3Lbls := map[string]string{
-		"version":                    "v1.1",
-		"ISTIO_NETWORK":              "network3",
-		"ISTIO_NETWORK_GATEWAY_IP":   "192.168.0.333",
-		"ISTIO_NETWORK_GATEWAY_PORT": "80"}
+func initClusterRegistry(clusterNum int, gatewayIP string, setGatewayLabel bool, numOfEndpoints int) {
+	id := fmt.Sprintf("network%d", clusterNum)
+	memRegistry := v2.NewMemServiceDiscovery(
+		map[model.Hostname]*model.Service{}, 2)
+	pilotServer.ServiceController.AddRegistry(aggregate.Registry{
+		ClusterID:        id,
+		Name:             serviceregistry.ServiceRegistry("memAdapter"),
+		ServiceDiscovery: memRegistry,
+		ServiceAccounts:  memRegistry,
+		Controller:       &v2.MemServiceController{},
+	})
+
+	networksLbls := map[string]string{
+		"version":       "v1.1",
+		"ISTIO_NETWORK": id,
+	}
+
+	if setGatewayLabel {
+		networksLbls["ISTIO_NETWORK_GATEWAY_IP"] = gatewayIP
+		networksLbls["ISTIO_NETWORK_GATEWAY_PORT"] = "80"
+	}
 
 	// Explicit test service, in the v2 memory registry. Similar with mock.MakeService,
 	// but easier to read.
-	server.EnvoyXdsServer.MemRegistry.AddService("service5.default.svc.cluster.local", &model.Service{
+	memRegistry.AddService("service5.default.svc.cluster.local", &model.Service{
 		Hostname: "service5.default.svc.cluster.local",
 		Address:  "10.10.0.1",
 		Ports:    testPorts(0),
 	})
-	server.EnvoyXdsServer.MemRegistry.AddInstance("service5.default.svc.cluster.local", &model.ServiceInstance{
-		Endpoint: model.NetworkEndpoint{
-			Address: "10.1.0.1",
-			Port:    2080,
-			ServicePort: &model.Port{
-				Name:     "http-main",
-				Port:     1080,
-				Protocol: model.ProtocolHTTP,
+	for i := 0; i < numOfEndpoints; i++ {
+		memRegistry.AddInstance("service5.default.svc.cluster.local", &model.ServiceInstance{
+			Endpoint: model.NetworkEndpoint{
+				Address: fmt.Sprintf("10.%d.0.%d", clusterNum, i+1),
+				Port:    2080,
+				ServicePort: &model.Port{
+					Name:     "http-main",
+					Port:     1080,
+					Protocol: model.ProtocolHTTP,
+				},
 			},
-		},
-		Labels:           networks1Lbls,
-		AvailabilityZone: "az",
-	})
+			Labels:           networksLbls,
+			AvailabilityZone: "az",
+		})
+	}
 
-	// Explicit test service, in the v2 memory registry. Similar with mock.MakeService,
-	// but easier to read.
-	server.EnvoyXdsServer.MemRegistry.AddService("service5.default.svc.cluster.local", &model.Service{
-		Hostname: "service5.default.svc.cluster.local",
-		Address:  "10.20.0.1",
-		Ports:    testPorts(0),
-	})
-
-	server.EnvoyXdsServer.MemRegistry.AddInstance("service5.default.svc.cluster.local", &model.ServiceInstance{
-		Endpoint: model.NetworkEndpoint{
-			Address: "10.2.0.1",
-			Port:    2080,
-			ServicePort: &model.Port{
-				Name:     "http-main",
-				Port:     1080,
+	// Mock ingressgateway service
+	memRegistry.AddService("istio-ingressgateway.istio-system.svc.cluster.local", &model.Service{
+		Hostname:          "istio-ingressgateway.istio-system.svc.cluster.local",
+		Address:           "10.20.0.1",
+		ExternalAddresses: []string{gatewayIP},
+		Ports: []*model.Port{
+			{
+				Name:     "http",
+				Port:     80,
 				Protocol: model.ProtocolHTTP,
 			},
 		},
-		Labels:           networks2Lbls,
-		AvailabilityZone: "az",
 	})
-	server.EnvoyXdsServer.MemRegistry.AddInstance("service5.default.svc.cluster.local", &model.ServiceInstance{
-		Endpoint: model.NetworkEndpoint{
-			Address: "10.2.0.2",
-			Port:    2080,
-			ServicePort: &model.Port{
-				Name:     "http-main",
-				Port:     1080,
-				Protocol: model.ProtocolHTTP,
-			},
-		},
-		Labels:           networks2Lbls,
-		AvailabilityZone: "az",
-	})
-
-	// Explicit test service, in the v2 memory registry. Similar with mock.MakeService,
-	// but easier to read.
-	server.EnvoyXdsServer.MemRegistry.AddService("service5.default.svc.cluster.local", &model.Service{
-		Hostname: "service5.default.svc.cluster.local",
-		Address:  "10.30.0.1",
-		Ports:    testPorts(0),
-	})
-	server.EnvoyXdsServer.MemRegistry.AddInstance("service5.default.svc.cluster.local", &model.ServiceInstance{
-		Endpoint: model.NetworkEndpoint{
-			Address: "10.3.0.1",
-			Port:    2080,
-			ServicePort: &model.Port{
-				Name:     "http-main",
-				Port:     1080,
-				Protocol: model.ProtocolHTTP,
-			},
-		},
-		Labels:           networks3Lbls,
-		AvailabilityZone: "az",
-	})
-	server.EnvoyXdsServer.MemRegistry.AddInstance("service5.default.svc.cluster.local", &model.ServiceInstance{
-		Endpoint: model.NetworkEndpoint{
-			Address: "10.3.0.2",
-			Port:    2080,
-			ServicePort: &model.Port{
-				Name:     "http-main",
-				Port:     1080,
-				Protocol: model.ProtocolHTTP,
-			},
-		},
-		Labels:           networks3Lbls,
-		AvailabilityZone: "az",
-	})
-	server.EnvoyXdsServer.MemRegistry.AddInstance("service5.default.svc.cluster.local", &model.ServiceInstance{
-		Endpoint: model.NetworkEndpoint{
-			Address: "10.3.0.3",
-			Port:    2080,
-			ServicePort: &model.Port{
-				Name:     "http-main",
-				Port:     1080,
-				Protocol: model.ProtocolHTTP,
-			},
-		},
-		Labels:           networks3Lbls,
-		AvailabilityZone: "az",
-	})
-
-	// Update cache
-	server.EnvoyXdsServer.ClearCacheFunc()()
-
-	return server
 }
 
 func sendCDSReqWithMetadata(node string, metadata *proto.Struct, edsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {

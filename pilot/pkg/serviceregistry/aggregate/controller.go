@@ -143,7 +143,19 @@ func (c *Controller) Services() ([]*model.Service, error) {
 					sp.ClusterVIPs = make(map[string]string)
 				}
 				sp.ClusterVIPs[r.ClusterID] = s.Address
-				smap[s.Hostname] = sp
+
+				// If the registry has a cluster ID, keep track of the cluster and the
+				// service external addresses for each cluster.
+				// This is important for a multi-cluster environment where the service
+				// with the same hostname can reside on each one of them but the services
+				// returns only single instance of the service. The returned service will
+				// still hold the external addresses of the service for each cluster.
+				if len(s.ExternalAddresses) != 0 {
+					if sp.ClusterExternals == nil {
+						sp.ClusterExternals = make(map[string][]string)
+					}
+					sp.ClusterExternals[r.ClusterID] = s.ExternalAddresses
+				}
 			}
 		}
 		clusterAddressesMutex.Unlock()
