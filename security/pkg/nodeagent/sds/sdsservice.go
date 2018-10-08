@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strings"
 	"sync"
 	"time"
 
@@ -77,6 +78,11 @@ type sdsConnection struct {
 
 	// The secret associated with the proxy.
 	secret *model.SecretItem
+
+	// Full resource Name from coming discovery request.
+	// "default" for normal key/cert rquest.
+	// "ROOTCA,VerifySubjectAltName1,VerifySubjectAltName2.." for root cert request.
+	fullResourceName string
 }
 
 type sdsservice struct {
@@ -131,6 +137,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 				log.Errorf("Failed to parse discovery request: %v", err)
 				continue
 			}
+			con.fullResourceName = discReq.ResourceNames[0]
 
 			// When nodeagent receives StreamSecrets request, if there is cached secret which matches
 			// request's <token, resourceName, Version>, then this request is a confirmation request.
@@ -195,7 +202,7 @@ func (s *sdsservice) FetchSecrets(ctx context.Context, discReq *xdsapi.Discovery
 		log.Errorf("Failed to get secret for proxy %q from secret cache: %v", discReq.Node.Id, err)
 		return nil, err
 	}
-	return sdsDiscoveryResponse(secret, discReq.Node.Id)
+	return sdsDiscoveryResponse(secret, discReq.ResourceNames[0], discReq.Node.Id)
 }
 
 // NotifyProxy send notification to proxy about secret update,
@@ -222,7 +229,8 @@ func parseDiscoveryRequest(discReq *xdsapi.DiscoveryRequest) (string /*resourceN
 	}
 
 	if len(discReq.ResourceNames) == 1 {
-		return discReq.ResourceNames[0], nil
+		ss := strings.Split(discReq.ResourceNames[0], ",")
+		return ss[0], nil
 	}
 
 	return "", fmt.Errorf("discovery request %+v has invalid resourceNames %+v", discReq, discReq.ResourceNames)
@@ -259,7 +267,7 @@ func removeConn(k cache.ConnKey) {
 func pushSDS(con *sdsConnection) error {
 	log.Infof("SDS: push from node agent to proxy:%q", con.proxyID)
 
-	response, err := sdsDiscoveryResponse(con.secret, con.proxyID)
+	response, err := sdsDiscoveryResponse(con.secret, con.fullResourceName, con.proxyID)
 	if err != nil {
 		log.Errorf("SDS: Failed to construct response %v", err)
 		return err
@@ -273,7 +281,7 @@ func pushSDS(con *sdsConnection) error {
 	return nil
 }
 
-func sdsDiscoveryResponse(s *model.SecretItem, proxyID string) (*xdsapi.DiscoveryResponse, error) {
+func sdsDiscoveryResponse(s *model.SecretItem, fullResourceName, proxyID string) (*xdsapi.DiscoveryResponse, error) {
 	resp := &xdsapi.DiscoveryResponse{
 		TypeUrl:     SecretType,
 		VersionInfo: s.Version,
@@ -286,9 +294,15 @@ func sdsDiscoveryResponse(s *model.SecretItem, proxyID string) (*xdsapi.Discover
 	}
 
 	secret := &authapi.Secret{
-		Name: s.ResourceName,
+		Name: fullResourceName,
 	}
 	if s.RootCert != nil {
+		ss := strings.Split(fullResourceName, ",")
+		sans := []string{}
+		if len(ss) > 1 {
+			sans = append(sans, ss[1:len(ss)]...)
+		}
+
 		secret.Type = &authapi.Secret_ValidationContext{
 			ValidationContext: &authapi.CertificateValidationContext{
 				TrustedCa: &core.DataSource{
@@ -296,6 +310,7 @@ func sdsDiscoveryResponse(s *model.SecretItem, proxyID string) (*xdsapi.Discover
 						InlineBytes: s.RootCert,
 					},
 				},
+				VerifySubjectAltName: sans,
 			},
 		}
 	} else {
