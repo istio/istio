@@ -116,15 +116,15 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 			if config != nil {
 				destinationRule := config.Spec.(*networking.DestinationRule)
 				convertIstioMutual(destinationRule, upstreamServiceAccounts)
-				applyTrafficPolicy(defaultCluster, destinationRule.TrafficPolicy, port, env)
+				applyTrafficPolicy(env, defaultCluster, destinationRule.TrafficPolicy, port)
 
 				for _, subset := range destinationRule.Subsets {
 					subsetClusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port.Port)
 					subsetCluster := buildDefaultCluster(env, subsetClusterName, convertResolution(service.Resolution), hosts)
 					updateEds(subsetCluster)
 					setUpstreamProtocol(subsetCluster, port)
-					applyTrafficPolicy(subsetCluster, destinationRule.TrafficPolicy, port, env)
-					applyTrafficPolicy(subsetCluster, subset.TrafficPolicy, port, env)
+					applyTrafficPolicy(env, subsetCluster, destinationRule.TrafficPolicy, port)
+					applyTrafficPolicy(env, subsetCluster, subset.TrafficPolicy, port)
 					// call plugins
 					for _, p := range configgen.Plugins {
 						p.OnOutboundCluster(env, push, service, port, subsetCluster)
@@ -309,7 +309,7 @@ func SelectTrafficPolicyComponents(policy *networking.TrafficPolicy, port *model
 	return connectionPool, outlierDetection, loadBalancer, tls
 }
 
-func applyTrafficPolicy(cluster *v2.Cluster, policy *networking.TrafficPolicy, port *model.Port, env *model.Environment) {
+func applyTrafficPolicy(env *model.Environment, cluster *v2.Cluster, policy *networking.TrafficPolicy, port *model.Port) {
 	if policy == nil {
 		return
 	}
@@ -471,10 +471,6 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings, 
 			Sni:              tls.Sni,
 		}
 
-		if sdsUdsPath == "" {
-			log.Debuga("SDS isn't enabled")
-		}
-
 		// Fallback to file mount secret instead of SDS if meshConfig.sdsUdsPath isn't set or tls.mode is TLSSettings_MUTUAL.
 		if sdsUdsPath == "" || tls.Mode == networking.TLSSettings_MUTUAL {
 			cluster.TlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{
@@ -577,7 +573,7 @@ func buildDefaultCluster(env *model.Environment, name string, discoveryType v2.C
 	}
 
 	defaultTrafficPolicy := buildDefaultTrafficPolicy(env, discoveryType)
-	applyTrafficPolicy(cluster, defaultTrafficPolicy, nil, env)
+	applyTrafficPolicy(env, cluster, defaultTrafficPolicy, nil)
 	return cluster
 }
 
