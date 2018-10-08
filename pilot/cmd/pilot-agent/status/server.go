@@ -46,13 +46,13 @@ type AppProbeInfo struct {
 
 // Config for the status server.
 type Config struct {
-	StatusPort uint16
-	AdminPort  uint16
+	StatusPort       uint16
+	AdminPort        uint16
 	ApplicationPorts []uint16
 	// AppReadiness specifies how to take over Kubernetes readiness probing.
 	AppReadiness *AppProbeInfo
 	// AppLiveness specifies how to take over Kubernetes liveness probing.
-	AppLiveness  *AppProbeInfo
+	AppLiveness *AppProbeInfo
 }
 
 // Server provides an endpoint for handling status probes.
