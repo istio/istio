@@ -128,14 +128,7 @@ func (e *Implementation) Initialize(ctx *internal.TestContext) error {
 
 	if e.kube.DeployIstio {
 		if e.deployment, err = deployment.NewIstio(
-			&deployment.Settings{
-				KubeConfig:      e.kube.KubeConfig,
-				WorkDir:         ctx.Settings().WorkDir,
-				Hub:             e.kube.Hub,
-				Tag:             e.kube.Tag,
-				ImagePullPolicy: e.kube.ImagePullPolicy,
-				Namespace:       e.kube.IstioSystemNamespace,
-			},
+			e.kube.toDeploymentSettings(e.ctx.Settings().WorkDir),
 			deployment.IstioMCP, // TODO: Values files should be parameterized.
 			e.Accessor); err != nil {
 			return err
