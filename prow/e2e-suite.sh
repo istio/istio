@@ -67,7 +67,7 @@ if [[ "${USE_MASON_RESOURCE}" == "True" ]]; then
   INFO_PATH="$(mktemp /tmp/XXXXX.boskos.info)"
   FILE_LOG="$(mktemp /tmp/XXXXX.boskos.log)"
 
-  E2E_ARGS=+("--mason_info=${INFO_PATH}")
+  E2E_ARGS+=("--mason_info=${INFO_PATH}")
 
   setup_and_export_git_sha
 
