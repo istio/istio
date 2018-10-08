@@ -50,10 +50,6 @@ function fix_values_yaml() {
   # fix_values_yaml unzip_cmd zip_cmd folder_name tarball_name
 
   fix_values_yaml_worker "$1" "$2" "$3" "$4" "${GCS_PATH}"
-
-# the following no longer relevant TODO remove
-#  fix_values_yaml_worker "$1" "$2" "$3" "$4" "${GCS_PATH}/docker.io"
-#  fix_values_yaml_worker "$1" "$2" "$3" "$4" "${GCS_PATH}/gcr.io"
 }
 
 rm -rf modification-tmp

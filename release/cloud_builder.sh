@@ -40,17 +40,15 @@ function usage() {
     -c        opts out of building docker artifacts
     -h        docker hub to use (optional defaults to docker.io/istio)
     -o        path to store build artifacts
-    -q        path on docker hub (optional, alt to -h defaults to docker.io/istio)
     -t <tag>  tag to use"
   exit 1
 }
 
-while getopts bch:o:q:t: arg ; do
+while getopts bch:o:t: arg ; do
   case "${arg}" in
     b) BUILD_DEBIAN="false";;
     c) BUILD_DOCKER="false";;
     h) TEST_DOCKER_HUB="${OPTARG}";;
-    q) TEST_DOCKER_HUB="docker.io/${OPTARG}";;
     o) OUTPUT_PATH="${OPTARG}";;
     t) TAG_NAME="${OPTARG}";;
     *) usage;;
@@ -58,7 +56,7 @@ while getopts bch:o:q:t: arg ; do
 done
 
 [[ -z "${OUTPUT_PATH}" ]] && usage
-[[ -z "${TAG_NAME}"    ]] && usage
+[[ -z "${TAG_NAME}" ]] && usage
 
 DOCKER_HUB=${TEST_DOCKER_HUB:-$REL_DOCKER_HUB}
 
@@ -82,8 +80,9 @@ VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB=${DOCKER_HUB} HUB=${DOCKER_HUB} VERSION=$ISTI
 cp "${ISTIO_OUT}"/archive/istio-*z* "${OUTPUT_PATH}/"
 
 if [ "${BUILD_DOCKER}" == "true" ]; then
-  # we always save the docker tars and point them to docker.io/istio
-  # later scripts retag the tars as needed and push to the docker/gcr as needed
+  # we always save the docker tars and point them to docker.io/istio ($REL_DOCKER_HUB)
+  # later scripts retag the tars with $DOCKER_HUB:$ISTIO_VERSION and push to
+  # $DOCKER_HUB:$ISTIO_VERSION 
   BUILD_DOCKER_TARGETS=(docker.save)
   VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB=${REL_DOCKER_HUB} HUB=${REL_DOCKER_HUB} VERSION=$ISTIO_VERSION TAG=$ISTIO_VERSION make "${BUILD_DOCKER_TARGETS[@]}"
   cp -r "${ISTIO_OUT}/docker" "${OUTPUT_PATH}/"
