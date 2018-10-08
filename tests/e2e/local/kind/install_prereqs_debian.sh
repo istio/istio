@@ -2,6 +2,7 @@
 
 SCRIPTPATH="$(cd "$(dirname "$0")" || exit; pwd -P)"
 ROOTDIR="$(dirname "${SCRIPTPATH}")"
+# shellcheck source=tests/e2e/local/common.sh
 source "${ROOTDIR}/common.sh"
 # shellcheck source=tests/e2e/local/common_linux.sh
 source "${ROOTDIR}/common_linux.sh"
