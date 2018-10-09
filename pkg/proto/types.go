@@ -19,10 +19,12 @@ import (
 )
 
 var (
+	// BoolTrue is a bool true pointer of types.BoolValue.
 	BoolTrue = &types.BoolValue{
 		Value: true,
 	}
 
+	// BoolFalse is a bool false pointer of types.BoolValue.
 	BoolFalse = &types.BoolValue{
 		Value: false,
 	}
