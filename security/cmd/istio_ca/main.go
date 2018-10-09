@@ -372,7 +372,7 @@ func runCA() {
 		config.CSRGracePeriodPercentage = cmd.DefaultCSRGracePeriodPercentage
 		config.CSRMaxRetries = cmd.DefaultCSRMaxRetries
 		config.CSRInitialRetrialInterval = cmd.DefaultCSRInitialRetrialInterval
-		rotator, creationErr := caclient.CreateKeyCertBundleRotator(config, ca.GetCAKeyCertBundle())
+		rotator, creationErr := caclient.NewKeyCertBundleRotator(config, ca.GetCAKeyCertBundle())
 		if creationErr != nil {
 			fatalf("Failed to create key cert bundle rotator: %v", creationErr)
 		}
