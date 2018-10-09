@@ -424,6 +424,85 @@ func TestAuthenticationPolicyConfig(t *testing.T) {
 	}
 }
 
+func TestIstioConfigStore_AuthenticationPolicyByEndpoint(t *testing.T) {
+	store := model.MakeIstioStore(memory.Make(model.IstioConfigTypes))
+
+	authNPolicies := map[string]*authn.Policy{
+		model.DefaultAuthenticationPolicyName: {},
+		"hello": {
+			Targets: []*authn.TargetSelector{{
+				Name:        "hello",
+				MatchLabels: map[string]string{"env": "testing"},
+			}},
+			Peers: []*authn.PeerAuthenticationMethod{{
+				Params: &authn.PeerAuthenticationMethod_Mtls{},
+			}},
+		},
+	}
+	for key, value := range authNPolicies {
+		config := model.Config{
+			ConfigMeta: model.ConfigMeta{
+				Type:      model.AuthenticationPolicy.Type,
+				Name:      key,
+				Group:     "authentication",
+				Version:   "v1alpha2",
+				Namespace: "default",
+				Domain:    "cluster.local",
+			},
+			Spec: value,
+		}
+		if _, err := store.Create(config); err != nil {
+			t.Error(err)
+		}
+	}
+
+	cases := []struct {
+		hostname  model.Hostname
+		namespace string
+		port      int
+		expected  string
+	}{
+		{
+			hostname:  "hello.default.svc.cluster.local",
+			namespace: "default",
+			port:      80,
+			expected:  "hello",
+		},
+	}
+
+	for _, testCase := range cases {
+		port := &model.Port{Port: testCase.port}
+		service := &model.Service{
+			Hostname:   testCase.hostname,
+			Attributes: model.ServiceAttributes{Namespace: testCase.namespace},
+		}
+		endpoint := &model.NetworkEndpoint{
+			Port: 1234,
+			ServicePort: &model.Port{
+				Name: "http",
+				Port: 80,
+			},
+			Attributes: model.EndpointAttributes{
+				Labels: map[string]string{"env": "testing"},
+			},
+		}
+		expected := authNPolicies[testCase.expected]
+		out := store.AuthenticationPolicyByEndpoint(service, endpoint, port)
+		if out == nil {
+			if expected != nil {
+				t.Errorf("AutheticationPolicy(%s:%d) => expected %#v but got nil",
+					testCase.hostname, testCase.port, expected)
+			}
+		} else {
+			policy := out.Spec.(*authn.Policy)
+			if !reflect.DeepEqual(expected, policy) {
+				t.Errorf("AutheticationPolicy(%s:%d) => expected %#v but got %#v",
+					testCase.hostname, testCase.port, expected, out)
+			}
+		}
+	}
+}
+
 func TestAuthenticationPolicyConfigWithGlobal(t *testing.T) {
 	store := model.MakeIstioStore(memory.Make(model.IstioConfigTypes))
 

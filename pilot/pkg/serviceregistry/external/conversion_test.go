@@ -247,6 +247,9 @@ func makeInstance(serviceEntry *networking.ServiceEntry, address string, port in
 				Port:     int(svcPort.Number),
 				Protocol: model.ParseProtocol(svcPort.Protocol),
 			},
+			Attributes: model.EndpointAttributes{
+				Labels: labels,
+			},
 		},
 		Labels: model.Labels(labels),
 	}

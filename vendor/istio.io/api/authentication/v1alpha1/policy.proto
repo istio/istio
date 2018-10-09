@@ -355,6 +355,8 @@ message Policy {
 
 // TargetSelector defines a matching rule to a workload. A workload is selected
 // if it is associated with the service name and service port(s) specified in the selector rule.
+// If match_labels are specified, the policy will only be applied to the workloads
+// for which all label requirements are satisfied.
 message TargetSelector {
   // REQUIRED. The name must be a short name from the service registry. The
   // fully qualified domain name will be resolved in a platform specific manner.
@@ -376,6 +378,16 @@ message TargetSelector {
   // ```
   //Leave empty to match all ports that are exposed.
   repeated PortSelector ports = 2;
+
+  // One or more label matching conditions to select subset of pods/VM on which this authentication
+  // policy should be applied. When there are multiple label requirements, all must be satisfied.
+  // It only matches workloads in the same namespace as the policy.
+  // For example, the following match_labels matches the workloads that have the label {"env": "testing"}.
+  // ```yaml
+  //   match_labels:
+  //     env: 'testing'
+  // ```
+  map<string, string> match_labels = 3;
 }
 
 // PortSelector specifies the name or number of a port to be used for
