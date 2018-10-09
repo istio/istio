@@ -65,14 +65,12 @@ def MonthlyPipeline():
       raise ValueError('branch needs to be provided')
     Variable.set('monthly-branch', 'INVALID')
     commit = conf.get('COMMIT') or branch
-    mfest_commit = conf.get('MFEST_COMMIT') or branch
 
     default_conf = environment_config.GetDefaultAirflowConfig(
         branch=branch,
         commit=commit,
         docker_hub=docker_hub,
         gcs_path=gcs_path,
-        mfest_commit=mfest_commit,
         pipeline_type='monthly',
         verify_consistency='true',
         version=version)

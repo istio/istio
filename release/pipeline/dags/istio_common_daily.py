@@ -111,12 +111,6 @@ def DailyPipeline(branch):
 
     commit = conf.get('COMMIT') or ""
 
-    mfest_commit = conf.get('MFEST_COMMIT')
-    if mfest_commit is None:
-       timestamp = time.mktime(date.timetuple())
-       # MFEST_COMMIT is of the form '{branch}@{{{timestamp}}}',
-       mfest_commit = '%s@{%s}' % (branch, timestamp)
-
     default_conf = environment_config.GetDefaultAirflowConfig(
         branch=branch,
         commit=commit,
