@@ -129,7 +129,7 @@ var (
 	proxiesConvergeDelay = prometheus.NewHistogram(prometheus.HistogramOpts{
 		Name:    "pilot_proxy_convergence_time",
 		Help:    "Delay between config change and all proxies converging.",
-		Buckets: []float64{.005, .01, .1, 1, 10},
+		Buckets: []float64{.01, .1, 1, 3, 5, 10, 30},
 	})
 )
 
@@ -510,6 +510,7 @@ func (s *DiscoveryServer) pushAll(con *XdsConnection, pushEv *XdsEvent) error {
 		if n <= 0 && pushEv.push.End == timeZero {
 			// Display again the push status
 			pushEv.push.End = time.Now()
+			proxiesConvergeDelay.Observe(time.Since(pushEv.push.Start).Seconds())
 			out, _ := pushEv.push.JSON()
 			adsLog.Infof("Push finished: %v %s",
 				time.Since(pushEv.push.Start), string(out))
@@ -618,7 +619,6 @@ func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext) {
 	for {
 		if len(pending) == 0 {
 			adsLog.Infof("PushAll done %s %v", version, time.Since(tstart))
-			proxiesConvergeDelay.Observe(time.Since(t0).Seconds())
 			return
 		}
 		currentVersion := versionInfo()
