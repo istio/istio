@@ -25,6 +25,9 @@ import (
 
 	"time"
 
+	"strconv"
+	"strings"
+
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/istio/pkg/log"
 )
@@ -61,6 +64,7 @@ type Server struct {
 	ready               *ready.Probe
 	appLiveURL          string
 	appReadyURL         string
+	appHttpClient       *http.Client
 	mutex               sync.Mutex
 	lastProbeSuccessful bool
 }
@@ -100,6 +104,12 @@ func (s *Server) Run(ctx context.Context) {
 	if err != nil {
 		log.Errorf("Error listening on status port: %v", err.Error())
 		return
+	}
+	// for testing.
+	if s.statusPort == 0 {
+		addrs := strings.Split(l.Addr().String(), ":")
+		allocatedPort, _ := strconv.Atoi(addrs[len(addrs)-1])
+		s.statusPort = uint16(allocatedPort)
 	}
 	defer l.Close()
 
