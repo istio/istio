@@ -73,7 +73,7 @@ func NewMemServiceDiscovery(services map[model.Hostname]*model.Service, versions
 	return &MemServiceDiscovery{
 		services:            services,
 		versions:            versions,
-		controller:          &memServiceController{},
+		controller:          &MemServiceController{},
 		instancesByPortNum:  map[string][]*model.ServiceInstance{},
 		instancesByPortName: map[string][]*model.ServiceInstance{},
 		ip2instance:         map[string][]*model.ServiceInstance{},
@@ -134,22 +134,26 @@ func Syncz(w http.ResponseWriter, req *http.Request) {
 // TODO: the mock was used for test setup, has no mutex. This will also be used for
 // integration and load tests, will need to add mutex as we cleanup the code.
 
-type memServiceController struct {
+// MemServiceController is a mock service controller
+type MemServiceController struct {
 	svcHandlers  []func(*model.Service, model.Event)
 	instHandlers []func(*model.ServiceInstance, model.Event)
 }
 
-func (c *memServiceController) AppendServiceHandler(f func(*model.Service, model.Event)) error {
+// AppendServiceHandler appends a service handler to the controller
+func (c *MemServiceController) AppendServiceHandler(f func(*model.Service, model.Event)) error {
 	c.svcHandlers = append(c.svcHandlers, f)
 	return nil
 }
 
-func (c *memServiceController) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
+// AppendInstanceHandler appends a service instance handler to the controller
+func (c *MemServiceController) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
 	c.instHandlers = append(c.instHandlers, f)
 	return nil
 }
 
-func (c *memServiceController) Run(<-chan struct{}) {}
+// Run will run the controller
+func (c *MemServiceController) Run(<-chan struct{}) {}
 
 // MemServiceDiscovery is a mock discovery interface
 type MemServiceDiscovery struct {
@@ -689,7 +693,7 @@ func (s *DiscoveryServer) edsz(w http.ResponseWriter, req *http.Request) {
 				comma = true
 			}
 			jsonm := &jsonpb.Marshaler{Indent: "  "}
-			dbgString, _ := jsonm.MarshalToString(eds.LoadAssignment)
+			dbgString, _ := jsonm.MarshalToString(eds.LoadAssignments[""])
 			if _, err := w.Write([]byte(dbgString)); err != nil {
 				return
 			}
