@@ -138,11 +138,18 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 	grpcOptions = append(grpcOptions, grpc.MaxRecvMsgSize(int(a.MaxMessageSize)))
 
 	var err error
+	var returnWithoutErr bool
+
+	defer func() {
+		// If return with error, need to close the server.
+		if !returnWithoutErr {
+			_ = s.Close()
+		}
+	}()
 
 	if a.TracingOptions.TracingEnabled() {
 		s.tracer, err = p.configTracing("istio-mixer", a.TracingOptions)
 		if err != nil {
-			_ = s.Close()
 			return nil, fmt.Errorf("unable to setup tracing")
 		}
 		grpcOptions = append(grpcOptions, grpc.UnaryInterceptor(otgrpc.OpenTracingServerInterceptor(ot.GlobalTracer())))
@@ -154,14 +161,12 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 	if network == "unix" {
 		// remove Unix socket before use.
 		if err = p.remove(address); err != nil && !os.IsNotExist(err) {
-			_ = s.Close()
 			// Anything other than "file not found" is an error.
 			return nil, fmt.Errorf("unable to remove unix://%s: %v", address, err)
 		}
 	}
 
 	if s.listener, err = p.listen(network, address); err != nil {
-		_ = s.Close()
 		return nil, fmt.Errorf("unable to listen: %v", err)
 	}
 
@@ -175,7 +180,6 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 		reg := store.NewRegistry(config.StoreInventory()...)
 		groupVersion := &schema.GroupVersion{Group: crd.ConfigAPIGroup, Version: crd.ConfigAPIVersion}
 		if st, err = reg.NewStore(configStoreURL, groupVersion, a.CredentialOptions, runtimeconfig.CriticalKinds()); err != nil {
-			_ = s.Close()
 			return nil, fmt.Errorf("unable to connect to the configuration server: %v", err)
 		}
 	}
@@ -195,14 +199,12 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 	}
 
 	if err := st.Init(kinds); err != nil {
-		_ = s.Close()
 		return nil, fmt.Errorf("unable to initialize config store: %v", err)
 	}
 
 	// block wait for the config store to sync
 	log.Info("Awaiting for config store sync...")
 	if err := st.WaitForSynced(30 * time.Second); err != nil {
-		_ = s.Close()
 		return nil, err
 	}
 
@@ -211,7 +213,6 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 		s.gp, s.adapterGP, a.TracingOptions.TracingEnabled())
 
 	if err = p.runtimeListen(rt); err != nil {
-		_ = s.Close()
 		return nil, fmt.Errorf("unable to listen: %v", err)
 	}
 
@@ -226,14 +227,12 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 
 	exporter, err := p.newOpenCensusExporter()
 	if err != nil {
-		_ = s.Close()
 		return nil, fmt.Errorf("could not build opencensus exporter: %v", err)
 	}
 	view.RegisterExporter(exporter)
 
 	// Register the views to collect server request count.
 	if err := p.registerOpenCensusViews(ocgrpc.DefaultServerViews...); err != nil {
-		_ = s.Close()
 		return nil, fmt.Errorf("could not register default server views: %v", err)
 	}
 
@@ -257,11 +256,12 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 
 	log.Info("Starting monitor server...")
 	if s.monitor, err = p.startMonitor(a.MonitoringPort, a.EnableProfiling, p.listen); err != nil {
-		_ = s.Close()
 		return nil, fmt.Errorf("unable to setup monitoring: %v", err)
 	}
 
 	s.controlZ, _ = ctrlz.Run(a.IntrospectionOptions, nil)
+
+	returnWithoutErr = true
 
 	return s, nil
 }
@@ -305,6 +305,8 @@ func (s *Server) Wait() error {
 
 // Close cleans up resources used by the server.
 func (s *Server) Close() error {
+	log.Info("Close server")
+
 	if s.shutdown != nil {
 		s.server.GracefulStop()
 		_ = s.Wait()
