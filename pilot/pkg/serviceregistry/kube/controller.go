@@ -202,7 +202,7 @@ func (c *Controller) Services() ([]*model.Service, error) {
 	return out, nil
 }
 
-// GetService implements a service catalog operation
+// GetService implements a service catalog operation by hostname specified.
 func (c *Controller) GetService(hostname model.Hostname) (*model.Service, error) {
 	name, namespace, err := parseHostname(hostname)
 	if err != nil {
