@@ -107,7 +107,7 @@ function find_and_replace_shas_manifest() {
         exit 16
       fi
       if [ "$PROXY_HEAD_API_SHA" != "$API_REPO_SHA" ]; then
-        echo "inconsistent shas PROXY_HEAD_API_SHA $PROXY_HEAD_API_SHA !=   $API_SHA   API_SHA" 1>&2
+        echo "inconsistent shas PROXY_HEAD_API_SHA $PROXY_HEAD_API_SHA !=   $API_REPO_SHA   API_REPO_SHA" 1>&2
         exit 17
       fi
       if [ "$ISTIO_HEAD_SHA" != "$ISTIO_REPO_SHA" ]; then
