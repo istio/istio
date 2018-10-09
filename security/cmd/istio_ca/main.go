@@ -43,11 +43,6 @@ import (
 	"istio.io/istio/security/pkg/server/monitoring"
 )
 
-type keyCertBundleRotator interface {
-	Start(chan<- error)
-	Stop()
-}
-
 type cliOptions struct { // nolint: maligned
 	listenedNamespace       string
 	istioCaStorageNamespace string
