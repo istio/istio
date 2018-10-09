@@ -158,9 +158,9 @@ type deployment struct {
 func (d *deployment) apply(e *kubernetes.Implementation) error {
 	s := e.KubeSettings()
 	result, err := tmpl.Evaluate(template, map[string]string{
-		"Hub":             s.Hub,
-		"Tag":             s.Tag,
-		"ImagePullPolicy": string(s.ImagePullPolicy),
+		"Hub":             s.Images.Hub,
+		"Tag":             s.Images.Tag,
+		"ImagePullPolicy": string(s.Images.ImagePullPolicy),
 		"deployment":      d.deployment,
 		"service":         d.service,
 		"app":             d.service,

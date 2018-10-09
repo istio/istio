@@ -30,6 +30,13 @@ import (
 	"istio.io/istio/pkg/test/util"
 )
 
+const (
+	timeout     = 1 * time.Minute
+	retryWait   = 5 * time.Second
+	serviceName = "istio-ingressgateway"
+	istioLabel  = "ingressgateway"
+)
+
 var (
 
 	// KubeComponent is a component for the Kubernetes environment.
@@ -62,12 +69,13 @@ func (c *component) Init(ctx environment.ComponentContext, _ map[dependency.Inst
 		return nil, fmt.Errorf("unsupported environment: %v", reflect.TypeOf(ctx.Environment()))
 	}
 
-	address, err := util.Retry(util.DefaultRetryTimeout, util.DefaultRetryWait, func() (interface{}, bool, error) {
+	s := env.KubeSettings()
+	address, err := util.Retry(timeout, retryWait, func() (interface{}, bool, error) {
 
 		// In Minikube, we don't have the ingress gateway. Instead we do a little bit of trickery to to get the Node
 		// port.
-		if env.KubeSettings().MinikubeIngress {
-			pods, err := env.Accessor.GetPods(env.KubeSettings().IstioSystemNamespace, "istio=ingressgateway")
+		if s.MinikubeIngress {
+			pods, err := env.Accessor.GetPods(s.IstioSystemNamespace, fmt.Sprintf("istio=%s", istioLabel))
 			if err != nil {
 				return nil, false, err
 			}
@@ -79,14 +87,14 @@ func (c *component) Init(ctx environment.ComponentContext, _ map[dependency.Inst
 				return nil, false, errors.New("no Host IP availale on the ingress node yet")
 			}
 
-			svc, err := env.Accessor.GetService(env.KubeSettings().IstioSystemNamespace, "istio-ingressgateway")
+			svc, err := env.Accessor.GetService(s.IstioSystemNamespace, serviceName)
 			if err != nil {
 				return nil, false, err
 			}
 
 			if len(svc.Spec.Ports) == 0 {
 				return nil, false, fmt.Errorf("no ports found in service: %s/%s",
-					env.KubeSettings().IstioSystemNamespace, "istio-ingressgateway")
+					s.IstioSystemNamespace, "istio-ingressgateway")
 			}
 
 			port := svc.Spec.Ports[0].NodePort
@@ -95,7 +103,7 @@ func (c *component) Init(ctx environment.ComponentContext, _ map[dependency.Inst
 		}
 
 		// Otherwise, get the load balancer IP.
-		svc, err := env.Accessor.GetService(env.KubeSettings().IstioSystemNamespace, "istio-ingressgateway")
+		svc, err := env.Accessor.GetService(s.IstioSystemNamespace, serviceName)
 		if err != nil {
 			return nil, false, err
 		}
