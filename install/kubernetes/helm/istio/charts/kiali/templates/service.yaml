@@ -8,7 +8,6 @@ metadata:
     chart: {{ template "kiali.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
-    version: {{ .Chart.Version }}
 spec:
   ports:
   - name: http-kiali

@@ -7,7 +7,6 @@ metadata:
     chart: {{ template "prometheus.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
-    version: {{ .Chart.Version }}
 rules:
 - apiGroups: [""]
   resources:

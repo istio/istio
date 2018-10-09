@@ -8,7 +8,6 @@ metadata:
     chart: {{ template "ingress.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
-    version: {{ .Chart.Version }}
     istio: ingress
 spec:
   replicas: {{ .Values.replicaCount }}

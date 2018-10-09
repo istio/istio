@@ -8,7 +8,6 @@ metadata:
     chart: {{ template "pilot.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
-    version: {{ .Chart.Version }}
     istio: pilot
 spec:
   ports:

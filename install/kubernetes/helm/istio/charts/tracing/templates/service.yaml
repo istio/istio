@@ -8,7 +8,6 @@ metadata:
     chart: {{ template "tracing.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
-    version: {{ .Chart.Version }}
 items:
 - apiVersion: v1
   kind: Service
@@ -20,7 +19,6 @@ items:
       chart: {{ template "tracing.chart" . }}
       heritage: {{ .Release.Service }}
       release: {{ .Release.Name }}
-      version: {{ .Chart.Version }}
   spec:
     type: {{ .Values.service.type }}
     ports:
@@ -44,7 +42,6 @@ items:
       chart: {{ template "tracing.chart" . }}
       heritage: {{ .Release.Service }}
       release: {{ .Release.Name }}
-      version: {{ .Chart.Version }}
   spec:
     ports:
       - name: http-query

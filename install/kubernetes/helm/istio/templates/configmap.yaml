@@ -9,7 +9,6 @@ metadata:
     chart: {{ template "istio.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
-    version: {{ .Chart.Version }}
 data:
   mesh: |-
     # Set the following variable to true to disable policy checks by the Mixer.

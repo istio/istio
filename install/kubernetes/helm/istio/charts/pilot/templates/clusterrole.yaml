@@ -7,7 +7,6 @@ metadata:
     chart: {{ template "pilot.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
-    version: {{ .Chart.Version }}
 rules:
 - apiGroups: ["config.istio.io"]
   resources: ["*"]

@@ -12,7 +12,6 @@ metadata:
     chart: {{ template "servicegraph.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
-    version: {{ .Chart.Version }}
 spec:
   type: {{ .Values.service.type }}
   ports:

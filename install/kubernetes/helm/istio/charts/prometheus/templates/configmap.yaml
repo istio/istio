@@ -8,7 +8,6 @@ metadata:
     chart: {{ template "prometheus.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
-    version: {{ .Chart.Version }}
 data:
   prometheus.yml: |-
     global:

@@ -8,7 +8,6 @@ metadata:
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
-    version: {{ .Chart.Version }}
 spec:
   attributes:
     origin.ip:
@@ -136,7 +135,6 @@ metadata:
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
-    version: {{ .Chart.Version }}
 spec:
   attributes:
     source.ip:
@@ -206,7 +204,6 @@ metadata:
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
-    version: {{ .Chart.Version }}
 spec:
   compiledAdapter: stdio
   params:
@@ -222,7 +219,6 @@ metadata:
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
-    version: {{ .Chart.Version }}
 spec:
   severity: '"Info"'
   timestamp: request.time
@@ -277,7 +273,6 @@ metadata:
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
-    version: {{ .Chart.Version }}
 spec:
   severity: '"Info"'
   timestamp: context.time | timestamp("2017-01-01T00:00:00Z")
@@ -319,7 +314,6 @@ metadata:
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
-    version: {{ .Chart.Version }}
 spec:
   match: context.protocol == "http" || context.protocol == "grpc"
   actions:
@@ -337,7 +331,6 @@ metadata:
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
-    version: {{ .Chart.Version }}
 spec:
   match: context.protocol == "tcp"
   actions:
@@ -355,7 +348,6 @@ metadata:
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
-    version: {{ .Chart.Version }}
 spec:
   value: "1"
   dimensions:
@@ -388,7 +380,6 @@ metadata:
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
-    version: {{ .Chart.Version }}
 spec:
   value: response.duration | "0ms"
   dimensions:
@@ -421,7 +412,6 @@ metadata:
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
-    version: {{ .Chart.Version }}
 spec:
   value: request.size | 0
   dimensions:
@@ -454,7 +444,6 @@ metadata:
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
-    version: {{ .Chart.Version }}
 spec:
   value: response.size | 0
   dimensions:
@@ -487,7 +476,6 @@ metadata:
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
-    version: {{ .Chart.Version }}
 spec:
   value: connection.sent.bytes | 0
   dimensions:
@@ -518,7 +506,6 @@ metadata:
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
-    version: {{ .Chart.Version }}
 spec:
   value: connection.received.bytes | 0
   dimensions:
@@ -549,7 +536,6 @@ metadata:
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
-    version: {{ .Chart.Version }}
 spec:
   compiledAdapter: prometheus
   params:
@@ -700,7 +686,6 @@ metadata:
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
-    version: {{ .Chart.Version }}
 spec:
   match: context.protocol == "http" || context.protocol == "grpc"
   actions:
@@ -721,7 +706,6 @@ metadata:
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
-    version: {{ .Chart.Version }}
 spec:
   match: context.protocol == "tcp"
   actions:
@@ -741,7 +725,6 @@ metadata:
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
-    version: {{ .Chart.Version }}
 spec:
   compiledAdapter: kubernetesenv
   params:
@@ -763,7 +746,6 @@ metadata:
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
-    version: {{ .Chart.Version }}
 spec:
   actions:
   - handler: kubernetesenv
@@ -780,7 +762,6 @@ metadata:
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
-    version: {{ .Chart.Version }}
 spec:
   match: context.protocol == "tcp"
   actions:
@@ -798,7 +779,6 @@ metadata:
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
-    version: {{ .Chart.Version }}
 spec:
   # Pass the required attribute data to the adapter
   source_uid: source.uid | ""
@@ -844,7 +824,6 @@ metadata:
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
-    version: {{ .Chart.Version }}
 spec:
   host: istio-policy.{{ .Release.Namespace }}.svc.cluster.local
   trafficPolicy:
@@ -870,7 +849,6 @@ metadata:
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
-    version: {{ .Chart.Version }}
 spec:
   host: istio-telemetry.{{ .Release.Namespace }}.svc.cluster.local
   trafficPolicy:

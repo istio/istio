@@ -7,7 +7,6 @@ metadata:
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
-    version: {{ .Chart.Version }}
 rules:
 - apiGroups: ["config.istio.io"] # istio CRD watcher
   resources: ["*"]

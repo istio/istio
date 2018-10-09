@@ -129,6 +129,8 @@ metadata:
   labels:
     app: istio-pilot
     istio: rbac
+    heritage: Tiller
+    release: istio
 spec:
   group: rbac.istio.io
   names:

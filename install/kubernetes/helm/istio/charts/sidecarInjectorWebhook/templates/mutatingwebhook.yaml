@@ -8,7 +8,6 @@ metadata:
     chart: {{ template "sidecar-injector.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
-    version: {{ .Chart.Version }}
 webhooks:
   - name: sidecar-injector.istio.io
     clientConfig:

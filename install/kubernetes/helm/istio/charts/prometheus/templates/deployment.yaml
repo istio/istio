@@ -9,7 +9,6 @@ metadata:
     chart: {{ template "prometheus.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
-    version: {{ .Chart.Version }}
 spec:
   replicas: {{ .Values.replicaCount }}
   template:

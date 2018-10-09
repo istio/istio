@@ -10,7 +10,6 @@ metadata:
     chart: {{ template "gateway.chart" $ }}
     heritage: {{ $.Release.Service }}
     release: {{ $.Release.Name }}
-    version: {{ $.Chart.Version }}
 rules:
 - apiGroups: ["networking.istio.io"]
   resources: ["virtualservices", "destinationrules", "gateways"]

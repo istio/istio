@@ -8,7 +8,6 @@ metadata:
     chart: {{ template "sidecar-injector.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
-    version: {{ .Chart.Version }}
     istio: sidecar-injector
 spec:
   ports:

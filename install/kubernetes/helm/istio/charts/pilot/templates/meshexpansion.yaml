@@ -10,7 +10,6 @@ metadata:
     chart: {{ template "pilot.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
-    version: {{ .Chart.Version }}
 spec:
   hosts:
   - istio-pilot.{{ $.Release.Namespace }}.svc.cluster.local
@@ -51,7 +50,6 @@ metadata:
     chart: {{ template "pilot.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
-    version: {{ .Chart.Version }}
 spec:
   hosts:
   - istio-pilot.{{ $.Release.Namespace }}.svc.cluster.local
@@ -73,7 +71,12 @@ apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: meshexpansion-dr-pilot
-  namespace: istio-system
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "pilot.name" . }}
+    chart: {{ template "pilot.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   host: istio-pilot.{{ .Release.Namespace }}.svc.cluster.local
   trafficPolicy:
