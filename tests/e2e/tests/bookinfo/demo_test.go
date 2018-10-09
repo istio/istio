@@ -44,6 +44,7 @@ type versionRoutingRule struct {
 }
 
 func TestVersionRouting(t *testing.T) {
+	t.Skip("debugging")
 	v1Model := util.GetResourcePath(filepath.Join(modelDir, "productpage-normal-user-v1.html"))
 	v2TestModel := util.GetResourcePath(filepath.Join(modelDir, "productpage-test-user-v2.html"))
 
@@ -92,6 +93,7 @@ func testVersionRoutingRule(t *testing.T, configVersion string, rule versionRout
 }
 
 func TestFaultDelay(t *testing.T) {
+	t.Skip("debugging")
 	var rules = []string{testRule, delayRule}
 	doTestFaultDelay(t, "v1alpha3", rules)
 }
@@ -135,6 +137,7 @@ type migrationRule struct {
 }
 
 func TestVersionMigration(t *testing.T) {
+	t.Skip("debugging")
 	doTestVersionMigration(t, "v1alpha3")
 }
 
@@ -237,6 +240,7 @@ func isWithinPercentage(count int, total int, rate float64, tolerance float64) b
 }
 
 func TestDbRoutingMongo(t *testing.T) {
+	t.Skip("debugging")
 	var rules = []string{testDbRule}
 	doTestDbRoutingMongo(t, "v1alpha3", rules)
 }
@@ -260,6 +264,7 @@ func doTestDbRoutingMongo(t *testing.T, configVersion string, rules []string) {
 }
 
 func TestDbRoutingMysql(t *testing.T) {
+	t.Skip("debugging")
 	var rules = []string{testMysqlRule}
 
 	doTestDbRoutingMysql(t, "v1alpha3", rules)
@@ -316,10 +321,10 @@ func TestExternalDetailsService(t *testing.T) {
 func doTestExternalDetailsService(t *testing.T, configVersion string, rules []string) {
 	var err error
 	inspect(applyRules(configVersion, rules), "failed to apply rules", "", t)
-	defer func() {
-		inspect(deleteRules(configVersion, rules), "failed to delete rules", "", t)
-		inspect(applyRules(configVersion, defaultRules), "failed to apply rules", "", t)
-	}()
+	//defer func() {
+	//	inspect(deleteRules(configVersion, rules), "failed to delete rules", "", t)
+	//	inspect(applyRules(configVersion, defaultRules), "failed to apply rules", "", t)
+	//}()
 
 	isbnFetchedFromExternalService := "0486424618"
 
@@ -327,8 +332,4 @@ func doTestExternalDetailsService(t *testing.T, configVersion string, rules []st
 	inspect(
 		err, fmt.Sprintf("Failed external details routing! %s in v1", u1),
 		fmt.Sprintf("Success! Response matches with expected! %s", isbnFetchedFromExternalService), t)
-
-	// Temp: verify the status of pilot, this test fails only on prow.
-	util.FetchAndSaveClusterLogs(tc.Kube.Namespace, tc.Info.TempDir + "/afterExternal", tc.Kube.KubeConfig)
-
 }
