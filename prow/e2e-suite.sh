@@ -71,7 +71,7 @@ fi
 ISTIO_GO=$(cd $(dirname $0)/..; pwd)
 
 export HUB=${HUB:-"gcr.io/istio-testing"}
-export TAG="${GIT_SHA}"
+export TAG="${TAG:-${GIT_SHA}}"
 
 make init
 
