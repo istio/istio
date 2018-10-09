@@ -90,7 +90,7 @@ function build_template() {
 
 # Called directly by Airflow.
 function test_command() {
-    create_subs_file "BRANCH" "DOCKER_HUB" "GCS_BUILD_PATH" "GCS_RELEASE_TOOLS_PATH" "PIPELINE_TYPE" "VERSION"
+    create_subs_file "BRANCH" "DOCKER_HUB" "GCS_BUILD_PATH" "GCS_RELEASE_TOOLS_PATH" "VERSION"
     cat "${SUBS_FILE}"
 
     run_build "cloud_test.template.json" \
@@ -101,7 +101,7 @@ function test_command() {
 # Called directly by Airflow.
 function modify_values_command() {
     GCS_PATH="gs://$GCS_BUILD_BUCKET/$GCS_STAGING_PATH"
-    create_subs_file "DOCKER_HUB" "GCS_PATH" "GCS_RELEASE_TOOLS_PATH" "PIPELINE_TYPE" "VERSION"
+    create_subs_file "BRANCH" "DOCKER_HUB" "GCS_PATH" "GCS_RELEASE_TOOLS_PATH" "VERSION"
     cat "${SUBS_FILE}"
 
     run_build "cloud_test.template.json" \
