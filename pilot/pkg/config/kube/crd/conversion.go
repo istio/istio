@@ -100,8 +100,8 @@ func ResourceGroup(schema *model.ProtoSchema) string {
 // information to the abstract model and/or elevating k8s
 // representation to first-class type to avoid extra conversions.
 
-// KabobCaseToCamelCase converts "my-name" to "MyName"
-func KabobCaseToCamelCase(s string) string {
+// KebabCaseToCamelCase converts "my-name" to "MyName"
+func KebabCaseToCamelCase(s string) string {
 	switch s {
 	case "http-api-spec":
 		return "HTTPAPISpec"
@@ -117,8 +117,8 @@ func KabobCaseToCamelCase(s string) string {
 	}
 }
 
-// CamelCaseToKabobCase converts "MyName" to "my-name"
-func CamelCaseToKabobCase(s string) string {
+// CamelCaseToKebabCase converts "MyName" to "my-name"
+func CamelCaseToKebabCase(s string) string {
 	switch s {
 	case "HTTPAPISpec":
 		return "http-api-spec"
@@ -161,7 +161,7 @@ func parseInputsImpl(inputs string, withValidate bool) ([]model.Config, []IstioK
 			continue
 		}
 
-		schema, exists := model.IstioConfigTypes.GetByType(CamelCaseToKabobCase(obj.Kind))
+		schema, exists := model.IstioConfigTypes.GetByType(CamelCaseToKebabCase(obj.Kind))
 		if !exists {
 			log.Debugf("unrecognized type %v", obj.Kind)
 			others = append(others, obj)
