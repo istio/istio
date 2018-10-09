@@ -19,5 +19,7 @@ RUN apt-get update && \
       elvis-tiny \
       lsof \
       sudo &&  apt-get upgrade -y && \
-    rm -rf /var/lib/apt/lists/*
+      apt-get clean -y && \
+      rm -rf /var/cache/debconf/* /var/lib/apt/lists/* \
+        /var/log/* /tmp/*  /var/tmp/*
 

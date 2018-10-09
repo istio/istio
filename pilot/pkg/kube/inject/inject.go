@@ -446,6 +446,7 @@ func injectionData(sidecarTemplate, version string, spec *corev1.PodSpec, metada
 		"includeInboundPorts": includeInboundPorts,
 		"applicationPorts":    applicationPorts,
 		"annotation":          annotation,
+		"annotationEscape":    annotationEscape,
 	}
 
 	var tmpl bytes.Buffer
@@ -675,6 +676,10 @@ func annotation(meta metav1.ObjectMeta, name string, defaultValue interface{}) s
 		value = fmt.Sprint(defaultValue)
 	}
 	return value
+}
+
+func annotationEscape(name string) string {
+	return strings.Replace(name, "/", ".", -1)
 }
 
 func excludeInboundPort(port interface{}, excludedInboundPorts string) string {
