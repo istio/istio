@@ -22,9 +22,9 @@ import (
 func init() {
 	flag.StringVar(&globalSettings.KubeConfig, "istio.test.kube.config", globalSettings.KubeConfig,
 		"The path to the kube config file for cluster environments")
-	flag.StringVar(&globalSettings.Hub, "istio.test.kube.hub", globalSettings.Hub, "The hub for docker images")
-	flag.StringVar(&globalSettings.Tag, "istio.test.kube.tag", globalSettings.Tag, "The tag for docker images.")
-	flag.StringVar((*string)(&globalSettings.ImagePullPolicy), "istio.test.kube.imagePullPolicy", string(globalSettings.ImagePullPolicy),
+	flag.StringVar(&globalSettings.Images.Hub, "istio.test.kube.hub", globalSettings.Images.Hub, "The hub for docker images")
+	flag.StringVar(&globalSettings.Images.Tag, "istio.test.kube.tag", globalSettings.Images.Tag, "The tag for docker images.")
+	flag.StringVar((*string)(&globalSettings.Images.ImagePullPolicy), "istio.test.kube.imagePullPolicy", string(globalSettings.Images.ImagePullPolicy),
 		"The pull policy for docker images.")
 	flag.StringVar(&globalSettings.IstioSystemNamespace, "istio.test.kube.systemNamespace", globalSettings.IstioSystemNamespace,
 		"The namespace where the Istio components reside in a typical deployment (default: 'istio-system').")
@@ -40,4 +40,10 @@ func init() {
 		"Deploy Istio into the target Kubernetes environment.")
 	flag.BoolVar(&globalSettings.MinikubeIngress, "istio.test.kube.minikubeingress", globalSettings.MinikubeIngress,
 		"Configure the Ingress component so that it gets the IP address from Node, when Minikube is used..")
+	flag.UintVar(&globalSettings.IngressGateway.ReplicaCount, "istio.test.kube.ingressGateway.replicaCount", globalSettings.IngressGateway.ReplicaCount,
+		"The number of replicas for the istio-ingressgateway deployment.")
+	flag.UintVar(&globalSettings.IngressGateway.AutoscaleMin, "istio.test.kube.ingressGateway.autoscaleMin", globalSettings.IngressGateway.AutoscaleMin,
+		"The autoscale mininum for the istio-ingressgateway deployment.")
+	flag.UintVar(&globalSettings.IngressGateway.AutoscaleMax, "istio.test.kube.ingressGateway.autoscaleMax", globalSettings.IngressGateway.AutoscaleMax,
+		"The autoscale maximum for the istio-ingressgateway deployment.")
 }
