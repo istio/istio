@@ -71,6 +71,8 @@ func TestServiceConversion(t *testing.T) {
 	saD := "spiffe://accounts.google.com/serviceaccountD@developer.gserviceaccount.com"
 
 	ip := "10.0.0.1"
+	lbIP := "159.122.219.73"
+	lbHostname := "ext.svc.istio.com"
 
 	tnow := time.Now()
 	localSvc := v1.Service{
@@ -96,6 +98,19 @@ func TestServiceConversion(t *testing.T) {
 					Name:     "https",
 					Protocol: v1.ProtocolTCP,
 					Port:     443,
+				},
+			},
+			Type: v1.ServiceTypeLoadBalancer,
+		},
+		Status: v1.ServiceStatus{
+			LoadBalancer: v1.LoadBalancerStatus{
+				Ingress: []v1.LoadBalancerIngress{
+					v1.LoadBalancerIngress{
+						IP: lbIP,
+					},
+					v1.LoadBalancerIngress{
+						Hostname: lbHostname,
+					},
 				},
 			},
 		},
@@ -139,6 +154,22 @@ func TestServiceConversion(t *testing.T) {
 	}
 	if !reflect.DeepEqual(sa, expected) {
 		t.Errorf("Unexpected service accounts %v (expecting %v)", sa, expected)
+	}
+
+	if len(service.ExternalAddresses) != 2 {
+		t.Errorf("incorrect number of external addresses => %v, want 2",
+			len(service.ExternalAddresses))
+		return
+	}
+
+	if service.ExternalAddresses[0] != lbIP {
+		t.Errorf("external address does not match => %s, want %s",
+			service.ExternalAddresses[0], lbIP)
+	}
+
+	if service.ExternalAddresses[1] != lbHostname {
+		t.Errorf("external address does not match => %s, want %s",
+			service.ExternalAddresses[1], lbHostname)
 	}
 }
 

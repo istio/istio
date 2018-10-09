@@ -102,14 +102,27 @@ func convertService(svc v1.Service, domainSuffix string) *model.Service {
 	}
 	sort.Sort(sort.StringSlice(serviceaccounts))
 
+	externalAddresses := make([]string, 0)
+	if svc.Spec.Type == v1.ServiceTypeLoadBalancer {
+		for _, lb := range svc.Status.LoadBalancer.Ingress {
+			if lb.IP != "" {
+				externalAddresses = append(externalAddresses, lb.IP)
+			}
+			if lb.Hostname != "" {
+				externalAddresses = append(externalAddresses, lb.Hostname)
+			}
+		}
+	}
+
 	return &model.Service{
-		Hostname:        serviceHostname(svc.Name, svc.Namespace, domainSuffix),
-		Ports:           ports,
-		Address:         addr,
-		ServiceAccounts: serviceaccounts,
-		MeshExternal:    meshExternal,
-		Resolution:      resolution,
-		CreationTime:    svc.CreationTimestamp.Time,
+		Hostname:          serviceHostname(svc.Name, svc.Namespace, domainSuffix),
+		Ports:             ports,
+		Address:           addr,
+		ExternalAddresses: externalAddresses,
+		ServiceAccounts:   serviceaccounts,
+		MeshExternal:      meshExternal,
+		Resolution:        resolution,
+		CreationTime:      svc.CreationTimestamp.Time,
 		Attributes: model.ServiceAttributes{
 			Name:      svc.Name,
 			Namespace: svc.Namespace,
