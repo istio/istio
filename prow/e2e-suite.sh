@@ -84,7 +84,7 @@ if [ "${CI:-}" == 'bootstrap' ]; then
 fi
 
 export HUB=${HUB:-"gcr.io/istio-testing"}
-export TAG="${GIT_SHA}"
+export TAG="${TAG:-${GIT_SHA}}"
 
 make init
 
