@@ -19,7 +19,6 @@ import (
 	"io"
 
 	"github.com/spf13/cobra"
-	"k8s.io/api/core/v1"
 
 	"istio.io/istio/istioctl/pkg/writer/envoy/clusters"
 	"istio.io/istio/istioctl/pkg/writer/envoy/configdump"
@@ -60,8 +59,7 @@ var (
 		Aliases: []string{"clusters", "c"},
 		Args:    cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
-			podName := args[0]
-			ns := handleNamespace()
+			podName, ns := getProxyDetails(args[0])
 			configWriter, err := setupConfigdumpEnvoyConfigWriter(podName, ns, c.OutOrStdout())
 			if err != nil {
 				return err
@@ -101,8 +99,7 @@ var (
 		Aliases: []string{"listeners", "l"},
 		Args:    cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
-			podName := args[0]
-			ns := handleNamespace()
+			podName, ns := getProxyDetails(args[0])
 			configWriter, err := setupConfigdumpEnvoyConfigWriter(podName, ns, c.OutOrStdout())
 			if err != nil {
 				return err
@@ -142,8 +139,7 @@ var (
 		Aliases: []string{"routes", "r"},
 		Args:    cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
-			podName := args[0]
-			ns := handleNamespace()
+			podName, ns := getProxyDetails(args[0])
 			configWriter, err := setupConfigdumpEnvoyConfigWriter(podName, ns, c.OutOrStdout())
 			if err != nil {
 				return err
@@ -172,8 +168,7 @@ var (
 		Aliases: []string{"b"},
 		Args:    cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
-			podName := args[0]
-			ns := handleNamespace()
+			podName, ns := getProxyDetails(args[0])
 			configWriter, err := setupConfigdumpEnvoyConfigWriter(podName, ns, c.OutOrStdout())
 			if err != nil {
 				return err
@@ -204,8 +199,7 @@ var (
 		Aliases: []string{"endpoints", "ep"},
 		Args:    cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
-			podName := args[0]
-			ns := handleNamespace()
+			podName, ns := getProxyDetails(args[0])
 			configWriter, err := setupClustersEnvoyConfigWriter(podName, ns, c.OutOrStdout())
 			if err != nil {
 				return err
@@ -229,14 +223,6 @@ var (
 		},
 	}
 )
-
-func handleNamespace() string {
-	ns := namespace
-	if ns == v1.NamespaceAll {
-		ns = defaultNamespace
-	}
-	return ns
-}
 
 func setupConfigdumpEnvoyConfigWriter(podName, podNamespace string, out io.Writer) (*configdump.ConfigWriter, error) {
 	kubeClient, err := clientExecFactory(kubeconfig, configContext)
