@@ -118,13 +118,13 @@ func (c *localComponent) Init(ctx environment.ComponentContext, deps map[depende
 		return nil, fmt.Errorf("unsupported environment: %q", ctx.Environment().EnvironmentID())
 	}
 
-	port := policy.DefaultPort // TODO: Allow dynamically allocated ports.
-	backend := policy.NewPolicyBackend(port)
-
+	backend := policy.NewPolicyBackend(0) // auto-allocate port
 	err := backend.Start()
 	if err != nil {
 		return nil, err
 	}
+
+	port := backend.Port()
 
 	controller, err := util.Retry(util.DefaultRetryWait, time.Second, func() (interface{}, bool, error) {
 		c, err := policy.NewController(fmt.Sprintf(":%d", port))
@@ -183,9 +183,9 @@ func (c *kubeComponent) Init(ctx environment.ComponentContext, deps map[dependen
 	s := e.KubeSettings()
 
 	result, err := tmpl.Evaluate(template, map[string]interface{}{
-		"Hub":             s.Hub,
-		"Tag":             s.Tag,
-		"ImagePullPolicy": s.ImagePullPolicy,
+		"Hub":             s.Images.Hub,
+		"Tag":             s.Images.Tag,
+		"ImagePullPolicy": s.Images.ImagePullPolicy,
 		"deployment":      "policy-backend",
 		"app":             "policy-backend",
 		"version":         "test",
