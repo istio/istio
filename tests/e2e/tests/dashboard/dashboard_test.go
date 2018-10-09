@@ -39,14 +39,15 @@ import (
 )
 
 const (
-	istioMeshDashboard = "install/kubernetes/helm/istio/charts/grafana/dashboards/istio-mesh-dashboard.json"
-	serviceDashboard   = "install/kubernetes/helm/istio/charts/grafana/dashboards/istio-service-dashboard.json"
-	workloadDashboard  = "install/kubernetes/helm/istio/charts/grafana/dashboards/istio-workload-dashboard.json"
-	mixerDashboard     = "install/kubernetes/helm/istio/charts/grafana/dashboards/mixer-dashboard.json"
-	pilotDashboard     = "install/kubernetes/helm/istio/charts/grafana/dashboards/pilot-dashboard.json"
-	galleyDashboard    = "install/kubernetes/helm/istio/charts/grafana/dashboards/galley-dashboard.json"
-	fortioYaml         = "tests/e2e/tests/dashboard/fortio-rules.yaml"
-	netcatYaml         = "tests/e2e/tests/dashboard/netcat-rules.yaml"
+	istioMeshDashboard   = "install/kubernetes/helm/istio/charts/grafana/dashboards/istio-mesh-dashboard.json"
+	serviceDashboard     = "install/kubernetes/helm/istio/charts/grafana/dashboards/istio-service-dashboard.json"
+	workloadDashboard    = "install/kubernetes/helm/istio/charts/grafana/dashboards/istio-workload-dashboard.json"
+	performanceDashboard = "install/kubernetes/helm/istio/charts/grafana/dashboards/istio-performance-dashboard.json"
+	mixerDashboard       = "install/kubernetes/helm/istio/charts/grafana/dashboards/mixer-dashboard.json"
+	pilotDashboard       = "install/kubernetes/helm/istio/charts/grafana/dashboards/pilot-dashboard.json"
+	galleyDashboard      = "install/kubernetes/helm/istio/charts/grafana/dashboards/galley-dashboard.json"
+	fortioYaml           = "tests/e2e/tests/dashboard/fortio-rules.yaml"
+	netcatYaml           = "tests/e2e/tests/dashboard/netcat-rules.yaml"
 
 	prometheusPort = "9090"
 )
@@ -81,6 +82,21 @@ func TestMain(m *testing.M) {
 	os.Exit(tc.RunTest(m))
 }
 
+// performanceQueryFilterFn filters queries for istio-system related queries.
+func performanceQueryFilterFn(queries []string) []string {
+	ret := make([]string, 0, len(queries))
+
+	for _, qry := range queries {
+		if strings.Contains(qry, "istio-system") {
+			continue
+		}
+
+		ret = append(ret, qry)
+	}
+
+	return ret
+}
+
 func TestDashboards(t *testing.T) {
 	t.Log("Validating prometheus in ready-state...")
 	if err := waitForMetricsInPrometheus(t); err != nil {
@@ -102,6 +118,7 @@ func TestDashboards(t *testing.T) {
 		{"Mixer", mixerDashboard, mixerQueryFilterFn, "istio-telemetry", 9093},
 		{"Pilot", pilotDashboard, pilotQueryFilterFn, "istio-pilot", 9093},
 		{"Galley", galleyDashboard, galleyQueryFilterFn, "istio-galley", 9093},
+		{"Performance", performanceDashboard, performanceQueryFilterFn, "istio-telemetry", 42422},
 	}
 
 	for _, testCase := range cases {
