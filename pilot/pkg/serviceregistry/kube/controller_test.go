@@ -15,6 +15,7 @@
 package kube
 
 import (
+	"fmt"
 	"os"
 	"reflect"
 	"sort"
