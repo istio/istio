@@ -11,21 +11,27 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package main
 
 import (
 	"strings"
-
-	"k8s.io/api/core/v1"
 )
 
-func getProxyDetails(podName string) (string, string) {
-	ns := namespace
-	namespacedPodName := strings.Split(podName, ".")
-	if len(namespacedPodName) >= 2 {
-		ns = namespacedPodName[1]
-	} else if ns == v1.NamespaceAll {
-		ns = defaultNamespace
+func getProxyDetails(proxyName string) (string, string, error) {
+	var ns string
+	var err error
+
+	parsedProxy := strings.Split(proxyName, ".")
+
+	if len(parsedProxy) == 1 {
+		ns, err = handleNamespaces("")
+	} else {
+		ns, err = handleNamespaces(parsedProxy[1])
 	}
-	return namespacedPodName[0], ns
+	if err != nil {
+		return "", "", err
+	} else {
+		return parsedProxy[0], ns, err
+	}
 }
