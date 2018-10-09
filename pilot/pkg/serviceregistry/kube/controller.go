@@ -613,8 +613,13 @@ func (c *Controller) InstancesByPort(hostname model.Hostname, reqSvcPort int,
 
 // GetProxyServiceInstances returns service instances co-located with a given proxy
 func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.ServiceInstance, error) {
-	var out []*model.ServiceInstance
 	proxyIP := proxy.IPAddress
+	podNamespace := ""
+	if pod, exists := c.pods.getPodByIP(proxyIP); exists {
+		podNamespace = pod.Namespace
+	}
+	endpointsForPodInSameNS := make([]*model.ServiceInstance, 0)
+	endpointsForPodInDifferentNS := make([]*model.ServiceInstance, 0)
 	for _, item := range c.endpoints.informer.GetStore().List() {
 		ep := *item.(*v1.Endpoints)
 
@@ -627,6 +632,10 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 			continue
 		}
 
+		endpoints := &endpointsForPodInSameNS
+		if ep.Namespace != podNamespace {
+			endpoints = &endpointsForPodInDifferentNS
+		}
 		for _, ss := range ep.Subsets {
 			for _, port := range ss.Ports {
 				svcPort, exists := svc.Ports.Get(port.Name)
@@ -634,15 +643,21 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 					continue
 				}
 
-				out = append(out, getEndpoints(ss.Addresses, proxyIP, c, port, svcPort, svc)...)
+				*endpoints = append(*endpoints, getEndpoints(ss.Addresses, proxyIP, c, port, svcPort, svc)...)
 				nrEP := getEndpoints(ss.NotReadyAddresses, proxyIP, c, port, svcPort, svc)
-				out = append(out, nrEP...)
+				*endpoints = append(*endpoints, nrEP...)
 				if len(nrEP) > 0 && c.Env != nil {
 					c.Env.PushContext.Add(model.ProxyStatusEndpointNotReady, proxy.ID, proxy, "")
 				}
 			}
 		}
 	}
+
+	// Put the endpointsForPodInSameNS in front of endpointsForPodInDifferentNS so that Pilot will
+	// first use endpoints from endpointsForPodInSameNS. This makes sure if there are two endpoints
+	// referring to the same IP/port, the one in endpointsForPodInSameNS will be used. (The other one
+	// in endpointsForPodInDifferentNS will thus be rejected by Pilot).
+	out := append(endpointsForPodInSameNS, endpointsForPodInDifferentNS...)
 	if len(out) == 0 {
 		if c.Env != nil {
 			c.Env.PushContext.Add(model.ProxyStatusNoService, proxy.ID, proxy, "")

@@ -15,6 +15,8 @@
 package bootstrap
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -26,10 +28,12 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pkg/log"
 )
 
 // Generate the envoy v2 bootstrap configuration, using template.
@@ -40,6 +44,13 @@ const (
 
 	// MaxClusterNameLength is the maximum cluster name length
 	MaxClusterNameLength = 189 // TODO: use MeshConfig.StatNameLength instead
+
+	// IstioMetaPrefix is used to pass env vars as node metadata.
+	IstioMetaPrefix = "ISTIO_META_"
+
+	// IstioMetaB64Prefix is used to pass annotations and other info that cannot be directly passed in as env vars.
+	// this data is base64 encoded.
+	IstioMetaB64Prefix = "ISTIO_METAB64_"
 )
 
 var (
@@ -132,9 +143,65 @@ func StoreHostPort(host, port, field string, opts map[string]interface{}) {
 	opts[field] = fmt.Sprintf("{\"address\": \"%s\", \"port_value\": %s}", host, port)
 }
 
+type decodeFunc func(string) (string, error)
+type filterFunc func(string) bool
+
+func extractMetadata(envs []string, prefix string, decode decodeFunc, filter filterFunc, meta map[string]string) {
+	metaPrefixLen := len(prefix)
+	for _, env := range envs {
+		if strings.HasPrefix(env, prefix) {
+			v := env[metaPrefixLen:]
+			parts := strings.SplitN(v, "=", 2)
+			if len(parts) != 2 {
+				continue
+			}
+			metaKey, metaVal := parts[0], parts[1]
+
+			if decode != nil {
+				var err error
+				if metaKey, err = decode(metaKey); err != nil {
+					log.Warnf("Unable to process %s: %v", env, err)
+					continue
+				}
+				if metaVal, err = decode(metaVal); err != nil {
+					log.Warnf("Unable to process %s: %v", env, err)
+					continue
+				}
+			}
+
+			if filter != nil && !filter(metaKey) {
+				continue
+			}
+
+			meta[metaKey] = metaVal
+		}
+	}
+}
+
+// This function uses an environment variable contract
+// ISTIO_METAB64_* env variables are base64decoded and only used if key contains istio.io
+// ISTIO_META_* env variables are passed thru
+func getNodeMetaData(envs []string) map[string]string {
+	meta := map[string]string{}
+
+	extractMetadata(envs, IstioMetaPrefix, nil, nil, meta)
+
+	extractMetadata(envs, IstioMetaB64Prefix, func(s string) (string, error) {
+		ba, err := base64.StdEncoding.DecodeString(s)
+		return string(ba), err
+	}, func(s string) bool {
+		// sidecar.istio.io is meant for local consumption
+		return strings.Contains(s, "istio.io") && !strings.HasPrefix(s, "sidecar.istio.io")
+	}, meta)
+
+	meta["istio"] = "sidecar"
+	return meta
+}
+
 // WriteBootstrap generates an envoy config based on config and epoch, and returns the filename.
 // TODO: in v2 some of the LDS ports (port, http_port) should be configured in the bootstrap.
-func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilotSAN []string, opts map[string]interface{}) (string, error) {
+func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilotSAN []string,
+	opts map[string]interface{}, localEnv []string) (string, error) {
 	if opts == nil {
 		opts = map[string]interface{}{}
 	}
@@ -175,24 +242,19 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 	opts["pilot_SAN"] = pilotSAN
 
 	// Simplify the template
-	opts["refresh_delay"] = fmt.Sprintf("{\"seconds\": %d, \"nanos\": %d}", config.DiscoveryRefreshDelay.Seconds, config.DiscoveryRefreshDelay.Nanos)
-	opts["connect_timeout"] = fmt.Sprintf("{\"seconds\": %d, \"nanos\": %d}", config.ConnectTimeout.Seconds, config.ConnectTimeout.Nanos)
+	opts["refresh_delay"] = (&types.Duration{Seconds: config.DiscoveryRefreshDelay.Seconds, Nanos: config.DiscoveryRefreshDelay.Nanos}).String()
+	opts["connect_timeout"] = (&types.Duration{Seconds: config.ConnectTimeout.Seconds, Nanos: config.ConnectTimeout.Nanos}).String()
 
 	opts["cluster"] = config.ServiceCluster
 	opts["nodeID"] = node
 
 	// Support passing extra info from node environment as metadata
-	meta := map[string]string{}
-	for _, env := range os.Environ() {
-		if strings.HasPrefix(env, "ISTIO_META_") {
-			v := env[len("ISTIO_META_"):]
-			parts := strings.SplitN(v, "=", 2)
-			if len(parts) == 2 {
-				meta[parts[0]] = parts[1]
-			}
-		}
+	meta := getNodeMetaData(localEnv)
+	ba, err := json.Marshal(meta)
+	if err != nil {
+		return "", err
 	}
-	opts["meta"] = meta
+	opts["meta_json_str"] = string(ba)
 
 	// TODO: allow reading a file with additional metadata (for example if created with
 	// 'envref'. This will allow Istio to generate the right config even if the pod info

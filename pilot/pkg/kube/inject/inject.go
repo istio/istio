@@ -18,6 +18,7 @@ import (
 	"bufio"
 	"bytes"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -32,14 +33,13 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
+	"github.com/hashicorp/go-multierror"
 	"k8s.io/api/batch/v2alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	yamlDecoder "k8s.io/apimachinery/pkg/util/yaml"
-
-	"github.com/hashicorp/go-multierror"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/log"
@@ -446,6 +446,7 @@ func injectionData(sidecarTemplate, version string, spec *corev1.PodSpec, metada
 		"includeInboundPorts": includeInboundPorts,
 		"applicationPorts":    applicationPorts,
 		"annotation":          annotation,
+		"base64Encode":        base64Encode,
 	}
 
 	var tmpl bytes.Buffer
@@ -675,6 +676,10 @@ func annotation(meta metav1.ObjectMeta, name string, defaultValue interface{}) s
 		value = fmt.Sprint(defaultValue)
 	}
 	return value
+}
+
+func base64Encode(val string) string {
+	return base64.StdEncoding.EncodeToString([]byte(val))
 }
 
 func excludeInboundPort(port interface{}, excludedInboundPorts string) string {

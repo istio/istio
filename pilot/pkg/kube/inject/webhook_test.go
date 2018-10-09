@@ -30,6 +30,7 @@ import (
 
 	"github.com/evanphx/json-patch"
 	"github.com/ghodss/yaml"
+	"github.com/gogo/protobuf/jsonpb"
 	"github.com/onsi/gomega"
 	"k8s.io/api/admission/v1beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -42,8 +43,6 @@ import (
 	tversion "k8s.io/helm/pkg/proto/hapi/version"
 	"k8s.io/helm/pkg/timeconv"
 	"k8s.io/kubernetes/pkg/apis/core"
-
-	"github.com/gogo/protobuf/jsonpb"
 
 	"istio.io/istio/galley/pkg/crd/validation/testcerts"
 	"istio.io/istio/pilot/pkg/model"
@@ -711,10 +710,22 @@ func compareDeployments(got, want *extv1beta1.Deployment, name string, t *testin
 	gotIstioProxy.Image = wantIstioProxy.Image
 	gotIstioProxy.TerminationMessagePath = wantIstioProxy.TerminationMessagePath
 	gotIstioProxy.TerminationMessagePolicy = wantIstioProxy.TerminationMessagePolicy
+
+	// collect automatically injected pod labels so that they can
+	// be adjusted later.
+	envNames := map[string]bool{}
+	for k := range got.Spec.Template.ObjectMeta.Labels {
+		envNames["ISTIO_META_"+k] = true
+	}
+
 	envVars := make([]corev1.EnvVar, 0)
 	for _, env := range gotIstioProxy.Env {
 		if env.ValueFrom != nil {
 			env.ValueFrom.FieldRef.APIVersion = ""
+		}
+		// adjust for injected var names.
+		if _, found := envNames[env.Name]; found || strings.HasPrefix(env.Name, "ISTIO_METAB64_") {
+			continue
 		}
 		envVars = append(envVars, env)
 	}

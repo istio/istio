@@ -130,6 +130,8 @@ mappings=(
   "gogoproto/gogo.proto=github.com/gogo/protobuf/gogoproto"
   "google/protobuf/any.proto=github.com/gogo/protobuf/types"
   "google/protobuf/duration.proto=github.com/gogo/protobuf/types"
+  "google/protobuf/timestamp.proto=github.com/gogo/protobuf/types"
+  "google/protobuf/struct.proto=github.com/gogo/protobuf/types"
   "google/rpc/status.proto=github.com/gogo/googleapis/google/rpc"
   "google/rpc/code.proto=github.com/gogo/googleapis/google/rpc"
   "google/rpc/error_details.proto=github.com/gogo/googleapis/google/rpc"
@@ -156,6 +158,9 @@ if [ "$opttemplate" = true ]; then
     "google/protobuf/any.proto:github.com/gogo/protobuf/types"
     "gogoproto/gogo.proto:github.com/gogo/protobuf/gogoproto"
     "google/protobuf/duration.proto:github.com/gogo/protobuf/types"
+    "google/protobuf/timestamp.proto=github.com/gogo/protobuf/types"
+    "google/rpc/status.proto=github.com/gogo/googleapis/google/rpc"
+    "google/protobuf/struct.proto=github.com/gogo/protobuf/types"
   )
 
   TMPL_GEN_MAP=""

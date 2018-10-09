@@ -24,9 +24,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/gogo/protobuf/jsonpb"
-
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
+	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
 
 	authn "istio.io/api/authentication/v1alpha1"
