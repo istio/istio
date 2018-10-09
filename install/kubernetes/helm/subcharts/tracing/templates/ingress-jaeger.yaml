@@ -15,15 +15,25 @@ metadata:
     {{- end }}
 spec:
   rules:
+{{- if .Values.ingress.hosts }}
     {{- range $host := .Values.jaeger.ingress.hosts }}
     - host: {{ $host }}
       http:
         paths:
-          - path: /
+          - path: {{ if .Values.jaeger.contextPath }} {{ .Values.jaeger.contextPath }} {{ else }} / {{ end }}
             backend:
               serviceName: jaeger-query
               servicePort: 16686
+
     {{- end -}}
+{{- else }}
+    - http:
+        paths:
+          - path: {{ if .Values.jaeger.contextPath }} {{ .Values.jaeger.contextPath }} {{ else }} / {{ end }}
+            backend:
+              serviceName: jaeger-query
+              servicePort: 16686
+{{- end }}
   {{- if .Values.jaeger.ingress.tls }}
   tls:
 {{ toYaml .Values.jaeger.ingress.tls | indent 4 }}
