@@ -84,7 +84,7 @@ func (dv *decodeVisitor) setValue(f *descriptor.FieldDescriptorProto, val interf
 		var arr []interface{}
 		old, ok := dv.out[f.GetName()]
 		if !ok {
-			arr = make([]interface{}, 0)
+			arr = make([]interface{}, 0, 1)
 		} else {
 			arr = old.([]interface{})
 		}
