@@ -449,6 +449,7 @@ func TestField(t *testing.T) {
 			appendTag{inNum: 12345, inType: EndGroupType},
 			appendTag{inNum: 5000, inType: EndGroupType},
 		},
+		// nolint:lll
 		wantRaw: dhex("c3b80208959aef3a6515cd5b07d90715cd5b0700000000924d0568656c6c6fcb830658959aef3ae54b15cd5b07998f3c15cd5b070000000092ff892f07676f6f64627965cc8306c4b802"),
 		consumeOps: ops{
 			consumeTag{wantNum: 5000, wantType: StartGroupType, wantCnt: 3},
@@ -473,6 +474,7 @@ func TestField(t *testing.T) {
 			consumeTag{wantNum: 5000, wantType: EndGroupType, wantCnt: 3},
 		},
 	}, {
+		// nolint:lll
 		appendOps:  ops{appendRaw(dhex("c3b80208959aef3a6515cd5b07d90715cd5b0700000000924d0568656c6c6fcb830658959aef3ae54b15cd5b07998f3c15cd5b070000000092ff892f07676f6f64627965cc8306c4b802"))},
 		consumeOps: ops{consumeField{wantNum: 5000, wantType: StartGroupType, wantCnt: 74}},
 	}, {
