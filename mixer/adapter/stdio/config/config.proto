@@ -64,7 +64,7 @@ message Params {
     }
 
     // Selects which standard stream to write to for log entries.
-    // STDERR is the default Stream.
+    // STDOUT is the default Stream.
     Stream log_stream = 1;
 
     // Maps from severity strings as specified in LogEntry instances to
