@@ -125,6 +125,12 @@ var (
 		Name: "pilot_xds_push_errors",
 		Help: "Number of errors (timeouts) pushing to sidecars.",
 	}, []string{"type"})
+
+	proxiesConvergeDelay = prometheus.NewHistogram(prometheus.HistogramOpts{
+		Name:    "pilot_proxy_convergence_time",
+		Help:    "Delay between config change and all proxies converging.",
+		Buckets: []float64{.005, .01, .1, 1, 10},
+	})
 )
 
 func init() {
@@ -140,6 +146,7 @@ func init() {
 	prometheus.MustRegister(pushTimeouts)
 	prometheus.MustRegister(pushes)
 	prometheus.MustRegister(pushErrors)
+	prometheus.MustRegister(proxiesConvergeDelay)
 
 	// Experimental env to disable push suppression
 	// By default a pod will not receive a push from an older version if a
@@ -237,7 +244,6 @@ type XdsConnection struct {
 
 // XdsEvent represents a config or registry event that results in a push.
 type XdsEvent struct {
-
 	// If not empty, it is used to indicate the event is caused by a change in the clusters.
 	// Only EDS for the listed clusters will be sent.
 	clusters []string
@@ -612,6 +618,7 @@ func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext) {
 	for {
 		if len(pending) == 0 {
 			adsLog.Infof("PushAll done %s %v", version, time.Since(tstart))
+			proxiesConvergeDelay.Observe(time.Since(t0).Seconds())
 			return
 		}
 		currentVersion := versionInfo()
