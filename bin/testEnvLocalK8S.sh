@@ -107,6 +107,12 @@ function getDeps() {
    fi
 }
 
+function getLatestDeps() {
+    curl -Lo "${GO_TOP}/bin/kubectl" "https://storage.googleapis.com/kubernetes-release/release/${K8S_VER}/bin/${GOOS_LOCAL}/amd64/kubectl" && chmod +x "$GO_TOP/bin/kubectl"
+    curl -Lo "${GO_TOP}/bin/kube-apiserver" "https://storage.googleapis.com/kubernetes-release/release/${K8S_VER}/bin/${GOOS_LOCAL}/amd64/kube-apiserver" && chmod +x "${GO_TOP}/bin/kube-apiserver"
+    curl -L "https://github.com/coreos/etcd/releases/download/${ETCD_VER}/etcd-${ETCD_VER}-linux-amd64.tar.gz" | tar xz -O "etcd-${ETCD_VER}-linux-amd64/etcd" > "${GO_TOP}/bin/etcd" && chmod +x "${GO_TOP}/bin/etcd"
+}
+
 # No root required, run local etcd and kube apiserver for tests.
 function startLocalApiserver() {
     ensureK8SCerts
@@ -316,6 +322,6 @@ case "$1" in
     stopIstio) stopIstio ;;
     startMultiCluster) startMultiCluster ;;
     stopMultiCluster) stopMultiCluster ;;
-    getDeps) getDeps ;;
+    getDeps) getLatestDeps ;;
     *) echo "start stop ensure"
 esac
