@@ -98,6 +98,19 @@ func TestServiceConversion(t *testing.T) {
 					Port:     443,
 				},
 			},
+			Type: v1.ServiceTypeLoadBalancer,
+		},
+		Status: v1.ServiceStatus{
+			LoadBalancer: v1.LoadBalancerStatus{
+				Ingress: []v1.LoadBalancerIngress{
+					v1.LoadBalancerIngress{
+						IP: "159.122.219.73",
+					},
+					v1.LoadBalancerIngress{
+						Hostname: "ext.svc.istio.com",
+					},
+				},
+			},
 		},
 	}
 
@@ -139,6 +152,22 @@ func TestServiceConversion(t *testing.T) {
 	}
 	if !reflect.DeepEqual(sa, expected) {
 		t.Errorf("Unexpected service accounts %v (expecting %v)", sa, expected)
+	}
+
+	if len(service.ExternalAddresses) != 2 {
+		t.Errorf("incorrect number of external addresses => %v, want 2",
+			len(service.ExternalAddresses))
+		return
+	}
+
+	if service.ExternalAddresses[0] != localSvc.Status.LoadBalancer.Ingress[0].IP {
+		t.Errorf("external address does not match => %s, want %s",
+			service.ExternalAddresses[0], localSvc.Status.LoadBalancer.Ingress[0].IP)
+	}
+
+	if service.ExternalAddresses[1] != localSvc.Status.LoadBalancer.Ingress[1].Hostname {
+		t.Errorf("external address does not match => %s, want %s",
+			service.ExternalAddresses[1], localSvc.Status.LoadBalancer.Ingress[1].Hostname)
 	}
 }
 

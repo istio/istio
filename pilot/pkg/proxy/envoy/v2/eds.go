@@ -70,7 +70,10 @@ type EdsCluster struct {
 	// mutex protects changes to this cluster
 	mutex sync.Mutex
 
-	LoadAssignment *xdsapi.ClusterLoadAssignment
+	// A map keyed by network ID for holding the ClusterLoadAssignment for the
+	// network. Each CLA holds both local endpoints and weighted remote endpoints
+	// to the gateway of other networks.
+	LoadAssignments map[string]*xdsapi.ClusterLoadAssignment
 
 	// FirstUse is the time the cluster was first used, for debugging
 	FirstUse time.Time
@@ -106,10 +109,20 @@ func (s *DiscoveryServer) endpoints(clusterNames []string, outRes []types.Any) *
 }
 
 // Return the load assignment. The field can be updated by another routine.
-func loadAssignment(c *EdsCluster) *xdsapi.ClusterLoadAssignment {
+func loadAssignment(c *EdsCluster, node *model.Proxy) *xdsapi.ClusterLoadAssignment {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-	return c.LoadAssignment
+	if node == nil {
+		return c.LoadAssignments[""]
+	}
+	return c.filterEndpointsByMetadata(node.Metadata)
+}
+
+func (c *EdsCluster) filterEndpointsByMetadata(nodeMeta map[string]string) *xdsapi.ClusterLoadAssignment {
+	if network, exists := nodeMeta["ISTIO_NETWORK"]; exists {
+		return c.LoadAssignments[network]
+	}
+	return c.LoadAssignments[""]
 }
 
 func newEndpoint(e *model.NetworkEndpoint) (*endpoint.LbEndpoint, error) {
@@ -146,7 +159,8 @@ func newEndpoint(e *model.NetworkEndpoint) (*endpoint.LbEndpoint, error) {
 // the endpoints for the cluster.
 func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName string, edsCluster *EdsCluster) error {
 	// TODO: should we lock this as well ? Once we move to event-based it may not matter.
-	var locEps []endpoint.LocalityLbEndpoints
+	locEpsByNetwork := map[string][]endpoint.LocalityLbEndpoints{"": []endpoint.LocalityLbEndpoints{}}
+	var gwByNetwork map[string]*endpoint.LocalityLbEndpoints
 	direction, subsetName, hostname, port := model.ParseSubsetKey(clusterName)
 	if direction == model.TrafficDirectionInbound ||
 		direction == model.TrafficDirectionOutbound {
@@ -162,7 +176,10 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 		}
 		edsInstances.With(prometheus.Labels{"cluster": clusterName}).Set(float64(len(instances)))
 
-		locEps = localityLbEndpointsFromInstances(instances)
+		if len(instances) != 0 {
+			locEpsByNetwork = localityLbEndpointsFromInstances(instances)
+			gwByNetwork = s.networkGateways(instances, locEpsByNetwork, edsCluster)
+		}
 	}
 
 	// There is a chance multiple goroutines will update the cluster at the same time.
@@ -171,23 +188,112 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 	// We still lock the access to the LoadAssignments.
 	edsCluster.mutex.Lock()
 	defer edsCluster.mutex.Unlock()
-	edsCluster.LoadAssignment = &xdsapi.ClusterLoadAssignment{
-		ClusterName: clusterName,
-		Endpoints:   locEps,
+	for n, locEps := range locEpsByNetwork {
+		edsCluster.LoadAssignments[n] = &xdsapi.ClusterLoadAssignment{
+			ClusterName: clusterName,
+			Endpoints:   locEps,
+		}
+		if len(locEps) > 0 && edsCluster.NonEmptyTime.IsZero() {
+			edsCluster.NonEmptyTime = time.Now()
+		}
 	}
-	if len(locEps) > 0 && edsCluster.NonEmptyTime.IsZero() {
-		edsCluster.NonEmptyTime = time.Now()
+	// Once we have all local endoints we are running a second pass for updating
+	// remote endpoints.
+	for n := range locEpsByNetwork {
+		edsCluster.updateRemoteEndpoints(n, gwByNetwork)
 	}
 
 	return nil
+}
+
+// networkGateways returns a map between network IDs and the endpoint to the
+// gateway of the remote Istio network.
+// The weight of the endpoint will equal to the number of local endpoints in
+// the remote network. If the remote network has no cluster endpoints
+// (i.e. weight 0) it will not be added.
+func (s *DiscoveryServer) networkGateways(instances []*model.ServiceInstance,
+	endpoints map[string][]endpoint.LocalityLbEndpoints, edsCluster *EdsCluster) map[string]*endpoint.LocalityLbEndpoints {
+	gateways := make(map[string]*endpoint.LocalityLbEndpoints)
+	for _, instance := range instances {
+		network := instance.Labels["ISTIO_NETWORK"]
+		if gateways[network] != nil || len(endpoints[network]) == 0 {
+			continue
+		}
+
+		// Calculate the weight of the network by counting the local endpoints
+		weight := 0
+		for _, ep := range endpoints[network] {
+			weight += len(ep.LbEndpoints)
+		}
+		// If the weight is 0 (no endpoints) this network can be skipped
+		if weight == 0 {
+			continue
+		}
+
+		// First try to get the gateway address from the environment variables
+		// if configured.
+		var addr *core.Address
+		addrIP := instance.Labels["ISTIO_NETWORK_GATEWAY_IP"]
+		addrPort, err := strconv.ParseUint(instance.Labels["ISTIO_NETWORK_GATEWAY_PORT"], 10, 32)
+		if addrIP != "" && err == nil {
+			cfgAddr := util.BuildAddress(addrIP, uint32(addrPort))
+			addr = &cfgAddr
+		}
+
+		// If address not found, try to get the gateway address from its k8s
+		// service.
+		if addr == nil {
+			// We are calling the Services() function and not the GetService()
+			// because it will return services with their ClusterExternals field
+			// set to hold an aggregated map to external addresses for all clusters.
+			// The GetService() will just return the first service found with the
+			// hostname.
+			svcs, err := s.env.ServiceDiscovery.Services()
+			if err == nil {
+				for _, svc := range svcs {
+					if svc.Hostname == "istio-ingressgateway.istio-system.svc.cluster.local" {
+						addrs := svc.ClusterExternals[network]
+						if len(addrs) > 0 && len(svc.Ports) > 0 {
+							addrIP := addrs[0]
+							addrPort := svc.Ports[0].Port
+							cfgAddr := util.BuildAddress(addrIP, uint32(addrPort))
+							addr = &cfgAddr
+						}
+					}
+				}
+			}
+		}
+
+		// If address is still missing we can't add the endoint so skip it
+		if addr == nil {
+			continue
+		}
+
+		// Add a new endpoint with the remote network gateway and weight
+		gateways[network] = &endpoint.LocalityLbEndpoints{
+			LbEndpoints: []endpoint.LbEndpoint{
+				endpoint.LbEndpoint{
+					Endpoint: &endpoint.Endpoint{
+						Address: addr,
+					},
+				},
+			},
+			LoadBalancingWeight: &types.UInt32Value{
+				Value: uint32(weight),
+			},
+		}
+	}
+
+	return gateways
 }
 
 // LocalityLbEndpointsFromInstances returns a list of Envoy v2 LocalityLbEndpoints.
 // Envoy v2 Endpoints are constructed from Pilot's older data structure involving
 // model.ServiceInstance objects. Envoy expects the endpoints grouped by zone, so
 // a map is created - in new data structures this should be part of the model.
-func localityLbEndpointsFromInstances(instances []*model.ServiceInstance) []endpoint.LocalityLbEndpoints {
-	localityEpMap := make(map[string]*endpoint.LocalityLbEndpoints)
+func localityLbEndpointsFromInstances(instances []*model.ServiceInstance) map[string][]endpoint.LocalityLbEndpoints {
+	localityEpMapByNetwork := make(map[string]map[string]*endpoint.LocalityLbEndpoints)
+	resultsMap := make(map[string][]endpoint.LocalityLbEndpoints)
 	for _, instance := range instances {
 		lbEp, err := newEndpoint(&instance.Endpoint)
 		if err != nil {
@@ -197,22 +303,51 @@ func localityLbEndpointsFromInstances(instances []*model.ServiceInstance) []endp
 		// TODO: Need to accommodate region, zone and subzone. Older Pilot datamodel only has zone = availability zone.
 		// Once we do that, the key must be a | separated tupple.
 		locality := instance.GetAZ()
-		locLbEps, found := localityEpMap[locality]
+		network := instance.Labels["ISTIO_NETWORK"]
+		_, found := localityEpMapByNetwork[network]
+		if !found {
+			localityEpMapByNetwork[network] = make(map[string]*endpoint.LocalityLbEndpoints)
+		}
+		locLbEps, found := localityEpMapByNetwork[network][locality]
 		if !found {
 			locLbEps = &endpoint.LocalityLbEndpoints{
 				Locality: &core.Locality{
 					Zone: locality,
 				},
 			}
-			localityEpMap[locality] = locLbEps
+			localityEpMapByNetwork[network][locality] = locLbEps
 		}
 		locLbEps.LbEndpoints = append(locLbEps.LbEndpoints, *lbEp)
 	}
-	out := make([]endpoint.LocalityLbEndpoints, 0, len(localityEpMap))
-	for _, locLbEps := range localityEpMap {
-		out = append(out, *locLbEps)
+	for n, localityEpMap := range localityEpMapByNetwork {
+		out := make([]endpoint.LocalityLbEndpoints, 0, len(localityEpMap))
+		for _, locLbEps := range localityEpMap {
+			out = append(out, *locLbEps)
+		}
+		resultsMap[n] = out
 	}
-	return out
+	return resultsMap
+}
+
+// Function will go through other networks and add a remote endpoint pointing
+// to the gateway of each one of them. The remote endpoints (one per each network)
+// will be added to the ClusterLoadAssignment of the specified network.
+func (c *EdsCluster) updateRemoteEndpoints(network string, gwByNetwork map[string]*endpoint.LocalityLbEndpoints) {
+	cla, found := c.LoadAssignments[network]
+	if !found {
+		return
+	}
+	for n := range c.LoadAssignments {
+		if n == network {
+			continue
+		}
+
+		// Append an endpoint to the remote network gateway to the list of
+		// local endpoints of this network
+		if rgw := gwByNetwork[n]; rgw != nil {
+			cla.Endpoints = append(cla.Endpoints, *rgw)
+		}
+	}
 }
 
 func connectionID(node string) string {
@@ -321,13 +456,13 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection) e
 			continue
 		}
 
-		l := loadAssignment(c)
+		l := loadAssignment(c, con.modelNode)
 		if l == nil { // fresh cluster
 			if err := s.updateCluster(push, clusterName, c); err != nil {
 				adsLog.Errorf("error returned from updateCluster for cluster name %s, skipping it.", clusterName)
 				continue
 			}
-			l = loadAssignment(c)
+			l = loadAssignment(c, con.modelNode)
 		}
 		endpoints += len(l.Endpoints)
 		if len(l.Endpoints) == 0 {
@@ -391,9 +526,11 @@ func (s *DiscoveryServer) getOrAddEdsCluster(clusterName string) *EdsCluster {
 
 	c := edsClusters[clusterName]
 	if c == nil {
-		c = &EdsCluster{discovery: s,
-			EdsClients: map[string]*XdsConnection{},
-			FirstUse:   time.Now(),
+		c = &EdsCluster{
+			discovery:       s,
+			LoadAssignments: map[string]*xdsapi.ClusterLoadAssignment{},
+			EdsClients:      map[string]*XdsConnection{},
+			FirstUse:        time.Now(),
 		}
 		edsClusters[clusterName] = c
 	}

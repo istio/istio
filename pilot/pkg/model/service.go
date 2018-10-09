@@ -53,9 +53,20 @@ type Service struct {
 	// Address specifies the service IPv4 address of the load balancer
 	Address string `json:"address,omitempty"`
 
+	// ExternalAddresses are external IPv4 or hostname addresses for accessing
+	// the service. They are not the VIP. E.g. in Kubernetes, if the service is
+	// of type LoadBalancer, its public address(es) will be placed in this field
+	ExternalAddresses []string `json:"external-addresses,omitempty"`
+
 	// ClusterVIPs specifies the service address of the load balancer
 	// in each of the clusters where the service resides
 	ClusterVIPs map[string]string `json:"cluster-vips,omitempty"`
+
+	// In a multi-cluster environment where a single service may be present for
+	// several identical per-cluster services, this instance will hold the
+	// mapping between the Cluster ID and the external addresses for the service
+	// that resides within that cluster
+	ClusterExternals map[string][]string `json:"cluster-externals,omitempty"`
 
 	// Ports is the set of network ports where the service is listening for
 	// connections
