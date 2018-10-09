@@ -64,6 +64,6 @@ gsutil -m cp "${GCS_PATH}"/docker/* "${TEMP_DIR}/docker"
 DOCKER_HUB_ARR=(${DOCKER_HUBS//,/ })
 for HUB in "${DOCKER_HUB_ARR=[@]}"
 do
-  docker_tag_images  "${HUB}" "${VERSION}" "${TEMP_DIR}/docker"
-  docker_push_images "${HUB}" "${VERSION}" "${TEMP_DIR}/docker"
+  docker_tag_images  "${HUB}" "${VERSION}" "${TEMP_DIR}"
+  docker_push_images "${HUB}" "${VERSION}" "${TEMP_DIR}"
 done
