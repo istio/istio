@@ -561,15 +561,22 @@ func TestController_Service(t *testing.T) {
 	if len(svcList) != len(expectedSvcList) {
 		t.Errorf("Expecting %d service but got %d\r\n", len(expectedSvcList), len(svcList))
 	}
-	for i, exp := range expectedSvcList {
-		if exp.Hostname != svcList[i].Hostname {
-			t.Errorf("got hostname of %dst service, got:\n%#v\nwanted:\n%#v\n", i, svcList[i].Hostname, exp.Hostname)
+	for _, exp := range expectedSvcList {
+		found := false
+		for _, svc := range svcList {
+			if exp.Hostname == svc.Hostname {
+				if exp.Address != svc.Address {
+					t.Errorf("wrong address for service with hostname %s, got:\n%#v\nwanted:\n%#v\n", svc.Hostname, svc.Address, exp.Address)
+				}
+				if !reflect.DeepEqual(exp.Ports, svc.Ports) {
+					t.Errorf("wrong ports for service with hostname %s, got:\n%#v\nwanted:\n%#v\n", svc.Hostname, svc.Ports, exp.Ports)
+				}
+				found = true
+				break
+			}
 		}
-		if exp.Address != svcList[i].Address {
-			t.Errorf("got address of %dst service, got:\n%#v\nwanted:\n%#v\n", i, svcList[i].Address, exp.Address)
-		}
-		if !reflect.DeepEqual(exp.Ports, svcList[i].Ports) {
-			t.Errorf("got ports of %dst service, got:\n%#v\nwanted:\n%#v\n", i, svcList[i].Ports, exp.Ports)
+		if !found {
+			t.Errorf("no service returned with hostname %s", exp.Hostname)
 		}
 	}
 }
