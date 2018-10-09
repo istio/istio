@@ -20,7 +20,6 @@ set -o nounset
 set -o pipefail
 set -x
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # This script downloads docker tar images from GCS and pushes them to docker hub
 
@@ -61,6 +60,7 @@ TEMP_DIR=$(mktemp -d)
 mkdir -p "$TEMP_DIR/docker"
 gsutil -m cp "${GCS_PATH}"/docker/* "${TEMP_DIR}/docker"
 
+# shellcheck disable=SC2206
 DOCKER_HUB_ARR=(${DOCKER_HUBS//,/ })
 for HUB in "${DOCKER_HUB_ARR=[@]}"
 do

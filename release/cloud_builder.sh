@@ -31,7 +31,7 @@ OUTPUT_PATH=""
 TAG_NAME=""
 BUILD_DEBIAN="true"
 BUILD_DOCKER="true"
-ISTIO_DOCKER_HUB=""
+ISTIOCTL_DOCKER_HUB=""
 
 function usage() {
   echo "$0
@@ -47,7 +47,7 @@ while getopts bch:o:t: arg ; do
   case "${arg}" in
     b) BUILD_DEBIAN="false";;
     c) BUILD_DOCKER="false";;
-    h) ISTIO_DOCKER_HUB="${OPTARG}";;
+    h) ISTIOCTL_DOCKER_HUB="${OPTARG}";;
     o) OUTPUT_PATH="${OPTARG}";;
     t) TAG_NAME="${OPTARG}";;
     *) usage;;
@@ -56,7 +56,7 @@ done
 
 [[ -z "${OUTPUT_PATH}" ]] && usage
 [[ -z "${TAG_NAME}" ]] && usage
-[[ -z "${ISTIO_DOCKER_HUB}" ]] && usage
+[[ -z "${ISTIOCTL_DOCKER_HUB}" ]] && usage
 
 # switch to the root of the istio repo
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -74,7 +74,7 @@ if [ "${BUILD_DEBIAN}" == "true" ]; then
   MAKE_TARGETS+=(sidecar.deb)
 fi
 
-VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB=${ISTIO_DOCKER_HUB} HUB=${ISTIO_DOCKER_HUB} VERSION=$ISTIO_VERSION TAG=$ISTIO_VERSION make "${MAKE_TARGETS[@]}"
+VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB=${ISTIOCTL_DOCKER_HUB} HUB=${ISTIOCTL_DOCKER_HUB} VERSION=$ISTIO_VERSION TAG=$ISTIO_VERSION make "${MAKE_TARGETS[@]}"
 cp "${ISTIO_OUT}"/archive/istio-*z* "${OUTPUT_PATH}/"
 
 if [ "${BUILD_DOCKER}" == "true" ]; then

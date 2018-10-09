@@ -77,6 +77,7 @@ function get_git_commit_cmd() {
 # Called directly by Airflow.
 function build_template() {
     # istio_docker_hub is the string used by istioctl, helm values, deb file
+    # shellcheck disable=SC2034
     ISTIO_DOCKER_HUB="$DOCKER_HUB"
     # push_docker_hubs is the set of comma separated hubs to which the code is pushed
     PUSH_DOCKER_HUBS="$DOCKER_HUB"
@@ -111,7 +112,9 @@ function modify_values_command() {
 
 # Called directly by Airflow.
 function gcr_tag_success() {
+    # shellcheck disable=SC2034
     PUSH_DOCKER_HUBS="$DOCKER_HUB"
+    # shellcheck disable=SC2034
     TAG="$BRANCH-latest-daily"
     create_subs_file "BRANCH" "GCS_BUILD_PATH" "GCS_RELEASE_TOOLS_PATH" "PUSH_DOCKER_HUBS" "TAG"
     cat "${SUBS_FILE}"
