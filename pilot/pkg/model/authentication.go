@@ -27,11 +27,14 @@ import (
 )
 
 const (
-	// CARootCertPath is the path of ca root cert that envoy uses to validate cert got from SDS service.
-	CARootCertPath = "/etc/istio/certs/ca-root-cert.pem"
-
 	// SDSStatPrefix is the human readable prefix to use when emitting statistics for the SDS service.
 	SDSStatPrefix = "sdsstat"
+
+	// SDSDefaultResourceName is the default name in sdsconfig, used for fetching normal key/cert.
+	SDSDefaultResourceName = "default"
+
+	// SDSRootResourceName is the sdsconfig name for root CA, used for fetching root cert.
+	SDSRootResourceName = "ROOTCA"
 )
 
 // JwtKeyResolver resolves JWT public key and JwksURI.
@@ -52,13 +55,13 @@ func GetConsolidateAuthenticationPolicy(store IstioConfigStore, service *Service
 }
 
 // ConstructSdsSecretConfig constructs SDS Sececret Configuration.
-func ConstructSdsSecretConfig(serviceAccount string, sdsUdsPath string) *auth.SdsSecretConfig {
-	if serviceAccount == "" || sdsUdsPath == "" {
+func ConstructSdsSecretConfig(name string, sdsUdsPath string) *auth.SdsSecretConfig {
+	if name == "" || sdsUdsPath == "" {
 		return nil
 	}
 
 	return &auth.SdsSecretConfig{
-		Name: serviceAccount,
+		Name: name,
 		SdsConfig: &core.ConfigSource{
 			ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 				ApiConfigSource: &core.ApiConfigSource{
