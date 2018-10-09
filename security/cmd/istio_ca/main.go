@@ -33,12 +33,9 @@ import (
 	"istio.io/istio/pkg/probe"
 	"istio.io/istio/pkg/version"
 	"istio.io/istio/security/pkg/caclient"
-	"istio.io/istio/security/pkg/caclient/protocol"
 	"istio.io/istio/security/pkg/cmd"
 	"istio.io/istio/security/pkg/k8s/controller"
 	"istio.io/istio/security/pkg/pki/ca"
-	pkiutil "istio.io/istio/security/pkg/pki/util"
-	"istio.io/istio/security/pkg/platform"
 	probecontroller "istio.io/istio/security/pkg/probe"
 	"istio.io/istio/security/pkg/registry"
 	"istio.io/istio/security/pkg/registry/kube"
@@ -364,7 +361,18 @@ func runCA() {
 	rotatorErrCh := make(chan error)
 	// Start CA client if the upstream CA address is specified.
 	if len(opts.cAClientConfig.CAAddress) != 0 {
-		rotator, creationErr := createKeyCertBundleRotator(ca.GetCAKeyCertBundle())
+		config := &opts.cAClientConfig
+		config.Env = "onprem"
+		config.Platform = "vm"
+		config.ForCA = true
+		config.CertFile = opts.signingCertFile
+		config.KeyFile = opts.signingKeyFile
+		config.CertChainFile = opts.certChainFile
+		config.RootCertFile = opts.rootCertFile
+		config.CSRGracePeriodPercentage = cmd.DefaultCSRGracePeriodPercentage
+		config.CSRMaxRetries = cmd.DefaultCSRMaxRetries
+		config.CSRInitialRetrialInterval = cmd.DefaultCSRInitialRetrialInterval
+		rotator, creationErr := caclient.CreateKeyCertBundleRotator(config, ca.GetCAKeyCertBundle())
 		if creationErr != nil {
 			fatalf("Failed to create key cert bundle rotator: %v", creationErr)
 		}
@@ -442,38 +450,6 @@ func generateConfig() *rest.Config {
 		fatalf("Failed to create a config (error: %s)", err)
 	}
 	return c
-}
-
-func createKeyCertBundleRotator(keycert pkiutil.KeyCertBundle) (keyCertBundleRotator, error) {
-	config := &opts.cAClientConfig
-	// Currently cluster CA needs key/cert to talk to upstream CA.
-	config.Env = "onprem"
-	config.Platform = "vm"
-	config.ForCA = true
-	config.CertFile = opts.signingCertFile
-	config.KeyFile = opts.signingKeyFile
-	config.CertChainFile = opts.certChainFile
-	config.RootCertFile = opts.rootCertFile
-	config.CSRGracePeriodPercentage = cmd.DefaultCSRGracePeriodPercentage
-	config.CSRMaxRetries = cmd.DefaultCSRMaxRetries
-	config.CSRInitialRetrialInterval = cmd.DefaultCSRInitialRetrialInterval
-	pc, err := platform.NewClient(config.Env, config.RootCertFile, config.KeyFile, config.CertChainFile, config.CAAddress)
-	if err != nil {
-		return nil, err
-	}
-	dial, err := pc.GetDialOptions()
-	if err != nil {
-		return nil, err
-	}
-	grpcConn, err := protocol.NewGrpcConnection(config.CAAddress, dial)
-	if err != nil {
-		return nil, err
-	}
-	cac, err := caclient.NewCAClient(pc, grpcConn, config.CSRMaxRetries, config.CSRInitialRetrialInterval)
-	if err != nil {
-		return nil, err
-	}
-	return caclient.NewKeyCertBundleRotator(config, cac, keycert)
 }
 
 func verifyCommandLineOptions() {
