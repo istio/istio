@@ -92,7 +92,7 @@ var (
 	})
 	totalInternalErrors = prometheus.NewCounter(prometheus.CounterOpts{
 		Name: "pilot_total_internal_errors",
-		Help: "Total number of internal pilot errors.",
+		Help: "Total number of internal pilot errors, excluding xDS errors.",
 	})
 )
 
