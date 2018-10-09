@@ -344,7 +344,7 @@ func (wh *Webhook) admitPilot(request *admissionv1beta1.AdmissionRequest) *admis
 		return toAdmissionResponse(fmt.Errorf("cannot decode configuration: %v", err))
 	}
 
-	schema, exists := wh.descriptor.GetByType(crd.CamelCaseToKabobCase(obj.Kind))
+	schema, exists := wh.descriptor.GetByType(crd.CamelCaseToKebabCase(obj.Kind))
 	if !exists {
 		reportValidationFailed(request, reasonUnknownType)
 		return toAdmissionResponse(fmt.Errorf("unrecognized type %v", obj.Kind))
