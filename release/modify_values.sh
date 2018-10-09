@@ -64,10 +64,7 @@ fix_values_yaml     "tar -zxf" "tar -zcf" "${folder_name}" "${folder_name}-linux
 # Mac
 fix_values_yaml     "tar -zxf" "tar -zcf" "${folder_name}" "${folder_name}-osx.tar.gz"
 # Windows
-cp /home/airflow/gcs/data/zip    "./zip"
-cp /home/airflow/gcs/data/unzip  "./unzip"
-chmod              u+x "./unzip" "./zip"
-fix_values_yaml        "./unzip -q" "./zip -q -r" "${folder_name}" "${folder_name}-win.zip"
+fix_values_yaml    "unzip -q" "zip -q -r" "${folder_name}" "${folder_name}-win.zip"
 
 cd ..
 rm -rf modification-tmp
