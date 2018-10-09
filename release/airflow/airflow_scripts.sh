@@ -76,9 +76,11 @@ function get_git_commit_cmd() {
 
 # Called directly by Airflow.
 function build_template() {
-    GCS_PATH="${GCS_BUILD_PATH}"
-    VER_STRING="${VERSION}"
-    create_subs_file "BRANCH" "DOCKER_HUB" "GCS_PATH" "GCS_RELEASE_TOOLS_PATH" "VER_STRING"
+    # istio_docker_hub is the string used by istioctl, helm values, deb file
+    ISTIO_DOCKER_HUB="$DOCKER_HUB"
+    # push_docker_hubs is the set of comma separated hubs to which the code is pushed
+    PUSH_DOCKER_HUBS="$DOCKER_HUB"
+    create_subs_file "BRANCH" "ISTIO_DOCKER_HUB" "GCS_BUILD_PATH" "GCS_RELEASE_TOOLS_PATH" "PUSH_DOCKER_HUBS" "VERSION"
     cat "${SUBS_FILE}"
 
     run_build "cloud_build.template.json" \
@@ -88,7 +90,7 @@ function build_template() {
 
 # Called directly by Airflow.
 function test_command() {
-    create_subs_file "BRANCH" "DOCKER_HUB" "GCS_BUILD_PATH" "GCS_RELEASE_TOOLS_PATH" "VERSION"
+    create_subs_file "BRANCH" "DOCKER_HUB" "GCS_BUILD_PATH" "GCS_RELEASE_TOOLS_PATH" "PIPELINE_TYPE" "VERSION"
     cat "${SUBS_FILE}"
 
     run_build "cloud_test.template.json" \
@@ -98,41 +100,25 @@ function test_command() {
 
 # Called directly by Airflow.
 function modify_values_command() {
-    # TODO: Merge these changes into istio/istio master and stop using this task
-    gsutil -q cp gs://istio-release-pipeline-data/release-tools/test-version/data/release/modify_values.sh .
-    chmod u+x modify_values.sh
+    GCS_PATH="gs://$GCS_BUILD_BUCKET/$GCS_STAGING_PATH"
+    create_subs_file "DOCKER_HUB" "GCS_PATH" "GCS_RELEASE_TOOLS_PATH" "PIPELINE_TYPE" "VERSION"
+    cat "${SUBS_FILE}"
 
-    echo "PIPELINE TYPE is $PIPELINE_TYPE"
-    if [ "$PIPELINE_TYPE" = "daily" ]; then
-        hub="gcr.io/$GCR_STAGING_DEST"
-    elif [ "$PIPELINE_TYPE" = "monthly" ]; then
-        hub="docker.io/istio"
-    fi
-    ./modify_values.sh -h "${hub}" -t "$VERSION" -p "gs://$GCS_BUILD_BUCKET/$GCS_STAGING_PATH" -v "$VERSION"
+    run_build "cloud_test.template.json" \
+         "${SUBS_FILE}" "${PROJECT_ID}" "${SVC_ACCT}"
+    exit "${BUILD_FAILED}"
 }
 
 # Called directly by Airflow.
 function gcr_tag_success() {
-  pwd; ls
+    PUSH_DOCKER_HUBS="$DOCKER_HUB"
+    TAG="$BRANCH-latest-daily"
+    create_subs_file "BRANCH" "GCS_BUILD_PATH" "GCS_RELEASE_TOOLS_PATH" "PUSH_DOCKER_HUBS" "TAG"
+    cat "${SUBS_FILE}"
 
-  gsutil ls "gs://$GCS_FULL_STAGING_PATH/docker/"             > docker_tars.txt
-  grep -Eo "docker\\/(([a-z]|[0-9]|-|_)*).tar.gz"               docker_tars.txt \
-      | sed -E "s/docker\\/(([a-z]|[0-9]|-|_)*).tar.gz/\\1/g" > docker_images.txt
-
-  #gcloud auth configure-docker  -q
-  while read -r docker_image; do
-    gcloud container images add-tag \
-    "gcr.io/$GCR_STAGING_DEST/${docker_image}:$VERSION" \
-    "gcr.io/$GCR_STAGING_DEST/${docker_image}:$BRANCH-latest-daily" --quiet;
-    #pull_source="gcr.io/$GCR_STAGING_DEST/${docker_image}:$VERSION"
-    #push_dest="  gcr.io/$GCR_STAGING_DEST/${docker_image}:latest_$BRANCH";
-    #docker pull $pull_source
-    #docker tag  $pull_source $push_dest
-    #docker push $push_dest
-  done < docker_images.txt
-
-  cat docker_tars.txt docker_images.txt
-  rm  docker_tars.txt docker_images.txt
+    run_build "cloud_docker_push.template.json" \
+         "${SUBS_FILE}" "${PROJECT_ID}" "${SVC_ACCT}"
+    exit "${BUILD_FAILED}"
 }
 
 # Called directly by Airflow.
@@ -141,8 +127,6 @@ function release_push_github_docker_template() {
     #BRANCH
     # shellcheck disable=SC2034
     DOCKER_DST="$DOCKER_HUB"
-    # shellcheck disable=SC2034
-    GCR_DST="${GCR_RELEASE_DEST}"
     # shellcheck disable=SC2034
     GCS_DST="${GCS_MONTHLY_RELEASE_PATH}"
     GCS_PATH="${GCS_BUILD_PATH}"
@@ -153,7 +137,7 @@ function release_push_github_docker_template() {
     # shellcheck disable=SC2034
     REPO="${GITHUB_REPO}"
     VER_STRING="${VERSION}"
-    create_subs_file "BRANCH" "DOCKER_DST" "GCR_DST" "GCS_DST" "GCS_PATH" "GCS_RELEASE_TOOLS_PATH" "GCS_SECRET" "GCS_SOURCE" "ORG" "REPO" "VER_STRING"
+    create_subs_file "BRANCH" "DOCKER_DST" "GCS_DST" "GCS_PATH" "GCS_RELEASE_TOOLS_PATH" "GCS_SECRET" "GCS_SOURCE" "ORG" "REPO" "VER_STRING"
     cat "${SUBS_FILE}"
 
     run_build "cloud_publish.template.json" \

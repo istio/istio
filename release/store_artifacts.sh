@@ -23,64 +23,38 @@ set -x
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # This script takes files from a specified directory and uploads
-# then to GCR & GCS.  Only tar files in docker/ are uploaded to GCR.
-
-DEFAULT_GCS_PREFIX="istio-testing/builds"
+# then to GCS, in addition it saves the source code and uploads it
 
 GCS_PREFIX=""
-
-VER_STRING=""
 OUTPUT_PATH=""
-PUSH_DOCKER="true"
-TEST_DOCKER_HUB=""
 
 function usage() {
   echo "$0
-    -c <name> Branch of the build                               (required)
-    -h <hub>  docker hub to use (optional defaults to gcr.io/istio-release)
-    -i <id>   build ID from cloud builder                       (optional, currently unused)
-    -n        disable pushing docker images to GCR              (optional)
     -o <path> src path where build output/artifacts were stored (required)
-    -p <name> GCS bucket & prefix path where to store build     (optional, defaults to ${DEFAULT_GCS_PREFIX} )
-    -v <ver>  version string for tag & defaulted storage paths"
+    -p <name> GCS bucket & prefix path where to store build     (required)"
   exit 1
 }
 
-while getopts c:h:no:p:q:v: arg ; do
+while getopts o:p: arg ; do
   case "${arg}" in
-    c) BRANCH="${OPTARG}";;
-    h) TEST_DOCKER_HUB="${OPTARG}";;
-    n) PUSH_DOCKER="false";;
     o) OUTPUT_PATH="${OPTARG}";;
     p) GCS_PREFIX="${OPTARG}";;
-    v) VER_STRING="${OPTARG}";;
     *) usage;;
   esac
 done
 
 [[ -z "${OUTPUT_PATH}" ]] && usage
-[[ -z "${VER_STRING}"  ]] && usage
-[[ -z "${BRANCH}"      ]] && usage
+[[ -z "${GCS_PREFIX}"  ]] && usage
 
 # remove any trailing / for GCS
 GCS_PREFIX=${GCS_PREFIX%/}
-GCS_PREFIX=${GCS_PREFIX:-$DEFAULT_GCS_PREFIX}
 GCS_PATH="gs://${GCS_PREFIX}"
-
-GCR_PATH="gcr.io/istio-release"
-DOCKER_HUB=${TEST_DOCKER_HUB:-$GCR_PATH}
-
-SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
-# shellcheck source=release/docker_tag_push_lib.sh
-source "${SCRIPTPATH}/docker_tag_push_lib.sh"
-
-if [[ "${PUSH_DOCKER}" == "true" ]]; then
-  add_license_to_tar_images "${DOCKER_HUB}" "${VER_STRING}" "${OUTPUT_PATH}"
-  docker_push_images        "${DOCKER_HUB}" "${VER_STRING}" "${OUTPUT_PATH}"
-fi
 
 # preserve the source from the root of the code
 pushd "${ROOT}/../../../.."
+# tar the source code
 tar -czf "${OUTPUT_PATH}/source.tar.gz" go src --exclude go/out --exclude go/bin
 popd
+
+#copy to gcs
 gsutil -m cp -r "${OUTPUT_PATH}"/* "${GCS_PATH}/"

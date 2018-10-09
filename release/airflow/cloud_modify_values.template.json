@@ -1,0 +1,22 @@
+{
+  "steps": [
+    {
+      "name": "gcr.io/istio-testing/istio-builder:0.5.10",
+      "args": [ "gsutil", "cp", "gs://$_GCS_RELEASE_TOOLS_PATH/istio_checkout_code.sh", "." ]
+    },
+    {
+      "name": "gcr.io/istio-testing/istio-builder:0.5.10",
+      "args": [ "chmod", "u+x", "./istio_checkout_code.sh" ]
+    },
+    {
+      "name": "gcr.io/istio-testing/istio-builder:0.5.10",
+      "args": [ "./istio_checkout_code.sh", "-b", "$_BRANCH", "-r", "$_GCS_RELEASE_TOOLS_PATH" ]
+    },
+    {
+      "name": "gcr.io/istio-testing/istio-builder:0.5.10",
+      "dir": "go/src/istio.io/istio",
+      "args": [ "./release/modify_values.sh", "-h", "$_DOCKER_HUB", "-p", "$_GCS_PATH", "-t", "$_VERSION", "-v", "$_VERSION" ]
+    }
+  ],
+  "timeout": "3600s",
+}
