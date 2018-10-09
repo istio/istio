@@ -70,12 +70,12 @@
   version = "v9.10.0"
 
 [[projects]]
-  digest = "1:167b6f65a6656de568092189ae791253939f076df60231fdd64588ac703892a1"
+  digest = "1:5d72bbcc9c8667b11c3dc3cbe681c5a6f71e5096744c0bf7726ab5c6425d5dc4"
   name = "github.com/BurntSushi/toml"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "b26d9c308763d68093482582cea63d69be07a0f0"
-  version = "v0.3.0"
+  revision = "3012a1dbe2e4bd1391d42b32f0577cb7bbc7f005"
+  version = "v0.3.1"
 
 [[projects]]
   digest = "1:3c2d61d5664a67de3359803cf539cf07aa72902da32e44f78df8c74d7a08749f"
@@ -1566,7 +1566,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:f3a214ab14a95cad67943ac834ceecd5b54ca693dc4ff94c95dfae6d5607d556"
+  digest = "1:b5469aaa184eec3b2995629d48dd8621f2ed25564728425762df037737cd03c7"
   name = "istio.io/api"
   packages = [
     "authentication/v1alpha1",
@@ -1582,7 +1582,7 @@
     "rbac/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "63c5c7780fbba17bc03f00fa480f1bc4537e7fe7"
+  revision = "2acfd9afd0638131e3664f0e4f3ee71b3fd21663"
 
 [[projects]]
   digest = "1:1e22c9d898674522a6155619142b4691dd225441168faa2b5a4eb88ee327a243"

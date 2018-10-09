@@ -58,10 +58,10 @@ type Options struct {
 // SecretManager defines secrets management interface which is used by SDS.
 type SecretManager interface {
 	// GenerateSecret generates new secret and cache the secret.
-	GenerateSecret(ctx context.Context, proxyID, spiffeID, token string) (*model.SecretItem, error)
+	GenerateSecret(ctx context.Context, proxyID, resourceName, token string) (*model.SecretItem, error)
 
 	// SecretExist checks if secret already existed.
-	SecretExist(proxyID, spiffeID, token, version string) bool
+	SecretExist(proxyID, resourceName, token, version string) bool
 }
 
 // ConnKey is the key of one SDS connection.
@@ -69,7 +69,7 @@ type ConnKey struct {
 	ProxyID string
 
 	// ResourceName of SDS request, get from SDS.DiscoveryRequest.ResourceName
-	// Current it's `ROOTCA` for root cert request, and spiffeID for normal key/cert request.
+	// Current it's `ROOTCA` for root cert request, and 'default' for normal key/cert request.
 	ResourceName string
 }
 
@@ -288,22 +288,22 @@ func (sc *SecretCache) rotate(t time.Time) {
 	})
 }
 
-func (sc *SecretCache) generateSecret(ctx context.Context, token, spiffeID string, t time.Time) (*model.SecretItem, error) {
+func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName string, t time.Time) (*model.SecretItem, error) {
 	options := util.CertOptions{
-		Host:       spiffeID,
+		Host:       resourceName,
 		RSAKeySize: keySize,
 	}
 
 	// Generate the cert/key, send CSR to CA.
 	csrPEM, keyPEM, err := util.GenCSR(options)
 	if err != nil {
-		log.Errorf("Failed to generated key cert for %q: %v", spiffeID, err)
+		log.Errorf("Failed to generated key cert for %q: %v", resourceName, err)
 		return nil, err
 	}
 
 	certChainPEM, err := sc.caClient.CSRSign(ctx, csrPEM, token, int64(sc.secretTTL.Seconds()))
 	if err != nil {
-		log.Errorf("Failed to sign cert for %q: %v", spiffeID, err)
+		log.Errorf("Failed to sign cert for %q: %v", resourceName, err)
 		return nil, err
 	}
 
@@ -325,7 +325,7 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, spiffeID strin
 	return &model.SecretItem{
 		CertificateChain: certChain,
 		PrivateKey:       keyPEM,
-		ResourceName:     spiffeID,
+		ResourceName:     resourceName,
 		Token:            token,
 		CreatedTime:      t,
 		Version:          t.String(),

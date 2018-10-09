@@ -548,11 +548,10 @@ func TestOnInboundFilterChains(t *testing.T) {
 		RequireClientCertificate: &types.BoolValue{Value: true},
 	}
 	cases := []struct {
-		name           string
-		in             *authn.Policy
-		serviceAccount string
-		sdsUdsPath     string
-		expected       []plugin.FilterChain
+		name       string
+		in         *authn.Policy
+		sdsUdsPath string
+		expected   []plugin.FilterChain
 	}{
 		{
 			name: "NoAuthnPolicy",
@@ -651,54 +650,16 @@ func TestOnInboundFilterChains(t *testing.T) {
 					},
 				},
 			},
-			sdsUdsPath:     "/tmp/sdsuds.sock",
-			serviceAccount: "spiffe://cluster.local/ns/bar/sa/foo",
+			sdsUdsPath: "/tmp/sdsuds.sock",
 			expected: []plugin.FilterChain{
 				{
 					TLSContext: &auth.DownstreamTlsContext{
 						CommonTlsContext: &auth.CommonTlsContext{
 							TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
-								{
-									Name: "spiffe://cluster.local/ns/bar/sa/foo",
-									SdsConfig: &core.ConfigSource{
-										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
-											ApiConfigSource: &core.ApiConfigSource{
-												ApiType: core.ApiConfigSource_GRPC,
-												GrpcServices: []*core.GrpcService{
-													{
-														TargetSpecifier: &core.GrpcService_GoogleGrpc_{
-															GoogleGrpc: &core.GrpcService_GoogleGrpc{
-																TargetUri:  "/tmp/sdsuds.sock",
-																StatPrefix: model.SDSStatPrefix,
-																ChannelCredentials: &core.GrpcService_GoogleGrpc_ChannelCredentials{
-																	CredentialSpecifier: &core.GrpcService_GoogleGrpc_ChannelCredentials_LocalCredentials{
-																		LocalCredentials: &core.GrpcService_GoogleGrpc_GoogleLocalCredentials{},
-																	},
-																},
-																CallCredentials: []*core.GrpcService_GoogleGrpc_CallCredentials{
-																	&core.GrpcService_GoogleGrpc_CallCredentials{
-																		CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_GoogleComputeEngine{
-																			GoogleComputeEngine: &types.Empty{},
-																		},
-																	},
-																},
-															},
-														},
-													},
-												},
-											},
-										},
-									},
-								},
+								constructSDSConfig(model.SDSDefaultResourceName, "/tmp/sdsuds.sock"),
 							},
-							ValidationContextType: &auth.CommonTlsContext_ValidationContext{
-								ValidationContext: &auth.CertificateValidationContext{
-									TrustedCa: &core.DataSource{
-										Specifier: &core.DataSource_Filename{
-											Filename: model.CARootCertPath,
-										},
-									},
-								},
+							ValidationContextType: &auth.CommonTlsContext_ValidationContextSdsSecretConfig{
+								ValidationContextSdsSecretConfig: constructSDSConfig(model.SDSRootResourceName, "/tmp/sdsuds.sock"),
 							},
 							AlpnProtocols: []string{"h2", "http/1.1"},
 						},
@@ -709,8 +670,43 @@ func TestOnInboundFilterChains(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		if got := setupFilterChains(c.in, c.serviceAccount, c.sdsUdsPath); !reflect.DeepEqual(got, c.expected) {
+		if got := setupFilterChains(c.in, c.sdsUdsPath); !reflect.DeepEqual(got, c.expected) {
 			t.Errorf("[%v] unexpected filter chains, got %v, want %v", c.name, got, c.expected)
 		}
+	}
+}
+
+func constructSDSConfig(name, sdsudspath string) *auth.SdsSecretConfig {
+	return &auth.SdsSecretConfig{
+		Name: name,
+		SdsConfig: &core.ConfigSource{
+			ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+				ApiConfigSource: &core.ApiConfigSource{
+					ApiType: core.ApiConfigSource_GRPC,
+					GrpcServices: []*core.GrpcService{
+						{
+							TargetSpecifier: &core.GrpcService_GoogleGrpc_{
+								GoogleGrpc: &core.GrpcService_GoogleGrpc{
+									TargetUri:  sdsudspath,
+									StatPrefix: model.SDSStatPrefix,
+									ChannelCredentials: &core.GrpcService_GoogleGrpc_ChannelCredentials{
+										CredentialSpecifier: &core.GrpcService_GoogleGrpc_ChannelCredentials_LocalCredentials{
+											LocalCredentials: &core.GrpcService_GoogleGrpc_GoogleLocalCredentials{},
+										},
+									},
+									CallCredentials: []*core.GrpcService_GoogleGrpc_CallCredentials{
+										&core.GrpcService_GoogleGrpc_CallCredentials{
+											CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_GoogleComputeEngine{
+												GoogleComputeEngine: &types.Empty{},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 }

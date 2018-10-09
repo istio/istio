@@ -19,13 +19,27 @@ import (
 
 	kubeCore "k8s.io/api/core/v1"
 
+	"istio.io/istio/pkg/test/deployment"
+
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/settings"
 )
 
 const (
+	// DefaultIstioSystemNamespace default value for IstioSystemNamespace
+	DefaultIstioSystemNamespace = "istio-system"
+
 	// DefaultImagePullPolicy for Docker images
 	DefaultImagePullPolicy = kubeCore.PullIfNotPresent
+
+	// DefaultReplicaCount for deployments
+	DefaultReplicaCount = 1
+
+	// DefaultAutoscaleMin for deployments
+	DefaultAutoscaleMin = 1
+
+	// DefaultAutoscaleMax for deployments
+	DefaultAutoscaleMax = 5
 
 	// LatestTag value
 	LatestTag = "latest"
@@ -50,12 +64,28 @@ var (
 	IMAGE_PULL_POLICY env.Variable = "IMAGE_PULL_POLICY"
 
 	globalSettings = &Settings{
-		IstioSystemNamespace: "istio-system",
-		Hub:                  HUB.Value(),
-		Tag:                  TAG.Value(),
-		ImagePullPolicy:      kubeCore.PullPolicy(IMAGE_PULL_POLICY.ValueOrDefault(string(DefaultImagePullPolicy))),
+		KubeConfig:           ISTIO_TEST_KUBE_CONFIG.Value(),
+		IstioSystemNamespace: DefaultIstioSystemNamespace,
+		Images:               defaultImageSettings(),
+		IngressGateway:       defaultReplicaSettings(),
 	}
 )
+
+func defaultImageSettings() deployment.ImageSettings {
+	return deployment.ImageSettings{
+		Hub:             HUB.Value(),
+		Tag:             TAG.Value(),
+		ImagePullPolicy: kubeCore.PullPolicy(IMAGE_PULL_POLICY.ValueOrDefault(string(DefaultImagePullPolicy))),
+	}
+}
+
+func defaultReplicaSettings() deployment.ReplicaSettings {
+	return deployment.ReplicaSettings{
+		ReplicaCount: DefaultReplicaCount,
+		AutoscaleMin: DefaultAutoscaleMin,
+		AutoscaleMax: DefaultAutoscaleMax,
+	}
+}
 
 // New returns settings built from flags and environment variables.
 func newSettings() (*Settings, error) {
@@ -63,8 +93,8 @@ func newSettings() (*Settings, error) {
 	s := &(*globalSettings)
 
 	// Always pull Docker images if using the "latest".
-	if s.Tag == LatestTag {
-		s.ImagePullPolicy = kubeCore.PullAlways
+	if s.Images.Tag == LatestTag {
+		s.Images.ImagePullPolicy = kubeCore.PullAlways
 	}
 
 	if err := s.validate(); err != nil {
@@ -78,15 +108,6 @@ func newSettings() (*Settings, error) {
 type Settings struct {
 	// Path to kube config file. Required if the environment is kubernetes.
 	KubeConfig string
-
-	// Hub environment variable
-	Hub string
-
-	// Tag environment variable
-	Tag string
-
-	// ImagePullPolicy policy for pulling Docker images. Defaults to Always if the "latest" tag is specified.
-	ImagePullPolicy kubeCore.PullPolicy
 
 	// The namespace where the Istio components reside in a typical deployment (default: "istio-system").
 	IstioSystemNamespace string
@@ -107,6 +128,26 @@ type Settings struct {
 	// Indicates that the Ingress Gateway is not available. This typically happens in Minikube. The Ingress
 	// component will fall back to node-port in this case.
 	MinikubeIngress bool
+
+	// Images settings for docker images.
+	Images deployment.ImageSettings
+
+	// IngressGateway replica settings for istio-ingressgateway.
+	IngressGateway deployment.ReplicaSettings
+}
+
+// toDeploymentSettings converts this object into deployment settings.
+func (s *Settings) toDeploymentSettings(workDir string) *deployment.Settings {
+	return &deployment.Settings{
+		GlobalMtlsEnabled: true,
+		GalleyEnabled:     true,
+		EnableCoreDump:    true,
+		KubeConfig:        s.KubeConfig,
+		WorkDir:           workDir,
+		Namespace:         s.IstioSystemNamespace,
+		Images:            s.Images,
+		IngressGateway:    s.IngressGateway,
+	}
 }
 
 func (s *Settings) validate() error {
@@ -123,15 +164,18 @@ func (s *Settings) validate() error {
 func (s *Settings) String() string {
 	result := ""
 
-	result += fmt.Sprintf("KubeConfig:           %s\n", s.KubeConfig)
-	result += fmt.Sprintf("Hub:                  %s\n", s.Hub)
-	result += fmt.Sprintf("Tag:                  %s\n", s.Tag)
-	result += fmt.Sprintf("ImagePullPolicy:      %s\n", s.ImagePullPolicy)
-	result += fmt.Sprintf("IstioSystemNamespace: %s\n", s.IstioSystemNamespace)
-	result += fmt.Sprintf("DependencyNamespace:  %s\n", s.DependencyNamespace)
-	result += fmt.Sprintf("TestNamespace:        %s\n", s.TestNamespace)
-	result += fmt.Sprintf("DeployIstio:          %v\n", s.DeployIstio)
-	result += fmt.Sprintf("MinikubeIngress:            %v\n", s.MinikubeIngress)
+	result += fmt.Sprintf("KubeConfig:                %s\n", s.KubeConfig)
+	result += fmt.Sprintf("IstioSystemNamespace:      %s\n", s.IstioSystemNamespace)
+	result += fmt.Sprintf("DependencyNamespace:       %s\n", s.DependencyNamespace)
+	result += fmt.Sprintf("TestNamespace:             %s\n", s.TestNamespace)
+	result += fmt.Sprintf("DeployIstio:               %v\n", s.DeployIstio)
+	result += fmt.Sprintf("MinikubeIngress:           %v\n", s.MinikubeIngress)
+	result += fmt.Sprintf("Images.Hub:                %s\n", s.Images.Hub)
+	result += fmt.Sprintf("Images.Tag:                %s\n", s.Images.Tag)
+	result += fmt.Sprintf("Images.ImagePullPolicy:    %s\n", s.Images.ImagePullPolicy)
+	result += fmt.Sprintf("IngressGeway.ReplicaCount: %v\n", s.IngressGateway.ReplicaCount)
+	result += fmt.Sprintf("IngressGeway.AutoscaleMin: %v\n", s.IngressGateway.AutoscaleMin)
+	result += fmt.Sprintf("IngressGeway.AutoscaleMax: %v\n", s.IngressGateway.AutoscaleMax)
 
 	return result
 }

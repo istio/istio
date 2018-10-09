@@ -15,6 +15,9 @@ ingress:
 prometheus:
   enabled: true
 
+pilot:
+  traceSampling: 100.0
+
 sidecarInjectorWebhook:
   enabled: true
   enableNamespacesByDefault: false
@@ -32,4 +35,4 @@ galley:
   enabled: true
 
 kiali:
-  enabled: false
+  enabled: true

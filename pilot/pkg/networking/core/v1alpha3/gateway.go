@@ -324,6 +324,11 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 				connectionManager: &http_conn.HttpConnectionManager{
 					// Forward client cert if connection is mTLS
 					ForwardClientCertDetails: http_conn.SANITIZE_SET,
+					SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
+						Subject: &types.BoolValue{Value: true},
+						Uri:     true,
+						Dns:     true,
+					},
 				},
 			},
 		}
@@ -346,6 +351,11 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 					connectionManager: &http_conn.HttpConnectionManager{
 						// Forward client cert if connection is mTLS
 						ForwardClientCertDetails: http_conn.SANITIZE_SET,
+						SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
+							Subject: &types.BoolValue{Value: true},
+							Uri:     true,
+							Dns:     true,
+						},
 					},
 				},
 			}
@@ -472,7 +482,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayTCPFilterChainOpts(
 
 // buildGatewayNetworkFiltersFromTCPRoutes builds tcp proxy routes for all VirtualServices with TCP blocks.
 // It first obtains all virtual services bound to the set of Gateways for this workload, filters them by this
-// server's port and hostnames, and produces network filters for each destination from the filtered services
+// server's port and hostnames, and produces network filters for each destination from the filtered services.
 func buildGatewayNetworkFiltersFromTCPRoutes(node *model.Proxy, env *model.Environment, push *model.PushContext, server *networking.Server,
 	gatewaysForWorkload map[string]bool) []listener.Filter {
 	port := &model.Port{
@@ -487,7 +497,6 @@ func buildGatewayNetworkFiltersFromTCPRoutes(node *model.Proxy, env *model.Envir
 	}
 
 	virtualServices := push.VirtualServices(gatewaysForWorkload)
-	var upstream *networking.Destination
 	for _, spec := range virtualServices {
 		vsvc := spec.Spec.(*networking.VirtualService)
 		matchingHosts := pickMatchingGatewayHosts(gatewayServerHosts, vsvc.Hosts)
@@ -501,9 +510,7 @@ func buildGatewayNetworkFiltersFromTCPRoutes(node *model.Proxy, env *model.Envir
 		// based on the match port/server port and the gateway name
 		for _, tcp := range vsvc.Tcp {
 			if l4MultiMatch(tcp.Match, server, gatewaysForWorkload) {
-				upstream = tcp.Route[0].Destination // We pick first destination because TCP has no weighted cluster
-				clusterName := istio_route.GetDestinationCluster(upstream, push.ServiceByHostname[model.Hostname(upstream.Host)], int(server.Port.Number))
-				return buildOutboundNetworkFilters(env, node, clusterName, port)
+				return buildOutboundNetworkFilters(env, node, tcp.Route, push, port, spec.ConfigMeta)
 			}
 		}
 	}
@@ -542,15 +549,10 @@ func buildGatewayNetworkFiltersFromTLSRoutes(node *model.Proxy, env *model.Envir
 			for _, match := range tls.Match {
 				if l4SingleMatch(convertTLSMatchToL4Match(match), server, gatewaysForWorkload) {
 					// the sni hosts in the match will become part of a filter chain match
-					// We ignore all the weighted destinations and pick the first one
-					// since TCP has no weighted cluster
-					upstream := tls.Route[0].Destination
-					clusterName := istio_route.GetDestinationCluster(upstream, push.ServiceByHostname[model.Hostname(upstream.Host)], int(server.Port.Number))
-
 					filterChains = append(filterChains, &filterChainOpts{
 						sniHosts:       match.SniHosts,
 						tlsContext:     nil, // NO TLS context because this is passthrough
-						networkFilters: buildOutboundNetworkFilters(env, node, clusterName, port),
+						networkFilters: buildOutboundNetworkFilters(env, node, tls.Route, push, port, spec.ConfigMeta),
 					})
 				}
 			}

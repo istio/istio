@@ -195,6 +195,30 @@ func TestRoutes(t *testing.T) {
 			expectedCount: map[string]int{"v1": 100, "v2": 0},
 			operation:     "",
 		},
+		{
+			testName:      "a->c[v2=100]_tcp_single",
+			description:   "routing tcp traffic from a to single dest c-v2",
+			config:        "virtualservice-route-tcp-weighted.yaml",
+			scheme:        "http",
+			src:           "a",
+			dst:           "c:90",
+			headerKey:     "",
+			headerVal:     "",
+			expectedCount: map[string]int{"v1": 0, "v2": 100},
+			operation:     "",
+		},
+		{
+			testName:      "b->c[v1=30,v2=70]_tcp_weighted",
+			description:   "routing 30 percent to c-v1, 70 percent to c-v2",
+			config:        "virtualservice-route-tcp-weighted.yaml",
+			scheme:        "http",
+			src:           "b",
+			dst:           "c:90",
+			headerKey:     "",
+			headerVal:     "",
+			expectedCount: map[string]int{"v1": 30, "v2": 70},
+			operation:     "",
+		},
 	}
 
 	t.Run("v1alpha3", func(t *testing.T) {

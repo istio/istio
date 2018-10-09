@@ -18,9 +18,9 @@ import (
 	"github.com/pkg/errors"
 
 	"istio.io/istio/galley/pkg/metadata"
-
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/mcp/snapshot"
 )
 
 var scope = log.RegisterScope("runtime", "Galley runtime", 0)
@@ -179,6 +179,5 @@ func (p *Processor) processEvent(e resource.Event) bool {
 func (p *Processor) publish() {
 	sn := p.state.buildSnapshot()
 
-	// TODO: Set the appropriate name for publishing
-	p.distributor.SetSnapshot("", sn)
+	p.distributor.SetSnapshot(snapshot.DefaultGroup, sn)
 }

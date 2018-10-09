@@ -70,6 +70,9 @@ type rootArgs struct {
 	// whether to print mixer's response. It is useful when using mixc to generate heavy load.
 	printResponse bool
 
+	// Maximum number of report instances to include in each report API call.
+	reportBatchSize int
+
 	tracingOptions *tracing.Options
 }
 
@@ -84,6 +87,8 @@ func addAttributeFlags(cmd *cobra.Command, rootArgs *rootArgs) {
 		"Maximum number of requests per second sent by each worker.")
 	cmd.PersistentFlags().BoolVarP(&rootArgs.printResponse, "print_response", "", true,
 		"Whether to print mixer's response, useful when generating heavy load with mixc.")
+	cmd.PersistentFlags().IntVarP(&rootArgs.reportBatchSize, "report_batch_size", "", 1,
+		"Maximum number of report instances to include in each report API call.")
 
 	cmd.PersistentFlags().StringVarP(&rootArgs.attributes, "attributes", "a", "",
 		"List of name/value auto-sensed attributes specified as name1=value1,name2=value2,...")

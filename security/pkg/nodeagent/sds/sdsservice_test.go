@@ -43,13 +43,12 @@ var (
 	fakePushPrivateKey       = []byte{04}
 
 	fakeCredentialToken = "faketoken"
-
-	fakeSpiffeID = "spiffe://cluster.local/ns/bar/sa/foo"
+	testResourceName    = "default"
 
 	fakeSecret = &model.SecretItem{
 		CertificateChain: fakeCertificateChain,
 		PrivateKey:       fakePrivateKey,
-		ResourceName:     fakeSpiffeID,
+		ResourceName:     testResourceName,
 		Version:          time.Now().String(),
 	}
 
@@ -86,7 +85,7 @@ func testHelper(t *testing.T, testSocket string, cb secretCallback) {
 
 	proxyID := "sidecar~127.0.0.1~id1~local"
 	req := &api.DiscoveryRequest{
-		ResourceNames: []string{fakeSpiffeID},
+		ResourceNames: []string{testResourceName},
 		Node: &core.Node{
 			Id: proxyID,
 		},
@@ -113,7 +112,7 @@ func testHelper(t *testing.T, testSocket string, cb secretCallback) {
 
 	// Request for root certificate.
 	rootCertReq := &api.DiscoveryRequest{
-		ResourceNames: []string{"ROOTCA"},
+		ResourceNames: []string{"ROOTCA", "sub1"},
 		Node: &core.Node{
 			Id: proxyID,
 		},
@@ -140,7 +139,7 @@ func TestStreamSecretsPush(t *testing.T) {
 
 	proxyID := "sidecar~127.0.0.1~id2~local"
 	req := &api.DiscoveryRequest{
-		ResourceNames: []string{fakeSpiffeID},
+		ResourceNames: []string{testResourceName},
 		Node: &core.Node{
 			Id: proxyID,
 		},
@@ -172,7 +171,7 @@ func TestStreamSecretsPush(t *testing.T) {
 	if err = NotifyProxy(proxyID, req.ResourceNames[0], &model.SecretItem{
 		CertificateChain: fakePushCertificateChain,
 		PrivateKey:       fakePushPrivateKey,
-		ResourceName:     fakeSpiffeID,
+		ResourceName:     testResourceName,
 	}); err != nil {
 		t.Errorf("failed to send push notificiation to proxy %q", proxyID)
 	}
@@ -203,7 +202,7 @@ func verifySDSSResponse(t *testing.T, resp *api.DiscoveryResponse, expectedPriva
 	}
 
 	expectedResponseSecret := authapi.Secret{
-		Name: fakeSpiffeID,
+		Name: testResourceName,
 		Type: &authapi.Secret_TlsCertificate{
 			TlsCertificate: &authapi.TlsCertificate{
 				CertificateChain: &core.DataSource{
@@ -239,6 +238,7 @@ func verifySDSSResponseForRootCert(t *testing.T, resp *api.DiscoveryResponse, ex
 						InlineBytes: expectedRootCert,
 					},
 				},
+				VerifySubjectAltName: []string{"sub1"},
 			},
 		},
 	}
@@ -314,7 +314,7 @@ func (*mockSecretStore) GenerateSecret(ctx context.Context, proxyID, resourceNam
 		return nil, fmt.Errorf("unexpected token %q", token)
 	}
 
-	if resourceName == fakeSpiffeID {
+	if resourceName == testResourceName {
 		return fakeSecret, nil
 	}
 
