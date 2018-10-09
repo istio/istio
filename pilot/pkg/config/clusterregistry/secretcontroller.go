@@ -242,8 +242,8 @@ func (c *Controller) addMemberCluster(secretName string, s *corev1.Secret) {
 				})
 			stopCh := make(chan struct{})
 			c.cs.rc[clusterID].ControlChannel = stopCh
-			_ = kubectl.AppendServiceHandler(func(*model.Service, model.Event) { c.discoveryServer.ClearCacheFunc() })
-			_ = kubectl.AppendInstanceHandler(func(*model.ServiceInstance, model.Event) { c.discoveryServer.ClearCacheFunc() })
+			_ = kubectl.AppendServiceHandler(func(*model.Service, model.Event) { c.discoveryServer.ClearCacheFunc()() })
+			_ = kubectl.AppendInstanceHandler(func(*model.ServiceInstance, model.Event) { c.discoveryServer.ClearCacheFunc()() })
 			go kubectl.Run(stopCh)
 		} else {
 			log.Infof("Cluster %s in the secret %s in namespace %s already exists",
@@ -269,6 +269,7 @@ func (c *Controller) deleteMemberCluster(secretName string) {
 			<-c.cs.rc[clusterID].ControlChannel
 			// Deleting remote cluster entry from clusters store
 			delete(c.cs.rc, clusterID)
+			c.discoveryServer.ClearCacheFunc()()
 		}
 	}
 	log.Infof("Number of clusters in the cluster store: %d", len(c.cs.rc))

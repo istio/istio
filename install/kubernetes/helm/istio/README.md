@@ -96,6 +96,8 @@ Helm charts expose configuration options which are currently in alpha.  The curr
 | `mixer.enabled` | Specifies whether Mixer should be installed | true/false | `true` |
 | `pilot.enabled` | Specifies whether Pilot should be installed | true/false | `true` |
 | `grafana.enabled` | Specifies whether Grafana addon should be installed | true/false | `false` |
+| `grafana.persist` | Specifies whether Grafana addon should persist config data | true/false | `false` |
+| `grafana.storageClassName` | If `grafana.persist` is true, specifies the [`StorageClass`](https://kubernetes.io/docs/concepts/storage/storage-classes/) to use for the `PersistentVolumeClaim` | `StorageClass` | "" |
 | `prometheus.enabled` | Specifies whether Prometheus addon should be installed | true/false | `true` |
 | `servicegraph.enabled` | Specifies whether Servicegraph addon should be installed | true/false | `false` |
 | `tracing.enabled` | Specifies whether Tracing(jaeger) addon should be installed | true/false | `false` |

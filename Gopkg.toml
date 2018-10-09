@@ -59,6 +59,11 @@ ignored = [
   name = "github.com/golang/glog"
   source = "github.com/istio/glog"
 
+# v0.3.1 is required for MIT license.
+[[override]]
+  name = "github.com/BurntSushi/toml"
+  version = "v0.3.1"
+
 [[constraint]]
   name = "cloud.google.com/go"
   version = ">=0.20.0, <1.0.0"
@@ -362,7 +367,6 @@ ignored = [
   [[prune.project]]
     name = "github.com/signalfx/com_signalfx_metrics_protobuf"
     non-go = false
-
 
 [[constraint]]
   name = "github.com/gogo/status"

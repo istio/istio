@@ -1,0 +1,33 @@
+[
+    {
+        "name": "outbound|9093||istio-policy.istio-system.svc.cluster.local",
+        "addedViaApi": true,
+        "hostStatuses": [
+            {
+                "address": {
+                    "socketAddress": {
+                        "address": "172.17.0.14",
+                        "portValue": 9093
+                    }
+                },
+                "stats": {
+                    "cx_active": {
+                        "type": "GAUGE"
+                    },
+                    "cx_connect_fail": {},
+                    "cx_total": {},
+                    "rq_active": {
+                        "type": "GAUGE"
+                    },
+                    "rq_error": {},
+                    "rq_success": {},
+                    "rq_timeout": {},
+                    "rq_total": {}
+                },
+                "healthStatus": {
+                    "edsHealthStatus": "UNHEALTHY"
+                }
+            }
+        ]
+    }
+]

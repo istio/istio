@@ -27,30 +27,15 @@ data:
         - "-u"
         - 1337
         - "-m"
-        - {{ "[[ or (index .ObjectMeta.Annotations \"sidecar.istio.io/interceptionMode\") .ProxyConfig.InterceptionMode.String ]]" }}
+        - {{ "[[ annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode ]]" }}
         - "-i"
-        {{ "[[ if (isset .ObjectMeta.Annotations \"traffic.sidecar.istio.io/includeOutboundIPRanges\") -]]" }}
-        {{ "- \"[[ index .ObjectMeta.Annotations \"traffic.sidecar.istio.io/includeOutboundIPRanges\"  ]]\"" }}
-        {{ "[[ else -]]" }}
-        - "{{ .Values.global.proxy.includeIPRanges }}"
-        {{ "[[ end -]]" }}
+        - {{ "\"[[ annotation .ObjectMeta `traffic.sidecar.istio.io/includeOutboundIPRanges` " }} "{{ .Values.global.proxy.includeIPRanges }}" {{ " ]]\"" }}
         - "-x"
-        {{ "[[ if (isset .ObjectMeta.Annotations \"traffic.sidecar.istio.io/excludeOutboundIPRanges\") -]]" }}
-        {{ "- \"[[ index .ObjectMeta.Annotations \"traffic.sidecar.istio.io/excludeOutboundIPRanges\"  ]]\"" }}
-        {{ "[[ else -]]" }}
-        - "{{ .Values.global.proxy.excludeIPRanges }}"
-        {{ "[[ end -]]" }}
+        - {{ "\"[[ annotation .ObjectMeta `traffic.sidecar.istio.io/excludeOutboundIPRanges` " }} "{{ .Values.global.proxy.excludeIPRanges }}" {{ " ]]\"" }}
         - "-b"
-        {{ "[[ if (isset .ObjectMeta.Annotations \"traffic.sidecar.istio.io/includeInboundPorts\") -]]" }}
-        {{ "- \"[[ index .ObjectMeta.Annotations \"traffic.sidecar.istio.io/includeInboundPorts\"  ]]\"" }}
-        {{ "[[ else -]]" }}
-        - {{ "[[ range .Spec.Containers -]][[ range .Ports -]][[ .ContainerPort -]], [[ end -]][[ end -]][[ end]]" }}
+        - {{ "\"[[ annotation .ObjectMeta `traffic.sidecar.istio.io/includeInboundPorts` (includeInboundPorts .Spec.Containers) ]]\"" }}
         - "-d"
-        {{ "[[ if (isset .ObjectMeta.Annotations \"traffic.sidecar.istio.io/excludeInboundPorts\") -]]" }}
-        {{ "- \"[[ index .ObjectMeta.Annotations \"traffic.sidecar.istio.io/excludeInboundPorts\" ]]\"" }}
-        {{ "[[ else -]]" }}
-        - "{{ .Values.global.proxy.excludeInboundPorts }}"
-        {{ "[[ end -]]" }}
+        - {{ "\"[[ excludeInboundPort (annotation .ObjectMeta `status.sidecar.istio.io/port` " }} {{ .Values.global.proxy.statusPort }} {{ ") (annotation .ObjectMeta `traffic.sidecar.istio.io/excludeInboundPorts` " }} "{{ .Values.global.proxy.excludeInboundPorts }}" {{ ") ]]\"" }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
         securityContext:
           capabilities:
@@ -67,26 +52,32 @@ data:
           allowPrivilegeEscalation: false
           {{- end }}
         restartPolicy: Always
-      {{ if eq .Values.global.proxy.enableCoreDump true }}
-      - name: enable-core-dump
-        args:
+      {{- if .Values.global.proxy.enableCoreDump }}
+      - args:
         - -c
-        - sysctl -w kernel.core_pattern=/etc/istio/proxy/core.%e.%p.%t && ulimit -c unlimited
+        - sysctl -w kernel.core_pattern=/var/lib/istio/core.proxy && ulimit -c unlimited
         command:
           - /bin/sh
         image: {{ .Values.global.hub }}/proxy_init:{{ .Values.global.tag }}
         imagePullPolicy: IfNotPresent
+        name: enable-core-dump
         resources: {}
         securityContext:
           privileged: true
       {{ end }}
       containers:
       - name: istio-proxy
-        image: {{ "[[ if (isset .ObjectMeta.Annotations \"sidecar.istio.io/proxyImage\") -]]" }}
-        {{ "\"[[ index .ObjectMeta.Annotations \"sidecar.istio.io/proxyImage\" ]]\"" }}
-        {{ "[[ else -]]" }}
-        {{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}
-        {{ "[[ end -]]" }}
+{{- if contains "/" .Values.global.proxy.image }}
+        image: {{ "[[ annotation .ObjectMeta `sidecar.istio.io/proxyImage` " }} "{{ .Values.global.proxy.image }}" {{ " ]]" }}
+{{- else }}
+        image: {{ "[[ annotation .ObjectMeta `sidecar.istio.io/proxyImage` " }} "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}" {{ " ]]" }}
+{{- end }}
+{{ if ne .Values.global.proxy.stats.prometheusPort 0. }}
+        ports:
+        - containerPort: {{ .Values.global.proxy.stats.prometheusPort }}
+          protocol: TCP
+          name: http-envoy-prom
+{{ end }}
         args:
         - proxy
         - sidecar
@@ -123,7 +114,13 @@ data:
         - {{ "[[ .ProxyConfig.Concurrency ]]" }}
         {{ "[[ end -]]" }}
         - --controlPlaneAuthPolicy
-        - {{ "[[ or (index .ObjectMeta.Annotations \"sidecar.istio.io/controlPlaneAuthPolicy\") .ProxyConfig.ControlPlaneAuthPolicy ]]" }}
+        - {{ "[[ annotation .ObjectMeta `sidecar.istio.io/controlPlaneAuthPolicy` .ProxyConfig.ControlPlaneAuthPolicy ]]" }}
+      {{ "[[- if (ne (annotation .ObjectMeta `status.sidecar.istio.io/port` " }} {{ .Values.global.proxy.statusPort }} {{ ") \"0\") ]]" }}
+        - --statusPort
+        - {{ "[[ annotation .ObjectMeta `status.sidecar.istio.io/port` " }} {{ .Values.global.proxy.statusPort }} {{ " ]]" }}
+        - --applicationPorts
+        - {{ "\"[[ annotation .ObjectMeta `readiness.status.sidecar.istio.io/applicationPorts` (applicationPorts .Spec.Containers) ]]\"" }}
+      {{ "[[- end ]]" }}
         env:
         - name: POD_NAME
           valueFrom:
@@ -142,14 +139,25 @@ data:
             fieldRef:
               fieldPath: metadata.name
         - name: ISTIO_META_INTERCEPTION_MODE
-          value: {{ "[[ or (index .ObjectMeta.Annotations \"sidecar.istio.io/interceptionMode\") .ProxyConfig.InterceptionMode.String ]]" }}
+          value: {{ "[[ annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode ]]" }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+        {{ "[[ if (ne (annotation .ObjectMeta `status.sidecar.istio.io/port` " }} {{ .Values.global.proxy.statusPort }} {{ ") \"0\") ]]" }}
+        readinessProbe:
+          httpGet:
+            path: /healthz/ready
+            port: {{ "[[ annotation .ObjectMeta `status.sidecar.istio.io/port` " }} {{ .Values.global.proxy.statusPort }} {{ " ]]" }}
+          initialDelaySeconds: {{ "[[ annotation .ObjectMeta `readiness.status.sidecar.istio.io/initialDelaySeconds` " }} {{ .Values.global.proxy.readinessInitialDelaySeconds }} {{ " ]]" }}
+          periodSeconds: {{ "[[ annotation .ObjectMeta `readiness.status.sidecar.istio.io/periodSeconds` " }} {{ .Values.global.proxy.readinessPeriodSeconds }} {{ " ]]" }}
+          failureThreshold: {{ "[[ annotation .ObjectMeta `readiness.status.sidecar.istio.io/failureThreshold` " }} {{ .Values.global.proxy.readinessFailureThreshold }} {{ " ]]" }}
+        {{ "[[ end -]]" -}}
         securityContext:
           {{ if .Values.global.proxy.privileged }}
           privileged: true
           {{ end -}}
+          {{- if ne .Values.global.proxy.enableCoreDump true }}
           readOnlyRootFilesystem: true
-          {{ "[[ if eq (or (index .ObjectMeta.Annotations \"sidecar.istio.io/interceptionMode\") .ProxyConfig.InterceptionMode.String) \"TPROXY\" -]]" }}
+          {{- end }}
+          {{ "[[ if eq (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) \"TPROXY\" -]]" }}
           capabilities:
             add:
             - NET_ADMIN
@@ -159,10 +167,10 @@ data:
           {{ "[[ end -]]" }}
         restartPolicy: Always
         resources:
-          {{ "[[ if (isset .ObjectMeta.Annotations \"sidecar.istio.io/proxyCPU\") -]]" }}
+          {{ "[[ if (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPU`) -]]" }}
           requests:
-            cpu: {{ "\"[[ index .ObjectMeta.Annotations \"sidecar.istio.io/proxyCPU\" ]]\"" }}
-            memory: {{ "\"[[ index .ObjectMeta.Annotations \"sidecar.istio.io/proxyMemory\" ]]\"" }}
+            cpu: {{ "\"[[ index .ObjectMeta.Annotations `sidecar.istio.io/proxyCPU` ]]\"" }}
+            memory: {{ "\"[[ index .ObjectMeta.Annotations `sidecar.istio.io/proxyMemory` ]]\"" }}
         {{ "[[ else -]]" }}
 {{- if .Values.global.proxy.resources }}
 {{ toYaml .Values.global.proxy.resources | indent 10 }}

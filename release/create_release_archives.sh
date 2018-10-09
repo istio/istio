@@ -112,6 +112,7 @@ ${CP} istio.VERSION LICENSE README.md "${COMMON_FILES_DIR}"/
 find samples install -type f \( \
   -name "*.yaml" \
   -o -name "*.yml" \
+  -o -name "*.json" \
   -o -name "*.cfg" \
   -o -name "*.j2" \
   -o -name "cleanup*" \

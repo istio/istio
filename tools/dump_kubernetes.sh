@@ -7,6 +7,8 @@
 #   definitions, configmaps, secrets (names only) and "all" as defined by
 #   kubectl.
 
+COREDUMP_DIR="/var/lib/istio"
+
 error() {
   echo "$*" >&2
 }
@@ -118,13 +120,14 @@ copy_core_dumps_if_istio_proxy() {
   local namespace="${1}"
   local pod="${2}"
   local container="${3}"
+  local got_core_dump=false
 
   if [ "istio-proxy" = "${container}" ]; then
     local out_dir="${LOG_DIR}/${namespace}/${pod}"
     mkdir -p "${out_dir}"
     local core_dumps
     core_dumps=$(kubectl exec -n "${namespace}" "${pod}" -c "${container}" -- \
-        find /etc/istio/proxy /var/istio/proxy -name 'core.*')
+        find ${COREDUMP_DIR} -name 'core.*')
     for f in ${core_dumps}; do
       local out_file
       out_file="${out_dir}/$(basename "${f}")"
@@ -133,12 +136,18 @@ copy_core_dumps_if_istio_proxy() {
           cat "${f}" > "${out_file}"
 
       log "Copied ${namespace}/${pod}/${container}:${f} to ${out_file}"
+      got_core_dump=true
     done
+  fi
+  if [ "${got_core_dump}" = true ]; then
+    return 254
   fi
 }
 
 # Run functions on each container. Each argument should be a function which
 # takes 3 args: ${namespace} ${pod} ${container}.
+# If any of the called functions returns error, tap_containers returns
+# immediately with that error.
 tap_containers() {
   local functions=( "$@" )
 
@@ -156,12 +165,14 @@ tap_containers() {
       for container in ${containers}; do
 
         for f in "${functions[@]}"; do
-          "${f}" "${namespace}" "${pod}" "${container}"
+          "${f}" "${namespace}" "${pod}" "${container}" || return $?
         done
 
       done
     done
   done
+
+  return 0
 }
 
 dump_kubernetes_resources() {
@@ -249,14 +260,14 @@ check_logs_for_errors() {
 }
 
 main() {
+  local exit_code=0
   parse_args "$@"
   check_prerequisites kubectl
   dump_time
   dump_pilot
   dump_resources
-  tap_containers dump_logs_for_container copy_core_dumps_if_istio_proxy
+  exit_code=tap_containers dump_logs_for_container copy_core_dumps_if_istio_proxy
 
-  local exit_code=0
   if [ "${SHOULD_CHECK_LOGS_FOR_ERRORS}" = true ]; then
     if ! check_logs_for_errors; then
       exit_code=255

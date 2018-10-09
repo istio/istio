@@ -141,6 +141,15 @@ func (mb *MutableBag) Get(name string) (interface{}, bool) {
 	return r, b
 }
 
+// Contains returns true if the key is present in the bag.
+func (mb *MutableBag) Contains(key string) bool {
+	if _, found := mb.values[key]; found {
+		return true
+	}
+
+	return mb.parent.Contains(key)
+}
+
 // Names returns the names of all the attributes known to this bag.
 func (mb *MutableBag) Names() []string {
 	if mb == nil {
@@ -194,16 +203,9 @@ func (mb *MutableBag) Reset() {
 // Note that this does a 'shallow' merge. Only the value defined explicitly in the
 // mutable bags themselves, and not in any of their parents, are considered.
 func (mb *MutableBag) Merge(bag *MutableBag) {
-	// get the known symbols for the target bag
-	names := make(map[string]bool)
-	for _, name := range mb.Names() {
-		names[name] = true
-	}
-
 	for k, v := range bag.values {
 		// the input bags cannot override values already in the destination bag
-		_, found := names[k]
-		if !found {
+		if !mb.Contains(k) {
 			mb.values[k] = copyValue(v)
 		}
 	}

@@ -84,7 +84,7 @@ func getValidatorForTest() (*Validator, error) {
 		return nil, err
 	}
 	groupVersion := &schema.GroupVersion{Group: crd.ConfigAPIGroup, Version: crd.ConfigAPIVersion}
-	s, err := store.NewRegistry(config.StoreInventory()...).NewStore("fs://"+path, groupVersion)
+	s, err := store.NewRegistry(config.StoreInventory()...).NewStore("fs://"+path, groupVersion, []string{})
 	if err != nil {
 		return nil, err
 	}

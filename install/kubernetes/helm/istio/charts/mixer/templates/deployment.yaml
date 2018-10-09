@@ -30,6 +30,13 @@
           - --configStoreURL=k8s://
           - --configDefaultNamespace={{ $.Release.Namespace }}
           - --trace_zipkin_url=http://zipkin:9411/api/v1/spans
+        {{- if .Values.env }}
+        env:
+        {{- range $key, $val := .Values.env }}
+        - name: {{ $key }}
+          value: "{{ $val }}"
+        {{- end }}
+        {{- end }}
         resources:
 {{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 10 }}
@@ -51,6 +58,12 @@
         ports:
         - containerPort: 9091
         - containerPort: 15004
+{{ if ne .Values.global.proxy.stats.prometheusPort 0. }}
+        ports:
+        - containerPort: {{ .Values.global.proxy.stats.prometheusPort }}
+          protocol: TCP
+          name: http-envoy-prom
+{{ end }}
         args:
         - proxy
         - --serviceCluster
@@ -125,6 +138,13 @@
           - --configStoreURL=k8s://
           - --configDefaultNamespace={{ $.Release.Namespace }}
           - --trace_zipkin_url=http://zipkin:9411/api/v1/spans
+        {{- if .Values.env }}
+        env:
+        {{- range $key, $val := .Values.env }}
+        - name: {{ $key }}
+          value: "{{ $val }}"
+        {{- end }}
+        {{- end }}
         resources:
 {{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 10 }}
@@ -146,6 +166,12 @@
         ports:
         - containerPort: 9091
         - containerPort: 15004
+{{ if ne .Values.global.proxy.stats.prometheusPort 0. }}
+        ports:
+        - containerPort: {{ .Values.global.proxy.stats.prometheusPort }}
+          protocol: TCP
+          name: http-envoy-prom
+{{ end }}
         args:
         - proxy
         - --serviceCluster
