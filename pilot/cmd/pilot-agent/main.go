@@ -66,8 +66,8 @@ var (
 	concurrency              int
 	templateFile             string
 	disableInternalTelemetry bool
-	appReadiness             status.AppProbeInfo
-	appLiveness              status.AppProbeInfo
+	appReadyURL              string
+	appLiveURL               string
 
 	loggingOptions = log.DefaultOptions()
 
@@ -264,8 +264,8 @@ var (
 					AdminPort:        proxyAdminPort,
 					StatusPort:       statusPort,
 					ApplicationPorts: parsedPorts,
-					AppReadiness:     &appReadiness,
-					AppLiveness:      &appLiveness,
+					AppReadyURL:      appReadyURL,
+					AppLiveURL:       appLiveURL,
 				})
 				go statusServer.Run(ctx)
 			}
@@ -366,14 +366,10 @@ func init() {
 		"Disable internal telemetry")
 
 	// Flags for Pilot agent to take over Kubernetes readiness and liveness check.
-	proxyCmd.PersistentFlags().StringVar(&appLiveness.Path, "appLivenessPath", "",
-		"The path for the application liveness check.")
-	proxyCmd.PersistentFlags().Uint16Var(&appLiveness.Port, "appLivenessPort", 0, "The port application itself"+
-		"used for readiness health check.")
-	proxyCmd.PersistentFlags().StringVar(&appReadiness.Path, "appReadinessPath", "",
-		"The path for the application readiness check.")
-	proxyCmd.PersistentFlags().Uint16Var(&appReadiness.Port, "appReadinessPort", 0, "The port application itself"+
-		"used for readiness health check.")
+	proxyCmd.PersistentFlags().StringVar(&appLiveURL, "appLiveUrl", "",
+		"The url, including path and port, for the application liveness check. Examples, \"/path\", \":8080/path\"")
+	proxyCmd.PersistentFlags().StringVar(&appReadyURL, "appReadyUrl", "",
+		"The url, including path and port for the app readiness check. Examples, \"/path\", \":8080/path\"")
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)
