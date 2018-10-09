@@ -58,11 +58,12 @@ SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
 source "${SCRIPTPATH}/docker_tag_push_lib.sh"
 
 TEMP_DIR=$(mktemp -d)
-gsutil -m cp "${GCS_PATH}"/docker/* "${TEMP_DIR}"
+mkdir -p "$TEMP_DIR/docker"
+gsutil -m cp "${GCS_PATH}"/docker/* "${TEMP_DIR}/docker"
 
 DOCKER_HUB_ARR=(${DOCKER_HUBS//,/ })
 for HUB in "${DOCKER_HUB_ARR=[@]}"
 do
-  docker_tag_images  "${HUB}" "${VERSION}" "${TEMP_DIR}"
-  docker_push_images "${HUB}" "${VERSION}" "${TEMP_DIR}"
+  docker_tag_images  "${HUB}" "${VERSION}" "${TEMP_DIR}/docker"
+  docker_push_images "${HUB}" "${VERSION}" "${TEMP_DIR}/docker"
 done
