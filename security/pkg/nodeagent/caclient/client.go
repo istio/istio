@@ -25,7 +25,8 @@ import (
 	"google.golang.org/grpc/metadata"
 
 	"istio.io/istio/pkg/log"
-	capb "istio.io/istio/security/proto"
+	//capb "istio.io/istio/security/proto"
+	gcapb "istio.io/istio/security/proto/providers/google"
 )
 
 // Client interface defines the clients need to implement to talk to CA for CSR.
@@ -34,11 +35,18 @@ type Client interface {
 		certValidTTLInSec int64) ([]string /*PEM-encoded certificate chain*/, error)
 }
 
+/*
 type caClient struct {
-	client capb.IstioCertificateServiceClient
+	client gcapb.IstioCertificateServiceClient
+} */
+
+type caClient struct {
+	providerName string
+	googleClient gcapb.IstioCertificateServiceClient
 }
 
 // NewCAClient create an CA client.
+/*
 func NewCAClient(endpoint string, tlsFlag bool) (Client, error) {
 	var opts grpc.DialOption
 	if tlsFlag {
@@ -60,13 +68,44 @@ func NewCAClient(endpoint string, tlsFlag bool) (Client, error) {
 	}
 
 	return &caClient{
-		client: capb.NewIstioCertificateServiceClient(conn),
+		client: gcapb.NewIstioCertificateServiceClient(conn),
 	}, nil
+} */
+
+// NewCAClient create an CA client.
+func NewCAClient(endpoint, CAProviderName string, tlsFlag bool) (Client, error) {
+	var opts grpc.DialOption
+	if tlsFlag {
+		pool, err := x509.SystemCertPool()
+		if err != nil {
+			log.Errorf("could not get SystemCertPool: %v", err)
+			return nil, errors.New("could not get SystemCertPool")
+		}
+		creds := credentials.NewClientTLSFromCert(pool, "")
+		opts = grpc.WithTransportCredentials(creds)
+	} else {
+		opts = grpc.WithInsecure()
+	}
+
+	conn, err := grpc.Dial(endpoint, opts)
+	if err != nil {
+		log.Errorf("Failed to connect to endpoint %q: %v", endpoint, err)
+		return nil, fmt.Errorf("failed to connect to endpoint %q", endpoint)
+	}
+
+	switch CAProviderName {
+	case "GOOGLE":
+		return &caClient{
+			googleClient: gcapb.NewIstioCertificateServiceClient(conn),
+		}, nil
+	default:
+		return nil, nil
+	}
 }
 
 func (cl *caClient) CSRSign(ctx context.Context, csrPEM []byte, token string,
 	certValidTTLInSec int64) ([]string /*PEM-encoded certificate chain*/, error) {
-	req := &capb.IstioCertificateRequest{
+	req := &gcapb.IstioCertificateRequest{
 		Csr:              string(csrPEM),
 		ValidityDuration: certValidTTLInSec,
 	}
