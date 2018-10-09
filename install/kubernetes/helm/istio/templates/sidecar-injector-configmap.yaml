@@ -39,9 +39,18 @@ data:
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
         securityContext:
           capabilities:
+          {{- if .Values.global.proxy.privileged }}
             add:
-            - NET_ADMIN
+              - "NET_ADMIN"
           privileged: true
+          {{- else }}
+            drop:
+             - "all"
+            add:
+              - "NET_ADMIN"
+              - "NET_RAW"
+          allowPrivilegeEscalation: false
+          {{- end }}
         restartPolicy: Always
       {{- if .Values.global.proxy.enableCoreDump }}
       - args:
