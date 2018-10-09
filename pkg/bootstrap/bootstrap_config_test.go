@@ -14,11 +14,17 @@
 package bootstrap
 
 import (
+	"encoding/base64"
 	"io/ioutil"
 	"os"
+	"reflect"
 	"testing"
 
+	"github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v2"
+	"github.com/ghodss/yaml"
+	"github.com/gogo/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
+	diff "gopkg.in/d4l3k/messagediff.v1"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 )
@@ -30,17 +36,32 @@ import (
 // cp $TOP/out/linux_amd64/release/bootstrap/default/envoy-rev0.json pkg/bootstrap/testdata/default_golden.json
 func TestGolden(t *testing.T) {
 	cases := []struct {
-		base string
+		base        string
+		labels      map[string]string
+		annotations map[string]string
 	}{
 		{
-			"auth",
+			base: "auth",
 		},
 		{
-			"default",
+			base: "default",
+		},
+		{
+			base: "running",
+			labels: map[string]string{
+				"ISTIO_PROXY_SHA":     "istio-proxy:sha",
+				"INTERCEPTION_MODE":   "REDIRECT",
+				"ISTIO_PROXY_VERSION": "istio-proxy:version",
+				"ISTIO_VERSION":       "release-3.1",
+				"POD_NAME":            "svc-0-0-0-6944fb884d-4pgx8",
+			},
+			annotations: map[string]string{
+				"istio.io/insecurepath": "{\"paths\":[\"/metrics\",\"/live\"]}",
+			},
 		},
 		{
 			// Specify zipkin/statsd address, similar with the default config in v1 tests
-			"all",
+			base: "all",
 		},
 	}
 
@@ -55,11 +76,14 @@ func TestGolden(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+
+			_, localEnv := createEnv(c.labels, c.annotations)
 			fn, err := WriteBootstrap(cfg, "sidecar~1.2.3.4~foo~bar", 0, []string{
-				"spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"}, nil)
+				"spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"}, nil, localEnv)
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			real, err := ioutil.ReadFile(fn)
 			if err != nil {
 				t.Error("Error reading generated file ", err)
@@ -69,8 +93,38 @@ func TestGolden(t *testing.T) {
 			if err != nil {
 				golden = []byte{}
 			}
-			if string(real) != string(golden) {
-				t.Error("Generated incorrect config, want:\n" + string(golden) + "\ngot:\n" + string(real))
+
+			realM := v2.Bootstrap{}
+			goldenM := v2.Bootstrap{}
+
+			jgolden, err := yaml.YAMLToJSON(golden)
+
+			if err != nil {
+				t.Fatalf("unable to convert: %s %v", c.base, err)
+			}
+
+			if err = jsonpb.UnmarshalString(string(jgolden), &goldenM); err != nil {
+				t.Fatalf("invalid json %s %s\n%v", c.base, err, string(jgolden))
+			}
+
+			if err = goldenM.Validate(); err != nil {
+				t.Fatalf("invalid golder: %v", err)
+			}
+
+			jreal, err := yaml.YAMLToJSON(real)
+
+			if err != nil {
+				t.Fatalf("unable to convert: %v", err)
+			}
+
+			if err = jsonpb.UnmarshalString(string(jreal), &realM); err != nil {
+				t.Fatalf("invalid json %v\n%s", err, string(real))
+			}
+
+			if !reflect.DeepEqual(realM, goldenM) {
+				s, _ := diff.PrettyDiff(realM, goldenM)
+				t.Logf("difference: %s", s)
+				t.Fatalf("\n got: %v\nwant: %v", realM, goldenM)
 			}
 		})
 	}
@@ -184,5 +238,76 @@ func TestStoreHostPort(t *testing.T) {
 	expected := "{\"address\": \"istio-pilot\", \"port_value\": 15005}"
 	if actual != expected {
 		t.Errorf("expected value %q, got %q", expected, actual)
+	}
+}
+
+type encodeFn func(string) string
+
+func envEncode(m map[string]string, prefix string, encode encodeFn, out []string) []string {
+	for k, v := range m {
+		out = append(out, prefix+encode(k)+"="+encode(v))
+	}
+	return out
+}
+
+// createEnv takes labels and annotations are returns environment in go format.
+func createEnv(labels map[string]string, anno map[string]string) (map[string]string, []string) {
+	merged := map[string]string{}
+	mergeMap(merged, labels)
+	mergeMap(merged, anno)
+
+	envs := make([]string, 0)
+	envs = envEncode(labels, IstioMetaPrefix, func(s string) string {
+		return s
+	}, envs)
+	envs = envEncode(anno, IstioMetaB64Prefix, func(s string) string {
+		return base64.StdEncoding.EncodeToString([]byte(s))
+	}, envs)
+
+	return merged, envs
+}
+
+func TestNodeMetadata(t *testing.T) {
+	labels := map[string]string{
+		"l1":    "v1",
+		"l2":    "v2",
+		"istio": "sidecar",
+	}
+	anno := map[string]string{
+		"istio.io/enable": "{\"abc\": 20}",
+	}
+
+	_, envs := createEnv(labels, nil)
+	nm := getNodeMetaData(envs)
+
+	if !reflect.DeepEqual(nm, labels) {
+		t.Fatalf("Maps are not equal.\ngot: %v\nwant: %v", nm, labels)
+	}
+
+	merged, envs := createEnv(labels, anno)
+
+	nm = getNodeMetaData(envs)
+	if !reflect.DeepEqual(nm, merged) {
+		t.Fatalf("Maps are not equal.\ngot: %v\nwant: %v", nm, merged)
+	}
+
+	t.Logf("envs => %v\nnm=> %v", envs, nm)
+
+	// encode string incorrectly,
+	// a warning is logged, but everything else works.
+	envs = envEncode(anno, IstioMetaB64Prefix, func(s string) string {
+		return s
+	}, envs)
+
+	nm = getNodeMetaData(envs)
+	if !reflect.DeepEqual(nm, merged) {
+		t.Fatalf("Maps are not equal.\ngot: %v\nwant: %v", nm, merged)
+	}
+
+}
+
+func mergeMap(to map[string]string, from map[string]string) {
+	for k, v := range from {
+		to[k] = v
 	}
 }
