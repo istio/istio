@@ -16,7 +16,11 @@ package bookinfo
 
 import (
 	"fmt"
+	"path"
 	"reflect"
+
+	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/framework/scopes"
 
 	"istio.io/istio/pkg/test/deployment"
 	"istio.io/istio/pkg/test/framework/dependency"
@@ -30,6 +34,13 @@ var (
 	KubeComponent = &component{}
 
 	_ environment.BookInfo = &bookInfo{}
+)
+
+type bookInfoConfig string
+
+const (
+	// BookInfoConfig uses "bookinfo.yaml"
+	BookInfoConfig bookInfoConfig = "bookinfo.yaml"
 )
 
 type component struct {
@@ -63,20 +74,25 @@ func (c *component) Init(ctx environment.ComponentContext, _ map[dependency.Inst
 	}, nil
 }
 
-func (b *bookInfo) Deploy() error {
-	_, err := deployment.NewBookInfo(&deployment.Settings{
-		WorkDir:    b.ctx.Settings().WorkDir,
-		KubeConfig: b.env.KubeSettings().KubeConfig,
-		Namespace:  b.env.KubeSettings().TestNamespace,
-		Images:     b.env.KubeSettings().Images,
-	},
-		deployment.BookInfoConfig,
-		b.env.Accessor,
-	)
+func (b *bookInfo) Deploy() (err error) {
+	scopes.CI.Info("=== BEGIN: Deploy BookInfoConfig (via Yaml File) ===")
+	defer func() {
+		if err != nil {
+			scopes.CI.Infof("=== FAILED: Deploy BookInfoConfig ===")
+		} else {
+			scopes.CI.Infof("=== SUCCEEDED: Deploy BookInfoConfig ===")
+		}
+	}()
+
+	yamlFile := path.Join(env.BookInfoKube, string(BookInfoConfig))
+	_, err = deployment.NewYamlDeployment(b.env.Accessor,
+		b.env.KubeSettings().KubeConfig,
+		b.env.KubeSettings().TestNamespace,
+		yamlFile)
 
 	if err != nil {
 		return fmt.Errorf("BookInfoConfig deployment failed: %v", err) // nolint:golint
 	}
 
-	return nil
+	return
 }

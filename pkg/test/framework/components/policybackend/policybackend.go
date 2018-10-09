@@ -183,9 +183,9 @@ func (c *kubeComponent) Init(ctx environment.ComponentContext, deps map[dependen
 	s := e.KubeSettings()
 
 	result, err := tmpl.Evaluate(template, map[string]interface{}{
-		"Hub":             s.Images.Hub,
-		"Tag":             s.Images.Tag,
-		"ImagePullPolicy": s.Images.ImagePullPolicy,
+		"Hub":             s.Values[kubernetes.HubValuesKey],
+		"Tag":             s.Values[kubernetes.TagValuesKey],
+		"ImagePullPolicy": s.Values[kubernetes.ImagePullPolicyValuesKey],
 		"deployment":      "policy-backend",
 		"app":             "policy-backend",
 		"version":         "test",
