@@ -710,10 +710,22 @@ func compareDeployments(got, want *extv1beta1.Deployment, name string, t *testin
 	gotIstioProxy.Image = wantIstioProxy.Image
 	gotIstioProxy.TerminationMessagePath = wantIstioProxy.TerminationMessagePath
 	gotIstioProxy.TerminationMessagePolicy = wantIstioProxy.TerminationMessagePolicy
+
+	// collect automatically injected pod labels so that they can
+	// be adjusted later.
+	envNames := map[string]bool{}
+	for k := range got.Spec.Template.ObjectMeta.Labels {
+		envNames["ISTIO_META_"+k] = true
+	}
+
 	envVars := make([]corev1.EnvVar, 0)
 	for _, env := range gotIstioProxy.Env {
 		if env.ValueFrom != nil {
 			env.ValueFrom.FieldRef.APIVersion = ""
+		}
+		// adjust for injected var names.
+		if _, found := envNames[env.Name]; found || strings.HasPrefix(env.Name, "ISTIO_METAB64_") {
+			continue
 		}
 		envVars = append(envVars, env)
 	}

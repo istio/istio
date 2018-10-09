@@ -190,7 +190,8 @@ func getNodeMetaData(envs []string) map[string]string {
 		ba, err := base64.StdEncoding.DecodeString(s)
 		return string(ba), err
 	}, func(s string) bool {
-		return strings.Contains(s, "istio.io")
+		// sidecar.istio.io is meant for local consumption
+		return strings.Contains(s, "istio.io") && !strings.HasPrefix(s, "sidecar.istio.io")
 	}, meta)
 
 	meta["istio"] = "sidecar"
