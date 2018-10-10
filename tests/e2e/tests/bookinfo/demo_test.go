@@ -310,7 +310,9 @@ func TestExternalDetailsService(t *testing.T) {
 
 	var rules = []string{detailsExternalServiceRouteRule, detailsExternalServiceEgressRule}
 
-	doTestExternalDetailsService(t, "v1alpha3", rules)
+	for i := 0; i < 2 ; i++ {
+		doTestExternalDetailsService(t, "v1alpha3", rules)
+	}
 }
 
 func doTestExternalDetailsService(t *testing.T, configVersion string, rules []string) {

@@ -37,7 +37,11 @@ var (
 	// version is the timestamp of the last registry event.
 	version = "0"
 
+	// versionNum counts versions
+	versionNum = 1
+
 	periodicRefreshMetrics = 10 * time.Second
+
 )
 
 const (
@@ -314,7 +318,8 @@ func (s *DiscoveryServer) Push(full bool, edsUpdates map[string]*model.ServiceSh
 
 	s.mutex.Lock()
 	s.Env.PushContext = push
-	versionLocal := time.Now().Format(time.RFC3339)
+	versionLocal := time.Now().Format(time.RFC3339) + "/" + strconv.Itoa(versionNum)
+	versionNum++
 	initContextTime := time.Since(t0)
 	adsLog.Debugf("InitContext %v for push took %s", versionLocal, initContextTime)
 	s.mutex.Unlock()

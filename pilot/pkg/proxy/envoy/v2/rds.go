@@ -24,7 +24,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 )
 
-func (s *DiscoveryServer) pushRoute(con *XdsConnection, push *model.PushContext) error {
+func (s *DiscoveryServer) pushRoute(con *XdsConnection, push *model.PushContext, ver string) error {
 	rawRoutes, err := s.generateRawRoutes(con, push)
 	if err != nil {
 		return err
@@ -48,7 +48,7 @@ func (s *DiscoveryServer) pushRoute(con *XdsConnection, push *model.PushContext)
 	}
 	pushes.With(prometheus.Labels{"type": "rds"}).Add(1)
 
-	adsLog.Infof("ADS: RDS: PUSH for node: %s addr:%s routes:%d", con.modelNode.ID, con.PeerAddr, len(rawRoutes))
+	adsLog.Infof("ADS: RDS: PUSH for node: %s addr:%s routes:%d ver:%s", con.modelNode.ID, con.PeerAddr, len(rawRoutes), ver)
 	return nil
 }
 

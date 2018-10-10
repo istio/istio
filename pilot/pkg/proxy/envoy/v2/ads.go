@@ -449,7 +449,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				}
 				con.Routes = routes
 				adsLog.Debugf("ADS:RDS: REQ %s %s  routes: %d", peerAddr, con.ConID, len(con.Routes))
-				err := s.pushRoute(con, pc)
+				err := s.pushRoute(con, pc, versionInfo())
 				if err != nil {
 					return err
 				}
@@ -570,14 +570,14 @@ func (s *DiscoveryServer) pushAll(con *XdsConnection, pushEv *XdsEvent) error {
 			return err
 		}
 	}
-	if len(con.Routes) > 0 {
-		err := s.pushRoute(con, pushEv.push)
+	if len(con.Clusters) > 0 {
+		err := s.pushEds(pushEv.push, con, true, nil)
 		if err != nil {
 			return err
 		}
 	}
-	if len(con.Clusters) > 0 {
-		err := s.pushEds(pushEv.push, con, true, nil)
+	if len(con.Routes) > 0 {
+		err := s.pushRoute(con, pushEv.push, pushEv.version)
 		if err != nil {
 			return err
 		}
