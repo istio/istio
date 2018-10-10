@@ -66,11 +66,14 @@ def MonthlyPipeline():
     Variable.set('monthly-branch', 'INVALID')
     commit = conf.get('COMMIT') or branch
 
+    github_org = conf.get('GITHUB_ORG') or "istio"
+
     default_conf = environment_config.GetDefaultAirflowConfig(
         branch=branch,
         commit=commit,
         docker_hub=docker_hub,
         gcs_path=gcs_path,
+        github_org=github_org,
         pipeline_type='monthly',
         verify_consistency='true',
         version=version)

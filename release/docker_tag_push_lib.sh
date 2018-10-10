@@ -90,6 +90,9 @@ function add_docker_creds() {
 
   if [[ "${PUSH_HUB}" == "docker.io/istio" ]]; then
     echo "using istio cred for docker"
+    KEYRING="Secrets"
+    KEY="DockerHub"
+
     gsutil -q cp gs://istio-secrets/dockerhub_config.json.enc "$HOME/.docker/config.json.enc"
     gcloud kms decrypt \
        --ciphertext-file="$HOME/.docker/config.json.enc" \

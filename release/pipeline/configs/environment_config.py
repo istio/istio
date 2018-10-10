@@ -29,7 +29,7 @@ airflow_fixed_config = dict(
     TOKEN_FILE='/var/run/secrets/kubernetes.io/serviceaccount/tokenFile')
 
 
-def GetDefaultAirflowConfig(branch, commit, docker_hub, gcs_path, pipeline_type,
+def GetDefaultAirflowConfig(branch, commit, docker_hub, gcs_path, github_org, pipeline_type,
 			verify_consistency, version):
   """Return a dict of the configuration for the Pipeline."""
   config = dict(airflow_fixed_config)
@@ -38,6 +38,7 @@ def GetDefaultAirflowConfig(branch, commit, docker_hub, gcs_path, pipeline_type,
   config['BRANCH']             = branch
   config['DOCKER_HUB']         = docker_hub # e.g. docker.io/istio
   config['GCS_STAGING_PATH']   = gcs_path
+  config['GITHUB_ORG']         = github_org
   config['PIPELINE_TYPE']      = pipeline_type
   config['VERIFY_CONSISTENCY'] = verify_consistency
   config['VERSION']            = version
@@ -60,6 +61,6 @@ def GetDefaultAirflowConfig(branch, commit, docker_hub, gcs_path, pipeline_type,
 
 def GetDefaultAirflowConfigKeys():
   """Return a list of the keys of configuration for the Pipeline."""
-  dc = GetDefaultAirflowConfig(branch="", commit="", docker_hub="", gcs_path="", pipeline_type="",
+  dc = GetDefaultAirflowConfig(branch="", commit="", docker_hub="", gcs_path="", github_org = "", pipeline_type="",
 			verify_consistency="", version="")
   return list(dc.keys())

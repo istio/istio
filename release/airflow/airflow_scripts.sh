@@ -101,6 +101,7 @@ function test_command() {
 
 # Called directly by Airflow.
 function modify_values_command() {
+    # shellcheck disable=SC2034
     GCS_PATH="gs://$GCS_BUILD_BUCKET/$GCS_STAGING_PATH"
     create_subs_file "BRANCH" "DOCKER_HUB" "GCS_PATH" "GCS_RELEASE_TOOLS_PATH" "VERSION"
     cat "${SUBS_FILE}"
@@ -129,18 +130,14 @@ function release_push_github_docker_template() {
     # uses the environment variables from list below + $PROJECT_ID $SVC_ACCT
     #BRANCH
     # shellcheck disable=SC2034
-    DOCKER_DST="$DOCKER_HUB"
-    # shellcheck disable=SC2034
     GCS_DST="${GCS_MONTHLY_RELEASE_PATH}"
-    GCS_PATH="${GCS_BUILD_PATH}"
     #GCS_RELEASE_TOOLS_PATH
     GCS_SECRET="${GCS_GITHUB_PATH}"
     GCS_SOURCE="${GCS_FULL_STAGING_PATH}"
-    ORG="${GITHUB_ORG}"
-    # shellcheck disable=SC2034
-    REPO="${GITHUB_REPO}"
-    VER_STRING="${VERSION}"
-    create_subs_file "BRANCH" "DOCKER_DST" "GCS_DST" "GCS_PATH" "GCS_RELEASE_TOOLS_PATH" "GCS_SECRET" "GCS_SOURCE" "ORG" "REPO" "VER_STRING"
+    #GITHUB_ORG
+    #GITHUB_REPO
+    #VERSION
+    create_subs_file "BRANCH" "GCS_DST" "GCS_RELEASE_TOOLS_PATH" "GCS_SECRET" "GCS_SOURCE" "GITHUB_ORG" "GITHUB_REPO" "VERSION"
     cat "${SUBS_FILE}"
 
     run_build "cloud_publish.template.json" \
@@ -152,22 +149,18 @@ function release_push_github_docker_template() {
 function release_tag_github_template() {
     # uses the environment variables from list below + $PROJECT_ID $SVC_ACCT
     #BRANCH
-    # shellcheck disable=SC2034
-    GCS_PATH="${GCS_BUILD_PATH}"
     #GCS_RELEASE_TOOLS_PATH
     # shellcheck disable=SC2034
     GCS_SECRET="${GCS_GITHUB_PATH}"
     # shellcheck disable=SC2034
     GCS_SOURCE="${GCS_FULL_STAGING_PATH}"
-    # shellcheck disable=SC2034
-    ORG="${GITHUB_ORG}"
+    #GITHUB_ORG
     # shellcheck disable=SC2034
     USER_EMAIL="istio_releaser_bot@example.com"
     # shellcheck disable=SC2034
     USER_NAME="IstioReleaserBot"
-    # shellcheck disable=SC2034
-    VER_STRING="${VERSION}"
-    create_subs_file "BRANCH" "GCS_PATH" "GCS_RELEASE_TOOLS_PATH" "GCS_SECRET" "GCS_SOURCE" "ORG" "USER_EMAIL" "USER_NAME" "VER_STRING"
+    #VERSION
+    create_subs_file "BRANCH" "GCS_RELEASE_TOOLS_PATH" "GCS_SECRET" "GCS_SOURCE" "GITHUB_ORG" "USER_EMAIL" "USER_NAME" "VERSION"
     cat "${SUBS_FILE}"
 
     run_build "cloud_tag.template.json" \

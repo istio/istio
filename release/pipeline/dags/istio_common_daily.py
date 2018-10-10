@@ -111,11 +111,14 @@ def DailyPipeline(branch):
 
     commit = conf.get('COMMIT') or ""
 
+    github_org = conf.get('GITHUB_ORG') or "istio"
+
     default_conf = environment_config.GetDefaultAirflowConfig(
         branch=branch,
         commit=commit,
         docker_hub=docker_hub,
         gcs_path=gcs_path,
+        github_org=github_org,
         pipeline_type='daily',
         verify_consistency='false',
         version=version)
