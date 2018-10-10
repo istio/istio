@@ -48,7 +48,6 @@ type (
 	builder struct {
 		makeClient     makeClientFn
 		makeSyncClient makeSyncClientFn
-		types          map[string]*logentry.Type
 		mg             helper.MetadataGenerator
 		cfg            *config.Params
 	}
@@ -82,9 +81,7 @@ func NewBuilder(mg helper.MetadataGenerator) logentry.HandlerBuilder {
 	return &builder{makeClient: logging.NewClient, makeSyncClient: logadmin.NewClient, mg: mg}
 }
 
-func (b *builder) SetLogEntryTypes(types map[string]*logentry.Type) {
-	b.types = types
-}
+func (b *builder) SetLogEntryTypes(types map[string]*logentry.Type) {}
 func (b *builder) SetAdapterConfig(cfg adapter.Config) {
 	b.cfg = cfg.(*config.Params)
 }
@@ -116,11 +113,6 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 
 	infos := make(map[string]info)
 	for name, log := range cfg.LogInfo {
-		_, found := b.types[name]
-		if !found {
-			logger.Infof("configured with log info about %s which is not an Istio log", name)
-			continue
-		}
 		tmpl, err := template.New(name).Parse(log.PayloadTemplate)
 		if err != nil {
 			_ = logger.Errorf("failed to evaluate template for log %s, skipping: %v", name, err)
