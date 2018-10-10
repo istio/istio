@@ -33,12 +33,6 @@ import (
 )
 
 const (
-	// crdRetryTimeout is the default timeout duration to retry initialization
-	// of the caches when some CRDs are missing. The timeout can be customized
-	// through "retry-timeout" query parameter in the config URL,
-	// like k8s://?retry-timeout=1m
-	crdRetryTimeout = time.Second * 30
-
 	// ConfigAPIGroup is the API group for the config CRDs.
 	ConfigAPIGroup = "config.istio.io"
 	// ConfigAPIVersion is the API version for the config CRDs.
@@ -53,8 +47,7 @@ type listerWatcherBuilderInterface interface {
 type Store struct {
 	conf            *rest.Config
 	ns              map[string]bool
-	retryTimeout    time.Duration
-	donec           chan struct{}
+	doneCh          chan struct{}
 	apiGroupVersion string
 
 	cacheMutex sync.Mutex
@@ -69,10 +62,6 @@ type Store struct {
 	listerWatcherBuilder func(conf *rest.Config) (listerWatcherBuilderInterface, error)
 
 	*probe.Probe
-
-	// The interval to wait between the attempt to initialize caches. This is not const
-	// to allow changing the value for unittests.
-	retryInterval time.Duration
 }
 
 var _ store.Backend = new(Store)
@@ -80,11 +69,11 @@ var _ probe.SupportsProbe = new(Store)
 
 // Stop implements store.Backend interface.
 func (s *Store) Stop() {
-	close(s.donec)
+	close(s.doneCh)
 }
 
 // checkAndCreateCaches checks the presence of custom resource definitions through the discovery API,
-// and then create caches through lwBUilder which is in kinds.
+// and then create caches through lwBuilder which is in kinds.
 // Returns the created shared informers, and the list of kinds which are not created yet.
 func (s *Store) checkAndCreateCaches(
 	d discovery.DiscoveryInterface,
@@ -116,7 +105,7 @@ func (s *Store) checkAndCreateCaches(
 			s.informers[res.Kind] = informer
 			delete(kindsSet, res.Kind)
 			informer.AddEventHandler(s)
-			go informer.Run(s.donec)
+			go informer.Run(s.doneCh)
 		}
 	}
 	s.cacheMutex.Unlock()
@@ -264,7 +253,7 @@ func (s *Store) dispatch(ev store.BackendEvent) {
 		return
 	}
 	select {
-	case <-s.donec:
+	case <-s.doneCh:
 	case s.watchCh <- ev:
 	}
 }

@@ -17,7 +17,6 @@ package crd
 import (
 	"net/url"
 	"strings"
-	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -33,7 +32,6 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 
 	"istio.io/istio/mixer/pkg/config/store"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/mcp/creds"
 	"istio.io/istio/pkg/probe"
 )
@@ -66,15 +64,6 @@ func (b *dynamicListerWatcherBuilder) build(res metav1.APIResource) cache.Lister
 func NewStore(u *url.URL, gv *schema.GroupVersion, _ *creds.Options) (store.Backend, error) {
 	kubeconfig := u.Path
 	namespaces := u.Query().Get("ns")
-	retryTimeout := crdRetryTimeout
-	retryTimeoutParam := u.Query().Get("retry-timeout")
-	if retryTimeoutParam != "" {
-		if timeout, err := time.ParseDuration(retryTimeoutParam); err == nil {
-			retryTimeout = timeout
-		} else {
-			log.Errorf("Failed to parse retry-timeout flag, using the default timeout %v: %v", crdRetryTimeout, err)
-		}
-	}
 	conf, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {
 		return nil, err
@@ -83,8 +72,7 @@ func NewStore(u *url.URL, gv *schema.GroupVersion, _ *creds.Options) (store.Back
 	conf.GroupVersion = gv
 	s := &Store{
 		conf:                 conf,
-		retryTimeout:         retryTimeout,
-		donec:                make(chan struct{}),
+		doneCh:               make(chan struct{}),
 		discoveryBuilder:     defaultDiscoveryBuilder,
 		listerWatcherBuilder: newDynamicListenerWatcherBuilder,
 		Probe:                probe.NewProbe(),
@@ -104,6 +92,4 @@ func NewStore(u *url.URL, gv *schema.GroupVersion, _ *creds.Options) (store.Back
 // the whole module because it looks unused.
 func Register(builders map[string]store.Builder) {
 	builders["k8s"] = NewStore
-	builders["kube"] = NewStore
-	builders["kubernetes"] = NewStore
 }

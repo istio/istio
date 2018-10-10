@@ -59,6 +59,7 @@ func (tt *testData) run(t *testing.T, variety v1beta1.TemplateVariety, globalCfg
 
 	args := server.DefaultArgs()
 	args.APIPort = 0
+	args.ConfigStoreURL = ""
 	args.MonitoringPort = 0
 	args.Templates = tt.templates
 	args.Adapters = adapterInfos

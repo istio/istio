@@ -57,7 +57,6 @@ func Register(builders map[string]store.Builder) {
 		return newStore(u, credOptions, nil)
 	}
 
-	builders["mcp"] = builder
 	builders["mcps"] = builder
 }
 

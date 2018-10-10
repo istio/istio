@@ -47,7 +47,7 @@ func NewValidator(tc checker.TypeChecker, s store.Store,
 	if err := s.Init(kinds); err != nil {
 		return nil, err
 	}
-	data, ch, err := store.StartWatch(s, kinds)
+	data, ch, err := store.StartWatch(s)
 	if err != nil {
 		return nil, err
 	}

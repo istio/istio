@@ -107,9 +107,7 @@ func (c *Runtime) StartListening() error {
 		return errors.New("already listening")
 	}
 
-	kinds := config.KindMap(c.snapshot.Adapters, c.snapshot.Templates)
-
-	data, watchChan, err := store.StartWatch(c.store, kinds)
+	data, watchChan, err := store.StartWatch(c.store)
 	if err != nil {
 		return err
 	}
