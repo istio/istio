@@ -43,6 +43,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/log"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 // per-sidecar policy and status
@@ -475,7 +476,9 @@ func isset(m map[string]string, key string) bool {
 	return ok
 }
 
-func injectionData(sidecarTemplate, version string, deploymentMetadata *metav1.ObjectMeta, spec *corev1.PodSpec, metadata *metav1.ObjectMeta, proxyConfig *meshconfig.ProxyConfig, meshConfig *meshconfig.MeshConfig) (*SidecarInjectionSpec, string, error) { // nolint: lll
+func injectionData(sidecarTemplate, version string, deploymentMetadata *metav1.ObjectMeta, spec *corev1.PodSpec,
+	metadata *metav1.ObjectMeta, proxyConfig *meshconfig.ProxyConfig, meshConfig *meshconfig.MeshConfig) (
+		*SidecarInjectionSpec, string, error) { // nolint: lll
 	if err := validateAnnotations(metadata.GetAnnotations()); err != nil {
 		return nil, "", err
 	}
@@ -496,6 +499,7 @@ func injectionData(sidecarTemplate, version string, deploymentMetadata *metav1.O
 		"applicationPorts":    applicationPorts,
 		"annotation":          annotation,
 		"valueOrDefault":      valueOrDefault,
+		"appProbePath":        appProbePath,
 	}
 
 	var tmpl bytes.Buffer
@@ -672,6 +676,23 @@ func intoObject(sidecarTemplate string, meshconfig *meshconfig.MeshConfig, in ru
 	}
 
 	podSpec.InitContainers = append(podSpec.InitContainers, spec.InitContainers...)
+
+	// Remove the application's own http probe.
+	resetFunc := func(probe *corev1.Probe, path string, statusPort int) {
+		if probe == nil || probe.HTTPGet == nil {
+			return
+		}
+		probe.HTTPGet.Path = path
+		probe.HTTPGet.Port = intstr.FromInt(statusPort)
+	}
+	// TODO: figure out how to get the value of statusPort, either one of these:
+	// - parsing sideCarSpecTmpl, find the argument.
+	// - passing params from kubeinject.go of statusPort.
+	// Second is better but requires more plumbing
+	for _, c := range podSpec.Containers {
+		resetFunc(c.ReadinessProbe, "/app/ready", 15020)
+		resetFunc(c.LivenessProbe, "/app/live", 15020)
+	}
 	podSpec.Containers = append(podSpec.Containers, spec.Containers...)
 	podSpec.Volumes = append(podSpec.Volumes, spec.Volumes...)
 
@@ -731,6 +752,24 @@ func annotation(meta metav1.ObjectMeta, name string, defaultValue interface{}) s
 		value = fmt.Sprint(defaultValue)
 	}
 	return value
+}
+
+func appProbePath(kind string, containers []corev1.Container) string {
+	for _, c := range containers {
+		probe := c.ReadinessProbe
+		if kind == "live" {
+			probe = c.LivenessProbe
+		}
+		if probe == nil || probe.Handler.HTTPGet == nil {
+			continue
+		}
+		// TODO(incfly): support more than one container probing.
+		hp := probe.Handler.HTTPGet
+		// TODO: handling named port? need to do a look up for the app container to find the mapping?
+		// Any standard library for this?
+		return fmt.Sprintf(":%v%v", hp.Port.IntVal, hp.Path)
+	}
+	return ""
 }
 
 func excludeInboundPort(port interface{}, excludedInboundPorts string) string {
