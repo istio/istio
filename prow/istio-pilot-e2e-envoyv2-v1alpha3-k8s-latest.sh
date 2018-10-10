@@ -14,10 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 #######################################
 #                                     #
-#             e2e-suite               #
+#        pilot-e2e (v1alpha3)         #
 #                                     #
 #######################################
 
@@ -28,5 +27,12 @@ set -u
 # Print commands
 set -x
 
-echo 'Running e2e with rbac, no auth Tests'
-./prow/e2e-suite.sh "$@"
+export RESOURCE_TYPE="gke-e2e-test-latest"
+
+# Run tests with auth disabled
+#echo 'Running pilot e2e tests (v1alpha3, noauth)'
+./prow/e2e-suite.sh --single_test e2e_pilotv2_v1alpha3
+
+# Run tests with auth enabled
+#echo 'Running pilot e2e tests (v1alpha3, auth)'
+#./prow/e2e-suite.sh --auth_enable=true --v1alpha1=false --single_test e2e_pilot "$@"
