@@ -531,27 +531,26 @@ func TestController_Service(t *testing.T) {
 		map[string]string{},
 		[]int32{8083}, map[string]string{"test-app": "test-app-4"}, t)
 
-	expectedSvcList := []*model.Service{
-		{
-			Hostname: serviceHostname("svc1", "nsA", domainSuffix),
-			Address:  "10.0.0.1",
-			Ports: model.PortList{
-				&model.Port{
-					Name:     "test-port",
-					Port:     8080,
-					Protocol: model.ProtocolTCP,
-				},
+	expectedSvcList := map[model.Hostname]*model.Service{}
+	expectedSvcList[serviceHostname("svc1", "nsA", domainSuffix)] = &model.Service{
+		Hostname: serviceHostname("svc1", "nsA", domainSuffix),
+		Address:  "10.0.0.1",
+		Ports: model.PortList{
+			&model.Port{
+				Name:     "test-port",
+				Port:     8080,
+				Protocol: model.ProtocolTCP,
 			},
 		},
-		{
-			Hostname: serviceHostname("svc2", "nsA", domainSuffix),
-			Address:  "10.0.0.1",
-			Ports: model.PortList{
-				&model.Port{
-					Name:     "test-port",
-					Port:     8081,
-					Protocol: model.ProtocolTCP,
-				},
+	}
+	expectedSvcList[serviceHostname("svc2", "nsA", domainSuffix)] = &model.Service{
+		Hostname: serviceHostname("svc2", "nsA", domainSuffix),
+		Address:  "10.0.0.1",
+		Ports: model.PortList{
+			&model.Port{
+				Name:     "test-port",
+				Port:     8081,
+				Protocol: model.ProtocolTCP,
 			},
 		},
 		{
@@ -582,9 +581,11 @@ func TestController_Service(t *testing.T) {
 	if len(svcList) != len(expectedSvcList) {
 		t.Errorf("Expecting %d service but got %d\r\n", len(expectedSvcList), len(svcList))
 	}
-	for i, exp := range expectedSvcList {
-		if exp.Hostname != svcList[i].Hostname {
-			t.Errorf("got hostname of %dst service, got:\n%#v\nwanted:\n%#v\n", i, svcList[i].Hostname, exp.Hostname)
+
+	for i, svc := range svcList {
+		exp, found := expectedSvcList[svc.Hostname]
+		if !found {
+			t.Errorf("got unexpected hostname of %dst service, got:\n%#v\n", i, svcList[i].Hostname)
 		}
 		if exp.Address != svcList[i].Address {
 			t.Errorf("got address of %dst service, got:\n%#v\nwanted:\n%#v\n", i, svcList[i].Address, exp.Address)
