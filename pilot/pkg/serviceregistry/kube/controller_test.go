@@ -532,25 +532,26 @@ func TestController_Service(t *testing.T) {
 	createEndpoints(controller, "svc1", "nsA", portNames, svc1Ips, t)
 	createEndpoints(controller, "svc2", "nsA", portNames, svc2Ips, t)
 
-	expectedSvcList := map[model.Hostname]*model.Service{
-		serviceHostname("svc1", "nsA", domainSuffix): &model.Service{
-			Address: "10.0.0.1",
-			Ports: model.PortList{
-				&model.Port{
-					Name:     "test-port",
-					Port:     8080,
-					Protocol: model.ProtocolTCP,
-				},
+	expectedSvcList := map[model.Hostname]*model.Service{}
+	expectedSvcList[serviceHostname("svc1", "nsA", domainSuffix)] = &model.Service{
+		Hostname: serviceHostname("svc1", "nsA", domainSuffix),
+		Address:  "10.0.0.1",
+		Ports: model.PortList{
+			&model.Port{
+				Name:     "test-port",
+				Port:     8080,
+				Protocol: model.ProtocolTCP,
 			},
 		},
-		serviceHostname("svc2", "nsA", domainSuffix): &model.Service{
-			Address: "10.0.0.1",
-			Ports: model.PortList{
-				&model.Port{
-					Name:     "test-port",
-					Port:     8081,
-					Protocol: model.ProtocolTCP,
-				},
+	}
+	expectedSvcList[serviceHostname("svc1", "nsA", domainSuffix)] = &model.Service{
+		Hostname: serviceHostname("svc1", "nsA", domainSuffix),
+		Address:  "10.0.0.1",
+		Ports: model.PortList{
+			&model.Port{
+				Name:     "test-port",
+				Port:     8081,
+				Protocol: model.ProtocolTCP,
 			},
 		},
 	}
