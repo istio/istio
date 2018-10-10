@@ -172,14 +172,9 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 	}
 
 	if st == nil {
-		configStoreURL := a.ConfigStoreURL
-		if configStoreURL == "" {
-			configStoreURL = "k8s://"
-		}
-
 		reg := store.NewRegistry(config.StoreInventory()...)
 		groupVersion := &schema.GroupVersion{Group: crd.ConfigAPIGroup, Version: crd.ConfigAPIVersion}
-		if st, err = reg.NewStore(configStoreURL, groupVersion, a.CredentialOptions); err != nil {
+		if st, err = reg.NewStore(a.ConfigStoreURL, groupVersion, a.CredentialOptions); err != nil {
 			_ = s.Close()
 			return nil, fmt.Errorf("unable to connect to the configuration server: %v", err)
 		}

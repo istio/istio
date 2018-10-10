@@ -116,6 +116,7 @@ func DefaultArgs() *Args {
 		MaxConcurrentStreams:   1024,
 		APIWorkerPoolSize:      1024,
 		AdapterWorkerPoolSize:  1024,
+		ConfigStoreURL:         "k8s://",
 		CredentialOptions:      creds.DefaultOptions(),
 		ConfigDefaultNamespace: constant.DefaultConfigNamespace,
 		LoggingOptions:         log.DefaultOptions(),

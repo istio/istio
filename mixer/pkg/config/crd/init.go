@@ -104,6 +104,4 @@ func NewStore(u *url.URL, gv *schema.GroupVersion, _ *creds.Options) (store.Back
 // the whole module because it looks unused.
 func Register(builders map[string]store.Builder) {
 	builders["k8s"] = NewStore
-	builders["kube"] = NewStore
-	builders["kubernetes"] = NewStore
 }
