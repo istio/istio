@@ -22,28 +22,38 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/metadata"
 
 	"istio.io/istio/pkg/log"
-	//capb "istio.io/istio/security/proto"
-	gcapb "istio.io/istio/security/proto/providers/google"
+	caClientInterface "istio.io/istio/security/pkg/nodeagent/caclient/interface"
+	gca "istio.io/istio/security/pkg/nodeagent/caclient/providers/google"
+)
+
+const (
+	googleCA = "GoogleCA"
+	cidatel  = "Citadel"
 )
 
 // Client interface defines the clients need to implement to talk to CA for CSR.
+/*
 type Client interface {
 	CSRSign(ctx context.Context, csrPEM []byte, subjectID string,
-		certValidTTLInSec int64) ([]string /*PEM-encoded certificate chain*/, error)
+		certValidTTLInSec int64) ([]string, error)
+} */
+
+type caClient struct {
+	client caClientInterface.Client
 }
 
 /*
 type caClient struct {
-	client gcapb.IstioCertificateServiceClient
-} */
+	providerName  string
+	googleClient  gcapb.IstioCertificateServiceClient
+	cidatelClient ccapb.IstioCertificateServiceClient
+}
 
 type caClient struct {
-	providerName string
-	googleClient gcapb.IstioCertificateServiceClient
-}
+	client Client
+}*/
 
 // NewCAClient create an CA client.
 /*
@@ -73,7 +83,7 @@ func NewCAClient(endpoint string, tlsFlag bool) (Client, error) {
 } */
 
 // NewCAClient create an CA client.
-func NewCAClient(endpoint, CAProviderName string, tlsFlag bool) (Client, error) {
+func NewCAClient(endpoint, CAProviderName string, tlsFlag bool) (caClientInterface.Client, error) {
 	var opts grpc.DialOption
 	if tlsFlag {
 		pool, err := x509.SystemCertPool()
@@ -94,10 +104,9 @@ func NewCAClient(endpoint, CAProviderName string, tlsFlag bool) (Client, error) 
 	}
 
 	switch CAProviderName {
-	case "GOOGLE":
-		return &caClient{
-			googleClient: gcapb.NewIstioCertificateServiceClient(conn),
-		}, nil
+	case googleCA:
+		log.Infof("******provider is google ca")
+		return gca.NewGoogleCAClient(conn), nil
 	default:
 		return nil, nil
 	}
@@ -105,22 +114,5 @@ func NewCAClient(endpoint, CAProviderName string, tlsFlag bool) (Client, error) 
 
 func (cl *caClient) CSRSign(ctx context.Context, csrPEM []byte, token string,
 	certValidTTLInSec int64) ([]string /*PEM-encoded certificate chain*/, error) {
-	req := &gcapb.IstioCertificateRequest{
-		Csr:              string(csrPEM),
-		ValidityDuration: certValidTTLInSec,
-	}
-
-	ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("Authorization", token))
-	resp, err := cl.client.CreateCertificate(ctx, req)
-	if err != nil {
-		log.Errorf("Failed to create certificate: %v", err)
-		return nil, err
-	}
-
-	if len(resp.CertChain) <= 1 {
-		log.Errorf("CertChain length is %d, expected more than 1", len(resp.CertChain))
-		return nil, errors.New("invalid response cert chain")
-	}
-
-	return resp.CertChain, nil
+	return cl.CSRSign(ctx, csrPEM, token, certValidTTLInSec)
 }

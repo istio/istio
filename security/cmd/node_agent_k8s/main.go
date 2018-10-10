@@ -45,7 +45,7 @@ var (
 
 			stop := make(chan struct{})
 
-			caClient, err := ca.NewCAClient(serverOptions.CAEndpoint, true)
+			caClient, err := ca.NewCAClient(serverOptions.CAEndpoint, "GoogleCA", true)
 			if err != nil {
 				log.Errorf("failed to create caClient: %v", err)
 				return fmt.Errorf("failed to create caClient")
