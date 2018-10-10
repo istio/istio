@@ -69,7 +69,7 @@ func RegisterScope(name string, description string, callerSkip int) *Scope {
 		}
 		s.SetOutputLevel(InfoLevel)
 		s.SetStackTraceLevel(NoneLevel)
-		s.SetLogCallers(false)
+		s.SetLogCallers(true)
 
 		if name != DefaultScopeName {
 			s.nameToEmit = name
