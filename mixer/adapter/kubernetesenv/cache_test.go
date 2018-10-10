@@ -102,8 +102,8 @@ func TestClusterInfoCache_Workload_ReplicationController(t *testing.T) {
 
 	for _, v := range tests {
 		t.Run(v.name, func(tt *testing.T) {
-			c := newCacheController(clientset, 0, test.NewEnv(t))
 			stopCh := make(chan struct{})
+			c := newCacheController(clientset, 0, test.NewEnv(t), stopCh)
 			defer close(stopCh)
 			go c.Run(stopCh)
 			if !cache.WaitForCacheSync(stopCh, c.HasSynced) {

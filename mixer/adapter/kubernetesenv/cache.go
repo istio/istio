@@ -45,7 +45,7 @@ type (
 		stopChan chan struct{}
 		pods     cache.SharedIndexInformer
 		rs       cache.SharedIndexInformer
-		rc   cache.SharedIndexInformer
+		rc       cache.SharedIndexInformer
 	}
 
 	workload struct {
@@ -81,7 +81,7 @@ func newCacheController(clientset kubernetes.Interface, refreshDuration time.Dur
 		stopChan: stopChan,
 		pods:     podInformer,
 		rs:       sharedInformers.Apps().V1().ReplicaSets().Informer(),
-		rc:   sharedInformers.Core().V1().ReplicationControllers().Informer(),
+		rc:       sharedInformers.Core().V1().ReplicationControllers().Informer(),
 	}
 }
 
