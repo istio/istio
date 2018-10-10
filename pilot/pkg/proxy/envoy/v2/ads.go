@@ -141,7 +141,7 @@ var (
 		Name:    "pilot_proxy_convergence_time",
 		Help:    "Delay between config change and all proxies converging.",
 		Buckets: []float64{.01, .1, 1, 3, 5, 10, 30},
-  })    
+	})
 
 	pushContextErrors = prometheus.NewCounter(prometheus.CounterOpts{
 		Name: "pilot_xds_push_context_errors",
