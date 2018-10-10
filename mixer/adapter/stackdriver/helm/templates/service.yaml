@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: stackdriveradapter
+  labels:
+    app: stackdriveradapter
+spec:
+  ports:
+  - name: http
+    port: {{ .Values.service.portNumber }}
+  selector:
+    app: stackdriveradapter

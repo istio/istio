@@ -21,26 +21,25 @@ import (
 	"google.golang.org/genproto/googleapis/api/distribution"
 	monitoringpb "google.golang.org/genproto/googleapis/monitoring/v3"
 
-	descriptor "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/adapter/stackdriver/config"
 )
 
 func toDist(val interface{}, i info) (*monitoringpb.TypedValue, error) {
 	var fval float64
-	switch i.vtype {
-	case descriptor.INT64:
+	switch val.(type) {
+	case int64:
 		if ival, ok := val.(int64); ok {
 			fval = float64(ival)
 		} else {
 			return nil, fmt.Errorf("expected int64 value, got: %#v", val)
 		}
-	case descriptor.DOUBLE:
+	case float64:
 		if dval, ok := val.(float64); ok {
 			fval = dval
 		} else {
 			return nil, fmt.Errorf("expected float64 value, got: %#v", val)
 		}
-	case descriptor.DURATION:
+	case time.Duration:
 		if duval, ok := val.(time.Duration); ok {
 			fval = float64(duval.Nanoseconds()) / float64(time.Millisecond)
 		} else {

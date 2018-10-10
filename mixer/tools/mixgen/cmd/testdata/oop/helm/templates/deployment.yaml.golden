@@ -1,0 +1,17 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: TestAdapteradapter
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: TestAdapteradapter
+    spec:
+      containers:
+      - image: {{ .Values.image.repository }}/TestAdapteradapter:{{ .Values.image.tag }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        name: TestAdapteradapter
+        ports:
+        - containerPort: {{ .Values.service.portNumber }}
