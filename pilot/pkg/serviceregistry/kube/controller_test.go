@@ -544,8 +544,8 @@ func TestController_Service(t *testing.T) {
 			},
 		},
 	}
-	expectedSvcList[serviceHostname("svc1", "nsA", domainSuffix)] = &model.Service{
-		Hostname: serviceHostname("svc1", "nsA", domainSuffix),
+	expectedSvcList[serviceHostname("svc2", "nsA", domainSuffix)] = &model.Service{
+		Hostname: serviceHostname("svc2", "nsA", domainSuffix),
 		Address:  "10.0.0.1",
 		Ports: model.PortList{
 			&model.Port{
