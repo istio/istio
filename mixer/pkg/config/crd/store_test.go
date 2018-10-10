@@ -37,9 +37,6 @@ import (
 	"istio.io/istio/pkg/probe"
 )
 
-// The "retryTimeout" used by the test.
-const testingRetryTimeout = 10 * time.Millisecond
-
 // The timeout for "waitFor" function, waiting for the expected event to come.
 const waitForTimeout = time.Second
 
@@ -139,14 +136,12 @@ func getTempClient() (*Store, string, *dummyListerWatcherBuilder) {
 	}
 	client := &Store{
 		conf:             &rest.Config{},
-		donec:            make(chan struct{}),
-		retryTimeout:     testingRetryTimeout,
+		doneCh:           make(chan struct{}),
 		discoveryBuilder: createFakeDiscovery,
 		listerWatcherBuilder: func(*rest.Config) (listerWatcherBuilderInterface, error) {
 			return lw, nil
 		},
-		Probe:         probe.NewProbe(),
-		retryInterval: 0,
+		Probe: probe.NewProbe(),
 	}
 	return client, ns, lw
 }
@@ -347,8 +342,6 @@ func TestCrdsRetryMakeSucceed(t *testing.T) {
 	s.discoveryBuilder = func(*rest.Config) (discovery.DiscoveryInterface, error) {
 		return fakeDiscovery, nil
 	}
-	// Should set a longer timeout to avoid early quitting retry loop due to lack of computational power.
-	s.retryTimeout = 2 * time.Second
 	err := s.Init([]string{"Handler", "Action"})
 	if err != nil {
 		t.Errorf("Got %v, Want nil", err)
