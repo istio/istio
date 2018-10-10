@@ -59,11 +59,11 @@ func (q *eventQueue) convertValue(ev BackendEvent) (Event, error) {
 }
 
 func (q *eventQueue) run() {
-loop:
+	defer close(q.chout)
 	for {
 		select {
 		case <-q.closec:
-			break loop
+			return
 		case ev := <-q.chin:
 			converted, err := q.convertValue(ev)
 			if err != nil {
@@ -74,7 +74,7 @@ loop:
 			for len(evs) > 0 {
 				select {
 				case <-q.closec:
-					break loop
+					return
 				case ev := <-q.chin:
 					converted, err = q.convertValue(ev)
 					if err != nil {
@@ -88,5 +88,4 @@ loop:
 			}
 		}
 	}
-	close(q.chout)
 }
