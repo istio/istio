@@ -1,8 +1,8 @@
 #
 # nodeagent configuration
 #
-enabled: true
+enabled: false
 image: node-agent-k8s
 env:
-  CA_PROVIDER: "GoogleCA"
-  CA_ADDR: "istioca.googleapis.com:443"
+  CA_PROVIDER: ""
+  CA_ADDR: ""

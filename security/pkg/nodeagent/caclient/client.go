@@ -15,7 +15,6 @@
 package caclient
 
 import (
-	"context"
 	"crypto/x509"
 	"errors"
 	"fmt"
@@ -28,14 +27,7 @@ import (
 	gca "istio.io/istio/security/pkg/nodeagent/caclient/providers/google"
 )
 
-const (
-	googleCA = "GoogleCA"
-	cidatel  = "Citadel"
-)
-
-type caClient struct {
-	client caClientInterface.Client
-}
+const googleCA = "GoogleCA"
 
 // NewCAClient create an CA client.
 func NewCAClient(endpoint, CAProviderName string, tlsFlag bool) (caClientInterface.Client, error) {
@@ -64,9 +56,4 @@ func NewCAClient(endpoint, CAProviderName string, tlsFlag bool) (caClientInterfa
 	default:
 		return nil, nil
 	}
-}
-
-func (cl *caClient) CSRSign(ctx context.Context, csrPEM []byte, token string,
-	certValidTTLInSec int64) ([]string /*PEM-encoded certificate chain*/, error) {
-	return cl.CSRSign(ctx, csrPEM, token, certValidTTLInSec)
 }
