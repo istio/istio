@@ -137,6 +137,12 @@ var (
 		Help: "Number of errors (timeouts) pushing to sidecars.",
 	}, []string{"type"})
 
+	proxiesConvergeDelay = prometheus.NewHistogram(prometheus.HistogramOpts{
+		Name:    "pilot_proxy_convergence_time",
+		Help:    "Delay between config change and all proxies converging.",
+		Buckets: []float64{.01, .1, 1, 3, 5, 10, 30},
+	})
+
 	pushContextErrors = prometheus.NewCounter(prometheus.CounterOpts{
 		Name: "pilot_xds_push_context_errors",
 		Help: "Number of errors (timeouts) initiating push context.",
@@ -163,6 +169,7 @@ func init() {
 	prometheus.MustRegister(pushTimeoutFailures)
 	prometheus.MustRegister(pushes)
 	prometheus.MustRegister(pushErrors)
+	prometheus.MustRegister(proxiesConvergeDelay)
 	prometheus.MustRegister(pushContextErrors)
 	prometheus.MustRegister(totalXDSInternalErrors)
 }
@@ -312,7 +319,6 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 
 // XdsEvent represents a config or registry event that results in a push.
 type XdsEvent struct {
-
 	// If not empty, it is used to indicate the event is caused by a change in the clusters.
 	// Only EDS for the listed clusters will be sent.
 	edsUpdatedServices map[string]*EndpointShardsByService
@@ -626,6 +632,7 @@ func (s *DiscoveryServer) pushAll(con *XdsConnection, pushEv *XdsEvent) error {
 		if n <= 0 && pushEv.push.End == timeZero {
 			// Display again the push status
 			pushEv.push.End = time.Now()
+			proxiesConvergeDelay.Observe(time.Since(pushEv.push.Start).Seconds())
 			out, _ := pushEv.push.JSON()
 			adsLog.Infof("Push finished: %v %s",
 				time.Since(pushEv.push.Start), string(out))
