@@ -35,9 +35,9 @@ import (
 const (
 	// readyPath is for the pilot agent readiness itself.
 	readyPath = "/healthz/ready"
-	// appReadyPath is the path for the application after injecting.
+	// appReadinessPath is the path handled by pilot agent for application's readiness probe.
 	appReadinessPath = "/app/ready"
-	// appHealthPath is the path for the application after injecting.
+	// appLivenessPath is the path handled by pilot agent for application's liveness probe.
 	appLivenessPath = "/app/live"
 )
 
@@ -64,7 +64,6 @@ type Server struct {
 	ready               *ready.Probe
 	appLiveURL          string
 	appReadyURL         string
-	appHttpClient       *http.Client
 	mutex               sync.Mutex
 	lastProbeSuccessful bool
 }
