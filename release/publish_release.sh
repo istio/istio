@@ -62,7 +62,7 @@ Options for disabling types of publishing:
 Options relevant to most features:
     -g <uri>   source of files on gcs (use this or -u)
     -u <dir>   source directory from which to upload artifacts (use this or -g)
-    -v <ver>   version tag of release    (optional for gcs-only publish, otherwise required)
+    -v <ver>   version tag of release
 Options specific to docker hub:
     -c         use istio cred for docker (for cloud builder) (optional)
     -d         docker hub uri (Providing the string \"<none>\" here has the same affect as -z)
@@ -110,7 +110,10 @@ while getopts cd:e:g:h:i:k:l:mn:o:qr:t:u:v:wxyz arg ; do
   esac
 done
 
-if [[ "${DOCKER_DEST}" == "<none>" ]]; then
+[[ -z "${VERSION}" ]] && usage
+
+if [[ "${DOCKER_DEST}" == "<none>" || -z "${DOCKER_DEST}" ]]; then
+  echo "NOTE: An empty string was used for docker hub setting so docker push has been disabled"
   DO_DOCKERHUB="false"
 fi
 
@@ -143,8 +146,8 @@ if [[ "${KEYFILE_DECRYPT}" == "true" ]]; then
 
   cp "${KEYFILE}" "${KEYFILE_ENC}"
   gcloud kms decrypt \
-       --ciphertext-file=$KEYFILE_ENC \
-       --plaintext-file=$KEYFILE_TEMP \
+       --ciphertext-file="$KEYFILE_ENC" \
+       --plaintext-file="$KEYFILE_TEMP" \
        --location=global \
        --keyring=${KEYRING} \
        --key=${KEY}
@@ -160,7 +163,6 @@ UPLOAD_DIR=${UPLOAD_DIR%/}
 if [[ "${DO_GITHUB_TAG}" == "true" ]]; then
   [[ -z "${TOKEN}" ]] && [[ -z "${KEYFILE}" ]] && usage
   [[ -z "${ORG}" ]] && usage
-  [[ -z "${VERSION}" ]] && usage
   # I tried using /user to automatically get name and email, but they're both null
   [[ -z "${USER_NAME}" ]] && usage
   [[ -z "${USER_EMAIL}" ]] && usage
@@ -171,7 +173,6 @@ if [[ "${DO_GITHUB_REL}" == "true" ]]; then
   [[ -z "${TOKEN}" ]] && [[ -z "${KEYFILE}" ]] && usage
   [[ -z "${ORG}" ]] && usage
   [[ -z "${REPO}" ]] && usage
-  [[ -z "${VERSION}" ]] && usage
   [[ -z "${UPLOAD_DIR}" ]] && usage
 fi
 
@@ -182,18 +183,11 @@ fi
 
 if [[ "${DO_GCRHUB}" == "true" ]]; then
   [[ -z "${GCR_DEST}" ]] && usage
-  [[ -z "${VERSION}" ]] && usage
   GCR_DEST=gcr.io/${GCR_DEST%/}
 fi
 
 if [[ "${DO_DOCKERHUB}" == "true" ]]; then
-  if [[ -z "${DOCKER_DEST}" ]]; then
-    echo "NOTE: An empty string was used for docker hub setting so docker push has been disabled"
-    DO_DOCKERHUB="false"
-  else
-    [[ -z "${VERSION}" ]] && usage
     DOCKER_DEST=docker.io/${DOCKER_DEST%/}
-  fi
 fi
 
 # if GCS source dir provided then copy files to local location
@@ -212,18 +206,22 @@ if [[ -n "${GCS_SOURCE}" ]]; then
 
   if [[ "${DO_GCS}" == "true" ]]; then
     mkdir -p "${UPLOAD_DIR}/deb/"
-    gsutil -m cp "gs://${GCS_SOURCE}/deb/istio*.deb" "${UPLOAD_DIR}/deb/"
+    gsutil -m cp gs://"${GCS_SOURCE}"/deb/istio*.deb        "${UPLOAD_DIR}/deb/"
+    gsutil -m cp gs://"${GCS_SOURCE}"/deb/istio*.deb.sha256 "${UPLOAD_DIR}/deb/"
   fi
   if [[ "${DO_GITHUB_TAG}" == "true" || "${DO_GITHUB_REL}" == "true" ]]; then
-    gsutil -m cp "gs://${GCS_SOURCE}/manifest.xml" "${UPLOAD_DIR}/"
+    # previously copied to the /output dir by istio_checkout_code.sh
+    cp "/output/manifest.xml" "${UPLOAD_DIR}/"
   fi
   if [[ "${DO_GITHUB_REL}" == "true" ]]; then
-    gsutil -m cp "gs://${GCS_SOURCE}/docker.io/istio-*.zip" "${UPLOAD_DIR}/"
-    gsutil -m cp "gs://${GCS_SOURCE}/docker.io/istio-*.gz"  "${UPLOAD_DIR}/"
+    gsutil -m cp gs://"${GCS_SOURCE}"/docker.io/istio-*.zip "${UPLOAD_DIR}/"
+    gsutil -m cp gs://"${GCS_SOURCE}"/docker.io/istio-*.gz  "${UPLOAD_DIR}/"
+    gsutil -m cp gs://"${GCS_SOURCE}"/docker.io/istio-*.gz.sha256  "${UPLOAD_DIR}/"
+    gsutil -m cp gs://"${GCS_SOURCE}"/docker.io/istio-*.zip.sha256 "${UPLOAD_DIR}/"
   fi
   if [[ "${DO_GCRHUB}" == "true" || "${DO_DOCKERHUB}" == "true" ]]; then
     mkdir -p "${UPLOAD_DIR}/docker/"
-    gsutil -m cp "gs://${GCS_SOURCE}/docker/*.tar.gz"  "${UPLOAD_DIR}/docker/"
+    gsutil -m cp gs://"${GCS_SOURCE}"/docker/*.tar.gz  "${UPLOAD_DIR}/docker/"
   fi
   echo "Finished downloading files from GCS source"
 fi
@@ -232,30 +230,30 @@ fi
 
 if [[ "${DO_GCS}" == "true" ]]; then
   echo "Copying to GCS destination ${GCS_DEST}"
-  gsutil -m cp "${UPLOAD_DIR}/deb/istio*.deb" "gs://${GCS_DEST}/deb/"
+  gsutil -m cp "${UPLOAD_DIR}"/deb/istio*.deb        "gs://${GCS_DEST}/deb/"
+  gsutil -m cp "${UPLOAD_DIR}"/deb/istio*.deb.sha256 "gs://${GCS_DEST}/deb/"
   echo "Done copying to GCS destination"
 fi
 
 if [[ "${DO_DOCKERHUB}" == "true" || "${DO_GCRHUB}" == "true" ]]; then
-  if [[ -z "$(which docker)" ]]; then
+  if [[ -z "$(command -v docker)" ]]; then
     echo "Could not find 'docker' in path"
     exit 1
   fi
 
   if [[ "${DO_DOCKERHUB}" == "true" && "${ADD_DOCKER_KEY}" == "true" ]]; then
     echo "using istio cred for docker"
-    gsutil cp gs://istio-secrets/dockerhub_config.json.enc $HOME/.docker/config.json.enc
+    gsutil -q cp gs://istio-secrets/dockerhub_config.json.enc "$HOME/.docker/config.json.enc"
     gcloud kms decrypt \
-       --ciphertext-file=$HOME/.docker/config.json.enc \
-       --plaintext-file=$HOME/.docker/config.json \
+       --ciphertext-file="$HOME/.docker/config.json.enc" \
+       --plaintext-file="$HOME/.docker/config.json" \
        --location=global \
        --keyring=${KEYRING} \
        --key=${KEY}
   fi
 
   echo "pushing images to docker and/or gcr"
-  for TAR_PATH in ${UPLOAD_DIR}/docker/*.tar.gz
-  do
+  for TAR_PATH in "${UPLOAD_DIR}"/docker/*.tar.gz; do
     TAR_NAME=$(basename "$TAR_PATH")
     IMAGE_NAME="${TAR_NAME%.tar.gz}"
 
@@ -264,16 +262,18 @@ if [[ "${DO_DOCKERHUB}" == "true" || "${DO_GCRHUB}" == "true" ]]; then
       echo "No image tar files were found in docker/"
       exit 1
     fi
-    docker load -i "${TAR_PATH}"
+    DOCKER_OUT=$(docker load -i "${TAR_PATH}")
+    DOCKER_SRC=$(echo "$DOCKER_OUT" | cut -f 2 -d : | xargs dirname)
+    echo DOCKER_SRC is "$DOCKER_SRC"
 
     if [[ "${DO_DOCKERHUB}" == "true" ]]; then
-      docker tag "istio/${IMAGE_NAME}:${VERSION}" "${DOCKER_DEST}/${IMAGE_NAME}:${VERSION}"
-      docker push "${DOCKER_DEST}/${IMAGE_NAME}:${VERSION}"
+      docker tag "${DOCKER_SRC}/${IMAGE_NAME}:${VERSION}" "${DOCKER_DEST}/${IMAGE_NAME}:${VERSION}"
+      docker push                                         "${DOCKER_DEST}/${IMAGE_NAME}:${VERSION}"
     fi
     if [[ "${DO_GCRHUB}" == "true" ]]; then
       gcloud auth configure-docker -q
-      docker tag "istio/${IMAGE_NAME}:${VERSION}" "${GCR_DEST}/${IMAGE_NAME}:${VERSION}"
-      docker push "${GCR_DEST}/${IMAGE_NAME}:${VERSION}"
+      docker tag "${DOCKER_SRC}/${IMAGE_NAME}:${VERSION}"    "${GCR_DEST}/${IMAGE_NAME}:${VERSION}"
+      docker push                                            "${GCR_DEST}/${IMAGE_NAME}:${VERSION}"
     fi
   done
 
@@ -283,10 +283,10 @@ fi
 if [[ "${DO_GITHUB_TAG}" == "true" ]]; then
   echo "Beginning tag of github"
   if [[ -n "${KEYFILE}" ]]; then
-    ${SCRIPTPATH}/create_tag_reference.sh -k "$KEYFILE" -v "$VERSION" -o "${ORG}" \
+    "${SCRIPTPATH}/create_tag_reference.sh" -k "$KEYFILE" -v "$VERSION" -o "${ORG}" \
            -e "${USER_EMAIL}" -n "${USER_NAME}" -b "${UPLOAD_DIR}/manifest.xml"
   else
-    ${SCRIPTPATH}/create_tag_reference.sh -t "$TOKEN" -v "$VERSION" -o "${ORG}" \
+    "${SCRIPTPATH}/create_tag_reference.sh" -t "$TOKEN" -v "$VERSION" -o "${ORG}" \
            -e "${USER_EMAIL}" -n "${USER_NAME}" -b "${UPLOAD_DIR}/manifest.xml"
   fi
   echo "Completed tag of github"
@@ -296,14 +296,14 @@ fi
 
 if [[ "${DO_GITHUB_REL}" == "true" ]]; then
 
-  SHA=`grep $ORG/$REPO ${UPLOAD_DIR}/manifest.xml | cut -f 6 -d \"`
+  SHA=$(grep "$ORG/$REPO" "${UPLOAD_DIR}/manifest.xml" | cut -f 6 -d \")
 
   echo "Beginning release to github using sha $SHA"
   if [[ -n "${KEYFILE}" ]]; then
-    ${SCRIPTPATH}/create_github_release.sh -o "$ORG" -r "$REPO" -k "$KEYFILE" \
+    "${SCRIPTPATH}/create_github_release.sh" -o "$ORG" -r "$REPO" -k "$KEYFILE" \
            -v "$VERSION" -s "$SHA" -u "${UPLOAD_DIR}"
   else
-    ${SCRIPTPATH}/create_github_release.sh -o "$ORG" -r "$REPO" -t "$TOKEN" \
+    "${SCRIPTPATH}/create_github_release.sh" -o "$ORG" -r "$REPO" -t "$TOKEN" \
            -v "$VERSION" -s "$SHA" -u "${UPLOAD_DIR}"
   fi
   echo "Completed release to github"

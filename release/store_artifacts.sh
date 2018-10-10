@@ -31,9 +31,8 @@ DEFAULT_GCR_PREFIX="istio-testing"
 GCS_PREFIX=""
 GCR_PREFIX=""
 
-VER_STRING="0.0.0"
+VER_STRING=""
 OUTPUT_PATH=""
-BUILD_ID=""
 PUSH_DOCKER="true"
 
 function usage() {
@@ -43,13 +42,12 @@ function usage() {
     -o <path> src path where build output/artifacts were stored (required)
     -p <name> GCS bucket & prefix path where to store build     (optional, defaults to ${DEFAULT_GCS_PREFIX} )
     -q <name> GCR bucket & prefix path where to store build     (optional, defaults to ${DEFAULT_GCR_PREFIX} )
-    -v <ver>  version string for tag & defaulted storage paths  (optional, defaults to ${VER_STRING} )"
+    -v <ver>  version string for tag & defaulted storage paths"
   exit 1
 }
 
-while getopts abi:no:p:q:v: arg ; do
+while getopts ab:no:p:q:v: arg ; do
   case "${arg}" in
-    i) BUILD_ID="${OPTARG}";;
     n) PUSH_DOCKER="false";;
     o) OUTPUT_PATH="${OPTARG}";;
     p) GCS_PREFIX="${OPTARG}";;
@@ -64,36 +62,33 @@ done
 
 # remove any trailing / from GCR_PREFIX since docker doesn't like to see //
 # do the same for GCS for consistency
-
 GCR_PREFIX=${GCR_PREFIX%/}
 GCS_PREFIX=${GCS_PREFIX%/}
-  
-if [[ -z "${GCS_PREFIX}"  ]]; then
-  GCS_PREFIX="${DEFAULT_GCS_PREFIX}"
-fi
 
-if [[ -z "${GCR_PREFIX}"  ]]; then
-  GCR_PREFIX="${DEFAULT_GCR_PREFIX}"
-fi
+GCS_PREFIX=${GCS_PREFIX:-$DEFAULT_GCS_PREFIX}
+GCR_PREFIX=${GCR_PREFIX:-$DEFAULT_GCR_PREFIX}
 
 GCS_PATH="gs://${GCS_PREFIX}"
 GCR_PATH="gcr.io/${GCR_PREFIX}"
 
 if [[ "${PUSH_DOCKER}" == "true" ]]; then
-  for TAR_PATH in ${OUTPUT_PATH}/docker/*.tar.gz
-  do
+  for TAR_PATH in "${OUTPUT_PATH}"/docker/*.tar.gz; do
     BASE_NAME=$(basename "$TAR_PATH")
     TAR_NAME="${BASE_NAME%.*}"
     IMAGE_NAME="${TAR_NAME%.*}"
-    
+
     # if no docker/ directory or directory has no tar files
     if [[ "${IMAGE_NAME}" == "*" ]]; then
       break
     fi
     gcloud auth configure-docker -q
     docker load -i "${TAR_PATH}"
-    docker tag "istio/${IMAGE_NAME}:${VER_STRING}" "${GCR_PATH}/${IMAGE_NAME}:${VER_STRING}"
-    docker push "${GCR_PATH}/${IMAGE_NAME}:${VER_STRING}"
+    echo "FROM istio/${IMAGE_NAME}:${VER_STRING}
+COPY LICENSES.txt /" > Dockerfile
+    docker build -t              "${GCR_PATH}/${IMAGE_NAME}:${VER_STRING}" .
+    docker push                  "${GCR_PATH}/${IMAGE_NAME}:${VER_STRING}"
+    # Include the license text in the tarball as well (overwrite old $TAR_PATH).
+    docker save -o "${TAR_PATH}" "${GCR_PATH}/${IMAGE_NAME}:${VER_STRING}"
   done
 fi
 
@@ -101,4 +96,4 @@ fi
 pushd "${ROOT}"
 tar -cvzf "${OUTPUT_PATH}/source.tar.gz" .
 popd
-gsutil -m cp -r "${OUTPUT_PATH}/*" "${GCS_PATH}/"
+gsutil -m cp -r "${OUTPUT_PATH}"/* "${GCS_PATH}/"
