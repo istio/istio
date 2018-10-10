@@ -120,6 +120,7 @@ func createClient(addr net.Addr) (mixerpb.MixerClient, error) {
 func newTestServer(globalCfg, serviceCfg string) (*Server, error) {
 	a := defaultTestArgs()
 	a.APIPort = 0
+	a.ConfigStoreURL = ""
 	a.MonitoringPort = 0
 	a.EnableProfiling = true
 	a.Templates = generatedTmplRepo.SupportedTmplInfo
