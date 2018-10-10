@@ -98,7 +98,7 @@ type Client struct {
 
 	journal  recentRequestsJournal
 	metadata map[string]string
-	reporter Reporter
+	reporter MetricReporter
 }
 
 // RecentRequestInfo is metadata about a request that the client has sent.
@@ -118,8 +118,8 @@ type recentRequestsJournal struct {
 	items      []RecentRequestInfo
 }
 
-// Reporter is used to report metrics for an MCP server.
-type Reporter interface {
+// MetricReporter is used to report metrics for an MCP client.
+type MetricReporter interface {
 	RecordSendError(err error, code codes.Code)
 	RecordRecvError(err error, code codes.Code)
 	RecordRequestAck(typeURL string)
@@ -153,7 +153,7 @@ func (r *recentRequestsJournal) snapshot() []RecentRequestInfo {
 }
 
 // New creates a new instance of the MCP client for the specified message types.
-func New(mcpClient mcp.AggregatedMeshConfigServiceClient, supportedTypeURLs []string, updater Updater, id string, metadata map[string]string, reporter Reporter) *Client { // nolint: lll
+func New(mcpClient mcp.AggregatedMeshConfigServiceClient, supportedTypeURLs []string, updater Updater, id string, metadata map[string]string, reporter MetricReporter) *Client { // nolint: lll
 	clientInfo := &mcp.Client{
 		Id: id,
 		Metadata: &types.Struct{
