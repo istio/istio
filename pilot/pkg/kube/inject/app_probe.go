@@ -12,15 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package injects provides how we inject the Envoy sidecar.
 package inject
 
 import (
 	"fmt"
-  corev1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"strconv"
 )
 
+const(
+	// StatusPortCmdFlagName is the name of the command line flag passed to pilot-agent for sidecar readiness probe.
+	// We reuse it for taking over application's readiness probing as well.
+	// TODO: replace the hardcoded statusPort elsewhere by this variable as much as possible.
+	StatusPortCmdFlagName = "statusPort"
+)
+
+// TODO(incfly): support more than one container probing.
 func appProbePath(kind string, containers []corev1.Container) string {
 	for _, c := range containers {
 		probe := c.ReadinessProbe
@@ -30,30 +38,56 @@ func appProbePath(kind string, containers []corev1.Container) string {
 		if probe == nil || probe.Handler.HTTPGet == nil {
 			continue
 		}
-		// TODO(incfly): support more than one container probing.
 		hp := probe.Handler.HTTPGet
-		// TODO: handling named port? need to do a look up for the app container to find the mapping?
-		// Any standard library for this?
-		return fmt.Sprintf(":%v%v", hp.Port.IntVal, hp.Path)
+		port := 0
+		if hp.Port.Type == intstr.String {
+			name := hp.Port.String()
+			for _, cp := range c.Ports {
+				if cp.Name == name {
+					port = int(cp.ContainerPort)
+					break
+				}
+			}
+		} else {
+			port = hp.Port.IntValue()
+		}
+		return fmt.Sprintf(":%v%v", port, hp.Path)
 	}
 	return ""
 }
 
 func rewriteAppHTTPProbe(spec *SidecarInjectionSpec, podSpec *corev1.PodSpec) {
-	// Remove the application's own http probe.
-	resetFunc := func(probe *corev1.Probe, path string, statusPort int) {
+	statusPort := -1
+	pi := -1
+	for _, c := range spec.Containers {
+		// TODO: any constant refers to this container's name?
+		if c.Name != "istio-proxy" {
+			continue
+		}
+		for i, arg := range c.Args {
+			if arg == StatusPortCmdFlagName {
+				pi = i
+				break
+			}
+		}
+		if pi != -1 {
+			statusPort, _ = strconv.Atoi(c.Args[pi+1])
+		}
+	}
+	// pilot agent statusPort is not defined, skip changing application http probe.
+	if statusPort == -1 {
+		return
+	}
+	// Change the application containers' probe to point to sidecar's status port.
+	rewriteProbe := func(probe *corev1.Probe, path string) {
 		if probe == nil || probe.HTTPGet == nil {
 			return
 		}
 		probe.HTTPGet.Path = path
 		probe.HTTPGet.Port = intstr.FromInt(statusPort)
 	}
-	// TODO: figure out how to get the value of statusPort, either one of these:
-	// - parsing sideCarSpecTmpl, find the argument.
-	// - passing params from kubeinject.go of statusPort.
-	// Second is better but requires more plumbing
 	for _, c := range podSpec.Containers {
-		resetFunc(c.ReadinessProbe, "/app/ready", 15020)
-		resetFunc(c.LivenessProbe, "/app/live", 15020)
+		rewriteProbe(c.ReadinessProbe, "/app/ready")
+		rewriteProbe(c.LivenessProbe, "/app/live")
 	}
 }
