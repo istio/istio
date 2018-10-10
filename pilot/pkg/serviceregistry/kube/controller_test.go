@@ -533,7 +533,7 @@ func TestController_Service(t *testing.T) {
 	createEndpoints(controller, "svc2", "nsA", portNames, svc2Ips, t)
 
 	expectedSvcList := map[model.Hostname]*model.Service{
-		serviceHostname("svc1", "nsA", domainSuffix): {
+		serviceHostname("svc1", "nsA", domainSuffix): &model.Service{
 			Address: "10.0.0.1",
 			Ports: model.PortList{
 				&model.Port{
@@ -543,7 +543,7 @@ func TestController_Service(t *testing.T) {
 				},
 			},
 		},
-		serviceHostname("svc2", "nsA", domainSuffix): {
+		serviceHostname("svc2", "nsA", domainSuffix): &model.Service{
 			Address: "10.0.0.1",
 			Ports: model.PortList{
 				&model.Port{
