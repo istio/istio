@@ -613,7 +613,7 @@ func printShortOutput(writer io.Writer, _ model.ConfigStore, configList []model.
 
 func kindAsString(config model.Config) string {
 	return fmt.Sprintf("%s.%s.%s",
-		crd.KabobCaseToCamelCase(config.Type),
+		crd.KebabCaseToCamelCase(config.Type),
 		config.Group,
 		config.Version,
 	)
