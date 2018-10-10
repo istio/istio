@@ -110,7 +110,7 @@ func newPatchTable() *patchTable {
 	}
 }
 
-func newServer(a *Args, p *patchTable) (*Server, error) {
+func newServer(a *Args, p *patchTable) (server *Server, err error) {
 	if err := a.validate(); err != nil {
 		return nil, err
 	}
@@ -120,6 +120,14 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 	}
 
 	s := &Server{}
+
+	defer func() {
+		// If return with error, need to close the server.
+		if err != nil {
+			_ = s.Close()
+		}
+	}()
+
 	s.gp = pool.NewGoroutinePool(a.APIWorkerPoolSize, a.SingleThreaded)
 	s.gp.AddWorkers(a.APIWorkerPoolSize - 1)
 
@@ -136,16 +144,6 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 	var grpcOptions []grpc.ServerOption
 	grpcOptions = append(grpcOptions, grpc.MaxConcurrentStreams(uint32(a.MaxConcurrentStreams)))
 	grpcOptions = append(grpcOptions, grpc.MaxRecvMsgSize(int(a.MaxMessageSize)))
-
-	var err error
-	var returnWithoutErr bool
-
-	defer func() {
-		// If return with error, need to close the server.
-		if !returnWithoutErr {
-			_ = s.Close()
-		}
-	}()
 
 	if a.TracingOptions.TracingEnabled() {
 		s.tracer, err = p.configTracing("istio-mixer", a.TracingOptions)
@@ -260,8 +258,6 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 	}
 
 	s.controlZ, _ = ctrlz.Run(a.IntrospectionOptions, nil)
-
-	returnWithoutErr = true
 
 	return s, nil
 }
