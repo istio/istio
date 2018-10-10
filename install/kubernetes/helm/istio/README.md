@@ -58,12 +58,9 @@ $ helm init --service-account tiller
 
 4. If you are enabling `kiali`, you need to create the secret that contains the username and passphrase for `kiali` dashboard:
    ```
-   $ echo -n 'admin' | base64
-   YWRtaW4=
-   $ echo -n '1f2d1e2e67df' | base64
-   MWYyZDFlMmU2N2Rm
-   $ NAMESPACE=istio-system
-   $ cat <<EOF | kubectl apply -f -
+   NAMESPACE=istio-system
+   kubectl create namespace $NAMESPACE || true
+   cat <<EOF | kubectl apply -f -
    apiVersion: v1
    kind: Secret
    metadata:
@@ -73,33 +70,18 @@ $ helm init --service-account tiller
        app: kiali
    type: Opaque
    data:
-     username: YWRtaW4=
-     passphrase: MWYyZDFlMmU2N2Rm
+     username: `echo -n 'admin' | base64`
+     passphrase: `< /dev/urandom tr -dc 'a-zA-Z0-9' | head -c 12 | base64`
    EOF
+   echo "username is: `kubectl -n $NAMESPACE get secret/kiali -o 'go-template={{index .data "username"}}' | base64 -d` "
+   echo "passphrase is: `kubectl -n $NAMESPACE get secret/kiali -o 'go-template={{index .data "passphrase"}}' | base64 -d` "
    ```
 
 5. If you are using security mode for Grafana, create the secret first as follows:
 
 Encode username, you can change the username to the name as you want:
 ```
-$ echo -n 'admin' | base64
-YWRtaW4=
-```
-
-Encode passphrase, you can change the passphrase to the passphrase as you want:
-```
-$ echo -n '1f2d1e2e67df' | base64
-MWYyZDFlMmU2N2Rm
-```
-
-Set the namespace where Istio was installed:
-```
-$ NAMESPACE=istio-system
-```
-
-Create secret for Grafana:
-```
-$ cat <<EOF | kubectl apply -f -
+NAMESPACE=istio-system
 apiVersion: v1
 kind: Secret
 metadata:
@@ -109,9 +91,11 @@ metadata:
     app: grafana
 type: Opaque
 data:
-  username: YWRtaW4=
-  passphrase: MWYyZDFlMmU2N2Rm
+  username: `echo -n 'admin' | base64`
+  passphrase: `< /dev/urandom tr -dc 'a-zA-Z0-9' | head -c 12 | base64`
 EOF
+echo "username is: `kubectl -n $NAMESPACE get secret/grafana -o 'go-template={{index .data "username"}}' | base64 -d` "
+echo "passphrase is: `kubectl -n $NAMESPACE get secret/grafana -o 'go-template={{index .data "passphrase"}}' | base64 -d` "
 ```
 
 6. To install the chart with the release name `istio` in namespace `istio-system`:
