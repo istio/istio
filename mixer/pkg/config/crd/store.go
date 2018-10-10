@@ -33,12 +33,6 @@ import (
 )
 
 const (
-	// crdRetryTimeout is the default timeout duration to retry initialization
-	// of the caches when some CRDs are missing. The timeout can be customized
-	// through "retry-timeout" query parameter in the config URL,
-	// like k8s://?retry-timeout=1m
-	crdRetryTimeout = time.Second * 30
-
 	// ConfigAPIGroup is the API group for the config CRDs.
 	ConfigAPIGroup = "config.istio.io"
 	// ConfigAPIVersion is the API version for the config CRDs.

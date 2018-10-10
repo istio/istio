@@ -292,25 +292,6 @@ func TestStoreFailToInit(t *testing.T) {
 	s.Stop()
 }
 
-func TestCrdsAreNotReady(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/7958")
-	emptyDiscovery := &fake.FakeDiscovery{Fake: &k8stesting.Fake{}}
-	s, _, _ := getTempClient()
-	s.discoveryBuilder = func(*rest.Config) (discovery.DiscoveryInterface, error) {
-		return emptyDiscovery, nil
-	}
-	start := time.Now()
-	err := s.Init([]string{"Handler", "Action"})
-	d := time.Since(start)
-	if err != nil {
-		t.Errorf("Got %v, Want nil", err)
-	}
-	if d < testingRetryTimeout {
-		t.Errorf("Duration for Init %v is too short, maybe not retrying", d)
-	}
-	s.Stop()
-}
-
 func TestCrdsRetryMakeSucceed(t *testing.T) {
 	t.Skip("https://github.com/istio/istio/issues/7958")
 	fakeDiscovery := &fake.FakeDiscovery{
