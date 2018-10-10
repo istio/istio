@@ -96,6 +96,14 @@ func (t testInfo) FetchAndSaveClusterLogs(namespace string, kubeconfig string) e
 	return util.FetchAndSaveClusterLogs(namespace, t.TempDir, kubeconfig)
 }
 
+//JAJ
+func (t testInfo) FetchAppPodStatus(namespace string, kubeconfig string) error {
+	_ = util.GetPodsStatus(namespace, kubeconfig)
+	return nil
+
+}
+//JAJ
+
 func (t testInfo) createStatusFile(r int) error {
 	log.Info("Creating status file")
 	ts := testStatus{

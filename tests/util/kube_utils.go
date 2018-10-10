@@ -440,6 +440,21 @@ func GetPodStatus(n, pod string, kubeconfig string) string {
 	return ""
 }
 
+//JAJ test func
+func GetPodsStatus(n, kubeconfig string) string {
+	log.Infof("JAJ - getting pods status")
+	status, err := Shell("kubectl -n %s get pods --no-headers --kubeconfig=%s", n,  kubeconfig)
+	if err != nil {
+		log.Infof("Failed to get status of pods in namespace %s: %s", n, err)
+		status = podFailedGet
+	}
+	return status
+}
+//JAJ test func
+
+
+
+
 // GetPodName gets the pod name for the given namespace and label selector
 func GetPodName(n, labelSelector string, kubeconfig string) (pod string, err error) {
 	pod, err = Shell("kubectl -n %s get pod -l %s -o jsonpath='{.items[0].metadata.name}' --kubeconfig=%s", n, labelSelector, kubeconfig)
