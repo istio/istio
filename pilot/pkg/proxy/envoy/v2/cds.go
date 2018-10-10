@@ -82,6 +82,7 @@ func (s *DiscoveryServer) generateRawClusters(con *XdsConnection, push *model.Pu
 			retErr := fmt.Errorf("CDS: Generated invalid cluster for node %v: %v", con.modelNode, err)
 			adsLog.Errorf("CDS: Generated invalid cluster for node %s: %v, %v", con.modelNode, err, c)
 			pushes.With(prometheus.Labels{"type": "cds_builderr"}).Add(1)
+			totalXDSInternalErrors.Add(1)
 			// Generating invalid clusters is a bug.
 			// Panic instead of trying to recover from that, since we can't
 			// assume anything about the state.
