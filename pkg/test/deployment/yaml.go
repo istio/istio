@@ -15,32 +15,28 @@
 package deployment
 
 import (
-	"path"
+	"fmt"
 
-	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/scopes"
 	"istio.io/istio/pkg/test/kube"
 )
 
-type bookInfoConfig string
+// NewYamlDeployment creates a new yaml-based deployment.
+func NewYamlDeployment(a *kube.Accessor, kubeConfig, namespace, yamlFile string) (*Instance, error) {
+	instance := &Instance{}
 
-const (
-	// BookInfoConfig uses "bookinfo.yaml"
-	BookInfoConfig bookInfoConfig = "bookinfo.yaml"
-)
+	instance.kubeConfig = kubeConfig
+	instance.namespace = namespace
+	instance.yamlFilePath = yamlFile
 
-// NewBookInfo deploys BookInfoConfig.
-func NewBookInfo(s *Settings, variant bookInfoConfig, a *kube.Accessor) (instance *Instance, err error) {
-	scopes.CI.Info("=== BEGIN: Deploy BookInfoConfig (via Yaml File) ===")
-	defer func() {
-		if err != nil {
-			instance = nil
-			scopes.CI.Infof("=== FAILED: Deploy BookInfoConfig ===")
-		} else {
-			scopes.CI.Infof("=== SUCCEEDED: Deploy BookInfoConfig ===")
-		}
-	}()
+	scopes.CI.Infof("Applying Yaml file: %s", instance.yamlFilePath)
+	if err := kube.Apply(kubeConfig, namespace, instance.yamlFilePath); err != nil {
+		return nil, fmt.Errorf("kube apply of generated yaml filed: %v", err)
+	}
 
-	yamlFile := path.Join(env.BookInfoKube, string(variant))
-	return newYamlDeployment(s, a, yamlFile)
+	if err := instance.wait(namespace, a); err != nil {
+		return nil, err
+	}
+
+	return instance, nil
 }
