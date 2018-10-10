@@ -3,8 +3,6 @@
 #
 enabled: true
 replicaCount: 1
-autoscaleMin: 1
-autoscaleMax: 5
 image: mixer
 
 env:
