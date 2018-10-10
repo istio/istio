@@ -397,11 +397,14 @@ func TestGetProxyServiceInstances(t *testing.T) {
 func testGetProxyServiceInstances(t *testing.T) {
 	controller, fx := newFakeController(t)
 	defer controller.Stop()
+	p := generatePod("128.0.0.1", "pod1", "nsa", "foo", "node1", map[string]string{"app": "test-app"}, map[string]string{})
+	addPods(t, controller, p)
+	fx.Wait("workload")
 
 	k8sSaOnVM := "acct4"
 	canonicalSaOnVM := "acctvm2@gserviceaccount2.com"
 
-	createService(controller, "svc1", "nsA",
+	createService(controller, "svc1", "nsa",
 		map[string]string{
 			KubeServiceAccountsOnVMAnnotation:      k8sSaOnVM,
 			CanonicalServiceAccountsOnVMAnnotation: canonicalSaOnVM},
@@ -416,23 +419,24 @@ func testGetProxyServiceInstances(t *testing.T) {
 	fakeSvcCounts := 100
 	for i := 0; i < fakeSvcCounts; i++ {
 		svcName := fmt.Sprintf("svc-fake-%d", i)
-		createService(controller, svcName, "nsFake",
+		createService(controller, svcName, "nsfake",
 			map[string]string{
 				KubeServiceAccountsOnVMAnnotation:      k8sSaOnVM,
 				CanonicalServiceAccountsOnVMAnnotation: canonicalSaOnVM},
 			[]int32{8080}, map[string]string{"app": "prod-app"}, t)
-		createEndpoints(controller, svcName, "nsFake", portNames, svc1Ips, t)
+		createEndpoints(controller, svcName, "nsfake", portNames, svc1Ips, t)
+		fx.Wait("eds")
 	}
 
 	// Create 1 endpoint that refers to a pod in the same namespace.
-	createEndpoints(controller, "svc1", "nsA", portNames, svc1Ips, t)
+	createEndpoints(controller, "svc1", "nsa", portNames, svc1Ips, t)
 	fx.Wait("eds")
 
 	var svcNode model.Proxy
 	svcNode.Type = model.Ingress
 	svcNode.IPAddress = "128.0.0.1"
-	svcNode.ID = "pod1.nsA"
-	svcNode.Domain = "nsA.svc.cluster.local"
+	svcNode.ID = "pod1.nsa"
+	svcNode.Domain = "nsa.svc.cluster.local"
 	services, err := controller.GetProxyServiceInstances(&svcNode)
 	if err != nil {
 		t.Errorf("client encountered error during GetProxyServiceInstances(): %v", err)
@@ -442,7 +446,7 @@ func testGetProxyServiceInstances(t *testing.T) {
 		t.Errorf("GetProxyServiceInstances() returned wrong # of endpoints => %q, want %d", len(services), fakeSvcCounts+1)
 	}
 
-	hostname := serviceHostname("svc1", "nsA", domainSuffix)
+	hostname := serviceHostname("svc1", "nsa", domainSuffix)
 	if services[0].Service.Hostname != hostname {
 		t.Errorf("GetProxyServiceInstances() wrong service instance returned => hostname %q, want %q",
 			services[0].Service.Hostname, hostname)

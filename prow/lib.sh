@@ -34,9 +34,6 @@ function setup_and_export_git_sha() {
       export GIT_SHA="${PULL_PULL_SHA}"
     fi
 
-    # Use volume mount from pilot-presubmit job's pod spec.
-    export KUBECONFIG="${HOME}/.kube/config"
-
     # Set artifact dir based on checkout
     export ARTIFACTS_DIR="${GOPATH}/src/istio.io/istio/_artifacts"
   else
