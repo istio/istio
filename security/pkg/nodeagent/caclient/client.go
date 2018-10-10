@@ -33,54 +33,9 @@ const (
 	cidatel  = "Citadel"
 )
 
-// Client interface defines the clients need to implement to talk to CA for CSR.
-/*
-type Client interface {
-	CSRSign(ctx context.Context, csrPEM []byte, subjectID string,
-		certValidTTLInSec int64) ([]string, error)
-} */
-
 type caClient struct {
 	client caClientInterface.Client
 }
-
-/*
-type caClient struct {
-	providerName  string
-	googleClient  gcapb.IstioCertificateServiceClient
-	cidatelClient ccapb.IstioCertificateServiceClient
-}
-
-type caClient struct {
-	client Client
-}*/
-
-// NewCAClient create an CA client.
-/*
-func NewCAClient(endpoint string, tlsFlag bool) (Client, error) {
-	var opts grpc.DialOption
-	if tlsFlag {
-		pool, err := x509.SystemCertPool()
-		if err != nil {
-			log.Errorf("could not get SystemCertPool: %v", err)
-			return nil, errors.New("could not get SystemCertPool")
-		}
-		creds := credentials.NewClientTLSFromCert(pool, "")
-		opts = grpc.WithTransportCredentials(creds)
-	} else {
-		opts = grpc.WithInsecure()
-	}
-
-	conn, err := grpc.Dial(endpoint, opts)
-	if err != nil {
-		log.Errorf("Failed to connect to endpoint %q: %v", endpoint, err)
-		return nil, fmt.Errorf("failed to connect to endpoint %q", endpoint)
-	}
-
-	return &caClient{
-		client: gcapb.NewIstioCertificateServiceClient(conn),
-	}, nil
-} */
 
 // NewCAClient create an CA client.
 func NewCAClient(endpoint, CAProviderName string, tlsFlag bool) (caClientInterface.Client, error) {
@@ -105,7 +60,6 @@ func NewCAClient(endpoint, CAProviderName string, tlsFlag bool) (caClientInterfa
 
 	switch CAProviderName {
 	case googleCA:
-		log.Infof("******provider is google ca")
 		return gca.NewGoogleCAClient(conn), nil
 	default:
 		return nil, nil
