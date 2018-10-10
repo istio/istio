@@ -119,11 +119,11 @@ func (node *Proxy) GetProxyVersion() (string, bool) {
 type RouterMode string
 
 const (
-	// Standard is the normal gateway mode
-	Standard RouterMode = "standard"
+	// StandardRouter is the normal gateway mode
+	StandardRouter RouterMode = "standard"
 
-	// SNI_DNAT is used for bridging two networks
-	SNI_DNAT RouterMode = "sni-dnat"
+	// SniDnatRouter is used for bridging two networks
+	SniDnatRouter RouterMode = "sni-dnat"
 )
 
 // GetRouterMode returns the operating mode associated with the router.
@@ -131,11 +131,11 @@ const (
 func (node *Proxy) GetRouterMode() RouterMode {
 	if modestr, found := node.Metadata["ISTIO_ROUTER_MODE"]; found {
 		switch RouterMode(modestr) {
-		case SNI_DNAT:
-			return SNI_DNAT
+		case SniDnatRouter:
+			return SniDnatRouter
 		}
 	}
-	return Standard
+	return StandardRouter
 }
 
 // ParseMetadata parses the opaque Metadata from an Envoy Node into string key-value pairs.

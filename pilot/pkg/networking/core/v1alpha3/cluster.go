@@ -48,8 +48,8 @@ const (
 func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, proxy *model.Proxy, push *model.PushContext) ([]*v2.Cluster, error) {
 	clusters := make([]*v2.Cluster, 0)
 
-	// If the proxy is a SNI_DNAT router, do not use the cached data
-	if proxy.Type == model.Router && proxy.GetRouterMode() == model.SNI_DNAT {
+	// If the proxy is a SniDnatRouter router, do not use the cached data
+	if proxy.Type == model.Router && proxy.GetRouterMode() == model.SniDnatRouter {
 		clusters = append(clusters, configgen.buildOutboundClusters(env, proxy, push)...)
 	} else {
 		recomputeOutboundClusters := true

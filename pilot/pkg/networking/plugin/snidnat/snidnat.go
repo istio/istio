@@ -57,14 +57,14 @@ func (Plugin) OnInboundRouteConfiguration(in *plugin.InputParams, route *xdsapi.
 }
 
 const (
-	IstioPolicySvcIdentifier    = "istio-policy."
-	IstioTelemetrySvcIdentifier = "istio-telemetry."
+	istioPolicySvcIdentifier    = "istio-policy."
+	istioTelemetrySvcIdentifier = "istio-telemetry."
 )
 
 // OnOutboundCluster implements the Plugin interface method.
 func (Plugin) OnOutboundCluster(in *plugin.InputParams, cluster *xdsapi.Cluster) {
 	if in.Node == nil || in.Node.Type != model.Router ||
-		in.Node.GetRouterMode() != model.SNI_DNAT {
+		in.Node.GetRouterMode() != model.SniDnatRouter {
 		return
 	}
 
@@ -73,8 +73,8 @@ func (Plugin) OnOutboundCluster(in *plugin.InputParams, cluster *xdsapi.Cluster)
 	// The only exception is istio-policy and istio-telemetry, as traffic to these services
 	// originate from the mixer filter in Envoy and not from the end user.
 	if in.Service == nil || in.Service.MeshExternal ||
-		strings.HasPrefix(IstioPolicySvcIdentifier, string(in.Service.Hostname)) ||
-		strings.HasPrefix(IstioTelemetrySvcIdentifier, string(in.Service.Hostname)) {
+		strings.HasPrefix(istioPolicySvcIdentifier, string(in.Service.Hostname)) ||
+		strings.HasPrefix(istioTelemetrySvcIdentifier, string(in.Service.Hostname)) {
 		// This is a gross hack - looking for istio-policy/istio-telemetry prefixes
 		// in the service names and making an exception for them. However, there is
 		// no other way to accomplish this in a clean way. Atleast, this ugly code is
