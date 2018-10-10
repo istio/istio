@@ -79,7 +79,7 @@ func (s *Store) Stop() {
 }
 
 // checkAndCreateCaches checks the presence of custom resource definitions through the discovery API,
-// and then create caches through lwBUilder which is in kinds.
+// and then create caches through lwBuilder which is in kinds.
 // Returns the created shared informers, and the list of kinds which are not created yet.
 func (s *Store) checkAndCreateCaches(
 	d discovery.DiscoveryInterface,
