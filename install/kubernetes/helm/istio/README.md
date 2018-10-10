@@ -82,6 +82,7 @@ $ helm init --service-account tiller
 Encode username, you can change the username to the name as you want:
 ```
 NAMESPACE=istio-system
+cat <<EOF | kubectl apply -f -
 apiVersion: v1
 kind: Secret
 metadata:
