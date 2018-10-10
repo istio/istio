@@ -2,8 +2,11 @@
 set -e
 set -u
 
-# This script converts RbacConfig to ClusterRbacConfig and deletes the RbacConfig after ClusterRbacConfig
-# is successfully applied. The RbacConfig is deprecated by ClusterRbacConfig.
+# This script is provided to help converting RbacConfig to ClusterRbacConfig automatically. The RbacConfig
+# will be deleted after the corresponding ClusterRbacConfig is successfully applied.
+# The RbacConfig is deprecated by ClusterRbacConfig due to an implementation bug that could cause the
+# RbacConfig to be namespace scoped in some cases. The ClusterRbacConfig has exactly same specification
+# as the RbacConfig, but with correctly implemented cluster scope.
 
 RBAC_CONFIGS=$(kubectl get RbacConfig --all-namespaces --no-headers --ignore-not-found)
 if [ "${RBAC_CONFIGS}" == "" ]
@@ -16,7 +19,7 @@ RBAC_CONFIG_COUNT=$(echo "${RBAC_CONFIGS}" | wc -l)
 if [ "${RBAC_CONFIG_COUNT}" -ne 1 ]
 then
   echo "${RBAC_CONFIGS}"
-  echo "found ${RBAC_CONFIG_COUNT} RbacConfigs, expecting only 1"
+  echo "found ${RBAC_CONFIG_COUNT} RbacConfigs, expecting only 1. Please delete extra RbacConfigs and execute again."
   exit 1
 fi
 
