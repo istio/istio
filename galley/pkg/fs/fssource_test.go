@@ -327,14 +327,10 @@ func TestFsSource_DeletePartResorceInFile(t *testing.T) {
 		t.Fatalf("Unexpected error: %v", err)
 	}
 	//In some OS, it will trigger file deletion event
-	len := len(ch)
-	if len != 8 {
-		log := logChannelOutput(ch, 4)
-		expected := "[Event](Deleted: [VKey](type.googleapis.com/istio.policy.v1beta1.Rule:some.mixer.rule @v0))"
-
-		if log != expected {
-			t.Fatalf("Event mismatch:\nActual:\n%s\nExpected:\n%s\n", log, expected)
-		}
+	expected := "[Event](Deleted: [VKey](type.googleapis.com/istio.policy.v1beta1.Rule:some.mixer.rule @v0))"
+	eventOccurs := checkEventOccurs(expected, ch)
+	if !eventOccurs {
+		t.Fatalf("Expected Event does not occur:\n%s\n", expected)
 	}
 	s.Stop()
 }
@@ -346,4 +342,13 @@ func logChannelOutput(ch chan resource.Event, count int) string {
 		result = <-ch
 	}
 	return strings.TrimSpace(fmt.Sprintf("%v\n", result))
+}
+
+func checkEventOccurs(expectedEvent string, ch chan resource.Event) bool {
+	for event := range ch {
+		if expectedEvent == strings.TrimSpace(fmt.Sprintf("%v\n", event)) {
+			return true
+		}
+	}
+	return false
 }
