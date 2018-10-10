@@ -127,15 +127,34 @@ func (e *Implementation) Initialize(ctx *internal.TestContext) error {
 	}
 
 	if e.kube.DeployIstio {
-		if e.deployment, err = deployment.NewIstio(
-			e.kube.toDeploymentSettings(e.ctx.Settings().WorkDir),
-			deployment.IstioMCP, // TODO: Values files should be parameterized.
-			e.Accessor); err != nil {
+		if e.deployment, err = e.deployIstio(); err != nil {
 			return err
 		}
 	}
 
 	return nil
+}
+
+func (e *Implementation) deployIstio() (instance *deployment.Instance, err error) {
+	scopes.CI.Info("=== BEGIN: Deploy Istio (via Helm Template) ===")
+	defer func() {
+		if err != nil {
+			instance = nil
+			scopes.CI.Infof("=== FAILED: Deploy Istio ===")
+		} else {
+			scopes.CI.Infof("=== SUCCEEDED: Deploy Istio ===")
+		}
+	}()
+
+	return deployment.NewHelmDeployment(deployment.HelmConfig{
+		Accessor:   e.Accessor,
+		KubeConfig: e.kube.KubeConfig,
+		Namespace:  e.systemNamespace.allocatedName,
+		WorkDir:    e.ctx.Settings().WorkDir,
+		ChartDir:   e.kube.ChartDir,
+		ValuesFile: e.kube.ValuesFile,
+		Values:     e.kube.Values,
+	})
 }
 
 // Configure applies the given configuration to the mesh.
