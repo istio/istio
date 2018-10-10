@@ -21,6 +21,12 @@ import (
 	"sync"
 	"testing"
 	"time"
+	"istio.io/istio/pkg/log"
+	"os/exec"
+	"strconv"
+	"syscall"
+	"io/ioutil"
+	"os"
 )
 
 var (
@@ -32,18 +38,18 @@ var (
 
 // TestProxy sample struct for proxy
 type TestProxy struct {
-	run     func(interface{}, int, <-chan error) error
-	cleanup func(int)
+	run     func(interface{}, int, <-chan error) (*exec.Cmd, error)
+	cleanup func(ExitStatus)
 	panic   func(interface{})
 }
 
-func (tp TestProxy) Run(config interface{}, epoch int, stop <-chan error) error {
+func (tp TestProxy) Run(config interface{}, epoch int, stop <-chan error) (*exec.Cmd, error) {
 	return tp.run(config, epoch, stop)
 }
 
-func (tp TestProxy) Cleanup(epoch int) {
+func (tp TestProxy) Cleanup(status ExitStatus) {
 	if tp.cleanup != nil {
-		tp.cleanup(epoch)
+		tp.cleanup(status)
 	}
 }
 
@@ -58,7 +64,7 @@ func TestStartStop(t *testing.T) {
 	current := -1
 	ctx, cancel := context.WithCancel(context.Background())
 	desired := "config"
-	start := func(config interface{}, epoch int, _ <-chan error) error {
+	start := func(config interface{}, epoch int, _ <-chan error) (*exec.Cmd, error) {
 		if current != -1 {
 			t.Error("Expected epoch not to be set")
 		}
@@ -69,13 +75,13 @@ func TestStartStop(t *testing.T) {
 			t.Errorf("Start got config %v, want %v", config, desired)
 		}
 		current = epoch
-		return nil
+		return nil, nil
 	}
-	cleanup := func(epoch int) {
+	cleanup := func(status ExitStatus) {
 		if current != 0 {
 			t.Error("Expected epoch to be set")
 		}
-		if epoch != 0 {
+		if status.Epoch != 0 {
 			t.Error("Expected initial epoch in cleanup to be 0")
 		}
 		cancel()
@@ -90,14 +96,14 @@ func TestStartStop(t *testing.T) {
 func TestApplyTwice(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	desired := "config"
-	start := func(config interface{}, epoch int, _ <-chan error) error {
+	start := func(config interface{}, epoch int, _ <-chan error) (*exec.Cmd, error) {
 		if epoch == 1 {
 			t.Error("Should start only once for same config")
 		}
 		<-ctx.Done()
-		return nil
+		return nil, nil
 	}
-	cleanup := func(epoch int) {}
+	cleanup := func(_ ExitStatus) {}
 	a := NewAgent(TestProxy{start, cleanup, nil}, testRetry)
 	go a.Run(ctx)
 	a.ScheduleConfigUpdate(desired)
@@ -112,26 +118,26 @@ func TestApplyThrice(t *testing.T) {
 	bad := "bad"
 	applied := false
 	var a Agent
-	start := func(config interface{}, epoch int, _ <-chan error) error {
+	start := func(config interface{}, epoch int, _ <-chan error) (*exec.Cmd, error) {
 		if config == bad {
-			return nil
+			return nil, nil
 		}
 		if config == good && applied {
 			t.Errorf("Config has already been applied")
 		}
 		applied = true
 		<-ctx.Done()
-		return nil
+		return nil, nil
 	}
-	cleanup := func(epoch int) {
+	cleanup := func(status ExitStatus) {
 		// we should expect to see three epochs only: 0 for good, 1 for bad
-		if epoch == 1 {
+		if status.Epoch == 1 {
 			go func() {
 				a.ScheduleConfigUpdate(good)
 				cancel()
 			}()
-		} else if epoch != 0 {
-			t.Errorf("Unexpected epoch %d", epoch)
+		} else if status.Epoch != 0 {
+			t.Errorf("Unexpected epoch %d", status.Epoch)
 		}
 	}
 	retry := testRetry
@@ -152,9 +158,9 @@ func TestAbort(t *testing.T) {
 	aborted2 := false
 	bad := "bad"
 	active := 3
-	start := func(config interface{}, epoch int, abort <-chan error) error {
+	start := func(config interface{}, epoch int, abort <-chan error) (*exec.Cmd, error) {
 		if config == bad {
-			return errors.New(bad)
+			return nil, errors.New(bad)
 		}
 		select {
 		case err := <-abort:
@@ -163,12 +169,12 @@ func TestAbort(t *testing.T) {
 			} else if config == good2 {
 				aborted2 = true
 			}
-			return err
+			return nil,err
 		case <-ctx.Done():
 		}
-		return nil
+		return nil, nil
 	}
-	cleanup := func(epoch int) {
+	cleanup := func(_ ExitStatus) {
 		// first 2 with an error, then 0 and 1 with abort
 		active = active - 1
 		if active == 0 {
@@ -195,13 +201,13 @@ func TestAbort(t *testing.T) {
 func TestStartFail(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	retry := 0
-	start := func(config interface{}, epoch int, _ <-chan error) error {
+	start := func(config interface{}, epoch int, _ <-chan error) (*exec.Cmd, error) {
 		if epoch == 0 && retry == 0 {
 			retry++
-			return fmt.Errorf("error on try %d", retry)
+			return nil, fmt.Errorf("error on try %d", retry)
 		} else if epoch == 0 && retry == 1 {
 			retry++
-			return fmt.Errorf("error on try %d", retry)
+			return nil, fmt.Errorf("error on try %d", retry)
 		} else if epoch == 0 && retry == 2 {
 			retry++
 			cancel()
@@ -209,9 +215,9 @@ func TestStartFail(t *testing.T) {
 			t.Errorf("Unexpected epoch %d and retry %d", epoch, retry)
 			cancel()
 		}
-		return nil
+		return nil, nil
 	}
-	cleanup := func(epoch int) {}
+	cleanup := func(_ ExitStatus) {}
 	a := NewAgent(TestProxy{start, cleanup, nil}, testRetry)
 	go a.Run(ctx)
 	a.ScheduleConfigUpdate("test")
@@ -222,23 +228,23 @@ func TestStartFail(t *testing.T) {
 func TestExceedBudget(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	retry := 0
-	start := func(config interface{}, epoch int, _ <-chan error) error {
+	start := func(config interface{}, epoch int, _ <-chan error) (*exec.Cmd, error) {
 		if epoch == 0 && retry == 0 {
 			retry++
-			return fmt.Errorf("error on try %d", retry)
+			return nil, fmt.Errorf("error on try %d", retry)
 		} else if epoch == 0 && retry == 1 {
 			retry++
-			return fmt.Errorf("error on try %d", retry)
+			return nil, fmt.Errorf("error on try %d", retry)
 		} else {
 			t.Errorf("Unexpected epoch %d and retry %d", epoch, retry)
 			cancel()
 		}
-		return nil
+		return nil, nil
 	}
-	cleanup := func(epoch int) {
-		if epoch == 0 && (retry == 0 || retry == 1 || retry == 2) {
+	cleanup := func(status ExitStatus) {
+		if status.Epoch == 0 && (retry == 0 || retry == 1 || retry == 2) {
 		} else {
-			t.Errorf("Unexpected epoch %d and retry %d", epoch, retry)
+			t.Errorf("Unexpected epoch %d and retry %d", status.Epoch, retry)
 			cancel()
 		}
 	}
@@ -258,7 +264,7 @@ func TestStartTwiceStop(t *testing.T) {
 	desired0 := "config0"
 	desired1 := "config1"
 	desired2 := "config2"
-	start := func(config interface{}, epoch int, _ <-chan error) error {
+	start := func(config interface{}, epoch int, _ <-chan error) (*exec.Cmd, error) {
 		if config == desired0 && epoch == 0 {
 			<-stop0
 		} else if config == desired1 && epoch == 1 {
@@ -270,30 +276,30 @@ func TestStartTwiceStop(t *testing.T) {
 			t.Errorf("Unexpected start %v, epoch %d", config, epoch)
 			cancel()
 		}
-		return nil
+		return nil, nil
 	}
 	finished0, finished1, finished2 := false, false, false
-	cleanup := func(epoch int) {
+	cleanup := func(status ExitStatus) {
 		// epoch 1 finishes before epoch 0
-		if epoch == 1 {
+		if status.Epoch == 1 {
 			finished1 = true
 			if finished0 || finished2 {
 				t.Errorf("Expected epoch 1 to be first to finish")
 			}
 			close(stop0)
-		} else if epoch == 0 {
+		} else if status.Epoch == 0 {
 			finished0 = true
 			if !finished1 || finished2 {
 				t.Errorf("Expected epoch 0 to be second to finish")
 			}
 			cancel()
-		} else if epoch == 2 {
+		} else if status.Epoch == 2 {
 			finished2 = true
 			if !finished0 || !finished1 {
 				t.Errorf("Expected epoch 2 to be last to finish")
 			}
 		} else {
-			t.Errorf("Unexpected epoch %d in cleanup", epoch)
+			t.Errorf("Unexpected epoch %d in cleanup", status.Epoch)
 			cancel()
 		}
 	}
@@ -310,18 +316,18 @@ func TestRecovery(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	desired := "config"
 	failed := false
-	start := func(config interface{}, epoch int, _ <-chan error) error {
+	start := func(config interface{}, epoch int, _ <-chan error) (*exec.Cmd, error) {
 		if epoch == 0 && !failed {
 			failed = true
-			return nil
+			return nil, nil
 		}
 		if epoch > 0 {
 			t.Errorf("Should not reconcile after success")
 		}
 		<-ctx.Done()
-		return nil
+		return nil, nil
 	}
-	a := NewAgent(TestProxy{start, func(_ int) {}, nil}, testRetry)
+	a := NewAgent(TestProxy{start, func(_ ExitStatus) {}, nil}, testRetry)
 	go a.Run(ctx)
 	a.ScheduleConfigUpdate(desired)
 
@@ -338,27 +344,27 @@ func TestRecovery(t *testing.T) {
 func TestCascadingAbort(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	crash1 := make(chan struct{})
-	start := func(config interface{}, epoch int, abort <-chan error) error {
+	start := func(config interface{}, epoch int, abort <-chan error) (*exec.Cmd, error) {
 		if config == 2 {
 			close(crash1)
-			return errors.New("planned crash for 2")
+			return nil, errors.New("planned crash for 2")
 		} else if config == 1 {
 			<-crash1
 			// ignore abort, crash by itself
 			<-time.After(100 * time.Millisecond)
-			return errors.New("planned crash for 1")
+			return nil, errors.New("planned crash for 1")
 		} else if config == 0 {
 			// abort, a bit later
 			<-time.After(300 * time.Millisecond)
 			err := <-abort
 			cancel()
-			return err
+			return nil, err
 		}
-		return nil
+		return nil, nil
 	}
 	retry := testRetry
 	retry.InitialInterval = 1 * time.Second
-	a := NewAgent(TestProxy{start, func(_ int) {}, nil}, retry)
+	a := NewAgent(TestProxy{start, func(_ ExitStatus) {}, nil}, retry)
 	go a.Run(ctx)
 	a.ScheduleConfigUpdate(0)
 	a.ScheduleConfigUpdate(1)
@@ -379,13 +385,13 @@ func TestLockup(t *testing.T) {
 	try := 0
 	lock := sync.Mutex{}
 
-	start := func(config interface{}, epoch int, abort <-chan error) error {
+	start := func(config interface{}, epoch int, abort <-chan error) (*exec.Cmd, error) {
 
 		lock.Lock()
 		if try >= 2 {
 			cancel()
 			lock.Unlock()
-			return nil
+			return nil, nil
 		}
 		try = try + 1
 		lock.Unlock()
@@ -393,15 +399,15 @@ func TestLockup(t *testing.T) {
 		case 0:
 			<-crash
 
-			return errors.New("crash")
+			return nil, errors.New("crash")
 		case 1:
 			close(crash)
 			err := <-abort
-			return err
+			return nil, err
 		}
-		return nil
+		return nil, nil
 	}
-	a := NewAgent(TestProxy{start, func(_ int) {}, nil}, testRetry)
+	a := NewAgent(TestProxy{start, func(_ ExitStatus) {}, nil}, testRetry)
 	go a.Run(ctx)
 	a.ScheduleConfigUpdate(0)
 	a.ScheduleConfigUpdate(1)
@@ -409,5 +415,65 @@ func TestLockup(t *testing.T) {
 	case <-ctx.Done():
 	case <-time.After(1 * time.Second):
 		t.Error("liveness check failed")
+	}
+}
+
+func generateTempScript(dir string, filename string, content string) (*os.File, error) {
+	tmpfile, err := ioutil.TempFile(dir, filename)
+	if err != nil {
+		return nil, fmt.Errorf("Cannot create tempfile %s/%s: %s", dir, filename, err)
+	}
+
+	if _, err := tmpfile.Write([]byte(content)); err != nil {
+		tmpfile.Close()
+		os.Remove(tmpfile.Name())
+		return nil, fmt.Errorf("Cannot write to tempfile %s/%s: %s", dir, filename, err)
+	}
+
+	if err := tmpfile.Close(); err != nil {
+		os.Remove(tmpfile.Name())
+		return nil, fmt.Errorf("Cannot close tempfile %s/%s: %s", dir, filename, err)
+	}
+
+	if err := os.Chmod(tmpfile.Name(), 0555); err != nil {
+		os.Remove(tmpfile.Name())
+		return nil, fmt.Errorf("Cannot make tempfile %s/%s executable: %s", dir, filename, err)
+	}
+
+	return tmpfile, nil
+}
+
+// TestSignalExit tests handling processes that exit due to a signal
+func TestSignalExit(t *testing.T) {
+	ctx, _ := context.WithCancel(context.Background())
+	ch := make(chan ExitStatus)
+	desired := "config"
+	var signo syscall.Signal = 9
+
+	// Generate a script that will kill itself with the signal specified as a commandline argument
+	script, err := generateTempScript("", "test_signal_exit.sh", "#!/bin/sh\nkill -$1 $$")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer os.Remove(script.Name())
+
+	start := func(config interface{}, epoch int, _ <-chan error) (*exec.Cmd, error) {
+		cmd := exec.Command(script.Name(), strconv.Itoa(int(signo)))
+		return cmd, nil
+	}
+	cleanup := func(status ExitStatus) {
+		log.Info("Command cleaned up");
+		ch <- status
+	}
+
+	a := NewAgent(TestProxy{start, cleanup, nil}, testRetry)
+	go a.Run(ctx)
+
+	a.ScheduleConfigUpdate(desired)
+	status := <-ch
+
+	if status.Reason != Killed || status.Signal != signo {
+		t.Errorf("expected killed by signal %d, but got %v", signo, status)
 	}
 }

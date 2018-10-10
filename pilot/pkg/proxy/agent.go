@@ -23,6 +23,8 @@ import (
 	"golang.org/x/time/rate"
 
 	"istio.io/istio/pkg/log"
+	"syscall"
+	"os/exec"
 )
 
 // Agent manages the restarts and the life cycle of a proxy binary.  Agent
@@ -92,7 +94,7 @@ func NewAgent(proxy Proxy, retry Retry) Agent {
 		retry:    retry,
 		epochs:   make(map[int]interface{}),
 		configCh: make(chan interface{}),
-		statusCh: make(chan exitStatus),
+		statusCh: make(chan ExitStatus),
 		abortCh:  make(map[int]chan error),
 	}
 }
@@ -116,10 +118,10 @@ type Retry struct {
 // Proxy defines command interface for a proxy
 type Proxy interface {
 	// Run command for a config, epoch, and abort channel
-	Run(interface{}, int, <-chan error) error
+	Run(interface{}, int, <-chan error) (*exec.Cmd, error)
 
 	// Cleanup command for an epoch
-	Cleanup(int)
+	Cleanup(status ExitStatus)
 
 	// Panic command is invoked with the desired config when all retries to
 	// start the proxy fail just before the agent terminating
@@ -146,15 +148,36 @@ type agent struct {
 	configCh chan interface{}
 
 	// channel for proxy exit notifications
-	statusCh chan exitStatus
+	statusCh chan ExitStatus
 
 	// channel for aborting running instances
 	abortCh map[int]chan error
 }
 
-type exitStatus struct {
-	epoch int
-	err   error
+type ExitReason int
+
+const (
+	// Cannot prepare proxy for exec
+	InitFailed ExitReason = iota
+	// Cannot exec proxy
+	ExecFailed
+	// Proxy started and returned 0/success code
+	ExitSuccess
+	// Proxy started and returned non-zero/failure code
+	ExitFailure
+	// Proxy started but killed by a signal
+	Killed
+	// Proxy started but aborted by the agent
+	Aborted
+)
+type ExitStatus struct {
+	Epoch int
+	Err   error
+	Reason ExitReason
+	// If ExitFailure && UNIX, then set to the process exit code.  Else set to 0
+	ExitCode int
+	// If Killed && UNIX, then set to the signo of the signal that killed the process.  Else set to 0
+	Signal syscall.Signal
 }
 
 func (a *agent) ScheduleConfigUpdate(config interface{}) {
@@ -195,31 +218,31 @@ func (a *agent) Run(ctx context.Context) {
 		case status := <-a.statusCh:
 			// delete epoch record and update current config
 			// avoid self-aborting on non-abort error
-			delete(a.epochs, status.epoch)
-			delete(a.abortCh, status.epoch)
+			delete(a.epochs, status.Epoch)
+			delete(a.abortCh, status.Epoch)
 			a.currentConfig = a.epochs[a.latestEpoch()]
 
-			if status.err == errAbort {
-				log.Infof("Epoch %d aborted", status.epoch)
-			} else if status.err != nil {
-				log.Warnf("Epoch %d terminated with an error: %v", status.epoch, status.err)
+			if status.Err == errAbort {
+				log.Infof("Epoch %d aborted", status.Epoch)
+			} else if status.Err != nil {
+				log.Warnf("Epoch %d terminated with an error: %v", status.Epoch, status.Err)
 
 				// NOTE: due to Envoy hot restart race conditions, an error from the
 				// process requires aggressive non-graceful restarts by killing all
 				// existing proxy instances
 				a.abortAll()
 			} else {
-				log.Infof("Epoch %d exited normally", status.epoch)
+				log.Infof("Epoch %d exited normally", status.Epoch)
 			}
 
 			// cleanup for the epoch
-			a.proxy.Cleanup(status.epoch)
+			a.proxy.Cleanup(status)
 
 			// schedule a retry for an error.
 			// the current config might be out of date from here since its proxy might have been aborted.
 			// the current config will change on abort, hence retrying prior to abort will not progress.
 			// that means that aborted envoy might need to re-schedule a retry if it was not already scheduled.
-			if status.err != nil {
+			if status.Err != nil {
 				// skip retrying twice by checking retry restart delay
 				if a.retry.restart == nil {
 					if a.retry.budget > 0 {
@@ -227,14 +250,14 @@ func (a *agent) Run(ctx context.Context) {
 						restart := time.Now().Add(delayDuration)
 						a.retry.restart = &restart
 						a.retry.budget = a.retry.budget - 1
-						log.Infof("Epoch %d: set retry delay to %v, budget to %d", status.epoch, delayDuration, a.retry.budget)
+						log.Infof("Epoch %d: set retry delay to %v, budget to %d", status.Epoch, delayDuration, a.retry.budget)
 					} else {
 						log.Error("Permanent error: budget exhausted trying to fulfill the desired configuration")
-						a.proxy.Panic(status.epoch)
+						a.proxy.Panic(status.Epoch)
 						return
 					}
 				} else {
-					log.Debugf("Epoch %d: restart already scheduled", status.epoch)
+					log.Debugf("Epoch %d: restart already scheduled", status.Epoch)
 				}
 			}
 
@@ -278,10 +301,76 @@ func (a *agent) reconcile() {
 }
 
 // waitForExit runs the start-up command as a go routine and waits for it to finish
-func (a *agent) waitForExit(config interface{}, epoch int, abortCh <-chan error) {
+func (a *agent) waitForExit(config interface{}, epoch int, abort <-chan error) {
 	log.Infof("Epoch %d starting", epoch)
-	err := a.proxy.Run(config, epoch, abortCh)
-	a.statusCh <- exitStatus{epoch: epoch, err: err}
+	cmd, err := a.proxy.Run(config, epoch, abort)
+
+	if err != nil {
+		log.Warnf("Cannot init proxy: %v", err)
+		a.statusCh <- ExitStatus{Epoch: epoch, Err: err, Reason:InitFailed}
+		return
+	}
+
+	if cmd == nil {
+		// This indicates a bug. Proxy impls should return a cmd or an error.
+		log.Warnf("Proxy returned neither error nor command")
+		a.statusCh <- ExitStatus{Epoch: epoch, Err: nil, Reason:InitFailed}
+		return
+	}
+
+	if err := cmd.Start(); err != nil {
+		log.Warnf("Cannot exec proxy: %v", err)
+		a.statusCh <- ExitStatus{Epoch: epoch, Err: err, Reason:ExecFailed}
+		return
+	}
+
+	done := make(chan error, 1)
+	go func() {
+		done <- cmd.Wait()
+	}()
+
+	select {
+	case err := <-abort:
+		log.Warnf("Aborting epoch %d", epoch)
+		if errKill := cmd.Process.Kill(); errKill != nil {
+			log.Warnf("killing epoch %d caused an error %v", epoch, errKill)
+		}
+		a.statusCh <- ExitStatus{Epoch: epoch, Err: err, Reason:Aborted}
+		return
+	case err := <-done:
+		log.Warnf("Finished epoch %d, %v", epoch, err)
+	}
+
+	switch w := cmd.ProcessState.Sys().(type) {
+		case syscall.WaitStatus:
+			// UNIX
+			if cmd.ProcessState.Success() {
+				log.Infof("Proxy exited successfully")
+				a.statusCh <- ExitStatus{Epoch: epoch, Err: err, Reason:ExitSuccess, ExitCode:w.ExitStatus()}
+			} else if w.Exited() {
+				log.Warnf("Proxy exited unsusccessfully with code %d", w.ExitStatus())
+				a.statusCh <- ExitStatus{Epoch: epoch, Err: err, Reason:ExitFailure, ExitCode:w.ExitStatus()}
+			} else if w.Signaled() {
+				log.Warnf("Proxy killed by signal %d", w.Signal())
+				a.statusCh <- ExitStatus{Epoch: epoch, Err: err, Reason:Killed, Signal:w.Signal()}
+			} else {
+				log.Warnf("Proxy exited unsuccessfully")
+				a.statusCh <- ExitStatus{Epoch: epoch, Err: err, Reason:ExitFailure, ExitCode:0}
+			}
+			break
+		default:
+			// Non-UNIX
+			if cmd.ProcessState.Success() {
+				log.Infof("Proxy exited successfully")
+				a.statusCh <- ExitStatus{Epoch: epoch, Err: err, Reason:ExitSuccess, ExitCode:0}
+			} else if !cmd.ProcessState.Exited() {
+				log.Warnf("Proxy killed")
+				a.statusCh <- ExitStatus{Epoch: epoch, Err: err, Reason:Killed, Signal:0}
+			} else {
+				log.Warnf("Proxy exited unsuccessfully")
+				a.statusCh <- ExitStatus{Epoch: epoch, Err: err, Reason:ExitFailure, ExitCode:0}
+			}
+		}
 }
 
 // latestEpoch returns the latest epoch, or -1 if no epoch is running

@@ -220,7 +220,6 @@ type envoy struct {
 	extraArgs []string
 	pilotSAN  []string
 	opts      map[string]interface{}
-	errChan   chan error
 }
 
 // NewProxy creates an instance of the proxy control commands
@@ -263,7 +262,7 @@ func (proxy envoy) args(fname string, epoch int) []string {
 	return startupArgs
 }
 
-func (proxy envoy) Run(config interface{}, epoch int, abort <-chan error) error {
+func (proxy envoy) Run(config interface{}, epoch int, abort <-chan error) (*exec.Cmd, error) {
 
 	var fname string
 	// Note: the cert checking still works, the generated file is updated if certs are changed.
@@ -277,7 +276,7 @@ func (proxy envoy) Run(config interface{}, epoch int, abort <-chan error) error 
 		if err != nil {
 			log.Errora("Failed to generate bootstrap config", err)
 			os.Exit(1) // Prevent infinite loop attempting to write the file, let k8s/systemd report
-			return err
+			return nil, err
 		}
 		fname = out
 	}
@@ -293,41 +292,14 @@ func (proxy envoy) Run(config interface{}, epoch int, abort <-chan error) error 
 	cmd := exec.Command(proxy.config.BinaryPath, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	if err := cmd.Start(); err != nil {
-		return err
-	}
 
-	// Set if the caller is monitoring envoy, for example in tests or if envoy runs in same
-	// container with the app.
-	if proxy.errChan != nil {
-		// Caller passed a channel, will wait itself for termination
-		go func() {
-			proxy.errChan <- cmd.Wait()
-		}()
-		return nil
-	}
-
-	done := make(chan error, 1)
-	go func() {
-		done <- cmd.Wait()
-	}()
-
-	select {
-	case err := <-abort:
-		log.Warnf("Aborting epoch %d", epoch)
-		if errKill := cmd.Process.Kill(); errKill != nil {
-			log.Warnf("killing epoch %d caused an error %v", epoch, errKill)
-		}
-		return err
-	case err := <-done:
-		return err
-	}
+	return cmd, nil
 }
 
-func (proxy envoy) Cleanup(epoch int) {
-	filePath := configFile(proxy.config.ConfigPath, epoch)
+func (proxy envoy) Cleanup(status proxy.ExitStatus) {
+	filePath := configFile(proxy.config.ConfigPath, status.Epoch)
 	if err := os.Remove(filePath); err != nil {
-		log.Warnf("Failed to delete config file %s for %d, %v", filePath, epoch, err)
+		log.Warnf("Failed to delete config file %s for %d, %v", filePath, status.Epoch, err)
 	}
 }
 
