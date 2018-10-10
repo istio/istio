@@ -47,9 +47,10 @@ $ kubectl apply -f install/kubernetes/helm/helm-service-account.yaml
 $ helm init --service-account tiller
 ```
 
-3. Create the `istio-system` namespace:
+3. Set and create the namespace where Istio was installed:
 ```
-$ kubectl create ns istio-system
+$ NAMESPACE=istio-system
+$ kubectl create ns $NAMESPACE
 ```
 
 4. Install Istio’s [Custom Resource Definitions](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/#customresourcedefinitions) via `kubectl apply`, and wait a few seconds for the CRDs to be committed in the kube-apiserver:
@@ -67,7 +68,6 @@ $ kubectl create ns istio-system
    YWRtaW4=
    $ echo -n '1f2d1e2e67df' | base64
    MWYyZDFlMmU2N2Rm
-   $ NAMESPACE=istio-system
    $ cat <<EOF | kubectl apply -f -
    apiVersion: v1
    kind: Secret
@@ -97,11 +97,6 @@ $ echo -n '1f2d1e2e67df' | base64
 MWYyZDFlMmU2N2Rm
 ```
 
-Set the namespace where Istio was installed:
-```
-$ NAMESPACE=istio-system
-```
-
 Create secret for Grafana:
 ```
 $ cat <<EOF | kubectl apply -f -
@@ -119,15 +114,15 @@ data:
 EOF
 ```
 
-7. To install the chart with the release name `istio` in namespace `istio-system`:
+7. To install the chart with the release name `istio` in namespace $NAMESPACE you defined above:
     - With [automatic sidecar injection](https://istio.io/docs/setup/kubernetes/sidecar-injection/#automatic-sidecar-injection) (requires Kubernetes >=1.9.0):
     ```
-    $ helm install install/kubernetes/helm/istio --name istio --namespace istio-system
+    $ helm install install/kubernetes/helm/istio --name istio --namespace $NAMESPACE
     ```
 
     - Without the sidecar injection webhook:
     ```
-    $ helm install install/kubernetes/helm/istio --name istio --namespace istio-system --set sidecarInjectorWebhook.enabled=false
+    $ helm install install/kubernetes/helm/istio --name istio --namespace $NAMESPACE --set sidecarInjectorWebhook.enabled=false
     ```
 
 ## Configuration
