@@ -47,7 +47,12 @@ $ kubectl apply -f install/kubernetes/helm/helm-service-account.yaml
 $ helm init --service-account tiller
 ```
 
-3. Install Istio’s [Custom Resource Definitions](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/#customresourcedefinitions) via `kubectl apply`, and wait a few seconds for the CRDs to be committed in the kube-apiserver:
+3. Create the `istio-system` namespace:
+```
+$ kubectl create ns istio-system
+```
+
+4. Install Istio’s [Custom Resource Definitions](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/#customresourcedefinitions) via `kubectl apply`, and wait a few seconds for the CRDs to be committed in the kube-apiserver:
    ```
    $ kubectl apply -f install/kubernetes/helm/istio/templates/crds.yaml
    ```
@@ -56,7 +61,7 @@ $ helm init --service-account tiller
    $ kubectl apply -f install/kubernetes/helm/istio/charts/certmanager/templates/crds.yaml
    ```
 
-4. If you are enabling `kiali`, you need to create the secret that contains the username and passphrase for `kiali` dashboard:
+5. If you are enabling `kiali`, you need to create the secret that contains the username and passphrase for `kiali` dashboard:
    ```
    $ echo -n 'admin' | base64
    YWRtaW4=
@@ -78,7 +83,7 @@ $ helm init --service-account tiller
    EOF
    ```
 
-5. If you are using security mode for Grafana, create the secret first as follows:
+6. If you are using security mode for Grafana, create the secret first as follows:
 
 Encode username, you can change the username to the name as you want:
 ```
@@ -114,7 +119,7 @@ data:
 EOF
 ```
 
-6. To install the chart with the release name `istio` in namespace `istio-system`:
+7. To install the chart with the release name `istio` in namespace `istio-system`:
     - With [automatic sidecar injection](https://istio.io/docs/setup/kubernetes/sidecar-injection/#automatic-sidecar-injection) (requires Kubernetes >=1.9.0):
     ```
     $ helm install install/kubernetes/helm/istio --name istio --namespace istio-system
