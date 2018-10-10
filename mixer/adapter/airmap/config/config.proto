@@ -1,0 +1,16 @@
+// Copyright 2018 AirMap Inc.
+
+syntax = "proto3";
+
+// $title: AirMap
+// $overview: Adapter that bridges over to an in-cluster adapter instance via ReST.
+
+// The `airmap` adapter is designed to bridge over to an in-cluster adapter instance via ReST.
+package adapter.airmap.config;
+
+option go_package="config";
+
+// Configuration format for the AirMap adapter.
+message Params {
+    string endpoint = 1; // The endpoint implementing access.Controller
+}

@@ -1,3 +1,4 @@
+airmap: "istio.io/istio/mixer/adapter/airmap"
 bypass: "istio.io/istio/mixer/adapter/bypass"
 circonus: "istio.io/istio/mixer/adapter/circonus"
 cloudwatch: "istio.io/istio/mixer/adapter/cloudwatch"

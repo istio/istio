@@ -17,6 +17,7 @@
 package adapter
 
 import (
+	airmap "istio.io/istio/mixer/adapter/airmap"
 	bypass "istio.io/istio/mixer/adapter/bypass"
 	circonus "istio.io/istio/mixer/adapter/circonus"
 	cloudwatch "istio.io/istio/mixer/adapter/cloudwatch"
@@ -43,6 +44,7 @@ import (
 // Inventory returns the inventory of all available adapters.
 func Inventory() []adptr.InfoFn {
 	return []adptr.InfoFn{
+		airmap.GetInfo,
 		bypass.GetInfo,
 		circonus.GetInfo,
 		cloudwatch.GetInfo,
