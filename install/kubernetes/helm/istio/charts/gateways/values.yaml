@@ -194,6 +194,4 @@ istio-mcgateway:
     # this is needed to tell pilot to not generate
     # mTLS clusters for the mcgateway except for
     # istio-telemetry,istio-policy
-    # TODO: the FQDNs are hardcoded here. We need to find a way to
-    # parameterize the namespace and others.
-    ISTIO_META_ISTIO_MTLS_INCLUSION_ONLY: "istio-telemetry.istio-system.svc.cluster.local,istio-policy.istio-system.svc.cluster.local"
+    ISTIO_META_ISTIO_ROUTER_MODE: "sni-dnat"

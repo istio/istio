@@ -27,6 +27,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/log"
 )
@@ -47,8 +48,8 @@ const (
 func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, proxy *model.Proxy, push *model.PushContext) ([]*v2.Cluster, error) {
 	clusters := make([]*v2.Cluster, 0)
 
-	if proxy.HasSnowFlakes() {
-		// No caching for this proxy.
+	// If the proxy is a SNI_DNAT router, do not use the cached data
+	if proxy.Type == model.Router && proxy.GetRouterMode() == model.SNI_DNAT {
 		clusters = append(clusters, configgen.buildOutboundClusters(env, proxy, push)...)
 	} else {
 		recomputeOutboundClusters := true
@@ -101,9 +102,10 @@ func normalizeClusters(push *model.PushContext, proxy *model.Proxy, clusters []*
 func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environment, proxy *model.Proxy, push *model.PushContext) []*v2.Cluster {
 	clusters := make([]*v2.Cluster, 0)
 
-	var mTLSInclusionSet map[string]bool
-	if proxy != nil {
-		mTLSInclusionSet = proxy.GetProxyMTLSInclusionSet()
+	inputParams := &plugin.InputParams{
+		Env:  env,
+		Push: push,
+		Node: proxy,
 	}
 
 	for _, service := range push.Services {
@@ -112,6 +114,8 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 			if port.Protocol == model.ProtocolUDP {
 				continue
 			}
+			inputParams.Service = service
+			inputParams.Port = port
 			hosts := buildClusterHosts(env, service, port.Port)
 
 			// create default cluster
@@ -137,7 +141,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 					applyTrafficPolicy(env, subsetCluster, subset.TrafficPolicy, port)
 					// call plugins
 					for _, p := range configgen.Plugins {
-						p.OnOutboundCluster(env, push, service, port, subsetCluster)
+						p.OnOutboundCluster(inputParams, subsetCluster)
 					}
 					clusters = append(clusters, subsetCluster)
 				}
@@ -145,7 +149,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 
 			// call plugins for the default cluster
 			for _, p := range configgen.Plugins {
-				p.OnOutboundCluster(env, push, service, port, defaultCluster)
+				p.OnOutboundCluster(inputParams, defaultCluster)
 			}
 		}
 	}
@@ -187,10 +191,16 @@ func buildClusterHosts(env *model.Environment, service *model.Service, port int)
 	return hosts
 }
 
-func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environment, proxy *model.Proxy, push *model.PushContext,
-	instances []*model.ServiceInstance,
-	managementPorts []*model.Port) []*v2.Cluster {
+func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environment, proxy *model.Proxy,
+	push *model.PushContext, instances []*model.ServiceInstance, managementPorts []*model.Port) []*v2.Cluster {
+
 	clusters := make([]*v2.Cluster, 0)
+	inputParams := &plugin.InputParams{
+		Env:  env,
+		Push: push,
+		Node: proxy,
+	}
+
 	for _, instance := range instances {
 		// This cluster name is mainly for stats.
 		clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "", instance.Service.Hostname, instance.Endpoint.ServicePort.Port)
@@ -198,8 +208,9 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 		localCluster := buildDefaultCluster(env, clusterName, v2.Cluster_STATIC, []*core.Address{&address})
 		setUpstreamProtocol(localCluster, instance.Endpoint.ServicePort)
 		// call plugins
+		inputParams.ServiceInstance = instance
 		for _, p := range configgen.Plugins {
-			p.OnInboundCluster(env, proxy, push, instance.Service, instance.Endpoint.ServicePort, localCluster)
+			p.OnInboundCluster(inputParams, localCluster)
 		}
 
 		// When users specify circuit breakers, they need to be set on the receiver end
@@ -244,23 +255,13 @@ func convertResolution(resolution model.Resolution) v2.Cluster_DiscoveryType {
 }
 
 // convertIstioMutual fills key cert fields for all TLSSettings when the mode is `ISTIO_MUTUAL`.
-func convertIstioMutual(destinationRule *networking.DestinationRule, service *model.Service, upstreamServiceAccount []string, mTLSInclusionSet map[string]bool) {
+func convertIstioMutual(destinationRule *networking.DestinationRule, service *model.Service, upstreamServiceAccount []string) {
 	converter := func(tls *networking.TLSSettings) {
 		if tls == nil {
 			return
 		}
 		if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
-			// Check if we have a mTLSInclusionSet
-			// if its nil, then follow the policy
-			// if its not nil, then enable ISTIO_MUTUAL if and only if this particular service
-			// is in the proxy's inclusion list. We need this escape hatch to allow
-			// clusters without mTLS setting in the cluster gateway that routes to upstream
-			// clusters based on the SNI value [incoming traffic is mTLS from another cluster].
-			if mTLSInclusionSet == nil || mTLSInclusionSet[string(service.Hostname)] {
-				*tls = *buildIstioMutualTLS(upstreamServiceAccount, tls.Sni)
-			} else {
-				tls.Mode = networking.TLSSettings_DISABLE
-			}
+			*tls = *buildIstioMutualTLS(upstreamServiceAccount, tls.Sni)
 		}
 	}
 
