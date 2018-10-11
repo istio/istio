@@ -181,10 +181,14 @@ func GetInfo() adapter.Info {
 	}
 }
 
+var _ apikey.HandlerBuilder = &builder{}
+var _ authorization.HandlerBuilder = &builder{}
+
 type builder struct {
 	adapterConfig *config.Params
 }
 
+func (*builder) SetApiKeyTypes(map[string]*apikey.Type)               {}
 func (*builder) SetAuthorizationTypes(map[string]*authorization.Type) {}
 
 func (b *builder) SetAdapterConfig(cfg adapter.Config) {
