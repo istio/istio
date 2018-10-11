@@ -97,6 +97,7 @@ docker.proxy_debug: pilot/docker/Dockerfile.proxyv2
 docker.proxy_debug: pilot/docker/envoy_pilot.yaml.tmpl
 docker.proxy_debug: pilot/docker/envoy_policy.yaml.tmpl
 docker.proxy_debug: pilot/docker/envoy_telemetry.yaml.tmpl
+docker.proxy_debug: pilot/docker/certs/cacert.pem
 	$(DOCKER_RULE)
 
 # The file must be named 'envoy', depends on the release.
@@ -114,6 +115,7 @@ docker.proxyv2: pilot/docker/envoy_pilot.yaml.tmpl
 docker.proxyv2: pilot/docker/envoy_policy.yaml.tmpl
 docker.proxyv2: tools/deb/istio-iptables.sh
 docker.proxyv2: pilot/docker/envoy_telemetry.yaml.tmpl
+docker.proxyv2: pilot/docker/certs/cacert.pem
 	$(DOCKER_RULE)
 
 # Proxy using TPROXY interception - but no core dumps
@@ -126,6 +128,7 @@ docker.proxytproxy: pilot/docker/envoy_pilot.yaml.tmpl
 docker.proxytproxy: pilot/docker/envoy_policy.yaml.tmpl
 docker.proxytproxy: tools/deb/istio-iptables.sh
 docker.proxytproxy: pilot/docker/envoy_telemetry.yaml.tmpl
+docker.proxytproxy: pilot/docker/certs/cacert.pem
 	$(DOCKER_RULE)
 
 docker.pilot: $(ISTIO_OUT)/pilot-discovery
