@@ -25,7 +25,7 @@ istio-ingressgateway:
   cpu:
     targetAverageUtilization: 80
   loadBalancerIP: ""
-  loadBalancerSourceRanges: {}
+  loadBalancerSourceRanges: []
   serviceAnnotations: {}
   podAnnotations: {}
   type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
@@ -73,8 +73,8 @@ istio-ingressgateway:
   - port: 853
     targetPort: 853
     name: tcp-dns-tls
-  ####### end MESH EXPANSION PORTS ######  
-  ##############   
+  ####### end MESH EXPANSION PORTS ######
+  ##############
   secretVolumes:
   - name: ingressgateway-certs
     secretName: istio-ingressgateway-certs
@@ -194,4 +194,3 @@ istio-mcgateway:
     # this is needed to tell pilot to not generate
     # mTLS clusters for the mcgateway
     ISTIO_META_ISTIO_GATEWAY_MODE: multicluster
-
