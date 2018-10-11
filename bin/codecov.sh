@@ -65,7 +65,7 @@ function wait_for_proc() {
   local num
   num=$(jobs -p | wc -l)
   while [ "${num}" -gt ${MAXPROCS} ]; do
-    sleep 2
+    sleep 5
     num=$(jobs -p|wc -l)
   done
 }
