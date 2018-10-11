@@ -36,6 +36,10 @@ spec:
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           args:
           - "discovery"
+{{- if $.Values.global.proxy.discoveryDomain }}
+          - --domain
+          - {{ $.Values.global.proxy.discoveryDomain }}
+{{- end }}
 {{- if .Values.global.oneNamespace }}
           - "-a"
           - {{ .Release.Namespace }}
@@ -113,6 +117,10 @@ spec:
           - containerPort: 15011
           args:
           - proxy
+{{- if $.Values.global.proxy.proxyDomain }}
+          - --domain
+          - {{ $.Values.global.proxy.proxyDomain }}
+{{- end }}
           - --serviceCluster
           - istio-pilot
           - --templateFile
