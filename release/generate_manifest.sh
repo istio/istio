@@ -54,7 +54,6 @@ function replace_sha_branch_repo() {
   local repstr
   repstr="\\1${NEW_SHA}\" upstream=\"${BRANCH}\"\\/\\>"
   sed "s/$findstr/$repstr/" -i "$MANIFEST_FILE"
-#  sed "s/\(.*$REPO. revision=.\)\(.*\)\(upstream.*\)/\1${NEW_SHA}\" upstream=\"${BRANCH}\"\/\>/" -i $MANIFEST_FILE
 }
 
 function checkout_code() {
