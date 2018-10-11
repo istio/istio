@@ -18,6 +18,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"strings"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -54,6 +55,6 @@ func NewCAClient(endpoint, CAProviderName string, tlsFlag bool) (caClientInterfa
 	case googleCA:
 		return gca.NewGoogleCAClient(conn), nil
 	default:
-		return nil, fmt.Errorf("CA provider %q isn't supported", CAProviderName)
+		return nil, fmt.Errorf("CA provider %q isn't supported, only support %q", CAProviderName, strings.Join([]string{googleCA}, ","))
 	}
 }
