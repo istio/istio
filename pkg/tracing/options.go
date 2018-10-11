@@ -22,14 +22,17 @@ import (
 
 // Options defines the set of options supported by Istio's component tracing package.
 type Options struct {
-	// URL of zipkin collector (example: 'http://zipkin:9411/api/v1/spans'). This enables tracing for Mixer itself.
+	// URL of zipkin collector (example: 'http://zipkin:9411/api/v1/spans').
 	ZipkinURL string
 
-	// URL of jaeger HTTP collector (example: 'http://jaeger:14268/api/traces?format=jaeger.thrift'). This enables tracing for Mixer itself.
+	// URL of jaeger HTTP collector (example: 'http://jaeger:14268/api/traces?format=jaeger.thrift').
 	JaegerURL string
 
 	// Whether or not to emit trace spans as log records.
 	LogTraceSpans bool
+
+	// SamplingRate controls the rate at which a process will decide to generate trace spans.
+	SamplingRate float64
 }
 
 // DefaultOptions returns a new set of options, initialized to the defaults
@@ -66,4 +69,7 @@ func (o *Options) AttachCobraFlags(cmd *cobra.Command) {
 
 	cmd.PersistentFlags().BoolVarP(&o.LogTraceSpans, "trace_log_spans", "", o.LogTraceSpans,
 		"Whether or not to log trace spans.")
+
+	cmd.PersistentFlags().Float64VarP(&o.SamplingRate, "trace_sampling_rate", "", o.SamplingRate,
+		"Sampling rate for generating trace data. Should be a value between 0.0 and 1.0.")
 }
