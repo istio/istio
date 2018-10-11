@@ -19,59 +19,73 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
-	"strconv"
+	"path/filepath"
 	"time"
 
-	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/scopes"
 	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/shell"
 )
 
-// generate a map[string]string for easy processing.
-func (s *Settings) generateHelmValues() map[string]string {
-	// TODO: Add more flags, as needed.
-	return map[string]string{
-		"global.tag":                                 s.Images.Tag,
-		"global.hub":                                 s.Images.Hub,
-		"global.imagePullPolicy":                     string(s.Images.ImagePullPolicy),
-		"global.proxy.enableCoreDump":                boolString(s.EnableCoreDump),
-		"global.mtls.enabled":                        boolString(s.GlobalMtlsEnabled),
-		"galley.enabled":                             boolString(s.GalleyEnabled),
-		"gateways.istio-ingressgateway.replicaCount": uintString(s.IngressGateway.ReplicaCount),
-		"gateways.istio-ingressgateway.autoscaleMin": uintString(s.IngressGateway.AutoscaleMin),
-		"gateways.istio-ingressgateway.autoscaleMax": uintString(s.IngressGateway.AutoscaleMax),
-	}
+const (
+	namespaceTemplate = `apiVersion: v1
+kind: Namespace
+metadata:
+  name: %s
+  labels:
+    istio-injection: disabled
+`
+)
+
+// HelmConfig configuration for a Helm-based deployment.
+type HelmConfig struct {
+	Accessor   *kube.Accessor
+	KubeConfig string
+	Namespace  string
+	WorkDir    string
+	ChartDir   string
+
+	// Can be either a file name under ChartDir or an absolute file path.
+	ValuesFile string
+	Values     map[string]string
 }
 
-func newHelmDeployment(s *Settings, a *kube.Accessor, chartDir string, valuesFile valuesFile) (*Instance, error) {
+// NewHelmDeployment creates a new Helm-based deployment instance.
+func NewHelmDeployment(c HelmConfig) (*Instance, error) {
 	instance := &Instance{}
 
-	instance.kubeConfig = s.KubeConfig
-	instance.namespace = s.Namespace
+	instance.kubeConfig = c.KubeConfig
+	instance.namespace = c.Namespace
 
 	// Define a deployment name for Helm.
-	deploymentName := fmt.Sprintf("%s-%v", s.Namespace, time.Now().UnixNano())
+	deploymentName := fmt.Sprintf("%s-%v", c.Namespace, time.Now().UnixNano())
 	scopes.CI.Infof("Generated Helm Instance name: %s", deploymentName)
 
-	instance.yamlFilePath = path.Join(s.WorkDir, deploymentName+".yaml")
+	instance.yamlFilePath = path.Join(c.WorkDir, deploymentName+".yaml")
 
-	vFile := path.Join(chartDir, string(valuesFile))
+	// Convert the valuesFile to an absolute file path.
+	valuesFile := c.ValuesFile
+	if _, err := os.Stat(valuesFile); os.IsNotExist(err) {
+		valuesFile = filepath.Join(c.ChartDir, valuesFile)
+		if _, err := os.Stat(valuesFile); os.IsNotExist(err) {
+			return nil, err
+		}
+	}
 
 	var err error
 	var generatedYaml string
 	if generatedYaml, err = HelmTemplate(
 		deploymentName,
-		s.Namespace,
-		env.IstioChartDir,
-		vFile,
-		s); err != nil {
+		c.Namespace,
+		c.ChartDir,
+		valuesFile,
+		c.Values); err != nil {
 		return nil, fmt.Errorf("chart generation failed: %v", err)
 	}
 
 	// TODO: This is Istio deployment specific. We may need to remove/reconcile this as a parameter
 	// when we support Helm deployment of non-Istio artifacts.
-	namespaceData := fmt.Sprintf(namespaceTemplate, s.Namespace)
+	namespaceData := fmt.Sprintf(namespaceTemplate, c.Namespace)
 
 	generatedYaml = namespaceData + generatedYaml
 
@@ -80,11 +94,11 @@ func newHelmDeployment(s *Settings, a *kube.Accessor, chartDir string, valuesFil
 	}
 
 	scopes.CI.Infof("Applying Helm generated Yaml file: %s", instance.yamlFilePath)
-	if err = kube.Apply(s.KubeConfig, s.Namespace, instance.yamlFilePath); err != nil {
+	if err = kube.Apply(c.KubeConfig, c.Namespace, instance.yamlFilePath); err != nil {
 		return nil, fmt.Errorf("kube apply of generated yaml filed: %v", err)
 	}
 
-	if err = instance.wait(s.Namespace, a); err != nil {
+	if err = instance.wait(c.Namespace, c.Accessor); err != nil {
 		return nil, err
 	}
 
@@ -92,10 +106,12 @@ func newHelmDeployment(s *Settings, a *kube.Accessor, chartDir string, valuesFil
 }
 
 // HelmTemplate calls "helm template".
-func HelmTemplate(deploymentName, namespace, chartDir, valuesFile string, s *Settings) (string, error) {
+func HelmTemplate(deploymentName, namespace, chartDir, valuesFile string, values map[string]string) (string, error) {
 	valuesString := ""
-	if s != nil {
-		for k, v := range s.generateHelmValues() {
+
+	// Apply the overrides for the values file.
+	if values != nil {
+		for k, v := range values {
 			valuesString += fmt.Sprintf(" --set %s=%s", k, v)
 		}
 	}
@@ -113,15 +129,4 @@ func HelmTemplate(deploymentName, namespace, chartDir, valuesFile string, s *Set
 	}
 
 	return "", fmt.Errorf("%v: %s", err, str)
-}
-
-func boolString(b bool) string {
-	if b {
-		return "true"
-	}
-	return "false"
-}
-
-func uintString(v uint) string {
-	return strconv.FormatUint(uint64(v), 10)
 }
