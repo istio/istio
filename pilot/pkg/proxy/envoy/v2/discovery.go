@@ -41,7 +41,6 @@ var (
 	versionNum = 1
 
 	periodicRefreshMetrics = 10 * time.Second
-
 )
 
 const (
@@ -147,8 +146,8 @@ func NewDiscoveryServer(env *model.Environment, generator core.ConfigGenerator) 
 
 	out.DebugConfigs = os.Getenv("PILOT_DEBUG_ADSZ_CONFIG") == "1"
 
-	pushThrottle := intEnv("PILOT_PUSH_THROTTLE", 100)
-	pushBurst := intEnv("PILOT_PUSH_BURST", 250)
+	pushThrottle := intEnv("PILOT_PUSH_THROTTLE", 25)
+	pushBurst := intEnv("PILOT_PUSH_BURST", 100)
 
 	adsLog.Infof("Starting ADS server with throttle=%d burst=%d", pushThrottle, pushBurst)
 
@@ -240,44 +239,6 @@ func (s *DiscoveryServer) periodicRefreshMetrics() {
 	}
 }
 
-// ServiceAccounts returns the list of service accounts for a service.
-// The XDS server incrementally updates the list, by getting the SA from registries.
-// Same list is used to compute CDS response.
-func (s *DiscoveryServer) ServiceAccounts(serviceName string) []string {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	sa := []string{}
-
-	// TODO: cache the computed service account map in EndpointShardsByService.
-
-	ep, f := s.EndpointShardsByService[serviceName]
-	if !f {
-		return sa
-	}
-	samap := map[string]bool{}
-	for _, es := range ep.Shards {
-		for _, el := range es.Entries {
-			if f := samap[el.ServiceAccount]; !f {
-				samap[el.ServiceAccount] = true
-			}
-		}
-	}
-	// TODO: we can just return the map.
-	for k := range samap {
-		sa = append(sa, k)
-	}
-
-	return sa
-}
-
-// Returns the global push context.
-func (s *DiscoveryServer) globalPushContext() *model.PushContext {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-	return s.Env.PushContext
-}
-
 // Push is called to push changes on config updates using ADS. This is set in DiscoveryService.Push,
 // to avoid direct dependencies.
 func (s *DiscoveryServer) Push(full bool, edsUpdates map[string]*model.ServiceShards) {
@@ -340,4 +301,42 @@ func versionInfo() string {
 	versionMutex.RLock()
 	defer versionMutex.RUnlock()
 	return version
+}
+
+// ServiceAccounts returns the list of service accounts for a service.
+// The XDS server incrementally updates the list, by getting the SA from registries.
+// Same list is used to compute CDS response.
+func (s *DiscoveryServer) ServiceAccounts(serviceName string) []string {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	sa := []string{}
+
+	// TODO: cache the computed service account map in EndpointShardsByService.
+
+	ep, f := s.EndpointShardsByService[serviceName]
+	if !f {
+		return sa
+	}
+	samap := map[string]bool{}
+	for _, es := range ep.Shards {
+		for _, el := range es.Entries {
+			if f := samap[el.ServiceAccount]; !f {
+				samap[el.ServiceAccount] = true
+			}
+		}
+	}
+	// TODO: we can just return the map.
+	for k := range samap {
+		sa = append(sa, k)
+	}
+
+	return sa
+}
+
+// Returns the global push context.
+func (s *DiscoveryServer) globalPushContext() *model.PushContext {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	return s.Env.PushContext
 }

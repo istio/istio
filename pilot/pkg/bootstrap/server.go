@@ -776,8 +776,8 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 		// kubeRegistry may use the environment for push status reporting.
 		// TODO: maybe all registries should have his as an optional field ?
 		s.kubeRegistry.Env = environment
+		s.kubeRegistry.ConfigUpdater = discovery
 		if directEDS {
-			s.kubeRegistry.ConfigUpdater = discovery
 			s.kubeRegistry.EDSUpdater = s.EnvoyXdsServer
 		}
 	}

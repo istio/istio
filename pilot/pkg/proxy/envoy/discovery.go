@@ -138,8 +138,6 @@ var (
 	// while debouncing. Defaults to 10 seconds. If events keep
 	// showing up with no break for this time, we'll trigger a push.
 	DebounceMax time.Duration
-
-	debugDebounce = os.Getenv("PILOT_DEBOUNCE_DEBUG") != ""
 )
 
 func init() {
@@ -443,11 +441,6 @@ func (ds *DiscoveryService) debouncePush(startDebounce time.Time) {
 		ds.doPush()
 
 	} else {
-		if debugDebounce {
-			log.Infof("Push debounce %d: %v since last change, %v since last push, full=%v",
-				events,
-				since, time.Since(lastClearCache), ds.fullPush)
-		}
 		time.AfterFunc(DebounceAfter, func() {
 			ds.debouncePush(startDebounce)
 		})
@@ -486,9 +479,6 @@ func (ds *DiscoveryService) ConfigUpdate(full bool) {
 	defer clearCacheMutex.Unlock()
 
 	if full {
-		if !ds.fullPush && debugDebounce {
-			log.Info("Config change requiring full push")
-		}
 		ds.fullPush = true
 	}
 	clearCacheEvents++
@@ -502,9 +492,6 @@ func (ds *DiscoveryService) ConfigUpdate(full bool) {
 			time.AfterFunc(DebounceAfter, func() {
 				ds.debouncePush(startDebounce)
 			})
-			if debugDebounce {
-				log.Info("Setting debounce timer")
-			}
 		}
 		return
 	}

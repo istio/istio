@@ -110,7 +110,7 @@ func (pc *PodCache) event(obj interface{}, ev model.Event) error {
 			// delete only if this pod was in the cache
 			if pc.keys[ip] == key {
 				delete(pc.keys, ip)
-				if pc.c != nil {
+				if pc.c.EDSUpdater != nil {
 					pc.c.EDSUpdater.WorkloadUpdate(ip, nil, nil)
 				}
 			}

@@ -17,7 +17,6 @@ package kube
 import (
 	"errors"
 	"fmt"
-	"os"
 	"reflect"
 	"strconv"
 	"time"
@@ -64,11 +63,6 @@ var (
 func init() {
 	prometheus.MustRegister(k8sEvents)
 }
-
-var (
-	azDebug   = os.Getenv("VERBOSE_AZ_DEBUG") == "1"
-	directEDS = os.Getenv("PILOT_DIRECT_EDS") != "0"
-)
 
 // ControllerOptions stores the configurable attributes of a Controller.
 type ControllerOptions struct {
@@ -147,7 +141,7 @@ func NewController(client kubernetes.Interface, options ControllerOptions) *Cont
 			return client.CoreV1().Services(options.WatchedNamespace).Watch(opts)
 		})
 
-	if directEDS {
+	if out.EDSUpdater != nil {
 		out.endpoints = out.createEDSInformer(&v1.Endpoints{}, "Endpoints", options.ResyncPeriod,
 			func(opts meta_v1.ListOptions) (runtime.Object, error) {
 				return client.CoreV1().Endpoints(options.WatchedNamespace).List(opts)
@@ -375,16 +369,10 @@ func (c *Controller) GetPodAZ(pod *v1.Pod) (string, bool) {
 	}
 	region, exists := node.(*v1.Node).Labels[NodeRegionLabel]
 	if !exists {
-		if azDebug {
-			log.Warnf("unable to retrieve region label for pod: %v", pod.Name)
-		}
 		return "", false
 	}
 	zone, exists := node.(*v1.Node).Labels[NodeZoneLabel]
 	if !exists {
-		if azDebug {
-			log.Warnf("unable to retrieve zone label for pod: %v", pod.Name)
-		}
 		return "", false
 	}
 	return fmt.Sprintf("%v/%v", region, zone), true
@@ -765,7 +753,7 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 
 		log.Infof("Handle service %s in namespace %s", svc.Name, svc.Namespace)
 
-		if directEDS {
+		if c.EDSUpdater != nil {
 			hostname := svc.Name + "." + svc.Namespace
 			ports := map[string]uint32{}
 			portsByNum := map[uint32]string{}
@@ -804,7 +792,7 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 			return nil
 		}
 
-		if directEDS {
+		if c.EDSUpdater != nil {
 			c.updateEDS(ep)
 		} else {
 			log.Infof("Handle endpoint %s in namespace %s -> %v", ep.Name, ep.Namespace, ep.Subsets)

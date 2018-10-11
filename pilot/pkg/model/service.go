@@ -625,7 +625,7 @@ func (l Labels) Equals(that Labels) bool {
 // HasSubsetOf returns true if the input labels are a super set of one labels in a
 // collection or if the tag collection is empty
 func (labels LabelsCollection) HasSubsetOf(that Labels) bool {
-	if labels == nil || len(labels) == 0 {
+	if len(labels) == 0 {
 		return true
 	}
 	for _, label := range labels {

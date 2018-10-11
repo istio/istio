@@ -382,6 +382,14 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				con.ConID = connectionID(discReq.Node.Id)
 			}
 
+			// ACK/NACK
+			if discReq.ErrorDetail != nil {
+				if discReq.ErrorDetail.Code == 0 {
+					adsLog.Warnf("ADS:ACK %v %s %v", peerAddr, con.ConID, discReq.TypeUrl)
+				} else {
+					adsLog.Warnf("ADS:NACK %v %s %v", peerAddr, con.ConID, discReq.String())
+				}
+			}
 			switch discReq.TypeUrl {
 			case ClusterType:
 				if con.CDSWatch {
@@ -401,7 +409,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				// soon as the CDS push is returned.
 				adsLog.Infof("ADS:CDS: REQ %v %s %v raw: %s", peerAddr, con.ConID, time.Since(t0), discReq.String())
 				con.CDSWatch = true
-				err := s.pushCds(con, pc, versionInfo())
+				err := s.pushCds(con, s.globalPushContext(), versionInfo())
 				if err != nil {
 					return err
 				}
@@ -422,7 +430,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				// too verbose - sent immediately after EDS response is received
 				adsLog.Debugf("ADS:LDS: REQ %s %v", con.ConID, peerAddr)
 				con.LDSWatch = true
-				err := s.pushLds(con, pc, true, versionInfo())
+				err := s.pushLds(con, s.globalPushContext(), true, versionInfo())
 				if err != nil {
 					return err
 				}
@@ -449,7 +457,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				}
 				con.Routes = routes
 				adsLog.Debugf("ADS:RDS: REQ %s %s  routes: %d", peerAddr, con.ConID, len(con.Routes))
-				err := s.pushRoute(con, pc, versionInfo())
+				err := s.pushRoute(con, s.globalPushContext(), versionInfo())
 				if err != nil {
 					return err
 				}
@@ -492,7 +500,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 
 				con.Clusters = clusters
 				adsLog.Debugf("ADS:EDS: REQ %s %s clusters: %d", peerAddr, con.ConID, len(con.Clusters))
-				err := s.pushEds(pc, con, true, nil)
+				err := s.pushEds(s.globalPushContext(), con, true, nil)
 				if err != nil {
 					return err
 				}

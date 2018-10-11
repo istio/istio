@@ -24,8 +24,6 @@ import (
 	"sync"
 	"time"
 
-	"os"
-
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
@@ -66,13 +64,6 @@ var (
 
 	// Tracks connections, increment on each new connection.
 	connectionNumber = int64(0)
-
-	// edsPartial will push only what changed - Envoy will not delete
-	// or modify clusters if an EDS push doesn't contain any data about said cluster.
-	// This speeds up the push and reduces memory/CPU use on pilot, and allows scaling
-	// to larger number of endpoints.
-	// On by default - can be turned off in case of unexpected problems.
-	edsPartial = os.Getenv("EDS_PARTIAL") != "0"
 )
 
 // EdsCluster tracks eds-related info for monitored clusters. In practice it'll include
@@ -644,16 +635,14 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection,
 	updated := []string{}
 
 	for _, clusterName := range con.Clusters {
-		if edsPartial {
-			_, _, hostname, _ := model.ParseSubsetKey(clusterName)
-			if edsUpdatedServices != nil && edsUpdatedServices[string(hostname)] == nil {
-				// Cluster was not updated, skip recomputing.
-				continue
-			}
-			// for debug
-			if edsUpdatedServices != nil {
-				updated = append(updated, clusterName)
-			}
+		_, _, hostname, _ := model.ParseSubsetKey(clusterName)
+		if edsUpdatedServices != nil && edsUpdatedServices[string(hostname)] == nil {
+			// Cluster was not updated, skip recomputing.
+			continue
+		}
+		// for debug
+		if edsUpdatedServices != nil {
+			updated = append(updated, clusterName)
 		}
 
 		c := s.getEdsCluster(clusterName)
