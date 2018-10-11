@@ -775,18 +775,9 @@ func (s *DiscoveryServer) removeCon(conID string, con *XdsConnection) {
 	}
 }
 
-// getServicesForEndpoint returns the list of services associated with a node.
-// Currently using the node endpoint IP.
-//func (s *DiscoveryServer) getServicesForEndpoint(node *model.Proxy) ([]*model.ServiceInstance, error) {
-//	// TODO: cache the results, this is a pretty slow operation and called few times per
-//	// push
-//	proxyInstances, err := s.env.GetProxyServiceInstances(node)
-//	return proxyInstances, err
-//}
-
 // Send with timeout
 func (conn *XdsConnection) send(res *xdsapi.DiscoveryResponse) error {
-	done := make(chan error, 1)
+	done := make(chan error)
 	// hardcoded for now - not sure if we need a setting
 	t := time.NewTimer(SendTimeout)
 	go func() {
@@ -813,8 +804,8 @@ func (conn *XdsConnection) send(res *xdsapi.DiscoveryResponse) error {
 		adsLog.Infof("Timeout writing %s", conn.ConID)
 		writeTimeout.Add(1)
 		return errors.New("timeout sending")
-	case err, _ := <-done:
-		_ = t.Stop()
+	case err := <-done:
+		t.Stop()
 		return err
 	}
 }

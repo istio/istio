@@ -68,6 +68,7 @@ func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 		},
 		Run: func(cmd *cobra.Command, args []string) {
 			serverArgs.KubeConfig = flags.kubeConfig
+			serverArgs.LoggingOptions = loggingOptions
 			serverArgs.ResyncPeriod = flags.resyncPeriod
 			serverArgs.CredentialOptions.CACertificateFile = validationArgs.CACertFile
 			serverArgs.CredentialOptions.KeyFile = validationArgs.KeyFile
