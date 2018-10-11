@@ -16,6 +16,11 @@
       "name": "gcr.io/istio-testing/istio-builder:0.5.10",
       "dir": "go/src/istio.io/istio",
       "args": [ "./release/rel_push_docker.sh", "-p", "$_GCS_BUILD_PATH", "-h", "$_PUSH_DOCKER_HUBS", "-v", "$_TAG" ]
+    },
+    {
+      "name": "gcr.io/istio-testing/istio-builder:0.5.10",
+      "dir": "go/src/istio.io/istio",
+      "args": [ "./release/rel_daily_complete.sh", "-b", "$_BRANCH", "-s", "$_GCS_STAGING_BUCKET", "-v", "$_VERSION" ]
     }
   ],
   "timeout": "3600s",

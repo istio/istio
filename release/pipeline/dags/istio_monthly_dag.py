@@ -94,25 +94,14 @@ def MonthlyPipeline():
     testMonthlyConfigSettings(config_settings)
     return config_settings
 
-  def ReportMonthlySuccessful(task_instance, **kwargs):
-    del kwargs
-
   dag, tasks, addAirflowBashOperator = istio_common_dag.MakeCommonDag(
     MonthlyGenerateTestArgs,
     'istio_monthly_dag',
     schedule_interval=MONTHLY_RELEASE_TRIGGER,
     extra_param_lst=monthly_extra_params)
 
-  addAirflowBashOperator('release_push_github_docker_template', 'github_and_docker_release', need_commit=True)
-  addAirflowBashOperator('release_tag_github_template', 'github_tag_repos', need_commit=True)
-
-  mark_monthly_complete = PythonOperator(
-    task_id='mark_monthly_complete',
-    python_callable=ReportMonthlySuccessful,
-    provide_context=True,
-    dag=dag,
-  )
-  tasks['mark_monthly_complete'] = mark_monthly_complete
+  addAirflowBashOperator('release_push_github_docker_template', 'github_and_docker_release')
+  addAirflowBashOperator('release_tag_github_template', 'github_tag_repos')
 
 # tasks['generate_workflow_args']
   tasks['get_git_commit'                 ].set_upstream(tasks['generate_workflow_args'])
@@ -122,7 +111,6 @@ def MonthlyPipeline():
   tasks['copy_files_for_release'         ].set_upstream(tasks['run_release_qualification_tests'])
   tasks['github_and_docker_release'      ].set_upstream(tasks['copy_files_for_release'])
   tasks['github_tag_repos'               ].set_upstream(tasks['github_and_docker_release'])
-  tasks['mark_monthly_complete'          ].set_upstream(tasks['github_tag_repos'])
 
   return dag
 

@@ -117,10 +117,10 @@ function gcr_tag_success() {
     PUSH_DOCKER_HUBS="$DOCKER_HUB"
     # shellcheck disable=SC2034
     TAG="$BRANCH-latest-daily"
-    create_subs_file "BRANCH" "GCS_BUILD_PATH" "GCS_RELEASE_TOOLS_PATH" "PUSH_DOCKER_HUBS" "TAG"
+    create_subs_file "BRANCH" "GCS_BUILD_PATH" "GCS_STAGING_BUCKET" "GCS_RELEASE_TOOLS_PATH" "PUSH_DOCKER_HUBS" "TAG" "VERSION"
     cat "${SUBS_FILE}"
 
-    run_build "cloud_docker_push.template.json" \
+    run_build "cloud_daily_success.template.json" \
          "${SUBS_FILE}" "${PROJECT_ID}" "${SVC_ACCT}"
     exit "${BUILD_FAILED}"
 }
