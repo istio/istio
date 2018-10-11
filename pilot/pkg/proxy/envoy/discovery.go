@@ -27,8 +27,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	restful "github.com/emicklei/go-restful"
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/emicklei/go-restful"
+	"github.com/hashicorp/go-multierror"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -366,7 +366,9 @@ func NewDiscoveryService(ctl model.Controller, configCache model.ConfigStoreCach
 	if configCache != nil {
 		// TODO: changes should not trigger a full recompute of LDS/RDS/CDS/EDS
 		// (especially mixerclient HTTP and quota)
-		configHandler := func(model.Config, model.Event) { out.clearCache() }
+		configHandler := func(model.Config, model.Event) {
+			out.clearCache()
+		}
 		for _, descriptor := range model.IstioConfigTypes {
 			configCache.RegisterEventHandler(descriptor.Type, configHandler)
 		}
