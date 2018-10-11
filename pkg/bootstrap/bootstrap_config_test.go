@@ -19,6 +19,7 @@ import (
 	"os"
 	"path"
 	"reflect"
+	"regexp"
 	"testing"
 
 	"github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v2"
@@ -83,7 +84,7 @@ func TestGolden(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		t.Run("Bootrap-"+c.base, func(t *testing.T) {
+		t.Run("Bootstrap-"+c.base, func(t *testing.T) {
 			cfg, err := loadProxyConfig(c.base, out, t)
 			if err != nil {
 				t.Fatal(err)
@@ -101,6 +102,15 @@ func TestGolden(t *testing.T) {
 				t.Error("Error reading generated file ", err)
 				return
 			}
+
+			// apply minor modifications for the generated file so that tests are consistent
+			// across different env setups
+			err = ioutil.WriteFile(fn, correctForEnvDifference(real), 0700)
+			if err != nil {
+				t.Error("Error modifying generated file ", err)
+				return
+			}
+
 			golden, err := ioutil.ReadFile("testdata/" + c.base + "_golden.json")
 			if err != nil {
 				golden = []byte{}
@@ -157,6 +167,30 @@ func TestGolden(t *testing.T) {
 		})
 	}
 
+}
+
+type regexReplacement struct {
+	pattern *regexp.Regexp
+	replacement []byte
+}
+
+// correctForEnvDifference corrects the portions of a generated bootstrap config that vary depending on the environment
+// so that they match the golden file's expected value.
+func correctForEnvDifference(in []byte) []byte {
+	replacements := []regexReplacement {
+		// Lightstep access tokens are written to a file and that path is dependent upon the environment variables that
+		// are set. Standardize the path so that golden files can be properly checked.
+		{
+			pattern: regexp.MustCompile(`("access_token_file": ").*(lightstep_access_token.txt")`),
+			replacement: []byte("$1/test-path/$2"),
+		},
+	}
+
+	out := in
+	for _, r := range replacements {
+		out = r.pattern.ReplaceAll(out, r.replacement)
+	}
+	return out
 }
 
 func loadProxyConfig(base, out string, _ *testing.T) (*meshconfig.ProxyConfig, error) {
