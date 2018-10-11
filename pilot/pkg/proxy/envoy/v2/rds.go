@@ -34,7 +34,7 @@ func (s *DiscoveryServer) pushRoute(con *XdsConnection, push *model.PushContext)
 			con.RouteConfigs[r.Name] = r
 			if adsLog.DebugEnabled() {
 				resp, _ := model.ToJSONWithIndent(r, " ")
-				adsLog.Debugf("RDS: Adding route %s for node %s", resp, con.modelNode)
+				adsLog.Debugf("RDS: Adding route %s for node %v", resp, con.modelNode)
 			}
 		}
 	}
@@ -42,7 +42,7 @@ func (s *DiscoveryServer) pushRoute(con *XdsConnection, push *model.PushContext)
 	response := routeDiscoveryResponse(rawRoutes)
 	err = con.send(response)
 	if err != nil {
-		adsLog.Warnf("ADS: RDS: Send failure for %s, closing grpc %v", con.modelNode, err)
+		adsLog.Warnf("ADS: RDS: Send failure for node %v, closing grpc %v", con.modelNode, err)
 		pushes.With(prometheus.Labels{"type": "rds_senderr"}).Add(1)
 		return err
 	}
@@ -60,19 +60,19 @@ func (s *DiscoveryServer) generateRawRoutes(con *XdsConnection, push *model.Push
 		r, err := s.ConfigGenerator.BuildHTTPRoutes(s.env, con.modelNode, push, routeName)
 		if err != nil {
 			retErr := fmt.Errorf("RDS: Failed to generate route %s for node %v: %v", routeName, con.modelNode, err)
-			adsLog.Warnf("RDS: Failed to generate routes for route %s for node %s: %v", routeName, con.modelNode, err)
+			adsLog.Warnf("RDS: Failed to generate routes for route %s for node %v: %v", routeName, con.modelNode, err)
 			pushes.With(prometheus.Labels{"type": "rds_builderr"}).Add(1)
 			return nil, retErr
 		}
 
 		if r == nil {
-			adsLog.Warnf("RDS: got nil value for route %s for node %s: %v", routeName, con.modelNode, err)
+			adsLog.Warnf("RDS: got nil value for route %s for node %v: %v", routeName, con.modelNode, err)
 			continue
 		}
 
 		if err = r.Validate(); err != nil {
 			retErr := fmt.Errorf("RDS: Generated invalid route %s for node %v: %v", routeName, con.modelNode, err)
-			adsLog.Errorf("RDS: Generated invalid routes for route %s for node %s: %v, %v", routeName, con.modelNode, err, r)
+			adsLog.Errorf("RDS: Generated invalid routes for route %s for node %v: %v, %v", routeName, con.modelNode, err, r)
 			pushes.With(prometheus.Labels{"type": "rds_builderr"}).Add(1)
 			// Generating invalid routes is a bug.
 			// Panic instead of trying to recover from that, since we can't
