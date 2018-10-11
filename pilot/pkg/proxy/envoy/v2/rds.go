@@ -16,7 +16,6 @@ package v2
 
 import (
 	"fmt"
-	"strings"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/gogo/protobuf/types"
@@ -30,13 +29,13 @@ func (s *DiscoveryServer) pushRoute(con *XdsConnection, push *model.PushContext,
 	if err != nil {
 		return err
 	}
-	if s.DebugConfigs || strings.Contains(con.ConID, "productpage") {
+	if s.DebugConfigs {
 		for _, r := range rawRoutes {
 			con.RouteConfigs[r.Name] = r
-			//if adsLog.DebugEnabled() {
-			resp, _ := model.ToJSONWithIndent(r, " ")
-			adsLog.Infof("RDS: Adding route %s for node %s", resp, con.modelNode)
-			//}
+			if adsLog.DebugEnabled() {
+				resp, _ := model.ToJSONWithIndent(r, " ")
+				adsLog.Debugf("RDS: Adding route %s for node %s", resp, con.modelNode)
+			}
 		}
 	}
 

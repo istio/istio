@@ -91,7 +91,7 @@ var (
 
 	// Default is enabled - can be set to "0" to restore previous behavior, in case of problems.
 	// Will be removed in 1.1 or 1.0.4 if we see no issues.
-	directEDS = os.Getenv("PILOT_DIRECT_EDS") != "0"
+	directEDS = os.Getenv("PILOT_DIRECT_EDS") == "1"
 )
 
 // MeshArgs provide configuration options for the mesh. If ConfigFile is provided, an attempt will be made to

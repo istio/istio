@@ -424,6 +424,8 @@ func testGetProxyServiceInstances(t *testing.T) {
 				KubeServiceAccountsOnVMAnnotation:      k8sSaOnVM,
 				CanonicalServiceAccountsOnVMAnnotation: canonicalSaOnVM},
 			[]int32{8080}, map[string]string{"app": "prod-app"}, t)
+		fx.Wait("service")
+
 		createEndpoints(controller, svcName, "nsfake", portNames, svc1Ips, t)
 		fx.Wait("eds")
 	}
@@ -443,7 +445,7 @@ func testGetProxyServiceInstances(t *testing.T) {
 	}
 
 	if len(services) != fakeSvcCounts+1 {
-		t.Errorf("GetProxyServiceInstances() returned wrong # of endpoints => %q, want %d", len(services), fakeSvcCounts+1)
+		t.Errorf("GetProxyServiceInstances() returned wrong # of endpoints => %d, want %d", len(services), fakeSvcCounts+1)
 	}
 
 	hostname := serviceHostname("svc1", "nsa", domainSuffix)

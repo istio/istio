@@ -28,7 +28,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 )
 
-// PushContext tracks the status of a mush - metrics and errors.
+// PushContext tracks the status of a push - metrics and errors.
 // Metrics are reset after a push - at the beginning all
 // values are zero, and when push completes the status is reset.
 // The struct is exposed in a debug endpoint - fields public to allow
@@ -83,12 +83,11 @@ type PushContext struct {
 	// ServiceAccounts is a function mapping service name to service accounts.
 	ServiceAccounts func(string) []string `json:"-"`
 
-	// ServicePorts is used to keep track of service name and port mapping.
+	// ServicePort2Name is used to keep track of service name and port mapping.
 	// This is needed because ADS names use port numbers, while endpoints use
 	// port names. The key is the service name. If a service or port are not found,
 	// the endpoint needs to be re-evaluated later (eventual consistency)
-	ServiceName2Ports map[string]map[string]uint32 `json:"-"`
-	ServicePort2Name  map[string]map[uint32]string `json:"-"`
+	ServicePort2Name map[string]PortList `json:"-"`
 
 	initDone bool
 }
@@ -129,8 +128,17 @@ type XDSUpdater interface {
 }
 
 // IstioEndpoint has the information about a single address+port for a specific
-// service and shard. Unlike ServiceInstance, it has less info and require less
-// allocation.
+// service and shard.
+//
+// Replaces NetworkEndpoint and ServiceInstance:
+// - ServicePortName replaces ServicePort, since port number and protocol may not
+// be available when endpoint callbacks are made.
+// - It no longers splits into one ServiceInstance and one NetworkEndpoint - both
+// are in a single struct
+// - doesn't have a pointer to Service - the full Service object may not be available at
+// the time the endpoint is received. The service name is used as a key and used to reconcile.
+// - it has a cached EnvoyEndpoint object - to avoid re-allocating it for each request and
+// client.
 type IstioEndpoint struct {
 
 	// Labels points to the workload or deployment labels.
@@ -349,8 +357,7 @@ func NewPushContext() *PushContext {
 	return &PushContext{
 		ServiceByHostname: map[Hostname]*Service{},
 		ProxyStatus:       map[string]map[string]ProxyPushStatus{},
-		ServicePort2Name:  map[string]map[uint32]string{},
-		ServiceName2Ports: map[string]map[string]uint32{},
+		ServicePort2Name:  map[string]PortList{},
 		Start:             time.Now(),
 	}
 }
@@ -457,17 +464,7 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 	ps.Services = sortServicesByCreationTime(services)
 	for _, s := range services {
 		ps.ServiceByHostname[s.Hostname] = s
-
-		// Update service2ports
-		ports := map[string]uint32{}
-		portsByNum := map[uint32]string{}
-
-		for _, port := range s.Ports {
-			ports[port.Name] = uint32(port.Port)
-			portsByNum[uint32(port.Port)] = port.Name
-		}
-		ps.ServiceName2Ports[string(s.Hostname)] = ports
-		ps.ServicePort2Name[string(s.Hostname)] = portsByNum
+		ps.ServicePort2Name[string(s.Hostname)] = s.Ports
 	}
 	return nil
 }

@@ -614,7 +614,8 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 	}
 	endpointsForPodInSameNS := make([]*model.ServiceInstance, 0)
 	endpointsForPodInDifferentNS := make([]*model.ServiceInstance, 0)
-	for _, item := range c.endpoints.informer.GetStore().List() {
+	l := c.endpoints.informer.GetStore().List()
+	for _, item := range l {
 		ep := *item.(*v1.Endpoints)
 
 		svcItem, exists := c.serviceByKey(ep.Name, ep.Namespace)

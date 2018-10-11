@@ -59,7 +59,7 @@ import (
 // we may only need to search in a small list.
 
 var (
-	edsClusterMutex sync.Mutex
+	edsClusterMutex sync.RWMutex
 	edsClusters     = map[string]*EdsCluster{}
 
 	// Tracks connections, increment on each new connection.
@@ -201,7 +201,7 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 	if !f {
 		return s.updateCluster(push, clusterName, edsCluster)
 	}
-	portName, f := portMap[uint32(port)]
+	svcPort, f := portMap.GetByPort(port)
 	if !f {
 		return s.updateCluster(push, clusterName, edsCluster)
 	}
@@ -219,7 +219,7 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 	// for this cluster
 	for _, es := range se.Shards {
 		for _, el := range es.Entries {
-			if portName != el.ServicePortName {
+			if svcPort.Name != el.ServicePortName {
 				continue
 			}
 			// Port labels
@@ -353,8 +353,7 @@ func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 
 // updateCluster is called from the event (or global cache invalidation) to update
 // the endpoints for the cluster.
-func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName string,
-	edsCluster *EdsCluster) error {
+func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName string, edsCluster *EdsCluster) error {
 	// TODO: should we lock this as well ? Once we move to event-based it may not matter.
 	var hostname model.Hostname
 	//var ports model.PortList
@@ -401,14 +400,20 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 	return nil
 }
 
-// SvcUpdate is a callback from service discovery to update the port mapping.
+// SvcUpdate is a callback from service discovery when service info changes.
 func (s *DiscoveryServer) SvcUpdate(cluster, hostname string, ports map[string]uint32, rports map[uint32]string) {
 	pc := s.globalPushContext()
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	if cluster == "" {
-		pc.ServiceName2Ports[hostname] = ports
-		pc.ServicePort2Name[hostname] = rports
+		pl := model.PortList{}
+		for k, v := range ports {
+			pl = append(pl, &model.Port{
+				Port: int(v),
+				Name: k,
+			})
+		}
+		pc.ServicePort2Name[hostname] = pl
 	}
 	// TODO: for updates from other clusters, warn if they don't match primary.
 }
