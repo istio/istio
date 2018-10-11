@@ -20,7 +20,6 @@ import (
 	"istio.io/istio/pkg/test/framework/dependency"
 	"istio.io/istio/pkg/test/framework/environment"
 	"istio.io/istio/pkg/test/framework/environments/kubernetes"
-	"istio.io/istio/pkg/test/kube"
 )
 
 // KubeComponent is a framework component for the Kubernetes API server.
@@ -62,5 +61,5 @@ var _ environment.DeployedAPIServer = &deployedAPIServer{}
 // ApplyYaml applies the given Yaml context against the target API Server.
 func (a *deployedAPIServer) ApplyYaml(yml string) error {
 	s := a.env.KubeSettings()
-	return kube.ApplyContents(s.KubeConfig, s.TestNamespace, yml)
+	return a.env.Accessor.ApplyContents(s.TestNamespace, yml)
 }
