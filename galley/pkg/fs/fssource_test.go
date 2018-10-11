@@ -21,6 +21,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"istio.io/istio/galley/pkg/runtime/resource"
 )
@@ -327,10 +328,14 @@ func TestFsSource_DeletePartResorceInFile(t *testing.T) {
 		t.Fatalf("Unexpected error: %v", err)
 	}
 	//In some OS, it will trigger file deletion event
+	donec := make(chan bool)
 	expected := "[Event](Deleted: [VKey](type.googleapis.com/istio.policy.v1beta1.Rule:some.mixer.rule @v0))"
-	eventOccurs := checkEventOccurs(expected, ch)
-	if !eventOccurs {
+	go checkEventOccurs(expected, ch, donec)
+	select {
+	case <-time.After(time.Second):
 		t.Fatalf("Expected Event does not occur:\n%s\n", expected)
+	case <-donec:
+		return
 	}
 	s.Stop()
 }
@@ -343,12 +348,10 @@ func logChannelOutput(ch chan resource.Event, count int) string {
 	}
 	return strings.TrimSpace(fmt.Sprintf("%v\n", result))
 }
-
-func checkEventOccurs(expectedEvent string, ch chan resource.Event) bool {
+func checkEventOccurs(expectedEvent string, ch chan resource.Event, donec chan bool) {
 	for event := range ch {
 		if expectedEvent == strings.TrimSpace(fmt.Sprintf("%v\n", event)) {
-			return true
+			donec <- true
 		}
 	}
-	return false
 }
