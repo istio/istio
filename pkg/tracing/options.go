@@ -47,6 +47,10 @@ func (o *Options) Validate() error {
 		return errors.New("can't have Jaeger and Zipkin outputs active simultaneously")
 	}
 
+	if o.SamplingRate > 1.0 || o.SamplingRate < 0.0 {
+		return errors.New("sampling rate must be in the range: [0.0, 1.0]")
+	}
+
 	return nil
 }
 
@@ -71,5 +75,5 @@ func (o *Options) AttachCobraFlags(cmd *cobra.Command) {
 		"Whether or not to log trace spans.")
 
 	cmd.PersistentFlags().Float64VarP(&o.SamplingRate, "trace_sampling_rate", "", o.SamplingRate,
-		"Sampling rate for generating trace data. Should be a value between 0.0 and 1.0.")
+		"Sampling rate for generating trace data. Must be a value in the range [0.0, 1.0].")
 }

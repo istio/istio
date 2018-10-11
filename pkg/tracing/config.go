@@ -95,14 +95,7 @@ func configure(serviceName string, options *Options, nz newZipkin) (io.Closer, e
 
 	reporters := make([]jaeger.Reporter, 0, 3)
 
-	sr := options.SamplingRate
-	if sr > 1.0 {
-		sr = 1.0
-	}
-	if sr < 0.0 {
-		sr = 0.0
-	}
-	sampler, err := jaeger.NewProbabilisticSampler(sr)
+	sampler, err := jaeger.NewProbabilisticSampler(options.SamplingRate)
 	if err != nil {
 		return nil, fmt.Errorf("could not build trace sampler: %v", err)
 	}
