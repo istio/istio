@@ -99,6 +99,8 @@ global:
   proxy_init:
     # Base name for the proxy_init container, used to configure iptables.
     image: proxy_init
+    # Whether the proxy should be given the priviledged security context
+    privileged: true
 
   # imagePullPolicy is applied to istio control plane components.
   # local tests require IfNotPresent, to avoid uploading to dockerhub.
