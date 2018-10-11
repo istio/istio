@@ -122,6 +122,17 @@
         "name": "lightstep",
         "http2_protocol_options": {},
         
+        "tls_context": {
+          "common_tls_context": {
+            "alpn_protocols": "h2",
+            "validation_context": {
+              "trusted_ca": {
+                "filename": "/cacert.pem"
+              }
+            }
+          }
+        },
+        
         "type": "LOGICAL_DNS",
         "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
@@ -188,7 +199,7 @@
       "name": "envoy.lightstep",
       "config": {
         "collector_cluster": "lightstep",
-        "access_token_file": "/tmp/bootstrap/tracing_lightstep/lightstep_access_token.txt"
+        "access_token_file": "/test-path/lightstep_access_token.txt"
       }
     }
   }

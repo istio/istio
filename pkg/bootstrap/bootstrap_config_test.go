@@ -111,6 +111,13 @@ func TestGolden(t *testing.T) {
 				return
 			}
 
+			// re-read generated file with the changes having been made
+			data, err = ioutil.ReadFile(fn)
+			if err != nil {
+				t.Error("Error reading generated file ", err)
+				return
+			}
+
 			golden, err := ioutil.ReadFile("testdata/" + c.base + "_golden.json")
 			if err != nil {
 				golden = []byte{}
@@ -170,18 +177,18 @@ func TestGolden(t *testing.T) {
 }
 
 type regexReplacement struct {
-	pattern *regexp.Regexp
+	pattern     *regexp.Regexp
 	replacement []byte
 }
 
 // correctForEnvDifference corrects the portions of a generated bootstrap config that vary depending on the environment
 // so that they match the golden file's expected value.
 func correctForEnvDifference(in []byte) []byte {
-	replacements := []regexReplacement {
+	replacements := []regexReplacement{
 		// Lightstep access tokens are written to a file and that path is dependent upon the environment variables that
 		// are set. Standardize the path so that golden files can be properly checked.
 		{
-			pattern: regexp.MustCompile(`("access_token_file": ").*(lightstep_access_token.txt")`),
+			pattern:     regexp.MustCompile(`("access_token_file": ").*(lightstep_access_token.txt")`),
 			replacement: []byte("$1/test-path/$2"),
 		},
 	}
