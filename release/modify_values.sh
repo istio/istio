@@ -27,6 +27,8 @@ function fix_values_yaml_worker() {
   local gcs_folder_path
   gcs_folder_path="$5"
 
+  echo "fixing helm values.yaml in ${gcs_folder_path}/${tarball_name} with hub: ${HUB} tag: ${TAG}"
+
   gsutil -q cp "${gcs_folder_path}/${tarball_name}" .
   eval    "$unzip_cmd"     "${tarball_name}"
   rm                       "${tarball_name}"
@@ -48,8 +50,6 @@ function fix_values_yaml() {
   # fix_values_yaml unzip_cmd zip_cmd folder_name tarball_name
 
   fix_values_yaml_worker "$1" "$2" "$3" "$4" "${GCS_PATH}"
-  fix_values_yaml_worker "$1" "$2" "$3" "$4" "${GCS_PATH}/docker.io"
-  fix_values_yaml_worker "$1" "$2" "$3" "$4" "${GCS_PATH}/gcr.io"
 }
 
 rm -rf modification-tmp
@@ -60,14 +60,11 @@ pwd
 
 folder_name="istio-${VERSION}"
 # Linux
-fix_values_yaml     "tar -zxvf" "tar -zcvf" "${folder_name}" "${folder_name}-linux.tar.gz"
+fix_values_yaml     "tar -zxf" "tar -zcf" "${folder_name}" "${folder_name}-linux.tar.gz"
 # Mac
-fix_values_yaml     "tar -zxvf" "tar -zcvf" "${folder_name}" "${folder_name}-osx.tar.gz"
+fix_values_yaml     "tar -zxf" "tar -zcf" "${folder_name}" "${folder_name}-osx.tar.gz"
 # Windows
-cp /home/airflow/gcs/data/zip    "./zip"
-cp /home/airflow/gcs/data/unzip  "./unzip"
-chmod              u+x "./unzip" "./zip"
-fix_values_yaml        "./unzip" "./zip -r" "${folder_name}" "${folder_name}-win.zip"
+fix_values_yaml    "unzip -q" "zip -q -r" "${folder_name}" "${folder_name}-win.zip"
 
 cd ..
 rm -rf modification-tmp

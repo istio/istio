@@ -72,10 +72,6 @@ def GetVariableOrDefault(var, default):
   except KeyError:
     return default
 
-def getBashCommitTemplate():
-  commit_template = """{% set m_commit = task_instance.xcom_pull(task_ids='get_git_commit') %}
-                       export m_commit="{{ m_commit }}" """
-  return commit_template
 
 def getBashSettingsTemplate(extra_param_lst=[]):
   keys = environment_config.GetDefaultAirflowConfigKeys()
@@ -114,10 +110,8 @@ def MakeCommonDag(dag_args_func, name,
   tasks = dict()
   cmd_template = getBashSettingsTemplate(extra_param_lst)
 
-  def addAirflowBashOperator(cmd_name, task_id, need_commit=False, **kwargs):
+  def addAirflowBashOperator(cmd_name, task_id, **kwargs):
     cmd_list = []
-    if need_commit == True:
-      cmd_list.append(getBashCommitTemplate())
     cmd_list.append(cmd_template)
 
     cmd_list.append("type %s\n     %s" % (cmd_name, cmd_name))
@@ -135,8 +129,8 @@ def MakeCommonDag(dag_args_func, name,
   )
   tasks['generate_workflow_args'] = generate_flow_args
 
-  addAirflowBashOperator('get_git_commit_cmd', 'get_git_commit', xcom_push=True)
-  addAirflowBashOperator('build_template', 'run_cloud_builder', need_commit=True)
+  addAirflowBashOperator('get_git_commit_cmd', 'get_git_commit')
+  addAirflowBashOperator('build_template', 'run_cloud_builder')
   addAirflowBashOperator('test_command', 'run_release_qualification_tests', retries=0)
   addAirflowBashOperator('modify_values_command', 'modify_values_helm')
 

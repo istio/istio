@@ -54,7 +54,6 @@ function replace_sha_branch_repo() {
   local repstr
   repstr="\\1${NEW_SHA}\" upstream=\"${BRANCH}\"\\/\\>"
   sed "s/$findstr/$repstr/" -i "$MANIFEST_FILE"
-#  sed "s/\(.*$REPO. revision=.\)\(.*\)\(upstream.*\)/\1${NEW_SHA}\" upstream=\"${BRANCH}\"\/\>/" -i $MANIFEST_FILE
 }
 
 function checkout_code() {
@@ -107,7 +106,7 @@ function find_and_replace_shas_manifest() {
         exit 16
       fi
       if [ "$PROXY_HEAD_API_SHA" != "$API_REPO_SHA" ]; then
-        echo "inconsistent shas PROXY_HEAD_API_SHA $PROXY_HEAD_API_SHA !=   $API_SHA   API_SHA" 1>&2
+        echo "inconsistent shas PROXY_HEAD_API_SHA $PROXY_HEAD_API_SHA !=   $API_REPO_SHA   API_REPO_SHA" 1>&2
         exit 17
       fi
       if [ "$ISTIO_HEAD_SHA" != "$ISTIO_REPO_SHA" ]; then
@@ -124,7 +123,7 @@ function get_later_sha_timestamp() {
   MANIFEST_FILE=$2
 
   local SHA_MFEST
-  SHA_MFEST=$(grep istio/istio "$MANIFEST_FILE" | sed 's/.*istio. revision=.//' | sed 's/".*//')
+  SHA_MFEST=$(grep "istio\"" "$MANIFEST_FILE" | sed 's/.*istio. revision=.//' | sed 's/".*//')
   local TS_MFEST
   TS_MFEST=$(git show -s --format=%ct "$SHA_MFEST")
   local GTS
@@ -145,7 +144,7 @@ function get_later_sha_revlist() {
   MANIFEST_FILE=$2
 
   local SHA_MFEST
-  SHA_MFEST=$(grep istio/istio "$MANIFEST_FILE" | sed 's/.*istio. revision=.//' | sed 's/".*//')
+  SHA_MFEST=$(grep "istio\"" "$MANIFEST_FILE" | sed 's/.*istio. revision=.//' | sed 's/".*//')
 
   # if the old sha in the manifest file is wrong for some reason, use latest green sha
   if ! git rev-list "$SHA_MFEST...$GSHA" > /dev/null; then

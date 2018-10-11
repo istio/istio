@@ -43,9 +43,9 @@ function istio_code_init_manifest() {
   local BRANCH=$1
   local MANIFEST_FILE=$2
 
-  ISTIO_SHA=$(grep "istio/istio" "$MANIFEST_FILE" | cut -f 6 -d \")
-  API_SHA=$(  grep "istio/api"   "$MANIFEST_FILE" | cut -f 6 -d \")
-  PROXY_SHA=$(grep "istio/proxy" "$MANIFEST_FILE" | cut -f 6 -d \")
+  ISTIO_SHA=$(grep "istio\"" "$MANIFEST_FILE" | cut -f 6 -d \")
+  API_SHA=$(  grep "api\""   "$MANIFEST_FILE" | cut -f 6 -d \")
+  PROXY_SHA=$(grep "proxy\"" "$MANIFEST_FILE" | cut -f 6 -d \")
 
   checkout_code "proxy" "${PROXY_SHA}" "${BRANCH}" "/workspace/src"
   checkout_code "api"     "${API_SHA}" "${BRANCH}" "/workspace/go/src/istio.io"
