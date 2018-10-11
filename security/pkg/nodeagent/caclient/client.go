@@ -54,6 +54,6 @@ func NewCAClient(endpoint, CAProviderName string, tlsFlag bool) (caClientInterfa
 	case googleCA:
 		return gca.NewGoogleCAClient(conn), nil
 	default:
-		return nil, nil
+		return nil, fmt.Errorf("CA provider %q isn't supported", CAProviderName)
 	}
 }
