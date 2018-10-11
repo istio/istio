@@ -52,7 +52,6 @@ function code_coverage() {
   local filename
   filename="$(echo "${1}" | tr '/' '-')"
   ( go test \
-    -coverpkg=istio.io/istio/... \
     -coverprofile="${COVERAGEDIR}/${filename}.cov" \
     -covermode=atomic "${1}" \
     | tee "${COVERAGEDIR}/${filename}.report" ) &
