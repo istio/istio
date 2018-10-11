@@ -458,6 +458,11 @@ func CheckIstioConfigTypes(store model.ConfigStore, namespace string, t *testing
 		}); err != nil {
 			t.Errorf("Post(%v) => got %v", c.name, err)
 		}
+
+		// Cleanup created config item.
+		if err := store.Delete(configMeta.Type, configMeta.Name, configMeta.Namespace); err != nil {
+			t.Errorf("Error deleting config %s, err: %v", configMeta.Key(), err)
+		}
 	}
 }
 
