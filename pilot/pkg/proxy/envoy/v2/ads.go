@@ -271,7 +271,7 @@ type XdsConnection struct {
 type XdsEvent struct {
 	// If not empty, it is used to indicate the event is caused by a change in the clusters.
 	// Only EDS for the listed clusters will be sent.
-	edsUpdatedServices map[string]*model.ServiceShards
+	edsUpdatedServices map[string]*model.EndpointShardsByService
 
 	push *model.PushContext
 
@@ -623,7 +623,7 @@ func AdsPushAll(s *DiscoveryServer) {
 // Primary code path is from v1 discoveryService.clearCache(), which is added as a handler
 // to the model ConfigStorageCache and Controller.
 func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext,
-	full bool, edsUpdates map[string]*model.ServiceShards) {
+	full bool, edsUpdates map[string]*model.EndpointShardsByService) {
 	if !full {
 		s.edsIncremental(version, push, edsUpdates)
 		return
@@ -661,7 +661,7 @@ func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext,
 
 // Send a signal to all connections, with a push event.
 func (s *DiscoveryServer) startPush(version string, push *model.PushContext, full bool,
-	edsUpdates map[string]*model.ServiceShards) {
+	edsUpdates map[string]*model.EndpointShardsByService) {
 
 	// Push config changes, iterating over connected envoys. This cover ADS and EDS(0.7), both share
 	// the same connection table

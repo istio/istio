@@ -174,10 +174,10 @@ type IstioEndpoint struct {
 	ServiceAccount string
 }
 
-// ServiceShards holds the set of endpoint shards of a service. Registries update
+// EndpointShardsByService holds the set of endpoint shards of a service. Registries update
 // individual shards incrementally. The shards are aggregated and split into
 // clusters when a push for the specific cluster is needed.
-type ServiceShards struct {
+type EndpointShardsByService struct {
 
 	// Shards is used to track the shards. EDS updates are grouped by shard.
 	// Current implementation uses the registry name as key - in multicluster this is the

@@ -420,7 +420,7 @@ func (s *DiscoveryServer) SvcUpdate(cluster, hostname string, ports map[string]u
 
 // Update clusters for an incremental EDS push, and initiate the push.
 // Only clusters that changed are updated/pushed.
-func (s *DiscoveryServer) edsIncremental(version string, push *model.PushContext, edsUpdates map[string]*model.ServiceShards) {
+func (s *DiscoveryServer) edsIncremental(version string, push *model.PushContext, edsUpdates map[string]*model.EndpointShardsByService) {
 	adsLog.Infof("XDS:EDSInc Pushing %s Services: %v, "+
 		"VirtualServices: %d, ConnectedEndpoints: %d", version, edsUpdates,
 		len(push.VirtualServiceConfigs), adsClientCount())
@@ -502,13 +502,13 @@ func (s *DiscoveryServer) EDSUpdate(shard, serviceName string,
 // EdsUpdates map - additional preparation will be added as we move to full incremental.
 // This is needed to keep things isolated and use the right mutex.
 // Once proxy/envoy/discovery is merged into v2 discovery this can become non-public.
-func (s *DiscoveryServer) BeforePush() map[string]*model.ServiceShards {
+func (s *DiscoveryServer) BeforePush() map[string]*model.EndpointShardsByService {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
 	edsUpdates := s.edsUpdates
 	// Reset - any new updates will be tracked by the new map
-	s.edsUpdates = map[string]*model.ServiceShards{}
+	s.edsUpdates = map[string]*model.EndpointShardsByService{}
 
 	return edsUpdates
 }
@@ -529,7 +529,7 @@ func (s *DiscoveryServer) edsUpdate(shard, serviceName string,
 		// This endpoint is for a service that was not previously loaded.
 		// Return an error to force a full sync, which will also cause the
 		// EndpointsShardsByService to be initialized with all services.
-		ep = &model.ServiceShards{
+		ep = &model.EndpointShardsByService{
 			Shards:          map[string]*model.EndpointShard{},
 			ServiceAccounts: map[string]bool{},
 		}
@@ -566,7 +566,7 @@ func (s *DiscoveryServer) edsUpdate(shard, serviceName string,
 }
 
 //// update the 'byPort' structure by merging info from all clusters.
-//func (s *DiscoveryServer) updateByPort(ep *ServiceShards)  {
+//func (s *DiscoveryServer) updateByPort(ep *EndpointShardsByService)  {
 //	ep.ByPort = map[uint32][]*IstioEndpoint{}
 //
 //	// 3. Based on the updated list, merge the cluster data ( including previously
@@ -630,7 +630,7 @@ func connectionID(node string) string {
 // pushEds is pushing EDS updates for a single connection. Called the first time
 // a client connects, for incremental updates and for full periodic updates.
 func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection,
-	full bool, edsUpdatedServices map[string]*model.ServiceShards) error {
+	full bool, edsUpdatedServices map[string]*model.EndpointShardsByService) error {
 	resAny := []types.Any{}
 
 	emptyClusters := 0

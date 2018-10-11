@@ -120,11 +120,11 @@ var (
 	// Push is used to request a push, when config changes. This is used to
 	// avoid adding a circular dependency from v1 to v2 - the method is implemented
 	// in the ADS server.
-	Push func(fullPush bool, edsUpdates map[string]*model.ServiceShards)
+	Push func(fullPush bool, edsUpdates map[string]*model.EndpointShardsByService)
 
 	// BeforePush is called before a push. Like Push, it is an artifact of the split
 	// of discovery from v2/discovery and the migration from v1.
-	BeforePush func() map[string]*model.ServiceShards
+	BeforePush func() map[string]*model.EndpointShardsByService
 
 	// DebounceAfter is the delay added to events to wait
 	// after a registry/config event for debouncing.

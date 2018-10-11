@@ -86,9 +86,9 @@ type DiscoveryServer struct {
 	// shards.
 	mutex sync.RWMutex
 
-	// ServiceShards for a service. This is a global (per-server) list, built from
+	// EndpointShardsByService for a service. This is a global (per-server) list, built from
 	// incremental updates.
-	EndpointShardsByService map[string]*model.ServiceShards
+	EndpointShardsByService map[string]*model.EndpointShardsByService
 
 	// WorkloadsById keeps track of informations about a workload, based on direct notifications
 	// from registry. This acts as a cache and allows detecting changes.
@@ -104,7 +104,7 @@ type DiscoveryServer struct {
 	// updated. This should only be used in the xDS server - will be removed/made private in 1.1,
 	// once the last v1 pieces are cleaned. For 1.0.3+ it is used only for tracking incremental
 	// pushes between the 2 packages.
-	edsUpdates map[string]*model.ServiceShards
+	edsUpdates map[string]*model.EndpointShardsByService
 }
 
 // Workload has the minimal info we need to detect if we need to push workloads, and to
@@ -134,9 +134,9 @@ func NewDiscoveryServer(env *model.Environment, generator core.ConfigGenerator) 
 	out := &DiscoveryServer{
 		Env:                     env,
 		ConfigGenerator:         generator,
-		EndpointShardsByService: map[string]*model.ServiceShards{},
+		EndpointShardsByService: map[string]*model.EndpointShardsByService{},
 		WorkloadsByID:           map[string]*Workload{},
-		edsUpdates:              map[string]*model.ServiceShards{},
+		edsUpdates:              map[string]*model.EndpointShardsByService{},
 	}
 	env.PushContext = model.NewPushContext()
 
@@ -241,7 +241,7 @@ func (s *DiscoveryServer) periodicRefreshMetrics() {
 
 // Push is called to push changes on config updates using ADS. This is set in DiscoveryService.Push,
 // to avoid direct dependencies.
-func (s *DiscoveryServer) Push(full bool, edsUpdates map[string]*model.ServiceShards) {
+func (s *DiscoveryServer) Push(full bool, edsUpdates map[string]*model.EndpointShardsByService) {
 	if !full {
 		adsLog.Infof("XDS Incremental Push EDS:%d", len(edsUpdates))
 		go s.AdsPushAll(version, s.globalPushContext(), false, edsUpdates)
