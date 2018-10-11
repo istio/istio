@@ -68,20 +68,21 @@ TEST_PATH=${TEST_GCS_PATH:-$DEFAULT_GCS_PATH}
 
 # switch to the root of the istio repo
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-cd $ROOT
+cd "$ROOT"
 
-export GOPATH="$(cd "$ROOT/../../.." && pwd)"
-echo gopath is $GOPATH
+GOPATH="$(cd "$ROOT/../../.." && pwd)"
+export GOPATH
+echo gopath is "$GOPATH"
 ISTIO_OUT=$(make DEBUG=0 where-is-out)
 
 export ISTIO_VERSION="${TAG_NAME}"
 
-MAKE_TARGETS=istio-archive
+MAKE_TARGETS=(istio-archive)
 if [ "${BUILD_DEBIAN}" == "true" ]; then
-  MAKE_TARGETS="sidecar.deb ${MAKE_TARGETS}"
+  MAKE_TARGETS+=(sidecar.deb)
 fi
 if [ "${BUILD_DOCKER}" == "true" ]; then
-  MAKE_TARGETS="docker.save ${MAKE_TARGETS}"
+  MAKE_TARGETS+=(docker.save)
 fi
 
 if [[ -n "${TEST_DOCKER_HUB}" ]]; then
@@ -91,7 +92,7 @@ if [[ -n "${TEST_DOCKER_HUB}" ]]; then
   cp "${ISTIO_OUT}"/archive/istio-*z* "${OUTPUT_PATH}/gcr.io/"
 fi
 
-VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB=${REL_DOCKER_HUB} HUB=${REL_DOCKER_HUB} VERSION=$ISTIO_VERSION TAG=$ISTIO_VERSION make ${MAKE_TARGETS}
+VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB=${REL_DOCKER_HUB} HUB=${REL_DOCKER_HUB} VERSION=$ISTIO_VERSION TAG=$ISTIO_VERSION make "${MAKE_TARGETS[@]}"
 cp "${ISTIO_OUT}"/archive/istio-*z* "${OUTPUT_PATH}/"
 mkdir -p "${OUTPUT_PATH}/docker.io"
 cp "${ISTIO_OUT}"/archive/istio-*z* "${OUTPUT_PATH}/docker.io/"
@@ -104,7 +105,7 @@ if [[ -n "${TEST_DOCKER_HUB}" ]]; then
 fi
 
 if [ "${BUILD_DOCKER}" == "true" ]; then
-  cp -r ${ISTIO_OUT}/docker ${OUTPUT_PATH}/
+  cp -r "${ISTIO_OUT}/docker" "${OUTPUT_PATH}/"
 fi
 
 if [ "${BUILD_DEBIAN}" == "true" ]; then

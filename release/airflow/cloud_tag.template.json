@@ -1,11 +1,11 @@
 {
   "steps": [
     {
-      "name": "gcr.io/istio-testing/istio-builder:0.5.10",
+      "name": "gcr.io/istio-testing/istio-builder:0.5.4",
       "args": [ "gsutil", "cp", "gs://$_GCS_RELEASE_TOOLS_PATH/istio_checkout_code.sh", "." ]
     },
     {
-      "name": "gcr.io/istio-testing/istio-builder:0.5.10",
+      "name": "gcr.io/istio-testing/istio-builder:0.5.4",
       "args": [ "chmod", "u+x", "./istio_checkout_code.sh" ]
     },
     {
@@ -15,7 +15,7 @@
           "path": "/output"
 	}
       ],
-      "name": "gcr.io/istio-testing/istio-builder:0.5.10",
+      "name": "gcr.io/istio-testing/istio-builder:0.5.4",
       "args": [ "./istio_checkout_code.sh", "-b", "$_BRANCH", "-r", "$_GCS_RELEASE_TOOLS_PATH" ]
     },
     {
@@ -25,7 +25,7 @@
           "path": "/output"
 	}
       ],
-      "name": "gcr.io/istio-testing/istio-builder:0.5.10",
+      "name": "gcr.io/istio-testing/istio-builder:0.5.4",
       "dir": "go/src/istio.io/istio",
       "args": [ "./release/publish_release.sh", "-w", "-x", "-y", "-z", "-e", "$_USER_EMAIL", "-n", "$_USER_NAME", "-g", "$_GCS_SOURCE", "-l", "$_GCS_SECRET", "-m", "-o", "$_ORG", "-v", "$_VER_STRING" ]
     }

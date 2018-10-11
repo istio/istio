@@ -1,4 +1,3 @@
-
 #!/bin/bash
 
 set -o errexit
@@ -12,6 +11,7 @@ while getopts h:t:p:v: arg ; do
     t) TAG="${OPTARG}";;
     p) GCS_PATH="${OPTARG}";;
     v) VERSION="${OPTARG}";;
+    *) exit 1;;
   esac
 done
 
@@ -32,7 +32,7 @@ function fix_values_yaml_worker() {
   rm                       "${tarball_name}"
 
   sed -i "s|hub: gcr.io/istio-release|hub: ${HUB}|g" ./"${folder_name}"/install/kubernetes/helm/istio*/values.yaml
-  sed -i "s|tag: master-latest-daily|tag: ${TAG}|g"  ./"${folder_name}"/install/kubernetes/helm/istio*/values.yaml
+  sed -i "s|tag: release-1.0-latest-daily|tag: ${TAG}|g" ./"${folder_name}"/install/kubernetes/helm/istio*/values.yaml
 
   eval "$zip_cmd" "${tarball_name}" "${folder_name}"
   sha256sum       "${tarball_name}" > "${tarball_name}.sha256"
@@ -68,7 +68,6 @@ cp /home/airflow/gcs/data/zip    "./zip"
 cp /home/airflow/gcs/data/unzip  "./unzip"
 chmod              u+x "./unzip" "./zip"
 fix_values_yaml        "./unzip" "./zip -r" "${folder_name}" "${folder_name}-win.zip"
-
 
 cd ..
 rm -rf modification-tmp

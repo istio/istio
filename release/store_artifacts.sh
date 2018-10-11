@@ -33,7 +33,6 @@ GCR_PREFIX=""
 
 VER_STRING=""
 OUTPUT_PATH=""
-BUILD_ID=""
 PUSH_DOCKER="true"
 
 function usage() {
@@ -47,9 +46,8 @@ function usage() {
   exit 1
 }
 
-while getopts abi:no:p:q:v: arg ; do
+while getopts ab:no:p:q:v: arg ; do
   case "${arg}" in
-    i) BUILD_ID="${OPTARG}";;
     n) PUSH_DOCKER="false";;
     o) OUTPUT_PATH="${OPTARG}";;
     p) GCS_PREFIX="${OPTARG}";;
@@ -74,12 +72,11 @@ GCS_PATH="gs://${GCS_PREFIX}"
 GCR_PATH="gcr.io/${GCR_PREFIX}"
 
 if [[ "${PUSH_DOCKER}" == "true" ]]; then
-  for TAR_PATH in ${OUTPUT_PATH}/docker/*.tar.gz
-  do
+  for TAR_PATH in "${OUTPUT_PATH}"/docker/*.tar.gz; do
     BASE_NAME=$(basename "$TAR_PATH")
     TAR_NAME="${BASE_NAME%.*}"
     IMAGE_NAME="${TAR_NAME%.*}"
-    
+
     # if no docker/ directory or directory has no tar files
     if [[ "${IMAGE_NAME}" == "*" ]]; then
       break

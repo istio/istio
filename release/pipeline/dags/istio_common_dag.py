@@ -28,7 +28,7 @@ import environment_config
 from gcs_copy_operator import GoogleCloudStorageCopyOperator
 
 default_args = {
-    'owner': 'laane',
+    'owner': 'rkrishnap',
     'depends_on_past': False,
     # This is the date to when the airflow pipeline thinks the run started
     # There is some airflow weirdness, for periodic jobs start_date needs to
@@ -129,7 +129,7 @@ def MakeCommonDag(dag_args_func, name,
 
   generate_flow_args = PythonOperator(
       task_id='generate_workflow_args',
-      python_callable=GenerateTestArgs,
+      python_callable=dag_args_func,
       provide_context=True,
       dag=common_dag,
   )
