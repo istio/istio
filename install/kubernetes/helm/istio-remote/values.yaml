@@ -78,11 +78,6 @@ global:
   # TODO: Switch to Always as default, and override in the local tests.
   imagePullPolicy: IfNotPresent
 
-  # Not recommended for user to configure this. Hyperkube image to use when creating custom resources
-  hyperkube:
-    hub: quay.io/coreos
-    tag: v1.7.6_coreos.0
-
   # controlPlaneMtls enabled. Will result in delays starting the pods while secrets are
   # propagated, not recommended for tests.
   controlPlaneSecurityEnabled: false
