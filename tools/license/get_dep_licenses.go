@@ -47,68 +47,76 @@ const (
 	maxLevelsToLicense = 7
 )
 
+type licenseType int
+
+const (
+	// licenseTypeApproved is definitely ok to use and modify.
+	licenseTypeApproved licenseType = iota
+	// licenseTypeReciprocal can be used but not modified.
+	licenseTypeReciprocal
+	// licenseTypeRestricted
+	licenseTypeRestricted
+)
+
 var (
-	// approvedLicenses are code that's definitely ok to use and modify.
-	approvedLicenses = map[string]bool{
-		"Apache-2.0":   true,
-		"ISC":          true,
-		"AFL-2.1":      true,
-		"AFL-3.0":      true,
-		"Artistic-1.0": true,
-		"Artistic-2.0": true,
-		"Apache-1.1":   true,
-		"BSD-1-Clause": true,
-		"BSD-2-Clause": true,
-		"BSD-3-Clause": true,
-		"FTL":          true,
-		"LPL-1.02":     true,
-		"MS-PL":        true,
-		"MIT":          true,
-		"NCSA":         true,
-		"OpenSSL":      true,
-		"PHP-3.0":      true,
-		"TCP-wrappers": true,
-		"W3C":          true,
-		"Xnet":         true,
-		"Zlib":         true,
-	}
-	// reciprocalLicenses are code that is ok to use but cannot be modified.
-	reciprocalLicenses = map[string]bool{
-		"CC0-1.0":  true,
-		"APSL-2.0": true,
-		"CDDL-1.0": true,
-		"CDDL-1.1": true,
-		"CPL-1.0":  true,
-		"EPL-1.0":  true,
-		"IPL-1.0":  true,
-		"MPL-1.0":  true,
-		"MPL-1.1":  true,
-		"MPL-2.0":  true,
-		"Ruby":     true,
-	}
-	// restrictedLicenses are code that's definitely not ok to use.
-	restrictedLicenses = map[string]bool{
-		"GPL-1.0-only":      true,
-		"GPL-1.0-or-later":  true,
-		"GPL-2.0-only":      true,
-		"GPL-2.0-or-later":  true,
-		"GPL-3.0-only":      true,
-		"GPL-3.0-or-later":  true,
-		"LGPL-2.0-only":     true,
-		"LGPL-2.0-or-later": true,
-		"LGPL-2.1-only":     true,
-		"LGPL-2.1-or-later": true,
-		"LGPL-3.0-only":     true,
-		"LGPL-3.0-or-later": true,
-		"NPL-1.0":           true,
-		"NPL-1.1":           true,
-		"OSL-1.0":           true,
-		"OSL-1.1":           true,
-		"OSL-2.0":           true,
-		"OSL-2.1":           true,
-		"OSL-3.0":           true,
-		"QPL-1.0":           true,
-		"Sleepycat":         true,
+	// strToLicenseType are code that's definitely ok to use and modify.
+	strToLicenseType = map[string]licenseType{
+		// licenseTypeApproved
+		"Apache-2.0":   licenseTypeApproved,
+		"ISC":          licenseTypeApproved,
+		"AFL-2.1":      licenseTypeApproved,
+		"AFL-3.0":      licenseTypeApproved,
+		"Artistic-1.0": licenseTypeApproved,
+		"Artistic-2.0": licenseTypeApproved,
+		"Apache-1.1":   licenseTypeApproved,
+		"BSD-1-Clause": licenseTypeApproved,
+		"BSD-2-Clause": licenseTypeApproved,
+		"BSD-3-Clause": licenseTypeApproved,
+		"FTL":          licenseTypeApproved,
+		"LPL-1.02":     licenseTypeApproved,
+		"MS-PL":        licenseTypeApproved,
+		"MIT":          licenseTypeApproved,
+		"NCSA":         licenseTypeApproved,
+		"OpenSSL":      licenseTypeApproved,
+		"PHP-3.0":      licenseTypeApproved,
+		"TCP-wrappers": licenseTypeApproved,
+		"W3C":          licenseTypeApproved,
+		"Xnet":         licenseTypeApproved,
+		"Zlib":         licenseTypeApproved,
+		// licenseTypeReciprocal
+		"CC0-1.0":  licenseTypeReciprocal,
+		"APSL-2.0": licenseTypeReciprocal,
+		"CDDL-1.0": licenseTypeReciprocal,
+		"CDDL-1.1": licenseTypeReciprocal,
+		"CPL-1.0":  licenseTypeReciprocal,
+		"EPL-1.0":  licenseTypeReciprocal,
+		"IPL-1.0":  licenseTypeReciprocal,
+		"MPL-1.0":  licenseTypeReciprocal,
+		"MPL-1.1":  licenseTypeReciprocal,
+		"MPL-2.0":  licenseTypeReciprocal,
+		"Ruby":     licenseTypeReciprocal,
+		// licenseTypeRestricted
+		"GPL-1.0-only":      licenseTypeRestricted,
+		"GPL-1.0-or-later":  licenseTypeRestricted,
+		"GPL-2.0-only":      licenseTypeRestricted,
+		"GPL-2.0-or-later":  licenseTypeRestricted,
+		"GPL-3.0-only":      licenseTypeRestricted,
+		"GPL-3.0-or-later":  licenseTypeRestricted,
+		"LGPL-2.0-only":     licenseTypeRestricted,
+		"LGPL-2.0-or-later": licenseTypeRestricted,
+		"LGPL-2.1-only":     licenseTypeRestricted,
+		"LGPL-2.1-or-later": licenseTypeRestricted,
+		"LGPL-3.0-only":     licenseTypeRestricted,
+		"LGPL-3.0-or-later": licenseTypeRestricted,
+		"NPL-1.0":           licenseTypeRestricted,
+		"NPL-1.1":           licenseTypeRestricted,
+		"OSL-1.0":           licenseTypeRestricted,
+		"OSL-1.1":           licenseTypeRestricted,
+		"OSL-2.0":           licenseTypeRestricted,
+		"OSL-2.1":           licenseTypeRestricted,
+		"OSL-3.0":           licenseTypeRestricted,
+		"QPL-1.0":           licenseTypeRestricted,
+		"Sleepycat":         licenseTypeRestricted,
 	}
 	// knownUnknownLicenses are either missing or unknown to licensee, but were manually copied and /or reviewed
 	// and are considered ok, so the tool will not complain about these.
@@ -270,18 +278,22 @@ func main() {
 			inexact = append(inexact, linfo)
 		}
 
+		fmt.Printf("Checking %s\n", linfo.packageName)
+		lt, ok := strToLicenseType[ltypeStr]
 		switch {
-		case approvedLicenses[ltypeStr]:
-		case reciprocalLicenses[ltypeStr]:
-			reciprocalList = append(reciprocalList, linfo.packageName)
-		case restrictedLicenses[ltypeStr]:
-			restrictedList = append(restrictedList, linfo.packageName)
+		// No license was found by licensee.
 		case ltypeStr == "":
 			missingList = append(missingList, linfo.packageName)
-		default:
+		// License was found but not in a definite category.
+		case !ok:
 			if !knownUnknownLicenses[linfo.packageName] {
 				unknownMap[linfo.packageName] = ltypeStr
 			}
+		case lt == licenseTypeApproved:
+		case lt == licenseTypeReciprocal:
+			reciprocalList = append(reciprocalList, linfo.packageName)
+		case lt == licenseTypeRestricted:
+			restrictedList = append(restrictedList, linfo.packageName)
 		}
 	}
 
