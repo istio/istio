@@ -1,5 +1,4 @@
 istio.io/istio/mixer/pkg/adapter/test
-istio.io/istio/mixer/pkg/config/storetest
 istio.io/istio/mixer/pkg/mockapi
 istio.io/istio/mixer/pkg/perf
 istio.io/istio/mixer/pkg/runtime/testing
@@ -13,6 +12,7 @@ istio.io/istio/security/tests/integration
 istio.io/istio/tests/e2e
 istio.io/istio/tests/integration/
 istio.io/istio/tests/integration_old/
+istio.io/istio/tests/k8s
 istio.io/istio/tests/util/
 istio.io/istio/tools/githubContrib
 istio.io/istio/tools/hyperistio
