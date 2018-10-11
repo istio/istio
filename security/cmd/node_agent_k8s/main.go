@@ -45,7 +45,7 @@ var (
 
 			stop := make(chan struct{})
 
-			caClient, err := ca.NewCAClient(serverOptions.CAEndpoint, true)
+			caClient, err := ca.NewCAClient(serverOptions.CAEndpoint, serverOptions.CAProviderName, true)
 			if err != nil {
 				log.Errorf("failed to create caClient: %v", err)
 				return fmt.Errorf("failed to create caClient")
@@ -68,6 +68,12 @@ var (
 )
 
 func init() {
+	caProvider := os.Getenv("CA_PROVIDER")
+	if caProvider == "" {
+		log.Error("CA Provider is missing")
+		os.Exit(1)
+	}
+
 	caAddr := os.Getenv("CA_ADDR")
 	if caAddr == "" {
 		log.Error("CA Endpoint is missing")
@@ -77,6 +83,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&serverOptions.UDSPath, "sdsUdsPath",
 		"/var/run/sds/uds_path", "Unix domain socket through which SDS server communicates with proxies")
 
+	rootCmd.PersistentFlags().StringVar(&serverOptions.CAEndpoint, "caProvider", caProvider, "CA provider")
 	rootCmd.PersistentFlags().StringVar(&serverOptions.CAEndpoint, "caEndpoint", caAddr, "CA endpoint")
 
 	rootCmd.PersistentFlags().StringVar(&serverOptions.CertFile, "sdsCertFile", "", "SDS gRPC TLS server-side certificate")
