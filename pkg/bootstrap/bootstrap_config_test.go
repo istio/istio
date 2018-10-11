@@ -17,6 +17,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"os"
+	"path"
 	"reflect"
 	"testing"
 
@@ -35,11 +36,14 @@ import (
 // cp $TOP/out/linux_amd64/release/bootstrap/all/envoy-rev0.json pkg/bootstrap/testdata/all_golden.json
 // cp $TOP/out/linux_amd64/release/bootstrap/auth/envoy-rev0.json pkg/bootstrap/testdata/auth_golden.json
 // cp $TOP/out/linux_amd64/release/bootstrap/default/envoy-rev0.json pkg/bootstrap/testdata/default_golden.json
+// cp $TOP/out/linux_amd64/release/bootstrap/tracing_lightstep/envoy-rev0.json pkg/bootstrap/testdata/tracing_lightstep_golden.json
+// cp $TOP/out/linux_amd64/release/bootstrap/tracing_zipkin/envoy-rev0.json pkg/bootstrap/testdata/tracing_zipkin_golden.json
 func TestGolden(t *testing.T) {
 	cases := []struct {
-		base        string
-		labels      map[string]string
-		annotations map[string]string
+		base                       string
+		labels                     map[string]string
+		annotations                map[string]string
+		expectLightstepAccessToken bool
 	}{
 		{
 			base: "auth",
@@ -59,6 +63,13 @@ func TestGolden(t *testing.T) {
 			annotations: map[string]string{
 				"istio.io/insecurepath": "{\"paths\":[\"/metrics\",\"/live\"]}",
 			},
+		},
+		{
+			base: "tracing_lightstep",
+			expectLightstepAccessToken: true,
+		},
+		{
+			base: "tracing_zipkin",
 		},
 		{
 			// Specify zipkin/statsd address, similar with the default config in v1 tests
@@ -126,6 +137,22 @@ func TestGolden(t *testing.T) {
 				s, _ := diff.PrettyDiff(realM, goldenM)
 				t.Logf("difference: %s", s)
 				t.Fatalf("\n got: %v\nwant: %v", realM, goldenM)
+			}
+
+			// Check if the LightStep access token file exists
+			_, err = os.Stat(lightstepAccessTokenFile(path.Dir(fn)))
+			if c.expectLightstepAccessToken {
+				if os.IsNotExist(err) {
+					t.Error("expected to find a LightStep access token file but none found")
+				} else if err != nil {
+					t.Error("error running Stat on file: ", err)
+				}
+			} else {
+				if err == nil {
+					t.Error("found a LightStep access token file but none was expected")
+				} else if !os.IsNotExist(err) {
+					t.Error("error running Stat on file: ", err)
+				}
 			}
 		})
 	}

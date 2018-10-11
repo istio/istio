@@ -4,11 +4,7 @@ service_cluster:           "istio-proxy"
 drain_duration:            {seconds: 2}
 parent_shutdown_duration:  {seconds: 3}
 discovery_address:         "istio-pilot:15010"
-zipkin_address:            ""
 connect_timeout:           {seconds: 1}
 proxy_admin_port:          15000
 control_plane_auth_policy: NONE
-
-#
-# This matches the default configuration hardcoded in model.DefaultProxyConfig
-# Flags may override this configuration, as specified by the injector configs.
+tracing:                   { lightstep: { address: "lightstep-satellite:8080", access_token: "abcdefg1234567", secure: false, cacert_path: "/cacert.pem" } }

@@ -83,13 +83,29 @@ data:
       # If set to 0 (default), then start worker thread for each CPU thread/core.
       concurrency: {{ .Values.global.proxy.concurrency }}
       #
-      # Zipkin trace collector
-      {{- if .Values.global.tracer.zipkinAddress }}
-      zipkinAddress: {{ .Values.global.tracer.zipkinAddress }}
+      tracing:
+      {{- if eq .Values.global.proxy.tracing.tracer "lightstep" }}
+        lightstep:
+          # Address of the LightStep Satellite pool
+          address: {{ .Values.global.proxy.tracing.lightstep.address }}
+          # Access Token used to communicate with the Satellite pool
+          accessToken: {{ .Values.global.proxy.tracing.lightstep.accessToken }}
+          # Whether communication with the Satellite pool should be secure
+          secure: {{ .Values.global.proxy.tracing.lightstep.secure }}
+          # Path to the file containing the cacert to use when verifying TLS
+          cacertPath: {{ .Values.global.proxy.tracing.lightstep.cacertPath }}
+      {{- else if eq .Values.global.proxy.tracing.tracer "zipkin" }}
+        zipkin:
+          # Address of the Zipkin collector
+          address: {{ .Values.global.proxy.tracing.zipkin.address }}
+      {{- else if .Values.global.tracer.zipkinAddress }}
+        zipkin:
+          address: {{ .Values.global.tracer.zipkinAddress }}
       {{- else }}
-      zipkinAddress: zipkin.{{ .Release.Namespace }}:9411
+        zipkin:
+          address: zipkin.{{ .Release.Namespace }}:9411
       {{- end }}
-
+      #
     {{- if .Values.global.proxy.envoyStatsd.enabled }}
       #
       # Statsd metrics collector converts statsd metrics into Prometheus metrics.
