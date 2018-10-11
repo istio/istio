@@ -123,7 +123,7 @@ function get_later_sha_timestamp() {
   MANIFEST_FILE=$2
 
   local SHA_MFEST
-  SHA_MFEST=$(grep istio/istio "$MANIFEST_FILE" | sed 's/.*istio. revision=.//' | sed 's/".*//')
+  SHA_MFEST=$(grep "istio\"" "$MANIFEST_FILE" | sed 's/.*istio. revision=.//' | sed 's/".*//')
   local TS_MFEST
   TS_MFEST=$(git show -s --format=%ct "$SHA_MFEST")
   local GTS
@@ -144,7 +144,7 @@ function get_later_sha_revlist() {
   MANIFEST_FILE=$2
 
   local SHA_MFEST
-  SHA_MFEST=$(grep istio/istio "$MANIFEST_FILE" | sed 's/.*istio. revision=.//' | sed 's/".*//')
+  SHA_MFEST=$(grep "istio\"" "$MANIFEST_FILE" | sed 's/.*istio. revision=.//' | sed 's/".*//')
 
   # if the old sha in the manifest file is wrong for some reason, use latest green sha
   if ! git rev-list "$SHA_MFEST...$GSHA" > /dev/null; then
