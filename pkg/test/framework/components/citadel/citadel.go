@@ -16,11 +16,9 @@ package citadel
 
 import (
 	"fmt"
-
-	"github.com/hashicorp/go-multierror"
-
 	"time"
 
+	"github.com/hashicorp/go-multierror"
 	"k8s.io/api/core/v1"
 	mv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	cv1 "k8s.io/client-go/kubernetes/typed/core/v1"
