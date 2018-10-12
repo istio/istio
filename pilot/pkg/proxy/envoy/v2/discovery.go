@@ -39,6 +39,9 @@ var (
 	// version is the timestamp of the last registry event.
 	version = "0"
 
+	// versionNum counts versions
+	versionNum = 1
+
 	periodicRefreshMetrics = 10 * time.Second
 
 	// clearCacheTime is the max time to squash a series of events.
@@ -315,44 +318,6 @@ func (s *DiscoveryServer) periodicRefreshMetrics() {
 	}
 }
 
-// ServiceAccounts returns the list of service accounts for a service.
-// The XDS server incrementally updates the list, by getting the SA from registries.
-// Same list is used to compute CDS response.
-func (s *DiscoveryServer) ServiceAccounts(serviceName string) []string {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	sa := []string{}
-
-	// TODO: cache the computed service account map in EndpointShardsByService.
-
-	ep, f := s.EndpointShardsByService[serviceName]
-	if !f {
-		return sa
-	}
-	samap := map[string]bool{}
-	for _, es := range ep.Shards {
-		for _, el := range es.Entries {
-			if f := samap[el.ServiceAccount]; !f {
-				samap[el.ServiceAccount] = true
-			}
-		}
-	}
-	// TODO: we can just return the map.
-	for k := range samap {
-		sa = append(sa, k)
-	}
-
-	return sa
-}
-
-// Returns the global push context.
-func (s *DiscoveryServer) globalPushContext() *model.PushContext {
-	s.updateMutex.RLock()
-	defer s.updateMutex.RUnlock()
-	return s.Env.PushContext
-}
-
 // Push is called to push changes on config updates using ADS. This is set in DiscoveryService.Push,
 // to avoid direct dependencies.
 func (s *DiscoveryServer) Push(full bool, edsUpdates map[string]*EndpointShardsByService) {
@@ -394,7 +359,9 @@ func (s *DiscoveryServer) Push(full bool, edsUpdates map[string]*EndpointShardsB
 	s.updateMutex.Unlock()
 
 	s.mutex.Lock()
-	versionLocal := time.Now().Format(time.RFC3339)
+	s.Env.PushContext = push
+	versionLocal := time.Now().Format(time.RFC3339) + "/" + strconv.Itoa(versionNum)
+	versionNum++
 	initContextTime := time.Since(t0)
 	adsLog.Debugf("InitContext %v for push took %s", versionLocal, initContextTime)
 	s.mutex.Unlock()
@@ -415,6 +382,44 @@ func versionInfo() string {
 	versionMutex.RLock()
 	defer versionMutex.RUnlock()
 	return version
+}
+
+// ServiceAccounts returns the list of service accounts for a service.
+// The XDS server incrementally updates the list, by getting the SA from registries.
+// Same list is used to compute CDS response.
+func (s *DiscoveryServer) ServiceAccounts(serviceName string) []string {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	sa := []string{}
+
+	// TODO: cache the computed service account map in EndpointShardsByService.
+
+	ep, f := s.EndpointShardsByService[serviceName]
+	if !f {
+		return sa
+	}
+	samap := map[string]bool{}
+	for _, es := range ep.Shards {
+		for _, el := range es.Entries {
+			if f := samap[el.ServiceAccount]; !f {
+				samap[el.ServiceAccount] = true
+			}
+		}
+	}
+	// TODO: we can just return the map.
+	for k := range samap {
+		sa = append(sa, k)
+	}
+
+	return sa
+}
+
+// Returns the global push context.
+func (s *DiscoveryServer) globalPushContext() *model.PushContext {
+	s.updateMutex.RLock()
+	defer s.updateMutex.RUnlock()
+	return s.Env.PushContext
 }
 
 // ClearCache is wrapper for clearCache method, used when new controller gets

@@ -25,6 +25,7 @@ import (
 	"k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/informers"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
@@ -235,10 +236,16 @@ func (c *Controller) HasSynced() bool {
 // Run all controllers until a signal is received
 func (c *Controller) Run(stop <-chan struct{}) {
 	go c.queue.Run(stop)
+
 	go c.services.informer.Run(stop)
-	go c.endpoints.informer.Run(stop)
 	go c.pods.informer.Run(stop)
 	go c.nodes.informer.Run(stop)
+
+	// To avoid endpoints without labels or ports, wait for sync.
+	cache.WaitForCacheSync(stop, c.nodes.informer.HasSynced, c.pods.informer.HasSynced,
+		c.services.informer.HasSynced)
+
+	go c.endpoints.informer.Run(stop)
 
 	<-stop
 	log.Infof("Controller terminated")
