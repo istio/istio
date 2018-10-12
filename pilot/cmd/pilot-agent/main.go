@@ -68,7 +68,7 @@ var (
 	disableInternalTelemetry bool
 	appReadinessProbeURL     string
 	livenessProbeURL         string
-	loggingOptions = log.DefaultOptions()
+	loggingOptions           = log.DefaultOptions()
 
 	rootCmd = &cobra.Command{
 		Use:          "pilot-agent",

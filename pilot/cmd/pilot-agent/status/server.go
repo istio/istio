@@ -15,18 +15,15 @@
 package status
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/http"
-
-	"context"
 	"os"
-	"sync"
-
-	"time"
-
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/istio/pkg/log"
