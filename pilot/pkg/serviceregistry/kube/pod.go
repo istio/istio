@@ -53,8 +53,8 @@ func newPodCache(ch cacheHandler, c *Controller) *PodCache {
 
 // event updates the IP-based index (pc.keys).
 func (out *PodCache) event(obj interface{}, ev model.Event) error {
-		out.Lock()
-		defer out.Unlock()
+	out.Lock()
+	defer out.Unlock()
 
 	// When a pod is deleted obj could be an *v1.Pod or a DeletionFinalStateUnknown marker item.
 	pod, ok := obj.(*v1.Pod)

@@ -43,6 +43,7 @@ import (
 
 	mcpapi "istio.io/api/mcp/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	_ "istio.io/istio/galley/pkg/metadata"
 	"istio.io/istio/pilot/cmd"
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
 	"istio.io/istio/pilot/pkg/config/clusterregistry"
@@ -69,10 +70,7 @@ import (
 	mcpclient "istio.io/istio/pkg/mcp/client"
 	"istio.io/istio/pkg/mcp/configz"
 	"istio.io/istio/pkg/mcp/creds"
-	"istio.io/istio/pkg/version"
-
-	// Import the resource package to pull in all proto types.
-	_ "istio.io/istio/galley/pkg/metadata"
+	"istio.io/istio/pkg/version" // Import the resource package to pull in all proto types.
 )
 
 const (
@@ -278,7 +276,7 @@ func (s *Server) initClusterRegistries(args *PilotArgs) (err error) {
 			args.Config.ControllerOptions.DomainSuffix,
 			args.Config.ControllerOptions.ResyncPeriod,
 			s.ServiceController,
-			s.EnvoyXdsServer.ClearCacheFunc())
+			s.EnvoyXdsServer)
 
 		if err != nil {
 			log.Info("Unable to create new Multicluster object")

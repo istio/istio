@@ -19,13 +19,12 @@ import (
 	"path"
 	"reflect"
 
-	"istio.io/istio/pkg/test/env"
-	"istio.io/istio/pkg/test/framework/scopes"
-
 	"istio.io/istio/pkg/test/deployment"
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/dependency"
 	"istio.io/istio/pkg/test/framework/environment"
 	"istio.io/istio/pkg/test/framework/environments/kubernetes"
+	"istio.io/istio/pkg/test/framework/scopes"
 )
 
 var (

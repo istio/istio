@@ -18,10 +18,9 @@ import (
 	"fmt"
 	"strings"
 
-	"istio.io/istio/pkg/test/env"
-
 	kubeCore "k8s.io/api/core/v1"
 
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/settings"
 )
 

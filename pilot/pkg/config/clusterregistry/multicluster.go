@@ -38,7 +38,7 @@ type Multicluster struct {
 	DomainSuffix      string
 	ResyncPeriod      time.Duration
 	serviceController *aggregate.Controller
-	ClearCache        func()
+	XDSUpdater        model.XDSUpdater
 	rkc               map[string]*kubeController
 }
 
@@ -46,7 +46,7 @@ type Multicluster struct {
 // It also starts the secret controller
 func NewMulticluster(kc kubernetes.Interface, secretNamespace string,
 	watchedNamespace string, domainSuffix string, resycnPeriod time.Duration,
-	serviceController *aggregate.Controller, clearCacheFunction func()) (*Multicluster, error) {
+	serviceController *aggregate.Controller, xds model.XDSUpdater) (*Multicluster, error) {
 
 	remoteKubeClient := make(map[string]*kubeController)
 	if resycnPeriod == 0 {
@@ -59,7 +59,7 @@ func NewMulticluster(kc kubernetes.Interface, secretNamespace string,
 		DomainSuffix:      domainSuffix,
 		ResyncPeriod:      resycnPeriod,
 		serviceController: serviceController,
-		ClearCache:        clearCacheFunction,
+		XDSUpdater:        xds,
 		rkc:               remoteKubeClient,
 	}
 
@@ -82,6 +82,7 @@ func (m *Multicluster) AddMemberCluster(clientset kubernetes.Interface, clusterI
 		WatchedNamespace: m.WatchedNamespace,
 		ResyncPeriod:     m.ResyncPeriod,
 		DomainSuffix:     m.DomainSuffix,
+		XDSUpdater:       m.XDSUpdater,
 	})
 
 	remoteKubeController.rc = kubectl
@@ -95,8 +96,8 @@ func (m *Multicluster) AddMemberCluster(clientset kubernetes.Interface, clusterI
 		})
 
 	m.rkc[clusterID] = &remoteKubeController
-	_ = kubectl.AppendServiceHandler(func(*model.Service, model.Event) { m.ClearCache() })
-	_ = kubectl.AppendInstanceHandler(func(*model.ServiceInstance, model.Event) { m.ClearCache() })
+	_ = kubectl.AppendServiceHandler(func(*model.Service, model.Event) { m.XDSUpdater.ConfigUpdate(true) })
+	_ = kubectl.AppendInstanceHandler(func(*model.ServiceInstance, model.Event) { m.XDSUpdater.ConfigUpdate(true) })
 	go kubectl.Run(stopCh)
 
 	return nil
@@ -110,7 +111,8 @@ func (m *Multicluster) DeleteMemberCluster(clusterID string) error {
 	m.serviceController.DeleteRegistry(clusterID)
 	close(m.rkc[clusterID].stopCh)
 	delete(m.rkc, clusterID)
-	m.ClearCache()
-
+	if m.XDSUpdater != nil {
+		m.XDSUpdater.ConfigUpdate(true)
+	}
 	return nil
 }

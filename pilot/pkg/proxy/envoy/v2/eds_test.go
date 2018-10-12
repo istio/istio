@@ -20,6 +20,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	_ "net/http/pprof"
 	"runtime"
 	"strconv"
 	"strings"
@@ -28,15 +29,12 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/test/env"
-	"istio.io/istio/tests/util"
-
-	_ "net/http/pprof"
-
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pkg/adsc"
+	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/tests/util"
 )
 
 // The connect and reconnect tests are removed - ADS already has coverage, and the
