@@ -44,6 +44,8 @@ const (
 	Health = "health"
 	// Mixer is the name of the mixer plugin passed through the command line
 	Mixer = "mixer"
+	// Snidnat is the name of the mixer plugin passed through the command line
+	Snidnat = "snidnat"
 )
 
 // ModelProtocolToListenerProtocol converts from a model.Protocol to its corresponding plugin.ListenerProtocol

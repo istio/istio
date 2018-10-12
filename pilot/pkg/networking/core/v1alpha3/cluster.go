@@ -255,7 +255,7 @@ func convertResolution(resolution model.Resolution) v2.Cluster_DiscoveryType {
 }
 
 // convertIstioMutual fills key cert fields for all TLSSettings when the mode is `ISTIO_MUTUAL`.
-func convertIstioMutual(destinationRule *networking.DestinationRule, service *model.Service, upstreamServiceAccount []string) {
+func convertIstioMutual(destinationRule *networking.DestinationRule, upstreamServiceAccount []string) {
 	converter := func(tls *networking.TLSSettings) {
 		if tls == nil {
 			return

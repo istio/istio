@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package health
+package snidnat
 
 import (
 	"strings"
@@ -73,8 +73,8 @@ func (Plugin) OnOutboundCluster(in *plugin.InputParams, cluster *xdsapi.Cluster)
 	// The only exception is istio-policy and istio-telemetry, as traffic to these services
 	// originate from the mixer filter in Envoy and not from the end user.
 	if in.Service == nil || in.Service.MeshExternal ||
-		strings.HasPrefix(istioPolicySvcIdentifier, string(in.Service.Hostname)) ||
-		strings.HasPrefix(istioTelemetrySvcIdentifier, string(in.Service.Hostname)) {
+		strings.HasPrefix(string(in.Service.Hostname), istioPolicySvcIdentifier) ||
+		strings.HasPrefix(string(in.Service.Hostname), istioTelemetrySvcIdentifier) {
 		// This is a gross hack - looking for istio-policy/istio-telemetry prefixes
 		// in the service names and making an exception for them. However, there is
 		// no other way to accomplish this in a clean way. Atleast, this ugly code is
