@@ -58,6 +58,7 @@ kubectl create clusterrolebinding myname-cluster-admin-binding  --clusterrole=cl
 
 ```
 # Customize .istiorc.mk (at the top of the istio.io/istio source tree) with your HUB and optional TAG
+# also optional: GS_BUCKET to use a different Google Storage Bucket than the default one (you need write permissions)
 # it allows you to customize Makefile rules. For example:
 cat .istiorc.mk
 HUB=costinm
