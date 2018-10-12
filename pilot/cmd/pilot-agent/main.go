@@ -22,8 +22,10 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
+	"os/signal"
 	"strconv"
 	"strings"
+	"syscall"
 	"text/template"
 	"time"
 
@@ -266,6 +268,11 @@ var (
 				go statusServer.Run(ctx)
 			}
 
+			stop1 := make(chan struct{})
+			if registry == serviceregistry.KubernetesRegistry {
+				go monitorJob(ctx, stop1)
+			}
+
 			envoyProxy := envoy.NewProxy(proxyConfig, role.ServiceNode(), proxyLogLevel, pilotSAN)
 			agent := proxy.NewAgent(envoyProxy, proxy.DefaultRetry)
 			watcher := envoy.NewWatcher(proxyConfig, role, certs, pilotSAN, agent.ConfigCh())
@@ -273,10 +280,15 @@ var (
 			go agent.Run(ctx)
 			go watcher.Run(ctx)
 
-			stop := make(chan struct{})
-			cmd.WaitSignal(stop)
-			<-stop
-			return nil
+			stop2 := make(chan os.Signal, 1)
+			signal.Notify(stop2, syscall.SIGINT, syscall.SIGTERM)
+
+			select {
+			case <-stop1:
+				return nil
+			case <-stop2:
+				return nil
+			}
 		},
 	}
 )
