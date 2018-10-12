@@ -46,8 +46,10 @@ endif
 # If set outside, it appears it is not possible to modify the variable.
 E2E_ARGS ?=
 
+ISTIOCTL_BIN ?= ${ISTIO_OUT}/istioctl
+
 DEFAULT_EXTRA_E2E_ARGS = ${MINIKUBE_FLAGS}
-DEFAULT_EXTRA_E2E_ARGS += --istioctl=${ISTIO_OUT}/istioctl
+DEFAULT_EXTRA_E2E_ARGS += --istioctl=${ISTIOCTL_BIN}
 DEFAULT_EXTRA_E2E_ARGS += --mixer_tag=${TAG}
 DEFAULT_EXTRA_E2E_ARGS += --pilot_tag=${TAG}
 DEFAULT_EXTRA_E2E_ARGS += --proxy_tag=${TAG}
