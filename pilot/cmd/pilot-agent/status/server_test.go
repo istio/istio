@@ -49,8 +49,8 @@ func init() {
 
 func TestAppProbe(t *testing.T) {
 	server := NewServer(Config{
-		StatusPort:  0,
-		AppReadyURL: fmt.Sprintf(":%v/", appPort),
+		StatusPort:      0,
+		AppReadinessURL: fmt.Sprintf(":%v/", appPort),
 	})
 	go server.Run(context.Background())
 

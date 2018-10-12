@@ -52,10 +52,12 @@ type Config struct {
 	StatusPort       uint16
 	AdminPort        uint16
 	ApplicationPorts []uint16
-	// AppReadyURL specifies the path, including the port to take over Kubernetes readiness probe.
-	AppReadyURL string
-	// AppLiveURL specifies the path, including the port to take over Kubernetes liveness probe.
-	AppLiveURL string
+	// AppReadinessURL specifies the path, including the port to take over Kubernetes readiness probe.
+	// This allows Kubernetes probing to work even mTLS is turned on for the workload.
+	AppReadinessURL string
+	// AppLivenessURL specifies the path, including the port to take over Kubernetes liveness probe.
+	// This allows Kubernetes probing to work even mTLS is turned on for the workload.
+	AppLivenessURL string
 }
 
 // Server provides an endpoint for handling status probes.
@@ -72,8 +74,8 @@ type Server struct {
 func NewServer(config Config) *Server {
 	return &Server{
 		statusPort:  config.StatusPort,
-		appLiveURL:  config.AppLiveURL,
-		appReadyURL: config.AppReadyURL,
+		appLiveURL:  config.AppLivenessURL,
+		appReadyURL: config.AppReadinessURL,
 		ready: &ready.Probe{
 			AdminPort:        config.AdminPort,
 			ApplicationPorts: config.ApplicationPorts,
