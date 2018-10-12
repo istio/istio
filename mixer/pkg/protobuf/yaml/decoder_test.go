@@ -17,6 +17,7 @@ package yaml
 import (
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
@@ -285,9 +286,39 @@ map_str_str:
 			name: "unsupported map",
 			data: `
 map_str_bool:
-    key1: true`,
+  key1: true`,
 			err:  true,
 			want: map[string]interface{}{},
+		},
+		{
+			name: "istio concrete types",
+			data: `
+ipaddress_istio_value:
+    value:
+    - 8
+    - 0
+    - 0
+    - 1
+duration_istio_value:
+     value: 10s
+google_protobuf_duration: 5ns
+dnsname_istio_value:
+     value: google.com
+`,
+			want: map[string]interface{}{
+				"ipaddress_istio_value":    []byte{8, 0, 0, 1},
+				"duration_istio_value":     10 * time.Second,
+				"google_protobuf_duration": 5 * time.Nanosecond,
+				"dnsname_istio_value":      "google.com",
+			},
+		},
+		{
+			name: "istio dynamic int64 type",
+			data: `
+istio_value:
+     int64_value: -123
+`,
+			want: map[string]interface{}{"istio_value": int64(-123)},
 		},
 	} {
 		t.Run(td.name, func(tt *testing.T) {

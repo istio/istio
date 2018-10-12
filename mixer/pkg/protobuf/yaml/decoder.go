@@ -18,10 +18,13 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"time"
 
 	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
+	"github.com/gogo/protobuf/types"
 	multierror "github.com/hashicorp/go-multierror"
 
+	"istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/protobuf/yaml/wire"
 )
 
@@ -226,6 +229,48 @@ func (dv *decodeVisitor) Bytes(n wire.Number, v []byte) {
 			dv.out[f.GetName()].(map[string]string)[visitor.key] = visitor.value
 			return
 		}
+
+		// parse the entirety of the message recursively for value types
+		if _, ok := valueResolver.descriptors[f.GetTypeName()]; ok && !f.IsRepeated() {
+			decoder := NewDecoder(valueResolver, f.GetTypeName(), nil)
+			inner, err := decoder.Decode(v)
+			if err != nil {
+				dv.err = multierror.Append(dv.err, fmt.Errorf("failed to decode field %q: %v", f.GetName(), err))
+				return
+			}
+
+			switch f.GetTypeName() {
+			case ".istio.policy.v1beta1.Value":
+				// oneof must be set
+				if len(inner) == 1 {
+					for _, val := range inner {
+						dv.out[f.GetName()] = val
+					}
+				}
+			case ".istio.policy.v1beta1.IPAddress",
+				".istio.policy.v1beta1.Duration",
+				".istio.policy.v1beta1.DNSName":
+				if value, ok := inner["value"]; ok {
+					dv.out[f.GetName()] = value
+				}
+			case ".google.protobuf.Duration":
+				seconds, secondsOk := inner["seconds"]
+				nanos, nanosOk := inner["nanos"]
+				if secondsOk || nanosOk {
+					// must default to int64 for casting to work
+					if seconds == nil {
+						seconds = int64(0)
+					}
+					if nanos == nil {
+						nanos = int64(0)
+					}
+					dv.out[f.GetName()] = time.Duration(seconds.(int64))*time.Second + time.Duration(nanos.(int64))
+				}
+			}
+
+			return
+		}
+
 		// TODO(kuat): implement sub-message decoding
 		return
 	}
@@ -284,3 +329,44 @@ func (dv *decodeVisitor) Bytes(n wire.Number, v []byte) {
 
 	dv.err = multierror.Append(dv.err, fmt.Errorf("unexpected field type %q for bytes encoding", f.GetType()))
 }
+
+type valueTypeResolver struct {
+	descriptors map[string]*descriptor.DescriptorProto
+}
+
+func getDescriptorProto(msg descriptor.Message) *descriptor.DescriptorProto {
+	_, desc := descriptor.ForMessage(msg)
+	return desc
+}
+
+func newValueTypeResolver() *valueTypeResolver {
+	out := &valueTypeResolver{
+		descriptors: map[string]*descriptor.DescriptorProto{
+			".istio.policy.v1beta1.Value":     getDescriptorProto(&v1beta1.Value{}),
+			".istio.policy.v1beta1.IPAddress": getDescriptorProto(&v1beta1.IPAddress{}),
+			".istio.policy.v1beta1.Duration":  getDescriptorProto(&v1beta1.Duration{}),
+			".istio.policy.v1beta1.TimeStamp": getDescriptorProto(&v1beta1.TimeStamp{}),
+			".istio.policy.v1beta1.DNSName":   getDescriptorProto(&v1beta1.DNSName{}),
+			".google.protobuf.Duration":       getDescriptorProto(&types.Duration{}),
+			".google.protobuf.Timestamp":      getDescriptorProto(&types.Timestamp{}),
+		},
+	}
+
+	return out
+}
+
+func (vtr *valueTypeResolver) ResolveMessage(msg string) *descriptor.DescriptorProto {
+	return vtr.descriptors[msg]
+}
+
+func (vtr *valueTypeResolver) ResolveEnum(string) *descriptor.EnumDescriptorProto {
+	return nil
+}
+
+func (vtr *valueTypeResolver) ResolveService(string) (*descriptor.ServiceDescriptorProto, string) {
+	return nil, ""
+}
+
+var (
+	valueResolver = newValueTypeResolver()
+)
