@@ -59,8 +59,8 @@ const (
 )
 
 var (
-	// strToLicenseType are code that's definitely ok to use and modify.
-	strToLicenseType = map[string]licenseType{
+	// licenseStrToType are code that's definitely ok to use and modify.
+	licenseStrToType = map[string]licenseType{
 		// licenseTypeApproved
 		"Apache-2.0":   licenseTypeApproved,
 		"ISC":          licenseTypeApproved,
@@ -279,7 +279,7 @@ func main() {
 		}
 
 		fmt.Printf("Checking %s\n", linfo.packageName)
-		lt, ok := strToLicenseType[ltypeStr]
+		lt, ok := licenseStrToType[ltypeStr]
 		switch {
 		// No license was found by licensee.
 		case ltypeStr == "":
