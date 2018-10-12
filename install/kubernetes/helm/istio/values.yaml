@@ -106,6 +106,12 @@ global:
   proxy:
     image: proxyv2
 
+    # DNS domain suffix for pilot proxy agent. Default value is "${POD_NAMESPACE}.svc.cluster.local".
+    proxyDomain: ""
+
+    # DNS domain suffix for pilot proxy discovery. Default value is "cluster.local".
+    discoveryDomain: ""
+
     # Resources for the sidecar.
     resources:
       requests:
@@ -265,11 +271,6 @@ global:
     # limits:
     #   cpu: 100m
     #   memory: 128Mi
-
-  # Not recommended for user to configure this. Hyperkube image to use when creating custom resources
-  hyperkube:
-    hub: quay.io/coreos
-    tag: v1.7.6_coreos.0
 
   # Kubernetes >=v1.11.0 will create two PriorityClass, including system-cluster-critical and
   # system-node-critical, it is better to configure this in order to make sure your Istio pods

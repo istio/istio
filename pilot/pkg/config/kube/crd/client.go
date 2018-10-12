@@ -244,7 +244,7 @@ func (rc *restClient) registerResources() error {
 				Scope:   crdScope,
 				Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
 					Plural: ResourceName(schema.Plural),
-					Kind:   KabobCaseToCamelCase(schema.Type),
+					Kind:   KebabCaseToCamelCase(schema.Type),
 				},
 			},
 		}

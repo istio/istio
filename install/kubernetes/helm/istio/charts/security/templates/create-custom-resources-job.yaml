@@ -74,8 +74,9 @@ spec:
     spec:
       serviceAccountName: istio-security-post-install-account
       containers:
-        - name: hyperkube
-          image: "{{ .Values.global.hyperkube.hub }}/hyperkube:{{ .Values.global.hyperkube.tag }}"
+        - name: kubectl
+          image: "{{ .Values.global.hub }}/kubectl:{{ .Values.global.tag }}"
+          imagePullPolicy: IfNotPresent
           command: [ "/bin/bash", "/tmp/security/run.sh", "/tmp/security/custom-resources.yaml" ]
           volumeMounts:
             - mountPath: "/tmp/security"

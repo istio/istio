@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"sort"
 	"strconv"
 	"time"
 
@@ -115,7 +116,7 @@ type cacheHandler struct {
 // NewController creates a new Kubernetes controller
 // Created by bootstrap and multicluster (see secretcontroler).
 func NewController(client kubernetes.Interface, options ControllerOptions) *Controller {
-	log.Infof("Service controller watching namespace %q for service, endpoint, nodes and pods, refresh %d",
+	log.Infof("Service controller watching namespace %q for services, endpoints, nodes and pods, refresh %s",
 		options.WatchedNamespace, options.ResyncPeriod)
 
 	// Queue requires a time duration for a retry delay after a handler error
@@ -130,13 +131,13 @@ func NewController(client kubernetes.Interface, options ControllerOptions) *Cont
 	sharedInformers := informers.NewFilteredSharedInformerFactory(client, options.ResyncPeriod, options.WatchedNamespace, nil)
 
 	svcInformer := sharedInformers.Core().V1().Services().Informer()
-	out.services = out.createCacheHandler(svcInformer, "Service")
+	out.services = out.createCacheHandler(svcInformer, "Services")
 
 	epInformer := sharedInformers.Core().V1().Endpoints().Informer()
 	out.endpoints = out.createEDSCacheHandler(epInformer, "Endpoints")
 
 	nodeInformer := sharedInformers.Core().V1().Nodes().Informer()
-	out.nodes = out.createCacheHandler(nodeInformer, "Node")
+	out.nodes = out.createCacheHandler(nodeInformer, "Nodes")
 
 	podInformer := sharedInformers.Core().V1().Pods().Informer()
 	out.pods = newPodCache(out.createCacheHandler(podInformer, "Pod"), out)
@@ -268,6 +269,7 @@ func (c *Controller) Services() ([]*model.Service, error) {
 			out = append(out, svc)
 		}
 	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Hostname < out[j].Hostname })
 	return out, nil
 }
 
@@ -355,7 +357,7 @@ func (c *Controller) WorkloadHealthCheckInfo(addr string) model.ProbeList {
 	// Obtain probes from the readiness and liveness probes
 	for _, container := range pod.Spec.Containers {
 		if container.ReadinessProbe != nil && container.ReadinessProbe.Handler.HTTPGet != nil {
-			p, err := convertProbePort(container, &container.ReadinessProbe.Handler)
+			p, err := convertProbePort(&container, &container.ReadinessProbe.Handler)
 			if err != nil {
 				log.Infof("Error while parsing readiness probe port =%v", err)
 			}
@@ -365,7 +367,7 @@ func (c *Controller) WorkloadHealthCheckInfo(addr string) model.ProbeList {
 			})
 		}
 		if container.LivenessProbe != nil && container.LivenessProbe.Handler.HTTPGet != nil {
-			p, err := convertProbePort(container, &container.LivenessProbe.Handler)
+			p, err := convertProbePort(&container, &container.LivenessProbe.Handler)
 			if err != nil {
 				log.Infof("Error while parsing liveness probe port =%v", err)
 			}
@@ -501,6 +503,7 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 		if ep.Namespace != podNamespace {
 			endpoints = &endpointsForPodInDifferentNS
 		}
+
 		for _, ss := range ep.Subsets {
 			for _, port := range ss.Ports {
 				svcPort, exists := svc.Ports.Get(port.Name)
@@ -508,8 +511,8 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 					continue
 				}
 
-				*endpoints = append(*endpoints, getEndpoints(ss.Addresses, proxyIP, c, port, svcPort, svc)...)
-				nrEP := getEndpoints(ss.NotReadyAddresses, proxyIP, c, port, svcPort, svc)
+				*endpoints = append(*endpoints, getEndpoints(ss.Addresses, proxyIP, c, svcPort, svc)...)
+				nrEP := getEndpoints(ss.NotReadyAddresses, proxyIP, c, svcPort, svc)
 				*endpoints = append(*endpoints, nrEP...)
 				if len(nrEP) > 0 && c.Env != nil {
 					c.Env.PushContext.Add(model.ProxyStatusEndpointNotReady, proxy.ID, proxy, "")
@@ -538,7 +541,7 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 }
 
 func getEndpoints(addr []v1.EndpointAddress, proxyIP string, c *Controller,
-	port v1.EndpointPort, svcPort *model.Port, svc *model.Service) []*model.ServiceInstance {
+	svcPort *model.Port, svc *model.Service) []*model.ServiceInstance {
 
 	var out []*model.ServiceInstance
 	for _, ea := range addr {
@@ -555,7 +558,7 @@ func getEndpoints(addr []v1.EndpointAddress, proxyIP string, c *Controller,
 		out = append(out, &model.ServiceInstance{
 			Endpoint: model.NetworkEndpoint{
 				Address:     ea.IP,
-				Port:        int(port.Port),
+				Port:        int(svcPort.Port),
 				ServicePort: svcPort,
 			},
 			Service:          svc,

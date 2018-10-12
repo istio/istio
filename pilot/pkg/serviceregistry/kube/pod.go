@@ -27,9 +27,9 @@ import (
 
 // PodCache is an eventually consistent pod cache
 type PodCache struct {
-	rwMu sync.RWMutex
 	cacheHandler
 
+	sync.RWMutex
 	// keys maintains stable pod IP to name key mapping
 	// this allows us to retrieve the latest status by pod IP.
 	// This should only contain RUNNING or PENDING pods with an allocated IP.
@@ -53,8 +53,8 @@ func newPodCache(ch cacheHandler, c *Controller) *PodCache {
 
 // event updates the IP-based index (pc.keys).
 func (out *PodCache) event(obj interface{}, ev model.Event) error {
-	out.rwMu.Lock()
-	defer out.rwMu.Unlock()
+		out.Lock()
+		defer out.Unlock()
 
 	// When a pod is deleted obj could be an *v1.Pod or a DeletionFinalStateUnknown marker item.
 	pod, ok := obj.(*v1.Pod)
@@ -117,16 +117,16 @@ func (out *PodCache) event(obj interface{}, ev model.Event) error {
 }
 
 func (pc *PodCache) getPodKey(addr string) (string, bool) {
-	pc.rwMu.RLock()
-	defer pc.rwMu.RUnlock()
+	pc.RLock()
+	defer pc.RUnlock()
 	key, exists := pc.keys[addr]
 	return key, exists
 }
 
 // getPodByIp returns the pod or nil if pod not found or an error occurred
 func (pc *PodCache) getPodByIP(addr string) (*v1.Pod, bool) {
-	pc.rwMu.RLock()
-	defer pc.rwMu.RUnlock()
+	pc.RLock()
+	defer pc.RUnlock()
 
 	key, exists := pc.keys[addr]
 	if !exists {

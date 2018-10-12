@@ -11,6 +11,9 @@ global:
   proxy:
     image: proxyv2
 
+    # DNS domain suffix for pilot proxy agent. Default value is "${POD_NAMESPACE}.svc.cluster.local".
+    proxyDomain: ""
+
     # A minimal set of requested resources to applied to all deployments so that
     # Horizontal Pod Autoscaler will be able to function (if set).
     # Each component can overwrite these default values by adding its own resources
@@ -74,11 +77,6 @@ global:
   # local tests require IfNotPresent, to avoid uploading to dockerhub.
   # TODO: Switch to Always as default, and override in the local tests.
   imagePullPolicy: IfNotPresent
-
-  # Not recommended for user to configure this. Hyperkube image to use when creating custom resources
-  hyperkube:
-    hub: quay.io/coreos
-    tag: v1.7.6_coreos.0
 
   # controlPlaneMtls enabled. Will result in delays starting the pods while secrets are
   # propagated, not recommended for tests.
