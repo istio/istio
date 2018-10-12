@@ -9,25 +9,13 @@
       "args": [ "chmod", "u+x", "./istio_checkout_code.sh" ]
     },
     {
-      "volumes": [
-	{
-          "name": "buildoutput",
-          "path": "/output"
-	}
-      ],
       "name": "gcr.io/istio-testing/istio-builder:0.5.10",
       "args": [ "./istio_checkout_code.sh", "-b", "$_BRANCH", "-r", "$_GCS_RELEASE_TOOLS_PATH" ]
     },
     {
-      "volumes": [
-	{
-          "name": "buildoutput",
-          "path": "/output"
-	}
-      ],
       "name": "gcr.io/istio-testing/istio-builder:0.5.10",
       "dir": "go/src/istio.io/istio",
-      "args": [ "./release/publish_release.sh", "-w", "-x", "-e", "$_USER_EMAIL", "-n", "$_USER_NAME", "-g", "$_GCS_SOURCE", "-l", "$_GCS_SECRET", "-m", "-o", "$_GITHUB_ORG", "-v", "$_VERSION" ]
+      "args": [ "./release/modify_values.sh", "-h", "$_DOCKER_HUB", "-p", "$_GCS_PATH", "-t", "$_VERSION", "-v", "$_VERSION" ]
     }
   ],
   "timeout": "3600s",

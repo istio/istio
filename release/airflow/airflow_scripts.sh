@@ -76,11 +76,12 @@ function get_git_commit_cmd() {
 
 # Called directly by Airflow.
 function build_template() {
+    # istio_docker_hub is the string used by istioctl, helm values, deb file
     # shellcheck disable=SC2034
-    GCR_PATH="${GCR_STAGING_DEST}"
-    GCS_PATH="${GCS_BUILD_PATH}"
-    VER_STRING="${VERSION}"
-    create_subs_file "BRANCH" "GCR_PATH" "GCS_PATH" "GCS_RELEASE_TOOLS_PATH" "VER_STRING"
+    ISTIO_DOCKER_HUB="$DOCKER_HUB"
+    # push_docker_hubs is the set of comma separated hubs to which the code is pushed
+    PUSH_DOCKER_HUBS="$DOCKER_HUB"
+    create_subs_file "BRANCH" "ISTIO_DOCKER_HUB" "GCS_BUILD_PATH" "GCS_RELEASE_TOOLS_PATH" "PUSH_DOCKER_HUBS" "VERSION"
     cat "${SUBS_FILE}"
 
     run_build "cloud_build.template.json" \
@@ -90,7 +91,6 @@ function build_template() {
 
 # Called directly by Airflow.
 function test_command() {
-    DOCKER_HUB="gcr.io/$GCR_STAGING_DEST"
     create_subs_file "BRANCH" "DOCKER_HUB" "GCS_BUILD_PATH" "GCS_RELEASE_TOOLS_PATH" "VERSION"
     cat "${SUBS_FILE}"
 
@@ -101,41 +101,28 @@ function test_command() {
 
 # Called directly by Airflow.
 function modify_values_command() {
-    # TODO: Merge these changes into istio/istio master and stop using this task
-    gsutil -q cp gs://istio-release-pipeline-data/release-tools/test-version/data/release/modify_values.sh .
-    chmod u+x modify_values.sh
+    # shellcheck disable=SC2034
+    GCS_PATH="gs://$GCS_BUILD_BUCKET/$GCS_STAGING_PATH"
+    create_subs_file "BRANCH" "DOCKER_HUB" "GCS_PATH" "GCS_RELEASE_TOOLS_PATH" "VERSION"
+    cat "${SUBS_FILE}"
 
-    echo "PIPELINE TYPE is $PIPELINE_TYPE"
-    if [ "$PIPELINE_TYPE" = "daily" ]; then
-        hub="gcr.io/$GCR_STAGING_DEST"
-    elif [ "$PIPELINE_TYPE" = "monthly" ]; then
-        hub="docker.io/istio"
-    fi
-    ./modify_values.sh -h "${hub}" -t "$VERSION" -p "gs://$GCS_BUILD_BUCKET/$GCS_STAGING_PATH" -v "$VERSION"
+    run_build "cloud_modify_values.template.json" \
+         "${SUBS_FILE}" "${PROJECT_ID}" "${SVC_ACCT}"
+    exit "${BUILD_FAILED}"
 }
 
 # Called directly by Airflow.
 function gcr_tag_success() {
-  pwd; ls
+    # shellcheck disable=SC2034
+    PUSH_DOCKER_HUBS="$DOCKER_HUB"
+    # shellcheck disable=SC2034
+    TAG="$BRANCH-latest-daily"
+    create_subs_file "BRANCH" "GCS_BUILD_PATH" "GCS_STAGING_BUCKET" "GCS_RELEASE_TOOLS_PATH" "PUSH_DOCKER_HUBS" "TAG" "VERSION"
+    cat "${SUBS_FILE}"
 
-  gsutil ls "gs://$GCS_FULL_STAGING_PATH/docker/"             > docker_tars.txt
-  grep -Eo "docker\\/(([a-z]|[0-9]|-|_)*).tar.gz"               docker_tars.txt \
-      | sed -E "s/docker\\/(([a-z]|[0-9]|-|_)*).tar.gz/\\1/g" > docker_images.txt
-
-  #gcloud auth configure-docker  -q
-  while read -r docker_image; do
-    gcloud container images add-tag \
-    "gcr.io/$GCR_STAGING_DEST/${docker_image}:$VERSION" \
-    "gcr.io/$GCR_STAGING_DEST/${docker_image}:$BRANCH-latest-daily" --quiet;
-    #pull_source="gcr.io/$GCR_STAGING_DEST/${docker_image}:$VERSION"
-    #push_dest="  gcr.io/$GCR_STAGING_DEST/${docker_image}:latest_$BRANCH";
-    #docker pull $pull_source
-    #docker tag  $pull_source $push_dest
-    #docker push $push_dest
-  done < docker_images.txt
-
-  cat docker_tars.txt docker_images.txt
-  rm  docker_tars.txt docker_images.txt
+    run_build "cloud_daily_success.template.json" \
+         "${SUBS_FILE}" "${PROJECT_ID}" "${SVC_ACCT}"
+    exit "${BUILD_FAILED}"
 }
 
 # Called directly by Airflow.
@@ -143,20 +130,14 @@ function release_push_github_docker_template() {
     # uses the environment variables from list below + $PROJECT_ID $SVC_ACCT
     #BRANCH
     # shellcheck disable=SC2034
-    DOCKER_DST="$DOCKER_HUB"
-    # shellcheck disable=SC2034
-    GCR_DST="${GCR_RELEASE_DEST}"
-    # shellcheck disable=SC2034
     GCS_DST="${GCS_MONTHLY_RELEASE_PATH}"
-    GCS_PATH="${GCS_BUILD_PATH}"
     #GCS_RELEASE_TOOLS_PATH
     GCS_SECRET="${GCS_GITHUB_PATH}"
     GCS_SOURCE="${GCS_FULL_STAGING_PATH}"
-    ORG="${GITHUB_ORG}"
-    # shellcheck disable=SC2034
-    REPO="${GITHUB_REPO}"
-    VER_STRING="${VERSION}"
-    create_subs_file "BRANCH" "DOCKER_DST" "GCR_DST" "GCS_DST" "GCS_PATH" "GCS_RELEASE_TOOLS_PATH" "GCS_SECRET" "GCS_SOURCE" "ORG" "REPO" "VER_STRING"
+    #GITHUB_ORG
+    #GITHUB_REPO
+    #VERSION
+    create_subs_file "BRANCH" "GCS_DST" "GCS_RELEASE_TOOLS_PATH" "GCS_SECRET" "GCS_SOURCE" "GITHUB_ORG" "GITHUB_REPO" "VERSION"
     cat "${SUBS_FILE}"
 
     run_build "cloud_publish.template.json" \
@@ -168,22 +149,18 @@ function release_push_github_docker_template() {
 function release_tag_github_template() {
     # uses the environment variables from list below + $PROJECT_ID $SVC_ACCT
     #BRANCH
-    # shellcheck disable=SC2034
-    GCS_PATH="${GCS_BUILD_PATH}"
     #GCS_RELEASE_TOOLS_PATH
     # shellcheck disable=SC2034
     GCS_SECRET="${GCS_GITHUB_PATH}"
     # shellcheck disable=SC2034
     GCS_SOURCE="${GCS_FULL_STAGING_PATH}"
-    # shellcheck disable=SC2034
-    ORG="${GITHUB_ORG}"
+    #GITHUB_ORG
     # shellcheck disable=SC2034
     USER_EMAIL="istio_releaser_bot@example.com"
     # shellcheck disable=SC2034
     USER_NAME="IstioReleaserBot"
-    # shellcheck disable=SC2034
-    VER_STRING="${VERSION}"
-    create_subs_file "BRANCH" "GCS_PATH" "GCS_RELEASE_TOOLS_PATH" "GCS_SECRET" "GCS_SOURCE" "ORG" "USER_EMAIL" "USER_NAME" "VER_STRING"
+    #VERSION
+    create_subs_file "BRANCH" "GCS_RELEASE_TOOLS_PATH" "GCS_SECRET" "GCS_SOURCE" "GITHUB_ORG" "USER_EMAIL" "USER_NAME" "VERSION"
     cat "${SUBS_FILE}"
 
     run_build "cloud_tag.template.json" \

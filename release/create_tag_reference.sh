@@ -177,10 +177,10 @@ EOF
 ORG_REPOS=(api istio proxy)
 
 for GITREPO in "${ORG_REPOS[@]}"; do
-  SHA=$(grep "$ORG/$GITREPO" "$BUILD_FILE"  | cut -f 6 -d \")
+  SHA=$(grep "$GITREPO\"" "$BUILD_FILE"  | cut -f 6 -d \")
   if [[ -n "${SHA}" ]]; then
     create_tag_reference "${ORG}" "${GITREPO}" "${SHA}"
   else
-    echo "Did not find SHA for ${ORG}/${GITREPO}"
+    echo "Did not find SHA for repo ${GITREPO}"
   fi
 done
