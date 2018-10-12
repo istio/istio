@@ -26,12 +26,11 @@ import (
 	"github.com/prometheus/common/model"
 
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/test/framework/environment"
-
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/bookinfo"
 	"istio.io/istio/pkg/test/framework/dependency"
+	"istio.io/istio/pkg/test/framework/environment"
 )
 
 const (
