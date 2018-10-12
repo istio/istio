@@ -63,7 +63,7 @@ func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 			if len(args) > 0 {
 				return fmt.Errorf("%q is an invalid argument", args[0])
 			}
-			return log.Configure(loggingOptions)
+			return nil
 		},
 		Run: func(cmd *cobra.Command, args []string) {
 			serverArgs.KubeConfig = flags.kubeConfig
@@ -71,6 +71,7 @@ func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 			serverArgs.CredentialOptions.CACertificateFile = validationArgs.CACertFile
 			serverArgs.CredentialOptions.KeyFile = validationArgs.KeyFile
 			serverArgs.CredentialOptions.CertificateFile = validationArgs.CertFile
+			serverArgs.LoggingOptions = loggingOptions
 			if livenessProbeOptions.IsValid() {
 				livenessProbeController = probe.NewFileController(&livenessProbeOptions)
 			}
