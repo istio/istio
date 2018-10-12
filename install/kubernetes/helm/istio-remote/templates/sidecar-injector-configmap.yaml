@@ -50,12 +50,12 @@ data:
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
         securityContext:
           capabilities:
-          {{- if and .Values.global.proxy_init.privileged }}
+          {{- if .Values.global.proxy_init.privileged }}
             add:
               - "NET_ADMIN"
-          {{ if .Values.global.proxy.privileged }}
+          {{- if .Values.global.proxy.privileged }}
           privileged: true
-          {{- else}}
+          {{- end}}
           {{- else }}
             drop:
              - "all"
