@@ -78,20 +78,20 @@ data:
       concurrency: {{ .Values.global.proxy.concurrency }}
       #
       tracing:
-      {{- if eq .Values.global.proxy.tracing.tracer "lightstep" }}
+      {{- if eq .Values.global.proxy.tracer "lightstep" }}
         lightstep:
           # Address of the LightStep Satellite pool
-          address: {{ .Values.global.proxy.tracing.lightstep.address }}
+          address: {{ .Values.global.tracer.lightstep.address }}
           # Access Token used to communicate with the Satellite pool
-          accessToken: {{ .Values.global.proxy.tracing.lightstep.accessToken }}
+          accessToken: {{ .Values.global.tracer.lightstep.accessToken }}
           # Whether communication with the Satellite pool should be secure
-          secure: {{ .Values.global.proxy.tracing.lightstep.secure }}
+          secure: {{ .Values.global.tracer.lightstep.secure }}
           # Path to the file containing the cacert to use when verifying TLS
-          cacertPath: {{ .Values.global.proxy.tracing.lightstep.cacertPath }}
-      {{- else if eq .Values.global.proxy.tracing.tracer "zipkin" }}
+          cacertPath: {{ .Values.global.tracer.lightstep.cacertPath }}
+      {{- else if eq .Values.global.proxy.tracer "zipkin" }}
         zipkin:
           # Address of the Zipkin collector
-          address: {{ .Values.global.proxy.tracing.zipkin.address }}
+          address: {{ .Values.global.tracer.zipkin.address }}
       {{- else if .Values.global.remoteZipkinAddress }}
         zipkin:
           address: {{ .Values.global.remoteZipkinAddress }}:9411
