@@ -225,3 +225,11 @@ global:
   # Use the Mesh Control Protocol (MCP) for configuring Mixer and
   # Pilot. Requires galley (`--set galley.enabled=true`).
   useMCP: false
+
+#
+# Istio CNI plugin enabled
+#   If true, the privileged initContainer istio-init is not needed to perform the traffic redirect
+#   settings for the istio-proxy.
+#
+istio_cni:
+  enabled: false

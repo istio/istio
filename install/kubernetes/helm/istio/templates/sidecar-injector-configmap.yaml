@@ -14,7 +14,9 @@ data:
   config: |-
     policy: {{ .Values.global.proxy.autoInject }}
     template: |-
+{{- if or (not .Values.istio_cni.enabled) .Values.global.proxy.enableCoreDump }}
       initContainers:
+{{- if not .Values.istio_cni.enabled }}
       - name: istio-init
 {{- if contains "/" .Values.global.proxy_init.image }}
         image: "{{ .Values.global.proxy_init.image }}"
@@ -52,6 +54,7 @@ data:
           privileged: true
           {{ end -}}
         restartPolicy: Always
+{{- end }}
       {{ if eq .Values.global.proxy.enableCoreDump true }}
       - name: enable-core-dump
         args:
@@ -69,6 +72,7 @@ data:
         securityContext:
           privileged: true
       {{ end }}
+{{- end }}
       containers:
       - name: istio-proxy
 {{- if contains "/" .Values.global.proxy.image }}
