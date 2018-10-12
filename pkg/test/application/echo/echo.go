@@ -19,14 +19,13 @@ import (
 	"net"
 	"net/http"
 
-	"istio.io/istio/pkg/test/application"
-
 	"github.com/hashicorp/go-multierror"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/test/application"
 	"istio.io/istio/pkg/test/application/echo/proto"
 )
 

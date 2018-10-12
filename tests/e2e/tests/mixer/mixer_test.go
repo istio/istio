@@ -21,7 +21,16 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"fortio.org/fortio/fhttp" // flog "fortio.org/fortio/log"
+	"fortio.org/fortio/periodic"
+	"github.com/prometheus/client_golang/api"
+	"github.com/prometheus/client_golang/api/prometheus/v1"
+	"github.com/prometheus/common/model"
 	"io/ioutil"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/test/kube"
+	"istio.io/istio/tests/e2e/framework"
+	"istio.io/istio/tests/util"
 	"math"
 	"net"
 	"net/http"
@@ -30,20 +39,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/prometheus/client_golang/api"
-	"github.com/prometheus/client_golang/api/prometheus/v1"
-	"github.com/prometheus/common/model"
-
-	"fortio.org/fortio/fhttp"
-
-	// flog "fortio.org/fortio/log"
-	"fortio.org/fortio/periodic"
-
-	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/test/kube"
-	"istio.io/istio/tests/e2e/framework"
-	"istio.io/istio/tests/util"
 )
 
 const (

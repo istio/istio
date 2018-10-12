@@ -21,10 +21,10 @@ import (
 	"strings"
 	"text/template"
 
-	"istio.io/istio/pkg/test/kube"
-
 	"github.com/hashicorp/go-multierror"
 	"k8s.io/client-go/rest"
+
+	"istio.io/istio/pkg/test/kube"
 )
 
 const (
