@@ -110,5 +110,5 @@ func Test_KubeSecretController(t *testing.T) {
 	if len(mc.rkc) != 0 {
 		t.Errorf("deleted remote controller,  %v controllers found, want 0", len(mc.rkc))
 	}
-	
+
 }
