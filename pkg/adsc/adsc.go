@@ -498,6 +498,7 @@ func (a *ADSC) Wait(update string, to time.Duration) (string, error) {
 	}
 }
 
+// EndpointsJSON returns the endpoints, formatted as JSON, for debugging.
 func (a *ADSC) EndpointsJSON() string {
 	out, _ := json.MarshalIndent(a.EDS, " ", " ")
 	return string(out)
