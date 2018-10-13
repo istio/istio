@@ -47,7 +47,7 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(env *model.Environment, no
 	case model.Router, model.Ingress:
 		return configgen.buildGatewayHTTPRouteConfig(env, node, push, proxyInstances, services, routeName)
 	default:
-		log.Warnf("BuildListeners Unexpected NodeType %s", node.Type)
+		log.Warnf("BuildHTTPRoutes: unexpected node type %s", node.Type)
 	}
 	return nil, nil
 }

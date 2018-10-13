@@ -100,7 +100,7 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(env *model.Environment, nod
 	case model.Router, model.Ingress:
 		return configgen.buildGatewayListeners(env, node, push)
 	default:
-		log.Warnf("BuildListeners Unexpected NodeType %s", node.Type)
+		log.Warnf("BuildListeners: unexpected node type %s", node.Type)
 	}
 	return nil, nil
 }
