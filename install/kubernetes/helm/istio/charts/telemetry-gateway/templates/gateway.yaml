@@ -4,6 +4,11 @@ kind: Gateway
 metadata:
   name: istio-telemetry-gateway
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: istio-telemetry-gateway
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
 spec:
   selector:
     istio: {{ .Values.gatewayName }}
@@ -31,6 +36,11 @@ kind: DestinationRule
 metadata:
   name: grafana
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: istio-telemetry-gateway
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
 spec:
   host: grafana.{{ .Release.Namespace }}.svc.cluster.local
   trafficPolicy:
@@ -44,6 +54,11 @@ kind: DestinationRule
 metadata:
   name: prometheus
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: istio-telemetry-gateway
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
 spec:
   host: prometheus.{{ .Release.Namespace }}.svc.cluster.local
   trafficPolicy:
@@ -56,6 +71,11 @@ kind: VirtualService
 metadata:
   name: telemetry-virtual-service
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: istio-telemetry-gateway
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
 spec:
   hosts:
   - "*"

@@ -4,13 +4,13 @@
 apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
-  name: {{ template "zipkin.fullname" . }}
+  name: {{ template "tracing.fullname" . }}
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "zipkin.name" . }}
-    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    release: {{ .Release.Name }}
+    app: jaeger
+    chart: {{ template "tracing.chart" . }}
     heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
   annotations:
     {{- range $key, $value := .Values.ingress.annotations }}
       {{ $key }}: {{ $value | quote }}

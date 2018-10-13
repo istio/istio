@@ -4,6 +4,9 @@ metadata:
   name: certmanager
   labels:
     app: certmanager
+    chart: {{ template "certmanager.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 rules:
   - apiGroups: ["certmanager.k8s.io"]
     resources: ["certificates", "issuers", "clusterissuers"]
@@ -26,6 +29,9 @@ metadata:
   name: certmanager
   labels:
     app: certmanager
+    chart: {{ template "certmanager.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole

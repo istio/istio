@@ -6,7 +6,9 @@ metadata:
   name: istio-{{ $mname }}
   namespace: {{ $.Release.Namespace }}
   labels:
-    chart: {{ $.Chart.Name }}-{{ $.Chart.Version | replace "+" "_" }}
+    app: {{ template "mixer.name" $ }}
+    chart: {{ template "mixer.chart" $ }}
+    heritage: {{ $.Release.Service }}
     release: {{ $.Release.Name }}
     istio: mixer
 spec:

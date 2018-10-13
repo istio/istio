@@ -3,6 +3,11 @@ kind: Gateway
 metadata:
   name: istio-kiali-gateway
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "kiali.name" . }}
+    chart: {{ template "kiali.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   selector:
     istio: ingressgateway
@@ -19,6 +24,11 @@ kind: DestinationRule
 metadata:
   name: kiali
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "kiali.name" . }}
+    chart: {{ template "kiali.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   host: kiali.{{ .Release.Namespace }}.svc.cluster.local
   trafficPolicy:
@@ -30,6 +40,11 @@ kind: VirtualService
 metadata:
   name: kiali-virtual-service
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "kiali.name" . }}
+    chart: {{ template "kiali.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   hosts:
   - "*"

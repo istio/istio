@@ -4,15 +4,20 @@ metadata:
   name: grafana
   namespace: {{ .Release.Namespace }}
   labels:
-    app: istio-grafana
-    {{- template "common_labels" . }}
+    app: {{ template "grafana.name" . }}
+    chart: {{ template "grafana.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   replicas: {{ .Values.replicaCount }}
   template:
     metadata:
       labels:
         app: grafana
-        {{- template "common_template_labels" . }}
+        chart: {{ template "grafana.chart" . }}
+        heritage: {{ .Release.Service }}
+        release: {{ .Release.Name }}
+        version: {{ .Chart.Version }}
       annotations:
         sidecar.istio.io/inject: "false"
         scheduler.alpha.kubernetes.io/critical-pod: ""
@@ -31,7 +36,7 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
-            - containerPort: 3000
+          - containerPort: 3000
           readinessProbe:
             httpGet:
               path: /login

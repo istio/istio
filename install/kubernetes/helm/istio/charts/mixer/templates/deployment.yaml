@@ -267,18 +267,23 @@ metadata:
   name: istio-{{ $mname }}
   namespace: {{ $.Release.Namespace }}
   labels:
-    app: istio-mixer
+    app: {{ template "mixer.name" $ }}
+    chart: {{ template "mixer.chart" $ }}
+    heritage: {{ $.Release.Service }}
+    release: {{ $.Release.Name }}
     istio: mixer
-    {{- template "common_labels" $ }}
 spec:
   replicas: {{ $.Values.replicaCount }}
   template:
     metadata:
       labels:
-        app: {{ $mname }}
+        app: {{ template "mixer.name" $ }}
+        chart: {{ template "mixer.chart" $ }}
+        heritage: {{ $.Release.Service }}
+        release: {{ $.Release.Name }}
+        version: {{ $.Chart.Version }}
         istio: mixer
         istio-mixer-type: {{ $mname }}
-        {{- template "common_template_labels" $ }}
       annotations:
         sidecar.istio.io/inject: "false"
         scheduler.alpha.kubernetes.io/critical-pod: ""
