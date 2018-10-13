@@ -73,8 +73,7 @@ function wait_for_proc() {
 function join_procs() {
   local p
   for p in "${PIDS[@]}"; do
-      wait "${p}"
-      local result="$?"
+      local result=$( wait ${p} || echo $? )
       # 127 in case the job had died and wait fails.
       if [[ "${result}" != "0" && "${result}" != "127" ]]; then
           FAILED_TESTS+=("${PKGS[${p}]}")
