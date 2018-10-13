@@ -5,6 +5,12 @@ kind: VirtualService
 metadata:
   name: meshexpansion-vs-citadel-ilb
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "security.name" . }}
+    chart: {{ template "security.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+    istio: citadel
 spec:
   hosts:
   - istio-citadel.{{ $.Release.Namespace }}.svc.cluster.local
@@ -26,6 +32,12 @@ kind: VirtualService
 metadata:
   name: meshexpansion-vs-citadel
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "security.name" . }}
+    chart: {{ template "security.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+    istio: citadel
 spec:
   hosts:
   - istio-citadel.{{ $.Release.Namespace }}.svc.cluster.local

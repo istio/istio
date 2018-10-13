@@ -9,7 +9,10 @@ metadata:
     {{ $key }}: {{ $val | quote }}
     {{- end }}
   labels:
-    name: prometheus
+    app: prometheus
+    chart: {{ template "prometheus.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   selector:
     app: prometheus
@@ -27,7 +30,10 @@ metadata:
   name: prometheus-nodeport
   namespace: {{ .Release.Namespace }}
   labels:
-    name: prometheus
+    app: prometheus
+    chart: {{ template "prometheus.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   type: NodePort
   ports:

@@ -9,9 +9,9 @@ metadata:
     {{- end }}
   labels:
     app: servicegraph
-    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    release: {{ .Release.Name }}
+    chart: {{ template "servicegraph.chart" . }}
     heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   type: {{ .Values.service.type }}
   ports:
