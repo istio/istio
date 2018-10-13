@@ -24,6 +24,8 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/istio/pkg/mcp/snapshot"
+
 	"github.com/gogo/protobuf/proto"
 	"google.golang.org/grpc"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -36,7 +38,6 @@ import (
 	"istio.io/istio/pkg/mcp/client"
 	"istio.io/istio/pkg/mcp/configz"
 	"istio.io/istio/pkg/mcp/creds"
-	"istio.io/istio/pkg/mcp/snapshot"
 	"istio.io/istio/pkg/probe"
 )
 

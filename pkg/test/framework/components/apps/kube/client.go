@@ -24,15 +24,16 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/test/framework/environments/kubernetes"
+	"istio.io/istio/pkg/test/shell"
+	"istio.io/istio/pkg/test/util"
+
 	corev1 "k8s.io/api/core/v1"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/test/application/echo"
 	"istio.io/istio/pkg/test/framework/environment"
-	"istio.io/istio/pkg/test/framework/environments/kubernetes"
-	"istio.io/istio/pkg/test/shell"
-	"istio.io/istio/pkg/test/util"
 )
 
 const (

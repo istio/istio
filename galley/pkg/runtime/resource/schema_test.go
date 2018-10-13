@@ -18,8 +18,9 @@ import (
 	"reflect"
 	"sort"
 	"strings"
-	"testing" // Pull in gogo well-known types
+	"testing"
 
+	// Pull in gogo well-known types
 	_ "github.com/gogo/protobuf/types"
 )
 

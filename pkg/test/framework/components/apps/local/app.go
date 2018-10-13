@@ -22,6 +22,8 @@ import (
 	"strconv"
 	"testing"
 
+	"istio.io/istio/pkg/test/framework/environments/local/service"
+
 	"google.golang.org/grpc"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -29,7 +31,6 @@ import (
 	"istio.io/istio/pkg/test/application/echo/proto"
 	"istio.io/istio/pkg/test/framework/components/apps/local/agent"
 	"istio.io/istio/pkg/test/framework/environment"
-	"istio.io/istio/pkg/test/framework/environments/local/service"
 )
 
 var (

@@ -15,10 +15,11 @@
 package platform
 
 import (
-	"fmt" // Temporarily disable ID token authentication on CSR API.
+	"fmt"
+
+	// Temporarily disable ID token authentication on CSR API.
 	// [TODO](myidpt): enable when the Citadel authz can work correctly.
 	// "cloud.google.com/go/compute/metadata"
-
 	"google.golang.org/grpc"
 )
 

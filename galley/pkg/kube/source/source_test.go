@@ -29,6 +29,7 @@ import (
 	dtesting "k8s.io/client-go/testing"
 
 	"istio.io/istio/galley/pkg/kube"
+
 	"istio.io/istio/galley/pkg/kube/converter"
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/galley/pkg/testing/mock"

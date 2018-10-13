@@ -19,8 +19,9 @@ import (
 	"go/build"
 	"os"
 	"path"
-	"runtime"
 	"strings"
+
+	"runtime"
 
 	"istio.io/istio/pkg/log"
 )

@@ -27,6 +27,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	"istio.io/istio/pkg/test/framework/scopes"
+
 	"istio.io/istio/pkg/test/util"
 )
 

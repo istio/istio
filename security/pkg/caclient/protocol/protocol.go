@@ -20,7 +20,9 @@ import (
 	"fmt"
 
 	"golang.org/x/net/context"
-	"google.golang.org/grpc" //"istio.io/istio/pkg/log"
+	"google.golang.org/grpc"
+
+	//"istio.io/istio/pkg/log"
 
 	pb "istio.io/istio/security/proto"
 )

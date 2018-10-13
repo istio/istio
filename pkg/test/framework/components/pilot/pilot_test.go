@@ -18,14 +18,16 @@ import (
 	"io"
 	"testing"
 
+	"istio.io/istio/pilot/pkg/config/memory"
+
+	"istio.io/istio/pkg/test"
+
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	envoy_api_v2_core1 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 
 	"istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	envoy_proxy_v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
-	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/pilot"
 )
 

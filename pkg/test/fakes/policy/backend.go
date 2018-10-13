@@ -26,9 +26,10 @@ import (
 	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc"
 
+	"istio.io/istio/mixer/template/checknothing"
+
 	"istio.io/api/mixer/adapter/model/v1beta1"
 	istio_mixer_adapter_model_v1beta11 "istio.io/api/mixer/adapter/model/v1beta1"
-	"istio.io/istio/mixer/template/checknothing"
 	"istio.io/istio/mixer/template/metric"
 	"istio.io/istio/pkg/log"
 )

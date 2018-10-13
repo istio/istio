@@ -22,12 +22,13 @@ import (
 	"syscall"
 
 	"github.com/spf13/cobra"
-	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
 	"istio.io/istio/mixer/cmd/shared"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/docker/registry"
+
+	_ "k8s.io/client-go/plugin/pkg/client/auth"
 )
 
 type localRegistrySetupArgs struct {

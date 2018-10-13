@@ -20,8 +20,9 @@ import (
 	"net/http"
 	"net/http/pprof"
 	"os"
-	"time" // "github.com/prometheus/client_golang/prometheus/promhttp"
+	"time"
 
+	// "github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/prometheus/client_golang/prometheus"
 	ocprom "go.opencensus.io/exporter/prometheus"
 	"go.opencensus.io/stats/view"

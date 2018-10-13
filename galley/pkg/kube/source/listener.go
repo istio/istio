@@ -28,6 +28,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/galley/pkg/kube"
+
 	"istio.io/istio/galley/pkg/runtime/resource"
 )
 

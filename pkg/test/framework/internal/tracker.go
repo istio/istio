@@ -15,16 +15,18 @@
 package internal
 
 import (
-	"fmt"
 	"io"
 
 	"go.uber.org/multierr"
+
+	"istio.io/istio/pkg/test/framework/scopes"
+
+	"fmt"
 
 	"istio.io/istio/pkg/test/framework/component"
 	"istio.io/istio/pkg/test/framework/components/registry"
 	"istio.io/istio/pkg/test/framework/dependency"
 	"istio.io/istio/pkg/test/framework/environment"
-	"istio.io/istio/pkg/test/framework/scopes"
 )
 
 // Tracker keeps track of the state information for dependencies

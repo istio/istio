@@ -27,15 +27,17 @@
 package ctrlz
 
 import (
-	"fmt"
 	"html/template"
 	"net"
 	"net/http"
 	"os"
-	"sync"
-	"time"
 
 	"github.com/gorilla/mux"
+
+	"sync"
+
+	"fmt"
+	"time"
 
 	"istio.io/istio/pkg/ctrlz/fw"
 	"istio.io/istio/pkg/ctrlz/topics"

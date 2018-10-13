@@ -17,6 +17,7 @@ package fs
 import (
 	"crypto/sha1"
 	"fmt"
+
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -25,12 +26,13 @@ import (
 	"github.com/howeyc/fsnotify"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
+	"istio.io/istio/pkg/log"
+
 	"istio.io/istio/galley/pkg/kube"
 	"istio.io/istio/galley/pkg/kube/source"
 	kube_meta "istio.io/istio/galley/pkg/metadata/kube"
 	"istio.io/istio/galley/pkg/runtime"
 	"istio.io/istio/galley/pkg/runtime/resource"
-	"istio.io/istio/pkg/log"
 )
 
 var supportedExtensions = map[string]bool{

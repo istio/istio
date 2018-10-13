@@ -17,7 +17,6 @@ package policybackend
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"reflect"
 	"testing"
 	"time"
@@ -26,16 +25,19 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 
+	"istio.io/istio/pkg/test/framework/internal"
+	"istio.io/istio/pkg/test/framework/scopes"
+	"istio.io/istio/pkg/test/util"
+
+	"io"
+
 	"istio.io/istio/pkg/test/fakes/policy"
 	"istio.io/istio/pkg/test/framework/dependency"
 	"istio.io/istio/pkg/test/framework/environment"
 	"istio.io/istio/pkg/test/framework/environments/kubernetes"
 	"istio.io/istio/pkg/test/framework/environments/local"
-	"istio.io/istio/pkg/test/framework/internal"
-	"istio.io/istio/pkg/test/framework/scopes"
 	"istio.io/istio/pkg/test/framework/tmpl"
 	"istio.io/istio/pkg/test/kube"
-	"istio.io/istio/pkg/test/util"
 )
 
 var (
