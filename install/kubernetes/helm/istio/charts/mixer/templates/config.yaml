@@ -3,6 +3,11 @@ kind: attributemanifest
 metadata:
   name: istioproxy
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "mixer.name" . }}
+    chart: {{ template "mixer.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   attributes:
     origin.ip:
@@ -28,7 +33,7 @@ spec:
     request.scheme:
       valueType: STRING
     request.total_size:
-          valueType: INT64
+      valueType: INT64
     request.size:
       valueType: INT64
     request.time:
@@ -42,7 +47,7 @@ spec:
     response.headers:
       valueType: STRING_MAP
     response.total_size:
-          valueType: INT64
+      valueType: INT64
     response.size:
       valueType: INT64
     response.time:
@@ -125,6 +130,11 @@ kind: attributemanifest
 metadata:
   name: kubernetes
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "mixer.name" . }}
+    chart: {{ template "mixer.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   attributes:
     source.ip:
@@ -189,6 +199,11 @@ kind: handler
 metadata:
   name: stdio
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "mixer.name" . }}
+    chart: {{ template "mixer.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   compiledAdapter: stdio
   params:
@@ -199,6 +214,11 @@ kind: logentry
 metadata:
   name: accesslog
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "mixer.name" . }}
+    chart: {{ template "mixer.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   severity: '"Info"'
   timestamp: request.time
@@ -248,6 +268,11 @@ kind: logentry
 metadata:
   name: tcpaccesslog
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "mixer.name" . }}
+    chart: {{ template "mixer.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   severity: '"Info"'
   timestamp: context.time | timestamp("2017-01-01T00:00:00Z")
@@ -284,6 +309,11 @@ kind: rule
 metadata:
   name: stdio
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "mixer.name" . }}
+    chart: {{ template "mixer.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   match: context.protocol == "http" || context.protocol == "grpc"
   actions:
@@ -296,6 +326,11 @@ kind: rule
 metadata:
   name: stdiotcp
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "mixer.name" . }}
+    chart: {{ template "mixer.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   match: context.protocol == "tcp"
   actions:
@@ -308,6 +343,11 @@ kind: metric
 metadata:
   name: requestcount
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "mixer.name" . }}
+    chart: {{ template "mixer.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   value: "1"
   dimensions:
@@ -335,6 +375,11 @@ kind: metric
 metadata:
   name: requestduration
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "mixer.name" . }}
+    chart: {{ template "mixer.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   value: response.duration | "0ms"
   dimensions:
@@ -362,6 +407,11 @@ kind: metric
 metadata:
   name: requestsize
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "mixer.name" . }}
+    chart: {{ template "mixer.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   value: request.size | 0
   dimensions:
@@ -389,6 +439,11 @@ kind: metric
 metadata:
   name: responsesize
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "mixer.name" . }}
+    chart: {{ template "mixer.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   value: response.size | 0
   dimensions:
@@ -416,6 +471,11 @@ kind: metric
 metadata:
   name: tcpbytesent
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "mixer.name" . }}
+    chart: {{ template "mixer.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   value: connection.sent.bytes | 0
   dimensions:
@@ -441,6 +501,11 @@ kind: metric
 metadata:
   name: tcpbytereceived
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "mixer.name" . }}
+    chart: {{ template "mixer.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   value: connection.received.bytes | 0
   dimensions:
@@ -466,6 +531,11 @@ kind: handler
 metadata:
   name: prometheus
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "mixer.name" . }}
+    chart: {{ template "mixer.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   compiledAdapter: prometheus
   params:
@@ -611,6 +681,11 @@ kind: rule
 metadata:
   name: promhttp
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "mixer.name" . }}
+    chart: {{ template "mixer.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   match: context.protocol == "http" || context.protocol == "grpc"
   actions:
@@ -626,6 +701,11 @@ kind: rule
 metadata:
   name: promtcp
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "mixer.name" . }}
+    chart: {{ template "mixer.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   match: context.protocol == "tcp"
   actions:
@@ -640,6 +720,11 @@ kind: handler
 metadata:
   name: kubernetesenv
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "mixer.name" . }}
+    chart: {{ template "mixer.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   compiledAdapter: kubernetesenv
   params:
@@ -656,6 +741,11 @@ kind: rule
 metadata:
   name: kubeattrgenrulerule
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "mixer.name" . }}
+    chart: {{ template "mixer.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   actions:
   - handler: kubernetesenv
@@ -667,6 +757,11 @@ kind: rule
 metadata:
   name: tcpkubeattrgenrulerule
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "mixer.name" . }}
+    chart: {{ template "mixer.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   match: context.protocol == "tcp"
   actions:
@@ -679,6 +774,11 @@ kind: kubernetes
 metadata:
   name: attributes
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "mixer.name" . }}
+    chart: {{ template "mixer.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   # Pass the required attribute data to the adapter
   source_uid: source.uid | ""
@@ -719,6 +819,11 @@ kind: DestinationRule
 metadata:
   name: istio-policy
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "mixer.name" . }}
+    chart: {{ template "mixer.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   host: istio-policy.{{ .Release.Namespace }}.svc.cluster.local
   trafficPolicy:
@@ -739,6 +844,11 @@ kind: DestinationRule
 metadata:
   name: istio-telemetry
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "mixer.name" . }}
+    chart: {{ template "mixer.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   host: istio-telemetry.{{ .Release.Namespace }}.svc.cluster.local
   trafficPolicy:

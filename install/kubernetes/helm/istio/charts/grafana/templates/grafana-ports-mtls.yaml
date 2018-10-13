@@ -4,6 +4,11 @@ kind: Policy
 metadata:
   name: grafana-ports-mtls-disabled
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "grafana.name" . }}
+    chart: {{ template "grafana.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   targets:
   - name: grafana

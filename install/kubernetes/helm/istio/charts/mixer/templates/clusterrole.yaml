@@ -4,7 +4,7 @@ metadata:
   name: istio-mixer-{{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
-    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
 rules:

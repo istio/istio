@@ -4,9 +4,10 @@ metadata:
   name: istio-ingress
   namespace: {{ .Release.Namespace }}
   labels:
-    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    release: {{ .Release.Name }}
+    app: {{ template "ingress.name" . }}
+    chart: {{ template "ingress.chart" . }}
     heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
     istio: ingress
   annotations:
     {{- range $key, $val := .Values.service.annotations }}

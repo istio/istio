@@ -3,8 +3,8 @@ kind: ClusterRoleBinding
 metadata:
   name: istio-kiali-admin-role-binding-{{ .Release.Namespace }}
   labels:
-    app: kiali
-    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    app: {{ template "kiali.name" . }}
+    chart: {{ template "kiali.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
 roleRef:

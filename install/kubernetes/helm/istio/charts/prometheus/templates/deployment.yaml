@@ -6,17 +6,19 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: prometheus
-    {{- template "common_labels" . }}
+    chart: {{ template "prometheus.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   replicas: {{ .Values.replicaCount }}
-  selector:
-    matchLabels:
-      app: prometheus
   template:
     metadata:
       labels:
         app: prometheus
-        {{- template "common_template_labels" . }}
+        chart: {{ template "prometheus.chart" . }}
+        heritage: {{ .Release.Service }}
+        release: {{ .Release.Name }}
+        version: {{ .Chart.Version }}
       annotations:
         sidecar.istio.io/inject: "false"
         scheduler.alpha.kubernetes.io/critical-pod: ""

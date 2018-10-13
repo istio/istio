@@ -5,8 +5,10 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "galley.name" . }}
+    chart: {{ template "galley.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
     istio: galley
-    {{- template "common_labels" . }}
 spec:
   replicas: {{ .Values.replicaCount }}
   strategy:
@@ -16,8 +18,12 @@ spec:
   template:
     metadata:
       labels:
+        app: {{ template "galley.name" . }}
+        chart: {{ template "galley.chart" . }}
+        heritage: {{ .Release.Service }}
+        release: {{ .Release.Name }}
+        version: {{ .Chart.Version }}
         istio: galley
-        {{- template "common_template_labels" . }}
       annotations:
         sidecar.istio.io/inject: "false"
         scheduler.alpha.kubernetes.io/critical-pod: ""
