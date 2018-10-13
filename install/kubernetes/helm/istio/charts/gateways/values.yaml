@@ -194,4 +194,5 @@ istio-mcgateway:
     # this is needed to tell pilot to not generate
     # mTLS clusters for the mcgateway
     ISTIO_META_ISTIO_GATEWAY_MODE: multicluster
+    ISTIO_META_ISTIO_MCGATEWAY_KEEP_TLSCTXT_FOR: istio-policy,istio-telemetry
 

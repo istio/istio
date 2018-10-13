@@ -141,6 +141,15 @@ func (node *Proxy) GetGatewayMode() GatewayMode {
 	return StandardGateway
 }
 
+// GetMCGatewayTLSServiceNames returns a list of service names.
+// The TLS settings for these services shouldn't be changed on a multicluster gateway
+func (node *Proxy) GetMCGatewayTLSServiceNames() []string {
+	if tlsServices, found := node.Metadata["ISTIO_MCGATEWAY_KEEP_TLSCTXT_FOR"]; found {
+		return strings.Split(tlsServices, ",")
+	}
+	return []string{}
+}
+
 // ParseMetadata parses the opaque Metadata from an Envoy Node into string key-value pairs.
 // Any non-string values are ignored.
 func ParseMetadata(metadata *types.Struct) map[string]string {
