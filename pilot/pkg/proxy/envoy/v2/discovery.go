@@ -424,100 +424,100 @@ func (s *DiscoveryServer) globalPushContext() *model.PushContext {
 
 // ClearCache is wrapper for clearCache method, used when new controller gets
 // instantiated dynamically
-func (ds *DiscoveryServer) ClearCache() {
-	ds.clearCache()
+func (s *DiscoveryServer) ClearCache() {
+	s.clearCache()
 }
 
 // debouncePush is called on config or endpoint changes, to initiate a push.
-func (ds *DiscoveryServer) debouncePush(startDebounce time.Time) {
-	ds.updateMutex.RLock()
-	since := time.Since(ds.lastConfigUpdateTime)
-	events := ds.configUpdateCounter
-	ds.updateMutex.RUnlock()
+func (s *DiscoveryServer) debouncePush(startDebounce time.Time) {
+	s.updateMutex.RLock()
+	since := time.Since(s.lastConfigUpdateTime)
+	events := s.configUpdateCounter
+	s.updateMutex.RUnlock()
 
 	if since > 2*DebounceAfter ||
 		time.Since(startDebounce) > DebounceMax {
 
 		adsLog.Infof("Push debounce stable %d: %v since last change, %v since last push, full=%v",
 			events,
-			since, time.Since(ds.lastPushStart), ds.fullPush)
+			since, time.Since(s.lastPushStart), s.fullPush)
 
-		ds.doPush()
+		s.doPush()
 
 	} else {
 		time.AfterFunc(DebounceAfter, func() {
-			ds.debouncePush(startDebounce)
+			s.debouncePush(startDebounce)
 		})
 	}
 }
 
 // Start the actual push. Called from a timer.
-func (ds *DiscoveryServer) doPush() {
+func (s *DiscoveryServer) doPush() {
 	// more config update events may happen while doPush is processing.
 	// we don't want to lose updates.
-	ds.updateMutex.Lock()
+	s.updateMutex.Lock()
 
-	ds.debouncePushTimerSet = false
-	ds.lastPushStart = time.Now()
-	full := ds.fullPush
+	s.debouncePushTimerSet = false
+	s.lastPushStart = time.Now()
+	full := s.fullPush
 
-	ds.mutex.Lock()
+	s.mutex.Lock()
 	// Swap the edsUpdates map - tracking requests for incremental updates.
 	// The changes to the map are protected by ds.mutex.
-	edsUpdates := ds.edsUpdates
+	edsUpdates := s.edsUpdates
 	// Reset - any new updates will be tracked by the new map
-	ds.edsUpdates = map[string]*EndpointShardsByService{}
-	ds.mutex.Unlock()
+	s.edsUpdates = map[string]*EndpointShardsByService{}
+	s.mutex.Unlock()
 
 	// Update the config values, next ConfigUpdate and eds updates will use this
-	ds.fullPush = false
+	s.fullPush = false
 
-	ds.updateMutex.Unlock()
+	s.updateMutex.Unlock()
 
-	ds.Push(full, edsUpdates)
+	s.Push(full, edsUpdates)
 }
 
 // clearCache will clear all envoy caches. Called by service, instance and config handlers.
 // This will impact the performance, since envoy will need to recalculate.
-func (ds *DiscoveryServer) clearCache() {
-	ds.ConfigUpdate(true)
+func (s *DiscoveryServer) clearCache() {
+	s.ConfigUpdate(true)
 }
 
 // ConfigUpdate implements ConfigUpdater interface, used to request pushes.
 // It replaces the 'clear cache' from v1.
-func (ds *DiscoveryServer) ConfigUpdate(full bool) {
-	ds.updateChannel <- &updateReq{full: full}
+func (s *DiscoveryServer) ConfigUpdate(full bool) {
+	s.updateChannel <- &updateReq{full: full}
 }
 
 // Debouncing and update request happens in a separate thread, it uses locks
 // and we want to avoid complications, ConfigUpdate may already hold other locks.
-func (ds *DiscoveryServer) handleUpdates() {
+func (s *DiscoveryServer) handleUpdates() {
 	for {
 		select {
-		case r, _ := <-ds.updateChannel:
+		case r, _ := <-s.updateChannel:
 
 			if DebounceAfter == 0 {
-				go ds.doPush()
+				go s.doPush()
 				continue
 			}
-			ds.updateMutex.Lock()
+			s.updateMutex.Lock()
 
 			if r.full {
-				ds.fullPush = true
+				s.fullPush = true
 			}
-			ds.configUpdateCounter++
+			s.configUpdateCounter++
 
-			ds.lastConfigUpdateTime = time.Now()
+			s.lastConfigUpdateTime = time.Now()
 
-			if !ds.debouncePushTimerSet {
-				ds.debouncePushTimerSet = true
-				startDebounce := ds.lastConfigUpdateTime
+			if !s.debouncePushTimerSet {
+				s.debouncePushTimerSet = true
+				startDebounce := s.lastConfigUpdateTime
 				time.AfterFunc(DebounceAfter, func() {
-					ds.debouncePush(startDebounce)
+					s.debouncePush(startDebounce)
 				})
 			} // else: debounce in progress - it'll keep delaying the push
 
-			ds.updateMutex.Unlock()
+			s.updateMutex.Unlock()
 		}
 	}
 }
