@@ -23,18 +23,16 @@ import (
 
 	"google.golang.org/grpc"
 
-	"istio.io/istio/pkg/mcp/creds"
-
 	mcp "istio.io/api/mcp/v1alpha1"
+	"istio.io/istio/galley/cmd/shared"
 	"istio.io/istio/galley/pkg/fs"
+	"istio.io/istio/galley/pkg/kube"
 	"istio.io/istio/galley/pkg/kube/source"
 	"istio.io/istio/galley/pkg/metadata"
-
-	"istio.io/istio/galley/cmd/shared"
-	"istio.io/istio/galley/pkg/kube"
 	"istio.io/istio/galley/pkg/runtime"
 	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/mcp/creds"
 	"istio.io/istio/pkg/mcp/server"
 	"istio.io/istio/pkg/mcp/snapshot"
 	"istio.io/istio/pkg/probe"

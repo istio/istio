@@ -15,10 +15,9 @@
 package flakytestfinder
 
 import (
+	"path/filepath"
 	"reflect"
 	"testing"
-
-	"path/filepath"
 )
 
 func getAbsPath(path string) string {

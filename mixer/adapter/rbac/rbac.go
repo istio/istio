@@ -32,9 +32,8 @@ import (
 	"net/url"
 	"time"
 
-	"k8s.io/apimachinery/pkg/runtime/schema"
-
 	"github.com/gogo/protobuf/proto"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	rbacproto "istio.io/api/rbac/v1alpha1"
 	"istio.io/istio/mixer/adapter/rbac/config"

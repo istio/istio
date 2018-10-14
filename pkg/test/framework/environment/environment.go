@@ -23,7 +23,6 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/prometheus/client_golang/api/prometheus/v1"
 	prom "github.com/prometheus/common/model"
-
 	corev1 "k8s.io/api/core/v1"
 
 	istio_mixer_v1 "istio.io/api/mixer/v1"
