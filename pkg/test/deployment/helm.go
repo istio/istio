@@ -107,7 +107,17 @@ func HelmTemplate(deploymentName, namespace, chartDir, valuesFile string, values
 		valuesFileString = fmt.Sprintf(" --values %s", valuesFile)
 	}
 
-	str, err := shell.Execute(
+	str, err := shell.Execute("helm init --client-only")
+	if err == nil {
+		return str, nil
+	}
+
+	str, err = shell.Execute("helm dep update %s", chartDir)
+	if err == nil {
+		return str, nil
+	}
+
+	str, err = shell.Execute(
 		"helm template %s --name %s --namespace %s%s%s",
 		chartDir, deploymentName, namespace, valuesFileString, valuesString)
 	if err == nil {
