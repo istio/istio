@@ -63,9 +63,6 @@ type Args struct {
 	// Kubernetes namespace used to store mesh-wide configuration.")
 	ConfigDefaultNamespace string
 
-	// Configuration fetch interval in seconds
-	ConfigFetchIntervalSec uint
-
 	// The logging options to use
 	LoggingOptions *log.Options
 
