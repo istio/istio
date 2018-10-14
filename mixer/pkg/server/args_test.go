@@ -25,6 +25,19 @@ func TestValidation(t *testing.T) {
 		t.Errorf("Expecting to validate but failed with: %v", err)
 	}
 
+	a = DefaultArgs()
+	a.MaxMessageSize = 0
+	if err := a.validate(); err == nil {
+		t.Errorf("Got unexpected success")
+	}
+
+	a = DefaultArgs()
+	a.MaxConcurrentStreams = 0
+	if err := a.validate(); err == nil {
+		t.Errorf("Got unexpected success")
+	}
+
+	a = DefaultArgs()
 	a.AdapterWorkerPoolSize = -1
 	if err := a.validate(); err == nil {
 		t.Errorf("Got unexpected success")
@@ -32,6 +45,18 @@ func TestValidation(t *testing.T) {
 
 	a = DefaultArgs()
 	a.APIWorkerPoolSize = -1
+	if err := a.validate(); err == nil {
+		t.Errorf("Got unexpected success")
+	}
+
+	a = DefaultArgs()
+	a.APIPort = 0
+	if err := a.validate(); err == nil {
+		t.Errorf("Got unexpected success")
+	}
+
+	a = DefaultArgs()
+	a.MonitoringPort = 0
 	if err := a.validate(); err == nil {
 		t.Errorf("Got unexpected success")
 	}

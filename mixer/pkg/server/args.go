@@ -130,12 +130,28 @@ func DefaultArgs() *Args {
 }
 
 func (a *Args) validate() error {
+	if a.MaxMessageSize <= 0 {
+		return fmt.Errorf("max message size must be > 0, got %d", a.MaxMessageSize)
+	}
+
+	if a.MaxConcurrentStreams <= 0 {
+		return fmt.Errorf("max concurrent streams must be > 0, got %d", a.MaxConcurrentStreams)
+	}
+
 	if a.APIWorkerPoolSize <= 0 {
 		return fmt.Errorf("api worker pool size must be > 0, got pool size %d", a.APIWorkerPoolSize)
 	}
 
 	if a.AdapterWorkerPoolSize <= 0 {
 		return fmt.Errorf("adapter worker pool size must be > 0 , got pool size %d", a.AdapterWorkerPoolSize)
+	}
+
+	if a.APIPort <= 0 {
+		return fmt.Errorf("Mixer's gRPC API port must be > 0, got %d", a.APIPort)
+	}
+
+	if a.MonitoringPort <= 0 {
+		return fmt.Errorf("Mixer's self-monitoring port must be > 0, got %d", a.MonitoringPort)
 	}
 
 	if a.NumCheckCacheEntries < 0 {

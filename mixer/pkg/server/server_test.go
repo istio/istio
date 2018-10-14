@@ -119,8 +119,6 @@ func createClient(addr net.Addr) (mixerpb.MixerClient, error) {
 
 func newTestServer(globalCfg, serviceCfg string) (*Server, error) {
 	a := defaultTestArgs()
-	a.APIPort = 0
-	a.MonitoringPort = 0
 	a.EnableProfiling = true
 	a.Templates = generatedTmplRepo.SupportedTmplInfo
 	a.LivenessProbeOptions.Path = "abc"
@@ -345,8 +343,6 @@ func TestMonitoringMux(t *testing.T) {
 
 	a := defaultTestArgs()
 	a.ConfigStore = configStore
-	a.MonitoringPort = 0
-	a.APIPort = 0
 	s, err := New(a)
 	if err != nil {
 		t.Fatalf("Got %v, expecting success", err)
