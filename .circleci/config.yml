@@ -597,7 +597,7 @@ jobs:
           command: |
             make localTestEnv
             cd /go/src/istio.io/istio
-            MAXPROCS=6 bin/codecov.sh
+            MAXPROCS=1 bin/codecov.sh
       - run:
           name: Uploading code coverage to codecov.io
           when: always
