@@ -24,18 +24,16 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/test/framework/environments/local/service"
-
-	"istio.io/istio/pkg/test/application"
-
 	"google.golang.org/grpc"
 
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
 	proxy_envoy "istio.io/istio/pilot/pkg/proxy/envoy"
+	"istio.io/istio/pkg/test/application"
 	"istio.io/istio/pkg/test/application/echo"
 	"istio.io/istio/pkg/test/application/echo/proto"
 	"istio.io/istio/pkg/test/envoy"
+	"istio.io/istio/pkg/test/framework/environments/local/service"
 )
 
 const (

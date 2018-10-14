@@ -186,13 +186,13 @@ func genCertTemplateFromCSR(csr *x509.CertificateRequest, subjectIDs []string, t
 	}
 
 	return &x509.Certificate{
-		SerialNumber: serialNum,
-		Subject:      subject,
-		NotBefore:    now,
-		NotAfter:     now.Add(ttl),
-		KeyUsage:     keyUsage,
-		ExtKeyUsage:  extKeyUsages,
-		IsCA:         isCA,
+		SerialNumber:          serialNum,
+		Subject:               subject,
+		NotBefore:             now,
+		NotAfter:              now.Add(ttl),
+		KeyUsage:              keyUsage,
+		ExtKeyUsage:           extKeyUsages,
+		IsCA:                  isCA,
 		BasicConstraintsValid: true,
 		ExtraExtensions:       exts,
 		SignatureAlgorithm:    csr.SignatureAlgorithm}, nil
@@ -250,13 +250,13 @@ func genCertTemplateFromOptions(options CertOptions) (*x509.Certificate, error) 
 	}
 
 	return &x509.Certificate{
-		SerialNumber: serialNum,
-		Subject:      subject,
-		NotBefore:    notBefore,
-		NotAfter:     notBefore.Add(options.TTL),
-		KeyUsage:     keyUsage,
-		ExtKeyUsage:  extKeyUsages,
-		IsCA:         options.IsCA,
+		SerialNumber:          serialNum,
+		Subject:               subject,
+		NotBefore:             notBefore,
+		NotAfter:              notBefore.Add(options.TTL),
+		KeyUsage:              keyUsage,
+		ExtKeyUsage:           extKeyUsages,
+		IsCA:                  options.IsCA,
 		BasicConstraintsValid: true,
 		ExtraExtensions:       exts}, nil
 }

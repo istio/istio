@@ -30,16 +30,14 @@ import (
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	_ "istio.io/istio/galley/pkg/metadata"
 	mixerEnv "istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
 	mcpserver "istio.io/istio/pkg/mcp/server"
-	mockmcp "istio.io/istio/tests/e2e/tests/pilot/mock/mcp"
-	"istio.io/istio/tests/util"
-
-	// Import the resource package to pull in all proto types.
-	_ "istio.io/istio/galley/pkg/metadata"
 	"istio.io/istio/pkg/test/env"
+	mockmcp "istio.io/istio/tests/e2e/tests/pilot/mock/mcp"
+	"istio.io/istio/tests/util" // Import the resource package to pull in all proto types.
 )
 
 const (

@@ -25,12 +25,11 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/istio/pkg/test/application"
-
 	"github.com/gorilla/websocket"
 	"google.golang.org/grpc/metadata"
 
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/test/application"
 	"istio.io/istio/pkg/test/application/echo/proto"
 )
 

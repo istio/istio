@@ -15,13 +15,12 @@
 package pilot
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"regexp"
 	"strings"
 	"testing"
-
-	"bytes"
 	"text/template"
 	"time"
 
