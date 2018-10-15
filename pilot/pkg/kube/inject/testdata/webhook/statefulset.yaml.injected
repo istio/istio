@@ -5,11 +5,11 @@ metadata:
   name: hello
 spec:
   replicas: 3
-  serviceName: hello
+  strategy: {}
   template:
     metadata:
       annotations:
-        sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"unit-test-fake-version","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
         app: hello
@@ -53,10 +53,6 @@ spec:
         - "15020"
         - --applicationPorts
         - "80"
-        ports:
-        - name: http-envoy-prom
-          containerPort: 15090
-          protocol: TCP
         env:
         - name: POD_NAME
           valueFrom:
@@ -76,9 +72,13 @@ spec:
               fieldPath: metadata.name
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
-        image: docker.io/istio/proxyv2:unittest
+        image: gcr.io/istio-release/proxyv2:master-latest-daily
         imagePullPolicy: IfNotPresent
         name: istio-proxy
+        ports:
+        - containerPort: 15090
+          name: http-envoy-prom
+          protocol: TCP
         readinessProbe:
           failureThreshold: 30
           httpGet:
@@ -115,7 +115,7 @@ spec:
         - "80"
         - -d
         - "15020"
-        image: docker.io/istio/proxy_init:unittest
+        image: gcr.io/istio-release/proxy_init:master-latest-daily
         imagePullPolicy: IfNotPresent
         name: istio-init
         resources: {}
@@ -123,6 +123,7 @@ spec:
           capabilities:
             add:
             - NET_ADMIN
+          privileged: true
       volumes:
       - hostPath:
           path: /mnt/disks/ssd0
@@ -134,7 +135,6 @@ spec:
         secret:
           optional: true
           secretName: istio.default
-  updateStrategy: {}
-status:
-  replicas: 0
+status: {}
+
 ---
