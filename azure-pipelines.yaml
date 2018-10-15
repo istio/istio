@@ -21,7 +21,12 @@ jobs:
         persistCredentials: true
       - bash: |
           set -exo pipefail
-          if [[ "${BUILD_SOURCEBRANCHNAME}" != "master" ]]; then
+          if [[ "${BUILD_SOURCEBRANCHNAME}" != "airmap/release-1.1.0.snapshot.1" ]]; then
+            export GOPATH=/tmp/go
+            export PATH=${GOPATH}/bin:${PATH}
+            mkdir -p ${GOPATH}/src/istio.io/istio
+            cp -R . ${GOPATH}/src/istio.io/istio
+            cd ${GOPATH}/src/istio.io/istio
             make build
           fi
         name: "build_pr"
@@ -39,7 +44,7 @@ jobs:
         persistCredentials: true
       - bash: |
           set -exo pipefail
-          if [[ "${BUILD_SOURCEBRANCHNAME}" == "master" ]]; then
+          if [[ "${BUILD_SOURCEBRANCHNAME}" == "airmap/release-1.1.0.snapshot.1" ]]; then
             docker login $REGISTRY -u $ACR_USERNAME -p $ACR_PASSWORD
             make push.docker.pilot HUB=${REGISTRY} TAG=$(git rev-parse --short HEAD)
           fi
