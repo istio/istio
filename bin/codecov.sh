@@ -55,7 +55,7 @@ function code_coverage() {
     | tee "${COVERAGEDIR}/${filename}.report"  && RC=$? || RC=$?
 
   if [[ ${RC} != 0 ]]; then
-    echo ${1} | tee "${COVERAGEDIR}/${filename}.err"
+    echo "${1}" | tee "${COVERAGEDIR}/${filename}.err"
   fi
 }
 
@@ -105,9 +105,9 @@ popd
 echo "Intermedite files were written to ${COVERAGEDIR}"
 echo "Final reports are stored in ${FINAL_CODECOV_DIR}"
 
-if ls ${COVERAGEDIR}/*.err 1> /dev/null 2>&1; then
+if ls "${COVERAGEDIR}"/*.err 1> /dev/null 2>&1; then
   echo "The following tests had failed:"
-  cat /tmp/2Ywtt.coverage/*.err
+  cat "${COVERAGEDIR}"/*.err 
   exit 1
 fi
 
