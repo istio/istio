@@ -27,12 +27,13 @@ source "/workspace/gcb_env.sh"
 
 function usage() {
   echo "$0
-    uses CB_OUTPUT_PATH CB_GCS_BUILD_PATH"
+    uses CB_GCS_BUILD_PATH"
   exit 1
 }
 
-[[ -z "${CB_OUTPUT_PATH}" ]] && usage
 [[ -z "${CB_GCS_BUILD_PATH}" ]] && usage
 
+OUTPUT_PATH="/output"
+
 #copy to gcs
-gsutil -m cp -r "${CB_OUTPUT_PATH}"/* "gs://${CB_GCS_BUILD_PATH}/"
+gsutil -m cp -r "${OUTPUT_PATH}"/* "gs://${CB_GCS_BUILD_PATH}/"

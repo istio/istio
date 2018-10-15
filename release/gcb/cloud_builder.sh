@@ -36,13 +36,14 @@ source "${SCRIPTPATH}/docker_tag_push_lib.sh"
 
 function usage() {
   echo "$0
-        uses CB_OUTPUT_PATH CB_ISTIOCTL_DOCKER_HUB CB_VERSION"
+        uses CB_ISTIOCTL_DOCKER_HUB CB_VERSION"
   exit 1
 }
 
 [[ -z "${CB_VERSION}" ]] && usage
-[[ -z "${CB_OUTPUT_PATH}" ]] && usage
 [[ -z "${CB_ISTIOCTL_DOCKER_HUB}" ]] && usage
+
+OUTPUT_PATH="/output"
 
 # switch to the root of the istio repo
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
