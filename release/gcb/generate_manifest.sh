@@ -29,42 +29,36 @@ SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
 # shellcheck source=release/gcb_lib.sh
 source "${SCRIPTPATH}/gcb_lib.sh"
 
+gcs_release_tools_path="$1"
+gsutil cp "$gcs_release_tools_path/gcb_env.sh" "/workspace/gcb_env.sh"
+source "/workspace/gcb_env.sh"
 
-#this function replace the old sha with the correct one
-# e.g. calling replace_sha_branch_repo src.proxy 8888888888888888888888888888888888888888 release-0.8 build.xml
-# will change 
-#  <project name="istio/proxy" path="src/proxy" revision="1111111111111111111111111111111111111111" upstream="master"/>
-# to
-#  <project name="istio/proxy" path="src/proxy" revision="8888888888888888888888888888888888888888" upstream="release-0.8"/>
+# this function replace the old sha with the correct one
+# each line is assumed to be of the form
+# proxy 8888888888888888888888888888888888888888
 function replace_sha_branch_repo() {
   local REPO=$1
   local NEW_SHA=$2
-  local BRANCH=$3
-  local MANIFEST_FILE=$4
+  local MANIFEST_FILE=$3
   if [[ -z "${NEW_SHA}" ]]; then
     exit 1
   fi
-  if [[ -z "${BRANCH}" ]]; then
+  if [[ -z "${CB_BRANCH}" ]]; then
     exit 2
   fi
 
-# REPO="istio.io.api"
-  local findstr
-  findstr="\\(.*$REPO. revision=.\\)\\(.*\\)\\(upstream.*\\)"
-  local repstr
-  repstr="\\1${NEW_SHA}\" upstream=\"${BRANCH}\"\\/\\>"
-  sed "s/$findstr/$repstr/" -i "$MANIFEST_FILE"
+  repstr="$REPO $NEW_SHA"
+  sed "s/$REPO.*/$REPO $NEW_SHA/" -i "$MANIFEST_FILE"
 }
 
 function checkout_code() {
   local REPO=$1
   local REPO_SHA=$2
-  local BRANCH=$3
-  local DIR=$4
+  local DIR=$3
 
   mkdir -p "${DIR}"
   pushd    "${DIR}"
-    git clone "https://github.com/istio/$REPO" -b "${BRANCH}"
+    git clone "https://github.com/istio/$REPO" -b "${CB_BRANCH}"
     pushd "${REPO}"
     git checkout "${REPO_SHA}"
     popd
@@ -72,22 +66,20 @@ function checkout_code() {
 }
 
 function find_and_replace_shas_manifest() {
-  local BRANCH=$1
-  local MANIFEST_FILE=$2
-  local VERIFY_CONSISTENCY=$3
+  local MANIFEST_FILE=$1
 
  pushd istio
   local PROXY_REPO_SHA
   PROXY_REPO_SHA=$(grep PROXY_REPO_SHA istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"')
-  replace_sha_branch_repo src.proxy      "${PROXY_REPO_SHA}" "${BRANCH}" "${MANIFEST_FILE}"
+  replace_sha_branch_repo proxy "${PROXY_REPO_SHA}" "${MANIFEST_FILE}"
 
   local API_REPO_SHA
   API_REPO_SHA=$(grep istio.io.api -A 100 < Gopkg.lock | grep revision -m 1 | cut -f 2 -d '"')
-  replace_sha_branch_repo istio.io.api   "${API_REPO_SHA}"   "${BRANCH}" "${MANIFEST_FILE}"
+  replace_sha_branch_repo api   "${API_REPO_SHA}"   "${MANIFEST_FILE}"
 
   local ISTIO_REPO_SHA
   ISTIO_REPO_SHA=$(git rev-parse HEAD)
-  replace_sha_branch_repo istio.io.istio "${ISTIO_REPO_SHA}" "${BRANCH}" "${MANIFEST_FILE}"
+  replace_sha_branch_repo istio "${ISTIO_REPO_SHA}" "${MANIFEST_FILE}"
 
   if [ -z "${ISTIO_REPO_SHA}" ] || [ -z "${API_REPO_SHA}" ] || [ -z "${PROXY_REPO_SHA}" ]; then
     echo "ISTIO_REPO_SHA:$ISTIO_REPO_SHA API_REPO_SHA:$API_REPO_SHA PROXY_REPO_SHA:$PROXY_REPO_SHA some shas not found"
@@ -95,8 +87,8 @@ function find_and_replace_shas_manifest() {
   fi
  popd
 
-  if [[ "${VERIFY_CONSISTENCY}" == "true" ]]; then
-     checkout_code "proxy" "${BRANCH}" "${BRANCH}" .
+  if [[ "${CB_VERIFY_CONSISTENCY}" == "true" ]]; then
+     checkout_code "proxy" "HEAD" .
      pushd proxy 
        PROXY_HEAD_SHA=$(git rev-parse HEAD)
        PROXY_HEAD_API_SHA=$(grep ISTIO_API istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"')
@@ -144,7 +136,7 @@ function get_later_sha_revlist() {
   MANIFEST_FILE=$2
 
   local SHA_MFEST
-  SHA_MFEST=$(grep "istio\"" "$MANIFEST_FILE" | sed 's/.*istio. revision=.//' | sed 's/".*//')
+  SHA_MFEST=$(grep "istio" "$MANIFEST_FILE" | cut -f 2 -d " ")
 
   # if the old sha in the manifest file is wrong for some reason, use latest green sha
   if ! git rev-list "$SHA_MFEST...$GSHA" > /dev/null; then
@@ -165,10 +157,8 @@ function get_later_sha_revlist() {
 
 #sets ISTIO_SHA variable
 function get_istio_green_sha() {
-  local CUR_BRANCH
-  CUR_BRANCH="$1"
   local MANIFEST_FILE
-  MANIFEST_FILE="$2"
+  MANIFEST_FILE="$1"
 
  pushd "${TEST_INFRA_DIR}"
   github_keys
@@ -176,14 +166,14 @@ function get_istio_green_sha() {
   # GITHUB_KEYFILE has the github tokens
   local GREEN_SHA
   GREEN_SHA=$($githubctl --token_file="${GITHUB_KEYFILE}" --repo=istio \
-                         --op=getLatestGreenSHA           --base_branch="${CUR_BRANCH}" \
+                         --op=getLatestGreenSHA           --base_branch="${CB_BRANCH}" \
                          --logtostderr)
   set -e
  popd # TEST_INFRA_DIR
 
  pushd istio
   if [[ -z "${GREEN_SHA}" ]]; then
-    echo      "GREEN_SHA empty for branch ${CUR_BRANCH} using HEAD"
+    echo      "GREEN_SHA empty for branch ${CB_BRANCH} using HEAD"
      ISTIO_SHA=$(git rev-parse HEAD)
   else
     ISTIO_SHA=$(get_later_sha_revlist "${GREEN_SHA}" "${MANIFEST_FILE}")
@@ -193,15 +183,14 @@ function get_istio_green_sha() {
 
 # also sets ISTIO_HEAD_SHA, and ISTIO_COMMIT variables
 function istio_checkout_green_sha() {
-  local CUR_BRANCH
   local MANIFEST_FILE
-  CUR_BRANCH="$1"
-  ISTIO_COMMIT="$2"
-  MANIFEST_FILE="$3"
+  MANIFEST_FILE="$1"
 
-  if [[ "${ISTIO_COMMIT}" == "" ]]; then
-     get_istio_green_sha "${CUR_BRANCH}" "${MANIFEST_FILE}"
+  if [[ "${CB_COMMIT}" == "" ]]; then
+     get_istio_green_sha "${MANIFEST_FILE}"
      ISTIO_COMMIT="${ISTIO_SHA}"
+  else
+     ISTIO_COMMIT="${CB_COMMIT}"
   fi
   pushd istio
     ISTIO_HEAD_SHA=$(git rev-parse HEAD)
@@ -212,7 +201,7 @@ function istio_checkout_green_sha() {
 
 function istio_check_green_sha_age() {
 pushd istio
-  if [[ "${CHECK_GREEN_SHA_AGE}" == "true" ]]; then
+  if [[ "${CB_CHECK_GREEN_SHA_AGE}" == "true" ]]; then
     local TS_SHA
     TS_SHA=$( git show -s --format=%ct "${ISTIO_COMMIT}")
     local TS_HEAD
@@ -222,75 +211,60 @@ pushd istio
     local DIFF_DAYS
     DIFF_DAYS=$((DIFF_SEC/86400))
 
-    if [ "$CHECK_GREEN_SHA_AGE" = "true" ] && [ "$DIFF_DAYS" -gt "2" ]; then
-       echo ERROR: "${ISTIO_COMMIT}" is "$DIFF_DAYS" days older than head of branch "$BRANCH"
+    if [ "${CB_CHECK_GREEN_SHA_AGE}" = "true" ] && [ "$DIFF_DAYS" -gt "2" ]; then
+       echo ERROR: "${ISTIO_COMMIT}" is "$DIFF_DAYS" days older than head of branch "${CB_BRANCH}"
        exit 12
     fi
   fi
 popd
 }
 
-BRANCH=""
-COMMIT=""
-CHECK_GREEN_SHA_AGE="false"
-VERIFY_CONSISTENCY="false"
-GCS_RELEASE_TOOLS_PATH=""
 
 function usage() {
   echo "$0
-    -a true/false   check green sha age                 (optional)
-    -b <name>       branch                              (required)
-    -c <commit/sha> commit sha or branch of istio/istio (optional, its computed)
-    -r <url>        directory path to release tools     (required)
-    -v <value>      verify consistency                  (optional)"
+        used CB_BRANCH CB_GCS_RELEASE_TOOLS_PATH CB_GITHUB_ORG CB_CHECK_GREEN_SHA_AGE CB_VERIFY_CONSISTENCY
+        CB_COMMIT (optional)"
   exit 1
 }
 
-while getopts a:b:c:r:v: arg ; do
-  case "${arg}" in
-    a) CHECK_GREEN_SHA_AGE="${OPTARG}";;
-    b) BRANCH="${OPTARG}";;
-    c) COMMIT="${OPTARG}";;
-    r) GCS_RELEASE_TOOLS_PATH="gs://${OPTARG}";;
-    v) VERIFY_CONSISTENCY="${OPTARG}";;
-    *) usage;;
-  esac
-done
+[[ -z "${CB_BRANCH}"                 ]] && usage
+[[ -z "${CB_CHECK_GREEN_SHA_AGE}"    ]] && usage
+[[ -z "${CB_GCS_BUILD_BUCKET}"       ]] && usage
+[[ -z "${CB_GCS_RELEASE_TOOLS_PATH}" ]] && usage
+[[ -z "${CB_GITHUB_ORG}"             ]] && usage
+[[ -z "${CB_VERIFY_CONSISTENCY}"     ]] && usage
 
-[[ -z "${BRANCH}"                 ]] && usage
-[[ -z "${GCS_RELEASE_TOOLS_PATH}" ]] && usage
-
-MANIFEST_URL="${GCS_RELEASE_TOOLS_PATH}/manifest.xml"
 
 CLONE_DIR=$(mktemp -d)
 pushd "${CLONE_DIR}"
   githubctl_setup
-  BASE_MANIFEST_URL="gs://istio-release-pipeline-data/release-tools/${BRANCH}-manifest.xml"
-  BASE_MASTER_MANIFEST_URL="gs://istio-release-pipeline-data/release-tools/master-manifest.xml"
+  BASE_MANIFEST_URL="gs://${CB_GCS_BUILD_BUCKET}/release-tools/${CB_BRANCH}-manifest.txt"
+  BASE_MASTER_MANIFEST_URL="gs://${CB_GCS_BUILD_BUCKET}/release-tools/master-manifest.txt"
 
   NEW_BRANCH="false"
-  gsutil cp "${BASE_MANIFEST_URL}" "manifest.xml"  || NEW_BRANCH="true"
+  gsutil cp "${BASE_MANIFEST_URL}" "manifest.txt"  || NEW_BRANCH="true"
   if [[ "${NEW_BRANCH}" == "true" ]]; then
-   if [[ "${COMMIT}" == "" ]]; then
-     COMMIT="${BRANCH}" # just use head of branch as green sha
+   if [[ "${CB_COMMIT}" == "" ]]; then
+     CB_COMMIT="HEAD" # just use head of branch as green sha
    fi
-   gsutil cp "${BASE_MASTER_MANIFEST_URL}" "manifest.xml"
+   gsutil cp "${BASE_MASTER_MANIFEST_URL}" "manifest.txt"
   fi
-  MANIFEST_FILE="$PWD/manifest.xml"
+  MANIFEST_FILE="$PWD/manifest.txt"
 
-  git clone https://github.com/istio/istio -b "${BRANCH}"
-  gsutil cp istio/release/*         "${GCS_RELEASE_TOOLS_PATH}/"
-  gsutil cp istio/release/airflow/* "${GCS_RELEASE_TOOLS_PATH}/airflow/"
+  git clone "https://github.com/${CB_GITHUB_ORG}/istio" -b "${CB_BRANCH}"
+  gsutil cp -P istio/release/gcb/*sh   "${CB_GCS_RELEASE_TOOLS_PATH}/"
+  gsutil cp -P istio/release/airflow/* "${CB_GCS_RELEASE_TOOLS_PATH}/airflow/"
 
-  istio_checkout_green_sha       "${BRANCH}" "${COMMIT}" "${MANIFEST_FILE}"
+  istio_checkout_green_sha        "${MANIFEST_FILE}"
   istio_check_green_sha_age
-  find_and_replace_shas_manifest "${BRANCH}"             "${MANIFEST_FILE}" "$VERIFY_CONSISTENCY"
+  find_and_replace_shas_manifest  "${MANIFEST_FILE}"
 
   #copy the needed files
   # TODO figure out how to avoid need for copying to BASE_MANIFEST_URL and consolidate getting
   # branch istio sha into githubctl
   gsutil cp "${MANIFEST_FILE}" "${BASE_MANIFEST_URL}"
-  gsutil cp "${MANIFEST_FILE}" "${MANIFEST_URL}"
+  gsutil cp "${MANIFEST_FILE}" "${CB_GCS_RELEASE_TOOLS_PATH}/manifest.txt"
+
 popd # "${CLONE_DIR}"
 rm -rf "${CLONE_DIR}"
 

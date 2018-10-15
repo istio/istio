@@ -23,47 +23,43 @@ set -x
 
 # This script downloads docker tar images from GCS and pushes them to docker hub
 
-GCS_PREFIX=""
-VERSION=""
+TAG=""
 DOCKER_HUBS=""
 
 function usage() {
   echo "$0
     -h <hub>  docker hub to use, multiple hubs can be comma separated (required)
-    -p <name> GCS bucket & prefix path where the docker images are stored (required)
-    -v <ver>  version string for tag & defaulted storage paths"
+    -t <tag>  version string for tag & defaulted storage paths
+    and CB_GCS_BUILD_PATH
+    "
   exit 1
 }
 
 while getopts h:p:v: arg ; do
   case "${arg}" in
     h) DOCKER_HUBS="${OPTARG}";;
-    p) GCS_PREFIX="${OPTARG}";;
-    v) VERSION="${OPTARG}";;
+    t) TAG="${OPTARG}";;
     *) usage;;
   esac
 done
 
 [[ -z "${DOCKER_HUBS}" ]] && usage
-[[ -z "${VERSION}"    ]] && usage
-[[ -z "${GCS_PREFIX}" ]] && usage
+[[ -z "${TAG}"         ]] && usage
 
-# remove any trailing / for GCS
-GCS_PREFIX=${GCS_PREFIX%/}
-GCS_PATH="gs://${GCS_PREFIX}"
+[[ -z "${CB_GCS_BUILD_PATH}" ]] && usage
 
 SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
-# shellcheck source=release/docker_tag_push_lib.sh
+# shellcheck source=release/gcb//docker_tag_push_lib.sh
 source "${SCRIPTPATH}/docker_tag_push_lib.sh"
 
 TEMP_DIR=$(mktemp -d)
 mkdir -p "$TEMP_DIR/docker"
-gsutil -m cp "${GCS_PATH}"/docker/* "${TEMP_DIR}/docker"
+gsutil -m cp "${CB_GCS_BUILD_PATH}"/docker/* "${TEMP_DIR}/docker"
 
 # shellcheck disable=SC2206
 DOCKER_HUB_ARR=(${DOCKER_HUBS//,/ })
 for HUB in "${DOCKER_HUB_ARR=[@]}"
 do
-  docker_tag_images  "${HUB}" "${VERSION}" "${TEMP_DIR}"
-  docker_push_images "${HUB}" "${VERSION}" "${TEMP_DIR}"
+  docker_tag_images  "${HUB}" "${TAG}" "${TEMP_DIR}"
+  docker_push_images "${HUB}" "${TAG}" "${TEMP_DIR}"
 done

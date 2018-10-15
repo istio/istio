@@ -15,7 +15,7 @@
 #   limitations under the License.
 
 
-# This script is meant to be sourced,
+# This script is meant to be sourced, has a set of functions used by scripts on gcb
 
 # this function sets variable TEST_INFRA_DIR and githubctl
 function githubctl_setup() {

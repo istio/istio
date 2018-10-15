@@ -85,12 +85,12 @@ def getBashSettingsTemplate(extra_param_lst=[]):
   for key in keys:
     template_list.append("export %s={{ settings.%s }}" % (key, key))
   template_list.append("""
-                git clone "$ISTIO_REPO" "istio-code" -b "$BRANCH" --depth 1
+                git clone "'https://github.com/${CB_GITHUB_ORG}/istio.git" "istio-code" -b "{$CB_BRANCH}" --depth 1
                 # use code from branch
                 cp istio-code/release/airflow/* istio-code/release/json_parse_shared.sh .
                 # or override with scripts saved for this build
-                gsutil cp "${GCS_RELEASE_TOOLS_PATH}"/airflow/* .
-                gsutil cp "${GCS_RELEASE_TOOLS_PATH}"/json_parse_shared.sh .
+                gsutil cp "${CB_GCS_RELEASE_TOOLS_PATH}"/airflow/* .
+                gsutil cp "${CB_GCS_RELEASE_TOOLS_PATH}"/json_parse_shared.sh .
                 source airflow_scripts.sh  """)
   return "\n".join(template_list)
 

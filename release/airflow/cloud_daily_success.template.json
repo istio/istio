@@ -2,25 +2,21 @@
   "steps": [
     {
       "name": "gcr.io/istio-testing/istio-builder:0.5.10",
-      "args": [ "gsutil", "cp", "gs://$_GCS_RELEASE_TOOLS_PATH/istio_checkout_code.sh", "." ]
+      "args": [ "gsutil", "cp", "-P", "gs://$_GCS_RELEASE_TOOLS_PATH/*", "." ]
     },
     {
       "name": "gcr.io/istio-testing/istio-builder:0.5.10",
-      "args": [ "chmod", "u+x", "./istio_checkout_code.sh" ]
-    },
-    {
-      "name": "gcr.io/istio-testing/istio-builder:0.5.10",
-      "args": [ "./istio_checkout_code.sh", "-b", "$_BRANCH", "-r", "$_GCS_RELEASE_TOOLS_PATH" ]
+      "args": [ "./istio_checkout_code.sh" ]
     },
     {
       "name": "gcr.io/istio-testing/istio-builder:0.5.10",
       "dir": "go/src/istio.io/istio",
-      "args": [ "./release/rel_push_docker.sh", "-p", "$_GCS_BUILD_PATH", "-h", "$_PUSH_DOCKER_HUBS", "-v", "$_TAG" ]
+      "args": [ "./release/gcb/rel_push_docker_daily.sh" ]
     },
     {
       "name": "gcr.io/istio-testing/istio-builder:0.5.10",
       "dir": "go/src/istio.io/istio",
-      "args": [ "./release/rel_daily_complete.sh", "-b", "$_BRANCH", "-s", "$_GCS_STAGING_BUCKET", "-v", "$_VERSION" ]
+      "args": [ "./release/gcb/rel_daily_complete.sh" ]
     }
   ],
   "timeout": "3600s",

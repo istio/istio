@@ -17,16 +17,13 @@ EMAIL_LIST = ['istio-release@google.com']
 
 # fixed airflow configuration for the istio dags
 airflow_fixed_config = dict(
-    CHECK_GREEN_SHA_AGE='true',
-    GCR_STAGING_DEST='istio-release',
-    GCS_BUILD_BUCKET='istio-release-pipeline-data',
-    GCS_STAGING_BUCKET='istio-prerelease',
-    GITHUB_ORG='istio',
-    GITHUB_REPO='istio',
-    MFEST_FILE='build.xml',
+    CB_CHECK_GREEN_SHA_AGE='true',
+    CB_GCR_STAGING_DEST='istio-release',
+    CB_GCS_BUILD_BUCKET='istio-release-pipeline-data',
+    CB_GCS_STAGING_BUCKET='istio-prerelease',
+    CB_GITHUB_ORG='istio',
     PROJECT_ID='istio-io',
-    SVC_ACCT='202987436673-compute@developer.gserviceaccount.com',
-    TOKEN_FILE='/var/run/secrets/kubernetes.io/serviceaccount/tokenFile')
+    SVC_ACCT='202987436673-compute@developer.gserviceaccount.com')
 
 
 def GetDefaultAirflowConfig(branch, commit, docker_hub, gcs_path, github_org, pipeline_type,
@@ -35,26 +32,28 @@ def GetDefaultAirflowConfig(branch, commit, docker_hub, gcs_path, github_org, pi
   config = dict(airflow_fixed_config)
 
   # direct config
-  config['BRANCH']             = branch
-  config['DOCKER_HUB']         = docker_hub # e.g. docker.io/istio
-  config['GCS_STAGING_PATH']   = gcs_path
-  config['GITHUB_ORG']         = github_org
-  config['PIPELINE_TYPE']      = pipeline_type
-  config['VERIFY_CONSISTENCY'] = verify_consistency
-  config['VERSION']            = version
-  config['COMMIT']             = commit
+  config['CB_BRANCH']             = branch
+  config['CB_DOCKER_HUB']         = docker_hub # e.g. docker.io/istio
+  # istioctl_docker_hub is the string used by istioctl, helm values, deb file
+  config['CB_ISTIOCTL_DOCKER_HUB'] = config['CB_DOCKER_HUB']
+  # push_docker_hubs is the set of comma separated hubs to which the code is pushed
+  config['CB_PUSH_DOCKER_HUBS']   = config['CB_DOCKER_HUB']
+  config['CB_GCS_STAGING_PATH']   = gcs_path
+  config['CB_GITHUB_ORG']         = github_org
+  config['CB_PIPELINE_TYPE']      = pipeline_type
+  config['CB_VERIFY_CONSISTENCY'] = verify_consistency
+  config['CB_VERSION']            = version
+  config['CB_COMMIT']             = commit
 
 
   # derivative and more convoluted config
 
   # build path is of the form         '{gcs_build_bucket}/{gcs_path}',
-  config['GCS_BUILD_PATH']          = '%s/%s' % (config['GCS_BUILD_BUCKET'], gcs_path)
+  config['CB_GCS_BUILD_PATH']          = '%s/%s' % (config['GCS_BUILD_BUCKET'], gcs_path)
   # full staging path is of the form  '{gcs_staging_bucket}/{gcs_path}',
-  config['GCS_FULL_STAGING_PATH']   = '%s/%s' % (config['GCS_STAGING_BUCKET'], gcs_path)
+  config['CB_GCS_FULL_STAGING_PATH']   = '%s/%s' % (config['GCS_STAGING_BUCKET'], gcs_path)
   # release tools path is of the form '{gcs_build_bucket}/release-tools/{gcs_path}',
-  config['GCS_RELEASE_TOOLS_PATH']  = '%s/release-tools/%s' % (config['GCS_BUILD_BUCKET'], gcs_path)
-  #                                   'https://github.com/{github_org}/{github_repo}.git',
-  config['ISTIO_REPO']              = 'https://github.com/%s/%s.git' % (config['GITHUB_ORG'], config['GITHUB_REPO'])
+  config['CB_GCS_RELEASE_TOOLS_PATH']  = '%s/release-tools/%s' % (config['GCS_BUILD_BUCKET'], gcs_path)
 
   return config
 

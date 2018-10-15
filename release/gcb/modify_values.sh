@@ -5,15 +5,21 @@ set -o nounset
 set -o pipefail
 set -x
 
-while getopts h:t:p:v: arg ; do
-  case "${arg}" in
-    h) HUB="${OPTARG}";;
-    t) TAG="${OPTARG}";;
-    p) GCS_PATH="${OPTARG}";;
-    v) VERSION="${OPTARG}";;
-    *) exit 1;;
-  esac
-done
+source "/workspace/gcb_env.sh"
+
+function usage() {
+  echo "$0
+        uses CB_DOCKER_HUB CB_VERSION"
+  exit 1
+}
+
+[[ -z "${CB_VERSION}" ]] && usage
+[[ -z "${CB_DOCKER_HUB}" ]] && usage
+
+# switch to the root of the istio repo
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT"
+
 
 function fix_values_yaml_worker() {
   local unzip_cmd
@@ -27,14 +33,12 @@ function fix_values_yaml_worker() {
   local gcs_folder_path
   gcs_folder_path="$5"
 
-  echo "fixing helm values.yaml in ${gcs_folder_path}/${tarball_name} with hub: ${HUB} tag: ${TAG}"
-
   gsutil -q cp "${gcs_folder_path}/${tarball_name}" .
   eval    "$unzip_cmd"     "${tarball_name}"
   rm                       "${tarball_name}"
 
-  sed -i "s|hub: gcr.io/istio-release|hub: ${HUB}|g" ./"${folder_name}"/install/kubernetes/helm/istio*/values.yaml
-  sed -i "s|tag: .*-latest-daily|tag: ${TAG}|g"  ./"${folder_name}"/install/kubernetes/helm/istio*/values.yaml
+  sed -i "s|hub: gcr.io/istio-release|hub: ${CB_DOCKER_HUB}|g" ./"${folder_name}"/install/kubernetes/helm/istio*/values.yaml
+  sed -i "s|tag: .*-latest-daily|tag: ${CB_VERSION}|g"  ./"${folder_name}"/install/kubernetes/helm/istio*/values.yaml
 
   eval "$zip_cmd" "${tarball_name}" "${folder_name}"
   sha256sum       "${tarball_name}" > "${tarball_name}.sha256"
@@ -42,14 +46,14 @@ function fix_values_yaml_worker() {
 
   gsutil -q cp "${tarball_name}"        "${gcs_folder_path}/${tarball_name}"
   gsutil -q cp "${tarball_name}.sha256" "${gcs_folder_path}/${tarball_name}.sha256"
-  echo "DONE fixing  ${gcs_folder_path}/${tarball_name} with hub: ${HUB} tag: ${TAG}"
+  echo "DONE fixing  ${gcs_folder_path}/${tarball_name} with hub: ${CB_DOCKER_HUB} tag: ${CB_VERSION}"
 }
 
 function fix_values_yaml() {
   # called with params as shown below
   # fix_values_yaml unzip_cmd zip_cmd folder_name tarball_name
 
-  fix_values_yaml_worker "$1" "$2" "$3" "$4" "${GCS_PATH}"
+  fix_values_yaml_worker "$1" "$2" "$3" "$4" "gs://$GCS_BUILD_BUCKET/$GCS_STAGING_PATH"
 }
 
 rm -rf modification-tmp
@@ -58,7 +62,7 @@ cd     modification-tmp || exit 2
 ls -l
 pwd
 
-folder_name="istio-${VERSION}"
+folder_name="istio-${CB_VERSION}"
 # Linux
 fix_values_yaml     "tar -zxf" "tar -zcf" "${folder_name}" "${folder_name}-linux.tar.gz"
 # Mac

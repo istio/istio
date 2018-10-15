@@ -25,39 +25,23 @@ set -u
 # Print commands
 set -x
 
+source "/workspace/gcb_env.sh"
+
 SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
 # shellcheck source=release/gcb_lib.sh
 source "${SCRIPTPATH}/gcb_lib.sh"
 
 
-BRANCH=""
-DOCKER_HUB=""
-GCS_BUILD_PATH=""
-VERSION=""
-
 function usage() {
   echo "$0
-    -b <name>       branch                          (required)
-    -d <docker hub> full path of docker hub         (required)
-    -g <uri>        the build path of the artifacts (required)
-    -v <version>    version of the build            (required)"
+    uses CB_BRANCH CB_DOCKER_HUB CB_GCS_BUILD_PATH CB_VERSION"
   exit 1
 }
 
-while getopts b:d:g:v: arg ; do
-  case "${arg}" in
-    b) BRANCH="${OPTARG}";;
-    d) DOCKER_HUB="${OPTARG}";;
-    g) GCS_BUILD_PATH="${OPTARG}";;
-    v) VERSION="${OPTARG}";;
-    *) usage;;
-  esac
-done
-
-[[ -z "${BRANCH}"         ]] && usage
-[[ -z "${DOCKER_HUB}"     ]] && usage
-[[ -z "${GCS_BUILD_PATH}" ]] && usage
-[[ -z "${VERSION}"        ]] && usage
+[[ -z "${CB_BRANCH}"         ]] && usage
+[[ -z "${CB_DOCKER_HUB}"     ]] && usage
+[[ -z "${CB_GCS_BUILD_PATH}" ]] && usage
+[[ -z "${CB_VERSION}"        ]] && usage
 
 githubctl_setup
 github_keys
@@ -66,15 +50,15 @@ github_keys
 git config --global user.name "TestRunnerBot"	
 git config --global user.email "testrunner@istio.io"
 
-MANIFEST_FILE="./manifest.xml"
-ISTIO_SHA=$(grep "istio\"" "$MANIFEST_FILE" | cut -f 6 -d \")
+MANIFEST_FILE="/workspace/manifest.txt"
+ISTIO_SHA=$(grep "istio" "$MANIFEST_FILE" | cut -f 2 -d " ")
 
 "$githubctl" \
     --token_file="$GITHUB_KEYFILE" \
     --op=dailyRelQual \
-    --base_branch="$BRANCH" \
-    --hub="$DOCKER_HUB" \
-    --gcs_path="$GCS_BUILD_PATH" \
-    --tag="$VERSION" \
+    --base_branch="$CB_BRANCH" \
+    --hub="$CB_DOCKER_HUB" \
+    --gcs_path="$CB_GCS_BUILD_PATH" \
+    --tag="$CB_VERSION" \
     --ref_sha="$ISTIO_SHA"
 

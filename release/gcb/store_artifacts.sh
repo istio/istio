@@ -20,41 +20,19 @@ set -o nounset
 set -o pipefail
 set -x
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "/workspace/gcb_env.sh"
 
 # This script takes files from a specified directory and uploads
-# then to GCS, in addition it saves the source code and uploads it
-
-GCS_PREFIX=""
-OUTPUT_PATH=""
+# then to GCS
 
 function usage() {
   echo "$0
-    -o <path> src path where build output/artifacts were stored (required)
-    -p <name> GCS bucket & prefix path where to store build     (required)"
+    uses CB_OUTPUT_PATH CB_GCS_BUILD_PATH"
   exit 1
 }
 
-while getopts o:p: arg ; do
-  case "${arg}" in
-    o) OUTPUT_PATH="${OPTARG}";;
-    p) GCS_PREFIX="${OPTARG}";;
-    *) usage;;
-  esac
-done
-
-[[ -z "${OUTPUT_PATH}" ]] && usage
-[[ -z "${GCS_PREFIX}"  ]] && usage
-
-# remove any trailing / for GCS
-GCS_PREFIX=${GCS_PREFIX%/}
-GCS_PATH="gs://${GCS_PREFIX}"
-
-# preserve the source from the root of the code
-pushd "${ROOT}/../../../.."
-# tar the source code
-tar -czf "${OUTPUT_PATH}/source.tar.gz" go src --exclude go/out --exclude go/bin
-popd
+[[ -z "${CB_OUTPUT_PATH}" ]] && usage
+[[ -z "${CB_GCS_BUILD_PATH}" ]] && usage
 
 #copy to gcs
-gsutil -m cp -r "${OUTPUT_PATH}"/* "${GCS_PATH}/"
+gsutil -m cp -r "${CB_OUTPUT_PATH}"/* "gs://${CB_GCS_BUILD_PATH}/"

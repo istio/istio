@@ -20,39 +20,24 @@ set -o nounset
 set -o pipefail
 set -x
 
+source "/workspace/gcb_env.sh"
 
-# This script downloads creates a 
-
-GCS_STAGING_BUCKET=""
-VERSION=""
+# This script downloads creates a static file on GCS which has the download link of lnux tar gz
 
 function usage() {
   echo "$0
-    -b <branch>       branch of the build              (required)
-    -s <staging bucket> staging bucket for daily build (required)
-    -v <ver>          version string for this build    (required)"
+     uses CB_BRANCH CB_VERSION CB_GCS_STAGING_BUCKET"
   exit 1
 }
 
-while getopts b:s:v: arg ; do
-  case "${arg}" in
-    b) BRANCH="${OPTARG}";;
-    s) GCS_STAGING_BUCKET="${OPTARG}";;
-    v) VERSION="${OPTARG}";;
-    *) usage;;
-  esac
-done
+[[ -z "${CB_BRANCH}" ]] && usage
+[[ -z "${CB_VERSION}" ]] && usage
+[[ -z "${CB_GCS_STAGING_BUCKET}" ]] && usage
 
-[[ -z "${BRANCH}" ]] && usage
-[[ -z "${VERSION}" ]] && usage
-[[ -z "${GCS_STAGING_BUCKET}" ]] && usage
-
-# remove any trailing / for GCS
-GCS_STAGING_BUCKET=${GCS_STAGING_BUCKET%/}
-DAILY_HTTPS_PATH="https://storage.googleapis.com/${GCS_STAGING_BUCKET}/daily-build/${VERSION}/istio-${VERSION}-linux.tar.gz"
+DAILY_HTTPS_PATH="https://storage.googleapis.com/${CB_GCS_STAGING_BUCKET}/daily-build/${CB_VERSION}/istio-${CB_VERSION}-linux.tar.gz"
 
 TEMP_FILE=$(mktemp)
 echo -n "${DAILY_HTTPS_PATH}" > "${TEMP_FILE}"
 cat "${TEMP_FILE}"
 
-gsutil -m cp "${TEMP_FILE}" "gs://${GCS_STAGING_BUCKET}/daily-build/${BRANCH}-latest"
+gsutil -m cp "${TEMP_FILE}" "gs://${CB_GCS_STAGING_BUCKET}/daily-build/${CB_BRANCH}-latest"
