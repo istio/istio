@@ -250,8 +250,8 @@ pushd "${CLONE_DIR}"
   MANIFEST_FILE="$PWD/manifest.txt"
 
   git clone "https://github.com/${CB_GITHUB_ORG}/istio" -b "${CB_BRANCH}"
-  gsutil cp -P istio/release/gcb/*sh   "${CB_GCS_RELEASE_TOOLS_PATH}/"
-  gsutil cp -P istio/release/airflow/* "${CB_GCS_RELEASE_TOOLS_PATH}/airflow/"
+  gsutil cp -P istio/release/gcb/*sh   "gs://${CB_GCS_RELEASE_TOOLS_PATH}/"
+  gsutil cp -P istio/release/airflow/* "gs://${CB_GCS_RELEASE_TOOLS_PATH}/airflow/"
 
   istio_checkout_green_sha        "${MANIFEST_FILE}"
   istio_check_green_sha_age
@@ -261,7 +261,7 @@ pushd "${CLONE_DIR}"
   # TODO figure out how to avoid need for copying to BASE_MANIFEST_URL and consolidate getting
   # branch istio sha into githubctl
   gsutil cp "${MANIFEST_FILE}" "${BASE_MANIFEST_URL}"
-  gsutil cp "${MANIFEST_FILE}" "${CB_GCS_RELEASE_TOOLS_PATH}/manifest.txt"
+  gsutil cp "${MANIFEST_FILE}" "gs://${CB_GCS_RELEASE_TOOLS_PATH}/manifest.txt"
 
 popd # "${CLONE_DIR}"
 rm -rf "${CLONE_DIR}"
