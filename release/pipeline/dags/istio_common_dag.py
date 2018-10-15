@@ -85,12 +85,12 @@ def getBashSettingsTemplate(extra_param_lst=[]):
   for key in keys:
     template_list.append("export %s={{ settings.%s }}" % (key, key))
   template_list.append("""
-                git clone "'https://github.com/${CB_GITHUB_ORG}/istio.git" "istio-code" -b "{$CB_BRANCH}" --depth 1
+                git clone "https://github.com/${CB_GITHUB_ORG}/istio.git" "istio-code" -b "${CB_BRANCH}" --depth 1
                 # use code from branch
-                cp istio-code/release/airflow/* istio-code/release/json_parse_shared.sh .
+                cp istio-code/release/airflow/* istio-code/release/gcb/json_parse_shared.sh .
                 # or override with scripts saved for this build
-                gsutil cp "${CB_GCS_RELEASE_TOOLS_PATH}"/airflow/* .
-                gsutil cp "${CB_GCS_RELEASE_TOOLS_PATH}"/json_parse_shared.sh .
+                gsutil cp "gs://${CB_GCS_RELEASE_TOOLS_PATH}"/airflow/* .
+                gsutil cp "gs://${CB_GCS_RELEASE_TOOLS_PATH}"/json_parse_shared.sh .
                 source airflow_scripts.sh  """)
   return "\n".join(template_list)
 
@@ -136,9 +136,9 @@ def MakeCommonDag(dag_args_func, name,
 
   copy_files = GoogleCloudStorageCopyOperator(
       task_id='copy_files_for_release',
-      source_bucket=GetSettingTemplate('GCS_BUILD_BUCKET'),
-      source_object=GetSettingTemplate('GCS_STAGING_PATH'),
-      destination_bucket=GetSettingTemplate('GCS_STAGING_BUCKET'),
+      source_bucket=GetSettingTemplate('CB_GCS_BUILD_BUCKET'),
+      source_object=GetSettingTemplate('CB_GCS_STAGING_PATH'),
+      destination_bucket=GetSettingTemplate('CB_GCS_STAGING_BUCKET'),
       dag=common_dag,
   )
   tasks['copy_files_for_release'] = copy_files

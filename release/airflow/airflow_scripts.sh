@@ -29,7 +29,7 @@ function create_subs_file() {
    SUBS_FILE="$(mktemp /tmp/build.subs.gcs_release_tool_path.XXXX)"
 cat << EOF > "${SUBS_FILE}"
   "substitutions": {
-    "_GCS_RELEASE_TOOLS_PATH": "${GCS_RELEASE_TOOLS_PATH}"
+    "_CB_GCS_RELEASE_TOOLS_PATH": "${CB_GCS_RELEASE_TOOLS_PATH}"
   }
 EOF
 }
@@ -39,8 +39,8 @@ function get_git_commit_cmd() {
    SUBS_GGC_FILE="$(mktemp /tmp/build.subs.branch.gcs_release_tool_path.XXXX)"
 cat << EOF > "${SUBS_GGC_FILE}"
   "substitutions": {
-    "_BRANCH": "${BRANCH}",
-    "_GCS_RELEASE_TOOLS_PATH": "${GCS_RELEASE_TOOLS_PATH}"
+    "_CB_BRANCH": "${CB_BRANCH}",
+    "_CB_GCS_RELEASE_TOOLS_PATH": "${CB_GCS_RELEASE_TOOLS_PATH}"
   }
 EOF
     run_build "cloud_get_commit.template.json" \
@@ -50,7 +50,7 @@ EOF
 
 # Called directly by Airflow.
 function build_template() {
-    #create_subs_file "BRANCH" "ISTIO_DOCKER_HUB" "GCS_BUILD_PATH" "GCS_RELEASE_TOOLS_PATH" "PUSH_DOCKER_HUBS" "VERSION"
+    create_subs_file
     run_build "cloud_build.template.json" \
          "${SUBS_FILE}" "${PROJECT_ID}" "${SVC_ACCT}"
     exit "${BUILD_FAILED}"
@@ -58,6 +58,7 @@ function build_template() {
 
 # Called directly by Airflow.
 function test_command() {
+    create_subs_file
     run_build "cloud_test.template.json" \
          "${SUBS_FILE}" "${PROJECT_ID}" "${SVC_ACCT}"
     exit "${BUILD_FAILED}"
@@ -65,10 +66,9 @@ function test_command() {
 
 # Called directly by Airflow.
 function modify_values_command() {
+    create_subs_file
     # shellcheck disable=SC2034
     GCS_PATH="gs://$GCS_BUILD_BUCKET/$GCS_STAGING_PATH"
-    create_subs_file "BRANCH" "DOCKER_HUB" "GCS_PATH" "GCS_RELEASE_TOOLS_PATH" "VERSION"
-
     run_build "cloud_modify_values.template.json" \
          "${SUBS_FILE}" "${PROJECT_ID}" "${SVC_ACCT}"
     exit "${BUILD_FAILED}"
@@ -76,9 +76,7 @@ function modify_values_command() {
 
 # Called directly by Airflow.
 function gcr_tag_success() {
-    TAG="$BRANCH-latest-daily"
-    create_subs_file "BRANCH" "GCS_BUILD_PATH" "GCS_STAGING_BUCKET" "GCS_RELEASE_TOOLS_PATH" "PUSH_DOCKER_HUBS" "TAG" "VERSION"
-
+    create_subs_file
     run_build "cloud_daily_success.template.json" \
          "${SUBS_FILE}" "${PROJECT_ID}" "${SVC_ACCT}"
     exit "${BUILD_FAILED}"

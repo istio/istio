@@ -49,11 +49,11 @@ def GetDefaultAirflowConfig(branch, commit, docker_hub, gcs_path, github_org, pi
   # derivative and more convoluted config
 
   # build path is of the form         '{gcs_build_bucket}/{gcs_path}',
-  config['CB_GCS_BUILD_PATH']          = '%s/%s' % (config['GCS_BUILD_BUCKET'], gcs_path)
+  config['CB_GCS_BUILD_PATH']          = '%s/%s' % (config['CB_GCS_BUILD_BUCKET'], gcs_path)
   # full staging path is of the form  '{gcs_staging_bucket}/{gcs_path}',
-  config['CB_GCS_FULL_STAGING_PATH']   = '%s/%s' % (config['GCS_STAGING_BUCKET'], gcs_path)
+  config['CB_GCS_FULL_STAGING_PATH']   = '%s/%s' % (config['CB_GCS_STAGING_BUCKET'], gcs_path)
   # release tools path is of the form '{gcs_build_bucket}/release-tools/{gcs_path}',
-  config['CB_GCS_RELEASE_TOOLS_PATH']  = '%s/release-tools/%s' % (config['GCS_BUILD_BUCKET'], gcs_path)
+  config['CB_GCS_RELEASE_TOOLS_PATH']  = '%s/release-tools/%s' % (config['CB_GCS_BUILD_BUCKET'], gcs_path)
 
   return config
 
