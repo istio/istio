@@ -1,0 +1,51 @@
+name: "build-n-test"
+resources:
+  containers:
+    - container: u-dev-18-04
+      image: quay.io/airmap/dev:18.04
+trigger:
+  branches:
+    include:
+      - "airmap/release-1.1.0.snapshot.1"
+jobs:
+  - job: "pr"
+    strategy:
+      parallel: 1
+    pool:
+      vmImage: 'ubuntu-16.04'
+    steps:
+      - checkout: self
+        clean: true
+        lfs: true
+        submodules: recursive
+        persistCredentials: true
+      - bash: |
+          set -exo pipefail
+          if [[ "${SYSTEM_PULLREQUEST_SOURCEBRANCH}" != "master" ]]; then
+            make build
+          fi
+        name: "build_pr"
+        displayName: "Build PR"
+  - job: "image"
+    strategy:
+      parallel: 1
+    pool:
+      vmImage: 'ubuntu-16.04'
+    steps:
+      - checkout: self
+        clean: true
+        lfs: true
+        submodules: recursive
+        persistCredentials: true
+      - bash: |
+          set -exo pipefail
+          if [[ "${SYSTEM_PULLREQUEST_SOURCEBRANCH}" == "master" ]]; then
+            docker login $REGISTRY -u $ACR_USERNAME -p $ACR_PASSWORD
+            make push.docker.pilot HUB=${REGISTRY} TAG=$(git rev-parse --short HEAD)
+          fi
+        name: "build_image"
+        displayName: "Build image"
+        env:
+          ACR_USERNAME: $(acr.Username)
+          ACR_PASSWORD: $(acr.Password)
+          REGISTRY: $(acr.Registry)
