@@ -51,11 +51,11 @@ declare -a PKGS
 function code_coverage() {
   local filename
   filename="$(echo "${1}" | tr '/' '-')"
-  ( go test \
+  go test \
     -coverpkg=istio.io/istio/... \
     -coverprofile="${COVERAGEDIR}/${filename}.cov" \
     -covermode=atomic "${1}" \
-    | tee "${COVERAGEDIR}/${filename}.report" ) &
+    | tee "${COVERAGEDIR}/${filename}.report" &
   local pid=$!
   PKGS[${pid}]=${1}
   PIDS+=("${pid}")
