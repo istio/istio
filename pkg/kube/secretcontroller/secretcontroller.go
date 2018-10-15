@@ -35,6 +35,7 @@ import (
 
 const (
 	mcLabel    = "istio/multiCluster"
+	nidLabel   = "istio/networkID"
 	maxRetries = 5
 )
 
@@ -47,7 +48,7 @@ var LoadKubeConfig = clientcmd.Load
 var CreateInterfaceFromClusterConfig = kube.CreateInterfaceFromClusterConfig
 
 // addSecretCallback prototype for the add secret callback function.
-type addSecretCallback func(clientset kubernetes.Interface, dataKey string) error
+type addSecretCallback func(clientset kubernetes.Interface, dataKey string, nid string) error
 
 // removeSecretCallback prototype for the remove secret callback function.
 type removeSecretCallback func(dataKey string) error
@@ -230,11 +231,13 @@ func (c *Controller) addMemberCluster(secretName string, s *corev1.Secret) {
 				continue
 			}
 
+			networkID := s.Labels[nidLabel]
+
 			log.Infof("Adding new cluster member: %s", clusterID)
 			c.cs.remoteClusters[clusterID] = &RemoteCluster{}
 			c.cs.remoteClusters[clusterID].secretName = secretName
 			client, _ := CreateInterfaceFromClusterConfig(clientConfig)
-			err = c.addCallback(client, clusterID)
+			err = c.addCallback(client, clusterID, networkID)
 			if err != nil {
 				log.Errorf("error during create of clusterID: %s %v", clusterID, err)
 			}

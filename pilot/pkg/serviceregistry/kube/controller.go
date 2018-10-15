@@ -71,12 +71,14 @@ type ControllerOptions struct {
 	WatchedNamespace string
 	ResyncPeriod     time.Duration
 	DomainSuffix     string
+	NetworkID        string
 }
 
 // Controller is a collection of synchronized resource watchers
 // Caches are thread-safe
 type Controller struct {
 	domainSuffix string
+	networkID    string
 
 	client    kubernetes.Interface
 	queue     Queue
@@ -104,6 +106,7 @@ func NewController(client kubernetes.Interface, options ControllerOptions) *Cont
 	// Queue requires a time duration for a retry delay after a handler error
 	out := &Controller{
 		domainSuffix: options.DomainSuffix,
+		networkID:    options.NetworkID,
 		client:       client,
 		queue:        NewQueue(1 * time.Second),
 	}
@@ -393,6 +396,7 @@ func (c *Controller) InstancesByPort(hostname model.Hostname, reqSvcPort int,
 									Port:        int(port.Port),
 									ServicePort: svcPortEntry,
 									UID:         uid,
+									NetworkID:   c.networkID,
 								},
 								Service:          svc,
 								Labels:           labels,
