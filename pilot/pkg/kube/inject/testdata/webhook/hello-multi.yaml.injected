@@ -132,7 +132,8 @@ spec:
           secretName: istio.default
 status: {}
 
----apiVersion: extensions/v1beta1
+---
+apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   creationTimestamp: null

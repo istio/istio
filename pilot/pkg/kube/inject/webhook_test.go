@@ -890,9 +890,9 @@ func writeYamlsToGoldenFile(yamls [][]byte, goldenFile string, t *testing.T) {
 	for _, part := range(yamls) {
 		content = append(content, part...)
 		content = append(content, []byte(yamlSeparator)...)
+		content = append(content, '\n')
 	}
 
-	content = append(content, '\n')
 	util.RefreshGoldenFile(content, goldenFile, t)
 }
 func getInjectableYamlDocs(yamlDoc string, t *testing.T) [][]byte {
