@@ -73,9 +73,9 @@ function wait_for_proc() {
 function join_procs() {
   local p
   for p in "${PIDS[@]}"; do
-    if ! wait "${p}"; then
-      FAILED_TESTS+=("${PKGS[${p}]}")
-    fi
+      if ! wait "${p}"; then
+          FAILED_TESTS+=("${PKGS[${p}]}")
+      fi
   done
 }
 
