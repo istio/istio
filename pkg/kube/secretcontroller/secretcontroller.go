@@ -31,6 +31,7 @@ import (
 
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
+	"sync"
 )
 
 const (
@@ -61,6 +62,7 @@ type Controller struct {
 	informer       cache.SharedIndexInformer
 	addCallback    addSecretCallback
 	removeCallback removeSecretCallback
+	sync.Mutex
 }
 
 // RemoteCluster defines cluster structZZ
@@ -214,8 +216,11 @@ func (c *Controller) processItem(secretName string) error {
 }
 
 func (c *Controller) addMemberCluster(secretName string, s *corev1.Secret) {
+	c.Lock()
+	defer c.Unlock()
 	for clusterID, kubeConfig := range s.Data {
 		// clusterID must be unique even across multiple secrets
+
 		if _, ok := c.cs.remoteClusters[clusterID]; !ok {
 			if len(kubeConfig) == 0 {
 				log.Infof("Data '%s' in the secret %s in namespace %s is empty, and disregarded ",
@@ -247,6 +252,8 @@ func (c *Controller) addMemberCluster(secretName string, s *corev1.Secret) {
 }
 
 func (c *Controller) deleteMemberCluster(secretName string) {
+	c.Lock()
+	defer c.Unlock()
 	for clusterID, cluster := range c.cs.remoteClusters {
 		if cluster.secretName == secretName {
 			log.Infof("Deleting cluster member: %s", clusterID)
