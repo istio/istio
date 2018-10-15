@@ -62,28 +62,7 @@ $ kubectl create ns $NAMESPACE
    $ kubectl apply -f install/kubernetes/helm/istio/charts/certmanager/templates/crds.yaml
    ```
 
-5. If you are enabling `kiali`, you need to create the secret that contains the username and passphrase for `kiali` dashboard:
-   ```
-   $ echo -n 'admin' | base64
-   YWRtaW4=
-   $ echo -n '1f2d1e2e67df' | base64
-   MWYyZDFlMmU2N2Rm
-   $ cat <<EOF | kubectl apply -f -
-   apiVersion: v1
-   kind: Secret
-   metadata:
-     name: kiali
-     namespace: $NAMESPACE
-     labels:
-       app: kiali
-   type: Opaque
-   data:
-     username: YWRtaW4=
-     passphrase: MWYyZDFlMmU2N2Rm
-   EOF
-   ```
-
-6. If you are using security mode for Grafana, create the secret first as follows:
+5. If you are using security mode for Grafana, create the secret first as follows:
 
 Encode username, you can change the username to the name as you want:
 ```
@@ -114,7 +93,7 @@ data:
 EOF
 ```
 
-7. To install the chart with the release name `istio` in namespace $NAMESPACE you defined above:
+6. To install the chart with the release name `istio` in namespace $NAMESPACE you defined above:
     - With [automatic sidecar injection](https://istio.io/docs/setup/kubernetes/sidecar-injection/#automatic-sidecar-injection) (requires Kubernetes >=1.9.0):
     ```
     $ helm install install/kubernetes/helm/istio --name istio --namespace $NAMESPACE
