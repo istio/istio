@@ -31,7 +31,7 @@ const secretNameSpace string = "istio-system"
 var testCreateControllerCalled bool
 var testDeleteControllerCalled bool
 
-func testCreateController(k8sInterface kubernetes.Interface, clusterID string) error {
+func testCreateController(k8sInterface kubernetes.Interface, clusterID string, networkID string) error {
 	testCreateControllerCalled = true
 	return nil
 }

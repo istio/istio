@@ -360,7 +360,7 @@ func newKubernetesClient(kubeconfigPath string, env adapter.Env) (k8s.Interface,
 	return k8s.NewForConfig(config)
 }
 
-func (b *builder) createCacheController(k8sInterface k8s.Interface, clusterID string) error {
+func (b *builder) createCacheController(k8sInterface k8s.Interface, clusterID string, networkID string) error {
 	controller, err := runNewController(b, k8sInterface, b.kubeHandler.env)
 	if err == nil {
 		b.Lock()
