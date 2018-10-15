@@ -82,9 +82,23 @@ def getBashSettingsTemplate(extra_param_lst=[]):
 
   template_prefix = "{% set settings = task_instance.xcom_pull(task_ids='generate_workflow_args') %}"
   template_list = [template_prefix]
+  gcb_env_prefix = 'cat << EOF > "/tmp/gcb_env.sh"'
+  template_list.append(gcb_env_prefix)
   for key in keys:
-    template_list.append("export %s={{ settings.%s }}" % (key, key))
+    # only export CB_ variables to gcb
+    if key.startswith("CB_"):
+      template_list.append("export %s={{ settings.%s }}" % (key, key))
+  gcb_env_suffix = 'EOF'
+  template_list.append(gcb_env_suffix)
+
+  for key in keys:
+    # export non CB_ variables locally
+    if not key.startswith("CB_"):
+      template_list.append("export %s={{ settings.%s }}" % (key, key))
+
   template_list.append("""
+                source    "/tmp/gcb_env.sh"
+                gsutil cp "/tmp/gcb_env.sh" "gs://${CB_GCS_RELEASE_TOOLS_PATH}/"
                 git clone "https://github.com/${CB_GITHUB_ORG}/istio.git" "istio-code" -b "${CB_BRANCH}" --depth 1
                 # use code from branch
                 cp istio-code/release/airflow/* istio-code/release/gcb/json_parse_shared.sh .

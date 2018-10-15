@@ -25,13 +25,11 @@ set -u
 # Print commands
 set -x
 
+source "/workspace/gcb_env.sh"
+
 SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
 # shellcheck source=release/gcb_lib.sh
 source "${SCRIPTPATH}/gcb_lib.sh"
-
-gcs_release_tools_path="$1"
-gsutil cp "$gcs_release_tools_path/gcb_env.sh" "/workspace/gcb_env.sh"
-source "/workspace/gcb_env.sh"
 
 # this function replace the old sha with the correct one
 # each line is assumed to be of the form
