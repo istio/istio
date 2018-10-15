@@ -21,7 +21,7 @@ jobs:
         persistCredentials: true
       - bash: |
           set -exo pipefail
-          if [[ "${SYSTEM_PULLREQUEST_SOURCEBRANCH}" != "master" ]]; then
+          if [[ "${BUILD_SOURCEBRANCHNAME}" != "master" ]]; then
             make build
           fi
         name: "build_pr"
@@ -39,7 +39,7 @@ jobs:
         persistCredentials: true
       - bash: |
           set -exo pipefail
-          if [[ "${SYSTEM_PULLREQUEST_SOURCEBRANCH}" == "master" ]]; then
+          if [[ "${BUILD_SOURCEBRANCHNAME}" == "master" ]]; then
             docker login $REGISTRY -u $ACR_USERNAME -p $ACR_PASSWORD
             make push.docker.pilot HUB=${REGISTRY} TAG=$(git rev-parse --short HEAD)
           fi
