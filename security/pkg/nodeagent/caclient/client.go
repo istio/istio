@@ -55,6 +55,6 @@ func NewCAClient(endpoint, CAProviderName string, tlsFlag bool) (caClientInterfa
 	case googleCA:
 		return gca.NewGoogleCAClient(conn), nil
 	default:
-		return nil, fmt.Errorf("CA provider %q isn't supported, only support %q", CAProviderName, strings.Join([]string{googleCA}, ","))
+		return nil, fmt.Errorf("CA provider %q isn't supported. Currently Istio only supports %q", CAProviderName, strings.Join([]string{googleCA}, ","))
 	}
 }
