@@ -58,7 +58,7 @@ spec:
       destination.uid:
         valueType: STRING
       connection.event:
-            valueType: STRING
+        valueType: STRING
       connection.id:
         valueType: STRING
       connection.received.bytes:
