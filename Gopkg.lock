@@ -2,7 +2,7 @@
 
 
 [[projects]]
-  digest = "1:2982f500a756aae4425eb31f06e72ff27e80157913505ab07095dde81d08ad40"
+  digest = "1:e174cddfc0c772e3b414f95cc3cfc42b3480edb9b906cffb9f5aa9d8e09428f5"
   name = "cloud.google.com/go"
   packages = [
     "compute/metadata",
@@ -15,8 +15,8 @@
     "trace/apiv2",
   ]
   pruneopts = "NUT"
-  revision = "0fd7230b2a7505833d5f69b75cbd6c9582401479"
-  version = "v0.23.0"
+  revision = "64a2037ec6be8a4b0c1d1f706ed35b428b989239"
+  version = "v0.26.0"
 
 [[projects]]
   branch = "master"
@@ -1212,7 +1212,7 @@
   revision = "84ea3a3c79b3c4b3b39606cc96f255cd63635ce0"
 
 [[projects]]
-  digest = "1:de92335ddd759ac9be56aba81473fb3b65c8386092cf0c554dab6c234aecddf4"
+  digest = "1:14c23c68d00e1fd427a26acf9e6d7e2105fbf7b0b0531060c0df9ddb62450e7f"
   name = "go.opencensus.io"
   packages = [
     ".",
@@ -1232,8 +1232,8 @@
     "trace/propagation",
   ]
   pruneopts = "NUT"
-  revision = "e262766cd0d230a1bb7c37281e345e465f19b41b"
-  version = "v0.14.0"
+  revision = "7b558058b7cc960667590e5413ef55157b06652e"
+  version = "v0.15.0"
 
 [[projects]]
   digest = "1:8eff4c694254322268936dc162805ff95ac846435e909f011ba43805bb9b4e0f"
@@ -1393,15 +1393,17 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:32739c07b37ef03b70529f1d557df3180cd7d3b3deca5230a5f98ae15f9b94a1"
+  digest = "1:6cd4b1649695991e9b76b0db6bc3fb3f97b951992b16da2fa53991070be11410"
   name = "google.golang.org/api"
   packages = [
+    "cloudtrace/v1",
     "gensupport",
     "googleapi",
     "googleapi/internal/uritemplates",
     "googleapi/transport",
     "internal",
     "iterator",
+    "monitoring/v3",
     "option",
     "servicecontrol/v1",
     "support/bundler",
@@ -1866,14 +1868,6 @@
   revision = "26a26f55b28aa1b338fbaf6fbbe0bcd76aed05e0"
 
 [[projects]]
-  digest = "1:32ca2277a43f85873aa2a3928dfa122af636ea91eee4265f0e6dc8baf472aad5"
-  name = "k8s.io/cluster-registry"
-  packages = ["pkg/apis/clusterregistry/v1alpha1"]
-  pruneopts = "NUT"
-  revision = "423735c7f10cbbc83ccee14d62b266ddcf9709dd"
-  version = "v0.0.6"
-
-[[projects]]
   digest = "1:cb964e36388b4b7d141d595794fd8e384ff69e25badbe374e62fd7dc24e82fba"
   name = "k8s.io/helm"
   packages = [
@@ -2051,7 +2045,10 @@
     "golang.org/x/oauth2/google",
     "golang.org/x/time/rate",
     "golang.org/x/tools/imports",
+    "google.golang.org/api/cloudtrace/v1",
     "google.golang.org/api/googleapi",
+    "google.golang.org/api/iterator",
+    "google.golang.org/api/monitoring/v3",
     "google.golang.org/api/option",
     "google.golang.org/api/servicecontrol/v1",
     "google.golang.org/genproto/googleapis/api/distribution",
@@ -2114,7 +2111,6 @@
     "k8s.io/client-go/dynamic",
     "k8s.io/client-go/dynamic/fake",
     "k8s.io/client-go/informers",
-    "k8s.io/client-go/informers/core/v1",
     "k8s.io/client-go/informers/extensions/v1beta1",
     "k8s.io/client-go/kubernetes",
     "k8s.io/client-go/kubernetes/fake",
@@ -2129,7 +2125,6 @@
     "k8s.io/client-go/tools/cache",
     "k8s.io/client-go/tools/clientcmd",
     "k8s.io/client-go/tools/clientcmd/api",
-    "k8s.io/client-go/tools/clientcmd/api/v1",
     "k8s.io/client-go/tools/leaderelection",
     "k8s.io/client-go/tools/leaderelection/resourcelock",
     "k8s.io/client-go/tools/portforward",
@@ -2137,7 +2132,6 @@
     "k8s.io/client-go/tools/remotecommand",
     "k8s.io/client-go/transport/spdy",
     "k8s.io/client-go/util/workqueue",
-    "k8s.io/cluster-registry/pkg/apis/clusterregistry/v1alpha1",
     "k8s.io/helm/pkg/chartutil",
     "k8s.io/helm/pkg/engine",
     "k8s.io/helm/pkg/proto/hapi/chart",

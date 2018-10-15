@@ -4,16 +4,21 @@
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
-    name: {{ $key }}
-    namespace: {{ $spec.namespace | default $.Release.Namespace }}
+  name: {{ $key }}
+  namespace: {{ $spec.namespace | default $.Release.Namespace }}
+  labels:
+    app: {{ template "gateway.name" $ }}
+    chart: {{ template "gateway.chart" $ }}
+    heritage: {{ $.Release.Service }}
+    release: {{ $.Release.Name }}
 spec:
-    maxReplicas: {{ $spec.autoscaleMax }}
-    minReplicas: {{ $spec.autoscaleMin }}
-    scaleTargetRef:
-      apiVersion: apps/v1beta1
-      kind: Deployment
-      name: {{ $key }}
-    metrics:
+  maxReplicas: {{ $spec.autoscaleMax }}
+  minReplicas: {{ $spec.autoscaleMin }}
+  scaleTargetRef:
+    apiVersion: apps/v1beta1
+    kind: Deployment
+    name: {{ $key }}
+  metrics:
     - type: Resource
       resource:
         name: cpu

@@ -15,22 +15,10 @@
 package deployment
 
 import (
-	"fmt"
-
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/test/framework/scopes"
 	"istio.io/istio/pkg/test/kube"
-)
-
-const (
-	namespaceTemplate = `apiVersion: v1
-kind: Namespace
-metadata:
-  name: %s
-  labels:
-    istio-injection: disabled
-`
 )
 
 // Instance represents an Istio deployment instance that has been performed by this test code.
@@ -42,25 +30,6 @@ type Instance struct {
 
 	// Path to the yaml file that is generated from the template.
 	yamlFilePath string
-}
-
-func newYamlDeployment(s *Settings, a *kube.Accessor, yamlFile string) (*Instance, error) {
-	instance := &Instance{}
-
-	instance.kubeConfig = s.KubeConfig
-	instance.namespace = s.Namespace
-	instance.yamlFilePath = yamlFile
-
-	scopes.CI.Infof("Applying Yaml file: %s", instance.yamlFilePath)
-	if err := kube.Apply(s.KubeConfig, s.Namespace, instance.yamlFilePath); err != nil {
-		return nil, fmt.Errorf("kube apply of generated yaml filed: %v", err)
-	}
-
-	if err := instance.wait(s.Namespace, a); err != nil {
-		return nil, err
-	}
-
-	return instance, nil
 }
 
 // Wait for installation to complete.

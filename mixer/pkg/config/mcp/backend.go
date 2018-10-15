@@ -185,7 +185,7 @@ func (b *backend) Init(kinds []string) error {
 	}
 
 	cl := mcp.NewAggregatedMeshConfigServiceClient(conn)
-	c := client.New(cl, typeURLs, b, mixerNodeID, map[string]string{})
+	c := client.New(cl, typeURLs, b, mixerNodeID, map[string]string{}, client.NewStatsContext("mixer"))
 	configz.Register(c)
 
 	b.state = &state{

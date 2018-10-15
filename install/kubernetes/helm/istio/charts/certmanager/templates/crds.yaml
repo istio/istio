@@ -6,6 +6,9 @@ metadata:
     "helm.sh/hook": crd-install
   labels:
     app: certmanager
+    chart: certmanager
+    heritage: Tiller
+    release: istio
 spec:
   group: certmanager.k8s.io
   version: v1alpha1
@@ -22,6 +25,9 @@ metadata:
     "helm.sh/hook": crd-install
   labels:
     app: certmanager
+    chart: certmanager
+    heritage: Tiller
+    release: istio
 spec:
   group: certmanager.k8s.io
   version: v1alpha1
@@ -38,6 +44,9 @@ metadata:
     "helm.sh/hook": crd-install
   labels:
     app: certmanager
+    chart: certmanager
+    heritage: Tiller
+    release: istio
 spec:
   group: certmanager.k8s.io
   version: v1alpha1
