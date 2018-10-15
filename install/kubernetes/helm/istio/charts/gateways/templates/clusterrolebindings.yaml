@@ -17,7 +17,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: {{ $key }}-service-account
-  namespace: {{ $.Release.Namespace }}
+  namespace: {{ $spec.namespace | default $.Release.Namespace }}
 ---
 {{- end }}
 {{- end }}
