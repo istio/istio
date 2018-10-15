@@ -345,11 +345,11 @@ func (s *DiscoveryServer) Push(full bool, edsUpdates map[string]*EndpointShardsB
 		return
 	}
 
-	if err = s.ConfigGenerator.BuildSharedPushState(s.Env, push); err != nil {
+	if err = s.ConfigGenerator.BuildSharedPushState(s.env, push); err != nil {
 		adsLog.Errorf("XDS: Failed to rebuild share state in configgen: %v", err)
+		totalXDSInternalErrors.Add(1)
 		return
 	}
-
 	if err := s.updateServiceShards(push); err != nil {
 		return
 	}

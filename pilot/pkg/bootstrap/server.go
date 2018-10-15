@@ -97,6 +97,7 @@ var (
 		plugin.Health,
 		plugin.Mixer,
 		plugin.Envoyfilter,
+		plugin.Snidnat,
 	}
 )
 

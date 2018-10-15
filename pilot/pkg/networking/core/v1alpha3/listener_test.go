@@ -182,12 +182,10 @@ func (p *fakePlugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.M
 	return nil
 }
 
-func (p *fakePlugin) OnOutboundCluster(env *model.Environment, push *model.PushContext, service *model.Service, servicePort *model.Port,
-	cluster *xdsapi.Cluster) {
+func (p *fakePlugin) OnOutboundCluster(in *plugin.InputParams, cluster *xdsapi.Cluster) {
 }
 
-func (p *fakePlugin) OnInboundCluster(env *model.Environment, node *model.Proxy, push *model.PushContext, service *model.Service, servicePort *model.Port,
-	cluster *xdsapi.Cluster) {
+func (p *fakePlugin) OnInboundCluster(in *plugin.InputParams, cluster *xdsapi.Cluster) {
 }
 
 func (p *fakePlugin) OnOutboundRouteConfiguration(in *plugin.InputParams, routeConfiguration *xdsapi.RouteConfiguration) {
