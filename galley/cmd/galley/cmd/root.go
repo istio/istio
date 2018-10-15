@@ -28,9 +28,8 @@ import (
 	istiocmd "istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/version"
-
 	"istio.io/istio/pkg/probe"
+	"istio.io/istio/pkg/version"
 )
 
 var (
@@ -64,6 +63,9 @@ func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 			if len(args) > 0 {
 				return fmt.Errorf("%q is an invalid argument", args[0])
 			}
+			if err := log.Configure(loggingOptions); err != nil {
+				return fmt.Errorf("failed to configure logging: %v", err)
+			}
 			return nil
 		},
 		Run: func(cmd *cobra.Command, args []string) {
@@ -72,7 +74,7 @@ func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 			serverArgs.CredentialOptions.CACertificateFile = validationArgs.CACertFile
 			serverArgs.CredentialOptions.KeyFile = validationArgs.KeyFile
 			serverArgs.CredentialOptions.CertificateFile = validationArgs.CertFile
-			serverArgs.LoggingOptions = loggingOptions
+
 			if livenessProbeOptions.IsValid() {
 				livenessProbeController = probe.NewFileController(&livenessProbeOptions)
 			}

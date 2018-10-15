@@ -23,7 +23,6 @@ import (
 	"istio.io/istio/galley/pkg/kube"
 	"istio.io/istio/galley/pkg/runtime"
 	"istio.io/istio/galley/pkg/testing/mock"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/mcp/server"
 	"istio.io/istio/pkg/mcp/testing/monitoring"
 )
@@ -43,12 +42,10 @@ loop:
 
 		switch i {
 		case 0:
-			p.logConfigure = func(*log.Options) error { return e }
-		case 1:
 			p.newKubeFromConfigFile = func(string) (kube.Interfaces, error) { return nil, e }
-		case 2:
+		case 1:
 			p.newSource = func(kube.Interfaces, time.Duration) (runtime.Source, error) { return nil, e }
-		case 3:
+		case 2:
 			p.netListen = func(network, address string) (net.Listener, error) { return nil, e }
 		default:
 			break loop

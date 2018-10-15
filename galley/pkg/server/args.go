@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/ctrlz"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/mcp/creds"
 )
 
@@ -55,9 +54,6 @@ type Args struct {
 	// The credential options to use for MCP.
 	CredentialOptions *creds.Options
 
-	// The logging options to use
-	LoggingOptions *log.Options
-
 	// The introspection options to use
 	IntrospectionOptions *ctrlz.Options
 
@@ -77,7 +73,6 @@ func DefaultArgs() *Args {
 		APIAddress:             "tcp://0.0.0.0:9901",
 		MaxReceivedMessageSize: 1024 * 1024,
 		MaxConcurrentStreams:   1024,
-		LoggingOptions:         log.DefaultOptions(),
 		IntrospectionOptions:   ctrlz.DefaultOptions(),
 		Insecure:               false,
 		AccessListFile:         defaultAccessListFile,
@@ -97,7 +92,6 @@ func (a *Args) String() string {
 	fmt.Fprintf(buf, "EnableGrpcTracing: %v\n", a.APIAddress)
 	fmt.Fprintf(buf, "MaxReceivedMessageSize: %d\n", a.MaxReceivedMessageSize)
 	fmt.Fprintf(buf, "MaxConcurrentStreams: %d\n", a.MaxConcurrentStreams)
-	fmt.Fprintf(buf, "LoggingOptions: %#v\n", *a.LoggingOptions)
 	fmt.Fprintf(buf, "IntrospectionOptions: %#v\n", *a.IntrospectionOptions)
 	fmt.Fprintf(buf, "Insecure: %v\n", a.Insecure)
 	fmt.Fprintf(buf, "AccessListFile: %s\n", a.AccessListFile)

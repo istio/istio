@@ -63,7 +63,6 @@ type patchTable struct {
 
 func defaultPatchTable() patchTable {
 	return patchTable{
-		logConfigure:          log.Configure,
 		newKubeFromConfigFile: kube.NewKubeFromConfigFile,
 		newSource:             source.New,
 		netListen:             net.Listen,
@@ -79,9 +78,6 @@ func New(a *Args) (*Server, error) {
 func newServer(a *Args, p patchTable) (*Server, error) {
 	s := &Server{}
 	var err error
-	if err = p.logConfigure(a.LoggingOptions); err != nil {
-		return nil, err
-	}
 	var src runtime.Source
 	if a.ConfigPath != "" {
 		src, err = fs.New(a.ConfigPath)
