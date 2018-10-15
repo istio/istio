@@ -1,12 +1,12 @@
 #
-# Gateways Configuration, refer to the charts/gateways/values.yaml 
+# Gateways Configuration, refer to the charts/gateways/values.yaml
 # for detailed configuration
 #
 gateways:
   enabled: true
 
 #
-# sidecar-injector webhook configuration, refer to the 
+# sidecar-injector webhook configuration, refer to the
 # charts/sidecarInjectorWebhook/values.yaml for detailed configuration
 #
 sidecarInjectorWebhook:
@@ -78,6 +78,10 @@ tracing:
 #
 kiali:
   enabled: false
+  # username & password for kiali
+  # if no password is set a 40 digit random password will be set
+  username: admin
+  passphrase: ""
 
 # Common settings used among istio subcharts.
 global:
@@ -102,7 +106,7 @@ global:
     # expected secrets - enabling this option without certificates
     # will result in LDS rejection and the ingress will not work.
     enableHttps: false
- 
+
   proxy:
     image: proxyv2
 
@@ -193,7 +197,7 @@ global:
   # propagated, not recommended for tests.
   controlPlaneSecurityEnabled: false
 
-  # SDS enabled. IF set to true, mTLS certificates for the sidecars will be 
+  # SDS enabled. IF set to true, mTLS certificates for the sidecars will be
   # distributed through the SecretDiscoveryService instead of using K8S secrets to mount the certificates.
   sdsEnabled: false
 
@@ -289,5 +293,3 @@ global:
   # Use the Mesh Control Protocol (MCP) for configuring Mixer and
   # Pilot. Requires galley (`--set galley.enabled=true`).
   useMCP: false
-
-

@@ -19,9 +19,11 @@ ingress:
     #   hosts:
     #     - kiali.local
 dashboard:
+  # if not secretname is set kiali name will be used
   secretName: kiali
+  # if no password is set a 40 digit random password will be set
   usernameKey: username
-  passphraseKey: passphrase
+  passphraseKey: ""
 
   # Override the automatically detected Grafana URL, useful when Grafana service has no ExternalIPs
   # grafanaURL:
