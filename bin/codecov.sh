@@ -51,11 +51,11 @@ declare -a PKGS
 function code_coverage() {
   local filename
   filename="$(echo "${1}" | tr '/' '-')"
-  ( go test \
+  go test \
     -coverpkg=istio.io/istio/... \
     -coverprofile="${COVERAGEDIR}/${filename}.cov" \
     -covermode=atomic "${1}" \
-    | tee "${COVERAGEDIR}/${filename}.report" ) &
+    | tee "${COVERAGEDIR}/${filename}.report" &
   local pid=$!
   PKGS[${pid}]=${1}
   PIDS+=("${pid}")
@@ -73,11 +73,9 @@ function wait_for_proc() {
 function join_procs() {
   local p
   for p in "${PIDS[@]}"; do
-      local result=$( wait ${p} || echo $? )
-      # 127 in case the job had died and wait fails.
-      if [[ "${result}" != "0" && "${result}" != "127" ]]; then
-          FAILED_TESTS+=("${PKGS[${p}]}")
-      fi
+    if ! wait "${p}"; then
+      FAILED_TESTS+=("${PKGS[${p}]}")
+    fi
   done
 }
 
