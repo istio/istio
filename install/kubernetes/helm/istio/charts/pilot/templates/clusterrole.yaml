@@ -3,8 +3,8 @@ kind: ClusterRole
 metadata:
   name: istio-pilot-{{ .Release.Namespace }}
   labels:
-    app: istio-pilot
-    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    app: {{ template "pilot.name" . }}
+    chart: {{ template "pilot.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
 rules:

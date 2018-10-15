@@ -22,7 +22,7 @@
 docker: build test-bins docker.all
 
 DOCKER_TARGETS:=docker.pilot docker.proxy_debug docker.proxytproxy docker.proxyv2 docker.app docker.test_policybackend \
-	docker.proxy_init docker.mixer docker.citadel docker.galley docker.sidecar_injector
+	docker.proxy_init docker.mixer docker.citadel docker.galley docker.sidecar_injector docker.kubectl
 
 $(ISTIO_DOCKER) $(ISTIO_DOCKER_TAR):
 	mkdir -p $@
@@ -70,7 +70,9 @@ $(foreach FILE,$(DOCKER_FILES_FROM_SOURCE), \
 # 	cp $(ISTIO_BIN)/kubectl $(ISTIO_DOCKER)/kubectl
 DOCKER_FILES_FROM_ISTIO_BIN:=kubectl
 $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_BIN), \
-        $(eval $(ISTIO_DOCKER)/$(FILE): $(ISTIO_BIN)/$(FILE) | $(ISTIO_DOCKER); bin/testEnvLocalK8S.sh getDeps; cp $(ISTIO_BIN)/$(FILE) $(ISTIO_DOCKER)/$(FILE)))
+        $(eval $(ISTIO_BIN)/$(FILE): ; bin/testEnvLocalK8S.sh getDeps))
+$(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_BIN), \
+        $(eval $(ISTIO_DOCKER)/$(FILE): $(ISTIO_BIN)/$(FILE) | $(ISTIO_DOCKER); cp $(ISTIO_BIN)/$(FILE) $(ISTIO_DOCKER)/$(FILE)))
 
 # pilot docker images
 
@@ -153,8 +155,8 @@ docker.test_policybackend: mixer/docker/Dockerfile.test_policybackend
 docker.test_policybackend: $(ISTIO_OUT)/mixer-test-policybackend
 	$(DOCKER_RULE)
 
-#docker.kubectl: docker/Dockerfile$$(suffix $$@) $(ISTIO_BIN)/kubectl
-#	$(DOCKER_RULE)
+docker.kubectl: docker/Dockerfile$$(suffix $$@) $(ISTIO_BIN)/kubectl
+	$(DOCKER_RULE)
 
 # addons docker images
 

@@ -5,9 +5,11 @@ metadata:
   namespace: {{ .Release.Namespace }}
   # TODO: default template doesn't have this, which one is right ?
   labels:
-    app: istio-pilot
+    app: {{ template "pilot.name" . }}
+    chart: {{ template "pilot.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
     istio: pilot
-    {{- template "common_labels" . }}
   annotations:
     checksum/config-volume: {{ template "istio.configmap.checksum" . }}
 spec:
@@ -15,9 +17,12 @@ spec:
   template:
     metadata:
       labels:
+        app: {{ template "pilot.name" . }}
+        chart: {{ template "pilot.chart" . }}
+        heritage: {{ .Release.Service }}
+        release: {{ .Release.Name }}
+        version: {{ .Chart.Version }}
         istio: pilot
-        app: pilot
-        {{- template "common_template_labels" . }}
       annotations:
         sidecar.istio.io/inject: "false"
         scheduler.alpha.kubernetes.io/critical-pod: ""
@@ -36,6 +41,10 @@ spec:
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           args:
           - "discovery"
+{{- if $.Values.global.proxy.discoveryDomain }}
+          - --domain
+          - {{ $.Values.global.proxy.discoveryDomain }}
+{{- end }}
 {{- if .Values.global.oneNamespace }}
           - "-a"
           - {{ .Release.Namespace }}
@@ -113,6 +122,10 @@ spec:
           - containerPort: 15011
           args:
           - proxy
+{{- if $.Values.global.proxy.proxyDomain }}
+          - --domain
+          - {{ $.Values.global.proxy.proxyDomain }}
+{{- end }}
           - --serviceCluster
           - istio-pilot
           - --templateFile

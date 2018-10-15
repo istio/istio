@@ -6,9 +6,9 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "istio.name" . }}
-    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    release: {{ .Release.Name }}
+    chart: {{ template "istio.chart" . }}
     heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
     istio: sidecar-injector
 data:
   config: |-
@@ -75,6 +75,10 @@ data:
         args:
         - proxy
         - sidecar
+{{- if .Values.global.proxy.proxyDomain }}
+        - --domain
+        - {{ .Values.global.proxy.proxyDomain }}
+{{- end }}
         - --configPath
         - {{ "[[ .ProxyConfig.ConfigPath ]]" }}
         - --binaryPath

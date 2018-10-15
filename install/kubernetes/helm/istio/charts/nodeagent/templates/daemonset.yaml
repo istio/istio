@@ -15,6 +15,10 @@ spec:
       labels:
         istio: nodeagent
         app: nodeagent
+        chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+        release: {{ .Release.Name }}
+        heritage: {{ .Release.Service }}
+        version: {{ .Chart.Version }}
     spec:
       containers:
       - name: nodeagent

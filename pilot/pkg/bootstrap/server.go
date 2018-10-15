@@ -119,7 +119,6 @@ type MeshArgs struct {
 // be monitored for CRD yaml files and will update the controller as those files change (This is used for testing
 // purposes). Otherwise, a CRD client is created based on the configuration.
 type ConfigArgs struct {
-	ClusterRegistriesConfigmap string
 	ClusterRegistriesNamespace string
 	KubeConfig                 string
 	ControllerOptions          kube.ControllerOptions
@@ -173,7 +172,7 @@ type Server struct {
 	mixerSAN         []string
 	kubeClient       kubernetes.Interface
 	startFuncs       []startFunc
-	clusterStore     *clusterregistry.ClusterStore
+	multicluster     *clusterregistry.Multicluster
 	httpServer       *http.Server
 	grpcServer       *grpc.Server
 	secureGRPCServer *grpc.Server
@@ -203,9 +202,6 @@ func NewServer(args PilotArgs) (*Server, error) {
 	if err := s.initKubeClient(&args); err != nil {
 		return nil, err
 	}
-	if err := s.initClusterRegistries(&args); err != nil {
-		return nil, err
-	}
 	if err := s.initMesh(&args); err != nil {
 		return nil, err
 	}
@@ -224,7 +220,7 @@ func NewServer(args PilotArgs) (*Server, error) {
 	if err := s.initMonitor(&args); err != nil {
 		return nil, err
 	}
-	if err := s.initMultiClusterController(&args); err != nil {
+	if err := s.initClusterRegistries(&args); err != nil {
 		return nil, err
 	}
 
@@ -271,40 +267,27 @@ func (s *Server) initMonitor(args *PilotArgs) error {
 	return nil
 }
 
+// initClusterRegistries starts the secret controller to watch for remote
+// clusters and initialize the multicluster structures.
 func (s *Server) initClusterRegistries(args *PilotArgs) (err error) {
-	s.clusterStore = clusterregistry.NewClustersStore()
+	if hasKubeRegistry(args) {
 
-	if s.kubeClient == nil {
-		log.Infof("skipping cluster registries, no kube-client created")
-		return nil
-	}
-
-	// Drop from multicluster test cases if Mock Registry is used
-	if checkForMock(args.Service.Registries) {
-		return nil
-	}
-	if args.Config.ClusterRegistriesConfigmap != "" {
-		if err = clusterregistry.ReadClusters(s.kubeClient,
-			args.Config.ClusterRegistriesConfigmap,
+		mc, err := clusterregistry.NewMulticluster(s.kubeClient,
 			args.Config.ClusterRegistriesNamespace,
-			s.clusterStore); err != nil {
+			args.Config.ControllerOptions.WatchedNamespace,
+			args.Config.ControllerOptions.DomainSuffix,
+			args.Config.ControllerOptions.ResyncPeriod,
+			s.ServiceController,
+			s.EnvoyXdsServer.ClearCacheFunc())
+
+		if err != nil {
+			log.Info("Unable to create new Multicluster object")
 			return err
 		}
+
+		s.multicluster = mc
 	}
-	log.Infof("clusters configuration %s", spew.Sdump(s.clusterStore))
-
-	return err
-}
-
-// Check if Mock's registry exists in PilotArgs's Registries
-func checkForMock(registries []string) bool {
-	for _, r := range registries {
-		if strings.ToLower(r) == "mock" {
-			return true
-		}
-	}
-
-	return false
+	return nil
 }
 
 // GetMeshConfig fetches the ProxyMesh configuration from Kubernetes ConfigMap.
@@ -477,7 +460,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 			return err
 		}
 		cl := mcpapi.NewAggregatedMeshConfigServiceClient(conn)
-		mcpClient := mcpclient.New(cl, supportedTypes, mcpController, clientNodeID, map[string]string{})
+		mcpClient := mcpclient.New(cl, supportedTypes, mcpController, clientNodeID, map[string]string{}, mcpclient.NewStatsContext("pilot"))
 		configz.Register(mcpClient)
 
 		clients = append(clients, mcpClient)
@@ -626,29 +609,6 @@ func (s *Server) createK8sServiceControllers(serviceControllers *aggregate.Contr
 		})
 
 	return
-}
-
-// initMultiClusterController initializes multi cluster controller
-// currently implemented only for kubernetes registries
-func (s *Server) initMultiClusterController(args *PilotArgs) error {
-	if hasKubeRegistry(args) {
-		s.addStartFunc(func(stop <-chan struct{}) error {
-			secretController := clusterregistry.NewController(s.kubeClient,
-				args.Config.ClusterRegistriesNamespace,
-				s.clusterStore,
-				s.ServiceController,
-				s.EnvoyXdsServer,
-				args.Config.ControllerOptions.ResyncPeriod,
-				args.Config.ControllerOptions.WatchedNamespace,
-				args.Config.ControllerOptions.DomainSuffix)
-
-			// Start secret controller which watches for runtime secret Object changes and adds secrets dynamically
-			go secretController.Run(stop)
-
-			return nil
-		})
-	}
-	return nil
 }
 
 func hasKubeRegistry(args *PilotArgs) bool {

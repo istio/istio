@@ -16,20 +16,20 @@ package kube
 
 import (
 	"fmt"
-	"log"
 	"sync"
 
 	"k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/log"
 )
 
 // PodCache is an eventually consistent pod cache
 type PodCache struct {
-	rwMu sync.RWMutex
 	cacheHandler
 
+	sync.RWMutex
 	// keys maintains stable pod IP to name key mapping
 	// this allows us to retrieve the latest status by pod IP.
 	// This should only contain RUNNING or PENDING pods with an allocated IP.
@@ -43,8 +43,8 @@ func newPodCache(ch cacheHandler) *PodCache {
 	}
 
 	ch.handler.Append(func(obj interface{}, ev model.Event) error {
-		out.rwMu.Lock()
-		defer out.rwMu.Unlock()
+		out.Lock()
+		defer out.Unlock()
 
 		// When a pod is deleted obj could be an *v1.Pod or a DeletionFinalStateUnknown marker item.
 		pod, ok := obj.(*v1.Pod)
@@ -61,7 +61,7 @@ func newPodCache(ch cacheHandler) *PodCache {
 
 		ip := pod.Status.PodIP
 
-		log.Printf("Handling event %s for pod %s in namespace %s -> %v", ev, pod.Name, pod.Namespace, ip)
+		log.Infof("Handling event %s for pod %s in namespace %s -> %v", ev, pod.Name, pod.Namespace, ip)
 
 		if len(ip) > 0 {
 			key := KeyFunc(pod.Name, pod.Namespace)
@@ -96,16 +96,16 @@ func newPodCache(ch cacheHandler) *PodCache {
 }
 
 func (pc *PodCache) getPodKey(addr string) (string, bool) {
-	pc.rwMu.RLock()
-	defer pc.rwMu.RUnlock()
+	pc.RLock()
+	defer pc.RUnlock()
 	key, exists := pc.keys[addr]
 	return key, exists
 }
 
 // getPodByIp returns the pod or nil if pod not found or an error occurred
 func (pc *PodCache) getPodByIP(addr string) (*v1.Pod, bool) {
-	pc.rwMu.RLock()
-	defer pc.rwMu.RUnlock()
+	pc.RLock()
+	defer pc.RUnlock()
 
 	key, exists := pc.keys[addr]
 	if !exists {

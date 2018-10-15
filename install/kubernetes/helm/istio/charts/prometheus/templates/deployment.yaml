@@ -6,17 +6,19 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: prometheus
-    {{- template "common_labels" . }}
+    chart: {{ template "prometheus.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   replicas: {{ .Values.replicaCount }}
-  selector:
-    matchLabels:
-      app: prometheus
   template:
     metadata:
       labels:
         app: prometheus
-        {{- template "common_template_labels" . }}
+        chart: {{ template "prometheus.chart" . }}
+        heritage: {{ .Release.Service }}
+        release: {{ .Release.Name }}
+        version: {{ .Chart.Version }}
       annotations:
         sidecar.istio.io/inject: "false"
         scheduler.alpha.kubernetes.io/critical-pod: ""
@@ -30,7 +32,7 @@ spec:
           image: "{{ .Values.hub }}/prometheus:{{ .Values.tag }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           args:
-            - '--storage.tsdb.retention=6h'
+            - '--storage.tsdb.retention={{ .Values.retention }}'
             - '--config.file=/etc/prometheus/prometheus.yml'
           ports:
             - containerPort: 9090

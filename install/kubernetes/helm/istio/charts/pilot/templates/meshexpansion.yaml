@@ -5,6 +5,11 @@ kind: VirtualService
 metadata:
   name: meshexpansion-ilb-vs-pilot
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "pilot.name" . }}
+    chart: {{ template "pilot.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   hosts:
   - istio-pilot.{{ $.Release.Namespace }}.svc.cluster.local
@@ -40,6 +45,11 @@ kind: VirtualService
 metadata:
   name: meshexpansion-vs-pilot
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "pilot.name" . }}
+    chart: {{ template "pilot.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   hosts:
   - istio-pilot.{{ $.Release.Namespace }}.svc.cluster.local
@@ -61,7 +71,12 @@ apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: meshexpansion-dr-pilot
-  namespace: istio-system
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "pilot.name" . }}
+    chart: {{ template "pilot.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   host: istio-pilot.{{ .Release.Namespace }}.svc.cluster.local
   trafficPolicy:

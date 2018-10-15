@@ -54,6 +54,9 @@ istio-ingressgateway:
   - port: 15031
     targetPort: 15031
     name: http2-grafana
+  - port: 15032
+    targetPort: 15032
+    name: http2-tracing
   #### MESH EXPANSION PORTS  ########
   # Pilot and Citadel MTLS ports are enabled in gateway - but will only redirect
   # to pilot/citadel if global.meshExpansion settings are enabled.

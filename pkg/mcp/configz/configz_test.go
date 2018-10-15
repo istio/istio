@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pkg/mcp/client"
 	"istio.io/istio/pkg/mcp/snapshot"
 	"istio.io/istio/pkg/mcp/testing"
+	"istio.io/istio/pkg/mcp/testing/monitoring"
 )
 
 type updater struct {
@@ -56,7 +57,9 @@ func TestConfigZ(t *testing.T) {
 
 	u := &updater{}
 	clnt := mcp.NewAggregatedMeshConfigServiceClient(cc)
-	cl := client.New(clnt, []string{"type.googleapis.com/google.protobuf.Empty"}, u, snapshot.DefaultGroup, map[string]string{"foo": "bar"})
+	cl := client.New(clnt, []string{"type.googleapis.com/google.protobuf.Empty"}, u,
+		snapshot.DefaultGroup, map[string]string{"foo": "bar"},
+		mcptestmon.NewInMemoryClientStatsContext())
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go cl.Run(ctx)

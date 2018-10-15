@@ -4,15 +4,20 @@ metadata:
   name: istio-tracing
   namespace: {{ .Release.Namespace }}
   labels:
-    app: istio-tracing
-    {{- template "common_labels" . }}
+    app: jaeger
+    chart: {{ template "tracing.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   replicas: {{ .Values.replicaCount }}
   template:
     metadata:
       labels:
         app: jaeger
-        {{- template "common_template_labels" . }}
+        chart: {{ template "tracing.chart" . }}
+        heritage: {{ .Release.Service }}
+        release: {{ .Release.Name }}
+        version: {{ .Chart.Version }}
       annotations:
         sidecar.istio.io/inject: "false"
         scheduler.alpha.kubernetes.io/critical-pod: ""

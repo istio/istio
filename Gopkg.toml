@@ -313,10 +313,6 @@ ignored = [
   version = "kubernetes-1.10.4"
 
 [[constraint]]
-  name = "k8s.io/cluster-registry"
-  version = "0.0.3"
-
-[[constraint]]
   name = "k8s.io/helm"
   version = "2.9.1"
 
