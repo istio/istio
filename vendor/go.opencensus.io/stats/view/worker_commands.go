@@ -88,6 +88,9 @@ func (cmd *unregisterFromViewReq) handleCommand(w *worker) {
 			continue
 		}
 
+		// Report pending data for this view before removing it.
+		w.reportView(vi, time.Now())
+
 		vi.unsubscribe()
 		if !vi.isSubscribed() {
 			// this was the last subscription and view is not collecting anymore.
