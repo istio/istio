@@ -4,16 +4,19 @@ description: Adapter for cloudwatch metrics.
 location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/cloudwatch.html
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-supported_templates: metric
 aliases:
   - /docs/reference/config/adapters/cloudwatch.html
-number_of_entries: 3
+number_of_entries: 4
 ---
 <p>The CloudWatch adapter enables Istio to deliver metrics to
-<a href="https://aws.amazon.com/cloudwatch/">Amazon CloudWatch</a>.</p>
+<a href="https://aws.amazon.com/cloudwatch/">Amazon CloudWatch</a> and logs to
+<a href="https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/WhatIsCloudWatchLogs.html/">Amazon CloudWatchLogs</a>.</p>
 
-<p>To push metrics to CloudWatch using this adapter you must provide AWS credentials the AWS SDK.
+<p>To push metrics and logs to CloudWatch using this adapter you must provide AWS credentials to the AWS SDK.
 (see <a href="https://docs.aws.amazon.com/sdk-for-java/v1/developer-guide/setup-credentials.html">AWS docs</a>).</p>
+
+<p>To activate the CloudWatch adapter, operators need to provide configuration for the
+<a href="https://istio.io/docs/reference/config/adapters/cloudwatch.html">cloudwatch adapter</a>.</p>
 
 <p>The handler configuration must contain the same metrics as the instance configuration.
 The metrics specified in both instance and handler configurations will be sent to CloudWatch.</p>
@@ -46,6 +49,53 @@ The metrics specified in both instance and handler configurations will be sent t
 <td><code>map&lt;string,&nbsp;<a href="#Params-MetricDatum">Params.MetricDatum</a>&gt;</code></td>
 <td>
 <p>A map of Istio metric name to CloudWatch metric info.</p>
+
+</td>
+</tr>
+<tr id="Params-log_group_name">
+<td><code>logGroupName</code></td>
+<td><code>string</code></td>
+<td>
+<p>The name of the log group in cloudwatchlogs.</p>
+
+</td>
+</tr>
+<tr id="Params-log_stream_name">
+<td><code>logStreamName</code></td>
+<td><code>string</code></td>
+<td>
+<p>The name of the log stream in cloudwatchlogs.</p>
+
+</td>
+</tr>
+<tr id="Params-logs">
+<td><code>logs</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#Params-LogInfo">Params.LogInfo</a>&gt;</code></td>
+<td>
+<p>A map of Istio logentry name to CloudWatch logentry info.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Params-LogInfo">Params.LogInfo</h2>
+<section>
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params-LogInfo-payload_template">
+<td><code>payloadTemplate</code></td>
+<td><code>string</code></td>
+<td>
+<p>A golang text/template template that will be executed to construct the payload for this log entry.
+It will be given the full set of variables for the log to use to construct its result.</p>
 
 </td>
 </tr>

@@ -8,7 +8,7 @@
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY Type, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -16,6 +16,7 @@ package cloudwatch
 
 import (
 	"errors"
+	"html/template"
 	"reflect"
 	"strconv"
 	"strings"
@@ -55,6 +56,9 @@ func TestPutMetricData(t *testing.T) {
 
 	env := test.NewEnv(t)
 
+	logEntryTemplates := make(map[string]*template.Template)
+	logEntryTemplates["inst"], _ = template.New("inst").Parse(`{{or (.sourceIp) "-"}} - {{or (.sourceUser) "-"}}`)
+
 	cases := []struct {
 		metricData        []*cloudwatch.MetricDatum
 		expectedErrString string
@@ -65,14 +69,14 @@ func TestPutMetricData(t *testing.T) {
 				{MetricName: aws.String("testMetric"), Value: aws.Float64(1)},
 			},
 			"put metric data",
-			newHandler(nil, env, cfg, &mockFailCloudWatchClient{}),
+			newHandler(nil, nil, logEntryTemplates, env, cfg, &mockFailCloudWatchClient{}, &mockLogsClient{}),
 		},
 		{
 			[]*cloudwatch.MetricDatum{
 				{MetricName: aws.String("testMetric"), Value: aws.Float64(1)},
 			},
 			"",
-			newHandler(nil, env, cfg, &mockCloudWatchClient{}),
+			newHandler(nil, nil, logEntryTemplates, env, cfg, &mockCloudWatchClient{}, &mockLogsClient{}),
 		},
 	}
 
@@ -216,8 +220,10 @@ func TestSendMetricsToCloudWatch(t *testing.T) {
 	cfg := &config.Params{
 		Namespace: "istio-mixer-cloudwatch",
 	}
+	logEntryTemplates := make(map[string]*template.Template)
+	logEntryTemplates["inst"], _ = template.New("inst").Parse(`{{or (.sourceIp) "-"}} - {{or (.sourceUser) "-"}}`)
 
-	h := newHandler(nil, env, cfg, &mockCloudWatchClient{})
+	h := newHandler(nil, nil, logEntryTemplates, env, cfg, &mockCloudWatchClient{}, &mockLogsClient{})
 
 	cases := []struct {
 		metricData                  []*cloudwatch.MetricDatum
@@ -259,6 +265,8 @@ func generateTestMetricData(count int) []*cloudwatch.MetricDatum {
 
 func TestGenerateMetricData(t *testing.T) {
 	env := test.NewEnv(t)
+	logEntryTemplates := make(map[string]*template.Template)
+	logEntryTemplates["inst"], _ = template.New("inst").Parse(`{{or (.sourceIp) "-"}} - {{or (.sourceUser) "-"}}`)
 	cases := []struct {
 		handler            adapter.Handler
 		insts              []*metric.Instance
@@ -266,15 +274,15 @@ func TestGenerateMetricData(t *testing.T) {
 	}{
 		// empty instances
 		{
-			newHandler(nil, env,
+			newHandler(nil, nil, logEntryTemplates, env,
 				generateCfgWithUnit(config.Count),
-				&mockCloudWatchClient{}),
+				&mockCloudWatchClient{}, &mockLogsClient{}),
 			[]*metric.Instance{}, []*cloudwatch.MetricDatum{}},
 		// timestamp value
 		{
-			newHandler(nil, env,
+			newHandler(nil, nil, logEntryTemplates, env,
 				generateCfgWithNameAndUnit("requestduration", config.Milliseconds),
-				&mockCloudWatchClient{}),
+				&mockCloudWatchClient{}, &mockLogsClient{}),
 			[]*metric.Instance{
 				{
 					Value: 1 * time.Minute,
@@ -292,9 +300,9 @@ func TestGenerateMetricData(t *testing.T) {
 		},
 		// count value and dimensions
 		{
-			newHandler(nil, env,
+			newHandler(nil, nil, logEntryTemplates, env,
 				generateCfgWithNameAndUnit("requestcount", config.Count),
-				&mockCloudWatchClient{}),
+				&mockCloudWatchClient{}, &mockLogsClient{}),
 			[]*metric.Instance{
 				{
 					Value: "1",

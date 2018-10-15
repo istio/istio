@@ -5,10 +5,14 @@
 	Package config is a generated protocol buffer package.
 
 	The CloudWatch adapter enables Istio to deliver metrics to
-	[Amazon CloudWatch](https://aws.amazon.com/cloudwatch/).
+	[Amazon CloudWatch](https://aws.amazon.com/cloudwatch/) and logs to
+	[Amazon CloudWatchLogs](https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/WhatIsCloudWatchLogs.html/).
 
-	To push metrics to CloudWatch using this adapter you must provide AWS credentials the AWS SDK.
+	To push metrics and logs to CloudWatch using this adapter you must provide AWS credentials to the AWS SDK.
 	(see [AWS docs](https://docs.aws.amazon.com/sdk-for-java/v1/developer-guide/setup-credentials.html)).
+
+	To activate the CloudWatch adapter, operators need to provide configuration for the
+	[cloudwatch adapter](https://istio.io/docs/reference/config/adapters/cloudwatch.html).
 
 	The handler configuration must contain the same metrics as the instance configuration.
 	The metrics specified in both instance and handler configurations will be sent to CloudWatch.
@@ -147,6 +151,12 @@ type Params struct {
 	Namespace string `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	// A map of Istio metric name to CloudWatch metric info.
 	MetricInfo map[string]*Params_MetricDatum `protobuf:"bytes,2,rep,name=metric_info,json=metricInfo" json:"metric_info,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value"`
+	// The name of the log group in cloudwatchlogs.
+	LogGroupName string `protobuf:"bytes,4,opt,name=log_group_name,json=logGroupName,proto3" json:"log_group_name,omitempty"`
+	// The name of the log stream in cloudwatchlogs.
+	LogStreamName string `protobuf:"bytes,5,opt,name=log_stream_name,json=logStreamName,proto3" json:"log_stream_name,omitempty"`
+	// A map of Istio logentry name to CloudWatch logentry info.
+	Logs map[string]*Params_LogInfo `protobuf:"bytes,6,rep,name=logs" json:"logs,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value"`
 }
 
 func (m *Params) Reset()                    { *m = Params{} }
@@ -163,6 +173,27 @@ func (m *Params) GetNamespace() string {
 func (m *Params) GetMetricInfo() map[string]*Params_MetricDatum {
 	if m != nil {
 		return m.MetricInfo
+	}
+	return nil
+}
+
+func (m *Params) GetLogGroupName() string {
+	if m != nil {
+		return m.LogGroupName
+	}
+	return ""
+}
+
+func (m *Params) GetLogStreamName() string {
+	if m != nil {
+		return m.LogStreamName
+	}
+	return ""
+}
+
+func (m *Params) GetLogs() map[string]*Params_LogInfo {
+	if m != nil {
+		return m.Logs
 	}
 	return nil
 }
@@ -185,9 +216,27 @@ func (m *Params_MetricDatum) GetUnit() Params_MetricDatum_Unit {
 	return None
 }
 
+type Params_LogInfo struct {
+	// A golang text/template template that will be executed to construct the payload for this log entry.
+	// It will be given the full set of variables for the log to use to construct its result.
+	PayloadTemplate string `protobuf:"bytes,1,opt,name=payload_template,json=payloadTemplate,proto3" json:"payload_template,omitempty"`
+}
+
+func (m *Params_LogInfo) Reset()                    { *m = Params_LogInfo{} }
+func (*Params_LogInfo) ProtoMessage()               {}
+func (*Params_LogInfo) Descriptor() ([]byte, []int) { return fileDescriptorConfig, []int{0, 3} }
+
+func (m *Params_LogInfo) GetPayloadTemplate() string {
+	if m != nil {
+		return m.PayloadTemplate
+	}
+	return ""
+}
+
 func init() {
 	proto.RegisterType((*Params)(nil), "adapter.cloudwatch.config.Params")
 	proto.RegisterType((*Params_MetricDatum)(nil), "adapter.cloudwatch.config.Params.MetricDatum")
+	proto.RegisterType((*Params_LogInfo)(nil), "adapter.cloudwatch.config.Params.LogInfo")
 	proto.RegisterEnum("adapter.cloudwatch.config.Params_MetricDatum_Unit", Params_MetricDatum_Unit_name, Params_MetricDatum_Unit_value)
 }
 func (x Params_MetricDatum_Unit) String() string {
@@ -227,6 +276,20 @@ func (this *Params) Equal(that interface{}) bool {
 			return false
 		}
 	}
+	if this.LogGroupName != that1.LogGroupName {
+		return false
+	}
+	if this.LogStreamName != that1.LogStreamName {
+		return false
+	}
+	if len(this.Logs) != len(that1.Logs) {
+		return false
+	}
+	for i := range this.Logs {
+		if !this.Logs[i].Equal(that1.Logs[i]) {
+			return false
+		}
+	}
 	return true
 }
 func (this *Params_MetricDatum) Equal(that interface{}) bool {
@@ -253,11 +316,35 @@ func (this *Params_MetricDatum) Equal(that interface{}) bool {
 	}
 	return true
 }
+func (this *Params_LogInfo) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*Params_LogInfo)
+	if !ok {
+		that2, ok := that.(Params_LogInfo)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if this.PayloadTemplate != that1.PayloadTemplate {
+		return false
+	}
+	return true
+}
 func (this *Params) GoString() string {
 	if this == nil {
 		return "nil"
 	}
-	s := make([]string, 0, 6)
+	s := make([]string, 0, 9)
 	s = append(s, "&config.Params{")
 	s = append(s, "Namespace: "+fmt.Sprintf("%#v", this.Namespace)+",\n")
 	keysForMetricInfo := make([]string, 0, len(this.MetricInfo))
@@ -273,6 +360,21 @@ func (this *Params) GoString() string {
 	if this.MetricInfo != nil {
 		s = append(s, "MetricInfo: "+mapStringForMetricInfo+",\n")
 	}
+	s = append(s, "LogGroupName: "+fmt.Sprintf("%#v", this.LogGroupName)+",\n")
+	s = append(s, "LogStreamName: "+fmt.Sprintf("%#v", this.LogStreamName)+",\n")
+	keysForLogs := make([]string, 0, len(this.Logs))
+	for k, _ := range this.Logs {
+		keysForLogs = append(keysForLogs, k)
+	}
+	sortkeys.Strings(keysForLogs)
+	mapStringForLogs := "map[string]*Params_LogInfo{"
+	for _, k := range keysForLogs {
+		mapStringForLogs += fmt.Sprintf("%#v: %#v,", k, this.Logs[k])
+	}
+	mapStringForLogs += "}"
+	if this.Logs != nil {
+		s = append(s, "Logs: "+mapStringForLogs+",\n")
+	}
 	s = append(s, "}")
 	return strings.Join(s, "")
 }
@@ -283,6 +385,16 @@ func (this *Params_MetricDatum) GoString() string {
 	s := make([]string, 0, 5)
 	s = append(s, "&config.Params_MetricDatum{")
 	s = append(s, "Unit: "+fmt.Sprintf("%#v", this.Unit)+",\n")
+	s = append(s, "}")
+	return strings.Join(s, "")
+}
+func (this *Params_LogInfo) GoString() string {
+	if this == nil {
+		return "nil"
+	}
+	s := make([]string, 0, 5)
+	s = append(s, "&config.Params_LogInfo{")
+	s = append(s, "PayloadTemplate: "+fmt.Sprintf("%#v", this.PayloadTemplate)+",\n")
 	s = append(s, "}")
 	return strings.Join(s, "")
 }
@@ -343,6 +455,46 @@ func (m *Params) MarshalTo(dAtA []byte) (int, error) {
 			}
 		}
 	}
+	if len(m.LogGroupName) > 0 {
+		dAtA[i] = 0x22
+		i++
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.LogGroupName)))
+		i += copy(dAtA[i:], m.LogGroupName)
+	}
+	if len(m.LogStreamName) > 0 {
+		dAtA[i] = 0x2a
+		i++
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.LogStreamName)))
+		i += copy(dAtA[i:], m.LogStreamName)
+	}
+	if len(m.Logs) > 0 {
+		for k, _ := range m.Logs {
+			dAtA[i] = 0x32
+			i++
+			v := m.Logs[k]
+			msgSize := 0
+			if v != nil {
+				msgSize = v.Size()
+				msgSize += 1 + sovConfig(uint64(msgSize))
+			}
+			mapSize := 1 + len(k) + sovConfig(uint64(len(k))) + msgSize
+			i = encodeVarintConfig(dAtA, i, uint64(mapSize))
+			dAtA[i] = 0xa
+			i++
+			i = encodeVarintConfig(dAtA, i, uint64(len(k)))
+			i += copy(dAtA[i:], k)
+			if v != nil {
+				dAtA[i] = 0x12
+				i++
+				i = encodeVarintConfig(dAtA, i, uint64(v.Size()))
+				n2, err := v.MarshalTo(dAtA[i:])
+				if err != nil {
+					return 0, err
+				}
+				i += n2
+			}
+		}
+	}
 	return i, nil
 }
 
@@ -365,6 +517,30 @@ func (m *Params_MetricDatum) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x18
 		i++
 		i = encodeVarintConfig(dAtA, i, uint64(m.Unit))
+	}
+	return i, nil
+}
+
+func (m *Params_LogInfo) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *Params_LogInfo) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.PayloadTemplate) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.PayloadTemplate)))
+		i += copy(dAtA[i:], m.PayloadTemplate)
 	}
 	return i, nil
 }
@@ -398,6 +574,27 @@ func (m *Params) Size() (n int) {
 			n += mapEntrySize + 1 + sovConfig(uint64(mapEntrySize))
 		}
 	}
+	l = len(m.LogGroupName)
+	if l > 0 {
+		n += 1 + l + sovConfig(uint64(l))
+	}
+	l = len(m.LogStreamName)
+	if l > 0 {
+		n += 1 + l + sovConfig(uint64(l))
+	}
+	if len(m.Logs) > 0 {
+		for k, v := range m.Logs {
+			_ = k
+			_ = v
+			l = 0
+			if v != nil {
+				l = v.Size()
+				l += 1 + sovConfig(uint64(l))
+			}
+			mapEntrySize := 1 + len(k) + sovConfig(uint64(len(k))) + l
+			n += mapEntrySize + 1 + sovConfig(uint64(mapEntrySize))
+		}
+	}
 	return n
 }
 
@@ -406,6 +603,16 @@ func (m *Params_MetricDatum) Size() (n int) {
 	_ = l
 	if m.Unit != 0 {
 		n += 1 + sovConfig(uint64(m.Unit))
+	}
+	return n
+}
+
+func (m *Params_LogInfo) Size() (n int) {
+	var l int
+	_ = l
+	l = len(m.PayloadTemplate)
+	if l > 0 {
+		n += 1 + l + sovConfig(uint64(l))
 	}
 	return n
 }
@@ -437,9 +644,22 @@ func (this *Params) String() string {
 		mapStringForMetricInfo += fmt.Sprintf("%v: %v,", k, this.MetricInfo[k])
 	}
 	mapStringForMetricInfo += "}"
+	keysForLogs := make([]string, 0, len(this.Logs))
+	for k, _ := range this.Logs {
+		keysForLogs = append(keysForLogs, k)
+	}
+	sortkeys.Strings(keysForLogs)
+	mapStringForLogs := "map[string]*Params_LogInfo{"
+	for _, k := range keysForLogs {
+		mapStringForLogs += fmt.Sprintf("%v: %v,", k, this.Logs[k])
+	}
+	mapStringForLogs += "}"
 	s := strings.Join([]string{`&Params{`,
 		`Namespace:` + fmt.Sprintf("%v", this.Namespace) + `,`,
 		`MetricInfo:` + mapStringForMetricInfo + `,`,
+		`LogGroupName:` + fmt.Sprintf("%v", this.LogGroupName) + `,`,
+		`LogStreamName:` + fmt.Sprintf("%v", this.LogStreamName) + `,`,
+		`Logs:` + mapStringForLogs + `,`,
 		`}`,
 	}, "")
 	return s
@@ -450,6 +670,16 @@ func (this *Params_MetricDatum) String() string {
 	}
 	s := strings.Join([]string{`&Params_MetricDatum{`,
 		`Unit:` + fmt.Sprintf("%v", this.Unit) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *Params_LogInfo) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&Params_LogInfo{`,
+		`PayloadTemplate:` + fmt.Sprintf("%v", this.PayloadTemplate) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -643,6 +873,187 @@ func (m *Params) Unmarshal(dAtA []byte) error {
 			}
 			m.MetricInfo[mapkey] = mapvalue
 			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field LogGroupName", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthConfig
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.LogGroupName = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 5:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field LogStreamName", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthConfig
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.LogStreamName = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 6:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Logs", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthConfig
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Logs == nil {
+				m.Logs = make(map[string]*Params_LogInfo)
+			}
+			var mapkey string
+			var mapvalue *Params_LogInfo
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowConfig
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					wire |= (uint64(b) & 0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					var stringLenmapkey uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowConfig
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapkey |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapkey := int(stringLenmapkey)
+					if intStringLenmapkey < 0 {
+						return ErrInvalidLengthConfig
+					}
+					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
+					iNdEx = postStringIndexmapkey
+				} else if fieldNum == 2 {
+					var mapmsglen int
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowConfig
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						mapmsglen |= (int(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					if mapmsglen < 0 {
+						return ErrInvalidLengthConfig
+					}
+					postmsgIndex := iNdEx + mapmsglen
+					if mapmsglen < 0 {
+						return ErrInvalidLengthConfig
+					}
+					if postmsgIndex > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapvalue = &Params_LogInfo{}
+					if err := mapvalue.Unmarshal(dAtA[iNdEx:postmsgIndex]); err != nil {
+						return err
+					}
+					iNdEx = postmsgIndex
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipConfig(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthConfig
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
+				}
+			}
+			m.Logs[mapkey] = mapvalue
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipConfig(dAtA[iNdEx:])
@@ -712,6 +1123,85 @@ func (m *Params_MetricDatum) Unmarshal(dAtA []byte) error {
 					break
 				}
 			}
+		default:
+			iNdEx = preIndex
+			skippy, err := skipConfig(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthConfig
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *Params_LogInfo) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowConfig
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: LogInfo: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: LogInfo: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field PayloadTemplate", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthConfig
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.PayloadTemplate = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipConfig(dAtA[iNdEx:])
@@ -841,37 +1331,44 @@ var (
 func init() { proto.RegisterFile("mixer/adapter/cloudwatch/config/config.proto", fileDescriptorConfig) }
 
 var fileDescriptorConfig = []byte{
-	// 502 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x93, 0x3d, 0x6f, 0x13, 0x31,
-	0x18, 0xc7, 0xe3, 0xbc, 0x35, 0x79, 0x2e, 0x6d, 0x8c, 0x5b, 0x20, 0x8d, 0x90, 0x15, 0x75, 0xca,
-	0x00, 0x17, 0x11, 0x18, 0x10, 0x63, 0xca, 0x8b, 0x10, 0x0a, 0xaa, 0x02, 0x2c, 0x2c, 0x95, 0x7b,
-	0x71, 0x8a, 0xc5, 0x9d, 0x1d, 0xdd, 0x39, 0x40, 0x36, 0x26, 0x66, 0x76, 0xbe, 0x00, 0xdf, 0x83,
-	0x85, 0xb1, 0x23, 0x23, 0x39, 0x16, 0xc6, 0x7e, 0x04, 0xf4, 0xf8, 0xe2, 0x14, 0x21, 0x21, 0xd1,
-	0x29, 0xfe, 0xfd, 0x6c, 0xff, 0xfd, 0x7f, 0xa2, 0x04, 0x6e, 0x26, 0xea, 0xbd, 0x4c, 0x07, 0x62,
-	0x2a, 0xe6, 0x56, 0xa6, 0x83, 0x28, 0x36, 0x8b, 0xe9, 0x3b, 0x61, 0xa3, 0xd7, 0x83, 0xc8, 0xe8,
-	0x99, 0x3a, 0x5d, 0x7f, 0x84, 0xf3, 0xd4, 0x58, 0xc3, 0xf6, 0xd7, 0xe7, 0xc2, 0x8b, 0x73, 0x61,
-	0x71, 0xe0, 0xe0, 0x63, 0x1d, 0xea, 0x47, 0x22, 0x15, 0x49, 0xc6, 0x6e, 0x40, 0x53, 0x8b, 0x44,
-	0x66, 0x73, 0x11, 0xc9, 0x0e, 0xe9, 0x91, 0x7e, 0x73, 0x72, 0x21, 0xd8, 0x04, 0x82, 0x44, 0xda,
-	0x54, 0x45, 0xc7, 0x4a, 0xcf, 0x4c, 0xa7, 0xdc, 0xab, 0xf4, 0x83, 0xe1, 0xed, 0xf0, 0x9f, 0xc9,
-	0x61, 0x91, 0x1a, 0x8e, 0xdd, 0xa5, 0x27, 0x7a, 0x66, 0x1e, 0x6a, 0x9b, 0x2e, 0x27, 0x90, 0x6c,
-	0x44, 0x37, 0x86, 0xf6, 0x5f, 0xdb, 0x8c, 0x42, 0xe5, 0x8d, 0x5c, 0xae, 0x9f, 0xc7, 0x25, 0x3b,
-	0x84, 0xda, 0x5b, 0x11, 0x2f, 0x64, 0xa7, 0xdc, 0x23, 0xfd, 0x60, 0x78, 0xeb, 0x7f, 0x9f, 0x7c,
-	0x20, 0xec, 0x22, 0x99, 0x14, 0x77, 0xef, 0x97, 0xef, 0x91, 0xee, 0xe7, 0x2a, 0x04, 0x7f, 0x6c,
-	0xb1, 0x47, 0x50, 0x5d, 0x68, 0x65, 0x3b, 0x95, 0x1e, 0xe9, 0xef, 0x0c, 0x87, 0x97, 0xca, 0x0d,
-	0x5f, 0x6a, 0x65, 0x27, 0xee, 0xfe, 0xc1, 0xd7, 0x0a, 0x54, 0x11, 0x59, 0x03, 0xaa, 0xcf, 0x8c,
-	0x96, 0xb4, 0xc4, 0x02, 0xd8, 0x7a, 0x2e, 0x23, 0xa3, 0xa7, 0x19, 0x25, 0x8c, 0x42, 0x6b, 0xac,
-	0xa2, 0xd4, 0x64, 0x6b, 0x53, 0x2e, 0x4c, 0x1c, 0x2b, 0x6f, 0x2a, 0xac, 0x09, 0xb5, 0x43, 0xb3,
-	0xd0, 0x96, 0x56, 0x71, 0x39, 0x5a, 0x5a, 0x99, 0xd1, 0x1a, 0xdb, 0x86, 0xe6, 0x53, 0x15, 0x9b,
-	0x13, 0x87, 0x75, 0xc4, 0xb1, 0x3c, 0x15, 0x05, 0x6e, 0x21, 0x3e, 0x56, 0x1e, 0x1b, 0x88, 0x2f,
-	0x64, 0xba, 0xc6, 0x26, 0x96, 0x19, 0x29, 0x9b, 0x51, 0x60, 0x2d, 0x68, 0xb8, 0x14, 0xa4, 0x00,
-	0xc9, 0x85, 0x20, 0xb5, 0x90, 0x5c, 0x06, 0xd2, 0x36, 0x92, 0x8b, 0x40, 0xda, 0xc1, 0x21, 0x8e,
-	0x64, 0x1a, 0x49, 0x6d, 0x69, 0x1b, 0x2b, 0xbb, 0x56, 0xc7, 0xc5, 0x5c, 0x94, 0xb2, 0x3d, 0xa0,
-	0x9b, 0x72, 0xde, 0x5e, 0x41, 0xbb, 0xe9, 0xe8, 0x2d, 0x43, 0xbb, 0xa9, 0xea, 0xed, 0x2e, 0xda,
-	0x4d, 0x63, 0x6f, 0xf7, 0x58, 0x1b, 0x02, 0x2c, 0xee, 0xc5, 0x55, 0xb6, 0x0b, 0x6d, 0xdf, 0xdf,
-	0xcb, 0x6b, 0x28, 0xfd, 0x18, 0x5e, 0x5e, 0x47, 0xe9, 0xa7, 0xf1, 0xb2, 0x83, 0xd2, 0x0f, 0xe5,
-	0xe5, 0x3e, 0x8e, 0xe3, 0xbe, 0x6f, 0x6f, 0xba, 0xa3, 0xbb, 0x67, 0x2b, 0x5e, 0xfa, 0xbe, 0xe2,
-	0xa5, 0xf3, 0x15, 0x27, 0x1f, 0x72, 0x4e, 0xbe, 0xe4, 0x9c, 0x7c, 0xcb, 0x39, 0x39, 0xcb, 0x39,
-	0xf9, 0x91, 0x73, 0xf2, 0x2b, 0xe7, 0xa5, 0xf3, 0x9c, 0x93, 0x4f, 0x3f, 0x79, 0xe9, 0x55, 0xbd,
-	0xf8, 0x65, 0x9c, 0xd4, 0xdd, 0x1f, 0xec, 0xce, 0xef, 0x00, 0x00, 0x00, 0xff, 0xff, 0x14, 0xcf,
-	0x8d, 0x35, 0x90, 0x03, 0x00, 0x00,
+	// 620 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x94, 0xc1, 0x6e, 0xd3, 0x4c,
+	0x10, 0xc7, 0xb3, 0x89, 0x93, 0x26, 0xe3, 0xb4, 0xf1, 0xb7, 0xed, 0x07, 0x6e, 0x84, 0xac, 0xa8,
+	0x42, 0x28, 0x15, 0xe0, 0x8a, 0xd0, 0x03, 0xe2, 0x52, 0xa9, 0x05, 0x2a, 0x04, 0xad, 0xaa, 0xb4,
+	0x5c, 0xb8, 0x44, 0x5b, 0x67, 0x6b, 0x2c, 0x6c, 0x6f, 0x64, 0x6f, 0x80, 0xdc, 0x78, 0x04, 0xee,
+	0xbc, 0x00, 0x37, 0x1e, 0x82, 0x0b, 0xc7, 0x1e, 0x39, 0x12, 0x73, 0xe1, 0xd8, 0x47, 0x40, 0xb3,
+	0xf6, 0xba, 0x05, 0x81, 0x28, 0xa7, 0xf8, 0xf7, 0xcb, 0xec, 0xf8, 0x3f, 0xab, 0x91, 0xe1, 0x56,
+	0x14, 0xbc, 0xe1, 0xc9, 0x06, 0x1b, 0xb3, 0x89, 0xe4, 0xc9, 0x86, 0x17, 0x8a, 0xe9, 0xf8, 0x35,
+	0x93, 0xde, 0x8b, 0x0d, 0x4f, 0xc4, 0x27, 0x81, 0x5f, 0xfc, 0xb8, 0x93, 0x44, 0x48, 0x41, 0x57,
+	0x8b, 0x3a, 0xf7, 0xbc, 0xce, 0xcd, 0x0b, 0xd6, 0x3e, 0x36, 0xa1, 0x71, 0xc0, 0x12, 0x16, 0xa5,
+	0xf4, 0x1a, 0xb4, 0x62, 0x16, 0xf1, 0x74, 0xc2, 0x3c, 0x6e, 0x93, 0x1e, 0xe9, 0xb7, 0x86, 0xe7,
+	0x82, 0x0e, 0xc1, 0x8c, 0xb8, 0x4c, 0x02, 0x6f, 0x14, 0xc4, 0x27, 0xc2, 0xae, 0xf6, 0x6a, 0x7d,
+	0x73, 0x70, 0xc7, 0xfd, 0x63, 0x67, 0x37, 0xef, 0xea, 0xee, 0xa9, 0x43, 0x8f, 0xe3, 0x13, 0xf1,
+	0x30, 0x96, 0xc9, 0x6c, 0x08, 0x51, 0x29, 0xe8, 0x75, 0x58, 0x0a, 0x85, 0x3f, 0xf2, 0x13, 0x31,
+	0x9d, 0x8c, 0xf0, 0x55, 0xb6, 0xa1, 0x5e, 0xdb, 0x0e, 0x85, 0xbf, 0x8b, 0x72, 0x9f, 0x45, 0x9c,
+	0xde, 0x80, 0x0e, 0x56, 0xa5, 0x32, 0xe1, 0x2c, 0xca, 0xcb, 0xea, 0xaa, 0x6c, 0x31, 0x14, 0xfe,
+	0xa1, 0xb2, 0xaa, 0x6e, 0x0b, 0x8c, 0x50, 0xf8, 0xa9, 0xdd, 0x50, 0xd1, 0x6e, 0xfe, 0x3d, 0xda,
+	0x53, 0xe1, 0xa7, 0x79, 0x28, 0x75, 0xb0, 0x1b, 0x42, 0xe7, 0x97, 0xb4, 0xd4, 0x82, 0xda, 0x4b,
+	0x3e, 0x2b, 0x6e, 0x03, 0x1f, 0xe9, 0x0e, 0xd4, 0x5f, 0xb1, 0x70, 0xca, 0xed, 0x6a, 0x8f, 0xf4,
+	0xcd, 0xc1, 0xed, 0xcb, 0xde, 0xc0, 0x03, 0x26, 0xa7, 0xd1, 0x30, 0x3f, 0x7b, 0xbf, 0x7a, 0x8f,
+	0x74, 0xdf, 0x1b, 0x60, 0x5e, 0xf8, 0x8b, 0x3e, 0x02, 0x63, 0x1a, 0x07, 0xd2, 0xae, 0xf5, 0x48,
+	0x7f, 0x69, 0x30, 0xf8, 0xa7, 0xbe, 0xee, 0xb3, 0x38, 0x90, 0x43, 0x75, 0x7e, 0xed, 0x53, 0x0d,
+	0x0c, 0x44, 0xda, 0x04, 0x63, 0x5f, 0xc4, 0xdc, 0xaa, 0x50, 0x13, 0x16, 0x0e, 0xb9, 0x27, 0xe2,
+	0x71, 0x6a, 0x11, 0x6a, 0x41, 0x7b, 0x2f, 0xf0, 0x12, 0x91, 0x16, 0xa6, 0x9a, 0x9b, 0x30, 0x0c,
+	0xb4, 0xa9, 0xd1, 0x16, 0xd4, 0x77, 0xc4, 0x34, 0x96, 0x96, 0x81, 0x8f, 0xdb, 0x33, 0xc9, 0x53,
+	0xab, 0x4e, 0x17, 0xa1, 0xf5, 0x24, 0x08, 0xc5, 0xb1, 0xc2, 0x06, 0xe2, 0x1e, 0xf7, 0x59, 0x8e,
+	0x0b, 0x88, 0xbb, 0x81, 0xc6, 0x26, 0xe2, 0x11, 0x4f, 0x0a, 0x6c, 0x61, 0x98, 0xed, 0x40, 0xa6,
+	0x16, 0xd0, 0x36, 0x34, 0x55, 0x17, 0x24, 0x13, 0x49, 0x35, 0x41, 0x6a, 0x23, 0xa9, 0x1e, 0x48,
+	0x8b, 0x48, 0xaa, 0x05, 0xd2, 0x12, 0x0e, 0x71, 0xc0, 0x13, 0x8f, 0xc7, 0xd2, 0xea, 0x60, 0x64,
+	0x95, 0x6a, 0x94, 0xcf, 0x65, 0x59, 0x74, 0x05, 0xac, 0x32, 0x9c, 0xb6, 0xff, 0xa1, 0x2d, 0x33,
+	0x6a, 0x4b, 0xd1, 0x96, 0x51, 0xb5, 0x5d, 0x46, 0x5b, 0x26, 0xd6, 0x76, 0x85, 0x76, 0xc0, 0xc4,
+	0xe0, 0x5a, 0xfc, 0x4f, 0x97, 0xa1, 0xa3, 0xf3, 0x6b, 0x79, 0x05, 0xa5, 0x1e, 0x43, 0xcb, 0xab,
+	0x28, 0xf5, 0x34, 0x5a, 0xda, 0x28, 0xf5, 0x50, 0x5a, 0xae, 0xe2, 0x38, 0xea, 0xbe, 0xb5, 0xe9,
+	0x76, 0x8f, 0xa1, 0x55, 0xae, 0xe7, 0x6f, 0xb6, 0x70, 0xeb, 0xe7, 0x2d, 0x5c, 0xbf, 0xd4, 0xb2,
+	0xe3, 0x5a, 0x5f, 0xdc, 0xc0, 0x4d, 0x58, 0x28, 0x2c, 0x5d, 0x07, 0x6b, 0xc2, 0x66, 0xa1, 0x60,
+	0xe3, 0x91, 0xe4, 0xd1, 0x24, 0x64, 0x52, 0x7f, 0x02, 0x3a, 0x85, 0x3f, 0x2a, 0xf4, 0xf6, 0xe6,
+	0xe9, 0xdc, 0xa9, 0x7c, 0x99, 0x3b, 0x95, 0xb3, 0xb9, 0x43, 0xde, 0x66, 0x0e, 0xf9, 0x90, 0x39,
+	0xe4, 0x73, 0xe6, 0x90, 0xd3, 0xcc, 0x21, 0x5f, 0x33, 0x87, 0x7c, 0xcf, 0x9c, 0xca, 0x59, 0xe6,
+	0x90, 0x77, 0xdf, 0x9c, 0xca, 0xf3, 0x46, 0x9e, 0xe2, 0xb8, 0xa1, 0xbe, 0x44, 0x77, 0x7f, 0x04,
+	0x00, 0x00, 0xff, 0xff, 0x89, 0x19, 0x94, 0x27, 0xb9, 0x04, 0x00, 0x00,
 }

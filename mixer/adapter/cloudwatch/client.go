@@ -8,7 +8,7 @@
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY Type, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -17,11 +17,19 @@ package cloudwatch
 import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
+	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
 )
 
 // newCloudWatchClient creates a cloudwatch client
 func newCloudWatchClient() *cloudwatch.CloudWatch {
 	return cloudwatch.New(session.Must(session.NewSessionWithOptions(session.Options{
+		SharedConfigState: session.SharedConfigEnable,
+	})))
+}
+
+// newCloudWatchLogsClient creates a cloudwatchlogs client
+func newCloudWatchLogsClient() *cloudwatchlogs.CloudWatchLogs {
+	return cloudwatchlogs.New(session.Must(session.NewSessionWithOptions(session.Options{
 		SharedConfigState: session.SharedConfigEnable,
 	})))
 }
