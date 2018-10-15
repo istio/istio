@@ -45,10 +45,7 @@ function usage() {
 
 OUTPUT_PATH="/output"
 
-# switch to the root of the istio repo
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-cd "$ROOT"
-
+ROOT="$PWD"
 GOPATH="$(cd "$ROOT/../../.." && pwd)"
 export GOPATH
 echo gopath is "$GOPATH"
