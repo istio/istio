@@ -89,12 +89,15 @@ data:
           # Path to the file containing the cacert to use when verifying TLS
           cacertPath: {{ .Values.global.tracer.lightstep.cacertPath }}
       {{- else if eq .Values.global.proxy.tracer "zipkin" }}
+        {{- if .Values.global.tracer.zipkin.address }}
         zipkin:
           # Address of the Zipkin collector
           address: {{ .Values.global.tracer.zipkin.address }}
-      {{- else if .Values.global.remoteZipkinAddress }}
+        {{- else if .Values.global.remoteZipkinAddress }}
         zipkin:
+          # Address of the Zipkin collector
           address: {{ .Values.global.remoteZipkinAddress }}:9411
+        {{- end }}
       {{- end }}
 
     {{- if .Values.global.proxy.envoyStatsd.enabled }}

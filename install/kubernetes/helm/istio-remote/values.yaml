@@ -112,7 +112,7 @@ global:
       port: # example: 9125
 
     # Specify which tracer to use. One of: lightstep, zipkin
-    tracer: ""
+    tracer: "zipkin"
 
   proxy_init:
     # Base name for the proxy_init container, used to configure iptables.

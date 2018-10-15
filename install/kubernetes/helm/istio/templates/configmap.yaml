@@ -97,12 +97,13 @@ data:
       {{- else if eq .Values.global.proxy.tracer "zipkin" }}
         zipkin:
           # Address of the Zipkin collector
+        {{- if .Values.global.tracer.zipkin.address }}
           address: {{ .Values.global.tracer.zipkin.address }}
-      {{- else }}
-        zipkin:
+        {{- else }}
           address: zipkin.{{ .Release.Namespace }}:9411
+        {{- end }}
       {{- end }}
-      #
+
     {{- if .Values.global.proxy.envoyStatsd.enabled }}
       #
       # Statsd metrics collector converts statsd metrics into Prometheus metrics.
