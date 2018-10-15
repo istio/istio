@@ -92,6 +92,7 @@ func ReadGoldenFile(content []byte, goldenFile string, t *testing.T) []byte {
 	return ReadFile(goldenFile, t)
 }
 
+// RefreshGoldenFile updates the golden file with the given content
 func RefreshGoldenFile( content []byte, goldenFile string, t *testing.T) {
 	if Refresh() {
 		t.Logf("Refreshing golden file %s", goldenFile)
