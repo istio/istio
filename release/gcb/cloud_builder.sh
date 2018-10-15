@@ -54,7 +54,7 @@ ISTIO_OUT=$(make DEBUG=0 where-is-out)
 MAKE_TARGETS=(istio-archive)
 MAKE_TARGETS+=(sidecar.deb)
 
-VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB="${CB_ISTIOCTL_DOCKER_HUB}" HUB="${CB_STIOCTL_DOCKER_HUB}" VERSION="${CB_VERSION}" TAG="${CB_VERSION}" make "${MAKE_TARGETS[@]}"
+VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB="${CB_ISTIOCTL_DOCKER_HUB}" HUB="${CB_ISTIOCTL_DOCKER_HUB}" VERSION="${CB_VERSION}" TAG="${CB_VERSION}" make "${MAKE_TARGETS[@]}"
 mkdir -p "${OUTPUT_PATH}/deb"
 sha256sum "${ISTIO_OUT}/istio-sidecar.deb" > "${OUTPUT_PATH}/deb/istio-sidecar.deb.sha256"
 cp        "${ISTIO_OUT}/istio-sidecar.deb"   "${OUTPUT_PATH}/deb/"
