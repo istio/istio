@@ -17,15 +17,18 @@ syntax = "proto3";
 // $title: CloudWatch
 // $description: Adapter for cloudwatch metrics.
 // $location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/cloudwatch.html
-// $supported_templates: metric
 // $aliases:
 // $  - /docs/reference/config/adapters/cloudwatch.html
 
 // The CloudWatch adapter enables Istio to deliver metrics to
-// [Amazon CloudWatch](https://aws.amazon.com/cloudwatch/).
+// [Amazon CloudWatch](https://aws.amazon.com/cloudwatch/) and logs to
+// [Amazon CloudWatchLogs](https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/WhatIsCloudWatchLogs.html/).
 //
-// To push metrics to CloudWatch using this adapter you must provide AWS credentials the AWS SDK.
+// To push metrics and logs to CloudWatch using this adapter you must provide AWS credentials to the AWS SDK.
 // (see [AWS docs](https://docs.aws.amazon.com/sdk-for-java/v1/developer-guide/setup-credentials.html)).
+//
+// To activate the CloudWatch adapter, operators need to provide configuration for the
+// [cloudwatch adapter](https://istio.io/docs/reference/config/adapters/cloudwatch.html).
 //
 // The handler configuration must contain the same metrics as the instance configuration.
 // The metrics specified in both instance and handler configurations will be sent to CloudWatch.
@@ -77,5 +80,20 @@ message Params {
       // The unit of the metric. Must be valid cloudwatch unit value.
       // [CloudWatch docs](https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_MetricDatum.html)
       Unit unit = 3;
+    }
+
+    // The name of the log group in cloudwatchlogs.
+    string log_group_name = 4;
+
+    // The name of the log stream in cloudwatchlogs.
+    string log_stream_name = 5;
+
+    // A map of Istio logentry name to CloudWatch logentry info.
+    map<string, LogInfo> logs = 6;
+
+    message LogInfo{
+      // A golang text/template template that will be executed to construct the payload for this log entry.
+      // It will be given the full set of variables for the log to use to construct its result.
+      string payload_template = 1;
     }
 }
