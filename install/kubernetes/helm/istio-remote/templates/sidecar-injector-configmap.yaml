@@ -133,9 +133,9 @@ data:
               fieldPath: metadata.name
         - name: ISTIO_META_INTERCEPTION_MODE
           value: {{ "[[ or (index .ObjectMeta.Annotations \"sidecar.istio.io/interceptionMode\") .ProxyConfig.InterceptionMode.String ]]" }}
-        {{- if .Values.global.proxy.network }}
+        {{- if .Values.global.network }}
         - name: ISTIO_META_ISTIO_NETWORK
-          value: {{ .Values.global.proxy.network }}
+          value: {{ .Values.global.network }}
         {{- end }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
         securityContext:

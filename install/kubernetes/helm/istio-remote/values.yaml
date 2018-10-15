@@ -69,13 +69,6 @@ global:
       port: # example: 9125
 
 
-    # Sets an identifier for the remote network to be used for Split Horizon EDS. The network will be sent
-    # to the Pilot and will affect the results returned in EDS based - all local endpoints + endpoints of
-    # gateways of other networks.
-    # Disabled by default. Uncomment and set network value to activate.
-    #
-    # network: "network1"
-
   proxy_init:
     # Base name for the proxy_init container, used to configure iptables.
     image: proxy_init
@@ -148,6 +141,13 @@ global:
   # Refer to https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass
   # for more detail.
   priorityClassName: ""
+
+  # Sets an identifier for the remote network to be used for Split Horizon EDS. The network will be sent
+  # to the Pilot and will affect the results returned in EDS based - all local endpoints + endpoints of
+  # gateways of other networks.
+  # Disabled by default. Uncomment and set network value to activate.
+  #
+  # network: "network1"
 
 #
 # sidecar-injector webhook configuration

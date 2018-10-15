@@ -57,18 +57,11 @@ type Service struct {
 	// the service. They are not the VIP and might not be set. E.g. in
 	// Kubernetes, if the service is of type LoadBalancer, its public
 	// address(es) will be placed in this field
-	ExternalAddresses []string `json:"external-addresses,omitempty"`
+	ExternalAddresses []string
 
 	// ClusterVIPs specifies the service address of the load balancer
 	// in each of the clusters where the service resides
 	ClusterVIPs map[string]string `json:"cluster-vips,omitempty"`
-
-	// ClusterExternals will hold the mapping between the Cluster ID and the
-	// external address(es) for the service that resides within that cluster.
-	// When a service with the same hostname exists in multiple clusters, the
-	// discovery will return a single service entry that aggregates the
-	// external address(es) for each cluster in this field.
-	ClusterExternals map[string][]string `json:"cluster-externals,omitempty"`
 
 	// Ports is the set of network ports where the service is listening for
 	// connections
@@ -306,6 +299,10 @@ type NetworkEndpoint struct {
 
 	// Defines a platform-specific workload instance identifier (optional).
 	UID string
+
+	// A network ID where this endpoint defined. This is set by the registry
+	// and used by Split Horizon EDS.
+	NetworkID string
 }
 
 // Labels is a non empty set of arbitrary strings. Each version of a service can

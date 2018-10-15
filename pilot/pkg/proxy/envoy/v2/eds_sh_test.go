@@ -55,11 +55,11 @@ func TestSplitHorizonEds(t *testing.T) {
 	initSplitHorizonTestEnv(t)
 
 	// Set up a cluster registry for network 1 with 1 instance for the service 'service5'
-	initClusterRegistry(1, "159.122.219.1", true, 1)
+	initClusterRegistry(1, "159.122.219.1", 1)
 	// Set up a cluster registry for network 2 with 2 instances for the service 'service5'
-	initClusterRegistry(2, "159.122.219.2", true, 2)
+	initClusterRegistry(2, "159.122.219.2", 2)
 	// Set up a cluster registry for network 3 with 3 instances for the service 'service5'
-	initClusterRegistry(3, "159.122.219.3", false, 3)
+	initClusterRegistry(3, "159.122.219.3", 3)
 
 	// Update cache
 	pilotServer.EnvoyXdsServer.ClearCacheFunc()()
@@ -98,7 +98,7 @@ func verifySplitHorizonResponse(t *testing.T, network string, sidecarId string, 
 
 	metadata := &proto.Struct{Fields: map[string]*proto.Value{
 		"ISTIO_PROXY_VERSION": {Kind: &proto.Value_StringValue{StringValue: "1.1"}},
-		"ISTIO_NETWORK":       {Kind: &proto.Value_StringValue{StringValue: network}},
+		"ISTIO_NETWORK":      {Kind: &proto.Value_StringValue{StringValue: network}},
 	}}
 
 	err = sendCDSReqWithMetadata(sidecarId, metadata, edsstr)
@@ -169,7 +169,7 @@ func initSplitHorizonTestEnv(t *testing.T) *bootstrap.Server {
 // Creates and initializes a memory registry that holds a single service with the provided
 // amount of endpoints. It also creates a service for the ingress with the provided
 // external IP
-func initClusterRegistry(clusterNum int, gatewayIP string, setGatewayLabel bool, numOfEndpoints int) {
+func initClusterRegistry(clusterNum int, gatewayIP string, numOfEndpoints int) {
 	id := fmt.Sprintf("network%d", clusterNum)
 	memRegistry := v2.NewMemServiceDiscovery(
 		map[model.Hostname]*model.Service{}, 2)
@@ -181,14 +181,8 @@ func initClusterRegistry(clusterNum int, gatewayIP string, setGatewayLabel bool,
 		Controller:       &v2.MemServiceController{},
 	})
 
-	networksLbls := map[string]string{
-		"version":       "v1.1",
-		"ISTIO_NETWORK": id,
-	}
-
-	if setGatewayLabel {
-		networksLbls["ISTIO_NETWORK_GATEWAY_IP"] = gatewayIP
-		networksLbls["ISTIO_NETWORK_GATEWAY_PORT"] = "80"
+	svcLabels := map[string]string{
+		"version": "v1.1",
 	}
 
 	// Explicit test service, in the v2 memory registry. Similar with mock.MakeService,
@@ -208,8 +202,9 @@ func initClusterRegistry(clusterNum int, gatewayIP string, setGatewayLabel bool,
 					Port:     1080,
 					Protocol: model.ProtocolHTTP,
 				},
+				NetworkID: id,
 			},
-			Labels:           networksLbls,
+			Labels:           svcLabels,
 			AvailabilityZone: "az",
 		})
 	}
@@ -226,6 +221,39 @@ func initClusterRegistry(clusterNum int, gatewayIP string, setGatewayLabel bool,
 				Protocol: model.ProtocolHTTP,
 			},
 		},
+	})
+
+	// Add instances for two ports
+	gwLabels := map[string]string{
+		"istio": "ingressgateway",
+	}
+	memRegistry.AddInstance("istio-ingressgateway.istio-system.svc.cluster.local", &model.ServiceInstance{
+		Endpoint: model.NetworkEndpoint{
+			Address: ingressIP,
+			Port:    80,
+			ServicePort: &model.Port{
+				Name:     "http",
+				Port:     80,
+				Protocol: model.ProtocolHTTP,
+			},
+			NetworkID: id,
+		},
+		Labels:           gwLabels,
+		AvailabilityZone: "az",
+	})
+	memRegistry.AddInstance("istio-ingressgateway.istio-system.svc.cluster.local", &model.ServiceInstance{
+		Endpoint: model.NetworkEndpoint{
+			Address: ingressIP,
+			Port:    443,
+			ServicePort: &model.Port{
+				Name:     "https",
+				Port:     443,
+				Protocol: model.ProtocolHTTPS,
+			},
+			NetworkID: id,
+		},
+		Labels:           gwLabels,
+		AvailabilityZone: "az",
 	})
 }
 

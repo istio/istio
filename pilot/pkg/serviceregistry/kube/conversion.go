@@ -102,6 +102,8 @@ func convertService(svc v1.Service, domainSuffix string) *model.Service {
 	}
 	sort.Sort(sort.StringSlice(serviceaccounts))
 
+	// Extract the external addresses (IP and/or hostname) from the service if
+	// it is of type LoadBalancer
 	externalAddresses := make([]string, 0)
 	if svc.Spec.Type == v1.ServiceTypeLoadBalancer {
 		for _, lb := range svc.Status.LoadBalancer.Ingress {

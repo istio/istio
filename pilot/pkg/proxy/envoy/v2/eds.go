@@ -215,7 +215,7 @@ func (s *DiscoveryServer) networkGateways(instances []*model.ServiceInstance,
 	endpoints map[string][]endpoint.LocalityLbEndpoints, edsCluster *EdsCluster) map[string]*endpoint.LocalityLbEndpoints {
 	gateways := make(map[string]*endpoint.LocalityLbEndpoints)
 	for _, instance := range instances {
-		network := instance.Labels["ISTIO_NETWORK"]
+		network := instance.Endpoint.NetworkID
 		if gateways[network] != nil || len(endpoints[network]) == 0 {
 			continue
 		}
@@ -230,41 +230,32 @@ func (s *DiscoveryServer) networkGateways(instances []*model.ServiceInstance,
 			continue
 		}
 
-		// First try to get the gateway address from the environment variables
-		// if configured.
-		var addr *core.Address
-		addrIP := instance.Labels["ISTIO_NETWORK_GATEWAY_IP"]
-		addrPort, err := strconv.ParseUint(instance.Labels["ISTIO_NETWORK_GATEWAY_PORT"], 10, 32)
-		if addrIP != "" && err == nil {
-			cfgAddr := util.BuildAddress(addrIP, uint32(addrPort))
-			addr = &cfgAddr
+		// Look for instances of the default ingress gateway for the wanted network
+		ins, err := s.env.ServiceDiscovery.InstancesByPort("istio-ingressgateway.istio-system.svc.cluster.local", 80, model.LabelsCollection{})
+		if err != nil {
+			adsLog.Errora(err)
+			continue
 		}
 
-		// If address not found, try to get the gateway address from its k8s
-		// service.
-		if addr == nil {
-			// We are calling the Services() function and not the GetService()
-			// because it will return services with their ClusterExternals field
-			// set to hold an aggregated map to external addresses for all clusters.
-			// The GetService() will just return the first service found with the
-			// hostname.
-			svcs, err := s.env.ServiceDiscovery.Services()
-			if err == nil {
-				for _, svc := range svcs {
-					if svc.Hostname == "istio-ingressgateway.istio-system.svc.cluster.local" {
-						addrs := svc.ClusterExternals[network]
-						if len(addrs) > 0 && len(svc.Ports) > 0 {
-							addrIP := addrs[0]
-							addrPort := svc.Ports[0].Port
-							cfgAddr := util.BuildAddress(addrIP, uint32(addrPort))
-							addr = &cfgAddr
-						}
-					}
-				}
+		var addr *core.Address
+		for _, gw := range ins {
+			// This check is only required when running with a memory (mock)
+			// service registry (tests) as it also returns irrelevant instances
+			if gw.Endpoint.NetworkID != network {
+				continue
+			}
+
+			// If there are multiple external addresses we pick the
+			// first one
+			addrs := gw.Service.ExternalAddresses
+			if len(addrs) > 0 {
+				addrIP := addrs[0]
+				cfgAddr := util.BuildAddress(addrIP, 80)
+				addr = &cfgAddr
 			}
 		}
 
-		// If address is still missing we can't add the endoint so skip it
+		// If address is missing we can't add the endoint so skip it
 		if addr == nil {
 			continue
 		}
@@ -303,7 +294,7 @@ func localityLbEndpointsFromInstances(instances []*model.ServiceInstance) map[st
 		// TODO: Need to accommodate region, zone and subzone. Older Pilot datamodel only has zone = availability zone.
 		// Once we do that, the key must be a | separated tupple.
 		locality := instance.GetAZ()
-		network := instance.Labels["ISTIO_NETWORK"]
+		network := instance.Endpoint.NetworkID
 		_, found := localityEpMapByNetwork[network]
 		if !found {
 			localityEpMapByNetwork[network] = make(map[string]*endpoint.LocalityLbEndpoints)
