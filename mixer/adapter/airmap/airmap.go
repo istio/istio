@@ -26,6 +26,15 @@ const (
 	defaultValidDuration = 5 * time.Second
 )
 
+var (
+	statusCodeLut = map[access.Code]rpc.Code{
+		access.CodeOK:            rpc.OK,
+		access.CodeForbidden:     rpc.PERMISSION_DENIED,
+		access.CodeUnauthorized:  rpc.UNAUTHENTICATED,
+		access.CodeQuotaExceeded: rpc.RESOURCE_EXHAUSTED,
+	}
+)
+
 type handler struct {
 	controller access.ControllerClient
 }
@@ -78,7 +87,7 @@ func (h *handler) HandleApiKey(ctxt context.Context, instance *apikey.Instance) 
 
 	return adapter.CheckResult{
 		Status: rpc.Status{
-			Code:    int32(result.Status.Code),
+			Code:    int32(statusCodeLut[result.Status.Code]),
 			Message: result.Status.Message,
 		},
 		ValidDuration: duration,
@@ -154,7 +163,7 @@ func (h *handler) HandleAuthorization(ctxt context.Context, instance *authorizat
 
 	return adapter.CheckResult{
 		Status: rpc.Status{
-			Code:    int32(result.Status.Code),
+			Code:    int32(statusCodeLut[result.Status.Code]),
 			Message: result.Status.Message,
 		},
 		ValidDuration: duration,
