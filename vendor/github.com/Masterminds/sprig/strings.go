@@ -183,6 +183,15 @@ func split(sep, orig string) map[string]string {
 	return res
 }
 
+func splitn(sep string, n int, orig string) map[string]string {
+	parts := strings.SplitN(orig, sep, n)
+	res := make(map[string]string, len(parts))
+	for i, v := range parts {
+		res["_"+strconv.Itoa(i)] = v
+	}
+	return res
+}
+
 // substring creates a substring of the given string.
 //
 // If start is < 0, this calls string[:length].

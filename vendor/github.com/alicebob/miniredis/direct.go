@@ -470,7 +470,7 @@ func (m *Miniredis) ZAdd(k string, score float64, member string) (bool, error) {
 func (db *RedisDB) ZAdd(k string, score float64, member string) (bool, error) {
 	db.master.Lock()
 	defer db.master.Unlock()
-	if db.exists(k) && !db.exists(k) && db.t(k) != "zset" {
+	if db.exists(k) && db.t(k) != "zset" {
 		return false, ErrWrongType
 	}
 	return db.ssetAdd(k, score, member), nil

@@ -463,7 +463,7 @@ type AsyncMultiTokenSink struct {
 	evChannels    []*evChannel              // evChannels is an array of evChannels used to emit events asynchronously
 	dpBuffered    int64                     // number of datapoints in the sink that haven't been emitted
 	evBuffered    int64                     // number of events in the sink that haven't been emitted
-	NewHTTPClient func() http.Client        // function used to create an http client for the underlying sinks
+	NewHTTPClient func() *http.Client       // function used to create an http client for the underlying sinks
 	stats         *asyncMultiTokenSinkStats //stats are stats about that sink that can be collected from the Datapoitns() method
 	maxRetry      int                       // maximum number of times to retry sending a set of datapoints or events
 }
@@ -628,8 +628,8 @@ func (a *AsyncMultiTokenSink) Close() (err error) {
 }
 
 // newDefaultHTTPClient returns a default http client for the sink
-func newDefaultHTTPClient() http.Client {
-	return http.Client{
+func newDefaultHTTPClient() *http.Client {
+	return &http.Client{
 		Timeout: DefaultTimeout,
 	}
 }
@@ -646,7 +646,7 @@ type evChannel struct {
 	workers []*eventWorker
 }
 
-func newDPChannel(numDrainingThreads int64, buffer int, batchSize int, DatapointEndpoint string, EventEndpoint string, userAgent string, httpClient func() http.Client, errorHandler func(error) error, stats *asyncMultiTokenSinkStats, closing chan bool, done chan bool, maxRetry int) (dpc *dpChannel) {
+func newDPChannel(numDrainingThreads int64, buffer int, batchSize int, DatapointEndpoint string, EventEndpoint string, userAgent string, httpClient func() *http.Client, errorHandler func(error) error, stats *asyncMultiTokenSinkStats, closing chan bool, done chan bool, maxRetry int) (dpc *dpChannel) {
 	dpc = &dpChannel{
 		input:   make(chan *dpMsg, int64(buffer)),
 		workers: make([]*datapointWorker, numDrainingThreads),
@@ -667,7 +667,7 @@ func newDPChannel(numDrainingThreads int64, buffer int, batchSize int, Datapoint
 	return
 }
 
-func newEVChannel(numDrainingThreads int64, buffer int, batchSize int, DatapointEndpoint string, EventEndpoint string, userAgent string, httpClient func() http.Client, errorHandler func(error) error, stats *asyncMultiTokenSinkStats, closing chan bool, done chan bool, maxRetry int) (evc *evChannel) {
+func newEVChannel(numDrainingThreads int64, buffer int, batchSize int, DatapointEndpoint string, EventEndpoint string, userAgent string, httpClient func() *http.Client, errorHandler func(error) error, stats *asyncMultiTokenSinkStats, closing chan bool, done chan bool, maxRetry int) (evc *evChannel) {
 	evc = &evChannel{
 		input:   make(chan *evMsg, int64(buffer)),
 		workers: make([]*eventWorker, numDrainingThreads),
@@ -689,7 +689,7 @@ func newEVChannel(numDrainingThreads int64, buffer int, batchSize int, Datapoint
 }
 
 // NewAsyncMultiTokenSink returns a sink that asynchronously emits datapoints with different tokens
-func NewAsyncMultiTokenSink(numChannels int64, numDrainingThreads int64, buffer int, batchSize int, DatapointEndpoint string, EventEndpoint string, userAgent string, httpClient func() http.Client, errorHandler func(error) error, maxRetry int) *AsyncMultiTokenSink {
+func NewAsyncMultiTokenSink(numChannels int64, numDrainingThreads int64, buffer int, batchSize int, DatapointEndpoint string, EventEndpoint string, userAgent string, httpClient func() *http.Client, errorHandler func(error) error, maxRetry int) *AsyncMultiTokenSink {
 	a := &AsyncMultiTokenSink{
 		ShutdownTimeout: time.Second * 5,
 		errorHandler:    DefaultErrorHandler,

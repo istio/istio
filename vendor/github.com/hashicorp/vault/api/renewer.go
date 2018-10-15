@@ -64,9 +64,7 @@ type RenewerInput struct {
 	// Secret is the secret to renew
 	Secret *Secret
 
-	// Grace is a minimum renewal before returning so the upstream client
-	// can do a re-read. This can be used to prevent clients from waiting
-	// too long to read a new credential and incur downtime.
+	// DEPRECATED: this does not do anything.
 	Grace time.Duration
 
 	// Rand is the randomizer to use for underlying randomization. If not
@@ -107,8 +105,6 @@ func (c *Client) NewRenewer(i *RenewerInput) (*Renewer, error) {
 		return nil, ErrRenewerMissingSecret
 	}
 
-	grace := i.Grace
-
 	random := i.Rand
 	if random == nil {
 		random = rand.New(rand.NewSource(int64(time.Now().Nanosecond())))
@@ -122,7 +118,6 @@ func (c *Client) NewRenewer(i *RenewerInput) (*Renewer, error) {
 	return &Renewer{
 		client:    c,
 		secret:    secret,
-		grace:     grace,
 		increment: i.Increment,
 		random:    random,
 		doneCh:    make(chan error, 1),
@@ -166,10 +161,7 @@ func (r *Renewer) Renew() {
 		result = r.renewLease()
 	}
 
-	select {
-	case r.doneCh <- result:
-	case <-r.stopCh:
-	}
+	r.doneCh <- result
 }
 
 // renewAuth is a helper for renewing authentication.

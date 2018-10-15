@@ -30,6 +30,9 @@ Set PrintContextObjects = true to enable printing of the context internals.
 */
 var PrintContextObjects = false
 
+// TruncatedDiff choose if we should display a truncated pretty diff or not
+var TruncatedDiff = true
+
 // Ctx interface defined here to keep backwards compatability with go < 1.7
 // It matches the context.Context interface
 type Ctx interface {
@@ -82,7 +85,7 @@ to equal               |
 */
 
 func MessageWithDiff(actual, message, expected string) string {
-	if len(actual) >= truncateThreshold && len(expected) >= truncateThreshold {
+	if TruncatedDiff && len(actual) >= truncateThreshold && len(expected) >= truncateThreshold {
 		diffPoint := findFirstMismatch(actual, expected)
 		formattedActual := truncateAndFormat(actual, diffPoint)
 		formattedExpected := truncateAndFormat(expected, diffPoint)

@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc. All Rights Reserved.
+// Copyright 2017 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -32,6 +32,7 @@ type DialSettings struct {
 	TokenSource     oauth2.TokenSource
 	Credentials     *google.DefaultCredentials
 	CredentialsFile string // if set, Token Source is ignored.
+	CredentialsJSON []byte
 	UserAgent       string
 	APIKey          string
 	HTTPClient      *http.Client
@@ -49,7 +50,24 @@ func (ds *DialSettings) Validate() error {
 	// Credentials should not appear with other options.
 	// We currently allow TokenSource and CredentialsFile to coexist.
 	// TODO(jba): make TokenSource & CredentialsFile an error (breaking change).
-	if ds.Credentials != nil && (ds.APIKey != "" || ds.TokenSource != nil || ds.CredentialsFile != "") {
+	nCreds := 0
+	if ds.Credentials != nil {
+		nCreds++
+	}
+	if ds.CredentialsJSON != nil {
+		nCreds++
+	}
+	if ds.CredentialsFile != "" {
+		nCreds++
+	}
+	if ds.APIKey != "" {
+		nCreds++
+	}
+	if ds.TokenSource != nil {
+		nCreds++
+	}
+	// Accept only one form of credentials, except we allow TokenSource and CredentialsFile for backwards compatibility.
+	if nCreds > 1 && !(nCreds == 2 && ds.TokenSource != nil && ds.CredentialsFile != "") {
 		return errors.New("multiple credential options provided")
 	}
 	if ds.HTTPClient != nil && ds.GRPCConn != nil {
@@ -58,5 +76,6 @@ func (ds *DialSettings) Validate() error {
 	if ds.HTTPClient != nil && ds.GRPCDialOpts != nil {
 		return errors.New("WithHTTPClient is incompatible with gRPC dial options")
 	}
+
 	return nil
 }

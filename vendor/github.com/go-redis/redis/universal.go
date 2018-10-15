@@ -1,6 +1,9 @@
 package redis
 
-import "time"
+import (
+	"crypto/tls"
+	"time"
+)
 
 // UniversalOptions information is required by UniversalClient to establish
 // connections.
@@ -9,33 +12,38 @@ type UniversalOptions struct {
 	// of cluster/sentinel nodes.
 	Addrs []string
 
-	// The sentinel master name.
-	// Only failover clients.
-	MasterName string
-
 	// Database to be selected after connecting to the server.
 	// Only single-node and failover clients.
 	DB int
 
-	// Only cluster clients.
+	// Common options.
 
-	// Enables read only queries on slave nodes.
-	ReadOnly bool
-
-	MaxRedirects   int
-	RouteByLatency bool
-
-	// Common options
-
-	MaxRetries         int
+	OnConnect          func(*Conn) error
 	Password           string
+	MaxRetries         int
+	MinRetryBackoff    time.Duration
+	MaxRetryBackoff    time.Duration
 	DialTimeout        time.Duration
 	ReadTimeout        time.Duration
 	WriteTimeout       time.Duration
 	PoolSize           int
+	MinIdleConns       int
+	MaxConnAge         time.Duration
 	PoolTimeout        time.Duration
 	IdleTimeout        time.Duration
 	IdleCheckFrequency time.Duration
+	TLSConfig          *tls.Config
+
+	// Only cluster clients.
+
+	MaxRedirects   int
+	ReadOnly       bool
+	RouteByLatency bool
+	RouteRandomly  bool
+
+	// The sentinel master name.
+	// Only failover clients.
+	MasterName string
 }
 
 func (o *UniversalOptions) cluster() *ClusterOptions {
@@ -44,20 +52,31 @@ func (o *UniversalOptions) cluster() *ClusterOptions {
 	}
 
 	return &ClusterOptions{
-		Addrs:          o.Addrs,
-		MaxRedirects:   o.MaxRedirects,
-		RouteByLatency: o.RouteByLatency,
-		ReadOnly:       o.ReadOnly,
+		Addrs:     o.Addrs,
+		OnConnect: o.OnConnect,
 
-		MaxRetries:         o.MaxRetries,
-		Password:           o.Password,
+		Password: o.Password,
+
+		MaxRedirects:   o.MaxRedirects,
+		ReadOnly:       o.ReadOnly,
+		RouteByLatency: o.RouteByLatency,
+		RouteRandomly:  o.RouteRandomly,
+
+		MaxRetries:      o.MaxRetries,
+		MinRetryBackoff: o.MinRetryBackoff,
+		MaxRetryBackoff: o.MaxRetryBackoff,
+
 		DialTimeout:        o.DialTimeout,
 		ReadTimeout:        o.ReadTimeout,
 		WriteTimeout:       o.WriteTimeout,
 		PoolSize:           o.PoolSize,
+		MinIdleConns:       o.MinIdleConns,
+		MaxConnAge:         o.MaxConnAge,
 		PoolTimeout:        o.PoolTimeout,
 		IdleTimeout:        o.IdleTimeout,
 		IdleCheckFrequency: o.IdleCheckFrequency,
+
+		TLSConfig: o.TLSConfig,
 	}
 }
 
@@ -69,17 +88,27 @@ func (o *UniversalOptions) failover() *FailoverOptions {
 	return &FailoverOptions{
 		SentinelAddrs: o.Addrs,
 		MasterName:    o.MasterName,
-		DB:            o.DB,
+		OnConnect:     o.OnConnect,
 
-		MaxRetries:         o.MaxRetries,
-		Password:           o.Password,
-		DialTimeout:        o.DialTimeout,
-		ReadTimeout:        o.ReadTimeout,
-		WriteTimeout:       o.WriteTimeout,
+		DB:       o.DB,
+		Password: o.Password,
+
+		MaxRetries:      o.MaxRetries,
+		MinRetryBackoff: o.MinRetryBackoff,
+		MaxRetryBackoff: o.MaxRetryBackoff,
+
+		DialTimeout:  o.DialTimeout,
+		ReadTimeout:  o.ReadTimeout,
+		WriteTimeout: o.WriteTimeout,
+
 		PoolSize:           o.PoolSize,
+		MinIdleConns:       o.MinIdleConns,
+		MaxConnAge:         o.MaxConnAge,
 		PoolTimeout:        o.PoolTimeout,
 		IdleTimeout:        o.IdleTimeout,
 		IdleCheckFrequency: o.IdleCheckFrequency,
+
+		TLSConfig: o.TLSConfig,
 	}
 }
 
@@ -90,18 +119,28 @@ func (o *UniversalOptions) simple() *Options {
 	}
 
 	return &Options{
-		Addr: addr,
-		DB:   o.DB,
+		Addr:      addr,
+		OnConnect: o.OnConnect,
 
-		MaxRetries:         o.MaxRetries,
-		Password:           o.Password,
-		DialTimeout:        o.DialTimeout,
-		ReadTimeout:        o.ReadTimeout,
-		WriteTimeout:       o.WriteTimeout,
+		DB:       o.DB,
+		Password: o.Password,
+
+		MaxRetries:      o.MaxRetries,
+		MinRetryBackoff: o.MinRetryBackoff,
+		MaxRetryBackoff: o.MaxRetryBackoff,
+
+		DialTimeout:  o.DialTimeout,
+		ReadTimeout:  o.ReadTimeout,
+		WriteTimeout: o.WriteTimeout,
+
 		PoolSize:           o.PoolSize,
+		MinIdleConns:       o.MinIdleConns,
+		MaxConnAge:         o.MaxConnAge,
 		PoolTimeout:        o.PoolTimeout,
 		IdleTimeout:        o.IdleTimeout,
 		IdleCheckFrequency: o.IdleCheckFrequency,
+
+		TLSConfig: o.TLSConfig,
 	}
 }
 
@@ -113,6 +152,7 @@ func (o *UniversalOptions) simple() *Options {
 // applications locally.
 type UniversalClient interface {
 	Cmdable
+	Watch(fn func(*Tx) error, keys ...string) error
 	Process(cmd Cmder) error
 	WrapProcess(fn func(oldProcess func(cmd Cmder) error) func(cmd Cmder) error)
 	Subscribe(channels ...string) *PubSub

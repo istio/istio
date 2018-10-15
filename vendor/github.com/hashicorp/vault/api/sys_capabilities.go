@@ -1,6 +1,9 @@
 package api
 
-import "fmt"
+import (
+	"context"
+	"fmt"
+)
 
 func (c *Sys) CapabilitiesSelf(path string) ([]string, error) {
 	return c.Capabilities(c.c.Token(), path)
@@ -22,7 +25,9 @@ func (c *Sys) Capabilities(token, path string) ([]string, error) {
 		return nil, err
 	}
 
-	resp, err := c.c.RawRequest(r)
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
+	resp, err := c.c.RawRequestWithContext(ctx, r)
 	if err != nil {
 		return nil, err
 	}
@@ -34,8 +39,14 @@ func (c *Sys) Capabilities(token, path string) ([]string, error) {
 		return nil, err
 	}
 
+	if result["capabilities"] == nil {
+		return nil, nil
+	}
 	var capabilities []string
-	capabilitiesRaw := result["capabilities"].([]interface{})
+	capabilitiesRaw, ok := result["capabilities"].([]interface{})
+	if !ok {
+		return nil, fmt.Errorf("error interpreting returned capabilities")
+	}
 	for _, capability := range capabilitiesRaw {
 		capabilities = append(capabilities, capability.(string))
 	}

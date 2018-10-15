@@ -189,6 +189,10 @@ func ecThumbprintInput(curve elliptic.Curve, x, y *big.Int) (string, error) {
 		return "", err
 	}
 
+	if len(x.Bytes()) > coordLength || len(y.Bytes()) > coordLength {
+		return "", errors.New("square/go-jose: invalid elliptic key (too large)")
+	}
+
 	return fmt.Sprintf(ecThumbprintTemplate, crv,
 		newFixedSizeBuffer(x.Bytes(), coordLength).base64(),
 		newFixedSizeBuffer(y.Bytes(), coordLength).base64()), nil
@@ -202,6 +206,9 @@ func rsaThumbprintInput(n *big.Int, e int) (string, error) {
 
 func edThumbprintInput(ed ed25519.PublicKey) (string, error) {
 	crv := "Ed25519"
+	if len(ed) > 32 {
+		return "", errors.New("square/go-jose: invalid elliptic key (too large)")
+	}
 	return fmt.Sprintf(edThumbprintTemplate, crv,
 		newFixedSizeBuffer(ed, 32).base64()), nil
 }
@@ -481,6 +488,16 @@ func fromRsaPrivateKey(rsa *rsa.PrivateKey) (*rawJSONWebKey, error) {
 	raw.D = newBuffer(rsa.D.Bytes())
 	raw.P = newBuffer(rsa.Primes[0].Bytes())
 	raw.Q = newBuffer(rsa.Primes[1].Bytes())
+
+	if rsa.Precomputed.Dp != nil {
+		raw.Dp = newBuffer(rsa.Precomputed.Dp.Bytes())
+	}
+	if rsa.Precomputed.Dq != nil {
+		raw.Dq = newBuffer(rsa.Precomputed.Dq.Bytes())
+	}
+	if rsa.Precomputed.Qinv != nil {
+		raw.Qi = newBuffer(rsa.Precomputed.Qinv.Bytes())
+	}
 
 	return raw, nil
 }

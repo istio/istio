@@ -3,10 +3,13 @@ package parseutil
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/hashicorp/errwrap"
+	sockaddr "github.com/hashicorp/go-sockaddr"
 	"github.com/hashicorp/vault/helper/strutil"
 	"github.com/mitchellh/mapstructure"
 )
@@ -25,7 +28,7 @@ func ParseDurationSecond(in interface{}) (time.Duration, error) {
 		}
 		var err error
 		// Look for a suffix otherwise its a plain second value
-		if strings.HasSuffix(inp, "s") || strings.HasSuffix(inp, "m") || strings.HasSuffix(inp, "h") {
+		if strings.HasSuffix(inp, "s") || strings.HasSuffix(inp, "m") || strings.HasSuffix(inp, "h") || strings.HasSuffix(inp, "ms") {
 			dur, err = time.ParseDuration(inp)
 			if err != nil {
 				return dur, err
@@ -117,4 +120,44 @@ func ParseCommaStringSlice(in interface{}) ([]string, error) {
 		return nil, err
 	}
 	return strutil.TrimStrings(result), nil
+}
+
+func ParseAddrs(addrs interface{}) ([]*sockaddr.SockAddrMarshaler, error) {
+	out := make([]*sockaddr.SockAddrMarshaler, 0)
+	stringAddrs := make([]string, 0)
+
+	switch addrs.(type) {
+	case string:
+		stringAddrs = strutil.ParseArbitraryStringSlice(addrs.(string), ",")
+		if len(stringAddrs) == 0 {
+			return nil, fmt.Errorf("unable to parse addresses from %v", addrs)
+		}
+
+	case []string:
+		stringAddrs = addrs.([]string)
+
+	case []interface{}:
+		for _, v := range addrs.([]interface{}) {
+			stringAddr, ok := v.(string)
+			if !ok {
+				return nil, fmt.Errorf("error parsing %v as string", v)
+			}
+			stringAddrs = append(stringAddrs, stringAddr)
+		}
+
+	default:
+		return nil, fmt.Errorf("unknown address input type %T", addrs)
+	}
+
+	for _, addr := range stringAddrs {
+		sa, err := sockaddr.NewSockAddr(addr)
+		if err != nil {
+			return nil, errwrap.Wrapf(fmt.Sprintf("error parsing address %q: {{err}}", addr), err)
+		}
+		out = append(out, &sockaddr.SockAddrMarshaler{
+			SockAddr: sa,
+		})
+	}
+
+	return out, nil
 }

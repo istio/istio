@@ -1,16 +1,18 @@
 before_install:
   - ./install-protobuf.sh
   - PATH=/home/travis/bin:$PATH protoc --version
-  - go get github.com/gogo/protobuf/protoc-gen-gogo/descriptor
-  - go get github.com/gogo/protobuf/types
-  - go get github.com/gogo/protobuf/protoc-gen-gogotypes
-  - go get github.com/gogo/protobuf/gogoreplace
+  - curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
+  - dep ensure --vendor-only
   - echo $TRAVIS_GO_VERSION
 
 script:
-  - PATH=/home/travis/bin:$PATH make test
+  - PATH=/home/travis/bin:$PATH make regenerate
+  - git diff --exit-code
 
 language: go
 
 go:
-  - 1.9.x
+  - "1.9.x"
+  - "1.10.x"
+  - tip
+

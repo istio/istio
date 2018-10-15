@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"net/http"
 	"strings"
 	"time"
 
@@ -118,6 +120,53 @@ func contains(sli []string, ele string) bool {
 	return false
 }
 
+// Returns the Claims from the distributed JWT token
+func resolveDistributedClaim(ctx context.Context, verifier *IDTokenVerifier, src claimSource) ([]byte, error) {
+	req, err := http.NewRequest("GET", src.Endpoint, nil)
+	if err != nil {
+		return nil, fmt.Errorf("malformed request: %v", err)
+	}
+	if src.AccessToken != "" {
+		req.Header.Set("Authorization", "Bearer "+src.AccessToken)
+	}
+
+	resp, err := doRequest(ctx, req)
+	if err != nil {
+		return nil, fmt.Errorf("oidc: Request to endpoint failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("unable to read response body: %v", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("oidc: request failed: %v", resp.StatusCode)
+	}
+
+	token, err := verifier.Verify(ctx, string(body))
+	if err != nil {
+		return nil, fmt.Errorf("malformed response body: %v", err)
+	}
+
+	return token.claims, nil
+}
+
+func parseClaim(raw []byte, name string, v interface{}) error {
+	var parsed map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &parsed); err != nil {
+		return err
+	}
+
+	val, ok := parsed[name]
+	if !ok {
+		return fmt.Errorf("claim doesn't exist: %s", name)
+	}
+
+	return json.Unmarshal([]byte(val), v)
+}
+
 // Verify parses a raw ID Token, verifies it's been signed by the provider, preforms
 // any additional checks depending on the Config, and returns the payload.
 //
@@ -155,15 +204,30 @@ func (v *IDTokenVerifier) Verify(ctx context.Context, rawIDToken string) (*IDTok
 		return nil, fmt.Errorf("oidc: failed to unmarshal claims: %v", err)
 	}
 
+	distributedClaims := make(map[string]claimSource)
+
+	//step through the token to map claim names to claim sources"
+	for cn, src := range token.ClaimNames {
+		if src == "" {
+			return nil, fmt.Errorf("oidc: failed to obtain source from claim name")
+		}
+		s, ok := token.ClaimSources[src]
+		if !ok {
+			return nil, fmt.Errorf("oidc: source does not exist")
+		}
+		distributedClaims[cn] = s
+	}
+
 	t := &IDToken{
-		Issuer:          token.Issuer,
-		Subject:         token.Subject,
-		Audience:        []string(token.Audience),
-		Expiry:          time.Time(token.Expiry),
-		IssuedAt:        time.Time(token.IssuedAt),
-		Nonce:           token.Nonce,
-		AccessTokenHash: token.AtHash,
-		claims:          payload,
+		Issuer:            token.Issuer,
+		Subject:           token.Subject,
+		Audience:          []string(token.Audience),
+		Expiry:            time.Time(token.Expiry),
+		IssuedAt:          time.Time(token.IssuedAt),
+		Nonce:             token.Nonce,
+		AccessTokenHash:   token.AtHash,
+		claims:            payload,
+		distributedClaims: distributedClaims,
 	}
 
 	// Check issuer.

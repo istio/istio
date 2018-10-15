@@ -23,23 +23,34 @@ func NonEmpty(lhs string, rhs string) (bool, error) {
 
 // trimGlobs removes matching prefixes and suffixes from g1, g2, or returns false if prefixes/suffixes don't match.
 func trimGlobs(g1, g2 Glob) (Glob, Glob, bool) {
-	var l1, r1, l2, r2 int
+	var l, r1, r2 int
 
 	// Trim from the beginning until a flagged Token or a mismatch is found.
-	for l1, l2 = 0, 0; l1 < len(g1) && l2 < len(g2) && g1[l1].Flag() == FlagNone && g2[l2].Flag() == FlagNone; l1, l2 = l1+1, l2+1 {
-		if !Match(g1[l1], g2[l2]) {
+	for l = 0; l < len(g1) && l < len(g2) && g1[l].Flag() == FlagNone && g2[l].Flag() == FlagNone; l++ {
+		if !Match(g1[l], g2[l]) {
 			return nil, nil, false
 		}
 	}
 
+	// Leave one prefix Token untrimmed to avoid empty Globs because those will break the algorithm.
+	if l > 0 {
+		l--
+	}
+
 	// Trim from the end until a flagged Token or a mismatch is found.
-	for r1, r2 = len(g1)-1, len(g2)-1; r1 >= 0 && r1 >= l1 && r2 >= 0 && r2 >= l2 && g1[r1].Flag() == FlagNone && g2[r2].Flag() == FlagNone; r1, r2 = r1-1, r2-1 {
+	for r1, r2 = len(g1)-1, len(g2)-1; r1 >= 0 && r1 >= l && r2 >= 0 && r2 >= l && g1[r1].Flag() == FlagNone && g2[r2].Flag() == FlagNone; r1, r2 = r1-1, r2-1 {
 		if !Match(g1[r1], g2[r2]) {
 			return nil, nil, false
 		}
 	}
 
-	return g1[l1 : r1+1], g2[l2 : r2+1], true
+	// Leave one suffix Token untrimmed to avoid empty Globs because those will break the algorithm.
+	if r1 < len(g1)-1 {
+		r1++
+		r2++
+	}
+
+	return g1[l : r1+1], g2[l : r2+1], true
 }
 
 // All uses of `intersection exists` below mean that the intersection of the globs matches a non-empty set of non-empty strings.

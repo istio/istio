@@ -9,7 +9,7 @@ import (
 /*
 The Exit matcher operates on a session:
 
-	Ω(session).Should(Exit(<optional status code>))
+	Expect(session).Should(Exit(<optional status code>))
 
 Exit passes if the session has already exited.
 

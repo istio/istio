@@ -33,7 +33,7 @@ func (m *InternalRoutesRequest) Reset()         { *m = InternalRoutesRequest{} }
 func (m *InternalRoutesRequest) String() string { return proto.CompactTextString(m) }
 func (*InternalRoutesRequest) ProtoMessage()    {}
 func (*InternalRoutesRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_istio_e9c83f90e20ab33a, []int{0}
+	return fileDescriptor_8af1f0fbc99b8df1, []int{0}
 }
 func (m *InternalRoutesRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_InternalRoutesRequest.Unmarshal(m, b)
@@ -54,7 +54,7 @@ func (m *InternalRoutesRequest) XXX_DiscardUnknown() {
 var xxx_messageInfo_InternalRoutesRequest proto.InternalMessageInfo
 
 type InternalRoutesResponse struct {
-	InternalRoutes       []*InternalRouteWithBackends `protobuf:"bytes,1,rep,name=internal_routes,json=internalRoutes" json:"internal_routes,omitempty"`
+	InternalRoutes       []*InternalRouteWithBackends `protobuf:"bytes,1,rep,name=internal_routes,json=internalRoutes,proto3" json:"internal_routes,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                     `json:"-"`
 	XXX_unrecognized     []byte                       `json:"-"`
 	XXX_sizecache        int32                        `json:"-"`
@@ -64,7 +64,7 @@ func (m *InternalRoutesResponse) Reset()         { *m = InternalRoutesResponse{}
 func (m *InternalRoutesResponse) String() string { return proto.CompactTextString(m) }
 func (*InternalRoutesResponse) ProtoMessage()    {}
 func (*InternalRoutesResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_istio_e9c83f90e20ab33a, []int{1}
+	return fileDescriptor_8af1f0fbc99b8df1, []int{1}
 }
 func (m *InternalRoutesResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_InternalRoutesResponse.Unmarshal(m, b)
@@ -92,9 +92,9 @@ func (m *InternalRoutesResponse) GetInternalRoutes() []*InternalRouteWithBackend
 }
 
 type InternalRouteWithBackends struct {
-	Hostname             string      `protobuf:"bytes,1,opt,name=hostname" json:"hostname,omitempty"`
-	Vip                  string      `protobuf:"bytes,2,opt,name=vip" json:"vip,omitempty"`
-	Backends             *BackendSet `protobuf:"bytes,3,opt,name=backends" json:"backends,omitempty"`
+	Hostname             string      `protobuf:"bytes,1,opt,name=hostname,proto3" json:"hostname,omitempty"`
+	Vip                  string      `protobuf:"bytes,2,opt,name=vip,proto3" json:"vip,omitempty"`
+	Backends             *BackendSet `protobuf:"bytes,3,opt,name=backends,proto3" json:"backends,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
 	XXX_unrecognized     []byte      `json:"-"`
 	XXX_sizecache        int32       `json:"-"`
@@ -104,7 +104,7 @@ func (m *InternalRouteWithBackends) Reset()         { *m = InternalRouteWithBack
 func (m *InternalRouteWithBackends) String() string { return proto.CompactTextString(m) }
 func (*InternalRouteWithBackends) ProtoMessage()    {}
 func (*InternalRouteWithBackends) Descriptor() ([]byte, []int) {
-	return fileDescriptor_istio_e9c83f90e20ab33a, []int{2}
+	return fileDescriptor_8af1f0fbc99b8df1, []int{2}
 }
 func (m *InternalRouteWithBackends) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_InternalRouteWithBackends.Unmarshal(m, b)
@@ -155,7 +155,7 @@ func (m *RoutesRequest) Reset()         { *m = RoutesRequest{} }
 func (m *RoutesRequest) String() string { return proto.CompactTextString(m) }
 func (*RoutesRequest) ProtoMessage()    {}
 func (*RoutesRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_istio_e9c83f90e20ab33a, []int{3}
+	return fileDescriptor_8af1f0fbc99b8df1, []int{3}
 }
 func (m *RoutesRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RoutesRequest.Unmarshal(m, b)
@@ -176,7 +176,7 @@ func (m *RoutesRequest) XXX_DiscardUnknown() {
 var xxx_messageInfo_RoutesRequest proto.InternalMessageInfo
 
 type RoutesResponse struct {
-	Routes               []*RouteWithBackends `protobuf:"bytes,2,rep,name=routes" json:"routes,omitempty"`
+	Routes               []*RouteWithBackends `protobuf:"bytes,2,rep,name=routes,proto3" json:"routes,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}             `json:"-"`
 	XXX_unrecognized     []byte               `json:"-"`
 	XXX_sizecache        int32                `json:"-"`
@@ -186,7 +186,7 @@ func (m *RoutesResponse) Reset()         { *m = RoutesResponse{} }
 func (m *RoutesResponse) String() string { return proto.CompactTextString(m) }
 func (*RoutesResponse) ProtoMessage()    {}
 func (*RoutesResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_istio_e9c83f90e20ab33a, []int{4}
+	return fileDescriptor_8af1f0fbc99b8df1, []int{4}
 }
 func (m *RoutesResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RoutesResponse.Unmarshal(m, b)
@@ -214,11 +214,11 @@ func (m *RoutesResponse) GetRoutes() []*RouteWithBackends {
 }
 
 type RouteWithBackends struct {
-	Hostname             string      `protobuf:"bytes,1,opt,name=hostname" json:"hostname,omitempty"`
-	Path                 string      `protobuf:"bytes,2,opt,name=path" json:"path,omitempty"`
-	Backends             *BackendSet `protobuf:"bytes,3,opt,name=backends" json:"backends,omitempty"`
-	CapiProcessGuid      string      `protobuf:"bytes,4,opt,name=capi_process_guid,json=capiProcessGuid" json:"capi_process_guid,omitempty"`
-	RouteWeight          int32       `protobuf:"varint,5,opt,name=route_weight,json=routeWeight" json:"route_weight,omitempty"`
+	Hostname             string      `protobuf:"bytes,1,opt,name=hostname,proto3" json:"hostname,omitempty"`
+	Path                 string      `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
+	Backends             *BackendSet `protobuf:"bytes,3,opt,name=backends,proto3" json:"backends,omitempty"`
+	CapiProcessGuid      string      `protobuf:"bytes,4,opt,name=capi_process_guid,json=capiProcessGuid,proto3" json:"capi_process_guid,omitempty"`
+	RouteWeight          int32       `protobuf:"varint,5,opt,name=route_weight,json=routeWeight,proto3" json:"route_weight,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
 	XXX_unrecognized     []byte      `json:"-"`
 	XXX_sizecache        int32       `json:"-"`
@@ -228,7 +228,7 @@ func (m *RouteWithBackends) Reset()         { *m = RouteWithBackends{} }
 func (m *RouteWithBackends) String() string { return proto.CompactTextString(m) }
 func (*RouteWithBackends) ProtoMessage()    {}
 func (*RouteWithBackends) Descriptor() ([]byte, []int) {
-	return fileDescriptor_istio_e9c83f90e20ab33a, []int{5}
+	return fileDescriptor_8af1f0fbc99b8df1, []int{5}
 }
 func (m *RouteWithBackends) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RouteWithBackends.Unmarshal(m, b)
@@ -284,7 +284,7 @@ func (m *RouteWithBackends) GetRouteWeight() int32 {
 }
 
 type BackendSet struct {
-	Backends             []*Backend `protobuf:"bytes,1,rep,name=backends" json:"backends,omitempty"`
+	Backends             []*Backend `protobuf:"bytes,1,rep,name=backends,proto3" json:"backends,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}   `json:"-"`
 	XXX_unrecognized     []byte     `json:"-"`
 	XXX_sizecache        int32      `json:"-"`
@@ -294,7 +294,7 @@ func (m *BackendSet) Reset()         { *m = BackendSet{} }
 func (m *BackendSet) String() string { return proto.CompactTextString(m) }
 func (*BackendSet) ProtoMessage()    {}
 func (*BackendSet) Descriptor() ([]byte, []int) {
-	return fileDescriptor_istio_e9c83f90e20ab33a, []int{6}
+	return fileDescriptor_8af1f0fbc99b8df1, []int{6}
 }
 func (m *BackendSet) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_BackendSet.Unmarshal(m, b)
@@ -322,8 +322,8 @@ func (m *BackendSet) GetBackends() []*Backend {
 }
 
 type Backend struct {
-	Address              string   `protobuf:"bytes,1,opt,name=address" json:"address,omitempty"`
-	Port                 uint32   `protobuf:"varint,2,opt,name=port" json:"port,omitempty"`
+	Address              string   `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
+	Port                 uint32   `protobuf:"varint,2,opt,name=port,proto3" json:"port,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -333,7 +333,7 @@ func (m *Backend) Reset()         { *m = Backend{} }
 func (m *Backend) String() string { return proto.CompactTextString(m) }
 func (*Backend) ProtoMessage()    {}
 func (*Backend) Descriptor() ([]byte, []int) {
-	return fileDescriptor_istio_e9c83f90e20ab33a, []int{7}
+	return fileDescriptor_8af1f0fbc99b8df1, []int{7}
 }
 func (m *Backend) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Backend.Unmarshal(m, b)
@@ -430,8 +430,7 @@ func (c *istioCopilotClient) InternalRoutes(ctx context.Context, in *InternalRou
 	return out, nil
 }
 
-// Server API for IstioCopilot service
-
+// IstioCopilotServer is the server API for IstioCopilot service.
 type IstioCopilotServer interface {
 	Health(context.Context, *HealthRequest) (*HealthResponse, error)
 	Routes(context.Context, *RoutesRequest) (*RoutesResponse, error)
@@ -517,9 +516,9 @@ var _IstioCopilot_serviceDesc = grpc.ServiceDesc{
 	Metadata: "istio.proto",
 }
 
-func init() { proto.RegisterFile("istio.proto", fileDescriptor_istio_e9c83f90e20ab33a) }
+func init() { proto.RegisterFile("istio.proto", fileDescriptor_8af1f0fbc99b8df1) }
 
-var fileDescriptor_istio_e9c83f90e20ab33a = []byte{
+var fileDescriptor_8af1f0fbc99b8df1 = []byte{
 	// 415 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x93, 0xb1, 0x8f, 0xd3, 0x30,
 	0x14, 0xc6, 0xcf, 0x4d, 0xaf, 0x57, 0x5e, 0x72, 0xcd, 0x9d, 0x11, 0x25, 0x04, 0x09, 0x85, 0x4c,

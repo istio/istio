@@ -1,4 +1,4 @@
-// Commands from http://redis.io/commands#transactions
+// Commands from https://redis.io/commands#transactions
 
 package miniredis
 

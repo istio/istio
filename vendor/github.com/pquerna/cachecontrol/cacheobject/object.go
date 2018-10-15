@@ -243,20 +243,29 @@ func UsingRequestResponse(req *http.Request,
 	statusCode int,
 	respHeaders http.Header,
 	privateCache bool) ([]Reason, time.Time, error) {
+	reasons, time, _, _, err := UsingRequestResponseWithObject(req, statusCode, respHeaders, privateCache)
+	return reasons, time, err
+}
 
+// Evaluate cachability based on an HTTP request, and parts of the response.
+// Returns the parsed Object as well.
+func UsingRequestResponseWithObject(req *http.Request,
+	statusCode int,
+	respHeaders http.Header,
+	privateCache bool) ([]Reason, time.Time, []Warning, *Object, error) {
 	var reqHeaders http.Header
 	var reqMethod string
 
 	var reqDir *RequestCacheDirectives = nil
 	respDir, err := ParseResponseCacheControl(respHeaders.Get("Cache-Control"))
 	if err != nil {
-		return nil, time.Time{}, err
+		return nil, time.Time{}, nil, nil, err
 	}
 
 	if req != nil {
 		reqDir, err = ParseRequestCacheControl(req.Header.Get("Cache-Control"))
 		if err != nil {
-			return nil, time.Time{}, err
+			return nil, time.Time{}, nil, nil, err
 		}
 		reqHeaders = req.Header
 		reqMethod = req.Method
@@ -279,7 +288,7 @@ func UsingRequestResponse(req *http.Request,
 	if respHeaders.Get("Date") != "" {
 		dateHeader, err = http.ParseTime(respHeaders.Get("Date"))
 		if err != nil {
-			return nil, time.Time{}, err
+			return nil, time.Time{}, nil, nil, err
 		}
 		dateHeader = dateHeader.UTC()
 	}
@@ -287,7 +296,7 @@ func UsingRequestResponse(req *http.Request,
 	if respHeaders.Get("Last-Modified") != "" {
 		lastModifiedHeader, err = http.ParseTime(respHeaders.Get("Last-Modified"))
 		if err != nil {
-			return nil, time.Time{}, err
+			return nil, time.Time{}, nil, nil, err
 		}
 		lastModifiedHeader = lastModifiedHeader.UTC()
 	}
@@ -312,15 +321,15 @@ func UsingRequestResponse(req *http.Request,
 
 	CachableObject(&obj, &rv)
 	if rv.OutErr != nil {
-		return nil, time.Time{}, rv.OutErr
+		return nil, time.Time{}, nil, nil, rv.OutErr
 	}
 
 	ExpirationObject(&obj, &rv)
 	if rv.OutErr != nil {
-		return nil, time.Time{}, rv.OutErr
+		return nil, time.Time{}, nil, nil, rv.OutErr
 	}
 
-	return rv.OutReasons, rv.OutExpirationTime, nil
+	return rv.OutReasons, rv.OutExpirationTime, rv.OutWarnings, &obj, nil
 }
 
 // calculate if a freshness directive is present: http://tools.ietf.org/html/rfc7234#section-4.2.1

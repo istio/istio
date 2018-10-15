@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 )
@@ -19,7 +20,10 @@ type ListPluginsResponse struct {
 func (c *Sys) ListPlugins(i *ListPluginsInput) (*ListPluginsResponse, error) {
 	path := "/v1/sys/plugins/catalog"
 	req := c.c.NewRequest("LIST", path)
-	resp, err := c.c.RawRequest(req)
+
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
+	resp, err := c.c.RawRequestWithContext(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -54,18 +58,23 @@ type GetPluginResponse struct {
 func (c *Sys) GetPlugin(i *GetPluginInput) (*GetPluginResponse, error) {
 	path := fmt.Sprintf("/v1/sys/plugins/catalog/%s", i.Name)
 	req := c.c.NewRequest(http.MethodGet, path)
-	resp, err := c.c.RawRequest(req)
+
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
+	resp, err := c.c.RawRequestWithContext(ctx, req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
 
-	var result GetPluginResponse
+	var result struct {
+		Data GetPluginResponse
+	}
 	err = resp.DecodeJSON(&result)
 	if err != nil {
 		return nil, err
 	}
-	return &result, err
+	return &result.Data, err
 }
 
 // RegisterPluginInput is used as input to the RegisterPlugin function.
@@ -91,7 +100,9 @@ func (c *Sys) RegisterPlugin(i *RegisterPluginInput) error {
 		return err
 	}
 
-	resp, err := c.c.RawRequest(req)
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
+	resp, err := c.c.RawRequestWithContext(ctx, req)
 	if err == nil {
 		defer resp.Body.Close()
 	}
@@ -109,7 +120,10 @@ type DeregisterPluginInput struct {
 func (c *Sys) DeregisterPlugin(i *DeregisterPluginInput) error {
 	path := fmt.Sprintf("/v1/sys/plugins/catalog/%s", i.Name)
 	req := c.c.NewRequest(http.MethodDelete, path)
-	resp, err := c.c.RawRequest(req)
+
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
+	resp, err := c.c.RawRequestWithContext(ctx, req)
 	if err == nil {
 		defer resp.Body.Close()
 	}

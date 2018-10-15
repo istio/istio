@@ -1,8 +1,13 @@
 package api
 
+import "context"
+
 func (c *Sys) Leader() (*LeaderResponse, error) {
 	r := c.c.NewRequest("GET", "/v1/sys/leader")
-	resp, err := c.c.RawRequest(r)
+
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
+	resp, err := c.c.RawRequestWithContext(ctx, r)
 	if err != nil {
 		return nil, err
 	}

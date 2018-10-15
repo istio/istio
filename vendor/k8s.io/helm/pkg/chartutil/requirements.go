@@ -1,5 +1,5 @@
 /*
-Copyright 2016 The Kubernetes Authors All rights reserved.
+Copyright The Helm Authors.
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -45,7 +45,7 @@ var (
 type Dependency struct {
 	// Name is the name of the dependency.
 	//
-	// This must mach the name in the dependency's Chart.yaml.
+	// This must match the name in the dependency's Chart.yaml.
 	Name string `json:"name"`
 	// Version is the version (range) of this chart.
 	//
@@ -394,6 +394,21 @@ func processImportValues(c *chart.Chart) error {
 	b := make(map[string]interface{}, 0)
 	// import values from each dependency if specified in import-values
 	for _, r := range reqs.Dependencies {
+		// only process raw requirement that is found in chart's dependencies (enabled)
+		found := false
+		name := r.Name
+		for _, v := range c.Dependencies {
+			if v.Metadata.Name == r.Name {
+				found = true
+			}
+			if v.Metadata.Name == r.Alias {
+				found = true
+				name = r.Alias
+			}
+		}
+		if !found {
+			continue
+		}
 		if len(r.ImportValues) > 0 {
 			var outiv []interface{}
 			for _, riv := range r.ImportValues {
@@ -404,7 +419,7 @@ func processImportValues(c *chart.Chart) error {
 						"parent": iv["parent"].(string),
 					}
 					outiv = append(outiv, nm)
-					s := r.Name + "." + nm["child"]
+					s := name + "." + nm["child"]
 					// get child table
 					vv, err := cvals.Table(s)
 					if err != nil {
@@ -420,7 +435,7 @@ func processImportValues(c *chart.Chart) error {
 						"parent": ".",
 					}
 					outiv = append(outiv, nm)
-					s := r.Name + "." + nm["child"]
+					s := name + "." + nm["child"]
 					vm, err := cvals.Table(s)
 					if err != nil {
 						log.Printf("Warning: ImportValues missing table: %v", err)

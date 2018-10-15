@@ -80,6 +80,7 @@ func (cm *CheckManager) getBrokerCN(broker *api.Broker, submissionURL api.URLTyp
 func (cm *CheckManager) selectBroker() (*api.Broker, error) {
 	var brokerList *[]api.Broker
 	var err error
+	enterpriseType := "enterprise"
 
 	if len(cm.brokerSelectTag) > 0 {
 		filter := api.SearchFilterType{
@@ -107,7 +108,7 @@ func (cm *CheckManager) selectBroker() (*api.Broker, error) {
 		broker := broker
 		if cm.isValidBroker(&broker) {
 			validBrokers[broker.CID] = broker
-			if broker.Type == "enterprise" {
+			if broker.Type == enterpriseType {
 				haveEnterprise = true
 			}
 		}
@@ -115,7 +116,7 @@ func (cm *CheckManager) selectBroker() (*api.Broker, error) {
 
 	if haveEnterprise { // eliminate non-enterprise brokers from valid brokers
 		for k, v := range validBrokers {
-			if v.Type != "enterprise" {
+			if v.Type != enterpriseType {
 				delete(validBrokers, k)
 			}
 		}
@@ -165,7 +166,13 @@ func (cm *CheckManager) brokerSupportsCheckType(checkType CheckTypeType, details
 func (cm *CheckManager) isValidBroker(broker *api.Broker) bool {
 	var brokerHost string
 	var brokerPort string
+
+	if broker.Type != "circonus" && broker.Type != "enterprise" {
+		return false
+	}
+
 	valid := false
+
 	for _, detail := range broker.Details {
 		detail := detail
 
@@ -188,7 +195,7 @@ func (cm *CheckManager) isValidBroker(broker *api.Broker) bool {
 		if detail.ExternalPort != 0 {
 			brokerPort = strconv.Itoa(int(detail.ExternalPort))
 		} else {
-			if *detail.Port != 0 {
+			if detail.Port != nil && *detail.Port != 0 {
 				brokerPort = strconv.Itoa(int(*detail.Port))
 			} else {
 				brokerPort = "43191"
@@ -197,8 +204,13 @@ func (cm *CheckManager) isValidBroker(broker *api.Broker) bool {
 
 		if detail.ExternalHost != nil && *detail.ExternalHost != "" {
 			brokerHost = *detail.ExternalHost
-		} else {
+		} else if detail.IP != nil && *detail.IP != "" {
 			brokerHost = *detail.IP
+		}
+
+		if brokerHost == "" {
+			cm.Log.Printf("[WARN] Broker '%s' instance %s has no IP or external host set", broker.Name, detail.CN)
+			continue
 		}
 
 		if brokerHost == "trap.noit.circonus.net" && brokerPort != "443" {

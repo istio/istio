@@ -1,4 +1,4 @@
-// Commands from http://redis.io/commands#set
+// Commands from https://redis.io/commands#set
 
 package miniredis
 

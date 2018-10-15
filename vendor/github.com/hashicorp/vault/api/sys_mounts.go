@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/mitchellh/mapstructure"
@@ -8,7 +9,10 @@ import (
 
 func (c *Sys) ListMounts() (map[string]*MountOutput, error) {
 	r := c.c.NewRequest("GET", "/v1/sys/mounts")
-	resp, err := c.c.RawRequest(r)
+
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
+	resp, err := c.c.RawRequestWithContext(ctx, r)
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +52,9 @@ func (c *Sys) Mount(path string, mountInfo *MountInput) error {
 		return err
 	}
 
-	resp, err := c.c.RawRequest(r)
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
+	resp, err := c.c.RawRequestWithContext(ctx, r)
 	if err != nil {
 		return err
 	}
@@ -59,7 +65,10 @@ func (c *Sys) Mount(path string, mountInfo *MountInput) error {
 
 func (c *Sys) Unmount(path string) error {
 	r := c.c.NewRequest("DELETE", fmt.Sprintf("/v1/sys/mounts/%s", path))
-	resp, err := c.c.RawRequest(r)
+
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
+	resp, err := c.c.RawRequestWithContext(ctx, r)
 	if err == nil {
 		defer resp.Body.Close()
 	}
@@ -77,7 +86,9 @@ func (c *Sys) Remount(from, to string) error {
 		return err
 	}
 
-	resp, err := c.c.RawRequest(r)
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
+	resp, err := c.c.RawRequestWithContext(ctx, r)
 	if err == nil {
 		defer resp.Body.Close()
 	}
@@ -90,7 +101,9 @@ func (c *Sys) TuneMount(path string, config MountConfigInput) error {
 		return err
 	}
 
-	resp, err := c.c.RawRequest(r)
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
+	resp, err := c.c.RawRequestWithContext(ctx, r)
 	if err == nil {
 		defer resp.Body.Close()
 	}
@@ -100,7 +113,9 @@ func (c *Sys) TuneMount(path string, config MountConfigInput) error {
 func (c *Sys) MountConfig(path string) (*MountConfigOutput, error) {
 	r := c.c.NewRequest("GET", fmt.Sprintf("/v1/sys/mounts/%s/tune", path))
 
-	resp, err := c.c.RawRequest(r)
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
+	resp, err := c.c.RawRequestWithContext(ctx, r)
 	if err != nil {
 		return nil, err
 	}
@@ -128,6 +143,7 @@ type MountInput struct {
 type MountConfigInput struct {
 	Options                   map[string]string `json:"options" mapstructure:"options"`
 	DefaultLeaseTTL           string            `json:"default_lease_ttl" mapstructure:"default_lease_ttl"`
+	Description               *string           `json:"description,omitempty" mapstructure:"description"`
 	MaxLeaseTTL               string            `json:"max_lease_ttl" mapstructure:"max_lease_ttl"`
 	ForceNoCache              bool              `json:"force_no_cache" mapstructure:"force_no_cache"`
 	PluginName                string            `json:"plugin_name,omitempty" mapstructure:"plugin_name"`

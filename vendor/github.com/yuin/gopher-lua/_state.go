@@ -1054,7 +1054,6 @@ func (ls *LState) Get(idx int) LValue {
 			return LNil
 		}
 	}
-	return LNil
 }
 
 func (ls *LState) Push(value LValue) {
@@ -1129,6 +1128,10 @@ func (ls *LState) NewThread() (*LState, context.CancelFunc) {
 		thread.ctx, f = context.WithCancel(ls.ctx)
 	}
 	return thread, f
+}
+
+func (ls *LState) NewFunctionFromProto(proto *FunctionProto) *LFunction {
+	return newLFunctionL(proto, ls.Env, int(proto.NumUpvalues))
 }
 
 func (ls *LState) NewUserData() *LUserData {

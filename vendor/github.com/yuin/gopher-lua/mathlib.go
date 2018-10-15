@@ -189,7 +189,7 @@ func mathRandom(L *LState) int {
 		L.Push(LNumber(rand.Float64()))
 	case 1:
 		n := L.CheckInt(1)
-		L.Push(LNumber(rand.Intn(n-1) + 1))
+		L.Push(LNumber(rand.Intn(n) + 1))
 	default:
 		min := L.CheckInt(1)
 		max := L.CheckInt(2) + 1

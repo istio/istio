@@ -27,10 +27,12 @@ func pluck(key string, d ...map[string]interface{}) []interface{} {
 	return res
 }
 
-func keys(dict map[string]interface{}) []string {
+func keys(dicts ...map[string]interface{}) []string {
 	k := []string{}
-	for key := range dict {
-		k = append(k, key)
+	for _, dict := range dicts {
+		for key := range dict {
+			k = append(k, key)
+		}
 	}
 	return k
 }
@@ -83,4 +85,13 @@ func merge(dst map[string]interface{}, srcs ...map[string]interface{}) interface
 		}
 	}
 	return dst
+}
+
+func values(dict map[string]interface{}) []interface{} {
+	values := []interface{}{}
+	for _, value := range dict {
+		values = append(values, value)
+	}
+
+	return values
 }

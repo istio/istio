@@ -5,9 +5,6 @@ import (
 	"github.com/signalfx/golib/log"
 )
 
-// DefaultLogger is used by package structs that don't have a default logger set.
-var DefaultLogger = log.DefaultLogger.CreateChild()
-
 // Trace is a list of spans
 type Trace []*Span
 
@@ -42,6 +39,9 @@ type Annotation struct {
 	Timestamp *float64 `json:"timestamp"`
 	Value     *string  `json:"value"`
 }
+
+// DefaultLogger is used by package structs that don't have a default logger set.
+var DefaultLogger = log.DefaultLogger.CreateChild()
 
 // A Sink is an object that can accept traces and do something with them, like forward them to some endpoint
 type Sink interface {

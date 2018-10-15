@@ -21,7 +21,7 @@ import (
 	"sync"
 	"time"
 
-	redigo "github.com/garyburd/redigo/redis"
+	redigo "github.com/gomodule/redigo/redis"
 
 	"github.com/alicebob/miniredis/server"
 )
@@ -244,7 +244,13 @@ func (m *Miniredis) FastForward(duration time.Duration) {
 func (m *Miniredis) redigo() redigo.Conn {
 	c1, c2 := net.Pipe()
 	m.srv.ServeConn(c1)
-	return redigo.NewConn(c2, 0, 0)
+	c := redigo.NewConn(c2, 0, 0)
+	if m.password != "" {
+		if _, err := c.Do("AUTH", m.password); err != nil {
+			// ?
+		}
+	}
+	return c
 }
 
 // Dump returns a text version of the selected DB, usable for debugging.

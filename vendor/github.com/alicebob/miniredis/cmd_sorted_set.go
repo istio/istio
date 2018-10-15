@@ -1,4 +1,4 @@
-// Commands from http://redis.io/commands#sorted_set
+// Commands from https://redis.io/commands#sorted_set
 
 package miniredis
 

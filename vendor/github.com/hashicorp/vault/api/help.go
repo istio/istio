@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"fmt"
 )
 
@@ -8,7 +9,10 @@ import (
 func (c *Client) Help(path string) (*Help, error) {
 	r := c.NewRequest("GET", fmt.Sprintf("/v1/%s", path))
 	r.Params.Add("help", "1")
-	resp, err := c.RawRequest(r)
+
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
+	resp, err := c.RawRequestWithContext(ctx, r)
 	if err != nil {
 		return nil, err
 	}

@@ -1,4 +1,4 @@
-// Copyright 2015 Google Inc. All Rights Reserved.
+// Copyright 2015 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ package grpc
 
 import (
 	"errors"
+	"log"
 
 	"golang.org/x/net/context"
 	"google.golang.org/api/internal"
@@ -62,6 +63,9 @@ func dial(ctx context.Context, insecure bool, opts []option.ClientOption) (*grpc
 	if insecure {
 		grpcOpts = []grpc.DialOption{grpc.WithInsecure()}
 	} else if !o.NoAuth {
+		if o.APIKey != "" {
+			log.Print("API keys are not supported for gRPC APIs. Remove the WithAPIKey option from your client-creating call.")
+		}
 		creds, err := internal.Creds(ctx, &o)
 		if err != nil {
 			return nil, err

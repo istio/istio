@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc. All Rights Reserved.
+// Copyright 2017 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,6 +27,9 @@ import (
 func Creds(ctx context.Context, ds *DialSettings) (*google.DefaultCredentials, error) {
 	if ds.Credentials != nil {
 		return ds.Credentials, nil
+	}
+	if ds.CredentialsJSON != nil {
+		return google.CredentialsFromJSON(ctx, ds.CredentialsJSON, ds.Scopes...)
 	}
 	if ds.CredentialsFile != "" {
 		data, err := ioutil.ReadFile(ds.CredentialsFile)

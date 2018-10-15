@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"time"
@@ -101,7 +102,8 @@ func (s *Secret) TokenRemainingUses() (int, error) {
 }
 
 // TokenPolicies returns the standardized list of policies for the given secret.
-// If the secret is nil or does not contain any policies, this returns nil.
+// If the secret is nil or does not contain any policies, this returns nil. It
+// also populates the secret's Auth info with identity/token policy info.
 func (s *Secret) TokenPolicies() ([]string, error) {
 	if s == nil {
 		return nil, nil
@@ -115,24 +117,74 @@ func (s *Secret) TokenPolicies() ([]string, error) {
 		return nil, nil
 	}
 
-	sList, ok := s.Data["policies"].([]string)
-	if ok {
-		return sList, nil
-	}
+	var tokenPolicies []string
 
-	list, ok := s.Data["policies"].([]interface{})
-	if !ok {
-		return nil, fmt.Errorf("unable to convert token policies to expected format")
-	}
-
-	policies := make([]string, len(list))
-	for i := range list {
-		p, ok := list[i].(string)
+	// Token policies
+	{
+		_, ok := s.Data["policies"]
 		if !ok {
-			return nil, fmt.Errorf("unable to convert policy %v to string", list[i])
+			goto TOKEN_DONE
 		}
-		policies[i] = p
+
+		sList, ok := s.Data["policies"].([]string)
+		if ok {
+			tokenPolicies = sList
+			goto TOKEN_DONE
+		}
+
+		list, ok := s.Data["policies"].([]interface{})
+		if !ok {
+			return nil, fmt.Errorf("unable to convert token policies to expected format")
+		}
+		for _, v := range list {
+			p, ok := v.(string)
+			if !ok {
+				return nil, fmt.Errorf("unable to convert policy %v to string", v)
+			}
+			tokenPolicies = append(tokenPolicies, p)
+		}
 	}
+
+TOKEN_DONE:
+	var identityPolicies []string
+
+	// Identity policies
+	{
+		_, ok := s.Data["identity_policies"]
+		if !ok {
+			goto DONE
+		}
+
+		sList, ok := s.Data["identity_policies"].([]string)
+		if ok {
+			identityPolicies = sList
+			goto DONE
+		}
+
+		list, ok := s.Data["identity_policies"].([]interface{})
+		if !ok {
+			return nil, fmt.Errorf("unable to convert identity policies to expected format")
+		}
+		for _, v := range list {
+			p, ok := v.(string)
+			if !ok {
+				return nil, fmt.Errorf("unable to convert policy %v to string", v)
+			}
+			identityPolicies = append(identityPolicies, p)
+		}
+	}
+
+DONE:
+
+	if s.Auth == nil {
+		s.Auth = &SecretAuth{}
+	}
+
+	policies := append(tokenPolicies, identityPolicies...)
+
+	s.Auth.TokenPolicies = tokenPolicies
+	s.Auth.IdentityPolicies = identityPolicies
+	s.Auth.Policies = policies
 
 	return policies, nil
 }
@@ -234,10 +286,12 @@ type SecretWrapInfo struct {
 
 // SecretAuth is the structure containing auth information if we have it.
 type SecretAuth struct {
-	ClientToken string            `json:"client_token"`
-	Accessor    string            `json:"accessor"`
-	Policies    []string          `json:"policies"`
-	Metadata    map[string]string `json:"metadata"`
+	ClientToken      string            `json:"client_token"`
+	Accessor         string            `json:"accessor"`
+	Policies         []string          `json:"policies"`
+	TokenPolicies    []string          `json:"token_policies"`
+	IdentityPolicies []string          `json:"identity_policies"`
+	Metadata         map[string]string `json:"metadata"`
 
 	LeaseDuration int  `json:"lease_duration"`
 	Renewable     bool `json:"renewable"`
@@ -245,9 +299,20 @@ type SecretAuth struct {
 
 // ParseSecret is used to parse a secret value from JSON from an io.Reader.
 func ParseSecret(r io.Reader) (*Secret, error) {
+	// First read the data into a buffer. Not super efficient but we want to
+	// know if we actually have a body or not.
+	var buf bytes.Buffer
+	_, err := buf.ReadFrom(r)
+	if err != nil {
+		return nil, err
+	}
+	if buf.Len() == 0 {
+		return nil, nil
+	}
+
 	// First decode the JSON into a map[string]interface{}
 	var secret Secret
-	if err := jsonutil.DecodeJSONFromReader(r, &secret); err != nil {
+	if err := jsonutil.DecodeJSONFromReader(&buf, &secret); err != nil {
 		return nil, err
 	}
 

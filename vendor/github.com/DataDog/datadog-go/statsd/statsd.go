@@ -178,6 +178,9 @@ func (c *Client) format(name string, value interface{}, suffix []byte, tags []st
 
 // SetWriteTimeout allows the user to set a custom UDS write timeout. Not supported for UDP.
 func (c *Client) SetWriteTimeout(d time.Duration) error {
+	if c == nil {
+		return nil
+	}
 	return c.writer.SetWriteTimeout(d)
 }
 
@@ -262,6 +265,9 @@ func copyAndResetBuffer(buf *bytes.Buffer) []byte {
 
 // Flush forces a flush of the pending commands in the buffer
 func (c *Client) Flush() error {
+	if c == nil {
+		return nil
+	}
 	c.Lock()
 	defer c.Unlock()
 	return c.flushLocked()
@@ -389,6 +395,9 @@ func (c *Client) SimpleEvent(title, text string) error {
 
 // ServiceCheck sends the provided ServiceCheck.
 func (c *Client) ServiceCheck(sc *ServiceCheck) error {
+	if c == nil {
+		return nil
+	}
 	stat, err := sc.Encode(c.Tags...)
 	if err != nil {
 		return err

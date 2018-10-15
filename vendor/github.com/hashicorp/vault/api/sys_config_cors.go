@@ -1,8 +1,13 @@
 package api
 
+import "context"
+
 func (c *Sys) CORSStatus() (*CORSResponse, error) {
 	r := c.c.NewRequest("GET", "/v1/sys/config/cors")
-	resp, err := c.c.RawRequest(r)
+
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
+	resp, err := c.c.RawRequestWithContext(ctx, r)
 	if err != nil {
 		return nil, err
 	}
@@ -19,7 +24,9 @@ func (c *Sys) ConfigureCORS(req *CORSRequest) (*CORSResponse, error) {
 		return nil, err
 	}
 
-	resp, err := c.c.RawRequest(r)
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
+	resp, err := c.c.RawRequestWithContext(ctx, r)
 	if err != nil {
 		return nil, err
 	}
@@ -33,7 +40,9 @@ func (c *Sys) ConfigureCORS(req *CORSRequest) (*CORSResponse, error) {
 func (c *Sys) DisableCORS() (*CORSResponse, error) {
 	r := c.c.NewRequest("DELETE", "/v1/sys/config/cors")
 
-	resp, err := c.c.RawRequest(r)
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
+	resp, err := c.c.RawRequestWithContext(ctx, r)
 	if err != nil {
 		return nil, err
 	}

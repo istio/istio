@@ -1,10 +1,16 @@
 package api
 
-import "time"
+import (
+	"context"
+	"time"
+)
 
 func (c *Sys) Rotate() error {
 	r := c.c.NewRequest("POST", "/v1/sys/rotate")
-	resp, err := c.c.RawRequest(r)
+
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
+	resp, err := c.c.RawRequestWithContext(ctx, r)
 	if err == nil {
 		defer resp.Body.Close()
 	}
@@ -13,7 +19,10 @@ func (c *Sys) Rotate() error {
 
 func (c *Sys) KeyStatus() (*KeyStatus, error) {
 	r := c.c.NewRequest("GET", "/v1/sys/key-status")
-	resp, err := c.c.RawRequest(r)
+
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
+	resp, err := c.c.RawRequestWithContext(ctx, r)
 	if err != nil {
 		return nil, err
 	}

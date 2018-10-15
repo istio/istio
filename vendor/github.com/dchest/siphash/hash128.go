@@ -1,4 +1,4 @@
-// +build !arm,!amd64 appengine gccgo
+// +build !amd64 appengine gccgo
 // Written in 2012 by Dmitry Chestnykh.
 // Modifications 2014 for 128-bit hash function by Damian Gryski.
 //

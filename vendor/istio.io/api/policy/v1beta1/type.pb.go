@@ -6,8 +6,8 @@ package v1beta1
 import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import google_protobuf1 "github.com/gogo/protobuf/types"
 import google_protobuf2 "github.com/gogo/protobuf/types"
+import google_protobuf3 "github.com/gogo/protobuf/types"
 
 import bytes "bytes"
 
@@ -416,14 +416,14 @@ func (m *IPAddress) GetValue() []byte {
 // type Duration
 type Duration struct {
 	// Duration encoded as google.protobuf.Duration.
-	Value *google_protobuf1.Duration `protobuf:"bytes,1,opt,name=value" json:"value,omitempty"`
+	Value *google_protobuf2.Duration `protobuf:"bytes,1,opt,name=value" json:"value,omitempty"`
 }
 
 func (m *Duration) Reset()                    { *m = Duration{} }
 func (*Duration) ProtoMessage()               {}
 func (*Duration) Descriptor() ([]byte, []int) { return fileDescriptorType, []int{2} }
 
-func (m *Duration) GetValue() *google_protobuf1.Duration {
+func (m *Duration) GetValue() *google_protobuf2.Duration {
 	if m != nil {
 		return m.Value
 	}
@@ -437,14 +437,14 @@ func (m *Duration) GetValue() *google_protobuf1.Duration {
 // type TimeStamp
 type TimeStamp struct {
 	// TimeStamp encoded as google.protobuf.Timestamp.
-	Value *google_protobuf2.Timestamp `protobuf:"bytes,1,opt,name=value" json:"value,omitempty"`
+	Value *google_protobuf3.Timestamp `protobuf:"bytes,1,opt,name=value" json:"value,omitempty"`
 }
 
 func (m *TimeStamp) Reset()                    { *m = TimeStamp{} }
 func (*TimeStamp) ProtoMessage()               {}
 func (*TimeStamp) Descriptor() ([]byte, []int) { return fileDescriptorType, []int{3} }
 
-func (m *TimeStamp) GetValue() *google_protobuf2.Timestamp {
+func (m *TimeStamp) GetValue() *google_protobuf3.Timestamp {
 	if m != nil {
 		return m.Value
 	}
@@ -1694,7 +1694,7 @@ func (this *Duration) String() string {
 		return "nil"
 	}
 	s := strings.Join([]string{`&Duration{`,
-		`Value:` + strings.Replace(fmt.Sprintf("%v", this.Value), "Duration", "google_protobuf1.Duration", 1) + `,`,
+		`Value:` + strings.Replace(fmt.Sprintf("%v", this.Value), "Duration", "google_protobuf2.Duration", 1) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -1704,7 +1704,7 @@ func (this *TimeStamp) String() string {
 		return "nil"
 	}
 	s := strings.Join([]string{`&TimeStamp{`,
-		`Value:` + strings.Replace(fmt.Sprintf("%v", this.Value), "Timestamp", "google_protobuf2.Timestamp", 1) + `,`,
+		`Value:` + strings.Replace(fmt.Sprintf("%v", this.Value), "Timestamp", "google_protobuf3.Timestamp", 1) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -2207,7 +2207,7 @@ func (m *Duration) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Value == nil {
-				m.Value = &google_protobuf1.Duration{}
+				m.Value = &google_protobuf2.Duration{}
 			}
 			if err := m.Value.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -2290,7 +2290,7 @@ func (m *TimeStamp) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Value == nil {
-				m.Value = &google_protobuf2.Timestamp{}
+				m.Value = &google_protobuf3.Timestamp{}
 			}
 			if err := m.Value.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err

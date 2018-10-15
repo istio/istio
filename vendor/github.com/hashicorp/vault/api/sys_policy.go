@@ -1,10 +1,16 @@
 package api
 
-import "fmt"
+import (
+	"context"
+	"fmt"
+)
 
 func (c *Sys) ListPolicies() ([]string, error) {
 	r := c.c.NewRequest("GET", "/v1/sys/policy")
-	resp, err := c.c.RawRequest(r)
+
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
+	resp, err := c.c.RawRequestWithContext(ctx, r)
 	if err != nil {
 		return nil, err
 	}
@@ -33,7 +39,10 @@ func (c *Sys) ListPolicies() ([]string, error) {
 
 func (c *Sys) GetPolicy(name string) (string, error) {
 	r := c.c.NewRequest("GET", fmt.Sprintf("/v1/sys/policy/%s", name))
-	resp, err := c.c.RawRequest(r)
+
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
+	resp, err := c.c.RawRequestWithContext(ctx, r)
 	if resp != nil {
 		defer resp.Body.Close()
 		if resp.StatusCode == 404 {
@@ -70,7 +79,9 @@ func (c *Sys) PutPolicy(name, rules string) error {
 		return err
 	}
 
-	resp, err := c.c.RawRequest(r)
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
+	resp, err := c.c.RawRequestWithContext(ctx, r)
 	if err != nil {
 		return err
 	}
@@ -81,7 +92,10 @@ func (c *Sys) PutPolicy(name, rules string) error {
 
 func (c *Sys) DeletePolicy(name string) error {
 	r := c.c.NewRequest("DELETE", fmt.Sprintf("/v1/sys/policy/%s", name))
-	resp, err := c.c.RawRequest(r)
+
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
+	resp, err := c.c.RawRequestWithContext(ctx, r)
 	if err == nil {
 		defer resp.Body.Close()
 	}

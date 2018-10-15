@@ -33,7 +33,7 @@ type Worksheet struct {
 	CID          string                `json:"_cid,omitempty"`          // string
 	Description  *string               `json:"description"`             // string or null
 	Favorite     bool                  `json:"favorite"`                // boolean
-	Graphs       []WorksheetGraph      `json:"worksheets,omitempty"`    // [] len >= 0
+	Graphs       []WorksheetGraph      `json:"graphs"`                  // [] len >= 0
 	Notes        *string               `json:"notes"`                   // string or null
 	SmartQueries []WorksheetSmartQuery `json:"smart_queries,omitempty"` // [] len >= 0
 	Tags         []string              `json:"tags"`                    // [] len >= 0
@@ -42,7 +42,9 @@ type Worksheet struct {
 
 // NewWorksheet returns a new Worksheet (with defaults, if applicable)
 func NewWorksheet() *Worksheet {
-	return &Worksheet{}
+	return &Worksheet{
+		Graphs: []WorksheetGraph{}, // graphs is a required attribute and cannot be null
+	}
 }
 
 // FetchWorksheet retrieves worksheet with passed cid.

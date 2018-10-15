@@ -6,6 +6,7 @@ package api
 
 import (
 	"bytes"
+	"context"
 	crand "crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
@@ -279,7 +280,11 @@ func (a *API) apiCall(reqMethod string, reqPath string, data []byte) ([]byte, er
 
 	// keep last HTTP error in the event of retry failure
 	var lastHTTPError error
-	retryPolicy := func(resp *http.Response, err error) (bool, error) {
+	retryPolicy := func(ctx context.Context, resp *http.Response, err error) (bool, error) {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return false, ctxErr
+		}
+
 		if err != nil {
 			lastHTTPError = err
 			return true, err

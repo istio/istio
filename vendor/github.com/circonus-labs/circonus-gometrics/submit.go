@@ -6,6 +6,7 @@ package circonusgometrics
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -71,7 +72,11 @@ func (m *CirconusMetrics) trapCall(payload []byte) (int, error) {
 
 	// keep last HTTP error in the event of retry failure
 	var lastHTTPError error
-	retryPolicy := func(resp *http.Response, err error) (bool, error) {
+	retryPolicy := func(ctx context.Context, resp *http.Response, err error) (bool, error) {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return false, ctxErr
+		}
+
 		if err != nil {
 			lastHTTPError = err
 			return true, errors.Wrap(err, "retry policy")

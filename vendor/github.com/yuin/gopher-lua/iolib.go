@@ -32,6 +32,7 @@ type lFile struct {
 	pp     *exec.Cmd
 	writer io.Writer
 	reader *bufio.Reader
+	stdout io.ReadCloser
 	closed bool
 }
 
@@ -71,7 +72,7 @@ func newFile(L *LState, file *os.File, path string, flag int, perm os.FileMode, 
 			return nil, err
 		}
 	}
-	lfile := &lFile{fp: file, pp: nil, writer: nil, reader: nil, closed: false}
+	lfile := &lFile{fp: file, pp: nil, writer: nil, reader: nil, stdout: nil, closed: false}
 	ud.Value = lfile
 	if writable {
 		lfile.writer = file
@@ -87,7 +88,7 @@ func newProcess(L *LState, cmd string, writable, readable bool) (*LUserData, err
 	ud := L.NewUserData()
 	c, args := popenArgs(cmd)
 	pp := exec.Command(c, args...)
-	lfile := &lFile{fp: nil, pp: pp, writer: nil, reader: nil, closed: false}
+	lfile := &lFile{fp: nil, pp: pp, writer: nil, reader: nil, stdout: nil, closed: false}
 	ud.Value = lfile
 
 	var err error
@@ -95,9 +96,8 @@ func newProcess(L *LState, cmd string, writable, readable bool) (*LUserData, err
 		lfile.writer, err = pp.StdinPipe()
 	}
 	if readable {
-		var reader io.Reader
-		reader, err = pp.StdoutPipe()
-		lfile.reader = bufio.NewReaderSize(reader, fileDefaultReadBuffer)
+		lfile.stdout, err = pp.StdoutPipe()
+		lfile.reader = bufio.NewReaderSize(lfile.stdout, fileDefaultReadBuffer)
 	}
 	if err != nil {
 		return nil, err
@@ -278,6 +278,9 @@ func fileCloseAux(L *LState, file *lFile) int {
 		L.Push(LTrue)
 		return 1
 	case lFileProcess:
+		if file.stdout != nil {
+			file.stdout.Close() // ignore errors
+		}
 		err = file.pp.Wait()
 		var exitStatus int // Initialised to zero value = 0
 		if err != nil {

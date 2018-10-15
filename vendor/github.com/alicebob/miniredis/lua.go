@@ -1,7 +1,7 @@
 package miniredis
 
 import (
-	redigo "github.com/garyburd/redigo/redis"
+	redigo "github.com/gomodule/redigo/redis"
 	"github.com/yuin/gopher-lua"
 
 	"github.com/alicebob/miniredis/server"
@@ -48,7 +48,7 @@ func mkLuaFuncs(conn redigo.Conn) map[string]lua.LGFunction {
 			}
 
 			if res == nil {
-				l.Push(lua.LNil)
+				l.Push(lua.LFalse)
 			} else {
 				switch r := res.(type) {
 				case int64:
@@ -94,6 +94,10 @@ func mkLuaFuncs(conn redigo.Conn) map[string]lua.LGFunction {
 			l.Push(lua.LString(sha1Hex(msg)))
 			return 1
 		},
+		"replicate_commands": func(l *lua.LState) int {
+			// ignored
+			return 1
+		},
 	}
 }
 
@@ -110,7 +114,7 @@ func luaToRedis(l *lua.LState, c *server.Peer, value lua.LValue) {
 		if lua.LVAsBool(value) {
 			c.WriteInt(1)
 		} else {
-			c.WriteInt(0)
+			c.WriteNull()
 		}
 	case lua.LNumber:
 		c.WriteInt(int(lua.LVAsNumber(value)))
@@ -163,7 +167,7 @@ func redisToLua(l *lua.LState, res []interface{}) *lua.LTable {
 	for _, e := range res {
 		var v lua.LValue
 		if e == nil {
-			v = lua.LValue(nil)
+			v = lua.LFalse
 		} else {
 			switch et := e.(type) {
 			case int64:

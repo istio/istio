@@ -1,4 +1,4 @@
-// Commands from http://redis.io/commands#list
+// Commands from https://redis.io/commands#list
 
 package miniredis
 

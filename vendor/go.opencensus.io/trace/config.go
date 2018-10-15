@@ -14,7 +14,11 @@
 
 package trace
 
-import "go.opencensus.io/trace/internal"
+import (
+	"sync"
+
+	"go.opencensus.io/trace/internal"
+)
 
 // Config represents the global tracing configuration.
 type Config struct {
@@ -25,10 +29,14 @@ type Config struct {
 	IDGenerator internal.IDGenerator
 }
 
+var configWriteMu sync.Mutex
+
 // ApplyConfig applies changes to the global tracing configuration.
 //
 // Fields not provided in the given config are going to be preserved.
 func ApplyConfig(cfg Config) {
+	configWriteMu.Lock()
+	defer configWriteMu.Unlock()
 	c := *config.Load().(*Config)
 	if cfg.DefaultSampler != nil {
 		c.DefaultSampler = cfg.DefaultSampler

@@ -257,3 +257,35 @@ func has(needle interface{}, haystack interface{}) bool {
 		panic(fmt.Sprintf("Cannot find has on type %s", tp))
 	}
 }
+
+// $list := [1, 2, 3, 4, 5]
+// slice $list     -> list[0:5] = list[:]
+// slice $list 0 3 -> list[0:3] = list[:3]
+// slice $list 3 5 -> list[3:5]
+// slice $list 3   -> list[3:5] = list[3:]
+func slice(list interface{}, indices ...interface{}) interface{} {
+	tp := reflect.TypeOf(list).Kind()
+	switch tp {
+	case reflect.Slice, reflect.Array:
+		l2 := reflect.ValueOf(list)
+
+		l := l2.Len()
+		if l == 0 {
+			return nil
+		}
+
+		var start, end int
+		if len(indices) > 0 {
+			start = toInt(indices[0])
+		}
+		if len(indices) < 2 {
+			end = l
+		} else {
+			end = toInt(indices[1])
+		}
+
+		return l2.Slice(start, end).Interface()
+	default:
+		panic(fmt.Sprintf("list should be type of slice or array but %s", tp))
+	}
+}

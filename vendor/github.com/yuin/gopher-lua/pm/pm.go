@@ -600,7 +600,6 @@ redo:
 		goto redo
 	}
 	panic("should not reach here")
-	return false, sp, m
 }
 
 /* }}} */

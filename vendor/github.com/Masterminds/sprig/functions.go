@@ -142,6 +142,7 @@ var genericMap = map[string]interface{}{
 	"nindent":   nindent,
 	"replace":   replace,
 	"plural":    plural,
+	"sha1sum":   sha1sum,
 	"sha256sum": sha256sum,
 	"toString":  strval,
 
@@ -159,6 +160,8 @@ var genericMap = map[string]interface{}{
 	// split "/" foo/bar returns map[int]string{0: foo, 1: bar}
 	"split":     split,
 	"splitList": func(sep, orig string) []string { return strings.Split(orig, sep) },
+	// splitn "/" foo/bar/fuu returns map[int]string{0: foo, 1: bar/fuu}
+	"splitn":    splitn,
 	"toStrings": strslice,
 
 	"until":     until,
@@ -202,6 +205,7 @@ var genericMap = map[string]interface{}{
 	"compact":      compact,
 	"toJson":       toJson,
 	"toPrettyJson": toPrettyJson,
+	"ternary":      ternary,
 
 	// Reflection
 	"typeOf":     typeOf,
@@ -239,6 +243,7 @@ var genericMap = map[string]interface{}{
 	"pick":   pick,
 	"omit":   omit,
 	"merge":  merge,
+	"values": values,
 
 	"append": push, "push": push,
 	"prepend": prepend,
@@ -250,10 +255,12 @@ var genericMap = map[string]interface{}{
 	"uniq":    uniq,
 	"without": without,
 	"has":     has,
+	"slice":   slice,
 
 	// Crypto:
 	"genPrivateKey":     generatePrivateKey,
 	"derivePassword":    derivePassword,
+	"buildCustomCert":   buildCustomCertificate,
 	"genCA":             generateCertificateAuthority,
 	"genSelfSignedCert": generateSelfSignedCertificate,
 	"genSignedCert":     generateSignedCertificate,

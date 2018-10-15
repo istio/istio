@@ -33,7 +33,7 @@ func (m *ListCfRoutesRequest) Reset()         { *m = ListCfRoutesRequest{} }
 func (m *ListCfRoutesRequest) String() string { return proto.CompactTextString(m) }
 func (*ListCfRoutesRequest) ProtoMessage()    {}
 func (*ListCfRoutesRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cloud_controller_055c4e3dfa559a8f, []int{0}
+	return fileDescriptor_5f6413535ca1e72a, []int{0}
 }
 func (m *ListCfRoutesRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ListCfRoutesRequest.Unmarshal(m, b)
@@ -56,7 +56,7 @@ var xxx_messageInfo_ListCfRoutesRequest proto.InternalMessageInfo
 type ListCfRoutesResponse struct {
 	// key is route guid
 	// value is host
-	Routes               map[string]string `protobuf:"bytes,1,rep,name=routes" json:"routes,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Routes               map[string]string `protobuf:"bytes,1,rep,name=routes,proto3" json:"routes,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
 	XXX_unrecognized     []byte            `json:"-"`
 	XXX_sizecache        int32             `json:"-"`
@@ -66,7 +66,7 @@ func (m *ListCfRoutesResponse) Reset()         { *m = ListCfRoutesResponse{} }
 func (m *ListCfRoutesResponse) String() string { return proto.CompactTextString(m) }
 func (*ListCfRoutesResponse) ProtoMessage()    {}
 func (*ListCfRoutesResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cloud_controller_055c4e3dfa559a8f, []int{1}
+	return fileDescriptor_5f6413535ca1e72a, []int{1}
 }
 func (m *ListCfRoutesResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ListCfRoutesResponse.Unmarshal(m, b)
@@ -103,7 +103,7 @@ func (m *ListCfRouteMappingsRequest) Reset()         { *m = ListCfRouteMappingsR
 func (m *ListCfRouteMappingsRequest) String() string { return proto.CompactTextString(m) }
 func (*ListCfRouteMappingsRequest) ProtoMessage()    {}
 func (*ListCfRouteMappingsRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cloud_controller_055c4e3dfa559a8f, []int{2}
+	return fileDescriptor_5f6413535ca1e72a, []int{2}
 }
 func (m *ListCfRouteMappingsRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ListCfRouteMappingsRequest.Unmarshal(m, b)
@@ -126,7 +126,7 @@ var xxx_messageInfo_ListCfRouteMappingsRequest proto.InternalMessageInfo
 type ListCfRouteMappingsResponse struct {
 	// key is '<route guid>-<capi process guid>'
 	// value is a route_mapping
-	RouteMappings        map[string]*RouteMapping `protobuf:"bytes,1,rep,name=route_mappings,json=routeMappings" json:"route_mappings,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	RouteMappings        map[string]*RouteMapping `protobuf:"bytes,1,rep,name=route_mappings,json=routeMappings,proto3" json:"route_mappings,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 	XXX_NoUnkeyedLiteral struct{}                 `json:"-"`
 	XXX_unrecognized     []byte                   `json:"-"`
 	XXX_sizecache        int32                    `json:"-"`
@@ -136,7 +136,7 @@ func (m *ListCfRouteMappingsResponse) Reset()         { *m = ListCfRouteMappings
 func (m *ListCfRouteMappingsResponse) String() string { return proto.CompactTextString(m) }
 func (*ListCfRouteMappingsResponse) ProtoMessage()    {}
 func (*ListCfRouteMappingsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cloud_controller_055c4e3dfa559a8f, []int{3}
+	return fileDescriptor_5f6413535ca1e72a, []int{3}
 }
 func (m *ListCfRouteMappingsResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ListCfRouteMappingsResponse.Unmarshal(m, b)
@@ -175,7 +175,7 @@ func (m *ListCapiDiegoProcessAssociationsRequest) Reset() {
 func (m *ListCapiDiegoProcessAssociationsRequest) String() string { return proto.CompactTextString(m) }
 func (*ListCapiDiegoProcessAssociationsRequest) ProtoMessage()    {}
 func (*ListCapiDiegoProcessAssociationsRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cloud_controller_055c4e3dfa559a8f, []int{4}
+	return fileDescriptor_5f6413535ca1e72a, []int{4}
 }
 func (m *ListCapiDiegoProcessAssociationsRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ListCapiDiegoProcessAssociationsRequest.Unmarshal(m, b)
@@ -199,7 +199,7 @@ var xxx_messageInfo_ListCapiDiegoProcessAssociationsRequest proto.InternalMessag
 // since protobuf does not support list values in maps.
 // it's gross. try not to use it.
 type DiegoProcessGuids struct {
-	DiegoProcessGuids    []string `protobuf:"bytes,1,rep,name=diego_process_guids,json=diegoProcessGuids" json:"diego_process_guids,omitempty"`
+	DiegoProcessGuids    []string `protobuf:"bytes,1,rep,name=diego_process_guids,json=diegoProcessGuids,proto3" json:"diego_process_guids,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -209,7 +209,7 @@ func (m *DiegoProcessGuids) Reset()         { *m = DiegoProcessGuids{} }
 func (m *DiegoProcessGuids) String() string { return proto.CompactTextString(m) }
 func (*DiegoProcessGuids) ProtoMessage()    {}
 func (*DiegoProcessGuids) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cloud_controller_055c4e3dfa559a8f, []int{5}
+	return fileDescriptor_5f6413535ca1e72a, []int{5}
 }
 func (m *DiegoProcessGuids) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_DiegoProcessGuids.Unmarshal(m, b)
@@ -239,7 +239,7 @@ func (m *DiegoProcessGuids) GetDiegoProcessGuids() []string {
 type ListCapiDiegoProcessAssociationsResponse struct {
 	// key is capi process guid
 	// value is a list of diego process guids
-	CapiDiegoProcessAssociations map[string]*DiegoProcessGuids `protobuf:"bytes,1,rep,name=capi_diego_process_associations,json=capiDiegoProcessAssociations" json:"capi_diego_process_associations,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	CapiDiegoProcessAssociations map[string]*DiegoProcessGuids `protobuf:"bytes,1,rep,name=capi_diego_process_associations,json=capiDiegoProcessAssociations,proto3" json:"capi_diego_process_associations,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 	XXX_NoUnkeyedLiteral         struct{}                      `json:"-"`
 	XXX_unrecognized             []byte                        `json:"-"`
 	XXX_sizecache                int32                         `json:"-"`
@@ -251,7 +251,7 @@ func (m *ListCapiDiegoProcessAssociationsResponse) Reset() {
 func (m *ListCapiDiegoProcessAssociationsResponse) String() string { return proto.CompactTextString(m) }
 func (*ListCapiDiegoProcessAssociationsResponse) ProtoMessage()    {}
 func (*ListCapiDiegoProcessAssociationsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cloud_controller_055c4e3dfa559a8f, []int{6}
+	return fileDescriptor_5f6413535ca1e72a, []int{6}
 }
 func (m *ListCapiDiegoProcessAssociationsResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ListCapiDiegoProcessAssociationsResponse.Unmarshal(m, b)
@@ -279,9 +279,9 @@ func (m *ListCapiDiegoProcessAssociationsResponse) GetCapiDiegoProcessAssociatio
 }
 
 type Route struct {
-	Guid                 string   `protobuf:"bytes,1,opt,name=guid" json:"guid,omitempty"`
-	Host                 string   `protobuf:"bytes,2,opt,name=host" json:"host,omitempty"`
-	Path                 string   `protobuf:"bytes,3,opt,name=path" json:"path,omitempty"`
+	Guid                 string   `protobuf:"bytes,1,opt,name=guid,proto3" json:"guid,omitempty"`
+	Host                 string   `protobuf:"bytes,2,opt,name=host,proto3" json:"host,omitempty"`
+	Path                 string   `protobuf:"bytes,3,opt,name=path,proto3" json:"path,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -291,7 +291,7 @@ func (m *Route) Reset()         { *m = Route{} }
 func (m *Route) String() string { return proto.CompactTextString(m) }
 func (*Route) ProtoMessage()    {}
 func (*Route) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cloud_controller_055c4e3dfa559a8f, []int{7}
+	return fileDescriptor_5f6413535ca1e72a, []int{7}
 }
 func (m *Route) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Route.Unmarshal(m, b)
@@ -333,7 +333,7 @@ func (m *Route) GetPath() string {
 }
 
 type UpsertRouteRequest struct {
-	Route                *Route   `protobuf:"bytes,1,opt,name=route" json:"route,omitempty"`
+	Route                *Route   `protobuf:"bytes,1,opt,name=route,proto3" json:"route,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -343,7 +343,7 @@ func (m *UpsertRouteRequest) Reset()         { *m = UpsertRouteRequest{} }
 func (m *UpsertRouteRequest) String() string { return proto.CompactTextString(m) }
 func (*UpsertRouteRequest) ProtoMessage()    {}
 func (*UpsertRouteRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cloud_controller_055c4e3dfa559a8f, []int{8}
+	return fileDescriptor_5f6413535ca1e72a, []int{8}
 }
 func (m *UpsertRouteRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_UpsertRouteRequest.Unmarshal(m, b)
@@ -380,7 +380,7 @@ func (m *UpsertRouteResponse) Reset()         { *m = UpsertRouteResponse{} }
 func (m *UpsertRouteResponse) String() string { return proto.CompactTextString(m) }
 func (*UpsertRouteResponse) ProtoMessage()    {}
 func (*UpsertRouteResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cloud_controller_055c4e3dfa559a8f, []int{9}
+	return fileDescriptor_5f6413535ca1e72a, []int{9}
 }
 func (m *UpsertRouteResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_UpsertRouteResponse.Unmarshal(m, b)
@@ -401,7 +401,7 @@ func (m *UpsertRouteResponse) XXX_DiscardUnknown() {
 var xxx_messageInfo_UpsertRouteResponse proto.InternalMessageInfo
 
 type DeleteRouteRequest struct {
-	Guid                 string   `protobuf:"bytes,1,opt,name=guid" json:"guid,omitempty"`
+	Guid                 string   `protobuf:"bytes,1,opt,name=guid,proto3" json:"guid,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -411,7 +411,7 @@ func (m *DeleteRouteRequest) Reset()         { *m = DeleteRouteRequest{} }
 func (m *DeleteRouteRequest) String() string { return proto.CompactTextString(m) }
 func (*DeleteRouteRequest) ProtoMessage()    {}
 func (*DeleteRouteRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cloud_controller_055c4e3dfa559a8f, []int{10}
+	return fileDescriptor_5f6413535ca1e72a, []int{10}
 }
 func (m *DeleteRouteRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_DeleteRouteRequest.Unmarshal(m, b)
@@ -448,7 +448,7 @@ func (m *DeleteRouteResponse) Reset()         { *m = DeleteRouteResponse{} }
 func (m *DeleteRouteResponse) String() string { return proto.CompactTextString(m) }
 func (*DeleteRouteResponse) ProtoMessage()    {}
 func (*DeleteRouteResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cloud_controller_055c4e3dfa559a8f, []int{11}
+	return fileDescriptor_5f6413535ca1e72a, []int{11}
 }
 func (m *DeleteRouteResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_DeleteRouteResponse.Unmarshal(m, b)
@@ -469,9 +469,9 @@ func (m *DeleteRouteResponse) XXX_DiscardUnknown() {
 var xxx_messageInfo_DeleteRouteResponse proto.InternalMessageInfo
 
 type RouteMapping struct {
-	CapiProcessGuid      string   `protobuf:"bytes,1,opt,name=capi_process_guid,json=capiProcessGuid" json:"capi_process_guid,omitempty"`
-	RouteGuid            string   `protobuf:"bytes,2,opt,name=route_guid,json=routeGuid" json:"route_guid,omitempty"`
-	RouteWeight          int32    `protobuf:"varint,3,opt,name=route_weight,json=routeWeight" json:"route_weight,omitempty"`
+	CapiProcessGuid      string   `protobuf:"bytes,1,opt,name=capi_process_guid,json=capiProcessGuid,proto3" json:"capi_process_guid,omitempty"`
+	RouteGuid            string   `protobuf:"bytes,2,opt,name=route_guid,json=routeGuid,proto3" json:"route_guid,omitempty"`
+	RouteWeight          int32    `protobuf:"varint,3,opt,name=route_weight,json=routeWeight,proto3" json:"route_weight,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -481,7 +481,7 @@ func (m *RouteMapping) Reset()         { *m = RouteMapping{} }
 func (m *RouteMapping) String() string { return proto.CompactTextString(m) }
 func (*RouteMapping) ProtoMessage()    {}
 func (*RouteMapping) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cloud_controller_055c4e3dfa559a8f, []int{12}
+	return fileDescriptor_5f6413535ca1e72a, []int{12}
 }
 func (m *RouteMapping) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RouteMapping.Unmarshal(m, b)
@@ -523,7 +523,7 @@ func (m *RouteMapping) GetRouteWeight() int32 {
 }
 
 type MapRouteRequest struct {
-	RouteMapping         *RouteMapping `protobuf:"bytes,1,opt,name=route_mapping,json=routeMapping" json:"route_mapping,omitempty"`
+	RouteMapping         *RouteMapping `protobuf:"bytes,1,opt,name=route_mapping,json=routeMapping,proto3" json:"route_mapping,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
 	XXX_unrecognized     []byte        `json:"-"`
 	XXX_sizecache        int32         `json:"-"`
@@ -533,7 +533,7 @@ func (m *MapRouteRequest) Reset()         { *m = MapRouteRequest{} }
 func (m *MapRouteRequest) String() string { return proto.CompactTextString(m) }
 func (*MapRouteRequest) ProtoMessage()    {}
 func (*MapRouteRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cloud_controller_055c4e3dfa559a8f, []int{13}
+	return fileDescriptor_5f6413535ca1e72a, []int{13}
 }
 func (m *MapRouteRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_MapRouteRequest.Unmarshal(m, b)
@@ -570,7 +570,7 @@ func (m *MapRouteResponse) Reset()         { *m = MapRouteResponse{} }
 func (m *MapRouteResponse) String() string { return proto.CompactTextString(m) }
 func (*MapRouteResponse) ProtoMessage()    {}
 func (*MapRouteResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cloud_controller_055c4e3dfa559a8f, []int{14}
+	return fileDescriptor_5f6413535ca1e72a, []int{14}
 }
 func (m *MapRouteResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_MapRouteResponse.Unmarshal(m, b)
@@ -591,7 +591,7 @@ func (m *MapRouteResponse) XXX_DiscardUnknown() {
 var xxx_messageInfo_MapRouteResponse proto.InternalMessageInfo
 
 type UnmapRouteRequest struct {
-	RouteMapping         *RouteMapping `protobuf:"bytes,1,opt,name=route_mapping,json=routeMapping" json:"route_mapping,omitempty"`
+	RouteMapping         *RouteMapping `protobuf:"bytes,1,opt,name=route_mapping,json=routeMapping,proto3" json:"route_mapping,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
 	XXX_unrecognized     []byte        `json:"-"`
 	XXX_sizecache        int32         `json:"-"`
@@ -601,7 +601,7 @@ func (m *UnmapRouteRequest) Reset()         { *m = UnmapRouteRequest{} }
 func (m *UnmapRouteRequest) String() string { return proto.CompactTextString(m) }
 func (*UnmapRouteRequest) ProtoMessage()    {}
 func (*UnmapRouteRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cloud_controller_055c4e3dfa559a8f, []int{15}
+	return fileDescriptor_5f6413535ca1e72a, []int{15}
 }
 func (m *UnmapRouteRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_UnmapRouteRequest.Unmarshal(m, b)
@@ -638,7 +638,7 @@ func (m *UnmapRouteResponse) Reset()         { *m = UnmapRouteResponse{} }
 func (m *UnmapRouteResponse) String() string { return proto.CompactTextString(m) }
 func (*UnmapRouteResponse) ProtoMessage()    {}
 func (*UnmapRouteResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cloud_controller_055c4e3dfa559a8f, []int{16}
+	return fileDescriptor_5f6413535ca1e72a, []int{16}
 }
 func (m *UnmapRouteResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_UnmapRouteResponse.Unmarshal(m, b)
@@ -659,8 +659,8 @@ func (m *UnmapRouteResponse) XXX_DiscardUnknown() {
 var xxx_messageInfo_UnmapRouteResponse proto.InternalMessageInfo
 
 type CapiDiegoProcessAssociation struct {
-	CapiProcessGuid      string   `protobuf:"bytes,1,opt,name=capi_process_guid,json=capiProcessGuid" json:"capi_process_guid,omitempty"`
-	DiegoProcessGuids    []string `protobuf:"bytes,2,rep,name=diego_process_guids,json=diegoProcessGuids" json:"diego_process_guids,omitempty"`
+	CapiProcessGuid      string   `protobuf:"bytes,1,opt,name=capi_process_guid,json=capiProcessGuid,proto3" json:"capi_process_guid,omitempty"`
+	DiegoProcessGuids    []string `protobuf:"bytes,2,rep,name=diego_process_guids,json=diegoProcessGuids,proto3" json:"diego_process_guids,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -670,7 +670,7 @@ func (m *CapiDiegoProcessAssociation) Reset()         { *m = CapiDiegoProcessAss
 func (m *CapiDiegoProcessAssociation) String() string { return proto.CompactTextString(m) }
 func (*CapiDiegoProcessAssociation) ProtoMessage()    {}
 func (*CapiDiegoProcessAssociation) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cloud_controller_055c4e3dfa559a8f, []int{17}
+	return fileDescriptor_5f6413535ca1e72a, []int{17}
 }
 func (m *CapiDiegoProcessAssociation) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CapiDiegoProcessAssociation.Unmarshal(m, b)
@@ -705,7 +705,7 @@ func (m *CapiDiegoProcessAssociation) GetDiegoProcessGuids() []string {
 }
 
 type UpsertCapiDiegoProcessAssociationRequest struct {
-	CapiDiegoProcessAssociation *CapiDiegoProcessAssociation `protobuf:"bytes,1,opt,name=capi_diego_process_association,json=capiDiegoProcessAssociation" json:"capi_diego_process_association,omitempty"`
+	CapiDiegoProcessAssociation *CapiDiegoProcessAssociation `protobuf:"bytes,1,opt,name=capi_diego_process_association,json=capiDiegoProcessAssociation,proto3" json:"capi_diego_process_association,omitempty"`
 	XXX_NoUnkeyedLiteral        struct{}                     `json:"-"`
 	XXX_unrecognized            []byte                       `json:"-"`
 	XXX_sizecache               int32                        `json:"-"`
@@ -717,7 +717,7 @@ func (m *UpsertCapiDiegoProcessAssociationRequest) Reset() {
 func (m *UpsertCapiDiegoProcessAssociationRequest) String() string { return proto.CompactTextString(m) }
 func (*UpsertCapiDiegoProcessAssociationRequest) ProtoMessage()    {}
 func (*UpsertCapiDiegoProcessAssociationRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cloud_controller_055c4e3dfa559a8f, []int{18}
+	return fileDescriptor_5f6413535ca1e72a, []int{18}
 }
 func (m *UpsertCapiDiegoProcessAssociationRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_UpsertCapiDiegoProcessAssociationRequest.Unmarshal(m, b)
@@ -756,7 +756,7 @@ func (m *UpsertCapiDiegoProcessAssociationResponse) Reset() {
 func (m *UpsertCapiDiegoProcessAssociationResponse) String() string { return proto.CompactTextString(m) }
 func (*UpsertCapiDiegoProcessAssociationResponse) ProtoMessage()    {}
 func (*UpsertCapiDiegoProcessAssociationResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cloud_controller_055c4e3dfa559a8f, []int{19}
+	return fileDescriptor_5f6413535ca1e72a, []int{19}
 }
 func (m *UpsertCapiDiegoProcessAssociationResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_UpsertCapiDiegoProcessAssociationResponse.Unmarshal(m, b)
@@ -777,7 +777,7 @@ func (m *UpsertCapiDiegoProcessAssociationResponse) XXX_DiscardUnknown() {
 var xxx_messageInfo_UpsertCapiDiegoProcessAssociationResponse proto.InternalMessageInfo
 
 type DeleteCapiDiegoProcessAssociationRequest struct {
-	CapiProcessGuid      string   `protobuf:"bytes,1,opt,name=capi_process_guid,json=capiProcessGuid" json:"capi_process_guid,omitempty"`
+	CapiProcessGuid      string   `protobuf:"bytes,1,opt,name=capi_process_guid,json=capiProcessGuid,proto3" json:"capi_process_guid,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -789,7 +789,7 @@ func (m *DeleteCapiDiegoProcessAssociationRequest) Reset() {
 func (m *DeleteCapiDiegoProcessAssociationRequest) String() string { return proto.CompactTextString(m) }
 func (*DeleteCapiDiegoProcessAssociationRequest) ProtoMessage()    {}
 func (*DeleteCapiDiegoProcessAssociationRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cloud_controller_055c4e3dfa559a8f, []int{20}
+	return fileDescriptor_5f6413535ca1e72a, []int{20}
 }
 func (m *DeleteCapiDiegoProcessAssociationRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_DeleteCapiDiegoProcessAssociationRequest.Unmarshal(m, b)
@@ -828,7 +828,7 @@ func (m *DeleteCapiDiegoProcessAssociationResponse) Reset() {
 func (m *DeleteCapiDiegoProcessAssociationResponse) String() string { return proto.CompactTextString(m) }
 func (*DeleteCapiDiegoProcessAssociationResponse) ProtoMessage()    {}
 func (*DeleteCapiDiegoProcessAssociationResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cloud_controller_055c4e3dfa559a8f, []int{21}
+	return fileDescriptor_5f6413535ca1e72a, []int{21}
 }
 func (m *DeleteCapiDiegoProcessAssociationResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_DeleteCapiDiegoProcessAssociationResponse.Unmarshal(m, b)
@@ -849,9 +849,9 @@ func (m *DeleteCapiDiegoProcessAssociationResponse) XXX_DiscardUnknown() {
 var xxx_messageInfo_DeleteCapiDiegoProcessAssociationResponse proto.InternalMessageInfo
 
 type BulkSyncRequest struct {
-	RouteMappings                []*RouteMapping                `protobuf:"bytes,1,rep,name=route_mappings,json=routeMappings" json:"route_mappings,omitempty"`
-	Routes                       []*Route                       `protobuf:"bytes,2,rep,name=routes" json:"routes,omitempty"`
-	CapiDiegoProcessAssociations []*CapiDiegoProcessAssociation `protobuf:"bytes,3,rep,name=capi_diego_process_associations,json=capiDiegoProcessAssociations" json:"capi_diego_process_associations,omitempty"`
+	RouteMappings                []*RouteMapping                `protobuf:"bytes,1,rep,name=route_mappings,json=routeMappings,proto3" json:"route_mappings,omitempty"`
+	Routes                       []*Route                       `protobuf:"bytes,2,rep,name=routes,proto3" json:"routes,omitempty"`
+	CapiDiegoProcessAssociations []*CapiDiegoProcessAssociation `protobuf:"bytes,3,rep,name=capi_diego_process_associations,json=capiDiegoProcessAssociations,proto3" json:"capi_diego_process_associations,omitempty"`
 	XXX_NoUnkeyedLiteral         struct{}                       `json:"-"`
 	XXX_unrecognized             []byte                         `json:"-"`
 	XXX_sizecache                int32                          `json:"-"`
@@ -861,7 +861,7 @@ func (m *BulkSyncRequest) Reset()         { *m = BulkSyncRequest{} }
 func (m *BulkSyncRequest) String() string { return proto.CompactTextString(m) }
 func (*BulkSyncRequest) ProtoMessage()    {}
 func (*BulkSyncRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cloud_controller_055c4e3dfa559a8f, []int{22}
+	return fileDescriptor_5f6413535ca1e72a, []int{22}
 }
 func (m *BulkSyncRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_BulkSyncRequest.Unmarshal(m, b)
@@ -912,7 +912,7 @@ func (m *BulkSyncResponse) Reset()         { *m = BulkSyncResponse{} }
 func (m *BulkSyncResponse) String() string { return proto.CompactTextString(m) }
 func (*BulkSyncResponse) ProtoMessage()    {}
 func (*BulkSyncResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cloud_controller_055c4e3dfa559a8f, []int{23}
+	return fileDescriptor_5f6413535ca1e72a, []int{23}
 }
 func (m *BulkSyncResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_BulkSyncResponse.Unmarshal(m, b)
@@ -1094,8 +1094,7 @@ func (c *cloudControllerCopilotClient) Health(ctx context.Context, in *HealthReq
 	return out, nil
 }
 
-// Server API for CloudControllerCopilot service
-
+// CloudControllerCopilotServer is the server API for CloudControllerCopilot service.
 type CloudControllerCopilotServer interface {
 	ListCfRoutes(context.Context, *ListCfRoutesRequest) (*ListCfRoutesResponse, error)
 	ListCfRouteMappings(context.Context, *ListCfRouteMappingsRequest) (*ListCfRouteMappingsResponse, error)
@@ -1365,11 +1364,9 @@ var _CloudControllerCopilot_serviceDesc = grpc.ServiceDesc{
 	Metadata: "cloud_controller.proto",
 }
 
-func init() {
-	proto.RegisterFile("cloud_controller.proto", fileDescriptor_cloud_controller_055c4e3dfa559a8f)
-}
+func init() { proto.RegisterFile("cloud_controller.proto", fileDescriptor_5f6413535ca1e72a) }
 
-var fileDescriptor_cloud_controller_055c4e3dfa559a8f = []byte{
+var fileDescriptor_5f6413535ca1e72a = []byte{
 	// 874 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x56, 0x5f, 0x4f, 0xdb, 0x48,
 	0x10, 0x8f, 0x93, 0x0b, 0x77, 0x4c, 0xc2, 0x41, 0x86, 0x00, 0x39, 0xc3, 0x1d, 0xc1, 0xd2, 0x89,

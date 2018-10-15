@@ -1,0 +1,4 @@
+@import './notice/index';
+.notice.warning {
+  @extend %notice-warning;
+}

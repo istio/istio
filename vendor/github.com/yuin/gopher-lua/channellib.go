@@ -46,7 +46,11 @@ func channelSelect(L *LState) int {
 	cases := make([]reflect.SelectCase, L.GetTop())
 	top := L.GetTop()
 	for i := 0; i < top; i++ {
-		cas := reflect.SelectCase{reflect.SelectSend, reflect.ValueOf(nil), reflect.ValueOf(nil)}
+		cas := reflect.SelectCase{
+			Dir:  reflect.SelectSend,
+			Chan: reflect.ValueOf(nil),
+			Send: reflect.ValueOf(nil),
+		}
 		tbl := L.CheckTable(i + 1)
 		dir, ok1 := tbl.RawGetInt(1).(LString)
 		if !ok1 {

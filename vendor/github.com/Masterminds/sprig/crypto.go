@@ -8,10 +8,12 @@ import (
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha1"
 	"crypto/sha256"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
+	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/pem"
@@ -21,7 +23,7 @@ import (
 	"net"
 	"time"
 
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 	"golang.org/x/crypto/scrypt"
 )
 
@@ -30,9 +32,14 @@ func sha256sum(input string) string {
 	return hex.EncodeToString(hash[:])
 }
 
+func sha1sum(input string) string {
+	hash := sha1.Sum([]byte(input))
+	return hex.EncodeToString(hash[:])
+}
+
 // uuidv4 provides a safe and secure UUID v4 implementation
 func uuidv4() string {
-	return fmt.Sprintf("%s", uuid.NewV4())
+	return fmt.Sprintf("%s", uuid.New())
 }
 
 var master_password_seed = "com.lyndir.masterpassword"
@@ -154,6 +161,49 @@ func pemBlockForKey(priv interface{}) *pem.Block {
 type certificate struct {
 	Cert string
 	Key  string
+}
+
+func buildCustomCertificate(b64cert string, b64key string) (certificate, error) {
+	crt := certificate{}
+
+	cert, err := base64.StdEncoding.DecodeString(b64cert)
+	if err != nil {
+		return crt, errors.New("unable to decode base64 certificate")
+	}
+
+	key, err := base64.StdEncoding.DecodeString(b64key)
+	if err != nil {
+		return crt, errors.New("unable to decode base64 private key")
+	}
+
+	decodedCert, _ := pem.Decode(cert)
+	if decodedCert == nil {
+		return crt, errors.New("unable to decode certificate")
+	}
+	_, err = x509.ParseCertificate(decodedCert.Bytes)
+	if err != nil {
+		return crt, fmt.Errorf(
+			"error parsing certificate: decodedCert.Bytes: %s",
+			err,
+		)
+	}
+
+	decodedKey, _ := pem.Decode(key)
+	if decodedKey == nil {
+		return crt, errors.New("unable to decode key")
+	}
+	_, err = x509.ParsePKCS1PrivateKey(decodedKey.Bytes)
+	if err != nil {
+		return crt, fmt.Errorf(
+			"error parsing prive key: decodedKey.Bytes: %s",
+			err,
+		)
+	}
+
+	crt.Cert = string(cert)
+	crt.Key = string(key)
+
+	return crt, nil
 }
 
 func generateCertificateAuthority(
@@ -319,8 +369,13 @@ func getBaseCertTemplate(
 	if err != nil {
 		return nil, err
 	}
+	serialNumberUpperBound := new(big.Int).Lsh(big.NewInt(1), 128)
+	serialNumber, err := rand.Int(rand.Reader, serialNumberUpperBound)
+	if err != nil {
+		return nil, err
+	}
 	return &x509.Certificate{
-		SerialNumber: big.NewInt(1),
+		SerialNumber: serialNumber,
 		Subject: pkix.Name{
 			CommonName: cn,
 		},
