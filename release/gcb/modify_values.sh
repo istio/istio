@@ -39,7 +39,7 @@ function fix_values_yaml_worker() {
   rm                       "${tarball_name}"
 
   sed -i "s|hub: gcr.io/istio-release|hub: ${CB_DOCKER_HUB}|g" ./"${folder_name}"/install/kubernetes/helm/istio*/values.yaml
-  sed -i "s|tag: .*-latest-daily|tag: ${CB_VERSION}|g"  ./"${folder_name}"/install/kubernetes/helm/istio*/values.yaml
+  sed -i "s|tag: .*-latest-daily|tag: ${CB_VERSION}|g"         ./"${folder_name}"/install/kubernetes/helm/istio*/values.yaml
 
   eval "$zip_cmd" "${tarball_name}" "${folder_name}"
   sha256sum       "${tarball_name}" > "${tarball_name}.sha256"
