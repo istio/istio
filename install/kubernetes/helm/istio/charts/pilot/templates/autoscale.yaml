@@ -3,6 +3,7 @@ apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
     name: istio-pilot
+    namespace: {{ $.Release.Namespace }}
 spec:
     maxReplicas: {{ .Values.autoscaleMax }}
     minReplicas: {{ .Values.autoscaleMin }}
