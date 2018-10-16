@@ -15,11 +15,10 @@
 package status
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/http"
-
-	"context"
 	"os"
 	"sync"
 

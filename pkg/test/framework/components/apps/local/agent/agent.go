@@ -18,11 +18,9 @@ import (
 	"fmt"
 	"io"
 
-	"istio.io/istio/pkg/test/framework/environments/local/service"
-
-	"istio.io/istio/pkg/test/application"
-
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/test/application"
+	"istio.io/istio/pkg/test/framework/environments/local/service"
 )
 
 // Agent is a wrapper around an Envoy proxy that has been configured for a particular backend Application.

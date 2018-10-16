@@ -20,12 +20,11 @@ import (
 	"strconv"
 	"syscall"
 
-	"istio.io/istio/pkg/test/application"
-
 	flag "github.com/spf13/pflag"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/test/application"
 	"istio.io/istio/pkg/test/application/echo"
 )
 
