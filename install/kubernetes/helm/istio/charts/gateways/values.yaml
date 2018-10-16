@@ -108,10 +108,16 @@ istio-egressgateway:
   - name: egressgateway-ca-certs
     secretName: istio-egressgateway-ca-certs
     mountPath: /etc/istio/egressgateway-ca-certs
+  #### Advanced options ########
   envVariables:
-    # this is needed to tell pilot to send only external
-    # network endpoints of a service to egressgateway.
-    ISTIO_META_REQUESTED_NETWORK_VIEW: "external"
+    # Set this to "external" if and only if you want the egress gateway to
+    # act as a transparent SNI gateway that routes mTLS/TLS traffic to
+    # external services defined using service entries, where the service
+    # entry has resolution set to DNS, has one or more endpoints with
+    # network field set to "external". By default its set to "" so that
+    # the egress gateway sees the same set of endpoints as the sidecars
+    # preserving backward compatibility
+    ISTIO_META_REQUESTED_NETWORK_VIEW: ""
 
 # Mesh ILB gateway creates a gateway of type InternalLoadBalancer,
 # for mesh expansion. It exposes the mtls ports for Pilot,CA as well
@@ -194,8 +200,9 @@ istio-mcgateway:
   - port: 15443
     targetPort: 15443
     name: tls
+  ### Advanced options ############
   envVariables:
-    # this is needed to tell pilot to not generate
-    # mTLS clusters for the mcgateway except for
+    # A gateway with this mode ensures that pilot does not
+    # generate mTLS clusters for the mcgateway except for
     # istio-telemetry,istio-policy
     ISTIO_META_ISTIO_ROUTER_MODE: "sni-dnat"

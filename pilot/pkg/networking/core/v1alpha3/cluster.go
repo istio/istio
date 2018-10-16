@@ -48,23 +48,16 @@ const (
 func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, proxy *model.Proxy, push *model.PushContext) ([]*v2.Cluster, error) {
 	clusters := make([]*v2.Cluster, 0)
 
-	// If the proxy is a SniDnatRouter router, do not use the cached data
-	if proxy.Type == model.Router && proxy.GetRouterMode() == model.SniDnatRouter {
-		clusters = append(clusters, configgen.buildOutboundClusters(env, proxy, push)...)
-	} else if proxy.GetNetworkView() != nil {
-		// This proxy has requested a special view of the endpoints (from one or more networks)
-		// instead of asking for all endpoints from any network. Its essentially a snowflake.
-		clusters = append(clusters, configgen.buildOutboundClusters(env, proxy, push)...)
-	} else {
-		recomputeOutboundClusters := true
-		if configgen.OutboundClusters != nil {
-			clusters = append(clusters, configgen.OutboundClusters...)
+	recomputeOutboundClusters := true
+	if configgen.CanUsePrecomputedCDS(proxy) {
+		if configgen.PrecomputedOutboundClusters != nil {
+			clusters = append(clusters, configgen.PrecomputedOutboundClusters...)
 			recomputeOutboundClusters = false
 		}
+	}
 
-		if recomputeOutboundClusters {
-			clusters = append(clusters, configgen.buildOutboundClusters(env, proxy, push)...)
-		}
+	if recomputeOutboundClusters {
+		clusters = append(clusters, configgen.buildOutboundClusters(env, proxy, push)...)
 	}
 
 	if proxy.Type == model.Sidecar {
@@ -111,7 +104,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 		Push: push,
 		Node: proxy,
 	}
-	networkView := proxy.GetNetworkView()
+	networkView := model.GetNetworkView(proxy)
 
 	for _, service := range push.Services {
 		config := push.DestinationRule(service.Hostname)
@@ -190,13 +183,10 @@ func buildClusterHosts(env *model.Environment, proxyNetworkView map[string]bool,
 
 	hosts := make([]*core.Address, 0)
 	for _, instance := range instances {
-		// If the proxy specifies a particular set of networks, send endpoints from only those networks
-		// If the proxy does not specify any network, send endpoints from all networks
-		if proxyNetworkView != nil {
-			if _, found := proxyNetworkView[instance.Endpoint.Network]; !found {
-				// Instance's network doesn't match the set of networks that the proxy wants to see.
-				continue
-			}
+		// Only send endpoints from the networks in the network view.
+		if _, found := proxyNetworkView[instance.Endpoint.Network]; !found {
+			// Endpoint's network doesn't match the set of networks that the proxy wants to see.
+			continue
 		}
 		host := util.BuildAddress(instance.Endpoint.Address, uint32(instance.Endpoint.Port))
 		hosts = append(hosts, &host)
