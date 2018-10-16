@@ -78,10 +78,6 @@ tracing:
 #
 kiali:
   enabled: false
-  # username & password for kiali
-  # if no password is set a 40 digit random password will be set
-  username: admin
-  passphrase: ""
 
 # Common settings used among istio subcharts.
 global:
