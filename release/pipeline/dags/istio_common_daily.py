@@ -50,31 +50,31 @@ def DailyPipeline(branch):
   def DailyGenerateTestArgs(**kwargs):
     """Loads the configuration that will be used for this Iteration."""
     conf = kwargs['dag_run'].conf
-    if conf is None:
-      conf = dict()
+    if env_conf is None:
+      env_conf = dict()
 
     # If variables are overridden then we should use it otherwise we use it's
     # default value.
     date = datetime.datetime.now()
     date_string = date.strftime('%Y%m%d-%H-%M')
 
-    docker_hub = conf.get('DOCKER_HUB')
+    docker_hub = env_conf.get('DOCKER_HUB')
     if docker_hub is None:
       docker_hub = 'gcr.io/istio-release'
 
-    version = conf.get('VERSION')
+    version = env_conf.get('VERSION')
     if version is None:
       # VERSION is of the form '{branch}-{date_string}'
       version = '%s-%s' % (branch, date_string)
 
-    gcs_path = conf.get('GCS_DAILY_PATH')
+    gcs_path = env_conf.get('GCS_DAILY_PATH')
     if gcs_path is None:
        # GCS_DAILY_PATH is of the form 'daily-build/{version}'
        gcs_path = 'daily-build/%s' % (version)
 
-    commit = conf.get('COMMIT') or ""
+    commit = env_conf.get('COMMIT') or ""
 
-    github_org = conf.get('GITHUB_ORG') or "istio"
+    github_org = env_conf.get('GITHUB_ORG') or "istio"
 
     default_conf = environment_config.GetDefaultAirflowConfig(
         branch=branch,
@@ -86,9 +86,8 @@ def DailyPipeline(branch):
         verify_consistency='false',
         version=version)
 
-    config_settings = dict()
-    for name in default_conf.iterkeys():
-      config_settings[name] = conf.get(name) or default_conf[name]
+    config_settings = istio_common_dag.MergeEnvironmentIntoConfig(
+					env_conf, default_conf)
 
     testDailyConfigSettings(config_settings)
     return config_settings

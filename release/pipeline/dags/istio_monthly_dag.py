@@ -42,17 +42,17 @@ def MonthlyPipeline():
   def MonthlyGenerateTestArgs(**kwargs):
 
     """Loads the configuration that will be used for this Iteration."""
-    conf = kwargs['dag_run'].conf
-    if conf is None:
-      conf = dict()
+    env_conf = kwargs['dag_run'].conf
+    if env_conf is None:
+      env_conf = dict()
 
-    docker_hub = conf.get('DOCKER_HUB')
+    docker_hub = env_conf.get('DOCKER_HUB')
     if docker_hub is None:
       docker_hub = 'docker.io/istio'
 
     # If version is overridden then we should use it otherwise we use it's
     # default or monthly value.
-    version = conf.get('VERSION') or istio_common_dag.GetVariableOrDefault('monthly-version', None)
+    version = env_conf.get('VERSION') or istio_common_dag.GetVariableOrDefault('monthly-version', None)
     if not version or version == 'INVALID':
       raise ValueError('version needs to be provided')
     Variable.set('monthly-version', 'INVALID')
@@ -60,13 +60,13 @@ def MonthlyPipeline():
     #GCS_MONTHLY_STAGE_PATH is of the form ='prerelease/{version}'
     gcs_path = 'prerelease/%s' % (version)
 
-    branch = conf.get('BRANCH') or istio_common_dag.GetVariableOrDefault('monthly-branch', None)
+    branch = env_conf.get('BRANCH') or istio_common_dag.GetVariableOrDefault('monthly-branch', None)
     if not branch or branch == 'INVALID':
       raise ValueError('branch needs to be provided')
     Variable.set('monthly-branch', 'INVALID')
-    commit = conf.get('COMMIT') or branch
+    commit = env_conf.get('COMMIT') or branch
 
-    github_org = conf.get('GITHUB_ORG') or "istio"
+    github_org = env_conf.get('GITHUB_ORG') or "istio"
 
     default_conf = environment_config.GetDefaultAirflowConfig(
         branch=branch,
@@ -78,18 +78,14 @@ def MonthlyPipeline():
         verify_consistency='true',
         version=version)
 
-    config_settings = dict()
-    for name in default_conf.iterkeys():
-      config_settings[name] = conf.get(name) or default_conf[name]
-
     # These are the extra params that are passed to the dags for monthly release
     monthly_conf = dict()
     monthly_conf['CB_GCS_GITHUB_PATH'         ] = 'istio-secrets/github.txt.enc'
     # CB_GCS_MONTHLY_RELEASE_PATH is of the form  'istio-release/releases/{version}'
     monthly_conf['CB_GCS_MONTHLY_RELEASE_PATH'] = 'istio-release/releases/%s' % (version)
-    for name in monthly_conf.iterkeys():
-      config_settings[name] = conf.get(name) or monthly_conf[name]
 
+    config_settings = istio_common_dag.MergeEnvironmentIntoConfig(
+					env_conf, default_conf, monthly_conf)
     testMonthlyConfigSettings(config_settings)
     return config_settings
 

@@ -109,6 +109,17 @@ def getBashSettingsTemplate(extra_param_lst=[]):
   return "\n".join(template_list)
 
 
+def MergeEnvironmentIntoConfig(env_conf, *config_dicts):
+    config_settings = dict()
+    for cur_conf_dict in config_dicts:
+      for name, value in cur_conf_dict.items():
+        if name.startswith("CB_"):
+           env_name = name[len("CB_"):]
+        config_settings[name] = env_conf.get(env_name) or value
+
+    return config_settings
+
+
 def MakeCommonDag(dag_args_func, name,
                   schedule_interval='15 9 * * *',
                   extra_param_lst=[]):
