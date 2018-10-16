@@ -63,7 +63,7 @@ type Server struct {
 	ready               *ready.Probe
 	appLiveURL          string
 	appReadyURL         string
-	mutex               sync.Mutex
+	mutex               sync.RWMutex
 	lastProbeSuccessful bool
 }
 
@@ -107,7 +107,9 @@ func (s *Server) Run(ctx context.Context) {
 	if s.statusPort == 0 {
 		addrs := strings.Split(l.Addr().String(), ":")
 		allocatedPort, _ := strconv.Atoi(addrs[len(addrs)-1])
+		s.mutex.Lock()
 		s.statusPort = uint16(allocatedPort)
+		s.mutex.Unlock()
 	}
 	defer l.Close()
 
@@ -126,7 +128,6 @@ func (s *Server) handleReadyProbe(w http.ResponseWriter, _ *http.Request) {
 	err := s.ready.Check()
 
 	s.mutex.Lock()
-	defer s.mutex.Unlock()
 	if err != nil {
 		w.WriteHeader(http.StatusServiceUnavailable)
 
@@ -140,6 +141,7 @@ func (s *Server) handleReadyProbe(w http.ResponseWriter, _ *http.Request) {
 		}
 		s.lastProbeSuccessful = true
 	}
+	s.mutex.Unlock()
 }
 
 func (s *Server) handleAppReadinessProbe(w http.ResponseWriter, req *http.Request) {

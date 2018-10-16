@@ -57,18 +57,21 @@ func TestAppProbe(t *testing.T) {
 	// We wait a bit here to ensure server's statusPort is updated.
 	time.Sleep(time.Second * 3)
 
-	t.Logf("status server starts at port %v, app starts at port %v", server.statusPort, appPort)
+	server.mutex.RLock()
+	statusPort := server.statusPort
+	server.mutex.RUnlock()
+	t.Logf("status server starts at port %v, app starts at port %v", statusPort, appPort)
 	testCases := []struct {
 		probePath  string
 		statusCode int
 		err        string
 	}{
 		{
-			probePath:  fmt.Sprintf(":%v/app/ready", server.statusPort),
+			probePath:  fmt.Sprintf(":%v/app/ready", statusPort),
 			statusCode: 200,
 		},
 		{
-			probePath: fmt.Sprintf(":%v/app/live", server.statusPort),
+			probePath: fmt.Sprintf(":%v/app/live", statusPort),
 			// expect 404 because we didn't configure status server to take over app's liveness check.
 			statusCode: 404,
 		},
