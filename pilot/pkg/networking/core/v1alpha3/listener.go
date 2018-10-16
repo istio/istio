@@ -121,6 +121,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 	}
 
 	services := push.Services
+	if node.OutboundServices != nil {
+		services = node.OutboundServices
+	}
 
 	listeners := make([]*xdsapi.Listener, 0)
 

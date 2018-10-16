@@ -54,7 +54,9 @@ type Environment struct {
 	PushContext *PushContext
 }
 
-// Proxy defines the proxy attributes used by xDS identification
+// Proxy contains information about an specific instance of a proxy (envoy sidecar, gateway,
+// etc). The Proxy is initialized when a sidecar connects to Pilot, and populated from
+// 'node' info in the protocol as well as data extracted from registries.
 type Proxy struct {
 	// ClusterID specifies the cluster where the proxy resides
 	ClusterID string
@@ -75,6 +77,13 @@ type Proxy struct {
 
 	// Metadata key-value pairs extending the Node identifier
 	Metadata map[string]string
+
+	// OutboundServices, if set, controls the list of outbound listeners and routes
+	// for which the proxy will receive configurations. If nil, the proxy will get config
+	// for all visible services.
+	// The list will be populated either from explicit declarations or using 'on-demand'
+	// feature.
+	OutboundServices []*Service
 }
 
 // NodeType decides the responsibility of the proxy serves in the mesh

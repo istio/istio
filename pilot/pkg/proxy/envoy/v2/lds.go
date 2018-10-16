@@ -16,6 +16,7 @@ package v2
 
 import (
 	"fmt"
+	"strings"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/gogo/protobuf/types"
@@ -56,6 +57,19 @@ func (s *DiscoveryServer) pushLds(con *XdsConnection, push *model.PushContext, v
 }
 
 func (s *DiscoveryServer) generateRawListeners(con *XdsConnection, push *model.PushContext) ([]*xdsapi.Listener, error) {
+	// HACK: until the API is finalized, extract the outbound subset from a node metadata.
+	outboundServices,f := con.modelNode.Metadata["istio.outbound"]
+	if f {
+		osvc := strings.Split(outboundServices, ",")
+		con.modelNode.OutboundServices = []*model.Service{}
+		for _, osn := range osvc {
+			svc, f := push.ServiceByHostname[model.Hostname(osn)]
+			if f {
+				con.modelNode.OutboundServices = append(con.modelNode.OutboundServices, svc)
+			}
+		}
+	}
+	
 	rawListeners, err := s.ConfigGenerator.BuildListeners(s.env, con.modelNode, push)
 	if err != nil {
 		adsLog.Warnf("LDS: Failed to generate listeners for node %s: %v", con.modelNode, err)
