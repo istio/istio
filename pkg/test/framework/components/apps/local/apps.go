@@ -15,16 +15,13 @@
 package local
 
 import (
+	"bufio"
 	"fmt"
 	"net"
+	"os"
 	"time"
 
-	"istio.io/istio/pkg/test/framework/environments/local/service"
-
 	"github.com/hashicorp/go-multierror"
-
-	"bufio"
-	"os"
 
 	"istio.io/istio/pkg/test/envoy"
 	"istio.io/istio/pkg/test/framework/components/apps/api"
@@ -32,6 +29,7 @@ import (
 	"istio.io/istio/pkg/test/framework/dependency"
 	"istio.io/istio/pkg/test/framework/environment"
 	"istio.io/istio/pkg/test/framework/environments/local"
+	"istio.io/istio/pkg/test/framework/environments/local/service"
 )
 
 const (

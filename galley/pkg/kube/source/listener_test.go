@@ -28,13 +28,11 @@ import (
 	dtesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/istio/pkg/log"
-
 	"istio.io/istio/galley/pkg/kube"
-
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/galley/pkg/testing/common"
 	"istio.io/istio/galley/pkg/testing/mock"
+	"istio.io/istio/pkg/log"
 )
 
 var info = kube.ResourceSpec{
