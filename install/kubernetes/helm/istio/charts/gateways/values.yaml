@@ -108,6 +108,10 @@ istio-egressgateway:
   - name: egressgateway-ca-certs
     secretName: istio-egressgateway-ca-certs
     mountPath: /etc/istio/egressgateway-ca-certs
+  envVariables:
+    # this is needed to tell pilot to send only external
+    # network endpoints of a service to egressgateway.
+    ISTIO_META_REQUESTED_NETWORK_VIEW: "external"
 
 # Mesh ILB gateway creates a gateway of type InternalLoadBalancer,
 # for mesh expansion. It exposes the mtls ports for Pilot,CA as well

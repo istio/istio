@@ -139,8 +139,9 @@ func (node *Proxy) GetRouterMode() RouterMode {
 }
 
 // GetNetworkView returns the networks that the proxy requested.
-// This typically corresponds to the networks that are accessible
-// to the egress gateway.
+// When sending EDS/CDS-with-dns-endpoints, Pilot will only send
+// endpoints corresponding to the networks that the proxy wants to see.
+// If not set, we assume that the proxy wants to see all networks.
 func (node *Proxy) GetNetworkView() map[string]bool {
 	if networks, found := node.Metadata["REQUESTED_NETWORK_VIEW"]; found {
 		nmap := make(map[string]bool)
