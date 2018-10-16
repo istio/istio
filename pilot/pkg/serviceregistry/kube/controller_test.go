@@ -15,12 +15,10 @@
 package kube
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"reflect"
 	"sort"
-	"sync"
 	"testing"
 	"time"
 
@@ -365,30 +363,9 @@ func TestGetProxyServiceInstances(t *testing.T) {
 	addPods(t, controller, p)
 	fx.Wait("workload")
 
-	// Use a timeout to keep the test from hanging.
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	wg := sync.WaitGroup{}
-
-	controller.AppendServiceHandler(func(svc *model.Service, event model.Event) {
-		wg.Done()
-	})
-
-	go controller.Run(ctx.Done())
-
-	if err := pollUntil(
-		100*time.Millisecond,
-		func() (bool, error) {
-			return controller.HasSynced(), nil
-		},
-		ctx.Done()); err != nil {
-		t.Errorf("error wait for cache sync")
-	}
-
 	k8sSaOnVM := "acct4"
 	canonicalSaOnVM := "acctvm2@gserviceaccount2.com"
 
-	wg.Add(1)
 	createService(controller, "svc1", "nsa",
 		map[string]string{
 			KubeServiceAccountsOnVMAnnotation:  k8sSaOnVM,
@@ -410,7 +387,6 @@ func TestGetProxyServiceInstances(t *testing.T) {
 
 	// Creates 100 endpoints that refers to a pod in a different namespace.
 	fakeSvcCounts := 100
-	wg.Add(fakeSvcCounts)
 	for i := 0; i < fakeSvcCounts; i++ {
 		svcName := fmt.Sprintf("svc-fake-%d", i)
 		createService(controller, svcName, "nsfake",
@@ -427,11 +403,6 @@ func TestGetProxyServiceInstances(t *testing.T) {
 	// Create 1 endpoint that refers to a pod in the same namespace.
 	createEndpoints(controller, "svc1", "nsa", portNames, svc1Ips, t)
 	fx.Wait("eds")
-	go func() {
-		wg.Wait()
-		cancel()
-	}()
-	<-ctx.Done()
 
 	var svcNode model.Proxy
 	svcNode.Type = model.Ingress
@@ -673,16 +644,6 @@ func TestManagementPorts(t *testing.T) {
 func TestController_Service(t *testing.T) {
 	controller, fx := newFakeController(t)
 	// Use a timeout to keep the test from hanging.
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	wg := sync.WaitGroup{}
-
-	controller.AppendServiceHandler(func(*model.Service, model.Event) {
-		wg.Done()
-	})
-	go controller.Run(ctx.Done())
-
-	wg.Add(4)
 
 	createService(controller, "svc1", "nsA",
 		map[string]string{},
@@ -748,11 +709,6 @@ func TestController_Service(t *testing.T) {
 		},
 	}
 
-	go func() {
-		wg.Wait()
-		cancel()
-	}()
-	<-ctx.Done()
 	svcList, _ := controller.Services()
 	if len(svcList) != len(expectedSvcList) {
 		t.Fatalf("Expecting %d service but got %d\r\n", len(expectedSvcList), len(svcList))

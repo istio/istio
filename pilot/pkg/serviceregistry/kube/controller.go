@@ -267,9 +267,11 @@ func (c *Controller) Stop() {
 // Services implements a service catalog operation
 func (c *Controller) Services() ([]*model.Service, error) {
 	out := make([]*model.Service, 0, len(c.servicesMap))
+	c.RLock()
 	for _, svc := range c.servicesMap {
 		out = append(out, svc)
 	}
+	c.RUnlock()
 	sort.Slice(out, func(i, j int) bool { return out[i].Hostname < out[j].Hostname })
 
 	return out, nil
@@ -277,6 +279,8 @@ func (c *Controller) Services() ([]*model.Service, error) {
 
 // GetService implements a service catalog operation by hostname specified.
 func (c *Controller) GetService(hostname model.Hostname) (*model.Service, error) {
+	c.RLock()
+	defer c.RUnlock()
 	return c.servicesMap[hostname], nil
 }
 
@@ -406,7 +410,9 @@ func (c *Controller) InstancesByPort(hostname model.Hostname, reqSvcPort int,
 
 	// Locate all ports in the actual service
 
+	c.RLock()
 	svc := c.servicesMap[hostname]
+	c.RUnlock()
 	if svc == nil {
 		return nil, nil
 	}
@@ -475,7 +481,9 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 	for _, item := range c.endpoints.informer.GetStore().List() {
 		ep := *item.(*v1.Endpoints)
 		hostname := serviceHostname(ep.Name, ep.Namespace, c.domainSuffix)
+		c.RLock()
 		svc := c.servicesMap[hostname]
+		c.RUnlock()
 		if svc == nil {
 			continue
 		}
@@ -642,9 +650,13 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 		svcConv := convertService(*svc, c.domainSuffix)
 		switch event {
 		case model.EventDelete:
+			c.Lock()
 			delete(c.servicesMap, svcConv.Hostname)
+		  c.Unlock()
 		default:
+			c.Lock()
 			c.servicesMap[svcConv.Hostname] = svcConv
+			c.Unlock()
 		}
 		f(svcConv, event)
 
