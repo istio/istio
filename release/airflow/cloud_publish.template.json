@@ -17,7 +17,7 @@
       ],
       "name": "gcr.io/istio-testing/istio-builder:0.5.10",
       "dir": "go/src/istio.io/istio",
-      "args": [ "./release/gcb/publish_release.sh", "-q", "-g", "$_GCS_SOURCE", "-l", "$_GCS_SECRET", "-m", "-o", "$_GITHUB_ORG", "-r", "$_GITHUB_REPO", "-v", "$_VERSION", "-h", "$_GCS_DST" ]
+      "args": [ "./release/gcb/monthly_publish_release.sh" ]
     }
   ],
   "timeout": "3600s",

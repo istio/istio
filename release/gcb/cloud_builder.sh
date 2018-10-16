@@ -23,7 +23,7 @@ set -x
 # This file is primarily used by cloud builder to make
 # an end-to-end built of istio.  It runs this script to place the
 # build artifacts in a specified output directory, then runs
-# create_release_archives.sh to add tar files to the directory
+# create_release_archives.sh (via make istio-archive) to add tar files to the directory
 # (based solely on the contents of that directory), and then
 # uses store_artifacts.sh to store the build on GCS and docker hub
 # in addition it saves the source code

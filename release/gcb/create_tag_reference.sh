@@ -31,7 +31,6 @@ set -x
 SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
 
 KEYFILE=""
-TOKEN=""
 
 VERSION=""
 PRODUCT="Istio"
@@ -58,7 +57,7 @@ function usage() {
   exit 1
 }
 
-while getopts b:d:e:k:n:o:p:t:v: arg ; do
+while getopts b:d:e:k:n:o:p:v: arg ; do
   case "${arg}" in
     b) BUILD_FILE="${OPTARG}";;
     d) DATE_STRING="${OPTARG}";;
@@ -67,7 +66,6 @@ while getopts b:d:e:k:n:o:p:t:v: arg ; do
     n) USER_NAME="${OPTARG}";;
     o) ORG="${OPTARG}";;
     p) PRODUCT="${PRODUCT}";;
-    t) TOKEN="${OPTARG}";;
     v) VERSION="${OPTARG}";;
     *) usage;;
   esac
@@ -77,7 +75,7 @@ done
 [[ -z "${DATE_STRING}" ]] && usage
 [[ -z "${ORG}" ]] && usage
 [[ -z "${PRODUCT}" ]] && usage
-[[ -z "${TOKEN}" ]] && [[ -z "${KEYFILE}" ]] && usage
+[[ -z "${KEYFILE}" ]] && usage
 [[ -z "${VERSION}" ]] && usage
 # I tried using /user to automatically get name and email, but they're both null
 [[ -z "${USER_NAME}" ]] && usage
@@ -177,7 +175,7 @@ EOF
 ORG_REPOS=(api istio proxy)
 
 for GITREPO in "${ORG_REPOS[@]}"; do
-  SHA=$(grep "$GITREPO\"" "$BUILD_FILE"  | cut -f 6 -d \")
+  SHA=$(grep "$GITREPO" "$BUILD_FILE"  | cut -f 2 -d " ")
   if [[ -n "${SHA}" ]]; then
     create_tag_reference "${ORG}" "${GITREPO}" "${SHA}"
   else

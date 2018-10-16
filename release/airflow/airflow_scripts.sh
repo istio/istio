@@ -82,12 +82,7 @@ function gcr_tag_success() {
 
 # Called directly by Airflow.
 function release_push_github_docker_template() {
-    # uses the environment variables from list below + $PROJECT_ID $SVC_ACCT
-    GCS_DST="${GCS_MONTHLY_RELEASE_PATH}"
-    GCS_SECRET="${GCS_GITHUB_PATH}"
-    GCS_SOURCE="${GCS_FULL_STAGING_PATH}"
-    create_subs_file "BRANCH" "GCS_DST" "GCS_RELEASE_TOOLS_PATH" "GCS_SECRET" "GCS_SOURCE" "GITHUB_ORG" "GITHUB_REPO" "VERSION"
-
+    create_subs_file
     run_build "cloud_publish.template.json" \
          "${SUBS_FILE}" "${PROJECT_ID}" "${SVC_ACCT}"
     exit "${BUILD_FAILED}"
@@ -95,13 +90,7 @@ function release_push_github_docker_template() {
 
 # Called directly by Airflow.
 function release_tag_github_template() {
-    # uses the environment variables from list below + $PROJECT_ID $SVC_ACCT
-    GCS_SECRET="${GCS_GITHUB_PATH}"
-    GCS_SOURCE="${GCS_FULL_STAGING_PATH}"
-    USER_EMAIL="istio_releaser_bot@example.com"
-    USER_NAME="IstioReleaserBot"
-    create_subs_file "BRANCH" "GCS_RELEASE_TOOLS_PATH" "GCS_SECRET" "GCS_SOURCE" "GITHUB_ORG" "USER_EMAIL" "USER_NAME" "VERSION"
-
+    create_subs_file
     run_build "cloud_tag.template.json" \
          "${SUBS_FILE}" "${PROJECT_ID}" "${SVC_ACCT}"
     exit "$BUILD_FAILED"

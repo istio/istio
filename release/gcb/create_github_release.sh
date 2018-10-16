@@ -23,10 +23,7 @@
 # This script presumes that a tag for the release was previously created
 # on github (e.g., by running create_tag_reference.sh).
 #
-# This script relies on artifacts being in a local directory.  If you'd
-# instead like to specify a GCS source then consider running this script
-# via create_release_archives.sh instead (don't forget to disable the
-# other steps in that script like releasing to gcs/gcr/docker, etc.).
+# This script relies on artifacts being in a local directory.
 
 set -o errexit
 set -o nounset
