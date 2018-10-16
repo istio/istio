@@ -17,8 +17,7 @@ defaults: &defaults
 
 # VM environment. Includes docker.
 integrationDefaults: &integrationDefaults
-  machine:
-    image: istio/ci:go1.10-k8s1.10.4-helm2.7.2-minikube0.25
+  machine: true
   working_directory: /go/src/istio.io/istio #same as docker
   environment:
     - CHANGE_MINIKUBE_NONE_USER: true
@@ -26,6 +25,7 @@ integrationDefaults: &integrationDefaults
     - SKIP_CLEANUP: true
     - KUBECONFIG: /go/out/minikube.conf
     - TEST_ENV: minikube-none
+    - GOROOT: /home/circleci/go
 
 # Common procedure to initialize working directory
 initWorkingDir: &initWorkingDir
@@ -38,6 +38,9 @@ initWorkingDir: &initWorkingDir
     mkdir -p /go/out/tests
     mkdir -p /go/out/logs
     mkdir -p /home/circleci/logs
+    mkdir -p ${GOROOT}
+    curl https://dl.google.com/go/go1.10.4.linux-amd64.tar.gz | tar xz -C $GOROOT --strip-components=1
+    echo 'export PATH=$GOROOT/bin:$PATH' >> $BASH_ENV
 
 recordZeroExitCodeIfTestPassed: &recordZeroExitCodeIfTestPassed
   run:
