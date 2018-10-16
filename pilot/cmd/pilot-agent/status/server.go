@@ -127,22 +127,20 @@ func (s *Server) Run(ctx context.Context) {
 func (s *Server) handleReadyProbe(w http.ResponseWriter, _ *http.Request) {
 	err := s.ready.Check()
 
-	var lastProbeSuccessful bool
+	s.mutex.Lock()
 	if err != nil {
 		w.WriteHeader(http.StatusServiceUnavailable)
 
 		log.Infof("Envoy proxy is NOT ready: %s", err.Error())
-		lastProbeSuccessful = false
+		s.lastProbeSuccessful = false
 	} else {
 		w.WriteHeader(http.StatusOK)
 
 		if !s.lastProbeSuccessful {
 			log.Info("Envoy proxy is ready")
 		}
-		lastProbeSuccessful = true
+		s.lastProbeSuccessful = true
 	}
-	s.mutex.Lock()
-	s.lastProbeSuccessful = lastProbeSuccessful
 	s.mutex.Unlock()
 }
 
