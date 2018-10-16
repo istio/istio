@@ -17,6 +17,7 @@ package agent
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
@@ -308,10 +309,10 @@ func (a *pilotAgent) fqd() string {
 }
 
 // function for establishing GRPC connections from the application.
-func (a *pilotAgent) dialGRPC(target string, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
+func (a *pilotAgent) dialGRPC(ctx context.Context, address string, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
 	// Modify the outbound URL being created by the application
-	target = a.modifyClientURLString(target)
-	return grpc.Dial(target, opts...)
+	address = a.modifyClientURLString(address)
+	return grpc.DialContext(ctx, address, opts...)
 }
 
 // function for establishing Websocket connections from the application.
