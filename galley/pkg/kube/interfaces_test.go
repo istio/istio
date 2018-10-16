@@ -43,13 +43,9 @@ func TestCreateConfig(t *testing.T) {
 	}
 	gv := schema.GroupVersion{Group: "group", Version: "version"}
 
-	cfg, err := k.createConfig(gv, "kind", "listkind")
+	_, err := k.DynamicInterface(gv, "kind", "listkind")
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
-	}
-
-	if *cfg.GroupVersion != gv {
-		t.Fatalf("GroupVersion mismatch:\nActual:\n%v\nExpected:\n%v\n", *cfg.GroupVersion, gv)
 	}
 }
 

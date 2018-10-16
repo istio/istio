@@ -23,14 +23,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/clientcmd"
-
-	// import GKE cluster authentication plugin
-	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-	// import OIDC cluster authentication plugin, e.g. for Tectonic
+	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp" // import OIDC cluster authentication plugin, e.g. for Tectonic
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd" // import GKE cluster authentication plugin
 
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/pkg/log"
@@ -47,19 +43,20 @@ func defaultDiscoveryBuilder(conf *rest.Config) (discovery.DiscoveryInterface, e
 // dynamicListenerWatcherBuilder is the builder of cache.ListerWatcher by using actual
 // k8s.io/client-go/dynamic.Client.
 type dynamicListerWatcherBuilder struct {
-	client *dynamic.Client
+	client dynamic.Interface
 }
 
 func newDynamicListenerWatcherBuilder(conf *rest.Config) (listerWatcherBuilderInterface, error) {
-	client, err := dynamic.NewClient(conf)
+	client, err := dynamic.NewForConfig(conf)
 	if err != nil {
 		return nil, err
 	}
 	return &dynamicListerWatcherBuilder{client}, nil
 }
 
-func (b *dynamicListerWatcherBuilder) build(res metav1.APIResource) cache.ListerWatcher {
-	return b.client.Resource(&res, "")
+func (b *dynamicListerWatcherBuilder) build(res metav1.APIResource) dynamic.ResourceInterface {
+	gvr := schema.GroupVersionResource{res.Group, res.Version, res.SingularName}
+	return b.client.Resource(gvr)
 }
 
 // NewStore creates a new Store instance.

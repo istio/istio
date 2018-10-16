@@ -23,7 +23,10 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 
@@ -46,7 +49,7 @@ const (
 )
 
 type listerWatcherBuilderInterface interface {
-	build(res metav1.APIResource) cache.ListerWatcher
+	build(res metav1.APIResource) dynamic.ResourceInterface
 }
 
 // Store offers store.StoreBackend interface through kubernetes custom resource definitions.
@@ -111,7 +114,17 @@ func (s *Store) checkAndCreateCaches(
 		}
 		if _, ok := kindsSet[res.Kind]; ok {
 			cl := lwBuilder.build(res)
-			informer := cache.NewSharedInformer(cl, &unstructured.Unstructured{}, 0)
+			informer := cache.NewSharedInformer(
+				&cache.ListWatch{
+					ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+						return cl.List(options)
+					},
+					WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+						options.Watch = true
+						return cl.Watch(options)
+					},
+				},
+				&unstructured.Unstructured{}, 0)
 			s.caches[res.Kind] = informer.GetStore()
 			s.informers[res.Kind] = informer
 			delete(kindsSet, res.Kind)

@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Kubernetes Authors.
+Copyright The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -62,7 +62,7 @@ func (c *FakeCronJobs) List(opts v1.ListOptions) (result *v2alpha1.CronJobList, 
 	if label == nil {
 		label = labels.Everything()
 	}
-	list := &v2alpha1.CronJobList{}
+	list := &v2alpha1.CronJobList{ListMeta: obj.(*v2alpha1.CronJobList).ListMeta}
 	for _, item := range obj.(*v2alpha1.CronJobList).Items {
 		if label.Matches(labels.Set(item.Labels)) {
 			list.Items = append(list.Items, item)
