@@ -266,8 +266,8 @@ func (c *Controller) Stop() {
 
 // Services implements a service catalog operation
 func (c *Controller) Services() ([]*model.Service, error) {
-	out := make([]*model.Service, 0, len(c.servicesMap))
 	c.RLock()
+	out := make([]*model.Service, 0, len(c.servicesMap))
 	for _, svc := range c.servicesMap {
 		out = append(out, svc)
 	}
