@@ -18,7 +18,7 @@ defaults: &defaults
 # VM environment. Includes docker.
 integrationDefaults: &integrationDefaults
   machine:
-    - image: istio/ci:go1.10-k8s1.10.4-helm2.7.2-minikube0.25
+    image: istio/ci:go1.10-k8s1.10.4-helm2.7.2-minikube0.25
   working_directory: /go/src/istio.io/istio #same as docker
   environment:
     - CHANGE_MINIKUBE_NONE_USER: true
