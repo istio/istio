@@ -17,10 +17,14 @@ package model
 import (
 	"fmt"
 	"net/url"
+	"os"
 	"strconv"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	"github.com/envoyproxy/go-control-plane/envoy/config/grpc_credential/v2alpha"
+	"github.com/envoyproxy/go-control-plane/pkg/util"
+	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 
 	authn "istio.io/api/authentication/v1alpha1"
@@ -35,6 +39,15 @@ const (
 
 	// SDSRootResourceName is the sdsconfig name for root CA, used for fetching root cert.
 	SDSRootResourceName = "ROOTCA"
+
+	// K8sSAJwtTokenFileName is the token volume mount file name for k8s jwt token.
+	K8sSAJwtTokenFileName = "/var/run/secrets/tokens/istio-token"
+
+	// fileBasedMetadataPlugName is File Based Metadata credentials plugin name.
+	fileBasedMetadataPlugName = "envoy.grpc_credentials.file_based_metadata"
+
+	// k8sSAJwtTokenHeaderKey is the request header key for k8s jwt token.
+	k8sSAJwtTokenHeaderKey = "istio_sds_credentail_header-bin"
 )
 
 // JwtKeyResolver resolves JWT public key and JwksURI.
@@ -55,9 +68,51 @@ func GetConsolidateAuthenticationPolicy(store IstioConfigStore, service *Service
 }
 
 // ConstructSdsSecretConfig constructs SDS Sececret Configuration.
-func ConstructSdsSecretConfig(name string, sdsUdsPath string) *auth.SdsSecretConfig {
+func ConstructSdsSecretConfig(name, sdsUdsPath, tokenMountFileName string) *auth.SdsSecretConfig {
 	if name == "" || sdsUdsPath == "" {
 		return nil
+	}
+
+	gRPCConfig := &core.GrpcService_GoogleGrpc{
+		TargetUri:  sdsUdsPath,
+		StatPrefix: SDSStatPrefix,
+		ChannelCredentials: &core.GrpcService_GoogleGrpc_ChannelCredentials{
+			CredentialSpecifier: &core.GrpcService_GoogleGrpc_ChannelCredentials_LocalCredentials{
+				LocalCredentials: &core.GrpcService_GoogleGrpc_GoogleLocalCredentials{},
+			},
+		},
+		CallCredentials: []*core.GrpcService_GoogleGrpc_CallCredentials{
+			&core.GrpcService_GoogleGrpc_CallCredentials{
+				CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_GoogleComputeEngine{
+					GoogleComputeEngine: &types.Empty{},
+				},
+			},
+		},
+	}
+
+	if _, err := os.Stat(tokenMountFileName); err == nil {
+		// token volume mount file for k8s sa jwt.
+		tokenMountonfig := &v2alpha.FileBasedMetadataConfig{
+			SecretData: &core.DataSource{
+				Specifier: &core.DataSource_Filename{
+					Filename: tokenMountFileName,
+				},
+			},
+
+			HeaderKey: k8sSAJwtTokenHeaderKey,
+		}
+
+		callCred := &core.GrpcService_GoogleGrpc_CallCredentials{
+			CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_FromPlugin{
+				FromPlugin: &core.GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin{
+					Name:   fileBasedMetadataPlugName,
+					Config: protoToStruct(tokenMountonfig),
+				},
+			},
+		}
+
+		gRPCConfig.CredentialsFactoryName = fileBasedMetadataPlugName
+		gRPCConfig.CallCredentials = append(gRPCConfig.CallCredentials, callCred)
 	}
 
 	return &auth.SdsSecretConfig{
@@ -69,22 +124,7 @@ func ConstructSdsSecretConfig(name string, sdsUdsPath string) *auth.SdsSecretCon
 					GrpcServices: []*core.GrpcService{
 						{
 							TargetSpecifier: &core.GrpcService_GoogleGrpc_{
-								GoogleGrpc: &core.GrpcService_GoogleGrpc{
-									TargetUri:  sdsUdsPath,
-									StatPrefix: SDSStatPrefix,
-									ChannelCredentials: &core.GrpcService_GoogleGrpc_ChannelCredentials{
-										CredentialSpecifier: &core.GrpcService_GoogleGrpc_ChannelCredentials_LocalCredentials{
-											LocalCredentials: &core.GrpcService_GoogleGrpc_GoogleLocalCredentials{},
-										},
-									},
-									CallCredentials: []*core.GrpcService_GoogleGrpc_CallCredentials{
-										&core.GrpcService_GoogleGrpc_CallCredentials{
-											CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_GoogleComputeEngine{
-												GoogleComputeEngine: &types.Empty{},
-											},
-										},
-									},
-								},
+								GoogleGrpc: gRPCConfig,
 							},
 						},
 					},
@@ -150,4 +190,13 @@ func ParseJwksURI(jwksURI string) (string, *Port, bool, error) {
 		Name: u.Scheme,
 		Port: portNumber,
 	}, useSSL, nil
+}
+
+func protoToStruct(msg proto.Message) *types.Struct {
+	s, err := util.MessageToStruct(msg)
+	if err != nil {
+		log.Error(err.Error())
+		return &types.Struct{}
+	}
+	return s
 }
