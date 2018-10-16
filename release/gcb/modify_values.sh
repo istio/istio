@@ -9,12 +9,13 @@ source "/workspace/gcb_env.sh"
 
 function usage() {
   echo "$0
-        uses CB_DOCKER_HUB CB_VERSION"
+        uses CB_DOCKER_HUB CB_GCS_BUILD_PATH CB_VERSION"
   exit 1
 }
 
 [[ -z "${CB_VERSION}" ]] && usage
 [[ -z "${CB_DOCKER_HUB}" ]] && usage
+[[ -z "${CB_GCS_BUILD_PATH}" ]] && usage
 
 # switch to the root of the istio repo
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -53,7 +54,7 @@ function fix_values_yaml() {
   # called with params as shown below
   # fix_values_yaml unzip_cmd zip_cmd folder_name tarball_name
 
-  fix_values_yaml_worker "$1" "$2" "$3" "$4" "gs://$GCS_BUILD_BUCKET/$GCS_STAGING_PATH"
+  fix_values_yaml_worker "$1" "$2" "$3" "$4" "gs://${CB_GCS_BUILD_PATH}"
 }
 
 rm -rf modification-tmp

@@ -67,8 +67,6 @@ function test_command() {
 # Called directly by Airflow.
 function modify_values_command() {
     create_subs_file
-    # shellcheck disable=SC2034
-    GCS_PATH="gs://$GCS_BUILD_BUCKET/$GCS_STAGING_PATH"
     run_build "cloud_modify_values.template.json" \
          "${SUBS_FILE}" "${PROJECT_ID}" "${SVC_ACCT}"
     exit "${BUILD_FAILED}"

@@ -24,4 +24,4 @@ source "/workspace/gcb_env.sh"
 # This script pushes to build docker hub with the lastest tag
 
 SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
-"${SCRIPTPATH}/gcb/rel_push_docker.sh" -h "${CB_PUSH_DOCKER_HUBS}" -t "${CB_BRANCH}-latest-daily"
+"${SCRIPTPATH}/rel_push_docker.sh" -h "${CB_PUSH_DOCKER_HUBS}" -t "${CB_BRANCH}-latest-daily"
