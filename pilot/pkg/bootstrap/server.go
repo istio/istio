@@ -80,6 +80,8 @@ const (
 	ConfigMapKey = "mesh"
 
 	requiredMCPCertCheckFreq = 500 * time.Millisecond
+
+	DefaultMCPMaxMsgSize = 1024 * 1024 * 4
 )
 
 var (
@@ -155,6 +157,7 @@ type PilotArgs struct {
 	Plugins              []string
 	MCPServerAddrs       []string
 	MCPCredentialOptions *creds.Options
+	MCPMaxMessageSize    int
 }
 
 // Server contains the runtime configuration for the Pilot discovery service.
@@ -455,7 +458,8 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 			credentials := creds.CreateForClient(u.Hostname(), watcher)
 			securityOption = grpc.WithTransportCredentials(credentials)
 		}
-		conn, err := grpc.DialContext(ctx, u.Host, securityOption)
+		msgSizeOption := grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(args.MCPMaxMessageSize))
+		conn, err := grpc.DialContext(ctx, u.Host, securityOption, msgSizeOption)
 		if err != nil {
 			log.Errorf("Unable to dial MCP Server %q: %v", u.Host, err)
 			return err
