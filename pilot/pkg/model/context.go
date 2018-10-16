@@ -138,6 +138,19 @@ func (node *Proxy) GetRouterMode() RouterMode {
 	return StandardRouter
 }
 
+// GetNetworkView returns the networks that the proxy requested.
+// This typically corresponds to the networks that are accessible
+// to the egress gateway.
+func (node *Proxy) GetNetworkView() map[string]bool {
+	if networks, found := node.Metadata["REQUESTED_NETWORK_VIEW"]; found {
+		nmap := make(map[string]bool)
+		for _, n := range strings.Split(networks, ",") {
+			nmap[n] = true
+		}
+	}
+	return nil
+}
+
 // ParseMetadata parses the opaque Metadata from an Envoy Node into string key-value pairs.
 // Any non-string values are ignored.
 func ParseMetadata(metadata *types.Struct) map[string]string {

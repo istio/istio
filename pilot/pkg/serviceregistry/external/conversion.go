@@ -129,6 +129,7 @@ func convertEndpoint(service *model.Service, servicePort *networking.Port,
 			Family:      family,
 			Port:        int(instancePort),
 			ServicePort: convertPort(servicePort),
+			Network:     endpoint.Network,
 		},
 		// TODO AvailabilityZone, ServiceAccount
 		Service: service,

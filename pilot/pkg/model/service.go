@@ -293,6 +293,9 @@ type NetworkEndpoint struct {
 
 	// Defines a platform-specific workload instance identifier (optional).
 	UID string
+
+	// The network where this endpoint is present
+	Network string
 }
 
 // Labels is a non empty set of arbitrary strings. Each version of a service can
