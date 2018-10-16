@@ -19,6 +19,8 @@ defaults: &defaults
 integrationDefaults: &integrationDefaults
   machine: true
   working_directory: /go/src/istio.io/istio #same as docker
+  docker:
+    - image: istio/ci:go1.10-k8s1.10.4-helm2.7.2-minikube0.25
   environment:
     - CHANGE_MINIKUBE_NONE_USER: true
     - GOPATH: /go
