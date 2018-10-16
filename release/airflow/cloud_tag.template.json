@@ -9,12 +9,6 @@
       "args": [ "./istio_checkout_code.sh" ]
     },
     {
-      "volumes": [
-	{
-          "name": "buildoutput",
-          "path": "/output"
-	}
-      ],
       "name": "gcr.io/istio-testing/istio-builder:0.5.10",
       "dir": "go/src/istio.io/istio",
       "args": [ "./release/gcb/monthly_tag_release.sh" ]
