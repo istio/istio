@@ -4,11 +4,11 @@ metadata:
   name: istio-security-custom-resources
   namespace: {{ .Release.Namespace }}
   labels:
-    app: istio-security
-    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    release: {{ .Release.Name }}
+    app: {{ template "security.name" . }}
+    chart: {{ template "security.chart" . }}
     heritage: {{ .Release.Service }}
-    istio: security
+    release: {{ .Release.Name }}
+    istio: citadel
 data:
   custom-resources.yaml: |-
     {{- if .Values.global.mtls.enabled }}

@@ -4,8 +4,13 @@
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
-    name: {{ $key }}
-    namespace: {{ $.Release.Namespace }}
+  name: {{ $key }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    app: {{ template "mixer.name" $ }}
+    chart: {{ template "mixer.chart" $ }}
+    heritage: {{ $.Release.Service }}
+    release: {{ $.Release.Name }}
 spec:
     maxReplicas: {{ $spec.autoscaleMax }}
     minReplicas: {{ $spec.autoscaleMin }}

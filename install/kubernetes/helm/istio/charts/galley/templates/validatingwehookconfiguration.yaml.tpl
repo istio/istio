@@ -5,10 +5,11 @@ metadata:
   name: istio-galley
   namespace: {{ .Release.Namespace }}
   labels:
-    app: istio-galley
-    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    release: {{ .Release.Name }}
+    app: {{ template "galley.name" . }}
+    chart: {{ template "galley.chart" . }}
     heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+    istio: galley
 webhooks:
 {{- if .Values.global.configValidation }}
   - name: pilot.validation.istio.io

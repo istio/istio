@@ -11,9 +11,9 @@ metadata:
     {{ $key }}: {{ $val | quote }}
     {{- end }}
   labels:
-    chart: {{ $.Chart.Name }}-{{ $.Chart.Version | replace "+" "_" }}
-    release: {{ $.Release.Name }}
+    chart: {{ template "gateway.chart" $ }}
     heritage: {{ $.Release.Service }}
+    release: {{ $.Release.Name }}
     {{- range $key, $val := $spec.labels }}
     {{ $key }}: {{ $val }}
     {{- end }}

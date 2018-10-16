@@ -44,6 +44,8 @@ const (
 	Health = "health"
 	// Mixer is the name of the mixer plugin passed through the command line
 	Mixer = "mixer"
+	// Snidnat is the name of the mixer plugin passed through the command line
+	Snidnat = "snidnat"
 )
 
 // ModelProtocolToListenerProtocol converts from a model.Protocol to its corresponding plugin.ListenerProtocol
@@ -125,14 +127,13 @@ type Plugin interface {
 	OnInboundListener(in *InputParams, mutable *MutableObjects) error
 
 	// OnOutboundCluster is called whenever a new cluster is added to the CDS output.
-	// This is called once per push cycle, and not for every sidecar/gateway
-	OnOutboundCluster(env *model.Environment, push *model.PushContext, service *model.Service, servicePort *model.Port,
-		cluster *xdsapi.Cluster)
+	// This is called once per push cycle, and not for every sidecar/gateway, except for gateways with non-standard
+	// operating modes.
+	OnOutboundCluster(in *InputParams, cluster *xdsapi.Cluster)
 
 	// OnInboundCluster is called whenever a new cluster is added to the CDS output.
 	// Called for each sidecar
-	OnInboundCluster(env *model.Environment, node *model.Proxy, push *model.PushContext, service *model.Service, servicePort *model.Port,
-		cluster *xdsapi.Cluster)
+	OnInboundCluster(in *InputParams, cluster *xdsapi.Cluster)
 
 	// OnOutboundRouteConfiguration is called whenever a new set of virtual hosts (a set of virtual hosts with routes) is
 	// added to RDS in the outbound path.

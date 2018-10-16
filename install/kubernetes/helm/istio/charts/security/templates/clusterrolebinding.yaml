@@ -4,7 +4,7 @@ metadata:
   name: istio-citadel-{{ .Release.Namespace }}
   labels:
     app: {{ template "security.name" . }}
-    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    chart: {{ template "security.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
 roleRef:

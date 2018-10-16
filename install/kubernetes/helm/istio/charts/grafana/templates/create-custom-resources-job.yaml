@@ -4,8 +4,8 @@ metadata:
   name: istio-grafana-post-install-account
   namespace: {{ .Release.Namespace }}
   labels:
-    app: istio-grafana
-    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    app: {{ template "grafana.name" . }}
+    chart: {{ template "grafana.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
 ---
@@ -14,8 +14,8 @@ kind: ClusterRole
 metadata:
   name: istio-grafana-post-install-{{ .Release.Namespace }}
   labels:
-    app: istio-grafana
-    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    app: {{ template "grafana.name" . }}
+    chart: {{ template "grafana.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
 rules:
@@ -28,8 +28,8 @@ kind: ClusterRoleBinding
 metadata:
   name: istio-grafana-post-install-role-binding-{{ .Release.Namespace }}
   labels:
-    app: istio-grafana
-    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    app: {{ template "grafana.name" . }}
+    chart: {{ template "grafana.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
 roleRef:
@@ -50,17 +50,20 @@ metadata:
     "helm.sh/hook": post-install
     "helm.sh/hook-delete-policy": hook-succeeded
   labels:
-    app: istio-grafana
-    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    release: {{ .Release.Name }}
+    app: {{ template "grafana.name" . }}
+    chart: {{ template "grafana.chart" . }}
     heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   template:
     metadata:
       name: istio-grafana-post-install
       labels:
         app: istio-grafana
+        chart: {{ template "grafana.chart" . }}
+        heritage: {{ .Release.Service }}
         release: {{ .Release.Name }}
+        version: {{ .Chart.Version }}
     spec:
       serviceAccountName: istio-grafana-post-install-account
       containers:

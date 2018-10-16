@@ -38,6 +38,6 @@ func NewConfigGenerator(plugins []plugin.Plugin) *ConfigGeneratorImpl {
 }
 
 func (configgen *ConfigGeneratorImpl) BuildSharedPushState(env *model.Environment, push *model.PushContext) error {
-	configgen.OutboundClusters = configgen.buildOutboundClusters(env, push)
+	configgen.OutboundClusters = configgen.buildOutboundClusters(env, nil, push)
 	return nil
 }
