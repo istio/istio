@@ -32,10 +32,10 @@ import (
 const (
 	// readyPath is for the pilot agent readiness itself.
 	readyPath = "/healthz/ready"
-	// appReadinessPath is the path handled by pilot agent for application's readiness probe.
-	appReadinessPath = "/app/ready"
-	// appLivenessPath is the path handled by pilot agent for application's liveness probe.
-	appLivenessPath = "/app/live"
+	// AppReadinessPath is the path handled by pilot agent for application's readiness probe.
+	AppReadinessPath = "/app/ready"
+	// AppLivenessPath is the path handled by pilot agent for application's liveness probe.
+	AppLivenessPath = "/app/live"
 )
 
 // AppProbeInfo defines the information for Pilot agent to take over application probing.
@@ -90,12 +90,12 @@ func (s *Server) Run(ctx context.Context) {
 	// TODO: we require non empty url to take over the health check. Make sure this is consistent in injector.
 	if s.appReadyURL != "" {
 		log.Infof("Pilot agent takes over readiness probe, path %v", s.appReadyURL)
-		http.HandleFunc(appReadinessPath, s.handleAppReadinessProbe)
+		http.HandleFunc(AppReadinessPath, s.handleAppReadinessProbe)
 	}
 
 	if s.appLiveURL != "" {
 		log.Infof("Pilot agent takes over liveness probe, path %v", s.appLiveURL)
-		http.HandleFunc(appLivenessPath, s.handleAppLivenessProbe)
+		http.HandleFunc(AppLivenessPath, s.handleAppLivenessProbe)
 	}
 
 	l, err := net.Listen("tcp", fmt.Sprintf(":%d", s.statusPort))

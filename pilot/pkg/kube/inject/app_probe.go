@@ -19,6 +19,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"strconv"
+	"istio.io/istio/pilot/cmd/pilot-agent/status"
 )
 
 const(
@@ -87,7 +88,7 @@ func rewriteAppHTTPProbe(spec *SidecarInjectionSpec, podSpec *corev1.PodSpec) {
 		probe.HTTPGet.Port = intstr.FromInt(statusPort)
 	}
 	for _, c := range podSpec.Containers {
-		rewriteProbe(c.ReadinessProbe, "/app/ready")
-		rewriteProbe(c.LivenessProbe, "/app/live")
+		rewriteProbe(c.ReadinessProbe, status.AppReadinessPath)
+		rewriteProbe(c.LivenessProbe, status.AppLivenessPath)
 	}
 }

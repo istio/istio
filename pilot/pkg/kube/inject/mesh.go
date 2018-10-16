@@ -121,7 +121,7 @@ containers:
   - --appReadyUrl
   - [[ appProbePath "ready" .Spec.Containers]]
   - --appLiveUrl
-  - [[ appProbePath "ready" .Spec.Containers]]
+  - [[ appProbePath "live" .Spec.Containers]]
   [[ end -]]
   - --applicationPorts
   - "[[ $readinessApplicationPortsValue ]]"
