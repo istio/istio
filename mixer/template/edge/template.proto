@@ -54,6 +54,8 @@ option (istio.mixer.adapter.model.v1beta1.template_variety) = TEMPLATE_VARIETY_R
 //   destinationOwner: destination.owner | "Unknown"
 //   destinationWorkloadName: destination.workload.name | "Unknown"
 //   destinationWorkloadNamespace: destination.workload.namespace | "Unknown"
+//   destinationServiceName: destination.service.name | "Unknown"
+//   destinationServiceNamespace: destination.service.namespace | "Unknown"
 //   apiProtocol: api.protocol | "Unknown"
 //   contextProtocol: context.protocol | "Unknown"
 // ```
@@ -85,10 +87,13 @@ message Template {
 
   // UID of the destination workload
   string destination_uid = 23;
+  string destination_service_namespace = 24;
+  string destination_service_name = 25;
 
   // Protocol used for communication (http, tcp)
   string context_protocol = 30;
 
   // The protocol type of the API call (http, https, grpc)
   string api_protocol = 31;
+
 }
