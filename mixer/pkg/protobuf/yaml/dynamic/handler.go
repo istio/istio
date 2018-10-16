@@ -177,6 +177,18 @@ func (h *Handler) handleRemote(ctx context.Context, qr proto.Marshaler,
 	return nil
 }
 
+var _ adapter.RemoteGenerateAttributesHandler = &Handler{}
+
+// HandleRemoteGenAttrs implements remote handler API
+func (h *Handler) HandleRemoteGenAttrs(ctx context.Context, encodedInstance *adapter.EncodedInstance) ([]byte, error) {
+	// out slice will receive a copy of the RPC output bytes
+	out := make([]byte, 0)
+	if err := h.handleRemote(ctx, nil, "", out, encodedInstance); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 var _ adapter.RemoteCheckHandler = &Handler{}
 
 // HandleRemoteCheck implements adapter.RemoteCheckHandler api
@@ -387,8 +399,13 @@ func (Codec) Marshal(v interface{}) ([]byte, error) {
 	return nil, fmt.Errorf("unable to marshal type:%T, want []byte", v)
 }
 
-// Unmarshal delegates to standard proto Unmarshal
+// Unmarshal delegates to standard proto Unmarshal, unless v is of []byte type.
 func (Codec) Unmarshal(data []byte, v interface{}) error {
+	if bytes, ok := v.([]byte); ok {
+		copy(bytes, data)
+		return nil
+	}
+
 	if um, ok := v.(proto.Unmarshaler); ok {
 		return um.Unmarshal(data)
 	}

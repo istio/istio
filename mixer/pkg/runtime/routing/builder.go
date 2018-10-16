@@ -418,6 +418,67 @@ func (b *builder) templateInfo(tmpl *config.Template) *TemplateInfo {
 		Variety: tmpl.Variety,
 	}
 
+	// dynamic dispatch to APA adapters
+	ti.DispatchGenAttrs = func(ctx context.Context, handler adapter.Handler, instance interface{},
+		attrs attribute.Bag, mapper template.OutputMapperFn) (*attribute.MutableBag, error) {
+		var h adapter.RemoteGenerateAttributesHandler
+		var ok bool
+		var encodedInstance *adapter.EncodedInstance
+
+		if h, ok = handler.(adapter.RemoteGenerateAttributesHandler); !ok {
+			return nil, fmt.Errorf("internal: handler of incorrect type. got %T, want: RemoteGenerateAttributes", handler)
+		}
+
+		if encodedInstance, ok = instance.(*adapter.EncodedInstance); !ok {
+			return nil, fmt.Errorf("internal: instance of incorrect type. got %T, want: []byte", instance)
+		}
+
+		out, err := h.HandleRemoteGenAttrs(ctx, encodedInstance)
+		if err != nil {
+			return nil, err
+		}
+
+		_ = out
+		return nil, nil
+
+		/* TODO(kuat)
+
+					// Construct a wrapper bag around the returned output message and pass it to the output mapper
+		            // to map $out values back to the destination attributes in the ambient context.
+		            const fullOutName = "{{.GoPackageName}}.output."
+		            outBag := newWrapperAttrBag(
+		                func(name string) (value interface{}, found bool) {
+		                    field := strings.TrimPrefix(name, fullOutName)
+		                    if len(field) != len(name) {
+		                        if !out.WasSet(field) {
+		                           return nil, false
+		                        }
+		                        switch field {
+		                            {{range .OutputTemplateMessage.Fields}}
+		                            case "{{.ProtoName}}":
+		                                {{if isAliasType .GoType.Name}}
+		                                return {{getAliasType .GoType.Name}}(out.{{.GoName}}), true
+		                                {{else}}
+		                                return out.{{.GoName}}, true
+		                                {{end}}
+		                            {{end}}
+		                            default:
+		                            return nil, false
+		                        }
+		                    }
+		                    return attrs.Get(name)
+		                },
+		                func() []string {return attrs.Names()},
+		                func() {attrs.Done()},
+		                func() string {return attrs.String()},
+		            )
+
+		            // Mapper will map back $out values in the outBag into ambient attribute names, and return
+		            // a bag with these additional attributes.
+		            return mapper(outBag)
+		*/
+	}
+
 	// Make a call to check
 	ti.DispatchCheck = func(ctx context.Context, handler adapter.Handler, instance interface{}) (adapter.CheckResult, error) {
 		var h adapter.RemoteCheckHandler
@@ -501,5 +562,21 @@ func (b *builder) getBuilderAndMapperDynamic(_ ast.AttributeDescriptorFinder,
 			Data: ba,
 		}, nil
 	}
-	return instBuilder, nil, nil
+
+	var mapper template.OutputMapperFn
+	if instance.Template.Variety == tpb.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR {
+		mapper = b.mappers[instance.Name]
+		if mapper == nil {
+			var expressions map[string]compiled.Expression
+			//var err error
+			// TODO(kuat)
+			//if expressions, err = instance.Template.CreateOutputExpressions(instance.Params, finder, b.expb); err != nil {
+			//	return nil, nil, err
+			//}
+			mapper = template.NewOutputMapperFn(expressions)
+		}
+
+		b.mappers[instance.Name] = mapper
+	}
+	return instBuilder, mapper, nil
 }

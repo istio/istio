@@ -8,6 +8,11 @@
 		mixer/test/spyAdapter/template/apa/tmpl_handler_service.proto
 
 	It has these top-level messages:
+		HandleSampleApaRequest
+		HandleSampleApaResponse
+		OutputMsg
+		InstanceMsg
+		Type
 		InstanceParam
 */
 package sampleapa
@@ -17,6 +22,13 @@ import fmt "fmt"
 import math "math"
 import _ "github.com/gogo/protobuf/gogoproto"
 import _ "istio.io/api/mixer/adapter/model/v1beta1"
+import google_protobuf1 "github.com/gogo/protobuf/types"
+import istio_policy_v1beta1 "istio.io/api/policy/v1beta1"
+
+import context "golang.org/x/net/context"
+import grpc "google.golang.org/grpc"
+
+import binary "encoding/binary"
 
 import strings "strings"
 import reflect "reflect"
@@ -35,6 +47,78 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
+// Request message for HandleSampleApa method.
+type HandleSampleApaRequest struct {
+	// 'sampleapa' instance.
+	Instance *InstanceMsg `protobuf:"bytes,1,opt,name=instance" json:"instance,omitempty"`
+	// Adapter specific handler configuration.
+	//
+	// Note: Backends can also implement [InfrastructureBackend][https://istio.io/docs/reference/config/mixer/istio.mixer.adapter.model.v1beta1.html#InfrastructureBackend]
+	// service and therefore opt to receive handler configuration during session creation through [InfrastructureBackend.CreateSession][TODO: Link to this fragment]
+	// call. In that case, adapter_config will have type_url as 'google.protobuf.Any.type_url' and would contain string
+	// value of session_id (returned from InfrastructureBackend.CreateSession).
+	AdapterConfig *google_protobuf1.Any `protobuf:"bytes,2,opt,name=adapter_config,json=adapterConfig" json:"adapter_config,omitempty"`
+	// Id to dedupe identical requests from Mixer.
+	DedupId string `protobuf:"bytes,3,opt,name=dedup_id,json=dedupId,proto3" json:"dedup_id,omitempty"`
+}
+
+func (m *HandleSampleApaRequest) Reset()      { *m = HandleSampleApaRequest{} }
+func (*HandleSampleApaRequest) ProtoMessage() {}
+func (*HandleSampleApaRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptorTmplHandlerService, []int{0}
+}
+
+type HandleSampleApaResponse struct {
+	Output *OutputMsg `protobuf:"bytes,1,opt,name=output" json:"output,omitempty"`
+}
+
+func (m *HandleSampleApaResponse) Reset()      { *m = HandleSampleApaResponse{} }
+func (*HandleSampleApaResponse) ProtoMessage() {}
+func (*HandleSampleApaResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptorTmplHandlerService, []int{1}
+}
+
+// Contains output payload for 'sampleapa' template.
+type OutputMsg struct {
+	Int64Primitive  int64                           `protobuf:"varint,1,opt,name=int64Primitive,proto3" json:"int64Primitive,omitempty"`
+	BoolPrimitive   bool                            `protobuf:"varint,2,opt,name=boolPrimitive,proto3" json:"boolPrimitive,omitempty"`
+	DoublePrimitive float64                         `protobuf:"fixed64,3,opt,name=doublePrimitive,proto3" json:"doublePrimitive,omitempty"`
+	StringPrimitive string                          `protobuf:"bytes,4,opt,name=stringPrimitive,proto3" json:"stringPrimitive,omitempty"`
+	StringMap       map[string]string               `protobuf:"bytes,5,rep,name=stringMap" json:"stringMap,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	Ip              *istio_policy_v1beta1.IPAddress `protobuf:"bytes,6,opt,name=ip" json:"ip,omitempty"`
+	Duration        *istio_policy_v1beta1.Duration  `protobuf:"bytes,7,opt,name=duration" json:"duration,omitempty"`
+	Timestamp       *istio_policy_v1beta1.TimeStamp `protobuf:"bytes,8,opt,name=timestamp" json:"timestamp,omitempty"`
+	Dns             *istio_policy_v1beta1.DNSName   `protobuf:"bytes,9,opt,name=dns" json:"dns,omitempty"`
+}
+
+func (m *OutputMsg) Reset()                    { *m = OutputMsg{} }
+func (*OutputMsg) ProtoMessage()               {}
+func (*OutputMsg) Descriptor() ([]byte, []int) { return fileDescriptorTmplHandlerService, []int{2} }
+
+// Contains instance payload for 'sampleapa' template. This is passed to infrastructure backends during request-time
+// through HandleSampleApaService.HandleSampleApa.
+type InstanceMsg struct {
+	// Name of the instance as specified in configuration.
+	Name            string  `protobuf:"bytes,72295727,opt,name=name,proto3" json:"name,omitempty"`
+	Int64Primitive  int64   `protobuf:"varint,1,opt,name=int64Primitive,proto3" json:"int64Primitive,omitempty"`
+	BoolPrimitive   bool    `protobuf:"varint,2,opt,name=boolPrimitive,proto3" json:"boolPrimitive,omitempty"`
+	DoublePrimitive float64 `protobuf:"fixed64,3,opt,name=doublePrimitive,proto3" json:"doublePrimitive,omitempty"`
+	StringPrimitive string  `protobuf:"bytes,4,opt,name=stringPrimitive,proto3" json:"stringPrimitive,omitempty"`
+}
+
+func (m *InstanceMsg) Reset()                    { *m = InstanceMsg{} }
+func (*InstanceMsg) ProtoMessage()               {}
+func (*InstanceMsg) Descriptor() ([]byte, []int) { return fileDescriptorTmplHandlerService, []int{3} }
+
+// Contains inferred type information about specific instance of 'sampleapa' template. This is passed to
+// infrastructure backends during configuration-time through [InfrastructureBackend.CreateSession][TODO: Link to this fragment].
+type Type struct {
+}
+
+func (m *Type) Reset()                    { *m = Type{} }
+func (*Type) ProtoMessage()               {}
+func (*Type) Descriptor() ([]byte, []int) { return fileDescriptorTmplHandlerService, []int{4} }
+
 // Represents instance configuration schema for 'sampleapa' template.
 type InstanceParam struct {
 	Int64Primitive  string `protobuf:"bytes,1,opt,name=int64Primitive,proto3" json:"int64Primitive,omitempty"`
@@ -51,11 +135,342 @@ type InstanceParam struct {
 
 func (m *InstanceParam) Reset()                    { *m = InstanceParam{} }
 func (*InstanceParam) ProtoMessage()               {}
-func (*InstanceParam) Descriptor() ([]byte, []int) { return fileDescriptorTmplHandlerService, []int{0} }
+func (*InstanceParam) Descriptor() ([]byte, []int) { return fileDescriptorTmplHandlerService, []int{5} }
 
 func init() {
+	proto.RegisterType((*HandleSampleApaRequest)(nil), "sampleapa.HandleSampleApaRequest")
+	proto.RegisterType((*HandleSampleApaResponse)(nil), "sampleapa.HandleSampleApaResponse")
+	proto.RegisterType((*OutputMsg)(nil), "sampleapa.OutputMsg")
+	proto.RegisterType((*InstanceMsg)(nil), "sampleapa.InstanceMsg")
+	proto.RegisterType((*Type)(nil), "sampleapa.Type")
 	proto.RegisterType((*InstanceParam)(nil), "sampleapa.InstanceParam")
 }
+
+// Reference imports to suppress errors if they are not otherwise used.
+var _ context.Context
+var _ grpc.ClientConn
+
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the grpc package it is being compiled against.
+const _ = grpc.SupportPackageIsVersion4
+
+// Client API for HandleSampleApaService service
+
+type HandleSampleApaServiceClient interface {
+	// HandleSampleApa is called by Mixer at request-time to deliver 'sampleapa' instances to the backend.
+	HandleSampleApa(ctx context.Context, in *HandleSampleApaRequest, opts ...grpc.CallOption) (*HandleSampleApaResponse, error)
+}
+
+type handleSampleApaServiceClient struct {
+	cc *grpc.ClientConn
+}
+
+func NewHandleSampleApaServiceClient(cc *grpc.ClientConn) HandleSampleApaServiceClient {
+	return &handleSampleApaServiceClient{cc}
+}
+
+func (c *handleSampleApaServiceClient) HandleSampleApa(ctx context.Context, in *HandleSampleApaRequest, opts ...grpc.CallOption) (*HandleSampleApaResponse, error) {
+	out := new(HandleSampleApaResponse)
+	err := grpc.Invoke(ctx, "/sampleapa.HandleSampleApaService/HandleSampleApa", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// Server API for HandleSampleApaService service
+
+type HandleSampleApaServiceServer interface {
+	// HandleSampleApa is called by Mixer at request-time to deliver 'sampleapa' instances to the backend.
+	HandleSampleApa(context.Context, *HandleSampleApaRequest) (*HandleSampleApaResponse, error)
+}
+
+func RegisterHandleSampleApaServiceServer(s *grpc.Server, srv HandleSampleApaServiceServer) {
+	s.RegisterService(&_HandleSampleApaService_serviceDesc, srv)
+}
+
+func _HandleSampleApaService_HandleSampleApa_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(HandleSampleApaRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HandleSampleApaServiceServer).HandleSampleApa(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/sampleapa.HandleSampleApaService/HandleSampleApa",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HandleSampleApaServiceServer).HandleSampleApa(ctx, req.(*HandleSampleApaRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+var _HandleSampleApaService_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "sampleapa.HandleSampleApaService",
+	HandlerType: (*HandleSampleApaServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "HandleSampleApa",
+			Handler:    _HandleSampleApaService_HandleSampleApa_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "mixer/test/spyAdapter/template/apa/tmpl_handler_service.proto",
+}
+
+func (m *HandleSampleApaRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *HandleSampleApaRequest) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Instance != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintTmplHandlerService(dAtA, i, uint64(m.Instance.Size()))
+		n1, err := m.Instance.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n1
+	}
+	if m.AdapterConfig != nil {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintTmplHandlerService(dAtA, i, uint64(m.AdapterConfig.Size()))
+		n2, err := m.AdapterConfig.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n2
+	}
+	if len(m.DedupId) > 0 {
+		dAtA[i] = 0x1a
+		i++
+		i = encodeVarintTmplHandlerService(dAtA, i, uint64(len(m.DedupId)))
+		i += copy(dAtA[i:], m.DedupId)
+	}
+	return i, nil
+}
+
+func (m *HandleSampleApaResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *HandleSampleApaResponse) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Output != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintTmplHandlerService(dAtA, i, uint64(m.Output.Size()))
+		n3, err := m.Output.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n3
+	}
+	return i, nil
+}
+
+func (m *OutputMsg) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *OutputMsg) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Int64Primitive != 0 {
+		dAtA[i] = 0x8
+		i++
+		i = encodeVarintTmplHandlerService(dAtA, i, uint64(m.Int64Primitive))
+	}
+	if m.BoolPrimitive {
+		dAtA[i] = 0x10
+		i++
+		if m.BoolPrimitive {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i++
+	}
+	if m.DoublePrimitive != 0 {
+		dAtA[i] = 0x19
+		i++
+		binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.DoublePrimitive))))
+		i += 8
+	}
+	if len(m.StringPrimitive) > 0 {
+		dAtA[i] = 0x22
+		i++
+		i = encodeVarintTmplHandlerService(dAtA, i, uint64(len(m.StringPrimitive)))
+		i += copy(dAtA[i:], m.StringPrimitive)
+	}
+	if len(m.StringMap) > 0 {
+		for k, _ := range m.StringMap {
+			dAtA[i] = 0x2a
+			i++
+			v := m.StringMap[k]
+			mapSize := 1 + len(k) + sovTmplHandlerService(uint64(len(k))) + 1 + len(v) + sovTmplHandlerService(uint64(len(v)))
+			i = encodeVarintTmplHandlerService(dAtA, i, uint64(mapSize))
+			dAtA[i] = 0xa
+			i++
+			i = encodeVarintTmplHandlerService(dAtA, i, uint64(len(k)))
+			i += copy(dAtA[i:], k)
+			dAtA[i] = 0x12
+			i++
+			i = encodeVarintTmplHandlerService(dAtA, i, uint64(len(v)))
+			i += copy(dAtA[i:], v)
+		}
+	}
+	if m.Ip != nil {
+		dAtA[i] = 0x32
+		i++
+		i = encodeVarintTmplHandlerService(dAtA, i, uint64(m.Ip.Size()))
+		n4, err := m.Ip.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n4
+	}
+	if m.Duration != nil {
+		dAtA[i] = 0x3a
+		i++
+		i = encodeVarintTmplHandlerService(dAtA, i, uint64(m.Duration.Size()))
+		n5, err := m.Duration.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n5
+	}
+	if m.Timestamp != nil {
+		dAtA[i] = 0x42
+		i++
+		i = encodeVarintTmplHandlerService(dAtA, i, uint64(m.Timestamp.Size()))
+		n6, err := m.Timestamp.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n6
+	}
+	if m.Dns != nil {
+		dAtA[i] = 0x4a
+		i++
+		i = encodeVarintTmplHandlerService(dAtA, i, uint64(m.Dns.Size()))
+		n7, err := m.Dns.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n7
+	}
+	return i, nil
+}
+
+func (m *InstanceMsg) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *InstanceMsg) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Int64Primitive != 0 {
+		dAtA[i] = 0x8
+		i++
+		i = encodeVarintTmplHandlerService(dAtA, i, uint64(m.Int64Primitive))
+	}
+	if m.BoolPrimitive {
+		dAtA[i] = 0x10
+		i++
+		if m.BoolPrimitive {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i++
+	}
+	if m.DoublePrimitive != 0 {
+		dAtA[i] = 0x19
+		i++
+		binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.DoublePrimitive))))
+		i += 8
+	}
+	if len(m.StringPrimitive) > 0 {
+		dAtA[i] = 0x22
+		i++
+		i = encodeVarintTmplHandlerService(dAtA, i, uint64(len(m.StringPrimitive)))
+		i += copy(dAtA[i:], m.StringPrimitive)
+	}
+	if len(m.Name) > 0 {
+		dAtA[i] = 0xfa
+		i++
+		dAtA[i] = 0xd2
+		i++
+		dAtA[i] = 0xe4
+		i++
+		dAtA[i] = 0x93
+		i++
+		dAtA[i] = 0x2
+		i++
+		i = encodeVarintTmplHandlerService(dAtA, i, uint64(len(m.Name)))
+		i += copy(dAtA[i:], m.Name)
+	}
+	return i, nil
+}
+
+func (m *Type) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *Type) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	return i, nil
+}
+
 func (m *InstanceParam) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -132,6 +547,106 @@ func encodeVarintTmplHandlerService(dAtA []byte, offset int, v uint64) int {
 	dAtA[offset] = uint8(v)
 	return offset + 1
 }
+func (m *HandleSampleApaRequest) Size() (n int) {
+	var l int
+	_ = l
+	if m.Instance != nil {
+		l = m.Instance.Size()
+		n += 1 + l + sovTmplHandlerService(uint64(l))
+	}
+	if m.AdapterConfig != nil {
+		l = m.AdapterConfig.Size()
+		n += 1 + l + sovTmplHandlerService(uint64(l))
+	}
+	l = len(m.DedupId)
+	if l > 0 {
+		n += 1 + l + sovTmplHandlerService(uint64(l))
+	}
+	return n
+}
+
+func (m *HandleSampleApaResponse) Size() (n int) {
+	var l int
+	_ = l
+	if m.Output != nil {
+		l = m.Output.Size()
+		n += 1 + l + sovTmplHandlerService(uint64(l))
+	}
+	return n
+}
+
+func (m *OutputMsg) Size() (n int) {
+	var l int
+	_ = l
+	if m.Int64Primitive != 0 {
+		n += 1 + sovTmplHandlerService(uint64(m.Int64Primitive))
+	}
+	if m.BoolPrimitive {
+		n += 2
+	}
+	if m.DoublePrimitive != 0 {
+		n += 9
+	}
+	l = len(m.StringPrimitive)
+	if l > 0 {
+		n += 1 + l + sovTmplHandlerService(uint64(l))
+	}
+	if len(m.StringMap) > 0 {
+		for k, v := range m.StringMap {
+			_ = k
+			_ = v
+			mapEntrySize := 1 + len(k) + sovTmplHandlerService(uint64(len(k))) + 1 + len(v) + sovTmplHandlerService(uint64(len(v)))
+			n += mapEntrySize + 1 + sovTmplHandlerService(uint64(mapEntrySize))
+		}
+	}
+	if m.Ip != nil {
+		l = m.Ip.Size()
+		n += 1 + l + sovTmplHandlerService(uint64(l))
+	}
+	if m.Duration != nil {
+		l = m.Duration.Size()
+		n += 1 + l + sovTmplHandlerService(uint64(l))
+	}
+	if m.Timestamp != nil {
+		l = m.Timestamp.Size()
+		n += 1 + l + sovTmplHandlerService(uint64(l))
+	}
+	if m.Dns != nil {
+		l = m.Dns.Size()
+		n += 1 + l + sovTmplHandlerService(uint64(l))
+	}
+	return n
+}
+
+func (m *InstanceMsg) Size() (n int) {
+	var l int
+	_ = l
+	if m.Int64Primitive != 0 {
+		n += 1 + sovTmplHandlerService(uint64(m.Int64Primitive))
+	}
+	if m.BoolPrimitive {
+		n += 2
+	}
+	if m.DoublePrimitive != 0 {
+		n += 9
+	}
+	l = len(m.StringPrimitive)
+	if l > 0 {
+		n += 1 + l + sovTmplHandlerService(uint64(l))
+	}
+	l = len(m.Name)
+	if l > 0 {
+		n += 5 + l + sovTmplHandlerService(uint64(l))
+	}
+	return n
+}
+
+func (m *Type) Size() (n int) {
+	var l int
+	_ = l
+	return n
+}
+
 func (m *InstanceParam) Size() (n int) {
 	var l int
 	_ = l
@@ -175,6 +690,79 @@ func sovTmplHandlerService(x uint64) (n int) {
 func sozTmplHandlerService(x uint64) (n int) {
 	return sovTmplHandlerService(uint64((x << 1) ^ uint64((int64(x) >> 63))))
 }
+func (this *HandleSampleApaRequest) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&HandleSampleApaRequest{`,
+		`Instance:` + strings.Replace(fmt.Sprintf("%v", this.Instance), "InstanceMsg", "InstanceMsg", 1) + `,`,
+		`AdapterConfig:` + strings.Replace(fmt.Sprintf("%v", this.AdapterConfig), "Any", "google_protobuf1.Any", 1) + `,`,
+		`DedupId:` + fmt.Sprintf("%v", this.DedupId) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *HandleSampleApaResponse) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&HandleSampleApaResponse{`,
+		`Output:` + strings.Replace(fmt.Sprintf("%v", this.Output), "OutputMsg", "OutputMsg", 1) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *OutputMsg) String() string {
+	if this == nil {
+		return "nil"
+	}
+	keysForStringMap := make([]string, 0, len(this.StringMap))
+	for k, _ := range this.StringMap {
+		keysForStringMap = append(keysForStringMap, k)
+	}
+	sortkeys.Strings(keysForStringMap)
+	mapStringForStringMap := "map[string]string{"
+	for _, k := range keysForStringMap {
+		mapStringForStringMap += fmt.Sprintf("%v: %v,", k, this.StringMap[k])
+	}
+	mapStringForStringMap += "}"
+	s := strings.Join([]string{`&OutputMsg{`,
+		`Int64Primitive:` + fmt.Sprintf("%v", this.Int64Primitive) + `,`,
+		`BoolPrimitive:` + fmt.Sprintf("%v", this.BoolPrimitive) + `,`,
+		`DoublePrimitive:` + fmt.Sprintf("%v", this.DoublePrimitive) + `,`,
+		`StringPrimitive:` + fmt.Sprintf("%v", this.StringPrimitive) + `,`,
+		`StringMap:` + mapStringForStringMap + `,`,
+		`Ip:` + strings.Replace(fmt.Sprintf("%v", this.Ip), "IPAddress", "istio_policy_v1beta1.IPAddress", 1) + `,`,
+		`Duration:` + strings.Replace(fmt.Sprintf("%v", this.Duration), "Duration", "istio_policy_v1beta1.Duration", 1) + `,`,
+		`Timestamp:` + strings.Replace(fmt.Sprintf("%v", this.Timestamp), "TimeStamp", "istio_policy_v1beta1.TimeStamp", 1) + `,`,
+		`Dns:` + strings.Replace(fmt.Sprintf("%v", this.Dns), "DNSName", "istio_policy_v1beta1.DNSName", 1) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *InstanceMsg) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&InstanceMsg{`,
+		`Int64Primitive:` + fmt.Sprintf("%v", this.Int64Primitive) + `,`,
+		`BoolPrimitive:` + fmt.Sprintf("%v", this.BoolPrimitive) + `,`,
+		`DoublePrimitive:` + fmt.Sprintf("%v", this.DoublePrimitive) + `,`,
+		`StringPrimitive:` + fmt.Sprintf("%v", this.StringPrimitive) + `,`,
+		`Name:` + fmt.Sprintf("%v", this.Name) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *Type) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&Type{`,
+		`}`,
+	}, "")
+	return s
+}
 func (this *InstanceParam) String() string {
 	if this == nil {
 		return "nil"
@@ -206,6 +794,821 @@ func valueToStringTmplHandlerService(v interface{}) string {
 	}
 	pv := reflect.Indirect(rv).Interface()
 	return fmt.Sprintf("*%v", pv)
+}
+func (m *HandleSampleApaRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTmplHandlerService
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: HandleSampleApaRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: HandleSampleApaRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Instance", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTmplHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthTmplHandlerService
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Instance == nil {
+				m.Instance = &InstanceMsg{}
+			}
+			if err := m.Instance.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field AdapterConfig", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTmplHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthTmplHandlerService
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.AdapterConfig == nil {
+				m.AdapterConfig = &google_protobuf1.Any{}
+			}
+			if err := m.AdapterConfig.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DedupId", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTmplHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTmplHandlerService
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.DedupId = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTmplHandlerService(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthTmplHandlerService
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *HandleSampleApaResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTmplHandlerService
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: HandleSampleApaResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: HandleSampleApaResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Output", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTmplHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthTmplHandlerService
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Output == nil {
+				m.Output = &OutputMsg{}
+			}
+			if err := m.Output.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTmplHandlerService(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthTmplHandlerService
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *OutputMsg) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTmplHandlerService
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: OutputMsg: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: OutputMsg: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Int64Primitive", wireType)
+			}
+			m.Int64Primitive = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTmplHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Int64Primitive |= (int64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field BoolPrimitive", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTmplHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.BoolPrimitive = bool(v != 0)
+		case 3:
+			if wireType != 1 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DoublePrimitive", wireType)
+			}
+			var v uint64
+			if (iNdEx + 8) > l {
+				return io.ErrUnexpectedEOF
+			}
+			v = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+			iNdEx += 8
+			m.DoublePrimitive = float64(math.Float64frombits(v))
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field StringPrimitive", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTmplHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTmplHandlerService
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.StringPrimitive = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 5:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field StringMap", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTmplHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthTmplHandlerService
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.StringMap == nil {
+				m.StringMap = make(map[string]string)
+			}
+			var mapkey string
+			var mapvalue string
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowTmplHandlerService
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					wire |= (uint64(b) & 0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					var stringLenmapkey uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowTmplHandlerService
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapkey |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapkey := int(stringLenmapkey)
+					if intStringLenmapkey < 0 {
+						return ErrInvalidLengthTmplHandlerService
+					}
+					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
+					iNdEx = postStringIndexmapkey
+				} else if fieldNum == 2 {
+					var stringLenmapvalue uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowTmplHandlerService
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapvalue |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapvalue := int(stringLenmapvalue)
+					if intStringLenmapvalue < 0 {
+						return ErrInvalidLengthTmplHandlerService
+					}
+					postStringIndexmapvalue := iNdEx + intStringLenmapvalue
+					if postStringIndexmapvalue > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapvalue = string(dAtA[iNdEx:postStringIndexmapvalue])
+					iNdEx = postStringIndexmapvalue
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipTmplHandlerService(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthTmplHandlerService
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
+				}
+			}
+			m.StringMap[mapkey] = mapvalue
+			iNdEx = postIndex
+		case 6:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Ip", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTmplHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthTmplHandlerService
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Ip == nil {
+				m.Ip = &istio_policy_v1beta1.IPAddress{}
+			}
+			if err := m.Ip.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 7:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Duration", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTmplHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthTmplHandlerService
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Duration == nil {
+				m.Duration = &istio_policy_v1beta1.Duration{}
+			}
+			if err := m.Duration.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 8:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Timestamp", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTmplHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthTmplHandlerService
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Timestamp == nil {
+				m.Timestamp = &istio_policy_v1beta1.TimeStamp{}
+			}
+			if err := m.Timestamp.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 9:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Dns", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTmplHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthTmplHandlerService
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Dns == nil {
+				m.Dns = &istio_policy_v1beta1.DNSName{}
+			}
+			if err := m.Dns.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTmplHandlerService(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthTmplHandlerService
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *InstanceMsg) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTmplHandlerService
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: InstanceMsg: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: InstanceMsg: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Int64Primitive", wireType)
+			}
+			m.Int64Primitive = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTmplHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Int64Primitive |= (int64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field BoolPrimitive", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTmplHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.BoolPrimitive = bool(v != 0)
+		case 3:
+			if wireType != 1 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DoublePrimitive", wireType)
+			}
+			var v uint64
+			if (iNdEx + 8) > l {
+				return io.ErrUnexpectedEOF
+			}
+			v = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+			iNdEx += 8
+			m.DoublePrimitive = float64(math.Float64frombits(v))
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field StringPrimitive", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTmplHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTmplHandlerService
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.StringPrimitive = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 72295727:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Name", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTmplHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTmplHandlerService
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Name = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTmplHandlerService(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthTmplHandlerService
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *Type) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTmplHandlerService
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: Type: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: Type: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTmplHandlerService(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthTmplHandlerService
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
 }
 func (m *InstanceParam) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
@@ -601,30 +2004,52 @@ func init() {
 }
 
 var fileDescriptorTmplHandlerService = []byte{
-	// 387 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x6c, 0x91, 0xcf, 0x6a, 0x14, 0x41,
-	0x10, 0x87, 0xa7, 0x67, 0x55, 0x48, 0x4b, 0xfc, 0xd3, 0x04, 0x09, 0x7b, 0x68, 0x42, 0x10, 0xd9,
-	0x83, 0x6c, 0x13, 0x15, 0x11, 0xc1, 0x43, 0x82, 0x39, 0x78, 0x0b, 0x79, 0x81, 0xa5, 0x26, 0x53,
-	0x8c, 0x8d, 0x3d, 0xdd, 0x4d, 0x77, 0xed, 0x90, 0xbd, 0x89, 0x4f, 0x20, 0xe4, 0x25, 0x3c, 0xfa,
-	0x00, 0x3e, 0x40, 0xf0, 0x14, 0x3c, 0x89, 0x20, 0x38, 0x63, 0x0e, 0x1e, 0x73, 0xf4, 0x28, 0x3b,
-	0xb3, 0x71, 0xc8, 0x90, 0x5b, 0xd5, 0xc7, 0x57, 0x05, 0xf5, 0x2b, 0xfe, 0xaa, 0xd4, 0xc7, 0x18,
-	0x14, 0x61, 0x24, 0x15, 0xfd, 0x62, 0x37, 0x07, 0x4f, 0x6d, 0x5f, 0x7a, 0x03, 0x84, 0x0a, 0x3c,
-	0x28, 0x2a, 0xbd, 0x99, 0xbd, 0x05, 0x9b, 0x1b, 0x0c, 0xb3, 0x88, 0xa1, 0xd2, 0x47, 0x38, 0xf5,
-	0xc1, 0x91, 0x13, 0x6b, 0x11, 0x4a, 0x6f, 0x10, 0x3c, 0x8c, 0x37, 0x0a, 0x57, 0xb8, 0x96, 0xaa,
-	0x65, 0xd5, 0x09, 0xe3, 0xc7, 0xdd, 0x7e, 0x58, 0xed, 0x2d, 0x5d, 0x8e, 0x46, 0x55, 0x3b, 0x19,
-	0x12, 0xec, 0x28, 0x3c, 0x26, 0xb4, 0x51, 0x3b, 0x1b, 0x3b, 0x7b, 0xfb, 0x47, 0xca, 0xd7, 0xdf,
-	0xd8, 0x48, 0x60, 0x8f, 0xf0, 0x00, 0x02, 0x94, 0xe2, 0x11, 0xbf, 0xa3, 0x2d, 0x3d, 0x7f, 0x76,
-	0x10, 0x74, 0xa9, 0x49, 0x57, 0xb8, 0xc9, 0xb6, 0xd8, 0x64, 0xed, 0x70, 0x40, 0xc5, 0x43, 0xbe,
-	0x9e, 0x39, 0x67, 0x7a, 0x2d, 0x6d, 0xb5, 0xab, 0x50, 0x4c, 0xf8, 0xdd, 0xdc, 0xcd, 0x33, 0x83,
-	0xbd, 0x37, 0x6a, 0xbd, 0x21, 0x5e, 0x9a, 0x91, 0x82, 0xb6, 0x45, 0x6f, 0xde, 0xe8, 0xcc, 0x01,
-	0x16, 0xc0, 0x05, 0x10, 0x05, 0x9d, 0xcd, 0x09, 0x67, 0x99, 0xb6, 0xb9, 0xb6, 0x45, 0xdc, 0xfc,
-	0xfc, 0xf5, 0xcb, 0xf6, 0xd6, 0x68, 0x72, 0xfb, 0x89, 0x9a, 0xfe, 0x8f, 0x68, 0x7a, 0xe5, 0xb4,
-	0xe9, 0xee, 0xe5, 0xd4, 0xde, 0x6a, 0x68, 0xdf, 0x52, 0x58, 0x1c, 0xde, 0x87, 0x21, 0x1f, 0xbf,
-	0xe6, 0x0f, 0xae, 0x97, 0xc5, 0x3d, 0x3e, 0x7a, 0x87, 0x8b, 0x55, 0x26, 0xcb, 0x52, 0x6c, 0xf0,
-	0x9b, 0x15, 0x98, 0xf9, 0x65, 0x00, 0x5d, 0xf3, 0x32, 0x7d, 0xc1, 0xf6, 0xf6, 0x4f, 0x6b, 0x99,
-	0x9c, 0xd5, 0x32, 0xf9, 0x5e, 0xcb, 0xe4, 0xa2, 0x96, 0xc9, 0xfb, 0x46, 0xb2, 0x4f, 0x8d, 0x4c,
-	0x4e, 0x1b, 0xc9, 0xce, 0x1a, 0xc9, 0x7e, 0x35, 0x92, 0xfd, 0x69, 0x64, 0x72, 0xd1, 0x48, 0xf6,
-	0xf1, 0xb7, 0x4c, 0xfe, 0x7e, 0x3b, 0x3f, 0x49, 0x47, 0x1f, 0x7e, 0x9e, 0x9f, 0xa4, 0xfd, 0x9f,
-	0xb3, 0x5b, 0xed, 0xab, 0x9e, 0xfe, 0x0b, 0x00, 0x00, 0xff, 0xff, 0x18, 0x20, 0xa8, 0xa0, 0x3a,
-	0x02, 0x00, 0x00,
+	// 751 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xd4, 0x95, 0xb1, 0x6f, 0xdb, 0x46,
+	0x14, 0xc6, 0x45, 0x49, 0x96, 0xc5, 0x33, 0x6c, 0xb7, 0x07, 0xd5, 0xa5, 0x05, 0x94, 0x75, 0xd9,
+	0xa2, 0xd0, 0x60, 0x90, 0xb0, 0x5a, 0x14, 0x85, 0x5b, 0x0f, 0x72, 0x6d, 0xb4, 0x1e, 0xec, 0x1a,
+	0x94, 0x87, 0x6e, 0xc2, 0x49, 0x3c, 0xb3, 0x87, 0x92, 0x77, 0x57, 0xde, 0x51, 0x30, 0xb7, 0xa2,
+	0x6b, 0x97, 0x02, 0xfe, 0x17, 0x3a, 0x74, 0x4b, 0xfe, 0x80, 0xcc, 0x81, 0x91, 0xc9, 0xc8, 0x14,
+	0x04, 0x08, 0x10, 0x29, 0x1e, 0x32, 0x7a, 0xcc, 0x18, 0xf0, 0x48, 0x49, 0xb6, 0x2c, 0x1b, 0x0e,
+	0x32, 0x65, 0xe3, 0x7b, 0xf7, 0xfb, 0xc8, 0xef, 0xd3, 0x3d, 0x3c, 0x81, 0xad, 0x90, 0x9c, 0xe0,
+	0xc8, 0x91, 0x58, 0x48, 0x47, 0xf0, 0xa4, 0xe5, 0x21, 0x2e, 0x55, 0x1d, 0xf2, 0x00, 0x49, 0xec,
+	0x20, 0x8e, 0x1c, 0x19, 0xf2, 0xa0, 0xf3, 0x3b, 0xa2, 0x5e, 0x80, 0xa3, 0x8e, 0xc0, 0x51, 0x9f,
+	0xf4, 0xb0, 0xcd, 0x23, 0x26, 0x19, 0xd4, 0x05, 0x0a, 0x79, 0x80, 0x11, 0x47, 0xf5, 0x9a, 0xcf,
+	0x7c, 0xa6, 0xba, 0x4e, 0xfa, 0x94, 0x01, 0xf5, 0xf5, 0xec, 0xfd, 0x28, 0x7f, 0x6f, 0xc8, 0x3c,
+	0x1c, 0x38, 0xfd, 0x8d, 0x2e, 0x96, 0x68, 0xc3, 0xc1, 0x27, 0x12, 0x53, 0x41, 0x18, 0x15, 0x39,
+	0xbd, 0xea, 0x33, 0xe6, 0x07, 0xd8, 0x51, 0x55, 0x37, 0x3e, 0x76, 0x10, 0x4d, 0x46, 0x47, 0x9c,
+	0x05, 0xa4, 0x97, 0x8c, 0xb5, 0x32, 0xe1, 0xb9, 0x09, 0xeb, 0x3f, 0x0d, 0xac, 0xfc, 0xa2, 0xec,
+	0xb5, 0x95, 0x9b, 0x16, 0x47, 0x2e, 0xfe, 0x33, 0xc6, 0x42, 0xc2, 0x26, 0xa8, 0x12, 0x2a, 0x24,
+	0xa2, 0x3d, 0x6c, 0x68, 0x6b, 0x5a, 0x63, 0xa1, 0xb9, 0x62, 0x8f, 0x2d, 0xdb, 0x7b, 0xf9, 0xd1,
+	0xbe, 0xf0, 0xdd, 0x31, 0x07, 0x7f, 0x00, 0x4b, 0xb9, 0xdd, 0x4e, 0x8f, 0xd1, 0x63, 0xe2, 0x1b,
+	0x45, 0xa5, 0xac, 0xd9, 0x99, 0x3b, 0x7b, 0xe4, 0xce, 0x6e, 0xd1, 0xc4, 0x5d, 0xcc, 0xd9, 0x9f,
+	0x14, 0x0a, 0x57, 0x41, 0xd5, 0xc3, 0x5e, 0xcc, 0x3b, 0xc4, 0x33, 0x4a, 0x6b, 0x5a, 0x43, 0x77,
+	0xe7, 0x55, 0xbd, 0xe7, 0x59, 0x3f, 0x83, 0x4f, 0x6f, 0xb8, 0x14, 0x9c, 0x51, 0x81, 0xe1, 0x3a,
+	0xa8, 0xb0, 0x58, 0xf2, 0x58, 0xe6, 0x26, 0x6b, 0x57, 0x4c, 0xfe, 0xaa, 0x0e, 0x52, 0x8b, 0x39,
+	0x63, 0xfd, 0x53, 0x06, 0xfa, 0xb8, 0x0b, 0xbf, 0x06, 0x4b, 0x84, 0xca, 0xef, 0xbe, 0x3d, 0x8c,
+	0x48, 0x48, 0x24, 0xe9, 0x67, 0x41, 0x4b, 0xee, 0x54, 0x17, 0x7e, 0x05, 0x16, 0xbb, 0x8c, 0x05,
+	0x13, 0x2c, 0x4d, 0x55, 0x75, 0xaf, 0x37, 0x61, 0x03, 0x2c, 0x7b, 0x2c, 0xee, 0x06, 0x78, 0xc2,
+	0xa5, 0x31, 0x34, 0x77, 0xba, 0x9d, 0x92, 0x42, 0x46, 0x84, 0xfa, 0x13, 0xb2, 0xac, 0x02, 0x4f,
+	0xb7, 0x61, 0x0b, 0xe8, 0x59, 0x6b, 0x1f, 0x71, 0x63, 0x6e, 0xad, 0xd4, 0x58, 0x68, 0x7e, 0x39,
+	0x2b, 0xa0, 0xdd, 0x1e, 0x51, 0xbb, 0x54, 0x46, 0x89, 0x3b, 0x51, 0x41, 0x07, 0x14, 0x09, 0x37,
+	0x2a, 0xea, 0xc7, 0xf9, 0xdc, 0x26, 0x42, 0x12, 0x66, 0x67, 0x03, 0x61, 0xe7, 0x03, 0x61, 0xef,
+	0x1d, 0xb6, 0x3c, 0x2f, 0xc2, 0x42, 0xb8, 0x45, 0xc2, 0xe1, 0x26, 0xa8, 0x7a, 0x71, 0x84, 0x24,
+	0x61, 0xd4, 0x98, 0x57, 0x32, 0x73, 0xb6, 0x6c, 0x27, 0xa7, 0xdc, 0x31, 0x0f, 0xb7, 0x80, 0x2e,
+	0x49, 0x88, 0x85, 0x44, 0x21, 0x37, 0xaa, 0x77, 0x7d, 0xf3, 0x88, 0x84, 0xb8, 0x9d, 0x62, 0xee,
+	0x44, 0x01, 0x1d, 0x50, 0xf2, 0xa8, 0x30, 0x74, 0x25, 0xfc, 0xec, 0x96, 0xaf, 0x1e, 0xb4, 0x0f,
+	0x50, 0x88, 0xdd, 0x94, 0xac, 0xff, 0x08, 0x96, 0xae, 0x27, 0x87, 0x1f, 0x81, 0xd2, 0x1f, 0x38,
+	0x51, 0x17, 0xa9, 0xbb, 0xe9, 0x23, 0xac, 0x81, 0xb9, 0x3e, 0x0a, 0xe2, 0xec, 0xd6, 0x74, 0x37,
+	0x2b, 0x36, 0x8b, 0xdf, 0x6b, 0xd6, 0x63, 0x0d, 0x2c, 0x5c, 0x19, 0xe4, 0x0f, 0x60, 0x1e, 0x3e,
+	0x01, 0x65, 0x8a, 0x42, 0x6c, 0x3c, 0x78, 0xf2, 0xc8, 0x52, 0x84, 0x2a, 0xad, 0x0a, 0x28, 0x1f,
+	0x25, 0x1c, 0x5b, 0xcf, 0x8b, 0x60, 0x71, 0x14, 0xe8, 0x10, 0x45, 0x28, 0xbc, 0x25, 0x92, 0x7e,
+	0xbf, 0x48, 0xfa, 0x3d, 0x23, 0xe9, 0xef, 0x13, 0x09, 0x01, 0x88, 0xa4, 0x8c, 0x48, 0x37, 0x96,
+	0xb8, 0xd3, 0x25, 0xd4, 0x23, 0xd4, 0x17, 0xc6, 0xc3, 0x34, 0x60, 0x3a, 0xee, 0xce, 0x8c, 0xa5,
+	0xa3, 0xa2, 0xd9, 0xad, 0x91, 0x6a, 0x3b, 0x17, 0x65, 0xa3, 0xff, 0x31, 0x9a, 0xee, 0xd7, 0x77,
+	0xc0, 0xca, 0x6c, 0xf8, 0x5d, 0xa6, 0xa5, 0x19, 0xdd, 0x58, 0x95, 0xed, 0x6c, 0xa1, 0xc3, 0xdf,
+	0xc0, 0xf2, 0xd4, 0x09, 0xfc, 0xe2, 0x8a, 0xed, 0xd9, 0x0b, 0xb6, 0x6e, 0xdd, 0x85, 0x64, 0xdb,
+	0x6d, 0x7b, 0xf7, 0x6c, 0x60, 0x16, 0xce, 0x07, 0x66, 0xe1, 0xd9, 0xc0, 0x2c, 0x5c, 0x0e, 0xcc,
+	0xc2, 0x5f, 0x43, 0x53, 0xfb, 0x7f, 0x68, 0x16, 0xce, 0x86, 0xa6, 0x76, 0x3e, 0x34, 0xb5, 0x97,
+	0x43, 0x53, 0x7b, 0x3d, 0x34, 0x0b, 0x97, 0x43, 0x53, 0xfb, 0xf7, 0x95, 0x59, 0x78, 0xf3, 0xf4,
+	0xe2, 0xb4, 0x58, 0xfa, 0xfb, 0xc5, 0xc5, 0x69, 0x71, 0xf2, 0x07, 0xd3, 0xad, 0xa8, 0xbd, 0xfb,
+	0xcd, 0xdb, 0x00, 0x00, 0x00, 0xff, 0xff, 0x43, 0xe7, 0x0f, 0xc7, 0xb3, 0x06, 0x00, 0x00,
 }

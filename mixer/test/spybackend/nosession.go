@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/mixer/template/metric"
 	"istio.io/istio/mixer/template/quota"
 	"istio.io/istio/mixer/test/spyAdapter"
+	sampleapa "istio.io/istio/mixer/test/spyAdapter/template/apa"
 	samplecheck "istio.io/istio/mixer/test/spyAdapter/template/check"
 	samplequota "istio.io/istio/mixer/test/spyAdapter/template/quota"
 	samplereport "istio.io/istio/mixer/test/spyAdapter/template/report"
@@ -62,6 +63,7 @@ var _ quota.HandleQuotaServiceServer = &NoSessionServer{}
 var _ samplecheck.HandleSampleCheckServiceServer = &NoSessionServer{}
 var _ samplequota.HandleSampleQuotaServiceServer = &NoSessionServer{}
 var _ samplereport.HandleSampleReportServiceServer = &NoSessionServer{}
+var _ sampleapa.HandleSampleApaServiceServer = &NoSessionServer{}
 
 // HandleMetric records metric entries and responds with the programmed response
 func (s *NoSessionServer) HandleMetric(c context.Context, r *metric.HandleMetricRequest) (*adptModel.ReportResult, error) {
@@ -131,6 +133,16 @@ func (s *NoSessionServer) HandleSampleQuota(c context.Context, r *samplequota.Ha
 	s.CapturedCalls = append(s.CapturedCalls, cc)
 
 	return s.Behavior.HandleSampleQuotaResult, s.Behavior.HandleSampleQuotaError
+}
+
+// HandleSampleApa records sampleapa and responds with the programmed response
+func (s *NoSessionServer) HandleSampleApa(c context.Context, r *sampleapa.HandleSampleApaRequest) (*sampleapa.HandleSampleApaResponse, error) {
+	cc := spyAdapter.CapturedCall{
+		Name:      "HandleSampleApa",
+		Instances: []interface{}{r.Instance},
+	}
+	s.CapturedCalls = append(s.CapturedCalls, cc)
+	return &sampleapa.HandleSampleApaResponse{Output: s.Behavior.HandleSampleApaResult}, s.Behavior.HandleSampleApaError
 }
 
 // Addr returns the listening address of the server
@@ -296,6 +308,7 @@ func NewNoSessionServer(a *Args) (Server, error) {
 	samplereport.RegisterHandleSampleReportServiceServer(s.server, s)
 	samplecheck.RegisterHandleSampleCheckServiceServer(s.server, s)
 	samplequota.RegisterHandleSampleQuotaServiceServer(s.server, s)
+	sampleapa.RegisterHandleSampleApaServiceServer(s.server, s)
 
 	return s, nil
 }

@@ -54,6 +54,14 @@ type (
 		Data []byte
 	}
 
+	// RemoteGenerateAttributes calls remote APA adapter
+	RemoteGenerateAttributesHandler interface {
+		Handler
+
+		// HandleRemoteGenAttrs performs APA call based on pre encoded instances and returns the encoded output.
+		HandleRemoteGenAttrs(ctx context.Context, encodedInstance *EncodedInstance) ([]byte, error)
+	}
+
 	// RemoteCheckHandler calls remote check adapter.
 	RemoteCheckHandler interface {
 		Handler

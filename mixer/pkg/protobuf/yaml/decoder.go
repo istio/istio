@@ -271,7 +271,7 @@ func (dv *decodeVisitor) Bytes(n wire.Number, v []byte) {
 			return
 		}
 
-		// TODO(kuat): implement sub-message decoding
+		// TODO: implement sub-message decoding
 		return
 	}
 
