@@ -22,6 +22,9 @@ spec:
         sidecar.istio.io/inject: "false"
         scheduler.alpha.kubernetes.io/critical-pod: ""
     spec:
+      securityContext:
+        runAsUser: 472
+        fsGroup: 472
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
 {{- end }}
@@ -100,7 +103,7 @@ spec:
           claimName: istio-grafana-pvc
 {{- else }}
         emptyDir: {}
+{{- end }}
       - name: dashboards-istio
         configMap:
           name:  istio-grafana-configuration-dashboards
-{{- end }}
