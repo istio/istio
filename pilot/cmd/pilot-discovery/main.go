@@ -62,7 +62,7 @@ var (
 			}
 
 			spiffe.SetTrustDomain(spiffe.DetermineTrustDomain(serverArgs.Config.ControllerOptions.TrustDomain,
-				serverArgs.Config.ControllerOptions.DomainSuffix, bootstrap.HasKubeRegistry(&serverArgs)))
+				serverArgs.Config.ControllerOptions.DomainSuffix, hasKubeRegistry()))
 
 			// Create the stop channel for all of the servers.
 			stop := make(chan struct{})
@@ -83,6 +83,15 @@ var (
 		},
 	}
 )
+
+func hasKubeRegistry() bool {
+	for _, r := range serverArgs.Service.Registries {
+		if serviceregistry.ServiceRegistry(r) == serviceregistry.KubernetesRegistry {
+			return true
+		}
+	}
+	return false
+}
 
 func init() {
 	discoveryCmd.PersistentFlags().StringSliceVar(&serverArgs.Service.Registries, "registries",

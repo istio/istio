@@ -308,7 +308,7 @@ func (s *Server) initMonitor(args *PilotArgs) error {
 // initClusterRegistries starts the secret controller to watch for remote
 // clusters and initialize the multicluster structures.
 func (s *Server) initClusterRegistries(args *PilotArgs) (err error) {
-	if HasKubeRegistry(args) {
+	if hasKubeRegistry(args) {
 
 		mc, err := clusterregistry.NewMulticluster(s.kubeClient,
 			args.Config.ClusterRegistriesNamespace,
@@ -473,7 +473,7 @@ func (s *Server) getKubeCfgFile(args *PilotArgs) string {
 
 // initKubeClient creates the k8s client if running in an k8s environment.
 func (s *Server) initKubeClient(args *PilotArgs) error {
-	if HasKubeRegistry(args) && args.Config.FileDir == "" {
+	if hasKubeRegistry(args) && args.Config.FileDir == "" {
 		client, kuberr := kubelib.CreateClientset(s.getKubeCfgFile(args), "")
 		if kuberr != nil {
 			return multierror.Prefix(kuberr, "failed to connect to Kubernetes API.")
@@ -745,7 +745,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 	})
 
 	// If running in ingress mode (requires k8s), wrap the config controller.
-	if HasKubeRegistry(args) && s.mesh.IngressControllerMode != meshconfig.MeshConfig_OFF {
+	if hasKubeRegistry(args) && s.mesh.IngressControllerMode != meshconfig.MeshConfig_OFF {
 		// Wrap the config controller with a cache.
 		configController, err := configaggregate.MakeCache([]model.ConfigStoreCache{
 			s.configController,
@@ -823,7 +823,7 @@ func (s *Server) createK8sServiceControllers(serviceControllers *aggregate.Contr
 	return
 }
 
-func HasKubeRegistry(args *PilotArgs) bool {
+func hasKubeRegistry(args *PilotArgs) bool {
 	for _, r := range args.Service.Registries {
 		if serviceregistry.ServiceRegistry(r) == serviceregistry.KubernetesRegistry {
 			return true

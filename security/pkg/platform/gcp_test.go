@@ -57,6 +57,7 @@ func (fetcher *mockTokenFetcher) FetchServiceAccount() (string, error) {
 }
 
 func TestGcpGetServiceIdentity(t *testing.T) {
+	spiffe.SetIdentityDomain("cluster.local")
 	testCases := map[string]struct {
 		rootCertFile string
 		sa           string

@@ -17,6 +17,7 @@ package aggregate
 import (
 	"errors"
 	"fmt"
+	"istio.io/istio/pkg/spiffe"
 	"reflect"
 	"testing"
 
@@ -396,6 +397,7 @@ func TestInstancesError(t *testing.T) {
 }
 
 func TestGetIstioServiceAccounts(t *testing.T) {
+	spiffe.SetIdentityDomain("cluster.local")
 	aggregateCtl := buildMockController()
 
 	// Get accounts from mockAdapter1
@@ -425,7 +427,7 @@ func TestGetIstioServiceAccounts(t *testing.T) {
 
 	for i := 0; i < len(accounts); i++ {
 		if accounts[i] != expected[i] {
-			t.Fatal("Returned account result does not match expected one")
+			t.Fatal("Returned account result does not match expected one", accounts[i], expected[i])
 		}
 	}
 }

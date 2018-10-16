@@ -17,6 +17,7 @@ package kube
 import (
 	"fmt"
 	"path/filepath"
+	"istio.io/istio/pkg/spiffe"
 	"reflect"
 	"sort"
 	"testing"
@@ -467,6 +468,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 }
 
 func TestController_GetIstioServiceAccounts(t *testing.T) {
+	spiffe.SetTrustDomain(domainSuffix)
 	controller, fx := newFakeController(t)
 	defer controller.Stop()
 

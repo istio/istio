@@ -44,7 +44,7 @@ func TestPilotSanIfAuthenticationMutualDomainEmptyKubernetes(t *testing.T) {
 
 	pilotSAN := getPilotSAN(role.DNSDomain, "anything")
 
-	g.Expect(pilotSAN).To(gomega.Equal("cluster.local"))
+	g.Expect(pilotSAN).To(gomega.Equal([]string{"spiffe://cluster.local/ns/anything/sa/istio-pilot-service-account"} ))
 }
 
 func TestPilotSanIfAuthenticationMutualDomainNotEmptyKubernetes(t *testing.T) {
@@ -56,7 +56,7 @@ func TestPilotSanIfAuthenticationMutualDomainNotEmptyKubernetes(t *testing.T) {
 
 	pilotSAN := getPilotSAN(role.DNSDomain, "anything")
 
-	g.Expect(pilotSAN).To(gomega.Equal("my.domain"))
+	g.Expect(pilotSAN).To(gomega.Equal([]string{"spiffe://my.domain/ns/anything/sa/istio-pilot-service-account"} ))
 }
 
 // This test is used to ensure that the former behavior is unchanged
@@ -70,7 +70,7 @@ func TestPilotSanIfAuthenticationMutualDomainEmptyConsul(t *testing.T) {
 
 	pilotSAN := getPilotSAN(role.DNSDomain, "anything")
 
-	g.Expect(pilotSAN).To(gomega.Equal(""))
+	g.Expect(pilotSAN).To(gomega.Equal([]string{"spiffe:///ns/anything/sa/istio-pilot-service-account"} ))
 }
 
 func TestPilotSanIfAuthenticationMutualTrustDomain(t *testing.T) {
@@ -82,7 +82,7 @@ func TestPilotSanIfAuthenticationMutualTrustDomain(t *testing.T) {
 
 	pilotSAN := getPilotSAN(role.DNSDomain, "anything")
 
-	g.Expect(pilotSAN).To(gomega.Equal("secured"))
+	g.Expect(pilotSAN).To(gomega.Equal([]string{"spiffe://secured/ns/anything/sa/istio-pilot-service-account"} ))
 }
 
 func TestPilotSanIfAuthenticationMutualTrustDomainAndDomain(t *testing.T) {
@@ -94,7 +94,7 @@ func TestPilotSanIfAuthenticationMutualTrustDomainAndDomain(t *testing.T) {
 
 	pilotSAN := getPilotSAN(role.DNSDomain, "anything")
 
-	g.Expect(pilotSAN).To(gomega.Equal("secured"))
+	g.Expect(pilotSAN).To(gomega.Equal([]string{"spiffe://secured/ns/anything/sa/istio-pilot-service-account"} ))
 }
 
 func TestPilotDefaultDomainKubernetes(t *testing.T) {

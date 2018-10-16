@@ -50,6 +50,7 @@ func GenSpiffeURI(ns, serviceAccount string) (string, error) {
 	return fmt.Sprintf(Scheme+"://%s/ns/%s/sa/%s", trustDomain, ns, serviceAccount), nil
 }
 
+// MustGenSpiffeURI returns the formatted uri(SPIFFEE format for now) for the certificate and panics if there was an error.
 func MustGenSpiffeURI(ns, serviceAccount string) string {
 	uri, err := GenSpiffeURI(ns, serviceAccount)
 	if err != nil {
