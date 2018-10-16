@@ -16,6 +16,7 @@
 
 set -e
 set -u
+set -o pipefail
 
 SCRIPTPATH="$(cd "$(dirname "$0")" ; pwd -P)"
 ROOTDIR="$(dirname "${SCRIPTPATH}")"
@@ -43,22 +44,19 @@ mkdir -p "$COVERAGEDIR"
 if [[ -z ${MAXPROCS:-} ]];then
   MAXPROCS=$(($(getconf _NPROCESSORS_ONLN)/2))
 fi
-PIDS=()
-FAILED_TESTS=()
-
-declare -a PKGS
 
 function code_coverage() {
   local filename
   filename="$(echo "${1}" | tr '/' '-')"
-  ( go test \
+  go test \
     -coverpkg=istio.io/istio/... \
     -coverprofile="${COVERAGEDIR}/${filename}.cov" \
     -covermode=atomic "${1}" \
-    | tee "${COVERAGEDIR}/${filename}.report" ) &
-  local pid=$!
-  PKGS[${pid}]=${1}
-  PIDS+=("${pid}")
+    | tee "${COVERAGEDIR}/${filename}.report"  && RC=$? || RC=$?
+
+  if [[ ${RC} != 0 ]]; then
+    echo "${1}" | tee "${COVERAGEDIR}/${filename}.err"
+  fi
 }
 
 function wait_for_proc() {
@@ -67,15 +65,6 @@ function wait_for_proc() {
   while [ "${num}" -gt ${MAXPROCS} ]; do
     sleep 2
     num=$(jobs -p|wc -l)
-  done
-}
-
-function join_procs() {
-  local p
-  for p in "${PIDS[@]}"; do
-      if ! wait "${p}"; then
-          FAILED_TESTS+=("${PKGS[${p}]}")
-      fi
   done
 }
 
@@ -98,11 +87,11 @@ for P in $(go list "${DIR}" | grep -v vendor); do
     echo "Skipped ${P}"
     continue
   fi
-  code_coverage "${P}"
+  code_coverage "${P}" &
   wait_for_proc
 done
 
-join_procs
+wait
 
 touch "${COVERAGEDIR}/empty"
 FINAL_CODECOV_DIR="${GOPATH}/out/codecov"
@@ -112,14 +101,13 @@ go get github.com/wadey/gocovmerge
 gocovmerge "${COVERAGEDIR}"/*.cov > coverage.cov
 cat "${COVERAGEDIR}"/*.report > codecov.report
 popd
-echo "Reports are stored in ${FINAL_CODECOV_DIR}"
 
+echo "Intermedite files were written to ${COVERAGEDIR}"
+echo "Final reports are stored in ${FINAL_CODECOV_DIR}"
 
-if [[ -n ${FAILED_TESTS:-} ]]; then
-  echo "The following tests failed"
-  for T in "${FAILED_TESTS[@]}"; do
-    echo "FAIL: $T"
-  done
+if ls "${COVERAGEDIR}"/*.err 1> /dev/null 2>&1; then
+  echo "The following tests had failed:"
+  cat "${COVERAGEDIR}"/*.err 
   exit 1
 fi
 
