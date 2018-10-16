@@ -23,7 +23,7 @@ spec:
         paths:
           - path: /
             backend:
-              serviceName: {{ $serviceName }}
+              serviceName: servicegraph
               servicePort: {{ $servicePort }}
     {{- end -}}
   {{- if .Values.ingress.tls }}
