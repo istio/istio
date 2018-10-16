@@ -3,8 +3,8 @@ kind: ClusterRoleBinding
 metadata:
   name: istio-galley-admin-role-binding-{{ .Release.Namespace }}
   labels:
-    app: istio-galley
-    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    app: {{ template "galley.name" . }}
+    chart: {{ template "galley.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
 roleRef:

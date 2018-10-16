@@ -5,9 +5,9 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: prometheus
-    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    release: {{ .Release.Name }}
+    chart: {{ template "prometheus.chart" . }}
     heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 data:
   prometheus.yml: |-
     global:

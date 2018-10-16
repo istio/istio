@@ -20,7 +20,6 @@ import (
 
 	"istio.io/istio/pkg/test/framework/environments/kubernetes"
 	"istio.io/istio/pkg/test/framework/tmpl"
-	"istio.io/istio/pkg/test/kube"
 )
 
 const (
@@ -158,9 +157,9 @@ type deployment struct {
 func (d *deployment) apply(e *kubernetes.Implementation) error {
 	s := e.KubeSettings()
 	result, err := tmpl.Evaluate(template, map[string]string{
-		"Hub":             s.Images.Hub,
-		"Tag":             s.Images.Tag,
-		"ImagePullPolicy": string(s.Images.ImagePullPolicy),
+		"Hub":             s.Values[kubernetes.HubValuesKey],
+		"Tag":             s.Values[kubernetes.TagValuesKey],
+		"ImagePullPolicy": s.Values[kubernetes.ImagePullPolicyValuesKey],
 		"deployment":      d.deployment,
 		"service":         d.service,
 		"app":             d.service,
@@ -180,7 +179,7 @@ func (d *deployment) apply(e *kubernetes.Implementation) error {
 		return err
 	}
 
-	if err = kube.ApplyContents(s.KubeConfig, s.DependencyNamespace, result); err != nil {
+	if err = e.Accessor.ApplyContents(s.DependencyNamespace, result); err != nil {
 		return err
 	}
 	return nil

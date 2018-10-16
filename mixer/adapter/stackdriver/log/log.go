@@ -135,8 +135,12 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 			ctx := context.Background()
 			var sinkErr error
 			// first try to CreateSink, if error is AlreadyExists then update that sink.
-			if _, sinkErr = syncClient.CreateSink(ctx, sink); isAlreadyExists(sinkErr) {
-				_, sinkErr = syncClient.UpdateSink(ctx, sink)
+			if _, sinkErr = syncClient.CreateSinkOpt(ctx, sink,
+				logadmin.SinkOptions{UniqueWriterIdentity: log.SinkInfo.UniqueWriterIdentity}); isAlreadyExists(sinkErr) {
+				_, sinkErr = syncClient.UpdateSinkOpt(ctx, sink,
+					logadmin.SinkOptions{UpdateDestination: log.SinkInfo.UpdateDestination,
+						UpdateFilter:          log.SinkInfo.UpdateFilter,
+						UpdateIncludeChildren: log.SinkInfo.UpdateIncludeChildren})
 			}
 			if sinkErr != nil {
 				logger.Warningf("failed to create/update stackdriver logging sink: %v", sinkErr)

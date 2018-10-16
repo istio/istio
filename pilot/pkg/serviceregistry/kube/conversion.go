@@ -55,7 +55,7 @@ func convertLabels(obj meta_v1.ObjectMeta) model.Labels {
 	return out
 }
 
-func convertPort(port v1.ServicePort, obj meta_v1.ObjectMeta) *model.Port {
+func convertPort(port v1.ServicePort) *model.Port {
 	return &model.Port{
 		Name:     port.Name,
 		Port:     int(port.Port),
@@ -84,7 +84,7 @@ func convertService(svc v1.Service, domainSuffix string) *model.Service {
 
 	ports := make([]*model.Port, 0, len(svc.Spec.Ports))
 	for _, port := range svc.Spec.Ports {
-		ports = append(ports, convertPort(port, svc.ObjectMeta))
+		ports = append(ports, convertPort(port))
 	}
 
 	serviceaccounts := make([]string, 0)
@@ -169,7 +169,7 @@ func ConvertProtocol(name string, proto v1.Protocol) model.Protocol {
 	return out
 }
 
-func convertProbePort(c v1.Container, handler *v1.Handler) (*model.Port, error) {
+func convertProbePort(c *v1.Container, handler *v1.Handler) (*model.Port, error) {
 	if handler == nil {
 		return nil, nil
 	}
@@ -225,7 +225,7 @@ func convertProbesToPorts(t *v1.PodSpec) (model.PortList, error) {
 				continue
 			}
 
-			p, err := convertProbePort(container, &probe.Handler)
+			p, err := convertProbePort(&container, &probe.Handler)
 			if err != nil {
 				errs = multierror.Append(errs, err)
 			} else if p != nil && set[p.Name] == nil {

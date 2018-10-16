@@ -7,19 +7,24 @@ metadata:
   name: {{ $key }}
   namespace: {{ $spec.namespace | default $.Release.Namespace }}
   labels:
+    chart: {{ template "gateway.chart" $ }}
+    heritage: {{ $.Release.Service }}
+    release: {{ $.Release.Name }}
     {{- range $key, $val := $spec.labels }}
     {{ $key }}: {{ $val }}
     {{- end }}
-    {{- template "common_labels" $ }}
 spec:
   replicas: {{ $spec.replicaCount }}
   template:
     metadata:
       labels:
+        chart: {{ template "gateway.chart" $ }}
+        heritage: {{ $.Release.Service }}
+        release: {{ $.Release.Name }}
+        version: {{ $.Chart.Version }}
         {{- range $key, $val := $spec.labels }}
         {{ $key }}: {{ $val }}
         {{- end }}
-        {{- template "common_template_labels" $ }}
       annotations:
         sidecar.istio.io/inject: "false"
         scheduler.alpha.kubernetes.io/critical-pod: ""
@@ -148,6 +153,10 @@ spec:
           {{- end }}
           {{ end }}
           volumeMounts:
+          {{ if $.Values.global.sdsEnabled }}
+          - name: sdsudspath
+            mountPath: /var/run/sds
+          {{- end }}
           - name: istio-certs
             mountPath: /etc/certs
             readOnly: true
@@ -160,6 +169,11 @@ spec:
 {{ toYaml $spec.additionalContainers | indent 8 }}
 {{- end }}
       volumes:
+      {{ if $.Values.global.sdsEnabled }}
+      - name: sdsudspath
+        hostPath:
+          path: /var/run/sds
+      {{- end }}
       - name: istio-certs
         secret:
           secretName: istio.{{ $key }}-service-account

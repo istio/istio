@@ -9,10 +9,10 @@ kind: "MeshPolicy"
 metadata:
   name: "default"
   labels:
-    app: istio-security
-    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    release: {{ .Release.Name }}
+    app: {{ template "security.name" . }}
+    chart: {{ template "security.chart" . }}
     heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   peers:
   - mtls: {}
@@ -24,27 +24,27 @@ kind: DestinationRule
 metadata:
   name: "default"
   labels:
-    app: istio-security
-    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    release: {{ .Release.Name }}
+    app: {{ template "security.name" . }}
+    chart: {{ template "security.chart" . }}
     heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   host: "*.local"
   trafficPolicy:
     tls:
       mode: ISTIO_MUTUAL
 ---
-# Destination rule to dislabe (m)TLS when talking to API server, as API server doesn't have sidecar.
+# Destination rule to disable (m)TLS when talking to API server, as API server doesn't have sidecar.
 # Customer should add similar destination rules for other services that dont' have sidecar.
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: "api-server"
   labels:
-    app: istio-security
-    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    release: {{ .Release.Name }}
+    app: {{ template "security.name" . }}
+    chart: {{ template "security.chart" . }}
     heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   host: "kubernetes.default.svc.cluster.local"
   trafficPolicy:

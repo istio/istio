@@ -303,6 +303,49 @@ filtering logs. See below for a sample config:
 
 </td>
 </tr>
+<tr id="Params-LogInfo-SinkInfo-UniqueWriterIdentity">
+<td><code>UniqueWriterIdentity</code></td>
+<td><code>bool</code></td>
+<td>
+<p>Determines the kind of IAM identity returned as WriterIdentity in the new
+sink. If this value is omitted or set to false, and if the sink&rsquo;s parent is a
+project, then the value returned as WriterIdentity is the same group or
+service account used by Stackdriver Logging before the addition of writer
+identities to the API. The sink&rsquo;s destination must be in the same project as
+the sink itself.</p>
+
+<p>If this field is set to true, or if the sink is owned by a non-project
+resource such as an organization, then the value of WriterIdentity will
+be a unique service account used only for exports from the new sink.</p>
+
+</td>
+</tr>
+<tr id="Params-LogInfo-SinkInfo-UpdateDestination">
+<td><code>UpdateDestination</code></td>
+<td><code>bool</code></td>
+<td>
+<p>These fields apply only to UpdateSinkOpt calls. The corresponding sink field
+is updated if and only if the Update field is true.
+Upate sink destination.</p>
+
+</td>
+</tr>
+<tr id="Params-LogInfo-SinkInfo-UpdateFilter">
+<td><code>UpdateFilter</code></td>
+<td><code>bool</code></td>
+<td>
+<p>Update sink filter.</p>
+
+</td>
+</tr>
+<tr id="Params-LogInfo-SinkInfo-UpdateIncludeChildren">
+<td><code>UpdateIncludeChildren</code></td>
+<td><code>bool</code></td>
+<td>
+<p>Update includes children.</p>
+
+</td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -324,12 +367,16 @@ See https://github.com/googleapis/googleapis/blob/master/google/api/metric.proto
 <td><code>kind</code></td>
 <td><code><a href="#google-api-MetricDescriptor-MetricKind">google.api.MetricDescriptor.MetricKind</a></code></td>
 <td>
+<p>The kind of measurement for a metric, which describes how the data is reported. Ex: Gauge.</p>
+
 </td>
 </tr>
 <tr id="Params-MetricInfo-value">
 <td><code>value</code></td>
 <td><code><a href="#google-api-MetricDescriptor-ValueType">google.api.MetricDescriptor.ValueType</a></code></td>
 <td>
+<p>The type of the metric&rsquo;s value. Ex: Distribution.</p>
+
 </td>
 </tr>
 <tr id="Params-MetricInfo-buckets">

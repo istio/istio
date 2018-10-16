@@ -66,8 +66,9 @@ var (
 	concurrency              int
 	templateFile             string
 	disableInternalTelemetry bool
-
-	loggingOptions = log.DefaultOptions()
+	appReadinessProbeURL     string
+	livenessProbeURL         string
+	loggingOptions           = log.DefaultOptions()
 
 	rootCmd = &cobra.Command{
 		Use:          "pilot-agent",
@@ -262,6 +263,8 @@ var (
 					AdminPort:        proxyAdminPort,
 					StatusPort:       statusPort,
 					ApplicationPorts: parsedPorts,
+					AppReadinessURL:  appReadinessProbeURL,
+					AppLivenessURL:   livenessProbeURL,
 				})
 				go statusServer.Run(ctx)
 			}
@@ -351,15 +354,21 @@ func init() {
 	proxyCmd.PersistentFlags().StringVar(&customConfigFile, "customConfigFile", values.CustomConfigFile,
 		"Path to the custom configuration file")
 	// Log levels are provided by the library https://github.com/gabime/spdlog, used by Envoy.
-	proxyCmd.PersistentFlags().StringVar(&proxyLogLevel, "proxyLogLevel", "warn",
+	proxyCmd.PersistentFlags().StringVar(&proxyLogLevel, "proxyLogLevel", "warning",
 		fmt.Sprintf("The log level used to start the Envoy proxy (choose from {%s, %s, %s, %s, %s, %s, %s})",
-			"trace", "debug", "info", "warn", "err", "critical", "off"))
+			"trace", "debug", "info", "warning", "error", "critical", "off"))
 	proxyCmd.PersistentFlags().IntVar(&concurrency, "concurrency", int(values.Concurrency),
 		"number of worker threads to run")
 	proxyCmd.PersistentFlags().StringVar(&templateFile, "templateFile", "",
 		"Go template bootstrap config")
 	proxyCmd.PersistentFlags().BoolVar(&disableInternalTelemetry, "disableInternalTelemetry", false,
 		"Disable internal telemetry")
+
+	// Flags for Pilot agent to take over Kubernetes readiness and liveness check.
+	proxyCmd.PersistentFlags().StringVar(&livenessProbeURL, "appLiveUrl", "",
+		"The url, including path and port, for the application liveness check. Examples, \"/path\", \":8080/path\"")
+	proxyCmd.PersistentFlags().StringVar(&appReadinessProbeURL, "appReadyUrl", "",
+		"The url, including path and port for the app readiness check. Examples, \"/path\", \":8080/path\"")
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)

@@ -18,7 +18,9 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"sort"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -88,6 +90,10 @@ type Controller struct {
 	// Env is set by server to point to the environment, to allow the controller to
 	// use env data and push status. It may be null in tests.
 	Env *model.Environment
+
+	sync.RWMutex
+	// servicesMap stores hostname ==> service, it is used to reduce convertService calls.
+	servicesMap map[model.Hostname]*model.Service
 }
 
 type cacheHandler struct {
@@ -97,7 +103,7 @@ type cacheHandler struct {
 
 // NewController creates a new Kubernetes controller
 func NewController(client kubernetes.Interface, options ControllerOptions) *Controller {
-	log.Infof("Service controller watching namespace %q for service, endpoint, nodes and pods, refresh %s",
+	log.Infof("Service controller watching namespace %q for services, endpoints, nodes and pods, refresh %s",
 		options.WatchedNamespace, options.ResyncPeriod)
 
 	// Queue requires a time duration for a retry delay after a handler error
@@ -105,21 +111,22 @@ func NewController(client kubernetes.Interface, options ControllerOptions) *Cont
 		domainSuffix: options.DomainSuffix,
 		client:       client,
 		queue:        NewQueue(1 * time.Second),
+		servicesMap:  make(map[model.Hostname]*model.Service),
 	}
 
 	sharedInformers := informers.NewFilteredSharedInformerFactory(client, options.ResyncPeriod, options.WatchedNamespace, nil)
 
 	svcInformer := sharedInformers.Core().V1().Services().Informer()
-	out.services = out.createCacheHandler(svcInformer, "Service")
+	out.services = out.createCacheHandler(svcInformer, "Services")
 
 	epInformer := sharedInformers.Core().V1().Endpoints().Informer()
 	out.endpoints = out.createCacheHandler(epInformer, "Endpoints")
 
 	nodeInformer := sharedInformers.Core().V1().Nodes().Informer()
-	out.nodes = out.createCacheHandler(nodeInformer, "Node")
+	out.nodes = out.createCacheHandler(nodeInformer, "Nodes")
 
 	podInformer := sharedInformers.Core().V1().Pods().Informer()
-	out.pods = newPodCache(out.createCacheHandler(podInformer, "Pod"))
+	out.pods = newPodCache(out.createCacheHandler(podInformer, "Pods"))
 
 	return out
 }
@@ -191,31 +198,18 @@ func (c *Controller) Run(stop <-chan struct{}) {
 
 // Services implements a service catalog operation
 func (c *Controller) Services() ([]*model.Service, error) {
-	list := c.services.informer.GetStore().List()
-	out := make([]*model.Service, 0, len(list))
-
-	for _, item := range list {
-		if svc := convertService(*item.(*v1.Service), c.domainSuffix); svc != nil {
-			out = append(out, svc)
-		}
+	out := make([]*model.Service, 0, len(c.servicesMap))
+	for _, svc := range c.servicesMap {
+		out = append(out, svc)
 	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Hostname < out[j].Hostname })
+
 	return out, nil
 }
 
 // GetService implements a service catalog operation by hostname specified.
 func (c *Controller) GetService(hostname model.Hostname) (*model.Service, error) {
-	name, namespace, err := parseHostname(hostname)
-	if err != nil {
-		log.Infof("parseHostname(%s) => error %v", hostname, err)
-		return nil, err
-	}
-	item, exists := c.serviceByKey(name, namespace)
-	if !exists {
-		return nil, nil
-	}
-
-	svc := convertService(*item, c.domainSuffix)
-	return svc, nil
+	return c.servicesMap[hostname], nil
 }
 
 // serviceByKey retrieves a service by name and namespace
@@ -286,7 +280,7 @@ func (c *Controller) WorkloadHealthCheckInfo(addr string) model.ProbeList {
 	// Obtain probes from the readiness and liveness probes
 	for _, container := range pod.Spec.Containers {
 		if container.ReadinessProbe != nil && container.ReadinessProbe.Handler.HTTPGet != nil {
-			p, err := convertProbePort(container, &container.ReadinessProbe.Handler)
+			p, err := convertProbePort(&container, &container.ReadinessProbe.Handler)
 			if err != nil {
 				log.Infof("Error while parsing readiness probe port =%v", err)
 			}
@@ -296,7 +290,7 @@ func (c *Controller) WorkloadHealthCheckInfo(addr string) model.ProbeList {
 			})
 		}
 		if container.LivenessProbe != nil && container.LivenessProbe.Handler.HTTPGet != nil {
-			p, err := convertProbePort(container, &container.LivenessProbe.Handler)
+			p, err := convertProbePort(&container, &container.LivenessProbe.Handler)
 			if err != nil {
 				log.Infof("Error while parsing liveness probe port =%v", err)
 			}
@@ -336,21 +330,15 @@ func (c *Controller) WorkloadHealthCheckInfo(addr string) model.ProbeList {
 // InstancesByPort implements a service catalog operation
 func (c *Controller) InstancesByPort(hostname model.Hostname, reqSvcPort int,
 	labelsList model.LabelsCollection) ([]*model.ServiceInstance, error) {
-	// Get actual service by name
 	name, namespace, err := parseHostname(hostname)
 	if err != nil {
 		log.Infof("parseHostname(%s) => error %v", hostname, err)
 		return nil, err
 	}
 
-	item, exists := c.serviceByKey(name, namespace)
-	if !exists {
-		return nil, nil
-	}
-
 	// Locate all ports in the actual service
 
-	svc := convertService(*item, c.domainSuffix)
+	svc := c.servicesMap[hostname]
 	if svc == nil {
 		return nil, nil
 	}
@@ -418,12 +406,8 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 	endpointsForPodInDifferentNS := make([]*model.ServiceInstance, 0)
 	for _, item := range c.endpoints.informer.GetStore().List() {
 		ep := *item.(*v1.Endpoints)
-
-		svcItem, exists := c.serviceByKey(ep.Name, ep.Namespace)
-		if !exists {
-			continue
-		}
-		svc := convertService(*svcItem, c.domainSuffix)
+		hostname := serviceHostname(ep.Name, ep.Namespace, c.domainSuffix)
+		svc := c.servicesMap[hostname]
 		if svc == nil {
 			continue
 		}
@@ -432,6 +416,7 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 		if ep.Namespace != podNamespace {
 			endpoints = &endpointsForPodInDifferentNS
 		}
+
 		for _, ss := range ep.Subsets {
 			for _, port := range ss.Ports {
 				svcPort, exists := svc.Ports.Get(port.Name)
@@ -439,8 +424,8 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 					continue
 				}
 
-				*endpoints = append(*endpoints, getEndpoints(ss.Addresses, proxyIP, c, port, svcPort, svc)...)
-				nrEP := getEndpoints(ss.NotReadyAddresses, proxyIP, c, port, svcPort, svc)
+				*endpoints = append(*endpoints, getEndpoints(ss.Addresses, proxyIP, c, svcPort, svc)...)
+				nrEP := getEndpoints(ss.NotReadyAddresses, proxyIP, c, svcPort, svc)
 				*endpoints = append(*endpoints, nrEP...)
 				if len(nrEP) > 0 && c.Env != nil {
 					c.Env.PushContext.Add(model.ProxyStatusEndpointNotReady, proxy.ID, proxy, "")
@@ -469,7 +454,7 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 }
 
 func getEndpoints(addr []v1.EndpointAddress, proxyIP string, c *Controller,
-	port v1.EndpointPort, svcPort *model.Port, svc *model.Service) []*model.ServiceInstance {
+	svcPort *model.Port, svc *model.Service) []*model.ServiceInstance {
 
 	var out []*model.ServiceInstance
 	for _, ea := range addr {
@@ -486,7 +471,7 @@ func getEndpoints(addr []v1.EndpointAddress, proxyIP string, c *Controller,
 		out = append(out, &model.ServiceInstance{
 			Endpoint: model.NetworkEndpoint{
 				Address:     ea.IP,
-				Port:        int(port.Port),
+				Port:        int(svcPort.Port),
 				ServicePort: svcPort,
 			},
 			Service:          svc,
@@ -572,9 +557,15 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 
 		log.Infof("Handle service %s in namespace %s", svc.Name, svc.Namespace)
 
-		if svcConv := convertService(*svc, c.domainSuffix); svcConv != nil {
-			f(svcConv, event)
+		svcConv := convertService(*svc, c.domainSuffix)
+		switch event {
+		case model.EventDelete:
+			delete(c.servicesMap, svcConv.Hostname)
+		default:
+			c.servicesMap[svcConv.Hostname] = svcConv
 		}
+		f(svcConv, event)
+
 		return nil
 	})
 	return nil
@@ -603,12 +594,11 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 		}
 
 		log.Infof("Handle endpoint %s in namespace %s -> %v", ep.Name, ep.Namespace, ep.Subsets)
-		if item, exists := c.serviceByKey(ep.Name, ep.Namespace); exists {
-			if svc := convertService(*item, c.domainSuffix); svc != nil {
-				// TODO: we're passing an incomplete instance to the
-				// handler since endpoints is an aggregate structure
-				f(&model.ServiceInstance{Service: svc}, event)
-			}
+		hostname := serviceHostname(ep.Name, ep.Namespace, c.domainSuffix)
+		if svc := c.servicesMap[hostname]; svc != nil {
+			// TODO: we're passing an incomplete instance to the
+			// handler since endpoints is an aggregate structure
+			f(&model.ServiceInstance{Service: svc}, event)
 		}
 		return nil
 	})

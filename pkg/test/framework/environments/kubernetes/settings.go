@@ -16,92 +16,87 @@ package kubernetes
 
 import (
 	"fmt"
-
-	kubeCore "k8s.io/api/core/v1"
-
-	"istio.io/istio/pkg/test/deployment"
+	"strings"
 
 	"istio.io/istio/pkg/test/env"
-	"istio.io/istio/pkg/test/framework/settings"
+
+	kubeCore "k8s.io/api/core/v1"
 )
 
 const (
+	// HubValuesKey values key for the Docker image hub.
+	HubValuesKey = "global.hub"
+
+	// TagValuesKey values key for the Docker image tag.
+	TagValuesKey = "global.tag"
+
+	// ImagePullPolicyValuesKey values key for the Docker image pull policy.
+	ImagePullPolicyValuesKey = "global.imagePullPolicy"
+
 	// DefaultIstioSystemNamespace default value for IstioSystemNamespace
 	DefaultIstioSystemNamespace = "istio-system"
 
-	// DefaultImagePullPolicy for Docker images
-	DefaultImagePullPolicy = kubeCore.PullIfNotPresent
-
-	// DefaultReplicaCount for deployments
-	DefaultReplicaCount = 1
-
-	// DefaultAutoscaleMin for deployments
-	DefaultAutoscaleMin = 1
-
-	// DefaultAutoscaleMax for deployments
-	DefaultAutoscaleMax = 5
+	// DefaultValuesFile for Istio Helm deployment.
+	DefaultValuesFile = "values-istio-mcp.yaml"
 
 	// LatestTag value
 	LatestTag = "latest"
 )
 
 var (
-	// ISTIO_TEST_KUBE_CONFIG is the Kubernetes configuration file to use for testing. If a configuration file
-	// is specified on the command-line, that takes precedence.
-	// nolint: golint
-	ISTIO_TEST_KUBE_CONFIG env.Variable = "ISTIO_TEST_KUBE_CONFIG"
-
-	// HUB is the Docker hub to be used for images.
-	// nolint: golint
-	HUB env.Variable = "HUB"
-
-	// TAG is the Docker tag to be used for images.
-	// nolint: golint
-	TAG env.Variable = "TAG"
-
-	// IMAGE_PULL_POLICY is the Docker pull policy to be used for images.
-	// nolint: golint
-	IMAGE_PULL_POLICY env.Variable = "IMAGE_PULL_POLICY"
+	helmValues string
 
 	globalSettings = &Settings{
 		KubeConfig:           ISTIO_TEST_KUBE_CONFIG.Value(),
 		IstioSystemNamespace: DefaultIstioSystemNamespace,
-		Images:               defaultImageSettings(),
-		IngressGateway:       defaultReplicaSettings(),
+		ChartDir:             env.IstioChartDir,
+		ValuesFile:           DefaultValuesFile,
+	}
+
+	// Defaults for helm overrides.
+	defaultHelmValues = map[string]string{
+		HubValuesKey:                  HUB.Value(),
+		TagValuesKey:                  TAG.Value(),
+		"global.proxy.enableCoreDump": "true",
+		"global.mtls.enabled":         "true",
+		"galley.enabled":              "true",
 	}
 )
-
-func defaultImageSettings() deployment.ImageSettings {
-	return deployment.ImageSettings{
-		Hub:             HUB.Value(),
-		Tag:             TAG.Value(),
-		ImagePullPolicy: kubeCore.PullPolicy(IMAGE_PULL_POLICY.ValueOrDefault(string(DefaultImagePullPolicy))),
-	}
-}
-
-func defaultReplicaSettings() deployment.ReplicaSettings {
-	return deployment.ReplicaSettings{
-		ReplicaCount: DefaultReplicaCount,
-		AutoscaleMin: DefaultAutoscaleMin,
-		AutoscaleMax: DefaultAutoscaleMax,
-	}
-}
 
 // New returns settings built from flags and environment variables.
 func newSettings() (*Settings, error) {
 	// Make a local copy.
 	s := &(*globalSettings)
 
-	// Always pull Docker images if using the "latest".
-	if s.Images.Tag == LatestTag {
-		s.Images.ImagePullPolicy = kubeCore.PullAlways
-	}
-
-	if err := s.validate(); err != nil {
+	var err error
+	s.Values, err = newHelmValues()
+	if err != nil {
 		return nil, err
 	}
 
 	return s, nil
+}
+
+func newHelmValues() (map[string]string, error) {
+	userValues, err := parseHelmValues()
+	if err != nil {
+		return nil, err
+	}
+
+	// Copy the defaults first.
+	values := make(map[string]string)
+	for k, v := range defaultHelmValues {
+		values[k] = v
+	}
+	// Copy the user values.
+	for k, v := range userValues {
+		values[k] = v
+	}
+	// Always pull Docker images if using the "latest".
+	if values[TagValuesKey] == LatestTag {
+		values[ImagePullPolicyValuesKey] = string(kubeCore.PullAlways)
+	}
+	return values, nil
 }
 
 // Settings is the set of arguments to the test driver.
@@ -129,53 +124,43 @@ type Settings struct {
 	// component will fall back to node-port in this case.
 	MinikubeIngress bool
 
-	// Images settings for docker images.
-	Images deployment.ImageSettings
+	// The top-level Helm chart dir.
+	ChartDir string
 
-	// IngressGateway replica settings for istio-ingressgateway.
-	IngressGateway deployment.ReplicaSettings
+	// The Helm values file to be used.
+	ValuesFile string
+
+	// Overrides for the Helm values file.
+	Values map[string]string
 }
 
-// toDeploymentSettings converts this object into deployment settings.
-func (s *Settings) toDeploymentSettings(workDir string) *deployment.Settings {
-	return &deployment.Settings{
-		GlobalMtlsEnabled: true,
-		GalleyEnabled:     true,
-		EnableCoreDump:    true,
-		KubeConfig:        s.KubeConfig,
-		WorkDir:           workDir,
-		Namespace:         s.IstioSystemNamespace,
-		Images:            s.Images,
-		IngressGateway:    s.IngressGateway,
-	}
-}
-
-func (s *Settings) validate() error {
-	// Validate the arguments.
-	if s.KubeConfig == "" {
-		return fmt.Errorf(
-			"environment %q requires kube configuration (can be specified from command-line, or with %s)",
-			string(settings.Kubernetes), ISTIO_TEST_KUBE_CONFIG.Name())
+func parseHelmValues() (map[string]string, error) {
+	out := make(map[string]string)
+	if helmValues == "" {
+		return out, nil
 	}
 
-	return nil
+	values := strings.Split(helmValues, ",")
+	for _, v := range values {
+		parts := strings.Split(v, "=")
+		if len(parts) != 2 {
+			return nil, fmt.Errorf("failed parsing helm values: %s", helmValues)
+		}
+		out[strings.TrimSpace(parts[0])] = strings.TrimSpace(parts[1])
+	}
+	return out, nil
 }
 
 func (s *Settings) String() string {
 	result := ""
 
-	result += fmt.Sprintf("KubeConfig:                %s\n", s.KubeConfig)
-	result += fmt.Sprintf("IstioSystemNamespace:      %s\n", s.IstioSystemNamespace)
-	result += fmt.Sprintf("DependencyNamespace:       %s\n", s.DependencyNamespace)
-	result += fmt.Sprintf("TestNamespace:             %s\n", s.TestNamespace)
-	result += fmt.Sprintf("DeployIstio:               %v\n", s.DeployIstio)
-	result += fmt.Sprintf("MinikubeIngress:           %v\n", s.MinikubeIngress)
-	result += fmt.Sprintf("Images.Hub:                %s\n", s.Images.Hub)
-	result += fmt.Sprintf("Images.Tag:                %s\n", s.Images.Tag)
-	result += fmt.Sprintf("Images.ImagePullPolicy:    %s\n", s.Images.ImagePullPolicy)
-	result += fmt.Sprintf("IngressGeway.ReplicaCount: %v\n", s.IngressGateway.ReplicaCount)
-	result += fmt.Sprintf("IngressGeway.AutoscaleMin: %v\n", s.IngressGateway.AutoscaleMin)
-	result += fmt.Sprintf("IngressGeway.AutoscaleMax: %v\n", s.IngressGateway.AutoscaleMax)
+	result += fmt.Sprintf("KubeConfig:           %s\n", s.KubeConfig)
+	result += fmt.Sprintf("IstioSystemNamespace: %s\n", s.IstioSystemNamespace)
+	result += fmt.Sprintf("DependencyNamespace:  %s\n", s.DependencyNamespace)
+	result += fmt.Sprintf("TestNamespace:        %s\n", s.TestNamespace)
+	result += fmt.Sprintf("DeployIstio:          %v\n", s.DeployIstio)
+	result += fmt.Sprintf("MinikubeIngress:      %v\n", s.MinikubeIngress)
+	result += fmt.Sprintf("Values:               %v\n", s.Values)
 
 	return result
 }

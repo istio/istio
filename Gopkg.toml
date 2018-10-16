@@ -68,7 +68,7 @@ ignored = [
 
 [[constraint]]
   name = "go.opencensus.io"
-  version = ">=0.11.0"
+  version = ">=0.15.0"
 
 [[constraint]]
   name = "contrib.go.opencensus.io/exporter/stackdriver"
@@ -311,10 +311,6 @@ ignored = [
 [[constraint]]
   name = "k8s.io/apiextensions-apiserver"
   version = "kubernetes-1.10.4"
-
-[[constraint]]
-  name = "k8s.io/cluster-registry"
-  version = "0.0.3"
 
 [[constraint]]
   name = "k8s.io/helm"

@@ -3,8 +3,10 @@ kind: ClusterRole
 metadata:
   name: kiali
   labels:
-    app: kiali
-    version: master
+    app: {{ template "kiali.name" . }}
+    chart: {{ template "kiali.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 rules:
 - apiGroups: ["","apps", "autoscaling"]
   resources:
