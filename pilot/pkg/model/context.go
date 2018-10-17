@@ -19,6 +19,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gogo/protobuf/types"
@@ -78,12 +79,45 @@ type Proxy struct {
 	// Metadata key-value pairs extending the Node identifier
 	Metadata map[string]string
 
+	mutex sync.RWMutex
 	// OutboundServices, if set, controls the list of outbound listeners and routes
 	// for which the proxy will receive configurations. If nil, the proxy will get config
 	// for all visible services.
 	// The list will be populated either from explicit declarations or using 'on-demand'
-	// feature.
-	OutboundServices []*Service
+	// feature, before generation takes place.
+	outboundServices []*Service
+}
+
+// GetOutboundServices returns the outbound services associated with a node,
+// defaulting to the full mesh as cached in the last config update.
+func (p *Proxy) GetOutboundServices(ctx *PushContext) []*Service {
+	p.mutex.RLock()
+	defer p.mutex.RUnlock()
+	if p.outboundServices != nil {
+		return p.outboundServices
+	}
+	return ctx.Services
+}
+
+// UpdateOutboundServices is called before a push, to optionally select a subset
+// of services to configure for outbound. On-demand XDS will update the list of
+// services and store it in the Proxy. Explicit config will also provide an optional
+// list.
+func (p *Proxy) UpdateOutboundServices(push *PushContext) {
+	// HACK: until the API is finalized, extract the outbound subset from a node metadata.
+	outboundServices, f := p.Metadata["istio.outbound"]
+	if f {
+		p.mutex.Lock()
+		osvc := strings.Split(outboundServices, ",")
+		p.outboundServices = []*Service{}
+		for _, osn := range osvc {
+			svc, f := push.ServiceByHostname[Hostname(osn)]
+			if f {
+				p.outboundServices = append(p.outboundServices, svc)
+			}
+		}
+		p.mutex.Unlock()
+	}
 }
 
 // NodeType decides the responsibility of the proxy serves in the mesh
