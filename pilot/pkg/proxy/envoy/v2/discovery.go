@@ -359,7 +359,6 @@ func (s *DiscoveryServer) Push(full bool, edsUpdates map[string]*EndpointShardsB
 	s.updateMutex.Unlock()
 
 	s.mutex.Lock()
-	s.Env.PushContext = push
 	versionLocal := time.Now().Format(time.RFC3339) + "/" + strconv.Itoa(versionNum)
 	versionNum++
 	initContextTime := time.Since(t0)
