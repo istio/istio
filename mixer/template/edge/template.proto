@@ -95,5 +95,4 @@ message Template {
 
   // The protocol type of the API call (http, https, grpc)
   string api_protocol = 31;
-
 }

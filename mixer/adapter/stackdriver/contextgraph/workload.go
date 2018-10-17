@@ -160,11 +160,21 @@ func (wi workloadInstance) Reify(logger adapter.Logger) ([]entity, []edge) {
 
 func (s service) Reify() entity {
 	return entity{
-		containerFullName: fmt.Sprintf("//cloudresourcemanager.googleapis.com/projects/%v", s.istioProject),
-		typeName:          "io.istio.Service",
-		fullName:          fmt.Sprintf("//istio.io/projects/%v/meshes/%v/services/%v/%v", s.istioProject, s.meshUID, s.namespace, s.name),
-		location:          "global",
-		shortNames:        [4]string{s.meshUID, s.namespace, s.name, ""},
+		containerFullName: fmt.Sprintf("//cloudresourcemanager.googleapis.com/projects/%v",
+			s.istioProject),
+		typeName: "io.istio.Service",
+		fullName: fmt.Sprintf("//istio.io/projects/%v/meshes/%v/services/%v/%v",
+			s.istioProject,
+			url.QueryEscape(s.meshUID),
+			url.QueryEscape(s.namespace),
+			url.QueryEscape(s.name)),
+		location: "global",
+		shortNames: [4]string{
+			url.QueryEscape(s.meshUID),
+			url.QueryEscape(s.namespace),
+			url.QueryEscape(s.name),
+			"",
+		},
 	}
 }
 

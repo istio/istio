@@ -176,7 +176,7 @@ func (h *handler) send(ctx context.Context, t time.Time, entitiesToSend []entity
 }
 
 func (h *handler) call(ctx context.Context, req *contextgraphpb.AssertBatchRequest) error {
-	h.env.Logger().Debugf("Sending %v entities and %v relationships",
+	h.env.Logger().Debugf("Sending Context Graph AssertBatch with %v entities, and %v relationships",
 		len(req.EntityPresentAssertions), len(req.RelationshipPresentAssertions))
 	if _, err := h.assertBatch(ctx, req); err != nil {
 		s, _ := status.FromError(err)
