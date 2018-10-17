@@ -17,7 +17,7 @@ data:
     disablePolicyChecks: {{ .Values.global.disablePolicyChecks }}
   {{- end }}  
 
-  {{- if .Values.global.remoteZipkinAddress }}
+  {{- if .Values.global.proxy.tracer }}
     # Set enableTracing to false to disable request tracing.
     enableTracing: {{ .Values.global.enableTracing }}
   {{- end }}  
