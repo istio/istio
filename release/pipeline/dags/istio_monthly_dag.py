@@ -46,13 +46,13 @@ def MonthlyPipeline():
     if env_conf is None:
       env_conf = dict()
 
-    docker_hub = env_conf.get('DOCKER_HUB')
+    docker_hub = env_conf.get('CB_DOCKER_HUB')
     if docker_hub is None:
       docker_hub = 'docker.io/istio'
 
     # If version is overridden then we should use it otherwise we use it's
     # default or monthly value.
-    version = env_conf.get('VERSION') or istio_common_dag.GetVariableOrDefault('monthly-version', None)
+    version = env_conf.get('CB_VERSION') or istio_common_dag.GetVariableOrDefault('monthly-version', None)
     if not version or version == 'INVALID':
       raise ValueError('version needs to be provided')
     Variable.set('monthly-version', 'INVALID')
@@ -60,13 +60,13 @@ def MonthlyPipeline():
     #GCS_MONTHLY_STAGE_PATH is of the form ='prerelease/{version}'
     gcs_path = 'prerelease/%s' % (version)
 
-    branch = env_conf.get('BRANCH') or istio_common_dag.GetVariableOrDefault('monthly-branch', None)
+    branch = env_conf.get('CB_BRANCH') or istio_common_dag.GetVariableOrDefault('monthly-branch', None)
     if not branch or branch == 'INVALID':
       raise ValueError('branch needs to be provided')
     Variable.set('monthly-branch', 'INVALID')
-    commit = env_conf.get('COMMIT') or branch
+    commit = env_conf.get('CB_COMMIT') or branch
 
-    github_org = env_conf.get('GITHUB_ORG') or "istio"
+    github_org = env_conf.get('CB_GITHUB_ORG') or "istio"
 
     default_conf = environment_config.GetDefaultAirflowConfig(
         branch=branch,

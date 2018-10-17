@@ -58,23 +58,23 @@ def DailyPipeline(branch):
     date = datetime.datetime.now()
     date_string = date.strftime('%Y%m%d-%H-%M')
 
-    docker_hub = env_conf.get('DOCKER_HUB')
+    docker_hub = env_conf.get('CB_DOCKER_HUB')
     if docker_hub is None:
       docker_hub = 'gcr.io/istio-release'
 
-    version = env_conf.get('VERSION')
+    version = env_conf.get('CB_VERSION')
     if version is None:
       # VERSION is of the form '{branch}-{date_string}'
       version = '%s-%s' % (branch, date_string)
 
-    gcs_path = env_conf.get('GCS_DAILY_PATH')
+    gcs_path = env_conf.get('CB_GCS_DAILY_PATH')
     if gcs_path is None:
        # GCS_DAILY_PATH is of the form 'daily-build/{version}'
        gcs_path = 'daily-build/%s' % (version)
 
-    commit = env_conf.get('COMMIT') or ""
+    commit = env_conf.get('CB_COMMIT') or ""
 
-    github_org = env_conf.get('GITHUB_ORG') or "istio"
+    github_org = env_conf.get('CB_GITHUB_ORG') or "istio"
 
     default_conf = environment_config.GetDefaultAirflowConfig(
         branch=branch,

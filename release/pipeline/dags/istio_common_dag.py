@@ -113,10 +113,7 @@ def MergeEnvironmentIntoConfig(env_conf, *config_dicts):
     config_settings = dict()
     for cur_conf_dict in config_dicts:
       for name, value in cur_conf_dict.items():
-        env_name = name
-        if name.startswith("CB_"):
-           env_name = name[len("CB_"):]
-        config_settings[name] = env_conf.get(env_name) or value
+        config_settings[name] = env_conf.get(name) or value
 
     return config_settings
 
