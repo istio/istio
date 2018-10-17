@@ -48,7 +48,7 @@ function github_keys() {
   KEY="DockerHub"
 
  # decrypt file, if requested
-  gsutil cp gs://istio-secrets/github.txt.enc "${KEYFILE_ENC}"
+  gsutil -q cp gs://istio-secrets/github.txt.enc "${KEYFILE_ENC}"
   gcloud kms decrypt \
        --ciphertext-file="$KEYFILE_ENC" \
        --plaintext-file="$KEYFILE_TEMP" \

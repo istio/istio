@@ -98,13 +98,13 @@ def getBashSettingsTemplate(extra_param_lst=[]):
 
   template_list.append("""
                 source    "/tmp/gcb_env.sh"
-                gsutil cp "/tmp/gcb_env.sh" "gs://${CB_GCS_RELEASE_TOOLS_PATH}/"
+                gsutil -q cp "/tmp/gcb_env.sh" "gs://${CB_GCS_RELEASE_TOOLS_PATH}/"
                 git clone "https://github.com/${CB_GITHUB_ORG}/istio.git" "istio-code" -b "${CB_BRANCH}" --depth 1
                 # use code from branch
                 cp istio-code/release/airflow/* istio-code/release/gcb/json_parse_shared.sh .
                 # or override with scripts saved for this build
-                gsutil cp "gs://${CB_GCS_RELEASE_TOOLS_PATH}"/airflow/* .
-                gsutil cp "gs://${CB_GCS_RELEASE_TOOLS_PATH}"/json_parse_shared.sh .
+                gsutil -m -q cp "gs://${CB_GCS_RELEASE_TOOLS_PATH}"/airflow/* .
+                gsutil -m -q cp "gs://${CB_GCS_RELEASE_TOOLS_PATH}"/json_parse_shared.sh .
                 source airflow_scripts.sh  """)
   return "\n".join(template_list)
 

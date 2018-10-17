@@ -51,7 +51,7 @@ done
 [[ -z "${CB_GCS_MONTHLY_RELEASE_PATH}" ]] && usage
 [[ -z "${CB_GITHUB_ORG}" ]] && usage
 
-gsutil -m cp "gs://${CB_GCS_GITHUB_PATH}" "${KEYFILE_TEMP}"
+gsutil -q cp "gs://${CB_GCS_GITHUB_PATH}" "${KEYFILE_TEMP}"
 KEYFILE="${KEYFILE_TEMP}"
 
 # decrypt file, if requested
@@ -74,14 +74,14 @@ echo "Downloading files from $CB_GCS_FULL_STAGING_PATH to $UPLOAD_DIR"
 
 mkdir -p "${UPLOAD_DIR}/deb/"
 cp "/workspace/manifest.txt" "${UPLOAD_DIR}/"
-gsutil -m cp gs://"${CB_GCS_FULL_STAGING_PATH}"/deb/istio*.deb* "${UPLOAD_DIR}/deb/"
-gsutil -m cp gs://"${CB_GCS_FULL_STAGING_PATH}"/istio-*.zip* "${UPLOAD_DIR}/"
-gsutil -m cp gs://"${CB_GCS_FULL_STAGING_PATH}"/istio-*.gz*  "${UPLOAD_DIR}/"
+gsutil -q -m cp gs://"${CB_GCS_FULL_STAGING_PATH}"/deb/istio*.deb* "${UPLOAD_DIR}/deb/"
+gsutil -q -m cp gs://"${CB_GCS_FULL_STAGING_PATH}"/istio-*.zip* "${UPLOAD_DIR}/"
+gsutil -q -m cp gs://"${CB_GCS_FULL_STAGING_PATH}"/istio-*.gz*  "${UPLOAD_DIR}/"
 echo "Finished downloading files from GCS source"
 
 # at this point everything we need is on the local filesystem
 echo "Copying to GCS destination ${CB_GCS_MONTHLY_RELEASE_PATH}"
-gsutil -m cp "${UPLOAD_DIR}"/deb/istio*.deb* "gs://${CB_GCS_MONTHLY_RELEASE_PATH}/deb/"
+gsutil -q -m cp "${UPLOAD_DIR}"/deb/istio*.deb* "gs://${CB_GCS_MONTHLY_RELEASE_PATH}/deb/"
 echo "Done copying to GCS destination"
 
 

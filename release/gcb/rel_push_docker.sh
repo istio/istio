@@ -54,7 +54,7 @@ source "${SCRIPTPATH}/docker_tag_push_lib.sh"
 
 TEMP_DIR=$(mktemp -d)
 mkdir -p "$TEMP_DIR/docker"
-gsutil -m cp "gs://${CB_GCS_BUILD_PATH}"/docker/* "${TEMP_DIR}/docker"
+gsutil -q -m cp "gs://${CB_GCS_BUILD_PATH}"/docker/* "${TEMP_DIR}/docker"
 
 # shellcheck disable=SC2206
 DOCKER_HUB_ARR=(${DOCKER_HUBS//,/ })

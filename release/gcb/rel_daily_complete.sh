@@ -40,4 +40,4 @@ TEMP_FILE=$(mktemp)
 echo -n "${DAILY_HTTPS_PATH}" > "${TEMP_FILE}"
 cat "${TEMP_FILE}"
 
-gsutil -m cp "${TEMP_FILE}" "gs://${CB_GCS_STAGING_BUCKET}/daily-build/${CB_BRANCH}-latest"
+gsutil -q cp "${TEMP_FILE}" "gs://${CB_GCS_STAGING_BUCKET}/daily-build/${CB_BRANCH}-latest"

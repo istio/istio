@@ -36,4 +36,4 @@ function usage() {
 OUTPUT_PATH="/output"
 
 #copy to gcs
-gsutil -m cp -r "${OUTPUT_PATH}"/* "gs://${CB_GCS_BUILD_PATH}/"
+gsutil -q -m cp -r "${OUTPUT_PATH}"/* "gs://${CB_GCS_BUILD_PATH}/"

@@ -236,24 +236,24 @@ function usage() {
 CLONE_DIR=$(mktemp -d)
 pushd "${CLONE_DIR}"
   githubctl_setup
-  gsutil cp "$githubctl" "gs://${CB_GCS_RELEASE_TOOLS_PATH}/"
+  gsutil -q cp "$githubctl" "gs://${CB_GCS_RELEASE_TOOLS_PATH}/"
 
   BASE_MANIFEST_URL="gs://${CB_GCS_BUILD_BUCKET}/release-tools/${CB_BRANCH}-manifest.txt"
   BASE_MASTER_MANIFEST_URL="gs://${CB_GCS_BUILD_BUCKET}/release-tools/master-manifest.txt"
 
   NEW_BRANCH="false"
-  gsutil cp "${BASE_MANIFEST_URL}" "manifest.txt"  || NEW_BRANCH="true"
+  gsutil -q cp "${BASE_MANIFEST_URL}" "manifest.txt"  || NEW_BRANCH="true"
   if [[ "${NEW_BRANCH}" == "true" ]]; then
    if [[ "${CB_COMMIT}" == "" ]]; then
      CB_COMMIT="HEAD" # just use head of branch as green sha
    fi
-   gsutil cp "${BASE_MASTER_MANIFEST_URL}" "manifest.txt"
+   gsutil -q cp "${BASE_MASTER_MANIFEST_URL}" "manifest.txt"
   fi
   MANIFEST_FILE="$PWD/manifest.txt"
 
   git clone "https://github.com/${CB_GITHUB_ORG}/istio" -b "${CB_BRANCH}"
-  gsutil cp -P -m -q istio/release/gcb/*sh   "gs://${CB_GCS_RELEASE_TOOLS_PATH}/"
-  gsutil cp -P -m -q istio/release/airflow/* "gs://${CB_GCS_RELEASE_TOOLS_PATH}/airflow/"
+  gsutil -m -q cp -P istio/release/gcb/*sh   "gs://${CB_GCS_RELEASE_TOOLS_PATH}/"
+  gsutil -m -q cp -P istio/release/airflow/* "gs://${CB_GCS_RELEASE_TOOLS_PATH}/airflow/"
 
   istio_checkout_green_sha        "${MANIFEST_FILE}"
   istio_check_green_sha_age
@@ -262,8 +262,8 @@ pushd "${CLONE_DIR}"
   #copy the needed files
   # TODO figure out how to avoid need for copying to BASE_MANIFEST_URL and consolidate getting
   # branch istio sha into githubctl
-  gsutil cp "${MANIFEST_FILE}" "${BASE_MANIFEST_URL}"
-  gsutil cp "${MANIFEST_FILE}" "gs://${CB_GCS_RELEASE_TOOLS_PATH}/manifest.txt"
+  gsutil -q cp "${MANIFEST_FILE}" "${BASE_MANIFEST_URL}"
+  gsutil -q cp "${MANIFEST_FILE}" "gs://${CB_GCS_RELEASE_TOOLS_PATH}/manifest.txt"
 
 popd # "${CLONE_DIR}"
 rm -rf "${CLONE_DIR}"

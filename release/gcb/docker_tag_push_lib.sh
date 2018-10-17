@@ -104,7 +104,7 @@ function add_docker_creds() {
   fi
 
   if [[ "${PUSH_HUB}" == "docker.io/testistio" ]]; then
-    gsutil cp "gs://istio-secrets/docker.test.json" "$HOME/.docker/config.json"
+    gsutil -q cp "gs://istio-secrets/docker.test.json" "$HOME/.docker/config.json"
   fi
 
   if [[ "${PUSH_HUB}" == gcr.io* ]]; then
