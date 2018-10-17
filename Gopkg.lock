@@ -787,10 +787,11 @@
     "api",
     "api/prometheus/v1",
     "prometheus",
+    "prometheus/internal",
     "prometheus/promhttp"
   ]
-  revision = "967789050ba94deca04a5e84cce8ad472ce313c1"
-  version = "v0.9.0-pre1"
+  revision = "1cafe34db7fdec6022e17e00e1c1ea501022f3e4"
+  version = "v0.9.0"
 
 [[projects]]
   branch = "master"
@@ -1603,6 +1604,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "84fbbb60cb5ebcb6b70f29a3a3b32d00e6a4eed30b82c79c5bf9b86b3745bdc7"
+  inputs-digest = "8493109cac1fdcc57fb84132b49d675ab09ef56e50f66c1aef746b4c32903f28"
   solver-name = "gps-cdcl"
   solver-version = 1
