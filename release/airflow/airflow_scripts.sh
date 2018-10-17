@@ -40,7 +40,8 @@ function get_git_commit_cmd() {
 cat << EOF > "${SUBS_GGC_FILE}"
   "substitutions": {
     "_CB_BRANCH": "${CB_BRANCH}",
-    "_CB_GCS_RELEASE_TOOLS_PATH": "${CB_GCS_RELEASE_TOOLS_PATH}"
+    "_CB_GCS_RELEASE_TOOLS_PATH": "${CB_GCS_RELEASE_TOOLS_PATH}",
+    "_CB_GITHUB_ORG": "${CB_GITHUB_ORG}"
   }
 EOF
     run_build "cloud_get_commit.template.json" \

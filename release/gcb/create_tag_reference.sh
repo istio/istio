@@ -33,7 +33,6 @@ SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
 KEYFILE=""
 
 VERSION=""
-PRODUCT="Istio"
 DATE_STRING=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 USER_EMAIL=""
 USER_NAME=""
@@ -46,53 +45,46 @@ source "${SCRIPTPATH}/json_parse_shared.sh"
 function usage() {
   echo "$0
     -b <build> repo xml file used to create release
-    -d <date>  date of release (optional, defaults to current ${DATE_STRING} )
     -e <email> email of submitter
     -k <file>  file that contains github user token
     -n <name>  name of submitter
     -o <org>   specifies org to tag (optional, defaults to ${ORG} )
-    -p <name>  name of product (optional, defaults to ${PRODUCT} )
-    -t <tok>   github user token to use in REST calls (use this or -k)
     -v <ver>   version tag of release"
   exit 1
 }
 
-while getopts b:d:e:k:n:o:p:v: arg ; do
+while getopts b:e:k:n:o:v: arg ; do
   case "${arg}" in
     b) BUILD_FILE="${OPTARG}";;
-    d) DATE_STRING="${OPTARG}";;
     e) USER_EMAIL="${OPTARG}";;
     k) KEYFILE="${OPTARG}";;
     n) USER_NAME="${OPTARG}";;
     o) ORG="${OPTARG}";;
-    p) PRODUCT="${PRODUCT}";;
     v) VERSION="${OPTARG}";;
     *) usage;;
   esac
 done
 
 [[ ! -f "${BUILD_FILE}" ]] && usage
-[[ -z "${DATE_STRING}" ]] && usage
 [[ -z "${ORG}" ]] && usage
-[[ -z "${PRODUCT}" ]] && usage
 [[ -z "${KEYFILE}" ]] && usage
 [[ -z "${VERSION}" ]] && usage
-# I tried using /user to automatically get name and email, but they're both null
 [[ -z "${USER_NAME}" ]] && usage
 [[ -z "${USER_EMAIL}" ]] && usage
 
-if [[ -n "${KEYFILE}" ]]; then
-  if [ ! -f "${KEYFILE}" ]; then
-    echo "specified key file ${KEYFILE} does not exist"
-    usage
-  fi
+if [ ! -f "${KEYFILE}" ]; then
+  echo "specified key file ${KEYFILE} does not exist"
+  usage
 fi
 
 function create_tag_reference() {
-  # $1 ORG
-  # $2 REPO
-  # $3 SHA
-  # uses external PRODUCT, VERSION, USER_NAME, USER_EMAIL, DATE_STRING
+  local ORG_l
+  local REPO_l
+  local ORG_l
+  ORG_l="$1"
+  REPO_l="$2"
+  SHA_l="$3"
+  # uses external VERSION, USER_NAME, USER_EMAIL, DATE_STRING
 
   local REQUEST_FILE
   REQUEST_FILE="$(mktemp /tmp/github.request.XXXX)"
@@ -103,8 +95,8 @@ function create_tag_reference() {
 cat << EOF > "${REQUEST_FILE}"
 {
   "tag": "${VERSION}",
-  "message": "${PRODUCT} Release ${VERSION}",
-  "object": "${3}",
+  "message": "Istio Release ${VERSION}",
+  "object": "${SHA_l}",
   "type": "commit",
   "tagger": {
     "name": "${USER_NAME}",
@@ -119,7 +111,7 @@ EOF
   TOKEN=$(< "$KEYFILE")
   curl -s -S -X POST -o "${RESPONSE_FILE}" -H "Accept: application/vnd.github.v3+json" --retry 3 \
     -H "Content-Type: application/json" -T "${REQUEST_FILE}" -H "Authorization: token ${TOKEN}" \
-    "https://api.github.com/repos/${1}/${2}/git/tags"
+    "https://api.github.com/repos/${ORG_l}/${REPO_l}/git/tags"
   set -o xtrace
 
   # parse the sha from (note other URLs also present):
@@ -137,7 +129,7 @@ EOF
     exit 1
   fi
 
-  echo "Created annotated tag ${VERSION} for SHA ${3} on ${1}/${2}, result is ${TAG_SHA}"
+  echo "Created annotated tag ${VERSION} for SHA ${SHA_l} on ${ORG_l}/${REPO_l}, result is ${TAG_SHA}"
 
   # STEP 2: create a reference from the tag
 cat << EOF > "${REQUEST_FILE}"
@@ -151,7 +143,7 @@ EOF
   set +o xtrace
   curl -s -S -X POST -o "${RESPONSE_FILE}" -H "Accept: application/vnd.github.v3+json" --retry 3 \
     -H "Content-Type: application/json" -T "${REQUEST_FILE}" -H "Authorization: token ${TOKEN}" \
-    "https://api.github.com/repos/${1}/${2}/git/refs"
+    "https://api.github.com/repos/${ORG_l}/${REPO_l}/git/refs"
   set -o xtrace
 
   local REF

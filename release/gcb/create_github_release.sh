@@ -34,7 +34,6 @@ SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
 ORG="istio"
 REPO="istio"
 KEYFILE=""
-TOKEN=""
 SHA=""
 VERSION=""
 REQUEST_FILE="$(mktemp /tmp/github.request.XXXX)"
@@ -50,19 +49,17 @@ function usage() {
     -o <name>  github org of repo (default is \"${ORG}\")
     -r <name>  github repo name on which to create the release (default is \"${REPO}\")
     -s <sha>   commit hash to use for release
-    -t <tok>   github user token to use in REST calls (use this or -k)
     -u <dir>   source directory from which to upload artifacts (optional)
     -v <ver>   version name for release"
   exit 1
 }
 
-while getopts k:o:r:s:t:u:v: arg ; do
+while getopts k:o:r:s:u:v: arg ; do
   case "${arg}" in
     k) KEYFILE="${OPTARG}";;
     o) ORG="${OPTARG}";;
     r) REPO="${OPTARG}";;
     s) SHA="${OPTARG}";;
-    t) TOKEN="${OPTARG}";;
     u) UPLOAD_DIR="${OPTARG}";;
     v) VERSION="${OPTARG}";;
     *) usage;;
@@ -71,7 +68,7 @@ done
 
 [[ -z "${ORG}" ]] && usage
 [[ -z "${REPO}" ]] && usage
-[[ -z "${TOKEN}" ]] && [[ -z "${KEYFILE}" ]] && usage
+[[ -z "${KEYFILE}" ]] && usage
 [[ -z "${SHA}" ]] && usage
 [[ -z "${VERSION}" ]] && usage
 

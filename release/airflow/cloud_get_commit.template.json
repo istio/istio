@@ -2,7 +2,7 @@
   "steps": [
     {
       "name": "gcr.io/istio-testing/istio-builder:0.5.10",
-      "args": [ "git", "clone", "https://github.com/istio/istio", "-b", "$_CB_BRANCH", "--depth", "1" ]
+      "args": [ "git", "clone", "https://github.com/$_CB_GITHUB_ORG/istio", "-b", "$_CB_BRANCH", "--depth", "1" ]
     },
     {
       "name": "gcr.io/istio-testing/istio-builder:0.5.10",

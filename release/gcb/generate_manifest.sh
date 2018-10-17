@@ -56,7 +56,7 @@ function checkout_code() {
 
   mkdir -p "${DIR}"
   pushd    "${DIR}"
-    git clone "https://github.com/istio/$REPO" -b "${CB_BRANCH}"
+    git clone "https://github.com/${CB_GITHUB_ORG}/$REPO" -b "${CB_BRANCH}"
     pushd "${REPO}"
     git checkout "${REPO_SHA}"
     popd
