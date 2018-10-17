@@ -67,18 +67,23 @@ type Desc struct {
 
 // NewDesc allocates and initializes a new Desc. Errors are recorded in the Desc
 // and will be reported on registration time. variableLabels and constLabels can
-// be nil if no such labels should be set. fqName must not be empty.
+// be nil if no such labels should be set. fqName and help must not be empty.
 //
 // variableLabels only contain the label names. Their label values are variable
 // and therefore not part of the Desc. (They are managed within the Metric.)
 //
 // For constLabels, the label values are constant. Therefore, they are fully
-// specified in the Desc. See the Collector example for a usage pattern.
+// specified in the Desc. See the Opts documentation for the implications of
+// constant labels.
 func NewDesc(fqName, help string, variableLabels []string, constLabels Labels) *Desc {
 	d := &Desc{
 		fqName:         fqName,
 		help:           help,
 		variableLabels: variableLabels,
+	}
+	if help == "" {
+		d.err = errors.New("empty help string")
+		return d
 	}
 	if !model.IsValidMetricName(model.LabelValue(fqName)) {
 		d.err = fmt.Errorf("%q is not a valid metric name", fqName)
@@ -152,7 +157,7 @@ func NewDesc(fqName, help string, variableLabels []string, constLabels Labels) *
 			Value: proto.String(v),
 		})
 	}
-	sort.Sort(labelPairSorter(d.constLabelPairs))
+	sort.Sort(LabelPairSorter(d.constLabelPairs))
 	return d
 }
 

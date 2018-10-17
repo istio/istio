@@ -23,29 +23,86 @@ import (
 // metricVec is a Collector to bundle metrics of the same name that differ in
 // their label values. metricVec is not used directly (and therefore
 // unexported). It is used as a building block for implementations of vectors of
-// a given metric type, like GaugeVec, CounterVec, SummaryVec, and HistogramVec.
-// It also handles label currying. It uses basicMetricVec internally.
+// a given metric type, like GaugeVec, CounterVec, SummaryVec, HistogramVec, and
+// UntypedVec.
 type metricVec struct {
-	*metricMap
+	mtx      sync.RWMutex // Protects the children.
+	children map[uint64][]metricWithLabelValues
+	desc     *Desc
 
-	curry []curriedLabelValue
-
-	// hashAdd and hashAddByte can be replaced for testing collision handling.
-	hashAdd     func(h uint64, s string) uint64
+	newMetric   func(labelValues ...string) Metric
+	hashAdd     func(h uint64, s string) uint64 // replace hash function for testing collision handling
 	hashAddByte func(h uint64, b byte) uint64
 }
 
 // newMetricVec returns an initialized metricVec.
 func newMetricVec(desc *Desc, newMetric func(lvs ...string) Metric) *metricVec {
 	return &metricVec{
-		metricMap: &metricMap{
-			metrics:   map[uint64][]metricWithLabelValues{},
-			desc:      desc,
-			newMetric: newMetric,
-		},
+		children:    map[uint64][]metricWithLabelValues{},
+		desc:        desc,
+		newMetric:   newMetric,
 		hashAdd:     hashAdd,
 		hashAddByte: hashAddByte,
 	}
+}
+
+// metricWithLabelValues provides the metric and its label values for
+// disambiguation on hash collision.
+type metricWithLabelValues struct {
+	values []string
+	metric Metric
+}
+
+// Describe implements Collector. The length of the returned slice
+// is always one.
+func (m *metricVec) Describe(ch chan<- *Desc) {
+	ch <- m.desc
+}
+
+// Collect implements Collector.
+func (m *metricVec) Collect(ch chan<- Metric) {
+	m.mtx.RLock()
+	defer m.mtx.RUnlock()
+
+	for _, metrics := range m.children {
+		for _, metric := range metrics {
+			ch <- metric.metric
+		}
+	}
+}
+
+func (m *metricVec) getMetricWithLabelValues(lvs ...string) (Metric, error) {
+	h, err := m.hashLabelValues(lvs)
+	if err != nil {
+		return nil, err
+	}
+
+	return m.getOrCreateMetricWithLabelValues(h, lvs), nil
+}
+
+func (m *metricVec) getMetricWith(labels Labels) (Metric, error) {
+	h, err := m.hashLabels(labels)
+	if err != nil {
+		return nil, err
+	}
+
+	return m.getOrCreateMetricWithLabels(h, labels), nil
+}
+
+func (m *metricVec) withLabelValues(lvs ...string) Metric {
+	metric, err := m.getMetricWithLabelValues(lvs...)
+	if err != nil {
+		panic(err)
+	}
+	return metric
+}
+
+func (m *metricVec) with(labels Labels) Metric {
+	metric, err := m.getMetricWith(labels)
+	if err != nil {
+		panic(err)
+	}
+	return metric
 }
 
 // DeleteLabelValues removes the metric where the variable labels are the same
@@ -64,12 +121,14 @@ func newMetricVec(desc *Desc, newMetric func(lvs ...string) Metric) *metricVec {
 // with a performance overhead (for creating and processing the Labels map).
 // See also the CounterVec example.
 func (m *metricVec) DeleteLabelValues(lvs ...string) bool {
+	m.mtx.Lock()
+	defer m.mtx.Unlock()
+
 	h, err := m.hashLabelValues(lvs)
 	if err != nil {
 		return false
 	}
-
-	return m.metricMap.deleteByHashWithLabelValues(h, lvs, m.curry)
+	return m.deleteByHashWithLabelValues(h, lvs)
 }
 
 // Delete deletes the metric where the variable labels are the same as those
@@ -83,190 +142,35 @@ func (m *metricVec) DeleteLabelValues(lvs ...string) bool {
 // This method is used for the same purpose as DeleteLabelValues(...string). See
 // there for pros and cons of the two methods.
 func (m *metricVec) Delete(labels Labels) bool {
+	m.mtx.Lock()
+	defer m.mtx.Unlock()
+
 	h, err := m.hashLabels(labels)
 	if err != nil {
 		return false
 	}
 
-	return m.metricMap.deleteByHashWithLabels(h, labels, m.curry)
-}
-
-func (m *metricVec) curryWith(labels Labels) (*metricVec, error) {
-	var (
-		newCurry []curriedLabelValue
-		oldCurry = m.curry
-		iCurry   int
-	)
-	for i, label := range m.desc.variableLabels {
-		val, ok := labels[label]
-		if iCurry < len(oldCurry) && oldCurry[iCurry].index == i {
-			if ok {
-				return nil, fmt.Errorf("label name %q is already curried", label)
-			}
-			newCurry = append(newCurry, oldCurry[iCurry])
-			iCurry++
-		} else {
-			if !ok {
-				continue // Label stays uncurried.
-			}
-			newCurry = append(newCurry, curriedLabelValue{i, val})
-		}
-	}
-	if l := len(oldCurry) + len(labels) - len(newCurry); l > 0 {
-		return nil, fmt.Errorf("%d unknown label(s) found during currying", l)
-	}
-
-	return &metricVec{
-		metricMap:   m.metricMap,
-		curry:       newCurry,
-		hashAdd:     m.hashAdd,
-		hashAddByte: m.hashAddByte,
-	}, nil
-}
-
-func (m *metricVec) getMetricWithLabelValues(lvs ...string) (Metric, error) {
-	h, err := m.hashLabelValues(lvs)
-	if err != nil {
-		return nil, err
-	}
-
-	return m.metricMap.getOrCreateMetricWithLabelValues(h, lvs, m.curry), nil
-}
-
-func (m *metricVec) getMetricWith(labels Labels) (Metric, error) {
-	h, err := m.hashLabels(labels)
-	if err != nil {
-		return nil, err
-	}
-
-	return m.metricMap.getOrCreateMetricWithLabels(h, labels, m.curry), nil
-}
-
-func (m *metricVec) hashLabelValues(vals []string) (uint64, error) {
-	if err := validateLabelValues(vals, len(m.desc.variableLabels)-len(m.curry)); err != nil {
-		return 0, err
-	}
-
-	var (
-		h             = hashNew()
-		curry         = m.curry
-		iVals, iCurry int
-	)
-	for i := 0; i < len(m.desc.variableLabels); i++ {
-		if iCurry < len(curry) && curry[iCurry].index == i {
-			h = m.hashAdd(h, curry[iCurry].value)
-			iCurry++
-		} else {
-			h = m.hashAdd(h, vals[iVals])
-			iVals++
-		}
-		h = m.hashAddByte(h, model.SeparatorByte)
-	}
-	return h, nil
-}
-
-func (m *metricVec) hashLabels(labels Labels) (uint64, error) {
-	if err := validateValuesInLabels(labels, len(m.desc.variableLabels)-len(m.curry)); err != nil {
-		return 0, err
-	}
-
-	var (
-		h      = hashNew()
-		curry  = m.curry
-		iCurry int
-	)
-	for i, label := range m.desc.variableLabels {
-		val, ok := labels[label]
-		if iCurry < len(curry) && curry[iCurry].index == i {
-			if ok {
-				return 0, fmt.Errorf("label name %q is already curried", label)
-			}
-			h = m.hashAdd(h, curry[iCurry].value)
-			iCurry++
-		} else {
-			if !ok {
-				return 0, fmt.Errorf("label name %q missing in label map", label)
-			}
-			h = m.hashAdd(h, val)
-		}
-		h = m.hashAddByte(h, model.SeparatorByte)
-	}
-	return h, nil
-}
-
-// metricWithLabelValues provides the metric and its label values for
-// disambiguation on hash collision.
-type metricWithLabelValues struct {
-	values []string
-	metric Metric
-}
-
-// curriedLabelValue sets the curried value for a label at the given index.
-type curriedLabelValue struct {
-	index int
-	value string
-}
-
-// metricMap is a helper for metricVec and shared between differently curried
-// metricVecs.
-type metricMap struct {
-	mtx       sync.RWMutex // Protects metrics.
-	metrics   map[uint64][]metricWithLabelValues
-	desc      *Desc
-	newMetric func(labelValues ...string) Metric
-}
-
-// Describe implements Collector. It will send exactly one Desc to the provided
-// channel.
-func (m *metricMap) Describe(ch chan<- *Desc) {
-	ch <- m.desc
-}
-
-// Collect implements Collector.
-func (m *metricMap) Collect(ch chan<- Metric) {
-	m.mtx.RLock()
-	defer m.mtx.RUnlock()
-
-	for _, metrics := range m.metrics {
-		for _, metric := range metrics {
-			ch <- metric.metric
-		}
-	}
-}
-
-// Reset deletes all metrics in this vector.
-func (m *metricMap) Reset() {
-	m.mtx.Lock()
-	defer m.mtx.Unlock()
-
-	for h := range m.metrics {
-		delete(m.metrics, h)
-	}
+	return m.deleteByHashWithLabels(h, labels)
 }
 
 // deleteByHashWithLabelValues removes the metric from the hash bucket h. If
 // there are multiple matches in the bucket, use lvs to select a metric and
 // remove only that metric.
-func (m *metricMap) deleteByHashWithLabelValues(
-	h uint64, lvs []string, curry []curriedLabelValue,
-) bool {
-	m.mtx.Lock()
-	defer m.mtx.Unlock()
-
-	metrics, ok := m.metrics[h]
+func (m *metricVec) deleteByHashWithLabelValues(h uint64, lvs []string) bool {
+	metrics, ok := m.children[h]
 	if !ok {
 		return false
 	}
 
-	i := findMetricWithLabelValues(metrics, lvs, curry)
+	i := m.findMetricWithLabelValues(metrics, lvs)
 	if i >= len(metrics) {
 		return false
 	}
 
 	if len(metrics) > 1 {
-		m.metrics[h] = append(metrics[:i], metrics[i+1:]...)
+		m.children[h] = append(metrics[:i], metrics[i+1:]...)
 	} else {
-		delete(m.metrics, h)
+		delete(m.children, h)
 	}
 	return true
 }
@@ -274,38 +178,71 @@ func (m *metricMap) deleteByHashWithLabelValues(
 // deleteByHashWithLabels removes the metric from the hash bucket h. If there
 // are multiple matches in the bucket, use lvs to select a metric and remove
 // only that metric.
-func (m *metricMap) deleteByHashWithLabels(
-	h uint64, labels Labels, curry []curriedLabelValue,
-) bool {
-	m.mtx.Lock()
-	defer m.mtx.Unlock()
-
-	metrics, ok := m.metrics[h]
+func (m *metricVec) deleteByHashWithLabels(h uint64, labels Labels) bool {
+	metrics, ok := m.children[h]
 	if !ok {
 		return false
 	}
-	i := findMetricWithLabels(m.desc, metrics, labels, curry)
+	i := m.findMetricWithLabels(metrics, labels)
 	if i >= len(metrics) {
 		return false
 	}
 
 	if len(metrics) > 1 {
-		m.metrics[h] = append(metrics[:i], metrics[i+1:]...)
+		m.children[h] = append(metrics[:i], metrics[i+1:]...)
 	} else {
-		delete(m.metrics, h)
+		delete(m.children, h)
 	}
 	return true
+}
+
+// Reset deletes all metrics in this vector.
+func (m *metricVec) Reset() {
+	m.mtx.Lock()
+	defer m.mtx.Unlock()
+
+	for h := range m.children {
+		delete(m.children, h)
+	}
+}
+
+func (m *metricVec) hashLabelValues(vals []string) (uint64, error) {
+	if err := validateLabelValues(vals, len(m.desc.variableLabels)); err != nil {
+		return 0, err
+	}
+
+	h := hashNew()
+	for _, val := range vals {
+		h = m.hashAdd(h, val)
+		h = m.hashAddByte(h, model.SeparatorByte)
+	}
+	return h, nil
+}
+
+func (m *metricVec) hashLabels(labels Labels) (uint64, error) {
+	if err := validateValuesInLabels(labels, len(m.desc.variableLabels)); err != nil {
+		return 0, err
+	}
+
+	h := hashNew()
+	for _, label := range m.desc.variableLabels {
+		val, ok := labels[label]
+		if !ok {
+			return 0, fmt.Errorf("label name %q missing in label map", label)
+		}
+		h = m.hashAdd(h, val)
+		h = m.hashAddByte(h, model.SeparatorByte)
+	}
+	return h, nil
 }
 
 // getOrCreateMetricWithLabelValues retrieves the metric by hash and label value
 // or creates it and returns the new one.
 //
 // This function holds the mutex.
-func (m *metricMap) getOrCreateMetricWithLabelValues(
-	hash uint64, lvs []string, curry []curriedLabelValue,
-) Metric {
+func (m *metricVec) getOrCreateMetricWithLabelValues(hash uint64, lvs []string) Metric {
 	m.mtx.RLock()
-	metric, ok := m.getMetricWithHashAndLabelValues(hash, lvs, curry)
+	metric, ok := m.getMetricWithHashAndLabelValues(hash, lvs)
 	m.mtx.RUnlock()
 	if ok {
 		return metric
@@ -313,11 +250,13 @@ func (m *metricMap) getOrCreateMetricWithLabelValues(
 
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
-	metric, ok = m.getMetricWithHashAndLabelValues(hash, lvs, curry)
+	metric, ok = m.getMetricWithHashAndLabelValues(hash, lvs)
 	if !ok {
-		inlinedLVs := inlineLabelValues(lvs, curry)
-		metric = m.newMetric(inlinedLVs...)
-		m.metrics[hash] = append(m.metrics[hash], metricWithLabelValues{values: inlinedLVs, metric: metric})
+		// Copy to avoid allocation in case wo don't go down this code path.
+		copiedLVs := make([]string, len(lvs))
+		copy(copiedLVs, lvs)
+		metric = m.newMetric(copiedLVs...)
+		m.children[hash] = append(m.children[hash], metricWithLabelValues{values: copiedLVs, metric: metric})
 	}
 	return metric
 }
@@ -326,11 +265,9 @@ func (m *metricMap) getOrCreateMetricWithLabelValues(
 // or creates it and returns the new one.
 //
 // This function holds the mutex.
-func (m *metricMap) getOrCreateMetricWithLabels(
-	hash uint64, labels Labels, curry []curriedLabelValue,
-) Metric {
+func (m *metricVec) getOrCreateMetricWithLabels(hash uint64, labels Labels) Metric {
 	m.mtx.RLock()
-	metric, ok := m.getMetricWithHashAndLabels(hash, labels, curry)
+	metric, ok := m.getMetricWithHashAndLabels(hash, labels)
 	m.mtx.RUnlock()
 	if ok {
 		return metric
@@ -338,23 +275,21 @@ func (m *metricMap) getOrCreateMetricWithLabels(
 
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
-	metric, ok = m.getMetricWithHashAndLabels(hash, labels, curry)
+	metric, ok = m.getMetricWithHashAndLabels(hash, labels)
 	if !ok {
-		lvs := extractLabelValues(m.desc, labels, curry)
+		lvs := m.extractLabelValues(labels)
 		metric = m.newMetric(lvs...)
-		m.metrics[hash] = append(m.metrics[hash], metricWithLabelValues{values: lvs, metric: metric})
+		m.children[hash] = append(m.children[hash], metricWithLabelValues{values: lvs, metric: metric})
 	}
 	return metric
 }
 
 // getMetricWithHashAndLabelValues gets a metric while handling possible
 // collisions in the hash space. Must be called while holding the read mutex.
-func (m *metricMap) getMetricWithHashAndLabelValues(
-	h uint64, lvs []string, curry []curriedLabelValue,
-) (Metric, bool) {
-	metrics, ok := m.metrics[h]
+func (m *metricVec) getMetricWithHashAndLabelValues(h uint64, lvs []string) (Metric, bool) {
+	metrics, ok := m.children[h]
 	if ok {
-		if i := findMetricWithLabelValues(metrics, lvs, curry); i < len(metrics) {
+		if i := m.findMetricWithLabelValues(metrics, lvs); i < len(metrics) {
 			return metrics[i].metric, true
 		}
 	}
@@ -363,12 +298,10 @@ func (m *metricMap) getMetricWithHashAndLabelValues(
 
 // getMetricWithHashAndLabels gets a metric while handling possible collisions in
 // the hash space. Must be called while holding read mutex.
-func (m *metricMap) getMetricWithHashAndLabels(
-	h uint64, labels Labels, curry []curriedLabelValue,
-) (Metric, bool) {
-	metrics, ok := m.metrics[h]
+func (m *metricVec) getMetricWithHashAndLabels(h uint64, labels Labels) (Metric, bool) {
+	metrics, ok := m.children[h]
 	if ok {
-		if i := findMetricWithLabels(m.desc, metrics, labels, curry); i < len(metrics) {
+		if i := m.findMetricWithLabels(metrics, labels); i < len(metrics) {
 			return metrics[i].metric, true
 		}
 	}
@@ -377,11 +310,9 @@ func (m *metricMap) getMetricWithHashAndLabels(
 
 // findMetricWithLabelValues returns the index of the matching metric or
 // len(metrics) if not found.
-func findMetricWithLabelValues(
-	metrics []metricWithLabelValues, lvs []string, curry []curriedLabelValue,
-) int {
+func (m *metricVec) findMetricWithLabelValues(metrics []metricWithLabelValues, lvs []string) int {
 	for i, metric := range metrics {
-		if matchLabelValues(metric.values, lvs, curry) {
+		if m.matchLabelValues(metric.values, lvs) {
 			return i
 		}
 	}
@@ -390,51 +321,32 @@ func findMetricWithLabelValues(
 
 // findMetricWithLabels returns the index of the matching metric or len(metrics)
 // if not found.
-func findMetricWithLabels(
-	desc *Desc, metrics []metricWithLabelValues, labels Labels, curry []curriedLabelValue,
-) int {
+func (m *metricVec) findMetricWithLabels(metrics []metricWithLabelValues, labels Labels) int {
 	for i, metric := range metrics {
-		if matchLabels(desc, metric.values, labels, curry) {
+		if m.matchLabels(metric.values, labels) {
 			return i
 		}
 	}
 	return len(metrics)
 }
 
-func matchLabelValues(values []string, lvs []string, curry []curriedLabelValue) bool {
-	if len(values) != len(lvs)+len(curry) {
+func (m *metricVec) matchLabelValues(values []string, lvs []string) bool {
+	if len(values) != len(lvs) {
 		return false
 	}
-	var iLVs, iCurry int
 	for i, v := range values {
-		if iCurry < len(curry) && curry[iCurry].index == i {
-			if v != curry[iCurry].value {
-				return false
-			}
-			iCurry++
-			continue
-		}
-		if v != lvs[iLVs] {
+		if v != lvs[i] {
 			return false
 		}
-		iLVs++
 	}
 	return true
 }
 
-func matchLabels(desc *Desc, values []string, labels Labels, curry []curriedLabelValue) bool {
-	if len(values) != len(labels)+len(curry) {
+func (m *metricVec) matchLabels(values []string, labels Labels) bool {
+	if len(labels) != len(values) {
 		return false
 	}
-	iCurry := 0
-	for i, k := range desc.variableLabels {
-		if iCurry < len(curry) && curry[iCurry].index == i {
-			if values[i] != curry[iCurry].value {
-				return false
-			}
-			iCurry++
-			continue
-		}
+	for i, k := range m.desc.variableLabels {
 		if values[i] != labels[k] {
 			return false
 		}
@@ -442,31 +354,10 @@ func matchLabels(desc *Desc, values []string, labels Labels, curry []curriedLabe
 	return true
 }
 
-func extractLabelValues(desc *Desc, labels Labels, curry []curriedLabelValue) []string {
-	labelValues := make([]string, len(labels)+len(curry))
-	iCurry := 0
-	for i, k := range desc.variableLabels {
-		if iCurry < len(curry) && curry[iCurry].index == i {
-			labelValues[i] = curry[iCurry].value
-			iCurry++
-			continue
-		}
+func (m *metricVec) extractLabelValues(labels Labels) []string {
+	labelValues := make([]string, len(labels))
+	for i, k := range m.desc.variableLabels {
 		labelValues[i] = labels[k]
-	}
-	return labelValues
-}
-
-func inlineLabelValues(lvs []string, curry []curriedLabelValue) []string {
-	labelValues := make([]string, len(lvs)+len(curry))
-	var iCurry, iLVs int
-	for i := range labelValues {
-		if iCurry < len(curry) && curry[iCurry].index == i {
-			labelValues[i] = curry[iCurry].value
-			iCurry++
-			continue
-		}
-		labelValues[i] = lvs[iLVs]
-		iLVs++
 	}
 	return labelValues
 }

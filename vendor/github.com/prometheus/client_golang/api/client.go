@@ -30,10 +30,10 @@ import (
 // DefaultRoundTripper is used if no RoundTripper is set in Config.
 var DefaultRoundTripper http.RoundTripper = &http.Transport{
 	Proxy: http.ProxyFromEnvironment,
-	DialContext: (&net.Dialer{
+	Dial: (&net.Dialer{
 		Timeout:   30 * time.Second,
 		KeepAlive: 30 * time.Second,
-	}).DialContext,
+	}).Dial,
 	TLSHandshakeTimeout: 10 * time.Second,
 }
 
