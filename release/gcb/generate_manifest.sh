@@ -236,7 +236,7 @@ function usage() {
 CLONE_DIR=$(mktemp -d)
 pushd "${CLONE_DIR}"
   githubctl_setup
-  gsutil -q cp "$githubctl" "gs://${CB_GCS_RELEASE_TOOLS_PATH}/"
+  gsutil -q cp -P "$githubctl" "gs://${CB_GCS_RELEASE_TOOLS_PATH}/"
 
   BASE_MANIFEST_URL="gs://${CB_GCS_BUILD_BUCKET}/release-tools/${CB_BRANCH}-manifest.txt"
   BASE_MASTER_MANIFEST_URL="gs://${CB_GCS_BUILD_BUCKET}/release-tools/master-manifest.txt"
