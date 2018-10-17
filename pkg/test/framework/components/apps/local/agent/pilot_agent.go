@@ -237,7 +237,7 @@ func (a *pilotAgent) GetConfig() model.Config {
 	return a.serviceEntry
 }
 
-// GetPorts implements the agent.Agent interface.
+// GetAdminPort implements the agent.Agent interface.
 func (a *pilotAgent) GetAdminPort() int {
 	return a.adminPort
 }
@@ -280,7 +280,7 @@ func (a *pilotAgent) CheckConfiguredForService(target Agent) error {
 	return nil
 }
 
-// Stop implements the agent.Agent interface.
+// Close implements the agent.Agent interface.
 func (a *pilotAgent) Close() (err error) {
 	if a.app != nil {
 		err = a.app.Close()
