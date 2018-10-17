@@ -441,6 +441,7 @@ type ServiceDiscovery interface {
 }
 
 // ServiceAccounts exposes Istio service accounts
+// Deprecated - service account tracking moved to XdsServer, incremental.
 type ServiceAccounts interface {
 	// GetIstioServiceAccounts returns a list of service accounts looked up from
 	// the specified service hostname and ports.

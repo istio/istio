@@ -15,6 +15,7 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -26,7 +27,11 @@ import (
 	"github.com/howeyc/fsnotify"
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
+	"k8s.io/api/admissionregistration/v1beta1"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/kube/inject"
 	"istio.io/istio/pkg/cmd"
@@ -85,11 +90,11 @@ var (
 				return multierror.Prefix(err, "failed to create injection webhook")
 			}
 
-			if err := patchCertLoop(); err != nil {
+			stop := make(chan struct{})
+			if err := patchCertLoop(stop); err != nil {
 				return multierror.Prefix(err, "failed to start patch cert loop")
 			}
 
-			stop := make(chan struct{})
 			go wh.Run(stop)
 			cmd.WaitSignal(stop)
 			return nil
@@ -113,10 +118,7 @@ var (
 	}
 )
 
-// patchCertLoop continually reapplies the caBundle PEM. This is required because it can be overwritten with empty
-// values if the original yaml is reapplied (https://github.com/istio/istio/issues/6069).
-// TODO(https://github.com/istio/istio/issues/6451) - only patch when caBundle changes
-func patchCertLoop() error {
+func patchCertLoop(stopCh <-chan struct{}) error {
 	client, err := kube.CreateClientset(flags.kubeconfigFile, "")
 	if err != nil {
 		return err
@@ -131,25 +133,54 @@ func patchCertLoop() error {
 	if err != nil {
 		return err
 	}
-
 	watchDir, _ := filepath.Split(flags.caCertFile)
 	if err = watcher.Watch(watchDir); err != nil {
 		return fmt.Errorf("could not watch %v: %v", flags.caCertFile, err)
 	}
 
+	if err = util.PatchMutatingWebhookConfig(client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations(),
+		flags.webhookConfigName, flags.webhookName, caCertPem); err != nil {
+		return err
+	}
+
+	shouldPatch := make(chan struct{})
+
+	watchlist := cache.NewListWatchFromClient(
+		client.AdmissionregistrationV1beta1().RESTClient(),
+		"mutatingwebhookconfigurations",
+		"",
+		fields.ParseSelectorOrDie(fmt.Sprintf("metadata.name=%s", flags.webhookConfigName)))
+
+	_, controller := cache.NewInformer(
+		watchlist,
+		&v1beta1.MutatingWebhookConfiguration{},
+		0,
+		cache.ResourceEventHandlerFuncs{
+			UpdateFunc: func(oldObj, newObj interface{}) {
+				config := newObj.(*v1beta1.MutatingWebhookConfiguration)
+				for i, w := range config.Webhooks {
+					if w.Name == flags.webhookName && !bytes.Equal(config.Webhooks[i].ClientConfig.CABundle, caCertPem) {
+						log.Infof("Detected a change in CABundle, patching MutatingWebhookConfiguration again")
+						shouldPatch <- struct{}{}
+						break
+					}
+				}
+			},
+		},
+	)
+	go controller.Run(stopCh)
+
 	go func() {
-		tickerC := time.NewTicker(time.Second).C
 		for {
 			select {
-			case <-tickerC:
-				if err = util.PatchMutatingWebhookConfig(client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations(),
-					flags.webhookConfigName, flags.webhookName, caCertPem); err != nil {
-					log.Errorf("Patch webhook failed: %v", err)
-				}
+			case <-shouldPatch:
+				doPatch(client, caCertPem)
 
 			case <-watcher.Event:
 				if b, err := ioutil.ReadFile(flags.caCertFile); err == nil {
+					log.Infof("Detected a change in CABundle (via secret), patching MutatingWebhookConfiguration again")
 					caCertPem = b
+					doPatch(client, caCertPem)
 				} else {
 					log.Errorf("CA bundle file read error: %v", err)
 				}
@@ -158,6 +189,13 @@ func patchCertLoop() error {
 	}()
 
 	return nil
+}
+
+func doPatch(client *kubernetes.Clientset, caCertPem []byte) {
+	if err := util.PatchMutatingWebhookConfig(client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations(),
+		flags.webhookConfigName, flags.webhookName, caCertPem); err != nil {
+		log.Errorf("Patch webhook failed: %v", err)
+	}
 }
 
 func init() {

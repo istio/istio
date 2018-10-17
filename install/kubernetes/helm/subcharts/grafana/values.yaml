@@ -8,6 +8,7 @@ image:
   tag: 5.2.3
 persist: false
 storageClassName: ""
+accessMode: ReadWriteMany
 security:
   enabled: false
   secretName: grafana
