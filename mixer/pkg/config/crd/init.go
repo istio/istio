@@ -55,7 +55,7 @@ func newDynamicListenerWatcherBuilder(conf *rest.Config) (listerWatcherBuilderIn
 }
 
 func (b *dynamicListerWatcherBuilder) build(res metav1.APIResource) dynamic.ResourceInterface {
-	gvr := schema.GroupVersionResource{res.Group, res.Version, res.SingularName}
+	gvr := schema.GroupVersionResource{res.Group, res.Version, res.Name}
 	return b.client.Resource(gvr)
 }
 
