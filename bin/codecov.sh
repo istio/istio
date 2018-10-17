@@ -102,7 +102,7 @@ gocovmerge "${COVERAGEDIR}"/*.cov > coverage.cov
 cat "${COVERAGEDIR}"/*.report > codecov.report
 popd
 
-echo "Intermedite files were written to ${COVERAGEDIR}"
+echo "Intermediate files were written to ${COVERAGEDIR}"
 echo "Final reports are stored in ${FINAL_CODECOV_DIR}"
 
 if ls "${COVERAGEDIR}"/*.err 1> /dev/null 2>&1; then
