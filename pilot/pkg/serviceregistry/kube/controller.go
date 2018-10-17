@@ -652,7 +652,7 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 		case model.EventDelete:
 			c.Lock()
 			delete(c.servicesMap, svcConv.Hostname)
-		  c.Unlock()
+		    c.Unlock()
 		default:
 			c.Lock()
 			c.servicesMap[svcConv.Hostname] = svcConv
