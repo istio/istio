@@ -17,7 +17,6 @@ package rules
 import (
 	"go/ast"
 	"go/token"
-
 	"strings"
 
 	"istio.io/istio/tests/util/checker"
