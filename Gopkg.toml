@@ -220,7 +220,7 @@ ignored = [
 
 [[constraint]]
   name = "github.com/prometheus/client_golang"
-  version = "0.9.0-pre1"
+  version = "0.9.0"
 
 [[constraint]]
   branch = "master"

@@ -974,17 +974,18 @@
   revision = "525d0eb5f91d30e3b1548de401b7ef9ea6898520"
 
 [[projects]]
-  digest = "1:4759bed95e3a52febc18c071db28790a5c6e9e106ee201a37add6f6a056f8f9c"
+  digest = "1:b57b560027ec66232c769a7f4c65bac5ab6c1975f0bdecc0a44d160274fd4347"
   name = "github.com/prometheus/client_golang"
   packages = [
     "api",
     "api/prometheus/v1",
     "prometheus",
+    "prometheus/internal",
     "prometheus/promhttp",
   ]
   pruneopts = "NUT"
-  revision = "967789050ba94deca04a5e84cce8ad472ce313c1"
-  version = "v0.9.0-pre1"
+  revision = "1cafe34db7fdec6022e17e00e1c1ea501022f3e4"
+  version = "v0.9.0"
 
 [[projects]]
   branch = "master"
@@ -1568,7 +1569,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:b5469aaa184eec3b2995629d48dd8621f2ed25564728425762df037737cd03c7"
+  digest = "1:f06c31ae2d9f06d6ca3e74268f39ab6e5e9b835754176fafb8367dc10c296fcb"
   name = "istio.io/api"
   packages = [
     "authentication/v1alpha1",
@@ -1584,7 +1585,7 @@
     "rbac/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "2acfd9afd0638131e3664f0e4f3ee71b3fd21663"
+  revision = "0b70b6093baee68d6e1f4e30ecf28bb33f89710a"
 
 [[projects]]
   digest = "1:1e22c9d898674522a6155619142b4691dd225441168faa2b5a4eb88ee327a243"
