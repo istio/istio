@@ -75,5 +75,5 @@ func (p *Probe) checkUpdated() error {
 		return nil
 	}
 
-	return errors.New(s.String())
+	return errors.New("proxy has not been updated")
 }
