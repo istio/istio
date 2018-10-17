@@ -50,9 +50,9 @@ function github_keys() {
   local KEY
   KEY="DockerHub"
 
-  if [[ "$CB_GCS_GITHUB_PATH" == *.enc ]]; then
+  if [[ "$CB_GCS_GITHUB_TOKEN_FILE_PATH" == *.enc ]]; then
    # decrypt file if it is encoded
-   gsutil -q cp "gs://${CB_GCS_GITHUB_PATH}" "${KEYFILE_ENC}"
+   gsutil -q cp "gs://${CB_GCS_GITHUB_TOKEN_FILE_PATH}" "${KEYFILE_ENC}"
    gcloud kms decrypt \
        --ciphertext-file="$KEYFILE_ENC" \
        --plaintext-file="$KEYFILE_TEMP" \
@@ -60,7 +60,7 @@ function github_keys() {
        --keyring="${KEYRING}" \
        --key="${KEY}"
   else
-   gsutil -q cp "gs://${CB_GCS_GITHUB_PATH}" "${KEYFILE_TEMP}"
+   gsutil -q cp "gs://${CB_GCS_GITHUB_TOKEN_FILE_PATH}" "${KEYFILE_TEMP}"
   fi
 
   GITHUB_KEYFILE="${KEYFILE_TEMP}"

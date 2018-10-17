@@ -23,7 +23,7 @@ from airflow.operators.python_operator import PythonOperator
 import environment_config
 import istio_common_dag
 
-monthly_extra_params = ['CB_GCS_GITHUB_PATH', 'CB_GCS_MONTHLY_RELEASE_PATH']
+monthly_extra_params = ['CB_GCS_GITHUB_TOKEN_FILE_PATH', 'CB_GCS_MONTHLY_RELEASE_PATH']
 
 def testMonthlyConfigSettings(config_settings):
   tmp_settings = dict(config_settings)
@@ -80,7 +80,7 @@ def MonthlyPipeline():
 
     # These are the extra params that are passed to the dags for monthly release
     monthly_conf = dict()
-    monthly_conf['CB_GCS_GITHUB_PATH'         ] = 'istio-secrets/github.txt.enc'
+    monthly_conf['CB_GCS_GITHUB_TOKEN_FILE_PATH'         ] = 'istio-secrets/github.txt.enc'
     # CB_GCS_MONTHLY_RELEASE_PATH is of the form  'istio-release/releases/{version}'
     monthly_conf['CB_GCS_MONTHLY_RELEASE_PATH'] = 'istio-release/releases/%s' % (version)
 

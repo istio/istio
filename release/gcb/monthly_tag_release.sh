@@ -29,15 +29,15 @@ source "${SCRIPTPATH}/gcb_lib.sh"
 
 function usage() {
   echo "$0
-       uses CB_VERSION CB_GCS_GITHUB_PATH CB_GITHUB_ORG"
+       uses CB_VERSION CB_GCS_GITHUB_TOKEN_FILE_PATH CB_GITHUB_ORG"
   exit 1
 }
 
 [[ -z "${CB_VERSION}" ]] && usage
-[[ -z "${CB_GCS_GITHUB_PATH}" ]] && usage
+[[ -z "${CB_GCS_GITHUB_TOKEN_FILE_PATH}" ]] && usage
 [[ -z "${CB_GITHUB_ORG}" ]] && usage
 
-# github keys uses CB_GCS_GITHUB_PATH to find the github key file, decrypts if needed
+# github keys uses CB_GCS_GITHUB_TOKEN_FILE_PATH to find the github key file, decrypts if needed
 # and sets GITHUB_KEYFILE
 github_keys
 [[ -z "${GITHUB_KEYFILE}" ]] && usage
