@@ -804,13 +804,6 @@
           "intervalFactor": 1,
           "legendFormat": "Outbound Listeners (tcp over current http)",
           "refId": "D"
-        },
-        {
-          "expr": "pilot_conf_filter_chains{job=\"pilot\"}",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "Filter Chains",
-          "refId": "E"
         }
       ],
       "thresholds": [],
