@@ -49,7 +49,7 @@ def ReportDailySuccessful(task_instance, **kwargs):
 def DailyPipeline(branch):
   def DailyGenerateTestArgs(**kwargs):
     """Loads the configuration that will be used for this Iteration."""
-    conf = kwargs['dag_run'].conf
+    env_conf = kwargs['dag_run'].conf
     if env_conf is None:
       env_conf = dict()
 

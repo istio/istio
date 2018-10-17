@@ -97,6 +97,8 @@ def getBashSettingsTemplate(extra_param_lst=[]):
       template_list.append("export %s={{ settings.%s }}" % (key, key))
 
   template_list.append("""
+                # download gcb_env.sh if it exists, otherwise the local copy will be uploaded
+                gsutil -q cp "gs://${CB_GCS_RELEASE_TOOLS_PATH}/gcb_env.sh" "/tmp/gcb_env.sh"
                 source    "/tmp/gcb_env.sh"
                 gsutil -q cp "/tmp/gcb_env.sh" "gs://${CB_GCS_RELEASE_TOOLS_PATH}/"
                 git clone "https://github.com/${CB_GITHUB_ORG}/istio.git" "istio-code" -b "${CB_BRANCH}" --depth 1
