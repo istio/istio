@@ -4,7 +4,7 @@ description: Describes the rules used to configure Mixer's policy and telemetry 
 location: https://istio.io/docs/reference/config/policy-and-telemetry/istio.policy.v1beta1.html
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 17
+number_of_entries: 18
 ---
 <p>Describes the rules used to configure Mixer&rsquo;s policy and telemetry features.</p>
 
@@ -292,6 +292,39 @@ type EmailAddress</p>
 <td><code>string</code></td>
 <td>
 <p>EmailAddress encoded as string.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="FractionalPercent-DenominatorType">FractionalPercent.DenominatorType</h2>
+<section>
+<p>Fraction percentages support several fixed denominator values.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="FractionalPercent-DenominatorType-HUNDRED">
+<td><code>HUNDRED</code></td>
+<td>
+<p>100.</p>
+
+<p><strong>Example</strong>: <sup>1</sup>&frasl;<sub>100</sub> = 1%.</p>
+
+</td>
+</tr>
+<tr id="FractionalPercent-DenominatorType-TEN_THOUSAND">
+<td><code>TEN_THOUSAND</code></td>
+<td>
+<p>10,000.</p>
+
+<p><strong>Example</strong>: <sup>1</sup>&frasl;<sub>10000</sub> = 0.01%.</p>
 
 </td>
 </tr>
