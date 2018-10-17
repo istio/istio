@@ -609,15 +609,20 @@ installgen:
 $(HELM):
 	bin/init_helm.sh
 
+$(HOME)/.helm:
+	$(HELM) init --client-only
+
 # create istio-remote.yaml
-istio-remote.yaml: $(HELM)
+istio-remote.yaml: $(HELM) $(HOME)/.helm
 	cat install/kubernetes/namespace.yaml > install/kubernetes/$@
+	$(HELM) dep update --skip-refresh install/kubernetes/helm/istio-remote
 	$(HELM) template --name=istio --namespace=istio-system \
 		install/kubernetes/helm/istio-remote >> install/kubernetes/$@
 
 # creates istio.yaml istio-auth.yaml istio-one-namespace.yaml istio-one-namespace-auth.yaml
 # Ensure that values-$filename is present in install/kubernetes/helm/istio
-isti%.yaml: $(HELM)
+isti%.yaml: $(HELM) $(HOME)/.helm
+	$(HELM) dep update --skip-refresh install/kubernetes/helm/istio
 	cat install/kubernetes/namespace.yaml > install/kubernetes/$@
 	$(HELM) template --set global.tag=${TAG} \
 		--name=istio \
@@ -627,7 +632,8 @@ isti%.yaml: $(HELM)
 		--values install/kubernetes/helm/istio/values-$@ \
 		install/kubernetes/helm/istio >> install/kubernetes/$@
 
-generate_yaml: $(HELM)
+generate_yaml: $(HELM) $(HOME)/.helm
+	$(HELM) dep update --skip-refresh install/kubernetes/helm/istio
 	./install/updateVersion.sh -a ${HUB},${TAG} >/dev/null 2>&1
 	cat install/kubernetes/namespace.yaml > install/kubernetes/istio.yaml
 	$(HELM) template --set global.tag=${TAG} \
@@ -656,7 +662,9 @@ generate_yaml_coredump:
 # Generate the install files, using istioctl.
 # TODO: make sure they match, pass all tests.
 # TODO:
-generate_yaml_new:
+generate_yaml_new: $(HELM) $(HOME)/.helm
+	$(HELM) init --client-only
+	$(HELM) dep update --skip-refresh install/kubernetes/helm/istio
 	./install/updateVersion.sh -a ${HUB},${TAG} >/dev/null 2>&1
 	(cd install/kubernetes/helm/istio; ${ISTIO_OUT}/istioctl gen-deploy -o yaml --values values.yaml)
 
