@@ -1198,7 +1198,7 @@
   revision = "f6fcaab0c612d877d4140cbdf6966aed51e6eebd"
 
 [[projects]]
-  digest = "1:14c23c68d00e1fd427a26acf9e6d7e2105fbf7b0b0531060c0df9ddb62450e7f"
+  digest = "1:7b0783b5016a9a6a224a9912578ab11693cca324f05bc6e3dc5d6f7f1cfc794b"
   name = "go.opencensus.io"
   packages = [
     ".",
@@ -1379,7 +1379,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:6cd4b1649695991e9b76b0db6bc3fb3f97b951992b16da2fa53991070be11410"
+  digest = "1:bbd96fe5cb01e0bcc2e683e6df73f2d30166e7d4c8a04c93dd8778dfaaaea82b"
   name = "google.golang.org/api"
   packages = [
     "cloudtrace/v1",
