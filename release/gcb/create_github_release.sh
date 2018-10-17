@@ -40,7 +40,7 @@ REQUEST_FILE="$(mktemp /tmp/github.request.XXXX)"
 RESPONSE_FILE="$(mktemp /tmp/github.response.XXXX)"
 UPLOAD_DIR=""
 
-# shellcheck source=release/json_parse_shared.sh
+# shellcheck source=release/gcb/json_parse_shared.sh
 source "${SCRIPTPATH}/json_parse_shared.sh"
 
 function usage() {

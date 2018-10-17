@@ -39,7 +39,7 @@ USER_NAME=""
 BUILD_FILE=""
 ORG="istio"
 
-# shellcheck source=release/json_parse_shared.sh
+# shellcheck source=release/gcb/json_parse_shared.sh
 source "${SCRIPTPATH}/json_parse_shared.sh"
 
 function usage() {

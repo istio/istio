@@ -49,7 +49,7 @@ done
 [[ -z "${CB_GCS_BUILD_PATH}" ]] && usage
 
 SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
-# shellcheck source=release/gcb//docker_tag_push_lib.sh
+# shellcheck source=release/gcb/docker_tag_push_lib.sh
 source "${SCRIPTPATH}/docker_tag_push_lib.sh"
 
 TEMP_DIR=$(mktemp -d)

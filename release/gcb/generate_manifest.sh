@@ -28,7 +28,7 @@ set -x
 source "/workspace/gcb_env.sh"
 
 SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
-# shellcheck source=release/gcb_lib.sh
+# shellcheck source=release/gcb/gcb_lib.sh
 source "${SCRIPTPATH}/gcb_lib.sh"
 
 # this function replace the old sha with the correct one

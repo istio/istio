@@ -50,14 +50,18 @@ function github_keys() {
   local KEY
   KEY="DockerHub"
 
- # decrypt file, if requested
-  gsutil -q cp gs://istio-secrets/github.txt.enc "${KEYFILE_ENC}"
-  gcloud kms decrypt \
+  if [[ "$CB_GCS_GITHUB_PATH" == *.enc ]]; then
+   # decrypt file if it is encoded
+   gsutil -q cp "gs://${CB_GCS_GITHUB_PATH}" "${KEYFILE_ENC}"
+   gcloud kms decrypt \
        --ciphertext-file="$KEYFILE_ENC" \
        --plaintext-file="$KEYFILE_TEMP" \
        --location=global \
        --keyring="${KEYRING}" \
        --key="${KEY}"
+  else
+   gsutil -q cp "gs://${CB_GCS_GITHUB_PATH}" "${KEYFILE_TEMP}"
+  fi
 
   GITHUB_KEYFILE="${KEYFILE_TEMP}"
   export GITHUB_KEYFILE

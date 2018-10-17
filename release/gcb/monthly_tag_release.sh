@@ -23,54 +23,30 @@ set -x
 source "/workspace/gcb_env.sh"
 
 SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
+# shellcheck source=release/gcb/gcb_lib.sh
+source "${SCRIPTPATH}/gcb_lib.sh"
 
-KEYFILE_DECRYPT="true"
-UPLOAD_DIR="$(mktemp -d /tmp/release.XXXX)"
-KEYFILE_ENC="${UPLOAD_DIR}/keyfile.enc"
-KEYFILE_TEMP="${UPLOAD_DIR}/keyfile.txt"
-
-KEYRING="Secrets"
-KEY="DockerHub"
 
 function usage() {
   echo "$0
-    -d         disables decryption of file"
+       uses CB_VERSION CB_GCS_GITHUB_PATH CB_GITHUB_ORG"
   exit 1
 }
-
-while getopts d arg ; do
-  case "${arg}" in
-    d) KEYFILE_DECRYPT="false";;
-    *) usage;;
-  esac
-done
 
 [[ -z "${CB_VERSION}" ]] && usage
 [[ -z "${CB_GCS_GITHUB_PATH}" ]] && usage
 [[ -z "${CB_GITHUB_ORG}" ]] && usage
 
-gsutil -m cp "gs://${CB_GCS_GITHUB_PATH}" "${KEYFILE_TEMP}"
-KEYFILE="${KEYFILE_TEMP}"
-
-# decrypt file, if requested
-if [[ "${KEYFILE_DECRYPT}" == "true" ]]; then
-
-  cp "${KEYFILE}" "${KEYFILE_ENC}"
-  gcloud kms decrypt \
-       --ciphertext-file="$KEYFILE_ENC" \
-       --plaintext-file="$KEYFILE_TEMP" \
-       --location=global \
-       --keyring=${KEYRING} \
-       --key=${KEY}
-
-  KEYFILE="${KEYFILE_TEMP}"
-fi
+# github keys uses CB_GCS_GITHUB_PATH to find the github key file, decrypts if needed
+# and sets GITHUB_KEYFILE
+github_keys
+[[ -z "${GITHUB_KEYFILE}" ]] && usage
 
 USER_NAME="IstioReleaserBot"
 USER_EMAIL="istio_releaser_bot@example.com"
 
 echo "Beginning tag of github"
-"${SCRIPTPATH}/create_tag_reference.sh" -k "$KEYFILE" -v "${CB_VERSION}" -o "${CB_GITHUB_ORG}" \
+"${SCRIPTPATH}/create_tag_reference.sh" -k "${GITHUB_KEYFILE}" -v "${CB_VERSION}" -o "${CB_GITHUB_ORG}" \
            -e "${USER_EMAIL}" -n "${USER_NAME}" -b "/workspace/manifest.txt"
 echo "Completed tag of github"
 
