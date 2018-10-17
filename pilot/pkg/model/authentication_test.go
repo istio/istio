@@ -162,7 +162,6 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 											CredentialsFactoryName: "envoy.grpc_credentials.file_based_metadata",
 											ChannelCredentials:     constructLocalChannelredConfig(),
 											CallCredentials: []*core.GrpcService_GoogleGrpc_CallCredentials{
-												constructGCECallCredConfig(),
 												&core.GrpcService_GoogleGrpc_CallCredentials{
 													CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_FromPlugin{
 														FromPlugin: &core.GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin{

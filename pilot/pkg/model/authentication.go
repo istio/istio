@@ -81,18 +81,12 @@ func ConstructSdsSecretConfig(name, sdsUdsPath, tokenMountFileName string) *auth
 				LocalCredentials: &core.GrpcService_GoogleGrpc_GoogleLocalCredentials{},
 			},
 		},
-		CallCredentials: []*core.GrpcService_GoogleGrpc_CallCredentials{
-			&core.GrpcService_GoogleGrpc_CallCredentials{
-				CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_GoogleComputeEngine{
-					GoogleComputeEngine: &types.Empty{},
-				},
-			},
-		},
+		CallCredentials: []*core.GrpcService_GoogleGrpc_CallCredentials{},
 	}
 
 	if _, err := os.Stat(tokenMountFileName); err == nil {
-		// token volume mount file for k8s sa jwt.
-		tokenMountonfig := &v2alpha.FileBasedMetadataConfig{
+		// If k8s sa jwt token volume mount file exists, envoy only handles plugin credentials.
+		tokenMountConfig := &v2alpha.FileBasedMetadataConfig{
 			SecretData: &core.DataSource{
 				Specifier: &core.DataSource_Filename{
 					Filename: tokenMountFileName,
@@ -106,13 +100,19 @@ func ConstructSdsSecretConfig(name, sdsUdsPath, tokenMountFileName string) *auth
 			CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_FromPlugin{
 				FromPlugin: &core.GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin{
 					Name:   fileBasedMetadataPlugName,
-					Config: protoToStruct(tokenMountonfig),
+					Config: protoToStruct(tokenMountConfig),
 				},
 			},
 		}
 
 		gRPCConfig.CredentialsFactoryName = fileBasedMetadataPlugName
 		gRPCConfig.CallCredentials = append(gRPCConfig.CallCredentials, callCred)
+	} else {
+		gRPCConfig.CallCredentials = append(gRPCConfig.CallCredentials, &core.GrpcService_GoogleGrpc_CallCredentials{
+			CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_GoogleComputeEngine{
+				GoogleComputeEngine: &types.Empty{},
+			},
+		})
 	}
 
 	return &auth.SdsSecretConfig{
