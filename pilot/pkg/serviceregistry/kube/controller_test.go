@@ -178,7 +178,7 @@ func TestServices(t *testing.T) {
 	var sds model.ServiceDiscovery = ctl
 	// "test", ports: http-example on 80
 	makeService(testService, ns, ctl.client, t)
-	<- fx.Events
+	<-fx.Events
 
 	test.Eventually(t, "successfully added a service", func() bool {
 		out, clientErr := sds.Services()
