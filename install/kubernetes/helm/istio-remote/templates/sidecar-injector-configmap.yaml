@@ -107,7 +107,7 @@ data:
         - --lightstepSecure={{ "[[ .ProxyConfig.GetTracing.GetLightstep.GetSecure ]]" }}
         - --lightstepCacertPath
         - {{ "[[ .ProxyConfig.GetTracing.GetLightstep.GetCacertPath ]]" }}
-      {{- else if (eq .Values.global.proxy.tracer "zipkin") or .Values.global.remoteZipkinAddress }}
+      {{- else if eq .Values.global.proxy.tracer "zipkin" }}
         - --zipkinAddress
         - {{ "[[ .ProxyConfig.GetTracing.GetZipkin.GetAddress ]]" }}
       {{- end }}
