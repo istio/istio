@@ -21,6 +21,7 @@ import (
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/mcp/snapshot"
+	"time"
 )
 
 var scope = log.RegisterScope("runtime", "Galley runtime", 0)
@@ -56,6 +57,15 @@ type Processor struct {
 
 	// hook that gets called after each event processing. Useful for testing.
 	postProcessHook postProcessHookFn
+
+	// pendingEvents counts the number of events awaiting publishing.
+	pendingEvents int
+
+	// lastEventTime records the last time an event was received.
+	lastEventTime time.Time
+
+	// lastSnapshotTime records the last time a snapshot was published.
+	lastSnapshotTime time.Time
 }
 
 type postProcessHookFn func()
@@ -104,6 +114,8 @@ func (p *Processor) Start() error {
 
 	p.done = make(chan struct{})
 	p.stopped = make(chan struct{})
+	p.lastEventTime = time.Now()
+	p.lastSnapshotTime = time.Now()
 	go p.process()
 
 	return nil
@@ -166,6 +178,10 @@ loop:
 
 func (p *Processor) processEvent(e resource.Event) bool {
 	scope.Debugf("Incoming source event: %v", e)
+	now := time.Now()
+	recordProcessorEventProcessed(now.Sub(p.lastEventTime))
+	p.lastEventTime = now
+	p.pendingEvents++
 
 	if e.Kind == resource.FullSync {
 		scope.Infof("Synchronization is complete, starting distribution.")
@@ -177,7 +193,11 @@ func (p *Processor) processEvent(e resource.Event) bool {
 }
 
 func (p *Processor) publish() {
+	now := time.Now()
+	recordProcessorSnapshotPublished(p.pendingEvents, now.Sub(p.lastSnapshotTime))
+	p.lastSnapshotTime = now
 	sn := p.state.buildSnapshot()
 
 	p.distributor.SetSnapshot(snapshot.DefaultGroup, sn)
+	p.pendingEvents = 0
 }
