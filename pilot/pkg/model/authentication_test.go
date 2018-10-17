@@ -129,7 +129,7 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 										GoogleGrpc: &core.GrpcService_GoogleGrpc{
 											TargetUri:          "/tmp/sdsuds.sock",
 											StatPrefix:         SDSStatPrefix,
-											ChannelCredentials: constructLocalChannelredConfig(),
+											ChannelCredentials: constructLocalChannelCredConfig(),
 											CallCredentials: []*core.GrpcService_GoogleGrpc_CallCredentials{
 												constructGCECallCredConfig(),
 											},
@@ -160,7 +160,7 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 											TargetUri:              "/tmp/sdsuds.sock",
 											StatPrefix:             SDSStatPrefix,
 											CredentialsFactoryName: "envoy.grpc_credentials.file_based_metadata",
-											ChannelCredentials:     constructLocalChannelredConfig(),
+											ChannelCredentials:     constructLocalChannelCredConfig(),
 											CallCredentials: []*core.GrpcService_GoogleGrpc_CallCredentials{
 												&core.GrpcService_GoogleGrpc_CallCredentials{
 													CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_FromPlugin{
@@ -200,7 +200,7 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 	}
 }
 
-func constructLocalChannelredConfig() *core.GrpcService_GoogleGrpc_ChannelCredentials {
+func constructLocalChannelCredConfig() *core.GrpcService_GoogleGrpc_ChannelCredentials {
 	return &core.GrpcService_GoogleGrpc_ChannelCredentials{
 		CredentialSpecifier: &core.GrpcService_GoogleGrpc_ChannelCredentials_LocalCredentials{
 			LocalCredentials: &core.GrpcService_GoogleGrpc_GoogleLocalCredentials{},

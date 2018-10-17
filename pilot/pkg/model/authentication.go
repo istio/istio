@@ -81,7 +81,6 @@ func ConstructSdsSecretConfig(name, sdsUdsPath, tokenMountFileName string) *auth
 				LocalCredentials: &core.GrpcService_GoogleGrpc_GoogleLocalCredentials{},
 			},
 		},
-		CallCredentials: []*core.GrpcService_GoogleGrpc_CallCredentials{},
 	}
 
 	if _, err := os.Stat(tokenMountFileName); err == nil {
@@ -96,23 +95,25 @@ func ConstructSdsSecretConfig(name, sdsUdsPath, tokenMountFileName string) *auth
 			HeaderKey: k8sSAJwtTokenHeaderKey,
 		}
 
-		callCred := &core.GrpcService_GoogleGrpc_CallCredentials{
-			CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_FromPlugin{
-				FromPlugin: &core.GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin{
-					Name:   fileBasedMetadataPlugName,
-					Config: protoToStruct(tokenMountConfig),
+		gRPCConfig.CredentialsFactoryName = fileBasedMetadataPlugName
+		gRPCConfig.CallCredentials = []*core.GrpcService_GoogleGrpc_CallCredentials{
+			&core.GrpcService_GoogleGrpc_CallCredentials{
+				CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_FromPlugin{
+					FromPlugin: &core.GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin{
+						Name:   fileBasedMetadataPlugName,
+						Config: protoToStruct(tokenMountConfig),
+					},
 				},
 			},
 		}
-
-		gRPCConfig.CredentialsFactoryName = fileBasedMetadataPlugName
-		gRPCConfig.CallCredentials = append(gRPCConfig.CallCredentials, callCred)
 	} else {
-		gRPCConfig.CallCredentials = append(gRPCConfig.CallCredentials, &core.GrpcService_GoogleGrpc_CallCredentials{
-			CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_GoogleComputeEngine{
-				GoogleComputeEngine: &types.Empty{},
+		gRPCConfig.CallCredentials = []*core.GrpcService_GoogleGrpc_CallCredentials{
+			&core.GrpcService_GoogleGrpc_CallCredentials{
+				CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_GoogleComputeEngine{
+					GoogleComputeEngine: &types.Empty{},
+				},
 			},
-		})
+		}
 	}
 
 	return &auth.SdsSecretConfig{
