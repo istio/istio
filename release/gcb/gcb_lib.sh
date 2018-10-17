@@ -24,6 +24,9 @@ function githubctl_setup() {
     pushd "${TEST_INFRA_DIR}" || exit 1
      if [[ -f "/workspace/githubctl" ]]; then
        githubctl="/workspace/githubctl"
+       ls -l "$githubctl"
+       chmod +x "$githubctl"
+       ls -l "$githubctl"
      else
        bazel build //toolbox/githubctl
        githubctl="${TEST_INFRA_DIR}/bazel-bin/toolbox/githubctl/linux_amd64_stripped/githubctl" 
