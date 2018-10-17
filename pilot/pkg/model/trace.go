@@ -17,7 +17,7 @@ package model
 import (
 	"strconv"
 
-	"istio.io/istio/pkg/features/pilot"
+	"istio.io/istio/pilot/pkg/env"
 )
 
 // Default trace sampling, if not provided in env var.
@@ -29,12 +29,12 @@ var (
 
 // Return trace sampling if set correctly, or default if not.
 func getTraceSampling() float64 {
-	if pilot.TraceSampling == "" {
+	if env.TraceSampling == "" {
 		return traceSamplingDefault
 	}
-	f, err := strconv.ParseFloat(pilot.TraceSampling, 64)
+	f, err := strconv.ParseFloat(env.TraceSampling, 64)
 	if err != nil {
-		log.Warnf("PILOT_TRACE_SAMPLING not set to a number: %v", pilot.TraceSampling)
+		log.Warnf("PILOT_TRACE_SAMPLING not set to a number: %v", env.TraceSampling)
 		return traceSamplingDefault
 	}
 	if f < 0.0 || f > 100.0 {

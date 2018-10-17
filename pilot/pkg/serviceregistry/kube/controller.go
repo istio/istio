@@ -30,8 +30,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
+	"istio.io/istio/pilot/pkg/env"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/features/pilot"
 	"istio.io/istio/pkg/log"
 )
 
@@ -308,14 +308,14 @@ func (c *Controller) GetPodAZ(pod *v1.Pod) (string, bool) {
 	}
 	region, exists := node.(*v1.Node).Labels[NodeRegionLabel]
 	if !exists {
-		if pilot.AzDebug {
+		if env.AzDebug {
 			log.Warnf("unable to retrieve region label for pod: %v", pod.Name)
 		}
 		return "", false
 	}
 	zone, exists := node.(*v1.Node).Labels[NodeZoneLabel]
 	if !exists {
-		if pilot.AzDebug {
+		if env.AzDebug {
 			log.Warnf("unable to retrieve zone label for pod: %v", pod.Name)
 		}
 		return "", false

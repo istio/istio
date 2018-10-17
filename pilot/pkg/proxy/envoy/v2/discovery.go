@@ -24,9 +24,9 @@ import (
 	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
 
+	"istio.io/istio/pilot/pkg/env"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core"
-	"istio.io/istio/pkg/features/pilot"
 )
 
 var (
@@ -79,7 +79,7 @@ const (
 )
 
 func init() {
-	cacheSquash := pilot.CacheSquash
+	cacheSquash := env.CacheSquash
 	if len(cacheSquash) > 0 {
 		t, err := strconv.Atoi(cacheSquash)
 		if err == nil {
@@ -87,8 +87,8 @@ func init() {
 		}
 	}
 
-	DebounceAfter = envDuration(pilot.DebounceAfter, 100*time.Millisecond)
-	DebounceMax = envDuration(pilot.DebounceMax, 10*time.Second)
+	DebounceAfter = envDuration(env.DebounceAfter, 100*time.Millisecond)
+	DebounceMax = envDuration(env.DebounceMax, 10*time.Second)
 }
 
 func envDuration(envVal string, def time.Duration) time.Duration {
@@ -219,9 +219,9 @@ func intEnv(envVal string, def int) int {
 }
 
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
-func NewDiscoveryServer(env *model.Environment, generator core.ConfigGenerator, ctl model.Controller, configCache model.ConfigStoreCache) *DiscoveryServer {
+func NewDiscoveryServer(e *model.Environment, generator core.ConfigGenerator, ctl model.Controller, configCache model.ConfigStoreCache) *DiscoveryServer {
 	out := &DiscoveryServer{
-		Env:                     env,
+		Env:                     e,
 		ConfigGenerator:         generator,
 		EndpointShardsByService: map[string]*EndpointShardsByService{},
 		WorkloadsByID:           map[string]*Workload{},
@@ -229,7 +229,7 @@ func NewDiscoveryServer(env *model.Environment, generator core.ConfigGenerator, 
 		concurrentPushLimit:     make(chan struct{}, 20), // TODO(hzxuzhonghu): support configuration
 		updateChannel:           make(chan *updateReq, 10),
 	}
-	env.PushContext = model.NewPushContext()
+	e.PushContext = model.NewPushContext()
 	go out.handleUpdates()
 
 	// Flush cached discovery responses whenever services, service
@@ -259,10 +259,10 @@ func NewDiscoveryServer(env *model.Environment, generator core.ConfigGenerator, 
 
 	go out.periodicRefreshMetrics()
 
-	out.DebugConfigs = pilot.DebugConfigs
+	out.DebugConfigs = env.DebugConfigs
 
-	pushThrottle := intEnv(pilot.PushThrottle, 10)
-	pushBurst := intEnv(pilot.PushBurst, 100)
+	pushThrottle := intEnv(env.PushThrottle, 10)
+	pushBurst := intEnv(env.PushBurst, 100)
 
 	adsLog.Infof("Starting ADS server with rateLimiter=%d burst=%d", pushThrottle, pushBurst)
 	out.rateLimiter = rate.NewLimiter(rate.Limit(pushThrottle), pushBurst)
@@ -281,7 +281,7 @@ func (s *DiscoveryServer) Register(rpcs *grpc.Server) {
 // ( will be removed after change detection is implemented, to double check all changes are
 // captured)
 func (s *DiscoveryServer) periodicRefresh() {
-	envOverride := pilot.RefreshDuration
+	envOverride := env.RefreshDuration
 	if len(envOverride) > 0 {
 		var err error
 		periodicRefreshDuration, err = time.ParseDuration(envOverride)
