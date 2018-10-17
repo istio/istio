@@ -166,8 +166,8 @@ var (
 					}
 				}
 			}
-			pilotSAN = getPilotSAN(role.Domain, ns)
-			role.Domain = getDomain(role.Domain)
+			pilotSAN = getPilotSAN(role.DNSDomain, ns)
+			role.DNSDomain = getDNSDomain(role.DNSDomain)
 
 			// resolve statsd address
 			if proxyConfig.StatsdUdpAddress != "" {
@@ -298,26 +298,24 @@ var (
 func getPilotSAN(domain string, ns string) []string {
 	var pilotSAN []string
 	if controlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS.String() {
-		pilotDomain := role.IdentityDomain
-		if len(pilotDomain) == 0 {
-
+		pilotIdentityDomain := role.IdentityDomain
+		if len(pilotIdentityDomain) == 0 {
 			if registry == serviceregistry.KubernetesRegistry &&
 				(domain == os.Getenv("POD_NAMESPACE")+".svc.cluster.local" || domain == "") {
-				pilotDomain = "cluster.local"
+				pilotIdentityDomain = "cluster.local"
 			} else if registry == serviceregistry.ConsulRegistry &&
 				(domain == "service.consul" || domain == "") {
-				pilotDomain = ""
+				pilotIdentityDomain = ""
 			} else {
-				pilotDomain = domain
-
+				pilotIdentityDomain = domain
 			}
 		}
-		pilotSAN = envoy.GetPilotSAN(pilotDomain, ns)
+		pilotSAN = envoy.GetPilotSAN(pilotIdentityDomain, ns)
 	}
 	return pilotSAN
 }
 
-func getDomain(domain string) string {
+func getDNSDomain(domain string) string {
 	if len(domain) == 0 {
 		if registry == serviceregistry.KubernetesRegistry {
 			domain = os.Getenv("POD_NAMESPACE") + ".svc.cluster.local"
@@ -327,7 +325,6 @@ func getDomain(domain string) string {
 			domain = ""
 		}
 	}
-	log.Infof("Domain %s", domain)
 	return domain
 }
 
@@ -364,7 +361,7 @@ func init() {
 		"Proxy IP address. If not provided uses ${INSTANCE_IP} environment variable.")
 	proxyCmd.PersistentFlags().StringVar(&role.ID, "id", "",
 		"Proxy unique ID. If not provided uses ${POD_NAME}.${POD_NAMESPACE} from environment variables")
-	proxyCmd.PersistentFlags().StringVar(&role.Domain, "domain", "",
+	proxyCmd.PersistentFlags().StringVar(&role.DNSDomain, "domain", "",
 		"DNS domain suffix. If not provided uses ${POD_NAMESPACE}.svc.cluster.local")
 	proxyCmd.PersistentFlags().StringVar(&role.IdentityDomain, "identity-domain", "",
 		"The domain to use for identities")

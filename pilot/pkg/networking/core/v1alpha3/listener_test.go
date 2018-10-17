@@ -37,7 +37,7 @@ var (
 		Type:      model.Sidecar,
 		IPAddress: "1.1.1.1",
 		ID:        "v0.default",
-		Domain:    "default.example.org",
+		DNSDomain: "default.example.org",
 	}
 )
 

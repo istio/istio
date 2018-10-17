@@ -86,9 +86,9 @@ type Proxy struct {
 	// namespace.
 	ID string
 
-	// Domain defines the DNS domain suffix for short hostnames (e.g.
+	// DNSDomain defines the DNS domain suffix for short hostnames (e.g.
 	// "default.svc.cluster.local")
-	Domain string
+	DNSDomain string
 
 	// ConfigNamespace defines the namespace where this proxy resides
 	// for the purposes of network scoping.
@@ -141,7 +141,7 @@ func IsApplicationNodeType(nType NodeType) bool {
 // ServiceNode encodes the proxy node attributes into a URI-acceptable string
 func (node *Proxy) ServiceNode() string {
 	return strings.Join([]string{
-		string(node.Type), node.IPAddress, node.ID, node.Domain,
+		string(node.Type), node.IPAddress, node.ID, node.DNSDomain,
 	}, serviceNodeSeparator)
 
 }
@@ -244,7 +244,7 @@ func ParseServiceNode(s string) (*Proxy, error) {
 	}
 
 	out.ID = parts[2]
-	out.Domain = parts[3]
+	out.DNSDomain = parts[3]
 	return out, nil
 }
 

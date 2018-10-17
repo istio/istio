@@ -38,7 +38,7 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 			},
 			port: 80,
 			node: &model.Proxy{
-				Domain: "local.campus.net",
+				DNSDomain: "local.campus.net",
 			},
 			want: []string{"foo", "foo.local", "foo.local.campus", "foo.local.campus.net",
 				"foo:80", "foo.local:80", "foo.local.campus:80", "foo.local.campus.net:80"},
@@ -51,7 +51,7 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 			},
 			port: 80,
 			node: &model.Proxy{
-				Domain: "remote.campus.net",
+				DNSDomain: "remote.campus.net",
 			},
 			want: []string{"foo.local", "foo.local.campus", "foo.local.campus.net",
 				"foo.local:80", "foo.local.campus:80", "foo.local.campus.net:80"},
@@ -64,7 +64,7 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 			},
 			port: 80,
 			node: &model.Proxy{
-				Domain: "example.com",
+				DNSDomain: "example.com",
 			},
 			want: []string{"foo.local.campus.net", "foo.local.campus.net:80"},
 		},
