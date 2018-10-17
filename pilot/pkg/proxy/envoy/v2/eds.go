@@ -113,7 +113,7 @@ func loadAssignment(c *EdsCluster) *xdsapi.ClusterLoadAssignment {
 	return c.LoadAssignment
 }
 
-func serviceEntry2Endpoint(UID string, family model.AddressFamily, address string, port uint32) *endpoint.LbEndpoint {
+func buildEnvoyLbEndpoint(UID string, family model.AddressFamily, address string, port uint32) *endpoint.LbEndpoint {
 	var addr core.Address
 	switch family {
 	case model.AddressFamilyTCP:
@@ -155,7 +155,7 @@ func serviceEntry2Endpoint(UID string, family model.AddressFamily, address strin
 	return ep
 }
 
-func newEndpoint(e *model.NetworkEndpoint) (*endpoint.LbEndpoint, error) {
+func networkEndpointToEnvoyEndpoint(e *model.NetworkEndpoint) (*endpoint.LbEndpoint, error) {
 	err := model.ValidateNetworkEndpointAddress(e)
 	if err != nil {
 		return nil, err
@@ -240,7 +240,7 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 				localityEpMap[locality] = locLbEps
 			}
 			if el.EnvoyEndpoint == nil {
-				el.EnvoyEndpoint = serviceEntry2Endpoint(el.UID, el.Family, el.Address, el.EndpointPort)
+				el.EnvoyEndpoint = buildEnvoyLbEndpoint(el.UID, el.Family, el.Address, el.EndpointPort)
 			}
 			locLbEps.LbEndpoints = append(locLbEps.LbEndpoints, *el.EnvoyEndpoint)
 		}
@@ -547,7 +547,7 @@ func (s *DiscoveryServer) edsUpdate(shard, serviceName string,
 func localityLbEndpointsFromInstances(instances []*model.ServiceInstance) []endpoint.LocalityLbEndpoints {
 	localityEpMap := make(map[string]*endpoint.LocalityLbEndpoints)
 	for _, instance := range instances {
-		lbEp, err := newEndpoint(&instance.Endpoint)
+		lbEp, err := networkEndpointToEnvoyEndpoint(&instance.Endpoint)
 		if err != nil {
 			adsLog.Errorf("EDS: unexpected pilot model endpoint v1 to v2 conversion: %v", err)
 			totalXDSInternalErrors.Add(1)

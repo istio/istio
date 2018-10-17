@@ -4,7 +4,7 @@ layout: protoc-gen-docs
 generator: protoc-gen-docs
 aliases:
   - /docs/reference/config/service-mesh.html
-number_of_entries: 8
+number_of_entries: 11
 ---
 <h2 id="AuthenticationPolicy">AuthenticationPolicy</h2>
 <section>
@@ -435,11 +435,12 @@ MUST BE greater than <em>drain</em>duration_ parameter.</p>
 
 </td>
 </tr>
-<tr id="ProxyConfig-zipkin_address">
+<tr id="ProxyConfig-zipkin_address" class="deprecated ">
 <td><code>zipkinAddress</code></td>
 <td><code>string</code></td>
 <td>
-<p>Address of the Zipkin service (e.g. <em>zipkin:9411</em>).</p>
+<p>Address of the Zipkin service (e.g. <em>zipkin:9411</em>).
+DEPRECATED: Use <a href="#ProxyConfig-tracing">tracing</a> instead.</p>
 
 </td>
 </tr>
@@ -521,6 +522,14 @@ Increase the value of this field if you find that the metrics from Envoys are tr
 
 </td>
 </tr>
+<tr id="ProxyConfig-tracing">
+<td><code>tracing</code></td>
+<td><code><a href="#Tracing">Tracing</a></code></td>
+<td>
+<p>Tracing configuration to be used by the proxy.</p>
+
+</td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -553,6 +562,110 @@ source IP addresses during redirection.</p>
 source and destination IP addresses and ports, so that they can be used for advanced
 filtering and manipulation. This mode also configures the sidecar to run with the
 CAP<em>NET</em>ADMIN capability, which is required to use TPROXY.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Tracing">Tracing</h2>
+<section>
+<p>Tracing defines configuration for the tracing performed by Envoy instances.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Tracing-zipkin" class="oneof oneof-start">
+<td><code>zipkin</code></td>
+<td><code><a href="#Tracing-Zipkin">Tracing.Zipkin (oneof)</a></code></td>
+<td>
+<p>Use a Zipkin tracer.</p>
+
+</td>
+</tr>
+<tr id="Tracing-lightstep" class="oneof">
+<td><code>lightstep</code></td>
+<td><code><a href="#Tracing-Lightstep">Tracing.Lightstep (oneof)</a></code></td>
+<td>
+<p>Use a LightStep tracer.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Tracing-Lightstep">Tracing.Lightstep</h2>
+<section>
+<p>Lightstep defines configuration for a LightStep tracer.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Tracing-Lightstep-address">
+<td><code>address</code></td>
+<td><code>string</code></td>
+<td>
+<p>Address of the LightStep Satellite pool.</p>
+
+</td>
+</tr>
+<tr id="Tracing-Lightstep-access_token">
+<td><code>accessToken</code></td>
+<td><code>string</code></td>
+<td>
+<p>The LightStep access token.</p>
+
+</td>
+</tr>
+<tr id="Tracing-Lightstep-secure">
+<td><code>secure</code></td>
+<td><code>bool</code></td>
+<td>
+<p>True if a secure connection should be used when communicating with the pool.</p>
+
+</td>
+</tr>
+<tr id="Tracing-Lightstep-cacert_path">
+<td><code>cacertPath</code></td>
+<td><code>string</code></td>
+<td>
+<p>Path to the trusted cacert used to authenticate the pool.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Tracing-Zipkin">Tracing.Zipkin</h2>
+<section>
+<p>Zipkin defines configuration for a Zipkin tracer.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Tracing-Zipkin-address">
+<td><code>address</code></td>
+<td><code>string</code></td>
+<td>
+<p>Address of the Zipkin service (e.g. <em>zipkin:9411</em>).</p>
 
 </td>
 </tr>
