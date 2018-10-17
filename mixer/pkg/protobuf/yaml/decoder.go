@@ -25,14 +25,16 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 
 	"istio.io/api/policy/v1beta1"
+	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/protobuf/yaml/wire"
 )
 
 type (
 	// Decoder transforms protobuf-encoded bytes to attribute values.
 	Decoder struct {
-		resolver Resolver
-		fields   map[wire.Number]*descriptor.FieldDescriptorProto
+		resolver   Resolver
+		fields     map[wire.Number]*descriptor.FieldDescriptorProto
+		attrPrefix string
 	}
 )
 
@@ -42,7 +44,8 @@ type (
 // A nil field mask implies all fields are decoded.
 // This decoder is specialized to a single-level proto schema (no nested field dereferences
 // in the resulting output).
-func NewDecoder(resolver Resolver, msgName string, fieldMask map[string]bool) *Decoder {
+// Attribute prefix is appended to the field names in the output attribute bag.
+func NewDecoder(resolver Resolver, msgName string, fieldMask map[string]bool, attrPrefix string) *Decoder {
 	message := resolver.ResolveMessage(msgName)
 	fields := make(map[wire.Number]*descriptor.FieldDescriptorProto)
 
@@ -53,48 +56,50 @@ func NewDecoder(resolver Resolver, msgName string, fieldMask map[string]bool) *D
 	}
 
 	return &Decoder{
-		resolver: resolver,
-		fields:   fields,
+		resolver:   resolver,
+		fields:     fields,
+		attrPrefix: attrPrefix,
 	}
 }
 
 // Decode function parses wire-encoded bytes to attribute values. The keys are field names
 // in the message specified by the field mask.
-func (d *Decoder) Decode(b []byte) (map[string]interface{}, error) {
+func (d *Decoder) Decode(b []byte, out *attribute.MutableBag) error {
 	visitor := &decodeVisitor{
 		decoder: d,
-		out:     make(map[string]interface{}),
+		out:     out,
 	}
 
 	for len(b) > 0 {
 		_, _, n := wire.ConsumeField(visitor, b)
 		if n < 0 {
-			return visitor.out, wire.ParseError(n)
+			return wire.ParseError(n)
 		}
 		b = b[n:]
 	}
 
-	return visitor.out, visitor.err
+	return visitor.err
 }
 
 type decodeVisitor struct {
 	decoder *Decoder
-	out     map[string]interface{}
+	out     *attribute.MutableBag
 	err     error
 }
 
 func (dv *decodeVisitor) setValue(f *descriptor.FieldDescriptorProto, val interface{}) {
+	name := dv.decoder.attrPrefix + f.GetName()
 	if f.IsRepeated() {
 		var arr []interface{}
-		old, ok := dv.out[f.GetName()]
+		old, ok := dv.out.Get(name)
 		if !ok {
 			arr = make([]interface{}, 0, 1)
 		} else {
 			arr = old.([]interface{})
 		}
-		dv.out[f.GetName()] = append(arr, val)
+		dv.out.Set(name, append(arr, val))
 	} else {
-		dv.out[f.GetName()] = val
+		dv.out.Set(name, val)
 	}
 }
 
@@ -196,6 +201,7 @@ func (dv *decodeVisitor) Bytes(n wire.Number, v []byte) {
 		dv.setValue(f, v)
 		return
 	case descriptor.FieldDescriptorProto_TYPE_MESSAGE:
+		name := dv.decoder.attrPrefix + f.GetName()
 		if isMap(dv.decoder.resolver, f) {
 			// validate proto type to be map<string, string>
 			mapType := dv.decoder.resolver.ResolveMessage(f.GetTypeName())
@@ -212,8 +218,13 @@ func (dv *decodeVisitor) Bytes(n wire.Number, v []byte) {
 			}
 
 			// translate map<X, Y> proto3 field type to record Mixer type (map[string]string)
-			if _, ok := dv.out[f.GetName()]; !ok {
-				dv.out[f.GetName()] = make(map[string]string)
+			var m map[string]string
+			val, ok := dv.out.Get(name)
+			if !ok {
+				m = make(map[string]string)
+				dv.out.Set(name, m)
+			} else {
+				m = val.(map[string]string)
 			}
 
 			visitor := &mapVisitor{desc: mapType}
@@ -226,36 +237,38 @@ func (dv *decodeVisitor) Bytes(n wire.Number, v []byte) {
 				v = v[m:]
 			}
 
-			dv.out[f.GetName()].(map[string]string)[visitor.key] = visitor.value
+			m[visitor.key] = visitor.value
 			return
 		}
 
 		// parse the entirety of the message recursively for value types
 		if _, ok := valueResolver.descriptors[f.GetTypeName()]; ok && !f.IsRepeated() {
-			decoder := NewDecoder(valueResolver, f.GetTypeName(), nil)
-			inner, err := decoder.Decode(v)
-			if err != nil {
+			decoder := NewDecoder(valueResolver, f.GetTypeName(), nil, "")
+			inner := attribute.GetMutableBag(nil)
+			defer inner.Done()
+			if err := decoder.Decode(v, inner); err != nil {
 				dv.err = multierror.Append(dv.err, fmt.Errorf("failed to decode field %q: %v", f.GetName(), err))
 				return
 			}
 
 			switch f.GetTypeName() {
 			case ".istio.policy.v1beta1.Value":
-				// oneof must be set
-				if len(inner) == 1 {
-					for _, val := range inner {
-						dv.out[f.GetName()] = val
+				// pop oneof inner value from the bag to the field value
+				names := inner.Names()
+				if len(names) == 1 {
+					if val, ok := inner.Get(names[0]); ok {
+						dv.out.Set(name, val)
 					}
 				}
 			case ".istio.policy.v1beta1.IPAddress",
 				".istio.policy.v1beta1.Duration",
 				".istio.policy.v1beta1.DNSName":
-				if value, ok := inner["value"]; ok {
-					dv.out[f.GetName()] = value
+				if value, ok := inner.Get("value"); ok {
+					dv.out.Set(name, value)
 				}
 			case ".google.protobuf.Duration":
-				seconds, secondsOk := inner["seconds"]
-				nanos, nanosOk := inner["nanos"]
+				seconds, secondsOk := inner.Get("seconds")
+				nanos, nanosOk := inner.Get("nanos")
 				if secondsOk || nanosOk {
 					// must default to int64 for casting to work
 					if seconds == nil {
@@ -264,7 +277,7 @@ func (dv *decodeVisitor) Bytes(n wire.Number, v []byte) {
 					if nanos == nil {
 						nanos = int64(0)
 					}
-					dv.out[f.GetName()] = time.Duration(seconds.(int64))*time.Second + time.Duration(nanos.(int64))
+					dv.out.Set(name, time.Duration(seconds.(int64))*time.Second+time.Duration(nanos.(int64)))
 				}
 			}
 
@@ -370,3 +383,64 @@ func (vtr *valueTypeResolver) ResolveService(string) (*descriptor.ServiceDescrip
 var (
 	valueResolver = newValueTypeResolver()
 )
+
+// DecodeType converts protobuf types to mixer's IL types.
+// Note that due to absence of corresponding types for a variety of concrete values produced by the decoder,
+// the returned value may be an unspecified type.
+func DecodeType(resolver Resolver, desc *descriptor.FieldDescriptorProto) v1beta1.ValueType {
+	if desc.GetType() == descriptor.FieldDescriptorProto_TYPE_MESSAGE {
+		fieldType := resolver.ResolveMessage(desc.GetTypeName())
+
+		if fieldType != nil && len(fieldType.Field) == 2 &&
+			fieldType.GetOptions().GetMapEntry() &&
+			fieldType.Field[0].GetType() == descriptor.FieldDescriptorProto_TYPE_STRING &&
+			fieldType.Field[1].GetType() == descriptor.FieldDescriptorProto_TYPE_STRING {
+			return v1beta1.STRING_MAP
+		}
+
+		if desc.IsRepeated() {
+			return v1beta1.VALUE_TYPE_UNSPECIFIED
+		}
+
+		switch desc.GetTypeName() {
+		case ".istio.policy.v1beta1.Value":
+			return v1beta1.VALUE_TYPE_UNSPECIFIED
+		case ".istio.policy.v1beta1.IPAddress":
+			return v1beta1.IP_ADDRESS
+		case ".istio.policy.v1beta1.Duration", ".google.protobuf.Duration":
+			return v1beta1.DURATION
+		case ".istio.policy.v1beta1.TimeStamp", ".google.protobuf.Timestamp":
+			return v1beta1.TIMESTAMP
+		case ".istio.policy.v1beta1.DNSName":
+			return v1beta1.DNS_NAME
+		}
+	}
+
+	// array types are missing
+	if desc.IsRepeated() {
+		return v1beta1.VALUE_TYPE_UNSPECIFIED
+	}
+
+	switch desc.GetType() {
+	case descriptor.FieldDescriptorProto_TYPE_BOOL:
+		return v1beta1.BOOL
+	case descriptor.FieldDescriptorProto_TYPE_INT32,
+		descriptor.FieldDescriptorProto_TYPE_INT64,
+		descriptor.FieldDescriptorProto_TYPE_UINT32,
+		descriptor.FieldDescriptorProto_TYPE_UINT64,
+		descriptor.FieldDescriptorProto_TYPE_SINT32,
+		descriptor.FieldDescriptorProto_TYPE_SINT64,
+		descriptor.FieldDescriptorProto_TYPE_ENUM,
+		descriptor.FieldDescriptorProto_TYPE_FIXED32,
+		descriptor.FieldDescriptorProto_TYPE_SFIXED32,
+		descriptor.FieldDescriptorProto_TYPE_FIXED64,
+		descriptor.FieldDescriptorProto_TYPE_SFIXED64:
+		return v1beta1.INT64
+	case descriptor.FieldDescriptorProto_TYPE_FLOAT,
+		descriptor.FieldDescriptorProto_TYPE_DOUBLE:
+		return v1beta1.DOUBLE
+	case descriptor.FieldDescriptorProto_TYPE_STRING:
+		return v1beta1.STRING
+	}
+	return v1beta1.VALUE_TYPE_UNSPECIFIED
+}

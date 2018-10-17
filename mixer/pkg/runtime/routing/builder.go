@@ -433,50 +433,20 @@ func (b *builder) templateInfo(tmpl *config.Template) *TemplateInfo {
 			return nil, fmt.Errorf("internal: instance of incorrect type. got %T, want: []byte", instance)
 		}
 
-		out, err := h.HandleRemoteGenAttrs(ctx, encodedInstance)
+		values, err := h.HandleRemoteGenAttrs(ctx, encodedInstance, attrs)
+		defer values.Done()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("internal: failed to make an RPC to an APA: %v", err)
 		}
 
-		_ = out
-		return nil, nil
+		fmt.Printf("VALUES %v\n", values)
 
-		/* TODO(kuat)
+		out, err := mapper(values)
+		if err != nil {
+			return nil, fmt.Errorf("internal: failed to map attributes from the output: %v", err)
+		}
 
-					// Construct a wrapper bag around the returned output message and pass it to the output mapper
-		            // to map $out values back to the destination attributes in the ambient context.
-		            const fullOutName = "{{.GoPackageName}}.output."
-		            outBag := newWrapperAttrBag(
-		                func(name string) (value interface{}, found bool) {
-		                    field := strings.TrimPrefix(name, fullOutName)
-		                    if len(field) != len(name) {
-		                        if !out.WasSet(field) {
-		                           return nil, false
-		                        }
-		                        switch field {
-		                            {{range .OutputTemplateMessage.Fields}}
-		                            case "{{.ProtoName}}":
-		                                {{if isAliasType .GoType.Name}}
-		                                return {{getAliasType .GoType.Name}}(out.{{.GoName}}), true
-		                                {{else}}
-		                                return out.{{.GoName}}, true
-		                                {{end}}
-		                            {{end}}
-		                            default:
-		                            return nil, false
-		                        }
-		                    }
-		                    return attrs.Get(name)
-		                },
-		                func() []string {return attrs.Names()},
-		                func() {attrs.Done()},
-		                func() string {return attrs.String()},
-		            )
-
-		            // Mapper will map back $out values in the outBag into ambient attribute names, and return
-		            // a bag with these additional attributes.
-		            return mapper(outBag)
-		*/
+		return out, nil
 	}
 
 	// Make a call to check
@@ -547,7 +517,7 @@ const defaultInstanceSize = 128
 
 // get or create a builder and a mapper for the given instance. The mapper is created only if the template
 // is an attribute generator. At present this function never returns an error.
-func (b *builder) getBuilderAndMapperDynamic(_ ast.AttributeDescriptorFinder,
+func (b *builder) getBuilderAndMapperDynamic(finder ast.AttributeDescriptorFinder,
 	instance *config.InstanceDynamic) (template.InstanceBuilderFn, template.OutputMapperFn, error) {
 	var instBuilder template.InstanceBuilderFn = func(attrs attribute.Bag) (interface{}, error) {
 		var err error
@@ -567,12 +537,27 @@ func (b *builder) getBuilderAndMapperDynamic(_ ast.AttributeDescriptorFinder,
 	if instance.Template.Variety == tpb.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR {
 		mapper = b.mappers[instance.Name]
 		if mapper == nil {
-			var expressions map[string]compiled.Expression
-			//var err error
-			// TODO(kuat)
-			//if expressions, err = instance.Template.CreateOutputExpressions(instance.Params, finder, b.expb); err != nil {
-			//	return nil, nil, err
-			//}
+			chained := ast.NewChainedFinder(finder, instance.Template.AttributeManifest)
+			expb := compiled.NewBuilder(chained)
+
+			expressions := make(map[string]compiled.Expression)
+			for attrName, outExpr := range instance.AttributeBindings {
+				attrInfo := finder.GetAttribute(attrName)
+				if attrInfo == nil {
+					log.Warnf("attribute not found when mapping outputs: attr=%q, expr=%q", attrName, outExpr)
+					continue
+				}
+				expr, expType, err := expb.Compile(outExpr)
+				if err != nil {
+					log.Warnf("attribute expression compilation failure: expr=%q, %v", outExpr, err)
+					continue
+				}
+				if attrInfo.ValueType != expType {
+					log.Warnf("attribute type mismatch: attr=%q, attrType='%v', expr=%q, exprType='%v'", attrName, attrInfo.ValueType, outExpr, expType)
+					continue
+				}
+				expressions[attrName] = expr
+			}
 			mapper = template.NewOutputMapperFn(expressions)
 		}
 

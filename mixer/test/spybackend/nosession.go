@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // nolint:lll
-//go:generate go run $GOPATH/src/istio.io/istio/mixer/tools/mixgen/main.go adapter -n spybackend-nosession -s=false -t metric -t quota -t listentry -o nosession.yaml
+//go:generate go run $GOPATH/src/istio.io/istio/mixer/tools/mixgen/main.go adapter -n spybackend-nosession -s=false -t metric -t quota -t listentry -t apa -o nosession.yaml
 
 package spybackend
 
@@ -136,13 +136,12 @@ func (s *NoSessionServer) HandleSampleQuota(c context.Context, r *samplequota.Ha
 }
 
 // HandleSampleApa records sampleapa and responds with the programmed response
-func (s *NoSessionServer) HandleSampleApa(c context.Context, r *sampleapa.HandleSampleApaRequest) (*sampleapa.HandleSampleApaResponse, error) {
-	cc := spyAdapter.CapturedCall{
+func (s *NoSessionServer) HandleSampleApa(c context.Context, r *sampleapa.HandleSampleApaRequest) (*sampleapa.OutputMsg, error) {
+	s.CapturedCalls = append(s.CapturedCalls, spyAdapter.CapturedCall{
 		Name:      "HandleSampleApa",
 		Instances: []interface{}{r.Instance},
-	}
-	s.CapturedCalls = append(s.CapturedCalls, cc)
-	return &sampleapa.HandleSampleApaResponse{Output: s.Behavior.HandleSampleApaResult}, s.Behavior.HandleSampleApaError
+	})
+	return s.Behavior.HandleSampleApaResult, s.Behavior.HandleSampleApaError
 }
 
 // Addr returns the listening address of the server

@@ -17,6 +17,8 @@ package adapter
 import (
 	"context"
 	"io"
+
+	"istio.io/istio/mixer/pkg/attribute"
 )
 
 type (
@@ -54,12 +56,13 @@ type (
 		Data []byte
 	}
 
-	// RemoteGenerateAttributes calls remote APA adapter
+	// RemoteGenerateAttributesHandler calls remote APA adapter
 	RemoteGenerateAttributesHandler interface {
 		Handler
 
-		// HandleRemoteGenAttrs performs APA call based on pre encoded instances and returns the encoded output.
-		HandleRemoteGenAttrs(ctx context.Context, encodedInstance *EncodedInstance) ([]byte, error)
+		// HandleRemoteGenAttrs performs APA call based on pre encoded instances and returns the decoded output as an attribute bag.
+		// The caller must release the attribute bag on success.
+		HandleRemoteGenAttrs(ctx context.Context, encodedInstance *EncodedInstance, bag attribute.Bag) (*attribute.MutableBag, error)
 	}
 
 	// RemoteCheckHandler calls remote check adapter.

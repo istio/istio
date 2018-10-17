@@ -55,7 +55,7 @@ service Handle{{.InterfaceName}}Service {
     {{else if eq .VarietyName "TEMPLATE_VARIETY_REPORT" -}}
       rpc Handle{{.InterfaceName}}(Handle{{.InterfaceName}}Request) returns (istio.mixer.adapter.model.v1beta1.ReportResult);
     {{else if eq .VarietyName "TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR" -}}
-      rpc Handle{{.InterfaceName}}(Handle{{.InterfaceName}}Request) returns (Handle{{.InterfaceName}}Response);
+      rpc Handle{{.InterfaceName}}(Handle{{.InterfaceName}}Request) returns (OutputMsg);
     {{end}}
 }
 
@@ -88,10 +88,6 @@ message Handle{{.InterfaceName}}Request {
 }
 
 {{if eq .VarietyName "TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR" -}}
-message Handle{{.InterfaceName}}Response {
-    OutputMsg output = 1;
-}
-
 // Contains output payload for '{{.TemplateName}}' template.
 message OutputMsg {
     {{range .OutputTemplateMessage.Fields}}
