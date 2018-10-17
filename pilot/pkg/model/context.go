@@ -34,6 +34,7 @@ type Environment struct {
 	ServiceDiscovery
 
 	// Accounts interface for listing service accounts
+	// Deprecated - use PushContext.ServiceAccounts
 	ServiceAccounts
 
 	// Config interface for listing routing rules

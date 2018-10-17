@@ -42,12 +42,12 @@ import (
 )
 
 const (
-	istioMeshDashboard = "install/kubernetes/helm/istio/charts/grafana/dashboards/istio-mesh-dashboard.json"
-	serviceDashboard   = "install/kubernetes/helm/istio/charts/grafana/dashboards/istio-service-dashboard.json"
-	workloadDashboard  = "install/kubernetes/helm/istio/charts/grafana/dashboards/istio-workload-dashboard.json"
-	mixerDashboard     = "install/kubernetes/helm/istio/charts/grafana/dashboards/mixer-dashboard.json"
-	pilotDashboard     = "install/kubernetes/helm/istio/charts/grafana/dashboards/pilot-dashboard.json"
-	galleyDashboard    = "install/kubernetes/helm/istio/charts/grafana/dashboards/galley-dashboard.json"
+	istioMeshDashboard = "install/kubernetes/helm/subcharts/grafana/dashboards/istio-mesh-dashboard.json"
+	serviceDashboard   = "install/kubernetes/helm/subcharts/grafana/dashboards/istio-service-dashboard.json"
+	workloadDashboard  = "install/kubernetes/helm/subcharts/grafana/dashboards/istio-workload-dashboard.json"
+	mixerDashboard     = "install/kubernetes/helm/subcharts/grafana/dashboards/mixer-dashboard.json"
+	pilotDashboard     = "install/kubernetes/helm/subcharts/grafana/dashboards/pilot-dashboard.json"
+	galleyDashboard    = "install/kubernetes/helm/subcharts/grafana/dashboards/galley-dashboard.json"
 	fortioYaml         = "tests/e2e/tests/dashboard/fortio-rules.yaml"
 	netcatYaml         = "tests/e2e/tests/dashboard/netcat-rules.yaml"
 
@@ -416,7 +416,12 @@ func (p *promProxy) portForward(labelSelector string, localPort uint16, remotePo
 		PodNamespace:  p.namespace,
 		LabelSelector: labelSelector,
 	}
-	forwarder, err := kube.NewPortForwarder(tc.Kube.KubeConfig, options, localPort, remotePort)
+	accessor, err := kube.NewAccessor(tc.Kube.KubeConfig)
+	if err != nil {
+		log.Errorf("Error creating accessor: %v", err)
+		return err
+	}
+	forwarder, err := accessor.NewPortForwarder(options, localPort, remotePort)
 	if err != nil {
 		log.Errorf("Error creating port forwarder: %v", err)
 		return err
@@ -506,7 +511,12 @@ func waitForMixerProxyReadiness() error {
 				PodName:      pod,
 			}
 
-			forwarder, err := kube.NewPortForwarder(tc.Kube.KubeConfig, options, 16000, 15000)
+			accessor, err := kube.NewAccessor(tc.Kube.KubeConfig)
+			if err != nil {
+				log.Errorf("Error creating accessor: %v", err)
+				return err
+			}
+			forwarder, err := accessor.NewPortForwarder(options, 16000, 15000)
 			if err != nil {
 				log.Infof("Error creating port forwarder: %v", err)
 				continue

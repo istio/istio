@@ -39,11 +39,10 @@ metadata:
 
 // HelmConfig configuration for a Helm-based deployment.
 type HelmConfig struct {
-	Accessor   *kube.Accessor
-	KubeConfig string
-	Namespace  string
-	WorkDir    string
-	ChartDir   string
+	Accessor  *kube.Accessor
+	Namespace string
+	WorkDir   string
+	ChartDir  string
 
 	// Can be either a file name under ChartDir or an absolute file path.
 	ValuesFile string
@@ -52,16 +51,11 @@ type HelmConfig struct {
 
 // NewHelmDeployment creates a new Helm-based deployment instance.
 func NewHelmDeployment(c HelmConfig) (*Instance, error) {
-	instance := &Instance{}
-
-	instance.kubeConfig = c.KubeConfig
-	instance.namespace = c.Namespace
-
 	// Define a deployment name for Helm.
 	deploymentName := fmt.Sprintf("%s-%v", c.Namespace, time.Now().UnixNano())
 	scopes.CI.Infof("Generated Helm Instance name: %s", deploymentName)
 
-	instance.yamlFilePath = path.Join(c.WorkDir, deploymentName+".yaml")
+	yamlFilePath := path.Join(c.WorkDir, deploymentName+".yaml")
 
 	// Convert the valuesFile to an absolute file path.
 	valuesFile := c.ValuesFile
@@ -89,20 +83,12 @@ func NewHelmDeployment(c HelmConfig) (*Instance, error) {
 
 	generatedYaml = namespaceData + generatedYaml
 
-	if err = ioutil.WriteFile(instance.yamlFilePath, []byte(generatedYaml), os.ModePerm); err != nil {
+	if err = ioutil.WriteFile(yamlFilePath, []byte(generatedYaml), os.ModePerm); err != nil {
 		return nil, fmt.Errorf("unable to write helm generated yaml: %v", err)
 	}
 
-	scopes.CI.Infof("Applying Helm generated Yaml file: %s", instance.yamlFilePath)
-	if err = kube.Apply(c.KubeConfig, c.Namespace, instance.yamlFilePath); err != nil {
-		return nil, fmt.Errorf("kube apply of generated yaml filed: %v", err)
-	}
-
-	if err = instance.wait(c.Namespace, c.Accessor); err != nil {
-		return nil, err
-	}
-
-	return instance, nil
+	scopes.CI.Infof("Applying Helm generated Yaml file: %s", yamlFilePath)
+	return NewYamlDeployment(c.Accessor, c.Namespace, yamlFilePath)
 }
 
 // HelmTemplate calls "helm template".
@@ -121,7 +107,17 @@ func HelmTemplate(deploymentName, namespace, chartDir, valuesFile string, values
 		valuesFileString = fmt.Sprintf(" --values %s", valuesFile)
 	}
 
-	str, err := shell.Execute(
+	str, err := shell.Execute("helm init --client-only")
+	if err == nil {
+		return str, nil
+	}
+
+	str, err = shell.Execute("helm dep update %s", chartDir)
+	if err == nil {
+		return str, nil
+	}
+
+	str, err = shell.Execute(
 		"helm template %s --name %s --namespace %s%s%s",
 		chartDir, deploymentName, namespace, valuesFileString, valuesString)
 	if err == nil {
