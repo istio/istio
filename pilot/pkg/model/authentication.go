@@ -47,6 +47,7 @@ const (
 	fileBasedMetadataPlugName = "envoy.grpc_credentials.file_based_metadata"
 
 	// k8sSAJwtTokenHeaderKey is the request header key for k8s jwt token.
+	// Binary header name must has suffix "-bin", according to https://github.com/grpc/grpc/blob/master/doc/PROTOCOL-HTTP2.md.
 	k8sSAJwtTokenHeaderKey = "istio_sds_credentail_header-bin"
 )
 
