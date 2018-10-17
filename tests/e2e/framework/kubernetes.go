@@ -100,6 +100,9 @@ var (
 	useGalleyConfigValidator = flag.Bool("use_galley_config_validator", false, "Use galley configuration validation webhook")
 	installer                = flag.String("installer", "kubectl", "Istio installer, default to kubectl, or helm")
 	useMCP                   = flag.Bool("use_mcp", false, "use MCP for configuring Istio components")
+	kubeInjectCM             = flag.String("kube_inject_configmap", "",
+		"Configmap to use by the istioctl kube-inject command.")
+
 
 	addons = []string{
 		"zipkin",
@@ -182,7 +185,7 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 		}
 	}
 	yamlDir := filepath.Join(tmpDir, "yaml")
-	i, err := NewIstioctl(yamlDir, *namespace, *proxyHub, *proxyTag, *imagePullPolicy, "")
+	i, err := NewIstioctl(yamlDir, *namespace, *proxyHub, *proxyTag, *imagePullPolicy, *kubeInjectCM)
 	if err != nil {
 		return nil, err
 	}
@@ -794,10 +797,24 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 	// CRDs installed ahead of time with 2.9.x
 	setValue += " --set global.crds=false"
 
+	err := util.HelmClientInit()
+	if err != nil {
+		// helm client init
+		log.Errorf("Helm clienty init")
+		return err
+	}
+	// Generate dependencies for Helm
+	workDir := filepath.Join(k.ReleaseDir, istioHelmInstallDir)
+	err = util.HelmDepUpdate(workDir)
+	if err != nil {
+		// helm dep upgrade
+		log.Errorf("Helm dep update %s", workDir)
+		return err
+	}
+
 	// helm install dry run - dry run seems to have problems
 	// with CRDs even in 2.9.2, pre-install is not executed
-	workDir := filepath.Join(k.ReleaseDir, istioHelmInstallDir)
-	err := util.HelmInstallDryRun(workDir, k.Namespace, k.Namespace, setValue)
+	err = util.HelmInstallDryRun(workDir, k.Namespace, k.Namespace, setValue)
 	if err != nil {
 		// dry run fail, let's fail early
 		log.Errorf("Helm dry run of istio install failed %s, setValue=%s", istioHelmInstallDir, setValue)

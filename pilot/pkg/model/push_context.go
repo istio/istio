@@ -82,7 +82,56 @@ type PushContext struct {
 	// Env has a pointer to the shared environment used to create the snapshot.
 	Env *Environment `json:"-,omitempty"`
 
+	// ServiceAccounts is a function mapping service name to service accounts.
+	ServiceAccounts func(string) []string `json:"-"`
+
+	// ServicePort2Name is used to keep track of service name and port mapping.
+	// This is needed because ADS names use port numbers, while endpoints use
+	// port names. The key is the service name. If a service or port are not found,
+	// the endpoint needs to be re-evaluated later (eventual consistency)
+	ServicePort2Name map[string]PortList `json:"-"`
+
 	initDone bool
+}
+
+// XDSUpdater is used for direct updates of the xDS model and incremental push.
+// Pilot uses multiple registries - for example each K8S cluster is a registry instance,
+// as well as consul and future EDS or MCP sources. Each registry is responsible for
+// tracking a set of endpoints associated with mesh services, and calling the EDSUpdate
+// on changes. A registry may group endpoints for a service in smaller subsets - for
+// example by deployment, or to deal with very large number of endpoints for a service.
+// We want to avoid passing around large objects - like full list of endpoints for a registry,
+// or the full list of endpoints for a service across registries, since it limits scalability.
+//
+// Future optimizations will include grouping the endpoints by labels, gateway or region to
+// reduce the time when subsetting or split-horizon is used. This desing assumes pilot
+// tracks all endpoints in the mesh and they fit in RAM - so limit is few M endpoints.
+// It is possible to split the endpoint tracking in future.
+type XDSUpdater interface {
+
+	// EDSUpdate is called when the list of endpoints or labels in a ServiceEntry is
+	// changed. For each cluster and hostname, the full list of active endpoints (including empty list)
+	// must be sent. The shard name is used as a key - current implementation is using the registry
+	// name.
+	EDSUpdate(shard, hostname string, entry []*IstioEndpoint) error
+
+	// SvcUpdate is called when a service port mapping definition is updated.
+	// This interface is WIP - labels, annotations and other changes to service may be
+	// updated to force a EDS and CDS recomputation and incremental push, as it doesn't affect
+	// LDS/RDS.
+	SvcUpdate(shard, hostname string, ports map[string]uint32, rports map[uint32]string)
+
+	// WorkloadUpdate is called by a registry when the labels or annotations on a workload have changed.
+	// The 'id' is the IP address of the pod for k8s if the pod is in the main/default network.
+	// In future it will include the 'network id' for pods in a different network, behind a zvpn gate.
+	// The IP is used because K8S Endpoints object associated with a Service only include the IP.
+	// We use Endpoints to track the membership to a service and readiness.
+	WorkloadUpdate(id string, labels map[string]string, annotations map[string]string)
+
+	// ConfigUpdate is called to notify the XDS server of config updates and request a push.
+	// The requests may be collapsed and throttled.
+	// This replaces the 'cache invalidation' model.
+	ConfigUpdate(full bool)
 }
 
 // ProxyPushStatus represents an event captured during config push to proxies.
@@ -139,6 +188,15 @@ func (ps *PushContext) Add(metric *PushMetric, key string, proxy *Proxy, msg str
 }
 
 var (
+
+	// EndpointNoPod tracks endpoints without an associated pod. This is an error condition, since
+	// we can't figure out the labels. It may be a transient problem, if endpoint is processed before
+	// pod.
+	EndpointNoPod = newPushMetric(
+		"endpoint_no_pod",
+		"Endpoints without an associated pod.",
+	)
+
 	// ProxyStatusNoService represents proxies not selected by any service
 	// This can be normal - for workloads that act only as client, or are not covered by a Service.
 	// It can also be an error, for example in cases the Endpoint list of a service was not updated by the time
@@ -224,6 +282,7 @@ func NewPushContext() *PushContext {
 	return &PushContext{
 		ServiceByHostname: map[Hostname]*Service{},
 		ProxyStatus:       map[string]map[string]ProxyPushStatus{},
+		ServicePort2Name:  map[string]PortList{},
 		Start:             time.Now(),
 	}
 }
@@ -335,6 +394,7 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 	ps.Services = sortServicesByCreationTime(services)
 	for _, s := range services {
 		ps.ServiceByHostname[s.Hostname] = s
+		ps.ServicePort2Name[string(s.Hostname)] = s.Ports
 	}
 	return nil
 }

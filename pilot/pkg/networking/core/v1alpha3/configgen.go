@@ -26,8 +26,7 @@ type ConfigGeneratorImpl struct {
 	Plugins []plugin.Plugin
 	// List of outbound clusters
 	// Must be rebuilt for each push epoch
-	// TODO: Get rid of the two types once the old code for global MUTUAL TLS is gone
-	OutboundClusters []*xdsapi.Cluster
+	PrecomputedOutboundClusters []*xdsapi.Cluster
 	// TODO: add others in future
 }
 
@@ -38,6 +37,24 @@ func NewConfigGenerator(plugins []plugin.Plugin) *ConfigGeneratorImpl {
 }
 
 func (configgen *ConfigGeneratorImpl) BuildSharedPushState(env *model.Environment, push *model.PushContext) error {
-	configgen.OutboundClusters = configgen.buildOutboundClusters(env, nil, push)
+	configgen.PrecomputedOutboundClusters = configgen.buildOutboundClusters(env, nil, push)
 	return nil
 }
+
+func (configgen *ConfigGeneratorImpl) CanUsePrecomputedCDS(proxy *model.Proxy) bool {
+	// If the proxy is a SniDnatRouter router, do not use the cached data
+	if proxy.Type == model.Router && proxy.GetRouterMode() == model.SniDnatRouter {
+		return false
+	}
+
+	networkView := model.GetNetworkView(proxy)
+	// If we have only more than one network view for the proxy, then recompute CDS.
+	// If proxy has only one network view and that view is for the UnnamedNetwork, reuse
+	// precomputed output
+	if len(networkView) > 1 {
+		return false
+	}
+
+	return networkView[model.UnnamedNetwork]
+}
+

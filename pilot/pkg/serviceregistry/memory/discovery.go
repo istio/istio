@@ -17,7 +17,6 @@ package memory
 import (
 	"fmt"
 	"net"
-
 	"time"
 
 	"istio.io/istio/pilot/pkg/model"
