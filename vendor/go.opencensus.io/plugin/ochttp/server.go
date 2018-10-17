@@ -158,9 +158,13 @@ type trackingResponseWriter struct {
 // Compile time assertion for ResponseWriter interface
 var _ http.ResponseWriter = (*trackingResponseWriter)(nil)
 
+<<<<<<< HEAD
 var logTagsErrorOnce sync.Once
 
 func (t *trackingResponseWriter) end(tags *addedTags) {
+=======
+func (t *trackingResponseWriter) end() {
+>>>>>>> 9037d1ff5e0f43ca6efda6b683cde12af9b5de6d
 	t.endOnce.Do(func() {
 		if t.statusCode == 0 {
 			t.statusCode = 200

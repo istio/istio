@@ -16,16 +16,14 @@ package inject
 
 import (
 	"bytes"
+	"fmt"
 	"os"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/gogo/protobuf/types"
-
-	"fmt"
-
-	"regexp"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
@@ -533,8 +531,11 @@ func TestIntoResourceFile(t *testing.T) {
 			}
 
 			// The version string is a maintenance pain for this test. Strip the version string before comparing.
-			wantBytes := stripVersion(util.ReadFile(wantFilePath, t))
-			gotBytes := stripVersion(got.Bytes())
+			gotBytes := got.Bytes()
+			wantedBytes := util.ReadGoldenFile(gotBytes, wantFilePath, t)
+
+			wantBytes := stripVersion(wantedBytes)
+			gotBytes = stripVersion(gotBytes)
 
 			util.CompareBytes(gotBytes, wantBytes, wantFilePath, t)
 		})

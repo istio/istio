@@ -1198,7 +1198,7 @@
   revision = "f6fcaab0c612d877d4140cbdf6966aed51e6eebd"
 
 [[projects]]
-  digest = "1:19767cd34a8c1e41fd26009d4ac88f5a23741006b25f6390ef70d02c7e0428dc"
+  digest = "1:14c23c68d00e1fd427a26acf9e6d7e2105fbf7b0b0531060c0df9ddb62450e7f"
   name = "go.opencensus.io"
   packages = [
     ".",
@@ -1218,8 +1218,8 @@
     "trace/tracestate",
   ]
   pruneopts = "NUT"
-  revision = "79993219becaa7e29e3b60cb67f5b8e82dee11d6"
-  version = "v0.17.0"
+  revision = "7b558058b7cc960667590e5413ef55157b06652e"
+  version = "v0.15.0"
 
 [[projects]]
   digest = "1:22f696cee54865fb8e9ff91df7b633f6b8f22037a8015253c6b6a71ca82219c7"
@@ -1379,15 +1379,17 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:0d148ea389640700a2356f618f52f572a9b3196d6817e7d6303ee784ba8dfa6e"
+  digest = "1:6cd4b1649695991e9b76b0db6bc3fb3f97b951992b16da2fa53991070be11410"
   name = "google.golang.org/api"
   packages = [
+    "cloudtrace/v1",
     "gensupport",
     "googleapi",
     "googleapi/internal/uritemplates",
     "googleapi/transport",
     "internal",
     "iterator",
+    "monitoring/v3",
     "option",
     "servicecontrol/v1",
     "support/bundler",
@@ -1545,7 +1547,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:16478a6699b38c63880e93e759a5b33eff7c62dee62995fbbd792d2bee381a95"
+  digest = "1:f06c31ae2d9f06d6ca3e74268f39ab6e5e9b835754176fafb8367dc10c296fcb"
   name = "istio.io/api"
   packages = [
     "authentication/v1alpha1",
@@ -1561,15 +1563,7 @@
     "rbac/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "fe4aa71a642eebb19f7f24981926e9f99d4d66de"
-
-[[projects]]
-  branch = "master"
-  digest = "1:fa55210f71a6277eb328dd4df8779f97d6c337d70fab97f27594126ae27fd09a"
-  name = "istio.io/tools"
-  packages = ["pkg/protocgen"]
-  pruneopts = "NUT"
-  revision = "67f425bd3e57585f639bf4a522aad84a5776158a"
+  revision = "0b70b6093baee68d6e1f4e30ecf28bb33f89710a"
 
 [[projects]]
   digest = "1:1e22c9d898674522a6155619142b4691dd225441168faa2b5a4eb88ee327a243"
@@ -2032,7 +2026,10 @@
     "golang.org/x/oauth2/google",
     "golang.org/x/time/rate",
     "golang.org/x/tools/imports",
+    "google.golang.org/api/cloudtrace/v1",
     "google.golang.org/api/googleapi",
+    "google.golang.org/api/iterator",
+    "google.golang.org/api/monitoring/v3",
     "google.golang.org/api/option",
     "google.golang.org/api/servicecontrol/v1",
     "google.golang.org/genproto/googleapis/api/distribution",
