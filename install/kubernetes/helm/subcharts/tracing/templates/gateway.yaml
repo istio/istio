@@ -3,6 +3,11 @@ kind: Gateway
 metadata:
   name: istio-tracing-gateway
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: istio-tracing
+    chart: {{ template "tracing.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   selector:
     istio: {{ .Values.gatewayName }}
@@ -19,6 +24,11 @@ kind: DestinationRule
 metadata:
   name: tracing
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: istio-tracing
+    chart: {{ template "tracing.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   host: tracing.{{ .Release.Namespace }}.svc.cluster.local
   trafficPolicy:
@@ -30,6 +40,11 @@ kind: VirtualService
 metadata:
   name: tracing-virtual-service
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: istio-tracing
+    chart: {{ template "tracing.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   hosts:
   - "*"
