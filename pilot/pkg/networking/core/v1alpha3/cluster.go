@@ -186,7 +186,7 @@ func buildClusterHosts(env *model.Environment, proxyNetworkView map[string]bool,
 		// Only send endpoints from the networks in the network view requested by the proxy.
 		// The default network view assigned to the Proxy is the UnnamedNetwork (""), which matches
 		// the default network assigned to endpoints that don't have an explicit network
-		if _, found := proxyNetworkView[instance.Endpoint.Network]; !found {
+		if !proxyNetworkView[instance.Endpoint.Network] {
 			// Endpoint's network doesn't match the set of networks that the proxy wants to see.
 			continue
 		}

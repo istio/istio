@@ -149,19 +149,17 @@ const UnnamedNetwork = ""
 // If not set, we assume that the proxy wants to see endpoints from the default
 // unnamed network.
 func GetNetworkView(node *Proxy) map[string]bool {
+	if node == nil {
+		return map[string]bool{UnnamedNetwork: true}
+	}
+
 	nmap := make(map[string]bool)
-	if node != nil {
-		if networks, found := node.Metadata["REQUESTED_NETWORK_VIEW"]; found {
-			for _, n := range strings.Split(networks, ",") {
-				nmap[n] = true
-			}
-		} else {
-			// Proxy sees endpoints from the default unnamed network only
-			nmap[UnnamedNetwork] = true
+	if networks, found := node.Metadata["REQUESTED_NETWORK_VIEW"]; found {
+		for _, n := range strings.Split(networks, ",") {
+			nmap[n] = true
 		}
 	} else {
-		// node is nil. This happens when we precompute CDS for caching.
-		// Assume unnnamed network
+		// Proxy sees endpoints from the default unnamed network only
 		nmap[UnnamedNetwork] = true
 	}
 	return nmap

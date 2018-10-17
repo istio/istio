@@ -155,7 +155,7 @@ func buildEnvoyLbEndpoint(UID string, family model.AddressFamily, address string
 	return ep
 }
 
-func convertNetworkEndpointToEnvoyEndpoint(e *model.NetworkEndpoint) (*endpoint.LbEndpoint, error) {
+func networkEndpointToEnvoyEndpoint(e *model.NetworkEndpoint) (*endpoint.LbEndpoint, error) {
 	err := model.ValidateNetworkEndpointAddress(e)
 	if err != nil {
 		return nil, err
@@ -547,7 +547,7 @@ func (s *DiscoveryServer) edsUpdate(shard, serviceName string,
 func localityLbEndpointsFromInstances(instances []*model.ServiceInstance) []endpoint.LocalityLbEndpoints {
 	localityEpMap := make(map[string]*endpoint.LocalityLbEndpoints)
 	for _, instance := range instances {
-		lbEp, err := convertNetworkEndpointToEnvoyEndpoint(&instance.Endpoint)
+		lbEp, err := networkEndpointToEnvoyEndpoint(&instance.Endpoint)
 		if err != nil {
 			adsLog.Errorf("EDS: unexpected pilot model endpoint v1 to v2 conversion: %v", err)
 			totalXDSInternalErrors.Add(1)

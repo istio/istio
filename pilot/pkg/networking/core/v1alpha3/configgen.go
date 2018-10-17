@@ -55,9 +55,6 @@ func (configgen *ConfigGeneratorImpl) CanUsePrecomputedCDS(proxy *model.Proxy) b
 		return false
 	}
 
-	if _, found := networkView[model.UnnamedNetwork]; !found {
-		return false
-	}
-
-	return true
+	return networkView[model.UnnamedNetwork]
 }
+
