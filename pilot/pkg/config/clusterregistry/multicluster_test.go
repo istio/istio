@@ -16,20 +16,17 @@ package clusterregistry
 
 import (
 	"testing"
+	"time"
 
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/fake"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
-	"k8s.io/client-go/kubernetes/fake"
-
-	"istio.io/istio/pkg/kube/secretcontroller"
-
-	"time"
-
-	"k8s.io/client-go/kubernetes"
-
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
+	"istio.io/istio/pkg/kube/secretcontroller"
+	pkgtest "istio.io/istio/pkg/test"
 )
 
 const (
@@ -41,11 +38,6 @@ const (
 )
 
 var mockserviceController = &aggregate.Controller{}
-var clearCacheCalled = false
-
-func mockClearCache() {
-	clearCacheCalled = true
-}
 
 func createMultiClusterSecret(k8s *fake.Clientset) error {
 	data := map[string][]byte{}
@@ -77,6 +69,14 @@ func mockLoadKubeConfig(kubeconfig []byte) (*clientcmdapi.Config, error) {
 	return &clientcmdapi.Config{}, nil
 }
 
+func verifyControllers(t *testing.T, m *Multicluster, expectedControllerCount int, timeoutName string) {
+	pkgtest.NewEventualOpts(10*time.Millisecond, 5*time.Second).Eventually(t, timeoutName, func() bool {
+		m.Lock()
+		defer m.Unlock()
+		return len(m.remoteKubeControllers) == expectedControllerCount
+	})
+}
+
 func mockCreateInterfaceFromClusterConfig(clusterConfig *clientcmdapi.Config) (kubernetes.Interface, error) {
 	return fake.NewSimpleClientset(), nil
 }
@@ -87,7 +87,7 @@ func Test_KubeSecretController(t *testing.T) {
 
 	clientset := fake.NewSimpleClientset()
 
-	mc, err := NewMulticluster(clientset, testSecretNameSpace, WatchedNamespace, DomainSuffix, ResyncPeriod, mockserviceController, mockClearCache)
+	mc, err := NewMulticluster(clientset, testSecretNameSpace, WatchedNamespace, DomainSuffix, ResyncPeriod, mockserviceController, nil)
 
 	if err != nil {
 		t.Fatalf("error creating Multicluster object and startign secret controller: %v", err)
@@ -100,27 +100,17 @@ func Test_KubeSecretController(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unexpected error on secret create: %v", err)
 	}
-	time.Sleep(200 * time.Millisecond)
 
-	// Test
-	if len(mc.rkc) != 1 {
-		t.Errorf("created %v controller(s), want 1", len(mc.rkc))
-	}
-	t.Logf("rkc %v", mc.rkc)
+	// Test - Verify that the remote controller has been added.
+	verifyControllers(t, mc, 1, "create remote controller")
 
 	// Delete the mulicluster secret.
 	err = deleteMultiClusterSecret(clientset)
 	if err != nil {
 		t.Fatalf("Unexpected error on secret delete: %v", err)
 	}
-	time.Sleep(10 * time.Millisecond)
 
-	// Test
-	if len(mc.rkc) != 0 {
-		t.Errorf("deleted remote controller,  %v controllers found, want 0", len(mc.rkc))
-	}
+	// Test - Verify that the remote controller has been removed.
+	verifyControllers(t, mc, 0, "delete remote controller")
 
-	if clearCacheCalled == false {
-		t.Errorf("CLear cache not called")
-	}
 }

@@ -77,6 +77,8 @@ e2e_dashboard: istioctl generate_yaml e2e_dashboard_run
 
 e2e_bookinfo: istioctl generate_yaml e2e_bookinfo_run
 
+e2e_stackdriver: istioctl generate_yaml e2e_stackdriver_run
+
 e2e_all: istioctl generate_yaml e2e_all_run
 
 # *_run targets do not rebuild the artifacts and test with whatever is given
@@ -105,6 +107,9 @@ e2e_dashboard_run: out_dir
 
 e2e_bookinfo_run: out_dir
 	go test -v -timeout 60m ./tests/e2e/tests/bookinfo -args ${E2E_ARGS} ${EXTRA_E2E_ARGS}
+
+e2e_stackdriver_run: out_dir
+	go test -v -timeout 25m ./tests/e2e/tests/stackdriver -args ${E2E_ARGS} ${EXTRA_E2E_ARGS} --gcp_proj=${GCP_PROJ}
 
 e2e_all_run: out_dir
 	$(MAKE) --keep-going e2e_simple_run e2e_bookinfo_run e2e_dashboard_run
