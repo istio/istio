@@ -7,4 +7,4 @@ discovery_address:         "istio-pilot:15010"
 connect_timeout:           {seconds: 1}
 proxy_admin_port:          15000
 control_plane_auth_policy: NONE
-tracing:                   { lightstep: { address: "lightstep-satellite:8080", access_token: "abcdefg1234567", secure: true, cacert_path: "/cacert.pem" } }
+tracing:                   { lightstep: { address: "lightstep-satellite:8080", access_token: "abcdefg1234567", secure: true, cacert_path: "/etc/lightstep/cacert.pem" } }

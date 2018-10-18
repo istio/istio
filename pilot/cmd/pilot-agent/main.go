@@ -373,7 +373,7 @@ func init() {
 		"Access Token for LightStep Satellite pool")
 	proxyCmd.PersistentFlags().BoolVar(&lightstepSecure, "lightstepSecure", false,
 		"Should connection to the LightStep Satellite pool be secure")
-	proxyCmd.PersistentFlags().StringVar(&lightstepCacertPath, "lightstepCacertPath", "/cacert.pem",
+	proxyCmd.PersistentFlags().StringVar(&lightstepCacertPath, "lightstepCacertPath", "",
 		"Path to the trusted cacert used to authenticate the pool")
 	proxyCmd.PersistentFlags().DurationVar(&connectTimeout, "connectTimeout",
 		timeDuration(values.ConnectTimeout),

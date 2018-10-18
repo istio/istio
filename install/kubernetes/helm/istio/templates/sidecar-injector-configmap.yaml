@@ -210,11 +210,22 @@ data:
         - mountPath: /var/run/sds
           name: sds-uds-path
         {{- end }}
+        {{ if and (eq .Values.global.proxy.tracer "lightstep") .Values.global.tracer.lightstep.cacertPath }}
+        - mountPath: {{ "[[ directory .ProxyConfig.GetTracing.GetLightstep.GetCacertPath ]]" }}
+          name: lightstep-certs
+          readOnly: true
+        {{- end }}
       volumes:
       {{ if .Values.global.sdsEnabled }}
       - name: sds-uds-path
         hostPath:
           path: /var/run/sds
+      {{- end }}
+      {{ if and (eq .Values.global.proxy.tracer "lightstep") .Values.global.tracer.lightstep.cacertPath }}
+      - name: lightstep-certs
+        secret:
+          optional: true
+          secretName: lightstep.cacert
       {{- end }}
       - emptyDir:
           medium: Memory

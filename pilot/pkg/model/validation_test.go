@@ -690,7 +690,7 @@ func TestValidateProxyConfig(t *testing.T) {
 								Address:     "collector.lightstep:8080",
 								AccessToken: "abcdefg1234567",
 								Secure:      false,
-								CacertPath:  "/cacert.pem",
+								CacertPath:  "/etc/lightstep/cacert.pem",
 							},
 						},
 					}
@@ -708,7 +708,7 @@ func TestValidateProxyConfig(t *testing.T) {
 								Address:     "10.0.0.100",
 								AccessToken: "abcdefg1234567",
 								Secure:      false,
-								CacertPath:  "/cacert.pem",
+								CacertPath:  "/etc/lightstep/cacert.pem",
 							},
 						},
 					}
@@ -726,7 +726,25 @@ func TestValidateProxyConfig(t *testing.T) {
 								Address:     "",
 								AccessToken: "abcdefg1234567",
 								Secure:      false,
-								CacertPath:  "/cacert.pem",
+								CacertPath:  "/etc/lightstep/cacert.pem",
+							},
+						},
+					}
+				},
+			),
+			isValid: false,
+		},
+		{
+			name: "lightstep address is valid but access token is empty",
+			in: modify(valid,
+				func(c *meshconfig.ProxyConfig) {
+					c.Tracing = &meshconfig.Tracing{
+						Tracer: &meshconfig.Tracing_Lightstep_{
+							Lightstep: &meshconfig.Tracing_Lightstep{
+								Address:     "collector.lightstep:8080",
+								AccessToken: "",
+								Secure:      false,
+								CacertPath:  "/etc/lightstep/cacert.pem",
 							},
 						},
 					}
@@ -744,7 +762,7 @@ func TestValidateProxyConfig(t *testing.T) {
 								Address:     "10.0.0.100",
 								AccessToken: "",
 								Secure:      false,
-								CacertPath:  "/cacert.pem",
+								CacertPath:  "/etc/lightstep/cacert.pem",
 							},
 						},
 					}
@@ -762,7 +780,25 @@ func TestValidateProxyConfig(t *testing.T) {
 								Address:     "",
 								AccessToken: "",
 								Secure:      false,
-								CacertPath:  "/cacert.pem",
+								CacertPath:  "/etc/lightstep/cacert.pem",
+							},
+						},
+					}
+				},
+			),
+			isValid: false,
+		},
+		{
+			name: "lightstep cacert is missing",
+			in: modify(valid,
+				func(c *meshconfig.ProxyConfig) {
+					c.Tracing = &meshconfig.Tracing{
+						Tracer: &meshconfig.Tracing_Lightstep_{
+							Lightstep: &meshconfig.Tracing_Lightstep{
+								Address:     "collector.lightstep:8080",
+								AccessToken: "abcdefg1234567",
+								Secure:      true,
+								CacertPath:  "",
 							},
 						},
 					}

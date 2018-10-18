@@ -127,7 +127,7 @@
             "alpn_protocols": "h2",
             "validation_context": {
               "trusted_ca": {
-                "filename": "/cacert.pem"
+                "filename": "/etc/lightstep/cacert.pem"
               }
             }
           }

@@ -785,13 +785,16 @@ func ValidateParentAndDrain(drainTime, parentShutdown *types.Duration) (errs err
 func ValidateLightstepCollector(ls *meshconfig.Tracing_Lightstep) error {
 	var errs error
 	if ls.GetAddress() == "" {
-		multierror.Append(errs, errors.New("address is required"))
+		errs = multierror.Append(errs, errors.New("address is required"))
 	}
 	if err := ValidateProxyAddress(ls.GetAddress()); err != nil {
 		errs = multierror.Append(errs, multierror.Prefix(err, "invalid lightstep address:"))
 	}
 	if ls.GetAccessToken() == "" {
-		multierror.Append(errs, errors.New("access token is required"))
+		errs = multierror.Append(errs, errors.New("access token is required"))
+	}
+	if ls.GetSecure() && (ls.GetCacertPath() == "") {
+		errs = multierror.Append(errs, errors.New("cacertPath is required"))
 	}
 	return errs
 }

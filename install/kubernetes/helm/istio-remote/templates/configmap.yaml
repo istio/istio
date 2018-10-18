@@ -87,7 +87,11 @@ data:
           # Whether communication with the Satellite pool should be secure
           secure: {{ .Values.global.tracer.lightstep.secure }}
           # Path to the file containing the cacert to use when verifying TLS
+        {{- if .Values.global.tracer.lightstep.cacertPath }}
           cacertPath: {{ .Values.global.tracer.lightstep.cacertPath }}
+        {{- else }}
+          cacertPath: "/cacert.pem"
+        {{- end }}
       {{- else if eq .Values.global.proxy.tracer "zipkin" }}
         zipkin:
           # Address of the Zipkin collector
