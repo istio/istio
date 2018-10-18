@@ -131,11 +131,11 @@ data:
               fieldPath: metadata.name
         - name: ISTIO_META_INTERCEPTION_MODE
           value: {{ "[[ or (index .ObjectMeta.Annotations \"sidecar.istio.io/interceptionMode\") .ProxyConfig.InterceptionMode.String ]]" }}
-        {{- "[[ if .ObjectMeta.Annotations ]]" }}
+        {{ "[[ if .ObjectMeta.Annotations ]]" }}
         - name: ISTIO_METAJSON_ANNOTATIONS
           value: |
                  {{ "[[ toJson .ObjectMeta.Annotations ]]" }}
-        {{ "[[ end ]]" -}}
+        {{ "[[ end ]]" }}
         {{ "[[ range $k,$v := .ObjectMeta.Labels ]]" }}
         - name: ISTIO_META_{{ "[[ $k ]]" }}
           value: "{{ "[[ $v ]]" }}"
