@@ -16,7 +16,6 @@ package agent
 
 import (
 	"bufio"
-	"context"
 	"fmt"
 	"net"
 	"os"
@@ -28,11 +27,9 @@ import (
 
 	"istio.io/istio/pkg/test/application"
 
-	"google.golang.org/grpc"
-
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
-	proxy_envoy "istio.io/istio/pilot/pkg/proxy/envoy"
+	proxyEnvoy "istio.io/istio/pilot/pkg/proxy/envoy"
 	"istio.io/istio/pkg/test/application/echo"
 	"istio.io/istio/pkg/test/application/echo/proto"
 	"istio.io/istio/pkg/test/envoy"
@@ -195,9 +192,11 @@ func makeHTTPRequest(src Agent, dst Agent, protocol model.Protocol, t *testing.T
 	parsedResponses, err := forwardRequestToAgent(src, &proto.ForwardEchoRequest{
 		Url:   fmt.Sprintf("http://%s:%d", serviceName, dstPort.ProxyPort),
 		Count: 1,
-		Header: &proto.Header{
-			Key:   "Host",
-			Value: serviceName,
+		Headers: []*proto.Header{
+			{
+				Key:   "Host",
+				Value: serviceName,
+			},
 		},
 	})
 	if err != nil {
@@ -220,7 +219,7 @@ func newPilot(configStore model.ConfigStoreCache, t *testing.T) (*bootstrap.Serv
 	mesh := model.DefaultMeshConfig()
 	bootstrapArgs := bootstrap.PilotArgs{
 		Namespace: service.Namespace,
-		DiscoveryOptions: proxy_envoy.DiscoveryServiceOptions{
+		DiscoveryOptions: proxyEnvoy.DiscoveryServiceOptions{
 			HTTPAddr:       ":0",
 			MonitoringAddr: ":0",
 			GrpcAddr:       ":0",
@@ -260,20 +259,16 @@ func forwardRequestToAgent(a Agent, req *proto.ForwardEchoRequest) ([]*echo.Pars
 	if err != nil {
 		return nil, err
 	}
-	conn, err := grpc.Dial(fmt.Sprintf("127.0.0.1:%d", grpcPortA.ApplicationPort), grpc.WithInsecure())
-	if err != nil {
-		return nil, err
-	}
-	defer conn.Close()
+	client, err := echo.NewClient(fmt.Sprintf("127.0.0.1:%d", grpcPortA.ApplicationPort))
+	defer client.Close()
 
-	client := proto.NewEchoTestServiceClient(conn)
-	resp, err := client.ForwardEcho(context.Background(), req)
+	resp, err := client.ForwardEcho(req)
 	if err != nil {
 		return nil, err
 	}
-	parsedResponses := echo.ParseForwardedResponse(resp)
-	if len(parsedResponses) != 1 {
-		return nil, fmt.Errorf("unexpected number of responses: %d", len(parsedResponses))
+
+	if len(resp) != 1 {
+		return nil, fmt.Errorf("unexpected number of responses: %d", len(resp))
 	}
-	return parsedResponses, nil
+	return resp, nil
 }
