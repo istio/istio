@@ -50,18 +50,6 @@ func TestValidation(t *testing.T) {
 	}
 
 	a = DefaultArgs()
-	a.APIPort = 0
-	if err := a.validate(); err == nil {
-		t.Errorf("Got unexpected success")
-	}
-
-	a = DefaultArgs()
-	a.MonitoringPort = 0
-	if err := a.validate(); err == nil {
-		t.Errorf("Got unexpected success")
-	}
-
-	a = DefaultArgs()
 	a.NumCheckCacheEntries = -1
 	if err := a.validate(); err == nil {
 		t.Errorf("Got unexpected success")

@@ -146,14 +146,6 @@ func (a *Args) validate() error {
 		return fmt.Errorf("adapter worker pool size must be > 0 , got pool size %d", a.AdapterWorkerPoolSize)
 	}
 
-	if a.APIPort <= 0 {
-		return fmt.Errorf("Mixer's gRPC API port must be > 0, got %d", a.APIPort)
-	}
-
-	if a.MonitoringPort <= 0 {
-		return fmt.Errorf("Mixer's self-monitoring port must be > 0, got %d", a.MonitoringPort)
-	}
-
 	if a.NumCheckCacheEntries < 0 {
 		return fmt.Errorf("# check cache entries must be >= 0 and <= 2^31-1, got %d", a.NumCheckCacheEntries)
 	}
