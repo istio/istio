@@ -26,14 +26,12 @@ function fix_values_yaml_worker() {
   tarball_name="$4"
   local gcs_folder_path
   gcs_folder_path="$5"
-  local hub
-  hub="$6"
 
   gsutil -q cp "${gcs_folder_path}/${tarball_name}" .
   eval    "$unzip_cmd"     "${tarball_name}"
   rm                       "${tarball_name}"
 
-  sed -i "s|hub: gcr.io/istio-release|hub: ${hub}|g" ./"${folder_name}"/install/kubernetes/helm/istio*/values.yaml
+  sed -i "s|hub: gcr.io/istio-release|hub: ${HUB}|g" ./"${folder_name}"/install/kubernetes/helm/istio*/values.yaml
   sed -i "s|tag: .*-latest-daily|tag: ${TAG}|g"  ./"${folder_name}"/install/kubernetes/helm/istio*/values.yaml
 
   eval "$zip_cmd" "${tarball_name}" "${folder_name}"
@@ -42,16 +40,16 @@ function fix_values_yaml_worker() {
 
   gsutil -q cp "${tarball_name}"        "${gcs_folder_path}/${tarball_name}"
   gsutil -q cp "${tarball_name}.sha256" "${gcs_folder_path}/${tarball_name}.sha256"
-  echo "DONE fixing  ${gcs_folder_path}/${tarball_name} with hub: ${hub} tag: ${TAG}"
+  echo "DONE fixing  ${gcs_folder_path}/${tarball_name} with hub: ${HUB} tag: ${TAG}"
 }
 
 function fix_values_yaml() {
   # called with params as shown below
   # fix_values_yaml unzip_cmd zip_cmd folder_name tarball_name
 
-  fix_values_yaml_worker "$1" "$2" "$3" "$4" "${GCS_PATH}" "${HUB}"
-  fix_values_yaml_worker "$1" "$2" "$3" "$4" "${GCS_PATH}/docker.io" "docker.io/istio"
-  fix_values_yaml_worker "$1" "$2" "$3" "$4" "${GCS_PATH}/gcr.io" "${HUB}"
+  fix_values_yaml_worker "$1" "$2" "$3" "$4" "${GCS_PATH}"
+  fix_values_yaml_worker "$1" "$2" "$3" "$4" "${GCS_PATH}/docker.io"
+  fix_values_yaml_worker "$1" "$2" "$3" "$4" "${GCS_PATH}/gcr.io"
 }
 
 rm -rf modification-tmp
