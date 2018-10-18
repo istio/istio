@@ -52,8 +52,8 @@ jobs:
             cp -R . ${GOPATH}/src/istio.io/istio
             cd ${GOPATH}/src/istio.io/istio
             make build
-            make push.docker.mixer HUB=${REGISTRY} TAG=$(git rev-parse --short HEAD)
-            make push.docker.pilot HUB=${REGISTRY} TAG=$(git rev-parse --short HEAD)
+            make push.docker.mixer HUB=${REGISTRY}/istio TAG=$(git rev-parse --short HEAD)
+            make push.docker.pilot HUB=${REGISTRY}/istio TAG=$(git rev-parse --short HEAD)
           fi
         name: "build_image"
         displayName: "Build image"
