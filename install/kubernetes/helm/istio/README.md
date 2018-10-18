@@ -38,53 +38,52 @@ The chart deploys pods that consume minimum resources as specified in the resour
 ## Installing the Chart
 
 1. If a service account has not already been installed for Tiller, install one:
-   ```
-   $ kubectl apply -f install/kubernetes/helm/helm-service-account.yaml
-   ```
+    ```
+    $ kubectl apply -f install/kubernetes/helm/helm-service-account.yaml
+    ```
 
 1. Install Tiller on your cluster with the service account:
-   ```
-   $ helm init --service-account tiller
-   ```
+    ```
+    $ helm init --service-account tiller
+    ```
 
 1. Set and create the namespace where Istio was installed:
-   ```
-   $ NAMESPACE=istio-system
-   $ kubectl create ns $NAMESPACE
-   ```
+    ```
+    $ NAMESPACE=istio-system
+    $ kubectl create ns $NAMESPACE
+    ```
 
 1. If using a Helm version prior to 2.10.0, install Istio’s [Custom Resource Definitions](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/#customresourcedefinitions) via `kubectl apply`, and wait a few seconds for the CRDs to be committed in the kube-apiserver:
-   ```
-   $ kubectl apply -f install/kubernetes/helm/istio/templates/crds.yaml
-   ```
-   > If you are enabling `certmanager`, you also need to install its CRDs and wait a few seconds for the CRDs to be committed in the kube-apiserver:
-   ```
-   $ kubectl apply -f install/kubernetes/helm/istio/charts/certmanager/templates/crds.yaml
-   ```
+    ```
+    $ kubectl apply -f install/kubernetes/helm/istio/templates/crds.yaml
+    ```
+    > If you are enabling `certmanager`, you also need to install its CRDs and wait a few seconds for the CRDs to be committed in the kube-apiserver:
+    ```
+    $ kubectl apply -f install/kubernetes/helm/istio/charts/certmanager/templates/crds.yaml
+    ```
 
-> Helm version 2.10.0 supports a way to register CRDs via an internal feature called `crd-install`.  This
-feature does not exist in prior versions of Helm.
+    > Helm version 2.10.0 supports a way to register CRDs via an internal feature called `crd-install`.  This feature does not exist in prior versions of Helm.
 
 1. If you are enabling `kiali`, you need to create the secret that contains the username and passphrase for `kiali` dashboard:
-   ```
-   $ echo -n 'admin' | base64
-   YWRtaW4=
-   $ echo -n '1f2d1e2e67df' | base64
-   MWYyZDFlMmU2N2Rm
-   $ cat <<EOF | kubectl apply -f -
-   apiVersion: v1
-   kind: Secret
-   metadata:
-     name: kiali
-     namespace: $NAMESPACE
-     labels:
-       app: kiali
-   type: Opaque
-   data:
-     username: YWRtaW4=
-     passphrase: MWYyZDFlMmU2N2Rm
-   EOF
-   ```
+    ```
+    $ echo -n 'admin' | base64
+    YWRtaW4=
+    $ echo -n '1f2d1e2e67df' | base64
+    MWYyZDFlMmU2N2Rm
+    $ cat <<EOF | kubectl apply -f -
+    apiVersion: v1
+    kind: Secret
+    metadata:
+      name: kiali
+      namespace: $NAMESPACE
+      labels:
+        app: kiali
+    type: Opaque
+    data:
+      username: YWRtaW4=
+      passphrase: MWYyZDFlMmU2N2Rm
+    EOF
+    ```
 
 1. If you are using security mode for Grafana, create the secret first as follows:
 
