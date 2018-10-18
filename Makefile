@@ -162,7 +162,7 @@ export ISTIO_ENVOY_RELEASE_DIR ?= ${OUT_DIR}/${GOOS}_${GOARCH}/release
 export ISTIO_ENVOY_RELEASE_NAME ?= envoy-${ISTIO_ENVOY_VERSION}
 export ISTIO_ENVOY_RELEASE_PATH ?= ${ISTIO_ENVOY_RELEASE_DIR}/${ISTIO_ENVOY_RELEASE_NAME}
 
-GO_VERSION_REQUIRED:=1.9
+GO_VERSION_REQUIRED:=1.10.4
 
 HUB?=istio
 ifeq ($(HUB),)
@@ -265,7 +265,7 @@ depend.diff: $(ISTIO_OUT)
 # Used by CI for automatic go code generation and generates a git diff of the generated files against HEAD.
 go.generate.diff: $(ISTIO_OUT)
 	git diff HEAD > $(ISTIO_OUT)/before_go_generate.diff
-	-go generate ./... 
+	-go generate ./...
 	git diff HEAD > $(ISTIO_OUT)/after_go_generate.diff
 	diff $(ISTIO_OUT)/before_go_generate.diff $(ISTIO_OUT)/after_go_generate.diff
 
