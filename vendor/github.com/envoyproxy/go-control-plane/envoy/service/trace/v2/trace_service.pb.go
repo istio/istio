@@ -37,7 +37,7 @@ func (m *StreamTracesResponse) Reset()         { *m = StreamTracesResponse{} }
 func (m *StreamTracesResponse) String() string { return proto.CompactTextString(m) }
 func (*StreamTracesResponse) ProtoMessage()    {}
 func (*StreamTracesResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_trace_service_5901afff3db92913, []int{0}
+	return fileDescriptor_trace_service_c80c2655d7a074f9, []int{0}
 }
 func (m *StreamTracesResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -82,7 +82,7 @@ func (m *StreamTracesMessage) Reset()         { *m = StreamTracesMessage{} }
 func (m *StreamTracesMessage) String() string { return proto.CompactTextString(m) }
 func (*StreamTracesMessage) ProtoMessage()    {}
 func (*StreamTracesMessage) Descriptor() ([]byte, []int) {
-	return fileDescriptor_trace_service_5901afff3db92913, []int{1}
+	return fileDescriptor_trace_service_c80c2655d7a074f9, []int{1}
 }
 func (m *StreamTracesMessage) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -137,7 +137,7 @@ func (m *StreamTracesMessage_Identifier) Reset()         { *m = StreamTracesMess
 func (m *StreamTracesMessage_Identifier) String() string { return proto.CompactTextString(m) }
 func (*StreamTracesMessage_Identifier) ProtoMessage()    {}
 func (*StreamTracesMessage_Identifier) Descriptor() ([]byte, []int) {
-	return fileDescriptor_trace_service_5901afff3db92913, []int{1, 0}
+	return fileDescriptor_trace_service_c80c2655d7a074f9, []int{1, 0}
 }
 func (m *StreamTracesMessage_Identifier) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -805,10 +805,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/service/trace/v2/trace_service.proto", fileDescriptor_trace_service_5901afff3db92913)
+	proto.RegisterFile("envoy/service/trace/v2/trace_service.proto", fileDescriptor_trace_service_c80c2655d7a074f9)
 }
 
-var fileDescriptor_trace_service_5901afff3db92913 = []byte{
+var fileDescriptor_trace_service_c80c2655d7a074f9 = []byte{
 	// 335 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x90, 0xb1, 0x4b, 0x03, 0x31,
 	0x14, 0xc6, 0x4d, 0x6b, 0x1d, 0xd2, 0x0e, 0x72, 0x95, 0xb6, 0x1c, 0xa5, 0x94, 0x4e, 0x45, 0x25,

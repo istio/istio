@@ -56,7 +56,7 @@ func (x Listener_DrainType) String() string {
 	return proto.EnumName(Listener_DrainType_name, int32(x))
 }
 func (Listener_DrainType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_lds_e1558ab11a5a16bb, []int{0, 0}
+	return fileDescriptor_lds_9f355ce40a991458, []int{0, 0}
 }
 
 type Listener struct {
@@ -159,7 +159,7 @@ func (m *Listener) Reset()         { *m = Listener{} }
 func (m *Listener) String() string { return proto.CompactTextString(m) }
 func (*Listener) ProtoMessage()    {}
 func (*Listener) Descriptor() ([]byte, []int) {
-	return fileDescriptor_lds_e1558ab11a5a16bb, []int{0}
+	return fileDescriptor_lds_9f355ce40a991458, []int{0}
 }
 func (m *Listener) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -300,7 +300,7 @@ func (m *Listener_DeprecatedV1) Reset()         { *m = Listener_DeprecatedV1{} }
 func (m *Listener_DeprecatedV1) String() string { return proto.CompactTextString(m) }
 func (*Listener_DeprecatedV1) ProtoMessage()    {}
 func (*Listener_DeprecatedV1) Descriptor() ([]byte, []int) {
-	return fileDescriptor_lds_e1558ab11a5a16bb, []int{0, 0}
+	return fileDescriptor_lds_9f355ce40a991458, []int{0, 0}
 }
 func (m *Listener_DeprecatedV1) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1503,9 +1503,9 @@ var (
 	ErrIntOverflowLds   = fmt.Errorf("proto: integer overflow")
 )
 
-func init() { proto.RegisterFile("envoy/api/v2/lds.proto", fileDescriptor_lds_e1558ab11a5a16bb) }
+func init() { proto.RegisterFile("envoy/api/v2/lds.proto", fileDescriptor_lds_9f355ce40a991458) }
 
-var fileDescriptor_lds_e1558ab11a5a16bb = []byte{
+var fileDescriptor_lds_9f355ce40a991458 = []byte{
 	// 789 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x94, 0x4f, 0x8f, 0xdb, 0x44,
 	0x18, 0xc6, 0x77, 0xb2, 0xdb, 0x6e, 0x76, 0xf2, 0x67, 0xa3, 0x01, 0xb5, 0x56, 0x58, 0x92, 0x10,

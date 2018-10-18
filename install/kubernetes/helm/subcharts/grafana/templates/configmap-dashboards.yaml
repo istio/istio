@@ -1,0 +1,17 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio-grafana-configuration-dashboards
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "grafana.name" . }}
+    chart: {{ template "grafana.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+    istio: grafana
+data:
+  {{- $files := .Files }}
+  {{ range $path, $bytes := .Files.Glob "dashboards/*.json" }}
+  {{ base $path }}: '{{ $files.Get $path }}'
+  {{ end }}

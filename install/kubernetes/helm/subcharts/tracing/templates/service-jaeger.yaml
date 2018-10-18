@@ -1,0 +1,90 @@
+{{ if eq .Values.provider "jaeger" }}
+
+apiVersion: v1
+kind: List
+metadata:
+  name: jaeger-services
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: jaeger
+    chart: {{ template "tracing.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+items:
+- apiVersion: v1
+  kind: Service
+  metadata:
+    name: jaeger-query
+    namespace: {{ .Release.Namespace }}
+    annotations:
+      {{- range $key, $val := .Values.service.annotations }}
+      {{ $key }}: {{ $val | quote }}
+      {{- end }}
+    labels:
+      app: jaeger
+      jaeger-infra: jaeger-service
+      chart: {{ template "tracing.chart" . }}
+      heritage: {{ .Release.Service }}
+      release: {{ .Release.Name }}
+  spec:
+    ports:
+      - name: query-http
+        port: 16686
+        protocol: TCP
+        targetPort: 16686
+    selector:
+      app: jaeger
+- apiVersion: v1
+  kind: Service
+  metadata:
+    name: jaeger-collector
+    namespace: {{ .Release.Namespace }}
+    labels:
+      app: jaeger
+      jaeger-infra: collector-service
+      chart: {{ template "tracing.chart" . }}
+      heritage: {{ .Release.Service }}
+      release: {{ .Release.Name }}
+  spec:
+    ports:
+    - name: jaeger-collector-tchannel
+      port: 14267
+      protocol: TCP
+      targetPort: 14267
+    - name: jaeger-collector-http
+      port: 14268
+      targetPort: 14268
+      protocol: TCP
+    selector:
+      app: jaeger
+    type: ClusterIP
+- apiVersion: v1
+  kind: Service
+  metadata:
+    name: jaeger-agent
+    namespace: {{ .Release.Namespace }}
+    labels:
+      app: jaeger
+      jaeger-infra: agent-service
+      chart: {{ template "tracing.chart" . }}
+      heritage: {{ .Release.Service }}
+      release: {{ .Release.Name }}
+  spec:
+    ports:
+    - name: agent-zipkin-thrift
+      port: 5775
+      protocol: UDP
+      targetPort: 5775
+    - name: agent-compact
+      port: 6831
+      protocol: UDP
+      targetPort: 6831
+    - name: agent-binary
+      port: 6832
+      protocol: UDP
+      targetPort: 6832
+    clusterIP: None
+    selector:
+      app: jaeger
+{{ end }}
+

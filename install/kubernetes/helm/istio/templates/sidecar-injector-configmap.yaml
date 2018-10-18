@@ -6,9 +6,9 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "istio.name" . }}
-    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    release: {{ .Release.Name }}
+    chart: {{ template "istio.chart" . }}
     heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
     istio: sidecar-injector
 data:
   config: |-
@@ -196,4 +196,7 @@ data:
           {{ "[[ else -]]" }}
           secretName: {{ "[[ printf \"istio.%s\" .Spec.ServiceAccountName ]]"  }}
           {{ "[[ end -]]" }}
+{{- end }}
+{{- if .Values.global.podDNSConfig }}
+{{ toYaml .Values.global.podDNSConfig | indent 8 }}
 {{- end }}

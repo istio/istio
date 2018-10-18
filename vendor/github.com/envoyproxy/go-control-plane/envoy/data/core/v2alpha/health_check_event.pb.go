@@ -54,7 +54,7 @@ func (x HealthCheckFailureType) String() string {
 	return proto.EnumName(HealthCheckFailureType_name, int32(x))
 }
 func (HealthCheckFailureType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_health_check_event_d37a715224da6132, []int{0}
+	return fileDescriptor_health_check_event_993d394457bc7a4f, []int{0}
 }
 
 type HealthCheckerType int32
@@ -83,7 +83,7 @@ func (x HealthCheckerType) String() string {
 	return proto.EnumName(HealthCheckerType_name, int32(x))
 }
 func (HealthCheckerType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_health_check_event_d37a715224da6132, []int{1}
+	return fileDescriptor_health_check_event_993d394457bc7a4f, []int{1}
 }
 
 type HealthCheckEvent struct {
@@ -105,7 +105,7 @@ func (m *HealthCheckEvent) Reset()         { *m = HealthCheckEvent{} }
 func (m *HealthCheckEvent) String() string { return proto.CompactTextString(m) }
 func (*HealthCheckEvent) ProtoMessage()    {}
 func (*HealthCheckEvent) Descriptor() ([]byte, []int) {
-	return fileDescriptor_health_check_event_d37a715224da6132, []int{0}
+	return fileDescriptor_health_check_event_993d394457bc7a4f, []int{0}
 }
 func (m *HealthCheckEvent) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -286,7 +286,7 @@ func (m *HealthCheckEjectUnhealthy) Reset()         { *m = HealthCheckEjectUnhea
 func (m *HealthCheckEjectUnhealthy) String() string { return proto.CompactTextString(m) }
 func (*HealthCheckEjectUnhealthy) ProtoMessage()    {}
 func (*HealthCheckEjectUnhealthy) Descriptor() ([]byte, []int) {
-	return fileDescriptor_health_check_event_d37a715224da6132, []int{1}
+	return fileDescriptor_health_check_event_993d394457bc7a4f, []int{1}
 }
 func (m *HealthCheckEjectUnhealthy) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -336,7 +336,7 @@ func (m *HealthCheckAddHealthy) Reset()         { *m = HealthCheckAddHealthy{} }
 func (m *HealthCheckAddHealthy) String() string { return proto.CompactTextString(m) }
 func (*HealthCheckAddHealthy) ProtoMessage()    {}
 func (*HealthCheckAddHealthy) Descriptor() ([]byte, []int) {
-	return fileDescriptor_health_check_event_d37a715224da6132, []int{2}
+	return fileDescriptor_health_check_event_993d394457bc7a4f, []int{2}
 }
 func (m *HealthCheckAddHealthy) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1241,10 +1241,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/data/core/v2alpha/health_check_event.proto", fileDescriptor_health_check_event_d37a715224da6132)
+	proto.RegisterFile("envoy/data/core/v2alpha/health_check_event.proto", fileDescriptor_health_check_event_993d394457bc7a4f)
 }
 
-var fileDescriptor_health_check_event_d37a715224da6132 = []byte{
+var fileDescriptor_health_check_event_993d394457bc7a4f = []byte{
 	// 581 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x52, 0xc1, 0x6e, 0xd3, 0x4a,
 	0x14, 0xed, 0xc4, 0x49, 0xdb, 0x4c, 0xaa, 0x3e, 0x77, 0xfa, 0x4a, 0x43, 0x85, 0x92, 0xa8, 0xab,

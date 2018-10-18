@@ -17,7 +17,6 @@ package external
 import (
 	"net"
 	"strings"
-
 	"time"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -129,6 +128,7 @@ func convertEndpoint(service *model.Service, servicePort *networking.Port,
 			Family:      family,
 			Port:        int(instancePort),
 			ServicePort: convertPort(servicePort),
+			Network:     endpoint.Network,
 		},
 		// TODO AvailabilityZone, ServiceAccount
 		Service: service,

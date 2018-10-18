@@ -156,6 +156,7 @@ Helm charts expose configuration options which are currently in alpha.  The curr
 | `grafana.enabled` | Specifies whether Grafana addon should be installed | true/false | `false` |
 | `grafana.persist` | Specifies whether Grafana addon should persist config data | true/false | `false` |
 | `grafana.storageClassName` | If `grafana.persist` is true, specifies the [`StorageClass`](https://kubernetes.io/docs/concepts/storage/storage-classes/) to use for the `PersistentVolumeClaim` | `StorageClass` | "" |
+| `grafana.accessMode` | If `grafana.persist` is true, specifies the [`Access Mode`](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#access-modes) to use for the `PersistentVolumeClaim` | RWO/ROX/RWX | `ReadWriteMany` |
 | `prometheus.enabled` | Specifies whether Prometheus addon should be installed | true/false | `true` |
 | `servicegraph.enabled` | Specifies whether Servicegraph addon should be installed | true/false | `false` |
 | `tracing.enabled` | Specifies whether Tracing(jaeger) addon should be installed | true/false | `false` |

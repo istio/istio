@@ -22,6 +22,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
 	"testing"
@@ -41,12 +42,12 @@ import (
 )
 
 const (
-	istioMeshDashboard = "install/kubernetes/helm/istio/charts/grafana/dashboards/istio-mesh-dashboard.json"
-	serviceDashboard   = "install/kubernetes/helm/istio/charts/grafana/dashboards/istio-service-dashboard.json"
-	workloadDashboard  = "install/kubernetes/helm/istio/charts/grafana/dashboards/istio-workload-dashboard.json"
-	mixerDashboard     = "install/kubernetes/helm/istio/charts/grafana/dashboards/mixer-dashboard.json"
-	pilotDashboard     = "install/kubernetes/helm/istio/charts/grafana/dashboards/pilot-dashboard.json"
-	galleyDashboard    = "install/kubernetes/helm/istio/charts/grafana/dashboards/galley-dashboard.json"
+	istioMeshDashboard = "install/kubernetes/helm/subcharts/grafana/dashboards/istio-mesh-dashboard.json"
+	serviceDashboard   = "install/kubernetes/helm/subcharts/grafana/dashboards/istio-service-dashboard.json"
+	workloadDashboard  = "install/kubernetes/helm/subcharts/grafana/dashboards/istio-workload-dashboard.json"
+	mixerDashboard     = "install/kubernetes/helm/subcharts/grafana/dashboards/mixer-dashboard.json"
+	pilotDashboard     = "install/kubernetes/helm/subcharts/grafana/dashboards/pilot-dashboard.json"
+	galleyDashboard    = "install/kubernetes/helm/subcharts/grafana/dashboards/galley-dashboard.json"
 	fortioYaml         = "tests/e2e/tests/dashboard/fortio-rules.yaml"
 	netcatYaml         = "tests/e2e/tests/dashboard/netcat-rules.yaml"
 
@@ -415,7 +416,12 @@ func (p *promProxy) portForward(labelSelector string, localPort uint16, remotePo
 		PodNamespace:  p.namespace,
 		LabelSelector: labelSelector,
 	}
-	forwarder, err := kube.NewPortForwarder(tc.Kube.KubeConfig, options, localPort, remotePort)
+	accessor, err := kube.NewAccessor(tc.Kube.KubeConfig)
+	if err != nil {
+		log.Errorf("Error creating accessor: %v", err)
+		return err
+	}
+	forwarder, err := accessor.NewPortForwarder(options, localPort, remotePort)
 	if err != nil {
 		log.Errorf("Error creating port forwarder: %v", err)
 		return err
@@ -500,15 +506,39 @@ func waitForMixerProxyReadiness() error {
 		time.Sleep(duration)
 
 		for _, pod := range mixerPods {
-			logs, err := util.ShellMuteOutput(fmt.Sprintf("kubectl logs %s -n %s -c istio-proxy", pod, tc.Kube.Namespace))
+			options := &kube.PodSelectOptions{
+				PodNamespace: tc.Kube.Namespace,
+				PodName:      pod,
+			}
+
+			accessor, err := kube.NewAccessor(tc.Kube.KubeConfig)
 			if err != nil {
-				log.Infof("Failure retrieving logs for pod %s (container: istio-proxy): %v", pod, err)
+				log.Errorf("Error creating accessor: %v", err)
+				return err
+			}
+			forwarder, err := accessor.NewPortForwarder(options, 16000, 15000)
+			if err != nil {
+				log.Infof("Error creating port forwarder: %v", err)
 				continue
 			}
-			if strings.Contains(logs, "starting main dispatch loop") {
-				log.Infof("Envoy started main dispatch loop.")
+			if err := forwarder.Start(); err != nil {
+				log.Infof("Error starting port forwarder: %v", err)
+				continue
+			}
+
+			resp, err := http.Get("http://localhost:16000/server_info")
+			forwarder.Close()
+
+			if err != nil {
+				log.Infof("Failure retrieving status for pod %s (container: istio-proxy): %v", pod, err)
+				continue
+			}
+
+			if resp.StatusCode == 200 {
 				return nil
 			}
+
+			log.Infof("Failure retrieving status for pod %s (container: istio-proxy) status code should be 200 got: %d", pod, resp.StatusCode)
 		}
 	}
 	return errors.New("proxy for mixer never started main dispatch loop")

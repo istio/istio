@@ -15,31 +15,23 @@
 package caclient
 
 import (
-	"context"
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"strings"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/metadata"
 
 	"istio.io/istio/pkg/log"
-	capb "istio.io/istio/security/proto"
+	caClientInterface "istio.io/istio/security/pkg/nodeagent/caclient/interface"
+	gca "istio.io/istio/security/pkg/nodeagent/caclient/providers/google"
 )
 
-// Client interface defines the clients need to implement to talk to CA for CSR.
-type Client interface {
-	CSRSign(ctx context.Context, csrPEM []byte, subjectID string,
-		certValidTTLInSec int64) ([]string /*PEM-encoded certificate chain*/, error)
-}
-
-type caClient struct {
-	client capb.IstioCertificateServiceClient
-}
+const googleCA = "GoogleCA"
 
 // NewCAClient create an CA client.
-func NewCAClient(endpoint string, tlsFlag bool) (Client, error) {
+func NewCAClient(endpoint, CAProviderName string, tlsFlag bool) (caClientInterface.Client, error) {
 	var opts grpc.DialOption
 	if tlsFlag {
 		pool, err := x509.SystemCertPool()
@@ -59,29 +51,10 @@ func NewCAClient(endpoint string, tlsFlag bool) (Client, error) {
 		return nil, fmt.Errorf("failed to connect to endpoint %q", endpoint)
 	}
 
-	return &caClient{
-		client: capb.NewIstioCertificateServiceClient(conn),
-	}, nil
-}
-
-func (cl *caClient) CSRSign(ctx context.Context, csrPEM []byte, token string,
-	certValidTTLInSec int64) ([]string /*PEM-encoded certificate chain*/, error) {
-	req := &capb.IstioCertificateRequest{
-		Csr:              string(csrPEM),
-		ValidityDuration: certValidTTLInSec,
+	switch CAProviderName {
+	case googleCA:
+		return gca.NewGoogleCAClient(conn), nil
+	default:
+		return nil, fmt.Errorf("CA provider %q isn't supported. Currently Istio only supports %q", CAProviderName, strings.Join([]string{googleCA}, ","))
 	}
-
-	ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("Authorization", token))
-	resp, err := cl.client.CreateCertificate(ctx, req)
-	if err != nil {
-		log.Errorf("Failed to create certificate: %v", err)
-		return nil, err
-	}
-
-	if len(resp.CertChain) <= 1 {
-		log.Errorf("CertChain length is %d, expected more than 1", len(resp.CertChain))
-		return nil, errors.New("invalid response cert chain")
-	}
-
-	return resp.CertChain, nil
 }

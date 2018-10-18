@@ -18,18 +18,17 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	http_config "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/rbac/v2"
 	network_config "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/rbac/v2"
 	policy "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2alpha"
 	metadata "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
 	"github.com/envoyproxy/go-control-plane/pkg/util"
+	"github.com/gogo/protobuf/types"
 
 	rbacproto "istio.io/api/rbac/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
-
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	"github.com/gogo/protobuf/types"
 )
 
 func newAuthzPoliciesWithRolesAndBindings(configs ...[]model.Config) *model.AuthorizationPolicies {
@@ -356,6 +355,7 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 							{Key: "request.headers[key2]", Values: []string{"simple", "*"}},
 							{Key: "destination.labels[version]", Values: []string{"v10"}},
 							{Key: "destination.name", Values: []string{"attr-name"}},
+							{Key: "connection.sni", Values: []string{"*.example.com"}},
 						},
 					},
 				},
@@ -581,6 +581,23 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 								{Name: "key2", HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{ExactMatch: "simple"}},
 								{Name: "key2", HeaderMatchSpecifier: &route.HeaderMatcher_PresentMatch{PresentMatch: true}},
 							}),
+						},
+						{
+							Rule: &policy.Permission_OrRules{
+								OrRules: &policy.Permission_Set{
+									Rules: []*policy.Permission{
+										{
+											Rule: &policy.Permission_RequestedServerName{
+												RequestedServerName: &metadata.StringMatcher{
+													MatchPattern: &metadata.StringMatcher_Suffix{
+														Suffix: ".example.com",
+													},
+												},
+											},
+										},
+									},
+								} ,
+							},
 						},
 					},
 				},

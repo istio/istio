@@ -42,6 +42,40 @@ enum AuthenticationPolicy {
   INHERIT = 1000;
 }
 
+// Tracing defines configuration for the tracing performed by Envoy instances.
+message Tracing {
+
+  // Zipkin defines configuration for a Zipkin tracer.
+  message Zipkin {
+    // Address of the Zipkin service (e.g. _zipkin:9411_).
+    string address = 1;
+  }
+
+  // Lightstep defines configuration for a LightStep tracer.
+  message Lightstep {
+    // Address of the LightStep Satellite pool.
+    string address = 1;
+
+    // The LightStep access token.
+    string access_token = 2;
+
+    // True if a secure connection should be used when communicating with the pool.
+    bool secure = 3;
+
+    // Path to the trusted cacert used to authenticate the pool.
+    string cacert_path = 4;
+  }
+
+  // The tracer implementation to be used by Envoy.
+  oneof tracer {
+    // Use a Zipkin tracer.
+    Zipkin zipkin = 1;
+    // Use a LightStep tracer.
+    Lightstep lightstep = 2;
+  }
+}
+
+
 // ProxyConfig defines variables for individual Envoy instances.
 message ProxyConfig {
   // Path to the generated configuration file directory.
@@ -81,7 +115,8 @@ message ProxyConfig {
   reserved 7;
 
   // Address of the Zipkin service (e.g. _zipkin:9411_).
-  string zipkin_address = 8;
+  // DEPRECATED: Use [tracing][istio.mesh.v1alpha1.ProxyConfig.tracing] instead.
+  string zipkin_address = 8 [deprecated=true];
 
   // Connection timeout used by Envoy for supporting services. (MUST BE >=1ms)
   google.protobuf.Duration connect_timeout = 9;
@@ -130,6 +165,9 @@ message ProxyConfig {
 
   // The mode used to redirect inbound traffic to Envoy.
   InboundInterceptionMode interception_mode = 18;
+
+  // Tracing configuration to be used by the proxy.
+  Tracing tracing = 19;
 }
 
 // MeshConfig defines mesh-wide variables shared by all Envoy instances in the

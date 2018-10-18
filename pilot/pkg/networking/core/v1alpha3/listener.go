@@ -77,15 +77,10 @@ var (
 		Name: "pilot_invalid_out_listeners",
 		Help: "Number of invalid outbound listeners.",
 	})
-	filterChainsConflict = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "pilot_conf_filter_chains",
-		Help: "Number of conflicting filter chains.",
-	})
 )
 
 func init() {
 	prometheus.MustRegister(invalidOutboundListeners)
-	prometheus.MustRegister(filterChainsConflict)
 }
 
 // ListenersALPNProtocols denotes the the list of ALPN protocols that the listener
@@ -268,11 +263,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 				connectionManager: &http_conn.HttpConnectionManager{
 					// Append and forward client cert to backend.
 					ForwardClientCertDetails: http_conn.APPEND_FORWARD,
-					SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
-						Subject: &google_protobuf.BoolValue{Value: true},
-						Uri:     true,
-						Dns:     true,
-					},
 				},
 			}
 		case plugin.ListenerProtocolTCP:

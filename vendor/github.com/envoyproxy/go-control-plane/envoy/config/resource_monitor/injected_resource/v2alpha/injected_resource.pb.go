@@ -36,7 +36,7 @@ func (m *InjectedResourceConfig) Reset()         { *m = InjectedResourceConfig{}
 func (m *InjectedResourceConfig) String() string { return proto.CompactTextString(m) }
 func (*InjectedResourceConfig) ProtoMessage()    {}
 func (*InjectedResourceConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_injected_resource_53e999a397080ce4, []int{0}
+	return fileDescriptor_injected_resource_32b4575db21f602f, []int{0}
 }
 func (m *InjectedResourceConfig) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -323,10 +323,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/config/resource_monitor/injected_resource/v2alpha/injected_resource.proto", fileDescriptor_injected_resource_53e999a397080ce4)
+	proto.RegisterFile("envoy/config/resource_monitor/injected_resource/v2alpha/injected_resource.proto", fileDescriptor_injected_resource_32b4575db21f602f)
 }
 
-var fileDescriptor_injected_resource_53e999a397080ce4 = []byte{
+var fileDescriptor_injected_resource_32b4575db21f602f = []byte{
 	// 183 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xf2, 0x4f, 0xcd, 0x2b, 0xcb,
 	0xaf, 0xd4, 0x4f, 0xce, 0xcf, 0x4b, 0xcb, 0x4c, 0xd7, 0x2f, 0x4a, 0x2d, 0xce, 0x2f, 0x2d, 0x4a,
