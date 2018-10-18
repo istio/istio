@@ -36,4 +36,9 @@ setup_and_export_git_sha
 cd "$ROOT"
 
 OUTDIR="$(mktemp -d /tmp/outdir.XXXX)"
+mkdir /workspace
+mkdir /output
+ls -l /workspace
+ls -l /output
+
 time ./release/cloud_builder.sh -p istio-release-pipeline-data/daily-build/postsubmit/"${GIT_SHA}" -h "gcr.io/istio-release" -t "${GIT_SHA}"  -o "${OUTDIR}"
