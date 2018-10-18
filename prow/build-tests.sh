@@ -35,5 +35,12 @@ setup_and_export_git_sha
 
 cd "$ROOT"
 
-OUTDIR="$(mktemp -d /tmp/outdir.XXXX)"
-time ./release/cloud_builder.sh -h "gcr.io/istio-release" -t "${GIT_SHA}"  -o "${OUTDIR}"
+mkdir /workspace
+mkdir /output
+
+cat << EOF > "/workspace/gcb_env.sh"
+export CB_VERSION="${GIT_SHA}"
+export CB_ISTIOCTL_DOCKER_HUB="docker.io/istio"
+EOF
+
+time ./release/cloud_builder.sh
