@@ -1,81 +1,54 @@
-#
-# Gateways Configuration, refer to the charts/gateways/values.yaml
-# for detailed configuration
-#
+# Description: Gateways Configuration, refer to the charts/gateways/values.yaml
 gateways:
   enabled: true
 
-#
-# sidecar-injector webhook configuration, refer to the
-# charts/sidecarInjectorWebhook/values.yaml for detailed configuration
-#
+# Description: Sidecar-Injector webhook configuration
 sidecarInjectorWebhook:
   enabled: true
 
-#
-# galley configuration, refer to charts/galley/values.yaml
-# for detailed configuration
-#
+# Description: Galley configuration, refer to charts/galley/values.yaml
 galley:
   enabled: true
 
-#
-# mixer configuration
-#
+# Description: Mixer configuration
 mixer:
   enabled: true
 
-#
-# pilot configuration
-#
+# Description: Pilot configuration
 pilot:
   enabled: true
 
-#
-# security configuration
-#
+# Description: Security configuration
 security:
   enabled: true
 
-#
-# nodeagent configuration
-#
+# Description: Nodeagent configuration
 nodeagent:
   enabled: false
 
-#
-# ingress configuration
-#
+
+# Description: Ingress configuration
 ingress:
   enabled: false
 
-#
-# addon grafana configuration
-#
+# Description: Grafana configuration
 grafana:
   enabled: false
 
-#
-# addon prometheus configuration
-#
+# Description: Prometheus configuration
 prometheus:
   enabled: true
 
-#
-# addon servicegraph configuration
-#
+
+# Description: Servicegraph configuration
 servicegraph:
   enabled: false
 
-#
-# addon jaeger tracing configuration
-#
+# Description: Jaeger tracing configuration
 tracing:
   enabled: false
 
-#
-# addon kiali tracing configuration
-#
+# Description: Kiali tracing configuration
 kiali:
   enabled: false
 
