@@ -726,15 +726,6 @@ func TestController_Service(t *testing.T) {
 	}
 }
 
-func makeFakeKubeAPIController() *Controller {
-	clientSet := fake.NewSimpleClientset()
-	return NewController(clientSet, ControllerOptions{
-		WatchedNamespace: meta_v1.NamespaceAll,
-		ResyncPeriod:     0,
-		DomainSuffix:     domainSuffix,
-	})
-}
-
 func createEndpoints(controller *Controller, name, namespace string, portNames, ips []string, t *testing.T) {
 	eas := []v1.EndpointAddress{}
 	for _, ip := range ips {
@@ -889,25 +880,6 @@ func addNodes(t *testing.T, controller *Controller, nodes ...*v1.Node) {
 		if _, err := controller.client.CoreV1().Nodes().Create(node); err != nil {
 			//if err := controller.nodes.informer.GetStore().Add(node); err != nil {
 			t.Errorf("Cannot create node %s (error: %v)", node.Name, err)
-		}
-	}
-}
-
-func pollUntil(interval time.Duration, condition func() (done bool, err error), stopCh <-chan struct{}) error {
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ticker.C:
-			done, err := condition()
-			if done {
-				return nil
-			}
-			if err != nil {
-				return err
-			}
-		case <-stopCh:
-			return fmt.Errorf("timed out waiting for the condition")
 		}
 	}
 }
