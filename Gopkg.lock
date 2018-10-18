@@ -1595,7 +1595,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:221ccb0b76cd8aa6cbf23b9d0c07659c0678473e1c18a89bb7a33b44a8a168a9"
+  digest = "1:358c12249415725f1d6f1c808ec35badf273c8b9bf7cd12bae5489786d73d062"
   name = "istio.io/api"
   packages = [
     "authentication/v1alpha1",
@@ -1611,7 +1611,7 @@
     "rbac/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "890f95fd18d0b24d899d15f7294c3bff7b83a9d8"
+  revision = "246cae3eb30a604aeaf9541d343ef5c4cc3947b6"
 
 [[projects]]
   branch = "release-1.11"
@@ -1668,7 +1668,7 @@
 
 [[projects]]
   branch = "release-1.11"
-  digest = "1:27d4ce380a03bba8db575bc9deb1f388af11fdf13babd8b60aac41fce4c08111"
+  digest = "1:aff465c0cc0720c27ba0c9017db5380ab3634dccd6b0a368f683bbb2ffa3d376"
   name = "k8s.io/apimachinery"
   packages = [
     "pkg/api/errors",
@@ -1677,6 +1677,7 @@
     "pkg/apis/meta/internalversion",
     "pkg/apis/meta/v1",
     "pkg/apis/meta/v1/unstructured",
+    "pkg/apis/meta/v1/unstructured/unstructuredscheme",
     "pkg/apis/meta/v1beta1",
     "pkg/conversion",
     "pkg/conversion/queryparams",
@@ -1723,7 +1724,7 @@
 
 [[projects]]
   branch = "release-8.0"
-  digest = "1:1c4d8e162ef60e23ada6d8246e2a6625069ecd28445be29d98b2f5b69ddb62b3"
+  digest = "1:4b5d4e737092b38e86da183c8a5c75597e446e9cdb0cf72df9332958e2968060"
   name = "k8s.io/client-go"
   packages = [
     "discovery",
@@ -1869,6 +1870,7 @@
     "plugin/pkg/client/auth/openstack",
     "rest",
     "rest/watch",
+    "restmapper",
     "testing",
     "third_party/forked/golang/template",
     "tools/auth",
@@ -1928,9 +1930,14 @@
 
 [[projects]]
   branch = "release-1.11"
-  digest = "1:6856b85766c4e2497c3c950c6ac0e500982c37ac5312d8175da308f41ed6e6af"
+  digest = "1:b36344c3021ca4d8865e674270ff5505746b4800b64fc76aaf2cb2f736af817d"
   name = "k8s.io/kubernetes"
-  packages = ["pkg/apis/core"]
+  packages = [
+    "pkg/apis/core",
+    "pkg/kubectl/genericclioptions",
+    "pkg/kubectl/genericclioptions/printers",
+    "pkg/kubectl/genericclioptions/resource",
+  ]
   pruneopts = "NUT"
   revision = "011647662b54bd2904ca6eeae59c0e9b5aca83d3"
 
@@ -2151,6 +2158,7 @@
     "k8s.io/client-go/kubernetes/scheme",
     "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1",
     "k8s.io/client-go/kubernetes/typed/core/v1",
+    "k8s.io/client-go/listers/core/v1",
     "k8s.io/client-go/plugin/pkg/client/auth",
     "k8s.io/client-go/plugin/pkg/client/auth/gcp",
     "k8s.io/client-go/plugin/pkg/client/auth/oidc",
@@ -2172,6 +2180,8 @@
     "k8s.io/helm/pkg/proto/hapi/version",
     "k8s.io/helm/pkg/timeconv",
     "k8s.io/kubernetes/pkg/apis/core",
+    "k8s.io/kubernetes/pkg/kubectl/genericclioptions",
+    "k8s.io/kubernetes/pkg/kubectl/genericclioptions/resource",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1
