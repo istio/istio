@@ -16,7 +16,7 @@ package kube
 
 import (
 	"fmt"
-	"os"
+	"path/filepath"
 	"reflect"
 	"sort"
 	"testing"
@@ -31,19 +31,25 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/env"
 )
 
 func makeClient(t *testing.T) kubernetes.Interface {
 	// Don't depend on symlink, and don't use real cluster.
 	// This is the circleci config matching localhost (testEnvLocalK8S.sh start)
-	cwd, _ := os.Getwd()
-	kubeconfig := cwd + "/../../../../.circleci/config"
-	cl, err := CreateInterface(kubeconfig)
+	kubeconfig := filepath.Join(env.IstioSrc, ".circleci/config")
+	client, err := CreateInterface(kubeconfig)
 	if err != nil {
-		t.Skip("No local k8s env, skipping test", err, kubeconfig)
+		t.Skipf("Unable to create kube client from config %s, skipping test. Error: %v", kubeconfig, err)
 	}
 
-	return cl
+	// Verify that we can connect to the API server.
+	_, err = client.CoreV1().Namespaces().List(meta_v1.ListOptions{})
+	if err != nil {
+		t.Skipf("Unable to connect kube client from config %s, skipping test. Error: %v", kubeconfig, err)
+	}
+
+	return client
 }
 
 const (
