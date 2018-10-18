@@ -70,7 +70,7 @@ func (m *DiscoveryRequest) Reset()         { *m = DiscoveryRequest{} }
 func (m *DiscoveryRequest) String() string { return proto.CompactTextString(m) }
 func (*DiscoveryRequest) ProtoMessage()    {}
 func (*DiscoveryRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_discovery_51dc66d5d71581c9, []int{0}
+	return fileDescriptor_discovery_0b15f11441efc7a2, []int{0}
 }
 func (m *DiscoveryRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -183,7 +183,7 @@ func (m *DiscoveryResponse) Reset()         { *m = DiscoveryResponse{} }
 func (m *DiscoveryResponse) String() string { return proto.CompactTextString(m) }
 func (*DiscoveryResponse) ProtoMessage()    {}
 func (*DiscoveryResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_discovery_51dc66d5d71581c9, []int{1}
+	return fileDescriptor_discovery_0b15f11441efc7a2, []int{1}
 }
 func (m *DiscoveryResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -322,7 +322,7 @@ func (m *IncrementalDiscoveryRequest) Reset()         { *m = IncrementalDiscover
 func (m *IncrementalDiscoveryRequest) String() string { return proto.CompactTextString(m) }
 func (*IncrementalDiscoveryRequest) ProtoMessage()    {}
 func (*IncrementalDiscoveryRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_discovery_51dc66d5d71581c9, []int{2}
+	return fileDescriptor_discovery_0b15f11441efc7a2, []int{2}
 }
 func (m *IncrementalDiscoveryRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -421,7 +421,7 @@ func (m *IncrementalDiscoveryResponse) Reset()         { *m = IncrementalDiscove
 func (m *IncrementalDiscoveryResponse) String() string { return proto.CompactTextString(m) }
 func (*IncrementalDiscoveryResponse) ProtoMessage()    {}
 func (*IncrementalDiscoveryResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_discovery_51dc66d5d71581c9, []int{3}
+	return fileDescriptor_discovery_0b15f11441efc7a2, []int{3}
 }
 func (m *IncrementalDiscoveryResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -493,7 +493,7 @@ func (m *Resource) Reset()         { *m = Resource{} }
 func (m *Resource) String() string { return proto.CompactTextString(m) }
 func (*Resource) ProtoMessage()    {}
 func (*Resource) Descriptor() ([]byte, []int) {
-	return fileDescriptor_discovery_51dc66d5d71581c9, []int{4}
+	return fileDescriptor_discovery_0b15f11441efc7a2, []int{4}
 }
 func (m *Resource) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2442,10 +2442,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/api/v2/discovery.proto", fileDescriptor_discovery_51dc66d5d71581c9)
+	proto.RegisterFile("envoy/api/v2/discovery.proto", fileDescriptor_discovery_0b15f11441efc7a2)
 }
 
-var fileDescriptor_discovery_51dc66d5d71581c9 = []byte{
+var fileDescriptor_discovery_0b15f11441efc7a2 = []byte{
 	// 633 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x54, 0xc1, 0x6a, 0xdb, 0x4c,
 	0x10, 0xfe, 0xd7, 0x76, 0x1c, 0x67, 0x9d, 0xfc, 0x24, 0x5b, 0x93, 0x28, 0x6e, 0x70, 0x5d, 0x43,

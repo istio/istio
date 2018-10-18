@@ -40,7 +40,7 @@ func (m *FileBasedMetadataConfig) Reset()         { *m = FileBasedMetadataConfig
 func (m *FileBasedMetadataConfig) String() string { return proto.CompactTextString(m) }
 func (*FileBasedMetadataConfig) ProtoMessage()    {}
 func (*FileBasedMetadataConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_file_based_metadata_a43975ab30db6828, []int{0}
+	return fileDescriptor_file_based_metadata_41f4c87ca9993d15, []int{0}
 }
 func (m *FileBasedMetadataConfig) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -427,10 +427,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/config/grpc_credential/v2alpha/file_based_metadata.proto", fileDescriptor_file_based_metadata_a43975ab30db6828)
+	proto.RegisterFile("envoy/config/grpc_credential/v2alpha/file_based_metadata.proto", fileDescriptor_file_based_metadata_41f4c87ca9993d15)
 }
 
-var fileDescriptor_file_based_metadata_a43975ab30db6828 = []byte{
+var fileDescriptor_file_based_metadata_41f4c87ca9993d15 = []byte{
 	// 255 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x5c, 0x8f, 0xc1, 0x4a, 0xc3, 0x30,
 	0x18, 0xc7, 0x89, 0x82, 0xb2, 0x4c, 0x2f, 0x05, 0xb1, 0x88, 0x2b, 0x43, 0x3d, 0xec, 0x94, 0x40,

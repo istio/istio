@@ -355,6 +355,7 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 							{Key: "request.headers[key2]", Values: []string{"simple", "*"}},
 							{Key: "destination.labels[version]", Values: []string{"v10"}},
 							{Key: "destination.name", Values: []string{"attr-name"}},
+							{Key: "connection.sni", Values: []string{"*.example.com"}},
 						},
 					},
 				},
@@ -580,6 +581,23 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 								{Name: "key2", HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{ExactMatch: "simple"}},
 								{Name: "key2", HeaderMatchSpecifier: &route.HeaderMatcher_PresentMatch{PresentMatch: true}},
 							}),
+						},
+						{
+							Rule: &policy.Permission_OrRules{
+								OrRules: &policy.Permission_Set{
+									Rules: []*policy.Permission{
+										{
+											Rule: &policy.Permission_RequestedServerName{
+												RequestedServerName: &metadata.StringMatcher{
+													MatchPattern: &metadata.StringMatcher_Suffix{
+														Suffix: ".example.com",
+													},
+												},
+											},
+										},
+									},
+								} ,
+							},
 						},
 					},
 				},

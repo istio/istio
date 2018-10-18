@@ -661,9 +661,9 @@ func translateFault(node *model.Proxy, in *networking.HTTPFaultInjection) *xdsht
 			}
 		} else {
 			if in.Delay.Percentage != nil {
-				out.Delay.Percent = uint32(in.Delay.Percentage.Value)
+				out.Delay.Percentage = translatePercentToFractionalPercent(in.Delay.Percentage)
 			} else {
-				out.Delay.Percent = uint32(in.Delay.Percent)
+				out.Delay.Percentage = translateIntegerToFractionalPercent(in.Delay.Percent)
 			}
 		}
 		switch d := in.Delay.HttpDelayType.(type) {
@@ -688,9 +688,9 @@ func translateFault(node *model.Proxy, in *networking.HTTPFaultInjection) *xdsht
 			}
 		} else {
 			if in.Abort.Percentage != nil {
-				out.Abort.Percent = uint32(in.Abort.Percentage.Value)
+				out.Abort.Percentage = translatePercentToFractionalPercent(in.Abort.Percentage)
 			} else {
-				out.Abort.Percent = uint32(in.Abort.Percent)
+				out.Abort.Percentage = translateIntegerToFractionalPercent(in.Abort.Percent)
 			}
 		}
 		switch a := in.Abort.ErrorType.(type) {

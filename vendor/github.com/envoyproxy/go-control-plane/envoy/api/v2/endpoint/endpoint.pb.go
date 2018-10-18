@@ -55,7 +55,7 @@ func (m *Endpoint) Reset()         { *m = Endpoint{} }
 func (m *Endpoint) String() string { return proto.CompactTextString(m) }
 func (*Endpoint) ProtoMessage()    {}
 func (*Endpoint) Descriptor() ([]byte, []int) {
-	return fileDescriptor_endpoint_7c5d3aaa3ee54675, []int{0}
+	return fileDescriptor_endpoint_831f394d40c2aa11, []int{0}
 }
 func (m *Endpoint) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -116,7 +116,7 @@ func (m *Endpoint_HealthCheckConfig) Reset()         { *m = Endpoint_HealthCheck
 func (m *Endpoint_HealthCheckConfig) String() string { return proto.CompactTextString(m) }
 func (*Endpoint_HealthCheckConfig) ProtoMessage()    {}
 func (*Endpoint_HealthCheckConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_endpoint_7c5d3aaa3ee54675, []int{0, 0}
+	return fileDescriptor_endpoint_831f394d40c2aa11, []int{0, 0}
 }
 func (m *Endpoint_HealthCheckConfig) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -190,7 +190,7 @@ func (m *LbEndpoint) Reset()         { *m = LbEndpoint{} }
 func (m *LbEndpoint) String() string { return proto.CompactTextString(m) }
 func (*LbEndpoint) ProtoMessage()    {}
 func (*LbEndpoint) Descriptor() ([]byte, []int) {
-	return fileDescriptor_endpoint_7c5d3aaa3ee54675, []int{1}
+	return fileDescriptor_endpoint_831f394d40c2aa11, []int{1}
 }
 func (m *LbEndpoint) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -292,7 +292,7 @@ func (m *LocalityLbEndpoints) Reset()         { *m = LocalityLbEndpoints{} }
 func (m *LocalityLbEndpoints) String() string { return proto.CompactTextString(m) }
 func (*LocalityLbEndpoints) ProtoMessage()    {}
 func (*LocalityLbEndpoints) Descriptor() ([]byte, []int) {
-	return fileDescriptor_endpoint_7c5d3aaa3ee54675, []int{2}
+	return fileDescriptor_endpoint_831f394d40c2aa11, []int{2}
 }
 func (m *LocalityLbEndpoints) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1400,10 +1400,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/api/v2/endpoint/endpoint.proto", fileDescriptor_endpoint_7c5d3aaa3ee54675)
+	proto.RegisterFile("envoy/api/v2/endpoint/endpoint.proto", fileDescriptor_endpoint_831f394d40c2aa11)
 }
 
-var fileDescriptor_endpoint_7c5d3aaa3ee54675 = []byte{
+var fileDescriptor_endpoint_831f394d40c2aa11 = []byte{
 	// 532 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x52, 0x41, 0x6f, 0xd3, 0x30,
 	0x14, 0xc6, 0x4b, 0xbb, 0x15, 0xb7, 0x43, 0x5a, 0xca, 0x44, 0x54, 0xa6, 0x16, 0xaa, 0x09, 0x55,

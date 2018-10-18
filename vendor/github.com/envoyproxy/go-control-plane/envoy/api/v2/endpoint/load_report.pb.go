@@ -70,7 +70,7 @@ func (m *UpstreamLocalityStats) Reset()         { *m = UpstreamLocalityStats{} }
 func (m *UpstreamLocalityStats) String() string { return proto.CompactTextString(m) }
 func (*UpstreamLocalityStats) ProtoMessage()    {}
 func (*UpstreamLocalityStats) Descriptor() ([]byte, []int) {
-	return fileDescriptor_load_report_f37a4b76945e0aeb, []int{0}
+	return fileDescriptor_load_report_08e3bed79f8408b1, []int{0}
 }
 func (m *UpstreamLocalityStats) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -190,7 +190,7 @@ func (m *UpstreamEndpointStats) Reset()         { *m = UpstreamEndpointStats{} }
 func (m *UpstreamEndpointStats) String() string { return proto.CompactTextString(m) }
 func (*UpstreamEndpointStats) ProtoMessage()    {}
 func (*UpstreamEndpointStats) Descriptor() ([]byte, []int) {
-	return fileDescriptor_load_report_f37a4b76945e0aeb, []int{1}
+	return fileDescriptor_load_report_08e3bed79f8408b1, []int{1}
 }
 func (m *UpstreamEndpointStats) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -272,7 +272,7 @@ func (m *EndpointLoadMetricStats) Reset()         { *m = EndpointLoadMetricStats
 func (m *EndpointLoadMetricStats) String() string { return proto.CompactTextString(m) }
 func (*EndpointLoadMetricStats) ProtoMessage()    {}
 func (*EndpointLoadMetricStats) Descriptor() ([]byte, []int) {
-	return fileDescriptor_load_report_f37a4b76945e0aeb, []int{2}
+	return fileDescriptor_load_report_08e3bed79f8408b1, []int{2}
 }
 func (m *EndpointLoadMetricStats) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -360,7 +360,7 @@ func (m *ClusterStats) Reset()         { *m = ClusterStats{} }
 func (m *ClusterStats) String() string { return proto.CompactTextString(m) }
 func (*ClusterStats) ProtoMessage()    {}
 func (*ClusterStats) Descriptor() ([]byte, []int) {
-	return fileDescriptor_load_report_f37a4b76945e0aeb, []int{3}
+	return fileDescriptor_load_report_08e3bed79f8408b1, []int{3}
 }
 func (m *ClusterStats) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -438,7 +438,7 @@ func (m *ClusterStats_DroppedRequests) Reset()         { *m = ClusterStats_Dropp
 func (m *ClusterStats_DroppedRequests) String() string { return proto.CompactTextString(m) }
 func (*ClusterStats_DroppedRequests) ProtoMessage()    {}
 func (*ClusterStats_DroppedRequests) Descriptor() ([]byte, []int) {
-	return fileDescriptor_load_report_f37a4b76945e0aeb, []int{3, 0}
+	return fileDescriptor_load_report_08e3bed79f8408b1, []int{3, 0}
 }
 func (m *ClusterStats_DroppedRequests) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1814,10 +1814,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/api/v2/endpoint/load_report.proto", fileDescriptor_load_report_f37a4b76945e0aeb)
+	proto.RegisterFile("envoy/api/v2/endpoint/load_report.proto", fileDescriptor_load_report_08e3bed79f8408b1)
 }
 
-var fileDescriptor_load_report_f37a4b76945e0aeb = []byte{
+var fileDescriptor_load_report_08e3bed79f8408b1 = []byte{
 	// 691 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xec, 0x54, 0xcb, 0x6e, 0xd3, 0x40,
 	0x14, 0x95, 0x93, 0x3e, 0xd2, 0x49, 0xaa, 0x96, 0x51, 0x4b, 0xd2, 0x00, 0x69, 0x28, 0x42, 0x64,
