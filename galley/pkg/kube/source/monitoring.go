@@ -44,12 +44,12 @@ var (
 		"The number of times the listener's handleEvent has succeeded",
 		stats.UnitDimensionless)
 
-	conversionSuccess = stats.Int64(
-		"galley/kube/source/source_converter_success",
+	sourceConversionSuccess = stats.Int64(
+		"galley/kube/source/source_converter_success_total",
 		"The number of times resource conversion in the source's ProcessEvent has succeeded",
 		stats.UnitDimensionless)
-	conversionFailure = stats.Int64(
-		"galley/kube/source/source_converter_failure",
+	sourceConversionFailure = stats.Int64(
+		"galley/kube/source/source_converter_failure_total",
 		"The number of times resource conversion in the source's ProcessEvent has failed",
 		stats.UnitDimensionless)
 )
@@ -65,9 +65,9 @@ func recordHandleEventSuccess() {
 func recordConverterResult(success bool, apiVersion, group, kind string) {
 	var metric *stats.Int64Measure
 	if success {
-		metric = conversionSuccess
+		metric = sourceConversionSuccess
 	} else {
-		metric = conversionFailure
+		metric = sourceConversionFailure
 	}
 	ctx, err := tag.New(context.Background(), tag.Insert(APIVersionTag, apiVersion),
 		tag.Insert(GroupTag, group), tag.Insert(KindTag, kind))
@@ -107,8 +107,8 @@ func init() {
 	err := view.Register(
 		newView(listenerHandleEventError, noKeys, view.Count()),
 		newView(listenerHandleEventSuccess, noKeys, view.Count()),
-		newView(conversionSuccess, conversionKeys, view.Count()),
-		newView(conversionFailure, conversionKeys, view.Count()),
+		newView(sourceConversionSuccess, conversionKeys, view.Count()),
+		newView(sourceConversionFailure, conversionKeys, view.Count()),
 	)
 
 	if err != nil {
