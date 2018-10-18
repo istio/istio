@@ -189,8 +189,7 @@ func validateNoSessionBackend(s *spy.NoSessionServer, t *testing.T) {
 	apainstBa, _ := apainst.Marshal()
 	apaOut := attribute.GetMutableBag(nil)
 	defer apaOut.Done()
-	if err := h.HandleRemoteGenAttrs(context.Background(), &adapter.EncodedInstance{Name: apaDi.Name, Data: apainstBa},
-		apaOut); err != nil {
+	if err := h.HandleRemoteGenAttrs(context.Background(), &adapter.EncodedInstance{Name: apaDi.Name, Data: apainstBa}, apaOut); err != nil {
 		t.Fatalf("HandleRemoteGenAttrs returned: %v", err)
 	}
 	if val, ok := apaOut.Get("output.int64Primitive"); !ok || val != int64(1337) {
