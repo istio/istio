@@ -23,7 +23,6 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/go-multierror"
-
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	mpb "istio.io/api/mixer/v1"
@@ -541,7 +540,6 @@ func TestValidateMeshConfig(t *testing.T) {
 		MixerReportServer: "10.0.0.100",
 		ProxyListenPort:   0,
 		ConnectTimeout:    types.DurationProto(-1 * time.Second),
-		AuthPolicy:        -1,
 		DefaultConfig:     &meshconfig.ProxyConfig{},
 	}
 
