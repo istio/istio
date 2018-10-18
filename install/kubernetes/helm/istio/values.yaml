@@ -215,10 +215,9 @@ global:
     # address: the <host>:<port> of the satellite pool
     # accessToken: required for sending data to the pool
     # secure: specifies whether data should be sent with TLS
-    # cacertPath: the path to the file containing the cacert to use when verifying TLS. If not specified, the default
-    #   will be to use a Bundle of CA Root Certificates from Mozilla. If a value is specified then a secret called
-    #   "lightstep.cacert" must be created in the destination namespace with the key matching the base of the provided
-    #   cacertPath and the value being the cacert itself.
+    # cacertPath: the path to the file containing the cacert to use when verifying TLS. If secure is true, this is
+    #   required. If a value is specified then a secret called "lightstep.cacert" must be created in the destination
+    #   namespace with the key matching the base of the provided cacertPath and the value being the cacert itself.
     #
     lightstep:
       address: ""                # example: lightstep-satellite:443
