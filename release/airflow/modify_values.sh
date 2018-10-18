@@ -32,14 +32,14 @@ function fix_values_yaml_worker() {
   rm                       "${tarball_name}"
 
   sed -i "s|hub: gcr.io/istio-release|hub: ${HUB}|g" ./"${folder_name}"/install/kubernetes/helm/istio*/values.yaml
-  sed -i "s|tag: master-latest-daily|tag: ${TAG}|g"  ./"${folder_name}"/install/kubernetes/helm/istio*/values.yaml
+  sed -i "s|tag: .*-latest-daily|tag: ${TAG}|g"  ./"${folder_name}"/install/kubernetes/helm/istio*/values.yaml
 
   eval "$zip_cmd" "${tarball_name}" "${folder_name}"
   sha256sum       "${tarball_name}" > "${tarball_name}.sha256"
   rm -rf                            "${folder_name}"
 
-  gsutil cp "${tarball_name}"        "${gcs_folder_path}/${tarball_name}"
-  gsutil cp "${tarball_name}.sha256" "${gcs_folder_path}/${tarball_name}.sha256"
+  gsutil -q cp "${tarball_name}"        "${gcs_folder_path}/${tarball_name}"
+  gsutil -q cp "${tarball_name}.sha256" "${gcs_folder_path}/${tarball_name}.sha256"
   echo "DONE fixing  ${gcs_folder_path}/${tarball_name} with hub: ${HUB} tag: ${TAG}"
 }
 
