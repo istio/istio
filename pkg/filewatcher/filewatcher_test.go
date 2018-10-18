@@ -44,6 +44,28 @@ func newWatchFile(t *testing.T) (string, func()) {
 	return watchFile, cleanup
 }
 
+// newTwoWatchFile returns with two watch files that exist in the same base dir.
+func newTwoWatchFile(t *testing.T) (string, string, func()) {
+	g := NewGomegaWithT(t)
+
+	watchDir, err := ioutil.TempDir("", "")
+	g.Expect(err).NotTo(HaveOccurred())
+
+	watchFile1 := path.Join(watchDir, "test1.conf")
+	err = ioutil.WriteFile(watchFile1, []byte("foo: bar\n"), 0640)
+	g.Expect(err).NotTo(HaveOccurred())
+
+	watchFile2 := path.Join(watchDir, "test2.conf")
+	err = ioutil.WriteFile(watchFile2, []byte("foo: baz\n"), 0640)
+	g.Expect(err).NotTo(HaveOccurred())
+
+	cleanup := func() {
+		os.RemoveAll(watchDir)
+	}
+
+	return watchFile1, watchFile2, cleanup
+}
+
 // newSymlinkedWatchFile simulates the behavior of k8s configmap/secret.
 // Path structure looks like:
 //      <watchDir>/test.conf
@@ -152,10 +174,8 @@ func TestWatchFile(t *testing.T) {
 func TestWatcherLifecycle(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	watchFile1, cleanup1 := newWatchFile(t)
-	defer cleanup1()
-	watchFile2, cleanup2 := newWatchFile(t)
-	defer cleanup2()
+	watchFile1, watchFile2, cleanup := newTwoWatchFile(t)
+	defer cleanup()
 
 	w := NewWatcher()
 
@@ -186,7 +206,7 @@ func TestWatcherLifecycle(t *testing.T) {
 	events1 = w.Events(watchFile1)
 	g.Expect(events1).To(BeNil())
 	errors1 = w.Errors(watchFile1)
-	g.Expect(errors1).To(BeNil())
+	g.Expect(errors1).NotTo(BeNil())
 	events2 = w.Events(watchFile2)
 	g.Expect(events2).NotTo(BeNil())
 	errors2 = w.Errors(watchFile2)

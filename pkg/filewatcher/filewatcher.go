@@ -15,7 +15,11 @@
 package filewatcher
 
 import (
+	"bufio"
+	"crypto/md5"
 	"fmt"
+	"io"
+	"os"
 	"path/filepath"
 	"sync"
 
@@ -33,24 +37,35 @@ type FileWatcher interface {
 
 type fsNotifyWatcher struct {
 	mu sync.RWMutex
-	// The watcher maintain a map of fsnotify watchers,
-	// keyed by path.
-	watchers map[string]*fsnotify.Watcher
-	// The watcher maintain a map of event channel,
-	// keyed by path.
-	// The watcher watches parent path of given path,
+	// The watcher maintain a map of workers,
+	// keyed by watched dir (parent dir of watched files).
+	workers map[string]*worker
+}
+
+type worker struct {
+	// watcher is a fsnotify watcher that watches the parent
+	// dir of watchedFiles.
+	watcher *fsnotify.Watcher
+	// The worker maintain a map of event channel (included in fileTracker),
+	// keyed by watched file path.
+	// The worker watches parent path of given path,
 	// and filter out events of given path, then redirect
 	// to the result channel.
 	// Note that for symlink files, the content in received events
 	// do not have to be related to the file itself.
-	events map[string]chan fsnotify.Event
+	watchedFiles map[string]*fileTracker
+}
+
+type fileTracker struct {
+	events chan fsnotify.Event
+	// md5 sum to indicate if a file has been updated.
+	md5Sum string
 }
 
 // NewWatcher return with a FileWatcher instance that implemented with fsnotify.
 func NewWatcher() FileWatcher {
 	w := &fsNotifyWatcher{
-		watchers: map[string]*fsnotify.Watcher{},
-		events:   map[string]chan fsnotify.Event{},
+		workers: map[string]*worker{},
 	}
 
 	return w
@@ -61,23 +76,48 @@ func (w *fsNotifyWatcher) Add(path string) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	if _, exist := w.watchers[path]; exist {
-		return fmt.Errorf("path %s already added", path)
+	cleanedPath, parentPath := formatPath(path)
+	if worker, workerExist := w.workers[parentPath]; workerExist {
+		if _, pathExist := worker.watchedFiles[cleanedPath]; pathExist {
+			return fmt.Errorf("path %s already added", path)
+		}
+
+		// And the path into worker maps if not exist.
+		md5Sum, err := getMd5Sum(cleanedPath)
+		if err != nil {
+			return fmt.Errorf("failed to get md5 sum for %s: %v", path, err)
+		}
+		worker.watchedFiles[cleanedPath] = &fileTracker{
+			events: make(chan fsnotify.Event, 1),
+			md5Sum: md5Sum,
+		}
+
+		return nil
 	}
 
+	// Build a new worker if not exist.
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return err
 	}
+	if err = watcher.Add(parentPath); err != nil {
+		return err
+	}
 
-	events := make(chan fsnotify.Event, 1)
-
-	cleanedPath := filepath.Clean(path)
-	parentPath, _ := filepath.Split(cleanedPath)
-	// Ignore the error here as the file can be an "usual" file.
-	realPath, _ := filepath.EvalSymlinks(path)
-
-	watcher.Add(parentPath)
+	md5Sum, err := getMd5Sum(cleanedPath)
+	if err != nil {
+		return fmt.Errorf("failed to get md5 sum for %s: %v", path, err)
+	}
+	wk := &worker{
+		watcher: watcher,
+		watchedFiles: map[string]*fileTracker{
+			cleanedPath: {
+				events: make(chan fsnotify.Event, 1),
+				md5Sum: md5Sum,
+			},
+		},
+	}
+	w.workers[parentPath] = wk
 
 	go func() {
 		for {
@@ -86,26 +126,20 @@ func (w *fsNotifyWatcher) Add(path string) error {
 				if !ok { // 'Events' channel is closed
 					return
 				}
-				// Ignore the error here as the file can be an "usual" file.
-				currentRealPath, _ := filepath.EvalSymlinks(path)
 
-				// Filter out events that related to the path to watch:
-				// for usual files, event name should be equal to its path;
-				// For k8s configmap/secret file, real path of the symlink
-				// would change on update.
-				if filepath.Clean(event.Name) == cleanedPath ||
-					currentRealPath != "" && currentRealPath != realPath {
-					realPath = currentRealPath
-					events <- event
+				for path, tracker := range wk.watchedFiles {
+					newSum, _ := getMd5Sum(path)
+					if newSum != "" && newSum != tracker.md5Sum {
+						tracker.md5Sum = newSum
+						tracker.events <- event
+						break
+					}
 				}
 			case <-watcher.Errors:
 				return
 			}
 		}
 	}()
-
-	w.watchers[path] = watcher
-	w.events[path] = events
 
 	return nil
 }
@@ -119,29 +153,27 @@ func (w *fsNotifyWatcher) Remove(path string) error {
 }
 
 func (w *fsNotifyWatcher) remove(path string) error {
-	var errors *multierror.Error
+	cleanedPath, parentPath := formatPath(path)
 
-	// Remove its watcher from the map.
-	watcher, exist := w.watchers[path]
-	if !exist {
+	worker, workerExist := w.workers[parentPath]
+	if !workerExist {
 		return fmt.Errorf("path %s already removed", path)
 	}
-	err := watcher.Close()
-	delete(w.watchers, path)
-	errors = multierror.Append(errors, err)
 
-	// Remove its event channel from the map.
-	events, exist := w.events[path]
-	if !exist {
-		// This should never happen.
-		err := fmt.Errorf("path %s already removed", path)
-		errors = multierror.Append(errors, err)
-		return errors.ErrorOrNil()
+	tracker, pathExist := worker.watchedFiles[cleanedPath]
+	if !pathExist {
+		return fmt.Errorf("path %s already removed", path)
 	}
-	delete(w.events, path)
-	close(events)
 
-	return errors.ErrorOrNil()
+	delete(worker.watchedFiles, cleanedPath)
+	close(tracker.events)
+	if len(worker.watchedFiles) == 0 {
+		// Remove the watch if all of its paths have been removed.
+		delete(w.workers, parentPath)
+		return worker.watcher.Close()
+	}
+
+	return nil
 }
 
 // Close is implementation of Close interface of FileWatcher.
@@ -150,8 +182,10 @@ func (w *fsNotifyWatcher) Close() error {
 	defer w.mu.Unlock()
 
 	var errors *multierror.Error
-	for path := range w.watchers {
-		errors = multierror.Append(errors, w.remove(path))
+	for _, worker := range w.workers {
+		for path := range worker.watchedFiles {
+			errors = multierror.Append(errors, w.remove(path))
+		}
 	}
 
 	return errors.ErrorOrNil()
@@ -162,7 +196,18 @@ func (w *fsNotifyWatcher) Events(path string) chan fsnotify.Event {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 
-	return w.events[path]
+	cleanedPath, parentPath := formatPath(path)
+	worker, workerExist := w.workers[parentPath]
+	if !workerExist {
+		return nil
+	}
+
+	tracker, pathExist := worker.watchedFiles[cleanedPath]
+	if !pathExist {
+		return nil
+	}
+
+	return tracker.events
 }
 
 // Errors is implementation of Errors interface of FileWatcher.
@@ -170,10 +215,39 @@ func (w *fsNotifyWatcher) Errors(path string) chan error {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 
-	watcher, exist := w.watchers[path]
-	if !exist {
+	_, parentPath := formatPath(path)
+	worker, workerExist := w.workers[parentPath]
+	if !workerExist {
 		return nil
 	}
 
-	return watcher.Errors
+	return worker.watcher.Errors
+}
+
+// getMd5Sum is a helper func to calculate md5 sum.
+func getMd5Sum(file string) (string, error) {
+	f, err := os.Open(file)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	r := bufio.NewReader(f)
+
+	h := md5.New()
+
+	_, err = io.Copy(h, r)
+	if err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("%x", h.Sum(nil)), nil
+}
+
+// formatPath return with the path after Clean,
+// as well as its parent path.
+func formatPath(path string) (string, string) {
+	cleanedPath := filepath.Clean(path)
+	parentPath, _ := filepath.Split(cleanedPath)
+
+	return cleanedPath, parentPath
 }
