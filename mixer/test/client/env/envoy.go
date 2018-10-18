@@ -75,6 +75,13 @@ func (s *TestSetup) NewEnvoy() (*Envoy, error) {
 	if path, exists := os.LookupEnv("ENVOY_PATH"); exists {
 		envoyPath = path
 	}
+
+	// glibc_path is the location of customized glibc library path (/opt/glibc-2.18/lib)
+	if glibc_path := os.Getenv("GLIBC_PATH"); glibc_path != "" {
+		glibc_args := []string{"--library-path", glibc_path, envoyPath}
+		envoyPath = filepath.Join(glibc_path, "ld-linux-x86-64.so.2")
+		args = append(glibc_args, args...)
+	}
 	cmd := exec.Command(envoyPath, args...)
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
