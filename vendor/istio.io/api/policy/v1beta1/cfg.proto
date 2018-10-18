@@ -231,6 +231,20 @@ message Instance {
   // Required. Depends on referenced template. Struct representation of a
   // proto defined by the template; this varies depending on the value of field `template`.
   google.protobuf.Struct params = 3;
+
+  // Optional. Defines attribute bindings to map the output of attribute-producing adapters back into
+  // the attribute space. The variable `output` refers to the output template instance produced
+  // by the adapter.
+  // The following example derives `source.namespace` from `source.uid` in the context of Kubernetes:
+  // ```yaml
+  // params:
+  //   # Pass the required attribute data to the adapter
+  //   source_uid: source.uid | ""
+  // attribute_bindings:
+  //   # Fill the new attributes from the adapter produced output
+  //   source.namespace: output.source_namespace
+  // ```
+  map<string, string> attribute_bindings = 4;
 }
 
 // Handler allows the operator to configure a specific adapter implementation.
