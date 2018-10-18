@@ -76,6 +76,7 @@ const (
 	attrDestName      = "destination.name"      // short service name, e.g. "productpage".
 	attrDestNamespace = "destination.namespace" // e.g. "default".
 	attrDestUser      = "destination.user"      // service account, e.g. "bookinfo-productpage".
+	attrConnSNI       = "connection.sni"        // server name indication, e.g. "www.example.com".
 
 	methodHeader = ":method"
 	pathHeader   = ":path"
@@ -741,6 +742,14 @@ func permissionForKeyValues(key string, values []string) *policyproto.Permission
 			return &policyproto.Permission{
 				Rule: &policyproto.Permission_Header{
 					Header: convertToHeaderMatcher(header, v),
+				},
+			}, nil
+		}
+	case key == attrConnSNI:
+		converter = func(v string) (*policyproto.Permission, error) {
+			return &policyproto.Permission{
+				Rule: &policyproto.Permission_RequestedServerName{
+					RequestedServerName: createStringMatcher(v, /* forceRegexPattern */ false, /* forTCPFilter */ false),
 				},
 			}, nil
 		}
