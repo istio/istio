@@ -23,7 +23,7 @@ SCRIPTPATH=$( pwd -P )
 # shellcheck source=release/airflow/gcb_build_lib.sh
 source "${SCRIPTPATH}/gcb_build_lib.sh"
 
-# Helper function called by Airflow to create SUBS file used only in this file
+# Helper function not called by Airflow, used only by functions in this file
 function create_subs_file() {
    # SUBS_FILE is not a local variable and is used by other functions in this file
    SUBS_FILE="$(mktemp /tmp/build.subs.gcs_release_tool_path.XXXX)"
