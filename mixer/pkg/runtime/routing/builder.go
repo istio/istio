@@ -54,7 +54,6 @@ import (
 	"strings"
 
 	"go.opencensus.io/stats"
-
 	tpb "istio.io/api/mixer/adapter/model/v1beta1"
 	descriptor "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
@@ -438,8 +437,6 @@ func (b *builder) templateInfo(tmpl *config.Template) *TemplateInfo {
 		if err != nil {
 			return nil, fmt.Errorf("internal: failed to make an RPC to an APA: %v", err)
 		}
-
-		fmt.Printf("VALUES %v\n", values)
 
 		out, err := mapper(values)
 		if err != nil {
