@@ -70,7 +70,7 @@ func (s *DiscoveryServer) pushCds(con *XdsConnection, push *model.PushContext, v
 }
 
 func (s *DiscoveryServer) generateRawClusters(con *XdsConnection, push *model.PushContext) ([]*xdsapi.Cluster, error) {
-	rawClusters, err := s.ConfigGenerator.BuildClusters(s.env, con.modelNode, push)
+	rawClusters, err := s.ConfigGenerator.BuildClusters(s.Env, con.modelNode, push)
 	if err != nil {
 		adsLog.Warnf("CDS: Failed to generate clusters for node %s: %v", con.modelNode, err)
 		pushes.With(prometheus.Labels{"type": "cds_builderr"}).Add(1)

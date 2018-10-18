@@ -322,7 +322,7 @@ func deleteRules(configVersion string, ruleKeys []string) error {
 		}
 	}
 	log.Info("Waiting for rule to be cleaned up...")
-	time.Sleep(time.Duration(30) * time.Second)
+	time.Sleep(time.Duration(5) * time.Second)
 	return err
 }
 
@@ -335,7 +335,7 @@ func applyRules(configVersion string, ruleKeys []string) error {
 		}
 	}
 	log.Info("Waiting for rules to propagate...")
-	time.Sleep(time.Duration(30) * time.Second)
+	time.Sleep(time.Duration(5) * time.Second)
 	return nil
 }
 

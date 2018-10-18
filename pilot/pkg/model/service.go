@@ -407,7 +407,8 @@ type ServiceDiscovery interface {
 	//
 	// Similar concepts apply for calling this function with a specific
 	// port, hostname and labels.
-	// Deprecated: made obsolete by InstancesByPort
+	// Deprecated: made obsolete by InstancesByPort. Only used by (deprecated) ServiceAccounts,
+	// and discovery.ListAllEndpoints for debug. Will be removed in 1.1
 	Instances(hostname Hostname, ports []string, labels LabelsCollection) ([]*ServiceInstance, error)
 
 	// InstancesByPort retrieves instances for a service on the given ports with labels that match
@@ -468,9 +469,12 @@ type ServiceDiscovery interface {
 }
 
 // ServiceAccounts exposes Istio service accounts
+// Deprecated - service account tracking moved to XdsServer, incremental.
 type ServiceAccounts interface {
 	// GetIstioServiceAccounts returns a list of service accounts looked up from
 	// the specified service hostname and ports.
+	// Deprecated - service account tracking moved to XdsServer, incremental.
+	// Method only used in networking/core/v1a3/cluster.go
 	GetIstioServiceAccounts(hostname Hostname, ports []string) []string
 }
 

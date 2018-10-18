@@ -310,7 +310,12 @@ func TestExternalDetailsService(t *testing.T) {
 
 	var rules = []string{detailsExternalServiceRouteRule, detailsExternalServiceEgressRule}
 
-	doTestExternalDetailsService(t, "v1alpha3", rules)
+	// Repeat the test few times
+	for i := 0; i < 4; i++ {
+		t.Run("ExternalDetail", func(t *testing.T) {
+			doTestExternalDetailsService(t, "v1alpha3", rules)
+		})
+	}
 }
 
 func doTestExternalDetailsService(t *testing.T, configVersion string, rules []string) {
@@ -323,7 +328,13 @@ func doTestExternalDetailsService(t *testing.T, configVersion string, rules []st
 
 	isbnFetchedFromExternalService := "0486424618"
 
-	_, err = checkHTTPResponse(getIngressOrFail(t, configVersion), isbnFetchedFromExternalService, 1)
+	for i := 0; i < 10; i++ {
+		_, err = checkHTTPResponse(getIngressOrFail(t, configVersion), isbnFetchedFromExternalService, 1)
+		if err == nil {
+			return
+		}
+		time.Sleep(5 * time.Second)
+	}
 	inspect(
 		err, fmt.Sprintf("Failed external details routing! %s in v1", u1),
 		fmt.Sprintf("Success! Response matches with expected! %s", isbnFetchedFromExternalService), t)

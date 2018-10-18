@@ -16,8 +16,6 @@ package v2_test
 import (
 	"fmt"
 	"io/ioutil"
-	"log"
-	"sync"
 	"testing"
 	"time"
 
@@ -235,87 +233,4 @@ func TestAdsUpdate(t *testing.T) {
 	strResponse, _ = model.ToJSONWithIndent(res1, " ")
 	_ = ioutil.WriteFile(util.IstioOut+"/edsv2_update.json", []byte(strResponse), 0644)
 	_ = edsstr.CloseSend()
-}
-
-// Make a direct EDS grpc request to pilot, verify the result is as expected.
-func TestAdsMultiple(t *testing.T) {
-	server := initLocalPilotTestEnv(t)
-	errChan := make(chan error, 100)
-
-	wg := &sync.WaitGroup{}
-	wgConnect := &sync.WaitGroup{}
-
-	n := 10
-	nPushes := 10
-
-	wg.Add(n)
-	wgConnect.Add(n)
-	for i := 0; i < n; i++ {
-		i := i
-		go func() {
-			edsstr, err := connectADS(util.MockPilotGrpcAddr)
-			if err != nil {
-				errChan <- err
-			}
-
-			err = sendEDSReq([]string{"outbound|1080||service3.default.svc.cluster.local"}, sidecarId(testIp(uint32(0x0a200000+i)), "app3"), edsstr)
-			if err != nil {
-				errChan <- err
-			}
-
-			res1, err := adsReceive(edsstr, 5*time.Second)
-			if err != nil {
-				errChan <- err
-			}
-			wgConnect.Done()
-
-			cla, err := getLoadAssignment(res1)
-			if err != nil {
-				errChan <- err
-			}
-
-			ep := cla.Endpoints
-			if len(ep) == 0 {
-				t.Fatal("No endpoints")
-				errChan <- fmt.Errorf("No endpoints received")
-			}
-			lbe := ep[0].LbEndpoints
-			if len(lbe) == 0 {
-				errChan <- fmt.Errorf("No lb endpoints received")
-			}
-
-			for j := 0; j < nPushes; j++ {
-				_, err = adsReceive(edsstr, 5*time.Second)
-				if err != nil {
-					errChan <- fmt.Errorf("Receive 2 failed: %s", err)
-				}
-			}
-			_ = edsstr.CloseSend()
-			wg.Done()
-		}()
-	}
-	ok := waitTimeout(wgConnect, 10*time.Second)
-	if !ok {
-		t.Fatal("Failed to connect")
-	}
-
-	// will trigger recompute and push for all clients - including some that may be closing
-	// This reproduced the 'push on closed connection' bug.
-	for j := 0; j < nPushes; j++ {
-		_ = server.EnvoyXdsServer.MemRegistry.AddEndpoint("service3.default.svc.cluster.local",
-			"http-main", 2080, "10.1.7.1", 1080)
-		v2.AdsPushAll(server.EnvoyXdsServer)
-		log.Println("Push done ", j)
-	}
-
-	ok = waitTimeout(wg, 20*time.Second)
-	if !ok {
-		t.Fatal("Failed to receive all responses")
-	}
-
-	close(errChan)
-
-	for e := range errChan {
-		t.Fatal(e)
-	}
 }
