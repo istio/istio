@@ -1466,7 +1466,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:417279bf0101e5067574704db0081a0fc2791fb6e45499cf1c59e2d13b6fa230"
+  digest = "1:738b8929764f49c7bd229657a96d7207073431c29ec9eb6c85a7b7f0552d556d"
   name = "google.golang.org/genproto"
   packages = [
     "googleapis/api/annotations",
@@ -1477,6 +1477,7 @@
     "googleapis/appengine/logging/v1",
     "googleapis/cloud/audit",
     "googleapis/devtools/cloudtrace/v2",
+    "googleapis/iam/credentials/v1",
     "googleapis/logging/type",
     "googleapis/logging/v2",
     "googleapis/monitoring/v3",
@@ -1484,7 +1485,7 @@
     "protobuf/field_mask",
   ]
   pruneopts = "NUT"
-  revision = "ab0870e398d5dd054b868c0db1481ab029b9a9f2"
+  revision = "94acd270e44e65579b9ee3cdab25034d33fed608"
 
 [[projects]]
   digest = "1:d2cd4383c252f450abec5772b1d3536603ee955df65fd992b767bb214c774a84"
@@ -2098,6 +2099,7 @@
     "google.golang.org/genproto/googleapis/api/label",
     "google.golang.org/genproto/googleapis/api/metric",
     "google.golang.org/genproto/googleapis/api/monitoredres",
+    "google.golang.org/genproto/googleapis/iam/credentials/v1",
     "google.golang.org/genproto/googleapis/monitoring/v3",
     "google.golang.org/grpc",
     "google.golang.org/grpc/balancer",
