@@ -171,7 +171,7 @@ func (h *Handler) handleRemote(ctx context.Context, qr proto.Marshaler,
 		return err
 	}
 
-	codec := grpc.CallCustomCodec(&Codec{decoder: svc.decoder})
+	codec := grpc.CallCustomCodec(Codec{decoder: svc.decoder})
 	if err := h.conn.Invoke(ctx, svc.GrpcPath(), ba, resultPtr, codec); err != nil {
 		handlerLog.Warnf("unable to connect to:%s, %s", svc.GrpcPath(), h.connConfig.Address)
 		return errors.WithStack(err)
@@ -400,7 +400,7 @@ func (s Svc) encodeRequest(qr proto.Marshaler, dedupID string, encodedInstances 
 }
 
 // Marshal does a noo-op marshal if input in bytes, otherwise it is an error.
-func (c *Codec) Marshal(v interface{}) ([]byte, error) {
+func (c Codec) Marshal(v interface{}) ([]byte, error) {
 	if ba, ok := v.([]byte); ok {
 		return ba, nil
 	}
@@ -409,7 +409,7 @@ func (c *Codec) Marshal(v interface{}) ([]byte, error) {
 }
 
 // Unmarshal uses custom decoder or delegates to standard proto Unmarshal
-func (c *Codec) Unmarshal(data []byte, v interface{}) error {
+func (c Codec) Unmarshal(data []byte, v interface{}) error {
 	if c.decoder != nil {
 		out, ok := v.(*attribute.MutableBag)
 		if !ok {
@@ -427,6 +427,6 @@ func (c *Codec) Unmarshal(data []byte, v interface{}) error {
 }
 
 // String returns name of the codec.
-func (c *Codec) String() string {
+func (c Codec) String() string {
 	return "bytes-out-proto-in-codec"
 }
