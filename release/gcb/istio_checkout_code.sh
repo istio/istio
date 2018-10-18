@@ -24,6 +24,7 @@ set -u
 # Print commands
 set -x
 
+# shellcheck disable=SC1091
 source "/workspace/gcb_env.sh"
 
 function checkout_code() {

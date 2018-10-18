@@ -28,6 +28,7 @@ set -x
 # uses store_artifacts.sh to store the build on GCS and docker hub
 # in addition it saves the source code
 
+# shellcheck disable=SC1091
 source "/workspace/gcb_env.sh"
 
 SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )

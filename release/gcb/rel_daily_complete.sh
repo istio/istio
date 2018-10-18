@@ -20,6 +20,7 @@ set -o nounset
 set -o pipefail
 set -x
 
+# shellcheck disable=SC1091
 source "/workspace/gcb_env.sh"
 
 # This script downloads creates a static file on GCS which has the download link of lnux tar gz

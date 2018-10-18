@@ -25,6 +25,7 @@ set -u
 # Print commands
 set -x
 
+# shellcheck disable=SC1091
 source "/workspace/gcb_env.sh"
 
 SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
@@ -44,8 +45,6 @@ function replace_sha_branch_repo() {
   if [[ -z "${CB_BRANCH}" ]]; then
     exit 2
   fi
-
-  repstr="$REPO $NEW_SHA"
   sed "s/$REPO.*/$REPO $NEW_SHA/" -i "$MANIFEST_FILE"
 }
 

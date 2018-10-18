@@ -5,6 +5,7 @@ set -o nounset
 set -o pipefail
 set -x
 
+# shellcheck disable=SC1091
 source "/workspace/gcb_env.sh"
 
 function usage() {
@@ -57,9 +58,8 @@ function fix_values_yaml() {
   fix_values_yaml_worker "$1" "$2" "$3" "$4" "gs://${CB_GCS_BUILD_PATH}"
 }
 
-rm -rf modification-tmp
-mkdir  modification-tmp
-cd     modification-tmp || exit 2
+mkdir modification-tmp
+cd    modification-tmp || exit 2
 ls -l
 pwd
 
@@ -70,10 +70,6 @@ fix_values_yaml     "tar -zxf" "tar -zcf" "${folder_name}" "${folder_name}-linux
 fix_values_yaml     "tar -zxf" "tar -zcf" "${folder_name}" "${folder_name}-osx.tar.gz"
 # Windows
 fix_values_yaml    "unzip -q" "zip -q -r" "${folder_name}" "${folder_name}-win.zip"
-
-cd ..
-rm -rf modification-tmp
-exit 0
 
 #filename | sha256 hash
 #-------- | -----------

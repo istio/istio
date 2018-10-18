@@ -25,6 +25,7 @@ set -u
 # Print commands
 set -x
 
+# shellcheck disable=SC1091
 source "/workspace/gcb_env.sh"
 
 SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )

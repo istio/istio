@@ -20,6 +20,7 @@ set -o nounset
 set -o pipefail
 set -x
 
+# shellcheck disable=SC1091
 source "/workspace/gcb_env.sh"
 # This script pushes to various docker hubs with the version of the build
 
