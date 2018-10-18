@@ -104,8 +104,9 @@ func recordStateTypeCount(typeURL string, count int) {
 	ctx, err := tag.New(context.Background(), tag.Insert(TypeURLTag, typeURL))
 	if err != nil {
 		scope.Errorf("Error creating monitoring context for counting state: %v", err)
+	} else {
+		stats.Record(ctx, stateTypeInstancesTotal.M(int64(count)))
 	}
-	stats.Record(ctx, stateTypeInstancesTotal.M(int64(count)))
 }
 
 func newView(measure stats.Measure, keys []tag.Key, aggregation *view.Aggregation) *view.View {
