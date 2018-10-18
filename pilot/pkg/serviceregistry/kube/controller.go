@@ -28,6 +28,7 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
+	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -114,6 +115,7 @@ type Controller struct {
 
 type cacheHandler struct {
 	informer cache.SharedIndexInformer
+	lister   cache.GenericLister
 	handler  *ChainHandler
 }
 
@@ -472,49 +474,49 @@ func (c *Controller) InstancesByPort(hostname model.Hostname, reqSvcPort int,
 // GetProxyServiceInstances returns service instances co-located with a given proxy
 func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.ServiceInstance, error) {
 	proxyIP := proxy.IPAddress
-	podNamespace := ""
-	if pod, exists := c.pods.getPodByIP(proxyIP); exists {
-		podNamespace = pod.Namespace
+	pod, exists := c.pods.getPodByIP(proxyIP)
+	if !exists {
+		return nil, fmt.Errorf("failed to get pod by proxyIP %s", proxyIP)
 	}
+	podNamespace := pod.Namespace
+
+	out := make([]*model.ServiceInstance, 0)
+
+	// 1. find proxy service by label selector, if not any, there may exist headless service
+	// failover to 2
+	svcLister := listerv1.NewServiceLister(c.services.informer.GetIndexer())
+	if services, err := svcLister.GetPodServices(pod); err != nil && len(services) > 0 {
+		for _, svc := range services {
+			item, exists, err := c.endpoints.informer.GetStore().GetByKey(KeyFunc(svc.Namespace, svc.Name))
+			if err != nil || !exists {
+				log.Warnf("unable to get endpoint %s/%s for svc: %v", svc.Namespace, svc.Name, err)
+				continue
+			}
+
+			ep := *item.(*v1.Endpoints)
+			out = append(out, c.getProxyServiceInstancesByEndpoint(ep, proxy)...)
+		}
+		return out, nil
+	}
+
+	// 2. Headless service
 	endpointsForPodInSameNS := make([]*model.ServiceInstance, 0)
 	endpointsForPodInDifferentNS := make([]*model.ServiceInstance, 0)
 	for _, item := range c.endpoints.informer.GetStore().List() {
 		ep := *item.(*v1.Endpoints)
-		hostname := serviceHostname(ep.Name, ep.Namespace, c.domainSuffix)
-		c.RLock()
-		svc := c.servicesMap[hostname]
-		c.RUnlock()
-		if svc == nil {
-			continue
-		}
-
 		endpoints := &endpointsForPodInSameNS
 		if ep.Namespace != podNamespace {
 			endpoints = &endpointsForPodInDifferentNS
 		}
 
-		for _, ss := range ep.Subsets {
-			for _, port := range ss.Ports {
-				svcPort, exists := svc.Ports.Get(port.Name)
-				if !exists {
-					continue
-				}
-
-				*endpoints = append(*endpoints, getEndpoints(ss.Addresses, proxyIP, c, svcPort, svc)...)
-				nrEP := getEndpoints(ss.NotReadyAddresses, proxyIP, c, svcPort, svc)
-				*endpoints = append(*endpoints, nrEP...)
-				if len(nrEP) > 0 && c.Env != nil {
-					c.Env.PushContext.Add(model.ProxyStatusEndpointNotReady, proxy.ID, proxy, "")
-				}
-			}
-		}
+		*endpoints = append(*endpoints, c.getProxyServiceInstancesByEndpoint(ep, proxy)...)
 	}
 
 	// Put the endpointsForPodInSameNS in front of endpointsForPodInDifferentNS so that Pilot will
 	// first use endpoints from endpointsForPodInSameNS. This makes sure if there are two endpoints
 	// referring to the same IP/port, the one in endpointsForPodInSameNS will be used. (The other one
 	// in endpointsForPodInDifferentNS will thus be rejected by Pilot).
-	out := append(endpointsForPodInSameNS, endpointsForPodInDifferentNS...)
+	out = append(endpointsForPodInSameNS, endpointsForPodInDifferentNS...)
 	if len(out) == 0 {
 		if c.Env != nil {
 			c.Env.PushContext.Add(model.ProxyStatusNoService, proxy.ID, proxy, "")
@@ -529,34 +531,59 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 	return out, nil
 }
 
-func getEndpoints(addr []v1.EndpointAddress, proxyIP string, c *Controller,
-	svcPort *model.Port, svc *model.Service) []*model.ServiceInstance {
+func (c *Controller) getProxyServiceInstancesByEndpoint(endpoints v1.Endpoints, proxy *model.Proxy) []*model.ServiceInstance {
+	out := make([]*model.ServiceInstance, 0)
 
-	var out []*model.ServiceInstance
-	for _, ea := range addr {
-		if proxyIP != ea.IP {
-			continue
+	hostname := serviceHostname(endpoints.Name, endpoints.Namespace, c.domainSuffix)
+	c.RLock()
+	svc := c.servicesMap[hostname]
+	c.RUnlock()
+
+	if svc != nil {
+		for _, ss := range endpoints.Subsets {
+			for _, port := range ss.Ports {
+				svcPort, exists := svc.Ports.Get(port.Name)
+				if !exists {
+					continue
+				}
+
+				if hasProxyIP(ss.Addresses, proxy.IPAddress) {
+					out = append(out, getEndpoints(proxy.IPAddress, c, svcPort, svc))
+				}
+
+				if hasProxyIP(ss.NotReadyAddresses, proxy.IPAddress) {
+					nrEP := getEndpoints(proxy.IPAddress, c, svcPort, svc)
+					out = append(out, nrEP)
+					if c.Env != nil {
+						c.Env.PushContext.Add(model.ProxyStatusEndpointNotReady, proxy.ID, proxy, "")
+					}
+				}
+			}
 		}
-		labels, _ := c.pods.labelsByIP(ea.IP)
-		pod, exists := c.pods.getPodByIP(ea.IP)
-		az, sa := "", ""
-		if exists {
-			az, _ = c.GetPodAZ(pod)
-			sa = kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace(), c.domainSuffix)
-		}
-		out = append(out, &model.ServiceInstance{
-			Endpoint: model.NetworkEndpoint{
-				Address:     ea.IP,
-				Port:        int(svcPort.Port),
-				ServicePort: svcPort,
-			},
-			Service:          svc,
-			Labels:           labels,
-			AvailabilityZone: az,
-			ServiceAccount:   sa,
-		})
 	}
+
 	return out
+}
+
+func getEndpoints(ip string, c *Controller, svcPort *model.Port, svc *model.Service) *model.ServiceInstance {
+	labels, _ := c.pods.labelsByIP(ip)
+	pod, exists := c.pods.getPodByIP(ip)
+	az, sa := "", ""
+	if exists {
+		az, _ = c.GetPodAZ(pod)
+		sa = kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace(), c.domainSuffix)
+	}
+	return &model.ServiceInstance{
+		Endpoint: model.NetworkEndpoint{
+			Address:     ip,
+			Port:        int(svcPort.Port),
+			ServicePort: svcPort,
+		},
+		Service:          svc,
+		Labels:           labels,
+		AvailabilityZone: az,
+		ServiceAccount:   sa,
+	}
 }
 
 // GetIstioServiceAccounts returns the Istio service accounts running a serivce
