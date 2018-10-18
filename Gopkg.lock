@@ -341,6 +341,7 @@
     "envoy/config/filter/network/mongo_proxy/v2",
     "envoy/config/filter/network/rbac/v2",
     "envoy/config/filter/network/tcp_proxy/v2",
+    "envoy/config/grpc_credential/v2alpha",
     "envoy/config/metrics/v2",
     "envoy/config/overload/v2alpha",
     "envoy/config/ratelimit/v2",
@@ -1939,7 +1940,7 @@
     "pkg/kubectl/genericclioptions/resource",
   ]
   pruneopts = "NUT"
-  revision = "011647662b54bd2904ca6eeae59c0e9b5aca83d3"
+  revision = "cf59a14accee7082ac6dce932a1ec15e181a5e4f"
 
 [solve-meta]
   analyzer-name = "dep"
@@ -1990,6 +1991,7 @@
     "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/mongo_proxy/v2",
     "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/rbac/v2",
     "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2",
+    "github.com/envoyproxy/go-control-plane/envoy/config/grpc_credential/v2alpha",
     "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2alpha",
     "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2",
     "github.com/envoyproxy/go-control-plane/envoy/type",
@@ -2158,6 +2160,7 @@
     "k8s.io/client-go/kubernetes/scheme",
     "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1",
     "k8s.io/client-go/kubernetes/typed/core/v1",
+    "k8s.io/client-go/listers/core/v1",
     "k8s.io/client-go/plugin/pkg/client/auth",
     "k8s.io/client-go/plugin/pkg/client/auth/gcp",
     "k8s.io/client-go/plugin/pkg/client/auth/oidc",
