@@ -15,7 +15,6 @@
 package bootstrap
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -48,9 +47,8 @@ const (
 	// IstioMetaPrefix is used to pass env vars as node metadata.
 	IstioMetaPrefix = "ISTIO_META_"
 
-	// IstioMetaB64Prefix is used to pass annotations and other info that cannot be directly passed in as env vars.
-	// this data is base64 encoded.
-	IstioMetaB64Prefix = "ISTIO_METAB64_"
+	// IstioMetaJSONPrefix is used to pass annotations and similar environment info.
+	IstioMetaJSONPrefix = "ISTIO_METAJSON_"
 )
 
 var (
@@ -146,7 +144,9 @@ func StoreHostPort(host, port, field string, opts map[string]interface{}) {
 type decodeFunc func(string) (string, error)
 type filterFunc func(string) bool
 
-func extractMetadata(envs []string, prefix string, decode decodeFunc, filter filterFunc, meta map[string]string) {
+type setMetaFunc func(m map[string]string, key string, val string)
+
+func extractMetadata(envs []string, prefix string, set setMetaFunc, meta map[string]string) {
 	metaPrefixLen := len(prefix)
 	for _, env := range envs {
 		if strings.HasPrefix(env, prefix) {
@@ -157,43 +157,28 @@ func extractMetadata(envs []string, prefix string, decode decodeFunc, filter fil
 			}
 			metaKey, metaVal := parts[0], parts[1]
 
-			if decode != nil {
-				var err error
-				if metaKey, err = decode(metaKey); err != nil {
-					log.Warnf("Unable to process %s: %v", env, err)
-					continue
-				}
-				if metaVal, err = decode(metaVal); err != nil {
-					log.Warnf("Unable to process %s: %v", env, err)
-					continue
-				}
-			}
-
-			if filter != nil && !filter(metaKey) {
-				continue
-			}
-
-			meta[metaKey] = metaVal
+			set(meta, metaKey, metaVal)
 		}
 	}
 }
 
-// This function uses an environment variable contract
-// ISTIO_METAB64_* env variables are base64decoded and only used if key contains istio.io
+// getNodeMetaData function uses an environment variable contract
+// ISTIO_METAJSON_* env variables contain json_string in the value.
+// 					The name of variable is ignored.
 // ISTIO_META_* env variables are passed thru
 func getNodeMetaData(envs []string) map[string]string {
 	meta := map[string]string{}
 
-	extractMetadata(envs, IstioMetaPrefix, nil, nil, meta)
-
-	extractMetadata(envs, IstioMetaB64Prefix, func(s string) (string, error) {
-		ba, err := base64.StdEncoding.DecodeString(s)
-		return string(ba), err
-	}, func(s string) bool {
-		// sidecar.istio.io is meant for local consumption
-		return strings.Contains(s, "istio.io") && !strings.HasPrefix(s, "sidecar.istio.io")
+	extractMetadata(envs, IstioMetaPrefix, func(m map[string]string, key string, val string) {
+		m[key] = val
 	}, meta)
 
+	extractMetadata(envs, IstioMetaJSONPrefix, func(m map[string]string, key string, val string) {
+		err := json.Unmarshal([]byte(val), &m)
+		if err != nil {
+			log.Warnf("Env variable %s [%s] failed json unmarshal: %v", key, val, err)
+		}
+	}, meta)
 	meta["istio"] = "sidecar"
 	return meta
 }

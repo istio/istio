@@ -723,8 +723,16 @@ func compareDeployments(got, want *extv1beta1.Deployment, name string, t *testin
 		if env.ValueFrom != nil {
 			env.ValueFrom.FieldRef.APIVersion = ""
 		}
+		// check if metajson is encoded correctly
+		if strings.HasPrefix(env.Name, "ISTIO_METAJSON_") {
+			var mm map[string]string
+			if err := json.Unmarshal([]byte(env.Value), &mm); err != nil {
+				t.Fatalf("unable to unmarshal %s: %v", env.Value, err)
+			}
+			continue
+		}
 		// adjust for injected var names.
-		if _, found := envNames[env.Name]; found || strings.HasPrefix(env.Name, "ISTIO_METAB64_") {
+		if _, found := envNames[env.Name]; found {
 			continue
 		}
 		envVars = append(envVars, env)

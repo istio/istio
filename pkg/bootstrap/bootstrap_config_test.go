@@ -14,7 +14,7 @@
 package bootstrap
 
 import (
-	"encoding/base64"
+	"encoding/json"
 	"io/ioutil"
 	"os"
 	"reflect"
@@ -77,7 +77,7 @@ func TestGolden(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			_, localEnv := createEnv(c.labels, c.annotations)
+			_, localEnv := createEnv(t, c.labels, c.annotations)
 			fn, err := WriteBootstrap(cfg, "sidecar~1.2.3.4~foo~bar", 0, []string{
 				"spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"}, nil, localEnv)
 			if err != nil {
@@ -251,7 +251,7 @@ func envEncode(m map[string]string, prefix string, encode encodeFn, out []string
 }
 
 // createEnv takes labels and annotations are returns environment in go format.
-func createEnv(labels map[string]string, anno map[string]string) (map[string]string, []string) {
+func createEnv(t *testing.T, labels map[string]string, anno map[string]string) (map[string]string, []string) {
 	merged := map[string]string{}
 	mergeMap(merged, labels)
 	mergeMap(merged, anno)
@@ -260,10 +260,13 @@ func createEnv(labels map[string]string, anno map[string]string) (map[string]str
 	envs = envEncode(labels, IstioMetaPrefix, func(s string) string {
 		return s
 	}, envs)
-	envs = envEncode(anno, IstioMetaB64Prefix, func(s string) string {
-		return base64.StdEncoding.EncodeToString([]byte(s))
-	}, envs)
-
+	if anno != nil {
+		jsonStr, err := json.Marshal(anno)
+		if err != nil {
+			t.Fatalf("failed to marshal %v: %v", anno, err)
+		}
+		envs = append(envs, IstioMetaJSONPrefix+"annotations="+string(jsonStr))
+	}
 	return merged, envs
 }
 
@@ -277,14 +280,14 @@ func TestNodeMetadata(t *testing.T) {
 		"istio.io/enable": "{\"abc\": 20}",
 	}
 
-	_, envs := createEnv(labels, nil)
+	_, envs := createEnv(t, labels, nil)
 	nm := getNodeMetaData(envs)
 
 	if !reflect.DeepEqual(nm, labels) {
 		t.Fatalf("Maps are not equal.\ngot: %v\nwant: %v", nm, labels)
 	}
 
-	merged, envs := createEnv(labels, anno)
+	merged, envs := createEnv(t, labels, anno)
 
 	nm = getNodeMetaData(envs)
 	if !reflect.DeepEqual(nm, merged) {
@@ -295,7 +298,7 @@ func TestNodeMetadata(t *testing.T) {
 
 	// encode string incorrectly,
 	// a warning is logged, but everything else works.
-	envs = envEncode(anno, IstioMetaB64Prefix, func(s string) string {
+	envs = envEncode(anno, IstioMetaJSONPrefix, func(s string) string {
 		return s
 	}, envs)
 
