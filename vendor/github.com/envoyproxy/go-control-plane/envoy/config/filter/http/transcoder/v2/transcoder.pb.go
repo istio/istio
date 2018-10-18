@@ -49,7 +49,7 @@ func (m *GrpcJsonTranscoder) Reset()         { *m = GrpcJsonTranscoder{} }
 func (m *GrpcJsonTranscoder) String() string { return proto.CompactTextString(m) }
 func (*GrpcJsonTranscoder) ProtoMessage()    {}
 func (*GrpcJsonTranscoder) Descriptor() ([]byte, []int) {
-	return fileDescriptor_transcoder_a3953bf08bea647e, []int{0}
+	return fileDescriptor_transcoder_c849d90d46201465, []int{0}
 }
 func (m *GrpcJsonTranscoder) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -228,7 +228,7 @@ func (m *GrpcJsonTranscoder_PrintOptions) Reset()         { *m = GrpcJsonTransco
 func (m *GrpcJsonTranscoder_PrintOptions) String() string { return proto.CompactTextString(m) }
 func (*GrpcJsonTranscoder_PrintOptions) ProtoMessage()    {}
 func (*GrpcJsonTranscoder_PrintOptions) Descriptor() ([]byte, []int) {
-	return fileDescriptor_transcoder_a3953bf08bea647e, []int{0, 0}
+	return fileDescriptor_transcoder_c849d90d46201465, []int{0, 0}
 }
 func (m *GrpcJsonTranscoder_PrintOptions) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -944,10 +944,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/config/filter/http/transcoder/v2/transcoder.proto", fileDescriptor_transcoder_a3953bf08bea647e)
+	proto.RegisterFile("envoy/config/filter/http/transcoder/v2/transcoder.proto", fileDescriptor_transcoder_c849d90d46201465)
 }
 
-var fileDescriptor_transcoder_a3953bf08bea647e = []byte{
+var fileDescriptor_transcoder_c849d90d46201465 = []byte{
 	// 468 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x91, 0x41, 0x6b, 0xd4, 0x40,
 	0x1c, 0xc5, 0x3b, 0xbb, 0x5d, 0x49, 0xc7, 0x6d, 0x2d, 0x83, 0xb8, 0x6b, 0xd0, 0x25, 0x08, 0x96,

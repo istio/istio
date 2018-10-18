@@ -46,7 +46,7 @@ func (m *HttpGrpcAccessLogConfig) Reset()         { *m = HttpGrpcAccessLogConfig
 func (m *HttpGrpcAccessLogConfig) String() string { return proto.CompactTextString(m) }
 func (*HttpGrpcAccessLogConfig) ProtoMessage()    {}
 func (*HttpGrpcAccessLogConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_als_e10a599edeeb29ed, []int{0}
+	return fileDescriptor_als_e1ce8e0c0099b8bf, []int{0}
 }
 func (m *HttpGrpcAccessLogConfig) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -117,7 +117,7 @@ func (m *TcpGrpcAccessLogConfig) Reset()         { *m = TcpGrpcAccessLogConfig{}
 func (m *TcpGrpcAccessLogConfig) String() string { return proto.CompactTextString(m) }
 func (*TcpGrpcAccessLogConfig) ProtoMessage()    {}
 func (*TcpGrpcAccessLogConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_als_e10a599edeeb29ed, []int{1}
+	return fileDescriptor_als_e1ce8e0c0099b8bf, []int{1}
 }
 func (m *TcpGrpcAccessLogConfig) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -170,7 +170,7 @@ func (m *CommonGrpcAccessLogConfig) Reset()         { *m = CommonGrpcAccessLogCo
 func (m *CommonGrpcAccessLogConfig) String() string { return proto.CompactTextString(m) }
 func (*CommonGrpcAccessLogConfig) ProtoMessage()    {}
 func (*CommonGrpcAccessLogConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_als_e10a599edeeb29ed, []int{2}
+	return fileDescriptor_als_e1ce8e0c0099b8bf, []int{2}
 }
 func (m *CommonGrpcAccessLogConfig) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -919,10 +919,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/config/accesslog/v2/als.proto", fileDescriptor_als_e10a599edeeb29ed)
+	proto.RegisterFile("envoy/config/accesslog/v2/als.proto", fileDescriptor_als_e1ce8e0c0099b8bf)
 }
 
-var fileDescriptor_als_e10a599edeeb29ed = []byte{
+var fileDescriptor_als_e1ce8e0c0099b8bf = []byte{
 	// 388 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xc4, 0x92, 0xbd, 0xae, 0xd3, 0x30,
 	0x14, 0xc7, 0xe5, 0xb4, 0x7c, 0xd4, 0x2d, 0x52, 0x95, 0x81, 0x7e, 0x48, 0x84, 0x92, 0x76, 0xe8,

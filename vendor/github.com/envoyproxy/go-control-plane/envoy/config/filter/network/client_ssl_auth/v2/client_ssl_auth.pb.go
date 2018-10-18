@@ -56,7 +56,7 @@ func (m *ClientSSLAuth) Reset()         { *m = ClientSSLAuth{} }
 func (m *ClientSSLAuth) String() string { return proto.CompactTextString(m) }
 func (*ClientSSLAuth) ProtoMessage()    {}
 func (*ClientSSLAuth) Descriptor() ([]byte, []int) {
-	return fileDescriptor_client_ssl_auth_e469ff78a9c90e3c, []int{0}
+	return fileDescriptor_client_ssl_auth_4986a886d9153439, []int{0}
 }
 func (m *ClientSSLAuth) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -499,10 +499,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/config/filter/network/client_ssl_auth/v2/client_ssl_auth.proto", fileDescriptor_client_ssl_auth_e469ff78a9c90e3c)
+	proto.RegisterFile("envoy/config/filter/network/client_ssl_auth/v2/client_ssl_auth.proto", fileDescriptor_client_ssl_auth_4986a886d9153439)
 }
 
-var fileDescriptor_client_ssl_auth_e469ff78a9c90e3c = []byte{
+var fileDescriptor_client_ssl_auth_4986a886d9153439 = []byte{
 	// 366 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x5c, 0x90, 0xcf, 0x6a, 0xe3, 0x30,
 	0x10, 0xc6, 0x51, 0x12, 0x16, 0x62, 0x6f, 0x96, 0x60, 0x16, 0xd6, 0x1b, 0x16, 0xc7, 0xec, 0x29,
