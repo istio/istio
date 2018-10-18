@@ -40,7 +40,8 @@ type Multicluster struct {
 	ResyncPeriod      time.Duration
 	serviceController *aggregate.Controller
 	XDSUpdater        model.XDSUpdater
-	sync.Mutex
+
+	m                     sync.Mutex // protects remoteKubeControllers
 	remoteKubeControllers map[string]*kubeController
 }
 
@@ -57,11 +58,11 @@ func NewMulticluster(kc kubernetes.Interface, secretNamespace string,
 		log.Info("Resync time was configured to 0, resetting to 30")
 	}
 	mc := &Multicluster{
-		WatchedNamespace:  watchedNamespace,
-		DomainSuffix:      domainSuffix,
-		ResyncPeriod:      resycnPeriod,
-		serviceController: serviceController,
-		XDSUpdater:        xds,
+		WatchedNamespace:      watchedNamespace,
+		DomainSuffix:          domainSuffix,
+		ResyncPeriod:          resycnPeriod,
+		serviceController:     serviceController,
+		XDSUpdater:            xds,
 		remoteKubeControllers: remoteKubeController,
 	}
 
@@ -80,7 +81,7 @@ func (m *Multicluster) AddMemberCluster(clientset kubernetes.Interface, clusterI
 	stopCh := make(chan struct{})
 	var remoteKubeController kubeController
 	remoteKubeController.stopCh = stopCh
-	m.Lock()
+	m.m.Lock()
 	kubectl := kube.NewController(clientset, kube.ControllerOptions{
 		WatchedNamespace: m.WatchedNamespace,
 		ResyncPeriod:     m.ResyncPeriod,
@@ -99,7 +100,7 @@ func (m *Multicluster) AddMemberCluster(clientset kubernetes.Interface, clusterI
 		})
 
 	m.remoteKubeControllers[clusterID] = &remoteKubeController
-	m.Unlock()
+	m.m.Unlock()
 	_ = kubectl.AppendServiceHandler(func(*model.Service, model.Event) { m.XDSUpdater.ConfigUpdate(true) })
 	_ = kubectl.AppendInstanceHandler(func(*model.ServiceInstance, model.Event) { m.XDSUpdater.ConfigUpdate(true) })
 	go kubectl.Run(stopCh)
@@ -112,8 +113,8 @@ func (m *Multicluster) AddMemberCluster(clientset kubernetes.Interface, clusterI
 // are removed.
 func (m *Multicluster) DeleteMemberCluster(clusterID string) error {
 
-	m.Lock()
-	defer m.Unlock()
+	m.m.Lock()
+	defer m.m.Unlock()
 	m.serviceController.DeleteRegistry(clusterID)
 	close(m.remoteKubeControllers[clusterID].stopCh)
 	delete(m.remoteKubeControllers, clusterID)
