@@ -60,9 +60,8 @@ type (
 	RemoteGenerateAttributesHandler interface {
 		Handler
 
-		// HandleRemoteGenAttrs performs APA call based on pre encoded instances and returns the decoded output as an attribute bag.
-		// The caller must release the attribute bag on success.
-		HandleRemoteGenAttrs(ctx context.Context, encodedInstance *EncodedInstance, bag attribute.Bag) (*attribute.MutableBag, error)
+		// HandleRemoteGenAttrs performs APA call based on pre encoded instances and returns the decoded output into an attribute bag.
+		HandleRemoteGenAttrs(ctx context.Context, encodedInstance *EncodedInstance, out *attribute.MutableBag) error
 	}
 
 	// RemoteCheckHandler calls remote check adapter.

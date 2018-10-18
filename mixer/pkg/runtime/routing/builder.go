@@ -432,13 +432,13 @@ func (b *builder) templateInfo(tmpl *config.Template) *TemplateInfo {
 			return nil, fmt.Errorf("internal: instance of incorrect type. got %T, want: []byte", instance)
 		}
 
-		values, err := h.HandleRemoteGenAttrs(ctx, encodedInstance, attrs)
-		defer values.Done()
-		if err != nil {
+		valuesBag := attribute.GetMutableBag(attrs)
+		defer valuesBag.Done()
+		if err := h.HandleRemoteGenAttrs(ctx, encodedInstance, valuesBag); err != nil {
 			return nil, fmt.Errorf("internal: failed to make an RPC to an APA: %v", err)
 		}
 
-		out, err := mapper(values)
+		out, err := mapper(valuesBag)
 		if err != nil {
 			return nil, fmt.Errorf("internal: failed to map attributes from the output: %v", err)
 		}

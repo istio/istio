@@ -21,7 +21,6 @@ import (
 	"testing"
 
 	"github.com/gogo/protobuf/types"
-
 	"istio.io/api/mixer/adapter/model/v1beta1"
 	attributeV1beta1 "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
@@ -188,9 +187,10 @@ func validateNoSessionBackend(s *spy.NoSessionServer, t *testing.T) {
 		Int64Primitive: 123,
 	}
 	apainstBa, _ := apainst.Marshal()
-	apaOut, err := h.HandleRemoteGenAttrs(context.Background(), &adapter.EncodedInstance{Name: apaDi.Name, Data: apainstBa},
-		attribute.GetMutableBag(nil))
-	if err != nil {
+	apaOut := attribute.GetMutableBag(nil)
+	defer apaOut.Done()
+	if err := h.HandleRemoteGenAttrs(context.Background(), &adapter.EncodedInstance{Name: apaDi.Name, Data: apainstBa},
+		apaOut); err != nil {
 		t.Fatalf("HandleRemoteGenAttrs returned: %v", err)
 	}
 	if val, ok := apaOut.Get("output.int64Primitive"); !ok || val != int64(1337) {

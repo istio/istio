@@ -25,7 +25,6 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/atomic"
 	"google.golang.org/grpc"
-
 	"istio.io/api/mixer/adapter/model/v1beta1"
 	policypb "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
@@ -185,12 +184,11 @@ var _ adapter.RemoteGenerateAttributesHandler = &Handler{}
 
 // HandleRemoteGenAttrs implements remote handler API.
 func (h *Handler) HandleRemoteGenAttrs(ctx context.Context, encodedInstance *adapter.EncodedInstance,
-	bag attribute.Bag) (*attribute.MutableBag, error) {
-	out := attribute.GetMutableBag(bag)
+	out *attribute.MutableBag) error {
 	if err := h.handleRemote(ctx, nil, "", out, encodedInstance); err != nil {
-		return nil, err
+		return err
 	}
-	return out, nil
+	return nil
 }
 
 var _ adapter.RemoteCheckHandler = &Handler{}
