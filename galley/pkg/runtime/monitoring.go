@@ -29,43 +29,43 @@ var TypeURLTag tag.Key
 
 var (
 	strategyOnChangeTotal = stats.Int64(
-		"/galley/runtime/strategy/on_change_total",
+		"galley/runtime/strategy/on_change_total",
 		"The number of times the strategy's onChange has been called",
 		stats.UnitDimensionless)
 	strategyOnTimerMaxTimeReachedTotal = stats.Int64(
-		"/galley/runtime/strategy/timer_max_time_reached_total",
+		"galley/runtime/strategy/timer_max_time_reached_total",
 		"The number of times the max time has been reached",
 		stats.UnitDimensionless)
 	strategyOnTimerQuiesceReachedTotal = stats.Int64(
-		"/galley/runtime/strategy/timer_quiesce_reached_total",
+		"galley/runtime/strategy/timer_quiesce_reached_total",
 		"The number of times a quiesce has been reached",
 		stats.UnitDimensionless)
 	strategyOnTimerResetTotal = stats.Int64(
-		"/galley/runtime/strategy/timer_resets_total",
+		"galley/runtime/strategy/timer_resets_total",
 		"The number of times the timer has been reset",
 		stats.UnitDimensionless)
 	processorEventSpans = stats.Int64(
-		"/galley/runtime/processor/event_span_duration_seconds",
+		"galley/runtime/processor/event_span_duration_seconds",
 		"The duration between each incoming event",
 		stats.UnitDimensionless)
 	processorEventsProcessed = stats.Int64(
-		"/galley/runtime/processor/events_processed_total",
+		"galley/runtime/processor/events_processed_total",
 		"The number of events that have been processed",
 		stats.UnitDimensionless)
 	processorSnapshotsPublished = stats.Int64(
-		"/galley/runtime/processor/snapshots_published_total",
+		"galley/runtime/processor/snapshots_published_total",
 		"The number of snapshots that have been published",
 		stats.UnitDimensionless)
 	processorEventsPerSnapshot = stats.Int64(
-		"/galley/runtime/processor/snapshot_events_total",
+		"galley/runtime/processor/snapshot_events_total",
 		"The number of events per snapshot",
 		stats.UnitDimensionless)
 	processorSnapshotLifetimes = stats.Int64(
-		"/galley/runtime/processor/snapshot_lifetime_duration_seconds",
+		"galley/runtime/processor/snapshot_lifetime_duration_seconds",
 		"The duration of each snapshot",
 		stats.UnitDimensionless)
 	stateTypeInstancesTotal = stats.Int64(
-		"/galley/runtime/state/type_instances_total",
+		"galley/runtime/state/type_instances_total",
 		"The number of type instances per type URL",
 		stats.UnitDimensionless)
 
