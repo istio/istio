@@ -18,9 +18,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -97,7 +96,24 @@ func validateResource(un *unstructured.Unstructured) error {
 	}
 }
 
+var missingResourceError = errors.New(`error: you must specify resources by --filename.
+Example resource specifications include:
+   '-f rsrc.yaml'
+   '--filename=rsrc.json'`)
+
 func validateObjects(restClientGetter resource.RESTClientGetter, options resource.FilenameOptions, writer io.Writer) error {
+	// resource.Builder{} validates most of the CLI flags consistent
+	// with kubectl which is good. Unforatunly, it also assumes
+	// resources can be specified as '<resource> <name>' which is
+	// bad. We don't don't for file-based configuration validation. If
+	// a filename is missing, resource.Builder{} prints a warning
+	// referencing '<resource> <name>' which would be confusing to the
+	// user. Avoid this confusion by checking for missing filenames
+	// are ourselves for invoking the builder.
+	if len(options.Filenames) == 0 {
+		return missingResourceError
+	}
+
 	r := resource.NewBuilder(restClientGetter).
 		Unstructured().
 		FilenameParam(false, &options).
@@ -123,26 +139,34 @@ func validateObjects(restClientGetter resource.RESTClientGetter, options resourc
 	})
 }
 
-var (
-	stdinReaderHook io.Reader = os.Stdin
-)
+func strPtr(val string) *string {
+	return &val
+}
+
+func boolPtr(val bool) *bool {
+	return &val
+}
 
 // NewValidateCommand creates a new command for validating Istio k8s resources.
 func NewValidateCommand() *cobra.Command {
 	var (
-		filenames       = []string{}
-		recursive       = true
-		kubeConfigFlags *genericclioptions.ConfigFlags
-		fileNameFlags   = genericclioptions.FileNameFlags{
+		kubeConfigFlags = &genericclioptions.ConfigFlags{
+			Context:    strPtr(""),
+			Namespace:  strPtr(""),
+			KubeConfig: strPtr(""),
+		}
+
+		filenames     = []string{}
+		fileNameFlags = &genericclioptions.FileNameFlags{
 			Filenames: &filenames,
-			Recursive: &recursive,
+			Recursive: boolPtr(true),
 		}
 	)
 
 	c := &cobra.Command{
 		Use:     "validate -f FILENAME [options]",
 		Short:   "Validate Istio policy and rules",
-		Example: `istioctl validateObjectStream -f bookinfo-gateway.yaml`,
+		Example: `istioctl validate -f bookinfo-gateway.yaml`,
 		Args:    cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
 			return validateObjects(kubeConfigFlags, fileNameFlags.ToOptions(), c.OutOrStderr())
@@ -150,7 +174,6 @@ func NewValidateCommand() *cobra.Command {
 	}
 
 	flags := c.PersistentFlags()
-	kubeConfigFlags = genericclioptions.NewConfigFlags()
 	kubeConfigFlags.AddFlags(flags)
 	fileNameFlags.AddFlags(flags)
 

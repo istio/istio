@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"os"
 	"strings"
 	"testing"
 
@@ -291,11 +290,6 @@ func TestValidateCommand(t *testing.T) {
 		t.Run(fmt.Sprintf("[%v] %v ", i, c.name), func(tt *testing.T) {
 			validateCmd := NewValidateCommand()
 			validateCmd.SetArgs(c.args)
-
-			if c.stdin != nil {
-				stdinReaderHook = c.stdin
-				defer func() { stdinReaderHook = os.Stdin }()
-			}
 
 			// capture output to keep test logs clean
 			var out bytes.Buffer
