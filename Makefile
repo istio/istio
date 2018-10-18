@@ -574,6 +574,7 @@ DIRS_TO_CLEAN+=${ISTIO_OUT}
 clean: clean.go
 	rm -rf $(DIRS_TO_CLEAN)
 	rm -f $(FILES_TO_CLEAN)
+	rm -f ${ISTIO_BIN}/have_go_$(GO_VERSION_REQUIRED)
 
 clean.go: ; $(info $(H) cleaning...)
 	$(eval GO_CLEAN_FLAGS := -i -r)
