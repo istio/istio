@@ -153,10 +153,12 @@ func (l *listener) handleEvent(c resource.EventKind, obj interface{}) {
 		var tombstone cache.DeletedFinalStateUnknown
 		if tombstone, ok = obj.(cache.DeletedFinalStateUnknown); !ok {
 			scope.Errorf("error decoding object, invalid type: %v", reflect.TypeOf(obj))
+			recordHandleEventError()
 			return
 		}
 		if object, ok = tombstone.Obj.(metav1.Object); !ok {
 			scope.Errorf("error decoding object tombstone, invalid type: %v", reflect.TypeOf(tombstone.Obj))
+			recordHandleEventError()
 			return
 		}
 		scope.Infof("Recovered deleted object '%s' from tombstone", object.GetName())
@@ -165,6 +167,7 @@ func (l *listener) handleEvent(c resource.EventKind, obj interface{}) {
 	key, err := cache.MetaNamespaceKeyFunc(object)
 	if err != nil {
 		scope.Errorf("Error creating MetaNamespaceKey from object: %v", object)
+		recordHandleEventError()
 		return
 	}
 
@@ -187,4 +190,5 @@ func (l *listener) handleEvent(c resource.EventKind, obj interface{}) {
 		scope.Debugf("Sending event: [%v] from: %s", c, l.spec.CanonicalResourceName())
 	}
 	l.processor(l, c, key, object.GetResourceVersion(), u)
+	recordHandleEventSuccess()
 }
