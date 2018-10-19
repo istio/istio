@@ -6,7 +6,7 @@
     },
     {
       "name": "gcr.io/istio-testing/istio-builder:0.5.10",
-      "args": [ "-c", "source /workspace/gcb_env.sh && eval \"git clone https://github.com/$CB_GITHUB_ORG/istio -b $CB_BRANCH --depth 1\" " ],
+      "args": [ "-c", "source /workspace/gcb_env.sh && eval \"git clone https://github.com/$$CB_GITHUB_ORG/istio -b $$CB_BRANCH --depth 1\" " ],
       "entrypoint": "bash"
     },
     {
