@@ -62,10 +62,12 @@ function create_manifest_check_consistency() {
     echo "ISTIO_REPO_SHA:$ISTIO_REPO_SHA API_REPO_SHA:$API_REPO_SHA PROXY_REPO_SHA:$PROXY_REPO_SHA some shas not found"
     exit 8
   fi
-  rm -f "${MANIFEST_FILE}"
-  echo "istio ${ISTIO_REPO_SHA}" >> "${MANIFEST_FILE}"
-  echo "proxy ${PROXY_REPO_SHA}" >> "${MANIFEST_FILE}"
-  echo "api ${API_REPO_SHA}"     >> "${MANIFEST_FILE}"
+cat << EOF > "${MANIFEST_FILE}"
+istio ${ISTIO_REPO_SHA}
+proxy ${PROXY_REPO_SHA}
+api ${API_REPO_SHA}
+EOF
+
  popd
 
   if [[ "${CB_VERIFY_CONSISTENCY}" == "true" ]]; then
