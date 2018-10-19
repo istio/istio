@@ -21,21 +21,6 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-// func TestAddTypesToScheme(t *testing.T) {
-// 	gv := schema.GroupVersion{Group: "group", Version: "version"}
-// 	s := runtime.NewScheme()
-
-// 	err := addTypeToScheme(s, gv, "kind", "listkind")
-// 	if err != nil {
-// 		t.Fatalf("Unexpected error: %v", err)
-// 	}
-
-// 	_, err = s.New(schema.GroupVersionKind{Group: "group", Version: "version", Kind: "kind"})
-// 	if err != nil {
-// 		t.Fatalf("Unexpected error: %v", err)
-// 	}
-// }
-
 func TestCreateConfig(t *testing.T) {
 	k := kube{
 		cfg: &rest.Config{},

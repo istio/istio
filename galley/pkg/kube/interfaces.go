@@ -55,35 +55,3 @@ func NewKube(cfg *rest.Config) Interfaces {
 func (k *kube) DynamicInterface(gv schema.GroupVersion, kind, listKind string) (dynamic.Interface, error) {
 	return dynamic.NewForConfig(k.cfg)
 }
-
-// func addTypeToScheme(s *runtime.Scheme, gv schema.GroupVersion, kind, listKind string) error {
-// 	builder := runtime.NewSchemeBuilder(func(s *runtime.Scheme) error {
-// 		// Add the object itself
-// 		gvk := schema.GroupVersionKind{
-// 			Group:   gv.Group,
-// 			Version: gv.Version,
-// 			Kind:    kind,
-// 		}
-
-// 		o := &unstructured.Unstructured{}
-// 		o.SetAPIVersion(gv.Version)
-// 		o.SetKind(kind)
-// 		s.AddKnownTypeWithName(gvk, o)
-
-// 		// Add the collection object.
-// 		gvk = schema.GroupVersionKind{
-// 			Group:   gv.Group,
-// 			Version: gv.Version,
-// 			Kind:    listKind,
-// 		}
-
-// 		c := &unstructured.UnstructuredList{}
-// 		o.SetAPIVersion(gv.Version)
-// 		o.SetKind(listKind)
-// 		s.AddKnownTypeWithName(gvk, c)
-
-// 		return nil
-// 	})
-
-// 	return builder.AddToScheme(s)
-// }
