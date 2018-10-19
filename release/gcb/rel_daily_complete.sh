@@ -31,4 +31,5 @@ TEMP_FILE=$(mktemp)
 echo -n "${DAILY_HTTPS_PATH}" > "${TEMP_FILE}"
 cat "${TEMP_FILE}"
 
-gsutil -q cp "${TEMP_FILE}" "gs://${CB_GCS_STAGING_BUCKET}/daily-build/${CB_BRANCH}-latest"
+# this file contains the linux download URL of the latest successful daily build for a particular branch
+gsutil -q cp "${TEMP_FILE}" "gs://${CB_GCS_STAGING_BUCKET}/daily-build/${CB_BRANCH}-latest.txt"
