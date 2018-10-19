@@ -8,12 +8,9 @@ set -x
 # shellcheck disable=SC1091
 source "/workspace/gcb_env.sh"
 
-#uses CB_DOCKER_HUB CB_GCS_BUILD_PATH CB_VERSION"
-
 # switch to the root of the istio repo
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
-
 
 function fix_values_yaml_worker() {
   local unzip_cmd

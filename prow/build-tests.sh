@@ -43,4 +43,4 @@ export CB_VERSION="${GIT_SHA}"
 export CB_ISTIOCTL_DOCKER_HUB="docker.io/istio"
 EOF
 
-time ./release/cloud_builder.sh
+time ./release/gcb/cloud_builder.sh
