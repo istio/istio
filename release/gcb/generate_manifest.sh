@@ -33,22 +33,6 @@ SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
 
 source "${SCRIPTPATH}/gcb_lib.sh"
 
-# this function replace the old sha with the correct one
-# each line is assumed to be of the form
-# proxy 8888888888888888888888888888888888888888
-function replace_sha_branch_repo() {
-  local REPO=$1
-  local NEW_SHA=$2
-  local MANIFEST_FILE=$3
-  if [[ -z "${NEW_SHA}" ]]; then
-    exit 1
-  fi
-  if [[ -z "${CB_BRANCH}" ]]; then
-    exit 2
-  fi
-  sed "s/$REPO.*/$REPO $NEW_SHA/" -i "$MANIFEST_FILE"
-}
-
 function checkout_code() {
   local REPO=$1
   local REPO_SHA=$2
@@ -63,26 +47,25 @@ function checkout_code() {
   popd
 }
 
-function find_and_replace_shas_manifest() {
+function create_manifest_check_consistency() {
   local MANIFEST_FILE=$1
 
  pushd istio
-  local PROXY_REPO_SHA
-  PROXY_REPO_SHA=$(grep PROXY_REPO_SHA istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"')
-  replace_sha_branch_repo proxy "${PROXY_REPO_SHA}" "${MANIFEST_FILE}"
-
-  local API_REPO_SHA
-  API_REPO_SHA=$(grep istio.io.api -A 100 < Gopkg.lock | grep revision -m 1 | cut -f 2 -d '"')
-  replace_sha_branch_repo api   "${API_REPO_SHA}"   "${MANIFEST_FILE}"
-
   local ISTIO_REPO_SHA
+  local PROXY_REPO_SHA
+  local API_REPO_SHA
   ISTIO_REPO_SHA=$(git rev-parse HEAD)
-  replace_sha_branch_repo istio "${ISTIO_REPO_SHA}" "${MANIFEST_FILE}"
+  PROXY_REPO_SHA=$(grep PROXY_REPO_SHA istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"')
+  API_REPO_SHA=$(grep istio.io.api -A 100 < Gopkg.lock | grep revision -m 1 | cut -f 2 -d '"')
 
   if [ -z "${ISTIO_REPO_SHA}" ] || [ -z "${API_REPO_SHA}" ] || [ -z "${PROXY_REPO_SHA}" ]; then
     echo "ISTIO_REPO_SHA:$ISTIO_REPO_SHA API_REPO_SHA:$API_REPO_SHA PROXY_REPO_SHA:$PROXY_REPO_SHA some shas not found"
     exit 8
   fi
+  rm -f "${MANIFEST_FILE}"
+  echo "istio ${ISTIO_REPO_SHA}" >> "${MANIFEST_FILE}"
+  echo "proxy ${PROXY_REPO_SHA}" >> "${MANIFEST_FILE}"
+  echo "api ${API_REPO_SHA}"     >> "${MANIFEST_FILE}"
  popd
 
   if [[ "${CB_VERIFY_CONSISTENCY}" == "true" ]]; then
@@ -242,7 +225,7 @@ pushd "${CLONE_DIR}"
 
   istio_checkout_green_sha        "${MANIFEST_FILE}"
   istio_check_green_sha_age
-  find_and_replace_shas_manifest  "${MANIFEST_FILE}"
+  create_manifest_check_consistency "${MANIFEST_FILE}"
 
   #copy the needed files
   # TODO figure out how to avoid need for copying to BASE_MANIFEST_URL and consolidate getting
