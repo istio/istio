@@ -7,9 +7,12 @@
 
 # $(CI) specifies that the test is running in a CI system. This enables CI specific logging.
 _INTEGRATION_TEST_LOGGING_FLAG =
+_INTEGRATION_TEST_INGRESS_FLAG =
 ifneq ($(CI),)
     _INTEGRATION_TEST_LOGGING_FLAG = --log_output_level CI:info
+    _INTEGRATION_TEST_INGRESS_FLAG = --istio.test.kube.minikubeingress
 endif
+
 
 # $(INTEGRATION_TEST_WORKDIR) specifies the working directory for the tests. If not specified, then a
 # temporary folder is used.
@@ -27,7 +30,7 @@ ifneq ($(KUBECONFIG),)
 endif
 
 # The names of the integration test folders at ROOT/tests/integration2/*.
-_INTEGRATION_TEST_NAMES = galley mixer
+_INTEGRATION_TEST_NAMES = galley mixer citadel
 
 # Generate the names of the integration test targets that use local environment (i.e. test.integration.galley)
 _INTEGRATION_TESTS_LOCAL = $(addprefix test.integration., $(_INTEGRATION_TEST_NAMES))
@@ -57,8 +60,8 @@ $(_INTEGRATION_TESTS_KUBE): test.integration.%.kube:
 	--istio.test.env kubernetes \
 	--istio.test.kube.config ${INTEGRATION_TEST_KUBECONFIG} \
 	--istio.test.kube.deploy \
-	--istio.test.kube.tag ${TAG} \
-	--istio.test.kube.hub ${HUB}
+	--istio.test.kube.helm.values global.hub=${HUB},global.tag=${TAG} \
+	${_INTEGRATION_TEST_INGRESS_FLAG}
 
 
 

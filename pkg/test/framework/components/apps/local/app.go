@@ -15,16 +15,15 @@
 package local
 
 import (
-	"context"
+	"errors"
 	"fmt"
+	"github.com/hashicorp/go-multierror"
 	"net"
 	"net/url"
 	"strconv"
 	"testing"
 
 	"istio.io/istio/pkg/test/framework/environments/local/service"
-
-	"google.golang.org/grpc"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/application/echo"
@@ -71,7 +70,16 @@ type appConfig struct {
 	serviceManager   *service.Manager
 }
 
-func newApp(cfg appConfig) (environment.DeployedApp, error) {
+func newApp(cfg appConfig) (a environment.DeployedApp, err error) {
+	newapp := &app{
+		name: cfg.serviceName,
+	}
+	defer func() {
+		if err != nil {
+			_ = newapp.Close()
+		}
+	}()
+
 	appFactory := (&echo.Factory{
 		Ports:   ports,
 		Version: cfg.version,
@@ -84,18 +92,14 @@ func newApp(cfg appConfig) (environment.DeployedApp, error) {
 	}).NewAgent
 
 	// Create and start the agent.
-	a, err := agentFactory(cfg.serviceName, cfg.version, cfg.serviceManager, appFactory)
+	newapp.agent, err = agentFactory(cfg.serviceName, cfg.version, cfg.serviceManager, appFactory)
 	if err != nil {
-		return nil, err
+		return
 	}
 
-	newapp := &app{
-		name:  cfg.serviceName,
-		agent: a,
-	}
-
-	var commandEndpoint *endpoint
-	ports := a.GetPorts()
+	// Create the endpoints for the app.
+	var grpcEndpoint *endpoint
+	ports := newapp.agent.GetPorts()
 	endpoints := make([]environment.DeployedAppEndpoint, len(ports))
 	for i, port := range ports {
 		ep := &endpoint{
@@ -105,20 +109,28 @@ func newApp(cfg appConfig) (environment.DeployedApp, error) {
 		endpoints[i] = ep
 
 		if ep.Protocol() == model.ProtocolGRPC {
-			commandEndpoint = ep
+			grpcEndpoint = ep
 		}
 	}
 	newapp.endpoints = endpoints
-	newapp.commandEndpoint = commandEndpoint
+
+	// Create the client for sending forward requests.
+	if grpcEndpoint == nil {
+		return nil, errors.New("unable to find grpc port for application")
+	}
+	newapp.client, err = echo.NewClient(fmt.Sprintf("127.0.0.1:%d", grpcEndpoint.port.ApplicationPort))
+	if err != nil {
+		return nil, err
+	}
 
 	return newapp, nil
 }
 
 type app struct {
-	name            string
-	agent           agent.Agent
-	endpoints       []environment.DeployedAppEndpoint
-	commandEndpoint *endpoint
+	name      string
+	agent     agent.Agent
+	endpoints []environment.DeployedAppEndpoint
+	client    *echo.Client
 }
 
 // GetAgent is a utility method for testing that extracts the agent from a local app.
@@ -130,8 +142,14 @@ func GetAgent(a environment.DeployedApp) agent.Agent {
 	return localApp.agent
 }
 
-func (a *app) Close() error {
-	return a.agent.Close()
+func (a *app) Close() (err error) {
+	if a.client != nil {
+		err = a.Close()
+	}
+	if a.agent != nil {
+		err = multierror.Append(err, a.agent.Close()).ErrorOrNil()
+	}
+	return
 }
 
 func (a *app) Name() string {
@@ -163,45 +181,37 @@ func (a *app) Call(e environment.DeployedAppEndpoint, opts environment.AppCallOp
 		opts.Count = 1
 	}
 
-	// Connect to the GRPC (command) endpoint of 'this' app.
-	commandPort := a.commandEndpoint.port.ApplicationPort
-	conn, err := grpc.Dial(fmt.Sprintf("127.0.0.1:%d", commandPort), grpc.WithInsecure())
-	if err != nil {
-		return nil, err
-	}
-	defer conn.Close()
-
 	// Forward a request from 'this' service to the destination service.
-	client := proto.NewEchoTestServiceClient(conn)
 	dstURL := dst.makeURL(opts)
 	dstServiceName := dst.owner.Name()
-	resp, err := client.ForwardEcho(context.Background(), &proto.ForwardEchoRequest{
+	resp, err := a.client.ForwardEcho(&proto.ForwardEchoRequest{
 		Url:   dstURL.String(),
 		Count: int32(opts.Count),
-		Header: &proto.Header{
-			Key:   "Host",
-			Value: dstServiceName,
+		Headers: []*proto.Header{
+			{
+				Key:   "Host",
+				Value: dstServiceName,
+			},
 		},
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	parsedResponses := echo.ParseForwardedResponse(resp)
-	if len(parsedResponses) != 1 {
-		return nil, fmt.Errorf("unexpected number of responses: %d", len(parsedResponses))
+	if len(resp) != 1 {
+		return nil, fmt.Errorf("unexpected number of responses: %d", len(resp))
 	}
-	if !parsedResponses[0].IsOK() {
-		return nil, fmt.Errorf("unexpected response status code: %s", parsedResponses[0].Code)
+	if !resp[0].IsOK() {
+		return nil, fmt.Errorf("unexpected response status code: %s", resp[0].Code)
 	}
-	if parsedResponses[0].Host != dstServiceName {
-		return nil, fmt.Errorf("unexpected host: %s", parsedResponses[0].Host)
+	if resp[0].Host != dstServiceName {
+		return nil, fmt.Errorf("unexpected host: %s", resp[0].Host)
 	}
-	if parsedResponses[0].Port != strconv.Itoa(dst.port.ApplicationPort) {
-		return nil, fmt.Errorf("unexpected port: %s", parsedResponses[0].Port)
+	if resp[0].Port != strconv.Itoa(dst.port.ApplicationPort) {
+		return nil, fmt.Errorf("unexpected port: %s", resp[0].Port)
 	}
 
-	return parsedResponses, nil
+	return resp, nil
 }
 
 func (a *app) CallOrFail(e environment.DeployedAppEndpoint, opts environment.AppCallOptions, t testing.TB) []*echo.ParsedResponse {

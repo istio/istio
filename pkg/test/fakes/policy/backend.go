@@ -69,6 +69,11 @@ func NewPolicyBackend(port int) *Backend {
 	}
 }
 
+// Port returns the port number of the backend.
+func (b *Backend) Port() int {
+	return b.port
+}
+
 // Start the gRPC service for the policy backend.
 func (b *Backend) Start() error {
 	scope.Infof("Starting Policy Backend at port: %d", b.port)
@@ -77,6 +82,8 @@ func (b *Backend) Start() error {
 	if err != nil {
 		return err
 	}
+
+	b.port = listener.Addr().(*net.TCPAddr).Port
 
 	grpcServer := grpc.NewServer()
 	v1beta1.RegisterInfrastructureBackendServer(grpcServer, b)
@@ -125,7 +132,7 @@ func (b *Backend) Reset(ctx context.Context, req *ResetRequest) (*ResetResponse,
 
 // GetReports method of the control service.
 func (b *Backend) GetReports(ctx context.Context, req *GetReportsRequest) (*GetReportsResponse, error) {
-	scope.Infof("Backend.GetReports %v", req)
+	scope.Debugf("Backend.GetReports %v", req)
 	b.lock.Lock()
 	defer b.lock.Unlock()
 

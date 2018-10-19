@@ -81,6 +81,7 @@ func newPublishingStrategy(
 
 func (s *publishingStrategy) onChange() {
 	s.stateLock.Lock()
+	recordStrategyOnChange()
 	defer s.stateLock.Unlock()
 
 	// Capture the latest event time.
@@ -103,11 +104,11 @@ func (s *publishingStrategy) onTimer() {
 	// then fire publish to create new snapshots.
 	// Otherwise, reset the timer and get a call again.
 
-	maxTime := s.firstEvent.Add(s.maxWaitDuration)
-	quiesceTime := s.latestEvent.Add(s.quiesceDuration)
+	maxTimeReached := now.After(s.firstEvent.Add(s.maxWaitDuration))
+	quiesceTimeReached := now.After(s.latestEvent.Add(s.quiesceDuration))
 
 	var published bool
-	if now.After(maxTime) || now.After(quiesceTime) {
+	if maxTimeReached || quiesceTimeReached {
 		// Try to send to the channel
 		select {
 		case s.publish <- struct{}{}:
@@ -119,6 +120,7 @@ func (s *publishingStrategy) onTimer() {
 		}
 	}
 
+	recordOnTimer(maxTimeReached, quiesceTimeReached, !published)
 	if published {
 		s.timer = nil
 	} else {

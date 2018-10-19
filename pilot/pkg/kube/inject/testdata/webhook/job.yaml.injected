@@ -4,14 +4,19 @@ metadata:
   creationTimestamp: null
   name: pi
 spec:
+  strategy: {}
   template:
     metadata:
       annotations:
+<<<<<<< HEAD
 <<<<<<< HEAD
         sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
 =======
         sidecar.istio.io/status: '{"version":"53742a1a36ff6cd539668836e95b15543d22ca54a75cb83b6f58397d9f882f8f","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
 >>>>>>> d7d4dea03... Remove privilege=true (#7890)
+=======
+        sidecar.istio.io/status: '{"version":"unit-test-fake-version","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+>>>>>>> master
       creationTimestamp: null
       name: pi
     spec:
@@ -51,10 +56,6 @@ spec:
         - "15020"
         - --applicationPorts
         - ""
-        ports:
-        - name: http-envoy-prom
-          containerPort: 15090
-          protocol: TCP
         env:
         - name: POD_NAME
           valueFrom:
@@ -74,9 +75,13 @@ spec:
               fieldPath: metadata.name
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
-        image: docker.io/istio/proxyv2:unittest
+        image: gcr.io/istio-release/proxyv2:master-latest-daily
         imagePullPolicy: IfNotPresent
         name: istio-proxy
+        ports:
+        - containerPort: 15090
+          name: http-envoy-prom
+          protocol: TCP
         readinessProbe:
           failureThreshold: 30
           httpGet:
@@ -112,14 +117,21 @@ spec:
         - ""
         - -d
         - "15020"
-        image: docker.io/istio/proxy_init:unittest
+        image: gcr.io/istio-release/proxy_init:master-latest-daily
         imagePullPolicy: IfNotPresent
         name: istio-init
-        resources: {}
+        resources:
+          limits:
+            cpu: 10m
+            memory: 10Mi
+          requests:
+            cpu: 10m
+            memory: 10Mi
         securityContext:
           capabilities:
             add:
             - NET_ADMIN
+          privileged: true
       restartPolicy: Never
       volumes:
       - emptyDir:
@@ -130,4 +142,5 @@ spec:
           optional: true
           secretName: istio.default
 status: {}
+
 ---

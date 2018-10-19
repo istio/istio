@@ -27,6 +27,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	"istio.io/istio/istioctl/cmd/istioctl/gendeployment"
+	"istio.io/istio/istioctl/pkg/validate"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/collateral"
@@ -122,6 +123,8 @@ func init() {
 	rootCmd.AddCommand(getCmd)
 	rootCmd.AddCommand(deleteCmd)
 	rootCmd.AddCommand(contextCmd)
+
+	rootCmd.AddCommand(validate.NewValidateCommand())
 }
 
 func getRemoteInfo() (*version.MeshInfo, error) {

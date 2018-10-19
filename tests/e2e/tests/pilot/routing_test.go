@@ -22,6 +22,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hashicorp/go-multierror"
+
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/util"
 )
@@ -154,7 +156,7 @@ func TestRoutes(t *testing.T) {
 			dst:           "c",
 			headerKey:     "",
 			headerVal:     "",
-			expectedCount: map[string]int{"v1": 100, "v2": 0},
+			expectedCount: map[string]int{"v1": 75, "v2": 25},
 			operation:     "c.istio-system.svc.cluster.local:80/*",
 		},
 		{
@@ -191,6 +193,30 @@ func TestRoutes(t *testing.T) {
 			headerKey:     "",
 			headerVal:     "",
 			expectedCount: map[string]int{"v1": 100, "v2": 0},
+			operation:     "",
+		},
+		{
+			testName:      "a->c[v2=100]_tcp_single",
+			description:   "routing tcp traffic from a to single dest c-v2",
+			config:        "virtualservice-route-tcp-weighted.yaml",
+			scheme:        "http",
+			src:           "a",
+			dst:           "c:90",
+			headerKey:     "",
+			headerVal:     "",
+			expectedCount: map[string]int{"v1": 0, "v2": 100},
+			operation:     "",
+		},
+		{
+			testName:      "b->c[v1=30,v2=70]_tcp_weighted",
+			description:   "routing 30 percent to c-v1, 70 percent to c-v2",
+			config:        "virtualservice-route-tcp-weighted.yaml",
+			scheme:        "http",
+			src:           "b",
+			dst:           "c:90",
+			headerKey:     "",
+			headerVal:     "",
+			expectedCount: map[string]int{"v1": 30, "v2": 70},
 			operation:     "",
 		},
 	}
@@ -417,6 +443,137 @@ func TestEnvoyFilterConfigViaCRD(t *testing.T) {
 				return fmt.Errorf("test configuration of envoy filters via CRD (EnvoyFilter) failed."+
 					"Expected %d response code from the manually configured fault filter. Got %s", expectedRespCode, statusCode)
 			}
+			return nil
+		})
+	}
+}
+
+func TestHeadersManipulations(t *testing.T) {
+	destRule := maybeAddTLSForDestinationRule(tc, "testdata/networking/v1alpha3/destination-rule-c.yaml")
+	dRule := &deployableConfig{
+		Namespace:  tc.Kube.Namespace,
+		YamlFiles:  []string{destRule},
+		kubeconfig: tc.Kube.KubeConfig,
+	}
+	if err := dRule.Setup(); err != nil {
+		t.Fatal(err)
+	}
+	// Teardown after, but no need to wait, since a delay will be applied by either the next rule's
+	// Setup() or the Teardown() for the final rule.
+	defer dRule.TeardownNoDelay()
+
+	ruleYaml := fmt.Sprintf("testdata/networking/v1alpha3/rule-default-route-append-headers.yaml")
+	cfgs := &deployableConfig{
+		Namespace:  tc.Kube.Namespace,
+		YamlFiles:  []string{ruleYaml},
+		kubeconfig: tc.Kube.KubeConfig,
+	}
+	if err := cfgs.Setup(); err != nil {
+		t.Fatal(err)
+	}
+	defer cfgs.Teardown()
+
+	// deprecated
+	deprecatedReqHeaderRegexp := regexp.MustCompile("(?i)istio-custom-header=user-defined-value")
+
+	reqHeaderRegexp := regexp.MustCompile("(?i)istio-custom-req-header=user-defined-value")
+	reqHeaderRemoveRegexp := regexp.MustCompile("(?i)istio-custom-req-header-remove=to-be-removed")
+	respHeaderRegexp := regexp.MustCompile("(?i)ResponseHeader=istio-custom-resp-header:user-defined-value")
+	respHeaderRemoveRegexp := regexp.MustCompile("(?i)ResponseHeader=istio-custom-resp-header-remove:to-be-removed")
+
+	destReqHeaderRegexp := regexp.MustCompile("(?i)istio-custom-dest-req-header=user-defined-value")
+	destReqHeaderRemoveRegexp := regexp.MustCompile("(?i)istio-custom-dest-req-header-remove=to-be-removed")
+	destRespHeaderRegexp := regexp.MustCompile("(?i)ResponseHeader=istio-custom-dest-resp-header:user-defined-value")
+	destRespHeaderRemoveRegexp := regexp.MustCompile("(?i)ResponseHeader=istio-custom-dest-resp-header-remove:to-be-removed")
+
+	epsilon := 10
+	numRequests := 100
+	numNoRequests := 0
+	numV1 := 75
+	numV2 := 25
+
+	verifyCount := func(exp *regexp.Regexp, body string, expected int) error {
+		found := len(exp.FindAllStringSubmatch(body, -1))
+		if found < expected-epsilon || found > expected+epsilon {
+			return fmt.Errorf("got %d, expected %d +/- %d", found, expected, epsilon)
+		}
+		return nil
+	}
+
+	// traffic is split 75/25 between v1 and v2
+	// traffic to v1 has header manipulation rules, v2 does not
+	// verify the split, and then verify the header counts match what we would expect
+	//
+	// note: we do not explicitly verify that individual requests all have the proper
+	// header manipulation performed on them. this isn't ideal, but that is difficult
+	// to verify this without either,
+	// a) making each request individually (very slow)
+	// b) or adding a bunch more parsing to the request function, so we have access to headers per request.
+	for cluster := range tc.Kube.Clusters {
+		runRetriableTest(t, cluster, "v1alpha3", 5, func() error {
+			reqURL := "http://c/a?headers=istio-custom-resp-header-remove:to-be-removed,istio-custom-dest-resp-header-remove:to-be-removed"
+
+			extra := "-headers istio-custom-req-header-remove:to-be-removed," +
+				"istio-custom-dest-req-header-remove:to-be-removed"
+			resp := ClientRequest(cluster, "a", reqURL, numRequests, extra)
+
+			// ensure version distribution
+			counts := make(map[string]int)
+			for _, version := range resp.Version {
+				counts[version]++
+			}
+			if counts["v1"] < numV1-epsilon || counts["v1"] > numV1+epsilon {
+				return fmt.Errorf("expected %d +/- %d requests to reach v1, got %d", numV1, epsilon, counts["v1"])
+			}
+			if counts["v2"] < numV2-epsilon || counts["v2"] > numV2+epsilon {
+				return fmt.Errorf("expected %d +/- %d requests to reach v2, got %d", numV2, epsilon, counts["v2"])
+			}
+
+			// ensure the route-wide deprecated request header add works, regardless of service version
+			if err := verifyCount(deprecatedReqHeaderRegexp, resp.Body, numRequests); err != nil {
+				return multierror.Prefix(err, "route deprecated request header count does not have expected distribution")
+			}
+
+			// ensure the route-wide request header add works, regardless of service version
+			if err := verifyCount(reqHeaderRegexp, resp.Body, numRequests); err != nil {
+				return multierror.Prefix(err, "route request header count does not have expected distribution")
+			}
+
+			// ensure the route-wide request header remove works, regardless of service version
+			if err := verifyCount(reqHeaderRemoveRegexp, resp.Body, numNoRequests); err != nil {
+				return multierror.Prefix(err, "route to remove request header count does not have expected distribution")
+			}
+
+			// ensure the route-wide response header add works, regardless of service version
+			if err := verifyCount(respHeaderRegexp, resp.Body, numRequests); err != nil {
+				return multierror.Prefix(err, "route response header count does not have expected distribution")
+			}
+
+			// ensure the route-wide response header remove works, regardless of service version
+			if err := verifyCount(respHeaderRemoveRegexp, resp.Body, numNoRequests); err != nil {
+				return multierror.Prefix(err, "route to remove response header count does not have expected distribution")
+			}
+
+			// verify request header add count
+			if err := verifyCount(destReqHeaderRegexp, resp.Body, numV1); err != nil {
+				return multierror.Prefix(err, "destination request header count does not have expected distribution")
+			}
+
+			// verify request header remove count
+			if err := verifyCount(destReqHeaderRemoveRegexp, resp.Body, numV2); err != nil {
+				return multierror.Prefix(err, "destination to remove request header count does not have expected distribution")
+			}
+
+			// verify response header add count
+			if err := verifyCount(destRespHeaderRegexp, resp.Body, numV1); err != nil {
+				return multierror.Prefix(err, "destination response header count does not have expected distribution")
+			}
+
+			// verify response header remove count
+			if err := verifyCount(destRespHeaderRemoveRegexp, resp.Body, numV2); err != nil {
+				return multierror.Prefix(err, "destination to remove response header count does not have expected distribution")
+			}
+
 			return nil
 		})
 	}

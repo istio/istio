@@ -17,9 +17,10 @@ package kube
 import (
 	"errors"
 	"fmt"
-	"os"
 	"reflect"
+	"sort"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -27,9 +28,11 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
+	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/features/pilot"
 	"istio.io/istio/pkg/log"
 )
 
@@ -64,16 +67,20 @@ func init() {
 	prometheus.MustRegister(k8sEvents)
 }
 
-var (
-	azDebug = os.Getenv("VERBOSE_AZ_DEBUG") == "1"
-)
-
 // ControllerOptions stores the configurable attributes of a Controller.
 type ControllerOptions struct {
 	// Namespace the controller watches. If set to meta_v1.NamespaceAll (""), controller watches all namespaces
 	WatchedNamespace string
 	ResyncPeriod     time.Duration
 	DomainSuffix     string
+
+	// ClusterID identifies the remote cluster in a multicluster env.
+	ClusterID string
+
+	// XDSUpdater will push changes to the xDS server.
+	XDSUpdater model.XDSUpdater
+
+	stop chan struct{}
 }
 
 // Controller is a collection of synchronized resource watchers
@@ -92,16 +99,30 @@ type Controller struct {
 	// Env is set by server to point to the environment, to allow the controller to
 	// use env data and push status. It may be null in tests.
 	Env *model.Environment
+
+	// ClusterID identifies the remote cluster in a multicluster env.
+	ClusterID string
+
+	// XDSUpdater will push EDS changes to the ADS model.
+	XDSUpdater model.XDSUpdater
+
+	stop chan struct{}
+
+	sync.RWMutex
+	// servicesMap stores hostname ==> service, it is used to reduce convertService calls.
+	servicesMap map[model.Hostname]*model.Service
 }
 
 type cacheHandler struct {
 	informer cache.SharedIndexInformer
+	lister   cache.GenericLister
 	handler  *ChainHandler
 }
 
 // NewController creates a new Kubernetes controller
+// Created by bootstrap and multicluster (see secretcontroler).
 func NewController(client kubernetes.Interface, options ControllerOptions) *Controller {
-	log.Infof("Service controller watching namespace %q for service, endpoint, nodes and pods, refresh %s",
+	log.Infof("Service controller watching namespace %q for services, endpoints, nodes and pods, refresh %s",
 		options.WatchedNamespace, options.ResyncPeriod)
 
 	// Queue requires a time duration for a retry delay after a handler error
@@ -109,21 +130,24 @@ func NewController(client kubernetes.Interface, options ControllerOptions) *Cont
 		domainSuffix: options.DomainSuffix,
 		client:       client,
 		queue:        NewQueue(1 * time.Second),
+		ClusterID:    options.ClusterID,
+		XDSUpdater:   options.XDSUpdater,
+		servicesMap:  make(map[model.Hostname]*model.Service),
 	}
 
 	sharedInformers := informers.NewFilteredSharedInformerFactory(client, options.ResyncPeriod, options.WatchedNamespace, nil)
 
 	svcInformer := sharedInformers.Core().V1().Services().Informer()
-	out.services = out.createCacheHandler(svcInformer, "Service")
+	out.services = out.createCacheHandler(svcInformer, "Services")
 
 	epInformer := sharedInformers.Core().V1().Endpoints().Informer()
-	out.endpoints = out.createCacheHandler(epInformer, "Endpoints")
+	out.endpoints = out.createEDSCacheHandler(epInformer, "Endpoints")
 
 	nodeInformer := sharedInformers.Core().V1().Nodes().Informer()
-	out.nodes = out.createCacheHandler(nodeInformer, "Node")
+	out.nodes = out.createCacheHandler(nodeInformer, "Nodes")
 
 	podInformer := sharedInformers.Core().V1().Pods().Informer()
-	out.pods = newPodCache(out.createCacheHandler(podInformer, "Pod"))
+	out.pods = newPodCache(out.createCacheHandler(podInformer, "Pod"), out)
 
 	return out
 }
@@ -170,6 +194,42 @@ func (c *Controller) createCacheHandler(informer cache.SharedIndexInformer, otyp
 	return cacheHandler{informer: informer, handler: handler}
 }
 
+func (c *Controller) createEDSCacheHandler(informer cache.SharedIndexInformer, otype string) cacheHandler {
+	handler := &ChainHandler{funcs: []Handler{c.notify}}
+
+	informer.AddEventHandler(
+		cache.ResourceEventHandlerFuncs{
+			// TODO: filtering functions to skip over un-referenced resources (perf)
+			AddFunc: func(obj interface{}) {
+				k8sEvents.With(prometheus.Labels{"type": otype, "event": "add"}).Add(1)
+				c.queue.Push(Task{handler: handler.Apply, obj: obj, event: model.EventAdd})
+			},
+			UpdateFunc: func(old, cur interface{}) {
+				// Avoid pushes if only resource version changed (kube-scheduller, cluster-autoscaller, etc)
+				oldE := old.(*v1.Endpoints)
+				curE := cur.(*v1.Endpoints)
+
+				if !reflect.DeepEqual(oldE.Subsets, curE.Subsets) {
+					k8sEvents.With(prometheus.Labels{"type": otype, "event": "update"}).Add(1)
+					//c.updateEDS(cur.(*v1.Endpoints))
+					c.queue.Push(Task{handler: handler.Apply, obj: cur, event: model.EventUpdate})
+				} else {
+					k8sEvents.With(prometheus.Labels{"type": otype, "event": "updateSame"}).Add(1)
+				}
+			},
+			DeleteFunc: func(obj interface{}) {
+				k8sEvents.With(prometheus.Labels{"type": otype, "event": "add"}).Add(1)
+				// Deleting the endpoints results in an empty set from EDS perspective - only
+				// deleting the service should delete the resources. The full sync replaces the
+				// maps.
+				//c.updateEDS(obj.(*v1.Endpoints))
+				c.queue.Push(Task{handler: handler.Apply, obj: obj, event: model.EventDelete})
+			},
+		})
+
+	return cacheHandler{informer: informer, handler: handler}
+}
+
 // HasSynced returns true after the initial state synchronization
 func (c *Controller) HasSynced() bool {
 	if !c.services.informer.HasSynced() ||
@@ -184,42 +244,46 @@ func (c *Controller) HasSynced() bool {
 // Run all controllers until a signal is received
 func (c *Controller) Run(stop <-chan struct{}) {
 	go c.queue.Run(stop)
+
 	go c.services.informer.Run(stop)
-	go c.endpoints.informer.Run(stop)
 	go c.pods.informer.Run(stop)
 	go c.nodes.informer.Run(stop)
+
+	// To avoid endpoints without labels or ports, wait for sync.
+	cache.WaitForCacheSync(stop, c.nodes.informer.HasSynced, c.pods.informer.HasSynced,
+		c.services.informer.HasSynced)
+
+	go c.endpoints.informer.Run(stop)
 
 	<-stop
 	log.Infof("Controller terminated")
 }
 
+// Stop the controller. Mostly for tests, to simplify the code (defer c.Stop())
+func (c *Controller) Stop() {
+	if c.stop != nil {
+		c.stop <- struct{}{}
+	}
+}
+
 // Services implements a service catalog operation
 func (c *Controller) Services() ([]*model.Service, error) {
-	list := c.services.informer.GetStore().List()
-	out := make([]*model.Service, 0, len(list))
-
-	for _, item := range list {
-		if svc := convertService(*item.(*v1.Service), c.domainSuffix); svc != nil {
-			out = append(out, svc)
-		}
+	c.RLock()
+	out := make([]*model.Service, 0, len(c.servicesMap))
+	for _, svc := range c.servicesMap {
+		out = append(out, svc)
 	}
+	c.RUnlock()
+	sort.Slice(out, func(i, j int) bool { return out[i].Hostname < out[j].Hostname })
+
 	return out, nil
 }
 
-// GetService implements a service catalog operation
+// GetService implements a service catalog operation by hostname specified.
 func (c *Controller) GetService(hostname model.Hostname) (*model.Service, error) {
-	name, namespace, err := parseHostname(hostname)
-	if err != nil {
-		log.Infof("parseHostname(%s) => error %v", hostname, err)
-		return nil, err
-	}
-	item, exists := c.serviceByKey(name, namespace)
-	if !exists {
-		return nil, nil
-	}
-
-	svc := convertService(*item, c.domainSuffix)
-	return svc, nil
+	c.RLock()
+	defer c.RUnlock()
+	return c.servicesMap[hostname], nil
 }
 
 // serviceByKey retrieves a service by name and namespace
@@ -246,14 +310,14 @@ func (c *Controller) GetPodAZ(pod *v1.Pod) (string, bool) {
 	}
 	region, exists := node.(*v1.Node).Labels[NodeRegionLabel]
 	if !exists {
-		if azDebug {
+		if pilot.AzDebug {
 			log.Warnf("unable to retrieve region label for pod: %v", pod.Name)
 		}
 		return "", false
 	}
 	zone, exists := node.(*v1.Node).Labels[NodeZoneLabel]
 	if !exists {
-		if azDebug {
+		if pilot.AzDebug {
 			log.Warnf("unable to retrieve zone label for pod: %v", pod.Name)
 		}
 		return "", false
@@ -290,7 +354,7 @@ func (c *Controller) WorkloadHealthCheckInfo(addr string) model.ProbeList {
 	// Obtain probes from the readiness and liveness probes
 	for _, container := range pod.Spec.Containers {
 		if container.ReadinessProbe != nil && container.ReadinessProbe.Handler.HTTPGet != nil {
-			p, err := convertProbePort(container, &container.ReadinessProbe.Handler)
+			p, err := convertProbePort(&container, &container.ReadinessProbe.Handler)
 			if err != nil {
 				log.Infof("Error while parsing readiness probe port =%v", err)
 			}
@@ -300,7 +364,7 @@ func (c *Controller) WorkloadHealthCheckInfo(addr string) model.ProbeList {
 			})
 		}
 		if container.LivenessProbe != nil && container.LivenessProbe.Handler.HTTPGet != nil {
-			p, err := convertProbePort(container, &container.LivenessProbe.Handler)
+			p, err := convertProbePort(&container, &container.LivenessProbe.Handler)
 			if err != nil {
 				log.Infof("Error while parsing liveness probe port =%v", err)
 			}
@@ -340,21 +404,17 @@ func (c *Controller) WorkloadHealthCheckInfo(addr string) model.ProbeList {
 // InstancesByPort implements a service catalog operation
 func (c *Controller) InstancesByPort(hostname model.Hostname, reqSvcPort int,
 	labelsList model.LabelsCollection) ([]*model.ServiceInstance, error) {
-	// Get actual service by name
 	name, namespace, err := parseHostname(hostname)
 	if err != nil {
 		log.Infof("parseHostname(%s) => error %v", hostname, err)
 		return nil, err
 	}
 
-	item, exists := c.serviceByKey(name, namespace)
-	if !exists {
-		return nil, nil
-	}
-
 	// Locate all ports in the actual service
 
-	svc := convertService(*item, c.domainSuffix)
+	c.RLock()
+	svc := c.servicesMap[hostname]
+	c.RUnlock()
 	if svc == nil {
 		return nil, nil
 	}
@@ -413,36 +473,50 @@ func (c *Controller) InstancesByPort(hostname model.Hostname, reqSvcPort int,
 
 // GetProxyServiceInstances returns service instances co-located with a given proxy
 func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.ServiceInstance, error) {
-	var out []*model.ServiceInstance
 	proxyIP := proxy.IPAddress
+	pod, exists := c.pods.getPodByIP(proxyIP)
+	if !exists {
+		return nil, fmt.Errorf("failed to get pod by proxyIP %s", proxyIP)
+	}
+	podNamespace := pod.Namespace
+
+	out := make([]*model.ServiceInstance, 0)
+
+	// 1. find proxy service by label selector, if not any, there may exist headless service
+	// failover to 2
+	svcLister := listerv1.NewServiceLister(c.services.informer.GetIndexer())
+	if services, err := svcLister.GetPodServices(pod); err != nil && len(services) > 0 {
+		for _, svc := range services {
+			item, exists, err := c.endpoints.informer.GetStore().GetByKey(KeyFunc(svc.Namespace, svc.Name))
+			if err != nil || !exists {
+				log.Warnf("unable to get endpoint %s/%s for svc: %v", svc.Namespace, svc.Name, err)
+				continue
+			}
+
+			ep := *item.(*v1.Endpoints)
+			out = append(out, c.getProxyServiceInstancesByEndpoint(ep, proxy)...)
+		}
+		return out, nil
+	}
+
+	// 2. Headless service
+	endpointsForPodInSameNS := make([]*model.ServiceInstance, 0)
+	endpointsForPodInDifferentNS := make([]*model.ServiceInstance, 0)
 	for _, item := range c.endpoints.informer.GetStore().List() {
 		ep := *item.(*v1.Endpoints)
-
-		svcItem, exists := c.serviceByKey(ep.Name, ep.Namespace)
-		if !exists {
-			continue
-		}
-		svc := convertService(*svcItem, c.domainSuffix)
-		if svc == nil {
-			continue
+		endpoints := &endpointsForPodInSameNS
+		if ep.Namespace != podNamespace {
+			endpoints = &endpointsForPodInDifferentNS
 		}
 
-		for _, ss := range ep.Subsets {
-			for _, port := range ss.Ports {
-				svcPort, exists := svc.Ports.Get(port.Name)
-				if !exists {
-					continue
-				}
-
-				out = append(out, getEndpoints(ss.Addresses, proxyIP, c, port, svcPort, svc)...)
-				nrEP := getEndpoints(ss.NotReadyAddresses, proxyIP, c, port, svcPort, svc)
-				out = append(out, nrEP...)
-				if len(nrEP) > 0 && c.Env != nil {
-					c.Env.PushContext.Add(model.ProxyStatusEndpointNotReady, proxy.ID, proxy, "")
-				}
-			}
-		}
+		*endpoints = append(*endpoints, c.getProxyServiceInstancesByEndpoint(ep, proxy)...)
 	}
+
+	// Put the endpointsForPodInSameNS in front of endpointsForPodInDifferentNS so that Pilot will
+	// first use endpoints from endpointsForPodInSameNS. This makes sure if there are two endpoints
+	// referring to the same IP/port, the one in endpointsForPodInSameNS will be used. (The other one
+	// in endpointsForPodInDifferentNS will thus be rejected by Pilot).
+	out = append(endpointsForPodInSameNS, endpointsForPodInDifferentNS...)
 	if len(out) == 0 {
 		if c.Env != nil {
 			c.Env.PushContext.Add(model.ProxyStatusNoService, proxy.ID, proxy, "")
@@ -457,34 +531,59 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 	return out, nil
 }
 
-func getEndpoints(addr []v1.EndpointAddress, proxyIP string, c *Controller,
-	port v1.EndpointPort, svcPort *model.Port, svc *model.Service) []*model.ServiceInstance {
+func (c *Controller) getProxyServiceInstancesByEndpoint(endpoints v1.Endpoints, proxy *model.Proxy) []*model.ServiceInstance {
+	out := make([]*model.ServiceInstance, 0)
 
-	var out []*model.ServiceInstance
-	for _, ea := range addr {
-		if proxyIP != ea.IP {
-			continue
+	hostname := serviceHostname(endpoints.Name, endpoints.Namespace, c.domainSuffix)
+	c.RLock()
+	svc := c.servicesMap[hostname]
+	c.RUnlock()
+
+	if svc != nil {
+		for _, ss := range endpoints.Subsets {
+			for _, port := range ss.Ports {
+				svcPort, exists := svc.Ports.Get(port.Name)
+				if !exists {
+					continue
+				}
+
+				if hasProxyIP(ss.Addresses, proxy.IPAddress) {
+					out = append(out, getEndpoints(proxy.IPAddress, c, svcPort, svc))
+				}
+
+				if hasProxyIP(ss.NotReadyAddresses, proxy.IPAddress) {
+					nrEP := getEndpoints(proxy.IPAddress, c, svcPort, svc)
+					out = append(out, nrEP)
+					if c.Env != nil {
+						c.Env.PushContext.Add(model.ProxyStatusEndpointNotReady, proxy.ID, proxy, "")
+					}
+				}
+			}
 		}
-		labels, _ := c.pods.labelsByIP(ea.IP)
-		pod, exists := c.pods.getPodByIP(ea.IP)
-		az, sa := "", ""
-		if exists {
-			az, _ = c.GetPodAZ(pod)
-			sa = kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace(), c.domainSuffix)
-		}
-		out = append(out, &model.ServiceInstance{
-			Endpoint: model.NetworkEndpoint{
-				Address:     ea.IP,
-				Port:        int(port.Port),
-				ServicePort: svcPort,
-			},
-			Service:          svc,
-			Labels:           labels,
-			AvailabilityZone: az,
-			ServiceAccount:   sa,
-		})
 	}
+
 	return out
+}
+
+func getEndpoints(ip string, c *Controller, svcPort *model.Port, svc *model.Service) *model.ServiceInstance {
+	labels, _ := c.pods.labelsByIP(ip)
+	pod, exists := c.pods.getPodByIP(ip)
+	az, sa := "", ""
+	if exists {
+		az, _ = c.GetPodAZ(pod)
+		sa = kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace(), c.domainSuffix)
+	}
+	return &model.ServiceInstance{
+		Endpoint: model.NetworkEndpoint{
+			Address:     ip,
+			Port:        int(svcPort.Port),
+			ServicePort: svcPort,
+		},
+		Service:          svc,
+		Labels:           labels,
+		AvailabilityZone: az,
+		ServiceAccount:   sa,
+	}
 }
 
 // GetIstioServiceAccounts returns the Istio service accounts running a serivce
@@ -561,9 +660,33 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 
 		log.Infof("Handle service %s in namespace %s", svc.Name, svc.Namespace)
 
-		if svcConv := convertService(*svc, c.domainSuffix); svcConv != nil {
-			f(svcConv, event)
+		hostname := svc.Name + "." + svc.Namespace
+		ports := map[string]uint32{}
+		portsByNum := map[uint32]string{}
+
+		for _, port := range svc.Spec.Ports {
+			ports[port.Name] = uint32(port.Port)
+			portsByNum[uint32(port.Port)] = port.Name
 		}
+		// EDS needs the port mapping.
+		c.XDSUpdater.SvcUpdate(c.ClusterID, hostname, ports, portsByNum)
+		// Bypass convertService and the cache invalidation.
+
+		// Shortcut the conversion
+		c.XDSUpdater.ConfigUpdate(true)
+		svcConv := convertService(*svc, c.domainSuffix)
+		switch event {
+		case model.EventDelete:
+			c.Lock()
+			delete(c.servicesMap, svcConv.Hostname)
+			c.Unlock()
+		default:
+			c.Lock()
+			c.servicesMap[svcConv.Hostname] = svcConv
+			c.Unlock()
+		}
+		f(svcConv, event)
+
 		return nil
 	})
 	return nil
@@ -571,6 +694,9 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 
 // AppendInstanceHandler implements a service catalog operation
 func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
+	if c.endpoints.handler == nil {
+		return nil
+	}
 	c.endpoints.handler.Append(func(obj interface{}, event model.Event) error {
 		ep, ok := obj.(*v1.Endpoints)
 		if !ok {
@@ -590,16 +716,71 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 		if ep.Namespace == meta_v1.NamespaceSystem {
 			return nil
 		}
+		c.updateEDS(ep)
 
 		log.Infof("Handle endpoint %s in namespace %s -> %v", ep.Name, ep.Namespace, ep.Subsets)
-		if item, exists := c.serviceByKey(ep.Name, ep.Namespace); exists {
-			if svc := convertService(*item, c.domainSuffix); svc != nil {
-				// TODO: we're passing an incomplete instance to the
-				// handler since endpoints is an aggregate structure
-				f(&model.ServiceInstance{Service: svc}, event)
-			}
+		hostname := serviceHostname(ep.Name, ep.Namespace, c.domainSuffix)
+		if svc := c.servicesMap[hostname]; svc != nil {
+			// TODO: we're passing an incomplete instance to the
+			// handler since endpoints is an aggregate structure
+			f(&model.ServiceInstance{Service: svc}, event)
 		}
 		return nil
 	})
 	return nil
+}
+
+func (c *Controller) updateEDS(ep *v1.Endpoints) {
+	hostname := serviceHostname(ep.Name, ep.Namespace, c.domainSuffix)
+
+	endpoints := []*model.IstioEndpoint{}
+	for _, ss := range ep.Subsets {
+		for _, ea := range ss.Addresses {
+			//podName := ea.TargetRef.Name
+
+			pod, exists := c.pods.getPodByIP(ea.IP)
+			if !exists {
+				log.Warnf("Endpoint without pod %s %v", ea.IP, ep)
+				if c.Env != nil {
+					c.Env.PushContext.Add(model.EndpointNoPod, string(hostname), nil, ea.IP)
+				}
+				// Request a global config update - after debounce we may find an endpoint.
+				if c.XDSUpdater != nil {
+					c.XDSUpdater.ConfigUpdate(true)
+				}
+				// TODO: keep them in a list, and check when pod events happen !
+				continue
+			}
+
+			labels := map[string]string(convertLabels(pod.ObjectMeta))
+
+			uid := fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
+
+			// EDS and ServiceEntry use name for service port - ADS will need to
+			// map to numbers.
+			for _, port := range ss.Ports {
+				endpoints = append(endpoints, &model.IstioEndpoint{
+					Address:         ea.IP,
+					EndpointPort:    uint32(port.Port),
+					ServicePortName: port.Name,
+					Labels:          labels,
+					UID:             uid,
+					ServiceAccount:  kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace(), c.domainSuffix),
+				})
+			}
+		}
+	}
+
+	// TODO: Endpoints include the service labels, maybe we can use them ?
+	// nodeName is also included, not needed
+
+	log.Infof("Handle EDS endpoint %s in namespace %s -> %v %v", ep.Name, ep.Namespace, ep.Subsets, endpoints)
+
+	err := c.XDSUpdater.EDSUpdate(c.ClusterID, string(hostname), endpoints)
+	if err != nil {
+		// Request a global push if we failed to do EDS only
+		c.XDSUpdater.ConfigUpdate(true)
+	} else {
+		c.XDSUpdater.ConfigUpdate(false)
+	}
 }

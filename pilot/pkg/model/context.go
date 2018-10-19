@@ -33,6 +33,7 @@ type Environment struct {
 	ServiceDiscovery
 
 	// Accounts interface for listing service accounts
+	// Deprecated - use PushContext.ServiceAccounts
 	ServiceAccounts
 
 	// Config interface for listing routing rules
@@ -113,6 +114,55 @@ func (node *Proxy) ServiceNode() string {
 func (node *Proxy) GetProxyVersion() (string, bool) {
 	version, found := node.Metadata["ISTIO_PROXY_VERSION"]
 	return version, found
+}
+
+// RouterMode decides the behavior of Istio Gateway (normal or sni-dnat)
+type RouterMode string
+
+const (
+	// StandardRouter is the normal gateway mode
+	StandardRouter RouterMode = "standard"
+
+	// SniDnatRouter is used for bridging two networks
+	SniDnatRouter RouterMode = "sni-dnat"
+)
+
+// GetRouterMode returns the operating mode associated with the router.
+// Assumes that the proxy is of type Router
+func (node *Proxy) GetRouterMode() RouterMode {
+	if modestr, found := node.Metadata["ISTIO_ROUTER_MODE"]; found {
+		switch RouterMode(modestr) {
+		case SniDnatRouter:
+			return SniDnatRouter
+		}
+	}
+	return StandardRouter
+}
+
+// UnnamedNetwork is the default network that proxies in the mesh
+// get when they don't request a specific network view.
+const UnnamedNetwork = ""
+
+// GetNetworkView returns the networks that the proxy requested.
+// When sending EDS/CDS-with-dns-endpoints, Pilot will only send
+// endpoints corresponding to the networks that the proxy wants to see.
+// If not set, we assume that the proxy wants to see endpoints from the default
+// unnamed network.
+func GetNetworkView(node *Proxy) map[string]bool {
+	if node == nil {
+		return map[string]bool{UnnamedNetwork: true}
+	}
+
+	nmap := make(map[string]bool)
+	if networks, found := node.Metadata["REQUESTED_NETWORK_VIEW"]; found {
+		for _, n := range strings.Split(networks, ",") {
+			nmap[n] = true
+		}
+	} else {
+		// Proxy sees endpoints from the default unnamed network only
+		nmap[UnnamedNetwork] = true
+	}
+	return nmap
 }
 
 // ParseMetadata parses the opaque Metadata from an Envoy Node into string key-value pairs.

@@ -32,6 +32,7 @@ import (
 	"google.golang.org/grpc/codes"
 
 	mcp "istio.io/api/mcp/v1alpha1"
+	"istio.io/istio/pkg/mcp/testing/monitoring"
 )
 
 type testStream struct {
@@ -277,7 +278,7 @@ func makeResponse(typeURL, version, nonce string, envelopes ...*mcp.Envelope) *m
 func TestSingleTypeCases(t *testing.T) {
 	ts := newTestStream()
 
-	c := New(ts, supportedTypeUrls, ts, key, metadata)
+	c := New(ts, supportedTypeUrls, ts, key, metadata, mcptestmon.NewInMemoryClientStatsContext())
 	ctx, cancelClient := context.WithCancel(context.Background())
 
 	var wg sync.WaitGroup
@@ -475,7 +476,7 @@ func TestSingleTypeCases(t *testing.T) {
 func TestReconnect(t *testing.T) {
 	ts := newTestStream()
 
-	c := New(ts, []string{fakeType0TypeURL}, ts, key, metadata)
+	c := New(ts, []string{fakeType0TypeURL}, ts, key, metadata, mcptestmon.NewInMemoryClientStatsContext())
 	ctx, cancelClient := context.WithCancel(context.Background())
 
 	var wg sync.WaitGroup

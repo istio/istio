@@ -37,6 +37,11 @@ initWorkingDir: &initWorkingDir
     mkdir -p /go/out/tests
     mkdir -p /go/out/logs
     mkdir -p /home/circleci/logs
+    # TODO - temporary until 'machine' image is updated or customized
+    GOROOT=$(go env GOROOT)
+    sudo rm -r $(go env GOROOT)
+    sudo mkdir $GOROOT
+    curl https://dl.google.com/go/go1.10.4.linux-amd64.tar.gz | sudo tar xz -C $GOROOT --strip-components=1
 
 recordZeroExitCodeIfTestPassed: &recordZeroExitCodeIfTestPassed
   run:

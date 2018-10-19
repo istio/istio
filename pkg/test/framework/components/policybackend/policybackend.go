@@ -86,7 +86,7 @@ spec:
       containers:
       - name: app
         image: "{{.Hub}}/test_policybackend:{{.Tag}}"
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: {{.ImagePullPolicy}}
         ports:
         - name: grpc
           containerPort: {{.port}}
@@ -118,13 +118,13 @@ func (c *localComponent) Init(ctx environment.ComponentContext, deps map[depende
 		return nil, fmt.Errorf("unsupported environment: %q", ctx.Environment().EnvironmentID())
 	}
 
-	port := policy.DefaultPort // TODO: Allow dynamically allocated ports.
-	backend := policy.NewPolicyBackend(port)
-
+	backend := policy.NewPolicyBackend(0) // auto-allocate port
 	err := backend.Start()
 	if err != nil {
 		return nil, err
 	}
+
+	port := backend.Port()
 
 	controller, err := util.Retry(util.DefaultRetryWait, time.Second, func() (interface{}, bool, error) {
 		c, err := policy.NewController(fmt.Sprintf(":%d", port))
@@ -144,6 +144,7 @@ func (c *localComponent) Init(ctx environment.ComponentContext, deps map[depende
 		port:       port,
 		backend:    backend,
 		controller: controller.(*policy.Controller),
+		env:        ctx.Environment(),
 		local:      true,
 	}, nil
 }
@@ -182,19 +183,20 @@ func (c *kubeComponent) Init(ctx environment.ComponentContext, deps map[dependen
 	s := e.KubeSettings()
 
 	result, err := tmpl.Evaluate(template, map[string]interface{}{
-		"Hub":        s.Hub,
-		"Tag":        s.Tag,
-		"deployment": "policy-backend",
-		"app":        "policy-backend",
-		"version":    "test",
-		"port":       policy.DefaultPort,
+		"Hub":             s.Values[kubernetes.HubValuesKey],
+		"Tag":             s.Values[kubernetes.TagValuesKey],
+		"ImagePullPolicy": s.Values[kubernetes.ImagePullPolicyValuesKey],
+		"deployment":      "policy-backend",
+		"app":             "policy-backend",
+		"version":         "test",
+		"port":            policy.DefaultPort,
 	})
 
 	if err != nil {
 		return
 	}
 
-	if err = kube.ApplyContents(s.KubeConfig, s.DependencyNamespace, result); err != nil {
+	if err = e.Accessor.ApplyContents(s.DependencyNamespace, result); err != nil {
 		scopes.CI.Info("Error applying PolicyBackend deployment config")
 		return
 	}
@@ -225,8 +227,8 @@ func (c *kubeComponent) Init(ctx environment.ComponentContext, deps map[dependen
 	}
 
 	var forwarder kube.PortForwarder
-	if forwarder, err = kube.NewPortForwarder(
-		s.KubeConfig, options, 0, uint16(svc.Spec.Ports[0].TargetPort.IntValue())); err != nil {
+	if forwarder, err = e.Accessor.NewPortForwarder(
+		options, 0, uint16(svc.Spec.Ports[0].TargetPort.IntValue())); err != nil {
 		scopes.CI.Infof("Error setting up PortForwarder for PolicyBackend: %v", err)
 		return
 	}
@@ -248,6 +250,7 @@ func (c *kubeComponent) Init(ctx environment.ComponentContext, deps map[dependen
 		dependencyNamespace: s.DependencyNamespace,
 		controller:          controller,
 		forwarder:           forwarder,
+		env:                 ctx.Environment(),
 		local:               false,
 	}
 
@@ -259,6 +262,7 @@ type policyBackend struct {
 	dependencyNamespace string
 	controller          *policy.Controller
 	forwarder           kube.PortForwarder
+	env                 environment.Implementation
 
 	// local only settings
 	port    int
@@ -308,7 +312,15 @@ func (p *policyBackend) ExpectReport(t testing.TB, expected ...proto.Message) {
 func (p *policyBackend) ExpectReportJSON(t testing.TB, expected ...string) {
 	t.Helper()
 
-	_, err := util.Retry(util.DefaultRetryTimeout, util.DefaultRetryWait, func() (interface{}, bool, error) {
+	var err error
+	for i, e := range expected {
+		expected[i], err = p.env.Evaluate(e)
+		if err != nil {
+			t.Fatalf("template evaluation failed: %v", err)
+		}
+	}
+
+	_, err = util.Retry(util.DefaultRetryTimeout, util.DefaultRetryWait, func() (interface{}, bool, error) {
 		reports, err := p.controller.GetReports()
 		if err != nil {
 			return nil, false, err
@@ -387,8 +399,6 @@ func jsonStringsToMaps(t testing.TB, arr []string) []map[string]interface{} {
 	return result
 }
 
-// TODO: Fix hardwired code.
-
 // CreateConfigSnippetImplementation
 func (p *policyBackend) CreateConfigSnippet(name string) string {
 	if p.local {
@@ -397,7 +407,7 @@ func (p *policyBackend) CreateConfigSnippet(name string) string {
 kind: bypass
 metadata:
   name: %s
-  namespace: istio-system
+  namespace: {{.TestNamespace}}
 spec:
   backend_address: 127.0.0.1:%d
 `, name, p.port)

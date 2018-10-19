@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors.
+// Copyright 2017 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -95,13 +95,13 @@ func mergePoints(a, b *monitoring.TimeSeries) (*monitoring.TimeSeries, error) {
 		if bv, ok = b.Points[0].Value.Value.(*monitoring.TypedValue_Int64Value); !ok {
 			return a, fmt.Errorf("can't merge two timeseries with different value types; a has int64 value, b does not: %#v", b.Points[0].Value)
 		}
-		a.Points[0].Value = &monitoring.TypedValue{&monitoring.TypedValue_Int64Value{av.Int64Value + bv.Int64Value}}
+		a.Points[0].Value = &monitoring.TypedValue{Value: &monitoring.TypedValue_Int64Value{Int64Value: av.Int64Value + bv.Int64Value}}
 	case *monitoring.TypedValue_DoubleValue:
 		var bv *monitoring.TypedValue_DoubleValue
 		if bv, ok = b.Points[0].Value.Value.(*monitoring.TypedValue_DoubleValue); !ok {
 			return a, fmt.Errorf("can't merge two timeseries with different value types; a has double value, b does not: %#v", b.Points[0].Value)
 		}
-		a.Points[0].Value = &monitoring.TypedValue{&monitoring.TypedValue_DoubleValue{av.DoubleValue + bv.DoubleValue}}
+		a.Points[0].Value = &monitoring.TypedValue{Value: &monitoring.TypedValue_DoubleValue{DoubleValue: av.DoubleValue + bv.DoubleValue}}
 	case *monitoring.TypedValue_DistributionValue:
 		var bv *monitoring.TypedValue_DistributionValue
 		if bv, ok = b.Points[0].Value.Value.(*monitoring.TypedValue_DistributionValue); !ok {

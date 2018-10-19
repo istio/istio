@@ -8,6 +8,7 @@
 		mesh/v1alpha1/config.proto
 
 	It has these top-level messages:
+		Tracing
 		ProxyConfig
 		MeshConfig
 */
@@ -92,7 +93,7 @@ func (x ProxyConfig_InboundInterceptionMode) String() string {
 	return proto.EnumName(ProxyConfig_InboundInterceptionMode_name, int32(x))
 }
 func (ProxyConfig_InboundInterceptionMode) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptorConfig, []int{0, 0}
+	return fileDescriptorConfig, []int{1, 0}
 }
 
 type MeshConfig_IngressControllerMode int32
@@ -129,7 +130,7 @@ func (x MeshConfig_IngressControllerMode) String() string {
 	return proto.EnumName(MeshConfig_IngressControllerMode_name, int32(x))
 }
 func (MeshConfig_IngressControllerMode) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptorConfig, []int{1, 0}
+	return fileDescriptorConfig, []int{2, 0}
 }
 
 // TODO AuthPolicy needs to be removed and merged with AuthPolicy defined above
@@ -155,7 +156,7 @@ func (x MeshConfig_AuthPolicy) String() string {
 	return proto.EnumName(MeshConfig_AuthPolicy_name, int32(x))
 }
 func (MeshConfig_AuthPolicy) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptorConfig, []int{1, 1}
+	return fileDescriptorConfig, []int{2, 1}
 }
 
 type MeshConfig_OutboundTrafficPolicy_Mode int32
@@ -185,7 +186,196 @@ func (x MeshConfig_OutboundTrafficPolicy_Mode) String() string {
 	return proto.EnumName(MeshConfig_OutboundTrafficPolicy_Mode_name, int32(x))
 }
 func (MeshConfig_OutboundTrafficPolicy_Mode) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptorConfig, []int{1, 0, 0}
+	return fileDescriptorConfig, []int{2, 0, 0}
+}
+
+// Tracing defines configuration for the tracing performed by Envoy instances.
+type Tracing struct {
+	// The tracer implementation to be used by Envoy.
+	//
+	// Types that are valid to be assigned to Tracer:
+	//	*Tracing_Zipkin_
+	//	*Tracing_Lightstep_
+	Tracer isTracing_Tracer `protobuf_oneof:"tracer"`
+}
+
+func (m *Tracing) Reset()                    { *m = Tracing{} }
+func (m *Tracing) String() string            { return proto.CompactTextString(m) }
+func (*Tracing) ProtoMessage()               {}
+func (*Tracing) Descriptor() ([]byte, []int) { return fileDescriptorConfig, []int{0} }
+
+type isTracing_Tracer interface {
+	isTracing_Tracer()
+	MarshalTo([]byte) (int, error)
+	Size() int
+}
+
+type Tracing_Zipkin_ struct {
+	Zipkin *Tracing_Zipkin `protobuf:"bytes,1,opt,name=zipkin,oneof"`
+}
+type Tracing_Lightstep_ struct {
+	Lightstep *Tracing_Lightstep `protobuf:"bytes,2,opt,name=lightstep,oneof"`
+}
+
+func (*Tracing_Zipkin_) isTracing_Tracer()    {}
+func (*Tracing_Lightstep_) isTracing_Tracer() {}
+
+func (m *Tracing) GetTracer() isTracing_Tracer {
+	if m != nil {
+		return m.Tracer
+	}
+	return nil
+}
+
+func (m *Tracing) GetZipkin() *Tracing_Zipkin {
+	if x, ok := m.GetTracer().(*Tracing_Zipkin_); ok {
+		return x.Zipkin
+	}
+	return nil
+}
+
+func (m *Tracing) GetLightstep() *Tracing_Lightstep {
+	if x, ok := m.GetTracer().(*Tracing_Lightstep_); ok {
+		return x.Lightstep
+	}
+	return nil
+}
+
+// XXX_OneofFuncs is for the internal use of the proto package.
+func (*Tracing) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
+	return _Tracing_OneofMarshaler, _Tracing_OneofUnmarshaler, _Tracing_OneofSizer, []interface{}{
+		(*Tracing_Zipkin_)(nil),
+		(*Tracing_Lightstep_)(nil),
+	}
+}
+
+func _Tracing_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
+	m := msg.(*Tracing)
+	// tracer
+	switch x := m.Tracer.(type) {
+	case *Tracing_Zipkin_:
+		_ = b.EncodeVarint(1<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Zipkin); err != nil {
+			return err
+		}
+	case *Tracing_Lightstep_:
+		_ = b.EncodeVarint(2<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Lightstep); err != nil {
+			return err
+		}
+	case nil:
+	default:
+		return fmt.Errorf("Tracing.Tracer has unexpected type %T", x)
+	}
+	return nil
+}
+
+func _Tracing_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
+	m := msg.(*Tracing)
+	switch tag {
+	case 1: // tracer.zipkin
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(Tracing_Zipkin)
+		err := b.DecodeMessage(msg)
+		m.Tracer = &Tracing_Zipkin_{msg}
+		return true, err
+	case 2: // tracer.lightstep
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(Tracing_Lightstep)
+		err := b.DecodeMessage(msg)
+		m.Tracer = &Tracing_Lightstep_{msg}
+		return true, err
+	default:
+		return false, nil
+	}
+}
+
+func _Tracing_OneofSizer(msg proto.Message) (n int) {
+	m := msg.(*Tracing)
+	// tracer
+	switch x := m.Tracer.(type) {
+	case *Tracing_Zipkin_:
+		s := proto.Size(x.Zipkin)
+		n += proto.SizeVarint(1<<3 | proto.WireBytes)
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *Tracing_Lightstep_:
+		s := proto.Size(x.Lightstep)
+		n += proto.SizeVarint(2<<3 | proto.WireBytes)
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case nil:
+	default:
+		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
+	}
+	return n
+}
+
+// Zipkin defines configuration for a Zipkin tracer.
+type Tracing_Zipkin struct {
+	// Address of the Zipkin service (e.g. _zipkin:9411_).
+	Address string `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
+}
+
+func (m *Tracing_Zipkin) Reset()                    { *m = Tracing_Zipkin{} }
+func (m *Tracing_Zipkin) String() string            { return proto.CompactTextString(m) }
+func (*Tracing_Zipkin) ProtoMessage()               {}
+func (*Tracing_Zipkin) Descriptor() ([]byte, []int) { return fileDescriptorConfig, []int{0, 0} }
+
+func (m *Tracing_Zipkin) GetAddress() string {
+	if m != nil {
+		return m.Address
+	}
+	return ""
+}
+
+// Lightstep defines configuration for a LightStep tracer.
+type Tracing_Lightstep struct {
+	// Address of the LightStep Satellite pool.
+	Address string `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
+	// The LightStep access token.
+	AccessToken string `protobuf:"bytes,2,opt,name=access_token,json=accessToken,proto3" json:"access_token,omitempty"`
+	// True if a secure connection should be used when communicating with the pool.
+	Secure bool `protobuf:"varint,3,opt,name=secure,proto3" json:"secure,omitempty"`
+	// Path to the trusted cacert used to authenticate the pool.
+	CacertPath string `protobuf:"bytes,4,opt,name=cacert_path,json=cacertPath,proto3" json:"cacert_path,omitempty"`
+}
+
+func (m *Tracing_Lightstep) Reset()                    { *m = Tracing_Lightstep{} }
+func (m *Tracing_Lightstep) String() string            { return proto.CompactTextString(m) }
+func (*Tracing_Lightstep) ProtoMessage()               {}
+func (*Tracing_Lightstep) Descriptor() ([]byte, []int) { return fileDescriptorConfig, []int{0, 1} }
+
+func (m *Tracing_Lightstep) GetAddress() string {
+	if m != nil {
+		return m.Address
+	}
+	return ""
+}
+
+func (m *Tracing_Lightstep) GetAccessToken() string {
+	if m != nil {
+		return m.AccessToken
+	}
+	return ""
+}
+
+func (m *Tracing_Lightstep) GetSecure() bool {
+	if m != nil {
+		return m.Secure
+	}
+	return false
+}
+
+func (m *Tracing_Lightstep) GetCacertPath() string {
+	if m != nil {
+		return m.CacertPath
+	}
+	return ""
 }
 
 // ProxyConfig defines variables for individual Envoy instances.
@@ -218,9 +408,8 @@ type ProxyConfig struct {
 	ParentShutdownDuration *google_protobuf.Duration `protobuf:"bytes,5,opt,name=parent_shutdown_duration,json=parentShutdownDuration" json:"parent_shutdown_duration,omitempty"`
 	// Address of the discovery service exposing xDS with mTLS connection.
 	DiscoveryAddress string `protobuf:"bytes,6,opt,name=discovery_address,json=discoveryAddress,proto3" json:"discovery_address,omitempty"`
-	// Polling interval for service discovery (used by EDS, CDS, LDS, but not RDS). (MUST BE >=1ms)
-	DiscoveryRefreshDelay *google_protobuf.Duration `protobuf:"bytes,7,opt,name=discovery_refresh_delay,json=discoveryRefreshDelay" json:"discovery_refresh_delay,omitempty"`
 	// Address of the Zipkin service (e.g. _zipkin:9411_).
+	// DEPRECATED: Use [tracing][istio.mesh.v1alpha1.ProxyConfig.tracing] instead.
 	ZipkinAddress string `protobuf:"bytes,8,opt,name=zipkin_address,json=zipkinAddress,proto3" json:"zipkin_address,omitempty"`
 	// Connection timeout used by Envoy for supporting services. (MUST BE >=1ms)
 	ConnectTimeout *google_protobuf.Duration `protobuf:"bytes,9,opt,name=connect_timeout,json=connectTimeout" json:"connect_timeout,omitempty"`
@@ -228,10 +417,6 @@ type ProxyConfig struct {
 	StatsdUdpAddress string `protobuf:"bytes,10,opt,name=statsd_udp_address,json=statsdUdpAddress,proto3" json:"statsd_udp_address,omitempty"`
 	// Port on which Envoy should listen for administrative commands.
 	ProxyAdminPort int32 `protobuf:"varint,11,opt,name=proxy_admin_port,json=proxyAdminPort,proto3" json:"proxy_admin_port,omitempty"`
-	// The availability zone where this Envoy instance is running. When running
-	// Envoy as a sidecar in Kubernetes, this flag must be one of the availability
-	// zones assigned to a node using failure-domain.beta.kubernetes.io/zone annotation.
-	AvailabilityZone string `protobuf:"bytes,12,opt,name=availability_zone,json=availabilityZone,proto3" json:"availability_zone,omitempty"`
 	// Authentication policy defines the global switch to control authentication
 	// for Envoy-to-Envoy communication for istio components Mixer and Pilot.
 	ControlPlaneAuthPolicy AuthenticationPolicy `protobuf:"varint,13,opt,name=control_plane_auth_policy,json=controlPlaneAuthPolicy,proto3,enum=istio.mesh.v1alpha1.AuthenticationPolicy" json:"control_plane_auth_policy,omitempty"`
@@ -250,12 +435,14 @@ type ProxyConfig struct {
 	ProxyBootstrapTemplatePath string `protobuf:"bytes,17,opt,name=proxy_bootstrap_template_path,json=proxyBootstrapTemplatePath,proto3" json:"proxy_bootstrap_template_path,omitempty"`
 	// The mode used to redirect inbound traffic to Envoy.
 	InterceptionMode ProxyConfig_InboundInterceptionMode `protobuf:"varint,18,opt,name=interception_mode,json=interceptionMode,proto3,enum=istio.mesh.v1alpha1.ProxyConfig_InboundInterceptionMode" json:"interception_mode,omitempty"`
+	// Tracing configuration to be used by the proxy.
+	Tracing *Tracing `protobuf:"bytes,19,opt,name=tracing" json:"tracing,omitempty"`
 }
 
 func (m *ProxyConfig) Reset()                    { *m = ProxyConfig{} }
 func (m *ProxyConfig) String() string            { return proto.CompactTextString(m) }
 func (*ProxyConfig) ProtoMessage()               {}
-func (*ProxyConfig) Descriptor() ([]byte, []int) { return fileDescriptorConfig, []int{0} }
+func (*ProxyConfig) Descriptor() ([]byte, []int) { return fileDescriptorConfig, []int{1} }
 
 func (m *ProxyConfig) GetConfigPath() string {
 	if m != nil {
@@ -299,13 +486,6 @@ func (m *ProxyConfig) GetDiscoveryAddress() string {
 	return ""
 }
 
-func (m *ProxyConfig) GetDiscoveryRefreshDelay() *google_protobuf.Duration {
-	if m != nil {
-		return m.DiscoveryRefreshDelay
-	}
-	return nil
-}
-
 func (m *ProxyConfig) GetZipkinAddress() string {
 	if m != nil {
 		return m.ZipkinAddress
@@ -332,13 +512,6 @@ func (m *ProxyConfig) GetProxyAdminPort() int32 {
 		return m.ProxyAdminPort
 	}
 	return 0
-}
-
-func (m *ProxyConfig) GetAvailabilityZone() string {
-	if m != nil {
-		return m.AvailabilityZone
-	}
-	return ""
 }
 
 func (m *ProxyConfig) GetControlPlaneAuthPolicy() AuthenticationPolicy {
@@ -381,6 +554,13 @@ func (m *ProxyConfig) GetInterceptionMode() ProxyConfig_InboundInterceptionMode 
 		return m.InterceptionMode
 	}
 	return ProxyConfig_REDIRECT
+}
+
+func (m *ProxyConfig) GetTracing() *Tracing {
+	if m != nil {
+		return m.Tracing
+	}
+	return nil
 }
 
 // MeshConfig defines mesh-wide variables shared by all Envoy instances in the
@@ -427,8 +607,6 @@ type MeshConfig struct {
 	// for Envoy-to-Envoy communication.
 	// Use authentication_policy instead.
 	AuthPolicy MeshConfig_AuthPolicy `protobuf:"varint,10,opt,name=auth_policy,json=authPolicy,proto3,enum=istio.mesh.v1alpha1.MeshConfig_AuthPolicy" json:"auth_policy,omitempty"`
-	// Polling interval for RDS (MUST BE >=1ms)
-	RdsRefreshDelay *google_protobuf.Duration `protobuf:"bytes,11,opt,name=rds_refresh_delay,json=rdsRefreshDelay" json:"rds_refresh_delay,omitempty"`
 	// Flag to control generation of trace spans and request IDs.
 	// Requires a trace span collector defined in the proxy configuration.
 	EnableTracing bool `protobuf:"varint,12,opt,name=enable_tracing,json=enableTracing,proto3" json:"enable_tracing,omitempty"`
@@ -441,9 +619,6 @@ type MeshConfig struct {
 	// and remain constant for the duration of the pod. The rest of the mesh config can be changed
 	// at runtime and config gets distributed dynamically.
 	DefaultConfig *ProxyConfig `protobuf:"bytes,14,opt,name=default_config,json=defaultConfig" json:"default_config,omitempty"`
-	// DEPRECATED. Mixer address. This option will be removed soon. Please
-	// use mixer_check and mixer_report.
-	MixerAddress string `protobuf:"bytes,16,opt,name=mixer_address,json=mixerAddress,proto3" json:"mixer_address,omitempty"`
 	// Set the default behavior of the sidecar for handling outbound traffic from the application.
 	// While the default mode should work out of the box, if your application uses one or more external services that
 	// are not known apriori, setting the policy to ALLOW_ANY will cause the sidecars to route traffic to the any
@@ -456,8 +631,6 @@ type MeshConfig struct {
 	// Unix Domain Socket through which envoy communicates with NodeAgent SDS to get key/cert for mTLS.
 	// Use secret-mount files instead of SDS if set to empty.
 	SdsUdsPath string `protobuf:"bytes,20,opt,name=sds_uds_path,json=sdsUdsPath,proto3" json:"sds_uds_path,omitempty"`
-	// Polling interval for SDS (MUST BE >=1ms)
-	SdsRefreshDelay *google_protobuf.Duration `protobuf:"bytes,21,opt,name=sds_refresh_delay,json=sdsRefreshDelay" json:"sds_refresh_delay,omitempty"`
 	// Address of the galley service exposing the Mesh Control Protocol (MCP).
 	GalleyAddress string `protobuf:"bytes,22,opt,name=galley_address,json=galleyAddress,proto3" json:"galley_address,omitempty"`
 }
@@ -465,7 +638,7 @@ type MeshConfig struct {
 func (m *MeshConfig) Reset()                    { *m = MeshConfig{} }
 func (m *MeshConfig) String() string            { return proto.CompactTextString(m) }
 func (*MeshConfig) ProtoMessage()               {}
-func (*MeshConfig) Descriptor() ([]byte, []int) { return fileDescriptorConfig, []int{1} }
+func (*MeshConfig) Descriptor() ([]byte, []int) { return fileDescriptorConfig, []int{2} }
 
 func (m *MeshConfig) GetMixerCheckServer() string {
 	if m != nil {
@@ -537,13 +710,6 @@ func (m *MeshConfig) GetAuthPolicy() MeshConfig_AuthPolicy {
 	return MeshConfig_NONE
 }
 
-func (m *MeshConfig) GetRdsRefreshDelay() *google_protobuf.Duration {
-	if m != nil {
-		return m.RdsRefreshDelay
-	}
-	return nil
-}
-
 func (m *MeshConfig) GetEnableTracing() bool {
 	if m != nil {
 		return m.EnableTracing
@@ -563,13 +729,6 @@ func (m *MeshConfig) GetDefaultConfig() *ProxyConfig {
 		return m.DefaultConfig
 	}
 	return nil
-}
-
-func (m *MeshConfig) GetMixerAddress() string {
-	if m != nil {
-		return m.MixerAddress
-	}
-	return ""
 }
 
 func (m *MeshConfig) GetOutboundTrafficPolicy() *MeshConfig_OutboundTrafficPolicy {
@@ -593,13 +752,6 @@ func (m *MeshConfig) GetSdsUdsPath() string {
 	return ""
 }
 
-func (m *MeshConfig) GetSdsRefreshDelay() *google_protobuf.Duration {
-	if m != nil {
-		return m.SdsRefreshDelay
-	}
-	return nil
-}
-
 func (m *MeshConfig) GetGalleyAddress() string {
 	if m != nil {
 		return m.GalleyAddress
@@ -615,7 +767,7 @@ func (m *MeshConfig_OutboundTrafficPolicy) Reset()         { *m = MeshConfig_Out
 func (m *MeshConfig_OutboundTrafficPolicy) String() string { return proto.CompactTextString(m) }
 func (*MeshConfig_OutboundTrafficPolicy) ProtoMessage()    {}
 func (*MeshConfig_OutboundTrafficPolicy) Descriptor() ([]byte, []int) {
-	return fileDescriptorConfig, []int{1, 0}
+	return fileDescriptorConfig, []int{2, 0}
 }
 
 func (m *MeshConfig_OutboundTrafficPolicy) GetMode() MeshConfig_OutboundTrafficPolicy_Mode {
@@ -626,6 +778,9 @@ func (m *MeshConfig_OutboundTrafficPolicy) GetMode() MeshConfig_OutboundTrafficP
 }
 
 func init() {
+	proto.RegisterType((*Tracing)(nil), "istio.mesh.v1alpha1.Tracing")
+	proto.RegisterType((*Tracing_Zipkin)(nil), "istio.mesh.v1alpha1.Tracing.Zipkin")
+	proto.RegisterType((*Tracing_Lightstep)(nil), "istio.mesh.v1alpha1.Tracing.Lightstep")
 	proto.RegisterType((*ProxyConfig)(nil), "istio.mesh.v1alpha1.ProxyConfig")
 	proto.RegisterType((*MeshConfig)(nil), "istio.mesh.v1alpha1.MeshConfig")
 	proto.RegisterType((*MeshConfig_OutboundTrafficPolicy)(nil), "istio.mesh.v1alpha1.MeshConfig.OutboundTrafficPolicy")
@@ -635,6 +790,129 @@ func init() {
 	proto.RegisterEnum("istio.mesh.v1alpha1.MeshConfig_AuthPolicy", MeshConfig_AuthPolicy_name, MeshConfig_AuthPolicy_value)
 	proto.RegisterEnum("istio.mesh.v1alpha1.MeshConfig_OutboundTrafficPolicy_Mode", MeshConfig_OutboundTrafficPolicy_Mode_name, MeshConfig_OutboundTrafficPolicy_Mode_value)
 }
+func (m *Tracing) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *Tracing) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Tracer != nil {
+		nn1, err := m.Tracer.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += nn1
+	}
+	return i, nil
+}
+
+func (m *Tracing_Zipkin_) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	if m.Zipkin != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintConfig(dAtA, i, uint64(m.Zipkin.Size()))
+		n2, err := m.Zipkin.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n2
+	}
+	return i, nil
+}
+func (m *Tracing_Lightstep_) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	if m.Lightstep != nil {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintConfig(dAtA, i, uint64(m.Lightstep.Size()))
+		n3, err := m.Lightstep.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n3
+	}
+	return i, nil
+}
+func (m *Tracing_Zipkin) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *Tracing_Zipkin) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.Address) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.Address)))
+		i += copy(dAtA[i:], m.Address)
+	}
+	return i, nil
+}
+
+func (m *Tracing_Lightstep) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *Tracing_Lightstep) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.Address) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.Address)))
+		i += copy(dAtA[i:], m.Address)
+	}
+	if len(m.AccessToken) > 0 {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.AccessToken)))
+		i += copy(dAtA[i:], m.AccessToken)
+	}
+	if m.Secure {
+		dAtA[i] = 0x18
+		i++
+		if m.Secure {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i++
+	}
+	if len(m.CacertPath) > 0 {
+		dAtA[i] = 0x22
+		i++
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.CacertPath)))
+		i += copy(dAtA[i:], m.CacertPath)
+	}
+	return i, nil
+}
+
 func (m *ProxyConfig) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -672,37 +950,27 @@ func (m *ProxyConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x22
 		i++
 		i = encodeVarintConfig(dAtA, i, uint64(m.DrainDuration.Size()))
-		n1, err := m.DrainDuration.MarshalTo(dAtA[i:])
+		n4, err := m.DrainDuration.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n1
+		i += n4
 	}
 	if m.ParentShutdownDuration != nil {
 		dAtA[i] = 0x2a
 		i++
 		i = encodeVarintConfig(dAtA, i, uint64(m.ParentShutdownDuration.Size()))
-		n2, err := m.ParentShutdownDuration.MarshalTo(dAtA[i:])
+		n5, err := m.ParentShutdownDuration.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n2
+		i += n5
 	}
 	if len(m.DiscoveryAddress) > 0 {
 		dAtA[i] = 0x32
 		i++
 		i = encodeVarintConfig(dAtA, i, uint64(len(m.DiscoveryAddress)))
 		i += copy(dAtA[i:], m.DiscoveryAddress)
-	}
-	if m.DiscoveryRefreshDelay != nil {
-		dAtA[i] = 0x3a
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(m.DiscoveryRefreshDelay.Size()))
-		n3, err := m.DiscoveryRefreshDelay.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n3
 	}
 	if len(m.ZipkinAddress) > 0 {
 		dAtA[i] = 0x42
@@ -714,11 +982,11 @@ func (m *ProxyConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x4a
 		i++
 		i = encodeVarintConfig(dAtA, i, uint64(m.ConnectTimeout.Size()))
-		n4, err := m.ConnectTimeout.MarshalTo(dAtA[i:])
+		n6, err := m.ConnectTimeout.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n4
+		i += n6
 	}
 	if len(m.StatsdUdpAddress) > 0 {
 		dAtA[i] = 0x52
@@ -730,12 +998,6 @@ func (m *ProxyConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x58
 		i++
 		i = encodeVarintConfig(dAtA, i, uint64(m.ProxyAdminPort))
-	}
-	if len(m.AvailabilityZone) > 0 {
-		dAtA[i] = 0x62
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(len(m.AvailabilityZone)))
-		i += copy(dAtA[i:], m.AvailabilityZone)
 	}
 	if m.ControlPlaneAuthPolicy != 0 {
 		dAtA[i] = 0x68
@@ -774,6 +1036,18 @@ func (m *ProxyConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1
 		i++
 		i = encodeVarintConfig(dAtA, i, uint64(m.InterceptionMode))
+	}
+	if m.Tracing != nil {
+		dAtA[i] = 0x9a
+		i++
+		dAtA[i] = 0x1
+		i++
+		i = encodeVarintConfig(dAtA, i, uint64(m.Tracing.Size()))
+		n7, err := m.Tracing.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n7
 	}
 	return i, nil
 }
@@ -829,11 +1103,11 @@ func (m *MeshConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x32
 		i++
 		i = encodeVarintConfig(dAtA, i, uint64(m.ConnectTimeout.Size()))
-		n5, err := m.ConnectTimeout.MarshalTo(dAtA[i:])
+		n8, err := m.ConnectTimeout.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n5
+		i += n8
 	}
 	if len(m.IngressClass) > 0 {
 		dAtA[i] = 0x3a
@@ -857,16 +1131,6 @@ func (m *MeshConfig) MarshalTo(dAtA []byte) (int, error) {
 		i++
 		i = encodeVarintConfig(dAtA, i, uint64(m.AuthPolicy))
 	}
-	if m.RdsRefreshDelay != nil {
-		dAtA[i] = 0x5a
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(m.RdsRefreshDelay.Size()))
-		n6, err := m.RdsRefreshDelay.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n6
-	}
 	if m.EnableTracing {
 		dAtA[i] = 0x60
 		i++
@@ -887,19 +1151,11 @@ func (m *MeshConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x72
 		i++
 		i = encodeVarintConfig(dAtA, i, uint64(m.DefaultConfig.Size()))
-		n7, err := m.DefaultConfig.MarshalTo(dAtA[i:])
+		n9, err := m.DefaultConfig.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n7
-	}
-	if len(m.MixerAddress) > 0 {
-		dAtA[i] = 0x82
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(len(m.MixerAddress)))
-		i += copy(dAtA[i:], m.MixerAddress)
+		i += n9
 	}
 	if m.OutboundTrafficPolicy != nil {
 		dAtA[i] = 0x8a
@@ -907,11 +1163,11 @@ func (m *MeshConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1
 		i++
 		i = encodeVarintConfig(dAtA, i, uint64(m.OutboundTrafficPolicy.Size()))
-		n8, err := m.OutboundTrafficPolicy.MarshalTo(dAtA[i:])
+		n10, err := m.OutboundTrafficPolicy.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n8
+		i += n10
 	}
 	if m.EnableClientSidePolicyCheck {
 		dAtA[i] = 0x98
@@ -932,18 +1188,6 @@ func (m *MeshConfig) MarshalTo(dAtA []byte) (int, error) {
 		i++
 		i = encodeVarintConfig(dAtA, i, uint64(len(m.SdsUdsPath)))
 		i += copy(dAtA[i:], m.SdsUdsPath)
-	}
-	if m.SdsRefreshDelay != nil {
-		dAtA[i] = 0xaa
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(m.SdsRefreshDelay.Size()))
-		n9, err := m.SdsRefreshDelay.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n9
 	}
 	if len(m.GalleyAddress) > 0 {
 		dAtA[i] = 0xb2
@@ -988,6 +1232,64 @@ func encodeVarintConfig(dAtA []byte, offset int, v uint64) int {
 	dAtA[offset] = uint8(v)
 	return offset + 1
 }
+func (m *Tracing) Size() (n int) {
+	var l int
+	_ = l
+	if m.Tracer != nil {
+		n += m.Tracer.Size()
+	}
+	return n
+}
+
+func (m *Tracing_Zipkin_) Size() (n int) {
+	var l int
+	_ = l
+	if m.Zipkin != nil {
+		l = m.Zipkin.Size()
+		n += 1 + l + sovConfig(uint64(l))
+	}
+	return n
+}
+func (m *Tracing_Lightstep_) Size() (n int) {
+	var l int
+	_ = l
+	if m.Lightstep != nil {
+		l = m.Lightstep.Size()
+		n += 1 + l + sovConfig(uint64(l))
+	}
+	return n
+}
+func (m *Tracing_Zipkin) Size() (n int) {
+	var l int
+	_ = l
+	l = len(m.Address)
+	if l > 0 {
+		n += 1 + l + sovConfig(uint64(l))
+	}
+	return n
+}
+
+func (m *Tracing_Lightstep) Size() (n int) {
+	var l int
+	_ = l
+	l = len(m.Address)
+	if l > 0 {
+		n += 1 + l + sovConfig(uint64(l))
+	}
+	l = len(m.AccessToken)
+	if l > 0 {
+		n += 1 + l + sovConfig(uint64(l))
+	}
+	if m.Secure {
+		n += 2
+	}
+	l = len(m.CacertPath)
+	if l > 0 {
+		n += 1 + l + sovConfig(uint64(l))
+	}
+	return n
+}
+
 func (m *ProxyConfig) Size() (n int) {
 	var l int
 	_ = l
@@ -1015,10 +1317,6 @@ func (m *ProxyConfig) Size() (n int) {
 	if l > 0 {
 		n += 1 + l + sovConfig(uint64(l))
 	}
-	if m.DiscoveryRefreshDelay != nil {
-		l = m.DiscoveryRefreshDelay.Size()
-		n += 1 + l + sovConfig(uint64(l))
-	}
 	l = len(m.ZipkinAddress)
 	if l > 0 {
 		n += 1 + l + sovConfig(uint64(l))
@@ -1033,10 +1331,6 @@ func (m *ProxyConfig) Size() (n int) {
 	}
 	if m.ProxyAdminPort != 0 {
 		n += 1 + sovConfig(uint64(m.ProxyAdminPort))
-	}
-	l = len(m.AvailabilityZone)
-	if l > 0 {
-		n += 1 + l + sovConfig(uint64(l))
 	}
 	if m.ControlPlaneAuthPolicy != 0 {
 		n += 1 + sovConfig(uint64(m.ControlPlaneAuthPolicy))
@@ -1057,6 +1351,10 @@ func (m *ProxyConfig) Size() (n int) {
 	}
 	if m.InterceptionMode != 0 {
 		n += 2 + sovConfig(uint64(m.InterceptionMode))
+	}
+	if m.Tracing != nil {
+		l = m.Tracing.Size()
+		n += 2 + l + sovConfig(uint64(l))
 	}
 	return n
 }
@@ -1099,10 +1397,6 @@ func (m *MeshConfig) Size() (n int) {
 	if m.AuthPolicy != 0 {
 		n += 1 + sovConfig(uint64(m.AuthPolicy))
 	}
-	if m.RdsRefreshDelay != nil {
-		l = m.RdsRefreshDelay.Size()
-		n += 1 + l + sovConfig(uint64(l))
-	}
 	if m.EnableTracing {
 		n += 2
 	}
@@ -1114,10 +1408,6 @@ func (m *MeshConfig) Size() (n int) {
 		l = m.DefaultConfig.Size()
 		n += 1 + l + sovConfig(uint64(l))
 	}
-	l = len(m.MixerAddress)
-	if l > 0 {
-		n += 2 + l + sovConfig(uint64(l))
-	}
 	if m.OutboundTrafficPolicy != nil {
 		l = m.OutboundTrafficPolicy.Size()
 		n += 2 + l + sovConfig(uint64(l))
@@ -1127,10 +1417,6 @@ func (m *MeshConfig) Size() (n int) {
 	}
 	l = len(m.SdsUdsPath)
 	if l > 0 {
-		n += 2 + l + sovConfig(uint64(l))
-	}
-	if m.SdsRefreshDelay != nil {
-		l = m.SdsRefreshDelay.Size()
 		n += 2 + l + sovConfig(uint64(l))
 	}
 	l = len(m.GalleyAddress)
@@ -1161,6 +1447,356 @@ func sovConfig(x uint64) (n int) {
 }
 func sozConfig(x uint64) (n int) {
 	return sovConfig(uint64((x << 1) ^ uint64((int64(x) >> 63))))
+}
+func (m *Tracing) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowConfig
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: Tracing: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: Tracing: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Zipkin", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthConfig
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &Tracing_Zipkin{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.Tracer = &Tracing_Zipkin_{v}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Lightstep", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthConfig
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &Tracing_Lightstep{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.Tracer = &Tracing_Lightstep_{v}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipConfig(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthConfig
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *Tracing_Zipkin) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowConfig
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: Zipkin: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: Zipkin: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Address", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthConfig
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Address = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipConfig(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthConfig
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *Tracing_Lightstep) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowConfig
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: Lightstep: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: Lightstep: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Address", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthConfig
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Address = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field AccessToken", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthConfig
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.AccessToken = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 3:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Secure", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.Secure = bool(v != 0)
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field CacertPath", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthConfig
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.CacertPath = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipConfig(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthConfig
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
 }
 func (m *ProxyConfig) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
@@ -1373,39 +2009,6 @@ func (m *ProxyConfig) Unmarshal(dAtA []byte) error {
 			}
 			m.DiscoveryAddress = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
-		case 7:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field DiscoveryRefreshDelay", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowConfig
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthConfig
-			}
-			postIndex := iNdEx + msglen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.DiscoveryRefreshDelay == nil {
-				m.DiscoveryRefreshDelay = &google_protobuf.Duration{}
-			}
-			if err := m.DiscoveryRefreshDelay.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
 		case 8:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field ZipkinAddress", wireType)
@@ -1516,35 +2119,6 @@ func (m *ProxyConfig) Unmarshal(dAtA []byte) error {
 					break
 				}
 			}
-		case 12:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field AvailabilityZone", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowConfig
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthConfig
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.AvailabilityZone = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
 		case 13:
 			if wireType != 0 {
 				return fmt.Errorf("proto: wrong wireType = %d for field ControlPlaneAuthPolicy", wireType)
@@ -1679,6 +2253,39 @@ func (m *ProxyConfig) Unmarshal(dAtA []byte) error {
 					break
 				}
 			}
+		case 19:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Tracing", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthConfig
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Tracing == nil {
+				m.Tracing = &Tracing{}
+			}
+			if err := m.Tracing.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipConfig(dAtA[iNdEx:])
@@ -1974,39 +2581,6 @@ func (m *MeshConfig) Unmarshal(dAtA []byte) error {
 					break
 				}
 			}
-		case 11:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field RdsRefreshDelay", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowConfig
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthConfig
-			}
-			postIndex := iNdEx + msglen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.RdsRefreshDelay == nil {
-				m.RdsRefreshDelay = &google_protobuf.Duration{}
-			}
-			if err := m.RdsRefreshDelay.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
 		case 12:
 			if wireType != 0 {
 				return fmt.Errorf("proto: wrong wireType = %d for field EnableTracing", wireType)
@@ -2089,35 +2663,6 @@ func (m *MeshConfig) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			iNdEx = postIndex
-		case 16:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field MixerAddress", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowConfig
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthConfig
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.MixerAddress = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
 		case 17:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field OutboundTrafficPolicy", wireType)
@@ -2199,39 +2744,6 @@ func (m *MeshConfig) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			m.SdsUdsPath = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 21:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field SdsRefreshDelay", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowConfig
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthConfig
-			}
-			postIndex := iNdEx + msglen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.SdsRefreshDelay == nil {
-				m.SdsRefreshDelay = &google_protobuf.Duration{}
-			}
-			if err := m.SdsRefreshDelay.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
 			iNdEx = postIndex
 		case 22:
 			if wireType != 2 {
@@ -2460,83 +2972,88 @@ var (
 func init() { proto.RegisterFile("mesh/v1alpha1/config.proto", fileDescriptorConfig) }
 
 var fileDescriptorConfig = []byte{
-	// 1238 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x56, 0xd1, 0x6e, 0x1a, 0x47,
-	0x14, 0xf5, 0x3a, 0xc4, 0xc6, 0x17, 0x83, 0x97, 0x71, 0x1c, 0x6f, 0x5c, 0xd5, 0x41, 0x8e, 0x9a,
-	0xba, 0x69, 0x84, 0x15, 0x47, 0x95, 0xda, 0x3e, 0x54, 0xc5, 0x18, 0x27, 0x44, 0x04, 0xdc, 0x05,
-	0xa7, 0x75, 0x5e, 0x46, 0xc3, 0xee, 0x00, 0xa3, 0x2c, 0x3b, 0xab, 0x99, 0x59, 0x37, 0xe4, 0x93,
-	0xda, 0x7f, 0xe8, 0x73, 0x1f, 0xfb, 0x09, 0x55, 0x9e, 0xfa, 0x19, 0xd5, 0xce, 0x0c, 0x98, 0x38,
-	0x44, 0xa8, 0x7d, 0xe4, 0xcc, 0xb9, 0xf7, 0xce, 0xdc, 0x7b, 0xcf, 0x59, 0x60, 0x6f, 0x4c, 0xe5,
-	0xe8, 0xe8, 0xea, 0x09, 0x89, 0x92, 0x11, 0x79, 0x72, 0x14, 0xf0, 0x78, 0xc0, 0x86, 0xd5, 0x44,
-	0x70, 0xc5, 0xd1, 0x36, 0x93, 0x8a, 0xf1, 0x6a, 0xc6, 0xa8, 0x4e, 0x19, 0x7b, 0xfb, 0x43, 0xce,
-	0x87, 0x11, 0x3d, 0xd2, 0x94, 0x7e, 0x3a, 0x38, 0x0a, 0x53, 0x41, 0x14, 0xe3, 0xb1, 0x09, 0x3a,
-	0xf8, 0x23, 0x0f, 0x85, 0x73, 0xc1, 0xdf, 0x4e, 0xea, 0x3a, 0x15, 0xba, 0x0f, 0x05, 0x93, 0x14,
-	0x27, 0x44, 0x8d, 0x3c, 0xa7, 0xe2, 0x1c, 0x6e, 0xf8, 0x60, 0xa0, 0x73, 0xa2, 0x46, 0x19, 0xa1,
-	0xcf, 0x62, 0x22, 0x26, 0x86, 0xb0, 0x6a, 0x08, 0x06, 0xd2, 0x84, 0x2f, 0x61, 0x4b, 0x52, 0x71,
-	0xc5, 0x02, 0x8a, 0x83, 0x28, 0x95, 0x8a, 0x0a, 0xef, 0x96, 0x26, 0x95, 0x2c, 0x5c, 0x37, 0x28,
-	0xfa, 0x11, 0x4a, 0xa1, 0x20, 0x2c, 0xc6, 0xd3, 0x2b, 0x79, 0xb9, 0x8a, 0x73, 0x58, 0x38, 0xbe,
-	0x57, 0x35, 0x77, 0xae, 0x4e, 0xef, 0x5c, 0x3d, 0xb5, 0x04, 0xbf, 0xa8, 0x03, 0xa6, 0x3f, 0x51,
-	0x17, 0xbc, 0x84, 0x08, 0x1a, 0x2b, 0x2c, 0x47, 0xa9, 0x0a, 0xf9, 0xaf, 0x73, 0xb9, 0x6e, 0x2f,
-	0xcb, 0x75, 0xd7, 0x84, 0x76, 0x6d, 0xe4, 0x2c, 0xe9, 0xd7, 0x50, 0x0e, 0x99, 0x0c, 0xf8, 0x15,
-	0x15, 0x13, 0x4c, 0xc2, 0x50, 0x50, 0x29, 0xbd, 0x35, 0xfd, 0x02, 0x77, 0x76, 0x50, 0x33, 0x38,
-	0xfa, 0x09, 0x76, 0xaf, 0xc9, 0x82, 0x0e, 0x04, 0x95, 0x23, 0x1c, 0xd2, 0x88, 0x4c, 0xbc, 0xf5,
-	0x65, 0x17, 0xd8, 0x99, 0x45, 0xfa, 0x26, 0xf0, 0x34, 0x8b, 0x43, 0x5f, 0x40, 0xe9, 0x1d, 0x4b,
-	0xde, 0xb0, 0x78, 0x56, 0x3c, 0xaf, 0x8b, 0x17, 0x0d, 0x3a, 0xad, 0x7c, 0x02, 0x5b, 0x01, 0x8f,
-	0x63, 0x1a, 0x28, 0xac, 0xd8, 0x98, 0xf2, 0x54, 0x79, 0x1b, 0xcb, 0x2a, 0x96, 0x6c, 0x44, 0xcf,
-	0x04, 0xa0, 0xc7, 0x80, 0xa4, 0x22, 0x4a, 0x86, 0x38, 0x0d, 0x93, 0x59, 0x39, 0x30, 0x6f, 0x35,
-	0x27, 0x17, 0x61, 0x32, 0xad, 0x78, 0x08, 0x6e, 0x92, 0x6d, 0x0a, 0x26, 0xe1, 0x98, 0xc5, 0x38,
-	0xe1, 0x42, 0x79, 0x85, 0x8a, 0x73, 0x78, 0xdb, 0x2f, 0x69, 0xbc, 0x96, 0xc1, 0xe7, 0x5c, 0xa8,
-	0xac, 0x85, 0xe4, 0x8a, 0xb0, 0x88, 0xf4, 0x59, 0xc4, 0xd4, 0x04, 0xbf, 0xe3, 0x31, 0xf5, 0x36,
-	0x4d, 0xda, 0xf9, 0x83, 0xd7, 0x3c, 0xa6, 0x28, 0x84, 0x7b, 0x01, 0x8f, 0x95, 0xe0, 0x11, 0x4e,
-	0x22, 0x12, 0x53, 0x4c, 0x52, 0x35, 0xc2, 0x09, 0x8f, 0x58, 0x30, 0xf1, 0x8a, 0x15, 0xe7, 0xb0,
-	0x74, 0xfc, 0x55, 0x75, 0xc1, 0x6a, 0x57, 0x6b, 0xa9, 0x1a, 0xd1, 0x58, 0xb1, 0x40, 0x3f, 0xee,
-	0x5c, 0x07, 0xf8, 0x77, 0x6d, 0xae, 0xf3, 0x2c, 0x55, 0xc6, 0x30, 0x78, 0xf6, 0xd4, 0x20, 0x95,
-	0x8a, 0x8f, 0xb1, 0x5d, 0xef, 0x01, 0x8b, 0xa8, 0x57, 0x32, 0x77, 0x32, 0x27, 0x46, 0x01, 0x67,
-	0x2c, 0xa2, 0xd9, 0x53, 0xb3, 0xe7, 0xe3, 0x98, 0x8c, 0x29, 0x8e, 0x68, 0x3c, 0x54, 0x23, 0x6f,
-	0xcb, 0x3c, 0x35, 0xc3, 0xdb, 0x64, 0x4c, 0x5b, 0x1a, 0x45, 0x15, 0xad, 0x97, 0x20, 0x15, 0x82,
-	0xc6, 0xc1, 0xc4, 0x73, 0x35, 0x69, 0x1e, 0x42, 0x35, 0xf8, 0xdc, 0xb4, 0xad, 0xcf, 0xb9, 0x92,
-	0x4a, 0x90, 0x04, 0x2b, 0x3a, 0x4e, 0x22, 0xa2, 0xa8, 0x91, 0x50, 0x59, 0x5f, 0x62, 0x4f, 0x93,
-	0x4e, 0xa6, 0x9c, 0x9e, 0xa5, 0x68, 0x49, 0x51, 0x28, 0xb3, 0x58, 0x51, 0x11, 0xd0, 0x24, 0x7b,
-	0x2a, 0x1e, 0xf3, 0x90, 0x7a, 0x48, 0xb7, 0xe6, 0xdb, 0x85, 0xad, 0x99, 0x53, 0x74, 0xb5, 0x19,
-	0xf7, 0x79, 0x1a, 0x87, 0xcd, 0xb9, 0x04, 0x2f, 0x79, 0x48, 0x7d, 0x97, 0xdd, 0x40, 0x0e, 0x9e,
-	0xc2, 0xee, 0x27, 0xc8, 0x68, 0x13, 0xf2, 0x7e, 0xe3, 0xb4, 0xe9, 0x37, 0xea, 0x3d, 0x77, 0x05,
-	0x01, 0xac, 0xf5, 0xce, 0xfd, 0xce, 0x2f, 0x97, 0xae, 0x73, 0xf0, 0x5b, 0x01, 0xe0, 0x25, 0x95,
-	0x23, 0xeb, 0x1f, 0x8f, 0x01, 0x8d, 0xd9, 0x5b, 0x2a, 0x70, 0x30, 0xa2, 0xc1, 0x1b, 0x9c, 0x49,
-	0x9e, 0x0a, 0x6b, 0x23, 0xae, 0x3e, 0xa9, 0x67, 0x07, 0x5d, 0x8d, 0xa3, 0x2a, 0x6c, 0x1b, 0xb6,
-	0xa0, 0xd9, 0x3a, 0x4d, 0xe9, 0xc6, 0x54, 0xca, 0xfa, 0xc8, 0xd7, 0x27, 0x96, 0x7f, 0x0c, 0x99,
-	0x68, 0x48, 0x3f, 0xa2, 0x76, 0x41, 0x4c, 0x19, 0xa9, 0x1d, 0x26, 0xef, 0x6f, 0xdb, 0x43, 0x33,
-	0x73, 0x5d, 0x48, 0xa2, 0x47, 0x50, 0x36, 0xfd, 0x8f, 0x98, 0x54, 0xd4, 0xee, 0x6d, 0x4e, 0xcf,
-	0x69, 0x4b, 0x1f, 0xb4, 0x34, 0xae, 0x17, 0xf7, 0x21, 0x18, 0x08, 0x8f, 0x94, 0x4a, 0x0c, 0xf3,
-	0xb6, 0x66, 0x16, 0x35, 0xfc, 0x5c, 0xa9, 0x44, 0xf3, 0x16, 0x88, 0x6f, 0xed, 0xbf, 0x8a, 0xef,
-	0x01, 0x14, 0x59, 0x3c, 0xcc, 0x94, 0x85, 0x83, 0x88, 0x48, 0xa9, 0x0d, 0x63, 0xc3, 0xdf, 0xb4,
-	0x60, 0x3d, 0xc3, 0x32, 0x33, 0x9d, 0x92, 0xac, 0x7b, 0x5a, 0x37, 0x28, 0x59, 0xb8, 0x6b, 0x50,
-	0x34, 0x86, 0xdd, 0x59, 0x36, 0xa3, 0x80, 0x88, 0x0a, 0xb3, 0x28, 0x1b, 0x7a, 0x51, 0xbe, 0x59,
-	0xb8, 0x28, 0xd7, 0x93, 0xab, 0x36, 0x6d, 0xdd, 0x59, 0xb4, 0xde, 0x92, 0x1d, 0xb6, 0x08, 0x46,
-	0x1d, 0x28, 0xcc, 0xcb, 0x14, 0x74, 0x89, 0x47, 0xcb, 0x4a, 0x5c, 0xeb, 0xf1, 0x64, 0xd5, 0x73,
-	0x7c, 0x20, 0xd7, 0xfa, 0x6c, 0x40, 0x59, 0x84, 0xf2, 0x86, 0x85, 0x16, 0x96, 0xf5, 0x74, 0x4b,
-	0x84, 0xf2, 0xa6, 0x79, 0xd2, 0x58, 0xef, 0x87, 0x12, 0x24, 0x60, 0xf1, 0x50, 0xdb, 0x4e, 0xde,
-	0x2f, 0x1a, 0xb4, 0x67, 0xc0, 0x6c, 0xce, 0x24, 0x08, 0xb2, 0x66, 0x45, 0xdc, 0x5a, 0x41, 0xd1,
-	0x98, 0xac, 0x81, 0x5b, 0xdc, 0xf8, 0xc0, 0x33, 0x28, 0x85, 0x74, 0x40, 0xd2, 0x48, 0x59, 0xdb,
-	0xd0, 0x8e, 0x51, 0x38, 0xae, 0x2c, 0x53, 0x9d, 0x5f, 0xb4, 0x71, 0x56, 0x16, 0x0f, 0xa0, 0x68,
-	0x16, 0x7d, 0x6a, 0xb2, 0xae, 0x19, 0xb6, 0x06, 0xa7, 0x06, 0x3b, 0x86, 0x5d, 0x9e, 0x2a, 0x2d,
-	0xc0, 0xec, 0xfa, 0x83, 0x01, 0x0b, 0xa6, 0x0d, 0x2e, 0xeb, 0xb2, 0x4b, 0x67, 0xd8, 0xb1, 0xe1,
-	0x3d, 0x13, 0x6d, 0x3d, 0x71, 0x87, 0x2f, 0x82, 0xd1, 0x29, 0xdc, 0xb7, 0xbd, 0x0a, 0x22, 0xa6,
-	0x3f, 0xa2, 0x2c, 0xfc, 0x50, 0x57, 0xde, 0xb6, 0x6e, 0xde, 0x67, 0x86, 0x56, 0xd7, 0xac, 0x2e,
-	0x0b, 0xe7, 0xf5, 0x85, 0x2a, 0xb0, 0x29, 0x43, 0x89, 0xd3, 0x50, 0x1a, 0x37, 0xbb, 0x63, 0xfe,
-	0x10, 0xc8, 0x50, 0x5e, 0x84, 0x52, 0xbb, 0x57, 0x03, 0xca, 0xf2, 0xa3, 0xd1, 0xee, 0x2c, 0x1d,
-	0xad, 0xfc, 0x78, 0xb4, 0x43, 0x12, 0x45, 0xf4, 0xfa, 0xa3, 0x7c, 0xd7, 0x8c, 0xcc, 0xa0, 0xb6,
-	0x89, 0x7b, 0xbf, 0x3b, 0xb0, 0xb3, 0xb0, 0x0d, 0xa8, 0x0d, 0x39, 0xad, 0x07, 0x47, 0x2f, 0xeb,
-	0xf7, 0xff, 0xab, 0x97, 0x55, 0x2d, 0x0a, 0x9d, 0xe7, 0xe0, 0x04, 0x72, 0x5a, 0x0b, 0x65, 0x28,
-	0xfa, 0x8d, 0x67, 0xcd, 0x6e, 0xcf, 0xbf, 0xc4, 0x9d, 0x76, 0xeb, 0xd2, 0x5d, 0x41, 0x45, 0xd8,
-	0xa8, 0xb5, 0x5a, 0x9d, 0x9f, 0x71, 0xad, 0x7d, 0xe9, 0x3a, 0xc8, 0x83, 0x3b, 0xaf, 0x9a, 0x7e,
-	0xef, 0xa2, 0xd6, 0xc2, 0xdd, 0x86, 0xff, 0xaa, 0x59, 0x6f, 0x18, 0xe2, 0xea, 0xc1, 0x77, 0xb0,
-	0xb3, 0x50, 0x77, 0x68, 0x1d, 0x6e, 0x75, 0xce, 0xce, 0xdc, 0x15, 0x54, 0x80, 0xf5, 0xd3, 0xc6,
-	0x59, 0xed, 0xa2, 0xd5, 0x73, 0x9d, 0xcc, 0x78, 0xbb, 0x3d, 0xbf, 0x59, 0xef, 0xb9, 0xab, 0x07,
-	0x0f, 0x01, 0xe6, 0xbe, 0x6f, 0x79, 0xc8, 0xb5, 0x3b, 0xed, 0x86, 0xbb, 0x82, 0x4a, 0x00, 0x2f,
-	0x2f, 0x74, 0xad, 0x5e, 0xab, 0xeb, 0x3a, 0x2f, 0x72, 0xf9, 0x2d, 0xd7, 0x7d, 0x91, 0xcb, 0x23,
-	0x77, 0xfb, 0xd1, 0x0f, 0x70, 0x67, 0xd1, 0x57, 0xf3, 0xd3, 0xd1, 0x68, 0x13, 0xd6, 0x9b, 0xed,
-	0xe7, 0x0d, 0xbf, 0xd9, 0x73, 0xff, 0x59, 0x3f, 0x39, 0xfc, 0xf3, 0xfd, 0xbe, 0xf3, 0xd7, 0xfb,
-	0x7d, 0xe7, 0xef, 0xf7, 0xfb, 0xce, 0xeb, 0x3d, 0xd3, 0x41, 0xc6, 0x8f, 0x48, 0xc2, 0x8e, 0x3e,
-	0xf8, 0x67, 0xda, 0x5f, 0xd3, 0x13, 0x7d, 0xfa, 0x6f, 0x00, 0x00, 0x00, 0xff, 0xff, 0x9a, 0x16,
-	0xf0, 0x5a, 0xb1, 0x0a, 0x00, 0x00,
+	// 1327 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x56, 0xcd, 0x6e, 0xdb, 0xc6,
+	0x16, 0x36, 0x1d, 0x45, 0xa2, 0x8e, 0x7e, 0x4c, 0x8d, 0x63, 0x87, 0xf1, 0xbd, 0xd7, 0xf1, 0x55,
+	0x10, 0x5f, 0x27, 0x37, 0x90, 0x11, 0x07, 0x2d, 0xda, 0x02, 0x2d, 0x2a, 0xcb, 0x72, 0x2c, 0x43,
+	0xb1, 0x0d, 0x8a, 0x4e, 0xeb, 0x6c, 0x08, 0x9a, 0x1c, 0x4b, 0x83, 0x50, 0x1c, 0x82, 0x33, 0x4c,
+	0xe3, 0xee, 0xba, 0x29, 0xd0, 0x67, 0xe9, 0x5b, 0x74, 0xd5, 0x65, 0x1f, 0xa1, 0xc8, 0xaa, 0x8f,
+	0x51, 0xf0, 0xcc, 0xd0, 0x56, 0x0a, 0x25, 0x46, 0xbb, 0x13, 0xbf, 0xf9, 0xce, 0x99, 0x33, 0x73,
+	0xbe, 0xf3, 0x8d, 0x60, 0x6d, 0x4a, 0xc5, 0x64, 0xfb, 0xcd, 0x53, 0x3f, 0x4a, 0x26, 0xfe, 0xd3,
+	0xed, 0x80, 0xc7, 0x17, 0x6c, 0xdc, 0x49, 0x52, 0x2e, 0x39, 0x59, 0x66, 0x42, 0x32, 0xde, 0xc9,
+	0x19, 0x9d, 0x82, 0xb1, 0xb6, 0x3e, 0xe6, 0x7c, 0x1c, 0xd1, 0x6d, 0xa4, 0x9c, 0x67, 0x17, 0xdb,
+	0x61, 0x96, 0xfa, 0x92, 0xf1, 0x58, 0x05, 0xb5, 0x7f, 0x59, 0x84, 0x8a, 0x9b, 0xfa, 0x01, 0x8b,
+	0xc7, 0xe4, 0x4b, 0x28, 0x7f, 0xcf, 0x92, 0xd7, 0x2c, 0xb6, 0x8d, 0x0d, 0x63, 0xab, 0xb6, 0xf3,
+	0xa0, 0x33, 0x27, 0x63, 0x47, 0xb3, 0x3b, 0xaf, 0x90, 0x7a, 0xb0, 0xe0, 0xe8, 0x20, 0xb2, 0x0f,
+	0xd5, 0x88, 0x8d, 0x27, 0x52, 0x48, 0x9a, 0xd8, 0x8b, 0x98, 0x61, 0xf3, 0xa3, 0x19, 0x86, 0x05,
+	0xfb, 0x60, 0xc1, 0xb9, 0x0e, 0x5d, 0x6b, 0x43, 0x59, 0xe5, 0x26, 0x36, 0x54, 0xfc, 0x30, 0x4c,
+	0xa9, 0x10, 0x58, 0x51, 0xd5, 0x29, 0x3e, 0xd7, 0x7e, 0x30, 0xa0, 0x7a, 0x15, 0xfe, 0x61, 0x1e,
+	0xf9, 0x2f, 0xd4, 0xfd, 0x20, 0xa0, 0x42, 0x78, 0x92, 0xbf, 0xa6, 0x31, 0x96, 0x55, 0x75, 0x6a,
+	0x0a, 0x73, 0x73, 0x88, 0xac, 0x42, 0x59, 0xd0, 0x20, 0x4b, 0xa9, 0x7d, 0x6b, 0xc3, 0xd8, 0x32,
+	0x1d, 0xfd, 0x45, 0xee, 0x43, 0x2d, 0xf0, 0x03, 0x9a, 0x4a, 0x2f, 0xf1, 0xe5, 0xc4, 0x2e, 0x61,
+	0x24, 0x28, 0xe8, 0xc4, 0x97, 0x93, 0x5d, 0x13, 0xca, 0x32, 0xcd, 0x3f, 0xdb, 0x3f, 0x9a, 0x50,
+	0x3b, 0x49, 0xf9, 0xdb, 0xcb, 0x1e, 0xf6, 0x03, 0x43, 0xf1, 0x97, 0x0a, 0x35, 0x74, 0x28, 0x42,
+	0x79, 0x68, 0x4e, 0x38, 0x67, 0xb1, 0x9f, 0x5e, 0x2a, 0x82, 0xaa, 0x0a, 0x14, 0x84, 0x84, 0xff,
+	0xc1, 0x92, 0xa0, 0xe9, 0x1b, 0x16, 0x50, 0x2f, 0x88, 0x32, 0x21, 0x69, 0x8a, 0xd5, 0x55, 0x9d,
+	0xa6, 0x86, 0x7b, 0x0a, 0x25, 0x5f, 0x43, 0x33, 0x4c, 0x7d, 0x16, 0x7b, 0x45, 0x5f, 0xb1, 0xd0,
+	0xda, 0xce, 0xbd, 0x8e, 0x6a, 0x7c, 0xa7, 0x68, 0x7c, 0x67, 0x4f, 0x13, 0x9c, 0x06, 0x06, 0x14,
+	0x9f, 0x64, 0x04, 0x76, 0xe2, 0xa7, 0x34, 0x96, 0x9e, 0x98, 0x64, 0x32, 0xe4, 0xdf, 0xcd, 0xe4,
+	0xba, 0x7d, 0x53, 0xae, 0x55, 0x15, 0x3a, 0xd2, 0x91, 0x57, 0x49, 0xff, 0x0f, 0xad, 0x90, 0x89,
+	0x80, 0xbf, 0xa1, 0xe9, 0xa5, 0x57, 0xf4, 0xa6, 0x8c, 0x27, 0xb0, 0xae, 0x16, 0xba, 0xba, 0x49,
+	0x8f, 0xa0, 0xa9, 0x24, 0x74, 0xc5, 0x34, 0x73, 0xe6, 0xee, 0xa2, 0x6d, 0x38, 0x0d, 0xb5, 0x52,
+	0x50, 0x77, 0x61, 0x29, 0xe0, 0x71, 0x4c, 0x03, 0xe9, 0x49, 0x36, 0xa5, 0x3c, 0x93, 0x76, 0xf5,
+	0xa6, 0x1a, 0x9b, 0x3a, 0xc2, 0x55, 0x01, 0xe4, 0x09, 0x10, 0x21, 0x7d, 0x29, 0x42, 0x2f, 0x0b,
+	0x93, 0xab, 0x2d, 0x41, 0x15, 0xa7, 0x56, 0x4e, 0xc3, 0xa4, 0xd8, 0x71, 0x0b, 0xac, 0x24, 0x6f,
+	0xad, 0xe7, 0x87, 0x53, 0x16, 0x7b, 0x09, 0x4f, 0xa5, 0x5d, 0xdb, 0x30, 0xb6, 0x6e, 0x3b, 0x4d,
+	0xc4, 0xbb, 0x39, 0x7c, 0xc2, 0x53, 0x49, 0x42, 0xb8, 0x17, 0xf0, 0x58, 0xa6, 0x3c, 0xf2, 0x92,
+	0xc8, 0x8f, 0xa9, 0xe7, 0x67, 0x72, 0xe2, 0x25, 0x3c, 0x62, 0xc1, 0xa5, 0xdd, 0xd8, 0x30, 0xb6,
+	0x9a, 0x3b, 0x8f, 0xe6, 0xce, 0x43, 0x37, 0x93, 0x13, 0x1a, 0x4b, 0x16, 0x60, 0xbd, 0x27, 0x18,
+	0xe0, 0xac, 0xea, 0x5c, 0x27, 0x79, 0xaa, 0x9c, 0xa1, 0xf0, 0xbc, 0xfa, 0x20, 0x13, 0x92, 0x4f,
+	0x3d, 0x2d, 0xb1, 0x0b, 0x16, 0x51, 0xbb, 0xa9, 0xaa, 0x57, 0x2b, 0x4a, 0x85, 0xfb, 0x2c, 0xa2,
+	0x79, 0xf5, 0xf9, 0x89, 0xbc, 0xd8, 0x9f, 0x52, 0x2f, 0xa2, 0xf1, 0x58, 0x4e, 0xec, 0x25, 0x55,
+	0x7d, 0x8e, 0x1f, 0xf9, 0x53, 0x3a, 0x44, 0x94, 0x6c, 0xa0, 0x66, 0x83, 0x2c, 0x4d, 0x69, 0x1c,
+	0x5c, 0xda, 0x16, 0x92, 0x66, 0x21, 0xd2, 0x85, 0xff, 0xa8, 0x9b, 0x38, 0xe7, 0x5c, 0x0a, 0x99,
+	0xfa, 0x89, 0x27, 0xe9, 0x34, 0x89, 0x7c, 0x49, 0x95, 0x8c, 0x5b, 0x58, 0xc4, 0x1a, 0x92, 0x76,
+	0x0b, 0x8e, 0xab, 0x29, 0x28, 0x6b, 0x0a, 0x2d, 0x16, 0x4b, 0x9a, 0x06, 0x34, 0xc9, 0x8f, 0xea,
+	0x4d, 0x79, 0x48, 0x6d, 0x82, 0x57, 0xf3, 0xd9, 0xdc, 0xab, 0x99, 0x99, 0xaa, 0xce, 0x20, 0x3e,
+	0xe7, 0x59, 0x1c, 0x0e, 0x66, 0x12, 0xbc, 0xe0, 0x21, 0x75, 0x2c, 0xf6, 0x17, 0x84, 0x7c, 0x0a,
+	0x15, 0xa9, 0x3c, 0xc6, 0x5e, 0x46, 0x75, 0xfc, 0xfb, 0x63, 0x3e, 0xe4, 0x14, 0xe4, 0xf6, 0x33,
+	0xb8, 0xfb, 0x81, 0x4d, 0x48, 0x1d, 0x4c, 0xa7, 0xbf, 0x37, 0x70, 0xfa, 0x3d, 0xd7, 0x5a, 0x20,
+	0x00, 0x65, 0xf7, 0xc4, 0x39, 0xfe, 0xf6, 0xcc, 0x32, 0x0e, 0x4b, 0x66, 0xc5, 0x32, 0x0f, 0x4b,
+	0x66, 0xdd, 0x6a, 0xb4, 0x7f, 0x02, 0x80, 0x17, 0x54, 0x4c, 0xb4, 0x0f, 0x3c, 0x01, 0x32, 0x65,
+	0x6f, 0x69, 0xea, 0x05, 0x13, 0x1a, 0xbc, 0xf6, 0xf2, 0xd1, 0xa5, 0xa9, 0xb6, 0x03, 0x0b, 0x57,
+	0x7a, 0xf9, 0xc2, 0x08, 0x71, 0xd2, 0x81, 0x65, 0xc5, 0x4e, 0x69, 0xae, 0xb2, 0x82, 0xae, 0xcc,
+	0xa1, 0x85, 0x4b, 0x0e, 0xae, 0x68, 0xfe, 0x0e, 0xac, 0x84, 0x4c, 0xf8, 0xe7, 0x11, 0xd5, 0x22,
+	0x53, 0xdb, 0x08, 0xed, 0x63, 0xcb, 0x7a, 0x51, 0xe9, 0x06, 0x37, 0x12, 0xe4, 0x31, 0xb4, 0x54,
+	0x0f, 0x23, 0x26, 0x24, 0xd5, 0x72, 0x2e, 0x61, 0xaf, 0x97, 0x70, 0x61, 0x88, 0x38, 0xea, 0x79,
+	0x13, 0x14, 0xe4, 0x4d, 0xa4, 0x4c, 0x14, 0xf3, 0x36, 0x32, 0x1b, 0x08, 0x1f, 0x48, 0x99, 0x20,
+	0x6f, 0xce, 0x4c, 0x96, 0xff, 0xee, 0x4c, 0x3e, 0x80, 0x06, 0x8b, 0xc7, 0xf9, 0xc0, 0x79, 0x41,
+	0xe4, 0x0b, 0x61, 0x57, 0xf0, 0xd4, 0x75, 0x0d, 0xf6, 0x72, 0x2c, 0x37, 0xc5, 0x82, 0xa4, 0x5d,
+	0x50, 0x19, 0x85, 0xd3, 0xd4, 0xf0, 0x48, 0xa1, 0x64, 0x0a, 0x77, 0xaf, 0xb2, 0xa9, 0x29, 0x8a,
+	0x68, 0xaa, 0xc4, 0x56, 0x45, 0xb1, 0x7d, 0x32, 0x57, 0x0f, 0xd7, 0x9d, 0xeb, 0x0c, 0xf4, 0xbe,
+	0x57, 0xd1, 0xa8, 0xb4, 0x15, 0x36, 0x0f, 0x26, 0xc7, 0x50, 0x9b, 0x1d, 0x75, 0xc0, 0x2d, 0x1e,
+	0xdf, 0xb4, 0xc5, 0xf5, 0x4c, 0xa3, 0xd1, 0x81, 0x7f, 0x3d, 0xe3, 0x0f, 0xa1, 0x49, 0x63, 0x6c,
+	0x6c, 0x21, 0xe3, 0x3a, 0xb6, 0xb4, 0xa1, 0xd0, 0xe2, 0xbd, 0xde, 0x84, 0x25, 0xfd, 0xb8, 0x45,
+	0x5c, 0xfb, 0x40, 0x03, 0xef, 0xa3, 0xa1, 0xe0, 0x21, 0x57, 0x26, 0xf0, 0x1c, 0x9a, 0x21, 0xbd,
+	0xf0, 0xb3, 0x48, 0x6a, 0xcf, 0x40, 0xbb, 0xa8, 0xed, 0x6c, 0xdc, 0x34, 0x72, 0x4e, 0x43, 0xc7,
+	0x69, 0x3d, 0x4f, 0xe1, 0x2e, 0xcf, 0x24, 0x0e, 0x48, 0x5e, 0xd9, 0xc5, 0x05, 0x0b, 0x8a, 0x43,
+	0xb7, 0x30, 0xe3, 0x8d, 0xf7, 0x7a, 0xac, 0xc3, 0x5d, 0x15, 0xad, 0xbd, 0x6e, 0x85, 0xcf, 0x83,
+	0xc9, 0x1e, 0xdc, 0xd7, 0xd7, 0x10, 0x44, 0x0c, 0x1f, 0x28, 0x16, 0xbe, 0xaf, 0x75, 0x1c, 0x6f,
+	0xd3, 0xf9, 0x97, 0xa2, 0xf5, 0x90, 0x35, 0x62, 0xe1, 0xac, 0xe6, 0xc9, 0x06, 0xd4, 0x45, 0x28,
+	0xbc, 0x2c, 0x14, 0xca, 0xa5, 0xee, 0xa8, 0xc7, 0x56, 0x84, 0xe2, 0x34, 0x14, 0xe8, 0x4a, 0x0f,
+	0xa1, 0x39, 0xf6, 0xa3, 0x88, 0x5e, 0xbf, 0x54, 0xab, 0xea, 0x1a, 0x15, 0xaa, 0x5f, 0x82, 0xb5,
+	0x9f, 0x0d, 0x58, 0x99, 0x5b, 0x3f, 0x39, 0x82, 0x12, 0x8a, 0xcb, 0xc0, 0xce, 0x7f, 0xf1, 0x8f,
+	0x2e, 0xa1, 0x83, 0x0a, 0xc3, 0x3c, 0xed, 0x5d, 0x28, 0xa1, 0xb0, 0x5a, 0xd0, 0x70, 0xfa, 0xcf,
+	0x07, 0x23, 0xd7, 0x39, 0xf3, 0x8e, 0x8f, 0x86, 0x67, 0xd6, 0x02, 0x69, 0x40, 0xb5, 0x3b, 0x1c,
+	0x1e, 0x7f, 0xe3, 0x75, 0x8f, 0xce, 0x2c, 0x83, 0xd8, 0x70, 0xe7, 0xe5, 0xc0, 0x71, 0x4f, 0xbb,
+	0x43, 0x6f, 0xd4, 0x77, 0x5e, 0x0e, 0x7a, 0x7d, 0x45, 0x5c, 0x6c, 0x7f, 0x0e, 0x2b, 0x73, 0x45,
+	0x4c, 0x2a, 0x70, 0xeb, 0x78, 0x7f, 0xdf, 0x5a, 0x20, 0x35, 0xa8, 0xec, 0xf5, 0xf7, 0xbb, 0xa7,
+	0x43, 0xd7, 0x32, 0x72, 0x47, 0x1b, 0xb9, 0xce, 0xa0, 0xe7, 0x5a, 0x8b, 0xed, 0x4d, 0x80, 0x99,
+	0x07, 0xc7, 0x84, 0xd2, 0xd1, 0xf1, 0x51, 0xdf, 0x5a, 0x20, 0x4d, 0x80, 0x17, 0xa7, 0xb8, 0x97,
+	0x3b, 0x1c, 0xa1, 0xf3, 0xd5, 0xac, 0xfa, 0x61, 0xc9, 0x5c, 0xb2, 0xac, 0xc3, 0x92, 0x69, 0x59,
+	0xad, 0xc3, 0x92, 0x49, 0xac, 0xe5, 0xc3, 0x92, 0xb9, 0x62, 0xad, 0x3e, 0xfe, 0x0a, 0xee, 0xcc,
+	0x7b, 0xd8, 0x3e, 0x9c, 0x8f, 0xd4, 0xa1, 0x32, 0x38, 0x3a, 0xe8, 0x3b, 0x03, 0xd7, 0xfa, 0xa3,
+	0xb2, 0xbb, 0xf5, 0xeb, 0xbb, 0x75, 0xe3, 0xb7, 0x77, 0xeb, 0xc6, 0xef, 0xef, 0xd6, 0x8d, 0x57,
+	0x6b, 0xea, 0x4e, 0x19, 0xdf, 0xf6, 0x13, 0xb6, 0xfd, 0xde, 0xbf, 0xe0, 0xf3, 0x32, 0xfa, 0xcb,
+	0xb3, 0x3f, 0x03, 0x00, 0x00, 0xff, 0xff, 0x3b, 0x77, 0x94, 0x79, 0x1d, 0x0b, 0x00, 0x00,
 }

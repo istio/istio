@@ -14,7 +14,9 @@
 
 syntax = "proto3";
 
+import "gogoproto/gogo.proto";
 import "google/protobuf/struct.proto";
+import "google/protobuf/duration.proto";
 import "policy/v1beta1/value_type.proto";
 
 package istio.policy.v1beta1;
@@ -152,6 +154,14 @@ message Rule {
   // Optional. Templatized operations on the response headers using attributes produced by the
   // rule actions.
   repeated HeaderOperationTemplate response_header_operations = 4;
+
+  // $hide_from_docs
+  // Optional. Provides the ability to add a sampling configuration for Mixer rules. This sampling
+  // will limit the scenarios in which the `actions` of the rule are executed. The sampling will
+  // only take place after a `match` predicate has evaluated to true.
+  //
+  // Default behavior is no sampling (the `actions` are executed for all requests).
+  Sampling sampling = 5;
 }
 
 // Action describes which [Handler][istio.policy.v1beta1.Handler] to invoke and what data to pass to it for processing.
@@ -308,4 +318,85 @@ message Connection {
   string address = 2;
 
   // TODO: Add auth related fields.
+}
+
+// $hide_from_docs
+// Sampling provides configuration of sampling strategies for Rule actions.
+// Multiple sampling strategies are supported. When multiple strategies are configured,
+// a request must be selected by all configured sampling strategies. 
+message Sampling {
+  // Optional. Provides filtering of actions based on random selection per request.
+  RandomSampling random = 1;
+  // Optional. Provides filtering of actions based on number of requests observed within
+  // a configured time window.
+  RateLimitSampling rate_limit = 2;
+}
+
+// $hide_from_docs
+// RandomSampling will filter based on the comparison of a randomly-generated value
+// against the threshold provided.
+//
+// Example: To restrict the execution of Rule actions to only 12.5% of requests, the
+// `sampling_rate` would be set `12.5`.
+//
+// This sampling configuration is meant to closely match the access log RuntimeFilter configuration
+// supported by Envoy:
+// https://github.com/envoyproxy/data-plane-api/blob/master/envoy/config/filter/accesslog/v2/accesslog.proto#L113
+message RandomSampling {
+  // Specifies an attribute expression to use to override the numerator in the `percent_sampled` field.
+  // If this value is set, but no value is found OR if that value is not a numeric value, then
+  // the derived sampling rate will be 0 (meaning no `Action`s are executed for a `Rule`).
+  string attribute_expression = 1;
+  // The default sampling rate, expressed as a percentage. Defaults to 0% with a denominator
+  // of 100.
+  FractionalPercent percent_sampled = 2;
+  // By default sampling will be based on the value of the request header `x-request-id`.
+  // This behavior will cause consistent sampling across `Rule`s and for the full trace of a 
+  // request through a mesh (across hosts). If that value is not present and/or 
+  // `use_independent_randomness` is set to true, the sampling will be done based on the value of
+  // attribute specified in `attribute_epxression`. If that attribute does not exist, the system
+  // will behave as if the sampling rate was 0 (meaning no `Action`s are executed for a `Rule`).
+  bool use_independent_randomness = 3;
+}
+
+// $hide_from_docs
+// RateLimitSampling provides the ability to limit the number of Rule action executions that
+// occur over a period of time.
+message RateLimitSampling {
+  // Window in which to enforce the sampling rate.
+  google.protobuf.Duration sampling_duration = 1 [(gogoproto.nullable)=false,(gogoproto.stdduration) = true];
+  // Number of entries to allow during the `sampling_duration` before sampling is enforced.
+  int64 max_unsampled_entries = 2;
+  // The rate at which to sample entries once the unsampled limit has been reached. Sampling will be enforced
+  // as 1 per every `sampling_rate` entries allowed.
+  int64 sampling_rate = 3;
+}
+
+// $hide_from_docs
+// A fractional percentage is used in cases in which for performance reasons performing floating
+// point to integer conversions during randomness calculations is undesirable. The message includes
+// both a numerator and denominator that together determine the final fractional value.
+//
+// * **Example**: 1/100 = 1%.
+// * **Example**: 3/10000 = 0.03%.
+message FractionalPercent {
+  // Specifies the numerator. Defaults to 0.
+  uint32 numerator = 1;
+
+  // Fraction percentages support several fixed denominator values.
+  enum DenominatorType {
+    // 100.
+    //
+    // **Example**: 1/100 = 1%.
+    HUNDRED = 0;
+
+    // 10,000.
+    //
+    // **Example**: 1/10000 = 0.01%.
+    TEN_THOUSAND = 1;
+  }
+
+  // Specifies the denominator. If the denominator specified is less than the numerator, the final
+  // fractional percentage is capped at 1 (100%).
+  DenominatorType denominator = 2;
 }

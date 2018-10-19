@@ -16,12 +16,21 @@ package test
 
 import "strings"
 
+const separator = "\n---\n"
+
 // JoinConfigs merges the given config snippets together
 func JoinConfigs(parts ...string) string {
-	return strings.Join(parts, "\n---\n")
+	// remove empty strings
+	var tmp []string
+	for _, p := range parts {
+		if strings.TrimSpace(p) != "" {
+			tmp = append(tmp, p)
+		}
+	}
+	return strings.Join(tmp, separator)
 }
 
 // SplitConfigs splits config into chunks, based on the "---" separator.
 func SplitConfigs(cfg string) []string {
-	return strings.Split(cfg, "\n---\n")
+	return strings.Split(cfg, separator)
 }

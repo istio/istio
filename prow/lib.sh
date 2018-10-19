@@ -1,12 +1,12 @@
 #!/bin/bash
 
 # Copyright 2018 Istio Authors
-
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+#    http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -29,10 +29,10 @@ function setup_and_export_git_sha() {
       fi
 
       # Set artifact dir based on checkout
-      export ARTIFACTS_DIR="${GOPATH}/src/istio.io/istio/_artifacts"
+      export ARTIFACTS_DIR="${ARTIFACTS_DIR:-${GOPATH}/src/istio.io/istio/_artifacts}"
     elif [[ "${CI:-}" == 'prow' ]]; then
       # Set artifact dir based on checkout
-      export ARTIFACTS_DIR="${ARTIFACTS}"
+      export ARTIFACTS_DIR="${ARTIFACTS_DIR:-${ARTIFACTS}}"
     fi
 
     if [ -z "${PULL_PULL_SHA:-}" ]; then
@@ -40,9 +40,6 @@ function setup_and_export_git_sha() {
     else
       export GIT_SHA="${PULL_PULL_SHA}"
     fi
-
-    # Use volume mount from pilot-presubmit job's pod spec.
-    export KUBECONFIG="${KUBECONFIG:-${HOME}/.kube/config}"
 
   else
     # Use the current commit.

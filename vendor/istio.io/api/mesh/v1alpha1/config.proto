@@ -42,6 +42,40 @@ enum AuthenticationPolicy {
   INHERIT = 1000;
 }
 
+// Tracing defines configuration for the tracing performed by Envoy instances.
+message Tracing {
+
+  // Zipkin defines configuration for a Zipkin tracer.
+  message Zipkin {
+    // Address of the Zipkin service (e.g. _zipkin:9411_).
+    string address = 1;
+  }
+
+  // Lightstep defines configuration for a LightStep tracer.
+  message Lightstep {
+    // Address of the LightStep Satellite pool.
+    string address = 1;
+
+    // The LightStep access token.
+    string access_token = 2;
+
+    // True if a secure connection should be used when communicating with the pool.
+    bool secure = 3;
+
+    // Path to the trusted cacert used to authenticate the pool.
+    string cacert_path = 4;
+  }
+
+  // The tracer implementation to be used by Envoy.
+  oneof tracer {
+    // Use a Zipkin tracer.
+    Zipkin zipkin = 1;
+    // Use a LightStep tracer.
+    Lightstep lightstep = 2;
+  }
+}
+
+
 // ProxyConfig defines variables for individual Envoy instances.
 message ProxyConfig {
   // Path to the generated configuration file directory.
@@ -78,11 +112,11 @@ message ProxyConfig {
   // Address of the discovery service exposing xDS with mTLS connection.
   string discovery_address = 6;
 
-  // Polling interval for service discovery (used by EDS, CDS, LDS, but not RDS). (MUST BE >=1ms)
-  google.protobuf.Duration discovery_refresh_delay = 7;
+  reserved 7;
 
   // Address of the Zipkin service (e.g. _zipkin:9411_).
-  string zipkin_address = 8;
+  // DEPRECATED: Use [tracing][istio.mesh.v1alpha1.ProxyConfig.tracing] instead.
+  string zipkin_address = 8 [deprecated=true];
 
   // Connection timeout used by Envoy for supporting services. (MUST BE >=1ms)
   google.protobuf.Duration connect_timeout = 9;
@@ -92,10 +126,8 @@ message ProxyConfig {
 
   // Port on which Envoy should listen for administrative commands.
   int32 proxy_admin_port = 11;
-  // The availability zone where this Envoy instance is running. When running
-  // Envoy as a sidecar in Kubernetes, this flag must be one of the availability
-  // zones assigned to a node using failure-domain.beta.kubernetes.io/zone annotation.
-  string availability_zone = 12;
+  
+  reserved 12;
 
   // Authentication policy defines the global switch to control authentication
   // for Envoy-to-Envoy communication for istio components Mixer and Pilot.
@@ -133,6 +165,9 @@ message ProxyConfig {
 
   // The mode used to redirect inbound traffic to Envoy.
   InboundInterceptionMode interception_mode = 18;
+
+  // Tracing configuration to be used by the proxy.
+  Tracing tracing = 19;
 }
 
 // MeshConfig defines mesh-wide variables shared by all Envoy instances in the
@@ -217,8 +252,7 @@ message MeshConfig {
   // Use authentication_policy instead.
   AuthPolicy auth_policy = 10 [deprecated=true];
 
-  // Polling interval for RDS (MUST BE >=1ms)
-  google.protobuf.Duration rds_refresh_delay = 11;
+  reserved 11;
 
   // Flag to control generation of trace spans and request IDs.
   // Requires a trace span collector defined in the proxy configuration.
@@ -237,9 +271,7 @@ message MeshConfig {
 
   reserved 15;
 
-  // DEPRECATED. Mixer address. This option will be removed soon. Please
-  // use mixer_check and mixer_report.
-  string mixer_address = 16;
+  reserved 16;
 
   message OutboundTrafficPolicy {
     enum Mode {
@@ -271,9 +303,8 @@ message MeshConfig {
   // Unix Domain Socket through which envoy communicates with NodeAgent SDS to get key/cert for mTLS.
   // Use secret-mount files instead of SDS if set to empty.
   string sds_uds_path = 20;
-
-  // Polling interval for SDS (MUST BE >=1ms)
-  google.protobuf.Duration sds_refresh_delay = 21;
+  
+  reserved 21;
 
   // Address of the galley service exposing the Mesh Control Protocol (MCP).
   string galley_address = 22;

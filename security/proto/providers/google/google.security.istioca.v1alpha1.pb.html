@@ -1,0 +1,82 @@
+---
+title: google.security.istioca.v1alpha1
+layout: protoc-gen-docs
+generator: protoc-gen-docs
+number_of_entries: 3
+---
+<h2 id="Services">Services</h2>
+<h3 id="IstioCertificateService">IstioCertificateService</h3>
+<section>
+<p>Service for managing certificates issued by the Istio CA.</p>
+
+<pre id="IstioCertificateService-CreateCertificate"><code class="language-proto">rpc CreateCertificate(IstioCertificateRequest) returns (IstioCertificateResponse)
+</code></pre>
+<p>Using provided CSR, returns a signed certificate.</p>
+
+</section>
+<h2 id="Types">Types</h2>
+<h3 id="IstioCertificateRequest">IstioCertificateRequest</h3>
+<section>
+<p>Certificate request message.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="IstioCertificateRequest-csr">
+<td><code>csr</code></td>
+<td><code>string</code></td>
+<td>
+<p>PEM-encoded certificate request.</p>
+
+</td>
+</tr>
+<tr id="IstioCertificateRequest-subject_id">
+<td><code>subjectId</code></td>
+<td><code>string</code></td>
+<td>
+<p>Optional subject ID field.</p>
+
+</td>
+</tr>
+<tr id="IstioCertificateRequest-validity_duration">
+<td><code>validityDuration</code></td>
+<td><code>int64</code></td>
+<td>
+<p>Optional: requested certificate validity period, in seconds.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="IstioCertificateResponse">IstioCertificateResponse</h3>
+<section>
+<p>Certificate response message.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="IstioCertificateResponse-cert_chain">
+<td><code>certChain</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>PEM-encoded certificate chain.
+Leaf cert is element &lsquo;0&rsquo;. Root cert is element &lsquo;n&rsquo;.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>

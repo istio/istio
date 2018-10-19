@@ -40,7 +40,7 @@ func (m *Connection) Reset()         { *m = Connection{} }
 func (m *Connection) String() string { return proto.CompactTextString(m) }
 func (*Connection) ProtoMessage()    {}
 func (*Connection) Descriptor() ([]byte, []int) {
-	return fileDescriptor_capture_b7254821859335d7, []int{0}
+	return fileDescriptor_capture_581d45ac99e3ae35, []int{0}
 }
 func (m *Connection) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -109,7 +109,7 @@ func (m *Event) Reset()         { *m = Event{} }
 func (m *Event) String() string { return proto.CompactTextString(m) }
 func (*Event) ProtoMessage()    {}
 func (*Event) Descriptor() ([]byte, []int) {
-	return fileDescriptor_capture_b7254821859335d7, []int{1}
+	return fileDescriptor_capture_581d45ac99e3ae35, []int{1}
 }
 func (m *Event) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -269,7 +269,7 @@ func (m *Event_Read) Reset()         { *m = Event_Read{} }
 func (m *Event_Read) String() string { return proto.CompactTextString(m) }
 func (*Event_Read) ProtoMessage()    {}
 func (*Event_Read) Descriptor() ([]byte, []int) {
-	return fileDescriptor_capture_b7254821859335d7, []int{1, 0}
+	return fileDescriptor_capture_581d45ac99e3ae35, []int{1, 0}
 }
 func (m *Event_Read) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -320,7 +320,7 @@ func (m *Event_Write) Reset()         { *m = Event_Write{} }
 func (m *Event_Write) String() string { return proto.CompactTextString(m) }
 func (*Event_Write) ProtoMessage()    {}
 func (*Event_Write) Descriptor() ([]byte, []int) {
-	return fileDescriptor_capture_b7254821859335d7, []int{1, 1}
+	return fileDescriptor_capture_581d45ac99e3ae35, []int{1, 1}
 }
 func (m *Event_Write) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -380,7 +380,7 @@ func (m *Trace) Reset()         { *m = Trace{} }
 func (m *Trace) String() string { return proto.CompactTextString(m) }
 func (*Trace) ProtoMessage()    {}
 func (*Trace) Descriptor() ([]byte, []int) {
-	return fileDescriptor_capture_b7254821859335d7, []int{2}
+	return fileDescriptor_capture_581d45ac99e3ae35, []int{2}
 }
 func (m *Trace) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1462,10 +1462,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/data/tap/v2alpha/capture.proto", fileDescriptor_capture_b7254821859335d7)
+	proto.RegisterFile("envoy/data/tap/v2alpha/capture.proto", fileDescriptor_capture_581d45ac99e3ae35)
 }
 
-var fileDescriptor_capture_b7254821859335d7 = []byte{
+var fileDescriptor_capture_581d45ac99e3ae35 = []byte{
 	// 413 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x84, 0x91, 0xcf, 0x6a, 0x14, 0x41,
 	0x10, 0xc6, 0xd3, 0x93, 0xdd, 0x60, 0x2a, 0xc9, 0x12, 0xfa, 0x20, 0x61, 0x20, 0x9b, 0xb0, 0x7a,

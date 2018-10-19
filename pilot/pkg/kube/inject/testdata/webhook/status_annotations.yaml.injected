@@ -13,7 +13,7 @@ spec:
         readiness.status.sidecar.istio.io/failureThreshold: "300"
         readiness.status.sidecar.istio.io/initialDelaySeconds: "100"
         readiness.status.sidecar.istio.io/periodSeconds: "200"
-        sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"unit-test-fake-version","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
         status.sidecar.istio.io/port: "123"
       creationTimestamp: null
       labels:
@@ -53,10 +53,6 @@ spec:
         - "123"
         - --applicationPorts
         - 1,2,3
-        ports:
-        - name: http-envoy-prom
-          containerPort: 15090
-          protocol: TCP
         env:
         - name: POD_NAME
           valueFrom:
@@ -76,9 +72,13 @@ spec:
               fieldPath: metadata.name
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
-        image: docker.io/istio/proxyv2:unittest
+        image: gcr.io/istio-release/proxyv2:master-latest-daily
         imagePullPolicy: IfNotPresent
         name: istio-proxy
+        ports:
+        - containerPort: 15090
+          name: http-envoy-prom
+          protocol: TCP
         readinessProbe:
           failureThreshold: 300
           httpGet:
@@ -115,14 +115,21 @@ spec:
         - "80"
         - -d
         - "123"
-        image: docker.io/istio/proxy_init:unittest
+        image: gcr.io/istio-release/proxy_init:master-latest-daily
         imagePullPolicy: IfNotPresent
         name: istio-init
-        resources: {}
+        resources:
+          limits:
+            cpu: 10m
+            memory: 10Mi
+          requests:
+            cpu: 10m
+            memory: 10Mi
         securityContext:
           capabilities:
             add:
             - NET_ADMIN
+          privileged: true
       volumes:
       - emptyDir:
           medium: Memory
@@ -132,4 +139,5 @@ spec:
           optional: true
           secretName: istio.default
 status: {}
+
 ---

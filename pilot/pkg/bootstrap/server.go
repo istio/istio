@@ -29,7 +29,6 @@ import (
 	"sync"
 	"time"
 
-	"code.cloudfoundry.org/copilot"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/gogo/protobuf/types"
 	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
@@ -44,9 +43,10 @@ import (
 
 	mcpapi "istio.io/api/mcp/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
+
+	_ "istio.io/istio/galley/pkg/metadata" // TODO: why do we need this ?
 	"istio.io/istio/pilot/cmd"
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
-	cf "istio.io/istio/pilot/pkg/config/cloudfoundry"
 	"istio.io/istio/pilot/pkg/config/clusterregistry"
 	"istio.io/istio/pilot/pkg/config/coredatamodel"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
@@ -60,21 +60,18 @@ import (
 	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
-	"istio.io/istio/pilot/pkg/serviceregistry/cloudfoundry"
 	"istio.io/istio/pilot/pkg/serviceregistry/consul"
 	"istio.io/istio/pilot/pkg/serviceregistry/external"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	srmemory "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pkg/ctrlz"
+	"istio.io/istio/pkg/features/pilot"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 	mcpclient "istio.io/istio/pkg/mcp/client"
 	"istio.io/istio/pkg/mcp/configz"
 	"istio.io/istio/pkg/mcp/creds"
-	"istio.io/istio/pkg/version"
-
-	// Import the resource package to pull in all proto types.
-	_ "istio.io/istio/galley/pkg/metadata"
+	"istio.io/istio/pkg/version" // Import the resource package to pull in all proto types.
 )
 
 const (
@@ -82,6 +79,9 @@ const (
 	ConfigMapKey = "mesh"
 
 	requiredMCPCertCheckFreq = 500 * time.Millisecond
+
+	// DefaultMCPMaxMsgSize is the default maximum message size
+	DefaultMCPMaxMsgSize = 1024 * 1024 * 4
 )
 
 var (
@@ -100,6 +100,7 @@ var (
 		plugin.Health,
 		plugin.Mixer,
 		plugin.Envoyfilter,
+		plugin.Snidnat,
 	}
 )
 
@@ -121,10 +122,8 @@ type MeshArgs struct {
 // be monitored for CRD yaml files and will update the controller as those files change (This is used for testing
 // purposes). Otherwise, a CRD client is created based on the configuration.
 type ConfigArgs struct {
-	ClusterRegistriesConfigmap string
 	ClusterRegistriesNamespace string
 	KubeConfig                 string
-	CFConfig                   string
 	ControllerOptions          kube.ControllerOptions
 	FileDir                    string
 	DisableInstallCRDs         bool
@@ -158,6 +157,7 @@ type PilotArgs struct {
 	Plugins              []string
 	MCPServerAddrs       []string
 	MCPCredentialOptions *creds.Options
+	MCPMaxMessageSize    int
 }
 
 // Server contains the runtime configuration for the Pilot discovery service.
@@ -176,7 +176,7 @@ type Server struct {
 	mixerSAN         []string
 	kubeClient       kubernetes.Interface
 	startFuncs       []startFunc
-	clusterStore     *clusterregistry.ClusterStore
+	multicluster     *clusterregistry.Multicluster
 	httpServer       *http.Server
 	grpcServer       *grpc.Server
 	secureGRPCServer *grpc.Server
@@ -206,9 +206,6 @@ func NewServer(args PilotArgs) (*Server, error) {
 	if err := s.initKubeClient(&args); err != nil {
 		return nil, err
 	}
-	if err := s.initClusterRegistries(&args); err != nil {
-		return nil, err
-	}
 	if err := s.initMesh(&args); err != nil {
 		return nil, err
 	}
@@ -227,7 +224,7 @@ func NewServer(args PilotArgs) (*Server, error) {
 	if err := s.initMonitor(&args); err != nil {
 		return nil, err
 	}
-	if err := s.initMultiClusterController(&args); err != nil {
+	if err := s.initClusterRegistries(&args); err != nil {
 		return nil, err
 	}
 
@@ -274,40 +271,27 @@ func (s *Server) initMonitor(args *PilotArgs) error {
 	return nil
 }
 
+// initClusterRegistries starts the secret controller to watch for remote
+// clusters and initialize the multicluster structures.
 func (s *Server) initClusterRegistries(args *PilotArgs) (err error) {
-	s.clusterStore = clusterregistry.NewClustersStore()
+	if hasKubeRegistry(args) {
 
-	if s.kubeClient == nil {
-		log.Infof("skipping cluster registries, no kube-client created")
-		return nil
-	}
-
-	// Drop from multicluster test cases if Mock Registry is used
-	if checkForMock(args.Service.Registries) {
-		return nil
-	}
-	if args.Config.ClusterRegistriesConfigmap != "" {
-		if err = clusterregistry.ReadClusters(s.kubeClient,
-			args.Config.ClusterRegistriesConfigmap,
+		mc, err := clusterregistry.NewMulticluster(s.kubeClient,
 			args.Config.ClusterRegistriesNamespace,
-			s.clusterStore); err != nil {
+			args.Config.ControllerOptions.WatchedNamespace,
+			args.Config.ControllerOptions.DomainSuffix,
+			args.Config.ControllerOptions.ResyncPeriod,
+			s.ServiceController,
+			s.EnvoyXdsServer)
+
+		if err != nil {
+			log.Info("Unable to create new Multicluster object")
 			return err
 		}
+
+		s.multicluster = mc
 	}
-	log.Infof("clusters configuration %s", spew.Sdump(s.clusterStore))
-
-	return err
-}
-
-// Check if Mock's registry exists in PilotArgs's Registries
-func checkForMock(registries []string) bool {
-	for _, r := range registries {
-		if strings.ToLower(r) == "mock" {
-			return true
-		}
-	}
-
-	return false
+	return nil
 }
 
 // GetMeshConfig fetches the ProxyMesh configuration from Kubernetes ConfigMap.
@@ -474,13 +458,14 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 			credentials := creds.CreateForClient(u.Hostname(), watcher)
 			securityOption = grpc.WithTransportCredentials(credentials)
 		}
-		conn, err := grpc.DialContext(ctx, u.Host, securityOption)
+		msgSizeOption := grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(args.MCPMaxMessageSize))
+		conn, err := grpc.DialContext(ctx, u.Host, securityOption, msgSizeOption)
 		if err != nil {
 			log.Errorf("Unable to dial MCP Server %q: %v", u.Host, err)
 			return err
 		}
 		cl := mcpapi.NewAggregatedMeshConfigServiceClient(conn)
-		mcpClient := mcpclient.New(cl, supportedTypes, mcpController, clientNodeID, map[string]string{})
+		mcpClient := mcpclient.New(cl, supportedTypes, mcpController, clientNodeID, map[string]string{}, mcpclient.NewStatsContext("pilot"))
 		configz.Register(mcpClient)
 
 		clients = append(clients, mcpClient)
@@ -538,31 +523,6 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 		}
 
 		s.configController = configController
-
-		if args.Config.CFConfig != "" {
-			cfConfig, err := cloudfoundry.LoadConfig(args.Config.CFConfig)
-			if err != nil {
-				return multierror.Prefix(err, "loading cloud foundry config")
-			}
-			tlsConfig, err := cfConfig.ClientTLSConfig()
-			if err != nil {
-				return multierror.Prefix(err, "creating cloud foundry client tls config")
-			}
-			client, err := copilot.NewIstioClient(cfConfig.Copilot.Address, tlsConfig)
-			if err != nil {
-				return multierror.Prefix(err, "creating cloud foundry client")
-			}
-
-			confController, err := configaggregate.MakeCache([]model.ConfigStoreCache{
-				s.configController,
-				cf.NewController(client, configController, log.RegisterScope("cloudfoundry", "cloudfoundry debugging", 0), 30*time.Second, 10*time.Second),
-			})
-			if err != nil {
-				return err
-			}
-
-			s.configController = confController
-		}
 	} else {
 		controller, err := s.makeKubeConfigController(args)
 		if err != nil {
@@ -656,29 +616,6 @@ func (s *Server) createK8sServiceControllers(serviceControllers *aggregate.Contr
 	return
 }
 
-// initMultiClusterController initializes multi cluster controller
-// currently implemented only for kubernetes registries
-func (s *Server) initMultiClusterController(args *PilotArgs) error {
-	if hasKubeRegistry(args) {
-		s.addStartFunc(func(stop <-chan struct{}) error {
-			secretController := clusterregistry.NewController(s.kubeClient,
-				args.Config.ClusterRegistriesNamespace,
-				s.clusterStore,
-				s.ServiceController,
-				s.EnvoyXdsServer,
-				args.Config.ControllerOptions.ResyncPeriod,
-				args.Config.ControllerOptions.WatchedNamespace,
-				args.Config.ControllerOptions.DomainSuffix)
-
-			// Start secret controller which watches for runtime secret Object changes and adds secrets dynamically
-			go secretController.Run(stop)
-
-			return nil
-		})
-	}
-	return nil
-}
-
 func hasKubeRegistry(args *PilotArgs) bool {
 	for _, r := range args.Service.Registries {
 		if serviceregistry.ServiceRegistry(r) == serviceregistry.KubernetesRegistry {
@@ -713,10 +650,8 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 			if err := s.initConsulRegistry(serviceControllers, args); err != nil {
 				return err
 			}
-		case serviceregistry.CloudFoundryRegistry:
-			if err := s.initCloudFoundryRegistry(serviceControllers, args); err != nil {
-				return err
-			}
+		case serviceregistry.MCPRegistry:
+			log.Infof("no-op: get service info from MCP ServiceEntries.")
 		default:
 			return multierror.Prefix(nil, "Service registry "+r+" is not supported.")
 		}
@@ -793,8 +728,6 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 
 	// Set up discovery service
 	discovery, err := envoy.NewDiscoveryService(
-		s.ServiceController,
-		s.configController,
 		environment,
 		args.DiscoveryOptions,
 	)
@@ -808,15 +741,17 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	// For now we create the gRPC server sourcing data from Pilot's older data model.
 	s.initGrpcServer()
 
-	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(environment, istio_networking.NewConfigGenerator(args.Plugins))
-	// TODO: decouple v2 from the cache invalidation, use direct listeners.
-	envoy.V2ClearCache = s.EnvoyXdsServer.ClearCacheFunc()
+	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(environment,
+		istio_networking.NewConfigGenerator(args.Plugins),
+		s.ServiceController, s.configController)
+
 	s.EnvoyXdsServer.Register(s.grpcServer)
 
 	if s.kubeRegistry != nil {
 		// kubeRegistry may use the environment for push status reporting.
 		// TODO: maybe all registries should have his as an optional field ?
 		s.kubeRegistry.Env = environment
+		s.kubeRegistry.XDSUpdater = s.EnvoyXdsServer
 	}
 
 	s.EnvoyXdsServer.InitDebug(s.mux, s.ServiceController)
@@ -903,34 +838,6 @@ func (s *Server) initConsulRegistry(serviceControllers *aggregate.Controller, ar
 	return nil
 }
 
-func (s *Server) initCloudFoundryRegistry(serviceControllers *aggregate.Controller, args *PilotArgs) error {
-	cfConfig, err := cloudfoundry.LoadConfig(args.Config.CFConfig)
-	if err != nil {
-		return multierror.Prefix(err, "loading cloud foundry config")
-	}
-	tlsConfig, err := cfConfig.ClientTLSConfig()
-	if err != nil {
-		return multierror.Prefix(err, "creating cloud foundry client tls config")
-	}
-	client, err := copilot.NewIstioClient(cfConfig.Copilot.Address, tlsConfig)
-	if err != nil {
-		return multierror.Prefix(err, "creating cloud foundry client")
-	}
-	serviceControllers.AddRegistry(aggregate.Registry{
-		Name: serviceregistry.CloudFoundryRegistry,
-		Controller: &cloudfoundry.Controller{
-			Ticker: cloudfoundry.NewTicker(cfConfig.Copilot.PollInterval),
-		},
-		ServiceDiscovery: &cloudfoundry.ServiceDiscovery{
-			RoutesRepo:  cloudfoundry.NewCachedRoutes(client, log.RegisterScope("cfcacher", "cf cacher debugging", 0), "30s"),
-			ServicePort: cfConfig.ServicePort,
-		},
-		ServiceAccounts: cloudfoundry.NewServiceAccounts(),
-	})
-
-	return nil
-}
-
 func (s *Server) initGrpcServer() {
 	grpcOptions := s.grpcServerOptions()
 	s.grpcServer = grpc.NewServer(grpcOptions...)
@@ -938,7 +845,7 @@ func (s *Server) initGrpcServer() {
 
 // The secure grpc will start when the credentials are found.
 func (s *Server) secureGrpcStart(listener net.Listener) {
-	certDir := os.Getenv("PILOT_CERT_DIR")
+	certDir := pilot.CertDir
 	if certDir == "" {
 		certDir = PilotCertDir // /etc/certs
 	}
@@ -1037,7 +944,7 @@ func (s *Server) grpcServerOptions() []grpc.ServerOption {
 	// Temp setting, default should be enough for most supported environments. Can be used for testing
 	// envoy with lower values.
 	var maxStreams int
-	maxStreamsEnv := os.Getenv("ISTIO_GPRC_MAXSTREAMS")
+	maxStreamsEnv := pilot.MaxConcurrentStreams
 	if len(maxStreamsEnv) > 0 {
 		maxStreams, _ = strconv.Atoi(maxStreamsEnv)
 	}

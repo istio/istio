@@ -38,7 +38,7 @@ option go_package = "istio.io/api/networking/v1alpha3";
 //   name: my-gateway
 // spec:
 //   selector:
-//     app: my-gatweway-controller
+//     app: my-gateway-controller
 //   servers:
 //   - port:
 //       number: 80
@@ -250,8 +250,9 @@ message Server {
 
     // TLS modes enforced by the proxy
     enum TLSmode {
-      // Forward the connection to the upstream server selected based on
-      // the SNI string presented by the client.
+      // The SNI string presented by the client will be used as the match
+      // criterion in a VirtualService TLS route to determine the
+      // destination service from the service registry.
       PASSTHROUGH = 0;
 
       // Secure connections with standard TLS semantics.
@@ -260,6 +261,18 @@ message Server {
       // Secure connections to the upstream using mutual TLS by presenting
       // client certificates for authentication.
       MUTUAL = 2;
+
+      // Similar to the passthrough mode, except servers with this TLS mode
+      // do not require an associated VirtualService to map from the SNI
+      // value to service in the registry. The destination details such as
+      // the service/subset/port are encoded in the SNI value. The proxy
+      // will forward to the upstream (Envoy) cluster (a group of
+      // endpoints) specified by the SNI value. This server is typically
+      // used to provide connectivity between services in disparate L3
+      // networks that otherwise do not have direct connectivity between
+      // their respective endpoints. Use of this mode assumes that both the
+      // source and the destination are using Istio mTLS to secure traffic.
+      AUTO_PASSTHROUGH = 3;
     };
 
     // Optional: Indicates whether connections to this port should be
@@ -283,6 +296,34 @@ message Server {
     // A list of alternate names to verify the subject identity in the
     // certificate presented by the client.
     repeated string subject_alt_names = 6;
+
+    // TLS protocol versions.
+    enum TLSProtocol {
+      // Automatically choose the optimal TLS version.
+      TLS_AUTO = 0;
+
+      // TLS version 1.0
+      TLSv1_0 = 1;
+
+      // TLS version 1.1
+      TLSv1_1 = 2;
+
+      // TLS version 1.2
+      TLSv1_2 = 3;
+
+      // TLS version 1.3
+      TLSv1_3 = 4;
+    }
+
+    // Optional: Minimum TLS protocol version.
+    TLSProtocol min_protocol_version = 7;
+
+    // Optional: Maximum TLS protocol version.
+    TLSProtocol max_protocol_version = 8;
+
+    // Optional: If specified, only support the specified cipher list.
+    // Otherwise default to the default cipher list supported by Envoy.
+    repeated string cipher_suites = 9;
   }
 
   // Set of TLS related options that govern the server's behavior. Use

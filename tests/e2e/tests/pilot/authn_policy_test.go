@@ -90,16 +90,23 @@ func TestMTlsWithAuthNPolicy(t *testing.T) {
 	})
 }
 
-func TestAuthNJwt(t *testing.T) {
-	// JWT token used is borrowed from https://github.com/istio/proxy/blob/master/src/envoy/http/jwt_auth/sample/correct_jwt.
-	// The Token expires in year 2132, issuer is 628645741881-noabiu23f5a8m8ovd8ucv698lj78vv0l@developer.gserviceaccount.com.
-	// Test will fail if this service account is deleted.
-	p := "testdata/authn/v1alpha1/correct_jwt"
+func getToken(p string, t *testing.T) string {
 	token, err := ioutil.ReadFile(p)
 	if err != nil {
 		t.Fatalf("failed to read %q", p)
 	}
-	validJwtToken := string(token)
+	return string(token)
+}
+
+func TestAuthNJwt(t *testing.T) {
+	// JWT token used is borrowed from https://github.com/istio/proxy/blob/master/src/envoy/http/jwt_auth/sample/correct_jwt.
+	// The Token expires in year 2132, issuer is 628645741881-noabiu23f5a8m8ovd8ucv698lj78vv0l@developer.gserviceaccount.com.
+	// Test will fail if this service account is deleted.
+	validJwtToken := getToken("testdata/authn/v1alpha1/correct_jwt", t)
+
+	// JWT token used is borrowed from https://github.com/istio/istio/blob/master/security/tools/jwt/samples/demo.jwt.
+	// The Token expires in year 2118, issuer is testing@secure.istio.io.
+	validJwt2Token := getToken("testdata/authn/v1alpha1/correct_jwt2", t)
 
 	// Policy enforces JWT authn for service 'c' and 'd:80'.
 	cfgs := &deployableConfig{
@@ -120,6 +127,7 @@ func TestAuthNJwt(t *testing.T) {
 		dst    string
 		src    string
 		port   string
+		path   string
 		token  string
 		expect string
 	}{
@@ -132,9 +140,21 @@ func TestAuthNJwt(t *testing.T) {
 		{dst: "b", src: "d", port: "8080", token: "testToken", expect: "200"},
 
 		{dst: "c", src: "a", port: "80", token: validJwtToken, expect: "200"},
+		{dst: "c", src: "a", port: "80", token: validJwt2Token, expect: "401"},
 		{dst: "c", src: "a", port: "8080", token: "invalidToken", expect: "401"},
 		{dst: "c", src: "b", port: "", token: "random", expect: "401"},
 		{dst: "c", src: "d", port: "80", token: validJwtToken, expect: "200"},
+
+		// JWT authentication is disabled for requests at path "/health_check".
+		{dst: "c", src: "a", port: "80", path: "/health_check", token: "invalidToken", expect: "200"},
+		{dst: "c", src: "a", port: "80", path: "/health_check", token: validJwtToken, expect: "200"},
+		{dst: "c", src: "a", port: "80", path: "/health_check", token: validJwt2Token, expect: "200"},
+
+		// JWT authentication is enabled for requests at path "/jwt2" only with validJwt2Token issued by
+		// testing@secure.istio.io.
+		{dst: "c", src: "a", port: "80", path: "/jwt2", token: "invalidToken", expect: "401"},
+		{dst: "c", src: "a", port: "80", path: "/jwt2", token: validJwtToken, expect: "401"},
+		{dst: "c", src: "a", port: "80", path: "/jwt2", token: validJwt2Token, expect: "200"},
 
 		{dst: "d", src: "c", port: "8080", token: "bar", expect: "200"},
 	}
@@ -144,6 +164,7 @@ func TestAuthNJwt(t *testing.T) {
 			dst    string
 			src    string
 			port   string
+			path   string
 			token  string
 			expect string
 		}{
@@ -155,10 +176,10 @@ func TestAuthNJwt(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		testName := fmt.Sprintf("%s->%s[%s]", c.src, c.dst, c.expect)
+		testName := fmt.Sprintf("%s->%s%s[%s]", c.src, c.dst, c.path, c.expect)
 		runRetriableTest(t, primaryCluster, testName, defaultRetryBudget, func() error {
 			extra := fmt.Sprintf("-key \"Authorization\" -val \"Bearer %s\"", c.token)
-			resp := ClientRequest(primaryCluster, c.src, fmt.Sprintf("http://%s:%s", c.dst, c.port), 1, extra)
+			resp := ClientRequest(primaryCluster, c.src, fmt.Sprintf("http://%s:%s%s", c.dst, c.port, c.path), 1, extra)
 			if len(resp.Code) > 0 && resp.Code[0] == c.expect {
 				return nil
 			}

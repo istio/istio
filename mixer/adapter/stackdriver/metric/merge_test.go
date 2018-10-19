@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors.
+// Copyright 2017 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -80,7 +80,7 @@ func makeTSFull(m *metric.Metric, mr *monitoredres.MonitoredResource, seconds in
 		Resource:   mr,
 		MetricKind: kind,
 		Points: []*monitoring.Point{{
-			Value: &monitoring.TypedValue{&monitoring.TypedValue_Int64Value{value}},
+			Value: &monitoring.TypedValue{Value: &monitoring.TypedValue_Int64Value{Int64Value: value}},
 			Interval: &monitoring.TimeInterval{
 				StartTime: &timestamp.Timestamp{Seconds: seconds, Nanos: micros * usec},
 				EndTime:   &timestamp.Timestamp{Seconds: seconds, Nanos: (micros * usec) + usec},
@@ -109,32 +109,32 @@ func TestMerge(t *testing.T) {
 			ts{makeTSDelta(m1, mr1, 1, 5, 456)},
 			&timestamp.Timestamp{Seconds: 1, Nanos: 5000},
 			&timestamp.Timestamp{Seconds: 1, Nanos: 6000},
-			&monitoring.TypedValue{&monitoring.TypedValue_Int64Value{456}}},
+			&monitoring.TypedValue{Value: &monitoring.TypedValue_Int64Value{Int64Value: 456}}},
 		{"dupe",
 			ts{makeTSDelta(m1, mr1, 1, 5, 1), makeTSDelta(m1, mr1, 1, 5, 1)},
 			&timestamp.Timestamp{Seconds: 1, Nanos: 5000},
 			&timestamp.Timestamp{Seconds: 1, Nanos: 6000},
-			&monitoring.TypedValue{&monitoring.TypedValue_Int64Value{2}}},
+			&monitoring.TypedValue{Value: &monitoring.TypedValue_Int64Value{Int64Value: 2}}},
 		{"out of order",
 			ts{makeTSDelta(m1, mr1, 2, 5, 1), makeTSDelta(m1, mr1, 1, 5, 1)},
 			&timestamp.Timestamp{Seconds: 1, Nanos: 5000},
 			&timestamp.Timestamp{Seconds: 2, Nanos: 6000},
-			&monitoring.TypedValue{&monitoring.TypedValue_Int64Value{2}}},
+			&monitoring.TypedValue{Value: &monitoring.TypedValue_Int64Value{Int64Value: 2}}},
 		{"reversed",
 			ts{makeTSDelta(m1, mr1, 4, 1, 1), makeTSDelta(m1, mr1, 3, 1, 1), makeTSDelta(m1, mr1, 2, 1, 1), makeTSDelta(m1, mr1, 1, 1, 1)},
 			&timestamp.Timestamp{Seconds: 1, Nanos: 1000},
 			&timestamp.Timestamp{Seconds: 4, Nanos: 2000},
-			&monitoring.TypedValue{&monitoring.TypedValue_Int64Value{4}}},
+			&monitoring.TypedValue{Value: &monitoring.TypedValue_Int64Value{Int64Value: 4}}},
 		{"out of order, overlapping times",
 			ts{makeTSDelta(m1, mr1, 1, 1, 1), makeTSDelta(m1, mr1, 1, 1, 2), makeTSDelta(m1, mr1, 1, 3, 3), makeTSDelta(m1, mr1, 1, 2, 4)},
 			&timestamp.Timestamp{Seconds: 1, Nanos: 1000},
 			&timestamp.Timestamp{Seconds: 1, Nanos: 4000},
-			&monitoring.TypedValue{&monitoring.TypedValue_Int64Value{10}}},
+			&monitoring.TypedValue{Value: &monitoring.TypedValue_Int64Value{Int64Value: 10}}},
 		{"larger time spans",
 			ts{makeTSDelta(m1, mr1, 1, 1, 7), makeTSDelta(m1, mr1, 1, 1, 3), makeTSDelta(m1, mr1, 1, 7, 4896), makeTSDelta(m1, mr1, 1, 5, 9485367)},
 			&timestamp.Timestamp{Seconds: 1, Nanos: 1000},
 			&timestamp.Timestamp{Seconds: 1, Nanos: 8000},
-			&monitoring.TypedValue{&monitoring.TypedValue_Int64Value{9490273}}},
+			&monitoring.TypedValue{Value: &monitoring.TypedValue_Int64Value{Int64Value: 9490273}}},
 	}
 
 	for idx, tt := range tests {
@@ -163,7 +163,7 @@ func TestMerge_Errors(t *testing.T) {
 	env := test.NewEnv(t)
 	a := makeTSDelta(m1, mr1, 1, 1, 1)
 	b := makeTSDelta(m1, mr1, 1, 1, 1)
-	b.Points[0].Value = &monitoring.TypedValue{&monitoring.TypedValue_DoubleValue{4.7}}
+	b.Points[0].Value = &monitoring.TypedValue{Value: &monitoring.TypedValue_DoubleValue{DoubleValue: 4.7}}
 	_ = merge([]*monitoring.TimeSeries{a, b}, env)
 	if len(env.GetLogs()) < 1 {
 		t.Fatalf("Expected bad data to be logged about, got no log entries")
@@ -327,33 +327,33 @@ func TestMergePoints(t *testing.T) {
 		err  string
 	}{
 		{"happy i64",
-			&monitoring.TypedValue{&monitoring.TypedValue_Int64Value{47}},
-			&monitoring.TypedValue{&monitoring.TypedValue_Int64Value{33}},
-			&monitoring.TypedValue{&monitoring.TypedValue_Int64Value{80}},
+			&monitoring.TypedValue{Value: &monitoring.TypedValue_Int64Value{Int64Value: 47}},
+			&monitoring.TypedValue{Value: &monitoring.TypedValue_Int64Value{Int64Value: 33}},
+			&monitoring.TypedValue{Value: &monitoring.TypedValue_Int64Value{Int64Value: 80}},
 			""},
 		{"happy double",
-			&monitoring.TypedValue{&monitoring.TypedValue_DoubleValue{2.4}},
-			&monitoring.TypedValue{&monitoring.TypedValue_DoubleValue{8.6}},
-			&monitoring.TypedValue{&monitoring.TypedValue_DoubleValue{11}},
+			&monitoring.TypedValue{Value: &monitoring.TypedValue_DoubleValue{DoubleValue: 2.4}},
+			&monitoring.TypedValue{Value: &monitoring.TypedValue_DoubleValue{DoubleValue: 8.6}},
+			&monitoring.TypedValue{Value: &monitoring.TypedValue_DoubleValue{DoubleValue: 11}},
 			""},
 		{"sad i64",
-			&monitoring.TypedValue{&monitoring.TypedValue_Int64Value{47}},
-			&monitoring.TypedValue{&monitoring.TypedValue_DoubleValue{8.6}},
+			&monitoring.TypedValue{Value: &monitoring.TypedValue_Int64Value{Int64Value: 47}},
+			&monitoring.TypedValue{Value: &monitoring.TypedValue_DoubleValue{DoubleValue: 8.6}},
 			nil,
 			"can't merge two timeseries with different value types"},
 		{"sad double",
-			&monitoring.TypedValue{&monitoring.TypedValue_DoubleValue{8.6}},
-			&monitoring.TypedValue{&monitoring.TypedValue_Int64Value{47}},
+			&monitoring.TypedValue{Value: &monitoring.TypedValue_DoubleValue{DoubleValue: 8.6}},
+			&monitoring.TypedValue{Value: &monitoring.TypedValue_Int64Value{Int64Value: 47}},
 			nil,
 			"can't merge two timeseries with different value types"},
 		{"sad distribution",
-			&monitoring.TypedValue{&monitoring.TypedValue_DistributionValue{}},
-			&monitoring.TypedValue{&monitoring.TypedValue_Int64Value{47}},
+			&monitoring.TypedValue{Value: &monitoring.TypedValue_DistributionValue{}},
+			&monitoring.TypedValue{Value: &monitoring.TypedValue_Int64Value{Int64Value: 47}},
 			nil,
 			"can't merge two timeseries with different value types"},
 		{"invalid",
-			&monitoring.TypedValue{&monitoring.TypedValue_StringValue{}},
-			&monitoring.TypedValue{&monitoring.TypedValue_DoubleValue{8.6}},
+			&monitoring.TypedValue{Value: &monitoring.TypedValue_StringValue{}},
+			&monitoring.TypedValue{Value: &monitoring.TypedValue_DoubleValue{DoubleValue: 8.6}},
 			nil,
 			"invalid type for DELTA metric"},
 		{"linear-happy",

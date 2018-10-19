@@ -44,7 +44,7 @@ func (m *Buffer) Reset()         { *m = Buffer{} }
 func (m *Buffer) String() string { return proto.CompactTextString(m) }
 func (*Buffer) ProtoMessage()    {}
 func (*Buffer) Descriptor() ([]byte, []int) {
-	return fileDescriptor_buffer_e4ff6a814f4d3ea6, []int{0}
+	return fileDescriptor_buffer_bab525dd99d47059, []int{0}
 }
 func (m *Buffer) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -101,7 +101,7 @@ func (m *BufferPerRoute) Reset()         { *m = BufferPerRoute{} }
 func (m *BufferPerRoute) String() string { return proto.CompactTextString(m) }
 func (*BufferPerRoute) ProtoMessage()    {}
 func (*BufferPerRoute) Descriptor() ([]byte, []int) {
-	return fileDescriptor_buffer_e4ff6a814f4d3ea6, []int{1}
+	return fileDescriptor_buffer_bab525dd99d47059, []int{1}
 }
 func (m *BufferPerRoute) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -733,10 +733,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/config/filter/http/buffer/v2/buffer.proto", fileDescriptor_buffer_e4ff6a814f4d3ea6)
+	proto.RegisterFile("envoy/config/filter/http/buffer/v2/buffer.proto", fileDescriptor_buffer_bab525dd99d47059)
 }
 
-var fileDescriptor_buffer_e4ff6a814f4d3ea6 = []byte{
+var fileDescriptor_buffer_bab525dd99d47059 = []byte{
 	// 378 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x84, 0x91, 0x3f, 0x8e, 0xd3, 0x40,
 	0x18, 0xc5, 0x33, 0xce, 0x1f, 0xcc, 0x20, 0x05, 0xc7, 0x42, 0x22, 0x20, 0x64, 0xa2, 0x34, 0xa0,

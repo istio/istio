@@ -36,7 +36,7 @@ func (m *Lua) Reset()         { *m = Lua{} }
 func (m *Lua) String() string { return proto.CompactTextString(m) }
 func (*Lua) ProtoMessage()    {}
 func (*Lua) Descriptor() ([]byte, []int) {
-	return fileDescriptor_lua_4a9e2e03e6e664b3, []int{0}
+	return fileDescriptor_lua_d440a831cdbd0d7e, []int{0}
 }
 func (m *Lua) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -323,10 +323,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/config/filter/http/lua/v2/lua.proto", fileDescriptor_lua_4a9e2e03e6e664b3)
+	proto.RegisterFile("envoy/config/filter/http/lua/v2/lua.proto", fileDescriptor_lua_d440a831cdbd0d7e)
 }
 
-var fileDescriptor_lua_4a9e2e03e6e664b3 = []byte{
+var fileDescriptor_lua_d440a831cdbd0d7e = []byte{
 	// 169 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xd2, 0x4c, 0xcd, 0x2b, 0xcb,
 	0xaf, 0xd4, 0x4f, 0xce, 0xcf, 0x4b, 0xcb, 0x4c, 0xd7, 0x4f, 0xcb, 0xcc, 0x29, 0x49, 0x2d, 0xd2,

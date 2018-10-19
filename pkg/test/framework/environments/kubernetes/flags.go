@@ -22,8 +22,6 @@ import (
 func init() {
 	flag.StringVar(&globalSettings.KubeConfig, "istio.test.kube.config", globalSettings.KubeConfig,
 		"The path to the kube config file for cluster environments")
-	flag.StringVar(&globalSettings.Hub, "istio.test.kube.hub", globalSettings.Hub, "The hub for docker images")
-	flag.StringVar(&globalSettings.Tag, "istio.test.kube.tag", globalSettings.Tag, "The tag for docker images.")
 	flag.StringVar(&globalSettings.IstioSystemNamespace, "istio.test.kube.systemNamespace", globalSettings.IstioSystemNamespace,
 		"The namespace where the Istio components reside in a typical deployment (default: 'istio-system').")
 	flag.StringVar(&globalSettings.DependencyNamespace, "istio.test.kube.dependencyNamespace", globalSettings.DependencyNamespace,
@@ -36,4 +34,12 @@ func init() {
 			"one test namespace in the system.")
 	flag.BoolVar(&globalSettings.DeployIstio, "istio.test.kube.deploy", globalSettings.DeployIstio,
 		"Deploy Istio into the target Kubernetes environment.")
+	flag.BoolVar(&globalSettings.MinikubeIngress, "istio.test.kube.minikubeingress", globalSettings.MinikubeIngress,
+		"Configure the Ingress component so that it gets the IP address from Node, when Minikube is used..")
+	flag.StringVar(&globalSettings.ChartDir, "istio.test.kube.helm.chartDir", globalSettings.ChartDir,
+		"Helm chart dir for Istio. Only valid when deploying Istio.")
+	flag.StringVar(&globalSettings.ValuesFile, "istio.test.kube.helm.valuesFile", globalSettings.ValuesFile,
+		"Helm values file. This can be an absolute path or relative to chartDir. Only valid when deploying Istio.")
+	flag.StringVar(&helmValues, "istio.test.kube.helm.values", helmValues,
+		"Manual overrides for Helm values file. Only valid when deploying Istio.")
 }

@@ -78,6 +78,10 @@ data:
         args:
         - proxy
         - sidecar
+{{- if .Values.global.proxy.proxyDomain }}
+        - --domain
+        - {{ .Values.global.proxy.proxyDomain }}
+{{- end }}
         - --configPath
         - {{ "[[ .ProxyConfig.ConfigPath ]]" }}
         - --binaryPath
@@ -160,7 +164,16 @@ data:
         - mountPath: /etc/certs/
           name: istio-certs
           readOnly: true
+        {{ if .Values.global.sdsEnabled }}
+        - mountPath: /var/run/sds
+          name: sds-uds-path
+        {{ end }}
       volumes:
+      {{ if .Values.global.sdsEnabled }}
+      - name: sds-uds-path
+        hostPath:
+          path: /var/run/sds
+      {{ end }}
       - emptyDir:
           medium: Memory
         name: istio-envoy

@@ -103,6 +103,13 @@ func (m *VirtualHost) Validate() error {
 
 	}
 
+	if len(m.GetRequestHeadersToAdd()) > 1000 {
+		return VirtualHostValidationError{
+			Field:  "RequestHeadersToAdd",
+			Reason: "value must contain no more than 1000 item(s)",
+		}
+	}
+
 	for idx, item := range m.GetRequestHeadersToAdd() {
 		_, _ = idx, item
 
@@ -116,6 +123,13 @@ func (m *VirtualHost) Validate() error {
 			}
 		}
 
+	}
+
+	if len(m.GetResponseHeadersToAdd()) > 1000 {
+		return VirtualHostValidationError{
+			Field:  "ResponseHeadersToAdd",
+			Reason: "value must contain no more than 1000 item(s)",
+		}
 	}
 
 	for idx, item := range m.GetResponseHeadersToAdd() {
@@ -144,6 +158,8 @@ func (m *VirtualHost) Validate() error {
 	}
 
 	// no validation rules for PerFilterConfig
+
+	// no validation rules for IncludeRequestAttemptCount
 
 	return nil
 }
@@ -218,6 +234,13 @@ func (m *Route) Validate() error {
 
 	// no validation rules for PerFilterConfig
 
+	if len(m.GetRequestHeadersToAdd()) > 1000 {
+		return RouteValidationError{
+			Field:  "RequestHeadersToAdd",
+			Reason: "value must contain no more than 1000 item(s)",
+		}
+	}
+
 	for idx, item := range m.GetRequestHeadersToAdd() {
 		_, _ = idx, item
 
@@ -231,6 +254,13 @@ func (m *Route) Validate() error {
 			}
 		}
 
+	}
+
+	if len(m.GetResponseHeadersToAdd()) > 1000 {
+		return RouteValidationError{
+			Field:  "ResponseHeadersToAdd",
+			Reason: "value must contain no more than 1000 item(s)",
+		}
 	}
 
 	for idx, item := range m.GetResponseHeadersToAdd() {
@@ -422,16 +452,6 @@ func (m *RouteMatch) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetRuntime()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return RouteMatchValidationError{
-				Field:  "Runtime",
-				Reason: "embedded message failed validation",
-				Cause:  err,
-			}
-		}
-	}
-
 	for idx, item := range m.GetHeaders() {
 		_, _ = idx, item
 
@@ -462,6 +482,16 @@ func (m *RouteMatch) Validate() error {
 
 	}
 
+	if v, ok := interface{}(m.GetGrpc()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return RouteMatchValidationError{
+				Field:  "Grpc",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
 	switch m.PathSpecifier.(type) {
 
 	case *RouteMatch_Prefix:
@@ -483,6 +513,34 @@ func (m *RouteMatch) Validate() error {
 		return RouteMatchValidationError{
 			Field:  "PathSpecifier",
 			Reason: "value is required",
+		}
+
+	}
+
+	switch m.RuntimeSpecifier.(type) {
+
+	case *RouteMatch_Runtime:
+
+		if v, ok := interface{}(m.GetRuntime()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return RouteMatchValidationError{
+					Field:  "Runtime",
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
+	case *RouteMatch_RuntimeFraction:
+
+		if v, ok := interface{}(m.GetRuntimeFraction()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return RouteMatchValidationError{
+					Field:  "RuntimeFraction",
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
 		}
 
 	}
@@ -1380,6 +1438,13 @@ func (m *WeightedCluster_ClusterWeight) Validate() error {
 		}
 	}
 
+	if len(m.GetRequestHeadersToAdd()) > 1000 {
+		return WeightedCluster_ClusterWeightValidationError{
+			Field:  "RequestHeadersToAdd",
+			Reason: "value must contain no more than 1000 item(s)",
+		}
+	}
+
 	for idx, item := range m.GetRequestHeadersToAdd() {
 		_, _ = idx, item
 
@@ -1393,6 +1458,13 @@ func (m *WeightedCluster_ClusterWeight) Validate() error {
 			}
 		}
 
+	}
+
+	if len(m.GetResponseHeadersToAdd()) > 1000 {
+		return WeightedCluster_ClusterWeightValidationError{
+			Field:  "ResponseHeadersToAdd",
+			Reason: "value must contain no more than 1000 item(s)",
+		}
 	}
 
 	for idx, item := range m.GetResponseHeadersToAdd() {
@@ -1446,6 +1518,49 @@ func (e WeightedCluster_ClusterWeightValidationError) Error() string {
 }
 
 var _ error = WeightedCluster_ClusterWeightValidationError{}
+
+// Validate checks the field values on RouteMatch_GrpcRouteMatchOptions with
+// the rules defined in the proto definition for this message. If any rules
+// are violated, an error is returned.
+func (m *RouteMatch_GrpcRouteMatchOptions) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	return nil
+}
+
+// RouteMatch_GrpcRouteMatchOptionsValidationError is the validation error
+// returned by RouteMatch_GrpcRouteMatchOptions.Validate if the designated
+// constraints aren't met.
+type RouteMatch_GrpcRouteMatchOptionsValidationError struct {
+	Field  string
+	Reason string
+	Cause  error
+	Key    bool
+}
+
+// Error satisfies the builtin error interface
+func (e RouteMatch_GrpcRouteMatchOptionsValidationError) Error() string {
+	cause := ""
+	if e.Cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
+	}
+
+	key := ""
+	if e.Key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sRouteMatch_GrpcRouteMatchOptions.%s: %s%s",
+		key,
+		e.Field,
+		e.Reason,
+		cause)
+}
+
+var _ error = RouteMatch_GrpcRouteMatchOptionsValidationError{}
 
 // Validate checks the field values on RouteAction_RetryPolicy with the rules
 // defined in the proto definition for this message. If any rules are

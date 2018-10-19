@@ -21,14 +21,13 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/scopes"
-	"istio.io/istio/pkg/test/helm"
 )
 
 // ExtractAttributeManifest extracts attribute manifest from Helm charts.
 func ExtractAttributeManifest() (string, error) {
 	// We don't care about deploymentName, namespace or values file, or other settings, as we only
 	// want to extract attribute manifest, which is not really templatized.
-	s, err := helm.Template(
+	s, err := HelmTemplate(
 		"attributemanifest",
 		"istio-system",
 		env.IstioChartDir,
@@ -44,7 +43,7 @@ func ExtractAttributeManifest() (string, error) {
 		if strings.Contains(part, "kind: attributemanifest") &&
 			!strings.Contains(part, "kind: CustomResourceDefinition") {
 
-			scopes.Framework.Infof("Extracted AttributeManifest:\n%s\n", part)
+			scopes.Framework.Debugf("Extracted AttributeManifest:\n%s\n", part)
 			return part, nil
 		}
 	}

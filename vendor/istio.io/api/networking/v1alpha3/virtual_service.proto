@@ -345,7 +345,7 @@ message HTTPRoute {
   // forwarding target can be one of several versions of a service (see
   // glossary in beginning of document). Weights associated with the
   // service version determine the proportion of traffic it receives.
-  repeated DestinationWeight route = 2;
+  repeated HTTPRouteDestination route = 2;
 
   // A http rule can either redirect or forward (default) traffic. If
   // traffic passthrough option is specified in the rule,
@@ -385,13 +385,24 @@ message HTTPRoute {
   // for further details about cross origin resource sharing.
   CorsPolicy cors_policy = 10;
 
+  // Use of `append_headers` is deprecated. Use the `append_request_headers`
+  // field instead.
+  map<string, string> append_headers = 11 [deprecated=true];
+
+  // HTTP headers to remove before returning a response to the caller.
+  repeated string remove_response_headers = 12;
+
+  // Additional HTTP headers to add before returning a response to the
+  // caller.
+  map<string, string> append_response_headers = 13;
+
+  // HTTP headers to remove before forwarding a request to the
+  // destination service.
+  repeated string remove_request_headers = 14;
+
   // Additional HTTP headers to add before forwarding a request to the
   // destination service.
-  map<string, string> append_headers = 11;
-
-  // Http headers to remove before returning the response to the caller
-  // $hide_from_docs
-  repeated string remove_response_headers = 12;
+  map<string, string> append_request_headers = 15;
 }
 
 // Describes match conditions and actions for routing unterminated TLS
@@ -433,10 +444,7 @@ message TLSRoute {
   repeated TLSMatchAttributes match = 1;
 
   // The destination to which the connection should be forwarded to.
-  // Currently, only one destination is allowed for TLS services. When TCP
-  // weighted routing support is introduced in Envoy, multiple destinations
-  // with weights can be specified.
-  repeated DestinationWeight route = 2;
+  repeated RouteDestination route = 2;
 }
 
 // Describes match conditions and actions for routing TCP traffic. The
@@ -468,10 +476,7 @@ message TCPRoute {
   repeated L4MatchAttributes match = 1;
 
   // The destination to which the connection should be forwarded to.
-  // Currently, only one destination is allowed for TCP services. When TCP
-  // weighted routing support is introduced in Envoy, multiple destinations
-  // with weights can be specified.
-  repeated DestinationWeight route = 2;
+  repeated RouteDestination route = 2;
 }
 
 // HttpMatchRequest specifies a set of criterion to be met in order for the
@@ -643,7 +648,7 @@ message HTTPMatchRequest {
 //         host: reviews.com
 //       weight: 75
 // ```
-message DestinationWeight {
+message HTTPRouteDestination {
   // REQUIRED. Destination uniquely identifies the instances of a service
   // to which the request/connection should be forwarded to.
   Destination destination = 1;
@@ -652,6 +657,33 @@ message DestinationWeight {
   // version. (0-100). Sum of weights across destinations SHOULD BE == 100.
   // If there is only one destination in a rule, the weight value is assumed to
   // be 100.
+  int32 weight = 2;
+
+  // HTTP headers to remove before returning a response to the caller.
+  repeated string remove_response_headers = 3;
+
+  // Additional HTTP headers to add before returning a response to the
+  // caller.
+  map<string, string> append_response_headers = 4;
+
+  // HTTP headers to remove before forwarding a request to the
+  // destination service.
+  repeated string remove_request_headers = 5;
+
+  // Additional HTTP headers to add before forwarding a request to the
+  // destination service.
+  map<string, string> append_request_headers = 6;
+}
+
+// L4 routing rule weighted destination.
+message RouteDestination {
+  // REQUIRED. Destination uniquely identifies the instances of a service
+  // to which the request/connection should be forwarded to.
+  Destination destination = 1;
+
+  // REQUIRED. The proportion of traffic to be forwarded to the service
+  // version. If there is only one destination in a rule, all traffic will be
+  // routed to it irrespective of the weight.
   int32 weight = 2;
 }
 
@@ -755,7 +787,7 @@ message HTTPRedirect {
 
 // HTTPRewrite can be used to rewrite specific parts of a HTTP request
 // before forwarding the request to the destination. Rewrite primitive can
-// be used only with the DestinationWeights. The following example
+// be used only with HTTPRouteDestination. The following example
 // demonstrates how to rewrite the URL prefix for api call (/ratings) to
 // ratings service before making the actual API call.
 //

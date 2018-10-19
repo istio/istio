@@ -21,10 +21,11 @@ import (
 	"os/signal"
 	"syscall"
 
+	testKube "istio.io/istio/pkg/test/kube"
+
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/mixer/cmd/shared"
-	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/docker/registry"
 
@@ -96,17 +97,17 @@ func getRootCmd(args []string, fatalf shared.FormatFn, cr *closerRegister) *cobr
 	return rootCmd
 }
 
-func inClusterRegistry(rawArgs []string, fatalf shared.FormatFn, cr *closerRegister) *cobra.Command {
+func inClusterRegistry(_ []string, fatalf shared.FormatFn, cr *closerRegister) *cobra.Command {
 	sa := &localRegistrySetupArgs{}
 	inClusterCmd := &cobra.Command{
 		Use:   "in_cluster_registry",
 		Short: "sets up a in-cluster registry in your Kubernetes cluster",
 		Run: func(cmd *cobra.Command, args []string) {
-			config, err := kube.BuildClientConfig(sa.kubeconfig, "")
+			accessor, err := testKube.NewAccessor(sa.kubeconfig)
 			if err != nil {
-				fatalf("failed to create rest config. %v", err)
+				fatalf("failed to create accessor. %v", err)
 			}
-			localReg, err := registry.NewInClusterRegistry(sa.kubeconfig, config, sa.localRegistryPort, sa.namespace)
+			localReg, err := registry.NewInClusterRegistry(accessor, sa.localRegistryPort, sa.namespace)
 			if err != nil {
 				fatalf("failed to instantiate an in-cluster registry. %v", err)
 			}

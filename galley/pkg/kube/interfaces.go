@@ -15,17 +15,11 @@
 package kube
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/dynamic"
+	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp" // import GKE cluster authentication plugin
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-
-	// import GKE cluster authentication plugin
-	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 )
 
 // Interfaces interface allows access to the Kubernetes API Service methods. It is mainly used for
@@ -59,65 +53,5 @@ func NewKube(cfg *rest.Config) Interfaces {
 
 // DynamicInterface returns a new dynamic.Interface for the specified API Group/Version.
 func (k *kube) DynamicInterface(gv schema.GroupVersion, kind, listKind string) (dynamic.Interface, error) {
-	var result dynamic.Interface
-
-	cfg, err := k.createConfig(gv, kind, listKind)
-	if err == nil {
-		result, err = dynamic.NewClient(cfg)
-	}
-
-	return result, err
-}
-
-func (k *kube) createConfig(gv schema.GroupVersion, kind, listKind string) (*rest.Config, error) {
-	configShallowCopy := *k.cfg
-
-	configShallowCopy.GroupVersion = &gv
-	configShallowCopy.APIPath = "/apis"
-	configShallowCopy.ContentType = runtime.ContentTypeJSON
-
-	scheme := runtime.NewScheme()
-	metav1.AddToGroupVersion(scheme, schema.GroupVersion{Version: "v1"})
-
-	err := addTypeToScheme(scheme, gv, kind, listKind)
-	if err != nil {
-		return nil, err
-	}
-	configShallowCopy.NegotiatedSerializer = serializer.DirectCodecFactory{
-		CodecFactory: serializer.NewCodecFactory(scheme),
-	}
-
-	return &configShallowCopy, nil
-}
-
-func addTypeToScheme(s *runtime.Scheme, gv schema.GroupVersion, kind, listKind string) error {
-	builder := runtime.NewSchemeBuilder(func(s *runtime.Scheme) error {
-		// Add the object itself
-		gvk := schema.GroupVersionKind{
-			Group:   gv.Group,
-			Version: gv.Version,
-			Kind:    kind,
-		}
-
-		o := &unstructured.Unstructured{}
-		o.SetAPIVersion(gv.Version)
-		o.SetKind(kind)
-		s.AddKnownTypeWithName(gvk, o)
-
-		// Add the collection object.
-		gvk = schema.GroupVersionKind{
-			Group:   gv.Group,
-			Version: gv.Version,
-			Kind:    listKind,
-		}
-
-		c := &unstructured.UnstructuredList{}
-		o.SetAPIVersion(gv.Version)
-		o.SetKind(listKind)
-		s.AddKnownTypeWithName(gvk, c)
-
-		return nil
-	})
-
-	return builder.AddToScheme(s)
+	return dynamic.NewForConfig(k.cfg)
 }

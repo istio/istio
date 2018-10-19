@@ -6,9 +6,9 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "istio.name" . }}
-    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    release: {{ .Release.Name }}
+    chart: {{ template "istio.chart" . }}
     heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
     istio: sidecar-injector
 data:
   config: |-
@@ -37,6 +37,13 @@ data:
         - "-d"
         - {{ "\"[[ excludeInboundPort (annotation .ObjectMeta `status.sidecar.istio.io/port` " }} {{ .Values.global.proxy.statusPort }} {{ ") (annotation .ObjectMeta `traffic.sidecar.istio.io/excludeInboundPorts` " }} "{{ .Values.global.proxy.excludeInboundPorts }}" {{ ") ]]\"" }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+        resources:
+          requests:
+            cpu: 10m
+            memory: 10Mi
+          limits:
+            cpu: 10m
+            memory: 10Mi
         securityContext:
           capabilities:
             add:
@@ -63,7 +70,11 @@ data:
       {{ end }}
       containers:
       - name: istio-proxy
+{{- if contains "/" .Values.global.proxy.image }}
+        image: {{ "[[ annotation .ObjectMeta `sidecar.istio.io/proxyImage` " }} "{{ .Values.global.proxy.image }}" {{ " ]]" }}
+{{- else }}
         image: {{ "[[ annotation .ObjectMeta `sidecar.istio.io/proxyImage` " }} "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}" {{ " ]]" }}
+{{- end }}
 {{ if ne .Values.global.proxy.stats.prometheusPort 0. }}
         ports:
         - containerPort: {{ .Values.global.proxy.stats.prometheusPort }}
@@ -73,6 +84,10 @@ data:
         args:
         - proxy
         - sidecar
+{{- if .Values.global.proxy.proxyDomain }}
+        - --domain
+        - {{ .Values.global.proxy.proxyDomain }}
+{{- end }}
         - --configPath
         - {{ "[[ .ProxyConfig.ConfigPath ]]" }}
         - --binaryPath
@@ -105,10 +120,12 @@ data:
         {{ "[[ end -]]" }}
         - --controlPlaneAuthPolicy
         - {{ "[[ annotation .ObjectMeta `sidecar.istio.io/controlPlaneAuthPolicy` .ProxyConfig.ControlPlaneAuthPolicy ]]" }}
+      {{ "[[- if (ne (annotation .ObjectMeta `status.sidecar.istio.io/port` " }} {{ .Values.global.proxy.statusPort }} {{ ") \"0\") ]]" }}
         - --statusPort
         - {{ "[[ annotation .ObjectMeta `status.sidecar.istio.io/port` " }} {{ .Values.global.proxy.statusPort }} {{ " ]]" }}
         - --applicationPorts
         - {{ "\"[[ annotation .ObjectMeta `readiness.status.sidecar.istio.io/applicationPorts` (applicationPorts .Spec.Containers) ]]\"" }}
+      {{ "[[- end ]]" }}
         env:
         - name: POD_NAME
           valueFrom:
@@ -169,7 +186,16 @@ data:
         - mountPath: /etc/certs/
           name: istio-certs
           readOnly: true
+        {{ if .Values.global.sdsEnabled }}
+        - mountPath: /var/run/sds
+          name: sds-uds-path
+        {{- end }}
       volumes:
+      {{ if .Values.global.sdsEnabled }}
+      - name: sds-uds-path
+        hostPath:
+          path: /var/run/sds
+      {{- end }}
       - emptyDir:
           medium: Memory
         name: istio-envoy
@@ -181,4 +207,7 @@ data:
           {{ "[[ else -]]" }}
           secretName: {{ "[[ printf \"istio.%s\" .Spec.ServiceAccountName ]]"  }}
           {{ "[[ end -]]" }}
+{{- end }}
+{{- if .Values.global.podDNSConfig }}
+{{ toYaml .Values.global.podDNSConfig | indent 8 }}
 {{- end }}

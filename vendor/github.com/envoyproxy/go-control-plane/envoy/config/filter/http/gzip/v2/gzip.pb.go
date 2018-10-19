@@ -49,7 +49,7 @@ func (x Gzip_CompressionStrategy) String() string {
 	return proto.EnumName(Gzip_CompressionStrategy_name, int32(x))
 }
 func (Gzip_CompressionStrategy) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_gzip_89e347af437b969a, []int{0, 0}
+	return fileDescriptor_gzip_678bbbeace6246bb, []int{0, 0}
 }
 
 type Gzip_CompressionLevel_Enum int32
@@ -75,7 +75,7 @@ func (x Gzip_CompressionLevel_Enum) String() string {
 	return proto.EnumName(Gzip_CompressionLevel_Enum_name, int32(x))
 }
 func (Gzip_CompressionLevel_Enum) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_gzip_89e347af437b969a, []int{0, 0, 0}
+	return fileDescriptor_gzip_678bbbeace6246bb, []int{0, 0, 0}
 }
 
 type Gzip struct {
@@ -122,7 +122,7 @@ func (m *Gzip) Reset()         { *m = Gzip{} }
 func (m *Gzip) String() string { return proto.CompactTextString(m) }
 func (*Gzip) ProtoMessage()    {}
 func (*Gzip) Descriptor() ([]byte, []int) {
-	return fileDescriptor_gzip_89e347af437b969a, []int{0}
+	return fileDescriptor_gzip_678bbbeace6246bb, []int{0}
 }
 func (m *Gzip) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -217,7 +217,7 @@ func (m *Gzip_CompressionLevel) Reset()         { *m = Gzip_CompressionLevel{} }
 func (m *Gzip_CompressionLevel) String() string { return proto.CompactTextString(m) }
 func (*Gzip_CompressionLevel) ProtoMessage()    {}
 func (*Gzip_CompressionLevel) Descriptor() ([]byte, []int) {
-	return fileDescriptor_gzip_89e347af437b969a, []int{0, 0}
+	return fileDescriptor_gzip_678bbbeace6246bb, []int{0, 0}
 }
 func (m *Gzip_CompressionLevel) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -853,10 +853,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/config/filter/http/gzip/v2/gzip.proto", fileDescriptor_gzip_89e347af437b969a)
+	proto.RegisterFile("envoy/config/filter/http/gzip/v2/gzip.proto", fileDescriptor_gzip_678bbbeace6246bb)
 }
 
-var fileDescriptor_gzip_89e347af437b969a = []byte{
+var fileDescriptor_gzip_678bbbeace6246bb = []byte{
 	// 553 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x92, 0xc1, 0x6e, 0xd3, 0x30,
 	0x18, 0xc7, 0x71, 0x9a, 0x75, 0x8d, 0x33, 0x46, 0xf0, 0x26, 0x88, 0x2a, 0xa8, 0xaa, 0x9d, 0xa2,
