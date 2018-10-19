@@ -30,6 +30,7 @@ source "/workspace/gcb_env.sh"
 
 SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
 # shellcheck source=release/gcb/gcb_lib.sh
+
 source "${SCRIPTPATH}/gcb_lib.sh"
 
 # this function replace the old sha with the correct one
@@ -112,7 +113,7 @@ function get_later_sha_timestamp() {
   MANIFEST_FILE=$2
 
   local SHA_MFEST
-  SHA_MFEST=$(grep "istio\"" "$MANIFEST_FILE" | sed 's/.*istio. revision=.//' | sed 's/".*//')
+  SHA_MFEST=$(grep "istio" "$MANIFEST_FILE" | cut -f 2 -d " " )
   local TS_MFEST
   TS_MFEST=$(git show -s --format=%ct "$SHA_MFEST")
   local GTS
@@ -216,22 +217,6 @@ pushd istio
 popd
 }
 
-
-function usage() {
-  echo "$0
-        used CB_BRANCH CB_GCS_RELEASE_TOOLS_PATH CB_GITHUB_ORG CB_CHECK_GREEN_SHA_AGE CB_VERIFY_CONSISTENCY
-        CB_COMMIT (optional)"
-  exit 1
-}
-
-[[ -z "${CB_BRANCH}"                 ]] && usage
-[[ -z "${CB_CHECK_GREEN_SHA_AGE}"    ]] && usage
-[[ -z "${CB_GCS_BUILD_BUCKET}"       ]] && usage
-[[ -z "${CB_GCS_RELEASE_TOOLS_PATH}" ]] && usage
-[[ -z "${CB_GITHUB_ORG}"             ]] && usage
-[[ -z "${CB_VERIFY_CONSISTENCY}"     ]] && usage
-
-
 CLONE_DIR=$(mktemp -d)
 pushd "${CLONE_DIR}"
   githubctl_setup
@@ -251,8 +236,9 @@ pushd "${CLONE_DIR}"
   MANIFEST_FILE="$PWD/manifest.txt"
 
   git clone "https://github.com/${CB_GITHUB_ORG}/istio" -b "${CB_BRANCH}"
-  gsutil -m -q cp -P istio/release/gcb/*sh   "gs://${CB_GCS_RELEASE_TOOLS_PATH}/"
-  gsutil -m -q cp -P istio/release/airflow/* "gs://${CB_GCS_RELEASE_TOOLS_PATH}/airflow/"
+  gsutil -m -q cp -P istio/release/gcb/*sh      "gs://${CB_GCS_RELEASE_TOOLS_PATH}/gcb/"
+  gsutil -m -q cp -P istio/release/gcb/*json    "gs://${CB_GCS_RELEASE_TOOLS_PATH}/gcb/"
+  gsutil -m -q cp -P istio/release/pipeline/*sh "gs://${CB_GCS_RELEASE_TOOLS_PATH}/pipeline/"
 
   istio_checkout_green_sha        "${MANIFEST_FILE}"
   istio_check_green_sha_age

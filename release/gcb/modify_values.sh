@@ -8,15 +8,7 @@ set -x
 # shellcheck disable=SC1091
 source "/workspace/gcb_env.sh"
 
-function usage() {
-  echo "$0
-        uses CB_DOCKER_HUB CB_GCS_BUILD_PATH CB_VERSION"
-  exit 1
-}
-
-[[ -z "${CB_VERSION}" ]] && usage
-[[ -z "${CB_DOCKER_HUB}" ]] && usage
-[[ -z "${CB_GCS_BUILD_PATH}" ]] && usage
+#uses CB_DOCKER_HUB CB_GCS_BUILD_PATH CB_VERSION"
 
 # switch to the root of the istio repo
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

@@ -35,15 +35,8 @@ SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
 # shellcheck source=release/gcb/docker_tag_push_lib.sh
 source "${SCRIPTPATH}/docker_tag_push_lib.sh"
 
-function usage() {
-  echo "$0
-        uses CB_ISTIOCTL_DOCKER_HUB CB_VERSION"
-  exit 1
-}
-
-[[ -z "${CB_VERSION}" ]] && usage
-[[ -z "${CB_ISTIOCTL_DOCKER_HUB}" ]] && usage
-
+# directory that has the artifacts, hardcoded since the volume name in cloud_builder.json
+# need to be the same also there is no value in making this configurable
 OUTPUT_PATH="/output"
 
 ROOT="$PWD"

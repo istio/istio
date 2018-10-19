@@ -26,14 +26,6 @@ source "/workspace/gcb_env.sh"
 # This script takes files from a specified directory and uploads
 # then to GCS
 
-function usage() {
-  echo "$0
-    uses CB_GCS_BUILD_PATH"
-  exit 1
-}
-
-[[ -z "${CB_GCS_BUILD_PATH}" ]] && usage
-
 OUTPUT_PATH="/output"
 
 #copy to gcs

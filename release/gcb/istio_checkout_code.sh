@@ -53,14 +53,5 @@ function istio_code_init_manifest() {
   checkout_code "istio" "${ISTIO_SHA}" "/workspace/go/src/istio.io"
 }
 
-function usage() {
-  echo "$0
-        CB_BRANCH CB_GITHUB_ORG (required)"
-  exit 1
-}
-
-[[ -z "${CB_BRANCH}"                 ]] && usage
-[[ -z "${CB_GITHUB_ORG}" ]] && usage
-
 istio_code_init_manifest         "/workspace/manifest.txt"
 exit 0

@@ -2,12 +2,12 @@
   "steps": [
     {
       "name": "gcr.io/istio-testing/istio-builder:0.5.10",
-      "args": [ "gsutil", "-q", "-m", "cp", "-P", "gs://$_CB_GCS_RELEASE_TOOLS_PATH/*", "." ]
+      "args": [ "gsutil", "-qm", "cp", "-rP", "gs://$_CB_GCS_RELEASE_TOOLS_PATH/*", "." ]
     },
     {
       "name": "gcr.io/istio-testing/istio-builder:0.5.10",
-      "args": [ "./test_release.sh" ]
+      "args": [ "./gcb/github_publish_release.sh" ]
     }
   ],
-  "timeout": "86400s",
+  "timeout": "3600s",
 }

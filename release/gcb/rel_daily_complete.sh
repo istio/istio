@@ -25,16 +25,6 @@ source "/workspace/gcb_env.sh"
 
 # This script downloads creates a static file on GCS which has the download link of lnux tar gz
 
-function usage() {
-  echo "$0
-     uses CB_BRANCH CB_VERSION CB_GCS_STAGING_BUCKET"
-  exit 1
-}
-
-[[ -z "${CB_BRANCH}" ]] && usage
-[[ -z "${CB_VERSION}" ]] && usage
-[[ -z "${CB_GCS_STAGING_BUCKET}" ]] && usage
-
 DAILY_HTTPS_PATH="https://storage.googleapis.com/${CB_GCS_STAGING_BUCKET}/daily-build/${CB_VERSION}/istio-${CB_VERSION}-linux.tar.gz"
 
 TEMP_FILE=$(mktemp)

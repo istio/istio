@@ -15,76 +15,35 @@
 #
 ################################################################################
 
-# This script creates a tags / references on github using the repos and
-# shas that are cited in an xml file used with the repo tool.
-#
-# This script relies on the file being in the local directory.  If you'd
-# instead like to specify a GCS source then consider running this script
-# via publish_release.sh instead (don't forget to disable the other steps
-# in that script like releasing to gcs/gcr/docker, etc.).
-
 set -o errexit
 set -o nounset
 set -o pipefail
 set -x
 
+# shellcheck disable=SC1091
+source "/workspace/gcb_env.sh"
+
 SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
+# shellcheck source=release/gcb/gcb_lib.sh
+source "${SCRIPTPATH}/gcb_lib.sh"
 
-KEYFILE=""
 
-VERSION=""
+# github keys uses CB_GCS_GITHUB_TOKEN_FILE_PATH to find the github key file, decrypts if needed
+# and sets GITHUB_KEYFILE
+github_keys
+[[ -z "${GITHUB_KEYFILE}" ]] && exit 1
+
+USER_NAME="IstioReleaserBot"
+USER_EMAIL="istio_releaser_bot@example.com"
 DATE_STRING=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-USER_EMAIL=""
-USER_NAME=""
-BUILD_FILE=""
-ORG="istio"
 
-# shellcheck source=release/gcb/json_parse_shared.sh
-source "${SCRIPTPATH}/json_parse_shared.sh"
 
-function usage() {
-  echo "$0
-    -b <build> repo xml file used to create release
-    -e <email> email of submitter
-    -k <file>  file that contains github user token
-    -n <name>  name of submitter
-    -o <org>   specifies org to tag (optional, defaults to ${ORG} )
-    -v <ver>   version tag of release"
-  exit 1
-}
-
-while getopts b:e:k:n:o:v: arg ; do
-  case "${arg}" in
-    b) BUILD_FILE="${OPTARG}";;
-    e) USER_EMAIL="${OPTARG}";;
-    k) KEYFILE="${OPTARG}";;
-    n) USER_NAME="${OPTARG}";;
-    o) ORG="${OPTARG}";;
-    v) VERSION="${OPTARG}";;
-    *) usage;;
-  esac
-done
-
-[[ ! -f "${BUILD_FILE}" ]] && usage
-[[ -z "${ORG}" ]] && usage
-[[ -z "${KEYFILE}" ]] && usage
-[[ -z "${VERSION}" ]] && usage
-[[ -z "${USER_NAME}" ]] && usage
-[[ -z "${USER_EMAIL}" ]] && usage
-
-if [ ! -f "${KEYFILE}" ]; then
-  echo "specified key file ${KEYFILE} does not exist"
-  usage
-fi
 
 function create_tag_reference() {
-  local ORG_l
-  local REPO_l
-  local ORG_l
-  ORG_l="$1"
-  REPO_l="$2"
-  SHA_l="$3"
-  # uses external VERSION, USER_NAME, USER_EMAIL, DATE_STRING
+  local REPO
+  local SHA
+  REPO="$1"
+  SHA="$2"
 
   local REQUEST_FILE
   REQUEST_FILE="$(mktemp /tmp/github.request.XXXX)"
@@ -94,9 +53,9 @@ function create_tag_reference() {
   # STEP 1: create an annotated tag.
 cat << EOF > "${REQUEST_FILE}"
 {
-  "tag": "${VERSION}",
-  "message": "Istio Release ${VERSION}",
-  "object": "${SHA_l}",
+  "tag": "${CB_VERSION}",
+  "message": "Istio Release ${CB_VERSION}",
+  "object": "${SHA}",
   "type": "commit",
   "tagger": {
     "name": "${USER_NAME}",
@@ -108,10 +67,10 @@ EOF
 
   # disabling command tracing during curl call so token isn't logged
   set +o xtrace
-  TOKEN=$(< "$KEYFILE")
+  TOKEN=$(< "$GITHUB_KEYFILE")
   curl -s -S -X POST -o "${RESPONSE_FILE}" -H "Accept: application/vnd.github.v3+json" --retry 3 \
     -H "Content-Type: application/json" -T "${REQUEST_FILE}" -H "Authorization: token ${TOKEN}" \
-    "https://api.github.com/repos/${ORG_l}/${REPO_l}/git/tags"
+    "https://api.github.com/repos/${CB_GITHUB_ORG}/${REPO}/git/tags"
   set -o xtrace
 
   # parse the sha from (note other URLs also present):
@@ -123,18 +82,18 @@ EOF
   local TAG_SHA
   TAG_SHA=$(parse_json_for_url_hex_suffix "${RESPONSE_FILE}" "url" "/git/tags")
   if [[ -z "${TAG_SHA}" ]]; then
-    echo "Did not find SHA for created tag ${VERSION}"
+    echo "Did not find SHA for created tag ${CB_VERSION}"
     cat "${REQUEST_FILE}"
     cat "${RESPONSE_FILE}"
     exit 1
   fi
 
-  echo "Created annotated tag ${VERSION} for SHA ${SHA_l} on ${ORG_l}/${REPO_l}, result is ${TAG_SHA}"
+  echo "Created annotated tag ${CB_VERSION} for SHA ${SHA} on ${CB_GITHUB_ORG}/${REPO}, result is ${TAG_SHA}"
 
   # STEP 2: create a reference from the tag
 cat << EOF > "${REQUEST_FILE}"
 {
-  "ref": "refs/tags/${VERSION}",
+  "ref": "refs/tags/${CB_VERSION}",
   "sha": "${TAG_SHA}"
 }
 EOF
@@ -143,13 +102,13 @@ EOF
   set +o xtrace
   curl -s -S -X POST -o "${RESPONSE_FILE}" -H "Accept: application/vnd.github.v3+json" --retry 3 \
     -H "Content-Type: application/json" -T "${REQUEST_FILE}" -H "Authorization: token ${TOKEN}" \
-    "https://api.github.com/repos/${ORG_l}/${REPO_l}/git/refs"
+    "https://api.github.com/repos/${CB_GITHUB_ORG}/${REPO}/git/refs"
   set -o xtrace
 
   local REF
   REF=$(parse_json_for_string "${RESPONSE_FILE}" "ref")
   if [[ -z "${REF}" ]]; then
-    echo "Did not find REF for created ref ${VERSION}"
+    echo "Did not find REF for created ref ${CB_VERSION}"
     cat "${REQUEST_FILE}"
     cat "${RESPONSE_FILE}"
     exit 1
@@ -160,17 +119,15 @@ EOF
 }
 
 
-# eventually this can be used on all of:
-# (istio/api istio/istio istio/proxy istio/vendor-istio)
-# ORG_REPOS=(api istio proxy vendor-istio)
-
+echo "Beginning tag of github"
 ORG_REPOS=(api istio proxy)
 
 for GITREPO in "${ORG_REPOS[@]}"; do
   SHA=$(grep "$GITREPO" "$BUILD_FILE"  | cut -f 2 -d " ")
   if [[ -n "${SHA}" ]]; then
-    create_tag_reference "${ORG}" "${GITREPO}" "${SHA}"
+    create_tag_reference "${GITREPO}" "${SHA}"
   else
     echo "Did not find SHA for repo ${GITREPO}"
   fi
 done
+echo "Completed tag of github"

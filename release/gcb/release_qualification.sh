@@ -32,18 +32,6 @@ SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
 # shellcheck source=release/gcb/gcb_lib.sh
 source "${SCRIPTPATH}/gcb_lib.sh"
 
-
-function usage() {
-  echo "$0
-    uses CB_BRANCH CB_DOCKER_HUB CB_GCS_BUILD_PATH CB_VERSION"
-  exit 1
-}
-
-[[ -z "${CB_BRANCH}"         ]] && usage
-[[ -z "${CB_DOCKER_HUB}"     ]] && usage
-[[ -z "${CB_GCS_BUILD_PATH}" ]] && usage
-[[ -z "${CB_VERSION}"        ]] && usage
-
 githubctl_setup
 github_keys
 

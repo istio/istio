@@ -2,11 +2,11 @@
   "steps": [
     {
       "name": "gcr.io/istio-testing/istio-builder:0.5.10",
-      "args": [ "gsutil", "-q", "-m", "cp", "-P", "gs://$_CB_GCS_RELEASE_TOOLS_PATH/*", "." ]
+      "args": [ "gsutil", "-qm", "cp", "-rP", "gs://$_CB_GCS_RELEASE_TOOLS_PATH/*", "." ]
     },
     {
       "name": "gcr.io/istio-testing/istio-builder:0.5.10",
-      "args": [ "./istio_checkout_code.sh" ]
+      "args": [ "./gcb/istio_checkout_code.sh" ]
     },
     {
       "volumes": [
@@ -17,7 +17,7 @@
       ],
       "name": "gcr.io/istio-testing/istio-builder:0.5.10",
       "dir": "go/src/istio.io/istio",
-      "args": [ "./release/gcb/cloud_builder.sh" ]
+      "args": [ "/workspace/gcb/cloud_builder.sh" ]
     },
     {
       "volumes": [
@@ -27,13 +27,11 @@
         }
       ],
       "name": "gcr.io/istio-testing/istio-builder:0.5.10",
-      "dir": "go/src/istio.io/istio",
-      "args": [ "./release/gcb/store_artifacts.sh" ]
+      "args": [ "./gcb/store_artifacts.sh" ]
     },
     {
       "name": "gcr.io/istio-testing/istio-builder:0.5.10",
-      "dir": "go/src/istio.io/istio",
-      "args": [ "./release/gcb/rel_push_docker_build_version.sh" ]
+      "args": [ "./gcb/rel_push_docker_build_version.sh" ]
     }
   ],
   "options": {
