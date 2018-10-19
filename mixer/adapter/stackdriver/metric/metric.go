@@ -255,23 +255,23 @@ func toTypedVal(val interface{}, i info) *monitoringpb.TypedValue {
 	if i.minfo.Value == metricpb.MetricDescriptor_DISTRIBUTION {
 		v, err := toDist(val, i)
 		if err != nil {
-			return &monitoringpb.TypedValue{&monitoringpb.TypedValue_DistributionValue{}}
+			return &monitoringpb.TypedValue{Value: &monitoringpb.TypedValue_DistributionValue{}}
 		}
 		return v
 	}
 
 	switch labelMap[i.vtype] {
 	case labelpb.LabelDescriptor_BOOL:
-		return &monitoringpb.TypedValue{&monitoringpb.TypedValue_BoolValue{BoolValue: val.(bool)}}
+		return &monitoringpb.TypedValue{Value: &monitoringpb.TypedValue_BoolValue{BoolValue: val.(bool)}}
 	case labelpb.LabelDescriptor_INT64:
 		if t, ok := val.(time.Time); ok {
 			val = t.Nanosecond() / int(time.Microsecond)
 		} else if d, ok := val.(time.Duration); ok {
 			val = d.Nanoseconds() / int64(time.Microsecond)
 		}
-		return &monitoringpb.TypedValue{&monitoringpb.TypedValue_Int64Value{Int64Value: val.(int64)}}
+		return &monitoringpb.TypedValue{Value: &monitoringpb.TypedValue_Int64Value{Int64Value: val.(int64)}}
 	default:
-		return &monitoringpb.TypedValue{&monitoringpb.TypedValue_StringValue{StringValue: fmt.Sprintf("%v", val)}}
+		return &monitoringpb.TypedValue{Value: &monitoringpb.TypedValue_StringValue{StringValue: fmt.Sprintf("%v", val)}}
 	}
 }
 
