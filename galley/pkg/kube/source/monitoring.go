@@ -56,8 +56,8 @@ var (
 		stats.UnitDimensionless)
 )
 
-func recordHandleEventError(err string) {
-	ctx, ctxErr := tag.New(context.Background(), tag.Insert(ErrorTag, err))
+func recordHandleEventError(msg string) {
+	ctx, ctxErr := tag.New(context.Background(), tag.Insert(ErrorTag, msg))
 	if ctxErr != nil {
 		scope.Errorf("error creating context to record handleEvent error")
 	} else {

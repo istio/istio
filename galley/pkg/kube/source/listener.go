@@ -153,15 +153,15 @@ func (l *listener) handleEvent(c resource.EventKind, obj interface{}) {
 	if !ok {
 		var tombstone cache.DeletedFinalStateUnknown
 		if tombstone, ok = obj.(cache.DeletedFinalStateUnknown); !ok {
-			err := fmt.Sprintf("error decoding object, invalid type: %v", reflect.TypeOf(obj))
-			scope.Error(err)
-			recordHandleEventError(err)
+			msg := fmt.Sprintf("error decoding object, invalid type: %v", reflect.TypeOf(obj))
+			scope.Error(msg)
+			recordHandleEventError(msg)
 			return
 		}
 		if object, ok = tombstone.Obj.(metav1.Object); !ok {
-			err := fmt.Sprintf("error decoding object tombstone, invalid type: %v", reflect.TypeOf(tombstone.Obj))
-			scope.Error(err)
-			recordHandleEventError(err)
+			msg := fmt.Sprintf("error decoding object tombstone, invalid type: %v", reflect.TypeOf(tombstone.Obj))
+			scope.Error(msg)
+			recordHandleEventError(msg)
 			return
 		}
 		scope.Infof("Recovered deleted object '%s' from tombstone", object.GetName())
@@ -169,9 +169,9 @@ func (l *listener) handleEvent(c resource.EventKind, obj interface{}) {
 
 	key, err := cache.MetaNamespaceKeyFunc(object)
 	if err != nil {
-		err := fmt.Sprintf("Error creating MetaNamespaceKey from object: %v", object)
-		scope.Error(err)
-		recordHandleEventError(err)
+		msg := fmt.Sprintf("Error creating MetaNamespaceKey from object: %v", object)
+		scope.Error(msg)
+		recordHandleEventError(msg)
 		return
 	}
 
