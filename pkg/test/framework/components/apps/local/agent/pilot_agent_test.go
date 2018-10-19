@@ -38,6 +38,9 @@ import (
 const (
 	timeout       = 10 * time.Second
 	retryInterval = 500 * time.Millisecond
+
+	// Enable for debugging.
+	debugLogsEnabled = false
 )
 
 func TestMinimal(t *testing.T) {
@@ -96,8 +99,13 @@ func testForApps(t *testing.T, appFactory *echo.Factory, serviceNames ...string)
 	discoveryAddr := p.GRPCListeningAddr.(*net.TCPAddr)
 
 	// Configure the agent factory with Pilot's discovery address
+	envoyLogLevel := envoy.LogLevel("")
+	if debugLogsEnabled {
+		envoyLogLevel = envoy.LogLevelTrace
+	}
 	agentFactory := (&PilotAgentFactory{
 		DiscoveryAddress: discoveryAddr,
+		EnvoyLogLevel:    envoyLogLevel,
 	}).NewAgent
 
 	appFactoryFunc := appFactory.NewApplication
@@ -132,7 +140,9 @@ func testForApps(t *testing.T, appFactory *echo.Factory, serviceNames ...string)
 		}
 	}
 
-	logConfigs(agents)
+	if debugLogsEnabled {
+		logConfigs(agents)
+	}
 
 	// Verify that we can send traffic between services.
 	for _, src := range agents {
@@ -153,7 +163,7 @@ func logConfigs(agents []Agent) {
 	out := ""
 	for _, a := range agents {
 		dump, _ := envoy.GetConfigDumpStr(a.GetAdminPort())
-		out += fmt.Sprintf("NM: %s Config: %s\n", a.GetConfig().Name, dump)
+		out += fmt.Sprintf("App: %s Config: %s\n", a.GetConfig().Name, dump)
 	}
 
 	f := bufio.NewWriter(os.Stdout)
@@ -168,11 +178,14 @@ func newAgent(serviceName string, serviceManager *service.Manager, factory Facto
 		t.Fatal(err)
 	}
 
-	msg := fmt.Sprintf("NM: %s ports:\n", serviceName)
-	for _, p := range a.GetPorts() {
-		msg += fmt.Sprintf("   [%v]: %d->%d\n", p.Protocol, p.ProxyPort, p.ApplicationPort)
+	// Enable for debugging.
+	if debugLogsEnabled {
+		msg := fmt.Sprintf("Service: %s ports:\n", serviceName)
+		for _, p := range a.GetPorts() {
+			msg += fmt.Sprintf("   [%v]: %d->%d\n", p.Protocol, p.ProxyPort, p.ApplicationPort)
+		}
+		fmt.Println(msg)
 	}
-	fmt.Println(msg)
 
 	return a
 }
