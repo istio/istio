@@ -29,6 +29,7 @@ import (
 
 	"istio.io/istio/galley/pkg/kube"
 	"istio.io/istio/galley/pkg/runtime/resource"
+	"fmt"
 )
 
 // processorFn is a callback function that will receive change events back from listener.
@@ -152,13 +153,15 @@ func (l *listener) handleEvent(c resource.EventKind, obj interface{}) {
 	if !ok {
 		var tombstone cache.DeletedFinalStateUnknown
 		if tombstone, ok = obj.(cache.DeletedFinalStateUnknown); !ok {
-			scope.Errorf("error decoding object, invalid type: %v", reflect.TypeOf(obj))
-			recordHandleEventError()
+			err := fmt.Sprintf("error decoding object, invalid type: %v", reflect.TypeOf(obj))
+			scope.Error(err)
+			recordHandleEventError(err)
 			return
 		}
 		if object, ok = tombstone.Obj.(metav1.Object); !ok {
-			scope.Errorf("error decoding object tombstone, invalid type: %v", reflect.TypeOf(tombstone.Obj))
-			recordHandleEventError()
+			err := fmt.Sprintf("error decoding object tombstone, invalid type: %v", reflect.TypeOf(tombstone.Obj))
+			scope.Error(err)
+			recordHandleEventError(err)
 			return
 		}
 		scope.Infof("Recovered deleted object '%s' from tombstone", object.GetName())
@@ -166,8 +169,9 @@ func (l *listener) handleEvent(c resource.EventKind, obj interface{}) {
 
 	key, err := cache.MetaNamespaceKeyFunc(object)
 	if err != nil {
-		scope.Errorf("Error creating MetaNamespaceKey from object: %v", object)
-		recordHandleEventError()
+		err := fmt.Sprintf("Error creating MetaNamespaceKey from object: %v", object)
+		scope.Error(err)
+		recordHandleEventError(err)
 		return
 	}
 

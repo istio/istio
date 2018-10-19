@@ -25,12 +25,14 @@ const (
 	apiVersion = "apiVersion"
 	group = "group"
 	kind = "kind"
+	errorStr = "error"
 )
 
 var (
 	APIVersionTag tag.Key
 	GroupTag      tag.Key
 	KindTag       tag.Key
+	ErrorTag tag.Key
 )
 
 var (
@@ -54,13 +56,24 @@ var (
 		stats.UnitDimensionless)
 )
 
-func recordHandleEventError() {
-	stats.Record(context.Background(), listenerHandleEventError.M(1))
+func recordHandleEventError(err string) {
+	ctx, ctxErr := tag.New(context.Background(), tag.Insert(ErrorTag, err))
+	if ctxErr != nil {
+		scope.Errorf("error creating context to record handleEvent error")
+	} else {
+		stats.Record(ctx, listenerHandleEventError.M(1))
+	}
 }
 
 func recordHandleEventSuccess() {
 	stats.Record(context.Background(), listenerHandleEventSuccess.M(1))
 }
+
+type contextKey struct {
+	apiVersion, group, kind string
+}
+
+var ctxCache = make(map[contextKey]context.Context)
 
 func recordConverterResult(success bool, apiVersion, group, kind string) {
 	var metric *stats.Int64Measure
@@ -69,13 +82,19 @@ func recordConverterResult(success bool, apiVersion, group, kind string) {
 	} else {
 		metric = sourceConversionFailure
 	}
-	ctx, err := tag.New(context.Background(), tag.Insert(APIVersionTag, apiVersion),
-		tag.Insert(GroupTag, group), tag.Insert(KindTag, kind))
-	if err != nil {
-		scope.Errorf("Error creating monitoring context for counting conversion result: %v", err)
-	} else {
-		stats.Record(ctx, metric.M(1))
+	key := contextKey{apiVersion, group, kind}
+	ctx, ok := ctxCache[key]
+	var err error
+	if !ok {
+		ctx, err = tag.New(context.Background(), tag.Insert(APIVersionTag, apiVersion),
+			tag.Insert(GroupTag, group), tag.Insert(KindTag, kind))
+		if err != nil {
+			scope.Errorf("Error creating monitoring context for counting conversion result: %v", err)
+			return
+		}
+		ctxCache[key] = ctx
 	}
+	stats.Record(ctx, metric.M(1))
 }
 
 func newTagKey(label string) tag.Key {
@@ -100,12 +119,14 @@ func init() {
 	APIVersionTag = newTagKey(apiVersion)
 	GroupTag = newTagKey(group)
 	KindTag = newTagKey(kind)
+	ErrorTag = newTagKey(errorStr)
 
+	errorKey := []tag.Key{ErrorTag}
 	conversionKeys := []tag.Key{APIVersionTag, GroupTag, KindTag}
 	var noKeys []tag.Key
 
 	err := view.Register(
-		newView(listenerHandleEventError, noKeys, view.Count()),
+		newView(listenerHandleEventError, errorKey, view.Count()),
 		newView(listenerHandleEventSuccess, noKeys, view.Count()),
 		newView(sourceConversionSuccess, conversionKeys, view.Count()),
 		newView(sourceConversionFailure, conversionKeys, view.Count()),
