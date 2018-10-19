@@ -97,6 +97,7 @@ def getBashSettingsTemplate(extra_param_lst=[]):
       template_list.append("export %s={{ settings.%s }}" % (key, key))
 
   template_list.append("""
+                source    "/tmp/gcb_env.sh"
                 # download gcb_env.sh if it exists, otherwise the local copy will be uploaded
                 gsutil -q cp "gs://${CB_GCS_RELEASE_TOOLS_PATH}/gcb_env.sh" "/tmp/gcb_env.sh"
                 source    "/tmp/gcb_env.sh"

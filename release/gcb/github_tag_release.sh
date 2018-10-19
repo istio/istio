@@ -26,6 +26,9 @@ source "/workspace/gcb_env.sh"
 SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
 # shellcheck source=release/gcb/gcb_lib.sh
 source "${SCRIPTPATH}/gcb_lib.sh"
+# shellcheck source=release/gcb/json_parse_shared.sh
+source "${SCRIPTPATH}/json_parse_shared.sh"
+
 
 
 # copies github key file locally, decrypts if needed and sets GITHUB_KEYFILE
@@ -122,7 +125,7 @@ echo "Beginning tag of github"
 ORG_REPOS=(api istio proxy)
 
 for GITREPO in "${ORG_REPOS[@]}"; do
-  SHA=$(grep "$GITREPO" "$BUILD_FILE"  | cut -f 2 -d " ")
+  SHA=$(grep "$GITREPO" "/workspace/manifest.txt"  | cut -f 2 -d " ")
   if [[ -n "${SHA}" ]]; then
     create_tag_reference "${GITREPO}" "${SHA}"
   else

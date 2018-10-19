@@ -36,14 +36,6 @@ EOF
 
 # Called directly by Airflow.
 function get_git_commit_cmd() {
-   SUBS_GGC_FILE="$(mktemp /tmp/build.subs.branch.gcs_release_tool_path.XXXX)"
-cat << EOF > "${SUBS_GGC_FILE}"
-  "substitutions": {
-    "_CB_BRANCH": "${CB_BRANCH}",
-    "_CB_GCS_RELEASE_TOOLS_PATH": "${CB_GCS_RELEASE_TOOLS_PATH}",
-    "_CB_GITHUB_ORG": "${CB_GITHUB_ORG}"
-  }
-EOF
     create_subs_file
     run_build "get_commit.template.json" \
          "${SUBS_FILE}" "${PROJECT_ID}" "${SVC_ACCT}"
