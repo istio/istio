@@ -129,4 +129,11 @@ message MeshConfig {
 
   // Address of the galley service exposing the Mesh Control Protocol (MCP).
   string galley_address = 22;
+
+  // $hide_from_docs
+  // This flag is used by secret discovery service(SDS). 
+  // If set to true(prerequisite: https://kubernetes.io/docs/concepts/storage/volumes/#projected), Istio will inject volumes mount 
+  // for k8s service account JWT, so that K8s API server mounts k8s service account JWT to envoy container, which 
+  // will be used to generate key/cert eventually. This isn't supported for non-k8s case.
+  bool enable_sds_token_mount = 23;
 }

@@ -1596,7 +1596,11 @@
 
 [[projects]]
   branch = "master"
+<<<<<<< HEAD
   digest = "1:358c12249415725f1d6f1c808ec35badf273c8b9bf7cd12bae5489786d73d062"
+=======
+  digest = "1:6a283952d5799d8d3eb6580d2044fadfa6ed7a31e80adf0a358446d22f16e24f"
+>>>>>>> update api sha
   name = "istio.io/api"
   packages = [
     "authentication/v1alpha1",
@@ -1612,7 +1616,11 @@
     "rbac/v1alpha1",
   ]
   pruneopts = "T"
+<<<<<<< HEAD
   revision = "246cae3eb30a604aeaf9541d343ef5c4cc3947b6"
+=======
+  revision = "4456dece9f1ecf9b6f5528b0fe651578d9f21a80"
+>>>>>>> update api sha
 
 [[projects]]
   branch = "release-1.11"
