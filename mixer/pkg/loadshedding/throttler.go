@@ -97,6 +97,12 @@ func NewThrottler(opts Options) *Throttler {
 		thresholds: make(map[string][]float64),
 	}
 
+	if t.mode == Disabled {
+		// don't bother to create Evaluators if throttling is not
+		// enabled.
+		return t
+	}
+
 	if opts.AverageLatencyThreshold > 0 {
 		e := NewGRPCLatencyEvaluator(opts.SamplesPerSecond, opts.SampleHalfLife)
 		t.evaluators[e.Name()] = e
@@ -131,7 +137,7 @@ func (t *Throttler) Throttle(ri RequestInfo) bool {
 		for _, thres := range t.thresholds[e.Name()] {
 			scope.Debugf("Evaluating load with %s against threshold %f", e.Name(), thres)
 			eval := e.EvaluateAgainst(ri, thres)
-			if shouldThrottle(eval) {
+			if ShouldThrottle(eval) {
 				msg := fmt.Sprintf("Throttled (%s): '%s'", e.Name(), eval.Message)
 				if t.mode == LogOnly {
 					scope.Infoa("LogOnly - ", msg)
