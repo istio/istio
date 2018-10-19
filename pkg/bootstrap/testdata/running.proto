@@ -1,0 +1,14 @@
+config_path:             "/etc/istio/proxy"
+binary_path:             "/usr/local/bin/envoy"
+service_cluster:         "istio-proxy"
+drain_duration:          {seconds: 5}
+parent_shutdown_duration: {seconds: 6}
+discovery_address:       "mypilot:1001"
+zipkin_address:           "localhost:6000"
+connect_timeout:          {seconds: 7}
+statsd_udp_address:       "10.1.1.1:9125"
+proxy_admin_port:         15005
+control_plane_auth_policy: MUTUAL_TLS
+stat_name_length:          200
+
+# Sets all relevant options to values different than default
