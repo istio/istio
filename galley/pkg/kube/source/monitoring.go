@@ -19,6 +19,7 @@ import (
 	"go.opencensus.io/tag"
 	"go.opencensus.io/stats/view"
 	"context"
+	"sync"
 )
 
 const (
@@ -73,7 +74,7 @@ type contextKey struct {
 	apiVersion, group, kind string
 }
 
-var ctxCache = make(map[contextKey]context.Context)
+var ctxCache = sync.Map{}
 
 func recordConverterResult(success bool, apiVersion, group, kind string) {
 	var metric *stats.Int64Measure
@@ -83,18 +84,18 @@ func recordConverterResult(success bool, apiVersion, group, kind string) {
 		metric = sourceConversionFailure
 	}
 	key := contextKey{apiVersion, group, kind}
-	ctx, ok := ctxCache[key]
-	var err error
+	ctx, ok := ctxCache.Load(key)
 	if !ok {
+		var err error
 		ctx, err = tag.New(context.Background(), tag.Insert(APIVersionTag, apiVersion),
 			tag.Insert(GroupTag, group), tag.Insert(KindTag, kind))
 		if err != nil {
 			scope.Errorf("Error creating monitoring context for counting conversion result: %v", err)
 			return
 		}
-		ctxCache[key] = ctx
+		ctxCache.Store(key, ctx)
 	}
-	stats.Record(ctx, metric.M(1))
+	stats.Record(ctx.(context.Context), metric.M(1))
 }
 
 func newTagKey(label string) tag.Key {
