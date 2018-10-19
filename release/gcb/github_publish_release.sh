@@ -33,8 +33,7 @@ source "${SCRIPTPATH}/json_parse_shared.sh"
 
 UPLOAD_DIR="$(mktemp -d /tmp/release.XXXX)"
 
-# github keys uses CB_GCS_GITHUB_TOKEN_FILE_PATH to find the github key file, decrypts if needed
-# and sets GITHUB_KEYFILE
+# copies github key file locally, decrypts if needed and sets GITHUB_KEYFILE
 github_keys
 [[ -z "${GITHUB_KEYFILE}" ]] && exit 1
 

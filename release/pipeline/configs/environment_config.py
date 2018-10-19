@@ -20,9 +20,10 @@ airflow_fixed_config = dict(
     CB_CHECK_GREEN_SHA_AGE='true',
     CB_GCR_STAGING_DEST='istio-release',
     CB_GCS_BUILD_BUCKET='istio-release-pipeline-data',
-    CB_GCS_GITHUB_TOKEN_FILE_PATH='istio-secrets/github.txt.enc',
     CB_GCS_STAGING_BUCKET='istio-prerelease',
     CB_GITHUB_ORG='istio',
+    CB_GITHUB_TOKEN_FILE_PATH='istio-secrets/github.txt.enc',
+    CB_TEST_GITHUB_TOKEN_FILE_PATH='',
     PROJECT_ID='istio-io',
     SVC_ACCT='202987436673-compute@developer.gserviceaccount.com')
 

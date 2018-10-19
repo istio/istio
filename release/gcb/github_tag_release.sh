@@ -28,8 +28,7 @@ SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
 source "${SCRIPTPATH}/gcb_lib.sh"
 
 
-# github keys uses CB_GCS_GITHUB_TOKEN_FILE_PATH to find the github key file, decrypts if needed
-# and sets GITHUB_KEYFILE
+# copies github key file locally, decrypts if needed and sets GITHUB_KEYFILE
 github_keys
 [[ -z "${GITHUB_KEYFILE}" ]] && exit 1
 
