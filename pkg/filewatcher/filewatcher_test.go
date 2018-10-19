@@ -206,7 +206,7 @@ func TestWatcherLifecycle(t *testing.T) {
 	events1 = w.Events(watchFile1)
 	g.Expect(events1).To(BeNil())
 	errors1 = w.Errors(watchFile1)
-	g.Expect(errors1).NotTo(BeNil())
+	g.Expect(errors1).To(BeNil())
 	events2 = w.Events(watchFile2)
 	g.Expect(events2).NotTo(BeNil())
 	errors2 = w.Errors(watchFile2)

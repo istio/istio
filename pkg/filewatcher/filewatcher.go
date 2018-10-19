@@ -17,6 +17,7 @@ package filewatcher
 import (
 	"bufio"
 	"crypto/md5"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -58,6 +59,7 @@ type worker struct {
 
 type fileTracker struct {
 	events chan fsnotify.Event
+	errors chan error
 	// md5 sum to indicate if a file has been updated.
 	md5Sum string
 }
@@ -89,6 +91,7 @@ func (w *fsNotifyWatcher) Add(path string) error {
 		}
 		worker.watchedFiles[cleanedPath] = &fileTracker{
 			events: make(chan fsnotify.Event, 1),
+			errors: make(chan error, 1),
 			md5Sum: md5Sum,
 		}
 
@@ -113,6 +116,7 @@ func (w *fsNotifyWatcher) Add(path string) error {
 		watchedFiles: map[string]*fileTracker{
 			cleanedPath: {
 				events: make(chan fsnotify.Event, 1),
+				errors: make(chan error, 1),
 				md5Sum: md5Sum,
 			},
 		},
@@ -135,7 +139,15 @@ func (w *fsNotifyWatcher) Add(path string) error {
 						break
 					}
 				}
-			case <-watcher.Errors:
+			case err, ok := <-watcher.Errors:
+				if !ok {
+					// 'Errors' channel is closed. Construct an error for it.
+					// We'll only close worker errors channel in "Remove" for consistency.
+					err = errors.New("channel closed")
+				}
+				for _, tracker := range wk.watchedFiles {
+					tracker.errors <- err
+				}
 				return
 			}
 		}
@@ -167,6 +179,7 @@ func (w *fsNotifyWatcher) remove(path string) error {
 
 	delete(worker.watchedFiles, cleanedPath)
 	close(tracker.events)
+	close(tracker.errors)
 	if len(worker.watchedFiles) == 0 {
 		// Remove the watch if all of its paths have been removed.
 		delete(w.workers, parentPath)
@@ -215,13 +228,18 @@ func (w *fsNotifyWatcher) Errors(path string) chan error {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 
-	_, parentPath := formatPath(path)
+	cleanedPath, parentPath := formatPath(path)
 	worker, workerExist := w.workers[parentPath]
 	if !workerExist {
 		return nil
 	}
 
-	return worker.watcher.Errors
+	tracker, pathExist := worker.watchedFiles[cleanedPath]
+	if !pathExist {
+		return nil
+	}
+
+	return tracker.errors
 }
 
 // getMd5Sum is a helper func to calculate md5 sum.
