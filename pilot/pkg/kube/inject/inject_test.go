@@ -24,7 +24,6 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
-
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/util"
@@ -478,9 +477,6 @@ func TestIntoResourceFile(t *testing.T) {
 		testName := fmt.Sprintf("[%02d] %s", i, c.want)
 		t.Run(testName, func(t *testing.T) {
 			mesh := model.DefaultMeshConfig()
-			if c.enableAuth {
-				mesh.AuthPolicy = meshconfig.MeshConfig_MUTUAL_TLS
-			}
 			if c.duration != 0 {
 				mesh.DefaultConfig.DrainDuration = types.DurationProto(c.duration)
 				mesh.DefaultConfig.ParentShutdownDuration = types.DurationProto(c.duration)

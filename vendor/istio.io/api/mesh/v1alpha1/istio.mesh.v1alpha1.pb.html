@@ -4,7 +4,7 @@ layout: protoc-gen-docs
 generator: protoc-gen-docs
 aliases:
   - /docs/reference/config/service-mesh.html
-number_of_entries: 11
+number_of_entries: 8
 ---
 <h2 id="AuthenticationPolicy">AuthenticationPolicy</h2>
 <section>
@@ -151,16 +151,6 @@ controller.  This corresponds to the value of
 
 </td>
 </tr>
-<tr id="MeshConfig-auth_policy" class="deprecated ">
-<td><code>authPolicy</code></td>
-<td><code><a href="#MeshConfig-AuthPolicy">MeshConfig.AuthPolicy</a></code></td>
-<td>
-<p>Authentication policy defines the global switch to control authentication
-for Envoy-to-Envoy communication.
-Use authentication_policy instead.</p>
-
-</td>
-</tr>
 <tr id="MeshConfig-enable_tracing">
 <td><code>enableTracing</code></td>
 <td><code>bool</code></td>
@@ -191,19 +181,6 @@ at runtime and config gets distributed dynamically.</p>
 
 </td>
 </tr>
-<tr id="MeshConfig-outbound_traffic_policy">
-<td><code>outboundTrafficPolicy</code></td>
-<td><code><a href="#MeshConfig-OutboundTrafficPolicy">MeshConfig.OutboundTrafficPolicy</a></code></td>
-<td>
-<p>Set the default behavior of the sidecar for handling outbound traffic from the application.
-While the default mode should work out of the box, if your application uses one or more external services that
-are not known apriori, setting the policy to ALLOW<em>ANY will cause the sidecars to route traffic to the any
-requested destination.
-Users are strongly encouraged to use ServiceEntries to explicitly declare any external dependencies,
-instead of using allow</em>any.</p>
-
-</td>
-</tr>
 <tr id="MeshConfig-enable_client_side_policy_check">
 <td><code>enableClientSidePolicyCheck</code></td>
 <td><code>bool</code></td>
@@ -226,35 +203,6 @@ Use secret-mount files instead of SDS if set to empty.</p>
 <td><code>string</code></td>
 <td>
 <p>Address of the galley service exposing the Mesh Control Protocol (MCP).</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="MeshConfig-AuthPolicy">MeshConfig.AuthPolicy</h2>
-<section>
-<p>TODO AuthPolicy needs to be removed and merged with AuthPolicy defined above</p>
-
-<table class="enum-values">
-<thead>
-<tr>
-<th>Name</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="MeshConfig-AuthPolicy-NONE">
-<td><code>NONE</code></td>
-<td>
-<p>Do not encrypt Envoy to Envoy traffic.</p>
-
-</td>
-</tr>
-<tr id="MeshConfig-AuthPolicy-MUTUAL_TLS">
-<td><code>MUTUAL_TLS</code></td>
-<td>
-<p>Envoy to Envoy traffic is wrapped into mutual TLS connections.</p>
 
 </td>
 </tr>
@@ -297,61 +245,6 @@ annotations match the value specified in the ingress_class parameter
 described earlier. Use this mode if Istio ingress controller will be
 a secondary ingress controller (e.g., in addition to a
 cloud-provided ingress controller).</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="MeshConfig-OutboundTrafficPolicy">MeshConfig.OutboundTrafficPolicy</h2>
-<section>
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="MeshConfig-OutboundTrafficPolicy-mode">
-<td><code>mode</code></td>
-<td><code><a href="#MeshConfig-OutboundTrafficPolicy-Mode">MeshConfig.OutboundTrafficPolicy.Mode</a></code></td>
-<td>
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="MeshConfig-OutboundTrafficPolicy-Mode">MeshConfig.OutboundTrafficPolicy.Mode</h2>
-<section>
-<table class="enum-values">
-<thead>
-<tr>
-<th>Name</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="MeshConfig-OutboundTrafficPolicy-Mode-REGISTRY_ONLY">
-<td><code>REGISTRY_ONLY</code></td>
-<td>
-<p>outbound traffic will be restricted to services defined in the service registry as well as those defined
-through ServiceEntries</p>
-
-</td>
-</tr>
-<tr id="MeshConfig-OutboundTrafficPolicy-Mode-ALLOW_ANY">
-<td><code>ALLOW_ANY</code></td>
-<td>
-<p>outbound traffic to unknown destinations will be allowed</p>
-
-</td>
-</tr>
-<tr id="MeshConfig-OutboundTrafficPolicy-Mode-VIRTUAL_SERVICE_ONLY">
-<td><code>VIRTUAL_SERVICE_ONLY</code></td>
-<td>
-<p>not implemented. outbound traffic will be restricted to destinations defined in VirtualServices only</p>
 
 </td>
 </tr>

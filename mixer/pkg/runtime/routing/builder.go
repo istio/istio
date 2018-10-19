@@ -54,7 +54,6 @@ import (
 	"strings"
 
 	"go.opencensus.io/stats"
-
 	tpb "istio.io/api/mixer/adapter/model/v1beta1"
 	descriptor "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
@@ -418,6 +417,35 @@ func (b *builder) templateInfo(tmpl *config.Template) *TemplateInfo {
 		Variety: tmpl.Variety,
 	}
 
+	// dynamic dispatch to APA adapters
+	ti.DispatchGenAttrs = func(ctx context.Context, handler adapter.Handler, instance interface{},
+		attrs attribute.Bag, mapper template.OutputMapperFn) (*attribute.MutableBag, error) {
+		var h adapter.RemoteGenerateAttributesHandler
+		var ok bool
+		var encodedInstance *adapter.EncodedInstance
+
+		if h, ok = handler.(adapter.RemoteGenerateAttributesHandler); !ok {
+			return nil, fmt.Errorf("internal: handler of incorrect type. got %T, want: RemoteGenerateAttributes", handler)
+		}
+
+		if encodedInstance, ok = instance.(*adapter.EncodedInstance); !ok {
+			return nil, fmt.Errorf("internal: instance of incorrect type. got %T, want: []byte", instance)
+		}
+
+		valuesBag := attribute.GetMutableBag(attrs)
+		defer valuesBag.Done()
+		if err := h.HandleRemoteGenAttrs(ctx, encodedInstance, valuesBag); err != nil {
+			return nil, fmt.Errorf("internal: failed to make an RPC to an APA: %v", err)
+		}
+
+		out, err := mapper(valuesBag)
+		if err != nil {
+			return nil, fmt.Errorf("internal: failed to map attributes from the output: %v", err)
+		}
+
+		return out, nil
+	}
+
 	// Make a call to check
 	ti.DispatchCheck = func(ctx context.Context, handler adapter.Handler, instance interface{}) (adapter.CheckResult, error) {
 		var h adapter.RemoteCheckHandler
@@ -486,7 +514,7 @@ const defaultInstanceSize = 128
 
 // get or create a builder and a mapper for the given instance. The mapper is created only if the template
 // is an attribute generator. At present this function never returns an error.
-func (b *builder) getBuilderAndMapperDynamic(_ ast.AttributeDescriptorFinder,
+func (b *builder) getBuilderAndMapperDynamic(finder ast.AttributeDescriptorFinder,
 	instance *config.InstanceDynamic) (template.InstanceBuilderFn, template.OutputMapperFn, error) {
 	var instBuilder template.InstanceBuilderFn = func(attrs attribute.Bag) (interface{}, error) {
 		var err error
@@ -501,5 +529,36 @@ func (b *builder) getBuilderAndMapperDynamic(_ ast.AttributeDescriptorFinder,
 			Data: ba,
 		}, nil
 	}
-	return instBuilder, nil, nil
+
+	var mapper template.OutputMapperFn
+	if instance.Template.Variety == tpb.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR {
+		mapper = b.mappers[instance.Name]
+		if mapper == nil {
+			chained := ast.NewChainedFinder(finder, instance.Template.AttributeManifest)
+			expb := compiled.NewBuilder(chained)
+
+			expressions := make(map[string]compiled.Expression)
+			for attrName, outExpr := range instance.AttributeBindings {
+				attrInfo := finder.GetAttribute(attrName)
+				if attrInfo == nil {
+					log.Warnf("attribute not found when mapping outputs: attr=%q, expr=%q", attrName, outExpr)
+					continue
+				}
+				expr, expType, err := expb.Compile(outExpr)
+				if err != nil {
+					log.Warnf("attribute expression compilation failure: expr=%q, %v", outExpr, err)
+					continue
+				}
+				if attrInfo.ValueType != expType {
+					log.Warnf("attribute type mismatch: attr=%q, attrType='%v', expr=%q, exprType='%v'", attrName, attrInfo.ValueType, outExpr, expType)
+					continue
+				}
+				expressions[attrName] = expr
+			}
+			mapper = template.NewOutputMapperFn(expressions)
+		}
+
+		b.mappers[instance.Name] = mapper
+	}
+	return instBuilder, mapper, nil
 }
