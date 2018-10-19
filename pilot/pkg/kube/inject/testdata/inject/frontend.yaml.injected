@@ -23,11 +23,7 @@ spec:
   template:
     metadata:
       annotations:
-<<<<<<< HEAD
-        sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
-=======
-        sidecar.istio.io/status: '{"version":"4ca19663f2e12e18f8c18276fe31111f92735b13affff33dd404bb8edb3e85ff","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
->>>>>>> d7d4dea03... Remove privilege=true (#7890)
+        sidecar.istio.io/status: '{"version":"006e7ee1326058601874106867c98a6ce352a3449c5d6aad0896f32f295bfc69","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
         app: hello

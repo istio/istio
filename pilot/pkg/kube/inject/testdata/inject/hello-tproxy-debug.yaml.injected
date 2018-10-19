@@ -9,11 +9,7 @@ spec:
   template:
     metadata:
       annotations:
-<<<<<<< HEAD
-        sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
-=======
-        sidecar.istio.io/status: '{"version":"74769ec1aa74631be4b7ae6c01a0e2d7dffeec59095644f8341f35673c632769","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
->>>>>>> d7d4dea03... Remove privilege=true (#7890)
+        sidecar.istio.io/status: '{"version":"f166934ea09faf5f651a0ee675eb8723a6213fbce26121558996da57995657ca","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
         app: hello
@@ -82,9 +78,6 @@ spec:
           requests:
             cpu: 10m
         securityContext:
-          capabilities:
-            add:
-            - NET_ADMIN
           privileged: true
           readOnlyRootFilesystem: false
         volumeMounts:
