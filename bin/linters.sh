@@ -119,6 +119,7 @@ function check_grafana_dashboards() {
 }
 
 ensure_pilot_types
+# Below format check is temporarily disabled until https://github.com/golang/go/issues/28200 is resolved
 #format
 check_licenses
 check_spelling
