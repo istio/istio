@@ -149,7 +149,7 @@ data:
         {{ "[[ if .ObjectMeta.Annotations ]]" }}
         - name: ISTIO_METAJSON_ANNOTATIONS
           value: |
-                 {{ "[[ toJson .ObjectMeta.Annotations ]]" }}
+                 {{ "[[ toJSON .ObjectMeta.Annotations ]]" }}
         {{ "[[ end ]]" }}
         {{ "[[ range $k,$v := .ObjectMeta.Labels ]]" }}
         - name: ISTIO_META_{{ "[[ $k ]]" }}

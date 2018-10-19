@@ -134,9 +134,6 @@ func StoreHostPort(host, port, field string, opts map[string]interface{}) {
 	opts[field] = fmt.Sprintf("{\"address\": \"%s\", \"port_value\": %s}", host, port)
 }
 
-type decodeFunc func(string) (string, error)
-type filterFunc func(string) bool
-
 type setMetaFunc func(m map[string]string, key string, val string)
 
 func extractMetadata(envs []string, prefix string, set setMetaFunc, meta map[string]string) {

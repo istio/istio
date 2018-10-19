@@ -743,7 +743,7 @@ func TestHelmInject(t *testing.T) {
 					// Generate the patch.  At runtime, the webhook would actually generate the patch against the
 					// pod configuration. But since our input files are deployments, rather than actual pod instances,
 					// we have to apply the patch to the template portion of the deployment only.
-					templateJSON := toJSON(inputDeployment.Spec.Template, t)
+					templateJSON := convertToJSON(inputDeployment.Spec.Template, t)
 					got := webhook.inject(&v1beta1.AdmissionReview{
 						Request: &v1beta1.AdmissionRequest{
 							Object: runtime.RawExtension{
@@ -939,7 +939,7 @@ func getInjectableYamlDocs(yamlDoc string, t *testing.T) [][]byte {
 	}
 }
 
-func toJSON(i interface{}, t *testing.T) []byte {
+func convertToJSON(i interface{}, t *testing.T) []byte {
 	t.Helper()
 	outputJSON, err := json.Marshal(i)
 	if err != nil {

@@ -496,7 +496,7 @@ func injectionData(sidecarTemplate, version string, deploymentMetadata *metav1.O
 		"applicationPorts":    applicationPorts,
 		"annotation":          annotation,
 		"valueOrDefault":      valueOrDefault,
-		"toJson":              toJson,
+		"toJSON":              toJSON,
 	}
 
 	var tmpl bytes.Buffer
@@ -656,7 +656,7 @@ func intoObject(sidecarTemplate string, meshconfig *meshconfig.MeshConfig, in ru
 	// affect the network provider within the cluster causing
 	// additional pod failures.
 	if podSpec.HostNetwork {
-		fmt.Fprintf(os.Stderr, "Skipping injection because %q has host networking enabled\n", metadata.Name)
+		fmt.Fprintf(os.Stderr, "Skipping injection because %q has host networking enabled\n", metadata.Name) //nolint: errcheck
 		return out, nil
 	}
 
@@ -726,7 +726,7 @@ func includeInboundPorts(containers []corev1.Container) string {
 	return getContainerPorts(containers, func(corev1.Container) bool { return true })
 }
 
-func toJson(m map[string]string) string {
+func toJSON(m map[string]string) string {
 	if m == nil {
 		return "{}"
 	}
