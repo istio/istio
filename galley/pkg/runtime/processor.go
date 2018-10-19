@@ -59,7 +59,7 @@ type Processor struct {
 	postProcessHook postProcessHookFn
 
 	// pendingEvents counts the number of events awaiting publishing.
-	pendingEvents int
+	pendingEvents int64
 
 	// lastEventTime records the last time an event was received.
 	lastEventTime time.Time

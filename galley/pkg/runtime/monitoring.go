@@ -44,10 +44,10 @@ var (
 		"galley/runtime/strategy/timer_resets_total",
 		"The number of times the timer has been reset",
 		stats.UnitDimensionless)
-	processorEventSpansSecs = stats.Int64(
-		"galley/runtime/processor/event_span_duration_seconds",
+	processorEventSpansMs = stats.Int64(
+		"galley/runtime/processor/event_span_duration_milliseconds",
 		"The duration between each incoming event",
-		stats.UnitDimensionless)
+		stats.UnitMilliseconds)
 	processorEventsProcessed = stats.Int64(
 		"galley/runtime/processor/events_processed_total",
 		"The number of events that have been processed",
@@ -69,8 +69,6 @@ var (
 		"The number of type instances per type URL",
 		stats.UnitDimensionless)
 
-	durationDistributionSecs =
-	 	view.Distribution(0, 1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8193, 16384, 32768, 65536)
 	durationDistributionMs =
 		view.Distribution(0, 1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8193, 16384, 32768, 65536,
 			131072, 262144, 524288, 1048576, 2097152, 4194304, 8388608)
@@ -94,12 +92,12 @@ func recordOnTimer(maxTimeReached, quiesceTimeReached, timerReset bool) {
 
 func recordProcessorEventProcessed(eventSpan time.Duration) {
 	stats.Record(context.Background(), processorEventsProcessed.M(1),
-		processorEventSpansSecs.M(int64(eventSpan.Seconds())))
+		processorEventSpansMs.M(eventSpan.Nanoseconds()/1e6))
 }
 
-func recordProcessorSnapshotPublished(events int, snapshotSpan time.Duration) {
+func recordProcessorSnapshotPublished(events int64, snapshotSpan time.Duration) {
 	stats.Record(context.Background(), processorSnapshotsPublished.M(1))
-	stats.Record(context.Background(), processorEventsPerSnapshot.M(int64(events)),
+	stats.Record(context.Background(), processorEventsPerSnapshot.M(events),
 		processorSnapshotLifetimesMs.M(snapshotSpan.Nanoseconds()/1e6))
 }
 
@@ -136,10 +134,7 @@ func init() {
 		newView(strategyOnChangeTotal, noKeys, view.Count()),
 		newView(strategyOnTimerMaxTimeReachedTotal, noKeys, view.Count()),
 		newView(strategyOnTimerQuiesceReachedTotal, noKeys, view.Count()),
-		newView(
-			processorEventSpansSecs,
-			noKeys,
-			durationDistributionSecs),
+		newView(processorEventSpansMs, noKeys, durationDistributionMs),
 		newView(processorEventsProcessed, noKeys, view.Count()),
 		newView(processorSnapshotsPublished, noKeys, view.Count()),
 		newView(processorEventsPerSnapshot, noKeys, view.Distribution(0, 1, 2, 4, 8, 16, 32, 64, 128, 256)),
