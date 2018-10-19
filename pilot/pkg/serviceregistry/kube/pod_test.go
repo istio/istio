@@ -28,10 +28,10 @@ import (
 // Prepare k8s. This can be used in multiple tests, to
 // avoid duplicating creation, which can be tricky. It can be used with the fake or
 // standalone apiserver.
-func initTestEnv(ki kubernetes.Interface, c *Controller, fx *FakeXdsUpdater) {
+func initTestEnv(t *testing.T, ki kubernetes.Interface, fx *FakeXdsUpdater) {
 	cleanup(ki, fx)
 	for _, n := range []string{"nsa", "nsb"} {
-		_, _ = ki.CoreV1().Namespaces().Create(&v1.Namespace{
+		_, err := ki.CoreV1().Namespaces().Create(&v1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: n,
 				Labels: map[string]string{
@@ -39,9 +39,12 @@ func initTestEnv(ki kubernetes.Interface, c *Controller, fx *FakeXdsUpdater) {
 				},
 			},
 		})
+		if err != nil {
+			t.Fatalf("failed creating test namespace: %v", err)
+		}
 
 		// K8S 1.10 also checks if service account exists
-		_, _ = ki.CoreV1().ServiceAccounts(n).Create(&v1.ServiceAccount{
+		_, err = ki.CoreV1().ServiceAccounts(n).Create(&v1.ServiceAccount{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "default",
 				Annotations: map[string]string{
@@ -55,8 +58,11 @@ func initTestEnv(ki kubernetes.Interface, c *Controller, fx *FakeXdsUpdater) {
 				},
 			},
 		})
+		if err != nil {
+			t.Fatalf("failed creating test service account: %v", err)
+		}
 
-		_, _ = ki.CoreV1().Secrets(n).Create(&v1.Secret{
+		_, err = ki.CoreV1().Secrets(n).Create(&v1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "default-token-2",
 				Annotations: map[string]string{
@@ -69,6 +75,9 @@ func initTestEnv(ki kubernetes.Interface, c *Controller, fx *FakeXdsUpdater) {
 				"token": []byte("1"),
 			},
 		})
+		if err != nil {
+			t.Fatalf("failed creating test secret: %v", err)
+		}
 	}
 	fx.Clear()
 }
@@ -106,7 +115,7 @@ func TestPodCache(t *testing.T) {
 }
 
 func testPodCache(t *testing.T, c *Controller, fx *FakeXdsUpdater) {
-	initTestEnv(c.client, c, fx)
+	initTestEnv(t, c.client, fx)
 
 	// Namespace must be lowercase (nsA doesn't work)
 	pods := []*v1.Pod{
