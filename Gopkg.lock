@@ -341,6 +341,7 @@
     "envoy/config/filter/network/mongo_proxy/v2",
     "envoy/config/filter/network/rbac/v2",
     "envoy/config/filter/network/tcp_proxy/v2",
+    "envoy/config/grpc_credential/v2alpha",
     "envoy/config/metrics/v2",
     "envoy/config/overload/v2alpha",
     "envoy/config/ratelimit/v2",
@@ -1465,7 +1466,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:417279bf0101e5067574704db0081a0fc2791fb6e45499cf1c59e2d13b6fa230"
+  digest = "1:2110ef481d5c110c5809314b265ae1e96d86e588cb09e51e64f79ccb3bb5990f"
   name = "google.golang.org/genproto"
   packages = [
     "googleapis/api/annotations",
@@ -1483,7 +1484,7 @@
     "protobuf/field_mask",
   ]
   pruneopts = "NUT"
-  revision = "ab0870e398d5dd054b868c0db1481ab029b9a9f2"
+  revision = "94acd270e44e65579b9ee3cdab25034d33fed608"
 
 [[projects]]
   digest = "1:d2cd4383c252f450abec5772b1d3536603ee955df65fd992b767bb214c774a84"
@@ -1939,7 +1940,7 @@
     "pkg/kubectl/genericclioptions/resource",
   ]
   pruneopts = "NUT"
-  revision = "011647662b54bd2904ca6eeae59c0e9b5aca83d3"
+  revision = "cf59a14accee7082ac6dce932a1ec15e181a5e4f"
 
 [solve-meta]
   analyzer-name = "dep"
@@ -1990,6 +1991,7 @@
     "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/mongo_proxy/v2",
     "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/rbac/v2",
     "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2",
+    "github.com/envoyproxy/go-control-plane/envoy/config/grpc_credential/v2alpha",
     "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2alpha",
     "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2",
     "github.com/envoyproxy/go-control-plane/envoy/type",
@@ -2097,6 +2099,7 @@
     "google.golang.org/genproto/googleapis/api/metric",
     "google.golang.org/genproto/googleapis/api/monitoredres",
     "google.golang.org/genproto/googleapis/monitoring/v3",
+    "google.golang.org/genproto/googleapis/rpc/status",
     "google.golang.org/grpc",
     "google.golang.org/grpc/balancer",
     "google.golang.org/grpc/codes",
