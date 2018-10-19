@@ -80,6 +80,7 @@ const (
 
 	requiredMCPCertCheckFreq = 500 * time.Millisecond
 
+	// DefaultMCPMaxMsgSize is the default maximum message size
 	DefaultMCPMaxMsgSize = 1024 * 1024 * 4
 )
 

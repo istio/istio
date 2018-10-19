@@ -14,10 +14,13 @@
 
 package iamclient
 
-import (
-	iam "google.golang.org/genproto/googleapis/iam/credentials/v1"
-)
+// Below is commented to prevent lint test from complaining about the struct
+// not being used
 
-type iamClient struct {
-	client iam.IAMCredentialsClient
-}
+// import (
+// 	iam "google.golang.org/genproto/googleapis/iam/credentials/v1"
+// )
+
+// type iamClient struct {
+// 	client iam.IAMCredentialsClient
+// }
