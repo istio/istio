@@ -1,6 +1,6 @@
-# {{- if or .Values.global.crds (semverCompare ">=2.10.0-0" .Capabilities.TillerVersion.SemVer) }}
+{{- if and (.Values.global.crds) (semverCompare ">=2.10.0-0" .Capabilities.TillerVersion.SemVer) }}
 # these CRDs only make sense when pilot is enabled
-# {{- if or .Values.pilot.enabled .Values.global.useMCP }}
+{{- if or .Values.pilot.enabled .Values.global.useMCP }}
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
@@ -143,10 +143,10 @@ spec:
   scope: Cluster
   version: v1alpha1
 ---
-# {{- end }}
+{{- end }}
 
 # these CRDs only make sense when security is enabled
-# {{- if or .Values.security.enabled .Values.global.useMCP }}
+{{- if or .Values.security.enabled .Values.global.useMCP }}
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
@@ -194,9 +194,9 @@ spec:
   scope: Cluster
   version: v1alpha1
 ---
-# {{- end }}
+{{- end }}
 
-# {{- if or .Values.mixer.policy.enabled .Values.mixer.telemetry.enabled .Values.global.useMCP }}
+{{- if or .Values.mixer.enabled .Values.global.useMCP }}
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
@@ -1344,5 +1344,5 @@ spec:
   scope: Namespaced
   version: v1alpha2
 ---
-# {{- end }}
-# {{- end }}
+{{- end }}
+{{- end }}
