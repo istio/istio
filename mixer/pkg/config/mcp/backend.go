@@ -61,7 +61,7 @@ func Register(builders map[string]store.Builder) {
 	builders["mcps"] = builder
 }
 
-// NewStore creates a new Store instance.
+// newStore creates a new Store instance.
 func newStore(u *url.URL, credOptions *creds.Options, fn updateHookFn) (store.Backend, error) {
 	insecure := true
 	if u.Scheme == "mcps" {
@@ -83,7 +83,7 @@ func newStore(u *url.URL, credOptions *creds.Options, fn updateHookFn) (store.Ba
 // updateHookFn is a testing hook function
 type updateHookFn func()
 
-// Store offers store.StoreBackend interface through kubernetes custom resource definitions.
+// backend is StoreBackend implementation using MCP.
 type backend struct {
 	// mapping of CRD <> typeURLs.
 	mapping *mapping
@@ -198,13 +198,13 @@ func (b *backend) Init(kinds []string) error {
 	return nil
 }
 
-// WaitForSynced implements store.Backend interface.
+// WaitForSynced implements store.Backend.WaitForSynced.
 func (b *backend) WaitForSynced(time.Duration) error {
 	// TODO(ozevren): implement for MCP
 	return nil
 }
 
-// Stop implements store.backend.Stop.
+// Stop implements store.Backend.Stop.
 func (b *backend) Stop() {
 	if b.cancel != nil {
 		b.cancel()
