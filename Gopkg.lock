@@ -1466,7 +1466,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:738b8929764f49c7bd229657a96d7207073431c29ec9eb6c85a7b7f0552d556d"
+  digest = "1:2110ef481d5c110c5809314b265ae1e96d86e588cb09e51e64f79ccb3bb5990f"
   name = "google.golang.org/genproto"
   packages = [
     "googleapis/api/annotations",
@@ -1477,7 +1477,6 @@
     "googleapis/appengine/logging/v1",
     "googleapis/cloud/audit",
     "googleapis/devtools/cloudtrace/v2",
-    "googleapis/iam/credentials/v1",
     "googleapis/logging/type",
     "googleapis/logging/v2",
     "googleapis/monitoring/v3",
@@ -2099,7 +2098,6 @@
     "google.golang.org/genproto/googleapis/api/label",
     "google.golang.org/genproto/googleapis/api/metric",
     "google.golang.org/genproto/googleapis/api/monitoredres",
-    "google.golang.org/genproto/googleapis/iam/credentials/v1",
     "google.golang.org/genproto/googleapis/monitoring/v3",
     "google.golang.org/grpc",
     "google.golang.org/grpc/balancer",
