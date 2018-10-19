@@ -44,7 +44,7 @@ var (
 		"galley/runtime/strategy/timer_resets_total",
 		"The number of times the timer has been reset",
 		stats.UnitDimensionless)
-	processorEventSpans = stats.Int64(
+	processorEventSpansSecs = stats.Int64(
 		"galley/runtime/processor/event_span_duration_seconds",
 		"The duration between each incoming event",
 		stats.UnitDimensionless)
@@ -60,17 +60,20 @@ var (
 		"galley/runtime/processor/snapshot_events_total",
 		"The number of events per snapshot",
 		stats.UnitDimensionless)
-	processorSnapshotLifetimes = stats.Int64(
-		"galley/runtime/processor/snapshot_lifetime_duration_seconds",
+	processorSnapshotLifetimesMs = stats.Int64(
+		"galley/runtime/processor/snapshot_lifetime_duration_milliseconds",
 		"The duration of each snapshot",
-		stats.UnitDimensionless)
+		stats.UnitMilliseconds)
 	stateTypeInstancesTotal = stats.Int64(
 		"galley/runtime/state/type_instances_total",
 		"The number of type instances per type URL",
 		stats.UnitDimensionless)
 
-	durationDistribution =
+	durationDistributionSecs =
 	 	view.Distribution(0, 1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8193, 16384, 32768, 65536)
+	durationDistributionMs =
+		view.Distribution(0, 1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8193, 16384, 32768, 65536,
+			131072, 262144, 524288, 1048576, 2097152, 4194304, 8388608)
 )
 
 func recordStrategyOnChange() {
@@ -91,13 +94,13 @@ func recordOnTimer(maxTimeReached, quiesceTimeReached, timerReset bool) {
 
 func recordProcessorEventProcessed(eventSpan time.Duration) {
 	stats.Record(context.Background(), processorEventsProcessed.M(1),
-		processorEventSpans.M(int64(eventSpan.Seconds())))
+		processorEventSpansSecs.M(int64(eventSpan.Seconds())))
 }
 
 func recordProcessorSnapshotPublished(events int, snapshotSpan time.Duration) {
 	stats.Record(context.Background(), processorSnapshotsPublished.M(1))
 	stats.Record(context.Background(), processorEventsPerSnapshot.M(int64(events)),
-		processorSnapshotLifetimes.M(int64(snapshotSpan.Seconds())))
+		processorSnapshotLifetimesMs.M(snapshotSpan.Nanoseconds()/1e6))
 }
 
 func recordStateTypeCount(typeURL string, count int) {
@@ -134,14 +137,14 @@ func init() {
 		newView(strategyOnTimerMaxTimeReachedTotal, noKeys, view.Count()),
 		newView(strategyOnTimerQuiesceReachedTotal, noKeys, view.Count()),
 		newView(
-			processorEventSpans,
+			processorEventSpansSecs,
 			noKeys,
-			durationDistribution),
+			durationDistributionSecs),
 		newView(processorEventsProcessed, noKeys, view.Count()),
 		newView(processorSnapshotsPublished, noKeys, view.Count()),
 		newView(processorEventsPerSnapshot, noKeys, view.Distribution(0, 1, 2, 4, 8, 16, 32, 64, 128, 256)),
 		newView(stateTypeInstancesTotal, typeURLKeys, view.LastValue()),
-		newView(processorSnapshotLifetimes, noKeys, durationDistribution),
+		newView(processorSnapshotLifetimesMs, noKeys, durationDistributionMs),
 	)
 
 	if err != nil {
