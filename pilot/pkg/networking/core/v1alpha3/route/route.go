@@ -600,10 +600,10 @@ func getRouteOperation(in *route.Route, vsName string, port int) string {
 }
 
 // BuildDefaultHTTPRoute builds a default route.
-func BuildDefaultHTTPRoute(node *model.Proxy, clusterName string, operation string) *route.Route {
+func BuildDefaultHTTPRoute(clusterName string, operation string) *route.Route {
 	notimeout := 0 * time.Second
 
-	defaultRoute := &route.Route{
+	return &route.Route{
 		Match: translateRouteMatch(nil),
 		Decorator: &route.Decorator{
 			Operation: operation,
@@ -612,18 +612,10 @@ func BuildDefaultHTTPRoute(node *model.Proxy, clusterName string, operation stri
 			Route: &route.RouteAction{
 				ClusterSpecifier: &route.RouteAction_Cluster{Cluster: clusterName},
 				Timeout:          &notimeout,
+				MaxGrpcTimeout:   &notimeout,
 			},
 		},
 	}
-
-	defaultRoute.Action = &route.Route_Route{
-		Route: &route.RouteAction{
-			ClusterSpecifier: &route.RouteAction_Cluster{Cluster: clusterName},
-			Timeout:          &notimeout,
-			MaxGrpcTimeout:   &notimeout,
-		},
-	}
-	return defaultRoute
 }
 
 // translatePercentToFractionalPercent translates an v1alpha3 Percent instance
