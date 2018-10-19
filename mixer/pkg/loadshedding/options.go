@@ -55,12 +55,21 @@ type Options struct {
 
 	// BurstSize controls the number of requests that are permitted beyond the
 	// configured maximum for a period of time. This allows for handling bursty
-	// traffic patterns.
+	// traffic patterns. If this is set to 0, no traffic will be allowed.
 	BurstSize int
 }
 
-// DefaultOptions is the set of default load-shedding configuration parameters.
-var DefaultOptions = &Options{}
+// DefaultOptions returns a new set of options, initialized to the defaults
+func DefaultOptions() *Options {
+	return &Options{
+		AverageLatencyThreshold: 0,
+		SamplesPerSecond:        DefaultSampleFrequency,
+		SampleHalfLife:          DefaultHalfLife,
+		MaxRequestsPerSecond:    0,
+		BurstSize:               0,
+		Mode:                    Disabled,
+	}
+}
 
 // AttachCobraFlags attaches a set of Cobra flags to the given Cobra command.
 //

@@ -59,7 +59,7 @@ func NewGRPCLatencyEvaluator(sampleFrequency rate.Limit, averageHalfLife time.Du
 	}
 
 	return &GRPCLatencyEvaluator{
-		sampler:     rate.NewLimiter(sf, 0), // no need to support burstiness
+		sampler:     rate.NewLimiter(sf, 1), // no need to support burstiness beyond 1 event per Allow()
 		loadAverage: newExponentialMovingAverage(hl, 0, time.Now()),
 	}
 }
