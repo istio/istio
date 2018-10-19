@@ -221,9 +221,6 @@ pushd "${CLONE_DIR}"
   MANIFEST_FILE="$PWD/manifest.txt"
 
   git clone "https://github.com/${CB_GITHUB_ORG}/istio" -b "${CB_BRANCH}"
-  gsutil -m -q cp -P istio/release/gcb/*sh      "gs://${CB_GCS_RELEASE_TOOLS_PATH}/gcb/"
-  gsutil -m -q cp -P istio/release/gcb/*json    "gs://${CB_GCS_RELEASE_TOOLS_PATH}/gcb/"
-  gsutil -m -q cp -P istio/release/pipeline/*sh "gs://${CB_GCS_RELEASE_TOOLS_PATH}/pipeline/"
 
   istio_checkout_green_sha        "${MANIFEST_FILE}"
   istio_check_green_sha_age
@@ -237,4 +234,8 @@ pushd "${CLONE_DIR}"
 
 popd # "${CLONE_DIR}"
 rm -rf "${CLONE_DIR}"
+
+  gsutil -mq cp -P istio/release/gcb/*sh      "gs://${CB_GCS_RELEASE_TOOLS_PATH}/gcb/"
+  gsutil -mq cp -P istio/release/gcb/*json    "gs://${CB_GCS_RELEASE_TOOLS_PATH}/gcb/"
+  gsutil -mq cp -P istio/release/pipeline/*sh "gs://${CB_GCS_RELEASE_TOOLS_PATH}/pipeline/"
 

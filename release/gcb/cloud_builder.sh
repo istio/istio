@@ -43,6 +43,9 @@ ROOT="$PWD"
 GOPATH="$(cd "$ROOT/../../.." && pwd)"
 export GOPATH
 echo gopath is "$GOPATH"
+# this is needed for istioctl and other parts of build to get the version info
+export ISTIO_VERSION="${CB_VERSION}"
+
 ISTIO_OUT=$(make DEBUG=0 where-is-out)
 
 MAKE_TARGETS=(istio-archive)
