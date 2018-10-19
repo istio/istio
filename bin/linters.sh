@@ -119,7 +119,7 @@ function check_grafana_dashboards() {
 }
 
 ensure_pilot_types
-format
+#format
 check_licenses
 check_spelling
 install_gometalinter
