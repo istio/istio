@@ -19,19 +19,15 @@ import (
 	"fmt"
 	"io"
 
-	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
+	"istio.io/istio/pilot/pkg/config/kube/crd"
+	"istio.io/istio/pilot/pkg/model"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
-
-	// TODO use k8s.io/cli-runtime when we switch to v1.12 k8s dependency
+	"k8s.io/apimachinery/pkg/runtime" // TODO use k8s.io/cli-runtime when we switch to v1.12 k8s dependency
 	// k8s.io/cli-runtime was created for k8s v.12. Prior to that release,
 	// the genericclioptions packages are organized under kubectl.
 	"k8s.io/kubernetes/pkg/kubectl/genericclioptions"
 	"k8s.io/kubernetes/pkg/kubectl/genericclioptions/resource"
-
-	"istio.io/istio/pilot/pkg/config/kube/crd"
-	"istio.io/istio/pilot/pkg/model"
 )
 
 /*
@@ -55,7 +51,6 @@ func createMixerValidator() store.BackendValidator {
 }
 
 var mixerValidator = createMixerValidator()
-*/
 
 type validateArgs struct {
 	filenames []string
@@ -69,6 +64,7 @@ func (args validateArgs) validate() error {
 	}
 	return errs.ErrorOrNil()
 }
+*/
 
 func validateResource(un *unstructured.Unstructured) error {
 	schema, exists := model.IstioConfigTypes.GetByType(crd.CamelCaseToKebabCase(un.GetKind()))
@@ -78,25 +74,24 @@ func validateResource(un *unstructured.Unstructured) error {
 			return fmt.Errorf("cannot parse proto message: %v", err)
 		}
 		return schema.Validate(obj.Name, obj.Namespace, obj.Spec)
-	} else {
-		return fmt.Errorf("mixer API validation is not supported")
-		/*
-			TODO(https://github.com/istio/istio/issues/4887)
-
-			ev := &store.BackendEvent{
-				Key: store.Key{
-					Name:      un.GetName(),
-					Namespace: un.GetNamespace(),
-					Kind:      un.GetKind(),
-				},
-				Value: mixerCrd.ToBackEndResource(un),
-			}
-			return mixerValidator.Validate(ev)
-		*/
 	}
+	return fmt.Errorf("mixer API validation is not supported")
+	/*
+		TODO(https://github.com/istio/istio/issues/4887)
+
+		ev := &store.BackendEvent{
+			Key: store.Key{
+				Name:      un.GetName(),
+				Namespace: un.GetNamespace(),
+				Kind:      un.GetKind(),
+			},
+			Value: mixerCrd.ToBackEndResource(un),
+		}
+		return mixerValidator.Validate(ev)
+	*/
 }
 
-var missingResourceError = errors.New(`error: you must specify resources by --filename.
+var errMissingResource = errors.New(`error: you must specify resources by --filename.
 Example resource specifications include:
    '-f rsrc.yaml'
    '--filename=rsrc.json'`)
@@ -111,7 +106,7 @@ func validateObjects(restClientGetter resource.RESTClientGetter, options resourc
 	// user. Avoid this confusion by checking for missing filenames
 	// are ourselves for invoking the builder.
 	if len(options.Filenames) == 0 {
-		return missingResourceError
+		return errMissingResource
 	}
 
 	r := resource.NewBuilder(restClientGetter).
