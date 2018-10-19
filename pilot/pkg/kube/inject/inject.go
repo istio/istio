@@ -31,7 +31,7 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/types"
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 	"k8s.io/api/batch/v2alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -186,6 +186,7 @@ type Params struct {
 	Version                      string                 `json:"version"`
 	EnableCoreDump               bool                   `json:"enableCoreDump"`
 	DebugMode                    bool                   `json:"debugMode"`
+	Privileged                   bool                   `json:"privileged"`
 	Mesh                         *meshconfig.MeshConfig `json:"-"`
 	ImagePullPolicy              string                 `json:"imagePullPolicy"`
 	StatusPort                   int                    `json:"statusPort"`
