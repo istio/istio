@@ -24,4 +24,4 @@ RUN apt-get update && \
       linux-tools-generic \
       sudo && apt-get upgrade -y && \
       apt-get clean && \
-    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /var/log/*log /var/log/apt/* /var/lib/dpkg/*-old /var/cache/debconf/*-old
+    rm -rf  /var/log/*log /var/log/apt/* /var/lib/dpkg/*-old /var/cache/debconf/*-old
