@@ -76,10 +76,12 @@ func (s *State) apply(event resource.Event) bool {
 
 		pks.entries[event.ID.FullName] = entry
 		pks.versions[event.ID.FullName] = event.ID.Version
+		recordStateTypeCount(event.ID.TypeURL.String(), len(pks.entries))
 
 	case resource.Deleted:
 		delete(pks.entries, event.ID.FullName)
 		delete(pks.versions, event.ID.FullName)
+		recordStateTypeCount(event.ID.TypeURL.String(), len(pks.entries))
 
 	default:
 		scope.Errorf("Unknown event kind: %v", event.Kind)
