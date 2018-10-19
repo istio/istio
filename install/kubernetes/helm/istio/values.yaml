@@ -68,7 +68,7 @@ servicegraph:
   enabled: false
 
 #
-# addon jeager tracing configuration
+# addon jaeger tracing configuration
 #
 tracing:
   enabled: false
