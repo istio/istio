@@ -144,7 +144,7 @@ func GetAgent(a environment.DeployedApp) agent.Agent {
 
 func (a *app) Close() (err error) {
 	if a.client != nil {
-		err = a.Close()
+		err = a.client.Close()
 	}
 	if a.agent != nil {
 		err = multierror.Append(err, a.agent.Close()).ErrorOrNil()
