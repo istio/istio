@@ -18,7 +18,6 @@ import (
 	"bufio"
 	"bytes"
 	"crypto/sha256"
-	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -497,7 +496,7 @@ func injectionData(sidecarTemplate, version string, deploymentMetadata *metav1.O
 		"applicationPorts":    applicationPorts,
 		"annotation":          annotation,
 		"valueOrDefault":      valueOrDefault,
-		"base64Encode":        base64Encode,
+		"toJson":              toJson,
 	}
 
 	var tmpl bytes.Buffer
@@ -727,16 +726,26 @@ func includeInboundPorts(containers []corev1.Container) string {
 	return getContainerPorts(containers, func(corev1.Container) bool { return true })
 }
 
+func toJson(m map[string]string) string {
+	if m == nil {
+		return "{}"
+	}
+
+	ba, err := json.Marshal(m)
+	if err != nil {
+		log.Warnf("Unable to marshal %v", m)
+		return "{}"
+	}
+
+	return string(ba)
+}
+
 func annotation(meta metav1.ObjectMeta, name string, defaultValue interface{}) string {
 	value, ok := meta.Annotations[name]
 	if !ok {
 		value = fmt.Sprint(defaultValue)
 	}
 	return value
-}
-
-func base64Encode(val string) string {
-	return base64.StdEncoding.EncodeToString([]byte(val))
 }
 
 func excludeInboundPort(port interface{}, excludedInboundPorts string) string {

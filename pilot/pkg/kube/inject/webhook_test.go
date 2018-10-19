@@ -886,7 +886,7 @@ func splitYamlBytes(yaml []byte, t *testing.T) [][]byte {
 
 func writeYamlsToGoldenFile(yamls [][]byte, goldenFile string, t *testing.T) {
 	content := make([]byte, 0)
-	for _, part := range(yamls) {
+	for _, part := range yamls {
 		content = append(content, part...)
 		content = append(content, []byte(yamlSeparator)...)
 		content = append(content, '\n')
@@ -1033,8 +1033,16 @@ func compareDeployments(got, want *extv1beta1.Deployment, name string, t *testin
 		if env.ValueFrom != nil {
 			env.ValueFrom.FieldRef.APIVersion = ""
 		}
+		// check if metajson is encoded correctly
+		if strings.HasPrefix(env.Name, "ISTIO_METAJSON_") {
+			var mm map[string]string
+			if err := json.Unmarshal([]byte(env.Value), &mm); err != nil {
+				t.Fatalf("unable to unmarshal %s: %v", env.Value, err)
+			}
+			continue
+		}
 		// adjust for injected var names.
-		if _, found := envNames[env.Name]; found || strings.HasPrefix(env.Name, "ISTIO_METAB64_") {
+		if _, found := envNames[env.Name]; found {
 			continue
 		}
 		envVars = append(envVars, env)
