@@ -15,13 +15,11 @@
 package kube
 
 import (
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
-	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp" // import GKE cluster authentication plugin
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd" // import GKE cluster authentication plugin
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 // Interfaces interface allows access to the Kubernetes API Service methods. It is mainly used for
@@ -58,34 +56,34 @@ func (k *kube) DynamicInterface(gv schema.GroupVersion, kind, listKind string) (
 	return dynamic.NewForConfig(k.cfg)
 }
 
-func addTypeToScheme(s *runtime.Scheme, gv schema.GroupVersion, kind, listKind string) error {
-	builder := runtime.NewSchemeBuilder(func(s *runtime.Scheme) error {
-		// Add the object itself
-		gvk := schema.GroupVersionKind{
-			Group:   gv.Group,
-			Version: gv.Version,
-			Kind:    kind,
-		}
+// func addTypeToScheme(s *runtime.Scheme, gv schema.GroupVersion, kind, listKind string) error {
+// 	builder := runtime.NewSchemeBuilder(func(s *runtime.Scheme) error {
+// 		// Add the object itself
+// 		gvk := schema.GroupVersionKind{
+// 			Group:   gv.Group,
+// 			Version: gv.Version,
+// 			Kind:    kind,
+// 		}
 
-		o := &unstructured.Unstructured{}
-		o.SetAPIVersion(gv.Version)
-		o.SetKind(kind)
-		s.AddKnownTypeWithName(gvk, o)
+// 		o := &unstructured.Unstructured{}
+// 		o.SetAPIVersion(gv.Version)
+// 		o.SetKind(kind)
+// 		s.AddKnownTypeWithName(gvk, o)
 
-		// Add the collection object.
-		gvk = schema.GroupVersionKind{
-			Group:   gv.Group,
-			Version: gv.Version,
-			Kind:    listKind,
-		}
+// 		// Add the collection object.
+// 		gvk = schema.GroupVersionKind{
+// 			Group:   gv.Group,
+// 			Version: gv.Version,
+// 			Kind:    listKind,
+// 		}
 
-		c := &unstructured.UnstructuredList{}
-		o.SetAPIVersion(gv.Version)
-		o.SetKind(listKind)
-		s.AddKnownTypeWithName(gvk, c)
+// 		c := &unstructured.UnstructuredList{}
+// 		o.SetAPIVersion(gv.Version)
+// 		o.SetKind(listKind)
+// 		s.AddKnownTypeWithName(gvk, c)
 
-		return nil
-	})
+// 		return nil
+// 	})
 
-	return builder.AddToScheme(s)
-}
+// 	return builder.AddToScheme(s)
+// }

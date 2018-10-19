@@ -20,7 +20,7 @@ func HelmInit(serviceAccount string) error {
 	return err
 }
 
-// HelmInitClient initializes the Helm client only
+// HelmClientInit initializes the Helm client only
 func HelmClientInit() error {
 	_, err := Shell("helm init --client-only")
 	return err

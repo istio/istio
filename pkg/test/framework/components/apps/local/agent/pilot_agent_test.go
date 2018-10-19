@@ -274,6 +274,9 @@ func forwardRequestToAgent(a Agent, req *proto.ForwardEchoRequest) ([]*echo.Pars
 	}
 	client, err := echo.NewClient(fmt.Sprintf("127.0.0.1:%d", grpcPortA.ApplicationPort))
 	defer client.Close()
+	if err != nil {
+		return nil, err
+	}
 
 	resp, err := client.ForwardEcho(req)
 	if err != nil {

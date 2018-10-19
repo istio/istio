@@ -97,7 +97,7 @@ func (r *ParsedResponse) IsOK() bool {
 	return r.Code == codeOK
 }
 
-// Counts occurrences of the given text within the body of this response.
+// Count occurrences of the given text within the body of this response.
 func (r *ParsedResponse) Count(text string) int {
 	return strings.Count(r.Body, text)
 }
@@ -115,7 +115,7 @@ func (r ParsedResponses) IsOK() bool {
 	return r.Len() > 0 && r[0].IsOK()
 }
 
-// Counts occurrences of the given text within the bodies of all responses.
+// Count occurrences of the given text within the bodies of all responses.
 func (r ParsedResponses) Count(text string) int {
 	count := 0
 	for _, c := range r {
