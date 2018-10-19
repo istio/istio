@@ -104,11 +104,13 @@ func (w *fsNotifyWatcher) Add(path string) error {
 		return err
 	}
 	if err = watcher.Add(parentPath); err != nil {
+		watcher.Close()
 		return err
 	}
 
 	md5Sum, err := getMd5Sum(cleanedPath)
 	if err != nil {
+		watcher.Close()
 		return fmt.Errorf("failed to get md5 sum for %s: %v", path, err)
 	}
 	wk := &worker{
