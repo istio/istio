@@ -108,7 +108,7 @@ func BuildVirtualHostsFromConfigAndRegistry(
 				out = append(out, VirtualHostWrapper{
 					Port:     port.Port,
 					Services: []*model.Service{svc},
-					Routes:   []route.Route{*BuildDefaultHTTPRoute(node, cluster, traceOperation)},
+					Routes:   []route.Route{*BuildDefaultHTTPRoute(cluster, traceOperation)},
 				})
 			}
 		}

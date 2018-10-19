@@ -57,7 +57,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(env *mo
 	clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "",
 		instance.Service.Hostname, instance.Endpoint.ServicePort.Port)
 	traceOperation := fmt.Sprintf("%s:%d/*", instance.Service.Hostname, instance.Endpoint.ServicePort.Port)
-	defaultRoute := istio_route.BuildDefaultHTTPRoute(node, clusterName, traceOperation)
+	defaultRoute := istio_route.BuildDefaultHTTPRoute(clusterName, traceOperation)
 
 	inboundVHost := route.VirtualHost{
 		Name:    fmt.Sprintf("%s|http|%d", model.TrafficDirectionInbound, instance.Endpoint.ServicePort.Port),
