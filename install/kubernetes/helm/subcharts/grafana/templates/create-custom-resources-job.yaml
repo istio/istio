@@ -65,6 +65,8 @@ spec:
         release: {{ .Release.Name }}
         version: {{ .Chart.Version }}
     spec:
+      affinity:
+      {{- include "nodeaffinity" . | indent 6 }}
       serviceAccountName: istio-grafana-post-install-account
       containers:
         - name: kubectl

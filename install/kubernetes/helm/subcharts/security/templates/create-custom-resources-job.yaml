@@ -76,6 +76,8 @@ spec:
         release: {{ .Release.Name }}
         version: {{ .Chart.Version }}
     spec:
+      affinity:
+      {{- include "nodeaffinity" . | indent 6 }}
       serviceAccountName: istio-security-post-install-account
       containers:
         - name: kubectl

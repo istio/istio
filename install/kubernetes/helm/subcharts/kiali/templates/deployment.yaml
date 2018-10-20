@@ -69,6 +69,8 @@ spec:
 {{- else }}
 {{ toYaml .Values.global.defaultResources | indent 10 }}
 {{- end }}
+      affinity:
+      {{- include "nodeaffinity" . | indent 6 }}
       volumes:
       - name: kiali-configuration
         configMap:

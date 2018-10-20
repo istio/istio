@@ -373,3 +373,13 @@ global:
   #       port: 443
   #
   meshNetworks:
+
+  # Extra node affinity terms, these entries will be added to the
+  # matchExpressions field inside the
+  # requiredDuringSchedulingIgnoredDuringExecution node affinity.
+  affinityMatchExpressions: []
+  # - key: my.org/nodetype
+  #   operator: In
+  #   values:
+  #     - value1
+  #     - value2

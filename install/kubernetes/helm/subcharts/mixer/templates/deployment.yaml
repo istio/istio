@@ -143,6 +143,8 @@
       nodeSelector:
 {{ toYaml $.Values.nodeSelector | indent 8 }}
     {{- end }}
+      affinity:
+      {{- include "nodeaffinity" . | indent 6 }}
       containers:
       - name: mixer
 {{- if contains "/" .Values.image }}

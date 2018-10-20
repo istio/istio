@@ -11,6 +11,9 @@
 {{- define "nodeAffinityRequiredDuringScheduling" }}
       nodeSelectorTerms:
       - matchExpressions:
+{{- if .Values.global.affinityMatchExpressions }}
+{{ toYaml .Values.global.affinityMatchExpressions | indent 8 }}
+{{- end }}
         - key: beta.kubernetes.io/arch
           operator: In
           values:
