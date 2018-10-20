@@ -15,6 +15,7 @@
 package bootstrap
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -29,6 +30,7 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pkg/log"
 )
 
 // Generate the envoy v2 bootstrap configuration, using template.
@@ -36,6 +38,14 @@ const (
 	// EpochFileTemplate is a template for the root config JSON
 	EpochFileTemplate = "envoy-rev%d.json"
 	DefaultCfgDir     = "/var/lib/istio/envoy/envoy_bootstrap_tmpl.json"
+	// MaxClusterNameLength is the maximum cluster name length
+	MaxClusterNameLength = 189 // TODO: use MeshConfig.StatNameLength instead
+
+	// IstioMetaPrefix is used to pass env vars as node metadata.
+	IstioMetaPrefix = "ISTIO_META_"
+
+	// IstioMetaJSONPrefix is used to pass annotations and similar environment info.
+	IstioMetaJSONPrefix = "ISTIO_METAJSON_"
 )
 
 var (
@@ -124,9 +134,49 @@ func StoreHostPort(host, port, field string, opts map[string]interface{}) {
 	opts[field] = fmt.Sprintf("{\"address\": \"%s\", \"port_value\": %s}", host, port)
 }
 
+type setMetaFunc func(m map[string]string, key string, val string)
+
+func extractMetadata(envs []string, prefix string, set setMetaFunc, meta map[string]string) {
+	metaPrefixLen := len(prefix)
+	for _, env := range envs {
+		if strings.HasPrefix(env, prefix) {
+			v := env[metaPrefixLen:]
+			parts := strings.SplitN(v, "=", 2)
+			if len(parts) != 2 {
+				continue
+			}
+			metaKey, metaVal := parts[0], parts[1]
+
+			set(meta, metaKey, metaVal)
+		}
+	}
+}
+
+// getNodeMetaData function uses an environment variable contract
+// ISTIO_METAJSON_* env variables contain json_string in the value.
+// 					The name of variable is ignored.
+// ISTIO_META_* env variables are passed thru
+func getNodeMetaData(envs []string) map[string]string {
+	meta := map[string]string{}
+
+	extractMetadata(envs, IstioMetaPrefix, func(m map[string]string, key string, val string) {
+		m[key] = val
+	}, meta)
+
+	extractMetadata(envs, IstioMetaJSONPrefix, func(m map[string]string, key string, val string) {
+		err := json.Unmarshal([]byte(val), &m)
+		if err != nil {
+			log.Warnf("Env variable %s [%s] failed json unmarshal: %v", key, val, err)
+		}
+	}, meta)
+	meta["istio"] = "sidecar"
+	return meta
+}
+
 // WriteBootstrap generates an envoy config based on config and epoch, and returns the filename.
 // TODO: in v2 some of the LDS ports (port, http_port) should be configured in the bootstrap.
-func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilotSAN []string, opts map[string]interface{}) (string, error) {
+func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilotSAN []string,
+	opts map[string]interface{}, localEnv []string) (string, error) {
 	if opts == nil {
 		opts = map[string]interface{}{}
 	}
@@ -167,23 +217,17 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 	opts["pilot_SAN"] = pilotSAN
 
 	// Simplify the template
-	opts["connect_timeout"] = fmt.Sprintf("{\"seconds\": %d, \"nanos\": %d}", config.ConnectTimeout.Seconds, config.ConnectTimeout.Nanos)
-
+	opts["connect_timeout"] = (&types.Duration{Seconds: config.ConnectTimeout.Seconds, Nanos: config.ConnectTimeout.Nanos}).String()
 	opts["cluster"] = config.ServiceCluster
 	opts["nodeID"] = node
 
 	// Support passing extra info from node environment as metadata
-	meta := map[string]string{}
-	for _, env := range os.Environ() {
-		if strings.HasPrefix(env, "ISTIO_META_") {
-			v := env[len("ISTIO_META_"):]
-			parts := strings.SplitN(v, "=", 2)
-			if len(parts) == 2 {
-				meta[parts[0]] = parts[1]
-			}
-		}
+	meta := getNodeMetaData(localEnv)
+	ba, err := json.Marshal(meta)
+	if err != nil {
+		return "", err
 	}
-	opts["meta"] = meta
+	opts["meta_json_str"] = string(ba)
 
 	// TODO: allow reading a file with additional metadata (for example if created with
 	// 'envref'. This will allow Istio to generate the right config even if the pod info

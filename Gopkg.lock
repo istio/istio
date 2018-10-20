@@ -1982,6 +1982,7 @@
     "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener",
     "github.com/envoyproxy/go-control-plane/envoy/api/v2/route",
     "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v2",
+    "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v2",
     "github.com/envoyproxy/go-control-plane/envoy/config/filter/accesslog/v2",
     "github.com/envoyproxy/go-control-plane/envoy/config/filter/fault/v2",
     "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/fault/v2",

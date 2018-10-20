@@ -375,7 +375,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 	// poor new pilot and overwhelm it.
 	// TODO: instead of readiness probe, let endpoints connect and wait here for
 	// config to become stable. Will better spread the load.
-	s.rateLimiter.Wait(context.TODO())
+	s.initRateLimiter.Wait(context.TODO())
 
 	// first call - lazy loading, in tests. This should not happen if readiness
 	// check works, since it assumes ClearCache is called (and as such PushContext
