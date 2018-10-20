@@ -30,9 +30,13 @@ const (
 )
 
 var (
+	// APIVersionTag holds the API version of the resource.
 	APIVersionTag tag.Key
+	// GroupTag holds the group of the resource.
 	GroupTag      tag.Key
+	// KindTag holds the kind of the resource.
 	KindTag       tag.Key
+	// ErrorTag holds the error message of a handleEvent failure.
 	ErrorTag tag.Key
 )
 
