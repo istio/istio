@@ -49,7 +49,7 @@ func TestGetProxyDetails(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("%s", strings.Split(tt.proxyName, ".")[0]), func(t *testing.T) {
 			gotPodName, gotNamespace := getProxyDetails(tt.proxyName, tt.namespace)
-			if gotPodName != tt.wantPodName && gotNamespace != tt.wantNamespace {
+			if gotPodName != tt.wantPodName || gotNamespace != tt.wantNamespace {
 				t.Fatalf(
 					"Unexpected podname for namespace "+
 						"\ngot podname: %s, namespace: %s.\nwant podname: %s, namespace: %s",
