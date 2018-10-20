@@ -15,15 +15,22 @@
 #   limitations under the License.
 
 
-# This script is meant to be sourced,
+# This script is meant to be sourced, has a set of functions used by scripts on gcb
 
 # this function sets variable TEST_INFRA_DIR and githubctl
 function githubctl_setup() {
     git clone https://github.com/istio/test-infra.git -b master --depth 1
     TEST_INFRA_DIR="${PWD}/test-infra"
     pushd "${TEST_INFRA_DIR}" || exit 1
-     bazel build //toolbox/githubctl
-     githubctl="${TEST_INFRA_DIR}/bazel-bin/toolbox/githubctl/linux_amd64_stripped/githubctl" 
+     if [[ -f "/workspace/githubctl" ]]; then
+       githubctl="/workspace/githubctl"
+       ls -l "$githubctl"
+       chmod +x "$githubctl"
+       ls -l "$githubctl"
+     else
+       bazel build //toolbox/githubctl
+       githubctl="${TEST_INFRA_DIR}/bazel-bin/toolbox/githubctl/linux_amd64_stripped/githubctl" 
+    fi
     popd || exit 1
 
    export TEST_INFRA_DIR
@@ -43,15 +50,19 @@ function github_keys() {
   local KEY
   KEY="DockerHub"
 
- # decrypt file, if requested
-  gsutil cp gs://istio-secrets/github.txt.enc "${KEYFILE_ENC}"
-  gcloud kms decrypt \
+  GITHUB_KEYFILE="${KEYFILE_TEMP}"
+  export GITHUB_KEYFILE
+
+
+   gsutil -q cp "gs://${CB_GITHUB_TOKEN_FILE_PATH}" "${KEYFILE_ENC}"
+   gcloud kms decrypt \
        --ciphertext-file="$KEYFILE_ENC" \
        --plaintext-file="$KEYFILE_TEMP" \
        --location=global \
        --keyring="${KEYRING}" \
        --key="${KEY}"
 
-  GITHUB_KEYFILE="${KEYFILE_TEMP}"
-  export GITHUB_KEYFILE
+  if [[ -n "$CB_TEST_GITHUB_TOKEN_FILE_PATH" ]]; then
+   gsutil -q cp "gs://${CB_TEST_GITHUB_TOKEN_FILE_PATH}" "${KEYFILE_TEMP}"
+  fi
 }
