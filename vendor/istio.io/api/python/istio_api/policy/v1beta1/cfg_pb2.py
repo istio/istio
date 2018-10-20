@@ -23,7 +23,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='policy/v1beta1/cfg.proto',
   package='istio.policy.v1beta1',
   syntax='proto3',
-  serialized_pb=_b('\n\x18policy/v1beta1/cfg.proto\x12\x14istio.policy.v1beta1\x1a\x14gogoproto/gogo.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fpolicy/v1beta1/value_type.proto\"\xc5\x02\n\x11\x41ttributeManifest\x12\x10\n\x08revision\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12K\n\nattributes\x18\x03 \x03(\x0b\x32\x37.istio.policy.v1beta1.AttributeManifest.AttributesEntry\x1aY\n\rAttributeInfo\x12\x13\n\x0b\x64\x65scription\x18\x01 \x01(\t\x12\x33\n\nvalue_type\x18\x02 \x01(\x0e\x32\x1f.istio.policy.v1beta1.ValueType\x1ah\n\x0f\x41ttributesEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\x44\n\x05value\x18\x02 \x01(\x0b\x32\x35.istio.policy.v1beta1.AttributeManifest.AttributeInfo:\x02\x38\x01\"\xe2\x03\n\x04Rule\x12\r\n\x05match\x18\x01 \x01(\t\x12-\n\x07\x61\x63tions\x18\x02 \x03(\x0b\x32\x1c.istio.policy.v1beta1.Action\x12U\n\x19request_header_operations\x18\x03 \x03(\x0b\x32\x32.istio.policy.v1beta1.Rule.HeaderOperationTemplate\x12V\n\x1aresponse_header_operations\x18\x04 \x03(\x0b\x32\x32.istio.policy.v1beta1.Rule.HeaderOperationTemplate\x12\x30\n\x08sampling\x18\x05 \x01(\x0b\x32\x1e.istio.policy.v1beta1.Sampling\x1a\xba\x01\n\x17HeaderOperationTemplate\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0e\n\x06values\x18\x02 \x03(\t\x12O\n\toperation\x18\x03 \x01(\x0e\x32<.istio.policy.v1beta1.Rule.HeaderOperationTemplate.Operation\"0\n\tOperation\x12\x0b\n\x07REPLACE\x10\x00\x12\n\n\x06REMOVE\x10\x01\x12\n\n\x06\x41PPEND\x10\x02\":\n\x06\x41\x63tion\x12\x0f\n\x07handler\x18\x02 \x01(\t\x12\x11\n\tinstances\x18\x03 \x03(\t\x12\x0c\n\x04name\x18\x04 \x01(\t\"\xfe\x01\n\x08Instance\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x1c\n\x11\x63ompiled_template\x18\xf4\xed\xa9  \x01(\t\x12\x10\n\x08template\x18\x02 \x01(\t\x12\'\n\x06params\x18\x03 \x01(\x0b\x32\x17.google.protobuf.Struct\x12Q\n\x12\x61ttribute_bindings\x18\x04 \x03(\x0b\x32\x35.istio.policy.v1beta1.Instance.AttributeBindingsEntry\x1a\x38\n\x16\x41ttributeBindingsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\xa4\x01\n\x07Handler\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x1b\n\x10\x63ompiled_adapter\x18\xf4\xed\xa9  \x01(\t\x12\x0f\n\x07\x61\x64\x61pter\x18\x02 \x01(\t\x12\'\n\x06params\x18\x03 \x01(\x0b\x32\x17.google.protobuf.Struct\x12\x34\n\nconnection\x18\x04 \x01(\x0b\x32 .istio.policy.v1beta1.Connection\"\x1d\n\nConnection\x12\x0f\n\x07\x61\x64\x64ress\x18\x02 \x01(\t\"}\n\x08Sampling\x12\x34\n\x06random\x18\x01 \x01(\x0b\x32$.istio.policy.v1beta1.RandomSampling\x12;\n\nrate_limit\x18\x02 \x01(\x0b\x32\'.istio.policy.v1beta1.RateLimitSampling\"\x94\x01\n\x0eRandomSampling\x12\x1c\n\x14\x61ttribute_expression\x18\x01 \x01(\t\x12@\n\x0fpercent_sampled\x18\x02 \x01(\x0b\x32\'.istio.policy.v1beta1.FractionalPercent\x12\"\n\x1ause_independent_randomness\x18\x03 \x01(\x08\"\x89\x01\n\x11RateLimitSampling\x12>\n\x11sampling_duration\x18\x01 \x01(\x0b\x32\x19.google.protobuf.DurationB\x08\xc8\xde\x1f\x00\x98\xdf\x1f\x01\x12\x1d\n\x15max_unsampled_entries\x18\x02 \x01(\x03\x12\x15\n\rsampling_rate\x18\x03 \x01(\x03\"\xa6\x01\n\x11\x46ractionalPercent\x12\x11\n\tnumerator\x18\x01 \x01(\r\x12L\n\x0b\x64\x65nominator\x18\x02 \x01(\x0e\x32\x37.istio.policy.v1beta1.FractionalPercent.DenominatorType\"0\n\x0f\x44\x65nominatorType\x12\x0b\n\x07HUNDRED\x10\x00\x12\x10\n\x0cTEN_THOUSAND\x10\x01\x42\x1dZ\x1bistio.io/api/policy/v1beta1b\x06proto3')
+  serialized_pb=_b('\n\x18policy/v1beta1/cfg.proto\x12\x14istio.policy.v1beta1\x1a\x14gogoproto/gogo.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fpolicy/v1beta1/value_type.proto\"\xc5\x02\n\x11\x41ttributeManifest\x12\x10\n\x08revision\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12K\n\nattributes\x18\x03 \x03(\x0b\x32\x37.istio.policy.v1beta1.AttributeManifest.AttributesEntry\x1aY\n\rAttributeInfo\x12\x13\n\x0b\x64\x65scription\x18\x01 \x01(\t\x12\x33\n\nvalue_type\x18\x02 \x01(\x0e\x32\x1f.istio.policy.v1beta1.ValueType\x1ah\n\x0f\x41ttributesEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\x44\n\x05value\x18\x02 \x01(\x0b\x32\x35.istio.policy.v1beta1.AttributeManifest.AttributeInfo:\x02\x38\x01\"\xe2\x03\n\x04Rule\x12\r\n\x05match\x18\x01 \x01(\t\x12-\n\x07\x61\x63tions\x18\x02 \x03(\x0b\x32\x1c.istio.policy.v1beta1.Action\x12U\n\x19request_header_operations\x18\x03 \x03(\x0b\x32\x32.istio.policy.v1beta1.Rule.HeaderOperationTemplate\x12V\n\x1aresponse_header_operations\x18\x04 \x03(\x0b\x32\x32.istio.policy.v1beta1.Rule.HeaderOperationTemplate\x12\x30\n\x08sampling\x18\x05 \x01(\x0b\x32\x1e.istio.policy.v1beta1.Sampling\x1a\xba\x01\n\x17HeaderOperationTemplate\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0e\n\x06values\x18\x02 \x03(\t\x12O\n\toperation\x18\x03 \x01(\x0e\x32<.istio.policy.v1beta1.Rule.HeaderOperationTemplate.Operation\"0\n\tOperation\x12\x0b\n\x07REPLACE\x10\x00\x12\n\n\x06REMOVE\x10\x01\x12\n\n\x06\x41PPEND\x10\x02\":\n\x06\x41\x63tion\x12\x0f\n\x07handler\x18\x02 \x01(\t\x12\x11\n\tinstances\x18\x03 \x03(\t\x12\x0c\n\x04name\x18\x04 \x01(\t\"\xfe\x01\n\x08Instance\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x1c\n\x11\x63ompiled_template\x18\xf4\xed\xa9  \x01(\t\x12\x10\n\x08template\x18\x02 \x01(\t\x12\'\n\x06params\x18\x03 \x01(\x0b\x32\x17.google.protobuf.Struct\x12Q\n\x12\x61ttribute_bindings\x18\x04 \x03(\x0b\x32\x35.istio.policy.v1beta1.Instance.AttributeBindingsEntry\x1a\x38\n\x16\x41ttributeBindingsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\xa4\x01\n\x07Handler\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x1b\n\x10\x63ompiled_adapter\x18\xf4\xed\xa9  \x01(\t\x12\x0f\n\x07\x61\x64\x61pter\x18\x02 \x01(\t\x12\'\n\x06params\x18\x03 \x01(\x0b\x32\x17.google.protobuf.Struct\x12\x34\n\nconnection\x18\x04 \x01(\x0b\x32 .istio.policy.v1beta1.Connection\"I\n\nConnection\x12\x0f\n\x07\x61\x64\x64ress\x18\x02 \x01(\t\x12*\n\x07timeout\x18\x03 \x01(\x0b\x32\x19.google.protobuf.Duration\"}\n\x08Sampling\x12\x34\n\x06random\x18\x01 \x01(\x0b\x32$.istio.policy.v1beta1.RandomSampling\x12;\n\nrate_limit\x18\x02 \x01(\x0b\x32\'.istio.policy.v1beta1.RateLimitSampling\"\x94\x01\n\x0eRandomSampling\x12\x1c\n\x14\x61ttribute_expression\x18\x01 \x01(\t\x12@\n\x0fpercent_sampled\x18\x02 \x01(\x0b\x32\'.istio.policy.v1beta1.FractionalPercent\x12\"\n\x1ause_independent_randomness\x18\x03 \x01(\x08\"\x89\x01\n\x11RateLimitSampling\x12>\n\x11sampling_duration\x18\x01 \x01(\x0b\x32\x19.google.protobuf.DurationB\x08\xc8\xde\x1f\x00\x98\xdf\x1f\x01\x12\x1d\n\x15max_unsampled_entries\x18\x02 \x01(\x03\x12\x15\n\rsampling_rate\x18\x03 \x01(\x03\"\xa6\x01\n\x11\x46ractionalPercent\x12\x11\n\tnumerator\x18\x01 \x01(\r\x12L\n\x0b\x64\x65nominator\x18\x02 \x01(\x0e\x32\x37.istio.policy.v1beta1.FractionalPercent.DenominatorType\"0\n\x0f\x44\x65nominatorType\x12\x0b\n\x07HUNDRED\x10\x00\x12\x10\n\x0cTEN_THOUSAND\x10\x01\x42\x1dZ\x1bistio.io/api/policy/v1beta1b\x06proto3')
   ,
   dependencies=[gogoproto_dot_gogo__pb2.DESCRIPTOR,google_dot_protobuf_dot_struct__pb2.DESCRIPTOR,google_dot_protobuf_dot_duration__pb2.DESCRIPTOR,policy_dot_v1beta1_dot_value__type__pb2.DESCRIPTOR,])
 
@@ -72,8 +72,8 @@ _FRACTIONALPERCENT_DENOMINATORTYPE = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   options=None,
-  serialized_start=2032,
-  serialized_end=2080,
+  serialized_start=2076,
+  serialized_end=2124,
 )
 _sym_db.RegisterEnumDescriptor(_FRACTIONALPERCENT_DENOMINATORTYPE)
 
@@ -515,6 +515,13 @@ _CONNECTION = _descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='timeout', full_name='istio.policy.v1beta1.Connection.timeout', index=1,
+      number=3, type=11, cpp_type=10, label=1,
+      has_default_value=False, default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None, file=DESCRIPTOR),
   ],
   extensions=[
   ],
@@ -528,7 +535,7 @@ _CONNECTION = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=1464,
-  serialized_end=1493,
+  serialized_end=1537,
 )
 
 
@@ -565,8 +572,8 @@ _SAMPLING = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1495,
-  serialized_end=1620,
+  serialized_start=1539,
+  serialized_end=1664,
 )
 
 
@@ -610,8 +617,8 @@ _RANDOMSAMPLING = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1623,
-  serialized_end=1771,
+  serialized_start=1667,
+  serialized_end=1815,
 )
 
 
@@ -655,8 +662,8 @@ _RATELIMITSAMPLING = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1774,
-  serialized_end=1911,
+  serialized_start=1818,
+  serialized_end=1955,
 )
 
 
@@ -694,8 +701,8 @@ _FRACTIONALPERCENT = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1914,
-  serialized_end=2080,
+  serialized_start=1958,
+  serialized_end=2124,
 )
 
 _ATTRIBUTEMANIFEST_ATTRIBUTEINFO.fields_by_name['value_type'].enum_type = policy_dot_v1beta1_dot_value__type__pb2._VALUETYPE
@@ -715,6 +722,7 @@ _INSTANCE.fields_by_name['params'].message_type = google_dot_protobuf_dot_struct
 _INSTANCE.fields_by_name['attribute_bindings'].message_type = _INSTANCE_ATTRIBUTEBINDINGSENTRY
 _HANDLER.fields_by_name['params'].message_type = google_dot_protobuf_dot_struct__pb2._STRUCT
 _HANDLER.fields_by_name['connection'].message_type = _CONNECTION
+_CONNECTION.fields_by_name['timeout'].message_type = google_dot_protobuf_dot_duration__pb2._DURATION
 _SAMPLING.fields_by_name['random'].message_type = _RANDOMSAMPLING
 _SAMPLING.fields_by_name['rate_limit'].message_type = _RATELIMITSAMPLING
 _RANDOMSAMPLING.fields_by_name['percent_sampled'].message_type = _FRACTIONALPERCENT
