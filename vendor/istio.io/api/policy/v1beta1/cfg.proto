@@ -331,6 +331,9 @@ message Connection {
   // The address of the backend.
   string address = 2;
 
+  // Timeout for remote calls to the backend.
+  google.protobuf.Duration timeout = 3;
+
   // TODO: Add auth related fields.
 }
 
