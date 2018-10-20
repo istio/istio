@@ -118,7 +118,14 @@ type DiscoveryServer struct {
 	// ConfigController provides readiness info (if initial sync is complete)
 	ConfigController model.ConfigStoreCache
 
-	rateLimiter         *rate.Limiter
+	// rate limiter for sending updates during full ads push.
+	rateLimiter *rate.Limiter
+
+	// rate limiter for sending config to new connections.
+	// We want to have a larger limit for new connections because until configuration is sent the proxies
+	// will not be ready.
+	initRateLimiter *rate.Limiter
+
 	concurrentPushLimit chan struct{}
 
 	// DebugConfigs controls saving snapshots of configs for /debug/adsz.
@@ -266,6 +273,7 @@ func NewDiscoveryServer(env *model.Environment, generator core.ConfigGenerator, 
 
 	adsLog.Infof("Starting ADS server with rateLimiter=%d burst=%d", pushThrottle, pushBurst)
 	out.rateLimiter = rate.NewLimiter(rate.Limit(pushThrottle), pushBurst)
+	out.initRateLimiter = rate.NewLimiter(rate.Limit(pushThrottle*2), pushBurst*2)
 
 	return out
 }

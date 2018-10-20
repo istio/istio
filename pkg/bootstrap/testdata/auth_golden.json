@@ -77,27 +77,27 @@
         "socket_address": {
           "protocol": "TCP",
           "address": "127.0.0.1",
-          "port_value": "15000",
+          "port_value": 15000,
         }
       }],
     },
     {
     "name": "xds-grpc",
     "type": "STRICT_DNS",
-    "connect_timeout": {"seconds": 1, "nanos": 0},
+    "connect_timeout": "1s",
     "lb_policy": "ROUND_ROBIN",
 
       "tls_context": {
         "common_tls_context": {
-          "alpn_protocols": "h2",
-          "tls_certificates": {
+          "alpn_protocols": ["h2"],
+          "tls_certificates":[{
             "certificate_chain": {
               "filename": "/etc/certs/cert-chain.pem"
             },
             "private_key": {
               "filename": "/etc/certs/key.pem"
             }
-          },
+          }],
           "validation_context": {
             "trusted_ca": {
               "filename": "/etc/certs/root-cert.pem"
@@ -117,16 +117,16 @@
     "circuit_breakers": {
         "thresholds": [
       {
-        "priority": "default",
-        "max_connections": "100000",
-        "max_pending_requests": "100000",
-        "max_requests": "100000"
+        "priority": "DEFAULT",
+        "max_connections": 100000,
+        "max_pending_requests": 100000,
+        "max_requests": 100000
       },
       {
-        "priority": "high",
-        "max_connections": "100000",
-        "max_pending_requests": "100000",
-        "max_requests": "100000"
+        "priority": "HIGH",
+        "max_connections": 100000,
+        "max_pending_requests": 100000,
+        "max_requests": 100000
       }]
     },
     "upstream_connection_options": {
@@ -145,7 +145,7 @@
           "socket_address": {
             "protocol": "TCP",
             "address": "0.0.0.0",
-            "port_value": "15090",
+            "port_value": 15090,
           }
         },
         "filter_chains": [{
