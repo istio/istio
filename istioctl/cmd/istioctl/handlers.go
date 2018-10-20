@@ -18,20 +18,11 @@ import (
 	"strings"
 )
 
-func getProxyDetails(proxyName string) (string, string, error) {
-	var ns string
-	var err error
-
+func getProxyDetails(proxyName, namespace string) (string, string) {
 	parsedProxy := strings.Split(proxyName, ".")
 
 	if len(parsedProxy) == 1 {
-		ns, err = handleNamespaces("")
-	} else {
-		ns, err = handleNamespaces(parsedProxy[1])
+		return proxyName, namespace
 	}
-	if err != nil {
-		return "", "", err
-	} else {
-		return parsedProxy[0], ns, err
-	}
+	return parsedProxy[0], parsedProxy[1]
 }
