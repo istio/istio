@@ -4,7 +4,7 @@ layout: protoc-gen-docs
 generator: protoc-gen-docs
 aliases:
   - /docs/reference/config/service-mesh.html
-number_of_entries: 8
+number_of_entries: 10
 ---
 <h2 id="AuthenticationPolicy">AuthenticationPolicy</h2>
 <section>
@@ -254,6 +254,106 @@ annotations match the value specified in the ingress_class parameter
 described earlier. Use this mode if Istio ingress controller will be
 a secondary ingress controller (e.g., in addition to a
 cloud-provided ingress controller).</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Network">Network</h2>
+<section>
+<p>Network provides information about the endpoints in a routable L3
+network. A single routable L3 network can have one or more service
+registries. Note that the network has no relation to the locality of the
+endpoint. The endpoint locality will be obtained from the service
+registry.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Network-name">
+<td><code>name</code></td>
+<td><code>string</code></td>
+<td>
+<p>A unique name assigned to the network.</p>
+
+</td>
+</tr>
+<tr id="Network-registries">
+<td><code>registries</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>One or more service registries that are in this network. Endpoints
+from these registries will be directly reachable to one another.
+The names of the registries should correspond to the data sources.</p>
+
+</td>
+</tr>
+<tr id="Network-gateways">
+<td><code>gateways</code></td>
+<td><code><a href="#Network-IstioNetworkGateway">Network.IstioNetworkGateway[]</a></code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Network-IstioNetworkGateway">Network.IstioNetworkGateway</h2>
+<section>
+<p>The gateway associated with this network. Traffic from remote networks
+will arrive at the specified gateway:port. All incoming traffic must
+use mTLS.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Network-IstioNetworkGateway-registry_service_name" class="oneof oneof-start">
+<td><code>registryServiceName</code></td>
+<td><code>string (oneof)</code></td>
+<td>
+<p>A fully qualified domain name of the gateway service.  Pilot will
+lookup the service from the service registries in the network and
+obtain the endpoint IPs of the gateway from the service
+registry. Note that while the service name is a fully qualified
+domain name, it need not be resolvable outside the orchestration
+platform for the registry. e.g., this could be
+istio-ingressgateway.istio-system.svc.cluster.local.</p>
+
+</td>
+</tr>
+<tr id="Network-IstioNetworkGateway-address" class="oneof">
+<td><code>address</code></td>
+<td><code>string (oneof)</code></td>
+<td>
+<p>IP address or externally resolvable DNS address associated with the gateway.</p>
+
+</td>
+</tr>
+<tr id="Network-IstioNetworkGateway-port">
+<td><code>port</code></td>
+<td><code>uint32</code></td>
+<td>
+<p>The port associated with the gateway.</p>
+
+</td>
+</tr>
+<tr id="Network-IstioNetworkGateway-locality">
+<td><code>locality</code></td>
+<td><code>string</code></td>
+<td>
+<p>The locality associated with an explicitly specified gateway (i.e. ip)</p>
 
 </td>
 </tr>

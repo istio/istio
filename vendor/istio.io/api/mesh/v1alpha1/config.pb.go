@@ -6,10 +6,12 @@
 
 	It is generated from these files:
 		mesh/v1alpha1/config.proto
+		mesh/v1alpha1/mesh.proto
 		mesh/v1alpha1/proxy.proto
 
 	It has these top-level messages:
 		MeshConfig
+		Network
 		Tracing
 		ProxyConfig
 */
