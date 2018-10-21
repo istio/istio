@@ -20,8 +20,6 @@ import (
 	"net"
 	"time"
 
-	"istio.io/istio/pkg/test/framework/environments/local/service"
-
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/test/envoy"
@@ -30,6 +28,7 @@ import (
 	"istio.io/istio/pkg/test/framework/dependency"
 	"istio.io/istio/pkg/test/framework/environment"
 	"istio.io/istio/pkg/test/framework/environments/local"
+	"istio.io/istio/pkg/test/framework/environments/local/service"
 )
 
 const (

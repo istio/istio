@@ -22,9 +22,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"istio.io/istio/pkg/test/framework/scopes"
-
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/test/framework/scopes"
 )
 
 // EnvironmentID is a unique identifier for a testing environment.

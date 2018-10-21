@@ -17,11 +17,10 @@ package config
 import (
 	"context"
 
-	"go.opencensus.io/tag"
-
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
 	"github.com/gogo/protobuf/types"
+	"go.opencensus.io/tag"
 
 	adptTmpl "istio.io/api/mixer/adapter/model/v1beta1"
 	"istio.io/api/policy/v1beta1"

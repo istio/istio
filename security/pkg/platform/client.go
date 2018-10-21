@@ -17,10 +17,10 @@ package platform
 import (
 	"fmt"
 
+	"google.golang.org/grpc"
 	// Temporarily disable ID token authentication on CSR API.
 	// [TODO](myidpt): enable when the Citadel authz can work correctly.
 	// "cloud.google.com/go/compute/metadata"
-	"google.golang.org/grpc"
 )
 
 // Client is the interface for implementing the client to access platform metadata.

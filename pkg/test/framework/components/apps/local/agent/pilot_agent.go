@@ -33,10 +33,6 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/gogo/protobuf/proto"
-
-	"istio.io/istio/pkg/test/framework/environments/local/service"
-
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	xdsapiCore "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	xdsapiListener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
@@ -44,6 +40,7 @@ import (
 	envoyFilterTcp "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
 	envoyUtil "github.com/envoyproxy/go-control-plane/pkg/util"
 	"github.com/gogo/protobuf/jsonpb"
+	"github.com/gogo/protobuf/proto"
 	googleProtobuf6 "github.com/gogo/protobuf/types"
 	"github.com/gorilla/websocket"
 	"github.com/hashicorp/go-multierror"
@@ -54,6 +51,7 @@ import (
 	"istio.io/istio/pkg/test/application"
 	"istio.io/istio/pkg/test/envoy"
 	"istio.io/istio/pkg/test/envoy/discovery"
+	"istio.io/istio/pkg/test/framework/environments/local/service"
 	"istio.io/istio/pkg/test/util/reserveport"
 )
 

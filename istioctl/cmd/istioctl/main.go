@@ -21,9 +21,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 	"k8s.io/api/core/v1"
-
-	// import all known client auth plugins
-	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	_ "k8s.io/client-go/plugin/pkg/client/auth" // import all known client auth plugins
 	"k8s.io/client-go/tools/clientcmd"
 
 	"istio.io/istio/istioctl/cmd/istioctl/gendeployment"

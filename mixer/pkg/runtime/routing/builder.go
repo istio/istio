@@ -54,6 +54,7 @@ import (
 	"strings"
 
 	"go.opencensus.io/stats"
+
 	tpb "istio.io/api/mixer/adapter/model/v1beta1"
 	descriptor "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
@@ -113,8 +114,8 @@ func BuildTable(
 			entries: make(map[tpb.TemplateVariety]*varietyTable, 4),
 		},
 
-		handlers: handlers,
-		expb:     expb,
+		handlers:               handlers,
+		expb:                   expb,
 		defaultConfigNamespace: defaultConfigNamespace,
 		nextIDCounter:          1,
 

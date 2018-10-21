@@ -19,14 +19,12 @@ import (
 	"fmt"
 	"net"
 
-	meshConfig "istio.io/api/mesh/v1alpha1"
-
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	adsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
+	"github.com/hashicorp/go-multierror"
 	"google.golang.org/grpc"
 
-	"github.com/hashicorp/go-multierror"
-
+	meshConfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy"

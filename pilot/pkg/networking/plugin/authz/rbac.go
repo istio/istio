@@ -749,7 +749,7 @@ func permissionForKeyValues(key string, values []string) *policyproto.Permission
 		converter = func(v string) (*policyproto.Permission, error) {
 			return &policyproto.Permission{
 				Rule: &policyproto.Permission_RequestedServerName{
-					RequestedServerName: createStringMatcher(v, /* forceRegexPattern */ false, /* forTCPFilter */ false),
+					RequestedServerName: createStringMatcher(v /* forceRegexPattern */, false /* forTCPFilter */, false),
 				},
 			}, nil
 		}

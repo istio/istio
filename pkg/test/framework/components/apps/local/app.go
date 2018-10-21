@@ -17,19 +17,19 @@ package local
 import (
 	"errors"
 	"fmt"
-	"github.com/hashicorp/go-multierror"
 	"net"
 	"net/url"
 	"strconv"
 	"testing"
 
-	"istio.io/istio/pkg/test/framework/environments/local/service"
+	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/application/echo"
 	"istio.io/istio/pkg/test/application/echo/proto"
 	"istio.io/istio/pkg/test/framework/components/apps/local/agent"
 	"istio.io/istio/pkg/test/framework/environment"
+	"istio.io/istio/pkg/test/framework/environments/local/service"
 )
 
 var (

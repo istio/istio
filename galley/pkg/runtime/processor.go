@@ -15,13 +15,14 @@
 package runtime
 
 import (
+	"time"
+
 	"github.com/pkg/errors"
 
 	"istio.io/istio/galley/pkg/metadata"
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/mcp/snapshot"
-	"time"
 )
 
 var scope = log.RegisterScope("runtime", "Galley runtime", 0)

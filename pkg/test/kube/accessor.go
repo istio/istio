@@ -16,13 +16,13 @@ package kube
 
 import (
 	"fmt"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"strings"
 	"time"
 
 	kubeApiCore "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
 	kubeClient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	kubeClientCore "k8s.io/client-go/kubernetes/typed/core/v1"

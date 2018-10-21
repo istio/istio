@@ -24,12 +24,13 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
+	"k8s.io/apimachinery/pkg/util/wait"
+
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/proxy/envoy"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/env"
-	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 var (

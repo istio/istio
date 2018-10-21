@@ -28,9 +28,8 @@ import (
 	istiocmd "istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/version"
-
 	"istio.io/istio/pkg/probe"
+	"istio.io/istio/pkg/version"
 )
 
 var (

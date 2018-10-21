@@ -596,7 +596,7 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 											},
 										},
 									},
-								} ,
+								},
 							},
 						},
 					},

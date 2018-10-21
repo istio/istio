@@ -24,7 +24,6 @@ import (
 	"time"
 
 	monitoringpb "google.golang.org/genproto/googleapis/monitoring/v3"
-
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 

@@ -15,11 +15,12 @@
 package runtime
 
 import (
-	"go.opencensus.io/stats"
-	"go.opencensus.io/tag"
-	"go.opencensus.io/stats/view"
 	"context"
 	"time"
+
+	"go.opencensus.io/stats"
+	"go.opencensus.io/stats/view"
+	"go.opencensus.io/tag"
 )
 
 const typeURL = "typeURL"
@@ -69,9 +70,8 @@ var (
 		"The number of type instances per type URL",
 		stats.UnitDimensionless)
 
-	durationDistributionMs =
-		view.Distribution(0, 1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8193, 16384, 32768, 65536,
-			131072, 262144, 524288, 1048576, 2097152, 4194304, 8388608)
+	durationDistributionMs = view.Distribution(0, 1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8193, 16384, 32768, 65536,
+		131072, 262144, 524288, 1048576, 2097152, 4194304, 8388608)
 )
 
 func recordStrategyOnChange() {

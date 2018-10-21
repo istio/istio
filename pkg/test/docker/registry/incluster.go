@@ -21,9 +21,9 @@ import (
 	"strings"
 	"text/template"
 
-	"istio.io/istio/pkg/test/kube"
-
 	"github.com/hashicorp/go-multierror"
+
+	"istio.io/istio/pkg/test/kube"
 )
 
 const (

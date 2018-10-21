@@ -16,9 +16,8 @@ package pilot
 
 import (
 	"fmt"
-	"testing"
-
 	"strings"
+	"testing"
 
 	"istio.io/istio/tests/util"
 )

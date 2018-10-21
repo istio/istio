@@ -20,14 +20,15 @@ import (
 	"io"
 
 	"github.com/spf13/cobra"
-	"istio.io/istio/pilot/pkg/config/kube/crd"
-	"istio.io/istio/pilot/pkg/model"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime" // TODO use k8s.io/cli-runtime when we switch to v1.12 k8s dependency
 	// k8s.io/cli-runtime was created for k8s v.12. Prior to that release,
 	// the genericclioptions packages are organized under kubectl.
 	"k8s.io/kubernetes/pkg/kubectl/genericclioptions"
 	"k8s.io/kubernetes/pkg/kubectl/genericclioptions/resource"
+
+	"istio.io/istio/pilot/pkg/config/kube/crd"
+	"istio.io/istio/pilot/pkg/model"
 )
 
 /*

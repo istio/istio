@@ -20,8 +20,7 @@ import (
 	"strings"
 	"testing"
 
-	// Pull in gogo well-known types
-	_ "github.com/gogo/protobuf/types"
+	_ "github.com/gogo/protobuf/types" // Pull in gogo well-known types
 )
 
 func TestSchema_All(t *testing.T) {
