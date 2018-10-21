@@ -48,12 +48,9 @@ func TestGetProxyDetails(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("%s", strings.Split(tt.proxyName, ".")[0]), func(t *testing.T) {
-			gotPodName, gotNamespace := getProxyDetails(tt.proxyName, tt.namespace)
+			gotPodName, gotNamespace := inferPodInfo(tt.proxyName, tt.namespace)
 			if gotPodName != tt.wantPodName || gotNamespace != tt.wantNamespace {
-				t.Fatalf(
-					"Unexpected podname for namespace "+
-						"\ngot podname: %s, namespace: %s.\nwant podname: %s, namespace: %s",
-					gotPodName, gotNamespace, tt.wantPodName, tt.wantNamespace)
+				t.Errorf("unexpected podName and namespace: wanted %v %v got %v %v", tt.wantPodName, tt.wantNamespace, gotPodName, gotNamespace)
 			}
 		})
 	}

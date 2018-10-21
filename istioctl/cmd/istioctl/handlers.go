@@ -18,7 +18,7 @@ import (
 	"strings"
 )
 
-func getProxyDetails(proxyName, namespace string) (string, string) {
+func inferPodInfo(proxyName, namespace string) (string, string) {
 	parsedProxy := strings.Split(proxyName, ".")
 
 	if len(parsedProxy) == 1 {
