@@ -17,7 +17,8 @@ package main
 import (
 	"strings"
 )
-
+// Uses proxyName to infer namespace if the passed proxyName contains namespace information.
+// Otherwise uses the namespace value passed into the function
 func inferPodInfo(proxyName, namespace string) (string, string) {
 	parsedProxy := strings.Split(proxyName, ".")
 
