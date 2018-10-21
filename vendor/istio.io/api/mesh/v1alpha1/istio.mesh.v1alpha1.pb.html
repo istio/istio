@@ -4,7 +4,7 @@ layout: protoc-gen-docs
 generator: protoc-gen-docs
 aliases:
   - /docs/reference/config/service-mesh.html
-number_of_entries: 10
+number_of_entries: 12
 ---
 <h2 id="AuthenticationPolicy">AuthenticationPolicy</h2>
 <section>
@@ -260,6 +260,44 @@ cloud-provided ingress controller).</p>
 </tbody>
 </table>
 </section>
+<h2 id="MeshNetworks">MeshNetworks</h2>
+<section>
+<p>MeshNetworks (config map) provides information about the set of networks
+inside a mesh and how to route to endpoints in each network. For example</p>
+
+<p>MeshNetworks(file/config map):
+networks:
+- network1:
+  - endpoints:
+    - fromRegistry: registry1 #must match secret name in kubernetes
+    - fromCidr: 192.168.100.0/22 #a VM network for example
+    gateways:
+    - registryServiceName: istio-ingressgateway.istio-system.svc.cluster.local
+      port: 15443
+      locality: us-east-1a</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="MeshNetworks-networks">
+<td><code>networks</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#Network">Network</a>&gt;</code></td>
+<td>
+<p>REQUIRED: The set of networks inside this mesh. Each network should
+have a unique name and information about how to infer the endpoints in
+the network as well as the gateways associated with the network.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
 <h2 id="Network">Network</h2>
 <section>
 <p>Network provides information about the endpoints in a routable L3
@@ -277,21 +315,13 @@ registry.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="Network-name">
-<td><code>name</code></td>
-<td><code>string</code></td>
+<tr id="Network-endpoints">
+<td><code>endpoints</code></td>
+<td><code><a href="#Network-NetworkEndpoints">Network.NetworkEndpoints[]</a></code></td>
 <td>
-<p>A unique name assigned to the network.</p>
-
-</td>
-</tr>
-<tr id="Network-registries">
-<td><code>registries</code></td>
-<td><code>string[]</code></td>
-<td>
-<p>One or more service registries that are in this network. Endpoints
-from these registries will be directly reachable to one another.
-The names of the registries should correspond to the data sources.</p>
+<p>REQUIRED: The list of endpoints in the network (obtained through the
+constituent service registries or from CIDR ranges). All endpoints in
+the network are directly accessible to one another.</p>
 
 </td>
 </tr>
@@ -299,6 +329,8 @@ The names of the registries should correspond to the data sources.</p>
 <td><code>gateways</code></td>
 <td><code><a href="#Network-IstioNetworkGateway">Network.IstioNetworkGateway[]</a></code></td>
 <td>
+<p>REQUIRED: Set of gateways associated with the network.</p>
+
 </td>
 </tr>
 </tbody>
@@ -345,7 +377,7 @@ istio-ingressgateway.istio-system.svc.cluster.local.</p>
 <td><code>port</code></td>
 <td><code>uint32</code></td>
 <td>
-<p>The port associated with the gateway.</p>
+<p>REQUIRED: The port associated with the gateway.</p>
 
 </td>
 </tr>
@@ -354,6 +386,63 @@ istio-ingressgateway.istio-system.svc.cluster.local.</p>
 <td><code>string</code></td>
 <td>
 <p>The locality associated with an explicitly specified gateway (i.e. ip)</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Network-NetworkEndpoints">Network.NetworkEndpoints</h2>
+<section>
+<p>NetworkEndpoints describes how the network associated with an endpoint
+should be inferred. An endpoint will be assigned to a network based on
+the following rules:</p>
+
+<ol>
+<li><p>Implicitly: If the registry explicitly provides information about
+the network to which the endpoint belongs to. In some cases, its
+possible to indicate the network associated with the endpoint by
+adding ISTIO<em>META</em>NETWORK environment variable to the sidecar.</p></li>
+
+<li><p>Explicitly:</p></li>
+</ol>
+
+<p>a. By matching the registry name with one of the &ldquo;from<em>registries&rdquo;
+   in the mesh config. A &ldquo;from</em>registry&rdquo; can only be assinged to a
+   single network.</p>
+
+<p>b. By matching the IP against one of the CIDR ranges in a mesh
+   config network. The CIDR ranges must not overlap and be assigned to
+   a single network.</p>
+
+<p>(2) will override (1) if both are present.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Network-NetworkEndpoints-from_cidr" class="oneof oneof-start">
+<td><code>fromCidr</code></td>
+<td><code>string (oneof)</code></td>
+<td>
+<p>A CIDR range for the set of endpoints in this network. The CIDR
+ranges for endpoints from different networks must not overlap.</p>
+
+</td>
+</tr>
+<tr id="Network-NetworkEndpoints-from_registry" class="oneof">
+<td><code>fromRegistry</code></td>
+<td><code>string (oneof)</code></td>
+<td>
+<p>Add all endpoints from the specified registry into this network.
+The names of the registries should correspond to the secret name
+that was used to configure the registry (kubernetes multicluster) or
+supplied by MCP server.</p>
 
 </td>
 </tr>
