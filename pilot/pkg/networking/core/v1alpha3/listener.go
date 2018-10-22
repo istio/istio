@@ -357,7 +357,6 @@ func protocolName(p model.Protocol) string {
 
 type outboundListenerConflict struct {
 	metric          *model.PushMetric
-	env             *model.Environment
 	node            *model.Proxy
 	listenerName    string
 	currentProtocol model.Protocol
@@ -440,7 +439,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 					if !currentListenerEntry.servicePort.Protocol.IsHTTP() {
 						outboundListenerConflict{
 							metric:          model.ProxyStatusConflictOutboundListenerTCPOverHTTP,
-							env:             env,
 							node:            node,
 							listenerName:    listenerMapKey,
 							currentServices: currentListenerEntry.services,
@@ -498,7 +496,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 					if !currentListenerEntry.servicePort.Protocol.IsTCP() {
 						outboundListenerConflict{
 							metric:          model.ProxyStatusConflictOutboundListenerHTTPOverTCP,
-							env:             env,
 							node:            node,
 							listenerName:    listenerMapKey,
 							currentServices: currentListenerEntry.services,
@@ -584,7 +581,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 								conflictFound = true
 								outboundListenerConflict{
 									metric:          model.ProxyStatusConflictOutboundListenerTCPOverTCP,
-									env:             env,
 									node:            node,
 									listenerName:    listenerMapKey,
 									currentServices: currentListenerEntry.services,
@@ -606,7 +602,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 							conflictFound = true
 							outboundListenerConflict{
 								metric:          model.ProxyStatusConflictOutboundListenerTCPOverTCP,
-								env:             env,
 								node:            node,
 								listenerName:    listenerMapKey,
 								currentServices: currentListenerEntry.services,
