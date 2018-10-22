@@ -411,14 +411,14 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 	configs := push.VirtualServices(meshGateway)
 
 	var tcpListeners, httpListeners []*xdsapi.Listener
-	// For conflicit resolution
-	var currentListenerEntry *listenerEntry
+	// For conflict resolution
 	listenerMap := make(map[string]*listenerEntry)
 	for _, service := range services {
 		for _, servicePort := range service.Ports {
 			listenAddress := WildcardAddress
 			var destinationIPAddress string
 			var listenerMapKey string
+			var currentListenerEntry *listenerEntry
 			listenerOpts := buildListenerOpts{
 				env:            env,
 				proxy:          node,
@@ -427,8 +427,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 				port:           servicePort.Port,
 				protocol:       servicePort.Protocol,
 			}
-
-			currentListenerEntry = nil
 
 			switch plugin.ModelProtocolToListenerProtocol(servicePort.Protocol) {
 			case plugin.ListenerProtocolHTTP:
@@ -521,7 +519,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 				listenerOpts.filterChainOpts = buildSidecarOutboundTCPTLSFilterChainOpts(env, node, push, configs,
 					destinationIPAddress, service, servicePort, proxyLabels, meshGateway)
 			default:
-				// UDP or other protocols: no need to log, it's too noisy
+				log.Warnf("Unsupported inbound protocol for port %#v", servicePort)
 				continue
 			}
 
@@ -844,9 +842,7 @@ func buildHTTPConnectionManager(env *model.Environment, node *model.Proxy, httpO
 // buildListener builds and initializes a Listener proto based on the provided opts. It does not set any filters.
 func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 	filterChains := make([]listener.FilterChain, 0, len(opts.filterChainOpts))
-
-	// TODO(incfly): consider changing this to map to handle duplicated listener filters from different chains?
-	var listenerFilters []listener.ListenerFilter
+	listenerFiltersMap := make(map[string]listener.ListenerFilter)
 
 	// add a TLS inspector if we need to detect ServerName or ALPN
 	needTLSInspector := false
@@ -858,11 +854,15 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 		}
 	}
 	if needTLSInspector {
-		listenerFilters = append(listenerFilters, listener.ListenerFilter{Name: envoyListenerTLSInspector})
+		listenerFiltersMap[envoyListenerTLSInspector] = listener.ListenerFilter{Name: envoyListenerTLSInspector}
 	}
 
 	for _, chain := range opts.filterChainOpts {
-		listenerFilters = append(listenerFilters, chain.listenerFilters...)
+		for _, filter := range chain.listenerFilters {
+			if _, exist := listenerFiltersMap[filter.Name]; !exist {
+				listenerFiltersMap[filter.Name] = filter
+			}
+		}
 		match := &listener.FilterChainMatch{}
 		needMatch := false
 		if chain.match != nil {
@@ -913,6 +913,11 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 		}
 	}
 
+	var listenerFilters []listener.ListenerFilter
+	for _, filter := range listenerFiltersMap {
+		listenerFilters = append(listenerFilters, filter)
+	}
+
 	return &xdsapi.Listener{
 		Name:            fmt.Sprintf("%s_%d", opts.ip, opts.port),
 		Address:         util.BuildAddress(opts.ip, uint32(opts.port)),
@@ -944,9 +949,7 @@ func marshalFilters(l *xdsapi.Listener, opts buildListenerOpts, chains []plugin.
 			l.FilterChains[i].Filters = append(l.FilterChains[i].Filters, opt.networkFilters...)
 		}
 
-		if log.DebugEnabled() {
-			log.Debugf("attached %d network filters to listener %q filter chain %d", len(chain.TCP)+len(opt.networkFilters), l.Name, i)
-		}
+		log.Debugf("attached %d network filters to listener %q filter chain %d", len(chain.TCP)+len(opt.networkFilters), l.Name, i)
 
 		if opt.httpOpts != nil {
 			opt.httpOpts.statPrefix = l.Name
@@ -955,7 +958,7 @@ func marshalFilters(l *xdsapi.Listener, opts buildListenerOpts, chains []plugin.
 				Name:   xdsutil.HTTPConnectionManager,
 				Config: util.MessageToStruct(connectionManager),
 			})
-			log.Debugf("attached HTTP filter with %d http_filter options to listener %q filter chain %d", 1+len(chain.HTTP), l.Name, i)
+			log.Debugf("attached HTTP filter with %d http_filter options to listener %q filter chain %d", len(connectionManager.HttpFilters), l.Name, i)
 		}
 	}
 	return nil
