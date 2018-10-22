@@ -184,7 +184,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 			proxyInstances: proxyInstances,
 			ip:             listenAddress,
 			port:           int(mesh.ProxyHttpPort),
-			protocol:       model.ProtocolHTTP,
 			filterChainOpts: []*filterChainOpts{{
 				httpOpts: &httpListenerOpts{
 					rds:              RDSHttpProxy,
@@ -239,7 +238,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 			proxyInstances: proxyInstances,
 			ip:             endpoint.Address,
 			port:           endpoint.Port,
-			protocol:       protocol,
 		}
 
 		listenerMapKey := fmt.Sprintf("%s:%d", endpoint.Address, endpoint.Port)
@@ -424,7 +422,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 				proxyInstances: proxyInstances,
 				ip:             WildcardAddress,
 				port:           servicePort.Port,
-				protocol:       servicePort.Protocol,
 			}
 
 			switch plugin.ModelProtocolToListenerProtocol(servicePort.Protocol) {
@@ -452,15 +449,11 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 					continue
 				}
 
-				operation := http_conn.EGRESS
-				useRemoteAddress := false
-
-				listenerOpts.protocol = servicePort.Protocol
 				listenerOpts.filterChainOpts = []*filterChainOpts{{
 					httpOpts: &httpListenerOpts{
 						rds:              fmt.Sprintf("%d", servicePort.Port),
-						useRemoteAddress: useRemoteAddress,
-						direction:        operation,
+						useRemoteAddress: false,
+						direction:        http_conn.EGRESS,
 					},
 				}}
 			case plugin.ListenerProtocolTCP:
@@ -695,9 +688,8 @@ func buildSidecarInboundMgmtListeners(env *model.Environment, managementPorts mo
 				},
 			}
 			listenerOpts := buildListenerOpts{
-				ip:       managementIP,
-				port:     mPort.Port,
-				protocol: model.ProtocolTCP,
+				ip:   managementIP,
+				port: mPort.Port,
 				filterChainOpts: []*filterChainOpts{{
 					networkFilters: buildInboundNetworkFilters(env, instance),
 				}},
@@ -751,7 +743,6 @@ type buildListenerOpts struct {
 	proxyInstances  []*model.ServiceInstance
 	ip              string
 	port            int
-	protocol        model.Protocol
 	bindToPort      bool
 	filterChainOpts []*filterChainOpts
 }
