@@ -18,26 +18,23 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"os"
 	"strings"
 	"time"
-
-	"istio.io/istio/mixer/pkg/config/crd"
-
-	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc"
 	ot "github.com/opentracing/opentracing-go"
 	"google.golang.org/grpc"
-
-	"os"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/api"
 	"istio.io/istio/mixer/pkg/checkcache"
 	"istio.io/istio/mixer/pkg/config"
+	"istio.io/istio/mixer/pkg/config/crd"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/runtime"

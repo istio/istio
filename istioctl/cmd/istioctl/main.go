@@ -36,9 +36,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/dynamic"
-
-	// import all known client auth plugins
+	"k8s.io/client-go/dynamic" // import all known client auth plugins
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"

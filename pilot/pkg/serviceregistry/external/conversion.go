@@ -17,7 +17,6 @@ package external
 import (
 	"net"
 	"strings"
-
 	"time"
 
 	networking "istio.io/api/networking/v1alpha3"

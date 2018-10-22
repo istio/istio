@@ -21,9 +21,8 @@ import (
 	"testing"
 	"time"
 
-	"k8s.io/apimachinery/pkg/runtime/schema"
-
 	"github.com/gogo/protobuf/proto"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	cfg "istio.io/api/policy/v1beta1"
 )

@@ -27,7 +27,6 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/howeyc/fsnotify"
-
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 	"k8s.io/api/admissionregistration/v1beta1"
 	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"

@@ -6,9 +6,8 @@ import (
 
 	"code.cloudfoundry.org/copilot/api"
 	"golang.org/x/net/context"
-	"google.golang.org/grpc"
+	"google.golang.org/grpc" // manually added this space to satisfy goimports -d --local istio.io
 
-	// manually added this space to satisfy goimports -d --local istio.io
 	"istio.io/istio/pilot/pkg/config/monitor"
 )
 

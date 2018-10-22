@@ -17,12 +17,11 @@ package kube
 import (
 	"reflect"
 	"testing"
+	"time"
 
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-
-	"time"
 
 	"istio.io/istio/pilot/pkg/model"
 )

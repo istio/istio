@@ -18,10 +18,9 @@ import (
 	"testing"
 
 	"github.com/gogo/protobuf/types"
-
-	"istio.io/istio/galley/pkg/runtime/resource"
-	// Pull in gogo & golang Empty
 	_ "github.com/golang/protobuf/ptypes/empty"
+
+	"istio.io/istio/galley/pkg/runtime/resource" // Pull in gogo & golang Empty
 )
 
 func TestState_Apply_Add(t *testing.T) {

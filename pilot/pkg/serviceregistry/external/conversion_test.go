@@ -18,7 +18,6 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
-
 	"time"
 
 	networking "istio.io/api/networking/v1alpha3"

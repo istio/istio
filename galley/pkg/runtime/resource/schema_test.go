@@ -21,10 +21,8 @@ import (
 	"testing"
 
 	pgogo "github.com/gogo/protobuf/proto"
-	plang "github.com/golang/protobuf/proto"
-
-	// Pull in gogo & golang Empty
 	_ "github.com/gogo/protobuf/types"
+	plang "github.com/golang/protobuf/proto" // Pull in gogo & golang Empty
 	_ "github.com/golang/protobuf/ptypes/empty"
 )
 

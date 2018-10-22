@@ -22,15 +22,13 @@ import (
 
 	multierror "github.com/hashicorp/go-multierror"
 	"k8s.io/client-go/kubernetes"
+	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp" // import OIDC cluster authentication plugin, e.g. for Tectonic
+	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
-	"istio.io/istio/pkg/log"
-	// import GKE cluster authentication plugin
-	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-	// import OIDC cluster authentication plugin, e.g. for Tectonic
-	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
+	"istio.io/istio/pkg/log" // import GKE cluster authentication plugin
 )
 
 // ResolveConfig checks whether to use the in-cluster or out-of-cluster config

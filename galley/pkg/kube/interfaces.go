@@ -21,11 +21,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
-
-	// import GKE cluster authentication plugin
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd" // import GKE cluster authentication plugin
 )
 
 // Interfaces interface allows access to the Kubernetes API Service methods. It is mainly used for

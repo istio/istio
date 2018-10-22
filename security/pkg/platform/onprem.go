@@ -20,11 +20,10 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strings"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-
-	"strings"
 
 	"istio.io/istio/security/pkg/pki/util"
 )

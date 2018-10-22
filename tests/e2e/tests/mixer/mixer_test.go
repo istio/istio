@@ -34,10 +34,7 @@ import (
 	"github.com/prometheus/client_golang/api"
 	"github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
-
-	"istio.io/fortio/fhttp"
-
-	// flog "istio.io/fortio/log"
+	"istio.io/fortio/fhttp" // flog "istio.io/fortio/log"
 	"istio.io/fortio/periodic"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/e2e/framework"

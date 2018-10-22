@@ -21,9 +21,8 @@ import (
 	"sync"
 	"time"
 
-	"k8s.io/apimachinery/pkg/runtime/schema"
-
 	"github.com/gogo/protobuf/proto"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/probe"

@@ -15,12 +15,11 @@
 package v1alpha3
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-
-	"fmt"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
