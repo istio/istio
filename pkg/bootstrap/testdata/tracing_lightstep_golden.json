@@ -124,7 +124,9 @@
         
         "tls_context": {
           "common_tls_context": {
-            "alpn_protocols": "h2",
+            "alpn_protocols": [
+              "h2"
+            ],
             "validation_context": {
               "trusted_ca": {
                 "filename": "/etc/lightstep/cacert.pem"
@@ -150,7 +152,7 @@
           "socket_address": {
             "protocol": "TCP",
             "address": "0.0.0.0",
-            "port_value": 15090,
+            "port_value": 15090
           }
         },
         "filter_chains": [

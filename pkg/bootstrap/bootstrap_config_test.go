@@ -112,7 +112,7 @@ func TestGolden(t *testing.T) {
 			}
 
 			// re-read generated file with the changes having been made
-			data, err = ioutil.ReadFile(fn)
+			real, err = ioutil.ReadFile(fn)
 			if err != nil {
 				t.Error("Error reading generated file ", err)
 				return

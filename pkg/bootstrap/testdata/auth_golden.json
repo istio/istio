@@ -101,7 +101,7 @@
                 "private_key": {
                   "filename": "/etc/certs/key.pem"
                 }
-              },
+              }
             ],
             "validation_context": {
               "trusted_ca": {
@@ -150,7 +150,7 @@
           "socket_address": {
             "protocol": "TCP",
             "address": "0.0.0.0",
-            "port_value": 15090,
+            "port_value": 15090
           }
         },
         "filter_chains": [
