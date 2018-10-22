@@ -36,14 +36,8 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	"k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-
 	mcpapi "istio.io/api/mcp/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
-
 	_ "istio.io/istio/galley/pkg/metadata" // TODO: why do we need this ?
 	"istio.io/istio/pilot/cmd"
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
@@ -72,11 +66,18 @@ import (
 	"istio.io/istio/pkg/mcp/configz"
 	"istio.io/istio/pkg/mcp/creds"
 	"istio.io/istio/pkg/version" // Import the resource package to pull in all proto types.
+	"k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 )
 
 const (
 	// ConfigMapKey should match the expected MeshConfig file name
 	ConfigMapKey = "mesh"
+
+	// MeshNetworksConfigMapKey should match the expected MeshNetworks config file name
+	MeshNetworksConfigMapKey = "meshNetworks"
 
 	requiredMCPCertCheckFreq = 500 * time.Millisecond
 
@@ -153,6 +154,8 @@ type PilotArgs struct {
 	Config               ConfigArgs
 	Service              ServiceArgs
 	MeshConfig           *meshconfig.MeshConfig
+	NetworksConfigFile   string
+	MeshNetworks         *meshconfig.MeshNetworks
 	CtrlZOptions         *ctrlz.Options
 	Plugins              []string
 	MCPServerAddrs       []string
@@ -172,6 +175,7 @@ type Server struct {
 	ServiceController *aggregate.Controller
 
 	mesh             *meshconfig.MeshConfig
+	meshNetworks     *meshconfig.MeshNetworks
 	configController model.ConfigStoreCache
 	mixerSAN         []string
 	kubeClient       kubernetes.Interface
@@ -207,6 +211,9 @@ func NewServer(args PilotArgs) (*Server, error) {
 		return nil, err
 	}
 	if err := s.initMesh(&args); err != nil {
+		return nil, err
+	}
+	if err := s.initMeshNetworks(&args); err != nil {
 		return nil, err
 	}
 	if err := s.initMixerSan(&args); err != nil {
@@ -325,6 +332,40 @@ func GetMeshConfig(kube kubernetes.Interface, namespace, name string) (*v1.Confi
 	return config, mesh, nil
 }
 
+// GetMeshNetworks fetches the MeshNetworks configuration from Kubernetes ConfigMap.
+func GetMeshNetworks(kube kubernetes.Interface, namespace, name string) (*v1.ConfigMap, *meshconfig.MeshNetworks, error) {
+
+	if kube == nil {
+		defaultMeshNetworks := model.EmptyMeshNetworks()
+		return nil, &defaultMeshNetworks, nil
+	}
+
+	config, err := kube.CoreV1().ConfigMaps(namespace).Get(name, meta_v1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			defaultMeshNetworks := model.EmptyMeshNetworks()
+			return nil, &defaultMeshNetworks, nil
+		}
+		return nil, nil, err
+	}
+
+	// values in the data are strings, while proto might use a different data type.
+	// therefore, we have to get a value by a key
+	cfgYaml, exists := config.Data[MeshNetworksConfigMapKey]
+	if !exists {
+		return nil, nil, fmt.Errorf("missing configuration map key %q", MeshNetworksConfigMapKey)
+	}
+
+	mesh, err := model.LoadMeshNetworksConfig(cfgYaml)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// TODO Add watcher to track changes in the config map file and re-load it
+
+	return config, mesh, nil
+}
+
 // initMesh creates the mesh in the pilotConfig from the input arguments.
 func (s *Server) initMesh(args *PilotArgs) error {
 	// If a config file was specified, use it.
@@ -361,6 +402,35 @@ func (s *Server) initMesh(args *PilotArgs) error {
 	log.Infof("flags %s", spew.Sdump(args))
 
 	s.mesh = mesh
+	return nil
+}
+
+// initMeshNetworks creates the meshNetworks in the pilotConfig from the input arguments.
+func (s *Server) initMeshNetworks(args *PilotArgs) error {
+	// If a config file was specified, use it.
+	if args.MeshNetworks != nil {
+		s.meshNetworks = args.MeshNetworks
+		return nil
+	}
+	var meshNetworks *meshconfig.MeshNetworks
+	var err error
+
+	if args.NetworksConfigFile != "" {
+		meshNetworks, err = cmd.ReadMeshNetworksConfig(args.NetworksConfigFile)
+		if err != nil {
+			log.Warnf("failed to read mesh networks configuration, using default: %v", err)
+		}
+	}
+
+	// Config file either wasn't specified or failed to load - use a default
+	if _, meshNetworks, err = GetMeshNetworks(s.kubeClient, kube.IstioNamespace, kube.IstioNetworksConfigMap); err != nil {
+		log.Warnf("failed to read mesh networks configuration: %v", err)
+		return err
+	}
+
+	log.Infof("mesh networks configuration %s", spew.Sdump(meshNetworks))
+
+	s.meshNetworks = meshNetworks
 	return nil
 }
 
@@ -720,6 +790,7 @@ func (s *Server) initConfigRegistry(serviceControllers *aggregate.Controller) {
 func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	environment := &model.Environment{
 		Mesh:             s.mesh,
+		MeshNetworks:     s.meshNetworks,
 		IstioConfigStore: s.istioConfigStore,
 		ServiceDiscovery: s.ServiceController,
 		ServiceAccounts:  s.ServiceController,

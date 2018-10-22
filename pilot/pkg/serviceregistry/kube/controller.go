@@ -24,16 +24,16 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/features/pilot"
+	"istio.io/istio/pkg/log"
 	"k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
-
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/features/pilot"
-	"istio.io/istio/pkg/log"
 )
 
 const (
@@ -45,6 +45,8 @@ const (
 	IstioNamespace = "istio-system"
 	// IstioConfigMap is used by default
 	IstioConfigMap = "istio"
+	// IstioNetworksConfigMap is the config map name for mesh networks configuration
+	IstioNetworksConfigMap = "istio-networks"
 	// PrometheusScrape is the annotation used by prometheus to determine if service metrics should be scraped (collected)
 	PrometheusScrape = "prometheus.io/scrape"
 	// PrometheusPort is the annotation used to explicitly specify the port to use for scraping metrics
@@ -444,6 +446,21 @@ func (c *Controller) InstancesByPort(hostname model.Hostname, reqSvcPort int,
 						uid = fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
 					}
 
+					// find in the MeshNetworks configuration what's the network
+					var network string
+					if c.Env.MeshNetworks != nil {
+						for n, v := range c.Env.MeshNetworks.Networks {
+							for _, ep := range v.Endpoints {
+								if ep.GetFromRegistry() == c.ClusterID {
+									network = n
+								}
+								if util.CidrContainsIP(ep.GetFromCidr(), ea.IP) {
+									network = n
+								}
+							}
+						}
+					}
+
 					// identify the port by name. K8S EndpointPort uses the service port name
 					for _, port := range ss.Ports {
 						if port.Name == "" || // 'name optional if single port is defined'
@@ -455,6 +472,7 @@ func (c *Controller) InstancesByPort(hostname model.Hostname, reqSvcPort int,
 									Port:        int(port.Port),
 									ServicePort: svcPortEntry,
 									UID:         uid,
+									Network:     network,
 								},
 								Service:          svc,
 								Labels:           labels,

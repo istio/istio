@@ -17,6 +17,7 @@ package v2
 import (
 	"context"
 	"errors"
+	"net"
 	"reflect"
 	"strconv"
 	"sync"
@@ -28,7 +29,6 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	"github.com/gogo/protobuf/types"
 	"github.com/prometheus/client_golang/prometheus"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
@@ -57,12 +57,20 @@ import (
 // TODO: efficient label processing. In alpha3, the destination policies are set per service, so
 // we may only need to search in a small list.
 
+// FilterFunc is a function that filteres data from the ClusterLoadAssignment and returns updated one
+type FilterFunc func(cla *xdsapi.ClusterLoadAssignment, con *XdsConnection, env *model.Environment) *xdsapi.ClusterLoadAssignment
+
 var (
 	edsClusterMutex sync.RWMutex
 	edsClusters     = map[string]*EdsCluster{}
 
 	// Tracks connections, increment on each new connection.
 	connectionNumber = int64(0)
+
+	// Ordered list of functions to apply to EDS just before pushing it
+	filterFuncs = []FilterFunc{
+		networkFilter, // A filter to support Split Horizon EDS
+	}
 )
 
 // EdsCluster tracks eds-related info for monitored clusters. In practice it'll include
@@ -169,16 +177,22 @@ func networkEndpointToEnvoyEndpoint(e *model.NetworkEndpoint) (*endpoint.LbEndpo
 
 	// Istio telemetry depends on the metadata value being set for endpoints in the mesh.
 	// Do not remove: mixerfilter depends on this logic.
-	if e.UID != "" {
+	if e.UID != "" || e.Network != "" {
 		ep.Metadata = &core.Metadata{
 			FilterMetadata: map[string]*types.Struct{
 				"istio": {
-					Fields: map[string]*types.Value{
-						"uid": {Kind: &types.Value_StringValue{StringValue: e.UID}},
-					},
+					Fields: map[string]*types.Value{},
 				},
 			},
 		}
+	}
+
+	if e.UID != "" {
+		ep.Metadata.FilterMetadata["istio"].Fields["uid"] = &types.Value{Kind: &types.Value_StringValue{StringValue: e.UID}}
+	}
+
+	if e.Network != "" {
+		ep.Metadata.FilterMetadata["istio"].Fields["network"] = &types.Value{Kind: &types.Value_StringValue{StringValue: e.Network}}
 	}
 
 	//log.Infoa("EDS: endpoint ", ipAddr, ep.String())
@@ -619,6 +633,10 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection,
 			}
 			l = loadAssignment(c)
 		}
+
+		// Apply registered filter functions
+		l = s.applyFilterFuncs(l, con)
+
 		endpoints += len(l.Endpoints)
 		if len(l.Endpoints) == 0 {
 			emptyClusters++
@@ -649,6 +667,139 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection,
 			con.ConID, len(con.Clusters), endpoints, emptyClusters)
 	}
 	return nil
+}
+
+// Apply filter functions listed in the 'filterFuncs' one after the other
+func (s *DiscoveryServer) applyFilterFuncs(cla *xdsapi.ClusterLoadAssignment, con *XdsConnection) *xdsapi.ClusterLoadAssignment {
+	filtered := cla
+	for _, ff := range filterFuncs {
+		filtered = ff(filtered, con, s.Env)
+	}
+	return filtered
+}
+
+// This is a network filter function to support Split Horizon EDS - filter the endpoints based on the network
+// of the connected sidecar. The filter will filter out all endpoints which are not present within the
+// sidecar network and add a gateway endpoint to remote networks that have endpoints (if gateway exists).
+// Information for the mesh networks is provided as a MeshNetwork config map.
+func networkFilter(cla *xdsapi.ClusterLoadAssignment, con *XdsConnection, env *model.Environment) *xdsapi.ClusterLoadAssignment {
+	// If the sidecar does not specify a network, ignore Split Horizon EDS and return all
+	conNetwork, found := con.modelNode.Metadata["ISTIO_NETWORK"]
+	if !found {
+
+		// TODO: try to get the network by querying the service registry to get the
+		// network from its endpoint
+
+		// Couldn't find the sidecar network
+		return cla
+	}
+
+	// A new ClusterLoadAssignment to return that will have both local and
+	// remote gateways (if any)
+	filteredCLA := &xdsapi.ClusterLoadAssignment{
+		ClusterName: cla.ClusterName,
+		Endpoints:   []endpoint.LocalityLbEndpoints{},
+		Policy:      cla.Policy,
+	}
+
+	// Weight (number of endpoints) for the EDS cluster for each remote networks
+	remoteEps := map[string]uint32{}
+
+	// Go through all cluster endpoints and add those with the same network as the sidecar
+	// to the result. Also count the number of endpoints per each remote network while
+	// iterating so that it can be used as the weight for the gateway endpoint
+	for _, ep := range cla.Endpoints {
+		onlyLocalLbEndpoints := []endpoint.LbEndpoint{}
+		foundRemote := false
+		for _, lbEp := range ep.LbEndpoints {
+			epNetwork := ""
+			if lbEp.Metadata != nil && lbEp.Metadata.FilterMetadata["istio"] != nil &&
+				lbEp.Metadata.FilterMetadata["istio"].Fields != nil &&
+				lbEp.Metadata.FilterMetadata["istio"].Fields["network"] != nil {
+				epNetwork = lbEp.Metadata.FilterMetadata["istio"].Fields["network"].GetStringValue()
+			}
+			if epNetwork == conNetwork {
+				// This is a local endpoint
+				onlyLocalLbEndpoints = append(onlyLocalLbEndpoints, lbEp)
+			} else {
+				// Remote endpoint. Increase the weight counter
+				remoteEps[epNetwork]++
+				foundRemote = true
+			}
+		}
+
+		if !foundRemote {
+			// This LocalityLbEndpoints has no remote endpoints so just
+			// add it to the result
+			filteredCLA.Endpoints = append(filteredCLA.Endpoints, ep)
+		} else {
+			// This LocalityLbEndpoints has remote endpoint so add to the result
+			// a new one that holds only local endpoints
+			newEp := endpoint.LocalityLbEndpoints{
+				Locality:            ep.Locality,
+				LbEndpoints:         onlyLocalLbEndpoints,
+				LoadBalancingWeight: ep.LoadBalancingWeight,
+				Priority:            ep.Priority,
+			}
+			filteredCLA.Endpoints = append(filteredCLA.Endpoints, newEp)
+		}
+	}
+
+	// If there is no MeshNetworks configuration, we don't have gateways information
+	// so just return the filtered results (with no remote endpoints)
+	if env.MeshNetworks == nil {
+		return filteredCLA
+	}
+
+	// Iterate over all networks that have the cluster endpoint (weight>0) and
+	// for each one of those add a new endpoint that points to the network's
+	// gateway with the relevant weight
+	for n, w := range remoteEps {
+		networkConf, found := env.MeshNetworks.Networks[n]
+		if !found {
+			continue
+		}
+		gws := networkConf.Gateways
+		if len(gws) == 0 {
+			continue
+		}
+
+		// There may be multiple gateways for the network. Add an LbEndpoint for
+		// each one of them
+		gwEndpoints := []endpoint.LbEndpoint{}
+		for _, gw := range gws {
+			// If the gateway address is DNS we can't add it to the endpoints
+			if gwIP := net.ParseIP(gw.GetAddress()); gwIP != nil {
+				addr := util.BuildAddress(gw.GetAddress(), gw.Port)
+				gwEp := endpoint.LbEndpoint{
+					Endpoint: &endpoint.Endpoint{
+						Address: &addr,
+					},
+				}
+				gwEndpoints = append(gwEndpoints, gwEp)
+			}
+
+			if gw.GetRegistryServiceName() != "" {
+				//TODO add support for getting the gateway address from the service registry
+			}
+		}
+
+		// No endpoints for this gatway, don't add it
+		if len(gwEndpoints) == 0 {
+			continue
+		}
+
+		// Create the gateway endpoint and add it to the CLA
+		gwLocEp := endpoint.LocalityLbEndpoints{
+			LbEndpoints: gwEndpoints,
+			LoadBalancingWeight: &types.UInt32Value{
+				Value: uint32(w),
+			},
+		}
+		filteredCLA.Endpoints = append(filteredCLA.Endpoints, gwLocEp)
+	}
+
+	return filteredCLA
 }
 
 // addEdsCon will track the eds connection with clusters, for optimized event-based push and debug
