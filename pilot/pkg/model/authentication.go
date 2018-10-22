@@ -17,7 +17,6 @@ package model
 import (
 	"fmt"
 	"net/url"
-	"os"
 	"strconv"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
@@ -69,7 +68,7 @@ func GetConsolidateAuthenticationPolicy(store IstioConfigStore, service *Service
 }
 
 // ConstructSdsSecretConfig constructs SDS Sececret Configuration.
-func ConstructSdsSecretConfig(name, sdsUdsPath, tokenMountFileName string) *auth.SdsSecretConfig {
+func ConstructSdsSecretConfig(name, sdsUdsPath, tokenMountFileName string, enableSdsTokenMount bool) *auth.SdsSecretConfig {
 	if name == "" || sdsUdsPath == "" {
 		return nil
 	}
@@ -84,7 +83,7 @@ func ConstructSdsSecretConfig(name, sdsUdsPath, tokenMountFileName string) *auth
 		},
 	}
 
-	if _, err := os.Stat(tokenMountFileName); err == nil {
+	if enableSdsTokenMount {
 		// If k8s sa jwt token volume mount file exists, envoy only handles plugin credentials.
 		tokenMountConfig := &v2alpha.FileBasedMetadataConfig{
 			SecretData: &core.DataSource{
