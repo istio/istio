@@ -129,7 +129,7 @@ func DefaultArgs() *Args {
 		EnableProfiling:        true,
 		NumCheckCacheEntries:   5000 * 5 * 60, // 5000 QPS with average TTL of 5 minutes
 		UseAdapterCRDs:         true,
-		LoadSheddingOptions:    loadshedding.DefaultOptions,
+		LoadSheddingOptions:    loadshedding.DefaultOptions(),
 	}
 }
 

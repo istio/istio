@@ -52,7 +52,7 @@ type (
 	Throttler struct {
 		mode       ThrottlerMode
 		evaluators map[string]LoadEvaluator
-		thresholds map[string][]float64
+		thresholds map[string]float64
 	}
 )
 
@@ -94,7 +94,7 @@ func NewThrottler(opts Options) *Throttler {
 	t := &Throttler{
 		mode:       opts.Mode,
 		evaluators: make(map[string]LoadEvaluator),
-		thresholds: make(map[string][]float64),
+		thresholds: make(map[string]float64),
 	}
 
 	if t.mode == Disabled {
@@ -106,13 +106,13 @@ func NewThrottler(opts Options) *Throttler {
 	if opts.AverageLatencyThreshold > 0 {
 		e := NewGRPCLatencyEvaluator(opts.SamplesPerSecond, opts.SampleHalfLife)
 		t.evaluators[e.Name()] = e
-		t.thresholds[e.Name()] = append(t.thresholds[e.Name()], opts.AverageLatencyThreshold.Seconds())
+		t.thresholds[e.Name()] = opts.AverageLatencyThreshold.Seconds()
 	}
 
 	if opts.MaxRequestsPerSecond > 0 {
 		e := NewRateLimitEvaluator(opts.MaxRequestsPerSecond, opts.BurstSize)
 		t.evaluators[e.Name()] = e
-		t.thresholds[e.Name()] = append(t.thresholds[e.Name()], float64(opts.MaxRequestsPerSecond))
+		t.thresholds[e.Name()] = float64(opts.MaxRequestsPerSecond)
 	}
 
 	scope.Debugf("Built Throttler(%#v) from opts(%#v)", t, opts)
@@ -132,21 +132,22 @@ func (t *Throttler) Throttle(ri RequestInfo) bool {
 	if t.mode == Disabled {
 		return false
 	}
-
 	for _, e := range t.evaluators {
-		for _, thres := range t.thresholds[e.Name()] {
-			scope.Debugf("Evaluating load with %s against threshold %f", e.Name(), thres)
-			eval := e.EvaluateAgainst(ri, thres)
-			if ShouldThrottle(eval) {
-				msg := fmt.Sprintf("Throttled (%s): '%s'", e.Name(), eval.Message)
-				if t.mode == LogOnly {
-					scope.Infoa("LogOnly - ", msg)
-					continue
-				}
-				stats.Record(context.Background(), throttled.M(1))
-				scope.Warn(msg)
-				return true
+		thres, found := t.thresholds[e.Name()]
+		if !found {
+			continue
+		}
+		scope.Debugf("Evaluating load with %s against threshold %f", e.Name(), thres)
+		eval := e.EvaluateAgainst(ri, thres)
+		if ThresholdExceeded(eval) {
+			msg := fmt.Sprintf("Throttled (%s): '%s'", e.Name(), eval.Message)
+			if t.mode == LogOnly {
+				scope.Infoa("LogOnly - ", msg)
+				continue
 			}
+			stats.Record(context.Background(), throttled.M(1))
+			scope.Warn(msg)
+			return true
 		}
 	}
 	return false

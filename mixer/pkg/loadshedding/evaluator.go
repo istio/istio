@@ -35,8 +35,8 @@ type LoadEvaluation struct {
 	Message string
 }
 
-// ShouldThrottle determines if a load evaluation status is `ExceedsThreshold`.
-func ShouldThrottle(eval LoadEvaluation) bool {
+// ThresholdExceeded determines if a load evaluation status is `ExceedsThreshold`.
+func ThresholdExceeded(eval LoadEvaluation) bool {
 	return eval.Status == ExceedsThreshold
 }
 

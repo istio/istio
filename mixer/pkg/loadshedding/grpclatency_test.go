@@ -75,13 +75,13 @@ func TestEvaluateAgainst_GRPCLatency(t *testing.T) {
 			failingThreshold := 0.5 // simulates a threshold of 0.5 secs (which we should be above)
 
 			le := e.EvaluateAgainst(pc, passingThreshold)
-			if loadshedding.ShouldThrottle(le) {
+			if loadshedding.ThresholdExceeded(le) {
 				tt.Logf("Got: %#v", le)
 				tt.Errorf("EvaluateAgainst(%#v, %f) => Status: %v; wanted %v", pc, passingThreshold, le.Status, loadshedding.BelowThreshold)
 			}
 
 			le = e.EvaluateAgainst(pc, failingThreshold)
-			if !loadshedding.ShouldThrottle(le) {
+			if !loadshedding.ThresholdExceeded(le) {
 				tt.Logf("Got: %#v", le)
 				tt.Errorf("EvaluateAgainst(%#v, %f) => Status: %v; wanted %v", pc, failingThreshold, le.Status, loadshedding.ExceedsThreshold)
 			}
