@@ -119,7 +119,7 @@ func DefaultArgs() *Args {
 		IntrospectionOptions:   ctrlz.DefaultOptions(),
 		EnableProfiling:        true,
 		NumCheckCacheEntries:   5000 * 5 * 60, // 5000 QPS with average TTL of 5 minutes
-		LoadSheddingOptions:    loadshedding.DefaultOptions,
+		LoadSheddingOptions:    loadshedding.DefaultOptions(),
 	}
 }
 

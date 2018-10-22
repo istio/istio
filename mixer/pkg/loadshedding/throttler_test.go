@@ -45,7 +45,23 @@ var (
 		SamplesPerSecond:        rate.Every(1 * time.Nanosecond),
 	}
 
-	grpcLatencyEval = loadshedding.NewGRPCLatencyEvaluator(rate.Every(1*time.Nanosecond), 1*time.Millisecond)
+	hybridOpts = loadshedding.Options{
+		Mode:                    loadshedding.LogOnly,
+		MaxRequestsPerSecond:    maxRPS,
+		BurstSize:               burst,
+		AverageLatencyThreshold: 1 * time.Nanosecond,
+		SampleHalfLife:          1 * time.Millisecond,
+		SamplesPerSecond:        rate.Every(1 * time.Nanosecond),
+	}
+
+	disabledOpts = loadshedding.Options{
+		Mode:                    loadshedding.Disabled,
+		MaxRequestsPerSecond:    maxRPS,
+		BurstSize:               burst,
+		AverageLatencyThreshold: 1 * time.Nanosecond,
+		SampleHalfLife:          1 * time.Millisecond,
+		SamplesPerSecond:        rate.Every(1 * time.Nanosecond),
+	}
 )
 
 type evalComparisonFn func(got loadshedding.LoadEvaluator) bool
@@ -70,6 +86,8 @@ func TestNewThrottler(t *testing.T) {
 		{"default", *loadshedding.DefaultOptions(), evalMap{}},
 		{"rate limit", rateLimitOpts, evalMap{loadshedding.RateLimitEvaluatorName: rateLimitEvalFn}},
 		{"latency", grpcLatencyOpts, evalMap{loadshedding.GRPCLatencyEvaluatorName: latencyEvalFn}},
+		{"hybrid", hybridOpts, evalMap{loadshedding.RateLimitEvaluatorName: rateLimitEvalFn, loadshedding.GRPCLatencyEvaluatorName: latencyEvalFn}},
+		{"disabled mode", disabledOpts, evalMap{}},
 	}
 
 	for _, v := range cases {
@@ -86,4 +104,29 @@ func TestNewThrottler(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestThrottle(t *testing.T) {
+	cases := []struct {
+		name        string
+		opts        loadshedding.Options
+		requestInfo loadshedding.RequestInfo
+		want        bool
+	}{
+		{"disabled", loadshedding.Options{}, pc1, false},
+		{"log-only", loadshedding.Options{Mode: loadshedding.LogOnly, MaxRequestsPerSecond: 1.0, BurstSize: 0}, pc11, false},
+		{"rate-limited", loadshedding.Options{Mode: loadshedding.Enforce, MaxRequestsPerSecond: 1.0, BurstSize: 0}, pc11, true},
+		{"latency (ok)", loadshedding.Options{Mode: loadshedding.Enforce, AverageLatencyThreshold: 1 * time.Nanosecond}, pc11, false},
+	}
+
+	for _, v := range cases {
+		t.Run(v.name, func(tt *testing.T) {
+			thr := loadshedding.NewThrottler(v.opts)
+			got := thr.Throttle(v.requestInfo)
+			if got != v.want {
+				tt.Errorf("Throttle(%#v) => %t; wanted %t", v.requestInfo, got, v.want)
+			}
+		})
+	}
+
 }
