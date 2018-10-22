@@ -30,12 +30,15 @@ import (
 	"github.com/ghodss/yaml"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	"k8s.io/api/core/v1"
 	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/tools/cache"
+	fcache "k8s.io/client-go/tools/cache/testing"
 
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
@@ -100,9 +103,31 @@ var (
 	}
 
 	dummyClient = fake.NewSimpleClientset(dummyDeployment)
+
+	createFakeWebhookSource   = fcache.NewFakeControllerSource
+	createFakeEndpointsSource = func() cache.ListerWatcher {
+		source := fcache.NewFakeControllerSource()
+		source.Add(&v1.Endpoints{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      dummyDeployment.Name,
+				Namespace: dummyDeployment.Namespace,
+			},
+			Subsets: []v1.EndpointSubset{{
+				Addresses: []v1.EndpointAddress{{
+					IP: "1.2.3.4",
+				}},
+			}},
+		})
+		return source
+	}
 )
 
-func createTestWebhook(t testing.TB, cl clientset.Interface, config *admissionregistrationv1beta1.ValidatingWebhookConfiguration) (*Webhook, func()) {
+func createTestWebhook(
+	t testing.TB,
+	cl clientset.Interface,
+	fakeWebhookSource, fakeEndpointSource cache.ListerWatcher,
+	config *admissionregistrationv1beta1.ValidatingWebhookConfiguration) (*Webhook, func()) {
+
 	t.Helper()
 	dir, err := ioutil.TempDir("", "galley_validation_webhook")
 	if err != nil {
@@ -147,22 +172,30 @@ func createTestWebhook(t testing.TB, cl clientset.Interface, config *admissionre
 	}
 
 	options := WebhookParameters{
-		CertFile:            certFile,
-		KeyFile:             keyFile,
-		Port:                port,
-		DomainSuffix:        testDomainSuffix,
-		PilotDescriptor:     mock.Types,
-		MixerValidator:      &fakeValidator{},
-		WebhookConfigFile:   configFile,
-		CACertFile:          caFile,
-		Clientset:           cl,
-		DeploymentName:      dummyDeployment.Name,
-		DeploymentNamespace: dummyDeployment.Namespace,
+		CertFile:                      certFile,
+		KeyFile:                       keyFile,
+		Port:                          port,
+		DomainSuffix:                  testDomainSuffix,
+		PilotDescriptor:               mock.Types,
+		MixerValidator:                &fakeValidator{},
+		WebhookConfigFile:             configFile,
+		CACertFile:                    caFile,
+		Clientset:                     cl,
+		DeploymentName:                dummyDeployment.Name,
+		ServiceName:                   dummyDeployment.Name,
+		DeploymentAndServiceNamespace: dummyDeployment.Namespace,
 	}
 	wh, err := NewWebhook(options)
 	if err != nil {
 		cleanup()
 		t.Fatalf("NewWebhook() failed: %v", err)
+	}
+
+	wh.createInformerWebhookSource = func(cl clientset.Interface, name string) cache.ListerWatcher {
+		return fakeWebhookSource
+	}
+	wh.createInformerEndpointSource = func(cl clientset.Interface, namespace, name string) cache.ListerWatcher {
+		return fakeEndpointSource
 	}
 
 	return wh, func() {
@@ -214,7 +247,7 @@ func TestAdmitPilot(t *testing.T) {
 	valid := makePilotConfig(t, 0, true, true)
 	invalidConfig := makePilotConfig(t, 0, true, false)
 
-	wh, cancel := createTestWebhook(t, dummyClient, dummyConfig)
+	wh, cancel := createTestWebhook(t, dummyClient, createFakeWebhookSource(), createFakeEndpointsSource(), dummyConfig)
 	defer cancel()
 
 	cases := []struct {
@@ -301,7 +334,12 @@ func makeMixerConfig(t *testing.T, i int) []byte {
 
 func TestAdmitMixer(t *testing.T) {
 	rawConfig := makeMixerConfig(t, 0)
-	wh, cancel := createTestWebhook(t, fake.NewSimpleClientset(), dummyConfig)
+	wh, cancel := createTestWebhook(
+		t,
+		fake.NewSimpleClientset(),
+		createFakeWebhookSource(),
+		createFakeEndpointsSource(),
+		dummyConfig)
 	defer cancel()
 
 	cases := []struct {
@@ -440,7 +478,11 @@ func makeTestReview(t *testing.T, valid bool) []byte {
 }
 
 func TestServe(t *testing.T) {
-	wh, cleanup := createTestWebhook(t, fake.NewSimpleClientset(), dummyConfig)
+	wh, cleanup := createTestWebhook(t,
+		fake.NewSimpleClientset(),
+		createFakeWebhookSource(),
+		createFakeEndpointsSource(),
+		dummyConfig)
 	defer cleanup()
 	stop := make(chan struct{})
 	defer func() { close(stop) }()
