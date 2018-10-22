@@ -123,6 +123,14 @@ func (h *handler) HandleAuthorization(ctxt context.Context, instance *authorizat
 		Timestamp: types.TimestampNow(),
 	}
 
+	if auth, ok := instance.Subject.Properties["Authorization"].(string); ok {
+		params.Raw = &access.Raw{
+			Authorization: &access.Raw_Authorization{
+				AsString: auth,
+			},
+		}
+	}
+
 	if v, present := instance.Subject.Properties[keyAPIKey]; present {
 		if s, ok := v.(string); ok {
 			params.Subject.Key = &access.API_Key{

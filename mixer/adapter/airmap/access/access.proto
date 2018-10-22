@@ -40,6 +40,16 @@ message Validity {
   uint64 count                      = 2;  // For how many accesses a result can be considered valid.
 }
 
+// Raw bundles up raw values for post-processing in the adapter.
+message Raw {
+  // Models a raw authorization value.
+  message Authorization {
+    string as_string = 1; // Its string value.
+  }
+
+  Authorization authorization = 1; // The raw authorization value, typically a bearer token.
+}
+
 // Credentials bundles up types and members describing subjects.
 message Credentials {
   // Username models a username.
@@ -130,7 +140,8 @@ message AuthorizeAccessParameters {
 
   Subject subject                     = 1;  // Who tried to access the API.
   Action action                       = 2;  // The specific action on the API.
-  google.protobuf.Timestamp timestamp = 3;  // The time when the access happened.
+  Raw raw                             = 3; // Raw values relevant for verification and auth{z,n}.
+  google.protobuf.Timestamp timestamp = 4;  // The time when the access happened.
 }
 
 // AuthorizeAccessResult bundles up the result of calls to Controller.AuthorizeAccess.

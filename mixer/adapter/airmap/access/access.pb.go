@@ -10,6 +10,7 @@
 	It has these top-level messages:
 		Status
 		Validity
+		Raw
 		Credentials
 		API
 		VerifyAPIKeyParameters
@@ -32,10 +33,8 @@ import strconv "strconv"
 import strings "strings"
 import reflect "reflect"
 
-import (
-	context "golang.org/x/net/context"
-	grpc "google.golang.org/grpc"
-)
+import context "golang.org/x/net/context"
+import grpc "google.golang.org/grpc"
 
 import io "io"
 
@@ -135,6 +134,38 @@ func (m *Validity) GetCount() uint64 {
 	return 0
 }
 
+// Raw bundles up raw values for post-processing in the adapter.
+type Raw struct {
+	Authorization *Raw_Authorization `protobuf:"bytes,1,opt,name=authorization" json:"authorization,omitempty"`
+}
+
+func (m *Raw) Reset()                    { *m = Raw{} }
+func (*Raw) ProtoMessage()               {}
+func (*Raw) Descriptor() ([]byte, []int) { return fileDescriptorAccess, []int{2} }
+
+func (m *Raw) GetAuthorization() *Raw_Authorization {
+	if m != nil {
+		return m.Authorization
+	}
+	return nil
+}
+
+// Models a raw authorization value.
+type Raw_Authorization struct {
+	AsString string `protobuf:"bytes,1,opt,name=as_string,json=asString,proto3" json:"as_string,omitempty"`
+}
+
+func (m *Raw_Authorization) Reset()                    { *m = Raw_Authorization{} }
+func (*Raw_Authorization) ProtoMessage()               {}
+func (*Raw_Authorization) Descriptor() ([]byte, []int) { return fileDescriptorAccess, []int{2, 0} }
+
+func (m *Raw_Authorization) GetAsString() string {
+	if m != nil {
+		return m.AsString
+	}
+	return ""
+}
+
 // Credentials bundles up types and members describing subjects.
 type Credentials struct {
 	Username *Credentials_Username `protobuf:"bytes,1,opt,name=username" json:"username,omitempty"`
@@ -144,7 +175,7 @@ type Credentials struct {
 
 func (m *Credentials) Reset()                    { *m = Credentials{} }
 func (*Credentials) ProtoMessage()               {}
-func (*Credentials) Descriptor() ([]byte, []int) { return fileDescriptorAccess, []int{2} }
+func (*Credentials) Descriptor() ([]byte, []int) { return fileDescriptorAccess, []int{3} }
 
 func (m *Credentials) GetUsername() *Credentials_Username {
 	if m != nil {
@@ -174,7 +205,7 @@ type Credentials_Username struct {
 
 func (m *Credentials_Username) Reset()                    { *m = Credentials_Username{} }
 func (*Credentials_Username) ProtoMessage()               {}
-func (*Credentials_Username) Descriptor() ([]byte, []int) { return fileDescriptorAccess, []int{2, 0} }
+func (*Credentials_Username) Descriptor() ([]byte, []int) { return fileDescriptorAccess, []int{3, 0} }
 
 func (m *Credentials_Username) GetAsString() string {
 	if m != nil {
@@ -190,7 +221,7 @@ type Credentials_Group struct {
 
 func (m *Credentials_Group) Reset()                    { *m = Credentials_Group{} }
 func (*Credentials_Group) ProtoMessage()               {}
-func (*Credentials_Group) Descriptor() ([]byte, []int) { return fileDescriptorAccess, []int{2, 1} }
+func (*Credentials_Group) Descriptor() ([]byte, []int) { return fileDescriptorAccess, []int{3, 1} }
 
 func (m *Credentials_Group) GetAsString() string {
 	if m != nil {
@@ -206,7 +237,7 @@ type Credentials_Password struct {
 
 func (m *Credentials_Password) Reset()                    { *m = Credentials_Password{} }
 func (*Credentials_Password) ProtoMessage()               {}
-func (*Credentials_Password) Descriptor() ([]byte, []int) { return fileDescriptorAccess, []int{2, 2} }
+func (*Credentials_Password) Descriptor() ([]byte, []int) { return fileDescriptorAccess, []int{3, 2} }
 
 func (m *Credentials_Password) GetAsString() string {
 	if m != nil {
@@ -221,7 +252,7 @@ type API struct {
 
 func (m *API) Reset()                    { *m = API{} }
 func (*API) ProtoMessage()               {}
-func (*API) Descriptor() ([]byte, []int) { return fileDescriptorAccess, []int{3} }
+func (*API) Descriptor() ([]byte, []int) { return fileDescriptorAccess, []int{4} }
 
 // Namespace models the namespace that an API lives in.
 type API_Namespace struct {
@@ -230,7 +261,7 @@ type API_Namespace struct {
 
 func (m *API_Namespace) Reset()                    { *m = API_Namespace{} }
 func (*API_Namespace) ProtoMessage()               {}
-func (*API_Namespace) Descriptor() ([]byte, []int) { return fileDescriptorAccess, []int{3, 0} }
+func (*API_Namespace) Descriptor() ([]byte, []int) { return fileDescriptorAccess, []int{4, 0} }
 
 func (m *API_Namespace) GetAsString() string {
 	if m != nil {
@@ -246,7 +277,7 @@ type API_Name struct {
 
 func (m *API_Name) Reset()                    { *m = API_Name{} }
 func (*API_Name) ProtoMessage()               {}
-func (*API_Name) Descriptor() ([]byte, []int) { return fileDescriptorAccess, []int{3, 1} }
+func (*API_Name) Descriptor() ([]byte, []int) { return fileDescriptorAccess, []int{4, 1} }
 
 func (m *API_Name) GetAsString() string {
 	if m != nil {
@@ -262,7 +293,7 @@ type API_Version struct {
 
 func (m *API_Version) Reset()                    { *m = API_Version{} }
 func (*API_Version) ProtoMessage()               {}
-func (*API_Version) Descriptor() ([]byte, []int) { return fileDescriptorAccess, []int{3, 2} }
+func (*API_Version) Descriptor() ([]byte, []int) { return fileDescriptorAccess, []int{4, 2} }
 
 func (m *API_Version) GetAsString() string {
 	if m != nil {
@@ -278,7 +309,7 @@ type API_Resource struct {
 
 func (m *API_Resource) Reset()                    { *m = API_Resource{} }
 func (*API_Resource) ProtoMessage()               {}
-func (*API_Resource) Descriptor() ([]byte, []int) { return fileDescriptorAccess, []int{3, 3} }
+func (*API_Resource) Descriptor() ([]byte, []int) { return fileDescriptorAccess, []int{4, 3} }
 
 func (m *API_Resource) GetAsString() string {
 	if m != nil {
@@ -294,7 +325,7 @@ type API_Method struct {
 
 func (m *API_Method) Reset()                    { *m = API_Method{} }
 func (*API_Method) ProtoMessage()               {}
-func (*API_Method) Descriptor() ([]byte, []int) { return fileDescriptorAccess, []int{3, 4} }
+func (*API_Method) Descriptor() ([]byte, []int) { return fileDescriptorAccess, []int{4, 4} }
 
 func (m *API_Method) GetAsString() string {
 	if m != nil {
@@ -310,7 +341,7 @@ type API_Key struct {
 
 func (m *API_Key) Reset()                    { *m = API_Key{} }
 func (*API_Key) ProtoMessage()               {}
-func (*API_Key) Descriptor() ([]byte, []int) { return fileDescriptorAccess, []int{3, 5} }
+func (*API_Key) Descriptor() ([]byte, []int) { return fileDescriptorAccess, []int{4, 5} }
 
 func (m *API_Key) GetAsString() string {
 	if m != nil {
@@ -330,7 +361,7 @@ type VerifyAPIKeyParameters struct {
 
 func (m *VerifyAPIKeyParameters) Reset()                    { *m = VerifyAPIKeyParameters{} }
 func (*VerifyAPIKeyParameters) ProtoMessage()               {}
-func (*VerifyAPIKeyParameters) Descriptor() ([]byte, []int) { return fileDescriptorAccess, []int{4} }
+func (*VerifyAPIKeyParameters) Descriptor() ([]byte, []int) { return fileDescriptorAccess, []int{5} }
 
 func (m *VerifyAPIKeyParameters) GetName() *API_Name {
 	if m != nil {
@@ -375,7 +406,7 @@ type VerifyAPIKeyResult struct {
 
 func (m *VerifyAPIKeyResult) Reset()                    { *m = VerifyAPIKeyResult{} }
 func (*VerifyAPIKeyResult) ProtoMessage()               {}
-func (*VerifyAPIKeyResult) Descriptor() ([]byte, []int) { return fileDescriptorAccess, []int{5} }
+func (*VerifyAPIKeyResult) Descriptor() ([]byte, []int) { return fileDescriptorAccess, []int{6} }
 
 func (m *VerifyAPIKeyResult) GetStatus() *Status {
 	if m != nil {
@@ -395,12 +426,13 @@ func (m *VerifyAPIKeyResult) GetValidity() *Validity {
 type AuthorizeAccessParameters struct {
 	Subject   *AuthorizeAccessParameters_Subject `protobuf:"bytes,1,opt,name=subject" json:"subject,omitempty"`
 	Action    *AuthorizeAccessParameters_Action  `protobuf:"bytes,2,opt,name=action" json:"action,omitempty"`
-	Timestamp *google_protobuf1.Timestamp        `protobuf:"bytes,3,opt,name=timestamp" json:"timestamp,omitempty"`
+	Raw       *Raw                               `protobuf:"bytes,3,opt,name=raw" json:"raw,omitempty"`
+	Timestamp *google_protobuf1.Timestamp        `protobuf:"bytes,4,opt,name=timestamp" json:"timestamp,omitempty"`
 }
 
 func (m *AuthorizeAccessParameters) Reset()                    { *m = AuthorizeAccessParameters{} }
 func (*AuthorizeAccessParameters) ProtoMessage()               {}
-func (*AuthorizeAccessParameters) Descriptor() ([]byte, []int) { return fileDescriptorAccess, []int{6} }
+func (*AuthorizeAccessParameters) Descriptor() ([]byte, []int) { return fileDescriptorAccess, []int{7} }
 
 func (m *AuthorizeAccessParameters) GetSubject() *AuthorizeAccessParameters_Subject {
 	if m != nil {
@@ -412,6 +444,13 @@ func (m *AuthorizeAccessParameters) GetSubject() *AuthorizeAccessParameters_Subj
 func (m *AuthorizeAccessParameters) GetAction() *AuthorizeAccessParameters_Action {
 	if m != nil {
 		return m.Action
+	}
+	return nil
+}
+
+func (m *AuthorizeAccessParameters) GetRaw() *Raw {
+	if m != nil {
+		return m.Raw
 	}
 	return nil
 }
@@ -432,7 +471,7 @@ type AuthorizeAccessParameters_Subject struct {
 func (m *AuthorizeAccessParameters_Subject) Reset()      { *m = AuthorizeAccessParameters_Subject{} }
 func (*AuthorizeAccessParameters_Subject) ProtoMessage() {}
 func (*AuthorizeAccessParameters_Subject) Descriptor() ([]byte, []int) {
-	return fileDescriptorAccess, []int{6, 0}
+	return fileDescriptorAccess, []int{7, 0}
 }
 
 func (m *AuthorizeAccessParameters_Subject) GetCredentials() *Credentials {
@@ -461,7 +500,7 @@ type AuthorizeAccessParameters_Action struct {
 func (m *AuthorizeAccessParameters_Action) Reset()      { *m = AuthorizeAccessParameters_Action{} }
 func (*AuthorizeAccessParameters_Action) ProtoMessage() {}
 func (*AuthorizeAccessParameters_Action) Descriptor() ([]byte, []int) {
-	return fileDescriptorAccess, []int{6, 1}
+	return fileDescriptorAccess, []int{7, 1}
 }
 
 func (m *AuthorizeAccessParameters_Action) GetNamespace() *API_Namespace {
@@ -507,7 +546,7 @@ type AuthorizeAccessResult struct {
 
 func (m *AuthorizeAccessResult) Reset()                    { *m = AuthorizeAccessResult{} }
 func (*AuthorizeAccessResult) ProtoMessage()               {}
-func (*AuthorizeAccessResult) Descriptor() ([]byte, []int) { return fileDescriptorAccess, []int{7} }
+func (*AuthorizeAccessResult) Descriptor() ([]byte, []int) { return fileDescriptorAccess, []int{8} }
 
 func (m *AuthorizeAccessResult) GetStatus() *Status {
 	if m != nil {
@@ -525,13 +564,13 @@ func (m *AuthorizeAccessResult) GetValidity() *Validity {
 
 // InsertProfileParameters bundles up parameters for calls to Controller.InsertProfile
 type InsertProfileParameters struct {
-	ID    string `protobuf:"bytes,1,opt,name=ID,json=iD,proto3" json:"ID,omitempty"`
+	ID    string `protobuf:"bytes,1,opt,name=ID,proto3" json:"ID,omitempty"`
 	Email string `protobuf:"bytes,2,opt,name=email,proto3" json:"email,omitempty"`
 }
 
 func (m *InsertProfileParameters) Reset()                    { *m = InsertProfileParameters{} }
 func (*InsertProfileParameters) ProtoMessage()               {}
-func (*InsertProfileParameters) Descriptor() ([]byte, []int) { return fileDescriptorAccess, []int{8} }
+func (*InsertProfileParameters) Descriptor() ([]byte, []int) { return fileDescriptorAccess, []int{9} }
 
 func (m *InsertProfileParameters) GetID() string {
 	if m != nil {
@@ -553,11 +592,13 @@ type InsertProfileResult struct {
 
 func (m *InsertProfileResult) Reset()                    { *m = InsertProfileResult{} }
 func (*InsertProfileResult) ProtoMessage()               {}
-func (*InsertProfileResult) Descriptor() ([]byte, []int) { return fileDescriptorAccess, []int{9} }
+func (*InsertProfileResult) Descriptor() ([]byte, []int) { return fileDescriptorAccess, []int{10} }
 
 func init() {
 	proto.RegisterType((*Status)(nil), "access.Status")
 	proto.RegisterType((*Validity)(nil), "access.Validity")
+	proto.RegisterType((*Raw)(nil), "access.Raw")
+	proto.RegisterType((*Raw_Authorization)(nil), "access.Raw.Authorization")
 	proto.RegisterType((*Credentials)(nil), "access.Credentials")
 	proto.RegisterType((*Credentials_Username)(nil), "access.Credentials.Username")
 	proto.RegisterType((*Credentials_Group)(nil), "access.Credentials.Group")
@@ -588,10 +629,7 @@ func (x Code) String() string {
 }
 func (this *Status) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*Status)
@@ -604,10 +642,7 @@ func (this *Status) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -621,10 +656,7 @@ func (this *Status) Equal(that interface{}) bool {
 }
 func (this *Validity) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*Validity)
@@ -637,10 +669,7 @@ func (this *Validity) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -652,12 +681,57 @@ func (this *Validity) Equal(that interface{}) bool {
 	}
 	return true
 }
+func (this *Raw) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*Raw)
+	if !ok {
+		that2, ok := that.(Raw)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if !this.Authorization.Equal(that1.Authorization) {
+		return false
+	}
+	return true
+}
+func (this *Raw_Authorization) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*Raw_Authorization)
+	if !ok {
+		that2, ok := that.(Raw_Authorization)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if this.AsString != that1.AsString {
+		return false
+	}
+	return true
+}
 func (this *Credentials) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*Credentials)
@@ -670,10 +744,7 @@ func (this *Credentials) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -695,10 +766,7 @@ func (this *Credentials) Equal(that interface{}) bool {
 }
 func (this *Credentials_Username) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*Credentials_Username)
@@ -711,10 +779,7 @@ func (this *Credentials_Username) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -725,10 +790,7 @@ func (this *Credentials_Username) Equal(that interface{}) bool {
 }
 func (this *Credentials_Group) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*Credentials_Group)
@@ -741,10 +803,7 @@ func (this *Credentials_Group) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -755,10 +814,7 @@ func (this *Credentials_Group) Equal(that interface{}) bool {
 }
 func (this *Credentials_Password) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*Credentials_Password)
@@ -771,10 +827,7 @@ func (this *Credentials_Password) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -785,10 +838,7 @@ func (this *Credentials_Password) Equal(that interface{}) bool {
 }
 func (this *API) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*API)
@@ -801,10 +851,7 @@ func (this *API) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -812,10 +859,7 @@ func (this *API) Equal(that interface{}) bool {
 }
 func (this *API_Namespace) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*API_Namespace)
@@ -828,10 +872,7 @@ func (this *API_Namespace) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -842,10 +883,7 @@ func (this *API_Namespace) Equal(that interface{}) bool {
 }
 func (this *API_Name) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*API_Name)
@@ -858,10 +896,7 @@ func (this *API_Name) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -872,10 +907,7 @@ func (this *API_Name) Equal(that interface{}) bool {
 }
 func (this *API_Version) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*API_Version)
@@ -888,10 +920,7 @@ func (this *API_Version) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -902,10 +931,7 @@ func (this *API_Version) Equal(that interface{}) bool {
 }
 func (this *API_Resource) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*API_Resource)
@@ -918,10 +944,7 @@ func (this *API_Resource) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -932,10 +955,7 @@ func (this *API_Resource) Equal(that interface{}) bool {
 }
 func (this *API_Method) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*API_Method)
@@ -948,10 +968,7 @@ func (this *API_Method) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -962,10 +979,7 @@ func (this *API_Method) Equal(that interface{}) bool {
 }
 func (this *API_Key) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*API_Key)
@@ -978,10 +992,7 @@ func (this *API_Key) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -992,10 +1003,7 @@ func (this *API_Key) Equal(that interface{}) bool {
 }
 func (this *VerifyAPIKeyParameters) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*VerifyAPIKeyParameters)
@@ -1008,10 +1016,7 @@ func (this *VerifyAPIKeyParameters) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -1034,10 +1039,7 @@ func (this *VerifyAPIKeyParameters) Equal(that interface{}) bool {
 }
 func (this *VerifyAPIKeyResult) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*VerifyAPIKeyResult)
@@ -1050,10 +1052,7 @@ func (this *VerifyAPIKeyResult) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -1067,10 +1066,7 @@ func (this *VerifyAPIKeyResult) Equal(that interface{}) bool {
 }
 func (this *AuthorizeAccessParameters) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*AuthorizeAccessParameters)
@@ -1083,10 +1079,7 @@ func (this *AuthorizeAccessParameters) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -1096,6 +1089,9 @@ func (this *AuthorizeAccessParameters) Equal(that interface{}) bool {
 	if !this.Action.Equal(that1.Action) {
 		return false
 	}
+	if !this.Raw.Equal(that1.Raw) {
+		return false
+	}
 	if !this.Timestamp.Equal(that1.Timestamp) {
 		return false
 	}
@@ -1103,10 +1099,7 @@ func (this *AuthorizeAccessParameters) Equal(that interface{}) bool {
 }
 func (this *AuthorizeAccessParameters_Subject) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*AuthorizeAccessParameters_Subject)
@@ -1119,10 +1112,7 @@ func (this *AuthorizeAccessParameters_Subject) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -1136,10 +1126,7 @@ func (this *AuthorizeAccessParameters_Subject) Equal(that interface{}) bool {
 }
 func (this *AuthorizeAccessParameters_Action) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*AuthorizeAccessParameters_Action)
@@ -1152,10 +1139,7 @@ func (this *AuthorizeAccessParameters_Action) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -1178,10 +1162,7 @@ func (this *AuthorizeAccessParameters_Action) Equal(that interface{}) bool {
 }
 func (this *AuthorizeAccessResult) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*AuthorizeAccessResult)
@@ -1194,10 +1175,7 @@ func (this *AuthorizeAccessResult) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -1211,10 +1189,7 @@ func (this *AuthorizeAccessResult) Equal(that interface{}) bool {
 }
 func (this *InsertProfileParameters) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*InsertProfileParameters)
@@ -1227,10 +1202,7 @@ func (this *InsertProfileParameters) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -1244,10 +1216,7 @@ func (this *InsertProfileParameters) Equal(that interface{}) bool {
 }
 func (this *InsertProfileResult) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*InsertProfileResult)
@@ -1260,10 +1229,7 @@ func (this *InsertProfileResult) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -1290,6 +1256,28 @@ func (this *Validity) GoString() string {
 		s = append(s, "Duration: "+fmt.Sprintf("%#v", this.Duration)+",\n")
 	}
 	s = append(s, "Count: "+fmt.Sprintf("%#v", this.Count)+",\n")
+	s = append(s, "}")
+	return strings.Join(s, "")
+}
+func (this *Raw) GoString() string {
+	if this == nil {
+		return "nil"
+	}
+	s := make([]string, 0, 5)
+	s = append(s, "&access.Raw{")
+	if this.Authorization != nil {
+		s = append(s, "Authorization: "+fmt.Sprintf("%#v", this.Authorization)+",\n")
+	}
+	s = append(s, "}")
+	return strings.Join(s, "")
+}
+func (this *Raw_Authorization) GoString() string {
+	if this == nil {
+		return "nil"
+	}
+	s := make([]string, 0, 5)
+	s = append(s, "&access.Raw_Authorization{")
+	s = append(s, "AsString: "+fmt.Sprintf("%#v", this.AsString)+",\n")
 	s = append(s, "}")
 	return strings.Join(s, "")
 }
@@ -1453,13 +1441,16 @@ func (this *AuthorizeAccessParameters) GoString() string {
 	if this == nil {
 		return "nil"
 	}
-	s := make([]string, 0, 7)
+	s := make([]string, 0, 8)
 	s = append(s, "&access.AuthorizeAccessParameters{")
 	if this.Subject != nil {
 		s = append(s, "Subject: "+fmt.Sprintf("%#v", this.Subject)+",\n")
 	}
 	if this.Action != nil {
 		s = append(s, "Action: "+fmt.Sprintf("%#v", this.Action)+",\n")
+	}
+	if this.Raw != nil {
+		s = append(s, "Raw: "+fmt.Sprintf("%#v", this.Raw)+",\n")
 	}
 	if this.Timestamp != nil {
 		s = append(s, "Timestamp: "+fmt.Sprintf("%#v", this.Timestamp)+",\n")
@@ -1756,6 +1747,58 @@ func (m *Validity) MarshalTo(dAtA []byte) (int, error) {
 	return i, nil
 }
 
+func (m *Raw) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *Raw) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Authorization != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintAccess(dAtA, i, uint64(m.Authorization.Size()))
+		n2, err := m.Authorization.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n2
+	}
+	return i, nil
+}
+
+func (m *Raw_Authorization) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *Raw_Authorization) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.AsString) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintAccess(dAtA, i, uint64(len(m.AsString)))
+		i += copy(dAtA[i:], m.AsString)
+	}
+	return i, nil
+}
+
 func (m *Credentials) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -1775,11 +1818,11 @@ func (m *Credentials) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintAccess(dAtA, i, uint64(m.Username.Size()))
-		n2, err := m.Username.MarshalTo(dAtA[i:])
+		n3, err := m.Username.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n2
+		i += n3
 	}
 	if len(m.Groups) > 0 {
 		for _, msg := range m.Groups {
@@ -1797,11 +1840,11 @@ func (m *Credentials) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintAccess(dAtA, i, uint64(m.Password.Size()))
-		n3, err := m.Password.MarshalTo(dAtA[i:])
+		n4, err := m.Password.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n3
+		i += n4
 	}
 	return i, nil
 }
@@ -2059,51 +2102,51 @@ func (m *VerifyAPIKeyParameters) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintAccess(dAtA, i, uint64(m.Name.Size()))
-		n4, err := m.Name.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n4
-	}
-	if m.Version != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintAccess(dAtA, i, uint64(m.Version.Size()))
-		n5, err := m.Version.MarshalTo(dAtA[i:])
+		n5, err := m.Name.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
 		i += n5
 	}
-	if m.Method != nil {
-		dAtA[i] = 0x1a
+	if m.Version != nil {
+		dAtA[i] = 0x12
 		i++
-		i = encodeVarintAccess(dAtA, i, uint64(m.Method.Size()))
-		n6, err := m.Method.MarshalTo(dAtA[i:])
+		i = encodeVarintAccess(dAtA, i, uint64(m.Version.Size()))
+		n6, err := m.Version.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
 		i += n6
 	}
-	if m.Key != nil {
-		dAtA[i] = 0x22
+	if m.Method != nil {
+		dAtA[i] = 0x1a
 		i++
-		i = encodeVarintAccess(dAtA, i, uint64(m.Key.Size()))
-		n7, err := m.Key.MarshalTo(dAtA[i:])
+		i = encodeVarintAccess(dAtA, i, uint64(m.Method.Size()))
+		n7, err := m.Method.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
 		i += n7
 	}
-	if m.Timestamp != nil {
-		dAtA[i] = 0x2a
+	if m.Key != nil {
+		dAtA[i] = 0x22
 		i++
-		i = encodeVarintAccess(dAtA, i, uint64(m.Timestamp.Size()))
-		n8, err := m.Timestamp.MarshalTo(dAtA[i:])
+		i = encodeVarintAccess(dAtA, i, uint64(m.Key.Size()))
+		n8, err := m.Key.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
 		i += n8
+	}
+	if m.Timestamp != nil {
+		dAtA[i] = 0x2a
+		i++
+		i = encodeVarintAccess(dAtA, i, uint64(m.Timestamp.Size()))
+		n9, err := m.Timestamp.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n9
 	}
 	return i, nil
 }
@@ -2127,21 +2170,21 @@ func (m *VerifyAPIKeyResult) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintAccess(dAtA, i, uint64(m.Status.Size()))
-		n9, err := m.Status.MarshalTo(dAtA[i:])
+		n10, err := m.Status.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n9
+		i += n10
 	}
 	if m.Validity != nil {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintAccess(dAtA, i, uint64(m.Validity.Size()))
-		n10, err := m.Validity.MarshalTo(dAtA[i:])
+		n11, err := m.Validity.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n10
+		i += n11
 	}
 	return i, nil
 }
@@ -2165,31 +2208,41 @@ func (m *AuthorizeAccessParameters) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintAccess(dAtA, i, uint64(m.Subject.Size()))
-		n11, err := m.Subject.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n11
-	}
-	if m.Action != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintAccess(dAtA, i, uint64(m.Action.Size()))
-		n12, err := m.Action.MarshalTo(dAtA[i:])
+		n12, err := m.Subject.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
 		i += n12
 	}
-	if m.Timestamp != nil {
-		dAtA[i] = 0x1a
+	if m.Action != nil {
+		dAtA[i] = 0x12
 		i++
-		i = encodeVarintAccess(dAtA, i, uint64(m.Timestamp.Size()))
-		n13, err := m.Timestamp.MarshalTo(dAtA[i:])
+		i = encodeVarintAccess(dAtA, i, uint64(m.Action.Size()))
+		n13, err := m.Action.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
 		i += n13
+	}
+	if m.Raw != nil {
+		dAtA[i] = 0x1a
+		i++
+		i = encodeVarintAccess(dAtA, i, uint64(m.Raw.Size()))
+		n14, err := m.Raw.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n14
+	}
+	if m.Timestamp != nil {
+		dAtA[i] = 0x22
+		i++
+		i = encodeVarintAccess(dAtA, i, uint64(m.Timestamp.Size()))
+		n15, err := m.Timestamp.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n15
 	}
 	return i, nil
 }
@@ -2213,21 +2266,21 @@ func (m *AuthorizeAccessParameters_Subject) MarshalTo(dAtA []byte) (int, error) 
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintAccess(dAtA, i, uint64(m.Credentials.Size()))
-		n14, err := m.Credentials.MarshalTo(dAtA[i:])
+		n16, err := m.Credentials.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n14
+		i += n16
 	}
 	if m.Key != nil {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintAccess(dAtA, i, uint64(m.Key.Size()))
-		n15, err := m.Key.MarshalTo(dAtA[i:])
+		n17, err := m.Key.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n15
+		i += n17
 	}
 	return i, nil
 }
@@ -2251,51 +2304,51 @@ func (m *AuthorizeAccessParameters_Action) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintAccess(dAtA, i, uint64(m.Namespace.Size()))
-		n16, err := m.Namespace.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n16
-	}
-	if m.Name != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintAccess(dAtA, i, uint64(m.Name.Size()))
-		n17, err := m.Name.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n17
-	}
-	if m.Version != nil {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintAccess(dAtA, i, uint64(m.Version.Size()))
-		n18, err := m.Version.MarshalTo(dAtA[i:])
+		n18, err := m.Namespace.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
 		i += n18
 	}
-	if m.Method != nil {
-		dAtA[i] = 0x22
+	if m.Name != nil {
+		dAtA[i] = 0x12
 		i++
-		i = encodeVarintAccess(dAtA, i, uint64(m.Method.Size()))
-		n19, err := m.Method.MarshalTo(dAtA[i:])
+		i = encodeVarintAccess(dAtA, i, uint64(m.Name.Size()))
+		n19, err := m.Name.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
 		i += n19
 	}
-	if m.Resource != nil {
-		dAtA[i] = 0x2a
+	if m.Version != nil {
+		dAtA[i] = 0x1a
 		i++
-		i = encodeVarintAccess(dAtA, i, uint64(m.Resource.Size()))
-		n20, err := m.Resource.MarshalTo(dAtA[i:])
+		i = encodeVarintAccess(dAtA, i, uint64(m.Version.Size()))
+		n20, err := m.Version.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
 		i += n20
+	}
+	if m.Method != nil {
+		dAtA[i] = 0x22
+		i++
+		i = encodeVarintAccess(dAtA, i, uint64(m.Method.Size()))
+		n21, err := m.Method.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n21
+	}
+	if m.Resource != nil {
+		dAtA[i] = 0x2a
+		i++
+		i = encodeVarintAccess(dAtA, i, uint64(m.Resource.Size()))
+		n22, err := m.Resource.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n22
 	}
 	return i, nil
 }
@@ -2319,21 +2372,21 @@ func (m *AuthorizeAccessResult) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintAccess(dAtA, i, uint64(m.Status.Size()))
-		n21, err := m.Status.MarshalTo(dAtA[i:])
+		n23, err := m.Status.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n21
+		i += n23
 	}
 	if m.Validity != nil {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintAccess(dAtA, i, uint64(m.Validity.Size()))
-		n22, err := m.Validity.MarshalTo(dAtA[i:])
+		n24, err := m.Validity.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n22
+		i += n24
 	}
 	return i, nil
 }
@@ -2417,6 +2470,26 @@ func (m *Validity) Size() (n int) {
 	}
 	if m.Count != 0 {
 		n += 1 + sovAccess(uint64(m.Count))
+	}
+	return n
+}
+
+func (m *Raw) Size() (n int) {
+	var l int
+	_ = l
+	if m.Authorization != nil {
+		l = m.Authorization.Size()
+		n += 1 + l + sovAccess(uint64(l))
+	}
+	return n
+}
+
+func (m *Raw_Authorization) Size() (n int) {
+	var l int
+	_ = l
+	l = len(m.AsString)
+	if l > 0 {
+		n += 1 + l + sovAccess(uint64(l))
 	}
 	return n
 }
@@ -2588,6 +2661,10 @@ func (m *AuthorizeAccessParameters) Size() (n int) {
 		l = m.Action.Size()
 		n += 1 + l + sovAccess(uint64(l))
 	}
+	if m.Raw != nil {
+		l = m.Raw.Size()
+		n += 1 + l + sovAccess(uint64(l))
+	}
 	if m.Timestamp != nil {
 		l = m.Timestamp.Size()
 		n += 1 + l + sovAccess(uint64(l))
@@ -2700,6 +2777,26 @@ func (this *Validity) String() string {
 	s := strings.Join([]string{`&Validity{`,
 		`Duration:` + strings.Replace(fmt.Sprintf("%v", this.Duration), "Duration", "google_protobuf.Duration", 1) + `,`,
 		`Count:` + fmt.Sprintf("%v", this.Count) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *Raw) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&Raw{`,
+		`Authorization:` + strings.Replace(fmt.Sprintf("%v", this.Authorization), "Raw_Authorization", "Raw_Authorization", 1) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *Raw_Authorization) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&Raw_Authorization{`,
+		`AsString:` + fmt.Sprintf("%v", this.AsString) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -2847,6 +2944,7 @@ func (this *AuthorizeAccessParameters) String() string {
 	s := strings.Join([]string{`&AuthorizeAccessParameters{`,
 		`Subject:` + strings.Replace(fmt.Sprintf("%v", this.Subject), "AuthorizeAccessParameters_Subject", "AuthorizeAccessParameters_Subject", 1) + `,`,
 		`Action:` + strings.Replace(fmt.Sprintf("%v", this.Action), "AuthorizeAccessParameters_Action", "AuthorizeAccessParameters_Action", 1) + `,`,
+		`Raw:` + strings.Replace(fmt.Sprintf("%v", this.Raw), "Raw", "Raw", 1) + `,`,
 		`Timestamp:` + strings.Replace(fmt.Sprintf("%v", this.Timestamp), "Timestamp", "google_protobuf1.Timestamp", 1) + `,`,
 		`}`,
 	}, "")
@@ -3095,6 +3193,168 @@ func (m *Validity) Unmarshal(dAtA []byte) error {
 					break
 				}
 			}
+		default:
+			iNdEx = preIndex
+			skippy, err := skipAccess(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthAccess
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *Raw) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowAccess
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: Raw: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: Raw: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Authorization", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowAccess
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthAccess
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Authorization == nil {
+				m.Authorization = &Raw_Authorization{}
+			}
+			if err := m.Authorization.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipAccess(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthAccess
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *Raw_Authorization) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowAccess
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: Authorization: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: Authorization: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field AsString", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowAccess
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthAccess
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.AsString = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipAccess(dAtA[iNdEx:])
@@ -4452,6 +4712,39 @@ func (m *AuthorizeAccessParameters) Unmarshal(dAtA []byte) error {
 			iNdEx = postIndex
 		case 3:
 			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Raw", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowAccess
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthAccess
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Raw == nil {
+				m.Raw = &Raw{}
+			}
+			if err := m.Raw.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Timestamp", wireType)
 			}
 			var msglen int
@@ -5217,62 +5510,65 @@ var (
 func init() { proto.RegisterFile("mixer/adapter/airmap/access/access.proto", fileDescriptorAccess) }
 
 var fileDescriptorAccess = []byte{
-	// 905 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x95, 0x41, 0x73, 0xdb, 0x44,
-	0x14, 0xc7, 0x2d, 0xdb, 0x91, 0xed, 0x97, 0x36, 0x75, 0x37, 0x09, 0xb8, 0x2a, 0xa8, 0xa9, 0x29,
-	0xad, 0xe9, 0x14, 0x07, 0xd2, 0xe9, 0x4c, 0x6f, 0x60, 0x12, 0x60, 0x4c, 0xa6, 0xc5, 0x6c, 0x68,
-	0x38, 0x32, 0x1b, 0xe9, 0xc5, 0x55, 0xb1, 0xb4, 0x9e, 0xdd, 0x55, 0xa9, 0x39, 0xf1, 0x11, 0xf8,
-	0x18, 0x1c, 0x38, 0xf2, 0x21, 0x38, 0xf6, 0xc8, 0x91, 0x98, 0x0b, 0xc7, 0x9c, 0x38, 0x71, 0x60,
-	0xb4, 0x5a, 0xc9, 0x4a, 0xb0, 0x63, 0x7a, 0xe8, 0x49, 0x5e, 0xed, 0x6f, 0xdf, 0xfb, 0xbf, 0xb7,
-	0xef, 0x6f, 0x41, 0x27, 0x0c, 0x5e, 0xa0, 0xd8, 0x66, 0x3e, 0x1b, 0xab, 0xe4, 0x19, 0x88, 0x90,
-	0x8d, 0xb7, 0x99, 0xe7, 0xa1, 0x94, 0xe6, 0xd1, 0x1d, 0x0b, 0xae, 0x38, 0xb1, 0xd3, 0x95, 0xe3,
-	0x0e, 0x39, 0x1f, 0x8e, 0x70, 0x5b, 0xbf, 0x3d, 0x8a, 0x8f, 0xb7, 0xfd, 0x58, 0x30, 0x15, 0xf0,
-	0x28, 0xe5, 0x9c, 0x1b, 0xe7, 0xf7, 0x55, 0x10, 0xa2, 0x54, 0x2c, 0x1c, 0xa7, 0x40, 0x7b, 0x0f,
-	0xec, 0x03, 0xc5, 0x54, 0x2c, 0xc9, 0x16, 0x54, 0x3d, 0xee, 0x63, 0xcb, 0xda, 0xb2, 0x3a, 0x6b,
-	0x3b, 0x97, 0xba, 0x26, 0xdf, 0x2e, 0xf7, 0x91, 0xea, 0x1d, 0xd2, 0x82, 0x5a, 0x88, 0x52, 0xb2,
-	0x21, 0xb6, 0xca, 0x5b, 0x56, 0xa7, 0x41, 0xb3, 0x65, 0xfb, 0x1b, 0xa8, 0x1f, 0xb2, 0x51, 0xe0,
-	0x07, 0x6a, 0x42, 0x1e, 0x40, 0x3d, 0x13, 0xa1, 0x63, 0xad, 0xee, 0x5c, 0xeb, 0xa6, 0x2a, 0xba,
-	0x99, 0x8a, 0xee, 0x9e, 0x01, 0x68, 0x8e, 0x92, 0x0d, 0x58, 0xf1, 0x78, 0x1c, 0x29, 0x1d, 0xba,
-	0x4a, 0xd3, 0x45, 0xfb, 0x97, 0x32, 0xac, 0xee, 0x0a, 0xf4, 0x31, 0x52, 0x01, 0x1b, 0x49, 0xf2,
-	0x10, 0xea, 0xb1, 0x44, 0x11, 0xb1, 0x10, 0x4d, 0xf0, 0xb7, 0x72, 0xa1, 0x33, 0xac, 0xfb, 0xc4,
-	0x30, 0x34, 0xa7, 0xc9, 0x87, 0x60, 0x0f, 0x05, 0x8f, 0xc7, 0xb2, 0x55, 0xde, 0xaa, 0x68, 0x51,
-	0x73, 0xce, 0x7d, 0x9e, 0x10, 0xd4, 0x80, 0x49, 0xb2, 0x31, 0x93, 0xf2, 0x7b, 0x2e, 0xfc, 0x56,
-	0x65, 0x71, 0xb2, 0x81, 0x61, 0x68, 0x4e, 0x3b, 0x77, 0xa0, 0x9e, 0x49, 0x20, 0xd7, 0xa1, 0xc1,
-	0xe4, 0xb7, 0x52, 0x89, 0x20, 0x1a, 0x6a, 0xcd, 0x0d, 0x5a, 0x67, 0xf2, 0x40, 0xaf, 0x9d, 0x5b,
-	0xb0, 0xa2, 0x73, 0x5e, 0x4c, 0xdd, 0x81, 0x7a, 0x96, 0xe4, 0x42, 0xb0, 0x7d, 0x6a, 0x41, 0xa5,
-	0x37, 0xe8, 0x3b, 0x1d, 0x68, 0x3c, 0x66, 0x21, 0xca, 0x31, 0xf3, 0x96, 0x08, 0x78, 0x07, 0xaa,
-	0x8f, 0x97, 0xaa, 0xbc, 0x0d, 0xb5, 0x43, 0x14, 0x32, 0xb9, 0xa6, 0x65, 0x3a, 0x29, 0x4a, 0x1e,
-	0x8b, 0x65, 0x59, 0xdf, 0x05, 0xfb, 0x11, 0xaa, 0xa7, 0xfc, 0xe2, 0x72, 0x9c, 0x36, 0x54, 0xf6,
-	0x71, 0x72, 0x71, 0xc9, 0x7f, 0x5b, 0xf0, 0xc6, 0x21, 0x8a, 0xe0, 0x78, 0xd2, 0x1b, 0xf4, 0xf7,
-	0x71, 0x32, 0x60, 0x82, 0x85, 0xa8, 0x50, 0x48, 0x72, 0x0b, 0xaa, 0x85, 0x41, 0x69, 0x66, 0x77,
-	0xd7, 0x1b, 0xf4, 0xbb, 0x49, 0xcd, 0x54, 0xef, 0x92, 0xf7, 0xa1, 0xf6, 0x3c, 0x2d, 0x4e, 0x8f,
-	0xde, 0xea, 0xce, 0x7a, 0x11, 0x34, 0x75, 0xd3, 0x8c, 0x21, 0x77, 0xc1, 0x0e, 0xb5, 0x74, 0x33,
-	0x12, 0xa4, 0x48, 0xa7, 0x45, 0x51, 0x43, 0x90, 0x9b, 0x50, 0xf9, 0x0e, 0x27, 0xad, 0xaa, 0x06,
-	0xaf, 0x14, 0xc1, 0x7d, 0x9c, 0xd0, 0x64, 0x8f, 0x3c, 0x84, 0x46, 0x6e, 0xc9, 0xd6, 0x8a, 0x06,
-	0x9d, 0xff, 0xd8, 0xe5, 0xeb, 0x8c, 0xa0, 0x33, 0xb8, 0xfd, 0x0c, 0x48, 0xb1, 0x6e, 0x8a, 0x32,
-	0x1e, 0x29, 0x72, 0x1b, 0x6c, 0xa9, 0xfd, 0x6c, 0xaa, 0x5e, 0xcb, 0xb2, 0xa6, 0x2e, 0xa7, 0x66,
-	0x97, 0xdc, 0x83, 0xfa, 0x73, 0xe3, 0x58, 0x53, 0x76, 0xde, 0x9f, 0xcc, 0xc9, 0x34, 0x27, 0xda,
-	0xbf, 0x56, 0xe1, 0x5a, 0x2f, 0x56, 0x4f, 0xb9, 0x08, 0x7e, 0xc0, 0x9e, 0xc6, 0x0a, 0x7d, 0xde,
-	0x85, 0x9a, 0x8c, 0x8f, 0x9e, 0xa1, 0xa7, 0x4c, 0xd2, 0xf7, 0xf2, 0x52, 0x17, 0x9d, 0xe9, 0x1e,
-	0xa4, 0x07, 0x68, 0x76, 0x92, 0x7c, 0x0c, 0x36, 0xf3, 0xd4, 0xec, 0x16, 0x3a, 0xcb, 0x63, 0xf4,
-	0x34, 0x4f, 0xcd, 0xb9, 0xb3, 0xad, 0xac, 0xbc, 0x42, 0x2b, 0x1d, 0x0f, 0x6a, 0x46, 0x0f, 0x79,
-	0x00, 0xab, 0xde, 0xcc, 0xdb, 0xa6, 0x9e, 0xf5, 0x39, 0xb6, 0xa7, 0x45, 0x2e, 0xbb, 0xe9, 0xf2,
-	0xe2, 0x9b, 0x76, 0x4e, 0x2d, 0xb0, 0x53, 0xc5, 0xe4, 0x3e, 0x34, 0xa2, 0xcc, 0x9e, 0x26, 0xc5,
-	0xe6, 0xf9, 0xe9, 0xd4, 0x9b, 0x74, 0xc6, 0xe5, 0xd3, 0x5c, 0xfe, 0xbf, 0xd3, 0x5c, 0x79, 0xa5,
-	0x69, 0xae, 0x2e, 0x9d, 0xe6, 0x0f, 0xa0, 0x2e, 0x8c, 0xbb, 0xcd, 0xa4, 0x6e, 0x14, 0xe9, 0xcc,
-	0xf9, 0x34, 0xa7, 0xda, 0x21, 0x6c, 0x9e, 0xbb, 0xbd, 0xd7, 0x3a, 0xa5, 0x1f, 0xc1, 0x9b, 0xfd,
-	0x48, 0xa2, 0x50, 0x03, 0xc1, 0x8f, 0x83, 0x11, 0x16, 0x46, 0x74, 0x0d, 0xca, 0xfd, 0x3d, 0xf3,
-	0xdf, 0x51, 0x0e, 0xf6, 0x92, 0xaf, 0x0d, 0x86, 0x2c, 0x18, 0x99, 0x0f, 0x59, 0xba, 0x68, 0x6f,
-	0xc2, 0xfa, 0x99, 0x00, 0xa9, 0xda, 0xbb, 0x14, 0xaa, 0xc9, 0x57, 0x90, 0x00, 0xd8, 0xc9, 0xf3,
-	0xcb, 0xfd, 0x66, 0x89, 0x5c, 0x85, 0xcb, 0xc9, 0xef, 0xcf, 0xb8, 0x38, 0x0a, 0x7c, 0x1f, 0xa3,
-	0xa6, 0x45, 0x36, 0xa0, 0x99, 0xbc, 0x7a, 0x12, 0xb1, 0xac, 0x66, 0xbf, 0x59, 0x26, 0x9b, 0x70,
-	0x35, 0x79, 0xfb, 0x55, 0xcc, 0x15, 0xfb, 0xf4, 0x85, 0x87, 0xe8, 0xa3, 0xdf, 0xac, 0xec, 0xfc,
-	0x63, 0x01, 0xec, 0xf2, 0x48, 0x09, 0x3e, 0x1a, 0xa1, 0x20, 0x5f, 0xc0, 0xa5, 0xa2, 0x99, 0x89,
-	0x9b, 0x97, 0x39, 0xf7, 0xaf, 0xcd, 0x71, 0xe6, 0xed, 0x9b, 0xe6, 0x1e, 0xc0, 0x95, 0x73, 0x5d,
-	0x27, 0x37, 0x97, 0x9a, 0xc9, 0x79, 0x7b, 0x01, 0x62, 0x82, 0x3e, 0x82, 0xcb, 0x67, 0x5a, 0x43,
-	0x6e, 0x64, 0xfc, 0x82, 0x96, 0x3b, 0xd7, 0xe7, 0x02, 0x69, 0xb8, 0x4f, 0xee, 0xbd, 0x3c, 0x71,
-	0x4b, 0xbf, 0x9f, 0xb8, 0xa5, 0xd3, 0x13, 0xd7, 0xfa, 0x71, 0xea, 0x5a, 0x3f, 0x4f, 0x5d, 0xeb,
-	0xb7, 0xa9, 0x6b, 0xbd, 0x9c, 0xba, 0xd6, 0x1f, 0x53, 0xd7, 0xfa, 0x6b, 0xea, 0x96, 0x4e, 0xa7,
-	0xae, 0xf5, 0xd3, 0x9f, 0x6e, 0xe9, 0xc8, 0xd6, 0xf6, 0xbd, 0xff, 0x6f, 0x00, 0x00, 0x00, 0xff,
-	0xff, 0x42, 0x48, 0x7f, 0x4d, 0x20, 0x09, 0x00, 0x00,
+	// 949 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x95, 0x4f, 0x73, 0xdb, 0x44,
+	0x14, 0xc0, 0x2d, 0x4b, 0x91, 0xed, 0xe7, 0x26, 0x75, 0x37, 0x09, 0xb8, 0x2a, 0x55, 0x53, 0x51,
+	0x5a, 0xd3, 0x09, 0x0a, 0xa4, 0xd3, 0x99, 0xde, 0x8a, 0x49, 0x80, 0x31, 0x99, 0x16, 0xb3, 0xa1,
+	0xe1, 0xc8, 0x6c, 0xa4, 0x8d, 0xab, 0x62, 0x69, 0x3d, 0xbb, 0xab, 0xa6, 0xe6, 0xc4, 0x47, 0xe0,
+	0x63, 0x70, 0xe0, 0x83, 0x70, 0xec, 0x0c, 0x17, 0x8e, 0xc4, 0x5c, 0x38, 0xe6, 0xc4, 0x89, 0x03,
+	0x23, 0x69, 0x25, 0xcb, 0x21, 0xb6, 0xe9, 0x81, 0x93, 0xb4, 0xfb, 0x7e, 0xfb, 0xfe, 0xed, 0x7b,
+	0x6f, 0xa1, 0x13, 0x06, 0xaf, 0x28, 0xdf, 0x21, 0x3e, 0x19, 0xc9, 0xe4, 0x1b, 0xf0, 0x90, 0x8c,
+	0x76, 0x88, 0xe7, 0x51, 0x21, 0xd4, 0xc7, 0x1d, 0x71, 0x26, 0x19, 0x32, 0xb3, 0x95, 0x65, 0x0f,
+	0x18, 0x1b, 0x0c, 0xe9, 0x4e, 0xba, 0x7b, 0x1c, 0x9f, 0xec, 0xf8, 0x31, 0x27, 0x32, 0x60, 0x51,
+	0xc6, 0x59, 0xb7, 0x2e, 0xca, 0x65, 0x10, 0x52, 0x21, 0x49, 0x38, 0xca, 0x00, 0x67, 0x1f, 0xcc,
+	0x43, 0x49, 0x64, 0x2c, 0xd0, 0x16, 0x18, 0x1e, 0xf3, 0x69, 0x5b, 0xdb, 0xd2, 0x3a, 0x6b, 0xbb,
+	0x57, 0x5c, 0x65, 0x6f, 0x8f, 0xf9, 0x14, 0xa7, 0x12, 0xd4, 0x86, 0x5a, 0x48, 0x85, 0x20, 0x03,
+	0xda, 0xae, 0x6e, 0x69, 0x9d, 0x06, 0xce, 0x97, 0xce, 0x37, 0x50, 0x3f, 0x22, 0xc3, 0xc0, 0x0f,
+	0xe4, 0x18, 0x3d, 0x84, 0x7a, 0xee, 0x44, 0xaa, 0xab, 0xb9, 0x7b, 0xdd, 0xcd, 0xbc, 0x70, 0x73,
+	0x2f, 0xdc, 0x7d, 0x05, 0xe0, 0x02, 0x45, 0x1b, 0xb0, 0xe2, 0xb1, 0x38, 0x92, 0xa9, 0x6a, 0x03,
+	0x67, 0x0b, 0x47, 0x82, 0x8e, 0xc9, 0x29, 0x7a, 0x0c, 0xab, 0x24, 0x96, 0xcf, 0x19, 0x0f, 0xbe,
+	0x9f, 0x55, 0xac, 0x9c, 0xc4, 0xe4, 0xd4, 0xed, 0x96, 0x01, 0x3c, 0xcb, 0x5b, 0xdb, 0xb0, 0x3a,
+	0x23, 0x47, 0x37, 0xa0, 0x41, 0xc4, 0xb7, 0x42, 0xf2, 0x20, 0x1a, 0xa4, 0xda, 0x1a, 0xb8, 0x4e,
+	0xc4, 0x61, 0xba, 0x76, 0x7e, 0xae, 0x42, 0x73, 0x8f, 0x53, 0x9f, 0x46, 0x32, 0x20, 0x43, 0x81,
+	0x1e, 0x41, 0x3d, 0x16, 0x94, 0x47, 0x24, 0xa4, 0xca, 0xf2, 0x3b, 0x45, 0x7a, 0xa6, 0x98, 0xfb,
+	0x4c, 0x31, 0xb8, 0xa0, 0xd1, 0x47, 0x60, 0x0e, 0x38, 0x8b, 0x47, 0xa2, 0x5d, 0xdd, 0xd2, 0xcb,
+	0x1e, 0x97, 0xcf, 0x7d, 0x9e, 0x10, 0x58, 0x81, 0x89, 0xb1, 0x11, 0x11, 0xe2, 0x94, 0x71, 0xbf,
+	0xad, 0xcf, 0x37, 0xd6, 0x57, 0x0c, 0x2e, 0x68, 0xeb, 0x1e, 0xd4, 0x73, 0x17, 0x16, 0xc6, 0x67,
+	0xdd, 0x81, 0x95, 0xd4, 0xe6, 0x62, 0xea, 0x1e, 0xd4, 0x73, 0x23, 0x8b, 0xd3, 0x75, 0xae, 0x81,
+	0xde, 0xed, 0xf7, 0xac, 0x0e, 0x34, 0x9e, 0x92, 0x90, 0x8a, 0x11, 0xf1, 0x96, 0x38, 0xf0, 0x2e,
+	0x18, 0x4f, 0x97, 0x7a, 0x79, 0x17, 0x6a, 0x47, 0x94, 0x8b, 0x65, 0xb7, 0x95, 0xf8, 0x89, 0xa9,
+	0x60, 0x31, 0x5f, 0x66, 0xf5, 0x3d, 0x30, 0x9f, 0x50, 0xf9, 0x9c, 0x2d, 0x0e, 0xc7, 0x72, 0x40,
+	0x3f, 0xa0, 0xe3, 0xc5, 0x21, 0xff, 0xa5, 0xc1, 0x5b, 0x47, 0x94, 0x07, 0x27, 0xe3, 0x6e, 0xbf,
+	0x77, 0x40, 0xc7, 0x7d, 0xc2, 0x49, 0x48, 0x25, 0xe5, 0x02, 0xdd, 0x01, 0xa3, 0x54, 0x28, 0xad,
+	0xfc, 0xee, 0xba, 0xfd, 0x9e, 0x9b, 0xc4, 0x8c, 0x53, 0x29, 0xfa, 0x00, 0x6a, 0x2f, 0xb3, 0xe0,
+	0xd2, 0x82, 0x6f, 0xee, 0xae, 0x97, 0x41, 0x15, 0x37, 0xce, 0x19, 0x74, 0x1f, 0xcc, 0x30, 0x75,
+	0x5d, 0x95, 0x04, 0x2a, 0xd3, 0x59, 0x50, 0x58, 0x11, 0xe8, 0x36, 0xe8, 0xdf, 0xd1, 0x71, 0xdb,
+	0x48, 0xc1, 0xab, 0x65, 0xf0, 0x80, 0x8e, 0x71, 0x22, 0x43, 0x8f, 0xa0, 0x51, 0x0c, 0x82, 0xf6,
+	0x4a, 0x0a, 0x5a, 0xff, 0x6a, 0xd2, 0xaf, 0x73, 0x02, 0x4f, 0x61, 0xe7, 0x05, 0xa0, 0x72, 0xdc,
+	0x98, 0x8a, 0x78, 0x28, 0xd1, 0x5d, 0x30, 0x45, 0x3a, 0x45, 0x54, 0xd4, 0x6b, 0xb9, 0xd5, 0x6c,
+	0xb6, 0x60, 0x25, 0x45, 0xdb, 0x50, 0x7f, 0xa9, 0xe6, 0x84, 0x0a, 0xbb, 0xc8, 0x4f, 0x3e, 0x3f,
+	0x70, 0x41, 0x38, 0xbf, 0x1a, 0x70, 0x3d, 0xef, 0x5a, 0xda, 0x4d, 0xb1, 0x52, 0x9e, 0xf7, 0xa0,
+	0x26, 0xe2, 0xe3, 0x17, 0xd4, 0x93, 0xca, 0xe8, 0xfb, 0x45, 0xa8, 0xf3, 0xce, 0xb8, 0x87, 0xd9,
+	0x01, 0x9c, 0x9f, 0x44, 0x1f, 0x83, 0x49, 0x3c, 0x39, 0xbd, 0x85, 0xce, 0x72, 0x1d, 0xdd, 0x94,
+	0xc7, 0xea, 0x1c, 0xba, 0x09, 0x3a, 0x27, 0xa7, 0xea, 0x5a, 0x9a, 0xa5, 0x81, 0x84, 0x93, 0xfd,
+	0xd9, 0x4c, 0x1b, 0x6f, 0x90, 0x69, 0xcb, 0x83, 0x9a, 0x72, 0x17, 0x3d, 0x84, 0xa6, 0x37, 0x6d,
+	0x7d, 0x15, 0xee, 0xfa, 0x25, 0x53, 0x01, 0x97, 0xb9, 0xbc, 0x10, 0xaa, 0xf3, 0x0b, 0xc1, 0x3a,
+	0xd7, 0xc0, 0xcc, 0x02, 0x42, 0x0f, 0xa0, 0x11, 0xe5, 0xdd, 0xab, 0x4c, 0x6c, 0x5e, 0x2c, 0xde,
+	0x54, 0x88, 0xa7, 0x5c, 0x51, 0xec, 0xd5, 0xff, 0x5a, 0xec, 0xfa, 0x1b, 0x15, 0xbb, 0xb1, 0xb4,
+	0xd8, 0x3f, 0x84, 0x3a, 0x57, 0xcd, 0xaf, 0x0a, 0x79, 0xa3, 0x4c, 0xe7, 0x83, 0x01, 0x17, 0x94,
+	0x13, 0xc2, 0xe6, 0x85, 0xcb, 0xfd, 0x5f, 0x8b, 0xf8, 0x31, 0xbc, 0xdd, 0x8b, 0x04, 0xe5, 0xb2,
+	0xcf, 0xd9, 0x49, 0x30, 0xa4, 0xa5, 0x0a, 0x5e, 0x83, 0x6a, 0x6f, 0x5f, 0x8d, 0x96, 0x6a, 0x6f,
+	0x3f, 0x79, 0x02, 0x69, 0x48, 0x82, 0xa1, 0x7a, 0x5d, 0xb3, 0x85, 0xb3, 0x09, 0xeb, 0x33, 0x0a,
+	0x32, 0x6f, 0xef, 0x63, 0x30, 0x92, 0xa7, 0x19, 0x01, 0x98, 0xc9, 0xf7, 0xcb, 0x83, 0x56, 0x05,
+	0x5d, 0x83, 0xd5, 0xe4, 0xff, 0x33, 0xc6, 0x8f, 0x03, 0xdf, 0xa7, 0x51, 0x4b, 0x43, 0x1b, 0xd0,
+	0x4a, 0xb6, 0x9e, 0x45, 0xf9, 0x7b, 0x48, 0xfd, 0x56, 0x15, 0x6d, 0xc2, 0xb5, 0x64, 0xf7, 0xab,
+	0x98, 0x49, 0xf2, 0xe9, 0x2b, 0x8f, 0x52, 0x9f, 0xfa, 0x2d, 0x7d, 0xf7, 0x6f, 0x0d, 0x60, 0x8f,
+	0x45, 0x92, 0xb3, 0xe1, 0x90, 0x72, 0xf4, 0x05, 0x5c, 0x29, 0xf7, 0x3a, 0xb2, 0x8b, 0x30, 0x2f,
+	0x9d, 0x7c, 0x96, 0x75, 0x99, 0x5c, 0x25, 0xf7, 0x10, 0xae, 0x5e, 0xc8, 0x3a, 0xba, 0xbd, 0xb4,
+	0xd7, 0xac, 0x9b, 0x73, 0x10, 0xa5, 0xf4, 0x09, 0xac, 0xce, 0xa4, 0x06, 0xdd, 0xca, 0xf9, 0x39,
+	0x29, 0xb7, 0x6e, 0x5c, 0x0a, 0x64, 0xea, 0x3e, 0xd9, 0x7e, 0x7d, 0x66, 0x57, 0x7e, 0x3b, 0xb3,
+	0x2b, 0xe7, 0x67, 0xb6, 0xf6, 0xc3, 0xc4, 0xd6, 0x7e, 0x9a, 0xd8, 0xda, 0x2f, 0x13, 0x5b, 0x7b,
+	0x3d, 0xb1, 0xb5, 0xdf, 0x27, 0xb6, 0xf6, 0xe7, 0xc4, 0xae, 0x9c, 0x4f, 0x6c, 0xed, 0xc7, 0x3f,
+	0xec, 0xca, 0xb1, 0x99, 0xb6, 0xef, 0x83, 0x7f, 0x02, 0x00, 0x00, 0xff, 0xff, 0x14, 0x23, 0x3b,
+	0x99, 0xb5, 0x09, 0x00, 0x00,
 }

@@ -1,22 +1,23 @@
 ---
 title: access
 layout: protoc-gen-docs
-number_of_entries: 23
+generator: protoc-gen-docs
+number_of_entries: 25
 ---
 <h2 id="Services">Services</h2>
 <h3 id="Controller">Controller</h3>
 <section>
 <p>Controller models an entity that controls access to API resources.</p>
 
-<pre id="Controller.VerifyAPIKey"><code class="language-proto">rpc VerifyAPIKey(VerifyAPIKeyParameters) returns (VerifyAPIKeyResult)
+<pre id="Controller-VerifyAPIKey"><code class="language-proto">rpc VerifyAPIKey(VerifyAPIKeyParameters) returns (VerifyAPIKeyResult)
 </code></pre>
 <p>VerifyAPIKey verifies an API key.</p>
 
-<pre id="Controller.AuthorizeAccess"><code class="language-proto">rpc AuthorizeAccess(AuthorizeAccessParameters) returns (AuthorizeAccessResult)
+<pre id="Controller-AuthorizeAccess"><code class="language-proto">rpc AuthorizeAccess(AuthorizeAccessParameters) returns (AuthorizeAccessResult)
 </code></pre>
 <p>AuthorizeAccess authorizes API accesses.</p>
 
-<pre id="Controller.InsertProfile"><code class="language-proto">rpc InsertProfile(InsertProfileParameters) returns (InsertProfileResult)
+<pre id="Controller-InsertProfile"><code class="language-proto">rpc InsertProfile(InsertProfileParameters) returns (InsertProfileResult)
 </code></pre>
 <p>InsertProfile inserts a newly created profile into the Platform database.</p>
 
@@ -27,7 +28,7 @@ number_of_entries: 23
 <p>API groups up types describing API accesses.</p>
 
 </section>
-<h3 id="API.Key">API.Key</h3>
+<h3 id="API-Key">API.Key</h3>
 <section>
 <p>Key models an API key passed on with a request to an API.</p>
 
@@ -40,7 +41,7 @@ number_of_entries: 23
 </tr>
 </thead>
 <tbody>
-<tr id="API.Key.as_string">
+<tr id="API-Key-as_string">
 <td><code>asString</code></td>
 <td><code>string</code></td>
 <td>
@@ -49,7 +50,7 @@ number_of_entries: 23
 </tbody>
 </table>
 </section>
-<h3 id="API.Method">API.Method</h3>
+<h3 id="API-Method">API.Method</h3>
 <section>
 <p>Method models an access method on an API.</p>
 
@@ -62,7 +63,7 @@ number_of_entries: 23
 </tr>
 </thead>
 <tbody>
-<tr id="API.Method.as_string">
+<tr id="API-Method-as_string">
 <td><code>asString</code></td>
 <td><code>string</code></td>
 <td>
@@ -71,7 +72,7 @@ number_of_entries: 23
 </tbody>
 </table>
 </section>
-<h3 id="API.Name">API.Name</h3>
+<h3 id="API-Name">API.Name</h3>
 <section>
 <p>Name models the name of an API.</p>
 
@@ -84,7 +85,7 @@ number_of_entries: 23
 </tr>
 </thead>
 <tbody>
-<tr id="API.Name.as_string">
+<tr id="API-Name-as_string">
 <td><code>asString</code></td>
 <td><code>string</code></td>
 <td>
@@ -93,7 +94,7 @@ number_of_entries: 23
 </tbody>
 </table>
 </section>
-<h3 id="API.Namespace">API.Namespace</h3>
+<h3 id="API-Namespace">API.Namespace</h3>
 <section>
 <p>Namespace models the namespace that an API lives in.</p>
 
@@ -106,7 +107,7 @@ number_of_entries: 23
 </tr>
 </thead>
 <tbody>
-<tr id="API.Namespace.as_string">
+<tr id="API-Namespace-as_string">
 <td><code>asString</code></td>
 <td><code>string</code></td>
 <td>
@@ -115,7 +116,7 @@ number_of_entries: 23
 </tbody>
 </table>
 </section>
-<h3 id="API.Resource">API.Resource</h3>
+<h3 id="API-Resource">API.Resource</h3>
 <section>
 <p>Resource models a specific resource of an API.</p>
 
@@ -128,7 +129,7 @@ number_of_entries: 23
 </tr>
 </thead>
 <tbody>
-<tr id="API.Resource.as_string">
+<tr id="API-Resource-as_string">
 <td><code>asString</code></td>
 <td><code>string</code></td>
 <td>
@@ -137,7 +138,7 @@ number_of_entries: 23
 </tbody>
 </table>
 </section>
-<h3 id="API.Version">API.Version</h3>
+<h3 id="API-Version">API.Version</h3>
 <section>
 <p>Version models the version of an API.</p>
 
@@ -150,7 +151,7 @@ number_of_entries: 23
 </tr>
 </thead>
 <tbody>
-<tr id="API.Version.as_string">
+<tr id="API-Version-as_string">
 <td><code>asString</code></td>
 <td><code>string</code></td>
 <td>
@@ -172,23 +173,31 @@ number_of_entries: 23
 </tr>
 </thead>
 <tbody>
-<tr id="AuthorizeAccessParameters.subject">
+<tr id="AuthorizeAccessParameters-subject">
 <td><code>subject</code></td>
-<td><code><a href="#AuthorizeAccessParameters.Subject">AuthorizeAccessParameters.Subject</a></code></td>
+<td><code><a href="#AuthorizeAccessParameters-Subject">AuthorizeAccessParameters.Subject</a></code></td>
 <td>
 <p>Who tried to access the API.</p>
 
 </td>
 </tr>
-<tr id="AuthorizeAccessParameters.action">
+<tr id="AuthorizeAccessParameters-action">
 <td><code>action</code></td>
-<td><code><a href="#AuthorizeAccessParameters.Action">AuthorizeAccessParameters.Action</a></code></td>
+<td><code><a href="#AuthorizeAccessParameters-Action">AuthorizeAccessParameters.Action</a></code></td>
 <td>
 <p>The specific action on the API.</p>
 
 </td>
 </tr>
-<tr id="AuthorizeAccessParameters.timestamp">
+<tr id="AuthorizeAccessParameters-raw">
+<td><code>raw</code></td>
+<td><code><a href="#Raw">Raw</a></code></td>
+<td>
+<p>Raw values relevant for verification and auth&lbrace;z,n}.</p>
+
+</td>
+</tr>
+<tr id="AuthorizeAccessParameters-timestamp">
 <td><code>timestamp</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#timestamp">google.protobuf.Timestamp</a></code></td>
 <td>
@@ -199,7 +208,7 @@ number_of_entries: 23
 </tbody>
 </table>
 </section>
-<h3 id="AuthorizeAccessParameters.Action">AuthorizeAccessParameters.Action</h3>
+<h3 id="AuthorizeAccessParameters-Action">AuthorizeAccessParameters.Action</h3>
 <section>
 <p>Action describes what a subject is trying to access.</p>
 
@@ -212,41 +221,41 @@ number_of_entries: 23
 </tr>
 </thead>
 <tbody>
-<tr id="AuthorizeAccessParameters.Action.namespace">
+<tr id="AuthorizeAccessParameters-Action-namespace">
 <td><code>namespace</code></td>
-<td><code><a href="#API.Namespace">API.Namespace</a></code></td>
+<td><code><a href="#API-Namespace">API.Namespace</a></code></td>
 <td>
 <p>The namespace that the API lives in.</p>
 
 </td>
 </tr>
-<tr id="AuthorizeAccessParameters.Action.name">
+<tr id="AuthorizeAccessParameters-Action-name">
 <td><code>name</code></td>
-<td><code><a href="#API.Name">API.Name</a></code></td>
+<td><code><a href="#API-Name">API.Name</a></code></td>
 <td>
 <p>The name of the API that is accessed.</p>
 
 </td>
 </tr>
-<tr id="AuthorizeAccessParameters.Action.version">
+<tr id="AuthorizeAccessParameters-Action-version">
 <td><code>version</code></td>
-<td><code><a href="#API.Version">API.Version</a></code></td>
+<td><code><a href="#API-Version">API.Version</a></code></td>
 <td>
 <p>The version of the API that is accessed.</p>
 
 </td>
 </tr>
-<tr id="AuthorizeAccessParameters.Action.method">
+<tr id="AuthorizeAccessParameters-Action-method">
 <td><code>method</code></td>
-<td><code><a href="#API.Method">API.Method</a></code></td>
+<td><code><a href="#API-Method">API.Method</a></code></td>
 <td>
 <p>The concrete access method.</p>
 
 </td>
 </tr>
-<tr id="AuthorizeAccessParameters.Action.resource">
+<tr id="AuthorizeAccessParameters-Action-resource">
 <td><code>resource</code></td>
-<td><code><a href="#API.Resource">API.Resource</a></code></td>
+<td><code><a href="#API-Resource">API.Resource</a></code></td>
 <td>
 <p>The specific resource that is accessed within the API.</p>
 
@@ -255,7 +264,7 @@ number_of_entries: 23
 </tbody>
 </table>
 </section>
-<h3 id="AuthorizeAccessParameters.Subject">AuthorizeAccessParameters.Subject</h3>
+<h3 id="AuthorizeAccessParameters-Subject">AuthorizeAccessParameters.Subject</h3>
 <section>
 <p>Subject describes who is trying to access an API.</p>
 
@@ -268,7 +277,7 @@ number_of_entries: 23
 </tr>
 </thead>
 <tbody>
-<tr id="AuthorizeAccessParameters.Subject.credentials">
+<tr id="AuthorizeAccessParameters-Subject-credentials">
 <td><code>credentials</code></td>
 <td><code><a href="#Credentials">Credentials</a></code></td>
 <td>
@@ -276,9 +285,9 @@ number_of_entries: 23
 
 </td>
 </tr>
-<tr id="AuthorizeAccessParameters.Subject.key">
+<tr id="AuthorizeAccessParameters-Subject-key">
 <td><code>key</code></td>
-<td><code><a href="#API.Key">API.Key</a></code></td>
+<td><code><a href="#API-Key">API.Key</a></code></td>
 <td>
 <p>The key accompanying the request.</p>
 
@@ -300,7 +309,7 @@ number_of_entries: 23
 </tr>
 </thead>
 <tbody>
-<tr id="AuthorizeAccessResult.status">
+<tr id="AuthorizeAccessResult-status">
 <td><code>status</code></td>
 <td><code><a href="#Status">Status</a></code></td>
 <td>
@@ -308,7 +317,7 @@ number_of_entries: 23
 
 </td>
 </tr>
-<tr id="AuthorizeAccessResult.validity">
+<tr id="AuthorizeAccessResult-validity">
 <td><code>validity</code></td>
 <td><code><a href="#Validity">Validity</a></code></td>
 <td>
@@ -331,7 +340,7 @@ number_of_entries: 23
 </tr>
 </thead>
 <tbody>
-<tr id="Code.CodeOK">
+<tr id="Code-CodeOK">
 <td><code>CodeOK</code></td>
 <td>
 <p>Not an error; returned on success</p>
@@ -340,7 +349,7 @@ number_of_entries: 23
 
 </td>
 </tr>
-<tr id="Code.CodeForbidden">
+<tr id="Code-CodeForbidden">
 <td><code>CodeForbidden</code></td>
 <td>
 <p>The operation is forbidden.</p>
@@ -349,7 +358,7 @@ number_of_entries: 23
 
 </td>
 </tr>
-<tr id="Code.CodeUnauthorized">
+<tr id="Code-CodeUnauthorized">
 <td><code>CodeUnauthorized</code></td>
 <td>
 <p>The operation is not authorized.</p>
@@ -358,7 +367,7 @@ number_of_entries: 23
 
 </td>
 </tr>
-<tr id="Code.CodeQuotaExceeded">
+<tr id="Code-CodeQuotaExceeded">
 <td><code>CodeQuotaExceeded</code></td>
 <td>
 <p>The quota for the operation has been exceeded.</p>
@@ -383,25 +392,25 @@ number_of_entries: 23
 </tr>
 </thead>
 <tbody>
-<tr id="Credentials.username">
+<tr id="Credentials-username">
 <td><code>username</code></td>
-<td><code><a href="#Credentials.Username">Credentials.Username</a></code></td>
+<td><code><a href="#Credentials-Username">Credentials.Username</a></code></td>
 <td>
 <p>The name of the user.</p>
 
 </td>
 </tr>
-<tr id="Credentials.groups">
+<tr id="Credentials-groups">
 <td><code>groups</code></td>
-<td><code><a href="#Credentials.Group">Credentials.Group[]</a></code></td>
+<td><code><a href="#Credentials-Group">Credentials.Group[]</a></code></td>
 <td>
 <p>The groups that the user belongs to.</p>
 
 </td>
 </tr>
-<tr id="Credentials.password">
+<tr id="Credentials-password">
 <td><code>password</code></td>
-<td><code><a href="#Credentials.Password">Credentials.Password</a></code></td>
+<td><code><a href="#Credentials-Password">Credentials.Password</a></code></td>
 <td>
 <p>The password of the user.</p>
 
@@ -410,7 +419,7 @@ number_of_entries: 23
 </tbody>
 </table>
 </section>
-<h3 id="Credentials.Group">Credentials.Group</h3>
+<h3 id="Credentials-Group">Credentials.Group</h3>
 <section>
 <p>Group models a group.</p>
 
@@ -423,7 +432,7 @@ number_of_entries: 23
 </tr>
 </thead>
 <tbody>
-<tr id="Credentials.Group.as_string">
+<tr id="Credentials-Group-as_string">
 <td><code>asString</code></td>
 <td><code>string</code></td>
 <td>
@@ -432,7 +441,7 @@ number_of_entries: 23
 </tbody>
 </table>
 </section>
-<h3 id="Credentials.Password">Credentials.Password</h3>
+<h3 id="Credentials-Password">Credentials.Password</h3>
 <section>
 <p>Password models a password.</p>
 
@@ -445,7 +454,7 @@ number_of_entries: 23
 </tr>
 </thead>
 <tbody>
-<tr id="Credentials.Password.as_string">
+<tr id="Credentials-Password-as_string">
 <td><code>asString</code></td>
 <td><code>string</code></td>
 <td>
@@ -454,7 +463,7 @@ number_of_entries: 23
 </tbody>
 </table>
 </section>
-<h3 id="Credentials.Username">Credentials.Username</h3>
+<h3 id="Credentials-Username">Credentials.Username</h3>
 <section>
 <p>Username models a username.</p>
 
@@ -467,7 +476,7 @@ number_of_entries: 23
 </tr>
 </thead>
 <tbody>
-<tr id="Credentials.Username.as_string">
+<tr id="Credentials-Username-as_string">
 <td><code>asString</code></td>
 <td><code>string</code></td>
 <td>
@@ -489,7 +498,7 @@ number_of_entries: 23
 </tr>
 </thead>
 <tbody>
-<tr id="InsertProfileParameters.ID">
+<tr id="InsertProfileParameters-ID">
 <td><code>ID</code></td>
 <td><code>string</code></td>
 <td>
@@ -497,7 +506,7 @@ number_of_entries: 23
 
 </td>
 </tr>
-<tr id="InsertProfileParameters.email">
+<tr id="InsertProfileParameters-email">
 <td><code>email</code></td>
 <td><code>string</code></td>
 <td>
@@ -513,6 +522,54 @@ number_of_entries: 23
 <p>InsertProfileResult bundles up the result of calls to Controller.InsertProfile</p>
 
 </section>
+<h3 id="Raw">Raw</h3>
+<section>
+<p>Raw bundles up raw values for post-processing in the adapter.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Raw-authorization">
+<td><code>authorization</code></td>
+<td><code><a href="#Raw-Authorization">Raw.Authorization</a></code></td>
+<td>
+<p>The raw authorization value, typically a bearer token.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="Raw-Authorization">Raw.Authorization</h3>
+<section>
+<p>Models a raw authorization value.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Raw-Authorization-as_string">
+<td><code>asString</code></td>
+<td><code>string</code></td>
+<td>
+<p>Its string value.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
 <h3 id="Status">Status</h3>
 <section>
 <p>Status summarizes the status of an operation.</p>
@@ -526,7 +583,7 @@ number_of_entries: 23
 </tr>
 </thead>
 <tbody>
-<tr id="Status.code">
+<tr id="Status-code">
 <td><code>code</code></td>
 <td><code><a href="#Code">Code</a></code></td>
 <td>
@@ -534,7 +591,7 @@ number_of_entries: 23
 
 </td>
 </tr>
-<tr id="Status.message">
+<tr id="Status-message">
 <td><code>message</code></td>
 <td><code>string</code></td>
 <td>
@@ -558,7 +615,7 @@ number_of_entries: 23
 </tr>
 </thead>
 <tbody>
-<tr id="Validity.duration">
+<tr id="Validity-duration">
 <td><code>duration</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
@@ -566,7 +623,7 @@ number_of_entries: 23
 
 </td>
 </tr>
-<tr id="Validity.count">
+<tr id="Validity-count">
 <td><code>count</code></td>
 <td><code>uint64</code></td>
 <td>
@@ -590,39 +647,39 @@ number_of_entries: 23
 </tr>
 </thead>
 <tbody>
-<tr id="VerifyAPIKeyParameters.name">
+<tr id="VerifyAPIKeyParameters-name">
 <td><code>name</code></td>
-<td><code><a href="#API.Name">API.Name</a></code></td>
+<td><code><a href="#API-Name">API.Name</a></code></td>
 <td>
 <p>The name of the API.</p>
 
 </td>
 </tr>
-<tr id="VerifyAPIKeyParameters.version">
+<tr id="VerifyAPIKeyParameters-version">
 <td><code>version</code></td>
-<td><code><a href="#API.Version">API.Version</a></code></td>
+<td><code><a href="#API-Version">API.Version</a></code></td>
 <td>
 <p>The version of the API.</p>
 
 </td>
 </tr>
-<tr id="VerifyAPIKeyParameters.method">
+<tr id="VerifyAPIKeyParameters-method">
 <td><code>method</code></td>
-<td><code><a href="#API.Method">API.Method</a></code></td>
+<td><code><a href="#API-Method">API.Method</a></code></td>
 <td>
 <p>The method used for accessing the API.</p>
 
 </td>
 </tr>
-<tr id="VerifyAPIKeyParameters.key">
+<tr id="VerifyAPIKeyParameters-key">
 <td><code>key</code></td>
-<td><code><a href="#API.Key">API.Key</a></code></td>
+<td><code><a href="#API-Key">API.Key</a></code></td>
 <td>
 <p>The key accompanying the request.</p>
 
 </td>
 </tr>
-<tr id="VerifyAPIKeyParameters.timestamp">
+<tr id="VerifyAPIKeyParameters-timestamp">
 <td><code>timestamp</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#timestamp">google.protobuf.Timestamp</a></code></td>
 <td>
@@ -646,7 +703,7 @@ number_of_entries: 23
 </tr>
 </thead>
 <tbody>
-<tr id="VerifyAPIKeyResult.status">
+<tr id="VerifyAPIKeyResult-status">
 <td><code>status</code></td>
 <td><code><a href="#Status">Status</a></code></td>
 <td>
@@ -654,7 +711,7 @@ number_of_entries: 23
 
 </td>
 </tr>
-<tr id="VerifyAPIKeyResult.validity">
+<tr id="VerifyAPIKeyResult-validity">
 <td><code>validity</code></td>
 <td><code><a href="#Validity">Validity</a></code></td>
 <td>
