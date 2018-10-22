@@ -87,6 +87,8 @@ var (
 	galleyTag          = flag.String("galley_tag", os.Getenv("TAG"), "Galley tag")
 	sidecarInjectorHub = flag.String("sidecar_injector_hub", os.Getenv("HUB"), "Sidecar injector hub")
 	sidecarInjectorTag = flag.String("sidecar_injector_tag", os.Getenv("TAG"), "Sidecar injector tag")
+	cniHub             = flag.String("istio_cni_hub", "", "Hub to use to get the Istio CNI plugin")
+	cniTag             = flag.String("istio_cni_tag", "", "Tag to use to get the Istio CNI plugin")
 	authEnable         = flag.Bool("auth_enable", false, "Enable auth")
 	rbacEnable         = flag.Bool("rbac_enable", true, "Enable rbac")
 	localCluster       = flag.Bool("use_local_cluster", false,
@@ -102,7 +104,6 @@ var (
 	useMCP                   = flag.Bool("use_mcp", false, "use MCP for configuring Istio components")
 	kubeInjectCM             = flag.String("kube_inject_configmap", "",
 		"Configmap to use by the istioctl kube-inject command.")
-
 
 	addons = []string{
 		"zipkin",
@@ -948,6 +949,9 @@ func (k *KubeInfo) generateIstio(src, dst string) error {
 		if *galleyHub != "" && *galleyTag != "" {
 			//Need to be updated when the string "citadel" is changed
 			content = updateImage("galley", *galleyHub, *galleyTag, content)
+		}
+		if *cniHub != "" && *cniTag != "" {
+			content = updateImage("install-cni", *cniHub, *cniTag, content)
 		}
 		if *imagePullPolicy != "" {
 			content = updateImagePullPolicy(*imagePullPolicy, content)

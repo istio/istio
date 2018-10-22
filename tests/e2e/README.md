@@ -107,6 +107,8 @@ E2E tests have multiple options available while running them as follows:
 * `--sidecar_injector_hub <hub>` - Image hub for the Sidecar Injector (default: environment $HUB)
 * `--sidecar_injector_tag <tag>` - Image tag for the Sidecar Injector (default: environment $TAG)
 * `--sidecar_injector_file <file>` - Sidecar injector YAML file name (default: istio-sidecar-injector.yaml)
+* `--istio_cni_hub <hub>` - Image hub for the CNI plugin: (defaults to using the value generate_yaml provides)
+* `--istio_cni_tag <tag>` - Image tag for the CNI plugin: (defaults to using the value generate_yaml provides)
 * `--image_pull_policy <policy>` - Specifies an override for the Docker image pull policy to be used
 * `--cluster_registry_dir <dir>` - Directory name for the cluster registry config. When provided this will trigger a multicluster test to be run across two clusters. 
 * `--installer <cmd>` - Use `helm` or `kubectl` to install Istio (default: kubectl)
