@@ -20,7 +20,7 @@ spec:
     - host: {{ $host }}
       http:
         paths:
-          - path: {{ if .Values.jaeger.contextPath }} {{ .Values.jaeger.contextPath }} {{ else }} / {{ end }}
+          - path: {{ if $.Values.jaeger.contextPath }} {{ $.Values.jaeger.contextPath }} {{ else }} / {{ end }}
             backend:
               serviceName: jaeger-query
               servicePort: 16686
