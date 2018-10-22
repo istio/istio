@@ -756,7 +756,7 @@ type buildListenerOpts struct {
 	filterChainOpts []*filterChainOpts
 }
 
-func buildHTTPConnectionManager(env *model.Environment, node *model.Proxy, httpOpts *httpListenerOpts,
+func buildHTTPConnectionManager(env *model.Environment, httpOpts *httpListenerOpts,
 	httpFilters []*http_conn.HttpFilter) *http_conn.HttpConnectionManager {
 	filters := append(httpFilters,
 		&http_conn.HttpFilter{Name: xdsutil.CORS},
@@ -948,7 +948,7 @@ func marshalFilters(l *xdsapi.Listener, opts buildListenerOpts, chains []plugin.
 
 		if opt.httpOpts != nil {
 			opt.httpOpts.statPrefix = l.Name
-			connectionManager := buildHTTPConnectionManager(opts.env, opts.proxy, opt.httpOpts, chain.HTTP)
+			connectionManager := buildHTTPConnectionManager(opts.env, opt.httpOpts, chain.HTTP)
 			l.FilterChains[i].Filters = append(l.FilterChains[i].Filters, listener.Filter{
 				Name:   xdsutil.HTTPConnectionManager,
 				Config: util.MessageToStruct(connectionManager),
