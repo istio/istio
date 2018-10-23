@@ -424,10 +424,12 @@ func (s *Server) initMeshNetworks(args *PilotArgs) error {
 		}
 	}
 
-	// Config file either wasn't specified or failed to load - use a default
-	if _, meshNetworks, err = GetMeshNetworks(s.kubeClient, kube.IstioNamespace, kube.IstioNetworksConfigMap); err != nil {
-		log.Warnf("failed to read mesh networks configuration: %v", err)
-		return err
+	if meshNetworks == nil {
+		// Config file either wasn't specified or failed to load - use a default
+		if _, meshNetworks, err = GetMeshNetworks(s.kubeClient, kube.IstioNamespace, kube.IstioNetworksConfigMap); err != nil {
+			log.Warnf("failed to read mesh networks configuration: %v", err)
+			return err
+		}
 	}
 
 	log.Infof("mesh networks configuration %s", spew.Sdump(meshNetworks))
