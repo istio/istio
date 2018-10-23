@@ -99,9 +99,17 @@ data:
         - {{ "[[ formatDuration .ProxyConfig.ParentShutdownDuration ]]" }}
         - --discoveryAddress
         - {{ "[[ or (index .ObjectMeta.Annotations \"sidecar.istio.io/discoveryAddress\") .ProxyConfig.DiscoveryAddress ]]" }}
-      {{- if .Values.global.zipkinAddress }}
+      {{- if eq .Values.global.proxy.tracer "lightstep" }}
+        - --lightstepAddress
+        - {{ "[[ .ProxyConfig.GetTracing.GetLightstep.GetAddress ]]" }}
+        - --lightstepAccessToken
+        - {{ "[[ .ProxyConfig.GetTracing.GetLightstep.GetAccessToken ]]" }}
+        - --lightstepSecure={{ "[[ .ProxyConfig.GetTracing.GetLightstep.GetSecure ]]" }}
+        - --lightstepCacertPath
+        - {{ "[[ .ProxyConfig.GetTracing.GetLightstep.GetCacertPath ]]" }}
+      {{- else if eq .Values.global.proxy.tracer "zipkin" }}
         - --zipkinAddress
-        - {{ "[[ .ProxyConfig.ZipkinAddress ]]" }}
+        - {{ "[[ .ProxyConfig.GetTracing.GetZipkin.GetAddress ]]" }}
       {{- end }}
         - --connectTimeout
         - {{ "[[ formatDuration .ProxyConfig.ConnectTimeout ]]" }}

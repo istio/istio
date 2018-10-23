@@ -105,8 +105,18 @@ data:
         - {{ "[[ formatDuration .ProxyConfig.ParentShutdownDuration ]]" }}
         - --discoveryAddress
         - {{ "[[ .ProxyConfig.DiscoveryAddress ]]" }}
+      {{- if eq .Values.global.proxy.tracer "lightstep" }}
+        - --lightstepAddress
+        - {{ "[[ .ProxyConfig.GetTracing.GetLightstep.GetAddress ]]" }}
+        - --lightstepAccessToken
+        - {{ "[[ .ProxyConfig.GetTracing.GetLightstep.GetAccessToken ]]" }}
+        - --lightstepSecure={{ "[[ .ProxyConfig.GetTracing.GetLightstep.GetSecure ]]" }}
+        - --lightstepCacertPath
+        - {{ "[[ .ProxyConfig.GetTracing.GetLightstep.GetCacertPath ]]" }}
+      {{- else if eq .Values.global.proxy.tracer "zipkin" }}
         - --zipkinAddress
-        - {{ "[[ .ProxyConfig.ZipkinAddress ]]" }}
+        - {{ "[[ .ProxyConfig.GetTracing.GetZipkin.GetAddress ]]" }}
+      {{- end }}
         - --connectTimeout
         - {{ "[[ formatDuration .ProxyConfig.ConnectTimeout ]]" }}
       {{- if .Values.global.proxy.envoyStatsd.enabled }}
@@ -200,11 +210,22 @@ data:
         - mountPath: /var/run/sds
           name: sds-uds-path
         {{- end }}
+        {{ if and (eq .Values.global.proxy.tracer "lightstep") .Values.global.tracer.lightstep.cacertPath }}
+        - mountPath: {{ "[[ directory .ProxyConfig.GetTracing.GetLightstep.GetCacertPath ]]" }}
+          name: lightstep-certs
+          readOnly: true
+        {{- end }}
       volumes:
       {{ if .Values.global.sdsEnabled }}
       - name: sds-uds-path
         hostPath:
           path: /var/run/sds
+      {{- end }}
+      {{ if and (eq .Values.global.proxy.tracer "lightstep") .Values.global.tracer.lightstep.cacertPath }}
+      - name: lightstep-certs
+        secret:
+          optional: true
+          secretName: lightstep.cacert
       {{- end }}
       - emptyDir:
           medium: Memory

@@ -83,11 +83,25 @@ data:
       # If set to 0 (default), then start worker thread for each CPU thread/core.
       concurrency: {{ .Values.global.proxy.concurrency }}
       #
-      # Zipkin trace collector
-      {{- if .Values.global.tracer.zipkinAddress }}
-      zipkinAddress: {{ .Values.global.tracer.zipkinAddress }}
-      {{- else }}
-      zipkinAddress: zipkin.{{ .Release.Namespace }}:9411
+      tracing:
+      {{- if eq .Values.global.proxy.tracer "lightstep" }}
+        lightstep:
+          # Address of the LightStep Satellite pool
+          address: {{ .Values.global.tracer.lightstep.address }}
+          # Access Token used to communicate with the Satellite pool
+          accessToken: {{ .Values.global.tracer.lightstep.accessToken }}
+          # Whether communication with the Satellite pool should be secure
+          secure: {{ .Values.global.tracer.lightstep.secure }}
+          # Path to the file containing the cacert to use when verifying TLS
+          cacertPath: {{ .Values.global.tracer.lightstep.cacertPath }}
+      {{- else if eq .Values.global.proxy.tracer "zipkin" }}
+        zipkin:
+          # Address of the Zipkin collector
+        {{- if .Values.global.tracer.zipkin.address }}
+          address: {{ .Values.global.tracer.zipkin.address }}
+        {{- else }}
+          address: zipkin.{{ .Release.Namespace }}:9411
+        {{- end }}
       {{- end }}
 
     {{- if .Values.global.proxy.envoyStatsd.enabled }}

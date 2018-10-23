@@ -103,8 +103,18 @@ containers:
   - [[ formatDuration .ProxyConfig.ParentShutdownDuration ]]
   - --discoveryAddress
   - [[ .ProxyConfig.DiscoveryAddress ]]
+  [[ if .ProxyConfig.GetTracing.GetLightstep -]]
+  - --lightstepAddress
+  - [[ .ProxyConfig.GetTracing.GetLightstep.GetAddress ]]
+  - --lightstepAccessToken
+  - [[ .ProxyConfig.GetTracing.GetLightstep.GetAccessToken ]]
+  - --lightstepSecure=[[ .ProxyConfig.GetTracing.GetLightstep.GetSecure ]]
+  - --lightstepCacertPath
+  - [[ .ProxyConfig.GetTracing.GetLightstep.GetCacertPath ]]
+  [[ else if .ProxyConfig.GetTracing.GetZipkin -]]
   - --zipkinAddress
-  - [[ .ProxyConfig.ZipkinAddress ]]
+  - [[ .ProxyConfig.GetTracing.GetZipkin.GetAddress ]]
+  [[ end -]]
   - --connectTimeout
   - [[ formatDuration .ProxyConfig.ConnectTimeout ]]
   - --statsdUdpAddress
