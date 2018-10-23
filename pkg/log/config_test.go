@@ -252,7 +252,7 @@ func TestRotateMaxBackups(t *testing.T) {
 
 	// TODO: find other graceful way to prevent flake
 	// lumberjack.Logger rotate in a separate goroutine, could not know when rotation done.
-	time.Sleep(500 * time.Second)
+	time.Sleep(500 * time.Millisecond)
 
 	rd, err := ioutil.ReadDir(dir)
 	if err != nil {
