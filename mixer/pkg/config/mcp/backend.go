@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"net/url"
 	"os"
 	"strings"
@@ -47,6 +48,7 @@ const (
 	mixerNodeID           = snapshot.DefaultGroup
 	eventChannelSize      = 4096
 	requiredCertCheckFreq = 500 * time.Millisecond
+	defaultDialTimeout    = 15 * time.Second
 )
 
 // Register registers this module as a StoreBackend.
@@ -177,7 +179,10 @@ func (b *backend) Init(kinds []string) error {
 		securityOption = grpc.WithTransportCredentials(credentials)
 	}
 
-	conn, err := grpc.DialContext(ctx, b.serverAddress, securityOption)
+	conn, err := grpc.DialContext(ctx, b.serverAddress, securityOption,
+		grpc.WithDialer(func(addr string, timeout time.Duration) (net.Conn, error) {
+			return net.DialTimeout("tcp", addr, defaultDialTimeout)
+		}))
 	if err != nil {
 		cancel()
 		scope.Errorf("Error connecting to server: %v\n", err)

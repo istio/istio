@@ -82,6 +82,8 @@ const (
 
 	// DefaultMCPMaxMsgSize is the default maximum message size
 	DefaultMCPMaxMsgSize = 1024 * 1024 * 4
+
+	defaultDialTimeout = 15 * time.Second
 )
 
 var (
@@ -459,8 +461,12 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 			securityOption = grpc.WithTransportCredentials(credentials)
 		}
 		msgSizeOption := grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(args.MCPMaxMessageSize))
-		conn, err := grpc.DialContext(ctx, u.Host, securityOption, msgSizeOption)
+		conn, err := grpc.DialContext(ctx, u.Host, securityOption, msgSizeOption,
+			grpc.WithDialer(func(addr string, timeout time.Duration) (net.Conn, error) {
+				return net.DialTimeout("tcp", addr, defaultDialTimeout)
+			}))
 		if err != nil {
+			cancel()
 			log.Errorf("Unable to dial MCP Server %q: %v", u.Host, err)
 			return err
 		}
