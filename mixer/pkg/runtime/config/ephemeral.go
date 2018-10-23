@@ -30,13 +30,11 @@ import (
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
-
-	"go.opencensus.io/tag"
-
 	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
 	"github.com/gogo/protobuf/types"
 	multierror "github.com/hashicorp/go-multierror"
 	"go.opencensus.io/stats"
+	"go.opencensus.io/tag"
 
 	"istio.io/api/mixer/adapter/model/v1beta1"
 	config "istio.io/api/policy/v1beta1"
@@ -382,6 +380,13 @@ func (e *Ephemeral) processDynamicInstanceConfigs(ctx context.Context, templates
 
 		inst := resource.Spec.(*config.Instance)
 		instanceName := key.String()
+
+		if inst.Params == nil {
+			appendErr(ctx, errs, fmt.Sprintf("instance='%s'.params", instanceName),
+				monitoring.InstanceErrs, "params cannot be nil")
+			continue
+		}
+
 		log.Debugf("Processing incoming instance config: name='%s'\n%s", instanceName, resource.Spec)
 
 		tmpl, _ := getCanonicalRef(inst.Template, constant.TemplateKind, key.Namespace, func(n string) interface{} {
@@ -404,26 +409,24 @@ func (e *Ephemeral) processDynamicInstanceConfigs(ctx context.Context, templates
 			resolver,
 			compiler,
 			false)
-		var enc dynamic.Encoder
-		var params map[string]interface{}
-		var err error
-		if inst.Params != nil {
-			if params, err = toDictionary(inst.Params); err != nil {
-				appendErr(ctx, errs, fmt.Sprintf("instance='%s'.params", instanceName),
-					monitoring.InstanceErrs, "invalid params block.")
-				continue
-			}
+		params, err := toDictionary(inst.Params)
+		if err != nil {
+			appendErr(ctx, errs, fmt.Sprintf("instance='%s'.params", instanceName),
+				monitoring.InstanceErrs, "invalid params block.")
+			continue
+		}
 
-			// name field is not provided by instance config author, instead it is added by Mixer into the request
-			// object that is passed to the adapter.
-			params["name"] = fmt.Sprintf("\"%s\"", instanceName)
-			enc, err = b.Build(getTemplatesMsgFullName(template.PackageName), params)
-			if err != nil {
-				appendErr(ctx, errs, fmt.Sprintf("instance='%s'.params", instanceName),
-					monitoring.InstanceErrs, "config does not conform to schema of template '%s': %v",
-					inst.Template, err.Error())
-				continue
-			}
+		// name field is not provided by instance config author, instead it is added by Mixer into the request
+		// object that is passed to the adapter.
+		params["name"] = fmt.Sprintf("\"%s\"", instanceName)
+
+		var enc dynamic.Encoder
+		enc, err = b.Build(getTemplatesMsgFullName(template.PackageName), params)
+		if err != nil {
+			appendErr(ctx, errs, fmt.Sprintf("instance='%s'.params", instanceName),
+				monitoring.InstanceErrs, "config does not conform to schema of template '%s': %v",
+				inst.Template, err.Error())
+			continue
 		}
 
 		cfg := &InstanceDynamic{
