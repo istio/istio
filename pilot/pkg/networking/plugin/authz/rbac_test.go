@@ -596,7 +596,7 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 											},
 										},
 									},
-								} ,
+								},
 							},
 						},
 					},
@@ -1128,10 +1128,6 @@ func TestConvertRbacRulesToFilterConfigPermissive(t *testing.T) {
 
 	emptyConfig := &http_config.RBAC{
 		Rules: &policy.RBAC{
-			Action:   policy.RBAC_ALLOW,
-			Policies: map[string]*policy.Policy{},
-		},
-		ShadowRules: &policy.RBAC{
 			Action:   policy.RBAC_ALLOW,
 			Policies: map[string]*policy.Policy{},
 		},
