@@ -828,7 +828,8 @@ func buildHTTPConnectionManager(env *model.Environment, httpOpts *httpListenerOp
 // buildListener builds and initializes a Listener proto based on the provided opts. It does not set any filters.
 func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 	filterChains := make([]listener.FilterChain, 0, len(opts.filterChainOpts))
-	listenerFiltersMap := make(map[string]listener.ListenerFilter)
+	listenerFiltersMap := make(map[string]bool)
+	var listenerFilters []listener.ListenerFilter
 
 	// add a TLS inspector if we need to detect ServerName or ALPN
 	needTLSInspector := false
@@ -840,13 +841,15 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 		}
 	}
 	if needTLSInspector {
-		listenerFiltersMap[envoyListenerTLSInspector] = listener.ListenerFilter{Name: envoyListenerTLSInspector}
+		listenerFiltersMap[envoyListenerTLSInspector] = true
+		listenerFilters = append(listenerFilters, listener.ListenerFilter{Name: envoyListenerTLSInspector})
 	}
 
 	for _, chain := range opts.filterChainOpts {
 		for _, filter := range chain.listenerFilters {
 			if _, exist := listenerFiltersMap[filter.Name]; !exist {
-				listenerFiltersMap[filter.Name] = filter
+				listenerFiltersMap[filter.Name] = true
+				listenerFilters = append(listenerFilters, filter)
 			}
 		}
 		match := &listener.FilterChainMatch{}
@@ -897,11 +900,6 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 		deprecatedV1 = &xdsapi.Listener_DeprecatedV1{
 			BindToPort: boolFalse,
 		}
-	}
-
-	var listenerFilters []listener.ListenerFilter
-	for _, filter := range listenerFiltersMap {
-		listenerFilters = append(listenerFilters, filter)
 	}
 
 	return &xdsapi.Listener{
