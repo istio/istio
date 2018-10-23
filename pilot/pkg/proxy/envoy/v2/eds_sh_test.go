@@ -97,6 +97,15 @@ func TestSplitHorizonEds(t *testing.T) {
 		localEndpoints: []string{"10.4.0.1", "10.4.0.2", "10.4.0.3", "10.4.0.4"},
 		remoteWeights:  map[string]uint32{"159.122.219.1": 1, "159.122.219.2": 2, "159.122.219.3": 3},
 	})
+
+	// Clean server changes as other tests may use the same server
+	pilotServer.ServiceController.DeleteRegistry("network1")
+	pilotServer.ServiceController.DeleteRegistry("network2")
+	pilotServer.ServiceController.DeleteRegistry("network3")
+	pilotServer.ServiceController.DeleteRegistry("network4")
+	pilotServer.EnvoyXdsServer.Env.MeshNetworks = nil
+	pilotServer.EnvoyXdsServer.ConfigUpdate(true)
+	time.Sleep(200 * time.Millisecond)
 }
 
 // Tests whether an EDS response from the provided network matches the expected results
@@ -106,6 +115,7 @@ func verifySplitHorizonResponse(t *testing.T, network string, sidecarId string, 
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer edsstr.CloseSend()
 
 	metadata := &proto.Struct{Fields: map[string]*proto.Value{
 		"ISTIO_PROXY_VERSION": {Kind: &proto.Value_StringValue{StringValue: "1.1"}},
@@ -243,53 +253,6 @@ func initRegistry(clusterNum int, gatewaysIP []string, numOfEndpoints int) {
 			AvailabilityZone: "az",
 		})
 	}
-
-	// Mock ingressgateway service
-	// memRegistry.AddService("istio-ingressgateway.istio-system.svc.cluster.local", &model.Service{
-	// 	Hostname:          "istio-ingressgateway.istio-system.svc.cluster.local",
-	// 	Address:           "10.20.0.1",
-	// 	ExternalAddresses: []string{gatewayIP},
-	// 	Ports: []*model.Port{
-	// 		{
-	// 			Name:     "http",
-	// 			Port:     80,
-	// 			Protocol: model.ProtocolHTTP,
-	// 		},
-	// 	},
-	// })
-
-	// Add instances for two ports
-	// gwLabels := map[string]string{
-	// 	"istio": "ingressgateway",
-	// }
-	// memRegistry.AddInstance("istio-ingressgateway.istio-system.svc.cluster.local", &model.ServiceInstance{
-	// 	Endpoint: model.NetworkEndpoint{
-	// 		Address: ingressIP,
-	// 		Port:    80,
-	// 		ServicePort: &model.Port{
-	// 			Name:     "http",
-	// 			Port:     80,
-	// 			Protocol: model.ProtocolHTTP,
-	// 		},
-	// 		NetworkID: id,
-	// 	},
-	// 	Labels:           gwLabels,
-	// 	AvailabilityZone: "az",
-	// })
-	// memRegistry.AddInstance("istio-ingressgateway.istio-system.svc.cluster.local", &model.ServiceInstance{
-	// 	Endpoint: model.NetworkEndpoint{
-	// 		Address: ingressIP,
-	// 		Port:    443,
-	// 		ServicePort: &model.Port{
-	// 			Name:     "https",
-	// 			Port:     443,
-	// 			Protocol: model.ProtocolHTTPS,
-	// 		},
-	// 		NetworkID: id,
-	// 	},
-	// 	Labels:           gwLabels,
-	// 	AvailabilityZone: "az",
-	// })
 }
 
 func sendCDSReqWithMetadata(node string, metadata *proto.Struct, edsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
