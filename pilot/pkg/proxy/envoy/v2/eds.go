@@ -29,6 +29,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	"github.com/gogo/protobuf/types"
 	"github.com/prometheus/client_golang/prometheus"
+	
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
@@ -56,9 +57,6 @@ import (
 // TODO: if a service doesn't have split traffic - we can also skip pod and lable processing
 // TODO: efficient label processing. In alpha3, the destination policies are set per service, so
 // we may only need to search in a small list.
-
-// FilterFunc is a function that filteres data from the ClusterLoadAssignment and returns updated one
-type FilterFunc func(cla *xdsapi.ClusterLoadAssignment, con *XdsConnection, env *model.Environment) *xdsapi.ClusterLoadAssignment
 
 var (
 	edsClusterMutex sync.RWMutex
@@ -678,13 +676,13 @@ func (s *DiscoveryServer) applyFilterFuncs(cla *xdsapi.ClusterLoadAssignment, co
 	return filtered
 }
 
-// This is a network filter function to support Split Horizon EDS - filter the endpoints based on the network
+// networkFilter is a network filter function to support Split Horizon EDS - filter the endpoints based on the network
 // of the connected sidecar. The filter will filter out all endpoints which are not present within the
 // sidecar network and add a gateway endpoint to remote networks that have endpoints (if gateway exists).
 // Information for the mesh networks is provided as a MeshNetwork config map.
-func networkFilter(cla *xdsapi.ClusterLoadAssignment, con *XdsConnection, env *model.Environment) *xdsapi.ClusterLoadAssignment {
+func networkFilter(cla *xdsapi.ClusterLoadAssignment, conn *XdsConnection, env *model.Environment) *xdsapi.ClusterLoadAssignment {
 	// If the sidecar does not specify a network, ignore Split Horizon EDS and return all
-	conNetwork, found := con.modelNode.Metadata["ISTIO_NETWORK"]
+	network, found := conn.modelNode.Metadata["ISTIO_NETWORK"]
 	if !found {
 
 		// TODO: try to get the network by querying the service registry to get the
@@ -718,7 +716,7 @@ func networkFilter(cla *xdsapi.ClusterLoadAssignment, con *XdsConnection, env *m
 				lbEp.Metadata.FilterMetadata["istio"].Fields["network"] != nil {
 				epNetwork = lbEp.Metadata.FilterMetadata["istio"].Fields["network"].GetStringValue()
 			}
-			if epNetwork == conNetwork {
+			if epNetwork == network {
 				// This is a local endpoint
 				onlyLocalLbEndpoints = append(onlyLocalLbEndpoints, lbEp)
 			} else {

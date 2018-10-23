@@ -22,6 +22,7 @@ import (
 	"testing"
 	"time"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -206,8 +207,34 @@ func TestServices(t *testing.T) {
 		return false
 	})
 
+	ctl.Env = &model.Environment{
+		MeshNetworks: &meshconfig.MeshNetworks{
+			Networks: map[string]*meshconfig.Network{
+				"network1": &meshconfig.Network{
+					Endpoints: []*meshconfig.Network_NetworkEndpoints{
+						{
+							Ne: &meshconfig.Network_NetworkEndpoints_FromCidr{
+								FromCidr: "10.10.1.1/24",
+							},
+						},
+					},
+				},
+				"network2": &meshconfig.Network{
+					Endpoints: []*meshconfig.Network_NetworkEndpoints{
+						{
+							Ne: &meshconfig.Network_NetworkEndpoints_FromCidr{
+								FromCidr: "10.11.1.1/24",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	ctl.InitNetworkLookup()
+
 	// 2 ports 1001, 2 IPs
-	createEndpoints(ctl, testService, ns, []string{"http-example", "foo"}, []string{"10.1.1.1", "10.1.1.2"}, t)
+	createEndpoints(ctl, testService, ns, []string{"http-example", "foo"}, []string{"10.10.1.1", "10.11.1.2"}, t)
 
 	test.Eventually(t, "successfully created endpoints", func() bool {
 		ep, anotherErr := sds.InstancesByPort(hostname, 80, nil)
@@ -238,6 +265,14 @@ func TestServices(t *testing.T) {
 	}
 	if len(ep) != 2 {
 		t.Errorf("Invalid response for GetInstancesByPort %v", ep)
+	}
+
+	if ep[0].Endpoint.Address == "10.10.1.1" && ep[0].Endpoint.Network != "network1" {
+		t.Errorf("Endpoint with IP 10.10.1.1 is expected to be in network1 but get: %s", ep[0].Endpoint.Network)
+	}
+
+	if ep[1].Endpoint.Address == "10.11.1.2" && ep[1].Endpoint.Network != "network2" {
+		t.Errorf("Endpoint with IP 10.11.1.2 is expected to be in network2 but get: %s", ep[1].Endpoint.Network)
 	}
 
 	missing := serviceHostname("does-not-exist", ns, domainSuffix)

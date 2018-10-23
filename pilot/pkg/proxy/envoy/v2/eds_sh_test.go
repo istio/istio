@@ -23,6 +23,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	proto "github.com/gogo/protobuf/types"
+	
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	testenv "istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/bootstrap"
@@ -36,7 +37,7 @@ import (
 
 // Testing the Split Horizon EDS.
 
-type ExpectedResults struct {
+type expectedResults struct {
 	numOfNetworks  int
 	localEndpoints []string
 	remoteWeights  map[string]uint32
@@ -53,23 +54,23 @@ func TestSplitHorizonEds(t *testing.T) {
 
 	// Set up a cluster registry for network 1 with 1 instance for the service 'service5'
 	// Network has 1 gateway
-	initNetwork(1, []string{"159.122.219.1"}, 1)
+	initRegistry(1, []string{"159.122.219.1"}, 1)
 	// Set up a cluster registry for network 2 with 2 instances for the service 'service5'
 	// Network has 1 gateway
-	initNetwork(2, []string{"159.122.219.2"}, 2)
+	initRegistry(2, []string{"159.122.219.2"}, 2)
 	// Set up a cluster registry for network 3 with 3 instances for the service 'service5'
 	// Network has 2 gateways
-	initNetwork(3, []string{"159.122.219.3", "179.114.119.3"}, 3)
+	initRegistry(3, []string{"159.122.219.3", "179.114.119.3"}, 3)
 	// Set up a cluster registry for network 4 with 4 instances for the service 'service5'
 	// but without any gateway
-	initNetwork(4, []string{}, 4)
+	initRegistry(4, []string{}, 4)
 
 	// Update cache
 	pilotServer.EnvoyXdsServer.ClearCache()
 
 	// Verify that EDS from network1 will return 1 local endpoint with local VIP + 2 remote
 	// endpoints weighted accordingly with the IP of the ingress gateway.
-	verifySplitHorizonResponse(t, "network1", sidecarId("10.1.0.1", "app3"), ExpectedResults{
+	verifySplitHorizonResponse(t, "network1", sidecarId("10.1.0.1", "app3"), expectedResults{
 		numOfNetworks:  3,
 		localEndpoints: []string{"10.1.0.1"},
 		remoteWeights:  map[string]uint32{"159.122.219.2": 2, "159.122.219.3": 3},
@@ -77,7 +78,7 @@ func TestSplitHorizonEds(t *testing.T) {
 
 	// Verify that EDS from network2 will return 2 local endpoints with local VIPs + 2 remote
 	// endpoints weighted accordingly with the IP of the ingress gateway.
-	verifySplitHorizonResponse(t, "network2", sidecarId("10.2.0.1", "app3"), ExpectedResults{
+	verifySplitHorizonResponse(t, "network2", sidecarId("10.2.0.1", "app3"), expectedResults{
 		numOfNetworks:  3,
 		localEndpoints: []string{"10.2.0.1", "10.2.0.2"},
 		remoteWeights:  map[string]uint32{"159.122.219.1": 1, "159.122.219.3": 3},
@@ -85,13 +86,13 @@ func TestSplitHorizonEds(t *testing.T) {
 
 	// Verify that EDS from network3 will return 3 local endpoints with local VIPs + 2 remote
 	// endpoints weighted accordingly with the IP of the ingress gateway.
-	verifySplitHorizonResponse(t, "network3", sidecarId("10.3.0.1", "app3"), ExpectedResults{
+	verifySplitHorizonResponse(t, "network3", sidecarId("10.3.0.1", "app3"), expectedResults{
 		numOfNetworks:  3,
 		localEndpoints: []string{"10.3.0.1", "10.3.0.2", "10.3.0.3"},
 		remoteWeights:  map[string]uint32{"159.122.219.1": 1, "159.122.219.2": 2},
 	})
 
-	verifySplitHorizonResponse(t, "network4", sidecarId("10.4.0.1", "app3"), ExpectedResults{
+	verifySplitHorizonResponse(t, "network4", sidecarId("10.4.0.1", "app3"), expectedResults{
 		numOfNetworks:  4,
 		localEndpoints: []string{"10.4.0.1", "10.4.0.2", "10.4.0.3", "10.4.0.4"},
 		remoteWeights:  map[string]uint32{"159.122.219.1": 1, "159.122.219.2": 2, "159.122.219.3": 3},
@@ -99,7 +100,8 @@ func TestSplitHorizonEds(t *testing.T) {
 }
 
 // Tests whether an EDS response from the provided network matches the expected results
-func verifySplitHorizonResponse(t *testing.T, network string, sidecarId string, expected ExpectedResults) {
+func verifySplitHorizonResponse(t *testing.T, network string, sidecarId string, expected expectedResults) {
+	t.Helper()
 	edsstr, err := connectADS(util.MockPilotGrpcAddr)
 	if err != nil {
 		t.Fatal(err)
@@ -175,10 +177,10 @@ func initSplitHorizonTestEnv(t *testing.T) *bootstrap.Server {
 	return pilotServer
 }
 
-// Creates and initializes a memory registry that holds a single service with the provided
-// amount of endpoints. It also creates a service for the ingress with the provided
-// external IP
-func initNetwork(clusterNum int, gatewaysIP []string, numOfEndpoints int) {
+// initRegistry creates and initializes a memory registry that holds a single
+// service with the provided amount of endpoints. It also creates a service for
+// the ingress with the provided external IP
+func initRegistry(clusterNum int, gatewaysIP []string, numOfEndpoints int) {
 	id := fmt.Sprintf("network%d", clusterNum)
 	memRegistry := v2.NewMemServiceDiscovery(
 		map[model.Hostname]*model.Service{}, 2)

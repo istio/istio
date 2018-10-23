@@ -36,8 +36,14 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+
 	mcpapi "istio.io/api/mcp/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	
 	_ "istio.io/istio/galley/pkg/metadata" // TODO: why do we need this ?
 	"istio.io/istio/pilot/cmd"
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
@@ -66,10 +72,6 @@ import (
 	"istio.io/istio/pkg/mcp/configz"
 	"istio.io/istio/pkg/mcp/creds"
 	"istio.io/istio/pkg/version" // Import the resource package to pull in all proto types.
-	"k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 )
 
 const (
@@ -822,6 +824,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 		// kubeRegistry may use the environment for push status reporting.
 		// TODO: maybe all registries should have his as an optional field ?
 		s.kubeRegistry.Env = environment
+		s.kubeRegistry.InitNetworkLookup()
 		s.kubeRegistry.XDSUpdater = s.EnvoyXdsServer
 	}
 

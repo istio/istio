@@ -20,6 +20,7 @@ import (
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/gogo/protobuf/types"
+
 	"istio.io/istio/pilot/pkg/model"
 )
 
@@ -59,53 +60,6 @@ func TestConvertAddressToCidr(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := ConvertAddressToCidr(tt.addr); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("ConvertAddressToCidr() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestCidrContainsIP(t *testing.T) {
-	tests := []struct {
-		name string
-		cidr string
-		ip   string
-		want bool
-	}{
-		{
-			"first IP in CIDR range",
-			"192.0.2.1/24",
-			"192.0.2.0",
-			true,
-		},
-		{
-			"last IP in CIDR range",
-			"192.0.2.1/24",
-			"192.0.2.255",
-			true,
-		},
-		{
-			"IP not in CIDR range",
-			"192.0.2.1/24",
-			"192.0.3.1",
-			false,
-		},
-		{
-			"IP not provided",
-			"192.0.2.1/24",
-			"",
-			false,
-		},
-		{
-			"CIDR not provided",
-			"",
-			"192.0.3.1",
-			false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := CidrContainsIP(tt.cidr, tt.ip); !got == tt.want {
-				t.Errorf("CidrContainsIP() = %v, want %v", got, tt.want)
 			}
 		})
 	}

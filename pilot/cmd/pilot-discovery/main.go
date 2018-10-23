@@ -21,6 +21,8 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/cmd"
@@ -29,7 +31,6 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/mcp/creds"
 	"istio.io/istio/pkg/version"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var (

@@ -19,6 +19,7 @@ import (
 	"sync"
 	"time"
 
+	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/google/uuid"
 	"golang.org/x/time/rate"
@@ -171,7 +172,13 @@ type DiscoveryServer struct {
 	// debouncePushTimerSet is true if a config update was requested and we are
 	// waiting for more events, to debounce.
 	debouncePushTimerSet bool
+
+	// Ordered list of functions to apply to EDS just before pushing it
+	filterFuncs []FilterFunc
 }
+
+// FilterFunc is a function that filters data from the ClusterLoadAssignment and returns updated one
+type FilterFunc func(cla *xdsapi.ClusterLoadAssignment, conn *XdsConnection, env *model.Environment) *xdsapi.ClusterLoadAssignment
 
 // updateReq includes info about the requested update.
 type updateReq struct {
@@ -235,6 +242,9 @@ func NewDiscoveryServer(env *model.Environment, generator core.ConfigGenerator, 
 		edsUpdates:              map[string]*EndpointShardsByService{},
 		concurrentPushLimit:     make(chan struct{}, 20), // TODO(hzxuzhonghu): support configuration
 		updateChannel:           make(chan *updateReq, 10),
+		filterFuncs: []FilterFunc{
+			networkFilter, // A filter to support Split Horizon EDS
+		},
 	}
 	env.PushContext = model.NewPushContext()
 	go out.handleUpdates()

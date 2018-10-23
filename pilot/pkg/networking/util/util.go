@@ -16,7 +16,6 @@ package util
 
 import (
 	"fmt"
-	"net"
 	"sort"
 	"strconv"
 	"strings"
@@ -28,6 +27,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/pkg/util"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 )
@@ -75,23 +75,6 @@ func ConvertAddressToCidr(addr string) *core.CidrRange {
 		cidr.PrefixLen.Value = uint32(prefix)
 	}
 	return cidr
-}
-
-// CidrContainsIP will parse the CIDR and IP strings and checks whether the IP
-// is within the CIDR range. For any parsing error the function will
-// return false.
-func CidrContainsIP(cidr string, ip string) bool {
-	_, n, err := net.ParseCIDR(cidr)
-	if err != nil {
-		log.Warnf("Failed to parse CIDR string: %s", cidr)
-		return false
-	}
-	parsedIP := net.ParseIP(ip)
-	if parsedIP == nil {
-		log.Warnf("Failed to parse IP string: %s", ip)
-		return false
-	}
-	return n.Contains(parsedIP)
 }
 
 // BuildAddress returns a SocketAddress with the given ip and port.

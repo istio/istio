@@ -17,6 +17,7 @@ package kube
 import (
 	"errors"
 	"fmt"
+	"net"
 	"reflect"
 	"sort"
 	"strconv"
@@ -24,16 +25,17 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pkg/features/pilot"
-	"istio.io/istio/pkg/log"
+	"github.com/yl2chen/cidranger"
 	"k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
+	
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/features/pilot"
+	"istio.io/istio/pkg/log"
 )
 
 const (
@@ -113,6 +115,15 @@ type Controller struct {
 	sync.RWMutex
 	// servicesMap stores hostname ==> service, it is used to reduce convertService calls.
 	servicesMap map[model.Hostname]*model.Service
+
+	// Mapping between CIDR ranges and matching network for efficient lookup
+	networksRangers map[cidranger.RangerEntry]string
+
+	// CIDR ranger based on path-compressed prefix trie
+	ranger cidranger.Ranger
+
+	// Network name for the registry as specified by the MeshNetworks configmap
+	network string
 }
 
 type cacheHandler struct {
@@ -135,6 +146,7 @@ func NewController(client kubernetes.Interface, options ControllerOptions) *Cont
 		ClusterID:    options.ClusterID,
 		XDSUpdater:   options.XDSUpdater,
 		servicesMap:  make(map[model.Hostname]*model.Service),
+		ranger:       cidranger.NewPCTrieRanger(),
 	}
 
 	sharedInformers := informers.NewFilteredSharedInformerFactory(client, options.ResyncPeriod, options.WatchedNamespace, nil)
@@ -446,21 +458,6 @@ func (c *Controller) InstancesByPort(hostname model.Hostname, reqSvcPort int,
 						uid = fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
 					}
 
-					// find in the MeshNetworks configuration what's the network
-					var network string
-					if c.Env.MeshNetworks != nil {
-						for n, v := range c.Env.MeshNetworks.Networks {
-							for _, ep := range v.Endpoints {
-								if ep.GetFromRegistry() == c.ClusterID {
-									network = n
-								}
-								if util.CidrContainsIP(ep.GetFromCidr(), ea.IP) {
-									network = n
-								}
-							}
-						}
-					}
-
 					// identify the port by name. K8S EndpointPort uses the service port name
 					for _, port := range ss.Ports {
 						if port.Name == "" || // 'name optional if single port is defined'
@@ -472,7 +469,7 @@ func (c *Controller) InstancesByPort(hostname model.Hostname, reqSvcPort int,
 									Port:        int(port.Port),
 									ServicePort: svcPortEntry,
 									UID:         uid,
-									Network:     network,
+									Network:     c.endpointNetwork(&ea),
 								},
 								Service:          svc,
 								Labels:           labels,
@@ -801,4 +798,52 @@ func (c *Controller) updateEDS(ep *v1.Endpoints) {
 	} else {
 		c.XDSUpdater.ConfigUpdate(false)
 	}
+}
+
+// InitNetworkLookup will read the mesh networks configuration from the environment
+// and initialize CIDR rangers for an efficient network lookup when needed
+func (c *Controller) InitNetworkLookup() {
+	if c.Env == nil || c.Env.MeshNetworks == nil {
+		return
+	}
+
+	c.networksRangers = map[cidranger.RangerEntry]string{}
+	for n, v := range c.Env.MeshNetworks.Networks {
+		for _, ep := range v.Endpoints {
+			if ep.GetFromCidr() != "" {
+				_, net, err := net.ParseCIDR(ep.GetFromCidr())
+				if err != nil {
+					log.Warnf("unable to parse CIDR %s for network %s", ep.GetFromCidr(), n)
+					continue
+				}
+				rangerEntry := cidranger.NewBasicRangerEntry(*net)
+				c.ranger.Insert(rangerEntry)
+				c.networksRangers[rangerEntry] = n
+			}
+			if ep.GetFromRegistry() != "" && ep.GetFromRegistry() == c.ClusterID {
+				c.network = n
+			}
+		}
+	}
+}
+
+// return the mesh network for the endpoint address. Empty string if not found.
+func (c *Controller) endpointNetwork(ea *v1.EndpointAddress) string {
+	if c.networksRangers == nil {
+		return ""
+	}
+
+	entries, err := c.ranger.ContainingNetworks(net.ParseIP(ea.IP))
+	if err != nil {
+		log.Errora(err)
+		return ""
+	}
+	if len(entries) == 0 {
+		return ""
+	}
+	if len(entries) > 1 {
+		log.Warnf("Found multiple networks CIDRs matching the endpoint IP: %s. Using the first match.", ea.IP)
+	}
+
+	return c.networksRangers[entries[0]]
 }
