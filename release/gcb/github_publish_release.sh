@@ -44,11 +44,14 @@ cp "/workspace/manifest.txt" "${UPLOAD_DIR}/"
 gsutil -q -m cp gs://"${CB_GCS_FULL_STAGING_PATH}"/deb/istio*.deb* "${UPLOAD_DIR}/deb/"
 gsutil -q -m cp gs://"${CB_GCS_FULL_STAGING_PATH}"/istio-*.zip* "${UPLOAD_DIR}/"
 gsutil -q -m cp gs://"${CB_GCS_FULL_STAGING_PATH}"/istio-*.gz*  "${UPLOAD_DIR}/"
+gsutil -q -m cp -r gs://"${CB_GCS_FULL_STAGING_PATH}"/charts "${UPLOAD_DIR}/charts"
 echo "Finished downloading files from GCS source"
 
 # at this point everything we need is on the local filesystem
 echo "Copying to GCS destination ${CB_GCS_MONTHLY_RELEASE_PATH}"
 gsutil -q -m cp "${UPLOAD_DIR}"/deb/istio*.deb* "gs://${CB_GCS_MONTHLY_RELEASE_PATH}/deb/"
+gsutil -q -m cp -r "${UPLOAD_DIR}"/charts "gs://${CB_GCS_MONTHLY_RELEASE_PATH}/charts"
+
 echo "Done copying to GCS destination"
 
 
@@ -61,6 +64,7 @@ RESPONSE_FILE="$(mktemp /tmp/github.response.XXXX)"
 DRAFT_ARTIFACTS="[ARTIFACTS](http://gcsweb.istio.io/gcs/istio-release/releases/${CB_VERSION}/)\\n"
 DRAFT_ARTIFACTS+="* [istio-sidecar.deb](https://storage.googleapis.com/istio-release/releases/${CB_VERSION}/deb/istio-sidecar.deb)\\n"
 DRAFT_ARTIFACTS+="* [istio-sidecar.deb.sha256](https://storage.googleapis.com/istio-release/releases/${CB_VERSION}/deb/istio-sidecar.deb.sha256)\\n\\n"
+DRAFT_ARTIFACTS+="* [Helm Chart Index](https://storage.googleapis.com/istio-release/releases/${CB_VERSION}/charts/index.yaml)\\n\\n"
 DRAFT_ARTIFACTS+="[RELEASE NOTES](https://istio.io/about/notes/${CB_VERSION}.html)"
 
 cat << EOF > "${REQUEST_FILE}"
