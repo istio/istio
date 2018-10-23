@@ -127,6 +127,7 @@ func TestWatchFile(t *testing.T) {
 
 		// Overwriting the file and waiting its event to be received.
 		err = ioutil.WriteFile(watchFile, []byte("foo: baz\n"), 0640)
+		g.Expect(err).NotTo(HaveOccurred())
 		wg.Wait()
 	})
 

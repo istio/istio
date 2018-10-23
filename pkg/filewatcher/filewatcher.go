@@ -28,6 +28,8 @@ import (
 	"github.com/hashicorp/go-multierror"
 )
 
+// FileWatcher is an interface that watches a set of files,
+// delivering events to related channel.
 type FileWatcher interface {
 	Add(path string) error
 	Remove(path string) error
