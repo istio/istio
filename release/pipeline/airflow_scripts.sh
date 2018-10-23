@@ -23,6 +23,13 @@ SCRIPTPATH=$( pwd -P )
 # shellcheck source=release/pipeline/gcb_build_lib.sh
 source "${SCRIPTPATH}/gcb_build_lib.sh"
 
+SUBS_FILE="$(mktemp /tmp/build.subs.gcs_release_tool_path.XXXX)"
+cat << EOF > "${SUBS_FILE}"
+substitutions": {
+  "_CB_GCS_RELEASE_TOOLS_PATH": "${CB_GCS_RELEASE_TOOLS_PATH}"
+}
+EOF
+
 # Called directly by Airflow.
 function get_git_commit_cmd() {
     run_build "get_commit.template.json" \

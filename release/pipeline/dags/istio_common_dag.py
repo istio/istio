@@ -119,12 +119,7 @@ gsutil -mq cp "gs://${CB_GCS_RELEASE_TOOLS_PATH}"/pipeline/*sh .
 gsutil -mq cp "gs://${CB_GCS_RELEASE_TOOLS_PATH}"/gcb/json_parse_shared.sh .
 gsutil -mq cp "gs://${CB_GCS_RELEASE_TOOLS_PATH}"/gcb/*json .
 source airflow_scripts.sh
-SUBS_FILE="$(mktemp /tmp/build.subs.gcs_release_tool_path.XXXX)"
-cat << EOF > "${SUBS_FILE}"
-substitutions": {
-  "_CB_GCS_RELEASE_TOOLS_PATH": "${CB_GCS_RELEASE_TOOLS_PATH}"
-}
-EOF"""
+"""
   template_list.append(airflow_scripts_str)
   return "\n".join(template_list)
 
