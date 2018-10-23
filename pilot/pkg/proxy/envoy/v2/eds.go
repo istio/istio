@@ -17,6 +17,7 @@ package v2
 import (
 	"context"
 	"errors"
+	"reflect"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -27,10 +28,10 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	"github.com/gogo/protobuf/types"
 	"github.com/prometheus/client_golang/prometheus"
-	"google.golang.org/grpc/peer"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 )
 
 // EDS returns the list of endpoints (IP:port and in future labels) associated with a real
@@ -112,6 +113,48 @@ func loadAssignment(c *EdsCluster) *xdsapi.ClusterLoadAssignment {
 	return c.LoadAssignment
 }
 
+func serviceEntry2Endpoint(UID string, family model.AddressFamily, address string, port uint32) *endpoint.LbEndpoint {
+	var addr core.Address
+	switch family {
+	case model.AddressFamilyTCP:
+		addr = core.Address{
+			Address: &core.Address_SocketAddress{
+				SocketAddress: &core.SocketAddress{
+					Address: address,
+					PortSpecifier: &core.SocketAddress_PortValue{
+						PortValue: port,
+					},
+				},
+			},
+		}
+	case model.AddressFamilyUnix:
+		addr = core.Address{Address: &core.Address_Pipe{Pipe: &core.Pipe{Path: address}}}
+	}
+
+	ep := &endpoint.LbEndpoint{
+		Endpoint: &endpoint.Endpoint{
+			Address: &addr,
+		},
+	}
+
+	// Istio telemetry depends on the metadata value being set for endpoints in the mesh.
+	// Do not remove: mixerfilter depends on this logic.
+	if UID != "" {
+		ep.Metadata = &core.Metadata{
+			FilterMetadata: map[string]*types.Struct{
+				"istio": {
+					Fields: map[string]*types.Value{
+						"uid": {Kind: &types.Value_StringValue{StringValue: UID}},
+					},
+				},
+			},
+		}
+	}
+
+	//log.Infoa("EDS: endpoint ", ipAddr, ep.String())
+	return ep
+}
+
 func newEndpoint(e *model.NetworkEndpoint) (*endpoint.LbEndpoint, error) {
 	err := model.ValidateNetworkEndpointAddress(e)
 	if err != nil {
@@ -142,6 +185,171 @@ func newEndpoint(e *model.NetworkEndpoint) (*endpoint.LbEndpoint, error) {
 	return ep, nil
 }
 
+// updateClusterInc computes an envoy cluster assignment from the service shards.
+func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName string,
+	edsCluster *EdsCluster) error {
+
+	var hostname model.Hostname
+
+	var port int
+	var subsetName string
+	_, subsetName, hostname, port = model.ParseSubsetKey(clusterName)
+	labels := push.SubsetToLabels(subsetName, hostname)
+
+	portMap, f := push.ServicePort2Name[string(hostname)]
+	if !f {
+		return s.updateCluster(push, clusterName, edsCluster)
+	}
+	svcPort, f := portMap.GetByPort(port)
+	if !f {
+		return s.updateCluster(push, clusterName, edsCluster)
+	}
+
+	// The service was never updated - do the full update
+	se, f := s.EndpointShardsByService[string(hostname)]
+	if !f {
+		return s.updateCluster(push, clusterName, edsCluster)
+	}
+
+	cnt := 0
+	localityEpMap := make(map[string]*endpoint.LocalityLbEndpoints)
+
+	// The shards are updated independently, now need to filter and merge
+	// for this cluster
+	for _, es := range se.Shards {
+		for _, el := range es.Entries {
+			if svcPort.Name != el.ServicePortName {
+				continue
+			}
+			// Port labels
+			if !labels.HasSubsetOf(model.Labels(el.Labels)) {
+				continue
+			}
+			cnt++
+
+			// TODO: Need to accommodate region, zone and subzone. Older Pilot datamodel only has zone = availability zone.
+			// Once we do that, the key must be a | separated tupple.
+			locality := (el.Labels)[model.AZLabel] // may be ""
+			locLbEps, found := localityEpMap[locality]
+			if !found {
+				locLbEps = &endpoint.LocalityLbEndpoints{
+					Locality: &core.Locality{
+						Zone: locality,
+					},
+				}
+				localityEpMap[locality] = locLbEps
+			}
+			if el.EnvoyEndpoint == nil {
+				el.EnvoyEndpoint = serviceEntry2Endpoint(el.UID, el.Family, el.Address, el.EndpointPort)
+			}
+			locLbEps.LbEndpoints = append(locLbEps.LbEndpoints, *el.EnvoyEndpoint)
+		}
+	}
+	locEps := make([]endpoint.LocalityLbEndpoints, 0, len(localityEpMap))
+	for _, locLbEps := range localityEpMap {
+		locEps = append(locEps, *locLbEps)
+	}
+
+	if cnt == 0 {
+		push.Add(model.ProxyStatusClusterNoInstances, clusterName, nil, "")
+		//adsLog.Infof("EDS: no instances %s (host=%s ports=%v labels=%v)", clusterName, hostname, p, labels)
+	}
+	edsInstances.With(prometheus.Labels{"cluster": clusterName}).Set(float64(cnt))
+
+	// There is a chance multiple goroutines will update the cluster at the same time.
+	// This could be prevented by a lock - but because the update may be slow, it may be
+	// better to accept the extra computations.
+	// We still lock the access to the LoadAssignments.
+	edsCluster.mutex.Lock()
+	defer edsCluster.mutex.Unlock()
+
+	edsCluster.LoadAssignment = &xdsapi.ClusterLoadAssignment{
+		ClusterName: clusterName,
+		Endpoints:   locEps,
+	}
+	if len(locEps) > 0 && edsCluster.NonEmptyTime.IsZero() {
+		edsCluster.NonEmptyTime = time.Now()
+	}
+	return nil
+}
+
+// updateServiceShards will list the endpoints and create the shards.
+// This is used to reconcile and to support non-k8s registries (until they migrate).
+// Note that aggreaged list is expensive (for large numbers) - we want to replace
+// it with a model where DiscoveryServer keeps track of all endpoint registries
+// directly, and calls them one by one.
+func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
+
+	// TODO: if ServiceDiscovery is aggregate, and all members support direct, use
+	// the direct interface.
+	var regs []aggregate.Registry
+	if agg, ok := s.Env.ServiceDiscovery.(*aggregate.Controller); ok {
+		regs = agg.GetRegistries()
+	} else {
+		regs = []aggregate.Registry{
+			aggregate.Registry{
+				ServiceDiscovery: s.Env.ServiceDiscovery,
+			},
+		}
+	}
+
+	svc2acc := map[string]map[string]bool{}
+
+	for _, reg := range regs {
+		// Each registry acts as a shard - we don't want to combine them because some
+		// may individually update their endpoints incrementally
+		for _, svc := range push.Services {
+			entries := []*model.IstioEndpoint{}
+			hn := string(svc.Hostname)
+			for _, port := range svc.Ports {
+				if port.Protocol == model.ProtocolUDP {
+					continue
+				}
+
+				// This loses track of grouping (shards)
+				epi, err := reg.InstancesByPort(svc.Hostname, port.Port, model.LabelsCollection{})
+				if err != nil {
+					return err
+				}
+
+				for _, ep := range epi {
+					//shard := ep.AvailabilityZone
+					l := map[string]string(ep.Labels)
+
+					entries = append(entries, &model.IstioEndpoint{
+						Family:          ep.Endpoint.Family,
+						Address:         ep.Endpoint.Address,
+						EndpointPort:    uint32(ep.Endpoint.Port),
+						ServicePortName: port.Name,
+						Labels:          l,
+						UID:             ep.Endpoint.UID,
+						ServiceAccount:  ep.ServiceAccount,
+					})
+					if ep.ServiceAccount != "" {
+						acc, f := svc2acc[hn]
+						if !f {
+							acc = map[string]bool{}
+							svc2acc[hn] = acc
+						}
+						acc[ep.ServiceAccount] = true
+					}
+				}
+			}
+
+			s.edsUpdate(reg.ClusterID, hn, entries, true)
+		}
+	}
+
+	s.mutex.Lock()
+	for k, v := range svc2acc {
+		ep, _ := s.EndpointShardsByService[k]
+		ep.ServiceAccounts = v
+	}
+	s.mutex.Unlock()
+
+	return nil
+}
+
 // updateCluster is called from the event (or global cache invalidation) to update
 // the endpoints for the cluster.
 func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName string, edsCluster *EdsCluster) error {
@@ -151,9 +359,10 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 	if direction == model.TrafficDirectionInbound ||
 		direction == model.TrafficDirectionOutbound {
 		labels := push.SubsetToLabels(subsetName, hostname)
-		instances, err := edsCluster.discovery.env.ServiceDiscovery.InstancesByPort(hostname, port, labels)
+		instances, err := edsCluster.discovery.Env.ServiceDiscovery.InstancesByPort(hostname, port, labels)
 		if err != nil {
 			adsLog.Errorf("endpoints for service cluster %q returned error %v", clusterName, err)
+			totalXDSInternalErrors.Add(1)
 			return err
 		}
 		if len(instances) == 0 {
@@ -178,6 +387,155 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 	if len(locEps) > 0 && edsCluster.NonEmptyTime.IsZero() {
 		edsCluster.NonEmptyTime = time.Now()
 	}
+	return nil
+}
+
+// SvcUpdate is a callback from service discovery when service info changes.
+func (s *DiscoveryServer) SvcUpdate(cluster, hostname string, ports map[string]uint32, rports map[uint32]string) {
+	pc := s.globalPushContext()
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	if cluster == "" {
+		pl := model.PortList{}
+		for k, v := range ports {
+			pl = append(pl, &model.Port{
+				Port: int(v),
+				Name: k,
+			})
+		}
+		pc.ServicePort2Name[hostname] = pl
+	}
+	// TODO: for updates from other clusters, warn if they don't match primary.
+}
+
+// Update clusters for an incremental EDS push, and initiate the push.
+// Only clusters that changed are updated/pushed.
+func (s *DiscoveryServer) edsIncremental(version string, push *model.PushContext, edsUpdates map[string]*EndpointShardsByService) {
+	adsLog.Infof("XDS:EDSInc Pushing %s Services: %v, "+
+		"VirtualServices: %d, ConnectedEndpoints: %d", version, edsUpdates,
+		len(push.VirtualServiceConfigs), adsClientCount())
+	t0 := time.Now()
+
+	// First update all cluster load assignments. This is computed for each cluster once per config change
+	// instead of once per endpoint.
+	edsClusterMutex.Lock()
+	// Create a temp map to avoid locking the add/remove
+	cMap := make(map[string]*EdsCluster, len(edsClusters))
+	for k, v := range edsClusters {
+		_, _, hostname, _ := model.ParseSubsetKey(k)
+		if edsUpdates[string(hostname)] == nil {
+			// Cluster was not updated, skip recomputing.
+			continue
+		}
+		cMap[k] = v
+	}
+	edsClusterMutex.Unlock()
+
+	// UpdateCluster updates the cluster with a mutex, this code is safe ( but computing
+	// the update may be duplicated if multiple goroutines compute at the same time).
+	// In general this code is called from the 'event' callback that is throttled.
+	for clusterName, edsCluster := range cMap {
+		if err := s.updateClusterInc(push, clusterName, edsCluster); err != nil {
+			adsLog.Errorf("updateCluster failed with clusterName %s", clusterName)
+		}
+	}
+	adsLog.Infof("Cluster init time %v %s", time.Since(t0), version)
+
+	s.startPush(version, push, false, edsUpdates)
+}
+
+// WorkloadUpdate is called when workload labels/annotations are updated.
+func (s *DiscoveryServer) WorkloadUpdate(id string, labels map[string]string, annotations map[string]string) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	if labels == nil {
+		// No push needed - the Endpoints object will also be triggered.
+		delete(s.WorkloadsByID, id)
+		return
+	}
+	w, f := s.WorkloadsByID[id]
+	if !f {
+		// First time this workload has been seen. Likely never connected, no need to
+		// push
+		s.WorkloadsByID[id] = &Workload{
+			Labels:      labels,
+			Annotations: annotations,
+		}
+		return
+	}
+	if reflect.DeepEqual(w.Labels, labels) {
+		// No label change.
+		return
+	}
+
+	w.Labels = labels
+	// Label changes require recomputing the config.
+	// TODO: we can do a push for the affected workload only, but we need to confirm
+	// no other workload can be affected. Safer option is to fallback to full push.
+
+	adsLog.Infof("Label change, full push %s ", id)
+	s.ConfigUpdate(true)
+}
+
+// EDSUpdate computes destination address membership across all clusters and networks.
+// This is the main method implementing EDS.
+// It replaces InstancesByPort in model - instead of iterating over all endpoints it uses
+// the hostname-keyed map. And it avoids the conversion from Endpoint to ServiceEntry to envoy
+// on each step: instead the conversion happens once, when an endpoint is first discovered.
+func (s *DiscoveryServer) EDSUpdate(shard, serviceName string,
+	entries []*model.IstioEndpoint) error {
+	return s.edsUpdate(shard, serviceName, entries, false)
+}
+
+func (s *DiscoveryServer) edsUpdate(shard, serviceName string,
+	entries []*model.IstioEndpoint, internal bool) error {
+	// edsShardUpdate replaces a subset (shard) of endpoints, as result of an incremental
+	// update. The endpoint updates may be grouped by K8S clusters, other service registries
+	// or by deployment. Multiple updates are debounced, to avoid too frequent pushes.
+	// After debounce, the services are merged and pushed.
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	// Update the data structures for the service.
+	// 1. Find the 'per service' data
+	ep, f := s.EndpointShardsByService[serviceName]
+	if !f {
+		// This endpoint is for a service that was not previously loaded.
+		// Return an error to force a full sync, which will also cause the
+		// EndpointsShardsByService to be initialized with all services.
+		ep = &EndpointShardsByService{
+			Shards:          map[string]*EndpointShard{},
+			ServiceAccounts: map[string]bool{},
+		}
+		s.EndpointShardsByService[serviceName] = ep
+		if !internal {
+			adsLog.Infof("Full push, new service %s", serviceName)
+			s.ConfigUpdate(true)
+		}
+	}
+
+	// 2. Update data for the specific cluster. Each cluster gets independent
+	// updates containing the full list of endpoints for the service in that cluster.
+	ce := &EndpointShard{
+		Shard:   shard,
+		Entries: []*model.IstioEndpoint{},
+	}
+
+	for _, e := range entries {
+		ce.Entries = append(ce.Entries, e)
+		if e.ServiceAccount != "" {
+			_, f = ep.ServiceAccounts[e.ServiceAccount]
+			if !f && !internal {
+				// The entry has a service account that was not previously associated.
+				// Requires a CDS push and full sync.
+				adsLog.Infof("Endpoint updating service account %s %s", e.ServiceAccount, serviceName)
+				s.ConfigUpdate(true)
+			}
+		}
+	}
+	ep.Shards[shard] = ce
+	s.edsUpdates[serviceName] = ep
 
 	return nil
 }
@@ -192,6 +550,7 @@ func localityLbEndpointsFromInstances(instances []*model.ServiceInstance) []endp
 		lbEp, err := newEndpoint(&instance.Endpoint)
 		if err != nil {
 			adsLog.Errorf("EDS: unexpected pilot model endpoint v1 to v2 conversion: %v", err)
+			totalXDSInternalErrors.Add(1)
 			continue
 		}
 		// TODO: Need to accommodate region, zone and subzone. Older Pilot datamodel only has zone = availability zone.
@@ -220,103 +579,33 @@ func connectionID(node string) string {
 	return node + "-" + strconv.FormatInt(id, 10)
 }
 
-// StreamEndpoints implements xdsapi.EndpointDiscoveryServiceServer.StreamEndpoints().
-func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService_StreamEndpointsServer) error {
-	peerInfo, ok := peer.FromContext(stream.Context())
-	peerAddr := "Unknown peer address"
-	if ok {
-		peerAddr = peerInfo.Addr.String()
-	}
-	var discReq *xdsapi.DiscoveryRequest
-	var receiveError error
-	reqChannel := make(chan *xdsapi.DiscoveryRequest, 1)
-
-	initialRequestReceived := false
-
-	con := newXdsConnection(peerAddr, stream)
-	defer close(con.doneChannel)
-
-	// node is the key used in the cluster map. It includes the pod name and an unique identifier,
-	// since multiple envoys may connect from the same pod.
-	go receiveThread(con, reqChannel, &receiveError)
-
-	for {
-		// Block until either a request is received or a push is triggered.
-		select {
-		case discReq, ok = <-reqChannel:
-			if !ok {
-				return receiveError
-			}
-
-			// Should not change. A node monitors multiple clusters
-			if con.ConID == "" && discReq.Node != nil {
-				con.ConID = connectionID(discReq.Node.Id)
-			}
-
-			clusters2 := discReq.GetResourceNames()
-			if initialRequestReceived {
-				if len(clusters2) > len(con.Clusters) {
-					// This doesn't happen with current envoy - but should happen in future, there is no reason
-					// to keep so many open grpc streams (one per cluster, for each envoy)
-					adsLog.Infof("EDS: Multiple clusters monitoring %v -> %v %s", con.Clusters, clusters2, discReq.String())
-					initialRequestReceived = false // treat this as an initial request (updates monitoring state)
-				}
-			}
-
-			// Given that Pilot holds an eventually consistent data model, Pilot ignores any acknowledgements
-			// from Envoy, whether they indicate ack success or ack failure of Pilot's previous responses.
-			if initialRequestReceived {
-				// TODO: once the deps are updated, log the ErrorCode if set (missing in current version)
-				if discReq.ErrorDetail != nil {
-					adsLog.Warnf("EDS: ACK ERROR %v %s %v", peerAddr, con.ConID, discReq.String())
-				}
-				adsLog.Debugf("EDS: ACK %s %s %s", con.ConID, discReq.VersionInfo, con.Clusters)
-				if len(con.Clusters) > 0 {
-					continue
-				}
-			}
-			adsLog.Infof("EDS: REQ %s %v %v raw: %s ", con.ConID, con.Clusters, peerAddr, discReq.String())
-			con.Clusters = discReq.GetResourceNames()
-			initialRequestReceived = true
-
-			// In 0.7 EDS only listens for 1 cluster for each stream. In 0.8 EDS is no longer
-			// used.
-			for _, c := range con.Clusters {
-				s.addEdsCon(c, con.ConID, con)
-			}
-
-			// Keep track of active EDS client. In 0.7 EDS push happened by pushing for all
-			// tracked clusters. In 0.8+ push happens by iterating active connections, in ADS.
-			if !con.added {
-				con.added = true
-				s.addCon(con.ConID, con)
-				defer s.removeCon(con.ConID, con)
-			}
-
-		case <-con.pushChannel:
-		}
-
-		if len(con.Clusters) > 0 {
-			err := s.pushEds(s.env.PushContext, con)
-			if err != nil {
-				adsLog.Errorf("Closing EDS connection, failure to push %v", err)
-				return err
-			}
-		}
-
-	}
-}
-
-func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection) error {
+// pushEds is pushing EDS updates for a single connection. Called the first time
+// a client connects, for incremental updates and for full periodic updates.
+func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection,
+	full bool, edsUpdatedServices map[string]*EndpointShardsByService) error {
 	resAny := []types.Any{}
 
 	emptyClusters := 0
 	endpoints := 0
 	empty := []string{}
 
+	updated := []string{}
+
 	for _, clusterName := range con.Clusters {
+
+		_, _, hostname, _ := model.ParseSubsetKey(clusterName)
+		if edsUpdatedServices != nil && edsUpdatedServices[string(hostname)] == nil {
+			// Cluster was not updated, skip recomputing.
+			continue
+		}
+		// for debug
+		if edsUpdatedServices != nil {
+			updated = append(updated, clusterName)
+		}
+
 		c := s.getEdsCluster(clusterName)
 		if c == nil {
+			totalXDSInternalErrors.Add(1)
 			adsLog.Errorf("cluster %s was nil skipping it.", clusterName)
 			continue
 		}
@@ -325,6 +614,7 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection) e
 		if l == nil { // fresh cluster
 			if err := s.updateCluster(push, clusterName, c); err != nil {
 				adsLog.Errorf("error returned from updateCluster for cluster name %s, skipping it.", clusterName)
+				totalXDSInternalErrors.Add(1)
 				continue
 			}
 			l = loadAssignment(c)
@@ -350,8 +640,14 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection) e
 	}
 	pushes.With(prometheus.Labels{"type": "eds"}).Add(1)
 
-	adsLog.Debugf("EDS: PUSH for %s clusters %d endpoints %d empty %d",
-		con.ConID, len(con.Clusters), endpoints, emptyClusters)
+	if full {
+		// TODO: switch back to debug
+		adsLog.Infof("EDS: PUSH for %s clusters %d endpoints %d empty %d",
+			con.ConID, len(con.Clusters), endpoints, emptyClusters)
+	} else {
+		adsLog.Infof("EDS: INC PUSH for %s clusters %d endpoints %d empty %d",
+			con.ConID, len(con.Clusters), endpoints, emptyClusters)
+	}
 	return nil
 }
 
@@ -428,7 +724,7 @@ func (s *DiscoveryServer) removeEdsCon(clusterName string, node string, connecti
 		// This happens when a previously used cluster is no longer watched by any
 		// sidecar. It should not happen very often - normally all clusters are sent
 		// in CDS requests to all sidecars. It may happen if all connections are closed.
-		adsLog.Infof("EDS: remove unwatched cluster node=%s cluster=%s", node, clusterName)
+		adsLog.Debugf("EDS: remove unwatched cluster node=%s cluster=%s", node, clusterName)
 		delete(edsClusters, clusterName)
 	}
 }

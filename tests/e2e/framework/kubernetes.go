@@ -794,10 +794,24 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 	// CRDs installed ahead of time with 2.9.x
 	setValue += " --set global.crds=false"
 
+	err := util.HelmClientInit()
+	if err != nil {
+		// helm client init
+		log.Errorf("Helm clienty init")
+		return err
+	}
+	// Generate dependencies for Helm
+	workDir := filepath.Join(k.ReleaseDir, istioHelmInstallDir)
+	err = util.HelmDepUpdate(workDir)
+	if err != nil {
+		// helm dep upgrade
+		log.Errorf("Helm dep update %s", workDir)
+		return err
+	}
+
 	// helm install dry run - dry run seems to have problems
 	// with CRDs even in 2.9.2, pre-install is not executed
-	workDir := filepath.Join(k.ReleaseDir, istioHelmInstallDir)
-	err := util.HelmInstallDryRun(workDir, k.Namespace, k.Namespace, setValue)
+	err = util.HelmInstallDryRun(workDir, k.Namespace, k.Namespace, setValue)
 	if err != nil {
 		// dry run fail, let's fail early
 		log.Errorf("Helm dry run of istio install failed %s, setValue=%s", istioHelmInstallDir, setValue)

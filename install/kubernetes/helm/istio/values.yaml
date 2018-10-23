@@ -240,6 +240,19 @@ global:
   # Whether to perform server-side validation of configuration.
   configValidation: true
 
+  # Custom DNS config for the pod to resolve names of services in other
+  # clusters. Use this to add additional search domains, and other settings.
+  # see
+  # https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#dns-config
+  # This does not apply to gateway pods as they typically need a different
+  # set of DNS settings than the normal application pods (e.g., in
+  # multicluster scenarios).
+  #podDNSConfig:
+  #  dnsConfig:
+  #    searches: #some dummy examples
+  #    - foo.bar.baz
+  #    - {{ "[[ valueOrDefault .DeploymentMeta.Namespace \"default\" ]]" }}.bazoo
+
   # If set to true, the pilot and citadel mtls will be exposed on the
   # ingress gateway
   meshExpansion:
@@ -289,5 +302,4 @@ global:
   # Use the Mesh Control Protocol (MCP) for configuring Mixer and
   # Pilot. Requires galley (`--set galley.enabled=true`).
   useMCP: false
-
 

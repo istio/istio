@@ -1,0 +1,63 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: echosrv
+spec:
+  ports:
+  - port: 8080
+    name: http-echo
+  selector:
+    app: echosrv
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: fortiogateway
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "*"
+
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: fortio
+spec:
+  hosts:
+  - "*"
+  gateways:
+  - fortiogateway
+  http:
+  - route:
+    - destination:
+        port:
+          number: 8080
+        host: echosrv
+
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: echosrv-deployment
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: echosrv
+        version: v1
+    spec:
+      containers:
+      - name: echosrv
+        image: {{.FortioImage}}
+        ports:
+         - containerPort: 8080
+        args:
+          - server

@@ -25,9 +25,9 @@ import (
 	v2_cluster "github.com/envoyproxy/go-control-plane/envoy/api/v2/cluster"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/gogo/protobuf/types"
-
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/log"
 )
@@ -48,29 +48,19 @@ const (
 func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, proxy *model.Proxy, push *model.PushContext) ([]*v2.Cluster, error) {
 	clusters := make([]*v2.Cluster, 0)
 
-	recomputeOutboundClusters := true
-	if configgen.OutboundClusters != nil {
-		clusters = append(clusters, configgen.OutboundClusters...)
-		recomputeOutboundClusters = false
-	}
-
-	if recomputeOutboundClusters {
-		clusters = append(clusters, configgen.buildOutboundClusters(env, push)...)
-	}
-
-	// If its a multi-cluster gateway, do not enable mTLS
-	// for clusters, as the gateway is already receiving mTLS
-	// traffic from downstream
-	if proxy.GetGatewayMode() == model.MulticlusterGateway {
-		// TODO: cache this output just like the output
-		sniClusters := make([]*v2.Cluster, len(clusters))
-		for _, c := range clusters {
-			// copy each cluster, unset the tls context
-			newC := *c
-			newC.TlsContext = nil
-			sniClusters = append(sniClusters, &newC)
+	// If the proxy is a SniDnatRouter router, do not use the cached data
+	if proxy.Type == model.Router && proxy.GetRouterMode() == model.SniDnatRouter {
+		clusters = append(clusters, configgen.buildOutboundClusters(env, proxy, push)...)
+	} else {
+		recomputeOutboundClusters := true
+		if configgen.OutboundClusters != nil {
+			clusters = append(clusters, configgen.OutboundClusters...)
+			recomputeOutboundClusters = false
 		}
-		clusters = sniClusters
+
+		if recomputeOutboundClusters {
+			clusters = append(clusters, configgen.buildOutboundClusters(env, proxy, push)...)
+		}
 	}
 
 	if proxy.Type == model.Sidecar {
@@ -109,14 +99,23 @@ func normalizeClusters(push *model.PushContext, proxy *model.Proxy, clusters []*
 	return out
 }
 
-func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environment, push *model.PushContext) []*v2.Cluster {
+func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environment, proxy *model.Proxy, push *model.PushContext) []*v2.Cluster {
 	clusters := make([]*v2.Cluster, 0)
+
+	inputParams := &plugin.InputParams{
+		Env:  env,
+		Push: push,
+		Node: proxy,
+	}
+
 	for _, service := range push.Services {
 		config := push.DestinationRule(service.Hostname)
 		for _, port := range service.Ports {
 			if port.Protocol == model.ProtocolUDP {
 				continue
 			}
+			inputParams.Service = service
+			inputParams.Port = port
 			hosts := buildClusterHosts(env, service, port.Port)
 
 			// create default cluster
@@ -142,7 +141,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 					applyTrafficPolicy(env, subsetCluster, subset.TrafficPolicy, port)
 					// call plugins
 					for _, p := range configgen.Plugins {
-						p.OnOutboundCluster(env, push, service, port, subsetCluster)
+						p.OnOutboundCluster(inputParams, subsetCluster)
 					}
 					clusters = append(clusters, subsetCluster)
 				}
@@ -150,7 +149,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 
 			// call plugins for the default cluster
 			for _, p := range configgen.Plugins {
-				p.OnOutboundCluster(env, push, service, port, defaultCluster)
+				p.OnOutboundCluster(inputParams, defaultCluster)
 			}
 		}
 	}
@@ -192,10 +191,16 @@ func buildClusterHosts(env *model.Environment, service *model.Service, port int)
 	return hosts
 }
 
-func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environment, proxy *model.Proxy, push *model.PushContext,
-	instances []*model.ServiceInstance,
-	managementPorts []*model.Port) []*v2.Cluster {
+func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environment, proxy *model.Proxy,
+	push *model.PushContext, instances []*model.ServiceInstance, managementPorts []*model.Port) []*v2.Cluster {
+
 	clusters := make([]*v2.Cluster, 0)
+	inputParams := &plugin.InputParams{
+		Env:  env,
+		Push: push,
+		Node: proxy,
+	}
+
 	for _, instance := range instances {
 		// This cluster name is mainly for stats.
 		clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "", instance.Service.Hostname, instance.Endpoint.ServicePort.Port)
@@ -203,8 +208,9 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 		localCluster := buildDefaultCluster(env, clusterName, v2.Cluster_STATIC, []*core.Address{&address})
 		setUpstreamProtocol(localCluster, instance.Endpoint.ServicePort)
 		// call plugins
+		inputParams.ServiceInstance = instance
 		for _, p := range configgen.Plugins {
-			p.OnInboundCluster(env, proxy, push, instance.Service, instance.Endpoint.ServicePort, localCluster)
+			p.OnInboundCluster(inputParams, localCluster)
 		}
 
 		// When users specify circuit breakers, they need to be set on the receiver end

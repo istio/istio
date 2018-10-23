@@ -25,7 +25,6 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/test/framework/environments/kubernetes"
-	"istio.io/istio/pkg/test/shell"
 	"istio.io/istio/pkg/test/util"
 
 	corev1 "k8s.io/api/core/v1"
@@ -198,7 +197,7 @@ func (a *client) Call(e environment.DeployedAppEndpoint, opts environment.AppCal
 
 	cmd := fmt.Sprintf("client -url %s -count %d %s", u.String(), opts.Count, extra)
 	_, err = util.Retry(20*time.Second, 1*time.Second, func() (interface{}, bool, error) {
-		res, e := shell.Execute("kubectl exec %s -n %s -c %s --kubeconfig=%s -- %s ", podName, a.namespace(), containerName, a.e.KubeSettings().KubeConfig, cmd)
+		res, e := a.e.Accessor.Exec(podName, a.namespace(), containerName, cmd)
 		if e != nil {
 			return nil, false, e
 		}
