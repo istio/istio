@@ -116,14 +116,18 @@ function run_build() {
   local RESULT_FILE
   RESULT_FILE="$(mktemp /tmp/build.response.XXXX)"
 
+  {
   # generate the json file, first strip off the closing } in the last line of the template
-  head --lines=-1 "${SCRIPTPATH}/${TEMPLATE_NAME}" > "${REQUEST_FILE}"
-  cat "${SUBS_FILE}" >> "${REQUEST_FILE}"
-  echo "}" >> "${REQUEST_FILE}"
+    head --lines=-1 "${SCRIPTPATH}/${TEMPLATE_NAME}"
+    cat "${SUBS_FILE}"
+    echo "}"
+  } > "${REQUEST_FILE}"
 
   curl -X POST -H "Authorization: Bearer $(gcloud auth --account "${SERVICE_ACCT}" print-access-token)" \
     -T "${REQUEST_FILE}" -s -o "${RESULT_FILE}" "https://cloudbuild.googleapis.com/v1/projects/${PROJ_ID}/builds"
 
+  cat "$REQUEST_FILE"
+  cat "$RESULT_FILE"
   # cleanup
   rm -f "${REQUEST_FILE}"
 
@@ -133,7 +137,6 @@ function run_build() {
   BUILD_ID=$(parse_json_for_string "$RESULT_FILE" "id")
   if [[ -z "$BUILD_ID" ]]; then
     echo "failed to parse the following build result:"
-    cat "$RESULT_FILE"
     exit 1
   fi
   echo "BUILD_ID is ${BUILD_ID}"
