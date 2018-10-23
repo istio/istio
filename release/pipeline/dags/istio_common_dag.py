@@ -82,7 +82,12 @@ def getBashSettingsTemplate(extra_param_lst=[]):
 
   template_prefix = "{% set settings = task_instance.xcom_pull(task_ids='generate_workflow_args') %}"
   template_list = [template_prefix]
-  gcb_env_prefix = 'cat << EOF > "/tmp/gcb_env.sh"'
+  gcb_env_prefix = """
+set -x
+export CB_GCS_RELEASE_TOOLS_PATH="{{ settings.CB_GCS_RELEASE_TOOLS_PATH }}"
+GCB_ENV_FILE="$(mktemp /tmp/gcb_env_file.XXXXXX)"
+cat << EOF > "${GCB_ENV_FILE}"
+"""
   template_list.append(gcb_env_prefix)
   for key in keys:
     # only export CB_ variables to gcb
@@ -97,22 +102,23 @@ def getBashSettingsTemplate(extra_param_lst=[]):
       template_list.append("export %s={{ settings.%s }}" % (key, key))
 
   template_list.append("""
-                source    "/tmp/gcb_env.sh"
                 # download gcb_env.sh if it exists, otherwise the local copy will be uploaded
-                gsutil -q cp "gs://${CB_GCS_RELEASE_TOOLS_PATH}/gcb_env.sh" "/tmp/gcb_env.sh"
-                source    "/tmp/gcb_env.sh"
-                gsutil -q cp "/tmp/gcb_env.sh" "gs://${CB_GCS_RELEASE_TOOLS_PATH}/"
+                gsutil -q cp "gs://${CB_GCS_RELEASE_TOOLS_PATH}/gcb_env.sh" "${GCB_ENV_FILE}"
+                source       "${GCB_ENV_FILE}"
+                gsutil -q cp "${GCB_ENV_FILE}" "gs://${CB_GCS_RELEASE_TOOLS_PATH}/gcb_env.sh"
                 # cloning master allows us to use master code to do builds for all releases, if this needs to
                 # be changed because of future incompatible changes
                 # we just need to clone the compatible SHA here and in get_commit.template.json
                 git clone "https://github.com/${CB_GITHUB_ORG}/istio.git" "istio-code" -b "master" --depth 1
-                # use code from branch
+                # use release scripts from master
                 cp istio-code/release/pipeline/*sh istio-code/release/gcb/json_parse_shared.sh istio-code/release/gcb/*json .
                 # or override with scripts saved for this build
                 gsutil -mq cp "gs://${CB_GCS_RELEASE_TOOLS_PATH}"/pipeline/*sh .
-                gsutil -mq cp "gs://${CB_GCS_RELEASE_TOOLS_PATH}"/gcb/*json .
                 gsutil -mq cp "gs://${CB_GCS_RELEASE_TOOLS_PATH}"/gcb/json_parse_shared.sh .
-                source airflow_scripts.sh  """)
+                gsutil -mq cp "gs://${CB_GCS_RELEASE_TOOLS_PATH}"/gcb/*json .
+                source airflow_scripts.sh
+                create_subs_file
+                """)
   return "\n".join(template_list)
 
 

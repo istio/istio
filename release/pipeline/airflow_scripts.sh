@@ -23,7 +23,7 @@ SCRIPTPATH=$( pwd -P )
 # shellcheck source=release/pipeline/gcb_build_lib.sh
 source "${SCRIPTPATH}/gcb_build_lib.sh"
 
-# Helper function not called by Airflow, used only by functions in this file
+# Helper function called by Airflow before calling the actual work functions below
 function create_subs_file() {
    # SUBS_FILE is not a local variable and is used by other functions in this file
    SUBS_FILE="$(mktemp /tmp/build.subs.gcs_release_tool_path.XXXX)"
@@ -32,11 +32,11 @@ cat << EOF > "${SUBS_FILE}"
     "_CB_GCS_RELEASE_TOOLS_PATH": "${CB_GCS_RELEASE_TOOLS_PATH}"
   }
 EOF
+   cat "${SUBS_FILE}"
 }
 
 # Called directly by Airflow.
 function get_git_commit_cmd() {
-    create_subs_file
     run_build "get_commit.template.json" \
          "${SUBS_FILE}" "${PROJECT_ID}" "${SVC_ACCT}"
     exit "${BUILD_FAILED}"
@@ -44,7 +44,6 @@ function get_git_commit_cmd() {
 
 # Called directly by Airflow.
 function build_template() {
-    create_subs_file
     run_build "build.template.json" \
          "${SUBS_FILE}" "${PROJECT_ID}" "${SVC_ACCT}"
     exit "${BUILD_FAILED}"
@@ -52,7 +51,6 @@ function build_template() {
 
 # Called directly by Airflow.
 function test_command() {
-    create_subs_file
     run_build "release_qualification.template.json" \
          "${SUBS_FILE}" "${PROJECT_ID}" "${SVC_ACCT}"
     exit "${BUILD_FAILED}"
@@ -60,7 +58,6 @@ function test_command() {
 
 # Called directly by Airflow.
 function modify_values_command() {
-    create_subs_file
     run_build "modify_values.template.json" \
          "${SUBS_FILE}" "${PROJECT_ID}" "${SVC_ACCT}"
     exit "${BUILD_FAILED}"
@@ -68,7 +65,6 @@ function modify_values_command() {
 
 # Called directly by Airflow.
 function gcr_tag_success() {
-    create_subs_file
     run_build "daily_success.template.json" \
          "${SUBS_FILE}" "${PROJECT_ID}" "${SVC_ACCT}"
     exit "${BUILD_FAILED}"
@@ -76,7 +72,6 @@ function gcr_tag_success() {
 
 # Called directly by Airflow.
 function release_push_github_docker_template() {
-    create_subs_file
     run_build "github_publish.template.json" \
          "${SUBS_FILE}" "${PROJECT_ID}" "${SVC_ACCT}"
     exit "${BUILD_FAILED}"
@@ -84,7 +79,6 @@ function release_push_github_docker_template() {
 
 # Called directly by Airflow.
 function release_tag_github_template() {
-    create_subs_file
     run_build "github_tag.template.json" \
          "${SUBS_FILE}" "${PROJECT_ID}" "${SVC_ACCT}"
     exit "$BUILD_FAILED"
