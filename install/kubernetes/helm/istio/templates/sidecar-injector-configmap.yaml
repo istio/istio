@@ -239,6 +239,10 @@ data:
           secretName: {{ "[[ printf \"istio.%s\" .Spec.ServiceAccountName ]]"  }}
           {{ "[[ end -]]" }}
 {{- end }}
-{{- if .Values.global.podDNSConfig }}
-{{ toYaml .Values.global.podDNSConfig | indent 8 }}
+{{- if .Values.global.podDNSSearchNamespaces }}
+      dnsConfig:
+        searches:
+          {{- range .Values.global.podDNSSearchNamespaces }}
+          - {{ . }}
+          {{- end }}
 {{- end }}
