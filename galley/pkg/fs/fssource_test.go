@@ -327,20 +327,6 @@ func TestFsSource_DeletePartResorceInFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
-	//Sometimes will trigger file deletion event, so it will have below 8 events totally:
-	//[Event](Added: [VKey](type.googleapis.com/istio.mcp.v1alpha1.extensions.LegacyMixerResource:denier/some.mixer.denier @v0))
-	//[Event](Added: [VKey](type.googleapis.com/istio.mcp.v1alpha1.extensions.LegacyMixerResource:checknothing/some.mixer.checknothing @v0))
-	//[Event](Added: [VKey](type.googleapis.com/istio.policy.v1beta1.Rule:some.mixer.rule @v0))
-	//[Event](Deleted: [VKey](type.googleapis.com/istio.mcp.v1alpha1.extensions.LegacyMixerResource:some.mixer.denier @v0)
-	//[Event](Deleted: [VKey](type.googleapis.com/istio.mcp.v1alpha1.extensions.LegacyMixerResource:some.mixer.checknothing @v0))
-	//[Event](Deleted: [VKey](type.googleapis.com/istio.policy.v1beta1.Rule:some.mixer.rule @v0))
-	//[Event](Added: [VKey](type.googleapis.com/istio.mcp.v1alpha1.extensions.LegacyMixerResource:denier/some.mixer.denier @v1))
-	//[Event](Added: [VKey](type.googleapis.com/istio.mcp.v1alpha1.extensions.LegacyMixerResource:checknothing/some.mixer.checknothing @v1))
-	// In normal case, it only has below 4 events:
-	//[Event](Added: [VKey](type.googleapis.com/istio.mcp.v1alpha1.extensions.LegacyMixerResource:denier/some.mixer.denier @v0))
-	//[Event](Added: [VKey](type.googleapis.com/istio.mcp.v1alpha1.extensions.LegacyMixerResource:checknothing/some.mixer.checknothing @v0))
-	//[Event](Added: [VKey](type.googleapis.com/istio.policy.v1beta1.Rule:some.mixer.rule @v0))
-	//[Event](Deleted: [VKey](type.googleapis.com/istio.policy.v1beta1.Rule:some.mixer.rule @v0))
 	donec := make(chan bool)
 	expected := "[Event](Deleted: [VKey](type.googleapis.com/istio.policy.v1beta1.Rule:some.mixer.rule @v0))"
 	go checkEventOccurs(expected, ch, donec)
