@@ -20,7 +20,7 @@ import (
 	"testing"
 )
 
-func TestGetProxyDetails(t *testing.T) {
+func TestInferPodInfo(t *testing.T) {
 	tests := []struct {
 		proxyName     string
 		namespace     string
