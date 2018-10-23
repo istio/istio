@@ -248,5 +248,5 @@ istio_cni:
   enabled: false
   sds:
     enabled: false
-    sdsUdsPath: ""
-    enableSdsTokenMount: false
+    udsPath: ""
+    enableTokenMount: false
