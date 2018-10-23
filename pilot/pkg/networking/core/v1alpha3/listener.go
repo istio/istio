@@ -509,7 +509,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 				listenerOpts.filterChainOpts = buildSidecarOutboundTCPTLSFilterChainOpts(env, node, push, configs,
 					destinationIPAddress, service, servicePort, proxyLabels, meshGateway)
 			default:
-				log.Warnf("Unsupported inbound protocol for port %#v", servicePort)
+				// UDP or other protocols: no need to log, it's too noisy
 				continue
 			}
 
