@@ -16,6 +16,7 @@ syntax = "proto3";
 
 import "google/protobuf/duration.proto";
 import "mesh/v1alpha1/proxy.proto";
+import "networking/v1alpha3/destination_rule.proto";
 
 // $title: Service Mesh
 // $description: Configuration affecting the service mesh as a whole.
@@ -54,6 +55,11 @@ message MeshConfig {
   // Disable policy checks by the mixer service. Default
   // is false, i.e. mixer policy check is enabled by default.
   bool disable_policy_checks = 3;
+
+  // Allow all traffic in cases when the mixer policy service cannot be reached.
+  // Default is false which means the traffic is denied when the client is unable
+  // to connect to Mixer.
+  bool policy_check_fail_open = 25;
 
   // Port on which Envoy should listen for incoming connections from
   // other services.
@@ -139,8 +145,10 @@ message MeshConfig {
   
   reserved 21;
 
-  // Address of the galley service exposing the Mesh Control Protocol (MCP).
-  string galley_address = 22;
+  // ConfigSource describes a source of configuration data for networking
+  // rules, and other Istio configuration artifacts. Multiple data sources
+  // can be configured for a single control plane.
+  repeated ConfigSource config_sources = 22;
 
   // $hide_from_docs
   // This flag is used by secret discovery service(SDS). 
@@ -150,5 +158,20 @@ message MeshConfig {
   bool enable_sds_token_mount = 23;
 
   // $hide_from_docs
-  // Next available field number: 25
+  // Next available field number: 26
+}
+
+// ConfigSource describes information about a configuration store inside a
+// mesh. A single control plane instance can interact with one or more data
+// sources.
+message ConfigSource {
+  // Address of the server implementing the Istio Mesh Configuration
+  // protocol (MCP). Can be IP address or a fully qualified DNS name.
+  // Use file:/// to specify a file-based backend with absolute path to the directory.
+  string address = 1;
+
+  // Use the tls_settings to specify the tls mode to use. If the MCP server
+  // uses Istio MTLS and shares the root CA with Pilot, specify the TLS
+  // mode as ISTIO_MUTUAL.
+  istio.networking.v1alpha3.TLSSettings tls_settings = 2;
 }
