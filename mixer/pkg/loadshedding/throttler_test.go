@@ -83,7 +83,7 @@ func TestNewThrottler(t *testing.T) {
 		opts       loadshedding.Options
 		evaluators evalMap
 	}{
-		{"default", *loadshedding.DefaultOptions(), evalMap{}},
+		{"default", loadshedding.DefaultOptions(), evalMap{}},
 		{"rate limit", rateLimitOpts, evalMap{loadshedding.RateLimitEvaluatorName: rateLimitEvalFn}},
 		{"latency", grpcLatencyOpts, evalMap{loadshedding.GRPCLatencyEvaluatorName: latencyEvalFn}},
 		{"hybrid", hybridOpts, evalMap{loadshedding.RateLimitEvaluatorName: rateLimitEvalFn, loadshedding.GRPCLatencyEvaluatorName: latencyEvalFn}},

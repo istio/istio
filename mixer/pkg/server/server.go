@@ -243,7 +243,7 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 		return nil, fmt.Errorf("could not register default server views: %v", err)
 	}
 
-	throttler := loadshedding.NewThrottler(*a.LoadSheddingOptions)
+	throttler := loadshedding.NewThrottler(a.LoadSheddingOptions)
 	if eval := throttler.Evaluator(loadshedding.GRPCLatencyEvaluatorName); eval != nil {
 		grpcOptions = append(grpcOptions, grpc.StatsHandler(newMultiStatsHandler(&ocgrpc.ServerHandler{}, eval.(*loadshedding.GRPCLatencyEvaluator))))
 	} else {
