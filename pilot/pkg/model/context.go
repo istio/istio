@@ -285,6 +285,7 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 		MixerCheckServer:      "",
 		MixerReportServer:     "",
 		DisablePolicyChecks:   false,
+		PolicyCheckFailOpen:   false,
 		ProxyListenPort:       15001,
 		ConnectTimeout:        types.DurationProto(1 * time.Second),
 		IngressClass:          "istio",
