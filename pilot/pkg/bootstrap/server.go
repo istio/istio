@@ -43,7 +43,7 @@ import (
 
 	mcpapi "istio.io/api/mcp/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	
+
 	_ "istio.io/istio/galley/pkg/metadata" // TODO: why do we need this ?
 	"istio.io/istio/pilot/cmd"
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"

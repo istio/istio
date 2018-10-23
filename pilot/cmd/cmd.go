@@ -18,7 +18,7 @@ import (
 	"io/ioutil"
 
 	multierror "github.com/hashicorp/go-multierror"
-	
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 )

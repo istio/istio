@@ -29,7 +29,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	"github.com/gogo/protobuf/types"
 	"github.com/prometheus/client_golang/prometheus"
-	
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
@@ -64,11 +64,6 @@ var (
 
 	// Tracks connections, increment on each new connection.
 	connectionNumber = int64(0)
-
-	// Ordered list of functions to apply to EDS just before pushing it
-	filterFuncs = []FilterFunc{
-		networkFilter, // A filter to support Split Horizon EDS
-	}
 )
 
 // EdsCluster tracks eds-related info for monitored clusters. In practice it'll include
@@ -670,7 +665,7 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection,
 // Apply filter functions listed in the 'filterFuncs' one after the other
 func (s *DiscoveryServer) applyFilterFuncs(cla *xdsapi.ClusterLoadAssignment, con *XdsConnection) *xdsapi.ClusterLoadAssignment {
 	filtered := cla
-	for _, ff := range filterFuncs {
+	for _, ff := range s.FilterFuncs {
 		filtered = ff(filtered, con, s.Env)
 	}
 	return filtered

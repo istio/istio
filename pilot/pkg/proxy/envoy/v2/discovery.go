@@ -173,8 +173,8 @@ type DiscoveryServer struct {
 	// waiting for more events, to debounce.
 	debouncePushTimerSet bool
 
-	// Ordered list of functions to apply to EDS just before pushing it
-	filterFuncs []FilterFunc
+	// FilterFuncs is an ordered list of functions to apply to EDS just before pushing it
+	FilterFuncs []FilterFunc
 }
 
 // FilterFunc is a function that filters data from the ClusterLoadAssignment and returns updated one
@@ -242,7 +242,7 @@ func NewDiscoveryServer(env *model.Environment, generator core.ConfigGenerator, 
 		edsUpdates:              map[string]*EndpointShardsByService{},
 		concurrentPushLimit:     make(chan struct{}, 20), // TODO(hzxuzhonghu): support configuration
 		updateChannel:           make(chan *updateReq, 10),
-		filterFuncs: []FilterFunc{
+		FilterFuncs: []FilterFunc{
 			networkFilter, // A filter to support Split Horizon EDS
 		},
 	}
