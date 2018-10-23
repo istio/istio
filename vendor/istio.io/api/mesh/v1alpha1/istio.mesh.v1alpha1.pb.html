@@ -100,6 +100,16 @@ is false, i.e. mixer policy check is enabled by default.</p>
 
 </td>
 </tr>
+<tr id="MeshConfig-policy_check_fail_open">
+<td><code>policyCheckFailOpen</code></td>
+<td><code>bool</code></td>
+<td>
+<p>Allow all traffic in cases when the mixer policy service cannot be reached.
+Default is false which means the traffic is denied when the client is unable
+to connect to Mixer.</p>
+
+</td>
+</tr>
 <tr id="MeshConfig-proxy_listen_port">
 <td><code>proxyListenPort</code></td>
 <td><code>int32</code></td>
