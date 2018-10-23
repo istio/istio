@@ -28,6 +28,8 @@ import (
 	mcpclient "istio.io/istio/pkg/mcp/client"
 )
 
+const clusterScopedNamespace = ""
+
 var errUnsupported = errors.New("this operation is not supported by mcp controller")
 
 // CoreDataModel is a combined interface for ConfigStoreCache
@@ -96,7 +98,7 @@ func (c *Controller) List(typ, namespace string) (out []model.Config, err error)
 		return nil, nil
 	}
 
-	if namespace == "" {
+	if namespace == clusterScopedNamespace {
 		// ByType does not need locking since
 		// we replace the entire sub-map
 		for _, byNamespace := range byType {
@@ -142,7 +144,7 @@ func (c *Controller) Apply(change *mcpclient.Change) error {
 
 		// adjust the type name for mesh-scoped resources
 		typ := descriptor.Type
-		if namespace == "" && descriptor.Type == model.AuthenticationPolicy.Type {
+		if namespace == clusterScopedNamespace && descriptor.Type == model.AuthenticationPolicy.Type {
 			typ = model.AuthenticationMeshPolicy.Type
 		}
 
@@ -176,7 +178,6 @@ func (c *Controller) Apply(change *mcpclient.Change) error {
 
 	// de-mux namespace and cluster-scoped authentication policy from the same
 	// type_url stream.
-	const clusterScopedNamespace = ""
 	meshTypeInnerStore := make(map[string]map[string]model.Config)
 	var meshType string
 	if descriptor.Type == model.AuthenticationPolicy.Type {
@@ -185,10 +186,8 @@ func (c *Controller) Apply(change *mcpclient.Change) error {
 		delete(innerStore, clusterScopedNamespace)
 	}
 
-	var prevStore map[string]map[string]model.Config
-
 	c.configStoreMu.Lock()
-	prevStore = c.configStore[descriptor.Type]
+	prevStore := c.configStore[descriptor.Type]
 	c.configStore[descriptor.Type] = innerStore
 	if meshType != "" {
 		c.configStore[meshType] = meshTypeInnerStore
@@ -292,7 +291,7 @@ func extractNameNamespace(metadataName string) (string, string) {
 	if len(segments) == 2 {
 		return segments[0], segments[1]
 	}
-	return "", segments[0]
+	return clusterScopedNamespace, segments[0]
 }
 
 func extractMessagename(typeURL string) string {
