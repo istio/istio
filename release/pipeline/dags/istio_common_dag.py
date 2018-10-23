@@ -104,8 +104,10 @@ cat << EOF > "${GCB_ENV_FILE}"
   template_list.append("""
                 # download gcb_env.sh if it exists, otherwise the local copy will be uploaded
                 gsutil -q cp "gs://${CB_GCS_RELEASE_TOOLS_PATH}/gcb_env.sh" "${GCB_ENV_FILE}"
-                source       "${GCB_ENV_FILE}"
-                gsutil -q cp "${GCB_ENV_FILE}" "gs://${CB_GCS_RELEASE_TOOLS_PATH}/gcb_env.sh"
+                if [ $? -ne 0 ]; then
+                  gsutil -q cp "${GCB_ENV_FILE}" "gs://${CB_GCS_RELEASE_TOOLS_PATH}/gcb_env.sh"
+                fi
+                source "${GCB_ENV_FILE}"
                 # cloning master allows us to use master code to do builds for all releases, if this needs to
                 # be changed because of future incompatible changes
                 # we just need to clone the compatible SHA here and in get_commit.template.json
