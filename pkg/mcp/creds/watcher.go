@@ -124,17 +124,20 @@ func DefaultOptions() *Options {
 	}
 }
 
-// AttachCobraFlags attaches a set of Cobra flags to the given Cobra command.
+// AttachCobraDeprecatedFlags attaches a set of Cobra flags to the given Cobra command.
 //
 // Cobra is the command-line processor that Istio uses. This command attaches
 // the necessary set of flags to configure the MCP options.
-func (c *Options) AttachCobraFlags(cmd *cobra.Command) {
+func (c *Options) AttachCobraDeprecatedFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().StringVarP(&c.CertificateFile, "certFile", "", c.CertificateFile,
 		"The location of the certificate file for mutual TLS")
+	cmd.PersistentFlags().MarkDeprecated("certFile", "Use --meshConfig instead, and specify in MeshConfig.ConfigSources[].TlsSettings")
 	cmd.PersistentFlags().StringVarP(&c.KeyFile, "keyFile", "", c.KeyFile,
 		"The location of the key file for mutual TLS")
+	cmd.PersistentFlags().MarkDeprecated("keyFile", "Use --meshConfig instead, and specify in MeshConfig.ConfigSources[].TlsSettings")
 	cmd.PersistentFlags().StringVarP(&c.CACertificateFile, "caCertFile", "", c.CACertificateFile,
 		"The location of the certificate file for the root certificate authority")
+	cmd.PersistentFlags().MarkDeprecated("caCertFile", "Use --meshConfig instead, and specify in MeshConfig.ConfigSources[].TlsSettings")
 }
 
 // WatchFiles loads certificate & key files from the file system. The method will start a background
