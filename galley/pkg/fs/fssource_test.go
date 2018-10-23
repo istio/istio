@@ -347,6 +347,7 @@ func logChannelOutput(ch chan resource.Event, count int) string {
 	}
 	return strings.TrimSpace(fmt.Sprintf("%v\n", result))
 }
+
 func checkEventOccurs(expectedEvent string, ch chan resource.Event, donec chan bool) {
 	for event := range ch {
 		if expectedEvent == strings.TrimSpace(fmt.Sprintf("%v\n", event)) {
