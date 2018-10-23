@@ -38,8 +38,6 @@ spec:
         - 42s
         - --discoveryAddress
         - istio-pilot:15007
-        - --zipkinAddress
-        - ""
         - --connectTimeout
         - 42s
         - --statsdUdpAddress

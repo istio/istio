@@ -46,6 +46,8 @@ const (
 
 	// IstioMetaJSONPrefix is used to pass annotations and similar environment info.
 	IstioMetaJSONPrefix = "ISTIO_METAJSON_"
+
+	lightstepAccessTokenBase = "lightstep_access_token.txt"
 )
 
 var (
@@ -55,6 +57,10 @@ var (
 
 func configFile(config string, epoch int) string {
 	return path.Join(config, fmt.Sprintf(EpochFileTemplate, epoch))
+}
+
+func lightstepAccessTokenFile(config string) string {
+	return path.Join(config, lightstepAccessTokenBase)
 }
 
 // convertDuration converts to golang duration and logs errors
@@ -239,12 +245,34 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 	}
 	StoreHostPort(h, p, "pilot_grpc_address", opts)
 
-	if config.ZipkinAddress != "" {
-		h, p, err = GetHostPort("Zipkin", config.ZipkinAddress)
-		if err != nil {
-			return "", err
+	if config.Tracing != nil {
+		switch tracer := config.Tracing.Tracer.(type) {
+		case *meshconfig.Tracing_Zipkin_:
+			h, p, err = GetHostPort("Zipkin", tracer.Zipkin.Address)
+			if err != nil {
+				return "", err
+			}
+			StoreHostPort(h, p, "zipkin", opts)
+		case *meshconfig.Tracing_Lightstep_:
+			h, p, err = GetHostPort("Lightstep", tracer.Lightstep.Address)
+			if err != nil {
+				return "", err
+			}
+			StoreHostPort(h, p, "lightstep", opts)
+
+			lightstepAccessTokenPath := lightstepAccessTokenFile(config.ConfigPath)
+			lsConfigOut, err := os.Create(lightstepAccessTokenPath)
+			if err != nil {
+				return "", err
+			}
+			_, err = lsConfigOut.WriteString(tracer.Lightstep.AccessToken)
+			if err != nil {
+				return "", err
+			}
+			opts["lightstepToken"] = lightstepAccessTokenPath
+			opts["lightstepSecure"] = tracer.Lightstep.Secure
+			opts["lightstepCacertPath"] = tracer.Lightstep.CacertPath
 		}
-		StoreHostPort(h, p, "zipkin", opts)
 	}
 
 	if config.StatsdUdpAddress != "" {
