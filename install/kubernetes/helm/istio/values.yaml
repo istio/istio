@@ -267,11 +267,9 @@ global:
   # This does not apply to gateway pods as they typically need a different
   # set of DNS settings than the normal application pods (e.g., in
   # multicluster scenarios).
-  #podDNSConfig:
-  #  dnsConfig:
-  #    searches: #some dummy examples
-  #    - foo.bar.baz
-  #    - {{ "[[ valueOrDefault .DeploymentMeta.Namespace \"default\" ]]" }}.bazoo
+  #podDNSSearchNamespaces:
+  # - foo.bar.baz
+  # - [[ valueOrDefault .DeploymentMeta.Namespace \"default\" ]].bazoo
 
   # If set to true, the pilot and citadel mtls will be exposed on the
   # ingress gateway
