@@ -1,0 +1,32 @@
+{{ if eq .Values.provider "jaeger" }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jaeger-operator
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: jaeger-operator
+  template:
+    metadata:
+      labels:
+        name: jaeger-operator
+    spec:
+      containers:
+        - name: jaeger-operator
+          image: "{{ .Values.jaeger.hub }}/jaeger-operator:{{ .Values.jaeger.tag }}"
+          ports:
+          - containerPort: 60000
+            name: metrics
+          args: ["start"]
+          imagePullPolicy: Always
+          env:
+            - name: WATCH_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: OPERATOR_NAME
+              value: "jaeger-operator"
+{{ end }}

@@ -1,0 +1,16 @@
+{{ if eq .Values.provider "jaeger" }}
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: jaegers.io.jaegertracing
+  namespace: {{ .Release.Namespace }}
+spec:
+  group: io.jaegertracing
+  names:
+    kind: Jaeger
+    listKind: JaegerList
+    plural: jaegers
+    singular: jaeger
+  scope: Namespaced
+  version: v1alpha1
+{{ end }}

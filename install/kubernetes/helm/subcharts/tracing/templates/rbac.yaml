@@ -1,0 +1,56 @@
+{{ if eq .Values.provider "jaeger" }}
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: jaeger-operator
+  namespace: {{ .Release.Namespace }}
+rules:
+- apiGroups:
+  - io.jaegertracing
+  resources:
+  - "*"
+  verbs:
+  - "*"
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  - services
+  - endpoints
+  - persistentvolumeclaims
+  - events
+  - configmaps
+  - secrets
+  verbs:
+  - "*"
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  - daemonsets
+  - replicasets
+  - statefulsets
+  verbs:
+  - "*"
+- apiGroups:
+  - extensions
+  resources:
+  - ingresses
+  verbs:
+  - "*"
+
+---
+
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: default-account-jaeger-operator
+  namespace: {{ .Release.Namespace }}
+subjects:
+- kind: ServiceAccount
+  name: default
+roleRef:
+  kind: Role
+  name: jaeger-operator
+  apiGroup: rbac.authorization.k8s.io
+{{ end }}

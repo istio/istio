@@ -1,0 +1,9 @@
+{{ if eq .Values.provider "jaeger" }}
+apiVersion: io.jaegertracing/v1alpha1
+kind: Jaeger
+metadata:
+  name: jaeger
+  namespace: {{ .Release.Namespace }}
+spec:
+{{ toYaml .Values.jaeger.spec | indent 2 }}
+{{ end }}
