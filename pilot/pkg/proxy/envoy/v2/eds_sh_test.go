@@ -105,7 +105,7 @@ func TestSplitHorizonEds(t *testing.T) {
 	pilotServer.ServiceController.DeleteRegistry("network4")
 	pilotServer.EnvoyXdsServer.Env.MeshNetworks = nil
 	pilotServer.EnvoyXdsServer.ConfigUpdate(true)
-	time.Sleep(200 * time.Millisecond)
+	time.Sleep(2 * time.Second)
 }
 
 // Tests whether an EDS response from the provided network matches the expected results
