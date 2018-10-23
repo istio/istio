@@ -23,18 +23,6 @@ SCRIPTPATH=$( pwd -P )
 # shellcheck source=release/pipeline/gcb_build_lib.sh
 source "${SCRIPTPATH}/gcb_build_lib.sh"
 
-# Helper function called by Airflow before calling the actual work functions below
-function create_subs_file() {
-   # SUBS_FILE is not a local variable and is used by other functions in this file
-   SUBS_FILE="$(mktemp /tmp/build.subs.gcs_release_tool_path.XXXX)"
-cat << EOF > "${SUBS_FILE}"
-  "substitutions": {
-    "_CB_GCS_RELEASE_TOOLS_PATH": "${CB_GCS_RELEASE_TOOLS_PATH}"
-  }
-EOF
-   cat "${SUBS_FILE}"
-}
-
 # Called directly by Airflow.
 function get_git_commit_cmd() {
     run_build "get_commit.template.json" \

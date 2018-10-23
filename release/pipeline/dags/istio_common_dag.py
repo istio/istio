@@ -101,26 +101,31 @@ cat << EOF > "${GCB_ENV_FILE}"
     if not key.startswith("CB_"):
       template_list.append("export %s={{ settings.%s }}" % (key, key))
 
-  template_list.append("""
-                # download gcb_env.sh if it exists, otherwise the local copy will be uploaded
-                gsutil -q cp "gs://${CB_GCS_RELEASE_TOOLS_PATH}/gcb_env.sh" "${GCB_ENV_FILE}"
-                if [ $? -ne 0 ]; then
-                  gsutil -q cp "${GCB_ENV_FILE}" "gs://${CB_GCS_RELEASE_TOOLS_PATH}/gcb_env.sh"
-                fi
-                source "${GCB_ENV_FILE}"
-                # cloning master allows us to use master code to do builds for all releases, if this needs to
-                # be changed because of future incompatible changes
-                # we just need to clone the compatible SHA here and in get_commit.template.json
-                git clone "https://github.com/${CB_GITHUB_ORG}/istio.git" "istio-code" -b "master" --depth 1
-                # use release scripts from master
-                cp istio-code/release/pipeline/*sh istio-code/release/gcb/json_parse_shared.sh istio-code/release/gcb/*json .
-                # or override with scripts saved for this build
-                gsutil -mq cp "gs://${CB_GCS_RELEASE_TOOLS_PATH}"/pipeline/*sh .
-                gsutil -mq cp "gs://${CB_GCS_RELEASE_TOOLS_PATH}"/gcb/json_parse_shared.sh .
-                gsutil -mq cp "gs://${CB_GCS_RELEASE_TOOLS_PATH}"/gcb/*json .
-                source airflow_scripts.sh
-                create_subs_file
-                """)
+  airflow_scripts_str = """
+# download gcb_env.sh if it exists, otherwise the local copy will be uploaded
+gsutil -q cp "gs://${CB_GCS_RELEASE_TOOLS_PATH}/gcb_env.sh" "${GCB_ENV_FILE}"
+if [ $? -ne 0 ]; then
+  gsutil -q cp "${GCB_ENV_FILE}" "gs://${CB_GCS_RELEASE_TOOLS_PATH}/gcb_env.sh"
+fi
+source "${GCB_ENV_FILE}"
+# cloning master allows us to use master code to do builds for all releases, if this needs to
+# be changed because of future incompatible changes
+# we just need to clone the compatible SHA here and in get_commit.template.json
+git clone "https://github.com/${CB_GITHUB_ORG}/istio.git" "istio-code" -b "master" --depth 1
+# use release scripts from master
+cp istio-code/release/pipeline/*sh istio-code/release/gcb/json_parse_shared.sh istio-code/release/gcb/*json .
+# or override with scripts saved for this build
+gsutil -mq cp "gs://${CB_GCS_RELEASE_TOOLS_PATH}"/pipeline/*sh .
+gsutil -mq cp "gs://${CB_GCS_RELEASE_TOOLS_PATH}"/gcb/json_parse_shared.sh .
+gsutil -mq cp "gs://${CB_GCS_RELEASE_TOOLS_PATH}"/gcb/*json .
+source airflow_scripts.sh
+SUBS_FILE="$(mktemp /tmp/build.subs.gcs_release_tool_path.XXXX)"
+cat << EOF > "${SUBS_FILE}"
+substitutions": {
+  "_CB_GCS_RELEASE_TOOLS_PATH": "${CB_GCS_RELEASE_TOOLS_PATH}"
+}
+EOF"""
+  template_list.append(airflow_scripts_str)
   return "\n".join(template_list)
 
 
