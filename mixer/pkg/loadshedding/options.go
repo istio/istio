@@ -60,8 +60,8 @@ type Options struct {
 }
 
 // DefaultOptions returns a new set of options, initialized to the defaults
-func DefaultOptions() *Options {
-	return &Options{
+func DefaultOptions() Options {
+	return Options{
 		AverageLatencyThreshold: 0,
 		SamplesPerSecond:        DefaultSampleFrequency,
 		SampleHalfLife:          DefaultHalfLife,

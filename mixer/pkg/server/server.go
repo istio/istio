@@ -221,7 +221,7 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 	// get the grpc server wired up
 	grpc.EnableTracing = a.EnableGRPCTracing
 
-	throttler := loadshedding.NewThrottler(*a.LoadSheddingOptions)
+	throttler := loadshedding.NewThrottler(a.LoadSheddingOptions)
 	if eval := throttler.Evaluator(loadshedding.GRPCLatencyEvaluatorName); eval != nil {
 		grpcOptions = append(grpcOptions, grpc.StatsHandler(eval.(*loadshedding.GRPCLatencyEvaluator)))
 	}

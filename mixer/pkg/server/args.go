@@ -99,7 +99,7 @@ type Args struct {
 	// Maximum number of entries in the check cache
 	NumCheckCacheEntries int32
 
-	LoadSheddingOptions *loadshedding.Options
+	LoadSheddingOptions loadshedding.Options
 }
 
 // DefaultArgs allocates an Args struct initialized with Mixer's default configuration.
@@ -158,7 +158,7 @@ func (a *Args) String() string {
 	fmt.Fprintf(buf, "LoggingOptions: %#v\n", *a.LoggingOptions)
 	fmt.Fprintf(buf, "TracingOptions: %#v\n", *a.TracingOptions)
 	fmt.Fprintf(buf, "IntrospectionOptions: %#v\n", *a.IntrospectionOptions)
-	fmt.Fprintf(buf, "LoadSheddingOptions: %#v\n", *a.LoadSheddingOptions)
+	fmt.Fprintf(buf, "LoadSheddingOptions: %#v\n", a.LoadSheddingOptions)
 
 	return buf.String()
 }

@@ -76,7 +76,7 @@ func TestOpts(t *testing.T) {
 				tt.Errorf("Got %v, expecting success", err)
 			}
 
-			if !reflect.DeepEqual(c.result, *o) {
+			if !reflect.DeepEqual(c.result, o) {
 				tt.Errorf("Got %v, expected %v", o, c.result)
 			}
 		})
