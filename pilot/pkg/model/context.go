@@ -274,7 +274,6 @@ func DefaultProxyConfig() meshconfig.ProxyConfig {
 		DrainDuration:          types.DurationProto(2 * time.Second),
 		ParentShutdownDuration: types.DurationProto(3 * time.Second),
 		DiscoveryAddress:       DiscoveryPlainAddress,
-		ZipkinAddress:          "",
 		ConnectTimeout:         types.DurationProto(1 * time.Second),
 		StatsdUdpAddress:       "",
 		ProxyAdminPort:         15000,
@@ -282,6 +281,7 @@ func DefaultProxyConfig() meshconfig.ProxyConfig {
 		CustomConfigFile:       "",
 		Concurrency:            0,
 		StatNameLength:         189,
+		Tracing:                nil,
 	}
 }
 
@@ -332,6 +332,7 @@ func ApplyMeshConfigDefaults(yaml string) (*meshconfig.MeshConfig, error) {
 	if err := ValidateMeshConfig(&out); err != nil {
 		return nil, err
 	}
+
 	return &out, nil
 }
 

@@ -166,9 +166,9 @@ func (service serviceMetadata) match(rule *rbacproto.AccessRule) bool {
 	return true
 }
 
-// attributesEnforcedInDynamicMetadataMatcher returns true if the given attribute should be enforced
-// via dynamic metadata matcher. This means these attributes are depending on the output of authn filter.
-func attributesEnforcedInDynamicMetadataMatcher(k string) bool {
+// attributesFromAuthN returns true if the given attribute is generated from AuthN filter. This implies
+// the attribute should be enforced by dynamic metadata.
+func attributesFromAuthN(k string) bool {
 	switch k {
 	case attrSrcNamespace, attrSrcUser, attrSrcPrincipal, attrRequestPrincipal, attrRequestAudiences,
 		attrRequestPresenter:
@@ -177,16 +177,12 @@ func attributesEnforcedInDynamicMetadataMatcher(k string) bool {
 	return strings.HasPrefix(k, attrRequestClaims)
 }
 
-func generateMetadataStringMatcher(keys []string, v *metadata.StringMatcher) *metadata.MetadataMatcher {
-	paths := make([]*metadata.MetadataMatcher_PathSegment, 0)
-	for _, k := range keys {
-		paths = append(paths, &metadata.MetadataMatcher_PathSegment{
-			Segment: &metadata.MetadataMatcher_PathSegment_Key{Key: k},
-		})
-	}
+func generateMetadataStringMatcher(key string, v *metadata.StringMatcher, filterName string) *metadata.MetadataMatcher {
 	return &metadata.MetadataMatcher{
-		Filter: authn.AuthnFilterName,
-		Path:   paths,
+		Filter: filterName,
+		Path: []*metadata.MetadataMatcher_PathSegment{
+			{Segment: &metadata.MetadataMatcher_PathSegment_Key{Key: key}},
+		},
 		Value: &metadata.ValueMatcher{
 			MatchPattern: &metadata.ValueMatcher_StringMatch{
 				StringMatch: v,
@@ -223,27 +219,6 @@ func generateMetadataListMatcher(keys []string, v string) *metadata.MetadataMatc
 			},
 		},
 	}
-}
-
-// generateMetaKeys generates keys for metadata paths.
-func generateMetaKeys(k string) ([]string, error) {
-	var keys []string
-
-	if k == attrSrcNamespace {
-		// Proxy doesn't have attrSrcNamespace directly, but the information is encoded in attrSrcPrincipal
-		// with format: cluster.local/ns/{NAMESPACE}/sa/{SERVICE-ACCOUNT}, so we change the key to
-		// attrSrcPrincipal.
-		keys = []string{attrSrcPrincipal}
-	} else if strings.HasPrefix(k, attrRequestClaims) {
-		claim, err := extractNameInBrackets(strings.TrimPrefix(k, attrRequestClaims))
-		if err != nil {
-			return nil, err
-		}
-		keys = []string{attrRequestClaims, claim}
-	} else {
-		keys = []string{k}
-	}
-	return keys, nil
 }
 
 func createStringMatcher(v string, forceRegexPattern, forTCPFilter bool) *metadata.StringMatcher {
@@ -284,28 +259,29 @@ func createStringMatcher(v string, forceRegexPattern, forTCPFilter bool) *metada
 
 // createDynamicMetadataMatcher creates a MetadataMatcher for the given key, value pair.
 func createDynamicMetadataMatcher(k, v string) *metadata.MetadataMatcher {
-	keys, err := generateMetaKeys(k)
-	if err != nil {
-		rbacLog.Errorf("failed to generate meta matcher key %s, err: %v", k, err)
-		return nil
-	}
-	forceRegexPattern := false
+	filterName := authn.AuthnFilterName
 	if k == attrSrcNamespace {
-		// Change the value to a regular expression to match the namespace part.
+		// Proxy doesn't have attrSrcNamespace directly, but the information is encoded in attrSrcPrincipal
+		// with format: cluster.local/ns/{NAMESPACE}/sa/{SERVICE-ACCOUNT}.
 		v = fmt.Sprintf(`*/ns/%s/*`, v)
-		forceRegexPattern = true
-	}
-
-	// Handle the claims under attrRequestClaims
-	if len(keys) == 2 && keys[0] == attrRequestClaims {
+		stringMatcher := createStringMatcher(v, true /* forceRegexPattern */, false /* forTCPFilter */)
+		return generateMetadataStringMatcher(attrSrcPrincipal, stringMatcher, filterName)
+	} else if strings.HasPrefix(k, attrRequestClaims) {
+		claim, err := extractNameInBrackets(strings.TrimPrefix(k, attrRequestClaims))
+		if err != nil {
+			return nil
+		}
 		// Generate a metadata list matcher for the given path keys and value.
 		// On proxy side, the value should be of list type.
-		return generateMetadataListMatcher(keys, v)
+		return generateMetadataListMatcher([]string{attrRequestClaims, claim}, v)
 	}
 
-	stringMatcher := createStringMatcher(v, forceRegexPattern, false /* forTCPFilter */)
-
-	return generateMetadataStringMatcher(keys, stringMatcher)
+	stringMatcher := createStringMatcher(v, false /* forceRegexPattern */, false /* forTCPFilter */)
+	if !attributesFromAuthN(k) {
+		rbacLog.Debugf("generated dynamic metadata matcher for custom property: %s", k)
+		filterName = rbacHTTPFilterName
+	}
+	return generateMetadataStringMatcher(k, stringMatcher, filterName)
 }
 
 // Plugin implements Istio RBAC authz
@@ -813,7 +789,7 @@ func principalForKeyValue(key, value string, forTCPFilter bool) *policyproto.Pri
 				Header: convertToHeaderMatcher(header, value),
 			},
 		}
-	case attributesEnforcedInDynamicMetadataMatcher(key):
+	default:
 		if matcher := createDynamicMetadataMatcher(key, value); matcher != nil {
 			return &policyproto.Principal{
 				Identifier: &policyproto.Principal_Metadata{
@@ -821,10 +797,7 @@ func principalForKeyValue(key, value string, forTCPFilter bool) *policyproto.Pri
 				},
 			}
 		}
-		rbacLog.Errorf("ignored invalid dynamic metadata: %s", key)
-		return nil
-	default:
-		rbacLog.Errorf("ignored unsupported property key: %s", key)
+		rbacLog.Errorf("failed to generated dynamic metadata matcher for key: %s", key)
 		return nil
 	}
 }
