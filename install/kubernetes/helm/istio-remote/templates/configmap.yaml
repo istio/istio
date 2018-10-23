@@ -15,6 +15,10 @@ data:
     # Set the following variable to true to disable policy checks by the Mixer.
     # Note that metrics will still be reported to the Mixer.
     disablePolicyChecks: {{ .Values.global.disablePolicyChecks }}
+
+    # policyCheckFailOpen allows traffic in cases when the mixer policy service cannot be reached.
+    # Default is false which means the traffic is denied when the client is unable to connect to Mixer.
+    policyCheckFailOpen: {{ .Values.global.policyCheckFailOpen }}
   {{- end }}  
 
   {{- if .Values.global.proxy.tracer }}

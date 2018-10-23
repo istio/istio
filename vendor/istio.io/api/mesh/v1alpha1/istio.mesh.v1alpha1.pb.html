@@ -4,7 +4,7 @@ layout: protoc-gen-docs
 generator: protoc-gen-docs
 aliases:
   - /docs/reference/config/service-mesh.html
-number_of_entries: 12
+number_of_entries: 13
 ---
 <h2 id="AuthenticationPolicy">AuthenticationPolicy</h2>
 <section>
@@ -40,6 +40,44 @@ Mesh policy cannot be INHERIT.</p>
 <td>
 <p>Use the policy defined by the parent scope. Should not be used for mesh
 policy.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="ConfigSource">ConfigSource</h2>
+<section>
+<p>ConfigSource describes information about a configuration store inside a
+mesh. A single control plane instance can interact with one or more data
+sources.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="ConfigSource-address">
+<td><code>address</code></td>
+<td><code>string</code></td>
+<td>
+<p>Address of the server implementing the Istio Mesh Configuration
+protocol (MCP). Can be IP address or a fully qualified DNS name.
+Use file:/// to specify a file-based backend with absolute path to the directory.</p>
+
+</td>
+</tr>
+<tr id="ConfigSource-tls_settings">
+<td><code>tlsSettings</code></td>
+<td><code><a href="https://istio.io/docs/reference/config/istio.networking.v1alpha3.html#TLSSettings">istio.networking.v1alpha3.TLSSettings</a></code></td>
+<td>
+<p>Use the tls<em>settings to specify the tls mode to use. If the MCP server
+uses Istio MTLS and shares the root CA with Pilot, specify the TLS
+mode as ISTIO</em>MUTUAL.</p>
 
 </td>
 </tr>
@@ -97,6 +135,16 @@ calls.</p>
 <td>
 <p>Disable policy checks by the mixer service. Default
 is false, i.e. mixer policy check is enabled by default.</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-policy_check_fail_open">
+<td><code>policyCheckFailOpen</code></td>
+<td><code>bool</code></td>
+<td>
+<p>Allow all traffic in cases when the mixer policy service cannot be reached.
+Default is false which means the traffic is denied when the client is unable
+to connect to Mixer.</p>
 
 </td>
 </tr>
@@ -207,11 +255,13 @@ Use secret-mount files instead of SDS if set to empty.</p>
 
 </td>
 </tr>
-<tr id="MeshConfig-galley_address">
-<td><code>galleyAddress</code></td>
-<td><code>string</code></td>
+<tr id="MeshConfig-config_sources">
+<td><code>configSources</code></td>
+<td><code><a href="#ConfigSource">ConfigSource[]</a></code></td>
 <td>
-<p>Address of the galley service exposing the Mesh Control Protocol (MCP).</p>
+<p>ConfigSource describes a source of configuration data for networking
+rules, and other Istio configuration artifacts. Multiple data sources
+can be configured for a single control plane.</p>
 
 </td>
 </tr>
