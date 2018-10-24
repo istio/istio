@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"strconv"
 	"strings"
 	"sync"
@@ -424,9 +425,9 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 		securityOption := grpc.WithInsecure()
 		if configSource.TlsSettings != nil && configSource.TlsSettings.Mode == istio_networking_v1alpha3.TLSSettings_ISTIO_MUTUAL {
 			requiredFiles := []string{
-				configSource.TlsSettings.ClientCertificate,
-				configSource.TlsSettings.PrivateKey,
-				configSource.TlsSettings.CaCertificates,
+				path.Join(model.AuthCertsPath, model.RootCertFilename),
+				path.Join(model.AuthCertsPath, model.CertChainFilename),
+				path.Join(model.AuthCertsPath, model.KeyFilename),
 			}
 			log.Infof("Secure MCP configured. Waiting for required certificate files to become available: %v",
 				requiredFiles)
