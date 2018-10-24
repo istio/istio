@@ -444,3 +444,40 @@ loop:
 		t.Errorf("Got %v, Want nil", err)
 	}
 }
+
+func TestCrdsRetryAsynchronouslyStoreClose(t *testing.T) {
+	fakeDiscovery := &fake.FakeDiscovery{
+		Fake: &k8stesting.Fake{
+			Resources: []*metav1.APIResourceList{
+				{GroupVersion: apiGroupVersion},
+			},
+		},
+	}
+	callCount := 0
+	mutex := sync.RWMutex{}
+	fakeDiscovery.AddReactor("get", "resource", func(k8stesting.Action) (bool, runtime.Object, error) {
+		mutex.Lock()
+		callCount++
+		mutex.Unlock()
+		return true, nil, nil
+	})
+
+	s, _, _ := getTempClient()
+	s.discoveryBuilder = func(*rest.Config) (discovery.DiscoveryInterface, error) {
+		return fakeDiscovery, nil
+	}
+	s.bgRetryInterval = 10 * time.Millisecond
+	s.Init([]string{"Handler", "Action"})
+
+	// Close store, which should shut down the background retry.
+	// With 10ms retry interval and 30ms before shutdown, at most 4 discovery calls would be made.
+	time.Sleep(30 * time.Millisecond)
+	s.Stop()
+	time.Sleep(30 * time.Millisecond)
+	mutex.RLock()
+	if callCount > 4 {
+		t.Errorf("got %v, want no more than 4 calls", callCount)
+	}
+	mutex.RUnlock()
+}
+
