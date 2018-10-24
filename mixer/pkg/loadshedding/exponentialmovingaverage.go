@@ -20,7 +20,7 @@ import (
 	"time"
 )
 
-// exponentialMovingAverage is smoothing function used to continously average
+// exponentialMovingAverage is smoothing function used to continuously average
 // a stream of samples, based on a given decay rate. Those samples may be
 // irregularly spaced (in time). It  applies this smoothing as though the input
 // is constant (at the same value as the previous sample) between samples.
