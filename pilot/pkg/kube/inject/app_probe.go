@@ -16,13 +16,14 @@ package inject
 
 import (
 	"fmt"
+	"strconv"
+
+	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"strconv"
-	"istio.io/istio/pilot/cmd/pilot-agent/status"
 )
 
-const(
+const (
 	// StatusPortCmdFlagName is the name of the command line flag passed to pilot-agent for sidecar readiness probe.
 	// We reuse it for taking over application's readiness probing as well.
 	// TODO: replace the hardcoded statusPort elsewhere by this variable as much as possible.
@@ -40,7 +41,7 @@ func appProbePath(kind string, containers []corev1.Container) string {
 			continue
 		}
 		hp := probe.Handler.HTTPGet
-		port := 0
+		port := 80
 		if hp.Port.Type == intstr.String {
 			name := hp.Port.String()
 			for _, cp := range c.Ports {
@@ -54,6 +55,7 @@ func appProbePath(kind string, containers []corev1.Container) string {
 		}
 		return fmt.Sprintf(":%v%v", port, hp.Path)
 	}
+
 	return ""
 }
 
@@ -66,7 +68,7 @@ func rewriteAppHTTPProbe(spec *SidecarInjectionSpec, podSpec *corev1.PodSpec) {
 			continue
 		}
 		for i, arg := range c.Args {
-			if arg == StatusPortCmdFlagName {
+			if arg == "--statusPort" { // StatusPortCmdFlagName {
 				pi = i
 				break
 			}
@@ -84,10 +86,15 @@ func rewriteAppHTTPProbe(spec *SidecarInjectionSpec, podSpec *corev1.PodSpec) {
 		if probe == nil || probe.HTTPGet == nil {
 			return
 		}
+		//fmt.Printf("jianfeih debug this rewrite happened %v %v\n", path, statusPort)
 		probe.HTTPGet.Path = path
 		probe.HTTPGet.Port = intstr.FromInt(statusPort)
 	}
 	for _, c := range podSpec.Containers {
+		// Skip sidecar container.
+		if c.Name == "istio-proxy" {
+			continue
+		}
 		rewriteProbe(c.ReadinessProbe, status.AppReadinessPath)
 		rewriteProbe(c.LivenessProbe, status.AppLivenessPath)
 	}

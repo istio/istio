@@ -116,6 +116,10 @@ data:
         - {{ "[[ annotation .ObjectMeta `status.sidecar.istio.io/port` " }} {{ .Values.global.proxy.statusPort }} {{ " ]]" }}
         - --applicationPorts
         - {{ "\"[[ annotation .ObjectMeta `readiness.status.sidecar.istio.io/applicationPorts` (applicationPorts .Spec.Containers) ]]\"" }}
+        - --appReadyUrl
+        - {{ "[[ appProbePath \"ready\" .Spec.Containers]]" }}
+        - --appLiveUrl
+        - {{ "[[ appProbePath \"live\" .Spec.Containers]]" }}
       {{ "[[- end ]]" }}
         env:
         - name: POD_NAME

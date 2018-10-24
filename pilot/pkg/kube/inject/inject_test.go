@@ -16,17 +16,15 @@ package inject
 
 import (
 	"bytes"
+	"fmt"
+	"io/ioutil"
 	"os"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/gogo/protobuf/types"
-
-	"fmt"
-
-	"regexp"
-
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/util"
@@ -476,6 +474,9 @@ func TestIntoResourceFile(t *testing.T) {
 	}
 
 	for i, c := range cases {
+		if c.in != "hello-probes.yaml" {
+			continue
+		}
 		testName := fmt.Sprintf("[%02d] %s", i, c.want)
 		t.Run(testName, func(t *testing.T) {
 			mesh := model.DefaultMeshConfig()
@@ -535,6 +536,7 @@ func TestIntoResourceFile(t *testing.T) {
 			// The version string is a maintenance pain for this test. Strip the version string before comparing.
 			wantBytes := stripVersion(util.ReadFile(wantFilePath, t))
 			gotBytes := stripVersion(got.Bytes())
+			ioutil.WriteFile("hello-injected.debug.yaml", gotBytes, 0644)
 
 			util.CompareBytes(gotBytes, wantBytes, wantFilePath, t)
 		})
