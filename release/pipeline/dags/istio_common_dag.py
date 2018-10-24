@@ -72,10 +72,6 @@ def GetVariableOrDefault(var, default):
   except KeyError:
     return default
 
-def getBashCommitTemplate():
-  commit_template = """{% set m_commit = task_instance.xcom_pull(task_ids='get_git_commit') %}
-                       export m_commit="{{ m_commit }}" """
-  return commit_template
 
 def getBashSettingsTemplate(extra_param_lst=[]):
   keys = environment_config.GetDefaultAirflowConfigKeys()
@@ -86,17 +82,47 @@ def getBashSettingsTemplate(extra_param_lst=[]):
 
   template_prefix = "{% set settings = task_instance.xcom_pull(task_ids='generate_workflow_args') %}"
   template_list = [template_prefix]
+  gcb_env_prefix = 'cat << EOF > "/tmp/gcb_env.sh"'
+  template_list.append(gcb_env_prefix)
   for key in keys:
-    template_list.append("export %s={{ settings.%s }}" % (key, key))
+    # only export CB_ variables to gcb
+    if key.startswith("CB_"):
+      template_list.append("export %s={{ settings.%s }}" % (key, key))
+  gcb_env_suffix = 'EOF'
+  template_list.append(gcb_env_suffix)
+
+  for key in keys:
+    # export non CB_ variables locally
+    if not key.startswith("CB_"):
+      template_list.append("export %s={{ settings.%s }}" % (key, key))
+
   template_list.append("""
-                git clone "$ISTIO_REPO" "istio-code" -b "$BRANCH" --depth 1
+                source    "/tmp/gcb_env.sh"
+                # download gcb_env.sh if it exists, otherwise the local copy will be uploaded
+                gsutil -q cp "gs://${CB_GCS_RELEASE_TOOLS_PATH}/gcb_env.sh" "/tmp/gcb_env.sh"
+                source    "/tmp/gcb_env.sh"
+                gsutil -q cp "/tmp/gcb_env.sh" "gs://${CB_GCS_RELEASE_TOOLS_PATH}/"
+                # cloning master allows us to use master code to do builds for all releases, if this needs to
+                # be changed because of future incompatible changes
+                # we just need to clone the compatible SHA here and in get_commit.template.json
+                git clone "https://github.com/${CB_GITHUB_ORG}/istio.git" "istio-code" -b "master" --depth 1
                 # use code from branch
-                cp istio-code/release/airflow/* istio-code/release/json_parse_shared.sh .
+                cp istio-code/release/pipeline/*sh istio-code/release/gcb/json_parse_shared.sh istio-code/release/gcb/*json .
                 # or override with scripts saved for this build
-                gsutil cp "${GCS_RELEASE_TOOLS_PATH}"/airflow/* .
-                gsutil cp "${GCS_RELEASE_TOOLS_PATH}"/json_parse_shared.sh .
+                gsutil -mq cp "gs://${CB_GCS_RELEASE_TOOLS_PATH}"/pipeline/*sh .
+                gsutil -mq cp "gs://${CB_GCS_RELEASE_TOOLS_PATH}"/gcb/*json .
+                gsutil -mq cp "gs://${CB_GCS_RELEASE_TOOLS_PATH}"/gcb/json_parse_shared.sh .
                 source airflow_scripts.sh  """)
   return "\n".join(template_list)
+
+
+def MergeEnvironmentIntoConfig(env_conf, *config_dicts):
+    config_settings = dict()
+    for cur_conf_dict in config_dicts:
+      for name, value in cur_conf_dict.items():
+        config_settings[name] = env_conf.get(name) or value
+
+    return config_settings
 
 
 def MakeCommonDag(dag_args_func, name,
@@ -114,10 +140,8 @@ def MakeCommonDag(dag_args_func, name,
   tasks = dict()
   cmd_template = getBashSettingsTemplate(extra_param_lst)
 
-  def addAirflowBashOperator(cmd_name, task_id, need_commit=False, **kwargs):
+  def addAirflowBashOperator(cmd_name, task_id, **kwargs):
     cmd_list = []
-    if need_commit == True:
-      cmd_list.append(getBashCommitTemplate())
     cmd_list.append(cmd_template)
 
     cmd_list.append("type %s\n     %s" % (cmd_name, cmd_name))
@@ -135,16 +159,16 @@ def MakeCommonDag(dag_args_func, name,
   )
   tasks['generate_workflow_args'] = generate_flow_args
 
-  addAirflowBashOperator('get_git_commit_cmd', 'get_git_commit', xcom_push=True)
-  addAirflowBashOperator('build_template', 'run_cloud_builder', need_commit=True)
+  addAirflowBashOperator('get_git_commit_cmd', 'get_git_commit')
+  addAirflowBashOperator('build_template', 'run_cloud_builder')
   addAirflowBashOperator('test_command', 'run_release_qualification_tests', retries=0)
   addAirflowBashOperator('modify_values_command', 'modify_values_helm')
 
   copy_files = GoogleCloudStorageCopyOperator(
       task_id='copy_files_for_release',
-      source_bucket=GetSettingTemplate('GCS_BUILD_BUCKET'),
-      source_object=GetSettingTemplate('GCS_STAGING_PATH'),
-      destination_bucket=GetSettingTemplate('GCS_STAGING_BUCKET'),
+      source_bucket=GetSettingTemplate('CB_GCS_BUILD_BUCKET'),
+      source_object=GetSettingTemplate('CB_GCS_STAGING_PATH'),
+      destination_bucket=GetSettingTemplate('CB_GCS_STAGING_BUCKET'),
       dag=common_dag,
   )
   tasks['copy_files_for_release'] = copy_files

@@ -38,7 +38,7 @@ func (m *StringMatcher) Reset()         { *m = StringMatcher{} }
 func (m *StringMatcher) String() string { return proto.CompactTextString(m) }
 func (*StringMatcher) ProtoMessage()    {}
 func (*StringMatcher) Descriptor() ([]byte, []int) {
-	return fileDescriptor_string_18447c1839360c24, []int{0}
+	return fileDescriptor_string_1562c148619ef90d, []int{0}
 }
 func (m *StringMatcher) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -222,8 +222,57 @@ func _StringMatcher_OneofSizer(msg proto.Message) (n int) {
 	return n
 }
 
+// Specifies a list of ways to match a string.
+type ListStringMatcher struct {
+	Patterns             []*StringMatcher `protobuf:"bytes,1,rep,name=patterns" json:"patterns,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
+	XXX_unrecognized     []byte           `json:"-"`
+	XXX_sizecache        int32            `json:"-"`
+}
+
+func (m *ListStringMatcher) Reset()         { *m = ListStringMatcher{} }
+func (m *ListStringMatcher) String() string { return proto.CompactTextString(m) }
+func (*ListStringMatcher) ProtoMessage()    {}
+func (*ListStringMatcher) Descriptor() ([]byte, []int) {
+	return fileDescriptor_string_1562c148619ef90d, []int{1}
+}
+func (m *ListStringMatcher) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *ListStringMatcher) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_ListStringMatcher.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (dst *ListStringMatcher) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ListStringMatcher.Merge(dst, src)
+}
+func (m *ListStringMatcher) XXX_Size() int {
+	return m.Size()
+}
+func (m *ListStringMatcher) XXX_DiscardUnknown() {
+	xxx_messageInfo_ListStringMatcher.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ListStringMatcher proto.InternalMessageInfo
+
+func (m *ListStringMatcher) GetPatterns() []*StringMatcher {
+	if m != nil {
+		return m.Patterns
+	}
+	return nil
+}
+
 func init() {
 	proto.RegisterType((*StringMatcher)(nil), "envoy.type.matcher.StringMatcher")
+	proto.RegisterType((*ListStringMatcher)(nil), "envoy.type.matcher.ListStringMatcher")
 }
 func (m *StringMatcher) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
@@ -285,6 +334,39 @@ func (m *StringMatcher_Regex) MarshalTo(dAtA []byte) (int, error) {
 	i += copy(dAtA[i:], m.Regex)
 	return i, nil
 }
+func (m *ListStringMatcher) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *ListStringMatcher) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.Patterns) > 0 {
+		for _, msg := range m.Patterns {
+			dAtA[i] = 0xa
+			i++
+			i = encodeVarintString(dAtA, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(dAtA[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
+		}
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
 func encodeVarintString(dAtA []byte, offset int, v uint64) int {
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
@@ -332,6 +414,20 @@ func (m *StringMatcher_Regex) Size() (n int) {
 	_ = l
 	l = len(m.Regex)
 	n += 1 + l + sovString(uint64(l))
+	return n
+}
+func (m *ListStringMatcher) Size() (n int) {
+	var l int
+	_ = l
+	if len(m.Patterns) > 0 {
+		for _, e := range m.Patterns {
+			l = e.Size()
+			n += 1 + l + sovString(uint64(l))
+		}
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
 	return n
 }
 
@@ -515,6 +611,88 @@ func (m *StringMatcher) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
+func (m *ListStringMatcher) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowString
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: ListStringMatcher: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: ListStringMatcher: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Patterns", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowString
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthString
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Patterns = append(m.Patterns, &StringMatcher{})
+			if err := m.Patterns[len(m.Patterns)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipString(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthString
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
 func skipString(dAtA []byte) (n int, err error) {
 	l := len(dAtA)
 	iNdEx := 0
@@ -621,11 +799,11 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/type/matcher/string.proto", fileDescriptor_string_18447c1839360c24)
+	proto.RegisterFile("envoy/type/matcher/string.proto", fileDescriptor_string_1562c148619ef90d)
 }
 
-var fileDescriptor_string_18447c1839360c24 = []byte{
-	// 227 bytes of a gzipped FileDescriptorProto
+var fileDescriptor_string_1562c148619ef90d = []byte{
+	// 268 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x92, 0x4f, 0xcd, 0x2b, 0xcb,
 	0xaf, 0xd4, 0x2f, 0xa9, 0x2c, 0x48, 0xd5, 0xcf, 0x4d, 0x2c, 0x49, 0xce, 0x48, 0x2d, 0xd2, 0x2f,
 	0x2e, 0x29, 0xca, 0xcc, 0x4b, 0xd7, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0x12, 0x02, 0x2b, 0xd0,
@@ -637,8 +815,10 @@ var fileDescriptor_string_18447c1839360c24 = []byte{
 	0xa5, 0x40, 0x8a, 0x8a, 0x4b, 0xd3, 0x40, 0x8a, 0x98, 0xb1, 0x28, 0x82, 0x48, 0x09, 0x29, 0x71,
 	0xb1, 0x16, 0xa5, 0xa6, 0xa7, 0x56, 0x48, 0xb0, 0x80, 0xd5, 0x70, 0x81, 0xd4, 0xb0, 0x16, 0x31,
 	0x6b, 0x34, 0x70, 0x80, 0x6c, 0x03, 0x4b, 0x39, 0x89, 0x71, 0xf1, 0x82, 0xdd, 0x1e, 0x5f, 0x90,
-	0x58, 0x52, 0x92, 0x5a, 0x94, 0x27, 0xc4, 0xba, 0xe3, 0xe5, 0x01, 0x66, 0x46, 0x27, 0xd1, 0x13,
-	0x8f, 0xe4, 0x18, 0x2f, 0x3c, 0x92, 0x63, 0x7c, 0xf0, 0x48, 0x8e, 0x31, 0x8a, 0x1d, 0xea, 0xbf,
-	0x24, 0x36, 0xb0, 0x6f, 0x8c, 0x01, 0x01, 0x00, 0x00, 0xff, 0xff, 0x7c, 0xa4, 0xef, 0xb2, 0x1d,
-	0x01, 0x00, 0x00,
+	0x58, 0x52, 0x92, 0x5a, 0x94, 0x27, 0xc4, 0xba, 0xe3, 0xe5, 0x01, 0x66, 0x46, 0xa5, 0x38, 0x2e,
+	0x41, 0x9f, 0xcc, 0xe2, 0x12, 0x54, 0x27, 0x7b, 0x72, 0x71, 0x40, 0x95, 0x15, 0x4b, 0x30, 0x2a,
+	0x30, 0x6b, 0x70, 0x1b, 0x29, 0xea, 0x61, 0x06, 0x82, 0x1e, 0x8a, 0x26, 0xa8, 0xb5, 0x93, 0x18,
+	0x99, 0x38, 0x18, 0x83, 0xe0, 0xda, 0x9d, 0x44, 0x4f, 0x3c, 0x92, 0x63, 0xbc, 0xf0, 0x48, 0x8e,
+	0xf1, 0xc1, 0x23, 0x39, 0xc6, 0x28, 0x76, 0xa8, 0xd6, 0x24, 0x36, 0x70, 0x68, 0x19, 0x03, 0x02,
+	0x00, 0x00, 0xff, 0xff, 0xbd, 0x67, 0x37, 0x8d, 0x7d, 0x01, 0x00, 0x00,
 }

@@ -29,9 +29,9 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/fake"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 	k8stesting "k8s.io/client-go/testing"
-	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/pkg/probe"
@@ -67,28 +67,36 @@ type dummyListerWatcherBuilder struct {
 	watchers map[string]*watch.RaceFreeFakeWatcher
 }
 
-func (d *dummyListerWatcherBuilder) build(res metav1.APIResource) cache.ListerWatcher {
+func (f *fakeDynamicResource) List(opts metav1.ListOptions) (*unstructured.UnstructuredList, error) {
+	list := &unstructured.UnstructuredList{}
+	f.d.mu.RLock()
+	for k, v := range f.d.data {
+		if k.Kind == f.res.Kind {
+			list.Items = append(list.Items, *v)
+		}
+	}
+	f.d.mu.RUnlock()
+	return list, nil
+}
+
+func (f *fakeDynamicResource) Watch(opts metav1.ListOptions) (watch.Interface, error) {
+	return f.w, nil
+}
+
+type fakeDynamicResource struct {
+	d *dummyListerWatcherBuilder
+	dynamic.ResourceInterface
+	w   watch.Interface
+	res metav1.APIResource
+}
+
+func (d *dummyListerWatcherBuilder) build(res metav1.APIResource) dynamic.ResourceInterface {
 	w := watch.NewRaceFreeFake()
 	d.mu.Lock()
 	d.watchers[res.Kind] = w
 	d.mu.Unlock()
 
-	return &cache.ListWatch{
-		ListFunc: func(metav1.ListOptions) (runtime.Object, error) {
-			list := &unstructured.UnstructuredList{}
-			d.mu.RLock()
-			for k, v := range d.data {
-				if k.Kind == res.Kind {
-					list.Items = append(list.Items, *v)
-				}
-			}
-			d.mu.RUnlock()
-			return list, nil
-		},
-		WatchFunc: func(metav1.ListOptions) (watch.Interface, error) {
-			return w, nil
-		},
-	}
+	return &fakeDynamicResource{d: d, w: w, res: res}
 }
 
 func (d *dummyListerWatcherBuilder) put(key store.Key, spec map[string]interface{}) error {

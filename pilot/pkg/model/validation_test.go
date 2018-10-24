@@ -23,7 +23,6 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/go-multierror"
-
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	mpb "istio.io/api/mixer/v1"
@@ -541,7 +540,6 @@ func TestValidateMeshConfig(t *testing.T) {
 		MixerReportServer: "10.0.0.100",
 		ProxyListenPort:   0,
 		ConnectTimeout:    types.DurationProto(-1 * time.Second),
-		AuthPolicy:        -1,
 		DefaultConfig:     &meshconfig.ProxyConfig{},
 	}
 
@@ -562,8 +560,263 @@ func TestValidateMeshConfig(t *testing.T) {
 }
 
 func TestValidateProxyConfig(t *testing.T) {
-	if ValidateProxyConfig(&meshconfig.ProxyConfig{}) == nil {
-		t.Error("expected an error on an empty proxy config")
+	valid := &meshconfig.ProxyConfig{
+		ConfigPath:             "/etc/istio/proxy",
+		BinaryPath:             "/usr/local/bin/envoy",
+		DiscoveryAddress:       "istio-pilot.istio-system:15010",
+		ProxyAdminPort:         15000,
+		DrainDuration:          types.DurationProto(45 * time.Second),
+		ParentShutdownDuration: types.DurationProto(60 * time.Second),
+		ConnectTimeout:         types.DurationProto(10 * time.Second),
+		ServiceCluster:         "istio-proxy",
+		StatsdUdpAddress:       "istio-statsd-prom-bridge.istio-system:9125",
+		ControlPlaneAuthPolicy: 1,
+		Tracing:                nil,
+	}
+
+	modify := func(config *meshconfig.ProxyConfig, fieldSetter func(*meshconfig.ProxyConfig)) *meshconfig.ProxyConfig {
+		clone := proto.Clone(valid).(*meshconfig.ProxyConfig)
+		fieldSetter(clone)
+		return clone
+	}
+
+	cases := []struct {
+		name    string
+		in      *meshconfig.ProxyConfig
+		isValid bool
+	}{
+		{
+			name:    "empty proxy config",
+			in:      &meshconfig.ProxyConfig{},
+			isValid: false,
+		},
+		{
+			name:    "valid proxy config",
+			in:      valid,
+			isValid: true,
+		},
+		{
+			name:    "config path invalid",
+			in:      modify(valid, func(c *meshconfig.ProxyConfig) { c.ConfigPath = "" }),
+			isValid: false,
+		},
+		{
+			name:    "binary path invalid",
+			in:      modify(valid, func(c *meshconfig.ProxyConfig) { c.BinaryPath = "" }),
+			isValid: false,
+		},
+		{
+			name:    "discovery address invalid",
+			in:      modify(valid, func(c *meshconfig.ProxyConfig) { c.DiscoveryAddress = "10.0.0.100" }),
+			isValid: false,
+		},
+		{
+			name:    "proxy admin port invalid",
+			in:      modify(valid, func(c *meshconfig.ProxyConfig) { c.ProxyAdminPort = 0 }),
+			isValid: false,
+		},
+		{
+			name:    "proxy admin port invalid",
+			in:      modify(valid, func(c *meshconfig.ProxyConfig) { c.ProxyAdminPort = 0 }),
+			isValid: false,
+		},
+		{
+			name:    "drain duration invalid",
+			in:      modify(valid, func(c *meshconfig.ProxyConfig) { c.DrainDuration = types.DurationProto(-1 * time.Second) }),
+			isValid: false,
+		},
+		{
+			name:    "parent shutdown duration invalid",
+			in:      modify(valid, func(c *meshconfig.ProxyConfig) { c.ParentShutdownDuration = types.DurationProto(-1 * time.Second) }),
+			isValid: false,
+		},
+		{
+			name:    "connect timeout invalid",
+			in:      modify(valid, func(c *meshconfig.ProxyConfig) { c.ConnectTimeout = types.DurationProto(-1 * time.Second) }),
+			isValid: false,
+		},
+		{
+			name:    "service cluster invalid",
+			in:      modify(valid, func(c *meshconfig.ProxyConfig) { c.ServiceCluster = "" }),
+			isValid: false,
+		},
+		{
+			name:    "statsd udp address invalid",
+			in:      modify(valid, func(c *meshconfig.ProxyConfig) { c.StatsdUdpAddress = "10.0.0.100" }),
+			isValid: false,
+		},
+		{
+			name:    "control plane auth policy invalid",
+			in:      modify(valid, func(c *meshconfig.ProxyConfig) { c.ControlPlaneAuthPolicy = -1 }),
+			isValid: false,
+		},
+		{
+			name: "zipkin address is valid",
+			in: modify(valid,
+				func(c *meshconfig.ProxyConfig) {
+					c.Tracing = &meshconfig.Tracing{
+						Tracer: &meshconfig.Tracing_Zipkin_{
+							Zipkin: &meshconfig.Tracing_Zipkin{
+								Address: "zipkin.istio-system:9411",
+							},
+						},
+					}
+				},
+			),
+			isValid: true,
+		},
+		{
+			name: "zipkin config invalid",
+			in: modify(valid,
+				func(c *meshconfig.ProxyConfig) {
+					c.Tracing = &meshconfig.Tracing{
+						Tracer: &meshconfig.Tracing_Zipkin_{
+							Zipkin: &meshconfig.Tracing_Zipkin{
+								Address: "10.0.0.100",
+							},
+						},
+					}
+				},
+			),
+			isValid: false,
+		},
+		{
+			name: "lightstep config is valid",
+			in: modify(valid,
+				func(c *meshconfig.ProxyConfig) {
+					c.Tracing = &meshconfig.Tracing{
+						Tracer: &meshconfig.Tracing_Lightstep_{
+							Lightstep: &meshconfig.Tracing_Lightstep{
+								Address:     "collector.lightstep:8080",
+								AccessToken: "abcdefg1234567",
+								Secure:      false,
+								CacertPath:  "/etc/lightstep/cacert.pem",
+							},
+						},
+					}
+				},
+			),
+			isValid: true,
+		},
+		{
+			name: "lightstep address invalid",
+			in: modify(valid,
+				func(c *meshconfig.ProxyConfig) {
+					c.Tracing = &meshconfig.Tracing{
+						Tracer: &meshconfig.Tracing_Lightstep_{
+							Lightstep: &meshconfig.Tracing_Lightstep{
+								Address:     "10.0.0.100",
+								AccessToken: "abcdefg1234567",
+								Secure:      false,
+								CacertPath:  "/etc/lightstep/cacert.pem",
+							},
+						},
+					}
+				},
+			),
+			isValid: false,
+		},
+		{
+			name: "lightstep address empty but lightstep access token is not",
+			in: modify(valid,
+				func(c *meshconfig.ProxyConfig) {
+					c.Tracing = &meshconfig.Tracing{
+						Tracer: &meshconfig.Tracing_Lightstep_{
+							Lightstep: &meshconfig.Tracing_Lightstep{
+								Address:     "",
+								AccessToken: "abcdefg1234567",
+								Secure:      false,
+								CacertPath:  "/etc/lightstep/cacert.pem",
+							},
+						},
+					}
+				},
+			),
+			isValid: false,
+		},
+		{
+			name: "lightstep address is valid but access token is empty",
+			in: modify(valid,
+				func(c *meshconfig.ProxyConfig) {
+					c.Tracing = &meshconfig.Tracing{
+						Tracer: &meshconfig.Tracing_Lightstep_{
+							Lightstep: &meshconfig.Tracing_Lightstep{
+								Address:     "collector.lightstep:8080",
+								AccessToken: "",
+								Secure:      false,
+								CacertPath:  "/etc/lightstep/cacert.pem",
+							},
+						},
+					}
+				},
+			),
+			isValid: false,
+		},
+		{
+			name: "lightstep access token empty but lightstep address is not",
+			in: modify(valid,
+				func(c *meshconfig.ProxyConfig) {
+					c.Tracing = &meshconfig.Tracing{
+						Tracer: &meshconfig.Tracing_Lightstep_{
+							Lightstep: &meshconfig.Tracing_Lightstep{
+								Address:     "10.0.0.100",
+								AccessToken: "",
+								Secure:      false,
+								CacertPath:  "/etc/lightstep/cacert.pem",
+							},
+						},
+					}
+				},
+			),
+			isValid: false,
+		},
+		{
+			name: "lightstep address and lightstep token both empty",
+			in: modify(valid,
+				func(c *meshconfig.ProxyConfig) {
+					c.Tracing = &meshconfig.Tracing{
+						Tracer: &meshconfig.Tracing_Lightstep_{
+							Lightstep: &meshconfig.Tracing_Lightstep{
+								Address:     "",
+								AccessToken: "",
+								Secure:      false,
+								CacertPath:  "/etc/lightstep/cacert.pem",
+							},
+						},
+					}
+				},
+			),
+			isValid: false,
+		},
+		{
+			name: "lightstep cacert is missing",
+			in: modify(valid,
+				func(c *meshconfig.ProxyConfig) {
+					c.Tracing = &meshconfig.Tracing{
+						Tracer: &meshconfig.Tracing_Lightstep_{
+							Lightstep: &meshconfig.Tracing_Lightstep{
+								Address:     "collector.lightstep:8080",
+								AccessToken: "abcdefg1234567",
+								Secure:      true,
+								CacertPath:  "",
+							},
+						},
+					}
+				},
+			),
+			isValid: false,
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := ValidateProxyConfig(c.in); (got == nil) != c.isValid {
+				if c.isValid {
+					t.Errorf("got error %v, wanted none", got)
+				} else {
+					t.Error("got no error, wanted one")
+				}
+			}
+		})
 	}
 
 	invalid := meshconfig.ProxyConfig{
@@ -576,8 +829,14 @@ func TestValidateProxyConfig(t *testing.T) {
 		ConnectTimeout:         types.DurationProto(-1 * time.Second),
 		ServiceCluster:         "",
 		StatsdUdpAddress:       "10.0.0.100",
-		ZipkinAddress:          "10.0.0.100",
 		ControlPlaneAuthPolicy: -1,
+		Tracing: &meshconfig.Tracing{
+			Tracer: &meshconfig.Tracing_Zipkin_{
+				Zipkin: &meshconfig.Tracing_Zipkin{
+					Address: "10.0.0.100",
+				},
+			},
+		},
 	}
 
 	err := ValidateProxyConfig(&invalid)
@@ -587,7 +846,7 @@ func TestValidateProxyConfig(t *testing.T) {
 		switch err.(type) {
 		case *multierror.Error:
 			// each field must cause an error in the field
-			if len(err.(*multierror.Error).Errors) < 11 {
+			if len(err.(*multierror.Error).Errors) != 11 {
 				t.Errorf("expected an error for each field %v", err)
 			}
 		default:

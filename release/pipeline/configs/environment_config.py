@@ -17,55 +17,51 @@ EMAIL_LIST = ['istio-release@google.com']
 
 # fixed airflow configuration for the istio dags
 airflow_fixed_config = dict(
-    CHECK_GREEN_SHA_AGE='true',
-    GCR_STAGING_DEST='istio-release',
-    GCS_BUILD_BUCKET='istio-release-pipeline-data',
-    GCS_STAGING_BUCKET='istio-prerelease',
-    GITHUB_ORG='istio',
-    GITHUB_REPO='istio',
-    MFEST_FILE='build.xml',
-    MFEST_URL='https://github.com/istio/green-builds',
+    CB_CHECK_GREEN_SHA_AGE='true',
+    CB_GCR_STAGING_DEST='istio-release',
+    CB_GCS_BUILD_BUCKET='istio-release-pipeline-data',
+    CB_GCS_STAGING_BUCKET='istio-prerelease',
+    CB_GITHUB_ORG='istio',
+    CB_GITHUB_TOKEN_FILE_PATH='istio-secrets/github.txt.enc',
+    CB_TEST_GITHUB_TOKEN_FILE_PATH='',
     PROJECT_ID='istio-io',
-    SVC_ACCT='202987436673-compute@developer.gserviceaccount.com',
-    TOKEN_FILE='/var/run/secrets/kubernetes.io/serviceaccount/tokenFile')
+    SVC_ACCT='202987436673-compute@developer.gserviceaccount.com')
 
 
-def GetDefaultAirflowConfig(branch, gcs_path, mfest_commit, pipeline_type,
-			verify_consistency, version, commit):
+def GetDefaultAirflowConfig(branch, commit, docker_hub, gcs_path, github_org, pipeline_type,
+			verify_consistency, version):
   """Return a dict of the configuration for the Pipeline."""
   config = dict(airflow_fixed_config)
 
   # direct config
-  config['BRANCH']             = branch
-  config['GCS_STAGING_PATH']   = gcs_path
-  config['MFEST_COMMIT']       = mfest_commit
-  config['PIPELINE_TYPE']      = pipeline_type
-  config['VERIFY_CONSISTENCY'] = verify_consistency
-  config['VERSION']            = version
-  # MFEST_COMMIT was used for green build, we are transitioning away from it
-  # COMMIT is being used for istio/istio commit sha or to specify branch
-  # if it specifies branch the of that branch is used to build
-  config['COMMIT']             = commit
-
+  config['CB_BRANCH']             = branch
+  config['CB_DOCKER_HUB']         = docker_hub # e.g. docker.io/istio
+  # istioctl_docker_hub is the string used by istioctl, helm values, deb file
+  config['CB_ISTIOCTL_DOCKER_HUB'] = config['CB_DOCKER_HUB']
+  # push_docker_hubs is the set of comma separated hubs to which the code is pushed
+  config['CB_PUSH_DOCKER_HUBS']   = config['CB_DOCKER_HUB']
+  config['CB_GCS_STAGING_PATH']   = gcs_path
+  config['CB_GITHUB_ORG']         = github_org
+  config['CB_PIPELINE_TYPE']      = pipeline_type
+  config['CB_VERIFY_CONSISTENCY'] = verify_consistency
+  config['CB_VERSION']            = version
+  config['CB_COMMIT']             = commit
 
 
   # derivative and more convoluted config
 
-
   # build path is of the form         '{gcs_build_bucket}/{gcs_path}',
-  config['GCS_BUILD_PATH']          = '%s/%s' % (config['GCS_BUILD_BUCKET'], gcs_path)
+  config['CB_GCS_BUILD_PATH']          = '%s/%s' % (config['CB_GCS_BUILD_BUCKET'], gcs_path)
   # full staging path is of the form  '{gcs_staging_bucket}/{gcs_path}',
-  config['GCS_FULL_STAGING_PATH']   = '%s/%s' % (config['GCS_STAGING_BUCKET'], gcs_path)
+  config['CB_GCS_FULL_STAGING_PATH']   = '%s/%s' % (config['CB_GCS_STAGING_BUCKET'], gcs_path)
   # release tools path is of the form '{gcs_build_bucket}/release-tools/{gcs_path}',
-  config['GCS_RELEASE_TOOLS_PATH']  = '%s/release-tools/%s' % (config['GCS_BUILD_BUCKET'], gcs_path)
-  #                                   'https://github.com/{github_org}/{github_repo}.git',
-  config['ISTIO_REPO']              = 'https://github.com/%s/%s.git' % (config['GITHUB_ORG'], config['GITHUB_REPO'])
+  config['CB_GCS_RELEASE_TOOLS_PATH']  = '%s/release-tools/%s' % (config['CB_GCS_BUILD_BUCKET'], gcs_path)
 
   return config
 
 
 def GetDefaultAirflowConfigKeys():
   """Return a list of the keys of configuration for the Pipeline."""
-  dc = GetDefaultAirflowConfig(branch="", gcs_path="", mfest_commit="", pipeline_type="",
-			verify_consistency="", version="", commit="")
+  dc = GetDefaultAirflowConfig(branch="", commit="", docker_hub="", gcs_path="", github_org = "", pipeline_type="",
+			verify_consistency="", version="")
   return list(dc.keys())

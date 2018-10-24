@@ -4,7 +4,7 @@ layout: protoc-gen-docs
 generator: protoc-gen-docs
 aliases:
   - /docs/reference/config/service-mesh.html
-number_of_entries: 8
+number_of_entries: 13
 ---
 <h2 id="AuthenticationPolicy">AuthenticationPolicy</h2>
 <section>
@@ -40,6 +40,44 @@ Mesh policy cannot be INHERIT.</p>
 <td>
 <p>Use the policy defined by the parent scope. Should not be used for mesh
 policy.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="ConfigSource">ConfigSource</h2>
+<section>
+<p>ConfigSource describes information about a configuration store inside a
+mesh. A single control plane instance can interact with one or more data
+sources.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="ConfigSource-address">
+<td><code>address</code></td>
+<td><code>string</code></td>
+<td>
+<p>Address of the server implementing the Istio Mesh Configuration
+protocol (MCP). Can be IP address or a fully qualified DNS name.
+Use file:/// to specify a file-based backend with absolute path to the directory.</p>
+
+</td>
+</tr>
+<tr id="ConfigSource-tls_settings">
+<td><code>tlsSettings</code></td>
+<td><code><a href="https://istio.io/docs/reference/config/istio.networking.v1alpha3.html#TLSSettings">istio.networking.v1alpha3.TLSSettings</a></code></td>
+<td>
+<p>Use the tls<em>settings to specify the tls mode to use. If the MCP server
+uses Istio MTLS and shares the root CA with Pilot, specify the TLS
+mode as ISTIO</em>MUTUAL.</p>
 
 </td>
 </tr>
@@ -100,6 +138,16 @@ is false, i.e. mixer policy check is enabled by default.</p>
 
 </td>
 </tr>
+<tr id="MeshConfig-policy_check_fail_open">
+<td><code>policyCheckFailOpen</code></td>
+<td><code>bool</code></td>
+<td>
+<p>Allow all traffic in cases when the mixer policy service cannot be reached.
+Default is false which means the traffic is denied when the client is unable
+to connect to Mixer.</p>
+
+</td>
+</tr>
 <tr id="MeshConfig-proxy_listen_port">
 <td><code>proxyListenPort</code></td>
 <td><code>int32</code></td>
@@ -151,16 +199,6 @@ controller.  This corresponds to the value of
 
 </td>
 </tr>
-<tr id="MeshConfig-auth_policy" class="deprecated ">
-<td><code>authPolicy</code></td>
-<td><code><a href="#MeshConfig-AuthPolicy">MeshConfig.AuthPolicy</a></code></td>
-<td>
-<p>Authentication policy defines the global switch to control authentication
-for Envoy-to-Envoy communication.
-Use authentication_policy instead.</p>
-
-</td>
-</tr>
 <tr id="MeshConfig-enable_tracing">
 <td><code>enableTracing</code></td>
 <td><code>bool</code></td>
@@ -179,6 +217,15 @@ Empty value disables access logging.</p>
 
 </td>
 </tr>
+<tr id="MeshConfig-access_log_format">
+<td><code>accessLogFormat</code></td>
+<td><code>string</code></td>
+<td>
+<p>Format for the proxy access log (text or json).
+Default value is text.</p>
+
+</td>
+</tr>
 <tr id="MeshConfig-default_config">
 <td><code>defaultConfig</code></td>
 <td><code><a href="#ProxyConfig">ProxyConfig</a></code></td>
@@ -188,19 +235,6 @@ Empty value disables access logging.</p>
 In case of Kubernetes, the proxy config is applied once during the injection process,
 and remain constant for the duration of the pod. The rest of the mesh config can be changed
 at runtime and config gets distributed dynamically.</p>
-
-</td>
-</tr>
-<tr id="MeshConfig-outbound_traffic_policy">
-<td><code>outboundTrafficPolicy</code></td>
-<td><code><a href="#MeshConfig-OutboundTrafficPolicy">MeshConfig.OutboundTrafficPolicy</a></code></td>
-<td>
-<p>Set the default behavior of the sidecar for handling outbound traffic from the application.
-While the default mode should work out of the box, if your application uses one or more external services that
-are not known apriori, setting the policy to ALLOW<em>ANY will cause the sidecars to route traffic to the any
-requested destination.
-Users are strongly encouraged to use ServiceEntries to explicitly declare any external dependencies,
-instead of using allow</em>any.</p>
 
 </td>
 </tr>
@@ -221,40 +255,13 @@ Use secret-mount files instead of SDS if set to empty.</p>
 
 </td>
 </tr>
-<tr id="MeshConfig-galley_address">
-<td><code>galleyAddress</code></td>
-<td><code>string</code></td>
+<tr id="MeshConfig-config_sources">
+<td><code>configSources</code></td>
+<td><code><a href="#ConfigSource">ConfigSource[]</a></code></td>
 <td>
-<p>Address of the galley service exposing the Mesh Control Protocol (MCP).</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="MeshConfig-AuthPolicy">MeshConfig.AuthPolicy</h2>
-<section>
-<p>TODO AuthPolicy needs to be removed and merged with AuthPolicy defined above</p>
-
-<table class="enum-values">
-<thead>
-<tr>
-<th>Name</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="MeshConfig-AuthPolicy-NONE">
-<td><code>NONE</code></td>
-<td>
-<p>Do not encrypt Envoy to Envoy traffic.</p>
-
-</td>
-</tr>
-<tr id="MeshConfig-AuthPolicy-MUTUAL_TLS">
-<td><code>MUTUAL_TLS</code></td>
-<td>
-<p>Envoy to Envoy traffic is wrapped into mutual TLS connections.</p>
+<p>ConfigSource describes a source of configuration data for networking
+rules, and other Istio configuration artifacts. Multiple data sources
+can be configured for a single control plane.</p>
 
 </td>
 </tr>
@@ -303,8 +310,22 @@ cloud-provided ingress controller).</p>
 </tbody>
 </table>
 </section>
-<h2 id="MeshConfig-OutboundTrafficPolicy">MeshConfig.OutboundTrafficPolicy</h2>
+<h2 id="MeshNetworks">MeshNetworks</h2>
 <section>
+<p>MeshNetworks (config map) provides information about the set of networks
+inside a mesh and how to route to endpoints in each network. For example</p>
+
+<p>MeshNetworks(file/config map):
+networks:
+- network1:
+  - endpoints:
+    - fromRegistry: registry1 #must match secret name in kubernetes
+    - fromCidr: 192.168.100.0/22 #a VM network for example
+    gateways:
+    - registryServiceName: istio-ingressgateway.istio-system.svc.cluster.local
+      port: 15443
+      locality: us-east-1a</p>
+
 <table class="message-fields">
 <thead>
 <tr>
@@ -314,44 +335,164 @@ cloud-provided ingress controller).</p>
 </tr>
 </thead>
 <tbody>
-<tr id="MeshConfig-OutboundTrafficPolicy-mode">
-<td><code>mode</code></td>
-<td><code><a href="#MeshConfig-OutboundTrafficPolicy-Mode">MeshConfig.OutboundTrafficPolicy.Mode</a></code></td>
+<tr id="MeshNetworks-networks">
+<td><code>networks</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#Network">Network</a>&gt;</code></td>
 <td>
+<p>REQUIRED: The set of networks inside this mesh. Each network should
+have a unique name and information about how to infer the endpoints in
+the network as well as the gateways associated with the network.</p>
+
 </td>
 </tr>
 </tbody>
 </table>
 </section>
-<h2 id="MeshConfig-OutboundTrafficPolicy-Mode">MeshConfig.OutboundTrafficPolicy.Mode</h2>
+<h2 id="Network">Network</h2>
 <section>
-<table class="enum-values">
+<p>Network provides information about the endpoints in a routable L3
+network. A single routable L3 network can have one or more service
+registries. Note that the network has no relation to the locality of the
+endpoint. The endpoint locality will be obtained from the service
+registry.</p>
+
+<table class="message-fields">
 <thead>
 <tr>
-<th>Name</th>
+<th>Field</th>
+<th>Type</th>
 <th>Description</th>
 </tr>
 </thead>
 <tbody>
-<tr id="MeshConfig-OutboundTrafficPolicy-Mode-REGISTRY_ONLY">
-<td><code>REGISTRY_ONLY</code></td>
+<tr id="Network-endpoints">
+<td><code>endpoints</code></td>
+<td><code><a href="#Network-NetworkEndpoints">Network.NetworkEndpoints[]</a></code></td>
 <td>
-<p>outbound traffic will be restricted to services defined in the service registry as well as those defined
-through ServiceEntries</p>
+<p>REQUIRED: The list of endpoints in the network (obtained through the
+constituent service registries or from CIDR ranges). All endpoints in
+the network are directly accessible to one another.</p>
 
 </td>
 </tr>
-<tr id="MeshConfig-OutboundTrafficPolicy-Mode-ALLOW_ANY">
-<td><code>ALLOW_ANY</code></td>
+<tr id="Network-gateways">
+<td><code>gateways</code></td>
+<td><code><a href="#Network-IstioNetworkGateway">Network.IstioNetworkGateway[]</a></code></td>
 <td>
-<p>outbound traffic to unknown destinations will be allowed</p>
+<p>REQUIRED: Set of gateways associated with the network.</p>
 
 </td>
 </tr>
-<tr id="MeshConfig-OutboundTrafficPolicy-Mode-VIRTUAL_SERVICE_ONLY">
-<td><code>VIRTUAL_SERVICE_ONLY</code></td>
+</tbody>
+</table>
+</section>
+<h2 id="Network-IstioNetworkGateway">Network.IstioNetworkGateway</h2>
+<section>
+<p>The gateway associated with this network. Traffic from remote networks
+will arrive at the specified gateway:port. All incoming traffic must
+use mTLS.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Network-IstioNetworkGateway-registry_service_name" class="oneof oneof-start">
+<td><code>registryServiceName</code></td>
+<td><code>string (oneof)</code></td>
 <td>
-<p>not implemented. outbound traffic will be restricted to destinations defined in VirtualServices only</p>
+<p>A fully qualified domain name of the gateway service.  Pilot will
+lookup the service from the service registries in the network and
+obtain the endpoint IPs of the gateway from the service
+registry. Note that while the service name is a fully qualified
+domain name, it need not be resolvable outside the orchestration
+platform for the registry. e.g., this could be
+istio-ingressgateway.istio-system.svc.cluster.local.</p>
+
+</td>
+</tr>
+<tr id="Network-IstioNetworkGateway-address" class="oneof">
+<td><code>address</code></td>
+<td><code>string (oneof)</code></td>
+<td>
+<p>IP address or externally resolvable DNS address associated with the gateway.</p>
+
+</td>
+</tr>
+<tr id="Network-IstioNetworkGateway-port">
+<td><code>port</code></td>
+<td><code>uint32</code></td>
+<td>
+<p>REQUIRED: The port associated with the gateway.</p>
+
+</td>
+</tr>
+<tr id="Network-IstioNetworkGateway-locality">
+<td><code>locality</code></td>
+<td><code>string</code></td>
+<td>
+<p>The locality associated with an explicitly specified gateway (i.e. ip)</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Network-NetworkEndpoints">Network.NetworkEndpoints</h2>
+<section>
+<p>NetworkEndpoints describes how the network associated with an endpoint
+should be inferred. An endpoint will be assigned to a network based on
+the following rules:</p>
+
+<ol>
+<li><p>Implicitly: If the registry explicitly provides information about
+the network to which the endpoint belongs to. In some cases, its
+possible to indicate the network associated with the endpoint by
+adding ISTIO<em>META</em>NETWORK environment variable to the sidecar.</p></li>
+
+<li><p>Explicitly:</p></li>
+</ol>
+
+<p>a. By matching the registry name with one of the &ldquo;from<em>registries&rdquo;
+   in the mesh config. A &ldquo;from</em>registry&rdquo; can only be assinged to a
+   single network.</p>
+
+<p>b. By matching the IP against one of the CIDR ranges in a mesh
+   config network. The CIDR ranges must not overlap and be assigned to
+   a single network.</p>
+
+<p>(2) will override (1) if both are present.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Network-NetworkEndpoints-from_cidr" class="oneof oneof-start">
+<td><code>fromCidr</code></td>
+<td><code>string (oneof)</code></td>
+<td>
+<p>A CIDR range for the set of endpoints in this network. The CIDR
+ranges for endpoints from different networks must not overlap.</p>
+
+</td>
+</tr>
+<tr id="Network-NetworkEndpoints-from_registry" class="oneof">
+<td><code>fromRegistry</code></td>
+<td><code>string (oneof)</code></td>
+<td>
+<p>Add all endpoints from the specified registry into this network.
+The names of the registries should correspond to the secret name
+that was used to configure the registry (kubernetes multicluster) or
+supplied by MCP server.</p>
 
 </td>
 </tr>
@@ -435,11 +576,12 @@ MUST BE greater than <em>drain</em>duration_ parameter.</p>
 
 </td>
 </tr>
-<tr id="ProxyConfig-zipkin_address">
+<tr id="ProxyConfig-zipkin_address" class="deprecated ">
 <td><code>zipkinAddress</code></td>
 <td><code>string</code></td>
 <td>
-<p>Address of the Zipkin service (e.g. <em>zipkin:9411</em>).</p>
+<p>Address of the Zipkin service (e.g. <em>zipkin:9411</em>).
+DEPRECATED: Use <a href="#ProxyConfig-tracing">tracing</a> instead.</p>
 
 </td>
 </tr>
@@ -521,6 +663,14 @@ Increase the value of this field if you find that the metrics from Envoys are tr
 
 </td>
 </tr>
+<tr id="ProxyConfig-tracing">
+<td><code>tracing</code></td>
+<td><code><a href="#Tracing">Tracing</a></code></td>
+<td>
+<p>Tracing configuration to be used by the proxy.</p>
+
+</td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -553,6 +703,110 @@ source IP addresses during redirection.</p>
 source and destination IP addresses and ports, so that they can be used for advanced
 filtering and manipulation. This mode also configures the sidecar to run with the
 CAP<em>NET</em>ADMIN capability, which is required to use TPROXY.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Tracing">Tracing</h2>
+<section>
+<p>Tracing defines configuration for the tracing performed by Envoy instances.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Tracing-zipkin" class="oneof oneof-start">
+<td><code>zipkin</code></td>
+<td><code><a href="#Tracing-Zipkin">Tracing.Zipkin (oneof)</a></code></td>
+<td>
+<p>Use a Zipkin tracer.</p>
+
+</td>
+</tr>
+<tr id="Tracing-lightstep" class="oneof">
+<td><code>lightstep</code></td>
+<td><code><a href="#Tracing-Lightstep">Tracing.Lightstep (oneof)</a></code></td>
+<td>
+<p>Use a LightStep tracer.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Tracing-Lightstep">Tracing.Lightstep</h2>
+<section>
+<p>Lightstep defines configuration for a LightStep tracer.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Tracing-Lightstep-address">
+<td><code>address</code></td>
+<td><code>string</code></td>
+<td>
+<p>Address of the LightStep Satellite pool.</p>
+
+</td>
+</tr>
+<tr id="Tracing-Lightstep-access_token">
+<td><code>accessToken</code></td>
+<td><code>string</code></td>
+<td>
+<p>The LightStep access token.</p>
+
+</td>
+</tr>
+<tr id="Tracing-Lightstep-secure">
+<td><code>secure</code></td>
+<td><code>bool</code></td>
+<td>
+<p>True if a secure connection should be used when communicating with the pool.</p>
+
+</td>
+</tr>
+<tr id="Tracing-Lightstep-cacert_path">
+<td><code>cacertPath</code></td>
+<td><code>string</code></td>
+<td>
+<p>Path to the trusted cacert used to authenticate the pool.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Tracing-Zipkin">Tracing.Zipkin</h2>
+<section>
+<p>Zipkin defines configuration for a Zipkin tracer.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Tracing-Zipkin-address">
+<td><code>address</code></td>
+<td><code>string</code></td>
+<td>
+<p>Address of the Zipkin service (e.g. <em>zipkin:9411</em>).</p>
 
 </td>
 </tr>

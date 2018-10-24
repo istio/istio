@@ -346,6 +346,7 @@ func getServerArgs(
 		"../../../template/metric/template.yaml",
 		"../../../template/quota/template.yaml",
 		"../../../template/listentry/template.yaml",
+		"../../../test/spyAdapter/template/apa/tmpl.yaml",
 	}
 
 	for _, fileRelativePath := range additionalCrs {

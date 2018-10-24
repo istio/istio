@@ -373,6 +373,13 @@ func (m *HealthCheck_HttpHealthCheck) Validate() error {
 
 	// no validation rules for ServiceName
 
+	if len(m.GetRequestHeadersToAdd()) > 1000 {
+		return HealthCheck_HttpHealthCheckValidationError{
+			Field:  "RequestHeadersToAdd",
+			Reason: "value must contain no more than 1000 item(s)",
+		}
+	}
+
 	for idx, item := range m.GetRequestHeadersToAdd() {
 		_, _ = idx, item
 

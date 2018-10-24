@@ -21,7 +21,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	"github.com/prometheus/client_golang/prometheus"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -133,52 +132,6 @@ type XDSUpdater interface {
 	// The requests may be collapsed and throttled.
 	// This replaces the 'cache invalidation' model.
 	ConfigUpdate(full bool)
-}
-
-// IstioEndpoint has the information about a single address+port for a specific
-// service and shard.
-//
-// Replaces NetworkEndpoint and ServiceInstance:
-// - ServicePortName replaces ServicePort, since port number and protocol may not
-// be available when endpoint callbacks are made.
-// - It no longers splits into one ServiceInstance and one NetworkEndpoint - both
-// are in a single struct
-// - doesn't have a pointer to Service - the full Service object may not be available at
-// the time the endpoint is received. The service name is used as a key and used to reconcile.
-// - it has a cached EnvoyEndpoint object - to avoid re-allocating it for each request and
-// client.
-type IstioEndpoint struct {
-
-	// Labels points to the workload or deployment labels.
-	Labels map[string]string
-
-	// Family indicates what type of endpoint, such as TCP or Unix Domain Socket.
-	// Default is TCP.
-	Family AddressFamily
-
-	// Address is the address of the endpoint, using envoy proto.
-	Address string
-
-	// EndpointPort is the port where the workload is listening, can be different
-	// from the service port.
-	EndpointPort uint32
-
-	// ServicePortName tracks the name of the port, to avoid 'eventual consistency' issues.
-	// Sometimes the Endpoint is visible before Service - so looking up the port number would
-	// fail. Instead the mapping to number is made when the clusters are computed. The lazy
-	// computation will also help with 'on-demand' and 'split horizon' - where it will be skipped
-	// for not used clusters or endpoints behind a gate.
-	ServicePortName string
-
-	// UID identifies the workload, for telemetry purpose.
-	UID string
-
-	// EnvoyEndpoint is a cached LbEndpoint, converted from the data, to
-	// avoid recomputation
-	EnvoyEndpoint *endpoint.LbEndpoint
-
-	// ServiceAccount holds the associated service account.
-	ServiceAccount string
 }
 
 // ProxyPushStatus represents an event captured during config push to proxies.
