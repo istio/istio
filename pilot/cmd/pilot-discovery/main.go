@@ -100,6 +100,8 @@ func init() {
 		"Use a Kubernetes configuration file instead of in-cluster configuration")
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Mesh.ConfigFile, "meshConfig", "/etc/istio/config/mesh",
 		fmt.Sprintf("File name for Istio mesh configuration. If not specified, a default mesh will be used."))
+	discoveryCmd.PersistentFlags().StringVar(&serverArgs.NetworksConfigFile, "networksConfig", "/etc/istio/config/networks",
+		fmt.Sprintf("File name for Istio mesh networks configuration. If not specified, a default mesh networks will be used."))
 	discoveryCmd.PersistentFlags().StringVarP(&serverArgs.Namespace, "namespace", "n", "",
 		"Select a namespace where the controller resides. If not set, uses ${POD_NAMESPACE} environment variable")
 	discoveryCmd.PersistentFlags().StringSliceVar(&serverArgs.Plugins, "plugins", bootstrap.DefaultPlugins,

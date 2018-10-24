@@ -1229,6 +1229,17 @@
 
 [[projects]]
   branch = "master"
+  digest = "1:1bfd3594cd47a49262ef0a3fb3d463c31619438dd05e03ddf075172763a0e7a2"
+  name = "github.com/yl2chen/cidranger"
+  packages = [
+    ".",
+    "net",
+  ]
+  pruneopts = "NUT"
+  revision = "928b519e5268fe386d0f7decce320205cc09ca95"
+
+[[projects]]
+  branch = "master"
   digest = "1:0262cc3b710c8eac3c8d86c417cb0c54f46e35fca23d527826c8a9f3615109ac"
   name = "github.com/yuin/gopher-lua"
   packages = [
@@ -2068,6 +2079,7 @@
     "github.com/uber/jaeger-client-go/transport",
     "github.com/uber/jaeger-client-go/transport/zipkin",
     "github.com/uber/jaeger-client-go/zipkin",
+    "github.com/yl2chen/cidranger",
     "go.opencensus.io/exporter/prometheus",
     "go.opencensus.io/plugin/ocgrpc",
     "go.opencensus.io/plugin/ochttp",
