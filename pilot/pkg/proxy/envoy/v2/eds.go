@@ -627,7 +627,7 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection,
 		}
 
 		// Apply registered filter functions
-		l = s.applyEndpointsFilterFuncs(l, con)
+		l.Endpoints = s.applyEndpointsFilterFuncs(l.Endpoints, con)
 
 		endpoints += len(l.Endpoints)
 		if len(l.Endpoints) == 0 {
