@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"net"
 	"reflect"
 	"sync"
@@ -31,7 +32,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
-
 	mcp "istio.io/api/mcp/v1alpha1"
 	mcptestmon "istio.io/istio/pkg/mcp/testing/monitoring"
 )
@@ -622,7 +622,7 @@ func TestAggregateRequestType(t *testing.T) {
 
 func TestRateLimitNACK(t *testing.T) {
 	origNackLimitFreq := nackLimitFreq
-	nackLimitFreq = 10 * time.Millisecond
+	nackLimitFreq = 1 * time.Millisecond
 	defer func() {
 		nackLimitFreq = origNackLimitFreq
 	}()
@@ -637,6 +637,58 @@ func TestRateLimitNACK(t *testing.T) {
 		}
 	}()
 
+	var (
+		nackFloodRepeatDuration   = time.Millisecond * 500
+		nackFloodMaxWantResponses = int(nackFloodRepeatDuration/nackLimitFreq) + 1
+		nackFloodMinWantResponses = nackFloodMaxWantResponses / 2
+
+		ackFloodRepeatDuration   = time.Millisecond * 500
+		ackFloodMaxWantResponses = math.MaxInt64
+		ackFloodMinWantResponses = int(ackFloodRepeatDuration/ackLimitFreq) + 1
+	)
+
+	steps := []struct {
+		name           string
+		pushedVersion  string
+		ackedVersion   string
+		minResponses   int
+		maxResponses   int
+		repeatDuration time.Duration
+		errDetails     error
+	}{
+		{
+			name:          "initial push",
+			pushedVersion: "1",
+			ackedVersion:  "1",
+			minResponses:  1,
+			maxResponses:  1,
+		},
+		{
+			name:          "first ack",
+			pushedVersion: "2",
+			ackedVersion:  "2",
+			minResponses:  1,
+			maxResponses:  1,
+		},
+		{
+			name:           "verify nack flood is rate limited",
+			pushedVersion:  "3",
+			ackedVersion:   "2",
+			errDetails:     errors.New("nack"),
+			minResponses:   nackFloodMinWantResponses,
+			maxResponses:   nackFloodMaxWantResponses,
+			repeatDuration: nackFloodRepeatDuration,
+		},
+		{
+			name:           "verify back-to-back ack is not rate limited",
+			pushedVersion:  "4",
+			ackedVersion:   "4", // resuse version to simplify test code below
+			minResponses:   ackFloodMinWantResponses,
+			maxResponses:   ackFloodMaxWantResponses,
+			repeatDuration: ackFloodRepeatDuration,
+		},
+	}
+
 	sendRequest := func(typeURL, nonce, version string, err error) {
 		req := &mcp.MeshConfigRequest{
 			Client:        client,
@@ -650,151 +702,54 @@ func TestRateLimitNACK(t *testing.T) {
 		}
 		stream.recv <- req
 	}
-	getResponse := func() *mcp.MeshConfigResponse {
-		t.Helper()
-		timeout := time.Second
-		select {
-		case rsp := <-stream.sent:
 
-			return rsp
-		case <-time.After(timeout):
-			t.Fatalf("timed out waiting for response after %v", timeout)
-		}
-		return nil
-	}
+	// initial watch request
+	sendRequest(fakeType0TypeURL, "", "", nil)
 
 	nonces := make(map[string]bool)
+	var prevNonce string
 
-	var (
-		pushedVersion   string
-		prevVersion     string
-		lastGoodVersion string
-		prevNonce       string
-	)
-
-	sendRequest(fakeType0TypeURL, prevNonce, prevVersion, nil)
-
-	// initial push
-	{
-		pushedVersion = "1"
-		config.setResponse(&WatchResponse{
-			TypeURL:   fakeType0TypeURL,
-			Version:   pushedVersion,
-			Envelopes: []*mcp.Envelope{fakeEnvelope0},
-		})
-		response := getResponse()
-		if response.VersionInfo != pushedVersion {
-			t.Fatal("")
-		}
-		if _, ok := nonces[response.Nonce]; ok {
-			t.Fatal("")
-			// nonce reused -- fail
-		}
-		nonces[response.Nonce] = true
-
-		prevNonce = response.Nonce
-		prevVersion = response.VersionInfo
-		lastGoodVersion = prevVersion
-
-		sendRequest(fakeType0TypeURL, prevNonce, prevVersion, nil)
-	}
-
-	// first ACK
-	{
-		pushedVersion = "2"
-		config.setResponse(&WatchResponse{
-			TypeURL:   fakeType0TypeURL,
-			Version:   pushedVersion,
-			Envelopes: []*mcp.Envelope{fakeEnvelope0},
-		})
-		response := getResponse()
-		if response.VersionInfo != pushedVersion {
-			t.Fatal("")
-			// fail
-		}
-		if _, ok := nonces[response.Nonce]; ok {
-			t.Fatal("")
-			// nonce reused -- fail
-		}
-		nonces[response.Nonce] = true
-
-		prevNonce = response.Nonce
-		prevVersion = response.VersionInfo
-		lastGoodVersion = prevVersion
-
-		sendRequest(fakeType0TypeURL, prevNonce, prevVersion, nil)
-	}
-
-	//
-	// test
-	//
-
-	// NACK flood with no snapshot change
-	if true {
-		pushedVersion = "3"
-		config.setResponse(&WatchResponse{
-			TypeURL:   fakeType0TypeURL,
-			Version:   pushedVersion,
-			Envelopes: []*mcp.Envelope{fakeEnvelope0},
-		})
-
-		fmt.Println("33333")
-
-		responseDuration := time.Millisecond * 1000 // TODO - bad name
-		maxWantResponses := int(responseDuration/nackLimitFreq) + 1
-		minWantResponses := maxWantResponses / 2
+	for _, s := range steps {
 		numResponses := 0
-
-		finish := time.Now().Add(responseDuration)
-
+		finish := time.Now().Add(s.repeatDuration)
+		first := true
 		for {
+			if first {
+				first = false
+				config.setResponse(&WatchResponse{
+					TypeURL:   fakeType0TypeURL,
+					Version:   s.pushedVersion,
+					Envelopes: []*mcp.Envelope{fakeEnvelope0},
+				})
+			}
+
+			var response *mcp.MeshConfigResponse
+			select {
+			case response = <-stream.sent:
+				numResponses++
+			case <-time.After(time.Second):
+				t.Fatalf("%v: timed out waiting for response", s.name)
+			}
+
+			if response.VersionInfo != s.pushedVersion {
+				t.Fatalf("%v: wrong response version: got %v want %v", s.name, response.VersionInfo, s.pushedVersion)
+			}
+			if _, ok := nonces[response.Nonce]; ok {
+				t.Fatalf("%v: reused nonce in response: %v", s.name, response.Nonce)
+			}
+			nonces[response.Nonce] = true
+
+			prevNonce = response.Nonce
+
+			sendRequest(fakeType0TypeURL, prevNonce, s.ackedVersion, s.errDetails)
+
 			if time.Now().After(finish) {
 				break
 			}
-
-			response := getResponse()
-			if response.VersionInfo != pushedVersion {
-				t.Fatal("")
-				// fail
-			}
-			if _, ok := nonces[response.Nonce]; ok {
-				t.Fatal("")
-				// nonce reused -- fail
-			}
-			nonces[response.Nonce] = true
-			prevNonce = response.Nonce
-			prevVersion = response.VersionInfo
-
-			// NACK
-			sendRequest(fakeType0TypeURL, prevNonce, lastGoodVersion, errors.New("nack"))
-
-			numResponses += 1
 		}
-
-		if numResponses < minWantResponses || numResponses > maxWantResponses {
-			t.Fatalf("wrong number of responses: got %v want[%v,%v]",
-				numResponses, minWantResponses, maxWantResponses)
+		if numResponses < s.minResponses || numResponses > s.maxResponses {
+			t.Fatalf("%v: wrong number of responses: got %v want[%v,%v]",
+				s.name, numResponses, s.minResponses, s.maxResponses)
 		}
 	}
-
-	// first ACK
-	pushedVersion = "4"
-	config.setResponse(&WatchResponse{
-		TypeURL:   fakeType0TypeURL,
-		Version:   pushedVersion,
-		Envelopes: []*mcp.Envelope{fakeEnvelope0},
-	})
-	response := getResponse()
-	if response.VersionInfo != pushedVersion {
-		// fail
-	}
-	if _, ok := nonces[response.Nonce]; ok {
-		// nonce reused -- fail
-	}
-	nonces[response.Nonce] = true
-
-	prevNonce = response.Nonce
-	prevVersion = response.VersionInfo
-
-	sendRequest(fakeType0TypeURL, prevNonce, prevVersion, nil)
 }
