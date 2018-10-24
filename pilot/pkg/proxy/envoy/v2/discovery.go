@@ -19,7 +19,7 @@ import (
 	"sync"
 	"time"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/google/uuid"
 	"golang.org/x/time/rate"
@@ -173,12 +173,9 @@ type DiscoveryServer struct {
 	// waiting for more events, to debounce.
 	debouncePushTimerSet bool
 
-	// FilterFuncs is an ordered list of functions to apply to EDS just before pushing it
-	FilterFuncs []FilterFunc
+	// endpointsFilterFuncs is an ordered list of functions to apply to EDS just before pushing it
+	endpointsFilterFuncs []EndpointsFilterFunc
 }
-
-// FilterFunc is a function that filters data from the ClusterLoadAssignment and returns updated one
-type FilterFunc func(cla *xdsapi.ClusterLoadAssignment, conn *XdsConnection, env *model.Environment) *xdsapi.ClusterLoadAssignment
 
 // updateReq includes info about the requested update.
 type updateReq struct {
@@ -242,8 +239,8 @@ func NewDiscoveryServer(env *model.Environment, generator core.ConfigGenerator, 
 		edsUpdates:              map[string]*EndpointShardsByService{},
 		concurrentPushLimit:     make(chan struct{}, 20), // TODO(hzxuzhonghu): support configuration
 		updateChannel:           make(chan *updateReq, 10),
-		FilterFuncs: []FilterFunc{
-			networkFilter, // A filter to support Split Horizon EDS
+		endpointsFilterFuncs: []EndpointsFilterFunc{
+			EndpointsByNetworkFilter, // A filter to support Split Horizon EDS
 		},
 	}
 	env.PushContext = model.NewPushContext()
@@ -537,4 +534,13 @@ func (s *DiscoveryServer) handleUpdates() {
 			s.updateMutex.Unlock()
 		}
 	}
+}
+
+// Apply filter functions listed in the 'endpointsFilterFuncs' one after the other
+func (s *DiscoveryServer) applyEndpointsFilterFuncs(endpoints []endpoint.LocalityLbEndpoints, con *XdsConnection) []endpoint.LocalityLbEndpoints {
+	filtered := endpoints
+	for _, ff := range s.endpointsFilterFuncs {
+		filtered = ff(filtered, con, s.Env)
+	}
+	return filtered
 }

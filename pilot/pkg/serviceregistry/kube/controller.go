@@ -813,7 +813,7 @@ func (c *Controller) InitNetworkLookup() {
 			if ep.GetFromCidr() != "" {
 				_, net, err := net.ParseCIDR(ep.GetFromCidr())
 				if err != nil {
-					log.Warnf("unable to parse CIDR %s for network %s", ep.GetFromCidr(), n)
+					log.Warnf("unable to parse CIDR %q for network %s", ep.GetFromCidr(), n)
 					continue
 				}
 				rangerEntry := cidranger.NewBasicRangerEntry(*net)
