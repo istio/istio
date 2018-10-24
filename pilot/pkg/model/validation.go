@@ -396,10 +396,12 @@ func ValidateGateway(name, namespace string, msg proto.Message) (errs error) {
 	portNames := make(map[string]bool)
 
 	for _, s := range value.Servers {
-		if portNames[s.Port.Name] {
-			errs = appendErrors(errs, fmt.Errorf("port names in servers must be unique: duplicate name %s", s.Port.Name))
+		if s.Port != nil {
+			if portNames[s.Port.Name] {
+				errs = appendErrors(errs, fmt.Errorf("port names in servers must be unique: duplicate name %s", s.Port.Name))
+			}
+			portNames[s.Port.Name] = true
 		}
-		portNames[s.Port.Name] = true
 	}
 
 	return errs
