@@ -11,14 +11,11 @@ set -x
 source "/workspace/gcb_env.sh"
 
 
-CHARTS_TARGET_DIR=./charts
-
 WORK_DIR=$(mktemp -d)
 HELM_DIR=$(mktemp -d)
 
 echo WORK_DIR = "$WORK_DIR"
 echo HELM_DIR = "$HELM_DIR"
-echo CHARTS_TARGET_DIR = "$CHARTS_TARGET_DIR"
 
 # Helm setup
 HELM_BUILD_DIR=${HELM_DIR}/istio-repository
@@ -55,15 +52,10 @@ done
 
 $HELM repo index "$HELM_BUILD_DIR"
 
-# Copy the new built helm repo to the target dir.
-mkdir -vp "$CHARTS_TARGET_DIR"
-
-cp -vr "${HELM_BUILD_DIR}/*" "$CHARTS_TARGET_DIR"
+# Copy output to GCS bucket.
+gsutil -qm cp -rP "${HELM_BUILD_DIR}/*" "gs://${CB_GCS_BUILD_PATH}/charts/"
 
 # Do the cleanup.
 rm -fr "${HELM_DIR}"
 rm -fr "${WORK_DIR}"
-
-# Copy output to GCS bucket.
-gsutil -qm cp -rP charts "gs://${CB_GCS_BUILD_PATH}/charts"
 
