@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"strconv"
 	"strings"
 	"sync"
@@ -43,6 +44,7 @@ import (
 
 	mcpapi "istio.io/api/mcp/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	istio_networking_v1alpha3 "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/cmd"
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
 	"istio.io/istio/pilot/pkg/config/clusterregistry"
@@ -419,18 +421,13 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 	var clients []*mcpclient.Client
 	var conns []*grpc.ClientConn
 
-	for _, addr := range args.MCPServerAddrs {
-		u, err := url.Parse(addr)
-		if err != nil {
-			return err
-		}
-
+	for _, configSource := range s.mesh.ConfigSources {
 		securityOption := grpc.WithInsecure()
-		if u.Scheme == "mcps" {
+		if configSource.TlsSettings != nil && configSource.TlsSettings.Mode == istio_networking_v1alpha3.TLSSettings_ISTIO_MUTUAL {
 			requiredFiles := []string{
-				args.MCPCredentialOptions.CertificateFile,
-				args.MCPCredentialOptions.KeyFile,
-				args.MCPCredentialOptions.CACertificateFile,
+				path.Join(model.AuthCertsPath, model.RootCertFilename),
+				path.Join(model.AuthCertsPath, model.CertChainFilename),
+				path.Join(model.AuthCertsPath, model.KeyFilename),
 			}
 			log.Infof("Secure MCP configured. Waiting for required certificate files to become available: %v",
 				requiredFiles)
@@ -453,13 +450,14 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 			if err != nil {
 				return err
 			}
-			credentials := creds.CreateForClient(u.Hostname(), watcher)
+			credentials := creds.CreateForClient(configSource.TlsSettings.Sni, watcher)
 			securityOption = grpc.WithTransportCredentials(credentials)
 		}
+
 		msgSizeOption := grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(args.MCPMaxMessageSize))
-		conn, err := grpc.DialContext(ctx, u.Host, securityOption, msgSizeOption)
+		conn, err := grpc.DialContext(ctx, configSource.Address, securityOption, msgSizeOption)
 		if err != nil {
-			log.Errorf("Unable to dial MCP Server %q: %v", u.Host, err)
+			log.Errorf("Unable to dial MCP Server %q: %v", configSource.Address, err)
 			return err
 		}
 		cl := mcpapi.NewAggregatedMeshConfigServiceClient(conn)
@@ -468,6 +466,60 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 
 		clients = append(clients, mcpClient)
 		conns = append(conns, conn)
+	}
+
+	// TODO: remove the below branch when `--mcpServerAddrs` removed
+	if len(clients) == 0 {
+		for _, addr := range args.MCPServerAddrs {
+			u, err := url.Parse(addr)
+			if err != nil {
+				return err
+			}
+
+			securityOption := grpc.WithInsecure()
+			if u.Scheme == "mcps" {
+				requiredFiles := []string{
+					args.MCPCredentialOptions.CertificateFile,
+					args.MCPCredentialOptions.KeyFile,
+					args.MCPCredentialOptions.CACertificateFile,
+				}
+				log.Infof("Secure MCP configured. Waiting for required certificate files to become available: %v",
+					requiredFiles)
+				for len(requiredFiles) > 0 {
+					if _, err := os.Stat(requiredFiles[0]); os.IsNotExist(err) {
+						log.Infof("%v not found. Checking again in %v", requiredFiles[0], requiredMCPCertCheckFreq)
+						select {
+						case <-ctx.Done():
+							return ctx.Err()
+						case <-time.After(requiredMCPCertCheckFreq):
+							// retry
+						}
+						continue
+					}
+					log.Infof("%v found", requiredFiles[0])
+					requiredFiles = requiredFiles[1:]
+				}
+
+				watcher, err := creds.WatchFiles(ctx.Done(), args.MCPCredentialOptions)
+				if err != nil {
+					return err
+				}
+				credentials := creds.CreateForClient(u.Hostname(), watcher)
+				securityOption = grpc.WithTransportCredentials(credentials)
+			}
+			msgSizeOption := grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(args.MCPMaxMessageSize))
+			conn, err := grpc.DialContext(ctx, u.Host, securityOption, msgSizeOption)
+			if err != nil {
+				log.Errorf("Unable to dial MCP Server %q: %v", u.Host, err)
+				return err
+			}
+			cl := mcpapi.NewAggregatedMeshConfigServiceClient(conn)
+			mcpClient := mcpclient.New(cl, supportedTypes, mcpController, clientNodeID, map[string]string{}, mcpclient.NewStatsContext("pilot"))
+			configz.Register(mcpClient)
+
+			clients = append(clients, mcpClient)
+			conns = append(conns, conn)
+		}
 	}
 
 	s.addStartFunc(func(stop <-chan struct{}) error {
@@ -505,7 +557,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 
 // initConfigController creates the config controller in the pilotConfig.
 func (s *Server) initConfigController(args *PilotArgs) error {
-	if len(args.MCPServerAddrs) > 0 {
+	if len(args.MCPServerAddrs) > 0 || len(s.mesh.ConfigSources) > 0 {
 		if err := s.initMCPConfigController(args); err != nil {
 			return err
 		}

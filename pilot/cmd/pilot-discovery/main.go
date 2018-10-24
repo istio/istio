@@ -109,6 +109,7 @@ func init() {
 	discoveryCmd.PersistentFlags().StringSliceVar(&serverArgs.MCPServerAddrs, "mcpServerAddrs", []string{},
 		"comma separated list of MCP server addresses with "+
 			"mcp:// (insecure) or mcps:// (secure) schema, e.g. mcps://istio-galley.istio-system.svc:9901")
+	discoveryCmd.PersistentFlags().MarkDeprecated("mcpServerAddrs", "Use --meshConfig instead, and specify in MeshConfig.ConfigSources[].Address")
 	serverArgs.MCPCredentialOptions.AttachCobraFlags(discoveryCmd)
 	discoveryCmd.PersistentFlags().IntVar(&serverArgs.MCPMaxMessageSize, "mcpMaxMsgSize", bootstrap.DefaultMCPMaxMsgSize,
 		"Max message size received by MCP's grpc client")
