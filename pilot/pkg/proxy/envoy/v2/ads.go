@@ -842,11 +842,13 @@ func (s *DiscoveryServer) removeCon(conID string, con *XdsConnection) {
 		s.removeEdsCon(c, conID, con)
 	}
 
-	if adsClients[conID] == nil {
-		adsLog.Errorf("ADS: Removing connection for non-existing node %v.", s)
+	if _, exist := adsClients[conID]; !exist {
+		adsLog.Errorf("ADS: Removing connection for non-existing node %v.", conID)
 		totalXDSInternalErrors.Add(1)
+	} else {
+		delete(adsClients, conID)
 	}
-	delete(adsClients, conID)
+
 	xdsClients.Set(float64(len(adsClients)))
 	if con.modelNode != nil {
 		delete(adsSidecarIDConnectionsMap[con.modelNode.ID], conID)

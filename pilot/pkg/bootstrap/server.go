@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"strconv"
 	"strings"
 	"sync"
@@ -43,8 +44,7 @@ import (
 
 	mcpapi "istio.io/api/mcp/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
-
-	_ "istio.io/istio/galley/pkg/metadata" // TODO: why do we need this ?
+	istio_networking_v1alpha3 "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/cmd"
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
 	"istio.io/istio/pilot/pkg/config/clusterregistry"
@@ -71,12 +71,15 @@ import (
 	mcpclient "istio.io/istio/pkg/mcp/client"
 	"istio.io/istio/pkg/mcp/configz"
 	"istio.io/istio/pkg/mcp/creds"
-	"istio.io/istio/pkg/version" // Import the resource package to pull in all proto types.
+	"istio.io/istio/pkg/version"
 )
 
 const (
 	// ConfigMapKey should match the expected MeshConfig file name
 	ConfigMapKey = "mesh"
+
+	// MeshNetworksConfigMapKey should match the expected MeshNetworks config file name
+	MeshNetworksConfigMapKey = "meshNetworks"
 
 	requiredMCPCertCheckFreq = 500 * time.Millisecond
 
@@ -153,6 +156,8 @@ type PilotArgs struct {
 	Config               ConfigArgs
 	Service              ServiceArgs
 	MeshConfig           *meshconfig.MeshConfig
+	NetworksConfigFile   string
+	MeshNetworks         *meshconfig.MeshNetworks
 	CtrlZOptions         *ctrlz.Options
 	Plugins              []string
 	MCPServerAddrs       []string
@@ -172,6 +177,7 @@ type Server struct {
 	ServiceController *aggregate.Controller
 
 	mesh             *meshconfig.MeshConfig
+	meshNetworks     *meshconfig.MeshNetworks
 	configController model.ConfigStoreCache
 	mixerSAN         []string
 	kubeClient       kubernetes.Interface
@@ -207,6 +213,9 @@ func NewServer(args PilotArgs) (*Server, error) {
 		return nil, err
 	}
 	if err := s.initMesh(&args); err != nil {
+		return nil, err
+	}
+	if err := s.initMeshNetworks(&args); err != nil {
 		return nil, err
 	}
 	if err := s.initMixerSan(&args); err != nil {
@@ -325,6 +334,40 @@ func GetMeshConfig(kube kubernetes.Interface, namespace, name string) (*v1.Confi
 	return config, mesh, nil
 }
 
+// GetMeshNetworks fetches the MeshNetworks configuration from Kubernetes ConfigMap.
+func GetMeshNetworks(kube kubernetes.Interface, namespace, name string) (*v1.ConfigMap, *meshconfig.MeshNetworks, error) {
+
+	if kube == nil {
+		defaultMeshNetworks := model.EmptyMeshNetworks()
+		return nil, &defaultMeshNetworks, nil
+	}
+
+	config, err := kube.CoreV1().ConfigMaps(namespace).Get(name, meta_v1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			defaultMeshNetworks := model.EmptyMeshNetworks()
+			return nil, &defaultMeshNetworks, nil
+		}
+		return nil, nil, err
+	}
+
+	// values in the data are strings, while proto might use a different data type.
+	// therefore, we have to get a value by a key
+	cfgYaml, exists := config.Data[MeshNetworksConfigMapKey]
+	if !exists {
+		return nil, nil, fmt.Errorf("missing configuration map key %q", MeshNetworksConfigMapKey)
+	}
+
+	mesh, err := model.LoadMeshNetworksConfig(cfgYaml)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// TODO Add watcher to track changes in the config map file and re-load it
+
+	return config, mesh, nil
+}
+
 // initMesh creates the mesh in the pilotConfig from the input arguments.
 func (s *Server) initMesh(args *PilotArgs) error {
 	// If a config file was specified, use it.
@@ -361,6 +404,37 @@ func (s *Server) initMesh(args *PilotArgs) error {
 	log.Infof("flags %s", spew.Sdump(args))
 
 	s.mesh = mesh
+	return nil
+}
+
+// initMeshNetworks creates the meshNetworks in the pilotConfig from the input arguments.
+func (s *Server) initMeshNetworks(args *PilotArgs) error {
+	// If a config file was specified, use it.
+	if args.MeshNetworks != nil {
+		s.meshNetworks = args.MeshNetworks
+		return nil
+	}
+	var meshNetworks *meshconfig.MeshNetworks
+	var err error
+
+	if args.NetworksConfigFile != "" {
+		meshNetworks, err = cmd.ReadMeshNetworksConfig(args.NetworksConfigFile)
+		if err != nil {
+			log.Warnf("failed to read mesh networks configuration, using default: %v", err)
+		}
+	}
+
+	if meshNetworks == nil {
+		// Config file either wasn't specified or failed to load - use a default
+		if _, meshNetworks, err = GetMeshNetworks(s.kubeClient, kube.IstioNamespace, kube.IstioNetworksConfigMap); err != nil {
+			log.Warnf("failed to read mesh networks configuration: %v", err)
+			return err
+		}
+	}
+
+	log.Infof("mesh networks configuration %s", spew.Sdump(meshNetworks))
+
+	s.meshNetworks = meshNetworks
 	return nil
 }
 
@@ -421,18 +495,13 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 	var clients []*mcpclient.Client
 	var conns []*grpc.ClientConn
 
-	for _, addr := range args.MCPServerAddrs {
-		u, err := url.Parse(addr)
-		if err != nil {
-			return err
-		}
-
+	for _, configSource := range s.mesh.ConfigSources {
 		securityOption := grpc.WithInsecure()
-		if u.Scheme == "mcps" {
+		if configSource.TlsSettings != nil && configSource.TlsSettings.Mode == istio_networking_v1alpha3.TLSSettings_ISTIO_MUTUAL {
 			requiredFiles := []string{
-				args.MCPCredentialOptions.CertificateFile,
-				args.MCPCredentialOptions.KeyFile,
-				args.MCPCredentialOptions.CACertificateFile,
+				path.Join(model.AuthCertsPath, model.RootCertFilename),
+				path.Join(model.AuthCertsPath, model.CertChainFilename),
+				path.Join(model.AuthCertsPath, model.KeyFilename),
 			}
 			log.Infof("Secure MCP configured. Waiting for required certificate files to become available: %v",
 				requiredFiles)
@@ -455,13 +524,14 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 			if err != nil {
 				return err
 			}
-			credentials := creds.CreateForClient(u.Hostname(), watcher)
+			credentials := creds.CreateForClient(configSource.TlsSettings.Sni, watcher)
 			securityOption = grpc.WithTransportCredentials(credentials)
 		}
+
 		msgSizeOption := grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(args.MCPMaxMessageSize))
-		conn, err := grpc.DialContext(ctx, u.Host, securityOption, msgSizeOption)
+		conn, err := grpc.DialContext(ctx, configSource.Address, securityOption, msgSizeOption)
 		if err != nil {
-			log.Errorf("Unable to dial MCP Server %q: %v", u.Host, err)
+			log.Errorf("Unable to dial MCP Server %q: %v", configSource.Address, err)
 			return err
 		}
 		cl := mcpapi.NewAggregatedMeshConfigServiceClient(conn)
@@ -470,6 +540,60 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 
 		clients = append(clients, mcpClient)
 		conns = append(conns, conn)
+	}
+
+	// TODO: remove the below branch when `--mcpServerAddrs` removed
+	if len(clients) == 0 {
+		for _, addr := range args.MCPServerAddrs {
+			u, err := url.Parse(addr)
+			if err != nil {
+				return err
+			}
+
+			securityOption := grpc.WithInsecure()
+			if u.Scheme == "mcps" {
+				requiredFiles := []string{
+					args.MCPCredentialOptions.CertificateFile,
+					args.MCPCredentialOptions.KeyFile,
+					args.MCPCredentialOptions.CACertificateFile,
+				}
+				log.Infof("Secure MCP configured. Waiting for required certificate files to become available: %v",
+					requiredFiles)
+				for len(requiredFiles) > 0 {
+					if _, err := os.Stat(requiredFiles[0]); os.IsNotExist(err) {
+						log.Infof("%v not found. Checking again in %v", requiredFiles[0], requiredMCPCertCheckFreq)
+						select {
+						case <-ctx.Done():
+							return ctx.Err()
+						case <-time.After(requiredMCPCertCheckFreq):
+							// retry
+						}
+						continue
+					}
+					log.Infof("%v found", requiredFiles[0])
+					requiredFiles = requiredFiles[1:]
+				}
+
+				watcher, err := creds.WatchFiles(ctx.Done(), args.MCPCredentialOptions)
+				if err != nil {
+					return err
+				}
+				credentials := creds.CreateForClient(u.Hostname(), watcher)
+				securityOption = grpc.WithTransportCredentials(credentials)
+			}
+			msgSizeOption := grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(args.MCPMaxMessageSize))
+			conn, err := grpc.DialContext(ctx, u.Host, securityOption, msgSizeOption)
+			if err != nil {
+				log.Errorf("Unable to dial MCP Server %q: %v", u.Host, err)
+				return err
+			}
+			cl := mcpapi.NewAggregatedMeshConfigServiceClient(conn)
+			mcpClient := mcpclient.New(cl, supportedTypes, mcpController, clientNodeID, map[string]string{}, mcpclient.NewStatsContext("pilot"))
+			configz.Register(mcpClient)
+
+			clients = append(clients, mcpClient)
+			conns = append(conns, conn)
+		}
 	}
 
 	s.addStartFunc(func(stop <-chan struct{}) error {
@@ -507,7 +631,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 
 // initConfigController creates the config controller in the pilotConfig.
 func (s *Server) initConfigController(args *PilotArgs) error {
-	if len(args.MCPServerAddrs) > 0 {
+	if len(args.MCPServerAddrs) > 0 || len(s.mesh.ConfigSources) > 0 {
 		if err := s.initMCPConfigController(args); err != nil {
 			return err
 		}
@@ -720,6 +844,7 @@ func (s *Server) initConfigRegistry(serviceControllers *aggregate.Controller) {
 func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	environment := &model.Environment{
 		Mesh:             s.mesh,
+		MeshNetworks:     s.meshNetworks,
 		IstioConfigStore: s.istioConfigStore,
 		ServiceDiscovery: s.ServiceController,
 		ServiceAccounts:  s.ServiceController,
@@ -751,6 +876,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 		// kubeRegistry may use the environment for push status reporting.
 		// TODO: maybe all registries should have his as an optional field ?
 		s.kubeRegistry.Env = environment
+		s.kubeRegistry.InitNetworkLookup()
 		s.kubeRegistry.XDSUpdater = s.EnvoyXdsServer
 	}
 

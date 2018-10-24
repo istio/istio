@@ -7,6 +7,10 @@
     {
       "name": "gcr.io/istio-testing/istio-builder:0.5.10",
       "args": [ "./gcb/modify_values.sh" ]
+    },
+    {
+      "name": "gcr.io/istio-testing/istio-builder:0.5.10",
+      "args": [ "./gcb/helm_charts.sh" ]
     }
   ],
   "timeout": "3600s",
