@@ -39,7 +39,7 @@ var supportedExtensions = map[string]bool{
 	".yaml": true,
 	".yml":  true,
 }
-var scope = log.RegisterScope("runtime", "Galley runtime", 0)
+var scope = log.RegisterScope("fs", "File system source debugging", 0)
 
 //fsSource is source implementation for filesystem.
 type fsSource struct {

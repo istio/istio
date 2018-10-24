@@ -35,7 +35,7 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
-var scope = log.RegisterScope("kube", "kube-specific debugging", 0)
+var scope = log.RegisterScope("validation", "CRD validation debugging", 0)
 
 // Run an informer that watches the current webhook configuration
 // for changes.
