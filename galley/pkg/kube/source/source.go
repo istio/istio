@@ -112,8 +112,10 @@ func ProcessEvent(spec kube.ResourceSpec, kind resource.EventKind, key, resource
 	if u != nil {
 		if key, createTime, item, err = spec.Converter(spec.Target, key, u); err != nil {
 			scope.Errorf("Unable to convert unstructured to proto: %s/%s", key, resourceVersion)
+			recordConverterResult(false, spec.Version, spec.Group, spec.Kind)
 			return
 		}
+		recordConverterResult(true, spec.Version, spec.Group, spec.Kind)
 	}
 
 	rid := resource.VersionedKey{
