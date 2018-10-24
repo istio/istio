@@ -1,0 +1,17 @@
+{
+  "steps": [
+    {
+      "name": "gcr.io/istio-testing/istio-builder:0.5.10",
+      "args": [ "gsutil", "-qm", "cp", "-rP", "gs://$_CB_GCS_RELEASE_TOOLS_PATH/*", "." ]
+    },
+    {
+      "name": "gcr.io/istio-testing/istio-builder:0.5.10",
+      "args": [ "./gcb/rel_push_docker_daily.sh" ]
+    },
+    {
+      "name": "gcr.io/istio-testing/istio-builder:0.5.10",
+      "args": [ "./gcb/rel_daily_complete.sh" ]
+    }
+  ],
+  "timeout": "3600s",
+}

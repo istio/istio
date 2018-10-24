@@ -15,6 +15,8 @@
 syntax = "proto3";
 
 import "google/protobuf/duration.proto";
+import "mesh/v1alpha1/proxy.proto";
+import "networking/v1alpha3/destination_rule.proto";
 
 // $title: Service Mesh
 // $description: Configuration affecting the service mesh as a whole.
@@ -25,112 +27,6 @@ import "google/protobuf/duration.proto";
 package istio.mesh.v1alpha1;
 
 option go_package="istio.io/api/mesh/v1alpha1";
-
-// AuthenticationPolicy defines authentication policy. It can be set for
-// different scopes (mesh, service …), and the most narrow scope with
-// non-INHERIT value will be used.
-// Mesh policy cannot be INHERIT.
-enum AuthenticationPolicy {
-  // Do not encrypt Envoy to Envoy traffic.
-  NONE = 0;
-
-  // Envoy to Envoy traffic is wrapped into mutual TLS connections.
-  MUTUAL_TLS = 1;
-
-  // Use the policy defined by the parent scope. Should not be used for mesh
-  // policy.
-  INHERIT = 1000;
-}
-
-// ProxyConfig defines variables for individual Envoy instances.
-message ProxyConfig {
-  // Path to the generated configuration file directory.
-  // Proxy agent generates the actual configuration and stores it in this directory.
-  string config_path = 1;
-
-  // Path to the proxy binary
-  string binary_path = 2;
-
-  // Service cluster defines the name for the service_cluster that is
-  // shared by all Envoy instances. This setting corresponds to
-  // _--service-cluster_ flag in Envoy.  In a typical Envoy deployment, the
-  // _service-cluster_ flag is used to identify the caller, for
-  // source-based routing scenarios.
-  //
-  // Since Istio does not assign a local service/service version to each
-  // Envoy instance, the name is same for all of them.  However, the
-  // source/caller's identity (e.g., IP address) is encoded in the
-  // _--service-node_ flag when launching Envoy.  When the RDS service
-  // receives API calls from Envoy, it uses the value of the _service-node_
-  // flag to compute routes that are relative to the service instances
-  // located at that IP address.
-  string service_cluster = 3;
-
-  // The time in seconds that Envoy will drain connections during a hot
-  // restart. MUST be >=1s (e.g., _1s/1m/1h_)
-  google.protobuf.Duration drain_duration = 4;
-
-  // The time in seconds that Envoy will wait before shutting down the
-  // parent process during a hot restart. MUST be >=1s (e.g., _1s/1m/1h_).
-  // MUST BE greater than _drain_duration_ parameter.
-  google.protobuf.Duration parent_shutdown_duration = 5;
-
-  // Address of the discovery service exposing xDS with mTLS connection.
-  string discovery_address = 6;
-
-  reserved 7;
-
-  // Address of the Zipkin service (e.g. _zipkin:9411_).
-  string zipkin_address = 8;
-
-  // Connection timeout used by Envoy for supporting services. (MUST BE >=1ms)
-  google.protobuf.Duration connect_timeout = 9;
-
-  // IP Address and Port of a statsd UDP listener (e.g. _10.75.241.127:9125_).
-  string statsd_udp_address = 10;
-
-  // Port on which Envoy should listen for administrative commands.
-  int32 proxy_admin_port = 11;
-  
-  reserved 12;
-
-  // Authentication policy defines the global switch to control authentication
-  // for Envoy-to-Envoy communication for istio components Mixer and Pilot.
-  AuthenticationPolicy control_plane_auth_policy = 13;
-  // File path of custom proxy configuration, currently used by proxies
-  // in front of Mixer and Pilot.
-  string custom_config_file = 14;
-
-  // Maximum length of name field in Envoy's metrics. The length of the name field
-  // is determined by the length of a name field in a service and the set of labels that
-  // comprise a particular version of the service. The default value is set to 189 characters.
-  // Envoy's internal metrics take up 67 characters, for a total of 256 character name per metric.
-  // Increase the value of this field if you find that the metrics from Envoys are truncated.
-  int32 stat_name_length = 15;
-
-  // The number of worker threads to run. Default value is number of cores on the machine.
-  int32 concurrency = 16;
-
-  // Path to the proxy bootstrap template file
-  string proxy_bootstrap_template_path = 17;
-
-  // The mode used to redirect inbound traffic to Envoy.
-  // This setting has no effect on outbound traffic: iptables REDIRECT is always used for
-  // outbound connections.
-  enum InboundInterceptionMode {
-    // The REDIRECT mode uses iptables REDIRECT to NAT and redirect to Envoy. This mode loses
-    // source IP addresses during redirection.
-    REDIRECT = 0;
-    // The TPROXY mode uses iptables TPROXY to redirect to Envoy. This mode preserves both the
-    // source and destination IP addresses and ports, so that they can be used for advanced
-    // filtering and manipulation. This mode also configures the sidecar to run with the
-    // CAP_NET_ADMIN capability, which is required to use TPROXY.
-    TPROXY = 1;
-  }
-
-  // The mode used to redirect inbound traffic to Envoy.
-  InboundInterceptionMode interception_mode = 18;
-}
 
 // MeshConfig defines mesh-wide variables shared by all Envoy instances in the
 // Istio service mesh.
@@ -159,6 +55,11 @@ message MeshConfig {
   // Disable policy checks by the mixer service. Default
   // is false, i.e. mixer policy check is enabled by default.
   bool disable_policy_checks = 3;
+
+  // Allow all traffic in cases when the mixer policy service cannot be reached.
+  // Default is false which means the traffic is denied when the client is unable
+  // to connect to Mixer.
+  bool policy_check_fail_open = 25;
 
   // Port on which Envoy should listen for incoming connections from
   // other services.
@@ -200,18 +101,13 @@ message MeshConfig {
   // Defines whether to use Istio ingress controller for annotated or all ingress resources.
   IngressControllerMode ingress_controller_mode = 9;
 
-  // TODO AuthPolicy needs to be removed and merged with AuthPolicy defined above
+  // $hide_from_docs
   enum AuthPolicy {
-    // Do not encrypt Envoy to Envoy traffic.
     NONE = 0;
-
-    // Envoy to Envoy traffic is wrapped into mutual TLS connections.
     MUTUAL_TLS = 1;
   }
 
-  // Authentication policy defines the global switch to control authentication
-  // for Envoy-to-Envoy communication.
-  // Use authentication_policy instead.
+  // $hide_from_docs
   AuthPolicy auth_policy = 10 [deprecated=true];
 
   reserved 11;
@@ -223,6 +119,10 @@ message MeshConfig {
   // File address for the proxy access log (e.g. /dev/stdout).
   // Empty value disables access logging.
   string access_log_file = 13;
+  
+  // Format for the proxy access log (text or json).
+  // Default value is text.
+  string access_log_format = 24;
 
   // Default proxy config used by the proxy injection mechanism operating in the mesh
   // (e.g. Kubernetes admission controller)
@@ -232,31 +132,8 @@ message MeshConfig {
   ProxyConfig default_config = 14;
 
   reserved 15;
-
   reserved 16;
-
-  message OutboundTrafficPolicy {
-    enum Mode {
-      // outbound traffic will be restricted to services defined in the service registry as well as those defined
-      // through ServiceEntries
-      REGISTRY_ONLY = 0;
-      // outbound traffic to unknown destinations will be allowed
-      ALLOW_ANY = 1;
-      // not implemented. outbound traffic will be restricted to destinations defined in VirtualServices only
-      VIRTUAL_SERVICE_ONLY = 2;
-    }
-
-    Mode mode = 1;
-  }
-
-  // Set the default behavior of the sidecar for handling outbound traffic from the application.
-  // While the default mode should work out of the box, if your application uses one or more external services that
-  // are not known apriori, setting the policy to ALLOW_ANY will cause the sidecars to route traffic to the any
-  // requested destination.
-  // Users are strongly encouraged to use ServiceEntries to explicitly declare any external dependencies,
-  // instead of using allow_any.
-  OutboundTrafficPolicy outbound_traffic_policy = 17;
-
+  reserved 17;
   reserved 18;
 
   // Enables clide side policy checks.
@@ -268,6 +145,33 @@ message MeshConfig {
   
   reserved 21;
 
-  // Address of the galley service exposing the Mesh Control Protocol (MCP).
-  string galley_address = 22;
+  // ConfigSource describes a source of configuration data for networking
+  // rules, and other Istio configuration artifacts. Multiple data sources
+  // can be configured for a single control plane.
+  repeated ConfigSource config_sources = 22;
+
+  // $hide_from_docs
+  // This flag is used by secret discovery service(SDS). 
+  // If set to true(prerequisite: https://kubernetes.io/docs/concepts/storage/volumes/#projected), Istio will inject volumes mount 
+  // for k8s service account JWT, so that K8s API server mounts k8s service account JWT to envoy container, which 
+  // will be used to generate key/cert eventually. This isn't supported for non-k8s case.
+  bool enable_sds_token_mount = 23;
+
+  // $hide_from_docs
+  // Next available field number: 26
+}
+
+// ConfigSource describes information about a configuration store inside a
+// mesh. A single control plane instance can interact with one or more data
+// sources.
+message ConfigSource {
+  // Address of the server implementing the Istio Mesh Configuration
+  // protocol (MCP). Can be IP address or a fully qualified DNS name.
+  // Use file:/// to specify a file-based backend with absolute path to the directory.
+  string address = 1;
+
+  // Use the tls_settings to specify the tls mode to use. If the MCP server
+  // uses Istio MTLS and shares the root CA with Pilot, specify the TLS
+  // mode as ISTIO_MUTUAL.
+  istio.networking.v1alpha3.TLSSettings tls_settings = 2;
 }

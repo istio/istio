@@ -29,7 +29,6 @@ import (
 	dtesting "k8s.io/client-go/testing"
 
 	"istio.io/istio/galley/pkg/kube"
-
 	"istio.io/istio/galley/pkg/kube/converter"
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/galley/pkg/testing/mock"
@@ -47,9 +46,7 @@ func init() {
 func TestNewSource(t *testing.T) {
 	k := &mock.Kube{}
 	for i := 0; i < 100; i++ {
-		cl := &fake.FakeClient{
-			Fake: &dtesting.Fake{},
-		}
+		cl := fake.NewSimpleDynamicClient(runtime.NewScheme())
 		k.AddResponse(cl, nil)
 	}
 
@@ -74,16 +71,17 @@ func TestNewSource_Error(t *testing.T) {
 }
 
 func TestSource_BasicEvents(t *testing.T) {
+
 	k := &mock.Kube{}
-	cl := &fake.FakeClient{
-		Fake: &dtesting.Fake{},
-	}
+	cl := fake.NewSimpleDynamicClient(runtime.NewScheme())
+
 	k.AddResponse(cl, nil)
 
 	i1 := unstructured.Unstructured{
 		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "List",
 			"metadata": map[string]interface{}{
-				"kind":            "foo",
 				"name":            "f1",
 				"namespace":       "ns",
 				"resourceVersion": "rv1",
@@ -92,17 +90,17 @@ func TestSource_BasicEvents(t *testing.T) {
 		},
 	}
 
-	cl.AddReactor("*", "foos", func(action dtesting.Action) (handled bool, ret runtime.Object, err error) {
+	cl.PrependReactor("*", "foos", func(action dtesting.Action) (handled bool, ret runtime.Object, err error) {
 		return true, &unstructured.UnstructuredList{Items: []unstructured.Unstructured{i1}}, nil
 	})
-	cl.AddWatchReactor("foos", func(action dtesting.Action) (handled bool, ret watch.Interface, err error) {
+	cl.PrependWatchReactor("foos", func(action dtesting.Action) (handled bool, ret watch.Interface, err error) {
 		return true, mock.NewWatch(), nil
 	})
 
 	entries := []kube.ResourceSpec{
 		{
-			Kind:      "foo",
-			Singular:  "foo",
+			Kind:      "List",
+			Singular:  "List",
 			Plural:    "foos",
 			Target:    emptyInfo,
 			Converter: converter.Get("identity"),
@@ -137,15 +135,12 @@ func TestSource_BasicEvents(t *testing.T) {
 
 func TestSource_ProtoConversionError(t *testing.T) {
 	k := &mock.Kube{}
-	cl := &fake.FakeClient{
-		Fake: &dtesting.Fake{},
-	}
+	cl := fake.NewSimpleDynamicClient(runtime.NewScheme())
 	k.AddResponse(cl, nil)
 
 	i1 := unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"metadata": map[string]interface{}{
-				"kind":            "foo",
 				"name":            "f1",
 				"namespace":       "ns",
 				"resourceVersion": "rv1",
@@ -156,10 +151,10 @@ func TestSource_ProtoConversionError(t *testing.T) {
 		},
 	}
 
-	cl.AddReactor("*", "foos", func(action dtesting.Action) (handled bool, ret runtime.Object, err error) {
+	cl.PrependReactor("*", "foos", func(action dtesting.Action) (handled bool, ret runtime.Object, err error) {
 		return true, &unstructured.UnstructuredList{Items: []unstructured.Unstructured{i1}}, nil
 	})
-	cl.AddWatchReactor("foos", func(action dtesting.Action) (handled bool, ret watch.Interface, err error) {
+	cl.PrependWatchReactor("foos", func(action dtesting.Action) (handled bool, ret watch.Interface, err error) {
 		return true, mock.NewWatch(), nil
 	})
 

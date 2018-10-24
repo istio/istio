@@ -103,6 +103,13 @@ func (m *VirtualHost) Validate() error {
 
 	}
 
+	if len(m.GetRequestHeadersToAdd()) > 1000 {
+		return VirtualHostValidationError{
+			Field:  "RequestHeadersToAdd",
+			Reason: "value must contain no more than 1000 item(s)",
+		}
+	}
+
 	for idx, item := range m.GetRequestHeadersToAdd() {
 		_, _ = idx, item
 
@@ -116,6 +123,13 @@ func (m *VirtualHost) Validate() error {
 			}
 		}
 
+	}
+
+	if len(m.GetResponseHeadersToAdd()) > 1000 {
+		return VirtualHostValidationError{
+			Field:  "ResponseHeadersToAdd",
+			Reason: "value must contain no more than 1000 item(s)",
+		}
 	}
 
 	for idx, item := range m.GetResponseHeadersToAdd() {
@@ -144,6 +158,8 @@ func (m *VirtualHost) Validate() error {
 	}
 
 	// no validation rules for PerFilterConfig
+
+	// no validation rules for IncludeRequestAttemptCount
 
 	return nil
 }
@@ -218,6 +234,13 @@ func (m *Route) Validate() error {
 
 	// no validation rules for PerFilterConfig
 
+	if len(m.GetRequestHeadersToAdd()) > 1000 {
+		return RouteValidationError{
+			Field:  "RequestHeadersToAdd",
+			Reason: "value must contain no more than 1000 item(s)",
+		}
+	}
+
 	for idx, item := range m.GetRequestHeadersToAdd() {
 		_, _ = idx, item
 
@@ -231,6 +254,13 @@ func (m *Route) Validate() error {
 			}
 		}
 
+	}
+
+	if len(m.GetResponseHeadersToAdd()) > 1000 {
+		return RouteValidationError{
+			Field:  "ResponseHeadersToAdd",
+			Reason: "value must contain no more than 1000 item(s)",
+		}
 	}
 
 	for idx, item := range m.GetResponseHeadersToAdd() {
@@ -422,16 +452,6 @@ func (m *RouteMatch) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetRuntime()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return RouteMatchValidationError{
-				Field:  "Runtime",
-				Reason: "embedded message failed validation",
-				Cause:  err,
-			}
-		}
-	}
-
 	for idx, item := range m.GetHeaders() {
 		_, _ = idx, item
 
@@ -493,6 +513,34 @@ func (m *RouteMatch) Validate() error {
 		return RouteMatchValidationError{
 			Field:  "PathSpecifier",
 			Reason: "value is required",
+		}
+
+	}
+
+	switch m.RuntimeSpecifier.(type) {
+
+	case *RouteMatch_Runtime:
+
+		if v, ok := interface{}(m.GetRuntime()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return RouteMatchValidationError{
+					Field:  "Runtime",
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
+	case *RouteMatch_RuntimeFraction:
+
+		if v, ok := interface{}(m.GetRuntimeFraction()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return RouteMatchValidationError{
+					Field:  "RuntimeFraction",
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
 		}
 
 	}
@@ -1390,6 +1438,13 @@ func (m *WeightedCluster_ClusterWeight) Validate() error {
 		}
 	}
 
+	if len(m.GetRequestHeadersToAdd()) > 1000 {
+		return WeightedCluster_ClusterWeightValidationError{
+			Field:  "RequestHeadersToAdd",
+			Reason: "value must contain no more than 1000 item(s)",
+		}
+	}
+
 	for idx, item := range m.GetRequestHeadersToAdd() {
 		_, _ = idx, item
 
@@ -1403,6 +1458,13 @@ func (m *WeightedCluster_ClusterWeight) Validate() error {
 			}
 		}
 
+	}
+
+	if len(m.GetResponseHeadersToAdd()) > 1000 {
+		return WeightedCluster_ClusterWeightValidationError{
+			Field:  "ResponseHeadersToAdd",
+			Reason: "value must contain no more than 1000 item(s)",
+		}
 	}
 
 	for idx, item := range m.GetResponseHeadersToAdd() {

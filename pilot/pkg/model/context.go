@@ -33,6 +33,7 @@ type Environment struct {
 	ServiceDiscovery
 
 	// Accounts interface for listing service accounts
+	// Deprecated - use PushContext.ServiceAccounts
 	ServiceAccounts
 
 	// Config interface for listing routing rules
@@ -138,6 +139,32 @@ func (node *Proxy) GetRouterMode() RouterMode {
 	return StandardRouter
 }
 
+// UnnamedNetwork is the default network that proxies in the mesh
+// get when they don't request a specific network view.
+const UnnamedNetwork = ""
+
+// GetNetworkView returns the networks that the proxy requested.
+// When sending EDS/CDS-with-dns-endpoints, Pilot will only send
+// endpoints corresponding to the networks that the proxy wants to see.
+// If not set, we assume that the proxy wants to see endpoints from the default
+// unnamed network.
+func GetNetworkView(node *Proxy) map[string]bool {
+	if node == nil {
+		return map[string]bool{UnnamedNetwork: true}
+	}
+
+	nmap := make(map[string]bool)
+	if networks, found := node.Metadata["REQUESTED_NETWORK_VIEW"]; found {
+		for _, n := range strings.Split(networks, ",") {
+			nmap[n] = true
+		}
+	} else {
+		// Proxy sees endpoints from the default unnamed network only
+		nmap[UnnamedNetwork] = true
+	}
+	return nmap
+}
+
 // ParseMetadata parses the opaque Metadata from an Envoy Node into string key-value pairs.
 // Any non-string values are ignored.
 func ParseMetadata(metadata *types.Struct) map[string]string {
@@ -240,7 +267,6 @@ func DefaultProxyConfig() meshconfig.ProxyConfig {
 		DrainDuration:          types.DurationProto(2 * time.Second),
 		ParentShutdownDuration: types.DurationProto(3 * time.Second),
 		DiscoveryAddress:       DiscoveryPlainAddress,
-		ZipkinAddress:          "",
 		ConnectTimeout:         types.DurationProto(1 * time.Second),
 		StatsdUdpAddress:       "",
 		ProxyAdminPort:         15000,
@@ -248,6 +274,7 @@ func DefaultProxyConfig() meshconfig.ProxyConfig {
 		CustomConfigFile:       "",
 		Concurrency:            0,
 		StatNameLength:         189,
+		Tracing:                nil,
 	}
 }
 
@@ -258,6 +285,7 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 		MixerCheckServer:      "",
 		MixerReportServer:     "",
 		DisablePolicyChecks:   false,
+		PolicyCheckFailOpen:   false,
 		ProxyListenPort:       15001,
 		ConnectTimeout:        types.DurationProto(1 * time.Second),
 		IngressClass:          "istio",
@@ -298,6 +326,7 @@ func ApplyMeshConfigDefaults(yaml string) (*meshconfig.MeshConfig, error) {
 	if err := ValidateMeshConfig(&out); err != nil {
 		return nil, err
 	}
+
 	return &out, nil
 }
 

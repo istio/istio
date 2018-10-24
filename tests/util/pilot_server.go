@@ -24,13 +24,12 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
-	"k8s.io/apimachinery/pkg/util/wait"
-
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/proxy/envoy"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/env"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 var (
@@ -122,6 +121,7 @@ func setup(additionalArgs ...func(*bootstrap.PilotArgs)) (io.Closer, error) {
 			Registries: []string{
 				string(serviceregistry.MockRegistry)},
 		},
+		MCPMaxMessageSize: bootstrap.DefaultMCPMaxMsgSize,
 	}
 	// Static testdata, should include all configs we want to test.
 	args.Config.FileDir = env.IstioSrc + "/tests/testdata/config"

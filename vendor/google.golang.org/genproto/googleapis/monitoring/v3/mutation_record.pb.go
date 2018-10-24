@@ -3,30 +3,61 @@
 
 package monitoring
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import google_protobuf2 "github.com/golang/protobuf/ptypes/timestamp"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	timestamp "github.com/golang/protobuf/ptypes/timestamp"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
 
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+
 // Describes a change made to a configuration.
 type MutationRecord struct {
 	// When the change occurred.
-	MutateTime *google_protobuf2.Timestamp `protobuf:"bytes,1,opt,name=mutate_time,json=mutateTime" json:"mutate_time,omitempty"`
+	MutateTime *timestamp.Timestamp `protobuf:"bytes,1,opt,name=mutate_time,json=mutateTime,proto3" json:"mutate_time,omitempty"`
 	// The email address of the user making the change.
-	MutatedBy string `protobuf:"bytes,2,opt,name=mutated_by,json=mutatedBy" json:"mutated_by,omitempty"`
+	MutatedBy            string   `protobuf:"bytes,2,opt,name=mutated_by,json=mutatedBy,proto3" json:"mutated_by,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *MutationRecord) Reset()                    { *m = MutationRecord{} }
-func (m *MutationRecord) String() string            { return proto.CompactTextString(m) }
-func (*MutationRecord) ProtoMessage()               {}
-func (*MutationRecord) Descriptor() ([]byte, []int) { return fileDescriptor7, []int{0} }
+func (m *MutationRecord) Reset()         { *m = MutationRecord{} }
+func (m *MutationRecord) String() string { return proto.CompactTextString(m) }
+func (*MutationRecord) ProtoMessage()    {}
+func (*MutationRecord) Descriptor() ([]byte, []int) {
+	return fileDescriptor_83c24e690bdb9101, []int{0}
+}
 
-func (m *MutationRecord) GetMutateTime() *google_protobuf2.Timestamp {
+func (m *MutationRecord) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_MutationRecord.Unmarshal(m, b)
+}
+func (m *MutationRecord) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_MutationRecord.Marshal(b, m, deterministic)
+}
+func (m *MutationRecord) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MutationRecord.Merge(m, src)
+}
+func (m *MutationRecord) XXX_Size() int {
+	return xxx_messageInfo_MutationRecord.Size(m)
+}
+func (m *MutationRecord) XXX_DiscardUnknown() {
+	xxx_messageInfo_MutationRecord.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MutationRecord proto.InternalMessageInfo
+
+func (m *MutationRecord) GetMutateTime() *timestamp.Timestamp {
 	if m != nil {
 		return m.MutateTime
 	}
@@ -44,9 +75,11 @@ func init() {
 	proto.RegisterType((*MutationRecord)(nil), "google.monitoring.v3.MutationRecord")
 }
 
-func init() { proto.RegisterFile("google/monitoring/v3/mutation_record.proto", fileDescriptor7) }
+func init() {
+	proto.RegisterFile("google/monitoring/v3/mutation_record.proto", fileDescriptor_83c24e690bdb9101)
+}
 
-var fileDescriptor7 = []byte{
+var fileDescriptor_83c24e690bdb9101 = []byte{
 	// 251 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xd2, 0x4a, 0xcf, 0xcf, 0x4f,
 	0xcf, 0x49, 0xd5, 0xcf, 0xcd, 0xcf, 0xcb, 0x2c, 0xc9, 0x2f, 0xca, 0xcc, 0x4b, 0xd7, 0x2f, 0x33,

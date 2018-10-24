@@ -90,11 +90,10 @@ func (f *defaultPortForwarder) Close() error {
 	return nil
 }
 
-// NewPortForwarder creates a new PortForwarder
-func NewPortForwarder(kubeConfig string, options *PodSelectOptions, localPort, remotePort uint16) (PortForwarder, error) {
-	client, config, err := newRestClient(kubeConfig, "")
+func newPortForwarder(restConfig *rest.Config, options *PodSelectOptions, localPort, remotePort uint16) (PortForwarder, error) {
+	restClient, err := rest.RESTClientFor(restConfig)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create kube client: %v", err)
+		return nil, err
 	}
 
 	if err := validatePodSelectOptions(options); err != nil {
@@ -103,16 +102,16 @@ func NewPortForwarder(kubeConfig string, options *PodSelectOptions, localPort, r
 	podName := options.PodName
 	if podName == "" {
 		// Retrieve pod according to labelSelector if pod name not specified.
-		pod, err := getSelectedPod(client, options)
+		pod, err := getSelectedPod(restClient, options)
 		if err != nil {
 			return nil, err
 		}
 		podName = pod.Name
 	}
 
-	req := client.Post().Resource("pods").Namespace(options.PodNamespace).Name(podName).SubResource("portforward")
+	req := restClient.Post().Resource("pods").Namespace(options.PodNamespace).Name(podName).SubResource("portforward")
 
-	transport, upgrader, err := spdy.RoundTripperFor(config)
+	transport, upgrader, err := spdy.RoundTripperFor(restConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failure creating roundtripper: %v", err)
 	}

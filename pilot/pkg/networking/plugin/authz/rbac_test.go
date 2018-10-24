@@ -18,18 +18,18 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	http_config "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/rbac/v2"
 	network_config "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/rbac/v2"
 	policy "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2alpha"
 	metadata "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
 	"github.com/envoyproxy/go-control-plane/pkg/util"
+	"github.com/gogo/protobuf/types"
 
 	rbacproto "istio.io/api/rbac/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
-
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	"github.com/gogo/protobuf/types"
+	"istio.io/istio/pilot/pkg/networking/plugin/authn"
 )
 
 func newAuthzPoliciesWithRolesAndBindings(configs ...[]model.Config) *model.AuthorizationPolicies {
@@ -356,6 +356,7 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 							{Key: "request.headers[key2]", Values: []string{"simple", "*"}},
 							{Key: "destination.labels[version]", Values: []string{"v10"}},
 							{Key: "destination.name", Values: []string{"attr-name"}},
+							{Key: "connection.sni", Values: []string{"*.example.com"}},
 						},
 					},
 				},
@@ -552,8 +553,8 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 							{
 								Identifier: &policy.Principal_Metadata{
 									Metadata: generateMetadataStringMatcher(
-										[]string{"source.principal"}, &metadata.StringMatcher{
-											MatchPattern: &metadata.StringMatcher_Exact{Exact: "user"}}),
+										"source.principal", &metadata.StringMatcher{
+											MatchPattern: &metadata.StringMatcher_Exact{Exact: "user"}}, authn.AuthnFilterName),
 								},
 							},
 						},
@@ -581,6 +582,23 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 								{Name: "key2", HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{ExactMatch: "simple"}},
 								{Name: "key2", HeaderMatchSpecifier: &route.HeaderMatcher_PresentMatch{PresentMatch: true}},
 							}),
+						},
+						{
+							Rule: &policy.Permission_OrRules{
+								OrRules: &policy.Permission_Set{
+									Rules: []*policy.Permission{
+										{
+											Rule: &policy.Permission_RequestedServerName{
+												RequestedServerName: &metadata.StringMatcher{
+													MatchPattern: &metadata.StringMatcher_Suffix{
+														Suffix: ".example.com",
+													},
+												},
+											},
+										},
+									},
+								} ,
+							},
 						},
 					},
 				},
@@ -623,8 +641,8 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 						{
 							Identifier: &policy.Principal_Metadata{
 								Metadata: generateMetadataStringMatcher(
-									[]string{"source.principal"}, &metadata.StringMatcher{
-										MatchPattern: &metadata.StringMatcher_Regex{Regex: `.*/ns/test-ns/.*`}}),
+									"source.principal", &metadata.StringMatcher{
+										MatchPattern: &metadata.StringMatcher_Regex{Regex: `.*/ns/test-ns/.*`}}, authn.AuthnFilterName),
 							},
 						},
 					},
@@ -1276,13 +1294,11 @@ func TestServiceMetadataMatch(t *testing.T) {
 
 func TestGenerateMetadataStringMatcher(t *testing.T) {
 	actual := generateMetadataStringMatcher(
-		[]string{"aa", "bb"},
-		&metadata.StringMatcher{MatchPattern: &metadata.StringMatcher_Regex{Regex: "regex"}})
+		"aa", &metadata.StringMatcher{MatchPattern: &metadata.StringMatcher_Regex{Regex: "regex"}}, authn.AuthnFilterName)
 	expect := &metadata.MetadataMatcher{
 		Filter: "istio_authn",
 		Path: []*metadata.MetadataMatcher_PathSegment{
 			{Segment: &metadata.MetadataMatcher_PathSegment_Key{Key: "aa"}},
-			{Segment: &metadata.MetadataMatcher_PathSegment_Key{Key: "bb"}},
 		},
 		Value: &metadata.ValueMatcher{
 			MatchPattern: &metadata.ValueMatcher_StringMatch{
@@ -1308,43 +1324,51 @@ func TestCreateDynamicMetadataMatcher(t *testing.T) {
 	}{
 		{
 			k: attrSrcNamespace, v: "test-ns*",
-			expect: generateMetadataStringMatcher([]string{attrSrcPrincipal}, &metadata.StringMatcher{
+			expect: generateMetadataStringMatcher(attrSrcPrincipal, &metadata.StringMatcher{
 				MatchPattern: &metadata.StringMatcher_Regex{
 					Regex: `.*/ns/test-ns.*/.*`,
 				},
-			}),
+			}, authn.AuthnFilterName),
 		},
 		{
-			k: "request.auth.claims[groups]", v: "group*",
+			k: attrRequestClaims + "[groups]", v: "group*",
 			expect: generateMetadataListMatcher([]string{attrRequestClaims, "groups"}, "group*"),
 		},
 		{
-			k: "request.auth.claims[iss]", v: "test-iss",
+			k: attrRequestClaims + "[iss]", v: "test-iss",
 			expect: generateMetadataListMatcher([]string{attrRequestClaims, "iss"}, "test-iss"),
 		},
 		{
 			k: attrSrcUser, v: "*test-user",
-			expect: generateMetadataStringMatcher([]string{attrSrcUser}, &metadata.StringMatcher{
+			expect: generateMetadataStringMatcher(attrSrcUser, &metadata.StringMatcher{
 				MatchPattern: &metadata.StringMatcher_Suffix{
 					Suffix: "test-user",
 				},
-			}),
+			}, authn.AuthnFilterName),
 		},
 		{
 			k: attrRequestAudiences, v: "test-audiences",
-			expect: generateMetadataStringMatcher([]string{attrRequestAudiences}, &metadata.StringMatcher{
+			expect: generateMetadataStringMatcher(attrRequestAudiences, &metadata.StringMatcher{
 				MatchPattern: &metadata.StringMatcher_Exact{
 					Exact: "test-audiences",
 				},
-			}),
+			}, authn.AuthnFilterName),
 		},
 		{
 			k: attrRequestPresenter, v: "*",
-			expect: generateMetadataStringMatcher([]string{attrRequestPresenter}, &metadata.StringMatcher{
+			expect: generateMetadataStringMatcher(attrRequestPresenter, &metadata.StringMatcher{
 				MatchPattern: &metadata.StringMatcher_Regex{
 					Regex: ".*",
 				},
-			}),
+			}, authn.AuthnFilterName),
+		},
+		{
+			k: "custom.attribute", v: "custom-value",
+			expect: generateMetadataStringMatcher("custom.attribute", &metadata.StringMatcher{
+				MatchPattern: &metadata.StringMatcher_Exact{
+					Exact: "custom-value",
+				},
+			}, rbacHTTPFilterName),
 		},
 	}
 

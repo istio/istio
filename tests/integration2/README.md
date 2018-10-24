@@ -133,10 +133,10 @@ Common Flags:
 --istio.test.env <envname>       Specify the environment to run the tests against.
 
 Kubernetes Environment Flags:
---istio.test.kube.config <path>   The path to the kube config file for cluster environments
---istio.test.kube.hub <string>    The hub for docker images.
---istio.test.kube.tag <string>    The tag for docker images.
---istio.test.kube.testNamespace   The namespace for each individual test. 
---istio.test.kube.systemNamespace The namespace where the Istio components reside in a typical deployment.
---istio.test.kube.dependencyNamespace  The namespace in which dependency components are deployed.    
+--istio.test.kube.config <path>                The path to the kube config file for cluster environments
+--istio.test.kube.testNamespace <string>       The namespace for each individual test.
+--istio.test.kube.systemNamespace <string>     The namespace where the Istio components reside in a typical deployment.
+--istio.test.kube.dependencyNamespace <string> The namespace in which dependency components are deployed.
+--istio.test.kube.helm.values <string>         The overrides for helm values. For example, to change Docker image settings:
+                                               global.hub=gcr.io/my-hub,global.tag=latest,global.imagePullPolicy=Always
 ```

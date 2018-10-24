@@ -3,18 +3,18 @@
 
 package logging
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import _ "google.golang.org/genproto/googleapis/api/annotations"
-import google_api4 "google.golang.org/genproto/googleapis/api/distribution"
-import google_api5 "google.golang.org/genproto/googleapis/api/metric"
-import google_protobuf5 "github.com/golang/protobuf/ptypes/empty"
-import _ "google.golang.org/genproto/protobuf/field_mask"
-
 import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	empty "github.com/golang/protobuf/ptypes/empty"
+	_ "github.com/golang/protobuf/ptypes/timestamp"
 	context "golang.org/x/net/context"
+	_ "google.golang.org/genproto/googleapis/api/annotations"
+	distribution "google.golang.org/genproto/googleapis/api/distribution"
+	metric "google.golang.org/genproto/googleapis/api/metric"
+	_ "google.golang.org/genproto/protobuf/field_mask"
 	grpc "google.golang.org/grpc"
+	math "math"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -22,13 +22,19 @@ var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
 
-// Stackdriver Logging API version.
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+
+// Logging API version.
 type LogMetric_ApiVersion int32
 
 const (
-	// Stackdriver Logging API v2.
+	// Logging API v2.
 	LogMetric_V2 LogMetric_ApiVersion = 0
-	// Stackdriver Logging API v1.
+	// Logging API v1.
 	LogMetric_V1 LogMetric_ApiVersion = 1
 )
 
@@ -36,6 +42,7 @@ var LogMetric_ApiVersion_name = map[int32]string{
 	0: "V2",
 	1: "V1",
 }
+
 var LogMetric_ApiVersion_value = map[string]int32{
 	"V2": 0,
 	"V1": 1,
@@ -44,7 +51,10 @@ var LogMetric_ApiVersion_value = map[string]int32{
 func (x LogMetric_ApiVersion) String() string {
 	return proto.EnumName(LogMetric_ApiVersion_name, int32(x))
 }
-func (LogMetric_ApiVersion) EnumDescriptor() ([]byte, []int) { return fileDescriptor3, []int{0, 0} }
+
+func (LogMetric_ApiVersion) EnumDescriptor() ([]byte, []int) {
+	return fileDescriptor_25f112b6cac96ff1, []int{0, 0}
+}
 
 // Describes a logs-based metric.  The value of the metric is the
 // number of log entries that match a logs filter in a given time interval.
@@ -69,9 +79,9 @@ type LogMetric struct {
 	// part of a `metric_name` API parameter, then the metric identifier
 	// must be URL-encoded. Example:
 	// `"projects/my-project/metrics/nginx%2Frequests"`.
-	Name string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Optional. A description of this metric, which is used in documentation.
-	Description string `protobuf:"bytes,2,opt,name=description" json:"description,omitempty"`
+	Description string `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
 	// Required. An [advanced logs filter](/logging/docs/view/advanced_filters)
 	// which is used to match log entries.
 	// Example:
@@ -79,7 +89,7 @@ type LogMetric struct {
 	//     "resource.type=gae_app AND severity>=ERROR"
 	//
 	// The maximum length of the filter is 20000 characters.
-	Filter string `protobuf:"bytes,3,opt,name=filter" json:"filter,omitempty"`
+	Filter string `protobuf:"bytes,3,opt,name=filter,proto3" json:"filter,omitempty"`
 	// Optional. The metric descriptor associated with the logs-based metric.
 	// If unspecified, it uses a default metric descriptor with a DELTA metric
 	// kind, INT64 value type, with no labels and a unit of "1". Such a metric
@@ -101,7 +111,7 @@ type LogMetric struct {
 	// be updated once initially configured. New labels can be added in the
 	// `metric_descriptor`, but existing labels cannot be modified except for
 	// their description.
-	MetricDescriptor *google_api5.MetricDescriptor `protobuf:"bytes,5,opt,name=metric_descriptor,json=metricDescriptor" json:"metric_descriptor,omitempty"`
+	MetricDescriptor *metric.MetricDescriptor `protobuf:"bytes,5,opt,name=metric_descriptor,json=metricDescriptor,proto3" json:"metric_descriptor,omitempty"`
 	// Optional. A `value_extractor` is required when using a distribution
 	// logs-based metric to extract the values to record from a log entry.
 	// Two functions are supported for value extraction: `EXTRACT(field)` or
@@ -121,7 +131,7 @@ type LogMetric struct {
 	// distribution.
 	//
 	// Example: `REGEXP_EXTRACT(jsonPayload.request, ".*quantity=(\d+).*")`
-	ValueExtractor string `protobuf:"bytes,6,opt,name=value_extractor,json=valueExtractor" json:"value_extractor,omitempty"`
+	ValueExtractor string `protobuf:"bytes,6,opt,name=value_extractor,json=valueExtractor,proto3" json:"value_extractor,omitempty"`
 	// Optional. A map from a label key string to an extractor expression which is
 	// used to extract data from a log entry field and assign as the label value.
 	// Each label key specified in the LabelDescriptor must have an associated
@@ -136,20 +146,43 @@ type LogMetric struct {
 	//
 	// Note that there are upper bounds on the maximum number of labels and the
 	// number of active time series that are allowed in a project.
-	LabelExtractors map[string]string `protobuf:"bytes,7,rep,name=label_extractors,json=labelExtractors" json:"label_extractors,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	LabelExtractors map[string]string `protobuf:"bytes,7,rep,name=label_extractors,json=labelExtractors,proto3" json:"label_extractors,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 	// Optional. The `bucket_options` are required when the logs-based metric is
 	// using a DISTRIBUTION value type and it describes the bucket boundaries
 	// used to create a histogram of the extracted values.
-	BucketOptions *google_api4.Distribution_BucketOptions `protobuf:"bytes,8,opt,name=bucket_options,json=bucketOptions" json:"bucket_options,omitempty"`
+	BucketOptions *distribution.Distribution_BucketOptions `protobuf:"bytes,8,opt,name=bucket_options,json=bucketOptions,proto3" json:"bucket_options,omitempty"`
 	// Deprecated. The API version that created or updated this metric.
 	// The v2 format is used by default and cannot be changed.
-	Version LogMetric_ApiVersion `protobuf:"varint,4,opt,name=version,enum=google.logging.v2.LogMetric_ApiVersion" json:"version,omitempty"`
+	Version              LogMetric_ApiVersion `protobuf:"varint,4,opt,name=version,proto3,enum=google.logging.v2.LogMetric_ApiVersion" json:"version,omitempty"` // Deprecated: Do not use.
+	XXX_NoUnkeyedLiteral struct{}             `json:"-"`
+	XXX_unrecognized     []byte               `json:"-"`
+	XXX_sizecache        int32                `json:"-"`
 }
 
-func (m *LogMetric) Reset()                    { *m = LogMetric{} }
-func (m *LogMetric) String() string            { return proto.CompactTextString(m) }
-func (*LogMetric) ProtoMessage()               {}
-func (*LogMetric) Descriptor() ([]byte, []int) { return fileDescriptor3, []int{0} }
+func (m *LogMetric) Reset()         { *m = LogMetric{} }
+func (m *LogMetric) String() string { return proto.CompactTextString(m) }
+func (*LogMetric) ProtoMessage()    {}
+func (*LogMetric) Descriptor() ([]byte, []int) {
+	return fileDescriptor_25f112b6cac96ff1, []int{0}
+}
+
+func (m *LogMetric) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_LogMetric.Unmarshal(m, b)
+}
+func (m *LogMetric) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_LogMetric.Marshal(b, m, deterministic)
+}
+func (m *LogMetric) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_LogMetric.Merge(m, src)
+}
+func (m *LogMetric) XXX_Size() int {
+	return xxx_messageInfo_LogMetric.Size(m)
+}
+func (m *LogMetric) XXX_DiscardUnknown() {
+	xxx_messageInfo_LogMetric.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_LogMetric proto.InternalMessageInfo
 
 func (m *LogMetric) GetName() string {
 	if m != nil {
@@ -172,7 +205,7 @@ func (m *LogMetric) GetFilter() string {
 	return ""
 }
 
-func (m *LogMetric) GetMetricDescriptor() *google_api5.MetricDescriptor {
+func (m *LogMetric) GetMetricDescriptor() *metric.MetricDescriptor {
 	if m != nil {
 		return m.MetricDescriptor
 	}
@@ -193,13 +226,14 @@ func (m *LogMetric) GetLabelExtractors() map[string]string {
 	return nil
 }
 
-func (m *LogMetric) GetBucketOptions() *google_api4.Distribution_BucketOptions {
+func (m *LogMetric) GetBucketOptions() *distribution.Distribution_BucketOptions {
 	if m != nil {
 		return m.BucketOptions
 	}
 	return nil
 }
 
+// Deprecated: Do not use.
 func (m *LogMetric) GetVersion() LogMetric_ApiVersion {
 	if m != nil {
 		return m.Version
@@ -212,22 +246,45 @@ type ListLogMetricsRequest struct {
 	// Required. The name of the project containing the metrics:
 	//
 	//     "projects/[PROJECT_ID]"
-	Parent string `protobuf:"bytes,1,opt,name=parent" json:"parent,omitempty"`
+	Parent string `protobuf:"bytes,1,opt,name=parent,proto3" json:"parent,omitempty"`
 	// Optional. If present, then retrieve the next batch of results from the
 	// preceding call to this method.  `pageToken` must be the value of
 	// `nextPageToken` from the previous response.  The values of other method
 	// parameters should be identical to those in the previous call.
-	PageToken string `protobuf:"bytes,2,opt,name=page_token,json=pageToken" json:"page_token,omitempty"`
+	PageToken string `protobuf:"bytes,2,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
 	// Optional. The maximum number of results to return from this request.
 	// Non-positive values are ignored.  The presence of `nextPageToken` in the
 	// response indicates that more results might be available.
-	PageSize int32 `protobuf:"varint,3,opt,name=page_size,json=pageSize" json:"page_size,omitempty"`
+	PageSize             int32    `protobuf:"varint,3,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *ListLogMetricsRequest) Reset()                    { *m = ListLogMetricsRequest{} }
-func (m *ListLogMetricsRequest) String() string            { return proto.CompactTextString(m) }
-func (*ListLogMetricsRequest) ProtoMessage()               {}
-func (*ListLogMetricsRequest) Descriptor() ([]byte, []int) { return fileDescriptor3, []int{1} }
+func (m *ListLogMetricsRequest) Reset()         { *m = ListLogMetricsRequest{} }
+func (m *ListLogMetricsRequest) String() string { return proto.CompactTextString(m) }
+func (*ListLogMetricsRequest) ProtoMessage()    {}
+func (*ListLogMetricsRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_25f112b6cac96ff1, []int{1}
+}
+
+func (m *ListLogMetricsRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ListLogMetricsRequest.Unmarshal(m, b)
+}
+func (m *ListLogMetricsRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ListLogMetricsRequest.Marshal(b, m, deterministic)
+}
+func (m *ListLogMetricsRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ListLogMetricsRequest.Merge(m, src)
+}
+func (m *ListLogMetricsRequest) XXX_Size() int {
+	return xxx_messageInfo_ListLogMetricsRequest.Size(m)
+}
+func (m *ListLogMetricsRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_ListLogMetricsRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ListLogMetricsRequest proto.InternalMessageInfo
 
 func (m *ListLogMetricsRequest) GetParent() string {
 	if m != nil {
@@ -253,17 +310,40 @@ func (m *ListLogMetricsRequest) GetPageSize() int32 {
 // Result returned from ListLogMetrics.
 type ListLogMetricsResponse struct {
 	// A list of logs-based metrics.
-	Metrics []*LogMetric `protobuf:"bytes,1,rep,name=metrics" json:"metrics,omitempty"`
+	Metrics []*LogMetric `protobuf:"bytes,1,rep,name=metrics,proto3" json:"metrics,omitempty"`
 	// If there might be more results than appear in this response, then
 	// `nextPageToken` is included.  To get the next set of results, call this
 	// method again using the value of `nextPageToken` as `pageToken`.
-	NextPageToken string `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken" json:"next_page_token,omitempty"`
+	NextPageToken        string   `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3" json:"next_page_token,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *ListLogMetricsResponse) Reset()                    { *m = ListLogMetricsResponse{} }
-func (m *ListLogMetricsResponse) String() string            { return proto.CompactTextString(m) }
-func (*ListLogMetricsResponse) ProtoMessage()               {}
-func (*ListLogMetricsResponse) Descriptor() ([]byte, []int) { return fileDescriptor3, []int{2} }
+func (m *ListLogMetricsResponse) Reset()         { *m = ListLogMetricsResponse{} }
+func (m *ListLogMetricsResponse) String() string { return proto.CompactTextString(m) }
+func (*ListLogMetricsResponse) ProtoMessage()    {}
+func (*ListLogMetricsResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_25f112b6cac96ff1, []int{2}
+}
+
+func (m *ListLogMetricsResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ListLogMetricsResponse.Unmarshal(m, b)
+}
+func (m *ListLogMetricsResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ListLogMetricsResponse.Marshal(b, m, deterministic)
+}
+func (m *ListLogMetricsResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ListLogMetricsResponse.Merge(m, src)
+}
+func (m *ListLogMetricsResponse) XXX_Size() int {
+	return xxx_messageInfo_ListLogMetricsResponse.Size(m)
+}
+func (m *ListLogMetricsResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_ListLogMetricsResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ListLogMetricsResponse proto.InternalMessageInfo
 
 func (m *ListLogMetricsResponse) GetMetrics() []*LogMetric {
 	if m != nil {
@@ -284,13 +364,36 @@ type GetLogMetricRequest struct {
 	// The resource name of the desired metric:
 	//
 	//     "projects/[PROJECT_ID]/metrics/[METRIC_ID]"
-	MetricName string `protobuf:"bytes,1,opt,name=metric_name,json=metricName" json:"metric_name,omitempty"`
+	MetricName           string   `protobuf:"bytes,1,opt,name=metric_name,json=metricName,proto3" json:"metric_name,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *GetLogMetricRequest) Reset()                    { *m = GetLogMetricRequest{} }
-func (m *GetLogMetricRequest) String() string            { return proto.CompactTextString(m) }
-func (*GetLogMetricRequest) ProtoMessage()               {}
-func (*GetLogMetricRequest) Descriptor() ([]byte, []int) { return fileDescriptor3, []int{3} }
+func (m *GetLogMetricRequest) Reset()         { *m = GetLogMetricRequest{} }
+func (m *GetLogMetricRequest) String() string { return proto.CompactTextString(m) }
+func (*GetLogMetricRequest) ProtoMessage()    {}
+func (*GetLogMetricRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_25f112b6cac96ff1, []int{3}
+}
+
+func (m *GetLogMetricRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_GetLogMetricRequest.Unmarshal(m, b)
+}
+func (m *GetLogMetricRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_GetLogMetricRequest.Marshal(b, m, deterministic)
+}
+func (m *GetLogMetricRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetLogMetricRequest.Merge(m, src)
+}
+func (m *GetLogMetricRequest) XXX_Size() int {
+	return xxx_messageInfo_GetLogMetricRequest.Size(m)
+}
+func (m *GetLogMetricRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_GetLogMetricRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_GetLogMetricRequest proto.InternalMessageInfo
 
 func (m *GetLogMetricRequest) GetMetricName() string {
 	if m != nil {
@@ -306,16 +409,39 @@ type CreateLogMetricRequest struct {
 	//     "projects/[PROJECT_ID]"
 	//
 	// The new metric must be provided in the request.
-	Parent string `protobuf:"bytes,1,opt,name=parent" json:"parent,omitempty"`
+	Parent string `protobuf:"bytes,1,opt,name=parent,proto3" json:"parent,omitempty"`
 	// The new logs-based metric, which must not have an identifier that
 	// already exists.
-	Metric *LogMetric `protobuf:"bytes,2,opt,name=metric" json:"metric,omitempty"`
+	Metric               *LogMetric `protobuf:"bytes,2,opt,name=metric,proto3" json:"metric,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}   `json:"-"`
+	XXX_unrecognized     []byte     `json:"-"`
+	XXX_sizecache        int32      `json:"-"`
 }
 
-func (m *CreateLogMetricRequest) Reset()                    { *m = CreateLogMetricRequest{} }
-func (m *CreateLogMetricRequest) String() string            { return proto.CompactTextString(m) }
-func (*CreateLogMetricRequest) ProtoMessage()               {}
-func (*CreateLogMetricRequest) Descriptor() ([]byte, []int) { return fileDescriptor3, []int{4} }
+func (m *CreateLogMetricRequest) Reset()         { *m = CreateLogMetricRequest{} }
+func (m *CreateLogMetricRequest) String() string { return proto.CompactTextString(m) }
+func (*CreateLogMetricRequest) ProtoMessage()    {}
+func (*CreateLogMetricRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_25f112b6cac96ff1, []int{4}
+}
+
+func (m *CreateLogMetricRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_CreateLogMetricRequest.Unmarshal(m, b)
+}
+func (m *CreateLogMetricRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_CreateLogMetricRequest.Marshal(b, m, deterministic)
+}
+func (m *CreateLogMetricRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_CreateLogMetricRequest.Merge(m, src)
+}
+func (m *CreateLogMetricRequest) XXX_Size() int {
+	return xxx_messageInfo_CreateLogMetricRequest.Size(m)
+}
+func (m *CreateLogMetricRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_CreateLogMetricRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_CreateLogMetricRequest proto.InternalMessageInfo
 
 func (m *CreateLogMetricRequest) GetParent() string {
 	if m != nil {
@@ -340,15 +466,38 @@ type UpdateLogMetricRequest struct {
 	// The updated metric must be provided in the request and it's
 	// `name` field must be the same as `[METRIC_ID]` If the metric
 	// does not exist in `[PROJECT_ID]`, then a new metric is created.
-	MetricName string `protobuf:"bytes,1,opt,name=metric_name,json=metricName" json:"metric_name,omitempty"`
+	MetricName string `protobuf:"bytes,1,opt,name=metric_name,json=metricName,proto3" json:"metric_name,omitempty"`
 	// The updated metric.
-	Metric *LogMetric `protobuf:"bytes,2,opt,name=metric" json:"metric,omitempty"`
+	Metric               *LogMetric `protobuf:"bytes,2,opt,name=metric,proto3" json:"metric,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}   `json:"-"`
+	XXX_unrecognized     []byte     `json:"-"`
+	XXX_sizecache        int32      `json:"-"`
 }
 
-func (m *UpdateLogMetricRequest) Reset()                    { *m = UpdateLogMetricRequest{} }
-func (m *UpdateLogMetricRequest) String() string            { return proto.CompactTextString(m) }
-func (*UpdateLogMetricRequest) ProtoMessage()               {}
-func (*UpdateLogMetricRequest) Descriptor() ([]byte, []int) { return fileDescriptor3, []int{5} }
+func (m *UpdateLogMetricRequest) Reset()         { *m = UpdateLogMetricRequest{} }
+func (m *UpdateLogMetricRequest) String() string { return proto.CompactTextString(m) }
+func (*UpdateLogMetricRequest) ProtoMessage()    {}
+func (*UpdateLogMetricRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_25f112b6cac96ff1, []int{5}
+}
+
+func (m *UpdateLogMetricRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_UpdateLogMetricRequest.Unmarshal(m, b)
+}
+func (m *UpdateLogMetricRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_UpdateLogMetricRequest.Marshal(b, m, deterministic)
+}
+func (m *UpdateLogMetricRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_UpdateLogMetricRequest.Merge(m, src)
+}
+func (m *UpdateLogMetricRequest) XXX_Size() int {
+	return xxx_messageInfo_UpdateLogMetricRequest.Size(m)
+}
+func (m *UpdateLogMetricRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_UpdateLogMetricRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_UpdateLogMetricRequest proto.InternalMessageInfo
 
 func (m *UpdateLogMetricRequest) GetMetricName() string {
 	if m != nil {
@@ -369,13 +518,36 @@ type DeleteLogMetricRequest struct {
 	// The resource name of the metric to delete:
 	//
 	//     "projects/[PROJECT_ID]/metrics/[METRIC_ID]"
-	MetricName string `protobuf:"bytes,1,opt,name=metric_name,json=metricName" json:"metric_name,omitempty"`
+	MetricName           string   `protobuf:"bytes,1,opt,name=metric_name,json=metricName,proto3" json:"metric_name,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *DeleteLogMetricRequest) Reset()                    { *m = DeleteLogMetricRequest{} }
-func (m *DeleteLogMetricRequest) String() string            { return proto.CompactTextString(m) }
-func (*DeleteLogMetricRequest) ProtoMessage()               {}
-func (*DeleteLogMetricRequest) Descriptor() ([]byte, []int) { return fileDescriptor3, []int{6} }
+func (m *DeleteLogMetricRequest) Reset()         { *m = DeleteLogMetricRequest{} }
+func (m *DeleteLogMetricRequest) String() string { return proto.CompactTextString(m) }
+func (*DeleteLogMetricRequest) ProtoMessage()    {}
+func (*DeleteLogMetricRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_25f112b6cac96ff1, []int{6}
+}
+
+func (m *DeleteLogMetricRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_DeleteLogMetricRequest.Unmarshal(m, b)
+}
+func (m *DeleteLogMetricRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_DeleteLogMetricRequest.Marshal(b, m, deterministic)
+}
+func (m *DeleteLogMetricRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DeleteLogMetricRequest.Merge(m, src)
+}
+func (m *DeleteLogMetricRequest) XXX_Size() int {
+	return xxx_messageInfo_DeleteLogMetricRequest.Size(m)
+}
+func (m *DeleteLogMetricRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_DeleteLogMetricRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_DeleteLogMetricRequest proto.InternalMessageInfo
 
 func (m *DeleteLogMetricRequest) GetMetricName() string {
 	if m != nil {
@@ -385,14 +557,77 @@ func (m *DeleteLogMetricRequest) GetMetricName() string {
 }
 
 func init() {
+	proto.RegisterEnum("google.logging.v2.LogMetric_ApiVersion", LogMetric_ApiVersion_name, LogMetric_ApiVersion_value)
 	proto.RegisterType((*LogMetric)(nil), "google.logging.v2.LogMetric")
+	proto.RegisterMapType((map[string]string)(nil), "google.logging.v2.LogMetric.LabelExtractorsEntry")
 	proto.RegisterType((*ListLogMetricsRequest)(nil), "google.logging.v2.ListLogMetricsRequest")
 	proto.RegisterType((*ListLogMetricsResponse)(nil), "google.logging.v2.ListLogMetricsResponse")
 	proto.RegisterType((*GetLogMetricRequest)(nil), "google.logging.v2.GetLogMetricRequest")
 	proto.RegisterType((*CreateLogMetricRequest)(nil), "google.logging.v2.CreateLogMetricRequest")
 	proto.RegisterType((*UpdateLogMetricRequest)(nil), "google.logging.v2.UpdateLogMetricRequest")
 	proto.RegisterType((*DeleteLogMetricRequest)(nil), "google.logging.v2.DeleteLogMetricRequest")
-	proto.RegisterEnum("google.logging.v2.LogMetric_ApiVersion", LogMetric_ApiVersion_name, LogMetric_ApiVersion_value)
+}
+
+func init() {
+	proto.RegisterFile("google/logging/v2/logging_metrics.proto", fileDescriptor_25f112b6cac96ff1)
+}
+
+var fileDescriptor_25f112b6cac96ff1 = []byte{
+	// 861 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x56, 0x4f, 0x6f, 0x1b, 0x45,
+	0x14, 0x67, 0x9c, 0xc4, 0x69, 0x5e, 0x68, 0xec, 0x4e, 0x5b, 0xd7, 0x72, 0x53, 0xc5, 0xec, 0x21,
+	0x71, 0x73, 0xd8, 0xa5, 0x0b, 0x8a, 0x4a, 0x11, 0x07, 0xdc, 0x44, 0x15, 0x52, 0x0a, 0x91, 0x0b,
+	0x3e, 0xa0, 0x48, 0xab, 0xb1, 0xfd, 0xb2, 0x1a, 0xbc, 0xbb, 0xb3, 0xec, 0x8c, 0xad, 0xa4, 0xa8,
+	0x17, 0xd4, 0x1b, 0x12, 0x07, 0xf8, 0x00, 0x1c, 0xb8, 0xf1, 0x51, 0xb8, 0xc2, 0x47, 0xe0, 0x43,
+	0x70, 0x44, 0x3b, 0x3b, 0xeb, 0x6c, 0xed, 0x25, 0x8e, 0x72, 0xca, 0xcc, 0xfb, 0xfd, 0xde, 0xfc,
+	0x7e, 0xef, 0x8f, 0x63, 0xc3, 0x9e, 0x2f, 0x84, 0x1f, 0xa0, 0x13, 0x08, 0xdf, 0xe7, 0x91, 0xef,
+	0x4c, 0xdd, 0xfc, 0xe8, 0x85, 0xa8, 0x12, 0x3e, 0x94, 0x76, 0x9c, 0x08, 0x25, 0xe8, 0x9d, 0x8c,
+	0x68, 0x1b, 0xd4, 0x9e, 0xba, 0xad, 0x6d, 0x93, 0xcb, 0x62, 0xee, 0xb0, 0x28, 0x12, 0x8a, 0x29,
+	0x2e, 0x22, 0x93, 0xd0, 0x7a, 0x54, 0x40, 0x47, 0x5c, 0xaa, 0x84, 0x0f, 0x26, 0x29, 0x6e, 0xe0,
+	0x07, 0x05, 0x38, 0x53, 0x32, 0xc0, 0x43, 0x03, 0xe8, 0xdb, 0x60, 0x72, 0xe6, 0x60, 0x18, 0xab,
+	0x0b, 0x03, 0xb6, 0xe7, 0xc1, 0x33, 0x8e, 0xc1, 0xc8, 0x0b, 0x99, 0x1c, 0x1b, 0xc6, 0xce, 0x3c,
+	0x43, 0xf1, 0x10, 0xa5, 0x62, 0x61, 0x9c, 0x11, 0xac, 0xdf, 0x57, 0x61, 0xe3, 0x58, 0xf8, 0x2f,
+	0xb5, 0x26, 0xa5, 0xb0, 0x1a, 0xb1, 0x10, 0x9b, 0xa4, 0x4d, 0x3a, 0x1b, 0x3d, 0x7d, 0xa6, 0x6d,
+	0xd8, 0x1c, 0xa1, 0x1c, 0x26, 0x3c, 0x4e, 0xfd, 0x36, 0x2b, 0x1a, 0x2a, 0x86, 0x68, 0x03, 0xaa,
+	0x67, 0x3c, 0x50, 0x98, 0x34, 0x57, 0x34, 0x68, 0x6e, 0xf4, 0x0b, 0xb8, 0x93, 0xd5, 0xe2, 0xe5,
+	0x6c, 0x91, 0x34, 0xd7, 0xda, 0xa4, 0xb3, 0xe9, 0x6e, 0xdb, 0xa6, 0x81, 0x2c, 0xe6, 0x76, 0x26,
+	0x7e, 0x38, 0xe3, 0xf4, 0xea, 0xe1, 0x5c, 0x84, 0xee, 0x41, 0x6d, 0xca, 0x82, 0x09, 0x7a, 0x78,
+	0xae, 0x12, 0x36, 0x4c, 0x1f, 0xaa, 0x6a, 0xad, 0x2d, 0x1d, 0x3e, 0xca, 0xa3, 0xf4, 0x14, 0xea,
+	0x01, 0x1b, 0x60, 0x70, 0x49, 0x94, 0xcd, 0xf5, 0xf6, 0x4a, 0x67, 0xd3, 0x7d, 0x62, 0x2f, 0xcc,
+	0xcc, 0x9e, 0x55, 0x6e, 0x1f, 0xa7, 0x49, 0xb3, 0x67, 0xe4, 0x51, 0xa4, 0x92, 0x8b, 0x5e, 0x2d,
+	0x78, 0x37, 0x4a, 0x5f, 0xc2, 0xd6, 0x60, 0x32, 0x1c, 0xa3, 0xf2, 0x84, 0x2e, 0x5d, 0x36, 0x6f,
+	0xe9, 0x72, 0x76, 0x8b, 0xe5, 0x1c, 0x16, 0xc7, 0xdb, 0xd5, 0xf4, 0xaf, 0x32, 0x76, 0xef, 0xf6,
+	0xa0, 0x78, 0xa5, 0x47, 0xb0, 0x3e, 0xc5, 0x44, 0xa6, 0x6d, 0x5d, 0x6d, 0x93, 0xce, 0x96, 0xbb,
+	0x77, 0xa5, 0xc7, 0xcf, 0x63, 0xde, 0xcf, 0xe8, 0xdd, 0x4a, 0x93, 0xf4, 0xf2, 0xdc, 0x56, 0x17,
+	0xee, 0x95, 0xd9, 0xa7, 0x75, 0x58, 0x19, 0xe3, 0x85, 0x19, 0x66, 0x7a, 0xa4, 0xf7, 0x60, 0x4d,
+	0xf7, 0xcb, 0x4c, 0x31, 0xbb, 0x3c, 0xab, 0x3c, 0x25, 0xd6, 0x36, 0xc0, 0xe5, 0xf3, 0xb4, 0x0a,
+	0x95, 0xbe, 0x5b, 0x7f, 0x4f, 0xff, 0x7d, 0x52, 0x27, 0xd6, 0x18, 0xee, 0x1f, 0x73, 0xa9, 0x66,
+	0x56, 0x64, 0x0f, 0xbf, 0x9f, 0xa0, 0x54, 0xe9, 0xe8, 0x63, 0x96, 0x60, 0xa4, 0x8c, 0x8a, 0xb9,
+	0xd1, 0x47, 0x00, 0x31, 0xf3, 0xd1, 0x53, 0x62, 0x8c, 0xf9, 0xce, 0x6c, 0xa4, 0x91, 0xaf, 0xd3,
+	0x00, 0x7d, 0x08, 0xfa, 0xe2, 0x49, 0xfe, 0x1a, 0xf5, 0xd2, 0xac, 0xf5, 0x6e, 0xa5, 0x81, 0x57,
+	0xfc, 0x35, 0x5a, 0xe7, 0xd0, 0x98, 0x17, 0x93, 0xb1, 0x88, 0x24, 0xd2, 0x03, 0x58, 0x37, 0x1f,
+	0xc3, 0x26, 0xd1, 0x33, 0xdd, 0xbe, 0xaa, 0x5f, 0xbd, 0x9c, 0x4c, 0x77, 0xa1, 0x16, 0xe1, 0xb9,
+	0xf2, 0x16, 0x2c, 0xdd, 0x4e, 0xc3, 0x27, 0xb9, 0x2d, 0xeb, 0x00, 0xee, 0xbe, 0xc0, 0x4b, 0xe1,
+	0xbc, 0xc8, 0x1d, 0xd8, 0x34, 0x7b, 0x5c, 0xf8, 0x70, 0x40, 0x16, 0xfa, 0x92, 0x85, 0x68, 0x9d,
+	0x41, 0xe3, 0x79, 0x82, 0x4c, 0xe1, 0x42, 0xea, 0xff, 0xf5, 0xe7, 0x63, 0xa8, 0x66, 0xf9, 0xda,
+	0xc8, 0xb2, 0x42, 0x0c, 0xd7, 0x12, 0xd0, 0xf8, 0x26, 0x1e, 0x95, 0xe9, 0x2c, 0xb3, 0x78, 0x43,
+	0xc1, 0x4f, 0xa0, 0x71, 0x88, 0x01, 0xde, 0x40, 0xd0, 0xfd, 0x7b, 0x0d, 0xea, 0x66, 0x7e, 0xaf,
+	0x30, 0x99, 0xf2, 0x21, 0xf6, 0x5d, 0xfa, 0x33, 0x81, 0xad, 0x77, 0x67, 0x4b, 0x3b, 0x65, 0x46,
+	0xca, 0x76, 0xad, 0xf5, 0xf8, 0x1a, 0xcc, 0x6c, 0x51, 0xac, 0xbd, 0x1f, 0xff, 0xfa, 0xe7, 0xd7,
+	0xca, 0x07, 0x74, 0x27, 0xfd, 0x0f, 0xfe, 0x43, 0xd6, 0xf3, 0xcf, 0xe2, 0x44, 0x7c, 0x87, 0x43,
+	0x25, 0x9d, 0xfd, 0x37, 0x4e, 0xbe, 0x19, 0x6f, 0x09, 0xbc, 0x5f, 0x1c, 0x39, 0xdd, 0x2d, 0x11,
+	0x29, 0xd9, 0x89, 0xd6, 0x95, 0xfd, 0xb3, 0x6c, 0xad, 0xdf, 0xa1, 0xbb, 0x5a, 0xbf, 0xd0, 0xa8,
+	0x82, 0x89, 0xdc, 0x83, 0xb3, 0xff, 0x86, 0xfe, 0x44, 0xa0, 0x36, 0xb7, 0x41, 0xb4, 0xac, 0xdc,
+	0xf2, 0x2d, 0x5b, 0x62, 0xc6, 0xd1, 0x66, 0x1e, 0x5b, 0xcb, 0x9a, 0xf1, 0xcc, 0x4c, 0x9d, 0xfe,
+	0x42, 0xa0, 0x36, 0xb7, 0x67, 0xa5, 0x6e, 0xca, 0x77, 0x71, 0x89, 0x9b, 0x03, 0xed, 0xe6, 0xc3,
+	0xd6, 0x35, 0x5b, 0x33, 0x33, 0xf5, 0x96, 0x40, 0x6d, 0x6e, 0x17, 0x4b, 0x4d, 0x95, 0xef, 0x6b,
+	0xab, 0x91, 0x53, 0xf3, 0x6f, 0x42, 0xfb, 0x28, 0xfd, 0x22, 0xcd, 0x27, 0xb5, 0x7f, 0x4d, 0x3b,
+	0xdd, 0xdf, 0x08, 0xdc, 0x1f, 0x8a, 0x70, 0x51, 0xb8, 0x7b, 0xf7, 0x38, 0x3b, 0x9b, 0x5d, 0x3c,
+	0x49, 0x75, 0x4e, 0xc8, 0xb7, 0x4f, 0x0d, 0xd3, 0x17, 0x01, 0x8b, 0x7c, 0x5b, 0x24, 0xbe, 0xe3,
+	0x63, 0xa4, 0x5d, 0x38, 0x19, 0xc4, 0x62, 0x2e, 0x0b, 0xbf, 0x38, 0x3e, 0x35, 0xc7, 0x7f, 0x09,
+	0xf9, 0xa3, 0xf2, 0xe0, 0x45, 0x96, 0xfd, 0x3c, 0x10, 0x93, 0x91, 0x6d, 0x14, 0xec, 0xbe, 0xfb,
+	0x67, 0x8e, 0x9c, 0x6a, 0xe4, 0xd4, 0x20, 0xa7, 0x7d, 0x77, 0x50, 0xd5, 0x6f, 0x7f, 0xf4, 0x5f,
+	0x00, 0x00, 0x00, 0xff, 0xff, 0xca, 0x84, 0x19, 0x3d, 0xcc, 0x08, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -403,8 +638,9 @@ var _ grpc.ClientConn
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion4
 
-// Client API for MetricsServiceV2 service
-
+// MetricsServiceV2Client is the client API for MetricsServiceV2 service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type MetricsServiceV2Client interface {
 	// Lists logs-based metrics.
 	ListLogMetrics(ctx context.Context, in *ListLogMetricsRequest, opts ...grpc.CallOption) (*ListLogMetricsResponse, error)
@@ -415,7 +651,7 @@ type MetricsServiceV2Client interface {
 	// Creates or updates a logs-based metric.
 	UpdateLogMetric(ctx context.Context, in *UpdateLogMetricRequest, opts ...grpc.CallOption) (*LogMetric, error)
 	// Deletes a logs-based metric.
-	DeleteLogMetric(ctx context.Context, in *DeleteLogMetricRequest, opts ...grpc.CallOption) (*google_protobuf5.Empty, error)
+	DeleteLogMetric(ctx context.Context, in *DeleteLogMetricRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 }
 
 type metricsServiceV2Client struct {
@@ -428,7 +664,7 @@ func NewMetricsServiceV2Client(cc *grpc.ClientConn) MetricsServiceV2Client {
 
 func (c *metricsServiceV2Client) ListLogMetrics(ctx context.Context, in *ListLogMetricsRequest, opts ...grpc.CallOption) (*ListLogMetricsResponse, error) {
 	out := new(ListLogMetricsResponse)
-	err := grpc.Invoke(ctx, "/google.logging.v2.MetricsServiceV2/ListLogMetrics", in, out, c.cc, opts...)
+	err := c.cc.Invoke(ctx, "/google.logging.v2.MetricsServiceV2/ListLogMetrics", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -437,7 +673,7 @@ func (c *metricsServiceV2Client) ListLogMetrics(ctx context.Context, in *ListLog
 
 func (c *metricsServiceV2Client) GetLogMetric(ctx context.Context, in *GetLogMetricRequest, opts ...grpc.CallOption) (*LogMetric, error) {
 	out := new(LogMetric)
-	err := grpc.Invoke(ctx, "/google.logging.v2.MetricsServiceV2/GetLogMetric", in, out, c.cc, opts...)
+	err := c.cc.Invoke(ctx, "/google.logging.v2.MetricsServiceV2/GetLogMetric", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -446,7 +682,7 @@ func (c *metricsServiceV2Client) GetLogMetric(ctx context.Context, in *GetLogMet
 
 func (c *metricsServiceV2Client) CreateLogMetric(ctx context.Context, in *CreateLogMetricRequest, opts ...grpc.CallOption) (*LogMetric, error) {
 	out := new(LogMetric)
-	err := grpc.Invoke(ctx, "/google.logging.v2.MetricsServiceV2/CreateLogMetric", in, out, c.cc, opts...)
+	err := c.cc.Invoke(ctx, "/google.logging.v2.MetricsServiceV2/CreateLogMetric", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -455,24 +691,23 @@ func (c *metricsServiceV2Client) CreateLogMetric(ctx context.Context, in *Create
 
 func (c *metricsServiceV2Client) UpdateLogMetric(ctx context.Context, in *UpdateLogMetricRequest, opts ...grpc.CallOption) (*LogMetric, error) {
 	out := new(LogMetric)
-	err := grpc.Invoke(ctx, "/google.logging.v2.MetricsServiceV2/UpdateLogMetric", in, out, c.cc, opts...)
+	err := c.cc.Invoke(ctx, "/google.logging.v2.MetricsServiceV2/UpdateLogMetric", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *metricsServiceV2Client) DeleteLogMetric(ctx context.Context, in *DeleteLogMetricRequest, opts ...grpc.CallOption) (*google_protobuf5.Empty, error) {
-	out := new(google_protobuf5.Empty)
-	err := grpc.Invoke(ctx, "/google.logging.v2.MetricsServiceV2/DeleteLogMetric", in, out, c.cc, opts...)
+func (c *metricsServiceV2Client) DeleteLogMetric(ctx context.Context, in *DeleteLogMetricRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
+	err := c.cc.Invoke(ctx, "/google.logging.v2.MetricsServiceV2/DeleteLogMetric", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// Server API for MetricsServiceV2 service
-
+// MetricsServiceV2Server is the server API for MetricsServiceV2 service.
 type MetricsServiceV2Server interface {
 	// Lists logs-based metrics.
 	ListLogMetrics(context.Context, *ListLogMetricsRequest) (*ListLogMetricsResponse, error)
@@ -483,7 +718,7 @@ type MetricsServiceV2Server interface {
 	// Creates or updates a logs-based metric.
 	UpdateLogMetric(context.Context, *UpdateLogMetricRequest) (*LogMetric, error)
 	// Deletes a logs-based metric.
-	DeleteLogMetric(context.Context, *DeleteLogMetricRequest) (*google_protobuf5.Empty, error)
+	DeleteLogMetric(context.Context, *DeleteLogMetricRequest) (*empty.Empty, error)
 }
 
 func RegisterMetricsServiceV2Server(s *grpc.Server, srv MetricsServiceV2Server) {
@@ -607,63 +842,4 @@ var _MetricsServiceV2_serviceDesc = grpc.ServiceDesc{
 	},
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "google/logging/v2/logging_metrics.proto",
-}
-
-func init() { proto.RegisterFile("google/logging/v2/logging_metrics.proto", fileDescriptor3) }
-
-var fileDescriptor3 = []byte{
-	// 846 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x56, 0xc1, 0x6e, 0xdb, 0x46,
-	0x10, 0xed, 0xca, 0xb6, 0x1c, 0x8f, 0x1b, 0x4b, 0xd9, 0x24, 0x8a, 0xa0, 0x38, 0x88, 0xca, 0x83,
-	0xa5, 0xf8, 0x40, 0x36, 0x6c, 0x61, 0xa4, 0x29, 0x7a, 0x88, 0x62, 0x23, 0x28, 0xa0, 0xb4, 0x06,
-	0xd3, 0xea, 0x50, 0x08, 0x20, 0x28, 0x69, 0x44, 0x6c, 0x45, 0x71, 0x59, 0xee, 0x4a, 0xb0, 0x53,
-	0xe4, 0x52, 0xe4, 0x56, 0xa0, 0x87, 0xf6, 0x03, 0x72, 0xef, 0xa7, 0xf4, 0xda, 0x7e, 0x42, 0x3f,
-	0xa2, 0xc7, 0x82, 0xcb, 0xa5, 0xcc, 0x48, 0x8c, 0x65, 0xf8, 0xe4, 0xdd, 0x79, 0x33, 0xfb, 0xde,
-	0xcc, 0x3c, 0x59, 0x82, 0x96, 0xcf, 0xb9, 0x1f, 0xa0, 0x15, 0x70, 0xdf, 0x67, 0xa1, 0x6f, 0xcd,
-	0xed, 0xec, 0xe8, 0x4e, 0x51, 0xc6, 0x6c, 0x28, 0xcc, 0x28, 0xe6, 0x92, 0xd3, 0x5b, 0x69, 0xa2,
-	0xa9, 0x51, 0x73, 0x6e, 0x37, 0xf6, 0x75, 0xad, 0x17, 0x31, 0xcb, 0x0b, 0x43, 0x2e, 0x3d, 0xc9,
-	0x78, 0xa8, 0x0b, 0x1a, 0x0f, 0x72, 0xe8, 0x88, 0x09, 0x19, 0xb3, 0xc1, 0x2c, 0xc1, 0x35, 0x7c,
-	0x2f, 0x07, 0xa7, 0x4c, 0x1a, 0xb8, 0xaf, 0x01, 0x75, 0x1b, 0xcc, 0xc6, 0x16, 0x4e, 0x23, 0x79,
-	0xae, 0xc1, 0xe6, 0x32, 0x38, 0x66, 0x18, 0x8c, 0xdc, 0xa9, 0x27, 0x26, 0x69, 0x86, 0xf1, 0x6e,
-	0x13, 0x76, 0xba, 0xdc, 0x7f, 0xa9, 0x9e, 0xa4, 0x14, 0x36, 0x43, 0x6f, 0x8a, 0x75, 0xd2, 0x24,
-	0xed, 0x1d, 0x47, 0x9d, 0x69, 0x13, 0x76, 0x47, 0x28, 0x86, 0x31, 0x8b, 0x12, 0x39, 0xf5, 0x92,
-	0x82, 0xf2, 0x21, 0x5a, 0x83, 0xf2, 0x98, 0x05, 0x12, 0xe3, 0xfa, 0x86, 0x02, 0xf5, 0x8d, 0x7e,
-	0x0d, 0xb7, 0x52, 0xa9, 0x6e, 0x96, 0xcd, 0xe3, 0xfa, 0x56, 0x93, 0xb4, 0x77, 0xed, 0x7d, 0x53,
-	0xcf, 0xc7, 0x8b, 0x98, 0x99, 0x92, 0x1f, 0x2f, 0x72, 0x9c, 0xea, 0x74, 0x29, 0x42, 0x5b, 0x50,
-	0x99, 0x7b, 0xc1, 0x0c, 0x5d, 0x3c, 0x93, 0xb1, 0x37, 0x4c, 0x1e, 0x2a, 0x2b, 0xae, 0x3d, 0x15,
-	0x3e, 0xc9, 0xa2, 0xb4, 0x0f, 0xd5, 0xc0, 0x1b, 0x60, 0x70, 0x91, 0x28, 0xea, 0xdb, 0xcd, 0x8d,
-	0xf6, 0xae, 0xfd, 0xd8, 0x5c, 0x59, 0x89, 0xb9, 0xe8, 0xdc, 0xec, 0x26, 0x45, 0x8b, 0x67, 0xc4,
-	0x49, 0x28, 0xe3, 0x73, 0xa7, 0x12, 0xbc, 0x1f, 0xa5, 0x2f, 0x61, 0x6f, 0x30, 0x1b, 0x4e, 0x50,
-	0xba, 0x5c, 0xb5, 0x2e, 0xea, 0x37, 0x54, 0x3b, 0x07, 0xf9, 0x76, 0x8e, 0xf3, 0xdb, 0xeb, 0xa8,
-	0xf4, 0x6f, 0xd3, 0x6c, 0xe7, 0xe6, 0x20, 0x7f, 0xa5, 0xcf, 0x60, 0x7b, 0x8e, 0xb1, 0x48, 0xc6,
-	0xba, 0xd9, 0x24, 0xed, 0x3d, 0xbb, 0x75, 0xa9, 0xc6, 0x67, 0x11, 0xeb, 0xa5, 0xe9, 0x4e, 0x56,
-	0xd7, 0xe8, 0xc0, 0x9d, 0x22, 0xe9, 0xb4, 0x0a, 0x1b, 0x13, 0x3c, 0xd7, 0x8b, 0x4c, 0x8e, 0xf4,
-	0x0e, 0x6c, 0xa9, 0x59, 0xe9, 0x0d, 0xa6, 0x97, 0xa7, 0xa5, 0x27, 0xc4, 0xd8, 0x07, 0xb8, 0x78,
-	0x9a, 0x96, 0xa1, 0xd4, 0xb3, 0xab, 0x1f, 0xa9, 0xbf, 0x8f, 0xab, 0xc4, 0x98, 0xc0, 0xdd, 0x2e,
-	0x13, 0x72, 0x21, 0x43, 0x38, 0xf8, 0xd3, 0x0c, 0x85, 0x4c, 0xd6, 0x1e, 0x79, 0x31, 0x86, 0x52,
-	0xb3, 0xe8, 0x1b, 0x7d, 0x00, 0x10, 0x79, 0x3e, 0xba, 0x92, 0x4f, 0x30, 0xf3, 0xcb, 0x4e, 0x12,
-	0xf9, 0x2e, 0x09, 0xd0, 0xfb, 0xa0, 0x2e, 0xae, 0x60, 0xaf, 0x51, 0x19, 0x66, 0xcb, 0xb9, 0x91,
-	0x04, 0x5e, 0xb1, 0xd7, 0x68, 0x9c, 0x41, 0x6d, 0x99, 0x4c, 0x44, 0x3c, 0x14, 0x48, 0x8f, 0x60,
-	0x5b, 0x7f, 0xc2, 0xea, 0x44, 0xed, 0x73, 0xff, 0xb2, 0x59, 0x39, 0x59, 0x32, 0x3d, 0x80, 0x4a,
-	0x88, 0x67, 0xd2, 0x5d, 0x91, 0x74, 0x33, 0x09, 0x9f, 0x66, 0xb2, 0x8c, 0x23, 0xb8, 0xfd, 0x02,
-	0x2f, 0x88, 0xb3, 0x26, 0x1f, 0xc2, 0xae, 0xf6, 0x70, 0xee, 0x83, 0x01, 0x69, 0xe8, 0x1b, 0x6f,
-	0x8a, 0xc6, 0x18, 0x6a, 0xcf, 0x63, 0xf4, 0x24, 0xae, 0x94, 0x7e, 0x68, 0x3e, 0x9f, 0x43, 0x39,
-	0xad, 0x57, 0x42, 0xd6, 0x35, 0xa2, 0x73, 0x0d, 0x0e, 0xb5, 0xef, 0xa3, 0x51, 0x11, 0xcf, 0x3a,
-	0x89, 0xd7, 0x24, 0xfc, 0x02, 0x6a, 0xc7, 0x18, 0xe0, 0x35, 0x08, 0xed, 0x7f, 0xb6, 0xa0, 0xaa,
-	0xf7, 0xf7, 0x0a, 0xe3, 0x39, 0x1b, 0x62, 0xcf, 0xa6, 0xbf, 0x11, 0xd8, 0x7b, 0x7f, 0xb7, 0xb4,
-	0x5d, 0x24, 0xa4, 0xc8, 0x6b, 0x8d, 0x47, 0x57, 0xc8, 0x4c, 0x8d, 0x62, 0xb4, 0x7e, 0xf9, 0xfb,
-	0xdf, 0x3f, 0x4a, 0x9f, 0xd0, 0x87, 0xc9, 0x3f, 0xe7, 0x9f, 0xd3, 0x99, 0x7f, 0x15, 0xc5, 0xfc,
-	0x47, 0x1c, 0x4a, 0x61, 0x1d, 0xbe, 0xb1, 0x32, 0x67, 0xbc, 0x25, 0xf0, 0x71, 0x7e, 0xe5, 0xf4,
-	0xa0, 0x80, 0xa4, 0xc0, 0x13, 0x8d, 0x4b, 0xe7, 0x67, 0x98, 0x8a, 0xbf, 0x4d, 0x0f, 0x14, 0x7f,
-	0x6e, 0x50, 0x39, 0x11, 0x99, 0x06, 0xeb, 0xf0, 0x0d, 0xfd, 0x95, 0x40, 0x65, 0xc9, 0x41, 0xb4,
-	0xa8, 0xdd, 0x62, 0x97, 0xad, 0x11, 0x63, 0x29, 0x31, 0x8f, 0x8c, 0x75, 0xc3, 0x78, 0xaa, 0xb7,
-	0x4e, 0x7f, 0x27, 0x50, 0x59, 0xf2, 0x59, 0xa1, 0x9a, 0x62, 0x2f, 0xae, 0x51, 0x73, 0xa4, 0xd4,
-	0x7c, 0xda, 0xb8, 0xe2, 0x68, 0x16, 0xa2, 0xde, 0x12, 0xa8, 0x2c, 0x79, 0xb1, 0x50, 0x54, 0xb1,
-	0x5f, 0x1b, 0xb5, 0x2c, 0x35, 0xfb, 0x1a, 0x34, 0x4f, 0x92, 0xef, 0xc8, 0x6c, 0x53, 0x87, 0x57,
-	0x94, 0xd3, 0x79, 0x47, 0xe0, 0xee, 0x90, 0x4f, 0x57, 0x89, 0x3b, 0xb7, 0xbb, 0xe9, 0x59, 0x7b,
-	0xf1, 0x34, 0xe1, 0x39, 0x25, 0x3f, 0x3c, 0xd1, 0x99, 0x3e, 0x0f, 0xbc, 0xd0, 0x37, 0x79, 0xec,
-	0x5b, 0x3e, 0x86, 0x4a, 0x85, 0x95, 0x42, 0x5e, 0xc4, 0x44, 0xee, 0xc7, 0xc4, 0x97, 0xfa, 0xf8,
-	0x1f, 0x21, 0x7f, 0x96, 0xee, 0xbd, 0x48, 0xab, 0x9f, 0x07, 0x7c, 0x36, 0x32, 0x35, 0x83, 0xd9,
-	0xb3, 0xff, 0xca, 0x90, 0xbe, 0x42, 0xfa, 0x1a, 0xe9, 0xf7, 0xec, 0x41, 0x59, 0xbd, 0xfd, 0xd9,
-	0xff, 0x01, 0x00, 0x00, 0xff, 0xff, 0xf7, 0xb9, 0xb3, 0xe4, 0xa7, 0x08, 0x00, 0x00,
 }

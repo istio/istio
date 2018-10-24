@@ -70,9 +70,6 @@ import (
 	"istio.io/istio/pkg/mcp/configz"
 	"istio.io/istio/pkg/mcp/creds"
 	"istio.io/istio/pkg/version"
-
-	// Import the resource package to pull in all proto types.
-	_ "istio.io/istio/galley/pkg/metadata"
 )
 
 const (
@@ -80,6 +77,9 @@ const (
 	ConfigMapKey = "mesh"
 
 	requiredMCPCertCheckFreq = 500 * time.Millisecond
+
+	// DefaultMCPMaxMsgSize is the default maximum message size
+	DefaultMCPMaxMsgSize = 1024 * 1024 * 4
 )
 
 var (
@@ -155,6 +155,7 @@ type PilotArgs struct {
 	Plugins              []string
 	MCPServerAddrs       []string
 	MCPCredentialOptions *creds.Options
+	MCPMaxMessageSize    int
 }
 
 // Server contains the runtime configuration for the Pilot discovery service.
@@ -279,7 +280,7 @@ func (s *Server) initClusterRegistries(args *PilotArgs) (err error) {
 			args.Config.ControllerOptions.DomainSuffix,
 			args.Config.ControllerOptions.ResyncPeriod,
 			s.ServiceController,
-			s.EnvoyXdsServer.ClearCacheFunc())
+			s.EnvoyXdsServer)
 
 		if err != nil {
 			log.Info("Unable to create new Multicluster object")
@@ -455,7 +456,8 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 			credentials := creds.CreateForClient(u.Hostname(), watcher)
 			securityOption = grpc.WithTransportCredentials(credentials)
 		}
-		conn, err := grpc.DialContext(ctx, u.Host, securityOption)
+		msgSizeOption := grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(args.MCPMaxMessageSize))
+		conn, err := grpc.DialContext(ctx, u.Host, securityOption, msgSizeOption)
 		if err != nil {
 			log.Errorf("Unable to dial MCP Server %q: %v", u.Host, err)
 			return err
@@ -724,8 +726,6 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 
 	// Set up discovery service
 	discovery, err := envoy.NewDiscoveryService(
-		s.ServiceController,
-		s.configController,
 		environment,
 		args.DiscoveryOptions,
 	)
@@ -739,15 +739,17 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	// For now we create the gRPC server sourcing data from Pilot's older data model.
 	s.initGrpcServer()
 
-	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(environment, istio_networking.NewConfigGenerator(args.Plugins))
-	// TODO: decouple v2 from the cache invalidation, use direct listeners.
-	envoy.V2ClearCache = s.EnvoyXdsServer.ClearCacheFunc()
+	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(environment,
+		istio_networking.NewConfigGenerator(args.Plugins),
+		s.ServiceController, s.configController)
+
 	s.EnvoyXdsServer.Register(s.grpcServer)
 
 	if s.kubeRegistry != nil {
 		// kubeRegistry may use the environment for push status reporting.
 		// TODO: maybe all registries should have his as an optional field ?
 		s.kubeRegistry.Env = environment
+		s.kubeRegistry.XDSUpdater = s.EnvoyXdsServer
 	}
 
 	s.EnvoyXdsServer.InitDebug(s.mux, s.ServiceController)

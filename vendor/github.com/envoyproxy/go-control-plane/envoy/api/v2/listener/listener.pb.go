@@ -54,7 +54,7 @@ func (m *Filter) Reset()         { *m = Filter{} }
 func (m *Filter) String() string { return proto.CompactTextString(m) }
 func (*Filter) ProtoMessage()    {}
 func (*Filter) Descriptor() ([]byte, []int) {
-	return fileDescriptor_listener_3375c0acf9db00a4, []int{0}
+	return fileDescriptor_listener_462264e90ec3bbd9, []int{0}
 }
 func (m *Filter) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -117,7 +117,7 @@ func (m *Filter_DeprecatedV1) Reset()         { *m = Filter_DeprecatedV1{} }
 func (m *Filter_DeprecatedV1) String() string { return proto.CompactTextString(m) }
 func (*Filter_DeprecatedV1) ProtoMessage()    {}
 func (*Filter_DeprecatedV1) Descriptor() ([]byte, []int) {
-	return fileDescriptor_listener_3375c0acf9db00a4, []int{0, 0}
+	return fileDescriptor_listener_462264e90ec3bbd9, []int{0, 0}
 }
 func (m *Filter_DeprecatedV1) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -168,7 +168,7 @@ func (m *Filter_DeprecatedV1) GetType() string {
 // 4. Transport protocol.
 // 5. Application protocols (e.g. ALPN for TLS protocol).
 //
-// For criterias that allow ranges or wildcards, the most specific value in any
+// For criteria that allow ranges or wildcards, the most specific value in any
 // of the configured filter chains that matches the incoming connection is going
 // to be used (e.g. for SNI ``www.example.com`` the most specific match would be
 // ``www.example.com``, then ``*.example.com``, then ``*.com``, then any filter
@@ -255,7 +255,7 @@ func (m *FilterChainMatch) Reset()         { *m = FilterChainMatch{} }
 func (m *FilterChainMatch) String() string { return proto.CompactTextString(m) }
 func (*FilterChainMatch) ProtoMessage()    {}
 func (*FilterChainMatch) Descriptor() ([]byte, []int) {
-	return fileDescriptor_listener_3375c0acf9db00a4, []int{1}
+	return fileDescriptor_listener_462264e90ec3bbd9, []int{1}
 }
 func (m *FilterChainMatch) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -379,7 +379,7 @@ func (m *FilterChain) Reset()         { *m = FilterChain{} }
 func (m *FilterChain) String() string { return proto.CompactTextString(m) }
 func (*FilterChain) ProtoMessage()    {}
 func (*FilterChain) Descriptor() ([]byte, []int) {
-	return fileDescriptor_listener_3375c0acf9db00a4, []int{2}
+	return fileDescriptor_listener_462264e90ec3bbd9, []int{2}
 }
 func (m *FilterChain) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -470,7 +470,7 @@ func (m *ListenerFilter) Reset()         { *m = ListenerFilter{} }
 func (m *ListenerFilter) String() string { return proto.CompactTextString(m) }
 func (*ListenerFilter) ProtoMessage()    {}
 func (*ListenerFilter) Descriptor() ([]byte, []int) {
-	return fileDescriptor_listener_3375c0acf9db00a4, []int{3}
+	return fileDescriptor_listener_462264e90ec3bbd9, []int{3}
 }
 func (m *ListenerFilter) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2227,10 +2227,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/api/v2/listener/listener.proto", fileDescriptor_listener_3375c0acf9db00a4)
+	proto.RegisterFile("envoy/api/v2/listener/listener.proto", fileDescriptor_listener_462264e90ec3bbd9)
 }
 
-var fileDescriptor_listener_3375c0acf9db00a4 = []byte{
+var fileDescriptor_listener_462264e90ec3bbd9 = []byte{
 	// 782 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x54, 0x41, 0x4f, 0xdb, 0x48,
 	0x18, 0x5d, 0x27, 0xd9, 0x90, 0x8c, 0x13, 0xc8, 0x8e, 0x40, 0x58, 0x59, 0x08, 0xd9, 0x68, 0x57,

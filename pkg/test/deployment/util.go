@@ -27,17 +27,17 @@ import (
 )
 
 // DumpPodState logs the current pod state.
-func DumpPodState(kubeConfig, namespace string) {
-	s, err := kube.GetPods(kubeConfig, namespace)
+func DumpPodState(namespace string, accessor *kube.Accessor) {
+	s, err := accessor.GetPods(namespace)
 	if err != nil {
 		scopes.CI.Errorf("Error getting pods list via kubectl: %v", err)
 		return
 	}
-	scopes.CI.Infof("Pods (from Kubectl):\n%s", s)
+	scopes.CI.Infof("Pods (from Kubectl):\n%v", s)
 }
 
 // DumpPodData copies pod logs from Kubernetes to the specified workDir.
-func DumpPodData(kubeConfig, workDir, namespace string, accessor *kube.Accessor) {
+func DumpPodData(workDir, namespace string, accessor *kube.Accessor) {
 	pods, err := accessor.GetPods(namespace)
 
 	if err != nil {
@@ -49,7 +49,7 @@ func DumpPodData(kubeConfig, workDir, namespace string, accessor *kube.Accessor)
 
 	for _, pod := range pods {
 		for _, cs := range pod.Status.ContainerStatuses {
-			logs, err := kube.Logs(kubeConfig, namespace, pod.Name, cs.Name)
+			logs, err := accessor.Logs(namespace, pod.Name, cs.Name)
 			if err != nil {
 				scopes.CI.Infof("Error getting logs from pod/container %s/%s: %v", pod.Name, cs.Name, err)
 				continue

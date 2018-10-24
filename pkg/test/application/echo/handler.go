@@ -25,12 +25,11 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/istio/pkg/test/application"
-
 	"github.com/gorilla/websocket"
 	"google.golang.org/grpc/metadata"
 
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/test/application"
 	"istio.io/istio/pkg/test/application/echo/proto"
 )
 
@@ -88,6 +87,11 @@ func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		body.WriteString("ParseForm() error: " + err.Error() + "\n")
 	}
 
+	// If the request has form ?headers=name:value[,name:value]* return those headers in response
+	if err := setHeaderResponseFromHeaders(r, w); err != nil {
+		body.WriteString("response headers error: " + err.Error() + "\n")
+	}
+
 	// If the request has form ?codes=code[:chance][,code[:chance]]* return those codes, rather than 200
 	// For example, ?codes=500:1,200:1 returns 500 1/2 times and 200 1/2 times
 	// For example, ?codes=500:90,200:10 returns 500 90% of times and 200 10% of times
@@ -119,12 +123,12 @@ func (h handler) Echo(ctx context.Context, req *proto.EchoRequest) (*proto.EchoR
 
 func (h handler) ForwardEcho(ctx context.Context, req *proto.ForwardEchoRequest) (*proto.ForwardEchoResponse, error) {
 	ops := h.newBatchOptions(req)
-	b, err := newBatch(ops)
+	b, err := NewBatch(ops)
 	if err != nil {
 		return nil, err
 	}
 
-	results, err := b.run()
+	results, err := b.Run()
 	if err != nil {
 		return nil, err
 	}
@@ -134,19 +138,20 @@ func (h handler) ForwardEcho(ctx context.Context, req *proto.ForwardEchoRequest)
 	}, nil
 }
 
-func (h handler) newBatchOptions(req *proto.ForwardEchoRequest) batchOptions {
-	ops := batchOptions{
-		url:     req.Url,
-		timeout: time.Duration(req.TimeoutMicros) / time.Microsecond,
-		count:   int(req.Count),
-		qps:     int(req.Qps),
-		message: req.Message,
-		caFile:  h.caFile,
-		dialer:  h.dialer,
+func (h handler) newBatchOptions(req *proto.ForwardEchoRequest) BatchOptions {
+	ops := BatchOptions{
+		URL:     req.Url,
+		Timeout: time.Duration(req.TimeoutMicros) / time.Microsecond,
+		Count:   int(req.Count),
+		QPS:     int(req.Qps),
+		Message: req.Message,
+		CAFile:  h.caFile,
+		Dialer:  h.dialer,
+		Header:  make(http.Header),
 	}
-	if req.Header != nil {
-		ops.headerKey = req.Header.Key
-		ops.headerVal = req.Header.Value
+
+	for _, h := range req.Headers {
+		ops.Header.Add(h.Key, h.Value)
 	}
 	return ops
 }
@@ -180,6 +185,25 @@ func (h handler) WebSocketEcho(w http.ResponseWriter, r *http.Request) {
 		log.Warna("websocket-echo write failed:", err)
 		return
 	}
+}
+
+func setHeaderResponseFromHeaders(request *http.Request, response http.ResponseWriter) error {
+	s := request.FormValue("headers")
+	if len(s) == 0 {
+		return nil
+	}
+	responseHeaders := strings.Split(s, ",")
+	for _, responseHeader := range responseHeaders {
+		parts := strings.Split(responseHeader, ":")
+		// require name:value format
+		if len(parts) != 2 {
+			return fmt.Errorf("invalid %q (want name:value)", responseHeader)
+		}
+		name := parts[0]
+		value := parts[1]
+		response.Header().Set(name, value)
+	}
+	return nil
 }
 
 func setResponseFromCodes(request *http.Request, response http.ResponseWriter) error {
