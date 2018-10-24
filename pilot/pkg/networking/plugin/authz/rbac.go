@@ -552,7 +552,13 @@ func convertRbacRulesToFilterConfig(service *serviceMetadata, option rbacOption)
 			ShadowRules: permissiveRbac}
 	}
 
-	return &http_config.RBAC{Rules: rbac, ShadowRules: permissiveRbac}
+	// If RBAC permissive mode is only set on policy level, set ShadowRules only when there is policy in permissive mode.
+	// Otherwise, non-empty shadow_rules causes permissive attributes are sent to mixer when permissive mode isn't set.
+	if len(permissiveRbac.Policies) > 0 {
+		return &http_config.RBAC{Rules: rbac, ShadowRules: permissiveRbac}
+	}
+
+	return &http_config.RBAC{Rules: rbac}
 }
 
 // convertToPermission converts a single AccessRule to a Permission.
@@ -749,7 +755,7 @@ func permissionForKeyValues(key string, values []string) *policyproto.Permission
 		converter = func(v string) (*policyproto.Permission, error) {
 			return &policyproto.Permission{
 				Rule: &policyproto.Permission_RequestedServerName{
-					RequestedServerName: createStringMatcher(v, /* forceRegexPattern */ false, /* forTCPFilter */ false),
+					RequestedServerName: createStringMatcher(v, false /* forceRegexPattern */, false /* forTCPFilter */),
 				},
 			}, nil
 		}
