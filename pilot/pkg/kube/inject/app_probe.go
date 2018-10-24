@@ -17,6 +17,7 @@ package inject
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	corev1 "k8s.io/api/core/v1"
@@ -30,8 +31,10 @@ const (
 	StatusPortCmdFlagName = "statusPort"
 )
 
-// TODO(incfly): support more than one container probing.
 func appProbePath(kind string, containers []corev1.Container) string {
+	if !canRewriteProber(containers) {
+		return ""
+	}
 	for _, c := range containers {
 		probe := c.ReadinessProbe
 		if kind == "live" {
@@ -55,11 +58,29 @@ func appProbePath(kind string, containers []corev1.Container) string {
 		}
 		return fmt.Sprintf(":%v%v", port, hp.Path)
 	}
-
 	return ""
 }
 
+// Returns true if only one container has readiness or liveness prober defined in the spec.
+// TODO(incfly): support more than one container probing.
+func canRewriteProber(containers []corev1.Container) bool {
+	count := 0
+	for _, c := range containers {
+		if c.Name == "istio-proxy" {
+			continue
+		}
+		if c.LivenessProbe != nil || c.ReadinessProbe != nil {
+			count += 1
+		}
+	}
+	return count == 1
+}
+
 func rewriteAppHTTPProbe(spec *SidecarInjectionSpec, podSpec *corev1.PodSpec) {
+	if !canRewriteProber(podSpec.Containers) {
+		return
+	}
+
 	statusPort := -1
 	pi := -1
 	for _, c := range spec.Containers {
@@ -68,7 +89,8 @@ func rewriteAppHTTPProbe(spec *SidecarInjectionSpec, podSpec *corev1.PodSpec) {
 			continue
 		}
 		for i, arg := range c.Args {
-			if arg == "--statusPort" { // StatusPortCmdFlagName {
+			// arg is "--flag-name"
+			if strings.HasSuffix(arg, StatusPortCmdFlagName) {
 				pi = i
 				break
 			}
@@ -77,18 +99,20 @@ func rewriteAppHTTPProbe(spec *SidecarInjectionSpec, podSpec *corev1.PodSpec) {
 			statusPort, _ = strconv.Atoi(c.Args[pi+1])
 		}
 	}
-	// pilot agent statusPort is not defined, skip changing application http probe.
+	// Pilot agent statusPort is not defined, skip changing application http probe.
 	if statusPort == -1 {
 		return
 	}
+	// We only support one for now. If more than one container have prober defined, we don't rewrite.
+
 	// Change the application containers' probe to point to sidecar's status port.
-	rewriteProbe := func(probe *corev1.Probe, path string) {
+	rewriteProbe := func(probe *corev1.Probe, path string) bool {
 		if probe == nil || probe.HTTPGet == nil {
-			return
+			return false
 		}
-		//fmt.Printf("jianfeih debug this rewrite happened %v %v\n", path, statusPort)
 		probe.HTTPGet.Path = path
 		probe.HTTPGet.Port = intstr.FromInt(statusPort)
+		return true
 	}
 	for _, c := range podSpec.Containers {
 		// Skip sidecar container.

@@ -474,9 +474,6 @@ func TestIntoResourceFile(t *testing.T) {
 	}
 
 	for i, c := range cases {
-		if c.in != "hello-probes.yaml" {
-			continue
-		}
 		testName := fmt.Sprintf("[%02d] %s", i, c.want)
 		t.Run(testName, func(t *testing.T) {
 			mesh := model.DefaultMeshConfig()
