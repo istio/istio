@@ -30,27 +30,37 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	admissionregistration "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1"
+	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pkg/log"
 )
 
-// Check if the galley validation endpoint is ready to receive requests.
-func (wh *Webhook) endpointReady() error {
-	endpoints, err := wh.clientset.CoreV1().Endpoints(wh.deploymentNamespace).Get(wh.deploymentName, metav1.GetOptions{})
-	if err != nil {
-		return fmt.Errorf("%s/%v endpoint ready check failed: %v", wh.deploymentNamespace, wh.deploymentName, err)
-	}
-
-	if len(endpoints.Subsets) == 0 {
-		return fmt.Errorf("%s/%v endpoint not ready: no subsets", wh.deploymentNamespace, wh.deploymentName)
-	}
-
-	for _, subset := range endpoints.Subsets {
-		if len(subset.Addresses) > 0 {
-			return nil
-		}
-	}
-	return fmt.Errorf("%s/%v endpoint not ready: no ready addresses", wh.deploymentNamespace, wh.deploymentName)
+// Run an informer that watches the current webhook configuration
+// for changes.
+func (wh *Webhook) monitorWebhookChanges(stopC <-chan struct{}) chan struct{} {
+	webhookChangedCh := make(chan struct{}, 1000)
+	_, controller := cache.NewInformer(
+		wh.createInformerWebhookSource(wh.clientset, wh.webhookName),
+		&v1beta1.ValidatingWebhookConfiguration{},
+		0,
+		cache.ResourceEventHandlerFuncs{
+			AddFunc: func(_ interface{}) {
+				webhookChangedCh <- struct{}{}
+			},
+			UpdateFunc: func(prev, curr interface{}) {
+				prevObj := prev.(*v1beta1.ValidatingWebhookConfiguration)
+				currObj := curr.(*v1beta1.ValidatingWebhookConfiguration)
+				if prevObj.ResourceVersion != currObj.ResourceVersion {
+					webhookChangedCh <- struct{}{}
+				}
+			},
+			DeleteFunc: func(_ interface{}) {
+				webhookChangedCh <- struct{}{}
+			},
+		},
+	)
+	go controller.Run(stopC)
+	return webhookChangedCh
 }
 
 func (wh *Webhook) createOrUpdateWebhookConfig() {
@@ -58,24 +68,6 @@ func (wh *Webhook) createOrUpdateWebhookConfig() {
 		log.Error("validatingwebhookconfiguration update failed: no configuration loaded")
 		reportValidationConfigUpdateError(errors.New("no configuration loaded"))
 		return
-	}
-
-	// During initial Istio installation its possible for custom
-	// resources to be created concurrently with galley startup. This
-	// can lead to validation failures with "no endpoints available"
-	// if the webhook is registered before the endpoint is visible to
-	// the rest of the system. Minimize this problem by waiting the
-	// galley endpoint is available at least once before
-	// self-registering. Subsequent Istio upgrades rely on deployment
-	// rolling updates to set maxUnavailable to zero.
-	if !wh.endpointReadyOnce {
-		if err := wh.endpointReady(); err != nil {
-			log.Warnf("%v validatingwebhookconfiguration update deferred: %v",
-				wh.webhookConfiguration.Name, err)
-			reportValidationConfigUpdateError(errors.New("endpoint not ready"))
-			return
-		}
-		wh.endpointReadyOnce = true
 	}
 
 	client := wh.clientset.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations()
@@ -124,6 +116,7 @@ func (wh *Webhook) rebuildWebhookConfig() error {
 	webhookConfig, err := rebuildWebhookConfigHelper(
 		wh.caFile,
 		wh.webhookConfigFile,
+		wh.webhookName,
 		wh.ownerRefs)
 	if err != nil {
 		reportValidationConfigLoadError(err)
@@ -169,7 +162,7 @@ func loadCaCertPem(in io.Reader) ([]byte, error) {
 // so that the cluster-scoped validatingwebhookconfiguration is properly
 // cleaned up when istio-galley is deleted.
 func rebuildWebhookConfigHelper(
-	caFile, webhookConfigFile string,
+	caFile, webhookConfigFile, webhookName string,
 	ownerRefs []metav1.OwnerReference,
 ) (*v1beta1.ValidatingWebhookConfiguration, error) {
 	// load and validate configuration
@@ -193,6 +186,9 @@ func rebuildWebhookConfigHelper(
 			webhookConfig.Webhooks[i].NamespaceSelector = &metav1.LabelSelector{}
 		}
 	}
+
+	// the webhook name is fixed at startup time
+	webhookConfig.Name = webhookName
 
 	// update ownerRefs so configuration is cleaned up when the validation deployment is deleted.
 	webhookConfig.OwnerReferences = ownerRefs
