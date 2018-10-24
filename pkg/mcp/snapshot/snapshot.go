@@ -23,7 +23,7 @@ import (
 	"istio.io/istio/pkg/mcp/server"
 )
 
-var scope = log.RegisterScope("snapshot", "mcp snapshot", 0)
+var scope = log.RegisterScope("mcp", "mcp debugging", 0)
 
 // Snapshot provides an immutable view of versioned envelopes.
 type Snapshot interface {
@@ -136,7 +136,7 @@ func (c *Cache) Watch(request *mcp.MeshConfigRequest, responseC chan<- *server.W
 	c.watchCount++
 	watchID := c.watchCount
 
-	log.Infof("Watch(): created watch %d for %s from group %q, version %q",
+	scope.Infof("Watch(): created watch %d for %s from group %q, version %q",
 		watchID, request.TypeUrl, group, request.VersionInfo)
 
 	info.mu.Lock()
@@ -169,7 +169,7 @@ func (c *Cache) SetSnapshot(group string, snapshot Snapshot) {
 		for id, watch := range info.watches {
 			version := snapshot.Version(watch.request.TypeUrl)
 			if version != watch.request.VersionInfo {
-				log.Infof("SetSnapshot(): respond to watch %d with new version %q", id, version)
+				scope.Infof("SetSnapshot(): respond to watch %d with new version %q", id, version)
 
 				response := &server.WatchResponse{
 					TypeURL:   watch.request.TypeUrl,
@@ -181,7 +181,7 @@ func (c *Cache) SetSnapshot(group string, snapshot Snapshot) {
 				// discard the responseWatch
 				delete(info.watches, id)
 
-				log.Debugf("SetSnapshot(): watch %d with version %q complete", id, version)
+				scope.Debugf("SetSnapshot(): watch %d with version %q complete", id, version)
 			}
 		}
 		info.mu.Unlock()

@@ -160,7 +160,7 @@ func (s *Server) newConnection(stream mcp.AggregatedMeshConfigService_StreamAggr
 	if ok {
 		peerAddr = peerInfo.Addr.String()
 	} else {
-		log.Warnf("No peer info found on the incoming stream.")
+		scope.Warnf("No peer info found on the incoming stream.")
 		peerInfo = nil
 	}
 
@@ -172,7 +172,7 @@ func (s *Server) newConnection(stream mcp.AggregatedMeshConfigService_StreamAggr
 	if err := s.authCheck.Check(authInfo); err != nil {
 		s.failureCountSinceLastRecord++
 		if s.checkFailureRecordLimiter.Allow() {
-			log.Warnf("NewConnection: auth check failed: %v (repeated %d times).", err, s.failureCountSinceLastRecord)
+			scope.Warnf("NewConnection: auth check failed: %v (repeated %d times).", err, s.failureCountSinceLastRecord)
 			s.failureCountSinceLastRecord = 0
 		}
 		return nil, status.Errorf(codes.Unauthenticated, "Authentication failure: %v", err)

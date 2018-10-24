@@ -22,7 +22,6 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"gopkg.in/yaml.v2"
 
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/mcp/server"
 )
 
@@ -94,7 +93,7 @@ func watchAccessList(stopCh <-chan struct{}, accessListFile string) (*server.Lis
 			case e := <-watcher.Events():
 				if e.Op&fsnotify.Write == fsnotify.Write {
 					if list, err = readAccessList(accessListFile); err != nil {
-						log.Errorf("Error reading access list %q: %v", accessListFile, err)
+						scope.Errorf("Error reading access list %q: %v", accessListFile, err)
 					} else {
 						checker.Set(list.Allowed...)
 					}
@@ -116,7 +115,7 @@ func watchAccessList(stopCh <-chan struct{}, accessListFile string) (*server.Lis
 		for {
 			select {
 			case e := <-watcher.Errors():
-				log.Errorf("error event while watching access list file: %v", e)
+				scope.Errorf("error event while watching access list file: %v", e)
 
 			case <-stopCh:
 				return

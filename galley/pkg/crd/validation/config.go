@@ -35,6 +35,8 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
+var scope = log.RegisterScope("kube", "kube-specific debugging", 0)
+
 // Run an informer that watches the current webhook configuration
 // for changes.
 func (wh *Webhook) monitorWebhookChanges(stopC <-chan struct{}) chan struct{} {
@@ -65,7 +67,7 @@ func (wh *Webhook) monitorWebhookChanges(stopC <-chan struct{}) chan struct{} {
 
 func (wh *Webhook) createOrUpdateWebhookConfig() {
 	if wh.webhookConfiguration == nil {
-		log.Error("validatingwebhookconfiguration update failed: no configuration loaded")
+		scope.Error("validatingwebhookconfiguration update failed: no configuration loaded")
 		reportValidationConfigUpdateError(errors.New("no configuration loaded"))
 		return
 	}
@@ -73,10 +75,10 @@ func (wh *Webhook) createOrUpdateWebhookConfig() {
 	client := wh.clientset.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations()
 	updated, err := createOrUpdateWebhookConfigHelper(client, wh.webhookConfiguration)
 	if err != nil {
-		log.Errorf("%v validatingwebhookconfiguration update failed: %v", wh.webhookConfiguration.Name, err)
+		scope.Errorf("%v validatingwebhookconfiguration update failed: %v", wh.webhookConfiguration.Name, err)
 		reportValidationConfigUpdateError(err)
 	} else if updated {
-		log.Infof("%v validatingwebhookconfiguration updated", wh.webhookConfiguration.Name)
+		scope.Infof("%v validatingwebhookconfiguration updated", wh.webhookConfiguration.Name)
 		reportValidationConfigUpdate()
 	}
 }
@@ -120,7 +122,7 @@ func (wh *Webhook) rebuildWebhookConfig() error {
 		wh.ownerRefs)
 	if err != nil {
 		reportValidationConfigLoadError(err)
-		log.Errorf("validatingwebhookconfiguration (re)load failed: %v", err)
+		scope.Errorf("validatingwebhookconfiguration (re)load failed: %v", err)
 		return err
 	}
 	wh.webhookConfiguration = webhookConfig
@@ -130,7 +132,7 @@ func (wh *Webhook) rebuildWebhookConfig() error {
 	if b, err := yaml.Marshal(wh.webhookConfiguration); err == nil {
 		webhookYAML = string(b)
 	}
-	log.Infof("%v validatingwebhookconfiguration (re)loaded: \n%v",
+	scope.Infof("%v validatingwebhookconfiguration (re)loaded: \n%v",
 		wh.webhookConfiguration.Name, webhookYAML)
 
 	reportValidationConfigLoad()
@@ -217,7 +219,7 @@ func (wh *Webhook) reloadKeyCert() {
 	pair, err := tls.LoadX509KeyPair(wh.certFile, wh.keyFile)
 	if err != nil {
 		reportValidationCertKeyUpdateError(err)
-		log.Errorf("Cert/Key reload error: %v", err)
+		scope.Errorf("Cert/Key reload error: %v", err)
 		return
 	}
 	wh.mu.Lock()
@@ -225,5 +227,5 @@ func (wh *Webhook) reloadKeyCert() {
 	wh.mu.Unlock()
 
 	reportValidationCertKeyUpdate()
-	log.Info("Cert and Key reloaded")
+	scope.Info("Cert and Key reloaded")
 }

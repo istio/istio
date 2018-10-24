@@ -41,7 +41,6 @@ import (
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/log"
 )
 
 var (
@@ -221,7 +220,7 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 	}
 
 	if galleyDeployment, err := wh.clientset.ExtensionsV1beta1().Deployments(wh.deploymentAndServiceNamespace).Get(wh.deploymentName, v1.GetOptions{}); err != nil { // nolint: lll
-		log.Warnf("Could not find %s/%s deployment to set ownerRef. The validatingwebhookconfiguration must be deleted manually",
+		scope.Warnf("Could not find %s/%s deployment to set ownerRef. The validatingwebhookconfiguration must be deleted manually",
 			wh.deploymentAndServiceNamespace, wh.deploymentName)
 	} else {
 		wh.ownerRefs = []v1.OwnerReference{
@@ -252,7 +251,7 @@ func (wh *Webhook) stop() {
 func (wh *Webhook) Run(stopCh <-chan struct{}) {
 	go func() {
 		if err := wh.server.ListenAndServeTLS("", ""); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("admission webhook ListenAndServeTLS failed: %v", err)
+			scope.Fatalf("admission webhook ListenAndServeTLS failed: %v", err)
 		}
 	}()
 	defer wh.stop()
@@ -307,9 +306,9 @@ func (wh *Webhook) Run(stopCh <-chan struct{}) {
 				configTimerC = time.After(watchDebounceDelay)
 			}
 		case err := <-wh.keyCertWatcher.Error:
-			log.Errorf("keyCertWatcher error: %v", err)
+			scope.Errorf("keyCertWatcher error: %v", err)
 		case err := <-wh.configWatcher.Error:
-			log.Errorf("configWatcher error: %v", err)
+			scope.Errorf("configWatcher error: %v", err)
 		case <-stopCh:
 			return
 		}
@@ -389,7 +388,7 @@ func (wh *Webhook) admitPilot(request *admissionv1beta1.AdmissionRequest) *admis
 	switch request.Operation {
 	case admissionv1beta1.Create, admissionv1beta1.Update:
 	default:
-		log.Warnf("Unsupported webhook operation %v", request.Operation)
+		scope.Warnf("Unsupported webhook operation %v", request.Operation)
 		reportValidationFailed(request, reasonUnsupportedOperation)
 		return &admissionv1beta1.AdmissionResponse{Allowed: true}
 	}
@@ -446,7 +445,7 @@ func (wh *Webhook) admitMixer(request *admissionv1beta1.AdmissionRequest) *admis
 		ev.Type = store.Delete
 		ev.Key.Name = request.Name
 	default:
-		log.Warnf("Unsupported webhook operation %v", request.Operation)
+		scope.Warnf("Unsupported webhook operation %v", request.Operation)
 		reportValidationFailed(request, reasonUnsupportedOperation)
 		return &admissionv1beta1.AdmissionResponse{Allowed: true}
 	}

@@ -19,7 +19,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
-	"istio.io/istio/pkg/log"
 )
 
 type endpointReadiness int
@@ -43,7 +42,7 @@ func endpointReady(store cache.Store, queue workqueue.RateLimitingInterface, nam
 	}
 	endpoints := item.(*v1.Endpoints)
 	if len(endpoints.Subsets) == 0 {
-		log.Warnf("%s/%v endpoint not ready: no subsets", namespace, name)
+		scope.Warnf("%s/%v endpoint not ready: no subsets", namespace, name)
 		return endpointCheckNotReady
 	}
 	for _, subset := range endpoints.Subsets {
@@ -51,19 +50,19 @@ func endpointReady(store cache.Store, queue workqueue.RateLimitingInterface, nam
 			return endpointCheckReady
 		}
 	}
-	log.Warnf("%s/%v endpoint not ready: no ready addresses", namespace, name)
+	scope.Warnf("%s/%v endpoint not ready: no ready addresses", namespace, name)
 	return endpointCheckNotReady
 }
 
 func (wh *Webhook) waitForEndpointReady(stopCh <-chan struct{}) (shutdown bool) {
-	log.Infof("Checking if %s/%s is ready before registering webhook configuration ",
+	scope.Infof("Checking if %s/%s is ready before registering webhook configuration ",
 		wh.deploymentAndServiceNamespace, wh.deploymentName)
 
 	defer func() {
 		if shutdown {
-			log.Info("Endpoint readiness check stopped - controller shutting down")
+			scope.Info("Endpoint readiness check stopped - controller shutting down")
 		} else {
-			log.Infof("Endpoint %s/%s is ready", wh.deploymentAndServiceNamespace, wh.deploymentName)
+			scope.Infof("Endpoint %s/%s is ready", wh.deploymentAndServiceNamespace, wh.deploymentName)
 		}
 	}()
 

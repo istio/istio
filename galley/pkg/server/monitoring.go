@@ -23,7 +23,6 @@ import (
 	ocprom "go.opencensus.io/exporter/prometheus"
 	"go.opencensus.io/stats/view"
 
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
 )
 
@@ -36,7 +35,7 @@ const (
 func StartSelfMonitoring(stop <-chan struct{}, port uint) {
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%v", port))
 	if err != nil {
-		log.Errorf("Unable to listen on monitoring port %v: %v", port, err)
+		scope.Errorf("Unable to listen on monitoring port %v: %v", port, err)
 		return
 	}
 
@@ -45,14 +44,14 @@ func StartSelfMonitoring(stop <-chan struct{}, port uint) {
 	registry := prometheus.DefaultRegisterer.(*prometheus.Registry)
 	exporter, err := ocprom.NewExporter(ocprom.Options{Registry: registry})
 	if err != nil {
-		log.Errorf("could not set up prometheus exporter: %v", err)
+		scope.Errorf("could not set up prometheus exporter: %v", err)
 	} else {
 		view.RegisterExporter(exporter)
 		mux.Handle(metricsPath, exporter)
 	}
 	mux.HandleFunc(versionPath, func(out http.ResponseWriter, req *http.Request) {
 		if _, err := out.Write([]byte(version.Info.String())); err != nil {
-			log.Errorf("Unable to write version string: %v", err)
+			scope.Errorf("Unable to write version string: %v", err)
 		}
 	})
 
@@ -62,12 +61,12 @@ func StartSelfMonitoring(stop <-chan struct{}, port uint) {
 
 	go func() {
 		if err := server.Serve(lis); err != nil {
-			log.Errorf("Monitoring http server failed: %v", err)
+			scope.Errorf("Monitoring http server failed: %v", err)
 			return
 		}
 	}()
 
 	<-stop
 	err = server.Close()
-	log.Debugf("Monitoring server terminated: %v", err)
+	scope.Debugf("Monitoring server terminated: %v", err)
 }
