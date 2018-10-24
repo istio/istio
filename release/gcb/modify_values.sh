@@ -13,7 +13,6 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
 function fix_values_yaml() {
-  local gcs_folder_path="gs://${CB_GCS_BUILD_PATH}"
   local tarball_name="$1"
   if [[ ${tarball_name} == *.zip ]]; then
     local unzip_cmd="unzip -q"
@@ -23,20 +22,20 @@ function fix_values_yaml() {
     local zip_cmd="tar -zcf"
   fi
 
-  gsutil -q cp "${gcs_folder_path}/${tarball_name}" .
+  gsutil -q cp "gs://${CB_GCS_BUILD_PATH}/${tarball_name}" .
   eval    "$unzip_cmd"     "${tarball_name}"
   rm                       "${tarball_name}"
 
-  sed -i "s|hub: gcr.io/istio-release|hub: ${CB_DOCKER_HUB}|g" ./"${folder_name}"/install/kubernetes/helm/istio*/values.yaml
-  sed -i "s|tag: .*-latest-daily|tag: ${CB_VERSION}|g"         ./"${folder_name}"/install/kubernetes/helm/istio*/values.yaml
+  sed -i "s|hub: gcr.io/istio-release|hub: ${CB_DOCKER_HUB}|g" ./"istio-${CB_VERSION}"/install/kubernetes/helm/istio*/values.yaml
+  sed -i "s|tag: .*-latest-daily|tag: ${CB_VERSION}|g"         ./"istio-${CB_VERSION}"/install/kubernetes/helm/istio*/values.yaml
 
-  eval "$zip_cmd" "${tarball_name}" "${folder_name}"
+  eval "$zip_cmd" "${tarball_name}" "istio-${CB_VERSION}"
   sha256sum       "${tarball_name}" > "${tarball_name}.sha256"
-  rm  -rf "${folder_name}"
+  rm  -rf "istio-${CB_VERSION}"
 
-  gsutil -q cp "${tarball_name}"        "${gcs_folder_path}/${tarball_name}"
-  gsutil -q cp "${tarball_name}.sha256" "${gcs_folder_path}/${tarball_name}.sha256"
-  echo "DONE fixing  ${gcs_folder_path}/${tarball_name} with hub: ${CB_DOCKER_HUB} tag: ${CB_VERSION}"
+  gsutil -q cp "${tarball_name}"        "gs://${CB_GCS_BUILD_PATH}/${tarball_name}"
+  gsutil -q cp "${tarball_name}.sha256" "gs://${CB_GCS_BUILD_PATH}/${tarball_name}.sha256"
+  echo "DONE fixing  gs://${CB_GCS_BUILD_PATH}/${tarball_name} with hub: ${CB_DOCKER_HUB} tag: ${CB_VERSION}"
 }
 
 mkdir modification-tmp
@@ -44,13 +43,12 @@ cd    modification-tmp || exit 2
 ls -l
 pwd
 
-folder_name="istio-${CB_VERSION}"
 # Linux
-fix_values_yaml  "${folder_name}-linux.tar.gz"
+fix_values_yaml  "istio-${CB_VERSION}-linux.tar.gz"
 # Mac
-fix_values_yaml  "${folder_name}-osx.tar.gz"
+fix_values_yaml  "istio-${CB_VERSION}-osx.tar.gz"
 # Windows
-fix_values_yaml  "${folder_name}-win.zip"
+fix_values_yaml  "istio-${CB_VERSION}-win.zip"
 
 #filename | sha256 hash
 #-------- | -----------
