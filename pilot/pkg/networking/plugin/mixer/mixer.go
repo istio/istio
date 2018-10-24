@@ -181,10 +181,14 @@ func buildUpstreamName(address string) string {
 }
 
 func buildTransport(mesh *meshconfig.MeshConfig, node *model.Proxy) *mccpb.TransportConfig {
+	networkFailPolicy := mccpb.FAIL_CLOSE
+	if mesh.PolicyCheckFailOpen {
+		networkFailPolicy = mccpb.FAIL_OPEN
+	}
 	res := &mccpb.TransportConfig{
 		CheckCluster:      buildUpstreamName(mesh.MixerCheckServer),
 		ReportCluster:     buildUpstreamName(mesh.MixerReportServer),
-		NetworkFailPolicy: &mccpb.NetworkFailPolicy{Policy: mccpb.FAIL_CLOSE},
+		NetworkFailPolicy: &mccpb.NetworkFailPolicy{Policy: networkFailPolicy},
 		// internal telemetry forwarding
 		AttributesForMixerProxy: &mpb.Attributes{Attributes: attributes{"source.uid": attrUID(node)}},
 	}

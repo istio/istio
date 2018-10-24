@@ -3640,9 +3640,13 @@ platform, short-names can also be used instead of a FQDN (i.e. has no
 dots in the name). In such a scenario, the FQDN of the host would be
 derived based on the underlying platform.</p>
 
-<p><strong>A host name can be defined by only one VirtualService</strong>. A single
-VirtualService can be used to describe traffic properties for multiple
-HTTP and TCP ports.</p>
+<p>A single VirtualService can be used to describe all the traffic
+properties of the corresponding hosts, including those for multiple
+HTTP and TCP ports. Alternatively, the traffic properties of a host
+can be defined using more than one VirtualService, with certain
+caveats. Refer to the
+<a href="/help/ops/traffic-management/deploy-guidelines/#multiple-virtual-services-and-destination-rules-for-the-same-host">Operations Guide</a>
+for details.</p>
 
 <p><em>Note for Kubernetes users</em>: When short names are used (e.g. &ldquo;reviews&rdquo;
 instead of &ldquo;reviews.default.svc.cluster.local&rdquo;), Istio will interpret

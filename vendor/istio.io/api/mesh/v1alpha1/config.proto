@@ -163,6 +163,11 @@ message MeshConfig {
   // is false, i.e. mixer policy check is enabled by default.
   bool disable_policy_checks = 3;
 
+  // Allow all traffic in cases when the mixer policy service cannot be reached.
+  // Default is false which means the traffic is denied when the client is unable
+  // to connect to Mixer.
+  bool policy_check_fail_open = 25;
+
   // Port on which Envoy should listen for incoming connections from
   // other services.
   int32 proxy_listen_port = 4;
