@@ -2110,6 +2110,7 @@
     "google.golang.org/grpc/metadata",
     "google.golang.org/grpc/peer",
     "google.golang.org/grpc/reflection",
+    "google.golang.org/grpc/stats",
     "google.golang.org/grpc/status",
     "gopkg.in/d4l3k/messagediff.v1",
     "gopkg.in/yaml.v2",
