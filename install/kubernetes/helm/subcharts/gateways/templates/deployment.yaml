@@ -88,8 +88,8 @@ spec:
           - --serviceCluster
           - {{ $key }}
           - --zipkinAddress
-        {{- if $.Values.global.tracer.zipkinAddress }}
-          - {{ $.Values.global.tracer.zipkinAddress }}
+        {{- if $.Values.global.tracer.zipkin.address }}
+          - {{ $.Values.global.tracer.zipkin.address }}
         {{- else if $.Values.global.istioNamespace }}
           - zipkin.{{ $.Values.global.istioNamespace }}:9411
         {{- else }}

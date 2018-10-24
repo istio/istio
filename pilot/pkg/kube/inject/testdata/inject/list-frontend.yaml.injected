@@ -57,8 +57,6 @@ items:
           - 3s
           - --discoveryAddress
           - istio-pilot:15007
-          - --zipkinAddress
-          - ""
           - --connectTimeout
           - 1s
           - --statsdUdpAddress

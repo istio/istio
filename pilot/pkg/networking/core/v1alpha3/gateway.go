@@ -87,7 +87,6 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 			ip:         WildcardAddress,
 			port:       int(portNumber),
 			bindToPort: true,
-			protocol:   protocol,
 		}
 		listenerType := plugin.ModelProtocolToListenerProtocol(protocol)
 		switch listenerType {
