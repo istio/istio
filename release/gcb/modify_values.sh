@@ -32,8 +32,7 @@ function fix_values_yaml() {
 
   eval "$zip_cmd" "${tarball_name}" "${folder_name}"
   sha256sum       "${tarball_name}" > "${tarball_name}.sha256"
-  # Save the modified files for later use.
-  mv  "${folder_name}"   $(echo $tarball_name | cut -f1 -d".")
+  rm  -rf "${folder_name}"
 
   gsutil -q cp "${tarball_name}"        "${gcs_folder_path}/${tarball_name}"
   gsutil -q cp "${tarball_name}.sha256" "${gcs_folder_path}/${tarball_name}.sha256"

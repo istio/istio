@@ -44,7 +44,8 @@ cp "/workspace/manifest.txt" "${UPLOAD_DIR}/"
 gsutil -q -m cp gs://"${CB_GCS_FULL_STAGING_PATH}"/deb/istio*.deb* "${UPLOAD_DIR}/deb/"
 gsutil -q -m cp gs://"${CB_GCS_FULL_STAGING_PATH}"/istio-*.zip* "${UPLOAD_DIR}/"
 gsutil -q -m cp gs://"${CB_GCS_FULL_STAGING_PATH}"/istio-*.gz*  "${UPLOAD_DIR}/"
-gsutil -q -m cp -r gs://"${CB_GCS_FULL_STAGING_PATH}"/charts "${UPLOAD_DIR}/charts"
+mkdir -p "${UPLOAD_DIR}/charts/"
+gsutil -q -m cp -r gs://"${CB_GCS_FULL_STAGING_PATH}"/charts "${UPLOAD_DIR}/"
 echo "Finished downloading files from GCS source"
 
 # at this point everything we need is on the local filesystem

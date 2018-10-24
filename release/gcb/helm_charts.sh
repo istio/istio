@@ -25,8 +25,10 @@ HELM_BUILD_DIR=${HELM_DIR}/istio-repository
 HELM="helm --home $HELM_DIR"
 
 # Copy Istio release files to WORK_DIR
+gsutil cp  "gs://${CB_GCS_BUILD_PATH}/istio-${CB_VERSION}-linux.tar.gz" .
+tar -zxf istio-${CB_VERSION}-linux.tar.gz
 mkdir -vp $WORK_DIR/istio
-cp -R ./modification-tmp/istio-${CB_VERSION}-linux/install $WORK_DIR/istio/install
+cp -R ./istio-${CB_VERSION}/install $WORK_DIR/istio/install
 
 pushd $WORK_DIR
     git clone -b master https://github.com/istio-ecosystem/cni.git
