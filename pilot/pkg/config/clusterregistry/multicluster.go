@@ -39,8 +39,9 @@ type Multicluster struct {
 	DomainSuffix      string
 	ResyncPeriod      time.Duration
 	serviceController *aggregate.Controller
-	ClearCache        func()
-	sync.Mutex
+	XDSUpdater        model.XDSUpdater
+
+	m                     sync.Mutex // protects remoteKubeControllers
 	remoteKubeControllers map[string]*kubeController
 }
 
@@ -48,7 +49,7 @@ type Multicluster struct {
 // It also starts the secret controller
 func NewMulticluster(kc kubernetes.Interface, secretNamespace string,
 	watchedNamespace string, domainSuffix string, resycnPeriod time.Duration,
-	serviceController *aggregate.Controller, clearCacheFunction func()) (*Multicluster, error) {
+	serviceController *aggregate.Controller, xds model.XDSUpdater) (*Multicluster, error) {
 
 	remoteKubeController := make(map[string]*kubeController)
 	if resycnPeriod == 0 {
@@ -61,7 +62,7 @@ func NewMulticluster(kc kubernetes.Interface, secretNamespace string,
 		DomainSuffix:          domainSuffix,
 		ResyncPeriod:          resycnPeriod,
 		serviceController:     serviceController,
-		ClearCache:            clearCacheFunction,
+		XDSUpdater:            xds,
 		remoteKubeControllers: remoteKubeController,
 	}
 
@@ -80,11 +81,12 @@ func (m *Multicluster) AddMemberCluster(clientset kubernetes.Interface, clusterI
 	stopCh := make(chan struct{})
 	var remoteKubeController kubeController
 	remoteKubeController.stopCh = stopCh
-	m.Lock()
+	m.m.Lock()
 	kubectl := kube.NewController(clientset, kube.ControllerOptions{
 		WatchedNamespace: m.WatchedNamespace,
 		ResyncPeriod:     m.ResyncPeriod,
 		DomainSuffix:     m.DomainSuffix,
+		XDSUpdater:       m.XDSUpdater,
 	})
 
 	remoteKubeController.rc = kubectl
@@ -98,9 +100,9 @@ func (m *Multicluster) AddMemberCluster(clientset kubernetes.Interface, clusterI
 		})
 
 	m.remoteKubeControllers[clusterID] = &remoteKubeController
-	m.Unlock()
-	_ = kubectl.AppendServiceHandler(func(*model.Service, model.Event) { m.ClearCache() })
-	_ = kubectl.AppendInstanceHandler(func(*model.ServiceInstance, model.Event) { m.ClearCache() })
+	m.m.Unlock()
+	_ = kubectl.AppendServiceHandler(func(*model.Service, model.Event) { m.XDSUpdater.ConfigUpdate(true) })
+	_ = kubectl.AppendInstanceHandler(func(*model.ServiceInstance, model.Event) { m.XDSUpdater.ConfigUpdate(true) })
 	go kubectl.Run(stopCh)
 
 	return nil
@@ -111,12 +113,14 @@ func (m *Multicluster) AddMemberCluster(clientset kubernetes.Interface, clusterI
 // are removed.
 func (m *Multicluster) DeleteMemberCluster(clusterID string) error {
 
-	m.Lock()
-	defer m.Unlock()
+	m.m.Lock()
+	defer m.m.Unlock()
 	m.serviceController.DeleteRegistry(clusterID)
 	close(m.remoteKubeControllers[clusterID].stopCh)
 	delete(m.remoteKubeControllers, clusterID)
-	m.ClearCache()
+	if m.XDSUpdater != nil {
+		m.XDSUpdater.ConfigUpdate(true)
+	}
 
 	return nil
 }

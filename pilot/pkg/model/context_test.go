@@ -19,6 +19,7 @@ import (
 	"reflect"
 	"testing"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 )
@@ -96,5 +97,69 @@ defaultConfig:
 	}
 	if !reflect.DeepEqual(got, &want) {
 		t.Fatalf("Wrong default values:\n got %#v \nwant %#v", got, &want)
+	}
+}
+
+func TestApplyMeshNetworksDefaults(t *testing.T) {
+	yml := fmt.Sprintf(`
+networks:
+  network1:
+    endpoints:
+    - fromCidr: "192.168.0.1/24"
+    gateways:
+    - address: 1.1.1.1
+      port: 80
+  network2:
+    endpoints:
+    - fromRegistry: reg1
+    gateways:
+    - registryServiceName: reg1
+      port: 443
+`)
+
+	want := model.EmptyMeshNetworks()
+	want.Networks = map[string]*meshconfig.Network{
+		"network1": {
+			Endpoints: []*meshconfig.Network_NetworkEndpoints{
+				{
+					Ne: &meshconfig.Network_NetworkEndpoints_FromCidr{
+						FromCidr: "192.168.0.1/24",
+					},
+				},
+			},
+			Gateways: []*meshconfig.Network_IstioNetworkGateway{
+				{
+					Gw: &meshconfig.Network_IstioNetworkGateway_Address{
+						Address: "1.1.1.1",
+					},
+					Port: 80,
+				},
+			},
+		},
+		"network2": {
+			Endpoints: []*meshconfig.Network_NetworkEndpoints{
+				{
+					Ne: &meshconfig.Network_NetworkEndpoints_FromRegistry{
+						FromRegistry: "reg1",
+					},
+				},
+			},
+			Gateways: []*meshconfig.Network_IstioNetworkGateway{
+				{
+					Gw: &meshconfig.Network_IstioNetworkGateway_RegistryServiceName{
+						RegistryServiceName: "reg1",
+					},
+					Port: 443,
+				},
+			},
+		},
+	}
+
+	got, err := model.LoadMeshNetworksConfig(yml)
+	if err != nil {
+		t.Fatalf("ApplyMeshNetworksDefaults() failed: %v", err)
+	}
+	if !reflect.DeepEqual(got, &want) {
+		t.Fatalf("Wrong values:\n got %#v \nwant %#v", got, &want)
 	}
 }

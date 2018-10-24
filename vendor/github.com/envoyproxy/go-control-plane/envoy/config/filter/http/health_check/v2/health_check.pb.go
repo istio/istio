@@ -53,7 +53,7 @@ func (m *HealthCheck) Reset()         { *m = HealthCheck{} }
 func (m *HealthCheck) String() string { return proto.CompactTextString(m) }
 func (*HealthCheck) ProtoMessage()    {}
 func (*HealthCheck) Descriptor() ([]byte, []int) {
-	return fileDescriptor_health_check_4551758d53a3f902, []int{0}
+	return fileDescriptor_health_check_8fc8582e22949acd, []int{0}
 }
 func (m *HealthCheck) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -630,10 +630,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/config/filter/http/health_check/v2/health_check.proto", fileDescriptor_health_check_4551758d53a3f902)
+	proto.RegisterFile("envoy/config/filter/http/health_check/v2/health_check.proto", fileDescriptor_health_check_8fc8582e22949acd)
 }
 
-var fileDescriptor_health_check_4551758d53a3f902 = []byte{
+var fileDescriptor_health_check_8fc8582e22949acd = []byte{
 	// 469 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x52, 0xc1, 0x8a, 0xd4, 0x30,
 	0x18, 0x26, 0xed, 0x8c, 0xee, 0x66, 0x0e, 0x8e, 0x55, 0xb0, 0x0e, 0x32, 0xbb, 0xeb, 0x69, 0xbc,

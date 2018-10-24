@@ -36,7 +36,7 @@ func (m *AdsDummy) Reset()         { *m = AdsDummy{} }
 func (m *AdsDummy) String() string { return proto.CompactTextString(m) }
 func (*AdsDummy) ProtoMessage()    {}
 func (*AdsDummy) Descriptor() ([]byte, []int) {
-	return fileDescriptor_ads_e55e118c12e4a4c7, []int{0}
+	return fileDescriptor_ads_ef11d70d8d973287, []int{0}
 }
 func (m *AdsDummy) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -449,10 +449,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/service/discovery/v2/ads.proto", fileDescriptor_ads_e55e118c12e4a4c7)
+	proto.RegisterFile("envoy/service/discovery/v2/ads.proto", fileDescriptor_ads_ef11d70d8d973287)
 }
 
-var fileDescriptor_ads_e55e118c12e4a4c7 = []byte{
+var fileDescriptor_ads_ef11d70d8d973287 = []byte{
 	// 237 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0xd0, 0xbd, 0x4a, 0x04, 0x31,
 	0x14, 0x05, 0x60, 0xaf, 0x85, 0x48, 0xca, 0xb1, 0x72, 0x90, 0x08, 0x8b, 0x85, 0x5a, 0x64, 0x24,

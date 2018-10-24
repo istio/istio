@@ -92,7 +92,7 @@ func NewHelmDeployment(c HelmConfig) (*Instance, error) {
 }
 
 // HelmTemplate calls "helm template".
-func HelmTemplate(deploymentName, namespace, chartDir, valuesFile string, values map[string]string) (string, error) {
+func HelmTemplate(deploymentName, namespace, chartDir, valuesFile string, values map[string]string) (str string, err error) {
 	valuesString := ""
 
 	// Apply the overrides for the values file.
@@ -107,12 +107,25 @@ func HelmTemplate(deploymentName, namespace, chartDir, valuesFile string, values
 		valuesFileString = fmt.Sprintf(" --values %s", valuesFile)
 	}
 
-	str, err := shell.Execute(
-		"helm template %s --name %s --namespace %s%s%s",
-		chartDir, deploymentName, namespace, valuesFileString, valuesString)
-	if err == nil {
-		return str, nil
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("%v: %s", err, str)
+			str = ""
+		}
+	}()
+
+	str, err = shell.Execute("helm init --client-only")
+	if err != nil {
+		return
 	}
 
-	return "", fmt.Errorf("%v: %s", err, str)
+	str, err = shell.Execute("helm dep update %s", chartDir)
+	if err != nil {
+		return
+	}
+
+	str, err = shell.Execute(
+		"helm template %s --name %s --namespace %s%s%s",
+		chartDir, deploymentName, namespace, valuesFileString, valuesString)
+	return
 }

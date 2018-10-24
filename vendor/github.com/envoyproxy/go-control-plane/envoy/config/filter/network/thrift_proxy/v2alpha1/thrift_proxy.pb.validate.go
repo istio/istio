@@ -73,6 +73,21 @@ func (m *ThriftProxy) Validate() error {
 		}
 	}
 
+	for idx, item := range m.GetThriftFilters() {
+		_, _ = idx, item
+
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return ThriftProxyValidationError{
+					Field:  fmt.Sprintf("ThriftFilters[%v]", idx),
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
+	}
+
 	return nil
 }
 
@@ -106,6 +121,65 @@ func (e ThriftProxyValidationError) Error() string {
 }
 
 var _ error = ThriftProxyValidationError{}
+
+// Validate checks the field values on ThriftFilter with the rules defined in
+// the proto definition for this message. If any rules are violated, an error
+// is returned.
+func (m *ThriftFilter) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	if len(m.GetName()) < 1 {
+		return ThriftFilterValidationError{
+			Field:  "Name",
+			Reason: "value length must be at least 1 bytes",
+		}
+	}
+
+	if v, ok := interface{}(m.GetConfig()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return ThriftFilterValidationError{
+				Field:  "Config",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
+	return nil
+}
+
+// ThriftFilterValidationError is the validation error returned by
+// ThriftFilter.Validate if the designated constraints aren't met.
+type ThriftFilterValidationError struct {
+	Field  string
+	Reason string
+	Cause  error
+	Key    bool
+}
+
+// Error satisfies the builtin error interface
+func (e ThriftFilterValidationError) Error() string {
+	cause := ""
+	if e.Cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
+	}
+
+	key := ""
+	if e.Key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sThriftFilter.%s: %s%s",
+		key,
+		e.Field,
+		e.Reason,
+		cause)
+}
+
+var _ error = ThriftFilterValidationError{}
 
 // Validate checks the field values on ThriftProtocolOptions with the rules
 // defined in the proto definition for this message. If any rules are

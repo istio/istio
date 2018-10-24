@@ -16,7 +16,6 @@ package agent
 
 import (
 	"bufio"
-	"context"
 	"fmt"
 	"net"
 	"os"
@@ -28,11 +27,9 @@ import (
 
 	"istio.io/istio/pkg/test/application"
 
-	"google.golang.org/grpc"
-
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
-	proxy_envoy "istio.io/istio/pilot/pkg/proxy/envoy"
+	proxyEnvoy "istio.io/istio/pilot/pkg/proxy/envoy"
 	"istio.io/istio/pkg/test/application/echo"
 	"istio.io/istio/pkg/test/application/echo/proto"
 	"istio.io/istio/pkg/test/envoy"
@@ -41,6 +38,9 @@ import (
 const (
 	timeout       = 10 * time.Second
 	retryInterval = 500 * time.Millisecond
+
+	// Enable for debugging.
+	debugLogsEnabled = false
 )
 
 func TestMinimal(t *testing.T) {
@@ -99,8 +99,13 @@ func testForApps(t *testing.T, appFactory *echo.Factory, serviceNames ...string)
 	discoveryAddr := p.GRPCListeningAddr.(*net.TCPAddr)
 
 	// Configure the agent factory with Pilot's discovery address
+	envoyLogLevel := envoy.LogLevel("")
+	if debugLogsEnabled {
+		envoyLogLevel = envoy.LogLevelTrace
+	}
 	agentFactory := (&PilotAgentFactory{
 		DiscoveryAddress: discoveryAddr,
+		EnvoyLogLevel:    envoyLogLevel,
 	}).NewAgent
 
 	appFactoryFunc := appFactory.NewApplication
@@ -135,7 +140,9 @@ func testForApps(t *testing.T, appFactory *echo.Factory, serviceNames ...string)
 		}
 	}
 
-	logConfigs(agents)
+	if debugLogsEnabled {
+		logConfigs(agents)
+	}
 
 	// Verify that we can send traffic between services.
 	for _, src := range agents {
@@ -156,7 +163,7 @@ func logConfigs(agents []Agent) {
 	out := ""
 	for _, a := range agents {
 		dump, _ := envoy.GetConfigDumpStr(a.GetAdminPort())
-		out += fmt.Sprintf("NM: %s Config: %s\n", a.GetConfig().Name, dump)
+		out += fmt.Sprintf("App: %s Config: %s\n", a.GetConfig().Name, dump)
 	}
 
 	f := bufio.NewWriter(os.Stdout)
@@ -171,11 +178,14 @@ func newAgent(serviceName string, serviceManager *service.Manager, factory Facto
 		t.Fatal(err)
 	}
 
-	msg := fmt.Sprintf("NM: %s ports:\n", serviceName)
-	for _, p := range a.GetPorts() {
-		msg += fmt.Sprintf("   [%v]: %d->%d\n", p.Protocol, p.ProxyPort, p.ApplicationPort)
+	// Enable for debugging.
+	if debugLogsEnabled {
+		msg := fmt.Sprintf("Service: %s ports:\n", serviceName)
+		for _, p := range a.GetPorts() {
+			msg += fmt.Sprintf("   [%v]: %d->%d\n", p.Protocol, p.ProxyPort, p.ApplicationPort)
+		}
+		fmt.Println(msg)
 	}
-	fmt.Println(msg)
 
 	return a
 }
@@ -195,9 +205,11 @@ func makeHTTPRequest(src Agent, dst Agent, protocol model.Protocol, t *testing.T
 	parsedResponses, err := forwardRequestToAgent(src, &proto.ForwardEchoRequest{
 		Url:   fmt.Sprintf("http://%s:%d", serviceName, dstPort.ProxyPort),
 		Count: 1,
-		Header: &proto.Header{
-			Key:   "Host",
-			Value: serviceName,
+		Headers: []*proto.Header{
+			{
+				Key:   "Host",
+				Value: serviceName,
+			},
 		},
 	})
 	if err != nil {
@@ -220,7 +232,7 @@ func newPilot(configStore model.ConfigStoreCache, t *testing.T) (*bootstrap.Serv
 	mesh := model.DefaultMeshConfig()
 	bootstrapArgs := bootstrap.PilotArgs{
 		Namespace: service.Namespace,
-		DiscoveryOptions: proxy_envoy.DiscoveryServiceOptions{
+		DiscoveryOptions: proxyEnvoy.DiscoveryServiceOptions{
 			HTTPAddr:       ":0",
 			MonitoringAddr: ":0",
 			GrpcAddr:       ":0",
@@ -260,20 +272,16 @@ func forwardRequestToAgent(a Agent, req *proto.ForwardEchoRequest) ([]*echo.Pars
 	if err != nil {
 		return nil, err
 	}
-	conn, err := grpc.Dial(fmt.Sprintf("127.0.0.1:%d", grpcPortA.ApplicationPort), grpc.WithInsecure())
-	if err != nil {
-		return nil, err
-	}
-	defer conn.Close()
+	client, _ := echo.NewClient(fmt.Sprintf("127.0.0.1:%d", grpcPortA.ApplicationPort))
+	defer client.Close()
 
-	client := proto.NewEchoTestServiceClient(conn)
-	resp, err := client.ForwardEcho(context.Background(), req)
+	resp, err := client.ForwardEcho(req)
 	if err != nil {
 		return nil, err
 	}
-	parsedResponses := echo.ParseForwardedResponse(resp)
-	if len(parsedResponses) != 1 {
-		return nil, fmt.Errorf("unexpected number of responses: %d", len(parsedResponses))
+
+	if len(resp) != 1 {
+		return nil, fmt.Errorf("unexpected number of responses: %d", len(resp))
 	}
-	return parsedResponses, nil
+	return resp, nil
 }

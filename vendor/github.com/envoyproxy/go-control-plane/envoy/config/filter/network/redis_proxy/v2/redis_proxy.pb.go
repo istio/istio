@@ -46,7 +46,7 @@ func (m *RedisProxy) Reset()         { *m = RedisProxy{} }
 func (m *RedisProxy) String() string { return proto.CompactTextString(m) }
 func (*RedisProxy) ProtoMessage()    {}
 func (*RedisProxy) Descriptor() ([]byte, []int) {
-	return fileDescriptor_redis_proxy_1501364fe7b46458, []int{0}
+	return fileDescriptor_redis_proxy_62aa41f73e6dd919, []int{0}
 }
 func (m *RedisProxy) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -114,7 +114,7 @@ func (m *RedisProxy_ConnPoolSettings) Reset()         { *m = RedisProxy_ConnPool
 func (m *RedisProxy_ConnPoolSettings) String() string { return proto.CompactTextString(m) }
 func (*RedisProxy_ConnPoolSettings) ProtoMessage()    {}
 func (*RedisProxy_ConnPoolSettings) Descriptor() ([]byte, []int) {
-	return fileDescriptor_redis_proxy_1501364fe7b46458, []int{0, 0}
+	return fileDescriptor_redis_proxy_62aa41f73e6dd919, []int{0, 0}
 }
 func (m *RedisProxy_ConnPoolSettings) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -616,10 +616,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/config/filter/network/redis_proxy/v2/redis_proxy.proto", fileDescriptor_redis_proxy_1501364fe7b46458)
+	proto.RegisterFile("envoy/config/filter/network/redis_proxy/v2/redis_proxy.proto", fileDescriptor_redis_proxy_62aa41f73e6dd919)
 }
 
-var fileDescriptor_redis_proxy_1501364fe7b46458 = []byte{
+var fileDescriptor_redis_proxy_62aa41f73e6dd919 = []byte{
 	// 339 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x90, 0xc1, 0x4a, 0xf3, 0x40,
 	0x14, 0x85, 0x99, 0xf4, 0xff, 0xb5, 0x9d, 0x82, 0x94, 0x20, 0x58, 0xbb, 0x88, 0x45, 0x37, 0xa5,

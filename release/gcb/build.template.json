@@ -1,0 +1,41 @@
+{
+  "steps": [
+    {
+      "name": "gcr.io/istio-testing/istio-builder:0.5.10",
+      "args": [ "gsutil", "-qm", "cp", "-rP", "gs://$_CB_GCS_RELEASE_TOOLS_PATH/*", "." ]
+    },
+    {
+      "name": "gcr.io/istio-testing/istio-builder:0.5.10",
+      "args": [ "./gcb/istio_checkout_code.sh" ]
+    },
+    {
+      "volumes": [
+	{
+          "name": "buildoutput",
+          "path": "/output"
+	}
+      ],
+      "name": "gcr.io/istio-testing/istio-builder:0.5.10",
+      "dir": "go/src/istio.io/istio",
+      "args": [ "/workspace/gcb/cloud_builder.sh" ]
+    },
+    {
+      "volumes": [
+        {
+          "name": "buildoutput",
+          "path": "/output"
+        }
+      ],
+      "name": "gcr.io/istio-testing/istio-builder:0.5.10",
+      "args": [ "./gcb/store_artifacts.sh" ]
+    },
+    {
+      "name": "gcr.io/istio-testing/istio-builder:0.5.10",
+      "args": [ "./gcb/rel_push_docker_build_version.sh" ]
+    }
+  ],
+  "options": {
+    "machineType": "N1_HIGHCPU_8"
+  },
+  "timeout": "3600s",
+}

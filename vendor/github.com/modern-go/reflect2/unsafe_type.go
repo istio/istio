@@ -1,8 +1,8 @@
 package reflect2
 
 import (
-	"unsafe"
 	"reflect"
+	"unsafe"
 )
 
 type unsafeType struct {
@@ -15,7 +15,7 @@ func newUnsafeType(cfg *frozenConfig, type1 reflect.Type) *unsafeType {
 	return &unsafeType{
 		safeType: safeType{
 			Type: type1,
-			cfg: cfg,
+			cfg:  cfg,
 		},
 		rtype:    unpackEFace(type1).data,
 		ptrRType: unpackEFace(reflect.PtrTo(type1)).data,

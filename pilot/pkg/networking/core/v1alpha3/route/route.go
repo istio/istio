@@ -28,7 +28,6 @@ import (
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
 	"github.com/gogo/protobuf/types"
-	"github.com/prometheus/client_golang/prometheus"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -42,24 +41,6 @@ const (
 	HeaderAuthority = ":authority"
 	HeaderScheme    = ":scheme"
 )
-
-var (
-	// experiment on getting some monitoring on config errors.
-	noClusterMissingPort = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "pilot_route_cluster_no_port",
-		Help: "Routes with no clusters due to missing port.",
-	}, []string{"service", "rule"})
-
-	noClusterMissingService = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "pilot_route_nocluster_no_service",
-		Help: "Routes with no clusters due to missing service",
-	}, []string{"service", "rule"})
-)
-
-func init() {
-	prometheus.MustRegister(noClusterMissingPort)
-	prometheus.MustRegister(noClusterMissingService)
-}
 
 // VirtualHostWrapper is a context-dependent virtual host entry with guarded routes.
 // Note: Currently we are not fully utilizing this structure. We could invoke this logic
@@ -680,9 +661,9 @@ func translateFault(node *model.Proxy, in *networking.HTTPFaultInjection) *xdsht
 			}
 		} else {
 			if in.Delay.Percentage != nil {
-				out.Delay.Percent = uint32(in.Delay.Percentage.Value)
+				out.Delay.Percentage = translatePercentToFractionalPercent(in.Delay.Percentage)
 			} else {
-				out.Delay.Percent = uint32(in.Delay.Percent)
+				out.Delay.Percentage = translateIntegerToFractionalPercent(in.Delay.Percent)
 			}
 		}
 		switch d := in.Delay.HttpDelayType.(type) {
@@ -707,9 +688,9 @@ func translateFault(node *model.Proxy, in *networking.HTTPFaultInjection) *xdsht
 			}
 		} else {
 			if in.Abort.Percentage != nil {
-				out.Abort.Percent = uint32(in.Abort.Percentage.Value)
+				out.Abort.Percentage = translatePercentToFractionalPercent(in.Abort.Percentage)
 			} else {
-				out.Abort.Percent = uint32(in.Abort.Percent)
+				out.Abort.Percentage = translateIntegerToFractionalPercent(in.Abort.Percent)
 			}
 		}
 		switch a := in.Abort.ErrorType.(type) {

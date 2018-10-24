@@ -15,11 +15,13 @@
 package model
 
 import (
+	"os"
 	"reflect"
 	"testing"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	"github.com/envoyproxy/go-control-plane/envoy/config/grpc_credential/v2alpha"
 	"github.com/gogo/protobuf/types"
 )
 
@@ -88,9 +90,28 @@ func TestParseJwksURI(t *testing.T) {
 }
 
 func TestConstructSdsSecretConfig(t *testing.T) {
+	testTokenFileName := "/tmp/randomtestFile"
+	if _, err := os.Stat(testTokenFileName); os.IsNotExist(err) {
+		// create test file if not exist
+		if _, err := os.Create(testTokenFileName); err != nil {
+			log.Fatal("failed for test token file")
+		}
+		defer os.Remove(testTokenFileName)
+	}
+
+	metaConfig := &v2alpha.FileBasedMetadataConfig{
+		SecretData: &core.DataSource{
+			Specifier: &core.DataSource_Filename{
+				Filename: testTokenFileName,
+			},
+		},
+		HeaderKey: k8sSAJwtTokenHeaderKey,
+	}
+
 	cases := []struct {
 		serviceAccount string
 		sdsUdsPath     string
+		tokenFilePath  string
 		expected       *auth.SdsSecretConfig
 	}{
 		{
@@ -106,17 +127,47 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 								{
 									TargetSpecifier: &core.GrpcService_GoogleGrpc_{
 										GoogleGrpc: &core.GrpcService_GoogleGrpc{
-											TargetUri:  "/tmp/sdsuds.sock",
-											StatPrefix: SDSStatPrefix,
-											ChannelCredentials: &core.GrpcService_GoogleGrpc_ChannelCredentials{
-												CredentialSpecifier: &core.GrpcService_GoogleGrpc_ChannelCredentials_LocalCredentials{
-													LocalCredentials: &core.GrpcService_GoogleGrpc_GoogleLocalCredentials{},
-												},
+											TargetUri:          "/tmp/sdsuds.sock",
+											StatPrefix:         SDSStatPrefix,
+											ChannelCredentials: constructLocalChannelCredConfig(),
+											CallCredentials: []*core.GrpcService_GoogleGrpc_CallCredentials{
+												constructGCECallCredConfig(),
 											},
+										},
+									},
+								},
+							},
+							RefreshDelay: nil,
+						},
+					},
+				},
+			},
+		},
+		{
+			serviceAccount: "spiffe://cluster.local/ns/bar/sa/foo",
+			sdsUdsPath:     "/tmp/sdsuds.sock",
+			tokenFilePath:  testTokenFileName,
+			expected: &auth.SdsSecretConfig{
+				Name: "spiffe://cluster.local/ns/bar/sa/foo",
+				SdsConfig: &core.ConfigSource{
+					ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+						ApiConfigSource: &core.ApiConfigSource{
+							ApiType: core.ApiConfigSource_GRPC,
+							GrpcServices: []*core.GrpcService{
+								{
+									TargetSpecifier: &core.GrpcService_GoogleGrpc_{
+										GoogleGrpc: &core.GrpcService_GoogleGrpc{
+											TargetUri:              "/tmp/sdsuds.sock",
+											StatPrefix:             SDSStatPrefix,
+											CredentialsFactoryName: "envoy.grpc_credentials.file_based_metadata",
+											ChannelCredentials:     constructLocalChannelCredConfig(),
 											CallCredentials: []*core.GrpcService_GoogleGrpc_CallCredentials{
 												&core.GrpcService_GoogleGrpc_CallCredentials{
-													CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_GoogleComputeEngine{
-														GoogleComputeEngine: &types.Empty{},
+													CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_FromPlugin{
+														FromPlugin: &core.GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin{
+															Name:   "envoy.grpc_credentials.file_based_metadata",
+															Config: protoToStruct(metaConfig),
+														},
 													},
 												},
 											},
@@ -143,8 +194,24 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		if got := ConstructSdsSecretConfig(c.serviceAccount, c.sdsUdsPath); !reflect.DeepEqual(got, c.expected) {
+		if got := ConstructSdsSecretConfig(c.serviceAccount, c.sdsUdsPath, c.tokenFilePath); !reflect.DeepEqual(got, c.expected) {
 			t.Errorf("ConstructSdsSecretConfig: got(%#v) != want(%#v)\n", got, c.expected)
 		}
+	}
+}
+
+func constructLocalChannelCredConfig() *core.GrpcService_GoogleGrpc_ChannelCredentials {
+	return &core.GrpcService_GoogleGrpc_ChannelCredentials{
+		CredentialSpecifier: &core.GrpcService_GoogleGrpc_ChannelCredentials_LocalCredentials{
+			LocalCredentials: &core.GrpcService_GoogleGrpc_GoogleLocalCredentials{},
+		},
+	}
+}
+
+func constructGCECallCredConfig() *core.GrpcService_GoogleGrpc_CallCredentials {
+	return &core.GrpcService_GoogleGrpc_CallCredentials{
+		CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_GoogleComputeEngine{
+			GoogleComputeEngine: &types.Empty{},
+		},
 	}
 }

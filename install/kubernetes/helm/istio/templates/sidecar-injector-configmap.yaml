@@ -37,13 +37,24 @@ data:
         - "-d"
         - {{ "\"[[ excludeInboundPort (annotation .ObjectMeta `status.sidecar.istio.io/port` " }} {{ .Values.global.proxy.statusPort }} {{ ") (annotation .ObjectMeta `traffic.sidecar.istio.io/excludeInboundPorts` " }} "{{ .Values.global.proxy.excludeInboundPorts }}" {{ ") ]]\"" }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+        resources:
+          requests:
+            cpu: 10m
+            memory: 10Mi
+          limits:
+            cpu: 10m
+            memory: 10Mi
         securityContext:
           capabilities:
             add:
             - NET_ADMIN
+          {{ if .Values.global.proxy.privileged }}
           privileged: true
-      {{- if .Values.global.proxy.enableCoreDump }}
-      - args:
+          {{ end -}}
+        restartPolicy: Always
+      {{ if eq .Values.global.proxy.enableCoreDump true }}
+      - name: enable-core-dump
+        args:
         - -c
         - sysctl -w kernel.core_pattern=/var/lib/istio/core.proxy && ulimit -c unlimited
         command:
@@ -54,7 +65,6 @@ data:
         image: "{{ .Values.global.hub }}/{{ .Values.global.proxy_init.image }}:{{ .Values.global.tag }}"
   {{- end }}
         imagePullPolicy: IfNotPresent
-        name: enable-core-dump
         resources: {}
         securityContext:
           privileged: true
@@ -95,8 +105,18 @@ data:
         - {{ "[[ formatDuration .ProxyConfig.ParentShutdownDuration ]]" }}
         - --discoveryAddress
         - {{ "[[ .ProxyConfig.DiscoveryAddress ]]" }}
+      {{- if eq .Values.global.proxy.tracer "lightstep" }}
+        - --lightstepAddress
+        - {{ "[[ .ProxyConfig.GetTracing.GetLightstep.GetAddress ]]" }}
+        - --lightstepAccessToken
+        - {{ "[[ .ProxyConfig.GetTracing.GetLightstep.GetAccessToken ]]" }}
+        - --lightstepSecure={{ "[[ .ProxyConfig.GetTracing.GetLightstep.GetSecure ]]" }}
+        - --lightstepCacertPath
+        - {{ "[[ .ProxyConfig.GetTracing.GetLightstep.GetCacertPath ]]" }}
+      {{- else if eq .Values.global.proxy.tracer "zipkin" }}
         - --zipkinAddress
-        - {{ "[[ .ProxyConfig.ZipkinAddress ]]" }}
+        - {{ "[[ .ProxyConfig.GetTracing.GetZipkin.GetAddress ]]" }}
+      {{- end }}
         - --connectTimeout
         - {{ "[[ formatDuration .ProxyConfig.ConnectTimeout ]]" }}
       {{- if .Values.global.proxy.envoyStatsd.enabled }}
@@ -139,7 +159,16 @@ data:
             fieldRef:
               fieldPath: metadata.name
         - name: ISTIO_META_INTERCEPTION_MODE
-          value: {{ "[[ annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode ]]" }}
+          value: {{ "[[ or (index .ObjectMeta.Annotations \"sidecar.istio.io/interceptionMode\") .ProxyConfig.InterceptionMode.String ]]" }}
+        {{ "[[ if .ObjectMeta.Annotations ]]" }}
+        - name: ISTIO_METAJSON_ANNOTATIONS
+          value: |
+                 {{ "[[ toJSON .ObjectMeta.Annotations ]]" }}
+        {{ "[[ end ]]" }}
+        {{ "[[ range $k,$v := .ObjectMeta.Labels ]]" }}
+        - name: ISTIO_META_{{ "[[ $k ]]" }}
+          value: "{{ "[[ $v ]]" }}"
+        {{ "[[ end ]]" }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
         {{ "[[ if (ne (annotation .ObjectMeta `status.sidecar.istio.io/port` " }} {{ .Values.global.proxy.statusPort }} {{ ") \"0\") ]]" }}
         readinessProbe:
@@ -151,7 +180,9 @@ data:
           failureThreshold: {{ "[[ annotation .ObjectMeta `readiness.status.sidecar.istio.io/failureThreshold` " }} {{ .Values.global.proxy.readinessFailureThreshold }} {{ " ]]" }}
         {{ "[[ end -]]" -}}
         securityContext:
-          privileged: false
+          {{ if .Values.global.proxy.privileged }}
+          privileged: true
+          {{ end -}}
           {{- if ne .Values.global.proxy.enableCoreDump true }}
           readOnlyRootFilesystem: true
           {{- end }}
@@ -183,11 +214,22 @@ data:
         - mountPath: /var/run/sds
           name: sds-uds-path
         {{- end }}
+        {{ if and (eq .Values.global.proxy.tracer "lightstep") .Values.global.tracer.lightstep.cacertPath }}
+        - mountPath: {{ "[[ directory .ProxyConfig.GetTracing.GetLightstep.GetCacertPath ]]" }}
+          name: lightstep-certs
+          readOnly: true
+        {{- end }}
       volumes:
       {{ if .Values.global.sdsEnabled }}
       - name: sds-uds-path
         hostPath:
           path: /var/run/sds
+      {{- end }}
+      {{ if and (eq .Values.global.proxy.tracer "lightstep") .Values.global.tracer.lightstep.cacertPath }}
+      - name: lightstep-certs
+        secret:
+          optional: true
+          secretName: lightstep.cacert
       {{- end }}
       - emptyDir:
           medium: Memory
@@ -201,6 +243,10 @@ data:
           secretName: {{ "[[ printf \"istio.%s\" .Spec.ServiceAccountName ]]"  }}
           {{ "[[ end -]]" }}
 {{- end }}
-{{- if .Values.global.podDNSConfig }}
-{{ toYaml .Values.global.podDNSConfig | indent 8 }}
+{{- if .Values.global.podDNSSearchNamespaces }}
+      dnsConfig:
+        searches:
+          {{- range .Values.global.podDNSSearchNamespaces }}
+          - {{ . }}
+          {{- end }}
 {{- end }}

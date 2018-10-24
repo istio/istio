@@ -16,20 +16,16 @@ package clusterregistry
 
 import (
 	"testing"
+	"time"
 
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/fake"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
-	"k8s.io/client-go/kubernetes/fake"
-
-	"istio.io/istio/pkg/kube/secretcontroller"
-
-	"time"
-
-	"k8s.io/client-go/kubernetes"
-
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
+	"istio.io/istio/pkg/kube/secretcontroller"
 	pkgtest "istio.io/istio/pkg/test"
 )
 
@@ -42,11 +38,6 @@ const (
 )
 
 var mockserviceController = &aggregate.Controller{}
-var clearCacheCalled = false
-
-func mockClearCache() {
-	clearCacheCalled = true
-}
 
 func createMultiClusterSecret(k8s *fake.Clientset) error {
 	data := map[string][]byte{}
@@ -80,8 +71,8 @@ func mockLoadKubeConfig(kubeconfig []byte) (*clientcmdapi.Config, error) {
 
 func verifyControllers(t *testing.T, m *Multicluster, expectedControllerCount int, timeoutName string) {
 	pkgtest.NewEventualOpts(10*time.Millisecond, 5*time.Second).Eventually(t, timeoutName, func() bool {
-		m.Lock()
-		defer m.Unlock()
+		m.m.Lock()
+		defer m.m.Unlock()
 		return len(m.remoteKubeControllers) == expectedControllerCount
 	})
 }
@@ -96,7 +87,7 @@ func Test_KubeSecretController(t *testing.T) {
 
 	clientset := fake.NewSimpleClientset()
 
-	mc, err := NewMulticluster(clientset, testSecretNameSpace, WatchedNamespace, DomainSuffix, ResyncPeriod, mockserviceController, mockClearCache)
+	mc, err := NewMulticluster(clientset, testSecretNameSpace, WatchedNamespace, DomainSuffix, ResyncPeriod, mockserviceController, nil)
 
 	if err != nil {
 		t.Fatalf("error creating Multicluster object and startign secret controller: %v", err)
@@ -122,7 +113,4 @@ func Test_KubeSecretController(t *testing.T) {
 	// Test - Verify that the remote controller has been removed.
 	verifyControllers(t, mc, 0, "delete remote controller")
 
-	if clearCacheCalled == false {
-		t.Errorf("CLear cache not called")
-	}
 }

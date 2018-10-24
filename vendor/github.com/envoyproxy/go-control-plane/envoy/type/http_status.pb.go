@@ -210,7 +210,7 @@ func (x StatusCode) String() string {
 	return proto.EnumName(StatusCode_name, int32(x))
 }
 func (StatusCode) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_http_status_a08dd77cc74d90ef, []int{0}
+	return fileDescriptor_http_status_6f768cb0c155571a, []int{0}
 }
 
 // HTTP status.
@@ -226,7 +226,7 @@ func (m *HttpStatus) Reset()         { *m = HttpStatus{} }
 func (m *HttpStatus) String() string { return proto.CompactTextString(m) }
 func (*HttpStatus) ProtoMessage()    {}
 func (*HttpStatus) Descriptor() ([]byte, []int) {
-	return fileDescriptor_http_status_a08dd77cc74d90ef, []int{0}
+	return fileDescriptor_http_status_6f768cb0c155571a, []int{0}
 }
 func (m *HttpStatus) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -502,10 +502,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/type/http_status.proto", fileDescriptor_http_status_a08dd77cc74d90ef)
+	proto.RegisterFile("envoy/type/http_status.proto", fileDescriptor_http_status_6f768cb0c155571a)
 }
 
-var fileDescriptor_http_status_a08dd77cc74d90ef = []byte{
+var fileDescriptor_http_status_6f768cb0c155571a = []byte{
 	// 910 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x74, 0x54, 0x49, 0x6f, 0x1c, 0x45,
 	0x14, 0x4e, 0x4f, 0xc5, 0x49, 0x5c, 0x71, 0x9c, 0x97, 0x8a, 0x13, 0x87, 0x10, 0x2c, 0x2b, 0x27,
