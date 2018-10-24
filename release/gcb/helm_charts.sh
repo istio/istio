@@ -53,7 +53,7 @@ done
 $HELM repo index "$HELM_BUILD_DIR"
 
 # Copy output to GCS bucket.
-gsutil -qm cp -rP "${HELM_BUILD_DIR}/*" "gs://${CB_GCS_BUILD_PATH}/charts/"
+gsutil -qm cp -r "${HELM_BUILD_DIR}/*" "gs://${CB_GCS_BUILD_PATH}/charts/"
 
 # Do the cleanup.
 rm -fr "${HELM_DIR}"
