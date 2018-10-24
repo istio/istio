@@ -17,21 +17,22 @@ package v2
 import (
 	"net"
 
+	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	"github.com/gogo/protobuf/types"
-	
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 )
 
 // EndpointsFilterFunc is a function that filters data from the ClusterLoadAssignment and returns updated one
-type EndpointsFilterFunc func(endpoints []endpoint.LocalityLbEndpoints, conn *XdsConnection, env *model.Environment) []endpoint.LocalityLbEndpoints
+type EndpointsFilterFunc func(cla *xdsapi.ClusterLoadAssignment, conn *XdsConnection, env *model.Environment) *xdsapi.ClusterLoadAssignment
 
 // EndpointsByNetworkFilter is a network filter function to support Split Horizon EDS - filter the endpoints based on the network
 // of the connected sidecar. The filter will filter out all endpoints which are not present within the
 // sidecar network and add a gateway endpoint to remote networks that have endpoints (if gateway exists).
 // Information for the mesh networks is provided as a MeshNetwork config map.
-func EndpointsByNetworkFilter(endpoints []endpoint.LocalityLbEndpoints, conn *XdsConnection, env *model.Environment) []endpoint.LocalityLbEndpoints {
+func EndpointsByNetworkFilter(cla *xdsapi.ClusterLoadAssignment, conn *XdsConnection, env *model.Environment) *xdsapi.ClusterLoadAssignment {
 	// If the sidecar does not specify a network, ignore Split Horizon EDS and return all
 	network, found := conn.modelNode.Metadata["ISTIO_NETWORK"]
 	if !found {
@@ -40,12 +41,16 @@ func EndpointsByNetworkFilter(endpoints []endpoint.LocalityLbEndpoints, conn *Xd
 		// network from its endpoint
 
 		// Couldn't find the sidecar network
-		return endpoints
+		return cla
 	}
 
-	// A new array of endpoints to be returned that will have both local and
+	// A new ClusterLoadAssignment to return that will have both local and
 	// remote gateways (if any)
-	filtered := []endpoint.LocalityLbEndpoints{}
+	filteredCLA := &xdsapi.ClusterLoadAssignment{
+		ClusterName: cla.ClusterName,
+		Endpoints:   []endpoint.LocalityLbEndpoints{},
+		Policy:      cla.Policy,
+	}
 
 	// Weight (number of endpoints) for the EDS cluster for each remote networks
 	remoteEps := map[string]uint32{}
@@ -53,7 +58,7 @@ func EndpointsByNetworkFilter(endpoints []endpoint.LocalityLbEndpoints, conn *Xd
 	// Go through all cluster endpoints and add those with the same network as the sidecar
 	// to the result. Also count the number of endpoints per each remote network while
 	// iterating so that it can be used as the weight for the gateway endpoint
-	for _, ep := range endpoints {
+	for _, ep := range cla.Endpoints {
 		onlyLocalLbEndpoints := []endpoint.LbEndpoint{}
 		foundRemote := false
 		for _, lbEp := range ep.LbEndpoints {
@@ -76,7 +81,7 @@ func EndpointsByNetworkFilter(endpoints []endpoint.LocalityLbEndpoints, conn *Xd
 		if !foundRemote {
 			// This LocalityLbEndpoints has no remote endpoints so just
 			// add it to the result
-			filtered = append(filtered, ep)
+			filteredCLA.Endpoints = append(filteredCLA.Endpoints, ep)
 		} else {
 			// This LocalityLbEndpoints has remote endpoint so add to the result
 			// a new one that holds only local endpoints
@@ -86,14 +91,14 @@ func EndpointsByNetworkFilter(endpoints []endpoint.LocalityLbEndpoints, conn *Xd
 				LoadBalancingWeight: ep.LoadBalancingWeight,
 				Priority:            ep.Priority,
 			}
-			filtered = append(filtered, newEp)
+			filteredCLA.Endpoints = append(filteredCLA.Endpoints, newEp)
 		}
 	}
 
 	// If there is no MeshNetworks configuration, we don't have gateways information
 	// so just return the filtered results (with no remote endpoints)
 	if env.MeshNetworks == nil {
-		return filtered
+		return filteredCLA
 	}
 
 	// Iterate over all networks that have the cluster endpoint (weight>0) and
@@ -141,8 +146,8 @@ func EndpointsByNetworkFilter(endpoints []endpoint.LocalityLbEndpoints, conn *Xd
 				Value: uint32(w),
 			},
 		}
-		filtered = append(filtered, gwLocEp)
+		filteredCLA.Endpoints = append(filteredCLA.Endpoints, gwLocEp)
 	}
 
-	return filtered
+	return filteredCLA
 }

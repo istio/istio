@@ -19,7 +19,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
+	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/google/uuid"
 	"golang.org/x/time/rate"
@@ -537,10 +537,10 @@ func (s *DiscoveryServer) handleUpdates() {
 }
 
 // Apply filter functions listed in the 'endpointsFilterFuncs' one after the other
-func (s *DiscoveryServer) applyEndpointsFilterFuncs(endpoints []endpoint.LocalityLbEndpoints, con *XdsConnection) []endpoint.LocalityLbEndpoints {
-	filtered := endpoints
-	for _, ff := range s.endpointsFilterFuncs {
-		filtered = ff(filtered, con, s.Env)
+func (s *DiscoveryServer) applyEndpointsFilterFuncs(cla *xdsapi.ClusterLoadAssignment, con *XdsConnection) *xdsapi.ClusterLoadAssignment {
+	filtered := cla
+	for _, eff := range s.endpointsFilterFuncs {
+		filtered = eff(filtered, con, s.Env)
 	}
 	return filtered
 }
