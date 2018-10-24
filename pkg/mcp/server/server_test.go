@@ -644,7 +644,7 @@ func TestRateLimitNACK(t *testing.T) {
 
 		ackFloodRepeatDuration   = time.Millisecond * 500
 		ackFloodMaxWantResponses = math.MaxInt64
-		ackFloodMinWantResponses = int(ackFloodRepeatDuration/ackLimitFreq) + 1
+		ackFloodMinWantResponses = int(ackFloodRepeatDuration/nackLimitFreq) + 1
 	)
 
 	steps := []struct {
