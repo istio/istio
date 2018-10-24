@@ -116,9 +116,6 @@ type Controller struct {
 	// servicesMap stores hostname ==> service, it is used to reduce convertService calls.
 	servicesMap map[model.Hostname]*model.Service
 
-	// Mapping between CIDR ranges and matching network for efficient lookup
-	networksRangers map[cidranger.RangerEntry]string
-
 	// CIDR ranger based on path-compressed prefix trie
 	ranger cidranger.Ranger
 
@@ -800,6 +797,17 @@ func (c *Controller) updateEDS(ep *v1.Endpoints) {
 	}
 }
 
+// namedRangerEntry for holding network's CIDR and name
+type namedRangerEntry struct {
+	name    string
+	network net.IPNet
+}
+
+// returns the IPNet for the network
+func (n namedRangerEntry) Network() net.IPNet {
+	return n.network
+}
+
 // InitNetworkLookup will read the mesh networks configuration from the environment
 // and initialize CIDR rangers for an efficient network lookup when needed
 func (c *Controller) InitNetworkLookup() {
@@ -807,7 +815,6 @@ func (c *Controller) InitNetworkLookup() {
 		return
 	}
 
-	c.networksRangers = map[cidranger.RangerEntry]string{}
 	for n, v := range c.Env.MeshNetworks.Networks {
 		for _, ep := range v.Endpoints {
 			if ep.GetFromCidr() != "" {
@@ -816,9 +823,11 @@ func (c *Controller) InitNetworkLookup() {
 					log.Warnf("unable to parse CIDR %q for network %s", ep.GetFromCidr(), n)
 					continue
 				}
-				rangerEntry := cidranger.NewBasicRangerEntry(*net)
+				rangerEntry := namedRangerEntry{
+					name:    n,
+					network: *net,
+				}
 				c.ranger.Insert(rangerEntry)
-				c.networksRangers[rangerEntry] = n
 			}
 			if ep.GetFromRegistry() != "" && ep.GetFromRegistry() == c.ClusterID {
 				c.network = n
@@ -829,10 +838,6 @@ func (c *Controller) InitNetworkLookup() {
 
 // return the mesh network for the endpoint address. Empty string if not found.
 func (c *Controller) endpointNetwork(ea *v1.EndpointAddress) string {
-	if c.networksRangers == nil {
-		return ""
-	}
-
 	entries, err := c.ranger.ContainingNetworks(net.ParseIP(ea.IP))
 	if err != nil {
 		log.Errora(err)
@@ -845,5 +850,5 @@ func (c *Controller) endpointNetwork(ea *v1.EndpointAddress) string {
 		log.Warnf("Found multiple networks CIDRs matching the endpoint IP: %s. Using the first match.", ea.IP)
 	}
 
-	return c.networksRangers[entries[0]]
+	return (entries[0].(namedRangerEntry)).name
 }
