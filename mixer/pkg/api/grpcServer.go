@@ -74,6 +74,10 @@ func NewGRPCServer(dispatcher dispatcher.Dispatcher, gp *pool.GoroutinePool, cac
 
 // Check is the entry point for the external Check method
 func (s *grpcServer) Check(ctx context.Context, req *mixerpb.CheckRequest) (*mixerpb.CheckResponse, error) {
+	if s.throttler.Throttle(loadshedding.RequestInfo{PredictedCost: 1.0}) {
+		return nil, grpc.Errorf(codes.Unavailable, "Server is currently overloaded. Please try again.")
+	}
+
 	lg.Debugf("Check (GlobalWordCount:%d, DeduplicationID:%s, Quota:%v)", req.GlobalWordCount, req.DeduplicationId, req.Quotas)
 	lg.Debug("Dispatching Preprocess Check")
 
