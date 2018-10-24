@@ -74,54 +74,89 @@ def GetVariableOrDefault(var, default):
 
 
 def getBashSettingsTemplate(extra_param_lst=[]):
+  settings_prefix_str = """
+{% set settings = task_instance.xcom_pull(task_ids='generate_workflow_args') %}
+set -x
+GCB_ENV_FILE="$(mktemp /tmp/gcb_env_file.XXXXXX)"
+"""
+  exp_rel_tools_path_str = 'export CB_GCS_RELEASE_TOOLS_PATH={{ settings.CB_GCS_RELEASE_TOOLS_PATH }}'
+  upload_gcb_env_str = 'gsutil -q cp "${GCB_ENV_FILE}" "gs://${CB_GCS_RELEASE_TOOLS_PATH}/gcb_env.sh"'
+  download_gcb_env_str = 'gsutil -q cp "gs://${CB_GCS_RELEASE_TOOLS_PATH}/gcb_env.sh" "${GCB_ENV_FILE}"'
+  airflow_scripts_init_str = """
+                source "${GCB_ENV_FILE}"
+                # cloning master allows us to use master code to do builds for all releases, if this needs to
+                # be changed because of future incompatible changes
+                # we just need to clone the compatible SHA here and in get_commit.template.json
+                git clone "https://github.com/${CB_GITHUB_ORG}/istio.git" "istio-code" -b "master" --depth 1
+                # use release scripts from master
+                cp istio-code/release/pipeline/*sh istio-code/release/gcb/json_parse_shared.sh istio-code/release/gcb/*json .
+                source airflow_scripts.sh
+                """
+  airflow_scripts_copy_str = """
+                source "${GCB_ENV_FILE}"
+                # use scripts saved for this build
+                gsutil -mq cp "gs://${CB_GCS_RELEASE_TOOLS_PATH}"/pipeline/*sh .
+                gsutil -mq cp "gs://${CB_GCS_RELEASE_TOOLS_PATH}"/gcb/json_parse_shared.sh .
+                gsutil -mq cp "gs://${CB_GCS_RELEASE_TOOLS_PATH}"/gcb/*json .
+                source airflow_scripts.sh
+                """
+
+  def exportNonGcbEnv(keys):
+    non_gcb_exp_list = []
+    for key in keys:
+      # export non CB_ variables locally
+      if not key.startswith("CB_"):
+        non_gcb_exp_list.append("export %s={{ settings.%s }}" % (key, key))
+
+    return "\n".join(non_gcb_exp_list)
+
+  def exportGcbEnv(keys):
+    gcb_exp_list = []
+    gcb_env_prefix = """
+cat << EOF > "${GCB_ENV_FILE}" """
+
+    gcb_exp_list.append(gcb_env_prefix)
+    for key in keys:
+      # only export CB_ variables to gcb
+      if key.startswith("CB_"):
+        gcb_exp_list.append("export %s={{ settings.%s }}" % (key, key))
+    gcb_env_suffix = 'EOF'
+    gcb_exp_list.append(gcb_env_suffix)
+
+    return "\n".join(gcb_exp_list)
+
+  def getGcbEnvInitTemplate(keys):
+    gcb_env_exp_str = exportGcbEnv(keys)
+    non_gcb_env_exp_str = exportNonGcbEnv(keys)
+
+    gcb_exp_list = [settings_prefix_str,
+                    non_gcb_env_exp_str,
+                    exp_rel_tools_path_str,
+                    gcb_env_exp_str,
+                    upload_gcb_env_str,
+                    airflow_scripts_init_str]
+    return "\n".join(gcb_exp_list)
+
+  def getCopyFromGcbTemplate(keys):
+    non_gcb_env_exp_str = exportNonGcbEnv(keys)
+
+    copy_list = [settings_prefix_str,
+                 non_gcb_env_exp_str,
+                 exp_rel_tools_path_str,
+                 download_gcb_env_str,
+                 airflow_scripts_copy_str]
+    return "\n".join(copy_list)
+
   keys = environment_config.GetDefaultAirflowConfigKeys()
   for key in extra_param_lst:
     keys.append(key)
   #end lists loop
   keys.sort() # sort for readability
 
-  template_prefix = "{% set settings = task_instance.xcom_pull(task_ids='generate_workflow_args') %}"
-  template_list = [template_prefix]
-  gcb_env_prefix = """
-set -x
-export CB_GCS_RELEASE_TOOLS_PATH="{{ settings.CB_GCS_RELEASE_TOOLS_PATH }}"
-GCB_ENV_FILE="$(mktemp /tmp/gcb_env_file.XXXXXX)"
-cat << EOF > "${GCB_ENV_FILE}"
-"""
-  template_list.append(gcb_env_prefix)
-  for key in keys:
-    # only export CB_ variables to gcb
-    if key.startswith("CB_"):
-      template_list.append("export %s={{ settings.%s }}" % (key, key))
-  gcb_env_suffix = 'EOF'
-  template_list.append(gcb_env_suffix)
+  init_gcb_env_str = getGcbEnvInitTemplate(keys)
+  copy_from_gcb_str = getCopyFromGcbTemplate(keys)
 
-  for key in keys:
-    # export non CB_ variables locally
-    if not key.startswith("CB_"):
-      template_list.append("export %s={{ settings.%s }}" % (key, key))
-
-  airflow_scripts_str = """
-# download gcb_env.sh if it exists, otherwise the local copy will be uploaded
-gsutil -q cp "gs://${CB_GCS_RELEASE_TOOLS_PATH}/gcb_env.sh" "${GCB_ENV_FILE}"
-if [ $? -ne 0 ]; then
-  gsutil -q cp "${GCB_ENV_FILE}" "gs://${CB_GCS_RELEASE_TOOLS_PATH}/gcb_env.sh"
-fi
-source "${GCB_ENV_FILE}"
-# cloning master allows us to use master code to do builds for all releases, if this needs to
-# be changed because of future incompatible changes
-# we just need to clone the compatible SHA here and in get_commit.template.json
-git clone "https://github.com/${CB_GITHUB_ORG}/istio.git" "istio-code" -b "master" --depth 1
-# use release scripts from master
-cp istio-code/release/pipeline/*sh istio-code/release/gcb/json_parse_shared.sh istio-code/release/gcb/*json .
-# or override with scripts saved for this build
-gsutil -mq cp "gs://${CB_GCS_RELEASE_TOOLS_PATH}"/pipeline/*sh .
-gsutil -mq cp "gs://${CB_GCS_RELEASE_TOOLS_PATH}"/gcb/json_parse_shared.sh .
-gsutil -mq cp "gs://${CB_GCS_RELEASE_TOOLS_PATH}"/gcb/*json .
-source airflow_scripts.sh
-"""
-  template_list.append(airflow_scripts_str)
-  return "\n".join(template_list)
+  return init_gcb_env_str, copy_from_gcb_str
 
 
 def MergeEnvironmentIntoConfig(env_conf, *config_dicts):
@@ -146,11 +181,14 @@ def MakeCommonDag(dag_args_func, name,
   )
 
   tasks = dict()
-  cmd_template = getBashSettingsTemplate(extra_param_lst)
+  init_gcb_env_prefix, copy_from_gcb_prefix = getBashSettingsTemplate(extra_param_lst)
 
   def addAirflowBashOperator(cmd_name, task_id, **kwargs):
     cmd_list = []
-    cmd_list.append(cmd_template)
+    if cmd_name == "get_git_commit_cmd":
+       cmd_list.append(init_gcb_env_prefix)
+    else:
+       cmd_list.append(copy_from_gcb_prefix)
 
     cmd_list.append("type %s\n     %s" % (cmd_name, cmd_name))
     cmd = "\n".join(cmd_list)
