@@ -211,7 +211,7 @@ func parseAttributes(rootArgs *rootArgs) (*mixerpb.CompressedAttributes, []strin
 	}
 
 	var attrs mixerpb.CompressedAttributes
-	b.ToProto(&attrs, gb, len(gb))
+	b.ToProto(&attrs, nil, 0)
 
 	dw := make([]string, len(gb), len(gb))
 	for k, v := range gb {
