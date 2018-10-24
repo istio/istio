@@ -626,8 +626,16 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection,
 			l = loadAssignment(c)
 		}
 
-		// Apply registered filter functions
-		l.Endpoints = s.applyEndpointsFilterFuncs(l.Endpoints, con)
+		// Apply registered endpoints filter functions and create a new
+		// ClusterLoadAssignment to be pushed with filtered endpoints
+		if len(s.endpointsFilterFuncs) > 0 {
+			filteredCLA := &xdsapi.ClusterLoadAssignment{
+				ClusterName: l.ClusterName,
+				Endpoints:   s.applyEndpointsFilterFuncs(l.Endpoints, con),
+				Policy:      l.Policy,
+			}
+			l = filteredCLA
+		}
 
 		endpoints += len(l.Endpoints)
 		if len(l.Endpoints) == 0 {
