@@ -78,19 +78,19 @@ func DefaultOptions() Options {
 // tracing options.
 func (o *Options) AttachCobraFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().VarP(newModeValue("disabled", &o.Mode), "loadsheddingMode", "",
-		"When enabled, the server will log violations but not to enforce load limits.")
+		"When enabled, the server will log violations but will not enforce load limits.")
 
 	cmd.PersistentFlags().DurationVarP(&o.AverageLatencyThreshold, "averageLatencyThreshold", "", 0,
-		"Average response latency threshold to use for loadshedding. Setting this to a non-zero Duration will enable the gRPC Response Latency evaluator.")
+		"Maximum average response time supported by the server. When this limit is exceeded, the server will drop traffic.")
 
 	cmd.PersistentFlags().VarP(newLimitValue(DefaultSampleFrequency, &o.SamplesPerSecond), "latencySamplesPerSecond", "",
-		"Controls the frequency at which the server will sample response latencies to calculate the average response latency.")
+		"Controls the frequency at which the server will sample response times to calculate the average response latency.")
 
 	cmd.PersistentFlags().DurationVarP(&o.SampleHalfLife, "latencySampleHalflife", "", DefaultHalfLife,
 		"Decay rate of samples in calculation of average response latency.")
 
 	cmd.PersistentFlags().VarP(newLimitValue(0, &o.MaxRequestsPerSecond), "maxRequestsPerSecond", "",
-		"Maximum requests per second supported by the server. Any requests above this limit will be dropped. A non-zero value enables the rate limiter.")
+		"Maximum requests per second supported by the server. Any requests above this limit will be dropped.")
 
 	cmd.PersistentFlags().IntVarP(&o.BurstSize, "burstSize", "", 0,
 		"Number of requests that are permitted beyond the configured maximum for a period of time. Only valid when used with 'maxRequestsPerSecond'.")
