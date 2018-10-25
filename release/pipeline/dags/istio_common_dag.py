@@ -85,7 +85,9 @@ def getBashSettingsTemplate(extra_param_lst=[]):
                 source "${GCB_ENV_FILE}"
                 # use airflow scripts from bootstrap
                 gsutil -m cp "gs://${CB_GCS_BUILD_BUCKET}/release-tools/bootstrap/*sh" .
-                # use json files saved for this build
+                # use bootstrap json file for get_git_commit task
+                gsutil -q cp "gs://${CB_GCS_BUILD_BUCKET}/release-tools/bootstrap/get_commit.template.json" .
+                # everything else uses json files saved for this build
                 gsutil -mq cp "gs://${CB_GCS_RELEASE_TOOLS_PATH}"/gcb/*json .
                 source airflow_scripts.sh
                 """
@@ -95,15 +97,6 @@ def getBashSettingsTemplate(extra_param_lst=[]):
                 export PROJECT_ID={{ settings.PROJECT_ID }}
                 export SVC_ACCT={{ settings.SVC_ACCT }}
                 export CB_GCS_RELEASE_TOOLS_PATH={{ settings.CB_GCS_RELEASE_TOOLS_PATH }}
-                """
-  airflow_scripts_init_str = """
-                gsutil -q cp "${GCB_ENV_FILE}" "gs://${CB_GCS_RELEASE_TOOLS_PATH}/gcb_env.sh"
-                source "${GCB_ENV_FILE}"
-                # use airflow scripts from bootstrap
-                gsutil -m cp "gs://${CB_GCS_BUILD_BUCKET}/release-tools/bootstrap/*sh" .
-                # use bootstrap json file
-                gsutil -q cp "gs://${CB_GCS_BUILD_BUCKET}/release-tools/bootstrap/get_commit.template.json" .
-                source airflow_scripts.sh
                 """
 
   def getGcbEnvInitTemplate():
@@ -120,7 +113,8 @@ def getBashSettingsTemplate(extra_param_lst=[]):
       if key.startswith("CB_"):
         gcb_exp_list.append("export %s={{ settings.%s }}" % (key, key))
     gcb_exp_list.append("EOF")
-    gcb_exp_list.append(airflow_scripts_init_str)
+    gcb_exp_list.append("""
+                gsutil -q cp "${GCB_ENV_FILE}" "gs://${CB_GCS_RELEASE_TOOLS_PATH}/gcb_env.sh" """)
 
     return "\n".join(gcb_exp_list)
 
@@ -150,17 +144,16 @@ def MakeCommonDag(dag_args_func, name,
   )
 
   tasks = dict()
-  init_gcb_env_prefix, copy_env_from_gcb_prefix = getBashSettingsTemplate(extra_param_lst)
+  init_gcb_env_cmd, copy_env_from_gcb_prefix = getBashSettingsTemplate(extra_param_lst)
+
+  def addAirflowInitBashOperator(task_id):
+    task = BashOperator(
+      task_id=task_id, bash_command=init_gcb_env_cmd, dag=common_dag)
+    tasks[task_id] = task
+    return
 
   def addAirflowBashOperator(cmd_name, task_id, **kwargs):
-    cmd_list = []
-    if cmd_name == "get_git_commit_cmd":
-       cmd_list.append(init_gcb_env_prefix)
-    else:
-       cmd_list.append(copy_env_from_gcb_prefix)
-
-    cmd_list.append("type %s\n     %s" % (cmd_name, cmd_name))
-    cmd = "\n".join(cmd_list)
+    cmd = copy_env_from_gcb_prefix + "\ntype %s\n     %s" % (cmd_name, cmd_name)
     task = BashOperator(
       task_id=task_id, bash_command=cmd, dag=common_dag, **kwargs)
     tasks[task_id] = task
@@ -174,6 +167,7 @@ def MakeCommonDag(dag_args_func, name,
   )
   tasks['generate_workflow_args'] = generate_flow_args
 
+  addAirflowInitBashOperator('init_gcb_env')
   addAirflowBashOperator('get_git_commit_cmd', 'get_git_commit')
   addAirflowBashOperator('build_template', 'run_cloud_builder')
   addAirflowBashOperator('test_command', 'run_release_qualification_tests', retries=0)

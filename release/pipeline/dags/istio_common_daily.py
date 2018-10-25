@@ -99,7 +99,8 @@ def DailyPipeline(branch):
   addAirflowBashOperator('gcr_tag_success', 'tag_daily_gcr')
 
   #tasks['generate_workflow_args']
-  tasks['get_git_commit'                 ].set_upstream(tasks['generate_workflow_args'])
+  tasks['init_gcb_env'                   ].set_upstream(tasks['generate_workflow_args'])
+  tasks['get_git_commit'                 ].set_upstream(tasks['init_gcb_env'])
   tasks['run_cloud_builder'              ].set_upstream(tasks['get_git_commit'])
   tasks['modify_values_helm'             ].set_upstream(tasks['run_cloud_builder'])
   tasks['run_release_qualification_tests'].set_upstream(tasks['modify_values_helm'])
