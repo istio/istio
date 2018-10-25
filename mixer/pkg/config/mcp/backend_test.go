@@ -125,6 +125,30 @@ func (s *testState) close(t *testing.T) {
 	}
 }
 
+func TestBackend_HasSynced(t *testing.T) {
+	st := createState(t)
+	defer st.close(t)
+
+	if err := st.backend.WaitForSynced(100 * time.Millisecond); err == nil {
+		t.Fatal("WaitForSynced() should return not ready before first full server push")
+	}
+
+	b := snapshot.NewInMemoryBuilder()
+	for typeURL, _ := range st.mapping.typeURLsToKinds {
+		b.SetVersion(typeURL, "0")
+
+	}
+	sn := b.Build()
+
+	st.updateWg.Add(len(st.mapping.typeURLsToKinds))
+	st.server.Cache.SetSnapshot(mixerNodeID, sn)
+	st.updateWg.Wait()
+
+	if err := st.backend.WaitForSynced(time.Millisecond * 100); err != nil {
+		t.Fatal("WaitForSynced() should return ready with empty snapshot")
+	}
+}
+
 func TestBackend_List(t *testing.T) {
 	st := createState(t)
 	defer st.close(t)

@@ -21,7 +21,6 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
-
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/pkg/mcp/snapshot"
 )
@@ -29,10 +28,14 @@ import (
 var testSchema = func() *resource.Schema {
 	b := resource.NewSchemaBuilder()
 	b.Register("type.googleapis.com/google.protobuf.Empty")
+	b.Register("type.googleapis.com/google.protobuf.Struct")
 	return b.Build()
 }()
 
-var emptyInfo = testSchema.Get("type.googleapis.com/google.protobuf.Empty")
+var (
+	emptyInfo  = testSchema.Get("type.googleapis.com/google.protobuf.Empty")
+	structInfo = testSchema.Get("type.googleapis.com/google.protobuf.Struct")
+)
 
 func TestProcessor_Start(t *testing.T) {
 	src := NewInMemorySource()
