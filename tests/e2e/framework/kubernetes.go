@@ -103,7 +103,6 @@ var (
 	kubeInjectCM             = flag.String("kube_inject_configmap", "",
 		"Configmap to use by the istioctl kube-inject command.")
 
-
 	addons = []string{
 		"zipkin",
 	}
