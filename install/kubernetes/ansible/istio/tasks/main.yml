@@ -28,4 +28,4 @@
   when: cluster_flavour == 'ocp'
 
 - include_tasks: install_samples.yml
-  when: (istio.samples is iterable) and (istio.samples | length > 0)
+  when: (istio.samples is defined) and (istio.samples is iterable) and (istio.samples | length > 0)

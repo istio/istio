@@ -18,6 +18,7 @@
     - istio-ingressgateway
     - prometheus
     - grafana
+    - kiali
   when: "cluster_flavour == 'ocp'"
 
 - name: Deploy Addons defined such as Grafana, ...
