@@ -169,16 +169,22 @@ func networkEndpointToEnvoyEndpoint(e *model.NetworkEndpoint) (*endpoint.LbEndpo
 
 	// Istio telemetry depends on the metadata value being set for endpoints in the mesh.
 	// Do not remove: mixerfilter depends on this logic.
-	if e.UID != "" {
+	if e.UID != "" || e.Network != "" {
 		ep.Metadata = &core.Metadata{
 			FilterMetadata: map[string]*types.Struct{
 				"istio": {
-					Fields: map[string]*types.Value{
-						"uid": {Kind: &types.Value_StringValue{StringValue: e.UID}},
-					},
+					Fields: map[string]*types.Value{},
 				},
 			},
 		}
+	}
+
+	if e.UID != "" {
+		ep.Metadata.FilterMetadata["istio"].Fields["uid"] = &types.Value{Kind: &types.Value_StringValue{StringValue: e.UID}}
+	}
+
+	if e.Network != "" {
+		ep.Metadata.FilterMetadata["istio"].Fields["network"] = &types.Value{Kind: &types.Value_StringValue{StringValue: e.Network}}
 	}
 
 	//log.Infoa("EDS: endpoint ", ipAddr, ep.String())
@@ -619,6 +625,18 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection,
 			}
 			l = loadAssignment(c)
 		}
+
+		// Apply registered endpoints filter functions and create a new
+		// ClusterLoadAssignment to be pushed with filtered endpoints
+		if len(s.endpointsFilterFuncs) > 0 {
+			filteredCLA := &xdsapi.ClusterLoadAssignment{
+				ClusterName: l.ClusterName,
+				Endpoints:   s.applyEndpointsFilterFuncs(l.Endpoints, con),
+				Policy:      l.Policy,
+			}
+			l = filteredCLA
+		}
+
 		endpoints += len(l.Endpoints)
 		if len(l.Endpoints) == 0 {
 			emptyClusters++

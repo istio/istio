@@ -111,10 +111,8 @@ global:
       host: # example: statsd-svc
       port: # example: 9125
 
-    # This controls the stats collection for proxies. To disable stats
-    # collection, set the prometheusPort to 0.
-    stats:
-      prometheusPort: 15090
+    # Specify which tracer to use. One of: lightstep, zipkin
+    tracer: "zipkin"
 
   proxy_init:
     # Base name for the proxy_init container, used to configure iptables.
@@ -137,13 +135,32 @@ global:
   # Will set the value with same name in istio config map - pilot needs to be restarted to take effect.
   disablePolicyChecks: false
 
+  # policyCheckFailOpen allows traffic in cases when the mixer policy service cannot be reached.
+  # Default is false which means the traffic is denied when the client is unable to connect to Mixer.
+  policyCheckFailOpen: false
+
   # EnableTracing sets the value with same name in istio config map, requires pilot restart to take effect.
   enableTracing: true
 
+  # Configuration for each of the supported tracers
   tracer:
-    # Host:Port for reporting trace data in zipkin format. If not specified, will default to
-    # zipkin service (port 9411) in the same namespace as the other istio components.
-    zipkinAddress:
+    # Configuration for envoy to send trace data to LightStep.
+    # Disabled by default.
+    # address: the <host>:<port> of the satellite pool
+    # accessToken: required for sending data to the pool
+    # secure: specifies whether data should be sent with TLS
+    # cacertPath: the path to the file containing the cacert to use when verifying TLS. If secure is true, this is
+    #   required. If a value is specified then a secret called "lightstep.cacert" must be created in the destination
+    #   namespace with the key matching the base of the provided cacertPath and the value being the cacert itself.
+    lightstep:
+      address: ""                # example: lightstep-satellite:443
+      accessToken: ""            # example: abcdefg1234567
+      secure: true               # example: true|false
+      cacertPath: ""             # example: /etc/lightstep/cacert.pem
+    zipkin:
+      # Host:Port for reporting trace data in zipkin format. If not specified, will default to
+      # zipkin service (port 9411) in the same namespace as the other istio components.
+      address: ""
 
   # Default mtls policy. If true, mtls between services will be enabled by default.
   mtls:

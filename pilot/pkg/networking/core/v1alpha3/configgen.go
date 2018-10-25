@@ -57,4 +57,3 @@ func (configgen *ConfigGeneratorImpl) CanUsePrecomputedCDS(proxy *model.Proxy) b
 
 	return networkView[model.UnnamedNetwork]
 }
-
