@@ -43,6 +43,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	prom "github.com/prometheus/client_golang/prometheus"
 
 	mcpapi "istio.io/api/mcp/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -255,6 +256,14 @@ func NewServer(args PilotArgs) (*Server, error) {
 	if args.CtrlZOptions != nil {
 		_, _ = ctrlz.Run(args.CtrlZOptions, nil)
 	}
+
+	// Export pilot version as metric for fleet analytics.
+	pilotVersion := prom.NewGaugeVec(prom.GaugeOpts{
+		Name: "pilot_info",
+		Help: "Pilot version and build information.",
+	}, []string{"type"})
+	prom.MustRegister(pilotVersion)
+	pilotVersion.With(prom.Labels{"version": version.Info.String()}).Set(1)
 
 	return s, nil
 }
@@ -879,11 +888,11 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 func (s *Server) initMemoryRegistry(serviceControllers *aggregate.Controller) {
 	// MemServiceDiscovery implementation
 	discovery1 := srmemory.NewDiscovery(
-		map[model.Hostname]*model.Service{ // srmemory.HelloService.Hostname: srmemory.HelloService,
+		map[model.Hostname]*model.Service{// srmemory.HelloService.Hostname: srmemory.HelloService,
 		}, 2)
 
 	discovery2 := srmemory.NewDiscovery(
-		map[model.Hostname]*model.Service{ // srmemory.WorldService.Hostname: srmemory.WorldService,
+		map[model.Hostname]*model.Service{// srmemory.WorldService.Hostname: srmemory.WorldService,
 		}, 2)
 
 	registry1 := aggregate.Registry{
