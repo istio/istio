@@ -74,6 +74,9 @@ if [ "${CI:-}" == 'bootstrap' ]; then
   ARTIFACTS_DIR=${ARTIFACTS_DIR:-"${GOPATH}/src/istio.io/istio/_artifacts"}
 fi
 
+export HUB=${HUB:-"gcr.io/istio-testing"}
+export TAG="${TAG:-${GIT_SHA}}"
+
 make init
 
 setup_cluster
