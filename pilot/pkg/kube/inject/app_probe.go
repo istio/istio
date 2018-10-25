@@ -19,9 +19,10 @@ import (
 	"strconv"
 	"strings"
 
-	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+
+	"istio.io/istio/pilot/cmd/pilot-agent/status"
 )
 
 const (
