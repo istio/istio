@@ -49,6 +49,10 @@ spec:
         - NONE
         - --statusPort
         - "15020"
+        - --appReadyUrl
+        - ""
+        - --appLiveUrl
+        - ""
         - --applicationPorts
         - "80"
         env:
@@ -176,6 +180,10 @@ spec:
         - NONE
         - --statusPort
         - "15020"
+        - --appReadyUrl
+        - ""
+        - --appLiveUrl
+        - ""
         - --applicationPorts
         - "81"
         env:

@@ -51,6 +51,10 @@ items:
           - NONE
           - --statusPort
           - "15020"
+          - --appReadyUrl
+          - ""
+          - --appLiveUrl
+          - ""
           - --applicationPorts
           - "80"
           env:
@@ -177,6 +181,10 @@ items:
           - NONE
           - --statusPort
           - "15020"
+          - --appReadyUrl
+          - ""
+          - --appLiveUrl
+          - ""
           - --applicationPorts
           - "81"
           env:
