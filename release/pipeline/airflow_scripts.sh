@@ -25,7 +25,7 @@ source "${SCRIPTPATH}/gcb_build_lib.sh"
 
 SUBS_FILE="$(mktemp /tmp/build.subs.gcs_release_tool_path.XXXX)"
 cat << EOF > "${SUBS_FILE}"
-substitutions": {
+"substitutions": {
   "_CB_GCS_RELEASE_TOOLS_PATH": "${CB_GCS_RELEASE_TOOLS_PATH}"
 }
 EOF
