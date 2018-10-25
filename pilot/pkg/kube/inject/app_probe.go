@@ -30,6 +30,8 @@ const (
 	// We reuse it for taking over application's readiness probing as well.
 	// TODO: replace the hardcoded statusPort elsewhere by this variable as much as possible.
 	StatusPortCmdFlagName = "statusPort"
+
+	istioProxyContainerName = "istio-proxy"
 )
 
 func appProbePath(kind string, containers []corev1.Container) string {
@@ -67,11 +69,11 @@ func appProbePath(kind string, containers []corev1.Container) string {
 func canRewriteProber(containers []corev1.Container) bool {
 	count := 0
 	for _, c := range containers {
-		if c.Name == "istio-proxy" {
+		if c.Name == istioProxyContainerName {
 			continue
 		}
 		if c.LivenessProbe != nil || c.ReadinessProbe != nil {
-			count += 1
+			count++
 		}
 	}
 	return count == 1
@@ -86,7 +88,7 @@ func rewriteAppHTTPProbe(spec *SidecarInjectionSpec, podSpec *corev1.PodSpec) {
 	pi := -1
 	for _, c := range spec.Containers {
 		// TODO: any constant refers to this container's name?
-		if c.Name != "istio-proxy" {
+		if c.Name != istioProxyContainerName {
 			continue
 		}
 		for i, arg := range c.Args {
@@ -117,7 +119,7 @@ func rewriteAppHTTPProbe(spec *SidecarInjectionSpec, podSpec *corev1.PodSpec) {
 	}
 	for _, c := range podSpec.Containers {
 		// Skip sidecar container.
-		if c.Name == "istio-proxy" {
+		if c.Name == istioProxyContainerName {
 			continue
 		}
 		rewriteProbe(c.ReadinessProbe, status.AppReadinessPath)
