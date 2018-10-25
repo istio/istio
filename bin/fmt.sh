@@ -45,7 +45,7 @@ if [ $GO_FMT_TOOL = "goimports" ]; then
   check_args="-l -local istio.io"
   fmt_args="-w -local istio.io"
 
-  if [[ -d "${goimports}" ]];then
+  if [[ -d "${tool}" ]];then
       echo "download golang.org/x/tools/cmd/goimports failed"
       exit 1
   fi
