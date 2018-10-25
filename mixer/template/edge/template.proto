@@ -14,6 +14,12 @@
 
 syntax = "proto3";
 
+// $title: Edge
+// $description: A template designed to report observed communication edges between workloads.
+// $location: https://istio.io/docs/reference/config/policy-and-telemetry/templates/edge.html
+// $aliases:
+// $  - /docs/reference/config/template/edge.html
+
 // The `edge` template represents an edge in the mesh graph.
 package edge;
 
