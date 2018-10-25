@@ -29,5 +29,4 @@ rules:
   verbs: ["get"]
 - apiGroups: ["*"]
   resources: ["endpoints"]
-  resourceNames: ["istio-galley"]
-  verbs: ["get"]
+  verbs: ["get", "list", "watch"]
