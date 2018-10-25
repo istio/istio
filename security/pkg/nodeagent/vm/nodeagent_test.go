@@ -33,10 +33,10 @@ import (
 func TestStartWithArgs(t *testing.T) {
 	generalConfig := Config{
 		CAClientConfig: caclient.Config{
-			CAAddress:                 "ca_addr",
-			Org:                       "Google Inc.",
-			RSAKeySize:                512,
-			Env:                       "onprem",
+			CAAddress:  "ca_addr",
+			Org:        "Google Inc.",
+			RSAKeySize: 512,
+			Env:        "onprem",
 			CSRInitialRetrialInterval: time.Millisecond,
 			CSRMaxRetries:             3,
 			CSRGracePeriodPercentage:  50,
@@ -89,10 +89,10 @@ func TestStartWithArgs(t *testing.T) {
 
 			config: &Config{
 				CAClientConfig: caclient.Config{
-					CAAddress:                 "ca_addr",
-					Org:                       "Google Inc.",
-					RSAKeySize:                128,
-					Env:                       "onprem",
+					CAAddress:  "ca_addr",
+					Org:        "Google Inc.",
+					RSAKeySize: 128,
+					Env:        "onprem",
 					CSRInitialRetrialInterval: time.Millisecond,
 					CSRMaxRetries:             3,
 					CSRGracePeriodPercentage:  50,

@@ -332,7 +332,7 @@ func (h *handler) HandleQuota(context context.Context, instance *quota.Instance,
 					key + ".meta", // KEY[1]
 					key + ".data", // KEY[2]
 				},
-				maxAmount,                               // ARGV[1] credit
+				maxAmount, // ARGV[1] credit
 				limit.GetValidDuration().Nanoseconds(),  // ARGV[2] window length
 				limit.GetBucketDuration().Nanoseconds(), // ARGV[3] bucket length
 				args.BestEffort,                         // ARGV[4] best effort
