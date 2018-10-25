@@ -17,7 +17,9 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"os"
+	"path"
 	"reflect"
+	"regexp"
 	"testing"
 
 	"github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v2"
@@ -35,11 +37,14 @@ import (
 // cp $TOP/out/linux_amd64/release/bootstrap/all/envoy-rev0.json pkg/bootstrap/testdata/all_golden.json
 // cp $TOP/out/linux_amd64/release/bootstrap/auth/envoy-rev0.json pkg/bootstrap/testdata/auth_golden.json
 // cp $TOP/out/linux_amd64/release/bootstrap/default/envoy-rev0.json pkg/bootstrap/testdata/default_golden.json
+// cp $TOP/out/linux_amd64/release/bootstrap/tracing_lightstep/envoy-rev0.json pkg/bootstrap/testdata/tracing_lightstep_golden.json
+// cp $TOP/out/linux_amd64/release/bootstrap/tracing_zipkin/envoy-rev0.json pkg/bootstrap/testdata/tracing_zipkin_golden.json
 func TestGolden(t *testing.T) {
 	cases := []struct {
-		base        string
-		labels      map[string]string
-		annotations map[string]string
+		base                       string
+		labels                     map[string]string
+		annotations                map[string]string
+		expectLightstepAccessToken bool
 	}{
 		{
 			base: "auth",
@@ -61,6 +66,13 @@ func TestGolden(t *testing.T) {
 			},
 		},
 		{
+			base: "tracing_lightstep",
+			expectLightstepAccessToken: true,
+		},
+		{
+			base: "tracing_zipkin",
+		},
+		{
 			// Specify zipkin/statsd address, similar with the default config in v1 tests
 			base: "all",
 		},
@@ -72,7 +84,7 @@ func TestGolden(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		t.Run("Bootrap-"+c.base, func(t *testing.T) {
+		t.Run("Bootstrap-"+c.base, func(t *testing.T) {
 			cfg, err := loadProxyConfig(c.base, out, t)
 			if err != nil {
 				t.Fatal(err)
@@ -90,6 +102,22 @@ func TestGolden(t *testing.T) {
 				t.Error("Error reading generated file ", err)
 				return
 			}
+
+			// apply minor modifications for the generated file so that tests are consistent
+			// across different env setups
+			err = ioutil.WriteFile(fn, correctForEnvDifference(real), 0700)
+			if err != nil {
+				t.Error("Error modifying generated file ", err)
+				return
+			}
+
+			// re-read generated file with the changes having been made
+			real, err = ioutil.ReadFile(fn)
+			if err != nil {
+				t.Error("Error reading generated file ", err)
+				return
+			}
+
 			golden, err := ioutil.ReadFile("testdata/" + c.base + "_golden.json")
 			if err != nil {
 				golden = []byte{}
@@ -127,9 +155,49 @@ func TestGolden(t *testing.T) {
 				t.Logf("difference: %s", s)
 				t.Fatalf("\n got: %v\nwant: %v", realM, goldenM)
 			}
+
+			// Check if the LightStep access token file exists
+			_, err = os.Stat(lightstepAccessTokenFile(path.Dir(fn)))
+			if c.expectLightstepAccessToken {
+				if os.IsNotExist(err) {
+					t.Error("expected to find a LightStep access token file but none found")
+				} else if err != nil {
+					t.Error("error running Stat on file: ", err)
+				}
+			} else {
+				if err == nil {
+					t.Error("found a LightStep access token file but none was expected")
+				} else if !os.IsNotExist(err) {
+					t.Error("error running Stat on file: ", err)
+				}
+			}
 		})
 	}
 
+}
+
+type regexReplacement struct {
+	pattern     *regexp.Regexp
+	replacement []byte
+}
+
+// correctForEnvDifference corrects the portions of a generated bootstrap config that vary depending on the environment
+// so that they match the golden file's expected value.
+func correctForEnvDifference(in []byte) []byte {
+	replacements := []regexReplacement{
+		// Lightstep access tokens are written to a file and that path is dependent upon the environment variables that
+		// are set. Standardize the path so that golden files can be properly checked.
+		{
+			pattern:     regexp.MustCompile(`("access_token_file": ").*(lightstep_access_token.txt")`),
+			replacement: []byte("$1/test-path/$2"),
+		},
+	}
+
+	out := in
+	for _, r := range replacements {
+		out = r.pattern.ReplaceAll(out, r.replacement)
+	}
+	return out
 }
 
 func loadProxyConfig(base, out string, _ *testing.T) (*meshconfig.ProxyConfig, error) {
