@@ -25,4 +25,5 @@
     - istio-ingressgateway
     - prometheus
     - grafana
+    - kiali
   when: "cluster_flavour == 'ocp'"
