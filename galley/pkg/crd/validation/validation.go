@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"regexp"
 
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/galley/cmd/shared"
 	"istio.io/istio/mixer/adapter"
@@ -31,7 +31,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/kube"
-
 	"istio.io/istio/pkg/probe"
 )
 
@@ -97,13 +96,15 @@ func RunValidation(vc *WebhookParameters, printf, faltaf shared.FormatFn, kubeCo
 // DefaultArgs allocates an WebhookParameters struct initialized with Webhook's default configuration.
 func DefaultArgs() *WebhookParameters {
 	return &WebhookParameters{
-		Port:                443,
-		CertFile:            "/etc/istio/certs/cert-chain.pem",
-		KeyFile:             "/etc/istio/certs/key.pem",
-		CACertFile:          "/etc/istio/certs/root-cert.pem",
-		DeploymentNamespace: "istio-system",
-		DeploymentName:      "istio-galley",
-		EnableValidation:    true,
+		Port:                          443,
+		CertFile:                      "/etc/istio/certs/cert-chain.pem",
+		KeyFile:                       "/etc/istio/certs/key.pem",
+		CACertFile:                    "/etc/istio/certs/root-cert.pem",
+		DeploymentAndServiceNamespace: "istio-system",
+		DeploymentName:                "istio-galley",
+		ServiceName:                   "istio-galley",
+		WebhookName:                   "istio-galley",
+		EnableValidation:              true,
 	}
 }
 
@@ -130,11 +131,17 @@ func (args *WebhookParameters) Validate() error {
 	var errs *multierror.Error
 	if args.EnableValidation {
 		// Validate the options that exposed to end users
-		if !isDNS1123Label(args.DeploymentNamespace) {
-			errs = multierror.Append(errs, fmt.Errorf("invalid deployment namespace: %q", args.DeploymentNamespace))
+		if args.WebhookName == "" || !isDNS1123Label(args.WebhookName) {
+			errs = multierror.Append(errs, fmt.Errorf("invalid webhook name: %q", args.WebhookName)) // nolint: lll
 		}
-		if !isDNS1123Label(args.DeploymentName) {
+		if args.DeploymentName == "" || !isDNS1123Label(args.DeploymentAndServiceNamespace) {
+			errs = multierror.Append(errs, fmt.Errorf("invalid deployment namespace: %q", args.DeploymentAndServiceNamespace)) // nolint: lll
+		}
+		if args.DeploymentName == "" || !isDNS1123Label(args.DeploymentName) {
 			errs = multierror.Append(errs, fmt.Errorf("invalid deployment name: %q", args.DeploymentName))
+		}
+		if args.ServiceName == "" || !isDNS1123Label(args.ServiceName) {
+			errs = multierror.Append(errs, fmt.Errorf("invalid service name: %q", args.ServiceName))
 		}
 		if len(args.WebhookConfigFile) == 0 {
 			errs = multierror.Append(errs, errors.New("webhookConfigFile not specified"))

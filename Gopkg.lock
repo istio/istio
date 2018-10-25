@@ -1736,7 +1736,7 @@
 
 [[projects]]
   branch = "release-8.0"
-  digest = "1:4b5d4e737092b38e86da183c8a5c75597e446e9cdb0cf72df9332958e2968060"
+  digest = "1:4787de3b2e060e89a22cf9a12590c5aa8f882aec1400334998f22f5dff36f15b"
   name = "k8s.io/client-go"
   packages = [
     "discovery",
@@ -1887,6 +1887,7 @@
     "third_party/forked/golang/template",
     "tools/auth",
     "tools/cache",
+    "tools/cache/testing",
     "tools/clientcmd",
     "tools/clientcmd/api",
     "tools/clientcmd/api/latest",
@@ -2181,6 +2182,7 @@
     "k8s.io/client-go/rest",
     "k8s.io/client-go/testing",
     "k8s.io/client-go/tools/cache",
+    "k8s.io/client-go/tools/cache/testing",
     "k8s.io/client-go/tools/clientcmd",
     "k8s.io/client-go/tools/clientcmd/api",
     "k8s.io/client-go/tools/leaderelection",
