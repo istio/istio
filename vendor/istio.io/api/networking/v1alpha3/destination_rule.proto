@@ -539,10 +539,8 @@ message TLSSettings {
   // A list of alternate names to verify the subject identity in the
   // certificate. If specified, the proxy will verify that the server
   // certificate's subject alt name matches one of the specified values.
-  // Should be empty if mode is `ISTIO_MUTUAL`.
   repeated string subject_alt_names = 5;
 
   // SNI string to present to the server during TLS handshake.
-  // Should be empty if mode is `ISTIO_MUTUAL`.
   string sni = 6;
 }

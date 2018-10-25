@@ -143,7 +143,6 @@ func (c *Controller) Services() ([]*model.Service, error) {
 					sp.ClusterVIPs = make(map[string]string)
 				}
 				sp.ClusterVIPs[r.ClusterID] = s.Address
-				smap[s.Hostname] = sp
 			}
 		}
 		clusterAddressesMutex.Unlock()

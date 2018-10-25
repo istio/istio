@@ -92,7 +92,7 @@ func (c *component) Init(ctx environment.ComponentContext, _ map[dependency.Inst
 		PodNamespace: pod.Namespace,
 		PodName:      pod.Name,
 	}
-	forwarder, err := kube.NewPortForwarder(s.KubeConfig, options, 0, port)
+	forwarder, err := env.Accessor.NewPortForwarder(options, 0, port)
 	if err != nil {
 		return nil, err
 	}

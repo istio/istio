@@ -24,10 +24,19 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
-// This message specifies how a JSON Web Token (JWT) can be verified. JWT format is defined
-// `here <https://tools.ietf.org/html/rfc7519>`_. Please see `OAuth2.0
-//  <https://tools.ietf.org/html/rfc6749>`_ and `OIDC1.0  <http://openid.net/connect>`_ for
-// the authentication flow.
+// Please see following for JWT authentication flow:
+//
+// * `JSON Web Token (JWT) <https://tools.ietf.org/html/rfc7519>`_
+// * `The OAuth 2.0 Authorization Framework <https://tools.ietf.org/html/rfc6749>`_
+// * `OpenID Connect <http://openid.net/connect>`_
+//
+// A JwtProvider message specifies how a JSON Web Token (JWT) can be verified. It specifies:
+//
+// * issuer: the principal that issues the JWT. It has to match the one from the token.
+// * allowed audiences: the ones in the token have to be listed here.
+// * how to fetch public key JWKS to verify the token signature.
+// * how to extract JWT token in the request.
+// * how to pass successfully verified token payload.
 //
 // Example:
 //
@@ -45,14 +54,14 @@ const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 //         seconds: 300
 //
 type JwtProvider struct {
-	// Identifies the principal that issued the JWT. See `here
-	//  <https://tools.ietf.org/html/rfc7519#section-4.1.1>`_. Usually a URL or an email address.
+	// Specify the `principal <https://tools.ietf.org/html/rfc7519#section-4.1.1>`_ that issued
+	// the JWT, usually a URL or an email address.
 	//
 	// Example: https://securetoken.google.com
 	// Example: 1234567-compute@developer.gserviceaccount.com
 	//
 	Issuer string `protobuf:"bytes,1,opt,name=issuer,proto3" json:"issuer,omitempty"`
-	// The list of JWT `audiences <https://tools.ietf.org/html/rfc7519#section-4.1.3>`_. that are
+	// The list of JWT `audiences <https://tools.ietf.org/html/rfc7519#section-4.1.3>`_ are
 	// allowed to access. A JWT containing any of these audiences will be accepted. If not specified,
 	// will not check audiences in the token.
 	//
@@ -65,8 +74,8 @@ type JwtProvider struct {
 	//     - bookstore_web.apps.googleusercontent.com
 	//
 	Audiences []string `protobuf:"bytes,2,rep,name=audiences" json:"audiences,omitempty"`
-	// `JSON Web Key Set <https://tools.ietf.org/html/rfc7517#appendix-A>`_ is needed. to validate
-	// signature of the JWT. This field specifies where to fetch JWKS.
+	// `JSON Web Key Set (JWKS) <https://tools.ietf.org/html/rfc7517#appendix-A>`_ is needed to
+	// validate signature of a JWT. This field specifies where to fetch JWKS.
 	//
 	// Types that are valid to be assigned to JwksSourceSpecifier:
 	//	*JwtProvider_RemoteJwks
@@ -75,6 +84,20 @@ type JwtProvider struct {
 	// If false, the JWT is removed in the request after a success verification. If true, the JWT is
 	// not removed in the request. Default value is false.
 	Forward bool `protobuf:"varint,5,opt,name=forward,proto3" json:"forward,omitempty"`
+	// Two fields below define where to extract the JWT from an HTTP request.
+	//
+	// If no explicit location is specified, the following default locations are tried in order:
+	//
+	// 1. The Authorization header using the `Bearer schema
+	// <https://tools.ietf.org/html/rfc6750#section-2.1>`_. Example::
+	//
+	//    Authorization: Bearer <token>.
+	//
+	// 2. `access_token <https://tools.ietf.org/html/rfc6750#section-2.3>`_ query parameter.
+	//
+	// Multiple JWTs can be verified for a request. Each JWT has to be extracted from the locations
+	// its provider specified or from the default locations.
+	//
 	// Specify the HTTP headers to extract JWT token. For examples, following config:
 	//
 	// .. code-block:: yaml
@@ -107,10 +130,6 @@ type JwtProvider struct {
 	//    base64_encoded(jwt_payload_in_JSON)
 	//
 	// If it is not specified, the payload will not be forwarded.
-	// Multiple JWTs in a request from different issuers will be supported. Multiple JWTs from the
-	// same issuer will not be supported. Each issuer can config this `forward_payload_header`. If
-	// multiple JWTs from different issuers want to forward their payloads, their
-	// `forward_payload_header` should be different.
 	ForwardPayloadHeader string   `protobuf:"bytes,8,opt,name=forward_payload_header,json=forwardPayloadHeader,proto3" json:"forward_payload_header,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -121,7 +140,7 @@ func (m *JwtProvider) Reset()         { *m = JwtProvider{} }
 func (m *JwtProvider) String() string { return proto.CompactTextString(m) }
 func (*JwtProvider) ProtoMessage()    {}
 func (*JwtProvider) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_0a46e1105558bd8a, []int{0}
+	return fileDescriptor_config_3dfe05402a422426, []int{0}
 }
 func (m *JwtProvider) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -326,7 +345,7 @@ func (m *RemoteJwks) Reset()         { *m = RemoteJwks{} }
 func (m *RemoteJwks) String() string { return proto.CompactTextString(m) }
 func (*RemoteJwks) ProtoMessage()    {}
 func (*RemoteJwks) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_0a46e1105558bd8a, []int{1}
+	return fileDescriptor_config_3dfe05402a422426, []int{1}
 }
 func (m *RemoteJwks) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -386,7 +405,7 @@ func (m *JwtHeader) Reset()         { *m = JwtHeader{} }
 func (m *JwtHeader) String() string { return proto.CompactTextString(m) }
 func (*JwtHeader) ProtoMessage()    {}
 func (*JwtHeader) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_0a46e1105558bd8a, []int{2}
+	return fileDescriptor_config_3dfe05402a422426, []int{2}
 }
 func (m *JwtHeader) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -444,7 +463,7 @@ func (m *ProviderWithAudiences) Reset()         { *m = ProviderWithAudiences{} }
 func (m *ProviderWithAudiences) String() string { return proto.CompactTextString(m) }
 func (*ProviderWithAudiences) ProtoMessage()    {}
 func (*ProviderWithAudiences) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_0a46e1105558bd8a, []int{3}
+	return fileDescriptor_config_3dfe05402a422426, []int{3}
 }
 func (m *ProviderWithAudiences) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -495,37 +514,37 @@ func (m *ProviderWithAudiences) GetAudiences() []string {
 //  # Example 1: not required with an empty message
 //
 //  # Example 2: require A
-//  provider_name: "provider-A"
+//  provider_name: provider-A
 //
 //  # Example 3: require A or B
 //  requires_any:
 //    requirements:
-//      - provider_name: "provider-A"
-//      - provider_name: "provider-B"
+//      - provider_name: provider-A
+//      - provider_name: provider-B
 //
 //  # Example 4: require A and B
 //  requires_all:
 //    requirements:
-//      - provider_name: "provider-A"
-//      - provider_name: "provider-B"
+//      - provider_name: provider-A
+//      - provider_name: provider-B
 //
 //  # Example 5: require A and (B or C)
 //  requires_all:
 //    requirements:
-//      - provider_name: "provider-A"
+//      - provider_name: provider-A
 //      - requires_any:
 //        requirements:
-//          - provider_name: "provider-B"
-//          - provider_name: "provider-C"
+//          - provider_name: provider-B
+//          - provider_name: provider-C
 //
 //  # Example 6: require A or (B and C)
 //  requires_any:
 //    requirements:
-//      - provider_name: "provider-A"
+//      - provider_name: provider-A
 //      - requires_all:
 //        requirements:
-//          - provider_name: "provider-B"
-//          - provider_name: "provider-C"
+//          - provider_name: provider-B
+//          - provider_name: provider-C
 //
 type JwtRequirement struct {
 	// Types that are valid to be assigned to RequiresType:
@@ -544,7 +563,7 @@ func (m *JwtRequirement) Reset()         { *m = JwtRequirement{} }
 func (m *JwtRequirement) String() string { return proto.CompactTextString(m) }
 func (*JwtRequirement) ProtoMessage()    {}
 func (*JwtRequirement) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_0a46e1105558bd8a, []int{4}
+	return fileDescriptor_config_3dfe05402a422426, []int{4}
 }
 func (m *JwtRequirement) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -784,7 +803,7 @@ func (m *JwtRequirementOrList) Reset()         { *m = JwtRequirementOrList{} }
 func (m *JwtRequirementOrList) String() string { return proto.CompactTextString(m) }
 func (*JwtRequirementOrList) ProtoMessage()    {}
 func (*JwtRequirementOrList) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_0a46e1105558bd8a, []int{5}
+	return fileDescriptor_config_3dfe05402a422426, []int{5}
 }
 func (m *JwtRequirementOrList) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -834,7 +853,7 @@ func (m *JwtRequirementAndList) Reset()         { *m = JwtRequirementAndList{} }
 func (m *JwtRequirementAndList) String() string { return proto.CompactTextString(m) }
 func (*JwtRequirementAndList) ProtoMessage()    {}
 func (*JwtRequirementAndList) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_0a46e1105558bd8a, []int{6}
+	return fileDescriptor_config_3dfe05402a422426, []int{6}
 }
 func (m *JwtRequirementAndList) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -876,7 +895,7 @@ func (m *JwtRequirementAndList) GetRequirements() []*JwtRequirement {
 // .. code-block:: yaml
 //
 //    - match:
-//         prefix: "/healthz"
+//        prefix: /healthz
 //
 // In above example, "requires" field is empty for /healthz prefix match,
 // it means that requests matching the path prefix don't require JWT authentication.
@@ -886,8 +905,8 @@ func (m *JwtRequirementAndList) GetRequirements() []*JwtRequirement {
 // .. code-block:: yaml
 //
 //    - match:
-//         prefix: "/"
-//      requires: { provider_name: "provider-A" }
+//        prefix: /
+//      requires: { provider_name: provider-A }
 //
 // In above example, all requests matched the path prefix require jwt authentication
 // from "provider-A".
@@ -900,7 +919,7 @@ type RequirementRule struct {
 	// .. code-block:: yaml
 	//
 	//    match:
-	//       prefix: "/"
+	//      prefix: /
 	//
 	Match *route.RouteMatch `protobuf:"bytes,1,opt,name=match" json:"match,omitempty"`
 	// Specify a Jwt Requirement. Please detail comment in message JwtRequirement.
@@ -914,7 +933,7 @@ func (m *RequirementRule) Reset()         { *m = RequirementRule{} }
 func (m *RequirementRule) String() string { return proto.CompactTextString(m) }
 func (*RequirementRule) ProtoMessage()    {}
 func (*RequirementRule) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_0a46e1105558bd8a, []int{7}
+	return fileDescriptor_config_3dfe05402a422426, []int{7}
 }
 func (m *RequirementRule) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -981,22 +1000,22 @@ func (m *RequirementRule) GetRequires() *JwtRequirement {
 //   rules:
 //      # Not jwt verification is required for /health path
 //      - match:
-//          prefix: "/health"
+//          prefix: /health
 //
 //      # Jwt verification for provider1 is required for path prefixed with "prefix"
 //      - match:
-//          prefix: "/prefix"
+//          prefix: /prefix
 //        requires:
-//          provider_name: "provider1"
+//          provider_name: provider1
 //
 //      # Jwt verification for either provider1 or provider2 is required for all other requests.
 //      - match:
-//          prefix: "/"
+//          prefix: /
 //        requires:
 //          requires_any:
 //            requirements:
-//              - provider_name: "provider1"
-//              - provider_name: "provider2"
+//              - provider_name: provider1
+//              - provider_name: provider2
 //
 type JwtAuthentication struct {
 	// Map of provider names to JwtProviders.
@@ -1027,22 +1046,26 @@ type JwtAuthentication struct {
 	// .. code-block:: yaml
 	//
 	// rules:
-	//   - match: { prefix: "/healthz" }
-	//   - match: { prefix: "/baz" }
+	//   - match:
+	//       prefix: /healthz
+	//   - match:
+	//       prefix: /baz
 	//     requires:
-	//       provider_name: "provider1"
-	//   - match: { prefix: "/foo" }
+	//       provider_name: provider1
+	//   - match:
+	//       prefix: /foo
 	//     requires:
 	//       requires_any:
 	//         requirements:
-	//           - provider_name: "provider1"
-	//           - provider_name: "provider2"
-	//   - match: { prefix: "/bar" }
+	//           - provider_name: provider1
+	//           - provider_name: provider2
+	//   - match:
+	//       prefix: /bar
 	//     requires:
 	//       requires_all:
 	//         requirements:
-	//           - provider_name: "provider1"
-	//           - provider_name: "provider2"
+	//           - provider_name: provider1
+	//           - provider_name: provider2
 	//
 	Rules                []*RequirementRule `protobuf:"bytes,2,rep,name=rules" json:"rules,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
@@ -1054,7 +1077,7 @@ func (m *JwtAuthentication) Reset()         { *m = JwtAuthentication{} }
 func (m *JwtAuthentication) String() string { return proto.CompactTextString(m) }
 func (*JwtAuthentication) ProtoMessage()    {}
 func (*JwtAuthentication) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_0a46e1105558bd8a, []int{8}
+	return fileDescriptor_config_3dfe05402a422426, []int{8}
 }
 func (m *JwtAuthentication) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3286,10 +3309,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/config/filter/http/jwt_authn/v2alpha/config.proto", fileDescriptor_config_0a46e1105558bd8a)
+	proto.RegisterFile("envoy/config/filter/http/jwt_authn/v2alpha/config.proto", fileDescriptor_config_3dfe05402a422426)
 }
 
-var fileDescriptor_config_0a46e1105558bd8a = []byte{
+var fileDescriptor_config_3dfe05402a422426 = []byte{
 	// 950 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xbc, 0x55, 0x4f, 0x6f, 0xe3, 0x44,
 	0x14, 0x8f, 0x93, 0xa6, 0x4d, 0x9e, 0xd3, 0xee, 0x32, 0x6a, 0xbb, 0xa6, 0xec, 0x86, 0x6c, 0x10,

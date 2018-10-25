@@ -22,15 +22,14 @@ import (
 )
 
 // NewYamlDeployment creates a new yaml-based deployment.
-func NewYamlDeployment(a *kube.Accessor, kubeConfig, namespace, yamlFile string) (*Instance, error) {
+func NewYamlDeployment(a *kube.Accessor, namespace, yamlFile string) (*Instance, error) {
 	instance := &Instance{}
 
-	instance.kubeConfig = kubeConfig
 	instance.namespace = namespace
 	instance.yamlFilePath = yamlFile
 
 	scopes.CI.Infof("Applying Yaml file: %s", instance.yamlFilePath)
-	if err := kube.Apply(kubeConfig, namespace, instance.yamlFilePath); err != nil {
+	if err := a.Apply(namespace, instance.yamlFilePath); err != nil {
 		return nil, fmt.Errorf("kube apply of generated yaml filed: %v", err)
 	}
 

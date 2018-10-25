@@ -52,7 +52,7 @@ func (x Capability_Protocol) String() string {
 	return proto.EnumName(Capability_Protocol_name, int32(x))
 }
 func (Capability_Protocol) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_hds_1203598eb36a833b, []int{0, 0}
+	return fileDescriptor_hds_4eb9ee1128b9fd4d, []int{0, 0}
 }
 
 // Defines supported protocols etc, so the management server can assign proper
@@ -68,7 +68,7 @@ func (m *Capability) Reset()         { *m = Capability{} }
 func (m *Capability) String() string { return proto.CompactTextString(m) }
 func (*Capability) ProtoMessage()    {}
 func (*Capability) Descriptor() ([]byte, []int) {
-	return fileDescriptor_hds_1203598eb36a833b, []int{0}
+	return fileDescriptor_hds_4eb9ee1128b9fd4d, []int{0}
 }
 func (m *Capability) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -116,7 +116,7 @@ func (m *HealthCheckRequest) Reset()         { *m = HealthCheckRequest{} }
 func (m *HealthCheckRequest) String() string { return proto.CompactTextString(m) }
 func (*HealthCheckRequest) ProtoMessage()    {}
 func (*HealthCheckRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_hds_1203598eb36a833b, []int{1}
+	return fileDescriptor_hds_4eb9ee1128b9fd4d, []int{1}
 }
 func (m *HealthCheckRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -171,7 +171,7 @@ func (m *EndpointHealth) Reset()         { *m = EndpointHealth{} }
 func (m *EndpointHealth) String() string { return proto.CompactTextString(m) }
 func (*EndpointHealth) ProtoMessage()    {}
 func (*EndpointHealth) Descriptor() ([]byte, []int) {
-	return fileDescriptor_hds_1203598eb36a833b, []int{2}
+	return fileDescriptor_hds_4eb9ee1128b9fd4d, []int{2}
 }
 func (m *EndpointHealth) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -225,7 +225,7 @@ func (m *EndpointHealthResponse) Reset()         { *m = EndpointHealthResponse{}
 func (m *EndpointHealthResponse) String() string { return proto.CompactTextString(m) }
 func (*EndpointHealthResponse) ProtoMessage()    {}
 func (*EndpointHealthResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_hds_1203598eb36a833b, []int{3}
+	return fileDescriptor_hds_4eb9ee1128b9fd4d, []int{3}
 }
 func (m *EndpointHealthResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -279,7 +279,7 @@ func (m *HealthCheckRequestOrEndpointHealthResponse) String() string {
 }
 func (*HealthCheckRequestOrEndpointHealthResponse) ProtoMessage() {}
 func (*HealthCheckRequestOrEndpointHealthResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_hds_1203598eb36a833b, []int{4}
+	return fileDescriptor_hds_4eb9ee1128b9fd4d, []int{4}
 }
 func (m *HealthCheckRequestOrEndpointHealthResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -433,7 +433,7 @@ func (m *LocalityEndpoints) Reset()         { *m = LocalityEndpoints{} }
 func (m *LocalityEndpoints) String() string { return proto.CompactTextString(m) }
 func (*LocalityEndpoints) ProtoMessage()    {}
 func (*LocalityEndpoints) Descriptor() ([]byte, []int) {
-	return fileDescriptor_hds_1203598eb36a833b, []int{5}
+	return fileDescriptor_hds_4eb9ee1128b9fd4d, []int{5}
 }
 func (m *LocalityEndpoints) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -493,7 +493,7 @@ func (m *ClusterHealthCheck) Reset()         { *m = ClusterHealthCheck{} }
 func (m *ClusterHealthCheck) String() string { return proto.CompactTextString(m) }
 func (*ClusterHealthCheck) ProtoMessage()    {}
 func (*ClusterHealthCheck) Descriptor() ([]byte, []int) {
-	return fileDescriptor_hds_1203598eb36a833b, []int{6}
+	return fileDescriptor_hds_4eb9ee1128b9fd4d, []int{6}
 }
 func (m *ClusterHealthCheck) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -556,7 +556,7 @@ func (m *HealthCheckSpecifier) Reset()         { *m = HealthCheckSpecifier{} }
 func (m *HealthCheckSpecifier) String() string { return proto.CompactTextString(m) }
 func (*HealthCheckSpecifier) ProtoMessage()    {}
 func (*HealthCheckSpecifier) Descriptor() ([]byte, []int) {
-	return fileDescriptor_hds_1203598eb36a833b, []int{7}
+	return fileDescriptor_hds_4eb9ee1128b9fd4d, []int{7}
 }
 func (m *HealthCheckSpecifier) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2351,10 +2351,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/service/discovery/v2/hds.proto", fileDescriptor_hds_1203598eb36a833b)
+	proto.RegisterFile("envoy/service/discovery/v2/hds.proto", fileDescriptor_hds_4eb9ee1128b9fd4d)
 }
 
-var fileDescriptor_hds_1203598eb36a833b = []byte{
+var fileDescriptor_hds_4eb9ee1128b9fd4d = []byte{
 	// 746 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xcc, 0x55, 0x41, 0x6f, 0xd3, 0x4a,
 	0x10, 0xce, 0xa6, 0x7d, 0xef, 0xa5, 0xd3, 0xbc, 0x34, 0x5d, 0x4a, 0x08, 0xa1, 0x4a, 0x8b, 0x55,

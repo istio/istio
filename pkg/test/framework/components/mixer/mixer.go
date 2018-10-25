@@ -28,7 +28,7 @@ import (
 	"go.uber.org/multierr"
 	"google.golang.org/grpc"
 
-	istio_mixer_v1 "istio.io/api/mixer/v1"
+	istioMixerV1 "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/server"
@@ -124,7 +124,7 @@ func (c *localComponent) Init(ctx environment.ComponentContext, deps map[depende
 		return nil, err
 	}
 
-	client := istio_mixer_v1.NewMixerClient(conn.(*grpc.ClientConn))
+	client := istioMixerV1.NewMixerClient(conn.(*grpc.ClientConn))
 
 	// Update the mesh with the mixer address
 	port := mi.Addr().(*net.TCPAddr).Port
@@ -152,7 +152,7 @@ func (c *localComponent) Init(ctx environment.ComponentContext, deps map[depende
 		attributeManifest: manifest,
 
 		conn: conn.(*grpc.ClientConn),
-		clients: map[string]istio_mixer_v1.MixerClient{
+		clients: map[string]istioMixerV1.MixerClient{
 			telemetryService: client,
 			policyService:    client,
 		},
@@ -188,7 +188,7 @@ func (c *kubeComponent) Init(ctx environment.ComponentContext, deps map[dependen
 
 		// Use the DefaultArgs to get config identity attribute
 		args:    server.DefaultArgs(),
-		clients: make(map[string]istio_mixer_v1.MixerClient),
+		clients: make(map[string]istioMixerV1.MixerClient),
 	}
 
 	s := e.KubeSettings()
@@ -210,7 +210,7 @@ func (c *kubeComponent) Init(ctx environment.ComponentContext, deps map[dependen
 			PodNamespace: pod.Namespace,
 			PodName:      pod.Name,
 		}
-		forwarder, err := kube.NewPortForwarder(s.KubeConfig, options, 0, port)
+		forwarder, err := e.Accessor.NewPortForwarder(options, 0, port)
 		if err != nil {
 			return nil, err
 		}
@@ -225,7 +225,7 @@ func (c *kubeComponent) Init(ctx environment.ComponentContext, deps map[dependen
 		}
 		scopes.Framework.Debug("connected to Mixer pod through port forwarder")
 
-		client := istio_mixer_v1.NewMixerClient(conn)
+		client := istioMixerV1.NewMixerClient(conn)
 		res.clients[serviceType] = client
 		res.forwarders = append(res.forwarders, forwarder)
 	}
@@ -253,7 +253,7 @@ type deployedMixer struct {
 	environment environment.Implementation
 
 	conn    *grpc.ClientConn
-	clients map[string]istio_mixer_v1.MixerClient
+	clients map[string]istioMixerV1.MixerClient
 
 	args    *server.Args
 	server  *server.Server
@@ -276,8 +276,8 @@ func (d *deployedMixer) Report(t testing.TB, attributes map[string]interface{}) 
 	}
 	attributes = expanded.(map[string]interface{})
 
-	req := istio_mixer_v1.ReportRequest{
-		Attributes: []istio_mixer_v1.CompressedAttributes{
+	req := istioMixerV1.ReportRequest{
+		Attributes: []istioMixerV1.CompressedAttributes{
 			getAttrBag(attributes)},
 	}
 
@@ -296,7 +296,7 @@ func (d *deployedMixer) Check(t testing.TB, attributes map[string]interface{}) e
 	}
 	attributes = expanded.(map[string]interface{})
 
-	req := istio_mixer_v1.CheckRequest{
+	req := istioMixerV1.CheckRequest{
 		Attributes: getAttrBag(attributes),
 	}
 	response, err := d.clients[policyService].Check(context.Background(), &req)
@@ -356,13 +356,13 @@ func (d *deployedMixer) Close() error {
 	return err
 }
 
-func getAttrBag(attrs map[string]interface{}) istio_mixer_v1.CompressedAttributes {
+func getAttrBag(attrs map[string]interface{}) istioMixerV1.CompressedAttributes {
 	requestBag := attribute.GetMutableBag(nil)
 	for k, v := range attrs {
 		requestBag.Set(k, v)
 	}
 
-	var attrProto istio_mixer_v1.CompressedAttributes
+	var attrProto istioMixerV1.CompressedAttributes
 	requestBag.ToProto(&attrProto, nil, 0)
 	return attrProto
 }

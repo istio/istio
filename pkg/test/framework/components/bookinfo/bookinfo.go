@@ -63,14 +63,14 @@ func (c *component) Requires() []dependency.Instance {
 
 // Init implements implements component.Component.
 func (c *component) Init(ctx environment.ComponentContext, _ map[dependency.Instance]interface{}) (interface{}, error) {
-	env, ok := ctx.Environment().(*kubernetes.Implementation)
+	e, ok := ctx.Environment().(*kubernetes.Implementation)
 	if !ok {
 		return nil, fmt.Errorf("unsupported environment: %v", reflect.TypeOf(ctx.Environment()))
 	}
 
 	return &bookInfo{
 		ctx: ctx,
-		env: env,
+		env: e,
 	}, nil
 }
 
@@ -86,7 +86,6 @@ func (b *bookInfo) Deploy() (err error) {
 
 	yamlFile := path.Join(env.BookInfoKube, string(BookInfoConfig))
 	_, err = deployment.NewYamlDeployment(b.env.Accessor,
-		b.env.KubeSettings().KubeConfig,
 		b.env.KubeSettings().TestNamespace,
 		yamlFile)
 

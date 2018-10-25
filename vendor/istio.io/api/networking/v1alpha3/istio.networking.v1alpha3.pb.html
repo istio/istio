@@ -989,7 +989,7 @@ metadata:
   name: my-gateway
 spec:
   selector:
-    app: my-gatweway-controller
+    app: my-gateway-controller
   servers:
   - port:
       number: 80
@@ -2683,8 +2683,9 @@ Otherwise default to the default cipher list supported by Envoy.</p>
 <tr id="Server-TLSOptions-TLSmode-PASSTHROUGH">
 <td><code>PASSTHROUGH</code></td>
 <td>
-<p>Forward the connection to the upstream server selected based on
-the SNI string presented by the client.</p>
+<p>The SNI string presented by the client will be used as the match
+criterion in a VirtualService TLS route to determine the
+destination service from the service registry.</p>
 
 </td>
 </tr>
@@ -2700,6 +2701,22 @@ the SNI string presented by the client.</p>
 <td>
 <p>Secure connections to the upstream using mutual TLS by presenting
 client certificates for authentication.</p>
+
+</td>
+</tr>
+<tr id="Server-TLSOptions-TLSmode-AUTO_PASSTHROUGH">
+<td><code>AUTO_PASSTHROUGH</code></td>
+<td>
+<p>Similar to the passthrough mode, except servers with this TLS mode
+do not require an associated VirtualService to map from the SNI
+value to service in the registry. The destination details such as
+the service/subset/port are encoded in the SNI value. The proxy
+will forward to the upstream (Envoy) cluster (a group of
+endpoints) specified by the SNI value. This server is typically
+used to provide connectivity between services in disparate L3
+networks that otherwise do not have direct connectivity between
+their respective endpoints. Use of this mode assumes that both the
+source and the destination are using Istio mTLS to secure traffic.</p>
 
 </td>
 </tr>
@@ -2776,7 +2793,7 @@ spec:
   ports:
   - number: 443
     name: https
-    protocol: HTTPS
+    protocol: TLS
   resolution: DNS
 </code></pre>
 
@@ -2989,7 +3006,7 @@ to uniquely identify the destination.</p>
 <td><code>string[]</code></td>
 <td>
 <p>The virtual IP addresses associated with the service. Could be CIDR
-prefix.  For HTTP services, the addresses field will be ignored and
+prefix. For HTTP services, the addresses field will be ignored and
 the destination will be identified based on the HTTP Host/Authority
 header. For non-HTTP protocols such as mongo/opaque TCP/even HTTPS,
 the hosts will be ignored. If one or more IP addresses are specified,
@@ -3086,6 +3103,45 @@ service. Do not use for unix:// addresses.</p>
 <td><code>map&lt;string,&nbsp;string&gt;</code></td>
 <td>
 <p>One or more labels associated with the endpoint.</p>
+
+</td>
+</tr>
+<tr id="ServiceEntry-Endpoint-network">
+<td><code>network</code></td>
+<td><code>string</code></td>
+<td>
+<p>Network enables Istio to group endpoints resident in the same L3
+domain/network. All endpoints in the same network are assumed to be
+directly reachable from one another. When endpoints in different
+networks cannot reach each other directly, an Istio Gateway can be
+used to establish connectivity (usually using the
+AUTO_PASSTHROUGH mode in a Gateway Server). This is
+an advanced configuration used typically for spanning an Istio mesh
+over multiple clusters.</p>
+
+</td>
+</tr>
+<tr id="ServiceEntry-Endpoint-locality">
+<td><code>locality</code></td>
+<td><code>string</code></td>
+<td>
+<p>The locality associated with the endpoint. A locality corresponds
+to a failure domain (e.g., country/region/zone). Arbitrary failure
+domain hierarchies can be represented by separating each
+encapsulating failure domain by /. For example, the locality of an
+an endpoint in US, in US-East-1 region, within availability zone
+az-1, in data center rack r11 can be represented as
+us/us-east-1/az-1/r11. Istio will configure the sidecar to route to
+endpoints within the same locality as the sidecar. If none of the
+endpoints in the locality are available, endpoints parent locality
+(but within the same network ID) will be chosen. For example, if
+there are two endpoints in same network (networkID &ldquo;n1&rdquo;), say e1
+with locality us/us-east-1/az-1/r11 and e2 with locality
+us/us-east-1/az-2/r12, a sidecar from us/us-east-1/az-1/r11 locality
+will prefer e1 from the same locality over e2 from a different
+locality. Endpoint e2 could be the IP associated with a gateway
+(that bridges networks n1 and n2), or the IP associated with a
+standard service endpoint.</p>
 
 </td>
 </tr>
@@ -3598,8 +3654,7 @@ Should be empty if mode is <code>ISTIO_MUTUAL</code>.</p>
 <td>
 <p>A list of alternate names to verify the subject identity in the
 certificate. If specified, the proxy will verify that the server
-certificate&rsquo;s subject alt name matches one of the specified values.
-Should be empty if mode is <code>ISTIO_MUTUAL</code>.</p>
+certificate&rsquo;s subject alt name matches one of the specified values.</p>
 
 </td>
 </tr>
@@ -3607,8 +3662,7 @@ Should be empty if mode is <code>ISTIO_MUTUAL</code>.</p>
 <td><code>sni</code></td>
 <td><code>string</code></td>
 <td>
-<p>SNI string to present to the server during TLS handshake.
-Should be empty if mode is <code>ISTIO_MUTUAL</code>.</p>
+<p>SNI string to present to the server during TLS handshake.</p>
 
 </td>
 </tr>

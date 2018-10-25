@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: servicegraph
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    {{- range $key, $val := .Values.service.annotations }}
+    {{ $key }}: {{ $val | quote }}
+    {{- end }}
+  labels:
+    app: servicegraph
+    chart: {{ template "servicegraph.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.externalPort }}
+      targetPort: 8088
+      protocol: TCP
+      name: {{ .Values.service.name }}
+  selector:
+    app: servicegraph
+{{- if .Values.service.loadBalancerIP }}
+  loadBalancerIP: "{{ .Values.service.loadBalancerIP }}"
+{{- end }}
+  {{if .Values.service.loadBalancerSourceRanges}}
+  loadBalancerSourceRanges:
+    {{range $rangeList := .Values.service.loadBalancerSourceRanges}}
+    - {{ $rangeList }}
+    {{end}}
+  {{end}}

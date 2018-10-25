@@ -23,8 +23,8 @@ from airflow.operators.python_operator import PythonOperator
 import environment_config
 import istio_common_dag
 
-monthly_extra_params = ['DOCKER_HUB', 'GCR_RELEASE_DEST', 'GCS_GITHUB_PATH',
-                          'RELEASE_PROJECT_ID', 'GCS_MONTHLY_RELEASE_PATH']
+monthly_extra_params = ['CB_GCS_MONTHLY_RELEASE_PATH']
+
 def testMonthlyConfigSettings(config_settings):
   tmp_settings = dict(config_settings)
   for key in monthly_extra_params:
@@ -42,13 +42,17 @@ def MonthlyPipeline():
   def MonthlyGenerateTestArgs(**kwargs):
 
     """Loads the configuration that will be used for this Iteration."""
-    conf = kwargs['dag_run'].conf
-    if conf is None:
-      conf = dict()
+    env_conf = kwargs['dag_run'].conf
+    if env_conf is None:
+      env_conf = dict()
+
+    docker_hub = env_conf.get('CB_DOCKER_HUB')
+    if docker_hub is None:
+      docker_hub = 'docker.io/istio'
 
     # If version is overridden then we should use it otherwise we use it's
     # default or monthly value.
-    version = conf.get('VERSION') or istio_common_dag.GetVariableOrDefault('monthly-version', None)
+    version = env_conf.get('CB_VERSION') or istio_common_dag.GetVariableOrDefault('monthly-version', None)
     if not version or version == 'INVALID':
       raise ValueError('version needs to be provided')
     Variable.set('monthly-version', 'INVALID')
@@ -56,42 +60,33 @@ def MonthlyPipeline():
     #GCS_MONTHLY_STAGE_PATH is of the form ='prerelease/{version}'
     gcs_path = 'prerelease/%s' % (version)
 
-    branch = conf.get('BRANCH') or istio_common_dag.GetVariableOrDefault('monthly-branch', None)
+    branch = env_conf.get('CB_BRANCH') or istio_common_dag.GetVariableOrDefault('monthly-branch', None)
     if not branch or branch == 'INVALID':
       raise ValueError('branch needs to be provided')
     Variable.set('monthly-branch', 'INVALID')
-    commit = conf.get('COMMIT') or branch
-    mfest_commit = conf.get('MFEST_COMMIT') or branch
+    commit = env_conf.get('CB_COMMIT') or branch
+
+    github_org = env_conf.get('CB_GITHUB_ORG') or "istio"
 
     default_conf = environment_config.GetDefaultAirflowConfig(
         branch=branch,
         commit=commit,
+        docker_hub=docker_hub,
         gcs_path=gcs_path,
-        mfest_commit=mfest_commit,
+        github_org=github_org,
         pipeline_type='monthly',
         verify_consistency='true',
         version=version)
 
-    config_settings = dict()
-    for name in default_conf.iterkeys():
-      config_settings[name] = conf.get(name) or default_conf[name]
-
     # These are the extra params that are passed to the dags for monthly release
     monthly_conf = dict()
-    monthly_conf['DOCKER_HUB'              ] = 'istio'
-    monthly_conf['GCR_RELEASE_DEST'        ] = 'istio-io'
-    monthly_conf['GCS_GITHUB_PATH'         ] = 'istio-secrets/github.txt.enc'
-    monthly_conf['RELEASE_PROJECT_ID'      ] = 'istio-io'
-    # GCS_MONTHLY_RELEASE_PATH is of the form  'istio-release/releases/{version}'
-    monthly_conf['GCS_MONTHLY_RELEASE_PATH'] = 'istio-release/releases/%s' % (version)
-    for name in monthly_conf.iterkeys():
-      config_settings[name] = conf.get(name) or monthly_conf[name]
+    # CB_GCS_MONTHLY_RELEASE_PATH is of the form  'istio-release/releases/{version}'
+    monthly_conf['CB_GCS_MONTHLY_RELEASE_PATH'] = 'istio-release/releases/%s' % (version)
 
+    config_settings = istio_common_dag.MergeEnvironmentIntoConfig(
+					env_conf, default_conf, monthly_conf)
     testMonthlyConfigSettings(config_settings)
     return config_settings
-
-  def ReportMonthlySuccessful(task_instance, **kwargs):
-    del kwargs
 
   dag, tasks, addAirflowBashOperator = istio_common_dag.MakeCommonDag(
     MonthlyGenerateTestArgs,
@@ -99,16 +94,8 @@ def MonthlyPipeline():
     schedule_interval=MONTHLY_RELEASE_TRIGGER,
     extra_param_lst=monthly_extra_params)
 
-  addAirflowBashOperator('release_push_github_docker_template', 'github_and_docker_release', need_commit=True)
-  addAirflowBashOperator('release_tag_github_template', 'github_tag_repos', need_commit=True)
-
-  mark_monthly_complete = PythonOperator(
-    task_id='mark_monthly_complete',
-    python_callable=ReportMonthlySuccessful,
-    provide_context=True,
-    dag=dag,
-  )
-  tasks['mark_monthly_complete'] = mark_monthly_complete
+  addAirflowBashOperator('release_push_github_docker_template', 'github_and_docker_release')
+  addAirflowBashOperator('release_tag_github_template', 'github_tag_repos')
 
 # tasks['generate_workflow_args']
   tasks['get_git_commit'                 ].set_upstream(tasks['generate_workflow_args'])
@@ -118,7 +105,6 @@ def MonthlyPipeline():
   tasks['copy_files_for_release'         ].set_upstream(tasks['run_release_qualification_tests'])
   tasks['github_and_docker_release'      ].set_upstream(tasks['copy_files_for_release'])
   tasks['github_tag_repos'               ].set_upstream(tasks['github_and_docker_release'])
-  tasks['mark_monthly_complete'          ].set_upstream(tasks['github_tag_repos'])
 
   return dag
 

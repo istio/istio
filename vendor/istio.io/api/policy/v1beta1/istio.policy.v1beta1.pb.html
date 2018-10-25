@@ -4,7 +4,7 @@ description: Describes the rules used to configure Mixer's policy and telemetry 
 location: https://istio.io/docs/reference/config/policy-and-telemetry/istio.policy.v1beta1.html
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 17
+number_of_entries: 18
 ---
 <p>Describes the rules used to configure Mixer&rsquo;s policy and telemetry features.</p>
 
@@ -210,6 +210,14 @@ Connection is part of the handler custom resource and is specified alongside ada
 
 </td>
 </tr>
+<tr id="Connection-timeout">
+<td><code>timeout</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+<p>Timeout for remote calls to the backend.</p>
+
+</td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -292,6 +300,39 @@ type EmailAddress</p>
 <td><code>string</code></td>
 <td>
 <p>EmailAddress encoded as string.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="FractionalPercent-DenominatorType">FractionalPercent.DenominatorType</h2>
+<section>
+<p>Fraction percentages support several fixed denominator values.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="FractionalPercent-DenominatorType-HUNDRED">
+<td><code>HUNDRED</code></td>
+<td>
+<p>100.</p>
+
+<p><strong>Example</strong>: <sup>1</sup>&frasl;<sub>100</sub> = 1%.</p>
+
+</td>
+</tr>
+<tr id="FractionalPercent-DenominatorType-TEN_THOUSAND">
+<td><code>TEN_THOUSAND</code></td>
+<td>
+<p>10,000.</p>
+
+<p><strong>Example</strong>: <sup>1</sup>&frasl;<sub>10000</sub> = 0.01%.</p>
 
 </td>
 </tr>
@@ -511,6 +552,25 @@ templates, use the <code>compiled_template</code> field instead.</p>
 <td>
 <p>Required. Depends on referenced template. Struct representation of a
 proto defined by the template; this varies depending on the value of field <code>template</code>.</p>
+
+</td>
+</tr>
+<tr id="Instance-attribute_bindings">
+<td><code>attributeBindings</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+<p>Optional. Defines attribute bindings to map the output of attribute-producing adapters back into
+the attribute space. The variable <code>output</code> refers to the output template instance produced
+by the adapter.
+The following example derives <code>source.namespace</code> from <code>source.uid</code> in the context of Kubernetes:</p>
+
+<pre><code class="language-yaml">params:
+  # Pass the required attribute data to the adapter
+  source_uid: source.uid | &quot;&quot;
+attribute_bindings:
+  # Fill the new attributes from the adapter produced output
+  source.namespace: output.source_namespace
+</code></pre>
 
 </td>
 </tr>

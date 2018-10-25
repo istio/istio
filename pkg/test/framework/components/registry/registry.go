@@ -15,11 +15,8 @@
 package registry
 
 import (
-	"fmt"
-
 	"istio.io/istio/pkg/test/framework/component"
 	"istio.io/istio/pkg/test/framework/dependency"
-	"istio.io/istio/pkg/test/framework/environment"
 )
 
 // Registry of test components.
@@ -43,14 +40,4 @@ func (r *Registry) Register(c component.Component) {
 func (r *Registry) Get(id dependency.Instance) (component.Component, bool) {
 	c, ok := r.componentMap[id]
 	return c, ok
-}
-
-// Init initializes the component with the given name, and returns its instance.
-func (r *Registry) Init(id dependency.Instance, depMap map[dependency.Instance]interface{}, ctx environment.ComponentContext) (interface{}, error) {
-	c, found := r.Get(id)
-	if !found {
-		return nil, fmt.Errorf("component not found: name:%q, environment:%q", id.String(), ctx.Environment().EnvironmentID())
-	}
-
-	return c.Init(ctx, depMap)
 }

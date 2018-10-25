@@ -91,15 +91,6 @@ var (
 		TagKeys:     []tag.Key{KeyClientMethod},
 		Aggregation: DefaultMillisecondsDistribution,
 	}
-
-	// Deprecated: This view is going to be removed, if you need it please define it
-	// yourself.
-	ClientRequestCountView = &view.View{
-		Name:        "Count of request messages per client RPC",
-		TagKeys:     []tag.Key{KeyClientMethod},
-		Measure:     ClientRoundtripLatency,
-		Aggregation: view.Count(),
-	}
 )
 
 // DefaultClientViews are the default client views provided by this package.

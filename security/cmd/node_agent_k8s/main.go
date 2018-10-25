@@ -83,7 +83,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&serverOptions.UDSPath, "sdsUdsPath",
 		"/var/run/sds/uds_path", "Unix domain socket through which SDS server communicates with proxies")
 
-	rootCmd.PersistentFlags().StringVar(&serverOptions.CAEndpoint, "caProvider", caProvider, "CA provider")
+	rootCmd.PersistentFlags().StringVar(&serverOptions.CAProviderName, "caProvider", caProvider, "CA provider")
 	rootCmd.PersistentFlags().StringVar(&serverOptions.CAEndpoint, "caEndpoint", caAddr, "CA endpoint")
 
 	rootCmd.PersistentFlags().StringVar(&serverOptions.CertFile, "sdsCertFile", "", "SDS gRPC TLS server-side certificate")

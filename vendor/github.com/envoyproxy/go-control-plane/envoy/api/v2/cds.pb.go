@@ -82,7 +82,7 @@ func (x Cluster_DiscoveryType) String() string {
 	return proto.EnumName(Cluster_DiscoveryType_name, int32(x))
 }
 func (Cluster_DiscoveryType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_cds_c9aad078b729c273, []int{0, 0}
+	return fileDescriptor_cds_dc24f214607567bf, []int{0, 0}
 }
 
 // Refer to :ref:`load balancer type <arch_overview_load_balancing_types>` architecture
@@ -136,7 +136,7 @@ func (x Cluster_LbPolicy) String() string {
 	return proto.EnumName(Cluster_LbPolicy_name, int32(x))
 }
 func (Cluster_LbPolicy) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_cds_c9aad078b729c273, []int{0, 1}
+	return fileDescriptor_cds_dc24f214607567bf, []int{0, 1}
 }
 
 // When V4_ONLY is selected, the DNS resolver will only perform a lookup for
@@ -172,7 +172,7 @@ func (x Cluster_DnsLookupFamily) String() string {
 	return proto.EnumName(Cluster_DnsLookupFamily_name, int32(x))
 }
 func (Cluster_DnsLookupFamily) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_cds_c9aad078b729c273, []int{0, 2}
+	return fileDescriptor_cds_dc24f214607567bf, []int{0, 2}
 }
 
 type Cluster_ClusterProtocolSelection int32
@@ -199,7 +199,7 @@ func (x Cluster_ClusterProtocolSelection) String() string {
 	return proto.EnumName(Cluster_ClusterProtocolSelection_name, int32(x))
 }
 func (Cluster_ClusterProtocolSelection) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_cds_c9aad078b729c273, []int{0, 3}
+	return fileDescriptor_cds_dc24f214607567bf, []int{0, 3}
 }
 
 // If NO_FALLBACK is selected, a result
@@ -230,7 +230,7 @@ func (x Cluster_LbSubsetConfig_LbSubsetFallbackPolicy) String() string {
 	return proto.EnumName(Cluster_LbSubsetConfig_LbSubsetFallbackPolicy_name, int32(x))
 }
 func (Cluster_LbSubsetConfig_LbSubsetFallbackPolicy) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_cds_c9aad078b729c273, []int{0, 2, 0}
+	return fileDescriptor_cds_dc24f214607567bf, []int{0, 2, 0}
 }
 
 // Configuration for a single upstream cluster.
@@ -433,7 +433,7 @@ func (m *Cluster) Reset()         { *m = Cluster{} }
 func (m *Cluster) String() string { return proto.CompactTextString(m) }
 func (*Cluster) ProtoMessage()    {}
 func (*Cluster) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cds_c9aad078b729c273, []int{0}
+	return fileDescriptor_cds_dc24f214607567bf, []int{0}
 }
 func (m *Cluster) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -809,7 +809,7 @@ func (m *Cluster_EdsClusterConfig) Reset()         { *m = Cluster_EdsClusterConf
 func (m *Cluster_EdsClusterConfig) String() string { return proto.CompactTextString(m) }
 func (*Cluster_EdsClusterConfig) ProtoMessage()    {}
 func (*Cluster_EdsClusterConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cds_c9aad078b729c273, []int{0, 0}
+	return fileDescriptor_cds_dc24f214607567bf, []int{0, 0}
 }
 func (m *Cluster_EdsClusterConfig) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -903,7 +903,7 @@ func (m *Cluster_LbSubsetConfig) Reset()         { *m = Cluster_LbSubsetConfig{}
 func (m *Cluster_LbSubsetConfig) String() string { return proto.CompactTextString(m) }
 func (*Cluster_LbSubsetConfig) ProtoMessage()    {}
 func (*Cluster_LbSubsetConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cds_c9aad078b729c273, []int{0, 2}
+	return fileDescriptor_cds_dc24f214607567bf, []int{0, 2}
 }
 func (m *Cluster_LbSubsetConfig) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -975,7 +975,7 @@ func (m *Cluster_LbSubsetConfig_LbSubsetSelector) Reset() {
 func (m *Cluster_LbSubsetConfig_LbSubsetSelector) String() string { return proto.CompactTextString(m) }
 func (*Cluster_LbSubsetConfig_LbSubsetSelector) ProtoMessage()    {}
 func (*Cluster_LbSubsetConfig_LbSubsetSelector) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cds_c9aad078b729c273, []int{0, 2, 0}
+	return fileDescriptor_cds_dc24f214607567bf, []int{0, 2, 0}
 }
 func (m *Cluster_LbSubsetConfig_LbSubsetSelector) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1033,7 +1033,7 @@ func (m *Cluster_RingHashLbConfig) Reset()         { *m = Cluster_RingHashLbConf
 func (m *Cluster_RingHashLbConfig) String() string { return proto.CompactTextString(m) }
 func (*Cluster_RingHashLbConfig) ProtoMessage()    {}
 func (*Cluster_RingHashLbConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cds_c9aad078b729c273, []int{0, 3}
+	return fileDescriptor_cds_dc24f214607567bf, []int{0, 3}
 }
 func (m *Cluster_RingHashLbConfig) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1095,7 +1095,7 @@ func (m *Cluster_RingHashLbConfig_DeprecatedV1) Reset()         { *m = Cluster_R
 func (m *Cluster_RingHashLbConfig_DeprecatedV1) String() string { return proto.CompactTextString(m) }
 func (*Cluster_RingHashLbConfig_DeprecatedV1) ProtoMessage()    {}
 func (*Cluster_RingHashLbConfig_DeprecatedV1) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cds_c9aad078b729c273, []int{0, 3, 0}
+	return fileDescriptor_cds_dc24f214607567bf, []int{0, 3, 0}
 }
 func (m *Cluster_RingHashLbConfig_DeprecatedV1) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1154,7 +1154,7 @@ func (m *Cluster_OriginalDstLbConfig) Reset()         { *m = Cluster_OriginalDst
 func (m *Cluster_OriginalDstLbConfig) String() string { return proto.CompactTextString(m) }
 func (*Cluster_OriginalDstLbConfig) ProtoMessage()    {}
 func (*Cluster_OriginalDstLbConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cds_c9aad078b729c273, []int{0, 4}
+	return fileDescriptor_cds_dc24f214607567bf, []int{0, 4}
 }
 func (m *Cluster_OriginalDstLbConfig) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1222,7 +1222,7 @@ func (m *Cluster_CommonLbConfig) Reset()         { *m = Cluster_CommonLbConfig{}
 func (m *Cluster_CommonLbConfig) String() string { return proto.CompactTextString(m) }
 func (*Cluster_CommonLbConfig) ProtoMessage()    {}
 func (*Cluster_CommonLbConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cds_c9aad078b729c273, []int{0, 5}
+	return fileDescriptor_cds_dc24f214607567bf, []int{0, 5}
 }
 func (m *Cluster_CommonLbConfig) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1403,7 +1403,7 @@ func (m *Cluster_CommonLbConfig_ZoneAwareLbConfig) Reset() {
 func (m *Cluster_CommonLbConfig_ZoneAwareLbConfig) String() string { return proto.CompactTextString(m) }
 func (*Cluster_CommonLbConfig_ZoneAwareLbConfig) ProtoMessage()    {}
 func (*Cluster_CommonLbConfig_ZoneAwareLbConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cds_c9aad078b729c273, []int{0, 5, 0}
+	return fileDescriptor_cds_dc24f214607567bf, []int{0, 5, 0}
 }
 func (m *Cluster_CommonLbConfig_ZoneAwareLbConfig) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1462,7 +1462,7 @@ func (m *Cluster_CommonLbConfig_LocalityWeightedLbConfig) String() string {
 }
 func (*Cluster_CommonLbConfig_LocalityWeightedLbConfig) ProtoMessage() {}
 func (*Cluster_CommonLbConfig_LocalityWeightedLbConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cds_c9aad078b729c273, []int{0, 5, 1}
+	return fileDescriptor_cds_dc24f214607567bf, []int{0, 5, 1}
 }
 func (m *Cluster_CommonLbConfig_LocalityWeightedLbConfig) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1505,7 +1505,7 @@ func (m *UpstreamBindConfig) Reset()         { *m = UpstreamBindConfig{} }
 func (m *UpstreamBindConfig) String() string { return proto.CompactTextString(m) }
 func (*UpstreamBindConfig) ProtoMessage()    {}
 func (*UpstreamBindConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cds_c9aad078b729c273, []int{1}
+	return fileDescriptor_cds_dc24f214607567bf, []int{1}
 }
 func (m *UpstreamBindConfig) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1553,7 +1553,7 @@ func (m *UpstreamConnectionOptions) Reset()         { *m = UpstreamConnectionOpt
 func (m *UpstreamConnectionOptions) String() string { return proto.CompactTextString(m) }
 func (*UpstreamConnectionOptions) ProtoMessage()    {}
 func (*UpstreamConnectionOptions) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cds_c9aad078b729c273, []int{2}
+	return fileDescriptor_cds_dc24f214607567bf, []int{2}
 }
 func (m *UpstreamConnectionOptions) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -5977,9 +5977,9 @@ var (
 	ErrIntOverflowCds   = fmt.Errorf("proto: integer overflow")
 )
 
-func init() { proto.RegisterFile("envoy/api/v2/cds.proto", fileDescriptor_cds_c9aad078b729c273) }
+func init() { proto.RegisterFile("envoy/api/v2/cds.proto", fileDescriptor_cds_dc24f214607567bf) }
 
-var fileDescriptor_cds_c9aad078b729c273 = []byte{
+var fileDescriptor_cds_dc24f214607567bf = []byte{
 	// 2344 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x58, 0xcd, 0x6f, 0x1b, 0xc7,
 	0x15, 0xd7, 0x52, 0x72, 0x2c, 0x3d, 0x89, 0xe4, 0x6a, 0xe4, 0x8f, 0x35, 0x65, 0xcb, 0x32, 0xf3,

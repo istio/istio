@@ -63,3 +63,26 @@ func (a finder) String() string {
 	pool.PutBuffer(b)
 	return s
 }
+
+// NewChainedFinder returns an attribute finder that delegates to a parent finder with some overrides.
+func NewChainedFinder(parent AttributeDescriptorFinder, overrides map[string]*configpb.AttributeManifest_AttributeInfo) AttributeDescriptorFinder {
+	return &chainedFinder{
+		parent:    parent,
+		overrides: overrides,
+	}
+}
+
+type chainedFinder struct {
+	parent    AttributeDescriptorFinder
+	overrides map[string]*configpb.AttributeManifest_AttributeInfo
+}
+
+var _ AttributeDescriptorFinder = &chainedFinder{}
+
+// GetAttribute finds an attribute by name. returns nil if not found.
+func (a *chainedFinder) GetAttribute(name string) *configpb.AttributeManifest_AttributeInfo {
+	if info, exists := a.overrides[name]; exists {
+		return info
+	}
+	return a.parent.GetAttribute(name)
+}

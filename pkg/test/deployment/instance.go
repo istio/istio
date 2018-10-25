@@ -23,8 +23,6 @@ import (
 
 // Instance represents an Istio deployment instance that has been performed by this test code.
 type Instance struct {
-	kubeConfig string
-
 	// The deployment namespace.
 	namespace string
 
@@ -45,7 +43,7 @@ func (i *Instance) wait(namespace string, a *kube.Accessor) error {
 // Delete this deployment instance.
 func (i *Instance) Delete(a *kube.Accessor, wait bool) (err error) {
 
-	if err = kube.Delete(i.kubeConfig, i.namespace, i.yamlFilePath); err != nil {
+	if err = a.Delete(i.namespace, i.yamlFilePath); err != nil {
 		scopes.CI.Warnf("Error deleting deployment: %v", err)
 	}
 

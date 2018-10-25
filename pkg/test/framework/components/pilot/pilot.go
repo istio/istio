@@ -116,7 +116,7 @@ func (c *kubeComponent) doInit(e *kubernetes.Implementation) (interface{}, error
 		return nil, err
 	}
 
-	return NewKubePilot(s.KubeConfig, pod.Namespace, pod.Name, port)
+	return NewKubePilot(e.Accessor, pod.Namespace, pod.Name, port)
 }
 
 func getGrpcPort(e *kubernetes.Implementation) (uint16, error) {
@@ -202,13 +202,13 @@ func NewLocalPilot(namespace string, mesh *meshConfig.MeshConfig, configStore mo
 }
 
 // NewKubePilot creates a new pilot instance for the kubernetes environment
-func NewKubePilot(kubeConfig, namespace, pod string, port uint16) (environment.DeployedPilot, error) {
+func NewKubePilot(accessor *kube.Accessor, namespace, pod string, port uint16) (environment.DeployedPilot, error) {
 	// Start port-forwarding for pilot.
 	options := &kube.PodSelectOptions{
 		PodNamespace: namespace,
 		PodName:      pod,
 	}
-	forwarder, err := kube.NewPortForwarder(kubeConfig, options, 0, port)
+	forwarder, err := accessor.NewPortForwarder(options, 0, port)
 	if err != nil {
 		return nil, err
 	}

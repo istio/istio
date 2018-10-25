@@ -16,17 +16,14 @@ package inject
 
 import (
 	"bytes"
+	"fmt"
 	"os"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/gogo/protobuf/types"
-
-	"fmt"
-
-	"regexp"
-
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/util"
@@ -72,6 +69,7 @@ func TestIntoResourceFile(t *testing.T) {
 		imagePullPolicy              string
 		enableCoreDump               bool
 		debugMode                    bool
+		privileged                   bool
 		duration                     time.Duration
 		includeIPRanges              string
 		excludeIPRanges              string
@@ -479,9 +477,6 @@ func TestIntoResourceFile(t *testing.T) {
 		testName := fmt.Sprintf("[%02d] %s", i, c.want)
 		t.Run(testName, func(t *testing.T) {
 			mesh := model.DefaultMeshConfig()
-			if c.enableAuth {
-				mesh.AuthPolicy = meshconfig.MeshConfig_MUTUAL_TLS
-			}
 			if c.duration != 0 {
 				mesh.DefaultConfig.DrainDuration = types.DurationProto(c.duration)
 				mesh.DefaultConfig.ParentShutdownDuration = types.DurationProto(c.duration)
@@ -502,6 +497,7 @@ func TestIntoResourceFile(t *testing.T) {
 				SidecarProxyUID:              DefaultSidecarProxyUID,
 				Version:                      "12345678",
 				EnableCoreDump:               c.enableCoreDump,
+				Privileged:                   c.privileged,
 				Mesh:                         &mesh,
 				DebugMode:                    c.debugMode,
 				IncludeIPRanges:              c.includeIPRanges,
@@ -533,8 +529,11 @@ func TestIntoResourceFile(t *testing.T) {
 			}
 
 			// The version string is a maintenance pain for this test. Strip the version string before comparing.
-			wantBytes := stripVersion(util.ReadFile(wantFilePath, t))
-			gotBytes := stripVersion(got.Bytes())
+			gotBytes := got.Bytes()
+			wantedBytes := util.ReadGoldenFile(gotBytes, wantFilePath, t)
+
+			wantBytes := stripVersion(wantedBytes)
+			gotBytes = stripVersion(gotBytes)
 
 			util.CompareBytes(gotBytes, wantBytes, wantFilePath, t)
 		})

@@ -60,7 +60,7 @@ func (x TlsParameters_TlsProtocol) String() string {
 	return proto.EnumName(TlsParameters_TlsProtocol_name, int32(x))
 }
 func (TlsParameters_TlsProtocol) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_cert_3a5e5bd4f790737e, []int{0, 0}
+	return fileDescriptor_cert_98a1b161f4e28fa2, []int{0, 0}
 }
 
 type TlsParameters struct {
@@ -101,7 +101,7 @@ func (m *TlsParameters) Reset()         { *m = TlsParameters{} }
 func (m *TlsParameters) String() string { return proto.CompactTextString(m) }
 func (*TlsParameters) ProtoMessage()    {}
 func (*TlsParameters) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cert_3a5e5bd4f790737e, []int{0}
+	return fileDescriptor_cert_98a1b161f4e28fa2, []int{0}
 }
 func (m *TlsParameters) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -178,7 +178,7 @@ func (m *TlsCertificate) Reset()         { *m = TlsCertificate{} }
 func (m *TlsCertificate) String() string { return proto.CompactTextString(m) }
 func (*TlsCertificate) ProtoMessage()    {}
 func (*TlsCertificate) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cert_3a5e5bd4f790737e, []int{1}
+	return fileDescriptor_cert_98a1b161f4e28fa2, []int{1}
 }
 func (m *TlsCertificate) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -276,7 +276,7 @@ func (m *TlsSessionTicketKeys) Reset()         { *m = TlsSessionTicketKeys{} }
 func (m *TlsSessionTicketKeys) String() string { return proto.CompactTextString(m) }
 func (*TlsSessionTicketKeys) ProtoMessage()    {}
 func (*TlsSessionTicketKeys) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cert_3a5e5bd4f790737e, []int{2}
+	return fileDescriptor_cert_98a1b161f4e28fa2, []int{2}
 }
 func (m *TlsSessionTicketKeys) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -418,7 +418,7 @@ func (m *CertificateValidationContext) Reset()         { *m = CertificateValidat
 func (m *CertificateValidationContext) String() string { return proto.CompactTextString(m) }
 func (*CertificateValidationContext) ProtoMessage()    {}
 func (*CertificateValidationContext) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cert_3a5e5bd4f790737e, []int{3}
+	return fileDescriptor_cert_98a1b161f4e28fa2, []int{3}
 }
 func (m *CertificateValidationContext) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -543,7 +543,7 @@ func (m *CommonTlsContext) Reset()         { *m = CommonTlsContext{} }
 func (m *CommonTlsContext) String() string { return proto.CompactTextString(m) }
 func (*CommonTlsContext) ProtoMessage()    {}
 func (*CommonTlsContext) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cert_3a5e5bd4f790737e, []int{4}
+	return fileDescriptor_cert_98a1b161f4e28fa2, []int{4}
 }
 func (m *CommonTlsContext) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -734,7 +734,7 @@ func (m *CommonTlsContext_DeprecatedV1) Reset()         { *m = CommonTlsContext_
 func (m *CommonTlsContext_DeprecatedV1) String() string { return proto.CompactTextString(m) }
 func (*CommonTlsContext_DeprecatedV1) ProtoMessage()    {}
 func (*CommonTlsContext_DeprecatedV1) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cert_3a5e5bd4f790737e, []int{4, 0}
+	return fileDescriptor_cert_98a1b161f4e28fa2, []int{4, 0}
 }
 func (m *CommonTlsContext_DeprecatedV1) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -790,7 +790,7 @@ func (m *UpstreamTlsContext) Reset()         { *m = UpstreamTlsContext{} }
 func (m *UpstreamTlsContext) String() string { return proto.CompactTextString(m) }
 func (*UpstreamTlsContext) ProtoMessage()    {}
 func (*UpstreamTlsContext) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cert_3a5e5bd4f790737e, []int{5}
+	return fileDescriptor_cert_98a1b161f4e28fa2, []int{5}
 }
 func (m *UpstreamTlsContext) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -862,7 +862,7 @@ func (m *DownstreamTlsContext) Reset()         { *m = DownstreamTlsContext{} }
 func (m *DownstreamTlsContext) String() string { return proto.CompactTextString(m) }
 func (*DownstreamTlsContext) ProtoMessage()    {}
 func (*DownstreamTlsContext) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cert_3a5e5bd4f790737e, []int{6}
+	return fileDescriptor_cert_98a1b161f4e28fa2, []int{6}
 }
 func (m *DownstreamTlsContext) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1041,7 +1041,7 @@ func (m *SdsSecretConfig) Reset()         { *m = SdsSecretConfig{} }
 func (m *SdsSecretConfig) String() string { return proto.CompactTextString(m) }
 func (*SdsSecretConfig) ProtoMessage()    {}
 func (*SdsSecretConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cert_3a5e5bd4f790737e, []int{7}
+	return fileDescriptor_cert_98a1b161f4e28fa2, []int{7}
 }
 func (m *SdsSecretConfig) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1102,7 +1102,7 @@ func (m *Secret) Reset()         { *m = Secret{} }
 func (m *Secret) String() string { return proto.CompactTextString(m) }
 func (*Secret) ProtoMessage()    {}
 func (*Secret) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cert_3a5e5bd4f790737e, []int{8}
+	return fileDescriptor_cert_98a1b161f4e28fa2, []int{8}
 }
 func (m *Secret) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -4707,9 +4707,9 @@ var (
 	ErrIntOverflowCert   = fmt.Errorf("proto: integer overflow")
 )
 
-func init() { proto.RegisterFile("envoy/api/v2/auth/cert.proto", fileDescriptor_cert_3a5e5bd4f790737e) }
+func init() { proto.RegisterFile("envoy/api/v2/auth/cert.proto", fileDescriptor_cert_98a1b161f4e28fa2) }
 
-var fileDescriptor_cert_3a5e5bd4f790737e = []byte{
+var fileDescriptor_cert_98a1b161f4e28fa2 = []byte{
 	// 1252 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xbc, 0x56, 0x31, 0x73, 0x1b, 0x45,
 	0x14, 0xf6, 0x49, 0xb2, 0x23, 0x3f, 0xd9, 0xce, 0x79, 0x63, 0xf0, 0x45, 0x63, 0x1c, 0x45, 0x49,

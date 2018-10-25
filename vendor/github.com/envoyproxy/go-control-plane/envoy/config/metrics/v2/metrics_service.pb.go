@@ -37,7 +37,7 @@ func (m *MetricsServiceConfig) Reset()         { *m = MetricsServiceConfig{} }
 func (m *MetricsServiceConfig) String() string { return proto.CompactTextString(m) }
 func (*MetricsServiceConfig) ProtoMessage()    {}
 func (*MetricsServiceConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_metrics_service_7d43d1b15323329b, []int{0}
+	return fileDescriptor_metrics_service_a1c7105ce3f555d5, []int{0}
 }
 func (m *MetricsServiceConfig) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -332,10 +332,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/config/metrics/v2/metrics_service.proto", fileDescriptor_metrics_service_7d43d1b15323329b)
+	proto.RegisterFile("envoy/config/metrics/v2/metrics_service.proto", fileDescriptor_metrics_service_a1c7105ce3f555d5)
 }
 
-var fileDescriptor_metrics_service_7d43d1b15323329b = []byte{
+var fileDescriptor_metrics_service_a1c7105ce3f555d5 = []byte{
 	// 196 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xd2, 0x4d, 0xcd, 0x2b, 0xcb,
 	0xaf, 0xd4, 0x4f, 0xce, 0xcf, 0x4b, 0xcb, 0x4c, 0xd7, 0xcf, 0x4d, 0x2d, 0x29, 0xca, 0x4c, 0x2e,

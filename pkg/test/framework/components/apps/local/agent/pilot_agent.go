@@ -17,6 +17,7 @@ package agent
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
@@ -24,7 +25,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
-	net_url "net/url"
+	netUrl "net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -37,13 +38,13 @@ import (
 	"istio.io/istio/pkg/test/framework/environments/local/service"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	xdsapi_core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	xdsapi_listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	envoy_filter_http "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-	envoy_filter_tcp "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
-	envoy_util "github.com/envoyproxy/go-control-plane/pkg/util"
+	xdsapiCore "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	xdsapiListener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	envoyFilterHttp "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	envoyFilterTcp "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
+	envoyUtil "github.com/envoyproxy/go-control-plane/pkg/util"
 	"github.com/gogo/protobuf/jsonpb"
-	google_protobuf6 "github.com/gogo/protobuf/types"
+	googleProtobuf6 "github.com/gogo/protobuf/types"
 	"github.com/gorilla/websocket"
 	"github.com/hashicorp/go-multierror"
 	"google.golang.org/grpc"
@@ -65,7 +66,6 @@ const (
 	routeType            = "type.googleapis.com/envoy.api.v2.RouteConfiguration"
 	clusterType          = "type.googleapis.com/envoy.api.v2.Cluster"
 
-	// TODO(nmittler): Add listener support for all protocols (not just HTTP).
 	envoyYamlTemplateStr = `
 {{- $serviceName := .ServiceName -}}
 stats_config:
@@ -176,6 +176,7 @@ func getEnvoyYamlTemplate() *template.Template {
 type PilotAgentFactory struct {
 	DiscoveryAddress *net.TCPAddr
 	TmpDir           string
+	EnvoyLogLevel    envoy.LogLevel
 }
 
 // NewAgent is an agent.Factory function that creates new agent.Agent instances which use Pilot for configuration
@@ -188,6 +189,9 @@ func (f *PilotAgentFactory) NewAgent(serviceName, version string, serviceManager
 	a := &pilotAgent{
 		boundPortMap: make(map[uint32]int),
 		portMgr:      portMgr,
+		envoy: &envoy.Envoy{
+			LogLevel: f.EnvoyLogLevel,
+		},
 	}
 	defer func() {
 		if err != nil {
@@ -237,7 +241,7 @@ func (a *pilotAgent) GetConfig() model.Config {
 	return a.serviceEntry
 }
 
-// GetPorts implements the agent.Agent interface.
+// GetAdminPort implements the agent.Agent interface.
 func (a *pilotAgent) GetAdminPort() int {
 	return a.adminPort
 }
@@ -280,7 +284,7 @@ func (a *pilotAgent) CheckConfiguredForService(target Agent) error {
 	return nil
 }
 
-// Stop implements the agent.Agent interface.
+// Close implements the agent.Agent interface.
 func (a *pilotAgent) Close() (err error) {
 	if a.app != nil {
 		err = a.app.Close()
@@ -288,9 +292,7 @@ func (a *pilotAgent) Close() (err error) {
 	if a.discoveryFilterGrpcServer != nil {
 		a.discoveryFilterGrpcServer.Stop()
 	}
-	if a.envoy != nil {
-		err = multierror.Append(err, a.envoy.Stop()).ErrorOrNil()
-	}
+	err = multierror.Append(err, a.envoy.Stop()).ErrorOrNil()
 	if a.ownedDir != "" {
 		_ = os.RemoveAll(a.ownedDir)
 	} else if a.yamlFile != "" {
@@ -308,10 +310,10 @@ func (a *pilotAgent) fqd() string {
 }
 
 // function for establishing GRPC connections from the application.
-func (a *pilotAgent) dialGRPC(target string, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
+func (a *pilotAgent) dialGRPC(ctx context.Context, address string, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
 	// Modify the outbound URL being created by the application
-	target = a.modifyClientURLString(target)
-	return grpc.Dial(target, opts...)
+	address = a.modifyClientURLString(address)
+	return grpc.DialContext(ctx, address, opts...)
 }
 
 // function for establishing Websocket connections from the application.
@@ -328,7 +330,7 @@ func (a *pilotAgent) doHTTP(client *http.Client, req *http.Request) (*http.Respo
 }
 
 func (a *pilotAgent) modifyClientURLString(url string) string {
-	parsedURL, err := net_url.Parse(url)
+	parsedURL, err := netUrl.Parse(url)
 	if err != nil {
 		// Failed to parse the URL, just use the original.
 		return url
@@ -337,7 +339,7 @@ func (a *pilotAgent) modifyClientURLString(url string) string {
 	return parsedURL.String()
 }
 
-func (a *pilotAgent) modifyClientURL(url *net_url.URL) {
+func (a *pilotAgent) modifyClientURL(url *netUrl.URL) {
 	port, err := strconv.Atoi(url.Port())
 	if err != nil {
 		// No port was specified. Nothing to do.
@@ -391,10 +393,8 @@ func (a *pilotAgent) start(serviceName, version string, serviceManager *service.
 
 	// Start Envoy with the configuration
 	logPrefix := fmt.Sprintf("[ENVOY-%s]", nodeID)
-	a.envoy = &envoy.Envoy{
-		YamlFile:       a.yamlFile,
-		LogEntryPrefix: logPrefix,
-	}
+	a.envoy.YamlFile = a.yamlFile
+	a.envoy.LogEntryPrefix = logPrefix
 	if err = a.envoy.Start(); err != nil {
 		return err
 	}
@@ -476,7 +476,7 @@ func isVirtualListener(l *xdsapi.Listener) bool {
 	return l.Name == "virtual"
 }
 
-func getTCPProxyClusterName(filter *xdsapi_listener.Filter) (string, error) {
+func getTCPProxyClusterName(filter *xdsapiListener.Filter) (string, error) {
 	// First, check if it's using the deprecated v1 format.
 	fields := filter.Config.Fields
 	deprecatedV1, ok := fields["deprecated_v1"]
@@ -503,12 +503,12 @@ func getTCPProxyClusterName(filter *xdsapi_listener.Filter) (string, error) {
 		return "", errors.New("cluster field missing")
 	}
 
-	cfg := &envoy_filter_tcp.TcpProxy{}
-	err := envoy_util.StructToMessage(filter.Config, cfg)
+	cfg := &envoyFilterTcp.TcpProxy{}
+	err := envoyUtil.StructToMessage(filter.Config, cfg)
 	if err != nil {
 		return "", err
 	}
-	clusterSpec := cfg.ClusterSpecifier.(*envoy_filter_tcp.TcpProxy_Cluster)
+	clusterSpec := cfg.ClusterSpecifier.(*envoyFilterTcp.TcpProxy_Cluster)
 	if clusterSpec == nil {
 		return "", fmt.Errorf("expected TCPProxy cluster")
 	}
@@ -518,9 +518,9 @@ func getTCPProxyClusterName(filter *xdsapi_listener.Filter) (string, error) {
 func isInboundListener(l *xdsapi.Listener) (bool, error) {
 	for _, filter := range l.FilterChains[0].Filters {
 		switch filter.Name {
-		case envoy_util.HTTPConnectionManager:
-			cfg := &envoy_filter_http.HttpConnectionManager{}
-			err := envoy_util.StructToMessage(filter.Config, cfg)
+		case envoyUtil.HTTPConnectionManager:
+			cfg := &envoyFilterHttp.HttpConnectionManager{}
+			err := envoyUtil.StructToMessage(filter.Config, cfg)
 			if err != nil {
 				return false, err
 			}
@@ -531,7 +531,7 @@ func isInboundListener(l *xdsapi.Listener) (bool, error) {
 				}
 			}
 			return false, nil
-		case envoy_util.TCPProxy:
+		case envoyUtil.TCPProxy:
 			clusterName, err := getTCPProxyClusterName(&filter)
 			if err != nil {
 				return false, err
@@ -546,9 +546,9 @@ func isInboundListener(l *xdsapi.Listener) (bool, error) {
 func isOutboundListener(l *xdsapi.Listener) (bool, error) {
 	for _, filter := range l.FilterChains[0].Filters {
 		switch filter.Name {
-		case envoy_util.HTTPConnectionManager:
+		case envoyUtil.HTTPConnectionManager:
 			return outboundHTTPListenerNamePattern.MatchString(l.Name), nil
-		case envoy_util.TCPProxy:
+		case envoyUtil.TCPProxy:
 			clusterName, err := getTCPProxyClusterName(&filter)
 			if err != nil {
 				return false, err
@@ -569,8 +569,6 @@ func pb2Json(pb proto.Message) string {
 }
 
 func (a *pilotAgent) filterDiscoveryResponse(resp *xdsapi.DiscoveryResponse) (*xdsapi.DiscoveryResponse, error) {
-	fmt.Printf("NM: PilotResponse=%s\n", pb2Json(resp))
-
 	newResponse := xdsapi.DiscoveryResponse{
 		TypeUrl:     resp.TypeUrl,
 		Canary:      resp.Canary,
@@ -679,7 +677,7 @@ func (a *pilotAgent) filterDiscoveryResponse(resp *xdsapi.DiscoveryResponse) (*x
 	return &newResponse, nil
 }
 
-func (a *pilotAgent) bindOutboundPort(any *google_protobuf6.Any, l *xdsapi.Listener) error {
+func (a *pilotAgent) bindOutboundPort(any *googleProtobuf6.Any, l *xdsapi.Listener) error {
 	portFromPilot := l.Address.GetSocketAddress().GetPortValue()
 	boundPort, ok := a.boundPortMap[portFromPilot]
 
@@ -694,7 +692,7 @@ func (a *pilotAgent) bindOutboundPort(any *google_protobuf6.Any, l *xdsapi.Liste
 	}
 
 	// Store the bound port in the listener.
-	l.Address.GetSocketAddress().PortSpecifier.(*xdsapi_core.SocketAddress_PortValue).PortValue = uint32(boundPort)
+	l.Address.GetSocketAddress().PortSpecifier.(*xdsapiCore.SocketAddress_PortValue).PortValue = uint32(boundPort)
 	l.DeprecatedV1.BindToPort.Value = true
 
 	// Output this content of the any.

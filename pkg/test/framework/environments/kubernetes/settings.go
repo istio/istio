@@ -21,8 +21,6 @@ import (
 	"istio.io/istio/pkg/test/env"
 
 	kubeCore "k8s.io/api/core/v1"
-
-	"istio.io/istio/pkg/test/framework/settings"
 )
 
 const (
@@ -73,10 +71,6 @@ func newSettings() (*Settings, error) {
 	var err error
 	s.Values, err = newHelmValues()
 	if err != nil {
-		return nil, err
-	}
-
-	if err := s.validate(); err != nil {
 		return nil, err
 	}
 
@@ -155,17 +149,6 @@ func parseHelmValues() (map[string]string, error) {
 		out[strings.TrimSpace(parts[0])] = strings.TrimSpace(parts[1])
 	}
 	return out, nil
-}
-
-func (s *Settings) validate() error {
-	// Validate the arguments.
-	if s.KubeConfig == "" {
-		return fmt.Errorf(
-			"environment %q requires kube configuration (can be specified from command-line, or with %s)",
-			string(settings.Kubernetes), ISTIO_TEST_KUBE_CONFIG.Name())
-	}
-
-	return nil
 }
 
 func (s *Settings) String() string {

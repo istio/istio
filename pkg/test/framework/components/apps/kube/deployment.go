@@ -20,7 +20,6 @@ import (
 
 	"istio.io/istio/pkg/test/framework/environments/kubernetes"
 	"istio.io/istio/pkg/test/framework/tmpl"
-	"istio.io/istio/pkg/test/kube"
 )
 
 const (
@@ -180,7 +179,7 @@ func (d *deployment) apply(e *kubernetes.Implementation) error {
 		return err
 	}
 
-	if err = kube.ApplyContents(s.KubeConfig, s.DependencyNamespace, result); err != nil {
+	if err = e.Accessor.ApplyContents(s.DependencyNamespace, result); err != nil {
 		return err
 	}
 	return nil

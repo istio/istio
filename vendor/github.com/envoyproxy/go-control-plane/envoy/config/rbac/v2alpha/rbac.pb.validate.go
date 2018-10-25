@@ -263,6 +263,18 @@ func (m *Permission) Validate() error {
 			}
 		}
 
+	case *Permission_RequestedServerName:
+
+		if v, ok := interface{}(m.GetRequestedServerName()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return PermissionValidationError{
+					Field:  "RequestedServerName",
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
 	default:
 		return PermissionValidationError{
 			Field:  "Rule",

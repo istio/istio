@@ -1,10 +1,10 @@
 package reflect2
 
 import (
-	"unsafe"
 	"reflect"
 	"runtime"
 	"strings"
+	"unsafe"
 )
 
 // typelinks1 for 1.5 ~ 1.6
@@ -16,6 +16,7 @@ func typelinks1() [][]unsafe.Pointer
 func typelinks2() (sections []unsafe.Pointer, offset [][]int32)
 
 var types = map[string]reflect.Type{}
+var packages = map[string]map[string]reflect.Type{}
 
 func init() {
 	ver := runtime.Version()
@@ -36,11 +37,25 @@ func loadGo15Types() {
 			(*emptyInterface)(unsafe.Pointer(&obj)).word = typePtr
 			typ := obj.(reflect.Type)
 			if typ.Kind() == reflect.Ptr && typ.Elem().Kind() == reflect.Struct {
-				types[typ.Elem().String()] = typ.Elem()
+				loadedType := typ.Elem()
+				pkgTypes := packages[loadedType.PkgPath()]
+				if pkgTypes == nil {
+					pkgTypes = map[string]reflect.Type{}
+					packages[loadedType.PkgPath()] = pkgTypes
+				}
+				types[loadedType.String()] = loadedType
+				pkgTypes[loadedType.Name()] = loadedType
 			}
 			if typ.Kind() == reflect.Slice && typ.Elem().Kind() == reflect.Ptr &&
 				typ.Elem().Elem().Kind() == reflect.Struct {
-				types[typ.Elem().Elem().String()] = typ.Elem().Elem()
+				loadedType := typ.Elem().Elem()
+				pkgTypes := packages[loadedType.PkgPath()]
+				if pkgTypes == nil {
+					pkgTypes = map[string]reflect.Type{}
+					packages[loadedType.PkgPath()] = pkgTypes
+				}
+				types[loadedType.String()] = loadedType
+				pkgTypes[loadedType.Name()] = loadedType
 			}
 		}
 	}
@@ -55,7 +70,14 @@ func loadGo17Types() {
 			(*emptyInterface)(unsafe.Pointer(&obj)).word = resolveTypeOff(unsafe.Pointer(rodata), off)
 			typ := obj.(reflect.Type)
 			if typ.Kind() == reflect.Ptr && typ.Elem().Kind() == reflect.Struct {
-				types[typ.Elem().String()] = typ.Elem()
+				loadedType := typ.Elem()
+				pkgTypes := packages[loadedType.PkgPath()]
+				if pkgTypes == nil {
+					pkgTypes = map[string]reflect.Type{}
+					packages[loadedType.PkgPath()] = pkgTypes
+				}
+				types[loadedType.String()] = loadedType
+				pkgTypes[loadedType.Name()] = loadedType
 			}
 		}
 	}
@@ -69,4 +91,13 @@ type emptyInterface struct {
 // TypeByName return the type by its name, just like Class.forName in java
 func TypeByName(typeName string) Type {
 	return Type2(types[typeName])
+}
+
+// TypeByPackageName return the type by its package and name
+func TypeByPackageName(pkgPath string, name string) Type {
+	pkgTypes := packages[pkgPath]
+	if pkgTypes == nil {
+		return nil
+	}
+	return Type2(pkgTypes[name])
 }

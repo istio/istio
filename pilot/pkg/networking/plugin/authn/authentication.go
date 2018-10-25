@@ -123,11 +123,11 @@ func setupFilterChains(authnPolicy *authn.Policy, sdsUdsPath string) []plugin.Fi
 		}
 	} else {
 		tls.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContextSdsSecretConfig{
-			ValidationContextSdsSecretConfig: model.ConstructSdsSecretConfig(model.SDSRootResourceName, sdsUdsPath),
+			ValidationContextSdsSecretConfig: model.ConstructSdsSecretConfig(model.SDSRootResourceName, sdsUdsPath, model.K8sSAJwtTokenFileName),
 		}
 
 		tls.CommonTlsContext.TlsCertificateSdsSecretConfigs = []*auth.SdsSecretConfig{
-			model.ConstructSdsSecretConfig(model.SDSDefaultResourceName, sdsUdsPath),
+			model.ConstructSdsSecretConfig(model.SDSDefaultResourceName, sdsUdsPath, model.K8sSAJwtTokenFileName),
 		}
 	}
 	mtls := GetMutualTLS(authnPolicy)
@@ -361,8 +361,7 @@ func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
 }
 
 // OnInboundCluster implements the Plugin interface method.
-func (Plugin) OnInboundCluster(env *model.Environment, node *model.Proxy, push *model.PushContext, service *model.Service,
-	servicePort *model.Port, cluster *xdsapi.Cluster) {
+func (Plugin) OnInboundCluster(in *plugin.InputParams, cluster *xdsapi.Cluster) {
 }
 
 // OnOutboundRouteConfiguration implements the Plugin interface method.
@@ -374,6 +373,5 @@ func (Plugin) OnInboundRouteConfiguration(in *plugin.InputParams, route *xdsapi.
 }
 
 // OnOutboundCluster implements the Plugin interface method.
-func (Plugin) OnOutboundCluster(env *model.Environment, push *model.PushContext, service *model.Service,
-	servicePort *model.Port, cluster *xdsapi.Cluster) {
+func (Plugin) OnOutboundCluster(in *plugin.InputParams, cluster *xdsapi.Cluster) {
 }

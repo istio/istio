@@ -88,12 +88,7 @@ func (e *Implementation) Initialize(ctx *internal.TestContext) error {
 
 	scopes.CI.Infof("Test Framework Kubernetes environment settings:\n%s", e.kube)
 
-	config, err := kube.CreateConfig(e.kube.KubeConfig)
-	if err != nil {
-		return err
-	}
-
-	if e.Accessor, err = kube.NewAccessor(config); err != nil {
+	if e.Accessor, err = kube.NewAccessor(e.kube.KubeConfig); err != nil {
 		return err
 	}
 
@@ -148,7 +143,6 @@ func (e *Implementation) deployIstio() (instance *deployment.Instance, err error
 
 	return deployment.NewHelmDeployment(deployment.HelmConfig{
 		Accessor:   e.Accessor,
-		KubeConfig: e.kube.KubeConfig,
 		Namespace:  e.systemNamespace.allocatedName,
 		WorkDir:    e.ctx.Settings().WorkDir,
 		ChartDir:   e.kube.ChartDir,
@@ -160,7 +154,7 @@ func (e *Implementation) deployIstio() (instance *deployment.Instance, err error
 // Configure applies the given configuration to the mesh.
 func (e *Implementation) Configure(config string) error {
 	scopes.Framework.Debugf("Applying configuration: \n%s\n", config)
-	err := kube.ApplyContents(e.kube.KubeConfig, e.testNamespace.allocatedName, config)
+	err := e.Accessor.ApplyContents(e.testNamespace.allocatedName, config)
 	if err != nil {
 		return err
 	}
@@ -214,21 +208,21 @@ func (e *Implementation) DumpState(context string) {
 		return
 	}
 
-	deployment.DumpPodData(e.kube.KubeConfig, dir, e.KubeSettings().IstioSystemNamespace, e.Accessor)
-	deployment.DumpPodState(e.kube.KubeConfig, e.KubeSettings().IstioSystemNamespace)
+	deployment.DumpPodData(dir, e.KubeSettings().IstioSystemNamespace, e.Accessor)
+	deployment.DumpPodState(e.KubeSettings().IstioSystemNamespace, e.Accessor)
 
 	if e.dependencyNamespace.allocatedName == "" {
 		scopes.CI.Info("Skipping state dump of dependency namespace, as it is not allocated...")
 	} else {
-		deployment.DumpPodData(e.kube.KubeConfig, dir, e.dependencyNamespace.allocatedName, e.Accessor)
-		deployment.DumpPodState(e.kube.KubeConfig, e.dependencyNamespace.allocatedName)
+		deployment.DumpPodData(dir, e.dependencyNamespace.allocatedName, e.Accessor)
+		deployment.DumpPodState(e.dependencyNamespace.allocatedName, e.Accessor)
 	}
 
 	if e.testNamespace.allocatedName == "" {
 		scopes.CI.Info("Skipping state dump of test namespace, as it is not allocated...")
 	} else {
-		deployment.DumpPodData(e.kube.KubeConfig, dir, e.testNamespace.allocatedName, e.Accessor)
-		deployment.DumpPodState(e.kube.KubeConfig, e.testNamespace.allocatedName)
+		deployment.DumpPodData(dir, e.testNamespace.allocatedName, e.Accessor)
+		deployment.DumpPodState(e.testNamespace.allocatedName, e.Accessor)
 	}
 }
 

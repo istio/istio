@@ -22,8 +22,9 @@ import (
 	"log"
 	"net/http"
 	"net/http/cookiejar"
-	"runtime"
 	"time"
+
+	"github.com/Azure/go-autorest/version"
 )
 
 const (
@@ -41,15 +42,6 @@ const (
 )
 
 var (
-	// defaultUserAgent builds a string containing the Go version, system archityecture and OS,
-	// and the go-autorest version.
-	defaultUserAgent = fmt.Sprintf("Go/%s (%s-%s) go-autorest/%s",
-		runtime.Version(),
-		runtime.GOARCH,
-		runtime.GOOS,
-		Version(),
-	)
-
 	// StatusCodesForRetry are a defined group of status code for which the client will retry
 	StatusCodesForRetry = []int{
 		http.StatusRequestTimeout,      // 408
@@ -179,7 +171,7 @@ func NewClientWithUserAgent(ua string) Client {
 		PollingDuration: DefaultPollingDuration,
 		RetryAttempts:   DefaultRetryAttempts,
 		RetryDuration:   DefaultRetryDuration,
-		UserAgent:       defaultUserAgent,
+		UserAgent:       version.UserAgent(),
 	}
 	c.Sender = c.sender()
 	c.AddToUserAgent(ua)
@@ -203,9 +195,10 @@ func (c Client) Do(r *http.Request) (*http.Response, error) {
 		r, _ = Prepare(r,
 			WithUserAgent(c.UserAgent))
 	}
+	// NOTE: c.WithInspection() must be last in the list so that it can inspect all preceding operations
 	r, err := Prepare(r,
-		c.WithInspection(),
-		c.WithAuthorization())
+		c.WithAuthorization(),
+		c.WithInspection())
 	if err != nil {
 		var resp *http.Response
 		if detErr, ok := err.(DetailedError); ok {

@@ -76,6 +76,8 @@ const (
 	OriginalDestination = "envoy.listener.original_dst"
 	// ProxyProtocol listener filter
 	ProxyProtocol = "envoy.listener.proxy_protocol"
+	// TlsInspector listener filter
+	TlsInspector = "envoy.listener.tls_inspector"
 )
 
 // Tracing provider names

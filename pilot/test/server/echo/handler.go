@@ -52,7 +52,6 @@ type codeAndSlices struct {
 }
 
 func (h handler) addResponsePayload(r *http.Request, body *bytes.Buffer) {
-
 	body.WriteString("ServiceVersion=" + h.version + "\n")
 	body.WriteString("ServicePort=" + strconv.Itoa(h.port) + "\n")
 	body.WriteString("Method=" + r.Method + "\n")
@@ -81,6 +80,11 @@ func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if err := r.ParseForm(); err != nil {
 		body.WriteString("ParseForm() error: " + err.Error() + "\n")
+	}
+
+	// If the request has form ?headers=name:value[,name:value]* return those headers in response
+	if err := setHeaderResponseFromHeaders(r, w); err != nil {
+		body.WriteString("response headers error: " + err.Error() + "\n")
 	}
 
 	// If the request has form ?codes=code[:chance][,code[:chance]]* return those codes, rather than 200
@@ -141,6 +145,29 @@ func (h handler) WebSocketEcho(w http.ResponseWriter, r *http.Request) {
 		log.Warna("websocket-echo write failed:", err)
 		return
 	}
+}
+
+func setHeaderResponseFromHeaders(request *http.Request, response http.ResponseWriter) error {
+	s := request.FormValue("headers")
+	if len(s) == 0 {
+		return nil
+	}
+	responseHeaders := strings.Split(s, ",")
+
+	for _, responseHeader := range responseHeaders {
+		parts := strings.Split(responseHeader, ":")
+
+		// require name:value format
+		if len(parts) != 2 {
+			return fmt.Errorf("invalid %q (want name:value)", responseHeader)
+		}
+		name := parts[0]
+		value := parts[1]
+
+		response.Header().Set(name, value)
+	}
+
+	return nil
 }
 
 func setResponseFromCodes(request *http.Request, response http.ResponseWriter) error {

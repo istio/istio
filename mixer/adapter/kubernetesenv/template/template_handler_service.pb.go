@@ -46,6 +46,10 @@
 		mixer/adapter/kubernetesenv/template/template_handler_service.proto
 
 	It has these top-level messages:
+		HandleKubernetesRequest
+		OutputMsg
+		InstanceMsg
+		Type
 		InstanceParam
 */
 package adapter_template_kubernetes
@@ -55,6 +59,11 @@ import fmt "fmt"
 import math "math"
 import _ "github.com/gogo/protobuf/gogoproto"
 import _ "istio.io/api/mixer/adapter/model/v1beta1"
+import google_protobuf1 "github.com/gogo/protobuf/types"
+import istio_policy_v1beta1 "istio.io/api/policy/v1beta1"
+
+import context "golang.org/x/net/context"
+import grpc "google.golang.org/grpc"
 
 import strings "strings"
 import reflect "reflect"
@@ -72,6 +81,115 @@ var _ = math.Inf
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
+
+// Request message for HandleKubernetes method.
+type HandleKubernetesRequest struct {
+	// 'kubernetes' instance.
+	Instance *InstanceMsg `protobuf:"bytes,1,opt,name=instance" json:"instance,omitempty"`
+	// Adapter specific handler configuration.
+	//
+	// Note: Backends can also implement [InfrastructureBackend][https://istio.io/docs/reference/config/mixer/istio.mixer.adapter.model.v1beta1.html#InfrastructureBackend]
+	// service and therefore opt to receive handler configuration during session creation through [InfrastructureBackend.CreateSession][TODO: Link to this fragment]
+	// call. In that case, adapter_config will have type_url as 'google.protobuf.Any.type_url' and would contain string
+	// value of session_id (returned from InfrastructureBackend.CreateSession).
+	AdapterConfig *google_protobuf1.Any `protobuf:"bytes,2,opt,name=adapter_config,json=adapterConfig" json:"adapter_config,omitempty"`
+	// Id to dedupe identical requests from Mixer.
+	DedupId string `protobuf:"bytes,3,opt,name=dedup_id,json=dedupId,proto3" json:"dedup_id,omitempty"`
+}
+
+func (m *HandleKubernetesRequest) Reset()      { *m = HandleKubernetesRequest{} }
+func (*HandleKubernetesRequest) ProtoMessage() {}
+func (*HandleKubernetesRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptorTemplateHandlerService, []int{0}
+}
+
+// Contains output payload for 'kubernetes' template.
+type OutputMsg struct {
+	// Refers to the source.uid for a pod. This is for TCP use cases where the attribute is not present.
+	// attribute_bindings can refer to this field using $out.source_pod_uid
+	SourcePodUid string `protobuf:"bytes,31,opt,name=source_pod_uid,json=sourcePodUid,proto3" json:"source_pod_uid,omitempty"`
+	// Refers to source pod ip address. attribute_bindings can refer to this field using $out.source_pod_ip
+	SourcePodIp *istio_policy_v1beta1.IPAddress `protobuf:"bytes,1,opt,name=source_pod_ip,json=sourcePodIp" json:"source_pod_ip,omitempty"`
+	// Refers to source pod name. attribute_bindings can refer to this field using $out.source_pod_name
+	SourcePodName string `protobuf:"bytes,2,opt,name=source_pod_name,json=sourcePodName,proto3" json:"source_pod_name,omitempty"`
+	// Refers to source pod labels. attribute_bindings can refer to this field using $out.source_labels
+	SourceLabels map[string]string `protobuf:"bytes,3,rep,name=source_labels,json=sourceLabels" json:"source_labels,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	// Refers to source pod namespace. attribute_bindings can refer to this field using $out.source_namespace
+	SourceNamespace string `protobuf:"bytes,4,opt,name=source_namespace,json=sourceNamespace,proto3" json:"source_namespace,omitempty"`
+	// Refers to source pod service account name. attribute_bindings can refer to this field using $out.source_service_account_name
+	SourceServiceAccountName string `protobuf:"bytes,6,opt,name=source_service_account_name,json=sourceServiceAccountName,proto3" json:"source_service_account_name,omitempty"`
+	// Refers to source pod host ip address. attribute_bindings can refer to this field using $out.source_host_ip
+	SourceHostIp *istio_policy_v1beta1.IPAddress `protobuf:"bytes,7,opt,name=source_host_ip,json=sourceHostIp" json:"source_host_ip,omitempty"`
+	// Refers to the Istio workload identifier for the source pod. Attribute_bindings can refer to this field using $out.source_workload_uid
+	SourceWorkloadUid string `protobuf:"bytes,22,opt,name=source_workload_uid,json=sourceWorkloadUid,proto3" json:"source_workload_uid,omitempty"`
+	// Refers to the Istio workload name for the source pod. Attribute_bindings can refer to this field using $out.source_workload_name
+	SourceWorkloadName string `protobuf:"bytes,23,opt,name=source_workload_name,json=sourceWorkloadName,proto3" json:"source_workload_name,omitempty"`
+	// Refers to the Istio workload namespace for the source pod. Attribute_bindings can refer to this field using $out.source_workload_namespace
+	SourceWorkloadNamespace string `protobuf:"bytes,24,opt,name=source_workload_namespace,json=sourceWorkloadNamespace,proto3" json:"source_workload_namespace,omitempty"`
+	// Refers to the (controlling) owner of the source pod. Attribute_bindings can refer to this field using $out.source_owner
+	SourceOwner string `protobuf:"bytes,25,opt,name=source_owner,json=sourceOwner,proto3" json:"source_owner,omitempty"`
+	// Refers to the destination.uid for a pod. This is for TCP use cases where the attribute is not present.
+	// attribute_bindings can refer to this field using $out.destination_pod_uid
+	DestinationPodUid string `protobuf:"bytes,32,opt,name=destination_pod_uid,json=destinationPodUid,proto3" json:"destination_pod_uid,omitempty"`
+	// Refers to destination pod ip address. attribute_bindings can refer to this field using $out.destination_pod_ip
+	DestinationPodIp *istio_policy_v1beta1.IPAddress `protobuf:"bytes,8,opt,name=destination_pod_ip,json=destinationPodIp" json:"destination_pod_ip,omitempty"`
+	// Refers to destination pod name. attribute_bindings can refer to this field using $out.destination_pod_name
+	DestinationPodName string `protobuf:"bytes,9,opt,name=destination_pod_name,json=destinationPodName,proto3" json:"destination_pod_name,omitempty"`
+	// Refers to destination container name. attribute_bindings can refer to this field using $out.destination_container_name
+	DestinationContainerName string `protobuf:"bytes,30,opt,name=destination_container_name,json=destinationContainerName,proto3" json:"destination_container_name,omitempty"`
+	// Refers to destination pod labels. attribute_bindings can refer to this field using $out.destination_labels
+	DestinationLabels map[string]string `protobuf:"bytes,10,rep,name=destination_labels,json=destinationLabels" json:"destination_labels,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	// Refers to destination pod namespace. attribute_bindings can refer to this field using $out.destination_namespace
+	DestinationNamespace string `protobuf:"bytes,11,opt,name=destination_namespace,json=destinationNamespace,proto3" json:"destination_namespace,omitempty"`
+	// Refers to destination pod service account name. attribute_bindings can refer to this field using $out.destination_service_account_name
+	DestinationServiceAccountName string `protobuf:"bytes,13,opt,name=destination_service_account_name,json=destinationServiceAccountName,proto3" json:"destination_service_account_name,omitempty"`
+	// Refers to destination pod host ip address. attribute_bindings can refer to this field using $out.destination_host_ip
+	DestinationHostIp *istio_policy_v1beta1.IPAddress `protobuf:"bytes,14,opt,name=destination_host_ip,json=destinationHostIp" json:"destination_host_ip,omitempty"`
+	// Refers to the (controlling) owner of the destination pod. Attribute_bindings can refer to this field using $out.destination_owner
+	DestinationOwner string `protobuf:"bytes,26,opt,name=destination_owner,json=destinationOwner,proto3" json:"destination_owner,omitempty"`
+	// Refers to the Istio workload identifier for the destination pod. Attribute_bindings can refer to this field using $out.destination_workload_uid
+	DestinationWorkloadUid string `protobuf:"bytes,27,opt,name=destination_workload_uid,json=destinationWorkloadUid,proto3" json:"destination_workload_uid,omitempty"`
+	// Refers to the Istio workload name for the destination pod. Attribute_bindings can refer to this field using $out.destination_workload_name
+	DestinationWorkloadName string `protobuf:"bytes,28,opt,name=destination_workload_name,json=destinationWorkloadName,proto3" json:"destination_workload_name,omitempty"`
+	// Refers to the Istio workload name for the destination pod. Attribute_bindings can refer to this field using $out.destination_workload_namespace
+	DestinationWorkloadNamespace string `protobuf:"bytes,29,opt,name=destination_workload_namespace,json=destinationWorkloadNamespace,proto3" json:"destination_workload_namespace,omitempty"`
+}
+
+func (m *OutputMsg) Reset()                    { *m = OutputMsg{} }
+func (*OutputMsg) ProtoMessage()               {}
+func (*OutputMsg) Descriptor() ([]byte, []int) { return fileDescriptorTemplateHandlerService, []int{1} }
+
+// Contains instance payload for 'kubernetes' template. This is passed to infrastructure backends during request-time
+// through HandleKubernetesService.HandleKubernetes.
+type InstanceMsg struct {
+	// Name of the instance as specified in configuration.
+	Name string `protobuf:"bytes,72295727,opt,name=name,proto3" json:"name,omitempty"`
+	// Source pod's uid. Must be of the form: "kubernetes://pod.namespace"
+	SourceUid string `protobuf:"bytes,1,opt,name=source_uid,json=sourceUid,proto3" json:"source_uid,omitempty"`
+	// Source pod's ip.
+	SourceIp *istio_policy_v1beta1.IPAddress `protobuf:"bytes,2,opt,name=source_ip,json=sourceIp" json:"source_ip,omitempty"`
+	// Destination pod's uid. Must be of the form: "kubernetes://pod.namespace"
+	DestinationUid string `protobuf:"bytes,3,opt,name=destination_uid,json=destinationUid,proto3" json:"destination_uid,omitempty"`
+	// Destination pod's ip.
+	DestinationIp *istio_policy_v1beta1.IPAddress `protobuf:"bytes,4,opt,name=destination_ip,json=destinationIp" json:"destination_ip,omitempty"`
+	// Destination container's port number.
+	DestinationPort int64 `protobuf:"varint,7,opt,name=destination_port,json=destinationPort,proto3" json:"destination_port,omitempty"`
+}
+
+func (m *InstanceMsg) Reset()      { *m = InstanceMsg{} }
+func (*InstanceMsg) ProtoMessage() {}
+func (*InstanceMsg) Descriptor() ([]byte, []int) {
+	return fileDescriptorTemplateHandlerService, []int{2}
+}
+
+// Contains inferred type information about specific instance of 'kubernetes' template. This is passed to
+// infrastructure backends during configuration-time through [InfrastructureBackend.CreateSession][TODO: Link to this fragment].
+type Type struct {
+}
+
+func (m *Type) Reset()                    { *m = Type{} }
+func (*Type) ProtoMessage()               {}
+func (*Type) Descriptor() ([]byte, []int) { return fileDescriptorTemplateHandlerService, []int{3} }
 
 // Represents instance configuration schema for 'kubernetes' template.
 type InstanceParam struct {
@@ -96,12 +214,438 @@ type InstanceParam struct {
 func (m *InstanceParam) Reset()      { *m = InstanceParam{} }
 func (*InstanceParam) ProtoMessage() {}
 func (*InstanceParam) Descriptor() ([]byte, []int) {
-	return fileDescriptorTemplateHandlerService, []int{0}
+	return fileDescriptorTemplateHandlerService, []int{4}
 }
 
 func init() {
+	proto.RegisterType((*HandleKubernetesRequest)(nil), "adapter.template.kubernetes.HandleKubernetesRequest")
+	proto.RegisterType((*OutputMsg)(nil), "adapter.template.kubernetes.OutputMsg")
+	proto.RegisterType((*InstanceMsg)(nil), "adapter.template.kubernetes.InstanceMsg")
+	proto.RegisterType((*Type)(nil), "adapter.template.kubernetes.Type")
 	proto.RegisterType((*InstanceParam)(nil), "adapter.template.kubernetes.InstanceParam")
 }
+
+// Reference imports to suppress errors if they are not otherwise used.
+var _ context.Context
+var _ grpc.ClientConn
+
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the grpc package it is being compiled against.
+const _ = grpc.SupportPackageIsVersion4
+
+// Client API for HandleKubernetesService service
+
+type HandleKubernetesServiceClient interface {
+	// HandleKubernetes is called by Mixer at request-time to deliver 'kubernetes' instances to the backend.
+	HandleKubernetes(ctx context.Context, in *HandleKubernetesRequest, opts ...grpc.CallOption) (*OutputMsg, error)
+}
+
+type handleKubernetesServiceClient struct {
+	cc *grpc.ClientConn
+}
+
+func NewHandleKubernetesServiceClient(cc *grpc.ClientConn) HandleKubernetesServiceClient {
+	return &handleKubernetesServiceClient{cc}
+}
+
+func (c *handleKubernetesServiceClient) HandleKubernetes(ctx context.Context, in *HandleKubernetesRequest, opts ...grpc.CallOption) (*OutputMsg, error) {
+	out := new(OutputMsg)
+	err := grpc.Invoke(ctx, "/adapter.template.kubernetes.HandleKubernetesService/HandleKubernetes", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// Server API for HandleKubernetesService service
+
+type HandleKubernetesServiceServer interface {
+	// HandleKubernetes is called by Mixer at request-time to deliver 'kubernetes' instances to the backend.
+	HandleKubernetes(context.Context, *HandleKubernetesRequest) (*OutputMsg, error)
+}
+
+func RegisterHandleKubernetesServiceServer(s *grpc.Server, srv HandleKubernetesServiceServer) {
+	s.RegisterService(&_HandleKubernetesService_serviceDesc, srv)
+}
+
+func _HandleKubernetesService_HandleKubernetes_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(HandleKubernetesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HandleKubernetesServiceServer).HandleKubernetes(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/adapter.template.kubernetes.HandleKubernetesService/HandleKubernetes",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HandleKubernetesServiceServer).HandleKubernetes(ctx, req.(*HandleKubernetesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+var _HandleKubernetesService_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "adapter.template.kubernetes.HandleKubernetesService",
+	HandlerType: (*HandleKubernetesServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "HandleKubernetes",
+			Handler:    _HandleKubernetesService_HandleKubernetes_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "mixer/adapter/kubernetesenv/template/template_handler_service.proto",
+}
+
+func (m *HandleKubernetesRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *HandleKubernetesRequest) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Instance != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(m.Instance.Size()))
+		n1, err := m.Instance.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n1
+	}
+	if m.AdapterConfig != nil {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(m.AdapterConfig.Size()))
+		n2, err := m.AdapterConfig.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n2
+	}
+	if len(m.DedupId) > 0 {
+		dAtA[i] = 0x1a
+		i++
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.DedupId)))
+		i += copy(dAtA[i:], m.DedupId)
+	}
+	return i, nil
+}
+
+func (m *OutputMsg) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *OutputMsg) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.SourcePodIp != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(m.SourcePodIp.Size()))
+		n3, err := m.SourcePodIp.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n3
+	}
+	if len(m.SourcePodName) > 0 {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.SourcePodName)))
+		i += copy(dAtA[i:], m.SourcePodName)
+	}
+	if len(m.SourceLabels) > 0 {
+		for k, _ := range m.SourceLabels {
+			dAtA[i] = 0x1a
+			i++
+			v := m.SourceLabels[k]
+			mapSize := 1 + len(k) + sovTemplateHandlerService(uint64(len(k))) + 1 + len(v) + sovTemplateHandlerService(uint64(len(v)))
+			i = encodeVarintTemplateHandlerService(dAtA, i, uint64(mapSize))
+			dAtA[i] = 0xa
+			i++
+			i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(k)))
+			i += copy(dAtA[i:], k)
+			dAtA[i] = 0x12
+			i++
+			i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(v)))
+			i += copy(dAtA[i:], v)
+		}
+	}
+	if len(m.SourceNamespace) > 0 {
+		dAtA[i] = 0x22
+		i++
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.SourceNamespace)))
+		i += copy(dAtA[i:], m.SourceNamespace)
+	}
+	if len(m.SourceServiceAccountName) > 0 {
+		dAtA[i] = 0x32
+		i++
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.SourceServiceAccountName)))
+		i += copy(dAtA[i:], m.SourceServiceAccountName)
+	}
+	if m.SourceHostIp != nil {
+		dAtA[i] = 0x3a
+		i++
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(m.SourceHostIp.Size()))
+		n4, err := m.SourceHostIp.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n4
+	}
+	if m.DestinationPodIp != nil {
+		dAtA[i] = 0x42
+		i++
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(m.DestinationPodIp.Size()))
+		n5, err := m.DestinationPodIp.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n5
+	}
+	if len(m.DestinationPodName) > 0 {
+		dAtA[i] = 0x4a
+		i++
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.DestinationPodName)))
+		i += copy(dAtA[i:], m.DestinationPodName)
+	}
+	if len(m.DestinationLabels) > 0 {
+		for k, _ := range m.DestinationLabels {
+			dAtA[i] = 0x52
+			i++
+			v := m.DestinationLabels[k]
+			mapSize := 1 + len(k) + sovTemplateHandlerService(uint64(len(k))) + 1 + len(v) + sovTemplateHandlerService(uint64(len(v)))
+			i = encodeVarintTemplateHandlerService(dAtA, i, uint64(mapSize))
+			dAtA[i] = 0xa
+			i++
+			i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(k)))
+			i += copy(dAtA[i:], k)
+			dAtA[i] = 0x12
+			i++
+			i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(v)))
+			i += copy(dAtA[i:], v)
+		}
+	}
+	if len(m.DestinationNamespace) > 0 {
+		dAtA[i] = 0x5a
+		i++
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.DestinationNamespace)))
+		i += copy(dAtA[i:], m.DestinationNamespace)
+	}
+	if len(m.DestinationServiceAccountName) > 0 {
+		dAtA[i] = 0x6a
+		i++
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.DestinationServiceAccountName)))
+		i += copy(dAtA[i:], m.DestinationServiceAccountName)
+	}
+	if m.DestinationHostIp != nil {
+		dAtA[i] = 0x72
+		i++
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(m.DestinationHostIp.Size()))
+		n6, err := m.DestinationHostIp.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n6
+	}
+	if len(m.SourceWorkloadUid) > 0 {
+		dAtA[i] = 0xb2
+		i++
+		dAtA[i] = 0x1
+		i++
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.SourceWorkloadUid)))
+		i += copy(dAtA[i:], m.SourceWorkloadUid)
+	}
+	if len(m.SourceWorkloadName) > 0 {
+		dAtA[i] = 0xba
+		i++
+		dAtA[i] = 0x1
+		i++
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.SourceWorkloadName)))
+		i += copy(dAtA[i:], m.SourceWorkloadName)
+	}
+	if len(m.SourceWorkloadNamespace) > 0 {
+		dAtA[i] = 0xc2
+		i++
+		dAtA[i] = 0x1
+		i++
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.SourceWorkloadNamespace)))
+		i += copy(dAtA[i:], m.SourceWorkloadNamespace)
+	}
+	if len(m.SourceOwner) > 0 {
+		dAtA[i] = 0xca
+		i++
+		dAtA[i] = 0x1
+		i++
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.SourceOwner)))
+		i += copy(dAtA[i:], m.SourceOwner)
+	}
+	if len(m.DestinationOwner) > 0 {
+		dAtA[i] = 0xd2
+		i++
+		dAtA[i] = 0x1
+		i++
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.DestinationOwner)))
+		i += copy(dAtA[i:], m.DestinationOwner)
+	}
+	if len(m.DestinationWorkloadUid) > 0 {
+		dAtA[i] = 0xda
+		i++
+		dAtA[i] = 0x1
+		i++
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.DestinationWorkloadUid)))
+		i += copy(dAtA[i:], m.DestinationWorkloadUid)
+	}
+	if len(m.DestinationWorkloadName) > 0 {
+		dAtA[i] = 0xe2
+		i++
+		dAtA[i] = 0x1
+		i++
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.DestinationWorkloadName)))
+		i += copy(dAtA[i:], m.DestinationWorkloadName)
+	}
+	if len(m.DestinationWorkloadNamespace) > 0 {
+		dAtA[i] = 0xea
+		i++
+		dAtA[i] = 0x1
+		i++
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.DestinationWorkloadNamespace)))
+		i += copy(dAtA[i:], m.DestinationWorkloadNamespace)
+	}
+	if len(m.DestinationContainerName) > 0 {
+		dAtA[i] = 0xf2
+		i++
+		dAtA[i] = 0x1
+		i++
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.DestinationContainerName)))
+		i += copy(dAtA[i:], m.DestinationContainerName)
+	}
+	if len(m.SourcePodUid) > 0 {
+		dAtA[i] = 0xfa
+		i++
+		dAtA[i] = 0x1
+		i++
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.SourcePodUid)))
+		i += copy(dAtA[i:], m.SourcePodUid)
+	}
+	if len(m.DestinationPodUid) > 0 {
+		dAtA[i] = 0x82
+		i++
+		dAtA[i] = 0x2
+		i++
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.DestinationPodUid)))
+		i += copy(dAtA[i:], m.DestinationPodUid)
+	}
+	return i, nil
+}
+
+func (m *InstanceMsg) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *InstanceMsg) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.SourceUid) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.SourceUid)))
+		i += copy(dAtA[i:], m.SourceUid)
+	}
+	if m.SourceIp != nil {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(m.SourceIp.Size()))
+		n7, err := m.SourceIp.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n7
+	}
+	if len(m.DestinationUid) > 0 {
+		dAtA[i] = 0x1a
+		i++
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.DestinationUid)))
+		i += copy(dAtA[i:], m.DestinationUid)
+	}
+	if m.DestinationIp != nil {
+		dAtA[i] = 0x22
+		i++
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(m.DestinationIp.Size()))
+		n8, err := m.DestinationIp.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n8
+	}
+	if m.DestinationPort != 0 {
+		dAtA[i] = 0x38
+		i++
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(m.DestinationPort))
+	}
+	if len(m.Name) > 0 {
+		dAtA[i] = 0xfa
+		i++
+		dAtA[i] = 0xd2
+		i++
+		dAtA[i] = 0xe4
+		i++
+		dAtA[i] = 0x93
+		i++
+		dAtA[i] = 0x2
+		i++
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.Name)))
+		i += copy(dAtA[i:], m.Name)
+	}
+	return i, nil
+}
+
+func (m *Type) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *Type) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	return i, nil
+}
+
 func (m *InstanceParam) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -184,6 +728,165 @@ func encodeVarintTemplateHandlerService(dAtA []byte, offset int, v uint64) int {
 	dAtA[offset] = uint8(v)
 	return offset + 1
 }
+func (m *HandleKubernetesRequest) Size() (n int) {
+	var l int
+	_ = l
+	if m.Instance != nil {
+		l = m.Instance.Size()
+		n += 1 + l + sovTemplateHandlerService(uint64(l))
+	}
+	if m.AdapterConfig != nil {
+		l = m.AdapterConfig.Size()
+		n += 1 + l + sovTemplateHandlerService(uint64(l))
+	}
+	l = len(m.DedupId)
+	if l > 0 {
+		n += 1 + l + sovTemplateHandlerService(uint64(l))
+	}
+	return n
+}
+
+func (m *OutputMsg) Size() (n int) {
+	var l int
+	_ = l
+	if m.SourcePodIp != nil {
+		l = m.SourcePodIp.Size()
+		n += 1 + l + sovTemplateHandlerService(uint64(l))
+	}
+	l = len(m.SourcePodName)
+	if l > 0 {
+		n += 1 + l + sovTemplateHandlerService(uint64(l))
+	}
+	if len(m.SourceLabels) > 0 {
+		for k, v := range m.SourceLabels {
+			_ = k
+			_ = v
+			mapEntrySize := 1 + len(k) + sovTemplateHandlerService(uint64(len(k))) + 1 + len(v) + sovTemplateHandlerService(uint64(len(v)))
+			n += mapEntrySize + 1 + sovTemplateHandlerService(uint64(mapEntrySize))
+		}
+	}
+	l = len(m.SourceNamespace)
+	if l > 0 {
+		n += 1 + l + sovTemplateHandlerService(uint64(l))
+	}
+	l = len(m.SourceServiceAccountName)
+	if l > 0 {
+		n += 1 + l + sovTemplateHandlerService(uint64(l))
+	}
+	if m.SourceHostIp != nil {
+		l = m.SourceHostIp.Size()
+		n += 1 + l + sovTemplateHandlerService(uint64(l))
+	}
+	if m.DestinationPodIp != nil {
+		l = m.DestinationPodIp.Size()
+		n += 1 + l + sovTemplateHandlerService(uint64(l))
+	}
+	l = len(m.DestinationPodName)
+	if l > 0 {
+		n += 1 + l + sovTemplateHandlerService(uint64(l))
+	}
+	if len(m.DestinationLabels) > 0 {
+		for k, v := range m.DestinationLabels {
+			_ = k
+			_ = v
+			mapEntrySize := 1 + len(k) + sovTemplateHandlerService(uint64(len(k))) + 1 + len(v) + sovTemplateHandlerService(uint64(len(v)))
+			n += mapEntrySize + 1 + sovTemplateHandlerService(uint64(mapEntrySize))
+		}
+	}
+	l = len(m.DestinationNamespace)
+	if l > 0 {
+		n += 1 + l + sovTemplateHandlerService(uint64(l))
+	}
+	l = len(m.DestinationServiceAccountName)
+	if l > 0 {
+		n += 1 + l + sovTemplateHandlerService(uint64(l))
+	}
+	if m.DestinationHostIp != nil {
+		l = m.DestinationHostIp.Size()
+		n += 1 + l + sovTemplateHandlerService(uint64(l))
+	}
+	l = len(m.SourceWorkloadUid)
+	if l > 0 {
+		n += 2 + l + sovTemplateHandlerService(uint64(l))
+	}
+	l = len(m.SourceWorkloadName)
+	if l > 0 {
+		n += 2 + l + sovTemplateHandlerService(uint64(l))
+	}
+	l = len(m.SourceWorkloadNamespace)
+	if l > 0 {
+		n += 2 + l + sovTemplateHandlerService(uint64(l))
+	}
+	l = len(m.SourceOwner)
+	if l > 0 {
+		n += 2 + l + sovTemplateHandlerService(uint64(l))
+	}
+	l = len(m.DestinationOwner)
+	if l > 0 {
+		n += 2 + l + sovTemplateHandlerService(uint64(l))
+	}
+	l = len(m.DestinationWorkloadUid)
+	if l > 0 {
+		n += 2 + l + sovTemplateHandlerService(uint64(l))
+	}
+	l = len(m.DestinationWorkloadName)
+	if l > 0 {
+		n += 2 + l + sovTemplateHandlerService(uint64(l))
+	}
+	l = len(m.DestinationWorkloadNamespace)
+	if l > 0 {
+		n += 2 + l + sovTemplateHandlerService(uint64(l))
+	}
+	l = len(m.DestinationContainerName)
+	if l > 0 {
+		n += 2 + l + sovTemplateHandlerService(uint64(l))
+	}
+	l = len(m.SourcePodUid)
+	if l > 0 {
+		n += 2 + l + sovTemplateHandlerService(uint64(l))
+	}
+	l = len(m.DestinationPodUid)
+	if l > 0 {
+		n += 2 + l + sovTemplateHandlerService(uint64(l))
+	}
+	return n
+}
+
+func (m *InstanceMsg) Size() (n int) {
+	var l int
+	_ = l
+	l = len(m.SourceUid)
+	if l > 0 {
+		n += 1 + l + sovTemplateHandlerService(uint64(l))
+	}
+	if m.SourceIp != nil {
+		l = m.SourceIp.Size()
+		n += 1 + l + sovTemplateHandlerService(uint64(l))
+	}
+	l = len(m.DestinationUid)
+	if l > 0 {
+		n += 1 + l + sovTemplateHandlerService(uint64(l))
+	}
+	if m.DestinationIp != nil {
+		l = m.DestinationIp.Size()
+		n += 1 + l + sovTemplateHandlerService(uint64(l))
+	}
+	if m.DestinationPort != 0 {
+		n += 1 + sovTemplateHandlerService(uint64(m.DestinationPort))
+	}
+	l = len(m.Name)
+	if l > 0 {
+		n += 5 + l + sovTemplateHandlerService(uint64(l))
+	}
+	return n
+}
+
+func (m *Type) Size() (n int) {
+	var l int
+	_ = l
+	return n
+}
+
 func (m *InstanceParam) Size() (n int) {
 	var l int
 	_ = l
@@ -231,6 +934,94 @@ func sovTemplateHandlerService(x uint64) (n int) {
 func sozTemplateHandlerService(x uint64) (n int) {
 	return sovTemplateHandlerService(uint64((x << 1) ^ uint64((int64(x) >> 63))))
 }
+func (this *HandleKubernetesRequest) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&HandleKubernetesRequest{`,
+		`Instance:` + strings.Replace(fmt.Sprintf("%v", this.Instance), "InstanceMsg", "InstanceMsg", 1) + `,`,
+		`AdapterConfig:` + strings.Replace(fmt.Sprintf("%v", this.AdapterConfig), "Any", "google_protobuf1.Any", 1) + `,`,
+		`DedupId:` + fmt.Sprintf("%v", this.DedupId) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *OutputMsg) String() string {
+	if this == nil {
+		return "nil"
+	}
+	keysForSourceLabels := make([]string, 0, len(this.SourceLabels))
+	for k, _ := range this.SourceLabels {
+		keysForSourceLabels = append(keysForSourceLabels, k)
+	}
+	sortkeys.Strings(keysForSourceLabels)
+	mapStringForSourceLabels := "map[string]string{"
+	for _, k := range keysForSourceLabels {
+		mapStringForSourceLabels += fmt.Sprintf("%v: %v,", k, this.SourceLabels[k])
+	}
+	mapStringForSourceLabels += "}"
+	keysForDestinationLabels := make([]string, 0, len(this.DestinationLabels))
+	for k, _ := range this.DestinationLabels {
+		keysForDestinationLabels = append(keysForDestinationLabels, k)
+	}
+	sortkeys.Strings(keysForDestinationLabels)
+	mapStringForDestinationLabels := "map[string]string{"
+	for _, k := range keysForDestinationLabels {
+		mapStringForDestinationLabels += fmt.Sprintf("%v: %v,", k, this.DestinationLabels[k])
+	}
+	mapStringForDestinationLabels += "}"
+	s := strings.Join([]string{`&OutputMsg{`,
+		`SourcePodIp:` + strings.Replace(fmt.Sprintf("%v", this.SourcePodIp), "IPAddress", "istio_policy_v1beta1.IPAddress", 1) + `,`,
+		`SourcePodName:` + fmt.Sprintf("%v", this.SourcePodName) + `,`,
+		`SourceLabels:` + mapStringForSourceLabels + `,`,
+		`SourceNamespace:` + fmt.Sprintf("%v", this.SourceNamespace) + `,`,
+		`SourceServiceAccountName:` + fmt.Sprintf("%v", this.SourceServiceAccountName) + `,`,
+		`SourceHostIp:` + strings.Replace(fmt.Sprintf("%v", this.SourceHostIp), "IPAddress", "istio_policy_v1beta1.IPAddress", 1) + `,`,
+		`DestinationPodIp:` + strings.Replace(fmt.Sprintf("%v", this.DestinationPodIp), "IPAddress", "istio_policy_v1beta1.IPAddress", 1) + `,`,
+		`DestinationPodName:` + fmt.Sprintf("%v", this.DestinationPodName) + `,`,
+		`DestinationLabels:` + mapStringForDestinationLabels + `,`,
+		`DestinationNamespace:` + fmt.Sprintf("%v", this.DestinationNamespace) + `,`,
+		`DestinationServiceAccountName:` + fmt.Sprintf("%v", this.DestinationServiceAccountName) + `,`,
+		`DestinationHostIp:` + strings.Replace(fmt.Sprintf("%v", this.DestinationHostIp), "IPAddress", "istio_policy_v1beta1.IPAddress", 1) + `,`,
+		`SourceWorkloadUid:` + fmt.Sprintf("%v", this.SourceWorkloadUid) + `,`,
+		`SourceWorkloadName:` + fmt.Sprintf("%v", this.SourceWorkloadName) + `,`,
+		`SourceWorkloadNamespace:` + fmt.Sprintf("%v", this.SourceWorkloadNamespace) + `,`,
+		`SourceOwner:` + fmt.Sprintf("%v", this.SourceOwner) + `,`,
+		`DestinationOwner:` + fmt.Sprintf("%v", this.DestinationOwner) + `,`,
+		`DestinationWorkloadUid:` + fmt.Sprintf("%v", this.DestinationWorkloadUid) + `,`,
+		`DestinationWorkloadName:` + fmt.Sprintf("%v", this.DestinationWorkloadName) + `,`,
+		`DestinationWorkloadNamespace:` + fmt.Sprintf("%v", this.DestinationWorkloadNamespace) + `,`,
+		`DestinationContainerName:` + fmt.Sprintf("%v", this.DestinationContainerName) + `,`,
+		`SourcePodUid:` + fmt.Sprintf("%v", this.SourcePodUid) + `,`,
+		`DestinationPodUid:` + fmt.Sprintf("%v", this.DestinationPodUid) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *InstanceMsg) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&InstanceMsg{`,
+		`SourceUid:` + fmt.Sprintf("%v", this.SourceUid) + `,`,
+		`SourceIp:` + strings.Replace(fmt.Sprintf("%v", this.SourceIp), "IPAddress", "istio_policy_v1beta1.IPAddress", 1) + `,`,
+		`DestinationUid:` + fmt.Sprintf("%v", this.DestinationUid) + `,`,
+		`DestinationIp:` + strings.Replace(fmt.Sprintf("%v", this.DestinationIp), "IPAddress", "istio_policy_v1beta1.IPAddress", 1) + `,`,
+		`DestinationPort:` + fmt.Sprintf("%v", this.DestinationPort) + `,`,
+		`Name:` + fmt.Sprintf("%v", this.Name) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *Type) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&Type{`,
+		`}`,
+	}, "")
+	return s
+}
 func (this *InstanceParam) String() string {
 	if this == nil {
 		return "nil"
@@ -263,6 +1054,1334 @@ func valueToStringTemplateHandlerService(v interface{}) string {
 	}
 	pv := reflect.Indirect(rv).Interface()
 	return fmt.Sprintf("*%v", pv)
+}
+func (m *HandleKubernetesRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTemplateHandlerService
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: HandleKubernetesRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: HandleKubernetesRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Instance", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTemplateHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthTemplateHandlerService
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Instance == nil {
+				m.Instance = &InstanceMsg{}
+			}
+			if err := m.Instance.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field AdapterConfig", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTemplateHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthTemplateHandlerService
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.AdapterConfig == nil {
+				m.AdapterConfig = &google_protobuf1.Any{}
+			}
+			if err := m.AdapterConfig.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DedupId", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTemplateHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTemplateHandlerService
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.DedupId = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTemplateHandlerService(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthTemplateHandlerService
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *OutputMsg) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTemplateHandlerService
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: OutputMsg: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: OutputMsg: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field SourcePodIp", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTemplateHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthTemplateHandlerService
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.SourcePodIp == nil {
+				m.SourcePodIp = &istio_policy_v1beta1.IPAddress{}
+			}
+			if err := m.SourcePodIp.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field SourcePodName", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTemplateHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTemplateHandlerService
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.SourcePodName = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field SourceLabels", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTemplateHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthTemplateHandlerService
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.SourceLabels == nil {
+				m.SourceLabels = make(map[string]string)
+			}
+			var mapkey string
+			var mapvalue string
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowTemplateHandlerService
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					wire |= (uint64(b) & 0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					var stringLenmapkey uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowTemplateHandlerService
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapkey |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapkey := int(stringLenmapkey)
+					if intStringLenmapkey < 0 {
+						return ErrInvalidLengthTemplateHandlerService
+					}
+					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
+					iNdEx = postStringIndexmapkey
+				} else if fieldNum == 2 {
+					var stringLenmapvalue uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowTemplateHandlerService
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapvalue |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapvalue := int(stringLenmapvalue)
+					if intStringLenmapvalue < 0 {
+						return ErrInvalidLengthTemplateHandlerService
+					}
+					postStringIndexmapvalue := iNdEx + intStringLenmapvalue
+					if postStringIndexmapvalue > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapvalue = string(dAtA[iNdEx:postStringIndexmapvalue])
+					iNdEx = postStringIndexmapvalue
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipTemplateHandlerService(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthTemplateHandlerService
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
+				}
+			}
+			m.SourceLabels[mapkey] = mapvalue
+			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field SourceNamespace", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTemplateHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTemplateHandlerService
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.SourceNamespace = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 6:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field SourceServiceAccountName", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTemplateHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTemplateHandlerService
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.SourceServiceAccountName = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 7:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field SourceHostIp", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTemplateHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthTemplateHandlerService
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.SourceHostIp == nil {
+				m.SourceHostIp = &istio_policy_v1beta1.IPAddress{}
+			}
+			if err := m.SourceHostIp.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 8:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DestinationPodIp", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTemplateHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthTemplateHandlerService
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.DestinationPodIp == nil {
+				m.DestinationPodIp = &istio_policy_v1beta1.IPAddress{}
+			}
+			if err := m.DestinationPodIp.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 9:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DestinationPodName", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTemplateHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTemplateHandlerService
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.DestinationPodName = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 10:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DestinationLabels", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTemplateHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthTemplateHandlerService
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.DestinationLabels == nil {
+				m.DestinationLabels = make(map[string]string)
+			}
+			var mapkey string
+			var mapvalue string
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowTemplateHandlerService
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					wire |= (uint64(b) & 0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					var stringLenmapkey uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowTemplateHandlerService
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapkey |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapkey := int(stringLenmapkey)
+					if intStringLenmapkey < 0 {
+						return ErrInvalidLengthTemplateHandlerService
+					}
+					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
+					iNdEx = postStringIndexmapkey
+				} else if fieldNum == 2 {
+					var stringLenmapvalue uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowTemplateHandlerService
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapvalue |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapvalue := int(stringLenmapvalue)
+					if intStringLenmapvalue < 0 {
+						return ErrInvalidLengthTemplateHandlerService
+					}
+					postStringIndexmapvalue := iNdEx + intStringLenmapvalue
+					if postStringIndexmapvalue > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapvalue = string(dAtA[iNdEx:postStringIndexmapvalue])
+					iNdEx = postStringIndexmapvalue
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipTemplateHandlerService(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthTemplateHandlerService
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
+				}
+			}
+			m.DestinationLabels[mapkey] = mapvalue
+			iNdEx = postIndex
+		case 11:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DestinationNamespace", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTemplateHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTemplateHandlerService
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.DestinationNamespace = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 13:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DestinationServiceAccountName", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTemplateHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTemplateHandlerService
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.DestinationServiceAccountName = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 14:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DestinationHostIp", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTemplateHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthTemplateHandlerService
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.DestinationHostIp == nil {
+				m.DestinationHostIp = &istio_policy_v1beta1.IPAddress{}
+			}
+			if err := m.DestinationHostIp.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 22:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field SourceWorkloadUid", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTemplateHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTemplateHandlerService
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.SourceWorkloadUid = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 23:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field SourceWorkloadName", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTemplateHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTemplateHandlerService
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.SourceWorkloadName = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 24:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field SourceWorkloadNamespace", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTemplateHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTemplateHandlerService
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.SourceWorkloadNamespace = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 25:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field SourceOwner", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTemplateHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTemplateHandlerService
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.SourceOwner = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 26:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DestinationOwner", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTemplateHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTemplateHandlerService
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.DestinationOwner = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 27:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DestinationWorkloadUid", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTemplateHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTemplateHandlerService
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.DestinationWorkloadUid = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 28:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DestinationWorkloadName", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTemplateHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTemplateHandlerService
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.DestinationWorkloadName = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 29:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DestinationWorkloadNamespace", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTemplateHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTemplateHandlerService
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.DestinationWorkloadNamespace = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 30:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DestinationContainerName", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTemplateHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTemplateHandlerService
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.DestinationContainerName = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 31:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field SourcePodUid", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTemplateHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTemplateHandlerService
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.SourcePodUid = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 32:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DestinationPodUid", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTemplateHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTemplateHandlerService
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.DestinationPodUid = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTemplateHandlerService(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthTemplateHandlerService
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *InstanceMsg) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTemplateHandlerService
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: InstanceMsg: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: InstanceMsg: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field SourceUid", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTemplateHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTemplateHandlerService
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.SourceUid = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field SourceIp", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTemplateHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthTemplateHandlerService
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.SourceIp == nil {
+				m.SourceIp = &istio_policy_v1beta1.IPAddress{}
+			}
+			if err := m.SourceIp.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DestinationUid", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTemplateHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTemplateHandlerService
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.DestinationUid = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DestinationIp", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTemplateHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthTemplateHandlerService
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.DestinationIp == nil {
+				m.DestinationIp = &istio_policy_v1beta1.IPAddress{}
+			}
+			if err := m.DestinationIp.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 7:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DestinationPort", wireType)
+			}
+			m.DestinationPort = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTemplateHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.DestinationPort |= (int64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 72295727:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Name", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTemplateHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTemplateHandlerService
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Name = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTemplateHandlerService(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthTemplateHandlerService
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *Type) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTemplateHandlerService
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: Type: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: Type: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTemplateHandlerService(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthTemplateHandlerService
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
 }
 func (m *InstanceParam) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
@@ -687,31 +2806,72 @@ func init() {
 }
 
 var fileDescriptorTemplateHandlerService = []byte{
-	// 415 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x7c, 0x91, 0x4f, 0x6b, 0xd4, 0x40,
-	0x18, 0xc6, 0x33, 0x89, 0xff, 0x3a, 0x52, 0xad, 0x43, 0x91, 0xb0, 0xc5, 0xa1, 0x14, 0xc4, 0x0a,
-	0x92, 0x50, 0xbd, 0x88, 0xb7, 0xd6, 0x3f, 0xb0, 0xb7, 0x52, 0xf0, 0x1c, 0x26, 0x9b, 0x97, 0x75,
-	0x68, 0x32, 0x13, 0x66, 0xde, 0x84, 0xf6, 0xa6, 0x7e, 0x02, 0xa1, 0x5f, 0xc2, 0xa3, 0x1f, 0xc0,
-	0x0f, 0x50, 0x3c, 0x15, 0x4f, 0x5e, 0x04, 0x13, 0xf7, 0xe0, 0x71, 0x8f, 0x1e, 0x25, 0x7f, 0xd6,
-	0xcd, 0x8a, 0xf4, 0xf6, 0xbc, 0x4f, 0x7e, 0xef, 0xf3, 0x92, 0x67, 0xe8, 0xf3, 0x4c, 0x9e, 0x80,
-	0x09, 0x45, 0x22, 0x72, 0x04, 0x13, 0x1e, 0x17, 0x31, 0x18, 0x05, 0x08, 0x16, 0x54, 0x19, 0x22,
-	0x64, 0x79, 0x2a, 0x10, 0xfe, 0x8a, 0xe8, 0x8d, 0x50, 0x49, 0x0a, 0x26, 0xb2, 0x60, 0x4a, 0x39,
-	0x81, 0x20, 0x37, 0x1a, 0x35, 0xdb, 0xea, 0xd7, 0x83, 0x05, 0x17, 0x2c, 0x73, 0x46, 0x9b, 0x53,
-	0x3d, 0xd5, 0x2d, 0x17, 0x36, 0xaa, 0x5b, 0x19, 0x3d, 0x5a, 0xbd, 0x9b, 0xe9, 0x04, 0xd2, 0xb0,
-	0xdc, 0x8b, 0x01, 0xc5, 0x5e, 0x08, 0x27, 0x08, 0xca, 0x4a, 0xad, 0x6c, 0x47, 0xef, 0xbc, 0xf3,
-	0xe8, 0xfa, 0x58, 0x59, 0x14, 0x6a, 0x02, 0x87, 0xc2, 0x88, 0x8c, 0xdd, 0xa3, 0xd4, 0xea, 0xc2,
-	0x4c, 0x20, 0x2a, 0x64, 0xe2, 0x93, 0x6d, 0xb2, 0xbb, 0x76, 0xb4, 0xd6, 0x39, 0xaf, 0x65, 0xc2,
-	0xb6, 0x68, 0x3f, 0x44, 0x32, 0xf7, 0xdd, 0xf6, 0xeb, 0x8d, 0xce, 0x18, 0xe7, 0xec, 0x01, 0xbd,
-	0x9d, 0x80, 0x45, 0xa9, 0x04, 0x4a, 0xad, 0xda, 0x00, 0xaf, 0x45, 0x6e, 0x0d, 0xec, 0x26, 0xe5,
-	0x3e, 0x1d, 0x3a, 0x4d, 0xd4, 0x95, 0x96, 0x5b, 0x1f, 0xb8, 0xe3, 0x9c, 0x3d, 0xa4, 0x1b, 0x43,
-	0x2c, 0xd7, 0x06, 0xfd, 0xeb, 0x2d, 0x38, 0xbc, 0x73, 0xa8, 0x0d, 0x32, 0x4b, 0x99, 0x40, 0x34,
-	0x32, 0x2e, 0x10, 0xa2, 0x58, 0xaa, 0x44, 0xaa, 0xa9, 0xf5, 0x3f, 0x7d, 0xf9, 0xbc, 0xb3, 0xed,
-	0xed, 0xde, 0x7c, 0xbc, 0x1f, 0x5c, 0xd2, 0x64, 0xb0, 0xd2, 0x40, 0xb0, 0xbf, 0xc8, 0x39, 0xe8,
-	0x63, 0x5e, 0x2a, 0x34, 0xa7, 0x47, 0x77, 0xc4, 0xbf, 0xfe, 0xe8, 0x05, 0xbd, 0xfb, 0x7f, 0x98,
-	0x6d, 0x50, 0xef, 0x18, 0x4e, 0xfb, 0xfa, 0x1a, 0xc9, 0x36, 0xe9, 0xd5, 0x52, 0xa4, 0x05, 0xf4,
-	0xa5, 0x75, 0xc3, 0x33, 0xf7, 0x29, 0x39, 0x78, 0x75, 0x5e, 0x71, 0xe7, 0xa2, 0xe2, 0xce, 0xb7,
-	0x8a, 0x3b, 0xf3, 0x8a, 0x3b, 0x6f, 0x6b, 0x4e, 0x3e, 0xd6, 0xdc, 0x39, 0xaf, 0x39, 0xb9, 0xa8,
-	0x39, 0xf9, 0x51, 0x73, 0xf2, 0xab, 0xe6, 0xce, 0xbc, 0xe6, 0xe4, 0xc3, 0x4f, 0xee, 0xfc, 0xfe,
-	0x3a, 0x3b, 0x73, 0xbd, 0xf7, 0xdf, 0x67, 0x67, 0x2e, 0x5d, 0xfe, 0x45, 0x7c, 0xad, 0x7d, 0xd2,
-	0x27, 0x7f, 0x02, 0x00, 0x00, 0xff, 0xff, 0xa6, 0xd7, 0x5a, 0x1a, 0x7a, 0x02, 0x00, 0x00,
+	// 1064 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x56, 0xcf, 0x6f, 0x1b, 0x45,
+	0x18, 0xf5, 0x8f, 0x90, 0xc6, 0x5f, 0xe2, 0xfc, 0x98, 0xa6, 0xc9, 0xc6, 0x69, 0xb6, 0xc1, 0x82,
+	0x12, 0x04, 0x5a, 0xd3, 0x94, 0x43, 0x14, 0x5a, 0xa1, 0x34, 0x69, 0xa9, 0x05, 0x69, 0x22, 0x97,
+	0x8a, 0x13, 0x5a, 0x8d, 0xbd, 0x53, 0x77, 0x95, 0xf5, 0xcc, 0xb2, 0x33, 0x9b, 0xd6, 0x37, 0xe0,
+	0xda, 0x0b, 0x52, 0xcf, 0xdc, 0xb9, 0xc1, 0x8d, 0x0b, 0x7f, 0x40, 0xc5, 0xa9, 0xe2, 0xc4, 0x05,
+	0x89, 0x98, 0x1e, 0x38, 0xf6, 0xc8, 0x11, 0xed, 0xcc, 0xec, 0x7a, 0xec, 0x38, 0xc1, 0xe5, 0xb6,
+	0x3b, 0xf3, 0xde, 0x37, 0xef, 0xbd, 0x6f, 0x66, 0x76, 0x61, 0xb7, 0xe3, 0x3f, 0x21, 0x51, 0x0d,
+	0x7b, 0x38, 0x14, 0x24, 0xaa, 0x1d, 0xc5, 0x4d, 0x12, 0x51, 0x22, 0x08, 0x27, 0xf4, 0xb8, 0x26,
+	0x48, 0x27, 0x0c, 0xb0, 0x20, 0xd9, 0x83, 0xfb, 0x08, 0x53, 0x2f, 0x20, 0x91, 0xcb, 0x49, 0x74,
+	0xec, 0xb7, 0x88, 0x13, 0x46, 0x4c, 0x30, 0xb4, 0xaa, 0xe9, 0x4e, 0x8a, 0x73, 0xfa, 0x75, 0x2a,
+	0x8b, 0x6d, 0xd6, 0x66, 0x12, 0x57, 0x4b, 0x9e, 0x14, 0xa5, 0xf2, 0xfe, 0xe0, 0xba, 0x1d, 0xe6,
+	0x91, 0xa0, 0x76, 0x7c, 0xad, 0x49, 0x04, 0xbe, 0x56, 0x23, 0x4f, 0x04, 0xa1, 0xdc, 0x67, 0x94,
+	0x6b, 0xf4, 0x4a, 0x9b, 0xb1, 0x76, 0x40, 0x6a, 0xf2, 0xad, 0x19, 0x3f, 0xac, 0x61, 0xda, 0x4d,
+	0xa7, 0x42, 0x16, 0xf8, 0xad, 0x6e, 0xc6, 0x15, 0xdd, 0x50, 0xcb, 0xaa, 0xfe, 0x9c, 0x87, 0xe5,
+	0xbb, 0x52, 0xf0, 0xa7, 0x99, 0x9c, 0x06, 0xf9, 0x2a, 0x26, 0x5c, 0xa0, 0x3d, 0x98, 0xf2, 0x29,
+	0x17, 0x98, 0xb6, 0x88, 0x95, 0x5f, 0xcf, 0x6f, 0x4c, 0x6f, 0x6e, 0x38, 0xe7, 0xb8, 0x70, 0xea,
+	0x1a, 0xbc, 0xcf, 0xdb, 0x8d, 0x8c, 0x89, 0x3e, 0x82, 0x59, 0x4d, 0x72, 0x5b, 0x8c, 0x3e, 0xf4,
+	0xdb, 0x56, 0x41, 0xd6, 0x5a, 0x74, 0x94, 0x60, 0x27, 0x15, 0xec, 0xec, 0xd0, 0x6e, 0xa3, 0xac,
+	0xb1, 0xbb, 0x12, 0x8a, 0x56, 0x60, 0xca, 0x23, 0x5e, 0x1c, 0xba, 0xbe, 0x67, 0x15, 0xd7, 0xf3,
+	0x1b, 0xa5, 0xc6, 0x05, 0xf9, 0x5e, 0xf7, 0xaa, 0x4f, 0x67, 0xa0, 0x74, 0x10, 0x8b, 0x30, 0x16,
+	0xfb, 0xbc, 0x8d, 0x76, 0xa1, 0xcc, 0x59, 0x1c, 0xb5, 0x88, 0x1b, 0x32, 0xcf, 0xf5, 0x43, 0x2d,
+	0xf8, 0x8a, 0xe3, 0x73, 0xe1, 0x33, 0x47, 0x05, 0xe0, 0xe8, 0x00, 0x9c, 0xfa, 0xe1, 0x8e, 0xe7,
+	0x45, 0x84, 0xf3, 0xc6, 0xb4, 0x62, 0x1d, 0x32, 0xaf, 0x1e, 0xa2, 0xab, 0x30, 0x67, 0x14, 0xa1,
+	0xb8, 0x43, 0xa4, 0xd6, 0x52, 0xa3, 0x9c, 0xa1, 0xee, 0xe1, 0x0e, 0x41, 0x5f, 0x66, 0x8b, 0x05,
+	0xb8, 0x49, 0x02, 0x6e, 0x15, 0xd7, 0x8b, 0x1b, 0xd3, 0x9b, 0x5b, 0xe7, 0xa6, 0x93, 0x69, 0x75,
+	0xee, 0x4b, 0xee, 0x67, 0x92, 0x7a, 0x9b, 0x8a, 0xa8, 0xdb, 0x98, 0xe1, 0xc6, 0x10, 0x7a, 0x17,
+	0xe6, 0x75, 0xf9, 0x44, 0x02, 0x0f, 0x71, 0x8b, 0x58, 0x13, 0x52, 0x87, 0x96, 0x77, 0x2f, 0x1d,
+	0x46, 0x37, 0x61, 0x55, 0x43, 0xf5, 0x6e, 0x73, 0x71, 0xab, 0xc5, 0x62, 0x2a, 0x94, 0xfa, 0x49,
+	0xc9, 0xb2, 0x14, 0xe4, 0xbe, 0x42, 0xec, 0x28, 0x80, 0x34, 0x72, 0x1b, 0x66, 0x35, 0xfd, 0x11,
+	0xe3, 0x22, 0x89, 0xed, 0xc2, 0x78, 0xb1, 0x69, 0xc1, 0x77, 0x19, 0x17, 0xf5, 0x10, 0xed, 0x03,
+	0xf2, 0x08, 0x17, 0x3e, 0xc5, 0xc2, 0x67, 0x34, 0xed, 0xc0, 0xd4, 0x78, 0xa5, 0xe6, 0x0d, 0xaa,
+	0x6a, 0xc3, 0x07, 0xb0, 0x38, 0x5c, 0x4e, 0xba, 0x29, 0x49, 0x37, 0x68, 0x10, 0x2f, 0x7d, 0x04,
+	0x83, 0x02, 0x74, 0x57, 0x40, 0x76, 0xe5, 0xe6, 0x98, 0x5d, 0xd9, 0xeb, 0x17, 0x30, 0x5b, 0xb3,
+	0xe0, 0x0d, 0x8f, 0xa3, 0xeb, 0x70, 0xc9, 0x5c, 0xad, 0xdf, 0xa4, 0x69, 0x29, 0xd0, 0x14, 0xdf,
+	0xef, 0xd4, 0x27, 0xb0, 0x6e, 0x92, 0x46, 0xb6, 0xab, 0x2c, 0xf9, 0x6b, 0x06, 0x6e, 0x44, 0xcf,
+	0x0e, 0xe0, 0xa2, 0x59, 0x28, 0x6d, 0xdc, 0xec, 0x78, 0x69, 0x9b, 0x76, 0x74, 0xf7, 0x1c, 0xb8,
+	0xa8, 0x37, 0xc1, 0x63, 0x16, 0x1d, 0x05, 0x0c, 0x7b, 0x6e, 0xec, 0x7b, 0xd6, 0x92, 0x14, 0xb3,
+	0xa0, 0xa6, 0xbe, 0xd0, 0x33, 0x0f, 0x7c, 0x2f, 0x69, 0xcf, 0x30, 0x5e, 0xaa, 0x5f, 0x56, 0xed,
+	0x19, 0x24, 0x48, 0xc9, 0xdb, 0xb0, 0x32, 0x8a, 0xa1, 0x42, 0xb3, 0x24, 0x6d, 0xf9, 0x34, 0x4d,
+	0xe5, 0xf6, 0x26, 0xe8, 0xbd, 0xe6, 0xb2, 0xc7, 0x94, 0x44, 0xd6, 0x8a, 0x84, 0xeb, 0x63, 0x7b,
+	0x90, 0x0c, 0xa1, 0xf7, 0xc0, 0x74, 0xa5, 0x71, 0x15, 0x89, 0x33, 0x37, 0x97, 0x02, 0x6f, 0x81,
+	0x65, 0x82, 0x07, 0x2c, 0xaf, 0x4a, 0xce, 0x92, 0x31, 0x6f, 0xfa, 0xde, 0x86, 0x95, 0x91, 0x4c,
+	0x69, 0xfe, 0xb2, 0x72, 0x31, 0x82, 0x2a, 0x13, 0xd8, 0x03, 0xfb, 0x4c, 0xae, 0x8a, 0x61, 0x4d,
+	0x16, 0xb8, 0x7c, 0x46, 0x01, 0x95, 0xc5, 0x0d, 0xa8, 0x98, 0x55, 0x5a, 0x8c, 0x0a, 0xec, 0x53,
+	0x12, 0x29, 0x09, 0xb6, 0x3a, 0xec, 0x06, 0x62, 0x37, 0x05, 0x48, 0x0d, 0x6f, 0x65, 0x87, 0x3d,
+	0x39, 0x51, 0x89, 0xdf, 0x2b, 0x92, 0x31, 0x93, 0x5d, 0x6e, 0x89, 0x4b, 0x67, 0x70, 0x7b, 0xa5,
+	0xd0, 0x75, 0xb5, 0x1b, 0x06, 0xcf, 0xde, 0x03, 0xdf, 0xab, 0x7c, 0x0c, 0x0b, 0xa7, 0xee, 0x33,
+	0x34, 0x0f, 0xc5, 0x23, 0xd2, 0x95, 0x77, 0x70, 0xa9, 0x91, 0x3c, 0xa2, 0x45, 0x78, 0xe3, 0x18,
+	0x07, 0x71, 0x7a, 0xa1, 0xaa, 0x97, 0xed, 0xc2, 0x56, 0xbe, 0xb2, 0x07, 0x4b, 0xa3, 0x8f, 0xde,
+	0xeb, 0x54, 0xa9, 0x7e, 0x5f, 0x80, 0x69, 0xe3, 0xfb, 0x83, 0xd6, 0x00, 0xb4, 0xd9, 0x44, 0xbd,
+	0x2a, 0x51, 0x52, 0x23, 0x89, 0xcb, 0x1b, 0xa0, 0x5f, 0x92, 0xa3, 0x53, 0x18, 0xef, 0xe8, 0x4c,
+	0x29, 0x46, 0x3d, 0x44, 0xef, 0xc0, 0x9c, 0x99, 0x51, 0x9c, 0x7d, 0x9c, 0x66, 0x8d, 0xe1, 0x64,
+	0x99, 0x3b, 0x60, 0x8e, 0x24, 0x6b, 0x4d, 0x8c, 0xb7, 0x56, 0xd9, 0xa0, 0xd5, 0xc3, 0xe4, 0x8b,
+	0x30, 0xd8, 0x94, 0x48, 0xc8, 0x9b, 0xba, 0xd8, 0x98, 0x1b, 0xe8, 0x48, 0x24, 0xd0, 0x25, 0x98,
+	0x90, 0xbb, 0xe1, 0xc7, 0x5f, 0x7f, 0xa9, 0x4a, 0x4d, 0xf2, 0xb5, 0x3a, 0x09, 0x13, 0x9f, 0x77,
+	0x43, 0x52, 0xfd, 0xa6, 0x08, 0xe5, 0x34, 0xa7, 0x43, 0x1c, 0xe1, 0xce, 0x7f, 0x25, 0xb5, 0x3a,
+	0x9c, 0x54, 0xe9, 0xff, 0x04, 0xf1, 0xf6, 0xc8, 0x20, 0x4a, 0xe3, 0xfa, 0x2c, 0x9d, 0xf6, 0xc9,
+	0x01, 0x61, 0x21, 0x22, 0xbf, 0x19, 0x0b, 0xe2, 0x36, 0x7d, 0xea, 0xf9, 0xb4, 0xcd, 0xad, 0x9f,
+	0x12, 0xd7, 0xc9, 0xad, 0xbf, 0x33, 0xd6, 0x9f, 0x8a, 0x4c, 0xc0, 0xd9, 0x49, 0xeb, 0xdc, 0xd2,
+	0x65, 0xf4, 0xcd, 0x8f, 0x87, 0xc7, 0x93, 0xbd, 0x3a, 0x1a, 0xfc, 0x3a, 0x7b, 0x75, 0xf3, 0xe9,
+	0x88, 0x7f, 0x2e, 0x7d, 0xd1, 0xa3, 0x10, 0xe6, 0x87, 0xa7, 0xd0, 0x87, 0xe7, 0x7a, 0x39, 0xe3,
+	0xef, 0xad, 0x72, 0x75, 0xbc, 0xef, 0xde, 0xad, 0x3b, 0xcf, 0x4f, 0xec, 0xdc, 0x8b, 0x13, 0x3b,
+	0xf7, 0xfb, 0x89, 0x9d, 0x7b, 0x75, 0x62, 0xe7, 0xbe, 0xee, 0xd9, 0xf9, 0x1f, 0x7a, 0x76, 0xee,
+	0x79, 0xcf, 0xce, 0xbf, 0xe8, 0xd9, 0xf9, 0x3f, 0x7b, 0x76, 0xfe, 0xef, 0x9e, 0x9d, 0x7b, 0xd5,
+	0xb3, 0xf3, 0xdf, 0xfd, 0x65, 0xe7, 0xfe, 0xf9, 0xed, 0xe5, 0xb3, 0x42, 0xf1, 0xdb, 0x3f, 0x5e,
+	0x3e, 0x2b, 0x40, 0xbf, 0x62, 0x73, 0x52, 0xfe, 0xc7, 0x5d, 0xff, 0x37, 0x00, 0x00, 0xff, 0xff,
+	0xc4, 0x83, 0xa1, 0xc5, 0x2e, 0x0b, 0x00, 0x00,
 }

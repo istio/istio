@@ -1,0 +1,21 @@
+{
+  "steps": [
+    {
+      "name": "gcr.io/istio-testing/istio-builder:0.5.10",
+      "args": [ "gsutil", "-qm", "cp", "-rP", "gs://$_CB_GCS_RELEASE_TOOLS_PATH/*", "." ]
+    },
+    {
+      "name": "gcr.io/istio-testing/istio-builder:0.5.10",
+      "args": [ "-c", "source /workspace/gcb_env.sh && eval \"git clone https://github.com/$$CB_GITHUB_ORG/istio -b master --depth 1\" " ],
+      "entrypoint": "bash"
+    },
+    {
+      "name": "gcr.io/istio-testing/istio-builder:0.5.10",
+      "args": [ "istio/release/gcb/generate_manifest.sh" ]
+    }
+  ],
+  "options": {
+    "machineType": "N1_HIGHCPU_8"
+  },
+  "timeout": "3600s",
+}

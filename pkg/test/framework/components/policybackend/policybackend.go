@@ -196,7 +196,7 @@ func (c *kubeComponent) Init(ctx environment.ComponentContext, deps map[dependen
 		return
 	}
 
-	if err = kube.ApplyContents(s.KubeConfig, s.DependencyNamespace, result); err != nil {
+	if err = e.Accessor.ApplyContents(s.DependencyNamespace, result); err != nil {
 		scopes.CI.Info("Error applying PolicyBackend deployment config")
 		return
 	}
@@ -227,8 +227,8 @@ func (c *kubeComponent) Init(ctx environment.ComponentContext, deps map[dependen
 	}
 
 	var forwarder kube.PortForwarder
-	if forwarder, err = kube.NewPortForwarder(
-		s.KubeConfig, options, 0, uint16(svc.Spec.Ports[0].TargetPort.IntValue())); err != nil {
+	if forwarder, err = e.Accessor.NewPortForwarder(
+		options, 0, uint16(svc.Spec.Ports[0].TargetPort.IntValue())); err != nil {
 		scopes.CI.Infof("Error setting up PortForwarder for PolicyBackend: %v", err)
 		return
 	}

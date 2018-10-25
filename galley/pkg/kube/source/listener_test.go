@@ -28,13 +28,11 @@ import (
 	dtesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/istio/pkg/log"
-
 	"istio.io/istio/galley/pkg/kube"
-
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/galley/pkg/testing/common"
 	"istio.io/istio/galley/pkg/testing/mock"
+	"istio.io/istio/pkg/log"
 )
 
 var info = kube.ResourceSpec{
@@ -82,9 +80,7 @@ func TestListener_NewClient_Debug(t *testing.T) {
 
 func TestListener_Basic(t *testing.T) {
 	k := mock.NewKube()
-	cl := &fake.FakeClient{
-		Fake: &dtesting.Fake{},
-	}
+	cl := fake.NewSimpleDynamicClient(runtime.NewScheme())
 	k.AddResponse(cl, nil)
 
 	processorLog := &common.MockLog{}
@@ -92,10 +88,10 @@ func TestListener_Basic(t *testing.T) {
 		processorLog.Append("%v %v", eventKind, key)
 	}
 
-	cl.AddReactor("*", "foo", func(action dtesting.Action) (handled bool, ret runtime.Object, err error) {
+	cl.PrependReactor("*", "foo", func(action dtesting.Action) (handled bool, ret runtime.Object, err error) {
 		return true, &unstructured.UnstructuredList{Items: []unstructured.Unstructured{}}, nil
 	})
-	cl.AddWatchReactor("foo", func(action dtesting.Action) (handled bool, ret watch.Interface, err error) {
+	cl.PrependWatchReactor("foo", func(action dtesting.Action) (handled bool, ret watch.Interface, err error) {
 		return true, mock.NewWatch(), nil
 	})
 
@@ -117,9 +113,7 @@ watch plural
 
 func TestListener_DoubleStart(t *testing.T) {
 	k := mock.NewKube()
-	cl := &fake.FakeClient{
-		Fake: &dtesting.Fake{},
-	}
+	cl := fake.NewSimpleDynamicClient(runtime.NewScheme())
 	k.AddResponse(cl, nil)
 
 	processorLog := &common.MockLog{}
@@ -127,10 +121,10 @@ func TestListener_DoubleStart(t *testing.T) {
 		processorLog.Append("%v %v", eventKind, key)
 	}
 
-	cl.AddReactor("*", "foo", func(action dtesting.Action) (handled bool, ret runtime.Object, err error) {
+	cl.PrependReactor("*", "foo", func(action dtesting.Action) (handled bool, ret runtime.Object, err error) {
 		return true, &unstructured.UnstructuredList{Items: []unstructured.Unstructured{}}, nil
 	})
-	cl.AddWatchReactor("foo", func(action dtesting.Action) (handled bool, ret watch.Interface, err error) {
+	cl.PrependWatchReactor("foo", func(action dtesting.Action) (handled bool, ret watch.Interface, err error) {
 		return true, mock.NewWatch(), nil
 	})
 
@@ -156,9 +150,7 @@ watch plural
 
 func TestListener_DoubleStop(t *testing.T) {
 	k := mock.NewKube()
-	cl := &fake.FakeClient{
-		Fake: &dtesting.Fake{},
-	}
+	cl := fake.NewSimpleDynamicClient(runtime.NewScheme())
 	k.AddResponse(cl, nil)
 
 	processorLog := &common.MockLog{}
@@ -166,10 +158,10 @@ func TestListener_DoubleStop(t *testing.T) {
 		processorLog.Append("%v %v", eventKind, key)
 	}
 
-	cl.AddReactor("*", "foo", func(action dtesting.Action) (handled bool, ret runtime.Object, err error) {
+	cl.PrependReactor("*", "foo", func(action dtesting.Action) (handled bool, ret runtime.Object, err error) {
 		return true, &unstructured.UnstructuredList{Items: []unstructured.Unstructured{}}, nil
 	})
-	cl.AddWatchReactor("foo", func(action dtesting.Action) (handled bool, ret watch.Interface, err error) {
+	cl.PrependWatchReactor("foo", func(action dtesting.Action) (handled bool, ret watch.Interface, err error) {
 		return true, mock.NewWatch(), nil
 	})
 
@@ -192,9 +184,7 @@ watch plural
 
 func TestListener_AddEvent(t *testing.T) {
 	k := mock.NewKube()
-	cl := &fake.FakeClient{
-		Fake: &dtesting.Fake{},
-	}
+	cl := fake.NewSimpleDynamicClient(runtime.NewScheme())
 	k.AddResponse(cl, nil)
 
 	processorLog := &common.MockLog{}
@@ -205,11 +195,11 @@ func TestListener_AddEvent(t *testing.T) {
 		wg.Done()
 	}
 
-	cl.AddReactor("*", "foo", func(action dtesting.Action) (handled bool, ret runtime.Object, err error) {
+	cl.PrependReactor("*", "foo", func(action dtesting.Action) (handled bool, ret runtime.Object, err error) {
 		return true, &unstructured.UnstructuredList{Items: []unstructured.Unstructured{}}, nil
 	})
 	w := mock.NewWatch()
-	cl.AddWatchReactor("plural", func(action dtesting.Action) (handled bool, ret watch.Interface, err error) {
+	cl.PrependWatchReactor("*", func(action dtesting.Action) (handled bool, ret watch.Interface, err error) {
 		return true, w, nil
 	})
 
@@ -239,9 +229,7 @@ Added key=foo`
 
 func TestListener_UpdateEvent(t *testing.T) {
 	k := mock.NewKube()
-	cl := &fake.FakeClient{
-		Fake: &dtesting.Fake{},
-	}
+	cl := fake.NewSimpleDynamicClient(runtime.NewScheme())
 	k.AddResponse(cl, nil)
 
 	processorLog := &common.MockLog{}
@@ -252,11 +240,11 @@ func TestListener_UpdateEvent(t *testing.T) {
 		wg.Done()
 	}
 
-	cl.AddReactor("*", "plural", func(action dtesting.Action) (handled bool, ret runtime.Object, err error) {
+	cl.PrependReactor("*", "plural", func(action dtesting.Action) (handled bool, ret runtime.Object, err error) {
 		return true, &unstructured.UnstructuredList{Items: []unstructured.Unstructured{*template.DeepCopy()}}, nil
 	})
 	w := mock.NewWatch()
-	cl.AddWatchReactor("plural", func(action dtesting.Action) (handled bool, ret watch.Interface, err error) {
+	cl.PrependWatchReactor("plural", func(action dtesting.Action) (handled bool, ret watch.Interface, err error) {
 		return true, w, nil
 	})
 
@@ -289,9 +277,7 @@ Updated key=foo`
 
 func TestListener_UpdateEvent_SameResourceVersion(t *testing.T) {
 	k := mock.NewKube()
-	cl := &fake.FakeClient{
-		Fake: &dtesting.Fake{},
-	}
+	cl := fake.NewSimpleDynamicClient(runtime.NewScheme())
 	k.AddResponse(cl, nil)
 
 	processorLog := &common.MockLog{}
@@ -302,11 +288,11 @@ func TestListener_UpdateEvent_SameResourceVersion(t *testing.T) {
 		wg.Done()
 	}
 
-	cl.AddReactor("*", "plural", func(action dtesting.Action) (handled bool, ret runtime.Object, err error) {
+	cl.PrependReactor("*", "plural", func(action dtesting.Action) (handled bool, ret runtime.Object, err error) {
 		return true, &unstructured.UnstructuredList{Items: []unstructured.Unstructured{*template.DeepCopy()}}, nil
 	})
 	w := mock.NewWatch()
-	cl.AddWatchReactor("plural", func(action dtesting.Action) (handled bool, ret watch.Interface, err error) {
+	cl.PrependWatchReactor("plural", func(action dtesting.Action) (handled bool, ret watch.Interface, err error) {
 		return true, w, nil
 	})
 
@@ -337,9 +323,7 @@ Added key=foo
 
 func TestListener_DeleteEvent(t *testing.T) {
 	k := mock.NewKube()
-	cl := &fake.FakeClient{
-		Fake: &dtesting.Fake{},
-	}
+	cl := fake.NewSimpleDynamicClient(runtime.NewScheme())
 	k.AddResponse(cl, nil)
 
 	processorLog := &common.MockLog{}
@@ -350,11 +334,11 @@ func TestListener_DeleteEvent(t *testing.T) {
 		wg.Done()
 	}
 
-	cl.AddReactor("*", "plural", func(action dtesting.Action) (handled bool, ret runtime.Object, err error) {
+	cl.PrependReactor("*", "plural", func(action dtesting.Action) (handled bool, ret runtime.Object, err error) {
 		return true, &unstructured.UnstructuredList{Items: []unstructured.Unstructured{*template.DeepCopy()}}, nil
 	})
 	w := mock.NewWatch()
-	cl.AddWatchReactor("plural", func(action dtesting.Action) (handled bool, ret watch.Interface, err error) {
+	cl.PrependWatchReactor("plural", func(action dtesting.Action) (handled bool, ret watch.Interface, err error) {
 		return true, w, nil
 	})
 
@@ -387,9 +371,7 @@ Deleted key=foo`
 
 func TestListener_Tombstone(t *testing.T) {
 	k := mock.NewKube()
-	cl := &fake.FakeClient{
-		Fake: &dtesting.Fake{},
-	}
+	cl := fake.NewSimpleDynamicClient(runtime.NewScheme())
 	k.AddResponse(cl, nil)
 
 	processorLog := &common.MockLog{}
@@ -400,11 +382,11 @@ func TestListener_Tombstone(t *testing.T) {
 		wg.Done()
 	}
 
-	cl.AddReactor("*", "plural", func(action dtesting.Action) (handled bool, ret runtime.Object, err error) {
+	cl.PrependReactor("*", "plural", func(action dtesting.Action) (handled bool, ret runtime.Object, err error) {
 		return true, &unstructured.UnstructuredList{Items: []unstructured.Unstructured{*template.DeepCopy()}}, nil
 	})
 	w := mock.NewWatch()
-	cl.AddWatchReactor("plural", func(action dtesting.Action) (handled bool, ret watch.Interface, err error) {
+	cl.PrependWatchReactor("plural", func(action dtesting.Action) (handled bool, ret watch.Interface, err error) {
 		return true, w, nil
 	})
 
@@ -438,9 +420,7 @@ Deleted key=foo`
 
 func TestListener_TombstoneDecodeError(t *testing.T) {
 	k := mock.NewKube()
-	cl := &fake.FakeClient{
-		Fake: &dtesting.Fake{},
-	}
+	cl := fake.NewSimpleDynamicClient(runtime.NewScheme())
 	k.AddResponse(cl, nil)
 
 	processorLog := &common.MockLog{}
@@ -451,11 +431,11 @@ func TestListener_TombstoneDecodeError(t *testing.T) {
 		wg.Done()
 	}
 
-	cl.AddReactor("*", "plural", func(action dtesting.Action) (handled bool, ret runtime.Object, err error) {
+	cl.PrependReactor("*", "plural", func(action dtesting.Action) (handled bool, ret runtime.Object, err error) {
 		return true, &unstructured.UnstructuredList{Items: []unstructured.Unstructured{*template.DeepCopy()}}, nil
 	})
 	w := mock.NewWatch()
-	cl.AddWatchReactor("plural", func(action dtesting.Action) (handled bool, ret watch.Interface, err error) {
+	cl.PrependWatchReactor("plural", func(action dtesting.Action) (handled bool, ret watch.Interface, err error) {
 		return true, w, nil
 	})
 
@@ -486,9 +466,7 @@ Added key=foo
 
 func TestListener_Tombstone_ObjDecodeError(t *testing.T) {
 	k := mock.NewKube()
-	cl := &fake.FakeClient{
-		Fake: &dtesting.Fake{},
-	}
+	cl := fake.NewSimpleDynamicClient(runtime.NewScheme())
 	k.AddResponse(cl, nil)
 
 	processorLog := &common.MockLog{}
@@ -499,11 +477,11 @@ func TestListener_Tombstone_ObjDecodeError(t *testing.T) {
 		wg.Done()
 	}
 
-	cl.AddReactor("*", "plural", func(action dtesting.Action) (handled bool, ret runtime.Object, err error) {
+	cl.PrependReactor("*", "plural", func(action dtesting.Action) (handled bool, ret runtime.Object, err error) {
 		return true, &unstructured.UnstructuredList{Items: []unstructured.Unstructured{*template.DeepCopy()}}, nil
 	})
 	w := mock.NewWatch()
-	cl.AddWatchReactor("plural", func(action dtesting.Action) (handled bool, ret watch.Interface, err error) {
+	cl.PrependWatchReactor("plural", func(action dtesting.Action) (handled bool, ret watch.Interface, err error) {
 		return true, w, nil
 	})
 

@@ -78,7 +78,7 @@ else
 fi
 
 function update_gcp_opts() {
-  export GCP_OPTS="--project $PROJECT --zone $ZONE"
+  export GCP_OPTS="--project=${PROJECT} --zone=${ZONE}"
 }
 
 function Execute() {

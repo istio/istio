@@ -44,7 +44,7 @@ func (m *MongoProxy) Reset()         { *m = MongoProxy{} }
 func (m *MongoProxy) String() string { return proto.CompactTextString(m) }
 func (*MongoProxy) ProtoMessage()    {}
 func (*MongoProxy) Descriptor() ([]byte, []int) {
-	return fileDescriptor_mongo_proxy_a05f936147fd60b6, []int{0}
+	return fileDescriptor_mongo_proxy_d1488879f01778b4, []int{0}
 }
 func (m *MongoProxy) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -431,10 +431,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/config/filter/network/mongo_proxy/v2/mongo_proxy.proto", fileDescriptor_mongo_proxy_a05f936147fd60b6)
+	proto.RegisterFile("envoy/config/filter/network/mongo_proxy/v2/mongo_proxy.proto", fileDescriptor_mongo_proxy_d1488879f01778b4)
 }
 
-var fileDescriptor_mongo_proxy_a05f936147fd60b6 = []byte{
+var fileDescriptor_mongo_proxy_d1488879f01778b4 = []byte{
 	// 258 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xb2, 0x49, 0xcd, 0x2b, 0xcb,
 	0xaf, 0xd4, 0x4f, 0xce, 0xcf, 0x4b, 0xcb, 0x4c, 0xd7, 0x4f, 0xcb, 0xcc, 0x29, 0x49, 0x2d, 0xd2,

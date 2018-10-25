@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"sort"
 	"testing"
-
 	"time"
 
 	networking "istio.io/api/networking/v1alpha3"
