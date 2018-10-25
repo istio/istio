@@ -15,27 +15,27 @@
 package source
 
 import (
-	"go.opencensus.io/stats"
-	"go.opencensus.io/tag"
-	"go.opencensus.io/stats/view"
 	"context"
+	"go.opencensus.io/stats"
+	"go.opencensus.io/stats/view"
+	"go.opencensus.io/tag"
 	"sync"
 )
 
 const (
 	apiVersion = "apiVersion"
-	group = "group"
-	kind = "kind"
-	errorStr = "error"
+	group      = "group"
+	kind       = "kind"
+	errorStr   = "error"
 )
 
 var (
 	// APIVersionTag holds the API version of the resource.
 	APIVersionTag tag.Key
 	// GroupTag holds the group of the resource.
-	GroupTag      tag.Key
+	GroupTag tag.Key
 	// KindTag holds the kind of the resource.
-	KindTag       tag.Key
+	KindTag tag.Key
 	// ErrorTag holds the error message of a handleEvent failure.
 	ErrorTag tag.Key
 )
