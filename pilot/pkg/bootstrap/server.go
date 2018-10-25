@@ -34,7 +34,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"k8s.io/api/core/v1"
@@ -497,35 +497,58 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 
 	for _, configSource := range s.mesh.ConfigSources {
 		securityOption := grpc.WithInsecure()
-		if configSource.TlsSettings != nil && configSource.TlsSettings.Mode == istio_networking_v1alpha3.TLSSettings_ISTIO_MUTUAL {
-			requiredFiles := []string{
-				path.Join(model.AuthCertsPath, model.RootCertFilename),
-				path.Join(model.AuthCertsPath, model.CertChainFilename),
-				path.Join(model.AuthCertsPath, model.KeyFilename),
-			}
-			log.Infof("Secure MCP configured. Waiting for required certificate files to become available: %v",
-				requiredFiles)
-			for len(requiredFiles) > 0 {
-				if _, err := os.Stat(requiredFiles[0]); os.IsNotExist(err) {
-					log.Infof("%v not found. Checking again in %v", requiredFiles[0], requiredMCPCertCheckFreq)
-					select {
-					case <-ctx.Done():
-						return ctx.Err()
-					case <-time.After(requiredMCPCertCheckFreq):
-						// retry
-					}
-					continue
+		if configSource.TlsSettings != nil &&
+			configSource.TlsSettings.Mode != istio_networking_v1alpha3.TLSSettings_DISABLE {
+			var credentialOption *creds.Options
+			switch configSource.TlsSettings.Mode {
+			case istio_networking_v1alpha3.TLSSettings_SIMPLE:
+			case istio_networking_v1alpha3.TLSSettings_MUTUAL:
+				credentialOption = &creds.Options{
+					CertificateFile:   configSource.TlsSettings.ClientCertificate,
+					KeyFile:           configSource.TlsSettings.PrivateKey,
+					CACertificateFile: configSource.TlsSettings.CaCertificates,
 				}
-				log.Infof("%v found", requiredFiles[0])
-				requiredFiles = requiredFiles[1:]
+			case istio_networking_v1alpha3.TLSSettings_ISTIO_MUTUAL:
+				credentialOption = &creds.Options{
+					CertificateFile: path.Join(model.AuthCertsPath, model.RootCertFilename),
+
+					KeyFile:           path.Join(model.AuthCertsPath, model.KeyFilename),
+					CACertificateFile: path.Join(model.AuthCertsPath, model.RootCertFilename),
+				}
+			default:
+				log.Errorf("invalid tls setting mode %d", configSource.TlsSettings.Mode)
+				continue
 			}
 
-			watcher, err := creds.WatchFiles(ctx.Done(), args.MCPCredentialOptions)
-			if err != nil {
-				return err
+			if credentialOption == nil {
+				credentials := creds.CreateForClientSkipVerify()
+				securityOption = grpc.WithTransportCredentials(credentials)
+			} else {
+				requiredFiles := []string{credentialOption.CACertificateFile, credentialOption.KeyFile, credentialOption.CertificateFile}
+				log.Infof("Secure MCP configured. Waiting for required certificate files to become available: %v",
+					requiredFiles)
+				for len(requiredFiles) > 0 {
+					if _, err := os.Stat(requiredFiles[0]); os.IsNotExist(err) {
+						log.Infof("%v not found. Checking again in %v", requiredFiles[0], requiredMCPCertCheckFreq)
+						select {
+						case <-ctx.Done():
+							return ctx.Err()
+						case <-time.After(requiredMCPCertCheckFreq):
+							// retry
+						}
+						continue
+					}
+					log.Infof("%v found", requiredFiles[0])
+					requiredFiles = requiredFiles[1:]
+				}
+
+				watcher, err := creds.WatchFiles(ctx.Done(), credentialOption)
+				if err != nil {
+					return err
+				}
+				credentials := creds.CreateForClient(configSource.TlsSettings.Sni, watcher)
+				securityOption = grpc.WithTransportCredentials(credentials)
 			}
-			credentials := creds.CreateForClient(configSource.TlsSettings.Sni, watcher)
-			securityOption = grpc.WithTransportCredentials(credentials)
 		}
 
 		msgSizeOption := grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(args.MCPMaxMessageSize))
