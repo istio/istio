@@ -2174,6 +2174,15 @@ var (
 						}
 					}
 
+					if param.ForceSample != "" {
+						if t, e := tEvalFn(param.ForceSample); e != nil || t != istio_policy_v1beta1.BOOL {
+							if e != nil {
+								return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path+"ForceSample", e)
+							}
+							return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"ForceSample", t, istio_policy_v1beta1.BOOL)
+						}
+					}
+
 					return infrdType, err
 
 				}
@@ -4524,6 +4533,10 @@ type builder_tracespan_Template struct {
 	// builder for field rewrite_client_span_id: bool.
 
 	bldRewriteClientSpanId compiled.Expression
+
+	// builder for field force_sample: bool.
+
+	bldForceSample compiled.Expression
 } // builder_tracespan_Template
 
 // Instantiates and returns a new builder for Template, based on the provided instance parameter.
@@ -4682,6 +4695,21 @@ func newBuilder_tracespan_Template(
 
 	}
 
+	if param.ForceSample == "" {
+		b.bldForceSample = nil
+	} else {
+		b.bldForceSample, expType, err = expb.Compile(param.ForceSample)
+		if err != nil {
+			return nil, template.NewErrorPath("ForceSample", err)
+		}
+
+		if expType != istio_policy_v1beta1.BOOL {
+			err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_policy_v1beta1.BOOL, expType, param.ForceSample)
+			return nil, template.NewErrorPath("ForceSample", err)
+		}
+
+	}
+
 	return b, template.ErrorPath{}
 }
 
@@ -4809,6 +4837,16 @@ func (b *builder_tracespan_Template) build(
 			return nil, template.NewErrorPath("RewriteClientSpanId", err)
 		}
 		r.RewriteClientSpanId = vBool
+
+	}
+
+	if b.bldForceSample != nil {
+
+		vBool, err = b.bldForceSample.EvaluateBoolean(attrs)
+		if err != nil {
+			return nil, template.NewErrorPath("ForceSample", err)
+		}
+		r.ForceSample = vBool
 
 	}
 

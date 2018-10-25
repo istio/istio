@@ -37,6 +37,7 @@ import (
 //   traceId: request.headers["x-b3-traceid"]
 //   spanId: request.headers["x-b3-spanid"] | ""
 //   parentSpanId: request.headers["x-b3-parentspanid"] | ""
+//   forceSample: request.headers["x-b3-sampled"] == "1" || request.headers["x-b3-sampled"] == "true"
 //   spanName: request.path | "/"
 //   startTime: request.time
 //   endTime: response.time
@@ -135,6 +136,12 @@ type Instance struct {
 	//
 	// Optional
 	RewriteClientSpanId bool
+
+	// Force sample can be used to force a span to be sampled, overriding any
+	// sampling decisions that would normally be made by an adapter.
+	//
+	// Optional.
+	ForceSample bool
 }
 
 // HandlerBuilder must be implemented by adapters if they want to

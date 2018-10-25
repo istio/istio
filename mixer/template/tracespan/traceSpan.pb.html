@@ -19,6 +19,7 @@ spec:
   traceId: request.headers[&quot;x-b3-traceid&quot;]
   spanId: request.headers[&quot;x-b3-spanid&quot;] | &quot;&quot;
   parentSpanId: request.headers[&quot;x-b3-parentspanid&quot;] | &quot;&quot;
+  forceSample: request.headers[&quot;x-b3-sampled&quot;] == &quot;1&quot; || request.headers[&quot;x-b3-sampled&quot;] == &quot;true&quot;
   spanName: request.path | &quot;/&quot;
   startTime: request.time
   endTime: response.time
@@ -168,6 +169,17 @@ incompatibility, deterministically rewriting both span id of client span and
 parent span id of server span to the same newly generated id.</p>
 
 <p>Optional</p>
+
+</td>
+</tr>
+<tr id="Template-force_sample">
+<td><code>forceSample</code></td>
+<td><code>bool</code></td>
+<td>
+<p>Force sample can be used to force a span to be sampled, overriding any
+sampling decisions that would normally be made by an adapter.</p>
+
+<p>Optional.</p>
 
 </td>
 </tr>
