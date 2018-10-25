@@ -27,9 +27,9 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/tools/cache"
 
+	"fmt"
 	"istio.io/istio/galley/pkg/kube"
 	"istio.io/istio/galley/pkg/runtime/resource"
-	"fmt"
 )
 
 // processorFn is a callback function that will receive change events back from listener.
