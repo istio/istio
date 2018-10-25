@@ -420,21 +420,28 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				// Remote side closed connection.
 				return receiveError
 			}
-			if discReq.Node == nil || discReq.Node.Id == "" {
-				adsLog.Infof("Missing node id %s", discReq.String())
-				continue
-			}
-			nt, err := model.ParseServiceNode(discReq.Node.Id)
-			if err != nil {
-				return err
-			}
-			nt.Metadata = model.ParseMetadata(discReq.Node.Metadata)
 			con.mu.Lock()
-			con.modelNode = &nt
+			hasNode := con.modelNode != nil
 			con.mu.Unlock()
-			if con.ConID == "" {
-				// first request
-				con.ConID = connectionID(discReq.Node.Id)
+
+			if !hasNode {
+				if discReq.Node == nil || discReq.Node.Id == "" {
+					adsLog.Infof("Missing node id %s", discReq.String())
+					continue
+				}
+				nt, err := model.ParseServiceNode(discReq.Node.Id)
+				if err != nil {
+					return err
+				}
+				nt.Metadata = model.ParseMetadata(discReq.Node.Metadata)
+				con.mu.Lock()
+				con.modelNode = &nt
+				con.mu.Unlock()
+				if con.ConID == "" {
+					// first request
+					con.ConID = connectionID(discReq.Node.Id)
+				}
+				con.modelNode.UpdateOutboundServices(s.Env.PushContext)
 			}
 
 			switch discReq.TypeUrl {
@@ -462,7 +469,6 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				}
 
 			case ListenerType:
-				con.modelNode.UpdateOutboundServices(s.env.PushContext)
 				if con.LDSWatch {
 					// Already received a cluster watch request, this is an ACK
 					if discReq.ErrorDetail != nil {
