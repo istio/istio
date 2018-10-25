@@ -485,30 +485,29 @@ func (c *Controller) InstancesByPort(hostname model.Hostname, reqSvcPort int,
 
 // GetProxyServiceInstances returns service instances co-located with a given proxy
 func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.ServiceInstance, error) {
-	proxyIP := proxy.IPAddress
-	pod, exists := c.pods.getPodByIP(proxyIP)
-	if !exists {
-		return nil, fmt.Errorf("failed to get pod by proxyIP %s", proxyIP)
-	}
-	podNamespace := pod.Namespace
-
 	out := make([]*model.ServiceInstance, 0)
+	proxyIP := proxy.IPAddress
+	proxyNamespace := ""
 
-	// 1. find proxy service by label selector, if not any, there may exist headless service
-	// failover to 2
-	svcLister := listerv1.NewServiceLister(c.services.informer.GetIndexer())
-	if services, err := svcLister.GetPodServices(pod); err != nil && len(services) > 0 {
-		for _, svc := range services {
-			item, exists, err := c.endpoints.informer.GetStore().GetByKey(KeyFunc(svc.Namespace, svc.Name))
-			if err != nil || !exists {
-				log.Warnf("unable to get endpoint %s/%s for svc: %v", svc.Namespace, svc.Name, err)
-				continue
+	pod, exists := c.pods.getPodByIP(proxyIP)
+	if exists {
+		proxyNamespace = pod.Namespace
+		// 1. find proxy service by label selector, if not any, there may exist headless service
+		// failover to 2
+		svcLister := listerv1.NewServiceLister(c.services.informer.GetIndexer())
+		if services, err := svcLister.GetPodServices(pod); err != nil && len(services) > 0 {
+			for _, svc := range services {
+				item, exists, err := c.endpoints.informer.GetStore().GetByKey(KeyFunc(svc.Namespace, svc.Name))
+				if err != nil || !exists {
+					log.Warnf("unable to get endpoint %s/%s for svc: %v", svc.Namespace, svc.Name, err)
+					continue
+				}
+
+				ep := *item.(*v1.Endpoints)
+				out = append(out, c.getProxyServiceInstancesByEndpoint(ep, proxy)...)
 			}
-
-			ep := *item.(*v1.Endpoints)
-			out = append(out, c.getProxyServiceInstancesByEndpoint(ep, proxy)...)
+			return out, nil
 		}
-		return out, nil
 	}
 
 	// 2. Headless service
@@ -517,7 +516,7 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 	for _, item := range c.endpoints.informer.GetStore().List() {
 		ep := *item.(*v1.Endpoints)
 		endpoints := &endpointsForPodInSameNS
-		if ep.Namespace != podNamespace {
+		if ep.Namespace != proxyNamespace {
 			endpoints = &endpointsForPodInDifferentNS
 		}
 
