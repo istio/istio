@@ -83,10 +83,11 @@ def getBashSettingsTemplate(extra_param_lst=[]):
                 export CB_GCS_RELEASE_TOOLS_PATH={{ settings.CB_GCS_RELEASE_TOOLS_PATH }}
                 gsutil -q cp "gs://${CB_GCS_RELEASE_TOOLS_PATH}/gcb_env.sh" "${GCB_ENV_FILE}"
                 source "${GCB_ENV_FILE}"
-                # use airflow scripts from bootstrap
-                gsutil -m cp "gs://${CB_GCS_BUILD_BUCKET}/release-tools/bootstrap/*sh" .
-                # use bootstrap json file for get_git_commit task
-                gsutil -q cp "gs://${CB_GCS_BUILD_BUCKET}/release-tools/bootstrap/get_commit.template.json" .
+                # use bootstrap scripts
+                curl https://raw.githubusercontent.com/istio/istio/$CB_BRANCH/release/gcb/json_parse_shared.sh -O
+                curl https://raw.githubusercontent.com/istio/istio/$CB_BRANCH/release/pipeline/gcb_build_lib.sh -O
+                curl https://raw.githubusercontent.com/istio/istio/$CB_BRANCH/release/pipeline/airflow_scripts.sh -O
+                curl https://raw.githubusercontent.com/istio/istio/$CB_BRANCH/release/gcb/get_commit.template.json -O
                 # everything else uses json files saved for this build
                 gsutil -mq cp "gs://${CB_GCS_RELEASE_TOOLS_PATH}"/gcb/*json .
                 source airflow_scripts.sh
