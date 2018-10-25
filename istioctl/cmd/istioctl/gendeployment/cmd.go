@@ -36,10 +36,11 @@ func Command(istioNamespaceFlag *string) *cobra.Command {
 
 	install := defaultInstall()
 	cmd := &cobra.Command{
-		Use:     "gen-deploy",
-		Short:   "Generates the configuration for Istio's control plane.",
-		Long:    "istioctl gen-deploy produces deployment files to run the Istio.",
-		Example: `istioctl gen-deploy --values myvalues.yaml`,
+		Deprecated: "Please use `helm template` instead (see https://istio.io/docs/setup/kubernetes/helm-install/#option-1-install-with-helm-via-helm-template)", // nolint: lll
+		Use:        "gen-deploy",
+		Short:      "Generates the configuration for Istio's control plane.",
+		Long:       "istioctl gen-deploy produces deployment files to run the Istio.",
+		Example:    `istioctl gen-deploy --values myvalues.yaml`,
 		RunE: func(c *cobra.Command, args []string) error {
 			install.Namespace = *istioNamespaceFlag
 			// TODO: this is NOT merged with the values.yaml from helm directory.
