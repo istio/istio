@@ -27,6 +27,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	"istio.io/istio/istioctl/cmd/istioctl/gendeployment"
+        "istio.io/istio/istioctl/pkg/install"
 	"istio.io/istio/istioctl/pkg/validate"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/cmd"
@@ -108,7 +109,8 @@ func init() {
 	rootCmd.AddCommand(version.CobraCommandWithOptions(version.CobraOptions{GetRemoteVersion: getRemoteInfo}))
 	rootCmd.AddCommand(gendeployment.Command(&istioNamespace))
 
-	experimentalCmd.AddCommand(Rbac())
+	experimentalCmd.AddCommand(install.NewVerifyCommand())
+        experimentalCmd.AddCommand(Rbac())
 	rootCmd.AddCommand(experimentalCmd)
 
 	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
