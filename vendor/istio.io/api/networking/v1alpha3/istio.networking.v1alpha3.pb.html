@@ -1551,6 +1551,7 @@ spec:
     retries:
       attempts: 3
       perTryTimeout: 2s
+      retryOn: gateway-error,connect-failure,refused-stream
 </code></pre>
 
 <table class="message-fields">
@@ -1577,6 +1578,18 @@ number of retries attempted depends on the httpReqTimeout.</p>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
 <p>Timeout per retry attempt for a given request. format: 1h/1m/1s/1ms. MUST BE &gt;=1ms.</p>
+
+</td>
+</tr>
+<tr id="HTTPRetry-retryOn">
+<td><code>retryOn</code></td>
+<td><code>string</code></td>
+<td>
+<p>Specifies the conditions under which retry takes place.
+One or more policies can be specified using a ‘,’ delimited list.
+The supported policies can be found in
+&ldquo;https://www.envoyproxy.io/docs/envoy/latest/configuration/http<em>filters/router</em>filter#x-envoy-retry-on&rdquo;
+and &ldquo;https://www.envoyproxy.io/docs/envoy/latest/configuration/http<em>filters/router</em>filter#x-envoy-retry-grpc-on&rdquo;</p>
 
 </td>
 </tr>
@@ -2959,7 +2972,7 @@ spec:
   location: MESH_EXTERNAL
   ports:
   - number: 80
-    name: https
+    name: http
     protocol: HTTP
   resolution: DNS
   endpoints:

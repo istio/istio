@@ -343,7 +343,7 @@ func (ServiceEntry_Resolution) EnumDescriptor() ([]byte, []int) {
 //   location: MESH_EXTERNAL
 //   ports:
 //   - number: 80
-//     name: https
+//     name: http
 //     protocol: HTTP
 //   resolution: DNS
 //   endpoints:

@@ -857,6 +857,7 @@ message StringMatch {
 //     retries:
 //       attempts: 3
 //       perTryTimeout: 2s
+//       retryOn: gateway-error,connect-failure,refused-stream
 // ```
 //
 message HTTPRetry {
@@ -867,6 +868,13 @@ message HTTPRetry {
 
   // Timeout per retry attempt for a given request. format: 1h/1m/1s/1ms. MUST BE >=1ms.
   google.protobuf.Duration per_try_timeout = 2;
+
+  // Specifies the conditions under which retry takes place.
+  // One or more policies can be specified using a ‘,’ delimited list.
+  // The supported policies can be found in
+  // "https://www.envoyproxy.io/docs/envoy/latest/configuration/http_filters/router_filter#x-envoy-retry-on"
+  // and "https://www.envoyproxy.io/docs/envoy/latest/configuration/http_filters/router_filter#x-envoy-retry-grpc-on"
+  string retryOn = 3;
 }
 
 // Describes the Cross-Origin Resource Sharing (CORS) policy, for a given
