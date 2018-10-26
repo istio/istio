@@ -24,6 +24,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"path"
 	"reflect"
 	"strconv"
 	"strings"
@@ -475,6 +476,11 @@ func isset(m map[string]string, key string) bool {
 	return ok
 }
 
+func directory(filepath string) string {
+	dir, _ := path.Split(filepath)
+	return dir
+}
+
 func injectionData(sidecarTemplate, version string, deploymentMetadata *metav1.ObjectMeta, spec *corev1.PodSpec, metadata *metav1.ObjectMeta, proxyConfig *meshconfig.ProxyConfig, meshConfig *meshconfig.MeshConfig) (*SidecarInjectionSpec, string, error) { // nolint: lll
 	if err := validateAnnotations(metadata.GetAnnotations()); err != nil {
 		return nil, "", err
@@ -497,6 +503,7 @@ func injectionData(sidecarTemplate, version string, deploymentMetadata *metav1.O
 		"annotation":          annotation,
 		"valueOrDefault":      valueOrDefault,
 		"toJSON":              toJSON,
+		"directory":           directory,
 	}
 
 	var tmpl bytes.Buffer
