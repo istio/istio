@@ -28,7 +28,6 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
-
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/pkg/log"
 )
@@ -56,12 +55,30 @@ func envDur(name string, def time.Duration) time.Duration {
 }
 
 var (
-	newConnectionBurstSize  = envInt("NEW_CONNECTION_BURST_SIZE", 10)
-	newConnectionFreq       = envDur("NEW_CONNECTION_FREQ", 10*time.Millisecond)
-	authFailureLogFreq      = envDur("AUTH_FAILURE_LOG_FREQ", time.Minute)
-	authFailureLogBurstSize = envInt("AUTH_FAILURE_LOG_BURST_SIZE", 1)
-	nackLimitFreq           = envDur("NACK_LIMIT_FREQ", 1*time.Second)
-	retryPushDelay          = envDur("RETRY_PUSH_DELAY", 10*time.Millisecond)
+	// For the purposes of rate limiting new connections, this controls how many
+	// new connections are allowed as a burst every NEW_CONNECTION_FREQ.
+	newConnectionBurstSize = envInt("NEW_CONNECTION_BURST_SIZE", 10)
+
+	// For the purposes of rate limiting new connections, this controls how
+	// frequently new bursts of connections are allowed.
+	newConnectionFreq = envDur("NEW_CONNECTION_FREQ", 10*time.Millisecond)
+
+	// For the purposes of logging rate limiting authz failures, this controls how
+	// many authz failus are logs as a burst every AUTHZ_FAILURE_LOG_FREQ.
+	authzFailureLogBurstSize = envInt("AUTHZ_FAILURE_LOG_BURST_SIZE", 1)
+
+	// For the purposes of logging rate limiting authz failures, this controls how
+	// frequently bursts of authz failures are logged.
+	authzFailureLogFreq = envDur("AUTHZ_FAILURE_LOG_FREQ", time.Minute)
+
+	// Controls the rate limit frequency for re-pushing previously NACK'd pushes
+	// for each type.
+	nackLimitFreq = envDur("NACK_LIMIT_FREQ", 1*time.Second)
+
+	// Controls the delay for re-retrying a configuration push if the previous
+	// attempt was not possible, e.g. the lower-level serving layer was busy. This
+	// should typically be set fairly small (order of milliseconds).
+	retryPushDelay = envDur("RETRY_PUSH_DELAY", 10*time.Millisecond)
 )
 
 // WatchResponse contains a versioned collection of pre-serialized resources.
@@ -111,7 +128,7 @@ type Server struct {
 	failureCountSinceLastRecord int
 	connections                 int64
 	reporter                    Reporter
-	conLimiter                  *rate.Limiter
+	newConnectionLimiter        *rate.Limiter
 }
 
 // AuthChecker is used to check the transport auth info that is associated with each stream. If the function
@@ -125,63 +142,71 @@ type AuthChecker interface {
 	Check(authInfo credentials.AuthInfo) error
 }
 
-type mailboxState int
+type newPushResponseState int
 
 const (
-	mailboxStateReady mailboxState = iota
-	mailboxStateClosed
+	newPushResponseStateReady newPushResponseState = iota
+	newPushResponseStateClosed
 )
 
-// watch maintains local state of the most recent watch per-type.
+// watch maintains local push state of the most recent watch per-type.
 type watch struct {
 	// only accessed from connection goroutine
 	cancel          func()
 	nonce           string // most recent nonce
 	nonceVersionMap map[string]string
 
-	// NOTE: do not hold `mu` when reading/writing to this channel
-	mailboxReadyChan chan mailboxState
+	// NOTE: do not hold `mu` when reading/writing to this channel.
+	newPushResponseReadyChan chan newPushResponseState
 
 	mu                      sync.Mutex
-	mailbox                 *WatchResponse
+	newPushResponse         *WatchResponse
 	mostRecentNackedVersion string
-	timerRunning            bool
 	timer                   *time.Timer
 }
 
+// Try to schedule pushing a response to the client. The push may
+// be re-scheduled as needed. Additional care is taken to rate limit
+// re-pushing responses that were previously NACK'd. This avoid flooding
+// the client with responses while also allowing transient NACK'd responses
+// to be retried.
 func (w *watch) schedulePush() {
 	w.mu.Lock()
-	defer w.mu.Unlock()
 
-	if w.mailbox == nil {
+	if w.newPushResponse == nil {
+		w.mu.Unlock()
 		return
 	}
 
 	retry := false
-	if w.mostRecentNackedVersion != "" && w.mailbox.Version == w.mostRecentNackedVersion {
-		if !w.timerRunning {
-			w.timerRunning = true
+	if w.newPushResponse.Version == w.mostRecentNackedVersion {
+		if w.timer == nil {
 			w.timer = time.AfterFunc(nackLimitFreq, func() {
 				w.mu.Lock()
-				w.timerRunning = false
+				w.timer = nil
 				w.mu.Unlock()
 
 				select {
-				case w.mailboxReadyChan <- mailboxStateReady:
+				case w.newPushResponseReadyChan <- newPushResponseStateReady:
 				default:
 					retry = true
 				}
 			})
 		}
+		w.mu.Unlock()
 	} else {
-		if w.timerRunning {
-			w.timerRunning = false
-			if w.timer.Stop() {
+		if w.timer != nil {
+			if !w.timer.Stop() {
 				<-w.timer.C
 			}
+			w.timer = nil
 		}
+
+		// unlock before we try to push to the newPushResponse
+		w.mu.Unlock()
+
 		select {
-		case w.mailboxReadyChan <- mailboxStateReady:
+		case w.newPushResponseReadyChan <- newPushResponseStateReady:
 		default:
 			retry = true
 		}
@@ -192,13 +217,17 @@ func (w *watch) schedulePush() {
 	}
 }
 
-func (w *watch) pushResponse(response *WatchResponse) {
+// Save the pushed response in the newPushResponse and schedule a push. The push
+// may be re-schedule as necessary but this should be transparent to the
+// caller. The caller may provide a nil response to indicate that the watch
+// should be closed.
+func (w *watch) saveResponseAndSchedulePush(response *WatchResponse) {
 	w.mu.Lock()
-	w.mailbox = response
+	w.newPushResponse = response
 	w.mu.Unlock()
 
 	if response == nil {
-		w.mailboxReadyChan <- mailboxStateClosed
+		w.newPushResponseReadyChan <- newPushResponseStateClosed
 		return
 	}
 
@@ -238,16 +267,16 @@ type Reporter interface {
 // New creates a new gRPC server that implements the Mesh Configuration Protocol (MCP).
 func New(watcher Watcher, supportedTypes []string, authChecker AuthChecker, reporter Reporter) *Server {
 	s := &Server{
-		watcher:        watcher,
-		supportedTypes: supportedTypes,
-		authCheck:      authChecker,
-		reporter:       reporter,
-		conLimiter:     rate.NewLimiter(rate.Every(newConnectionFreq), newConnectionBurstSize),
+		watcher:              watcher,
+		supportedTypes:       supportedTypes,
+		authCheck:            authChecker,
+		reporter:             reporter,
+		newConnectionLimiter: rate.NewLimiter(rate.Every(newConnectionFreq), newConnectionBurstSize),
 	}
 
 	// Initialize record limiter for the auth checker.
-	limit := rate.Every(authFailureLogFreq)
-	limiter := rate.NewLimiter(limit, authFailureLogBurstSize)
+	limit := rate.Every(authzFailureLogFreq)
+	limiter := rate.NewLimiter(limit, authzFailureLogBurstSize)
 	s.checkFailureRecordLimiter = limiter
 
 	return s
@@ -290,11 +319,9 @@ func (s *Server) newConnection(stream mcp.AggregatedMeshConfigService_StreamAggr
 
 	var types []string
 	for _, typeURL := range s.supportedTypes {
-		t := time.NewTimer(0)
 		w := &watch{
-			timer:            t,
-			mailboxReadyChan: make(chan mailboxState, 1),
-			nonceVersionMap:  make(map[string]string),
+			newPushResponseReadyChan: make(chan newPushResponseState, 1),
+			nonceVersionMap:          make(map[string]string),
 		}
 		con.watches[typeURL] = w
 		types = append(types, typeURL)
@@ -325,8 +352,8 @@ func (s *Server) StreamAggregatedResources(stream mcp.AggregatedMeshConfigServic
 	responseChan := make(chan *watch, 1)
 	for _, w := range con.watches {
 		go func(w *watch) {
-			for state := range w.mailboxReadyChan {
-				if state == mailboxStateClosed {
+			for state := range w.newPushResponseReadyChan {
+				if state == newPushResponseStateClosed {
 					break
 				}
 				responseChan <- w
@@ -348,11 +375,11 @@ func (s *Server) StreamAggregatedResources(stream mcp.AggregatedMeshConfigServic
 			}
 
 			w.mu.Lock()
-			resp := w.mailbox
-			w.mailbox = nil
+			resp := w.newPushResponse
+			w.newPushResponse = nil
 			w.mu.Unlock()
 
-			// mailbox may have been cleared before we got to it
+			// newPushResponse may have been cleared before we got to it
 			if resp == nil {
 				break
 			}
@@ -474,7 +501,7 @@ func (con *connection) processClientRequest(req *mcp.MeshConfigRequest) error {
 		if w.cancel != nil {
 			w.cancel()
 		}
-		w.cancel = con.watcher.Watch(req, w.pushResponse)
+		w.cancel = con.watcher.Watch(req, w.saveResponseAndSchedulePush)
 	} else {
 		// This error path should not happen! Skip any requests that don't match the
 		// latest watch's nonce value. These could be dup requests or out-of-order
