@@ -239,6 +239,11 @@ global:
   # Pilot. Requires galley (`--set galley.enabled=true`).
   useMCP: false
 
+  sds:
+    enabled: false
+    udsPath: ""
+    enableTokenMount: false
+
 #
 # Istio CNI plugin enabled
 #   If true, the privileged initContainer istio-init is not needed to perform the traffic redirect
@@ -246,7 +251,3 @@ global:
 #
 istio_cni:
   enabled: false
-  sds:
-    enabled: false
-    udsPath: ""
-    enableTokenMount: false
