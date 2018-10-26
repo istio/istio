@@ -79,6 +79,14 @@ tracing:
 kiali:
   enabled: false
 
+#
+# Istio CNI plugin enabled
+#   If true, the privileged initContainer istio-init is not needed to perform the traffic redirect
+#   settings for the istio-proxy.
+#
+istio_cni:
+  enabled: false
+
 # Common settings used among istio subcharts.
 global:
   # Default hub for Istio images.
