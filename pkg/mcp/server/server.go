@@ -163,6 +163,19 @@ type watch struct {
 	newPushResponse         *WatchResponse
 	mostRecentNackedVersion string
 	timer                   *time.Timer
+	closed                  bool
+}
+
+func (w *watch) delayedPush() {
+	w.mu.Lock()
+	w.timer = nil
+	w.mu.Unlock()
+
+	select {
+	case w.newPushResponseReadyChan <- newPushResponseStateReady:
+	default:
+		time.AfterFunc(retryPushDelay, w.schedulePush)
+	}
 }
 
 // Try to schedule pushing a response to the client. The push may
@@ -173,48 +186,49 @@ type watch struct {
 func (w *watch) schedulePush() {
 	w.mu.Lock()
 
+	// close the watch
+	if w.closed {
+		// unlock before channel write
+		w.mu.Unlock()
+
+		select {
+		case w.newPushResponseReadyChan <- newPushResponseStateClosed:
+		default:
+			time.AfterFunc(retryPushDelay, w.schedulePush)
+		}
+		return
+	}
+
+	// no-op if the response has already be sent
 	if w.newPushResponse == nil {
 		w.mu.Unlock()
 		return
 	}
 
-	retry := false
+	// delay re-sending a previously nack'd response
 	if w.newPushResponse.Version == w.mostRecentNackedVersion {
 		if w.timer == nil {
-			w.timer = time.AfterFunc(nackLimitFreq, func() {
-				w.mu.Lock()
-				w.timer = nil
-				w.mu.Unlock()
-
-				select {
-				case w.newPushResponseReadyChan <- newPushResponseStateReady:
-				default:
-					retry = true
-				}
-			})
+			w.timer = time.AfterFunc(nackLimitFreq, w.delayedPush)
 		}
 		w.mu.Unlock()
-	} else {
-		if w.timer != nil {
-			if !w.timer.Stop() {
-				<-w.timer.C
-			}
-			w.timer = nil
-		}
-
-		// unlock before we try to push to the newPushResponse
-		w.mu.Unlock()
-
-		select {
-		case w.newPushResponseReadyChan <- newPushResponseStateReady:
-		default:
-			retry = true
-		}
+		return
 	}
 
-	if retry {
+	// Otherwise, try to schedule the response to be sent.
+	if w.timer != nil {
+		if !w.timer.Stop() {
+			<-w.timer.C
+		}
+		w.timer = nil
+	}
+	// unlock before channel write
+	w.mu.Unlock()
+	select {
+	case w.newPushResponseReadyChan <- newPushResponseStateReady:
+	default:
 		time.AfterFunc(retryPushDelay, w.schedulePush)
 	}
+
 }
 
 // Save the pushed response in the newPushResponse and schedule a push. The push
@@ -224,12 +238,10 @@ func (w *watch) schedulePush() {
 func (w *watch) saveResponseAndSchedulePush(response *WatchResponse) {
 	w.mu.Lock()
 	w.newPushResponse = response
-	w.mu.Unlock()
-
 	if response == nil {
-		w.newPushResponseReadyChan <- newPushResponseStateClosed
-		return
+		w.closed = true
 	}
+	w.mu.Unlock()
 
 	w.schedulePush()
 }
