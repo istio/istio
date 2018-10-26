@@ -17,10 +17,13 @@ package yaml
 import (
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
 
+	"istio.io/api/policy/v1beta1"
+	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/protobuf/yaml/testdata/all"
 )
 
@@ -33,6 +36,7 @@ func TestDecoder(t *testing.T) {
 	for _, td := range []struct {
 		name   string
 		data   string
+		prefix string
 		fields map[string]bool
 		want   map[string]interface{}
 		err    bool
@@ -285,9 +289,61 @@ map_str_str:
 			name: "unsupported map",
 			data: `
 map_str_bool:
-    key1: true`,
+  key1: true`,
 			err:  true,
 			want: map[string]interface{}{},
+		},
+		{
+			name: "istio concrete types",
+			data: `
+ipaddress_istio_value:
+    value:
+    - 8
+    - 0
+    - 0
+    - 1
+duration_istio_value:
+     value: 10s
+google_protobuf_duration: 5ns
+dnsname_istio_value:
+     value: google.com
+`,
+			want: map[string]interface{}{
+				"ipaddress_istio_value":    []byte{8, 0, 0, 1},
+				"duration_istio_value":     10 * time.Second,
+				"google_protobuf_duration": 5 * time.Nanosecond,
+				"dnsname_istio_value":      "google.com",
+			},
+		},
+		{
+			name: "istio dynamic int64 type",
+			data: `
+istio_value:
+     int64_value: -123
+`,
+			want: map[string]interface{}{"istio_value": int64(-123)},
+		},
+		{
+			name: "istio types with no values",
+			data: `
+ipaddress_istio_value: {}
+duration_istio_value: {}
+dnsname_istio_value: {}
+`,
+			want: map[string]interface{}{},
+		},
+		{
+			name: "attribute prefix",
+			data: `
+i32: 12
+duration_istio_value:
+     value: 10s
+`,
+			prefix: "output.",
+			want: map[string]interface{}{
+				"output.i32":                  int64(12),
+				"output.duration_istio_value": 10 * time.Second,
+			},
 		},
 	} {
 		t.Run(td.name, func(tt *testing.T) {
@@ -301,8 +357,10 @@ map_str_bool:
 				tt.Fatal(err)
 			}
 
-			decoder := NewDecoder(NewResolver(fds), ".foo.Simple", td.fields)
-			got, err := decoder.Decode(bytes)
+			decoder := NewDecoder(NewResolver(fds), ".foo.Simple", td.fields, td.prefix)
+			got := make(map[string]interface{})
+			mb := attribute.GetMutableBagForTesting(got)
+			err = decoder.Decode(bytes, mb)
 
 			if td.err {
 				if err == nil {
@@ -317,6 +375,80 @@ map_str_bool:
 			if !reflect.DeepEqual(got, td.want) {
 				tt.Errorf("yaml.Decode(%q) => got %#v, want %#v", td.name, got, td.want)
 			}
+		})
+		t.Run(td.name+"/type-check", func(tt *testing.T) {
+			res := NewResolver(fds)
+			msg := res.ResolveMessage(".foo.Simple")
+			if msg == nil {
+				t.Fail()
+			}
+			for name, value := range td.want {
+				field := FindFieldByName(msg, name[len(td.prefix):])
+				if field == nil {
+					t.Errorf("missing field descriptor for %q", name)
+				}
+				got := DecodeType(res, field)
+				// skip dynamically typed value
+				if field.GetName() == "istio_value" {
+					if got != v1beta1.VALUE_TYPE_UNSPECIFIED {
+						t.Errorf("dynamic value should be type unspecified, got %v", got)
+					}
+					continue
+				}
+
+				switch value.(type) {
+				case int64:
+					if got != v1beta1.INT64 {
+						t.Errorf("field %q incorrect deduced type: got %v, want int64", field.GetName(), got)
+					}
+				case bool:
+					if got != v1beta1.BOOL {
+						t.Errorf("field %q incorrect deduced type: got %v, want bool", field.GetName(), got)
+					}
+				case float32, float64:
+					if got != v1beta1.DOUBLE {
+						t.Errorf("field %q incorrect deduced type: got %v, want float", field.GetName(), got)
+					}
+				case string:
+					if field.GetTypeName() == ".istio.policy.v1beta1.DNSName" {
+						if got != v1beta1.DNS_NAME {
+							t.Errorf("field %q incorrect deduced type: got %v, want DNS", field.GetName(), got)
+						}
+					} else {
+						if got != v1beta1.STRING {
+							t.Errorf("field %q incorrect deduced type: got %v, want string", field.GetName(), got)
+						}
+					}
+				case []byte:
+					if field.GetTypeName() == ".istio.policy.v1beta1.IPAddress" {
+						if got != v1beta1.IP_ADDRESS {
+							t.Errorf("field %q incorrect deduced type: got %v, want IP address", field.GetName(), got)
+						}
+					} else {
+						if got != v1beta1.VALUE_TYPE_UNSPECIFIED {
+							t.Errorf("field %q (%q) incorrect deduced type: got %v, want unknown for []byte", field.GetName(), field.GetTypeName(), got)
+						}
+					}
+				case time.Duration:
+					if got != v1beta1.DURATION {
+						t.Errorf("field %q incorrect deduced type: got %v, want duration", field.GetName(), got)
+					}
+				case time.Time:
+					if got != v1beta1.TIMESTAMP {
+						t.Errorf("field %q incorrect deduced type: got %v, want timestamp", field.GetName(), got)
+					}
+				case map[string]string:
+					if got != v1beta1.STRING_MAP {
+						t.Errorf("field %q incorrect deduced type: got %v, want string map", field.GetName(), got)
+					}
+				default:
+					if got != v1beta1.VALUE_TYPE_UNSPECIFIED {
+						t.Errorf("field %q (%T) incorrect deduced type: got %v, want unspecified", field.GetName(), value, got)
+					}
+				}
+
+			}
+
 		})
 	}
 }

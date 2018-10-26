@@ -111,16 +111,21 @@ func containerArg(container string) string {
 	return ""
 }
 
-func writeContentsToTempFile(contents string) (string, error) {
-	f, err := ioutil.TempFile(os.TempDir(), "kubectl")
+func writeContentsToTempFile(contents string) (filename string, err error) {
+	defer func() {
+		if err != nil && filename != "" {
+			_ = os.Remove(filename)
+			filename = ""
+		}
+	}()
+
+	var f *os.File
+	f, err = ioutil.TempFile(os.TempDir(), "kubectl_")
 	if err != nil {
 		return "", err
 	}
-	defer func() { _ = os.Remove(f.Name()) }()
+	filename = f.Name()
 
 	_, err = f.WriteString(contents)
-	if err != nil {
-		return "", err
-	}
-	return f.Name(), nil
+	return
 }

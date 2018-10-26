@@ -341,6 +341,7 @@
     "envoy/config/filter/network/mongo_proxy/v2",
     "envoy/config/filter/network/rbac/v2",
     "envoy/config/filter/network/tcp_proxy/v2",
+    "envoy/config/grpc_credential/v2alpha",
     "envoy/config/metrics/v2",
     "envoy/config/overload/v2alpha",
     "envoy/config/ratelimit/v2",
@@ -1228,6 +1229,17 @@
 
 [[projects]]
   branch = "master"
+  digest = "1:1bfd3594cd47a49262ef0a3fb3d463c31619438dd05e03ddf075172763a0e7a2"
+  name = "github.com/yl2chen/cidranger"
+  packages = [
+    ".",
+    "net",
+  ]
+  pruneopts = "NUT"
+  revision = "928b519e5268fe386d0f7decce320205cc09ca95"
+
+[[projects]]
+  branch = "master"
   digest = "1:0262cc3b710c8eac3c8d86c417cb0c54f46e35fca23d527826c8a9f3615109ac"
   name = "github.com/yuin/gopher-lua"
   packages = [
@@ -1465,7 +1477,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:417279bf0101e5067574704db0081a0fc2791fb6e45499cf1c59e2d13b6fa230"
+  digest = "1:2110ef481d5c110c5809314b265ae1e96d86e588cb09e51e64f79ccb3bb5990f"
   name = "google.golang.org/genproto"
   packages = [
     "googleapis/api/annotations",
@@ -1483,7 +1495,7 @@
     "protobuf/field_mask",
   ]
   pruneopts = "NUT"
-  revision = "ab0870e398d5dd054b868c0db1481ab029b9a9f2"
+  revision = "94acd270e44e65579b9ee3cdab25034d33fed608"
 
 [[projects]]
   digest = "1:d2cd4383c252f450abec5772b1d3536603ee955df65fd992b767bb214c774a84"
@@ -1595,7 +1607,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:f06c31ae2d9f06d6ca3e74268f39ab6e5e9b835754176fafb8367dc10c296fcb"
+  digest = "1:c61cd9e33a234b63e8fe066615b66ebb80e1c1ba5103ae7d7a0c2312d09f6112"
   name = "istio.io/api"
   packages = [
     "authentication/v1alpha1",
@@ -1611,7 +1623,7 @@
     "rbac/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "0b70b6093baee68d6e1f4e30ecf28bb33f89710a"
+  revision = "9e5a9173e61ed2af3807c94915e6693e1062425a"
 
 [[projects]]
   branch = "release-1.11"
@@ -1724,7 +1736,7 @@
 
 [[projects]]
   branch = "release-8.0"
-  digest = "1:4b5d4e737092b38e86da183c8a5c75597e446e9cdb0cf72df9332958e2968060"
+  digest = "1:4787de3b2e060e89a22cf9a12590c5aa8f882aec1400334998f22f5dff36f15b"
   name = "k8s.io/client-go"
   packages = [
     "discovery",
@@ -1875,6 +1887,7 @@
     "third_party/forked/golang/template",
     "tools/auth",
     "tools/cache",
+    "tools/cache/testing",
     "tools/clientcmd",
     "tools/clientcmd/api",
     "tools/clientcmd/api/latest",
@@ -1939,7 +1952,7 @@
     "pkg/kubectl/genericclioptions/resource",
   ]
   pruneopts = "NUT"
-  revision = "011647662b54bd2904ca6eeae59c0e9b5aca83d3"
+  revision = "cf59a14accee7082ac6dce932a1ec15e181a5e4f"
 
 [solve-meta]
   analyzer-name = "dep"
@@ -1981,6 +1994,7 @@
     "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener",
     "github.com/envoyproxy/go-control-plane/envoy/api/v2/route",
     "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v2",
+    "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v2",
     "github.com/envoyproxy/go-control-plane/envoy/config/filter/accesslog/v2",
     "github.com/envoyproxy/go-control-plane/envoy/config/filter/fault/v2",
     "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/fault/v2",
@@ -1990,6 +2004,7 @@
     "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/mongo_proxy/v2",
     "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/rbac/v2",
     "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2",
+    "github.com/envoyproxy/go-control-plane/envoy/config/grpc_credential/v2alpha",
     "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2alpha",
     "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2",
     "github.com/envoyproxy/go-control-plane/envoy/type",
@@ -2065,6 +2080,7 @@
     "github.com/uber/jaeger-client-go/transport",
     "github.com/uber/jaeger-client-go/transport/zipkin",
     "github.com/uber/jaeger-client-go/zipkin",
+    "github.com/yl2chen/cidranger",
     "go.opencensus.io/exporter/prometheus",
     "go.opencensus.io/plugin/ocgrpc",
     "go.opencensus.io/plugin/ochttp",
@@ -2097,6 +2113,7 @@
     "google.golang.org/genproto/googleapis/api/metric",
     "google.golang.org/genproto/googleapis/api/monitoredres",
     "google.golang.org/genproto/googleapis/monitoring/v3",
+    "google.golang.org/genproto/googleapis/rpc/status",
     "google.golang.org/grpc",
     "google.golang.org/grpc/balancer",
     "google.golang.org/grpc/codes",
@@ -2158,12 +2175,14 @@
     "k8s.io/client-go/kubernetes/scheme",
     "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1",
     "k8s.io/client-go/kubernetes/typed/core/v1",
+    "k8s.io/client-go/listers/core/v1",
     "k8s.io/client-go/plugin/pkg/client/auth",
     "k8s.io/client-go/plugin/pkg/client/auth/gcp",
     "k8s.io/client-go/plugin/pkg/client/auth/oidc",
     "k8s.io/client-go/rest",
     "k8s.io/client-go/testing",
     "k8s.io/client-go/tools/cache",
+    "k8s.io/client-go/tools/cache/testing",
     "k8s.io/client-go/tools/clientcmd",
     "k8s.io/client-go/tools/clientcmd/api",
     "k8s.io/client-go/tools/leaderelection",

@@ -33,7 +33,7 @@ func DumpPodState(namespace string, accessor *kube.Accessor) {
 		scopes.CI.Errorf("Error getting pods list via kubectl: %v", err)
 		return
 	}
-	scopes.CI.Infof("Pods (from Kubectl):\n%s", s)
+	scopes.CI.Infof("Pods (from Kubectl):\n%v", s)
 }
 
 // DumpPodData copies pod logs from Kubernetes to the specified workDir.

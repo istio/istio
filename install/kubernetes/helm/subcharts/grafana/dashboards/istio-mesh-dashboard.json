@@ -676,7 +676,7 @@
           ],
           "dateFormat": "YYYY-MM-DD HH:mm:ss",
           "decimals": 2,
-          "pattern": "Value #B",
+          "pattern": "Value #C",
           "thresholds": [],
           "type": "number",
           "unit": "Bps"

@@ -204,7 +204,7 @@ func (e *Ephemeral) processAttributeManifests(ctx context.Context, errs *multier
 		}
 	}
 
-	// append all the well known attribute vocabulary from the templates.
+	// append all the well known attribute vocabulary from the static templates.
 	//
 	// ATTRIBUTE_GENERATOR variety templates allows operators to write Attributes
 	// using the $out.<field Name> convention, where $out refers to the output object from the attribute generating adapter.
@@ -427,10 +427,11 @@ func (e *Ephemeral) processDynamicInstanceConfigs(ctx context.Context, templates
 		}
 
 		cfg := &InstanceDynamic{
-			Name:     instanceName,
-			Template: template,
-			Encoder:  enc,
-			Params:   params,
+			Name:              instanceName,
+			Template:          template,
+			Encoder:           enc,
+			Params:            params,
+			AttributeBindings: inst.AttributeBindings,
 		}
 
 		instances[cfg.Name] = cfg
@@ -783,6 +784,26 @@ func (e *Ephemeral) processDynamicTemplateConfigs(ctx context.Context, errs *mul
 			FileDescSet:                fds,
 			PackageName:                desc.GetPackage(),
 			Variety:                    variety,
+		}
+
+		if variety == v1beta1.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR {
+			resolver := yaml.NewResolver(fds)
+			msgName := "." + desc.GetPackage() + ".OutputMsg"
+			// OutputMsg is a fixed generated name for the output template
+			desc := resolver.ResolveMessage(msgName)
+			if desc == nil {
+				continue
+			}
+
+			// We only support a single level of nesting in output templates.
+			attributes := make(map[string]*config.AttributeManifest_AttributeInfo)
+			for _, field := range desc.GetField() {
+				attributes["output."+field.GetName()] = &config.AttributeManifest_AttributeInfo{
+					ValueType: yaml.DecodeType(resolver, field),
+				}
+			}
+
+			result[templateName].AttributeManifest = attributes
 		}
 	}
 	return result

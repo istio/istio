@@ -57,6 +57,10 @@ var (
 	parentShutdownDuration   time.Duration
 	discoveryAddress         string
 	zipkinAddress            string
+	lightstepAddress         string
+	lightstepAccessToken     string
+	lightstepSecure          bool
+	lightstepCacertPath      string
 	connectTimeout           time.Duration
 	statsdUDPAddress         string
 	proxyAdminPort           uint16
@@ -141,7 +145,6 @@ var (
 			proxyConfig.DrainDuration = types.DurationProto(drainDuration)
 			proxyConfig.ParentShutdownDuration = types.DurationProto(parentShutdownDuration)
 			proxyConfig.DiscoveryAddress = discoveryAddress
-			proxyConfig.ZipkinAddress = zipkinAddress
 			proxyConfig.ConnectTimeout = types.DurationProto(connectTimeout)
 			proxyConfig.StatsdUdpAddress = statsdUDPAddress
 			proxyConfig.ProxyAdminPort = int32(proxyAdminPort)
@@ -188,6 +191,28 @@ var (
 					proxyConfig.StatsdUdpAddress = ""
 				} else {
 					proxyConfig.StatsdUdpAddress = addr
+				}
+			}
+
+			// set tracing config
+			if lightstepAddress != "" {
+				proxyConfig.Tracing = &meshconfig.Tracing{
+					Tracer: &meshconfig.Tracing_Lightstep_{
+						Lightstep: &meshconfig.Tracing_Lightstep{
+							Address:     lightstepAddress,
+							AccessToken: lightstepAccessToken,
+							Secure:      lightstepSecure,
+							CacertPath:  lightstepCacertPath,
+						},
+					},
+				}
+			} else if zipkinAddress != "" {
+				proxyConfig.Tracing = &meshconfig.Tracing{
+					Tracer: &meshconfig.Tracing_Zipkin_{
+						Zipkin: &meshconfig.Tracing_Zipkin{
+							Address: zipkinAddress,
+						},
+					},
 				}
 			}
 
@@ -340,8 +365,16 @@ func init() {
 		"The time in seconds that Envoy will wait before shutting down the parent process during a hot restart")
 	proxyCmd.PersistentFlags().StringVar(&discoveryAddress, "discoveryAddress", values.DiscoveryAddress,
 		"Address of the discovery service exposing xDS (e.g. istio-pilot:8080)")
-	proxyCmd.PersistentFlags().StringVar(&zipkinAddress, "zipkinAddress", values.ZipkinAddress,
+	proxyCmd.PersistentFlags().StringVar(&zipkinAddress, "zipkinAddress", "",
 		"Address of the Zipkin service (e.g. zipkin:9411)")
+	proxyCmd.PersistentFlags().StringVar(&lightstepAddress, "lightstepAddress", "",
+		"Address of the LightStep Satellite pool")
+	proxyCmd.PersistentFlags().StringVar(&lightstepAccessToken, "lightstepAccessToken", "",
+		"Access Token for LightStep Satellite pool")
+	proxyCmd.PersistentFlags().BoolVar(&lightstepSecure, "lightstepSecure", false,
+		"Should connection to the LightStep Satellite pool be secure")
+	proxyCmd.PersistentFlags().StringVar(&lightstepCacertPath, "lightstepCacertPath", "",
+		"Path to the trusted cacert used to authenticate the pool")
 	proxyCmd.PersistentFlags().DurationVar(&connectTimeout, "connectTimeout",
 		timeDuration(values.ConnectTimeout),
 		"Connection timeout used by Envoy for supporting services")

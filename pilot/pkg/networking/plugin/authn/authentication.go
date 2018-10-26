@@ -123,11 +123,11 @@ func setupFilterChains(authnPolicy *authn.Policy, sdsUdsPath string) []plugin.Fi
 		}
 	} else {
 		tls.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContextSdsSecretConfig{
-			ValidationContextSdsSecretConfig: model.ConstructSdsSecretConfig(model.SDSRootResourceName, sdsUdsPath),
+			ValidationContextSdsSecretConfig: model.ConstructSdsSecretConfig(model.SDSRootResourceName, sdsUdsPath, model.K8sSAJwtTokenFileName),
 		}
 
 		tls.CommonTlsContext.TlsCertificateSdsSecretConfigs = []*auth.SdsSecretConfig{
-			model.ConstructSdsSecretConfig(model.SDSDefaultResourceName, sdsUdsPath),
+			model.ConstructSdsSecretConfig(model.SDSDefaultResourceName, sdsUdsPath, model.K8sSAJwtTokenFileName),
 		}
 	}
 	mtls := GetMutualTLS(authnPolicy)

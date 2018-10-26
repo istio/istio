@@ -99,6 +99,9 @@ type (
 
 		// Params of the instance; used to to create the config SHA.
 		Params map[string]interface{}
+
+		// AttributeBindings used to map the adapter output back into attributes
+		AttributeBindings map[string]string
 	}
 
 	// InstanceStatic configuration for compiled templates. Fully resolved.
@@ -170,6 +173,10 @@ type (
 
 		// package name of the `Template` message
 		PackageName string
+
+		// AttributeManifest declares the output attributes for the template.
+		// For attribute producing adapters, the output attributes are of the form $out.field_name.
+		AttributeManifest map[string]*v1beta1.AttributeManifest_AttributeInfo
 	}
 
 	// Adapter contains info about an adapter

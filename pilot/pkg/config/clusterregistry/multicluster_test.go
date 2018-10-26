@@ -71,8 +71,8 @@ func mockLoadKubeConfig(kubeconfig []byte) (*clientcmdapi.Config, error) {
 
 func verifyControllers(t *testing.T, m *Multicluster, expectedControllerCount int, timeoutName string) {
 	pkgtest.NewEventualOpts(10*time.Millisecond, 5*time.Second).Eventually(t, timeoutName, func() bool {
-		m.Lock()
-		defer m.Unlock()
+		m.m.Lock()
+		defer m.m.Unlock()
 		return len(m.remoteKubeControllers) == expectedControllerCount
 	})
 }

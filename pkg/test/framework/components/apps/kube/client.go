@@ -197,7 +197,7 @@ func (a *client) Call(e environment.DeployedAppEndpoint, opts environment.AppCal
 
 	cmd := fmt.Sprintf("client -url %s -count %d %s", u.String(), opts.Count, extra)
 	_, err = util.Retry(20*time.Second, 1*time.Second, func() (interface{}, bool, error) {
-		res, e := a.e.Accessor.Exec(podName, a.namespace(), containerName, cmd)
+		res, e := a.e.Accessor.Exec(a.namespace(), podName, containerName, cmd)
 		if e != nil {
 			return nil, false, e
 		}

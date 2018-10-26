@@ -743,7 +743,7 @@ func TestHelmInject(t *testing.T) {
 					// Generate the patch.  At runtime, the webhook would actually generate the patch against the
 					// pod configuration. But since our input files are deployments, rather than actual pod instances,
 					// we have to apply the patch to the template portion of the deployment only.
-					templateJSON := toJSON(inputDeployment.Spec.Template, t)
+					templateJSON := convertToJSON(inputDeployment.Spec.Template, t)
 					got := webhook.inject(&v1beta1.AdmissionReview{
 						Request: &v1beta1.AdmissionRequest{
 							Object: runtime.RawExtension{
@@ -886,7 +886,7 @@ func splitYamlBytes(yaml []byte, t *testing.T) [][]byte {
 
 func writeYamlsToGoldenFile(yamls [][]byte, goldenFile string, t *testing.T) {
 	content := make([]byte, 0)
-	for _, part := range(yamls) {
+	for _, part := range yamls {
 		content = append(content, part...)
 		content = append(content, []byte(yamlSeparator)...)
 		content = append(content, '\n')
@@ -939,7 +939,7 @@ func getInjectableYamlDocs(yamlDoc string, t *testing.T) [][]byte {
 	}
 }
 
-func toJSON(i interface{}, t *testing.T) []byte {
+func convertToJSON(i interface{}, t *testing.T) []byte {
 	t.Helper()
 	outputJSON, err := json.Marshal(i)
 	if err != nil {
@@ -1020,10 +1020,30 @@ func compareDeployments(got, want *extv1beta1.Deployment, name string, t *testin
 	gotIstioProxy.Image = wantIstioProxy.Image
 	gotIstioProxy.TerminationMessagePath = wantIstioProxy.TerminationMessagePath
 	gotIstioProxy.TerminationMessagePolicy = wantIstioProxy.TerminationMessagePolicy
+
+	// collect automatically injected pod labels so that they can
+	// be adjusted later.
+	envNames := map[string]bool{}
+	for k := range got.Spec.Template.ObjectMeta.Labels {
+		envNames["ISTIO_META_"+k] = true
+	}
+
 	envVars := make([]corev1.EnvVar, 0)
 	for _, env := range gotIstioProxy.Env {
 		if env.ValueFrom != nil {
 			env.ValueFrom.FieldRef.APIVersion = ""
+		}
+		// check if metajson is encoded correctly
+		if strings.HasPrefix(env.Name, "ISTIO_METAJSON_") {
+			var mm map[string]string
+			if err := json.Unmarshal([]byte(env.Value), &mm); err != nil {
+				t.Fatalf("unable to unmarshal %s: %v", env.Value, err)
+			}
+			continue
+		}
+		// adjust for injected var names.
+		if _, found := envNames[env.Name]; found {
+			continue
 		}
 		envVars = append(envVars, env)
 	}

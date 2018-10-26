@@ -32,10 +32,7 @@ import (
 	"net/url"
 	"time"
 
-	"k8s.io/apimachinery/pkg/runtime/schema"
-
 	"github.com/gogo/protobuf/proto"
-
 	rbacproto "istio.io/api/rbac/v1alpha1"
 	"istio.io/istio/mixer/adapter/rbac/config"
 	"istio.io/istio/mixer/pkg/adapter"
@@ -43,6 +40,7 @@ import (
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/status"
 	"istio.io/istio/mixer/template/authorization"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 type (
@@ -95,7 +93,7 @@ func (b *builder) SetAuthorizationTypes(types map[string]*authorization.Type) {}
 func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, error) {
 	reg := store.NewRegistry(mixerconfig.StoreInventory()...)
 	groupVersion := &schema.GroupVersion{Group: apiGroup, Version: apiVersion}
-	s, err := reg.NewStore(b.adapterConfig.ConfigStoreUrl, groupVersion, nil)
+	s, err := reg.NewStore(b.adapterConfig.ConfigStoreUrl, groupVersion, nil, []string{})
 	if err != nil {
 		return nil, env.Logger().Errorf("Unable to connect to the configuration server: %v", err)
 	}

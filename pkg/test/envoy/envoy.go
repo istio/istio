@@ -29,7 +29,7 @@ import (
 
 const (
 	// DefaultLogLevel the log level used for Envoy if not specified.
-	DefaultLogLevel = LogLevelTrace
+	DefaultLogLevel = LogLevelWarning
 
 	// DefaultLogEntryPrefix the default prefix for all log lines from Envoy.
 	DefaultLogEntryPrefix = "[ENVOY]"

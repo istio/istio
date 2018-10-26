@@ -93,7 +93,7 @@ func ReadGoldenFile(content []byte, goldenFile string, t *testing.T) []byte {
 }
 
 // RefreshGoldenFile updates the golden file with the given content
-func RefreshGoldenFile( content []byte, goldenFile string, t *testing.T) {
+func RefreshGoldenFile(content []byte, goldenFile string, t *testing.T) {
 	if Refresh() {
 		t.Logf("Refreshing golden file %s", goldenFile)
 		if err := ioutil.WriteFile(goldenFile, content, 0644); err != nil {

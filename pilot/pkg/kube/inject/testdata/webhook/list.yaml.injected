@@ -88,7 +88,6 @@ spec:
           requests:
             cpu: 10m
         securityContext:
-          privileged: false
           readOnlyRootFilesystem: true
           runAsUser: 1337
         volumeMounts:
@@ -116,12 +115,17 @@ spec:
         image: gcr.io/istio-release/proxy_init:master-latest-daily
         imagePullPolicy: IfNotPresent
         name: istio-init
-        resources: {}
+        resources:
+          limits:
+            cpu: 10m
+            memory: 10Mi
+          requests:
+            cpu: 10m
+            memory: 10Mi
         securityContext:
           capabilities:
             add:
             - NET_ADMIN
-          privileged: true
       volumes:
       - emptyDir:
           medium: Memory
@@ -223,7 +227,6 @@ spec:
           requests:
             cpu: 10m
         securityContext:
-          privileged: false
           readOnlyRootFilesystem: true
           runAsUser: 1337
         volumeMounts:
@@ -251,12 +254,17 @@ spec:
         image: gcr.io/istio-release/proxy_init:master-latest-daily
         imagePullPolicy: IfNotPresent
         name: istio-init
-        resources: {}
+        resources:
+          limits:
+            cpu: 10m
+            memory: 10Mi
+          requests:
+            cpu: 10m
+            memory: 10Mi
         securityContext:
           capabilities:
             add:
             - NET_ADMIN
-          privileged: true
       volumes:
       - emptyDir:
           medium: Memory

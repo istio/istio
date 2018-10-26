@@ -24,8 +24,6 @@ import (
 	"sync"
 	"time"
 
-	"istio.io/istio/pkg/mcp/snapshot"
-
 	"github.com/gogo/protobuf/proto"
 	"google.golang.org/grpc"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -38,6 +36,7 @@ import (
 	"istio.io/istio/pkg/mcp/client"
 	"istio.io/istio/pkg/mcp/configz"
 	"istio.io/istio/pkg/mcp/creds"
+	"istio.io/istio/pkg/mcp/snapshot"
 	"istio.io/istio/pkg/probe"
 )
 
@@ -53,7 +52,7 @@ const (
 // Do not use 'init()' for automatic registration; linker will drop
 // the whole module because it looks unused.
 func Register(builders map[string]store.Builder) {
-	builder := func(u *url.URL, gv *schema.GroupVersion, credOptions *creds.Options) (store.Backend, error) {
+	builder := func(u *url.URL, gv *schema.GroupVersion, credOptions *creds.Options, _ []string) (store.Backend, error) {
 		return newStore(u, credOptions, nil)
 	}
 
