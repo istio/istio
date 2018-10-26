@@ -59,7 +59,6 @@ func verifyInstall(restClientGetter resource.RESTClientGetter, options resource.
 		if kinds == "" {
 			kinds = strings.ToLower(kind) + "s"
 		}
-		kube_meta.Types.All()
 		if namespace == "" {
 			namespace = "default"
 		}
