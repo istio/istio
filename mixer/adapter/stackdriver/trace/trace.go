@@ -114,16 +114,16 @@ func (h *handler) HandleTraceSpan(_ context.Context, values []*tracespan.Instanc
 			continue
 		}
 
-		decision := h.sampler(trace.SamplingParameters{
-			ParentContext:   parentContext,
-			TraceID:         spanContext.TraceID,
-			SpanID:          spanContext.SpanID,
-			Name:            val.SpanName,
-			HasRemoteParent: true,
-		})
-
-		if !decision.Sample {
-			continue
+		if !val.ForceSample {
+			if decision := h.sampler(trace.SamplingParameters{
+				ParentContext:   parentContext,
+				TraceID:         spanContext.TraceID,
+				SpanID:          spanContext.SpanID,
+				Name:            val.SpanName,
+				HasRemoteParent: true,
+			}); !decision.Sample {
+				continue
+			}
 		}
 		spanContext.TraceOptions = trace.TraceOptions(1 /*sampled*/)
 
