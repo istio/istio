@@ -274,6 +274,15 @@ metadata:
     istio: mixer
 spec:
   replicas: {{ $.Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ template "mixer.name" $ }}
+      chart: {{ template "mixer.chart" $ }}
+      heritage: {{ $.Release.Service }}
+      release: {{ $.Release.Name }}
+      version: {{ $.Chart.Version }}
+      istio: mixer
+      istio-mixer-type: {{ $mname }}
   template:
     metadata:
       labels:
