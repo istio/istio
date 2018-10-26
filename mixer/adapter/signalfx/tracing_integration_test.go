@@ -29,6 +29,9 @@ import (
 )
 
 const (
+	sampleEverything = 1.0
+	sampleNothing    = 0.0
+
 	tracingConfig = `
 apiVersion: "config.istio.io/v1alpha2"
 kind: signalfx
@@ -40,7 +43,7 @@ spec:
   ingest_url: %s
   enable_metrics: false
   tracing_buffer_size: 1000
-  tracing_sample_probability: 1.0
+  tracing_sample_probability: %f
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
@@ -62,6 +65,7 @@ spec:
   traceId: request.headers["x-b3-traceid"] | ""
   spanId: request.headers["x-b3-spanid"] | ""
   parentSpanId: request.headers["x-b3-parentspanid"] | ""
+  forceSample: request.headers["x-b3-sampled"] == "1" || request.headers["x-b3-sampled"] == "true"
   spanName: request.path | "/"
   startTime: request.time
   endTime: response.time
@@ -191,7 +195,7 @@ func TestReportTraces(t *testing.T) {
 			},
 
 			Configs: []string{
-				fmt.Sprintf(tracingConfig, fakeIngest.URL),
+				fmt.Sprintf(tracingConfig, fakeIngest.URL, sampleEverything),
 			},
 
 			Want: `
@@ -312,6 +316,125 @@ func TestReportTraces(t *testing.T) {
                "Error": null,
                "Quota": null
               },
+              {
+               "Check": {
+                "Status": {},
+                "ValidDuration": 0,
+                "ValidUseCount": 0
+               },
+               "Error": null,
+               "Quota": null
+              }
+             ]
+             }`,
+		},
+	)
+}
+func TestReportTracesWithForcedSample(t *testing.T) {
+	fakeIngest := &fakeSfxIngest{
+		Spans: make(chan *trace.Span, 3),
+	}
+	fakeIngest.Server = httptest.NewServer(fakeIngest)
+
+	end := time.Unix(1000, 0)
+	start := end.Add(-100 * time.Millisecond)
+
+	adapter_integration.RunTest(
+		t,
+		GetInfo,
+		adapter_integration.Scenario{
+			ParallelCalls: []adapter_integration.Call{
+				{
+					CallKind: adapter_integration.REPORT,
+					Attrs: map[string]interface{}{
+						"request.time":          start,
+						"response.time":         end,
+						"context.reporter.kind": "outbound",
+						"request.headers": map[string]string{
+							"x-b3-traceid": "463ac35c9f6413ad48485a3953bb6124",
+							"x-b3-spanid":  "a2fb4a1d1a96d312",
+							"x-b3-sampled": "1",
+						},
+						"request.path":        "/foo/bar",
+						"request.host":        "example.istio.com",
+						"request.useragent":   "xxx",
+						"request.size":        int64(128),
+						"response.size":       int64(512),
+						"source.service":      "srcsvc",
+						"destination.service": "destsvc",
+						"destination.name":    "destsvc",
+						"destination.ip":      []byte(net.ParseIP("10.0.0.2")),
+						"source.labels":       map[string]string{"version": "v1"},
+						"source.ip":           []byte(net.ParseIP("10.0.0.1")),
+						"source.name":         "srcsvc",
+						"api.protocol":        "http",
+						"request.method":      "POST",
+						"response.code":       int64(200),
+					},
+				},
+			},
+
+			GetState: func(_ interface{}) (interface{}, error) {
+				ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+				var spans []*trace.Span
+				for {
+					select {
+					case <-ctx.Done():
+						cancel()
+						return spans, nil
+					case sp := <-fakeIngest.Spans:
+						spans = append(spans, sp)
+						sort.Slice(spans, func(i, j int) bool {
+							return *spans[i].Timestamp < *spans[j].Timestamp
+						})
+						if len(spans) >= 3 {
+							cancel()
+							return spans, nil
+						}
+					}
+				}
+			},
+
+			Configs: []string{
+				fmt.Sprintf(tracingConfig, fakeIngest.URL, sampleNothing),
+			},
+
+			Want: `
+            {
+             "AdapterState": [
+                  {
+                   "annotations": null,
+                   "debug": null,
+                   "duration": 100000,
+                   "id": "a2fb4a1d1a96d312",
+                   "kind": "CLIENT",
+                   "localEndpoint": {
+                    "ipv4": "10.0.0.1",
+                    "ipv6": null,
+                    "port": null,
+                    "serviceName": "srcsvc"
+                   },
+                   "name": "/foo/bar",
+                   "parentId": null,
+                   "remoteEndpoint": {
+                    "ipv4": "10.0.0.2",
+                    "ipv6": null,
+                    "port": null,
+                    "serviceName": "destsvc"
+                   },
+                   "shared": null,
+                   "tags": {
+                    "destination.ip": "10.0.0.2",
+                    "destination.name": "destsvc",
+                    "httpStatusCode": "200",
+                    "source.ip": "10.0.0.1",
+                    "source.name": "srcsvc"
+                   },
+                   "timestamp": 999900000,
+                   "traceId": "463ac35c9f6413ad48485a3953bb6124"
+                  }
+             ],
+             "Returns": [
               {
                "Check": {
                 "Status": {},

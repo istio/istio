@@ -130,6 +130,10 @@ func (th *tracinghandler) shouldSend(span *tracespan.Instance) bool {
 		return false
 	}
 
+	if span.ForceSample {
+		return true
+	}
+
 	params := octrace.SamplingParameters{
 		ParentContext:   parentContext,
 		TraceID:         spanContext.TraceID,
