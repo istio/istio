@@ -9,6 +9,7 @@ service:
   annotations: {}
   loadBalancerIP: ""
   type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
+  externalTrafficPolicy: Cluster
   ports:
   - port: 80
     name: http
