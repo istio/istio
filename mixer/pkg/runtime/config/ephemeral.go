@@ -324,6 +324,13 @@ func (e *Ephemeral) processDynamicInstanceConfigs(templates map[string]*Template
 
 		inst := resource.Spec.(*config.Instance)
 		instanceName := key.String()
+
+		if inst.Params == nil {
+			appendErr(errs, fmt.Sprintf("instance='%s'.params", instanceName),
+				counters.instanceConfigError, "params cannot be nil")
+			continue
+		}
+
 		log.Debugf("Processing incoming instance config: name='%s'\n%s", instanceName, resource.Spec)
 
 		tmpl, _ := getCanonicalRef(inst.Template, constant.TemplateKind, key.Namespace, func(n string) interface{} {
@@ -350,23 +357,22 @@ func (e *Ephemeral) processDynamicInstanceConfigs(templates map[string]*Template
 		var enc dynamic.Encoder
 		var params map[string]interface{}
 		var err error
-		if inst.Params != nil {
-			if _, ok := inst.Params.(map[string]interface{}); !ok {
-				appendErr(errs, fmt.Sprintf("instance='%s'.params", instanceName),
-					counters.instanceConfigError, "invalid params block. It must be of type map[string]interface{}")
-				continue
-			}
-			params = inst.Params.(map[string]interface{})
-			// name field is not provided by instance config author, instead it is added by Mixer into the request
-			// object that is passed to the adapter.
-			params["name"] = fmt.Sprintf("\"%s\"", instanceName)
-			enc, err = b.Build(getTemplatesMsgFullName(template.PackageName), params)
-			if err != nil {
-				appendErr(errs, fmt.Sprintf("instance='%s'.params", instanceName),
-					counters.instanceConfigError, "config does not conform to schema of template '%s': %v",
-					inst.Template, err.Error())
-				continue
-			}
+
+		if _, ok := inst.Params.(map[string]interface{}); !ok {
+			appendErr(errs, fmt.Sprintf("instance='%s'.params", instanceName),
+				counters.instanceConfigError, "invalid params block. It must be of type map[string]interface{}")
+			continue
+		}
+		params = inst.Params.(map[string]interface{})
+		// name field is not provided by instance config author, instead it is added by Mixer into the request
+		// object that is passed to the adapter.
+		params["name"] = fmt.Sprintf("\"%s\"", instanceName)
+		enc, err = b.Build(getTemplatesMsgFullName(template.PackageName), params)
+		if err != nil {
+			appendErr(errs, fmt.Sprintf("instance='%s'.params", instanceName),
+				counters.instanceConfigError, "config does not conform to schema of template '%s': %v",
+				inst.Template, err.Error())
+			continue
 		}
 
 		cfg := &InstanceDynamic{
@@ -721,7 +727,7 @@ func (e *Ephemeral) processDynamicTemplateConfigs(counters Counters, errs *multi
 		}
 
 		result[templateName] = &Template{
-			Name: templateName,
+			Name:                       templateName,
 			InternalPackageDerivedName: name,
 			FileDescSet:                fds,
 			PackageName:                desc.GetPackage(),

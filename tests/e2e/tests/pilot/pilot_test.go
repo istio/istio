@@ -220,16 +220,44 @@ func runRetriableTest(t *testing.T, cluster, testName string, retries int, f fun
 	})
 }
 
+type resource struct {
+	// Kind of the resource
+	Kind string
+	// Name of the resource
+	Name string
+}
+
 // deployableConfig is a collection of configs that are applied/deleted as a single unit.
 type deployableConfig struct {
-	Namespace  string
-	YamlFiles  []string
+	Namespace string
+	YamlFiles []string
+	// List of resources must be removed during deployableConfig setup, and restored
+	// during teardown. These resources must exist before deployableConfig setup runs, and should be
+	// in the same namespace defined above. Typically, they are added by the default Istio installation
+	// (e.g the default global authentication policy) and need to be modified for tests.
+	Removes    []resource
 	applied    []string
+	removed    []string
 	kubeconfig string
 }
 
 // Setup pushes the config and waits for it to propagate to all nodes in the cluster.
 func (c *deployableConfig) Setup() error {
+	c.removed = []string{}
+	for _, r := range c.Removes {
+		content, err := util.KubeGetYaml(c.Namespace, r.Kind, r.Name, c.kubeconfig)
+		if err != nil {
+			// Run the teardown function now and return
+			_ = c.Teardown()
+			return err
+		}
+		if err := util.KubeDeleteContents(c.Namespace, content, c.kubeconfig); err != nil {
+			// Run the teardown function now and return
+			_ = c.Teardown()
+			return err
+		}
+		c.removed = append(c.removed, content)
+	}
 	c.applied = []string{}
 	// Apply the configs.
 	for _, yamlFile := range c.YamlFiles {
@@ -260,6 +288,10 @@ func (c *deployableConfig) TeardownNoDelay() error {
 	var err error
 	for _, yamlFile := range c.applied {
 		err = multierr.Append(err, util.KubeDelete(c.Namespace, yamlFile, c.kubeconfig))
+	}
+	// Restore configs that was removed
+	for _, yaml := range c.removed {
+		err = multierr.Append(err, util.KubeApplyContents(c.Namespace, yaml, c.kubeconfig))
 	}
 	c.applied = []string{}
 	return err

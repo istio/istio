@@ -306,9 +306,21 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 				}
 			}
 		case plugin.ListenerProtocolTCP:
-			listenerOpts.filterChainOpts = []*filterChainOpts{{
-				networkFilters: buildInboundNetworkFilters(env, instance),
-			}}
+			if listenerOpts.tlsMultiplexed {
+				listenerOpts.filterChainOpts = []*filterChainOpts{
+					{
+						transportProtocol: authn.EnvoyRawBufferMatch,
+						networkFilters:    buildInboundNetworkFilters(env, instance),
+					}, {
+						transportProtocol: authn.EnvoyTLSMatch,
+						networkFilters:    buildInboundNetworkFilters(env, instance),
+					},
+				}
+			} else {
+				listenerOpts.filterChainOpts = []*filterChainOpts{{
+					networkFilters: buildInboundNetworkFilters(env, instance),
+				}}
+			}
 
 		default:
 			log.Warnf("Unsupported inbound protocol %v for port %#v", protocol, instance.Endpoint.ServicePort)

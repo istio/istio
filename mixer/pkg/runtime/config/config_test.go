@@ -1952,6 +1952,38 @@ Attributes:
 		wantErr: "adapter='testCR1.adapter.default': unable to find template 'mymetric.default'",
 	},
 	{
+		Name: "missing params in instance",
+		Events1: []*store.Event{
+			updateEvent("mymetric.template.default", &adapter_model.Template{
+				Descriptor_: tmpl1Base64Str,
+			}),
+			updateEvent("testCR1.instance.default", &descriptorpb.Instance{
+				Template: "mymetric.default",
+			}),
+		},
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+TemplatesDynamic:
+  Resource Name:  mymetric.template.default
+    Name:  mymetric.template.default
+    InternalPackageDerivedName:  foo
+Attributes:
+  template.attr: BOOL
+`,
+		wantErr: "instance='testCR1.instance.default'.params: params cannot be nil",
+	},
+	{
 		Name: "delete template - break instance",
 		Events1: []*store.Event{
 			updateEvent("mymetric.template.default", &adapter_model.Template{
@@ -1959,6 +1991,7 @@ Attributes:
 			}),
 			updateEvent("testCR1.instance.default", &descriptorpb.Instance{
 				Template: "mymetric.default",
+				Params:   map[string]interface{}{},
 			}),
 			deleteEvent("mymetric.template.default"),
 		},
