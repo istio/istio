@@ -59,6 +59,7 @@ func verifyInstall(restClientGetter resource.RESTClientGetter, options resource.
 		if kinds == "" {
 			kinds = strings.ToLower(kind) + "s"
 		}
+		kube_meta.Types.All()
 		if namespace == "" {
 			namespace = "default"
 		}
@@ -202,6 +203,7 @@ func getDeploymentCondition(status v1beta1.DeploymentStatus, condType v1beta1.De
 	}
 	return nil
 }
+
 func findResourceInSpec(kind string) string {
 	for _, spec := range kube_meta.Types.All() {
 		if spec.Kind == kind {
