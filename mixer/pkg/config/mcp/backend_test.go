@@ -134,7 +134,7 @@ func TestBackend_HasSynced(t *testing.T) {
 	}
 
 	b := snapshot.NewInMemoryBuilder()
-	for typeURL, _ := range st.mapping.typeURLsToKinds {
+	for typeURL := range st.mapping.typeURLsToKinds {
 		b.SetVersion(typeURL, "0")
 
 	}
