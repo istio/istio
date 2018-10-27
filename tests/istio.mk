@@ -66,6 +66,9 @@ DEFAULT_EXTRA_E2E_ARGS += --galley_hub=${HUB}
 EXTRA_E2E_ARGS ?= ${DEFAULT_EXTRA_E2E_ARGS}
 
 e2e_simple: istioctl generate_yaml e2e_simple_run
+e2e_simple_cni: istioctl
+e2e_simple_cni: export E2E_ARGS+=--kube_inject_configmap=istio-sidecar-injector
+e2e_simple_cni: generate_yaml_cni e2e_simple_run
 e2e_simple_auth: istioctl generate_yaml e2e_simple_auth_run
 e2e_simple_noauth: istioctl generate_yaml e2e_simple_noauth_run
 
@@ -146,14 +149,7 @@ CAPTURE_LOG=| tee -a ${OUT_DIR}/tests/build-log.txt
 out_dir:
 	@mkdir -p ${OUT_DIR}/{logs,tests}
 
-test/local/auth/e2e_simple: export E2E_ARGS+=--kube_inject_configmap=istio-sidecar-injector
-test/local/auth/e2e_simple: out_dir generate_yaml_cni
-	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/simple -args --auth_enable=true \
-	--egress=false --ingress=false \
-	--rbac_enable=false --use_local_cluster --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
-
-test/local/auth/e2e_simple_cni: export E2E_ARGS+=--kube_inject_configmap=istio-sidecar-injector
-test/local/auth/e2e_simple_cni: out_dir generate_yaml_cni
+test/local/auth/e2e_simple: out_dir generate_yaml
 	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/simple -args --auth_enable=true \
 	--egress=false --ingress=false \
 	--rbac_enable=false --use_local_cluster --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
