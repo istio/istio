@@ -43,7 +43,7 @@ RUN upx --lzma \
         /out/usr/bin/grpc_* \
         /out/usr/bin/protoc-gen-*
 
-FROM alpine:3.7
+FROM alpine:3.8
 RUN apk add --update --no-cache --upgrade libstdc++ make bash git openssh
 COPY --from=packer /out/ /
 
