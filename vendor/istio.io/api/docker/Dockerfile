@@ -1,8 +1,8 @@
 # Based on: https://github.com/znly/docker-protobuf/blob/master/Dockerfile
 # Modified to slim down the image and adjust for Istio
 
-FROM alpine:3.7 as protoc_builder
-RUN apk add --no-cache build-base curl automake autoconf libtool git zlib-dev
+FROM alpine:3.8 as protoc_builder
+RUN apk add --no-cache --update --upgrade build-base curl automake autoconf libtool git zlib-dev
 
 ENV GRPC_VERSION=1.8.3 \
     PROTOBUF_VERSION=3.5.1 \
@@ -23,8 +23,7 @@ RUN cd /protobuf && \
 RUN cd /grpc && \
     make install-plugins prefix=${OUTDIR}/usr
 RUN find ${OUTDIR} -name "*.a" -delete -or -name "*.la" -delete
-RUN apk update
-RUN apk add --no-cache go>1.10
+RUN apk add --update --upgrade --no-cache go>1.10
 ENV GOPATH=/go \
     PATH=/go/bin/:$PATH
 RUN go get -u -v -ldflags '-w -s' \
@@ -45,7 +44,7 @@ RUN upx --lzma \
         /out/usr/bin/protoc-gen-*
 
 FROM alpine:3.7
-RUN apk add --update --no-cache libstdc++ make bash git openssh
+RUN apk add --update --no-cache --upgrade libstdc++ make bash git openssh
 COPY --from=packer /out/ /
 
 RUN apk add --no-cache curl && \
