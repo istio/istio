@@ -874,7 +874,7 @@ message HTTPRetry {
   // The supported policies can be found in
   // "https://www.envoyproxy.io/docs/envoy/latest/configuration/http_filters/router_filter#x-envoy-retry-on"
   // and "https://www.envoyproxy.io/docs/envoy/latest/configuration/http_filters/router_filter#x-envoy-retry-grpc-on"
-  string retryOn = 3;
+  string retry_on = 3;
 }
 
 // Describes the Cross-Origin Resource Sharing (CORS) policy, for a given
