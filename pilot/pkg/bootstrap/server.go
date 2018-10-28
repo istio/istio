@@ -25,6 +25,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -66,6 +67,7 @@ import (
 	srmemory "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/features/pilot"
+	"istio.io/istio/pkg/filewatcher"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 	mcpclient "istio.io/istio/pkg/mcp/client"
@@ -157,7 +159,6 @@ type PilotArgs struct {
 	Service              ServiceArgs
 	MeshConfig           *meshconfig.MeshConfig
 	NetworksConfigFile   string
-	MeshNetworks         *meshconfig.MeshNetworks
 	CtrlZOptions         *ctrlz.Options
 	Plugins              []string
 	MCPServerAddrs       []string
@@ -334,40 +335,6 @@ func GetMeshConfig(kube kubernetes.Interface, namespace, name string) (*v1.Confi
 	return config, mesh, nil
 }
 
-// GetMeshNetworks fetches the MeshNetworks configuration from Kubernetes ConfigMap.
-func GetMeshNetworks(kube kubernetes.Interface, namespace, name string) (*v1.ConfigMap, *meshconfig.MeshNetworks, error) {
-
-	if kube == nil {
-		defaultMeshNetworks := model.EmptyMeshNetworks()
-		return nil, &defaultMeshNetworks, nil
-	}
-
-	config, err := kube.CoreV1().ConfigMaps(namespace).Get(name, meta_v1.GetOptions{})
-	if err != nil {
-		if errors.IsNotFound(err) {
-			defaultMeshNetworks := model.EmptyMeshNetworks()
-			return nil, &defaultMeshNetworks, nil
-		}
-		return nil, nil, err
-	}
-
-	// values in the data are strings, while proto might use a different data type.
-	// therefore, we have to get a value by a key
-	cfgYaml, exists := config.Data[MeshNetworksConfigMapKey]
-	if !exists {
-		return nil, nil, fmt.Errorf("missing configuration map key %q", MeshNetworksConfigMapKey)
-	}
-
-	mesh, err := model.LoadMeshNetworksConfig(cfgYaml)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// TODO Add watcher to track changes in the config map file and re-load it
-
-	return config, mesh, nil
-}
-
 // initMesh creates the mesh in the pilotConfig from the input arguments.
 func (s *Server) initMesh(args *PilotArgs) error {
 	// If a config file was specified, use it.
@@ -407,34 +374,54 @@ func (s *Server) initMesh(args *PilotArgs) error {
 	return nil
 }
 
-// initMeshNetworks creates the meshNetworks in the pilotConfig from the input arguments.
+// initMeshNetworks loads the mesh networks configuration from the file provided
+// in the args and add a watcher for changes in this file.
 func (s *Server) initMeshNetworks(args *PilotArgs) error {
-	// If a config file was specified, use it.
-	if args.MeshNetworks != nil {
-		s.meshNetworks = args.MeshNetworks
+	if args.NetworksConfigFile == "" {
+		log.Info("mesh networks configuration not provided")
 		return nil
 	}
+
 	var meshNetworks *meshconfig.MeshNetworks
 	var err error
 
-	if args.NetworksConfigFile != "" {
-		meshNetworks, err = cmd.ReadMeshNetworksConfig(args.NetworksConfigFile)
-		if err != nil {
-			log.Warnf("failed to read mesh networks configuration, using default: %v", err)
-		}
+	meshNetworks, err = cmd.ReadMeshNetworksConfig(args.NetworksConfigFile)
+	if err != nil {
+		log.Warnf("failed to read mesh networks configuration from %q. using default.", args.NetworksConfigFile)
+		return nil
 	}
-
-	if meshNetworks == nil {
-		// Config file either wasn't specified or failed to load - use a default
-		if _, meshNetworks, err = GetMeshNetworks(s.kubeClient, kube.IstioNamespace, kube.IstioNetworksConfigMap); err != nil {
-			log.Warnf("failed to read mesh networks configuration: %v", err)
-			return err
-		}
-	}
-
 	log.Infof("mesh networks configuration %s", spew.Sdump(meshNetworks))
-
 	s.meshNetworks = meshNetworks
+
+	// Watch the config file for changes and reload if it got modified
+	fileWatcher := filewatcher.NewWatcher()
+	fileWatcher.Add(args.NetworksConfigFile)
+	go func() {
+		var timerC <-chan time.Time
+		for {
+			select {
+			case <-timerC:
+				timerC = nil
+				// Reload the config file
+				meshNetworks, err = cmd.ReadMeshNetworksConfig(args.NetworksConfigFile)
+				if err != nil {
+					log.Warnf("failed to read mesh networks configuration from %q", args.NetworksConfigFile)
+					continue
+				}
+				if reflect.DeepEqual(meshNetworks, s.meshNetworks) {
+					log.Infof("mesh networks configurtion file updated to: %s", spew.Sdump(meshNetworks))
+					s.meshNetworks = meshNetworks
+					s.EnvoyXdsServer.ConfigUpdate(true)
+				}
+			case <-fileWatcher.Events(args.NetworksConfigFile):
+				// Use a timer to debounce configuration updates
+				if timerC == nil {
+					timerC = time.After(100 * time.Millisecond)
+				}
+			}
+		}
+	}()
+
 	return nil
 }
 
