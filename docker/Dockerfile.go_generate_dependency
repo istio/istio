@@ -1,12 +1,12 @@
 FROM alpine:3.8 as go_generate_dependency_builder
+ENV GOPATH=/go \
+    PATH=/go/bin/:$PATH
 RUN apk add --update --upgrade --no-cache \
     build-base \
     git \
-    go>1.10
-
-ENV GOPATH=/go \
-    PATH=/go/bin/:$PATH
-RUN go get -u -v \
+    go>1.10 && \
+    \
+    go get -u -v \
     github.com/jteeuwen/go-bindata/... \
     github.com/maxbrunsfeld/counterfeiter
 
