@@ -1,8 +1,9 @@
-FROM alpine:3.7 as go_generate_dependency_builder
-RUN apk add --no-cache build-base git
+FROM alpine:3.8 as go_generate_dependency_builder
+RUN apk add --update --upgrade --no-cache \
+    build-base \
+    git \
+    go>1.10
 
-RUN apk update
-RUN apk add --no-cache go>1.10
 ENV GOPATH=/go \
     PATH=/go/bin/:$PATH
 RUN go get -u -v \
