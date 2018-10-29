@@ -72,6 +72,7 @@ func NewHelmDeployment(c HelmConfig) (*Instance, error) {
 		deploymentName,
 		c.Namespace,
 		c.ChartDir,
+		c.WorkDir,
 		valuesFile,
 		c.Values); err != nil {
 		return nil, fmt.Errorf("chart generation failed: %v", err)
@@ -92,7 +93,7 @@ func NewHelmDeployment(c HelmConfig) (*Instance, error) {
 }
 
 // HelmTemplate calls "helm template".
-func HelmTemplate(deploymentName, namespace, chartDir, valuesFile string, values map[string]string) (str string, err error) {
+func HelmTemplate(deploymentName, namespace, chartDir, workDir, valuesFile string, values map[string]string) (string, error) {
 	valuesString := ""
 
 	// Apply the overrides for the values file.
@@ -107,25 +108,39 @@ func HelmTemplate(deploymentName, namespace, chartDir, valuesFile string, values
 		valuesFileString = fmt.Sprintf(" --values %s", valuesFile)
 	}
 
-	defer func() {
-		if err != nil {
-			err = fmt.Errorf("%v: %s", err, str)
-			str = ""
-		}
-	}()
-
-	str, err = shell.Execute("helm init --client-only")
+	err := initCharts(chartDir, workDir)
 	if err != nil {
-		return
+		return "", err
 	}
 
-	str, err = shell.Execute("helm dep update %s", chartDir)
-	if err != nil {
-		return
-	}
-
-	str, err = shell.Execute(
+	return shell.Execute(
 		"helm template %s --name %s --namespace %s%s%s",
 		chartDir, deploymentName, namespace, valuesFileString, valuesString)
-	return
+}
+
+func initCharts(chartDir, workDir string) error {
+	// Initialize the helm (but do not install tiller).
+	if err := exec("helm init --client-only"); err != nil {
+		return err
+	}
+
+	// Create a dir for the packaged charts.
+	chartBuildDir, err := ioutil.TempDir(workDir, "helm-charts-")
+	if err != nil {
+		return err
+	}
+
+	// Package the chart dir.
+	if err := exec(fmt.Sprintf("helm package -u %s -d %s", chartDir, chartBuildDir)); err != nil {
+		return err
+	}
+	return nil
+}
+
+func exec(cmd string) error {
+	str, err := shell.Execute(cmd)
+	if err != nil {
+		return fmt.Errorf("failed executing command (%s): %v: %s", cmd, err, str)
+	}
+	return nil
 }
