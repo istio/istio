@@ -253,6 +253,9 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 	}
 	locEps := make([]endpoint.LocalityLbEndpoints, 0, len(localityEpMap))
 	for _, locLbEps := range localityEpMap {
+		locLbEps.LoadBalancingWeight = &types.UInt32Value{
+			Value: uint32(len(locLbEps.LbEndpoints)),
+		}
 		locEps = append(locEps, *locLbEps)
 	}
 
@@ -321,7 +324,6 @@ func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 				for _, ep := range epi {
 					//shard := ep.AvailabilityZone
 					l := map[string]string(ep.Labels)
-
 					entries = append(entries, &model.IstioEndpoint{
 						Family:          ep.Endpoint.Family,
 						Address:         ep.Endpoint.Address,
@@ -575,6 +577,9 @@ func localityLbEndpointsFromInstances(instances []*model.ServiceInstance) []endp
 	}
 	out := make([]endpoint.LocalityLbEndpoints, 0, len(localityEpMap))
 	for _, locLbEps := range localityEpMap {
+		locLbEps.LoadBalancingWeight = &types.UInt32Value{
+			Value: uint32(len(locLbEps.LbEndpoints)),
+		}
 		out = append(out, *locLbEps)
 	}
 	return out
