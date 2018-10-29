@@ -27,6 +27,11 @@ ISTIO_DOCKER_HUB ?= docker.io/istio
 export ISTIO_DOCKER_HUB
 ISTIO_GCS ?= istio-release/releases/$(VERSION)
 ISTIO_URL ?= https://storage.googleapis.com/$(ISTIO_GCS)
+ISTIO_CNI_DOCKER_HUB ?= docker.io/tiswanso
+export ISTIO_CNI_DOCKER_HUB
+ISTIO_CNI_DOCKER_TAG ?= v0.1-dev-mapann
+export ISTIO_CNI_DOCKER_TAG
+
 
 # cumulatively track the directories/files to delete after a clean
 DIRS_TO_CLEAN:=
@@ -708,7 +713,8 @@ FILES_TO_CLEAN+=install/consul/istio.yaml \
                 samples/bookinfo/platform/consul/bookinfo.sidecars.yaml \
 
 generate_yaml_cni: export ENABLE_ISTIO_CNI=true
-generate_yaml_cni: export EXTRA_HELM_SETTINGS=--set istio-cni.excludeNamespaces={} --set istio-cni.pullPolicy=IfNotPresent --set istio-cni.tag=v0.1-dev-mapann --set istio-cni.hub=docker.io/tiswanso
+generate_yaml_cni: export EXTRA_HELM_SETTINGS=--set istio-cni.excludeNamespaces={} --set istio-cni.pullPolicy=IfNotPresent --set istio-cni.tag=$(ISTIO_CNI_DOCKER_TAG) --set istio-cni.hub=$(ISTIO_CNI_DOCKER_HUB)
+
 generate_yaml_cni:
 	$(MAKE) generate_yaml
 
