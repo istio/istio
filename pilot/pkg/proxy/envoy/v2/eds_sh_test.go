@@ -23,7 +23,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	proto "github.com/gogo/protobuf/types"
-	
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	testenv "istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/bootstrap"
@@ -119,7 +119,7 @@ func verifySplitHorizonResponse(t *testing.T, network string, sidecarId string, 
 
 	metadata := &proto.Struct{Fields: map[string]*proto.Value{
 		"ISTIO_PROXY_VERSION": {Kind: &proto.Value_StringValue{StringValue: "1.1"}},
-		"ISTIO_NETWORK":       {Kind: &proto.Value_StringValue{StringValue: network}},
+		"NETWORK":             {Kind: &proto.Value_StringValue{StringValue: network}},
 	}}
 
 	err = sendCDSReqWithMetadata(sidecarId, metadata, edsstr)
