@@ -67,8 +67,8 @@ func New(groupIndex GroupIndexFn) *Cache {
 var _ server.Watcher = &Cache{}
 
 type responseWatch struct {
-	request   *mcp.MeshConfigRequest // original request
-	responseC chan<- *server.WatchResponse
+	request      *mcp.MeshConfigRequest // original request
+	pushResponse server.PushResponseFunc
 }
 
 // StatusInfo records watch status information of a remote client.
@@ -96,7 +96,7 @@ func (si *StatusInfo) LastWatchRequestTime() time.Time {
 }
 
 // Watch returns a watch for an MCP request.
-func (c *Cache) Watch(request *mcp.MeshConfigRequest, responseC chan<- *server.WatchResponse) (*server.WatchResponse, server.CancelWatchFunc) { // nolint: lll
+func (c *Cache) Watch(request *mcp.MeshConfigRequest, pushResponse server.PushResponseFunc) server.CancelWatchFunc { // nolint: lll
 	group := c.groupIndex(request.Client)
 
 	c.mu.Lock()
@@ -128,7 +128,8 @@ func (c *Cache) Watch(request *mcp.MeshConfigRequest, responseC chan<- *server.W
 				Version:   version,
 				Envelopes: snapshot.Resources(request.TypeUrl),
 			}
-			return response, nil
+			pushResponse(response)
+			return nil
 		}
 	}
 
@@ -140,7 +141,7 @@ func (c *Cache) Watch(request *mcp.MeshConfigRequest, responseC chan<- *server.W
 		watchID, request.TypeUrl, group, request.VersionInfo)
 
 	info.mu.Lock()
-	info.watches[watchID] = &responseWatch{request: request, responseC: responseC}
+	info.watches[watchID] = &responseWatch{request: request, pushResponse: pushResponse}
 	info.mu.Unlock()
 
 	cancel := func() {
@@ -152,7 +153,7 @@ func (c *Cache) Watch(request *mcp.MeshConfigRequest, responseC chan<- *server.W
 			info.mu.Unlock()
 		}
 	}
-	return nil, cancel
+	return cancel
 }
 
 // SetSnapshot updates a snapshot for a group.
@@ -176,7 +177,7 @@ func (c *Cache) SetSnapshot(group string, snapshot Snapshot) {
 					Version:   version,
 					Envelopes: snapshot.Resources(watch.request.TypeUrl),
 				}
-				watch.responseC <- response
+				watch.pushResponse(response)
 
 				// discard the responseWatch
 				delete(info.watches, id)
@@ -207,7 +208,7 @@ func (c *Cache) ClearStatus(group string) {
 		info.mu.Lock()
 		for _, watch := range info.watches {
 			// response channel may be shared
-			watch.responseC <- nil
+			watch.pushResponse(nil)
 		}
 		info.mu.Unlock()
 	}
