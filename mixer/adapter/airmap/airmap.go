@@ -8,6 +8,7 @@ package airmap
 
 import (
 	"context"
+	"regexp"
 	"time"
 
 	"github.com/gogo/googleapis/google/rpc"
@@ -22,11 +23,13 @@ import (
 
 const (
 	keyAPIKey            = "api-key"
+	keyPath              = "path"
 	keyVersion           = "version"
 	defaultValidDuration = 5 * time.Second
 )
 
 var (
+	apiKeyRegExp  = regexp.MustCompile(".*?apikey=(.*)")
 	statusCodeLut = map[access.Code]rpc.Code{
 		access.CodeOK:            rpc.OK,
 		access.CodeForbidden:     rpc.PERMISSION_DENIED,
@@ -128,6 +131,20 @@ func (h *handler) HandleAuthorization(ctxt context.Context, instance *authorizat
 			Authorization: &access.Raw_Authorization{
 				AsString: auth,
 			},
+		}
+	}
+
+	// Handling the case of tiledata here: The api key comes in via a query parameter
+	// named 'apikey' and envoy only extracts api keys from query parameters with keys:
+	//   key
+	//   api_key
+	if v, present := instance.Action.Properties[keyPath]; present {
+		if s, ok := v.(string); ok {
+			if match := apiKeyRegExp.FindStringSubmatch(s); match != nil {
+				params.Subject.Key = &access.API_Key{
+					AsString: match[1],
+				}
+			}
 		}
 	}
 
