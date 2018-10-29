@@ -313,9 +313,9 @@ type Labels map[string]string
 type LabelsCollection []Labels
 
 const (
-	// IstioWorkloadMTLSLabelName is the name of the label which decides whether an endpoint can accept
-	//  mtls traffic. For now this means the workload has Envoy sidecar.
-	IstioWorkloadMTLSLabelName = "istio_workload_mtls_ability"
+	// IstioMTLSAnnotationName is the name of the annotation which decides whether an endpoint can serve
+	// mTLS traffic. For now, kube injector adds this annotation to the Pod spec.
+	IstioMTLSAnnotationName = "authentication.istio.io/able_mtls"
 )
 
 // Probe represents a health probe associated with an instance of service.

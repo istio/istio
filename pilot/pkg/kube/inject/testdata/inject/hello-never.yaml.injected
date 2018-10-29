@@ -9,11 +9,11 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/status: '{"version":"c10e5fdaa360f48f3ede2ec8b349c977e3af9b09d4f88a42e99c671288fd03cb","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        authentication.istio.io/able_mtls: "true"
+        sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
         app: hello
-        istio_workload_mtls_ability: "true"
         tier: backend
         track: stable
     spec:

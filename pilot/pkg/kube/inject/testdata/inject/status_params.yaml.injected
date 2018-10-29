@@ -9,11 +9,11 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/status: '{"version":"ca990d1684b0160c03ce0219a9eabd3566eb3720558746b3e45cf62f4b9421c9","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        authentication.istio.io/able_mtls: "true"
+        sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
         app: status
-        istio_workload_mtls_ability: "true"
     spec:
       containers:
       - image: fake.docker.io/google-samples/traffic-go-gke:1.0

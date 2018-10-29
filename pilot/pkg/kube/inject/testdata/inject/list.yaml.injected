@@ -11,11 +11,11 @@ items:
     template:
       metadata:
         annotations:
-          sidecar.istio.io/status: '{"version":"21cdfc0290095a437bfdd0f09f9993704dee08d6d2deda0d87a966cd8a62dbe5","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+          authentication.istio.io/able_mtls: "true"
+          sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
         creationTimestamp: null
         labels:
           app: hello
-          istio_workload_mtls_ability: "true"
           tier: backend
           track: stable
           version: v1
@@ -138,11 +138,11 @@ items:
     template:
       metadata:
         annotations:
-          sidecar.istio.io/status: '{"version":"21cdfc0290095a437bfdd0f09f9993704dee08d6d2deda0d87a966cd8a62dbe5","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+          authentication.istio.io/able_mtls: "true"
+          sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
         creationTimestamp: null
         labels:
           app: hello
-          istio_workload_mtls_ability: "true"
           tier: backend
           track: stable
           version: v2

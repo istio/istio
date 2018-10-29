@@ -32,7 +32,7 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/types"
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 	"k8s.io/api/batch/v2alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -42,8 +42,8 @@ import (
 	yamlDecoder "k8s.io/apimachinery/pkg/util/yaml"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
+	model "istio.io/istio/pilot/pkg/model"
 )
 
 // per-sidecar policy and status
@@ -689,13 +689,11 @@ func intoObject(sidecarTemplate string, meshconfig *meshconfig.MeshConfig, in ru
 	}
 	metadata.Annotations[annotationStatus.name] = status
 
-	if metadata.Labels == nil {
-		metadata.Labels = make(map[string]string)
+	// We annotate it with "authentication.istio.io/able_mtls" since it's deployed with Envoy sidecar.
+	// Pilot will use this annotation for mTLS autopilot configuration.
+	if _, exists := metadata.Annotations[model.IstioMTLSAnnotationName]; !exists {
+		metadata.Annotations[model.IstioMTLSAnnotationName] = "true"
 	}
-	// We label it with istio mtls ability to true since it's deployed with Envoy sidecar. Because
-	// it can accept mtls traffic.
-	metadata.Labels[model.IstioWorkloadMTLSLabelName] = "true"
-
 	return out, nil
 }
 
