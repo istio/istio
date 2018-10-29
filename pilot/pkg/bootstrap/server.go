@@ -364,7 +364,6 @@ func (s *Server) initMesh(args *PilotArgs) error {
 			}
 			if !reflect.DeepEqual(mesh, s.mesh) {
 				log.Infof("mesh configurtion file updated to: %s", spew.Sdump(mesh))
-				s.mesh = mesh
 
 				//TODO Handle mesh config updates wherever necessary
 			}
