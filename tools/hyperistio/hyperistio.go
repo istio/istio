@@ -122,7 +122,7 @@ func startEnvoy() error {
 		DrainDuration:    types.DurationProto(30 * time.Second), // crash if 0
 		StatNameLength:   189,
 	}
-	cfgF, err := agent.WriteBootstrap(cfg, "sidecar~127.0.0.2~a~a", 1, []string{}, nil, os.Environ())
+	cfgF, err := agent.WriteBootstrap(cfg, "sidecar~127.0.0.2~a~a", 1, []string{}, nil, os.Environ(), []string{})
 	if err != nil {
 		return err
 	}

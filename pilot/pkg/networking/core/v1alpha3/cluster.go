@@ -70,7 +70,12 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 			return nil, err
 		}
 
-		managementPorts := env.ManagementPorts(proxy.IPAddress)
+		// Let ServiceDiscovery decide which IP and Port are used for management if
+		// there are multiple IPs
+		managementPorts := make([]*model.Port, 0)
+		for _, ip := range proxy.IPAddresses {
+			managementPorts = append(managementPorts, env.ManagementPorts(ip)...)
+		}
 		clusters = append(clusters, configgen.buildInboundClusters(env, proxy, push, instances, managementPorts)...)
 	}
 

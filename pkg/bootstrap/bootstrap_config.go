@@ -176,13 +176,14 @@ func getNodeMetaData(envs []string) map[string]string {
 		}
 	}, meta)
 	meta["istio"] = "sidecar"
+
 	return meta
 }
 
 // WriteBootstrap generates an envoy config based on config and epoch, and returns the filename.
 // TODO: in v2 some of the LDS ports (port, http_port) should be configured in the bootstrap.
 func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilotSAN []string,
-	opts map[string]interface{}, localEnv []string) (string, error) {
+	opts map[string]interface{}, localEnv []string, nodeIPs []string) (string, error) {
 	if opts == nil {
 		opts = map[string]interface{}{}
 	}
@@ -229,6 +230,10 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 
 	// Support passing extra info from node environment as metadata
 	meta := getNodeMetaData(localEnv)
+
+	// Suppot multiple network interfaces
+	meta["ISTIO_META_INSTANCE_IPS"] = strings.Join(nodeIPs, ",")
+
 	ba, err := json.Marshal(meta)
 	if err != nil {
 		return "", err
