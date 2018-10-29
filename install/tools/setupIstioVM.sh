@@ -66,7 +66,8 @@ function istioInstall() {
 
   mkdir -p /etc/certs
 
-  cp "${ISTIO_STAGING}/*.pem" /etc/certs
+  # shellcheck disable=SC2086
+  cp ${ISTIO_STAGING}/*.pem /etc/certs
 
   # Cluster settings - the CIDR in particular.
   cp "${ISTIO_STAGING}/cluster.env" /var/lib/istio/envoy

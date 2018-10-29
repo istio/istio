@@ -194,26 +194,30 @@ func (w *worker) tryRegisterView(v *View) (*viewInternal, error) {
 	return vi, nil
 }
 
+func (w *worker) reportView(v *viewInternal, now time.Time) {
+	if !v.isSubscribed() {
+		return
+	}
+	rows := v.collectedRows()
+	_, ok := w.startTimes[v]
+	if !ok {
+		w.startTimes[v] = now
+	}
+	viewData := &Data{
+		View:  v.view,
+		Start: w.startTimes[v],
+		End:   time.Now(),
+		Rows:  rows,
+	}
+	exportersMu.Lock()
+	for e := range exporters {
+		e.ExportView(viewData)
+	}
+	exportersMu.Unlock()
+}
+
 func (w *worker) reportUsage(now time.Time) {
 	for _, v := range w.views {
-		if !v.isSubscribed() {
-			continue
-		}
-		rows := v.collectedRows()
-		_, ok := w.startTimes[v]
-		if !ok {
-			w.startTimes[v] = now
-		}
-		viewData := &Data{
-			View:  v.view,
-			Start: w.startTimes[v],
-			End:   time.Now(),
-			Rows:  rows,
-		}
-		exportersMu.Lock()
-		for e := range exporters {
-			e.ExportView(viewData)
-		}
-		exportersMu.Unlock()
+		w.reportView(v, now)
 	}
 }

@@ -47,7 +47,7 @@ func TestBuildGatewayClustersWithRingHashLb(t *testing.T) {
 	clusters, err := configgen.BuildClusters(env, proxy, env.PushContext)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	g.Expect(len(clusters)).To(gomega.Equal(2))
+	g.Expect(len(clusters)).To(gomega.Equal(3))
 
 	cluster := clusters[0]
 	g.Expect(cluster.LbPolicy).To(gomega.Equal(v2.Cluster_RING_HASH))
@@ -141,7 +141,7 @@ func TestBuildSidecarClustersWithIstioMutualAndSNI(t *testing.T) {
 	clusters, err := configgen.BuildClusters(env, proxy, env.PushContext)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	g.Expect(len(clusters)).To(gomega.Equal(3))
+	g.Expect(len(clusters)).To(gomega.Equal(4))
 
 	cluster := clusters[1]
 	g.Expect(cluster.Name).To(gomega.Equal("outbound|8080|foobar|foo.example.org"))
@@ -153,11 +153,11 @@ func TestBuildSidecarClustersWithIstioMutualAndSNI(t *testing.T) {
 	clusters, err = configgen.BuildClusters(env, proxy, env.PushContext)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	g.Expect(len(clusters)).To(gomega.Equal(3))
+	g.Expect(len(clusters)).To(gomega.Equal(4))
 
 	cluster = clusters[1]
 	g.Expect(cluster.Name).To(gomega.Equal("outbound|8080|foobar|foo.example.org"))
-	g.Expect(cluster.TlsContext.GetSni()).To(gomega.Equal("foo.example.org"))
+	g.Expect(cluster.TlsContext.GetSni()).To(gomega.Equal(cluster.Name))
 }
 
 func buildEnvForClustersWithIstioMutualWithSNI(sniValue string) *model.Environment {

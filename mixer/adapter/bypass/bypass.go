@@ -1,16 +1,16 @@
-//  Copyright 2018 Istio Authors
+// Copyright 2018 Istio Authors
 //
-//  Licensed under the Apache License, Version 2.0 (the "License");
-//  you may not use this file except in compliance with the License.
-//  You may obtain a copy of the License at
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-//      http://www.apache.org/licenses/LICENSE-2.0
+//     http://www.apache.org/licenses/LICENSE-2.0
 //
-//  Unless required by applicable law or agreed to in writing, software
-//  distributed under the License is distributed on an "AS IS" BASIS,
-//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-//  See the License for the specific language governing permissions and
-//  limitations under the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 // nolint: lll
 //go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -a mixer/adapter/bypass/config/config.proto -x "-n bypass -t checknothing -t reportnothing -t metric -t quota"
@@ -19,7 +19,9 @@ package bypass
 
 import (
 	"context"
+	"time"
 
+	"github.com/cenkalti/backoff"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"go.uber.org/multierr"
@@ -160,11 +162,20 @@ func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handl
 
 func (b *builder) ensureConn() error {
 	if b.conn == nil {
-		conn, err := grpc.Dial(b.params.BackendAddress, grpc.WithInsecure())
+		bo := backoff.NewExponentialBackOff()
+		bo.InitialInterval = time.Millisecond * 10
+		bo.MaxElapsedTime = time.Minute
+
+		err := backoff.Retry(func() error {
+			var e error
+			b.conn, e = grpc.Dial(b.params.BackendAddress, grpc.WithInsecure())
+			return e
+
+		}, bo)
+
 		if err != nil {
 			return err
 		}
-		b.conn = conn
 
 		if b.params.SessionBased {
 			b.infraClient = v1beta1.NewInfrastructureBackendClient(b.conn)

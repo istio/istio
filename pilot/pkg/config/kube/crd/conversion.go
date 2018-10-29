@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -37,13 +38,6 @@ func ConvertObject(schema model.ProtoSchema, object IstioObject, domain string) 
 	}
 	meta := object.GetObjectMeta()
 
-	//// FIXME this is a gross hack to hardcode a service's domain name in kubernetes
-	//if domain == "" {
-	//	domain = "svc.cluster.local"
-	//} else {
-	//	domain = "svc." + domain
-	//}
-
 	return &model.Config{
 		ConfigMeta: model.ConfigMeta{
 			Type:              schema.Type,
@@ -56,6 +50,31 @@ func ConvertObject(schema model.ProtoSchema, object IstioObject, domain string) 
 			Annotations:       meta.Annotations,
 			ResourceVersion:   meta.ResourceVersion,
 			CreationTimestamp: meta.CreationTimestamp.Time,
+		},
+		Spec: data,
+	}, nil
+}
+
+// ConvertObjectFromUnstructured converts an IstioObject k8s-style object to the
+// internal configuration model.
+func ConvertObjectFromUnstructured(schema model.ProtoSchema, un *unstructured.Unstructured, domain string) (*model.Config, error) {
+	data, err := schema.FromJSONMap(un.Object["spec"])
+	if err != nil {
+		return nil, err
+	}
+
+	return &model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:              schema.Type,
+			Group:             ResourceGroup(&schema),
+			Version:           schema.Version,
+			Name:              un.GetName(),
+			Namespace:         un.GetNamespace(),
+			Domain:            domain,
+			Labels:            un.GetLabels(),
+			Annotations:       un.GetAnnotations(),
+			ResourceVersion:   un.GetResourceVersion(),
+			CreationTimestamp: un.GetCreationTimestamp().Time,
 		},
 		Spec: data,
 	}, nil
@@ -100,8 +119,8 @@ func ResourceGroup(schema *model.ProtoSchema) string {
 // information to the abstract model and/or elevating k8s
 // representation to first-class type to avoid extra conversions.
 
-// KabobCaseToCamelCase converts "my-name" to "MyName"
-func KabobCaseToCamelCase(s string) string {
+// KebabCaseToCamelCase converts "my-name" to "MyName"
+func KebabCaseToCamelCase(s string) string {
 	switch s {
 	case "http-api-spec":
 		return "HTTPAPISpec"
@@ -117,8 +136,8 @@ func KabobCaseToCamelCase(s string) string {
 	}
 }
 
-// CamelCaseToKabobCase converts "MyName" to "my-name"
-func CamelCaseToKabobCase(s string) string {
+// CamelCaseToKebabCase converts "MyName" to "my-name"
+func CamelCaseToKebabCase(s string) string {
 	switch s {
 	case "HTTPAPISpec":
 		return "http-api-spec"
@@ -161,7 +180,7 @@ func parseInputsImpl(inputs string, withValidate bool) ([]model.Config, []IstioK
 			continue
 		}
 
-		schema, exists := model.IstioConfigTypes.GetByType(CamelCaseToKabobCase(obj.Kind))
+		schema, exists := model.IstioConfigTypes.GetByType(CamelCaseToKebabCase(obj.Kind))
 		if !exists {
 			log.Debugf("unrecognized type %v", obj.Kind)
 			others = append(others, obj)

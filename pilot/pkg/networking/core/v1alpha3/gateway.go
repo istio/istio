@@ -87,7 +87,6 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 			ip:         WildcardAddress,
 			port:       int(portNumber),
 			bindToPort: true,
-			protocol:   protocol,
 		}
 		listenerType := plugin.ModelProtocolToListenerProtocol(protocol)
 		switch listenerType {
@@ -321,6 +320,15 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 				rds:              rdsName,
 				useRemoteAddress: true,
 				direction:        http_conn.EGRESS, // viewed as from gateway to internal
+				connectionManager: &http_conn.HttpConnectionManager{
+					// Forward client cert if connection is mTLS
+					ForwardClientCertDetails: http_conn.SANITIZE_SET,
+					SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
+						Subject: &types.BoolValue{Value: true},
+						Uri:     true,
+						Dns:     true,
+					},
+				},
 			},
 		}
 		httpListeners = append(httpListeners, o)
@@ -339,6 +347,15 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 					rds:              model.GatewayRDSRouteName(server),
 					useRemoteAddress: true,
 					direction:        http_conn.EGRESS, // viewed as from gateway to internal
+					connectionManager: &http_conn.HttpConnectionManager{
+						// Forward client cert if connection is mTLS
+						ForwardClientCertDetails: http_conn.SANITIZE_SET,
+						SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
+							Subject: &types.BoolValue{Value: true},
+							Uri:     true,
+							Dns:     true,
+						},
+					},
 				},
 			}
 			httpListeners = append(httpListeners, o)
@@ -372,6 +389,19 @@ func buildGatewayListenerTLSContext(server *networking.Server) *auth.DownstreamT
 
 	requireClientCert := server.Tls.Mode == networking.Server_TLSOptions_MUTUAL
 
+	// Set TLS parameters if they are non-default
+	var tlsParams *auth.TlsParameters
+	if len(server.Tls.CipherSuites) > 0 ||
+		server.Tls.MinProtocolVersion != networking.Server_TLSOptions_TLS_AUTO ||
+		server.Tls.MaxProtocolVersion != networking.Server_TLSOptions_TLS_AUTO {
+
+		tlsParams = &auth.TlsParameters{
+			TlsMinimumProtocolVersion: convertTLSProtocol(server.Tls.MinProtocolVersion),
+			TlsMaximumProtocolVersion: convertTLSProtocol(server.Tls.MaxProtocolVersion),
+			CipherSuites:              server.Tls.CipherSuites,
+		}
+	}
+
 	return &auth.DownstreamTlsContext{
 		CommonTlsContext: &auth.CommonTlsContext{
 			TlsCertificates: []*auth.TlsCertificate{
@@ -392,11 +422,21 @@ func buildGatewayListenerTLSContext(server *networking.Server) *auth.DownstreamT
 				ValidationContext: certValidationContext,
 			},
 			AlpnProtocols: ListenersALPNProtocols,
+			TlsParams:     tlsParams,
 		},
 		RequireClientCertificate: &types.BoolValue{
 			Value: requireClientCert,
 		},
 	}
+}
+
+func convertTLSProtocol(in networking.Server_TLSOptions_TLSProtocol) auth.TlsParameters_TlsProtocol {
+	out := auth.TlsParameters_TlsProtocol(in) // There should be a one-to-one enum mapping
+	if out < auth.TlsParameters_TLS_AUTO || out > auth.TlsParameters_TLSv1_3 {
+		log.Warnf("was not able to map TLS protocol to Envoy TLS protocol")
+		return auth.TlsParameters_TLS_AUTO
+	}
+	return out
 }
 
 func (configgen *ConfigGeneratorImpl) createGatewayTCPFilterChainOpts(
@@ -439,9 +479,9 @@ func (configgen *ConfigGeneratorImpl) createGatewayTCPFilterChainOpts(
 	return opts
 }
 
-// buildGatewayNetworkFiltersFromTLSRoutes builds tcp proxy routes for all VirtualServices with TCP blocks.
+// buildGatewayNetworkFiltersFromTCPRoutes builds tcp proxy routes for all VirtualServices with TCP blocks.
 // It first obtains all virtual services bound to the set of Gateways for this workload, filters them by this
-// server's port and hostnames, and produces network filters for each destination from the filtered services
+// server's port and hostnames, and produces network filters for each destination from the filtered services.
 func buildGatewayNetworkFiltersFromTCPRoutes(node *model.Proxy, env *model.Environment, push *model.PushContext, server *networking.Server,
 	gatewaysForWorkload map[string]bool) []listener.Filter {
 	port := &model.Port{
@@ -456,7 +496,6 @@ func buildGatewayNetworkFiltersFromTCPRoutes(node *model.Proxy, env *model.Envir
 	}
 
 	virtualServices := push.VirtualServices(gatewaysForWorkload)
-	var upstream *networking.Destination
 	for _, spec := range virtualServices {
 		vsvc := spec.Spec.(*networking.VirtualService)
 		matchingHosts := pickMatchingGatewayHosts(gatewayServerHosts, vsvc.Hosts)
@@ -470,16 +509,7 @@ func buildGatewayNetworkFiltersFromTCPRoutes(node *model.Proxy, env *model.Envir
 		// based on the match port/server port and the gateway name
 		for _, tcp := range vsvc.Tcp {
 			if l4MultiMatch(tcp.Match, server, gatewaysForWorkload) {
-				upstream = tcp.Route[0].Destination // We pick first destination because TCP has no weighted cluster
-				destSvc, present := push.ServiceByHostname[model.Hostname(upstream.Host)]
-				if !present {
-					log.Debugf("service %q does not exist in the registry", upstream.Host)
-					return nil
-				}
-
-				return buildOutboundNetworkFilters(node,
-					istio_route.GetDestinationCluster(upstream, destSvc, int(server.Port.Number)),
-					"", port)
+				return buildOutboundNetworkFilters(env, node, tcp.Route, push, port, spec.ConfigMeta)
 			}
 		}
 	}
@@ -518,21 +548,10 @@ func buildGatewayNetworkFiltersFromTLSRoutes(node *model.Proxy, env *model.Envir
 			for _, match := range tls.Match {
 				if l4SingleMatch(convertTLSMatchToL4Match(match), server, gatewaysForWorkload) {
 					// the sni hosts in the match will become part of a filter chain match
-					// We ignore all the weighted destinations and pick the first one
-					// since TCP has no weighted cluster
-					upstream := tls.Route[0].Destination
-					destSvc, present := push.ServiceByHostname[model.Hostname(upstream.Host)]
-					if !present {
-						log.Debugf("service %q does not exist in the registry", upstream.Host)
-						continue
-					}
-
 					filterChains = append(filterChains, &filterChainOpts{
-						sniHosts:   match.SniHosts,
-						tlsContext: nil, // NO TLS context because this is passthrough
-						networkFilters: buildOutboundNetworkFilters(node,
-							istio_route.GetDestinationCluster(upstream, destSvc, int(server.Port.Number)),
-							"", port),
+						sniHosts:       match.SniHosts,
+						tlsContext:     nil, // NO TLS context because this is passthrough
+						networkFilters: buildOutboundNetworkFilters(env, node, tls.Route, push, port, spec.ConfigMeta),
 					})
 				}
 			}

@@ -41,9 +41,7 @@ func (m *RBAC) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetRules()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetRules()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return RBACValidationError{
 				Field:  "Rules",
@@ -53,9 +51,7 @@ func (m *RBAC) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetShadowRules()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetShadowRules()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return RBACValidationError{
 				Field:  "ShadowRules",

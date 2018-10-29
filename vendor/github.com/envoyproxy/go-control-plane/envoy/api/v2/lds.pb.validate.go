@@ -43,9 +43,7 @@ func (m *Listener) Validate() error {
 
 	// no validation rules for Name
 
-	if v, ok := interface{}(m.GetAddress()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetAddress()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ListenerValidationError{
 				Field:  "Address",
@@ -65,9 +63,7 @@ func (m *Listener) Validate() error {
 	for idx, item := range m.GetFilterChains() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return ListenerValidationError{
 					Field:  fmt.Sprintf("FilterChains[%v]", idx),
@@ -79,9 +75,7 @@ func (m *Listener) Validate() error {
 
 	}
 
-	if v, ok := interface{}(m.GetUseOriginalDst()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetUseOriginalDst()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ListenerValidationError{
 				Field:  "UseOriginalDst",
@@ -91,9 +85,7 @@ func (m *Listener) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetPerConnectionBufferLimitBytes()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetPerConnectionBufferLimitBytes()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ListenerValidationError{
 				Field:  "PerConnectionBufferLimitBytes",
@@ -103,9 +95,7 @@ func (m *Listener) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetMetadata()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetMetadata()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ListenerValidationError{
 				Field:  "Metadata",
@@ -115,9 +105,7 @@ func (m *Listener) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetDeprecatedV1()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetDeprecatedV1()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ListenerValidationError{
 				Field:  "DeprecatedV1",
@@ -132,9 +120,7 @@ func (m *Listener) Validate() error {
 	for idx, item := range m.GetListenerFilters() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return ListenerValidationError{
 					Field:  fmt.Sprintf("ListenerFilters[%v]", idx),
@@ -146,9 +132,7 @@ func (m *Listener) Validate() error {
 
 	}
 
-	if v, ok := interface{}(m.GetTransparent()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetTransparent()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ListenerValidationError{
 				Field:  "Transparent",
@@ -158,9 +142,7 @@ func (m *Listener) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetFreebind()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetFreebind()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ListenerValidationError{
 				Field:  "Freebind",
@@ -173,9 +155,7 @@ func (m *Listener) Validate() error {
 	for idx, item := range m.GetSocketOptions() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return ListenerValidationError{
 					Field:  fmt.Sprintf("SocketOptions[%v]", idx),
@@ -187,9 +167,7 @@ func (m *Listener) Validate() error {
 
 	}
 
-	if v, ok := interface{}(m.GetTcpFastOpenQueueLength()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetTcpFastOpenQueueLength()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ListenerValidationError{
 				Field:  "TcpFastOpenQueueLength",
@@ -241,9 +219,7 @@ func (m *Listener_DeprecatedV1) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetBindToPort()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetBindToPort()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return Listener_DeprecatedV1ValidationError{
 				Field:  "BindToPort",

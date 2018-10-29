@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors. All Rights Reserved.
+// Copyright 2017 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,12 +26,15 @@ const reportAttributesOkPostOpen = `
 {
   "context.protocol": "tcp",
   "context.time": "*",
+  "context.reporter.uid": "",
   "mesh1.ip": "[1 1 1 1]",
   "source.ip": "[127 0 0 1]",
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "destination.ip": "[127 0 0 1]",
   "destination.port": "*",
+  "destination.uid": "",
+  "destination.namespace": "",
   "connection.mtls": false,
   "origin.ip": "[127 0 0 1]",
   "connection.received.bytes": "*",
@@ -46,12 +49,15 @@ const reportAttributesOkPostClose = `
 {
   "context.protocol": "tcp",
   "context.time": "*",
+  "context.reporter.uid": "",
   "mesh1.ip": "[1 1 1 1]",
   "source.ip": "[127 0 0 1]",
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "destination.ip": "[127 0 0 1]",
   "destination.port": "*",
+  "destination.uid": "",
+  "destination.namespace": "",
   "connection.mtls": false,
   "origin.ip": "[127 0 0 1]",
   "connection.received.bytes": "*",

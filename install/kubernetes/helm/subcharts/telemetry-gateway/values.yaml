@@ -1,0 +1,6 @@
+#
+# addon telemetry-gateway configuration
+#
+gatewayName: ingressgateway
+grafanaEnabled: false
+prometheusEnabled: false

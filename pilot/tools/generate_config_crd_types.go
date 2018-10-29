@@ -39,13 +39,13 @@ type ConfigData struct {
 // MakeConfigData prepare data for code generation for the given schema.
 func MakeConfigData(schema model.ProtoSchema) ConfigData {
 	out := ConfigData{
-		IstioKind: crd.KabobCaseToCamelCase(schema.Type),
-		CrdKind:   crd.KabobCaseToCamelCase(schema.Type),
+		IstioKind: crd.KebabCaseToCamelCase(schema.Type),
+		CrdKind:   crd.KebabCaseToCamelCase(schema.Type),
 	}
 	// Tweak to match current naming.
 	// TODO(xiaolanz): change to meet the new naming convention.
 	if schema.Group == "authentication" {
-		out.IstioKind = crd.KabobCaseToCamelCase(schema.Group + "-" + schema.Type)
+		out.IstioKind = crd.KebabCaseToCamelCase(schema.Group + "-" + schema.Type)
 	}
 	log.Printf("Generating Istio type %s for %s.%s CRD\n", out.IstioKind, out.CrdKind, schema.Group)
 	return out

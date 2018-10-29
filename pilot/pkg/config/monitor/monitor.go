@@ -19,6 +19,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 )
@@ -77,6 +79,14 @@ func (m *Monitor) checkAndUpdate() {
 		return
 	}
 
+	// make a deep copy of newConfigs to prevent data race
+	copyConfigs := []*model.Config{}
+	for _, config := range newConfigs {
+		copy := *config
+		copy.Spec = proto.Clone(config.Spec)
+		copyConfigs = append(copyConfigs, &copy)
+	}
+
 	// Compare the new list to the previous one and detect changes.
 	oldLen := len(m.configs)
 	newLen := len(newConfigs)
@@ -112,29 +122,29 @@ func (m *Monitor) checkAndUpdate() {
 	}
 
 	// Save the updated list.
-	m.configs = newConfigs
+	m.configs = copyConfigs
 }
 
 func (m *Monitor) createConfig(c *model.Config) {
 	if _, err := m.store.Create(*c); err != nil {
-		log.Warnf("Failed to create config %s %s/%s: %v (%m)", c.Type, c.Namespace, c.Name, err, *c)
+		log.Warnf("Failed to create config %s %s/%s: %v (%+v)", c.Type, c.Namespace, c.Name, err, *c)
 	}
 }
 
 func (m *Monitor) updateConfig(c *model.Config) {
 	// Set the resource version based on the existing config.
-	if prev, exists := m.store.Get(c.Type, c.Name, c.Namespace); exists {
+	if prev := m.store.Get(c.Type, c.Name, c.Namespace); prev != nil {
 		c.ResourceVersion = prev.ResourceVersion
 	}
 
 	if _, err := m.store.Update(*c); err != nil {
-		log.Warnf("Failed to update config (%m): %v ", *c, err)
+		log.Warnf("Failed to update config (%+v): %v ", *c, err)
 	}
 }
 
 func (m *Monitor) deleteConfig(c *model.Config) {
 	if err := m.store.Delete(c.Type, c.Name, c.Namespace); err != nil {
-		log.Warnf("Failed to delete config (%m): %v ", *c, err)
+		log.Warnf("Failed to delete config (%+v): %v ", *c, err)
 	}
 }
 

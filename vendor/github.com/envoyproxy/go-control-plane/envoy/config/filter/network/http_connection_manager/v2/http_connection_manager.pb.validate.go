@@ -59,9 +59,7 @@ func (m *HttpConnectionManager) Validate() error {
 	for idx, item := range m.GetHttpFilters() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return HttpConnectionManagerValidationError{
 					Field:  fmt.Sprintf("HttpFilters[%v]", idx),
@@ -73,9 +71,7 @@ func (m *HttpConnectionManager) Validate() error {
 
 	}
 
-	if v, ok := interface{}(m.GetAddUserAgent()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetAddUserAgent()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HttpConnectionManagerValidationError{
 				Field:  "AddUserAgent",
@@ -85,9 +81,7 @@ func (m *HttpConnectionManager) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetTracing()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetTracing()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HttpConnectionManagerValidationError{
 				Field:  "Tracing",
@@ -97,9 +91,7 @@ func (m *HttpConnectionManager) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetHttpProtocolOptions()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetHttpProtocolOptions()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HttpConnectionManagerValidationError{
 				Field:  "HttpProtocolOptions",
@@ -109,9 +101,7 @@ func (m *HttpConnectionManager) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetHttp2ProtocolOptions()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetHttp2ProtocolOptions()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HttpConnectionManagerValidationError{
 				Field:  "Http2ProtocolOptions",
@@ -123,9 +113,7 @@ func (m *HttpConnectionManager) Validate() error {
 
 	// no validation rules for ServerName
 
-	if v, ok := interface{}(m.GetIdleTimeout()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetIdleTimeout()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HttpConnectionManagerValidationError{
 				Field:  "IdleTimeout",
@@ -135,9 +123,7 @@ func (m *HttpConnectionManager) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetStreamIdleTimeout()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetStreamIdleTimeout()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HttpConnectionManagerValidationError{
 				Field:  "StreamIdleTimeout",
@@ -147,9 +133,7 @@ func (m *HttpConnectionManager) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetDrainTimeout()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetDrainTimeout()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HttpConnectionManagerValidationError{
 				Field:  "DrainTimeout",
@@ -159,12 +143,20 @@ func (m *HttpConnectionManager) Validate() error {
 		}
 	}
 
+	if v, ok := interface{}(m.GetDelayedCloseTimeout()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return HttpConnectionManagerValidationError{
+				Field:  "DelayedCloseTimeout",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
 	for idx, item := range m.GetAccessLog() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return HttpConnectionManagerValidationError{
 					Field:  fmt.Sprintf("AccessLog[%v]", idx),
@@ -176,9 +168,7 @@ func (m *HttpConnectionManager) Validate() error {
 
 	}
 
-	if v, ok := interface{}(m.GetUseRemoteAddress()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetUseRemoteAddress()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HttpConnectionManagerValidationError{
 				Field:  "UseRemoteAddress",
@@ -190,13 +180,21 @@ func (m *HttpConnectionManager) Validate() error {
 
 	// no validation rules for XffNumTrustedHops
 
+	if v, ok := interface{}(m.GetInternalAddressConfig()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return HttpConnectionManagerValidationError{
+				Field:  "InternalAddressConfig",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
 	// no validation rules for SkipXffAppend
 
 	// no validation rules for Via
 
-	if v, ok := interface{}(m.GetGenerateRequestId()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetGenerateRequestId()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HttpConnectionManagerValidationError{
 				Field:  "GenerateRequestId",
@@ -213,9 +211,7 @@ func (m *HttpConnectionManager) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetSetCurrentClientCertDetails()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetSetCurrentClientCertDetails()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HttpConnectionManagerValidationError{
 				Field:  "SetCurrentClientCertDetails",
@@ -232,9 +228,7 @@ func (m *HttpConnectionManager) Validate() error {
 	for idx, item := range m.GetUpgradeConfigs() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return HttpConnectionManagerValidationError{
 					Field:  fmt.Sprintf("UpgradeConfigs[%v]", idx),
@@ -250,9 +244,7 @@ func (m *HttpConnectionManager) Validate() error {
 
 	case *HttpConnectionManager_Rds:
 
-		if v, ok := interface{}(m.GetRds()).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(m.GetRds()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return HttpConnectionManagerValidationError{
 					Field:  "Rds",
@@ -264,9 +256,7 @@ func (m *HttpConnectionManager) Validate() error {
 
 	case *HttpConnectionManager_RouteConfig:
 
-		if v, ok := interface{}(m.GetRouteConfig()).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(m.GetRouteConfig()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return HttpConnectionManagerValidationError{
 					Field:  "RouteConfig",
@@ -325,9 +315,7 @@ func (m *Rds) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetConfigSource()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetConfigSource()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return RdsValidationError{
 				Field:  "ConfigSource",
@@ -392,9 +380,7 @@ func (m *HttpFilter) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetConfig()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetConfig()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HttpFilterValidationError{
 				Field:  "Config",
@@ -404,9 +390,7 @@ func (m *HttpFilter) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetDeprecatedV1()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetDeprecatedV1()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HttpFilterValidationError{
 				Field:  "DeprecatedV1",
@@ -465,9 +449,7 @@ func (m *HttpConnectionManager_Tracing) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetClientSampling()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetClientSampling()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HttpConnectionManager_TracingValidationError{
 				Field:  "ClientSampling",
@@ -477,9 +459,7 @@ func (m *HttpConnectionManager_Tracing) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetRandomSampling()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetRandomSampling()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HttpConnectionManager_TracingValidationError{
 				Field:  "RandomSampling",
@@ -489,9 +469,7 @@ func (m *HttpConnectionManager_Tracing) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetOverallSampling()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetOverallSampling()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HttpConnectionManager_TracingValidationError{
 				Field:  "OverallSampling",
@@ -537,6 +515,51 @@ func (e HttpConnectionManager_TracingValidationError) Error() string {
 var _ error = HttpConnectionManager_TracingValidationError{}
 
 // Validate checks the field values on
+// HttpConnectionManager_InternalAddressConfig with the rules defined in the
+// proto definition for this message. If any rules are violated, an error is returned.
+func (m *HttpConnectionManager_InternalAddressConfig) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	// no validation rules for UnixSockets
+
+	return nil
+}
+
+// HttpConnectionManager_InternalAddressConfigValidationError is the validation
+// error returned by HttpConnectionManager_InternalAddressConfig.Validate if
+// the designated constraints aren't met.
+type HttpConnectionManager_InternalAddressConfigValidationError struct {
+	Field  string
+	Reason string
+	Cause  error
+	Key    bool
+}
+
+// Error satisfies the builtin error interface
+func (e HttpConnectionManager_InternalAddressConfigValidationError) Error() string {
+	cause := ""
+	if e.Cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
+	}
+
+	key := ""
+	if e.Key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sHttpConnectionManager_InternalAddressConfig.%s: %s%s",
+		key,
+		e.Field,
+		e.Reason,
+		cause)
+}
+
+var _ error = HttpConnectionManager_InternalAddressConfigValidationError{}
+
+// Validate checks the field values on
 // HttpConnectionManager_SetCurrentClientCertDetails with the rules defined in
 // the proto definition for this message. If any rules are violated, an error
 // is returned.
@@ -545,9 +568,7 @@ func (m *HttpConnectionManager_SetCurrentClientCertDetails) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetSubject()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetSubject()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HttpConnectionManager_SetCurrentClientCertDetailsValidationError{
 				Field:  "Subject",
@@ -612,9 +633,7 @@ func (m *HttpConnectionManager_UpgradeConfig) Validate() error {
 	for idx, item := range m.GetFilters() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return HttpConnectionManager_UpgradeConfigValidationError{
 					Field:  fmt.Sprintf("Filters[%v]", idx),

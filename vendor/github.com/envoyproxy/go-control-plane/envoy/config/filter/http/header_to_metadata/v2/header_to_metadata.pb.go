@@ -41,7 +41,7 @@ func (x Config_ValueType) String() string {
 	return proto.EnumName(Config_ValueType_name, int32(x))
 }
 func (Config_ValueType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_header_to_metadata_6b48072f49413746, []int{0, 0}
+	return fileDescriptor_header_to_metadata_ebf38654d4c2aa12, []int{0, 0}
 }
 
 type Config struct {
@@ -58,7 +58,7 @@ func (m *Config) Reset()         { *m = Config{} }
 func (m *Config) String() string { return proto.CompactTextString(m) }
 func (*Config) ProtoMessage()    {}
 func (*Config) Descriptor() ([]byte, []int) {
-	return fileDescriptor_header_to_metadata_6b48072f49413746, []int{0}
+	return fileDescriptor_header_to_metadata_ebf38654d4c2aa12, []int{0}
 }
 func (m *Config) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -125,7 +125,7 @@ func (m *Config_KeyValuePair) Reset()         { *m = Config_KeyValuePair{} }
 func (m *Config_KeyValuePair) String() string { return proto.CompactTextString(m) }
 func (*Config_KeyValuePair) ProtoMessage()    {}
 func (*Config_KeyValuePair) Descriptor() ([]byte, []int) {
-	return fileDescriptor_header_to_metadata_6b48072f49413746, []int{0, 0}
+	return fileDescriptor_header_to_metadata_ebf38654d4c2aa12, []int{0, 0}
 }
 func (m *Config_KeyValuePair) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -209,7 +209,7 @@ func (m *Config_Rule) Reset()         { *m = Config_Rule{} }
 func (m *Config_Rule) String() string { return proto.CompactTextString(m) }
 func (*Config_Rule) ProtoMessage()    {}
 func (*Config_Rule) Descriptor() ([]byte, []int) {
-	return fileDescriptor_header_to_metadata_6b48072f49413746, []int{0, 1}
+	return fileDescriptor_header_to_metadata_ebf38654d4c2aa12, []int{0, 1}
 }
 func (m *Config_Rule) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1051,10 +1051,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/config/filter/http/header_to_metadata/v2/header_to_metadata.proto", fileDescriptor_header_to_metadata_6b48072f49413746)
+	proto.RegisterFile("envoy/config/filter/http/header_to_metadata/v2/header_to_metadata.proto", fileDescriptor_header_to_metadata_ebf38654d4c2aa12)
 }
 
-var fileDescriptor_header_to_metadata_6b48072f49413746 = []byte{
+var fileDescriptor_header_to_metadata_ebf38654d4c2aa12 = []byte{
 	// 425 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x92, 0xcf, 0x6e, 0xd3, 0x40,
 	0x10, 0xc6, 0x59, 0x27, 0xb5, 0xc8, 0xf4, 0x0f, 0xe9, 0x0a, 0x81, 0x15, 0xa4, 0x28, 0x94, 0x4b,

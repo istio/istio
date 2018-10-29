@@ -29,17 +29,19 @@ import (
 	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/mcp/creds"
 	"istio.io/istio/pkg/version"
 )
 
 var (
 	httpPort       int
 	monitoringPort int
-	serverArgs     bootstrap.PilotArgs
+	serverArgs     = bootstrap.PilotArgs{
+		CtrlZOptions:         ctrlz.DefaultOptions(),
+		MCPCredentialOptions: creds.DefaultOptions(),
+	}
 
 	loggingOptions = log.DefaultOptions()
-
-	ctrlzOptions = ctrlz.DefaultOptions()
 
 	rootCmd = &cobra.Command{
 		Use:          "pilot-discovery",
@@ -91,25 +93,33 @@ func init() {
 		[]string{string(serviceregistry.KubernetesRegistry)},
 		fmt.Sprintf("Comma separated list of platform service registries to read from (choose one or more from {%s, %s, %s, %s, %s})",
 			serviceregistry.KubernetesRegistry, serviceregistry.ConsulRegistry,
-			serviceregistry.CloudFoundryRegistry, serviceregistry.MockRegistry, serviceregistry.ConfigRegistry))
-	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.CFConfig, "cfConfig", "",
-		"Cloud Foundry config file")
-	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.ClusterRegistriesConfigmap, "clusterRegistriesConfigMap", "",
-		"ConfigMap map for clusters config store")
+			serviceregistry.MCPRegistry, serviceregistry.MockRegistry, serviceregistry.ConfigRegistry))
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.ClusterRegistriesNamespace, "clusterRegistriesNamespace", metav1.NamespaceAll,
 		"Namespace for ConfigMap which stores clusters configs")
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.KubeConfig, "kubeconfig", "",
 		"Use a Kubernetes configuration file instead of in-cluster configuration")
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Mesh.ConfigFile, "meshConfig", "/etc/istio/config/mesh",
 		fmt.Sprintf("File name for Istio mesh configuration. If not specified, a default mesh will be used."))
+	discoveryCmd.PersistentFlags().StringVar(&serverArgs.NetworksConfigFile, "networksConfig", "/etc/istio/config/networks",
+		fmt.Sprintf("File name for Istio mesh networks configuration. If not specified, a default mesh networks will be used."))
 	discoveryCmd.PersistentFlags().StringVarP(&serverArgs.Namespace, "namespace", "n", "",
 		"Select a namespace where the controller resides. If not set, uses ${POD_NAMESPACE} environment variable")
 	discoveryCmd.PersistentFlags().StringSliceVar(&serverArgs.Plugins, "plugins", bootstrap.DefaultPlugins,
 		"comma separated list of networking plugins to enable")
+
+	// MCP client flags
 	discoveryCmd.PersistentFlags().StringSliceVar(&serverArgs.MCPServerAddrs, "mcpServerAddrs", []string{},
-		"comma separated list of mesh config protocol server addresses")
+		"comma separated list of MCP server addresses with "+
+			"mcp:// (insecure) or mcps:// (secure) schema, e.g. mcps://istio-galley.istio-system.svc:9901")
+	discoveryCmd.PersistentFlags().MarkDeprecated("mcpServerAddrs", "Use --meshConfig instead, and specify in MeshConfig.ConfigSources[].Address")
+	serverArgs.MCPCredentialOptions.AttachCobraFlags(discoveryCmd)
+	discoveryCmd.PersistentFlags().IntVar(&serverArgs.MCPMaxMessageSize, "mcpMaxMsgSize", bootstrap.DefaultMCPMaxMsgSize,
+		"Max message size received by MCP's grpc client")
 
 	// Config Controller options
+	discoveryCmd.PersistentFlags().BoolVar(&serverArgs.Config.DisableInstallCRDs, "disable-install-crds", false,
+		"Disable discovery service from verifying the existence of CRDs at startup and then installing if not detected.  "+
+			"It is recommended to be disable for highly available setups.")
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.FileDir, "configDir", "",
 		"Directory to watch for updates to config yaml files. If specified, the files will be used as the source of config, rather than a CRD client.")
 	discoveryCmd.PersistentFlags().StringVarP(&serverArgs.Config.ControllerOptions.WatchedNamespace, "appNamespace",
@@ -153,8 +163,7 @@ func init() {
 	loggingOptions.AttachCobraFlags(rootCmd)
 
 	// Attach the Istio Ctrlz options to the command.
-	ctrlzOptions.AttachCobraFlags(rootCmd)
-	serverArgs.CtrlZOptions = ctrlzOptions
+	serverArgs.CtrlZOptions.AttachCobraFlags(rootCmd)
 
 	cmd.AddFlags(rootCmd)
 

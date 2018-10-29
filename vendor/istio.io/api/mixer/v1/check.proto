@@ -26,6 +26,7 @@ import "mixer/v1/attributes.proto";
 option (gogoproto.goproto_getters_all) = false;
 option (gogoproto.equal_all) = false;
 option (gogoproto.gostring_all) = false;
+option cc_enable_arenas = true;
 
 // Used to get a thumbs-up/thumbs-down before performing an action.
 message CheckRequest {

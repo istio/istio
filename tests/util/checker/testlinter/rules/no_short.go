@@ -31,13 +31,13 @@ func NewNoShort() *NoShort {
 
 // GetID returns no_short_rule.
 func (lr *NoShort) GetID() string {
-	return getCallerFileName()
+	return GetCallerFileName()
 }
 
 // Check verifies if aNode is not testing.Short(). If verification lrp creates new report.
 func (lr *NoShort) Check(aNode ast.Node, fs *token.FileSet, lrp *checker.Report) {
 	if ce, ok := aNode.(*ast.CallExpr); ok {
-		if matchCallExpr(ce, "testing", "Short") {
+		if MatchCallExpr(ce, "testing", "Short") {
 			lrp.AddItem(fs.Position(ce.Pos()), lr.GetID(), "testing.Short() is disallowed.")
 		}
 	}

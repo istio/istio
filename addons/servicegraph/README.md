@@ -1,4 +1,7 @@
-# Istio Servicegraph
+# Istio Servicegraph ** DEPRECATED. **
+
+> Servicegraph is being replaced by [Kiali](http://www.kiali.io/) as
+> the default visualization integration.
 
 Servicegraph is a small app that generates and visualizes graph
 representations of your Istio service mesh. Servicegraph is dependent

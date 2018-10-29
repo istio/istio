@@ -22,6 +22,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
 	"testing"
@@ -41,35 +42,53 @@ import (
 )
 
 const (
-	istioMeshDashboard = "install/kubernetes/helm/istio/charts/grafana/dashboards/istio-mesh-dashboard.json"
-	serviceDashboard   = "install/kubernetes/helm/istio/charts/grafana/dashboards/istio-service-dashboard.json"
-	workloadDashboard  = "install/kubernetes/helm/istio/charts/grafana/dashboards/istio-workload-dashboard.json"
-	mixerDashboard     = "install/kubernetes/helm/istio/charts/grafana/dashboards/mixer-dashboard.json"
-	pilotDashboard     = "install/kubernetes/helm/istio/charts/grafana/dashboards/pilot-dashboard.json"
-	galleyDashboard    = "install/kubernetes/helm/istio/charts/grafana/dashboards/galley-dashboard.json"
-	fortioYaml         = "tests/e2e/tests/dashboard/fortio-rules.yaml"
-	netcatYaml         = "tests/e2e/tests/dashboard/netcat-rules.yaml"
+	istioMeshDashboard   = "install/kubernetes/helm/subcharts/grafana/dashboards/istio-mesh-dashboard.json"
+	serviceDashboard     = "install/kubernetes/helm/subcharts/grafana/dashboards/istio-service-dashboard.json"
+	workloadDashboard    = "install/kubernetes/helm/subcharts/grafana/dashboards/istio-workload-dashboard.json"
+	performanceDashboard = "install/kubernetes/helm/subcharts/grafana/dashboards/istio-performance-dashboard.json"
+	mixerDashboard       = "install/kubernetes/helm/subcharts/grafana/dashboards/mixer-dashboard.json"
+	pilotDashboard       = "install/kubernetes/helm/subcharts/grafana/dashboards/pilot-dashboard.json"
+	galleyDashboard      = "install/kubernetes/helm/subcharts/grafana/dashboards/galley-dashboard.json"
+	fortioYaml           = "tests/e2e/tests/dashboard/fortio-rules.yaml"
+	netcatYaml           = "tests/e2e/tests/dashboard/netcat-rules.yaml"
 
-	prometheusPort = "9090"
+	prometheusPort = uint16(9090)
 )
 
 var (
 	replacer = strings.NewReplacer(
 		"$workload", "echosrv.*",
 		"$service", "echosrv.*",
+		"$dstsvc", "echosrv.*",
 		"$srcwl", "istio-ingressgateway.*",
 		"$adapter", "kubernetesenv",
-		`connection_mtls=\"true\"`, "",
-		`connection_mtls=\"false\"`, "",
-		`source_workload_namespace=~"$srcns"`, "",
-		`destination_workload_namespace=~"$dstns"`, "",
-		//		"$dstwl", "",
+		`connection_security_policy=\"unknown\"`, "",
+		`connection_security_policy=\"mutual_tls\"`, "",
+		`connection_security_policy!=\"mutual_tls\"`, "",
+		`source_workload_namespace=~\"$srcns\"`, "",
+		`destination_workload_namespace=~\"$dstns\"`, "",
+		`source_workload_namespace=~\"$namespace\"`, "",
+		`destination_workload_namespace=~\"$namespace\"`, "",
+		`destination_workload=~\"$dstwl\"`, "",
 		`\`, "",
 	)
 
 	tcpReplacer = strings.NewReplacer(
 		"echosrv", "netcat-srv",
 		"istio-ingressgateway", "netcat-client",
+	)
+
+	workloadReplacer = strings.NewReplacer(
+		`source_workload=~"netcat-srv.*"`, `source_workload=~"netcat-client.*"`,
+		`source_workload=~"echosrv.*"`, `source_workload=~"istio-ingressgateway.*"`,
+	)
+
+	queryCleanupReplacer = strings.NewReplacer(
+		"{, ,", "{",
+		"{,", "{",
+		", , ,", ",",
+		", ,", ",",
+		",,", ",",
 	)
 
 	tc *testConfig
@@ -83,6 +102,21 @@ func TestMain(m *testing.M) {
 	os.Exit(tc.RunTest(m))
 }
 
+// performanceQueryFilterFn filters queries for istio-system related queries.
+func performanceQueryFilterFn(queries []string) []string {
+	ret := make([]string, 0, len(queries))
+
+	for _, qry := range queries {
+		if strings.Contains(qry, "istio-system") {
+			continue
+		}
+
+		ret = append(ret, qry)
+	}
+
+	return ret
+}
+
 func TestDashboards(t *testing.T) {
 	t.Log("Validating prometheus in ready-state...")
 	if err := waitForMetricsInPrometheus(t); err != nil {
@@ -92,18 +126,20 @@ func TestDashboards(t *testing.T) {
 	t.Log("Sentinel metrics found in prometheus.")
 
 	cases := []struct {
-		name       string
-		dashboard  string
-		filter     func([]string) []string
-		metricHost string
-		metricPort int
+		name           string
+		dashboard      string
+		filter         func([]string) []string
+		customReplacer *strings.Replacer
+		metricHost     string
+		metricPort     int
 	}{
-		{"Istio", istioMeshDashboard, func(queries []string) []string { return queries }, "istio-telemetry", 42422},
-		// {"Service", serviceDashboard, func(queries []string) []string { return queries }, "istio-telemetry", 42422},
-		// {"Workload", workloadDashboard, func(queries []string) []string { return queries }, "istio-telemetry", 42422},
-		{"Mixer", mixerDashboard, mixerQueryFilterFn, "istio-telemetry", 9093},
-		{"Pilot", pilotDashboard, pilotQueryFilterFn, "istio-pilot", 9093},
-		{"Galley", galleyDashboard, galleyQueryFilterFn, "istio-galley", 9093},
+		{"Istio", istioMeshDashboard, func(queries []string) []string { return queries }, nil, "istio-telemetry", 42422},
+		{"Service", serviceDashboard, func(queries []string) []string { return queries }, nil, "istio-telemetry", 42422},
+		{"Workload", workloadDashboard, func(queries []string) []string { return queries }, workloadReplacer, "istio-telemetry", 42422},
+		{"Mixer", mixerDashboard, mixerQueryFilterFn, nil, "istio-telemetry", 9093},
+		{"Pilot", pilotDashboard, pilotQueryFilterFn, nil, "istio-pilot", 9093},
+		{"Galley", galleyDashboard, galleyQueryFilterFn, nil, "istio-galley", 9093},
+		{"Performance", performanceDashboard, performanceQueryFilterFn, nil, "istio-telemetry", 42422},
 	}
 
 	for _, testCase := range cases {
@@ -119,6 +155,9 @@ func TestDashboards(t *testing.T) {
 
 			for _, query := range queries {
 				modified := replaceGrafanaTemplates(query)
+				if testCase.customReplacer != nil {
+					modified = testCase.customReplacer.Replace(modified)
+				}
 				value, err := tc.promAPI.Query(context.Background(), modified, time.Now())
 				if err != nil {
 					t.Errorf("Failure executing query (%s): %v", modified, err)
@@ -200,7 +239,7 @@ func replaceGrafanaTemplates(orig string) string {
 	if strings.Contains(orig, "istio_tcp") {
 		out = tcpReplacer.Replace(out)
 	}
-	return out
+	return queryCleanupReplacer.Replace(out)
 }
 
 // There currently is no good way to inject failures into a running Mixer,
@@ -289,7 +328,7 @@ func galleyQueryFilterFn(queries []string) []string {
 }
 
 func promAPI() (v1.API, error) {
-	client, err := api.NewClient(api.Config{Address: fmt.Sprintf("http://localhost:%s", prometheusPort)})
+	client, err := api.NewClient(api.Config{Address: fmt.Sprintf("http://localhost:%d", prometheusPort)})
 	if err != nil {
 		return nil, err
 	}
@@ -388,15 +427,24 @@ func newPromProxy(namespace string) *promProxy {
 	}
 }
 
-func (p *promProxy) portForward(labelSelector string, localPort string, remotePort string) error {
+func (p *promProxy) portForward(labelSelector string, localPort uint16, remotePort uint16) error {
 	log.Infof("Setting up %s proxy", labelSelector)
 	options := &kube.PodSelectOptions{
 		PodNamespace:  p.namespace,
 		LabelSelector: labelSelector,
 	}
-	forwarder, err := kube.PortForward(tc.Kube.KubeConfig, options, localPort, remotePort)
+	accessor, err := kube.NewAccessor(tc.Kube.KubeConfig)
 	if err != nil {
-		log.Errorf("Error in port forward: %v", err)
+		log.Errorf("Error creating accessor: %v", err)
+		return err
+	}
+	forwarder, err := accessor.NewPortForwarder(options, localPort, remotePort)
+	if err != nil {
+		log.Errorf("Error creating port forwarder: %v", err)
+		return err
+	}
+	if err := forwarder.Start(); err != nil {
+		log.Errorf("Error starting port forwarder: %v", err)
 		return err
 	}
 
@@ -475,15 +523,39 @@ func waitForMixerProxyReadiness() error {
 		time.Sleep(duration)
 
 		for _, pod := range mixerPods {
-			logs, err := util.ShellMuteOutput(fmt.Sprintf("kubectl logs %s -n %s -c istio-proxy", pod, tc.Kube.Namespace))
+			options := &kube.PodSelectOptions{
+				PodNamespace: tc.Kube.Namespace,
+				PodName:      pod,
+			}
+
+			accessor, err := kube.NewAccessor(tc.Kube.KubeConfig)
 			if err != nil {
-				log.Infof("Failure retrieving logs for pod %s (container: istio-proxy): %v", pod, err)
+				log.Errorf("Error creating accessor: %v", err)
+				return err
+			}
+			forwarder, err := accessor.NewPortForwarder(options, 16000, 15000)
+			if err != nil {
+				log.Infof("Error creating port forwarder: %v", err)
 				continue
 			}
-			if strings.Contains(logs, "starting main dispatch loop") {
-				log.Infof("Envoy started main dispatch loop.")
+			if err := forwarder.Start(); err != nil {
+				log.Infof("Error starting port forwarder: %v", err)
+				continue
+			}
+
+			resp, err := http.Get("http://localhost:16000/server_info")
+			forwarder.Close()
+
+			if err != nil {
+				log.Infof("Failure retrieving status for pod %s (container: istio-proxy): %v", pod, err)
+				continue
+			}
+
+			if resp.StatusCode == 200 {
 				return nil
 			}
+
+			log.Infof("Failure retrieving status for pod %s (container: istio-proxy) status code should be 200 got: %d", pod, resp.StatusCode)
 		}
 	}
 	return errors.New("proxy for mixer never started main dispatch loop")
@@ -557,7 +629,7 @@ func logMixerMetrics(t *testing.T, service string, port int) {
 		t.Logf("Failure getting metrics for '%s:%d': %v", service, port, err)
 		return
 	}
-	resp, err := util.ShellMuteOutput("kubectl exec -n %s %s -c echosrv -- /usr/local/bin/fortio curl http://%s.%s:%d/metrics", ns, pods[0], service, ns, port)
+	resp, err := util.ShellMuteOutput("kubectl exec -n %s %s -c echosrv -- fortio curl http://%s.%s:%d/metrics", ns, pods[0], service, ns, port)
 	if err != nil {
 		t.Logf("could not retrieve metrics: %v", err)
 		return

@@ -133,14 +133,18 @@ func (c *ConfigWriter) retrieveSortedListenerSlice() ([]*xdsapi.Listener, error)
 	if err != nil {
 		return nil, err
 	}
-	listeners := []*xdsapi.Listener{}
+	listeners := make([]*xdsapi.Listener, 0)
 	for _, listener := range listenerDump.DynamicActiveListeners {
-		listeners = append(listeners, listener.Listener)
+		if listener.Listener != nil {
+			listeners = append(listeners, listener.Listener)
+		}
 	}
-	// Static listeners not currently in use, leaving this code here in case they ever are
-	// for _, listener := range listenerDump.StaticListeners {
-	// 	listeners = append(listeners, &listener)
-	// }
+
+	for _, listener := range listenerDump.StaticListeners {
+		if listener.Listener != nil {
+			listeners = append(listeners, listener.Listener)
+		}
+	}
 	if len(listeners) == 0 {
 		return nil, fmt.Errorf("no listeners found")
 	}

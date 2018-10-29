@@ -43,9 +43,7 @@ func (m *StatsSink) Validate() error {
 
 	// no validation rules for Name
 
-	if v, ok := interface{}(m.GetConfig()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetConfig()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return StatsSinkValidationError{
 				Field:  "Config",
@@ -100,9 +98,7 @@ func (m *StatsConfig) Validate() error {
 	for idx, item := range m.GetStatsTags() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return StatsConfigValidationError{
 					Field:  fmt.Sprintf("StatsTags[%v]", idx),
@@ -114,12 +110,20 @@ func (m *StatsConfig) Validate() error {
 
 	}
 
-	if v, ok := interface{}(m.GetUseAllDefaultTags()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetUseAllDefaultTags()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return StatsConfigValidationError{
 				Field:  "UseAllDefaultTags",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
+	if v, ok := interface{}(m.GetStatsMatcher()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return StatsConfigValidationError{
+				Field:  "StatsMatcher",
 				Reason: "embedded message failed validation",
 				Cause:  err,
 			}
@@ -159,6 +163,85 @@ func (e StatsConfigValidationError) Error() string {
 }
 
 var _ error = StatsConfigValidationError{}
+
+// Validate checks the field values on StatsMatcher with the rules defined in
+// the proto definition for this message. If any rules are violated, an error
+// is returned.
+func (m *StatsMatcher) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	switch m.StatsMatcher.(type) {
+
+	case *StatsMatcher_RejectAll:
+		// no validation rules for RejectAll
+
+	case *StatsMatcher_ExclusionList:
+
+		if v, ok := interface{}(m.GetExclusionList()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return StatsMatcherValidationError{
+					Field:  "ExclusionList",
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
+	case *StatsMatcher_InclusionList:
+
+		if v, ok := interface{}(m.GetInclusionList()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return StatsMatcherValidationError{
+					Field:  "InclusionList",
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
+	default:
+		return StatsMatcherValidationError{
+			Field:  "StatsMatcher",
+			Reason: "value is required",
+		}
+
+	}
+
+	return nil
+}
+
+// StatsMatcherValidationError is the validation error returned by
+// StatsMatcher.Validate if the designated constraints aren't met.
+type StatsMatcherValidationError struct {
+	Field  string
+	Reason string
+	Cause  error
+	Key    bool
+}
+
+// Error satisfies the builtin error interface
+func (e StatsMatcherValidationError) Error() string {
+	cause := ""
+	if e.Cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
+	}
+
+	key := ""
+	if e.Key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sStatsMatcher.%s: %s%s",
+		key,
+		e.Field,
+		e.Reason,
+		cause)
+}
+
+var _ error = StatsMatcherValidationError{}
 
 // Validate checks the field values on TagSpecifier with the rules defined in
 // the proto definition for this message. If any rules are violated, an error
@@ -233,9 +316,7 @@ func (m *StatsdSink) Validate() error {
 
 	case *StatsdSink_Address:
 
-		if v, ok := interface{}(m.GetAddress()).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(m.GetAddress()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return StatsdSinkValidationError{
 					Field:  "Address",
@@ -298,13 +379,13 @@ func (m *DogStatsdSink) Validate() error {
 		return nil
 	}
 
+	// no validation rules for Prefix
+
 	switch m.DogStatsdSpecifier.(type) {
 
 	case *DogStatsdSink_Address:
 
-		if v, ok := interface{}(m.GetAddress()).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(m.GetAddress()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return DogStatsdSinkValidationError{
 					Field:  "Address",

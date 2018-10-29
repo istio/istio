@@ -17,6 +17,7 @@ syntax = "proto3";
 // $title: SolarWinds
 // $description: Adapter to deliver logs and metrics to Papertrail and AppOptics backends.
 // $location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/solarwinds.html
+// $supported_templates: metric,logentry
 // $aliases:
 // $  - /docs/reference/config/adapters/solarwinds.html
 

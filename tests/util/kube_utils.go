@@ -57,6 +57,14 @@ var (
 	}
 )
 
+// PodInfo contains pod's information such as name and IP address
+type PodInfo struct {
+	// Name is the pod's name
+	Name string
+	// IPAddr is the pod's IP
+	IPAddr string
+}
+
 // Fill complete a template with given values and generate a new output file
 func Fill(outFile, inFile string, values interface{}) error {
 	tmpl, err := template.ParseFiles(inFile)
@@ -127,6 +135,12 @@ func NamespaceDeleted(n string, kubeconfig string) (bool, error) {
 	return false, err
 }
 
+// ValidatingWebhookConfigurationDeleted check if a kubernetes ValidatingWebhookConfiguration is deleted
+func ValidatingWebhookConfigurationDeleted(name string, kubeconfig string) bool {
+	output, _ := ShellSilent("kubectl get validatingwebhookconfiguration %s -o name --kubeconfig=%s", name, kubeconfig)
+	return strings.Contains(output, "NotFound")
+}
+
 // KubeApplyContents kubectl apply from contents
 func KubeApplyContents(namespace, yamlContents string, kubeconfig string) error {
 	tmpfile, err := WriteTempfile(os.TempDir(), "kubeapply", ".yaml", yamlContents)
@@ -180,39 +194,6 @@ func KubeApplySilent(namespace, yamlFileName string, kubeconfig string) error {
 func KubeScale(namespace, typeName string, replicaCount int, kubeconfig string) error {
 	kubecommand := fmt.Sprintf("kubectl scale -n %s --replicas=%d %s --kubeconfig=%s", namespace, replicaCount, typeName, kubeconfig)
 	_, err := Shell(kubecommand)
-	return err
-}
-
-// HelmInit init helm with a service account
-func HelmInit(serviceAccount string) error {
-	_, err := Shell("helm init --upgrade --service-account %s", serviceAccount)
-	return err
-}
-
-// HelmInstallDryRun helm install dry run from a chart for a given namespace
-func HelmInstallDryRun(chartDir, chartName, namespace, setValue string) error {
-	_, err := Shell("helm install --dry-run --debug %s --name %s --namespace %s %s", chartDir, chartName, namespace, setValue)
-	return err
-}
-
-// HelmInstall helm install from a chart for a given namespace
-//       --set stringArray        set values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)
-func HelmInstall(chartDir, chartName, namespace, setValue string) error {
-	_, err := Shell("helm install %s --name %s --namespace %s %s", chartDir, chartName, namespace, setValue)
-	return err
-}
-
-// HelmTemplate helm template from a chart for a given namespace
-//      --set stringArray        set values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)
-func HelmTemplate(chartDir, chartName, namespace, setValue, outfile string) error {
-	_, err := Shell("helm template %s --name %s --namespace %s %s > %s", chartDir,
-		chartName, namespace, setValue, outfile)
-	return err
-}
-
-// HelmDelete helm del --purge a chart
-func HelmDelete(chartName string) error {
-	_, err := Shell("helm del --purge %s", chartName)
 	return err
 }
 
@@ -400,6 +381,30 @@ func GetIngressPodNames(n string, kubeconfig string) ([]string, error) {
 	return strings.Split(res, " "), nil
 }
 
+// GetAppPodsInfo returns a map of a list of PodInfo
+func GetAppPodsInfo(n string, kubeconfig string, label string) ([]string, map[string][]string, error) {
+	// This will return a table where c0=pod_name and c1=label_value and c2=IPAddr.
+	// The columns are separated by a space and each result is on a separate line (separated by '\n').
+	res, err := Shell("kubectl -n %s -l=%s get pods -o=jsonpath='{range .items[*]}{.metadata.name}{\" \"}{"+
+		".metadata.labels.%s}{\" \"}{.status.podIP}{\"\\n\"}{end}' --kubeconfig=%s", n, label, label, kubeconfig)
+	if err != nil {
+		log.Infof("Failed to get pods by label %s in namespace %s: %s", label, n, err)
+		return nil, nil, err
+	}
+
+	var podNames []string
+	eps := make(map[string][]string)
+	for _, line := range strings.Split(res, "\n") {
+		f := strings.Fields(line)
+		if len(f) >= 3 {
+			podNames = append(podNames, f[0])
+			eps[f[1]] = append(eps[f[1]], f[2])
+		}
+	}
+
+	return podNames, eps, nil
+}
+
 // GetAppPods gets a map of app names to the pods for the app, for the given namespace
 func GetAppPods(n string, kubeconfig string) (map[string][]string, error) {
 	podLabels, err := GetPodLabelValues(n, "app", kubeconfig)
@@ -565,7 +570,46 @@ func CheckDeployment(ctx context.Context, namespace, deployment string, kubeconf
 	}
 }
 
-// CheckDeployments checks whether all deployment in a given namespace
+// CheckAppDeployment checks whether or not an app in a namespace is ready
+func CheckAppDeployment(namespace, deployment string, timeout time.Duration, kubeconfig string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	g, ctx := errgroup.WithContext(ctx)
+	g.Go(func() error { return CheckDeployment(ctx, namespace, "deployments/"+deployment, kubeconfig) })
+	return g.Wait()
+}
+
+// CheckDeploymentRemoved waits until a deployment is removed or times out
+func CheckDeploymentRemoved(namespace, deployment string, kubeconfig string) error {
+	retry := Retrier{
+		BaseDelay: 5 * time.Second,
+		MaxDelay:  5 * time.Second,
+		Retries:   60,
+	}
+
+	pod, err := GetPodName(namespace, "name="+deployment, kubeconfig)
+	// Pod has been removed
+	if err != nil {
+		log.Infof("pod %s is successfully removed", pod)
+		return nil
+	}
+	retryFn := func(_ context.Context, i int) error {
+		_, err := Shell("kubectl get pods %s -n %s --kubeconfig=%s", pod, namespace, kubeconfig)
+		if err != nil {
+			log.Infof("pod %s is successfully removed", pod)
+			return nil
+		}
+		return fmt.Errorf("%s in namespace %s still exists", pod, namespace)
+	}
+	ctx := context.Background()
+	_, err = retry.Retry(ctx, retryFn)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// CheckDeployments checks whether all deployments in a given namespace are ready
 func CheckDeployments(namespace string, timeout time.Duration, kubeconfig string) error {
 	// wait for istio-system deployments to be fully rolled out before proceeding
 	out, err := Shell("kubectl -n %s get deployment -o name --kubeconfig=%s", namespace, kubeconfig)
@@ -773,27 +817,40 @@ func CheckPodRunning(n, name string, kubeconfig string) error {
 	return nil
 }
 
-// CreateMultiClusterSecrets will create the secrets and configmap associated with the remote cluster
-func CreateMultiClusterSecrets(namespace string, RemoteKubeConfig string, localKubeConfig string) error {
+// CreateMultiClusterSecret will create the secret associated with the remote cluster
+func CreateMultiClusterSecret(namespace string, RemoteKubeConfig string, localKubeConfig string) error {
 	const (
 		secretLabel = "istio/multiCluster"
 		labelValue  = "true"
 	)
-	filename := filepath.Base(RemoteKubeConfig)
+	secretName := filepath.Base(RemoteKubeConfig)
 
-	_, err := ShellMuteOutput("kubectl create secret generic %s --from-file %s -n %s --kubeconfig=%s", filename, RemoteKubeConfig, namespace, localKubeConfig)
+	_, err := ShellMuteOutput("kubectl create secret generic %s --from-file %s -n %s --kubeconfig=%s", secretName, RemoteKubeConfig, namespace, localKubeConfig)
 	if err != nil {
+		log.Infof("Failed to create secret %s\n", secretName)
 		return err
 	}
-	log.Infof("Secret %s created\n", filename)
+	log.Infof("Secret %s created\n", secretName)
 
 	// label the secret for use as istio/multiCluster config
 	_, err = ShellMuteOutput("kubectl label secret %s %s=%s -n %s --kubeconfig=%s",
-		filename, secretLabel, labelValue, namespace, localKubeConfig)
+		secretName, secretLabel, labelValue, namespace, localKubeConfig)
 	if err != nil {
 		return err
 	}
 
-	log.Infof("Secret %s labelled with %s=%s\n", filename, secretLabel, labelValue)
+	log.Infof("Secret %s labelled with %s=%s\n", secretName, secretLabel, labelValue)
 	return nil
+}
+
+// DeleteMultiClusterSecret delete the remote cluster secret
+func DeleteMultiClusterSecret(namespace string, RemoteKubeConfig string, localKubeConfig string) error {
+	secretName := filepath.Base(RemoteKubeConfig)
+	_, err := ShellMuteOutput("kubectl delete secret %s -n %s --kubeconfig=%s", secretName, namespace, localKubeConfig)
+	if err != nil {
+		log.Errorf("Failed to delete secret %s: %v", secretName, err)
+	} else {
+		log.Infof("Deleted secret %s", secretName)
+	}
+	return err
 }

@@ -26,9 +26,18 @@ import (
 	"istio.io/istio/security/pkg/pki/util"
 )
 
+// AllowAllChecker is a simple auth checker that allows all requests.
+type AllowAllChecker struct{}
+
+// NewAllowAllChecker creates a new AllowAllChecker.
+func NewAllowAllChecker() AuthChecker { return &AllowAllChecker{} }
+
+// Check is an implementation of AuthChecker.Check that allows all check requests.
+func (*AllowAllChecker) Check(credentials.AuthInfo) error { return nil }
+
 // ListAuthChecker implements AuthChecker function and is backed by a set of ids.
 type ListAuthChecker struct {
-	idsMutex sync.Mutex
+	idsMutex sync.RWMutex
 	ids      map[string]struct{}
 
 	// overridable functions for testing
@@ -76,8 +85,8 @@ func (l *ListAuthChecker) Set(ids ...string) {
 
 // Allowed checks whether the given id is allowed.
 func (l *ListAuthChecker) Allowed(id string) bool {
-	l.idsMutex.Lock()
-	defer l.idsMutex.Unlock()
+	l.idsMutex.RLock()
+	defer l.idsMutex.RUnlock()
 
 	_, found := l.ids[id]
 	return found
@@ -85,6 +94,8 @@ func (l *ListAuthChecker) Allowed(id string) bool {
 
 // String is an implementation of Stringer.String.
 func (l *ListAuthChecker) String() string {
+	l.idsMutex.RLock()
+	defer l.idsMutex.RUnlock()
 	var ids []string
 	for id := range l.ids {
 		ids = append(ids, id)
@@ -101,8 +112,8 @@ func (l *ListAuthChecker) String() string {
 
 // Check is an implementation of AuthChecker.Check.
 func (l *ListAuthChecker) Check(authInfo credentials.AuthInfo) error {
-	l.idsMutex.Lock()
-	defer l.idsMutex.Unlock()
+	l.idsMutex.RLock()
+	defer l.idsMutex.RUnlock()
 
 	// Extract the identities
 

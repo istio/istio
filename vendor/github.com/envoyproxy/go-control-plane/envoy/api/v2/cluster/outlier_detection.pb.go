@@ -86,7 +86,7 @@ func (m *OutlierDetection) Reset()         { *m = OutlierDetection{} }
 func (m *OutlierDetection) String() string { return proto.CompactTextString(m) }
 func (*OutlierDetection) ProtoMessage()    {}
 func (*OutlierDetection) Descriptor() ([]byte, []int) {
-	return fileDescriptor_outlier_detection_ca1bd929cef49cfa, []int{0}
+	return fileDescriptor_outlier_detection_65759ec7bd5a18df, []int{0}
 }
 func (m *OutlierDetection) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -978,10 +978,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/api/v2/cluster/outlier_detection.proto", fileDescriptor_outlier_detection_ca1bd929cef49cfa)
+	proto.RegisterFile("envoy/api/v2/cluster/outlier_detection.proto", fileDescriptor_outlier_detection_65759ec7bd5a18df)
 }
 
-var fileDescriptor_outlier_detection_ca1bd929cef49cfa = []byte{
+var fileDescriptor_outlier_detection_65759ec7bd5a18df = []byte{
 	// 537 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x94, 0xcb, 0x6e, 0xd3, 0x4c,
 	0x14, 0xc7, 0x3f, 0xa7, 0xf7, 0xa9, 0xf4, 0x51, 0x8d, 0xa2, 0x66, 0xd2, 0xa2, 0x08, 0x55, 0x42,

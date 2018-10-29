@@ -162,7 +162,7 @@ func TestValidator(t *testing.T) {
 			"new rule",
 			[]*store.Event{updateEvent("test.rule.default", &cpb.Rule{
 				Actions: []*cpb.Action{
-					{Handler: "staticversion.listchecker.istio-system", Instances: []string{"appversion.listentry.istio-system"}},
+					{Handler: "staticversion.handler.istio-system", Instances: []string{"appversion.listentry.istio-system"}},
 				}})},
 			true,
 			"",
@@ -172,7 +172,7 @@ func TestValidator(t *testing.T) {
 			"update rule",
 			[]*store.Event{updateEvent("checkwl.rule.istio-system", &cpb.Rule{
 				Actions: []*cpb.Action{
-					{Handler: "staticversion.listchecker", Instances: []string{"appversion.listentry"}},
+					{Handler: "staticversion.handler", Instances: []string{"appversion.listentry"}},
 				}})},
 			true,
 			"",
@@ -246,9 +246,9 @@ func TestValidator(t *testing.T) {
 		},
 		{
 			"invalid delete handler",
-			[]*store.Event{deleteEvent("staticversion.listchecker.istio-system")},
+			[]*store.Event{deleteEvent("staticversion.handler.istio-system")},
 			false,
-			"action='checkwl.rule.istio-system[0]': Handler not found: handler='staticversion.listchecker'",
+			"action='checkwl.rule.istio-system[0]': Handler not found: handler='staticversion'",
 		},
 		{
 			"invalid delete instance",

@@ -20,19 +20,37 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/security/pkg/caclient/protocol"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
+	"istio.io/istio/security/pkg/platform"
 	"istio.io/istio/security/pkg/util"
 )
 
 // NewKeyCertBundleRotator is constructor for keyCertBundleRotatorImpl based on the provided configuration.
-func NewKeyCertBundleRotator(cfg *Config, retriever KeyCertRetriever, bundle pkiutil.KeyCertBundle) (*KeyCertBundleRotator, error) {
+func NewKeyCertBundleRotator(cfg *Config, keyCertBundle pkiutil.KeyCertBundle) (*KeyCertBundleRotator, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("nil configuration passed")
 	}
+	pc, err := platform.NewClient(cfg.Env, cfg.RootCertFile, cfg.KeyFile, cfg.CertChainFile, cfg.CAAddress)
+	if err != nil {
+		return nil, err
+	}
+	dial, err := pc.GetDialOptions()
+	if err != nil {
+		return nil, err
+	}
+	grpcConn, err := protocol.NewGrpcConnection(cfg.CAAddress, dial)
+	if err != nil {
+		return nil, err
+	}
+	cac, err := NewCAClient(pc, grpcConn, cfg.CSRMaxRetries, cfg.CSRInitialRetrialInterval)
+	if err != nil {
+		return nil, err
+	}
 	return &KeyCertBundleRotator{
 		certUtil:  util.NewCertUtil(cfg.CSRGracePeriodPercentage),
-		retriever: retriever,
-		keycert:   bundle,
+		retriever: cac,
+		keycert:   keyCertBundle,
 		stopCh:    make(chan bool, 1),
 		stopped:   true,
 	}, nil
@@ -90,7 +108,6 @@ func (c *KeyCertBundleRotator) Start(errCh chan<- error) {
 				}
 			}
 		}
-		log.Infof("Retrieve new key and certs.")
 		co, coErr := c.keycert.CertOptions()
 		if coErr != nil {
 			err := fmt.Errorf("failed to extact CertOptions from bundle: %v, abort auto rotation", coErr)

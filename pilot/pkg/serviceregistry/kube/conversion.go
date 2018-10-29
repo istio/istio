@@ -37,12 +37,14 @@ const (
 	// this service on the VMs
 	KubeServiceAccountsOnVMAnnotation = "alpha.istio.io/kubernetes-serviceaccounts"
 
-	// CanonicalServiceAccountsOnVMAnnotation is to specify the non-Kubernetes service accounts that
-	// are allowed to run this service on the VMs
-	CanonicalServiceAccountsOnVMAnnotation = "alpha.istio.io/canonical-serviceaccounts"
+	// CanonicalServiceAccountsAnnotation is to specify the non-Kubernetes service accounts that
+	// are allowed to run this service.
+	CanonicalServiceAccountsAnnotation = "alpha.istio.io/canonical-serviceaccounts"
 
-	// IstioURIPrefix is the URI prefix in the Istio service account scheme
-	IstioURIPrefix = "spiffe"
+	// istioURIPrefix is the URI prefix in the Istio service account scheme
+	istioURIPrefix = "spiffe"
+
+	managementPortPrefix = "mgmt-"
 )
 
 func convertLabels(obj meta_v1.ObjectMeta) model.Labels {
@@ -53,7 +55,7 @@ func convertLabels(obj meta_v1.ObjectMeta) model.Labels {
 	return out
 }
 
-func convertPort(port v1.ServicePort, obj meta_v1.ObjectMeta) *model.Port {
+func convertPort(port v1.ServicePort) *model.Port {
 	return &model.Port{
 		Name:     port.Name,
 		Port:     int(port.Port),
@@ -82,14 +84,14 @@ func convertService(svc v1.Service, domainSuffix string) *model.Service {
 
 	ports := make([]*model.Port, 0, len(svc.Spec.Ports))
 	for _, port := range svc.Spec.Ports {
-		ports = append(ports, convertPort(port, svc.ObjectMeta))
+		ports = append(ports, convertPort(port))
 	}
 
 	serviceaccounts := make([]string, 0)
 	if svc.Annotations != nil {
-		if svc.Annotations[CanonicalServiceAccountsOnVMAnnotation] != "" {
-			for _, csa := range strings.Split(svc.Annotations[CanonicalServiceAccountsOnVMAnnotation], ",") {
-				serviceaccounts = append(serviceaccounts, canonicalToIstioServiceAccount(csa))
+		if svc.Annotations[CanonicalServiceAccountsAnnotation] != "" {
+			for _, csa := range strings.Split(svc.Annotations[CanonicalServiceAccountsAnnotation], ",") {
+				serviceaccounts = append(serviceaccounts, csa)
 			}
 		}
 		if svc.Annotations[KubeServiceAccountsOnVMAnnotation] != "" {
@@ -121,14 +123,9 @@ func serviceHostname(name, namespace, domainSuffix string) model.Hostname {
 	return model.Hostname(fmt.Sprintf("%s.%s.svc.%s", name, namespace, domainSuffix))
 }
 
-// canonicalToIstioServiceAccount converts a Canonical service account to an Istio service account
-func canonicalToIstioServiceAccount(saname string) string {
-	return fmt.Sprintf("%v://%v", IstioURIPrefix, saname)
-}
-
 // kubeToIstioServiceAccount converts a K8s service account to an Istio service account
 func kubeToIstioServiceAccount(saname string, ns string, domain string) string {
-	return fmt.Sprintf("%v://%v/ns/%v/sa/%v", IstioURIPrefix, domain, ns, saname)
+	return fmt.Sprintf("%v://%v/ns/%v/sa/%v", istioURIPrefix, domain, ns, saname)
 }
 
 // KeyFunc is the internal API key function that returns "namespace"/"name" or
@@ -172,40 +169,40 @@ func ConvertProtocol(name string, proto v1.Protocol) model.Protocol {
 	return out
 }
 
-func convertProbePort(c v1.Container, handler *v1.Handler) (*model.Port, error) {
+func convertProbePort(c *v1.Container, handler *v1.Handler) (*model.Port, error) {
 	if handler == nil {
 		return nil, nil
 	}
 
 	var protocol model.Protocol
 	var portVal intstr.IntOrString
-	var port int
 
-	// Only one type of handler is allowed by Kubernetes (HTTPGet or TCPSocket)
-	if handler.HTTPGet != nil {
+	// Only two types of handler is allowed by Kubernetes (HTTPGet or TCPSocket)
+	switch {
+	case handler.HTTPGet != nil:
 		portVal = handler.HTTPGet.Port
 		protocol = model.ProtocolHTTP
-	} else if handler.TCPSocket != nil {
+	case handler.TCPSocket != nil:
 		portVal = handler.TCPSocket.Port
 		protocol = model.ProtocolTCP
-	} else {
+	default:
 		return nil, nil
 	}
 
 	switch portVal.Type {
 	case intstr.Int:
-		port = portVal.IntValue()
+		port := portVal.IntValue()
 		return &model.Port{
-			Name:     "mgmt-" + strconv.Itoa(port),
+			Name:     managementPortPrefix + strconv.Itoa(port),
 			Port:     port,
 			Protocol: protocol,
 		}, nil
 	case intstr.String:
 		for _, named := range c.Ports {
 			if named.Name == portVal.String() {
-				port = int(named.ContainerPort)
+				port := int(named.ContainerPort)
 				return &model.Port{
-					Name:     "mgmt-" + strconv.Itoa(port),
+					Name:     managementPortPrefix + strconv.Itoa(port),
 					Port:     port,
 					Protocol: protocol,
 				}, nil
@@ -213,7 +210,7 @@ func convertProbePort(c v1.Container, handler *v1.Handler) (*model.Port, error) 
 		}
 		return nil, fmt.Errorf("missing named port %q", portVal)
 	default:
-		return nil, fmt.Errorf("incorrect port type %q", portVal)
+		return nil, fmt.Errorf("incorrect port type %q", portVal.Type)
 	}
 }
 
@@ -228,7 +225,7 @@ func convertProbesToPorts(t *v1.PodSpec) (model.PortList, error) {
 				continue
 			}
 
-			p, err := convertProbePort(container, &probe.Handler)
+			p, err := convertProbePort(&container, &probe.Handler)
 			if err != nil {
 				errs = multierror.Append(errs, err)
 			} else if p != nil && set[p.Name] == nil {

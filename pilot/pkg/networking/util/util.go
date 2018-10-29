@@ -35,6 +35,9 @@ import (
 const (
 	// BlackHoleCluster to catch traffic from routes with unresolved clusters. Traffic arriving here goes nowhere.
 	BlackHoleCluster = "BlackHoleCluster"
+	// PassthroughCluster to forward traffic to the original destination requested. This cluster is used when
+	// traffic does not match any listener in envoy.
+	PassthroughCluster = "PassthroughCluster"
 )
 
 // ALPNH2Only advertises that Proxy is going to use HTTP/2 when talking to the cluster.

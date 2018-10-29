@@ -61,7 +61,7 @@ var (
 	// Start time of the UI Server (for uptime info).
 	startTime time.Time
 	// Directory where the static content and templates are to be loaded from.
-	// This is replaced at link time to the packaged directory (e.g /usr/local/lib/fortio/)
+	// This is replaced at link time to the packaged directory (e.g /usr/share/fortio/)
 	// but when fortio is installed with go get we use RunTime to find that directory.
 	// (see Dockerfile for how to set it)
 	resourcesDir     string
@@ -913,6 +913,15 @@ func Serve(baseurl, port, debugpath, uipath, staticRsrcDir string, datadir strin
 	if dataDir != "" {
 		fs := http.FileServer(http.Dir(dataDir))
 		mux.Handle(uiPath+"data/", LogAndFilterDataRequest(http.StripPrefix(uiPath+"data", fs)))
+		if datadir == "." {
+			var err error
+			datadir, err = os.Getwd()
+			if err != nil {
+				log.Errf("Unable to get current directory: %v", err)
+				datadir = dataDir
+			}
+		}
+		fmt.Println("Data directory is", datadir)
 	}
 	urlHostPort = fnet.NormalizeHostPort(port, addr)
 	uiMsg := "UI started - visit:\n"

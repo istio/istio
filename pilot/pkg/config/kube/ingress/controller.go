@@ -136,28 +136,28 @@ func (c *controller) ConfigDescriptor() model.ConfigDescriptor {
 }
 
 //TODO: we don't return out of this function now
-func (c *controller) Get(typ, name, namespace string) (*model.Config, bool) {
+func (c *controller) Get(typ, name, namespace string) *model.Config {
 	if typ != model.Gateway.Type && typ != model.VirtualService.Type {
-		return nil, false
+		return nil
 	}
 
 	ingressName, _, _, err := decodeIngressRuleName(name)
 	if err != nil {
-		return nil, false
+		return nil
 	}
 
 	storeKey := kube.KeyFunc(ingressName, namespace)
 	obj, exists, err := c.informer.GetStore().GetByKey(storeKey)
 	if err != nil || !exists {
-		return nil, false
+		return nil
 	}
 
 	ingress := obj.(*extensionsv1beta1.Ingress)
 	if !shouldProcessIngress(c.mesh, ingress) {
-		return nil, false
+		return nil
 	}
 
-	return nil, false
+	return nil
 }
 
 func (c *controller) List(typ, namespace string) ([]model.Config, error) {

@@ -15,9 +15,14 @@
 package controller
 
 import (
+	"fmt"
 	"log"
+	"os"
+	"os/user"
 	"testing"
 	"time"
+
+	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
@@ -56,9 +61,45 @@ func makeClient(t *testing.T, desc model.ConfigDescriptor) (*crd.Client, error) 
 	return cl, nil
 }
 
+// resolveConfig checks whether to use the in-cluster or out-of-cluster config
+func resolveConfig(kubeconfig string) (string, error) {
+	// Consistency with kubectl
+	if kubeconfig == "" {
+		kubeconfig = os.Getenv("KUBECONFIG")
+	}
+	if kubeconfig == "" {
+		usr, err := user.Current()
+		if err == nil {
+			defaultCfg := usr.HomeDir + "/.kube/config"
+			_, err := os.Stat(kubeconfig)
+			if err != nil {
+				kubeconfig = defaultCfg
+			}
+		}
+	}
+	if kubeconfig != "" {
+		info, err := os.Stat(kubeconfig)
+		if err != nil {
+			if os.IsNotExist(err) {
+				err = fmt.Errorf("kubernetes configuration file %q does not exist", kubeconfig)
+			} else {
+				err = multierror.Append(err, fmt.Errorf("kubernetes configuration file %q", kubeconfig))
+			}
+			return "", err
+		}
+
+		// if it's an empty file, switch to in-cluster config
+		if info.Size() == 0 {
+			log.Println("using in-cluster configuration")
+			return "", nil
+		}
+	}
+	return kubeconfig, nil
+}
+
 // makeTempClient allocates a namespace and cleans it up on test completion
 func makeTempClient(t *testing.T) (*crd.Client, string, func()) {
-	kubeconfig, err := kube.ResolveConfig("")
+	kubeconfig, err := resolveConfig("")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -100,7 +100,10 @@ func signCertFromCitadel() (*x509.Certificate, crypto.PrivateKey) {
 	}
 
 	var secret k8s.Secret
-	json.Unmarshal(out, &secret)
+	err = json.Unmarshal(out, &secret)
+	if err != nil {
+		log.Fatalf("Unmarshal secret error: %v", err)
+	}
 	key, err := util.ParsePemEncodedKey(secret.Data["ca-key.pem"])
 	if err != nil {
 		log.Fatalf("Unrecogniazed key format from citadel %v", err)

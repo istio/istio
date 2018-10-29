@@ -15,8 +15,9 @@
 syntax = "proto3";
 
 // $title: Stdio
-// $description: Adapter for outputting logs and metrics locally.
+// $description: Adapter to locally output logs and metrics.
 // $location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/stdio.html
+// $supported_templates: logentry,metric
 // $aliases:
 // $  - /docs/reference/config/adapters/stdio.html
 

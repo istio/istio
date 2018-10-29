@@ -48,6 +48,22 @@ function check_apt_get() {
   fi
 }
 
+# Check if yum is installed
+function check_yum() {
+  if ! yum --help > /dev/null; then
+    echo "yum not installed. Please install it manually and run this script again."
+    exit 1
+  fi
+}
+
+# Check if rpm is installed
+function check_rpm() {
+  if ! rpm --help > /dev/null; then
+    echo "rpm not installed. Please install it and run this script again."
+    exit 1
+  fi
+}
+
 # Install Docker
 function install_docker() {
   echo "Checking and Installing Docker as required"

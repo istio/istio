@@ -60,8 +60,7 @@ var (
 		Aliases: []string{"clusters", "c"},
 		Args:    cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
-			podName := args[0]
-			ns := handleNamespace()
+			podName, ns := inferPodInfo(args[0], handleNamespace())
 			configWriter, err := setupConfigdumpEnvoyConfigWriter(podName, ns, c.OutOrStdout())
 			if err != nil {
 				return err
@@ -101,8 +100,7 @@ var (
 		Aliases: []string{"listeners", "l"},
 		Args:    cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
-			podName := args[0]
-			ns := handleNamespace()
+			podName, ns := inferPodInfo(args[0], handleNamespace())
 			configWriter, err := setupConfigdumpEnvoyConfigWriter(podName, ns, c.OutOrStdout())
 			if err != nil {
 				return err
@@ -142,8 +140,7 @@ var (
 		Aliases: []string{"routes", "r"},
 		Args:    cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
-			podName := args[0]
-			ns := handleNamespace()
+			podName, ns := inferPodInfo(args[0], handleNamespace())
 			configWriter, err := setupConfigdumpEnvoyConfigWriter(podName, ns, c.OutOrStdout())
 			if err != nil {
 				return err
@@ -172,8 +169,7 @@ var (
 		Aliases: []string{"b"},
 		Args:    cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
-			podName := args[0]
-			ns := handleNamespace()
+			podName, ns := inferPodInfo(args[0], handleNamespace())
 			configWriter, err := setupConfigdumpEnvoyConfigWriter(podName, ns, c.OutOrStdout())
 			if err != nil {
 				return err
@@ -204,8 +200,7 @@ var (
 		Aliases: []string{"endpoints", "ep"},
 		Args:    cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
-			podName := args[0]
-			ns := handleNamespace()
+			podName, ns := inferPodInfo(args[0], handleNamespace())
 			configWriter, err := setupClustersEnvoyConfigWriter(podName, ns, c.OutOrStdout())
 			if err != nil {
 				return err
@@ -241,12 +236,12 @@ func handleNamespace() string {
 func setupConfigdumpEnvoyConfigWriter(podName, podNamespace string, out io.Writer) (*configdump.ConfigWriter, error) {
 	kubeClient, err := clientExecFactory(kubeconfig, configContext)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create k8s client: %v", err)
 	}
 	path := "config_dump"
 	debug, err := kubeClient.EnvoyDo(podName, podNamespace, "GET", path, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to execute command on envoy: %v", err)
 	}
 	cw := &configdump.ConfigWriter{Stdout: out}
 	err = cw.Prime(debug)
@@ -256,17 +251,17 @@ func setupConfigdumpEnvoyConfigWriter(podName, podNamespace string, out io.Write
 	return cw, nil
 }
 
-// TODO: migrate this to config dump when implemented in Envoy
+// TODO(fisherxu): migrate this to config dump when implemented in Envoy
 // Issue to track -> https://github.com/envoyproxy/envoy/issues/3362
 func setupClustersEnvoyConfigWriter(podName, podNamespace string, out io.Writer) (*clusters.ConfigWriter, error) {
 	kubeClient, err := clientExecFactory(kubeconfig, configContext)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create k8s client: %v", err)
 	}
 	path := "clusters?format=json"
 	debug, err := kubeClient.EnvoyDo(podName, podNamespace, "GET", path, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to execute command on envoy: %v", err)
 	}
 	cw := &clusters.ConfigWriter{Stdout: out}
 	err = cw.Prime(debug)

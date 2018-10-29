@@ -62,7 +62,7 @@ func (f *fortioapp) CallFortio(arg string, path string) (environment.FortioAppCa
 
 	pod := pods[0]
 
-	response, err := util.Shell("kubectl exec -n %s %s -c %s -- /usr/local/bin/fortio %s %s/%s", f.namespace, pod, f.name, f.serverAddress, arg, path)
+	response, err := util.Shell("kubectl exec -n %s %s -c %s -- fortio %s %s/%s", f.namespace, pod, f.name, f.serverAddress, arg, path)
 	if err != nil {
 		return environment.FortioAppCallResult{}, err
 	}

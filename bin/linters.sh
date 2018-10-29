@@ -1,4 +1,19 @@
 #!/bin/bash
+
+# Copyright 2018 Istio Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 set -ex
 
 SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
@@ -35,12 +50,40 @@ function check_spelling() {
     echo 'spelling OK'
 }
 
+function has_latest_gometalinter() {
+    local local_binary
+    local lastest_version
+    local current_version
+
+    local_binary="${1}"
+    lastest_version="${2}"
+    current_version="$(${local_binary} --version 2>/dev/null | cut -d ' ' -f 3)"
+
+    if [ "${lastest_version}" != "${current_version}" ]; then
+        return 1
+    fi
+
+    return 0
+}
+
 function install_gometalinter() {
+    gometalinter=$(command -v gometalinter 2> /dev/null || echo "${ISTIO_BIN}/gometalinter")
+    latest_version=$(curl -L -s https://api.github.com/repos/alecthomas/gometalinter/releases/latest \
+	    | grep tag_name | sed "s/ *\"tag_name\": *\"\\(.*\\)\",*/\\1/" | sed "s/v//")
+
+    if has_latest_gometalinter "${gometalinter}" "${latest_version}"; then
+        echo "Skipping gometalinter installation, we already have the latest version"
+        return 0
+    fi
+
     echo 'Installing gometalinter ....'
-    go get -u gopkg.in/alecthomas/gometalinter.v2
-    gometalinter=$(command -v gometalinter.v2 2> /dev/null || echo "${ISTIO_BIN}/gometalinter.v2")
-    $gometalinter --install
-    echo 'Gometalinter installed successfully ....'
+    curl -s "https://raw.githubusercontent.com/alecthomas/gometalinter/v${latest_version}/scripts/install.sh" | bash -s -- -b "${ISTIO_BIN}"
+    if [ ! -x "${ISTIO_BIN}/gometalinter" ]; then
+        echo "Installation of gometalinter failed"
+        exit 1
+    fi
+
+    echo 'Gometalinter installed successfully'
 }
 
 function run_gometalinter() {
@@ -76,7 +119,8 @@ function check_grafana_dashboards() {
 }
 
 ensure_pilot_types
-format
+# Below format check is temporarily disabled until https://github.com/golang/go/issues/28200 is resolved
+#format
 check_licenses
 check_spelling
 install_gometalinter

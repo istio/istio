@@ -9,7 +9,7 @@
 	it to a URL from where the list should be fetched. Lists can be simple strings,
 	IP addresses, or regex patterns.
 
-	 This adapter supports the [listentry template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/listentry/).
+	This adapter supports the [listentry template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/listentry/).
 
 	It is generated from these files:
 		mixer/adapter/list/config/config.proto

@@ -19,16 +19,15 @@ import (
 
 	"go.uber.org/multierr"
 
+	"istio.io/istio/pkg/test/framework/scopes"
+
 	"fmt"
 
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/framework/component"
 	"istio.io/istio/pkg/test/framework/components/registry"
 	"istio.io/istio/pkg/test/framework/dependency"
 	"istio.io/istio/pkg/test/framework/environment"
 )
-
-var scope = log.RegisterScope("testframework", "General scope for the test framework", 0)
 
 // Tracker keeps track of the state information for dependencies
 type Tracker struct {
@@ -99,9 +98,9 @@ func (t *Tracker) Reset() error {
 
 	for k, v := range t.depMap {
 		if cl, ok := v.(Resettable); ok {
-			scope.Debugf("Resetting state for dependency: %s", k)
+			scopes.Framework.Debugf("Resetting state for dependency: %s", k)
 			if err := cl.Reset(); err != nil {
-				scope.Errorf("Error resetting dependency state: %s: %v", k, err)
+				scopes.Framework.Errorf("Error resetting dependency state: %s: %v", k, err)
 				er = multierr.Append(er, err)
 			}
 		}
@@ -114,9 +113,9 @@ func (t *Tracker) Reset() error {
 func (t *Tracker) Cleanup() {
 	for k, v := range t.depMap {
 		if cl, ok := v.(io.Closer); ok {
-			scope.Debugf("Cleaning up state for dependency: %s", k)
+			scopes.Framework.Debugf("Cleaning up state for dependency: %s", k)
 			if err := cl.Close(); err != nil {
-				scope.Errorf("Error cleaning up dependency state: %s: %v", k, err)
+				scopes.Framework.Errorf("Error cleaning up dependency state: %s: %v", k, err)
 			}
 		}
 	}

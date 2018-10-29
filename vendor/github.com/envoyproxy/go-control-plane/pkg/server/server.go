@@ -23,6 +23,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -47,20 +48,22 @@ type Server interface {
 // The callbacks are invoked synchronously.
 type Callbacks interface {
 	// OnStreamOpen is called once an xDS stream is open with a stream ID and the type URL (or "" for ADS).
-	OnStreamOpen(int64, string)
+	// Returning an error will end processing and close the stream. OnStreamClosed will still be called.
+	OnStreamOpen(context.Context, int64, string) error
 	// OnStreamClosed is called immediately prior to closing an xDS stream with a stream ID.
 	OnStreamClosed(int64)
 	// OnStreamRequest is called once a request is received on a stream.
 	OnStreamRequest(int64, *v2.DiscoveryRequest)
 	// OnStreamResponse is called immediately prior to sending a response on a stream.
 	OnStreamResponse(int64, *v2.DiscoveryRequest, *v2.DiscoveryResponse)
-	// OnFetchRequest is called for each Fetch request
-	OnFetchRequest(*v2.DiscoveryRequest)
+	// OnFetchRequest is called for each Fetch request. Returning an error will end processing of the
+	// request and respond with an error.
+	OnFetchRequest(context.Context, *v2.DiscoveryRequest) error
 	// OnFetchResponse is called immediately prior to sending a response.
 	OnFetchResponse(*v2.DiscoveryRequest, *v2.DiscoveryResponse)
 }
 
-// NewServer creates handlers from a config watcher and an optional logger.
+// NewServer creates handlers from a config watcher and callbacks.
 func NewServer(config cache.Cache, callbacks Callbacks) Server {
 	return &server{cache: config, callbacks: callbacks}
 }
@@ -74,6 +77,8 @@ type server struct {
 }
 
 type stream interface {
+	grpc.ServerStream
+
 	Send(*v2.DiscoveryResponse) error
 	Recv() (*v2.DiscoveryRequest, error)
 }
@@ -170,7 +175,9 @@ func (s *server) process(stream stream, reqCh <-chan *v2.DiscoveryRequest, defau
 	}
 
 	if s.callbacks != nil {
-		s.callbacks.OnStreamOpen(streamID, defaultTypeURL)
+		if err := s.callbacks.OnStreamOpen(stream.Context(), streamID, defaultTypeURL); err != nil {
+			return err
+		}
 	}
 
 	for {
@@ -319,7 +326,9 @@ func (s *server) StreamListeners(stream v2.ListenerDiscoveryService_StreamListen
 // Fetch is the universal fetch method.
 func (s *server) Fetch(ctx context.Context, req *v2.DiscoveryRequest) (*v2.DiscoveryResponse, error) {
 	if s.callbacks != nil {
-		s.callbacks.OnFetchRequest(req)
+		if err := s.callbacks.OnFetchRequest(ctx, req); err != nil {
+			return nil, err
+		}
 	}
 	resp, err := s.cache.Fetch(ctx, *req)
 	if err != nil {

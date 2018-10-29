@@ -1,0 +1,7 @@
+#
+# sidecar-injector webhook configuration
+#
+enabled: true
+replicaCount: 1
+image: sidecar_injector
+enableNamespacesByDefault: false

@@ -77,10 +77,6 @@ func (e *envoy) args(fname string, epoch int) []string {
 		startupArgs = append(startupArgs, "--concurrency", fmt.Sprint(e.config.Concurrency))
 	}
 
-	if len(e.config.AvailabilityZone) > 0 {
-		startupArgs = append(startupArgs, []string{"--service-zone", e.config.AvailabilityZone}...)
-	}
-
 	return startupArgs
 }
 
@@ -94,7 +90,7 @@ func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
 		// there is a custom configuration. Don't write our own config - but keep watching the certs.
 		fname = e.config.CustomConfigFile
 	} else {
-		out, err := bootstrap.WriteBootstrap(&e.config, e.node, epoch, e.pilotSAN, e.opts)
+		out, err := bootstrap.WriteBootstrap(&e.config, e.node, epoch, e.pilotSAN, e.opts, os.Environ())
 		if err != nil {
 			log.Errora("Failed to generate bootstrap config", err)
 			os.Exit(1) // Prevent infinite loop attempting to write the file, let k8s/systemd report

@@ -21,10 +21,15 @@
 package config
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"sync"
+
+	"github.com/gogo/protobuf/jsonpb"
+	"github.com/gogo/protobuf/proto"
 
 	"go.opencensus.io/tag"
 
@@ -199,7 +204,7 @@ func (e *Ephemeral) processAttributeManifests(ctx context.Context, errs *multier
 		}
 	}
 
-	// append all the well known attribute vocabulary from the templates.
+	// append all the well known attribute vocabulary from the static templates.
 	//
 	// ATTRIBUTE_GENERATOR variety templates allows operators to write Attributes
 	// using the $out.<field Name> convention, where $out refers to the output object from the attribute generating adapter.
@@ -220,12 +225,57 @@ func (e *Ephemeral) processAttributeManifests(ctx context.Context, errs *multier
 	return attrs
 }
 
+// convert converts unstructured spec into the target proto.
+func convert(spec map[string]interface{}, target proto.Message) error {
+	jsonData, err := json.Marshal(spec)
+	if err != nil {
+		return err
+	}
+	if err = jsonpb.Unmarshal(bytes.NewReader(jsonData), target); err != nil {
+		log.Warnf("unable to unmarshal: %s, %s", err.Error(), string(jsonData))
+	}
+	return err
+}
+
 func (e *Ephemeral) processStaticAdapterHandlerConfigs(ctx context.Context, errs *multierror.Error) map[string]*HandlerStatic {
 	handlers := make(map[string]*HandlerStatic, len(e.adapters))
 
 	for key, resource := range e.entries {
 		var info *adapter.Info
 		var found bool
+
+		if key.Kind == constant.HandlerKind {
+			log.Debugf("Static Handler: %#v (name: %s)", key, key.Name)
+			handlerProto := resource.Spec.(*config.Handler)
+			a, ok := e.adapters[handlerProto.CompiledAdapter]
+			if !ok {
+				continue
+			}
+			staticConfig := &HandlerStatic{
+				// example: stdio.istio-system
+				Name:    key.Name + "." + key.Namespace,
+				Adapter: a,
+				Params:  a.DefaultConfig,
+			}
+			if handlerProto.Params != nil {
+				c := proto.Clone(staticConfig.Adapter.DefaultConfig)
+				if handlerProto.GetParams() != nil {
+					dict, err := toDictionary(handlerProto.Params)
+					if err != nil {
+						log.Warnf("could not convert handler params; using default config: %v", err)
+					} else {
+						if err := convert(dict, c); err != nil {
+							log.Warnf("could not convert handler params; using default config: %v", err)
+						}
+					}
+				}
+				staticConfig.Params = c
+			}
+			handlers[key.String()] = staticConfig
+			stats.Record(ctx, monitoring.HandlersTotal.M(1))
+			continue
+		}
+
 		if info, found = e.adapters[key.Kind]; !found {
 			// This config resource is not for an adapter (or at least not for one that Mixer is currently aware of).
 			continue
@@ -270,6 +320,9 @@ func (e *Ephemeral) processDynamicHandlerConfigs(ctx context.Context, adapters m
 		log.Debugf("Processing incoming handler config: name='%s'\n%s", handlerName, resource.Spec)
 
 		hdl := resource.Spec.(*config.Handler)
+		if len(hdl.CompiledAdapter) > 0 {
+			continue // this will have already been added in processStaticHandlerConfigs
+		}
 		adpt, _ := getCanonicalRef(hdl.Adapter, constant.AdapterKind, key.Namespace, func(n string) interface{} {
 			if a, ok := adapters[n]; ok {
 				return a
@@ -355,12 +408,12 @@ func (e *Ephemeral) processDynamicInstanceConfigs(ctx context.Context, templates
 		var params map[string]interface{}
 		var err error
 		if inst.Params != nil {
-			if _, ok := inst.Params.(map[string]interface{}); !ok {
+			if params, err = toDictionary(inst.Params); err != nil {
 				appendErr(ctx, errs, fmt.Sprintf("instance='%s'.params", instanceName),
-					monitoring.InstanceErrs, "invalid params block. It must be of type map[string]interface{}")
+					monitoring.InstanceErrs, "invalid params block.")
 				continue
 			}
-			params = inst.Params.(map[string]interface{})
+
 			// name field is not provided by instance config author, instead it is added by Mixer into the request
 			// object that is passed to the adapter.
 			params["name"] = fmt.Sprintf("\"%s\"", instanceName)
@@ -374,10 +427,11 @@ func (e *Ephemeral) processDynamicInstanceConfigs(ctx context.Context, templates
 		}
 
 		cfg := &InstanceDynamic{
-			Name:     instanceName,
-			Template: template,
-			Encoder:  enc,
-			Params:   params,
+			Name:              instanceName,
+			Template:          template,
+			Encoder:           enc,
+			Params:            params,
+			AttributeBindings: inst.AttributeBindings,
 		}
 
 		instances[cfg.Name] = cfg
@@ -395,14 +449,15 @@ func getParamsMsgFullName(pkgName string) string {
 	return "." + pkgName + ".Params"
 }
 
-func validateEncodeBytes(params interface{}, fds *descriptor.FileDescriptorSet, msgName string) ([]byte, error) {
+func validateEncodeBytes(params *types.Struct, fds *descriptor.FileDescriptorSet, msgName string) ([]byte, error) {
 	if params == nil {
 		return []byte{}, nil
 	}
-	if _, ok := params.(map[string]interface{}); !ok {
-		return []byte{}, fmt.Errorf("invalid params block. It must be of type map[string]interface{}")
+	d, err := toDictionary(params)
+	if err != nil {
+		return nil, fmt.Errorf("error converting parameters to dictionary: %v", err)
 	}
-	return yaml.NewEncoder(fds).EncodeBytes(params.(map[string]interface{}), msgName, false)
+	return yaml.NewEncoder(fds).EncodeBytes(d, msgName, false)
 }
 
 func (e *Ephemeral) processInstanceConfigs(ctx context.Context, attributes ast.AttributeDescriptorFinder, errs *multierror.Error) map[string]*InstanceStatic {
@@ -729,6 +784,26 @@ func (e *Ephemeral) processDynamicTemplateConfigs(ctx context.Context, errs *mul
 			FileDescSet:                fds,
 			PackageName:                desc.GetPackage(),
 			Variety:                    variety,
+		}
+
+		if variety == v1beta1.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR {
+			resolver := yaml.NewResolver(fds)
+			msgName := "." + desc.GetPackage() + ".OutputMsg"
+			// OutputMsg is a fixed generated name for the output template
+			desc := resolver.ResolveMessage(msgName)
+			if desc == nil {
+				continue
+			}
+
+			// We only support a single level of nesting in output templates.
+			attributes := make(map[string]*config.AttributeManifest_AttributeInfo)
+			for _, field := range desc.GetField() {
+				attributes["output."+field.GetName()] = &config.AttributeManifest_AttributeInfo{
+					ValueType: yaml.DecodeType(resolver, field),
+				}
+			}
+
+			result[templateName].AttributeManifest = attributes
 		}
 	}
 	return result

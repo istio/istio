@@ -1,8 +1,8 @@
 package reflect2
 
 import (
-	"unsafe"
 	"reflect"
+	"unsafe"
 )
 
 // sliceHeader is a safe version of SliceHeader used within this package.

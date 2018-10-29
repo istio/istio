@@ -41,9 +41,7 @@ func (m *Endpoint) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetAddress()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetAddress()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return EndpointValidationError{
 				Field:  "Address",
@@ -53,9 +51,7 @@ func (m *Endpoint) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetHealthCheckConfig()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetHealthCheckConfig()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return EndpointValidationError{
 				Field:  "HealthCheckConfig",
@@ -106,9 +102,7 @@ func (m *LbEndpoint) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetEndpoint()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetEndpoint()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return LbEndpointValidationError{
 				Field:  "Endpoint",
@@ -120,9 +114,7 @@ func (m *LbEndpoint) Validate() error {
 
 	// no validation rules for HealthStatus
 
-	if v, ok := interface{}(m.GetMetadata()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetMetadata()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return LbEndpointValidationError{
 				Field:  "Metadata",
@@ -185,9 +177,7 @@ func (m *LocalityLbEndpoints) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetLocality()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetLocality()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return LocalityLbEndpointsValidationError{
 				Field:  "Locality",
@@ -200,9 +190,7 @@ func (m *LocalityLbEndpoints) Validate() error {
 	for idx, item := range m.GetLbEndpoints() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return LocalityLbEndpointsValidationError{
 					Field:  fmt.Sprintf("LbEndpoints[%v]", idx),

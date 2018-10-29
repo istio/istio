@@ -31,13 +31,13 @@ func NewNoSleep() *NoSleep {
 
 // GetID returns no_sleep_rule.
 func (lr *NoSleep) GetID() string {
-	return getCallerFileName()
+	return GetCallerFileName()
 }
 
 // Check verifies if aNode is not time.Sleep. If verification fails lrp creates a new report.
 func (lr *NoSleep) Check(aNode ast.Node, fs *token.FileSet, lrp *checker.Report) {
 	if ce, ok := aNode.(*ast.CallExpr); ok {
-		if matchCallExpr(ce, "time", "Sleep") {
+		if MatchCallExpr(ce, "time", "Sleep") {
 			lrp.AddItem(fs.Position(ce.Pos()), lr.GetID(), "time.Sleep() is disallowed.")
 		}
 	}

@@ -58,7 +58,7 @@ func serverCmd(info map[string]template.Info, adapters []adapter.InfoFn, printf,
 		"Max number of entries in the check result cache")
 
 	serverCmd.PersistentFlags().StringVarP(&sa.ConfigStoreURL, "configStoreURL", "", sa.ConfigStoreURL,
-		"URL of the config store. Use k8s://path_to_kubeconfig, fs:// for file system, or mcp://<address> for MCP/Galley. "+
+		"URL of the config store. Use k8s://path_to_kubeconfig, fs:// for file system, or mcps://<address> for MCP/Galley. "+
 			"If path_to_kubeconfig is empty, in-cluster kubeconfig is used.")
 
 	serverCmd.PersistentFlags().StringVarP(&sa.ConfigDefaultNamespace, "configDefaultNamespace", "", sa.ConfigDefaultNamespace,
@@ -74,6 +74,9 @@ func serverCmd(info map[string]template.Info, adapters []adapter.InfoFn, printf,
 		"Interval of updating file for the readiness probe.")
 	serverCmd.PersistentFlags().BoolVar(&sa.EnableProfiling, "profile", sa.EnableProfiling,
 		"Enable profiling via web interface host:port/debug/pprof")
+
+	serverCmd.PersistentFlags().BoolVar(&sa.UseAdapterCRDs, "useAdapterCRDs", sa.UseAdapterCRDs,
+		"Whether or not to allow configuration of Mixer via adapter-specific CRDs")
 
 	sa.CredentialOptions.AttachCobraFlags(serverCmd)
 	sa.LoggingOptions.AttachCobraFlags(serverCmd)

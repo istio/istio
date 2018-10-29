@@ -58,7 +58,7 @@ func (m *ClusterLoadAssignment) Reset()         { *m = ClusterLoadAssignment{} }
 func (m *ClusterLoadAssignment) String() string { return proto.CompactTextString(m) }
 func (*ClusterLoadAssignment) ProtoMessage()    {}
 func (*ClusterLoadAssignment) Descriptor() ([]byte, []int) {
-	return fileDescriptor_eds_4dda14f752f4a5e3, []int{0}
+	return fileDescriptor_eds_da535bab52f49a90, []int{0}
 }
 func (m *ClusterLoadAssignment) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -149,7 +149,7 @@ func (m *ClusterLoadAssignment_Policy) Reset()         { *m = ClusterLoadAssignm
 func (m *ClusterLoadAssignment_Policy) String() string { return proto.CompactTextString(m) }
 func (*ClusterLoadAssignment_Policy) ProtoMessage()    {}
 func (*ClusterLoadAssignment_Policy) Descriptor() ([]byte, []int) {
-	return fileDescriptor_eds_4dda14f752f4a5e3, []int{0, 0}
+	return fileDescriptor_eds_da535bab52f49a90, []int{0, 0}
 }
 func (m *ClusterLoadAssignment_Policy) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -208,7 +208,7 @@ func (m *ClusterLoadAssignment_Policy_DropOverload) Reset() {
 func (m *ClusterLoadAssignment_Policy_DropOverload) String() string { return proto.CompactTextString(m) }
 func (*ClusterLoadAssignment_Policy_DropOverload) ProtoMessage()    {}
 func (*ClusterLoadAssignment_Policy_DropOverload) Descriptor() ([]byte, []int) {
-	return fileDescriptor_eds_4dda14f752f4a5e3, []int{0, 0, 0}
+	return fileDescriptor_eds_da535bab52f49a90, []int{0, 0, 0}
 }
 func (m *ClusterLoadAssignment_Policy_DropOverload) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1189,9 +1189,9 @@ var (
 	ErrIntOverflowEds   = fmt.Errorf("proto: integer overflow")
 )
 
-func init() { proto.RegisterFile("envoy/api/v2/eds.proto", fileDescriptor_eds_4dda14f752f4a5e3) }
+func init() { proto.RegisterFile("envoy/api/v2/eds.proto", fileDescriptor_eds_da535bab52f49a90) }
 
-var fileDescriptor_eds_4dda14f752f4a5e3 = []byte{
+var fileDescriptor_eds_da535bab52f49a90 = []byte{
 	// 562 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x53, 0x41, 0x8b, 0xd3, 0x40,
 	0x14, 0xde, 0xc9, 0x96, 0x65, 0x77, 0xb6, 0xee, 0x4a, 0xd4, 0x6d, 0x08, 0x35, 0x5b, 0x8a, 0x42,

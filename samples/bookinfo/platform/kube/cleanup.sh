@@ -34,7 +34,6 @@ for proto in "${protos[@]}"; do
     kubectl delete -n ${NAMESPACE} "$resource";
   done
 done
-#istioctl delete mixer-rule ratings-ratelimit
 
 OUTPUT=$(mktemp)
 export OUTPUT

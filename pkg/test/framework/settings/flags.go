@@ -29,4 +29,12 @@ func init() {
 			Local, Kubernetes))
 	flag.BoolVar(&globalSettings.NoCleanup, "istio.test.noCleanup", globalSettings.NoCleanup,
 		"Do not cleanup resources after test completion")
+
+	globalSettings.LogOptions.AttachFlags(
+		func(p *[]string, name string, value []string, usage string) {
+			// TODO(ozben): Implement string array method for capturing the complete set of log settings.
+		},
+		flag.StringVar,
+		flag.IntVar,
+		flag.BoolVar)
 }

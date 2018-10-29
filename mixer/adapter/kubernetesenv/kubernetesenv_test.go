@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors.
+// Copyright 2017 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,21 +20,29 @@ import (
 	"net"
 	"os"
 	"testing"
+	"time"
 
 	messagediff "gopkg.in/d4l3k/messagediff.v1"
 	appsv1 "k8s.io/api/apps/v1"
-	appsv1beta2 "k8s.io/api/apps/v1beta2"
 	"k8s.io/api/core/v1"
-	extv1beta1 "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 	"istio.io/istio/mixer/adapter/kubernetesenv/config"
 	kubernetes_apa_tmpl "istio.io/istio/mixer/adapter/kubernetesenv/template"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/adapter/test"
+	"istio.io/istio/pkg/kube/secretcontroller"
+	pkgtest "istio.io/istio/pkg/test"
+)
+
+const (
+	testSecretName      = "testSecretName"
+	testSecretNameSpace = "istio-system"
+	maxTestSleep        = 25
 )
 
 type fakeK8sBuilder struct {
@@ -109,6 +117,8 @@ func TestBuilder_ControllerCache(t *testing.T) {
 		}
 	}
 
+	b.Lock()
+	defer b.Unlock()
 	if len(b.controllers) != 1 {
 		t.Errorf("Got %v controllers, want 1", len(b.controllers))
 	}
@@ -347,6 +357,30 @@ func TestKubegen_Generate(t *testing.T) {
 	containerNameOut.SetDestinationWorkloadNamespace("testns")
 	containerNameOut.SetDestinationWorkloadUid("istio://testns/workloads/test-container-deployment")
 
+	ipToDeploymentConfigIn := &kubernetes_apa_tmpl.Instance{
+		SourceIp:       net.ParseIP("192.168.234.3"),
+		DestinationUid: "kubernetes://pod-deploymentconfig.testns",
+	}
+
+	ipToDeploymentConfigOut := kubernetes_apa_tmpl.NewOutput()
+	ipToDeploymentConfigOut.SetSourceLabels(map[string]string{"app": "ipAddr"})
+	ipToDeploymentConfigOut.SetSourceNamespace("testns")
+	ipToDeploymentConfigOut.SetSourcePodName("ip-svc-pod")
+	ipToDeploymentConfigOut.SetSourcePodUid("kubernetes://ip-svc-pod.testns")
+	ipToDeploymentConfigOut.SetSourcePodIp(net.ParseIP("192.168.234.3"))
+	ipToDeploymentConfigOut.SetSourceOwner("kubernetes://apis/apps/v1/namespaces/testns/deployments/test-deployment")
+	ipToDeploymentConfigOut.SetSourceWorkloadName("test-deployment")
+	ipToDeploymentConfigOut.SetSourceWorkloadNamespace("testns")
+	ipToDeploymentConfigOut.SetSourceWorkloadUid("istio://testns/workloads/test-deployment")
+	ipToDeploymentConfigOut.SetDestinationPodName("pod-deploymentconfig")
+	ipToDeploymentConfigOut.SetDestinationNamespace("testns")
+	ipToDeploymentConfigOut.SetDestinationPodUid("kubernetes://pod-deploymentconfig.testns")
+	ipToDeploymentConfigOut.SetDestinationOwner("kubernetes://apis/apps.openshift.io/v1/namespaces/testns/deploymentconfigs/test-deploymentconfig")
+	ipToDeploymentConfigOut.SetDestinationLabels(map[string]string{"app": "some-app"})
+	ipToDeploymentConfigOut.SetDestinationWorkloadName("test-deploymentconfig")
+	ipToDeploymentConfigOut.SetDestinationWorkloadNamespace("testns")
+	ipToDeploymentConfigOut.SetDestinationWorkloadUid("istio://testns/workloads/test-deploymentconfig")
+
 	tests := []struct {
 		name   string
 		inputs *kubernetes_apa_tmpl.Instance
@@ -362,6 +396,7 @@ func TestKubegen_Generate(t *testing.T) {
 		{"replicasets with no deployments", replicasetToReplicaSetIn, replicaSetToReplicaSetOut, conf},
 		{"not-k8s", notKubernetesIn, kubernetes_apa_tmpl.NewOutput(), conf},
 		{"ip-svc-pod to pod-with-container", containerNameIn, containerNameOut, conf},
+		{"ip-svc-pod to deploymentconfig", ipToDeploymentConfigIn, ipToDeploymentConfigOut, conf},
 	}
 
 	for _, v := range tests {
@@ -386,6 +421,84 @@ func TestKubegen_Generate(t *testing.T) {
 	}
 }
 
+func createMultiClusterSecret(k8s *fake.Clientset) error {
+	data := map[string][]byte{}
+	secret := v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      testSecretName,
+			Namespace: testSecretNameSpace,
+			Labels: map[string]string{
+				"istio/multiCluster": "true",
+			},
+		},
+		Data: map[string][]byte{},
+	}
+
+	data["testRemoteCluster"] = []byte("Test")
+	secret.Data = data
+	_, err := k8s.CoreV1().Secrets(testSecretNameSpace).Create(&secret)
+	return err
+}
+
+func deleteMultiClusterSecret(k8s *fake.Clientset) error {
+	var immediate int64
+
+	return k8s.CoreV1().Secrets(testSecretNameSpace).Delete(
+		testSecretName, &metav1.DeleteOptions{GracePeriodSeconds: &immediate})
+}
+
+func verifyControllers(t *testing.T, b *builder, expectedControllerCount int, timeoutName string) {
+	pkgtest.NewEventualOpts(10*time.Millisecond, 5*time.Second).Eventually(t, timeoutName, func() bool {
+		b.Lock()
+		defer b.Unlock()
+		return len(b.controllers) == expectedControllerCount
+	})
+}
+
+func mockLoadKubeConfig(kubeconfig []byte) (*clientcmdapi.Config, error) {
+	return &clientcmdapi.Config{}, nil
+}
+
+func mockCreateInterfaceFromClusterConfig(clusterConfig *clientcmdapi.Config) (kubernetes.Interface, error) {
+	return fake.NewSimpleClientset(), nil
+}
+
+func Test_KubeSecretController(t *testing.T) {
+	secretcontroller.LoadKubeConfig = mockLoadKubeConfig
+	secretcontroller.CreateInterfaceFromClusterConfig = mockCreateInterfaceFromClusterConfig
+
+	clientset := fake.NewSimpleClientset()
+	b := newBuilder(func(string, adapter.Env) (kubernetes.Interface, error) {
+		return clientset, nil
+	})
+
+	// Call kube Build function which will start the secret controller.
+	// Sleep to allow secret process to start.
+	_, err := b.Build(context.Background(), test.NewEnv(t))
+	if err != nil {
+		t.Fatalf("error building adapter: %v", err)
+	}
+	time.Sleep(10 * time.Millisecond)
+
+	// Create the multicluster secret.
+	err = createMultiClusterSecret(clientset)
+	if err != nil {
+		t.Fatalf("Unexpected error on secret create: %v", err)
+	}
+
+	// Test - Verify that the remote controller has been added.
+	verifyControllers(t, b, 2, "create remote controller")
+
+	// Delete the mulicluster secret.
+	err = deleteMultiClusterSecret(clientset)
+	if err != nil {
+		t.Fatalf("Unexpected error on secret delete: %v", err)
+	}
+
+	// Test - Verify that the remote controller has been removed.
+	verifyControllers(t, b, 1, "delete remote controller")
+}
+
 // Kubernetes Runtime Object for Tests
 
 var trueVar = true
@@ -393,7 +506,7 @@ var falseVar = false
 
 var k8sobjs = []runtime.Object{
 	// replicasets
-	&extv1beta1.ReplicaSet{
+	&appsv1.ReplicaSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-replicaset-with-deployment",
 			Namespace: "testns",
@@ -413,13 +526,13 @@ var k8sobjs = []runtime.Object{
 			},
 		},
 	},
-	&extv1beta1.ReplicaSet{
+	&appsv1.ReplicaSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-replicaset-without-deployment",
 			Namespace: "testns",
 		},
 	},
-	&appsv1beta2.ReplicaSet{
+	&appsv1.ReplicaSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-appsv1beta2-replicaset-with-deployment",
 			Namespace: "testns",
@@ -457,6 +570,21 @@ var k8sobjs = []runtime.Object{
 					Controller: &trueVar,
 					Kind:       "Deployment",
 					Name:       "test-container-deployment",
+				},
+			},
+		},
+	},
+	// replicationcontrollers
+	&v1.ReplicationController{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-replicationcontroller-with-deploymentconfig",
+			Namespace: "testns",
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: "apps.openshift.io/v1",
+					Controller: &trueVar,
+					Kind:       "DeploymentConfig",
+					Name:       "test-deploymentconfig",
 				},
 			},
 		},
@@ -647,6 +775,21 @@ var k8sobjs = []runtime.Object{
 			Containers: []v1.Container{
 				{Name: "container1", Ports: []v1.ContainerPort{{ContainerPort: 123}, {ContainerPort: 234}}},
 				{Name: "container2", Ports: []v1.ContainerPort{{ContainerPort: 80}}},
+			},
+		},
+	},
+	&v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "pod-deploymentconfig",
+			Namespace: "testns",
+			Labels:    map[string]string{"app": "some-app"},
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: "core/v1",
+					Controller: &trueVar,
+					Kind:       "ReplicationController",
+					Name:       "test-replicationcontroller-with-deploymentconfig",
+				},
 			},
 		},
 	},

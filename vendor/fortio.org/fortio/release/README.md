@@ -2,15 +2,19 @@
 
 - Make sure `version/version.go`'s `major`/`minor`/`patch` is newer than the most recent [release](https://github.com/fortio/fortio/releases)
 
+- Update debian/changelog to match said upcoming release
+
 - Make a release there and document the changes since the previous release
 
 - Make sure to use the same git tag format (e.g "v0.7.1" - note that there is `v` prefix in the tag, like many projects but unlike the rest of istio). Docker and internal version/tag is "0.7.1", the `v` is only for git tags.
 
-- Make sure your git status is clean, and the tag is present before the next step or it will get marked dirty/pre
+- Make sure your git status is clean, and the tag is present (git pull) before the next step or it will get marked dirty/pre
 
-- Create the binary tgz: `make release` (from/in the toplevel directory)
+- Create the binary tgz, deb and rpm packages: `make release` (from/in the toplevel directory)
 
-- Upload the release/fortio-\*.tgz to GitHub
+- Upload the release/fortio-\*.tgz, .orig.tar.gz, .deb and .rpm to GitHub
+
+- Push the dist to Debian/Ubuntu
 
 - The docker official builds are done automatically based on tag, check [fortio's cloud docker build page](https://cloud.docker.com/app/fortio/repository/docker/fortio/fortio/builds)
 

@@ -206,7 +206,7 @@ func (d *ServiceEntryStore) update() {
 			out = append(out, instance)
 			di[key] = out
 
-			byip, found := di[instance.Endpoint.Address]
+			byip, found := dip[instance.Endpoint.Address]
 			if !found {
 				byip = []*model.ServiceInstance{}
 			}

@@ -54,9 +54,7 @@ func (m *JwtProvider) Validate() error {
 	for idx, item := range m.GetFromHeaders() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return JwtProviderValidationError{
 					Field:  fmt.Sprintf("FromHeaders[%v]", idx),
@@ -74,9 +72,7 @@ func (m *JwtProvider) Validate() error {
 
 	case *JwtProvider_RemoteJwks:
 
-		if v, ok := interface{}(m.GetRemoteJwks()).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(m.GetRemoteJwks()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return JwtProviderValidationError{
 					Field:  "RemoteJwks",
@@ -88,9 +84,7 @@ func (m *JwtProvider) Validate() error {
 
 	case *JwtProvider_LocalJwks:
 
-		if v, ok := interface{}(m.GetLocalJwks()).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(m.GetLocalJwks()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return JwtProviderValidationError{
 					Field:  "LocalJwks",
@@ -149,9 +143,7 @@ func (m *RemoteJwks) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetHttpUri()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetHttpUri()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return RemoteJwksValidationError{
 				Field:  "HttpUri",
@@ -161,9 +153,7 @@ func (m *RemoteJwks) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetCacheDuration()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetCacheDuration()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return RemoteJwksValidationError{
 				Field:  "CacheDuration",
@@ -316,9 +306,7 @@ func (m *JwtRequirement) Validate() error {
 
 	case *JwtRequirement_ProviderAndAudiences:
 
-		if v, ok := interface{}(m.GetProviderAndAudiences()).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(m.GetProviderAndAudiences()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return JwtRequirementValidationError{
 					Field:  "ProviderAndAudiences",
@@ -330,9 +318,7 @@ func (m *JwtRequirement) Validate() error {
 
 	case *JwtRequirement_RequiresAny:
 
-		if v, ok := interface{}(m.GetRequiresAny()).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(m.GetRequiresAny()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return JwtRequirementValidationError{
 					Field:  "RequiresAny",
@@ -344,9 +330,7 @@ func (m *JwtRequirement) Validate() error {
 
 	case *JwtRequirement_RequiresAll:
 
-		if v, ok := interface{}(m.GetRequiresAll()).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(m.GetRequiresAll()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return JwtRequirementValidationError{
 					Field:  "RequiresAll",
@@ -358,9 +342,7 @@ func (m *JwtRequirement) Validate() error {
 
 	case *JwtRequirement_AllowMissingOrFailed:
 
-		if v, ok := interface{}(m.GetAllowMissingOrFailed()).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(m.GetAllowMissingOrFailed()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return JwtRequirementValidationError{
 					Field:  "AllowMissingOrFailed",
@@ -424,9 +406,7 @@ func (m *JwtRequirementOrList) Validate() error {
 	for idx, item := range m.GetRequirements() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return JwtRequirementOrListValidationError{
 					Field:  fmt.Sprintf("Requirements[%v]", idx),
@@ -490,9 +470,7 @@ func (m *JwtRequirementAndList) Validate() error {
 	for idx, item := range m.GetRequirements() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return JwtRequirementAndListValidationError{
 					Field:  fmt.Sprintf("Requirements[%v]", idx),
@@ -553,9 +531,7 @@ func (m *RequirementRule) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetMatch()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetMatch()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return RequirementRuleValidationError{
 				Field:  "Match",
@@ -565,9 +541,7 @@ func (m *RequirementRule) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetRequires()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetRequires()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return RequirementRuleValidationError{
 				Field:  "Requires",
@@ -624,9 +598,7 @@ func (m *JwtAuthentication) Validate() error {
 	for idx, item := range m.GetRules() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return JwtAuthenticationValidationError{
 					Field:  fmt.Sprintf("Rules[%v]", idx),

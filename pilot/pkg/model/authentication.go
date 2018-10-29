@@ -17,9 +17,38 @@ package model
 import (
 	"fmt"
 	"net/url"
+	"os"
 	"strconv"
 
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	"github.com/envoyproxy/go-control-plane/envoy/config/grpc_credential/v2alpha"
+	"github.com/envoyproxy/go-control-plane/pkg/util"
+	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
+
 	authn "istio.io/api/authentication/v1alpha1"
+)
+
+const (
+	// SDSStatPrefix is the human readable prefix to use when emitting statistics for the SDS service.
+	SDSStatPrefix = "sdsstat"
+
+	// SDSDefaultResourceName is the default name in sdsconfig, used for fetching normal key/cert.
+	SDSDefaultResourceName = "default"
+
+	// SDSRootResourceName is the sdsconfig name for root CA, used for fetching root cert.
+	SDSRootResourceName = "ROOTCA"
+
+	// K8sSAJwtTokenFileName is the token volume mount file name for k8s jwt token.
+	K8sSAJwtTokenFileName = "/var/run/secrets/tokens/istio-token"
+
+	// fileBasedMetadataPlugName is File Based Metadata credentials plugin name.
+	fileBasedMetadataPlugName = "envoy.grpc_credentials.file_based_metadata"
+
+	// k8sSAJwtTokenHeaderKey is the request header key for k8s jwt token.
+	// Binary header name must has suffix "-bin", according to https://github.com/grpc/grpc/blob/master/doc/PROTOCOL-HTTP2.md.
+	k8sSAJwtTokenHeaderKey = "istio_sds_credentail_header-bin"
 )
 
 // JwtKeyResolver resolves JWT public key and JwksURI.
@@ -37,6 +66,93 @@ func GetConsolidateAuthenticationPolicy(store IstioConfigStore, service *Service
 	}
 
 	return nil
+}
+
+// ConstructSdsSecretConfig constructs SDS Sececret Configuration.
+func ConstructSdsSecretConfig(name, sdsUdsPath, tokenMountFileName string) *auth.SdsSecretConfig {
+	if name == "" || sdsUdsPath == "" {
+		return nil
+	}
+
+	gRPCConfig := &core.GrpcService_GoogleGrpc{
+		TargetUri:  sdsUdsPath,
+		StatPrefix: SDSStatPrefix,
+		ChannelCredentials: &core.GrpcService_GoogleGrpc_ChannelCredentials{
+			CredentialSpecifier: &core.GrpcService_GoogleGrpc_ChannelCredentials_LocalCredentials{
+				LocalCredentials: &core.GrpcService_GoogleGrpc_GoogleLocalCredentials{},
+			},
+		},
+	}
+
+	if _, err := os.Stat(tokenMountFileName); err == nil {
+		// If k8s sa jwt token volume mount file exists, envoy only handles plugin credentials.
+		tokenMountConfig := &v2alpha.FileBasedMetadataConfig{
+			SecretData: &core.DataSource{
+				Specifier: &core.DataSource_Filename{
+					Filename: tokenMountFileName,
+				},
+			},
+
+			HeaderKey: k8sSAJwtTokenHeaderKey,
+		}
+
+		gRPCConfig.CredentialsFactoryName = fileBasedMetadataPlugName
+		gRPCConfig.CallCredentials = []*core.GrpcService_GoogleGrpc_CallCredentials{
+			&core.GrpcService_GoogleGrpc_CallCredentials{
+				CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_FromPlugin{
+					FromPlugin: &core.GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin{
+						Name:   fileBasedMetadataPlugName,
+						Config: protoToStruct(tokenMountConfig),
+					},
+				},
+			},
+		}
+	} else {
+		gRPCConfig.CallCredentials = []*core.GrpcService_GoogleGrpc_CallCredentials{
+			&core.GrpcService_GoogleGrpc_CallCredentials{
+				CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_GoogleComputeEngine{
+					GoogleComputeEngine: &types.Empty{},
+				},
+			},
+		}
+	}
+
+	return &auth.SdsSecretConfig{
+		Name: name,
+		SdsConfig: &core.ConfigSource{
+			ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+				ApiConfigSource: &core.ApiConfigSource{
+					ApiType: core.ApiConfigSource_GRPC,
+					GrpcServices: []*core.GrpcService{
+						{
+							TargetSpecifier: &core.GrpcService_GoogleGrpc_{
+								GoogleGrpc: gRPCConfig,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+// ConstructValidationContext constructs ValidationContext in CommonTlsContext.
+func ConstructValidationContext(rootCAFilePath string, subjectAltNames []string) *auth.CommonTlsContext_ValidationContext {
+	ret := &auth.CommonTlsContext_ValidationContext{
+		ValidationContext: &auth.CertificateValidationContext{
+			TrustedCa: &core.DataSource{
+				Specifier: &core.DataSource_Filename{
+					Filename: rootCAFilePath,
+				},
+			},
+		},
+	}
+
+	if len(subjectAltNames) > 0 {
+		ret.ValidationContext.VerifySubjectAltName = subjectAltNames
+	}
+
+	return ret
 }
 
 // ParseJwksURI parses the input URI and returns the corresponding hostname, port, and whether SSL is used.
@@ -76,4 +192,13 @@ func ParseJwksURI(jwksURI string) (string, *Port, bool, error) {
 		Name: u.Scheme,
 		Port: portNumber,
 	}, useSSL, nil
+}
+
+func protoToStruct(msg proto.Message) *types.Struct {
+	s, err := util.MessageToStruct(msg)
+	if err != nil {
+		log.Error(err.Error())
+		return &types.Struct{}
+	}
+	return s
 }

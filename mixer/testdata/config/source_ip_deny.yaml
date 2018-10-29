@@ -9,7 +9,7 @@ metadata:
 spec:
   match: destination.service == "foo.default.svc.cluster.local" && source.ip != ip("10.11.12.13") && context.protocol == "tcp"
   actions:
-  - handler: denyall.denier
+  - handler: denyall
     instances:
     - denyrequest.checknothing
 ---

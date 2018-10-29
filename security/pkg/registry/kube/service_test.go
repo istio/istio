@@ -26,11 +26,12 @@ import (
 	"istio.io/istio/security/pkg/registry"
 )
 
-func createService(svcAcct string) *v1.Service {
+func createService(svcAcct string, canonicalSvcAcct string) *v1.Service {
 	return &v1.Service{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Annotations: map[string]string{
-				kube.KubeServiceAccountsOnVMAnnotation: svcAcct,
+				kube.KubeServiceAccountsOnVMAnnotation:  svcAcct,
+				kube.CanonicalServiceAccountsAnnotation: canonicalSvcAcct,
 			},
 		},
 	}
@@ -49,24 +50,26 @@ func TestServiceController(t *testing.T) {
 		mapping  map[string]string
 	}{
 		"add k8s service": {
-			toAdd: createService("svc@test.serviceaccount.com"),
+			toAdd: createService("svc@test.serviceaccount.com", "canonical_svc@test.serviceaccount.com"),
 			mapping: map[string]string{
-				"svc@test.serviceaccount.com": "svc@test.serviceaccount.com",
+				"svc@test.serviceaccount.com":           "svc@test.serviceaccount.com",
+				"canonical_svc@test.serviceaccount.com": "canonical_svc@test.serviceaccount.com",
 			},
 		},
 		"add and delete k8s service": {
-			toAdd:    createService("svc@test.serviceaccount.com"),
-			toDelete: createService("svc@test.serviceaccount.com"),
+			toAdd:    createService("svc@test.serviceaccount.com", "canonical_svc@test.serviceaccount.com"),
+			toDelete: createService("svc@test.serviceaccount.com", "canonical_svc@test.serviceaccount.com"),
 			mapping:  map[string]string{},
 		},
 		"add and update k8s service": {
-			toAdd: createService("svc1@test.serviceaccount.com"),
+			toAdd: createService("svc1@test.serviceaccount.com", "canonical_svc1@test.serviceaccount.com"),
 			toUpdate: &servicePair{
-				oldSvc: createService("svc1@test.serviceaccount.com"),
-				newSvc: createService("svc2@test.serviceaccount.com"),
+				oldSvc: createService("svc1@test.serviceaccount.com", "canonical_svc1@test.serviceaccount.com"),
+				newSvc: createService("svc2@test.serviceaccount.com", "canonical_svc2@test.serviceaccount.com"),
 			},
 			mapping: map[string]string{
-				"svc2@test.serviceaccount.com": "svc2@test.serviceaccount.com",
+				"svc2@test.serviceaccount.com":           "svc2@test.serviceaccount.com",
+				"canonical_svc2@test.serviceaccount.com": "canonical_svc2@test.serviceaccount.com",
 			},
 		},
 	}

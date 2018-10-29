@@ -42,7 +42,7 @@ func TestStr2NamedPort(t *testing.T) {
 		}
 		if tst.expErr {
 			if actErr == nil {
-				t.Errorf("Got no error when expecting an error for for Str2NamedPort('%s')", tst.input)
+				t.Errorf("Got no error when expecting an error for Str2NamedPort('%s')", tst.input)
 			}
 		} else {
 			if actErr != nil {

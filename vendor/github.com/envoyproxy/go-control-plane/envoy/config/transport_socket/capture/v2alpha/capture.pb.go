@@ -46,7 +46,7 @@ func (x FileSink_Format) String() string {
 	return proto.EnumName(FileSink_Format_name, int32(x))
 }
 func (FileSink_Format) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_capture_b29dbb7a6a01a6d5, []int{0, 0}
+	return fileDescriptor_capture_910b340f585e95f6, []int{0, 0}
 }
 
 // File sink.
@@ -71,7 +71,7 @@ func (m *FileSink) Reset()         { *m = FileSink{} }
 func (m *FileSink) String() string { return proto.CompactTextString(m) }
 func (*FileSink) ProtoMessage()    {}
 func (*FileSink) Descriptor() ([]byte, []int) {
-	return fileDescriptor_capture_b29dbb7a6a01a6d5, []int{0}
+	return fileDescriptor_capture_910b340f585e95f6, []int{0}
 }
 func (m *FileSink) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -131,7 +131,7 @@ func (m *Capture) Reset()         { *m = Capture{} }
 func (m *Capture) String() string { return proto.CompactTextString(m) }
 func (*Capture) ProtoMessage()    {}
 func (*Capture) Descriptor() ([]byte, []int) {
-	return fileDescriptor_capture_b29dbb7a6a01a6d5, []int{1}
+	return fileDescriptor_capture_910b340f585e95f6, []int{1}
 }
 func (m *Capture) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -722,10 +722,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/config/transport_socket/capture/v2alpha/capture.proto", fileDescriptor_capture_b29dbb7a6a01a6d5)
+	proto.RegisterFile("envoy/config/transport_socket/capture/v2alpha/capture.proto", fileDescriptor_capture_910b340f585e95f6)
 }
 
-var fileDescriptor_capture_b29dbb7a6a01a6d5 = []byte{
+var fileDescriptor_capture_910b340f585e95f6 = []byte{
 	// 328 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x91, 0x41, 0x4b, 0xc3, 0x30,
 	0x18, 0x86, 0x97, 0x1d, 0xe6, 0xf6, 0x4d, 0xb7, 0xd2, 0xd3, 0x10, 0x99, 0xa3, 0xa7, 0x21, 0x98,

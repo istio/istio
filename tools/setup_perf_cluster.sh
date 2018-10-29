@@ -78,7 +78,7 @@ else
 fi
 
 function update_gcp_opts() {
-  export GCP_OPTS="--project $PROJECT --zone $ZONE"
+  export GCP_OPTS="--project=${PROJECT} --zone=${ZONE}"
 }
 
 function Execute() {
@@ -270,13 +270,13 @@ function get_istio_ingressgateway_ip() {
 }
 
 # Set default QPS to max qps
-if [ -z ${QPS+x} ] || [ "$QPS" == "" ]; then
+if [ -z "${QPS+x}" ] || [ "$QPS" == "" ]; then
   echo "Setting default qps"
   QPS=-1
 fi
 
 # Set default run duration to 30s
-if [ -z ${DUR+x} ] || [ "$DUR" == "" ]; then
+if [ -z "${DUR+x}" ] || [ "$DUR" == "" ]; then
   DUR="30s"
 fi
 

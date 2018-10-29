@@ -9,10 +9,7 @@ spec:
   template:
     metadata:
       annotations:
-        prometheus.io/path: /stats/prometheus
-        prometheus.io/port: "15090"
-        prometheus.io/scrape: "true"
-        sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"unit-test-fake-version","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
         app: hello
@@ -42,8 +39,6 @@ spec:
         - 3s
         - --discoveryAddress
         - istio-pilot:15007
-        - --discoveryRefreshDelay
-        - 1s
         - --zipkinAddress
         - ""
         - --connectTimeout
@@ -75,9 +70,13 @@ spec:
               fieldPath: metadata.name
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
-        image: docker.io/istio/proxyv2:unittest
+        image: gcr.io/istio-release/proxyv2:master-latest-daily
         imagePullPolicy: IfNotPresent
         name: istio-proxy
+        ports:
+        - containerPort: 15090
+          name: http-envoy-prom
+          protocol: TCP
         readinessProbe:
           failureThreshold: 30
           httpGet:
@@ -89,7 +88,6 @@ spec:
           requests:
             cpu: 10m
         securityContext:
-          privileged: false
           readOnlyRootFilesystem: true
           runAsUser: 1337
         volumeMounts:
@@ -114,10 +112,16 @@ spec:
         - "80"
         - -d
         - "15020"
-        image: docker.io/istio/proxy_init:unittest
+        image: gcr.io/istio-release/proxy_init:master-latest-daily
         imagePullPolicy: IfNotPresent
         name: istio-init
-        resources: {}
+        resources:
+          limits:
+            cpu: 10m
+            memory: 10Mi
+          requests:
+            cpu: 10m
+            memory: 10Mi
         securityContext:
           capabilities:
             add:
@@ -131,6 +135,7 @@ spec:
           optional: true
           secretName: istio.default
 status: {}
+
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
@@ -143,10 +148,7 @@ spec:
   template:
     metadata:
       annotations:
-        prometheus.io/path: /stats/prometheus
-        prometheus.io/port: "15090"
-        prometheus.io/scrape: "true"
-        sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"unit-test-fake-version","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
         app: hello
@@ -176,8 +178,6 @@ spec:
         - 3s
         - --discoveryAddress
         - istio-pilot:15007
-        - --discoveryRefreshDelay
-        - 1s
         - --zipkinAddress
         - ""
         - --connectTimeout
@@ -209,9 +209,13 @@ spec:
               fieldPath: metadata.name
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
-        image: docker.io/istio/proxyv2:unittest
+        image: gcr.io/istio-release/proxyv2:master-latest-daily
         imagePullPolicy: IfNotPresent
         name: istio-proxy
+        ports:
+        - containerPort: 15090
+          name: http-envoy-prom
+          protocol: TCP
         readinessProbe:
           failureThreshold: 30
           httpGet:
@@ -223,7 +227,6 @@ spec:
           requests:
             cpu: 10m
         securityContext:
-          privileged: false
           readOnlyRootFilesystem: true
           runAsUser: 1337
         volumeMounts:
@@ -248,10 +251,16 @@ spec:
         - "81"
         - -d
         - "15020"
-        image: docker.io/istio/proxy_init:unittest
+        image: gcr.io/istio-release/proxy_init:master-latest-daily
         imagePullPolicy: IfNotPresent
         name: istio-init
-        resources: {}
+        resources:
+          limits:
+            cpu: 10m
+            memory: 10Mi
+          requests:
+            cpu: 10m
+            memory: 10Mi
         securityContext:
           capabilities:
             add:
@@ -265,4 +274,5 @@ spec:
           optional: true
           secretName: istio.default
 status: {}
+
 ---

@@ -1,4 +1,4 @@
-# Using a Local Docker Registry
+# Using an in-cluster Docker Registry
 
 `localregistry.yaml` is a copy of Kubernete's local registry addon, and is included to make it easier to test
 Istio by allowing a developer to push docker images locally rather than to some remote registry.

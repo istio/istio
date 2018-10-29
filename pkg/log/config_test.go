@@ -221,6 +221,45 @@ func TestRotateAndStdout(t *testing.T) {
 	}
 }
 
+func TestRotateMaxBackups(t *testing.T) {
+	dir, _ := ioutil.TempDir("", "TestRotateMaxBackups")
+	defer os.RemoveAll(dir)
+
+	file := dir + "/rot.log"
+
+	o := DefaultOptions()
+	o.OutputPaths = []string{}
+	o.RotateOutputPath = file
+	o.RotationMaxSize = 1
+	o.RotationMaxBackups = 2
+	o.RotationMaxAge = 30
+	if err := Configure(o); err != nil {
+		t.Fatalf("Unable to configure logger: %v", err)
+	}
+
+	// construct a line string contains 128 characters
+	line := ""
+	for i := 0; i < 8; i++ {
+		line += "0123456789ABCDEF" // 16 characters
+	}
+
+	// make sure that all log outputs much higher than 2M
+	for i := 0; i < 4*1024; i++ {
+		for j := 0; j < 8; j++ {
+			glog.Info(line)
+		}
+	}
+
+	rd, err := ioutil.ReadDir(dir)
+	if err != nil {
+		t.Fatalf("Unable to read dir: %v", err)
+	}
+
+	if len(rd) > o.RotationMaxBackups+1 {
+		t.Errorf("Expecting at most %d backup logs, got %d", o.RotationMaxBackups, len(rd)-1)
+	}
+}
+
 func TestGlogV(t *testing.T) {
 	o := DefaultOptions()
 	_ = Configure(o)

@@ -53,9 +53,7 @@ func validateBindingsForTCPFilter(bindings []*rbacproto.ServiceRoleBinding) erro
 			}
 			for k := range subject.Properties {
 				switch k {
-				case attrSrcIP:
-					// TODO(yangminzhu): Support attrSrcNamespace and attrSrcPrincipal once
-					// https://github.com/envoyproxy/envoy/pull/4250 is merged.
+				case attrSrcIP, attrSrcNamespace, attrSrcPrincipal:
 					continue
 				default:
 					return fmt.Errorf("property(%v) not supported", k)

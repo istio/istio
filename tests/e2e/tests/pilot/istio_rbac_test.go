@@ -115,13 +115,13 @@ func TestRBAC(t *testing.T) {
 
 		{dst: "d", src: "a", path: "/xyz", allow: allow},
 		{dst: "d", src: "a", port: 90, allow: false},
-		{dst: "d", src: "a", port: 9090, allow: true},
+		{dst: "d", src: "a", port: 9090, allow: allow},
 		{dst: "d", src: "b", path: "/", allow: allow},
 		{dst: "d", src: "b", port: 90, allow: false},
-		{dst: "d", src: "b", port: 9090, allow: true},
+		{dst: "d", src: "b", port: 9090, allow: allow},
 		{dst: "d", src: "c", path: "/", allow: allow},
 		{dst: "d", src: "c", port: 90, allow: false},
-		{dst: "d", src: "c", port: 9090, allow: true},
+		{dst: "d", src: "c", port: 9090, allow: allow},
 	}
 
 	for _, req := range cases {

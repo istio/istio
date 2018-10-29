@@ -28,9 +28,8 @@ import (
 	istiocmd "istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/version"
-
 	"istio.io/istio/pkg/probe"
+	"istio.io/istio/pkg/version"
 )
 
 var (
@@ -64,7 +63,7 @@ func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 			if len(args) > 0 {
 				return fmt.Errorf("%q is an invalid argument", args[0])
 			}
-			return log.Configure(loggingOptions)
+			return nil
 		},
 		Run: func(cmd *cobra.Command, args []string) {
 			serverArgs.KubeConfig = flags.kubeConfig
@@ -72,6 +71,7 @@ func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 			serverArgs.CredentialOptions.CACertificateFile = validationArgs.CACertFile
 			serverArgs.CredentialOptions.KeyFile = validationArgs.KeyFile
 			serverArgs.CredentialOptions.CertificateFile = validationArgs.CertFile
+			serverArgs.LoggingOptions = loggingOptions
 			if livenessProbeOptions.IsValid() {
 				livenessProbeController = probe.NewFileController(&livenessProbeOptions)
 			}
@@ -82,6 +82,11 @@ func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 			if !serverArgs.EnableServer && !validationArgs.EnableValidation {
 				fatalf("Galley must be running under at least one mode: server or validation")
 			}
+
+			if err := validationArgs.Validate(); err != nil {
+				fatalf("Invalid validationArgs: %v", err)
+			}
+
 			if serverArgs.EnableServer {
 				go server.RunServer(serverArgs, printf, fatalf, livenessProbeController, readinessProbeController)
 			}
@@ -90,7 +95,7 @@ func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 			}
 			galleyStop := make(chan struct{})
 			go server.StartSelfMonitoring(galleyStop, monitoringPort)
-			server.StartProbeCheck(livenessProbeController, readinessProbeController, galleyStop)
+			go server.StartProbeCheck(livenessProbeController, readinessProbeController, galleyStop)
 			istiocmd.WaitSignal(galleyStop)
 
 		},
@@ -118,10 +123,6 @@ func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 		"Interval of updating file for the Galley readiness probe.")
 	rootCmd.PersistentFlags().UintVar(&monitoringPort, "monitoringPort", 9093,
 		"Port to use for exposing self-monitoring information")
-	rootCmd.PersistentFlags().StringVar(&validationArgs.DeploymentNamespace, "deployment-namespace", "istio-system",
-		"Namespace of the deployment for the validation pod")
-	rootCmd.PersistentFlags().StringVar(&validationArgs.DeploymentName, "deployment-name", "istio-galley",
-		"Name of the deployment for the validation pod")
 
 	//server config
 	rootCmd.PersistentFlags().StringVarP(&serverArgs.APIAddress, "server-address", "", serverArgs.APIAddress,
@@ -135,6 +136,8 @@ func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 	rootCmd.PersistentFlags().BoolVar(&serverArgs.EnableServer, "enable-server", serverArgs.EnableServer, "Run galley server mode")
 	rootCmd.PersistentFlags().StringVarP(&serverArgs.AccessListFile, "accessListFile", "", serverArgs.AccessListFile,
 		"The access list yaml file that contains the allowd mTLS peer ids.")
+	rootCmd.PersistentFlags().StringVar(&serverArgs.ConfigPath, "configPath", serverArgs.ConfigPath,
+		"Istio config file path")
 	serverArgs.IntrospectionOptions.AttachCobraFlags(rootCmd)
 
 	//validation config
@@ -145,6 +148,14 @@ func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 		"HTTPS port of the validation service. Must be 443 if service has more than one port ")
 	rootCmd.PersistentFlags().BoolVar(&validationArgs.EnableValidation, "enable-validation", validationArgs.EnableValidation,
 		"Run galley validation mode")
+	rootCmd.PersistentFlags().StringVar(&validationArgs.DeploymentAndServiceNamespace, "deployment-namespace", "istio-system",
+		"Namespace of the deployment for the validation pod")
+	rootCmd.PersistentFlags().StringVar(&validationArgs.DeploymentName, "deployment-name", "istio-galley",
+		"Name of the deployment for the validation pod")
+	rootCmd.PersistentFlags().StringVar(&validationArgs.ServiceName, "service-name", "istio-galley",
+		"Name of the validation service running in the same namespace as the deployment")
+	rootCmd.PersistentFlags().StringVar(&validationArgs.WebhookName, "webhook-name", "istio-galley",
+		"Name of the k8s validatingwebhookconfiguration")
 
 	rootCmd.AddCommand(probeCmd(printf, fatalf))
 	rootCmd.AddCommand(version.CobraCommand())

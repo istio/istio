@@ -14,7 +14,9 @@ data:
   config: |-
     policy: {{ .Values.global.proxy.autoInject }}
     template: |-
+{{- if or (not .Values.istio_cni.enabled) .Values.global.proxy.enableCoreDump }}
       initContainers:
+{{- if not .Values.istio_cni.enabled }}
       - name: istio-init
         image: {{ .Values.global.hub }}/{{ .Values.global.proxy_init.image }}:{{ .Values.global.tag }}
         args:
@@ -52,21 +54,25 @@ data:
           capabilities:
             add:
             - NET_ADMIN
+          {{ if .Values.global.proxy.privileged }}
           privileged: true
+          {{ end }}
         restartPolicy: Always
-      {{- if .Values.global.proxy.enableCoreDump }}
-      - args:
+{{- end }}
+      {{ if eq .Values.global.proxy.enableCoreDump true }}
+      - name: enable-core-dump
+        args:
         - -c
         - sysctl -w kernel.core_pattern=/var/lib/istio/core.proxy && ulimit -c unlimited
         command:
           - /bin/sh
         image: {{ .Values.global.hub }}/proxy_init:{{ .Values.global.tag }}
         imagePullPolicy: IfNotPresent
-        name: enable-core-dump
         resources: {}
         securityContext:
           privileged: true
       {{ end }}
+{{- end }}
       containers:
       - name: istio-proxy
         image: {{ "[[ if (isset .ObjectMeta.Annotations \"sidecar.istio.io/proxyImage\") -]]" }}
@@ -77,6 +83,10 @@ data:
         args:
         - proxy
         - sidecar
+{{- if .Values.global.proxy.proxyDomain }}
+        - --domain
+        - {{ .Values.global.proxy.proxyDomain }}
+{{- end }}
         - --configPath
         - {{ "[[ .ProxyConfig.ConfigPath ]]" }}
         - --binaryPath
@@ -93,11 +103,17 @@ data:
         - {{ "[[ formatDuration .ProxyConfig.ParentShutdownDuration ]]" }}
         - --discoveryAddress
         - {{ "[[ or (index .ObjectMeta.Annotations \"sidecar.istio.io/discoveryAddress\") .ProxyConfig.DiscoveryAddress ]]" }}
-        - --discoveryRefreshDelay
-        - {{ "[[ formatDuration .ProxyConfig.DiscoveryRefreshDelay ]]" }}
-      {{- if .Values.global.zipkinAddress }}
+      {{- if eq .Values.global.proxy.tracer "lightstep" }}
+        - --lightstepAddress
+        - {{ "[[ .ProxyConfig.GetTracing.GetLightstep.GetAddress ]]" }}
+        - --lightstepAccessToken
+        - {{ "[[ .ProxyConfig.GetTracing.GetLightstep.GetAccessToken ]]" }}
+        - --lightstepSecure={{ "[[ .ProxyConfig.GetTracing.GetLightstep.GetSecure ]]" }}
+        - --lightstepCacertPath
+        - {{ "[[ .ProxyConfig.GetTracing.GetLightstep.GetCacertPath ]]" }}
+      {{- else if eq .Values.global.proxy.tracer "zipkin" }}
         - --zipkinAddress
-        - {{ "[[ .ProxyConfig.ZipkinAddress ]]" }}
+        - {{ "[[ .ProxyConfig.GetTracing.GetZipkin.GetAddress ]]" }}
       {{- end }}
         - --connectTimeout
         - {{ "[[ formatDuration .ProxyConfig.ConnectTimeout ]]" }}
@@ -134,10 +150,12 @@ data:
           value: {{ "[[ or (index .ObjectMeta.Annotations \"sidecar.istio.io/interceptionMode\") .ProxyConfig.InterceptionMode.String ]]" }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
         securityContext:
-          privileged: false
-          {{- if ne .Values.global.proxy.enableCoreDump true }}
+          {{ if eq .Values.global.proxy.privileged true }}
+          privileged: true
+          {{ end -}}
+          {{ if ne .Values.global.proxy.enableCoreDump true }}
           readOnlyRootFilesystem: true
-          {{- end }}
+          {{ end -}}
           {{ "[[ if eq (or (index .ObjectMeta.Annotations \"sidecar.istio.io/interceptionMode\") .ProxyConfig.InterceptionMode.String) \"TPROXY\" -]]" }}
           capabilities:
             add:
@@ -145,8 +163,7 @@ data:
           runAsGroup: 1337
           {{ "[[ else -]]" }}
           runAsUser: 1337
-          {{ "[[ end -]]" }}
-        restartPolicy: Always
+          {{ "[[- end ]]" }}
         resources:
           {{ "[[ if (isset .ObjectMeta.Annotations \"sidecar.istio.io/proxyCPU\") -]]" }}
           requests:
@@ -163,7 +180,16 @@ data:
         - mountPath: /etc/certs/
           name: istio-certs
           readOnly: true
+        {{ if .Values.global.sdsEnabled }}
+        - mountPath: /var/run/sds
+          name: sds-uds-path
+        {{ end }}
       volumes:
+      {{ if .Values.global.sdsEnabled }}
+      - name: sds-uds-path
+        hostPath:
+          path: /var/run/sds
+      {{ end }}
       - emptyDir:
           medium: Memory
         name: istio-envoy

@@ -84,9 +84,7 @@ func (m *HttpProtocolOptions) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetIdleTimeout()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetIdleTimeout()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HttpProtocolOptionsValidationError{
 				Field:  "IdleTimeout",
@@ -138,9 +136,7 @@ func (m *Http1ProtocolOptions) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetAllowAbsoluteUrl()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetAllowAbsoluteUrl()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return Http1ProtocolOptionsValidationError{
 				Field:  "AllowAbsoluteUrl",
@@ -196,9 +192,7 @@ func (m *Http2ProtocolOptions) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetHpackTableSize()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetHpackTableSize()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return Http2ProtocolOptionsValidationError{
 				Field:  "HpackTableSize",
@@ -240,6 +234,8 @@ func (m *Http2ProtocolOptions) Validate() error {
 		}
 
 	}
+
+	// no validation rules for AllowConnect
 
 	return nil
 }
@@ -283,9 +279,7 @@ func (m *GrpcProtocolOptions) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetHttp2ProtocolOptions()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetHttp2ProtocolOptions()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return GrpcProtocolOptionsValidationError{
 				Field:  "Http2ProtocolOptions",

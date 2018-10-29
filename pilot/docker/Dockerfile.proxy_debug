@@ -1,7 +1,16 @@
 FROM istionightly/base_debug
+ARG proxy_version
+ARG istio_version
 
 # Install Envoy.
 ADD envoy /usr/local/bin/envoy
+
+# Environment variables indicating this proxy's version/capabilities as opaque string
+ENV ISTIO_META_ISTIO_PROXY_VERSION "1.1.0"
+# Environment variable indicating the exact proxy sha - for debugging or version-specific configs 
+ENV ISTIO_META_ISTIO_PROXY_SHA $proxy_version
+# Environment variable indicating the exact build, for debugging
+ENV ISTIO_META_ISTIO_VERSION $istio_version
 
 ADD pilot-agent /usr/local/bin/pilot-agent
 

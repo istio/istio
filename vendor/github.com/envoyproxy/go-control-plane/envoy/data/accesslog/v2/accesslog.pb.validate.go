@@ -42,9 +42,7 @@ func (m *TCPAccessLogEntry) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetCommonProperties()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetCommonProperties()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return TCPAccessLogEntryValidationError{
 				Field:  "CommonProperties",
@@ -96,9 +94,7 @@ func (m *HTTPAccessLogEntry) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetCommonProperties()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetCommonProperties()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HTTPAccessLogEntryValidationError{
 				Field:  "CommonProperties",
@@ -110,9 +106,7 @@ func (m *HTTPAccessLogEntry) Validate() error {
 
 	// no validation rules for ProtocolVersion
 
-	if v, ok := interface{}(m.GetRequest()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetRequest()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HTTPAccessLogEntryValidationError{
 				Field:  "Request",
@@ -122,9 +116,7 @@ func (m *HTTPAccessLogEntry) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetResponse()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetResponse()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HTTPAccessLogEntryValidationError{
 				Field:  "Response",
@@ -183,9 +175,7 @@ func (m *AccessLogCommon) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetDownstreamRemoteAddress()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetDownstreamRemoteAddress()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return AccessLogCommonValidationError{
 				Field:  "DownstreamRemoteAddress",
@@ -195,9 +185,7 @@ func (m *AccessLogCommon) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetDownstreamLocalAddress()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetDownstreamLocalAddress()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return AccessLogCommonValidationError{
 				Field:  "DownstreamLocalAddress",
@@ -207,9 +195,7 @@ func (m *AccessLogCommon) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetTlsProperties()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetTlsProperties()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return AccessLogCommonValidationError{
 				Field:  "TlsProperties",
@@ -219,9 +205,7 @@ func (m *AccessLogCommon) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetStartTime()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetStartTime()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return AccessLogCommonValidationError{
 				Field:  "StartTime",
@@ -231,9 +215,7 @@ func (m *AccessLogCommon) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetTimeToLastRxByte()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetTimeToLastRxByte()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return AccessLogCommonValidationError{
 				Field:  "TimeToLastRxByte",
@@ -243,9 +225,7 @@ func (m *AccessLogCommon) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetTimeToFirstUpstreamTxByte()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetTimeToFirstUpstreamTxByte()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return AccessLogCommonValidationError{
 				Field:  "TimeToFirstUpstreamTxByte",
@@ -255,9 +235,7 @@ func (m *AccessLogCommon) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetTimeToLastUpstreamTxByte()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetTimeToLastUpstreamTxByte()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return AccessLogCommonValidationError{
 				Field:  "TimeToLastUpstreamTxByte",
@@ -267,9 +245,7 @@ func (m *AccessLogCommon) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetTimeToFirstUpstreamRxByte()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetTimeToFirstUpstreamRxByte()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return AccessLogCommonValidationError{
 				Field:  "TimeToFirstUpstreamRxByte",
@@ -279,9 +255,7 @@ func (m *AccessLogCommon) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetTimeToLastUpstreamRxByte()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetTimeToLastUpstreamRxByte()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return AccessLogCommonValidationError{
 				Field:  "TimeToLastUpstreamRxByte",
@@ -291,9 +265,7 @@ func (m *AccessLogCommon) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetTimeToFirstDownstreamTxByte()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetTimeToFirstDownstreamTxByte()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return AccessLogCommonValidationError{
 				Field:  "TimeToFirstDownstreamTxByte",
@@ -303,9 +275,7 @@ func (m *AccessLogCommon) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetTimeToLastDownstreamTxByte()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetTimeToLastDownstreamTxByte()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return AccessLogCommonValidationError{
 				Field:  "TimeToLastDownstreamTxByte",
@@ -315,9 +285,7 @@ func (m *AccessLogCommon) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetUpstreamRemoteAddress()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetUpstreamRemoteAddress()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return AccessLogCommonValidationError{
 				Field:  "UpstreamRemoteAddress",
@@ -327,9 +295,7 @@ func (m *AccessLogCommon) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetUpstreamLocalAddress()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetUpstreamLocalAddress()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return AccessLogCommonValidationError{
 				Field:  "UpstreamLocalAddress",
@@ -341,9 +307,7 @@ func (m *AccessLogCommon) Validate() error {
 
 	// no validation rules for UpstreamCluster
 
-	if v, ok := interface{}(m.GetResponseFlags()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetResponseFlags()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return AccessLogCommonValidationError{
 				Field:  "ResponseFlags",
@@ -353,9 +317,7 @@ func (m *AccessLogCommon) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetMetadata()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetMetadata()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return AccessLogCommonValidationError{
 				Field:  "Metadata",
@@ -431,9 +393,7 @@ func (m *ResponseFlags) Validate() error {
 
 	// no validation rules for RateLimited
 
-	if v, ok := interface{}(m.GetUnauthorizedDetails()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetUnauthorizedDetails()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ResponseFlagsValidationError{
 				Field:  "UnauthorizedDetails",
@@ -489,9 +449,7 @@ func (m *TLSProperties) Validate() error {
 
 	// no validation rules for TlsVersion
 
-	if v, ok := interface{}(m.GetTlsCipherSuite()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetTlsCipherSuite()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return TLSPropertiesValidationError{
 				Field:  "TlsCipherSuite",
@@ -551,9 +509,7 @@ func (m *HTTPRequestProperties) Validate() error {
 
 	// no validation rules for Authority
 
-	if v, ok := interface{}(m.GetPort()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetPort()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HTTPRequestPropertiesValidationError{
 				Field:  "Port",
@@ -623,9 +579,7 @@ func (m *HTTPResponseProperties) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetResponseCode()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetResponseCode()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HTTPResponsePropertiesValidationError{
 				Field:  "ResponseCode",

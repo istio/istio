@@ -1,16 +1,16 @@
-//  Copyright 2018 Istio Authors
+// Copyright 2018 Istio Authors
 //
-//  Licensed under the Apache License, Version 2.0 (the "License");
-//  you may not use this file except in compliance with the License.
-//  You may obtain a copy of the License at
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-//      http://www.apache.org/licenses/LICENSE-2.0
+//     http://www.apache.org/licenses/LICENSE-2.0
 //
-//  Unless required by applicable law or agreed to in writing, software
-//  distributed under the License is distributed on an "AS IS" BASIS,
-//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-//  See the License for the specific language governing permissions and
-//  limitations under the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package source
 
@@ -101,11 +101,16 @@ func (s *sourceImpl) Stop() {
 }
 
 func (s *sourceImpl) process(l *listener, kind resource.EventKind, key, resourceVersion string, u *unstructured.Unstructured) {
+	ProcessEvent(l.spec, kind, key, resourceVersion, u, s.ch)
+}
+
+//ProcessEvent process the incoming message and convert it to event
+func ProcessEvent(spec kube.ResourceSpec, kind resource.EventKind, key, resourceVersion string, u *unstructured.Unstructured, ch chan resource.Event) {
 	var item proto.Message
 	var err error
 	var createTime time.Time
 	if u != nil {
-		if key, createTime, item, err = l.spec.Converter(l.spec.Target, key, u); err != nil {
+		if key, createTime, item, err = spec.Converter(spec.Target, key, u); err != nil {
 			scope.Errorf("Unable to convert unstructured to proto: %s/%s", key, resourceVersion)
 			return
 		}
@@ -113,7 +118,7 @@ func (s *sourceImpl) process(l *listener, kind resource.EventKind, key, resource
 
 	rid := resource.VersionedKey{
 		Key: resource.Key{
-			TypeURL:  l.spec.Target.TypeURL,
+			TypeURL:  spec.Target.TypeURL,
 			FullName: key,
 		},
 		Version:    resource.Version(resourceVersion),
@@ -127,5 +132,5 @@ func (s *sourceImpl) process(l *listener, kind resource.EventKind, key, resource
 	}
 
 	scope.Debugf("Dispatching source event: %v", e)
-	s.ch <- e
+	ch <- e
 }

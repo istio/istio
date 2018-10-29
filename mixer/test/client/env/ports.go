@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors. All Rights Reserved.
+// Copyright 2017 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -58,6 +58,8 @@ const (
 	PilotPluginTCPTest
 	PilotPluginTLSTest
 	PilotMCPTest
+	RbacGlobalPermissiveTest
+	RbacPolicyPermissiveTest
 
 	// The number of total tests. has to be the last one.
 	maxTestNum

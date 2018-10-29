@@ -28,6 +28,6 @@
   include_tasks: install_sample.yml
   vars:
     sample_cmd_template: bookinfo_cmd.j2
-    sample_path: bookinfo/kube/bookinfo.yaml
+    sample_path: bookinfo/platform/kube/bookinfo.yaml
     sample_namespace: bookinfo
   when: bookinfo_selected == true

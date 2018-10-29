@@ -126,6 +126,12 @@ func TestConfigWriter_PrintClusterDump(t *testing.T) {
 			callPrime:      true,
 		},
 		{
+			name:           "handles multi hosts cluster filtering",
+			filter:         EndpointFilter{Cluster: "outbound|9080||reviews.default.svc.cluster.local"},
+			wantOutputFile: "testdata/clustermultihostsfiltered.txt",
+			callPrime:      true,
+		},
+		{
 			name:      "errors if config writer is not primed",
 			callPrime: false,
 			wantErr:   true,

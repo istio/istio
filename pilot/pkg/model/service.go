@@ -30,6 +30,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
+
 	authn "istio.io/api/authentication/v1alpha1"
 )
 
@@ -293,6 +295,9 @@ type NetworkEndpoint struct {
 
 	// Defines a platform-specific workload instance identifier (optional).
 	UID string
+
+	// The network where this endpoint is present
+	Network string
 }
 
 // Labels is a non empty set of arbitrary strings. Each version of a service can
@@ -365,6 +370,55 @@ func (si *ServiceInstance) GetAZ() string {
 		return si.AvailabilityZone
 	}
 	return si.Labels[AZLabel]
+}
+
+// IstioEndpoint has the information about a single address+port for a specific
+// service and shard.
+//
+// This will eventually replace NetworkEndpoint and ServiceInstance:
+// - ServicePortName replaces ServicePort, since port number and protocol may not
+// be available when endpoint callbacks are made.
+// - It no longer splits into one ServiceInstance and one NetworkEndpoint - both
+// are in a single struct
+// - doesn't have a pointer to Service - the full Service object may not be available at
+// the time the endpoint is received. The service name is used as a key and used to reconcile.
+// - it has a cached EnvoyEndpoint object - to avoid re-allocating it for each request and
+// client.
+type IstioEndpoint struct {
+
+	// Labels points to the workload or deployment labels.
+	Labels map[string]string
+
+	// Family indicates what type of endpoint, such as TCP or Unix Domain Socket.
+	// Default is TCP.
+	Family AddressFamily
+
+	// Address is the address of the endpoint, using envoy proto.
+	Address string
+
+	// EndpointPort is the port where the workload is listening, can be different
+	// from the service port.
+	EndpointPort uint32
+
+	// ServicePortName tracks the name of the port, to avoid 'eventual consistency' issues.
+	// Sometimes the Endpoint is visible before Service - so looking up the port number would
+	// fail. Instead the mapping to number is made when the clusters are computed. The lazy
+	// computation will also help with 'on-demand' and 'split horizon' - where it will be skipped
+	// for not used clusters or endpoints behind a gate.
+	ServicePortName string
+
+	// UID identifies the workload, for telemetry purpose.
+	UID string
+
+	// EnvoyEndpoint is a cached LbEndpoint, converted from the data, to
+	// avoid recomputation
+	EnvoyEndpoint *endpoint.LbEndpoint
+
+	// ServiceAccount holds the associated service account.
+	ServiceAccount string
+
+	// Network holds the network where this endpoint is present
+	Network string
 }
 
 // ServiceAttributes represents a group of custom attributes of the service.
@@ -444,6 +498,7 @@ type ServiceDiscovery interface {
 }
 
 // ServiceAccounts exposes Istio service accounts
+// Deprecated - service account tracking moved to XdsServer, incremental.
 type ServiceAccounts interface {
 	// GetIstioServiceAccounts returns a list of service accounts looked up from
 	// the specified service hostname and ports.
@@ -458,8 +513,10 @@ type ServiceAccounts interface {
 //  Hostname("foo.com").Matches("foo.com")   = true
 //  Hostname("foo.com").Matches("bar.com")   = false
 //  Hostname("*.com").Matches("foo.com")     = true
-//  Hostname("*.com").Matches("foo.com")     = true
+//  Hostname("*.com").Matches("bar.com")     = true
 //  Hostname("*.foo.com").Matches("foo.com") = false
+//  Hostname("*").Matches("foo.com") = true
+//  Hostname("*").Matches("*.com") = true
 func (h Hostname) Matches(o Hostname) bool {
 	if len(h) == 0 && len(o) == 0 {
 		return true

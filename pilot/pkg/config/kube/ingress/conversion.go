@@ -210,7 +210,7 @@ func ingressBackendToHTTPRoute(backend *v1beta1.IngressBackend, namespace string
 	}
 
 	return &networking.HTTPRoute{
-		Route: []*networking.DestinationWeight{
+		Route: []*networking.HTTPRouteDestination{
 			{
 				Destination: &networking.Destination{
 					Host: fmt.Sprintf("%s.%s.svc.%s", backend.ServiceName, namespace, domainSuffix),

@@ -1,13 +1,15 @@
 apiVersion: "config.istio.io/v1alpha2"
-kind: listchecker
+kind: handler
 metadata:
   name: staticversion
   namespace: istio-system
 spec:
-  # providerUrl: ordinarily black and white lists are maintained
-  # externally and fetched asynchronously using the providerUrl.
-  overrides: ["v1", "v2"]  # overrides provide a static list
-  blacklist: false
+  compiledAdapter: listchecker
+  params:
+    # providerUrl: ordinarily black and white lists are maintained
+    # externally and fetched asynchronously using the providerUrl.
+    overrides: ["v1", "v2"]  # overrides provide a static list
+    blacklist: false
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: listentry
@@ -29,6 +31,6 @@ spec:
   # is absent, "unknown" is used in its place (this happens in non kubernetes env).
   match: (destination.labels["app"]|"unknown") == "ratings"
   actions:
-  - handler: staticversion.listchecker
+  - handler: staticversion
     instances:
     - appversion.listentry

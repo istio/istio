@@ -16,8 +16,8 @@ about: Report a bug to help us improve Istio
 **Version**
 {{ What version of Istio and Kubernetes are you using? Use `istioctl version` and `kubectl version` }}
 
-**Is Istio Auth enabled or not?**
-{{ Did you install the stable istio.yaml, istio-auth.yaml.... or if using the Helm chart please provide full command line input }}
+**Installation**
+{{ Please describe how Istio was installed }}
 
 **Environment**
 {{ Which environment, cloud vendor, OS, etc are you using? }}

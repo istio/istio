@@ -8,7 +8,7 @@
 	to [SignalFx](https://signalfx.com).
 
 	This adapter supports the [metric template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/metric/)
-	and [tracespan template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/tracespan/).
+	and the [tracespan template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/tracespan/).
 
 	If sending trace spans, this adapter can make use of certain conventions in
 	the tracespan format that is configured to send to this adapter.  Here is an

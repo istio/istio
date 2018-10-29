@@ -1,0 +1,19 @@
+#
+# ingress configuration
+#
+enabled: false
+replicaCount: 1
+autoscaleMin: 1
+autoscaleMax: 5
+service:
+  annotations: {}
+  loadBalancerIP: ""
+  type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
+  ports:
+  - port: 80
+    name: http
+    nodePort: 32000
+  - port: 443
+    name: https
+  selector:
+    istio: ingress

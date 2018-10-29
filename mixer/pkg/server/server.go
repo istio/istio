@@ -22,6 +22,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc"
 	ot "github.com/opentracing/opentracing-go"
 	oprometheus "github.com/prometheus/client_golang/prometheus"
@@ -118,15 +119,12 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 		return nil, err
 	}
 
-	apiPoolSize := a.APIWorkerPoolSize
-	adapterPoolSize := a.AdapterWorkerPoolSize
-
 	s := &Server{}
-	s.gp = pool.NewGoroutinePool(apiPoolSize, a.SingleThreaded)
-	s.gp.AddWorkers(apiPoolSize)
+	s.gp = pool.NewGoroutinePool(a.APIWorkerPoolSize, a.SingleThreaded)
+	s.gp.AddWorkers(a.APIWorkerPoolSize - 1)
 
-	s.adapterGP = pool.NewGoroutinePool(adapterPoolSize, a.SingleThreaded)
-	s.adapterGP.AddWorkers(adapterPoolSize)
+	s.adapterGP = pool.NewGoroutinePool(a.AdapterWorkerPoolSize, a.SingleThreaded)
+	s.adapterGP.AddWorkers(a.AdapterWorkerPoolSize - 1)
 
 	tmplRepo := template.NewRepository(a.Templates)
 	adapterMap := config.AdapterInfoMap(a.Adapters, tmplRepo.SupportsTemplate)
@@ -156,6 +154,7 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 	if network == "unix" {
 		// remove Unix socket before use.
 		if err = p.remove(address); err != nil && !os.IsNotExist(err) {
+			_ = s.Close()
 			// Anything other than "file not found" is an error.
 			return nil, fmt.Errorf("unable to remove unix://%s: %v", address, err)
 		}
@@ -193,14 +192,22 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 		templateMap[k] = &t
 	}
 
-	kinds := runtimeconfig.KindMap(adapterMap, templateMap)
+	var kinds map[string]proto.Message
+	if a.UseAdapterCRDs {
+		kinds = runtimeconfig.KindMap(adapterMap, templateMap)
+	} else {
+		kinds = runtimeconfig.KindMap(map[string]*adapter.Info{}, templateMap)
+	}
+
 	if err := st.Init(kinds); err != nil {
+		_ = s.Close()
 		return nil, fmt.Errorf("unable to initialize config store: %v", err)
 	}
 
 	// block wait for the config store to sync
 	log.Info("Awaiting for config store sync...")
 	if err := st.WaitForSynced(30 * time.Second); err != nil {
+		_ = s.Close()
 		return nil, err
 	}
 
@@ -224,12 +231,14 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 
 	exporter, err := p.newOpenCensusExporter()
 	if err != nil {
+		_ = s.Close()
 		return nil, fmt.Errorf("could not build opencensus exporter: %v", err)
 	}
 	view.RegisterExporter(exporter)
 
 	// Register the views to collect server request count.
 	if err := p.registerOpenCensusViews(ocgrpc.DefaultServerViews...); err != nil {
+		_ = s.Close()
 		return nil, fmt.Errorf("could not register default server views: %v", err)
 	}
 

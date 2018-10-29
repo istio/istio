@@ -401,8 +401,8 @@ spec:
 <td><code>targets</code></td>
 <td><code><a href="#TargetSelector">TargetSelector[]</a></code></td>
 <td>
-<p>List rules to select destinations that the policy should be applied on.
-If empty, policy will be used on all destinations in the same namespace.</p>
+<p>List rules to select workloads that the policy should be applied on.
+If empty, policy will be used on all workloads in the same namespace.</p>
 
 </td>
 </tr>
@@ -418,6 +418,18 @@ Leave the list empty if peer authentication is not required</p>
 
 </td>
 </tr>
+<tr id="Policy-peer_is_optional">
+<td><code>peerIsOptional</code></td>
+<td><code>bool</code></td>
+<td>
+<p>Set this flag to true to accept request (for peer authentication perspective),
+even when none of the peer authentication methods defined above satisfied.
+Typically, this is used to delay the rejection decision to next layer (e.g
+authorization).
+This flag is ignored if no authentication defined for peer (peers field is empty).</p>
+
+</td>
+</tr>
 <tr id="Policy-origins">
 <td><code>origins</code></td>
 <td><code><a href="#OriginAuthenticationMethod">OriginAuthenticationMethod[]</a></code></td>
@@ -430,6 +442,18 @@ rejected with authentication failed error (401).
 A method may be skipped, depends on its trigger rule. If all of these methods
 are skipped, origin authentication will be ignored, as if it is not defined.
 Leave the list empty if origin authentication is not required.</p>
+
+</td>
+</tr>
+<tr id="Policy-origin_is_optional">
+<td><code>originIsOptional</code></td>
+<td><code>bool</code></td>
+<td>
+<p>Set this flag to true to accept request (for origin authentication perspective),
+even when none of the origin authentication methods defined above satisfied.
+Typically, this is used to delay the rejection decision to next layer (e.g
+authorization).
+This flag is ignored if no authentication defined for origin (origins field is empty).</p>
 
 </td>
 </tr>
@@ -563,7 +587,8 @@ Example: &ldquo;^/pets/(.*?)?&rdquo;</p>
 </section>
 <h2 id="TargetSelector">TargetSelector</h2>
 <section>
-<p>TargetSelector defines a matching rule to a service/destination.</p>
+<p>TargetSelector defines a matching rule to a workload. A workload is selected
+if it is associated with the service name and service port(s) specified in the selector rule.</p>
 
 <table class="message-fields">
 <thead>
@@ -587,8 +612,22 @@ fully qualified domain name will be resolved in a platform specific manner.</p>
 <td><code>ports</code></td>
 <td><code><a href="#PortSelector">PortSelector[]</a></code></td>
 <td>
-<p>Specifies the ports on the destination. Leave empty to match all ports
-that are exposed.</p>
+<p>Specifies the ports. Note that this is the port(s) exposed by the service, not workload ports.
+For example, if a service is defined as below, then <code>8000</code> should be used, not <code>9000</code>.</p>
+
+<pre><code>kind: Service
+metadata:
+  ...
+spec:
+  ports:
+  - name: http
+    port: 8000
+    targetPort: 9000
+  selector:
+    app: backend
+</code></pre>
+
+<p>Leave empty to match all ports that are exposed.</p>
 
 </td>
 </tr>

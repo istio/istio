@@ -1,0 +1,24 @@
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRole
+metadata:
+  name: mongodb-viewer
+  namespace: default
+spec:
+  rules:
+  - services: ["mongodb.default.svc.cluster.local"]
+    constraints:
+    - key: "destination.port"
+      values: ["27017"]
+---
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRoleBinding
+metadata:
+  name: bind-mongodb-viewer
+  namespace: default
+spec:
+  subjects:
+  - user: "cluster.local/ns/default/sa/bookinfo-ratings-v2"
+  roleRef:
+    kind: ServiceRole
+    name: "mongodb-viewer"
+---

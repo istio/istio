@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pkg/mcp/client"
 	"istio.io/istio/pkg/mcp/snapshot"
 	"istio.io/istio/pkg/mcp/testing"
+	"istio.io/istio/pkg/mcp/testing/monitoring"
 )
 
 type updater struct {
@@ -56,7 +57,9 @@ func TestConfigZ(t *testing.T) {
 
 	u := &updater{}
 	clnt := mcp.NewAggregatedMeshConfigServiceClient(cc)
-	cl := client.New(clnt, []string{"type.googleapis.com/google.protobuf.Empty"}, u, "zoo", map[string]string{"foo": "bar"})
+	cl := client.New(clnt, []string{"type.googleapis.com/google.protobuf.Empty"}, u,
+		snapshot.DefaultGroup, map[string]string{"foo": "bar"},
+		mcptestmon.NewInMemoryClientStatsContext())
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go cl.Run(ctx)
@@ -69,7 +72,7 @@ func TestConfigZ(t *testing.T) {
 
 	// wait for client to make first watch request
 	for {
-		if status := s.Cache.Status("zoo"); status != nil {
+		if status := s.Cache.Status(snapshot.DefaultGroup); status != nil {
 			if status.Watches() > 0 {
 				break
 			}
@@ -86,11 +89,11 @@ func TestConfigZ(t *testing.T) {
 		t.Fatalf("Setting an entry should not have failed: %v", err)
 	}
 	prevSnapshotTime := time.Now()
-	s.Cache.SetSnapshot("zoo", b.Build())
+	s.Cache.SetSnapshot(snapshot.DefaultGroup, b.Build())
 
 	// wait for client to ACK the pushed snapshot
 	for {
-		if status := s.Cache.Status("zoo"); status != nil {
+		if status := s.Cache.Status(snapshot.DefaultGroup); status != nil {
 			if status.LastWatchRequestTime().After(prevSnapshotTime) {
 				break
 			}
@@ -108,7 +111,7 @@ func TestConfigZ(t *testing.T) {
 func testConfigZWithNoRequest(t *testing.T, baseURL string) {
 	// First, test configz, with no recent requests.
 	data := request(t, baseURL+"/configz")
-	if !strings.Contains(data, "zoo") {
+	if !strings.Contains(data, snapshot.DefaultGroup) {
 		t.Fatalf("Node id should have been displayed: %q", data)
 	}
 	if !strings.Contains(data, "foo") || !strings.Contains(data, "bar") {
@@ -143,7 +146,7 @@ func testConfigJWithOneRequest(t *testing.T, baseURL string) {
 		t.Fatalf("Should have unmarshalled json: %v", err)
 	}
 
-	if m["ID"] != "zoo" {
+	if m["ID"] != snapshot.DefaultGroup {
 		t.Fatalf("Should have contained id: %v", data)
 	}
 

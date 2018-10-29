@@ -186,15 +186,6 @@ $(mixer_adapter_model_v1beta1_pb_gos) $(mixer_adapter_model_v1beta1_pb_doc) : $(
 $(policy_v1beta1_pb_gos) $(policy_v1beta1_pb_doc) : $(policy_v1beta1_protos)
 	## Generate policy/v1beta1/*.pb.go + $(policy_v1beta1_pb_doc)
 	@$(docker_gen) $(gogoslick_plugin) $(protoc_gen_docs_plugin)$(policy_v1beta1_path) $^
-	## Generate policy/v1beta1/fixed_cfg.pb.go (requires alternate plugin and sed scripting due to issues with google.protobuf.Struct
-	@$(docker_gen) $(gogo_plugin) policy/v1beta1/cfg.proto
-	@if [ -f "policy/v1beta1/cfg.pb.go" ]; then\
-		sed -e 's/*google_protobuf.Struct/interface{}/g' \
-			-e 's/ValueType_VALUE_TYPE_UNSPECIFIED/VALUE_TYPE_UNSPECIFIED/g' \
-			-e 's/istio_policy_v1beta1\.//g' policy/v1beta1/cfg.pb.go \
-			| grep -v "google_protobuf" | grep -v "import istio_policy_v1beta1" >policy/v1beta1/fixed_cfg.pb.go;\
-		rm -f policy/v1beta1/cfg.pb.go;\
-	fi
 
 generate-mixer-python: \
 	$(mixer_v1_pb_pythons) \
@@ -217,8 +208,6 @@ $(mixer_adapter_model_v1beta1_pb_pythons): $(mixer_adapter_model_v1beta1_protos)
 $(policy_v1beta1_pb_pythons): $(policy_v1beta1_protos)
 	## Generate python/istio_api/policy/v1beta1/*_pb2.py
 	@$(docker_gen) $(protoc_gen_python_plugin) $^
-	## Generate python/istio_api/policy/v1beta1/cfg_pb2.py
-	@$(docker_gen) $(protoc_gen_python_plugin) policy/v1beta1/cfg.proto
 
 clean-mixer:
 	rm -f $(mixer_v1_pb_gos) $(mixer_config_client_pb_gos) $(mixer_adapter_model_v1beta1_pb_gos) $(policy_v1beta1_pb_gos) policy/v1beta1/fixed_cfg.pb.go

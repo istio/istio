@@ -42,9 +42,7 @@ func (m *OutlierDetection) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetConsecutive_5Xx()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetConsecutive_5Xx()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return OutlierDetectionValidationError{
 				Field:  "Consecutive_5Xx",
@@ -129,9 +127,7 @@ func (m *OutlierDetection) Validate() error {
 
 	}
 
-	if v, ok := interface{}(m.GetSuccessRateMinimumHosts()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetSuccessRateMinimumHosts()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return OutlierDetectionValidationError{
 				Field:  "SuccessRateMinimumHosts",
@@ -141,9 +137,7 @@ func (m *OutlierDetection) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetSuccessRateRequestVolume()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetSuccessRateRequestVolume()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return OutlierDetectionValidationError{
 				Field:  "SuccessRateRequestVolume",
@@ -153,9 +147,7 @@ func (m *OutlierDetection) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetSuccessRateStdevFactor()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetSuccessRateStdevFactor()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return OutlierDetectionValidationError{
 				Field:  "SuccessRateStdevFactor",
@@ -165,9 +157,7 @@ func (m *OutlierDetection) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetConsecutiveGatewayFailure()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetConsecutiveGatewayFailure()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return OutlierDetectionValidationError{
 				Field:  "ConsecutiveGatewayFailure",

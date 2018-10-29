@@ -289,6 +289,7 @@ func TestUpdateSecret(t *testing.T) {
 		gracePeriodRatio float32
 		minGracePeriod   time.Duration
 		rootCert         []byte
+		certIsInvalid    bool
 	}{
 		"Does not update non-expiring secret": {
 			expectedActions:  []ktesting.Action{},
@@ -329,6 +330,15 @@ func TestUpdateSecret(t *testing.T) {
 			minGracePeriod:   10 * time.Minute,
 			rootCert:         []byte("Outdated root cert"),
 		},
+		"Update secret with invalid certificate": {
+			expectedActions: []ktesting.Action{
+				ktesting.NewUpdateAction(gvr, "test-ns", istioTestSecret),
+			},
+			ttl:              time.Hour,
+			gracePeriodRatio: 0.5,
+			minGracePeriod:   10 * time.Minute,
+			certIsInvalid:    true,
+		},
 	}
 
 	for k, tc := range testCases {
@@ -349,11 +359,13 @@ func TestUpdateSecret(t *testing.T) {
 			TTL:          tc.ttl,
 			RSAKeySize:   512,
 		}
-		bs, _, err := util.GenCertKeyFromOptions(opts)
-		if err != nil {
-			t.Error(err)
+		if !tc.certIsInvalid {
+			bs, _, err := util.GenCertKeyFromOptions(opts)
+			if err != nil {
+				t.Error(err)
+			}
+			scrt.Data[CertChainID] = bs
 		}
-		scrt.Data[CertChainID] = bs
 
 		controller.scrtUpdated(nil, scrt)
 

@@ -42,7 +42,12 @@ func (lr *Report) AddItem(pos token.Position, id string, msg string) {
 		pos.Column,
 		msg,
 		id)
-	lr.items = append(lr.items, item)
+	lr.AddReport(item)
+}
+
+// AddReport creates a new report.
+func (lr *Report) AddReport(msg string) {
+	lr.items = append(lr.items, msg)
 }
 
 // AddString creates a new string line in report.

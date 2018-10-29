@@ -48,11 +48,7 @@ func (m *TcpProxy) Validate() error {
 		}
 	}
 
-	// no validation rules for Cluster
-
-	if v, ok := interface{}(m.GetMetadataMatch()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetMetadataMatch()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return TcpProxyValidationError{
 				Field:  "MetadataMatch",
@@ -76,9 +72,7 @@ func (m *TcpProxy) Validate() error {
 
 	}
 
-	if v, ok := interface{}(m.GetDownstreamIdleTimeout()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetDownstreamIdleTimeout()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return TcpProxyValidationError{
 				Field:  "DownstreamIdleTimeout",
@@ -88,9 +82,7 @@ func (m *TcpProxy) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetUpstreamIdleTimeout()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetUpstreamIdleTimeout()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return TcpProxyValidationError{
 				Field:  "UpstreamIdleTimeout",
@@ -103,9 +95,7 @@ func (m *TcpProxy) Validate() error {
 	for idx, item := range m.GetAccessLog() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return TcpProxyValidationError{
 					Field:  fmt.Sprintf("AccessLog[%v]", idx),
@@ -117,9 +107,7 @@ func (m *TcpProxy) Validate() error {
 
 	}
 
-	if v, ok := interface{}(m.GetDeprecatedV1()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetDeprecatedV1()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return TcpProxyValidationError{
 				Field:  "DeprecatedV1",
@@ -136,6 +124,31 @@ func (m *TcpProxy) Validate() error {
 				Field:  "MaxConnectAttempts",
 				Reason: "value must be greater than or equal to 1",
 			}
+		}
+
+	}
+
+	switch m.ClusterSpecifier.(type) {
+
+	case *TcpProxy_Cluster:
+		// no validation rules for Cluster
+
+	case *TcpProxy_WeightedClusters:
+
+		if v, ok := interface{}(m.GetWeightedClusters()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return TcpProxyValidationError{
+					Field:  "WeightedClusters",
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
+	default:
+		return TcpProxyValidationError{
+			Field:  "ClusterSpecifier",
+			Reason: "value is required",
 		}
 
 	}
@@ -192,9 +205,7 @@ func (m *TcpProxy_DeprecatedV1) Validate() error {
 	for idx, item := range m.GetRoutes() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return TcpProxy_DeprecatedV1ValidationError{
 					Field:  fmt.Sprintf("Routes[%v]", idx),
@@ -240,6 +251,70 @@ func (e TcpProxy_DeprecatedV1ValidationError) Error() string {
 
 var _ error = TcpProxy_DeprecatedV1ValidationError{}
 
+// Validate checks the field values on TcpProxy_WeightedCluster with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, an error is returned.
+func (m *TcpProxy_WeightedCluster) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	if len(m.GetClusters()) < 1 {
+		return TcpProxy_WeightedClusterValidationError{
+			Field:  "Clusters",
+			Reason: "value must contain at least 1 item(s)",
+		}
+	}
+
+	for idx, item := range m.GetClusters() {
+		_, _ = idx, item
+
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return TcpProxy_WeightedClusterValidationError{
+					Field:  fmt.Sprintf("Clusters[%v]", idx),
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
+	}
+
+	return nil
+}
+
+// TcpProxy_WeightedClusterValidationError is the validation error returned by
+// TcpProxy_WeightedCluster.Validate if the designated constraints aren't met.
+type TcpProxy_WeightedClusterValidationError struct {
+	Field  string
+	Reason string
+	Cause  error
+	Key    bool
+}
+
+// Error satisfies the builtin error interface
+func (e TcpProxy_WeightedClusterValidationError) Error() string {
+	cause := ""
+	if e.Cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
+	}
+
+	key := ""
+	if e.Key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sTcpProxy_WeightedCluster.%s: %s%s",
+		key,
+		e.Field,
+		e.Reason,
+		cause)
+}
+
+var _ error = TcpProxy_WeightedClusterValidationError{}
+
 // Validate checks the field values on TcpProxy_DeprecatedV1_TCPRoute with the
 // rules defined in the proto definition for this message. If any rules are
 // violated, an error is returned.
@@ -258,9 +333,7 @@ func (m *TcpProxy_DeprecatedV1_TCPRoute) Validate() error {
 	for idx, item := range m.GetDestinationIpList() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return TcpProxy_DeprecatedV1_TCPRouteValidationError{
 					Field:  fmt.Sprintf("DestinationIpList[%v]", idx),
@@ -277,9 +350,7 @@ func (m *TcpProxy_DeprecatedV1_TCPRoute) Validate() error {
 	for idx, item := range m.GetSourceIpList() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return TcpProxy_DeprecatedV1_TCPRouteValidationError{
 					Field:  fmt.Sprintf("SourceIpList[%v]", idx),
@@ -327,3 +398,60 @@ func (e TcpProxy_DeprecatedV1_TCPRouteValidationError) Error() string {
 }
 
 var _ error = TcpProxy_DeprecatedV1_TCPRouteValidationError{}
+
+// Validate checks the field values on TcpProxy_WeightedCluster_ClusterWeight
+// with the rules defined in the proto definition for this message. If any
+// rules are violated, an error is returned.
+func (m *TcpProxy_WeightedCluster_ClusterWeight) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	if len(m.GetName()) < 1 {
+		return TcpProxy_WeightedCluster_ClusterWeightValidationError{
+			Field:  "Name",
+			Reason: "value length must be at least 1 bytes",
+		}
+	}
+
+	if m.GetWeight() < 1 {
+		return TcpProxy_WeightedCluster_ClusterWeightValidationError{
+			Field:  "Weight",
+			Reason: "value must be greater than or equal to 1",
+		}
+	}
+
+	return nil
+}
+
+// TcpProxy_WeightedCluster_ClusterWeightValidationError is the validation
+// error returned by TcpProxy_WeightedCluster_ClusterWeight.Validate if the
+// designated constraints aren't met.
+type TcpProxy_WeightedCluster_ClusterWeightValidationError struct {
+	Field  string
+	Reason string
+	Cause  error
+	Key    bool
+}
+
+// Error satisfies the builtin error interface
+func (e TcpProxy_WeightedCluster_ClusterWeightValidationError) Error() string {
+	cause := ""
+	if e.Cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
+	}
+
+	key := ""
+	if e.Key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sTcpProxy_WeightedCluster_ClusterWeight.%s: %s%s",
+		key,
+		e.Field,
+		e.Reason,
+		cause)
+}
+
+var _ error = TcpProxy_WeightedCluster_ClusterWeightValidationError{}

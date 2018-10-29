@@ -43,7 +43,7 @@ func (m *CircuitBreakers) Reset()         { *m = CircuitBreakers{} }
 func (m *CircuitBreakers) String() string { return proto.CompactTextString(m) }
 func (*CircuitBreakers) ProtoMessage()    {}
 func (*CircuitBreakers) Descriptor() ([]byte, []int) {
-	return fileDescriptor_circuit_breaker_f0d66cc80ef03e29, []int{0}
+	return fileDescriptor_circuit_breaker_bd4ee601853a6f15, []int{0}
 }
 func (m *CircuitBreakers) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -108,7 +108,7 @@ func (m *CircuitBreakers_Thresholds) Reset()         { *m = CircuitBreakers_Thre
 func (m *CircuitBreakers_Thresholds) String() string { return proto.CompactTextString(m) }
 func (*CircuitBreakers_Thresholds) ProtoMessage()    {}
 func (*CircuitBreakers_Thresholds) Descriptor() ([]byte, []int) {
-	return fileDescriptor_circuit_breaker_f0d66cc80ef03e29, []int{0, 0}
+	return fileDescriptor_circuit_breaker_bd4ee601853a6f15, []int{0, 0}
 }
 func (m *CircuitBreakers_Thresholds) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -801,10 +801,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/api/v2/cluster/circuit_breaker.proto", fileDescriptor_circuit_breaker_f0d66cc80ef03e29)
+	proto.RegisterFile("envoy/api/v2/cluster/circuit_breaker.proto", fileDescriptor_circuit_breaker_bd4ee601853a6f15)
 }
 
-var fileDescriptor_circuit_breaker_f0d66cc80ef03e29 = []byte{
+var fileDescriptor_circuit_breaker_bd4ee601853a6f15 = []byte{
 	// 381 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x91, 0xcf, 0xaa, 0xd3, 0x40,
 	0x14, 0x87, 0x99, 0xd6, 0x7f, 0x4c, 0xe4, 0x5e, 0x08, 0x45, 0x42, 0xb9, 0x84, 0x72, 0x57, 0xc5,

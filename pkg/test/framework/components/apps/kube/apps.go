@@ -17,6 +17,8 @@ package kube
 import (
 	"fmt"
 
+	"github.com/hashicorp/go-multierror"
+
 	"istio.io/istio/pkg/test/framework/dependency"
 	"istio.io/istio/pkg/test/framework/environment"
 	"istio.io/istio/pkg/test/framework/environments/kubernetes"
@@ -25,6 +27,107 @@ import (
 var (
 	// Component provides a framework component for the local environment.
 	Component = &kubeComponent{}
+
+	deployments = []*deployment{
+		{
+			deployment:     "t",
+			service:        "t",
+			version:        "unversioned",
+			port1:          8080,
+			port2:          80,
+			port3:          9090,
+			port4:          90,
+			port5:          7070,
+			port6:          70,
+			injectProxy:    false,
+			headless:       false,
+			serviceAccount: false,
+		},
+		{
+			deployment:     "a",
+			service:        "a",
+			version:        "v1",
+			port1:          8080,
+			port2:          80,
+			port3:          9090,
+			port4:          90,
+			port5:          7070,
+			port6:          70,
+			injectProxy:    true,
+			headless:       false,
+			serviceAccount: false,
+		},
+		{
+			deployment:     "b",
+			service:        "b",
+			version:        "unversioned",
+			port1:          80,
+			port2:          8080,
+			port3:          90,
+			port4:          9090,
+			port5:          70,
+			port6:          7070,
+			injectProxy:    true,
+			headless:       false,
+			serviceAccount: true,
+		},
+		{
+			deployment:     "c-v1",
+			service:        "c",
+			version:        "v1",
+			port1:          80,
+			port2:          8080,
+			port3:          90,
+			port4:          9090,
+			port5:          70,
+			port6:          7070,
+			injectProxy:    true,
+			headless:       false,
+			serviceAccount: true,
+		},
+		{
+			deployment:     "c-v2",
+			service:        "c",
+			version:        "v2",
+			port1:          80,
+			port2:          8080,
+			port3:          90,
+			port4:          9090,
+			port5:          70,
+			port6:          7070,
+			injectProxy:    true,
+			headless:       false,
+			serviceAccount: true,
+		},
+		{
+			deployment:     "d",
+			service:        "d",
+			version:        "per-svc-auth",
+			port1:          80,
+			port2:          8080,
+			port3:          90,
+			port4:          9090,
+			port5:          70,
+			port6:          7070,
+			injectProxy:    true,
+			headless:       false,
+			serviceAccount: true,
+		},
+		{
+			deployment:     "headless",
+			service:        "headless",
+			version:        "unversioned",
+			port1:          80,
+			port2:          8080,
+			port3:          90,
+			port4:          9090,
+			port5:          70,
+			port6:          7070,
+			injectProxy:    true,
+			headless:       true,
+			serviceAccount: true,
+		},
+	}
 )
 
 type kubeComponent struct {
@@ -48,16 +151,45 @@ func (c *kubeComponent) Init(ctx environment.ComponentContext, deps map[dependen
 	if !ok {
 		return nil, fmt.Errorf("unsupported environment: %q", ctx.Environment().EnvironmentID())
 	}
+
+	// Apply all the configs for the deployments.
+	for _, d := range deployments {
+		if err := d.apply(e); err != nil {
+			return nil, multierror.Prefix(err, fmt.Sprintf("failed deploying %s: ", d.deployment))
+		}
+	}
+
+	// Wait for the pods to transition to running.
+	clients := make([]environment.DeployedApp, 0, len(deployments))
+	for _, d := range deployments {
+		if err := d.wait(e); err != nil {
+			return nil, multierror.Prefix(err, fmt.Sprintf("failed waiting for deployment %s: ", d.deployment))
+		}
+		client, err := newClient(d.service, e)
+		if err != nil {
+			return nil, multierror.Prefix(err, fmt.Sprintf("failed creating client for deployment %s: ", d.deployment))
+		}
+		clients = append(clients, client)
+	}
+
 	return &appsImpl{
-		e: e,
+		e:       e,
+		clients: clients,
 	}, nil
 }
 
 type appsImpl struct {
-	e *kubernetes.Implementation
+	e       *kubernetes.Implementation
+	clients []environment.DeployedApp
 }
 
 // GetApp implements the apps.Apps interface.
 func (a *appsImpl) GetApp(name string) (environment.DeployedApp, error) {
-	return NewApp(name, a.e.KubeSettings().IstioSystemNamespace)
+	for _, c := range a.clients {
+		if c.Name() == name {
+			return c, nil
+		}
+	}
+
+	return nil, fmt.Errorf("unable to locate app for name %s", name)
 }

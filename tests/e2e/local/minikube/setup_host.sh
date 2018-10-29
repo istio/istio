@@ -5,16 +5,18 @@ vm_driver="kvm2"
 case "${OSTYPE}" in
   darwin*) vm_driver="hyperkit";;
   linux*)
-    DISTRO="$(lsb_release -i -s)"
-    case "${DISTRO}" in
-      Debian|Ubuntu)
-        vm_driver="kvm2";;
-      *) echo "unsupported distro: ${DISTRO}" ;;
-    esac;;
+    ;;
   *) echo "unsupported: ${OSTYPE}" ;;
 esac
 
-echo "Using $vm_driver as VM for Minikube."
+# Virtual machine driver, the default value is decided by your OS type if it's not specified,
+# e.g.:
+#   hyperkit default to darwin os
+#   kvm2 default to Debian or Ubuntu os
+# Besides, you can set any vm-driver you like via exporting `VM_DRIVER` for your environment.
+VM_DRIVER=${VM_DRIVER:-${vm_driver}}
+
+echo "Using ${VM_DRIVER} as VM for Minikube."
 
 # Delete any previous minikube cluster
 minikube delete
@@ -22,7 +24,13 @@ minikube delete
 echo "Starting Minikube."
 
 # Start minikube
-minikube start \
+SUDO_PREFIX=""
+if [[ "${VM_DRIVER}" == "none" ]]; then
+  # When minikube runs in `--vm-driver=none` mode, it requires root permission.
+  SUDO_PREFIX="sudo -E"
+fi
+
+$SUDO_PREFIX minikube start \
     --extra-config=controller-manager.cluster-signing-cert-file="/var/lib/localkube/certs/ca.crt" \
     --extra-config=controller-manager.cluster-signing-key-file="/var/lib/localkube/certs/ca.key" \
     --extra-config=apiserver.admission-control="NamespaceLifecycle,LimitRanger,ServiceAccount,PersistentVolumeLabel,DefaultStorageClass,DefaultTolerationSeconds,MutatingAdmissionWebhook,ValidatingAdmissionWebhook,ResourceQuota" \
@@ -30,7 +38,7 @@ minikube start \
     --insecure-registry="localhost:5000" \
     --cpus=4 \
     --memory=8192 \
-    --vm-driver=$vm_driver
+    --vm-driver="$VM_DRIVER"
 
 #Setup docker to talk to minikube
 eval "$(minikube docker-env)"

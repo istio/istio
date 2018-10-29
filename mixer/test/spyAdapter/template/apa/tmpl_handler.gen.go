@@ -18,6 +18,8 @@ package sampleapa
 
 import (
 	"context"
+	"net"
+	"time"
 
 	"istio.io/istio/mixer/pkg/adapter"
 )
@@ -52,6 +54,14 @@ type Output struct {
 	StringPrimitive string
 
 	StringMap map[string]string
+
+	Ip net.IP
+
+	Duration time.Duration
+
+	Timestamp time.Time
+
+	Dns adapter.DNSName
 }
 
 func NewOutput() *Output {
@@ -81,6 +91,26 @@ func (o *Output) SetStringPrimitive(val string) {
 func (o *Output) SetStringMap(val map[string]string) {
 	o.fieldsSet["stringMap"] = true
 	o.StringMap = val
+}
+
+func (o *Output) SetIp(val net.IP) {
+	o.fieldsSet["ip"] = true
+	o.Ip = val
+}
+
+func (o *Output) SetDuration(val time.Duration) {
+	o.fieldsSet["duration"] = true
+	o.Duration = val
+}
+
+func (o *Output) SetTimestamp(val time.Time) {
+	o.fieldsSet["timestamp"] = true
+	o.Timestamp = val
+}
+
+func (o *Output) SetDns(val adapter.DNSName) {
+	o.fieldsSet["dns"] = true
+	o.Dns = val
 }
 
 func (o *Output) WasSet(field string) bool {

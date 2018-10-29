@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors. All Rights Reserved.
+// Copyright 2017 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,8 +28,11 @@ const checkAttributesOkPost = `
 {
   "context.protocol": "tcp",
   "context.time": "*",
+  "context.reporter.uid": "",
   "mesh1.ip": "[1 1 1 1]",
   "source.ip": "[127 0 0 1]",
+  "destination.uid": "",
+  "destination.namespace": "",
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "connection.mtls": false,
@@ -43,12 +46,15 @@ const reportAttributesOkPostOpen = `
 {
   "context.protocol": "tcp",
   "context.time": "*",
+  "context.reporter.uid": "",
   "mesh1.ip": "[1 1 1 1]",
   "source.ip": "[127 0 0 1]",
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "destination.ip": "[127 0 0 1]",
   "destination.port": "*",
+  "destination.uid": "",
+  "destination.namespace": "",
   "connection.mtls": false,
   "origin.ip": "[127 0 0 1]",
   "check.cache_hit": false,
@@ -65,12 +71,15 @@ const reportAttributesOkPostClose = `
 {
   "context.protocol": "tcp",
   "context.time": "*",
+  "context.reporter.uid": "",
   "mesh1.ip": "[1 1 1 1]",
   "source.ip": "[127 0 0 1]",
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "destination.ip": "[127 0 0 1]",
   "destination.port": "*",
+  "destination.uid": "",
+  "destination.namespace": "",
   "connection.mtls": false,
   "origin.ip": "[127 0 0 1]",
   "check.cache_hit": false,
@@ -90,6 +99,7 @@ const reportAttributesFailPost = `
 {
   "context.protocol": "tcp",
   "context.time": "*",
+  "context.reporter.uid": "",
   "mesh1.ip": "[1 1 1 1]",
   "source.ip": "*",
   "target.uid": "POD222",
@@ -102,6 +112,8 @@ const reportAttributesFailPost = `
   "connection.received.bytes_total": "*",
   "destination.ip": "[127 0 0 1]",
   "destination.port": "*",
+  "destination.uid": "",
+  "destination.namespace": "",
   "connection.sent.bytes": 0,
   "connection.sent.bytes_total": 0,
   "connection.duration": "*",

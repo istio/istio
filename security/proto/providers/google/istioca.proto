@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package google.security.istioca.v1alpha1;
+
+// Certificate request message.
+message IstioCertificateRequest {
+  // PEM-encoded certificate request.
+  string csr = 1;
+  // Optional subject ID field.
+  string subject_id = 2;
+  // Optional: requested certificate validity period, in seconds.
+  int64 validity_duration = 3;
+}
+
+// Certificate response message.
+message IstioCertificateResponse {
+  // PEM-encoded certificate chain.
+  // Leaf cert is element '0'. Root cert is element 'n'.
+  repeated string cert_chain = 1;
+}
+
+// Service for managing certificates issued by the Istio CA.
+service IstioCertificateService {
+  // Using provided CSR, returns a signed certificate.
+  rpc CreateCertificate(IstioCertificateRequest)
+      returns (IstioCertificateResponse) {
+  }
+}

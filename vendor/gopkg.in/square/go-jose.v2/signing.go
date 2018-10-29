@@ -94,8 +94,14 @@ type genericSigner struct {
 
 type recipientSigInfo struct {
 	sigAlg    SignatureAlgorithm
-	publicKey *JSONWebKey
+	publicKey func() *JSONWebKey
 	signer    payloadSigner
+}
+
+func staticPublicKey(jwk *JSONWebKey) func() *JSONWebKey {
+	return func() *JSONWebKey {
+		return jwk
+	}
 }
 
 // NewSigner creates an appropriate signer based on the key type
@@ -146,9 +152,11 @@ func newVerifier(verificationKey interface{}) (payloadVerifier, error) {
 		return newVerifier(verificationKey.Key)
 	case *JSONWebKey:
 		return newVerifier(verificationKey.Key)
-	default:
-		return nil, ErrUnsupportedKeyType
 	}
+	if ov, ok := verificationKey.(OpaqueVerifier); ok {
+		return &opaqueVerifier{verifier: ov}, nil
+	}
+	return nil, ErrUnsupportedKeyType
 }
 
 func (ctx *genericSigner) addRecipient(alg SignatureAlgorithm, signingKey interface{}) error {
@@ -175,9 +183,11 @@ func makeJWSRecipient(alg SignatureAlgorithm, signingKey interface{}) (recipient
 		return newJWKSigner(alg, signingKey)
 	case *JSONWebKey:
 		return newJWKSigner(alg, *signingKey)
-	default:
-		return recipientSigInfo{}, ErrUnsupportedKeyType
 	}
+	if signer, ok := signingKey.(OpaqueSigner); ok {
+		return newOpaqueSigner(alg, signer)
+	}
+	return recipientSigInfo{}, ErrUnsupportedKeyType
 }
 
 func newJWKSigner(alg SignatureAlgorithm, signingKey JSONWebKey) (recipientSigInfo, error) {
@@ -185,16 +195,16 @@ func newJWKSigner(alg SignatureAlgorithm, signingKey JSONWebKey) (recipientSigIn
 	if err != nil {
 		return recipientSigInfo{}, err
 	}
-	if recipient.publicKey != nil {
+	if recipient.publicKey != nil && recipient.publicKey() != nil {
 		// recipient.publicKey is a JWK synthesized for embedding when recipientSigInfo
 		// was created for the inner key (such as a RSA or ECDSA public key). It contains
 		// the pub key for embedding, but doesn't have extra params like key id.
 		publicKey := signingKey
-		publicKey.Key = recipient.publicKey.Key
-		recipient.publicKey = &publicKey
+		publicKey.Key = recipient.publicKey().Key
+		recipient.publicKey = staticPublicKey(&publicKey)
 
 		// This should be impossible, but let's check anyway.
-		if !recipient.publicKey.IsPublic() {
+		if !recipient.publicKey().IsPublic() {
 			return recipientSigInfo{}, errors.New("square/go-jose: public key was unexpectedly not public")
 		}
 	}
@@ -211,7 +221,7 @@ func (ctx *genericSigner) Sign(payload []byte) (*JSONWebSignature, error) {
 			headerAlgorithm: string(recipient.sigAlg),
 		}
 
-		if recipient.publicKey != nil {
+		if recipient.publicKey != nil && recipient.publicKey() != nil {
 			// We want to embed the JWK or set the kid header, but not both. Having a protected
 			// header that contains an embedded JWK while also simultaneously containing the kid
 			// header is confusing, and at least in ACME the two are considered to be mutually
@@ -221,9 +231,9 @@ func (ctx *genericSigner) Sign(payload []byte) (*JSONWebSignature, error) {
 			//
 			// See https://github.com/square/go-jose/issues/157 for more context.
 			if ctx.embedJWK {
-				protected[headerJWK] = recipient.publicKey
+				protected[headerJWK] = recipient.publicKey()
 			} else {
-				protected[headerKeyID] = recipient.publicKey.KeyID
+				protected[headerKeyID] = recipient.publicKey().KeyID
 			}
 		}
 

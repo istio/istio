@@ -58,9 +58,7 @@ func (m *IPTagging) Validate() error {
 	for idx, item := range m.GetIpTags() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return IPTaggingValidationError{
 					Field:  fmt.Sprintf("IpTags[%v]", idx),
@@ -119,9 +117,7 @@ func (m *IPTagging_IPTag) Validate() error {
 	for idx, item := range m.GetIpList() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return IPTagging_IPTagValidationError{
 					Field:  fmt.Sprintf("IpList[%v]", idx),

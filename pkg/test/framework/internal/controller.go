@@ -25,6 +25,6 @@ type EnvironmentController interface {
 
 	Initialize(ctx *TestContext) error
 	Configure(config string) error
-	Evaluate(template string) (string, error)
+	DumpState(context string)
 	Reset() error
 }

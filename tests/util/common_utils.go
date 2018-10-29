@@ -33,13 +33,11 @@ import (
 	"github.com/pkg/errors"
 
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/test/env"
 )
 
 const (
-	testSrcDir     = "TEST_SRCDIR"
-	pathPrefix     = "io_istio_istio"
-	runfilesSuffix = ".runfiles"
-	releaseURL     = "https://github.com/istio/istio/releases/download/%s/istio-%s-%s.tar.gz"
+	releaseURL = "https://github.com/istio/istio/releases/download/%s/istio-%s-%s.tar.gz"
 )
 
 // GetHeadCommitSHA finds the SHA of the commit to which the HEAD of branch points
@@ -270,18 +268,7 @@ func CopyFile(src, dst string) error {
 
 // GetResourcePath give "path from WORKSPACE", return absolute path at runtime
 func GetResourcePath(p string) string {
-	if dir, exists := os.LookupEnv("GOPATH"); exists {
-		return filepath.Join(dir, "src/istio.io/istio", p)
-	}
-	if dir, exists := os.LookupEnv(testSrcDir); exists {
-		return filepath.Join(dir, "workspace", p)
-	}
-	binPath, err := os.Executable()
-	if err != nil {
-		log.Warn("Cannot find excutable path")
-		return p
-	}
-	return filepath.Join(binPath+runfilesSuffix, pathPrefix, p)
+	return filepath.Join(env.IstioSrc, p)
 }
 
 // DownloadRelease gets the specified release from istio repo to tmpDir.

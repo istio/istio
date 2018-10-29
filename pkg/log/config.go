@@ -109,8 +109,8 @@ func prepZap(options *Options) (zapcore.Core, zapcore.Core, zapcore.WriteSyncer,
 		rotaterSink = zapcore.AddSync(&lumberjack.Logger{
 			Filename:   options.RotateOutputPath,
 			MaxSize:    options.RotationMaxSize,
-			MaxBackups: options.RotationMaxAge,
-			MaxAge:     options.RotationMaxBackups,
+			MaxBackups: options.RotationMaxBackups,
+			MaxAge:     options.RotationMaxAge,
 		})
 	}
 

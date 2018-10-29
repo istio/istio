@@ -21,6 +21,7 @@ import (
 	"path/filepath"
 
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/test/framework/scopes"
 )
 
 // TempFile represents a temporary file that was created.
@@ -83,7 +84,7 @@ func CreateTmpDirectory(workdir string, runID string, name string) (string, erro
 		return "", err
 	}
 
-	scope.Debugf("Created a temp dir: runID='%s', name='%s', location='%s'", runID, name, dir)
+	scopes.Framework.Debugf("Created a temp dir: runID='%s', name='%s', location='%s'", runID, name, dir)
 
 	return dir, nil
 }

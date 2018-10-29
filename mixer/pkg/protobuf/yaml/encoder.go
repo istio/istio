@@ -764,7 +764,7 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 		}
 
 	case descriptor.FieldDescriptorProto_TYPE_MESSAGE:
-		if e.isMap(field) {
+		if isMap(e.resolver, field) {
 			// 	generated proto code for map fields
 			//
 			//	if len(m.MapStrStr) > 0 {
@@ -1031,8 +1031,8 @@ func encodeIndexAndType(index int, typeid uint64) uint64 {
 	return (uint64(index) << 3) | typeid
 }
 
-func (e *Encoder) isMap(field *descriptor.FieldDescriptorProto) bool {
-	desc := e.resolver.ResolveMessage(field.GetTypeName())
+func isMap(resolver Resolver, field *descriptor.FieldDescriptorProto) bool {
+	desc := resolver.ResolveMessage(field.GetTypeName())
 	if desc == nil || !desc.GetOptions().GetMapEntry() {
 		return false
 	}

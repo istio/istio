@@ -57,15 +57,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(env *mo
 	clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "",
 		instance.Service.Hostname, instance.Endpoint.ServicePort.Port)
 	traceOperation := fmt.Sprintf("%s:%d/*", instance.Service.Hostname, instance.Endpoint.ServicePort.Port)
-	defaultRoute := istio_route.BuildDefaultHTTPRoute(node, clusterName, traceOperation)
-
-	if !util.Is1xProxy(node) {
-		// Enable websocket on default route
-		actionRoute, ok := defaultRoute.Action.(*route.Route_Route)
-		if ok {
-			actionRoute.Route.UseWebsocket = &types.BoolValue{Value: true}
-		}
-	}
+	defaultRoute := istio_route.BuildDefaultHTTPRoute(clusterName, traceOperation)
 
 	inboundVHost := route.VirtualHost{
 		Name:    fmt.Sprintf("%s|http|%d", model.TrafficDirectionInbound, instance.Endpoint.ServicePort.Port),

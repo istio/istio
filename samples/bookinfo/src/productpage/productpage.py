@@ -16,6 +16,13 @@
 
 
 from flask import Flask, request, session, render_template, redirect, url_for
+from flask import _request_ctx_stack as stack
+from jaeger_client import Tracer, ConstSampler
+from jaeger_client.reporter import NullReporter
+from jaeger_client.codecs import B3Codec
+from opentracing.ext import tags
+from opentracing.propagation import Format
+from opentracing_instrumentation.request_context import get_current_span, span_in_context
 import simplejson as json
 import requests
 import sys
@@ -80,20 +87,95 @@ service_dict = {
     "reviews" : reviews,
 }
 
+# A note on distributed tracing:
+#
+# Although Istio proxies are able to automatically send spans, they need some
+# hints to tie together the entire trace. Applications need to propagate the
+# appropriate HTTP headers so that when the proxies send span information, the
+# spans can be correlated correctly into a single trace.
+#
+# To do this, an application needs to collect and propagate the following
+# headers from the incoming request to any outgoing requests:
+#
+# x-request-id
+# x-b3-traceid
+# x-b3-spanid
+# x-b3-parentspanid
+# x-b3-sampled
+# x-b3-flags
+#
+# This example code uses OpenTracing (http://opentracing.io/) to propagate
+# the 'b3' (zipkin) headers. Using OpenTracing for this is not a requirement.
+# Using OpenTracing allows you to add application-specific tracing later on,
+# but you can just manually forward the headers if you prefer.
+#
+# The OpenTracing example here is very basic. It only forwards headers. It is
+# intended as a reference to help people get started, eg how to create spans,
+# extract/inject context, etc.
+
+# A very basic OpenTracing tracer (with null reporter)
+tracer = Tracer(
+    one_span_per_rpc=True,
+    service_name='productpage',
+    reporter=NullReporter(),
+    sampler=ConstSampler(decision=True),
+    extra_codecs={Format.HTTP_HEADERS: B3Codec()}
+)
+
+
+def trace():
+    '''
+    Function decorator that creates opentracing span from incoming b3 headers
+    '''
+    def decorator(f):
+        def wrapper(*args, **kwargs):
+            request = stack.top.request
+            try:
+                # Create a new span context, reading in values (traceid,
+                # spanid, etc) from the incoming x-b3-*** headers.
+                span_ctx = tracer.extract(
+                    Format.HTTP_HEADERS,
+                    dict(request.headers)
+                )
+                # Note: this tag means that the span will *not* be
+                # a child span. It will use the incoming traceid and
+                # spanid. We do this to propagate the headers verbatim.
+                rpc_tag = {tags.SPAN_KIND: tags.SPAN_KIND_RPC_SERVER}
+                span = tracer.start_span(
+                    operation_name='op', child_of=span_ctx, tags=rpc_tag
+                )
+            except Exception as e:
+                # We failed to create a context, possibly due to no
+                # incoming x-b3-*** headers. Start a fresh span.
+                # Note: This is a fallback only, and will create fresh headers,
+                # not propagate headers.
+                span = tracer.start_span('op')
+            with span_in_context(span):
+                r = f(*args, **kwargs)
+                return r
+        wrapper.__name__ = f.__name__
+        return wrapper
+    return decorator
+
+
 def getForwardHeaders(request):
     headers = {}
 
+    # x-b3-*** headers can be populated using the opentracing span
+    span = get_current_span()
+    carrier = {}
+    tracer.inject(
+        span_context=span.context,
+        format=Format.HTTP_HEADERS,
+        carrier=carrier)
+
+    headers.update(carrier)
+
+    # We handle other (non x-b3-***) headers manually
     if 'user' in session:
         headers['end-user'] = session['user']
 
-    incoming_headers = [ 'x-request-id',
-                         'x-b3-traceid',
-                         'x-b3-spanid',
-                         'x-b3-parentspanid',
-                         'x-b3-sampled',
-                         'x-b3-flags',
-                         'x-ot-span-context'
-    ]
+    incoming_headers = ['x-request-id']
 
     for ihdr in incoming_headers:
         val = request.headers.get(ihdr)
@@ -138,6 +220,7 @@ def logout():
 
 
 @app.route('/productpage')
+@trace()
 def front():
     product_id = 0 # TODO: replace default value
     headers = getForwardHeaders(request)
@@ -162,6 +245,7 @@ def productsRoute():
 
 
 @app.route('/api/v1/products/<product_id>')
+@trace()
 def productRoute(product_id):
     headers = getForwardHeaders(request)
     status, details = getProductDetails(product_id, headers)
@@ -169,6 +253,7 @@ def productRoute(product_id):
 
 
 @app.route('/api/v1/products/<product_id>/reviews')
+@trace()
 def reviewsRoute(product_id):
     headers = getForwardHeaders(request)
     status, reviews = getProductReviews(product_id, headers)
@@ -176,6 +261,7 @@ def reviewsRoute(product_id):
 
 
 @app.route('/api/v1/products/<product_id>/ratings')
+@trace()
 def ratingsRoute(product_id):
     headers = getForwardHeaders(request)
     status, ratings = getProductRatings(product_id, headers)

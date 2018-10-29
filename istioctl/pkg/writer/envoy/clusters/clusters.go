@@ -138,6 +138,7 @@ func (c *ConfigWriter) PrintEndpoints(filter EndpointFilter) error {
 		for _, host := range cluster.HostStatuses {
 			if filter.Verify(host, cluster.Name) {
 				filteredClusters = append(filteredClusters, cluster)
+				break
 			}
 		}
 

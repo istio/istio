@@ -12,4 +12,14 @@ spec:
   - jwt:
       issuer: "628645741881-noabiu23f5a8m8ovd8ucv698lj78vv0l@developer.gserviceaccount.com"
       jwksUri: "https://www.googleapis.com/service_accounts/v1/jwk/628645741881-noabiu23f5a8m8ovd8ucv698lj78vv0l@developer.gserviceaccount.com"
+      trigger_rules:
+      - excluded_paths:
+        - exact: /health_check
+        - exact: /jwt2
+  - jwt:
+      issuer: "testing@secure.istio.io"
+      jwksUri: "https://raw.githubusercontent.com/istio/istio/master/security/tools/jwt/samples/jwks.json"
+      trigger_rules:
+      - included_paths:
+        - exact: /jwt2
   principalBinding: USE_ORIGIN

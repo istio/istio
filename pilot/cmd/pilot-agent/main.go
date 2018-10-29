@@ -22,6 +22,7 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 	"text/template"
 	"time"
@@ -29,8 +30,6 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
-
-	"strconv"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
@@ -54,12 +53,14 @@ var (
 	configPath               string
 	binaryPath               string
 	serviceCluster           string
-	availabilityZone         string // TODO: remove me?
 	drainDuration            time.Duration
 	parentShutdownDuration   time.Duration
 	discoveryAddress         string
-	discoveryRefreshDelay    time.Duration
 	zipkinAddress            string
+	lightstepAddress         string
+	lightstepAccessToken     string
+	lightstepSecure          bool
+	lightstepCacertPath      string
 	connectTimeout           time.Duration
 	statsdUDPAddress         string
 	proxyAdminPort           uint16
@@ -67,11 +68,11 @@ var (
 	customConfigFile         string
 	proxyLogLevel            string
 	concurrency              int
-	bootstrapv2              bool
 	templateFile             string
 	disableInternalTelemetry bool
-
-	loggingOptions = log.DefaultOptions()
+	appReadinessProbeURL     string
+	livenessProbeURL         string
+	loggingOptions           = log.DefaultOptions()
 
 	rootCmd = &cobra.Command{
 		Use:          "pilot-agent",
@@ -137,7 +138,6 @@ var (
 			proxyConfig := model.DefaultProxyConfig()
 
 			// set all flags
-			proxyConfig.AvailabilityZone = availabilityZone
 			proxyConfig.CustomConfigFile = customConfigFile
 			proxyConfig.ConfigPath = configPath
 			proxyConfig.BinaryPath = binaryPath
@@ -145,8 +145,6 @@ var (
 			proxyConfig.DrainDuration = types.DurationProto(drainDuration)
 			proxyConfig.ParentShutdownDuration = types.DurationProto(parentShutdownDuration)
 			proxyConfig.DiscoveryAddress = discoveryAddress
-			proxyConfig.DiscoveryRefreshDelay = types.DurationProto(discoveryRefreshDelay)
-			proxyConfig.ZipkinAddress = zipkinAddress
 			proxyConfig.ConnectTimeout = types.DurationProto(connectTimeout)
 			proxyConfig.StatsdUdpAddress = statsdUDPAddress
 			proxyConfig.ProxyAdminPort = int32(proxyAdminPort)
@@ -186,11 +184,36 @@ var (
 			// resolve statsd address
 			if proxyConfig.StatsdUdpAddress != "" {
 				addr, err := proxy.ResolveAddr(proxyConfig.StatsdUdpAddress)
-				if err == nil {
+				if err != nil {
+					// If istio-mixer.istio-system can't be resolved, skip generating the statsd config.
+					// (instead of crashing). Mixer is optional.
+					log.Warnf("resolve StatsdUdpAddress failed: %v", err)
+					proxyConfig.StatsdUdpAddress = ""
+				} else {
 					proxyConfig.StatsdUdpAddress = addr
 				}
-				// If istio-mixer.istio-system can't be resolved, skip generating the statsd config.
-				// (instead of crashing). Mixer is optional.
+			}
+
+			// set tracing config
+			if lightstepAddress != "" {
+				proxyConfig.Tracing = &meshconfig.Tracing{
+					Tracer: &meshconfig.Tracing_Lightstep_{
+						Lightstep: &meshconfig.Tracing_Lightstep{
+							Address:     lightstepAddress,
+							AccessToken: lightstepAccessToken,
+							Secure:      lightstepSecure,
+							CacertPath:  lightstepCacertPath,
+						},
+					},
+				}
+			} else if zipkinAddress != "" {
+				proxyConfig.Tracing = &meshconfig.Tracing{
+					Tracer: &meshconfig.Tracing_Zipkin_{
+						Zipkin: &meshconfig.Tracing_Zipkin{
+							Address: zipkinAddress,
+						},
+					},
+				}
 			}
 
 			if err := model.ValidateProxyConfig(&proxyConfig); err != nil {
@@ -252,6 +275,7 @@ var (
 			}
 
 			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
 
 			// If a status port was provided, start handling status probes.
 			if statusPort > 0 {
@@ -264,6 +288,8 @@ var (
 					AdminPort:        proxyAdminPort,
 					StatusPort:       statusPort,
 					ApplicationPorts: parsedPorts,
+					AppReadinessURL:  appReadinessProbeURL,
+					AppLivenessURL:   livenessProbeURL,
 				})
 				go statusServer.Run(ctx)
 			}
@@ -278,7 +304,6 @@ var (
 			stop := make(chan struct{})
 			cmd.WaitSignal(stop)
 			<-stop
-			cancel()
 			return nil
 		},
 	}
@@ -312,7 +337,7 @@ func init() {
 		string(serviceregistry.KubernetesRegistry),
 		fmt.Sprintf("Select the platform for service registry, options are {%s, %s, %s, %s, %s}",
 			serviceregistry.KubernetesRegistry, serviceregistry.ConsulRegistry,
-			serviceregistry.CloudFoundryRegistry, serviceregistry.MockRegistry, serviceregistry.ConfigRegistry))
+			serviceregistry.MCPRegistry, serviceregistry.MockRegistry, serviceregistry.ConfigRegistry))
 	proxyCmd.PersistentFlags().StringVar(&role.IPAddress, "ip", "",
 		"Proxy IP address. If not provided uses ${INSTANCE_IP} environment variable.")
 	proxyCmd.PersistentFlags().StringVar(&role.ID, "id", "",
@@ -332,8 +357,6 @@ func init() {
 		"Path to the proxy binary")
 	proxyCmd.PersistentFlags().StringVar(&serviceCluster, "serviceCluster", values.ServiceCluster,
 		"Service cluster")
-	proxyCmd.PersistentFlags().StringVar(&availabilityZone, "availabilityZone", values.AvailabilityZone,
-		"Availability zone")
 	proxyCmd.PersistentFlags().DurationVar(&drainDuration, "drainDuration",
 		timeDuration(values.DrainDuration),
 		"The time in seconds that Envoy will drain connections during a hot restart")
@@ -342,11 +365,16 @@ func init() {
 		"The time in seconds that Envoy will wait before shutting down the parent process during a hot restart")
 	proxyCmd.PersistentFlags().StringVar(&discoveryAddress, "discoveryAddress", values.DiscoveryAddress,
 		"Address of the discovery service exposing xDS (e.g. istio-pilot:8080)")
-	proxyCmd.PersistentFlags().DurationVar(&discoveryRefreshDelay, "discoveryRefreshDelay",
-		timeDuration(values.DiscoveryRefreshDelay),
-		"Polling interval for service discovery (used by EDS, CDS, LDS, but not RDS)")
-	proxyCmd.PersistentFlags().StringVar(&zipkinAddress, "zipkinAddress", values.ZipkinAddress,
+	proxyCmd.PersistentFlags().StringVar(&zipkinAddress, "zipkinAddress", "",
 		"Address of the Zipkin service (e.g. zipkin:9411)")
+	proxyCmd.PersistentFlags().StringVar(&lightstepAddress, "lightstepAddress", "",
+		"Address of the LightStep Satellite pool")
+	proxyCmd.PersistentFlags().StringVar(&lightstepAccessToken, "lightstepAccessToken", "",
+		"Access Token for LightStep Satellite pool")
+	proxyCmd.PersistentFlags().BoolVar(&lightstepSecure, "lightstepSecure", false,
+		"Should connection to the LightStep Satellite pool be secure")
+	proxyCmd.PersistentFlags().StringVar(&lightstepCacertPath, "lightstepCacertPath", "",
+		"Path to the trusted cacert used to authenticate the pool")
 	proxyCmd.PersistentFlags().DurationVar(&connectTimeout, "connectTimeout",
 		timeDuration(values.ConnectTimeout),
 		"Connection timeout used by Envoy for supporting services")
@@ -359,17 +387,21 @@ func init() {
 	proxyCmd.PersistentFlags().StringVar(&customConfigFile, "customConfigFile", values.CustomConfigFile,
 		"Path to the custom configuration file")
 	// Log levels are provided by the library https://github.com/gabime/spdlog, used by Envoy.
-	proxyCmd.PersistentFlags().StringVar(&proxyLogLevel, "proxyLogLevel", "warn",
+	proxyCmd.PersistentFlags().StringVar(&proxyLogLevel, "proxyLogLevel", "warning",
 		fmt.Sprintf("The log level used to start the Envoy proxy (choose from {%s, %s, %s, %s, %s, %s, %s})",
-			"trace", "debug", "info", "warn", "err", "critical", "off"))
+			"trace", "debug", "info", "warning", "error", "critical", "off"))
 	proxyCmd.PersistentFlags().IntVar(&concurrency, "concurrency", int(values.Concurrency),
 		"number of worker threads to run")
-	proxyCmd.PersistentFlags().BoolVar(&bootstrapv2, "bootstrapv2", true,
-		"Use bootstrap v2 - DEPRECATED")
 	proxyCmd.PersistentFlags().StringVar(&templateFile, "templateFile", "",
 		"Go template bootstrap config")
 	proxyCmd.PersistentFlags().BoolVar(&disableInternalTelemetry, "disableInternalTelemetry", false,
 		"Disable internal telemetry")
+
+	// Flags for Pilot agent to take over Kubernetes readiness and liveness check.
+	proxyCmd.PersistentFlags().StringVar(&livenessProbeURL, "appLiveUrl", "",
+		"The url, including path and port, for the application liveness check. Examples, \"/path\", \":8080/path\"")
+	proxyCmd.PersistentFlags().StringVar(&appReadinessProbeURL, "appReadyUrl", "",
+		"The url, including path and port for the app readiness check. Examples, \"/path\", \":8080/path\"")
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)

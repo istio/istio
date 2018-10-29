@@ -1,0 +1,6 @@
+#
+# galley configuration
+#
+enabled: true
+replicaCount: 1
+image: galley

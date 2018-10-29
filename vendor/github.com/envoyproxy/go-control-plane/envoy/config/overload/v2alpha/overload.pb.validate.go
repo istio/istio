@@ -49,9 +49,7 @@ func (m *ResourceMonitor) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetConfig()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetConfig()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ResourceMonitorValidationError{
 				Field:  "Config",
@@ -162,9 +160,7 @@ func (m *Trigger) Validate() error {
 
 	case *Trigger_Threshold:
 
-		if v, ok := interface{}(m.GetThreshold()).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(m.GetThreshold()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return TriggerValidationError{
 					Field:  "Threshold",
@@ -241,9 +237,7 @@ func (m *OverloadAction) Validate() error {
 	for idx, item := range m.GetTriggers() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return OverloadActionValidationError{
 					Field:  fmt.Sprintf("Triggers[%v]", idx),
@@ -297,9 +291,7 @@ func (m *OverloadManager) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetRefreshInterval()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetRefreshInterval()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return OverloadManagerValidationError{
 				Field:  "RefreshInterval",
@@ -319,9 +311,7 @@ func (m *OverloadManager) Validate() error {
 	for idx, item := range m.GetResourceMonitors() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return OverloadManagerValidationError{
 					Field:  fmt.Sprintf("ResourceMonitors[%v]", idx),
@@ -336,9 +326,7 @@ func (m *OverloadManager) Validate() error {
 	for idx, item := range m.GetActions() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return OverloadManagerValidationError{
 					Field:  fmt.Sprintf("Actions[%v]", idx),

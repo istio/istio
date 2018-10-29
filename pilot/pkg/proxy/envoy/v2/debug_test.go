@@ -104,7 +104,7 @@ func TestSyncz(t *testing.T) {
 		if err := sendRDSNack(sidecarId(app3Ip, "syncApp2"), []string{"80", "8080"}, adsstr); err != nil {
 			t.Fatal(err)
 		}
-		for i := 0; i < 5; i++ {
+		for i := 0; i < 4; i++ {
 			_, err := adsReceive(adsstr, 5*time.Second)
 			if err != nil {
 				t.Fatal("Recv failed", err)

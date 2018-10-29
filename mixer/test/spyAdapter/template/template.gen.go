@@ -77,6 +77,12 @@ func (w *wrapperAttr) Get(name string) (value interface{}, found bool) {
 	return w.get(name)
 }
 
+// Contains returns true if key is present.
+func (w *wrapperAttr) Contains(key string) (found bool) {
+	_, found = w.get(key)
+	return found
+}
+
 // Names returns the names of all the attributes known to this bag.
 func (w *wrapperAttr) Names() []string {
 	return w.names()
@@ -213,6 +219,22 @@ var (
 						"sampleapa.output.stringMap": {
 							ValueType: istio_policy_v1beta1.STRING_MAP,
 						},
+
+						"sampleapa.output.ip": {
+							ValueType: istio_policy_v1beta1.IP_ADDRESS,
+						},
+
+						"sampleapa.output.duration": {
+							ValueType: istio_policy_v1beta1.DURATION,
+						},
+
+						"sampleapa.output.timestamp": {
+							ValueType: istio_policy_v1beta1.TIMESTAMP,
+						},
+
+						"sampleapa.output.dns": {
+							ValueType: istio_policy_v1beta1.DNS_NAME,
+						},
 					},
 				},
 			},
@@ -261,6 +283,22 @@ var (
 							case "stringMap":
 
 								return out.StringMap, true
+
+							case "ip":
+
+								return []uint8(out.Ip), true
+
+							case "duration":
+
+								return out.Duration, true
+
+							case "timestamp":
+
+								return out.Timestamp, true
+
+							case "dns":
+
+								return string(out.Dns), true
 
 							default:
 								return nil, false

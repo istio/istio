@@ -78,14 +78,14 @@ func (cr *store) ConfigDescriptor() model.ConfigDescriptor {
 }
 
 // Get the first config found in the stores.
-func (cr *store) Get(typ, name, namespace string) (*model.Config, bool) {
+func (cr *store) Get(typ, name, namespace string) *model.Config {
 	for _, store := range cr.stores[typ] {
-		config, exists := store.Get(typ, name, namespace)
-		if exists {
-			return config, exists
+		config := store.Get(typ, name, namespace)
+		if config != nil {
+			return config
 		}
 	}
-	return nil, false
+	return nil
 }
 
 // List all configs in the stores.

@@ -14,18 +14,70 @@
 
 package version
 
-import "fmt"
-import "runtime"
-import "testing"
+import (
+	"fmt"
+	"runtime"
+	"testing"
+)
+
+func TestNewBuildInfoFromOldString(t *testing.T) {
+	cases := []struct {
+		name       string
+		in         string
+		expectFail bool
+		want       BuildInfo
+	}{
+		{
+			"Correct input 1",
+			`Version: 1.0.0
+GitRevision: 3a136c90ec5e308f236e0d7ebb5c4c5e405217f4
+User: root@71a9470ea93c
+Hub: docker.io/istio
+GolangVersion: go1.10.1
+BuildStatus: Clean
+`,
+			false,
+			BuildInfo{Version: "1.0.0",
+				GitRevision:   "3a136c90ec5e308f236e0d7ebb5c4c5e405217f4",
+				User:          "root@71a9470ea93c",
+				DockerHub:     "docker.io/istio",
+				GolangVersion: "go1.10.1",
+				BuildStatus:   "Clean"},
+		},
+		{
+			"Invalid input 1",
+			"Xuxa",
+			true,
+			BuildInfo{},
+		},
+		{
+			"Invalid input 2",
+			"Xuxa:Xuxo",
+			true,
+			BuildInfo{},
+		},
+	}
+
+	for _, v := range cases {
+		t.Run(v.name, func(t *testing.T) {
+			got, err := NewBuildInfoFromOldString(v.in)
+			if v.expectFail && err == nil {
+				t.Errorf("Expected failure, got success")
+			}
+			if !v.expectFail && err != nil {
+				t.Errorf("Got %v, expected success", err)
+			}
+
+			if got != v.want {
+				t.Errorf("Got %v, expected %v", got, v.want)
+			}
+		})
+	}
+}
 
 func TestBuildInfo(t *testing.T) {
-	versionedString := fmt.Sprintf(`Version: unknown
-GitRevision: unknown
-User: unknown@unknown
-Hub: unknown
-GolangVersion: %v
-BuildStatus: unknown
-`,
+	versionedString := fmt.Sprintf(`version.BuildInfo{Version:"unknown", GitRevision:"unknown", User:"unknown", `+
+		`Host:"unknown", GolangVersion:"%s", DockerHub:"unknown", BuildStatus:"unknown"}`,
 		runtime.Version())
 
 	cases := []struct {
@@ -42,13 +94,8 @@ BuildStatus: unknown
 			DockerHub:     "DH",
 			User:          "USER",
 			BuildStatus:   "STATUS"},
-			"USER@HOST-DH-VER-GITREV-STATUS", `Version: VER
-GitRevision: GITREV
-User: USER@HOST
-Hub: DH
-GolangVersion: GOLANGVER
-BuildStatus: STATUS
-`},
+			"USER@HOST-DH-VER-GITREV-STATUS",
+			`version.BuildInfo{Version:"VER", GitRevision:"GITREV", User:"USER", Host:"HOST", GolangVersion:"GOLANGVER", DockerHub:"DH", BuildStatus:"STATUS"}`},
 
 		{"init", Info, "unknown@unknown-unknown-unknown-unknown-unknown", versionedString}}
 

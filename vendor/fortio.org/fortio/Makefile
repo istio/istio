@@ -7,7 +7,7 @@
 IMAGES=echosrv fcurl # plus the combo image / Dockerfile without ext.
 
 DOCKER_PREFIX := docker.io/fortio/fortio
-BUILD_IMAGE_TAG := v11
+BUILD_IMAGE_TAG := v12
 BUILD_IMAGE := $(DOCKER_PREFIX).build:$(BUILD_IMAGE_TAG)
 
 TAG:=$(USER)$(shell date +%y%m%d_%H%M%S)
@@ -21,16 +21,16 @@ CERT_TEMP_DIR := ./cert-tmp/
 # note that only go1.8 needs the grep -v vendor but we are compatible with 1.8
 # ps: can't use go list (and get packages as canonical fortio.org/fortio/x)
 # as somehow that makes gometaliner silently not find/report errors...
-PACKAGES:=$(shell find . -type d -print | egrep -v "/(\.|vendor|tmp|static|templates|release|docs|json|cert-tmp)")
+PACKAGES ?= $(shell find . -type d -print | egrep -v "/(\.|vendor|tmp|static|templates|release|docs|json|cert-tmp|debian)")
 # Marker for whether vendor submodule is here or not already
 GRPC_DIR:=./vendor/google.golang.org/grpc
 
-# Run dependencies
-dependencies: submodule certs
-
 # Local targets:
-install: dependencies
+go-install: submodule
 	go install $(PACKAGES)
+
+# Run/test dependencies
+dependencies: submodule certs
 
 # Only generate certs if needed
 certs: $(CERT_TEMP_DIR)/server.cert
@@ -43,9 +43,11 @@ $(CERT_TEMP_DIR)/server.cert: cert-gen
 certs-clean:
 	rm -rf $(CERT_TEMP_DIR)
 
+TEST_TIMEOUT:=90s
+
 # Local test
 test: dependencies
-	go test -timeout 60s -race $(PACKAGES)
+	go test -timeout $(TEST_TIMEOUT) -race $(PACKAGES)
 
 # To debug strange linter errors, uncomment
 # DEBUG_LINTERS="--debug"
@@ -63,7 +65,7 @@ LINT_PACKAGES:=$(PACKAGES)
 # Note CGO_ENABLED=0 is needed to avoid errors as gcc isn't part of the
 # build image
 lint: dependencies
-	docker run -v $(shell pwd):/go/src/fortio.org/fortio $(BUILD_IMAGE) bash -c \
+	docker run -v $(CURDIR):/go/src/fortio.org/fortio $(BUILD_IMAGE) bash -c \
 		"cd /go/src/fortio.org/fortio && time go install $(LINT_PACKAGES) \
 		&& time make local-lint LINT_PACKAGES=\"$(LINT_PACKAGES)\""
 
@@ -123,7 +125,7 @@ vendor.check:
 
 
 # Docker: Pushes the combo image and the smaller image(s)
-all: test install lint docker-version docker-push-internal
+all: test go-install lint docker-version docker-push-internal
 	@for img in $(IMAGES); do \
 		$(MAKE) docker-push-internal IMAGE=.$$img TAG=$(TAG); \
 	done
@@ -152,24 +154,25 @@ docker-push-internal: docker-internal
 	@echo "### Now pushing $(DOCKER_TAG)"
 	docker push $(DOCKER_TAG)
 
-release: dependencies
+release: dist
 	release/release.sh
 
 .PHONY: all docker-internal docker-push-internal docker-version test dependencies
 
-.PHONY: install lint install-linters coverage webtest release-test update-build-image
+.PHONY: go-install lint install-linters coverage webtest release-test update-build-image
 
 .PHONY: local-lint update-build-image-tag release submodule submodule-sync pull certs certs-clean
 
 # Targets used for official builds (initially from Dockerfile)
 BUILD_DIR := /tmp/fortio_build
-LIB_DIR := /usr/local/lib/fortio
-DATA_DIR := /var/lib/fortio
+LIB_DIR := /usr/share/fortio
+DATA_DIR := .
 OFFICIAL_BIN := ../fortio.bin
 GOOS := 
 GO_BIN := go
-GIT_STATUS := $(strip $(shell git status --porcelain | wc -l))
-GIT_TAG := $(shell git describe --tags --match 'v*')
+GIT_STATUS ?= $(strip $(shell git status --porcelain | wc -l))
+GIT_TAG ?= $(shell git describe --tags --match 'v*')
+GIT_SHA ?= $(shell git rev-parse HEAD)
 # Main/default binary to build: (can be changed to build fcurl or echosrv instead)
 OFFICIAL_TARGET := fortio.org/fortio
 
@@ -180,7 +183,7 @@ OFFICIAL_TARGET := fortio.org/fortio
 
 $(BUILD_DIR)/build-info.txt:
 	-mkdir -p $(BUILD_DIR)
-	echo "$(shell date +'%Y-%m-%d %H:%M') $(shell git rev-parse HEAD)" > $@
+	echo "$(shell date +'%Y-%m-%d %H:%M') $(GIT_SHA)" > $@
 
 $(BUILD_DIR)/link-flags.txt: $(BUILD_DIR)/build-info.txt
 	echo "-s -X fortio.org/fortio/ui.resourcesDir=$(LIB_DIR) -X main.defaultDataDir=$(DATA_DIR) \
@@ -198,4 +201,84 @@ official-build-version: official-build
 	$(OFFICIAL_BIN) version
 
 official-build-clean:
-	-$(RM) $(BUILD_DIR)/build-info.txt $(BUILD_DIR)/link-flags.txt $(OFFICIAL_BIN)
+	-$(RM) $(BUILD_DIR)/build-info.txt $(BUILD_DIR)/link-flags.txt $(OFFICIAL_BIN) release/Makefile
+
+# Create a complete source tree (including submodule) with naming matching debian package conventions
+TAR ?= gtar # on macos need gtar to get --owner
+DIST_VERSION ?= $(shell echo $(GIT_TAG) | sed -e "s/^v//")
+DIST_PATH:=release/fortio_$(DIST_VERSION).orig.tar
+
+.PHONY: dist dist-sign distclean
+
+release/Makefile: release/Makefile.dist
+	echo "GIT_TAG := $(GIT_TAG)" > $@
+	echo "GIT_STATUS := $(GIT_STATUS)" >> $@
+	echo "GIT_SHA := $(GIT_SHA)" >> $@
+	cat $< >> $@
+
+dist: submodule release/Makefile
+	# put the source files where they can be used as gopath by go,
+	# except leave the debian dir where it needs to be (below the version dir)
+	git ls-files --recurse-submodules \
+		| awk '{printf("src/fortio.org/fortio/%s\n", $$0)}' \
+		| (cd ../../.. ; $(TAR) \
+		--xform="s|^src|fortio-$(DIST_VERSION)/src|;s|^.*debian/|fortio-$(DIST_VERSION)/debian/|" \
+		--owner=0 --group=0 -c -f - -T -) > $(DIST_PATH)
+	# move the release/Makefile at the top (after the version dir)
+	$(TAR) --xform="s|^release/|fortio-$(DIST_VERSION)/|" \
+		--owner=0 --group=0 -r -f $(DIST_PATH) release/Makefile
+	gzip -f $(DIST_PATH)
+	@echo "Created $(CURDIR)/$(DIST_PATH).gz"
+
+dist-sign:
+	gpg --armor --detach-sign $(DIST_PATH)
+
+distclean: official-build-clean
+	-rm -f *.profile.* */*.profile.*
+	-rm -rf $(CERT_TEMP_DIR)
+
+# Install target more compatible with standard gnu/debian practices. Uses DESTDIR as staging prefix
+
+install: official-install
+
+.PHONY: install official-install
+
+BIN_INSTALL_DIR = $(DESTDIR)/usr/bin
+LIB_INSTALL_DIR = $(DESTDIR)$(LIB_DIR)
+MAN_INSTALL_DIR = $(DESTDIR)/usr/share/man/man1
+#DATA_INSTALL_DIR = $(DESTDIR)$(DATA_DIR)
+BIN_INSTALL_EXEC = fortio
+
+official-install: official-build-clean official-build-version
+	-mkdir -p $(BIN_INSTALL_DIR) $(LIB_INSTALL_DIR) $(MAN_INSTALL_DIR) # $(DATA_INSTALL_DIR)
+	# -chmod 1777 $(DATA_INSTALL_DIR)
+	cp $(OFFICIAL_BIN) $(BIN_INSTALL_DIR)/$(BIN_INSTALL_EXEC)
+	cp -r ui/templates ui/static $(LIB_INSTALL_DIR)
+	cp docs/fortio.1 $(MAN_INSTALL_DIR)
+
+# Test distribution (only used by maintainer)
+
+.PHONY: debian-dist-common debian-dist-test debian-dist
+
+# warning, will be cleaned
+TMP_DIST_DIR:=~/tmp/fortio-dist-test
+
+# debian getting version from debian/changelog while we get it from git tags
+# doesn't help making this simple: (TODO: unify or autoupdate the 3 versions)
+
+debian-dist-common:
+	$(MAKE) dist TAR=tar
+	-mkdir -p $(TMP_DIST_DIR)
+	rm -rf $(TMP_DIST_DIR)/fortio*
+	cp $(CURDIR)/$(DIST_PATH).gz $(TMP_DIST_DIR)
+	cd $(TMP_DIST_DIR); tar xfz *.tar.gz
+	-cd $(TMP_DIST_DIR);\
+		ln -s *.tar.gz fortio_`cd fortio-$(DIST_VERSION); dpkg-parsechangelog -S Version | sed -e "s/-.*//"`.orig.tar.gz
+
+debian-dist-test: debian-dist-common
+	cd $(TMP_DIST_DIR)/fortio-$(DIST_VERSION); FORTIO_SKIP_TESTS=Y dpkg-buildpackage -us -uc
+	cd $(TMP_DIST_DIR)/fortio-$(DIST_VERSION); lintian
+
+debian-dist: debian-dist-common
+	cd $(TMP_DIST_DIR)/fortio-$(DIST_VERSION); dpkg-buildpackage -ap
+	cd $(TMP_DIST_DIR)/fortio-$(DIST_VERSION); lintian

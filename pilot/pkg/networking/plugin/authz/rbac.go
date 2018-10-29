@@ -17,8 +17,8 @@
 // the service co-located with envoy.
 // Currently the config is only generated for sidecar node on inbound HTTP/TCP listener. The generation
 // is controlled by RbacConfig (a singleton custom resource with cluster scope). User could disable
-// this plugin by either deleting the RbacConfig or set the RbacConfig.mode to OFF.
-// Note: RbacConfig is not created with default istio installation which means this plugin doesn't
+// this plugin by either deleting the ClusterRbacConfig or set the ClusterRbacConfig.mode to OFF.
+// Note: ClusterRbacConfig is not created with default istio installation which means this plugin doesn't
 // generate any RBAC config by default.
 package authz
 
@@ -67,7 +67,7 @@ const (
 	attrRequestAudiences   = "request.auth.audiences"      // intended audience(s) for this authentication information.
 	attrRequestPresenter   = "request.auth.presenter"      // authorized presenter of the credential.
 	attrRequestClaims      = "request.auth.claims"         // claim name is surrounded by brackets, e.g. "request.auth.claims[iss]".
-	attrRequestClaimGroups = "request.auth.claims[groups]" // groups claim".
+	attrRequestClaimGroups = "request.auth.claims[groups]" // groups claim.
 
 	// attributes that could be used in a ServiceRole constraint.
 	attrDestIP        = "destination.ip"        // supports both single ip and cidr, e.g. "10.1.2.3" or "10.1.0.0/16".
@@ -76,6 +76,7 @@ const (
 	attrDestName      = "destination.name"      // short service name, e.g. "productpage".
 	attrDestNamespace = "destination.namespace" // e.g. "default".
 	attrDestUser      = "destination.user"      // service account, e.g. "bookinfo-productpage".
+	attrConnSNI       = "connection.sni"        // server name indication, e.g. "www.example.com".
 
 	methodHeader = ":method"
 	pathHeader   = ":path"
@@ -165,9 +166,9 @@ func (service serviceMetadata) match(rule *rbacproto.AccessRule) bool {
 	return true
 }
 
-// attributesEnforcedInDynamicMetadataMatcher returns true if the given attribute should be enforced
-// via dynamic metadata matcher. This means these attributes are depending on the output of authn filter.
-func attributesEnforcedInDynamicMetadataMatcher(k string) bool {
+// attributesFromAuthN returns true if the given attribute is generated from AuthN filter. This implies
+// the attribute should be enforced by dynamic metadata.
+func attributesFromAuthN(k string) bool {
 	switch k {
 	case attrSrcNamespace, attrSrcUser, attrSrcPrincipal, attrRequestPrincipal, attrRequestAudiences,
 		attrRequestPresenter:
@@ -176,16 +177,12 @@ func attributesEnforcedInDynamicMetadataMatcher(k string) bool {
 	return strings.HasPrefix(k, attrRequestClaims)
 }
 
-func generateMetadataStringMatcher(keys []string, v *metadata.StringMatcher) *metadata.MetadataMatcher {
-	paths := make([]*metadata.MetadataMatcher_PathSegment, 0)
-	for _, k := range keys {
-		paths = append(paths, &metadata.MetadataMatcher_PathSegment{
-			Segment: &metadata.MetadataMatcher_PathSegment_Key{Key: k},
-		})
-	}
+func generateMetadataStringMatcher(key string, v *metadata.StringMatcher, filterName string) *metadata.MetadataMatcher {
 	return &metadata.MetadataMatcher{
-		Filter: authn.AuthnFilterName,
-		Path:   paths,
+		Filter: filterName,
+		Path: []*metadata.MetadataMatcher_PathSegment{
+			{Segment: &metadata.MetadataMatcher_PathSegment_Key{Key: key}},
+		},
 		Value: &metadata.ValueMatcher{
 			MatchPattern: &metadata.ValueMatcher_StringMatch{
 				StringMatch: v,
@@ -194,13 +191,13 @@ func generateMetadataStringMatcher(keys []string, v *metadata.StringMatcher) *me
 	}
 }
 
-//Generate a metadata list matcher for the given path keys and value.
+// generateMetadataListMatcher generates a metadata list matcher for the given path keys and value.
 func generateMetadataListMatcher(keys []string, v string) *metadata.MetadataMatcher {
 	listMatcher := &metadata.ListMatcher{
 		MatchPattern: &metadata.ListMatcher_OneOf{
 			OneOf: &metadata.ValueMatcher{
 				MatchPattern: &metadata.ValueMatcher_StringMatch{
-					StringMatch: createStringMatcher(v, false),
+					StringMatch: createStringMatcher(v, false /* forceRegexPattern */, false /* forTCPFilter */),
 				},
 			},
 		},
@@ -224,28 +221,11 @@ func generateMetadataListMatcher(keys []string, v string) *metadata.MetadataMatc
 	}
 }
 
-// Generate keys for metadata paths
-func generateMetaKeys(k string) ([]string, error) {
-	var keys []string
-
-	if k == attrSrcNamespace {
-		// Proxy doesn't have attrSrcNamespace directly, but the information is encoded in attrSrcPrincipal
-		// with format: cluster.local/ns/{NAMESPACE}/sa/{SERVICE-ACCOUNT}, so we change the key to
-		// attrSrcPrincipal.
-		keys = []string{attrSrcPrincipal}
-	} else if strings.HasPrefix(k, attrRequestClaims) {
-		claim, err := extractNameInBrackets(strings.TrimPrefix(k, attrRequestClaims))
-		if err != nil {
-			return nil, err
-		}
-		keys = []string{attrRequestClaims, claim}
-	} else {
-		keys = []string{k}
+func createStringMatcher(v string, forceRegexPattern, forTCPFilter bool) *metadata.StringMatcher {
+	extraPrefix := ""
+	if forTCPFilter {
+		extraPrefix = spiffePrefix
 	}
-	return keys, nil
-}
-
-func createStringMatcher(v string, forceRegexPattern bool) *metadata.StringMatcher {
 	var stringMatcher *metadata.StringMatcher
 	// Check if v is "*" first to make sure we won't generate an empty prefix/suffix StringMatcher,
 	// the Envoy StringMatcher doesn't allow empty prefix/suffix.
@@ -264,13 +244,13 @@ func createStringMatcher(v string, forceRegexPattern bool) *metadata.StringMatch
 	} else if strings.HasSuffix(v, "*") {
 		stringMatcher = &metadata.StringMatcher{
 			MatchPattern: &metadata.StringMatcher_Prefix{
-				Prefix: v[:len(v)-1],
+				Prefix: extraPrefix + v[:len(v)-1],
 			},
 		}
 	} else {
 		stringMatcher = &metadata.StringMatcher{
 			MatchPattern: &metadata.StringMatcher_Exact{
-				Exact: v,
+				Exact: extraPrefix + v,
 			},
 		}
 	}
@@ -279,28 +259,29 @@ func createStringMatcher(v string, forceRegexPattern bool) *metadata.StringMatch
 
 // createDynamicMetadataMatcher creates a MetadataMatcher for the given key, value pair.
 func createDynamicMetadataMatcher(k, v string) *metadata.MetadataMatcher {
-	keys, err := generateMetaKeys(k)
-	if err != nil {
-		rbacLog.Errorf("failed to generate meta matcher key %s, err: %v", k, err)
-		return nil
-	}
-	forceRegexPattern := false
+	filterName := authn.AuthnFilterName
 	if k == attrSrcNamespace {
-		// Change the value to a regular expression to match the namespace part.
+		// Proxy doesn't have attrSrcNamespace directly, but the information is encoded in attrSrcPrincipal
+		// with format: cluster.local/ns/{NAMESPACE}/sa/{SERVICE-ACCOUNT}.
 		v = fmt.Sprintf(`*/ns/%s/*`, v)
-		forceRegexPattern = true
+		stringMatcher := createStringMatcher(v, true /* forceRegexPattern */, false /* forTCPFilter */)
+		return generateMetadataStringMatcher(attrSrcPrincipal, stringMatcher, filterName)
+	} else if strings.HasPrefix(k, attrRequestClaims) {
+		claim, err := extractNameInBrackets(strings.TrimPrefix(k, attrRequestClaims))
+		if err != nil {
+			return nil
+		}
+		// Generate a metadata list matcher for the given path keys and value.
+		// On proxy side, the value should be of list type.
+		return generateMetadataListMatcher([]string{attrRequestClaims, claim}, v)
 	}
 
-	// Handle the claims under attrRequestClaims
-	if len(keys) == 2 && keys[0] == attrRequestClaims {
-		//Generate a metadata list matcher for the given path keys and value.
-		//On proxy side, the value should be of list type.
-		return generateMetadataListMatcher(keys, v)
+	stringMatcher := createStringMatcher(v, false /* forceRegexPattern */, false /* forTCPFilter */)
+	if !attributesFromAuthN(k) {
+		rbacLog.Debugf("generated dynamic metadata matcher for custom property: %s", k)
+		filterName = rbacHTTPFilterName
 	}
-
-	stringMatcher := createStringMatcher(v, forceRegexPattern)
-
-	return generateMetadataStringMatcher(keys, stringMatcher)
+	return generateMetadataStringMatcher(k, stringMatcher, filterName)
 }
 
 // Plugin implements Istio RBAC authz
@@ -370,8 +351,7 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 }
 
 // OnInboundCluster implements the Plugin interface method.
-func (Plugin) OnInboundCluster(env *model.Environment, node *model.Proxy, push *model.PushContext, service *model.Service,
-	servicePort *model.Port, cluster *xdsapi.Cluster) {
+func (Plugin) OnInboundCluster(in *plugin.InputParams, cluster *xdsapi.Cluster) {
 }
 
 // OnOutboundRouteConfiguration implements the Plugin interface method.
@@ -383,8 +363,7 @@ func (Plugin) OnInboundRouteConfiguration(in *plugin.InputParams, route *xdsapi.
 }
 
 // OnOutboundCluster implements the Plugin interface method.
-func (Plugin) OnOutboundCluster(env *model.Environment, push *model.PushContext, service *model.Service,
-	servicePort *model.Port, cluster *xdsapi.Cluster) {
+func (Plugin) OnOutboundCluster(in *plugin.InputParams, cluster *xdsapi.Cluster) {
 }
 
 // isServiceInList checks if a given service or namespace is found in the RbacConfig target list.
@@ -549,7 +528,13 @@ func convertRbacRulesToFilterConfig(service *serviceMetadata, option rbacOption)
 			ShadowRules: permissiveRbac}
 	}
 
-	return &http_config.RBAC{Rules: rbac, ShadowRules: permissiveRbac}
+	// If RBAC permissive mode is only set on policy level, set ShadowRules only when there is policy in permissive mode.
+	// Otherwise, non-empty shadow_rules causes permissive attributes are sent to mixer when permissive mode isn't set.
+	if len(permissiveRbac.Policies) > 0 {
+		return &http_config.RBAC{Rules: rbac, ShadowRules: permissiveRbac}
+	}
+
+	return &http_config.RBAC{Rules: rbac}
 }
 
 // convertToPermission converts a single AccessRule to a Permission.
@@ -632,24 +617,18 @@ func convertToPrincipal(subject *rbacproto.Subject, forTCPFilter bool) *policypr
 				},
 			})
 		} else {
+			var id *policyproto.Principal
 			if forTCPFilter {
 				// Generate the user directly in Authenticated principal as metadata is not supported in
 				// TCP filter.
-				// TODO(yangminzhu): Support attrSrcNamespace and attrSrcPrincipal once
-				// https://github.com/envoyproxy/envoy/pull/4250 is merged.
-				ids.AndIds.Ids = append(ids.AndIds.Ids, &policyproto.Principal{
-					Identifier: &policyproto.Principal_Authenticated_{
-						Authenticated: &policyproto.Principal_Authenticated{
-							Name: spiffePrefix + subject.User,
-						},
-					},
-				})
+				m := createStringMatcher(subject.User, false /* forceRegexPattern */, forTCPFilter)
+				id = principalForStringMatcher(m)
 			} else {
 				// Generate the user field with attrSrcPrincipal in the metadata.
-				id := principalForKeyValue(attrSrcPrincipal, subject.User)
-				if id != nil {
-					ids.AndIds.Ids = append(ids.AndIds.Ids, id)
-				}
+				id = principalForKeyValue(attrSrcPrincipal, subject.User, forTCPFilter)
+			}
+			if id != nil {
+				ids.AndIds.Ids = append(ids.AndIds.Ids, id)
 			}
 		}
 	}
@@ -684,7 +663,7 @@ func convertToPrincipal(subject *rbacproto.Subject, forTCPFilter bool) *policypr
 					attrSrcPrincipal, subject.User)
 				continue
 			}
-			id := principalForKeyValue(k, v)
+			id := principalForKeyValue(k, v, forTCPFilter)
 			if id != nil {
 				ids.AndIds.Ids = append(ids.AndIds.Ids, id)
 			}
@@ -748,6 +727,14 @@ func permissionForKeyValues(key string, values []string) *policyproto.Permission
 				},
 			}, nil
 		}
+	case key == attrConnSNI:
+		converter = func(v string) (*policyproto.Permission, error) {
+			return &policyproto.Permission{
+				Rule: &policyproto.Permission_RequestedServerName{
+					RequestedServerName: createStringMatcher(v, false /* forceRegexPattern */, false /* forTCPFilter */),
+				},
+			}, nil
+		}
 	default:
 		if !attributesEnforcedInPlugin(key) {
 			// The attribute is neither matched here nor in previous stage, this means it's something we
@@ -776,7 +763,19 @@ func permissionForKeyValues(key string, values []string) *policyproto.Permission
 // Create a Principal based on the key and the value.
 // key: the key of a subject property.
 // value: the value of a subject property.
-func principalForKeyValue(key, value string) *policyproto.Principal {
+// forTCPFilter: the principal is used in the TCP filter.
+func principalForKeyValue(key, value string, forTCPFilter bool) *policyproto.Principal {
+	if forTCPFilter {
+		switch key {
+		case attrSrcPrincipal:
+			m := createStringMatcher(value, false /* forceRegexPattern */, forTCPFilter)
+			return principalForStringMatcher(m)
+		case attrSrcNamespace:
+			m := createStringMatcher(fmt.Sprintf("*/ns/%s/*", value), true /* forceRegexPattern */, forTCPFilter)
+			return principalForStringMatcher(m)
+		}
+	}
+
 	switch {
 	case key == attrSrcIP:
 		cidr, err := convertToCidr(value)
@@ -796,7 +795,7 @@ func principalForKeyValue(key, value string) *policyproto.Principal {
 				Header: convertToHeaderMatcher(header, value),
 			},
 		}
-	case attributesEnforcedInDynamicMetadataMatcher(key):
+	default:
 		if matcher := createDynamicMetadataMatcher(key, value); matcher != nil {
 			return &policyproto.Principal{
 				Identifier: &policyproto.Principal_Metadata{
@@ -804,10 +803,21 @@ func principalForKeyValue(key, value string) *policyproto.Principal {
 				},
 			}
 		}
-		rbacLog.Errorf("ignored invalid dynamic metadata: %s", key)
+		rbacLog.Errorf("failed to generated dynamic metadata matcher for key: %s", key)
 		return nil
-	default:
-		rbacLog.Errorf("ignored unsupported property key: %s", key)
+	}
+}
+
+// principalForStringMatcher generates a principal based on the string matcher.
+func principalForStringMatcher(m *metadata.StringMatcher) *policyproto.Principal {
+	if m == nil {
 		return nil
+	}
+	return &policyproto.Principal{
+		Identifier: &policyproto.Principal_Authenticated_{
+			Authenticated: &policyproto.Principal_Authenticated{
+				PrincipalName: m,
+			},
+		},
 	}
 }

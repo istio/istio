@@ -84,9 +84,7 @@ func (m *StreamAccessLogsMessage) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetIdentifier()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetIdentifier()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return StreamAccessLogsMessageValidationError{
 				Field:  "Identifier",
@@ -100,9 +98,7 @@ func (m *StreamAccessLogsMessage) Validate() error {
 
 	case *StreamAccessLogsMessage_HttpLogs:
 
-		if v, ok := interface{}(m.GetHttpLogs()).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(m.GetHttpLogs()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return StreamAccessLogsMessageValidationError{
 					Field:  "HttpLogs",
@@ -114,9 +110,7 @@ func (m *StreamAccessLogsMessage) Validate() error {
 
 	case *StreamAccessLogsMessage_TcpLogs:
 
-		if v, ok := interface{}(m.GetTcpLogs()).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(m.GetTcpLogs()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return StreamAccessLogsMessageValidationError{
 					Field:  "TcpLogs",
@@ -183,9 +177,7 @@ func (m *StreamAccessLogsMessage_Identifier) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetNode()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetNode()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return StreamAccessLogsMessage_IdentifierValidationError{
 				Field:  "Node",
@@ -255,9 +247,7 @@ func (m *StreamAccessLogsMessage_HTTPAccessLogEntries) Validate() error {
 	for idx, item := range m.GetLogEntry() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return StreamAccessLogsMessage_HTTPAccessLogEntriesValidationError{
 					Field:  fmt.Sprintf("LogEntry[%v]", idx),
@@ -323,9 +313,7 @@ func (m *StreamAccessLogsMessage_TCPAccessLogEntries) Validate() error {
 	for idx, item := range m.GetLogEntry() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return StreamAccessLogsMessage_TCPAccessLogEntriesValidationError{
 					Field:  fmt.Sprintf("LogEntry[%v]", idx),

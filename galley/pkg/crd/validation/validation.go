@@ -16,6 +16,10 @@ package validation
 
 import (
 	"errors"
+	"fmt"
+	"regexp"
+
+	multierror "github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/galley/cmd/shared"
 	"istio.io/istio/mixer/adapter"
@@ -27,9 +31,15 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/kube"
-
 	"istio.io/istio/pkg/probe"
 )
+
+const (
+	dns1123LabelMaxLength int    = 63
+	dns1123LabelFmt       string = "[a-zA-Z0-9]([-a-z-A-Z0-9]*[a-zA-Z0-9])?"
+)
+
+var dns1123LabelRegexp = regexp.MustCompile("^" + dns1123LabelFmt + "$")
 
 // createMixerValidator creates a mixer backend validator.
 // TODO(https://github.com/istio/istio/issues/4887) - refactor mixer
@@ -86,12 +96,69 @@ func RunValidation(vc *WebhookParameters, printf, faltaf shared.FormatFn, kubeCo
 // DefaultArgs allocates an WebhookParameters struct initialized with Webhook's default configuration.
 func DefaultArgs() *WebhookParameters {
 	return &WebhookParameters{
-		Port:                443,
-		CertFile:            "/etc/istio/certs/cert-chain.pem",
-		KeyFile:             "/etc/istio/certs/key.pem",
-		CACertFile:          "/etc/istio/certs/root-cert.pem",
-		DeploymentNamespace: "istio-system",
-		DeploymentName:      "istio-galley",
-		EnableValidation:    true,
+		Port:                          443,
+		CertFile:                      "/etc/istio/certs/cert-chain.pem",
+		KeyFile:                       "/etc/istio/certs/key.pem",
+		CACertFile:                    "/etc/istio/certs/root-cert.pem",
+		DeploymentAndServiceNamespace: "istio-system",
+		DeploymentName:                "istio-galley",
+		ServiceName:                   "istio-galley",
+		WebhookName:                   "istio-galley",
+		EnableValidation:              true,
 	}
+}
+
+// isDNS1123Label tests for a string that conforms to the definition of a label in
+// DNS (RFC 1123).
+func isDNS1123Label(value string) bool {
+	return len(value) <= dns1123LabelMaxLength && dns1123LabelRegexp.MatchString(value)
+}
+
+// validatePort checks that the network port is in range
+func validatePort(port int) error {
+	if 1 <= port && port <= 65535 {
+		return nil
+	}
+	return fmt.Errorf("port number %d must be in the range 1..65535", port)
+}
+
+// Validate tests if the WebhookParameters has valid params.
+func (args *WebhookParameters) Validate() error {
+	if args == nil {
+		return errors.New("nil WebhookParameters")
+	}
+
+	var errs *multierror.Error
+	if args.EnableValidation {
+		// Validate the options that exposed to end users
+		if args.WebhookName == "" || !isDNS1123Label(args.WebhookName) {
+			errs = multierror.Append(errs, fmt.Errorf("invalid webhook name: %q", args.WebhookName)) // nolint: lll
+		}
+		if args.DeploymentName == "" || !isDNS1123Label(args.DeploymentAndServiceNamespace) {
+			errs = multierror.Append(errs, fmt.Errorf("invalid deployment namespace: %q", args.DeploymentAndServiceNamespace)) // nolint: lll
+		}
+		if args.DeploymentName == "" || !isDNS1123Label(args.DeploymentName) {
+			errs = multierror.Append(errs, fmt.Errorf("invalid deployment name: %q", args.DeploymentName))
+		}
+		if args.ServiceName == "" || !isDNS1123Label(args.ServiceName) {
+			errs = multierror.Append(errs, fmt.Errorf("invalid service name: %q", args.ServiceName))
+		}
+		if len(args.WebhookConfigFile) == 0 {
+			errs = multierror.Append(errs, errors.New("webhookConfigFile not specified"))
+		}
+		if len(args.CertFile) == 0 {
+			errs = multierror.Append(errs, errors.New("cert file not specified"))
+		}
+		if len(args.KeyFile) == 0 {
+			errs = multierror.Append(errs, errors.New("key file not specified"))
+		}
+		if len(args.CACertFile) == 0 {
+			errs = multierror.Append(errs, errors.New("CA cert file not specified"))
+		}
+		if err := validatePort(int(args.Port)); err != nil {
+			errs = multierror.Append(errs, err)
+		}
+	}
+
+	return errs.ErrorOrNil()
 }

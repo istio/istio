@@ -46,6 +46,8 @@ func (m *SimpleMetric) Validate() error {
 
 	// no validation rules for Value
 
+	// no validation rules for Name
+
 	return nil
 }
 

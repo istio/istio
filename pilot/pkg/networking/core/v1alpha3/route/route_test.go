@@ -24,7 +24,6 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 )
 
@@ -59,27 +58,6 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServicePlain, serviceRegistry, 8080, model.LabelsCollection{}, gatewayNames)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
-	})
-
-	t.Run("destination rule nil traffic policy", func(t *testing.T) {
-		g := gomega.NewGomegaWithT(t)
-
-		configStore := &fakes.IstioConfigStore{}
-		rule := networkingDestinationRule
-		rule.TrafficPolicy = nil
-		cnfg := &model.Config{
-			ConfigMeta: model.ConfigMeta{
-				Type:    model.DestinationRule.Type,
-				Version: model.DestinationRule.Version,
-				Name:    "acme",
-			},
-			Spec: rule,
-		}
-
-		configStore.DestinationRuleReturns(cnfg)
-
-		_, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServicePlain, serviceRegistry, 8080, model.LabelsCollection{}, gatewayNames)
-		g.Expect(err).NotTo(gomega.HaveOccurred())
 	})
 
 	t.Run("for virtual service with ring hash", func(t *testing.T) {
@@ -298,7 +276,7 @@ var virtualServiceWithSubset = &networking.VirtualService{
 	Gateways: []string{"some-gateway"},
 	Http: []*networking.HTTPRoute{
 		{
-			Route: []*networking.DestinationWeight{
+			Route: []*networking.HTTPRouteDestination{
 				{
 					Destination: &networking.Destination{
 						Subset: "some-subset",
@@ -321,7 +299,7 @@ var virtualServiceWithSubsetWithPortLevelSettings = &networking.VirtualService{
 	Gateways: []string{"some-gateway"},
 	Http: []*networking.HTTPRoute{
 		{
-			Route: []*networking.DestinationWeight{
+			Route: []*networking.HTTPRouteDestination{
 				{
 					Destination: &networking.Destination{
 						Subset: "port-level-settings-subset",
@@ -350,7 +328,7 @@ var virtualServicePlain = model.Config{
 		Gateways: []string{"some-gateway"},
 		Http: []*networking.HTTPRoute{
 			{
-				Route: []*networking.DestinationWeight{
+				Route: []*networking.HTTPRouteDestination{
 					{
 						Destination: &networking.Destination{
 							Host: "*.example.org",

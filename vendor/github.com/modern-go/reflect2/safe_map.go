@@ -76,8 +76,8 @@ func (type2 *safeMapType) UnsafeIterate(obj unsafe.Pointer) MapIterator {
 }
 
 type safeMapIterator struct {
-	i int
-	m reflect.Value
+	i    int
+	m    reflect.Value
 	keys []reflect.Value
 }
 

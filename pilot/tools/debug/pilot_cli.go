@@ -214,8 +214,8 @@ func edsRequest(pilotURL string, req *xdsapi.DiscoveryRequest) *xdsapi.Discovery
 	}
 	defer conn.Close()
 
-	adsClient := xdsapi.NewEndpointDiscoveryServiceClient(conn)
-	stream, err := adsClient.StreamEndpoints(context.Background())
+	edsClient := xdsapi.NewEndpointDiscoveryServiceClient(conn)
+	stream, err := edsClient.StreamEndpoints(context.Background())
 	if err != nil {
 		panic(err.Error())
 	}

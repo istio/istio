@@ -1,0 +1,20 @@
+#
+# pilot configuration
+#
+enabled: true
+replicaCount: 1
+autoscaleMin: 1
+autoscaleMax: 5
+image: pilot
+sidecar: true
+traceSampling: 100.0
+# Resources for a small pilot install
+resources:
+  requests:
+    cpu: 500m
+    memory: 2048Mi
+env:
+  PILOT_PUSH_THROTTLE_COUNT: 100
+  GODEBUG: gctrace=2
+cpu:
+  targetAverageUtilization: 80

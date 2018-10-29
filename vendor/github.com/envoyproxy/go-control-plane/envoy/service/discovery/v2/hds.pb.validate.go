@@ -83,9 +83,7 @@ func (m *HealthCheckRequest) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetNode()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetNode()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HealthCheckRequestValidationError{
 				Field:  "Node",
@@ -95,9 +93,7 @@ func (m *HealthCheckRequest) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetCapability()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetCapability()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HealthCheckRequestValidationError{
 				Field:  "Capability",
@@ -149,9 +145,7 @@ func (m *EndpointHealth) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetEndpoint()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetEndpoint()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return EndpointHealthValidationError{
 				Field:  "Endpoint",
@@ -208,9 +202,7 @@ func (m *EndpointHealthResponse) Validate() error {
 	for idx, item := range m.GetEndpointsHealth() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return EndpointHealthResponseValidationError{
 					Field:  fmt.Sprintf("EndpointsHealth[%v]", idx),
@@ -268,9 +260,7 @@ func (m *HealthCheckRequestOrEndpointHealthResponse) Validate() error {
 
 	case *HealthCheckRequestOrEndpointHealthResponse_HealthCheckRequest:
 
-		if v, ok := interface{}(m.GetHealthCheckRequest()).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(m.GetHealthCheckRequest()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return HealthCheckRequestOrEndpointHealthResponseValidationError{
 					Field:  "HealthCheckRequest",
@@ -282,9 +272,7 @@ func (m *HealthCheckRequestOrEndpointHealthResponse) Validate() error {
 
 	case *HealthCheckRequestOrEndpointHealthResponse_EndpointHealthResponse:
 
-		if v, ok := interface{}(m.GetEndpointHealthResponse()).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(m.GetEndpointHealthResponse()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return HealthCheckRequestOrEndpointHealthResponseValidationError{
 					Field:  "EndpointHealthResponse",
@@ -339,9 +327,7 @@ func (m *LocalityEndpoints) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetLocality()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetLocality()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return LocalityEndpointsValidationError{
 				Field:  "Locality",
@@ -354,9 +340,7 @@ func (m *LocalityEndpoints) Validate() error {
 	for idx, item := range m.GetEndpoints() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return LocalityEndpointsValidationError{
 					Field:  fmt.Sprintf("Endpoints[%v]", idx),
@@ -415,9 +399,7 @@ func (m *ClusterHealthCheck) Validate() error {
 	for idx, item := range m.GetHealthChecks() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return ClusterHealthCheckValidationError{
 					Field:  fmt.Sprintf("HealthChecks[%v]", idx),
@@ -432,9 +414,7 @@ func (m *ClusterHealthCheck) Validate() error {
 	for idx, item := range m.GetLocalityEndpoints() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return ClusterHealthCheckValidationError{
 					Field:  fmt.Sprintf("LocalityEndpoints[%v]", idx),
@@ -491,9 +471,7 @@ func (m *HealthCheckSpecifier) Validate() error {
 	for idx, item := range m.GetClusterHealthChecks() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return HealthCheckSpecifierValidationError{
 					Field:  fmt.Sprintf("ClusterHealthChecks[%v]", idx),
@@ -505,9 +483,7 @@ func (m *HealthCheckSpecifier) Validate() error {
 
 	}
 
-	if v, ok := interface{}(m.GetInterval()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetInterval()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HealthCheckSpecifierValidationError{
 				Field:  "Interval",

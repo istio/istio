@@ -40,13 +40,13 @@ func TestAttributeHandling(t *testing.T) {
 		attributes:          "t=XYZ,u=2,v=3.0,w=true,x=2006-01-02T15:04:05Z,y=42s,z=98:76,zz=k3:v3",
 	}
 
-	a, err := parseAttributes(&ra)
+	a, dw, err := parseAttributes(&ra)
 	if err != nil {
 		t.Errorf("Expected to parse attributes, got failure %v", err)
 	}
 
 	var b attribute.Bag
-	if b, err = attribute.GetBagFromProto(a, nil); err != nil {
+	if b, err = attribute.GetBagFromProto(a, dw); err != nil {
 		t.Errorf("Expected to get proto bag, got failure %v", err)
 	}
 
@@ -92,6 +92,17 @@ func TestAttributeHandling(t *testing.T) {
 
 			if !reflect.DeepEqual(v, r.value) {
 				t.Errorf("Got %v, expected %v", v, r.value)
+			}
+
+			found = false
+			for _, v := range dw {
+				if v == r.name {
+					found = true
+					break
+				}
+			}
+			if !found {
+				t.Errorf("Got false, want true")
 			}
 		})
 	}
@@ -150,7 +161,7 @@ func TestAttributeErrorHandling(t *testing.T) {
 
 	for i, c := range cases {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			a, err := parseAttributes(&c)
+			a, _, err := parseAttributes(&c)
 			if a != nil {
 				t.Error("Got a valid struct, expected nil")
 			}

@@ -41,9 +41,7 @@ func (m *Router) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetDynamicStats()).(interface {
-		Validate() error
-	}); ok {
+	if v, ok := interface{}(m.GetDynamicStats()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return RouterValidationError{
 				Field:  "DynamicStats",
@@ -58,9 +56,7 @@ func (m *Router) Validate() error {
 	for idx, item := range m.GetUpstreamLog() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return RouterValidationError{
 					Field:  fmt.Sprintf("UpstreamLog[%v]", idx),

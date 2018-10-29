@@ -306,6 +306,7 @@ func TestErrors(t *testing.T) {
 			v.setupFn(a, pt)
 			s, err = newServer(a, pt)
 			if s != nil || err == nil {
+				s.Close()
 				t.Errorf("Got success, expecting error")
 			}
 

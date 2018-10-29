@@ -97,7 +97,8 @@ function istioClusterEnv() {
   local CP_AUTH_POLICY=${CONTROL_PLANE_AUTH_POLICY:-MUTUAL_TLS}
 
   # TODO: parse it all from $(kubectl config current-context)
-  CIDR=$(gcloud container clusters describe "${K8S_CLUSTER}" "${GCP_OPTS:-}" --format "value(servicesIpv4Cidr)")
+  # shellcheck disable=SC2086
+  CIDR=$(gcloud container clusters describe "${K8S_CLUSTER}" ${GCP_OPTS:-} --format "value(servicesIpv4Cidr)")
   echo "ISTIO_SERVICE_CIDR=$CIDR" > cluster.env
   echo "ISTIO_SYSTEM_NAMESPACE=$ISTIO_NS" >> cluster.env
   echo "ISTIO_CP_AUTH=$CP_AUTH_POLICY" >> cluster.env
@@ -122,11 +123,14 @@ function istio_provision_certs() {
     NS="-n $NS"
   fi
   local B64_DECODE=${BASE64_DECODE:-base64 --decode}
-  kubectl get "$NS" secret "$CERT_NAME" -o jsonpath='{.data.root-cert\.pem}' | $B64_DECODE   > root-cert.pem
+  # shellcheck disable=SC2086
+  kubectl get $NS secret "$CERT_NAME" -o jsonpath='{.data.root-cert\.pem}' | $B64_DECODE   > root-cert.pem
   echo "Generated root-cert.pem. It should be installed on /etc/certs"
   if [ "$ALL" == "all" ] ; then
-    kubectl get "$NS" secret "$CERT_NAME" -o jsonpath='{.data.cert-chain\.pem}' | $B64_DECODE  > cert-chain.pem
-    kubectl get "$NS" secret "$CERT_NAME" -o jsonpath='{.data.key\.pem}' | $B64_DECODE   > key.pem
+    # shellcheck disable=SC2086
+    kubectl get $NS secret "$CERT_NAME" -o jsonpath='{.data.cert-chain\.pem}' | $B64_DECODE  > cert-chain.pem
+    # shellcheck disable=SC2086
+    kubectl get $NS secret "$CERT_NAME" -o jsonpath='{.data.key\.pem}' | $B64_DECODE   > key.pem
     echo "Generated cert-chain.pem and key.pem. It should be installed on /etc/certs"
   fi
 
@@ -233,7 +237,8 @@ function istioCopy() {
   shift
   local FILES=$*
 
-  ${ISTIO_CP:-gcloud compute scp --recurse ${GCP_OPTS:-}} "$FILES" "${NAME}:"
+  # shellcheck disable=SC2086
+  ${ISTIO_CP:-gcloud compute scp --recurse ${GCP_OPTS:-}} $FILES "${NAME}:"
 }
 
 # Run a command in a VM.

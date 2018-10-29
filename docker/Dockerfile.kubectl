@@ -1,0 +1,5 @@
+FROM istionightly/base_debug
+# Image for post install jobs
+
+# This container should only contain kubectl
+ADD kubectl /usr/bin

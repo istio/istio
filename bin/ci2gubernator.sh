@@ -1,10 +1,28 @@
 #!/bin/bash
 
+# Copyright 2018 Istio Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 # Exit immediately for non zero status
 set -e
 
 SCRIPTPATH="$(cd "$(dirname "$0")" ; pwd -P)"
 ROOTDIR="$(dirname "${SCRIPTPATH}")"
+
+# Set GOPATH to match the expected layout
+GO_TOP=$(cd "$(dirname "$0")"/../../../..; pwd)
+export GOPATH=${GOPATH:-$GO_TOP}
 
 REQUIRED_ENVS=(
 	GCS_BUCKET_TOKEN
@@ -29,6 +47,11 @@ openssl aes-256-cbc -d -in "${ENCRYPTED_SA_JSON}" -out "${TMP_SA_JSON}" -k "${GC
 
 go get -u istio.io/test-infra/toolbox/ci2gubernator
 
+if [[ -d "${GOPATH}/bin/ci2gubernator" ]];then
+    echo "download istio.io/test-infra/toolbox/ci2gubernator failed"
+    exit 1
+fi
+
 ARGS=(
 	"--service_account=${TMP_SA_JSON}" \
 	"--sha=${CIRCLE_BRANCH}/${CIRCLE_SHA1}" \
@@ -39,8 +62,11 @@ ARGS=(
 	"--pr_number=${CIRCLE_PR_NUMBER:-0}"
 )
 
-if [ -n "$CIRCLE_PULL_REQUEST" ]; then
+# CIRCLE_PR_NUMBER is set for PRs that originate from a fork.
+# CIRCLE_PULL_REQUEST is set for PRs that originate from a branch.
+if [ -n "$CIRCLE_PR_NUMBER" ] || [ -n "$CIRCLE_PULL_REQUEST" ]; then
 	ARGS+=("--stage=presubmit")
 fi
 
-/go/bin/ci2gubernator "${@}" "${ARGS[@]}" || true
+ci2gubernator=${GOPATH}/bin/ci2gubernator
+$ci2gubernator "${@}" "${ARGS[@]}" || true

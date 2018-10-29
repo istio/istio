@@ -24,8 +24,8 @@ import (
 	"strings"
 )
 
-// getCallerFileName returns filename of caller without file extension.
-func getCallerFileName() string {
+// GetCallerFileName returns filename of caller without file extension.
+func GetCallerFileName() string {
 	if _, filename, _, ok := runtime.Caller(1); ok {
 		fnBase := filepath.Base(filename)
 		fn := strings.Split(fnBase, ".")
@@ -38,8 +38,8 @@ func getCallerFileName() string {
 	return ""
 }
 
-// matchCallExpr returns true if ce matches package name pn and method name mn.
-func matchCallExpr(ce *ast.CallExpr, pn string, mn string) bool {
+// MatchCallExpr returns true if ce matches package name pn and method name mn.
+func MatchCallExpr(ce *ast.CallExpr, pn string, mn string) bool {
 	if sel, ok := ce.Fun.(*ast.SelectorExpr); ok {
 		if pkg, ok := sel.X.(*ast.Ident); ok {
 			return pkg.String() == pn && sel.Sel.String() == mn
