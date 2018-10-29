@@ -191,6 +191,7 @@ type Server struct {
 	istioConfigStore model.IstioConfigStore
 	mux              *http.ServeMux
 	kubeRegistry     *kube.Controller
+	fileWatcher      filewatcher.FileWatcher
 }
 
 // NewServer creates a new Server instance based on the provided arguments.
@@ -207,7 +208,9 @@ func NewServer(args PilotArgs) (*Server, error) {
 		}
 	}
 
-	s := &Server{}
+	s := &Server{
+		fileWatcher: filewatcher.NewWatcher(),
+	}
 
 	// Apply the arguments to the configuration.
 	if err := s.initKubeClient(&args); err != nil {
@@ -350,6 +353,21 @@ func (s *Server) initMesh(args *PilotArgs) error {
 		if err != nil {
 			log.Warnf("failed to read mesh configuration, using default: %v", err)
 		}
+
+		// Watch the config file for changes and reload if it got modified
+		s.addFileWatcher(args.Mesh.ConfigFile, func() {
+			// Reload the config file
+			mesh, err = cmd.ReadMeshConfig(args.Mesh.ConfigFile)
+			if err != nil {
+				log.Warnf("failed to read mesh configuration, using default: %v", err)
+				return
+			}
+			if !reflect.DeepEqual(mesh, s.mesh) {
+				log.Infof("mesh configurtion file updated to: %s", spew.Sdump(mesh))
+				s.mesh = mesh
+				s.EnvoyXdsServer.ConfigUpdate(true)
+			}
+		})
 	}
 
 	if mesh == nil {
@@ -393,34 +411,20 @@ func (s *Server) initMeshNetworks(args *PilotArgs) error {
 	log.Infof("mesh networks configuration %s", spew.Sdump(meshNetworks))
 	s.meshNetworks = meshNetworks
 
-	// Watch the config file for changes and reload if it got modified
-	fileWatcher := filewatcher.NewWatcher()
-	fileWatcher.Add(args.NetworksConfigFile)
-	go func() {
-		var timerC <-chan time.Time
-		for {
-			select {
-			case <-timerC:
-				timerC = nil
-				// Reload the config file
-				meshNetworks, err = cmd.ReadMeshNetworksConfig(args.NetworksConfigFile)
-				if err != nil {
-					log.Warnf("failed to read mesh networks configuration from %q", args.NetworksConfigFile)
-					continue
-				}
-				if reflect.DeepEqual(meshNetworks, s.meshNetworks) {
-					log.Infof("mesh networks configurtion file updated to: %s", spew.Sdump(meshNetworks))
-					s.meshNetworks = meshNetworks
-					s.EnvoyXdsServer.ConfigUpdate(true)
-				}
-			case <-fileWatcher.Events(args.NetworksConfigFile):
-				// Use a timer to debounce configuration updates
-				if timerC == nil {
-					timerC = time.After(100 * time.Millisecond)
-				}
-			}
+	// Watch the networks config file for changes and reload if it got modified
+	s.addFileWatcher(args.NetworksConfigFile, func() {
+		// Reload the config file
+		meshNetworks, err := cmd.ReadMeshNetworksConfig(args.NetworksConfigFile)
+		if err != nil {
+			log.Warnf("failed to read mesh networks configuration from %q", args.NetworksConfigFile)
+			return
 		}
-	}()
+		if !reflect.DeepEqual(meshNetworks, s.meshNetworks) {
+			log.Infof("mesh networks configurtion file updated to: %s", spew.Sdump(meshNetworks))
+			s.meshNetworks = meshNetworks
+			s.EnvoyXdsServer.ConfigUpdate(true)
+		}
+	})
 
 	return nil
 }
@@ -1098,4 +1102,27 @@ func (s *Server) grpcServerOptions() []grpc.ServerOption {
 
 func (s *Server) addStartFunc(fn startFunc) {
 	s.startFuncs = append(s.startFuncs, fn)
+}
+
+// Add to the FileWatcher the provided file and execute the provided function
+// on any change event for this file.
+// Using a debouncing mechanism to avoid calling the callback multiple times
+// per event.
+func (s *Server) addFileWatcher(file string, callback func()) {
+	s.fileWatcher.Add(file)
+	go func() {
+		var timerC <-chan time.Time
+		for {
+			select {
+			case <-timerC:
+				timerC = nil
+				callback()
+			case <-s.fileWatcher.Events(file):
+				// Use a timer to debounce configuration updates
+				if timerC == nil {
+					timerC = time.After(100 * time.Millisecond)
+				}
+			}
+		}
+	}()
 }
