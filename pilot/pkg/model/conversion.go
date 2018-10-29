@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
@@ -94,7 +95,15 @@ func (ps *ProtoSchema) FromJSON(js string) (proto.Message, error) {
 
 // ApplyJSON unmarshals a JSON string into a proto message
 func ApplyJSON(js string, pb proto.Message) error {
-	return jsonpb.UnmarshalString(js, pb)
+	reader := strings.NewReader(js)
+	m := jsonpb.Unmarshaler{}
+	if err := m.Unmarshal(reader, pb); err != nil {
+		log.Warnf("Failed to decode proto: %q. Trying decode with AllowUnknownFields=true", err)
+		m.AllowUnknownFields = true
+		reader.Reset(js)
+		return m.Unmarshal(reader, pb)
+	}
+	return nil
 }
 
 // FromYAML converts a canonical YAML to a proto message
