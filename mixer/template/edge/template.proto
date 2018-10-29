@@ -17,8 +17,6 @@ syntax = "proto3";
 // $title: Edge
 // $description: A template designed to report observed communication edges between workloads.
 // $location: https://istio.io/docs/reference/config/policy-and-telemetry/templates/edge.html
-// $aliases:
-// $  - /docs/reference/config/template/edge.html
 
 // The `edge` template represents an edge in the mesh graph.
 package edge;
@@ -60,22 +58,37 @@ option (istio.mixer.adapter.model.v1beta1.template_variety) = TEMPLATE_VARIETY_R
 //   contextProtocol: context.protocol | "Unknown"
 // ```
 message Template {
-  // Timestamp
+
+  // Timestamp of the edge
   istio.policy.v1beta1.TimeStamp timestamp = 1;
 
-  // Source of edge.
+  // Namespace of the source workload
   string source_workload_namespace = 10;
+
+  // Name of the source workload
   string source_workload_name = 11;
+
+  // Owner of the source workload (often k8s deployment)
   string source_owner = 12;
+
+  // UID of the source workload
   string source_uid = 13;
 
-  // Destination of edge
+  // Namespace of the destination workload
   string destination_workload_namespace = 20;
+
+  // Name of the destination workload
   string destination_workload_name = 21;
+
+  // Owner of the destination workload (often k8s deployment)
   string destination_owner = 22;
+
+  // UID of the destination workload
   string destination_uid = 23;
 
-  // Protocol used
+  // Protocol used for communication (http, tcp)
   string context_protocol = 30;
+
+  // The protocol type of the API call (http, https, grpc)
   string api_protocol = 31;
 }
