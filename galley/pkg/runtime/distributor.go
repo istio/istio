@@ -57,3 +57,13 @@ func (d *InMemoryDistributor) ClearSnapshot(name string) {
 
 	delete(d.snapshots, name)
 }
+
+// GetSnapshot get the snapshot of the specified name
+func (d *InMemoryDistributor) GetSnapshot(name string) sn.Snapshot {
+	d.snapshotsLock.Lock()
+	defer d.snapshotsLock.Unlock()
+	if s, ok := d.snapshots[name]; ok {
+		return s
+	}
+	return nil
+}

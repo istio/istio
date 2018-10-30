@@ -199,6 +199,7 @@ func (s *fsSource) initialCheck() {
 	newData := s.readFiles(s.root)
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.ch <- resource.Event{Kind: resource.FullSync}
 	for k, r := range newData {
 		s.process(resource.Added, k, "", r)
 		s.shas[k] = r.sha
