@@ -326,17 +326,23 @@ func createEnv(t *testing.T, labels map[string]string, anno map[string]string) (
 	mergeMap(merged, anno)
 
 	envs := make([]string, 0)
-	envs = envEncode(labels, IstioMetaPrefix, func(s string) string {
-		return s
-	}, envs)
+
+	if labels != nil {
+		envs = append(envs, encodeAsJson(t, labels, "LABELS"))
+	}
+
 	if anno != nil {
-		jsonStr, err := json.Marshal(anno)
-		if err != nil {
-			t.Fatalf("failed to marshal %v: %v", anno, err)
-		}
-		envs = append(envs, IstioMetaJSONPrefix+"annotations="+string(jsonStr))
+		envs = append(envs, encodeAsJson(t, anno, "ANNOTATIONS"))
 	}
 	return merged, envs
+}
+
+func encodeAsJson(t *testing.T, data map[string]string, name string) string {
+	jsonStr, err := json.Marshal(data)
+	if err != nil {
+		t.Fatalf("failed to marshal %s %v: %v", name, data, err)
+	}
+	return IstioMetaJSONPrefix + name + "=" + string(jsonStr)
 }
 
 func TestNodeMetadata(t *testing.T) {
