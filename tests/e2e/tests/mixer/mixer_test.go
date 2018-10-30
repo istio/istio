@@ -1042,7 +1042,6 @@ func testRedisQuota(t *testing.T, quotaRule string) {
 		if err := util.KubeScale(tc.Kube.Namespace, "deployment/istio-policy", 1, tc.Kube.KubeConfig); err != nil {
 			t.Fatalf("Could not scale down istio-policy pod.: %v", err)
 		}
-		allowRuleSync()
 	}()
 
 	// Deploy Tiller if not already running.
@@ -1061,8 +1060,6 @@ func testRedisQuota(t *testing.T, quotaRule string) {
 			t.Logf("Could not delete %s: %v", redisInstallName, err)
 		}
 	}()
-
-	allowRuleSync()
 
 	// the rate limit rule applies a max rate limit of 1 rps to the ratings service.
 	if err := applyMixerRule(quotaRule); err != nil {
@@ -1262,7 +1259,7 @@ func TestMixerReportingToMixer(t *testing.T) {
 
 func allowRuleSync() {
 	log.Info("Sleeping to allow rules to take effect...")
-	time.Sleep(1 * time.Minute)
+	time.Sleep(15 * time.Second)
 }
 
 func allowPrometheusSync() {
