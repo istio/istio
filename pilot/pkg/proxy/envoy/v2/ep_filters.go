@@ -82,10 +82,12 @@ func EndpointsByNetworkFilter(endpoints []endpoint.LocalityLbEndpoints, conn *Xd
 				// This LocalityLbEndpoints has remote endpoint so add to the result
 				// a new one that holds only local endpoints
 				newEp := endpoint.LocalityLbEndpoints{
-					Locality:            ep.Locality,
-					LbEndpoints:         onlyLocalLbEndpoints,
-					LoadBalancingWeight: ep.LoadBalancingWeight,
-					Priority:            ep.Priority,
+					Locality:    ep.Locality,
+					LbEndpoints: onlyLocalLbEndpoints,
+					LoadBalancingWeight: &types.UInt32Value{
+						Value: uint32(len(onlyLocalLbEndpoints)),
+					},
+					Priority: ep.Priority,
 				}
 				filtered = append(filtered, newEp)
 			}
