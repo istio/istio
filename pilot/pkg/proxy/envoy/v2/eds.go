@@ -661,11 +661,10 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection,
 	pushes.With(prometheus.Labels{"type": "eds"}).Add(1)
 
 	if full {
-		// TODO: switch back to debug
-		adsLog.Infof("EDS: PUSH for %s clusters %d endpoints %d empty %d",
+		adsLog.Debugf("EDS: PUSH for %s clusters %d endpoints %d empty %d",
 			con.ConID, len(con.Clusters), endpoints, emptyClusters)
 	} else {
-		adsLog.Infof("EDS: INC PUSH for %s clusters %d endpoints %d empty %d",
+		adsLog.Debugf("EDS: INC PUSH for %s clusters %d endpoints %d empty %d",
 			con.ConID, len(con.Clusters), endpoints, emptyClusters)
 	}
 	return nil
