@@ -1,0 +1,6 @@
+FROM    centos
+
+RUN yum -y install make rpm-build gem ruby-devel gcc make rpm-build rubygems iproute iptables && \
+    gem install --no-ri --no-rdoc fpm
+
+

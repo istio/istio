@@ -1,13 +1,26 @@
 # Make the deb image using the CI/CD image and docker, for users who don't have 'fpm' installed.
-# TODO: use 'which fpm' to detect if fpm is installed on host, consolidate under one target ('deb')
 deb/build-in-docker:
 	(cd ${TOP}; docker run --rm -u $(shell id -u) -it \
         -v ${GO_TOP}:${GO_TOP} \
         -w ${PWD} \
         -e USER=${USER} \
         -e GOPATH=${GOPATH} \
-		--entrypoint /bin/bash ${CI_HUB}/ci:${CI_VERSION} \
-		-c "make deb/fpm")
+               --entrypoint /usr/bin/make ${CI_HUB}/ci:${CI_VERSION} \
+               deb/fpm )
+
+
+# Install the deb in a docker image, for testing of the install process.
+deb/install: hyperistio build ${ISTIO_OUT}/istio.deb
+	mkdir -p ${OUT_DIR}/deb
+	cp tools/deb/Dockerfile tools/deb/deb_test.sh ${OUT_DIR}/deb
+	cp tests/testdata/config/*.yaml ${OUT_DIR}/deb
+	cp -a tests/testdata/certs ${OUT_DIR}/deb
+	cp ${ISTIO_OUT}/hyperistio ${OUT_DIR}/deb
+	cp ${GOPATH}/bin/{kube-apiserver,etcd,kubectl} ${OUT_DIR}/deb
+	cp ${ISTIO_OUT}/istio-sidecar.deb ${OUT_DIR}/deb/istio-sidecar.deb
+	cp ${ISTIO_OUT}/istio.deb ${OUT_DIR}/deb/istio.deb
+	docker build -t istio_deb -f ${OUT_DIR}/deb/Dockerfile ${OUT_DIR}/deb/
+
 
 # Create the 'sidecar' deb, including envoy and istio agents and configs.
 # This target uses a locally installed 'fpm' - use 'docker.sidecar.deb' to use
@@ -78,6 +91,8 @@ deb/fpm:
 		--depends iptables \
 		$(SIDECAR_FILES)
 
+
+
 ${ISTIO_OUT}/istio.deb:
 	rm -f ${ISTIO_OUT}/istio.deb
 	fpm -s dir -t deb -n istio -p ${ISTIO_OUT}/istio.deb --version $(DEB_VERSION) -C ${GO_TOP} -f \
@@ -88,17 +103,6 @@ ${ISTIO_OUT}/istio.deb:
 		--description "Istio" \
 		$(ISTIO_FILES)
 
-# Install the deb in a docker image, for testing of the install process.
-deb/docker: hyperistio build deb/fpm ${ISTIO_OUT}/istio.deb
-	mkdir -p ${OUT_DIR}/deb
-	cp tools/deb/Dockerfile tools/deb/deb_test.sh ${OUT_DIR}/deb
-	cp tests/testdata/config/*.yaml ${OUT_DIR}/deb
-	cp -a tests/testdata/certs ${OUT_DIR}/deb
-	cp ${ISTIO_OUT}/hyperistio ${OUT_DIR}/deb
-	cp ${GOPATH}/bin/{kube-apiserver,etcd,kubectl} ${OUT_DIR}/deb
-	cp ${ISTIO_OUT}/istio-sidecar.deb ${OUT_DIR}/deb/istio-sidecar.deb
-	cp ${ISTIO_OUT}/istio.deb ${OUT_DIR}/deb/istio.deb
-	docker build -t istio_deb -f ${OUT_DIR}/deb/Dockerfile ${OUT_DIR}/deb/
 
 deb/test:
 	docker run --cap-add=NET_ADMIN --rm -v ${ISTIO_GO}/tools/deb/deb_test.sh:/tmp/deb_test.sh istio_deb /tmp/deb_test.sh

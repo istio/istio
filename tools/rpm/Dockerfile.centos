@@ -1,0 +1,8 @@
+FROM centos
+# Base image for debug builds.
+
+ADD istio-sidecar.rpm /tmp
+
+RUN yum -y install iproute iptables
+
+RUN rpm -i /tmp/istio-sidecar.rpm
