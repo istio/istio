@@ -169,6 +169,10 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 	if err != nil {
 		return nil, err
 	}
+	// This is not strictly necessary, but is a workaround for having the dashboard pass. The migration
+	// to OpenCensus metrics means that zero value metrics are not exported, and the dashboard tests
+	// expect data for metrics.
+	reportValidationCertKeyUpdate()
 	certKeyWatcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, err
