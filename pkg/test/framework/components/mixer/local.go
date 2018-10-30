@@ -80,7 +80,7 @@ func (c *localComponent) Init(ctx environment.ComponentContext, deps map[depende
 		return
 	}
 
-	dm.attributeManifest, err = deployment.ExtractAttributeManifest()
+	dm.attributeManifest, err = deployment.ExtractAttributeManifest(dm.workdir)
 	if err != nil {
 		return
 	}
