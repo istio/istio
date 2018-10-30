@@ -34,7 +34,7 @@ spec:
 {{- end }}
       containers:
       - name: certmanager
-        image: "{{ .Values.hub }}/cert-manager-controller:{{ .Values.tag }}"
+        image: "{{ .Values.hub }}/{{ .Values.image }}:{{ .Values.tag }}"
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
         args:
         - --cluster-resource-namespace=$(POD_NAMESPACE)
