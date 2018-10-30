@@ -47,7 +47,7 @@ spec:
       serviceAccountName: sleep
       containers:
       - name: sleep
-        image: tutum/curl
+        image: pstauffer/curl
         command: ["/bin/sleep","infinity"]
         imagePullPolicy: IfNotPresent
 ---
