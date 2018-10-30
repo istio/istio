@@ -711,13 +711,6 @@ func compareDeployments(got, want *extv1beta1.Deployment, name string, t *testin
 	gotIstioProxy.TerminationMessagePath = wantIstioProxy.TerminationMessagePath
 	gotIstioProxy.TerminationMessagePolicy = wantIstioProxy.TerminationMessagePolicy
 
-	// collect automatically injected pod labels so that they can
-	// be adjusted later.
-	envNames := map[string]bool{}
-	for k := range got.Spec.Template.ObjectMeta.Labels {
-		envNames["ISTIO_META_"+k] = true
-	}
-
 	envVars := make([]corev1.EnvVar, 0)
 	for _, env := range gotIstioProxy.Env {
 		if env.ValueFrom != nil {
@@ -729,10 +722,6 @@ func compareDeployments(got, want *extv1beta1.Deployment, name string, t *testin
 			if err := json.Unmarshal([]byte(env.Value), &mm); err != nil {
 				t.Fatalf("unable to unmarshal %s: %v", env.Value, err)
 			}
-			continue
-		}
-		// adjust for injected var names.
-		if _, found := envNames[env.Name]; found {
 			continue
 		}
 		envVars = append(envVars, env)
