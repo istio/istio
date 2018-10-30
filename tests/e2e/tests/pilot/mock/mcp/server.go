@@ -20,7 +20,6 @@ import (
 	"net/url"
 
 	"google.golang.org/grpc"
-
 	mcp "istio.io/api/mcp/v1alpha1"
 	mcpserver "istio.io/istio/pkg/mcp/server"
 	"istio.io/istio/pkg/mcp/testing/monitoring"
@@ -32,10 +31,10 @@ type mockWatcher struct {
 	response WatchResponse
 }
 
-func (m mockWatcher) Watch(
-	req *mcp.MeshConfigRequest,
-	resp chan<- *mcpserver.WatchResponse) (*mcpserver.WatchResponse, mcpserver.CancelWatchFunc) {
-	return m.response(req)
+func (m mockWatcher) Watch(req *mcp.MeshConfigRequest, pushResponse mcpserver.PushResponseFunc) mcpserver.CancelWatchFunc {
+	response, cancel := m.response(req)
+	pushResponse(response)
+	return cancel
 }
 
 type Server struct {
