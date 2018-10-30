@@ -50,10 +50,13 @@ type ProtoBag struct {
 	referencedAttrsMutex sync.Mutex
 }
 
+// referencedAttrsSize is the size of referenced attributes.
+const referencedAttrsSize = 16
+
 var protoBags = sync.Pool{
 	New: func() interface{} {
 		return &ProtoBag{
-			referencedAttrs: make(map[attributeRef]mixerpb.ReferencedAttributes_Condition, 16),
+			referencedAttrs: make(map[attributeRef]mixerpb.ReferencedAttributes_Condition, referencedAttrsSize),
 		}
 	},
 }
@@ -74,7 +77,7 @@ func GetProtoBag(proto *mixerpb.CompressedAttributes, globalDict map[string]int3
 	pb.globalWordList = globalWordList
 	pb.messageDict = d
 
-	scope.Debugf("Creating bag with attributes: %v", pb)
+	scope.Debugf("Returning bag with attributes: %v", pb)
 
 	return pb
 }
@@ -438,7 +441,7 @@ func (pb *ProtoBag) Reset() {
 	pb.globalWordList = nil
 	pb.messageDict = make(map[string]int32)
 	pb.convertedStringMaps = make(map[int32]StringMap)
-	pb.referencedAttrs = make(map[attributeRef]mixerpb.ReferencedAttributes_Condition, 16)
+	pb.referencedAttrs = make(map[attributeRef]mixerpb.ReferencedAttributes_Condition, referencedAttrsSize)
 	pb.stringMapMutex = sync.RWMutex{}
 	pb.referencedAttrsMutex = sync.Mutex{}
 }
