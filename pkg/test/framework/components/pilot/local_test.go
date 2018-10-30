@@ -99,30 +99,3 @@ func TestLocalPilot(t *testing.T) {
 		return false
 	})
 }
-
-/*
-TODO: uncomment and modify to test against an active kube environment.
-func TestKubePilot(t *testing.T) {
-	p, err := pilot.NewKubePilot("", "istio-system", "istio-pilot-6c5c6b586c-9gwn5")
-	if err != nil {
-		t.Fatal(err)
-	}
-	res, err := p.CallDiscovery(&xdsapi.DiscoveryRequest{
-		Node: &envoy_api_v2_core1.Node{
-			Id: "sidecar~127.0.0.1~mysidecar.istio-system~istio-system.svc.cluster.local",
-		},
-		TypeUrl: envoy_proxy_v2.ListenerType,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	m := jsonpb.Marshaler{
-		Indent: "  ",
-	}
-	str, err := m.MarshalToString(res)
-	if err != nil {
-		t.Fatal(err)
-	}
-	fmt.Println(str)
-}
-*/
