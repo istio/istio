@@ -483,7 +483,6 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 	mcpController := coredatamodel.NewController(options)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 	var clients []*mcpclient.Client
 	var conns []*grpc.ClientConn
 
