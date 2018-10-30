@@ -12,12 +12,14 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package deployment
+package pilot
 
-// NewYamlDeployment creates a new yaml-based deployment.
-func NewYamlDeployment(namespace, yamlFile string) *Instance {
-	return &Instance{
-		namespace:    namespace,
-		yamlFilePath: yamlFile,
+import (
+	"istio.io/istio/pkg/test/framework/dependency"
+)
+
+var (
+	requiredDeps = []dependency.Instance{
+		dependency.Mixer,
 	}
-}
+)

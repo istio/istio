@@ -16,7 +16,11 @@ package kubernetes
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
+
+	"github.com/mitchellh/go-homedir"
 
 	"istio.io/istio/pkg/test/env"
 
@@ -68,6 +72,20 @@ func newSettings() (*Settings, error) {
 	// Make a local copy.
 	s := &(*globalSettings)
 
+	if s.KubeConfig != "" {
+		if err := normalizeFile(&s.KubeConfig); err != nil {
+			return nil, err
+		}
+	}
+
+	if err := normalizeFile(&s.ChartDir); err != nil {
+		return nil, err
+	}
+
+	if err := checkFileExists(filepath.Join(s.ChartDir, s.ValuesFile)); err != nil {
+		return nil, err
+	}
+
 	var err error
 	s.Values, err = newHelmValues()
 	if err != nil {
@@ -75,6 +93,24 @@ func newSettings() (*Settings, error) {
 	}
 
 	return s, nil
+}
+
+func normalizeFile(path *string) error {
+	// If the path uses the homedir ~, expand the path.
+	var err error
+	(*path), err = homedir.Expand(*path)
+	if err != nil {
+		return err
+	}
+
+	return checkFileExists(*path)
+}
+
+func checkFileExists(path string) error {
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return err
+	}
+	return nil
 }
 
 func newHelmValues() (map[string]string, error) {
