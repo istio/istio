@@ -2046,6 +2046,7 @@
     "github.com/hashicorp/vault/api",
     "github.com/howeyc/fsnotify",
     "github.com/istio/tools/protoc-gen-docs",
+    "github.com/mitchellh/go-homedir",
     "github.com/natefinch/lumberjack",
     "github.com/onsi/gomega",
     "github.com/onsi/gomega/gbytes",
