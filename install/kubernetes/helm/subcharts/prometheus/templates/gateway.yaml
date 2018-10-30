@@ -1,0 +1,62 @@
+{{- if .Values.gateway.enabled }}
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: istio-prometheus-gateway
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "prometheus.name" . }}
+    chart: {{ template "prometheus.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 15030
+      name: http2-prometheus
+      protocol: HTTP2
+    hosts:
+    - "*"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: prometheus
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "prometheus.name" . }}
+    chart: {{ template "prometheus.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+spec:
+  host: prometheus.{{ .Release.Namespace }}.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: DISABLE
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: prometheus-virtual-service
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "prometheus.name" . }}
+    chart: {{ template "prometheus.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+spec:
+  hosts:
+  - "*"
+  gateways:
+  - istio-prometheus-gateway
+  http:
+  - match:
+    - port: 15030
+    route:
+    - destination:
+        host: prometheus.{{ .Release.Namespace }}.svc.cluster.local
+        port:
+          number: 9090
+{{- end }}
