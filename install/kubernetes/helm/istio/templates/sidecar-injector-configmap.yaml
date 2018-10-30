@@ -54,6 +54,8 @@ data:
           privileged: true
           {{ end -}}
         restartPolicy: Always
+        resources:
+{{ toYaml .Values.global.proxy_init.resources | indent 10 }}
 {{- end }}
       {{ if eq .Values.global.proxy.enableCoreDump true }}
       - name: enable-core-dump
@@ -68,7 +70,8 @@ data:
         image: "{{ .Values.global.hub }}/{{ .Values.global.proxy_init.image }}:{{ .Values.global.tag }}"
   {{- end }}
         imagePullPolicy: IfNotPresent
-        resources: {}
+        resources:
+{{ toYaml .Values.global.proxy_init.resources | indent 10 }}
         securityContext:
           privileged: true
       {{ end }}

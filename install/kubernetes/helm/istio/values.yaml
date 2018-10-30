@@ -196,6 +196,15 @@ global:
     # Base name for the proxy_init container, used to configure iptables.
     image: proxy_init
 
+    # Resources for init containers.
+    resources: {}
+      # requests:
+      #   cpu: 10m
+      #  memory: 128Mi
+      # limits:
+      #   cpu: 100m
+      #   memory: 128Mi
+
   # imagePullPolicy is applied to istio control plane components.
   # local tests require IfNotPresent, to avoid uploading to dockerhub.
   # TODO: Switch to Always as default, and override in the local tests.
@@ -282,7 +291,7 @@ global:
   # NOTE: If using templates, follow the pattern in the commented example below.
   #podDNSSearchNamespaces:
   #- global
-  #- "[[ valueOrDefault .DeploymentMeta.Namespace \"default\" ]].global"  
+  #- "[[ valueOrDefault .DeploymentMeta.Namespace \"default\" ]].global"
 
   # If set to true, the pilot and citadel mtls will be exposed on the
   # ingress gateway
