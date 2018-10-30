@@ -532,6 +532,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 						log.Infof("%v not found. Checking again in %v", requiredFiles[0], requiredMCPCertCheckFreq)
 						select {
 						case <-ctx.Done():
+							cancel()
 							return ctx.Err()
 						case <-time.After(requiredMCPCertCheckFreq):
 							// retry
@@ -544,6 +545,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 
 				watcher, err := creds.WatchFiles(ctx.Done(), credentialOption)
 				if err != nil {
+					cancel()
 					return err
 				}
 				credentials := creds.CreateForClient(configSource.TlsSettings.Sni, watcher)
@@ -555,6 +557,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 		conn, err := grpc.DialContext(ctx, configSource.Address, securityOption, msgSizeOption)
 		if err != nil {
 			log.Errorf("Unable to dial MCP Server %q: %v", configSource.Address, err)
+			cancel()
 			return err
 		}
 		cl := mcpapi.NewAggregatedMeshConfigServiceClient(conn)
@@ -570,6 +573,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 		for _, addr := range args.MCPServerAddrs {
 			u, err := url.Parse(addr)
 			if err != nil {
+				cancel()
 				return err
 			}
 
@@ -587,6 +591,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 						log.Infof("%v not found. Checking again in %v", requiredFiles[0], requiredMCPCertCheckFreq)
 						select {
 						case <-ctx.Done():
+							cancel()
 							return ctx.Err()
 						case <-time.After(requiredMCPCertCheckFreq):
 							// retry
@@ -599,6 +604,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 
 				watcher, err := creds.WatchFiles(ctx.Done(), args.MCPCredentialOptions)
 				if err != nil {
+					cancel()
 					return err
 				}
 				credentials := creds.CreateForClient(u.Hostname(), watcher)
@@ -608,6 +614,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 			conn, err := grpc.DialContext(ctx, u.Host, securityOption, msgSizeOption)
 			if err != nil {
 				log.Errorf("Unable to dial MCP Server %q: %v", u.Host, err)
+				cancel()
 				return err
 			}
 			cl := mcpapi.NewAggregatedMeshConfigServiceClient(conn)
