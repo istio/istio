@@ -87,8 +87,8 @@ func NewHelmDeployment(c HelmConfig) (*Instance, error) {
 		return nil, fmt.Errorf("unable to write helm generated yaml: %v", err)
 	}
 
-	scopes.CI.Infof("Applying Helm generated Yaml file: %s", yamlFilePath)
-	return NewYamlDeployment(c.Accessor, c.Namespace, yamlFilePath)
+	scopes.CI.Infof("Created Helm-generated Yaml file: %s", yamlFilePath)
+	return NewYamlDeployment(c.Namespace, yamlFilePath), nil
 }
 
 // HelmTemplate calls "helm template".

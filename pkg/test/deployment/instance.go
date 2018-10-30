@@ -30,11 +30,18 @@ type Instance struct {
 	yamlFilePath string
 }
 
-// Wait for installation to complete.
-func (i *Instance) wait(namespace string, a *kube.Accessor) error {
-	if err := a.WaitUntilPodsInNamespaceAreReady(namespace); err != nil {
-		scopes.CI.Errorf("Wait for Istio pods failed: %v", err)
-		return err
+// Deploy this deployment instance.
+func (i *Instance) Deploy(a *kube.Accessor, wait bool) (err error) {
+	scopes.CI.Infof("Applying Yaml file: %s", i.yamlFilePath)
+	if err = a.Apply(i.namespace, i.yamlFilePath); err != nil {
+		return multierror.Prefix(err, "kube apply of generated yaml filed:")
+	}
+
+	if wait {
+		if err := a.WaitUntilPodsInNamespaceAreReady(i.namespace); err != nil {
+			scopes.CI.Errorf("Wait for Istio pods failed: %v", err)
+			return err
+		}
 	}
 
 	return nil
