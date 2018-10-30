@@ -26,7 +26,7 @@ import (
 )
 
 type (
-	builder struct{}
+	builder struct {}
 )
 
 const (
@@ -60,7 +60,7 @@ func GetInfo() adapter.Info {
 		SupportedTemplates: []string{
 			authorization.TemplateName,
 		},
-		NewBuilder:    func() adapter.HandlerBuilder { return &builder{} },
+		NewBuilder: func() adapter.HandlerBuilder { return &builder{} },
 		DefaultConfig: &config.Params{},
 	}
 }
