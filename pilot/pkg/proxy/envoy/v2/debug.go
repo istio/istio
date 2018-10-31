@@ -22,7 +22,7 @@ import (
 	"net/http"
 
 	"github.com/gogo/protobuf/jsonpb"
-	
+
 	authn "istio.io/api/authentication/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
