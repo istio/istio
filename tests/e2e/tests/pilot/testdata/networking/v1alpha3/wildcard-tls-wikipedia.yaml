@@ -1,0 +1,53 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: wikipedia
+spec:
+  hosts:
+  - "*.wikipedia.org"
+  endpoints:
+  - address: wikipedia.org
+  location: MESH_EXTERNAL
+  resolution: DNS
+  ports:
+    - number: 443
+      name: https
+      protocol: TLS
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: en
+spec:
+  hosts:
+  - en.wikipedia.org
+  tls:
+  - match:
+    - port: 443
+      sni_hosts:
+      - en.wikipedia.org
+    route:
+    - destination:
+        host: '*.wikipedia.org'
+        port:
+          number: 443
+      weight: 100
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: de
+spec:
+  hosts:
+  - de.wikipedia.org
+  tls:
+  - match:
+    - port: 443
+      sni_hosts:
+      - de.wikipedia.org
+    route:
+    - destination:
+        host: '*.wikipedia.org'
+        port:
+          number: 443
+      weight: 100

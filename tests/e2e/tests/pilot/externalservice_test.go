@@ -65,6 +65,24 @@ func TestServiceEntry(t *testing.T) {
 		//	url:               "https://google.com",
 		//	shouldBeReachable: false,
 		//},
+		{
+			name:              "REACHABLE_en.wikipedia.org_over_wikipedia_wildcard",
+			config:            "testdata/networking/v1alpha3/wildcard-tls-wikipedia.yaml",
+			url:               "https://en.wikipedia.org/wiki/Main_Page",
+			shouldBeReachable: true,
+		},
+		{
+			name:              "REACHABLE_de.wikipedia.org_over_wikipedia_wildcard",
+			config:            "testdata/networking/v1alpha3/wildcard-tls-wikipedia.yaml",
+			url:               "https://de.wikipedia.org/wiki/Wikipedia:Hauptseite",
+			shouldBeReachable: true,
+		},
+		{
+			name:              "UNREACHABLE_www.wikipedia.org_over_wikipedia_wildcard",
+			config:            "testdata/networking/v1alpha3/wildcard-tls-wikipedia.yaml",
+			url:               "https://www.wikipedia.org",
+			shouldBeReachable: false,
+		},
 	}
 
 	var cfgs *deployableConfig
