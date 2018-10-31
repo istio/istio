@@ -29,7 +29,7 @@ type Schema struct {
 	messageTypeFn messageTypeFn
 }
 
-// SchemaBuilder is a buidler for the Schema type.
+// SchemaBuilder is a buidler for the schema type.
 type SchemaBuilder struct {
 	schema *Schema
 }
@@ -52,9 +52,9 @@ func newSchemaBuilder(messageTypeFn messageTypeFn) *SchemaBuilder {
 }
 
 // Register a proto into the schema.
-func (b *SchemaBuilder) Register(typeURL string) {
+func (b *SchemaBuilder) Register(typeURL string) Info {
 	if _, found := b.schema.byURL[typeURL]; found {
-		panic(fmt.Sprintf("Schema.Register: Proto type is registered multiple times: %q", typeURL))
+		panic(fmt.Sprintf("schema.Register: Proto type is registered multiple times: %q", typeURL))
 	}
 
 	// Before registering, ensure that the proto type is actually reachable.
@@ -65,7 +65,7 @@ func (b *SchemaBuilder) Register(typeURL string) {
 
 	goType := b.schema.messageTypeFn(url.MessageName())
 	if goType == nil {
-		panic(fmt.Sprintf("Schema.Register: Proto type not found: %q", url.MessageName()))
+		panic(fmt.Sprintf("schema.Register: Proto type not found: %q", url.MessageName()))
 	}
 
 	info := Info{
@@ -74,9 +74,11 @@ func (b *SchemaBuilder) Register(typeURL string) {
 	}
 
 	b.schema.byURL[info.TypeURL.String()] = info
+
+	return info
 }
 
-// Build a new Schema from this SchemaBuilder.
+// Build a new schema from this SchemaBuilder.
 func (b *SchemaBuilder) Build() *Schema {
 	s := b.schema
 
@@ -96,7 +98,7 @@ func (s *Schema) Lookup(url string) (Info, bool) {
 func (s *Schema) Get(url string) Info {
 	i, ok := s.Lookup(url)
 	if !ok {
-		panic(fmt.Sprintf("Schema.Get: matching entry not found for url: %q", url))
+		panic(fmt.Sprintf("schema.Get: matching entry not found for url: %q", url))
 	}
 	return i
 }

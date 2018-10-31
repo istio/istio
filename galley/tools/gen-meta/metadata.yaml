@@ -2,6 +2,15 @@
 resources:
 # Types from Pilot
 
+  - kind:        "Ingress"
+    singular:    "ingress"
+    plural:      "ingresses"
+    group:       "extensions"
+    version:     "v1beta1"
+    proto:       "k8s.io.api.extensions.v1beta1.IngressSpec"
+    protoPackage: "k8s.io/api/extensions/v1beta1"
+    converter:    "kube-ingress-resource"
+
   - kind:        "VirtualService"
     singular:    "virtualservice"
     plural:      "virtualservices"
