@@ -45,11 +45,6 @@ var (
 
 	periodicRefreshMetrics = 10 * time.Second
 
-	// clearCacheTime is the max time to squash a series of events.
-	// The push will happen 1 sec after the last config change, or after 'clearCacheTime'
-	// Default value is 1 second, or the value of PILOT_CACHE_SQUASH env
-	clearCacheTime = 1
-
 	// DebounceAfter is the delay added to events to wait
 	// after a registry/config event for debouncing.
 	// This will delay the push by at least this interval, plus
@@ -80,14 +75,6 @@ const (
 )
 
 func init() {
-	cacheSquash := pilot.CacheSquash
-	if len(cacheSquash) > 0 {
-		t, err := strconv.Atoi(cacheSquash)
-		if err == nil {
-			clearCacheTime = t
-		}
-	}
-
 	DebounceAfter = envDuration(pilot.DebounceAfter, 100*time.Millisecond)
 	DebounceMax = envDuration(pilot.DebounceMax, 10*time.Second)
 }
