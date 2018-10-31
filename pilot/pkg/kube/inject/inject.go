@@ -224,7 +224,7 @@ func (p *Params) Validate() error {
 	return ValidateExcludeInboundPorts(p.ExcludeInboundPorts)
 }
 
-// RuntimeConfig specifies the sidecar injection configuration This includes
+// Config specifies the sidecar injection configuration This includes
 // the sidecar template and cluster-side injection policy. It is used
 // by kube-inject, sidecar injector, and http endpoint.
 type Config struct {
