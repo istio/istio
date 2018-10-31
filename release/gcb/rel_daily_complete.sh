@@ -21,14 +21,11 @@ set -o pipefail
 set -x
 
 # shellcheck disable=SC1091
-source "/workspace/gcb_env.sh"
-
-# Copy to a new folder
-gsutil -q cp -r "gs://${CB_GCS_STAGING_BUCKET}/daily-build/${CB_VERSION}/*" "gs://${CB_GCS_STAGING_BUCKET}/daily-build/${CB_BRANCH}-latest-daily-new/"
+#source "/workspace/gcb_env.sh"
 
 # Remove the old folder in case there is any stale file.
 gsutil -q rm -rf "gs://${CB_GCS_STAGING_BUCKET}/daily-build/${CB_BRANCH}-latest-daily/" || echo "No old build"
 
-# Move the files to the static folder
-gsutil -q mv "gs://${CB_GCS_STAGING_BUCKET}/daily-build/${CB_BRANCH}-latest-daily-new/"  "gs://${CB_GCS_STAGING_BUCKET}/daily-build/${CB_BRANCH}-latest-daily/"
+# Copy to the stable folder
+gsutil -q cp -r "gs://${CB_GCS_STAGING_BUCKET}/daily-build/${CB_VERSION}/*" "gs://${CB_GCS_STAGING_BUCKET}/daily-build/${CB_BRANCH}-latest-daily/"
 
