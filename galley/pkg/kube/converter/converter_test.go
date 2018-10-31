@@ -22,7 +22,13 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	"istio.io/istio/galley/pkg/meshconfig"
+	"istio.io/istio/pilot/pkg/model"
+	"k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	meshcfg "istio.io/api/mesh/v1alpha1"
+	"k8s.io/apimachinery/pkg/util/intstr"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	"istio.io/istio/galley/pkg/kube/converter/legacy"
@@ -343,5 +349,56 @@ func TestAuthPolicyResource(t *testing.T) {
 				tt.Fatalf("Mismatch:\nGot:\n%v\nWanted:\n%v\n", gotProto, c.wantProto)
 			}
 		})
+	}
+}
+
+
+
+func TestShouldProcessIngress(t *testing.T) {
+	istio := model.DefaultMeshConfig().IngressClass
+	cases := []struct {
+		ingressMode   meshcfg.MeshConfig_IngressControllerMode
+		ingressClass  string
+		shouldProcess bool
+	}{
+		{ingressMode: meshcfg.MeshConfig_DEFAULT, ingressClass: "nginx", shouldProcess: false},
+		{ingressMode: meshcfg.MeshConfig_STRICT, ingressClass: "nginx", shouldProcess: false},
+		{ingressMode: meshcfg.MeshConfig_OFF, ingressClass: istio, shouldProcess: false},
+		{ingressMode: meshcfg.MeshConfig_DEFAULT, ingressClass: istio, shouldProcess: true},
+		{ingressMode: meshcfg.MeshConfig_STRICT, ingressClass: istio, shouldProcess: true},
+		{ingressMode: meshcfg.MeshConfig_DEFAULT, ingressClass: "", shouldProcess: true},
+		{ingressMode: meshcfg.MeshConfig_STRICT, ingressClass: "", shouldProcess: false},
+		{ingressMode: -1, shouldProcess: false},
+	}
+
+	for _, c := range cases {
+		ing := v1beta1.Ingress{
+			ObjectMeta: meta_v1.ObjectMeta{
+				Name:        "test-ingress",
+				Namespace:   "default",
+				Annotations: make(map[string]string),
+			},
+			Spec: v1beta1.IngressSpec{
+				Backend: &v1beta1.IngressBackend{
+					ServiceName: "default-http-backend",
+					ServicePort: intstr.FromInt(80),
+				},
+			},
+		}
+
+		mesh := model.DefaultMeshConfig()
+		mesh.IngressControllerMode = c.ingressMode
+		cch := meshconfig.NewInMemory()
+		cch.Set(mesh)
+		cfg := Config{Mesh:cch}
+
+		if c.ingressClass != "" {
+			ing.Annotations["kubernetes.io/ingress.class"] = c.ingressClass
+		}
+
+		if c.shouldProcess != shouldProcessIngress(&cfg, &ing) {
+			t.Errorf("shouldProcessIngress(<ingress of class '%s'>) => %v, want %v",
+				c.ingressClass, !c.shouldProcess, c.shouldProcess)
+		}
 	}
 }
