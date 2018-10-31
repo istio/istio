@@ -43,7 +43,7 @@ func (m *ValueMatcher) Reset()         { *m = ValueMatcher{} }
 func (m *ValueMatcher) String() string { return proto.CompactTextString(m) }
 func (*ValueMatcher) ProtoMessage()    {}
 func (*ValueMatcher) Descriptor() ([]byte, []int) {
-	return fileDescriptor_value_e8e88d61fb6314a5, []int{0}
+	return fileDescriptor_value_83f5161a937e8bc9, []int{0}
 }
 func (m *ValueMatcher) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -312,7 +312,7 @@ func (m *ValueMatcher_NullMatch) Reset()         { *m = ValueMatcher_NullMatch{}
 func (m *ValueMatcher_NullMatch) String() string { return proto.CompactTextString(m) }
 func (*ValueMatcher_NullMatch) ProtoMessage()    {}
 func (*ValueMatcher_NullMatch) Descriptor() ([]byte, []int) {
-	return fileDescriptor_value_e8e88d61fb6314a5, []int{0, 0}
+	return fileDescriptor_value_83f5161a937e8bc9, []int{0, 0}
 }
 func (m *ValueMatcher_NullMatch) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -355,7 +355,7 @@ func (m *ListMatcher) Reset()         { *m = ListMatcher{} }
 func (m *ListMatcher) String() string { return proto.CompactTextString(m) }
 func (*ListMatcher) ProtoMessage()    {}
 func (*ListMatcher) Descriptor() ([]byte, []int) {
-	return fileDescriptor_value_e8e88d61fb6314a5, []int{1}
+	return fileDescriptor_value_83f5161a937e8bc9, []int{1}
 }
 func (m *ListMatcher) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1215,10 +1215,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/type/matcher/value.proto", fileDescriptor_value_e8e88d61fb6314a5)
+	proto.RegisterFile("envoy/type/matcher/value.proto", fileDescriptor_value_83f5161a937e8bc9)
 }
 
-var fileDescriptor_value_e8e88d61fb6314a5 = []byte{
+var fileDescriptor_value_83f5161a937e8bc9 = []byte{
 	// 349 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x84, 0x92, 0x4d, 0x4b, 0xc3, 0x30,
 	0x18, 0xc7, 0x17, 0xe7, 0xa6, 0x7b, 0xba, 0x5d, 0x02, 0xbe, 0xb0, 0x43, 0x37, 0x07, 0xc2, 0xf0,

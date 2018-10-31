@@ -28,7 +28,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/galley/pkg/kube"
-
 	"istio.io/istio/galley/pkg/runtime/resource"
 )
 
@@ -72,7 +71,7 @@ func newListener(
 		return nil, err
 	}
 
-	iface := client.Resource(spec.APIResource(), "")
+	iface := client.Resource(spec.GroupVersion().WithResource(spec.Plural))
 
 	return &listener{
 		spec:         spec,

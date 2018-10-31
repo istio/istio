@@ -6,10 +6,16 @@
 
 	It is generated from these files:
 		mesh/v1alpha1/config.proto
+		mesh/v1alpha1/network.proto
+		mesh/v1alpha1/proxy.proto
 
 	It has these top-level messages:
-		ProxyConfig
 		MeshConfig
+		ConfigSource
+		Network
+		MeshNetworks
+		Tracing
+		ProxyConfig
 */
 package v1alpha1
 
@@ -17,6 +23,7 @@ import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
 import google_protobuf "github.com/gogo/protobuf/types"
+import istio_networking_v1alpha31 "istio.io/api/networking/v1alpha3"
 
 import io "io"
 
@@ -30,70 +37,6 @@ var _ = math.Inf
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
-
-// AuthenticationPolicy defines authentication policy. It can be set for
-// different scopes (mesh, service …), and the most narrow scope with
-// non-INHERIT value will be used.
-// Mesh policy cannot be INHERIT.
-type AuthenticationPolicy int32
-
-const (
-	// Do not encrypt Envoy to Envoy traffic.
-	AuthenticationPolicy_NONE AuthenticationPolicy = 0
-	// Envoy to Envoy traffic is wrapped into mutual TLS connections.
-	AuthenticationPolicy_MUTUAL_TLS AuthenticationPolicy = 1
-	// Use the policy defined by the parent scope. Should not be used for mesh
-	// policy.
-	AuthenticationPolicy_INHERIT AuthenticationPolicy = 1000
-)
-
-var AuthenticationPolicy_name = map[int32]string{
-	0:    "NONE",
-	1:    "MUTUAL_TLS",
-	1000: "INHERIT",
-}
-var AuthenticationPolicy_value = map[string]int32{
-	"NONE":       0,
-	"MUTUAL_TLS": 1,
-	"INHERIT":    1000,
-}
-
-func (x AuthenticationPolicy) String() string {
-	return proto.EnumName(AuthenticationPolicy_name, int32(x))
-}
-func (AuthenticationPolicy) EnumDescriptor() ([]byte, []int) { return fileDescriptorConfig, []int{0} }
-
-// The mode used to redirect inbound traffic to Envoy.
-// This setting has no effect on outbound traffic: iptables REDIRECT is always used for
-// outbound connections.
-type ProxyConfig_InboundInterceptionMode int32
-
-const (
-	// The REDIRECT mode uses iptables REDIRECT to NAT and redirect to Envoy. This mode loses
-	// source IP addresses during redirection.
-	ProxyConfig_REDIRECT ProxyConfig_InboundInterceptionMode = 0
-	// The TPROXY mode uses iptables TPROXY to redirect to Envoy. This mode preserves both the
-	// source and destination IP addresses and ports, so that they can be used for advanced
-	// filtering and manipulation. This mode also configures the sidecar to run with the
-	// CAP_NET_ADMIN capability, which is required to use TPROXY.
-	ProxyConfig_TPROXY ProxyConfig_InboundInterceptionMode = 1
-)
-
-var ProxyConfig_InboundInterceptionMode_name = map[int32]string{
-	0: "REDIRECT",
-	1: "TPROXY",
-}
-var ProxyConfig_InboundInterceptionMode_value = map[string]int32{
-	"REDIRECT": 0,
-	"TPROXY":   1,
-}
-
-func (x ProxyConfig_InboundInterceptionMode) String() string {
-	return proto.EnumName(ProxyConfig_InboundInterceptionMode_name, int32(x))
-}
-func (ProxyConfig_InboundInterceptionMode) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptorConfig, []int{0, 0}
-}
 
 type MeshConfig_IngressControllerMode int32
 
@@ -129,16 +72,14 @@ func (x MeshConfig_IngressControllerMode) String() string {
 	return proto.EnumName(MeshConfig_IngressControllerMode_name, int32(x))
 }
 func (MeshConfig_IngressControllerMode) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptorConfig, []int{1, 0}
+	return fileDescriptorConfig, []int{0, 0}
 }
 
-// TODO AuthPolicy needs to be removed and merged with AuthPolicy defined above
+// $hide_from_docs
 type MeshConfig_AuthPolicy int32
 
 const (
-	// Do not encrypt Envoy to Envoy traffic.
-	MeshConfig_NONE MeshConfig_AuthPolicy = 0
-	// Envoy to Envoy traffic is wrapped into mutual TLS connections.
+	MeshConfig_NONE       MeshConfig_AuthPolicy = 0
 	MeshConfig_MUTUAL_TLS MeshConfig_AuthPolicy = 1
 )
 
@@ -155,212 +96,7 @@ func (x MeshConfig_AuthPolicy) String() string {
 	return proto.EnumName(MeshConfig_AuthPolicy_name, int32(x))
 }
 func (MeshConfig_AuthPolicy) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptorConfig, []int{1, 1}
-}
-
-type MeshConfig_OutboundTrafficPolicy_Mode int32
-
-const (
-	// outbound traffic will be restricted to services defined in the service registry as well as those defined
-	// through ServiceEntries
-	MeshConfig_OutboundTrafficPolicy_REGISTRY_ONLY MeshConfig_OutboundTrafficPolicy_Mode = 0
-	// outbound traffic to unknown destinations will be allowed
-	MeshConfig_OutboundTrafficPolicy_ALLOW_ANY MeshConfig_OutboundTrafficPolicy_Mode = 1
-	// not implemented. outbound traffic will be restricted to destinations defined in VirtualServices only
-	MeshConfig_OutboundTrafficPolicy_VIRTUAL_SERVICE_ONLY MeshConfig_OutboundTrafficPolicy_Mode = 2
-)
-
-var MeshConfig_OutboundTrafficPolicy_Mode_name = map[int32]string{
-	0: "REGISTRY_ONLY",
-	1: "ALLOW_ANY",
-	2: "VIRTUAL_SERVICE_ONLY",
-}
-var MeshConfig_OutboundTrafficPolicy_Mode_value = map[string]int32{
-	"REGISTRY_ONLY":        0,
-	"ALLOW_ANY":            1,
-	"VIRTUAL_SERVICE_ONLY": 2,
-}
-
-func (x MeshConfig_OutboundTrafficPolicy_Mode) String() string {
-	return proto.EnumName(MeshConfig_OutboundTrafficPolicy_Mode_name, int32(x))
-}
-func (MeshConfig_OutboundTrafficPolicy_Mode) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptorConfig, []int{1, 0, 0}
-}
-
-// ProxyConfig defines variables for individual Envoy instances.
-type ProxyConfig struct {
-	// Path to the generated configuration file directory.
-	// Proxy agent generates the actual configuration and stores it in this directory.
-	ConfigPath string `protobuf:"bytes,1,opt,name=config_path,json=configPath,proto3" json:"config_path,omitempty"`
-	// Path to the proxy binary
-	BinaryPath string `protobuf:"bytes,2,opt,name=binary_path,json=binaryPath,proto3" json:"binary_path,omitempty"`
-	// Service cluster defines the name for the service_cluster that is
-	// shared by all Envoy instances. This setting corresponds to
-	// _--service-cluster_ flag in Envoy.  In a typical Envoy deployment, the
-	// _service-cluster_ flag is used to identify the caller, for
-	// source-based routing scenarios.
-	//
-	// Since Istio does not assign a local service/service version to each
-	// Envoy instance, the name is same for all of them.  However, the
-	// source/caller's identity (e.g., IP address) is encoded in the
-	// _--service-node_ flag when launching Envoy.  When the RDS service
-	// receives API calls from Envoy, it uses the value of the _service-node_
-	// flag to compute routes that are relative to the service instances
-	// located at that IP address.
-	ServiceCluster string `protobuf:"bytes,3,opt,name=service_cluster,json=serviceCluster,proto3" json:"service_cluster,omitempty"`
-	// The time in seconds that Envoy will drain connections during a hot
-	// restart. MUST be >=1s (e.g., _1s/1m/1h_)
-	DrainDuration *google_protobuf.Duration `protobuf:"bytes,4,opt,name=drain_duration,json=drainDuration" json:"drain_duration,omitempty"`
-	// The time in seconds that Envoy will wait before shutting down the
-	// parent process during a hot restart. MUST be >=1s (e.g., _1s/1m/1h_).
-	// MUST BE greater than _drain_duration_ parameter.
-	ParentShutdownDuration *google_protobuf.Duration `protobuf:"bytes,5,opt,name=parent_shutdown_duration,json=parentShutdownDuration" json:"parent_shutdown_duration,omitempty"`
-	// Address of the discovery service exposing xDS with mTLS connection.
-	DiscoveryAddress string `protobuf:"bytes,6,opt,name=discovery_address,json=discoveryAddress,proto3" json:"discovery_address,omitempty"`
-	// Address of the Zipkin service (e.g. _zipkin:9411_).
-	ZipkinAddress string `protobuf:"bytes,8,opt,name=zipkin_address,json=zipkinAddress,proto3" json:"zipkin_address,omitempty"`
-	// Connection timeout used by Envoy for supporting services. (MUST BE >=1ms)
-	ConnectTimeout *google_protobuf.Duration `protobuf:"bytes,9,opt,name=connect_timeout,json=connectTimeout" json:"connect_timeout,omitempty"`
-	// IP Address and Port of a statsd UDP listener (e.g. _10.75.241.127:9125_).
-	StatsdUdpAddress string `protobuf:"bytes,10,opt,name=statsd_udp_address,json=statsdUdpAddress,proto3" json:"statsd_udp_address,omitempty"`
-	// Port on which Envoy should listen for administrative commands.
-	ProxyAdminPort int32 `protobuf:"varint,11,opt,name=proxy_admin_port,json=proxyAdminPort,proto3" json:"proxy_admin_port,omitempty"`
-	// Authentication policy defines the global switch to control authentication
-	// for Envoy-to-Envoy communication for istio components Mixer and Pilot.
-	ControlPlaneAuthPolicy AuthenticationPolicy `protobuf:"varint,13,opt,name=control_plane_auth_policy,json=controlPlaneAuthPolicy,proto3,enum=istio.mesh.v1alpha1.AuthenticationPolicy" json:"control_plane_auth_policy,omitempty"`
-	// File path of custom proxy configuration, currently used by proxies
-	// in front of Mixer and Pilot.
-	CustomConfigFile string `protobuf:"bytes,14,opt,name=custom_config_file,json=customConfigFile,proto3" json:"custom_config_file,omitempty"`
-	// Maximum length of name field in Envoy's metrics. The length of the name field
-	// is determined by the length of a name field in a service and the set of labels that
-	// comprise a particular version of the service. The default value is set to 189 characters.
-	// Envoy's internal metrics take up 67 characters, for a total of 256 character name per metric.
-	// Increase the value of this field if you find that the metrics from Envoys are truncated.
-	StatNameLength int32 `protobuf:"varint,15,opt,name=stat_name_length,json=statNameLength,proto3" json:"stat_name_length,omitempty"`
-	// The number of worker threads to run. Default value is number of cores on the machine.
-	Concurrency int32 `protobuf:"varint,16,opt,name=concurrency,proto3" json:"concurrency,omitempty"`
-	// Path to the proxy bootstrap template file
-	ProxyBootstrapTemplatePath string `protobuf:"bytes,17,opt,name=proxy_bootstrap_template_path,json=proxyBootstrapTemplatePath,proto3" json:"proxy_bootstrap_template_path,omitempty"`
-	// The mode used to redirect inbound traffic to Envoy.
-	InterceptionMode ProxyConfig_InboundInterceptionMode `protobuf:"varint,18,opt,name=interception_mode,json=interceptionMode,proto3,enum=istio.mesh.v1alpha1.ProxyConfig_InboundInterceptionMode" json:"interception_mode,omitempty"`
-}
-
-func (m *ProxyConfig) Reset()                    { *m = ProxyConfig{} }
-func (m *ProxyConfig) String() string            { return proto.CompactTextString(m) }
-func (*ProxyConfig) ProtoMessage()               {}
-func (*ProxyConfig) Descriptor() ([]byte, []int) { return fileDescriptorConfig, []int{0} }
-
-func (m *ProxyConfig) GetConfigPath() string {
-	if m != nil {
-		return m.ConfigPath
-	}
-	return ""
-}
-
-func (m *ProxyConfig) GetBinaryPath() string {
-	if m != nil {
-		return m.BinaryPath
-	}
-	return ""
-}
-
-func (m *ProxyConfig) GetServiceCluster() string {
-	if m != nil {
-		return m.ServiceCluster
-	}
-	return ""
-}
-
-func (m *ProxyConfig) GetDrainDuration() *google_protobuf.Duration {
-	if m != nil {
-		return m.DrainDuration
-	}
-	return nil
-}
-
-func (m *ProxyConfig) GetParentShutdownDuration() *google_protobuf.Duration {
-	if m != nil {
-		return m.ParentShutdownDuration
-	}
-	return nil
-}
-
-func (m *ProxyConfig) GetDiscoveryAddress() string {
-	if m != nil {
-		return m.DiscoveryAddress
-	}
-	return ""
-}
-
-func (m *ProxyConfig) GetZipkinAddress() string {
-	if m != nil {
-		return m.ZipkinAddress
-	}
-	return ""
-}
-
-func (m *ProxyConfig) GetConnectTimeout() *google_protobuf.Duration {
-	if m != nil {
-		return m.ConnectTimeout
-	}
-	return nil
-}
-
-func (m *ProxyConfig) GetStatsdUdpAddress() string {
-	if m != nil {
-		return m.StatsdUdpAddress
-	}
-	return ""
-}
-
-func (m *ProxyConfig) GetProxyAdminPort() int32 {
-	if m != nil {
-		return m.ProxyAdminPort
-	}
-	return 0
-}
-
-func (m *ProxyConfig) GetControlPlaneAuthPolicy() AuthenticationPolicy {
-	if m != nil {
-		return m.ControlPlaneAuthPolicy
-	}
-	return AuthenticationPolicy_NONE
-}
-
-func (m *ProxyConfig) GetCustomConfigFile() string {
-	if m != nil {
-		return m.CustomConfigFile
-	}
-	return ""
-}
-
-func (m *ProxyConfig) GetStatNameLength() int32 {
-	if m != nil {
-		return m.StatNameLength
-	}
-	return 0
-}
-
-func (m *ProxyConfig) GetConcurrency() int32 {
-	if m != nil {
-		return m.Concurrency
-	}
-	return 0
-}
-
-func (m *ProxyConfig) GetProxyBootstrapTemplatePath() string {
-	if m != nil {
-		return m.ProxyBootstrapTemplatePath
-	}
-	return ""
-}
-
-func (m *ProxyConfig) GetInterceptionMode() ProxyConfig_InboundInterceptionMode {
-	if m != nil {
-		return m.InterceptionMode
-	}
-	return ProxyConfig_REDIRECT
+	return fileDescriptorConfig, []int{0, 1}
 }
 
 // MeshConfig defines mesh-wide variables shared by all Envoy instances in the
@@ -388,6 +124,10 @@ type MeshConfig struct {
 	// Disable policy checks by the mixer service. Default
 	// is false, i.e. mixer policy check is enabled by default.
 	DisablePolicyChecks bool `protobuf:"varint,3,opt,name=disable_policy_checks,json=disablePolicyChecks,proto3" json:"disable_policy_checks,omitempty"`
+	// Allow all traffic in cases when the mixer policy service cannot be reached.
+	// Default is false which means the traffic is denied when the client is unable
+	// to connect to Mixer.
+	PolicyCheckFailOpen bool `protobuf:"varint,25,opt,name=policy_check_fail_open,json=policyCheckFailOpen,proto3" json:"policy_check_fail_open,omitempty"`
 	// Port on which Envoy should listen for incoming connections from
 	// other services.
 	ProxyListenPort int32 `protobuf:"varint,4,opt,name=proxy_listen_port,json=proxyListenPort,proto3" json:"proxy_listen_port,omitempty"`
@@ -403,9 +143,7 @@ type MeshConfig struct {
 	IngressService string `protobuf:"bytes,8,opt,name=ingress_service,json=ingressService,proto3" json:"ingress_service,omitempty"`
 	// Defines whether to use Istio ingress controller for annotated or all ingress resources.
 	IngressControllerMode MeshConfig_IngressControllerMode `protobuf:"varint,9,opt,name=ingress_controller_mode,json=ingressControllerMode,proto3,enum=istio.mesh.v1alpha1.MeshConfig_IngressControllerMode" json:"ingress_controller_mode,omitempty"`
-	// Authentication policy defines the global switch to control authentication
-	// for Envoy-to-Envoy communication.
-	// Use authentication_policy instead.
+	// $hide_from_docs
 	AuthPolicy MeshConfig_AuthPolicy `protobuf:"varint,10,opt,name=auth_policy,json=authPolicy,proto3,enum=istio.mesh.v1alpha1.MeshConfig_AuthPolicy" json:"auth_policy,omitempty"`
 	// Flag to control generation of trace spans and request IDs.
 	// Requires a trace span collector defined in the proxy configuration.
@@ -413,32 +151,36 @@ type MeshConfig struct {
 	// File address for the proxy access log (e.g. /dev/stdout).
 	// Empty value disables access logging.
 	AccessLogFile string `protobuf:"bytes,13,opt,name=access_log_file,json=accessLogFile,proto3" json:"access_log_file,omitempty"`
+	// Format for the proxy access log (text or json).
+	// Default value is text.
+	AccessLogFormat string `protobuf:"bytes,24,opt,name=access_log_format,json=accessLogFormat,proto3" json:"access_log_format,omitempty"`
 	// Default proxy config used by the proxy injection mechanism operating in the mesh
 	// (e.g. Kubernetes admission controller)
 	// In case of Kubernetes, the proxy config is applied once during the injection process,
 	// and remain constant for the duration of the pod. The rest of the mesh config can be changed
 	// at runtime and config gets distributed dynamically.
 	DefaultConfig *ProxyConfig `protobuf:"bytes,14,opt,name=default_config,json=defaultConfig" json:"default_config,omitempty"`
-	// Set the default behavior of the sidecar for handling outbound traffic from the application.
-	// While the default mode should work out of the box, if your application uses one or more external services that
-	// are not known apriori, setting the policy to ALLOW_ANY will cause the sidecars to route traffic to the any
-	// requested destination.
-	// Users are strongly encouraged to use ServiceEntries to explicitly declare any external dependencies,
-	// instead of using allow_any.
-	OutboundTrafficPolicy *MeshConfig_OutboundTrafficPolicy `protobuf:"bytes,17,opt,name=outbound_traffic_policy,json=outboundTrafficPolicy" json:"outbound_traffic_policy,omitempty"`
 	// Enables clide side policy checks.
 	EnableClientSidePolicyCheck bool `protobuf:"varint,19,opt,name=enable_client_side_policy_check,json=enableClientSidePolicyCheck,proto3" json:"enable_client_side_policy_check,omitempty"`
 	// Unix Domain Socket through which envoy communicates with NodeAgent SDS to get key/cert for mTLS.
 	// Use secret-mount files instead of SDS if set to empty.
 	SdsUdsPath string `protobuf:"bytes,20,opt,name=sds_uds_path,json=sdsUdsPath,proto3" json:"sds_uds_path,omitempty"`
-	// Address of the galley service exposing the Mesh Control Protocol (MCP).
-	GalleyAddress string `protobuf:"bytes,22,opt,name=galley_address,json=galleyAddress,proto3" json:"galley_address,omitempty"`
+	// ConfigSource describes a source of configuration data for networking
+	// rules, and other Istio configuration artifacts. Multiple data sources
+	// can be configured for a single control plane.
+	ConfigSources []*ConfigSource `protobuf:"bytes,22,rep,name=config_sources,json=configSources" json:"config_sources,omitempty"`
+	// $hide_from_docs
+	// This flag is used by secret discovery service(SDS).
+	// If set to true(prerequisite: https://kubernetes.io/docs/concepts/storage/volumes/#projected), Istio will inject volumes mount
+	// for k8s service account JWT, so that K8s API server mounts k8s service account JWT to envoy container, which
+	// will be used to generate key/cert eventually. This isn't supported for non-k8s case.
+	EnableSdsTokenMount bool `protobuf:"varint,23,opt,name=enable_sds_token_mount,json=enableSdsTokenMount,proto3" json:"enable_sds_token_mount,omitempty"`
 }
 
 func (m *MeshConfig) Reset()                    { *m = MeshConfig{} }
 func (m *MeshConfig) String() string            { return proto.CompactTextString(m) }
 func (*MeshConfig) ProtoMessage()               {}
-func (*MeshConfig) Descriptor() ([]byte, []int) { return fileDescriptorConfig, []int{1} }
+func (*MeshConfig) Descriptor() ([]byte, []int) { return fileDescriptorConfig, []int{0} }
 
 func (m *MeshConfig) GetMixerCheckServer() string {
 	if m != nil {
@@ -457,6 +199,13 @@ func (m *MeshConfig) GetMixerReportServer() string {
 func (m *MeshConfig) GetDisablePolicyChecks() bool {
 	if m != nil {
 		return m.DisablePolicyChecks
+	}
+	return false
+}
+
+func (m *MeshConfig) GetPolicyCheckFailOpen() bool {
+	if m != nil {
+		return m.PolicyCheckFailOpen
 	}
 	return false
 }
@@ -524,16 +273,16 @@ func (m *MeshConfig) GetAccessLogFile() string {
 	return ""
 }
 
+func (m *MeshConfig) GetAccessLogFormat() string {
+	if m != nil {
+		return m.AccessLogFormat
+	}
+	return ""
+}
+
 func (m *MeshConfig) GetDefaultConfig() *ProxyConfig {
 	if m != nil {
 		return m.DefaultConfig
-	}
-	return nil
-}
-
-func (m *MeshConfig) GetOutboundTrafficPolicy() *MeshConfig_OutboundTrafficPolicy {
-	if m != nil {
-		return m.OutboundTrafficPolicy
 	}
 	return nil
 }
@@ -552,168 +301,59 @@ func (m *MeshConfig) GetSdsUdsPath() string {
 	return ""
 }
 
-func (m *MeshConfig) GetGalleyAddress() string {
+func (m *MeshConfig) GetConfigSources() []*ConfigSource {
 	if m != nil {
-		return m.GalleyAddress
+		return m.ConfigSources
+	}
+	return nil
+}
+
+func (m *MeshConfig) GetEnableSdsTokenMount() bool {
+	if m != nil {
+		return m.EnableSdsTokenMount
+	}
+	return false
+}
+
+// ConfigSource describes information about a configuration store inside a
+// mesh. A single control plane instance can interact with one or more data
+// sources.
+type ConfigSource struct {
+	// Address of the server implementing the Istio Mesh Configuration
+	// protocol (MCP). Can be IP address or a fully qualified DNS name.
+	// Use file:/// to specify a file-based backend with absolute path to the directory.
+	Address string `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
+	// Use the tls_settings to specify the tls mode to use. If the MCP server
+	// uses Istio MTLS and shares the root CA with Pilot, specify the TLS
+	// mode as ISTIO_MUTUAL.
+	TlsSettings *istio_networking_v1alpha31.TLSSettings `protobuf:"bytes,2,opt,name=tls_settings,json=tlsSettings" json:"tls_settings,omitempty"`
+}
+
+func (m *ConfigSource) Reset()                    { *m = ConfigSource{} }
+func (m *ConfigSource) String() string            { return proto.CompactTextString(m) }
+func (*ConfigSource) ProtoMessage()               {}
+func (*ConfigSource) Descriptor() ([]byte, []int) { return fileDescriptorConfig, []int{1} }
+
+func (m *ConfigSource) GetAddress() string {
+	if m != nil {
+		return m.Address
 	}
 	return ""
 }
 
-type MeshConfig_OutboundTrafficPolicy struct {
-	Mode MeshConfig_OutboundTrafficPolicy_Mode `protobuf:"varint,1,opt,name=mode,proto3,enum=istio.mesh.v1alpha1.MeshConfig_OutboundTrafficPolicy_Mode" json:"mode,omitempty"`
-}
-
-func (m *MeshConfig_OutboundTrafficPolicy) Reset()         { *m = MeshConfig_OutboundTrafficPolicy{} }
-func (m *MeshConfig_OutboundTrafficPolicy) String() string { return proto.CompactTextString(m) }
-func (*MeshConfig_OutboundTrafficPolicy) ProtoMessage()    {}
-func (*MeshConfig_OutboundTrafficPolicy) Descriptor() ([]byte, []int) {
-	return fileDescriptorConfig, []int{1, 0}
-}
-
-func (m *MeshConfig_OutboundTrafficPolicy) GetMode() MeshConfig_OutboundTrafficPolicy_Mode {
+func (m *ConfigSource) GetTlsSettings() *istio_networking_v1alpha31.TLSSettings {
 	if m != nil {
-		return m.Mode
+		return m.TlsSettings
 	}
-	return MeshConfig_OutboundTrafficPolicy_REGISTRY_ONLY
+	return nil
 }
 
 func init() {
-	proto.RegisterType((*ProxyConfig)(nil), "istio.mesh.v1alpha1.ProxyConfig")
 	proto.RegisterType((*MeshConfig)(nil), "istio.mesh.v1alpha1.MeshConfig")
-	proto.RegisterType((*MeshConfig_OutboundTrafficPolicy)(nil), "istio.mesh.v1alpha1.MeshConfig.OutboundTrafficPolicy")
-	proto.RegisterEnum("istio.mesh.v1alpha1.AuthenticationPolicy", AuthenticationPolicy_name, AuthenticationPolicy_value)
-	proto.RegisterEnum("istio.mesh.v1alpha1.ProxyConfig_InboundInterceptionMode", ProxyConfig_InboundInterceptionMode_name, ProxyConfig_InboundInterceptionMode_value)
+	proto.RegisterType((*ConfigSource)(nil), "istio.mesh.v1alpha1.ConfigSource")
 	proto.RegisterEnum("istio.mesh.v1alpha1.MeshConfig_IngressControllerMode", MeshConfig_IngressControllerMode_name, MeshConfig_IngressControllerMode_value)
 	proto.RegisterEnum("istio.mesh.v1alpha1.MeshConfig_AuthPolicy", MeshConfig_AuthPolicy_name, MeshConfig_AuthPolicy_value)
-	proto.RegisterEnum("istio.mesh.v1alpha1.MeshConfig_OutboundTrafficPolicy_Mode", MeshConfig_OutboundTrafficPolicy_Mode_name, MeshConfig_OutboundTrafficPolicy_Mode_value)
 }
-func (m *ProxyConfig) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *ProxyConfig) MarshalTo(dAtA []byte) (int, error) {
-	var i int
-	_ = i
-	var l int
-	_ = l
-	if len(m.ConfigPath) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(len(m.ConfigPath)))
-		i += copy(dAtA[i:], m.ConfigPath)
-	}
-	if len(m.BinaryPath) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(len(m.BinaryPath)))
-		i += copy(dAtA[i:], m.BinaryPath)
-	}
-	if len(m.ServiceCluster) > 0 {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(len(m.ServiceCluster)))
-		i += copy(dAtA[i:], m.ServiceCluster)
-	}
-	if m.DrainDuration != nil {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(m.DrainDuration.Size()))
-		n1, err := m.DrainDuration.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n1
-	}
-	if m.ParentShutdownDuration != nil {
-		dAtA[i] = 0x2a
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(m.ParentShutdownDuration.Size()))
-		n2, err := m.ParentShutdownDuration.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n2
-	}
-	if len(m.DiscoveryAddress) > 0 {
-		dAtA[i] = 0x32
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(len(m.DiscoveryAddress)))
-		i += copy(dAtA[i:], m.DiscoveryAddress)
-	}
-	if len(m.ZipkinAddress) > 0 {
-		dAtA[i] = 0x42
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(len(m.ZipkinAddress)))
-		i += copy(dAtA[i:], m.ZipkinAddress)
-	}
-	if m.ConnectTimeout != nil {
-		dAtA[i] = 0x4a
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(m.ConnectTimeout.Size()))
-		n3, err := m.ConnectTimeout.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n3
-	}
-	if len(m.StatsdUdpAddress) > 0 {
-		dAtA[i] = 0x52
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(len(m.StatsdUdpAddress)))
-		i += copy(dAtA[i:], m.StatsdUdpAddress)
-	}
-	if m.ProxyAdminPort != 0 {
-		dAtA[i] = 0x58
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(m.ProxyAdminPort))
-	}
-	if m.ControlPlaneAuthPolicy != 0 {
-		dAtA[i] = 0x68
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(m.ControlPlaneAuthPolicy))
-	}
-	if len(m.CustomConfigFile) > 0 {
-		dAtA[i] = 0x72
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(len(m.CustomConfigFile)))
-		i += copy(dAtA[i:], m.CustomConfigFile)
-	}
-	if m.StatNameLength != 0 {
-		dAtA[i] = 0x78
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(m.StatNameLength))
-	}
-	if m.Concurrency != 0 {
-		dAtA[i] = 0x80
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(m.Concurrency))
-	}
-	if len(m.ProxyBootstrapTemplatePath) > 0 {
-		dAtA[i] = 0x8a
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(len(m.ProxyBootstrapTemplatePath)))
-		i += copy(dAtA[i:], m.ProxyBootstrapTemplatePath)
-	}
-	if m.InterceptionMode != 0 {
-		dAtA[i] = 0x90
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(m.InterceptionMode))
-	}
-	return i, nil
-}
-
 func (m *MeshConfig) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -765,11 +405,11 @@ func (m *MeshConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x32
 		i++
 		i = encodeVarintConfig(dAtA, i, uint64(m.ConnectTimeout.Size()))
-		n4, err := m.ConnectTimeout.MarshalTo(dAtA[i:])
+		n1, err := m.ConnectTimeout.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n4
+		i += n1
 	}
 	if len(m.IngressClass) > 0 {
 		dAtA[i] = 0x3a
@@ -813,23 +453,11 @@ func (m *MeshConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x72
 		i++
 		i = encodeVarintConfig(dAtA, i, uint64(m.DefaultConfig.Size()))
-		n5, err := m.DefaultConfig.MarshalTo(dAtA[i:])
+		n2, err := m.DefaultConfig.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n5
-	}
-	if m.OutboundTrafficPolicy != nil {
-		dAtA[i] = 0x8a
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(m.OutboundTrafficPolicy.Size()))
-		n6, err := m.OutboundTrafficPolicy.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n6
+		i += n2
 	}
 	if m.EnableClientSidePolicyCheck {
 		dAtA[i] = 0x98
@@ -851,18 +479,56 @@ func (m *MeshConfig) MarshalTo(dAtA []byte) (int, error) {
 		i = encodeVarintConfig(dAtA, i, uint64(len(m.SdsUdsPath)))
 		i += copy(dAtA[i:], m.SdsUdsPath)
 	}
-	if len(m.GalleyAddress) > 0 {
-		dAtA[i] = 0xb2
+	if len(m.ConfigSources) > 0 {
+		for _, msg := range m.ConfigSources {
+			dAtA[i] = 0xb2
+			i++
+			dAtA[i] = 0x1
+			i++
+			i = encodeVarintConfig(dAtA, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(dAtA[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
+		}
+	}
+	if m.EnableSdsTokenMount {
+		dAtA[i] = 0xb8
 		i++
 		dAtA[i] = 0x1
 		i++
-		i = encodeVarintConfig(dAtA, i, uint64(len(m.GalleyAddress)))
-		i += copy(dAtA[i:], m.GalleyAddress)
+		if m.EnableSdsTokenMount {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i++
+	}
+	if len(m.AccessLogFormat) > 0 {
+		dAtA[i] = 0xc2
+		i++
+		dAtA[i] = 0x1
+		i++
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.AccessLogFormat)))
+		i += copy(dAtA[i:], m.AccessLogFormat)
+	}
+	if m.PolicyCheckFailOpen {
+		dAtA[i] = 0xc8
+		i++
+		dAtA[i] = 0x1
+		i++
+		if m.PolicyCheckFailOpen {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i++
 	}
 	return i, nil
 }
 
-func (m *MeshConfig_OutboundTrafficPolicy) Marshal() (dAtA []byte, err error) {
+func (m *ConfigSource) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalTo(dAtA)
@@ -872,15 +538,26 @@ func (m *MeshConfig_OutboundTrafficPolicy) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *MeshConfig_OutboundTrafficPolicy) MarshalTo(dAtA []byte) (int, error) {
+func (m *ConfigSource) MarshalTo(dAtA []byte) (int, error) {
 	var i int
 	_ = i
 	var l int
 	_ = l
-	if m.Mode != 0 {
-		dAtA[i] = 0x8
+	if len(m.Address) > 0 {
+		dAtA[i] = 0xa
 		i++
-		i = encodeVarintConfig(dAtA, i, uint64(m.Mode))
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.Address)))
+		i += copy(dAtA[i:], m.Address)
+	}
+	if m.TlsSettings != nil {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintConfig(dAtA, i, uint64(m.TlsSettings.Size()))
+		n3, err := m.TlsSettings.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n3
 	}
 	return i, nil
 }
@@ -894,71 +571,6 @@ func encodeVarintConfig(dAtA []byte, offset int, v uint64) int {
 	dAtA[offset] = uint8(v)
 	return offset + 1
 }
-func (m *ProxyConfig) Size() (n int) {
-	var l int
-	_ = l
-	l = len(m.ConfigPath)
-	if l > 0 {
-		n += 1 + l + sovConfig(uint64(l))
-	}
-	l = len(m.BinaryPath)
-	if l > 0 {
-		n += 1 + l + sovConfig(uint64(l))
-	}
-	l = len(m.ServiceCluster)
-	if l > 0 {
-		n += 1 + l + sovConfig(uint64(l))
-	}
-	if m.DrainDuration != nil {
-		l = m.DrainDuration.Size()
-		n += 1 + l + sovConfig(uint64(l))
-	}
-	if m.ParentShutdownDuration != nil {
-		l = m.ParentShutdownDuration.Size()
-		n += 1 + l + sovConfig(uint64(l))
-	}
-	l = len(m.DiscoveryAddress)
-	if l > 0 {
-		n += 1 + l + sovConfig(uint64(l))
-	}
-	l = len(m.ZipkinAddress)
-	if l > 0 {
-		n += 1 + l + sovConfig(uint64(l))
-	}
-	if m.ConnectTimeout != nil {
-		l = m.ConnectTimeout.Size()
-		n += 1 + l + sovConfig(uint64(l))
-	}
-	l = len(m.StatsdUdpAddress)
-	if l > 0 {
-		n += 1 + l + sovConfig(uint64(l))
-	}
-	if m.ProxyAdminPort != 0 {
-		n += 1 + sovConfig(uint64(m.ProxyAdminPort))
-	}
-	if m.ControlPlaneAuthPolicy != 0 {
-		n += 1 + sovConfig(uint64(m.ControlPlaneAuthPolicy))
-	}
-	l = len(m.CustomConfigFile)
-	if l > 0 {
-		n += 1 + l + sovConfig(uint64(l))
-	}
-	if m.StatNameLength != 0 {
-		n += 1 + sovConfig(uint64(m.StatNameLength))
-	}
-	if m.Concurrency != 0 {
-		n += 2 + sovConfig(uint64(m.Concurrency))
-	}
-	l = len(m.ProxyBootstrapTemplatePath)
-	if l > 0 {
-		n += 2 + l + sovConfig(uint64(l))
-	}
-	if m.InterceptionMode != 0 {
-		n += 2 + sovConfig(uint64(m.InterceptionMode))
-	}
-	return n
-}
-
 func (m *MeshConfig) Size() (n int) {
 	var l int
 	_ = l
@@ -1008,10 +620,6 @@ func (m *MeshConfig) Size() (n int) {
 		l = m.DefaultConfig.Size()
 		n += 1 + l + sovConfig(uint64(l))
 	}
-	if m.OutboundTrafficPolicy != nil {
-		l = m.OutboundTrafficPolicy.Size()
-		n += 2 + l + sovConfig(uint64(l))
-	}
 	if m.EnableClientSidePolicyCheck {
 		n += 3
 	}
@@ -1019,18 +627,35 @@ func (m *MeshConfig) Size() (n int) {
 	if l > 0 {
 		n += 2 + l + sovConfig(uint64(l))
 	}
-	l = len(m.GalleyAddress)
+	if len(m.ConfigSources) > 0 {
+		for _, e := range m.ConfigSources {
+			l = e.Size()
+			n += 2 + l + sovConfig(uint64(l))
+		}
+	}
+	if m.EnableSdsTokenMount {
+		n += 3
+	}
+	l = len(m.AccessLogFormat)
 	if l > 0 {
 		n += 2 + l + sovConfig(uint64(l))
+	}
+	if m.PolicyCheckFailOpen {
+		n += 3
 	}
 	return n
 }
 
-func (m *MeshConfig_OutboundTrafficPolicy) Size() (n int) {
+func (m *ConfigSource) Size() (n int) {
 	var l int
 	_ = l
-	if m.Mode != 0 {
-		n += 1 + sovConfig(uint64(m.Mode))
+	l = len(m.Address)
+	if l > 0 {
+		n += 1 + l + sovConfig(uint64(l))
+	}
+	if m.TlsSettings != nil {
+		l = m.TlsSettings.Size()
+		n += 1 + l + sovConfig(uint64(l))
 	}
 	return n
 }
@@ -1047,482 +672,6 @@ func sovConfig(x uint64) (n int) {
 }
 func sozConfig(x uint64) (n int) {
 	return sovConfig(uint64((x << 1) ^ uint64((int64(x) >> 63))))
-}
-func (m *ProxyConfig) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowConfig
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: ProxyConfig: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: ProxyConfig: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field ConfigPath", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowConfig
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthConfig
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.ConfigPath = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 2:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field BinaryPath", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowConfig
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthConfig
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.BinaryPath = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 3:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field ServiceCluster", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowConfig
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthConfig
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.ServiceCluster = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 4:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field DrainDuration", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowConfig
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthConfig
-			}
-			postIndex := iNdEx + msglen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.DrainDuration == nil {
-				m.DrainDuration = &google_protobuf.Duration{}
-			}
-			if err := m.DrainDuration.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 5:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field ParentShutdownDuration", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowConfig
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthConfig
-			}
-			postIndex := iNdEx + msglen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.ParentShutdownDuration == nil {
-				m.ParentShutdownDuration = &google_protobuf.Duration{}
-			}
-			if err := m.ParentShutdownDuration.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 6:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field DiscoveryAddress", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowConfig
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthConfig
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.DiscoveryAddress = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 8:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field ZipkinAddress", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowConfig
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthConfig
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.ZipkinAddress = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 9:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field ConnectTimeout", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowConfig
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthConfig
-			}
-			postIndex := iNdEx + msglen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.ConnectTimeout == nil {
-				m.ConnectTimeout = &google_protobuf.Duration{}
-			}
-			if err := m.ConnectTimeout.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 10:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field StatsdUdpAddress", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowConfig
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthConfig
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.StatsdUdpAddress = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 11:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field ProxyAdminPort", wireType)
-			}
-			m.ProxyAdminPort = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowConfig
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				m.ProxyAdminPort |= (int32(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-		case 13:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field ControlPlaneAuthPolicy", wireType)
-			}
-			m.ControlPlaneAuthPolicy = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowConfig
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				m.ControlPlaneAuthPolicy |= (AuthenticationPolicy(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-		case 14:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field CustomConfigFile", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowConfig
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthConfig
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.CustomConfigFile = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 15:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field StatNameLength", wireType)
-			}
-			m.StatNameLength = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowConfig
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				m.StatNameLength |= (int32(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-		case 16:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Concurrency", wireType)
-			}
-			m.Concurrency = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowConfig
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				m.Concurrency |= (int32(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-		case 17:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field ProxyBootstrapTemplatePath", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowConfig
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthConfig
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.ProxyBootstrapTemplatePath = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 18:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field InterceptionMode", wireType)
-			}
-			m.InterceptionMode = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowConfig
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				m.InterceptionMode |= (ProxyConfig_InboundInterceptionMode(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-		default:
-			iNdEx = preIndex
-			skippy, err := skipConfig(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if skippy < 0 {
-				return ErrInvalidLengthConfig
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
 }
 func (m *MeshConfig) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
@@ -1880,39 +1029,6 @@ func (m *MeshConfig) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			iNdEx = postIndex
-		case 17:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field OutboundTrafficPolicy", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowConfig
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthConfig
-			}
-			postIndex := iNdEx + msglen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.OutboundTrafficPolicy == nil {
-				m.OutboundTrafficPolicy = &MeshConfig_OutboundTrafficPolicy{}
-			}
-			if err := m.OutboundTrafficPolicy.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
 		case 19:
 			if wireType != 0 {
 				return fmt.Errorf("proto: wrong wireType = %d for field EnableClientSidePolicyCheck", wireType)
@@ -1964,7 +1080,58 @@ func (m *MeshConfig) Unmarshal(dAtA []byte) error {
 			iNdEx = postIndex
 		case 22:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field GalleyAddress", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field ConfigSources", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthConfig
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.ConfigSources = append(m.ConfigSources, &ConfigSource{})
+			if err := m.ConfigSources[len(m.ConfigSources)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 23:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field EnableSdsTokenMount", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.EnableSdsTokenMount = bool(v != 0)
+		case 24:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field AccessLogFormat", wireType)
 			}
 			var stringLen uint64
 			for shift := uint(0); ; shift += 7 {
@@ -1989,8 +1156,28 @@ func (m *MeshConfig) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.GalleyAddress = string(dAtA[iNdEx:postIndex])
+			m.AccessLogFormat = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
+		case 25:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field PolicyCheckFailOpen", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.PolicyCheckFailOpen = bool(v != 0)
 		default:
 			iNdEx = preIndex
 			skippy, err := skipConfig(dAtA[iNdEx:])
@@ -2012,7 +1199,7 @@ func (m *MeshConfig) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *MeshConfig_OutboundTrafficPolicy) Unmarshal(dAtA []byte) error {
+func (m *ConfigSource) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -2035,17 +1222,17 @@ func (m *MeshConfig_OutboundTrafficPolicy) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: OutboundTrafficPolicy: wiretype end group for non-group")
+			return fmt.Errorf("proto: ConfigSource: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: OutboundTrafficPolicy: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: ConfigSource: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Mode", wireType)
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Address", wireType)
 			}
-			m.Mode = 0
+			var stringLen uint64
 			for shift := uint(0); ; shift += 7 {
 				if shift >= 64 {
 					return ErrIntOverflowConfig
@@ -2055,11 +1242,54 @@ func (m *MeshConfig_OutboundTrafficPolicy) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.Mode |= (MeshConfig_OutboundTrafficPolicy_Mode(b) & 0x7F) << shift
+				stringLen |= (uint64(b) & 0x7F) << shift
 				if b < 0x80 {
 					break
 				}
 			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthConfig
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Address = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field TlsSettings", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthConfig
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.TlsSettings == nil {
+				m.TlsSettings = &istio_networking_v1alpha31.TLSSettings{}
+			}
+			if err := m.TlsSettings.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipConfig(dAtA[iNdEx:])
@@ -2189,79 +1419,58 @@ var (
 func init() { proto.RegisterFile("mesh/v1alpha1/config.proto", fileDescriptorConfig) }
 
 var fileDescriptorConfig = []byte{
-	// 1174 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x56, 0xdd, 0x6e, 0x1b, 0x45,
-	0x14, 0xce, 0xa6, 0x6e, 0xe2, 0x1c, 0xff, 0x64, 0x3d, 0x69, 0xd2, 0x6d, 0x10, 0xa9, 0x15, 0xd4,
-	0x12, 0x4a, 0xe5, 0xa8, 0xa9, 0x90, 0x80, 0x0b, 0x84, 0xe3, 0x38, 0xad, 0x23, 0xd7, 0x8e, 0xd6,
-	0x9b, 0x42, 0xb8, 0x19, 0x4d, 0x76, 0x27, 0xf6, 0xa8, 0xeb, 0x9d, 0xd5, 0xce, 0x6c, 0x69, 0x78,
-	0x03, 0x9e, 0x85, 0x17, 0x41, 0x5c, 0xf1, 0x08, 0xa8, 0x57, 0x3c, 0x06, 0xda, 0x33, 0xe3, 0xc4,
-	0x45, 0xae, 0x22, 0xb8, 0xf4, 0x37, 0xdf, 0x39, 0x73, 0xe6, 0x9c, 0xef, 0x3b, 0x6b, 0xd8, 0x9e,
-	0x72, 0x35, 0xd9, 0x7f, 0xfb, 0x8c, 0xc5, 0xe9, 0x84, 0x3d, 0xdb, 0x0f, 0x65, 0x72, 0x29, 0xc6,
-	0xad, 0x34, 0x93, 0x5a, 0x92, 0x0d, 0xa1, 0xb4, 0x90, 0xad, 0x82, 0xd1, 0x9a, 0x31, 0xb6, 0x77,
-	0xc6, 0x52, 0x8e, 0x63, 0xbe, 0x8f, 0x94, 0x8b, 0xfc, 0x72, 0x3f, 0xca, 0x33, 0xa6, 0x85, 0x4c,
-	0x4c, 0xd0, 0xee, 0x1f, 0xab, 0x50, 0x39, 0xcd, 0xe4, 0xbb, 0xab, 0x0e, 0xa6, 0x22, 0x0f, 0xa1,
-	0x62, 0x92, 0xd2, 0x94, 0xe9, 0x89, 0xe7, 0x34, 0x9d, 0xbd, 0x35, 0x1f, 0x0c, 0x74, 0xca, 0xf4,
-	0xa4, 0x20, 0x5c, 0x88, 0x84, 0x65, 0x57, 0x86, 0xb0, 0x6c, 0x08, 0x06, 0x42, 0xc2, 0xe7, 0xb0,
-	0xae, 0x78, 0xf6, 0x56, 0x84, 0x9c, 0x86, 0x71, 0xae, 0x34, 0xcf, 0xbc, 0x3b, 0x48, 0xaa, 0x5b,
-	0xb8, 0x63, 0x50, 0xf2, 0x3d, 0xd4, 0xa3, 0x8c, 0x89, 0x84, 0xce, 0x4a, 0xf2, 0x4a, 0x4d, 0x67,
-	0xaf, 0x72, 0xf0, 0xa0, 0x65, 0x6a, 0x6e, 0xcd, 0x6a, 0x6e, 0x1d, 0x59, 0x82, 0x5f, 0xc3, 0x80,
-	0xd9, 0x4f, 0x32, 0x02, 0x2f, 0x65, 0x19, 0x4f, 0x34, 0x55, 0x93, 0x5c, 0x47, 0xf2, 0xe7, 0xb9,
-	0x5c, 0x77, 0x6f, 0xcb, 0xb5, 0x65, 0x42, 0x47, 0x36, 0xf2, 0x3a, 0xe9, 0x97, 0xd0, 0x88, 0x84,
-	0x0a, 0xe5, 0x5b, 0x9e, 0x5d, 0x51, 0x16, 0x45, 0x19, 0x57, 0xca, 0x5b, 0xc1, 0x17, 0xb8, 0xd7,
-	0x07, 0x6d, 0x83, 0x93, 0x47, 0x50, 0xff, 0x45, 0xa4, 0x6f, 0x44, 0x72, 0xcd, 0x2c, 0x23, 0xb3,
-	0x66, 0xd0, 0x19, 0xed, 0x10, 0xd6, 0x43, 0x99, 0x24, 0x3c, 0xd4, 0x54, 0x8b, 0x29, 0x97, 0xb9,
-	0xf6, 0xd6, 0x6e, 0xab, 0xaf, 0x6e, 0x23, 0x02, 0x13, 0x40, 0x9e, 0x02, 0x51, 0x9a, 0x69, 0x15,
-	0xd1, 0x3c, 0x4a, 0xaf, 0xaf, 0x03, 0x53, 0x98, 0x39, 0x39, 0x8b, 0xd2, 0xd9, 0x8d, 0x7b, 0xe0,
-	0xa6, 0xc5, 0x58, 0x29, 0x8b, 0xa6, 0x22, 0xa1, 0xa9, 0xcc, 0xb4, 0x57, 0x69, 0x3a, 0x7b, 0x77,
-	0xfd, 0x3a, 0xe2, 0xed, 0x02, 0x3e, 0x95, 0x99, 0x26, 0x11, 0x3c, 0x08, 0x65, 0xa2, 0x33, 0x19,
-	0xd3, 0x34, 0x66, 0x09, 0xa7, 0x2c, 0xd7, 0x13, 0x9a, 0xca, 0x58, 0x84, 0x57, 0x5e, 0xad, 0xe9,
-	0xec, 0xd5, 0x0f, 0xbe, 0x68, 0x2d, 0x90, 0x56, 0xab, 0x9d, 0xeb, 0x09, 0x4f, 0xb4, 0x08, 0xb1,
-	0xde, 0x53, 0x0c, 0xf0, 0xb7, 0x6c, 0xae, 0xd3, 0x22, 0x55, 0xc1, 0x30, 0x78, 0x51, 0x7d, 0x98,
-	0x2b, 0x2d, 0xa7, 0xd4, 0xca, 0xeb, 0x52, 0xc4, 0xdc, 0xab, 0x9b, 0xea, 0xcd, 0x89, 0x51, 0xe0,
-	0xb1, 0x88, 0x79, 0x51, 0x7d, 0xf1, 0x22, 0x9a, 0xb0, 0x29, 0xa7, 0x31, 0x4f, 0xc6, 0x7a, 0xe2,
-	0xad, 0x9b, 0xea, 0x0b, 0x7c, 0xc0, 0xa6, 0xbc, 0x8f, 0x28, 0x69, 0xa2, 0x5e, 0xc3, 0x3c, 0xcb,
-	0x78, 0x12, 0x5e, 0x79, 0x2e, 0x92, 0xe6, 0x21, 0xd2, 0x86, 0x4f, 0x4d, 0x27, 0x2e, 0xa4, 0xd4,
-	0x4a, 0x67, 0x2c, 0xa5, 0x9a, 0x4f, 0xd3, 0x98, 0x69, 0x6e, 0x24, 0xdc, 0xc0, 0x22, 0xb6, 0x91,
-	0x74, 0x38, 0xe3, 0x04, 0x96, 0x82, 0x92, 0xe6, 0xd0, 0x10, 0x89, 0xe6, 0x59, 0xc8, 0xd3, 0xe2,
-	0xa9, 0x74, 0x2a, 0x23, 0xee, 0x11, 0x6c, 0xcd, 0xd7, 0x0b, 0x5b, 0x33, 0xe7, 0xa8, 0x56, 0x2f,
-	0xb9, 0x90, 0x79, 0x12, 0xf5, 0xe6, 0x12, 0xbc, 0x92, 0x11, 0xf7, 0x5d, 0xf1, 0x2f, 0x64, 0xf7,
-	0x39, 0xdc, 0xff, 0x08, 0x99, 0x54, 0xa1, 0xec, 0x77, 0x8f, 0x7a, 0x7e, 0xb7, 0x13, 0xb8, 0x4b,
-	0x04, 0x60, 0x25, 0x38, 0xf5, 0x87, 0x3f, 0x9e, 0xbb, 0xce, 0x49, 0xa9, 0xbc, 0xea, 0x96, 0x4f,
-	0x4a, 0xe5, 0xaa, 0x5b, 0xdb, 0xfd, 0x15, 0x00, 0x5e, 0x71, 0x35, 0xb1, 0x5e, 0x7e, 0x0a, 0x64,
-	0x2a, 0xde, 0xf1, 0x8c, 0x86, 0x13, 0x1e, 0xbe, 0xa1, 0x85, 0xfd, 0x78, 0x66, 0x2d, 0xed, 0xe2,
-	0x49, 0xa7, 0x38, 0x18, 0x21, 0x4e, 0x5a, 0xb0, 0x61, 0xd8, 0x19, 0x2f, 0xd4, 0x32, 0xa3, 0x1b,
-	0x83, 0x37, 0xf0, 0xc8, 0xc7, 0x13, 0xcb, 0x3f, 0x80, 0xcd, 0x48, 0x28, 0x76, 0x11, 0x73, 0x2b,
-	0x16, 0x73, 0x8d, 0x42, 0xb7, 0x97, 0xfd, 0x0d, 0x7b, 0x68, 0xe6, 0x8f, 0x17, 0x29, 0xf2, 0x04,
-	0x1a, 0x66, 0x16, 0xb1, 0x50, 0x9a, 0x5b, 0x59, 0x96, 0x70, 0x66, 0xeb, 0x78, 0xd0, 0x47, 0x1c,
-	0x75, 0xf9, 0x18, 0x0c, 0x44, 0x27, 0x5a, 0xa7, 0x86, 0x79, 0x17, 0x99, 0x35, 0x84, 0x5f, 0x6a,
-	0x9d, 0x22, 0x6f, 0x81, 0xb7, 0x56, 0xfe, 0xab, 0xb7, 0x3e, 0x83, 0x9a, 0x48, 0xc6, 0x85, 0x71,
-	0x68, 0x18, 0x33, 0xa5, 0xbc, 0x55, 0x7c, 0x75, 0xd5, 0x82, 0x9d, 0x02, 0x2b, 0x16, 0xdb, 0x8c,
-	0x64, 0x37, 0x99, 0x35, 0x7b, 0xdd, 0xc2, 0x23, 0x83, 0x92, 0x29, 0xdc, 0xbf, 0xce, 0x66, 0xdc,
-	0x10, 0xf3, 0xcc, 0x88, 0x66, 0x0d, 0x45, 0xf3, 0xd5, 0x42, 0xd1, 0xdc, 0x4c, 0xae, 0xd5, 0xb3,
-	0xf7, 0x5e, 0x47, 0xa3, 0x62, 0x36, 0xc5, 0x22, 0x98, 0x0c, 0xa1, 0x32, 0x6f, 0x59, 0xc0, 0x2b,
-	0x9e, 0xdc, 0x76, 0xc5, 0x8d, 0x37, 0x0f, 0x97, 0x3d, 0xc7, 0x07, 0x76, 0xe3, 0xd5, 0x47, 0x50,
-	0xe7, 0x09, 0x0e, 0x56, 0x67, 0x2c, 0x14, 0xc9, 0xd8, 0xab, 0xe2, 0x48, 0x6b, 0x06, 0x0d, 0x0c,
-	0x58, 0x0c, 0x88, 0x85, 0x61, 0xf1, 0xca, 0x58, 0x5a, 0x3f, 0xd7, 0xcc, 0xf2, 0x33, 0x70, 0x5f,
-	0x1a, 0x33, 0xbf, 0x80, 0x7a, 0xc4, 0x2f, 0x59, 0x1e, 0x6b, 0xeb, 0x7d, 0xb4, 0x7d, 0xe5, 0xa0,
-	0x79, 0x9b, 0x75, 0xfc, 0x9a, 0x8d, 0xb3, 0x7a, 0x9e, 0xc2, 0x7d, 0x99, 0x6b, 0x34, 0x48, 0x51,
-	0xd9, 0xe5, 0xa5, 0x08, 0x67, 0x8f, 0x6e, 0x60, 0xc6, 0x5b, 0xfb, 0x3a, 0xb4, 0xe1, 0x81, 0x89,
-	0xb6, 0x3b, 0x6b, 0x53, 0x2e, 0x82, 0xc9, 0x11, 0x3c, 0xb4, 0x6d, 0x08, 0x63, 0x81, 0x1f, 0x19,
-	0x11, 0x7d, 0xa8, 0x75, 0x6f, 0x03, 0xfb, 0xf2, 0x89, 0xa1, 0x75, 0x90, 0x35, 0x12, 0xd1, 0xbc,
-	0xe6, 0x49, 0x13, 0xaa, 0x2a, 0x52, 0x34, 0x8f, 0x94, 0xd9, 0x36, 0xf7, 0xcc, 0x07, 0x53, 0x45,
-	0xea, 0x2c, 0x52, 0xb8, 0x5d, 0x1e, 0x41, 0x7d, 0xcc, 0xe2, 0x98, 0xdf, 0x7c, 0x6d, 0xb6, 0x4c,
-	0x1b, 0x0d, 0x6a, 0x37, 0xfa, 0xf6, 0x6f, 0x0e, 0x6c, 0x2e, 0xac, 0x9f, 0x0c, 0xa0, 0x84, 0xe2,
-	0x72, 0x70, 0xf2, 0xdf, 0xfe, 0xaf, 0x26, 0xb4, 0x50, 0x61, 0x98, 0x67, 0xf7, 0x10, 0x4a, 0x28,
-	0xac, 0x06, 0xd4, 0xfc, 0xee, 0x8b, 0xde, 0x28, 0xf0, 0xcf, 0xe9, 0x70, 0xd0, 0x3f, 0x77, 0x97,
-	0x48, 0x0d, 0xd6, 0xda, 0xfd, 0xfe, 0xf0, 0x07, 0xda, 0x1e, 0x9c, 0xbb, 0x0e, 0xf1, 0xe0, 0xde,
-	0xeb, 0x9e, 0x1f, 0x9c, 0xb5, 0xfb, 0x74, 0xd4, 0xf5, 0x5f, 0xf7, 0x3a, 0x5d, 0x43, 0x5c, 0xde,
-	0xfd, 0x06, 0x36, 0x17, 0x8a, 0x98, 0xac, 0xc2, 0x9d, 0xe1, 0xf1, 0xb1, 0xbb, 0x44, 0x2a, 0xb0,
-	0x7a, 0xd4, 0x3d, 0x6e, 0x9f, 0xf5, 0x03, 0xd7, 0x29, 0x36, 0xda, 0x28, 0xf0, 0x7b, 0x9d, 0xc0,
-	0x5d, 0xde, 0x7d, 0x0c, 0x30, 0xf7, 0xe1, 0x28, 0x43, 0x69, 0x30, 0x1c, 0x74, 0xdd, 0x25, 0x52,
-	0x07, 0x78, 0x75, 0x86, 0x77, 0x05, 0xfd, 0x11, 0x6e, 0xbe, 0x8a, 0x5b, 0x3d, 0x29, 0x95, 0xd7,
-	0x5d, 0xf7, 0xa4, 0x54, 0x76, 0xdd, 0xc6, 0x49, 0xa9, 0x4c, 0xdc, 0x8d, 0x93, 0x52, 0x79, 0xd3,
-	0xdd, 0x7a, 0xf2, 0x1d, 0xdc, 0x5b, 0xf4, 0x81, 0xfa, 0x78, 0x3e, 0x52, 0x85, 0xd5, 0xde, 0xe0,
-	0x65, 0xd7, 0xef, 0x05, 0xee, 0xdf, 0xab, 0x87, 0x7b, 0xbf, 0xbf, 0xdf, 0x71, 0xfe, 0x7c, 0xbf,
-	0xe3, 0xfc, 0xf5, 0x7e, 0xc7, 0xf9, 0x69, 0xdb, 0xf4, 0x54, 0xc8, 0x7d, 0x96, 0x8a, 0xfd, 0x0f,
-	0xfe, 0x84, 0x5d, 0xac, 0xe0, 0x7e, 0x79, 0xfe, 0x4f, 0x00, 0x00, 0x00, 0xff, 0xff, 0xf4, 0xc4,
-	0xad, 0xb7, 0x9c, 0x09, 0x00, 0x00,
+	// 838 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x84, 0x54, 0xdd, 0x4e, 0x23, 0x37,
+	0x18, 0xdd, 0x81, 0x2c, 0x84, 0x2f, 0x7f, 0x83, 0x53, 0x58, 0x43, 0x25, 0x9a, 0x52, 0x95, 0x46,
+	0xa8, 0x9a, 0x68, 0x83, 0x7a, 0xd1, 0x4b, 0x08, 0x9b, 0x2e, 0x51, 0x58, 0xd0, 0x64, 0xb8, 0xe9,
+	0x8d, 0x35, 0xcc, 0x38, 0x33, 0x16, 0x8e, 0x3d, 0x1a, 0x7b, 0xb6, 0xbb, 0xcf, 0xd4, 0x17, 0xe9,
+	0x65, 0x1f, 0xa1, 0xe2, 0x49, 0xaa, 0xb1, 0x27, 0x24, 0x48, 0x91, 0xf6, 0xd2, 0xe7, 0x1c, 0xfb,
+	0x3b, 0xfe, 0xce, 0x67, 0xc3, 0xf1, 0x82, 0xaa, 0x74, 0xf0, 0xf9, 0x7d, 0xc8, 0xb3, 0x34, 0x7c,
+	0x3f, 0x88, 0xa4, 0x98, 0xb3, 0xc4, 0xcb, 0x72, 0xa9, 0x25, 0xea, 0x32, 0xa5, 0x99, 0xf4, 0x4a,
+	0x85, 0xb7, 0x54, 0x1c, 0x9f, 0x24, 0x52, 0x26, 0x9c, 0x0e, 0x8c, 0xe4, 0xb1, 0x98, 0x0f, 0xe2,
+	0x22, 0x0f, 0x35, 0x93, 0xc2, 0x6e, 0x3a, 0x3e, 0x7a, 0x7d, 0x60, 0x96, 0xcb, 0x2f, 0x5f, 0x2b,
+	0xea, 0x5c, 0x50, 0xfd, 0x97, 0xcc, 0x9f, 0x98, 0x48, 0x96, 0x82, 0x8b, 0x41, 0x4c, 0x95, 0x66,
+	0xc2, 0x9c, 0x40, 0xf2, 0x82, 0x53, 0xab, 0x3d, 0xfd, 0x7b, 0x0f, 0xe0, 0x96, 0xaa, 0x74, 0x64,
+	0x0c, 0xa1, 0x5f, 0x01, 0x2d, 0xd8, 0x17, 0x9a, 0x93, 0x28, 0xa5, 0xd1, 0x13, 0x51, 0x34, 0xff,
+	0x4c, 0x73, 0xec, 0xf4, 0x9c, 0xfe, 0x9e, 0xef, 0x1a, 0x66, 0x54, 0x12, 0x33, 0x83, 0x23, 0x0f,
+	0xba, 0x56, 0x9d, 0xd3, 0x4c, 0xe6, 0x7a, 0x29, 0xdf, 0x32, 0xf2, 0x7d, 0x43, 0xf9, 0x86, 0xa9,
+	0xf4, 0x43, 0x38, 0x88, 0x99, 0x0a, 0x1f, 0x39, 0x25, 0x99, 0xe4, 0x2c, 0xfa, 0x6a, 0xcb, 0x28,
+	0xbc, 0xdd, 0x73, 0xfa, 0x75, 0xbf, 0x5b, 0x91, 0xf7, 0x86, 0x33, 0x85, 0x14, 0x3a, 0x87, 0x7d,
+	0x73, 0x37, 0xc2, 0x99, 0xd2, 0x54, 0x90, 0xf2, 0x38, 0x5c, 0xeb, 0x39, 0xfd, 0xb7, 0x7e, 0xc7,
+	0x10, 0x53, 0x83, 0xdf, 0xcb, 0x5c, 0xa3, 0x33, 0xb0, 0x10, 0x49, 0xb5, 0xce, 0xac, 0xf2, 0xad,
+	0x51, 0xb6, 0x0c, 0xfc, 0x51, 0xeb, 0xcc, 0xe8, 0xae, 0xa0, 0x13, 0x49, 0x21, 0x68, 0xa4, 0x89,
+	0x66, 0x0b, 0x2a, 0x0b, 0x8d, 0x77, 0x7a, 0x4e, 0xbf, 0x31, 0x3c, 0xf2, 0x6c, 0xd7, 0xbd, 0x65,
+	0xd7, 0xbd, 0xeb, 0xaa, 0xeb, 0x7e, 0xbb, 0xda, 0x11, 0xd8, 0x0d, 0xe8, 0x27, 0x68, 0x31, 0x91,
+	0xe4, 0x54, 0x29, 0x12, 0xf1, 0x50, 0x29, 0xbc, 0x6b, 0x6e, 0xdd, 0xac, 0xc0, 0x51, 0x89, 0xa1,
+	0x5f, 0xa0, 0xb3, 0x14, 0x95, 0xbd, 0x61, 0x11, 0xc5, 0x75, 0x23, 0x6b, 0x57, 0xf0, 0xcc, 0xa2,
+	0x68, 0x01, 0xef, 0x5e, 0x4e, 0x93, 0x42, 0xe7, 0x92, 0x73, 0x9a, 0x93, 0x85, 0x8c, 0x29, 0xde,
+	0xeb, 0x39, 0xfd, 0xf6, 0xf0, 0x37, 0x6f, 0xc3, 0x90, 0x78, 0xab, 0xe4, 0xbc, 0x9b, 0xaa, 0xee,
+	0xcb, 0xee, 0x5b, 0x19, 0x53, 0xff, 0x80, 0x6d, 0x82, 0xd1, 0x1d, 0x34, 0xc2, 0x42, 0xa7, 0x55,
+	0x0a, 0x18, 0x4c, 0x89, 0xf3, 0x6f, 0x95, 0xb8, 0x2c, 0x74, 0x6a, 0xb3, 0xb9, 0xda, 0xc2, 0x8e,
+	0x0f, 0xe1, 0xcb, 0x1a, 0xfd, 0x0c, 0x6d, 0x2a, 0x4c, 0xb0, 0x3a, 0x0f, 0x23, 0x26, 0x12, 0xdc,
+	0x34, 0x91, 0xb6, 0x2c, 0x1a, 0x58, 0xb0, 0x0c, 0x28, 0x8c, 0xa2, 0xf2, 0x96, 0x5c, 0x26, 0x64,
+	0xce, 0x38, 0xc5, 0x2d, 0xd3, 0x8f, 0x96, 0x85, 0xa7, 0x32, 0x19, 0x33, 0x4e, 0xd1, 0x1f, 0xd0,
+	0x8e, 0xe9, 0x3c, 0x2c, 0xb8, 0x26, 0xf6, 0xa5, 0xe0, 0xb6, 0xc9, 0xa7, 0xb7, 0xd1, 0xe2, 0x7d,
+	0x19, 0xae, 0xf5, 0xe8, 0xb7, 0xaa, 0x7d, 0xd5, 0x3c, 0x5f, 0xc3, 0x0f, 0x95, 0xaf, 0x88, 0x33,
+	0x2a, 0x34, 0x51, 0x2c, 0x7e, 0x3d, 0x7c, 0xb8, 0x6b, 0x8c, 0x7e, 0x6f, 0x65, 0x23, 0xa3, 0x9a,
+	0xb1, 0x78, 0x7d, 0x08, 0x51, 0x0f, 0x9a, 0x2a, 0x56, 0xa4, 0x88, 0x15, 0xc9, 0x42, 0x9d, 0xe2,
+	0xef, 0x8c, 0x67, 0x50, 0xb1, 0x7a, 0x88, 0xd5, 0x7d, 0xa8, 0x53, 0xf4, 0x11, 0xda, 0xd6, 0x28,
+	0x51, 0xb2, 0xc8, 0x23, 0xaa, 0xf0, 0x61, 0x6f, 0xbb, 0xdf, 0x18, 0xfe, 0xb8, 0xd1, 0xb0, 0x35,
+	0x37, 0x33, 0x4a, 0xbf, 0x15, 0xad, 0xad, 0x14, 0xba, 0x80, 0xc3, 0xca, 0x71, 0x59, 0x52, 0xcb,
+	0x27, 0x2a, 0xc8, 0x42, 0x16, 0x42, 0xe3, 0x77, 0xf6, 0x91, 0x58, 0x76, 0x16, 0xab, 0xa0, 0xe4,
+	0x6e, 0x4b, 0xaa, 0x7c, 0x24, 0xeb, 0x7d, 0x95, 0xf9, 0x22, 0xd4, 0x18, 0x1b, 0x97, 0x9d, 0x55,
+	0x67, 0x0d, 0x5c, 0x16, 0x58, 0xbf, 0x3f, 0x99, 0x87, 0x8c, 0x13, 0x99, 0x51, 0x81, 0x8f, 0x6c,
+	0x81, 0x6c, 0x75, 0xf3, 0x71, 0xc8, 0xf8, 0x5d, 0x46, 0xc5, 0xe9, 0xef, 0x70, 0xb0, 0x71, 0xc0,
+	0xd0, 0x2e, 0x6c, 0xdf, 0x8d, 0xc7, 0xee, 0x1b, 0xd4, 0x80, 0xdd, 0xeb, 0x0f, 0xe3, 0xcb, 0x87,
+	0x69, 0xe0, 0x3a, 0x08, 0x60, 0x67, 0x16, 0xf8, 0x37, 0xa3, 0xc0, 0xdd, 0x3a, 0x3d, 0x03, 0x58,
+	0x0d, 0x0e, 0xaa, 0x43, 0xed, 0xd3, 0xdd, 0xa7, 0x0f, 0xee, 0x1b, 0xd4, 0x06, 0xb8, 0x7d, 0x08,
+	0x1e, 0x2e, 0xa7, 0x24, 0x98, 0xce, 0x5c, 0x67, 0x52, 0xab, 0x37, 0xdc, 0xe6, 0xa4, 0x56, 0xef,
+	0xb8, 0xee, 0xa4, 0x56, 0x77, 0xdd, 0xfd, 0x49, 0xad, 0xbe, 0xef, 0xa2, 0x49, 0xad, 0x8e, 0xdc,
+	0xee, 0xa4, 0x56, 0x3f, 0x70, 0x0f, 0x4f, 0x15, 0x34, 0xd7, 0x7b, 0x87, 0x30, 0xec, 0x86, 0x71,
+	0x5c, 0xda, 0xaa, 0xfe, 0xa8, 0xe5, 0x12, 0xdd, 0x40, 0x53, 0xf3, 0xf2, 0xd5, 0x69, 0xcd, 0x44,
+	0xa2, 0xcc, 0x9f, 0xd4, 0x18, 0x9e, 0x55, 0x71, 0xac, 0x3e, 0xc8, 0x65, 0x28, 0x17, 0x5e, 0x30,
+	0x9d, 0xcd, 0x2a, 0xb5, 0xdf, 0xd0, 0x5c, 0x2d, 0x17, 0x57, 0xfd, 0x7f, 0x9e, 0x4f, 0x9c, 0x7f,
+	0x9f, 0x4f, 0x9c, 0xff, 0x9e, 0x4f, 0x9c, 0x3f, 0x8f, 0xed, 0x09, 0x4c, 0x0e, 0xc2, 0x8c, 0x0d,
+	0x5e, 0x7d, 0xc2, 0x8f, 0x3b, 0xe6, 0xdb, 0xb8, 0xf8, 0x3f, 0x00, 0x00, 0xff, 0xff, 0x4a, 0x5f,
+	0x27, 0x27, 0xed, 0x05, 0x00, 0x00,
 }

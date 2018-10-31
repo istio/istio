@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/internal/version"
+	"github.com/golang/protobuf/proto"
 	gax "github.com/googleapis/gax-go"
 	"golang.org/x/net/context"
 	"google.golang.org/api/iterator"
@@ -75,6 +76,8 @@ func defaultUptimeCheckCallOptions() *UptimeCheckCallOptions {
 }
 
 // UptimeCheckClient is a client for interacting with Stackdriver Monitoring API.
+//
+// Methods, except Close, may be called concurrently. However, fields must not be modified concurrently with method calls.
 type UptimeCheckClient struct {
 	// The connection to the service.
 	conn *grpc.ClientConn
@@ -140,6 +143,7 @@ func (c *UptimeCheckClient) ListUptimeCheckConfigs(ctx context.Context, req *mon
 	ctx = insertMetadata(ctx, c.xGoogMetadata)
 	opts = append(c.CallOptions.ListUptimeCheckConfigs[0:len(c.CallOptions.ListUptimeCheckConfigs):len(c.CallOptions.ListUptimeCheckConfigs)], opts...)
 	it := &UptimeCheckConfigIterator{}
+	req = proto.Clone(req).(*monitoringpb.ListUptimeCheckConfigsRequest)
 	it.InternalFetch = func(pageSize int, pageToken string) ([]*monitoringpb.UptimeCheckConfig, string, error) {
 		var resp *monitoringpb.ListUptimeCheckConfigsResponse
 		req.PageToken = pageToken
@@ -167,6 +171,7 @@ func (c *UptimeCheckClient) ListUptimeCheckConfigs(ctx context.Context, req *mon
 		return nextPageToken, nil
 	}
 	it.pageInfo, it.nextFunc = iterator.NewPageInfo(fetch, it.bufLen, it.takeBuf)
+	it.pageInfo.MaxSize = int(req.PageSize)
 	return it
 }
 
@@ -240,6 +245,7 @@ func (c *UptimeCheckClient) ListUptimeCheckIps(ctx context.Context, req *monitor
 	ctx = insertMetadata(ctx, c.xGoogMetadata)
 	opts = append(c.CallOptions.ListUptimeCheckIps[0:len(c.CallOptions.ListUptimeCheckIps):len(c.CallOptions.ListUptimeCheckIps)], opts...)
 	it := &UptimeCheckIpIterator{}
+	req = proto.Clone(req).(*monitoringpb.ListUptimeCheckIpsRequest)
 	it.InternalFetch = func(pageSize int, pageToken string) ([]*monitoringpb.UptimeCheckIp, string, error) {
 		var resp *monitoringpb.ListUptimeCheckIpsResponse
 		req.PageToken = pageToken
@@ -267,6 +273,7 @@ func (c *UptimeCheckClient) ListUptimeCheckIps(ctx context.Context, req *monitor
 		return nextPageToken, nil
 	}
 	it.pageInfo, it.nextFunc = iterator.NewPageInfo(fetch, it.bufLen, it.takeBuf)
+	it.pageInfo.MaxSize = int(req.PageSize)
 	return it
 }
 

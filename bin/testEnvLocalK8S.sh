@@ -1,5 +1,19 @@
 #!/bin/bash
 
+# Copyright 2018 Istio Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 set -euo pipefail
 
 # testEnv will setup a local test environment, for running Istio unit tests.
@@ -107,6 +121,12 @@ function getDeps() {
    fi
 }
 
+function getLatestDeps() {
+    curl -Lo "${GO_TOP}/bin/kubectl" "https://storage.googleapis.com/kubernetes-release/release/${K8S_VER}/bin/${GOOS_LOCAL}/amd64/kubectl" && chmod +x "$GO_TOP/bin/kubectl"
+    curl -Lo "${GO_TOP}/bin/kube-apiserver" "https://storage.googleapis.com/kubernetes-release/release/${K8S_VER}/bin/${GOOS_LOCAL}/amd64/kube-apiserver" && chmod +x "${GO_TOP}/bin/kube-apiserver"
+    curl -L "https://github.com/coreos/etcd/releases/download/${ETCD_VER}/etcd-${ETCD_VER}-linux-amd64.tar.gz" | tar xz -O "etcd-${ETCD_VER}-linux-amd64/etcd" > "${GO_TOP}/bin/etcd" && chmod +x "${GO_TOP}/bin/etcd"
+}
+
 # No root required, run local etcd and kube apiserver for tests.
 function startLocalApiserver() {
     ensureK8SCerts
@@ -142,6 +162,8 @@ function ensureLocalApiServer() {
 }
 
 function createIstioConfigmap() {
+  helm init --client-only
+  helm dep update "${ISTIO_GO}/install/kubernetes/helm/istio"
   helm template "${ISTIO_GO}/install/kubernetes/helm/istio" --namespace=istio-system \
      --execute=templates/configmap.yaml --values install/kubernetes/helm/istio/values.yaml  > "${LOG_DIR}/istio-configmap.yaml"
   kubectl create -f "${LOG_DIR}/istio-configmap.yaml"
@@ -311,10 +333,11 @@ set +xe
 case "$1" in
     start) startLocalApiserver ;;
     stop) stopLocalApiserver ;;
+    ensure) ensureLocalApiServer ;;
     startIstio) startIstio ;;
     stopIstio) stopIstio ;;
     startMultiCluster) startMultiCluster ;;
     stopMultiCluster) stopMultiCluster ;;
-    ensure) ensureLocalApiServer ;;
+    getDeps) getLatestDeps ;;
     *) echo "start stop ensure"
 esac

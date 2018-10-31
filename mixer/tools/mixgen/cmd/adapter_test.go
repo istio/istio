@@ -12,10 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:generate $GOPATH/src/istio.io/istio/bin/protoc.sh testdata/simple/foo.proto -otestdata/simple/foo.descriptor
-// --include_imports -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
-//go:generate $GOPATH/src/istio.io/istio/bin/protoc.sh testdata/simple/foo.proto
-// -otestdata/simple/foo_without_imports.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
+// nolint:lll
+//go:generate $GOPATH/src/istio.io/istio/bin/protoc.sh testdata/simple/foo.proto -otestdata/simple/foo.descriptor --include_imports -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
+//go:generate $GOPATH/src/istio.io/istio/bin/protoc.sh testdata/simple/foo.proto -otestdata/simple/foo_without_imports.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
 package cmd
 
 import (

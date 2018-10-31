@@ -24,7 +24,6 @@ import (
 	"istio.io/istio/pkg/test/kube"
 
 	"github.com/hashicorp/go-multierror"
-	"k8s.io/client-go/rest"
 )
 
 const (
@@ -35,13 +34,8 @@ const (
 )
 
 // NewInClusterRegistry creates a new in-cluster registry object.
-func NewInClusterRegistry(kubeconfig string, config *rest.Config, localPort uint16, ns string) (*InClusterRegistry, error) {
-	accessor, err := kube.NewAccessor(config)
-	if err != nil {
-		return nil, err
-	}
+func NewInClusterRegistry(accessor *kube.Accessor, localPort uint16, ns string) (*InClusterRegistry, error) {
 	return &InClusterRegistry{
-		kubeconfig:        kubeconfig,
 		accessor:          *accessor,
 		localRegistryPort: localPort,
 		namespace:         ns,
@@ -50,7 +44,6 @@ func NewInClusterRegistry(kubeconfig string, config *rest.Config, localPort uint
 
 // InClusterRegistry helps deploying an in-cluster registry on a k8s cluster.
 type InClusterRegistry struct {
-	kubeconfig           string
 	accessor             kube.Accessor
 	forwarder            kube.PortForwarder
 	localRegistryAddress string
@@ -96,7 +89,7 @@ func (r *InClusterRegistry) Start() error {
 	if err != nil {
 		return err
 	}
-	if err := kube.Apply(r.kubeconfig, r.namespace, registryFile); err != nil {
+	if err := r.accessor.Apply(r.namespace, registryFile); err != nil {
 		return err
 	}
 
@@ -119,7 +112,7 @@ func (r *InClusterRegistry) Start() error {
 		PodNamespace: r.namespace,
 		PodName:      registryPod.Name,
 	}
-	forwarder, err := kube.NewPortForwarder(r.kubeconfig, options, r.localRegistryPort, r.localRegistryPort)
+	forwarder, err := r.accessor.NewPortForwarder(options, r.localRegistryPort, r.localRegistryPort)
 	if err != nil {
 		return err
 	}

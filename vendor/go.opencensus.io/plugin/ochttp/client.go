@@ -16,6 +16,7 @@ package ochttp
 
 import (
 	"net/http"
+	"net/http/httptrace"
 
 	"go.opencensus.io/trace"
 	"go.opencensus.io/trace/propagation"
@@ -51,12 +52,20 @@ type Transport struct {
 	// name equals the URL Path.
 	FormatSpanName func(*http.Request) string
 
+	// NewClientTrace may be set to a function allowing the current *trace.Span
+	// to be annotated with HTTP request event information emitted by the
+	// httptrace package.
+	NewClientTrace func(*http.Request, *trace.Span) *httptrace.ClientTrace
+
 	// TODO: Implement tag propagation for HTTP.
 }
 
 // RoundTrip implements http.RoundTripper, delegating to Base and recording stats and traces for the request.
 func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	rt := t.base()
+	if isHealthEndpoint(req.URL.Path) {
+		return rt.RoundTrip(req)
+	}
 	// TODO: remove excessive nesting of http.RoundTrippers here.
 	format := t.Propagation
 	if format == nil {
@@ -74,6 +83,7 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 			SpanKind: trace.SpanKindClient,
 		},
 		formatSpanName: spanNameFormatter,
+		newClientTrace: t.NewClientTrace,
 	}
 	rt = statsTransport{base: rt}
 	return rt.RoundTrip(req)

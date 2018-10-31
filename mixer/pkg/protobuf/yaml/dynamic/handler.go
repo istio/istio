@@ -25,10 +25,10 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/atomic"
 	"google.golang.org/grpc"
-
 	"istio.io/api/mixer/adapter/model/v1beta1"
 	policypb "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
+	"istio.io/istio/mixer/pkg/attribute"
 	protoyaml "istio.io/istio/mixer/pkg/protobuf/yaml"
 	istiolog "istio.io/istio/pkg/log"
 )
@@ -65,6 +65,7 @@ type (
 
 		TemplateName string
 		encoder      *messageEncoder
+		decoder      *protoyaml.Decoder
 	}
 
 	// TemplateConfig is template configuration
@@ -75,9 +76,11 @@ type (
 		Variety      v1beta1.TemplateVariety
 	}
 
-	// Codec in no-op on the way out and unmarshals using normal means
-	// on the way in.
-	Codec struct{}
+	// Codec in no-op on the way out and unmarshals using either normal means
+	// or a custom dynamic decoder on the way in
+	Codec struct {
+		decoder *protoyaml.Decoder
+	}
 )
 
 // BuildHandler creates a dynamic handler object exposing specific handler interfaces.
@@ -105,7 +108,7 @@ func BuildHandler(name string, connConfig *policypb.Connection, sessionBased boo
 		svc = tmplMap[tc.TemplateName]
 		if svc == nil {
 			if svc, err = RemoteAdapterSvc("Handle",
-				protoyaml.NewResolver(tc.FileDescSet), sessionBased, adapterConfig, tc.TemplateName); err != nil {
+				protoyaml.NewResolver(tc.FileDescSet), sessionBased, adapterConfig, tc.TemplateName, tc.Variety); err != nil {
 				return nil, err
 			}
 			tmplMap[tc.TemplateName] = svc
@@ -130,10 +133,9 @@ func (h *Handler) Close() error {
 }
 
 func (h *Handler) connect() (err error) {
-	codec := grpc.CallCustomCodec(Codec{})
 	// TODO add simple secure option
 	if h.conn, err = grpc.Dial(h.connConfig.GetAddress(), grpc.WithInsecure(),
-		grpc.WithDefaultCallOptions(codec)); err != nil {
+		grpc.WithDefaultCallOptions()); err != nil {
 		handlerLog.Errorf("Unable to connect to:%s %v", h.connConfig.GetAddress(), err)
 		return errors.WithStack(err)
 	}
@@ -169,11 +171,23 @@ func (h *Handler) handleRemote(ctx context.Context, qr proto.Marshaler,
 		return err
 	}
 
-	if err := h.conn.Invoke(ctx, svc.GrpcPath(), ba, resultPtr); err != nil {
+	codec := grpc.CallCustomCodec(Codec{decoder: svc.decoder})
+	if err := h.conn.Invoke(ctx, svc.GrpcPath(), ba, resultPtr, codec); err != nil {
 		handlerLog.Warnf("unable to connect to:%s, %s", svc.GrpcPath(), h.connConfig.Address)
 		return errors.WithStack(err)
 	}
 
+	return nil
+}
+
+var _ adapter.RemoteGenerateAttributesHandler = &Handler{}
+
+// HandleRemoteGenAttrs implements remote handler API.
+func (h *Handler) HandleRemoteGenAttrs(ctx context.Context, encodedInstance *adapter.EncodedInstance,
+	out *attribute.MutableBag) error {
+	if err := h.handleRemote(ctx, nil, "", out, encodedInstance); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -233,7 +247,7 @@ func (h *Handler) HandleRemoteQuota(ctx context.Context, encodedInstance *adapte
 
 // RemoteAdapterSvc returns RemoteAdapter service
 func RemoteAdapterSvc(namePrefix string, res protoyaml.Resolver, sessionBased bool,
-	adapterConfig proto.Marshaler, templateName string) (*Svc, error) {
+	adapterConfig proto.Marshaler, templateName string, variety v1beta1.TemplateVariety) (*Svc, error) {
 	svc, pkg := res.ResolveService(namePrefix)
 
 	if svc == nil {
@@ -250,6 +264,12 @@ func RemoteAdapterSvc(namePrefix string, res protoyaml.Resolver, sessionBased bo
 		return nil, errors.WithStack(err)
 	}
 
+	// enable custom decoder for varieties that need it
+	var decoder *protoyaml.Decoder
+	if variety == v1beta1.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR {
+		decoder = protoyaml.NewDecoder(res, method.GetOutputType(), nil, "output.")
+	}
+
 	return &Svc{
 		Name:         svc.GetName(),
 		Pkg:          pkg,
@@ -257,6 +277,7 @@ func RemoteAdapterSvc(namePrefix string, res protoyaml.Resolver, sessionBased bo
 		InputType:    method.GetInputType(),
 		OutputType:   method.GetOutputType(),
 		encoder:      me,
+		decoder:      decoder,
 		TemplateName: templateName,
 	}, nil
 }
@@ -379,7 +400,7 @@ func (s Svc) encodeRequest(qr proto.Marshaler, dedupID string, encodedInstances 
 }
 
 // Marshal does a noo-op marshal if input in bytes, otherwise it is an error.
-func (Codec) Marshal(v interface{}) ([]byte, error) {
+func (c Codec) Marshal(v interface{}) ([]byte, error) {
 	if ba, ok := v.([]byte); ok {
 		return ba, nil
 	}
@@ -387,8 +408,17 @@ func (Codec) Marshal(v interface{}) ([]byte, error) {
 	return nil, fmt.Errorf("unable to marshal type:%T, want []byte", v)
 }
 
-// Unmarshal delegates to standard proto Unmarshal
-func (Codec) Unmarshal(data []byte, v interface{}) error {
+// Unmarshal uses custom decoder or delegates to standard proto Unmarshal
+func (c Codec) Unmarshal(data []byte, v interface{}) error {
+	if c.decoder != nil {
+		out, ok := v.(*attribute.MutableBag)
+		if !ok {
+			return fmt.Errorf("expect an attribute bag for the custom decoder: %T", v)
+		}
+		return c.decoder.Decode(data, out)
+	}
+
+	// delegate
 	if um, ok := v.(proto.Unmarshaler); ok {
 		return um.Unmarshal(data)
 	}
@@ -397,6 +427,6 @@ func (Codec) Unmarshal(data []byte, v interface{}) error {
 }
 
 // String returns name of the codec.
-func (Codec) String() string {
+func (c Codec) String() string {
 	return "bytes-out-proto-in-codec"
 }

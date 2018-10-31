@@ -76,6 +76,7 @@ type (
 	}
 
 	handler struct {
+		sync.RWMutex
 		k8sCache map[string]cacheController
 		env      adapter.Env
 		params   *config.Params
@@ -228,6 +229,8 @@ func (h *handler) findPod(uid string) (*v1.Pod, bool) {
 	var found bool
 	var pod *v1.Pod
 
+	h.RLock()
+	defer h.RUnlock()
 	for _, controller := range h.k8sCache {
 		pod, found = controller.Pod(podKey)
 		if found {
@@ -291,6 +294,9 @@ func (h *handler) fillDestinationAttrs(p *v1.Pod, port int64, o *ktmpl.Output, p
 	if len(p.Status.HostIP) > 0 {
 		o.SetDestinationHostIp(net.ParseIP(p.Status.HostIP))
 	}
+
+	h.RLock()
+	defer h.RUnlock()
 	for _, controller := range h.k8sCache {
 		if wl, found := controller.Workload(p); found {
 			o.SetDestinationWorkloadUid(wl.uid)
@@ -329,6 +335,9 @@ func (h *handler) fillSourceAttrs(p *v1.Pod, o *ktmpl.Output, params *config.Par
 	if len(p.Status.HostIP) > 0 {
 		o.SetSourceHostIp(net.ParseIP(p.Status.HostIP))
 	}
+
+	h.RLock()
+	defer h.RUnlock()
 	for _, controller := range h.k8sCache {
 		if wl, found := controller.Workload(p); found {
 			o.SetSourceWorkloadUid(wl.uid)
@@ -354,8 +363,14 @@ func newKubernetesClient(kubeconfigPath string, env adapter.Env) (k8s.Interface,
 func (b *builder) createCacheController(k8sInterface k8s.Interface, clusterID string) error {
 	controller, err := runNewController(b, k8sInterface, b.kubeHandler.env)
 	if err == nil {
+		b.Lock()
 		b.controllers[clusterID] = controller
+		b.Unlock()
+
+		b.kubeHandler.Lock()
 		b.kubeHandler.k8sCache[clusterID] = controller
+		b.kubeHandler.Unlock()
+
 		b.kubeHandler.env.Logger().Infof("created remote controller %s", clusterID)
 	} else {
 		b.kubeHandler.env.Logger().Errorf("error on creating remote controller %s err = %v", clusterID, err)
@@ -365,8 +380,13 @@ func (b *builder) createCacheController(k8sInterface k8s.Interface, clusterID st
 }
 
 func (b *builder) deleteCacheController(clusterID string) error {
-	b.kubeHandler.k8sCache[clusterID].StopControlChannel()
+	b.Lock()
 	delete(b.controllers, clusterID)
+	b.Unlock()
+
+	b.kubeHandler.Lock()
+	defer b.kubeHandler.Unlock()
+	b.kubeHandler.k8sCache[clusterID].StopControlChannel()
 	delete(b.kubeHandler.k8sCache, clusterID)
 
 	b.kubeHandler.env.Logger().Infof("deleted remote controller %s", clusterID)

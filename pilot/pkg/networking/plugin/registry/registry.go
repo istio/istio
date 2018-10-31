@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors.
+// Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin/envoyfilter"
 	"istio.io/istio/pilot/pkg/networking/plugin/health"
 	"istio.io/istio/pilot/pkg/networking/plugin/mixer"
+	"istio.io/istio/pilot/pkg/networking/plugin/snidnat"
 )
 
 var availablePlugins = map[string]plugin.Plugin{
@@ -32,6 +33,7 @@ var availablePlugins = map[string]plugin.Plugin{
 	plugin.Envoyfilter: envoyfilter.NewPlugin(),
 	plugin.Health:      health.NewPlugin(),
 	plugin.Mixer:       mixer.NewPlugin(),
+	plugin.Snidnat:     snidnat.NewPlugin(),
 }
 
 // NewPlugins returns a slice of default Plugins.

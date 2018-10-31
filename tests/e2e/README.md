@@ -110,3 +110,4 @@ E2E tests have multiple options available while running them as follows:
 * `--image_pull_policy <policy>` - Specifies an override for the Docker image pull policy to be used
 * `--cluster_registry_dir <dir>` - Directory name for the cluster registry config. When provided this will trigger a multicluster test to be run across two clusters. 
 * `--installer <cmd>` - Use `helm` or `kubectl` to install Istio (default: kubectl)
+* `--kube_inject_configmap <configmap>` - Istioctl will use the specified configmap when running kube-inject (default: ""). This will normally be used with the CNI option to override the embedded initContainers insertion.

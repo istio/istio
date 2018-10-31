@@ -107,7 +107,7 @@ func NewCommonConfigWithVersion(testID, version string) (*CommonConfig, error) {
 	c.Cleanup.RegisterCleanable(c.Kube.Istioctl)
 	c.Cleanup.RegisterCleanable(c.Kube.AppManager)
 	if c.Kube.RemoteKubeConfig != "" {
-		c.Cleanup.RegisterCleanable(c.Kube.RemoteAppManager.istioctl)
+		c.Cleanup.RegisterCleanable(c.Kube.RemoteIstioctl)
 		c.Cleanup.RegisterCleanable(c.Kube.RemoteAppManager)
 	}
 

@@ -1,0 +1,31 @@
+{{ if (.Values.jaeger.ingress.enabled) and eq .Values.provider "jaeger" }}
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: jaeger-query
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: jaeger
+    chart: {{ template "tracing.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+  annotations:
+    {{- range $key, $value := .Values.jaeger.ingress.annotations }}
+      {{ $key }}: {{ $value | quote }}
+    {{- end }}
+spec:
+  rules:
+    {{- range $host := .Values.jaeger.ingress.hosts }}
+    - host: {{ $host }}
+      http:
+        paths:
+          - path: /
+            backend:
+              serviceName: jaeger-query
+              servicePort: 16686
+    {{- end -}}
+  {{- if .Values.jaeger.ingress.tls }}
+  tls:
+{{ toYaml .Values.jaeger.ingress.tls | indent 4 }}
+  {{- end -}}
+{{- end -}}

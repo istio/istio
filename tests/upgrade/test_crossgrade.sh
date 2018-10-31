@@ -116,6 +116,8 @@ installIstioSystemAtVersionHelmTemplate() {
         auth_opts="--set global.mtls.enabled=true --set global.controlPlaneSecurityEnabled=true "
     fi
     release_path="${3}"/install/kubernetes/helm/istio
+    helm init --client-only
+    helm dep update "${release_path}"
     helm template "${release_path}" "${auth_opts}" \
     --name istio --namespace "${ISTIO_NAMESPACE}" \
     --set gateways.istio-ingressgateway.replicaCount=4 \

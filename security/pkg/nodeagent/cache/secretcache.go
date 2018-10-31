@@ -24,7 +24,7 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/log"
-	ca "istio.io/istio/security/pkg/nodeagent/caclient"
+	ca "istio.io/istio/security/pkg/nodeagent/caclient/interface"
 	"istio.io/istio/security/pkg/nodeagent/model"
 	"istio.io/istio/security/pkg/pki/util"
 )
@@ -210,8 +210,8 @@ func (sc *SecretCache) keyCertRotationJob() {
 	sc.rotationTicker = time.NewTicker(sc.rotationInterval)
 	for {
 		select {
-		case now := <-sc.rotationTicker.C:
-			sc.rotate(now)
+		case <-sc.rotationTicker.C:
+			sc.rotate()
 		case <-sc.closing:
 			if sc.rotationTicker != nil {
 				sc.rotationTicker.Stop()
@@ -220,9 +220,11 @@ func (sc *SecretCache) keyCertRotationJob() {
 	}
 }
 
-func (sc *SecretCache) rotate(t time.Time) {
+func (sc *SecretCache) rotate() {
 	log.Debug("Refresh job running")
 
+	secretMap := map[ConnKey]*model.SecretItem{}
+	wg := sync.WaitGroup{}
 	sc.secrets.Range(func(k interface{}, v interface{}) bool {
 		key := k.(ConnKey)
 
@@ -244,7 +246,9 @@ func (sc *SecretCache) rotate(t time.Time) {
 
 		// Re-generate secret if it's expired.
 		if sc.shouldRefresh(&e) {
+			wg.Add(1)
 			go func() {
+				defer wg.Done()
 				if sc.isTokenExpired(&e) {
 					log.Debugf("Token for %q expired for proxy %q", e.ResourceName, proxyID)
 
@@ -269,7 +273,7 @@ func (sc *SecretCache) rotate(t time.Time) {
 					return
 				}
 
-				sc.secrets.Store(key, *ns)
+				secretMap[key] = ns
 
 				atomic.AddUint64(&sc.secretChangedCount, 1)
 
@@ -286,6 +290,12 @@ func (sc *SecretCache) rotate(t time.Time) {
 
 		return true
 	})
+
+	wg.Wait()
+
+	for key, secret := range secretMap {
+		sc.secrets.Store(key, *secret)
+	}
 }
 
 func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName string, t time.Time) (*model.SecretItem, error) {

@@ -39,7 +39,7 @@ message ForwardEchoRequest {
   int32 qps = 2;
   int64 timeout_micros = 3;
   string url = 4;
-  Header header = 5;
+  repeated Header headers = 5;
   string message = 6;
 }
 

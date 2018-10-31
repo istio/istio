@@ -12,7 +12,7 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"21cdfc0290095a437bfdd0f09f9993704dee08d6d2deda0d87a966cd8a62dbe5","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
         app: hello
@@ -41,8 +41,6 @@ spec:
         - 3s
         - --discoveryAddress
         - istio-pilot:15007
-        - --zipkinAddress
-        - ""
         - --connectTimeout
         - 1s
         - --statsdUdpAddress
@@ -88,9 +86,7 @@ spec:
           requests:
             cpu: 10m
         securityContext:
-          privileged: false
           readOnlyRootFilesystem: true
-          runAsUser: 1337
         volumeMounts:
         - mountPath: /etc/istio/proxy
           name: istio-envoy

@@ -29,6 +29,7 @@ import (
 
 	"github.com/evanphx/json-patch"
 	"github.com/ghodss/yaml"
+	"github.com/gogo/protobuf/jsonpb"
 	"github.com/onsi/gomega"
 	"k8s.io/api/admission/v1beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -41,8 +42,6 @@ import (
 	tversion "k8s.io/helm/pkg/proto/hapi/version"
 	"k8s.io/helm/pkg/timeconv"
 	"k8s.io/kubernetes/pkg/apis/core"
-
-	"github.com/gogo/protobuf/jsonpb"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/util"
@@ -727,6 +726,7 @@ func TestHelmInject(t *testing.T) {
 			// Split multi-part yaml documents. Input and output will have the same number of parts.
 			inputYAMLs := splitYamlFile(inputFile, t)
 			wantYAMLs := splitYamlFile(wantFile, t)
+			goldenYAMLs := make([][]byte, len(inputYAMLs))
 
 			for i := 0; i < len(inputYAMLs); i++ {
 				t.Run(fmt.Sprintf("yamlPart[%d]", i), func(t *testing.T) {
@@ -743,7 +743,7 @@ func TestHelmInject(t *testing.T) {
 					// Generate the patch.  At runtime, the webhook would actually generate the patch against the
 					// pod configuration. But since our input files are deployments, rather than actual pod instances,
 					// we have to apply the patch to the template portion of the deployment only.
-					templateJSON := toJSON(inputDeployment.Spec.Template, t)
+					templateJSON := convertToJSON(inputDeployment.Spec.Template, t)
 					got := webhook.inject(&v1beta1.AdmissionReview{
 						Request: &v1beta1.AdmissionRequest{
 							Object: runtime.RawExtension{
@@ -764,9 +764,16 @@ func TestHelmInject(t *testing.T) {
 						t.Fatal(err)
 					}
 
-					// Compare the patched deployment with the one we expected.
-					compareDeployments(patchedDeployment, wantDeployment, c.wantFile, t)
+					if !util.Refresh() {
+						// Compare the patched deployment with the one we expected.
+						compareDeployments(patchedDeployment, wantDeployment, c.wantFile, t)
+					} else {
+						goldenYAMLs[i] = deploymentToYaml(patchedDeployment, t)
+					}
 				})
+			}
+			if util.Refresh() {
+				writeYamlsToGoldenFile(goldenYAMLs, wantFile, t)
 			}
 		})
 	}
@@ -840,7 +847,7 @@ func loadConfigMapWithHelm(t *testing.T) string {
 	}
 	cfg, ok := cfgMap.Data["config"]
 	if !ok {
-		t.Fatal("ConfigMap yaml misisng config field")
+		t.Fatal("ConfigMap yaml missing config field")
 	}
 
 	body := &configMapBody{}
@@ -877,6 +884,16 @@ func splitYamlBytes(yaml []byte, t *testing.T) [][]byte {
 	return byteParts
 }
 
+func writeYamlsToGoldenFile(yamls [][]byte, goldenFile string, t *testing.T) {
+	content := make([]byte, 0)
+	for _, part := range yamls {
+		content = append(content, part...)
+		content = append(content, []byte(yamlSeparator)...)
+		content = append(content, '\n')
+	}
+
+	util.RefreshGoldenFile(content, goldenFile, t)
+}
 func getInjectableYamlDocs(yamlDoc string, t *testing.T) [][]byte {
 	t.Helper()
 	m := make(map[string]interface{})
@@ -922,7 +939,7 @@ func getInjectableYamlDocs(yamlDoc string, t *testing.T) [][]byte {
 	}
 }
 
-func toJSON(i interface{}, t *testing.T) []byte {
+func convertToJSON(i interface{}, t *testing.T) []byte {
 	t.Helper()
 	outputJSON, err := json.Marshal(i)
 	if err != nil {
@@ -974,6 +991,15 @@ func jsonToDeployment(deploymentJSON []byte, t *testing.T) *extv1beta1.Deploymen
 	return &deployment
 }
 
+func deploymentToYaml(deployment *extv1beta1.Deployment, t *testing.T) []byte {
+	t.Helper()
+	yaml, err := yaml.Marshal(deployment)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return yaml
+}
+
 func compareDeployments(got, want *extv1beta1.Deployment, name string, t *testing.T) {
 	t.Helper()
 	// Scrub unimportant fields that tend to differ.
@@ -994,10 +1020,30 @@ func compareDeployments(got, want *extv1beta1.Deployment, name string, t *testin
 	gotIstioProxy.Image = wantIstioProxy.Image
 	gotIstioProxy.TerminationMessagePath = wantIstioProxy.TerminationMessagePath
 	gotIstioProxy.TerminationMessagePolicy = wantIstioProxy.TerminationMessagePolicy
+
+	// collect automatically injected pod labels so that they can
+	// be adjusted later.
+	envNames := map[string]bool{}
+	for k := range got.Spec.Template.ObjectMeta.Labels {
+		envNames["ISTIO_META_"+k] = true
+	}
+
 	envVars := make([]corev1.EnvVar, 0)
 	for _, env := range gotIstioProxy.Env {
 		if env.ValueFrom != nil {
 			env.ValueFrom.FieldRef.APIVersion = ""
+		}
+		// check if metajson is encoded correctly
+		if strings.HasPrefix(env.Name, "ISTIO_METAJSON_") {
+			var mm map[string]string
+			if err := json.Unmarshal([]byte(env.Value), &mm); err != nil {
+				t.Fatalf("unable to unmarshal %s: %v", env.Value, err)
+			}
+			continue
+		}
+		// adjust for injected var names.
+		if _, found := envNames[env.Name]; found {
+			continue
 		}
 		envVars = append(envVars, env)
 	}

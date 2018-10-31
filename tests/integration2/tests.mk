@@ -60,8 +60,7 @@ $(_INTEGRATION_TESTS_KUBE): test.integration.%.kube:
 	--istio.test.env kubernetes \
 	--istio.test.kube.config ${INTEGRATION_TEST_KUBECONFIG} \
 	--istio.test.kube.deploy \
-	--istio.test.kube.tag ${TAG} \
-	--istio.test.kube.hub ${HUB} \
+	--istio.test.kube.helm.values global.hub=${HUB},global.tag=${TAG} \
 	${_INTEGRATION_TEST_INGRESS_FLAG}
 
 

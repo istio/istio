@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors.
+// Copyright 2017 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,8 +24,7 @@ import (
 )
 
 const (
-	defaultTag          = "master-latest-daily"
-	defaultHyperkubeTag = "v1.7.6_coreos.0"
+	defaultTag = "master-latest-daily"
 )
 
 // Command returns the "gen-deploy" subcommand for istioctl.
@@ -75,9 +74,6 @@ func Command(istioNamespaceFlag *string) *cobra.Command {
 	cmd.PersistentFlags().StringVar(&helmChartLocation, "helm-chart-dir", ".",
 		"The directory to find the helm charts used to render Istio deployments. -o yaml uses these to render the helm chart locally.")
 
-	cmd.PersistentFlags().StringVar(&install.HyperkubeHub, "hyperkube-hub", install.HyperkubeHub, "The container registry to pull Hyperkube images from")
-	cmd.PersistentFlags().StringVar(&install.HyperkubeTag, "hyperkube-tag", install.HyperkubeTag, "The tag to use to pull the `Hyperkube` container")
-
 	_ = cmd.PersistentFlags().MarkHidden("hub")
 	_ = cmd.PersistentFlags().MarkHidden("mixer-tag")
 	_ = cmd.PersistentFlags().MarkHidden("pilot-tag")
@@ -108,9 +104,6 @@ type installation struct {
 	CaTag    string
 	ProxyTag string
 
-	HyperkubeHub string
-	HyperkubeTag string
-
 	NodePort uint16
 	Debug    bool
 
@@ -138,9 +131,6 @@ func defaultInstall() *installation {
 		PilotTag: defaultTag,
 		CaTag:    defaultTag,
 		ProxyTag: defaultTag,
-
-		HyperkubeHub: "quay.io/coreos/hyperkube",
-		HyperkubeTag: defaultHyperkubeTag,
 	}
 }
 

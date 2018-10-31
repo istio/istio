@@ -21,6 +21,7 @@ import (
 	"istio.io/istio/mixer/template/listentry"
 	"istio.io/istio/mixer/template/metric"
 	"istio.io/istio/mixer/template/quota"
+	apaTmpl "istio.io/istio/mixer/test/spyAdapter/template/apa"
 	checkTmpl "istio.io/istio/mixer/test/spyAdapter/template/check"
 	quotaTmpl "istio.io/istio/mixer/test/spyAdapter/template/quota"
 	reportTmpl "istio.io/istio/mixer/test/spyAdapter/template/report"
@@ -70,6 +71,10 @@ type (
 		// sample report IBP
 		HandleSampleReportResult *adptModel.ReportResult
 		HandleSampleReportError  error
+
+		// sample APA IBP
+		HandleSampleApaResult *apaTmpl.OutputMsg
+		HandleSampleApaError  error
 	}
 
 	// Requests record captured requests by the spy
@@ -97,6 +102,9 @@ type (
 
 		samplereportLock          sync.RWMutex
 		HandleSampleReportRequest []*reportTmpl.HandleSampleReportRequest
+
+		sampleapaLock          sync.RWMutex
+		HandleSampleApaRequest []*apaTmpl.HandleSampleApaRequest
 	}
 )
 

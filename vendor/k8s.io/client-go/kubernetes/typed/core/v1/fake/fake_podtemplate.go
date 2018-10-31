@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Kubernetes Authors.
+Copyright The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -62,7 +62,7 @@ func (c *FakePodTemplates) List(opts v1.ListOptions) (result *core_v1.PodTemplat
 	if label == nil {
 		label = labels.Everything()
 	}
-	list := &core_v1.PodTemplateList{}
+	list := &core_v1.PodTemplateList{ListMeta: obj.(*core_v1.PodTemplateList).ListMeta}
 	for _, item := range obj.(*core_v1.PodTemplateList).Items {
 		if label.Matches(labels.Set(item.Labels)) {
 			list.Items = append(list.Items, item)

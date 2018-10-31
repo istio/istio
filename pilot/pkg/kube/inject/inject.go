@@ -24,6 +24,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"path"
 	"reflect"
 	"strconv"
 	"strings"
@@ -31,6 +32,7 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/types"
+	multierror "github.com/hashicorp/go-multierror"
 	"k8s.io/api/batch/v2alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -38,8 +40,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	yamlDecoder "k8s.io/apimachinery/pkg/util/yaml"
-
-	"github.com/hashicorp/go-multierror"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/log"
@@ -187,6 +187,7 @@ type Params struct {
 	Version                      string                 `json:"version"`
 	EnableCoreDump               bool                   `json:"enableCoreDump"`
 	DebugMode                    bool                   `json:"debugMode"`
+	Privileged                   bool                   `json:"privileged"`
 	Mesh                         *meshconfig.MeshConfig `json:"-"`
 	ImagePullPolicy              string                 `json:"imagePullPolicy"`
 	StatusPort                   int                    `json:"statusPort"`
@@ -475,6 +476,11 @@ func isset(m map[string]string, key string) bool {
 	return ok
 }
 
+func directory(filepath string) string {
+	dir, _ := path.Split(filepath)
+	return dir
+}
+
 func injectionData(sidecarTemplate, version string, deploymentMetadata *metav1.ObjectMeta, spec *corev1.PodSpec, metadata *metav1.ObjectMeta, proxyConfig *meshconfig.ProxyConfig, meshConfig *meshconfig.MeshConfig) (*SidecarInjectionSpec, string, error) { // nolint: lll
 	if err := validateAnnotations(metadata.GetAnnotations()); err != nil {
 		return nil, "", err
@@ -496,6 +502,8 @@ func injectionData(sidecarTemplate, version string, deploymentMetadata *metav1.O
 		"applicationPorts":    applicationPorts,
 		"annotation":          annotation,
 		"valueOrDefault":      valueOrDefault,
+		"toJSON":              toJSON,
+		"directory":           directory,
 	}
 
 	var tmpl bytes.Buffer
@@ -655,7 +663,7 @@ func intoObject(sidecarTemplate string, meshconfig *meshconfig.MeshConfig, in ru
 	// affect the network provider within the cluster causing
 	// additional pod failures.
 	if podSpec.HostNetwork {
-		fmt.Fprintf(os.Stderr, "Skipping injection because %q has host networking enabled\n", metadata.Name)
+		fmt.Fprintf(os.Stderr, "Skipping injection because %q has host networking enabled\n", metadata.Name) //nolint: errcheck
 		return out, nil
 	}
 
@@ -723,6 +731,20 @@ func applicationPorts(containers []corev1.Container) string {
 func includeInboundPorts(containers []corev1.Container) string {
 	// Include the ports from all containers in the deployment.
 	return getContainerPorts(containers, func(corev1.Container) bool { return true })
+}
+
+func toJSON(m map[string]string) string {
+	if m == nil {
+		return "{}"
+	}
+
+	ba, err := json.Marshal(m)
+	if err != nil {
+		log.Warnf("Unable to marshal %v", m)
+		return "{}"
+	}
+
+	return string(ba)
 }
 
 func annotation(meta metav1.ObjectMeta, name string, defaultValue interface{}) string {

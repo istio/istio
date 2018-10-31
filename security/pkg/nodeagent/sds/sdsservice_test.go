@@ -112,7 +112,7 @@ func testHelper(t *testing.T, testSocket string, cb secretCallback) {
 
 	// Request for root certificate.
 	rootCertReq := &api.DiscoveryRequest{
-		ResourceNames: []string{"ROOTCA"},
+		ResourceNames: []string{"ROOTCA", "sub1"},
 		Node: &core.Node{
 			Id: proxyID,
 		},
@@ -238,6 +238,7 @@ func verifySDSSResponseForRootCert(t *testing.T, resp *api.DiscoveryResponse, ex
 						InlineBytes: expectedRootCert,
 					},
 				},
+				VerifySubjectAltName: []string{"sub1"},
 			},
 		},
 	}

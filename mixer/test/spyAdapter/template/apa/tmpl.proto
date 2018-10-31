@@ -3,6 +3,7 @@ syntax = "proto3";
 package SampleApa;
 
 import "mixer/adapter/model/v1beta1/extensions.proto";
+import "policy/v1beta1/type.proto";
 
 option (istio.mixer.adapter.model.v1beta1.template_variety) = TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR;
 
@@ -26,4 +27,12 @@ message OutputTemplate {
     string stringPrimitive = 4;
 
     map<string, string> stringMap = 5;
+
+    istio.policy.v1beta1.IPAddress ip = 6;
+
+    istio.policy.v1beta1.Duration duration = 7;
+
+    istio.policy.v1beta1.TimeStamp timestamp = 8;
+
+    istio.policy.v1beta1.DNSName dns = 9;
 }

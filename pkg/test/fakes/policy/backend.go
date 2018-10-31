@@ -25,11 +25,9 @@ import (
 	google_rpc "github.com/gogo/googleapis/google/rpc"
 	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc"
-
-	"istio.io/istio/mixer/template/checknothing"
-
 	"istio.io/api/mixer/adapter/model/v1beta1"
 	istio_mixer_adapter_model_v1beta11 "istio.io/api/mixer/adapter/model/v1beta1"
+	"istio.io/istio/mixer/template/checknothing"
 	"istio.io/istio/mixer/template/metric"
 	"istio.io/istio/pkg/log"
 )
@@ -69,6 +67,11 @@ func NewPolicyBackend(port int) *Backend {
 	}
 }
 
+// Port returns the port number of the backend.
+func (b *Backend) Port() int {
+	return b.port
+}
+
 // Start the gRPC service for the policy backend.
 func (b *Backend) Start() error {
 	scope.Infof("Starting Policy Backend at port: %d", b.port)
@@ -77,6 +80,8 @@ func (b *Backend) Start() error {
 	if err != nil {
 		return err
 	}
+
+	b.port = listener.Addr().(*net.TCPAddr).Port
 
 	grpcServer := grpc.NewServer()
 	v1beta1.RegisterInfrastructureBackendServer(grpcServer, b)

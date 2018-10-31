@@ -19,10 +19,8 @@ import (
 	"net"
 	"net/http"
 	"net/http/pprof"
-	"os"
-	"time"
+	"time" // "github.com/prometheus/client_golang/prometheus/promhttp"
 
-	// "github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/prometheus/client_golang/prometheus"
 	ocprom "go.opencensus.io/exporter/prometheus"
 	"go.opencensus.io/stats/view"
@@ -61,7 +59,7 @@ func startMonitor(port uint16, enableProfiling bool, lf listenFunc) (*monitor, e
 	mux := http.NewServeMux()
 
 	registry := prometheus.NewRegistry()
-	registry.MustRegister(prometheus.NewProcessCollector(os.Getpid(), ""))
+	registry.MustRegister(prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}))
 	registry.MustRegister(prometheus.NewGoCollector())
 
 	exporter, err := ocprom.NewExporter(ocprom.Options{Registry: registry})

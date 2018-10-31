@@ -131,11 +131,11 @@ func DefaultArgs() *Args {
 
 func (a *Args) validate() error {
 	if a.APIWorkerPoolSize <= 0 {
-		return fmt.Errorf("api worker pool size must be >= 0 and <= 2^31-1, got pool size %d", a.APIWorkerPoolSize)
+		return fmt.Errorf("api worker pool size must be > 0, got pool size %d", a.APIWorkerPoolSize)
 	}
 
 	if a.AdapterWorkerPoolSize <= 0 {
-		return fmt.Errorf("adapter worker pool size must be >= 0 and <= 2^31-1, got pool size %d", a.AdapterWorkerPoolSize)
+		return fmt.Errorf("adapter worker pool size must be > 0 , got pool size %d", a.AdapterWorkerPoolSize)
 	}
 
 	if a.NumCheckCacheEntries < 0 {
@@ -149,21 +149,21 @@ func (a *Args) validate() error {
 func (a *Args) String() string {
 	buf := &bytes.Buffer{}
 
-	fmt.Fprint(buf, "MaxMessageSize: ", a.MaxMessageSize, "\n")
-	fmt.Fprint(buf, "MaxConcurrentStreams: ", a.MaxConcurrentStreams, "\n")
-	fmt.Fprint(buf, "APIWorkerPoolSize: ", a.APIWorkerPoolSize, "\n")
-	fmt.Fprint(buf, "AdapterWorkerPoolSize: ", a.AdapterWorkerPoolSize, "\n")
-	fmt.Fprint(buf, "APIPort: ", a.APIPort, "\n")
-	fmt.Fprint(buf, "APIAddress: ", a.APIAddress, "\n")
-	fmt.Fprint(buf, "MonitoringPort: ", a.MonitoringPort, "\n")
-	fmt.Fprint(buf, "EnableProfiling: ", a.EnableProfiling, "\n")
-	fmt.Fprint(buf, "SingleThreaded: ", a.SingleThreaded, "\n")
-	fmt.Fprint(buf, "NumCheckCacheEntries: ", a.NumCheckCacheEntries, "\n")
-	fmt.Fprint(buf, "ConfigStoreURL: ", a.ConfigStoreURL, "\n")
-	fmt.Fprint(buf, "CertificateFile: ", a.CredentialOptions.CertificateFile, "\n")
-	fmt.Fprint(buf, "KeyFile: ", a.CredentialOptions.KeyFile, "\n")
-	fmt.Fprint(buf, "CACertificateFile: ", a.CredentialOptions.CACertificateFile, "\n")
-	fmt.Fprint(buf, "ConfigDefaultNamespace: ", a.ConfigDefaultNamespace, "\n")
+	fmt.Fprintln(buf, "MaxMessageSize: ", a.MaxMessageSize)
+	fmt.Fprintln(buf, "MaxConcurrentStreams: ", a.MaxConcurrentStreams)
+	fmt.Fprintln(buf, "APIWorkerPoolSize: ", a.APIWorkerPoolSize)
+	fmt.Fprintln(buf, "AdapterWorkerPoolSize: ", a.AdapterWorkerPoolSize)
+	fmt.Fprintln(buf, "APIPort: ", a.APIPort)
+	fmt.Fprintln(buf, "APIAddress: ", a.APIAddress)
+	fmt.Fprintln(buf, "MonitoringPort: ", a.MonitoringPort)
+	fmt.Fprintln(buf, "EnableProfiling: ", a.EnableProfiling)
+	fmt.Fprintln(buf, "SingleThreaded: ", a.SingleThreaded)
+	fmt.Fprintln(buf, "NumCheckCacheEntries: ", a.NumCheckCacheEntries)
+	fmt.Fprintln(buf, "ConfigStoreURL: ", a.ConfigStoreURL)
+	fmt.Fprintln(buf, "CertificateFile: ", a.CredentialOptions.CertificateFile)
+	fmt.Fprintln(buf, "KeyFile: ", a.CredentialOptions.KeyFile)
+	fmt.Fprintln(buf, "CACertificateFile: ", a.CredentialOptions.CACertificateFile)
+	fmt.Fprintln(buf, "ConfigDefaultNamespace: ", a.ConfigDefaultNamespace)
 	fmt.Fprintf(buf, "LoggingOptions: %#v\n", *a.LoggingOptions)
 	fmt.Fprintf(buf, "TracingOptions: %#v\n", *a.TracingOptions)
 	fmt.Fprintf(buf, "IntrospectionOptions: %#v\n", *a.IntrospectionOptions)

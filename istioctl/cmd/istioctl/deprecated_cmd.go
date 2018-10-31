@@ -37,7 +37,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -613,7 +612,7 @@ func printShortOutput(writer io.Writer, _ model.ConfigStore, configList []model.
 
 func kindAsString(config model.Config) string {
 	return fmt.Sprintf("%s.%s.%s",
-		crd.KabobCaseToCamelCase(config.Type),
+		crd.KebabCaseToCamelCase(config.Type),
 		config.Group,
 		config.Version,
 	)
@@ -806,9 +805,6 @@ func apiResources(config *rest.Config, configs []crd.IstioKind) (map[string]meta
 }
 
 func restClientForOthers(config *rest.Config) (*rest.RESTClient, error) {
-	configCopied := *config
-	configCopied.ContentConfig = dynamic.ContentConfig()
-	configCopied.GroupVersion = &legacyIstioAPIGroupVersion
 	return rest.RESTClientFor(config)
 }
 

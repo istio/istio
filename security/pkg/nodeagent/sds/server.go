@@ -41,6 +41,9 @@ type Options struct {
 
 	// CAEndpoint is the CA endpoint to which node agent sends CSR request.
 	CAEndpoint string
+
+	// The CA provider name.
+	CAProviderName string
 }
 
 // Server is the gPRC server that exposes SDS through UDS.

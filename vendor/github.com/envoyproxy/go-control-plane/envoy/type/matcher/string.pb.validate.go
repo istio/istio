@@ -115,3 +115,67 @@ func (e StringMatcherValidationError) Error() string {
 }
 
 var _ error = StringMatcherValidationError{}
+
+// Validate checks the field values on ListStringMatcher with the rules defined
+// in the proto definition for this message. If any rules are violated, an
+// error is returned.
+func (m *ListStringMatcher) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	if len(m.GetPatterns()) < 1 {
+		return ListStringMatcherValidationError{
+			Field:  "Patterns",
+			Reason: "value must contain at least 1 item(s)",
+		}
+	}
+
+	for idx, item := range m.GetPatterns() {
+		_, _ = idx, item
+
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return ListStringMatcherValidationError{
+					Field:  fmt.Sprintf("Patterns[%v]", idx),
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
+	}
+
+	return nil
+}
+
+// ListStringMatcherValidationError is the validation error returned by
+// ListStringMatcher.Validate if the designated constraints aren't met.
+type ListStringMatcherValidationError struct {
+	Field  string
+	Reason string
+	Cause  error
+	Key    bool
+}
+
+// Error satisfies the builtin error interface
+func (e ListStringMatcherValidationError) Error() string {
+	cause := ""
+	if e.Cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
+	}
+
+	key := ""
+	if e.Key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sListStringMatcher.%s: %s%s",
+		key,
+		e.Field,
+		e.Reason,
+		cause)
+}
+
+var _ error = ListStringMatcherValidationError{}

@@ -41,7 +41,7 @@ func (m *Int64Range) Reset()         { *m = Int64Range{} }
 func (m *Int64Range) String() string { return proto.CompactTextString(m) }
 func (*Int64Range) ProtoMessage()    {}
 func (*Int64Range) Descriptor() ([]byte, []int) {
-	return fileDescriptor_range_78c6b1fd974bd903, []int{0}
+	return fileDescriptor_range_9717c226d88bb0a0, []int{0}
 }
 func (m *Int64Range) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -100,7 +100,7 @@ func (m *DoubleRange) Reset()         { *m = DoubleRange{} }
 func (m *DoubleRange) String() string { return proto.CompactTextString(m) }
 func (*DoubleRange) ProtoMessage()    {}
 func (*DoubleRange) Descriptor() ([]byte, []int) {
-	return fileDescriptor_range_78c6b1fd974bd903, []int{1}
+	return fileDescriptor_range_9717c226d88bb0a0, []int{1}
 }
 func (m *DoubleRange) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -590,9 +590,9 @@ var (
 	ErrIntOverflowRange   = fmt.Errorf("proto: integer overflow")
 )
 
-func init() { proto.RegisterFile("envoy/type/range.proto", fileDescriptor_range_78c6b1fd974bd903) }
+func init() { proto.RegisterFile("envoy/type/range.proto", fileDescriptor_range_9717c226d88bb0a0) }
 
-var fileDescriptor_range_78c6b1fd974bd903 = []byte{
+var fileDescriptor_range_9717c226d88bb0a0 = []byte{
 	// 159 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x12, 0x4b, 0xcd, 0x2b, 0xcb,
 	0xaf, 0xd4, 0x2f, 0xa9, 0x2c, 0x48, 0xd5, 0x2f, 0x4a, 0xcc, 0x4b, 0x4f, 0xd5, 0x2b, 0x28, 0xca,

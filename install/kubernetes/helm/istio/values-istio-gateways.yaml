@@ -91,6 +91,9 @@ gateways:
     - port: 15031
       targetPort: 15031
       name: http2-grafana
+    - port: 15032
+      targetPort: 15032
+      name: http2-tracing
     secretVolumes:
     - name: customgateway-certs
       secretName: istio-customgateway-certs

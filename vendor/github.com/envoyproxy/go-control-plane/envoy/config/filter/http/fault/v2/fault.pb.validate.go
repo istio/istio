@@ -41,13 +41,6 @@ func (m *FaultAbort) Validate() error {
 		return nil
 	}
 
-	if m.GetPercent() > 100 {
-		return FaultAbortValidationError{
-			Field:  "Percent",
-			Reason: "value must be less than or equal to 100",
-		}
-	}
-
 	if v, ok := interface{}(m.GetPercentage()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return FaultAbortValidationError{

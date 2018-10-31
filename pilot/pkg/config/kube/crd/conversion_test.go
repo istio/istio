@@ -23,22 +23,22 @@ import (
 )
 
 var (
-	camelKabobs = []struct{ in, out string }{
+	camelKebabs = []struct{ in, out string }{
 		{"ExampleNameX", "example-name-x"},
 		{"Example1", "example1"},
 		{"ExampleXY", "example-x-y"},
 	}
 )
 
-func TestCamelKabob(t *testing.T) {
-	for _, tt := range camelKabobs {
-		s := CamelCaseToKabobCase(tt.in)
+func TestCamelKebab(t *testing.T) {
+	for _, tt := range camelKebabs {
+		s := CamelCaseToKebabCase(tt.in)
 		if s != tt.out {
-			t.Errorf("CamelCaseToKabobCase(%q) => %q, want %q", tt.in, s, tt.out)
+			t.Errorf("CamelCaseToKebabCase(%q) => %q, want %q", tt.in, s, tt.out)
 		}
-		u := KabobCaseToCamelCase(tt.out)
+		u := KebabCaseToCamelCase(tt.out)
 		if u != tt.in {
-			t.Errorf("kabobToCamel(%q) => %q, want %q", tt.out, u, tt.in)
+			t.Errorf("kebabToCamel(%q) => %q, want %q", tt.out, u, tt.in)
 		}
 	}
 }

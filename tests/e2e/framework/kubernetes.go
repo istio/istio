@@ -30,11 +30,10 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"k8s.io/client-go/kubernetes"
-
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/util"
+	"k8s.io/client-go/kubernetes"
 )
 
 const (
@@ -100,6 +99,8 @@ var (
 	useGalleyConfigValidator = flag.Bool("use_galley_config_validator", false, "Use galley configuration validation webhook")
 	installer                = flag.String("installer", "kubectl", "Istio installer, default to kubectl, or helm")
 	useMCP                   = flag.Bool("use_mcp", false, "use MCP for configuring Istio components")
+	kubeInjectCM             = flag.String("kube_inject_configmap", "",
+		"Configmap to use by the istioctl kube-inject command.")
 
 	addons = []string{
 		"zipkin",
@@ -151,6 +152,7 @@ type KubeInfo struct {
 	RemoteKubeConfig string
 	RemoteKubeClient kubernetes.Interface
 	RemoteAppManager *AppManager
+	RemoteIstioctl   *Istioctl
 }
 
 func getClusterWideInstallFile() string {
@@ -182,7 +184,7 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 		}
 	}
 	yamlDir := filepath.Join(tmpDir, "yaml")
-	i, err := NewIstioctl(yamlDir, *namespace, *proxyHub, *proxyTag, *imagePullPolicy, "")
+	i, err := NewIstioctl(yamlDir, *namespace, *proxyHub, *proxyTag, *imagePullPolicy, *kubeInjectCM, "")
 	if err != nil {
 		return nil, err
 	}
@@ -209,6 +211,7 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 	var kubeConfig, remoteKubeConfig string
 	var kubeClient, remoteKubeClient kubernetes.Interface
 	var aRemote *AppManager
+	var remoteI *Istioctl
 	if *multiClusterDir != "" {
 		// multiClusterDir indicates the Kubernetes cluster config should come from files versus
 		// the in cluster config. At the current time only the remote kubeconfig is read from a
@@ -220,6 +223,7 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 		}
 		kubeConfig = tmpfile
 		remoteKubeConfig, err = getKubeConfigFromFile(*multiClusterDir)
+		log.Infof("Remote kubeconfig file %s", remoteKubeConfig)
 		if err != nil {
 			// TODO could change this to continue tests if only a single cluster is in play
 			return nil, err
@@ -231,7 +235,7 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 			return nil, err
 		}
 		// Create Istioctl for remote using injectConfigMap on remote (not the same as master cluster's)
-		remoteI, err := NewIstioctl(yamlDir, *namespace, *proxyHub, *proxyTag, *imagePullPolicy, "istio-sidecar-injector")
+		remoteI, err = NewIstioctl(yamlDir, *namespace, *proxyHub, *proxyTag, *imagePullPolicy, "istio-sidecar-injector", remoteKubeConfig)
 		if err != nil {
 			return nil, err
 		}
@@ -261,6 +265,7 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 		yamlDir:          yamlDir,
 		localCluster:     *localCluster,
 		Istioctl:         i,
+		RemoteIstioctl:   remoteI,
 		AppManager:       a,
 		RemoteAppManager: aRemote,
 		AuthEnabled:      *authEnable,
@@ -671,11 +676,6 @@ func (k *KubeInfo) deployIstio() error {
 			log.Errorf("Unable to create namespace %s on remote cluster: %s", k.Namespace, err.Error())
 			return err
 		}
-		// Create the local secrets and configmap to start pilot
-		if err := util.CreateMultiClusterSecrets(k.Namespace, k.RemoteKubeConfig, k.KubeConfig); err != nil {
-			log.Errorf("Unable to create secrets on local cluster %s", err.Error())
-			return err
-		}
 
 		if err := k.createCacerts(true); err != nil {
 			log.Infof("Failed to create Cacerts with namespace %s in remote cluster", k.Namespace)
@@ -794,10 +794,24 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 	// CRDs installed ahead of time with 2.9.x
 	setValue += " --set global.crds=false"
 
+	err := util.HelmClientInit()
+	if err != nil {
+		// helm client init
+		log.Errorf("Helm clienty init")
+		return err
+	}
+	// Generate dependencies for Helm
+	workDir := filepath.Join(k.ReleaseDir, istioHelmInstallDir)
+	err = util.HelmDepUpdate(workDir)
+	if err != nil {
+		// helm dep upgrade
+		log.Errorf("Helm dep update %s", workDir)
+		return err
+	}
+
 	// helm install dry run - dry run seems to have problems
 	// with CRDs even in 2.9.2, pre-install is not executed
-	workDir := filepath.Join(k.ReleaseDir, istioHelmInstallDir)
-	err := util.HelmInstallDryRun(workDir, k.Namespace, k.Namespace, setValue)
+	err = util.HelmInstallDryRun(workDir, k.Namespace, k.Namespace, setValue)
 	if err != nil {
 		// dry run fail, let's fail early
 		log.Errorf("Helm dry run of istio install failed %s, setValue=%s", istioHelmInstallDir, setValue)

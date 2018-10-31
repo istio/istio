@@ -2,5 +2,12 @@ dependencies:
   - name: sidecarInjectorWebhook
     version: 1.1.0
     condition: sidecarInjectorWebhook.enabled
+    repository: file://../subcharts/sidecarInjectorWebhook
   - name: security
     version: 1.1.0
+    condition: security.enabled
+    repository: file://../subcharts/security
+  - name: istio-cni
+    version: ">=0.0.1"
+    repository: https://raw.githubusercontent.com/istio/istio.io/master/static/charts
+    condition: istio_cni.enabled

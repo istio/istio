@@ -23,7 +23,7 @@ import (
 
 	"google.golang.org/grpc"
 
-	capb "istio.io/istio/security/proto"
+	gcapb "istio.io/istio/security/proto/providers/google"
 )
 
 const mockServerAddress = "localhost:0"
@@ -35,8 +35,8 @@ var (
 
 type mockCAServer struct{}
 
-func (ca *mockCAServer) CreateCertificate(ctx context.Context, in *capb.IstioCertificateRequest) (*capb.IstioCertificateResponse, error) {
-	return &capb.IstioCertificateResponse{CertChain: fakeCert}, nil
+func (ca *mockCAServer) CreateCertificate(ctx context.Context, in *gcapb.IstioCertificateRequest) (*gcapb.IstioCertificateResponse, error) {
+	return &gcapb.IstioCertificateResponse{CertChain: fakeCert}, nil
 }
 
 func TestCAClient(t *testing.T) {
@@ -50,7 +50,7 @@ func TestCAClient(t *testing.T) {
 	serv := mockCAServer{}
 
 	go func() {
-		capb.RegisterIstioCertificateServiceServer(s, &serv)
+		gcapb.RegisterIstioCertificateServiceServer(s, &serv)
 		if err := s.Serve(lis); err != nil {
 			t.Fatalf("failed to serve: %v", err)
 		}
@@ -59,7 +59,7 @@ func TestCAClient(t *testing.T) {
 	// The goroutine starting the server may not be ready, results in flakiness.
 	time.Sleep(1 * time.Second)
 
-	cli, err := NewCAClient(lis.Addr().String(), false)
+	cli, err := NewCAClient(lis.Addr().String(), googleCA, false)
 	if err != nil {
 		t.Fatalf("failed to create ca client: %v", err)
 	}

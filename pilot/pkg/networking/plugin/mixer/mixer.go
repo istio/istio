@@ -131,14 +131,12 @@ func (mixerplugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.Mut
 }
 
 // OnOutboundCluster implements the Plugin interface method.
-func (mixerplugin) OnOutboundCluster(env *model.Environment, push *model.PushContext,
-	service *model.Service, servicePort *model.Port, cluster *xdsapi.Cluster) {
+func (mixerplugin) OnOutboundCluster(in *plugin.InputParams, cluster *xdsapi.Cluster) {
 	// do nothing
 }
 
 // OnInboundCluster implements the Plugin interface method.
-func (mixerplugin) OnInboundCluster(env *model.Environment, node *model.Proxy, push *model.PushContext,
-	service *model.Service, servicePort *model.Port, cluster *xdsapi.Cluster) {
+func (mixerplugin) OnInboundCluster(in *plugin.InputParams, cluster *xdsapi.Cluster) {
 	// do nothing
 }
 
@@ -186,10 +184,14 @@ func buildUpstreamName(address string) string {
 }
 
 func buildTransport(mesh *meshconfig.MeshConfig, node *model.Proxy) *mccpb.TransportConfig {
+	networkFailPolicy := mccpb.FAIL_CLOSE
+	if mesh.PolicyCheckFailOpen {
+		networkFailPolicy = mccpb.FAIL_OPEN
+	}
 	res := &mccpb.TransportConfig{
 		CheckCluster:      buildUpstreamName(mesh.MixerCheckServer),
 		ReportCluster:     buildUpstreamName(mesh.MixerReportServer),
-		NetworkFailPolicy: &mccpb.NetworkFailPolicy{Policy: mccpb.FAIL_CLOSE},
+		NetworkFailPolicy: &mccpb.NetworkFailPolicy{Policy: networkFailPolicy},
 		// internal telemetry forwarding
 		AttributesForMixerProxy: &mpb.Attributes{Attributes: attributes{"source.uid": attrUID(node)}},
 	}

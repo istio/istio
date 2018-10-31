@@ -15,6 +15,7 @@
 package local
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"time"
@@ -22,9 +23,6 @@ import (
 	"istio.io/istio/pkg/test/framework/environments/local/service"
 
 	"github.com/hashicorp/go-multierror"
-
-	"bufio"
-	"os"
 
 	"istio.io/istio/pkg/test/envoy"
 	"istio.io/istio/pkg/test/framework/components/apps/api"
@@ -170,26 +168,19 @@ func (m *appsImpl) waitForAppConfigDistribution() error {
 				}
 
 				if time.Now().After(endTime) {
-					m.logEnvoyConfig()
-					return multierror.Prefix(err, "failed to configure apps")
+					out := fmt.Sprintf("failed to configure apps: %v. Dumping Envoy configurations:\n", err)
+					for _, a := range m.apps {
+						dump, _ := configDumpStr(a)
+						out += fmt.Sprintf("app %s Config: %s\n", a.Name(), dump)
+					}
+
+					return errors.New(out)
 				}
 				time.Sleep(retryInterval)
 			}
 		}
 	}
 	return nil
-}
-
-func (m *appsImpl) logEnvoyConfig() {
-	out := ""
-	for _, a := range m.apps {
-		dump, _ := configDumpStr(a)
-		out += fmt.Sprintf("NM: %s Config: %s\n", a.Name(), dump)
-	}
-
-	f := bufio.NewWriter(os.Stdout)
-	f.WriteString(out)
-	f.Flush()
 }
 
 func configDumpStr(a environment.DeployedApp) (string, error) {
