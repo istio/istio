@@ -23,3 +23,7 @@ istio-telemetry:
     targetAverageUtilization: 80
 
 podAnnotations: {}
+
+adapters:
+  prometheus:
+    metricsExpiryDuration: 10m

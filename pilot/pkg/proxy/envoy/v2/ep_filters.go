@@ -19,7 +19,7 @@ import (
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	"github.com/gogo/protobuf/types"
-	
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 )
@@ -78,15 +78,17 @@ func EndpointsByNetworkFilter(endpoints []endpoint.LocalityLbEndpoints, conn *Xd
 			// add it to the result
 			filtered = append(filtered, ep)
 		} else {
-			// This LocalityLbEndpoints has remote endpoint so add to the result
-			// a new one that holds only local endpoints
-			newEp := endpoint.LocalityLbEndpoints{
-				Locality:            ep.Locality,
-				LbEndpoints:         onlyLocalLbEndpoints,
-				LoadBalancingWeight: ep.LoadBalancingWeight,
-				Priority:            ep.Priority,
+			if len(onlyLocalLbEndpoints) > 0 {
+				// This LocalityLbEndpoints has remote endpoint so add to the result
+				// a new one that holds only local endpoints
+				newEp := endpoint.LocalityLbEndpoints{
+					Locality:            ep.Locality,
+					LbEndpoints:         onlyLocalLbEndpoints,
+					LoadBalancingWeight: ep.LoadBalancingWeight,
+					Priority:            ep.Priority,
+				}
+				filtered = append(filtered, newEp)
 			}
-			filtered = append(filtered, newEp)
 		}
 	}
 

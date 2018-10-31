@@ -14,17 +14,9 @@
 
 syntax = "proto3";
 
-// $title: RBAC
-// $description: Adapter that exposes Istio's Role-Based Access Control model.
-// $location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/rbac.html
-// $supported_templates: authorization
-// $aliases:
-// $  - /docs/reference/config/adapters/rbac.html
-
-// The `rbac` adapter provides Role-Based Access Control (RBAC) functionality for
-// for services within the Istio mesh.
-//
-// This adapter supports the [authorization template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/authorization/).
+// The `rbac` adapter is deprecated by native RBAC implemented in Envoy proxy.
+// See https://istio.io/docs/concepts/security/#enabling-authorization for enabling
+// the native RBAC with your existing service role and service role binding.
 package adapter.rbac.config;
 
 import "google/protobuf/duration.proto";
