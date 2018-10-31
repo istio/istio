@@ -193,13 +193,19 @@ func (s *State) buildIngressProjectionResources(b *snapshot.InMemoryBuilder) {
 }
 
 func extractKey(name resource.FullName, entry *mcp.Envelope, version resource.Version) resource.VersionedKey {
+	ts, err := types.TimestampFromProto(entry.Metadata.CreateTime)
+	if err != nil {
+		// It is an invalid timestamp. This shouldn't happen.
+		scope.Errorf("Error converting proto timestamp to time.Time: %v", err)
+	}
+
 	return resource.VersionedKey{
 		Key: resource.Key{
 			TypeURL:  metadata.IngressSpec.TypeURL,
 			FullName: name,
 		},
 		Version: version,
-		//TODO CreateTime: entry.Metadata.CreateTime,
+		CreateTime: ts ,
 	}
 }
 
