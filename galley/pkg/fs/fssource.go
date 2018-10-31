@@ -43,19 +43,19 @@ var supportedExtensions = map[string]bool{
 }
 var scope = log.RegisterScope("fs", "File system source debugging", 0)
 
-//fsSource is source implementation for filesystem.
+// fsSource is source implementation for filesystem.
 type fsSource struct {
 	// configuration for the converters.
 	config *converter.Config
 
-	//RuntimeConfig File Path
+	// Config File Path
 	root string
 
 	donec chan struct{}
 
 	mu sync.RWMutex
 
-	//map to store namespace/name : shas
+	// map to store namespace/name : shas
 	shas map[resource.FullName][sha1.Size]byte
 
 	ch chan resource.Event
@@ -63,10 +63,10 @@ type fsSource struct {
 	// map to store kind : bool to indicate whether we need to deal with the resource or not
 	kinds map[string]bool
 
-	//map to store filename: []{namespace/name,kind} to indicate whether the resources has been deleted from one file
+	// map to store filename: []{namespace/name,kind} to indicate whether the resources has been deleted from one file
 	fileResorceKeys map[string][]*fileResourceKey
 
-	//fsresource version
+	// fsresource version
 	version int64
 
 	watcher *fsnotify.Watcher
