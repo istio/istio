@@ -213,6 +213,10 @@ data:
         {{ if .Values.global.sds.enabled }}
         - mountPath: /var/run/sds
           name: sds-uds-path
+        {{ if .Values.global.sds.enableTokenMount }}
+        - mountPath: /var/run/secrets/tokens
+          name: istio-token
+        {{- end }}
         {{- end }}
         {{ if and (eq .Values.global.proxy.tracer "lightstep") .Values.global.tracer.lightstep.cacertPath }}
         - mountPath: {{ "[[ directory .ProxyConfig.GetTracing.GetLightstep.GetCacertPath ]]" }}
@@ -224,6 +228,15 @@ data:
       - name: sds-uds-path
         hostPath:
           path: /var/run/sds
+      {{ if .Values.global.sds.enableTokenMount }}
+      - name: istio-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              path: istio-token
+              expirationSeconds: 43200
+              audience: istio
+      {{- end }}
       {{- end }}
       {{ if and (eq .Values.global.proxy.tracer "lightstep") .Values.global.tracer.lightstep.cacertPath }}
       - name: lightstep-certs
