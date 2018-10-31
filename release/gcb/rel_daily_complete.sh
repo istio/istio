@@ -23,13 +23,12 @@ set -x
 # shellcheck disable=SC1091
 source "/workspace/gcb_env.sh"
 
-# This script downloads creates a static file on GCS which has the download link of lnux tar gz
+# Copy to a new folder
+gsutil -q cp -r "gs://${CB_GCS_STAGING_BUCKET}/daily-build/${CB_VERSION}/*" "gs://${CB_GCS_STAGING_BUCKET}/daily-build/${CB_BRANCH}-latest-daily-new/"
 
-DAILY_HTTPS_PATH="https://storage.googleapis.com/${CB_GCS_STAGING_BUCKET}/daily-build/${CB_VERSION}/istio-${CB_VERSION}-linux.tar.gz"
+# Remove the old folder in case there is any stale file.
+gsutil -q rm -rf "gs://${CB_GCS_STAGING_BUCKET}/daily-build/${CB_BRANCH}-latest-daily/" || echo "No old build"
 
-TEMP_FILE=$(mktemp)
-echo -n "${DAILY_HTTPS_PATH}" > "${TEMP_FILE}"
-cat "${TEMP_FILE}"
+# Move the files to the static folder
+gsutil -q mv "gs://${CB_GCS_STAGING_BUCKET}/daily-build/${CB_BRANCH}-latest-daily-new/"  "gs://${CB_GCS_STAGING_BUCKET}/daily-build/${CB_BRANCH}-latest-daily/"
 
-# this file contains the linux download URL of the latest successful daily build for a particular branch
-gsutil -q cp "${TEMP_FILE}" "gs://${CB_GCS_STAGING_BUCKET}/daily-build/${CB_BRANCH}-latest.txt"
