@@ -15,7 +15,7 @@ json2html==1.2.1
 MarkupSafe==1.0
 opentracing==1.2.2
 opentracing-instrumentation==2.4.3
-requests==2.18.4
+requests==2.20.0
 simplejson==3.13.2
 urllib3==1.22
 visitor==0.1.3
