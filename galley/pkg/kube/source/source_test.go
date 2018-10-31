@@ -19,14 +19,14 @@ import (
 	"fmt"
 	"strings"
 	"testing"
-	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/dynamic/fake"
 	dtesting "k8s.io/client-go/testing"
+
+	"istio.io/istio/galley/pkg/meshconfig"
 
 	"istio.io/istio/galley/pkg/kube"
 	"istio.io/istio/galley/pkg/kube/converter"
@@ -50,7 +50,10 @@ func TestNewSource(t *testing.T) {
 		k.AddResponse(cl, nil)
 	}
 
-	p, err := New(k, 0)
+	cfg := converter.Config{
+		Mesh: meshconfig.NewInMemory(),
+	}
+	p, err := New(k, 0, &cfg)
 	if err != nil {
 		t.Fatalf("Unexpected error found: %v", err)
 	}
@@ -64,13 +67,91 @@ func TestNewSource_Error(t *testing.T) {
 	k := &mock.Kube{}
 	k.AddResponse(nil, errs.New("newDynamicClient error"))
 
-	_, err := New(k, 0)
+	cfg := converter.Config{
+		Mesh: meshconfig.NewInMemory(),
+	}
+	_, err := New(k, 0, &cfg)
 	if err == nil || err.Error() != "newDynamicClient error" {
 		t.Fatalf("Expected error not found: %v", err)
 	}
 }
 
 func TestSource_BasicEvents(t *testing.T) {
+	k := &mock.Kube{}
+	cl := fake.NewSimpleDynamicClient(runtime.NewScheme())
+
+	k.AddResponse(cl, nil)
+
+	i1 := unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "List",
+			"metadata": map[string]interface{}{
+				"name":            "f1",
+				"namespace":       "ns",
+				"resourceVersion": "rv1",
+			},
+			"spec": map[string]interface{}{},
+		},
+	}
+
+	cl.PrependReactor("*", "foos", func(action dtesting.Action) (handled bool, ret runtime.Object, err error) {
+		return true, &unstructured.UnstructuredList{Items: []unstructured.Unstructured{i1}}, nil
+	})
+	w := mock.NewWatch()
+	cl.PrependWatchReactor("foos", func(action dtesting.Action) (handled bool, ret watch.Interface, err error) {
+		return true, w, nil
+	})
+
+	entries := []kube.ResourceSpec{
+		{
+			Kind:      "List",
+			Singular:  "List",
+			Plural:    "foos",
+			Target:    emptyInfo,
+			Converter: converter.Get("identity"),
+		},
+	}
+
+	cfg := converter.Config{
+		Mesh: meshconfig.NewInMemory(),
+	}
+	s, err := newSource(k, 0, &cfg, entries)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	if s == nil {
+		t.Fatal("Expected non nil source")
+	}
+
+	ch, err := s.Start()
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	log := logChannelOutput(ch, 2)
+	expected := strings.TrimSpace(`
+[Event](Added: [VKey](type.googleapis.com/google.protobuf.Empty:ns/f1 @rv1))
+[Event](FullSync)
+`)
+	if log != expected {
+		t.Fatalf("Event mismatch:\nActual:\n%s\nExpected:\n%s\n", log, expected)
+	}
+
+	w.Send(watch.Event{Type: watch.Deleted, Object: &i1})
+	log = logChannelOutput(ch, 1)
+	expected = strings.TrimSpace(`
+[Event](Deleted: [VKey](type.googleapis.com/google.protobuf.Empty:ns/f1 @rv1))
+		`)
+	if log != expected {
+		t.Fatalf("Event mismatch:\nActual:\n%s\nExpected:\n%s\n", log, expected)
+	}
+
+	s.Stop()
+}
+
+func TestSource_BasicEvents_NoConversion(t *testing.T) {
 
 	k := &mock.Kube{}
 	cl := fake.NewSimpleDynamicClient(runtime.NewScheme())
@@ -103,11 +184,14 @@ func TestSource_BasicEvents(t *testing.T) {
 			Singular:  "List",
 			Plural:    "foos",
 			Target:    emptyInfo,
-			Converter: converter.Get("identity"),
+			Converter: converter.Get("nil"),
 		},
 	}
 
-	s, err := newSource(k, 0, entries)
+	cfg := converter.Config{
+		Mesh: meshconfig.NewInMemory(),
+	}
+	s, err := newSource(k, 0, &cfg, entries)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -121,10 +205,9 @@ func TestSource_BasicEvents(t *testing.T) {
 		t.Fatalf("Unexpected error: %v", err)
 	}
 
-	log := logChannelOutput(ch, 2)
+	log := logChannelOutput(ch, 1)
 	expected := strings.TrimSpace(`
-[Event](Added: [VKey](type.googleapis.com/google.protobuf.Empty:ns/f1 @rv1))
-[Event](FullSync: [VKey](: @))
+[Event](FullSync)
 `)
 	if log != expected {
 		t.Fatalf("Event mismatch:\nActual:\n%s\nExpected:\n%s\n", log, expected)
@@ -164,13 +247,16 @@ func TestSource_ProtoConversionError(t *testing.T) {
 			Singular: "foo",
 			Plural:   "foos",
 			Target:   emptyInfo,
-			Converter: func(info resource.Info, name string, u *unstructured.Unstructured) (string, time.Time, proto.Message, error) {
-				return "", time.Time{}, nil, fmt.Errorf("cant convert")
+			Converter: func(_ *converter.Config, info resource.Info, name resource.FullName, u *unstructured.Unstructured) ([]converter.Entry, error) {
+				return nil, fmt.Errorf("cant convert")
 			},
 		},
 	}
 
-	s, err := newSource(k, 0, entries)
+	cfg := converter.Config{
+		Mesh: meshconfig.NewInMemory(),
+	}
+	s, err := newSource(k, 0, &cfg, entries)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -187,7 +273,7 @@ func TestSource_ProtoConversionError(t *testing.T) {
 	// The add event should not appear.
 	log := logChannelOutput(ch, 1)
 	expected := strings.TrimSpace(`
-[Event](FullSync: [VKey](: @))
+[Event](FullSync)
 `)
 	if log != expected {
 		t.Fatalf("Event mismatch:\nActual:\n%s\nExpected:\n%s\n", log, expected)
