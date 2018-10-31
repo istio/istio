@@ -3,7 +3,6 @@
 # Whether the cluster is an Openshift (ocp) or upstream Kubernetes (k8s) cluster
 cluster_flavour: ocp
 
-
 istio:
 
   # Install istio with or without istio-auth module
@@ -22,3 +21,21 @@ istio:
 
   # Whether to delete resources that might exist from previous Istio installations
   delete_resources: false
+
+
+kiali:
+  username: admin
+  password: admin
+
+secret:
+  apiVersion: v1
+  kind: Secret
+  metadata:
+    name: kiali
+    namespace: istio-system
+    labels:
+      app: kiali
+  type: Opaque
+  data:
+    username: "{{ kiali.username | b64encode}}"
+    passphrase: "{{ kiali.password | b64encode}}"

@@ -146,7 +146,7 @@ func NewController(client kubernetes.Interface, options ControllerOptions) *Cont
 		ranger:       cidranger.NewPCTrieRanger(),
 	}
 
-	sharedInformers := informers.NewFilteredSharedInformerFactory(client, options.ResyncPeriod, options.WatchedNamespace, nil)
+	sharedInformers := informers.NewSharedInformerFactoryWithOptions(client, options.ResyncPeriod, informers.WithNamespace(options.WatchedNamespace))
 
 	svcInformer := sharedInformers.Core().V1().Services().Informer()
 	out.services = out.createCacheHandler(svcInformer, "Services")
@@ -485,30 +485,29 @@ func (c *Controller) InstancesByPort(hostname model.Hostname, reqSvcPort int,
 
 // GetProxyServiceInstances returns service instances co-located with a given proxy
 func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.ServiceInstance, error) {
-	proxyIP := proxy.IPAddress
-	pod, exists := c.pods.getPodByIP(proxyIP)
-	if !exists {
-		return nil, fmt.Errorf("failed to get pod by proxyIP %s", proxyIP)
-	}
-	podNamespace := pod.Namespace
-
 	out := make([]*model.ServiceInstance, 0)
+	proxyIP := proxy.IPAddress
+	proxyNamespace := ""
 
-	// 1. find proxy service by label selector, if not any, there may exist headless service
-	// failover to 2
-	svcLister := listerv1.NewServiceLister(c.services.informer.GetIndexer())
-	if services, err := svcLister.GetPodServices(pod); err != nil && len(services) > 0 {
-		for _, svc := range services {
-			item, exists, err := c.endpoints.informer.GetStore().GetByKey(KeyFunc(svc.Namespace, svc.Name))
-			if err != nil || !exists {
-				log.Warnf("unable to get endpoint %s/%s for svc: %v", svc.Namespace, svc.Name, err)
-				continue
+	pod, exists := c.pods.getPodByIP(proxyIP)
+	if exists {
+		proxyNamespace = pod.Namespace
+		// 1. find proxy service by label selector, if not any, there may exist headless service
+		// failover to 2
+		svcLister := listerv1.NewServiceLister(c.services.informer.GetIndexer())
+		if services, err := svcLister.GetPodServices(pod); err != nil && len(services) > 0 {
+			for _, svc := range services {
+				item, exists, err := c.endpoints.informer.GetStore().GetByKey(KeyFunc(svc.Namespace, svc.Name))
+				if err != nil || !exists {
+					log.Warnf("unable to get endpoint %s/%s for svc: %v", svc.Namespace, svc.Name, err)
+					continue
+				}
+
+				ep := *item.(*v1.Endpoints)
+				out = append(out, c.getProxyServiceInstancesByEndpoint(ep, proxy)...)
 			}
-
-			ep := *item.(*v1.Endpoints)
-			out = append(out, c.getProxyServiceInstancesByEndpoint(ep, proxy)...)
+			return out, nil
 		}
-		return out, nil
 	}
 
 	// 2. Headless service
@@ -517,7 +516,7 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 	for _, item := range c.endpoints.informer.GetStore().List() {
 		ep := *item.(*v1.Endpoints)
 		endpoints := &endpointsForPodInSameNS
-		if ep.Namespace != podNamespace {
+		if ep.Namespace != proxyNamespace {
 			endpoints = &endpointsForPodInDifferentNS
 		}
 
@@ -560,11 +559,11 @@ func (c *Controller) getProxyServiceInstancesByEndpoint(endpoints v1.Endpoints, 
 				}
 
 				if hasProxyIP(ss.Addresses, proxy.IPAddress) {
-					out = append(out, getEndpoints(proxy.IPAddress, c, svcPort, svc))
+					out = append(out, getEndpoints(proxy.IPAddress, c, port, svcPort, svc))
 				}
 
 				if hasProxyIP(ss.NotReadyAddresses, proxy.IPAddress) {
-					nrEP := getEndpoints(proxy.IPAddress, c, svcPort, svc)
+					nrEP := getEndpoints(proxy.IPAddress, c, port, svcPort, svc)
 					out = append(out, nrEP)
 					if c.Env != nil {
 						c.Env.PushContext.Add(model.ProxyStatusEndpointNotReady, proxy.ID, proxy, "")
@@ -577,7 +576,7 @@ func (c *Controller) getProxyServiceInstancesByEndpoint(endpoints v1.Endpoints, 
 	return out
 }
 
-func getEndpoints(ip string, c *Controller, svcPort *model.Port, svc *model.Service) *model.ServiceInstance {
+func getEndpoints(ip string, c *Controller, port v1.EndpointPort, svcPort *model.Port, svc *model.Service) *model.ServiceInstance {
 	labels, _ := c.pods.labelsByIP(ip)
 	pod, exists := c.pods.getPodByIP(ip)
 	az, sa := "", ""
@@ -588,7 +587,7 @@ func getEndpoints(ip string, c *Controller, svcPort *model.Port, svc *model.Serv
 	return &model.ServiceInstance{
 		Endpoint: model.NetworkEndpoint{
 			Address:     ip,
-			Port:        int(svcPort.Port),
+			Port:        int(port.Port),
 			ServicePort: svcPort,
 		},
 		Service:          svc,
@@ -778,6 +777,7 @@ func (c *Controller) updateEDS(ep *v1.Endpoints) {
 					Labels:          labels,
 					UID:             uid,
 					ServiceAccount:  kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace(), c.domainSuffix),
+					Network:         c.endpointNetwork(&ea),
 				})
 			}
 		}

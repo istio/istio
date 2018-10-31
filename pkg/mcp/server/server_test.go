@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"net"
 	"reflect"
 	"sync"
@@ -26,14 +27,13 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	"github.com/gogo/status"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
-	"google.golang.org/grpc/status"
-
 	mcp "istio.io/api/mcp/v1alpha1"
-	"istio.io/istio/pkg/mcp/testing/monitoring"
+	mcptestmon "istio.io/istio/pkg/mcp/testing/monitoring"
 )
 
 type mockConfigWatcher struct {
@@ -42,11 +42,11 @@ type mockConfigWatcher struct {
 	responses map[string]*WatchResponse
 
 	watchesCreated map[string]chan struct{}
-	watches        map[string][]chan<- *WatchResponse
+	watches        map[string][]PushResponseFunc
 	closeWatch     bool
 }
 
-func (config *mockConfigWatcher) Watch(req *mcp.MeshConfigRequest, out chan<- *WatchResponse) (*WatchResponse, CancelWatchFunc) {
+func (config *mockConfigWatcher) Watch(req *mcp.MeshConfigRequest, pushResponse PushResponseFunc) CancelWatchFunc {
 	config.mu.Lock()
 	defer config.mu.Unlock()
 
@@ -54,19 +54,21 @@ func (config *mockConfigWatcher) Watch(req *mcp.MeshConfigRequest, out chan<- *W
 
 	if rsp, ok := config.responses[req.TypeUrl]; ok {
 		rsp.TypeURL = req.TypeUrl
-		return rsp, nil
+		pushResponse(rsp)
+		return nil
 	} else if config.closeWatch {
-		go func() { out <- nil }()
+		pushResponse(nil)
+		return nil
 	} else {
 		// save open watch channel for later
-		config.watches[req.TypeUrl] = append(config.watches[req.TypeUrl], out)
+		config.watches[req.TypeUrl] = append(config.watches[req.TypeUrl], pushResponse)
 	}
 
 	if ch, ok := config.watchesCreated[req.TypeUrl]; ok {
 		ch <- struct{}{}
 	}
 
-	return nil, func() {}
+	return func() {}
 }
 
 func (config *mockConfigWatcher) setResponse(response *WatchResponse) {
@@ -77,7 +79,7 @@ func (config *mockConfigWatcher) setResponse(response *WatchResponse) {
 
 	if watches, ok := config.watches[typeURL]; ok {
 		for _, watch := range watches {
-			watch <- response
+			watch(response)
 		}
 	} else {
 		config.responses[typeURL] = response
@@ -88,7 +90,7 @@ func makeMockConfigWatcher() *mockConfigWatcher {
 	return &mockConfigWatcher{
 		counts:         make(map[string]int),
 		watchesCreated: make(map[string]chan struct{}),
-		watches:        make(map[string][]chan<- *WatchResponse),
+		watches:        make(map[string][]PushResponseFunc),
 		responses:      make(map[string]*WatchResponse),
 	}
 }
@@ -616,4 +618,138 @@ func TestAggregateRequestType(t *testing.T) {
 		t.Error("StreamAggregatedResources() => got nil, want an error")
 	}
 	close(stream.recv)
+}
+
+func TestRateLimitNACK(t *testing.T) {
+	origNackLimitFreq := nackLimitFreq
+	nackLimitFreq = 1 * time.Millisecond
+	defer func() {
+		nackLimitFreq = origNackLimitFreq
+	}()
+
+	config := makeMockConfigWatcher()
+	s := New(config, WatchResponseTypes, NewAllowAllChecker(), mcptestmon.NewInMemoryServerStatsContext())
+
+	stream := makeMockStream(t)
+	go func() {
+		if err := s.StreamAggregatedResources(stream); err != nil {
+			t.Errorf("StreamAggregatedResources() => got %v, want no error", err)
+		}
+	}()
+
+	var (
+		nackFloodRepeatDuration   = time.Millisecond * 500
+		nackFloodMaxWantResponses = int(nackFloodRepeatDuration/nackLimitFreq) + 1
+		nackFloodMinWantResponses = nackFloodMaxWantResponses / 2
+
+		ackFloodRepeatDuration   = time.Millisecond * 500
+		ackFloodMaxWantResponses = math.MaxInt64
+		ackFloodMinWantResponses = int(ackFloodRepeatDuration/nackLimitFreq) + 1
+	)
+
+	steps := []struct {
+		name           string
+		pushedVersion  string
+		ackedVersion   string
+		minResponses   int
+		maxResponses   int
+		repeatDuration time.Duration
+		errDetails     error
+	}{
+		{
+			name:          "initial push",
+			pushedVersion: "1",
+			ackedVersion:  "1",
+			minResponses:  1,
+			maxResponses:  1,
+		},
+		{
+			name:          "first ack",
+			pushedVersion: "2",
+			ackedVersion:  "2",
+			minResponses:  1,
+			maxResponses:  1,
+		},
+		{
+			name:           "verify nack flood is rate limited",
+			pushedVersion:  "3",
+			ackedVersion:   "2",
+			errDetails:     errors.New("nack"),
+			minResponses:   nackFloodMinWantResponses,
+			maxResponses:   nackFloodMaxWantResponses,
+			repeatDuration: nackFloodRepeatDuration,
+		},
+		{
+			name:           "verify back-to-back ack is not rate limited",
+			pushedVersion:  "4",
+			ackedVersion:   "4", // resuse version to simplify test code below
+			minResponses:   ackFloodMinWantResponses,
+			maxResponses:   ackFloodMaxWantResponses,
+			repeatDuration: ackFloodRepeatDuration,
+		},
+	}
+
+	sendRequest := func(typeURL, nonce, version string, err error) {
+		req := &mcp.MeshConfigRequest{
+			Client:        client,
+			TypeUrl:       typeURL,
+			ResponseNonce: nonce,
+			VersionInfo:   version,
+		}
+		if err != nil {
+			errorDetails, _ := status.FromError(err)
+			req.ErrorDetail = errorDetails.Proto()
+		}
+		stream.recv <- req
+	}
+
+	// initial watch request
+	sendRequest(fakeType0TypeURL, "", "", nil)
+
+	nonces := make(map[string]bool)
+	var prevNonce string
+
+	for _, s := range steps {
+		numResponses := 0
+		finish := time.Now().Add(s.repeatDuration)
+		first := true
+		for {
+			if first {
+				first = false
+				config.setResponse(&WatchResponse{
+					TypeURL:   fakeType0TypeURL,
+					Version:   s.pushedVersion,
+					Envelopes: []*mcp.Envelope{fakeEnvelope0},
+				})
+			}
+
+			var response *mcp.MeshConfigResponse
+			select {
+			case response = <-stream.sent:
+				numResponses++
+			case <-time.After(time.Second):
+				t.Fatalf("%v: timed out waiting for response", s.name)
+			}
+
+			if response.VersionInfo != s.pushedVersion {
+				t.Fatalf("%v: wrong response version: got %v want %v", s.name, response.VersionInfo, s.pushedVersion)
+			}
+			if _, ok := nonces[response.Nonce]; ok {
+				t.Fatalf("%v: reused nonce in response: %v", s.name, response.Nonce)
+			}
+			nonces[response.Nonce] = true
+
+			prevNonce = response.Nonce
+
+			sendRequest(fakeType0TypeURL, prevNonce, s.ackedVersion, s.errDetails)
+
+			if time.Now().After(finish) {
+				break
+			}
+		}
+		if numResponses < s.minResponses || numResponses > s.maxResponses {
+			t.Fatalf("%v: wrong number of responses: got %v want[%v,%v]",
+				s.name, numResponses, s.minResponses, s.maxResponses)
+		}
+	}
 }
