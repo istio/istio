@@ -25,6 +25,7 @@ import (
 	v2_cluster "github.com/envoyproxy/go-control-plane/envoy/api/v2/cluster"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/gogo/protobuf/types"
+
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
@@ -173,9 +174,9 @@ func updateEds(cluster *v2.Cluster) {
 	}
 }
 
-func buildClusterHosts(env *model.Environment, proxyNetworkView map[string]bool, service *model.Service, 
+func buildClusterHosts(env *model.Environment, proxyNetworkView map[string]bool, service *model.Service,
 	port int, labels model.LabelsCollection) []*core.Address {
-	
+
 	if service.Resolution != model.DNSLB {
 		return nil
 	}
