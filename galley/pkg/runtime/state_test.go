@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
-
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/galley/pkg/runtime/resource"
 )
@@ -53,9 +52,18 @@ func checkCreateTime(e *mcp.Envelope, want time.Time) error {
 	return nil
 }
 
-func TestState_Apply_Add(t *testing.T) {
-
+func TestState_DefaultSnapshot(t *testing.T) {
 	s := newState(testSchema)
+	sn := s.buildSnapshot()
+
+	for _, typeURL := range []string{emptyInfo.TypeURL.String(), structInfo.TypeURL.String()} {
+		if r := sn.Resources(typeURL); len(r) != 0 {
+			t.Fatalf("%s entry should have been registered in snapshot", typeURL)
+		}
+		if v := sn.Version(typeURL); v == "" {
+			t.Fatalf("%s version should have been available", typeURL)
+		}
+	}
 
 	e := resource.Event{
 		Kind: resource.Added,
@@ -72,7 +80,7 @@ func TestState_Apply_Add(t *testing.T) {
 		t.Fatal("calling apply should have changed state.")
 	}
 
-	sn := s.buildSnapshot()
+	sn = s.buildSnapshot()
 	r := sn.Resources(emptyInfo.TypeURL.String())
 	if len(r) != 1 {
 		t.Fatal("Entry should have been registered in snapshot")
