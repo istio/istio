@@ -235,7 +235,7 @@ data:
           - serviceAccountToken:
               path: istio-token
               expirationSeconds: 43200
-              audience: istio
+              audience: {{ .Values.global.trustedDomain }}
       {{- end }}
       {{- end }}
       {{ if and (eq .Values.global.proxy.tracer "lightstep") .Values.global.tracer.lightstep.cacertPath }}

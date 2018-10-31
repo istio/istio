@@ -330,6 +330,10 @@ global:
   # Pilot. Requires galley (`--set galley.enabled=true`).
   useMCP: false
 
+  # The trust domain corresponds to the trust root of a system
+  # Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
+  trustedDomain: ""
+
   sds:
     # SDS enabled. IF set to true, mTLS certificates for the sidecars will be
     # distributed through the SecretDiscoveryService instead of using K8S secrets to mount the certificates.
