@@ -22,6 +22,9 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
+	ext "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	extfake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
@@ -206,4 +209,136 @@ func logChannelOutput(ch chan resource.Event, count int) string {
 	result = strings.TrimSpace(result)
 
 	return result
+}
+
+func TestVerifyCRDPresence(t *testing.T) {
+	prevInterval, prevTimeout := crdPresencePollInterval, crdPresensePollTimeout
+	crdPresencePollInterval = time.Nanosecond
+	crdPresensePollTimeout = time.Millisecond
+	defer func() {
+		crdPresencePollInterval, crdPresensePollTimeout = prevInterval, prevTimeout
+	}()
+
+	specs := []kube.ResourceSpec{
+		{
+			Plural: "foos",
+			Kind:   "Foo",
+			Group:  "one.example.com.",
+		},
+		{
+			Plural: "bars",
+			Kind:   "Bar",
+			Group:  "two.example.com.",
+		},
+		{
+			Plural: "bazs",
+			Kind:   "Baz",
+			Group:  "three.example.com.",
+		},
+	}
+
+	type crdDesc struct {
+		spec      kube.ResourceSpec
+		condition ext.CustomResourceDefinitionCondition
+	}
+
+	condition := func(
+		typ ext.CustomResourceDefinitionConditionType,
+		status ext.ConditionStatus) ext.CustomResourceDefinitionCondition {
+		return ext.CustomResourceDefinitionCondition{Type: typ, Status: status}
+	}
+
+	cases := []struct {
+		name    string
+		descs   []crdDesc
+		wantErr bool
+	}{
+		{
+			name: "all ready",
+			descs: []crdDesc{
+				{spec: specs[0], condition: condition(ext.Established, ext.ConditionTrue)},
+				{spec: specs[1], condition: condition(ext.Established, ext.ConditionTrue)},
+				{spec: specs[2], condition: condition(ext.Established, ext.ConditionTrue)},
+			},
+			wantErr: false,
+		},
+		{
+			name: "first not ready",
+			descs: []crdDesc{
+				{spec: specs[0], condition: condition(ext.Established, ext.ConditionFalse)},
+				{spec: specs[1], condition: condition(ext.Established, ext.ConditionTrue)},
+				{spec: specs[2], condition: condition(ext.Established, ext.ConditionTrue)},
+			},
+			wantErr: true,
+		},
+		{
+			name: "second not ready",
+			descs: []crdDesc{
+				{spec: specs[0], condition: condition(ext.Established, ext.ConditionTrue)},
+				{spec: specs[1], condition: condition(ext.Established, ext.ConditionFalse)},
+				{spec: specs[2], condition: condition(ext.Established, ext.ConditionTrue)},
+			},
+			wantErr: true,
+		},
+		{
+			name: "third not ready",
+			descs: []crdDesc{
+				{spec: specs[0], condition: condition(ext.Established, ext.ConditionTrue)},
+				{spec: specs[1], condition: condition(ext.Established, ext.ConditionTrue)},
+				{spec: specs[2], condition: condition(ext.Established, ext.ConditionFalse)},
+			},
+			wantErr: true,
+		},
+		{
+			name: "none ready",
+			descs: []crdDesc{
+				{spec: specs[0], condition: condition(ext.Established, ext.ConditionFalse)},
+				{spec: specs[1], condition: condition(ext.Established, ext.ConditionFalse)},
+				{spec: specs[2], condition: condition(ext.Established, ext.ConditionFalse)},
+			},
+			wantErr: true,
+		},
+		{
+			name: "name conflict",
+			descs: []crdDesc{
+				{spec: specs[0], condition: condition(ext.Established, ext.ConditionTrue)},
+				{spec: specs[1], condition: condition(ext.Established, ext.ConditionTrue)},
+				{spec: specs[2], condition: condition(ext.NamesAccepted, ext.ConditionFalse)},
+			},
+			wantErr: true,
+		},
+	}
+
+	for i, c := range cases {
+		t.Run(fmt.Sprintf("[%v] %v", i, c.name), func(tt *testing.T) {
+			var crds []runtime.Object
+			for _, desc := range c.descs {
+				crd := &ext.CustomResourceDefinition{
+					ObjectMeta: meta_v1.ObjectMeta{
+						Name: fmt.Sprintf("%s.%s", desc.spec.Plural, desc.spec.Group),
+					},
+					Spec: ext.CustomResourceDefinitionSpec{
+						Group:   desc.spec.Group,
+						Version: "v1",
+						Scope:   ext.NamespaceScoped,
+						Names: ext.CustomResourceDefinitionNames{
+							Plural: desc.spec.Plural,
+							Kind:   desc.spec.Kind,
+						},
+					},
+					Status: ext.CustomResourceDefinitionStatus{
+						Conditions: []ext.CustomResourceDefinitionCondition{desc.condition},
+					},
+				}
+				crds = append(crds, crd)
+			}
+
+			cs := extfake.NewSimpleClientset(crds...)
+			err := verifyCRDPresence(cs, specs)
+			gotErr := err != nil
+			if gotErr != c.wantErr {
+				tt.Fatalf("got %v want %v", err, c.wantErr)
+			}
+		})
+	}
 }

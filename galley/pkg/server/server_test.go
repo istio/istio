@@ -74,6 +74,9 @@ func TestNewServer(t *testing.T) {
 	p.mcpMetricReporter = func(s string) server.Reporter {
 		return mcptestmon.NewInMemoryServerStatsContext()
 	}
+	p.verifyCRDPresence = func(kube.Interfaces) error {
+		return nil
+	}
 
 	args := DefaultArgs()
 	args.APIAddress = "tcp://0.0.0.0:0"
@@ -96,6 +99,9 @@ func TestServer_Basic(t *testing.T) {
 	}
 	p.mcpMetricReporter = func(s string) server.Reporter {
 		return mcptestmon.NewInMemoryServerStatsContext()
+	}
+	p.verifyCRDPresence = func(kube.Interfaces) error {
+		return nil
 	}
 
 	args := DefaultArgs()

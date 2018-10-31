@@ -15,16 +15,21 @@
 package source
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/hashicorp/go-multierror"
+	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	"istio.io/istio/galley/pkg/kube"
 	kube_meta "istio.io/istio/galley/pkg/metadata/kube"
-
 	"istio.io/istio/galley/pkg/runtime"
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/pkg/log"
@@ -45,6 +50,68 @@ var _ runtime.Source = &sourceImpl{}
 // New returns a Kubernetes implementation of runtime.Source.
 func New(k kube.Interfaces, resyncPeriod time.Duration) (runtime.Source, error) {
 	return newSource(k, resyncPeriod, kube_meta.Types.All())
+}
+
+// VerifyCRDPresence verifies that all expected CRDs are registered
+// with the k8s kube-apiserver.
+func VerifyCRDPresence(k kube.Interfaces) error {
+	cs, err := k.APIExtensionsClientset()
+	if err != nil {
+		return err
+	}
+	return verifyCRDPresence(cs, kube_meta.Types.All())
+}
+
+var (
+	crdPresencePollInterval = 500 * time.Millisecond
+	crdPresensePollTimeout  = time.Minute
+)
+
+func verifyCRDPresence(cs clientset.Interface, specs []kube.ResourceSpec) error {
+	crdToFind := make(map[string]struct{})
+	for _, spec := range specs {
+		name := fmt.Sprintf("%s.%s", spec.Plural, spec.Group)
+		crdToFind[name] = struct{}{}
+	}
+
+	err := wait.Poll(crdPresencePollInterval, crdPresensePollTimeout, func() (bool, error) {
+		var errs error
+	nextCRD:
+		for name := range crdToFind {
+			crd, err := cs.ApiextensionsV1beta1().CustomResourceDefinitions().Get(name, v1.GetOptions{})
+			if err != nil {
+				errs = multierror.Append(errs, fmt.Errorf("could not find %v: %v", name, err))
+				continue nextCRD
+			}
+
+			for _, cond := range crd.Status.Conditions {
+				switch cond.Type {
+				case apiextensionsv1beta1.Established:
+					if cond.Status == apiextensionsv1beta1.ConditionTrue {
+						log.Infof("Found CRD %q", name)
+						delete(crdToFind, name)
+						continue nextCRD
+					}
+				case apiextensionsv1beta1.NamesAccepted:
+					if cond.Status == apiextensionsv1beta1.ConditionFalse {
+						log.Warnf("CRD name conflict: %v", cond.Reason)
+						continue nextCRD
+					}
+				}
+			}
+		}
+		if len(crdToFind) == 0 {
+			log.Infof("Discovered all supported CRD (# = %v)", len(specs))
+			return true, nil
+		}
+		// entire search failed
+		if errs != nil {
+			return true, errs
+		}
+		// check again next poll
+		return false, nil
+	})
+	return err
 }
 
 func newSource(k kube.Interfaces, resyncPeriod time.Duration, specs []kube.ResourceSpec) (runtime.Source, error) {

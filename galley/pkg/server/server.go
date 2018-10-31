@@ -23,18 +23,16 @@ import (
 
 	"google.golang.org/grpc"
 
-	"istio.io/istio/pkg/mcp/creds"
-
 	mcp "istio.io/api/mcp/v1alpha1"
+	"istio.io/istio/galley/cmd/shared"
 	"istio.io/istio/galley/pkg/fs"
+	"istio.io/istio/galley/pkg/kube"
 	"istio.io/istio/galley/pkg/kube/source"
 	"istio.io/istio/galley/pkg/metadata"
-
-	"istio.io/istio/galley/cmd/shared"
-	"istio.io/istio/galley/pkg/kube"
 	"istio.io/istio/galley/pkg/runtime"
 	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/mcp/creds"
 	"istio.io/istio/pkg/mcp/server"
 	"istio.io/istio/pkg/mcp/snapshot"
 	"istio.io/istio/pkg/probe"
@@ -58,6 +56,7 @@ type Server struct {
 type patchTable struct {
 	logConfigure          func(*log.Options) error
 	newKubeFromConfigFile func(string) (kube.Interfaces, error)
+	verifyCRDPresence     func(kube.Interfaces) error
 	newSource             func(kube.Interfaces, time.Duration) (runtime.Source, error)
 	netListen             func(network, address string) (net.Listener, error)
 	mcpMetricReporter     func(string) server.Reporter
@@ -67,6 +66,7 @@ func defaultPatchTable() patchTable {
 	return patchTable{
 		logConfigure:          log.Configure,
 		newKubeFromConfigFile: kube.NewKubeFromConfigFile,
+		verifyCRDPresence:     source.VerifyCRDPresence,
 		newSource:             source.New,
 		netListen:             net.Listen,
 		mcpMetricReporter:     func(prefix string) server.Reporter { return server.NewStatsContext(prefix) },
@@ -93,6 +93,9 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 	} else {
 		k, err := p.newKubeFromConfigFile(a.KubeConfig)
 		if err != nil {
+			return nil, err
+		}
+		if err := p.verifyCRDPresence(k); err != nil {
 			return nil, err
 		}
 		src, err = p.newSource(k, a.ResyncPeriod)
