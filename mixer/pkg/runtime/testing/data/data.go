@@ -499,7 +499,7 @@ spec:
     - icheckoutput1.tcheckoutput.istio-system
     name: sample
   requestHeaderOperations:
-  - name: '"user"'
+  - name: user
     values:
     - sample.output.value
 `
@@ -522,14 +522,14 @@ spec:
     - icheckoutput1.tcheckoutput.istio-system
     name: b
   requestHeaderOperations:
-  - name: '"a"'
+  - name: a
     values:
     - a.output.value
     operation: REPLACE
-  - name: '"user"'
+  - name: user
     operation: REMOVE
   responseHeaderOperations:
-  - name: '"b"'
+  - name: b
     values:
     - b.output.value
     - prefix.generated.string

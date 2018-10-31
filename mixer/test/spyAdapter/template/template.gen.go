@@ -457,14 +457,14 @@ var (
 			},
 
 			// DispatchCheck dispatches the instance to the handler.
-			DispatchCheck: func(ctx context.Context, handler adapter.Handler, inst interface{}) (adapter.CheckResult, interface{}, error) {
+			DispatchCheck: func(ctx context.Context, handler adapter.Handler, inst interface{}, out *attribute.MutableBag, outPrefix string) (adapter.CheckResult, error) {
 
 				// Convert the instance from the generic interface{}, to its specialized type.
 				instance := inst.(*samplecheck.Instance)
 
 				// Invoke the handler.
 				res, err := handler.(samplecheck.Handler).HandleSampleCheck(ctx, instance)
-				return res, nil, err
+				return res, err
 			},
 
 			// CreateInstanceBuilder creates a new template.InstanceBuilderFN based on the supplied instance parameters. It uses
@@ -567,13 +567,28 @@ var (
 			},
 
 			// DispatchCheck dispatches the instance to the handler.
-			DispatchCheck: func(ctx context.Context, handler adapter.Handler, inst interface{}) (adapter.CheckResult, interface{}, error) {
+			DispatchCheck: func(ctx context.Context, handler adapter.Handler, inst interface{}, out *attribute.MutableBag, outPrefix string) (adapter.CheckResult, error) {
 
 				// Convert the instance from the generic interface{}, to its specialized type.
 				instance := inst.(*checkproducer.Instance)
 
 				// Invoke the handler.
-				return handler.(checkproducer.Handler).HandleCheckProducer(ctx, instance)
+				res, obj, err := handler.(checkproducer.Handler).HandleCheckProducer(ctx, instance)
+
+				if out != nil {
+
+					out.Set(outPrefix+"int64Primitive", obj.Int64Primitive)
+
+					out.Set(outPrefix+"boolPrimitive", obj.BoolPrimitive)
+
+					out.Set(outPrefix+"doublePrimitive", obj.DoublePrimitive)
+
+					out.Set(outPrefix+"stringPrimitive", obj.StringPrimitive)
+
+					out.Set(outPrefix+"stringMap", obj.StringMap)
+
+				}
+				return res, err
 			},
 
 			AttributeManifests: []*istio_policy_v1beta1.AttributeManifest{
@@ -601,43 +616,6 @@ var (
 						},
 					},
 				},
-			},
-
-			EvaluateOutputAttribute: func(obj interface{}) func(string) (interface{}, bool) {
-				out, ok := obj.(*checkproducer.Output)
-				if !ok {
-					return func(string) (interface{}, bool) {
-						return nil, false
-					}
-				}
-
-				return func(field string) (interface{}, bool) {
-					switch field {
-
-					case "int64Primitive":
-
-						return out.Int64Primitive, true
-
-					case "boolPrimitive":
-
-						return out.BoolPrimitive, true
-
-					case "doublePrimitive":
-
-						return out.DoublePrimitive, true
-
-					case "stringPrimitive":
-
-						return out.StringPrimitive, true
-
-					case "stringMap":
-
-						return out.StringMap, true
-
-					default:
-						return nil, false
-					}
-				}
 			},
 
 			// CreateInstanceBuilder creates a new template.InstanceBuilderFN based on the supplied instance parameters. It uses

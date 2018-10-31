@@ -22,7 +22,6 @@ import (
 	"github.com/gogo/googleapis/google/rpc"
 	"github.com/hashicorp/go-multierror"
 	"go.opencensus.io/stats"
-
 	tpb "istio.io/api/mixer/adapter/model/v1beta1"
 	mixerpb "istio.io/api/mixer/v1"
 	descriptor "istio.io/api/policy/v1beta1"
@@ -58,9 +57,6 @@ type session struct {
 	quotaResult adapter.QuotaResult
 	err         error
 
-	// directive intermediate form
-	operations []*routing.HeaderOperation
-
 	// The current number of activeDispatches handler dispatches.
 	activeDispatches int
 
@@ -85,7 +81,6 @@ func (s *session) clear() {
 	s.err = nil
 	s.quotaResult = adapter.QuotaResult{}
 	s.checkResult = adapter.CheckResult{}
-	s.operations = nil
 
 	// Drain the channel
 	exit := false
@@ -128,6 +123,13 @@ func (s *session) dispatch() error {
 	foundQuota := false
 	ninputs := 0
 	ndestinations := 0
+
+	var outputBag *attribute.MutableBag
+	if s.variety == tpb.TEMPLATE_VARIETY_CHECK {
+		outputBag = attribute.GetMutableBag(s.bag)
+		defer outputBag.Done()
+	}
+
 	for _, destination := range destinations.Entries() {
 		var state *dispatchState
 
@@ -182,8 +184,6 @@ func (s *session) dispatch() error {
 
 				// for other templates, dispatch for each instance individually.
 				state = s.impl.getDispatchState(s.ctx, destination)
-				state.actionName = input.ActionName
-				state.evaluateOutputAttr = input.EvaluateOutputAttribute
 				state.instances = append(state.instances, instance)
 				if s.variety == tpb.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR {
 					state.mapper = group.Mappers[j]
@@ -194,21 +194,12 @@ func (s *session) dispatch() error {
 				state.quotaArgs.BestEffort = s.quotaArgs.BestEffort
 				state.quotaArgs.DeduplicationID = s.quotaArgs.DeduplicationID
 				state.quotaArgs.QuotaAmount = s.quotaArgs.Amount
+
+				state.outputPrefix = input.ActionName + ".output."
+				state.outputBag = outputBag
+
 				s.dispatchToHandler(state)
 			}
-		}
-	}
-
-	// aggregate directive after filtering by attribute conditions
-	if s.variety == tpb.TEMPLATE_VARIETY_CHECK {
-		for _, directiveGroup := range destinations.Directives() {
-			if directiveGroup.Condition != nil {
-				if matches, err := directiveGroup.Condition.EvaluateBoolean(s.bag); err != nil || !matches {
-					continue
-				}
-			}
-
-			s.operations = append(s.operations, directiveGroup.Operations...)
 		}
 	}
 
@@ -224,6 +215,51 @@ func (s *session) dispatch() error {
 		s.quotaResult.Amount = s.quotaArgs.Amount
 		s.quotaResult.ValidDuration = defaultValidDuration
 		log.Warnf("Requested quota '%s' is not configured", s.quotaArgs.Quota)
+	}
+
+	// aggregate directive after filtering by attribute conditions
+	if s.variety == tpb.TEMPLATE_VARIETY_CHECK && status.IsOK(s.checkResult.Status) {
+		for _, directiveGroup := range destinations.Directives() {
+			if directiveGroup.Condition != nil {
+				if matches, err := directiveGroup.Condition.EvaluateBoolean(s.bag); err != nil || !matches {
+					continue
+				}
+			}
+
+			for _, op := range directiveGroup.Operations {
+				hop := mixerpb.HeaderOperation{
+					Name: op.HeaderName,
+				}
+				switch op.Operation {
+				case descriptor.APPEND:
+					hop.Operation = mixerpb.APPEND
+				case descriptor.REMOVE:
+					hop.Operation = mixerpb.REMOVE
+				case descriptor.REPLACE:
+					hop.Operation = mixerpb.REPLACE
+				}
+
+				if op.Operation != descriptor.REMOVE {
+					var verr error
+					hop.Value, verr = op.HeaderValue.EvaluateString(outputBag)
+					if verr != nil {
+						log.Warnf("Failed to evaluate header value: %v", verr)
+						continue
+					}
+				}
+
+				if s.checkResult.RouteDirective == nil {
+					s.checkResult.RouteDirective = &mixerpb.RouteDirective{}
+				}
+
+				switch op.Type {
+				case routing.RequestHeaderOperation:
+					s.checkResult.RouteDirective.RequestHeaderOperations = append(s.checkResult.RouteDirective.RequestHeaderOperations, hop)
+				case routing.ResponseHeaderOperation:
+					s.checkResult.RouteDirective.ResponseHeaderOperations = append(s.checkResult.RouteDirective.ResponseHeaderOperations, hop)
+				}
+			}
+		}
 	}
 
 	return nil
@@ -252,7 +288,6 @@ func (s *session) waitForDispatched() {
 	// wait on the dispatch states and accumulate results
 	var buf *bytes.Buffer
 	code := rpc.OK
-	bag := s.bag
 
 	for s.activeDispatches > 0 {
 		state := <-s.completed
@@ -283,15 +318,6 @@ func (s *session) waitForDispatched() {
 				}
 			}
 			st = state.checkResult.Status
-
-			// output attribute evaluator is set for TEMPLATE_VARIETY_CHECK_WITH_OUTPUT variety
-			if state.evaluateOutputAttr != nil {
-				bag = &chainedBag{
-					parent:   bag,
-					prefix:   state.actionName + ".output.",
-					evaluate: state.evaluateOutputAttr(state.checkOutput),
-				}
-			}
 
 		case tpb.TEMPLATE_VARIETY_QUOTA:
 			if s.quotaResult.IsDefault() {
@@ -332,89 +358,4 @@ func (s *session) waitForDispatched() {
 		}
 		pool.PutBuffer(buf)
 	}
-
-	// compute route directive once all dispatches finish
-	// note that variety is CHECK for output-producing CHECK adapters
-	if s.variety == tpb.TEMPLATE_VARIETY_CHECK && status.IsOK(s.checkResult.Status) && len(s.operations) > 0 {
-		s.evaluateDirective(bag)
-	}
 }
-
-func (s *session) evaluateDirective(bag attribute.Bag) {
-	s.checkResult.RouteDirective = &mixerpb.RouteDirective{}
-	for _, op := range s.operations {
-		name, nerr := op.HeaderName.EvaluateString(bag)
-		if nerr != nil {
-			log.Warnf("Failed to evaluate header name: %v", nerr)
-			continue
-		}
-		hop := mixerpb.HeaderOperation{
-			Name: name,
-		}
-		switch op.Operation {
-		case descriptor.APPEND:
-			hop.Operation = mixerpb.APPEND
-		case descriptor.REMOVE:
-			hop.Operation = mixerpb.REMOVE
-		case descriptor.REPLACE:
-			hop.Operation = mixerpb.REPLACE
-		}
-
-		if op.Operation != descriptor.REMOVE {
-			var verr error
-			hop.Value, verr = op.HeaderValue.EvaluateString(bag)
-			if verr != nil {
-				log.Warnf("Failed to evaluate header value: %v", verr)
-				continue
-			}
-		}
-
-		switch op.Type {
-		case routing.RequestHeaderOperation:
-			s.checkResult.RouteDirective.RequestHeaderOperations = append(s.checkResult.RouteDirective.RequestHeaderOperations, hop)
-		case routing.ResponseHeaderOperation:
-			s.checkResult.RouteDirective.ResponseHeaderOperations = append(s.checkResult.RouteDirective.ResponseHeaderOperations, hop)
-		}
-	}
-}
-
-type chainedBag struct {
-	parent   attribute.Bag
-	prefix   string
-	evaluate func(string) (value interface{}, found bool)
-}
-
-func (b *chainedBag) Get(name string) (interface{}, bool) {
-	if strings.HasPrefix(name, b.prefix) {
-		trimmed := strings.TrimPrefix(name, b.prefix)
-		if val, ok := b.evaluate(trimmed); ok {
-			return val, ok
-		}
-	}
-	return b.parent.Get(name)
-}
-
-func (b *chainedBag) Contains(name string) bool {
-	if strings.HasPrefix(name, b.prefix) {
-		trimmed := strings.TrimPrefix(name, b.prefix)
-		if _, ok := b.evaluate(trimmed); ok {
-			return true
-		}
-	}
-	return b.parent.Contains(name)
-}
-
-// TODO(kuat): implement attribute enumeration or eliminate this function from the generic Bag interface
-func (b *chainedBag) Names() []string {
-	return b.parent.Names()
-}
-
-func (b *chainedBag) Done() {
-	b.parent.Done()
-}
-
-func (b *chainedBag) String() string {
-	return b.parent.String()
-}
-
-var _ attribute.Bag = &chainedBag{}

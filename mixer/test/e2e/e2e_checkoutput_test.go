@@ -56,9 +56,10 @@ spec:
     - instance.checkproducer
     name: test
   requestHeaderOperations:
-  - name: test.output.stringPrimitive
+  - name: x-istio
     values:
     - test.output.stringMap["key1"]
+    - test.output.stringPrimitive
     operation: APPEND
 ---
 `,
@@ -96,11 +97,18 @@ spec:
 				},
 			},
 			expectDirective: &v1.RouteDirective{
-				RequestHeaderOperations: []v1.HeaderOperation{{
-					Name:      "string0",
-					Value:     "value1",
-					Operation: v1.APPEND,
-				}},
+				RequestHeaderOperations: []v1.HeaderOperation{
+					{
+						Name:      "x-istio",
+						Value:     "value1",
+						Operation: v1.APPEND,
+					},
+					{
+						Name:      "x-istio",
+						Value:     "string0",
+						Operation: v1.APPEND,
+					},
+				},
 			},
 		},
 	}

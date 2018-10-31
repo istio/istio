@@ -86,9 +86,28 @@ type Destination struct {
 
 // DirectiveGroup is a group of route directive expressions with a condition.
 // Directive expressions reference destination action names.
+// Note that InstanceGroup organizes by handlers, rather than rules, which necessitates
+// a different grouping for directives.
 type DirectiveGroup struct {
 	Condition  compiled.Expression
 	Operations []*HeaderOperation
+}
+
+// HeaderOperationType is an enumeration for the route directive header operation template type.
+type HeaderOperationType int
+
+// Request and response header operation types.
+const (
+	RequestHeaderOperation HeaderOperationType = iota
+	ResponseHeaderOperation
+)
+
+// HeaderOperation is an intermediate form of a rule header operation.
+type HeaderOperation struct {
+	Type        HeaderOperationType
+	HeaderName  string
+	HeaderValue compiled.Expression
+	Operation   descriptor.Rule_HeaderOperationTemplate_Operation
 }
 
 // NamedBuilder holds a builder function and the short name of the associated instance.
@@ -98,31 +117,26 @@ type NamedBuilder struct {
 
 	// ActionName is the action name in the rule, used to reference the output of the handler applied to the instance
 	ActionName string
-
-	// EvaluateOutputAttribute returns the attribute value for the handler output
-	EvaluateOutputAttribute template.EvaluateOutputAttributeFn
 }
 
 // TemplateInfo is the common data that is needed from a template
 type TemplateInfo struct {
-	Name                    string
-	Variety                 tpb.TemplateVariety
-	DispatchReport          template.DispatchReportFn
-	DispatchCheck           template.DispatchCheckFn
-	DispatchQuota           template.DispatchQuotaFn
-	DispatchGenAttrs        template.DispatchGenerateAttributesFn
-	EvaluateOutputAttribute template.EvaluateOutputAttributeFn
+	Name             string
+	Variety          tpb.TemplateVariety
+	DispatchReport   template.DispatchReportFn
+	DispatchCheck    template.DispatchCheckFn
+	DispatchQuota    template.DispatchQuotaFn
+	DispatchGenAttrs template.DispatchGenerateAttributesFn
 }
 
 func buildTemplateInfo(info *template.Info) *TemplateInfo {
 	return &TemplateInfo{
-		Name:                    info.Name,
-		Variety:                 info.Variety,
-		DispatchReport:          info.DispatchReport,
-		DispatchCheck:           info.DispatchCheck,
-		DispatchQuota:           info.DispatchQuota,
-		DispatchGenAttrs:        info.DispatchGenAttrs,
-		EvaluateOutputAttribute: info.EvaluateOutputAttribute,
+		Name:             info.Name,
+		Variety:          info.Variety,
+		DispatchReport:   info.DispatchReport,
+		DispatchCheck:    info.DispatchCheck,
+		DispatchQuota:    info.DispatchQuota,
+		DispatchGenAttrs: info.DispatchGenAttrs,
 	}
 }
 
@@ -139,23 +153,6 @@ type InstanceGroup struct {
 
 	// Mappers for attribute-generating adapters that map output attributes into the main attribute set.
 	Mappers []template.OutputMapperFn
-}
-
-// HeaderOperationType is an enumeration for the route directive header operation template type.
-type HeaderOperationType int
-
-// Request and response header operation types.
-const (
-	RequestHeaderOperation HeaderOperationType = iota
-	ResponseHeaderOperation
-)
-
-// HeaderOperation is an intermediate form of a rule header operation.
-type HeaderOperation struct {
-	Type        HeaderOperationType
-	HeaderName  compiled.Expression
-	HeaderValue compiled.Expression
-	Operation   descriptor.Rule_HeaderOperationTemplate_Operation
 }
 
 var emptyTable = &Table{id: -1}

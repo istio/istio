@@ -25,7 +25,6 @@ import (
 	otlog "github.com/opentracing/opentracing-go/log"
 	"google.golang.org/grpc/codes"
 	grpc "google.golang.org/grpc/status"
-
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/checkcache"
@@ -101,7 +100,7 @@ func (s *grpcServer) Check(ctx context.Context, req *mixerpb.CheckRequest) (*mix
 					ValidDuration:        value.Expiration.Sub(time.Now()),
 					ValidUseCount:        value.ValidUseCount,
 					ReferencedAttributes: &value.ReferencedAttributes,
-					RouteDirective:       &value.RouteDirective,
+					RouteDirective:       value.RouteDirective,
 				},
 			}
 
@@ -173,18 +172,13 @@ func (s *grpcServer) check(ctx context.Context, req *mixerpb.CheckRequest,
 
 	if s.cache != nil {
 		// keep this for later...
-		var directive mixerpb.RouteDirective
-		if cr.RouteDirective != nil {
-			directive = *cr.RouteDirective
-		}
-
 		s.cache.Set(protoBag, checkcache.Value{
 			StatusCode:           resp.Precondition.Status.Code,
 			StatusMessage:        resp.Precondition.Status.Message,
 			Expiration:           time.Now().Add(resp.Precondition.ValidDuration),
 			ValidUseCount:        resp.Precondition.ValidUseCount,
 			ReferencedAttributes: *resp.Precondition.ReferencedAttributes,
-			RouteDirective:       directive,
+			RouteDirective:       resp.Precondition.RouteDirective,
 		})
 	}
 

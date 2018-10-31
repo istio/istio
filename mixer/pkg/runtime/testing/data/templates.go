@@ -23,7 +23,6 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-
 	istio_mixer_v1_template "istio.io/api/mixer/adapter/model/v1beta1"
 	policy "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
@@ -108,7 +107,7 @@ func createFakeTemplate(name string, s FakeTemplateSettings, l *Logger, variety 
 			l.WriteFormat(name, "SetType => types: '%+v'", types)
 			l.Write(name, "SetType <=")
 		},
-		DispatchCheck: func(ctx context.Context, handler adapter.Handler, instance interface{}) (adapter.CheckResult, interface{}, error) {
+		DispatchCheck: func(ctx context.Context, handler adapter.Handler, instance interface{}, out *attribute.MutableBag, outPrefix string) (adapter.CheckResult, error) {
 			l.WriteFormat(name, "DispatchCheck => context exists: '%+v'", ctx != nil)
 			l.WriteFormat(name, "DispatchCheck => handler exists: '%+v'", handler != nil)
 			l.WriteFormat(name, "DispatchCheck => instance:       '%+v'", instance)
@@ -122,7 +121,7 @@ func createFakeTemplate(name string, s FakeTemplateSettings, l *Logger, variety 
 
 			if s.ErrorOnDispatchCheck {
 				l.Write(name, "DispatchCheck <= (ERROR)")
-				return adapter.CheckResult{}, nil, errors.New("error at dispatch check, as expected")
+				return adapter.CheckResult{}, errors.New("error at dispatch check, as expected")
 			}
 
 			result := adapter.CheckResult{
@@ -138,21 +137,12 @@ func createFakeTemplate(name string, s FakeTemplateSettings, l *Logger, variety 
 
 			if variety == istio_mixer_v1_template.TEMPLATE_VARIETY_CHECK_WITH_OUTPUT {
 				l.Write(name, "DispatchCheck => output: {value: '1337'}")
-				return result, &outputTemplate{value: "1337"}, nil
-			}
-			return result, nil, nil
-		},
-		EvaluateOutputAttribute: func(output interface{}) func(string) (interface{}, bool) {
-			val, ok := output.(*outputTemplate)
-			if !ok || val == nil {
-				return func(string) (interface{}, bool) { return nil, false }
-			}
-			return func(name string) (interface{}, bool) {
-				if name == "value" {
-					return val.value, true
+				if out != nil {
+					out.Set(outPrefix+"value", "1337")
 				}
-				return nil, false
+				return result, nil
 			}
+			return result, nil
 		},
 		DispatchReport: func(ctx context.Context, handler adapter.Handler, instances []interface{}) error {
 			l.WriteFormat(name, "DispatchReport => context exists: '%+v'", ctx != nil)

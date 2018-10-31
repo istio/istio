@@ -30,14 +30,11 @@ import (
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
-
-	"go.opencensus.io/tag"
-
 	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
 	"github.com/gogo/protobuf/types"
 	multierror "github.com/hashicorp/go-multierror"
 	"go.opencensus.io/stats"
-
+	"go.opencensus.io/tag"
 	"istio.io/api/mixer/adapter/model/v1beta1"
 	config "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
@@ -206,7 +203,7 @@ func (e *Ephemeral) processAttributeManifests(ctx context.Context, errs *multier
 
 	// append all the well known attribute vocabulary from the static templates.
 	//
-	// ATTRIBUTE_GENERATOR variety templates allows operators to write Attributes
+	// ATTRIBUTE_GENERATOR variety templates allow operators to write Attributes
 	// using the $out.<field Name> convention, where $out refers to the output object from the attribute generating adapter.
 	// The list of valid names for a given Template is available in the Template.Info.AttributeManifests object.
 	for _, info := range e.templates {

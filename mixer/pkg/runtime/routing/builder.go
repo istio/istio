@@ -416,7 +416,7 @@ func (b *builder) add(
 
 	// Append the builder & mapper.
 	instanceGroup.Builders = append(instanceGroup.Builders, NamedBuilder{InstanceShortName: config.ExtractShortName(instanceName), Builder: builder,
-		ActionName: actionName, EvaluateOutputAttribute: t.EvaluateOutputAttribute})
+		ActionName: actionName})
 
 	if mapper != nil {
 		instanceGroup.Mappers = append(instanceGroup.Mappers, mapper)
@@ -468,24 +468,25 @@ func (b *builder) templateInfo(tmpl *config.Template) *TemplateInfo {
 	}
 
 	// Make a call to check
-	ti.DispatchCheck = func(ctx context.Context, handler adapter.Handler, instance interface{}) (adapter.CheckResult, interface{}, error) {
+	ti.DispatchCheck = func(ctx context.Context, handler adapter.Handler, instance interface{},
+		out *attribute.MutableBag, outPrefix string) (adapter.CheckResult, error) {
 		var h adapter.RemoteCheckHandler
 		var ok bool
 		var encodedInstance *adapter.EncodedInstance
 
 		if h, ok = handler.(adapter.RemoteCheckHandler); !ok {
-			return adapter.CheckResult{}, nil, fmt.Errorf("internal: handler of incorrect type. got %T, want: RemoteCheckHandler", handler)
+			return adapter.CheckResult{}, fmt.Errorf("internal: handler of incorrect type. got %T, want: RemoteCheckHandler", handler)
 		}
 
 		if encodedInstance, ok = instance.(*adapter.EncodedInstance); !ok {
-			return adapter.CheckResult{}, nil, fmt.Errorf("internal: instance of incorrect type. got %T, want: []byte", instance)
+			return adapter.CheckResult{}, fmt.Errorf("internal: instance of incorrect type. got %T, want: []byte", instance)
 		}
 
 		cr, err := h.HandleRemoteCheck(ctx, encodedInstance)
 		if err != nil {
-			return adapter.CheckResult{}, nil, err
+			return adapter.CheckResult{}, err
 		}
-		return *cr, nil, nil
+		return *cr, nil
 	}
 
 	ti.DispatchReport = func(ctx context.Context, handler adapter.Handler, instances []interface{}) error {
@@ -648,21 +649,11 @@ func (b *builder) compileRuleOperationTemplates(
 	out := make([]*HeaderOperation, 0, len(ops))
 
 	for _, op := range ops {
-		he, ht, herr := compiler.Compile(op.Name)
-		if herr != nil {
-			return nil, fmt.Errorf("unable to compile header operation name expression: %q in %q, expression=%q",
-				herr, location, op.Name)
-		}
-		if ht != descriptor.STRING {
-			return nil, fmt.Errorf("header operation name expression is not of string type: expression=%q in %q",
-				op.Name, location)
-		}
-
 		// ignore values if operation is header removal
 		if op.Operation == descriptor.REMOVE {
 			out = append(out, &HeaderOperation{
 				Type:       typ,
-				HeaderName: he,
+				HeaderName: op.Name,
 				Operation:  op.Operation,
 			})
 			continue
@@ -680,7 +671,7 @@ func (b *builder) compileRuleOperationTemplates(
 			}
 			out = append(out, &HeaderOperation{
 				Type:        typ,
-				HeaderName:  he,
+				HeaderName:  op.Name,
 				HeaderValue: ve,
 				Operation:   op.Operation,
 			})

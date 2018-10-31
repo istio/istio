@@ -303,26 +303,33 @@ var (
  
         {{if eq .VarietyName "TEMPLATE_VARIETY_CHECK"}}
         // DispatchCheck dispatches the instance to the handler.
-        DispatchCheck: func(ctx context.Context, handler adapter.Handler, inst interface{}) (adapter.CheckResult, interface{}, error) {
+        DispatchCheck: func(ctx context.Context, handler adapter.Handler, inst interface{}, out *attribute.MutableBag, outPrefix string) (adapter.CheckResult, error) {
 
             // Convert the instance from the generic interface{}, to its specialized type.
             instance := inst.(*{{.GoPackageName}}.Instance)
 
             // Invoke the handler.
             res, err := handler.({{.GoPackageName}}.Handler).Handle{{.InterfaceName}}(ctx, instance)
-            return res, nil, err
+            return res, err
         },
         {{end}}
- 
+
         {{if eq .VarietyName "TEMPLATE_VARIETY_CHECK_WITH_OUTPUT"}}
         // DispatchCheck dispatches the instance to the handler.
-        DispatchCheck: func(ctx context.Context, handler adapter.Handler, inst interface{}) (adapter.CheckResult, interface{}, error) {
+        DispatchCheck: func(ctx context.Context, handler adapter.Handler, inst interface{}, out *attribute.MutableBag, outPrefix string) (adapter.CheckResult, error) {
 
             // Convert the instance from the generic interface{}, to its specialized type.
             instance := inst.(*{{.GoPackageName}}.Instance)
 
             // Invoke the handler.
-            return handler.({{.GoPackageName}}.Handler).Handle{{.InterfaceName}}(ctx, instance)
+            res, obj, err := handler.({{.GoPackageName}}.Handler).Handle{{.InterfaceName}}(ctx, instance)
+
+            if out != nil {
+              {{range .OutputTemplateMessage.Fields}}
+              out.Set(outPrefix + "{{.ProtoName}}", obj.{{.GoName}})
+              {{end}}
+            }
+            return res, err
         },
 
         AttributeManifests: []*istio_policy_v1beta1.AttributeManifest{
@@ -336,31 +343,6 @@ var (
                 },
             },
         },
-
-        EvaluateOutputAttribute: func(obj interface{}) func(string) (interface{}, bool) {
-          out, ok := obj.(*{{.GoPackageName}}.Output)
-          if !ok {
-            return func(string) (interface{}, bool) {
-              return nil, false
-            }
-          }
-
-          return func(field string) (interface{}, bool) {
-            switch field {
-                {{range .OutputTemplateMessage.Fields}}
-                case "{{.ProtoName}}":
-                    {{if isAliasType .GoType.Name}}
-                    return {{getAliasType .GoType.Name}}(out.{{.GoName}}), true
-                    {{else}}
-                    return out.{{.GoName}}, true
-                    {{end}}
-                {{end}}
-                default:
-                  return nil, false
-            }
-          }
-        },
-
         {{end}}
 
         {{if eq .VarietyName "TEMPLATE_VARIETY_QUOTA"}}
