@@ -493,17 +493,19 @@ func (s *DiscoveryServer) WorkloadUpdate(id string, labels map[string]string, an
 // on each step: instead the conversion happens once, when an endpoint is first discovered.
 func (s *DiscoveryServer) EDSUpdate(shard, serviceName string,
 	entries []*model.IstioEndpoint) error {
-	return s.edsUpdate(shard, serviceName, entries, false)
+	s.edsUpdate(shard, serviceName, entries, false)
+	return nil
 }
 
 func (s *DiscoveryServer) edsUpdate(shard, serviceName string,
-	entries []*model.IstioEndpoint, internal bool) error {
+	entries []*model.IstioEndpoint, internal bool)  {
 	// edsShardUpdate replaces a subset (shard) of endpoints, as result of an incremental
 	// update. The endpoint updates may be grouped by K8S clusters, other service registries
 	// or by deployment. Multiple updates are debounced, to avoid too frequent pushes.
 	// After debounce, the services are merged and pushed.
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+	requireFull := false
 
 	// Update the data structures for the service.
 	// 1. Find the 'per service' data
@@ -519,7 +521,7 @@ func (s *DiscoveryServer) edsUpdate(shard, serviceName string,
 		s.EndpointShardsByService[serviceName] = ep
 		if !internal {
 			adsLog.Infof("Full push, new service %s", serviceName)
-			s.ConfigUpdate(true)
+			requireFull = true
 		}
 	}
 
@@ -538,14 +540,15 @@ func (s *DiscoveryServer) edsUpdate(shard, serviceName string,
 				// The entry has a service account that was not previously associated.
 				// Requires a CDS push and full sync.
 				adsLog.Infof("Endpoint updating service account %s %s", e.ServiceAccount, serviceName)
-				s.ConfigUpdate(true)
+				requireFull = true
 			}
 		}
 	}
 	ep.Shards[shard] = ce
 	s.edsUpdates[serviceName] = ep
-
-	return nil
+	if requireFull {
+		s.ConfigUpdate(true)
+	}
 }
 
 // LocalityLbEndpointsFromInstances returns a list of Envoy v2 LocalityLbEndpoints.
