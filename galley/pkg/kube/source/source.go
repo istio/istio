@@ -166,7 +166,3 @@ func ProcessEvent(cfg *converter.Config, spec kube.ResourceSpec, kind resource.E
 	scope.Debugf("Dispatching source event: %v", event)
 	ch <- event
 }
-
-func generateGroupID(spec kube.ResourceSpec, key resource.FullName) string {
-	return spec.Kind + "##" + key.String()
-}
