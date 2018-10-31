@@ -23,7 +23,7 @@ spec:
   hosts:
     - c.foo
   gateways:
-  #- mesh # doesnt work
+  #- mesh # doesn't work
   - my-gateway
   http:
     - match:
