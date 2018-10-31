@@ -57,7 +57,6 @@ func NewCacheFromFile(path string) (*FsCache, error) {
 		return nil, err
 	}
 
-
 	c := &FsCache{
 		path:   path,
 		fw:     fw,
