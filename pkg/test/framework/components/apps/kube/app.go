@@ -17,42 +17,29 @@ package kube
 import (
 	"fmt"
 	"net"
-	"net/http"
 	"net/url"
-	"regexp"
 	"strconv"
 	"testing"
-	"time"
 
-	"istio.io/istio/pkg/test/framework/environments/kubernetes"
-	"istio.io/istio/pkg/test/util"
-
-	corev1 "k8s.io/api/core/v1"
+	"github.com/hashicorp/go-multierror"
+	kubeApiCore "k8s.io/api/core/v1"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	serviceRegistryKube "istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/test/application/echo"
+	"istio.io/istio/pkg/test/application/echo/proto"
 	"istio.io/istio/pkg/test/framework/environment"
-)
-
-const (
-	containerName = "app"
-	appLabel      = "app"
+	"istio.io/istio/pkg/test/framework/environments/kubernetes"
+	"istio.io/istio/pkg/test/kube"
 )
 
 var (
-	idRegex      = regexp.MustCompile("(?i)X-Request-Id=(.*)")
-	versionRegex = regexp.MustCompile("ServiceVersion=(.*)")
-	portRegex    = regexp.MustCompile("ServicePort=(.*)")
-	codeRegex    = regexp.MustCompile("StatusCode=(.*)")
-	hostRegex    = regexp.MustCompile("Host=(.*)")
-
-	_ environment.DeployedApp = &client{}
+	_ environment.DeployedApp = &app{}
 )
 
 type endpoint struct {
 	port  *model.Port
-	owner *client
+	owner *app
 }
 
 // Name implements the environment.DeployedAppEndpoint interface
@@ -94,21 +81,28 @@ func (e *endpoint) makeURL(opts environment.AppCallOptions) *url.URL {
 	}
 }
 
-type client struct {
+type app struct {
 	e           *kubernetes.Implementation
 	serviceName string
 	appName     string
 	endpoints   []*endpoint
+	forwarder   kube.PortForwarder
+	client      *echo.Client
 }
 
-var _ environment.DeployedApp = &client{}
+var _ environment.DeployedApp = &app{}
 var _ environment.DeployedAppEndpoint = &endpoint{}
 
-func newClient(serviceName string, e *kubernetes.Implementation) (environment.DeployedApp, error) {
-	a := &client{
+func newApp(serviceName string, pod kubeApiCore.Pod, e *kubernetes.Implementation) (out environment.DeployedApp, err error) {
+	a := &app{
 		serviceName: serviceName,
 		e:           e,
 	}
+	defer func() {
+		if err != nil {
+			_ = a.Close()
+		}
+	}()
 
 	service, err := e.Accessor.GetService(a.namespace(), serviceName)
 	if err != nil {
@@ -123,18 +117,57 @@ func newClient(serviceName string, e *kubernetes.Implementation) (environment.De
 
 	// Extract the endpoints from the service definition.
 	a.endpoints = getEndpoints(a, service)
-	return a, nil
+
+	var grpcPort uint16
+	grpcPort, err = a.getGrpcPort()
+	if err != nil {
+		return nil, err
+	}
+
+	// Create a forwarder to the command port of the app.
+	a.forwarder, err = e.Accessor.NewPortForwarder(&kube.PodSelectOptions{
+		PodNamespace: pod.Namespace,
+		PodName:      pod.Name,
+	}, 0, grpcPort)
+	if err != nil {
+		return nil, err
+	}
+	if err = a.forwarder.Start(); err != nil {
+		return nil, err
+	}
+
+	a.client, err = echo.NewClient(a.forwarder.Address())
+	out = a
+	return
 }
 
-func (a *client) Name() string {
+func (a *app) Close() (err error) {
+	if a.client != nil {
+		err = a.client.Close()
+	}
+	if a.forwarder != nil {
+		err = multierror.Append(err, a.forwarder.Close()).ErrorOrNil()
+	}
+	return
+}
+
+func (a *app) getGrpcPort() (uint16, error) {
+	commandEndpoints := a.EndpointsForProtocol(model.ProtocolGRPC)
+	if len(commandEndpoints) == 0 {
+		return 0, fmt.Errorf("unable fo find GRPC command port")
+	}
+	return uint16(commandEndpoints[0].(*endpoint).port.Port), nil
+}
+
+func (a *app) Name() string {
 	return a.serviceName
 }
 
-func (a *client) namespace() string {
+func (a *app) namespace() string {
 	return a.e.KubeSettings().DependencyNamespace
 }
 
-func getEndpoints(owner *client, service *corev1.Service) []*endpoint {
+func getEndpoints(owner *app, service *kubeApiCore.Service) []*endpoint {
 	out := make([]*endpoint, len(service.Spec.Ports))
 	for i, servicePort := range service.Spec.Ports {
 		out[i] = &endpoint{
@@ -142,7 +175,7 @@ func getEndpoints(owner *client, service *corev1.Service) []*endpoint {
 			port: &model.Port{
 				Name:     servicePort.Name,
 				Port:     int(servicePort.Port),
-				Protocol: kube.ConvertProtocol(servicePort.Name, servicePort.Protocol),
+				Protocol: serviceRegistryKube.ConvertProtocol(servicePort.Name, servicePort.Protocol),
 			},
 		}
 	}
@@ -150,7 +183,7 @@ func getEndpoints(owner *client, service *corev1.Service) []*endpoint {
 }
 
 // Endpoints implements the environment.DeployedApp interface
-func (a *client) Endpoints() []environment.DeployedAppEndpoint {
+func (a *app) Endpoints() []environment.DeployedAppEndpoint {
 	out := make([]environment.DeployedAppEndpoint, len(a.endpoints))
 	for i, e := range a.endpoints {
 		out[i] = e
@@ -159,7 +192,7 @@ func (a *client) Endpoints() []environment.DeployedAppEndpoint {
 }
 
 // EndpointsForProtocol implements the environment.DeployedApp interface
-func (a *client) EndpointsForProtocol(protocol model.Protocol) []environment.DeployedAppEndpoint {
+func (a *app) EndpointsForProtocol(protocol model.Protocol) []environment.DeployedAppEndpoint {
 	out := make([]environment.DeployedAppEndpoint, 0)
 	for _, e := range a.endpoints {
 		if e.Protocol() == protocol {
@@ -170,8 +203,8 @@ func (a *client) EndpointsForProtocol(protocol model.Protocol) []environment.Dep
 }
 
 // Call implements the environment.DeployedApp interface
-func (a *client) Call(e environment.DeployedAppEndpoint, opts environment.AppCallOptions) ([]*echo.ParsedResponse, error) {
-	ep, ok := e.(*endpoint)
+func (a *app) Call(e environment.DeployedAppEndpoint, opts environment.AppCallOptions) ([]*echo.ParsedResponse, error) {
+	dst, ok := e.(*endpoint)
 	if !ok {
 		return nil, fmt.Errorf("supplied endpoint was not created by this environment")
 	}
@@ -182,87 +215,48 @@ func (a *client) Call(e environment.DeployedAppEndpoint, opts environment.AppCal
 	}
 
 	// TODO(nmittler): Use an image with the new echo service and invoke the command port rather than scraping logs.
-
-	pods, err := a.e.Accessor.GetPods(a.namespace(), fmt.Sprintf("app=%s", a.appName))
-	if err != nil {
-		return nil, err
+	// Normalize the count.
+	if opts.Count <= 0 {
+		opts.Count = 1
 	}
-	podName := pods[0].Name
 
-	// Exec onto the pod and run the client application to make the request to the target service.
-	u := ep.makeURL(opts)
-	extra := toExtra(opts.Headers)
-
-	responses := make([]*echo.ParsedResponse, opts.Count)
-
-	cmd := fmt.Sprintf("client -url %s -count %d %s", u.String(), opts.Count, extra)
-	_, err = util.Retry(20*time.Second, 1*time.Second, func() (interface{}, bool, error) {
-		res, e := a.e.Accessor.Exec(a.namespace(), podName, containerName, cmd)
-		if e != nil {
-			return nil, false, e
-		}
-
-		// Parse the individual elements of the responses.
-		ids := idRegex.FindAllStringSubmatch(res, -1)
-		versions := versionRegex.FindAllStringSubmatch(res, -1)
-		ports := portRegex.FindAllStringSubmatch(res, -1)
-		codes := codeRegex.FindAllStringSubmatch(res, -1)
-		hosts := hostRegex.FindAllStringSubmatch(res, -1)
-
-		// Verify the response lengths.
-		if len(ids) != opts.Count {
-			return nil, false, fmt.Errorf("incorrect request count. Expected %d, got %d", opts.Count, len(ids))
-		}
-
-		for i := 0; i < opts.Count; i++ {
-			response := echo.ParsedResponse{}
-			responses[i] = &response
-
-			// TODO(nmittler): We're storing the entire logs for each body ... not strictly correct.
-			response.Body = res
-
-			response.ID = ids[i][1]
-
-			if i < len(versions) {
-				response.Version = versions[i][1]
-			}
-
-			if i < len(ports) {
-				response.Port = ports[i][1]
-			}
-
-			if i < len(codes) {
-				response.Code = codes[i][1]
-			}
-
-			if i < len(hosts) {
-				response.Host = hosts[i][1]
-			}
-		}
-
-		return nil, true, nil
+	// Forward a request from 'this' service to the destination service.
+	dstURL := dst.makeURL(opts)
+	dstServiceName := dst.owner.Name()
+	resp, err := a.client.ForwardEcho(&proto.ForwardEchoRequest{
+		Url:   dstURL.String(),
+		Count: int32(opts.Count),
+		Headers: []*proto.Header{
+			{
+				Key:   "Host",
+				Value: dstServiceName,
+			},
+		},
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	return responses, nil
+	if len(resp) != 1 {
+		return nil, fmt.Errorf("unexpected number of responses: %d", len(resp))
+	}
+	if !resp[0].IsOK() {
+		return nil, fmt.Errorf("unexpected response status code: %s", resp[0].Code)
+	}
+	if resp[0].Host != dstServiceName {
+		return nil, fmt.Errorf("unexpected host: %s", resp[0].Host)
+	}
+	if resp[0].Port != strconv.Itoa(dst.port.Port) {
+		return nil, fmt.Errorf("unexpected port: %s", resp[0].Port)
+	}
+
+	return resp, nil
 }
 
-func (a *client) CallOrFail(e environment.DeployedAppEndpoint, opts environment.AppCallOptions, t testing.TB) []*echo.ParsedResponse {
+func (a *app) CallOrFail(e environment.DeployedAppEndpoint, opts environment.AppCallOptions, t testing.TB) []*echo.ParsedResponse {
 	r, err := a.Call(e, opts)
 	if err != nil {
 		t.Fatal(err)
 	}
 	return r
-}
-
-func toExtra(headers http.Header) string {
-	out := ""
-	for key, values := range headers {
-		for _, value := range values {
-			out += fmt.Sprintf("-key %s -value %s", key, value)
-		}
-	}
-	return out
 }
