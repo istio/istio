@@ -489,11 +489,10 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 	options := coredatamodel.Options{
 		DomainSuffix: args.Config.ControllerOptions.DomainSuffix,
 	}
-	mcpController := coredatamodel.NewController(options)
-
 	ctx, cancel := context.WithCancel(context.Background())
 	var clients []*mcpclient.Client
 	var conns []*grpc.ClientConn
+	var mcpControllers []model.ConfigStoreCache
 
 	for _, configSource := range s.mesh.ConfigSources {
 		securityOption := grpc.WithInsecure()
@@ -558,11 +557,13 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 			return err
 		}
 		cl := mcpapi.NewAggregatedMeshConfigServiceClient(conn)
+		mcpController := coredatamodel.NewController(options)
 		mcpClient := mcpclient.New(cl, supportedTypes, mcpController, clientNodeID, map[string]string{}, mcpclient.NewStatsContext("pilot"))
 		configz.Register(mcpClient)
 
 		clients = append(clients, mcpClient)
 		conns = append(conns, conn)
+		mcpControllers = append(mcpControllers, mcpController)
 	}
 
 	// TODO: remove the below branch when `--mcpServerAddrs` removed
@@ -611,11 +612,13 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 				return err
 			}
 			cl := mcpapi.NewAggregatedMeshConfigServiceClient(conn)
+			mcpController := coredatamodel.NewController(options)
 			mcpClient := mcpclient.New(cl, supportedTypes, mcpController, clientNodeID, map[string]string{}, mcpclient.NewStatsContext("pilot"))
 			configz.Register(mcpClient)
 
 			clients = append(clients, mcpClient)
 			conns = append(conns, conn)
+			mcpControllers = append(mcpControllers, mcpController)
 		}
 	}
 
@@ -648,7 +651,12 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 		return nil
 	})
 
-	s.configController = mcpController
+	// Wrap the config controller with a cache.
+	aggregateMcpController, err := configaggregate.MakeCache(mcpControllers)
+	if err != nil {
+		return err
+	}
+	s.configController = aggregateMcpController
 	return nil
 }
 
