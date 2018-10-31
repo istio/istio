@@ -21,7 +21,6 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/pkg/mcp/snapshot"
@@ -49,14 +48,28 @@ type resourceTypeState struct {
 }
 
 func newState(schema *resource.Schema) *State {
-	return &State{
+	s := &State{
 		schema:  schema,
 		entries: make(map[resource.TypeURL]*resourceTypeState),
 	}
+
+	// pre-populate state for all known types so that built snapshots
+	// includes valid default version for empty resource collections.
+	for _, info := range schema.All() {
+		s.entries[info.TypeURL] = &resourceTypeState{
+			entries:  make(map[string]*mcp.Envelope),
+			versions: make(map[string]resource.Version),
+		}
+	}
+
+	return s
 }
 
 func (s *State) apply(event resource.Event) bool {
-	pks := s.getResourceTypeState(event.ID.TypeURL)
+	pks, found := s.getResourceTypeState(event.ID.TypeURL)
+	if !found {
+		return false
+	}
 
 	switch event.Kind {
 	case resource.Added, resource.Updated:
@@ -96,20 +109,12 @@ func (s *State) apply(event resource.Event) bool {
 	return true
 }
 
-func (s *State) getResourceTypeState(name resource.TypeURL) *resourceTypeState {
+func (s *State) getResourceTypeState(name resource.TypeURL) (*resourceTypeState, bool) {
 	s.entriesLock.Lock()
 	defer s.entriesLock.Unlock()
 
 	pks, found := s.entries[name]
-	if !found {
-		pks = &resourceTypeState{
-			entries:  make(map[string]*mcp.Envelope),
-			versions: make(map[string]resource.Version),
-		}
-		s.entries[name] = pks
-	}
-
-	return pks
+	return pks, found
 }
 
 func (s *State) buildSnapshot() snapshot.Snapshot {
@@ -123,7 +128,6 @@ func (s *State) buildSnapshot() snapshot.Snapshot {
 		for _, entry := range state.entries {
 			entries = append(entries, entry)
 		}
-
 		version := fmt.Sprintf("%d", state.version)
 		b.Set(typeURL.String(), version, entries)
 	}
