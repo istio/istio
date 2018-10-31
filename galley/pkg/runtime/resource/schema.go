@@ -22,7 +22,7 @@ import (
 // injectable function for overriding proto.MessageType, for testing purposes.
 type messageTypeFn func(name string) reflect.Type
 
-// Sgichema contains metadata about configuration resources.
+// Schema contains metadata about configuration resources.
 type Schema struct {
 	byURL map[string]Info
 
