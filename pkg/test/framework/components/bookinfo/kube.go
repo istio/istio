@@ -85,10 +85,10 @@ func (b *bookInfo) Deploy() (err error) {
 	}()
 
 	yamlFile := path.Join(env.BookInfoKube, string(BookInfoConfig))
-	_, err = deployment.NewYamlDeployment(b.env.Accessor,
-		b.env.KubeSettings().TestNamespace,
+	i := deployment.NewYamlDeployment(b.env.KubeSettings().TestNamespace,
 		yamlFile)
 
+	err = i.Deploy(b.env.Accessor, true)
 	if err != nil {
 		return fmt.Errorf("BookInfoConfig deployment failed: %v", err) // nolint:golint
 	}

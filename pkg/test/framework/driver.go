@@ -75,6 +75,7 @@ func newDriver() *driver {
 
 // Run implements same-named Driver method.
 func (d *driver) Run(testID string, m *testing.M) (int, error) {
+	defer d.teardown()
 	rt, err := d.initialize(testID)
 	if err != nil {
 		return rt, err
@@ -89,6 +90,10 @@ func (d *driver) Run(testID string, m *testing.M) (int, error) {
 	defer d.lock.Unlock()
 	d.state = completed
 
+	return rt, nil
+}
+
+func (d *driver) teardown() {
 	if !d.context.Settings().NoCleanup {
 		d.context.Tracker.Cleanup()
 		if closer, ok := d.context.Environment().(io.Closer); ok {
@@ -98,8 +103,6 @@ func (d *driver) Run(testID string, m *testing.M) (int, error) {
 			}
 		}
 	}
-
-	return rt, nil
 }
 
 // AcquireEnvironment implementation
@@ -219,12 +222,13 @@ func (d *driver) initialize(testID string) (int, error) {
 		return -2, fmt.Errorf("unrecognized environment: %s", d.context.Settings().Environment)
 	}
 	d.context = internal.NewTestContext(*s, impl, reg)
-	if err := impl.Initialize(d.context); err != nil {
-		return -2, err
-	}
+
 	d.env = &environment{
 		ctx:        d.context,
 		controller: impl,
+	}
+	if err := impl.Initialize(d.context); err != nil {
+		return -2, err
 	}
 
 	// Finally initialize suite-level dependencies.

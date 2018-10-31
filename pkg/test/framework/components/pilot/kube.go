@@ -19,21 +19,15 @@ import (
 	"fmt"
 	"net"
 
-	meshConfig "istio.io/api/mesh/v1alpha1"
-
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	adsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"google.golang.org/grpc"
 
 	"github.com/hashicorp/go-multierror"
 
-	"istio.io/istio/pilot/pkg/bootstrap"
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/proxy/envoy"
 	"istio.io/istio/pkg/test/framework/dependency"
 	"istio.io/istio/pkg/test/framework/environment"
 	"istio.io/istio/pkg/test/framework/environments/kubernetes"
-	"istio.io/istio/pkg/test/framework/environments/local"
 	"istio.io/istio/pkg/test/kube"
 )
 
@@ -43,37 +37,48 @@ const (
 )
 
 var (
-	// LocalComponent is a component for the local environment.
-	LocalComponent = &localComponent{}
-
 	// KubeComponent is a component for the Kubernetes environment.
 	KubeComponent = &kubeComponent{}
-
-	requiredDeps = []dependency.Instance{
-		dependency.Mixer,
-	}
 )
 
-type localComponent struct{}
+// NewKubePilot creates a new pilot instance for the kubernetes environment
+func NewKubePilot(accessor *kube.Accessor, namespace, pod string, port uint16) (out environment.DeployedPilot, err error) {
+	p := &kubePilot{}
+	defer func() {
+		if err != nil {
+			_ = p.Close()
+		}
+	}()
 
-// ID implements the component.Component interface.
-func (c *localComponent) ID() dependency.Instance {
-	return dependency.Pilot
-}
+	// Start port-forwarding for pilot.
+	options := &kube.PodSelectOptions{
+		PodNamespace: namespace,
+		PodName:      pod,
+	}
+	var forwarder kube.PortForwarder
+	forwarder, err = accessor.NewPortForwarder(options, 0, port)
+	if err != nil {
+		return nil, err
+	}
+	if err = forwarder.Start(); err != nil {
+		return nil, err
+	}
+	p.forwarder = forwarder
 
-// Requires implements the component.Component interface.
-func (c *localComponent) Requires() []dependency.Instance {
-	return requiredDeps
-}
-
-// Init implements the component.Component interface.
-func (c *localComponent) Init(ctx environment.ComponentContext, deps map[dependency.Instance]interface{}) (interface{}, error) {
-	e, ok := ctx.Environment().(*local.Implementation)
-	if !ok {
-		return nil, fmt.Errorf("unsupported environment: %q", ctx.Environment().EnvironmentID())
+	var addr *net.TCPAddr
+	addr, err = net.ResolveTCPAddr("tcp", forwarder.Address())
+	if err != nil {
+		return nil, err
 	}
 
-	return NewLocalPilot(e.IstioSystemNamespace, e.Mesh, e.ServiceManager.ConfigStore)
+	var client *pilotClient
+	client, err = newPilotClient(addr)
+	if err != nil {
+		return nil, err
+	}
+	p.pilotClient = client
+
+	return p, nil
 }
 
 type kubeComponent struct {
@@ -133,119 +138,9 @@ func getGrpcPort(e *kubernetes.Implementation) (uint16, error) {
 	return 0, fmt.Errorf("failed to get target port in service %s", pilotService)
 }
 
-// LocalPilot is the interface for a local pilot server.
-type LocalPilot interface {
-	environment.DeployedPilot
-	model.ConfigStore
-	GetDiscoveryAddress() *net.TCPAddr
-}
-
-type localPilot struct {
-	*pilotClient
-	model.ConfigStoreCache
-	server   *bootstrap.Server
-	stopChan chan struct{}
-}
-
 type kubePilot struct {
 	*pilotClient
 	forwarder kube.PortForwarder
-}
-
-// NewLocalPilot creates a new pilot for the local environment.
-func NewLocalPilot(namespace string, mesh *meshConfig.MeshConfig, configStore model.ConfigStoreCache) (LocalPilot, error) {
-	options := envoy.DiscoveryServiceOptions{
-		HTTPAddr:       ":0",
-		MonitoringAddr: ":0",
-		GrpcAddr:       ":0",
-		SecureGrpcAddr: ":0",
-	}
-	bootstrapArgs := bootstrap.PilotArgs{
-		Namespace:        namespace,
-		DiscoveryOptions: options,
-		MeshConfig:       mesh,
-		Config: bootstrap.ConfigArgs{
-			Controller: configStore,
-		},
-		// Use the config store for service entries as well.
-		Service: bootstrap.ServiceArgs{
-			// A ServiceEntry registry is added by default, which is what we want. Don't include any other registries.
-			Registries: []string{},
-		},
-		// Include all of the default plugins for integration with Mixer, etc.
-		Plugins: bootstrap.DefaultPlugins,
-	}
-
-	// Create the server for the discovery service.
-	server, err := bootstrap.NewServer(bootstrapArgs)
-	if err != nil {
-		return nil, err
-	}
-
-	client, err := newPilotClient(server.GRPCListeningAddr.(*net.TCPAddr))
-	if err != nil {
-		return nil, err
-	}
-
-	// Start the server
-	stopChan := make(chan struct{})
-	if err := server.Start(stopChan); err != nil {
-		return nil, err
-	}
-
-	return &localPilot{
-		ConfigStoreCache: configStore,
-		pilotClient:      client,
-		server:           server,
-		stopChan:         stopChan,
-	}, nil
-}
-
-// NewKubePilot creates a new pilot instance for the kubernetes environment
-func NewKubePilot(accessor *kube.Accessor, namespace, pod string, port uint16) (environment.DeployedPilot, error) {
-	// Start port-forwarding for pilot.
-	options := &kube.PodSelectOptions{
-		PodNamespace: namespace,
-		PodName:      pod,
-	}
-	forwarder, err := accessor.NewPortForwarder(options, 0, port)
-	if err != nil {
-		return nil, err
-	}
-	if err := forwarder.Start(); err != nil {
-		return nil, err
-	}
-
-	addr, err := net.ResolveTCPAddr("tcp", forwarder.Address())
-	if err != nil {
-		return nil, err
-	}
-	client, err := newPilotClient(addr)
-	if err != nil {
-		return nil, err
-	}
-
-	return &kubePilot{
-		pilotClient: client,
-		forwarder:   forwarder,
-	}, nil
-}
-
-// GetDiscoveryAddress gets the discovery address for pilot.
-func (p *localPilot) GetDiscoveryAddress() *net.TCPAddr {
-	return p.server.GRPCListeningAddr.(*net.TCPAddr)
-}
-
-// Close stops the local pilot server.
-func (p *localPilot) Close() (err error) {
-	if p.pilotClient != nil {
-		err = multierror.Append(err, p.pilotClient.Close()).ErrorOrNil()
-	}
-
-	if p.stopChan != nil {
-		p.stopChan <- struct{}{}
-	}
-	return
 }
 
 // Close stops the kube pilot server.

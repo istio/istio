@@ -345,7 +345,7 @@ func applyTrafficPolicy(env *model.Environment, cluster *v2.Cluster, policy *net
 	applyConnectionPool(cluster, connectionPool)
 	applyOutlierDetection(cluster, outlierDetection)
 	applyLoadBalancer(cluster, loadBalancer)
-	applyUpstreamTLSSettings(cluster, tls, env.Mesh.SdsUdsPath)
+	applyUpstreamTLSSettings(env, cluster, tls)
 }
 
 // FIXME: there isn't a way to distinguish between unset values and zero values
@@ -447,7 +447,7 @@ func applyLoadBalancer(cluster *v2.Cluster, lb *networking.LoadBalancerSettings)
 	}
 }
 
-func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings, sdsUdsPath string) {
+func applyUpstreamTLSSettings(env *model.Environment, cluster *v2.Cluster, tls *networking.TLSSettings) {
 	if tls == nil {
 		return
 	}
@@ -499,7 +499,7 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings, 
 		}
 
 		// Fallback to file mount secret instead of SDS if meshConfig.sdsUdsPath isn't set or tls.mode is TLSSettings_MUTUAL.
-		if sdsUdsPath == "" || tls.Mode == networking.TLSSettings_MUTUAL {
+		if env.Mesh.SdsUdsPath == "" || tls.Mode == networking.TLSSettings_MUTUAL {
 			cluster.TlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{
 				ValidationContext: certValidationContext,
 			}
@@ -519,7 +519,7 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings, 
 			}
 		} else {
 			cluster.TlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(cluster.TlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
-				model.ConstructSdsSecretConfig(model.SDSDefaultResourceName, sdsUdsPath, model.K8sSAJwtTokenFileName))
+				model.ConstructSdsSecretConfig(model.SDSDefaultResourceName, env.Mesh.SdsUdsPath, model.K8sSAJwtTokenFileName, env.Mesh.EnableSdsTokenMount))
 
 			rootResourceName := model.SDSRootResourceName
 			if len(tls.SubjectAltNames) > 0 {
@@ -530,7 +530,8 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings, 
 			}
 
 			cluster.TlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContextSdsSecretConfig{
-				ValidationContextSdsSecretConfig: model.ConstructSdsSecretConfig(rootResourceName, sdsUdsPath, model.K8sSAJwtTokenFileName),
+				ValidationContextSdsSecretConfig: model.ConstructSdsSecretConfig(
+					rootResourceName, env.Mesh.SdsUdsPath, model.K8sSAJwtTokenFileName, env.Mesh.EnableSdsTokenMount),
 			}
 		}
 
