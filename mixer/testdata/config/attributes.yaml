@@ -36,7 +36,7 @@ spec:
       request.useragent:
         valueType: STRING
       request.dynamic_state:
-        valueType: BYTES
+        valueType: STRING
       response.code:
         valueType: INT64
       response.duration:
@@ -78,7 +78,7 @@ spec:
       connection.requested_server_name:
         valueType: STRING
       connection.dynamic_state:
-        valueType: BYTES
+        valueType: STRING
       context.protocol:
         valueType: STRING
       context.timestamp:
