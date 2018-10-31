@@ -22,13 +22,13 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	meshcfg "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/galley/pkg/meshconfig"
 	"istio.io/istio/pilot/pkg/model"
 	"k8s.io/api/extensions/v1beta1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	meshcfg "istio.io/api/mesh/v1alpha1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	"istio.io/istio/galley/pkg/kube/converter/legacy"
@@ -352,8 +352,6 @@ func TestAuthPolicyResource(t *testing.T) {
 	}
 }
 
-
-
 func TestShouldProcessIngress(t *testing.T) {
 	istio := model.DefaultMeshConfig().IngressClass
 	cases := []struct {
@@ -390,7 +388,7 @@ func TestShouldProcessIngress(t *testing.T) {
 		mesh.IngressControllerMode = c.ingressMode
 		cch := meshconfig.NewInMemory()
 		cch.Set(mesh)
-		cfg := Config{Mesh:cch}
+		cfg := Config{Mesh: cch}
 
 		if c.ingressClass != "" {
 			ing.Annotations["kubernetes.io/ingress.class"] = c.ingressClass
