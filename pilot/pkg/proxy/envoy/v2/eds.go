@@ -113,7 +113,7 @@ func loadAssignment(c *EdsCluster) *xdsapi.ClusterLoadAssignment {
 	return c.LoadAssignment
 }
 
-func buildEnvoyLbEndpoint(UID string, family model.AddressFamily, address string, port uint32) *endpoint.LbEndpoint {
+func buildEnvoyLbEndpoint(UID string, family model.AddressFamily, address string, port uint32, network string) *endpoint.LbEndpoint {
 	var addr core.Address
 	switch family {
 	case model.AddressFamilyTCP:
@@ -144,7 +144,8 @@ func buildEnvoyLbEndpoint(UID string, family model.AddressFamily, address string
 			FilterMetadata: map[string]*types.Struct{
 				"istio": {
 					Fields: map[string]*types.Value{
-						"uid": {Kind: &types.Value_StringValue{StringValue: UID}},
+						"uid":     {Kind: &types.Value_StringValue{StringValue: UID}},
+						"network": {Kind: &types.Value_StringValue{StringValue: network}},
 					},
 				},
 			},
@@ -246,7 +247,7 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 				localityEpMap[locality] = locLbEps
 			}
 			if el.EnvoyEndpoint == nil {
-				el.EnvoyEndpoint = buildEnvoyLbEndpoint(el.UID, el.Family, el.Address, el.EndpointPort)
+				el.EnvoyEndpoint = buildEnvoyLbEndpoint(el.UID, el.Family, el.Address, el.EndpointPort, el.Network)
 			}
 			locLbEps.LbEndpoints = append(locLbEps.LbEndpoints, *el.EnvoyEndpoint)
 		}
@@ -330,6 +331,7 @@ func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 						Labels:          l,
 						UID:             ep.Endpoint.UID,
 						ServiceAccount:  ep.ServiceAccount,
+						Network:         ep.Endpoint.Network,
 					})
 					if ep.ServiceAccount != "" {
 						acc, f := svc2acc[hn]
@@ -659,11 +661,10 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection,
 	pushes.With(prometheus.Labels{"type": "eds"}).Add(1)
 
 	if full {
-		// TODO: switch back to debug
-		adsLog.Infof("EDS: PUSH for %s clusters %d endpoints %d empty %d",
+		adsLog.Debugf("EDS: PUSH for %s clusters %d endpoints %d empty %d",
 			con.ConID, len(con.Clusters), endpoints, emptyClusters)
 	} else {
-		adsLog.Infof("EDS: INC PUSH for %s clusters %d endpoints %d empty %d",
+		adsLog.Debugf("EDS: INC PUSH for %s clusters %d endpoints %d empty %d",
 			con.ConID, len(con.Clusters), endpoints, emptyClusters)
 	}
 	return nil

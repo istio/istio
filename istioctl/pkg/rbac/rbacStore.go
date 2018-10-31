@@ -19,13 +19,28 @@ import (
 	"strings"
 
 	rbacproto "istio.io/api/rbac/v1alpha1"
-	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/template/authorization"
+	"istio.io/istio/pkg/log"
 )
 
-// authorizer interface
-type authorizer interface {
-	CheckPermission(inst *authorization.Instance, logger adapter.Logger) (bool, error)
+const (
+	// ServiceRoleKind defines the config kind name of ServiceRole.
+	serviceRoleKind = "ServiceRole"
+)
+
+// SubjectArgs contains information about the subject of a request.
+type SubjectArgs struct {
+	User       string
+	Groups     string
+	Properties []string
+}
+
+// ActionArgs contains information about the detail of a request.
+type ActionArgs struct {
+	Namespace  string
+	Service    string
+	Method     string
+	Path       string
+	Properties []string
 }
 
 // RoleInfo contains information about a ServiceRole and associated ServiceRoleBindings.
@@ -55,22 +70,6 @@ func newRoleInfo(spec *rbacproto.ServiceRole) *RoleInfo {
 	return &RoleInfo{
 		Info: spec,
 	}
-}
-
-// Set a binding for a given Service role.
-func (ri *RoleInfo) setBinding(name string, spec *rbacproto.ServiceRoleBinding) {
-	if ri == nil {
-		return
-	}
-	if ri.Bindings == nil {
-		ri.Bindings = make(map[string]*rbacproto.ServiceRoleBinding)
-	}
-	ri.Bindings[name] = spec
-}
-
-// Update roles in the RBAC store.
-func (rs *ConfigStore) changeRoles(roles RolesMapByNamespace) {
-	rs.Roles = roles
 }
 
 // AddServiceRole adds a new ServiceRole to RolesMapByNamespace with the specified name and namespace.
@@ -123,94 +122,96 @@ func (rs *RolesMapByNamespace) AddServiceRoleBinding(name, namespace string, pro
 	if _, present := roleInfo.Bindings[name]; present {
 		return fmt.Errorf("duplicate RoleBinding: %v", name)
 	}
-	roleInfo.setBinding(name, proto)
+
+	if roleInfo.Bindings == nil {
+		roleInfo.Bindings = make(map[string]*rbacproto.ServiceRoleBinding)
+	}
+	roleInfo.Bindings[name] = proto
+
 	return nil
 }
 
-// CheckPermission checks permission for a given request. This is the main API called
-// by RBAC adapter at runtime to authorize requests.
-func (rs *ConfigStore) CheckPermission(inst *authorization.Instance, logger adapter.Logger) (bool, error) {
-	namespace := inst.Action.Namespace
-	if namespace == "" {
-		return false, logger.Errorf("Missing namespace")
+func convertProperties(arguments []string) map[string]string {
+	properties := map[string]string{}
+	for _, arg := range arguments {
+		// Use the part before the first = as key and the remaining part as a string value, this is
+		// the only supported format for now.
+		split := strings.SplitN(arg, "=", 2)
+		if len(split) != 2 {
+			log.Debugf("invalid property %v, the format should be: key=value", arg)
+			return nil
+		}
+		value, present := properties[split[0]]
+		if present {
+			log.Debugf("duplicate property %v, previous value %v", arg, value)
+			return nil
+		}
+		properties[split[0]] = split[1]
+	}
+	return properties
+}
+
+// CheckPermission checks permission for a given subject and action.
+// TODO(yangminzhu): Refactor and support checking RbacConfig.
+func (rs *ConfigStore) CheckPermission(subject SubjectArgs, action ActionArgs) (bool, error) {
+	if action.Namespace == "" {
+		return false, fmt.Errorf("missing namespace")
+	}
+	if action.Service == "" {
+		return false, fmt.Errorf("missing service")
+	}
+	if action.Path == "" {
+		return false, fmt.Errorf("missing path")
+	}
+	if action.Method == "" {
+		return false, fmt.Errorf("missing method")
 	}
 
-	serviceName := inst.Action.Service
-	if serviceName == "" {
-		return false, logger.Errorf("Missing service")
-	}
-
-	path := inst.Action.Path
-	if path == "" {
-		return false, logger.Errorf("Missing path")
-	}
-
-	method := inst.Action.Method
-	if method == "" {
-		return false, logger.Errorf("Missing method")
-	}
-
-	extraAct := inst.Action.Properties
-
-	user := inst.Subject.User
-	groups := inst.Subject.Groups
-
-	instSub := inst.Subject.Properties
-
-	rn := rs.Roles[namespace]
+	rn := rs.Roles[action.Namespace]
 	if rn == nil {
 		return false, nil
 	}
 
 	for rolename, roleInfo := range rn {
 		eligibleRole := false
-		logger.Infof("Checking role: %s", rolename)
+		log.Debugf("Checking role: %s", rolename)
 		rules := roleInfo.Info.GetRules()
 		for _, rule := range rules {
-			if matchRule(serviceName, path, method, extraAct, rule, logger) {
+			if matchRule(action.Service, action.Path, action.Method, convertProperties(action.Properties), rule) {
 				eligibleRole = true
-				logger.Debugf("rule matched")
+				log.Debugf("rule matched")
 				break
 			}
 		}
 		if !eligibleRole {
-			logger.Infof("role %s is not eligible", rolename)
+			log.Debugf("role %s is not eligible", rolename)
 			continue
 		}
-		logger.Infof("role %s is eligible", rolename)
+		log.Debugf("role %s is eligible", rolename)
 		bindings := roleInfo.Bindings
 		for _, binding := range bindings {
-			logger.Debugf("Checking binding %v", binding)
-			subjects := binding.GetSubjects()
-			for _, subject := range subjects {
+			log.Debugf("Checking binding %v", binding)
+			for _, sub := range binding.GetSubjects() {
 				foundMatch := false
-				if subject.GetUser() != "" {
-					if subject.GetUser() == "*" || subject.GetUser() == user {
+				if sub.GetUser() != "" {
+					if sub.GetUser() == "*" || sub.GetUser() == subject.User {
 						foundMatch = true
 					} else {
-						// Found a mismatch, try next subject.
+						// Found a mismatch, try next sub.
 						continue
 					}
 				}
-				if subject.GetGroup() != "" {
-					if subject.GetGroup() == "*" || subject.GetGroup() == groups {
-						foundMatch = true
-					} else {
-						// Found a mismatch, try next subject.
-						continue
-					}
-				}
-				subProp := subject.GetProperties()
+				subProp := sub.GetProperties()
 				if len(subProp) != 0 {
-					if checkSubject(instSub, subProp) {
+					if checkSubject(convertProperties(subject.Properties), subProp) {
 						foundMatch = true
 					} else {
-						// Found a mismatch, try next subject.
+						// Found a mismatch, try next sub.
 						continue
 					}
 				}
 				if foundMatch {
-					logger.Debugf("binding matched")
+					log.Debugf("binding matched")
 					return true, nil
 				}
 			}
@@ -220,12 +221,12 @@ func (rs *ConfigStore) CheckPermission(inst *authorization.Instance, logger adap
 }
 
 // Helper function to check whether or not a request matches a rule in a ServiceRole specification.
-func matchRule(serviceName string, path string, method string, extraAct map[string]interface{}, rule *rbacproto.AccessRule, logger adapter.Logger) bool {
+func matchRule(serviceName string, path string, method string, extraAct map[string]string, rule *rbacproto.AccessRule) bool {
 	services := rule.GetServices()
 	paths := rule.GetPaths()
 	methods := rule.GetMethods()
 	constraints := rule.GetConstraints()
-	logger.Infof("Checking rule: services %v, path %v, method %v, constraints %v", services, paths, methods, constraints)
+	log.Debugf("Checking rule: services %v, path %v, method %v, constraints %v", services, paths, methods, constraints)
 
 	if stringMatch(serviceName, services) &&
 		(paths == nil || stringMatch(path, paths)) &&
@@ -269,8 +270,7 @@ func suffixMatch(a string, pattern string) bool {
 	return strings.HasSuffix(a, pattern)
 }
 
-// Helper function to check if a given string value
-// is in a list of strings.
+// Helper function to check if a given string value is in a list of strings.
 func valueInList(value interface{}, list []string) bool {
 	if str, ok := value.(string); ok {
 		return stringMatch(str, list)
@@ -279,7 +279,7 @@ func valueInList(value interface{}, list []string) bool {
 }
 
 // Check if all constraints in a rule can be satisfied by the properties from the request.
-func checkConstraints(properties map[string]interface{}, constraints []*rbacproto.AccessRule_Constraint) bool {
+func checkConstraints(properties map[string]string, constraints []*rbacproto.AccessRule_Constraint) bool {
 	for _, constraint := range constraints {
 		foundMatch := false
 		for pn, pv := range properties {
@@ -296,18 +296,10 @@ func checkConstraints(properties map[string]interface{}, constraints []*rbacprot
 	return true
 }
 
-// Check if a given value is equal to a string.
-func valueMatch(a interface{}, b string) bool {
-	if str, ok := a.(string); ok {
-		return str == b
-	}
-	return false
-}
-
 // Check if all properties defined for the subject are satisfied by the properties from the request.
-func checkSubject(properties map[string]interface{}, subject map[string]string) bool {
+func checkSubject(properties map[string]string, subject map[string]string) bool {
 	for sn, sv := range subject {
-		if properties[sn] == nil || !valueMatch(properties[sn], sv) {
+		if properties[sn] != sv {
 			return false
 		}
 	}

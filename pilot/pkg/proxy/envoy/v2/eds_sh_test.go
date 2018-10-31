@@ -23,7 +23,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	proto "github.com/gogo/protobuf/types"
-	
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	testenv "istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/bootstrap"

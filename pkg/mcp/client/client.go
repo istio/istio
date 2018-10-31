@@ -185,7 +185,7 @@ func New(mcpClient mcp.AggregatedMeshConfigServiceClient, supportedTypeURLs []st
 var handleResponseDoneProbe = func() {}
 
 func (c *Client) sendNACKRequest(response *mcp.MeshConfigResponse, version string, err error) *mcp.MeshConfigRequest {
-	log.Errorf("MCP: sending NACK for version=%v nonce=%v: error=%q", version, response.Nonce, err)
+	scope.Errorf("MCP: sending NACK for version=%v nonce=%v: error=%q", version, response.Nonce, err)
 
 	c.reporter.RecordRequestNack(response.TypeUrl, err)
 	errorDetails, _ := status.FromError(err)
@@ -277,15 +277,15 @@ func (c *Client) Run(ctx context.Context) {
 			case <-retry:
 			}
 
-			log.Info("(re)trying to establish new MCP stream")
+			scope.Info("(re)trying to establish new MCP stream")
 			var err error
 			if c.stream, err = c.client.StreamAggregatedResources(ctx); err == nil {
 				c.reporter.RecordStreamCreateSuccess()
-				log.Info("New MCP stream created")
+				scope.Info("New MCP stream created")
 				break
 			}
 
-			log.Errorf("Failed to create a new MCP stream: %v", err)
+			scope.Errorf("Failed to create a new MCP stream: %v", err)
 			retry = time.After(reestablishStreamDelay)
 		}
 
@@ -310,7 +310,7 @@ func (c *Client) Run(ctx context.Context) {
 				if err != nil {
 					if err != io.EOF {
 						c.reporter.RecordRecvError(err, status.Code(err))
-						log.Errorf("Error receiving MCP response: %v", err)
+						scope.Errorf("Error receiving MCP response: %v", err)
 					}
 					break
 				}
@@ -323,7 +323,7 @@ func (c *Client) Run(ctx context.Context) {
 
 			if err := c.stream.Send(req); err != nil {
 				c.reporter.RecordSendError(err, status.Code(err))
-				log.Errorf("Error sending MCP request: %v", err)
+				scope.Errorf("Error sending MCP request: %v", err)
 
 				// (from https://godoc.org/google.golang.org/grpc#ClientConn.NewStream)
 				//

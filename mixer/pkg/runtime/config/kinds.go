@@ -52,3 +52,15 @@ func KindMap(adapterInfo map[string]*adapter.Info, templateInfo map[string]*temp
 	log.Debugf("Handler config kind: %s", constant.HandlerKind)
 	return kindMap
 }
+
+// CriticalKinds returns kinds which are critical for mixer's function and have to be ready for mixer config watch.
+func CriticalKinds() []string {
+	ck := make([]string, 0, 6)
+	ck = append(ck, constant.RulesKind)
+	ck = append(ck, constant.AttributeManifestKind)
+	ck = append(ck, constant.AdapterKind)
+	ck = append(ck, constant.TemplateKind)
+	ck = append(ck, constant.InstanceKind)
+	ck = append(ck, constant.HandlerKind)
+	return ck
+}
