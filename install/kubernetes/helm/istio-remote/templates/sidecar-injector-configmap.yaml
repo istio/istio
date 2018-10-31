@@ -180,12 +180,12 @@ data:
         - mountPath: /etc/certs/
           name: istio-certs
           readOnly: true
-        {{ if .Values.global.sdsEnabled }}
+        {{ if .Values.global.sds.enabled }}
         - mountPath: /var/run/sds
           name: sds-uds-path
         {{ end }}
       volumes:
-      {{ if .Values.global.sdsEnabled }}
+      {{ if .Values.global.sds.enabled }}
       - name: sds-uds-path
         hostPath:
           path: /var/run/sds
