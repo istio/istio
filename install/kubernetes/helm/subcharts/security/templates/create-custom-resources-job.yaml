@@ -54,7 +54,7 @@ subjects:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: istio-security-post-install
+  name: istio-security-post-install-v1.1.0
   namespace: {{ .Release.Namespace }}
   annotations:
     "helm.sh/hook": post-install
