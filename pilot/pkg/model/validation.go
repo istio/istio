@@ -268,7 +268,19 @@ func checkDNS1123Preconditions(name string) error {
 
 func validateDNS1123Labels(domain string) error {
 	parts := strings.Split(domain, ".")
-	topLevelDomain := parts[len(parts)-1]
+	lastPart := parts[len(parts)-1]
+	lastPartArray := strings.SplitN(lastPart, ":", 2)
+	
+	// Allow port in domain name
+	if len(lastPartArray) > 1 {
+		port, err := strconv.Atoi(lastPartArray[1])
+		if err != nil {
+			return fmt.Errorf("port (%s) is not a number: %v", lastPartArray[1], err)
+		}
+		return ValidatePort(int(port))
+	}
+
+	topLevelDomain := lastPartArray[0]
 	if _, err := strconv.Atoi(topLevelDomain); err == nil {
 		return fmt.Errorf("domain name %q invalid (top level domain %q cannot be all-numeric)", domain, topLevelDomain)
 	}
