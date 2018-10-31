@@ -83,7 +83,7 @@ export ENABLE_ISTIO_CNI ?= false
 # EXTRA_HELM_SETTINGS="--set istio-cni.excludeNamespaces={} --set istio-cni.tag=v0.1-dev-foo"
 
 
-ISTIO_HELM_REPO := https://raw.githubusercontent.com/istio/istio.io/master/static/charts
+ISTIO_HELM_REPO ?= https://raw.githubusercontent.com/istio/istio.io/master/static/charts
 #-----------------------------------------------------------------------------
 # Output control
 #-----------------------------------------------------------------------------
