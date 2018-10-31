@@ -66,18 +66,24 @@ type Environment struct {
 // Proxy contains information about an specific instance of a proxy (envoy sidecar, gateway,
 // etc). The Proxy is initialized when a sidecar connects to Pilot, and populated from
 // 'node' info in the protocol as well as data extracted from registries.
+//
+// In current Istio implementation nodes use a 4-parts '~' delimited ID.
+// Type~IPAddress~ID~Domain
 type Proxy struct {
-	// ClusterID specifies the cluster where the proxy resides
+	// ClusterID specifies the cluster where the proxy resides.
+	// TODO: clarify if this is needed in the new 'network' model, likely needs to
+	// be renamed to 'network'
 	ClusterID string
 
-	// Type specifies the node type
+	// Type specifies the node type. First part of the ID.
 	Type NodeType
 
 	// IPAddress is the IP address of the proxy used to identify it and its
-	// co-located service instances. Example: "10.60.1.6"
+	// co-located service instances. Example: "10.60.1.6". Second part of the ID.
 	IPAddress string
 
-	// ID is the unique platform-specific sidecar proxy ID
+	// ID is the unique platform-specific sidecar proxy ID. For k8s it is the pod ID and
+	// namespace.
 	ID string
 
 	// Domain defines the DNS domain suffix for short hostnames (e.g.
@@ -88,12 +94,17 @@ type Proxy struct {
 	Metadata map[string]string
 
 	mutex sync.RWMutex
-	// OutboundServices, if set, controls the list of outbound listeners and routes
+
+	// serviceDependencies, if set, controls the list of outbound listeners and routes
 	// for which the proxy will receive configurations. If nil, the proxy will get config
 	// for all visible services.
 	// The list will be populated either from explicit declarations or using 'on-demand'
 	// feature, before generation takes place.
-	outboundServices []*Service
+	serviceDependencies []*Service
+
+	// NamespaceDependencies contains a list of namespaces that should be used to configure
+	// services for this node.
+	NamespaceDependencies map[string]bool
 }
 
 // GetOutboundServices returns the outbound services associated with a node,
@@ -101,8 +112,20 @@ type Proxy struct {
 func (p *Proxy) GetOutboundServices(ctx *PushContext) []*Service {
 	p.mutex.RLock()
 	defer p.mutex.RUnlock()
-	if p.outboundServices != nil {
-		return p.outboundServices
+	if p.serviceDependencies != nil {
+		return p.serviceDependencies
+	}
+	if p.NamespaceDependencies != nil {
+		res := []*Service{}
+		for _, s := range ctx.Services {
+			podNs := s.Attributes.Namespace
+			if podNs == "" {
+				res = append(res, s)
+			} else if p.NamespaceDependencies[podNs] || podNs == p.ClusterID {
+				res = append(res, s)
+			}
+		}
+		return res
 	}
 	return ctx.Services
 }
@@ -113,15 +136,15 @@ func (p *Proxy) GetOutboundServices(ctx *PushContext) []*Service {
 // list.
 func (p *Proxy) UpdateOutboundServices(push *PushContext) {
 	// HACK: until the API is finalized, extract the outbound subset from a node metadata.
-	outboundServices, f := p.Metadata["istio.outbound"]
+	outboundServices, f := p.Metadata["istioOutbound"]
 	if f {
 		p.mutex.Lock()
 		osvc := strings.Split(outboundServices, ",")
-		p.outboundServices = []*Service{}
+		p.serviceDependencies = []*Service{}
 		for _, osn := range osvc {
 			svc, f := push.ServiceByHostname[Hostname(osn)]
 			if f {
-				p.outboundServices = append(p.outboundServices, svc)
+				p.serviceDependencies = append(p.serviceDependencies, svc)
 			}
 		}
 		p.mutex.Unlock()
