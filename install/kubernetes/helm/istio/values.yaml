@@ -534,7 +534,7 @@ certmanager:
   resources: {}
 
 aspen-mesh-agent:
-  image: quay.io/aspenmesh/agent:master-264
+  image: quay.io/aspenmesh/agent:master-351
   resources: {}
     # limits:
     #  cpu: 100m
