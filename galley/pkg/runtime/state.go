@@ -22,6 +22,8 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	mcp "istio.io/api/mcp/v1alpha1"
+	"istio.io/istio/galley/pkg/metadata"
+	"istio.io/istio/galley/pkg/runtime/conversions"
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/pkg/mcp/snapshot"
 )
@@ -29,6 +31,8 @@ import (
 // State is the in-memory state of Galley.
 type State struct {
 	schema *resource.Schema
+
+	config *Config
 
 	// version counter is a nonce that generates unique ids for each updated view of State.
 	versionCounter int64
@@ -43,13 +47,14 @@ type resourceTypeState struct {
 	// The version number for the current State of the object. Every time entries or versions change,
 	// the version number also change
 	version  int64
-	entries  map[string]*mcp.Envelope
-	versions map[string]resource.Version
+	entries  map[resource.FullName]*mcp.Envelope
+	versions map[resource.FullName]resource.Version
 }
 
-func newState(schema *resource.Schema) *State {
+func newState(schema *resource.Schema, cfg *Config) *State {
 	s := &State{
 		schema:  schema,
+		config:  cfg,
 		entries: make(map[resource.TypeURL]*resourceTypeState),
 	}
 
@@ -57,8 +62,8 @@ func newState(schema *resource.Schema) *State {
 	// includes valid default version for empty resource collections.
 	for _, info := range schema.All() {
 		s.entries[info.TypeURL] = &resourceTypeState{
-			entries:  make(map[string]*mcp.Envelope),
-			versions: make(map[string]resource.Version),
+			entries:  make(map[resource.FullName]*mcp.Envelope),
+			versions: make(map[resource.FullName]resource.Version),
 		}
 	}
 
@@ -66,7 +71,7 @@ func newState(schema *resource.Schema) *State {
 }
 
 func (s *State) apply(event resource.Event) bool {
-	pks, found := s.getResourceTypeState(event.ID.TypeURL)
+	pks, found := s.getResourceTypeState(event.Entry.ID.TypeURL)
 	if !found {
 		return false
 	}
@@ -75,26 +80,26 @@ func (s *State) apply(event resource.Event) bool {
 	case resource.Added, resource.Updated:
 
 		// Check to see if the version has changed.
-		if curVersion := pks.versions[event.ID.FullName]; curVersion == event.ID.Version {
+		if curVersion := pks.versions[event.Entry.ID.FullName]; curVersion == event.Entry.ID.Version {
 			scope.Debugf("Received event for the current, known version: %v", event)
 			return false
 		}
 
 		// TODO: Check for content-wise equality
 
-		entry, ok := s.envelopeResource(event)
+		entry, ok := s.envelopeResource(event.Entry)
 		if !ok {
 			return false
 		}
 
-		pks.entries[event.ID.FullName] = entry
-		pks.versions[event.ID.FullName] = event.ID.Version
-		recordStateTypeCount(event.ID.TypeURL.String(), len(pks.entries))
+		pks.entries[event.Entry.ID.FullName] = entry
+		pks.versions[event.Entry.ID.FullName] = event.Entry.ID.Version
+		recordStateTypeCount(event.Entry.ID.TypeURL.String(), len(pks.entries))
 
 	case resource.Deleted:
-		delete(pks.entries, event.ID.FullName)
-		delete(pks.versions, event.ID.FullName)
-		recordStateTypeCount(event.ID.TypeURL.String(), len(pks.entries))
+		delete(pks.entries, event.Entry.ID.FullName)
+		delete(pks.versions, event.Entry.ID.FullName)
+		recordStateTypeCount(event.Entry.ID.TypeURL.String(), len(pks.entries))
 
 	default:
 		scope.Errorf("Unknown event kind: %v", event.Kind)
@@ -132,30 +137,93 @@ func (s *State) buildSnapshot() snapshot.Snapshot {
 		b.Set(typeURL.String(), version, entries)
 	}
 
+	// Build entities that are derived from existing ones.
+	s.buildProjections(b)
+
 	return b.Build()
 }
 
-func (s *State) envelopeResource(event resource.Event) (*mcp.Envelope, bool) {
-	serialized, err := proto.Marshal(event.Item)
+func (s *State) buildProjections(b *snapshot.InMemoryBuilder) {
+	s.buildIngressProjectionResources(b)
+}
+
+func (s *State) buildIngressProjectionResources(b *snapshot.InMemoryBuilder) {
+	ingressByHost := make(map[string]resource.Entry)
+
+	// Build ingress projections
+	state := s.entries[metadata.IngressSpec.TypeURL]
+	if state == nil {
+		return
+	}
+
+	for name, entry := range state.entries {
+		ingress, err := conversions.ToIngressSpec(entry)
+		key := extractKey(name, entry, state.versions[name])
+		if err != nil {
+			// Shouldn't happen
+			scope.Errorf("error during ingress projection: %v", err)
+			continue
+		}
+		conversions.IngressToVirtualService(key, ingress, s.config.DomainSuffix, ingressByHost)
+
+		gw := conversions.IngressToGateway(key, ingress)
+
+		err = b.SetEntry(
+			metadata.Gateway.TypeURL.String(),
+			gw.ID.FullName.String(),
+			string(gw.ID.Version),
+			gw.ID.CreateTime,
+			gw.Item)
+		if err != nil {
+			scope.Errorf("Unable to set gateway entry: %v", err)
+		}
+	}
+
+	for _, e := range ingressByHost {
+		err := b.SetEntry(
+			metadata.VirtualService.TypeURL.String(),
+			e.ID.FullName.String(),
+			string(e.ID.Version),
+			e.ID.CreateTime,
+			e.Item)
+		if err != nil {
+			scope.Errorf("Unable to set virtualservice entry: %v", err)
+		}
+	}
+}
+
+func extractKey(name resource.FullName, entry *mcp.Envelope, version resource.Version) resource.VersionedKey {
+	return resource.VersionedKey{
+		Key: resource.Key{
+			TypeURL:  metadata.IngressSpec.TypeURL,
+			FullName: name,
+		},
+		Version: version,
+		//TODO CreateTime: entry.Metadata.CreateTime,
+	}
+}
+
+func (s *State) envelopeResource(e resource.Entry) (*mcp.Envelope, bool) {
+	serialized, err := proto.Marshal(e.Item)
 	if err != nil {
-		scope.Errorf("Error serializing proto from source event: %v:", event)
+		scope.Errorf("Error serializing proto from source e: %v:", e)
 		return nil, false
 	}
 
-	createTime, err := types.TimestampProto(event.ID.CreateTime)
+	createTime, err := types.TimestampProto(e.ID.CreateTime)
 	if err != nil {
-		scope.Errorf("Error parsing resource create_time for event (%v): %v", event, err)
+		scope.Errorf("Error parsing resource create_time for event (%v): %v", e, err)
 		return nil, false
 	}
 
 	entry := &mcp.Envelope{
 		Metadata: &mcp.Metadata{
-			Name:       event.ID.FullName,
+			Name:       e.ID.FullName.String(),
 			CreateTime: createTime,
-			Version:    string(event.ID.Version),
+			Version:    string(e.ID.Version),
 		},
 		Resource: &types.Any{
-			TypeUrl: event.ID.TypeURL.String(),
+			TypeUrl: e.ID.TypeURL.String(),
 			Value:   serialized,
 		},
 	}

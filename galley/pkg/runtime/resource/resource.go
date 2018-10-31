@@ -31,13 +31,18 @@ type TypeURL struct{ string }
 // Version is the version identifier of a resource.
 type Version string
 
+// FullName of the resource. It is unique within a given set of resource of the same TypeUrl.
+type FullName struct {
+	string
+}
+
 // Key uniquely identifies a (mutable) config resource in the config space.
 type Key struct {
 	// TypeURL of the resource.
 	TypeURL TypeURL
 
 	// Fully qualified name of the resource.
-	FullName string
+	FullName FullName
 }
 
 // VersionedKey uniquely identifies a snapshot of a config resource in the config space, at a given
@@ -90,6 +95,30 @@ func (t TypeURL) MessageName() string {
 // String interface method implementation.
 func (t TypeURL) String() string {
 	return t.string
+}
+
+// FullNameFromNamespaceAndName returns a FullName from namespace and name.
+func FullNameFromNamespaceAndName(namespace, name string) FullName {
+	if namespace == "" {
+		return FullName{string: name}
+	}
+
+	return FullName{string: fmt.Sprintf("%s/%s", namespace, name)}
+}
+
+// String inteface implementation.
+func (n FullName) String() string {
+	return n.string
+}
+
+// InterpretAsNamespaceAndName tries to split the name as namespace and name
+func (n FullName) InterpretAsNamespaceAndName() (string, string) {
+	parts := strings.SplitN(n.string, "/", 2)
+	if len(parts) == 1 {
+		return "", parts[0]
+	}
+
+	return parts[0], parts[1]
 }
 
 // String interface method implementation.

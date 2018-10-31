@@ -19,8 +19,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	"istio.io/istio/galley/pkg/kube/converter"
 
 	"istio.io/istio/galley/pkg/kube"
 	kube_meta "istio.io/istio/galley/pkg/metadata/kube"
@@ -34,6 +35,7 @@ var scope = log.RegisterScope("kube", "kube-specific debugging", 0)
 
 // source is an implementation of runtime.Source.
 type sourceImpl struct {
+	cfg    *converter.Config
 	ifaces kube.Interfaces
 	ch     chan resource.Event
 
@@ -43,12 +45,13 @@ type sourceImpl struct {
 var _ runtime.Source = &sourceImpl{}
 
 // New returns a Kubernetes implementation of runtime.Source.
-func New(k kube.Interfaces, resyncPeriod time.Duration) (runtime.Source, error) {
-	return newSource(k, resyncPeriod, kube_meta.Types.All())
+func New(k kube.Interfaces, resyncPeriod time.Duration, cfg *converter.Config) (runtime.Source, error) {
+	return newSource(k, resyncPeriod, cfg, kube_meta.Types.All())
 }
 
-func newSource(k kube.Interfaces, resyncPeriod time.Duration, specs []kube.ResourceSpec) (runtime.Source, error) {
+func newSource(k kube.Interfaces, resyncPeriod time.Duration, cfg *converter.Config, specs []kube.ResourceSpec) (runtime.Source, error) {
 	s := &sourceImpl{
+		cfg:    cfg,
 		ifaces: k,
 	}
 
@@ -100,39 +103,70 @@ func (s *sourceImpl) Stop() {
 	}
 }
 
-func (s *sourceImpl) process(l *listener, kind resource.EventKind, key, resourceVersion string, u *unstructured.Unstructured) {
-	ProcessEvent(l.spec, kind, key, resourceVersion, u, s.ch)
+func (s *sourceImpl) process(l *listener, kind resource.EventKind, key resource.FullName, resourceVersion string, u *unstructured.Unstructured) {
+	ProcessEvent(s.cfg, l.spec, kind, key, resourceVersion, u, s.ch)
 }
 
-//ProcessEvent process the incoming message and convert it to event
-func ProcessEvent(spec kube.ResourceSpec, kind resource.EventKind, key, resourceVersion string, u *unstructured.Unstructured, ch chan resource.Event) {
-	var item proto.Message
-	var err error
-	var createTime time.Time
-	if u != nil {
-		if key, createTime, item, err = spec.Converter(spec.Target, key, u); err != nil {
-			scope.Errorf("Unable to convert unstructured to proto: %s/%s", key, resourceVersion)
+// ProcessEvent process the incoming message and convert it to event
+func ProcessEvent(cfg *converter.Config, spec kube.ResourceSpec, kind resource.EventKind, key resource.FullName, resourceVersion string,
+	u *unstructured.Unstructured, ch chan resource.Event) {
+
+	var event resource.Event
+
+	switch kind {
+	case resource.Added, resource.Updated:
+		entries, err := spec.Converter(cfg, spec.Target, key, u)
+		if err != nil {
+			scope.Errorf("Unable to convert unstructured to proto: %s/%s: %v", key, resourceVersion, err)
 			recordConverterResult(false, spec.Version, spec.Group, spec.Kind)
 			return
 		}
 		recordConverterResult(true, spec.Version, spec.Group, spec.Kind)
+
+		if len(entries) == 0 {
+			scope.Debugf("Did not receive any entries from converter: kind=%v, key=%v, rv=%s", kind, key, resourceVersion)
+			return
+		}
+
+		event = resource.Event{
+			Kind: kind,
+		}
+
+		rid := resource.VersionedKey{
+			Key: resource.Key{
+				TypeURL:  spec.Target.TypeURL,
+				FullName: key,
+			},
+			Version:    resource.Version(resourceVersion),
+			CreateTime: entries[0].CreationTime,
+		}
+
+		event.Entry = resource.Entry{
+			ID:   rid,
+			Item: entries[0].Resource,
+		}
+
+	case resource.Deleted:
+		rid := resource.VersionedKey{
+			Key: resource.Key{
+				TypeURL:  spec.Target.TypeURL,
+				FullName: key,
+			},
+			Version: resource.Version(resourceVersion),
+		}
+
+		event = resource.Event{
+			Kind: kind,
+			Entry: resource.Entry{
+				ID: rid,
+			},
+		}
 	}
 
-	rid := resource.VersionedKey{
-		Key: resource.Key{
-			TypeURL:  spec.Target.TypeURL,
-			FullName: key,
-		},
-		Version:    resource.Version(resourceVersion),
-		CreateTime: createTime,
-	}
+	scope.Debugf("Dispatching source event: %v", event)
+	ch <- event
+}
 
-	e := resource.Event{
-		ID:   rid,
-		Kind: kind,
-		Item: item,
-	}
-
-	scope.Debugf("Dispatching source event: %v", e)
-	ch <- e
+func generateGroupID(spec kube.ResourceSpec, key resource.FullName) string {
+	return spec.Kind + "##" + key.String()
 }
