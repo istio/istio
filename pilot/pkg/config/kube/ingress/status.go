@@ -86,9 +86,9 @@ func NewStatusSyncer(mesh *meshconfig.MeshConfig,
 		return nil, errors.New("POD_NAMESPACE environment variable must be defined")
 	}
 
-	pod, _ := client.CoreV1().Pods(podNamespace).Get(podName, meta_v1.GetOptions{})
+	pod, err := client.CoreV1().Pods(podNamespace).Get(podName, meta_v1.GetOptions{})
 	if pod == nil {
-		return nil, fmt.Errorf("unable to get POD information")
+		return nil, fmt.Errorf("unable to get POD information: %v", err)
 	}
 
 	// we need to use the defined ingress class to allow multiple leaders
