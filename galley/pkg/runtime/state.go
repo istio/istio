@@ -204,8 +204,8 @@ func extractKey(name resource.FullName, entry *mcp.Envelope, version resource.Ve
 			TypeURL:  metadata.IngressSpec.TypeURL,
 			FullName: name,
 		},
-		Version: version,
-		CreateTime: ts ,
+		Version:    version,
+		CreateTime: ts,
 	}
 }
 
