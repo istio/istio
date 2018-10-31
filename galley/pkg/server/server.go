@@ -116,7 +116,7 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 		}
 	}
 
-	processorCfg := runtime.RuntimeConfig{
+	processorCfg := runtime.Config{
 		DomainSuffix: a.DomainSuffix,
 		Mesh:         mesh,
 	}

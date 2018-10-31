@@ -31,7 +31,7 @@ var (
 	fakeCreateTime0 time.Time
 	fakeCreateTime1 time.Time
 
-	cfg = &RuntimeConfig{Mesh: meshconfig.NewInMemory()}
+	cfg = &Config{Mesh: meshconfig.NewInMemory()}
 	fn  = resource.FullNameFromNamespaceAndName("", "fn")
 	fn2 = resource.FullNameFromNamespaceAndName("", "fn2")
 	fn3 = resource.FullNameFromNamespaceAndName("", "fn3")

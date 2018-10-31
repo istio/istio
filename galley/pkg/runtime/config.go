@@ -16,8 +16,8 @@ package runtime
 
 import "istio.io/istio/galley/pkg/meshconfig"
 
-// RuntimeConfig used by the runtime
-type RuntimeConfig struct {
+// Config used by the runtime
+type Config struct {
 	// Cached mesh config
 	Mesh meshconfig.Cache
 
