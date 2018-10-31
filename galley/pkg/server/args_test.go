@@ -31,6 +31,18 @@ func TestDefaultArgs(t *testing.T) {
 	if a.MaxConcurrentStreams != 1024 {
 		t.Fatalf("unexpected MaxConcurrentStreams: %d", a.MaxConcurrentStreams)
 	}
+
+	if a.MeshConfigFile != defaultMeshConfigFile {
+		t.Fatalf("unexpected MeshConfigFile: %s", a.MeshConfigFile)
+	}
+
+	if a.DomainSuffix != defaultDomainSuffix {
+		t.Fatalf("unexpected DomainSuffix: %s", a.DomainSuffix)
+	}
+
+	if a.Insecure {
+		t.Fatal("Default of Insecure should false")
+	}
 }
 
 func TestArgs_String(t *testing.T) {

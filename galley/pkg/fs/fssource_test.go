@@ -22,6 +22,8 @@ import (
 	"strings"
 	"testing"
 
+	"istio.io/istio/galley/pkg/kube/converter"
+	"istio.io/istio/galley/pkg/meshconfig"
 	"istio.io/istio/galley/pkg/runtime/resource"
 )
 
@@ -156,7 +158,7 @@ func TestNewSource(t *testing.T) {
 	}
 	fst.testSetup(t)
 	defer fst.testTeardown(t)
-	s, err := New(fst.rootPath)
+	s, err := New(fst.rootPath, &converter.Config{Mesh: meshconfig.NewInMemory()})
 	if err != nil {
 		t.Fatalf("Unexpected error found: %v", err)
 	}
@@ -171,7 +173,7 @@ func TestFsSource_InitialScan(t *testing.T) {
 	}
 	fst.testSetup(t)
 	defer fst.testTeardown(t)
-	s, err := New(fst.rootPath)
+	s, err := New(fst.rootPath, &converter.Config{Mesh: meshconfig.NewInMemory()})
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -201,7 +203,7 @@ func TestFsSource_AddFile(t *testing.T) {
 	}
 	fst.testSetup(t)
 	defer fst.testTeardown(t)
-	s, err := New(fst.rootPath)
+	s, err := New(fst.rootPath, &converter.Config{Mesh: meshconfig.NewInMemory()})
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -239,7 +241,7 @@ func TestFsSource_DeleteFile(t *testing.T) {
 	}
 	fst.testSetup(t)
 	defer fst.testTeardown(t)
-	s, err := New(fst.rootPath)
+	s, err := New(fst.rootPath, &converter.Config{Mesh: meshconfig.NewInMemory()})
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -274,7 +276,7 @@ func TestFsSource_ModifyFile(t *testing.T) {
 	}
 	fst.testSetup(t)
 	defer fst.testTeardown(t)
-	s, err := New(fst.rootPath)
+	s, err := New(fst.rootPath, &converter.Config{Mesh: meshconfig.NewInMemory()})
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -307,7 +309,7 @@ func TestFsSource_DeletePartResorceInFile(t *testing.T) {
 	}
 	fst.testSetup(t)
 	defer fst.testTeardown(t)
-	s, err := New(fst.rootPath)
+	s, err := New(fst.rootPath, &converter.Config{Mesh: meshconfig.NewInMemory()})
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}

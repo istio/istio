@@ -30,3 +30,6 @@ rules:
 - apiGroups: ["*"]
   resources: ["endpoints"]
   verbs: ["get", "list", "watch"]
+- apiGroups: ["extensions"]
+  resources: ["ingresses"]
+  verbs: ["get", "list", "watch"]

@@ -26,6 +26,8 @@ import (
 	"github.com/howeyc/fsnotify"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
+	"istio.io/istio/galley/pkg/kube/converter"
+
 	"istio.io/istio/pkg/log"
 
 	"istio.io/istio/galley/pkg/kube"
@@ -43,6 +45,9 @@ var scope = log.RegisterScope("file-source", "Source for File System", 0)
 
 //fsSource is source implementation for filesystem.
 type fsSource struct {
+	// configuration for the converters.
+	config *converter.Config
+
 	//Config File Path
 	root string
 
@@ -51,7 +56,7 @@ type fsSource struct {
 	mu sync.RWMutex
 
 	//map to store namespace/name : shas
-	shas map[string][sha1.Size]byte
+	shas map[resource.FullName][sha1.Size]byte
 
 	ch chan resource.Event
 
@@ -67,8 +72,8 @@ type fsSource struct {
 	watcher *fsnotify.Watcher
 }
 
-func (s *fsSource) readFiles(root string) map[string]*istioResource {
-	results := map[string]*istioResource{}
+func (s *fsSource) readFiles(root string) map[resource.FullName]*istioResource {
+	results := map[resource.FullName]*istioResource{}
 
 	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -92,8 +97,8 @@ func (s *fsSource) readFiles(root string) map[string]*istioResource {
 	return results
 }
 
-func (s *fsSource) readFile(path string, info os.FileInfo, initial bool) map[string]*istioResource {
-	result := map[string]*istioResource{}
+func (s *fsSource) readFile(path string, info os.FileInfo, initial bool) map[resource.FullName]*istioResource {
+	result := map[resource.FullName]*istioResource{}
 	if mode := info.Mode() & os.ModeType; !supportedExtensions[filepath.Ext(path)] || (mode != 0 && mode != os.ModeSymlink) {
 		return nil
 	}
@@ -119,7 +124,7 @@ func (s *fsSource) readFile(path string, info os.FileInfo, initial bool) map[str
 }
 
 //process delete part of the resources in a file
-func (s *fsSource) processPartialDelete(fileName string, newData *map[string]*istioResource) {
+func (s *fsSource) processPartialDelete(fileName string, newData *map[resource.FullName]*istioResource) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if fileResorceKeys, ok := s.fileResorceKeys[fileName]; ok {
@@ -142,7 +147,7 @@ func (s *fsSource) processPartialDelete(fileName string, newData *map[string]*is
 
 }
 
-func (s *fsSource) processAddOrUpdate(fileName string, newData *map[string]*istioResource) {
+func (s *fsSource) processAddOrUpdate(fileName string, newData *map[resource.FullName]*istioResource) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	// need versionUpdated as sometimes when fswatcher fires events, there is actually no change on the file content
@@ -211,7 +216,7 @@ func (s *fsSource) Stop() {
 	s.watcher.Close()
 }
 
-func (s *fsSource) process(eventKind resource.EventKind, key, resourceKind string, r *istioResource) {
+func (s *fsSource) process(eventKind resource.EventKind, key resource.FullName, resourceKind string, r *istioResource) {
 	var u *unstructured.Unstructured
 	var spec kube.ResourceSpec
 	var kind string
@@ -229,7 +234,8 @@ func (s *fsSource) process(eventKind resource.EventKind, key, resourceKind strin
 			break
 		}
 	}
-	source.ProcessEvent(spec, eventKind, key, fmt.Sprintf("v%d", s.version), u, s.ch)
+
+	source.ProcessEvent(s.config, spec, eventKind, key, fmt.Sprintf("v%d", s.version), u, s.ch)
 }
 
 // Start implements runtime.Source
@@ -295,17 +301,18 @@ func (s *fsSource) Start() (chan resource.Event, error) {
 }
 
 // New returns a File System implementation of runtime.Source.
-func New(root string) (runtime.Source, error) {
-	return newFsSource(root, kube_meta.Types.All())
+func New(root string, config *converter.Config) (runtime.Source, error) {
+	return newFsSource(root, config, kube_meta.Types.All())
 }
 
-func newFsSource(root string, specs []kube.ResourceSpec) (runtime.Source, error) {
+func newFsSource(root string, config *converter.Config, specs []kube.ResourceSpec) (runtime.Source, error) {
 	fs := &fsSource{
+		config:          config,
 		root:            root,
 		kinds:           map[string]bool{},
 		fileResorceKeys: map[string][]*fileResourceKey{},
 		donec:           make(chan struct{}),
-		shas:            map[string][sha1.Size]byte{},
+		shas:            map[resource.FullName][sha1.Size]byte{},
 		version:         0,
 	}
 	for _, spec := range specs {
