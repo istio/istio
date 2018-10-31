@@ -54,11 +54,14 @@ gateways:
       #requests:
       #  cpu: 1800m
       #  memory: 256Mi
-
+    cpu:
+      targetAverageUtilization: 80
     loadBalancerIP: ""
+    loadBalancerSourceRanges: {}
     serviceAnnotations: {}
+    podAnnotations: {}
     type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
-
+    #externalTrafficPolicy: Local #change to Local to preserve source IP or Cluster for default behaviour or leave commented out
     ports:
       ## You can add custom gateway ports
     - port: 80
