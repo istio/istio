@@ -88,8 +88,8 @@ spec:
           - --serviceCluster
           - {{ $key }}
           - --zipkinAddress
-        {{- if $.Values.global.tracer.zipkinAddress }}
-          - {{ $.Values.global.tracer.zipkinAddress }}
+        {{- if $.Values.global.tracer.zipkin.address }}
+          - {{ $.Values.global.tracer.zipkin.address }}
         {{- else if $.Values.global.istioNamespace }}
           - zipkin.{{ $.Values.global.istioNamespace }}:9411
         {{- else }}
@@ -153,7 +153,7 @@ spec:
           {{- end }}
           {{ end }}
           volumeMounts:
-          {{ if $.Values.global.sdsEnabled }}
+          {{ if $.Values.global.sds.enabled }}
           - name: sdsudspath
             mountPath: /var/run/sds
           {{- end }}
@@ -169,7 +169,7 @@ spec:
 {{ toYaml $spec.additionalContainers | indent 8 }}
 {{- end }}
       volumes:
-      {{ if $.Values.global.sdsEnabled }}
+      {{ if $.Values.global.sds.enabled }}
       - name: sdsudspath
         hostPath:
           path: /var/run/sds

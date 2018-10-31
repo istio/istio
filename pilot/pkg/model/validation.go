@@ -781,6 +781,29 @@ func ValidateParentAndDrain(drainTime, parentShutdown *types.Duration) (errs err
 	return
 }
 
+// ValidateLightstepCollector validates the configuration for sending envoy spans to LightStep
+func ValidateLightstepCollector(ls *meshconfig.Tracing_Lightstep) error {
+	var errs error
+	if ls.GetAddress() == "" {
+		errs = multierror.Append(errs, errors.New("address is required"))
+	}
+	if err := ValidateProxyAddress(ls.GetAddress()); err != nil {
+		errs = multierror.Append(errs, multierror.Prefix(err, "invalid lightstep address:"))
+	}
+	if ls.GetAccessToken() == "" {
+		errs = multierror.Append(errs, errors.New("access token is required"))
+	}
+	if ls.GetSecure() && (ls.GetCacertPath() == "") {
+		errs = multierror.Append(errs, errors.New("cacertPath is required"))
+	}
+	return errs
+}
+
+// ValidateZipkinCollector validates the configuration for sending envoy spans to Zipkin
+func ValidateZipkinCollector(z *meshconfig.Tracing_Zipkin) error {
+	return ValidateProxyAddress(z.GetAddress())
+}
+
 // ValidateConnectTimeout validates the envoy conncection timeout
 func ValidateConnectTimeout(timeout *types.Duration) error {
 	if err := ValidateDuration(timeout); err != nil {
@@ -850,9 +873,15 @@ func ValidateProxyConfig(config *meshconfig.ProxyConfig) (errs error) {
 		errs = multierror.Append(errs, multierror.Prefix(err, "invalid discovery address:"))
 	}
 
-	if config.ZipkinAddress != "" {
-		if err := ValidateProxyAddress(config.ZipkinAddress); err != nil {
-			errs = multierror.Append(errs, multierror.Prefix(err, "invalid zipkin address:"))
+	if tracer := config.GetTracing().GetLightstep(); tracer != nil {
+		if err := ValidateLightstepCollector(tracer); err != nil {
+			errs = multierror.Append(errs, multierror.Prefix(err, "invalid lightstep config:"))
+		}
+	}
+
+	if tracer := config.GetTracing().GetZipkin(); tracer != nil {
+		if err := ValidateZipkinCollector(tracer); err != nil {
+			errs = multierror.Append(errs, multierror.Prefix(err, "invalid zipkin config:"))
 		}
 	}
 

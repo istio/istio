@@ -24,13 +24,14 @@ import (
 )
 
 // ExtractAttributeManifest extracts attribute manifest from Helm charts.
-func ExtractAttributeManifest() (string, error) {
+func ExtractAttributeManifest(workDir string) (string, error) {
 	// We don't care about deploymentName, namespace or values file, or other settings, as we only
 	// want to extract attribute manifest, which is not really templatized.
 	s, err := HelmTemplate(
 		"attributemanifest",
 		"istio-system",
 		env.IstioChartDir,
+		workDir,
 		"", nil)
 	if err != nil {
 		return "", err

@@ -1452,7 +1452,7 @@ func visitProductPage(timeout time.Duration, wantStatus int, headers ...*header)
 
 // visitWithApp visits the given url by curl in the given container.
 func visitWithApp(url string, pod string, container string, num int, kubeConfig string) error {
-	cmd := fmt.Sprintf("kubectl exec %s -n %s -c %s --kubeconfig=%s -- bash -c 'for ((i=0; i<%d; i++)); do curl -m 0.1 -i -s %s; done'",
+	cmd := fmt.Sprintf("kubectl exec %s -n %s -c %s --kubeconfig=%s -- sh -c 'i=1; while [[ $i -le %d ]]; do curl -m 0.1 -i -s %s; let i=i+1; done'",
 		pod, tc.Kube.Namespace, container, kubeConfig, num, url)
 	log.Infof("Visit %s for %d times with the following command: %v", url, num, cmd)
 	_, err := util.ShellMuteOutput(cmd)

@@ -68,15 +68,23 @@ func (c *component) Requires() []dependency.Instance {
 }
 
 // Init implements implements component.Component.
-func (c *component) Init(ctx environment.ComponentContext, _ map[dependency.Instance]interface{}) (interface{}, error) {
+func (c *component) Init(ctx environment.ComponentContext, _ map[dependency.Instance]interface{}) (out interface{}, err error) {
 	env, ok := ctx.Environment().(*kubernetes.Implementation)
 	if !ok {
 		return nil, fmt.Errorf("unsupported environment: %v", reflect.TypeOf(ctx.Environment()))
 	}
 
-	s := env.KubeSettings()
+	p := &deployedPrometheus{
+		env: env,
+	}
+	defer func() {
+		if err != nil {
+			_ = p.Close()
+		}
+	}()
 
 	// Find the Prometheus pod and service, and start forwarding a local port.
+	s := env.KubeSettings()
 	pod, err := env.Accessor.WaitForPodBySelectors(s.IstioSystemNamespace, fmt.Sprintf("app=%s", appName))
 	if err != nil {
 		return nil, err
@@ -100,20 +108,18 @@ func (c *component) Init(ctx environment.ComponentContext, _ map[dependency.Inst
 	if err := forwarder.Start(); err != nil {
 		return nil, err
 	}
+	p.forwarder = forwarder
 	scopes.Framework.Debugf("initialized Prometheus port forwarder: %v", forwarder.Address())
 
 	address := fmt.Sprintf("http://%s", forwarder.Address())
-	client, err := api.NewClient(api.Config{Address: address})
+	var client api.Client
+	client, err = api.NewClient(api.Config{Address: address})
 	if err != nil {
 		return nil, err
 	}
-	a := v1.NewAPI(client)
+	p.api = v1.NewAPI(client)
 
-	return &deployedPrometheus{
-		api:       a,
-		forwarder: forwarder,
-		env:       env,
-	}, nil
+	return p, nil
 }
 
 // API implements environment.DeployedPrometheus.
