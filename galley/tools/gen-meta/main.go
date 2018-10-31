@@ -197,10 +197,14 @@ const runtimeTemplate = `
 package metadata
 
 import (
-// Pull in all the known proto types to ensure we get their types registered.
-{{range .ProtoGoPackages}}	_ "{{.}}"
-	"istio.io/istio/galley/pkg/runtime/resource"
+	// Pull in all the known proto types to ensure we get their types registered.
+
+{{range .ProtoGoPackages}}	
+	// Register protos in {{.}}""
+	_ "{{.}}"
 {{end}}
+
+	"istio.io/istio/galley/pkg/runtime/resource"
 )
 
 // Types of known resources.
