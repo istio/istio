@@ -115,7 +115,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 			inputParams.Service = service
 			inputParams.Port = port
 
-			hosts := buildClusterHosts(env, networkView, service, port.Port)
+			hosts := buildClusterHosts(env, networkView, service, port.Port, nil)
 
 			// create default cluster
 			clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
@@ -133,6 +133,9 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 
 				for _, subset := range destinationRule.Subsets {
 					subsetClusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port.Port)
+					if service.MeshExternal {
+						hosts = buildClusterHosts(env, networkView, service, port.Port, []model.Labels{subset.Labels})
+					}
 					subsetCluster := buildDefaultCluster(env, subsetClusterName, convertResolution(service.Resolution), hosts)
 					updateEds(subsetCluster)
 					setUpstreamProtocol(subsetCluster, port)
@@ -170,12 +173,14 @@ func updateEds(cluster *v2.Cluster) {
 	}
 }
 
-func buildClusterHosts(env *model.Environment, proxyNetworkView map[string]bool, service *model.Service, port int) []*core.Address {
+func buildClusterHosts(env *model.Environment, proxyNetworkView map[string]bool, service *model.Service, 
+	port int, labels model.LabelsCollection) []*core.Address {
+	
 	if service.Resolution != model.DNSLB {
 		return nil
 	}
 
-	instances, err := env.InstancesByPort(service.Hostname, port, nil)
+	instances, err := env.InstancesByPort(service.Hostname, port, labels)
 	if err != nil {
 		log.Errorf("failed to retrieve instances for %s: %v", service.Hostname, err)
 		return nil
