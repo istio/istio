@@ -18,8 +18,10 @@ import (
 	"context"
 	"errors"
 	"io"
+	"istio.io/istio/pkg/features/pilot"
 	"reflect"
 	"sort"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -58,6 +60,7 @@ var (
 	// clients and pushes them serially for now, to avoid large CPU/memory spikes.
 	// We measure and reports cases where pusing a client takes longer.
 	PushTimeout = 5 * time.Second
+
 )
 
 var (
@@ -420,28 +423,9 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				// Remote side closed connection.
 				return receiveError
 			}
-			con.mu.Lock()
-			hasNode := con.modelNode != nil
-			con.mu.Unlock()
-
-			if !hasNode {
-				if discReq.Node == nil || discReq.Node.Id == "" {
-					adsLog.Infof("Missing node id %s", discReq.String())
-					continue
-				}
-				nt, err := model.ParseServiceNode(discReq.Node.Id)
-				if err != nil {
-					return err
-				}
-				nt.Metadata = model.ParseMetadata(discReq.Node.Metadata)
-				con.mu.Lock()
-				con.modelNode = &nt
-				con.mu.Unlock()
-				if con.ConID == "" {
-					// first request
-					con.ConID = connectionID(discReq.Node.Id)
-				}
-				con.modelNode.UpdateOutboundServices(s.Env.PushContext)
+			err = s.initConnectionNode(discReq, con)
+			if err != nil {
+				return err
 			}
 
 			switch discReq.TypeUrl {
@@ -605,6 +589,45 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 
 		}
 	}
+}
+
+// update the node associated with the connection, after receiving a a packet from envoy.
+func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, con *XdsConnection) error {
+	con.mu.Lock()
+	if con.modelNode != nil {
+		return nil // only need to init the node on first request in the stream
+	}
+	con.mu.Unlock()
+
+	if discReq.Node == nil || discReq.Node.Id == "" {
+		return errors.New("Missing node id")
+	}
+	nt, err := model.ParseServiceNode(discReq.Node.Id)
+	if err != nil {
+		return err
+	}
+	nt.Metadata = model.ParseMetadata(discReq.Node.Metadata)
+
+	con.mu.Lock()
+	con.modelNode = &nt
+	con.mu.Unlock()
+
+	if con.ConID == "" {
+		// first request
+		con.ConID = connectionID(discReq.Node.Id)
+	}
+
+	if pilot.IsolateNamespaces != "" {
+		adminNs := strings.Split(pilot.IsolateNamespaces, ",")
+		con.modelNode.NamespaceDependencies = map[string]bool{}
+		for _, ns := range adminNs {
+			con.modelNode.NamespaceDependencies[ns] = true
+		}
+	}
+
+	con.modelNode.UpdateOutboundServices(s.Env.PushContext)
+
+	return nil
 }
 
 // IncrementalAggregatedResources is not implemented.
