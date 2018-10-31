@@ -73,16 +73,20 @@
           initialDelaySeconds: 5
           periodSeconds: 5
       - name: istio-proxy
+{{- if contains "/" $.Values.global.proxy.image }}
+        image: "{{ $.Values.global.proxy.image }}"
+{{- else }}
         image: "{{ $.Values.global.hub }}/{{ $.Values.global.proxy.image }}:{{ $.Values.global.tag }}"
+{{- end }}
         imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
         ports:
         - containerPort: 9091
         - containerPort: 15004
-{{ if ne .Values.global.proxy.stats.prometheusPort 0. }}
+{{- if ne .Values.global.proxy.stats.prometheusPort 0. }}
         - containerPort: {{ .Values.global.proxy.stats.prometheusPort }}
           protocol: TCP
           name: http-envoy-prom
-{{ end }}
+{{- end }}
         args:
         - proxy
         - --serviceCluster
@@ -200,17 +204,21 @@
           initialDelaySeconds: 5
           periodSeconds: 5
       - name: istio-proxy
+{{- if contains "/" $.Values.global.proxy.image }}
+        image: "{{ $.Values.global.proxy.image }}"
+{{- else }}
         image: "{{ $.Values.global.hub }}/{{ $.Values.global.proxy.image }}:{{ $.Values.global.tag }}"
+{{- end }}
         imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
         ports:
         - containerPort: 9091
         - containerPort: 15004
-{{ if ne .Values.global.proxy.stats.prometheusPort 0. }}
+{{- if ne .Values.global.proxy.stats.prometheusPort 0. }}
         ports:
         - containerPort: {{ .Values.global.proxy.stats.prometheusPort }}
           protocol: TCP
           name: http-envoy-prom
-{{ end }}
+{{- end }}
         args:
         - proxy
 {{- if $.Values.global.proxy.proxyDomain }}
